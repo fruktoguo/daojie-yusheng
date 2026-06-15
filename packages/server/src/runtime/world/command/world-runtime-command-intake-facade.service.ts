@@ -196,6 +196,9 @@ export class WorldRuntimeCommandIntakeFacadeService {
     enqueueUnequip(playerId, slotInput, deps, expectedItemInstanceId?: string) {
         return deps.worldRuntimePlayerCommandEnqueueService.enqueueUnequip(playerId, slotInput, deps, expectedItemInstanceId);
     }
+    enqueueSetArtifactSlotEnabled(playerId, payload, deps) {
+        return deps.worldRuntimePlayerCommandEnqueueService.enqueueSetArtifactSlotEnabled(playerId, payload, deps);
+    }
     /**
  * enqueueCultivate：处理Cultivate并更新相关状态。
  * @param playerId 玩家 ID。

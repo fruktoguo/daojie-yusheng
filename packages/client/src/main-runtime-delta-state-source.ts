@@ -396,6 +396,11 @@ type MainRuntimeDeltaStateSourceOptions = {
 
   handleEquipmentUpdate: (data: NonNullable<S2C_PanelDelta['eq']>) => void;
   /**
+ * handleArtifactUpdate：法宝Update相关字段。
+ */
+
+  handleArtifactUpdate: (data: NonNullable<S2C_PanelDelta['art']>) => void;
+  /**
  * handleTechniqueUpdate：功法Update相关字段。
  */
 
@@ -1185,6 +1190,14 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
             options.handleEquipmentUpdate(data.eq);
           } finally {
             endRuntimeProfileMetric('runtime.delta.panel.equipment', branchStartedAt);
+          }
+        }
+        if (data.art) {
+          const branchStartedAt = startRuntimeProfileMetric();
+          try {
+            options.handleArtifactUpdate(data.art);
+          } finally {
+            endRuntimeProfileMetric('runtime.delta.panel.artifact', branchStartedAt);
           }
         }
         if (data.tech) {

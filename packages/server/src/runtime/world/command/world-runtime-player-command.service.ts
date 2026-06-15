@@ -602,6 +602,8 @@ export class WorldRuntimePlayerCommandService {
             case 'equip':
                 return this.worldRuntimeEquipmentService.dispatchEquipItem(playerId, command.itemInstanceId, deps);
                 return;
+            case 'setArtifactSlotEnabled':
+                return this.worldRuntimeEquipmentService.dispatchSetArtifactSlotEnabled(playerId, command.slot, command.enabled, deps);
             case 'dropItem':
                 this.worldRuntimeItemGroundService.dispatchDropItem(playerId, command.itemInstanceId, command.count, deps);
                 return;

@@ -10,6 +10,7 @@ import {
   calcTechniqueFinalSpecialStatBonus,
   cloneNumericRatioDivisors,
   cloneNumericStats,
+  type BootstrapArtifactView,
   type BootstrapEquipmentView,
 } from '@mud/shared';
 import { projectVisiblePlayerBuffs } from '../runtime/player/player-buff-projection.helpers';
@@ -90,6 +91,7 @@ function buildPlayerSyncState(player, view, unlockedMinimapIds) {
       items: [],
     },
     equipment: buildEquipmentRecord(player.equipment.slots),
+    artifacts: buildArtifactView(player.artifacts),
     techniques: player.techniques.techniques.map((entry) => toBootstrapTechniqueState(entry)),
     pendingTechniqueComprehensions: clonePendingComprehensions(player.pendingTechniqueComprehensions, player.transmissionJob),
     bodyTraining: player.bodyTraining ? { ...player.bodyTraining } : undefined,
@@ -337,6 +339,20 @@ function buildEquipmentRecord(entries) {
     record[slot] = entry?.item ? toItemStackState(entry.item) : null;
   }
   return record;
+}
+
+function buildArtifactView(artifacts): BootstrapArtifactView {
+  return {
+    revision: Math.max(1, Math.trunc(Number(artifacts?.revision ?? 1) || 1)),
+    slots: (Array.isArray(artifacts?.slots) ? artifacts.slots : []).map((entry) => ({
+      slot: entry.slot,
+      unlocked: entry.unlocked === true,
+      enabled: entry.enabled !== false,
+      qi: Math.max(0, Number(entry.qi) || 0),
+      maxQi: Math.max(0, Number(entry.maxQi) || 0),
+      item: entry.item ? toItemStackState(entry.item) : null,
+    })),
+  };
 }
 
 export function projectBootstrapTechniqueStateForSync(entry) {

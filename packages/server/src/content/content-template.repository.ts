@@ -1292,6 +1292,7 @@ function normalizeItemTemplate(raw) {
     const baselineQiPercent = Number.isFinite(candidate.baselineQiPercent) ? clampPositiveRatio(candidate.baselineQiPercent ?? 0) : undefined;
     const qiPercent = Number.isFinite(candidate.qiPercent) ? clampUnitRatio(candidate.qiPercent ?? 0) : undefined;
     const consumeBuffs = normalizeConsumableBuffs(raw.consumeBuffs);
+    const artifactEffects = normalizeArtifactEffects(candidate.artifactEffects);
     const hasRecoveryEffect = (healAmount ?? 0) > 0 || (healPercent ?? 0) > 0 || (baselineHealPercent ?? 0) > 0 || (baselineQiPercent ?? 0) > 0 || (qiPercent ?? 0) > 0;
     const cooldown = Number.isFinite(candidate.cooldown)
         ? (hasRecoveryEffect ? Math.max(0, Math.trunc(Number(candidate.cooldown))) : undefined)
@@ -1320,6 +1321,10 @@ function normalizeItemTemplate(raw) {
         equipValueStats: compiledEquipBaselineStats ? undefined : (candidate.equipValueStats ? { ...candidate.equipValueStats } : undefined),
         equipSpecialStats: normalizeItemSpecialStats(candidate.equipSpecialStats),
         effects: Array.isArray(candidate.effects) ? candidate.effects.slice() : undefined,
+        artifactMaxQiFactor: Number.isFinite(candidate.artifactMaxQiFactor)
+            ? Math.max(0, Number(candidate.artifactMaxQiFactor))
+            : undefined,
+        artifactEffects,
         healAmount,
         healPercent,
         baselineHealPercent,
@@ -1366,6 +1371,31 @@ function normalizeItemTemplate(raw) {
 function normalizeUtilityRate(value) {
 
     return Number.isFinite(value) ? Number(value) : undefined;
+}
+
+function normalizeArtifactEffects(raw) {
+    if (!Array.isArray(raw)) {
+        return undefined;
+    }
+    const effects = [];
+    for (const entry of raw) {
+        if (!entry || typeof entry !== 'object') {
+            continue;
+        }
+        const candidate = entry;
+        if (candidate.type !== 'traverse_unwalkable') {
+            continue;
+        }
+        const costMaxQiRatio = Number(candidate.costMaxQiRatio);
+        if (!Number.isFinite(costMaxQiRatio) || costMaxQiRatio <= 0) {
+            continue;
+        }
+        effects.push({
+            type: 'traverse_unwalkable',
+            costMaxQiRatio: Math.min(1, costMaxQiRatio),
+        });
+    }
+    return effects.length > 0 ? effects : undefined;
 }
 
 function normalizeItemContextActions(raw) {

@@ -10,6 +10,7 @@
 
 import type {
   ActionDef,
+  ArtifactSlotUpdateEntry,
   AttrBonus,
   Attributes,
   AutoBattleTargetingMode,
@@ -376,6 +377,10 @@ export interface ProjectorPlayerLike {
     revision: number;
     slots: EquipmentSlotUpdateEntry[];
   };
+  artifacts?: {
+    revision: number;
+    slots: ArtifactSlotUpdateEntry[];
+  };
   techniques: {
     revision: number;
     techniques: TechniqueUpdateEntryView[];
@@ -486,6 +491,10 @@ export interface ProjectedPanelState {
     revision: number;
     slots: EquipmentSlotUpdateEntry[];
   };
+  artifact: {
+    revision: number;
+    slots: ArtifactSlotUpdateEntry[];
+  };
   technique: {
     revision: number;
     techniques: TechniqueUpdateEntryView[];
@@ -507,6 +516,8 @@ export interface ProjectedPanelCursor {
   inventorySlotSignatures: string[];
   equipmentRevision: number;
   equipmentSlotSignatures: Record<string, string>;
+  artifactRevision: number;
+  artifactSlotSignatures: Record<string, string>;
   techniqueRevision: number;
   attrRevision: number;
   actionRevision: number;

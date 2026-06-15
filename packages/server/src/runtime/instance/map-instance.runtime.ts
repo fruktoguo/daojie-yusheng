@@ -5203,7 +5203,21 @@ class MapInstanceRuntime {
                 nextY = player.y + offset.y;
             }
 
-            const stepCost = this.getTileTraversalCost(nextX, nextY, player.playerId);
+            if (Math.abs(nextX - player.x) + Math.abs(nextY - player.y) !== 1) {
+                break;
+            }
+            if (!this.isInBounds(nextX, nextY)) {
+                break;
+            }
+            if (this.isDynamicallyBlockedTile(nextX, nextY, player.playerId)) {
+                break;
+            }
+
+            const nextTileIndex = this.toTileIndex(nextX, nextY);
+            const staticWalkable = this.isCellIndexWalkable(nextTileIndex);
+            const stepCost = staticWalkable
+                ? this.getTileTraversalCost(nextX, nextY, player.playerId)
+                : this.getArtifactOverrideTraversalCost(nextTileIndex);
             if (!rechargedMoveBudget) {
                 requiredMovePoints = stepCost;
                 movePoints = this.rechargePlayerMoveBudget(player, stepCost);
@@ -5212,18 +5226,15 @@ class MapInstanceRuntime {
             if (!Number.isFinite(stepCost) || stepCost <= 0 || movePoints < stepCost) {
                 break;
             }
-            if (Math.abs(nextX - player.x) + Math.abs(nextY - player.y) !== 1) {
-                break;
-            }
-            if (!this.isWalkable(nextX, nextY, player.playerId)) {
-                break;
-            }
-            if (this.npcIdByTile.has(this.toTileIndex(nextX, nextY))) {
+            if (this.npcIdByTile.has(nextTileIndex) || this.monsterRuntimeIdByTile.has(nextTileIndex)) {
                 break;
             }
 
-            const nextOccupancy = this.occupancy[this.toTileIndex(nextX, nextY)];
+            const nextOccupancy = this.occupancy[nextTileIndex];
             if (nextOccupancy !== INVALID_OCCUPANCY && !this.isPlayerOverlapTile(nextX, nextY)) {
+                break;
+            }
+            if (!staticWalkable && !this.consumeTraverseUnwalkableArtifactQi(player, this.tick)) {
                 break;
             }
             if (player.facing !== stepDirection) {
@@ -5260,6 +5271,56 @@ class MapInstanceRuntime {
             player.selfRevision += 1;
         }
         player.movePoints = Math.min(getMaxStoredMovePoints(player.moveSpeed, requiredMovePoints), Math.max(0, Math.round(movePoints)));
+    }
+    /** getArtifactOverrideTraversalCost：法宝穿越静态不可走地块时仍按地形移动消耗扣移动点。 */
+    getArtifactOverrideTraversalCost(tileIndex) {
+        const movementCostOverride = this.template?.movementCostOverrideByTile?.[tileIndex] ?? 0;
+        if (Number.isFinite(movementCostOverride) && movementCostOverride > 0) {
+            return Math.max(1, Math.trunc(movementCostOverride));
+        }
+        if (this.tileDamageByTile.get(tileIndex)?.destroyed === true) {
+            const destroyedState = this.getDestroyedTileLayerStateByCellIndex(tileIndex);
+            return getLayeredTileTraversalCost(destroyedState.terrainType, destroyedState.surfaceType ?? null);
+        }
+        const state = typeof this.tilePlane.getTileLayerState === 'function'
+            ? this.tilePlane.getTileLayerState(tileIndex)
+            : null;
+        if (state) {
+            return getLayeredTileTraversalCost(state.terrain, state.surface ?? null);
+        }
+        return getTileTraversalCost(this.getEffectiveTileTypeByCellIndex(tileIndex));
+    }
+    /** consumeTraverseUnwalkableArtifactQi：同一 tick 首次穿越不可走地块扣一次法宝最大灵气比例。 */
+    consumeTraverseUnwalkableArtifactQi(player, currentTick) {
+        const normalizedTick = Math.max(0, Math.trunc(Number(currentTick) || 0));
+        const slots = Array.isArray(player?.artifacts?.slots) ? player.artifacts.slots : [];
+        for (const slot of slots) {
+            if (!slot || slot.unlocked !== true || slot.enabled === false || !slot.item) {
+                continue;
+            }
+            const effects = Array.isArray(slot.item.artifactEffects) ? slot.item.artifactEffects : [];
+            const effect = effects.find((entry) => entry?.type === 'traverse_unwalkable');
+            if (!effect) {
+                continue;
+            }
+            if (Math.trunc(Number(slot.lastTraverseUnwalkableTick) || -1) === normalizedTick) {
+                return true;
+            }
+            const maxQi = Math.max(0, Number(slot.maxQi) || 0);
+            const ratio = Number(effect.costMaxQiRatio);
+            const cost = Number.isFinite(ratio) && ratio > 0
+                ? Math.max(1, Math.ceil(maxQi * ratio))
+                : 0;
+            if (cost <= 0 || maxQi <= 0 || Number(slot.qi) < cost) {
+                continue;
+            }
+            slot.qi = Math.max(0, Number(slot.qi) - cost);
+            slot.lastTraverseUnwalkableTick = normalizedTick;
+            player.artifacts.revision = Math.max(1, Math.trunc(Number(player.artifacts.revision ?? 1) || 1)) + 1;
+            markRuntimePlayerArtifactDirty(player);
+            return true;
+        }
+        return false;
     }
     /** buildTransfer：构建跨图传送结果。 */
     buildTransfer(player, portal, reason) {
@@ -8641,4 +8702,15 @@ function chooseMonsterStep(fromX, fromY, targetX, targetY) {
 /** chebyshevDistance：计算切比雪夫距离。 */
 function chebyshevDistance(ax, ay, bx, by) {
     return Math.max(Math.abs(ax - bx), Math.abs(ay - by));
+}
+
+function markRuntimePlayerArtifactDirty(player) {
+    if (!player) {
+        return;
+    }
+    if (!(player.dirtyDomains instanceof Set)) {
+        player.dirtyDomains = new Set();
+    }
+    player.dirtyDomains.add('artifact');
+    player.persistentRevision = Math.max(0, Math.trunc(Number(player.persistentRevision ?? 0) || 0)) + 1;
 }

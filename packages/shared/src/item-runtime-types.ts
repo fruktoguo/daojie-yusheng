@@ -9,10 +9,10 @@ import type { Attributes } from './attribute-types';
 import type { PlayerSpecialStats, TechniqueGrade } from './cultivation-types';
 import type { BuffCategory, BuffModifierMode, BuffVisibility, TimePhaseId } from './world-core-types';
 import type { ActionDef } from './action-combat-types';
-import type { EQUIP_SLOTS } from './constants/gameplay/equipment';
+import type { ARTIFACT_SLOTS, EQUIP_SLOTS } from './constants/gameplay/equipment';
 
 /** 物品类型。 */
-export type ItemType = 'consumable' | 'equipment' | 'material' | 'quest_item' | 'skill_book';
+export type ItemType = 'consumable' | 'equipment' | 'artifact' | 'material' | 'quest_item' | 'skill_book';
 
 /** 通用阵盘品阶。 */
 export type ItemFormationDiskTier = 'mortal' | 'yellow' | 'mystic' | 'earth';
@@ -36,6 +36,9 @@ export interface MaterialValues {
 
 /** 装备槽位。 */
 export type EquipSlot = typeof EQUIP_SLOTS[number];
+
+/** 法宝槽位。 */
+export type ArtifactSlot = typeof ARTIFACT_SLOTS[number];
 
 /** 地块资源增益定义。 */
 export interface TileResourceGainDef {
@@ -592,6 +595,23 @@ export type EquipmentEffectDef =
   | EquipmentPeriodicCostEffectDef
   | EquipmentTimedBuffEffectDef;
 
+/** 法宝穿越不可行走地块效果。 */
+export interface ArtifactTraverseUnwalkableEffectDef {
+/**
+ * type：法宝效果类型。
+ */
+
+  type: 'traverse_unwalkable';
+  /**
+ * costMaxQiRatio：每息消耗法宝最大灵气比例。
+ */
+
+  costMaxQiRatio: number;
+}
+
+/** 法宝效果联合类型。 */
+export type ArtifactEffectDef = ArtifactTraverseUnwalkableEffectDef;
+
 /** 物品堆叠。 */
 export interface ItemStack {
 /**
@@ -700,6 +720,16 @@ export interface ItemStack {
  */
 
   effects?: EquipmentEffectDef[];  
+  /**
+ * artifactMaxQiFactor：法宝最大灵气系数，按法宝基准境界最大灵气折算。
+ */
+
+  artifactMaxQiFactor?: number;
+  /**
+ * artifactEffects：法宝特效定义。
+ */
+
+  artifactEffects?: ArtifactEffectDef[];
   /**
  * healAmount：数量或计量字段。
  */
@@ -882,3 +912,51 @@ export interface InventoryItemCooldownState {
 
 /** 装备槽位映射。 */
 export type EquipmentSlots = Record<EquipSlot, ItemStack | null>;
+
+/** 法宝槽位状态。 */
+export interface ArtifactSlotState {
+/**
+ * slot：法宝槽位。
+ */
+
+  slot: ArtifactSlot;
+  /**
+ * unlocked：槽位是否已由历史最高境界解锁。
+ */
+
+  unlocked: boolean;
+  /**
+ * enabled：槽位开关，绑定槽位而非物品实例。
+ */
+
+  enabled: boolean;
+  /**
+ * qi：当前法宝灵气。
+ */
+
+  qi: number;
+  /**
+ * maxQi：最大法宝灵气。
+ */
+
+  maxQi: number;
+  /**
+ * item：槽位上的法宝物品。
+ */
+
+  item: ItemStack | null;
+}
+
+/** 玩家法宝状态。 */
+export interface PlayerArtifactState {
+/**
+ * revision：面板增量版本。
+ */
+
+  revision: number;
+  /**
+ * slots：法宝槽位列表。
+ */
+
+  slots: ArtifactSlotState[];
+}

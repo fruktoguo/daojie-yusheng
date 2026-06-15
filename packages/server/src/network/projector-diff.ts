@@ -10,6 +10,7 @@
 
 import type {
   Attributes,
+  ArtifactSlotUpdateEntry,
   EquipmentSlotUpdateEntry,
   InventorySlotUpdateEntry,
   SyncedItemStack,
@@ -315,6 +316,23 @@ export function diffEquipmentSlots(previous: EquipmentSlotUpdateEntry[], current
     for (const entry of current) {
         const prev = previousBySlot.get(entry.slot);
         if (!prev || !isSameItem(prev.item ?? null, entry.item ?? null)) {
+            patch.push(entry);
+        }
+    }
+    return patch;
+}
+
+export function diffArtifactSlots(previous: ArtifactSlotUpdateEntry[], current: ArtifactSlotUpdateEntry[]): ArtifactSlotUpdateEntry[] {
+    const patch: ArtifactSlotUpdateEntry[] = [];
+    const previousBySlot = new Map(previous.map((entry) => [entry.slot, entry]));
+    for (const entry of current) {
+        const prev = previousBySlot.get(entry.slot);
+        if (!prev
+            || prev.unlocked !== entry.unlocked
+            || prev.enabled !== entry.enabled
+            || prev.qi !== entry.qi
+            || prev.maxQi !== entry.maxQi
+            || !isSameItem(prev.item ?? null, entry.item ?? null)) {
             patch.push(entry);
         }
     }

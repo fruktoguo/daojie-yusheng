@@ -1,6 +1,5 @@
 /**
  * 本文件属于正式客户端主线，负责前端启动、状态拼装、工具函数或表现层逻辑。
- *
  * 维护时要把用户意图、显示派生和服务端权威数据分清，避免为了展示便利复制业务规则。
  */
 import { syncEstimatedServerTick } from './runtime/server-tick';
@@ -235,6 +234,7 @@ export function createMainRuntimeOwnerContext(options: CreateMainRuntimeOwnerCon
     actionStateSource: panelContext.actionStateSource,
     syncInventoryBridgeState: (inventory) => reactUiBridge.syncInventory(inventory),
     syncEquipmentBridgeState: (equipment) => reactUiBridge.syncEquipment(equipment),
+    syncArtifactsBridgeState: (artifacts) => reactUiBridge.syncArtifacts(artifacts),
     syncTechniquesBridgeState: (techniques, cultivatingTechId) => reactUiBridge.syncTechniques(techniques, cultivatingTechId),
     syncActionsBridgeState: (actions, autoBattle, autoRetaliate) => reactUiBridge.syncActions(actions, autoBattle, autoRetaliate),
     syncAttrBridgeState: (value) => reactUiBridge.syncAttrUpdate(value),
@@ -295,6 +295,7 @@ export function createMainRuntimeOwnerContext(options: CreateMainRuntimeOwnerCon
     handleAttrUpdate: (data) => panelDeltaStateSource.handleAttrUpdate(data),
     handleInventoryUpdate: (data) => panelDeltaStateSource.handleInventoryUpdate(data),
     handleEquipmentUpdate: (data) => panelDeltaStateSource.handleEquipmentUpdate(data),
+    handleArtifactUpdate: (data) => panelDeltaStateSource.handleArtifactUpdate(data),
     handleTechniqueUpdate: (data) => panelDeltaStateSource.handleTechniqueUpdate(data),
     handleActionsUpdate: (data) => panelDeltaStateSource.handleActionsUpdate(data),
   });
@@ -312,6 +313,7 @@ export function createMainRuntimeOwnerContext(options: CreateMainRuntimeOwnerCon
     syncAttrBridgeState: (value) => reactUiBridge.syncAttrUpdate(value),
     syncInventoryBridgeState: (inventory) => reactUiBridge.syncInventory(inventory),
     syncEquipmentBridgeState: (equipment) => reactUiBridge.syncEquipment(equipment),
+    syncArtifactsBridgeState: (artifacts) => reactUiBridge.syncArtifacts(artifacts),
     syncTechniquesBridgeState: (techniques, cultivatingTechId) => reactUiBridge.syncTechniques(techniques, cultivatingTechId),
     syncActionsBridgeState: (actions, autoBattle, autoRetaliate) => reactUiBridge.syncActions(actions, autoBattle, autoRetaliate),
     syncBootstrapQuestState: (player) => panelContext.questStateSource.syncBootstrapQuestState(player),

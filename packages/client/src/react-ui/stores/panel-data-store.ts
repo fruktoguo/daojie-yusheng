@@ -21,47 +21,52 @@ export interface ReactUiPanelDataState {
  * player：玩家引用。
  */
 
-  player: PlayerState | null;  
+  player: PlayerState | null;
   /**
  * attrUpdate：attrUpdate相关字段。
  */
 
-  attrUpdate: S2C_AttrUpdate | null;  
+  attrUpdate: S2C_AttrUpdate | null;
   /**
  * inventory：背包相关字段。
  */
 
-  inventory: Inventory | null;  
+  inventory: Inventory | null;
   /**
  * equipment：装备相关字段。
  */
 
-  equipment: PlayerState['equipment'] | null;  
+  equipment: PlayerState['equipment'] | null;
+  /**
+ * artifacts：法宝相关字段。
+ */
+
+  artifacts: PlayerState['artifacts'] | null;
   /**
  * techniques：功法相关字段。
  */
 
-  techniques: TechniqueState[];  
+  techniques: TechniqueState[];
   /**
  * cultivatingTechId：cultivatingTechID标识。
  */
 
-  cultivatingTechId: string | undefined;  
+  cultivatingTechId: string | undefined;
   /**
  * actions：action相关字段。
  */
 
-  actions: ActionDef[];  
+  actions: ActionDef[];
   /**
  * autoBattle：autoBattle相关字段。
  */
 
-  autoBattle: boolean;  
+  autoBattle: boolean;
   /**
  * autoRetaliate：autoRetaliate相关字段。
  */
 
-  autoRetaliate: boolean;  
+  autoRetaliate: boolean;
   /**
  * quests：集合字段。
  */
@@ -74,6 +79,7 @@ export const panelDataStore = createExternalStore<ReactUiPanelDataState>({
   attrUpdate: null,
   inventory: null,
   equipment: null,
+  artifacts: null,
   techniques: [],
   cultivatingTechId: undefined,
   actions: [],

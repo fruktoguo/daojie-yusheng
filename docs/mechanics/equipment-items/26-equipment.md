@@ -14,6 +14,7 @@ TECHNIQUE_EQUIP_SLOTS = [
   'technique_building',
 ]
 EQUIP_SLOTS = [...COMBAT_EQUIP_SLOTS, ...TECHNIQUE_EQUIP_SLOTS]
+ARTIFACT_SLOTS = ['artifact_1']
 // 排序权重:
 // weapon=0, head=1, body=2, legs=3, accessory=4
 // technique_alchemy=5, technique_forging=6, technique_enhancement=7
@@ -31,6 +32,22 @@ EQUIP_SLOTS = [...COMBAT_EQUIP_SLOTS, ...TECHNIQUE_EQUIP_SLOTS]
 | technique_building | 营造工具 | building_hammer |
 
 技艺工具的数值属性在玩家属性结算阶段汇总到隐藏投影 `player.attrs.craftStats`。该投影只供服务端技艺运行时和对应技艺面板预估使用，不并入公开 `numericStats`，也不在属性面板展示。
+
+## 法宝槽位
+
+法宝使用独立槽位，不占用战斗装备或技艺装备槽。当前版本提供 `artifact_1` 一个法宝槽，玩家历史最高境界达到半步金丹（`realmLv = 42`）后解锁。解锁状态绑定历史最高境界 `highestRealmLv`，后续即使转生或当前境界下降也不会关闭。
+
+法宝槽位状态包含：
+- `unlocked`：槽位是否解锁
+- `enabled`：槽位开关，绑定槽位而非具体法宝
+- `qi/maxQi`：法宝当前灵气与最大灵气
+- `item`：当前装备的法宝物品
+
+当前内置法宝：
+
+| 法宝 | 等级 | 最大灵气系数 | 效果 |
+|---|---:|---:|---|
+| 飞剑 | 42 | 1 | 开启槽位且灵气足够时，玩家每息首次移动到不可移动静态地块会消耗 10% 法宝最大灵气，并允许穿越该地块 |
 
 ## 装备基准值计算公式
 

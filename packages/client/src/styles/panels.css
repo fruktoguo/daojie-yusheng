@@ -1033,6 +1033,40 @@
       padding: 3px 8px;
       white-space: nowrap;
     }
+    .artifact-slot-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .artifact-slot {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px;
+      min-width: 0;
+      background: var(--paper-white);
+      border: 1px solid var(--wash-ink);
+    }
+    .artifact-slot.is-disabled {
+      background: color-mix(in srgb, var(--paper-white) 88%, var(--wash-ink) 12%);
+    }
+    .artifact-actions {
+      display: flex;
+      flex: 0 0 auto;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 6px;
+    }
+    .artifact-actions .small-btn {
+      padding: 3px 8px;
+      white-space: nowrap;
+    }
+    .artifact-toggle.is-active {
+      border-color: var(--accent-gold);
+      color: var(--ink-black);
+      background: color-mix(in srgb, var(--paper-white) 78%, var(--accent-gold) 22%);
+    }
 
     /* 功法卡片 */
     .tech-panel-shell {

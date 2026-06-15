@@ -173,6 +173,15 @@ export class PlayerProgressionService {
             this.playerCountersPersistenceService?.setMax?.(player.playerId, 'highestRealmLv', currentRealmLv);
         }
     }
+    /** 读取历史最高境界；当前境界更高时同步取当前值，供永久解锁类系统使用。 */
+    getHighestRealmLv(player) {
+        const highestRealmLv = this.playerCountersPersistenceService?.get?.(player.playerId, 'highestRealmLv') ?? 0;
+        const currentRealmLv = player.realm?.realmLv ?? 1;
+        return Math.max(
+            Math.max(0, Math.trunc(Number(highestRealmLv) || 0)),
+            Math.max(1, Math.trunc(Number(currentRealmLv) || 1)),
+        );
+    }
     /** 只刷新境界展示态，不修改实际推进结果。 */
     refreshPreview(player) {
 

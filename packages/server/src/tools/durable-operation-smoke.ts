@@ -4660,6 +4660,10 @@ function buildNextSnapshot(now: number, instanceId = 'public:yunlai_town'): Pers
       revision: 1,
       slots: [],
     },
+    artifacts: {
+      revision: 0,
+      slots: [],
+    },
     techniques: {
       revision: 1,
       techniques: [],

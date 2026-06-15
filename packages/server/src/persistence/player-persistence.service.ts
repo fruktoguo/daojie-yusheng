@@ -136,6 +136,11 @@ interface PlayerSnapshotEquipment {
   slots: unknown[];
 }
 
+interface PlayerSnapshotArtifacts {
+  revision: number;
+  slots: unknown[];
+}
+
 interface PlayerSnapshotTechniques {
   revision: number;
   techniques: unknown[];
@@ -209,6 +214,7 @@ export interface PersistedPlayerSnapshot {
   wallet?: PlayerSnapshotWallet;
   marketStorage?: PlayerSnapshotMarketStorage;
   equipment: PlayerSnapshotEquipment;
+  artifacts: PlayerSnapshotArtifacts;
   techniques: PlayerSnapshotTechniques;
   buffs: PlayerSnapshotBuffs;
   quests: PlayerSnapshotQuests;
@@ -554,6 +560,7 @@ function normalizePlayerSnapshotPayload(raw: unknown): PersistedPlayerSnapshot |
   const vitals = asRecord(snapshot.vitals);
   const inventory = asRecord(snapshot.inventory);
   const equipment = asRecord(snapshot.equipment);
+  const artifacts = asRecord(snapshot.artifacts);
   const techniques = asRecord(snapshot.techniques);
   const buffs = asRecord(snapshot.buffs);
   const quests = asRecord(snapshot.quests);
@@ -650,6 +657,10 @@ function normalizePlayerSnapshotPayload(raw: unknown): PersistedPlayerSnapshot |
     equipment: {
       revision: isFiniteNumber(equipment?.revision) ? Math.trunc(equipment.revision) : 1,
       slots: Array.isArray(equipment?.slots) ? equipment.slots : [],
+    },
+    artifacts: {
+      revision: isFiniteNumber(artifacts?.revision) ? Math.trunc(artifacts.revision) : 1,
+      slots: Array.isArray(artifacts?.slots) ? artifacts.slots : [],
     },
       techniques: {
         revision: isFiniteNumber(techniques?.revision) ? Math.trunc(techniques.revision) : 1,

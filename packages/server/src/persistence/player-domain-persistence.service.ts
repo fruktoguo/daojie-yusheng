@@ -13,7 +13,7 @@
  * 按域独立读写，支持增量刷盘、恢复水位和旧快照兼容水合。
  */
 import { Inject, Injectable, Logger, Optional, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
-import { createItemStackSignature, EQUIP_SLOTS, isLegacyItemInstanceId, PLAYER_HEARTBEAT_TIMEOUT_MS, TechniqueRealm } from '@mud/shared';
+import { ARTIFACT_SLOTS, createItemStackSignature, EQUIP_SLOTS, isLegacyItemInstanceId, PLAYER_HEARTBEAT_TIMEOUT_MS, TechniqueRealm } from '@mud/shared';
 import type { OfflineGainReportView, PlayerStatisticPeriodTotalView } from '@mud/shared';
 import { randomUUID } from 'node:crypto';
 import type { PoolClient } from 'pg';
@@ -59,6 +59,7 @@ const PLAYER_INVENTORY_ITEM_TABLE = 'player_inventory_item';
 const PLAYER_MARKET_STORAGE_ITEM_TABLE = 'player_market_storage_item';
 const PLAYER_MAP_UNLOCK_TABLE = 'player_map_unlock';
 const PLAYER_EQUIPMENT_SLOT_TABLE = 'player_equipment_slot';
+const PLAYER_ARTIFACT_SLOT_TABLE = 'player_artifact_slot';
 const PLAYER_TECHNIQUE_STATE_TABLE = 'player_technique_state';
 const PLAYER_TECHNIQUE_COMPREHENSION_TABLE = 'player_technique_comprehension';
 const PLAYER_PERSISTENT_BUFF_STATE_TABLE = 'player_persistent_buff_state';
@@ -106,6 +107,7 @@ const PLAYER_DOMAIN_BIGINT_COLUMNS_BY_TABLE = {
 const PLAYER_DOMAIN_DOUBLE_COLUMNS_BY_TABLE = {
   [PLAYER_VITALS_TABLE]: ['hp', 'max_hp', 'qi', 'max_qi'],
   [PLAYER_PROGRESSION_CORE_TABLE]: ['foundation', 'root_foundation', 'combat_exp'],
+  [PLAYER_ARTIFACT_SLOT_TABLE]: ['qi', 'max_qi'],
   [PLAYER_BODY_TRAINING_STATE_TABLE]: ['exp', 'exp_to_next'],
   [PLAYER_TECHNIQUE_STATE_TABLE]: ['exp', 'exp_to_next'],
   [PLAYER_TECHNIQUE_COMPREHENSION_TABLE]: ['progress', 'required_progress'],
@@ -136,6 +138,7 @@ export const PLAYER_DOMAIN_PROJECTED_TABLES = [
   PLAYER_MARKET_STORAGE_ITEM_TABLE,
   PLAYER_MAP_UNLOCK_TABLE,
   PLAYER_EQUIPMENT_SLOT_TABLE,
+  PLAYER_ARTIFACT_SLOT_TABLE,
   PLAYER_TECHNIQUE_STATE_TABLE,
   PLAYER_PERSISTENT_BUFF_STATE_TABLE,
   PLAYER_QUEST_PROGRESS_TABLE,
@@ -165,6 +168,7 @@ export const PLAYER_SNAPSHOT_PROJECTABLE_DIRTY_DOMAINS = [
   'inventory',
   'map_unlock',
   'equipment',
+  'artifact',
   'technique',
   'body_training',
   'buff',
@@ -340,6 +344,16 @@ export interface PlayerEquipmentSlotUpsertInput {
   slot: (typeof EQUIP_SLOTS)[number];
   itemInstanceId?: string | null;
   item: Record<string, unknown> & { itemId: string };
+}
+
+export interface PlayerArtifactSlotUpsertInput {
+  slot: (typeof ARTIFACT_SLOTS)[number];
+  unlocked: boolean;
+  enabled: boolean;
+  qi: number;
+  maxQi: number;
+  item?: (Record<string, unknown> & { itemId: string }) | null;
+  itemInstanceId?: string | null;
 }
 
 export interface PlayerLogbookMessageUpsertInput {
@@ -620,6 +634,17 @@ interface PlayerEquipmentSlotLoadRow {
   raw_payload?: unknown;
 }
 
+interface PlayerArtifactSlotLoadRow {
+  slot_type?: unknown;
+  unlocked?: unknown;
+  enabled?: unknown;
+  qi?: unknown;
+  max_qi?: unknown;
+  item_instance_id?: unknown;
+  item_id?: unknown;
+  raw_payload?: unknown;
+}
+
 interface PlayerTechniqueStateLoadRow {
   tech_id?: unknown;
   level?: unknown;
@@ -781,6 +806,7 @@ export interface LoadedPlayerDomains {
   marketStorageItems: PlayerMarketStorageItemLoadRow[];
   mapUnlocks: PlayerMapUnlockLoadRow[];
   equipmentSlots: PlayerEquipmentSlotLoadRow[];
+  artifactSlots: PlayerArtifactSlotLoadRow[];
   techniqueStates: PlayerTechniqueStateLoadRow[];
   techniqueComprehensions: PlayerTechniqueComprehensionLoadRow[];
   persistentBuffStates: PlayerPersistentBuffStateLoadRow[];
@@ -1748,6 +1774,16 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
     );
   }
 
+  async savePlayerArtifactSlots(
+    playerId: string,
+    slots: readonly PlayerArtifactSlotUpsertInput[],
+    options: PlayerDomainWriteOptions = {},
+  ): Promise<void> {
+    await this.saveProjectedDomain(playerId, options.versionSeed, ['equipment_version'], (client, normalizedPlayerId) =>
+      replacePlayerArtifactSlots(client, normalizedPlayerId, [...slots]),
+    );
+  }
+
   async savePlayerTechniques(
     playerId: string,
     rows: readonly PlayerTechniqueStateUpsertInput[],
@@ -1912,7 +1948,9 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
       return;
     }
 
-    const requiresLiveDbStateWrite = normalizedDomains.has('equipment') || normalizedDomains.has('inventory');
+    const requiresLiveDbStateWrite = normalizedDomains.has('equipment')
+      || normalizedDomains.has('inventory')
+      || normalizedDomains.has('artifact');
     const writePlan = requiresLiveDbStateWrite
       ? null
       : await this.resolvePlayerSnapshotProjectionWritePlan(
@@ -2187,6 +2225,24 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
         `,
         [normalizedPlayerId],
       );
+      const artifactSlots = await queryRows<PlayerArtifactSlotLoadRow>(
+        client,
+        `
+          SELECT
+            slot_type,
+            unlocked,
+            enabled,
+            qi,
+            max_qi,
+            item_instance_id,
+            item_id,
+            raw_payload
+          FROM ${PLAYER_ARTIFACT_SLOT_TABLE}
+          WHERE player_id = $1
+          ORDER BY slot_type ASC
+        `,
+        [normalizedPlayerId],
+      );
       const techniqueStates = await queryRows<PlayerTechniqueStateLoadRow>(
         client,
         `
@@ -2438,6 +2494,7 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
         marketStorageItems,
         mapUnlocks,
         equipmentSlots,
+        artifactSlots,
         techniqueStates,
         techniqueComprehensions,
         persistentBuffStates,
@@ -2465,6 +2522,7 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
         marketStorageItems,
         mapUnlocks,
         equipmentSlots,
+        artifactSlots,
         techniqueStates,
         techniqueComprehensions,
         persistentBuffStates,
@@ -2497,6 +2555,7 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
         marketStorageItems,
         mapUnlocks,
         equipmentSlots,
+        artifactSlots,
         techniqueStates,
         techniqueComprehensions,
         persistentBuffStates,
@@ -2620,6 +2679,7 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
         inventorySpiritStoneRows,
         marketStorageSpiritStoneRows,
         equipmentRows,
+        artifactRows,
         techniqueRows,
         buffRows,
         combatRows,
@@ -2655,6 +2715,9 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
         this.pool.query<{ player_id?: unknown } & PlayerEquipmentSlotLoadRow>(
           `SELECT player_id, slot_type, item_instance_id, item_id, raw_payload FROM ${PLAYER_EQUIPMENT_SLOT_TABLE}`,
         ),
+        this.pool.query<{ player_id?: unknown } & PlayerArtifactSlotLoadRow>(
+          `SELECT player_id, slot_type, unlocked, enabled, qi, max_qi, item_instance_id, item_id, raw_payload FROM ${PLAYER_ARTIFACT_SLOT_TABLE}`,
+        ),
         this.pool.query<{ player_id?: unknown } & PlayerTechniqueStateLoadRow>(
           `SELECT player_id, tech_id, level, exp, exp_to_next, realm_lv, skills_enabled, raw_payload FROM ${PLAYER_TECHNIQUE_STATE_TABLE}`,
         ),
@@ -2679,6 +2742,7 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
       const invSpiritByPid = indexRowsByPlayerId(inventorySpiritStoneRows.rows);
       const mktSpiritByPid = indexRowsByPlayerId(marketStorageSpiritStoneRows.rows);
       const equipByPid = indexMultiRowsByPlayerId(equipmentRows.rows);
+      const artifactByPid = indexMultiRowsByPlayerId(artifactRows.rows);
       const techByPid = indexMultiRowsByPlayerId(techniqueRows.rows);
       const buffByPid = indexMultiRowsByPlayerId(buffRows.rows);
       const combatByPid = indexRowsByPlayerId(combatRows.rows);
@@ -2708,6 +2772,7 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
           applyProjectedBodyTraining(snapshot, bodyTrainingByPid.get(playerId) ?? null);
           // equipment
           applyProjectedEquipment(snapshot, equipByPid.get(playerId) ?? [], this.contentTemplateRepository);
+          applyProjectedArtifacts(snapshot, artifactByPid.get(playerId) ?? [], this.contentTemplateRepository);
           // techniques
           applyProjectedTechniques(snapshot, techByPid.get(playerId) ?? [], this.contentTemplateRepository);
           // buffs
@@ -2824,6 +2889,7 @@ export async function savePlayerSnapshotProjectionWithClient(
   const marketStorageItems = Array.isArray(snapshot.marketStorage?.items) ? snapshot.marketStorage.items : [];
   const mapUnlockIds = Array.isArray(snapshot.unlockedMapIds) ? snapshot.unlockedMapIds : [];
   const equipmentSlots = Array.isArray(snapshot.equipment?.slots) ? snapshot.equipment.slots : [];
+  const artifactSlots = Array.isArray(snapshot.artifacts?.slots) ? snapshot.artifacts.slots : [];
   const techniqueStates = buildTechniqueStateRows(snapshot);
   const techniqueComprehensions = buildTechniqueComprehensionRows(snapshot);
   const persistentBuffStates = buildPersistentBuffStateRows(snapshot);
@@ -3009,6 +3075,7 @@ export async function savePlayerSnapshotProjectionWithClient(
     await replacePlayerMapUnlockRows(client, normalizedPlayerId, mapUnlockIds, versionSeed);
 
   await replacePlayerEquipmentSlots(client, normalizedPlayerId, equipmentSlots);
+  await replacePlayerArtifactSlots(client, normalizedPlayerId, artifactSlots);
   await replacePlayerTechniqueStates(client, normalizedPlayerId, techniqueStates);
   await replacePlayerTechniqueComprehensions(client, normalizedPlayerId, techniqueComprehensions);
   await replacePlayerPersistentBuffStates(client, normalizedPlayerId, persistentBuffStates);
@@ -3197,6 +3264,17 @@ export async function savePlayerSnapshotProjectionDomainsWithClient(
         allowEmptyOverwrite: options.allowEquipmentEmptyOverwrite === true
           && isExplicitEquipmentSlotProjection(equipmentSlots),
       },
+    );
+    watermarkPatch.equipment_version = versionSeed;
+  }
+
+  if (rawDomains.has('artifact')) {
+    const artifactSlots = Array.isArray(snapshot.artifacts?.slots) ? snapshot.artifacts.slots : [];
+    await replacePlayerArtifactSlots(
+      client,
+      normalizedPlayerId,
+      artifactSlots,
+      { allowEmptyOverwrite: options.allowEquipmentEmptyOverwrite === true && artifactSlots.length > 0 },
     );
     watermarkPatch.equipment_version = versionSeed;
   }
@@ -3665,6 +3743,26 @@ export async function ensurePlayerDomainTablesWithClient(client: PoolClient): Pr
   await client.query(`
     CREATE INDEX IF NOT EXISTS player_equipment_slot_player_idx
     ON ${PLAYER_EQUIPMENT_SLOT_TABLE}(player_id)
+  `);
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS ${PLAYER_ARTIFACT_SLOT_TABLE} (
+      player_id varchar(100) NOT NULL,
+      slot_type varchar(32) NOT NULL,
+      unlocked boolean NOT NULL DEFAULT false,
+      enabled boolean NOT NULL DEFAULT true,
+      qi double precision NOT NULL DEFAULT 0,
+      max_qi double precision NOT NULL DEFAULT 0,
+      item_instance_id varchar(180),
+      item_id varchar(120),
+      raw_payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+      updated_at timestamptz NOT NULL DEFAULT now(),
+      PRIMARY KEY(player_id, slot_type),
+      UNIQUE(item_instance_id)
+    )
+  `);
+  await client.query(`
+    CREATE INDEX IF NOT EXISTS player_artifact_slot_player_idx
+    ON ${PLAYER_ARTIFACT_SLOT_TABLE}(player_id)
   `);
   await client.query(`
     CREATE TABLE IF NOT EXISTS ${PLAYER_TECHNIQUE_STATE_TABLE} (
@@ -5031,6 +5129,181 @@ async function replacePlayerEquipmentSlots(
         FROM jsonb_to_recordset($2::jsonb) AS entry(slot_type varchar(40))
       )
       DELETE FROM ${PLAYER_EQUIPMENT_SLOT_TABLE} target
+      WHERE target.player_id = $1
+        AND NOT EXISTS (
+          SELECT 1
+          FROM incoming
+          WHERE incoming.slot_type = target.slot_type
+        )
+    `,
+    [playerId, rowsJson],
+  );
+}
+
+async function replacePlayerArtifactSlots(
+  client: PoolClient,
+  playerId: string,
+  slots: unknown[],
+  options: PlayerDomainPruneOptions = {},
+): Promise<void> {
+  const rowsBySlotType = new Map<string, {
+    slot_type: string;
+    unlocked: boolean;
+    enabled: boolean;
+    qi: number;
+    max_qi: number;
+    item_instance_id: string | null;
+    item_id: string | null;
+    raw_payload: Record<string, unknown>;
+  }>();
+  const rowsByInstanceId = new Map<string, string>();
+  for (const slotEntry of Array.isArray(slots) ? slots : []) {
+    const entry = asRecord(slotEntry);
+    const slotType = normalizeRequiredString(entry?.slot);
+    if (!ARTIFACT_SLOTS.includes(slotType as (typeof ARTIFACT_SLOTS)[number])) {
+      throw new Error(
+        `replacePlayerArtifactSlots: 非法 artifact slot 拒绝写入 playerId=${playerId} slot=${slotType || 'null'} entry=${safeStringifyInventoryEntry(slotEntry)}`,
+      );
+    }
+    const item = asRecord(entry?.item);
+    const itemId = item ? normalizeRequiredString(item.itemId) : '';
+    if (item && !itemId) {
+      throw new Error(
+        `replacePlayerArtifactSlots: 非法 artifact item 拒绝写入 playerId=${playerId} slot=${slotType} entry=${safeStringifyInventoryEntry(slotEntry)}`,
+      );
+    }
+    const itemInstanceId = item
+      ? assignStableItemInstanceId(
+        normalizeOptionalString(entry?.itemInstanceId) || normalizeOptionalString(item.itemInstanceId),
+        { entry, item },
+      )
+      : null;
+    if (itemInstanceId) {
+      const existingSlotType = rowsByInstanceId.get(itemInstanceId);
+      if (existingSlotType && existingSlotType !== slotType) {
+        throw new Error(
+          `replacePlayerArtifactSlots: duplicate item_instance_id with conflicting slot playerId=${playerId} itemInstanceId=${itemInstanceId} slots=${existingSlotType},${slotType}`,
+        );
+      }
+      rowsByInstanceId.set(itemInstanceId, slotType);
+    }
+    const row = {
+      slot_type: slotType,
+      unlocked: entry?.unlocked === true,
+      enabled: entry?.enabled !== false,
+      qi: normalizeMinimumNumber(entry?.qi, 0, 0),
+      max_qi: normalizeMinimumNumber(entry?.maxQi, 0, 0),
+      item_instance_id: itemInstanceId,
+      item_id: item ? itemId : null,
+      raw_payload: item
+        ? buildPersistedInventoryItemRawPayload({
+          itemId,
+          count: 1,
+          rawPayload: item,
+        })
+        : {},
+    };
+    const existingSlotRow = rowsBySlotType.get(slotType);
+    if (existingSlotRow) {
+      if (
+        existingSlotRow.unlocked !== row.unlocked
+        || existingSlotRow.enabled !== row.enabled
+        || existingSlotRow.qi !== row.qi
+        || existingSlotRow.max_qi !== row.max_qi
+        || existingSlotRow.item_instance_id !== row.item_instance_id
+        || existingSlotRow.item_id !== row.item_id
+        || !isSamePersistedPayload(existingSlotRow.raw_payload, row.raw_payload)
+      ) {
+        throw new Error(
+          `replacePlayerArtifactSlots: duplicate slot with conflicting payload playerId=${playerId} slot=${slotType}`,
+        );
+      }
+      continue;
+    }
+    rowsBySlotType.set(slotType, row);
+  }
+  const rows = Array.from(rowsBySlotType.values());
+  const rowsJson = JSON.stringify(rows);
+
+  if (rows.length === 0) {
+    if (options.allowEmptyOverwrite === true) {
+      await client.query(`DELETE FROM ${PLAYER_ARTIFACT_SLOT_TABLE} WHERE player_id = $1`, [playerId]);
+    } else {
+      await refuseEmptyOverwriteIfRowsExist(client, PLAYER_ARTIFACT_SLOT_TABLE, playerId, 0, 'artifact');
+    }
+    return;
+  }
+
+  await client.query(
+    `
+      WITH incoming AS (
+        SELECT
+          slot_type,
+          unlocked,
+          enabled,
+          qi,
+          max_qi,
+          item_instance_id,
+          item_id,
+          raw_payload
+        FROM jsonb_to_recordset($2::jsonb) AS entry(
+          slot_type varchar(40),
+          unlocked boolean,
+          enabled boolean,
+          qi double precision,
+          max_qi double precision,
+          item_instance_id varchar(180),
+          item_id varchar(120),
+          raw_payload jsonb
+        )
+      )
+      INSERT INTO ${PLAYER_ARTIFACT_SLOT_TABLE}(
+        player_id,
+        slot_type,
+        unlocked,
+        enabled,
+        qi,
+        max_qi,
+        item_instance_id,
+        item_id,
+        raw_payload,
+        updated_at
+      )
+      SELECT
+        $1,
+        slot_type,
+        COALESCE(unlocked, false),
+        COALESCE(enabled, true),
+        GREATEST(0, COALESCE(qi, 0)),
+        GREATEST(0, COALESCE(max_qi, 0)),
+        item_instance_id,
+        item_id,
+        COALESCE(raw_payload, '{}'::jsonb),
+        now()
+      FROM incoming
+      ON CONFLICT (player_id, slot_type)
+      DO UPDATE SET
+        unlocked = EXCLUDED.unlocked,
+        enabled = EXCLUDED.enabled,
+        qi = EXCLUDED.qi,
+        max_qi = EXCLUDED.max_qi,
+        item_instance_id = EXCLUDED.item_instance_id,
+        item_id = EXCLUDED.item_id,
+        raw_payload = EXCLUDED.raw_payload,
+        updated_at = now()
+    `,
+    [playerId, rowsJson],
+  );
+  if (options.allowEmptyOverwrite !== true) {
+    await refuseEmptyOverwriteIfRowsExist(client, PLAYER_ARTIFACT_SLOT_TABLE, playerId, rows.length, 'artifact');
+  }
+  await client.query(
+    `
+      WITH incoming AS (
+        SELECT slot_type
+        FROM jsonb_to_recordset($2::jsonb) AS entry(slot_type varchar(40))
+      )
+      DELETE FROM ${PLAYER_ARTIFACT_SLOT_TABLE} target
       WHERE target.player_id = $1
         AND NOT EXISTS (
           SELECT 1
@@ -6762,6 +7035,7 @@ function hasProjectedPlayerDomainState(domains: Omit<LoadedPlayerDomains, 'hasPr
     domains.inventoryItems.length > 0
     || domains.mapUnlocks.length > 0
     || domains.equipmentSlots.length > 0
+    || domains.artifactSlots.length > 0
     || domains.techniqueStates.length > 0
     || domains.techniqueComprehensions.length > 0
     || domains.persistentBuffStates.length > 0
@@ -6837,6 +7111,10 @@ function buildProjectedSnapshotFromDomains(
     ? snapshot.inventory.lockedItems
     : [];
   snapshot.equipment.slots = Array.isArray(snapshot.equipment?.slots) ? snapshot.equipment.slots : [];
+  snapshot.artifacts = {
+    revision: Math.max(1, Math.trunc(Number(snapshot.artifacts?.revision ?? 1) || 1)),
+    slots: Array.isArray(snapshot.artifacts?.slots) ? snapshot.artifacts.slots : [],
+  };
   snapshot.techniques.techniques = Array.isArray(snapshot.techniques?.techniques) ? snapshot.techniques.techniques : [];
   snapshot.buffs.buffs = Array.isArray(snapshot.buffs?.buffs) ? snapshot.buffs.buffs : [];
   snapshot.quests.entries = Array.isArray(snapshot.quests?.entries) ? snapshot.quests.entries : [];
@@ -6875,6 +7153,7 @@ function buildProjectedSnapshotFromDomains(
   applyProjectedInventory(snapshot, domains.inventoryItems, contentTemplateRepository);
   applyProjectedMapUnlocks(snapshot, domains.mapUnlocks);
   applyProjectedEquipment(snapshot, domains.equipmentSlots, contentTemplateRepository);
+  applyProjectedArtifacts(snapshot, domains.artifactSlots, contentTemplateRepository);
   applyProjectedTechniques(snapshot, domains.techniqueStates, contentTemplateRepository);
   applyProjectedTechniqueComprehensions(snapshot, domains.techniqueComprehensions, contentTemplateRepository);
   applyProjectedPersistentBuffs(snapshot, domains.persistentBuffStates);
@@ -7113,6 +7392,73 @@ function applyProjectedEquipment(
     ...snapshot.equipment,
     revision: Math.max(1, Number(snapshot.equipment?.revision ?? 1)),
     slots: EQUIP_SLOTS.map((slotType) => slotMap.get(slotType) ?? { slot: slotType, item: null }),
+  };
+}
+
+function applyProjectedArtifacts(
+  snapshot: PersistedPlayerSnapshot,
+  rows: PlayerArtifactSlotLoadRow[],
+  contentTemplateRepository?: InventoryItemTemplateRepository | null,
+): void {
+  if (rows.length === 0) {
+    return;
+  }
+  const slotMap = new Map(
+    ARTIFACT_SLOTS.map((slotType) => {
+      const existing = Array.isArray(snapshot.artifacts?.slots)
+        ? snapshot.artifacts.slots.find((entry) => normalizeOptionalString(asRecord(entry)?.slot) === slotType)
+        : null;
+      const existingRecord = asRecord(existing);
+      return [
+        slotType,
+        {
+          slot: slotType,
+          unlocked: existingRecord?.unlocked === true,
+          enabled: existingRecord?.enabled !== false,
+          qi: normalizeMinimumNumber(existingRecord?.qi, 0, 0),
+          maxQi: normalizeMinimumNumber(existingRecord?.maxQi, 0, 0),
+          item: existingRecord?.item && typeof existingRecord.item === 'object'
+            ? existingRecord.item as Record<string, unknown>
+            : null,
+        },
+      ] as const;
+    }),
+  );
+  for (const row of rows) {
+    const slotType = normalizeOptionalString(row.slot_type);
+    if (!slotType || !ARTIFACT_SLOTS.includes(slotType as (typeof ARTIFACT_SLOTS)[number])) {
+      continue;
+    }
+    const normalizedSlotType = slotType as (typeof ARTIFACT_SLOTS)[number];
+    const rawPayload = asRecord(decodeJsonValue(row.raw_payload));
+    const itemId = normalizeOptionalString(row.item_id);
+    const item = itemId
+      ? hydratePersistedInventoryItem({
+        itemId,
+        itemInstanceId: row.item_instance_id,
+        count: 1,
+        rawPayload,
+      }, contentTemplateRepository)
+      : null;
+    slotMap.set(normalizedSlotType, {
+      slot: normalizedSlotType,
+      unlocked: row.unlocked === true,
+      enabled: row.enabled !== false,
+      qi: normalizeMinimumNumber(row.qi, 0, 0),
+      maxQi: normalizeMinimumNumber(row.max_qi, 0, 0),
+      item,
+    });
+  }
+  snapshot.artifacts = {
+    revision: Math.max(1, Number(snapshot.artifacts?.revision ?? 1)),
+    slots: ARTIFACT_SLOTS.map((slotType) => slotMap.get(slotType) ?? {
+      slot: slotType,
+      unlocked: false,
+      enabled: true,
+      qi: 0,
+      maxQi: 0,
+      item: null,
+    }),
   };
 }
 

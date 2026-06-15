@@ -137,6 +137,22 @@ class WorldGatewayInventoryHelper {
             this.gateway.worldClientEventService.emitGatewayError(client, 'REPAIR_INVENTORY_ITEM_INSTANCE_IDS_FAILED', error);
         }
     }
+    handleSetArtifactSlotEnabled(client, payload) {
+        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
+        if (!playerId) {
+            return;
+        }
+        try {
+            this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueSetArtifactSlotEnabled(
+                playerId,
+                payload,
+                this.gateway.worldRuntimeService,
+            );
+        }
+        catch (error) {
+            this.gateway.worldClientEventService.emitGatewayError(client, 'SET_ARTIFACT_SLOT_ENABLED_FAILED', error);
+        }
+    }
     handleCreateFormation(client, payload) {
         const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {

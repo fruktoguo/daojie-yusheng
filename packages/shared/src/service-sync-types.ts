@@ -12,7 +12,7 @@ import type { MailDetailView, MailPageView, MailSummaryView } from './mail-types
 import type { QuestRuntimeStateView } from './quest-types';
 import type { EquipSlot, ItemType } from './item-runtime-types';
 import type { TechniqueCategory } from './cultivation-types';
-import type { InventorySlotUpdateEntry, EquipmentSlotUpdateEntry, MarketListingPageEntry, MarketOwnOrderSyncEntry, MarketStorageSyncEntry, SyncedInventoryCooldownState, SyncedInventorySnapshot, SyncedLootWindowState, SyncedNpcShopView } from './synced-panel-types';
+import type { ArtifactSlotUpdateEntry, InventorySlotUpdateEntry, EquipmentSlotUpdateEntry, MarketListingPageEntry, MarketOwnOrderSyncEntry, MarketStorageSyncEntry, SyncedInventoryCooldownState, SyncedInventorySnapshot, SyncedLootWindowState, SyncedNpcShopView } from './synced-panel-types';
 
 /** 战利品窗口更新视图。 */
 export interface LootWindowUpdateView {
@@ -79,6 +79,15 @@ export interface EquipmentUpdateView {
  */
 
   slots: EquipmentSlotUpdateEntry[];
+}
+
+/** 法宝面板更新视图。 */
+export interface ArtifactUpdateView {
+/**
+ * slots：slot相关字段。
+ */
+
+  slots: ArtifactSlotUpdateEntry[];
 }
 
 /** 坊市首页同步视图。 */

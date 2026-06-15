@@ -131,6 +131,8 @@ export class ItemTemplateRegistry {
       tags: Array.isArray(template.tags) ? (template.tags as unknown[]).slice() : undefined,
       contextActions: Array.isArray(template.contextActions) ? (template.contextActions as unknown[]).map((entry) => ({ ...(entry as object) })) : undefined,
       effects: Array.isArray(template.effects) ? (template.effects as unknown[]).map((entry) => ({ ...(entry as object) })) : undefined,
+      artifactMaxQiFactor: template.artifactMaxQiFactor,
+      artifactEffects: Array.isArray(template.artifactEffects) ? (template.artifactEffects as unknown[]).map((entry) => ({ ...(entry as object) })) : undefined,
       healAmount: template.healAmount,
       healPercent: template.healPercent,
       baselineHealPercent: template.baselineHealPercent,

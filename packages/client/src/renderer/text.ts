@@ -211,6 +211,12 @@ const GROUND_ITEM_TYPE_PALETTES: Record<ItemType, GroundItemTypePalette> = {
     accent: 'rgba(135, 103, 63, 0.9)',
     text: '#fff4dc',
   },
+  artifact: {
+    fill: 'rgba(31, 40, 55, 0.9)',
+    stroke: 'rgba(126, 170, 230, 0.92)',
+    accent: 'rgba(67, 104, 160, 0.9)',
+    text: '#eef5ff',
+  },
   material: {
     fill: 'rgba(32, 45, 40, 0.88)',
     stroke: 'rgba(123, 175, 135, 0.92)',

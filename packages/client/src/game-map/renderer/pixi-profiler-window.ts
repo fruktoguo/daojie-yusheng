@@ -228,6 +228,7 @@ const RUNTIME_METRIC_LABELS: Record<RuntimeProfileMetricKey, string> = {
   'runtime.delta.panel.inventory': 'runtime.delta.panel.inventory',
   'runtime.delta.panel.equipment': 'runtime.delta.panel.equipment',
   'runtime.delta.panel.technique': 'runtime.delta.panel.technique',
+  'runtime.delta.panel.artifact': 'runtime.delta.panel.artifact',
   'runtime.delta.panel.actions': 'runtime.delta.panel.actions',
   'runtime.delta.panel.buff': 'runtime.delta.panel.buff',
 };

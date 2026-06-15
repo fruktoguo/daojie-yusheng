@@ -89,7 +89,7 @@ function sendTechniqueActivityCancel(
 
 
 export function createSocketPanelSender(deps: PanelSenderDeps) {
-  return {  
+  return {
   /**
  * sendUseItem：执行sendUse道具相关逻辑。
  * @param itemInstanceId string 背包物品实例 ID。
@@ -103,7 +103,7 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
         count,
         ...(options ?? {}),
       });
-    },    
+    },
     sendRepairInventoryItemInstanceIds(): void {
       deps.emitEvent(C2S.RepairInventoryItemInstanceIds, {});
     },
@@ -126,7 +126,7 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
 
     sendDropItem(itemInstanceId: string, count: number): void {
       deps.emitEvent(C2S.DropItem, { itemRef: buildInventoryItemRef(itemInstanceId), count });
-    },    
+    },
     /**
  * sendDestroyItem：执行sendDestroy道具相关逻辑。
  * @param itemInstanceId string 背包物品实例 ID。
@@ -137,7 +137,7 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
 
     sendDestroyItem(itemInstanceId: string, count: number): void {
       deps.emitEvent(C2S.DestroyItem, { itemRef: buildInventoryItemRef(itemInstanceId), count });
-    },    
+    },
     /**
  * sendTakeLoot：执行sendTake掉落相关逻辑。
  * @param sourceId string source ID。
@@ -149,7 +149,7 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
 
     sendTakeLoot(sourceId: string, itemKey?: string, takeAll = false): void {
       deps.emitEvent(C2S.TakeGround, { sourceId, itemKey, takeAll });
-    },    
+    },
     /**
  * sendStartGather：执行send开始采集相关逻辑。
  * @param payload StartGatherPayload 载荷参数。
@@ -159,7 +159,7 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
 
     sendStartGather(payload: ClientToServerEventPayload<typeof C2S.StartGather>): void {
       deps.emitEvent(C2S.StartGather, payload);
-    },    
+    },
     /**
  * sendCancelGather：执行send取消采集相关逻辑。
  * @returns 无返回值，直接更新sendCancel采集相关状态。
@@ -167,7 +167,7 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
 
     sendCancelGather(): void {
       deps.emitEvent(C2S.CancelGather, {});
-    },    
+    },
     /**
  * sendStopLootHarvest：停止当前连续采摘。
  * @returns 无返回值，直接更新停止当前连续采摘相关状态。
@@ -175,7 +175,7 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
 
     sendStopLootHarvest(): void {
       deps.emitEvent(C2S.StopLootHarvest, {});
-    },    
+    },
     /**
  * sendSortInventory：执行sendSort背包相关逻辑。
  * @returns 无返回值，直接更新sendSort背包相关状态。
@@ -184,7 +184,7 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
 
     sendSortInventory(): void {
       deps.emitEvent(C2S.SortInventory, {});
-    },    
+    },
     /**
  * sendEquip：执行sendEquip相关逻辑。
  * @param itemInstanceId string 背包物品实例 ID。
@@ -194,7 +194,7 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
 
     sendEquip(itemInstanceId: string): void {
       deps.emitEvent(C2S.Equip, { itemRef: buildInventoryItemRef(itemInstanceId) });
-    },    
+    },
     /**
  * sendUnequip：执行sendUnequip相关逻辑。
  * @param slot ClientToServerEventPayload<typeof C2S.Unequip>['slot'] 参数说明。
@@ -204,7 +204,21 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
 
     sendUnequip(slot: ClientToServerEventPayload<typeof C2S.Unequip>['slot'], expectedItemInstanceId?: string): void {
       deps.emitEvent(C2S.Unequip, expectedItemInstanceId ? { slot, expectedItemInstanceId } : { slot });
-    },    
+    },
+    /**
+ * sendSetArtifactSlotEnabled：设置法宝槽启用开关。
+ * @param slot ClientToServerEventPayload<typeof C2S.SetArtifactSlotEnabled>['slot'] 参数说明。
+ * @param enabled boolean 参数说明。
+ * @returns 无返回值，直接更新设置法宝槽启用开关相关状态。
+ */
+
+
+    sendSetArtifactSlotEnabled(
+      slot: ClientToServerEventPayload<typeof C2S.SetArtifactSlotEnabled>['slot'],
+      enabled: boolean,
+    ): void {
+      deps.emitEvent(C2S.SetArtifactSlotEnabled, { slot, enabled });
+    },
     /**
  * sendRequestAttrDetail：执行sendRequestAttr详情相关逻辑。
  * @returns 无返回值，直接更新sendRequestAttr详情相关状态。
@@ -213,7 +227,7 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
 
     sendRequestAttrDetail(): void {
       deps.emitEvent(C2S.RequestAttrDetail, {});
-    },    
+    },
     /**
  * sendRequestLeaderboard：执行sendRequestLeaderboard相关逻辑。
  * @param limit ClientToServerEventPayload<typeof C2S.RequestLeaderboard>['limit'] 参数说明。
@@ -223,7 +237,7 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
 
     sendRequestLeaderboard(limit?: ClientToServerEventPayload<typeof C2S.RequestLeaderboard>['limit']): void {
       deps.emitEvent(C2S.RequestLeaderboard, { limit });
-    },    
+    },
     /**
  * sendRequestLeaderboardPlayerLocations：执行sendRequestLeaderboard玩家坐标追索相关逻辑。
  * @param playerIds 玩家ID列表。
@@ -234,7 +248,7 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
       playerIds: ClientToServerEventPayload<typeof C2S.RequestLeaderboardPlayerLocations>['playerIds'],
     ): void {
       deps.emitEvent(C2S.RequestLeaderboardPlayerLocations, { playerIds });
-    },    
+    },
     /**
  * sendRequestWorldSummary：执行sendRequest世界摘要相关逻辑。
  * @returns 无返回值，直接更新sendRequest世界摘要相关状态。
@@ -243,7 +257,7 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
 
     sendRequestWorldSummary(): void {
       deps.emitEvent(C2S.RequestWorldSummary, {});
-    },    
+    },
     /**
  * sendRequestNpcShop：执行sendRequestNPCShop相关逻辑。
  * @param npcId string npc ID。
@@ -253,7 +267,7 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
 
     sendRequestNpcShop(npcId: string): void {
       deps.emitEvent(C2S.RequestNpcShop, { npcId });
-    },    
+    },
     /**
  * sendBuyNpcShopItem：执行sendBuyNPCShop道具相关逻辑。
  * @param npcId string npc ID。
@@ -265,7 +279,7 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
 
     sendBuyNpcShopItem(npcId: string, itemId: string, quantity: number): void {
       deps.emitEvent(C2S.BuyNpcShopItem, { npcId, itemId, quantity });
-    },    
+    },
     /**
  * sendRequestAlchemyPanel：执行sendRequest炼丹面板相关逻辑。
  * @param knownCatalogVersion number 参数说明。
@@ -278,7 +292,7 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
     },
     sendRequestForgingPanel(knownCatalogVersion?: number): void {
       sendTechniqueActivityRequest(deps, 'forging', { knownCatalogVersion, kind: 'forging' });
-    },    
+    },
     /**
  * sendSaveAlchemyPreset：执行sendSave炼丹Preset相关逻辑。
  * @param payload ClientToServerEventPayload<typeof C2S.SaveAlchemyPreset> 载荷参数。
@@ -290,7 +304,7 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
       payload: ClientToServerEventPayload<typeof C2S.SaveAlchemyPreset>,
     ): void {
       deps.emitEvent(C2S.SaveAlchemyPreset, payload);
-    },    
+    },
     /**
  * sendDeleteAlchemyPreset：处理sendDelete炼丹Preset并更新相关状态。
  * @param presetId string preset ID。
@@ -300,7 +314,7 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
 
     sendDeleteAlchemyPreset(presetId: string): void {
       deps.emitEvent(C2S.DeleteAlchemyPreset, { presetId });
-    },    
+    },
     /**
  * sendStartAlchemy：执行send开始炼丹相关逻辑。
  * @param payload ClientToServerEventPayload<typeof C2S.StartAlchemy> 载荷参数。
@@ -317,7 +331,7 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
       payload: ClientToServerEventPayload<typeof C2S.StartAlchemy>,
     ): void {
       sendTechniqueActivityStart(deps, 'forging', { ...payload, kind: 'forging' });
-    },    
+    },
     /**
  * sendCancelAlchemy：判断sendCancel炼丹是否满足条件。
  * @returns 无返回值，直接更新sendCancel炼丹相关状态。
@@ -329,7 +343,7 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
     },
     sendCancelForging(): void {
       sendTechniqueActivityCancel(deps, 'forging');
-    },    
+    },
     /**
  * sendRequestEnhancementPanel：执行sendRequest强化面板相关逻辑。
  * @returns 无返回值，直接更新sendRequest强化面板相关状态。
@@ -338,7 +352,7 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
 
     sendRequestEnhancementPanel(): void {
       sendTechniqueActivityRequest(deps, 'enhancement', {});
-    },    
+    },
     /**
  * sendStartEnhancement：执行send开始强化相关逻辑。
  * @param payload ClientToServerEventPayload<typeof C2S.StartEnhancement> 载荷参数。
@@ -350,7 +364,7 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
       payload: ClientToServerEventPayload<typeof C2S.StartEnhancement>,
     ): void {
       sendTechniqueActivityStart(deps, 'enhancement', payload);
-    },    
+    },
     /**
  * sendCancelEnhancement：判断sendCancel强化是否满足条件。
  * @returns 无返回值，直接更新sendCancel强化相关状态。

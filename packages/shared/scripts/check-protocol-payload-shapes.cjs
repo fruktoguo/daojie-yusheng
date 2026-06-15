@@ -67,6 +67,7 @@ const EXPECTED_INTERFACES = {
   S2C_PanelDelta: {
     inv: { type: 'S2C_PanelInventoryDelta', optional: true },
     eq: { type: 'S2C_PanelEquipmentDelta', optional: true },
+    art: { type: 'S2C_PanelArtifactDelta', optional: true },
     tech: { type: 'S2C_PanelTechniqueDelta', optional: true },
     attr: { type: 'S2C_PanelAttrDelta', optional: true },
     act: { type: 'S2C_PanelActionDelta', optional: true },

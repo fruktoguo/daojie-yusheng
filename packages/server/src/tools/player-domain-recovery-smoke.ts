@@ -419,6 +419,10 @@ function buildStarterSnapshot(playerId: string): ProjectedRecoverySnapshot {
       revision: 1,
       slots: [],
     },
+    artifacts: {
+      revision: 0,
+      slots: [],
+    },
     techniques: {
       revision: 1,
       techniques: [],
@@ -655,6 +659,10 @@ function buildSnapshot(now: number, playerId: string): ProjectedRecoverySnapshot
           },
         },
       ],
+    },
+    artifacts: {
+      revision: 0,
+      slots: [],
     },
     techniques: {
       revision: 3,

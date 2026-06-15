@@ -9,6 +9,7 @@ import {
   type Attributes,
   type Inventory,
   type S2C_ActionsUpdate,
+  type S2C_ArtifactUpdate,
   type S2C_AttrUpdate,
   type S2C_EquipmentUpdate,
   type S2C_InventoryUpdate,
@@ -24,6 +25,7 @@ import {
   type TechniqueState,
   buildDefaultCombatTargetingRules,
   clonePlainValue,
+  ARTIFACT_SLOTS,
   EQUIP_SLOTS,
   isPlainEqual,
   normalizeAutoBattleTargetingMode,
@@ -65,17 +67,17 @@ type MainPanelDeltaStateSourceOptions = {
  * getPlayer：玩家引用。
  */
 
-  getPlayer: () => PlayerState | null;  
+  getPlayer: () => PlayerState | null;
   /**
  * refreshObservedDecorations：刷新地图实体展示装饰。
  */
 
-  refreshObservedDecorations: () => void;  
+  refreshObservedDecorations: () => void;
   /**
  * attrPanel：attr面板相关字段。
  */
 
-  attrPanel: {  
+  attrPanel: {
   /**
  * update：update相关字段。
  */
@@ -86,169 +88,174 @@ type MainPanelDeltaStateSourceOptions = {
  */
 
     invalidateDetail?: () => void;
-  };  
+  };
   /**
  * equipmentPanel：装备面板相关字段。
  */
 
-  equipmentPanel: {  
+  equipmentPanel: {
   /**
  * update：update相关字段。
  */
 
-    update: (equipment: PlayerState['equipment']) => void;
+    update: (equipment: PlayerState['equipment'], artifacts?: PlayerState['artifacts'] | null) => void;
     /**
  * syncPlayerContext：同步装备提示依赖的玩家上下文。
  */
 
     syncPlayerContext?: (player?: PlayerState | null) => void;
-  };  
+  };
   /**
  * bodyTrainingPanel：bodyTraining面板相关字段。
  */
 
-  bodyTrainingPanel: {  
+  bodyTrainingPanel: {
   /**
  * syncFoundation：Foundation相关字段。
  */
 
-    syncFoundation: (foundation?: number) => void;    
+    syncFoundation: (foundation?: number) => void;
     /**
  * syncDynamic：Dynamic相关字段。
  */
 
     syncDynamic: (state: PlayerState['bodyTraining'] | undefined, foundation?: number) => void;
-  };  
+  };
   /**
  * craftWorkbenchModal：炼制Workbench弹层相关字段。
  */
 
-  craftWorkbenchModal: {  
+  craftWorkbenchModal: {
   /**
  * syncAttrUpdate：AttrUpdate相关字段。
  */
 
-    syncAttrUpdate: (value: S2C_AttrUpdate) => void;    
+    syncAttrUpdate: (value: S2C_AttrUpdate) => void;
     /**
  * syncEquipment：装备相关字段。
  */
 
     syncEquipment: (equipment?: PlayerState['equipment']) => void;
-  };  
+  };
   /**
  * inventoryStateSource：背包状态来源相关字段。
  */
 
-  inventoryStateSource: {  
+  inventoryStateSource: {
   /**
  * syncInventory：背包相关字段。
  */
 
-    syncInventory: (inventory: Inventory, player: PlayerState | null) => void;    
+    syncInventory: (inventory: Inventory, player: PlayerState | null) => void;
     /**
  * syncPlayerContext：玩家上下文状态或数据块。
  */
 
     syncPlayerContext: (player?: PlayerState) => void;
-  };  
+  };
   /**
  * techniqueStateSource：功法状态来源相关字段。
  */
 
-  techniqueStateSource: {  
+  techniqueStateSource: {
   /**
  * update：update相关字段。
  */
 
-    update: (techniques: TechniqueState[], cultivatingTechId?: string, player?: PlayerState) => void;    
+    update: (techniques: TechniqueState[], cultivatingTechId?: string, player?: PlayerState) => void;
     /**
  * syncDynamic：Dynamic相关字段。
  */
 
     syncDynamic: (techniques: TechniqueState[], cultivatingTechId?: string, player?: PlayerState) => void;
-  };  
+  };
   /**
  * actionStateSource：action状态来源相关字段。
  */
 
-  actionStateSource: {  
+  actionStateSource: {
   /**
  * update：update相关字段。
  */
 
-    update: (actions: ActionDef[], autoBattle?: boolean, autoRetaliate?: boolean, player?: PlayerState) => void;    
+    update: (actions: ActionDef[], autoBattle?: boolean, autoRetaliate?: boolean, player?: PlayerState) => void;
     /**
  * syncDynamic：Dynamic相关字段。
  */
 
     syncDynamic: (actions: ActionDef[], autoBattle?: boolean, autoRetaliate?: boolean, player?: PlayerState) => void;
-  };  
+  };
   /**
  * syncInventoryBridgeState：背包桥接状态状态或数据块。
  */
 
-  syncInventoryBridgeState: (inventory: Inventory | null) => void;  
+  syncInventoryBridgeState: (inventory: Inventory | null) => void;
   /**
  * syncEquipmentBridgeState：装备桥接状态状态或数据块。
  */
 
-  syncEquipmentBridgeState: (equipment: PlayerState['equipment'] | null) => void;  
+  syncEquipmentBridgeState: (equipment: PlayerState['equipment'] | null) => void;
+  /**
+ * syncArtifactsBridgeState：法宝桥接状态状态或数据块。
+ */
+
+  syncArtifactsBridgeState: (artifacts: PlayerState['artifacts'] | null) => void;
   /**
  * syncTechniquesBridgeState：功法桥接状态状态或数据块。
  */
 
-  syncTechniquesBridgeState: (techniques: PlayerState['techniques'], cultivatingTechId?: string) => void;  
+  syncTechniquesBridgeState: (techniques: PlayerState['techniques'], cultivatingTechId?: string) => void;
   /**
  * syncActionsBridgeState：Action桥接状态状态或数据块。
  */
 
-  syncActionsBridgeState: (actions: PlayerState['actions'], autoBattle: boolean, autoRetaliate: boolean) => void;  
+  syncActionsBridgeState: (actions: PlayerState['actions'], autoBattle: boolean, autoRetaliate: boolean) => void;
   /**
  * syncAttrBridgeState：Attr桥接状态状态或数据块。
  */
 
-  syncAttrBridgeState: (value: S2C_AttrUpdate | null) => void;  
+  syncAttrBridgeState: (value: S2C_AttrUpdate | null) => void;
   /**
  * syncPlayerBridgeState：玩家桥接状态状态或数据块。
  */
 
-  syncPlayerBridgeState: (player: PlayerState | null) => void;  
+  syncPlayerBridgeState: (player: PlayerState | null) => void;
   /**
  * refreshHeavenGateModal：refreshHeavenGate弹层相关字段。
  */
 
-  refreshHeavenGateModal: (player: PlayerState | null) => void;  
+  refreshHeavenGateModal: (player: PlayerState | null) => void;
   /**
  * refreshUiChrome：refreshUiChrome相关字段。
  */
 
-  refreshUiChrome: () => void;  
+  refreshUiChrome: () => void;
   /**
  * syncEstimatedServerTick：EstimatedServertick相关字段。
  */
 
-  syncEstimatedServerTick: (tick: number | null) => void;  
+  syncEstimatedServerTick: (tick: number | null) => void;
   /**
  * navigation：导航相关字段。
  */
 
-  navigation: {  
+  navigation: {
   /**
  * hasActivePath：启用开关或状态标识。
  */
 
-    hasActivePath: () => boolean;    
+    hasActivePath: () => boolean;
     /**
  * clearCurrentPath：clearCurrent路径相关字段。
  */
 
     clearCurrentPath: () => void;
-  };  
+  };
   /**
  * targeting：targeting相关字段。
  */
 
-  targeting: {  
+  targeting: {
   /**
  * syncSenseQiOverlay：SenseQiOverlay相关字段。
  */
@@ -447,7 +454,7 @@ export type MainPanelDeltaStateSource = ReturnType<typeof createMainPanelDeltaSt
 export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSourceOptions) {
   let latestAttrUpdate: S2C_AttrUpdate | null = null;
   let latestTechniqueMap = new Map<string, TechniqueState>();
-  let latestActionMap = new Map<string, ActionDef>();  
+  let latestActionMap = new Map<string, ActionDef>();
   /**
  * buildAttrStateFromPlayer：构建并返回目标对象。
  * @param player PlayerState 玩家对象。
@@ -576,7 +583,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
         ? cloneJson(patch.transmissionSkill)
         : (previous?.transmissionSkill ? cloneJson(previous.transmissionSkill) : (player?.transmissionSkill ? cloneJson(player.transmissionSkill) : undefined)),
     };
-  }  
+  }
 
   /** attrPatchInvalidatesDetail：判断属性详情构成是否需要重新拉取。 */
   function attrPatchInvalidatesDetail(patch: S2C_AttrUpdate): boolean {
@@ -621,7 +628,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
           ? cloneJson(template.layers)
           : undefined,
     });
-  }  
+  }
   /**
  * hydrateSyncedItemStack：处理hydrateSynced道具Stack并更新相关状态。
  * @param item SyncedItemStack 道具。
@@ -683,6 +690,14 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
           : template?.effects
             ? cloneJson(template.effects)
             : undefined,
+      artifactMaxQiFactor: item.artifactMaxQiFactor ?? previousSameItem?.artifactMaxQiFactor ?? template?.artifactMaxQiFactor,
+      artifactEffects: item.artifactEffects
+        ? cloneJson(item.artifactEffects)
+        : previousSameItem?.artifactEffects
+          ? cloneJson(previousSameItem.artifactEffects)
+          : template?.artifactEffects
+            ? cloneJson(template.artifactEffects)
+            : undefined,
       tags: item.tags
         ? [...item.tags]
         : previousSameItem?.tags
@@ -719,7 +734,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
       spiritualRootSeedTier: item.spiritualRootSeedTier ?? previousSameItem?.spiritualRootSeedTier ?? template?.spiritualRootSeedTier,
       allowBatchUse: item.allowBatchUse ?? previousSameItem?.allowBatchUse,
     };
-  }  
+  }
   /**
  * mergeInventoryUpdate：处理背包Update并更新相关状态。
  * @param previous Inventory | undefined 参数说明。
@@ -779,7 +794,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
       next.items.splice(slotPatch.slotIndex, 1);
     }
     return next;
-  }  
+  }
   /**
  * mergeEquipmentUpdate：处理装备Update并更新相关状态。
  * @param previous PlayerState['equipment'] | undefined 参数说明。
@@ -808,7 +823,52 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
     }
 
     return next;
-  }  
+  }
+  /**
+ * mergeArtifactUpdate：处理法宝Update并更新相关状态。
+ * @param previous PlayerState['artifacts'] | undefined 参数说明。
+ * @param patch S2C_ArtifactUpdate 参数说明。
+ * @returns 返回法宝状态。
+ */
+
+
+  function mergeArtifactUpdate(previous: PlayerState['artifacts'] | undefined, patch: S2C_ArtifactUpdate): PlayerState['artifacts'] {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    const previousSlots = Array.isArray(previous?.slots) ? previous.slots : [];
+    const nextSlots = ARTIFACT_SLOTS.map((slot) => {
+      const existing = previousSlots.find((entry) => entry.slot === slot);
+      return {
+        slot,
+        unlocked: existing?.unlocked === true,
+        enabled: existing?.enabled !== false,
+        qi: Math.max(0, Number(existing?.qi ?? 0) || 0),
+        maxQi: Math.max(0, Number(existing?.maxQi ?? 0) || 0),
+        item: existing?.item ?? null,
+      };
+    });
+
+    for (const slotPatch of patch.slots ?? []) {
+      const index = nextSlots.findIndex((entry) => entry.slot === slotPatch.slot);
+      if (index < 0) {
+        continue;
+      }
+      const previousItem = nextSlots[index]?.item ?? undefined;
+      nextSlots[index] = {
+        slot: slotPatch.slot,
+        unlocked: slotPatch.unlocked === true,
+        enabled: slotPatch.enabled !== false,
+        qi: Math.max(0, Number(slotPatch.qi ?? 0) || 0),
+        maxQi: Math.max(0, Number(slotPatch.maxQi ?? 0) || 0),
+        item: slotPatch.item ? hydrateSyncedItemStack(slotPatch.item, previousItem ?? undefined) : null,
+      };
+    }
+
+    return {
+      revision: Math.max(1, Math.trunc(Number((patch as { r?: number }).r ?? previous?.revision ?? 1) || 1)),
+      slots: nextSlots,
+    };
+  }
   /**
  * mergeTechniqueStates：读取功法状态并返回结果。
  * @param patches import('@mud/shared').TechniqueUpdateEntry[] 参数说明。
@@ -851,7 +911,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
 
     latestTechniqueMap = nextMap;
     return merged;
-  }  
+  }
   /**
  * mergeActionPatch：处理ActionPatch并更新相关状态。
  * @param patch ActionUpdateEntry 参数说明。
@@ -902,7 +962,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
       scriptureTechniqueGrade: applyNullablePatch(patch.scriptureTechniqueGrade, previousSameAction?.scriptureTechniqueGrade),
       scriptureTechniqueCategory: applyNullablePatch(patch.scriptureTechniqueCategory, previousSameAction?.scriptureTechniqueCategory),
     };
-  }  
+  }
   /**
  * mergeActionStates：处理Action状态并更新相关状态。
  * @param patches ActionUpdateEntry[] 参数说明。
@@ -965,7 +1025,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
 
     latestActionMap = new Map(merged.map((action) => [action.id, cloneJson(action)]));
     return merged;
-  }  
+  }
   /**
  * haveActionRenderStructureChanges：执行haveActionRenderStructureChange相关逻辑。
  * @param previousActions ActionDef[] 参数说明。
@@ -1003,7 +1063,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
       }
     }
     return false;
-  }  
+  }
   /**
  * haveTechniqueStructureChanges：执行have功法StructureChange相关逻辑。
  * @param previousTechniques TechniqueState[] 参数说明。
@@ -1084,7 +1144,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
     return false;
   }
 
-  return {  
+  return {
   /**
  * getLatestAttrUpdate：读取最新AttrUpdate。
  * @returns 返回LatestAttrUpdate。
@@ -1092,7 +1152,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
 
     getLatestAttrUpdate(): S2C_AttrUpdate | null {
       return latestAttrUpdate;
-    },    
+    },
     /**
  * setLatestAttrUpdate：写入最新AttrUpdate。
  * @param value S2C_AttrUpdate | null 参数说明。
@@ -1106,7 +1166,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
 
     buildAttrStateFromPlayer,
 
-    mergeAttrUpdatePatch,    
+    mergeAttrUpdatePatch,
     /**
  * seedFromPlayer：执行seedFrom玩家相关逻辑。
  * @param player PlayerState 玩家对象。
@@ -1117,7 +1177,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
     seedFromPlayer(player: PlayerState): void {
       latestTechniqueMap = new Map((player.techniques ?? []).map((technique) => [technique.techId, cloneJson(technique)]));
       latestActionMap = new Map((player.actions ?? []).map((action) => [action.id, cloneJson(action)]));
-    },    
+    },
     /**
  * clearCachedState：执行clearCached状态相关逻辑。
  * @returns 无返回值，直接更新clearCached状态相关状态。
@@ -1128,7 +1188,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
       latestAttrUpdate = null;
       latestTechniqueMap.clear();
       latestActionMap.clear();
-    },    
+    },
     /**
  * hydrateSyncedItemStack：处理hydrateSynced道具Stack并更新相关状态。
  * @param item SyncedItemStack 道具。
@@ -1139,7 +1199,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
 
     hydrateSyncedItemStack(item: SyncedItemStack, previous?: Inventory['items'][number]): Inventory['items'][number] {
       return hydrateSyncedItemStack(item, previous);
-    },    
+    },
     /**
  * handleAttrUpdate：处理AttrUpdate并更新相关状态。
  * @param data S2C_AttrUpdate 原始数据。
@@ -1203,7 +1263,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
       options.equipmentPanel.syncPlayerContext?.(player ?? undefined);
       options.syncAttrBridgeState(latestAttrUpdate);
       options.refreshUiChrome();
-    },    
+    },
     /**
  * handleInventoryUpdate：处理背包Update并更新相关状态。
  * @param data S2C_InventoryUpdate 原始数据。
@@ -1227,7 +1287,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
         player.inventory = mergedInventory;
       }
       options.inventoryStateSource.syncInventory(mergedInventory, player);
-    },    
+    },
     /**
  * handleEquipmentUpdate：处理装备Update并更新相关状态。
  * @param data S2C_EquipmentUpdate 原始数据。
@@ -1245,11 +1305,32 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
         options.inventoryStateSource.syncPlayerContext(player);
       }
       options.equipmentPanel.syncPlayerContext?.(player ?? undefined);
-      options.equipmentPanel.update(mergedEquipment);
+      options.equipmentPanel.update(mergedEquipment, player?.artifacts ?? null);
       options.craftWorkbenchModal.syncEquipment(mergedEquipment);
       options.syncEquipmentBridgeState(mergedEquipment);
       options.syncPlayerBridgeState(player);
-    },    
+    },
+    /**
+ * handleArtifactUpdate：处理法宝Update并更新相关状态。
+ * @param data S2C_ArtifactUpdate 原始数据。
+ * @returns 无返回值，直接更新法宝Update相关状态。
+ */
+
+
+    handleArtifactUpdate(data: S2C_ArtifactUpdate): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+      const player = options.getPlayer();
+      const mergedArtifacts = mergeArtifactUpdate(player?.artifacts, data);
+      if (player) {
+        player.artifacts = mergedArtifacts;
+        options.inventoryStateSource.syncPlayerContext(player);
+      }
+      options.equipmentPanel.syncPlayerContext?.(player ?? undefined);
+      options.equipmentPanel.update(player?.equipment ?? (Object.fromEntries(EQUIP_SLOTS.map((slot) => [slot, null])) as PlayerState['equipment']), mergedArtifacts);
+      options.syncArtifactsBridgeState(mergedArtifacts);
+      options.syncPlayerBridgeState(player);
+    },
     /**
  * handleTechniqueUpdate：处理功法Update并更新相关状态。
  * @param data S2C_TechniqueUpdate | S2C_PanelTechniqueDelta 原始数据。
@@ -1294,7 +1375,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
       }
       options.syncTechniquesBridgeState(mergedTechniques, nextCultivatingTechId);
       options.syncPlayerBridgeState(player);
-    },    
+    },
     /**
  * handleActionsUpdate：处理ActionUpdate并更新相关状态。
  * @param data S2C_ActionsUpdate | S2C_PanelActionDelta 原始数据。

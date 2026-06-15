@@ -10,6 +10,8 @@ import * as world_runtime_normalization_helpers_1 from '../world-runtime.normali
 
 const {
     normalizeEquipSlot,
+    normalizeArtifactSlot,
+    normalizeEquipmentOrArtifactSlot,
     normalizeTechniqueId,
     normalizePositiveCount,
     normalizeCoordinate,
@@ -206,8 +208,17 @@ export class WorldRuntimePlayerCommandEnqueueService {
     enqueueUnequip(playerId, slotInput, deps, expectedItemInstanceId?: string) {
         return this.enqueueNormalizedPlayerCommand(playerId, {
             kind: 'unequip',
-            slot: normalizeEquipSlot(slotInput),
+            slot: normalizeEquipmentOrArtifactSlot(slotInput),
             expectedItemInstanceId,
+        }, deps);
+    }
+    /** 入队法宝槽位开关设置。 */
+    enqueueSetArtifactSlotEnabled(playerId, payloadInput, deps) {
+        const payload = typeof payloadInput === 'object' && payloadInput !== null ? payloadInput : {};
+        return this.enqueueNormalizedPlayerCommand(playerId, {
+            kind: 'setArtifactSlotEnabled',
+            slot: normalizeArtifactSlot(payload.slot),
+            enabled: payload.enabled === true,
         }, deps);
     }
     /**

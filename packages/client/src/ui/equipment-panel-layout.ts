@@ -3,7 +3,7 @@
  *
  * 这里只定义前端排布和简短摘要，不承接装备规则或服务端权威判断。
  */
-import type { EquipSlot, ItemStack } from '@mud/shared';
+import type { ArtifactSlot, EquipSlot, ItemStack } from '@mud/shared';
 import { getItemDisplayMeta } from './item-display';
 
 export type EquipmentPanelTab = 'combat' | 'technique' | 'artifact';
@@ -36,13 +36,14 @@ export const EQUIPMENT_PANEL_TECHNIQUE_SLOT_LAYOUT = [
   ['technique_building'],
 ] as const satisfies readonly (readonly EquipSlot[])[];
 
-/** 法宝槽位尚未接入权威装备模型，面板只保留独立分类入口。 */
-export const EQUIPMENT_PANEL_ARTIFACT_SLOT_LAYOUT = [] as const satisfies readonly (readonly EquipSlot[])[];
+/** 法宝槽位固定单列显示。 */
+export const EQUIPMENT_PANEL_ARTIFACT_SLOT_LAYOUT = [
+  ['artifact_1'],
+] as const satisfies readonly (readonly ArtifactSlot[])[];
 
-export const EQUIPMENT_PANEL_SLOT_LAYOUT_BY_TAB: Record<EquipmentPanelTab, readonly (readonly EquipSlot[])[]> = {
+export const EQUIPMENT_PANEL_SLOT_LAYOUT_BY_TAB: Record<Exclude<EquipmentPanelTab, 'artifact'>, readonly (readonly EquipSlot[])[]> = {
   combat: EQUIPMENT_PANEL_COMBAT_SLOT_LAYOUT,
   technique: EQUIPMENT_PANEL_TECHNIQUE_SLOT_LAYOUT,
-  artifact: EQUIPMENT_PANEL_ARTIFACT_SLOT_LAYOUT,
 };
 
 /** 装备栏完整槽位顺序，用于同步更新所有已存在槽位视图。 */
@@ -64,7 +65,14 @@ export function isWideEquipmentPanelSlot(slot: EquipSlot): boolean {
 }
 
 export function getEquipmentPanelTabSlotOrder(tab: EquipmentPanelTab): readonly EquipSlot[] {
+  if (tab === 'artifact') {
+    return [];
+  }
   return EQUIPMENT_PANEL_SLOT_LAYOUT_BY_TAB[tab].flat();
+}
+
+export function getArtifactPanelSlotOrder(): readonly ArtifactSlot[] {
+  return EQUIPMENT_PANEL_ARTIFACT_SLOT_LAYOUT.flat();
 }
 
 export function formatEquipmentSlotCompactMeta(item: ItemStack | null | undefined): string {

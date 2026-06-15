@@ -16,6 +16,7 @@ import {
   TechniqueState,
   ActionDef,
   SkillTargetingDef,
+  ARTIFACT_SLOTS,
   EQUIP_SLOTS,
   resolveSkillRequiresTarget,
 } from '@mud/shared';
@@ -35,27 +36,27 @@ type MainRuntimeStateSourceOptions = {
  * getPlayer：玩家引用。
  */
 
-  getPlayer: () => PlayerState | null;  
+  getPlayer: () => PlayerState | null;
   /**
  * setPlayer：玩家引用。
  */
 
-  setPlayer: (player: PlayerState | null) => void;  
+  setPlayer: (player: PlayerState | null) => void;
   /**
  * getLatestAttrUpdate：LatestAttrUpdate相关字段。
  */
 
-  getLatestAttrUpdate: () => ReturnType<MainRuntimeStateSourceOptions['buildAttrStateFromPlayer']> | null;  
+  getLatestAttrUpdate: () => ReturnType<MainRuntimeStateSourceOptions['buildAttrStateFromPlayer']> | null;
   /**
  * setLatestAttrUpdate：LatestAttrUpdate相关字段。
  */
 
-  setLatestAttrUpdate: (value: ReturnType<MainRuntimeStateSourceOptions['buildAttrStateFromPlayer']> | null) => void;  
+  setLatestAttrUpdate: (value: ReturnType<MainRuntimeStateSourceOptions['buildAttrStateFromPlayer']> | null) => void;
   /**
  * syncAuraLevelBaseValue：Aura等级Base值数值。
  */
 
-  syncAuraLevelBaseValue: (value?: number) => void;  
+  syncAuraLevelBaseValue: (value?: number) => void;
   /**
  * syncCurrentTimeState：Current时间状态状态或数据块。
  */
@@ -65,7 +66,7 @@ type MainRuntimeStateSourceOptions = {
  * resolvePreviewTechniques：Preview功法相关字段。
  */
 
-  resolvePreviewTechniques: (techniques: TechniqueState[]) => TechniqueState[];  
+  resolvePreviewTechniques: (techniques: TechniqueState[]) => TechniqueState[];
   /**
  * buildAttrStateFromPlayer：Attr状态From玩家引用。
  */
@@ -75,37 +76,42 @@ type MainRuntimeStateSourceOptions = {
  * syncPlayerBridgeState：玩家桥接状态状态或数据块。
  */
 
-  syncPlayerBridgeState: (player: PlayerState | null) => void;  
+  syncPlayerBridgeState: (player: PlayerState | null) => void;
   /**
  * syncAttrBridgeState：Attr桥接状态状态或数据块。
  */
 
-  syncAttrBridgeState: (value: ReturnType<MainRuntimeStateSourceOptions['buildAttrStateFromPlayer']> | null) => void;  
+  syncAttrBridgeState: (value: ReturnType<MainRuntimeStateSourceOptions['buildAttrStateFromPlayer']> | null) => void;
   /**
  * syncInventoryBridgeState：背包桥接状态状态或数据块。
  */
 
-  syncInventoryBridgeState: (inventory: PlayerState['inventory'] | null) => void;  
+  syncInventoryBridgeState: (inventory: PlayerState['inventory'] | null) => void;
   /**
  * syncEquipmentBridgeState：装备桥接状态状态或数据块。
  */
 
-  syncEquipmentBridgeState: (equipment: PlayerState['equipment'] | null) => void;  
+  syncEquipmentBridgeState: (equipment: PlayerState['equipment'] | null) => void;
+  /**
+ * syncArtifactsBridgeState：法宝桥接状态状态或数据块。
+ */
+
+  syncArtifactsBridgeState: (artifacts: PlayerState['artifacts'] | null) => void;
   /**
  * syncTechniquesBridgeState：功法桥接状态状态或数据块。
  */
 
-  syncTechniquesBridgeState: (techniques: PlayerState['techniques'], cultivatingTechId?: string) => void;  
+  syncTechniquesBridgeState: (techniques: PlayerState['techniques'], cultivatingTechId?: string) => void;
   /**
  * syncActionsBridgeState：Action桥接状态状态或数据块。
  */
 
-  syncActionsBridgeState: (actions: PlayerState['actions'], autoBattle: boolean, autoRetaliate: boolean) => void;  
+  syncActionsBridgeState: (actions: PlayerState['actions'], autoBattle: boolean, autoRetaliate: boolean) => void;
   /**
  * syncBootstrapQuestState：Bootstrap任务状态状态或数据块。
  */
 
-  syncBootstrapQuestState: (player: PlayerState) => void;  
+  syncBootstrapQuestState: (player: PlayerState) => void;
   /**
  * normalizeBootstrapPlayer：首包阶段规整动作与战斗设置真源。
  */
@@ -120,12 +126,12 @@ type MainRuntimeStateSourceOptions = {
  * syncTargetingOverlay：TargetingOverlay相关字段。
  */
 
-  syncTargetingOverlay: () => void;  
+  syncTargetingOverlay: () => void;
   /**
  * syncSenseQiOverlay：SenseQiOverlay相关字段。
  */
 
-  syncSenseQiOverlay: () => void;  
+  syncSenseQiOverlay: () => void;
   syncWangQiOverlay?: () => void;
   /**
  * applyBootstrapToMapRuntime：BootstrapTo地图运行态引用。
@@ -141,127 +147,127 @@ type MainRuntimeStateSourceOptions = {
  * setRuntimePathCells：运行态路径Cell相关字段。
  */
 
-  setRuntimePathCells: () => void;  
+  setRuntimePathCells: () => void;
   /**
  * resetObservedBaselinesFromPlayer：resetObservedBaselineFrom玩家引用。
  */
 
-  resetObservedBaselinesFromPlayer: (player: PlayerState) => void;  
+  resetObservedBaselinesFromPlayer: (player: PlayerState) => void;
   /**
  * clearCurrentPath：clearCurrent路径相关字段。
  */
 
-  clearCurrentPath: () => void;  
+  clearCurrentPath: () => void;
   /**
  * showSidePanel：showSide面板相关字段。
  */
 
-  showSidePanel: () => void;  
+  showSidePanel: () => void;
   /**
  * setChatPersistenceScope：ChatPersistenceScope相关字段。
  */
 
-  setChatPersistenceScope: (scope: string | null) => void;  
+  setChatPersistenceScope: (scope: string | null) => void;
   /**
  * showChat：showChat相关字段。
  */
 
-  showChat: () => void;  
+  showChat: () => void;
   /**
  * showHud：showHud相关字段。
  */
 
-  showHud: () => void;  
+  showHud: () => void;
   /**
  * resizeCanvas：resizeCanva相关字段。
  */
 
-  resizeCanvas: () => void;  
+  resizeCanvas: () => void;
   /**
  * refreshZoomChrome：refreshZoomChrome相关字段。
  */
 
-  refreshZoomChrome: () => void;  
+  refreshZoomChrome: () => void;
   /**
  * setPanelRuntime：面板运行态引用。
  */
 
-  setPanelRuntime: (state: {  
+  setPanelRuntime: (state: {
   /**
  * connected：connected相关字段。
  */
- connected?: boolean;  
+ connected?: boolean;
  /**
  * playerId：玩家ID标识。
  */
- playerId?: string | null;  
+ playerId?: string | null;
  /**
  * mapId：地图ID标识。
  */
- mapId?: string | null;  
+ mapId?: string | null;
  /**
  * mapName：地图名称或显示文本。
  */
- mapName?: string | null;  
+ mapName?: string | null;
  /**
  * shellVisible：shell可见相关字段。
  */
- shellVisible?: boolean }) => void;  
+ shellVisible?: boolean }) => void;
  /**
  * initAttrPanel：initAttr面板相关字段。
  */
 
-  initAttrPanel: (player: PlayerState) => void;  
+  initAttrPanel: (player: PlayerState) => void;
   /**
  * initAttrDetail：initAttr详情状态或数据块。
  */
 
-  initAttrDetail: () => void;  
+  initAttrDetail: () => void;
   /**
  * initInventoryState：init背包状态状态或数据块。
  */
 
-  initInventoryState: (player: PlayerState) => void;  
+  initInventoryState: (player: PlayerState) => void;
   /**
  * initEquipmentPanel：init装备面板相关字段。
  */
 
-  initEquipmentPanel: (player: PlayerState) => void;  
+  initEquipmentPanel: (player: PlayerState) => void;
   /**
  * initTechniqueState：init功法状态状态或数据块。
  */
 
-  initTechniqueState: (player: PlayerState) => void;  
+  initTechniqueState: (player: PlayerState) => void;
   /**
  * initBodyTrainingPanel：initBodyTraining面板相关字段。
  */
 
-  initBodyTrainingPanel: (player: PlayerState) => void;  
+  initBodyTrainingPanel: (player: PlayerState) => void;
   /**
  * initQuestState：init任务状态状态或数据块。
  */
 
-  initQuestState: (player: PlayerState) => void;  
+  initQuestState: (player: PlayerState) => void;
   /**
  * initActionState：initAction状态状态或数据块。
  */
 
-  initActionState: (player: PlayerState) => void;  
+  initActionState: (player: PlayerState) => void;
   /**
  * initWorldSummaryState：init世界摘要状态状态或数据块。
  */
 
-  initWorldSummaryState: () => void;  
+  initWorldSummaryState: () => void;
   /**
  * refreshUiChrome：refreshUiChrome相关字段。
  */
 
-  refreshUiChrome: () => void;  
+  refreshUiChrome: () => void;
   /**
  * initMailState：init邮件状态状态或数据块。
  */
 
-  initMailState: (playerId: string) => void;  
+  initMailState: (playerId: string) => void;
   /**
  * initActivityState：初始化活动中心状态。
  */
@@ -271,7 +277,7 @@ type MainRuntimeStateSourceOptions = {
  * hideObserveModal：hideObserve弹层相关字段。
  */
 
-  hideObserveModal: () => void;  
+  hideObserveModal: () => void;
   /**
  * applyWorldDelta：世界Delta相关字段。
  */
@@ -296,7 +302,7 @@ type MainRuntimeStateSourceOptions = {
  * inventorySyncPlayerContext：背包Sync玩家上下文状态或数据块。
  */
 
-  inventorySyncPlayerContext: (player?: PlayerState) => void;  
+  inventorySyncPlayerContext: (player?: PlayerState) => void;
   /**
  * equipmentSyncPlayerContext：装备面板同步玩家上下文。
  */
@@ -324,6 +330,24 @@ function hydrateBootstrapEquipment(equipment: PlayerState['equipment']): PlayerS
   return Object.fromEntries(
     EQUIP_SLOTS.map((slot) => [slot, equipment[slot] ? hydrateBootstrapItem(equipment[slot]!) : null]),
   ) as PlayerState['equipment'];
+}
+
+function hydrateBootstrapArtifacts(artifacts: PlayerState['artifacts'] | undefined | null): PlayerState['artifacts'] {
+  const slots = Array.isArray(artifacts?.slots) ? artifacts.slots : [];
+  return {
+    revision: Math.max(1, Math.trunc(Number(artifacts?.revision ?? 1) || 1)),
+    slots: ARTIFACT_SLOTS.map((slot) => {
+      const entry = slots.find((candidate) => candidate?.slot === slot);
+      return {
+        slot,
+        unlocked: entry?.unlocked === true,
+        enabled: entry?.enabled !== false,
+        qi: Math.max(0, Number(entry?.qi ?? 0) || 0),
+        maxQi: Math.max(0, Number(entry?.maxQi ?? 0) || 0),
+        item: entry?.item ? hydrateBootstrapItem(entry.item as PlayerState['inventory']['items'][number]) : null,
+      };
+    }),
+  };
 }
 
 type BootstrapActionSkillTemplate = {
@@ -395,6 +419,7 @@ function hydrateBootstrapPlayer(rawPlayer: S2C_Bootstrap['self']): PlayerState {
       items: (player.inventory?.items ?? []).map((item) => hydrateBootstrapItem(item)),
     },
     equipment: hydrateBootstrapEquipment(player.equipment),
+    artifacts: hydrateBootstrapArtifacts(player.artifacts),
     techniques,
     actions: (player.actions ?? []).map((action) => hydrateBootstrapAction(action as Partial<ActionDef> & { id: string }, bootstrapSkillTemplates)),
     bonuses: [],
@@ -571,7 +596,7 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
     });
   };
 
-  return {  
+  return {
   /**
  * clear：执行clear相关逻辑。
  * @returns 无返回值，直接更新clear相关状态。
@@ -590,7 +615,7 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
     getPlayerNo(): number | null {
       const pno = latestInitSession?.pno;
       return typeof pno === 'number' && Number.isSafeInteger(pno) && pno > 0 ? pno : null;
-    },    
+    },
     /**
  * handleInitSession：处理InitSession并更新相关状态。
  * @param data S2C_InitSession 原始数据。
@@ -600,7 +625,7 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
 
     handleInitSession(data: S2C_InitSession): void {
       latestInitSession = data;
-    },    
+    },
     /**
  * handleMapEnter：处理地图进入并更新相关状态。
  * @param data S2C_MapEnter 原始数据。
@@ -610,7 +635,7 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
 
     handleMapEnter(data: S2C_MapEnter): void {
       latestMapEnter = data;
-    },    
+    },
     /**
  * handleWorldDelta：处理世界增量并更新相关状态。
  * @param data S2C_WorldDelta 原始数据。
@@ -644,7 +669,7 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
       } finally {
         endRuntimeProfileMetric('runtime.handleWorldDelta', startedAt);
       }
-    },    
+    },
     /**
  * handleSelfDelta：处理Self增量并更新相关状态。
  * @param data S2C_SelfDelta 原始数据。
@@ -666,7 +691,7 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
       } finally {
         endRuntimeProfileMetric('runtime.handleSelfDelta', startedAt);
       }
-    },    
+    },
     /**
  * handlePanelDelta：处理面板增量并更新相关状态。
  * @param data S2C_PanelDelta 原始数据。
@@ -687,7 +712,7 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
       } finally {
         endRuntimeProfileMetric('runtime.handlePanelDelta', startedAt);
       }
-    },    
+    },
     /**
  * handleRealm：处理Realm并更新相关状态。
  * @param data S2C_Realm 原始数据。
@@ -723,7 +748,7 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
       options.inventorySyncPlayerContext(player ?? undefined);
       options.equipmentSyncPlayerContext?.(player ?? undefined);
       options.refreshUiChrome();
-    },    
+    },
     /**
  * handleMapStatic：处理地图Static并更新相关状态。
  * @param data S2C_MapStatic 原始数据。
@@ -746,7 +771,7 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
         pendingMapStatic = null;
       }
       applyMapStaticToCurrentRuntime(data);
-    },    
+    },
     /**
  * handleBootstrap：处理引导并更新相关状态。
  * @param data S2C_Bootstrap 原始数据。
@@ -789,6 +814,7 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
       options.syncAttrBridgeState(options.getLatestAttrUpdate());
       options.syncInventoryBridgeState(player.inventory);
       options.syncEquipmentBridgeState(player.equipment);
+      options.syncArtifactsBridgeState(player.artifacts);
       options.syncTechniquesBridgeState(player.techniques, player.cultivatingTechId);
       options.syncActionsBridgeState(player.actions, player.autoBattle, player.autoRetaliate !== false);
       options.syncBootstrapQuestState(player);

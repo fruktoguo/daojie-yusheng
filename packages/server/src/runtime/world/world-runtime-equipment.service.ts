@@ -8,7 +8,7 @@
  * 处理装备穿脱的背包操作、属性刷新和持久化提交
  */
 import { Inject, Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
-import { getItemDisplayName } from '@mud/shared';
+import { ARTIFACT_SLOTS, EQUIP_SLOTS, getItemDisplayName } from '@mud/shared';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { buildStructuredNotice } from './structured-notice.helpers';
 
@@ -78,7 +78,9 @@ export class WorldRuntimeEquipmentService {
             throw new NotFoundException(`装备槽位为空：${slot}`);
         }
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
-        const lockReason = deps.craftPanelRuntimeService.getLockedSlotReason(player, slot);
+        const lockReason = (EQUIP_SLOTS as readonly string[]).includes(slot)
+            ? deps.craftPanelRuntimeService.getLockedSlotReason(player, slot)
+            : null;
         if (lockReason) {
             throw new BadRequestException(lockReason);
         }
@@ -87,5 +89,12 @@ export class WorldRuntimeEquipmentService {
         const n2 = buildStructuredNotice('info', 'notice.equip.unequipped', `卸下 ${itemName}`, { vars: { itemName }, pills: [{ key: 'itemName', style: 'target' }] });
         deps.queuePlayerNotice(playerId, n2.text, n2.kind, undefined, undefined, n2.structured);
         deps.worldRuntimeCraftMutationService.emitAllTechniqueActivityPanelUpdates(playerId, deps);
+    }
+    /** 设置法宝槽位启用开关。 */
+    async dispatchSetArtifactSlotEnabled(playerId, slot, enabled, _deps) {
+        if (!(ARTIFACT_SLOTS as readonly string[]).includes(slot)) {
+            throw new NotFoundException(`法宝槽位不存在：${slot}`);
+        }
+        this.playerRuntimeService.setArtifactSlotEnabled(playerId, slot, enabled === true);
     }
 };

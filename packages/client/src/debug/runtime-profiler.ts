@@ -37,6 +37,7 @@ export const RUNTIME_PROFILE_METRIC_KEYS = [
   'runtime.delta.panel.inventory',
   'runtime.delta.panel.equipment',
   'runtime.delta.panel.technique',
+  'runtime.delta.panel.artifact',
   'runtime.delta.panel.actions',
   'runtime.delta.panel.buff',
 ] as const;

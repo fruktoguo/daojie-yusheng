@@ -13,6 +13,7 @@ import type {
   S2C_NpcDetail,
   S2C_MonsterDetail,
   S2C_PanelActionDelta,
+  S2C_PanelArtifactDelta,
   S2C_PanelAttrDelta,
   S2C_PanelBuffDelta,
   S2C_PanelEquipmentDelta,
@@ -36,6 +37,8 @@ export interface S2C_PanelDelta {
   inv?: S2C_PanelInventoryDelta;
   /** eq：装备相关增量。 */
   eq?: S2C_PanelEquipmentDelta;
+  /** art：法宝相关增量。 */
+  art?: S2C_PanelArtifactDelta;
   /** tech：功法相关增量。 */
   tech?: S2C_PanelTechniqueDelta;
   /** attr：属性相关增量。 */

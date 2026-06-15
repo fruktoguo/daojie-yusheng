@@ -6417,6 +6417,19 @@ function createDefaultPlayerSnapshot(source?: PlayerState): PlayerState {
     temporaryBuffs: [],
     inventory: { items: [], capacity: 24 },
     equipment: Object.fromEntries(EQUIP_SLOTS.map((slot) => [slot, null])) as EquipmentSlots,
+    artifacts: {
+      revision: 0,
+      slots: [
+        {
+          slot: 'artifact_1',
+          unlocked: false,
+          enabled: false,
+          qi: 0,
+          maxQi: 0,
+          item: null,
+        },
+      ],
+    },
     techniques: [],
     actions: [],
     quests: [],

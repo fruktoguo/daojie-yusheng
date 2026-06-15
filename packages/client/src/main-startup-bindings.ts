@@ -117,7 +117,13 @@ type MainStartupBindingsOptions = {
  * setCallbacks：Callback相关字段。
  */
 
-    setCallbacks: (onUnequip: (slot: Parameters<SocketPanelSender['sendUnequip']>[0], expectedItemInstanceId?: string) => void) => void;
+    setCallbacks: (
+      onUnequip: (slot: Parameters<SocketPanelSender['sendUnequip']>[0], expectedItemInstanceId?: string) => void,
+      onSetArtifactSlotEnabled?: (
+        slot: Parameters<SocketPanelSender['sendSetArtifactSlotEnabled']>[0],
+        enabled: Parameters<SocketPanelSender['sendSetArtifactSlotEnabled']>[1],
+      ) => void,
+    ) => void;
   };
   /**
  * npcShopModal：NPCShop弹层相关字段。
@@ -306,6 +312,7 @@ type MainStartupBindingsOptions = {
     | 'sendCancelGather'
     | 'sendStopLootHarvest'
     | 'sendUnequip'
+    | 'sendSetArtifactSlotEnabled'
     | 'sendRequestNpcShop'
     | 'sendBuyNpcShopItem'
     | 'sendRequestAlchemyPanel'
@@ -438,9 +445,14 @@ export function bindMainStartup(options: MainStartupBindingsOptions): void {
     },
   );
 
-  options.equipmentPanel.setCallbacks((slot, expectedItemInstanceId) => {
-    options.panelSender.sendUnequip(slot, expectedItemInstanceId);
-  });
+  options.equipmentPanel.setCallbacks(
+    (slot, expectedItemInstanceId) => {
+      options.panelSender.sendUnequip(slot, expectedItemInstanceId);
+    },
+    (slot, enabled) => {
+      options.panelSender.sendSetArtifactSlotEnabled(slot, enabled);
+    },
+  );
 
   options.npcShopModal.setCallbacks({
     onRequestShop: (npcId) => options.panelSender.sendRequestNpcShop(npcId),

@@ -1331,7 +1331,7 @@ export class InventoryPanel {
       this.sourceExpanded = false;
       this.sourceExpandedItemKey = this.selectedItemKey;
     }
-    const bonusLines = item.type === 'equipment'
+    const bonusLines = item.type === 'equipment' || item.type === 'artifact'
       ? describeEquipmentBonuses(previewItem, this.playerRealm?.realmLv)
       : describePreviewBonuses(previewItem.equipAttrs, previewItem.equipStats, previewItem.equipValueStats);
     const materialValueLines = item.type === 'material' ? describeMaterialValueDetails(previewItem) : [];
@@ -2914,7 +2914,7 @@ export class InventoryPanel {
     if (statusLabel) {
       return { label: statusLabel, kind: 'status', disabled: true };
     }
-    if (item.type === 'equipment') {
+    if (item.type === 'equipment' || item.type === 'artifact') {
       return { label: t('inventory.action.label.equip', undefined), kind: 'equip' };
     }
     if (this.isFormationDiskItem(item)) {

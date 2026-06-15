@@ -114,6 +114,7 @@ export const C2S = {
   SortInventory: 'n:c:sortInventory',
   Equip: 'n:c:equip',
   Unequip: 'n:c:unequip',
+  SetArtifactSlotEnabled: 'n:c:setArtifactSlotEnabled',
   Cultivate: 'n:c:cultivate',
   CastSkill: 'n:c:castSkill',
   RequestNpcShop: 'n:c:requestNpcShop',
@@ -282,6 +283,7 @@ export interface C2S_PayloadMap extends Record<C2S_EventName, unknown> {
   [C2S.SortInventory]: RequestPayloads.C2S_SortInventory;
   [C2S.Equip]: RequestPayloads.C2S_Equip;
   [C2S.Unequip]: RequestPayloads.C2S_Unequip;
+  [C2S.SetArtifactSlotEnabled]: RequestPayloads.C2S_SetArtifactSlotEnabled;
   [C2S.Cultivate]: RequestPayloads.C2S_Cultivate;
   [C2S.CastSkill]: RequestPayloads.C2S_CastSkill;
   [C2S.RequestNpcShop]: RequestPayloads.C2S_RequestNpcShop;

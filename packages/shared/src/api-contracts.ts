@@ -2087,6 +2087,16 @@ export interface GmEditorItemOption {
 
   effects?: EquipmentEffectDef[];
   /**
+ * artifactMaxQiFactor：法宝最大灵气系数。
+ */
+
+  artifactMaxQiFactor?: ItemStack['artifactMaxQiFactor'];
+  /**
+ * artifactEffects：法宝特效定义。
+ */
+
+  artifactEffects?: ItemStack['artifactEffects'];
+  /**
  * healAmount：数量或计量字段。
  */
 

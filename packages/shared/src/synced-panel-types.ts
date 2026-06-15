@@ -4,7 +4,7 @@
  * 维护时应保持无副作用、可在浏览器与 Node 环境同时使用，不引入单端专属依赖。
  */
 import type { TechniqueCategory, TechniqueGrade } from './cultivation-types';
-import type { ConsumableBuffDef, EquipmentEffectDef, EquipSlot, ItemStack, ItemType, TileResourceGainDef } from './item-runtime-types';
+import type { ArtifactSlot, ConsumableBuffDef, EquipmentEffectDef, EquipSlot, ItemStack, ItemType, TileResourceGainDef } from './item-runtime-types';
 import type { LootSearchProgressView, LootSourceKind } from './loot-view-types';
 import type { MarketListedItemView, MarketOrderBookView, MarketOwnOrderView, MarketStorage, MarketTradeHistoryEntryView } from './market-types';
 
@@ -100,6 +100,16 @@ export interface SyncedItemStack {
  */
 
   effects?: EquipmentEffectDef[];
+  /**
+ * artifactMaxQiFactor：法宝最大灵气系数。
+ */
+
+  artifactMaxQiFactor?: number;
+  /**
+ * artifactEffects：法宝特效定义。
+ */
+
+  artifactEffects?: ItemStack['artifactEffects'];
   /**
  * healAmount：数量或计量字段。
  */
@@ -298,6 +308,40 @@ export interface EquipmentSlotUpdateEntry {
   item: SyncedItemStack | null;
 }
 
+/** 法宝槽位局部更新项。 */
+export interface ArtifactSlotUpdateEntry {
+/**
+ * slot：slot相关字段。
+ */
+
+  slot: ArtifactSlot;
+  /**
+ * unlocked：槽位是否解锁。
+ */
+
+  unlocked: boolean;
+  /**
+ * enabled：槽位开关。
+ */
+
+  enabled: boolean;
+  /**
+ * qi：当前法宝灵气。
+ */
+
+  qi: number;
+  /**
+ * maxQi：最大法宝灵气。
+ */
+
+  maxQi: number;
+  /**
+ * item：道具相关字段。
+ */
+
+  item: SyncedItemStack | null;
+}
+
 /** 背包面板增量视图。 */
 export interface PanelInventoryDeltaView {
 /**
@@ -354,6 +398,25 @@ export interface PanelEquipmentDeltaView {
  */
 
   slots: EquipmentSlotUpdateEntry[];
+}
+
+/** 法宝面板增量视图。 */
+export interface PanelArtifactDeltaView {
+/**
+ * r：r相关字段。
+ */
+
+  r: number;
+  /**
+ * full：full相关字段。
+ */
+
+  full?: 1;
+  /**
+ * slots：slot相关字段。
+ */
+
+  slots: ArtifactSlotUpdateEntry[];
 }
 
 /** 战利品窗口里的单条来源视图。 */

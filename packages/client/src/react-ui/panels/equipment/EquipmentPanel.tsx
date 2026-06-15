@@ -4,7 +4,7 @@
  * 维护时要保持它只处理前端表现和组件契约，不保存业务真源，也不绕过共享规则或服务端权威运行时。
  */
 import { useCallback, useMemo, useRef, useState, memo } from 'react';
-import { EquipmentSlots, EquipSlot, PlayerState } from '@mud/shared';
+import { ArtifactSlot, EquipmentSlots, EquipSlot, PlayerState } from '@mud/shared';
 import { getEquipSlotLabel } from '../../../domain-labels';
 import { buildItemTooltipPayload } from '../../../ui/equipment-tooltip';
 import { getItemDisplayMeta } from '../../../ui/item-display';
@@ -14,6 +14,7 @@ import {
   EQUIPMENT_PANEL_TABS,
   type EquipmentPanelTab,
   formatEquipmentSlotCompactMeta,
+  getArtifactPanelSlotOrder,
   getEquipmentPanelTabSlotOrder,
   isWideEquipmentPanelSlot,
 } from '../../../ui/equipment-panel-layout';
@@ -25,24 +26,34 @@ import { t } from '../../../ui/i18n';
 
 interface EquipmentPanelState {
   equipment: EquipmentSlots | null;
+  artifacts: PlayerState['artifacts'] | null;
   playerRealmLv: number | null;
 }
 
 export const { store: equipmentPanelStore, useStore: useEquipmentPanelStore } = createPanelStore<EquipmentPanelState>({
   equipment: null,
+  artifacts: null,
   playerRealmLv: null,
 });
 
 // ─── Callbacks ───────────────────────────────────────────────────────────────
 
-let onUnequipCallback: ((slot: EquipSlot) => void) | null = null;
+type EquipmentPanelUnequipSlot = EquipSlot | ArtifactSlot;
 
-export function setEquipmentPanelCallbacks(callbacks: { onUnequip?: (slot: EquipSlot) => void }): void {
+let onUnequipCallback: ((slot: EquipmentPanelUnequipSlot, expectedItemInstanceId?: string) => void) | null = null;
+let onSetArtifactSlotEnabledCallback: ((slot: ArtifactSlot, enabled: boolean) => void) | null = null;
+
+export function setEquipmentPanelCallbacks(callbacks: {
+  onUnequip?: (slot: EquipmentPanelUnequipSlot, expectedItemInstanceId?: string) => void;
+  onSetArtifactSlotEnabled?: (slot: ArtifactSlot, enabled: boolean) => void;
+}): void {
   onUnequipCallback = callbacks.onUnequip ?? null;
+  onSetArtifactSlotEnabledCallback = callbacks.onSetArtifactSlotEnabled ?? null;
 }
 
 export function syncEquipmentPanelState(input: {
   equipment: EquipmentSlots | null;
+  artifacts?: PlayerState['artifacts'] | null;
   player?: PlayerState | null;
   playerRealmLv?: number | null;
 }): void {
@@ -53,6 +64,7 @@ export function syncEquipmentPanelState(input: {
 
   equipmentPanelStore.patchState({
     equipment: input.equipment,
+    artifacts: input.artifacts ?? input.player?.artifacts ?? null,
     playerRealmLv,
   });
 }
@@ -60,12 +72,23 @@ export function syncEquipmentPanelState(input: {
 // ─── 组件 ────────────────────────────────────────────────────────────────────
 
 export function EquipmentPanel() {
-  const { equipment, playerRealmLv } = useEquipmentPanelStore();
+  const { equipment, artifacts, playerRealmLv } = useEquipmentPanelStore();
   const [activeTab, setActiveTab] = useState<EquipmentPanelTab>('combat');
   const tooltipRef = useRef<FloatingTooltip | null>(null);
-  const tooltipSlotRef = useRef<EquipSlot | null>(null);
+  const tooltipSlotRef = useRef<string | null>(null);
   const tapMode = useMemo(() => prefersPinnedTooltipInteraction(), []);
   const activeSlots = useMemo(() => getEquipmentPanelTabSlotOrder(activeTab), [activeTab]);
+  const artifactEntries = useMemo(() => {
+    const slotEntries = new Map((artifacts?.slots ?? []).map((entry) => [entry.slot, entry]));
+    return getArtifactPanelSlotOrder().map((slot) => slotEntries.get(slot) ?? {
+      slot,
+      unlocked: false,
+      enabled: false,
+      qi: 0,
+      maxQi: 0,
+      item: null,
+    });
+  }, [artifacts]);
 
   const getTooltip = useCallback(() => {
     if (!tooltipRef.current) {
@@ -74,14 +97,20 @@ export function EquipmentPanel() {
     return tooltipRef.current;
   }, []);
 
-  if (!equipment) {
+  if (!equipment && !artifacts) {
     return <div className="empty-hint">{t('equipment.empty.all')}</div>;
   }
 
-  const hasAnyActiveEquipment = activeSlots.some((slot) => !!equipment[slot]);
+  const hasAnyActiveEquipment = activeTab === 'artifact'
+    ? artifactEntries.some((slot) => slot.unlocked && slot.item)
+    : activeSlots.some((slot) => !!equipment?.[slot]);
 
-  const handleUnequip = (slot: EquipSlot) => {
-    onUnequipCallback?.(slot);
+  const handleUnequip = (slot: EquipmentPanelUnequipSlot, expectedItemInstanceId?: string) => {
+    onUnequipCallback?.(slot, expectedItemInstanceId);
+  };
+
+  const handleArtifactToggle = (slot: ArtifactSlot, enabled: boolean) => {
+    onSetArtifactSlotEnabledCallback?.(slot, enabled);
   };
 
   const handleTabChange = (tab: EquipmentPanelTab) => {
@@ -103,7 +132,7 @@ export function EquipmentPanel() {
       }
       return;
     }
-    const slotNode = target.closest<HTMLElement>('[data-equip-tooltip-slot]');
+    const slotNode = target.closest<HTMLElement>('[data-equip-tooltip-slot],[data-artifact-tooltip-slot]');
     if (!slotNode) {
       if (tooltipSlotRef.current) {
         tooltipSlotRef.current = null;
@@ -111,18 +140,17 @@ export function EquipmentPanel() {
       }
       return;
     }
-    const slot = slotNode.dataset.equipTooltipSlot as EquipSlot | undefined;
-    const item = slot ? equipment[slot] : null;
-    if (!slot || !item) {
+    const tooltipTarget = resolveTooltipTarget(slotNode, equipment, artifacts);
+    if (!tooltipTarget) {
       if (tooltipSlotRef.current) {
         tooltipSlotRef.current = null;
         getTooltip().hide();
       }
       return;
     }
-    if (tooltipSlotRef.current !== slot) {
-      tooltipSlotRef.current = slot;
-      const payload = buildItemTooltipPayload(item, { playerRealmLv });
+    if (tooltipSlotRef.current !== tooltipTarget.key) {
+      tooltipSlotRef.current = tooltipTarget.key;
+      const payload = buildItemTooltipPayload(tooltipTarget.item, { playerRealmLv });
       getTooltip().show(payload.title, payload.lines, event.clientX, event.clientY, {
         allowHtml: payload.allowHtml,
         asideCards: payload.asideCards,
@@ -140,8 +168,8 @@ export function EquipmentPanel() {
   const handleClick = (event: React.MouseEvent) => {
     if (!tapMode) return;
     const target = event.target;
-    if (!(target instanceof HTMLElement) || target.closest('[data-unequip]')) return;
-    const slotNode = target.closest<HTMLElement>('[data-equip-tooltip-slot]');
+    if (!(target instanceof HTMLElement) || target.closest('[data-unequip],[data-artifact-toggle]')) return;
+    const slotNode = target.closest<HTMLElement>('[data-equip-tooltip-slot],[data-artifact-tooltip-slot]');
     if (!slotNode) return;
     const tooltip = getTooltip();
     if (tooltip.isPinnedTo(slotNode)) {
@@ -149,11 +177,10 @@ export function EquipmentPanel() {
       tooltip.hide(true);
       return;
     }
-    const slot = slotNode.dataset.equipTooltipSlot as EquipSlot | undefined;
-    const item = slot ? equipment[slot] : null;
-    if (!slot || !item) return;
-    const payload = buildItemTooltipPayload(item, { playerRealmLv });
-    tooltipSlotRef.current = slot;
+    const tooltipTarget = resolveTooltipTarget(slotNode, equipment, artifacts);
+    if (!tooltipTarget) return;
+    const payload = buildItemTooltipPayload(tooltipTarget.item, { playerRealmLv });
+    tooltipSlotRef.current = tooltipTarget.key;
     tooltip.showPinned(slotNode, payload.title, payload.lines, event.clientX, event.clientY, {
       allowHtml: payload.allowHtml,
       asideCards: payload.asideCards,
@@ -185,16 +212,29 @@ export function EquipmentPanel() {
         ))}
       </div>
       {!hasAnyActiveEquipment && <div className="empty-hint">{t(EQUIPMENT_PANEL_TAB_EMPTY_KEYS[activeTab])}</div>}
-      <div className="equip-slot-grid">
-        {activeSlots.map((slot) => (
-          <EquipmentSlotRow
-            key={slot}
-            slot={slot}
-            item={equipment[slot]}
-            onUnequip={handleUnequip}
-          />
-        ))}
-      </div>
+      {activeTab === 'artifact' ? (
+        <div className="artifact-slot-list">
+          {artifactEntries.map((slot) => (
+            <ArtifactSlotRow
+              key={slot.slot}
+              entry={slot}
+              onUnequip={handleUnequip}
+              onToggle={handleArtifactToggle}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="equip-slot-grid">
+          {activeSlots.map((slot) => (
+            <EquipmentSlotRow
+              key={slot}
+              slot={slot}
+              item={equipment?.[slot] ?? null}
+              onUnequip={handleUnequip}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -206,7 +246,7 @@ const EquipmentSlotRow = memo(function EquipmentSlotRow({
 }: {
   slot: EquipSlot;
   item: EquipmentSlots[EquipSlot];
-  onUnequip: (slot: EquipSlot) => void;
+  onUnequip: (slot: EquipSlot, expectedItemInstanceId?: string) => void;
 }) {
   const hasItem = !!item;
   const itemName = item ? getItemDisplayMeta(item).displayItem.name : '';
@@ -228,7 +268,10 @@ const EquipmentSlotRow = memo(function EquipmentSlotRow({
           className="small-btn"
           type="button"
           data-unequip={slot}
-          onClick={(e) => { e.stopPropagation(); onUnequip(slot); }}
+          onClick={(e) => {
+            e.stopPropagation();
+            onUnequip(slot, item.itemInstanceId);
+          }}
         >
           {t('equipment.action.unequip')}
         </button>
@@ -236,3 +279,87 @@ const EquipmentSlotRow = memo(function EquipmentSlotRow({
     </div>
   );
 });
+
+const ArtifactSlotRow = memo(function ArtifactSlotRow({
+  entry,
+  onUnequip,
+  onToggle,
+}: {
+  entry: PlayerState['artifacts']['slots'][number];
+  onUnequip: (slot: ArtifactSlot, expectedItemInstanceId?: string) => void;
+  onToggle: (slot: ArtifactSlot, enabled: boolean) => void;
+}) {
+  const hasItem = !!entry.item;
+  const itemName = entry.item ? getItemDisplayMeta(entry.item).displayItem.name : '';
+  const currentQi = Math.max(0, Math.floor(Number(entry.qi) || 0));
+  const maxQi = Math.max(0, Math.floor(Number(entry.maxQi) || 0));
+
+  return (
+    <div
+      className={`artifact-slot${entry.enabled === false ? ' is-disabled' : ''}`}
+      data-artifact-tooltip-slot={hasItem ? entry.slot : undefined}
+    >
+      <div className="equip-copy">
+        <span className="equip-slot-name">{formatArtifactSlotLabel(entry.slot)}</span>
+        {!entry.unlocked && <span className="equip-slot-empty">{t('equipment.artifact.locked')}</span>}
+        {entry.unlocked && hasItem && <span className="equip-slot-item">{itemName}</span>}
+        {entry.unlocked && !hasItem && <span className="equip-slot-empty">{t('equipment.artifact.empty')}</span>}
+        <span className="equip-slot-meta">
+          {entry.unlocked && hasItem
+            ? t('equipment.artifact.qi', { current: currentQi, max: maxQi })
+            : entry.unlocked ? t('equipment.empty.slot-meta') : t('equipment.artifact.locked')}
+        </span>
+      </div>
+      {entry.unlocked && (
+        <div className="artifact-actions">
+          <button
+            className={`small-btn artifact-toggle${entry.enabled !== false ? ' is-active' : ''}`}
+            type="button"
+            data-artifact-toggle={entry.slot}
+            onClick={(event) => {
+              event.stopPropagation();
+              onToggle(entry.slot, entry.enabled === false);
+            }}
+          >
+            {entry.enabled !== false ? t('equipment.artifact.enabled') : t('equipment.artifact.disabled')}
+          </button>
+          {hasItem && (
+            <button
+              className="small-btn"
+              type="button"
+              data-unequip={entry.slot}
+              onClick={(event) => {
+                event.stopPropagation();
+                onUnequip(entry.slot, entry.item?.itemInstanceId);
+              }}
+            >
+              {t('equipment.action.unequip')}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+});
+
+function resolveTooltipTarget(
+  node: HTMLElement,
+  equipment: EquipmentSlots | null,
+  artifacts: PlayerState['artifacts'] | null,
+): { key: string; item: NonNullable<PlayerState['inventory']['items'][number]> } | null {
+  const equipSlot = node.dataset.equipTooltipSlot as EquipSlot | undefined;
+  if (equipSlot) {
+    const item = equipment?.[equipSlot] ?? null;
+    return item ? { key: `equip:${equipSlot}`, item } : null;
+  }
+  const artifactSlot = node.dataset.artifactTooltipSlot as ArtifactSlot | undefined;
+  if (artifactSlot) {
+    const item = artifacts?.slots.find((entry) => entry.slot === artifactSlot)?.item ?? null;
+    return item ? { key: `artifact:${artifactSlot}`, item } : null;
+  }
+  return null;
+}
+
+function formatArtifactSlotLabel(slot: ArtifactSlot): string {
+  return slot === 'artifact_1' ? t('equipment.tab.artifact') : slot;
+}

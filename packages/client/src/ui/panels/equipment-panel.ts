@@ -7,7 +7,7 @@
  * 装备面板
  * 展示装备槽位的当前装备，支持卸下操作
  */
-import { EquipmentSlots, EquipSlot, PlayerState } from '@mud/shared';
+import { ArtifactSlot, EquipmentSlots, EquipSlot, PlayerState } from '@mud/shared';
 import { getEquipSlotLabel } from '../../domain-labels';
 import { preserveSelection } from '../selection-preserver';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../floating-tooltip';
@@ -20,6 +20,7 @@ import {
   type EquipmentPanelTab,
   EQUIPMENT_PANEL_SLOT_ORDER,
   getEquipmentPanelTabSlotOrder,
+  getArtifactPanelSlotOrder,
   formatEquipmentSlotCompactMeta,
   isWideEquipmentPanelSlot,
 } from '../equipment-panel-layout';
@@ -65,24 +66,39 @@ type EquipmentSlotView = {
   action: HTMLButtonElement;
 };
 
+type ArtifactSlotView = EquipmentSlotView & {
+  actions: HTMLDivElement;
+  toggle: HTMLButtonElement;
+};
+
+type EquipmentPanelUnequipSlot = EquipSlot | ArtifactSlot;
+
 /** 装备面板：显示装备槽位 */
 export class EquipmentPanel {
   /** pane：pane。 */
   private pane = document.getElementById('pane-equipment')!;
   /** onUnequip：on Unequip。 */
-  private onUnequip: ((slot: EquipSlot, expectedItemInstanceId?: string) => void) | null = null;
+  private onUnequip: ((slot: EquipmentPanelUnequipSlot, expectedItemInstanceId?: string) => void) | null = null;
+  /** onSetArtifactSlotEnabled：设置法宝槽开关。 */
+  private onSetArtifactSlotEnabled: ((slot: ArtifactSlot, enabled: boolean) => void) | null = null;
   /** lastEquipment：last Equipment。 */
   private lastEquipment: EquipmentSlots | null = null;
+  /** lastArtifacts：last Artifacts。 */
+  private lastArtifacts: PlayerState['artifacts'] | null = null;
   /** tooltip：提示。 */
   private tooltip = new FloatingTooltip('floating-tooltip equipment-tooltip');
   /** tooltipSlot：提示槽位。 */
-  private tooltipSlot: EquipSlot | null = null;
+  private tooltipSlot: string | null = null;
   /** playerRealmLv：当前玩家境界等级，用于装备生效率预览。 */
   private playerRealmLv: number | null = null;
   /** slotViews：槽位Views。 */
   private slotViews = new Map<EquipSlot, EquipmentSlotView>();
+  /** artifactSlotViews：法宝槽位Views。 */
+  private artifactSlotViews = new Map<ArtifactSlot, ArtifactSlotView>();
   /** slotSignatures：槽位显示签名，避免相同装备重复写 DOM。 */
   private slotSignatures = new Map<EquipSlot, string>();
+  /** artifactSlotSignatures：法宝槽显示签名。 */
+  private artifactSlotSignatures = new Map<ArtifactSlot, string>();
   /** tabButtons：tab按钮引用。 */
   private tabButtons = new Map<EquipmentPanelTab, HTMLButtonElement>();
   /** activeTab：当前显示的装备分类。 */
@@ -91,6 +107,10 @@ export class EquipmentPanel {
   private sectionEl: HTMLDivElement | null = null;  
   /** emptyStateEl：装备总空态提示。 */
   private emptyStateEl: HTMLDivElement | null = null;
+  /** gridEl：装备/技艺槽网格。 */
+  private gridEl: HTMLDivElement | null = null;
+  /** artifactListEl：法宝槽单列容器。 */
+  private artifactListEl: HTMLDivElement | null = null;
   /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @returns 无返回值，完成实例初始化。
@@ -106,49 +126,61 @@ export class EquipmentPanel {
   /** clear：清理clear。 */
   clear(): void {
     if (this.useReactPanel()) {
-      syncEquipmentPanelState({ equipment: null, playerRealmLv: null });
+      syncEquipmentPanelState({ equipment: null, artifacts: null, playerRealmLv: null });
       this.lastEquipment = null;
+      this.lastArtifacts = null;
       this.tooltipSlot = null;
       this.tooltip.hide(true);
       return;
     }
     this.lastEquipment = null;
+    this.lastArtifacts = null;
     this.tooltipSlot = null;
     this.tooltip.hide(true);
     this.activeTab = 'combat';
     this.tabButtons.clear();
     this.slotViews.clear();
+    this.artifactSlotViews.clear();
     this.slotSignatures.clear();
+    this.artifactSlotSignatures.clear();
     this.sectionEl = null;
     this.emptyStateEl = null;
+    this.gridEl = null;
+    this.artifactListEl = null;
     this.pane.replaceChildren();
   }  
   /**
  * setCallbacks：写入Callback。
- * @param onUnequip (slot: EquipSlot) => void 参数说明。
+ * @param onUnequip (slot: EquipmentPanelUnequipSlot) => void 参数说明。
  * @returns 无返回值，直接更新Callback相关状态。
  */
 
 
-  setCallbacks(onUnequip: (slot: EquipSlot, expectedItemInstanceId?: string) => void): void {
+  setCallbacks(
+    onUnequip: (slot: EquipmentPanelUnequipSlot, expectedItemInstanceId?: string) => void,
+    onSetArtifactSlotEnabled?: (slot: ArtifactSlot, enabled: boolean) => void,
+  ): void {
     this.onUnequip = onUnequip;
-    setEquipmentPanelCallbacks({ onUnequip });
+    this.onSetArtifactSlotEnabled = onSetArtifactSlotEnabled ?? null;
+    setEquipmentPanelCallbacks({ onUnequip, onSetArtifactSlotEnabled });
     if (this.useReactPanel()) {
-      syncEquipmentPanelState({ equipment: this.lastEquipment, playerRealmLv: this.playerRealmLv });
+      syncEquipmentPanelState({ equipment: this.lastEquipment, artifacts: this.lastArtifacts, playerRealmLv: this.playerRealmLv });
       this.mountReactPanel();
     }
   }
 
   /** 更新装备数据并重新渲染 */
-  update(equipment: EquipmentSlots): void {
+  update(equipment: EquipmentSlots, artifacts: PlayerState['artifacts'] | null = this.lastArtifacts): void {
     if (this.useReactPanel()) {
       this.lastEquipment = equipment;
-      syncEquipmentPanelState({ equipment, playerRealmLv: this.playerRealmLv });
+      this.lastArtifacts = artifacts;
+      syncEquipmentPanelState({ equipment, artifacts, playerRealmLv: this.playerRealmLv });
       this.mountReactPanel();
       return;
     }
     this.lastEquipment = equipment;
-    this.render(equipment);
+    this.lastArtifacts = artifacts;
+    this.render(equipment, artifacts);
   }
 
   /** syncPlayerContext：同步装备提示依赖的玩家上下文。 */
@@ -161,13 +193,14 @@ export class EquipmentPanel {
     }
     this.playerRealmLv = nextRealmLv;
     if (this.useReactPanel()) {
-      syncEquipmentPanelState({ equipment: this.lastEquipment, playerRealmLv: this.playerRealmLv });
+      syncEquipmentPanelState({ equipment: this.lastEquipment, artifacts: this.lastArtifacts, playerRealmLv: this.playerRealmLv });
       this.mountReactPanel();
       return;
     }
     this.slotSignatures.clear();
+    this.artifactSlotSignatures.clear();
     if (this.lastEquipment) {
-      this.render(this.lastEquipment);
+      this.render(this.lastEquipment, this.lastArtifacts);
     }
   }
 
@@ -177,12 +210,13 @@ export class EquipmentPanel {
       ? Math.max(1, Math.floor(Number(player.realm?.realmLv ?? player.realmLv)))
       : null;
     this.lastEquipment = player.equipment;
+    this.lastArtifacts = player.artifacts;
     if (this.useReactPanel()) {
-      syncEquipmentPanelState({ equipment: player.equipment, player });
+      syncEquipmentPanelState({ equipment: player.equipment, artifacts: player.artifacts, player });
       this.mountReactPanel();
       return;
     }
-    this.render(player.equipment);
+    this.render(player.equipment, player.artifacts);
   }
 
   private useReactPanel(): boolean {
@@ -205,12 +239,12 @@ export class EquipmentPanel {
     this.tooltip.hide(true);
     this.updateTabButtons();
     if (this.lastEquipment) {
-      this.render(this.lastEquipment);
+      this.render(this.lastEquipment, this.lastArtifacts);
     }
   }
 
   /** render：渲染渲染。 */
-  private render(equipment: EquipmentSlots): void {
+  private render(equipment: EquipmentSlots, artifacts: PlayerState['artifacts'] | null = this.lastArtifacts): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     this.ensureStructure();
@@ -218,7 +252,15 @@ export class EquipmentPanel {
       return;
     }
 
-    const visibleSlots = getEquipmentPanelTabSlotOrder(this.activeTab);
+    const isArtifactTab = this.activeTab === 'artifact';
+    if (this.gridEl) {
+      this.gridEl.hidden = isArtifactTab;
+    }
+    if (this.artifactListEl) {
+      this.artifactListEl.hidden = !isArtifactTab;
+    }
+
+    const visibleSlots = isArtifactTab ? [] : getEquipmentPanelTabSlotOrder(this.activeTab);
     const visibleSlotSet = new Set(visibleSlots);
     let hasAnyEquipment = false;
     for (const slot of EQUIPMENT_PANEL_SLOT_ORDER) {
@@ -254,6 +296,9 @@ export class EquipmentPanel {
       slotView.action.disabled = !hasItem;
       slotView.action.dataset.unequip = slot;
     }
+    if (isArtifactTab) {
+      hasAnyEquipment = this.renderArtifactSlots(artifacts);
+    }
     if (this.emptyStateEl) {
       this.emptyStateEl.textContent = hasAnyEquipment
         ? ''
@@ -266,7 +311,15 @@ export class EquipmentPanel {
   private ensureStructure(): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    if (this.sectionEl && this.emptyStateEl && this.slotViews.size === EQUIPMENT_PANEL_SLOT_ORDER.length && this.tabButtons.size === EQUIPMENT_PANEL_TABS.length) {
+    if (
+      this.sectionEl
+      && this.emptyStateEl
+      && this.gridEl
+      && this.artifactListEl
+      && this.slotViews.size === EQUIPMENT_PANEL_SLOT_ORDER.length
+      && this.artifactSlotViews.size === getArtifactPanelSlotOrder().length
+      && this.tabButtons.size === EQUIPMENT_PANEL_TABS.length
+    ) {
       this.updateTabButtons();
       return;
     }
@@ -274,7 +327,9 @@ export class EquipmentPanel {
     preserveSelection(this.pane, () => {
       this.pane.replaceChildren();
       this.slotViews.clear();
+      this.artifactSlotViews.clear();
       this.slotSignatures.clear();
+      this.artifactSlotSignatures.clear();
       this.tabButtons.clear();
 
       const sectionEl = document.createElement('div');
@@ -319,9 +374,20 @@ export class EquipmentPanel {
       }
       sectionEl.append(gridEl);
 
+      const artifactListEl = document.createElement('div');
+      artifactListEl.className = 'artifact-slot-list';
+      for (const slot of getArtifactPanelSlotOrder()) {
+        const slotView = this.createArtifactSlotView(slot);
+        this.artifactSlotViews.set(slot, slotView);
+        artifactListEl.append(slotView.root);
+      }
+      sectionEl.append(artifactListEl);
+
       this.pane.append(sectionEl);
       this.sectionEl = sectionEl;
       this.emptyStateEl = emptyStateEl;
+      this.gridEl = gridEl;
+      this.artifactListEl = artifactListEl;
     });
   }
 
@@ -363,9 +429,103 @@ export class EquipmentPanel {
     return { root, name, item, empty, meta, action };
   }
 
+  /** createArtifactSlotView：创建法宝槽位视图。 */
+  private createArtifactSlotView(slot: ArtifactSlot): ArtifactSlotView {
+    const base = this.createSlotView('weapon');
+    base.root.className = 'artifact-slot';
+    base.name.textContent = this.formatArtifactSlotLabel(slot);
+    base.action.dataset.unequip = slot;
+
+    const actions = document.createElement('div');
+    actions.className = 'artifact-actions';
+
+    const toggle = document.createElement('button');
+    toggle.className = 'small-btn artifact-toggle';
+    toggle.type = 'button';
+    toggle.dataset.artifactToggle = slot;
+    toggle.textContent = t('equipment.artifact.enabled', undefined);
+
+    actions.append(toggle, base.action);
+    base.root.replaceChild(actions, base.action);
+    return { ...base, actions, toggle };
+  }
+
+  /** renderArtifactSlots：渲染法宝槽并返回当前 tab 是否有已装备法宝。 */
+  private renderArtifactSlots(artifacts: PlayerState['artifacts'] | null): boolean {
+    const slots = Array.isArray(artifacts?.slots) ? artifacts.slots : [];
+    let hasAnyArtifact = false;
+    for (const slot of getArtifactPanelSlotOrder()) {
+      const slotView = this.artifactSlotViews.get(slot);
+      if (!slotView) {
+        continue;
+      }
+      const entry = slots.find((candidate) => candidate.slot === slot);
+      const unlocked = entry?.unlocked === true;
+      const enabled = entry?.enabled !== false;
+      const item = entry?.item ?? null;
+      const hasItem = !!item;
+      hasAnyArtifact ||= unlocked && hasItem;
+      const itemName = item ? getItemDisplayMeta(item).displayItem.name : '';
+      const currentQi = Math.max(0, Math.floor(Number(entry?.qi ?? 0) || 0));
+      const maxQi = Math.max(0, Math.floor(Number(entry?.maxQi ?? 0) || 0));
+      const metaText = unlocked && hasItem
+        ? t('equipment.artifact.qi', { current: currentQi, max: maxQi })
+        : unlocked ? t('equipment.empty.slot-meta', undefined) : t('equipment.artifact.locked', undefined);
+      const emptyText = unlocked ? t('equipment.artifact.empty', undefined) : t('equipment.artifact.locked', undefined);
+      const signature = this.buildArtifactSlotSignature(slot, unlocked, enabled, hasItem, itemName, metaText, currentQi, maxQi);
+      if (this.artifactSlotSignatures.get(slot) === signature) {
+        continue;
+      }
+      this.artifactSlotSignatures.set(slot, signature);
+      slotView.root.hidden = false;
+      slotView.root.classList.toggle('is-disabled', !enabled);
+      slotView.root.toggleAttribute('data-artifact-tooltip-slot', hasItem);
+      if (hasItem) {
+        slotView.root.dataset.artifactTooltipSlot = slot;
+      } else {
+        delete slotView.root.dataset.artifactTooltipSlot;
+      }
+      slotView.name.textContent = this.formatArtifactSlotLabel(slot);
+      slotView.item.textContent = itemName;
+      slotView.item.hidden = !hasItem;
+      slotView.empty.textContent = emptyText;
+      slotView.empty.hidden = hasItem;
+      slotView.meta.textContent = metaText;
+      slotView.actions.hidden = !unlocked;
+      slotView.toggle.hidden = !unlocked;
+      slotView.toggle.disabled = !unlocked;
+      slotView.toggle.classList.toggle('is-active', enabled);
+      slotView.toggle.textContent = enabled ? t('equipment.artifact.enabled', undefined) : t('equipment.artifact.disabled', undefined);
+      slotView.toggle.dataset.artifactEnabled = enabled ? 'true' : 'false';
+      slotView.action.hidden = !unlocked || !hasItem;
+      slotView.action.disabled = !unlocked || !hasItem;
+      slotView.action.dataset.unequip = slot;
+    }
+    return hasAnyArtifact;
+  }
+
   /** buildSlotSignature：生成槽位当前展示所需的稳定签名。 */
   private buildSlotSignature(slot: EquipSlot, isVisible: boolean, hasItem: boolean, itemName: string, metaText: string): string {
     return [slot, isVisible ? 'visible' : 'hidden', hasItem ? 'equipped' : 'empty', itemName, metaText].join('|');
+  }
+
+  /** buildArtifactSlotSignature：生成法宝槽展示签名。 */
+  private buildArtifactSlotSignature(
+    slot: ArtifactSlot,
+    unlocked: boolean,
+    enabled: boolean,
+    hasItem: boolean,
+    itemName: string,
+    metaText: string,
+    currentQi: number,
+    maxQi: number,
+  ): string {
+    return [slot, unlocked ? 'unlocked' : 'locked', enabled ? 'enabled' : 'disabled', hasItem ? 'equipped' : 'empty', itemName, metaText, currentQi, maxQi].join('|');
+  }
+
+  /** formatArtifactSlotLabel：显示法宝槽名称。 */
+  private formatArtifactSlotLabel(slot: ArtifactSlot): string {
+    return slot === 'artifact_1' ? t('equipment.tab.artifact', undefined) : slot;
   }
 
   /** updateTabButtons：同步tab按钮active态。 */
@@ -384,6 +544,34 @@ export class EquipmentPanel {
     }
   }
 
+  /** resolveSlotItem：按普通装备槽或法宝槽读取当前物品。 */
+  private resolveSlotItem(slot: EquipmentPanelUnequipSlot) {
+    if (this.isArtifactSlot(slot)) {
+      return this.lastArtifacts?.slots.find((entry) => entry.slot === slot)?.item ?? null;
+    }
+    return this.lastEquipment?.[slot] ?? null;
+  }
+
+  /** resolveTooltipTarget：解析当前 tooltip 目标。 */
+  private resolveTooltipTarget(node: HTMLElement): { key: string; item: NonNullable<PlayerState['inventory']['items'][number]> } | null {
+    const equipSlot = node.dataset.equipTooltipSlot as EquipSlot | undefined;
+    if (equipSlot) {
+      const item = this.resolveSlotItem(equipSlot);
+      return item ? { key: `equip:${equipSlot}`, item } : null;
+    }
+    const artifactSlot = node.dataset.artifactTooltipSlot as ArtifactSlot | undefined;
+    if (artifactSlot) {
+      const item = this.resolveSlotItem(artifactSlot);
+      return item ? { key: `artifact:${artifactSlot}`, item } : null;
+    }
+    return null;
+  }
+
+  /** isArtifactSlot：判断是否为法宝槽。 */
+  private isArtifactSlot(slot: EquipmentPanelUnequipSlot): slot is ArtifactSlot {
+    return getArtifactPanelSlotOrder().includes(slot as ArtifactSlot);
+  }
+
   /** bindActionEvents：绑定动作事件。 */
   private bindActionEvents(): void {
     this.pane.addEventListener('click', (event) => {
@@ -395,13 +583,22 @@ export class EquipmentPanel {
       if (tabButton) {
         return;
       }
+      const toggleButton = target.closest<HTMLButtonElement>('[data-artifact-toggle]');
+      const toggleSlot = toggleButton?.dataset.artifactToggle as ArtifactSlot | undefined;
+      if (toggleButton && toggleSlot && !toggleButton.disabled) {
+        const entry = this.lastArtifacts?.slots.find((candidate) => candidate.slot === toggleSlot);
+        if (entry?.unlocked === true) {
+          this.onSetArtifactSlotEnabled?.(toggleSlot, entry.enabled === false);
+        }
+        return;
+      }
       const button = target.closest<HTMLButtonElement>('[data-unequip]');
-      const slot = button?.dataset.unequip as EquipSlot | undefined;
+      const slot = button?.dataset.unequip as EquipmentPanelUnequipSlot | undefined;
       if (!button || !slot || button.disabled) {
         return;
       }
       // 透传 itemInstanceId 给服务端做乐观一致性校验，防止"装备槽切换 + 卸下"竞争错配
-      const slotItem = this.lastEquipment?.[slot] ?? null;
+      const slotItem = this.resolveSlotItem(slot);
       const expectedItemInstanceId = slotItem && typeof slotItem.itemInstanceId === 'string'
         ? slotItem.itemInstanceId
         : undefined;
@@ -417,11 +614,11 @@ export class EquipmentPanel {
         return;
       }
       const target = event.target;
-      if (!(target instanceof HTMLElement) || target.closest('[data-unequip]')) {
+      if (!(target instanceof HTMLElement) || target.closest('[data-unequip],[data-artifact-toggle]')) {
         return;
       }
-      const slotNode = target.closest<HTMLElement>('[data-equip-tooltip-slot]');
-      if (!slotNode || !this.lastEquipment) {
+      const slotNode = target.closest<HTMLElement>('[data-equip-tooltip-slot],[data-artifact-tooltip-slot]');
+      if (!slotNode) {
         return;
       }
       if (this.tooltip.isPinnedTo(slotNode)) {
@@ -429,13 +626,12 @@ export class EquipmentPanel {
         this.tooltip.hide(true);
         return;
       }
-      const slot = slotNode.dataset.equipTooltipSlot as EquipSlot | undefined;
-      const item = slot ? this.lastEquipment[slot] : null;
-      if (!slot || !item) {
+      const tooltipTarget = this.resolveTooltipTarget(slotNode);
+      if (!tooltipTarget) {
         return;
       }
-      const tooltip = buildItemTooltipPayload(item, { playerRealmLv: this.playerRealmLv });
-      this.tooltipSlot = slot;
+      const tooltip = buildItemTooltipPayload(tooltipTarget.item, { playerRealmLv: this.playerRealmLv });
+      this.tooltipSlot = tooltipTarget.key;
       this.tooltip.showPinned(slotNode, tooltip.title, tooltip.lines, event.clientX, event.clientY, {
         allowHtml: tooltip.allowHtml,
         asideCards: tooltip.asideCards,
@@ -457,8 +653,8 @@ export class EquipmentPanel {
         return;
       }
 
-      const slotNode = target.closest<HTMLElement>('[data-equip-tooltip-slot]');
-      if (!slotNode || !this.lastEquipment) {
+      const slotNode = target.closest<HTMLElement>('[data-equip-tooltip-slot],[data-artifact-tooltip-slot]');
+      if (!slotNode) {
         if (this.tooltipSlot) {
           this.tooltipSlot = null;
           this.tooltip.hide();
@@ -466,9 +662,8 @@ export class EquipmentPanel {
         return;
       }
 
-      const slot = slotNode.dataset.equipTooltipSlot as EquipSlot | undefined;
-      const item = slot ? this.lastEquipment[slot] : null;
-      if (!slot || !item) {
+      const tooltipTarget = this.resolveTooltipTarget(slotNode);
+      if (!tooltipTarget) {
         if (this.tooltipSlot) {
           this.tooltipSlot = null;
           this.tooltip.hide();
@@ -476,9 +671,9 @@ export class EquipmentPanel {
         return;
       }
 
-      if (this.tooltipSlot !== slot) {
-        this.tooltipSlot = slot;
-        const tooltip = buildItemTooltipPayload(item, { playerRealmLv: this.playerRealmLv });
+      if (this.tooltipSlot !== tooltipTarget.key) {
+        this.tooltipSlot = tooltipTarget.key;
+        const tooltip = buildItemTooltipPayload(tooltipTarget.item, { playerRealmLv: this.playerRealmLv });
         this.tooltip.show(tooltip.title, tooltip.lines, event.clientX, event.clientY, {
           allowHtml: tooltip.allowHtml,
           asideCards: tooltip.asideCards,

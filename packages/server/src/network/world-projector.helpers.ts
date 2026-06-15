@@ -93,6 +93,7 @@ import {
   diffFormationEntries,
   diffInventorySlots,
   diffEquipmentSlots,
+  diffArtifactSlots,
   diffTechniqueEntries,
   diffRemovedTechniqueIds,
   diffActionEntries,
@@ -565,6 +566,11 @@ function buildFullPanelDeltaFromState(panel: ProjectedPanelState): S2C_PanelDelt
             full: 1 as const,
             slots: panel.equipment.slots,
         },
+        art: {
+            r: panel.artifact.revision,
+            full: 1 as const,
+            slots: panel.artifact.slots,
+        },
         tech: {
             r: panel.technique.revision,
             full: 1 as const,
@@ -584,6 +590,7 @@ function buildBootstrapPanelDelta(player: ProjectorPlayerLike): S2C_PanelDelta {
     return {
         inv: { r: player.inventory.revision },
         eq: { r: player.equipment.revision, slots: [] },
+        art: { r: resolveArtifactPanelRevision(player), slots: [] },
         tech: { r: player.techniques.revision, techniques: [] },
         attr: { r: player.attrs.revision },
         act: { r: player.actions.revision, actions: [] },
@@ -761,6 +768,8 @@ function capturePanelState(player: ProjectorPlayerLike, previousPanel?: Projecte
             ? prev.inventory : captureInventoryPanelSlice(player),
         equipment: prev && prev.equipment.revision === player.equipment.revision
             ? prev.equipment : captureEquipmentPanelSlice(player),
+        artifact: prev && prev.artifact.revision === resolveArtifactPanelRevision(player)
+            ? prev.artifact : captureArtifactPanelSlice(player),
         technique: prev && prev.technique.revision === player.techniques.revision
             ? prev.technique : captureTechniquePanelSlice(player),
         attr: prev && canReuseAttrPanelSlice(prev.attr, player)
@@ -781,6 +790,9 @@ function buildPanelCursor(player: ProjectorPlayerLike, previousCursor?: Projecte
     const canReuseEquipmentCursor = previousCursor
         && previousCursor.equipmentSlotSignatures
         && previousCursor.equipmentRevision === player.equipment.revision;
+    const canReuseArtifactCursor = previousCursor
+        && previousCursor.artifactSlotSignatures
+        && previousCursor.artifactRevision === resolveArtifactPanelRevision(player);
     const canReuseActionCursor = previousCursor
         && Array.isArray(previousCursor.actionIds)
         && previousCursor.actionEntrySignatures
@@ -803,6 +815,10 @@ function buildPanelCursor(player: ProjectorPlayerLike, previousCursor?: Projecte
         equipmentSlotSignatures: canReuseEquipmentCursor
             ? previousCursor.equipmentSlotSignatures
             : buildEquipmentSlotSignatures(player.equipment.slots),
+        artifactRevision: resolveArtifactPanelRevision(player),
+        artifactSlotSignatures: canReuseArtifactCursor
+            ? previousCursor.artifactSlotSignatures
+            : buildArtifactSlotSignatures(resolveArtifactPanelSlots(player)),
         techniqueRevision: player.techniques.revision,
         attrRevision: player.attrs.revision,
         actionRevision: player.actions.revision,
@@ -935,6 +951,20 @@ function buildEquipmentSlotSignatures(slots: ProjectorPlayerLike['equipment']['s
     const signatures: Record<string, string> = {};
     for (const entry of slots) {
         signatures[entry.slot] = buildStableProtocolSignature(entry.item ?? null);
+    }
+    return signatures;
+}
+
+function buildArtifactSlotSignatures(slots: NonNullable<ProjectorPlayerLike['artifacts']>['slots']): Record<string, string> {
+    const signatures: Record<string, string> = {};
+    for (const entry of slots) {
+        signatures[entry.slot] = buildStableProtocolSignature({
+            unlocked: entry.unlocked === true,
+            enabled: entry.enabled !== false,
+            qi: Math.max(0, Number(entry.qi) || 0),
+            maxQi: Math.max(0, Number(entry.maxQi) || 0),
+            item: entry.item ?? null,
+        });
     }
     return signatures;
 }
@@ -1102,6 +1132,28 @@ function captureInventoryPanelSlice(player: ProjectorPlayerLike): ProjectedPanel
 
 function captureEquipmentPanelSlice(player: ProjectorPlayerLike): ProjectedPanelState['equipment'] {
     return { revision: player.equipment.revision, slots: player.equipment.slots.map((entry) => ({ slot: entry.slot, item: entry.item ? { ...entry.item } : null })) };
+}
+
+function captureArtifactPanelSlice(player: ProjectorPlayerLike): ProjectedPanelState['artifact'] {
+    return {
+        revision: resolveArtifactPanelRevision(player),
+        slots: resolveArtifactPanelSlots(player).map((entry) => ({
+            slot: entry.slot,
+            unlocked: entry.unlocked === true,
+            enabled: entry.enabled !== false,
+            qi: Math.max(0, Number(entry.qi) || 0),
+            maxQi: Math.max(0, Number(entry.maxQi) || 0),
+            item: entry.item ? { ...entry.item } : null,
+        })),
+    };
+}
+
+function resolveArtifactPanelRevision(player: ProjectorPlayerLike): number {
+    return Math.max(1, Math.trunc(Number(player.artifacts?.revision ?? 1) || 1));
+}
+
+function resolveArtifactPanelSlots(player: ProjectorPlayerLike): NonNullable<ProjectorPlayerLike['artifacts']>['slots'] {
+    return Array.isArray(player.artifacts?.slots) ? player.artifacts.slots : [];
 }
 
 function captureTechniquePanelSlice(player: ProjectorPlayerLike): ProjectedPanelState['technique'] {
@@ -1474,6 +1526,11 @@ function buildPanelDeltaFromCursor(
         const slotPatch = diffEquipmentSlotsFromCursor(previousCursor, currentCursor, equipment.slots);
         delta.eq = { r: equipment.revision, slots: slotPatch };
     }
+    if (previousCursor.artifactRevision !== currentCursor.artifactRevision) {
+        const artifact = captureArtifactPanelSlice(player);
+        const slotPatch = diffArtifactSlotsFromCursor(previousCursor, currentCursor, artifact.slots);
+        delta.art = { r: artifact.revision, slots: slotPatch };
+    }
     if (!options.skipTechnique && previousCursor.techniqueRevision !== currentCursor.techniqueRevision) {
         const technique = captureTechniquePanelSlice(player);
         delta.tech = {
@@ -1507,7 +1564,7 @@ function buildPanelDeltaFromCursor(
             removeBuffIds: removedBuffIds.length > 0 ? removedBuffIds : undefined,
         };
     }
-    return delta.inv || delta.eq || delta.tech || delta.attr || delta.act || delta.buff ? delta : null;
+    return delta.inv || delta.eq || delta.art || delta.tech || delta.attr || delta.act || delta.buff ? delta : null;
 }
 
 function diffInventorySlotsFromCursor(
@@ -1536,6 +1593,22 @@ function diffEquipmentSlotsFromCursor(
     const patch: NonNullable<S2C_PanelDelta['eq']>['slots'] = [];
     const previousSignatures = previousCursor.equipmentSlotSignatures ?? {};
     const currentSignatures = currentCursor.equipmentSlotSignatures ?? {};
+    for (const entry of currentSlots) {
+        if ((previousSignatures[entry.slot] ?? '') !== (currentSignatures[entry.slot] ?? '')) {
+            patch.push(entry);
+        }
+    }
+    return patch;
+}
+
+function diffArtifactSlotsFromCursor(
+    previousCursor: ProjectedPanelCursor,
+    currentCursor: ProjectedPanelCursor,
+    currentSlots: NonNullable<S2C_PanelDelta['art']>['slots'],
+): NonNullable<S2C_PanelDelta['art']>['slots'] {
+    const patch: NonNullable<S2C_PanelDelta['art']>['slots'] = [];
+    const previousSignatures = previousCursor.artifactSlotSignatures ?? {};
+    const currentSignatures = currentCursor.artifactSlotSignatures ?? {};
     for (const entry of currentSlots) {
         if ((previousSignatures[entry.slot] ?? '') !== (currentSignatures[entry.slot] ?? '')) {
             patch.push(entry);
@@ -1780,6 +1853,8 @@ function buildPanelDeltaFromState(previousPanel: ProjectedPanelState, currentPan
     const currentInventory = currentPanel.inventory;
     const previousEquipment = previousPanel.equipment;
     const currentEquipment = currentPanel.equipment;
+    const previousArtifact = previousPanel.artifact;
+    const currentArtifact = currentPanel.artifact;
     const previousTechnique = previousPanel.technique;
     const currentTechnique = currentPanel.technique;
     const previousAttr = previousPanel.attr;
@@ -1802,6 +1877,10 @@ function buildPanelDeltaFromState(previousPanel: ProjectedPanelState, currentPan
     if (previousEquipment.revision !== currentEquipment.revision) {
         const slotPatch = diffEquipmentSlots(previousEquipment.slots, currentEquipment.slots);
         delta.eq = { r: currentEquipment.revision, slots: slotPatch };
+    }
+    if (previousArtifact.revision !== currentArtifact.revision) {
+        const slotPatch = diffArtifactSlots(previousArtifact.slots, currentArtifact.slots);
+        delta.art = { r: currentArtifact.revision, slots: slotPatch };
     }
     if (previousTechnique.revision !== currentTechnique.revision) {
         const techniquePatch = diffTechniqueEntries(previousTechnique.techniques, currentTechnique.techniques);
@@ -1863,7 +1942,7 @@ function buildPanelDeltaFromState(previousPanel: ProjectedPanelState, currentPan
             removeBuffIds: removedBuffIds.length > 0 ? removedBuffIds : undefined,
         };
     }
-    return delta.inv || delta.eq || delta.tech || delta.attr || delta.act || delta.buff ? delta : null;
+    return delta.inv || delta.eq || delta.art || delta.tech || delta.attr || delta.act || delta.buff ? delta : null;
 }
 
 export {

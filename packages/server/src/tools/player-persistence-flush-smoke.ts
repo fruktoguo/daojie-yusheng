@@ -54,6 +54,10 @@ function buildSnapshot(savedAt: number): PersistedPlayerSnapshot {
       revision: 1,
       slots: [],
     },
+    artifacts: {
+      revision: 0,
+      slots: [],
+    },
     techniques: {
       revision: 1,
       techniques: [],

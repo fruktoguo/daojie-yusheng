@@ -59,6 +59,10 @@ function buildStarterSnapshot(playerId: string): PersistedPlayerSnapshot {
       revision: 1,
       slots: [],
     },
+    artifacts: {
+      revision: 0,
+      slots: [],
+    },
     techniques: {
       revision: 1,
       techniques: [],

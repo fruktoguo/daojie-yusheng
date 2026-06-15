@@ -211,6 +211,7 @@ export const ACTION_TYPE_LABELS: Record<ActionType, string> = {
 export const ITEM_TYPE_LABELS: Record<ItemType, string> = {
   consumable: '消耗品',
   equipment: '装备',
+  artifact: '法宝',
   material: '材料',
   quest_item: '任务物',
   skill_book: '功法书',

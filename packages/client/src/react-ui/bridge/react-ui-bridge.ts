@@ -24,7 +24,7 @@ export const reactUiBridge = {
 
   syncMounted(mounted: boolean): void {
     shellStore.patchState({ mounted });
-  },  
+  },
   /**
  * syncEnabled：处理启用并更新相关状态。
  * @param enabled boolean 参数说明。
@@ -34,7 +34,7 @@ export const reactUiBridge = {
 
   syncEnabled(enabled: boolean): void {
     shellStore.patchState({ enabled });
-  },  
+  },
   /**
  * syncRuntime：处理运行态并更新相关状态。
  * @param runtime PanelRuntimeState 参数说明。
@@ -44,7 +44,7 @@ export const reactUiBridge = {
 
   syncRuntime(runtime: PanelRuntimeState): void {
     shellStore.patchState({ runtime: { ...runtime } });
-  },  
+  },
   /**
  * syncCapabilities：处理Capability并更新相关状态。
  * @param capabilities PanelCapabilities 参数说明。
@@ -59,7 +59,7 @@ export const reactUiBridge = {
         safeAreaInsets: { ...capabilities.safeAreaInsets },
       },
     });
-  },  
+  },
   /**
  * syncPlayer：处理玩家并更新相关状态。
  * @param player PlayerState | null 玩家对象。
@@ -68,12 +68,14 @@ export const reactUiBridge = {
 
 
   syncPlayer(player: PlayerState | null): void {
-    panelDataStore.patchState({ player });
+    const nextArtifacts = player ? player.artifacts : null;
+    panelDataStore.patchState({ player, artifacts: nextArtifacts });
     syncEquipmentPanelState({
       equipment: player?.equipment ?? panelDataStore.getState().equipment,
+      artifacts: nextArtifacts,
       player,
     });
-  },  
+  },
   /**
  * syncAttrUpdate：处理AttrUpdate并更新相关状态。
  * @param attrUpdate S2C_AttrUpdate | null 参数说明。
@@ -83,7 +85,7 @@ export const reactUiBridge = {
 
   syncAttrUpdate(attrUpdate: S2C_AttrUpdate | null): void {
     panelDataStore.patchState({ attrUpdate });
-  },  
+  },
   /**
  * syncInventory：处理背包并更新相关状态。
  * @param inventory Inventory | null 参数说明。
@@ -93,7 +95,7 @@ export const reactUiBridge = {
 
   syncInventory(inventory: Inventory | null): void {
     panelDataStore.patchState({ inventory });
-  },  
+  },
   /**
  * syncEquipment：处理装备并更新相关状态。
  * @param equipment PlayerState['equipment'] | null 参数说明。
@@ -105,9 +107,25 @@ export const reactUiBridge = {
     panelDataStore.patchState({ equipment });
     syncEquipmentPanelState({
       equipment,
+      artifacts: panelDataStore.getState().artifacts,
       player: panelDataStore.getState().player,
     });
-  },  
+  },
+  /**
+ * syncArtifacts：处理法宝并更新相关状态。
+ * @param artifacts PlayerState['artifacts'] | null 参数说明。
+ * @returns 无返回值，直接更新法宝相关状态。
+ */
+
+
+  syncArtifacts(artifacts: PlayerState['artifacts'] | null): void {
+    panelDataStore.patchState({ artifacts });
+    syncEquipmentPanelState({
+      equipment: panelDataStore.getState().equipment,
+      artifacts,
+      player: panelDataStore.getState().player,
+    });
+  },
   /**
  * syncTechniques：处理功法并更新相关状态。
  * @param techniques TechniqueState[] 参数说明。
@@ -124,7 +142,7 @@ export const reactUiBridge = {
       techniques,
       cultivatingTechId,
     });
-  },  
+  },
   /**
  * syncActions：处理Action并更新相关状态。
  * @param actions ActionDef[] 参数说明。
@@ -144,7 +162,7 @@ export const reactUiBridge = {
       autoBattle,
       autoRetaliate,
     });
-  },  
+  },
   /**
  * syncQuests：处理任务并更新相关状态。
  * @param quests PlayerState['quests'] | null 参数说明。
@@ -154,7 +172,7 @@ export const reactUiBridge = {
 
   syncQuests(quests: PlayerState['quests'] | null): void {
     panelDataStore.patchState({ quests });
-  },  
+  },
   /**
  * reset：执行reset相关逻辑。
  * @returns 无返回值，直接更新reset相关状态。
@@ -167,6 +185,7 @@ export const reactUiBridge = {
       attrUpdate: null,
       inventory: null,
       equipment: null,
+      artifacts: null,
       techniques: [],
       cultivatingTechId: undefined,
       actions: [],
@@ -176,6 +195,7 @@ export const reactUiBridge = {
     });
     syncEquipmentPanelState({
       equipment: null,
+      artifacts: null,
       player: null,
     });
   },

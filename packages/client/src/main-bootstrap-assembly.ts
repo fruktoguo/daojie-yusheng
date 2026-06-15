@@ -507,6 +507,7 @@ type MainBootstrapAssemblyOptions = {
     | 'sendStartEnhancement'
     | 'sendCancelEnhancement'
     | 'sendCancelTechniqueActivity'
+    | 'sendSetArtifactSlotEnabled'
     | 'sendRequestLeaderboard'
     | 'sendRequestWorldSummary'
   >;

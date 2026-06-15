@@ -11,7 +11,7 @@
 /** 运行时参数标准化工具：统一输入解析、比较稳定性与展示数据。
  * 职责：输入校验、ID 构建、坐标/数值归一化。 */
 import { BadRequestException } from '@nestjs/common';
-import { Direction, EQUIP_SLOTS, PLAYER_REALM_CONFIG, PlayerRealmStage, calcQiCostWithOutputLimit, createItemStackSignature, getDamageTrailColor, getItemStackDisplayLabel, mergeItemStackEntryInto, mergeItemStackInto, resolveSkillEffectiveRange } from '@mud/shared';
+import { ARTIFACT_SLOTS, Direction, EQUIP_SLOTS, PLAYER_REALM_CONFIG, PlayerRealmStage, calcQiCostWithOutputLimit, createItemStackSignature, getDamageTrailColor, getItemStackDisplayLabel, mergeItemStackEntryInto, mergeItemStackInto, resolveSkillEffectiveRange } from '@mud/shared';
 
 /** 统一动作 ID。 */
 export function normalizeRuntimeActionId(actionIdInput) {
@@ -632,6 +632,22 @@ export function normalizeEquipSlot(input) {
         throw new BadRequestException(`装备槽位无效：${String(input)}`);
     }
     return slot;
+}
+/** 验证并规范化法宝槽位枚举。 */
+export function normalizeArtifactSlot(input) {
+    const slot = typeof input === 'string' ? input.trim() : '';
+    if (!(ARTIFACT_SLOTS as readonly string[]).includes(slot)) {
+        throw new BadRequestException(`法宝槽位无效：${String(input)}`);
+    }
+    return slot;
+}
+/** 卸下入口允许装备槽与法宝槽，但不混淆两者规则。 */
+export function normalizeEquipmentOrArtifactSlot(input) {
+    const slot = typeof input === 'string' ? input.trim() : '';
+    if ((EQUIP_SLOTS as readonly string[]).includes(slot) || (ARTIFACT_SLOTS as readonly string[]).includes(slot)) {
+        return slot;
+    }
+    throw new BadRequestException(`装备槽位无效：${String(input)}`);
 }
 /** 标准化功法 ID，空值返回 null。 */
 export function normalizeTechniqueId(input) {

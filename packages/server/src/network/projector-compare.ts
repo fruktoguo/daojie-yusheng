@@ -65,6 +65,8 @@ export function isSameItem(left: SyncedItemStack | null | undefined, right: Sync
         && isSamePartialNumericStats(left.equipValueStats, right.equipValueStats)
         && isSameItemSpecialStats(left.equipSpecialStats, right.equipSpecialStats)
         && isSameEquipmentEffectList(left.effects, right.effects)
+        && left.artifactMaxQiFactor === right.artifactMaxQiFactor
+        && isSameArtifactEffectList(left.artifactEffects, right.artifactEffects)
         && left.healAmount === right.healAmount
         && left.healPercent === right.healPercent
         && left.baselineHealPercent === right.baselineHealPercent
@@ -102,6 +104,27 @@ export function isSameTileResourceGainList(
     }
     for (let index = 0; index < left.length; index += 1) {
         if (left[index]?.resourceKey !== right[index]?.resourceKey || left[index]?.amount !== right[index]?.amount) {
+            return false;
+        }
+    }
+    return true;
+}
+
+export function isSameArtifactEffectList(
+    left: SyncedItemStack['artifactEffects'],
+    right: SyncedItemStack['artifactEffects'],
+) {
+    if (left === right) {
+        return true;
+    }
+    if (!left || !right || left.length !== right.length) {
+        return false;
+    }
+    for (let index = 0; index < left.length; index += 1) {
+        const leftEntry = left[index];
+        const rightEntry = right[index];
+        if (leftEntry?.type !== rightEntry?.type
+            || leftEntry?.costMaxQiRatio !== rightEntry?.costMaxQiRatio) {
             return false;
         }
     }

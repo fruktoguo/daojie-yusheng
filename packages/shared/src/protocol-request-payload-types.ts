@@ -72,6 +72,7 @@ import type {
   PlaceAuctionBidView,
   SaveAlchemyPresetView,
   SellMarketItemView,
+  SetArtifactSlotEnabledView,
   SortInventoryView,
   StartAlchemyView,
   StartGatherView,
@@ -282,6 +283,8 @@ export interface C2S_SortInventory extends SortInventoryView {}
 export interface C2S_Equip extends EquipView {}
 /** 卸下指定装备槽位。 */
 export interface C2S_Unequip extends UnequipView {}
+/** 设置法宝槽位开关。 */
+export interface C2S_SetArtifactSlotEnabled extends SetArtifactSlotEnabledView {}
 /** 开始或停止修炼功法。 */
 export interface C2S_Cultivate extends CultivateView {}
 /** 释放技能。 */

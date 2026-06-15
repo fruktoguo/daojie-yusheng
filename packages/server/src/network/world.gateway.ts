@@ -511,6 +511,10 @@ class WorldGateway implements WorldGatewayHelperContext {
     handleUnequip(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayInventoryHelper.handleUnequip(client, payload);
     }
+    @SubscribeMessage(C2S.SetArtifactSlotEnabled)
+    handleSetArtifactSlotEnabled(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
+        return this.gatewayInventoryHelper.handleSetArtifactSlotEnabled(client, payload);
+    }
     @SubscribeMessage(C2S.Cultivate)
     handleCultivate(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayActionHelper.handleCultivate(client, payload);

@@ -541,6 +541,7 @@ function buildTechniqueProjectionSnapshot(
     unlockedMapIds: [],
     inventory: { revision: 1, capacity: 20, items: [], lockedItems: [] },
     equipment: { revision: 1, slots: [] },
+    artifacts: { revision: 0, slots: [] },
     techniques: {
       revision: 1,
       techniques,

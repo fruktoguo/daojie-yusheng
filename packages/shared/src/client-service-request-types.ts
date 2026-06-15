@@ -3,7 +3,7 @@
  *
  * 维护时应保持无副作用、可在浏览器与 Node 环境同时使用，不引入单端专属依赖。
  */
-import type { EquipSlot, ItemType } from './item-runtime-types';
+import type { ArtifactSlot, EquipSlot, ItemType } from './item-runtime-types';
 import type { TechniqueCategory } from './cultivation-types';
 import type { AuctionFilterCategory, AuctionHouseTab, MarketTradeHistoryScope, MarketTradeSource } from './market-types';
 import type { MailFilter } from './mail-types';
@@ -639,13 +639,27 @@ export interface UnequipView {
  * slot：slot相关字段。
  */
 
-  slot: EquipSlot;
+  slot: EquipSlot | ArtifactSlot;
   /**
  * expectedItemInstanceId：客户端看到当前装备槽内的装备 instanceId。
  * 服务端按 ITEM_INSTANCE_ID_HARD_CHECK 配置做乐观一致性校验。
  */
 
   expectedItemInstanceId?: string;
+}
+
+/** 设置法宝槽位开关。 */
+export interface SetArtifactSlotEnabledView {
+/**
+ * slot：法宝槽位。
+ */
+
+  slot: ArtifactSlot;
+  /**
+ * enabled：启用开关。
+ */
+
+  enabled: boolean;
 }
 
 /** 开始或停止修炼。 */

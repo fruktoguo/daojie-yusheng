@@ -10,7 +10,7 @@
  */
 import { Inject, BadRequestException, Injectable, Logger, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
-import { ATTR_KEYS, AUTO_IDLE_CULTIVATION_DELAY_TICKS, BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER, DEFAULT_BASE_ATTRS, DEFAULT_BONE_AGE_YEARS, DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS, DEFAULT_INVENTORY_CAPACITY, DEFAULT_PLAYER_REALM_STAGE, Direction, EQUIP_SLOTS, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, RETURN_TO_SPAWN_ACTION_ID, RETURN_TO_SPAWN_COOLDOWN_TICKS, TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH, TechniqueRealm, calculateTechniqueComprehensionProgressGain, calculateTechniqueComprehensionRequiredProgress, canMergeItemStack, cloneCraftEquipmentStats, coalesceItemStackList, compileValueStatsToActualStats, computeCraftSkillExpGain, createItemStackSignature, enforceSkillEnabledLimit, getBodyTrainingExpToNext, isCreatedTechniqueId, mergeItemStackInto, normalizeBodyTrainingState, normalizeHorizontalFacing, percentModifierToMultiplier, resolvePlayerSkillSlotLimit, resolveSkillRequiresTarget, resolveTechniqueStandardMaxHpRecoveryAmount, resolveTechniqueStandardMaxQiRecoveryAmount, signedRatioValue } from '@mud/shared';
+import { ARTIFACT_BASELINE_REALM_LV, ARTIFACT_SLOTS, ARTIFACT_UNLOCK_REALM_LV, ATTR_KEYS, AUTO_IDLE_CULTIVATION_DELAY_TICKS, BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER, DEFAULT_BASE_ATTRS, DEFAULT_BONE_AGE_YEARS, DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS, DEFAULT_INVENTORY_CAPACITY, DEFAULT_PLAYER_REALM_STAGE, Direction, EQUIP_SLOTS, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, RETURN_TO_SPAWN_ACTION_ID, RETURN_TO_SPAWN_COOLDOWN_TICKS, TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH, TechniqueRealm, calculateTechniqueComprehensionProgressGain, calculateTechniqueComprehensionRequiredProgress, canMergeItemStack, cloneCraftEquipmentStats, coalesceItemStackList, compileValueStatsToActualStats, computeCraftSkillExpGain, createItemStackSignature, enforceSkillEnabledLimit, getBodyTrainingExpToNext, getTechniqueStandardMaxQiBaseline, isCreatedTechniqueId, mergeItemStackInto, normalizeBodyTrainingState, normalizeHorizontalFacing, percentModifierToMultiplier, resolvePlayerSkillSlotLimit, resolveSkillRequiresTarget, resolveTechniqueStandardMaxHpRecoveryAmount, resolveTechniqueStandardMaxQiRecoveryAmount, signedRatioValue } from '@mud/shared';
 import { assignItemInstanceIdIfNeeded, compareItemInstanceId, isItemInstanceIdHardCheckEnabled } from '../world/item-instance-id.helpers';
 import { isNativeGmBotPlayerId } from '../../http/native/native-gm.constants';
 import { PVP_SHA_BACKLASH_BUFF_ID, PVP_SHA_BACKLASH_DECAY_TICKS, PVP_SHA_BACKLASH_PERCENT_PER_STACK, PVP_SHA_BACKLASH_SOURCE_ID, PVP_SHA_BACKLASH_STACK_DIVISOR, PVP_SHA_INFUSION_ATTACK_CAP_PERCENT, PVP_SHA_INFUSION_BUFF_ID, PVP_SHA_INFUSION_DECAY_TICKS, PVP_SHA_INFUSION_SOURCE_ID, PVP_SOUL_INJURY_BUFF_ID, PVP_SOUL_INJURY_DURATION_TICKS, PVP_SOUL_INJURY_SOURCE_ID } from '../../constants/gameplay/pvp';
@@ -388,6 +388,7 @@ export class PlayerRuntimeService {
                 revision: 1,
                 slots: buildEquipmentSnapshot(this.contentTemplateRepository.createDefaultEquipment()),
             },
+            artifacts: buildDefaultArtifactState(false),
             techniques: {
                 revision: 1,
                 techniques: [],
@@ -466,6 +467,7 @@ export class PlayerRuntimeService {
             npcQuestMarkerCache: new Map(),
         };
         this.playerProgressionService.initializePlayer(player);
+        this.ensureArtifactUnlockState(player);
         this.rebuildActionState(player, resolvePlayerRuntimeTick(player, 0));
         return player;
     }
@@ -1518,7 +1520,9 @@ export class PlayerRuntimeService {
         const statisticBefore = this.captureOfflineGainBeforeTick(player);
 
         const result = this.playerProgressionService.attemptBreakthrough(player);
-        return this.applyProgressionResultWithStatistics(player, result, statisticBefore, currentTick, true);
+        const applied = this.applyProgressionResultWithStatistics(player, result, statisticBefore, currentTick, true);
+        this.ensureArtifactUnlockState(player);
+        return applied;
     }
     /** 凝练根基。 */
     refineRootFoundation(playerId, currentTick = 0) {
@@ -1909,7 +1913,42 @@ export class PlayerRuntimeService {
     peekEquippedItem(playerId, slot) {
 
         const player = this.getPlayerOrThrow(playerId);
+        if (ARTIFACT_SLOTS.includes(slot)) {
+            return player.artifacts?.slots?.find((entry) => entry.slot === slot)?.item ?? null;
+        }
         return player.equipment.slots.find((entry) => entry.slot === slot)?.item ?? null;
+    }
+    /** 确保法宝槽结构完整，并按历史最高境界永久解锁。 */
+    ensureArtifactUnlockState(player) {
+        const highestRealmLv = typeof this.playerProgressionService?.getHighestRealmLv === 'function'
+            ? this.playerProgressionService.getHighestRealmLv(player)
+            : Math.max(1, Math.trunc(Number(player?.realm?.realmLv ?? player?.realmLv ?? 1) || 1));
+        const shouldUnlockFirstSlot = highestRealmLv >= ARTIFACT_UNLOCK_REALM_LV;
+        const previousRevision = Math.max(1, Math.trunc(Number(player?.artifacts?.revision ?? 1) || 1));
+        const normalized = normalizeArtifactStateWithTemplates(
+            player?.artifacts,
+            this.contentTemplateRepository,
+            shouldUnlockFirstSlot,
+        );
+        let changed = !player.artifacts
+            || player.artifacts.revision !== normalized.revision
+            || !Array.isArray(player.artifacts.slots)
+            || player.artifacts.slots.length !== normalized.slots.length;
+        for (const nextSlot of normalized.slots) {
+            const previousSlot = player.artifacts?.slots?.find((entry) => entry.slot === nextSlot.slot);
+            if (!isSameArtifactSlotStateForRuntime(previousSlot, nextSlot)) {
+                changed = true;
+                break;
+            }
+        }
+        player.artifacts = normalized;
+        if (!changed) {
+            return false;
+        }
+        player.artifacts.revision = previousRevision + 1;
+        markPlayerDirtyDomains(player, ['artifact']);
+        this.bumpPersistentRevision(player);
+        return true;
     }
     /**
  * getTechniqueName：读取功法名称。
@@ -2778,6 +2817,9 @@ export class PlayerRuntimeService {
             throw new NotFoundException(`背包槽位不存在：${slotIndex}`);
         }
         const normalizedItem = this.contentTemplateRepository.normalizeItem(item);
+        if (normalizedItem.type === 'artifact') {
+            return this.equipArtifactItem(player, slotIndex, normalizedItem, expectedItemInstanceId);
+        }
         if (!normalizedItem.equipSlot) {
             throw new NotFoundException(`物品 ${normalizedItem.itemId} 不能装备`);
         }
@@ -2859,6 +2901,9 @@ export class PlayerRuntimeService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const player = this.getPlayerOrThrow(playerId);
+        if (ARTIFACT_SLOTS.includes(slot)) {
+            return this.unequipArtifactItem(player, slot, expectedItemInstanceId);
+        }
 
         const equipmentEntry = player.equipment.slots.find((entry) => entry.slot === slot);
         if (!equipmentEntry || !equipmentEntry.item) {
@@ -2889,6 +2934,103 @@ export class PlayerRuntimeService {
         player.equipment.revision += 1;
         this.playerAttributesService.recalculate(player);
         markPlayerDirtyDomains(player, ['inventory', 'equipment', 'attr']);
+        this.bumpPersistentRevision(player);
+        return player;
+    }
+    /** 设置法宝槽位启用开关。 */
+    setArtifactSlotEnabled(playerId, slot, enabled) {
+        const player = this.getPlayerOrThrow(playerId);
+        this.ensureArtifactUnlockState(player);
+        const entry = player.artifacts?.slots?.find((candidate) => candidate.slot === slot);
+        if (!entry) {
+            throw new NotFoundException(`法宝槽位不存在：${slot}`);
+        }
+        if (entry.unlocked !== true) {
+            throw new BadRequestException('法宝槽尚未开启');
+        }
+        const nextEnabled = enabled === true;
+        if (entry.enabled === nextEnabled) {
+            return player;
+        }
+        entry.enabled = nextEnabled;
+        player.artifacts.revision += 1;
+        markPlayerDirtyDomains(player, ['artifact']);
+        this.bumpPersistentRevision(player);
+        return player;
+    }
+    /** 装备法宝：复用装备 C2S 入口，但写入独立法宝槽。 */
+    equipArtifactItem(player, slotIndex, normalizedItem, expectedItemInstanceId) {
+        this.ensureArtifactUnlockState(player);
+        const artifactEntry = player.artifacts?.slots?.find((entry) => entry.unlocked === true);
+        if (!artifactEntry) {
+            throw new BadRequestException('法宝槽尚未开启');
+        }
+        assignItemInstanceIdIfNeeded(normalizedItem);
+        const compare = compareItemInstanceId(
+            normalizedItem.itemInstanceId,
+            expectedItemInstanceId,
+        );
+        if (compare === 'mismatch') {
+            const hardCheck = isItemInstanceIdHardCheckEnabled();
+            console.warn(
+                `[player-runtime] equipArtifact itemInstanceId mismatch player=${player.playerId} slot=${slotIndex} `
+                + `expected=${expectedItemInstanceId} actual=${normalizedItem.itemInstanceId} hardCheck=${hardCheck}`,
+            );
+            if (hardCheck) {
+                throw new BadRequestException('法宝目标已变更，请重新选择。');
+            }
+        }
+        const equippedItem = takeSingleInventoryItemForEquipment(player.inventory.items, slotIndex);
+        if (!equippedItem) {
+            throw new NotFoundException(`背包槽位不存在：${slotIndex}`);
+        }
+        if (typeof normalizedItem.itemInstanceId === 'string' && !equippedItem.itemInstanceId) {
+            (equippedItem as any).itemInstanceId = normalizedItem.itemInstanceId;
+        }
+        const previousArtifact = artifactEntry.item ?? null;
+        artifactEntry.item = this.contentTemplateRepository.normalizeItem(equippedItem);
+        assignItemInstanceIdIfNeeded(artifactEntry.item);
+        artifactEntry.maxQi = resolveArtifactMaxQi(artifactEntry.item);
+        artifactEntry.qi = artifactEntry.maxQi;
+        if (previousArtifact) {
+            assignItemInstanceIdIfNeeded(previousArtifact);
+            mergeItemStackInto(player.inventory.items, previousArtifact);
+        }
+        player.inventory.revision += 1;
+        player.artifacts.revision += 1;
+        markPlayerDirtyDomains(player, ['inventory', 'artifact']);
+        this.bumpPersistentRevision(player);
+        return player;
+    }
+    /** 卸下法宝并回到背包。 */
+    unequipArtifactItem(player, slot, expectedItemInstanceId) {
+        const artifactEntry = player.artifacts?.slots?.find((entry) => entry.slot === slot);
+        if (!artifactEntry || !artifactEntry.item) {
+            throw new NotFoundException(`法宝槽位为空：${slot}`);
+        }
+        const unequippedItem = artifactEntry.item;
+        assignItemInstanceIdIfNeeded(unequippedItem);
+        const compare = compareItemInstanceId(
+            unequippedItem.itemInstanceId,
+            expectedItemInstanceId,
+        );
+        if (compare === 'mismatch') {
+            const hardCheck = isItemInstanceIdHardCheckEnabled();
+            console.warn(
+                `[player-runtime] unequipArtifact itemInstanceId mismatch player=${player.playerId} slot=${slot} `
+                + `expected=${expectedItemInstanceId} actual=${unequippedItem.itemInstanceId} hardCheck=${hardCheck}`,
+            );
+            if (hardCheck) {
+                throw new BadRequestException('法宝目标已变更，请重新选择。');
+            }
+        }
+        mergeItemStackInto(player.inventory.items, unequippedItem);
+        artifactEntry.item = null;
+        artifactEntry.qi = 0;
+        artifactEntry.maxQi = 0;
+        player.inventory.revision += 1;
+        player.artifacts.revision += 1;
+        markPlayerDirtyDomains(player, ['inventory', 'artifact']);
         this.bumpPersistentRevision(player);
         return player;
     }
@@ -4460,6 +4602,16 @@ export class PlayerRuntimeService {
             markPlayerDirtyDomains(player, ['equipment']);
             this.bumpPersistentRevision(player);
         }
+        let artifactInstanceIdRepaired = false;
+        for (const artifactEntry of player.artifacts?.slots ?? []) {
+            if (artifactEntry?.item && assignItemInstanceIdIfNeeded(artifactEntry.item)) {
+                artifactInstanceIdRepaired = true;
+            }
+        }
+        if (artifactInstanceIdRepaired) {
+            markPlayerDirtyDomains(player, ['artifact']);
+            this.bumpPersistentRevision(player);
+        }
         return buildRuntimePlayerPersistenceSnapshot(player, this.mapTemplateRepository, dirtyDomains);
     }
     /**
@@ -4626,6 +4778,7 @@ export class PlayerRuntimeService {
                 bodyTraining,
                 attrs: this.playerAttributesService.createInitialState(),
                 equipment: { revision: 1, slots: equipmentSlots },
+                artifacts: normalizeArtifactStateWithTemplates(snapshot.artifacts, this.contentTemplateRepository, false),
                 techniques: { revision: 1, techniques, cultivatingTechId: snapshot.techniques.cultivatingTechId },
                 pendingTechniqueComprehensions: clonePendingTechniqueComprehensions(snapshot.techniques?.pendingComprehensions),
                 buffs: { revision: 1, buffs },
@@ -4802,6 +4955,7 @@ export class PlayerRuntimeService {
                     ? normalizeEquipmentSlotsWithTemplates(snapshot.equipment.slots, this.contentTemplateRepository)
                     : defaultEquipment,
             },
+            artifacts: normalizeArtifactStateWithTemplates(snapshot.artifacts, this.contentTemplateRepository, false),
             techniques: {
                 revision: Math.max(1, snapshot.techniques.revision),
                 techniques: snapshot.techniques.techniques
@@ -4884,6 +5038,7 @@ export class PlayerRuntimeService {
         player.attrs.rawBaseAttrs = decodePersistedRawBaseAttrs(snapshot.attrState?.baseAttrs);
         player.enhancementSkillLevel = Math.max(1, Math.floor(Number(player.enhancementSkill?.level ?? player.enhancementSkillLevel) || 1));
         this.playerProgressionService.initializePlayer(player);
+        this.ensureArtifactUnlockState(player);
         if (pendingComprehensions.changed) {
             markPlayerDirtyDomains(player, ['technique']);
             this.bumpPersistentRevision(player);
@@ -4924,8 +5079,18 @@ export class PlayerRuntimeService {
                 upgradedAny = true;
             }
         }
+        let upgradedArtifactAny = false;
+        for (const artifactEntry of player.artifacts?.slots ?? []) {
+            if (artifactEntry?.item && assignItemInstanceIdIfNeeded(artifactEntry.item)) {
+                upgradedArtifactAny = true;
+            }
+        }
         if (upgradedAny) {
             markPlayerDirtyDomains(player, ['inventory', 'equipment']);
+            this.bumpPersistentRevision(player);
+        }
+        if (upgradedArtifactAny) {
+            markPlayerDirtyDomains(player, ['artifact']);
             this.bumpPersistentRevision(player);
         }
         if (repairDuplicateInventoryItemInstanceIds(player.inventory.items)) {
@@ -5536,6 +5701,80 @@ function buildEquipmentSnapshot(equipment) {
         item: equipment[slot] ?? null,
     }));
 }
+
+function buildDefaultArtifactState(unlocked = false) {
+    return {
+        revision: 1,
+        slots: ARTIFACT_SLOTS.map((slot, index) => ({
+            slot,
+            unlocked: unlocked === true && index === 0,
+            enabled: true,
+            qi: 0,
+            maxQi: 0,
+            item: null,
+        })),
+    };
+}
+
+function normalizeArtifactStateWithTemplates(source, contentTemplateRepository, unlockFirstSlot = false) {
+    const record = source && typeof source === 'object' ? source : {};
+    const sourceSlots = Array.isArray(record.slots) ? record.slots : [];
+    const revision = Math.max(1, Math.trunc(Number(record.revision ?? 1) || 1));
+    return {
+        revision,
+        slots: ARTIFACT_SLOTS.map((slot, index) => {
+            const slotRecord = sourceSlots.find((entry) => entry?.slot === slot) ?? null;
+            const rawItem = slotRecord?.item && typeof slotRecord.item === 'object' ? slotRecord.item : null;
+            const item = rawItem ? contentTemplateRepository.normalizeItem(rawItem) : null;
+            const maxQi = item ? resolveArtifactMaxQi(item) : 0;
+            return {
+                slot,
+                unlocked: slotRecord?.unlocked === true || (unlockFirstSlot === true && index === 0),
+                enabled: slotRecord?.enabled !== false,
+                qi: item ? clamp(Number(slotRecord?.qi ?? maxQi), 0, maxQi) : 0,
+                maxQi,
+                item,
+            };
+        }),
+    };
+}
+
+function resolveArtifactMaxQi(item) {
+    if (!item || typeof item !== 'object') {
+        return 0;
+    }
+    const factor = Number.isFinite(Number(item.artifactMaxQiFactor))
+        ? Math.max(0, Number(item.artifactMaxQiFactor))
+        : 0;
+    if (factor <= 0) {
+        return 0;
+    }
+    return Math.max(0, Math.round(getTechniqueStandardMaxQiBaseline(ARTIFACT_BASELINE_REALM_LV) * factor));
+}
+
+function isSameArtifactSlotStateForRuntime(left, right) {
+    if (!left || !right) {
+        return false;
+    }
+    if (
+        left.slot !== right.slot
+        || left.unlocked !== right.unlocked
+        || left.enabled !== right.enabled
+        || left.qi !== right.qi
+        || left.maxQi !== right.maxQi
+    ) {
+        return false;
+    }
+    return buildArtifactItemSignature(left.item) === buildArtifactItemSignature(right.item);
+}
+
+function buildArtifactItemSignature(item) {
+    if (!item) {
+        return '';
+    }
+    const instanceId = typeof item.itemInstanceId === 'string' ? item.itemInstanceId : '';
+    return `${instanceId}:${createItemStackSignature(item)}`;
+}
 function cloneQuestRuntimeEntry(entry) {
     const objectiveType = entry.objectiveType === 'talk'
         || entry.objectiveType === 'submit_item'
@@ -5656,6 +5895,17 @@ function cloneRuntimePlayerState(player) {
             revision: player.equipment.revision,
             slots: player.equipment.slots.map((entry) => ({
                 slot: entry.slot,
+                item: entry.item ? cloneItemPreservingTemplate(entry.item) : null,
+            })),
+        },
+        artifacts: {
+            revision: Math.max(1, Math.trunc(Number(player.artifacts?.revision ?? 1) || 1)),
+            slots: (player.artifacts?.slots ?? []).map((entry) => ({
+                slot: entry.slot,
+                unlocked: entry.unlocked === true,
+                enabled: entry.enabled !== false,
+                qi: Math.max(0, Number(entry.qi) || 0),
+                maxQi: Math.max(0, Number(entry.maxQi) || 0),
                 item: entry.item ? cloneItemPreservingTemplate(entry.item) : null,
             })),
         },
@@ -7333,6 +7583,20 @@ function buildRuntimePlayerPersistenceSnapshot(player, mapTemplateRepository = n
             })),
         } : {
             revision: player.equipment.revision,
+            slots: [],
+        },
+        artifacts: needsDomain('artifact') ? {
+            revision: Math.max(1, Math.trunc(Number(player.artifacts?.revision ?? 1) || 1)),
+            slots: (player.artifacts?.slots ?? []).map((entry) => ({
+                slot: entry.slot,
+                unlocked: entry.unlocked === true,
+                enabled: entry.enabled !== false,
+                qi: Math.max(0, Number(entry.qi) || 0),
+                maxQi: Math.max(0, Number(entry.maxQi) || 0),
+                item: entry.item ? { ...entry.item } : null,
+            })),
+        } : {
+            revision: Math.max(1, Math.trunc(Number(player.artifacts?.revision ?? 1) || 1)),
             slots: [],
         },
         techniques: needsTechnique ? {

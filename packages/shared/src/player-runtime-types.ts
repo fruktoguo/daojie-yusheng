@@ -20,7 +20,7 @@ import type {
   PlayerMiningJob,
   PlayerTransmissionJob,
 } from './crafting-types';
-import type { EquipmentSlots, Inventory } from './item-runtime-types';
+import type { EquipmentSlots, Inventory, PlayerArtifactState } from './item-runtime-types';
 import type { TechniqueActivityQueueItem } from './technique-activity-pipeline-types';
 import type { MarketStorage } from './market-types';
 import type { PendingLogbookMessage, QuestNavigationState, QuestState } from './quest-types';
@@ -342,6 +342,11 @@ export interface PlayerState {
  */
 
   equipment: EquipmentSlots;
+  /**
+ * artifacts：法宝槽位与灵气状态。
+ */
+
+  artifacts: PlayerArtifactState;
   /**
  * techniques：功法相关字段。
  */

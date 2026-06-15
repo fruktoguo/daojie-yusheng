@@ -182,6 +182,8 @@ export function resolvePreviewItem(item: ItemStack): ItemStack {
     equipValueStats: sourceItem.equipValueStats ?? template.equipValueStats,
     equipSpecialStats: template.equipSpecialStats ?? sourceItem.equipSpecialStats,
     effects: sourceItem.effects ?? template.effects,
+    artifactMaxQiFactor: sourceItem.artifactMaxQiFactor ?? template.artifactMaxQiFactor,
+    artifactEffects: sourceItem.artifactEffects ?? template.artifactEffects,
     healAmount: sourceItem.healAmount ?? template.healAmount,
     healPercent: sourceItem.healPercent ?? template.healPercent,
     baselineHealPercent: sourceItem.baselineHealPercent ?? template.baselineHealPercent,

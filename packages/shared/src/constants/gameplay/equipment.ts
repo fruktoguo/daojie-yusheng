@@ -22,6 +22,15 @@ export const TECHNIQUE_EQUIP_SLOTS = [
 /** 装备槽位列表。 */
 export const EQUIP_SLOTS = [...COMBAT_EQUIP_SLOTS, ...TECHNIQUE_EQUIP_SLOTS] as const;
 
+/** 法宝槽位列表。历史最高境界达到半步金丹后开放第一个槽位。 */
+export const ARTIFACT_SLOTS = ['artifact_1'] as const;
+
+/** 法宝槽开启门槛：半步金丹。 */
+export const ARTIFACT_UNLOCK_REALM_LV = 42;
+
+/** 法宝灵气基准境界：半步金丹。 */
+export const ARTIFACT_BASELINE_REALM_LV = 42;
+
 /** 技艺工具标签到装备槽的权威映射。 */
 export const TECHNIQUE_EQUIP_SLOT_BY_TOOL_TAG = {
   alchemy_furnace: 'technique_alchemy',
@@ -59,6 +68,11 @@ export const EQUIP_SLOT_SORT_ORDER = {
   technique_enhancement: 7,
   technique_mining: 8,
   technique_building: 9,
+} as const;
+
+/** 法宝槽位整理顺序。 */
+export const ARTIFACT_SLOT_SORT_ORDER = {
+  artifact_1: 0,
 } as const;
 
 /** createEmptyCraftEquipmentStats：创建空技艺装备属性投影。 */

@@ -32,6 +32,7 @@ import type {
 } from './session-sync-types';
 import type {
   EquipmentUpdateView,
+  ArtifactUpdateView,
   InventoryUpdateView,
   LootWindowUpdateView,
   MailOpResultView,
@@ -79,6 +80,7 @@ import type {
   TechniqueUpdateView,
 } from './panel-update-types';
 import type {
+  PanelArtifactDeltaView,
   PanelEquipmentDeltaView,
   PanelInventoryDeltaView,
 } from './synced-panel-types';
@@ -190,6 +192,8 @@ export interface S2C_SelfDelta extends SelfDeltaView {}
 export interface S2C_PanelInventoryDelta extends PanelInventoryDeltaView {}
 /** 装备面板增量。 */
 export interface S2C_PanelEquipmentDelta extends PanelEquipmentDeltaView {}
+/** 法宝面板增量。 */
+export interface S2C_PanelArtifactDelta extends PanelArtifactDeltaView {}
 /** 功法面板增量。 */
 export interface S2C_PanelTechniqueDelta extends PanelTechniqueDeltaView {
 /**
@@ -259,6 +263,8 @@ export interface S2C_RealmUpdate extends RealmUpdateView {}
 export interface S2C_InventoryUpdate extends InventoryUpdateView {}
 /** 装备面板更新。 */
 export interface S2C_EquipmentUpdate extends EquipmentUpdateView {}
+/** 法宝面板更新。 */
+export interface S2C_ArtifactUpdate extends ArtifactUpdateView {}
 /** 功法面板局部更新项。 */
 export interface TechniqueUpdateEntry extends TechniqueUpdateEntryView {}
 /** 功法面板更新。 */

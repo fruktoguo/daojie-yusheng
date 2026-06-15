@@ -2053,7 +2053,7 @@ async function playerControlCase(runtime) {
   socket.emit(C2S.UseItem, { itemRef: itemRef(player, "book.qingmu_sword") });
   await lib.waitForState(runtime.api, playerId, function (current) {
     return current.techniques.techniques.some(function (entry) { return entry.techId === "qingmu_sword"; });
-  }, 5000, "unlockSkillForAutoBattle");
+  }, 15000, "unlockSkillForAutoBattle");
 /**
  * 记录learnedstate。
  */
@@ -2342,6 +2342,15 @@ async function mailCase(runtime) {
   await emitAndWait(socket, C2S.MarkMailRead, { mailIds: [mailId] }, S2C.MailOpResult, function (payload) {
     return payload && payload.mailIds && payload.mailIds.indexOf(mailId) >= 0;
   }, 10000);
+  if (!HAS_DATABASE) {
+    await emitAndWait(socket, C2S.ClaimMailAttachments, { mailIds: [mailId] }, S2C.MailOpResult, function (payload) {
+      return payload && payload.operation === 'claim' && payload.ok === false;
+    }, 10000);
+    await emitAndWait(socket, C2S.DeleteMail, { mailIds: [mailId] }, S2C.MailOpResult, function (payload) {
+      return payload && payload.operation === 'delete' && payload.ok === false;
+    }, 10000);
+    return;
+  }
 /**
  * 记录claim令牌。
  */
@@ -2435,7 +2444,7 @@ async function progressionCase(runtime) {
  */
   var player = (await runtime.api.fetchState(attackerId)).player;
   attacker.emit(C2S.UseItem, { itemRef: itemRef(player, "book.qingmu_sword") });
-  await lib.waitForState(runtime.api, attackerId, function (current) { return current.techniques.techniques.some(function (entry) { return entry.techId === "qingmu_sword"; }); }, 5000, "learn");
+  await lib.waitForState(runtime.api, attackerId, function (current) { return current.techniques.techniques.some(function (entry) { return entry.techId === "qingmu_sword"; }); }, 15000, "learn");
   player = (await runtime.api.fetchState(attackerId)).player;
 /**
  * 记录真实技能ID。

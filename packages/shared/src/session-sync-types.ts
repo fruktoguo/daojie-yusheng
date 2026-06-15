@@ -53,6 +53,54 @@ export type BootstrapEquipmentView = {
   [K in keyof PlayerState['equipment']]: BootstrapItemStackView | null;
 };
 
+/** 首包法宝槽位状态。 */
+export interface BootstrapArtifactSlotView {
+/**
+ * slot：法宝槽位。
+ */
+
+  slot: PlayerState['artifacts']['slots'][number]['slot'];
+  /**
+ * unlocked：槽位是否解锁。
+ */
+
+  unlocked: boolean;
+  /**
+ * enabled：槽位开关。
+ */
+
+  enabled: boolean;
+  /**
+ * qi：当前法宝灵气。
+ */
+
+  qi: number;
+  /**
+ * maxQi：最大法宝灵气。
+ */
+
+  maxQi: number;
+  /**
+ * item：法宝实例态。
+ */
+
+  item: BootstrapItemStackView | null;
+}
+
+/** 首包法宝只承载槽位开关、灵气与物品实例态。 */
+export interface BootstrapArtifactView {
+/**
+ * revision：revision相关字段。
+ */
+
+  revision: number;
+  /**
+ * slots：slot相关字段。
+ */
+
+  slots: BootstrapArtifactSlotView[];
+}
+
 /** 首包功法视图：静态功法可由客户端本地资源补齐，动态功法由服务端携带展示模板字段。 */
 export interface BootstrapTechniqueView {
 /**
@@ -147,7 +195,7 @@ export interface BootstrapActionView {
 }
 
 /** 首包玩家视图：保留运行态字段，面板静态描述由客户端模板补齐。 */
-export interface BootstrapSelfView extends Omit<PlayerState, 'inventory' | 'equipment' | 'techniques' | 'actions' | 'bonuses' | 'quests'> {
+export interface BootstrapSelfView extends Omit<PlayerState, 'inventory' | 'equipment' | 'artifacts' | 'techniques' | 'actions' | 'bonuses' | 'quests'> {
 /**
  * inventory：背包相关字段。
  */
@@ -158,6 +206,11 @@ export interface BootstrapSelfView extends Omit<PlayerState, 'inventory' | 'equi
  */
 
   equipment: BootstrapEquipmentView;
+  /**
+ * artifacts：法宝相关字段。
+ */
+
+  artifacts: BootstrapArtifactView;
   /**
  * techniques：功法相关字段。
  */
