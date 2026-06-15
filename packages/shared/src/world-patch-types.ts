@@ -8,7 +8,7 @@ import type { CombatEffect } from './action-combat-types';
 import type { FormationLifecycle, FormationRangeShape } from './formation-types';
 import type { GroundItemEntryView } from './loot-view-types';
 import type { ObservationInsight } from './observation-types';
-import type { PlayerWalletState } from './player-runtime-types';
+import type { PlayerMovementCapabilitiesState, PlayerWalletState } from './player-runtime-types';
 import type { TickEventBusPayload } from './runtime-event-bus.types';
 import type { MapMinimapMarker, NpcQuestMarker } from './world-view-types';
 
@@ -838,6 +838,11 @@ export interface SelfDeltaView {
  */
 
   wallet?: PlayerWalletState | null;
+  /**
+ * mc：移动能力投影。
+ */
+
+  mc?: PlayerMovementCapabilitiesState;
 }
 
 /** 高频 tick 增量主体视图。 */

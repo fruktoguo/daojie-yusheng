@@ -12,6 +12,7 @@ import {
   cloneNumericStats,
   type BootstrapArtifactView,
   type BootstrapEquipmentView,
+  type PlayerMovementCapabilitiesState,
 } from '@mud/shared';
 import { projectVisiblePlayerBuffs } from '../runtime/player/player-buff-projection.helpers';
 import { projectHeavenGateState, projectRealmState } from '../runtime/player/player-realm-projection.helpers';
@@ -66,6 +67,7 @@ function buildPlayerSyncState(player, view, unlockedMinimapIds) {
     hp: player.hp,
     maxHp: player.maxHp,
     qi: player.qi,
+    movementCapabilities: buildMovementCapabilitiesView(player),
     dead: player.hp <= 0,
     foundation: player.foundation,
     rootFoundation: Math.max(0, Math.trunc(Number(player.rootFoundation ?? 0) || 0)),
@@ -352,6 +354,12 @@ function buildArtifactView(artifacts): BootstrapArtifactView {
       maxQi: Math.max(0, Number(entry.maxQi) || 0),
       item: entry.item ? toItemStackState(entry.item) : null,
     })),
+  };
+}
+
+function buildMovementCapabilitiesView(player): PlayerMovementCapabilitiesState {
+  return {
+    staticObstacleIgnore: player?.movementCapabilities?.staticObstacleIgnore === true,
   };
 }
 

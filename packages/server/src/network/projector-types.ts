@@ -27,6 +27,7 @@ import type {
   NpcQuestMarker,
   NumericRatioDivisors,
   NumericStats,
+  PlayerMovementCapabilitiesState,
   PlayerSpecialStats,
   PlayerTransmissionJob,
   PlayerWalletState,
@@ -330,6 +331,7 @@ export interface ProjectedSelfState {
   qi: number;
   maxQi: number;
   wallet: PlayerWalletState | null;
+  movementCapabilities: PlayerMovementCapabilitiesState;
 }
 export type ProjectedNumericStats = NumericStats;
 export type ProjectedRatioDivisors = NumericRatioDivisors;
@@ -381,6 +383,7 @@ export interface ProjectorPlayerLike {
     revision: number;
     slots: ArtifactSlotUpdateEntry[];
   };
+  movementCapabilities?: PlayerMovementCapabilitiesState | null;
   techniques: {
     revision: number;
     techniques: TechniqueUpdateEntryView[];

@@ -539,6 +539,7 @@ function buildFullSelfDeltaFromState(self: ProjectedSelfState, selfRevision: num
         qi: self.qi,
         maxQi: self.maxQi,
         wallet: self.wallet,
+        mc: cloneMovementCapabilities(self.movementCapabilities),
     };
 }
 
@@ -758,6 +759,13 @@ function captureSelfState(player: ProjectorPlayerLike): ProjectedSelfState {
         x: player.x, y: player.y, f: player.facing,
         hp: player.hp, maxHp: player.maxHp, qi: player.qi, maxQi: player.maxQi,
         wallet: cloneWalletState(player.wallet),
+        movementCapabilities: cloneMovementCapabilities(player.movementCapabilities),
+    };
+}
+
+function cloneMovementCapabilities(capabilities: ProjectedSelfState['movementCapabilities'] | null | undefined): ProjectedSelfState['movementCapabilities'] {
+    return {
+        staticObstacleIgnore: capabilities?.staticObstacleIgnore === true,
     };
 }
 
@@ -1440,6 +1448,7 @@ function buildAttrDeltaFromState(previousAttr: ProjectedAttrPanelState, currentA
 
 function buildSelfDelta(previous: PlayerStateSlice, player: ProjectorPlayerLike): SelfDeltaView | null {
     if (previous.selfRevision === player.selfRevision) { return null; }
+    const currentMovementCapabilities = cloneMovementCapabilities(player.movementCapabilities);
     const delta: SelfDeltaView = { sr: player.selfRevision };
     if (previous.self.instanceId !== player.instanceId) { delta.iid = player.instanceId; }
     if (previous.self.templateId !== player.templateId) { delta.mid = player.templateId; }
@@ -1449,7 +1458,14 @@ function buildSelfDelta(previous: PlayerStateSlice, player: ProjectorPlayerLike)
     if (previous.self.qi !== player.qi) { delta.qi = player.qi; }
     if (previous.self.maxQi !== player.maxQi) { delta.maxQi = player.maxQi; }
     if (!isSameWalletState(previous.self.wallet, player.wallet)) { delta.wallet = cloneWalletState(player.wallet); }
+    if (!isSameMovementCapabilities(previous.self.movementCapabilities, currentMovementCapabilities)) {
+        delta.mc = currentMovementCapabilities;
+    }
     return delta;
+}
+
+function isSameMovementCapabilities(left: ProjectedSelfState['movementCapabilities'] | null | undefined, right: ProjectedSelfState['movementCapabilities'] | null | undefined): boolean {
+    return (left?.staticObstacleIgnore === true) === (right?.staticObstacleIgnore === true);
 }
 
 function buildPanelUpdate(previous: PlayerStateSlice, player: ProjectorPlayerLike): PanelDeltaBuildResult {

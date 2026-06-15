@@ -144,9 +144,9 @@ type MainNavigationStateSourceOptions = {
  */
  sectId?: string | null;
  /**
- * artifacts：法宝槽位投影，用于客户端可达性预览。
+ * movementCapabilities：玩家移动能力投影，用于客户端可达性预览。
  */
- artifacts?: PlayerState['artifacts'] | null;
+ movementCapabilities?: PlayerState['movementCapabilities'] | null;
  /**
  * actions：action相关字段。
  */
@@ -688,16 +688,7 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
   }
 
   function canCurrentPlayerIgnoreStaticObstacle(): boolean {
-    const slots = options.getPlayer()?.artifacts?.slots;
-    if (!Array.isArray(slots)) {
-      return false;
-    }
-    return slots.some((slot) => (
-      slot?.unlocked === true
-      && slot.enabled !== false
-      && Array.isArray(slot.item?.artifactEffects)
-      && slot.item.artifactEffects.some((effect) => effect?.type === 'traverse_unwalkable')
-    ));
+    return options.getPlayer()?.movementCapabilities?.staticObstacleIgnore === true;
   }
 
   function isCellReachableForCurrentPlayer(x: number, y: number): boolean {

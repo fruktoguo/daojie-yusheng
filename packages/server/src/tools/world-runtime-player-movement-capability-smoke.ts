@@ -4,6 +4,8 @@ import { Direction } from '@mud/shared';
 
 import { MapInstanceRuntime } from '../runtime/instance/map-instance.runtime';
 import { advancePlayerArtifactQiTick } from '../runtime/player/player-artifact-runtime.helpers';
+import { refreshPlayerMovementCapabilities } from '../runtime/player/player-movement-capability.helpers';
+import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
 import { WorldRuntimeNavigationService } from '../runtime/world/world-runtime-navigation.service';
 
 function createTemplate() {
@@ -67,6 +69,61 @@ function grantStaticObstacleIgnoreFromFlyingSword(player: any, overrides: Partia
         artifactEffects: [{ type: 'traverse_unwalkable', costMaxQiRatio: 0.1 }],
       },
     }],
+  };
+}
+
+function createFlyingSwordItem(instanceId: string) {
+  return {
+    itemId: 'artifact.flying_sword',
+    itemInstanceId: instanceId,
+    count: 1,
+    type: 'artifact',
+    name: '巡天飞剑',
+    artifactMaxQiFactor: 1,
+    artifactEffects: [{ type: 'traverse_unwalkable', costMaxQiRatio: 0.1 }],
+  };
+}
+
+function createPlayerRuntimeServiceForArtifactProjection(): PlayerRuntimeService {
+  return new PlayerRuntimeService(
+    {
+      normalizeItem(item: any) {
+        return { ...item };
+      },
+    },
+    {},
+    {},
+    {
+      getHighestRealmLv() {
+        return 1_000;
+      },
+    },
+  );
+}
+
+function createArtifactProjectionPlayer() {
+  return {
+    playerId: 'player:artifact-projection',
+    selfRevision: 1,
+    persistentRevision: 1,
+    inventory: {
+      revision: 1,
+      items: [createFlyingSwordItem('00000000-0000-4000-8000-000000000001')],
+      lockedItems: [],
+    },
+    artifacts: {
+      revision: 1,
+      slots: [{
+        slot: 'artifact_1',
+        unlocked: true,
+        enabled: true,
+        qi: 0,
+        maxQi: 0,
+        item: null,
+      }],
+    },
+    movementCapabilities: { staticObstacleIgnore: false },
+    dirtyDomains: new Set<string>(),
   };
 }
 
@@ -152,6 +209,7 @@ function testDisabledFlyingSwordProviderDoesNotGrantPlayerCapability(): void {
     preferredY: 0,
   });
   grantStaticObstacleIgnoreFromFlyingSword(player, { enabled: false });
+  refreshPlayerMovementCapabilities(player);
   const service = createNavigationService(instance, player);
 
   assert.throws(
@@ -197,6 +255,7 @@ function testFlyingSwordProviderDoesNotConsumeQiOnMove(): void {
     preferredY: 0,
   });
   grantStaticObstacleIgnoreFromFlyingSword(player);
+  refreshPlayerMovementCapabilities(player);
   player.movePoints = 100;
   player.lastMoveBudgetTick = instance.tick;
 
@@ -222,6 +281,7 @@ function testFlyingSwordProviderGrantsCapabilityEvenWhenArtifactQiIsEmpty(): voi
     preferredY: 0,
   });
   grantStaticObstacleIgnoreFromFlyingSword(player, { qi: 0 });
+  refreshPlayerMovementCapabilities(player);
   const service = createNavigationService(instance, player);
 
   const step = service.resolveNavigationStep(
@@ -244,6 +304,7 @@ function testFlyingSwordProviderMovesWhenArtifactQiIsEmpty(): void {
     preferredY: 0,
   });
   grantStaticObstacleIgnoreFromFlyingSword(player, { qi: 0 });
+  refreshPlayerMovementCapabilities(player);
   player.movePoints = 100;
   player.lastMoveBudgetTick = instance.tick;
 
@@ -284,6 +345,28 @@ function testEnabledFlyingSwordConsumesArtifactQiEveryTick(): void {
   assert.equal(result.vitalsChanged, false);
   assert.equal(player.artifacts.slots[0].qi, 40);
   assert.equal(player.qi, 100);
+}
+
+function testPlayerRuntimeServiceProjectsArtifactMovementCapability(): void {
+  const service = createPlayerRuntimeServiceForArtifactProjection();
+  const player = createArtifactProjectionPlayer();
+  service.players.set(player.playerId, player);
+
+  service.equipArtifactItem(player, 0, player.inventory.items[0], undefined);
+  assert.equal(player.movementCapabilities.staticObstacleIgnore, true);
+  assert.equal(player.selfRevision, 2);
+
+  service.setArtifactSlotEnabled(player.playerId, 'artifact_1', false);
+  assert.equal(player.movementCapabilities.staticObstacleIgnore, false);
+  assert.equal(player.selfRevision, 3);
+
+  service.setArtifactSlotEnabled(player.playerId, 'artifact_1', true);
+  assert.equal(player.movementCapabilities.staticObstacleIgnore, true);
+  assert.equal(player.selfRevision, 4);
+
+  service.unequipArtifactItem(player, 'artifact_1', undefined);
+  assert.equal(player.movementCapabilities.staticObstacleIgnore, false);
+  assert.equal(player.selfRevision, 5);
 }
 
 function testEnabledFlyingSwordRechargesFromPlayerQiOutputEveryTick(): void {
@@ -342,6 +425,7 @@ function main(): void {
   testFlyingSwordProviderDoesNotConsumeQiOnMove();
   testFlyingSwordProviderGrantsCapabilityEvenWhenArtifactQiIsEmpty();
   testFlyingSwordProviderMovesWhenArtifactQiIsEmpty();
+  testPlayerRuntimeServiceProjectsArtifactMovementCapability();
   testEnabledFlyingSwordConsumesArtifactQiEveryTick();
   testEnabledFlyingSwordRechargesFromPlayerQiOutputEveryTick();
   testDynamicBlockerStillBlocksPlayerCapability();

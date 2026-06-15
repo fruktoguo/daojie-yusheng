@@ -1107,6 +1107,12 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
           options.syncPlayerContext(player);
           options.refreshUiChrome();
         }
+        if (data.mc !== undefined) {
+          player.movementCapabilities = {
+            staticObstacleIgnore: data.mc?.staticObstacleIgnore === true,
+          };
+          options.syncPlayerContext(player);
+        }
         if (data.f !== undefined) {
           player.facing = selfFacing;
         }

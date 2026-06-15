@@ -350,6 +350,12 @@ function hydrateBootstrapArtifacts(artifacts: PlayerState['artifacts'] | undefin
   };
 }
 
+function normalizePlayerMovementCapabilities(capabilities: PlayerState['movementCapabilities'] | undefined | null): PlayerState['movementCapabilities'] {
+  return {
+    staticObstacleIgnore: capabilities?.staticObstacleIgnore === true,
+  };
+}
+
 type BootstrapActionSkillTemplate = {
   name?: string;
   desc?: string;
@@ -420,6 +426,7 @@ function hydrateBootstrapPlayer(rawPlayer: S2C_Bootstrap['self']): PlayerState {
     },
     equipment: hydrateBootstrapEquipment(player.equipment),
     artifacts: hydrateBootstrapArtifacts(player.artifacts),
+    movementCapabilities: normalizePlayerMovementCapabilities(player.movementCapabilities),
     techniques,
     actions: (player.actions ?? []).map((action) => hydrateBootstrapAction(action as Partial<ActionDef> & { id: string }, bootstrapSkillTemplates)),
     bonuses: [],

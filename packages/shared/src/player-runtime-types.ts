@@ -56,6 +56,14 @@ export interface PlayerWalletState {
   balances: PlayerWalletBalance[];
 }
 
+/** 玩家移动能力投影，来源可以是法宝、buff、技能或其他运行态效果。 */
+export interface PlayerMovementCapabilitiesState {
+  /**
+   * staticObstacleIgnore：是否忽略静态地形障碍。
+   */
+  staticObstacleIgnore?: boolean;
+}
+
 /** 玩家状态。 */
 export interface PlayerState {
 /**
@@ -347,6 +355,11 @@ export interface PlayerState {
  */
 
   artifacts: PlayerArtifactState;
+  /**
+ * movementCapabilities：玩家移动能力投影。
+ */
+
+  movementCapabilities?: PlayerMovementCapabilitiesState;
   /**
  * techniques：功法相关字段。
  */

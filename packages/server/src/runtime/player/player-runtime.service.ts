@@ -29,6 +29,7 @@ import { DEFAULT_CRAFT_EXP_TO_NEXT, resolveCraftSkillExpToNextByLevel, resolveIn
 import { TechniqueActivityPipelineService } from '../craft/pipeline/technique-activity-pipeline.service';
 import { TransmissionStrategy } from '../craft/pipeline/strategies/transmission.strategy';
 import { advancePlayerArtifactQiTick } from './player-artifact-runtime.helpers';
+import { refreshPlayerMovementCapabilities } from './player-movement-capability.helpers';
 
 /** 新角色默认出生地图。 */
 const DEFAULT_PLAYER_STARTER_MAP_ID = 'yunlai_town';
@@ -390,6 +391,7 @@ export class PlayerRuntimeService {
                 slots: buildEquipmentSnapshot(this.contentTemplateRepository.createDefaultEquipment()),
             },
             artifacts: buildDefaultArtifactState(false),
+            movementCapabilities: { staticObstacleIgnore: false },
             techniques: {
                 revision: 1,
                 techniques: [],
@@ -468,7 +470,7 @@ export class PlayerRuntimeService {
             npcQuestMarkerCache: new Map(),
         };
         this.playerProgressionService.initializePlayer(player);
-        this.ensureArtifactUnlockState(player);
+        this.ensureArtifactUnlockState(player, { emitMovementCapabilityDelta: false });
         this.rebuildActionState(player, resolvePlayerRuntimeTick(player, 0));
         return player;
     }
@@ -1920,7 +1922,7 @@ export class PlayerRuntimeService {
         return player.equipment.slots.find((entry) => entry.slot === slot)?.item ?? null;
     }
     /** 确保法宝槽结构完整，并按历史最高境界永久解锁。 */
-    ensureArtifactUnlockState(player) {
+    ensureArtifactUnlockState(player, options = undefined) {
         const highestRealmLv = typeof this.playerProgressionService?.getHighestRealmLv === 'function'
             ? this.playerProgressionService.getHighestRealmLv(player)
             : Math.max(1, Math.trunc(Number(player?.realm?.realmLv ?? player?.realmLv ?? 1) || 1));
@@ -1943,13 +1945,22 @@ export class PlayerRuntimeService {
             }
         }
         player.artifacts = normalized;
+        const movementCapabilitiesChanged = this.refreshMovementCapabilities(player, options?.emitMovementCapabilityDelta !== false);
         if (!changed) {
-            return false;
+            return movementCapabilitiesChanged;
         }
         player.artifacts.revision = previousRevision + 1;
         markPlayerDirtyDomains(player, ['artifact']);
         this.bumpPersistentRevision(player);
         return true;
+    }
+    /** 刷新玩家移动能力投影；装备、法宝、buff 等来源不直接进入移动裁定。 */
+    refreshMovementCapabilities(player, emitSelfDelta = true) {
+        const changed = refreshPlayerMovementCapabilities(player);
+        if (changed && emitSelfDelta === true) {
+            player.selfRevision += 1;
+        }
+        return changed;
     }
     /**
  * getTechniqueName：读取功法名称。
@@ -2954,6 +2965,7 @@ export class PlayerRuntimeService {
             return player;
         }
         entry.enabled = nextEnabled;
+        this.refreshMovementCapabilities(player);
         player.artifacts.revision += 1;
         markPlayerDirtyDomains(player, ['artifact']);
         this.bumpPersistentRevision(player);
@@ -2999,6 +3011,7 @@ export class PlayerRuntimeService {
         }
         player.inventory.revision += 1;
         player.artifacts.revision += 1;
+        this.refreshMovementCapabilities(player);
         markPlayerDirtyDomains(player, ['inventory', 'artifact']);
         this.bumpPersistentRevision(player);
         return player;
@@ -3031,6 +3044,7 @@ export class PlayerRuntimeService {
         artifactEntry.maxQi = 0;
         player.inventory.revision += 1;
         player.artifacts.revision += 1;
+        this.refreshMovementCapabilities(player);
         markPlayerDirtyDomains(player, ['inventory', 'artifact']);
         this.bumpPersistentRevision(player);
         return player;
@@ -4793,6 +4807,7 @@ export class PlayerRuntimeService {
                 attrs: this.playerAttributesService.createInitialState(),
                 equipment: { revision: 1, slots: equipmentSlots },
                 artifacts: normalizeArtifactStateWithTemplates(snapshot.artifacts, this.contentTemplateRepository, false),
+                movementCapabilities: { staticObstacleIgnore: false },
                 techniques: { revision: 1, techniques, cultivatingTechId: snapshot.techniques.cultivatingTechId },
                 pendingTechniqueComprehensions: clonePendingTechniqueComprehensions(snapshot.techniques?.pendingComprehensions),
                 buffs: { revision: 1, buffs },
@@ -4970,6 +4985,7 @@ export class PlayerRuntimeService {
                     : defaultEquipment,
             },
             artifacts: normalizeArtifactStateWithTemplates(snapshot.artifacts, this.contentTemplateRepository, false),
+            movementCapabilities: { staticObstacleIgnore: false },
             techniques: {
                 revision: Math.max(1, snapshot.techniques.revision),
                 techniques: snapshot.techniques.techniques
@@ -5052,7 +5068,7 @@ export class PlayerRuntimeService {
         player.attrs.rawBaseAttrs = decodePersistedRawBaseAttrs(snapshot.attrState?.baseAttrs);
         player.enhancementSkillLevel = Math.max(1, Math.floor(Number(player.enhancementSkill?.level ?? player.enhancementSkillLevel) || 1));
         this.playerProgressionService.initializePlayer(player);
-        this.ensureArtifactUnlockState(player);
+        this.ensureArtifactUnlockState(player, { emitMovementCapabilityDelta: false });
         if (pendingComprehensions.changed) {
             markPlayerDirtyDomains(player, ['technique']);
             this.bumpPersistentRevision(player);

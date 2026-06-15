@@ -9,36 +9,53 @@ export interface PlayerStaticObstacleIgnoreState {
 }
 
 export interface PlayerMovementCapabilities {
-  staticObstacleIgnore: PlayerStaticObstacleIgnoreState;
+  staticObstacleIgnore: boolean;
 }
 
-export function resolvePlayerMovementCapabilities(player: any, currentTick: unknown = null): PlayerMovementCapabilities {
+export function resolvePlayerMovementCapabilities(player: any, _currentTick: unknown = null): PlayerMovementCapabilities {
   return {
-    staticObstacleIgnore: resolvePlayerStaticObstacleIgnoreState(player, currentTick),
+    staticObstacleIgnore: resolvePlayerStaticObstacleIgnoreState(player).canIgnore,
   };
 }
 
 export function canPlayerIgnoreStaticObstacle(player: any, currentTick: unknown = null): boolean {
-  return resolvePlayerMovementCapabilities(player, currentTick).staticObstacleIgnore.canIgnore;
+  return resolvePlayerMovementCapabilities(player, currentTick).staticObstacleIgnore === true;
 }
 
-function resolvePlayerStaticObstacleIgnoreState(player: any, currentTick: unknown): PlayerStaticObstacleIgnoreState {
-  const direct = resolveDirectPlayerStaticObstacleIgnoreState(player);
-  if (direct.canIgnore) {
-    return direct;
+export function refreshPlayerMovementCapabilities(player: any): boolean {
+  if (!player || typeof player !== 'object') {
+    return false;
   }
-  return resolveArtifactGrantedStaticObstacleIgnoreState(player, currentTick);
+  const previousCapabilities = player.movementCapabilities && typeof player.movementCapabilities === 'object'
+    ? player.movementCapabilities
+    : {};
+  const previousStaticObstacleIgnore = resolveDirectPlayerStaticObstacleIgnoreState(player).canIgnore;
+  const nextStaticObstacleIgnore = resolveArtifactGrantedStaticObstacleIgnoreState(player).canIgnore;
+  const nextCapabilities = {
+    ...previousCapabilities,
+    staticObstacleIgnore: nextStaticObstacleIgnore,
+  };
+  delete (nextCapabilities as any).ignoreStaticObstacle;
+  player.movementCapabilities = nextCapabilities;
+  return previousStaticObstacleIgnore !== nextStaticObstacleIgnore
+    || previousCapabilities.staticObstacleIgnore !== nextStaticObstacleIgnore
+    || Object.prototype.hasOwnProperty.call(previousCapabilities, 'ignoreStaticObstacle');
+}
+
+function resolvePlayerStaticObstacleIgnoreState(player: any): PlayerStaticObstacleIgnoreState {
+  return resolveDirectPlayerStaticObstacleIgnoreState(player);
 }
 
 function resolveDirectPlayerStaticObstacleIgnoreState(player: any): PlayerStaticObstacleIgnoreState {
   const capabilities = player?.movementCapabilities;
-  if (capabilities?.staticObstacleIgnore === true || capabilities?.ignoreStaticObstacle === true) {
+  const staticObstacleIgnore = capabilities?.staticObstacleIgnore;
+  if (staticObstacleIgnore === true || staticObstacleIgnore?.canIgnore === true) {
     return { canIgnore: true };
   }
   return { canIgnore: false };
 }
 
-function resolveArtifactGrantedStaticObstacleIgnoreState(player: any, _currentTick: unknown): PlayerStaticObstacleIgnoreState {
+function resolveArtifactGrantedStaticObstacleIgnoreState(player: any): PlayerStaticObstacleIgnoreState {
   const slots = Array.isArray(player?.artifacts?.slots) ? player.artifacts.slots : [];
   for (const slot of slots) {
     if (!slot || slot.unlocked !== true || slot.enabled === false || !slot.item) {
