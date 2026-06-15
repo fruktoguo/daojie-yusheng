@@ -6,6 +6,7 @@ import { MapInstanceRuntime } from '../runtime/instance/map-instance.runtime';
 import { advancePlayerArtifactQiTick } from '../runtime/player/player-artifact-runtime.helpers';
 import { refreshPlayerMovementCapabilities } from '../runtime/player/player-movement-capability.helpers';
 import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
+import { WorldRuntimeMovementService } from '../runtime/world/world-runtime-movement.service';
 import { WorldRuntimeNavigationService } from '../runtime/world/world-runtime-navigation.service';
 
 function createTemplate() {
@@ -139,6 +140,7 @@ function createNavigationService(instance: MapInstanceRuntime, player: any) {
         assert.equal(playerId, player.playerId);
         return player;
       },
+      recordActivity() {},
     },
   );
 }
@@ -156,6 +158,50 @@ function createNavigationDeps(instance: MapInstanceRuntime) {
       return instance.tick;
     },
   };
+}
+
+function createFullMovementChainDeps(instance: MapInstanceRuntime, runtimePlayer: any) {
+  const movementService = new WorldRuntimeMovementService();
+  const playerRuntimeService = {
+    getPlayer(playerId: string) {
+      assert.equal(playerId, runtimePlayer.playerId);
+      return runtimePlayer;
+    },
+    getPlayerOrThrow(playerId: string) {
+      assert.equal(playerId, runtimePlayer.playerId);
+      return runtimePlayer;
+    },
+    recordActivity() {},
+  };
+  const deps: any = {
+    playerRuntimeService,
+    getPlayerLocationOrThrow(playerId: string) {
+      assert.equal(playerId, runtimePlayer.playerId);
+      return { playerId, instanceId: instance.meta.instanceId };
+    },
+    getPlayerLocation(playerId: string) {
+      assert.equal(playerId, runtimePlayer.playerId);
+      return { playerId, instanceId: instance.meta.instanceId };
+    },
+    getInstanceRuntime(instanceId: string) {
+      assert.equal(instanceId, instance.meta.instanceId);
+      return instance;
+    },
+    getInstanceRuntimeOrThrow(instanceId: string) {
+      assert.equal(instanceId, instance.meta.instanceId);
+      return instance;
+    },
+    resolveCurrentTickForPlayerId() {
+      return instance.tick;
+    },
+    dispatchInstanceCommand(playerId: string, command: any) {
+      movementService.dispatchInstanceCommand(playerId, command, deps);
+    },
+    worldRuntimeCraftInterruptService: {
+      interruptCraftForReason() {},
+    },
+  };
+  return deps;
 }
 
 function testPlayerCapabilityPlansIntoStaticObstacleTile(): void {
@@ -369,6 +415,49 @@ function testPlayerRuntimeServiceProjectsArtifactMovementCapability(): void {
   assert.equal(player.selfRevision, 5);
 }
 
+function testMoveToSyncsRuntimeMovementCapabilityIntoInstancePlayer(): void {
+  const instance = createInstance();
+  const instancePlayer = instance.connectPlayer({
+    playerId: 'player:full-chain-capability',
+    sessionId: 'session:full-chain-capability',
+    preferredX: 0,
+    preferredY: 0,
+  });
+  const runtimePlayer = {
+    playerId: instancePlayer.playerId,
+    sessionId: instancePlayer.sessionId,
+    hp: 100,
+    templateId: instance.template.id,
+    instanceId: instance.meta.instanceId,
+    x: 0,
+    y: 0,
+    attrs: {
+      numericStats: {
+        moveSpeed: 0,
+      },
+    },
+    movementCapabilities: { staticObstacleIgnore: true },
+  };
+  const navigationService = createNavigationService(instance, runtimePlayer);
+  const deps = createFullMovementChainDeps(instance, runtimePlayer);
+
+  assert.equal(instancePlayer.movementCapabilities?.staticObstacleIgnore, false);
+  navigationService.dispatchMoveTo(
+    runtimePlayer.playerId,
+    1,
+    0,
+    false,
+    null,
+    instance.template.id,
+    deps,
+  );
+
+  assert.equal(instancePlayer.movementCapabilities?.staticObstacleIgnore, true);
+  instance.tickOnce();
+
+  assert.deepEqual(instance.getPlayerPosition(runtimePlayer.playerId), { x: 1, y: 0 });
+}
+
 function testEnabledFlyingSwordRechargesFromPlayerQiOutputEveryTick(): void {
   const instance = createInstance();
   const player = instance.connectPlayer({
@@ -426,6 +515,7 @@ function main(): void {
   testFlyingSwordProviderGrantsCapabilityEvenWhenArtifactQiIsEmpty();
   testFlyingSwordProviderMovesWhenArtifactQiIsEmpty();
   testPlayerRuntimeServiceProjectsArtifactMovementCapability();
+  testMoveToSyncsRuntimeMovementCapabilityIntoInstancePlayer();
   testEnabledFlyingSwordConsumesArtifactQiEveryTick();
   testEnabledFlyingSwordRechargesFromPlayerQiOutputEveryTick();
   testDynamicBlockerStillBlocksPlayerCapability();

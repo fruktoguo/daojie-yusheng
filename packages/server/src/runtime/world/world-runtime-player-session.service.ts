@@ -49,6 +49,7 @@ interface InstanceRuntimeLike {
   }): ConnectedInstancePlayer;
   disconnectPlayer(playerId: string): boolean;
   setPlayerMoveSpeed(playerId: string, moveSpeed: number): void;
+  setPlayerMovementCapabilities?(playerId: string, capabilities: { staticObstacleIgnore?: boolean } | null | undefined): void;
 }
 
 interface PlayerRuntimeLike {
@@ -57,6 +58,9 @@ interface PlayerRuntimeLike {
       moveSpeed: number;
     };
   };
+  readonly movementCapabilities?: {
+    staticObstacleIgnore?: boolean;
+  } | null;
   readonly hp?: number;
 }
 
@@ -203,6 +207,7 @@ export class WorldRuntimePlayerSessionService {
       preferredY: input.preferredY,
     });
     targetInstance.setPlayerMoveSpeed(playerId, playerState.attrs.numericStats.moveSpeed);
+    targetInstance.setPlayerMovementCapabilities?.(playerId, playerState.movementCapabilities);
     deps.setPlayerLocation(playerId, {
       instanceId: targetInstance.meta.instanceId,
       sessionId: runtimePlayer.sessionId,

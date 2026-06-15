@@ -25,6 +25,11 @@ function isMatchingMiningJobCommand(player, command) {
         && targetRef === resolveMiningJobTargetRef(job);
 }
 
+function syncPlayerMovementStateToInstance(instance, playerId, player) {
+    instance.setPlayerMoveSpeed(playerId, player.attrs.numericStats.moveSpeed);
+    instance.setPlayerMovementCapabilities?.(playerId, player.movementCapabilities);
+}
+
 /** world-runtime movement orchestration：承接实例侧移动/传送执行编排。 */
 @Injectable()
 export class WorldRuntimeMovementService {
@@ -71,7 +76,7 @@ export class WorldRuntimeMovementService {
         if (hasMiningJobCommandMarker(command) && !isMatchingMiningJobCommand(player, command)) {
             return;
         }
-        instance.setPlayerMoveSpeed(playerId, player.attrs.numericStats.moveSpeed);
+        syncPlayerMovementStateToInstance(instance, playerId, player);
         deps.worldRuntimePlayerSkillDispatchService?.interruptPendingPlayerSkillCast?.(playerId, '你移动了身形。', deps);
         deps.playerRuntimeService.recordActivity(playerId, deps.resolveCurrentTickForPlayerId(playerId), {
             interruptCultivation: true,

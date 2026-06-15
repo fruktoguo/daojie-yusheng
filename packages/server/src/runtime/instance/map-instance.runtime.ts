@@ -673,6 +673,7 @@ class MapInstanceRuntime {
             moveSpeed: 0,
             movePoints: 0,
             lastMoveBudgetTick: this.tick,
+            movementCapabilities: { staticObstacleIgnore: false },
             selfRevision: 1,
         };
         this.playersById.set(player.playerId, player);
@@ -2243,6 +2244,17 @@ class MapInstanceRuntime {
 
         const normalized = Number.isFinite(moveSpeed) ? Math.max(0, Math.round(moveSpeed)) : 0;
         player.moveSpeed = normalized;
+        return true;
+    }
+    /** setPlayerMovementCapabilities：同步玩家移动能力到实例内玩家镜像。 */
+    setPlayerMovementCapabilities(playerId, capabilities) {
+        const player = this.playersById.get(playerId);
+        if (!player) {
+            return false;
+        }
+        player.movementCapabilities = {
+            staticObstacleIgnore: capabilities?.staticObstacleIgnore === true,
+        };
         return true;
     }
     /** enqueuePortalUse：把传送点使用请求排入下一次 tick。 */
