@@ -49,10 +49,7 @@ function resolveArtifactGrantedStaticObstacleIgnoreState(player: any, _currentTi
     if (!effect) {
       continue;
     }
-    const maxQi = Math.max(0, Number(slot.maxQi) || 0);
-    if (maxQi > 0 && Number(slot.qi) > 0) {
-      return { canIgnore: true };
-    }
+    return { canIgnore: true };
   }
   return { canIgnore: false };
 }

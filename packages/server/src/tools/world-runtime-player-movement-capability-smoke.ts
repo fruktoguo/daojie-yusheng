@@ -211,7 +211,7 @@ function testFlyingSwordProviderDoesNotConsumeQiOnMove(): void {
   assert.equal(player.artifacts.slots[0].qi, 100);
 }
 
-function testFlyingSwordProviderRequiresArtifactQi(): void {
+function testFlyingSwordProviderGrantsCapabilityEvenWhenArtifactQiIsEmpty(): void {
   const instance = createInstance();
   const player = instance.connectPlayer({
     playerId: 'player:provider-empty-qi',
@@ -222,14 +222,39 @@ function testFlyingSwordProviderRequiresArtifactQi(): void {
   grantStaticObstacleIgnoreFromFlyingSword(player, { qi: 0 });
   const service = createNavigationService(instance, player);
 
-  assert.throws(
-    () => service.resolveNavigationStep(
-      player.playerId,
-      { kind: 'point', mapId: instance.template.id, x: 1, y: 0, allowNearestReachable: false, clientPathHint: null },
-      createNavigationDeps(instance),
-    ),
-    /无法到达该位置/u,
+  const step = service.resolveNavigationStep(
+    player.playerId,
+    { kind: 'point', mapId: instance.template.id, x: 1, y: 0, allowNearestReachable: false, clientPathHint: null },
+    createNavigationDeps(instance),
   );
+
+  assert.equal(step.kind, 'move');
+  assert.equal(step.direction, Direction.East);
+  assert.deepEqual(step.path, [{ x: 1, y: 0 }]);
+}
+
+function testFlyingSwordProviderMovesWhenArtifactQiIsEmpty(): void {
+  const instance = createInstance();
+  const player = instance.connectPlayer({
+    playerId: 'player:provider-empty-qi-move',
+    sessionId: 'session:provider-empty-qi-move',
+    preferredX: 0,
+    preferredY: 0,
+  });
+  grantStaticObstacleIgnoreFromFlyingSword(player, { qi: 0 });
+  player.movePoints = 400;
+  player.lastMoveBudgetTick = instance.tick;
+
+  assert.equal(instance.enqueueMove({
+    playerId: player.playerId,
+    direction: Direction.East,
+    continuous: true,
+    resetBudget: false,
+  }), true);
+  instance.tickOnce();
+
+  assert.deepEqual(instance.getPlayerPosition(player.playerId), { x: 1, y: 0 });
+  assert.equal(player.artifacts.slots[0].qi, 0);
 }
 
 function testEnabledFlyingSwordConsumesArtifactQiEveryTick(): void {
@@ -312,7 +337,8 @@ function main(): void {
   testDisabledFlyingSwordProviderDoesNotGrantPlayerCapability();
   testPlayerCapabilityIgnoresStaticObstacleOnMove();
   testFlyingSwordProviderDoesNotConsumeQiOnMove();
-  testFlyingSwordProviderRequiresArtifactQi();
+  testFlyingSwordProviderGrantsCapabilityEvenWhenArtifactQiIsEmpty();
+  testFlyingSwordProviderMovesWhenArtifactQiIsEmpty();
   testEnabledFlyingSwordConsumesArtifactQiEveryTick();
   testEnabledFlyingSwordRechargesFromPlayerQiOutputEveryTick();
   testDynamicBlockerStillBlocksPlayerCapability();
