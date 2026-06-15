@@ -18,6 +18,7 @@ import { calculateFengShuiSnapshot, inferRoomRole } from '../building/fengshui-c
 import { getDefaultBuildingRuntime } from '../building/building-default-content';
 import { CombatPendingCastCancelReason, cancelPendingCombatCast, createMonsterPendingCombatCast, createMonsterSkillActionFromPendingCast, createMonsterSkillCancelActionFromPendingCast, resolvePendingCombatCastCancellation } from '../combat/pending-combat-cast.helpers';
 import { createRuntimeTemporaryBuff, refreshRuntimeTemporaryBuffPrototype } from '../player/runtime-buff-instance';
+import { consumePlayerStaticObstacleIgnoreCost as consumePlayerStaticObstacleIgnoreCostFromState } from '../player/player-movement-capability.helpers';
 import { resolveTileDamageDropMultiplier } from '../world/combat/tile-drop.helpers';
 
 const DEFAULT_TILE_AURA_RESOURCE_KEY = buildQiResourceKey(DEFAULT_QI_RESOURCE_DESCRIPTOR);
@@ -5217,7 +5218,7 @@ class MapInstanceRuntime {
             const staticWalkable = this.isCellIndexWalkable(nextTileIndex);
             const stepCost = staticWalkable
                 ? this.getTileTraversalCost(nextX, nextY, player.playerId)
-                : this.getArtifactOverrideTraversalCost(nextTileIndex);
+                : this.getStaticObstacleTraversalCost(nextTileIndex);
             if (!rechargedMoveBudget) {
                 requiredMovePoints = stepCost;
                 movePoints = this.rechargePlayerMoveBudget(player, stepCost);
@@ -5234,7 +5235,7 @@ class MapInstanceRuntime {
             if (nextOccupancy !== INVALID_OCCUPANCY && !this.isPlayerOverlapTile(nextX, nextY)) {
                 break;
             }
-            if (!staticWalkable && !this.consumeTraverseUnwalkableArtifactQi(player, this.tick)) {
+            if (!staticWalkable && !this.consumePlayerStaticObstacleIgnoreCost(player, this.tick)) {
                 break;
             }
             if (player.facing !== stepDirection) {
@@ -5272,8 +5273,8 @@ class MapInstanceRuntime {
         }
         player.movePoints = Math.min(getMaxStoredMovePoints(player.moveSpeed, requiredMovePoints), Math.max(0, Math.round(movePoints)));
     }
-    /** getArtifactOverrideTraversalCost：法宝穿越静态不可走地块时仍按地形移动消耗扣移动点。 */
-    getArtifactOverrideTraversalCost(tileIndex) {
+    /** getStaticObstacleTraversalCost：忽略静态障碍时仍按地形移动消耗扣移动点。 */
+    getStaticObstacleTraversalCost(tileIndex) {
         const movementCostOverride = this.template?.movementCostOverrideByTile?.[tileIndex] ?? 0;
         if (Number.isFinite(movementCostOverride) && movementCostOverride > 0) {
             return Math.max(1, Math.trunc(movementCostOverride));
@@ -5290,37 +5291,13 @@ class MapInstanceRuntime {
         }
         return getTileTraversalCost(this.getEffectiveTileTypeByCellIndex(tileIndex));
     }
-    /** consumeTraverseUnwalkableArtifactQi：同一 tick 首次穿越不可走地块扣一次法宝最大灵气比例。 */
-    consumeTraverseUnwalkableArtifactQi(player, currentTick) {
-        const normalizedTick = Math.max(0, Math.trunc(Number(currentTick) || 0));
-        const slots = Array.isArray(player?.artifacts?.slots) ? player.artifacts.slots : [];
-        for (const slot of slots) {
-            if (!slot || slot.unlocked !== true || slot.enabled === false || !slot.item) {
-                continue;
-            }
-            const effects = Array.isArray(slot.item.artifactEffects) ? slot.item.artifactEffects : [];
-            const effect = effects.find((entry) => entry?.type === 'traverse_unwalkable');
-            if (!effect) {
-                continue;
-            }
-            if (Math.trunc(Number(slot.lastTraverseUnwalkableTick) || -1) === normalizedTick) {
-                return true;
-            }
-            const maxQi = Math.max(0, Number(slot.maxQi) || 0);
-            const ratio = Number(effect.costMaxQiRatio);
-            const cost = Number.isFinite(ratio) && ratio > 0
-                ? Math.max(1, Math.ceil(maxQi * ratio))
-                : 0;
-            if (cost <= 0 || maxQi <= 0 || Number(slot.qi) < cost) {
-                continue;
-            }
-            slot.qi = Math.max(0, Number(slot.qi) - cost);
-            slot.lastTraverseUnwalkableTick = normalizedTick;
-            player.artifacts.revision = Math.max(1, Math.trunc(Number(player.artifacts.revision ?? 1) || 1)) + 1;
+    /** consumePlayerStaticObstacleIgnoreCost：消费玩家忽略静态障碍能力的代价。 */
+    consumePlayerStaticObstacleIgnoreCost(player, currentTick) {
+        const result = consumePlayerStaticObstacleIgnoreCostFromState(player, currentTick);
+        if (result.dirtyDomains.includes('artifact')) {
             markRuntimePlayerArtifactDirty(player);
-            return true;
         }
-        return false;
+        return result.consumed;
     }
     /** buildTransfer：构建跨图传送结果。 */
     buildTransfer(player, portal, reason) {

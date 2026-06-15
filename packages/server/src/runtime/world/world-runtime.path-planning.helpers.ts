@@ -288,7 +288,7 @@ function isPathableForNavigation(instance, x, y, playerId, options = undefined) 
     if (instance.isWalkable(x, y, playerId)) {
         return true;
     }
-    if (options?.allowTraverseUnwalkable !== true) {
+    if (options?.allowIgnoreStaticObstacle !== true) {
         return false;
     }
     if (typeof instance.isDynamicallyBlockedTile === 'function' && instance.isDynamicallyBlockedTile(x, y, playerId)) {
@@ -301,14 +301,14 @@ function getPathTraversalCost(instance, x, y, playerId, options = undefined) {
     if (instance.isWalkable(x, y, playerId)) {
         return instance.getTileTraversalCost(x, y, playerId);
     }
-    if (options?.allowTraverseUnwalkable !== true || !isPathableForNavigation(instance, x, y, playerId, options)) {
+    if (options?.allowIgnoreStaticObstacle !== true || !isPathableForNavigation(instance, x, y, playerId, options)) {
         return Number.POSITIVE_INFINITY;
     }
     const tileIndex = typeof instance.toTileIndex === 'function' ? instance.toTileIndex(x, y) : -1;
-    if (tileIndex < 0 || typeof instance.getArtifactOverrideTraversalCost !== 'function') {
+    if (tileIndex < 0 || typeof instance.getStaticObstacleTraversalCost !== 'function') {
         return Number.POSITIVE_INFINITY;
     }
-    const stepCost = instance.getArtifactOverrideTraversalCost(tileIndex);
+    const stepCost = instance.getStaticObstacleTraversalCost(tileIndex);
     return Number.isFinite(stepCost) && stepCost > 0 ? stepCost : Number.POSITIVE_INFINITY;
 }
 function resolvePathNodePriority(node) {

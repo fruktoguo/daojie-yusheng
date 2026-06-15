@@ -7,8 +7,8 @@ import { WorldRuntimeNavigationService } from '../runtime/world/world-runtime-na
 
 function createTemplate() {
   return {
-    id: 'artifact_movement_smoke',
-    name: '法宝移动 Smoke',
+    id: 'player_movement_capability_smoke',
+    name: '玩家移动能力 Smoke',
     width: 3,
     height: 1,
     terrainRows: ['.#.'],
@@ -31,13 +31,13 @@ function createTemplate() {
 
 function createInstance() {
   return new MapInstanceRuntime({
-    instanceId: 'instance:artifact-movement-smoke',
+    instanceId: 'instance:player-movement-capability-smoke',
     template: createTemplate(),
     monsterSpawns: [],
     kind: 'public',
     persistent: false,
     createdAt: Date.now(),
-    displayName: '法宝移动 Smoke',
+    displayName: '玩家移动能力 Smoke',
     linePreset: 'peaceful',
     lineIndex: 1,
     instanceOrigin: 'smoke',
@@ -47,7 +47,7 @@ function createInstance() {
   });
 }
 
-function equipFlyingSword(player: any, overrides: Partial<Record<'enabled' | 'qi', unknown>> = {}): void {
+function grantStaticObstacleIgnoreFromFlyingSword(player: any, overrides: Partial<Record<'enabled' | 'qi', unknown>> = {}): void {
   player.artifacts = {
     revision: 1,
     slots: [{
@@ -100,15 +100,15 @@ function createNavigationDeps(instance: MapInstanceRuntime) {
   };
 }
 
-function testMoveToPlansIntoUnwalkableTileWithFlyingSword(): void {
+function testPlayerCapabilityPlansIntoStaticObstacleTile(): void {
   const instance = createInstance();
   const player = instance.connectPlayer({
-    playerId: 'player:artifact-path',
-    sessionId: 'session:artifact-path',
+    playerId: 'player:capability-path',
+    sessionId: 'session:capability-path',
     preferredX: 0,
     preferredY: 0,
   });
-  equipFlyingSword(player);
+  player.movementCapabilities = { staticObstacleIgnore: true };
   const service = createNavigationService(instance, player);
 
   const step = service.resolveNavigationStep(
@@ -122,15 +122,14 @@ function testMoveToPlansIntoUnwalkableTileWithFlyingSword(): void {
   assert.deepEqual(step.path, [{ x: 1, y: 0 }]);
 }
 
-function testDisabledFlyingSwordDoesNotPlanIntoUnwalkableTile(): void {
+function testMissingPlayerCapabilityDoesNotPlanIntoStaticObstacleTile(): void {
   const instance = createInstance();
   const player = instance.connectPlayer({
-    playerId: 'player:artifact-disabled',
-    sessionId: 'session:artifact-disabled',
+    playerId: 'player:capability-missing',
+    sessionId: 'session:capability-missing',
     preferredX: 0,
     preferredY: 0,
   });
-  equipFlyingSword(player, { enabled: false });
   const service = createNavigationService(instance, player);
 
   assert.throws(
@@ -143,15 +142,59 @@ function testDisabledFlyingSwordDoesNotPlanIntoUnwalkableTile(): void {
   );
 }
 
-function testFlyingSwordConsumesQiOnUnwalkableMove(): void {
+function testDisabledFlyingSwordProviderDoesNotGrantPlayerCapability(): void {
   const instance = createInstance();
   const player = instance.connectPlayer({
-    playerId: 'player:artifact-move',
-    sessionId: 'session:artifact-move',
+    playerId: 'player:provider-disabled',
+    sessionId: 'session:provider-disabled',
     preferredX: 0,
     preferredY: 0,
   });
-  equipFlyingSword(player);
+  grantStaticObstacleIgnoreFromFlyingSword(player, { enabled: false });
+  const service = createNavigationService(instance, player);
+
+  assert.throws(
+    () => service.resolveNavigationStep(
+      player.playerId,
+      { kind: 'point', mapId: instance.template.id, x: 1, y: 0, allowNearestReachable: false, clientPathHint: null },
+      createNavigationDeps(instance),
+    ),
+    /无法到达该位置/u,
+  );
+}
+
+function testPlayerCapabilityIgnoresStaticObstacleOnMove(): void {
+  const instance = createInstance();
+  const player = instance.connectPlayer({
+    playerId: 'player:capability-move',
+    sessionId: 'session:capability-move',
+    preferredX: 0,
+    preferredY: 0,
+  });
+  player.movementCapabilities = { staticObstacleIgnore: true };
+  player.movePoints = 400;
+  player.lastMoveBudgetTick = instance.tick;
+
+  assert.equal(instance.enqueueMove({
+    playerId: player.playerId,
+    direction: Direction.East,
+    continuous: true,
+    resetBudget: false,
+  }), true);
+  instance.tickOnce();
+
+  assert.deepEqual(instance.getPlayerPosition(player.playerId), { x: 1, y: 0 });
+}
+
+function testFlyingSwordProviderConsumesQiForPlayerCapability(): void {
+  const instance = createInstance();
+  const player = instance.connectPlayer({
+    playerId: 'player:provider-move',
+    sessionId: 'session:provider-move',
+    preferredX: 0,
+    preferredY: 0,
+  });
+  grantStaticObstacleIgnoreFromFlyingSword(player);
   player.movePoints = 400;
   player.lastMoveBudgetTick = instance.tick;
 
@@ -167,15 +210,15 @@ function testFlyingSwordConsumesQiOnUnwalkableMove(): void {
   assert.equal(player.artifacts.slots[0].qi, 90);
 }
 
-function testDynamicBlockerStillBlocksFlyingSword(): void {
+function testDynamicBlockerStillBlocksPlayerCapability(): void {
   const instance = createInstance();
   const player = instance.connectPlayer({
-    playerId: 'player:artifact-dynamic-block',
-    sessionId: 'session:artifact-dynamic-block',
+    playerId: 'player:capability-dynamic-block',
+    sessionId: 'session:capability-dynamic-block',
     preferredX: 0,
     preferredY: 0,
   });
-  equipFlyingSword(player);
+  player.movementCapabilities = { staticObstacleIgnore: true };
   instance.setDynamicTileBlocker((x: number, y: number) => x === 1 && y === 0);
   const service = createNavigationService(instance, player);
 
@@ -190,11 +233,13 @@ function testDynamicBlockerStillBlocksFlyingSword(): void {
 }
 
 function main(): void {
-  testMoveToPlansIntoUnwalkableTileWithFlyingSword();
-  testDisabledFlyingSwordDoesNotPlanIntoUnwalkableTile();
-  testFlyingSwordConsumesQiOnUnwalkableMove();
-  testDynamicBlockerStillBlocksFlyingSword();
-  console.log('world-runtime-artifact-movement-smoke ok');
+  testPlayerCapabilityPlansIntoStaticObstacleTile();
+  testMissingPlayerCapabilityDoesNotPlanIntoStaticObstacleTile();
+  testDisabledFlyingSwordProviderDoesNotGrantPlayerCapability();
+  testPlayerCapabilityIgnoresStaticObstacleOnMove();
+  testFlyingSwordProviderConsumesQiForPlayerCapability();
+  testDynamicBlockerStillBlocksPlayerCapability();
+  console.log('world-runtime-player-movement-capability-smoke ok');
 }
 
 main();
