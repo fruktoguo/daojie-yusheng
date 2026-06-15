@@ -8,7 +8,7 @@
  * 单张地图的全部运行态：地块平面、占位、妖兽 AI、战斗、建筑、
  * 资源刷新、灵气流动、AOI 广播和持久化脏域追踪。
  */
-import { BUILDING_TOPOLOGY_BLOCKS_MOVE, BUILDING_TOPOLOGY_BLOCKS_SIGHT, DEFAULT_AGGRO_THRESHOLD, DEFAULT_PASSIVE_THREAT_PER_TICK, DEFAULT_QI_RESOURCE_DESCRIPTOR, Direction, GROUND_ITEM_EXPIRE_TICKS, LOST_TARGET_THREAT_DECAY_RATIO, LOST_TARGET_THREAT_FLAT_DECAY_HP_RATIO, MAX_THREAT_VALUE, QI_HALF_LIFE_RATE_SCALE, StructureType, TERRAIN_DESTROYED_RESTORE_TICKS, TERRAIN_REGEN_RATE_PER_TICK, TERRAIN_RESTORE_RETRY_DELAY_TICKS, THREAT_DISTANCE_FALLOFF_PER_TILE, TILE_AURA_HALF_LIFE_RATE_SCALE, TILE_AURA_HALF_LIFE_RATE_SCALED, TerrainType, TileType, buildEffectiveTargetingGeometry, buildQiResourceKey, calcQiCostWithOutputLimit, calculateTerrainDurability, composeTileTypeFromLayers, computeAffectedCellsFromAnchor, createItemStackSignature, createNumericStats, doesTileTypeBlockSight, getEffectiveMoveSpeed, getLayeredTileTraversalCost, getMaxStoredMovePoints, getMovePointsPerTick, getStructureDurabilityProfile, getTileTraversalCost, getTileTypeFromMapChar, horizontalFacingFromDelta, horizontalFacingFromTo, isGroundInteractableCellLayerTarget, isOffsetInRange, isTileTypeWalkable, mergeItemStackEntryInto, normalizeHorizontalFacing, normalizeStructureType, normalizeSurfaceType, normalizeTerrainType, parseQiResourceKey, percentModifierToMultiplier, resolveDefaultTileLayerFallback, resolveMonsterTemplateRecord, resolveSkillRequiresTarget, resolveTileLayerSeedFromTemplateContext, resolveTileLayerSeedFromTileType } from '@mud/shared';
+import { BUILDING_TOPOLOGY_BLOCKS_MOVE, BUILDING_TOPOLOGY_BLOCKS_SIGHT, DEFAULT_AGGRO_THRESHOLD, DEFAULT_PASSIVE_THREAT_PER_TICK, DEFAULT_QI_RESOURCE_DESCRIPTOR, Direction, GROUND_ITEM_EXPIRE_TICKS, LOST_TARGET_THREAT_DECAY_RATIO, LOST_TARGET_THREAT_FLAT_DECAY_HP_RATIO, MAX_THREAT_VALUE, MOVE_POINT_UNIT, QI_HALF_LIFE_RATE_SCALE, StructureType, TERRAIN_DESTROYED_RESTORE_TICKS, TERRAIN_REGEN_RATE_PER_TICK, TERRAIN_RESTORE_RETRY_DELAY_TICKS, THREAT_DISTANCE_FALLOFF_PER_TILE, TILE_AURA_HALF_LIFE_RATE_SCALE, TILE_AURA_HALF_LIFE_RATE_SCALED, TerrainType, TileType, buildEffectiveTargetingGeometry, buildQiResourceKey, calcQiCostWithOutputLimit, calculateTerrainDurability, composeTileTypeFromLayers, computeAffectedCellsFromAnchor, createItemStackSignature, createNumericStats, doesTileTypeBlockSight, getEffectiveMoveSpeed, getLayeredTileTraversalCost, getMaxStoredMovePoints, getMovePointsPerTick, getStructureDurabilityProfile, getTileTraversalCost, getTileTypeFromMapChar, horizontalFacingFromDelta, horizontalFacingFromTo, isGroundInteractableCellLayerTarget, isOffsetInRange, isTileTypeWalkable, mergeItemStackEntryInto, normalizeHorizontalFacing, normalizeStructureType, normalizeSurfaceType, normalizeTerrainType, parseQiResourceKey, percentModifierToMultiplier, resolveDefaultTileLayerFallback, resolveMonsterTemplateRecord, resolveSkillRequiresTarget, resolveTileLayerSeedFromTemplateContext, resolveTileLayerSeedFromTileType } from '@mud/shared';
 import { readTrimmedEnv } from '../../config/env-alias';
 import '../map/map-template.repository';
 import { RuntimeTilePlane } from '../map/runtime-tile-plane';
@@ -5216,6 +5216,10 @@ class MapInstanceRuntime {
 
             const nextTileIndex = this.toTileIndex(nextX, nextY);
             const staticWalkable = this.isCellIndexWalkable(nextTileIndex);
+            const ignoresStaticObstacle = !staticWalkable && this.canPlayerIgnoreStaticObstacle(player, this.tick);
+            if (!staticWalkable && !ignoresStaticObstacle) {
+                break;
+            }
             const stepCost = staticWalkable
                 ? this.getTileTraversalCost(nextX, nextY, player.playerId)
                 : this.getStaticObstacleTraversalCost(nextTileIndex);
@@ -5233,9 +5237,6 @@ class MapInstanceRuntime {
 
             const nextOccupancy = this.occupancy[nextTileIndex];
             if (nextOccupancy !== INVALID_OCCUPANCY && !this.isPlayerOverlapTile(nextX, nextY)) {
-                break;
-            }
-            if (!staticWalkable && !this.canPlayerIgnoreStaticObstacle(player, this.tick)) {
                 break;
             }
             if (player.facing !== stepDirection) {
@@ -5273,23 +5274,9 @@ class MapInstanceRuntime {
         }
         player.movePoints = Math.min(getMaxStoredMovePoints(player.moveSpeed, requiredMovePoints), Math.max(0, Math.round(movePoints)));
     }
-    /** getStaticObstacleTraversalCost：忽略静态障碍时仍按地形移动消耗扣移动点。 */
+    /** getStaticObstacleTraversalCost：忽略静态障碍时按基础单步移动消耗处理。 */
     getStaticObstacleTraversalCost(tileIndex) {
-        const movementCostOverride = this.template?.movementCostOverrideByTile?.[tileIndex] ?? 0;
-        if (Number.isFinite(movementCostOverride) && movementCostOverride > 0) {
-            return Math.max(1, Math.trunc(movementCostOverride));
-        }
-        if (this.tileDamageByTile.get(tileIndex)?.destroyed === true) {
-            const destroyedState = this.getDestroyedTileLayerStateByCellIndex(tileIndex);
-            return getLayeredTileTraversalCost(destroyedState.terrainType, destroyedState.surfaceType ?? null);
-        }
-        const state = typeof this.tilePlane.getTileLayerState === 'function'
-            ? this.tilePlane.getTileLayerState(tileIndex)
-            : null;
-        if (state) {
-            return getLayeredTileTraversalCost(state.terrain, state.surface ?? null);
-        }
-        return getTileTraversalCost(this.getEffectiveTileTypeByCellIndex(tileIndex));
+        return MOVE_POINT_UNIT;
     }
     /** canPlayerIgnoreStaticObstacle：读取玩家是否拥有忽略静态障碍移动能力。 */
     canPlayerIgnoreStaticObstacle(player, currentTick) {

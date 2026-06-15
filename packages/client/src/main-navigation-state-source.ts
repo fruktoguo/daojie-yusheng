@@ -11,10 +11,12 @@ import {
   isPointInRange,
   isTerrainTypeWalkable,
   isTileTypeWalkable,
+  MOVE_POINT_UNIT,
   PATHFINDING_PLAYER_MAX_EXPANDED_NODES,
   type MapMeta,
   type NpcQuestMarker,
   packDirections,
+  type PlayerState,
   type Tile,
 } from '@mud/shared';
 import type { MapKnownTileBounds } from './game-map/types';
@@ -141,6 +143,10 @@ type MainNavigationStateSourceOptions = {
  * sectId：所属宗门 ID。
  */
  sectId?: string | null;
+ /**
+ * artifacts：法宝槽位投影，用于客户端可达性预览。
+ */
+ artifacts?: PlayerState['artifacts'] | null;
  /**
  * actions：action相关字段。
  */
@@ -507,15 +513,23 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
           visibleBlockingPositions,
           passableFormationBoundaryPositions,
         );
-        row.push(occupiedByVisibleEntity
-          ? {
-              ...baseTile,
-              walkable: false,
-              occupiedBy: 'visible_entity',
-            }
-          : reachableForCurrentPlayer === baseTile.walkable
-            ? baseTile
-            : { ...baseTile, walkable: reachableForCurrentPlayer });
+        if (occupiedByVisibleEntity) {
+          row.push({
+            ...baseTile,
+            walkable: false,
+            occupiedBy: 'visible_entity',
+          });
+        } else if (reachableForCurrentPlayer === baseTile.walkable) {
+          row.push(baseTile);
+        } else {
+          row.push({
+            ...baseTile,
+            walkable: reachableForCurrentPlayer,
+            movementCost: reachableForCurrentPlayer && canCurrentPlayerIgnoreStaticObstacle()
+              ? MOVE_POINT_UNIT
+              : baseTile.movementCost,
+          });
+        }
       }
       tiles.push(row);
     }
@@ -673,6 +687,19 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
     return isTileTypeWalkable(tile.type);
   }
 
+  function canCurrentPlayerIgnoreStaticObstacle(): boolean {
+    const slots = options.getPlayer()?.artifacts?.slots;
+    if (!Array.isArray(slots)) {
+      return false;
+    }
+    return slots.some((slot) => (
+      slot?.unlocked === true
+      && slot.enabled !== false
+      && Array.isArray(slot.item?.artifactEffects)
+      && slot.item.artifactEffects.some((effect) => effect?.type === 'traverse_unwalkable')
+    ));
+  }
+
   function isCellReachableForCurrentPlayer(x: number, y: number): boolean {
     return isCellReachableForCurrentPlayerByProjection(x, y, null, null, null);
   }
@@ -696,6 +723,9 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
       return false;
     }
     if (tile.walkable) {
+      return true;
+    }
+    if (canCurrentPlayerIgnoreStaticObstacle()) {
       return true;
     }
     const passableFormationBoundary = passableFormationBoundaryPositions

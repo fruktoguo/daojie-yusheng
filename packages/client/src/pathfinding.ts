@@ -42,7 +42,10 @@ export function findPath(
       if (!tile) continue;
       const index = y * cols + x;
       walkable[index] = tile.walkable ? 1 : 0;
-      traversalCost[index] = getTileTraversalCost(tile.type);
+      const movementCost = Number(tile.movementCost);
+      traversalCost[index] = Number.isFinite(movementCost) && movementCost > 0
+        ? Math.max(1, Math.trunc(movementCost))
+        : getTileTraversalCost(tile.type);
     }
   }
 

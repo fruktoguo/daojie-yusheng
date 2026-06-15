@@ -173,7 +173,7 @@ function testPlayerCapabilityIgnoresStaticObstacleOnMove(): void {
     preferredY: 0,
   });
   player.movementCapabilities = { staticObstacleIgnore: true };
-  player.movePoints = 400;
+  player.movePoints = 100;
   player.lastMoveBudgetTick = instance.tick;
 
   assert.equal(instance.enqueueMove({
@@ -185,6 +185,7 @@ function testPlayerCapabilityIgnoresStaticObstacleOnMove(): void {
   instance.tickOnce();
 
   assert.deepEqual(instance.getPlayerPosition(player.playerId), { x: 1, y: 0 });
+  assert.equal(player.movePoints, 0);
 }
 
 function testFlyingSwordProviderDoesNotConsumeQiOnMove(): void {
@@ -196,7 +197,7 @@ function testFlyingSwordProviderDoesNotConsumeQiOnMove(): void {
     preferredY: 0,
   });
   grantStaticObstacleIgnoreFromFlyingSword(player);
-  player.movePoints = 400;
+  player.movePoints = 100;
   player.lastMoveBudgetTick = instance.tick;
 
   assert.equal(instance.enqueueMove({
@@ -209,6 +210,7 @@ function testFlyingSwordProviderDoesNotConsumeQiOnMove(): void {
 
   assert.deepEqual(instance.getPlayerPosition(player.playerId), { x: 1, y: 0 });
   assert.equal(player.artifacts.slots[0].qi, 100);
+  assert.equal(player.movePoints, 0);
 }
 
 function testFlyingSwordProviderGrantsCapabilityEvenWhenArtifactQiIsEmpty(): void {
@@ -242,7 +244,7 @@ function testFlyingSwordProviderMovesWhenArtifactQiIsEmpty(): void {
     preferredY: 0,
   });
   grantStaticObstacleIgnoreFromFlyingSword(player, { qi: 0 });
-  player.movePoints = 400;
+  player.movePoints = 100;
   player.lastMoveBudgetTick = instance.tick;
 
   assert.equal(instance.enqueueMove({
@@ -255,6 +257,7 @@ function testFlyingSwordProviderMovesWhenArtifactQiIsEmpty(): void {
 
   assert.deepEqual(instance.getPlayerPosition(player.playerId), { x: 1, y: 0 });
   assert.equal(player.artifacts.slots[0].qi, 0);
+  assert.equal(player.movePoints, 0);
 }
 
 function testEnabledFlyingSwordConsumesArtifactQiEveryTick(): void {
