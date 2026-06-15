@@ -44,6 +44,40 @@ function resolvePlayerMapId(player, instance = null) {
             : '';
     return instanceMapId || null;
 }
+function resolvePlayerPathingOptions(player, deps) {
+    const currentTick = typeof deps?.resolveCurrentTickForPlayerId === 'function'
+        ? deps.resolveCurrentTickForPlayerId(player?.playerId)
+        : null;
+    return canPlayerTraverseUnwalkableWithArtifact(player, currentTick)
+        ? { allowTraverseUnwalkable: true }
+        : undefined;
+}
+function canPlayerTraverseUnwalkableWithArtifact(player, currentTick = null) {
+    const normalizedTick = Number.isFinite(Number(currentTick)) ? Math.trunc(Number(currentTick)) : null;
+    const slots = Array.isArray(player?.artifacts?.slots) ? player.artifacts.slots : [];
+    for (const slot of slots) {
+        if (!slot || slot.unlocked !== true || slot.enabled === false || !slot.item) {
+            continue;
+        }
+        const effects = Array.isArray(slot.item.artifactEffects) ? slot.item.artifactEffects : [];
+        const effect = effects.find((entry) => entry?.type === 'traverse_unwalkable');
+        if (!effect) {
+            continue;
+        }
+        if (normalizedTick !== null && Math.trunc(Number(slot.lastTraverseUnwalkableTick) || -1) === normalizedTick) {
+            return true;
+        }
+        const maxQi = Math.max(0, Number(slot.maxQi) || 0);
+        const ratio = Number(effect.costMaxQiRatio);
+        const cost = Number.isFinite(ratio) && ratio > 0
+            ? Math.max(1, Math.ceil(maxQi * ratio))
+            : 0;
+        if (cost > 0 && maxQi > 0 && Number(slot.qi) >= cost) {
+            return true;
+        }
+    }
+    return false;
+}
 
 /** movement/navigation 状态域服务：承接导航意图状态与路径物化。 */
 @Injectable()
@@ -321,7 +355,8 @@ export class WorldRuntimeNavigationService {
             if (!currentMapId) {
                 return [];
             }
-            const destination = this.resolveNavigationDestination(playerId, intent, deps);
+            const pathingOptions = resolvePlayerPathingOptions(player, deps);
+            const destination = this.resolveNavigationDestination(playerId, intent, deps, pathingOptions);
             if (destination.mapId !== currentMapId) {
                 const route = this.findMapRoute(currentMapId, destination.mapId);
                 if (!route || route.length < 2) {
@@ -332,13 +367,13 @@ export class WorldRuntimeNavigationService {
                 if (!portal || (portal.x === player.x && portal.y === player.y)) {
                     return [];
                 }
-                const path = findPathPointsOnMap(instance, player.playerId, player.x, player.y, [{ x: portal.x, y: portal.y }]);
+                const path = findPathPointsOnMap(instance, player.playerId, player.x, player.y, [{ x: portal.x, y: portal.y }], pathingOptions);
                 return path ? path.map((entry) => [entry.x, entry.y]) : [];
             }
             if (destination.goals.some((goal) => goal.x === player.x && goal.y === player.y)) {
                 return [];
             }
-            const path = findPathPointsOnMap(instance, player.playerId, player.x, player.y, destination.goals);
+            const path = findPathPointsOnMap(instance, player.playerId, player.x, player.y, destination.goals, pathingOptions);
             return path ? path.map((entry) => [entry.x, entry.y]) : [];
         }
         catch (error) {
@@ -538,7 +573,8 @@ export class WorldRuntimeNavigationService {
         if (!currentMapId) {
             throw new BadRequestException('当前地图状态异常');
         }
-        const destination = this.resolveNavigationDestination(playerId, intent, deps);
+        const pathingOptions = resolvePlayerPathingOptions(player, deps);
+        const destination = this.resolveNavigationDestination(playerId, intent, deps, pathingOptions);
         if (destination.mapId !== currentMapId) {
             const route = this.findMapRoute(currentMapId, destination.mapId);
             if (!route || route.length < 2) {
@@ -555,7 +591,7 @@ export class WorldRuntimeNavigationService {
                 });
                 return { kind: 'portal' };
             }
-            const pathResult = findOptimalPathOnMap(instance, player.playerId, player.x, player.y, [{ x: portal.x, y: portal.y }]);
+            const pathResult = findOptimalPathOnMap(instance, player.playerId, player.x, player.y, [{ x: portal.x, y: portal.y }], true, pathingOptions);
             if (!pathResult || pathResult.points.length === 0) {
                 throw new BadRequestException('前往界门的路径不可达');
             }
@@ -578,9 +614,9 @@ export class WorldRuntimeNavigationService {
             return { kind: 'done' };
         }
         const preferredPath = intent.kind === 'point'
-            ? resolvePreferredClientPathHint(instance, player.playerId, player.x, player.y, destination.goals, intent.clientPathHint)
+            ? resolvePreferredClientPathHint(instance, player.playerId, player.x, player.y, destination.goals, intent.clientPathHint, pathingOptions)
             : null;
-        const serverPathResult = preferredPath ? null : findOptimalPathOnMap(instance, player.playerId, player.x, player.y, destination.goals);
+        const serverPathResult = preferredPath ? null : findOptimalPathOnMap(instance, player.playerId, player.x, player.y, destination.goals, true, pathingOptions);
         const pathResult = preferredPath ?? serverPathResult;
         if (!pathResult || pathResult.points.length === 0) {
             throw new BadRequestException(intent.kind === 'quest' ? '任务目标当前不可达' : '无法到达该位置');
@@ -610,7 +646,11 @@ export class WorldRuntimeNavigationService {
         if (!currentMapId) {
             throw new BadRequestException('当前地图状态异常');
         }
-        const destination = this.resolveNavigationDestination(playerId, intent, deps);
+        const pathingOptions = resolvePlayerPathingOptions(player, deps);
+        if (pathingOptions?.allowTraverseUnwalkable === true) {
+            return this.resolveNavigationStep(playerId, intent, deps);
+        }
+        const destination = this.resolveNavigationDestination(playerId, intent, deps, pathingOptions);
         if (destination.mapId !== currentMapId) {
             return this.resolveNavigationStep(playerId, intent, deps);
         }
@@ -665,7 +705,7 @@ export class WorldRuntimeNavigationService {
  * @returns 无返回值，直接更新导航Destination相关状态。
  */
 
-    resolveNavigationDestination(playerId, intent, deps) {
+    resolveNavigationDestination(playerId, intent, deps, pathingOptions = undefined) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         if (intent.kind === 'point') {
@@ -678,7 +718,7 @@ export class WorldRuntimeNavigationService {
             }
             const goals = intent.mapId === currentMapId
                 ? (() => {
-                    return buildGoalPoints(instance, intent.x, intent.y, intent.allowNearestReachable, playerId);
+                    return buildGoalPoints(instance, intent.x, intent.y, intent.allowNearestReachable, playerId, pathingOptions);
                 })()
                 : buildGoalPointsFromTemplate(
                     this.templateRepository.getOrThrow(intent.mapId),
@@ -752,7 +792,7 @@ export class WorldRuntimeNavigationService {
  * @returns 无返回值，完成路径PointOn地图的读取/组装。
  */
 
-function findPathPointsOnMap(instance, playerId, startX, startY, goals) {
-    const result = findOptimalPathOnMap(instance, playerId, startX, startY, goals);
+function findPathPointsOnMap(instance, playerId, startX, startY, goals, pathingOptions = undefined) {
+    const result = findOptimalPathOnMap(instance, playerId, startX, startY, goals, true, pathingOptions);
     return result ? result.points : null;
 }

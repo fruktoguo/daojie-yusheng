@@ -50,9 +50,9 @@ export function selectNearestPortal(portals, targetMapId, fromX, fromY) {
     return best;
 }
 /** 按目标点构建可达目标列表，必要时返回最近可替代坐标。 */
-export function buildGoalPoints(instance, targetX, targetY, allowNearestReachable, playerId = null) {
+export function buildGoalPoints(instance, targetX, targetY, allowNearestReachable, playerId = null, options = undefined) {
     const goals = [];
-    if (instance.isInBounds?.(targetX, targetY) === true && instance.isWalkable(targetX, targetY, playerId)) {
+    if (isPathableForNavigation(instance, targetX, targetY, playerId, options)) {
         goals.push({ x: targetX, y: targetY });
     }
     if (goals.length > 0 || !allowNearestReachable) {
@@ -61,7 +61,7 @@ export function buildGoalPoints(instance, targetX, targetY, allowNearestReachabl
     for (let radius = 1; radius <= 8; radius += 1) {
         for (let y = targetY - radius; y <= targetY + radius; y += 1) {
             for (let x = targetX - radius; x <= targetX + radius; x += 1) {
-                if (instance.isInBounds?.(x, y) !== true || !instance.isWalkable(x, y, playerId)) {
+                if (!isPathableForNavigation(instance, x, y, playerId, options)) {
                     continue;
                 }
                 goals.push({ x, y });
@@ -268,18 +268,48 @@ export function buildPathingBlockArray(instance, playerId, goals, allowOccupiedG
     return blocked;
 }
 /** 计算路径总可行走代价，无穷大表示路径不可达。 */
-export function computePathCost(instance, path, playerId = null) {
+export function computePathCost(instance, path, playerId = null, options = undefined) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     let cost = 0;
     for (const point of path) {
-        const stepCost = instance.getTileTraversalCost(point.x, point.y, playerId);
+        const stepCost = getPathTraversalCost(instance, point.x, point.y, playerId, options);
         if (!Number.isFinite(stepCost) || stepCost <= 0) {
             return Number.POSITIVE_INFINITY;
         }
         cost += stepCost;
     }
     return cost;
+}
+function isPathableForNavigation(instance, x, y, playerId, options = undefined) {
+    if (instance.isInBounds?.(x, y) !== true) {
+        return false;
+    }
+    if (instance.isWalkable(x, y, playerId)) {
+        return true;
+    }
+    if (options?.allowTraverseUnwalkable !== true) {
+        return false;
+    }
+    if (typeof instance.isDynamicallyBlockedTile === 'function' && instance.isDynamicallyBlockedTile(x, y, playerId)) {
+        return false;
+    }
+    const tileIndex = typeof instance.toTileIndex === 'function' ? instance.toTileIndex(x, y) : -1;
+    return tileIndex >= 0;
+}
+function getPathTraversalCost(instance, x, y, playerId, options = undefined) {
+    if (instance.isWalkable(x, y, playerId)) {
+        return instance.getTileTraversalCost(x, y, playerId);
+    }
+    if (options?.allowTraverseUnwalkable !== true || !isPathableForNavigation(instance, x, y, playerId, options)) {
+        return Number.POSITIVE_INFINITY;
+    }
+    const tileIndex = typeof instance.toTileIndex === 'function' ? instance.toTileIndex(x, y) : -1;
+    if (tileIndex < 0 || typeof instance.getArtifactOverrideTraversalCost !== 'function') {
+        return Number.POSITIVE_INFINITY;
+    }
+    const stepCost = instance.getArtifactOverrideTraversalCost(tileIndex);
+    return Number.isFinite(stepCost) && stepCost > 0 ? stepCost : Number.POSITIVE_INFINITY;
 }
 function resolvePathNodePriority(node) {
     return Number.isFinite(node?.priority) ? node.priority : node.cost;
@@ -313,7 +343,7 @@ export function buildCoordKey(x, y) {
     return `${x},${y}`;
 }
 /** 优先复用客户端路径Hint，在当前状态可接续时返回剩余坐标序列。 */
-export function resolvePreferredClientPathHint(instance, playerId, currentX, currentY, goals, clientPathHint) {
+export function resolvePreferredClientPathHint(instance, playerId, currentX, currentY, goals, clientPathHint, options = undefined) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (!clientPathHint || !Array.isArray(clientPathHint.points) || clientPathHint.points.length === 0) {
@@ -361,11 +391,11 @@ export function resolvePreferredClientPathHint(instance, playerId, currentX, cur
         }
 
         const tileIndex = typeof instance.toTileIndex === 'function' ? instance.toTileIndex(point.x, point.y) : -1;
-        if (tileIndex < 0 || !instance.isWalkable(point.x, point.y, playerId) || blocked.has(tileIndex)) {
+        if (tileIndex < 0 || !isPathableForNavigation(instance, point.x, point.y, playerId, options) || blocked.has(tileIndex)) {
             return null;
         }
 
-        const stepCost = instance.getTileTraversalCost(point.x, point.y, playerId);
+        const stepCost = getPathTraversalCost(instance, point.x, point.y, playerId, options);
         if (!Number.isFinite(stepCost) || stepCost <= 0) {
             return null;
         }
@@ -374,11 +404,11 @@ export function resolvePreferredClientPathHint(instance, playerId, currentX, cur
     }
     return {
         points,
-        cost: computePathCost(instance, points, playerId),
+        cost: computePathCost(instance, points, playerId, options),
     };
 }
 /** 在地图内执行寻路，返回最小代价路径。 */
-export function findOptimalPathOnMap(instance, playerId, startX, startY, goals, allowOccupiedGoals = true) {
+export function findOptimalPathOnMap(instance, playerId, startX, startY, goals, allowOccupiedGoals = true, options = undefined) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (goals.length === 0) {
@@ -452,11 +482,11 @@ export function findOptimalPathOnMap(instance, playerId, startX, startY, goals, 
             }
 
             const nextIndex = typeof instance.toTileIndex === 'function' ? instance.toTileIndex(nextX, nextY) : -1;
-            if (nextIndex < 0 || nextIndex >= size || !instance.isWalkable(nextX, nextY, playerId) || blocked.has(nextIndex)) {
+            if (nextIndex < 0 || nextIndex >= size || !isPathableForNavigation(instance, nextX, nextY, playerId, options) || blocked.has(nextIndex)) {
                 continue;
             }
 
-            const stepCost = instance.getTileTraversalCost(nextX, nextY, playerId);
+            const stepCost = getPathTraversalCost(instance, nextX, nextY, playerId, options);
             if (!Number.isFinite(stepCost) || stepCost <= 0) {
                 continue;
             }
@@ -575,19 +605,19 @@ export function findPathToTargetWithinRangeOnMap(instance, playerId, startX, sta
     return null;
 }
 /** 根据寻路结果读取下一步移动方向。 */
-export function findNextDirectionOnMap(instance, playerId, startX, startY, goals, allowOccupiedGoals = true) {
+export function findNextDirectionOnMap(instance, playerId, startX, startY, goals, allowOccupiedGoals = true, options = undefined) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    const result = findOptimalPathOnMap(instance, playerId, startX, startY, goals, allowOccupiedGoals);
+    const result = findOptimalPathOnMap(instance, playerId, startX, startY, goals, allowOccupiedGoals, options);
     if (!result || result.points.length === 0) {
         return null;
     }
     return directionFromStep(startX, startY, result.points[0].x, result.points[0].y);
 }
 /** 返回从起点到目标组的完整路径坐标序列。 */
-export function findPathPointsOnMap(instance, playerId, startX, startY, goals, allowOccupiedGoals = true) {
+export function findPathPointsOnMap(instance, playerId, startX, startY, goals, allowOccupiedGoals = true, options = undefined) {
 
-    const result = findOptimalPathOnMap(instance, playerId, startX, startY, goals, allowOccupiedGoals);
+    const result = findOptimalPathOnMap(instance, playerId, startX, startY, goals, allowOccupiedGoals, options);
     return result?.points ?? null;
 }
 /** 根据前驱表反向回放并恢复路径点顺序。 */

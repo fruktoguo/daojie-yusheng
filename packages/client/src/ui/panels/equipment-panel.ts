@@ -67,6 +67,11 @@ type EquipmentSlotView = {
 };
 
 type ArtifactSlotView = EquipmentSlotView & {
+  stateBadge: HTMLSpanElement;
+  qi: HTMLDivElement;
+  qiTrack: HTMLSpanElement;
+  qiFill: HTMLSpanElement;
+  qiText: HTMLSpanElement;
   actions: HTMLDivElement;
   toggle: HTMLButtonElement;
 };
@@ -431,10 +436,63 @@ export class EquipmentPanel {
 
   /** createArtifactSlotView：创建法宝槽位视图。 */
   private createArtifactSlotView(slot: ArtifactSlot): ArtifactSlotView {
-    const base = this.createSlotView('weapon');
-    base.root.className = 'artifact-slot';
-    base.name.textContent = this.formatArtifactSlotLabel(slot);
-    base.action.dataset.unequip = slot;
+    const root = document.createElement('div');
+    root.className = 'artifact-slot is-locked is-disabled is-empty';
+
+    const copy = document.createElement('div');
+    copy.className = 'equip-copy artifact-copy';
+
+    const head = document.createElement('div');
+    head.className = 'artifact-slot-head';
+
+    const name = document.createElement('span');
+    name.className = 'equip-slot-name';
+    name.textContent = this.formatArtifactSlotLabel(slot);
+
+    const stateBadge = document.createElement('span');
+    stateBadge.className = 'artifact-state-badge';
+    stateBadge.textContent = t('equipment.artifact.locked', undefined);
+
+    head.append(name, stateBadge);
+
+    const item = document.createElement('span');
+    item.className = 'equip-slot-item';
+    item.hidden = true;
+
+    const empty = document.createElement('span');
+    empty.className = 'equip-slot-empty';
+    empty.textContent = t('equipment.artifact.locked', undefined);
+
+    const meta = document.createElement('span');
+    meta.className = 'equip-slot-meta';
+    meta.textContent = t('equipment.artifact.locked', undefined);
+
+    const qi = document.createElement('div');
+    qi.className = 'artifact-qi';
+    qi.hidden = true;
+
+    const qiTrack = document.createElement('span');
+    qiTrack.className = 'artifact-qi-track';
+    qiTrack.setAttribute('aria-hidden', 'true');
+
+    const qiFill = document.createElement('span');
+    qiFill.className = 'artifact-qi-fill';
+
+    const qiText = document.createElement('span');
+    qiText.className = 'artifact-qi-text';
+
+    qiTrack.append(qiFill);
+    qi.append(qiTrack, qiText);
+
+    const action = document.createElement('button');
+    action.className = 'small-btn';
+    action.type = 'button';
+    action.textContent = t('equipment.action.unequip', undefined);
+    action.hidden = true;
+    action.disabled = true;
+    action.dataset.unequip = slot;
+
+    copy.append(head, item, empty, meta, qi);
 
     const actions = document.createElement('div');
     actions.className = 'artifact-actions';
@@ -445,9 +503,9 @@ export class EquipmentPanel {
     toggle.dataset.artifactToggle = slot;
     toggle.textContent = t('equipment.artifact.enabled', undefined);
 
-    actions.append(toggle, base.action);
-    base.root.replaceChild(actions, base.action);
-    return { ...base, actions, toggle };
+    actions.append(toggle, action);
+    root.append(copy, actions);
+    return { root, name, item, empty, meta, action, stateBadge, qi, qiTrack, qiFill, qiText, actions, toggle };
   }
 
   /** renderArtifactSlots：渲染法宝槽并返回当前 tab 是否有已装备法宝。 */
@@ -461,15 +519,22 @@ export class EquipmentPanel {
       }
       const entry = slots.find((candidate) => candidate.slot === slot);
       const unlocked = entry?.unlocked === true;
-      const enabled = entry?.enabled !== false;
+      const enabled = unlocked && entry?.enabled !== false;
       const item = entry?.item ?? null;
       const hasItem = !!item;
       hasAnyArtifact ||= unlocked && hasItem;
       const itemName = item ? getItemDisplayMeta(item).displayItem.name : '';
       const currentQi = Math.max(0, Math.floor(Number(entry?.qi ?? 0) || 0));
       const maxQi = Math.max(0, Math.floor(Number(entry?.maxQi ?? 0) || 0));
-      const metaText = unlocked && hasItem
+      const qiPercent = maxQi > 0 ? Math.max(0, Math.min(100, (currentQi / maxQi) * 100)) : 0;
+      const qiText = unlocked && hasItem
         ? t('equipment.artifact.qi', { current: currentQi, max: maxQi })
+        : '';
+      const stateText = !unlocked
+        ? t('equipment.artifact.locked', undefined)
+        : enabled ? t('equipment.artifact.enabled', undefined) : t('equipment.artifact.disabled', undefined);
+      const metaText = unlocked && hasItem
+        ? qiText
         : unlocked ? t('equipment.empty.slot-meta', undefined) : t('equipment.artifact.locked', undefined);
       const emptyText = unlocked ? t('equipment.artifact.empty', undefined) : t('equipment.artifact.locked', undefined);
       const signature = this.buildArtifactSlotSignature(slot, unlocked, enabled, hasItem, itemName, metaText, currentQi, maxQi);
@@ -478,7 +543,12 @@ export class EquipmentPanel {
       }
       this.artifactSlotSignatures.set(slot, signature);
       slotView.root.hidden = false;
+      slotView.root.classList.toggle('is-unlocked', unlocked);
+      slotView.root.classList.toggle('is-locked', !unlocked);
+      slotView.root.classList.toggle('is-enabled', enabled);
       slotView.root.classList.toggle('is-disabled', !enabled);
+      slotView.root.classList.toggle('has-item', hasItem);
+      slotView.root.classList.toggle('is-empty', !hasItem);
       slotView.root.toggleAttribute('data-artifact-tooltip-slot', hasItem);
       if (hasItem) {
         slotView.root.dataset.artifactTooltipSlot = slot;
@@ -486,11 +556,17 @@ export class EquipmentPanel {
         delete slotView.root.dataset.artifactTooltipSlot;
       }
       slotView.name.textContent = this.formatArtifactSlotLabel(slot);
+      slotView.stateBadge.textContent = stateText;
       slotView.item.textContent = itemName;
       slotView.item.hidden = !hasItem;
       slotView.empty.textContent = emptyText;
       slotView.empty.hidden = hasItem;
       slotView.meta.textContent = metaText;
+      slotView.meta.hidden = unlocked && hasItem;
+      slotView.qi.hidden = !unlocked || !hasItem;
+      slotView.qi.setAttribute('aria-label', qiText);
+      slotView.qiText.textContent = qiText;
+      slotView.qiFill.style.setProperty('--artifact-qi-percent', `${qiPercent}%`);
       slotView.actions.hidden = !unlocked;
       slotView.toggle.hidden = !unlocked;
       slotView.toggle.disabled = !unlocked;
