@@ -14,7 +14,12 @@ import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../floating-to
 import { buildItemTooltipPayload } from '../equipment-tooltip';
 import { getItemDisplayMeta } from '../item-display';
 import {
+  EQUIPMENT_PANEL_TAB_EMPTY_KEYS,
+  EQUIPMENT_PANEL_TAB_LABEL_KEYS,
+  EQUIPMENT_PANEL_TABS,
+  type EquipmentPanelTab,
   EQUIPMENT_PANEL_SLOT_ORDER,
+  getEquipmentPanelTabSlotOrder,
   formatEquipmentSlotCompactMeta,
   isWideEquipmentPanelSlot,
 } from '../equipment-panel-layout';
@@ -78,6 +83,10 @@ export class EquipmentPanel {
   private slotViews = new Map<EquipSlot, EquipmentSlotView>();
   /** slotSignatures：槽位显示签名，避免相同装备重复写 DOM。 */
   private slotSignatures = new Map<EquipSlot, string>();
+  /** tabButtons：tab按钮引用。 */
+  private tabButtons = new Map<EquipmentPanelTab, HTMLButtonElement>();
+  /** activeTab：当前显示的装备分类。 */
+  private activeTab: EquipmentPanelTab = 'combat';
   /** sectionEl：section元素。 */
   private sectionEl: HTMLDivElement | null = null;  
   /** emptyStateEl：装备总空态提示。 */
@@ -106,6 +115,8 @@ export class EquipmentPanel {
     this.lastEquipment = null;
     this.tooltipSlot = null;
     this.tooltip.hide(true);
+    this.activeTab = 'combat';
+    this.tabButtons.clear();
     this.slotViews.clear();
     this.slotSignatures.clear();
     this.sectionEl = null;
@@ -184,6 +195,20 @@ export class EquipmentPanel {
     }
   }
 
+  /** setActiveTab：切换当前显示的装备分类。 */
+  private setActiveTab(tab: EquipmentPanelTab): void {
+    if (this.activeTab === tab) {
+      return;
+    }
+    this.activeTab = tab;
+    this.tooltipSlot = null;
+    this.tooltip.hide(true);
+    this.updateTabButtons();
+    if (this.lastEquipment) {
+      this.render(this.lastEquipment);
+    }
+  }
+
   /** render：渲染渲染。 */
   private render(equipment: EquipmentSlots): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -193,24 +218,28 @@ export class EquipmentPanel {
       return;
     }
 
+    const visibleSlots = getEquipmentPanelTabSlotOrder(this.activeTab);
+    const visibleSlotSet = new Set(visibleSlots);
     let hasAnyEquipment = false;
     for (const slot of EQUIPMENT_PANEL_SLOT_ORDER) {
       const slotView = this.slotViews.get(slot);
       if (!slotView) {
         continue;
       }
+      const isVisible = visibleSlotSet.has(slot);
       const item = equipment[slot];
       const hasItem = !!item;
-      hasAnyEquipment ||= hasItem;
+      hasAnyEquipment ||= isVisible && hasItem;
       const itemName = item ? getItemDisplayMeta(item).displayItem.name : '';
       const metaText = item ? formatEquipmentSlotCompactMeta(item) : t('equipment.empty.slot-meta', undefined);
-      const signature = this.buildSlotSignature(slot, hasItem, itemName, metaText);
+      const signature = this.buildSlotSignature(slot, isVisible, hasItem, itemName, metaText);
       if (this.slotSignatures.get(slot) === signature) {
         continue;
       }
       this.slotSignatures.set(slot, signature);
-      slotView.root.toggleAttribute('data-equip-tooltip-slot', hasItem);
-      if (hasItem) {
+      slotView.root.hidden = !isVisible;
+      slotView.root.toggleAttribute('data-equip-tooltip-slot', isVisible && hasItem);
+      if (isVisible && hasItem) {
         slotView.root.dataset.equipTooltipSlot = slot;
       } else {
         delete slotView.root.dataset.equipTooltipSlot;
@@ -226,6 +255,9 @@ export class EquipmentPanel {
       slotView.action.dataset.unequip = slot;
     }
     if (this.emptyStateEl) {
+      this.emptyStateEl.textContent = hasAnyEquipment
+        ? ''
+        : t(EQUIPMENT_PANEL_TAB_EMPTY_KEYS[this.activeTab]);
       this.emptyStateEl.hidden = hasAnyEquipment;
     }
   }
@@ -234,7 +266,8 @@ export class EquipmentPanel {
   private ensureStructure(): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    if (this.sectionEl && this.emptyStateEl && this.slotViews.size === EQUIPMENT_PANEL_SLOT_ORDER.length) {
+    if (this.sectionEl && this.emptyStateEl && this.slotViews.size === EQUIPMENT_PANEL_SLOT_ORDER.length && this.tabButtons.size === EQUIPMENT_PANEL_TABS.length) {
+      this.updateTabButtons();
       return;
     }
 
@@ -242,6 +275,7 @@ export class EquipmentPanel {
       this.pane.replaceChildren();
       this.slotViews.clear();
       this.slotSignatures.clear();
+      this.tabButtons.clear();
 
       const sectionEl = document.createElement('div');
       sectionEl.className = 'panel-section';
@@ -251,9 +285,27 @@ export class EquipmentPanel {
       titleEl.textContent = t('equipment.title', undefined);
       sectionEl.append(titleEl);
 
+      const tabBarEl = document.createElement('div');
+      tabBarEl.className = 'equipment-subtabs';
+      tabBarEl.setAttribute('role', 'tablist');
+      tabBarEl.setAttribute('aria-label', t('equipment.title', undefined));
+      for (const tab of EQUIPMENT_PANEL_TABS) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'equipment-subtab';
+        button.dataset.equipmentTab = tab;
+        button.setAttribute('role', 'tab');
+        button.setAttribute('aria-selected', tab === this.activeTab ? 'true' : 'false');
+        button.textContent = t(EQUIPMENT_PANEL_TAB_LABEL_KEYS[tab], undefined);
+        button.addEventListener('click', () => this.setActiveTab(tab));
+        this.tabButtons.set(tab, button);
+        tabBarEl.append(button);
+      }
+      sectionEl.append(tabBarEl);
+
       const emptyStateEl = document.createElement('div');
       emptyStateEl.className = 'empty-hint';
-      emptyStateEl.textContent = t('equipment.empty.all', undefined);
+      emptyStateEl.textContent = t(EQUIPMENT_PANEL_TAB_EMPTY_KEYS[this.activeTab], undefined);
       emptyStateEl.hidden = true;
       sectionEl.append(emptyStateEl);
 
@@ -312,8 +364,24 @@ export class EquipmentPanel {
   }
 
   /** buildSlotSignature：生成槽位当前展示所需的稳定签名。 */
-  private buildSlotSignature(slot: EquipSlot, hasItem: boolean, itemName: string, metaText: string): string {
-    return [slot, hasItem ? 'equipped' : 'empty', itemName, metaText].join('|');
+  private buildSlotSignature(slot: EquipSlot, isVisible: boolean, hasItem: boolean, itemName: string, metaText: string): string {
+    return [slot, isVisible ? 'visible' : 'hidden', hasItem ? 'equipped' : 'empty', itemName, metaText].join('|');
+  }
+
+  /** updateTabButtons：同步tab按钮active态。 */
+  private updateTabButtons(): void {
+    for (const tab of EQUIPMENT_PANEL_TABS) {
+      const button = this.tabButtons.get(tab);
+      if (!button) {
+        continue;
+      }
+      const active = tab === this.activeTab;
+      button.classList.toggle('is-active', active);
+      button.setAttribute('aria-selected', active ? 'true' : 'false');
+    }
+    if (this.emptyStateEl) {
+      this.emptyStateEl.textContent = t(EQUIPMENT_PANEL_TAB_EMPTY_KEYS[this.activeTab], undefined);
+    }
   }
 
   /** bindActionEvents：绑定动作事件。 */
@@ -321,6 +389,10 @@ export class EquipmentPanel {
     this.pane.addEventListener('click', (event) => {
       const target = event.target;
       if (!(target instanceof HTMLElement)) {
+        return;
+      }
+      const tabButton = target.closest<HTMLButtonElement>('[data-equipment-tab]');
+      if (tabButton) {
         return;
       }
       const button = target.closest<HTMLButtonElement>('[data-unequip]');

@@ -3,14 +3,18 @@
  *
  * 维护时要保持它只处理前端表现和组件契约，不保存业务真源，也不绕过共享规则或服务端权威运行时。
  */
-import { useCallback, useMemo, useRef, memo } from 'react';
+import { useCallback, useMemo, useRef, useState, memo } from 'react';
 import { EquipmentSlots, EquipSlot, PlayerState } from '@mud/shared';
 import { getEquipSlotLabel } from '../../../domain-labels';
 import { buildItemTooltipPayload } from '../../../ui/equipment-tooltip';
 import { getItemDisplayMeta } from '../../../ui/item-display';
 import {
-  EQUIPMENT_PANEL_SLOT_ORDER,
+  EQUIPMENT_PANEL_TAB_EMPTY_KEYS,
+  EQUIPMENT_PANEL_TAB_LABEL_KEYS,
+  EQUIPMENT_PANEL_TABS,
+  type EquipmentPanelTab,
   formatEquipmentSlotCompactMeta,
+  getEquipmentPanelTabSlotOrder,
   isWideEquipmentPanelSlot,
 } from '../../../ui/equipment-panel-layout';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../../../ui/floating-tooltip';
@@ -57,9 +61,11 @@ export function syncEquipmentPanelState(input: {
 
 export function EquipmentPanel() {
   const { equipment, playerRealmLv } = useEquipmentPanelStore();
+  const [activeTab, setActiveTab] = useState<EquipmentPanelTab>('combat');
   const tooltipRef = useRef<FloatingTooltip | null>(null);
   const tooltipSlotRef = useRef<EquipSlot | null>(null);
   const tapMode = useMemo(() => prefersPinnedTooltipInteraction(), []);
+  const activeSlots = useMemo(() => getEquipmentPanelTabSlotOrder(activeTab), [activeTab]);
 
   const getTooltip = useCallback(() => {
     if (!tooltipRef.current) {
@@ -72,10 +78,19 @@ export function EquipmentPanel() {
     return <div className="empty-hint">{t('equipment.empty.all')}</div>;
   }
 
-  const hasAnyEquipment = EQUIPMENT_PANEL_SLOT_ORDER.some((slot) => !!equipment[slot]);
+  const hasAnyActiveEquipment = activeSlots.some((slot) => !!equipment[slot]);
 
   const handleUnequip = (slot: EquipSlot) => {
     onUnequipCallback?.(slot);
+  };
+
+  const handleTabChange = (tab: EquipmentPanelTab) => {
+    if (tab === activeTab) {
+      return;
+    }
+    tooltipSlotRef.current = null;
+    getTooltip().hide(true);
+    setActiveTab(tab);
   };
 
   const handlePointerMove = (event: React.PointerEvent) => {
@@ -155,9 +170,23 @@ export function EquipmentPanel() {
       onClick={handleClick}
     >
       <div className="panel-section-title">{t('equipment.title')}</div>
-      {!hasAnyEquipment && <div className="empty-hint">{t('equipment.empty.all')}</div>}
+      <div className="equipment-subtabs" role="tablist" aria-label={t('equipment.title')}>
+        {EQUIPMENT_PANEL_TABS.map((tab) => (
+          <button
+            key={tab}
+            type="button"
+            className={`equipment-subtab${tab === activeTab ? ' is-active' : ''}`}
+            role="tab"
+            aria-selected={tab === activeTab}
+            onClick={() => handleTabChange(tab)}
+          >
+            {t(EQUIPMENT_PANEL_TAB_LABEL_KEYS[tab])}
+          </button>
+        ))}
+      </div>
+      {!hasAnyActiveEquipment && <div className="empty-hint">{t(EQUIPMENT_PANEL_TAB_EMPTY_KEYS[activeTab])}</div>}
       <div className="equip-slot-grid">
-        {EQUIPMENT_PANEL_SLOT_ORDER.map((slot) => (
+        {activeSlots.map((slot) => (
           <EquipmentSlotRow
             key={slot}
             slot={slot}

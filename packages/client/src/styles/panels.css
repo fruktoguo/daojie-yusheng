@@ -967,6 +967,30 @@
     }
 
     /* 装备槽 */
+    .equipment-subtabs {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 6px;
+      margin: 0 0 8px;
+    }
+    .equipment-subtab {
+      min-width: 0;
+      min-height: 32px;
+      padding: 4px 10px;
+      border: 1px solid var(--wash-ink);
+      background: var(--paper-white);
+      color: var(--ink-grey);
+      font-family: var(--font-role-body);
+      font-size: var(--font-size-role-body-13);
+      cursor: pointer;
+      transition: border-color 0.16s ease, color 0.16s ease, background 0.16s ease;
+    }
+    .equipment-subtab:hover,
+    .equipment-subtab.is-active {
+      border-color: var(--ink-black);
+      background: color-mix(in srgb, var(--paper-white) 78%, var(--accent-gold) 22%);
+      color: var(--ink-black);
+    }
     .equip-slot-grid {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
