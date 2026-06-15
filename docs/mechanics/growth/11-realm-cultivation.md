@@ -98,6 +98,9 @@ getTechniqueCombatExp = getRealmCombatExp（功法战斗经验与境界战斗经
 
 单次击杀上限：`SINGLE_COMBAT_REALM_EXP_CAP_MULTIPLIER = 5`（最多给当前境界需求的 5 倍）
 
+若当前主修指向未领悟功法，且该 pending 允许自悟，则怪物击杀会额外推进该功法的领悟进度。
+该推进不按怪物经验换算，而按一次自悟修炼 1 息的领悟增量结算。
+
 ## 炼体系统
 
 ```ts

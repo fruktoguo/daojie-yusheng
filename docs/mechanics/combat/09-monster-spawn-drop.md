@@ -146,6 +146,8 @@ getMonsterLevelExpDecayMultiplier(monsterLevel) =
 | variant | 5× |
 | demon_king | 100× |
 
+当前主修为可自悟 pending 功法时，击杀怪物还会推进领悟进度；该领悟推进不使用上述怪物经验倍率，而固定等同自悟修炼 1 息的进度增量。
+
 ## 相关源文件
 
 - `packages/server/src/runtime/instance/map-instance.runtime.ts` — 刷新逻辑

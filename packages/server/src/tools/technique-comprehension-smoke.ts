@@ -69,13 +69,15 @@ function createPlayer(playerId: string, x: number, y: number) {
     maxHp: 100,
     qi: 100,
     maxQi: 100,
+    foundation: 0,
+    combatExp: 0,
     lifeElapsedTicks: 0,
     realm: { realmLv: 1, stage: 'mortal', progress: 0, progressToNext: 100, breakthroughReady: false },
     techniques: { revision: 0, techniques: [], cultivatingTechId: null },
     pendingTechniqueComprehensions: [],
     transmissionSkill: { level: 1, exp: 0, expToNext: 60 },
     transmissionJob: null,
-    combat: { cultivationActive: false },
+    combat: { cultivationActive: false, autoSwitchCultivation: false, autoBattleSkills: [] },
     notices: { nextId: 1, queue: [] },
     actions: { revision: 0, actions: [], contextActions: [] },
     attrs: {
@@ -471,6 +473,127 @@ function testCultivationUsesElapsedTicksForPendingComprehension() {
   assert.equal(learner.transmissionSkill.exp, getExpectedTransmissionExpGain(1, 1, 1));
 }
 
+function testAutoSwitchCultivationCanSelectPendingComprehension() {
+  const { progressionService } = createRuntimeService();
+  const learner = createPlayer('learner:auto-switch-pending', 0, 0);
+  const perfected = {
+    ...technique,
+    techId: 'tech.perfected',
+    name: '圆满试炼功法',
+    exp: 0,
+    expToNext: 0,
+    layers: [{ level: 1, expToNext: 0, attrs: {} }],
+  };
+  learner.combat.cultivationActive = true;
+  learner.combat.autoSwitchCultivation = true;
+  learner.attrs.numericStats.techniqueExpPerTick = 999;
+  learner.techniques.techniques.push(perfected);
+  learner.techniques.cultivatingTechId = perfected.techId;
+  learner.pendingTechniqueComprehensions.push({
+    techId: createdTechnique.techId,
+    name: createdTechnique.name,
+    sourceKind: 'created',
+    selfComprehensionAllowed: true,
+    progress: 0,
+    requiredProgress: 300,
+    realmLv: 1,
+    grade: 'mortal',
+    category: 'internal',
+    createdAtTick: 0,
+    updatedAtTick: 0,
+    activeTransferJob: null,
+  });
+
+  const result = progressionService.advanceCultivation(learner, 1, { auraMultiplier: 10 });
+  assert.equal(result.changed, true);
+  assert.equal(learner.techniques.cultivatingTechId, createdTechnique.techId);
+  assert.equal(learner.pendingTechniqueComprehensions[0]?.progress, 1);
+  assert.equal(learner.transmissionSkill.exp, getExpectedTransmissionExpGain(1, 1, 1));
+  assert.ok(result.notices.some((notice: any) => notice.structured?.key === 'notice.progression.technique-auto-switch'));
+}
+
+function testMonsterKillProgressesComprehensionByOneCultivationTick() {
+  const { progressionService } = createRuntimeService();
+  const learner = createPlayer('learner:kill-comprehension', 0, 0);
+  learner.attrs.numericStats.playerExpRate = 0;
+  learner.attrs.numericStats.techniqueExpRate = 100000;
+  learner.techniques.cultivatingTechId = createdTechnique.techId;
+  learner.pendingTechniqueComprehensions.push({
+    techId: createdTechnique.techId,
+    name: createdTechnique.name,
+    sourceKind: 'created',
+    selfComprehensionAllowed: true,
+    progress: 0,
+    requiredProgress: 300,
+    realmLv: 1,
+    grade: 'mortal',
+    category: 'internal',
+    createdAtTick: 0,
+    updatedAtTick: 0,
+    activeTransferJob: null,
+  });
+
+  const result = progressionService.grantMonsterKillProgress(learner, {
+    monsterLevel: 120,
+    monsterName: '极境试炼妖',
+    monsterTier: 'demon_king',
+    expMultiplier: 1000000,
+    contributionRatio: 1,
+    expAdjustmentRealmLv: 1,
+    isKiller: true,
+  });
+  assert.equal(result.changed, true);
+  assert.equal(learner.pendingTechniqueComprehensions[0]?.progress, 1);
+  assert.equal(learner.transmissionSkill.exp, getExpectedTransmissionExpGain(1, 1, 1));
+  assert.ok(
+    result.notices.some((notice: any) => String(notice.structured?.vars?.details ?? '').includes(`${createdTechnique.name} 领悟进度 +1`)),
+  );
+}
+
+function testMonsterKillAutoSwitchesAndProgressesPendingComprehension() {
+  const { progressionService } = createRuntimeService();
+  const learner = createPlayer('learner:kill-auto-switch-pending', 0, 0);
+  const perfected = {
+    ...technique,
+    techId: 'tech.kill-perfected',
+    name: '击杀圆满功法',
+    exp: 0,
+    expToNext: 0,
+    layers: [{ level: 1, expToNext: 0, attrs: {} }],
+  };
+  learner.combat.autoSwitchCultivation = true;
+  learner.techniques.techniques.push(perfected);
+  learner.techniques.cultivatingTechId = perfected.techId;
+  learner.pendingTechniqueComprehensions.push({
+    techId: createdTechnique.techId,
+    name: createdTechnique.name,
+    sourceKind: 'created',
+    selfComprehensionAllowed: true,
+    progress: 0,
+    requiredProgress: 300,
+    realmLv: 1,
+    grade: 'mortal',
+    category: 'internal',
+    createdAtTick: 0,
+    updatedAtTick: 0,
+    activeTransferJob: null,
+  });
+
+  const result = progressionService.grantMonsterKillProgress(learner, {
+    monsterLevel: 120,
+    monsterName: '切换试炼妖',
+    monsterTier: 'demon_king',
+    expMultiplier: 1000000,
+    contributionRatio: 1,
+    expAdjustmentRealmLv: 1,
+    isKiller: true,
+  });
+  assert.equal(result.changed, true);
+  assert.equal(learner.techniques.cultivatingTechId, createdTechnique.techId);
+  assert.equal(learner.pendingTechniqueComprehensions[0]?.progress, 1);
+  assert.ok(result.notices.some((notice: any) => notice.structured?.key === 'notice.progression.technique-auto-switch'));
+}
+
 function testCultivationCanStoreFractionalComprehensionProgress() {
   const { progressionService } = createRuntimeService();
   const learner = createPlayer('learner:fractional', 0, 0);
@@ -800,6 +923,9 @@ testCreatedPendingWithoutCreatorDoesNotAutoMainTechnique();
 testRequiredProgressIgnoresDynamicLearnerAndTeacherFactors();
 testDynamicFactorsApplyToProgressGain();
 testCultivationUsesElapsedTicksForPendingComprehension();
+testAutoSwitchCultivationCanSelectPendingComprehension();
+testMonsterKillProgressesComprehensionByOneCultivationTick();
+testMonsterKillAutoSwitchesAndProgressesPendingComprehension();
 testCultivationCanStoreFractionalComprehensionProgress();
 testPendingTechniqueNameResolvesDisplayName();
 testTransmissionRefreshesStaleRequiredProgress();

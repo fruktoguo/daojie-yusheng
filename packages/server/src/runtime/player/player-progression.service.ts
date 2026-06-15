@@ -486,6 +486,8 @@ export class PlayerProgressionService {
             mutation = mergeProgressionMutation(mutation, this.advanceTechniqueProgressInternal(player, techniqueBaseGain, {
                 expBonus: player.attrs.numericStats.techniqueExpRate,
                 minimumGain: 0,
+                allowPendingComprehension: true,
+                pendingComprehensionTicks: 1,
             }));
         }
 
@@ -503,7 +505,8 @@ export class PlayerProgressionService {
                 segments.push(`境界修为 +${actualRealmGain}`);
             }
             if (actualTechniqueGain.gained > 0 && actualTechniqueGain.name) {
-                segments.push(`${actualTechniqueGain.name} 经验 +${actualTechniqueGain.gained}`);
+                const gainLabel = actualTechniqueGain.kind === 'comprehension' ? '领悟进度' : '经验';
+                segments.push(`${actualTechniqueGain.name} ${gainLabel} +${formatProgressionGainAmount(actualTechniqueGain.gained)}`);
             }
             if (actualCombatExpGain > 0) {
                 segments.push(`战斗经验 +${actualCombatExpGain}`);
@@ -1814,10 +1817,11 @@ export class PlayerProgressionService {
         }
         if (player.combat.autoSwitchCultivation === true && this.isTechniqueMaxed(current)) {
 
-            const next = this.findNextCultivatingTechnique(player, current.techId);
+            const next = this.findNextCultivationTarget(player, current.techId);
             if (next) {
                 player.techniques.cultivatingTechId = next.techId;
                 this.applyRealmPresentation(player, this.normalizeRealmState(player.realm));
+                const toName = next.name ?? next.techId;
                 return {
                     changed: true,
                     panelDirty: false,
@@ -1825,11 +1829,11 @@ export class PlayerProgressionService {
                     techniquesDirty: true,
                     actionsDirty: true,
                     notices: [{
-                            text: `${current.name ?? current.techId} 已圆满，主修已自动切换为 ${next.name ?? next.techId}。`,
+                            text: `${current.name ?? current.techId} 已圆满，主修已自动切换为 ${toName}。`,
                             kind: 'info',
-                            structured: { key: 'notice.progression.technique-auto-switch', vars: { fromName: current.name ?? current.techId, toName: next.name ?? next.techId }, pills: [{ key: 'fromName', style: 'skill' }, { key: 'toName', style: 'skill' }] },
+                            structured: { key: 'notice.progression.technique-auto-switch', vars: { fromName: current.name ?? current.techId, toName }, pills: [{ key: 'fromName', style: 'skill' }, { key: 'toName', style: 'skill' }] },
                         }],
-                    technique: next,
+                    technique: next.kind === 'learned' ? next.technique : null,
                 };
             }
         }
@@ -1885,6 +1889,43 @@ export class PlayerProgressionService {
         }
         return null;
     }
+    findNextCultivationTarget(player, currentTechId) {
+        const targets = [];
+        for (const technique of player.techniques.techniques ?? []) {
+            if (!technique || this.isTechniqueMaxed(technique)) {
+                continue;
+            }
+            targets.push({
+                kind: 'learned',
+                techId: technique.techId,
+                name: technique.name,
+                technique,
+            });
+        }
+        for (const pending of player.pendingTechniqueComprehensions ?? []) {
+            if (!this.canSelfComprehendPendingTechnique(player, pending)) {
+                continue;
+            }
+            targets.push({
+                kind: 'pending',
+                techId: pending.techId,
+                name: pending.name,
+                pending,
+            });
+        }
+        if (targets.length === 0) {
+            return null;
+        }
+        const currentIndex = targets.findIndex((entry) => entry.techId === currentTechId);
+        const baseIndex = currentIndex >= 0 ? currentIndex : -1;
+        for (let offset = 1; offset <= targets.length; offset += 1) {
+            const candidate = targets[(baseIndex + offset) % targets.length];
+            if (candidate?.techId !== currentTechId) {
+                return candidate;
+            }
+        }
+        return null;
+    }
     /**
  * isTechniqueMaxed：判断功法Maxed是否满足条件。
  * @param technique 参数说明。
@@ -1925,6 +1966,18 @@ export class PlayerProgressionService {
         }
         const resolved = this.resolveActiveCultivatingTechnique(player);
         if (!resolved.technique) {
+            const switchedPending = options.allowPendingComprehension === true
+                ? this.resolveCultivatingPendingComprehension(player)
+                : null;
+            if (switchedPending) {
+                if (switchedPending.selfComprehensionAllowed === false) {
+                    return mergeProgressionMutation(resolved, this.clearInvalidCultivation(player));
+                }
+                return mergeProgressionMutation(
+                    resolved,
+                    this.advancePendingTechniqueComprehensionInternal(player, switchedPending, amount, options),
+                );
+            }
             if (!player.techniques.cultivatingTechId && player.techniques.techniques.length > 0) {
                 return this.advanceBodyTrainingProgressInternal(player, applyTechniqueRateBonus(amount, 1, options), resolved);
             }
@@ -2010,6 +2063,17 @@ export class PlayerProgressionService {
         }
         return (player.pendingTechniqueComprehensions ?? []).find((entry) => entry?.techId === techId) ?? null;
     }
+    canSelfComprehendPendingTechnique(player, pending) {
+        if (!pending?.techId || pending.selfComprehensionAllowed === false || pending.activeTransferJob) {
+            return false;
+        }
+        if (player?.transmissionJob?.techniqueId === pending.techId && Number(player.transmissionJob?.remainingTicks) > 0) {
+            return false;
+        }
+        const requiredProgress = Math.max(1, Number(pending.requiredProgress) || 1);
+        const progress = Math.max(0, Number(pending.progress) || 0);
+        return progress < requiredProgress;
+    }
     advancePendingTechniqueComprehensionInternal(player, pending, amount, options: any = {}) {
         const resolved = createEmptyMutation();
         if (pending.activeTransferJob
@@ -2089,7 +2153,7 @@ export class PlayerProgressionService {
         player.pendingTechniqueComprehensions = (player.pendingTechniqueComprehensions ?? []).filter((entry) => entry?.techId !== pending.techId);
         const attrRecalculated = this.playerAttributesService.recalculate(player);
         this.applyRealmPresentation(player, this.normalizeRealmState(player.realm));
-        return {
+        let mutation = {
             changed: true,
             panelDirty: false,
             attrRecalculated,
@@ -2102,6 +2166,13 @@ export class PlayerProgressionService {
                 structured: { key: 'notice.progression.technique-comprehension-complete', vars: { techName: pending.name ?? pending.techId }, pills: [{ key: 'techName', style: 'skill' }] },
             }],
         };
+        if (player.combat.autoSwitchCultivation === true) {
+            const switched = this.resolveActiveCultivatingTechnique(player);
+            if (switched.technique?.techId !== learnedEntry.techId || player.techniques.cultivatingTechId !== learnedEntry.techId) {
+                mutation = mergeProgressionMutation(mutation, switched);
+            }
+        }
+        return mutation;
     }
     /** 将无主修或全圆满后的功法经验转入炼体。 */
     advanceBodyTrainingProgressInternal(player, amount, resolved) {
@@ -2526,14 +2597,26 @@ function snapshotCultivatingTechnique(player) {
         return {
             techId: null,
             name: null,
+            kind: 'none',
             level: 0,
             exp: 0,
         };
     }
 
     const technique = player.techniques.techniques.find((entry) => entry.techId === techId);
+    const pending = technique ? null : (player.pendingTechniqueComprehensions ?? []).find((entry) => entry?.techId === techId);
+    if (pending) {
+        return {
+            techId,
+            name: pending.name ?? techId,
+            kind: 'comprehension',
+            level: 0,
+            exp: Math.max(0, Number(pending.progress) || 0),
+        };
+    }
     return {
         techId,
+        kind: 'technique',
         name: technique?.name ?? techId,
         level: Math.max(0, Math.floor(technique?.level ?? 0)),
         exp: Math.max(0, Math.floor(technique?.exp ?? 0)),
@@ -2599,8 +2682,20 @@ function calculateTechniqueGain(previous, current) {
     }
     return {
         name: current.name,
+        kind: current.kind,
         gained: Math.max(0, current.exp - previous.exp),
     };
+}
+
+function formatProgressionGainAmount(value) {
+    const normalized = Number(value);
+    if (!Number.isFinite(normalized) || normalized <= 0) {
+        return '0';
+    }
+    if (Number.isInteger(normalized)) {
+        return String(normalized);
+    }
+    return normalized.toFixed(3).replace(/0+$/, '').replace(/\.$/, '');
 }
 /**
  * createEmptyRoots：构建并返回目标对象。
