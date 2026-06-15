@@ -1,5 +1,13 @@
 {
-  "artifact.flying_sword": [],
+  "artifact.flying_sword": [
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.artifact_sky_patrol_flying_sword",
+      "recipeName": "巡天飞剑器方"
+    }
+  ],
   "bamboo_heart": [
     {
       "kind": "monster_drop",

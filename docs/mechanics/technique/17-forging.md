@@ -36,6 +36,16 @@ tickForging:
 - 基础成功率共用五行匹配公式，动态成功率修正共用赔率空间渐近修正
 - 耗时公式共用材料数量基础耗时修正与速度修正
 
+## 法宝炼制
+
+炼器目录包含独立 `artifact` 分类，用于法宝器方。法宝器方仍使用炼器统一五行投料与技艺任务生命周期，但基础五行成功率会额外乘以 `ARTIFACT_CRAFT_BASE_SUCCESS_RATE = 0.1`：即五行完全匹配时，任务快照中的基础成功率也只有 10%，后续炼器等级、炼器工具、幸运等动态修正继续按通用公式计算。
+
+当前内置法宝器方：
+
+| 器方 | 阶段 | 产物 | 材料 | 基础耗时 |
+|---|---|---|---|---:|
+| `forging.artifact_sky_patrol_flying_sword` | 筑基期 | 巡天飞剑 | 五行脉晶x200；五行混元精x200；五行蟾液x200；混元脉石x200；噬脉兽核x200 | 3600息 |
+
 ## 成功率公式
 
 与炼丹相同，基础成功率使用五行匹配公式，详见 `docs/mechanics/technique/16a-fivephase-craft-formula.md`；动态修正使用 `applyAsymptoticSuccessModifier`：

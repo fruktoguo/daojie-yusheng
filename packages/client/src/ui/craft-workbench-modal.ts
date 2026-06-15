@@ -31,6 +31,7 @@ import type {
 } from '@mud/shared';
 import {
   ALCHEMY_FURNACE_OUTPUT_COUNT,
+  ARTIFACT_CRAFT_BASE_SUCCESS_RATE,
   ELEMENT_KEYS,
   EQUIP_SLOTS,
   MAX_ENHANCE_LEVEL,
@@ -504,7 +505,8 @@ function normalizeAlchemyRealm(value: string | undefined): AlchemyRealmTab {
 
 function normalizeAlchemyCategory(value: string | undefined): AlchemyRecipeCategory {
   if (
-    value === 'buff'
+    value === 'artifact'
+    || value === 'buff'
     || value === 'special'
     || value === 'weapon'
     || value === 'head'
@@ -525,6 +527,7 @@ function getAlchemyCategoryTabs(isForging: boolean): Array<{ category: AlchemyRe
       { category: 'body', label: t('craft.workbench.alchemy.category.body') },
       { category: 'legs', label: t('craft.workbench.alchemy.category.legs') },
       { category: 'accessory', label: t('craft.workbench.alchemy.category.accessory') },
+      { category: 'artifact', label: t('craft.workbench.alchemy.category.artifact') },
       { category: 'special', label: t('craft.workbench.alchemy.category.technique') },
     ];
   }
@@ -4975,7 +4978,7 @@ export class CraftWorkbenchModal {
       this.buildAlchemyInputElements(recipe, ingredients),
       this.buildAlchemyRequiredElements(recipe),
     );
-    const baseSuccessRate = elementMatch.baseElementSuccessRate;
+    const baseSuccessRate = this.resolveAlchemyBaseSuccessRate(recipe, elementMatch.baseElementSuccessRate);
     const furnaceBonuses = this.getAlchemyFurnaceBonuses();
     const successRate = computeAlchemyAdjustedSuccessRate(
       baseSuccessRate,
@@ -4990,6 +4993,13 @@ export class CraftWorkbenchModal {
       successText: formatRate(successRate),
       brewTimeText: `${brewTicks} 息`,
     };
+  }
+
+  private resolveAlchemyBaseSuccessRate(recipe: AlchemyRecipeCatalogEntry, rawBaseSuccessRate: number): number {
+    const normalized = Math.max(0, Math.min(1, Number(rawBaseSuccessRate) || 0));
+    return recipe.category === 'artifact'
+      ? normalized * ARTIFACT_CRAFT_BASE_SUCCESS_RATE
+      : normalized;
   }
 
   private formatAlchemyElementVector(elements: CraftElementVector | undefined): string {

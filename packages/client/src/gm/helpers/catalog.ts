@@ -297,6 +297,8 @@ export function createItemFromCatalog(
     equipValueStats: option.equipValueStats ? clone(option.equipValueStats) : undefined,
     tags: option.tags ? [...option.tags] : undefined,
     effects: option.effects ? clone(option.effects) : undefined,
+    artifactMaxQiFactor: option.artifactMaxQiFactor,
+    artifactEffects: option.artifactEffects ? clone(option.artifactEffects) : undefined,
   };
 }
 

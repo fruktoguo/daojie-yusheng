@@ -2350,5 +2350,54 @@
       "fire": 113,
       "earth": 111
     }
+  },
+  {
+    "recipeId": "forging.artifact_sky_patrol_flying_sword",
+    "outputItemId": "artifact.flying_sword",
+    "outputCount": 1,
+    "level": 42,
+    "grade": "heaven",
+    "category": "artifact",
+    "baseBrewTicks": 3600,
+    "ingredients": [
+      {
+        "itemId": "mat.fivephase_vein_crystal",
+        "count": 200,
+        "role": "main"
+      },
+      {
+        "itemId": "mat.fivephase_mixed_essence",
+        "count": 200,
+        "role": "aux"
+      },
+      {
+        "itemId": "mat.fivephase_secretion",
+        "count": 200,
+        "role": "aux"
+      },
+      {
+        "itemId": "mat.mixed_vein_stone",
+        "count": 200,
+        "role": "aux"
+      },
+      {
+        "itemId": "mat.devourer_beast_core",
+        "count": 200,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "mat.fivephase_vein_crystal",
+        "count": 200
+      }
+    ],
+    "requiredAuxElements": {
+      "metal": 45200,
+      "wood": 45200,
+      "water": 45200,
+      "fire": 44800,
+      "earth": 44800
+    }
   }
 ]

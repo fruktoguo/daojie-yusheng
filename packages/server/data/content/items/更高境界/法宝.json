@@ -1,11 +1,11 @@
 [
   {
     "itemId": "artifact.flying_sword",
-    "name": "飞剑",
+    "name": "巡天飞剑",
     "type": "artifact",
     "grade": "heaven",
     "level": 42,
-    "desc": "剑中藏一线破障灵机，灵力充盈时可载人越过险阻地势。",
+    "desc": "剑中藏一线破障灵机，灵力充盈时可载人巡天越险。",
     "artifactMaxQiFactor": 1,
     "artifactEffects": [
       {
@@ -15,6 +15,7 @@
     ],
     "tags": [
       "法宝",
+      "巡天飞剑",
       "飞剑"
     ]
   }

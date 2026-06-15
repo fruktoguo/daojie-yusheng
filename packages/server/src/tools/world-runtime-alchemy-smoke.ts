@@ -4,7 +4,7 @@ installSmokeTimeout(__filename);
 
 import assert from 'node:assert/strict';
 
-import { computeAlchemyBrewTicks, computeFivePhaseElementMatch } from '@mud/shared';
+import { ARTIFACT_CRAFT_BASE_SUCCESS_RATE, computeAlchemyBrewTicks, computeFivePhaseElementMatch } from '@mud/shared';
 import type { AlchemyRecipeCatalogEntry, RuntimeTechniqueActivityKind } from '@mud/shared';
 import { WorldRuntimeAlchemyService } from '../runtime/world/world-runtime-alchemy.service';
 import { WorldRuntimeCraftMutationService } from '../runtime/world/world-runtime-craft-mutation.service';
@@ -58,6 +58,7 @@ async function main(): Promise<void> {
   testAlchemyForgingCancelUsesPipelineLifecycle();
   testAlchemyCustomFormulaMaterialCountAdjustsBrewTicks();
   testMainOnlyForgingRecipeStartsWithFullFivePhaseMatch();
+  testArtifactForgingCapsBaseSuccessRateAtTenPercent();
   await testDirectAlchemyJobNoPreparationAndSeparateInterruptWait();
   await testAlchemyQuantityUsesResourceLimitsWithoutFixedCap();
   await testAlchemyQueueStartsNextJobFromUnifiedQueue();
@@ -148,6 +149,40 @@ function testMainOnlyForgingRecipeStartsWithFullFivePhaseMatch(): void {
   }, createDeps([]));
   assert.equal(start.ok, true);
   assert.equal(player.forgingJob?.baseElementSuccessRate, 1);
+}
+
+function testArtifactForgingCapsBaseSuccessRateAtTenPercent(): void {
+  const player = createPlayer('player:forging:artifact-base-rate', [
+    { itemId: 'ore.copper', count: 1 },
+    { itemId: 'spirit_stone', count: 20 },
+  ]);
+  const { craftService } = createCraftHarness(player);
+  const normalized = (craftService as unknown as {
+    toAlchemyCatalogEntry?: (entry: unknown) => AlchemyRecipeCatalogEntry | null;
+  }).toAlchemyCatalogEntry?.({
+    recipeId: 'forging.artifact_sky_sword',
+    outputItemId: 'artifact.sky_sword',
+    outputCount: 1,
+    level: 1,
+    grade: 'mortal',
+    baseBrewTicks: 3,
+    ingredients: [{ itemId: 'ore.copper', count: 1, role: 'main' }],
+    mainIngredients: [{ itemId: 'ore.copper', count: 1 }],
+  });
+  assert.ok(normalized);
+  assert.equal(normalized.category, 'artifact');
+
+  craftService.forgingCatalog = [normalized];
+  const start = craftService.startTechniqueActivity(player, 'forging', {
+    kind: 'forging',
+    recipeId: normalized.recipeId,
+    ingredients: [{ itemId: 'ore.copper', count: 1 }],
+    quantity: 1,
+  }, createDeps([]));
+  assert.equal(start.ok, true);
+  assert.equal(player.forgingJob?.exactRecipe, true);
+  assert.equal(player.forgingJob?.baseElementSuccessRate, ARTIFACT_CRAFT_BASE_SUCCESS_RATE);
+  assert.equal(player.forgingJob?.successRate, ARTIFACT_CRAFT_BASE_SUCCESS_RATE);
 }
 
 function testAlchemyForgingCancelUsesPipelineLifecycle(): void {
@@ -776,7 +811,7 @@ function createItemStack(itemId: string, count: number, name = resolveItemName(i
   return {
     itemId,
     name,
-    type: itemId.startsWith('equip.') ? 'equipment' : 'material',
+    type: itemId.startsWith('equip.') ? 'equipment' : itemId.startsWith('artifact.') ? 'artifact' : 'material',
     count,
     level: 1,
     grade: 'mortal',
@@ -805,6 +840,8 @@ function resolveItemName(itemId: string): string {
       return '聚气丹';
     case 'equip.copper_sword':
       return '铜剑';
+    case 'artifact.sky_sword':
+      return '巡天飞剑';
     case 'spirit_stone':
       return '灵石';
     default:

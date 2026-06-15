@@ -28,6 +28,9 @@ export const ALCHEMY_PREPARATION_TICKS = 0;
 /** 丹炉单次产出数量 */
 export const ALCHEMY_FURNACE_OUTPUT_COUNT = 6;
 
+/** 法宝炼制基础成功率系数：五行完全匹配时基础成功率也只有 10%。 */
+export const ARTIFACT_CRAFT_BASE_SUCCESS_RATE = 0.1;
+
 // ─── 挖矿技艺 ───────────────────────────────────────────────────────────────
 
 /** 挖矿每级对地块伤害提升比率（指数底数 1.02，即每级 +2% 复利）。 */

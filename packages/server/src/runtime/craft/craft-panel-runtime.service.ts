@@ -7,7 +7,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
-import { ALCHEMY_FURNACE_OUTPUT_COUNT, ELEMENT_KEYS, EQUIP_SLOTS, ENHANCEMENT_HAMMER_TAG, ENHANCEMENT_SPIRIT_STONE_ITEM_ID, MAX_ENHANCE_LEVEL, TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH, TECHNIQUE_GRADE_ORDER, addCraftElementVector, canMergeItemStack, cloneCraftEquipmentStats, compactCraftElementVector, computeAlchemyAdjustedBrewTicks, computeAlchemyAdjustedSuccessRate, computeAlchemyBatchOutputCountWithSize, computeAlchemyBrewTicks, computeAlchemyTotalJobTicks, computeCraftSkillExpGain, computeEnhancementAdjustedSuccessRate, computeEnhancementJobBaseTicks, computeEnhancementJobTicks, computeEnhancementToolSpeedRate, computeFivePhaseElementMatch, computeLuckSuccessRateBonus, createEmptyCraftElementVector, createItemStackSignature, getAlchemySpiritStoneCost, getItemDisplayName, isLegacyItemInstanceId, normalizeCraftElementVector } from '@mud/shared';
+import { ALCHEMY_FURNACE_OUTPUT_COUNT, ARTIFACT_CRAFT_BASE_SUCCESS_RATE, ELEMENT_KEYS, EQUIP_SLOTS, ENHANCEMENT_HAMMER_TAG, ENHANCEMENT_SPIRIT_STONE_ITEM_ID, MAX_ENHANCE_LEVEL, TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH, TECHNIQUE_GRADE_ORDER, addCraftElementVector, canMergeItemStack, cloneCraftEquipmentStats, compactCraftElementVector, computeAlchemyAdjustedBrewTicks, computeAlchemyAdjustedSuccessRate, computeAlchemyBatchOutputCountWithSize, computeAlchemyBrewTicks, computeAlchemyTotalJobTicks, computeCraftSkillExpGain, computeEnhancementAdjustedSuccessRate, computeEnhancementJobBaseTicks, computeEnhancementJobTicks, computeEnhancementToolSpeedRate, computeFivePhaseElementMatch, computeLuckSuccessRateBonus, createEmptyCraftElementVector, createItemStackSignature, getAlchemySpiritStoneCost, getItemDisplayName, isLegacyItemInstanceId, normalizeCraftElementVector } from '@mud/shared';
 import type { ItemStack } from '@mud/shared';
 import { assignItemInstanceIdIfNeeded, compareItemInstanceId, isItemInstanceIdHardCheckEnabled } from '../world/item-instance-id.helpers';
 import { lockItem, unlockItem, getLockedItem, lockedItemToItemStack } from '../player/inventory-lock.helpers';
@@ -359,7 +359,7 @@ export class CraftPanelRuntimeService {
             normalizedSelection.inputElements,
             buildAlchemyRecipeTargetElements(this.contentTemplateRepository, recipe)
         );
-        const baseSuccessRate = elementMatchSnapshot.baseElementSuccessRate;
+        const baseSuccessRate = resolveAlchemyLikeBaseSuccessRate(recipe, elementMatchSnapshot.baseElementSuccessRate);
         const craftSkillLevel = (jobKind === 'forging' ? player.forgingSkill?.level : player.alchemySkill?.level) ?? 1;
         const batchBrewTicks = computeAlchemyAdjustedBrewTicks(
             recipe.baseBrewTicks,
@@ -371,7 +371,7 @@ export class CraftPanelRuntimeService {
             furnaceOutputCount
         );
         const totalTicks = computeAlchemyTotalJobTicks(batchBrewTicks, quantity, 0);
-        const exactRecipe = baseSuccessRate >= 1;
+        const exactRecipe = elementMatchSnapshot.baseElementSuccessRate >= 1;
         const successRate = computeAlchemyAdjustedSuccessRate(
             baseSuccessRate,
             recipe.outputLevel,
@@ -2611,6 +2611,9 @@ function resolveAlchemyRecipeCategory(outputItem, recipeId) {
     if (outputItem.type === 'equipment' && EQUIP_SLOTS.includes(outputItem.equipSlot)) {
         return outputItem.equipSlot;
     }
+    if (outputItem.type === 'artifact') {
+        return 'artifact';
+    }
     if (typeof outputItem.healAmount === 'number'
         || typeof outputItem.healPercent === 'number'
         || typeof outputItem.baselineHealPercent === 'number'
@@ -2622,6 +2625,14 @@ function resolveAlchemyRecipeCategory(outputItem, recipeId) {
         return 'buff';
     }
     return 'special';
+}
+
+/** resolveAlchemyLikeBaseSuccessRate：法宝器方把五行基础成功率压到 10% 上限。 */
+function resolveAlchemyLikeBaseSuccessRate(recipe, rawBaseSuccessRate) {
+    const normalized = Math.max(0, Math.min(1, Number(rawBaseSuccessRate) || 0));
+    return recipe?.category === 'artifact'
+        ? Math.max(0, Math.min(1, normalized * ARTIFACT_CRAFT_BASE_SUCCESS_RATE))
+        : normalized;
 }
 /**
  * computeAlchemyMaterialPower：执行炼丹MaterialPower相关逻辑。
