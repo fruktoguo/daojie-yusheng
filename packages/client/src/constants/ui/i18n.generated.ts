@@ -3151,7 +3151,7 @@ export const CLIENT_I18N_MESSAGES = {
   "equipment.artifact.empty": "未装备",
   "equipment.artifact.enabled": "启用",
   "equipment.artifact.locked": "半步金丹后开启",
-  "equipment.artifact.qi": "灵气 {current} / {max}",
+  "equipment.artifact.qi": "灵力 {current} / {max} 点",
   "equipment.effect.current-resource-cost": "{percent} 当前{resource}",
   "equipment.effect.max-resource-cost": "{percent} 最大{resource}",
   "equipment.effect.no-value-change": "无数值变化",

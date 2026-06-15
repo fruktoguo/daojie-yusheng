@@ -18,7 +18,7 @@ import { calculateFengShuiSnapshot, inferRoomRole } from '../building/fengshui-c
 import { getDefaultBuildingRuntime } from '../building/building-default-content';
 import { CombatPendingCastCancelReason, cancelPendingCombatCast, createMonsterPendingCombatCast, createMonsterSkillActionFromPendingCast, createMonsterSkillCancelActionFromPendingCast, resolvePendingCombatCastCancellation } from '../combat/pending-combat-cast.helpers';
 import { createRuntimeTemporaryBuff, refreshRuntimeTemporaryBuffPrototype } from '../player/runtime-buff-instance';
-import { consumePlayerStaticObstacleIgnoreCost as consumePlayerStaticObstacleIgnoreCostFromState } from '../player/player-movement-capability.helpers';
+import { canPlayerIgnoreStaticObstacle as canPlayerIgnoreStaticObstacleFromState } from '../player/player-movement-capability.helpers';
 import { resolveTileDamageDropMultiplier } from '../world/combat/tile-drop.helpers';
 
 const DEFAULT_TILE_AURA_RESOURCE_KEY = buildQiResourceKey(DEFAULT_QI_RESOURCE_DESCRIPTOR);
@@ -5235,7 +5235,7 @@ class MapInstanceRuntime {
             if (nextOccupancy !== INVALID_OCCUPANCY && !this.isPlayerOverlapTile(nextX, nextY)) {
                 break;
             }
-            if (!staticWalkable && !this.consumePlayerStaticObstacleIgnoreCost(player, this.tick)) {
+            if (!staticWalkable && !this.canPlayerIgnoreStaticObstacle(player, this.tick)) {
                 break;
             }
             if (player.facing !== stepDirection) {
@@ -5291,13 +5291,9 @@ class MapInstanceRuntime {
         }
         return getTileTraversalCost(this.getEffectiveTileTypeByCellIndex(tileIndex));
     }
-    /** consumePlayerStaticObstacleIgnoreCost：消费玩家忽略静态障碍能力的代价。 */
-    consumePlayerStaticObstacleIgnoreCost(player, currentTick) {
-        const result = consumePlayerStaticObstacleIgnoreCostFromState(player, currentTick);
-        if (result.dirtyDomains.includes('artifact')) {
-            markRuntimePlayerArtifactDirty(player);
-        }
-        return result.consumed;
+    /** canPlayerIgnoreStaticObstacle：读取玩家是否拥有忽略静态障碍移动能力。 */
+    canPlayerIgnoreStaticObstacle(player, currentTick) {
+        return canPlayerIgnoreStaticObstacleFromState(player, currentTick);
     }
     /** buildTransfer：构建跨图传送结果。 */
     buildTransfer(player, portal, reason) {
@@ -8679,15 +8675,4 @@ function chooseMonsterStep(fromX, fromY, targetX, targetY) {
 /** chebyshevDistance：计算切比雪夫距离。 */
 function chebyshevDistance(ax, ay, bx, by) {
     return Math.max(Math.abs(ax - bx), Math.abs(ay - by));
-}
-
-function markRuntimePlayerArtifactDirty(player) {
-    if (!player) {
-        return;
-    }
-    if (!(player.dirtyDomains instanceof Set)) {
-        player.dirtyDomains = new Set();
-    }
-    player.dirtyDomains.add('artifact');
-    player.persistentRevision = Math.max(0, Math.trunc(Number(player.persistentRevision ?? 0) || 0)) + 1;
 }

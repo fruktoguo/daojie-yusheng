@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { Direction } from '@mud/shared';
 
 import { MapInstanceRuntime } from '../runtime/instance/map-instance.runtime';
+import { advancePlayerArtifactQiTick } from '../runtime/player/player-artifact-runtime.helpers';
 import { WorldRuntimeNavigationService } from '../runtime/world/world-runtime-navigation.service';
 
 function createTemplate() {
@@ -186,7 +187,7 @@ function testPlayerCapabilityIgnoresStaticObstacleOnMove(): void {
   assert.deepEqual(instance.getPlayerPosition(player.playerId), { x: 1, y: 0 });
 }
 
-function testFlyingSwordProviderConsumesQiForPlayerCapability(): void {
+function testFlyingSwordProviderDoesNotConsumeQiOnMove(): void {
   const instance = createInstance();
   const player = instance.connectPlayer({
     playerId: 'player:provider-move',
@@ -207,7 +208,80 @@ function testFlyingSwordProviderConsumesQiForPlayerCapability(): void {
   instance.tickOnce();
 
   assert.deepEqual(instance.getPlayerPosition(player.playerId), { x: 1, y: 0 });
-  assert.equal(player.artifacts.slots[0].qi, 90);
+  assert.equal(player.artifacts.slots[0].qi, 100);
+}
+
+function testFlyingSwordProviderRequiresArtifactQi(): void {
+  const instance = createInstance();
+  const player = instance.connectPlayer({
+    playerId: 'player:provider-empty-qi',
+    sessionId: 'session:provider-empty-qi',
+    preferredX: 0,
+    preferredY: 0,
+  });
+  grantStaticObstacleIgnoreFromFlyingSword(player, { qi: 0 });
+  const service = createNavigationService(instance, player);
+
+  assert.throws(
+    () => service.resolveNavigationStep(
+      player.playerId,
+      { kind: 'point', mapId: instance.template.id, x: 1, y: 0, allowNearestReachable: false, clientPathHint: null },
+      createNavigationDeps(instance),
+    ),
+    /无法到达该位置/u,
+  );
+}
+
+function testEnabledFlyingSwordConsumesArtifactQiEveryTick(): void {
+  const instance = createInstance();
+  const player = instance.connectPlayer({
+    playerId: 'player:provider-sustain',
+    sessionId: 'session:provider-sustain',
+    preferredX: 0,
+    preferredY: 0,
+  });
+  grantStaticObstacleIgnoreFromFlyingSword(player, { qi: 50 });
+  player.qi = 100;
+  player.attrs = {
+    ...(player.attrs ?? {}),
+    numericStats: {
+      ...(player.attrs?.numericStats ?? {}),
+      maxQiOutputPerTick: 0,
+    },
+  };
+
+  const result = advancePlayerArtifactQiTick(player);
+
+  assert.equal(result.artifactChanged, true);
+  assert.equal(result.vitalsChanged, false);
+  assert.equal(player.artifacts.slots[0].qi, 40);
+  assert.equal(player.qi, 100);
+}
+
+function testEnabledFlyingSwordRechargesFromPlayerQiOutputEveryTick(): void {
+  const instance = createInstance();
+  const player = instance.connectPlayer({
+    playerId: 'player:provider-recharge',
+    sessionId: 'session:provider-recharge',
+    preferredX: 0,
+    preferredY: 0,
+  });
+  grantStaticObstacleIgnoreFromFlyingSword(player, { qi: 50 });
+  player.qi = 100;
+  player.attrs = {
+    ...(player.attrs ?? {}),
+    numericStats: {
+      ...(player.attrs?.numericStats ?? {}),
+      maxQiOutputPerTick: 100,
+    },
+  };
+
+  const result = advancePlayerArtifactQiTick(player);
+
+  assert.equal(result.artifactChanged, false);
+  assert.equal(result.vitalsChanged, true);
+  assert.equal(player.artifacts.slots[0].qi, 50);
+  assert.equal(player.qi, 90);
 }
 
 function testDynamicBlockerStillBlocksPlayerCapability(): void {
@@ -237,7 +311,10 @@ function main(): void {
   testMissingPlayerCapabilityDoesNotPlanIntoStaticObstacleTile();
   testDisabledFlyingSwordProviderDoesNotGrantPlayerCapability();
   testPlayerCapabilityIgnoresStaticObstacleOnMove();
-  testFlyingSwordProviderConsumesQiForPlayerCapability();
+  testFlyingSwordProviderDoesNotConsumeQiOnMove();
+  testFlyingSwordProviderRequiresArtifactQi();
+  testEnabledFlyingSwordConsumesArtifactQiEveryTick();
+  testEnabledFlyingSwordRechargesFromPlayerQiOutputEveryTick();
   testDynamicBlockerStillBlocksPlayerCapability();
   console.log('world-runtime-player-movement-capability-smoke ok');
 }

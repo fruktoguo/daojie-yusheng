@@ -28,6 +28,7 @@ import { createRuntimeTemporaryBuff, materializeRuntimeTemporaryBuff, refreshRun
 import { DEFAULT_CRAFT_EXP_TO_NEXT, resolveCraftSkillExpToNextByLevel, resolveInitialCraftSkillExpToNext } from '../craft/craft-skill-exp.helpers';
 import { TechniqueActivityPipelineService } from '../craft/pipeline/technique-activity-pipeline.service';
 import { TransmissionStrategy } from '../craft/pipeline/strategies/transmission.strategy';
+import { advancePlayerArtifactQiTick } from './player-artifact-runtime.helpers';
 
 /** 新角色默认出生地图。 */
 const DEFAULT_PLAYER_STARTER_MAP_ID = 'yunlai_town';
@@ -4093,6 +4094,19 @@ export class PlayerRuntimeService {
                 this.bumpPersistentRevision(player);
             }
             recordPlayerTickPerf(options, 'playerTick.vitalsRecoveryMs', vitalsRecoveryStartedAt);
+            const artifactTickStartedAt = performance.now();
+            const artifactTickResult = advancePlayerArtifactQiTick(player);
+            if (artifactTickResult.artifactChanged || artifactTickResult.vitalsChanged) {
+                if (artifactTickResult.vitalsChanged) {
+                    player.selfRevision += 1;
+                }
+                markPlayerDirtyDomains(player, [
+                    ...(artifactTickResult.artifactChanged ? ['artifact'] : []),
+                    ...(artifactTickResult.vitalsChanged ? ['vitals'] : []),
+                ]);
+                this.bumpPersistentRevision(player);
+            }
+            recordPlayerTickPerf(options, 'playerTick.artifactTickMs', artifactTickStartedAt);
             const idleCultivationResumeStartedAt = performance.now();
             if (player.hp > 0 && shouldResumeIdleCultivation(player, playerTick, options.idleCultivationBlockedPlayerIds)) {
                 player.combat.cultivationActive = true;

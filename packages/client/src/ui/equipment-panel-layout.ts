@@ -5,6 +5,8 @@
  */
 import type { ArtifactSlot, EquipSlot, ItemStack } from '@mud/shared';
 import { getItemDisplayMeta } from './item-display';
+import { t } from './i18n';
+import { formatDisplayInteger } from '../utils/number';
 
 export type EquipmentPanelTab = 'combat' | 'technique' | 'artifact';
 
@@ -82,4 +84,11 @@ export function formatEquipmentSlotCompactMeta(item: ItemStack | null | undefine
   const meta = getItemDisplayMeta(item);
   const parts = [meta.gradeLabel, meta.levelLabel].filter((part): part is string => Boolean(part));
   return parts.length > 0 ? parts.join(' · ') : '已装备';
+}
+
+export function formatArtifactQiText(currentQi: number, maxQi: number): string {
+  return t('equipment.artifact.qi', {
+    current: formatDisplayInteger(Math.max(0, Math.floor(Number(currentQi) || 0))),
+    max: formatDisplayInteger(Math.max(0, Math.floor(Number(maxQi) || 0))),
+  });
 }

@@ -22,6 +22,7 @@ import {
   getEquipmentPanelTabSlotOrder,
   getArtifactPanelSlotOrder,
   formatEquipmentSlotCompactMeta,
+  formatArtifactQiText,
   isWideEquipmentPanelSlot,
 } from '../equipment-panel-layout';
 import { t } from '../i18n';
@@ -528,7 +529,7 @@ export class EquipmentPanel {
       const maxQi = Math.max(0, Math.floor(Number(entry?.maxQi ?? 0) || 0));
       const qiPercent = maxQi > 0 ? Math.max(0, Math.min(100, (currentQi / maxQi) * 100)) : 0;
       const qiText = unlocked && hasItem
-        ? t('equipment.artifact.qi', { current: currentQi, max: maxQi })
+        ? formatArtifactQiText(currentQi, maxQi)
         : '';
       const stateText = !unlocked
         ? t('equipment.artifact.locked', undefined)

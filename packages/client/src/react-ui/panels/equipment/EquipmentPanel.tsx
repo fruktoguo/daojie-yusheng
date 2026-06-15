@@ -13,6 +13,7 @@ import {
   EQUIPMENT_PANEL_TAB_LABEL_KEYS,
   EQUIPMENT_PANEL_TABS,
   type EquipmentPanelTab,
+  formatArtifactQiText,
   formatEquipmentSlotCompactMeta,
   getArtifactPanelSlotOrder,
   getEquipmentPanelTabSlotOrder,
@@ -293,6 +294,7 @@ const ArtifactSlotRow = memo(function ArtifactSlotRow({
   const itemName = entry.item ? getItemDisplayMeta(entry.item).displayItem.name : '';
   const currentQi = Math.max(0, Math.floor(Number(entry.qi) || 0));
   const maxQi = Math.max(0, Math.floor(Number(entry.maxQi) || 0));
+  const qiText = formatArtifactQiText(currentQi, maxQi);
   const qiPercent = maxQi > 0 ? Math.max(0, Math.min(100, (currentQi / maxQi) * 100)) : 0;
   const enabled = entry.unlocked && entry.enabled !== false;
   const stateText = !entry.unlocked
@@ -319,11 +321,11 @@ const ArtifactSlotRow = memo(function ArtifactSlotRow({
         {entry.unlocked && hasItem && <span className="equip-slot-item">{itemName}</span>}
         {entry.unlocked && !hasItem && <span className="equip-slot-empty">{t('equipment.artifact.empty')}</span>}
         {entry.unlocked && hasItem ? (
-          <div className="artifact-qi" aria-label={t('equipment.artifact.qi', { current: currentQi, max: maxQi })}>
+          <div className="artifact-qi" aria-label={qiText}>
             <span className="artifact-qi-track" aria-hidden="true">
               <span className="artifact-qi-fill" style={qiFillStyle} />
             </span>
-            <span className="artifact-qi-text">{t('equipment.artifact.qi', { current: currentQi, max: maxQi })}</span>
+            <span className="artifact-qi-text">{qiText}</span>
           </div>
         ) : (
           <span className="equip-slot-meta">

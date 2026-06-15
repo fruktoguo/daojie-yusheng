@@ -35,6 +35,7 @@ buildQiHalfLifeRateScaled(halfLifeTicks):
 - 灵力上限受 talent(+1%/点) 和 meridians(+1%/点) 百分比加成
 - 每 tick 恢复：`max(1, round(maxQi × (qiRegenRate / 10000)))`
 - 每 tick 最大输出：`maxQiOutputPerTick`（超出部分递增惩罚）
+- 启用且已装备法宝的槽位，每 tick 最多抽取 `floor(maxQiOutputPerTick / 10)` 点玩家当前灵力注入法宝，并扣除等额玩家灵力；法宝已满或玩家当前灵力不足时按实际注入量结算
 
 ## 灵气投影（qi-projection）
 
