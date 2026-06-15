@@ -52,6 +52,7 @@ export * from './craft-elements';
 export * from './craft-skill';
 export * from './craft-success';
 export * from './alchemy';
+export * from './artifact';
 export * from './enhancement';
 export * from './technique-activity-types';
 export * from './technique-activity-meta';

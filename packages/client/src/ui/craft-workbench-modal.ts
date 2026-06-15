@@ -2690,7 +2690,7 @@ export class CraftWorkbenchModal {
     const job = state?.job ?? null;
     return job
       ? `强化队列进行中，剩余 ${formatTicks(resolveEnhancementWorkRemainingTicks(job))} / ${formatTicks(resolveEnhancementWorkTotalTicks(job))}`
-      : `角色强化等级 Lv.${formatDisplayInteger(state?.enhancementSkillLevel ?? this.enhancementSkillLevel)} · 当前可强化装备 ${formatDisplayInteger(state?.candidates.length ?? 0)} 件`;
+      : `角色强化等级 Lv.${formatDisplayInteger(state?.enhancementSkillLevel ?? this.enhancementSkillLevel)} · 当前可强化目标 ${formatDisplayInteger(state?.candidates.length ?? 0)} 件`;
   }
 
   private patchEnhancementActiveJob(workbench: HTMLElement, job: EnhancementJobView): void {
@@ -2768,7 +2768,7 @@ export class CraftWorkbenchModal {
     if (selected) {
       return this.renderEnhancementWorkbench(selected, selectedProtection);
     }
-    return `<div class="enhancement-workbench-grid"><div class="enhancement-workbench-side">${this.renderEnhancementTargetSlot(null, null)}</div><div class="enhancement-workbench-main"><div class="enhancement-empty-state">请选择一件装备。</div></div></div>`;
+    return `<div class="enhancement-workbench-grid"><div class="enhancement-workbench-side">${this.renderEnhancementTargetSlot(null, null)}</div><div class="enhancement-workbench-main"><div class="enhancement-empty-state">请选择一件装备或法宝。</div></div></div>`;
   }
 
   private renderAlchemyBody(): string {
@@ -3208,7 +3208,7 @@ export class CraftWorkbenchModal {
     const selectedLevel = selectedItem ? normalizeEnhanceLevel(selectedItem.enhanceLevel) : null;
     const targetHeadMeta = selectedItem
       ? `等级 ${formatDisplayInteger(Number(selectedItem.level) || 1)} · 当前 +${formatDisplayInteger(selectedLevel ?? 0)} · ${sourceLabel}`
-      : '点击选择要强化的装备';
+      : '点击选择要强化的目标';
     if (!this.isCompactEnhancementLayout()) {
       return `
         <div class="enhancement-target-slot-card">
@@ -3218,7 +3218,7 @@ export class CraftWorkbenchModal {
               <div class="enhancement-protection-note">${escapeHtml(sourceLabel)}</div>
             </div>
             <button class="small-btn ghost" type="button" data-enhancement-open-picker="1" ${activeJob ? 'disabled' : ''}>
-              ${selectedItem ? '更换装备' : '选择装备'}
+              ${selectedItem ? '更换目标' : '选择目标'}
             </button>
           </div>
           <button class="enhancement-target-slot" type="button" data-enhancement-open-picker="1" ${activeJob ? 'disabled' : ''}>
@@ -3228,8 +3228,8 @@ export class CraftWorkbenchModal {
                 <span class="enhancement-target-slot-meta">等级 ${formatDisplayInteger(Number(selectedItem.level) || 1)} · 当前 +${formatDisplayInteger(normalizeEnhanceLevel(selectedItem.enhanceLevel))}</span>
               `
               : `
-                <span class="enhancement-target-slot-name">点击选择要强化的装备</span>
-                <span class="enhancement-target-slot-meta">主面板只保留一个目标槽，候选装备会在独立弹窗中选择</span>
+                <span class="enhancement-target-slot-name">点击选择要强化的目标</span>
+                <span class="enhancement-target-slot-meta">主面板只保留一个目标槽，候选目标会在独立弹窗中选择</span>
               `}
           </button>
         </div>
@@ -3243,23 +3243,23 @@ export class CraftWorkbenchModal {
               <div class="enhancement-card-head">
                 <div class="enhancement-card-head-main">
                   <div class="enhancement-section-title">强化目标</div>
-                  <div class="enhancement-card-head-value">${escapeHtml(selectedItem?.name ?? '未选择装备')}</div>
+                  <div class="enhancement-card-head-value">${escapeHtml(selectedItem?.name ?? '未选择目标')}</div>
                 </div>
                 <div class="enhancement-protection-note">${escapeHtml(targetHeadMeta)}</div>
               </div>
               <button class="small-btn ghost" type="button" data-enhancement-open-picker="1" ${activeJob ? 'disabled' : ''}>
-                ${selectedItem ? '更换装备' : '选择装备'}
+                ${selectedItem ? '更换目标' : '选择目标'}
               </button>
             </div>
             <button class="enhancement-target-slot" type="button" data-enhancement-open-picker="1" ${activeJob ? 'disabled' : ''}>
               ${selectedItem
                 ? `
-                  <span class="enhancement-target-slot-action">点击更换这件装备</span>
-                  <span class="enhancement-target-slot-meta">候选装备会在独立弹窗中选择；强化开始后本次目标会锁定。</span>
+                  <span class="enhancement-target-slot-action">点击更换这个目标</span>
+                  <span class="enhancement-target-slot-meta">候选目标会在独立弹窗中选择；强化开始后本次目标会锁定。</span>
                 `
                 : `
-                  <span class="enhancement-target-slot-action">点击选择要强化的装备</span>
-                  <span class="enhancement-target-slot-meta">主面板只保留一个目标槽，候选装备会在独立弹窗中选择</span>
+                  <span class="enhancement-target-slot-action">点击选择要强化的目标</span>
+                  <span class="enhancement-target-slot-meta">主面板只保留一个目标槽，候选目标会在独立弹窗中选择</span>
                 `}
             </button>
           </div>
@@ -3314,7 +3314,7 @@ export class CraftWorkbenchModal {
     const nextLines = describeEquipmentBonuses(nextPreview, this.playerRealmLv);
     const protectionNote = selected.protectionItemId
       ? `保护物固定为 ${selected.protectionItemName?.trim() || UNKNOWN_ITEM_NAME}`
-      : '未配置独立保护物，当前仅可消耗同名装备作为保护';
+      : '未配置独立保护物，当前仅可消耗同名目标作为保护';
     const minProtectionStartLevel = 2;
     const protectionStartLevel = this.getSelectedEnhancementProtectionStartLevel(selected);
     const compactMobileLayout = this.isCompactEnhancementLayout();
@@ -3452,7 +3452,7 @@ export class CraftWorkbenchModal {
               <div class="enhancement-preview-title">当前属性</div>
               ${currentLines.length > 0
                 ? `<div class="enhancement-preview-lines">${currentLines.map((line) => `<div>${escapeHtml(line)}</div>`).join('')}</div>`
-                : '<div class="enhancement-preview-empty">当前装备没有可显示的强化属性。</div>'}
+                : '<div class="enhancement-preview-empty">当前目标没有可显示的强化属性。</div>'}
             </div>
             <div class="enhancement-preview-card">
               <div class="enhancement-preview-title">目标等级预览</div>
@@ -3475,7 +3475,7 @@ export class CraftWorkbenchModal {
             <div class="enhancement-card-head-value">+${formatDisplayInteger(job.currentLevel)} → +${formatDisplayInteger(job.targetLevel)}</div>
           </div>
         </div>
-        <div class="enhancement-target-level-note">强化队列已启动，目标装备和强化锤在任务结束前会保持锁定。</div>
+        <div class="enhancement-target-level-note">强化队列已启动，强化目标和强化锤在任务结束前会保持锁定。</div>
         <div class="enhancement-summary-metrics enhancement-summary-metrics--compact">
           <div class="enhancement-summary-metric"><span>当前冲击</span><strong>+${formatDisplayInteger(job.targetLevel)}</strong></div>
           <div class="enhancement-summary-metric"><span>最终目标</span><strong>+${formatDisplayInteger(finalTargetLevel)}</strong></div>
@@ -3483,7 +3483,7 @@ export class CraftWorkbenchModal {
         </div>
         <div class="enhancement-action-row enhancement-action-row--stacked">
           <button class="small-btn ghost" type="button" data-enhancement-cancel="1">取消强化</button>
-          <span class="enhancement-action-note">取消后会返还当前装备，已投入的材料不会退回；保护物仅在失败且保护生效时扣除，灵石仅在本阶成功时扣除。</span>
+          <span class="enhancement-action-note">取消后会返还当前目标，已投入的材料不会退回；保护物仅在失败且保护生效时扣除，灵石仅在本阶成功时扣除。</span>
         </div>
       </div>
     `;
@@ -3589,7 +3589,7 @@ export class CraftWorkbenchModal {
               <div class="enhancement-preview-title">当前属性</div>
               ${currentLines.length > 0
                 ? `<div class="enhancement-preview-lines">${currentLines.map((line) => `<div>${escapeHtml(line)}</div>`).join('')}</div>`
-                : '<div class="enhancement-preview-empty">当前装备没有可显示的强化属性。</div>'}
+                : '<div class="enhancement-preview-empty">当前目标没有可显示的强化属性。</div>'}
             </div>
             <div class="enhancement-preview-card">
               <div class="enhancement-preview-title">成功后预览</div>

@@ -47,9 +47,23 @@ ARTIFACT_SLOTS = ['artifact_1']
 
 | 法宝 | 等级 | 最大灵力系数 | 效果 |
 |---|---:|---:|---|
-| 巡天飞剑 | 42 | 1 | 槽位解锁、启用、装备后授予玩家“忽略静态障碍”移动能力；启用后每息持续消耗 10% 法宝最大灵力 |
+| 巡天飞剑 | 42 | 1 | 槽位解锁、启用、装备后授予玩家“忽略静态障碍”移动能力；启用后每息固定消耗未强化默认最大灵力的 10% |
 
 法宝灵力在玩家 tick 中自动补充：每个启用且已装备法宝的槽位，每息最多抽取玩家 `maxQiOutputPerTick` 的十分之一注入法宝，并从玩家当前灵力中扣除等额数值；法宝已满或玩家灵力不足时只按实际可注入量扣除。
+
+法宝可复用强化系统强化。法宝强化不放大特效消耗，只提高最大灵力上限：
+
+```typescript
+artifactBaseMaxQi = round(getTechniqueStandardMaxQiBaseline(42) × artifactMaxQiFactor)
+artifactMaxQi = round(artifactBaseMaxQi × getEnhancementPercent(enhanceLevel) / 100)
+sustainCostPerTick = ceil(artifactBaseMaxQi × costMaxQiRatio)
+```
+
+强化倍率使用装备同一套指数公式：
+
+```typescript
+enhancementPercent = ceil(100 × 1.1^enhanceLevel)
+```
 
 ## 装备基准值计算公式
 

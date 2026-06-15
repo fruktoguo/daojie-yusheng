@@ -29,6 +29,7 @@ async function main(): Promise<void> {
   await testCancelReturnsLockedTarget();
   await testQueuedEnhancementDoesNotLockOrConsumeResources();
   await testEnhancementUsesTemplateNameWhenRuntimeItemNameMissing();
+  await testArtifactUsesExistingEnhancementLifecycle();
 
   console.log(JSON.stringify({
     ok: true,
@@ -42,6 +43,7 @@ async function main(): Promise<void> {
       '强化中断不再暴露 strategy executeInterrupt，公共 interrupt lifecycle 统一刷新独立等待条和 active job version。',
       '已有技艺活动时，强化入队不会提前锁装备或扣灵石。',
       '强化运行态物品缺少 name 或仅有 itemId 时，任务、通知和队列使用内容目录显示名。',
+      '法宝复用现有强化生命周期，成功后按实例写回背包并提升 enhanceLevel。',
     ],
   }, null, 2));
 }
@@ -396,6 +398,36 @@ async function testEnhancementUsesTemplateNameWhenRuntimeItemNameMissing(): Prom
   assert.equal(player.techniqueActivityQueue[0]?.label, '铁剑');
 }
 
+async function testArtifactUsesExistingEnhancementLifecycle(): Promise<void> {
+  const player = createPlayer('player:enhancement:artifact', [
+    createArtifactItem('artifact.flying_sword', '巡天飞剑', 42, 0),
+  ]);
+  const { craftService } = createCraftHarness(player, [], []);
+  const target = player.inventory.items[0];
+  const start = craftService.startEnhancement(player, {
+    target: buildInventoryRef(target),
+  });
+  assert.equal(start.ok, true);
+  assert.equal(player.enhancementJob?.targetItemId, 'artifact.flying_sword');
+  assert.equal(player.inventory.lockedItems?.some((item: { itemId?: string; type?: string }) => item.itemId === 'artifact.flying_sword' && item.type === 'artifact'), true);
+
+  player.enhancementJob!.remainingTicks = 1;
+  player.enhancementJob!.workRemainingTicks = 1;
+  const originalRandom = Math.random;
+  Math.random = () => 0;
+  try {
+    const completed = craftService.tickEnhancement(player);
+    assert.equal(completed.ok, true);
+    assert.equal(completed.messages?.[0]?.key, 'notice.craft.enhancement.success');
+  } finally {
+    Math.random = originalRandom;
+  }
+
+  assert.equal(player.enhancementJob, null);
+  assert.equal(player.inventory.lockedItems?.length ?? 0, 0);
+  assert.equal(player.inventory.items.some((item) => item.itemId === 'artifact.flying_sword' && item.type === 'artifact' && item.enhanceLevel === 1), true);
+}
+
 function createCraftHarness(
   player: ReturnType<typeof createPlayer>,
   persistedActiveJobs: PersistedActiveJob[],
@@ -486,6 +518,19 @@ function createEquipmentItem(itemId: string, name: string, level: number, enhanc
   };
 }
 
+function createArtifactItem(itemId: string, name: string, level: number, enhanceLevel: number): Record<string, unknown> {
+  return {
+    itemId,
+    name,
+    type: 'artifact',
+    count: 1,
+    level,
+    enhanceLevel,
+    artifactMaxQiFactor: 1,
+    artifactEffects: [{ type: 'traverse_unwalkable', costMaxQiRatio: 0.1 }],
+  };
+}
+
 function createPlayerRuntimeService(player: any): any {
   return {
     getPlayer(playerId: string): any | null {
@@ -551,7 +596,13 @@ function createContentTemplateRepository(): any {
       };
     },
     getItemName(itemId: string): string {
-      return itemId === 'iron_sword' ? '铁剑' : itemId;
+      if (itemId === 'iron_sword') {
+        return '铁剑';
+      }
+      if (itemId === 'artifact.flying_sword') {
+        return '巡天飞剑';
+      }
+      return itemId;
     },
   };
 }

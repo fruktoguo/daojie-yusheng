@@ -16,6 +16,9 @@ import {
   formatBuffMaxStacks,
   getEquipmentAttributeEffectivenessBreakdown,
   ItemStack,
+  resolveArtifactBaseMaxQi,
+  resolveArtifactMaxQi,
+  resolveArtifactSustainCostPerTick,
   resolveTechniqueStandardMaxHpRecoveryAmount,
   resolveTechniqueStandardMaxQiRecoveryAmount,
   type MaterialCategory,
@@ -669,6 +672,22 @@ export function describeEquipmentBonuses(item: ItemStack, playerRealmLv?: number
     ...describeBuffStats(previewItem.equipAttrs, previewItem.equipStats, previewItem.equipValueStats),
     ...describeSpecialStats(previewItem.equipSpecialStats),
     ...describeEquipmentUtilityBonuses(previewItem),
+    ...describeArtifactBonuses(previewItem),
+  ];
+}
+
+function describeArtifactBonuses(item: ItemStack): string[] {
+  if (item.type !== 'artifact') {
+    return [];
+  }
+  if (resolveArtifactBaseMaxQi(item) <= 0) {
+    return [];
+  }
+  const maxQi = resolveArtifactMaxQi(item);
+  const sustainCost = resolveArtifactSustainCostPerTick(item);
+  return [
+    `最大灵力 ${formatDisplayInteger(maxQi)}`,
+    ...(sustainCost > 0 ? [`固定消耗 ${formatDisplayInteger(sustainCost)}/息`] : []),
   ];
 }
 

@@ -126,7 +126,7 @@ export class CraftPanelEnhancementQueryService {
     buildEnhancementCandidate(player, ref, item, enhancementConfigs) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        if (!item || item.type !== 'equipment') {
+        if (!isEnhanceableItem(item)) {
             return null;
         }
         const currentLevel = normalizeEnhanceLevel(item.enhanceLevel);
@@ -274,7 +274,7 @@ function isEligibleProtectionItem(item, protectionItemId, targetItemId) {
     if (protectionItemId !== targetItemId) {
         return true;
     }
-    return item.type === 'equipment' && normalizeEnhanceLevel(item.enhanceLevel) === 0;
+    return isEnhanceableItem(item) && normalizeEnhanceLevel(item.enhanceLevel) === 0;
 }
 /**
  * cloneItem：构建道具。
@@ -295,6 +295,10 @@ function cloneItem(item) {
         effects: Array.isArray(item.effects) ? item.effects.map((entry) => ({ ...entry })) : undefined,
         tags: Array.isArray(item.tags) ? item.tags.slice() : undefined,
     };
+}
+
+function isEnhanceableItem(item) {
+    return item?.type === 'equipment' || item?.type === 'artifact';
 }
 /**
  * summarizeEnhancementItem：强化面板只同步可见摘要，完整详情由背包/装备详情链路负责。

@@ -840,12 +840,12 @@ export class CraftPanelRuntimeService {
         if ((target as Record<string, unknown>).mismatched) {
             return { ok: false, error: '强化目标已变更，请重新选择。' };
         }
-        if (target.item.type !== 'equipment') {
-            return { ok: false, error: '当前仅支持强化装备。' };
+        if (!isEnhanceableItem(target.item)) {
+            return { ok: false, error: '当前仅支持强化装备或法宝。' };
         }
         const currentLevel = normalizeEnhanceLevel(target.item.enhanceLevel);
         if (currentLevel >= MAX_ENHANCE_LEVEL) {
-            return { ok: false, error: `该装备已达到强化上限 +${MAX_ENHANCE_LEVEL}。` };
+            return { ok: false, error: `该目标已达到强化上限 +${MAX_ENHANCE_LEVEL}。` };
         }
         const targetLevel = currentLevel + 1;
         const desiredTargetLevel = this.resolveRequestedTargetLevel(currentLevel, payload?.targetLevel);
@@ -1387,7 +1387,7 @@ export class CraftPanelRuntimeService {
     buildEnhancementCandidate(player, ref, item) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        if (!item || item.type !== 'equipment') {
+        if (!isEnhanceableItem(item)) {
             return null;
         }
         const currentLevel = normalizeEnhanceLevel(item.enhanceLevel);
@@ -2092,7 +2092,7 @@ export class CraftPanelRuntimeService {
         if (!this.isSelfProtectionItem(protectionItemId, targetItemId)) {
             return true;
         }
-        return item.type === 'equipment' && normalizeEnhanceLevel(item.enhanceLevel) === 0;
+        return isEnhanceableItem(item) && normalizeEnhanceLevel(item.enhanceLevel) === 0;
     }
     /**
  * getEligibleProtectionCount：读取EligibleProtection数量。
@@ -2676,6 +2676,10 @@ function cloneItem(item) {
         effects: Array.isArray(item.effects) ? item.effects.map((entry) => ({ ...entry })) : undefined,
         tags: Array.isArray(item.tags) ? item.tags.slice() : undefined,
     };
+}
+
+function isEnhanceableItem(item) {
+    return item?.type === 'equipment' || item?.type === 'artifact';
 }
 /**
  * clonePartialNumericStats：构建PartialNumericStat。

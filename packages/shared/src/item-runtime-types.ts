@@ -603,7 +603,7 @@ export interface ArtifactTraverseUnwalkableEffectDef {
 
   type: 'traverse_unwalkable';
   /**
- * costMaxQiRatio：每息消耗法宝最大灵气比例。
+ * costMaxQiRatio：每息消耗法宝未强化默认最大灵气的比例。
  */
 
   costMaxQiRatio: number;

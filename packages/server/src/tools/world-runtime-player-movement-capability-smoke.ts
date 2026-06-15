@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 
-import { Direction } from '@mud/shared';
+import { Direction, resolveArtifactBaseMaxQi, resolveArtifactMaxQi, resolveArtifactSustainCostPerTick } from '@mud/shared';
 
 import { MapInstanceRuntime } from '../runtime/instance/map-instance.runtime';
 import { advancePlayerArtifactQiTick } from '../runtime/player/player-artifact-runtime.helpers';
@@ -8,6 +8,13 @@ import { refreshPlayerMovementCapabilities } from '../runtime/player/player-move
 import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
 import { WorldRuntimeMovementService } from '../runtime/world/world-runtime-movement.service';
 import { WorldRuntimeNavigationService } from '../runtime/world/world-runtime-navigation.service';
+
+const FLYING_SWORD_TEMPLATE = {
+  artifactMaxQiFactor: 1,
+  artifactEffects: [{ type: 'traverse_unwalkable' as const, costMaxQiRatio: 0.1 }],
+};
+const ARTIFACT_BASE_MAX_QI = resolveArtifactBaseMaxQi(FLYING_SWORD_TEMPLATE);
+const FLYING_SWORD_SUSTAIN_COST = resolveArtifactSustainCostPerTick(FLYING_SWORD_TEMPLATE);
 
 function createTemplate() {
   return {
@@ -58,16 +65,16 @@ function grantStaticObstacleIgnoreFromFlyingSword(player: any, overrides: Partia
       slot: 'artifact_1',
       unlocked: true,
       enabled: overrides.enabled === undefined ? true : overrides.enabled === true,
-      qi: Number.isFinite(Number(overrides.qi)) ? Number(overrides.qi) : 100,
-      maxQi: 100,
+      qi: Number.isFinite(Number(overrides.qi)) ? Number(overrides.qi) : ARTIFACT_BASE_MAX_QI,
+      maxQi: ARTIFACT_BASE_MAX_QI,
       item: {
         itemId: 'artifact.flying_sword',
         itemInstanceId: 'artifact:flying-sword:smoke',
         count: 1,
-        type: 'artifact',
+        type: 'artifact' as const,
         name: '巡天飞剑',
         artifactMaxQiFactor: 1,
-        artifactEffects: [{ type: 'traverse_unwalkable', costMaxQiRatio: 0.1 }],
+        artifactEffects: [{ type: 'traverse_unwalkable' as const, costMaxQiRatio: 0.1 }],
       },
     }],
   };
@@ -78,10 +85,17 @@ function createFlyingSwordItem(instanceId: string) {
     itemId: 'artifact.flying_sword',
     itemInstanceId: instanceId,
     count: 1,
-    type: 'artifact',
+    type: 'artifact' as const,
     name: '巡天飞剑',
     artifactMaxQiFactor: 1,
-    artifactEffects: [{ type: 'traverse_unwalkable', costMaxQiRatio: 0.1 }],
+    artifactEffects: [{ type: 'traverse_unwalkable' as const, costMaxQiRatio: 0.1 }],
+  };
+}
+
+function createEnhancedFlyingSwordItem(instanceId: string, enhanceLevel: number) {
+  return {
+    ...createFlyingSwordItem(instanceId),
+    enhanceLevel,
   };
 }
 
@@ -126,6 +140,13 @@ function createArtifactProjectionPlayer() {
     movementCapabilities: { staticObstacleIgnore: false },
     dirtyDomains: new Set<string>(),
   };
+}
+
+function createEnhancedArtifactProjectionPlayer(enhanceLevel: number) {
+  const player = createArtifactProjectionPlayer();
+  player.playerId = `player:artifact-projection:+${enhanceLevel}`;
+  player.inventory.items = [createEnhancedFlyingSwordItem('00000000-0000-4000-8000-000000000013', enhanceLevel)];
+  return player;
 }
 
 function createNavigationService(instance: MapInstanceRuntime, player: any) {
@@ -314,7 +335,7 @@ function testFlyingSwordProviderDoesNotConsumeQiOnMove(): void {
   instance.tickOnce();
 
   assert.deepEqual(instance.getPlayerPosition(player.playerId), { x: 1, y: 0 });
-  assert.equal(player.artifacts.slots[0].qi, 100);
+  assert.equal(player.artifacts.slots[0].qi, ARTIFACT_BASE_MAX_QI);
   assert.equal(player.movePoints, 0);
 }
 
@@ -375,7 +396,7 @@ function testEnabledFlyingSwordConsumesArtifactQiEveryTick(): void {
     preferredX: 0,
     preferredY: 0,
   });
-  grantStaticObstacleIgnoreFromFlyingSword(player, { qi: 50 });
+  grantStaticObstacleIgnoreFromFlyingSword(player, { qi: ARTIFACT_BASE_MAX_QI });
   player.qi = 100;
   player.attrs = {
     ...(player.attrs ?? {}),
@@ -389,7 +410,59 @@ function testEnabledFlyingSwordConsumesArtifactQiEveryTick(): void {
 
   assert.equal(result.artifactChanged, true);
   assert.equal(result.vitalsChanged, false);
-  assert.equal(player.artifacts.slots[0].qi, 40);
+  assert.equal(player.artifacts.slots[0].qi, ARTIFACT_BASE_MAX_QI - FLYING_SWORD_SUSTAIN_COST);
+  assert.equal(player.qi, 100);
+}
+
+function testEnhancedFlyingSwordMaxQiUsesEnhancementMultiplier(): void {
+  const enhanceLevel = 3;
+  const service = createPlayerRuntimeServiceForArtifactProjection();
+  const player = createEnhancedArtifactProjectionPlayer(enhanceLevel);
+  service.players.set(player.playerId, player);
+
+  service.equipArtifactItem(player, 0, player.inventory.items[0], undefined);
+
+  assert.equal(
+    player.artifacts.slots[0].maxQi,
+    resolveArtifactMaxQi(createEnhancedFlyingSwordItem('artifact:flying-sword:expected-maxqi', enhanceLevel)),
+  );
+  assert.equal(player.artifacts.slots[0].qi, player.artifacts.slots[0].maxQi);
+}
+
+function testEnhancedFlyingSwordSustainCostUsesBaseMaxQi(): void {
+  const enhancedMaxQi = resolveArtifactMaxQi(createEnhancedFlyingSwordItem('artifact:flying-sword:expected-sustain', 3));
+  const instance = createInstance();
+  const player = instance.connectPlayer({
+    playerId: 'player:provider-enhanced-sustain',
+    sessionId: 'session:provider-enhanced-sustain',
+    preferredX: 0,
+    preferredY: 0,
+  });
+  player.artifacts = {
+    revision: 1,
+    slots: [{
+      slot: 'artifact_1',
+      unlocked: true,
+      enabled: true,
+      qi: enhancedMaxQi,
+      maxQi: enhancedMaxQi,
+      item: createEnhancedFlyingSwordItem('artifact:flying-sword:enhanced-smoke', 3),
+    }],
+  };
+  player.qi = 100;
+  player.attrs = {
+    ...(player.attrs ?? {}),
+    numericStats: {
+      ...(player.attrs?.numericStats ?? {}),
+      maxQiOutputPerTick: 0,
+    },
+  };
+
+  const result = advancePlayerArtifactQiTick(player);
+
+  assert.equal(result.artifactChanged, true);
+  assert.equal(result.vitalsChanged, false);
+  assert.equal(player.artifacts.slots[0].qi, enhancedMaxQi - FLYING_SWORD_SUSTAIN_COST);
   assert.equal(player.qi, 100);
 }
 
@@ -466,13 +539,13 @@ function testEnabledFlyingSwordRechargesFromPlayerQiOutputEveryTick(): void {
     preferredX: 0,
     preferredY: 0,
   });
-  grantStaticObstacleIgnoreFromFlyingSword(player, { qi: 50 });
-  player.qi = 100;
+  grantStaticObstacleIgnoreFromFlyingSword(player, { qi: ARTIFACT_BASE_MAX_QI });
+  player.qi = FLYING_SWORD_SUSTAIN_COST * 2;
   player.attrs = {
     ...(player.attrs ?? {}),
     numericStats: {
       ...(player.attrs?.numericStats ?? {}),
-      maxQiOutputPerTick: 100,
+      maxQiOutputPerTick: FLYING_SWORD_SUSTAIN_COST * 10,
     },
   };
 
@@ -480,8 +553,8 @@ function testEnabledFlyingSwordRechargesFromPlayerQiOutputEveryTick(): void {
 
   assert.equal(result.artifactChanged, false);
   assert.equal(result.vitalsChanged, true);
-  assert.equal(player.artifacts.slots[0].qi, 50);
-  assert.equal(player.qi, 90);
+  assert.equal(player.artifacts.slots[0].qi, ARTIFACT_BASE_MAX_QI);
+  assert.equal(player.qi, FLYING_SWORD_SUSTAIN_COST);
 }
 
 function testDynamicBlockerStillBlocksPlayerCapability(): void {
@@ -517,6 +590,8 @@ function main(): void {
   testPlayerRuntimeServiceProjectsArtifactMovementCapability();
   testMoveToSyncsRuntimeMovementCapabilityIntoInstancePlayer();
   testEnabledFlyingSwordConsumesArtifactQiEveryTick();
+  testEnhancedFlyingSwordMaxQiUsesEnhancementMultiplier();
+  testEnhancedFlyingSwordSustainCostUsesBaseMaxQi();
   testEnabledFlyingSwordRechargesFromPlayerQiOutputEveryTick();
   testDynamicBlockerStillBlocksPlayerCapability();
   console.log('world-runtime-player-movement-capability-smoke ok');

@@ -179,7 +179,9 @@ export function getItemDisplayMeta(item: ItemStack): ItemDisplayMeta {
   const techniqueTemplate = getTechniqueBookTemplate(displayItem);
   const grade = techniqueTemplate?.grade ?? displayItem.grade ?? null;
   const level = Number.isFinite(displayItem.level) ? Math.max(0, Math.floor(displayItem.level ?? 0)) : 0;
-  const enhanceLevel = displayItem.type === 'equipment' ? normalizeEnhanceLevel(displayItem.enhanceLevel) : 0;
+  const enhanceLevel = displayItem.type === 'equipment' || displayItem.type === 'artifact'
+    ? normalizeEnhanceLevel(displayItem.enhanceLevel)
+    : 0;
   const techniqueRealmLv = Number.isFinite(techniqueTemplate?.realmLv)
     ? Math.max(1, Math.floor(techniqueTemplate?.realmLv ?? 1))
     : null;
@@ -241,7 +243,5 @@ export function getItemAffinityBadge(item: ItemStack): ItemAffinityBadge | null 
     element,
   };
 }
-
-
 
 

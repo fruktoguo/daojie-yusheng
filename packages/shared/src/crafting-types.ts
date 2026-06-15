@@ -927,7 +927,7 @@ export interface SyncedEnhancementItemView {
 
   itemId: string;
   /**
- * itemInstanceId：装备稳定实例 ID（同 ItemStack.itemInstanceId）。
+ * itemInstanceId：装备或法宝稳定实例 ID（同 ItemStack.itemInstanceId）。
  * 客户端发起 startEnhancement / 上架等请求时，需要把它作为
  * `expectedItemInstanceId` 透传回服务端做乐观一致性校验。
  */
@@ -959,7 +959,7 @@ export interface SyncedEnhancementItemView {
 
   level?: number;
   /**
- * equipSlot：装备槽位。
+ * equipSlot：装备槽位。法宝强化当前只支持背包实例，不直接指向法宝槽。
  */
 
   equipSlot?: EquipSlot;
@@ -972,7 +972,7 @@ export interface SyncedEnhancementItemView {
 
 export interface SyncedEnhancementJobView extends Omit<PlayerEnhancementJob, 'item'> {
 /**
- * item：强化面板只需要道具摘要，完整装备详情走背包/装备详情源。
+ * item：强化面板只需要道具摘要，完整装备或法宝详情走背包/装备详情源。
  */
 
   item?: SyncedEnhancementItemView;

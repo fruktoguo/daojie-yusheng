@@ -87,6 +87,8 @@ enhancementPercent = ceil(100 × (1.1)^enhanceLevel)
 // +1 = 110%, +5 ≈ 161%, +10 ≈ 259%
 ```
 
+该倍率同时用于装备属性增幅和法宝最大灵力上限增幅。法宝特效消耗不随强化放大，仍按未强化默认最大灵力计算固定消耗。
+
 ## 强化失败规则
 
 | 情况 | 结果 |
@@ -99,10 +101,10 @@ enhancementPercent = ceil(100 × (1.1)^enhanceLevel)
 
 ```
 startEnhancement:
-  1. 校验目标存在且为装备 → 校验未达上限
+  1. 校验目标存在且为装备或法宝 → 校验未达上限
   2. 检查是否有活跃任务（有则入队列）
   3. 解析保护物 → 检查材料/灵石充足
-  4. 按 `itemInstanceId` 从背包提取装备 → 锁定到 lockedItems
+  4. 按 `itemInstanceId` 从背包提取装备或法宝 → 锁定到 lockedItems
   5. 扣除材料 → 计算 successRate/totalTicks
   6. 创建 job (phase='enhancing')
      - `workTotalTicks/workRemainingTicks` 表示实际冲级工作量

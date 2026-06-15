@@ -45,12 +45,36 @@ function createEquipment(itemId: string, count = 1, overrides: Partial<ItemStack
   };
 }
 
+function createArtifact(itemId: string, count = 1, overrides: Partial<ItemStack> = {}): ItemStack {
+  return {
+    itemId,
+    name: "巡天飞剑",
+    type: "artifact",
+    desc: "这段长描述不应该进入强化面板同步包。",
+    grade: "heaven",
+    level: 42,
+    artifactMaxQiFactor: 1,
+    artifactEffects: [{ type: "traverse_unwalkable", costMaxQiRatio: 0.1 }],
+    tags: ["法宝", "飞剑"],
+    count,
+    enhanceLevel: 0,
+    itemInstanceId: `${itemId}:${count}:instance`,
+    ...overrides,
+  };
+}
+
 interface EnhancementSmokePlayer {
   playerId: string;
   enhancementSkill: AlchemySkillState;
   enhancementSkillLevel: number;
   inventory: {
     items: ItemStack[];
+  };
+  attrs: {
+    craftStats: {
+      enhancementSuccessRate: number;
+      enhancementSpeedRate: number;
+    };
   };
   equipment: {
     slots: Array<{
@@ -84,7 +108,14 @@ function createPlayer(): EnhancementSmokePlayer {
       items: [
         createEquipment("equip.test_blade", 1),
         createEquipment("equip.test_blade", 2),
+        createArtifact("artifact.flying_sword", 1),
       ],
+    },
+    attrs: {
+      craftStats: {
+        enhancementSuccessRate: 0.01,
+        enhancementSpeedRate: 0.2,
+      },
     },
     equipment: {
       slots: [
@@ -140,6 +171,11 @@ function main() {
   assert.ok(candidate.protectionCandidates.length > 0, "expected protection candidate");
   assertCompactItem(candidate.protectionCandidates[0].item, "protection item");
 
+  const artifactCandidate = fullPayload.state.candidates.find((entry: { item: SyncedEnhancementItemView }) => entry.item.itemId === "artifact.flying_sword");
+  assert.ok(artifactCandidate, "expected artifact enhancement candidate");
+  assert.equal(artifactCandidate.item.type, "artifact", "artifact candidate must keep item type");
+  assertCompactItem(artifactCandidate.item, "artifact candidate item");
+
   const highLevelTarget = createEquipment("equip.high_level_blade", 1, { level: 30 });
   player.enhancementSkill.level = 30;
   player.enhancementSkillLevel = 30;
@@ -157,6 +193,10 @@ function main() {
   const runtimeCandidate = runtimeService.buildEnhancementCandidate(player, { source: "inventory", itemInstanceId: highLevelTargetRef }, highLevelTarget);
   assert.equal(runtimeCandidate?.successRate, expectedHighLevelRate, "runtime success rate must follow main shared formula with equipped hammer modifier");
   assert.equal(runtimeCandidate?.durationTicks, expectedHighLevelDurationTicks, "runtime duration must follow shared enhancement speed and duration formula");
+
+  const runtimeArtifactTarget = createArtifact("artifact.flying_sword", 1, { itemInstanceId: "artifact-runtime-candidate" });
+  const runtimeArtifactCandidate = runtimeService.buildEnhancementCandidate(player, { source: "inventory", itemInstanceId: "artifact-runtime-candidate" }, runtimeArtifactTarget);
+  assert.equal(runtimeArtifactCandidate?.item.type, "artifact", "runtime must allow artifact enhancement candidates");
 
   const nearMaxTarget = createEquipment("equip.near_max_blade", 1, { enhanceLevel: MAX_ENHANCE_LEVEL - 1 });
   const maxedTarget = createEquipment("equip.maxed_blade", 1, { enhanceLevel: MAX_ENHANCE_LEVEL });

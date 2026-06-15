@@ -4,6 +4,8 @@
  * 法宝启用后的特效消耗与灵力补充都在玩家 tick 中执行，移动等领域只读取玩家能力。
  */
 
+import { resolveArtifactSustainCostPerTick } from '@mud/shared';
+
 export interface PlayerArtifactTickResult {
   artifactChanged: boolean;
   vitalsChanged: boolean;
@@ -34,7 +36,7 @@ export function advancePlayerArtifactQiTick(player: any): PlayerArtifactTickResu
     const beforeQi = clampNonNegativeInteger(slot.qi, maxQi);
     let nextQi = beforeQi;
 
-    const sustainCost = resolveArtifactSustainCostPerTick(slot.item, maxQi);
+    const sustainCost = resolveArtifactSustainCostPerTick(slot.item);
     if (sustainCost > 0 && nextQi > 0) {
       nextQi = Math.max(0, nextQi - sustainCost);
     }
@@ -73,22 +75,6 @@ function resolveArtifactQiRechargePerTick(player: any): number {
     Number(player?.attrs?.numericStats?.maxQiOutputPerTick ?? player?.numericStats?.maxQiOutputPerTick) || 0,
   );
   return Math.max(0, Math.floor(output * ARTIFACT_QI_RECHARGE_OUTPUT_RATIO));
-}
-
-function resolveArtifactSustainCostPerTick(item: any, maxQi: number): number {
-  const effects = Array.isArray(item?.artifactEffects) ? item.artifactEffects : [];
-  let cost = 0;
-  for (const effect of effects) {
-    if (effect?.type !== 'traverse_unwalkable') {
-      continue;
-    }
-    const ratio = Number(effect.costMaxQiRatio);
-    if (!Number.isFinite(ratio) || ratio <= 0) {
-      continue;
-    }
-    cost += Math.max(1, Math.ceil(maxQi * Math.min(1, ratio)));
-  }
-  return cost;
 }
 
 function clampNonNegativeInteger(value: unknown, max: number): number {
