@@ -3,7 +3,11 @@ import assert from 'node:assert/strict';
 import { Direction, resolveArtifactBaseMaxQi, resolveArtifactMaxQi, resolveArtifactSustainCostPerTick } from '@mud/shared';
 
 import { MapInstanceRuntime } from '../runtime/instance/map-instance.runtime';
-import { advancePlayerArtifactQiTick } from '../runtime/player/player-artifact-runtime.helpers';
+import {
+  ARTIFACT_OVERCHARGE_BUFF_ID,
+  advancePlayerArtifactQiTick,
+  resolveArtifactSustainCostWithOvercharge,
+} from '../runtime/player/player-artifact-runtime.helpers';
 import { refreshPlayerMovementCapabilities } from '../runtime/player/player-movement-capability.helpers';
 import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
 import { WorldRuntimeEquipmentService } from '../runtime/world/world-runtime-equipment.service';
@@ -16,6 +20,7 @@ const FLYING_SWORD_TEMPLATE = {
 };
 const ARTIFACT_BASE_MAX_QI = resolveArtifactBaseMaxQi(FLYING_SWORD_TEMPLATE);
 const FLYING_SWORD_SUSTAIN_COST = resolveArtifactSustainCostPerTick(FLYING_SWORD_TEMPLATE);
+const ARTIFACT_OVERCHARGE_MAX_STACKS = 2_147_483_647;
 
 function createTemplate() {
   return {
@@ -97,6 +102,24 @@ function createEnhancedFlyingSwordItem(instanceId: string, enhanceLevel: number)
   return {
     ...createFlyingSwordItem(instanceId),
     enhanceLevel,
+  };
+}
+
+function grantArtifactOverchargeBuff(player: any, stacks: number): void {
+  player.buffs = {
+    revision: 1,
+    buffs: [{
+      buffId: ARTIFACT_OVERCHARGE_BUFF_ID,
+      name: '盈能',
+      shortMark: '盈',
+      category: 'buff' as const,
+      visibility: 'public' as const,
+      remainingTicks: 1,
+      duration: 1,
+      stacks,
+      maxStacks: ARTIFACT_OVERCHARGE_MAX_STACKS,
+      infiniteDuration: true,
+    }],
   };
 }
 
@@ -413,6 +436,37 @@ function testEnabledFlyingSwordConsumesArtifactQiEveryTick(): void {
   assert.equal(player.qi, 100);
 }
 
+function testDisabledFlyingSwordRechargesFromPlayerQiOutputEveryTick(): void {
+  const instance = createInstance();
+  const player = instance.connectPlayer({
+    playerId: 'player:provider-disabled-recharge',
+    sessionId: 'session:provider-disabled-recharge',
+    preferredX: 0,
+    preferredY: 0,
+  });
+  grantStaticObstacleIgnoreFromFlyingSword(player, {
+    enabled: false,
+    qi: ARTIFACT_BASE_MAX_QI - FLYING_SWORD_SUSTAIN_COST,
+  });
+  player.qi = FLYING_SWORD_SUSTAIN_COST * 2;
+  player.attrs = {
+    ...(player.attrs ?? {}),
+    numericStats: {
+      ...(player.attrs?.numericStats ?? {}),
+      maxQiOutputPerTick: FLYING_SWORD_SUSTAIN_COST * 10,
+    },
+  };
+
+  const result = advancePlayerArtifactQiTick(player);
+
+  assert.equal(result.artifactChanged, true);
+  assert.equal(result.buffChanged, false);
+  assert.equal(result.vitalsChanged, true);
+  assert.equal(player.artifacts.slots[0].enabled, false);
+  assert.equal(player.artifacts.slots[0].qi, ARTIFACT_BASE_MAX_QI);
+  assert.equal(player.qi, FLYING_SWORD_SUSTAIN_COST);
+}
+
 function testEnhancedFlyingSwordMaxQiUsesEnhancementMultiplier(): void {
   const enhanceLevel = 3;
   const service = createPlayerRuntimeServiceForArtifactProjection();
@@ -490,11 +544,71 @@ function testFlyingSwordAutoDisablesWhenArtifactQiCannotPaySustainCost(): void {
 
   assert.equal(result.artifactChanged, true);
   assert.equal(result.artifactEnabledChanged, true);
-  assert.equal(result.vitalsChanged, false);
+  assert.equal(result.buffChanged, false);
+  assert.equal(result.vitalsChanged, true);
   assert.equal(player.artifacts.slots[0].enabled, false);
-  assert.equal(player.artifacts.slots[0].qi, insufficientQi);
-  assert.equal(player.qi, FLYING_SWORD_SUSTAIN_COST * 10);
+  assert.equal(player.artifacts.slots[0].qi, insufficientQi + FLYING_SWORD_SUSTAIN_COST);
+  assert.equal(player.qi, FLYING_SWORD_SUSTAIN_COST * 9);
   assert.equal(player.movementCapabilities.staticObstacleIgnore, false);
+}
+
+function testEnabledFlyingSwordOverchargeIncreasesSustainCostAndGainsStack(): void {
+  const instance = createInstance();
+  const player = instance.connectPlayer({
+    playerId: 'player:provider-overcharge-sustain',
+    sessionId: 'session:provider-overcharge-sustain',
+    preferredX: 0,
+    preferredY: 0,
+  });
+  grantStaticObstacleIgnoreFromFlyingSword(player, { qi: ARTIFACT_BASE_MAX_QI });
+  grantArtifactOverchargeBuff(player, 5);
+  player.qi = 0;
+  player.attrs = {
+    ...(player.attrs ?? {}),
+    numericStats: {
+      ...(player.attrs?.numericStats ?? {}),
+      maxQiOutputPerTick: 0,
+    },
+  };
+  const expectedCost = resolveArtifactSustainCostWithOvercharge(FLYING_SWORD_TEMPLATE, 5);
+
+  const result = advancePlayerArtifactQiTick(player);
+
+  assert.equal(expectedCost, Math.ceil(FLYING_SWORD_SUSTAIN_COST * 1.05));
+  assert.equal(result.artifactChanged, true);
+  assert.equal(result.buffChanged, true);
+  assert.equal(result.vitalsChanged, false);
+  assert.equal(player.artifacts.slots[0].qi, ARTIFACT_BASE_MAX_QI - expectedCost);
+  assert.equal(player.buffs.buffs[0].stacks, 6);
+  assert.equal(player.buffs.revision, 2);
+}
+
+function testArtifactOverchargeDecaysWhenNoArtifactIsEnabled(): void {
+  const instance = createInstance();
+  const player = instance.connectPlayer({
+    playerId: 'player:provider-overcharge-decay',
+    sessionId: 'session:provider-overcharge-decay',
+    preferredX: 0,
+    preferredY: 0,
+  });
+  grantStaticObstacleIgnoreFromFlyingSword(player, { enabled: false, qi: ARTIFACT_BASE_MAX_QI });
+  grantArtifactOverchargeBuff(player, 3);
+  player.qi = 0;
+  player.attrs = {
+    ...(player.attrs ?? {}),
+    numericStats: {
+      ...(player.attrs?.numericStats ?? {}),
+      maxQiOutputPerTick: 0,
+    },
+  };
+
+  const result = advancePlayerArtifactQiTick(player);
+
+  assert.equal(result.artifactChanged, false);
+  assert.equal(result.buffChanged, true);
+  assert.equal(result.vitalsChanged, false);
+  assert.equal(player.buffs.buffs[0].stacks, 2);
+  assert.equal(player.buffs.revision, 2);
 }
 
 function testPlayerRuntimeServiceProjectsArtifactMovementCapability(): void {
@@ -656,9 +770,12 @@ async function main(): Promise<void> {
   await testArtifactToggleDispatchRequestsImmediateDeltaSync();
   testMoveToSyncsRuntimeMovementCapabilityIntoInstancePlayer();
   testEnabledFlyingSwordConsumesArtifactQiEveryTick();
+  testDisabledFlyingSwordRechargesFromPlayerQiOutputEveryTick();
   testEnhancedFlyingSwordMaxQiUsesEnhancementMultiplier();
   testEnhancedFlyingSwordSustainCostUsesBaseMaxQi();
   testFlyingSwordAutoDisablesWhenArtifactQiCannotPaySustainCost();
+  testEnabledFlyingSwordOverchargeIncreasesSustainCostAndGainsStack();
+  testArtifactOverchargeDecaysWhenNoArtifactIsEnabled();
   testEnabledFlyingSwordRechargesFromPlayerQiOutputEveryTick();
   testDynamicBlockerStillBlocksPlayerCapability();
   console.log('world-runtime-player-movement-capability-smoke ok');

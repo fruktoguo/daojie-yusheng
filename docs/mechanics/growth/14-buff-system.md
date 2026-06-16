@@ -79,6 +79,15 @@ isPillBuff = sourceSkillId.startsWith('item:')
 - 营造 buff: `activity.building`
 - 黑暗 buff: 世界时间视野减少
 
+## 法宝 Buff
+
+法宝盈能是运行时真实 buff（写回玩家 `buffs` 真源），由玩家法宝 tick 推进：
+- buffId: `artifact.overcharge`
+- 名称: 盈能
+- 至少有一个法宝槽保持启用时，每 tick 增加 1 层
+- 没有法宝槽启用时，每 tick 减少 1 层；层数归零时移除
+- 每层使法宝固定灵力消耗提高 1%
+
 ## Buff 持续时间
 
 - 每 tick: `remainingTicks -= 1`

@@ -47,18 +47,21 @@ ARTIFACT_SLOTS = ['artifact_1']
 
 | 法宝 | 等级 | 最大灵力系数 | 效果 |
 |---|---:|---:|---|
-| 巡天飞剑 | 42 | 1 | 槽位解锁、启用、装备后授予玩家“忽略静态障碍”移动能力；启用后每息固定消耗未强化默认最大灵力的 10% |
+| 巡天飞剑 | 42 | 1 | 槽位解锁、启用、装备后授予玩家“忽略静态障碍”移动能力；启用后每息固定消耗未强化默认最大灵力的 10%，再受盈能层数放大 |
 
-法宝灵力在玩家 tick 中自动补充：每个启用且已装备法宝的槽位，每息最多抽取玩家 `maxQiOutputPerTick` 的十分之一注入法宝，并从玩家当前灵力中扣除等额数值；法宝已满或玩家灵力不足时只按实际可注入量扣除。
+法宝灵力在玩家 tick 中自动补充：每个已装备且灵力未满的法宝槽位，不论槽位是否启用，每息最多抽取玩家 `maxQiOutputPerTick` 的十分之一注入法宝，并从玩家当前灵力中扣除等额数值；法宝已满或玩家灵力不足时只按实际可注入量扣除。
 
 如果某个已启用法宝槽的当前灵力低于该法宝的固定每息消耗，系统会在 tick 中直接将该槽自动停用，避免继续授予移动能力。
+
+当至少一个法宝槽保持启用时，玩家每息获得 1 层“盈能” Buff；没有法宝槽启用时，每息减少 1 层。盈能每层使法宝固定灵力消耗提高 1%，例如基础每息消耗 100 点时，5 层盈能会使消耗变为 105 点。
 
 法宝可复用强化系统强化。法宝强化不放大特效消耗，只提高最大灵力上限：
 
 ```typescript
 artifactBaseMaxQi = round(getTechniqueStandardMaxQiBaseline(42) × artifactMaxQiFactor)
 artifactMaxQi = round(artifactBaseMaxQi × getEnhancementPercent(enhanceLevel) / 100)
-sustainCostPerTick = ceil(artifactBaseMaxQi × costMaxQiRatio)
+baseSustainCostPerTick = ceil(artifactBaseMaxQi × costMaxQiRatio)
+sustainCostPerTick = ceil(baseSustainCostPerTick × (100 + artifactOverchargeStacks) / 100)
 ```
 
 强化倍率使用装备同一套指数公式：

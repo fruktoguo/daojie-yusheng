@@ -4,7 +4,10 @@
  * 移动裁定只消费玩家当前能力；装备、法宝、Buff、技能等只是能力来源。
  */
 
-import { resolveArtifactSustainCostPerTick } from '@mud/shared';
+import {
+  resolveArtifactSustainCostWithOvercharge,
+  resolvePlayerArtifactOverchargeStacks,
+} from './player-artifact-runtime.helpers';
 
 export interface PlayerStaticObstacleIgnoreState {
   canIgnore: boolean;
@@ -59,11 +62,12 @@ function resolveDirectPlayerStaticObstacleIgnoreState(player: any): PlayerStatic
 
 function resolveArtifactGrantedStaticObstacleIgnoreState(player: any): PlayerStaticObstacleIgnoreState {
   const slots = Array.isArray(player?.artifacts?.slots) ? player.artifacts.slots : [];
+  const overchargeStacks = resolvePlayerArtifactOverchargeStacks(player);
   for (const slot of slots) {
     if (!slot || slot.unlocked !== true || slot.enabled === false || !slot.item) {
       continue;
     }
-    const sustainCost = resolveArtifactSustainCostPerTick(slot.item);
+    const sustainCost = resolveArtifactSustainCostWithOvercharge(slot.item, overchargeStacks);
     const currentQi = Math.max(0, Math.trunc(Number(slot.qi) || 0));
     if (sustainCost > 0 && currentQi < sustainCost) {
       continue;
