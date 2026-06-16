@@ -1296,6 +1296,7 @@ export class ActionPanel {
   private handleGlobalKeydown(event: KeyboardEvent): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    if (event.defaultPrevented) return;
     if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return;
     if (event.target instanceof HTMLElement && event.target.isContentEditable) return;
     if (event.ctrlKey || event.altKey || event.metaKey) return;

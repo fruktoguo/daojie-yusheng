@@ -14,7 +14,6 @@ import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../floating-to
 import { buildItemTooltipPayload } from '../equipment-tooltip';
 import { getItemDisplayMeta } from '../item-display';
 import {
-  EQUIPMENT_PANEL_TAB_EMPTY_KEYS,
   EQUIPMENT_PANEL_TAB_LABEL_KEYS,
   EQUIPMENT_PANEL_TABS,
   type EquipmentPanelTab,
@@ -25,6 +24,13 @@ import {
   formatArtifactQiText,
   isWideEquipmentPanelSlot,
 } from '../equipment-panel-layout';
+import {
+  findArtifactShortcutSlot,
+  loadArtifactShortcutBindings,
+  normalizeEquipmentShortcutKey,
+  saveArtifactShortcutBindings,
+  setArtifactShortcutBinding,
+} from '../equipment-panel-shortcuts';
 import { t } from '../i18n';
 import { setEquipmentPanelCallbacks, syncEquipmentPanelState } from '../../react-ui/panels/equipment/EquipmentPanel';
 import {
@@ -74,7 +80,7 @@ type ArtifactSlotView = EquipmentSlotView & {
   qiFill: HTMLSpanElement;
   qiText: HTMLSpanElement;
   actions: HTMLDivElement;
-  toggle: HTMLButtonElement;
+  shortcutBind: HTMLButtonElement;
 };
 
 type EquipmentPanelUnequipSlot = EquipSlot | ArtifactSlot;
@@ -105,6 +111,10 @@ export class EquipmentPanel {
   private slotSignatures = new Map<EquipSlot, string>();
   /** artifactSlotSignatures：法宝槽显示签名。 */
   private artifactSlotSignatures = new Map<ArtifactSlot, string>();
+  /** artifactShortcutBindings：法宝槽快捷键绑定。 */
+  private artifactShortcutBindings = loadArtifactShortcutBindings();
+  /** bindingArtifactSlot：正在等待绑定快捷键的法宝槽。 */
+  private bindingArtifactSlot: ArtifactSlot | null = null;
   /** tabButtons：tab按钮引用。 */
   private tabButtons = new Map<EquipmentPanelTab, HTMLButtonElement>();
   /** activeTab：当前显示的装备分类。 */
@@ -124,15 +134,24 @@ export class EquipmentPanel {
 
 
   constructor() {
+    this.artifactShortcutBindings = loadArtifactShortcutBindings();
     this.ensureTooltipStyle();
     this.bindActionEvents();
     this.bindTooltipEvents();
+    this.bindGlobalEvents();
   }
 
   /** clear：清理clear。 */
   clear(): void {
+    this.bindingArtifactSlot = null;
     if (this.useReactPanel()) {
-      syncEquipmentPanelState({ equipment: null, artifacts: null, playerRealmLv: null });
+      syncEquipmentPanelState({
+        equipment: null,
+        artifacts: null,
+        playerRealmLv: null,
+        artifactShortcutBindings: this.buildArtifactShortcutBindingsState(),
+        bindingArtifactSlot: this.bindingArtifactSlot,
+      });
       this.lastEquipment = null;
       this.lastArtifacts = null;
       this.tooltipSlot = null;
@@ -168,9 +187,19 @@ export class EquipmentPanel {
   ): void {
     this.onUnequip = onUnequip;
     this.onSetArtifactSlotEnabled = onSetArtifactSlotEnabled ?? null;
-    setEquipmentPanelCallbacks({ onUnequip, onSetArtifactSlotEnabled });
+    setEquipmentPanelCallbacks({
+      onUnequip,
+      onSetArtifactSlotEnabled,
+      onBindArtifactShortcut: (slot) => this.toggleArtifactShortcutBinding(slot),
+    });
     if (this.useReactPanel()) {
-      syncEquipmentPanelState({ equipment: this.lastEquipment, artifacts: this.lastArtifacts, playerRealmLv: this.playerRealmLv });
+      syncEquipmentPanelState({
+        equipment: this.lastEquipment,
+        artifacts: this.lastArtifacts,
+        playerRealmLv: this.playerRealmLv,
+        artifactShortcutBindings: this.buildArtifactShortcutBindingsState(),
+        bindingArtifactSlot: this.bindingArtifactSlot,
+      });
       this.mountReactPanel();
     }
   }
@@ -180,7 +209,7 @@ export class EquipmentPanel {
     if (this.useReactPanel()) {
       this.lastEquipment = equipment;
       this.lastArtifacts = artifacts;
-      syncEquipmentPanelState({ equipment, artifacts, playerRealmLv: this.playerRealmLv });
+      this.syncReactPanelState(equipment, artifacts);
       this.mountReactPanel();
       return;
     }
@@ -199,7 +228,7 @@ export class EquipmentPanel {
     }
     this.playerRealmLv = nextRealmLv;
     if (this.useReactPanel()) {
-      syncEquipmentPanelState({ equipment: this.lastEquipment, artifacts: this.lastArtifacts, playerRealmLv: this.playerRealmLv });
+      this.syncReactPanelState();
       this.mountReactPanel();
       return;
     }
@@ -218,7 +247,7 @@ export class EquipmentPanel {
     this.lastEquipment = player.equipment;
     this.lastArtifacts = player.artifacts;
     if (this.useReactPanel()) {
-      syncEquipmentPanelState({ equipment: player.equipment, artifacts: player.artifacts, player });
+      this.syncReactPanelState(player.equipment, player.artifacts, player);
       this.mountReactPanel();
       return;
     }
@@ -233,6 +262,125 @@ export class EquipmentPanel {
     if (!mountReactEquipmentPanel()) {
       unmountReactEquipmentPanel();
     }
+  }
+
+  /** syncReactPanelState：同步 React 面板需要的装备、法宝和本地快捷键状态。 */
+  private syncReactPanelState(
+    equipment: EquipmentSlots | null = this.lastEquipment,
+    artifacts: PlayerState['artifacts'] | null = this.lastArtifacts,
+    player?: PlayerState,
+  ): void {
+    syncEquipmentPanelState({
+      equipment,
+      artifacts,
+      player,
+      playerRealmLv: this.playerRealmLv,
+      artifactShortcutBindings: this.buildArtifactShortcutBindingsState(),
+      bindingArtifactSlot: this.bindingArtifactSlot,
+    });
+  }
+
+  /** buildArtifactShortcutBindingsState：转成 React store 友好的普通对象。 */
+  private buildArtifactShortcutBindingsState(): Partial<Record<ArtifactSlot, string>> {
+    return Object.fromEntries(this.artifactShortcutBindings.entries()) as Partial<Record<ArtifactSlot, string>>;
+  }
+
+  /** getArtifactShortcutBindLabel：读取法宝快捷键按钮文案。 */
+  private getArtifactShortcutBindLabel(slot: ArtifactSlot): string {
+    if (this.bindingArtifactSlot === slot) {
+      return t('action.shortcut.binding', undefined);
+    }
+    const binding = this.artifactShortcutBindings.get(slot);
+    return binding
+      ? t('action.shortcut.rebind', { key: binding.toUpperCase() })
+      : t('action.shortcut.bind', undefined);
+  }
+
+  /** toggleArtifactShortcutBinding：进入或退出指定法宝槽的快捷键绑定模式。 */
+  private toggleArtifactShortcutBinding(slot: ArtifactSlot): void {
+    this.bindingArtifactSlot = this.bindingArtifactSlot === slot ? null : slot;
+    this.refreshArtifactShortcutDisplay();
+  }
+
+  /** commitArtifactShortcutBinding：保存法宝槽快捷键。 */
+  private commitArtifactShortcutBinding(slot: ArtifactSlot, normalizedKey: string): void {
+    this.artifactShortcutBindings = setArtifactShortcutBinding(this.artifactShortcutBindings, slot, normalizedKey);
+    saveArtifactShortcutBindings(this.artifactShortcutBindings);
+    this.bindingArtifactSlot = null;
+    this.refreshArtifactShortcutDisplay();
+  }
+
+  /** refreshArtifactShortcutDisplay：刷新绑定按钮和快捷键标记。 */
+  private refreshArtifactShortcutDisplay(): void {
+    this.artifactSlotSignatures.clear();
+    if (this.useReactPanel()) {
+      this.syncReactPanelState();
+      this.mountReactPanel();
+      return;
+    }
+    if (this.lastEquipment) {
+      this.render(this.lastEquipment, this.lastArtifacts);
+    }
+  }
+
+  /** toggleArtifactSlot：切换某个已装备法宝槽。 */
+  private toggleArtifactSlot(slot: ArtifactSlot): boolean {
+    const entry = this.lastArtifacts?.slots.find((candidate) => candidate.slot === slot);
+    if (entry?.unlocked !== true || !entry.item) {
+      return false;
+    }
+    this.onSetArtifactSlotEnabled?.(slot, entry.enabled === false);
+    return true;
+  }
+
+  /** bindGlobalEvents：绑定全局法宝快捷键。 */
+  private bindGlobalEvents(): void {
+    window.addEventListener('keydown', (event) => this.handleGlobalKeydown(event), { capture: true });
+  }
+
+  /** handleGlobalKeydown：处理法宝快捷键绑定和触发。 */
+  private handleGlobalKeydown(event: KeyboardEvent): void {
+    if (event.defaultPrevented) {
+      return;
+    }
+    if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
+      return;
+    }
+    if (event.target instanceof HTMLElement && event.target.isContentEditable) {
+      return;
+    }
+    if (event.ctrlKey || event.altKey || event.metaKey) {
+      return;
+    }
+
+    if (this.bindingArtifactSlot) {
+      if (event.key === 'Escape') {
+        this.bindingArtifactSlot = null;
+        this.refreshArtifactShortcutDisplay();
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+      const normalized = normalizeEquipmentShortcutKey(event.key);
+      if (!normalized) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      this.commitArtifactShortcutBinding(this.bindingArtifactSlot, normalized);
+      return;
+    }
+
+    const normalized = normalizeEquipmentShortcutKey(event.key);
+    if (!normalized) {
+      return;
+    }
+    const slot = findArtifactShortcutSlot(this.artifactShortcutBindings, normalized);
+    if (!slot || !this.toggleArtifactSlot(slot)) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
   }
 
   /** setActiveTab：切换当前显示的装备分类。 */
@@ -268,7 +416,6 @@ export class EquipmentPanel {
 
     const visibleSlots = isArtifactTab ? [] : getEquipmentPanelTabSlotOrder(this.activeTab);
     const visibleSlotSet = new Set(visibleSlots);
-    let hasAnyEquipment = false;
     for (const slot of EQUIPMENT_PANEL_SLOT_ORDER) {
       const slotView = this.slotViews.get(slot);
       if (!slotView) {
@@ -277,7 +424,6 @@ export class EquipmentPanel {
       const isVisible = visibleSlotSet.has(slot);
       const item = equipment[slot];
       const hasItem = !!item;
-      hasAnyEquipment ||= isVisible && hasItem;
       const itemName = item ? getItemDisplayMeta(item).displayItem.name : '';
       const metaText = item ? formatEquipmentSlotCompactMeta(item) : t('equipment.empty.slot-meta', undefined);
       const signature = this.buildSlotSignature(slot, isVisible, hasItem, itemName, metaText);
@@ -303,13 +449,11 @@ export class EquipmentPanel {
       slotView.action.dataset.unequip = slot;
     }
     if (isArtifactTab) {
-      hasAnyEquipment = this.renderArtifactSlots(artifacts);
+      this.renderArtifactSlots(artifacts);
     }
     if (this.emptyStateEl) {
-      this.emptyStateEl.textContent = hasAnyEquipment
-        ? ''
-        : t(EQUIPMENT_PANEL_TAB_EMPTY_KEYS[this.activeTab]);
-      this.emptyStateEl.hidden = hasAnyEquipment;
+      this.emptyStateEl.textContent = '';
+      this.emptyStateEl.hidden = true;
     }
   }
 
@@ -366,7 +510,7 @@ export class EquipmentPanel {
 
       const emptyStateEl = document.createElement('div');
       emptyStateEl.className = 'empty-hint';
-      emptyStateEl.textContent = t(EQUIPMENT_PANEL_TAB_EMPTY_KEYS[this.activeTab], undefined);
+      emptyStateEl.textContent = '';
       emptyStateEl.hidden = true;
       sectionEl.append(emptyStateEl);
 
@@ -447,8 +591,8 @@ export class EquipmentPanel {
     head.className = 'artifact-slot-head';
 
     const name = document.createElement('span');
-    name.className = 'equip-slot-name';
-    name.textContent = this.formatArtifactSlotLabel(slot);
+    name.className = 'equip-slot-item artifact-slot-title is-empty-title';
+    name.textContent = t('equipment.artifact.locked', undefined);
 
     const stateBadge = document.createElement('span');
     stateBadge.className = 'artifact-state-badge';
@@ -498,21 +642,20 @@ export class EquipmentPanel {
     const actions = document.createElement('div');
     actions.className = 'artifact-actions';
 
-    const toggle = document.createElement('button');
-    toggle.className = 'small-btn artifact-toggle';
-    toggle.type = 'button';
-    toggle.dataset.artifactToggle = slot;
-    toggle.textContent = t('equipment.artifact.enabled', undefined);
+    const shortcutBind = document.createElement('button');
+    shortcutBind.className = 'small-btn ghost artifact-shortcut-bind';
+    shortcutBind.type = 'button';
+    shortcutBind.dataset.artifactBindShortcut = slot;
+    shortcutBind.textContent = this.getArtifactShortcutBindLabel(slot);
 
-    actions.append(toggle, action);
+    actions.append(shortcutBind, action);
     root.append(copy, actions);
-    return { root, name, item, empty, meta, action, stateBadge, qi, qiTrack, qiFill, qiText, actions, toggle };
+    return { root, name, item, empty, meta, action, stateBadge, qi, qiTrack, qiFill, qiText, actions, shortcutBind };
   }
 
-  /** renderArtifactSlots：渲染法宝槽并返回当前 tab 是否有已装备法宝。 */
-  private renderArtifactSlots(artifacts: PlayerState['artifacts'] | null): boolean {
+  /** renderArtifactSlots：渲染法宝槽。 */
+  private renderArtifactSlots(artifacts: PlayerState['artifacts'] | null): void {
     const slots = Array.isArray(artifacts?.slots) ? artifacts.slots : [];
-    let hasAnyArtifact = false;
     for (const slot of getArtifactPanelSlotOrder()) {
       const slotView = this.artifactSlotViews.get(slot);
       if (!slotView) {
@@ -523,7 +666,7 @@ export class EquipmentPanel {
       const enabled = unlocked && entry?.enabled !== false;
       const item = entry?.item ?? null;
       const hasItem = !!item;
-      hasAnyArtifact ||= unlocked && hasItem;
+      const canToggle = unlocked && hasItem;
       const itemName = item ? getItemDisplayMeta(item).displayItem.name : '';
       const currentQi = Math.max(0, Math.floor(Number(entry?.qi ?? 0) || 0));
       const maxQi = Math.max(0, Math.floor(Number(entry?.maxQi ?? 0) || 0));
@@ -534,11 +677,16 @@ export class EquipmentPanel {
       const stateText = !unlocked
         ? t('equipment.artifact.locked', undefined)
         : enabled ? t('equipment.artifact.enabled', undefined) : t('equipment.artifact.disabled', undefined);
+      const titleText = !unlocked
+        ? t('equipment.artifact.locked', undefined)
+        : hasItem ? itemName : t('equipment.artifact.empty', undefined);
       const metaText = unlocked && hasItem
         ? qiText
         : unlocked ? t('equipment.empty.slot-meta', undefined) : t('equipment.artifact.locked', undefined);
-      const emptyText = unlocked ? t('equipment.artifact.empty', undefined) : t('equipment.artifact.locked', undefined);
-      const signature = this.buildArtifactSlotSignature(slot, unlocked, enabled, hasItem, itemName, metaText, currentQi, maxQi);
+      const shortcutKey = this.artifactShortcutBindings.get(slot) ?? '';
+      const shortcutLabel = this.getArtifactShortcutBindLabel(slot);
+      const isBindingShortcut = this.bindingArtifactSlot === slot;
+      const signature = this.buildArtifactSlotSignature(slot, unlocked, enabled, hasItem, titleText, metaText, currentQi, maxQi, shortcutKey, isBindingShortcut);
       if (this.artifactSlotSignatures.get(slot) === signature) {
         continue;
       }
@@ -550,35 +698,54 @@ export class EquipmentPanel {
       slotView.root.classList.toggle('is-disabled', !enabled);
       slotView.root.classList.toggle('has-item', hasItem);
       slotView.root.classList.toggle('is-empty', !hasItem);
+      slotView.root.classList.toggle('is-toggleable', canToggle);
       slotView.root.toggleAttribute('data-artifact-tooltip-slot', hasItem);
+      slotView.root.toggleAttribute('data-artifact-click-slot', canToggle);
       if (hasItem) {
         slotView.root.dataset.artifactTooltipSlot = slot;
       } else {
         delete slotView.root.dataset.artifactTooltipSlot;
       }
-      slotView.name.textContent = this.formatArtifactSlotLabel(slot);
+      if (canToggle) {
+        slotView.root.dataset.artifactClickSlot = slot;
+        slotView.root.setAttribute('role', 'button');
+        slotView.root.tabIndex = 0;
+        slotView.root.setAttribute('aria-pressed', enabled ? 'true' : 'false');
+      } else {
+        delete slotView.root.dataset.artifactClickSlot;
+        slotView.root.setAttribute('role', 'group');
+        slotView.root.removeAttribute('tabindex');
+        slotView.root.removeAttribute('aria-pressed');
+      }
+      slotView.name.textContent = titleText;
+      slotView.name.classList.toggle('is-empty-title', !hasItem);
+      slotView.name.querySelectorAll('.action-shortcut-tag').forEach((node) => node.remove());
+      if (shortcutKey) {
+        const shortcutBadge = document.createElement('span');
+        shortcutBadge.className = 'action-shortcut-tag';
+        shortcutBadge.textContent = t('action.shortcut.badge', { key: shortcutKey.toUpperCase() });
+        slotView.name.append(shortcutBadge);
+      }
       slotView.stateBadge.textContent = stateText;
-      slotView.item.textContent = itemName;
-      slotView.item.hidden = !hasItem;
-      slotView.empty.textContent = emptyText;
-      slotView.empty.hidden = hasItem;
+      slotView.item.textContent = '';
+      slotView.item.hidden = true;
+      slotView.empty.textContent = '';
+      slotView.empty.hidden = true;
       slotView.meta.textContent = metaText;
-      slotView.meta.hidden = unlocked && hasItem;
+      slotView.meta.hidden = true;
       slotView.qi.hidden = !unlocked || !hasItem;
       slotView.qi.setAttribute('aria-label', qiText);
       slotView.qiText.textContent = qiText;
       slotView.qiFill.style.setProperty('--artifact-qi-percent', `${qiPercent}%`);
       slotView.actions.hidden = !unlocked;
-      slotView.toggle.hidden = !unlocked;
-      slotView.toggle.disabled = !unlocked;
-      slotView.toggle.classList.toggle('is-active', enabled);
-      slotView.toggle.textContent = enabled ? t('equipment.artifact.enabled', undefined) : t('equipment.artifact.disabled', undefined);
-      slotView.toggle.dataset.artifactEnabled = enabled ? 'true' : 'false';
+      slotView.shortcutBind.hidden = !unlocked;
+      slotView.shortcutBind.disabled = !unlocked;
+      slotView.shortcutBind.classList.toggle('is-binding', isBindingShortcut);
+      slotView.shortcutBind.textContent = shortcutLabel;
       slotView.action.hidden = !unlocked || !hasItem;
       slotView.action.disabled = !unlocked || !hasItem;
       slotView.action.dataset.unequip = slot;
     }
-    return hasAnyArtifact;
   }
 
   /** buildSlotSignature：生成槽位当前展示所需的稳定签名。 */
@@ -592,17 +759,25 @@ export class EquipmentPanel {
     unlocked: boolean,
     enabled: boolean,
     hasItem: boolean,
-    itemName: string,
+    titleText: string,
     metaText: string,
     currentQi: number,
     maxQi: number,
+    shortcutKey: string,
+    isBindingShortcut: boolean,
   ): string {
-    return [slot, unlocked ? 'unlocked' : 'locked', enabled ? 'enabled' : 'disabled', hasItem ? 'equipped' : 'empty', itemName, metaText, currentQi, maxQi].join('|');
-  }
-
-  /** formatArtifactSlotLabel：显示法宝槽名称。 */
-  private formatArtifactSlotLabel(slot: ArtifactSlot): string {
-    return slot === 'artifact_1' ? t('equipment.tab.artifact', undefined) : slot;
+    return [
+      slot,
+      unlocked ? 'unlocked' : 'locked',
+      enabled ? 'enabled' : 'disabled',
+      hasItem ? 'equipped' : 'empty',
+      titleText,
+      metaText,
+      currentQi,
+      maxQi,
+      shortcutKey,
+      isBindingShortcut ? 'binding' : '',
+    ].join('|');
   }
 
   /** updateTabButtons：同步tab按钮active态。 */
@@ -617,7 +792,8 @@ export class EquipmentPanel {
       button.setAttribute('aria-selected', active ? 'true' : 'false');
     }
     if (this.emptyStateEl) {
-      this.emptyStateEl.textContent = t(EQUIPMENT_PANEL_TAB_EMPTY_KEYS[this.activeTab], undefined);
+      this.emptyStateEl.textContent = '';
+      this.emptyStateEl.hidden = true;
     }
   }
 
@@ -660,26 +836,46 @@ export class EquipmentPanel {
       if (tabButton) {
         return;
       }
-      const toggleButton = target.closest<HTMLButtonElement>('[data-artifact-toggle]');
-      const toggleSlot = toggleButton?.dataset.artifactToggle as ArtifactSlot | undefined;
-      if (toggleButton && toggleSlot && !toggleButton.disabled) {
-        const entry = this.lastArtifacts?.slots.find((candidate) => candidate.slot === toggleSlot);
-        if (entry?.unlocked === true) {
-          this.onSetArtifactSlotEnabled?.(toggleSlot, entry.enabled === false);
-        }
+      const shortcutBindButton = target.closest<HTMLButtonElement>('[data-artifact-bind-shortcut]');
+      const shortcutSlot = shortcutBindButton?.dataset.artifactBindShortcut as ArtifactSlot | undefined;
+      if (shortcutBindButton && shortcutSlot && !shortcutBindButton.disabled) {
+        this.toggleArtifactShortcutBinding(shortcutSlot);
         return;
       }
       const button = target.closest<HTMLButtonElement>('[data-unequip]');
       const slot = button?.dataset.unequip as EquipmentPanelUnequipSlot | undefined;
-      if (!button || !slot || button.disabled) {
+      if (button && slot && !button.disabled) {
+        // 透传 itemInstanceId 给服务端做乐观一致性校验，防止"装备槽切换 + 卸下"竞争错配
+        const slotItem = this.resolveSlotItem(slot);
+        const expectedItemInstanceId = slotItem && typeof slotItem.itemInstanceId === 'string'
+          ? slotItem.itemInstanceId
+          : undefined;
+        this.onUnequip?.(slot, expectedItemInstanceId);
         return;
       }
-      // 透传 itemInstanceId 给服务端做乐观一致性校验，防止"装备槽切换 + 卸下"竞争错配
-      const slotItem = this.resolveSlotItem(slot);
-      const expectedItemInstanceId = slotItem && typeof slotItem.itemInstanceId === 'string'
-        ? slotItem.itemInstanceId
-        : undefined;
-      this.onUnequip?.(slot, expectedItemInstanceId);
+      const artifactSlotNode = target.closest<HTMLElement>('[data-artifact-click-slot]');
+      const artifactSlot = artifactSlotNode?.dataset.artifactClickSlot as ArtifactSlot | undefined;
+      if (artifactSlot && this.toggleArtifactSlot(artifactSlot)) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    });
+
+    this.pane.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' && event.key !== ' ') {
+        return;
+      }
+      const target = event.target;
+      if (!(target instanceof HTMLElement) || target.closest('button')) {
+        return;
+      }
+      const artifactSlotNode = target.closest<HTMLElement>('[data-artifact-click-slot]');
+      const artifactSlot = artifactSlotNode?.dataset.artifactClickSlot as ArtifactSlot | undefined;
+      if (!artifactSlot || !this.toggleArtifactSlot(artifactSlot)) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
     });
   }
 
@@ -691,7 +887,7 @@ export class EquipmentPanel {
         return;
       }
       const target = event.target;
-      if (!(target instanceof HTMLElement) || target.closest('[data-unequip],[data-artifact-toggle]')) {
+      if (!(target instanceof HTMLElement) || target.closest('[data-unequip],[data-artifact-bind-shortcut],[data-artifact-click-slot]')) {
         return;
       }
       const slotNode = target.closest<HTMLElement>('[data-equip-tooltip-slot],[data-artifact-tooltip-slot]');

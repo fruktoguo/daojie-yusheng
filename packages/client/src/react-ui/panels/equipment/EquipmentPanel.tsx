@@ -9,7 +9,6 @@ import { getEquipSlotLabel } from '../../../domain-labels';
 import { buildItemTooltipPayload } from '../../../ui/equipment-tooltip';
 import { getItemDisplayMeta } from '../../../ui/item-display';
 import {
-  EQUIPMENT_PANEL_TAB_EMPTY_KEYS,
   EQUIPMENT_PANEL_TAB_LABEL_KEYS,
   EQUIPMENT_PANEL_TABS,
   type EquipmentPanelTab,
@@ -29,12 +28,16 @@ interface EquipmentPanelState {
   equipment: EquipmentSlots | null;
   artifacts: PlayerState['artifacts'] | null;
   playerRealmLv: number | null;
+  artifactShortcutBindings: Partial<Record<ArtifactSlot, string>>;
+  bindingArtifactSlot: ArtifactSlot | null;
 }
 
 export const { store: equipmentPanelStore, useStore: useEquipmentPanelStore } = createPanelStore<EquipmentPanelState>({
   equipment: null,
   artifacts: null,
   playerRealmLv: null,
+  artifactShortcutBindings: {},
+  bindingArtifactSlot: null,
 });
 
 // ─── Callbacks ───────────────────────────────────────────────────────────────
@@ -43,13 +46,16 @@ type EquipmentPanelUnequipSlot = EquipSlot | ArtifactSlot;
 
 let onUnequipCallback: ((slot: EquipmentPanelUnequipSlot, expectedItemInstanceId?: string) => void) | null = null;
 let onSetArtifactSlotEnabledCallback: ((slot: ArtifactSlot, enabled: boolean) => void) | null = null;
+let onBindArtifactShortcutCallback: ((slot: ArtifactSlot) => void) | null = null;
 
 export function setEquipmentPanelCallbacks(callbacks: {
   onUnequip?: (slot: EquipmentPanelUnequipSlot, expectedItemInstanceId?: string) => void;
   onSetArtifactSlotEnabled?: (slot: ArtifactSlot, enabled: boolean) => void;
+  onBindArtifactShortcut?: (slot: ArtifactSlot) => void;
 }): void {
   onUnequipCallback = callbacks.onUnequip ?? null;
   onSetArtifactSlotEnabledCallback = callbacks.onSetArtifactSlotEnabled ?? null;
+  onBindArtifactShortcutCallback = callbacks.onBindArtifactShortcut ?? null;
 }
 
 export function syncEquipmentPanelState(input: {
@@ -57,23 +63,32 @@ export function syncEquipmentPanelState(input: {
   artifacts?: PlayerState['artifacts'] | null;
   player?: PlayerState | null;
   playerRealmLv?: number | null;
+  artifactShortcutBindings?: Partial<Record<ArtifactSlot, string>>;
+  bindingArtifactSlot?: ArtifactSlot | null;
 }): void {
   const rawRealmLv = input.playerRealmLv ?? input.player?.realm?.realmLv ?? input.player?.realmLv;
   const playerRealmLv = Number.isFinite(Number(rawRealmLv))
     ? Math.max(1, Math.floor(Number(rawRealmLv)))
     : null;
 
-  equipmentPanelStore.patchState({
+  const patch: Partial<EquipmentPanelState> = {
     equipment: input.equipment,
     artifacts: input.artifacts ?? input.player?.artifacts ?? null,
     playerRealmLv,
-  });
+  };
+  if (input.artifactShortcutBindings) {
+    patch.artifactShortcutBindings = input.artifactShortcutBindings;
+  }
+  if ('bindingArtifactSlot' in input) {
+    patch.bindingArtifactSlot = input.bindingArtifactSlot ?? null;
+  }
+  equipmentPanelStore.patchState(patch);
 }
 
 // ─── 组件 ────────────────────────────────────────────────────────────────────
 
 export function EquipmentPanel() {
-  const { equipment, artifacts, playerRealmLv } = useEquipmentPanelStore();
+  const { equipment, artifacts, playerRealmLv, artifactShortcutBindings, bindingArtifactSlot } = useEquipmentPanelStore();
   const [activeTab, setActiveTab] = useState<EquipmentPanelTab>('combat');
   const tooltipRef = useRef<FloatingTooltip | null>(null);
   const tooltipSlotRef = useRef<string | null>(null);
@@ -98,20 +113,16 @@ export function EquipmentPanel() {
     return tooltipRef.current;
   }, []);
 
-  if (!equipment && !artifacts) {
-    return <div className="empty-hint">{t('equipment.empty.all')}</div>;
-  }
-
-  const hasAnyActiveEquipment = activeTab === 'artifact'
-    ? artifactEntries.some((slot) => slot.unlocked && slot.item)
-    : activeSlots.some((slot) => !!equipment?.[slot]);
-
   const handleUnequip = (slot: EquipmentPanelUnequipSlot, expectedItemInstanceId?: string) => {
     onUnequipCallback?.(slot, expectedItemInstanceId);
   };
 
   const handleArtifactToggle = (slot: ArtifactSlot, enabled: boolean) => {
     onSetArtifactSlotEnabledCallback?.(slot, enabled);
+  };
+
+  const handleArtifactShortcutBind = (slot: ArtifactSlot) => {
+    onBindArtifactShortcutCallback?.(slot);
   };
 
   const handleTabChange = (tab: EquipmentPanelTab) => {
@@ -169,7 +180,7 @@ export function EquipmentPanel() {
   const handleClick = (event: React.MouseEvent) => {
     if (!tapMode) return;
     const target = event.target;
-    if (!(target instanceof HTMLElement) || target.closest('[data-unequip],[data-artifact-toggle]')) return;
+    if (!(target instanceof HTMLElement) || target.closest('[data-unequip],[data-artifact-bind-shortcut],[data-artifact-click-slot]')) return;
     const slotNode = target.closest<HTMLElement>('[data-equip-tooltip-slot],[data-artifact-tooltip-slot]');
     if (!slotNode) return;
     const tooltip = getTooltip();
@@ -212,15 +223,17 @@ export function EquipmentPanel() {
           </button>
         ))}
       </div>
-      {!hasAnyActiveEquipment && <div className="empty-hint">{t(EQUIPMENT_PANEL_TAB_EMPTY_KEYS[activeTab])}</div>}
       {activeTab === 'artifact' ? (
         <div className="artifact-slot-list">
           {artifactEntries.map((slot) => (
             <ArtifactSlotRow
               key={slot.slot}
               entry={slot}
+              shortcutKey={artifactShortcutBindings[slot.slot] ?? ''}
+              isBindingShortcut={bindingArtifactSlot === slot.slot}
               onUnequip={handleUnequip}
               onToggle={handleArtifactToggle}
+              onBindShortcut={handleArtifactShortcutBind}
             />
           ))}
         </div>
@@ -283,12 +296,18 @@ const EquipmentSlotRow = memo(function EquipmentSlotRow({
 
 const ArtifactSlotRow = memo(function ArtifactSlotRow({
   entry,
+  shortcutKey,
+  isBindingShortcut,
   onUnequip,
   onToggle,
+  onBindShortcut,
 }: {
   entry: PlayerState['artifacts']['slots'][number];
+  shortcutKey: string;
+  isBindingShortcut: boolean;
   onUnequip: (slot: ArtifactSlot, expectedItemInstanceId?: string) => void;
   onToggle: (slot: ArtifactSlot, enabled: boolean) => void;
+  onBindShortcut: (slot: ArtifactSlot) => void;
 }) {
   const hasItem = !!entry.item;
   const itemName = entry.item ? getItemDisplayMeta(entry.item).displayItem.name : '';
@@ -297,10 +316,22 @@ const ArtifactSlotRow = memo(function ArtifactSlotRow({
   const qiText = formatArtifactQiText(currentQi, maxQi);
   const qiPercent = maxQi > 0 ? Math.max(0, Math.min(100, (currentQi / maxQi) * 100)) : 0;
   const enabled = entry.unlocked && entry.enabled !== false;
+  const canToggle = entry.unlocked && hasItem;
   const stateText = !entry.unlocked
     ? t('equipment.artifact.locked')
     : enabled ? t('equipment.artifact.enabled') : t('equipment.artifact.disabled');
+  const titleText = !entry.unlocked
+    ? t('equipment.artifact.locked')
+    : hasItem ? itemName : t('equipment.artifact.empty');
   const qiFillStyle = { '--artifact-qi-percent': `${qiPercent}%` } as CSSProperties;
+  const bindLabel = getArtifactShortcutBindLabel(shortcutKey, isBindingShortcut);
+
+  const toggleSlot = () => {
+    if (!canToggle) {
+      return;
+    }
+    onToggle(entry.slot, !enabled);
+  };
 
   return (
     <div
@@ -309,17 +340,42 @@ const ArtifactSlotRow = memo(function ArtifactSlotRow({
         entry.unlocked ? 'is-unlocked' : 'is-locked',
         enabled ? 'is-enabled' : 'is-disabled',
         hasItem ? 'has-item' : 'is-empty',
+        canToggle ? 'is-toggleable' : '',
       ].join(' ')}
       data-artifact-tooltip-slot={hasItem ? entry.slot : undefined}
+      data-artifact-click-slot={canToggle ? entry.slot : undefined}
+      role={canToggle ? 'button' : 'group'}
+      tabIndex={canToggle ? 0 : undefined}
+      aria-pressed={canToggle ? enabled : undefined}
+      onClick={(event) => {
+        const target = event.target;
+        if (target instanceof HTMLElement && target.closest('button')) {
+          return;
+        }
+        if (!canToggle) {
+          return;
+        }
+        event.preventDefault();
+        event.stopPropagation();
+        toggleSlot();
+      }}
+      onKeyDown={(event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') {
+          return;
+        }
+        event.preventDefault();
+        event.stopPropagation();
+        toggleSlot();
+      }}
     >
       <div className="equip-copy artifact-copy">
         <div className="artifact-slot-head">
-          <span className="equip-slot-name">{formatArtifactSlotLabel(entry.slot)}</span>
+          <span className={`equip-slot-item artifact-slot-title${hasItem ? '' : ' is-empty-title'}`}>
+            {titleText}
+            {shortcutKey && <span className="action-shortcut-tag">{t('action.shortcut.badge', { key: shortcutKey.toUpperCase() })}</span>}
+          </span>
           <span className="artifact-state-badge">{stateText}</span>
         </div>
-        {!entry.unlocked && <span className="equip-slot-empty">{t('equipment.artifact.locked')}</span>}
-        {entry.unlocked && hasItem && <span className="equip-slot-item">{itemName}</span>}
-        {entry.unlocked && !hasItem && <span className="equip-slot-empty">{t('equipment.artifact.empty')}</span>}
         {entry.unlocked && hasItem ? (
           <div className="artifact-qi" aria-label={qiText}>
             <span className="artifact-qi-track" aria-hidden="true">
@@ -327,24 +383,20 @@ const ArtifactSlotRow = memo(function ArtifactSlotRow({
             </span>
             <span className="artifact-qi-text">{qiText}</span>
           </div>
-        ) : (
-          <span className="equip-slot-meta">
-            {entry.unlocked ? t('equipment.empty.slot-meta') : t('equipment.artifact.locked')}
-          </span>
-        )}
+        ) : null}
       </div>
       {entry.unlocked && (
         <div className="artifact-actions">
           <button
-            className={`small-btn artifact-toggle${entry.enabled !== false ? ' is-active' : ''}`}
+            className={`small-btn ghost artifact-shortcut-bind${isBindingShortcut ? ' is-binding' : ''}`}
             type="button"
-            data-artifact-toggle={entry.slot}
+            data-artifact-bind-shortcut={entry.slot}
             onClick={(event) => {
               event.stopPropagation();
-              onToggle(entry.slot, entry.enabled === false);
+              onBindShortcut(entry.slot);
             }}
           >
-            {entry.enabled !== false ? t('equipment.artifact.enabled') : t('equipment.artifact.disabled')}
+            {bindLabel}
           </button>
           {hasItem && (
             <button
@@ -383,6 +435,11 @@ function resolveTooltipTarget(
   return null;
 }
 
-function formatArtifactSlotLabel(slot: ArtifactSlot): string {
-  return slot === 'artifact_1' ? t('equipment.tab.artifact') : slot;
+function getArtifactShortcutBindLabel(shortcutKey: string, isBindingShortcut: boolean): string {
+  if (isBindingShortcut) {
+    return t('action.shortcut.binding');
+  }
+  return shortcutKey
+    ? t('action.shortcut.rebind', { key: shortcutKey.toUpperCase() })
+    : t('action.shortcut.bind');
 }

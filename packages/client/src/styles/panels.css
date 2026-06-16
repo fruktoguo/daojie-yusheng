@@ -1051,26 +1051,37 @@
       border: 1px solid var(--wash-ink);
       transition: border-color 0.18s ease, background 0.18s ease, filter 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
     }
+    .artifact-slot.is-toggleable {
+      cursor: pointer;
+    }
+    .artifact-slot:focus-visible {
+      outline: 2px solid color-mix(in srgb, #52cfff 72%, var(--ink-black));
+      outline-offset: 2px;
+    }
     .artifact-slot::before {
       content: "";
       position: absolute;
-      inset: 0;
+      inset: 4px;
       pointer-events: none;
       opacity: 0;
-      background: linear-gradient(110deg, transparent 0%, color-mix(in srgb, var(--accent-gold) 20%, transparent) 46%, transparent 70%);
-      transform: translateX(-110%);
+      background:
+        linear-gradient(90deg, #52cfff 50%, transparent 50%) top / 16px 1px repeat-x,
+        linear-gradient(90deg, #52cfff 50%, transparent 50%) bottom / 16px 1px repeat-x,
+        linear-gradient(0deg, #52cfff 50%, transparent 50%) left / 1px 16px repeat-y,
+        linear-gradient(0deg, #52cfff 50%, transparent 50%) right / 1px 16px repeat-y;
+      filter: drop-shadow(0 0 3px color-mix(in srgb, #52cfff 52%, transparent));
     }
     .artifact-slot.is-enabled.has-item {
       background:
-        linear-gradient(135deg, color-mix(in srgb, var(--paper-white) 92%, var(--accent-gold) 8%), var(--paper-white));
-      border-color: color-mix(in srgb, var(--accent-gold) 72%, var(--wash-ink));
+        linear-gradient(135deg, color-mix(in srgb, var(--paper-white) 90%, #52cfff 10%), var(--paper-white));
+      border-color: color-mix(in srgb, #52cfff 72%, var(--wash-ink));
       box-shadow:
-        inset 0 0 0 1px color-mix(in srgb, var(--accent-gold) 26%, transparent),
-        0 0 14px color-mix(in srgb, var(--accent-gold) 24%, transparent);
+        inset 0 0 0 1px color-mix(in srgb, #52cfff 28%, transparent),
+        0 0 14px color-mix(in srgb, #52cfff 24%, transparent);
     }
     .artifact-slot.is-enabled.has-item::before {
       opacity: 1;
-      animation: artifact-slot-sweep 3.2s linear infinite;
+      animation: artifact-slot-dash-flow 1.15s linear infinite;
     }
     .artifact-slot.is-disabled {
       box-shadow: none;
@@ -1087,6 +1098,20 @@
       gap: 8px;
       min-width: 0;
     }
+    .artifact-slot-title {
+      display: block;
+      min-width: 0;
+      font-size: var(--font-size-13);
+      color: var(--ink-black);
+    }
+    .artifact-slot-title.is-empty-title {
+      color: var(--ink-light);
+      font-style: italic;
+    }
+    .artifact-slot-title .action-shortcut-tag {
+      margin-left: 6px;
+      vertical-align: 1px;
+    }
     .artifact-state-badge {
       flex: 0 0 auto;
       max-width: 88px;
@@ -1099,8 +1124,8 @@
       white-space: nowrap;
     }
     .artifact-slot.is-enabled.has-item .artifact-state-badge {
-      border-color: color-mix(in srgb, var(--accent-gold) 54%, var(--wash-ink));
-      background: color-mix(in srgb, var(--paper-white) 78%, var(--accent-gold) 22%);
+      border-color: color-mix(in srgb, #52cfff 58%, var(--wash-ink));
+      background: color-mix(in srgb, var(--paper-white) 74%, #52cfff 26%);
       color: var(--ink-black);
     }
     .artifact-slot.is-locked .artifact-state-badge {
@@ -1130,13 +1155,13 @@
       width: var(--artifact-qi-percent, 0%);
       height: 100%;
       overflow: hidden;
-      background: linear-gradient(90deg, color-mix(in srgb, var(--ink-grey) 72%, #44b3d2), color-mix(in srgb, var(--ink-grey) 68%, var(--accent-gold)));
-      box-shadow: none;
+      background: linear-gradient(90deg, #2fb9f6, #8ce8ff);
+      box-shadow: 0 0 8px color-mix(in srgb, #52cfff 26%, transparent);
       transition: width 0.22s ease;
     }
     .artifact-slot.is-enabled.has-item .artifact-qi-fill {
-      background: linear-gradient(90deg, #44b3d2, color-mix(in srgb, var(--accent-gold) 84%, #f8f8f5));
-      box-shadow: 0 0 10px color-mix(in srgb, #44b3d2 42%, transparent);
+      background: linear-gradient(90deg, #20b8ff, #98efff);
+      box-shadow: 0 0 12px color-mix(in srgb, #52cfff 46%, transparent);
     }
     .artifact-qi-fill::after {
       content: "";
@@ -1169,19 +1194,18 @@
       padding: 3px 8px;
       white-space: nowrap;
     }
-    .artifact-toggle.is-active {
-      border-color: var(--accent-gold);
+    .artifact-shortcut-bind.is-binding {
+      border-color: #52cfff;
       color: var(--ink-black);
-      background: color-mix(in srgb, var(--paper-white) 78%, var(--accent-gold) 22%);
+      background: color-mix(in srgb, var(--paper-white) 74%, #52cfff 26%);
     }
-    .artifact-toggle:not(.is-active) {
-      color: var(--ink-grey);
-      background: color-mix(in srgb, var(--paper-white) 88%, var(--wash-ink) 12%);
-    }
-    @keyframes artifact-slot-sweep {
-      0% { transform: translateX(-110%); }
-      64% { transform: translateX(110%); }
-      100% { transform: translateX(110%); }
+    @keyframes artifact-slot-dash-flow {
+      0% {
+        background-position: 0 0, 16px 100%, 0 16px, 100% 0;
+      }
+      100% {
+        background-position: 16px 0, 0 100%, 0 0, 100% 16px;
+      }
     }
     @keyframes artifact-qi-flow {
       0% { transform: translateX(-100%); }

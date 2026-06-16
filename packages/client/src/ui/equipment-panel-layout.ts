@@ -18,12 +18,6 @@ export const EQUIPMENT_PANEL_TAB_LABEL_KEYS: Record<EquipmentPanelTab, string> =
   artifact: 'equipment.tab.artifact',
 };
 
-export const EQUIPMENT_PANEL_TAB_EMPTY_KEYS: Record<EquipmentPanelTab, string> = {
-  combat: 'equipment.empty.combat',
-  technique: 'equipment.empty.technique',
-  artifact: 'equipment.empty.artifact',
-};
-
 /** 战斗装备槽固定显示顺序：武器/身体、头部/腿部、饰品。 */
 export const EQUIPMENT_PANEL_COMBAT_SLOT_LAYOUT = [
   ['weapon', 'body'],
