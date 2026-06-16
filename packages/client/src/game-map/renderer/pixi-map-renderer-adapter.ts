@@ -146,9 +146,8 @@ const IDENTITY_ENTITY_SPRITE_TRANSFORM: EntitySpriteTransform = {
 };
 const ENTITY_FACING_FLIP_TRANSITION_MS = 160;
 const ATTACK_MOTION_DURATION_MS = 180;
-const ARTIFACT_AURA_COLOR = 0x52cfff;
-const ARTIFACT_AURA_SEGMENTS = 16;
-const ARTIFACT_AURA_ROTATION_MS = 1800;
+const ARTIFACT_AURA_COLOR = 0xa8fbff;
+const ARTIFACT_AURA_FLOW_MS = 1200;
 
 function easeInOutCubic(t: number): number {
   const value = clamp01(t);
@@ -2397,26 +2396,58 @@ export class PixiMapRendererAdapter {
       .stroke({ ...colorWithAlpha(color, 0.72), width: Math.max(1, cellSize * 0.035) });
   }
 
-  private drawArtifactAura(graphics: Graphics, anim: AnimEntity, cellSize: number): void {
+  private drawArtifactAura(graphics: Graphics, anim: AnimEntity, cellSize: number, timeMs = 0): void {
     graphics.clear();
     const active = anim.kind === 'player' && anim.artifactActive === true;
     graphics.visible = active;
     if (!active) {
       return;
     }
-    const radius = Math.max(10, cellSize * 0.54);
-    const segmentArc = (Math.PI * 2) / ARTIFACT_AURA_SEGMENTS;
-    const segmentSpan = segmentArc * 0.58;
+    const half = Math.max(10, cellSize * 0.56);
+    const side = half * 2;
+    const perimeter = side * 4;
+    const dashLength = Math.max(6, cellSize * 0.18);
+    const gapLength = Math.max(4, cellSize * 0.12);
+    const cycleLength = dashLength + gapLength;
+    const phase = (timeMs % ARTIFACT_AURA_FLOW_MS) / ARTIFACT_AURA_FLOW_MS * cycleLength;
     graphics.position.set(cellSize / 2, cellSize / 2);
     graphics.rotation = 0;
-    for (let index = 0; index < ARTIFACT_AURA_SEGMENTS; index += 1) {
-      const start = index * segmentArc + segmentArc * 0.08;
-      const end = start + segmentSpan;
-      graphics
-        .moveTo(Math.cos(start) * radius, Math.sin(start) * radius)
-        .lineTo(Math.cos(end) * radius, Math.sin(end) * radius);
-    }
-    graphics.stroke({ color: ARTIFACT_AURA_COLOR, alpha: 0.9, width: Math.max(1.5, cellSize * 0.045) });
+
+    const pointAt = (distance: number): { x: number; y: number } => {
+      const wrapped = ((distance % perimeter) + perimeter) % perimeter;
+      if (wrapped < side) {
+        return { x: -half + wrapped, y: -half };
+      }
+      if (wrapped < side * 2) {
+        return { x: half, y: -half + wrapped - side };
+      }
+      if (wrapped < side * 3) {
+        return { x: half - (wrapped - side * 2), y: half };
+      }
+      return { x: -half, y: half - (wrapped - side * 3) };
+    };
+    const nextCornerDistance = (distance: number): number => {
+      const wrapped = ((distance % perimeter) + perimeter) % perimeter;
+      const sideIndex = Math.min(3, Math.floor(wrapped / side));
+      return distance + (side * (sideIndex + 1) - wrapped);
+    };
+    const appendDashes = (): void => {
+      for (let start = -phase; start < perimeter; start += cycleLength) {
+        const end = start + dashLength;
+        let cursor = start;
+        while (cursor < end - 0.001) {
+          const segmentEnd = Math.min(end, nextCornerDistance(cursor));
+          const from = pointAt(cursor);
+          const to = pointAt(segmentEnd);
+          graphics.moveTo(from.x, from.y).lineTo(to.x, to.y);
+          cursor = segmentEnd;
+        }
+      }
+    };
+    appendDashes();
+    graphics.stroke({ color: ARTIFACT_AURA_COLOR, alpha: 0.28, width: Math.max(4, cellSize * 0.13) });
+    appendDashes();
+    graphics.stroke({ color: ARTIFACT_AURA_COLOR, alpha: 1, width: Math.max(2, cellSize * 0.06) });
   }
 
   private drawRespawnLabel(view: EntityView, cellSize: number, visualCellSize: number): void {
@@ -2544,9 +2575,7 @@ export class PixiMapRendererAdapter {
     view.glyph.rotation = isMoving || attackPulse > 0 ? glyphLean : 0;
     view.glyph.scale.set(isMoving || attackPulse > 0 ? impactScaleX : 1, isMoving || attackPulse > 0 ? impactScaleY : 1);
     view.glyph.y = visualCellSize / 2 - travelPulse * cellSize * 0.08;
-    if (view.artifactAura.visible) {
-      view.artifactAura.rotation = (now % ARTIFACT_AURA_ROTATION_MS) / ARTIFACT_AURA_ROTATION_MS * Math.PI * 2;
-    }
+    if (view.artifactAura.visible) this.drawArtifactAura(view.artifactAura, anim, cellSize, now);
   }
 
   private ensureLocalPlayerFallback(localPlayerId: string, localPlayerX: number, localPlayerY: number, localPlayerChar: string, exists: boolean): void {

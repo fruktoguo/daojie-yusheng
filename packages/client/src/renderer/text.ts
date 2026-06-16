@@ -75,7 +75,7 @@ import { t as translateUi } from '../ui/i18n';
 
 const ENTITY_FACING_FLIP_TRANSITION_MS = 160;
 const ATTACK_MOTION_DURATION_MS = 180;
-const ARTIFACT_AURA_COLOR = '#52cfff';
+const ARTIFACT_AURA_COLOR = '#a8fbff';
 
 type EntityNameplateBadge = NonNullable<RenderEntity['badge']>;
 
@@ -2501,20 +2501,19 @@ export class TextRenderer implements IRenderer {
   }
 
   private drawArtifactAura(ctx: CanvasRenderingContext2D, centerX: number, centerY: number, cellSize: number, now: number): void {
-    const radius = Math.max(10, cellSize * 0.54);
+    const half = Math.max(10, cellSize * 0.56);
+    const size = half * 2;
     const dashLength = Math.max(5, cellSize * 0.16);
     const gapLength = Math.max(4, cellSize * 0.12);
     ctx.save();
     ctx.setLineDash([dashLength, gapLength]);
     ctx.lineDashOffset = -((now / 55) % (dashLength + gapLength));
-    ctx.lineWidth = Math.max(1.5, cellSize * 0.045);
+    ctx.lineWidth = Math.max(2, cellSize * 0.055);
     ctx.strokeStyle = ARTIFACT_AURA_COLOR;
-    ctx.shadowColor = 'rgba(82, 207, 255, 0.72)';
-    ctx.shadowBlur = Math.max(5, cellSize * 0.14);
-    ctx.globalAlpha *= 0.9;
-    ctx.beginPath();
-    ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
-    ctx.stroke();
+    ctx.shadowColor = 'rgba(168, 251, 255, 0.95)';
+    ctx.shadowBlur = Math.max(6, cellSize * 0.18);
+    ctx.globalAlpha *= 1;
+    ctx.strokeRect(centerX - half, centerY - half, size, size);
     ctx.restore();
   }
 
