@@ -240,6 +240,8 @@ export interface IRenderer {
       formationShowText?: RenderEntity['formationShowText'];
       formationBlocksBoundary?: RenderEntity['formationBlocksBoundary'];
       formationActive?: RenderEntity['formationActive'];
+      /** 法宝启用时的本地地图表现标记，仅用于客户端渲染。 */
+      artifactActive?: boolean;
     }[],
     movedId?: string,
     shiftX?: number,

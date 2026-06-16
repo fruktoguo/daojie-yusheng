@@ -28,6 +28,7 @@ import {
   normalizeHorizontalFacing,
   resolveTileLayerSeedFromTileType,
 } from '@mud/shared';
+import { hasPlayerActiveArtifact } from '../../artifact-presentation';
 import {
   deleteRememberedMap,
   getRememberedMarkers,
@@ -150,6 +151,7 @@ function decorateObservedEntity(entity: ObservedMapEntity, player: PlayerState |
     ...entity,
     buffs,
     monsterScale: isSelf ? resolvePresentationScaleFromBuffs(buffs) : entity.monsterScale,
+    artifactActive: isSelf ? (entity.artifactActive ?? hasPlayerActiveArtifact(player)) : false,
     badge: badges?.[0],
     badges,
     hostile,
@@ -230,6 +232,7 @@ function mergeObservedEntityPatch(patch: TickRenderEntity, previous?: ObservedMa
     npcQuestMarker: applyNullablePatch(patch.npcQuestMarker, previous?.npcQuestMarker),
     observation: applyNullablePatch(patch.observation, previous?.observation),
     buffs: applyNullablePatch(patch.buffs, previous?.buffs),
+    artifactActive: previous?.artifactActive,
     formationRadius: applyNullablePatch(patch.formationRadius, previous?.formationRadius),
     formationRangeShape: applyNullablePatch(patch.formationRangeShape, previous?.formationRangeShape),
     formationRangeHighlightColor: applyNullablePatch(patch.formationRangeHighlightColor, previous?.formationRangeHighlightColor),
@@ -275,6 +278,7 @@ function buildLocalPlayerEntity(player: PlayerState, previous?: ObservedMapEntit
     observation: previous?.observation,
     buffs: player.temporaryBuffs ? cloneJson(player.temporaryBuffs) : previous?.buffs,
     monsterScale: resolvePresentationScaleFromBuffs(player.temporaryBuffs),
+    artifactActive: hasPlayerActiveArtifact(player),
   };
 }
 

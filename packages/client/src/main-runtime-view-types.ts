@@ -154,6 +154,8 @@ export type MainRuntimeObservedEntity = {
   formationActive?: boolean;
   /** 阵法生命周期。 */
   formationLifecycle?: FormationLifecycle;
+  /** 法宝启用时的本地地图表现标记，仅用于客户端渲染。 */
+  artifactActive?: boolean;
 };
 /**
  * isCrowdEntityKind：判断CrowdEntityKind是否满足条件。

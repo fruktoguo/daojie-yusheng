@@ -75,6 +75,7 @@ import { t as translateUi } from '../ui/i18n';
 
 const ENTITY_FACING_FLIP_TRANSITION_MS = 160;
 const ATTACK_MOTION_DURATION_MS = 180;
+const ARTIFACT_AURA_COLOR = '#52cfff';
 
 type EntityNameplateBadge = NonNullable<RenderEntity['badge']>;
 
@@ -564,6 +565,8 @@ interface AnimEntity {
   formationBlocksBoundary?: boolean;
   /** 阵法是否处于开启状态。 */
   formationActive?: boolean;
+  /** 法宝启用时的本地地图表现标记，仅用于客户端渲染。 */
+  artifactActive?: boolean;
 }
 
 /** 渲染输出实体快照，包含屏幕坐标。 */
@@ -2070,7 +2073,8 @@ export class TextRenderer implements IRenderer {
  formationBoundaryVisibleWithoutSenseQi?: boolean;
  formationShowText?: boolean;
  formationBlocksBoundary?: boolean;
- formationActive?: boolean }[],
+ formationActive?: boolean;
+ artifactActive?: boolean }[],
     movedId?: string,
     shiftX = 0,
     shiftY = 0,
@@ -2166,6 +2170,7 @@ export class TextRenderer implements IRenderer {
         anim.formationShowText = e.formationShowText;
         anim.formationBlocksBoundary = e.formationBlocksBoundary;
         anim.formationActive = e.formationActive;
+        anim.artifactActive = e.artifactActive === true;
       } else {
         this.entities.set(e.id, {
           id: e.id,
@@ -2206,6 +2211,7 @@ export class TextRenderer implements IRenderer {
           formationShowText: e.formationShowText,
           formationBlocksBoundary: e.formationBlocksBoundary,
           formationActive: e.formationActive,
+          artifactActive: e.artifactActive === true,
         });
       }
     }
@@ -2382,6 +2388,10 @@ export class TextRenderer implements IRenderer {
       ctx.fill();
       ctx.restore();
 
+      if (anim.kind === 'player' && anim.artifactActive === true) {
+        this.drawArtifactAura(ctx, sx + renderedCellSize / 2, sy + renderedCellSize / 2, renderedCellSize, frameNow);
+      }
+
       ctx.fillStyle = anim.color;
       ctx.font = buildCanvasFont('entityGlyph', visualCellSize * 0.75);
       ctx.textAlign = 'center';
@@ -2488,6 +2498,24 @@ export class TextRenderer implements IRenderer {
       }
     }
     this.drawFormationTileMarkers(ctx, renderedEntities);
+  }
+
+  private drawArtifactAura(ctx: CanvasRenderingContext2D, centerX: number, centerY: number, cellSize: number, now: number): void {
+    const radius = Math.max(10, cellSize * 0.54);
+    const dashLength = Math.max(5, cellSize * 0.16);
+    const gapLength = Math.max(4, cellSize * 0.12);
+    ctx.save();
+    ctx.setLineDash([dashLength, gapLength]);
+    ctx.lineDashOffset = -((now / 55) % (dashLength + gapLength));
+    ctx.lineWidth = Math.max(1.5, cellSize * 0.045);
+    ctx.strokeStyle = ARTIFACT_AURA_COLOR;
+    ctx.shadowColor = 'rgba(82, 207, 255, 0.72)';
+    ctx.shadowBlur = Math.max(5, cellSize * 0.14);
+    ctx.globalAlpha *= 0.9;
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
   }
 
   /** 绘制阵法地面标记，使阵法和玩家同格时仍然可见。 */

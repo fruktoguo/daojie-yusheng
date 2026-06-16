@@ -39,6 +39,7 @@ import {
   getLocalTechniqueTemplate,
   resolvePreviewTechnique,
 } from './content/local-templates';
+import { hasActiveArtifactSlot } from './artifact-presentation';
 import { resolveClientItemBaseName } from './content/item-display-name';
 import { getStaticClientActionDef } from './constants/ui/action';
 import { getEstimatedPlayerTick, getEstimatedServerTick, markPlayerLifeTickSynced } from './runtime/server-tick';
@@ -1321,6 +1322,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
       const player = options.getPlayer();
+      const previousArtifactActive = hasActiveArtifactSlot(player?.artifacts);
       const mergedArtifacts = mergeArtifactUpdate(player?.artifacts, data);
       if (player) {
         player.artifacts = mergedArtifacts;
@@ -1330,6 +1332,9 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
       options.equipmentPanel.update(player?.equipment ?? (Object.fromEntries(EQUIP_SLOTS.map((slot) => [slot, null])) as PlayerState['equipment']), mergedArtifacts);
       options.syncArtifactsBridgeState(mergedArtifacts);
       options.syncPlayerBridgeState(player);
+      if (player && previousArtifactActive !== hasActiveArtifactSlot(mergedArtifacts)) {
+        options.refreshObservedDecorations();
+      }
     },
     /**
  * handleTechniqueUpdate：处理功法Update并更新相关状态。

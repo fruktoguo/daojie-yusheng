@@ -200,6 +200,8 @@ export interface ObservedMapEntity {
   formationActive?: boolean;
   /** 阵法生命周期。 */
   formationLifecycle?: FormationLifecycle;
+  /** 法宝启用时的本地地图表现标记，仅用于客户端渲染。 */
+  artifactActive?: boolean;
 }
 
 /** 技能瞄准叠加层状态。 */

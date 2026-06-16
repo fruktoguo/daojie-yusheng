@@ -4,6 +4,7 @@
  * 维护时要把用户意图、显示派生和服务端权威数据分清，避免为了展示便利复制业务规则。
  */
 import { clonePlainValue, normalizeHorizontalFacing, type Direction, type PlayerState } from '@mud/shared';
+import { hasPlayerActiveArtifact } from './artifact-presentation';
 import { resolvePresentationScaleFromBuffs } from './buff-presentation';
 import { buildEntityNameplateBadges } from './entity-nameplate-badges';
 import type { ObservedMapEntity } from './game-map/types';
@@ -27,7 +28,8 @@ type MainRootRuntimeSourceOptions = {
 };
 
 function decorateObservedEntity(entity: MainRuntimeObservedEntity, player: PlayerState | null): MainRuntimeObservedEntity {
-  const buffs = player !== null && entity.id === player.id
+  const isSelf = player !== null && entity.id === player.id;
+  const buffs = isSelf
     ? (Array.isArray(player.temporaryBuffs) ? clonePlainValue(player.temporaryBuffs) : entity.buffs)
     : entity.buffs;
   const nextEntity = {
@@ -44,7 +46,8 @@ function decorateObservedEntity(entity: MainRuntimeObservedEntity, player: Playe
     badge: badges?.[0],
     badges,
     hostile,
-    monsterScale: player !== null && nextEntity.id === player.id
+    artifactActive: isSelf ? hasPlayerActiveArtifact(player) : false,
+    monsterScale: isSelf
       ? resolvePresentationScaleFromBuffs(buffs)
       : nextEntity.monsterScale,
   };
@@ -119,6 +122,7 @@ export function createMainRootRuntimeSource(options: MainRootRuntimeSourceOption
       sectMark: entity.sectMark ?? undefined,
       hostile: entity.hostile === true,
       monsterScale: entity.monsterScale,
+      artifactActive: entity.artifactActive === true,
       npcQuestMarker: entity.npcQuestMarker ?? undefined,
       observation: entity.observation ?? undefined,
     }));

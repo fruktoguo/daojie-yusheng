@@ -146,6 +146,9 @@ const IDENTITY_ENTITY_SPRITE_TRANSFORM: EntitySpriteTransform = {
 };
 const ENTITY_FACING_FLIP_TRANSITION_MS = 160;
 const ATTACK_MOTION_DURATION_MS = 180;
+const ARTIFACT_AURA_COLOR = 0x52cfff;
+const ARTIFACT_AURA_SEGMENTS = 16;
+const ARTIFACT_AURA_ROTATION_MS = 1800;
 
 function easeInOutCubic(t: number): number {
   const value = clamp01(t);
@@ -158,6 +161,7 @@ interface EntityView {
   anim: AnimEntity;
   root: Container;
   visualRoot: Container;
+  artifactAura: Graphics;
   shadow: Graphics;
   image: Sprite;
   glyph: Text;
@@ -2152,6 +2156,7 @@ export class PixiMapRendererAdapter {
       anim: { ...entity, gridX: entity.wx, gridY: entity.wy, oldWX: targetWX, oldWY: targetWY, targetWX, targetWY },
       root,
       visualRoot,
+      artifactAura: new Graphics(),
       shadow: new Graphics(),
       image: new Sprite(Texture.EMPTY),
       glyph: new Text({ text: entity.char, style: textStyle('entityGlyph', getCellSize() * 0.75, entity.color), anchor: 0.5 }),
@@ -2176,7 +2181,7 @@ export class PixiMapRendererAdapter {
     view.image.anchor.set(0.5);
     view.image.visible = false;
     visualRoot.addChild(view.shadow, view.image, view.glyph);
-    root.addChild(view.formationMarker, visualRoot, view.badgeLayer, view.label, view.hpBar, view.progressBar, view.buffLayer, view.questMarker, view.respawnLabel);
+    root.addChild(view.formationMarker, view.artifactAura, visualRoot, view.badgeLayer, view.label, view.hpBar, view.progressBar, view.buffLayer, view.questMarker, view.respawnLabel);
     return view;
   }
 
@@ -2192,6 +2197,7 @@ export class PixiMapRendererAdapter {
       anim.monsterTier ?? '',
       anim.monsterId ?? '',
       buildNameplateBadgeSignature(badges), anim.hostile ? 1 : 0,
+      anim.artifactActive === true ? 1 : 0,
       anim.monsterScale ?? '', anim.facing ?? '',
       this.runtimeTileSpriteRevision,
       anim.buffs?.map((buff) => `${buff.buffId}:${buff.remainingTicks}:${buff.stacks}`).join(',') ?? '',
@@ -2216,6 +2222,7 @@ export class PixiMapRendererAdapter {
     this.patchEntityNameplate(view, label, badges, shouldShowLabel, labelY, cellSize);
     this.drawEntityBars(view, visualCellSize);
     this.drawBuffs(view, cellSize);
+    this.drawArtifactAura(view.artifactAura, anim, cellSize);
     this.drawNpcQuestMarker(view.questMarker, anim.npcQuestMarker ?? undefined, cellSize);
     this.drawFormationMarker(view.formationMarker, anim, cellSize);
     this.drawRespawnLabel(view, cellSize, visualCellSize);
@@ -2390,6 +2397,28 @@ export class PixiMapRendererAdapter {
       .stroke({ ...colorWithAlpha(color, 0.72), width: Math.max(1, cellSize * 0.035) });
   }
 
+  private drawArtifactAura(graphics: Graphics, anim: AnimEntity, cellSize: number): void {
+    graphics.clear();
+    const active = anim.kind === 'player' && anim.artifactActive === true;
+    graphics.visible = active;
+    if (!active) {
+      return;
+    }
+    const radius = Math.max(10, cellSize * 0.54);
+    const segmentArc = (Math.PI * 2) / ARTIFACT_AURA_SEGMENTS;
+    const segmentSpan = segmentArc * 0.58;
+    graphics.position.set(cellSize / 2, cellSize / 2);
+    graphics.rotation = 0;
+    for (let index = 0; index < ARTIFACT_AURA_SEGMENTS; index += 1) {
+      const start = index * segmentArc + segmentArc * 0.08;
+      const end = start + segmentSpan;
+      graphics
+        .moveTo(Math.cos(start) * radius, Math.sin(start) * radius)
+        .lineTo(Math.cos(end) * radius, Math.sin(end) * radius);
+    }
+    graphics.stroke({ color: ARTIFACT_AURA_COLOR, alpha: 0.9, width: Math.max(1.5, cellSize * 0.045) });
+  }
+
   private drawRespawnLabel(view: EntityView, cellSize: number, visualCellSize: number): void {
     const anim = view.anim;
     view.respawnLabel.visible = anim.kind === 'container' && (anim.respawnRemainingTicks ?? 0) > 0;
@@ -2515,6 +2544,9 @@ export class PixiMapRendererAdapter {
     view.glyph.rotation = isMoving || attackPulse > 0 ? glyphLean : 0;
     view.glyph.scale.set(isMoving || attackPulse > 0 ? impactScaleX : 1, isMoving || attackPulse > 0 ? impactScaleY : 1);
     view.glyph.y = visualCellSize / 2 - travelPulse * cellSize * 0.08;
+    if (view.artifactAura.visible) {
+      view.artifactAura.rotation = (now % ARTIFACT_AURA_ROTATION_MS) / ARTIFACT_AURA_ROTATION_MS * Math.PI * 2;
+    }
   }
 
   private ensureLocalPlayerFallback(localPlayerId: string, localPlayerX: number, localPlayerY: number, localPlayerChar: string, exists: boolean): void {
