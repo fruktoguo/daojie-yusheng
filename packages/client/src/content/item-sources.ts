@@ -407,7 +407,7 @@ function renderSpecialSourceSummaryHtml(itemId: string): string | null {
 
   if (itemId !== SPIRIT_STONE_ITEM_ID) {
     return itemId === MERIT_ITEM_ID
-      ? '<span class="inventory-source-note">全部怪物击杀都有极低概率获得</span>'
+      ? '<span class="inventory-source-note">全部怪物击杀都有概率获得</span>'
       : null;
   }
   return '<span class="inventory-source-note">挖矿或者全部怪物击杀都有概率获得</span>';

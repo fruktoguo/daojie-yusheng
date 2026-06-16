@@ -82,9 +82,9 @@ rollMonsterDrops(monsterId, rolls, lootRateBonus, rareLootRateBonus, context):
 | 货币 | 普通怪 | 变异怪 | 妖王 | 数量 |
 |------|--------|--------|------|------|
 | 灵石 | 1% | 3% | 10% | 按品阶和等级估算 |
-| 功德 | 0.01% | 0.03% | 0.1% | 1 |
+| 功德 | 0.1% | 0.3% | 1% | 1 |
 
-功德基础概率固定为同层次灵石基础概率的 1/100，并复用 `rollMonsterDrops` 的 lootRate/rareLootRate 概率公式。通天塔等配置了 `suppressSpiritStoneDrop` 的怪物只禁用自动灵石，仍按血脉层次参与功德自动掉落。
+功德基础概率固定为同层次灵石基础概率的 1/10，并复用 `rollMonsterDrops` 的 lootRate/rareLootRate 概率公式。通天塔等配置了 `suppressSpiritStoneDrop` 的怪物只禁用自动灵石，仍按血脉层次参与功德自动掉落。
 
 ### 普通怪越级货币掉落衰减
 

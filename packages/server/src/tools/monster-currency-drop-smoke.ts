@@ -6,12 +6,12 @@ function main(): void {
   const repository = new ContentTemplateRepository();
   repository.onModuleInit();
 
-  assert.equal(repository.computeMeritDropChance('mortal_blood'), repository.computeSpiritStoneDropChance('mortal_blood') / 100);
-  assert.equal(repository.computeMeritDropChance('variant'), repository.computeSpiritStoneDropChance('variant') / 100);
-  assert.equal(repository.computeMeritDropChance('demon_king'), repository.computeSpiritStoneDropChance('demon_king') / 100);
-  assert.equal(repository.computeMeritDropChance('mortal_blood'), 0.0001);
-  assert.equal(repository.computeMeritDropChance('variant'), 0.0003);
-  assert.equal(repository.computeMeritDropChance('demon_king'), 0.001);
+  assertApproxEqual(repository.computeMeritDropChance('mortal_blood'), repository.computeSpiritStoneDropChance('mortal_blood') / 10);
+  assertApproxEqual(repository.computeMeritDropChance('variant'), repository.computeSpiritStoneDropChance('variant') / 10);
+  assertApproxEqual(repository.computeMeritDropChance('demon_king'), repository.computeSpiritStoneDropChance('demon_king') / 10);
+  assertApproxEqual(repository.computeMeritDropChance('mortal_blood'), 0.001);
+  assertApproxEqual(repository.computeMeritDropChance('variant'), 0.003);
+  assertApproxEqual(repository.computeMeritDropChance('demon_king'), 0.01);
 
   const monsterIds = Array.from(repository.monsterRuntimeTemplates.keys());
   assert.ok(monsterIds.length > 0);
@@ -36,13 +36,21 @@ function main(): void {
     case: 'monster-currency-drop',
     monsterCount: monsterIds.length,
     meritChance: {
-      mortal_blood: repository.computeMeritDropChance('mortal_blood'),
-      variant: repository.computeMeritDropChance('variant'),
-      demon_king: repository.computeMeritDropChance('demon_king'),
+      mortal_blood: roundChance(repository.computeMeritDropChance('mortal_blood')),
+      variant: roundChance(repository.computeMeritDropChance('variant')),
+      demon_king: roundChance(repository.computeMeritDropChance('demon_king')),
     },
-    answers: '所有已加载怪物都会获得自动功德掉落；功德基础概率为同层次灵石基础概率的 1/100；通天塔只禁自动灵石，不禁自动功德；普通怪越级货币衰减同时作用于功德。',
+    answers: '所有已加载怪物都会获得自动功德掉落；功德基础概率为同层次灵石基础概率的 1/10；通天塔只禁自动灵石，不禁自动功德；普通怪越级货币衰减同时作用于功德。',
     excludes: '不证明随机数分布收敛、地面拾取、背包持久化或客户端完整面板渲染。',
   }, null, 2));
+}
+
+function assertApproxEqual(actual: number, expected: number): void {
+  assert.ok(Math.abs(actual - expected) <= 1e-12, `expected ${actual} ~= ${expected}`);
+}
+
+function roundChance(chance: number): number {
+  return Number(chance.toFixed(12));
 }
 
 main();
