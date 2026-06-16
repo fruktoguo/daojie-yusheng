@@ -6,6 +6,7 @@ import { MapInstanceRuntime } from '../runtime/instance/map-instance.runtime';
 import { advancePlayerArtifactQiTick } from '../runtime/player/player-artifact-runtime.helpers';
 import { refreshPlayerMovementCapabilities } from '../runtime/player/player-movement-capability.helpers';
 import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
+import { WorldRuntimeEquipmentService } from '../runtime/world/world-runtime-equipment.service';
 import { WorldRuntimeMovementService } from '../runtime/world/world-runtime-movement.service';
 import { WorldRuntimeNavigationService } from '../runtime/world/world-runtime-navigation.service';
 
@@ -339,7 +340,7 @@ function testFlyingSwordProviderDoesNotConsumeQiOnMove(): void {
   assert.equal(player.movePoints, 0);
 }
 
-function testFlyingSwordProviderGrantsCapabilityEvenWhenArtifactQiIsEmpty(): void {
+function testFlyingSwordProviderDoesNotGrantCapabilityWhenArtifactQiIsEmpty(): void {
   const instance = createInstance();
   const player = instance.connectPlayer({
     playerId: 'player:provider-empty-qi',
@@ -351,18 +352,17 @@ function testFlyingSwordProviderGrantsCapabilityEvenWhenArtifactQiIsEmpty(): voi
   refreshPlayerMovementCapabilities(player);
   const service = createNavigationService(instance, player);
 
-  const step = service.resolveNavigationStep(
-    player.playerId,
-    { kind: 'point', mapId: instance.template.id, x: 1, y: 0, allowNearestReachable: false, clientPathHint: null },
-    createNavigationDeps(instance),
+  assert.throws(
+    () => service.resolveNavigationStep(
+      player.playerId,
+      { kind: 'point', mapId: instance.template.id, x: 1, y: 0, allowNearestReachable: false, clientPathHint: null },
+      createNavigationDeps(instance),
+    ),
+    /无法到达该位置/u,
   );
-
-  assert.equal(step.kind, 'move');
-  assert.equal(step.direction, Direction.East);
-  assert.deepEqual(step.path, [{ x: 1, y: 0 }]);
 }
 
-function testFlyingSwordProviderMovesWhenArtifactQiIsEmpty(): void {
+function testFlyingSwordProviderDoesNotMoveWhenArtifactQiIsEmpty(): void {
   const instance = createInstance();
   const player = instance.connectPlayer({
     playerId: 'player:provider-empty-qi-move',
@@ -383,9 +383,8 @@ function testFlyingSwordProviderMovesWhenArtifactQiIsEmpty(): void {
   }), true);
   instance.tickOnce();
 
-  assert.deepEqual(instance.getPlayerPosition(player.playerId), { x: 1, y: 0 });
+  assert.deepEqual(instance.getPlayerPosition(player.playerId), { x: 0, y: 0 });
   assert.equal(player.artifacts.slots[0].qi, 0);
-  assert.equal(player.movePoints, 0);
 }
 
 function testEnabledFlyingSwordConsumesArtifactQiEveryTick(): void {
@@ -466,6 +465,38 @@ function testEnhancedFlyingSwordSustainCostUsesBaseMaxQi(): void {
   assert.equal(player.qi, 100);
 }
 
+function testFlyingSwordAutoDisablesWhenArtifactQiCannotPaySustainCost(): void {
+  const instance = createInstance();
+  const player = instance.connectPlayer({
+    playerId: 'player:provider-insufficient-sustain',
+    sessionId: 'session:provider-insufficient-sustain',
+    preferredX: 0,
+    preferredY: 0,
+  });
+  const insufficientQi = Math.max(0, FLYING_SWORD_SUSTAIN_COST - 1);
+  grantStaticObstacleIgnoreFromFlyingSword(player, { qi: insufficientQi });
+  refreshPlayerMovementCapabilities(player);
+  player.qi = FLYING_SWORD_SUSTAIN_COST * 10;
+  player.attrs = {
+    ...(player.attrs ?? {}),
+    numericStats: {
+      ...(player.attrs?.numericStats ?? {}),
+      maxQiOutputPerTick: FLYING_SWORD_SUSTAIN_COST * 10,
+    },
+  };
+
+  const result = advancePlayerArtifactQiTick(player);
+  refreshPlayerMovementCapabilities(player);
+
+  assert.equal(result.artifactChanged, true);
+  assert.equal(result.artifactEnabledChanged, true);
+  assert.equal(result.vitalsChanged, false);
+  assert.equal(player.artifacts.slots[0].enabled, false);
+  assert.equal(player.artifacts.slots[0].qi, insufficientQi);
+  assert.equal(player.qi, FLYING_SWORD_SUSTAIN_COST * 10);
+  assert.equal(player.movementCapabilities.staticObstacleIgnore, false);
+}
+
 function testPlayerRuntimeServiceProjectsArtifactMovementCapability(): void {
   const service = createPlayerRuntimeServiceForArtifactProjection();
   const player = createArtifactProjectionPlayer();
@@ -486,6 +517,39 @@ function testPlayerRuntimeServiceProjectsArtifactMovementCapability(): void {
   service.unequipArtifactItem(player, 'artifact_1', undefined);
   assert.equal(player.movementCapabilities.staticObstacleIgnore, false);
   assert.equal(player.selfRevision, 5);
+}
+
+function testPlayerRuntimeServiceDoesNotEnableArtifactWithoutSustainQi(): void {
+  const service = createPlayerRuntimeServiceForArtifactProjection();
+  const player = createArtifactProjectionPlayer();
+  service.players.set(player.playerId, player);
+
+  service.equipArtifactItem(player, 0, player.inventory.items[0], undefined);
+  service.setArtifactSlotEnabled(player.playerId, 'artifact_1', false);
+  player.artifacts.slots[0].qi = Math.max(0, FLYING_SWORD_SUSTAIN_COST - 1);
+
+  service.setArtifactSlotEnabled(player.playerId, 'artifact_1', true);
+
+  assert.equal(player.artifacts.slots[0].enabled, false);
+  assert.equal(player.movementCapabilities.staticObstacleIgnore, false);
+}
+
+async function testArtifactToggleDispatchRequestsImmediateDeltaSync(): Promise<void> {
+  const playerRuntimeService = createPlayerRuntimeServiceForArtifactProjection();
+  const player = createArtifactProjectionPlayer();
+  playerRuntimeService.players.set(player.playerId, player);
+  playerRuntimeService.equipArtifactItem(player, 0, player.inventory.items[0], undefined);
+  const equipmentService = new WorldRuntimeEquipmentService(playerRuntimeService);
+  const syncRequests: string[] = [];
+
+  await equipmentService.dispatchSetArtifactSlotEnabled(player.playerId, 'artifact_1', false, {
+    requestPlayerDeltaSync(playerId: string) {
+      syncRequests.push(playerId);
+    },
+  });
+
+  assert.equal(player.artifacts.slots[0].enabled, false);
+  assert.deepEqual(syncRequests, [player.playerId]);
 }
 
 function testMoveToSyncsRuntimeMovementCapabilityIntoInstancePlayer(): void {
@@ -579,22 +643,28 @@ function testDynamicBlockerStillBlocksPlayerCapability(): void {
   );
 }
 
-function main(): void {
+async function main(): Promise<void> {
   testPlayerCapabilityPlansIntoStaticObstacleTile();
   testMissingPlayerCapabilityDoesNotPlanIntoStaticObstacleTile();
   testDisabledFlyingSwordProviderDoesNotGrantPlayerCapability();
   testPlayerCapabilityIgnoresStaticObstacleOnMove();
   testFlyingSwordProviderDoesNotConsumeQiOnMove();
-  testFlyingSwordProviderGrantsCapabilityEvenWhenArtifactQiIsEmpty();
-  testFlyingSwordProviderMovesWhenArtifactQiIsEmpty();
+  testFlyingSwordProviderDoesNotGrantCapabilityWhenArtifactQiIsEmpty();
+  testFlyingSwordProviderDoesNotMoveWhenArtifactQiIsEmpty();
   testPlayerRuntimeServiceProjectsArtifactMovementCapability();
+  testPlayerRuntimeServiceDoesNotEnableArtifactWithoutSustainQi();
+  await testArtifactToggleDispatchRequestsImmediateDeltaSync();
   testMoveToSyncsRuntimeMovementCapabilityIntoInstancePlayer();
   testEnabledFlyingSwordConsumesArtifactQiEveryTick();
   testEnhancedFlyingSwordMaxQiUsesEnhancementMultiplier();
   testEnhancedFlyingSwordSustainCostUsesBaseMaxQi();
+  testFlyingSwordAutoDisablesWhenArtifactQiCannotPaySustainCost();
   testEnabledFlyingSwordRechargesFromPlayerQiOutputEveryTick();
   testDynamicBlockerStillBlocksPlayerCapability();
   console.log('world-runtime-player-movement-capability-smoke ok');
 }
 
-main();
+void main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});

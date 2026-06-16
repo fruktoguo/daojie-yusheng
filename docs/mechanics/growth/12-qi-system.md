@@ -36,6 +36,7 @@ buildQiHalfLifeRateScaled(halfLifeTicks):
 - 每 tick 恢复：`max(1, round(maxQi × (qiRegenRate / 10000)))`
 - 每 tick 最大输出：`maxQiOutputPerTick`（超出部分递增惩罚）
 - 启用且已装备法宝的槽位，会先按法宝未强化默认最大灵力的 10% 固定消耗法宝灵力；法宝强化只提高 `maxQi`，不提高该固定消耗
+- 如果法宝当前灵力不足以支付本 tick 固定消耗，该槽位会自动停用，并同步移除对应玩家移动能力
 - 法宝随后每 tick 最多抽取 `floor(maxQiOutputPerTick / 10)` 点玩家当前灵力注入法宝，并扣除等额玩家灵力；法宝已满或玩家当前灵力不足时按实际注入量结算
 
 ## 灵气投影（qi-projection）

@@ -1047,9 +1047,8 @@
       padding: 10px;
       min-width: 0;
       overflow: hidden;
-      background:
-        linear-gradient(135deg, color-mix(in srgb, var(--paper-white) 92%, var(--accent-gold) 8%), var(--paper-white));
-      border: 1px solid color-mix(in srgb, var(--wash-ink) 78%, var(--accent-gold) 22%);
+      background: var(--paper-white);
+      border: 1px solid var(--wash-ink);
       transition: border-color 0.18s ease, background 0.18s ease, filter 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
     }
     .artifact-slot::before {
@@ -1062,6 +1061,8 @@
       transform: translateX(-110%);
     }
     .artifact-slot.is-enabled.has-item {
+      background:
+        linear-gradient(135deg, color-mix(in srgb, var(--paper-white) 92%, var(--accent-gold) 8%), var(--paper-white));
       border-color: color-mix(in srgb, var(--accent-gold) 72%, var(--wash-ink));
       box-shadow:
         inset 0 0 0 1px color-mix(in srgb, var(--accent-gold) 26%, transparent),
@@ -1072,11 +1073,7 @@
       animation: artifact-slot-sweep 3.2s linear infinite;
     }
     .artifact-slot.is-disabled {
-      background:
-        linear-gradient(135deg, color-mix(in srgb, var(--paper-white) 82%, var(--wash-ink) 18%), color-mix(in srgb, var(--paper-white) 92%, var(--wash-ink) 8%));
-      border-style: dashed;
-      filter: saturate(0.58);
-      opacity: 0.82;
+      box-shadow: none;
     }
     .artifact-copy {
       position: relative;
@@ -1094,14 +1091,18 @@
       flex: 0 0 auto;
       max-width: 88px;
       padding: 1px 6px;
-      border: 1px solid color-mix(in srgb, var(--accent-gold) 54%, var(--wash-ink));
-      background: color-mix(in srgb, var(--paper-white) 78%, var(--accent-gold) 22%);
-      color: var(--ink-black);
+      border: 1px solid color-mix(in srgb, var(--wash-ink) 82%, transparent);
+      background: color-mix(in srgb, var(--paper-white) 88%, var(--wash-ink) 12%);
+      color: var(--ink-grey);
       font-size: var(--font-size-12);
       line-height: 1.35;
       white-space: nowrap;
     }
-    .artifact-slot.is-disabled .artifact-state-badge,
+    .artifact-slot.is-enabled.has-item .artifact-state-badge {
+      border-color: color-mix(in srgb, var(--accent-gold) 54%, var(--wash-ink));
+      background: color-mix(in srgb, var(--paper-white) 78%, var(--accent-gold) 22%);
+      color: var(--ink-black);
+    }
     .artifact-slot.is-locked .artifact-state-badge {
       border-color: color-mix(in srgb, var(--wash-ink) 82%, transparent);
       background: color-mix(in srgb, var(--paper-white) 82%, var(--wash-ink) 18%);
@@ -1129,25 +1130,26 @@
       width: var(--artifact-qi-percent, 0%);
       height: 100%;
       overflow: hidden;
+      background: linear-gradient(90deg, color-mix(in srgb, var(--ink-grey) 72%, #44b3d2), color-mix(in srgb, var(--ink-grey) 68%, var(--accent-gold)));
+      box-shadow: none;
+      transition: width 0.22s ease;
+    }
+    .artifact-slot.is-enabled.has-item .artifact-qi-fill {
       background: linear-gradient(90deg, #44b3d2, color-mix(in srgb, var(--accent-gold) 84%, #f8f8f5));
       box-shadow: 0 0 10px color-mix(in srgb, #44b3d2 42%, transparent);
-      transition: width 0.22s ease;
     }
     .artifact-qi-fill::after {
       content: "";
       position: absolute;
       inset: 0;
+      opacity: 0;
       background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.52), transparent);
       transform: translateX(-100%);
-      animation: artifact-qi-flow 1.8s linear infinite;
-    }
-    .artifact-slot.is-disabled .artifact-qi-fill {
-      background: linear-gradient(90deg, color-mix(in srgb, var(--ink-grey) 72%, #44b3d2), color-mix(in srgb, var(--ink-grey) 68%, var(--accent-gold)));
-      box-shadow: none;
-    }
-    .artifact-slot.is-disabled .artifact-qi-fill::after {
-      opacity: 0;
       animation: none;
+    }
+    .artifact-slot.is-enabled.has-item .artifact-qi-fill::after {
+      opacity: 1;
+      animation: artifact-qi-flow 1.8s linear infinite;
     }
     .artifact-qi-text {
       color: var(--ink-grey);
@@ -1173,7 +1175,6 @@
       background: color-mix(in srgb, var(--paper-white) 78%, var(--accent-gold) 22%);
     }
     .artifact-toggle:not(.is-active) {
-      border-style: dashed;
       color: var(--ink-grey);
       background: color-mix(in srgb, var(--paper-white) 88%, var(--wash-ink) 12%);
     }
@@ -1188,7 +1189,7 @@
     }
     @media (prefers-reduced-motion: reduce) {
       .artifact-slot.is-enabled.has-item::before,
-      .artifact-qi-fill::after {
+      .artifact-slot.is-enabled.has-item .artifact-qi-fill::after {
         animation: none;
       }
     }

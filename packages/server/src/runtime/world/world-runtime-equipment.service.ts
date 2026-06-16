@@ -91,10 +91,11 @@ export class WorldRuntimeEquipmentService {
         deps.worldRuntimeCraftMutationService.emitAllTechniqueActivityPanelUpdates(playerId, deps);
     }
     /** 设置法宝槽位启用开关。 */
-    async dispatchSetArtifactSlotEnabled(playerId, slot, enabled, _deps) {
+    async dispatchSetArtifactSlotEnabled(playerId, slot, enabled, deps) {
         if (!(ARTIFACT_SLOTS as readonly string[]).includes(slot)) {
             throw new NotFoundException(`法宝槽位不存在：${slot}`);
         }
         this.playerRuntimeService.setArtifactSlotEnabled(playerId, slot, enabled === true);
+        deps?.requestPlayerDeltaSync?.(playerId);
     }
 };

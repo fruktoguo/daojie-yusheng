@@ -111,6 +111,12 @@ class WorldGateway implements WorldGatewayHelperContext {
         this.worldSessionService = worldSessionService;
         this.playerSessionRouteService = playerSessionRouteService;
         this.worldSyncService = worldSyncService;
+        const runtimeSyncPort = this.worldRuntimeService as WorldRuntimeService & {
+            requestPlayerDeltaSync?: (playerId: string) => void;
+        };
+        runtimeSyncPort.requestPlayerDeltaSync = (playerId: string) => {
+            this.worldSyncService.emitDeltaSync(playerId);
+        };
         this.gatewayBootstrapHelper = new WorldGatewayBootstrapHelper(this);
         this.gatewayGmCommandHelper = new WorldGatewayGmCommandHelper(this);
         this.gatewayActivityHelper = gatewayActivityHelper;

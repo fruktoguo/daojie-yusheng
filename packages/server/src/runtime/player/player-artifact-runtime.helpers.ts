@@ -8,6 +8,7 @@ import { resolveArtifactSustainCostPerTick } from '@mud/shared';
 
 export interface PlayerArtifactTickResult {
   artifactChanged: boolean;
+  artifactEnabledChanged: boolean;
   vitalsChanged: boolean;
 }
 
@@ -16,11 +17,12 @@ const ARTIFACT_QI_RECHARGE_OUTPUT_RATIO = 0.1;
 export function advancePlayerArtifactQiTick(player: any): PlayerArtifactTickResult {
   const slots = Array.isArray(player?.artifacts?.slots) ? player.artifacts.slots : [];
   if (slots.length === 0) {
-    return { artifactChanged: false, vitalsChanged: false };
+    return { artifactChanged: false, artifactEnabledChanged: false, vitalsChanged: false };
   }
 
   const rechargePerSlot = resolveArtifactQiRechargePerTick(player);
   let artifactChanged = false;
+  let artifactEnabledChanged = false;
   let vitalsChanged = false;
 
   for (const slot of slots) {
@@ -37,7 +39,16 @@ export function advancePlayerArtifactQiTick(player: any): PlayerArtifactTickResu
     let nextQi = beforeQi;
 
     const sustainCost = resolveArtifactSustainCostPerTick(slot.item);
-    if (sustainCost > 0 && nextQi > 0) {
+    if (sustainCost > 0 && beforeQi < sustainCost) {
+      slot.enabled = false;
+      artifactChanged = true;
+      artifactEnabledChanged = true;
+      if (Number(slot.qi) !== beforeQi) {
+        slot.qi = beforeQi;
+      }
+      continue;
+    }
+    if (sustainCost > 0) {
       nextQi = Math.max(0, nextQi - sustainCost);
     }
 
@@ -62,7 +73,7 @@ export function advancePlayerArtifactQiTick(player: any): PlayerArtifactTickResu
     player.artifacts.revision = Math.max(1, Math.trunc(Number(player.artifacts.revision ?? 1) || 1)) + 1;
   }
 
-  return { artifactChanged, vitalsChanged };
+  return { artifactChanged, artifactEnabledChanged, vitalsChanged };
 }
 
 function isUsableArtifactSlot(slot: any): boolean {
