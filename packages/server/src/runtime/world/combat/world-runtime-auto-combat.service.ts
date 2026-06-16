@@ -6,6 +6,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { DEFAULT_AGGRO_THRESHOLD, DEFAULT_PASSIVE_THREAT_PER_TICK, PLAYER_TARGETING_PREFERENCE_THREAT_MULTIPLIER, buildEffectiveTargetingGeometry, getItemDisplayName, resolveSkillRequiresTarget } from '@mud/shared';
 import { isHostileCombatRelationResolution, resolveCombatRelation } from '../../player/player-combat-config.helpers';
+import { canPlayerIgnoreStaticObstacle } from '../../player/player-movement-capability.helpers';
 import { PlayerRuntimeService } from '../../player/player-runtime.service';
 import { buildStructuredNotice } from '../structured-notice.helpers';
 import * as world_runtime_normalization_helpers_1 from '../world-runtime.normalization.helpers';
@@ -56,6 +57,65 @@ function isPlayerTargetRef(targetRef) {
 
 function instanceSupportsPvp(instance) {
     return instance?.meta?.supportsPvp === true || instance?.supportsPvp === true;
+}
+function resolveAutoCombatPathingOptions(player, deps) {
+    const currentTick = typeof deps?.resolveCurrentTickForPlayerId === 'function'
+        ? deps.resolveCurrentTickForPlayerId(player?.playerId)
+        : null;
+    return canPlayerIgnoreStaticObstacle(player, currentTick)
+        ? { allowIgnoreStaticObstacle: true }
+        : undefined;
+}
+function resolveTileIndex(instance, x, y) {
+    if (typeof instance?.toTileIndex !== 'function') {
+        return -1;
+    }
+    const tileIndex = instance.toTileIndex(x, y);
+    return Number.isFinite(tileIndex) ? Math.trunc(Number(tileIndex)) : -1;
+}
+function isAutoCombatPathTileOpen(instance, player, x, y, pathingOptions = undefined) {
+    if (instance?.isInBounds?.(x, y) === false) {
+        return false;
+    }
+    if (typeof instance?.isDynamicallyBlockedTile === 'function' && instance.isDynamicallyBlockedTile(x, y, player.playerId)) {
+        return false;
+    }
+    const walkable = typeof instance?.isWalkable === 'function'
+        ? instance.isWalkable(x, y, player.playerId) !== false
+        : true;
+    if (!walkable && pathingOptions?.allowIgnoreStaticObstacle !== true) {
+        return false;
+    }
+    const tileIndex = resolveTileIndex(instance, x, y);
+    if (tileIndex >= 0) {
+        if (instance?.npcIdByTile?.has?.(tileIndex) === true || instance?.monsterRuntimeIdByTile?.has?.(tileIndex) === true) {
+            return false;
+        }
+        const occupancy = ArrayBuffer.isView(instance?.occupancy)
+            ? instance.occupancy[tileIndex]
+            : (typeof instance?.getOccupancy === 'function' ? instance.getOccupancy(x, y) : null);
+        if (occupancy !== null && occupancy !== undefined && occupancy !== 0 && instance?.isPlayerOverlapTile?.(x, y) !== true) {
+            return false;
+        }
+    }
+    if (walkable && typeof instance?.isOpenTile === 'function') {
+        return instance.isOpenTile(x, y, player.playerId) === true;
+    }
+    return true;
+}
+function resolveReusableCachedPathIndex(cached, player) {
+    if (cached.pathIndex <= 0) {
+        return cached.startX === player.x && cached.startY === player.y ? 0 : null;
+    }
+    const expectedPrevious = cached.path[cached.pathIndex - 1];
+    if (expectedPrevious?.x === player.x && expectedPrevious?.y === player.y) {
+        return cached.pathIndex;
+    }
+    if (cached.startX === player.x && cached.startY === player.y) {
+        return 0;
+    }
+    const currentIndex = cached.path.findIndex((entry) => entry.x === player.x && entry.y === player.y);
+    return currentIndex >= 0 ? currentIndex + 1 : null;
 }
 
 const AUTO_TARGETING_PREFERENCE_MULTIPLIER = PLAYER_TARGETING_PREFERENCE_THREAT_MULTIPLIER;
@@ -389,8 +449,12 @@ export class WorldRuntimeAutoCombatService {
     unreachableThreatReductionByPlayerId = new Map();
     /** T-08: 自动战斗寻路路径缓存（per-player）。 */
     pathCacheByPlayerId = new Map<string, {
+        startX: number;
+        startY: number;
         targetX: number;
         targetY: number;
+        desiredRange: number;
+        allowIgnoreStaticObstacle: boolean;
         path: { x: number; y: number }[];
         pathIndex: number;
     }>();
@@ -664,7 +728,8 @@ export class WorldRuntimeAutoCombatService {
                     return null;
                 }
                 const losPathStartedAt = performance.now();
-                const losPathResult = findPathToTargetWithinRangeOnMap(instance, player.playerId, player.x, player.y, target.x, target.y, losRange, false, (x, y) => instance.canSeeTileFrom(x, y, target.x, target.y, losRange) !== false);
+                const pathingOptions = resolveAutoCombatPathingOptions(player, deps);
+                const losPathResult = findPathToTargetWithinRangeOnMap(instance, player.playerId, player.x, player.y, target.x, target.y, losRange, false, (x, y) => instance.canSeeTileFrom(x, y, target.x, target.y, losRange) !== false, pathingOptions);
                 recordAutoCombatPerf(deps, 'tick.autoCombat.losPathMs', losPathStartedAt);
                 if (!losPathResult || losPathResult.points.length === 0) {
                     return this.handleUnreachableAutoCombatTarget(instance, player, target, deps, options);
@@ -718,7 +783,8 @@ export class WorldRuntimeAutoCombatService {
         }
         const desiredRange = Math.max(1, Math.round(skillChoice?.range ?? 1));
         const pathStartedAt = performance.now();
-        const pathResult = this.findPathWithCache(instance, player, target.x, target.y, desiredRange);
+        const pathingOptions = resolveAutoCombatPathingOptions(player, deps);
+        const pathResult = this.findPathWithCache(instance, player, target.x, target.y, desiredRange, pathingOptions);
         recordAutoCombatPerf(deps, 'tick.autoCombat.pathMs', pathStartedAt);
         if (!pathResult || pathResult.points.length === 0) {
             return this.handleUnreachableAutoCombatTarget(instance, player, target, deps, options);
@@ -1315,31 +1381,37 @@ export class WorldRuntimeAutoCombatService {
      * 缓存上一次寻路结果，下一 tick 检查目标是否移动 + 路径下一步是否可通行。
      * 目标移动判定：曼哈顿距离 ≥ 2 格时重规划。
      */
-    findPathWithCache(instance, player, targetX: number, targetY: number, desiredRange: number) {
+    findPathWithCache(instance, player, targetX: number, targetY: number, desiredRange: number, pathingOptions = undefined) {
         const playerId = player.playerId;
         const cached = this.pathCacheByPlayerId.get(playerId);
         if (cached) {
             const targetMoved = Math.abs(targetX - cached.targetX) + Math.abs(targetY - cached.targetY) >= 2;
-            if (!targetMoved && cached.pathIndex < cached.path.length) {
-                const nextStep = cached.path[cached.pathIndex];
-                const nextStepFree = instance.isWalkable?.(nextStep.x, nextStep.y) !== false
-                    && instance.getOccupancy?.(nextStep.x, nextStep.y) == null;
-                if (nextStepFree) {
-                    // 复用缓存路径
-                    const remainingPath = cached.path.slice(cached.pathIndex);
-                    cached.pathIndex += 1;
+            const sameRange = cached.desiredRange === desiredRange;
+            const sameMovementAbility = cached.allowIgnoreStaticObstacle === (pathingOptions?.allowIgnoreStaticObstacle === true);
+            const nextIndex = !targetMoved && sameRange && sameMovementAbility
+                ? resolveReusableCachedPathIndex(cached, player)
+                : null;
+            if (nextIndex !== null && nextIndex < cached.path.length) {
+                const nextStep = cached.path[nextIndex];
+                if (nextStep && isAutoCombatPathTileOpen(instance, player, nextStep.x, nextStep.y, pathingOptions)) {
+                    const remainingPath = cached.path.slice(nextIndex);
+                    cached.pathIndex = nextIndex + 1;
                     return { points: remainingPath, cost: remainingPath.length };
                 }
             }
         }
         // 重新规划
         const pathResult = findPathToTargetWithinRangeOnMap(
-            instance, player.playerId, player.x, player.y, targetX, targetY, desiredRange, false,
+            instance, player.playerId, player.x, player.y, targetX, targetY, desiredRange, false, undefined, pathingOptions,
         );
         if (pathResult && pathResult.points.length > 0) {
             this.pathCacheByPlayerId.set(playerId, {
+                startX: player.x,
+                startY: player.y,
                 targetX,
                 targetY,
+                desiredRange,
+                allowIgnoreStaticObstacle: pathingOptions?.allowIgnoreStaticObstacle === true,
                 path: pathResult.points.map((p: { x: number; y: number }) => ({ x: p.x, y: p.y })),
                 pathIndex: 1,
             });

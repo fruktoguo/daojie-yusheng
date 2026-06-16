@@ -201,6 +201,78 @@ function createWidePathingInstance() {
   };
 }
 
+function createCachedChasePathingInstance() {
+  const blocked = new Set<string>();
+  const instance = {
+    template: {
+      width: 7,
+      height: 3,
+    },
+    occupancy: new Uint32Array(21),
+    npcIdByTile: new Map<number, string>(),
+    monsterRuntimeIdByTile: new Map<number, string>(),
+    isInBounds(x: number, y: number) {
+      return x >= 0 && y >= 0 && x < 7 && y < 3;
+    },
+    toTileIndex(x: number, y: number) {
+      return y * 7 + x;
+    },
+    isPlayerOverlapTile() {
+      return false;
+    },
+    isDynamicallyBlockedTile(x: number, y: number) {
+      return blocked.has(`${x},${y}`);
+    },
+    isWalkable(x: number, y: number) {
+      return x >= 0 && y >= 0 && x < 7 && y < 3 && !blocked.has(`${x},${y}`);
+    },
+    forEachPathingBlocker(_playerId: string, callback: (x: number, y: number) => void) {
+      for (const key of blocked) {
+        const [x, y] = key.split(',').map(Number);
+        callback(x, y);
+      }
+    },
+    getTileTraversalCost() {
+      return 1;
+    },
+  };
+  return {
+    instance,
+    block(x: number, y: number) {
+      blocked.add(`${x},${y}`);
+      instance.occupancy[instance.toTileIndex(x, y)] = 999;
+    },
+  };
+}
+
+function createStaticObstaclePathingInstance() {
+  return {
+    template: {
+      width: 5,
+      height: 3,
+    },
+    isInBounds(x: number, y: number) {
+      return x >= 0 && y >= 0 && x < 5 && y < 3;
+    },
+    toTileIndex(x: number, y: number) {
+      return y * 5 + x;
+    },
+    isDynamicallyBlockedTile() {
+      return false;
+    },
+    isWalkable(x: number, y: number) {
+      return y === 1 && x !== 2;
+    },
+    forEachPathingBlocker(_playerId: string, _callback: (x: number, y: number) => void) {},
+    getTileTraversalCost() {
+      return 1;
+    },
+    getStaticObstacleTraversalCost() {
+      return 1;
+    },
+  };
+}
+
 function createAdjacentMonsterInstance() {
   return {
     meta: {
@@ -1344,6 +1416,80 @@ function testStopDistancePathDoesNotGenerateRangeCandidateGrid(): void {
   assert.ok(getBoundsChecks() < 400, `unexpected range-grid-like bounds checks: ${getBoundsChecks()}`);
 }
 
+function testAutoCombatPathCacheDoesNotSkipUnresolvedFirstStep(): void {
+  const { instance } = createCachedChasePathingInstance();
+  const player = {
+    playerId: 'player:1',
+    x: 1,
+    y: 1,
+  };
+  const service = new WorldRuntimeAutoCombatService(createPlayerRuntimeService(player) as never);
+  const first = service.findPathWithCache(instance as never, player as never, 5, 1, 1);
+  assert.deepEqual(first?.points, [
+    { x: 2, y: 1 },
+    { x: 3, y: 1 },
+    { x: 4, y: 1 },
+  ]);
+
+  const second = service.findPathWithCache(instance as never, player as never, 5, 1, 1);
+  assert.deepEqual(second?.points, [
+    { x: 2, y: 1 },
+    { x: 3, y: 1 },
+    { x: 4, y: 1 },
+  ]);
+}
+
+function testAutoCombatPathCacheReplansWhenNextStepBecomesBlocked(): void {
+  const { instance, block } = createCachedChasePathingInstance();
+  const player = {
+    playerId: 'player:1',
+    x: 1,
+    y: 1,
+  };
+  const service = new WorldRuntimeAutoCombatService(createPlayerRuntimeService(player) as never);
+  const first = service.findPathWithCache(instance as never, player as never, 5, 1, 1);
+  assert.equal(first?.points[0]?.x, 2);
+  assert.equal(first?.points[0]?.y, 1);
+
+  player.x = 2;
+  block(3, 1);
+  const second = service.findPathWithCache(instance as never, player as never, 5, 1, 1);
+  assert.notDeepEqual(second?.points[0], { x: 3, y: 1 });
+  assert.equal(Math.abs((second?.points[0]?.x ?? 0) - player.x) + Math.abs((second?.points[0]?.y ?? 0) - player.y), 1);
+}
+
+function testStopDistancePathUsesStaticObstacleIgnoreOption(): void {
+  const instance = createStaticObstaclePathingInstance();
+  const blocked = findPathToTargetWithinRangeOnMap(
+    instance as never,
+    'player:1',
+    1,
+    1,
+    4,
+    1,
+    1,
+    false,
+  );
+  assert.equal(blocked, null);
+
+  const ignored = findPathToTargetWithinRangeOnMap(
+    instance as never,
+    'player:1',
+    1,
+    1,
+    4,
+    1,
+    1,
+    false,
+    undefined,
+    { allowIgnoreStaticObstacle: true },
+  );
+  assert.deepEqual(ignored?.points, [
+    { x: 2, y: 1 },
+    { x: 3, y: 1 },
+  ]);
+}
+
 function testLockedDestroyedTileClearsTarget(): void {
   const player = {
     playerId: 'player:1',
@@ -2097,6 +2243,9 @@ testAutoBattleCastsSelfAnchoredAreaSkillWithTarget();
 testActionRangeCannotOverruleSkillGeometryForChase();
 testAutoBattleSkipsSelfBuffSkillWhenBuffActive();
 testStopDistancePathDoesNotGenerateRangeCandidateGrid();
+testAutoCombatPathCacheDoesNotSkipUnresolvedFirstStep();
+testAutoCombatPathCacheReplansWhenNextStepBecomesBlocked();
+testStopDistancePathUsesStaticObstacleIgnoreOption();
 testLockedDestroyedTileClearsTarget();
 testLockedHerbTileContinuesBasicAttack();
 testRetaliatePlayerPreemptsLockedMiningTileWithoutClearingLock();
@@ -2115,5 +2264,5 @@ testMaterializeAutoCombatClearsExpiredRetaliatorBeforeEarlyExit();
 console.log(JSON.stringify({
   ok: true,
   case: 'world-runtime-auto-combat',
-  answers: '自动战斗不会在本 tick 行动次数已满时继续物化必然失败的攻击指令；一次性接战和自动战斗会按第一个当前可用技能决定停止距离，目标已在射程内但视线被遮挡时会继续寻找可释放站位；当前锁定目标不可达时只对该目标做一次 80% 仇恨降权、清理当前目标并立即重选；普通自动战斗每 tick 按实时仇恨重算目标，只有明确锁定或一次性接战才优先沿用 tracked target；原地战斗会按 AOE 覆盖半径作为停止距离；无需目标的自身 buff 技能只有在存在有效自动战斗目标且缺少对应 buff 时才会按自动技能顺序原地施放，已有 buff 时不会重复刷也不会把 buff 技能当成追击距离；锁定目标失效后只清理当前目标锁，不关闭自动战斗、不发丢失提示；锁定草药、挖矿和阵法会在未清空或未摧毁前继续生成下一次攻击；自动反击会临时抢占非玩家锁定目标并保留原锁定，明确锁定玩家时不擅自切目标，且仇敌 30 分钟未续攻会在 tick 内过期；自动丹药会按资源阈值或缺 Buff 条件在 tick 受控流程内使用，空条件不触发，已有 pending command 时不改动背包槽位。',
+  answers: '自动战斗不会在本 tick 行动次数已满时继续物化必然失败的攻击指令；一次性接战和自动战斗会按第一个当前可用技能决定停止距离，目标已在射程内但视线被遮挡时会继续寻找可释放站位；自动追击路径缓存不会在上一段移动未真正落位时跳过首步，缓存下一步被动态占位后会重新规划，且追击寻路会沿用玩家忽略静态障碍能力；当前锁定目标不可达时只对该目标做一次 80% 仇恨降权、清理当前目标并立即重选；普通自动战斗每 tick 按实时仇恨重算目标，只有明确锁定或一次性接战才优先沿用 tracked target；原地战斗会按 AOE 覆盖半径作为停止距离；无需目标的自身 buff 技能只有在存在有效自动战斗目标且缺少对应 buff 时才会按自动技能顺序原地施放，已有 buff 时不会重复刷也不会把 buff 技能当成追击距离；锁定目标失效后只清理当前目标锁，不关闭自动战斗、不发丢失提示；锁定草药、挖矿和阵法会在未清空或未摧毁前继续生成下一次攻击；自动反击会临时抢占非玩家锁定目标并保留原锁定，明确锁定玩家时不擅自切目标，且仇敌 30 分钟未续攻会在 tick 内过期；自动丹药会按资源阈值或缺 Buff 条件在 tick 受控流程内使用，空条件不触发，已有 pending command 时不改动背包槽位。',
 }, null, 2));

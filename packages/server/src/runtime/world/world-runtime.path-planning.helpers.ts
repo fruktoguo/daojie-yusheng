@@ -507,7 +507,7 @@ export function findOptimalPathOnMap(instance, playerId, startX, startY, goals, 
     return null;
 }
 /** 寻路到目标停止距离内，不预生成候选目标格。 */
-export function findPathToTargetWithinRangeOnMap(instance, playerId, startX, startY, targetX, targetY, stopDistance, allowOccupiedTarget = false, canStopAt = undefined) {
+export function findPathToTargetWithinRangeOnMap(instance, playerId, startX, startY, targetX, targetY, stopDistance, allowOccupiedTarget = false, canStopAt = undefined, options = undefined) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (instance.isInBounds?.(targetX, targetY) !== true) {
@@ -580,11 +580,11 @@ export function findPathToTargetWithinRangeOnMap(instance, playerId, startX, sta
             }
 
             const nextIndex = typeof instance.toTileIndex === 'function' ? instance.toTileIndex(nextX, nextY) : -1;
-            if (nextIndex < 0 || nextIndex >= size || !instance.isWalkable(nextX, nextY, playerId) || blocked.has(nextIndex)) {
+            if (nextIndex < 0 || nextIndex >= size || !isPathableForNavigation(instance, nextX, nextY, playerId, options) || blocked.has(nextIndex)) {
                 continue;
             }
 
-            const stepCost = instance.getTileTraversalCost(nextX, nextY, playerId);
+            const stepCost = getPathTraversalCost(instance, nextX, nextY, playerId, options);
             if (!Number.isFinite(stepCost) || stepCost <= 0) {
                 continue;
             }
