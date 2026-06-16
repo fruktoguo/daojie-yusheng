@@ -7,6 +7,8 @@
 export type ItemSourceKind = 'monster_drop' | 'mining' | 'search' | 'shop' | 'heavenly_dao_shop' | 'quest' | 'alchemy' | 'forging' | 'runtime_pvp_reward';
 /** 灵石对应的物品 ID。 */
 const SPIRIT_STONE_ITEM_ID = 'spirit_stone';
+/** 功德对应的物品 ID。 */
+const MERIT_ITEM_ID = 'merit';
 
 /** 物品来源条目的通用字段。 */
 interface ItemSourceBaseEntry {
@@ -396,7 +398,7 @@ export function getItemSourceEntryCount(itemId: string): number {
 
 /** 判断是否需要使用特殊摘要文案。 */
 export function isSpecialSourceSummaryItem(itemId: string): boolean {
-  return itemId === SPIRIT_STONE_ITEM_ID;
+  return itemId === SPIRIT_STONE_ITEM_ID || itemId === MERIT_ITEM_ID;
 }
 
 /** 为特殊物品生成简短来源摘要。 */
@@ -404,7 +406,9 @@ function renderSpecialSourceSummaryHtml(itemId: string): string | null {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   if (itemId !== SPIRIT_STONE_ITEM_ID) {
-    return null;
+    return itemId === MERIT_ITEM_ID
+      ? '<span class="inventory-source-note">全部怪物击杀都有极低概率获得</span>'
+      : null;
   }
   return '<span class="inventory-source-note">挖矿或者全部怪物击杀都有概率获得</span>';
 }

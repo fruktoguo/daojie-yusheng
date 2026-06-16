@@ -67,7 +67,7 @@ rollMonsterDrops(monsterId, rolls, lootRateBonus, rareLootRateBonus, context):
     killEquivalent:
       bonus ≥ 0: 1 + bonus/10000
       bonus < 0: 1 / (1 + |bonus|/10000)
-    chance = (1 - (1-baseChance)^killEquivalent) × spiritStoneDropMultiplier
+    chance = (1 - (1-baseChance)^killEquivalent) × currencyDropMultiplier
     if random() ≤ chance: 掉落该物品
 ```
 
@@ -75,14 +75,25 @@ rollMonsterDrops(monsterId, rolls, lootRateBonus, rareLootRateBonus, context):
 - rareLootRate 仅对 baseChance ≤ 0.001 的稀有物品生效
 - 同物品多次掉落时 count 累加
 
-### 普通怪越级灵石掉落衰减
+### 自动货币掉落
+
+服务端启动期会为怪物掉落表自动补充货币掉落：
+
+| 货币 | 普通怪 | 变异怪 | 妖王 | 数量 |
+|------|--------|--------|------|------|
+| 灵石 | 1% | 3% | 10% | 按品阶和等级估算 |
+| 功德 | 0.01% | 0.03% | 0.1% | 1 |
+
+功德基础概率固定为同层次灵石基础概率的 1/100，并复用 `rollMonsterDrops` 的 lootRate/rareLootRate 概率公式。通天塔等配置了 `suppressSpiritStoneDrop` 的怪物只禁用自动灵石，仍按血脉层次参与功德自动掉落。
+
+### 普通怪越级货币掉落衰减
 
 ```ts
 ORDINARY_MONSTER_OVERLEVEL_SPIRIT_STONE_DROP_THRESHOLD = 1
 ORDINARY_MONSTER_OVERLEVEL_SPIRIT_STONE_DROP_MULTIPLIER = 0.7
 ```
 
-玩家等级超过怪物 1 级以上时，灵石掉率 ×0.7
+玩家等级超过怪物 1 级以上时，普通怪自动灵石和自动功德掉率 ×0.7
 
 ## LootPool 结构
 

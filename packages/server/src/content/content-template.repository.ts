@@ -431,6 +431,10 @@ export class ContentTemplateRepository {
     getOrdinaryMonsterSpiritStoneDropMultiplier(drop, context) {
         return this.dropTableRegistry.getOrdinaryMonsterSpiritStoneDropMultiplier(drop, context);
     }
+
+    getOrdinaryMonsterCurrencyDropMultiplier(drop, context) {
+        return this.dropTableRegistry.getOrdinaryMonsterCurrencyDropMultiplier(drop, context);
+    }
     
     getMonsterDropCategoryBase(drop) {
         return this.dropTableRegistry.getMonsterDropCategoryBase(drop);
@@ -447,9 +451,17 @@ export class ContentTemplateRepository {
     buildSpiritStoneMonsterDrop(context, override) {
         return this.dropTableRegistry.buildSpiritStoneMonsterDrop(context, override);
     }
+
+    buildMeritMonsterDrop(context) {
+        return this.dropTableRegistry.buildMeritMonsterDrop(context);
+    }
     
     computeSpiritStoneDropChance(tier) {
         return this.dropTableRegistry.computeSpiritStoneDropChance(tier);
+    }
+
+    computeMeritDropChance(tier) {
+        return this.dropTableRegistry.computeMeritDropChance(tier);
     }
     
     computeSpiritStoneDropCount(context) {

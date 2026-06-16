@@ -12,6 +12,9 @@ import { freezeTemplateMap } from './template-freeze';
 
 const ORDINARY_MONSTER_OVERLEVEL_SPIRIT_STONE_DROP_THRESHOLD = 1;
 const ORDINARY_MONSTER_OVERLEVEL_SPIRIT_STONE_DROP_MULTIPLIER = 0.7;
+const SPIRIT_STONE_ITEM_ID = 'spirit_stone';
+const MERIT_ITEM_ID = 'merit';
+const MERIT_MONSTER_DROP_CHANCE_RATIO = 1 / 100;
 
 @Injectable()
 export class DropTableRegistry {
@@ -114,7 +117,7 @@ export class DropTableRegistry {
         const chance = baseChance <= 0 || killEquivalent <= 0
           ? 0
           : (1 - Math.pow(1 - baseChance, killEquivalent))
-            * this.getOrdinaryMonsterSpiritStoneDropMultiplier(drop, context);
+            * this.getOrdinaryMonsterCurrencyDropMultiplier(drop, context);
         if (chance <= 0 || Math.random() > chance) {
           continue;
         }
@@ -144,7 +147,7 @@ export class DropTableRegistry {
     let spiritStoneOverride = undefined;
     const drops = [];
     for (const entry of configuredDrops) {
-      if (entry.itemId === 'spirit_stone') {
+      if (entry.itemId === SPIRIT_STONE_ITEM_ID) {
         spiritStoneOverride = entry;
         continue;
       }
@@ -175,6 +178,12 @@ export class DropTableRegistry {
       : this.buildSpiritStoneMonsterDrop(context, spiritStoneOverride);
     if (spiritStoneDrop) {
       drops.push(spiritStoneDrop);
+    }
+    if (!existingItemIds.has(MERIT_ITEM_ID)) {
+      const meritDrop = this.buildMeritMonsterDrop(context);
+      if (meritDrop) {
+        drops.push(meritDrop);
+      }
     }
     return drops;
   }
@@ -234,7 +243,21 @@ export class DropTableRegistry {
   }
 
   getOrdinaryMonsterSpiritStoneDropMultiplier(drop: any, context: any): number {
-    if (drop.itemId !== 'spirit_stone' || normalizeSharedMonsterTier(context?.monsterTier) !== 'mortal_blood') {
+    if (drop.itemId !== SPIRIT_STONE_ITEM_ID) {
+      return 1;
+    }
+    return this.resolveOrdinaryMonsterCurrencyDropMultiplier(context);
+  }
+
+  getOrdinaryMonsterCurrencyDropMultiplier(drop: any, context: any): number {
+    if (drop.itemId !== SPIRIT_STONE_ITEM_ID && drop.itemId !== MERIT_ITEM_ID) {
+      return 1;
+    }
+    return this.resolveOrdinaryMonsterCurrencyDropMultiplier(context);
+  }
+
+  resolveOrdinaryMonsterCurrencyDropMultiplier(context: any): number {
+    if (normalizeSharedMonsterTier(context?.monsterTier) !== 'mortal_blood') {
       return 1;
     }
     const playerRealmLv = Math.max(1, Math.floor(Number(context?.playerRealmLv) || 1));
@@ -245,7 +268,7 @@ export class DropTableRegistry {
   }
 
   getMonsterDropCategoryBase(drop: any): number {
-    if (drop.itemId === 'spirit_stone') {
+    if (drop.itemId === SPIRIT_STONE_ITEM_ID) {
       return 1;
     }
     switch (drop.type) {
@@ -290,7 +313,7 @@ export class DropTableRegistry {
   }
 
   buildSpiritStoneMonsterDrop(context: any, override: any): any {
-    const item = this.itemRegistry.itemTemplates.get('spirit_stone');
+    const item = this.itemRegistry.itemTemplates.get(SPIRIT_STONE_ITEM_ID);
     if (!item) {
       return null;
     }
@@ -309,6 +332,20 @@ export class DropTableRegistry {
     };
   }
 
+  buildMeritMonsterDrop(context: any): any {
+    const item = this.itemRegistry.itemTemplates.get(MERIT_ITEM_ID);
+    if (!item) {
+      return null;
+    }
+    return {
+      itemId: item.itemId,
+      name: item.name ?? item.itemId,
+      type: item.type,
+      count: 1,
+      chance: this.computeMeritDropChance(context.tier),
+    };
+  }
+
   computeSpiritStoneDropChance(tier: string): number {
     switch (tier) {
       case 'variant':
@@ -318,6 +355,10 @@ export class DropTableRegistry {
       default:
         return 0.01;
     }
+  }
+
+  computeMeritDropChance(tier: string): number {
+    return this.computeSpiritStoneDropChance(tier) * MERIT_MONSTER_DROP_CHANCE_RATIO;
   }
 
   computeSpiritStoneDropCount(context: any): number {
