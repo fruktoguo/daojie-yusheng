@@ -35,7 +35,7 @@ export interface RequestMarketListingsView {
  * equipmentSlot：装备Slot相关字段。
  */
 
-  equipmentSlot?: EquipSlot | 'all';
+  equipmentSlot?: EquipSlot | 'technique' | 'all';
   /**
  * techniqueCategory：功法Category相关字段。
  */

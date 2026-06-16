@@ -33,7 +33,7 @@ import type { MarketModalTab } from '../../constants/ui/market';
 /** 市场主分类筛选项。 */
 export type MarketCategoryFilter = 'all' | ItemType;
 /** 装备子分类筛选项。 */
-export type MarketEquipmentFilter = 'all' | EquipSlot;
+export type MarketEquipmentFilter = 'all' | 'technique' | EquipSlot;
 /** 功法书子分类筛选项。 */
 export type MarketTechniqueFilter = 'all' | TechniqueCategory;
 /** 交易弹窗的方向。 */

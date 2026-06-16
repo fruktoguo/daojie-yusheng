@@ -130,7 +130,7 @@ export interface MarketListingCountsView {
  * equipmentSlotCounts：装备部位数量。
  */
 
-  equipmentSlotCounts: Partial<Record<EquipSlot | 'all', number>>;
+  equipmentSlotCounts: Partial<Record<EquipSlot | 'technique' | 'all', number>>;
   /**
  * techniqueCategoryCounts：功法书分类数量。
  */
@@ -174,7 +174,7 @@ export interface MarketListingsView {
  * equipmentSlot：装备Slot相关字段。
  */
 
-  equipmentSlot: EquipSlot | 'all';  
+  equipmentSlot: EquipSlot | 'technique' | 'all';
   /**
  * techniqueCategory：功法Category相关字段。
  */

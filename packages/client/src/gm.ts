@@ -57,6 +57,8 @@ import {
   ATTR_KEY_LABELS,
   DEFAULT_BASE_ATTRS,
   type AutoBattleSkillConfig,
+  ARTIFACT_SLOTS,
+  type ArtifactSlot,
   type EquipmentSlots,
   type EquipSlot,
   EQUIP_SLOTS,
@@ -664,7 +666,7 @@ interface RedeemGroupDraft {
 }
 
 /** SearchableItemScope：分类枚举。 */
-type SearchableItemScope = 'all' | 'inventory-add' | 'equipment-slot';
+type SearchableItemScope = 'all' | 'inventory-add' | 'equipment-slot' | 'artifact-slot';
 
 /** MAIL_ATTACHMENT_ITEM_PAGE_SIZE：邮件ATTACHMENT物品分页SIZE。 */
 const MAIL_ATTACHMENT_ITEM_PAGE_SIZE = 10;
@@ -2091,23 +2093,34 @@ function getTechniqueEditorControls(index: number, technique: TechniqueState): s
 }
 
 /** getItemEditorControls：读取物品编辑器Controls。 */
-function getItemEditorControls(basePath: string, item: ItemStack, mode: 'inventory' | 'equipment'): string {
+function getItemEditorControls(basePath: string, item: ItemStack, mode: 'inventory' | 'equipment' | 'artifact'): string {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   const catalogEntry = findItemCatalogEntry(item.itemId);
   const enhancementField = shouldShowEnhancementLevelField(item)
     ? numberField('强化等级', `${basePath}.enhanceLevel`, item.enhanceLevel)
     : '';
+  const itemScope: SearchableItemScope = mode === 'inventory'
+    ? 'all'
+    : mode === 'artifact'
+      ? 'artifact-slot'
+      : 'equipment-slot';
+  const itemLabel = mode === 'artifact'
+    ? '法宝模板'
+    : mode === 'equipment'
+      ? '装备模板'
+      : '物品';
+  const itemSlot = mode === 'equipment' ? item.equipSlot : undefined;
   if (catalogEntry) {
     return `
       <div class="editor-grid compact">
         ${searchableItemField(
-          mode === 'equipment' ? '装备模板' : '物品',
+          itemLabel,
           item.itemId,
-          mode === 'equipment' ? 'equipment-slot' : 'all',
+          itemScope,
           { 'data-bind': `${basePath}.itemId`, 'data-kind': 'string' },
           'wide',
-          mode === 'equipment' ? item.equipSlot : undefined,
+          itemSlot,
         )}
         ${mode === 'inventory' ? numberField('数量', `${basePath}.count`, item.count) : ''}
         ${enhancementField}
@@ -2133,20 +2146,27 @@ function getItemEditorControls(basePath: string, item: ItemStack, mode: 'invento
   return `
     <div class="editor-grid compact">
       ${searchableItemField(
-        mode === 'equipment' ? '装备模板' : '物品',
+        itemLabel,
         item.itemId,
-        mode === 'equipment' ? 'equipment-slot' : 'all',
+        itemScope,
         { 'data-bind': `${basePath}.itemId`, 'data-kind': 'string' },
         'wide',
-        mode === 'equipment' ? item.equipSlot : undefined,
+        itemSlot,
       )}
       ${mode === 'inventory' ? numberField('数量', `${basePath}.count`, item.count) : ''}
       ${enhancementField}
       ${numberField('等级', `${basePath}.level`, item.level)}
       ${nullableTextField('品阶', `${basePath}.grade`, item.grade, 'undefined')}
-      ${jsonField('装备属性', `${basePath}.equipAttrs`, item.equipAttrs ?? {}, 'object')}
-      ${jsonField('装备数值', `${basePath}.equipStats`, item.equipStats ?? {}, 'object')}
-      ${jsonField('特效配置', `${basePath}.effects`, item.effects ?? [], 'array', 'wide')}
+      ${mode === 'artifact'
+        ? `
+          ${numberField('最大灵气系数', `${basePath}.artifactMaxQiFactor`, item.artifactMaxQiFactor)}
+          ${jsonField('法宝特效', `${basePath}.artifactEffects`, item.artifactEffects ?? [], 'array', 'wide')}
+        `
+        : `
+          ${jsonField('装备属性', `${basePath}.equipAttrs`, item.equipAttrs ?? {}, 'object')}
+          ${jsonField('装备数值', `${basePath}.equipStats`, item.equipStats ?? {}, 'object')}
+          ${jsonField('特效配置', `${basePath}.effects`, item.effects ?? [], 'array', 'wide')}
+        `}
     </div>
   `;
 }
@@ -2154,7 +2174,7 @@ function getItemEditorControls(basePath: string, item: ItemStack, mode: 'invento
 function shouldShowEnhancementLevelField(item: ItemStack): boolean {
   const catalogEntry = findItemCatalogEntry(item.itemId);
   const resolvedType = catalogEntry?.type ?? item.type;
-  if (resolvedType === 'equipment') {
+  if (resolvedType === 'equipment' || resolvedType === 'artifact') {
     return true;
   }
   return !catalogEntry && !resolvedType && Number(item.enhanceLevel ?? 0) > 0;
@@ -2250,11 +2270,15 @@ function buildEditorStructureKey(detail: GmManagedPlayerRecord, draft: PlayerSta
     positionMapCategoryDraft?.playerId === detail.id ? positionMapCategoryDraft.category : '',
   ].join('#');
   const equipmentPresence = EQUIP_SLOTS.map((slot) => (draft.equipment[slot] ? '1' : '0')).join('');
+  const artifactPresence = normalizeGmArtifactState(draft.artifacts).slots
+    .map((entry) => `${entry.slot}:${entry.item ? '1' : '0'}:${entry.unlocked ? '1' : '0'}:${entry.enabled ? '1' : '0'}`)
+    .join(',');
   return [
     detail.id,
     mapIds,
     mapPickerKey,
     equipmentPresence,
+    artifactPresence,
     detail.account?.status ?? 'no-account',
     String(detail.riskReport.score),
     detail.riskReport.level,
@@ -2338,6 +2362,17 @@ function patchEditorPreview(detail: GmManagedPlayerRecord, draft: PlayerState): 
     const item = equipment[slot];
     editorContentEl.querySelector<HTMLElement>(`[data-preview="equipment-title"][data-slot="${slot}"]`)!.textContent = getEquipmentCardTitle(item);
     editorContentEl.querySelector<HTMLElement>(`[data-preview="equipment-meta"][data-slot="${slot}"]`)!.textContent = getEquipmentCardMeta(item);
+  }
+  for (const entry of normalizeGmArtifactState(draft.artifacts).slots) {
+    const titleEl = editorContentEl.querySelector<HTMLElement>(`[data-preview="artifact-title"][data-slot="${entry.slot}"]`);
+    if (titleEl) {
+      titleEl.textContent = getEquipmentCardTitle(entry.item);
+    }
+    const metaEl = editorContentEl.querySelector<HTMLElement>(`[data-preview="artifact-meta"][data-slot="${entry.slot}"]`);
+    if (metaEl) {
+      const stateLabel = entry.unlocked ? (entry.enabled ? '启用' : '停用') : '未解锁';
+      metaEl.textContent = `${stateLabel} · ${getEquipmentCardMeta(entry.item)} · 灵力 ${Math.max(0, Math.trunc(Number(entry.qi) || 0))} / ${Math.max(0, Math.trunc(Number(entry.maxQi) || 0))}`;
+    }
   }
 
   ensureArray(draft.bonuses).forEach((bonus, index) => {
@@ -6381,11 +6416,55 @@ function createDefaultBuff(): TemporaryBuffState {
   };
 }
 
+function normalizeGmEquipmentSlots(source: Partial<EquipmentSlots> | null | undefined): EquipmentSlots {
+  return Object.fromEntries(
+    EQUIP_SLOTS.map((slot) => [slot, source?.[slot] ?? null]),
+  ) as EquipmentSlots;
+}
+
+function getArtifactSlotLabel(slot: ArtifactSlot): string {
+  return slot === 'artifact_1' ? '法宝' : slot;
+}
+
+function createDefaultArtifactSlot(slot: ArtifactSlot): PlayerState['artifacts']['slots'][number] {
+  return {
+    slot,
+    unlocked: false,
+    enabled: false,
+    qi: 0,
+    maxQi: 0,
+    item: null,
+  };
+}
+
+function normalizeGmArtifactState(source: PlayerState['artifacts'] | null | undefined): PlayerState['artifacts'] {
+  const bySlot = new Map<ArtifactSlot, PlayerState['artifacts']['slots'][number]>();
+  for (const entry of Array.isArray(source?.slots) ? source.slots : []) {
+    if (entry && ARTIFACT_SLOTS.includes(entry.slot)) {
+      bySlot.set(entry.slot, entry);
+    }
+  }
+  return {
+    revision: Math.max(0, Math.trunc(Number(source?.revision) || 0)),
+    slots: ARTIFACT_SLOTS.map((slot) => ({
+      ...createDefaultArtifactSlot(slot),
+      ...(bySlot.get(slot) ?? {}),
+      slot,
+      item: bySlot.get(slot)?.item ?? null,
+    })),
+  };
+}
+
 /** createDefaultPlayerSnapshot：创建默认玩家快照。 */
 function createDefaultPlayerSnapshot(source?: PlayerState): PlayerState {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-  if (source) return clone(source);
+  if (source) {
+    const snapshot = clone(source);
+    snapshot.equipment = normalizeGmEquipmentSlots(snapshot.equipment);
+    snapshot.artifacts = normalizeGmArtifactState(snapshot.artifacts);
+    return snapshot;
+  }
   return {
     id: '',
     name: '',
@@ -6445,11 +6524,14 @@ function createDefaultPlayerSnapshot(source?: PlayerState): PlayerState {
 
 /** readCatalogSelectValue：处理read目录Select值。 */
 function readCatalogSelectValue(
-  kind: 'technique' | 'inventory-item' | 'equipment',
+  kind: 'technique' | 'inventory-item' | 'equipment' | 'artifact',
   slot?: EquipSlot,
+  index?: number,
 ): string {
   const selector = kind === 'equipment'
     ? `[data-catalog-select="${kind}"][data-slot="${slot}"]`
+    : kind === 'artifact'
+      ? `[data-catalog-select="${kind}"][data-index="${index}"]`
     : `[data-catalog-select="${kind}"]`;
   const field = editorContentEl.querySelector<HTMLInputElement | HTMLSelectElement>(selector);
   return field?.value ?? '';
@@ -6541,6 +6623,9 @@ function getSearchableItemOptions(scope: SearchableItemScope, slot?: EquipSlot):
       return [];
     }
     return getItemCatalogOptions((option) => option.type === 'equipment' && option.equipSlot === slot);
+  }
+  if (scope === 'artifact-slot') {
+    return getItemCatalogOptions((option) => option.type === 'artifact');
   }
   return getItemCatalogOptions();
 }
@@ -6992,6 +7077,7 @@ function renderCraftSkillEditorCards(draft: PlayerState): string {
 /** renderVisualEditor：渲染Visual编辑器。 */
 function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): string {
   const equipment = draft.equipment as EquipmentSlots;
+  const artifacts = normalizeGmArtifactState(draft.artifacts);
   const bonuses = ensureArray(draft.bonuses);
   const buffs = ensureArray(draft.temporaryBuffs);
   const autoBattleSkills = ensureArray(draft.autoBattleSkills);
@@ -7032,6 +7118,48 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
               'wide',
               slot,
               '点击后输入名称或 ID 搜索装备模板',
+            )}
+          </div>
+        `}
+      </div>
+    `;
+  }).join('');
+
+  const artifactMarkup = artifacts.slots.map((entry, index) => {
+    const item = entry.item;
+    const stateLabel = entry.unlocked ? (entry.enabled ? '启用' : '停用') : '未解锁';
+    const qiLabel = `灵力 ${Math.max(0, Math.trunc(Number(entry.qi) || 0))} / ${Math.max(0, Math.trunc(Number(entry.maxQi) || 0))}`;
+    return `
+      <div class="editor-card">
+        <div class="editor-card-head">
+          <div>
+            <div class="editor-card-title">${escapeHtml(getArtifactSlotLabel(entry.slot))}</div>
+            <div class="editor-card-meta" data-preview="artifact-title" data-slot="${entry.slot}">${escapeHtml(getEquipmentCardTitle(item))}</div>
+            <div class="editor-card-meta" data-preview="artifact-meta" data-slot="${entry.slot}">${escapeHtml(`${stateLabel} · ${getEquipmentCardMeta(item)} · ${qiLabel}`)}</div>
+          </div>
+          <div class="button-row">
+            ${item
+              ? `<button class="small-btn danger" type="button" data-action="clear-artifact" data-index="${index}">清空槽位</button>`
+              : `<button class="small-btn" type="button" data-action="create-artifact-from-catalog" data-index="${index}"${catalogActionDisabled}>加入槽位</button>`}
+          </div>
+        </div>
+        <div class="editor-grid compact">
+          ${checkboxField('已解锁', `artifacts.slots.${index}.unlocked`, entry.unlocked)}
+          ${checkboxField('启用', `artifacts.slots.${index}.enabled`, entry.enabled)}
+          ${numberField('当前灵力', `artifacts.slots.${index}.qi`, entry.qi)}
+          ${numberField('最大灵力', `artifacts.slots.${index}.maxQi`, entry.maxQi)}
+        </div>
+        ${item ? getItemEditorControls(`artifacts.slots.${index}.item`, item, 'artifact') : `
+          <div class="editor-note">从下方选择法宝模板后即可快速塞入这个槽位。</div>
+          <div class="editor-grid compact">
+            ${searchableItemField(
+              '法宝模板',
+              '',
+              'artifact-slot',
+              { 'data-catalog-select': 'artifact', 'data-index': String(index) },
+              'wide',
+              undefined,
+              '点击后输入名称或 ID 搜索法宝模板',
             )}
           </div>
         `}
@@ -7650,11 +7778,12 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
     <section class="editor-section">
       <div class="editor-section-head">
         <div>
-          <div class="editor-section-title">装备</div>
-          <div class="editor-section-note">五个装备槽独立编辑。</div>
+          <div class="editor-section-title">已装备</div>
+          <div class="editor-section-note">战斗装备、技艺工具与法宝槽独立编辑；法宝仍写入独立法宝真源。</div>
         </div>
       </div>
       <div class="editor-card-list">${equipmentMarkup}</div>
+      <div class="editor-card-list">${artifactMarkup}</div>
     </section>
     `)}
 
@@ -8077,10 +8206,14 @@ function applyCatalogBindingChange(path: string, value: string): boolean {
   if (!draftSnapshot) return false;
 
   const inventoryMatch = path.match(/^inventory\.items\.(\d+)\.itemId$/);
-  const equipmentMatch = path.match(/^equipment\.(weapon|head|body|legs|accessory)\.itemId$/);
+  const rawEquipmentMatch = path.match(/^equipment\.([^.]+)\.itemId$/);
+  const equipmentMatch = rawEquipmentMatch && EQUIP_SLOTS.includes(rawEquipmentMatch[1] as EquipSlot)
+    ? rawEquipmentMatch
+    : null;
+  const artifactMatch = path.match(/^artifacts\.slots\.(\d+)\.item\.itemId$/);
   const techniqueMatch = path.match(/^techniques\.(\d+)\.techId$/);
   const buffMatch = path.match(/^temporaryBuffs\.(\d+)\.buffId$/);
-  if ((inventoryMatch || equipmentMatch || techniqueMatch || buffMatch) && !hasServerEditorCatalog()) {
+  if ((inventoryMatch || equipmentMatch || artifactMatch || techniqueMatch || buffMatch) && !hasServerEditorCatalog()) {
     setStatus(t('gm.editor.catalog.binding-unavailable'), true);
     /** lastEditorStructureKey：last编辑器Structure Key。 */
     lastEditorStructureKey = null;
@@ -8101,7 +8234,17 @@ function applyCatalogBindingChange(path: string, value: string): boolean {
 
   if (equipmentMatch) {
     const slot = equipmentMatch[1] as EquipSlot;
-    draftSnapshot.equipment[slot] = createItemFromCatalog(value);
+    draftSnapshot.equipment[slot] = value ? createItemFromCatalog(value) : null;
+    /** changed：changed。 */
+    changed = true;
+  }
+
+  if (artifactMatch) {
+    const index = Number(artifactMatch[1]);
+    draftSnapshot.artifacts = normalizeGmArtifactState(draftSnapshot.artifacts);
+    if (draftSnapshot.artifacts.slots[index]) {
+      draftSnapshot.artifacts.slots[index].item = value ? createItemFromCatalog(value) : null;
+    }
     /** changed：changed。 */
     changed = true;
   }
@@ -9895,6 +10038,19 @@ function buildEquipmentItemSaveSnapshot(item: ItemStack | null): ItemStack | nul
     desc: item.desc,
     equipSlot: item.equipSlot,
     enhanceLevel: item.enhanceLevel,
+    artifactMaxQiFactor: item.artifactMaxQiFactor,
+    artifactEffects: item.artifactEffects ? clone(item.artifactEffects) : undefined,
+  };
+}
+
+function buildArtifactSlotSaveSnapshot(entry: PlayerState['artifacts']['slots'][number]): PlayerState['artifacts']['slots'][number] {
+  return {
+    slot: entry.slot,
+    unlocked: entry.unlocked === true,
+    enabled: entry.enabled === true,
+    qi: Math.max(0, Math.trunc(Number(entry.qi) || 0)),
+    maxQi: Math.max(0, Math.trunc(Number(entry.maxQi) || 0)),
+    item: buildEquipmentItemSaveSnapshot(entry.item),
   };
 }
 
@@ -9971,6 +10127,10 @@ function buildSectionSnapshot(section: GmPlayerUpdateSection, draft: PlayerState
         equipment: Object.fromEntries(
           EQUIP_SLOTS.map((slot) => [slot, buildEquipmentItemSaveSnapshot(draft.equipment[slot])]),
         ) as EquipmentSlots,
+        artifacts: {
+          revision: Math.max(0, Math.trunc(Number(draft.artifacts?.revision) || 0)),
+          slots: normalizeGmArtifactState(draft.artifacts).slots.map((entry) => buildArtifactSlotSaveSnapshot(entry)),
+        },
       };
     case 'quests':
       return {
@@ -11405,6 +11565,34 @@ function handleEditorAction(action: string, trigger: HTMLElement): void {
       if (!slot) return;
       mutateDraft((draft) => {
         draft.equipment[slot] = null;
+      });
+      break;
+    case 'create-artifact-from-catalog': {
+      if (!Number.isInteger(index) || index < 0) return;
+      if (!hasServerEditorCatalog()) {
+        setStatus(t('gm.editor.catalog.equipment-unavailable'), true);
+        return;
+      }
+      const itemId = readCatalogSelectValue('artifact', undefined, index);
+      if (!itemId) {
+        setStatus('请选择法宝模板', true);
+        return;
+      }
+      mutateDraft((draft) => {
+        draft.artifacts = normalizeGmArtifactState(draft.artifacts);
+        if (draft.artifacts.slots[index]) {
+          draft.artifacts.slots[index].item = createItemFromCatalog(itemId);
+        }
+      });
+      break;
+    }
+    case 'clear-artifact':
+      if (!Number.isInteger(index) || index < 0) return;
+      mutateDraft((draft) => {
+        draft.artifacts = normalizeGmArtifactState(draft.artifacts);
+        if (draft.artifacts.slots[index]) {
+          draft.artifacts.slots[index].item = null;
+        }
       });
       break;
     case 'add-auto-skill':

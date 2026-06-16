@@ -4,7 +4,7 @@
  * 维护时优先保持局部更新和原有交互状态，不在 UI 层裁定资产、战斗或移动合法性。
  */
 import type { MarketListedItemView, MarketOrderBookView, MarketOwnOrderView, MarketStorage, S2C_MarketUpdate } from '@mud/shared';
-import { EQUIP_SLOTS, ITEM_TYPES, MARKET_MAX_ENHANCE_LEVEL, createItemStackSignature } from '@mud/shared';
+import { COMBAT_EQUIP_SLOTS, ITEM_TYPES, MARKET_MAX_ENHANCE_LEVEL, TECHNIQUE_EQUIP_SLOTS, createItemStackSignature } from '@mud/shared';
 import { formatDisplayCountBadge, formatDisplayInteger } from '../../utils/number';
 import { getEquipSlotLabel, getItemTypeLabel, getTechniqueCategoryLabel } from '../../domain-labels';
 import { t } from '../i18n';
@@ -28,6 +28,10 @@ function escapeHtml(value: unknown): string {
 }
 function escapeHtmlAttr(value: unknown): string {
   return escapeHtml(value);
+}
+
+function isTechniqueEquipmentSlot(slot: unknown): boolean {
+  return typeof slot === 'string' && (TECHNIQUE_EQUIP_SLOTS as readonly string[]).includes(slot);
 }
 
 const MARKET_TECHNIQUE_FILTERS: Array<{ id: MarketTechniqueFilter; label: string }> = [
@@ -396,7 +400,12 @@ export class MarketBrowseView {
     const listedItems = p.getKnownListedItems(update);
     const categories: Array<{ id: MarketEquipmentFilter; label: string; count: number }> = [
       { id: 'all', label: t('market.filter.equipment-all', undefined), count: this.getMarketEquipmentSlotCount('all', listedItems.filter((item) => item.item.type === 'equipment').length) },
-      ...EQUIP_SLOTS.map((slot) => ({ id: slot, label: getEquipSlotLabel(slot), count: this.getMarketEquipmentSlotCount(slot, listedItems.filter((item) => item.item.type === 'equipment' && item.item.equipSlot === slot).length) })),
+      ...COMBAT_EQUIP_SLOTS.map((slot) => ({ id: slot, label: getEquipSlotLabel(slot), count: this.getMarketEquipmentSlotCount(slot, listedItems.filter((item) => item.item.type === 'equipment' && item.item.equipSlot === slot).length) })),
+      {
+        id: 'technique',
+        label: '技艺',
+        count: this.getMarketEquipmentSlotCount('technique', listedItems.filter((item) => item.item.type === 'equipment' && isTechniqueEquipmentSlot(item.item.equipSlot)).length),
+      },
     ];
     return categories.map((category) => `
       <button class="market-category-tab ${p.activeEquipmentCategory === category.id ? 'active' : ''}" data-market-equipment-category="${category.id}" type="button">${escapeHtml(category.label)}<span>${formatDisplayInteger(category.count)}</span></button>

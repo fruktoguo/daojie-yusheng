@@ -13,6 +13,7 @@ import {
   DEFAULT_BASE_ATTRS,
   DEFAULT_INVENTORY_CAPACITY,
   Direction,
+  ARTIFACT_SLOTS,
   EQUIP_SLOTS,
   VIEW_RADIUS,
   getBodyTrainingExpToNext,
@@ -1563,6 +1564,34 @@ export class NativeGmPlayerService {
         }
         next.equipment.revision += 1;
       }
+      if (snapshot.artifacts && typeof snapshot.artifacts === 'object' && Array.isArray(snapshot.artifacts.slots)) {
+        next.artifacts ??= { revision: 1, slots: [] };
+        if (!Array.isArray(next.artifacts.slots)) {
+          next.artifacts.slots = [];
+        }
+        const submittedSlotsByType = new Map(snapshot.artifacts.slots.map((entry) => [entry?.slot, entry]));
+        for (const slot of ARTIFACT_SLOTS) {
+          const submittedSlot = submittedSlotsByType.get(slot);
+          if (!submittedSlot || typeof submittedSlot !== 'object') {
+            continue;
+          }
+          const submittedRecord = submittedSlot as Record<string, any>;
+          let record = next.artifacts.slots.find((entry) => entry.slot === slot);
+          if (!record) {
+            record = { slot, unlocked: false, enabled: false, qi: 0, maxQi: 0, item: null };
+            next.artifacts.slots.push(record);
+          }
+          record.unlocked = submittedRecord.unlocked === true;
+          record.enabled = submittedRecord.enabled === true;
+          record.qi = Number.isFinite(submittedRecord.qi) ? Math.max(0, Math.trunc(submittedRecord.qi)) : 0;
+          record.maxQi = Number.isFinite(submittedRecord.maxQi) ? Math.max(0, Math.trunc(submittedRecord.maxQi)) : 0;
+          const item = submittedRecord.item;
+          record.item = item && typeof item.itemId === 'string' && item.itemId.trim()
+            ? this.normalizeGmEquipmentItemForSave(record.item, item)
+            : null;
+        }
+        next.artifacts.revision = Math.max(1, Math.trunc(Number(next.artifacts.revision) || 1) + 1);
+      }
     }
 
     if (section === 'quests' && Array.isArray(snapshot.quests)) {
@@ -1777,6 +1806,38 @@ export class NativeGmPlayerService {
         persisted.equipment.slots = nextSlots;
         persisted.equipment.revision = Math.max(1, (persisted.equipment.revision ?? 1) + 1);
       }
+      if (snapshot.artifacts && typeof snapshot.artifacts === 'object' && Array.isArray(snapshot.artifacts.slots)) {
+        persisted.artifacts ??= { revision: 1, slots: [] };
+        const currentSlotsByType = new Map(
+          (Array.isArray(persisted.artifacts.slots) ? persisted.artifacts.slots : [])
+            .map((entry) => [entry?.slot, entry]),
+        );
+        const submittedSlotsByType = new Map(snapshot.artifacts.slots.map((entry) => [entry?.slot, entry]));
+        persisted.artifacts.slots = ARTIFACT_SLOTS.map((slot) => {
+          const currentSlot = currentSlotsByType.get(slot);
+          const submittedSlot = submittedSlotsByType.get(slot);
+          if (!submittedSlot || typeof submittedSlot !== 'object') {
+            return currentSlot ?? { slot, unlocked: false, enabled: false, qi: 0, maxQi: 0, item: null };
+          }
+          const submittedRecord = submittedSlot as Record<string, any>;
+          const currentRecord = currentSlot && typeof currentSlot === 'object'
+            ? currentSlot as Record<string, any>
+            : null;
+          const item = submittedRecord.item;
+          return {
+            slot,
+            unlocked: submittedRecord.unlocked === true,
+            enabled: submittedRecord.enabled === true,
+            qi: Number.isFinite(submittedRecord.qi) ? Math.max(0, Math.trunc(submittedRecord.qi)) : 0,
+            maxQi: Number.isFinite(submittedRecord.maxQi) ? Math.max(0, Math.trunc(submittedRecord.maxQi)) : 0,
+            item:
+              item && typeof item.itemId === 'string' && item.itemId.trim()
+                ? this.normalizeGmEquipmentItemForSave(currentRecord?.item, item)
+                : null,
+          };
+        });
+        persisted.artifacts.revision = Math.max(1, (persisted.artifacts.revision ?? 1) + 1);
+      }
     }
 
     if (section === 'quests' && Array.isArray(snapshot.quests)) {
@@ -1920,7 +1981,10 @@ export class NativeGmPlayerService {
         domains,
         {
           allowInventoryEmptyOverwrite: domains.includes('inventory') && Array.isArray(submittedSnapshot?.inventory?.items),
-          allowEquipmentEmptyOverwrite: domains.includes('equipment') && submittedSnapshot?.equipment && typeof submittedSnapshot.equipment === 'object',
+          allowEquipmentEmptyOverwrite: (
+            (domains.includes('equipment') && submittedSnapshot?.equipment && typeof submittedSnapshot.equipment === 'object')
+            || (domains.includes('artifact') && submittedSnapshot?.artifacts && typeof submittedSnapshot.artifacts === 'object')
+          ),
           allowBuffEmptyOverwrite: domains.includes('buff') && Array.isArray(submittedSnapshot?.temporaryBuffs),
         },
       );
@@ -1968,6 +2032,7 @@ export class NativeGmPlayerService {
     } else if (section === 'items') {
       domains.add('inventory');
       domains.add('equipment');
+      domains.add('artifact');
     } else if (section === 'quests') {
       domains.add('quest');
     }
@@ -2850,6 +2915,7 @@ export class NativeGmPlayerService {
         items: snapshot.inventory.items.map((entry) => ({ ...entry })),
       },
       equipment: toLegacyEquipmentSlots(snapshot.equipment.slots),
+      artifacts: toLegacyArtifactSlots(snapshot.artifacts),
       techniques: snapshot.techniques.techniques.map((entry) => ({ ...entry })),
       actions: snapshot.actions.actions.map((entry) => ({ ...entry })),
       quests: snapshot.quests.quests.map((entry) => ({
@@ -2949,6 +3015,7 @@ export class NativeGmPlayerService {
         items: Array.isArray(snapshot.inventory.items) ? snapshot.inventory.items.map((entry) => ({ ...entry })) : [],
       },
       equipment: toLegacyEquipmentSlots(snapshot.equipment.slots),
+      artifacts: toLegacyArtifactSlots(snapshot.artifacts),
       techniques: Array.isArray(snapshot.techniques.techniques)
         ? snapshot.techniques.techniques.map((entry) => ({ ...entry }))
         : [],
@@ -3095,6 +3162,40 @@ function decodePersistedRawBaseAttrs(source) {
   }
   return normalizeRawBaseAttrs(source);
 }
+
+function createEmptyLegacyArtifactSlot(slot) {
+  return {
+    slot,
+    unlocked: false,
+    enabled: false,
+    qi: 0,
+    maxQi: 0,
+    item: null,
+  };
+}
+
+function toLegacyArtifactSlots(artifacts) {
+  const slots = Array.isArray(artifacts?.slots) ? artifacts.slots : [];
+  const bySlot = new Map(slots.map((entry) => [entry.slot, entry]));
+  return {
+    revision: Number.isFinite(artifacts?.revision) ? Math.max(0, Math.trunc(artifacts.revision)) : 1,
+    slots: ARTIFACT_SLOTS.map((slot) => {
+      const entry = bySlot.get(slot) ?? null;
+      if (!entry || typeof entry !== 'object') {
+        return createEmptyLegacyArtifactSlot(slot);
+      }
+      const record = entry as Record<string, any>;
+      return {
+        slot,
+        unlocked: record.unlocked === true,
+        enabled: record.enabled === true,
+        qi: Number.isFinite(record.qi) ? Math.max(0, Math.trunc(record.qi)) : 0,
+        maxQi: Number.isFinite(record.maxQi) ? Math.max(0, Math.trunc(record.maxQi)) : 0,
+        item: record.item ? { ...record.item } : null,
+      };
+    }),
+  };
+}
 /**
  * toLegacyEquipmentSlots：执行toLegacy装备Slot相关逻辑。
  * @param slots 参数说明。
@@ -3103,15 +3204,8 @@ function decodePersistedRawBaseAttrs(source) {
 
 
 function toLegacyEquipmentSlots(slots) {
-  const bySlot = new Map(slots.map((entry) => [entry.slot, entry.item ? { ...entry.item } : null]));
-
-  return {
-    weapon: bySlot.get('weapon') ?? null,
-    head: bySlot.get('head') ?? null,
-    body: bySlot.get('body') ?? null,
-    legs: bySlot.get('legs') ?? null,
-    accessory: bySlot.get('accessory') ?? null,
-  };
+  const bySlot = new Map((Array.isArray(slots) ? slots : []).map((entry) => [entry.slot, entry.item ? { ...entry.item } : null]));
+  return Object.fromEntries(EQUIP_SLOTS.map((slot) => [slot, bySlot.get(slot) ?? null]));
 }
 /**
  * cloneRatioDivisors：判断RatioDivisor是否满足条件。

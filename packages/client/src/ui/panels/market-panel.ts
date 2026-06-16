@@ -9,12 +9,12 @@ import {
   AuctionHouseTab,
   C2S_RequestAuctionListings,
   C2S_RequestMarketListings,
+  COMBAT_EQUIP_SLOTS,
   computeBestEnhancementExpectedCost,
   calculateMarketTradeTotalCost,
   createItemStackSignature,
   EnhancementExpectedCostStrategy,
   AUCTION_DEFAULT_DURATION_HOURS,
-  EQUIP_SLOTS,
   EquipSlot,
   HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID,
   HEAVENLY_DAO_SHOP_ITEMS,
@@ -39,6 +39,7 @@ import {
   S2C_MarketStorage,
   S2C_MarketTradeHistory,
   S2C_MarketUpdate,
+  TECHNIQUE_EQUIP_SLOTS,
   TechniqueCategory,
   getItemDisplayName,
   getMarketPriceStep,
@@ -92,6 +93,10 @@ function replaceElementHtml(root: HTMLElement, html: string): void {
 /** 复用同一套转义逻辑，避免属性值注入。 */
 function escapeHtmlAttr(value: unknown): string {
   return escapeHtml(value);
+}
+
+function isTechniqueEquipmentSlot(slot: unknown): boolean {
+  return typeof slot === 'string' && (TECHNIQUE_EQUIP_SLOTS as readonly string[]).includes(slot);
 }
 
 /** 拼出一行普通提示文本，供 tooltip 复用。 */
@@ -168,7 +173,7 @@ interface MarketPanelCallbacks {
 /** 市场主分类筛选项。 */
 type MarketCategoryFilter = 'all' | ItemType;
 /** 装备子分类筛选项。 */
-type MarketEquipmentFilter = 'all' | EquipSlot;
+type MarketEquipmentFilter = 'all' | 'technique' | EquipSlot;
 /** 功法书子分类筛选项。 */
 type MarketTechniqueFilter = 'all' | TechniqueCategory;
 /** 交易弹窗的方向。 */
@@ -2354,11 +2359,16 @@ export class MarketPanel {
         label: t('market.filter.equipment-all', undefined),
         count: this.getMarketEquipmentSlotCount('all', listedItems.filter((item) => item.item.type === 'equipment').length),
       },
-      ...EQUIP_SLOTS.map((slot) => ({
+      ...COMBAT_EQUIP_SLOTS.map((slot) => ({
         id: slot,
         label: getEquipSlotLabel(slot),
         count: this.getMarketEquipmentSlotCount(slot, listedItems.filter((item) => item.item.type === 'equipment' && item.item.equipSlot === slot).length),
       })),
+      {
+        id: 'technique',
+        label: '技艺',
+        count: this.getMarketEquipmentSlotCount('technique', listedItems.filter((item) => item.item.type === 'equipment' && isTechniqueEquipmentSlot(item.item.equipSlot)).length),
+      },
     ];
     return categories
       .map((category) => `
@@ -2431,7 +2441,9 @@ export class MarketPanel {
       items = items.filter((item) => item.item.type === this.activeCategory);
     }
     if (this.activeCategory === 'equipment' && this.activeEquipmentCategory !== 'all') {
-      items = items.filter((item) => item.item.equipSlot === this.activeEquipmentCategory);
+      items = this.activeEquipmentCategory === 'technique'
+        ? items.filter((item) => isTechniqueEquipmentSlot(item.item.equipSlot))
+        : items.filter((item) => item.item.equipSlot === this.activeEquipmentCategory);
     }
     if (this.activeCategory === 'skill_book' && this.activeTechniqueCategory !== 'all') {
       items = items.filter((item) => this.resolveTechniqueCategoryForItem(item.item) === this.activeTechniqueCategory);

@@ -5,7 +5,7 @@
  */
 import { BadRequestException, Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { createHash, randomUUID } from 'crypto';
-import { AUCTION_DEFAULT_DURATION_HOURS, AUCTION_LISTING_FEE_BASE, AUCTION_LISTING_FEE_RATE, AUCTION_MAX_DURATION_HOURS, AUCTION_MIN_DURATION_HOURS, EQUIP_SLOTS, HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID, HEAVENLY_DAO_SHOP_ITEMS, ITEM_TYPES, MARKET_MAX_ENHANCE_LEVEL, MARKET_MAX_UNIT_PRICE, calculateMarketTradeTotalCost, canMergeItemStack, createItemStackSignature, getItemDisplayName, getMarketMinimumTradeQuantity, getMarketPriceStep, isValidMarketPrice, isValidMarketTradeQuantity, normalizeMarketPriceUp } from '@mud/shared';
+import { AUCTION_DEFAULT_DURATION_HOURS, AUCTION_LISTING_FEE_BASE, AUCTION_LISTING_FEE_RATE, AUCTION_MAX_DURATION_HOURS, AUCTION_MIN_DURATION_HOURS, EQUIP_SLOTS, HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID, HEAVENLY_DAO_SHOP_ITEMS, ITEM_TYPES, MARKET_MAX_ENHANCE_LEVEL, MARKET_MAX_UNIT_PRICE, TECHNIQUE_EQUIP_SLOTS, calculateMarketTradeTotalCost, canMergeItemStack, createItemStackSignature, getItemDisplayName, getMarketMinimumTradeQuantity, getMarketPriceStep, isValidMarketPrice, isValidMarketTradeQuantity, normalizeMarketPriceUp } from '@mud/shared';
 import { assignItemInstanceIdIfNeeded } from '../world/item-instance-id.helpers';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { AUCTION_GLOBAL_TRADE_HISTORY_LIMIT, AUCTION_MY_TRADE_HISTORY_VISIBLE_LIMIT, AUCTION_TRADE_HISTORY_PAGE_SIZE, MARKET_CURRENCY_ITEM_ID, MARKET_MAX_ORDER_QUANTITY, MARKET_STORAGE_RUNTIME_CACHE_LIMIT, MARKET_TRADE_HISTORY_PAGE_SIZE, MARKET_TRADE_HISTORY_RUNTIME_CACHE_LIMIT, MARKET_TRADE_HISTORY_VISIBLE_LIMIT } from '../../constants/gameplay/market';
@@ -319,11 +319,17 @@ export class MarketRuntimeService {
             if (category !== 'all' && entry.itemType !== category) {
                 return false;
             }
-            if (equipmentSlot !== 'all' && (
-                entry.itemType !== 'equipment'
-                || entry.itemSubType !== equipmentSlot
-            )) {
-                return false;
+            if (equipmentSlot !== 'all') {
+                if (entry.itemType !== 'equipment') {
+                    return false;
+                }
+                if (equipmentSlot === 'technique') {
+                    if (!TECHNIQUE_EQUIP_SLOTS.includes(entry.itemSubType)) {
+                        return false;
+                    }
+                } else if (entry.itemSubType !== equipmentSlot) {
+                    return false;
+                }
             }
             if (techniqueCategory !== 'all' && (
                 entry.itemType !== 'skill_book'
@@ -352,7 +358,11 @@ export class MarketRuntimeService {
         const equipmentEntries = this.filterMarketListingEntries(entries, 'equipment', 'all', 'all');
         const equipmentSlotCounts = {
             all: this.groupMarketListingEntriesForPage(equipmentEntries).length,
+            technique: 0,
         };
+        equipmentSlotCounts.technique = this.groupMarketListingEntriesForPage(
+            this.filterMarketListingEntries(entries, 'equipment', 'technique', 'all'),
+        ).length;
         for (const slot of EQUIP_SLOTS) {
             equipmentSlotCounts[slot] = this.groupMarketListingEntriesForPage(
                 this.filterMarketListingEntries(entries, 'equipment', slot, 'all'),

@@ -9,7 +9,9 @@
  */
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import {
+  ARTIFACT_SLOTS,
   DEFAULT_BASE_ATTRS,
+  EQUIP_SLOTS,
   VIEW_RADIUS,
   type GmListPlayersQuery,
   type GmManagedPlayerSummary,
@@ -838,6 +840,7 @@ export class NativeGmStateQueryService {
         items: snapshot.inventory.items.map((entry) => ({ ...entry })),
       },
       equipment: toLegacyEquipmentSlots(snapshot.equipment.slots),
+      artifacts: toLegacyArtifactSlots(snapshot.artifacts),
       techniques: snapshot.techniques.techniques.map((entry) => ({ ...entry })),
       actions: snapshot.actions.actions.map((entry) => ({ ...entry })),
       quests: snapshot.quests.quests.map((entry) => ({
@@ -926,6 +929,7 @@ export class NativeGmStateQueryService {
         items: Array.isArray(snapshot.inventory.items) ? snapshot.inventory.items.map((entry) => ({ ...entry })) : [],
       },
       equipment: toLegacyEquipmentSlots(snapshot.equipment.slots),
+      artifacts: toLegacyArtifactSlots(snapshot.artifacts),
       techniques: Array.isArray(snapshot.techniques.techniques)
         ? snapshot.techniques.techniques.map((entry) => ({ ...entry }))
         : [],
@@ -1463,14 +1467,41 @@ function decodePersistedRawBaseAttrs(source) {
 
 
 function toLegacyEquipmentSlots(slots) {
-  const bySlot = new Map(slots.map((entry) => [entry.slot, entry.item ? { ...entry.item } : null]));
+  const bySlot = new Map((Array.isArray(slots) ? slots : []).map((entry) => [entry.slot, entry.item ? { ...entry.item } : null]));
+  return Object.fromEntries(EQUIP_SLOTS.map((slot) => [slot, bySlot.get(slot) ?? null]));
+}
 
+function createEmptyLegacyArtifactSlot(slot) {
   return {
-    weapon: bySlot.get('weapon') ?? null,
-    head: bySlot.get('head') ?? null,
-    body: bySlot.get('body') ?? null,
-    legs: bySlot.get('legs') ?? null,
-    accessory: bySlot.get('accessory') ?? null,
+    slot,
+    unlocked: false,
+    enabled: false,
+    qi: 0,
+    maxQi: 0,
+    item: null,
+  };
+}
+
+function toLegacyArtifactSlots(artifacts) {
+  const slots = Array.isArray(artifacts?.slots) ? artifacts.slots : [];
+  const bySlot = new Map(slots.map((entry) => [entry.slot, entry]));
+  return {
+    revision: Number.isFinite(artifacts?.revision) ? Math.max(0, Math.trunc(artifacts.revision)) : 1,
+    slots: ARTIFACT_SLOTS.map((slot) => {
+      const entry = bySlot.get(slot);
+      if (!entry || typeof entry !== 'object') {
+        return createEmptyLegacyArtifactSlot(slot);
+      }
+      const record = entry as Record<string, any>;
+      return {
+        slot,
+        unlocked: record.unlocked === true,
+        enabled: record.enabled === true,
+        qi: Number.isFinite(record.qi) ? Math.max(0, Math.trunc(record.qi)) : 0,
+        maxQi: Number.isFinite(record.maxQi) ? Math.max(0, Math.trunc(record.maxQi)) : 0,
+        item: record.item ? { ...record.item } : null,
+      };
+    }),
   };
 }
 /**

@@ -199,7 +199,9 @@ export function getResolvedItemDisplayName(
     || fallback;
   const itemType = entry?.type ?? item?.type;
   const enhanceLevel = normalizeEnhanceLevel(item?.enhanceLevel);
-  return itemType === 'equipment' ? formatEnhancedItemName(baseName, enhanceLevel) : baseName;
+  return itemType === 'equipment' || itemType === 'artifact'
+    ? formatEnhancedItemName(baseName, enhanceLevel)
+    : baseName;
 }
 
 /** 解析物品列表元信息，优先目录类型、部位、等级和品阶，再补实例数量与强化等级。 */
@@ -220,7 +222,7 @@ export function getResolvedInventoryRowMeta(editorCatalog: EditorCatalog, item: 
     parts.push(String(grade));
   }
   const enhanceLevel = normalizeEnhanceLevel(item.enhanceLevel);
-  if (itemType === 'equipment' && enhanceLevel > 0) {
+  if ((itemType === 'equipment' || itemType === 'artifact') && enhanceLevel > 0) {
     parts.push(`+${enhanceLevel}`);
   }
   if (Number.isFinite(item.count)) {
