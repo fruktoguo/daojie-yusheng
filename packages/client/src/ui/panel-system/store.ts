@@ -114,6 +114,14 @@ export class PanelSystemStore {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const previousState = this.getState();
+    // 字段级守卫：与 createExternalStore.patchState 的 hasPatchChanges 范式一致，
+    // 只有 patch 字段真正变化才构造新状态并 emit，避免事件驱动路径上的无效通知与对象分配。
+    const hasChanges = (Object.keys(patch) as (keyof PanelSystemState)[]).some(
+      (key) => !Object.is(previousState[key], patch[key]),
+    );
+    if (!hasChanges) {
+      return;
+    }
     this.state = {
       ...this.state,
       ...patch,

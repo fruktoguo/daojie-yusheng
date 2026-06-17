@@ -792,6 +792,9 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
         next.items[slotPatch.slotIndex] = hydrateSyncedItemStack(slotPatch.item, next.items[slotPatch.slotIndex]);
         continue;
       }
+      // 不变量：服务端在 inventory length 减少时必然协同 emit patch.size，上方 patch.size 截断会先把末尾
+      // 连续的 null slot 移除，使末尾 null slot 的 slotIndex 越界、splice 退化为 no-op；中段移除则由服务端
+      // diff 保证不产生中段 null slot。新增 delta 路径若要 emit 中段 null slot，必须同时带上 size。
       next.items.splice(slotPatch.slotIndex, 1);
     }
     return next;
