@@ -407,7 +407,10 @@ export class TechniqueActivityPipelineService {
     }
 
     const job = getStrategyActiveJob(strategy, player) as any;
-    if (!job || Number(job.remainingTicks) <= 0) return errorCancelLifecycleResult(kind, '当前没有进行中的任务。');
+    // 仅以 job 是否存在作为前置条件：remainingTicks<=0 的僵死/历史遗留 job 也必须能被取消清理，
+    // 否则会既无法推进（tick 守卫）也无法取消，永久卡死。各策略 computeRefund 负责权威清理释放锁定资源，
+    // 即便 computeRefund 未清理，骨架在下方也会兜底置空 active job 防止卡死。
+    if (!job) return errorCancelLifecycleResult(kind, '当前没有进行中的任务。');
 
     // 计算退还
     const refund = strategy.computeRefund(player, job, ctx);

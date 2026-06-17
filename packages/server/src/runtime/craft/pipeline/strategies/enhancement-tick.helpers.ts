@@ -15,8 +15,27 @@ import type { PipelineContext } from '../technique-activity-strategy';
 export function executeEnhancementTick(craftService: any, player: any, ctx: PipelineContext): unknown {
   craftService.ensureCraftSkills(player);
   const job = player?.enhancementJob;
-  if (!job || Number(job.remainingTicks) <= 0) {
+  if (!job) {
     return buildEnhancementTickResult();
+  }
+  if (Number(job.remainingTicks) <= 0) {
+    // 僵死自愈：remainingTicks 已耗尽但 job 仍未清理（损坏/历史遗留，常伴随 phase=paused
+    // 与 workRemainingTicks 背离），走权威清理释放锁定装备、写记录、清 job，避免永久卡死。
+    const resultingLevel = Math.max(0, Math.floor(Number(job.currentLevel ?? 0)));
+    const finishResult = craftService.finishEnhancementJob(player, resultingLevel, 'stopped');
+    return buildEnhancementTickResult(
+      true,
+      [{
+        kind: 'system',
+        key: 'notice.craft.enhancement.cancelled',
+        vars: { itemName: job.targetItemName },
+        pills: [{ key: 'itemName', style: 'target' }],
+      }],
+      finishResult.inventoryChanged,
+      finishResult.equipmentChanged,
+      finishResult.attrChanged,
+      finishResult.groundDrops,
+    );
   }
 
   if (job.phase === 'paused') {

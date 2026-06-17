@@ -8,7 +8,11 @@ import type { TechniqueActivityRefundResult } from '@mud/shared';
 export function computeEnhancementCancelRefund(craftService: any, player: any): TechniqueActivityRefundResult {
   craftService.ensureCraftSkills(player);
   const job = player?.enhancementJob;
-  if (!job || Number(job.remainingTicks) <= 0) {
+  // 只要存在强化 job 就走权威清理：释放锁定装备、写记录、清 job。
+  // 不再因 remainingTicks<=0 提前返回——否则损坏/历史遗留的僵死 job（remainingTicks 与
+  // workRemainingTicks 背离、phase=paused 残留）会既无法推进也无法取消，永久卡死。
+  // finishEnhancementJob 含锁定工件丢失兜底，对异常状态同样安全。
+  if (!job) {
     return {
       items: [],
       spiritStones: 0,
@@ -16,7 +20,8 @@ export function computeEnhancementCancelRefund(craftService: any, player: any): 
     };
   }
 
-  const finishResult = craftService.finishEnhancementJob(player, job.currentLevel, 'cancelled');
+  const resultingLevel = Math.max(0, Math.floor(Number(job.currentLevel ?? 0)));
+  const finishResult = craftService.finishEnhancementJob(player, resultingLevel, 'cancelled');
   return {
     items: [],
     spiritStones: 0,
