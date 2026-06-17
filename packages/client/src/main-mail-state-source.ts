@@ -79,6 +79,9 @@ export function createMainMailStateSource(options: MainMailStateSourceOptions) {
 
     initFromPlayer(playerId: string): void {
       mailPanel.setPlayerId(playerId);
+      // bootstrap（首连/断线重连）后主动重拉摘要：断线期间可能收到新邮件或已发邮件被领取，
+      // setPlayerId 只刷新本地角标，不重新请求会导致 HUD 角标和摘要长期陈旧，玩家不重开邮件面板就看不到真实状态。
+      options.socket.sendRequestMailSummary();
     },    
     /**
  * clear：执行clear相关逻辑。
