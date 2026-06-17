@@ -864,6 +864,9 @@ export class PlayerProgressionService {
         player.hp = Math.min(player.maxHp, Math.max(1, player.hp));
         player.qi = Math.min(Math.round(player.maxQi ?? player.qi), Math.max(0, player.qi));
         player.dead = false;
+        // 复活/重置并 clamp hp/qi 后显式 bump selfRevision，确保客户端收到 hp/qi/dead 更新
+        // （applyResolvedRealmState 仅在 recalculate 且 attrs 真变时 bump，复活场景可能不 bump，导致 HUD 仍显示死亡/旧值）。
+        player.selfRevision += 1;
         return {
             changed: true,
             notices: [{
@@ -921,6 +924,10 @@ export class PlayerProgressionService {
         this.playerCountersPersistenceService?.setMax?.(player.playerId, 'highestRealmLv', preview.targetRealmLv);
         player.hp = player.maxHp;
         player.qi = player.maxQi;
+        // 突破后 hp/qi 全恢复，需显式 bump selfRevision 以确保客户端 SelfDelta 携带 hp/qi：
+        // buildSelfDelta 以 selfRevision 为唯一发送闸门，applyResolvedRealmState 仅在 recalculate 且 attrs 真变时 bump，
+        // 同 stage 突破（attrRecalculated=false）不会 recalculate，导致客户端 HUD 短暂显示旧血量直到下次 regen。
+        player.selfRevision += 1;
         return {
             changed: true,
             notices: [{
@@ -2318,6 +2325,9 @@ export class PlayerProgressionService {
         player.hp = Math.min(player.maxHp, Math.max(1, player.hp));
         player.qi = Math.min(Math.round(player.maxQi ?? player.qi), Math.max(0, player.qi));
         player.dead = false;
+        // 复活/重置并 clamp hp/qi 后显式 bump selfRevision，确保客户端收到 hp/qi/dead 更新
+        // （applyResolvedRealmState 仅在 recalculate 且 attrs 真变时 bump，复活场景可能不 bump，导致 HUD 仍显示死亡/旧值）。
+        player.selfRevision += 1;
     }
 };
 /**
