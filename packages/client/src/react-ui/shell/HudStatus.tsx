@@ -142,7 +142,10 @@ export function mountReactHudLinkActions(hudRoot: HTMLElement): boolean {
 }
 
 export function syncReactHudStatus(state: ReactHudStatusState): void {
-  hudStatusStore.setState(state);
+  // 改用 patchState 触发 hasPatchChanges 字段级守卫：战斗/修炼状态下每个 SelfDelta 都会重建 HUD 状态对象，
+  // DOM 路径已有 lastSignatures 字段去重，React 路径此处补齐同等的字段级守卫，
+  // 避免无字段变化的 setState 仍 emit（新对象引用必不等于旧对象）导致整组件无意义 reconciliation。
+  hudStatusStore.patchState(state);
 }
 
 export function setReactHudBreakthroughHandler(callback: (() => void) | null): void {
