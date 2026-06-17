@@ -806,9 +806,12 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
 
 
   function syncLatestObservedEntitiesFromRuntime(): void {
+    // setLatestObservedEntities 内部已对每个实体 decorateObservedEntity 并 rebuildObservedEntityMap，
+    // 此前紧接的 setLatestObservedEntityMap 会用未 decorate 的原始实体再 decorate 一次 + 再重建一次 Map，
+    // 属重复劳动（2 轮逐实体 decorate + 2 次 Map 构造），5000 人单服下每 tick 产生数百短命对象。
+    // 移除后 latestEntityMap 仍由 setLatestObservedEntities 正确建立（消费方仅 getLatestObservedEntityById）。
     const entities = getLatestObservedEntitiesSnapshot() as ObservedEntity[];
     options.setLatestObservedEntities(entities);
-    options.setLatestObservedEntityMap(new Map(entities.map((entity) => [entity.id, entity])));
   }  
   /**
  * finalizeMovementFrame：执行 movement 帧收尾。
