@@ -118,11 +118,38 @@ function restoreSelection(root: HTMLElement, snapshot: SelectionSnapshot | null)
   selection.addRange(range);
 }
 
-/** 在执行 mutate 前后自动保存和恢复 root 内的文本选区 */
+/** ScrollSnapshot：滚动位置快照。 */
+interface ScrollSnapshot {
+/** top：top相关字段。 */
+
+  top: number;
+/** left：left相关字段。 */
+
+  left: number;
+}
+
+/** captureScroll：保存root的滚动位置。 */
+function captureScroll(root: HTMLElement): ScrollSnapshot {
+  return { top: root.scrollTop, left: root.scrollLeft };
+}
+
+/** restoreScroll：恢复root的滚动位置。 */
+function restoreScroll(root: HTMLElement, snapshot: ScrollSnapshot): void {
+  // 新内容可能短于旧内容，浏览器会自动把越界的 scrollTop/Left 裁剪到 maxScrollTop/Left，无需手动 clamp。
+  root.scrollTop = snapshot.top;
+  root.scrollLeft = snapshot.left;
+}
+
+/** 在执行 mutate 前后自动保存和恢复 root 内的文本选区与滚动位置。
+ *  detailModalHost 等 modal 在 patch 时会 replaceChildren 重建 body 子节点，
+ *  当 body 自身是滚动容器（如 offline-gain / heaven-gate 变体）时滚动会丢失；
+ *  这里同时保留 root 的 scrollTop/scrollLeft，确保长列表 patch 后不跳回顶部，也不打断当前滚动位置。 */
 export function preserveSelection(root: HTMLElement, mutate: () => void): void {
-  const snapshot = captureSelection(root);
+  const selectionSnapshot = captureSelection(root);
+  const scrollSnapshot = captureScroll(root);
   mutate();
-  restoreSelection(root, snapshot);
+  restoreScroll(root, scrollSnapshot);
+  restoreSelection(root, selectionSnapshot);
 }
 
 
