@@ -72,6 +72,50 @@ function normalizeTechniqueActivityKind(kind) {
         : 'alchemy';
 }
 
+function normalizeText(value) {
+    return typeof value === 'string' ? value.trim() : '';
+}
+
+function hasRunningTechniqueActivityJob(job) {
+    return Boolean(job && (Number(job.remainingTicks) > 0 || Number(job.workRemainingTicks) > 0));
+}
+
+function isDuplicateTechniqueTransmissionStart(playerRuntimeService, teacherPlayerId, command) {
+    if (command?.kind !== 'startTechniqueTransmission') {
+        return false;
+    }
+    const mode = command.mode === 'scripture_recording' || command.mode === 'scripture_contemplation'
+        ? command.mode
+        : 'transmission';
+    const learnerPlayerId = mode === 'transmission'
+        ? normalizeText(command.learnerPlayerId)
+        : teacherPlayerId;
+    if (!learnerPlayerId || typeof playerRuntimeService?.getPlayer !== 'function') {
+        return false;
+    }
+    const learner = playerRuntimeService.getPlayer(learnerPlayerId);
+    const job = learner?.transmissionJob;
+    if (!hasRunningTechniqueActivityJob(job)) {
+        return false;
+    }
+    const jobType = normalizeText(job.jobType) || 'transmission';
+    if (jobType !== mode) {
+        return false;
+    }
+    if (mode === 'transmission') {
+        return normalizeText(job.techniqueId) === normalizeText(command.techniqueId)
+            && normalizeText(job.teacherPlayerId) === teacherPlayerId;
+    }
+    const buildingId = normalizeText(command.buildingId);
+    if (!buildingId || normalizeText(job.buildingId) !== buildingId) {
+        return false;
+    }
+    if (mode === 'scripture_recording') {
+        return normalizeText(job.techniqueId) === normalizeText(command.techniqueId);
+    }
+    return true;
+}
+
 function removeTechniqueActivityQueueItem(player, queueId) {
     const normalizedQueueId = typeof queueId === 'string' ? queueId.trim() : '';
     if (!normalizedQueueId || !player || typeof player !== 'object') {
@@ -643,6 +687,9 @@ export class WorldRuntimePlayerCommandService {
                 this.worldRuntimeCultivationService.dispatchForgetTechnique(playerId, command.techniqueId, deps);
                 return;
             case 'startTechniqueTransmission':
+                if (isDuplicateTechniqueTransmissionStart(this.playerRuntimeService, playerId, command)) {
+                    return;
+                }
                 if (command.mode === 'scripture_recording' || command.mode === 'scripture_contemplation') {
                     return this.dispatchStartTechniqueActivity(
                         playerId,

@@ -62,6 +62,8 @@ function isExpectedNavigationReject(message) {
 function isExpectedCombatReject(message) {
     return message === '没有可命中的目标'
         || message === '该目标无法被攻击'
+        || message === '正在吟唱中，无法继续施法。'
+        || message === '正在吟唱中，无法执行战斗动作。'
         || message === '目标超出攻击距离'
         || message === '目标超出技能范围'
         || message === '目标被遮挡'
@@ -74,6 +76,14 @@ function isExpectedCombatReject(message) {
         || (typeof message === 'string' && /^玩家 .+ 元气不足$/.test(message));
 }
 
+function isExpectedTechniqueActivityReject(message) {
+    return message === '学习者已有进行中的技艺任务。'
+        || message === '技艺任务队列已满。'
+        || message === '当前没有进行中的任务。'
+        || message === '没有进行中的传授'
+        || (typeof message === 'string' && /^当前没有可取消的.+任务。$/.test(message));
+}
+
 function isExpectedPendingCommandReject(command, message) {
     if (command?.kind === 'moveTo') {
         return isExpectedNavigationReject(message);
@@ -82,6 +92,25 @@ function isExpectedPendingCommandReject(command, message) {
         || command?.kind === 'basicAttack'
         || command?.kind === 'castSkill') {
         return isExpectedCombatReject(message);
+    }
+    if (command?.kind === 'startTechniqueTransmission'
+        || command?.kind === 'cancelTechniqueTransmission'
+        || command?.kind === 'startAlchemy'
+        || command?.kind === 'cancelAlchemy'
+        || command?.kind === 'startForging'
+        || command?.kind === 'cancelForging'
+        || command?.kind === 'startEnhancement'
+        || command?.kind === 'cancelEnhancement'
+        || command?.kind === 'startGather'
+        || command?.kind === 'cancelGather'
+        || command?.kind === 'startMining'
+        || command?.kind === 'cancelMining'
+        || command?.kind === 'startBuilding'
+        || command?.kind === 'cancelBuilding'
+        || command?.kind === 'startFormationMaintenance'
+        || command?.kind === 'cancelFormationMaintenance'
+        || command?.kind === 'cancelTechniqueActivity') {
+        return isExpectedTechniqueActivityReject(message);
     }
     return false;
 }
