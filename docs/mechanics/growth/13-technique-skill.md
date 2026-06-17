@@ -58,14 +58,17 @@ deriveTechniqueRealm(level, layers):
 未领悟功法使用 `requiredProgress/progress` 表示领悟总需求和当前进度。
 
 ```typescript
-requiredProgress = ceil(base × techniqueRealmLv × gradeFactor)
+rawRequiredProgress = base × techniqueRealmLv × gradeFactor
+requiredProgress = ceil(rawRequiredProgress × learnerPreFoundationRatio)
 ```
 
 `base`：普通功法 10，自创功法 300。
 
 `gradeFactor`：mortal=1, yellow=2, mystic=3, earth=4, heaven=5, spirit=6, saint=7, emperor=8。
 
-境界差、学习者传法技能、传授者传法技能不改变 `requiredProgress`，只改变每息获得的 `progressGain`：
+`learnerPreFoundationRatio`：学习者 1-30 级（筑基前）线性降低总需求，1 级为 0.05（减少 95%），30 级为 0.5（减少 50%）；31 级及以上为 1。该折减同时作用于普通功法和自创功法。未提供学习者境界的纯模板计算不折减。
+
+学习者传法技能、传授者传法技能不改变 `requiredProgress`，只改变每息获得的 `progressGain`。学习者境界同时参与筑基前总需求折减和每息速度修正：
 
 ```typescript
 progressGain = baseProgress / difficultyFactor

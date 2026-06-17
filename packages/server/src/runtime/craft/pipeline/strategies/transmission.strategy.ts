@@ -421,16 +421,12 @@ function validateScriptureRecordingStart(
   if (!isTechniqueEntryMaxed(technique)) {
     return { ok: false, error: '只有练满的功法可以录入藏经台。' };
   }
-  const requiredProgress = Math.max(
-    1,
-    Number(existingTechniqueId === techniqueId ? building.scriptureRequiredProgress : 0) || calculateTechniqueComprehensionRequiredProgress({
-      sourceKind: 'created',
-      techniqueRealmLv: technique.realmLv,
-      grade: technique.grade,
-      learnerRealmLv: recorder.realm?.realmLv ?? 1,
-      learnerTransmissionLevel: recorder.transmissionSkill?.level ?? 1,
-    }),
-  );
+  const requiredProgress = calculateTechniqueComprehensionRequiredProgress({
+    sourceKind: 'created',
+    techniqueRealmLv: technique.realmLv,
+    grade: technique.grade,
+    learnerRealmLv: recorder.realm?.realmLv ?? 1,
+  });
   return {
     ok: true,
     validated: {
@@ -475,16 +471,12 @@ function validateScriptureContemplationStart(
   if (learner.techniques?.techniques?.some((entry: any) => entry?.techId === techniqueId)) {
     return { ok: false, error: '已经掌握该功法。' };
   }
-  const requiredProgress = Math.max(
-    1,
-    Number(building.scriptureRequiredProgress) || calculateTechniqueComprehensionRequiredProgress({
-      sourceKind: 'created',
-      techniqueRealmLv: building.scriptureRealmLv,
-      grade: building.scriptureGrade,
-      learnerRealmLv: learner.realm?.realmLv ?? 1,
-      learnerTransmissionLevel: learner.transmissionSkill?.level ?? 1,
-    }),
-  );
+  const requiredProgress = calculateTechniqueComprehensionRequiredProgress({
+    sourceKind: 'created',
+    techniqueRealmLv: building.scriptureRealmLv,
+    grade: building.scriptureGrade,
+    learnerRealmLv: learner.realm?.realmLv ?? 1,
+  });
   return {
     ok: true,
     validated: {
@@ -741,7 +733,12 @@ function executeScriptureRecordingTick(recorder: any, job: PlayerTransmissionJob
     delete job.blockedReason;
   }
   const currentTick = resolvePlayerRuntimeTick(recorder);
-  const requiredProgress = Math.max(1, Number(building.scriptureRequiredProgress ?? job.workTotalTicks ?? job.totalTicks) || 1);
+  const requiredProgress = calculateTechniqueComprehensionRequiredProgress({
+    sourceKind: 'created',
+    techniqueRealmLv: technique.realmLv ?? job.realmLv,
+    grade: technique.grade ?? job.grade,
+    learnerRealmLv: recorder.realm?.realmLv ?? 1,
+  });
   const previousProgress = Math.max(0, Math.min(requiredProgress, Number(building.scriptureProgress) || 0));
   const progressBreakdown = resolveScriptureRecordingProgressBreakdown(recorder, building.scriptureRealmLv ?? job.realmLv);
   const nextProgress = Math.min(requiredProgress, previousProgress + progressBreakdown.progressGain);
@@ -812,6 +809,12 @@ function executeScriptureContemplationTick(learner: any, job: PlayerTransmission
     markTransmissionDirty(learner, ctx, ['active_job']);
     return { ...emptyTransmissionTickResult(), panelChanged: true };
   }
+  const requiredProgress = calculateTechniqueComprehensionRequiredProgress({
+    sourceKind: 'created',
+    techniqueRealmLv: building.scriptureRealmLv ?? job.realmLv,
+    grade: building.scriptureGrade ?? job.grade,
+    learnerRealmLv: learner.realm?.realmLv ?? 1,
+  });
   let pending = findPendingComprehension(learner, job.techniqueId);
   if (!pending) {
     pending = ensurePendingComprehension(learner, {
@@ -820,7 +823,7 @@ function executeScriptureContemplationTick(learner: any, job: PlayerTransmission
       teacherPlayerId: learner.playerId,
       techniqueId: job.techniqueId,
       techniqueName: job.techniqueName,
-      requiredProgress: Math.max(1, Number(building.scriptureRequiredProgress ?? job.workTotalTicks ?? job.totalTicks) || 1),
+      requiredProgress,
       realmLv: Math.max(1, Math.floor(Number(building.scriptureRealmLv ?? job.realmLv) || 1)),
       grade: building.scriptureGrade ?? job.grade,
       category: building.scriptureCategory ?? job.category,
@@ -834,7 +837,6 @@ function executeScriptureContemplationTick(learner: any, job: PlayerTransmission
   }
   pending.selfComprehensionAllowed = false;
   delete pending.activeTransferJob;
-  const requiredProgress = Math.max(1, Number(building.scriptureRequiredProgress ?? pending.requiredProgress ?? job.workTotalTicks ?? job.totalTicks) || 1);
   const previousProgress = Math.max(0, Math.min(requiredProgress, Number(pending.progress) || 0));
   pending.name = normalizeText(building.scriptureTechniqueName) || job.techniqueName || pending.name || job.techniqueId;
   pending.sourceKind = 'created';

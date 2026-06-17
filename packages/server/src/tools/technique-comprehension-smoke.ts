@@ -219,8 +219,21 @@ function assertAlmostEqual(actual: number, expected: number, label: string): voi
   assert.ok(Math.abs(actual - expected) < 1e-9, `${label}: expected ${expected}, got ${actual}`);
 }
 
-function testRequiredProgressIgnoresDynamicLearnerAndTeacherFactors() {
-  const baseline = calculateTechniqueComprehensionRequiredProgress({
+function expectedRequiredProgress(
+  sourceKind: 'normal' | 'created',
+  techniqueEntry: { realmLv?: number; grade?: any },
+  learnerRealmLv: number,
+): number {
+  return calculateTechniqueComprehensionRequiredProgress({
+    sourceKind,
+    techniqueRealmLv: techniqueEntry.realmLv,
+    grade: techniqueEntry.grade,
+    learnerRealmLv,
+  });
+}
+
+function testRequiredProgressUsesPreFoundationLearnerReduction() {
+  const createdLevel1 = calculateTechniqueComprehensionRequiredProgress({
     sourceKind: 'created',
     techniqueRealmLv: 8,
     grade: 'earth',
@@ -228,17 +241,49 @@ function testRequiredProgressIgnoresDynamicLearnerAndTeacherFactors() {
     learnerTransmissionLevel: 1,
     teacherTransmissionLevel: 1,
   });
-  const changedDynamicFactors = calculateTechniqueComprehensionRequiredProgress({
+  const createdLevel30 = calculateTechniqueComprehensionRequiredProgress({
     sourceKind: 'created',
     techniqueRealmLv: 8,
     grade: 'earth',
-    learnerRealmLv: 80,
+    learnerRealmLv: 30,
+    learnerTransmissionLevel: 1,
+    teacherTransmissionLevel: 1,
+  });
+  const createdFoundation = calculateTechniqueComprehensionRequiredProgress({
+    sourceKind: 'created',
+    techniqueRealmLv: 8,
+    grade: 'earth',
+    learnerRealmLv: 31,
+    learnerTransmissionLevel: 1,
+    teacherTransmissionLevel: 1,
+  });
+  const normalLevel1 = calculateTechniqueComprehensionRequiredProgress({
+    sourceKind: 'normal',
+    techniqueRealmLv: 8,
+    grade: 'earth',
+    learnerRealmLv: 1,
+  });
+  const normalLevel30 = calculateTechniqueComprehensionRequiredProgress({
+    sourceKind: 'normal',
+    techniqueRealmLv: 8,
+    grade: 'earth',
+    learnerRealmLv: 30,
+  });
+  const changedSkillFactors = calculateTechniqueComprehensionRequiredProgress({
+    sourceKind: 'created',
+    techniqueRealmLv: 8,
+    grade: 'earth',
+    learnerRealmLv: 30,
     learnerTransmissionLevel: 80,
     teacherTransmissionLevel: 80,
   });
 
-  assert.equal(baseline, 300 * 8 * 4);
-  assert.equal(changedDynamicFactors, baseline);
+  assert.equal(createdLevel1, 480);
+  assert.equal(createdLevel30, 4800);
+  assert.equal(createdFoundation, 300 * 8 * 4);
+  assert.equal(normalLevel1, 16);
+  assert.equal(normalLevel30, 160);
+  assert.equal(changedSkillFactors, createdLevel30);
 }
 
 function testDynamicFactorsApplyToProgressGain() {
@@ -264,11 +309,12 @@ function testDynamicFactorsApplyToProgressGain() {
 function testSelfComprehensionProgressesOnlyWithoutTransmission() {
   const { progressionService } = createRuntimeService();
   const learner = createPlayer('learner:self', 0, 0);
-  learner.techniques.cultivatingTechId = technique.techId;
+  learner.techniques.cultivatingTechId = createdTechnique.techId;
   learner.pendingTechniqueComprehensions.push({
-    techId: technique.techId,
-    name: technique.name,
-    sourceKind: 'normal',
+    techId: createdTechnique.techId,
+    name: createdTechnique.name,
+    sourceKind: 'created',
+    selfComprehensionAllowed: true,
     progress: 0,
     requiredProgress: 10,
     realmLv: 1,
@@ -291,11 +337,12 @@ function testSelfComprehensionProgressesOnlyWithoutTransmission() {
   const acceleratedLearner = createPlayer('learner:self-accelerated', 0, 0);
   acceleratedLearner.realm.realmLv = 8;
   acceleratedLearner.transmissionSkill.level = 8;
-  acceleratedLearner.techniques.cultivatingTechId = technique.techId;
+  acceleratedLearner.techniques.cultivatingTechId = createdTechnique.techId;
   acceleratedLearner.pendingTechniqueComprehensions.push({
-    techId: technique.techId,
-    name: technique.name,
-    sourceKind: 'normal',
+    techId: createdTechnique.techId,
+    name: createdTechnique.name,
+    sourceKind: 'created',
+    selfComprehensionAllowed: true,
     progress: 0,
     requiredProgress: 100,
     realmLv: 1,
@@ -317,8 +364,8 @@ function testSelfComprehensionProgressesOnlyWithoutTransmission() {
   learner.transmissionJob = {
     jobRunId: 'job:test',
     jobType: 'transmission',
-    techniqueId: technique.techId,
-    techniqueName: technique.name,
+    techniqueId: createdTechnique.techId,
+    techniqueName: createdTechnique.name,
     teacherPlayerId: 'teacher:1',
     startedAt: 0,
     status: 'running',
@@ -468,7 +515,7 @@ function testCultivationUsesElapsedTicksForPendingComprehension() {
 
   const result = progressionService.advanceCultivation(learner, 1, { auraMultiplier: 10 });
   assert.equal(result.changed, true);
-  assert.equal(learner.pendingTechniqueComprehensions[0]?.requiredProgress, 300);
+  assert.equal(learner.pendingTechniqueComprehensions[0]?.requiredProgress, expectedRequiredProgress('created', createdTechnique, learner.realm.realmLv));
   assert.equal(learner.pendingTechniqueComprehensions[0]?.progress, 1);
   assert.equal(learner.transmissionSkill.exp, getExpectedTransmissionExpGain(1, 1, 1));
 }
@@ -654,7 +701,7 @@ function testTransmissionRefreshesStaleRequiredProgress() {
   pending.requiredProgress = 999999;
   tickTransmissionWithPipeline(runtimeService, learner);
 
-  assert.equal(pending.requiredProgress, 300);
+  assert.equal(pending.requiredProgress, expectedRequiredProgress('created', createdTechnique, learner.realm.realmLv));
   assert.equal(pending.progress, 1);
 }
 
@@ -684,7 +731,8 @@ function testTransmissionBlocksCancelsAndContinues() {
   assert.equal(learner.transmissionSkill.exp, getExpectedTransmissionExpGain(1, 1, 1));
   assert.equal(teacherA.transmissionSkill.exp, getExpectedTransmissionExpGain(1, 1, 1));
   assertAlmostEqual(learner.transmissionJob?.progressGainPerTick ?? 0, 1, 'transmission progress gain per tick');
-  assert.equal(learner.transmissionJob?.estimatedRemainingTicks, 299);
+  const expectedCreatedRequired = expectedRequiredProgress('created', createdTechnique, learner.realm.realmLv);
+  assert.equal(learner.transmissionJob?.estimatedRemainingTicks, expectedCreatedRequired - 1);
   assert.equal(learner.transmissionJob?.progressBreakdown?.baseProgress, 1);
   assert.equal(learner.transmissionJob?.progressBreakdown?.realmFactor, 1);
   assert.equal(learner.transmissionJob?.progressBreakdown?.learnerTransmissionFactor, 1);
@@ -714,7 +762,7 @@ function testTransmissionBlocksCancelsAndContinues() {
   assert.equal(cancelTransmissionWithPipeline(runtimeService, learner).ok, true);
   assert.equal(learner.transmissionJob, null);
   startTransmissionWithPipeline(runtimeService, teacherB.playerId, learner, createdTechnique.techId);
-  learner.pendingTechniqueComprehensions[0]!.progress = 299;
+  learner.pendingTechniqueComprehensions[0]!.progress = expectedCreatedRequired - 1;
   tickTransmissionWithPipeline(runtimeService, learner);
   assert.equal(learner.pendingTechniqueComprehensions.length, 0);
   assert.equal(learner.techniques.techniques.some((entry) => entry.techId === createdTechnique.techId), true);
@@ -740,6 +788,7 @@ function testScriptureRecordingUsesTransmissionJobAndLocksBuilding() {
   };
   recorder.techniques.techniques.push(scriptureTechnique);
   runtimeService.players.set(recorder.playerId, recorder);
+  const scriptureRequired = expectedRequiredProgress('created', scriptureTechnique, recorder.realm.realmLv);
   const building: any = {
     id: 'building:scripture',
     defId: 'scripture_platform',
@@ -773,13 +822,13 @@ function testScriptureRecordingUsesTransmissionJobAndLocksBuilding() {
   assert.equal(recorder.transmissionJob?.progressBreakdown?.baseProgress, 10);
   assert.equal(building.scriptureTechniqueId, scriptureTechnique.techId);
   assert.equal(building.scriptureProgress, 0);
-  assert.equal(building.scriptureRequiredProgress, 1200);
+  assert.equal(building.scriptureRequiredProgress, scriptureRequired);
 
   recorder.lifeElapsedTicks = 1;
   pipeline.tick(recorder, 'transmission', ctx as never);
   assert.equal(building.scriptureProgress, 10);
   assert.equal(recorder.transmissionSkill.exp, getExpectedTransmissionExpGain(2, 2, 1));
-  assert.equal(recorder.transmissionJob?.remainingTicks, 1190);
+  assert.equal(recorder.transmissionJob?.remainingTicks, scriptureRequired - 10);
 
   const normalTechnique = { ...scriptureTechnique, techId: 'tech.scripture.normal', name: '普通功法' };
   recorder.techniques.techniques.push(normalTechnique);
@@ -816,13 +865,15 @@ function testScriptureRecordingUsesTransmissionJobAndLocksBuilding() {
   assert.equal(lockedResult.ok, false);
   assert.match(lockedResult.error ?? '', /已有进行中的技艺任务|已有藏书/);
 
-  for (let tick = 2; tick <= 121; tick += 1) {
-    recorder.lifeElapsedTicks = tick;
+  let recordingTick = 2;
+  while (recorder.transmissionJob && recordingTick <= Math.ceil(scriptureRequired / 10) + 2) {
+    recorder.lifeElapsedTicks = recordingTick;
     pipeline.tick(recorder, 'transmission', ctx as never);
+    recordingTick += 1;
   }
-  assert.equal(building.scriptureProgress, 1200);
+  assert.equal(building.scriptureProgress, scriptureRequired);
   assert.equal(building.scriptureRecordingJobRunId, null);
-  assert.ok(Number(building.scriptureRecordedAtTick) > 0 && Number(building.scriptureRecordedAtTick) <= 121);
+  assert.ok(Number(building.scriptureRecordedAtTick) > 0 && Number(building.scriptureRecordedAtTick) <= Math.ceil(scriptureRequired / 10) + 1);
   assert.equal(recorder.transmissionJob, null);
   assert.ok(dirtyDomains.includes('building'));
 
@@ -864,6 +915,7 @@ function testScriptureContemplationStartsJobAndCompletesTechnique() {
   learner.transmissionSkill.level = 2;
   learner.transmissionSkill.expToNext = resolveExpToNextByLevel();
   runtimeService.players.set(learner.playerId, learner);
+  const contemplationRequired = expectedRequiredProgress('created', createdTechnique, learner.realm.realmLv);
   const building: any = {
     id: 'building:scripture:contemplate',
     defId: 'scripture_platform',
@@ -904,9 +956,10 @@ function testScriptureContemplationStartsJobAndCompletesTechnique() {
   assert.equal(learner.transmissionJob?.label, '藏经参悟');
   assert.equal(learner.pendingTechniqueComprehensions[0]?.techId, createdTechnique.techId);
   assert.equal(learner.pendingTechniqueComprehensions[0]?.selfComprehensionAllowed, false);
+  assert.equal(learner.pendingTechniqueComprehensions[0]?.requiredProgress, contemplationRequired);
   assert.equal(startResult.messages?.[0]?.key, 'notice.craft.scripture-contemplation.start');
 
-  for (let tick = 1; tick <= 600 && learner.transmissionJob; tick += 1) {
+  for (let tick = 1; tick <= contemplationRequired && learner.transmissionJob; tick += 1) {
     learner.lifeElapsedTicks = tick;
     pipeline.tick(learner, 'transmission', ctx as never);
   }
@@ -920,7 +973,7 @@ testTransmittedPendingCannotSelfComprehendWithoutActiveJob();
 testTransmittedPendingCannotBeSetAsMainTechnique();
 testCreatedPendingRefreshDoesNotUnlockTransmittedTechnique();
 testCreatedPendingWithoutCreatorDoesNotAutoMainTechnique();
-testRequiredProgressIgnoresDynamicLearnerAndTeacherFactors();
+testRequiredProgressUsesPreFoundationLearnerReduction();
 testDynamicFactorsApplyToProgressGain();
 testCultivationUsesElapsedTicksForPendingComprehension();
 testAutoSwitchCultivationCanSelectPendingComprehension();

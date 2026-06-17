@@ -1167,15 +1167,15 @@ export class PlayerRuntimeService {
         this.recordAssetStatisticMutation(learner, this.captureOfflineGainBeforeTick(learner));
         return learner;
     }
-    normalizePendingTechniqueComprehensionsForRuntime(value) {
+    normalizePendingTechniqueComprehensionsForRuntime(value, learnerRealmLv = undefined) {
         const entries = clonePendingTechniqueComprehensions(value);
         let changed = false;
         for (const pending of entries) {
-            changed = this.refreshPendingTechniqueComprehensionRequirement(pending) || changed;
+            changed = this.refreshPendingTechniqueComprehensionRequirement(pending, null, learnerRealmLv) || changed;
         }
         return { entries, changed };
     }
-    refreshPendingTechniqueComprehensionRequirement(pending, fallbackTechnique = null) {
+    refreshPendingTechniqueComprehensionRequirement(pending, fallbackTechnique = null, learnerRealmLv = undefined) {
         if (!pending || typeof pending.techId !== 'string' || !pending.techId.trim()) {
             return false;
         }
@@ -1188,6 +1188,7 @@ export class PlayerRuntimeService {
             sourceKind,
             techniqueRealmLv: technique.realmLv,
             grade: technique.grade,
+            learnerRealmLv,
         });
         let changed = false;
         if (pending.sourceKind !== sourceKind) {
@@ -4902,7 +4903,11 @@ export class PlayerRuntimeService {
                 || Math.trunc(snapshot.respawn.y) !== snapshotRespawnY)
         );
 
-        const pendingComprehensions = this.normalizePendingTechniqueComprehensionsForRuntime(snapshot.techniques?.pendingComprehensions);
+        const snapshotRealm = normalizeRealmState(snapshot.progression?.realm);
+        const pendingComprehensions = this.normalizePendingTechniqueComprehensionsForRuntime(
+            snapshot.techniques?.pendingComprehensions,
+            snapshotRealm.realmLv,
+        );
         const legacyTransmissionJob = normalizeLegacyTransmissionJobFromPending(
             snapshot.techniques?.pendingComprehensions,
             pendingComprehensions.entries,
@@ -4945,7 +4950,7 @@ export class PlayerRuntimeService {
             boneAgeBaseYears: normalizeBoneAgeBaseYears(snapshot.progression?.boneAgeBaseYears),
             lifeElapsedTicks: normalizeLifeElapsedTicks(snapshot.progression?.lifeElapsedTicks),
             lifespanYears: normalizeLifespanYears(snapshot.progression?.lifespanYears),
-            realm: normalizeRealmState(snapshot.progression?.realm),
+            realm: snapshotRealm,
             heavenGate: normalizeHeavenGateState(snapshot.progression?.heavenGate),
             spiritualRoots: normalizeHeavenGateRoots(snapshot.progression?.spiritualRoots),
             alchemySkill: normalizeCraftSkillState(snapshot.progression?.alchemySkill, (level) => resolveCraftSkillExpToNextByLevel(this.playerProgressionService, level)),

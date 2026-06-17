@@ -10,6 +10,9 @@ export const TECHNIQUE_COMPREHENSION_NORMAL_BASE_TICKS = 10;
 export const TECHNIQUE_COMPREHENSION_CREATED_BASE_TICKS = 300;
 export const TECHNIQUE_TRANSMISSION_RANGE = 2;
 export const CREATED_TECHNIQUE_ID_PREFIX = 'gen_';
+export const TECHNIQUE_COMPREHENSION_PRE_FOUNDATION_MAX_REALM_LV = 30;
+export const TECHNIQUE_COMPREHENSION_PRE_FOUNDATION_LEVEL1_REQUIRED_RATIO = 0.05;
+export const TECHNIQUE_COMPREHENSION_PRE_FOUNDATION_LEVEL30_REQUIRED_RATIO = 0.5;
 
 export function isCreatedTechniqueId(techId: string | null | undefined): boolean {
   return typeof techId === 'string' && techId.trim().startsWith(CREATED_TECHNIQUE_ID_PREFIX);
@@ -18,6 +21,24 @@ export function isCreatedTechniqueId(techId: string | null | undefined): boolean
 export function getTechniqueComprehensionGradeFactor(grade: TechniqueGrade | null | undefined): number {
   const index = grade ? TECHNIQUE_GRADE_ORDER.indexOf(grade) : -1;
   return index >= 0 ? index + 1 : 1;
+}
+
+export function getTechniqueComprehensionPreFoundationRequiredRatio(learnerRealmLv: number | null | undefined): number {
+  const rawRealmLv = Number(learnerRealmLv);
+  if (!Number.isFinite(rawRealmLv)) {
+    return 1;
+  }
+  const realmLv = Math.max(1, Math.floor(rawRealmLv));
+  if (realmLv > TECHNIQUE_COMPREHENSION_PRE_FOUNDATION_MAX_REALM_LV) {
+    return 1;
+  }
+  const progress = (realmLv - 1) / (TECHNIQUE_COMPREHENSION_PRE_FOUNDATION_MAX_REALM_LV - 1);
+  const ratio = TECHNIQUE_COMPREHENSION_PRE_FOUNDATION_LEVEL1_REQUIRED_RATIO
+    + (TECHNIQUE_COMPREHENSION_PRE_FOUNDATION_LEVEL30_REQUIRED_RATIO - TECHNIQUE_COMPREHENSION_PRE_FOUNDATION_LEVEL1_REQUIRED_RATIO) * progress;
+  return Math.max(
+    TECHNIQUE_COMPREHENSION_PRE_FOUNDATION_LEVEL1_REQUIRED_RATIO,
+    Math.min(TECHNIQUE_COMPREHENSION_PRE_FOUNDATION_LEVEL30_REQUIRED_RATIO, ratio),
+  );
 }
 
 export function getTechniqueComprehensionRealmFactor(techniqueRealmLv: number, learnerRealmLv: number): number {
@@ -138,6 +159,7 @@ export function calculateTechniqueComprehensionRequiredProgress(input: {
   const techniqueRealmLv = Math.max(1, Math.floor(Number(input.techniqueRealmLv) || 1));
   const required = base
     * techniqueRealmLv
-    * getTechniqueComprehensionGradeFactor(input.grade);
+    * getTechniqueComprehensionGradeFactor(input.grade)
+    * getTechniqueComprehensionPreFoundationRequiredRatio(input.learnerRealmLv);
   return Math.max(1, Math.ceil(required));
 }

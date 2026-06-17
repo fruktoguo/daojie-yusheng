@@ -2110,6 +2110,7 @@ export class PlayerProgressionService {
                 sourceKind,
                 techniqueRealmLv: pendingTechnique.realmLv,
                 grade: pendingTechnique.grade,
+                learnerRealmLv: player.realm?.realmLv ?? 1,
             });
             pending.realmLv = Math.max(1, Math.floor(Number(pendingTechnique.realmLv) || 1));
             pending.grade = pendingTechnique.grade ?? pending.grade;
