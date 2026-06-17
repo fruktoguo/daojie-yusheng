@@ -222,6 +222,8 @@ export class MailPanel {
   private pageData: MailPageView = { ...EMPTY_PAGE };
   /** 当前激活的筛选条件。 */
   private activeFilter: MailFilter = 'all';
+  /** 最近一次列表请求的期望（filter + page），用于丢弃过期响应，避免快速翻页/切筛选时旧包覆盖新状态。 */
+  private pendingPageExpectation: { filter: MailFilter; page: number } | null = null;
   /** 当前选中的邮件 ID。 */
   private selectedMailId: string | null = null;
   /** 列表中已勾选的邮件 ID 集合。 */
@@ -300,6 +302,7 @@ export class MailPanel {
     this.attachmentPage = 1;
     this.statusMessage = '';
     this.pendingOperation = null;
+    this.pendingPageExpectation = null;
     this.updateHudUnreadState();
     this.syncReactState();
     unmountReactMailPanel();
@@ -344,6 +347,16 @@ export class MailPanel {
   updatePage(page: MailPageView): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    // 竞态守卫：快速切换筛选/翻页时旧请求响应可能晚于新请求到达，
+    // requestPage/requestCurrentPage 在发包前已记录最新期望，此处校验回包是否仍是当前期望，
+    // 过期包直接丢弃，避免把列表/筛选高亮回退到旧请求并误触发 requestDetail/markReadIfNeeded 等副作用。
+    if (
+      !this.pendingPageExpectation
+      || page.filter !== this.pendingPageExpectation.filter
+      || page.page !== this.pendingPageExpectation.page
+    ) {
+      return;
+    }
     this.pageData = {
       ...page,
       items: page.items.map((item) => this.mergeIncomingListEntry(item)),
@@ -532,7 +545,9 @@ export class MailPanel {
 
   /** 请求当前分页数据。 */
   private requestCurrentPage(): void {
-    this.socket.sendRequestMailPage(this.pageData.page || 1, this.pageData.pageSize || MAIL_PAGE_SIZE_DEFAULT, this.activeFilter);
+    const page = Math.max(1, this.pageData.page || 1);
+    this.pendingPageExpectation = { filter: this.activeFilter, page };
+    this.socket.sendRequestMailPage(page, this.pageData.pageSize || MAIL_PAGE_SIZE_DEFAULT, this.activeFilter);
   }
 
   /** 请求指定筛选和页码的分页数据。 */
@@ -548,6 +563,7 @@ export class MailPanel {
     this.detail = null;
     this.attachmentPage = 1;
     this.syncReactState();
+    this.pendingPageExpectation = { filter: this.activeFilter, page: this.pageData.page };
     this.socket.sendRequestMailPage(this.pageData.page, this.pageData.pageSize || MAIL_PAGE_SIZE_DEFAULT, this.activeFilter);
     this.render();
   }

@@ -425,6 +425,12 @@ export class MarketPanel {
   private currentPage = 1;
   /** 交易历史页码。 */
   private tradeHistoryPage = 1;
+  /** 最近一次坊市列表请求的期望 key（category|equipmentSlot|techniqueCategory|page），用于丢弃过期响应。 */
+  private pendingListingsKey: string | null = null;
+  /** 最近一次拍卖行列表请求的期望 key（tab|category|query|page），用于丢弃过期响应。 */
+  private pendingAuctionKey: string | null = null;
+  /** 最近一次交易历史请求的期望 key（source|page），用于丢弃过期响应。 */
+  private pendingTradeHistoryKey: string | null = null;
   /** 物品书籍是否正在加载。 */
   private itemBookLoading = false;
   /** 交易历史是否正在加载。 */
@@ -579,6 +585,16 @@ export class MarketPanel {
   updateListings(data: S2C_MarketListings): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    // 竞态守卫：快速切换品类/翻页时旧响应可能晚于新请求到达，
+    // requestListings 发包前已记录最新筛选+页码 key，此处校验回包是否仍是当前期望，过期包直接丢弃。
+    if (this.pendingListingsKey !== null) {
+      const equipmentSlot = data.category === 'equipment' ? data.equipmentSlot : 'all';
+      const techniqueCategory = data.category === 'skill_book' ? data.techniqueCategory : 'all';
+      const expectedKey = [data.category, equipmentSlot, techniqueCategory, Math.max(1, Math.floor(Number.isFinite(data.page) ? data.page : 1))].join('|');
+      if (expectedKey !== this.pendingListingsKey) {
+        return;
+      }
+    }
     const marketModalOpen = detailModalHost.isOpenFor(MarketPanel.MODAL_OWNER);
     const previousSelectedItemKey = this.selectedItemKey;
     this.marketListings = data;
@@ -602,6 +618,14 @@ export class MarketPanel {
   updateAuctionListings(data: S2C_AuctionListings): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    // 竞态守卫：快速切换拍卖行 tab/品类/搜索/翻页时旧响应可能晚于新请求到达，
+    // requestAuctionListings 发包前已记录最新筛选+页码 key，此处校验回包是否仍是当前期望，过期包直接丢弃。
+    if (this.pendingAuctionKey !== null) {
+      const expectedKey = [data.tab, data.category, data.query ?? '', Math.max(1, Math.floor(Number.isFinite(data.page) ? data.page : 1))].join('|');
+      if (expectedKey !== this.pendingAuctionKey) {
+        return;
+      }
+    }
     const previousListings = this.auctionListings;
     const previousSelectedAuctionItemKey = this.selectedAuctionItemKey;
     const canPatchOpenModal = detailModalHost.isOpenFor(MarketPanel.AUCTION_MODAL_OWNER)
@@ -727,6 +751,14 @@ export class MarketPanel {
   updateTradeHistory(data: S2C_MarketTradeHistory): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    // 竞态守卫：快速切换交易历史来源/翻页时旧响应可能晚于新请求到达，
+    // requestTradeHistory 发包前已记录最新 source+page key，此处校验回包是否仍是当前期望，过期包直接丢弃。
+    if (this.pendingTradeHistoryKey !== null) {
+      const expectedKey = [data.source, Math.max(1, Math.floor(Number.isFinite(data.page) ? data.page : 1))].join('|');
+      if (expectedKey !== this.pendingTradeHistoryKey) {
+        return;
+      }
+    }
     this.tradeHistoryLoading = false;
     this.tradeHistory = data;
     this.tradeHistoryPage = data.page;
@@ -757,6 +789,9 @@ export class MarketPanel {
     this.activeCategory = 'all';
     this.activeEquipmentCategory = 'all';
     this.activeTechniqueCategory = 'all';
+    this.pendingListingsKey = null;
+    this.pendingAuctionKey = null;
+    this.pendingTradeHistoryKey = null;
     this.auctionTab = 'participate';
     this.auctionHistoryScope = 'all';
     this.auctionCategory = 'all';
@@ -2698,17 +2733,22 @@ export class MarketPanel {
     this.tradeHistoryPage = Math.max(1, Math.floor(Number.isFinite(page) ? page : 1));
     const requestSource = source ?? (detailModalHost.isOpenFor(MarketPanel.AUCTION_MODAL_OWNER) ? 'auction' : 'market');
     const requestScope = requestSource === 'auction' ? (scope ?? this.auctionHistoryScope) : 'mine';
+    this.pendingTradeHistoryKey = [requestSource, this.tradeHistoryPage].join('|');
     this.callbacks?.onRequestTradeHistory(this.tradeHistoryPage, requestSource, requestScope);
   }
 
   /** 向外部请求当前筛选条件下的列表分页。 */
   private requestListings(page: number): void {
+    const nextPage = Math.max(1, Math.floor(Number.isFinite(page) ? page : 1));
+    const equipmentSlot = this.activeCategory === 'equipment' ? this.activeEquipmentCategory : 'all';
+    const techniqueCategory = this.activeCategory === 'skill_book' ? this.activeTechniqueCategory : 'all';
+    this.pendingListingsKey = [this.activeCategory, equipmentSlot, techniqueCategory, nextPage].join('|');
     this.callbacks?.onRequestListings({
-      page: Math.max(1, Math.floor(Number.isFinite(page) ? page : 1)),
+      page: nextPage,
       pageSize: this.getMarketPageSize(),
       category: this.activeCategory,
-      equipmentSlot: this.activeCategory === 'equipment' ? this.activeEquipmentCategory : 'all',
-      techniqueCategory: this.activeCategory === 'skill_book' ? this.activeTechniqueCategory : 'all',
+      equipmentSlot,
+      techniqueCategory,
     });
   }
 
@@ -2716,12 +2756,14 @@ export class MarketPanel {
   private requestAuctionListings(page: number): void {
     const nextPage = Math.max(1, Math.floor(Number.isFinite(page) ? page : 1));
     this.auctionPage = nextPage;
+    const query = this.auctionSearchQuery.trim();
+    this.pendingAuctionKey = [this.auctionTab, this.auctionCategory, query, nextPage].join('|');
     this.callbacks?.onRequestAuctionListings({
       tab: this.auctionTab,
       page: nextPage,
       pageSize: AUCTION_PAGE_SIZE,
       category: this.auctionCategory,
-      query: this.auctionSearchQuery.trim(),
+      query,
     });
   }
 
