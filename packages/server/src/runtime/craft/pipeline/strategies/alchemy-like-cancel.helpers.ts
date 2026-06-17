@@ -22,7 +22,11 @@ export function computeAlchemyLikeCancelRefund(
   craftService.ensureCraftSkills(player);
   const jobKind = jobKindInput === 'forging' ? 'forging' : 'alchemy';
   const job = craftService.getAlchemyLikeActiveJob(player, jobKind);
-  if (!job || Number(job.remainingTicks) <= 0) {
+  // 只要存在 job 就走权威退还清理：退还未炼批次材料、清 active job。
+  // 不再因 remainingTicks<=0 提前返回——否则损坏/历史遗留的僵死 job（remainingTicks 已耗尽
+  // 但 completedCount<quantity 未完成）会既无法推进也无法取消，永久卡死并吞掉未炼批次材料。
+  // 退还数量按 quantity-completedCount 计算，对僵死 job 同样准确。
+  if (!job) {
     return {
       items: [],
       spiritStones: 0,
