@@ -104,6 +104,7 @@ const smokeCases = [
     { name: 'runtime', scriptFile: 'runtime-smoke.js' },
     { name: 'progression', scriptFile: 'progression-smoke.js' },
     { name: 'runtime-realm-exp-boundary', scriptFile: 'runtime-realm-exp-boundary-smoke.js', standalone: true },
+    { name: 'world-runtime-quest-realm-stage-ready', scriptFile: 'world-runtime-quest-realm-stage-ready-smoke.js', standalone: true },
     { name: 'combat', scriptFile: 'combat-smoke.js' },
     { name: 'combat-e2e-outcome-matrix', scriptFile: 'combat-e2e-outcome-matrix-smoke.js', standalone: true },
     { name: 'combat-formula-main-parity', scriptFile: 'combat-formula-main-parity-smoke.js', standalone: true },

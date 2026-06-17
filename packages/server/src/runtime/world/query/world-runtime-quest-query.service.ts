@@ -315,7 +315,11 @@ export class WorldRuntimeQuestQueryService {
                 : submitNpcLocation?.mapId,
         });
         built.progress = this.resolveQuestProgress(playerId, built);
-        if (status !== 'completed' && this.canQuestBecomeReady(playerId, built)) {
+        // 未接（available）任务不应晋升为 ready：ready 的语义是“已接且可提交”，
+        // 若把未接任务标成 ready，executeNpcQuestAction / dispatchNpcInteraction 会把它误当已接任务去 submit，
+        // 而 dispatchAcceptNpcQuest 又因 status !== 'available' 拒绝接取，表现为“接任务前已达境界 → 无法完成”。
+        // 已接（active）任务达标晋升 ready 的行为保持不变，由调用方传入 'active' 触发。
+        if (status === 'active' && this.canQuestBecomeReady(playerId, built)) {
             built.status = 'ready';
         }
         return built;
