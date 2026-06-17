@@ -878,21 +878,30 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
  */
 
 
-  function mergeTechniqueStates(patches: import('@mud/shared').TechniqueUpdateEntry[], removeTechniqueIds: string[] = []): TechniqueState[] {
+  function mergeTechniqueStates(
+    patches: import('@mud/shared').TechniqueUpdateEntry[],
+    removeTechniqueIds: string[] = [],
+    full = false,
+  ): TechniqueState[] {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const removedIdSet = new Set(removeTechniqueIds);
     const merged: TechniqueState[] = [];
     const nextMap = new Map<string, TechniqueState>();
     const indexById = new Map<string, number>();
-    for (const technique of latestTechniqueMap.values()) {
-      if (removedIdSet.has(technique.techId)) {
-        continue;
+    // full 标记表示服务端已下发完整功法快照（跨实例/模板切换/首包全量），
+    // 此时本地缓存可能残留服务端已删除的功法，需跳过打底、仅以本次 patches 为唯一真源，
+    // 参照 mergeVisibleBuffStates 的 data.full 清空逻辑。
+    if (!full) {
+      for (const technique of latestTechniqueMap.values()) {
+        if (removedIdSet.has(technique.techId)) {
+          continue;
+        }
+        const cloned = cloneJson(technique);
+        indexById.set(cloned.techId, merged.length);
+        merged.push(cloned);
+        nextMap.set(cloned.techId, cloned);
       }
-      const cloned = cloneJson(technique);
-      indexById.set(cloned.techId, merged.length);
-      merged.push(cloned);
-      nextMap.set(cloned.techId, cloned);
     }
 
     for (const patch of patches) {
@@ -1347,7 +1356,12 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
       const player = options.getPlayer();
-      const mergedTechniques = mergeTechniqueStates(data.techniques ?? [], data.removeTechniqueIds ?? []);
+      const techniqueFull = 'full' in data && data.full === 1;
+      const mergedTechniques = mergeTechniqueStates(
+        data.techniques ?? [],
+        data.removeTechniqueIds ?? [],
+        techniqueFull,
+      );
       const nextCultivatingTechId = data.cultivatingTechId === undefined
         ? player?.cultivatingTechId
         : data.cultivatingTechId ?? undefined;
