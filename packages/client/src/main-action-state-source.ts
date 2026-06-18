@@ -11,8 +11,10 @@ import {
   normalizeAutoBattleTargetingMode,
   normalizeCombatTargetingRules,
 } from '@mud/shared';
+import { resolveClientSkillCastAvailability } from './client-skill-cast-availability';
 import type { SocketRuntimeSender } from './network/socket-send-runtime';
 import type { ClientTechniqueActivityKind } from './technique-activity-client.helpers';
+import type { ToastKind } from './main-app-assembly-types';
 import { ActionPanel } from './ui/panels/action-panel';
 /**
  * MainActionStateSourceOptions：统一结构类型，保证协议与运行时一致性。
@@ -99,6 +101,16 @@ type MainActionStateSourceOptions = {
 
   getInfoRadius: () => number;  
   /**
+ * getPlayer：读取当前玩家投影。
+ */
+
+  getPlayer: () => PlayerState | null;
+  /**
+ * showToast：展示本地拦截原因。
+ */
+
+  showToast: (message: string, kind?: ToastKind) => void;
+  /**
  * getCurrentActionDef：CurrentActionDef相关字段。
  */
 
@@ -183,17 +195,28 @@ export function createMainActionStateSource(options: MainActionStateSourceOption
         options.openWorldMigrationModal();
         return;
       }
+      const action = options.getCurrentActionDef(actionId);
+      if (action?.type === 'skill') {
+        const availability = resolveClientSkillCastAvailability(options.getPlayer(), action);
+        if (!availability.ok) {
+          options.showToast(availability.message, 'warn');
+          return;
+        }
+        if (availability.requiresTarget) {
+          options.beginTargeting(actionId, displayActionName, targetMode ?? action.targetMode, availability.range);
+          return;
+        }
+        options.cancelTargeting();
+        options.hideObserveModal();
+        options.socket.sendCastSkill(actionId);
+        return;
+      }
       if (requiresTarget) {
         options.beginTargeting(actionId, displayActionName, targetMode, actionId === 'client:observe' ? options.getInfoRadius() : (range ?? 1));
         return;
       }
       options.cancelTargeting();
       options.hideObserveModal();
-      const action = options.getCurrentActionDef(actionId);
-      if (action?.type === 'skill') {
-        options.socket.sendCastSkill(actionId);
-        return;
-      }
       options.socket.sendAction(actionId);
     },
     (skills: AutoBattleSkillConfig[]) => {

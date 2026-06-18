@@ -131,6 +131,8 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
       showToast: (message, kind) => callbacks.showToast(message, kind),
     }),
     getInfoRadius: callbacks.getInfoRadius,
+    getPlayer: () => rootRuntimeSource.getPlayer(),
+    showToast: callbacks.showToast,
     getCurrentActionDef: callbacks.getCurrentActionDef,
   });
   const getNearbyTransmissionTargets = () => resolveNearbyTransmissionTargets(rootRuntimeSource.getPlayer(), rootRuntimeSource.getLatestEntities());

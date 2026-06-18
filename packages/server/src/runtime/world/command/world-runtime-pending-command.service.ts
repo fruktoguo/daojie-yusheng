@@ -267,11 +267,11 @@ function buildPendingCommandFailureDebug(playerId, command, deps) {
 
 function emitPendingCommandFailureLog(deps, line, command, message) {
     if (shouldDowngradePendingCommandFailure(command, message)) {
-        const log = typeof deps.logger?.log === 'function'
-            ? deps.logger.log
-            : typeof deps.logger?.debug === 'function'
-                ? deps.logger.debug
-                : null;
+        const log = typeof deps.logger?.debug === 'function'
+            ? deps.logger.debug
+            : typeof deps.logger?.log === 'function'
+                ? deps.logger.log
+            : null;
         if (log) {
             log.call(deps.logger, line);
             return;

@@ -58,6 +58,21 @@ function isPlayerTargetRef(targetRef) {
 function instanceSupportsPvp(instance) {
     return instance?.meta?.supportsPvp === true || instance?.supportsPvp === true;
 }
+function resolveAutoBattleActionCooldownLeft(player, action, currentTick) {
+    const actionId = typeof action?.id === 'string' ? action.id : '';
+    const cooldowns = player?.combat?.cooldownReadyTickBySkillId;
+    const cooldownTableReadyTick = actionId && cooldowns && Object.prototype.hasOwnProperty.call(cooldowns, actionId)
+        ? cooldowns[actionId]
+        : undefined;
+    const readyTick = Math.max(0, Math.trunc(Number(cooldownTableReadyTick ?? action?.cooldownReadyTick ?? 0) || 0));
+    const normalizedCurrentTick = Number.isFinite(Number(currentTick))
+        ? Math.max(0, Math.trunc(Number(currentTick) || 0))
+        : null;
+    if (readyTick > 0 && normalizedCurrentTick !== null) {
+        return Math.max(0, readyTick - normalizedCurrentTick);
+    }
+    return Math.max(0, Math.trunc(Number(action?.cooldownLeft ?? 0) || 0));
+}
 function resolveAutoCombatPathingOptions(player, deps) {
     const currentTick = typeof deps?.resolveCurrentTickForPlayerId === 'function'
         ? deps.resolveCurrentTickForPlayerId(player?.playerId)
@@ -702,7 +717,10 @@ export class WorldRuntimeAutoCombatService {
         const skillChoiceStartedAt = performance.now();
         const skillChoice = target.supportsSkill === false
             ? null
-            : this.resolveAutoBattleSkillChoice(player, distance, options);
+            : this.resolveAutoBattleSkillChoice(player, distance, {
+                ...options,
+                currentTick: deps.resolveCurrentTickForPlayerId(player.playerId),
+            });
         recordAutoCombatPerf(deps, 'tick.autoCombat.skillChoiceMs', skillChoiceStartedAt);
         if (skillChoice?.skillId) {
             // selfCast（以自身为中心的 AOE）不需要对目标做 LOS 检查
@@ -1257,7 +1275,7 @@ export class WorldRuntimeAutoCombatService {
             if (action.autoBattleEnabled === false || action.skillEnabled === false) {
                 continue;
             }
-            if ((action.cooldownLeft ?? 0) > 0) {
+            if (resolveAutoBattleActionCooldownLeft(player, action, options?.currentTick) > 0) {
                 continue;
             }
             const skill = findAutoBattlePlayerSkill(player, action.id, activeSkillLookup);

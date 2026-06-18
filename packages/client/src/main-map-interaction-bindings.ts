@@ -3,7 +3,8 @@
  *
  * 维护时要把用户意图、显示派生和服务端权威数据分清，避免为了展示便利复制业务规则。
  */
-import { encodeTileTargetRef, isPointInRange, type ActionDef, type TargetingShape, type Tile } from '@mud/shared';
+import { encodeTileTargetRef, isPointInRange, type ActionDef, type PlayerState, type TargetingShape, type Tile } from '@mud/shared';
+import { resolveClientSkillCastAvailability } from './client-skill-cast-availability';
 import type { MainNavigationObservedEntity } from './main-navigation-state-source';
 import { t } from './ui/i18n';
 /**
@@ -268,19 +269,7 @@ type MainMapInteractionBindingsOptions = {
  * getPlayer：玩家引用。
  */
 
-  getPlayer: () => {
-  /**
- * x：x相关字段。
- */
- x: number;
- /**
- * y：y相关字段。
- */
- y: number;
- /**
- * senseQiActive：感气启用状态。
- */
- senseQiActive?: boolean } | null;
+  getPlayer: () => PlayerState | null;
   /**
  * sendAction：sendAction相关字段。
  */
@@ -460,6 +449,11 @@ export function bindMainMapInteractions(options: MainMapInteractionBindingsOptio
         }
         const action = options.getCurrentActionDef(pendingTargetedAction.actionId);
         if (action?.type === 'skill') {
+          const availability = resolveClientSkillCastAvailability(player, action);
+          if (!availability.ok) {
+            options.showToast(availability.message);
+            return;
+          }
           options.sendCastSkill(pendingTargetedAction.actionId, targetRef);
         } else {
           options.sendAction(pendingTargetedAction.actionId, targetRef);

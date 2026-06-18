@@ -613,6 +613,67 @@ function testManualEngageFallsBackToMoveWhenOnlyRangedSkillIsOnCooldown(): void 
   });
 }
 
+function testAutoBattleSkipsSkillWhenReadyTickIsStillFuture(): void {
+  const player = {
+    playerId: 'player:1',
+    hp: 100,
+    x: 1,
+    y: 1,
+    instanceId: 'public:test_map',
+    qi: 100,
+    attrs: {
+      numericStats: {
+        viewRange: 6,
+        maxQiOutputPerTick: 100,
+      },
+    },
+    actions: {
+      actions: [{
+        id: 'skill:ranged',
+        type: 'skill',
+        range: 3,
+        cooldownLeft: 0,
+        cooldownReadyTick: 20,
+        autoBattleEnabled: true,
+        skillEnabled: true,
+      }],
+    },
+    techniques: {
+      techniques: [{
+        skills: [{
+          id: 'skill:ranged',
+          cost: 0,
+        }],
+      }],
+    },
+    combat: {
+      autoBattle: true,
+      autoRetaliate: false,
+      autoBattleStationary: false,
+      combatTargetId: 'monster:1',
+      combatTargetLocked: false,
+      cooldownReadyTickBySkillId: {
+        'skill:ranged': 20,
+      },
+    },
+  };
+  const service = new WorldRuntimeAutoCombatService(createPlayerRuntimeService(player) as never);
+  const command = service.buildAutoCombatCommand(createAdjacentMonsterInstance() as never, player as never, {
+    resolveCurrentTickForPlayerId() {
+      return 12;
+    },
+    queuePlayerNotice() {},
+  } as never);
+  assert.deepEqual(command, {
+    kind: 'basicAttack',
+    targetPlayerId: null,
+    targetMonsterId: 'monster:1',
+    targetX: null,
+    targetY: null,
+    autoCombat: true,
+  });
+}
+
 function testOutOfRangeSkillMovesToSkillMaxRangeImmediately(): void {
   const player = {
     playerId: 'player:1',
@@ -2232,6 +2293,7 @@ function testLockedMiningTileOutsideViewRangeMovesBack(): void {
 
 testAutoCombatDoesNotEnqueueSpentActionCommand();
 testManualEngageFallsBackToMoveWhenOnlyRangedSkillIsOnCooldown();
+testAutoBattleSkipsSkillWhenReadyTickIsStillFuture();
 testOutOfRangeSkillMovesToSkillMaxRangeImmediately();
 testInRangeButBlockedLineOfSightMovesToCastPosition();
 testUnreachableCurrentTargetIsPenalizedAndRetargetedImmediately();

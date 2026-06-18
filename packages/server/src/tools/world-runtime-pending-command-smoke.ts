@@ -1020,7 +1020,7 @@ async function testSkillOutOfRangeStaysServerInternal() {
     assert.equal(service.getPendingCommandCount(), 0);
 }
 
-async function testManualSkillCooldownFailureUsesLogWhenAvailable() {
+async function testManualSkillCooldownFailureUsesDebugWhenAvailable() {
     const service = new WorldRuntimePendingCommandService();
     const log = [];
     service.enqueuePendingCommand('player:1', {
@@ -1053,13 +1053,13 @@ async function testManualSkillCooldownFailureUsesLogWhenAvailable() {
         },
     });
     assert.deepEqual(log, [
-        ['log', '处理玩家 player:1 的待执行指令失败：castSkill（技能 skill.iron_bone_art 尚在冷却） debug=auto=0 manual=0 skill=skill.iron_bone_art playerState=missing'],
+        ['debug', '处理玩家 player:1 的待执行指令失败：castSkill（技能 skill.iron_bone_art 尚在冷却） debug=auto=0 manual=0 skill=skill.iron_bone_art playerState=missing'],
         ['queuePlayerNotice', 'player:1', '技能 skill.iron_bone_art 尚在冷却', 'warn'],
     ]);
     assert.equal(service.getPendingCommandCount(), 0);
 }
 
-async function testManualEngageNoTargetFailureUsesLogWhenAvailable() {
+async function testManualEngageNoTargetFailureUsesDebugWhenAvailable() {
     const service = new WorldRuntimePendingCommandService();
     const log = [];
     service.enqueuePendingCommand('player:1', {
@@ -1093,7 +1093,7 @@ async function testManualEngageNoTargetFailureUsesLogWhenAvailable() {
         },
     });
     assert.deepEqual(log, [
-        ['log', '处理玩家 player:1 的待执行指令失败：engageBattle（没有可命中的目标） debug=auto=0 manual=0 playerState=missing'],
+        ['debug', '处理玩家 player:1 的待执行指令失败：engageBattle（没有可命中的目标） debug=auto=0 manual=0 playerState=missing'],
         ['queuePlayerNotice', 'player:1', '没有可命中的目标', 'warn'],
     ]);
     assert.equal(service.getPendingCommandCount(), 0);
@@ -1147,8 +1147,8 @@ Promise.resolve()
     .then(() => testAutoCombatPlayerOutOfRangeClearsRetaliateAndThreatTarget())
     .then(() => testAutoCombatPlayerPvpDisabledClearsTargetWithoutNotice())
     .then(() => testSkillOutOfRangeStaysServerInternal())
-    .then(() => testManualSkillCooldownFailureUsesLogWhenAvailable())
-    .then(() => testManualEngageNoTargetFailureUsesLogWhenAvailable())
+    .then(() => testManualSkillCooldownFailureUsesDebugWhenAvailable())
+    .then(() => testManualEngageNoTargetFailureUsesDebugWhenAvailable())
     .then(() => testInternalSliceErrorStaysServerInternal())
     .then(() => {
     console.log(JSON.stringify({ ok: true, case: 'world-runtime-pending-command' }, null, 2));
