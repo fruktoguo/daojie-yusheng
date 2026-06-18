@@ -103,10 +103,53 @@ export class WorldRuntimeQuestStateService {
                 changed = true;
             }
         }
+        if (this.completeMissingQuestChainGaps(playerId, player, ownedQuestIds, compensationAttachmentsByItemId)) {
+            changed = true;
+        }
         if (changed) {
             this.playerRuntimeService.markQuestStateDirty(playerId);
         }
         this.deliverQuestCompensationMail(playerId, compensationAttachmentsByItemId);
+    }
+    completeMissingQuestChainGaps(playerId, player, ownedQuestIds, compensationAttachmentsByItemId) {
+        if (typeof this.worldRuntimeQuestQueryService.resolveQuestChainGapToOwnedQuest !== 'function') {
+            return false;
+        }
+        let changed = false;
+        const completedGapQuestIds = new Set();
+        for (const quest of player.quests.quests.slice()) {
+            if (quest.status === 'completed') {
+                continue;
+            }
+            const gap = this.worldRuntimeQuestQueryService.resolveQuestChainGapToOwnedQuest(quest, ownedQuestIds);
+            if (!gap) {
+                continue;
+            }
+            if (quest.status !== 'completed') {
+                quest.status = 'completed';
+                quest.progress = quest.required;
+                this.collectQuestCompensationAttachments(quest, compensationAttachmentsByItemId);
+                changed = true;
+            }
+            let insertIndex = player.quests.quests.findIndex((entry) => entry.id === gap.ownedQuestId);
+            if (insertIndex < 0) {
+                insertIndex = player.quests.quests.length;
+            }
+            for (const missingQuestId of gap.missingQuestIds) {
+                if (ownedQuestIds.has(missingQuestId) || completedGapQuestIds.has(missingQuestId)) {
+                    continue;
+                }
+                const missingQuest = this.worldRuntimeQuestQueryService.createQuestStateFromSource(playerId, missingQuestId, 'completed');
+                missingQuest.progress = missingQuest.required;
+                player.quests.quests.splice(insertIndex, 0, missingQuest);
+                insertIndex += 1;
+                ownedQuestIds.add(missingQuestId);
+                completedGapQuestIds.add(missingQuestId);
+                this.collectQuestCompensationAttachments(missingQuest, compensationAttachmentsByItemId);
+                changed = true;
+            }
+        }
+        return changed;
     }
     /**
  * tryAcceptNextQuest：执行tryAcceptNext任务相关逻辑。

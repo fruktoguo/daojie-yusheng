@@ -336,6 +336,31 @@ export class WorldRuntimeQuestQueryService {
         const source = this.templateRepository.getQuestSource(questId);
         return typeof source?.quest?.nextQuestId === 'string' ? source.quest.nextQuestId.trim() : '';
     }
+    resolveQuestChainGapToOwnedQuest(startQuest, ownedQuestIds, maxDepth = 128) {
+        const normalizedOwnedQuestIds = ownedQuestIds instanceof Set ? ownedQuestIds : new Set();
+        const missingQuestIds = [];
+        const visitedQuestIds = new Set();
+        let currentQuest = startQuest;
+        for (let depth = 0; depth < maxDepth; depth += 1) {
+            const nextQuestId = this.resolveQuestNextQuestId(currentQuest);
+            if (!nextQuestId || visitedQuestIds.has(nextQuestId)) {
+                return null;
+            }
+            if (normalizedOwnedQuestIds.has(nextQuestId)) {
+                return missingQuestIds.length > 0
+                    ? { ownedQuestId: nextQuestId, missingQuestIds }
+                    : null;
+            }
+            missingQuestIds.push(nextQuestId);
+            visitedQuestIds.add(nextQuestId);
+            const source = this.templateRepository.getQuestSource(nextQuestId);
+            if (!source?.quest) {
+                return null;
+            }
+            currentQuest = source.quest;
+        }
+        return null;
+    }
     /**
  * createQuestStateFromSource：构建并返回目标对象。
  * @param playerId 玩家 ID。

@@ -10,7 +10,7 @@ const { WorldRuntimeQuestStateService } = require("../runtime/world/world-runtim
  */
 
 
-function createService({ player, progressMap = {}, readyMap = {}, rewardMap = {}, nextQuestMap = {}, createdQuest = null, log = [], mailLog = [] } = {}) {
+function createService({ player, progressMap = {}, readyMap = {}, rewardMap = {}, nextQuestMap = {}, chainGapMap = {}, questTemplateMap = {}, createdQuest = null, log = [], mailLog = [] } = {}) {
     const playerRuntimeService = {    
     /**
  * getPlayer：读取玩家。
@@ -75,6 +75,14 @@ function createService({ player, progressMap = {}, readyMap = {}, rewardMap = {}
                     ? nextQuestMap[quest.id]
                     : '';
         },
+        resolveQuestChainGapToOwnedQuest(quest) {
+            return Object.prototype.hasOwnProperty.call(chainGapMap, quest.id)
+                ? {
+                    ownedQuestId: chainGapMap[quest.id].ownedQuestId,
+                    missingQuestIds: chainGapMap[quest.id].missingQuestIds.slice(),
+                }
+                : null;
+        },
         /**
  * createQuestStateFromSource：构建并返回目标对象。
  * @param playerId 玩家 ID。
@@ -86,6 +94,13 @@ function createService({ player, progressMap = {}, readyMap = {}, rewardMap = {}
         createQuestStateFromSource(playerId, questId, status) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+            if (Object.prototype.hasOwnProperty.call(questTemplateMap, questId)) {
+                return {
+                    ...questTemplateMap[questId],
+                    id: questId,
+                    status,
+                };
+            }
             if (createdQuest) {
                 return { ...createdQuest, id: questId, status };
             }
@@ -279,6 +294,69 @@ function testRefreshSendsMergedCompensationMailForDanglingPreviousQuests() {
         { itemId: 'minor_qi_pill', count: 1 },
     ]);
 }
+
+function testRefreshCompletesAndCompensatesMissingQuestChainGap() {
+    const log = [];
+    const mailLog = [];
+    const player = {
+        quests: {
+            quests: [
+                {
+                    id: 'chapter-2-1',
+                    status: 'active',
+                    progress: 0,
+                    required: 1,
+                    rewards: [{ itemId: 'stone', count: 1 }],
+                },
+                {
+                    id: 'chapter-3-1',
+                    status: 'active',
+                    progress: 0,
+                    required: 1,
+                    rewards: [],
+                },
+            ],
+        },
+    };
+    const service = createService({
+        player,
+        log,
+        mailLog,
+        chainGapMap: {
+            'chapter-2-1': {
+                ownedQuestId: 'chapter-3-1',
+                missingQuestIds: ['chapter-2-2', 'chapter-2-3'],
+            },
+        },
+        questTemplateMap: {
+            'chapter-2-2': {
+                title: '二章二',
+                progress: 0,
+                required: 1,
+                rewards: [{ itemId: 'stone', count: 2 }],
+            },
+            'chapter-2-3': {
+                title: '二章三',
+                progress: 0,
+                required: 1,
+                rewards: [{ itemId: 'pill', count: 1 }],
+            },
+        },
+    });
+    service.refreshQuestStates('player:1');
+    assert.deepEqual(player.quests.quests.map((quest) => ({ id: quest.id, status: quest.status, progress: quest.progress })), [
+        { id: 'chapter-2-1', status: 'completed', progress: 1 },
+        { id: 'chapter-2-2', status: 'completed', progress: 1 },
+        { id: 'chapter-2-3', status: 'completed', progress: 1 },
+        { id: 'chapter-3-1', status: 'active', progress: 0 },
+    ]);
+    assert.deepEqual(log, [['markQuestStateDirty', 'player:1']]);
+    assert.equal(mailLog.length, 1);
+    assert.deepEqual(mailLog[0].input.attachments, [
+        { itemId: 'stone', count: 3 },
+        { itemId: 'pill', count: 1 },
+    ]);
+}
 /**
  * testTryAcceptNextQuest：执行testTryAcceptNext任务相关逻辑。
  * @returns 无返回值，直接更新testTryAcceptNext任务相关状态。
@@ -459,6 +537,7 @@ testRefreshQuestStates();
 testRefreshCompletesDanglingPreviousQuestWhenNextExists();
 testRefreshCompletesDanglingPreviousQuestFromCurrentTemplateNextQuest();
 testRefreshSendsMergedCompensationMailForDanglingPreviousQuests();
+testRefreshCompletesAndCompensatesMissingQuestChainGap();
 testTryAcceptNextQuest();
 testTryAcceptNextQuestRejectsSecondMainQuest();
 testAdvanceKillQuestProgress();
