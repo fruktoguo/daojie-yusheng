@@ -3,16 +3,21 @@
  *
  * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
+import { MailRuntimeService } from '../mail/mail-runtime.service';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { WorldRuntimeQuestQueryService } from './query/world-runtime-quest-query.service';
 import * as world_runtime_normalization_helpers_1 from './world-runtime.normalization.helpers';
 
 const { cloneQuestState } = world_runtime_normalization_helpers_1;
+const QUEST_REWARD_COMPENSATION_MAIL_TITLE = '任务奖励补发';
+const QUEST_REWARD_COMPENSATION_MAIL_BODY = '检测到历史任务进度已推进，现补发未领取的任务奖励。';
+const QUEST_REWARD_COMPENSATION_MAIL_SENDER = '司命台';
 
 /** world-runtime quest-state helpers：承接任务状态刷新、自动接续与奖励背包校验。 */
 @Injectable()
 export class WorldRuntimeQuestStateService {
+    logger = new Logger(WorldRuntimeQuestStateService.name);
 /**
  * playerRuntimeService：玩家运行态服务引用。
  */
@@ -24,15 +29,25 @@ export class WorldRuntimeQuestStateService {
 
     worldRuntimeQuestQueryService;
     /**
+ * mailRuntimeService：邮件运行时服务引用，用于历史任务链残留奖励补发。
+ */
+
+    mailRuntimeService;
+    /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param playerRuntimeService 参数说明。
  * @param worldRuntimeQuestQueryService 参数说明。
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(playerRuntimeService: PlayerRuntimeService, worldRuntimeQuestQueryService: WorldRuntimeQuestQueryService) {
+    constructor(
+        playerRuntimeService: PlayerRuntimeService,
+        worldRuntimeQuestQueryService: WorldRuntimeQuestQueryService,
+        @Optional() @Inject(MailRuntimeService) mailRuntimeService: any = null,
+    ) {
         this.playerRuntimeService = playerRuntimeService;
         this.worldRuntimeQuestQueryService = worldRuntimeQuestQueryService;
+        this.mailRuntimeService = mailRuntimeService;
     }
     /**
  * refreshQuestStates：执行refresh任务状态相关逻辑。
@@ -49,19 +64,24 @@ export class WorldRuntimeQuestStateService {
             return;
         }
         let changed = forceDirty;
+        const compensationAttachmentsByItemId = new Map();
         const ownedQuestIds = new Set(player.quests.quests.map((entry) => entry.id));
         for (const quest of player.quests.quests) {
             const previousProgress = quest.progress;
             const previousStatus = quest.status;
             quest.progress = this.worldRuntimeQuestQueryService.resolveQuestProgress(playerId, quest);
             const nextQuestId = typeof quest.nextQuestId === 'string' ? quest.nextQuestId.trim() : '';
-            const nextStatus = quest.status === 'completed' || (nextQuestId && ownedQuestIds.has(nextQuestId))
+            const completedByExistingNextQuest = quest.status !== 'completed' && nextQuestId && ownedQuestIds.has(nextQuestId);
+            const nextStatus = quest.status === 'completed' || completedByExistingNextQuest
                 ? 'completed'
                 : this.worldRuntimeQuestQueryService.canQuestBecomeReady(playerId, quest)
                     ? 'ready'
                     : quest.status === 'ready'
                         ? 'active'
                         : quest.status;
+            if (completedByExistingNextQuest && previousStatus !== 'completed') {
+                this.collectQuestCompensationAttachments(quest, compensationAttachmentsByItemId);
+            }
             if (quest.progress !== previousProgress || nextStatus !== previousStatus) {
                 quest.status = nextStatus;
                 changed = true;
@@ -70,6 +90,7 @@ export class WorldRuntimeQuestStateService {
         if (changed) {
             this.playerRuntimeService.markQuestStateDirty(playerId);
         }
+        this.deliverQuestCompensationMail(playerId, compensationAttachmentsByItemId);
     }
     /**
  * tryAcceptNextQuest：执行tryAcceptNext任务相关逻辑。
@@ -183,6 +204,50 @@ export class WorldRuntimeQuestStateService {
             freeSlots -= 1;
         }
         return true;
+    }
+    /**
+ * collectQuestCompensationAttachments：收集历史任务链残留自动完成时需要补发的任务奖励。
+ * @param quest 任务状态。
+ * @param attachmentsByItemId 附件汇总 Map。
+ * @returns 无返回值，直接汇总附件。
+ */
+
+    collectQuestCompensationAttachments(quest, attachmentsByItemId) {
+        const rewards = this.worldRuntimeQuestQueryService.buildQuestRewardItems(quest);
+        for (const reward of Array.isArray(rewards) ? rewards : []) {
+            const itemId = typeof reward?.itemId === 'string' ? reward.itemId.trim() : '';
+            const count = Math.max(0, Math.trunc(Number(reward?.count ?? 0)));
+            if (!itemId || count <= 0) {
+                continue;
+            }
+            attachmentsByItemId.set(itemId, (attachmentsByItemId.get(itemId) ?? 0) + count);
+        }
+    }
+    /**
+ * deliverQuestCompensationMail：把一次刷新中收集到的历史任务奖励合并成一封补偿邮件。
+ * @param playerId 玩家 ID。
+ * @param attachmentsByItemId 附件汇总 Map。
+ * @returns 无返回值，异步创建邮件。
+ */
+
+    deliverQuestCompensationMail(playerId, attachmentsByItemId) {
+        if (attachmentsByItemId.size === 0 || typeof this.mailRuntimeService?.createDirectMail !== 'function') {
+            return;
+        }
+        const attachments = Array.from(attachmentsByItemId.entries())
+            .map(([itemId, count]) => ({ itemId, count }))
+            .filter((entry) => entry.itemId && entry.count > 0);
+        if (attachments.length === 0) {
+            return;
+        }
+        void this.mailRuntimeService.createDirectMail(playerId, {
+            senderLabel: QUEST_REWARD_COMPENSATION_MAIL_SENDER,
+            fallbackTitle: QUEST_REWARD_COMPENSATION_MAIL_TITLE,
+            fallbackBody: QUEST_REWARD_COMPENSATION_MAIL_BODY,
+            attachments,
+        }).catch((error) => {
+            this.logger.warn(`任务奖励补发邮件发送失败：${error instanceof Error ? error.message : String(error)}`);
+        });
     }
 };
 function isWalletRewardItemId(itemId) {

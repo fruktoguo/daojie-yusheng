@@ -10,7 +10,7 @@ const { WorldRuntimeQuestStateService } = require("../runtime/world/world-runtim
  */
 
 
-function createService({ player, progressMap = {}, readyMap = {}, createdQuest = null, log = [] } = {}) {
+function createService({ player, progressMap = {}, readyMap = {}, rewardMap = {}, createdQuest = null, log = [], mailLog = [] } = {}) {
     const playerRuntimeService = {    
     /**
  * getPlayer：读取玩家。
@@ -92,8 +92,21 @@ function createService({ player, progressMap = {}, readyMap = {}, createdQuest =
                 rewards: [],
             };
         },
+        buildQuestRewardItems(quest) {
+            return Object.prototype.hasOwnProperty.call(rewardMap, quest.id)
+                ? rewardMap[quest.id].map((entry) => ({ ...entry }))
+                : Array.isArray(quest.rewards)
+                    ? quest.rewards.map((entry) => ({ ...entry }))
+                    : [];
+        },
     };
-    return new WorldRuntimeQuestStateService(playerRuntimeService, worldRuntimeQuestQueryService);
+    const mailRuntimeService = {
+        createDirectMail(playerId, input) {
+            mailLog.push({ playerId, input });
+            return Promise.resolve(`mail:${mailLog.length}`);
+        },
+    };
+    return new WorldRuntimeQuestStateService(playerRuntimeService, worldRuntimeQuestQueryService, mailRuntimeService);
 }
 /**
  * testRefreshQuestStates：执行testRefresh任务状态相关逻辑。
@@ -159,6 +172,66 @@ function testRefreshCompletesDanglingPreviousQuestWhenNextExists() {
         { id: 'wildlands-roadhouse', status: 'completed', progress: 1 },
     ]);
     assert.deepEqual(log, [['markQuestStateDirty', 'player:1']]);
+}
+
+function testRefreshSendsMergedCompensationMailForDanglingPreviousQuests() {
+    const log = [];
+    const mailLog = [];
+    const player = {
+        quests: {
+            quests: [
+                {
+                    id: 'first-previous',
+                    status: 'ready',
+                    progress: 1,
+                    required: 1,
+                    nextQuestId: 'first-next',
+                    rewards: [{ itemId: 'rat_tail', count: 2 }, { itemId: 'spirit_stone', count: 10 }],
+                },
+                {
+                    id: 'first-next',
+                    status: 'active',
+                    progress: 0,
+                    required: 1,
+                    rewards: [],
+                },
+                {
+                    id: 'second-previous',
+                    status: 'active',
+                    progress: 1,
+                    required: 1,
+                    nextQuestId: 'second-next',
+                    rewards: [{ itemId: 'rat_tail', count: 3 }, { itemId: 'minor_qi_pill', count: 1 }],
+                },
+                {
+                    id: 'second-next',
+                    status: 'ready',
+                    progress: 1,
+                    required: 1,
+                    rewards: [],
+                },
+            ],
+        },
+    };
+    const service = createService({ player, log, mailLog });
+    service.refreshQuestStates('player:1');
+    assert.deepEqual(player.quests.quests.map((quest) => ({ id: quest.id, status: quest.status })), [
+        { id: 'first-previous', status: 'completed' },
+        { id: 'first-next', status: 'active' },
+        { id: 'second-previous', status: 'completed' },
+        { id: 'second-next', status: 'ready' },
+    ]);
+    assert.deepEqual(log, [['markQuestStateDirty', 'player:1']]);
+    assert.equal(mailLog.length, 1);
+    assert.equal(mailLog[0].playerId, 'player:1');
+    assert.equal(mailLog[0].input.senderLabel, '司命台');
+    assert.equal(mailLog[0].input.fallbackTitle, '任务奖励补发');
+    assert.equal(mailLog[0].input.fallbackBody, '检测到历史任务进度已推进，现补发未领取的任务奖励。');
+    assert.deepEqual(mailLog[0].input.attachments, [
+        { itemId: 'rat_tail', count: 5 },
+        { itemId: 'spirit_stone', count: 10 },
+        { itemId: 'minor_qi_pill', count: 1 },
+    ]);
 }
 /**
  * testTryAcceptNextQuest：执行testTryAcceptNext任务相关逻辑。
@@ -313,6 +386,7 @@ function testCanReceiveRewardItems() {
 
 testRefreshQuestStates();
 testRefreshCompletesDanglingPreviousQuestWhenNextExists();
+testRefreshSendsMergedCompensationMailForDanglingPreviousQuests();
 testTryAcceptNextQuest();
 testAdvanceKillQuestProgress();
 testAdvanceLearnTechniqueQuest();

@@ -615,12 +615,17 @@ export class MailRuntimeService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const inventoryItems = [];
+        const walletCredits = [];
         for (const mail of mails) {
             for (const attachment of mail.attachments) {
                 const count = Math.max(0, Math.trunc(Number(attachment?.count ?? 0)));
                 const itemId = typeof attachment?.itemId === 'string' ? attachment.itemId.trim() : '';
                 if (!itemId || count <= 0) {
                     return null;
+                }
+                if (isWalletAttachmentItemId(itemId)) {
+                    walletCredits.push({ walletType: itemId, count });
+                    continue;
                 }
                 const item = this.contentTemplateRepository.createItem(itemId, count);
                 if (!item) {
@@ -658,7 +663,7 @@ export class MailRuntimeService {
         }
         return {
             inventoryItems,
-            walletCredits: [],
+            walletCredits,
         };
     }
     /** 检查玩家背包是否能一次性容纳全部附件。 */
@@ -985,6 +990,10 @@ function normalizeAttachments(attachments) {
         itemId: entry.itemId.trim(),
         count: Number.isFinite(entry.count) ? Math.max(1, Math.trunc(Number(entry.count))) : 1,
     }));
+}
+
+function isWalletAttachmentItemId(itemId) {
+    return typeof itemId === 'string' && itemId.trim() === 'spirit_stone';
 }
 
 function normalizePositiveInteger(value, defaultValue, min, max) {
