@@ -126,6 +126,40 @@ function testRefreshQuestStates() {
     ]);
     assert.deepEqual(log, [['markQuestStateDirty', 'player:1']]);
 }
+
+function testRefreshCompletesDanglingPreviousQuestWhenNextExists() {
+    const log = [];
+    const player = {
+        quests: {
+            quests: [
+                {
+                    id: 'intro-body-tempering',
+                    status: 'ready',
+                    progress: 1,
+                    required: 1,
+                    nextQuestId: 'wildlands-roadhouse',
+                    rewardItemIds: [],
+                    rewards: [],
+                },
+                {
+                    id: 'wildlands-roadhouse',
+                    status: 'completed',
+                    progress: 1,
+                    required: 1,
+                    rewardItemIds: [],
+                    rewards: [],
+                },
+            ],
+        },
+    };
+    const service = createService({ player, log });
+    service.refreshQuestStates('player:1');
+    assert.deepEqual(player.quests.quests.map((quest) => ({ id: quest.id, status: quest.status, progress: quest.progress })), [
+        { id: 'intro-body-tempering', status: 'completed', progress: 1 },
+        { id: 'wildlands-roadhouse', status: 'completed', progress: 1 },
+    ]);
+    assert.deepEqual(log, [['markQuestStateDirty', 'player:1']]);
+}
 /**
  * testTryAcceptNextQuest：执行testTryAcceptNext任务相关逻辑。
  * @returns 无返回值，直接更新testTryAcceptNext任务相关状态。
@@ -278,6 +312,7 @@ function testCanReceiveRewardItems() {
 }
 
 testRefreshQuestStates();
+testRefreshCompletesDanglingPreviousQuestWhenNextExists();
 testTryAcceptNextQuest();
 testAdvanceKillQuestProgress();
 testAdvanceLearnTechniqueQuest();

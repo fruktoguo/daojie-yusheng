@@ -49,11 +49,13 @@ export class WorldRuntimeQuestStateService {
             return;
         }
         let changed = forceDirty;
+        const ownedQuestIds = new Set(player.quests.quests.map((entry) => entry.id));
         for (const quest of player.quests.quests) {
             const previousProgress = quest.progress;
             const previousStatus = quest.status;
             quest.progress = this.worldRuntimeQuestQueryService.resolveQuestProgress(playerId, quest);
-            const nextStatus = quest.status === 'completed'
+            const nextQuestId = typeof quest.nextQuestId === 'string' ? quest.nextQuestId.trim() : '';
+            const nextStatus = quest.status === 'completed' || (nextQuestId && ownedQuestIds.has(nextQuestId))
                 ? 'completed'
                 : this.worldRuntimeQuestQueryService.canQuestBecomeReady(playerId, quest)
                     ? 'ready'
