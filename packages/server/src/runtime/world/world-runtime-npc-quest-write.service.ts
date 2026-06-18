@@ -12,7 +12,19 @@ import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { buildStructuredNotice } from './structured-notice.helpers';
 import * as world_runtime_normalization_helpers_1 from './world-runtime.normalization.helpers';
 
-const { cloneQuestState, buildNpcQuestProgressText } = world_runtime_normalization_helpers_1;
+const { cloneQuestState, buildNpcQuestProgressText, normalizeQuestLine } = world_runtime_normalization_helpers_1;
+
+function hasIncompleteQuestInLine(playerQuests, line, exceptQuestId = '') {
+    for (const quest of Array.isArray(playerQuests) ? playerQuests : []) {
+        if (!quest || quest.id === exceptQuestId || quest.status === 'completed') {
+            continue;
+        }
+        if (normalizeQuestLine(quest.line) === line) {
+            return true;
+        }
+    }
+    return false;
+}
 
 function materializeQuestForNpcWrite(deps, playerId, quest) {
     return typeof deps?.worldRuntimeQuestQueryService?.materializeQuestView === 'function'
@@ -102,6 +114,13 @@ export class WorldRuntimeNpcQuestWriteService {
             throw new BadRequestException('该任务已经接取');
         }
         const questView = materializeQuestForNpcWrite(deps, playerId, quest);
+        if (typeof deps?.worldRuntimeQuestQueryService?.isQuestUnlockedForPlayer === 'function'
+            && !deps.worldRuntimeQuestQueryService.isQuestUnlockedForPlayer(player.quests.quests, questView.id)) {
+            throw new BadRequestException('前置任务尚未完成');
+        }
+        if (normalizeQuestLine(questView.line) === 'main' && hasIncompleteQuestInLine(player.quests.quests, 'main', questId)) {
+            throw new BadRequestException('当前已有进行中的主线任务');
+        }
         player.quests.quests.push(cloneQuestState(questView, 'active'));
         this.playerRuntimeService.markQuestStateDirty(playerId);
         deps.refreshQuestStates(playerId, true);
@@ -151,7 +170,7 @@ export class WorldRuntimeNpcQuestWriteService {
         }
         quest.status = 'completed';
         this.playerRuntimeService.markQuestStateDirty(playerId);
-        const nextQuest = deps.tryAcceptNextQuest(playerId, quest.nextQuestId);
+        const nextQuest = deps.tryAcceptNextQuest(playerId, questView.nextQuestId ?? quest.nextQuestId);
         deps.refreshQuestStates(playerId, true);
         const nReward = buildStructuredNotice('success', 'notice.quest.reward', `${npc.name}：做得不错，这是你的奖励 ${questView.rewardText || '。'}`, { vars: { npcName: npc.name, rewardText: questView.rewardText || '。' }, pills: [{ key: 'npcName', style: 'target' }] });
         deps.queuePlayerNotice(playerId, nReward.text, nReward.kind, undefined, undefined, nReward.structured);

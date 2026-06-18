@@ -9,10 +9,22 @@ import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { WorldRuntimeQuestQueryService } from './query/world-runtime-quest-query.service';
 import * as world_runtime_normalization_helpers_1 from './world-runtime.normalization.helpers';
 
-const { cloneQuestState } = world_runtime_normalization_helpers_1;
+const { cloneQuestState, normalizeQuestLine } = world_runtime_normalization_helpers_1;
 const QUEST_REWARD_COMPENSATION_MAIL_TITLE = '任务奖励补发';
 const QUEST_REWARD_COMPENSATION_MAIL_BODY = '检测到历史任务进度已推进，现补发未领取的任务奖励。';
 const QUEST_REWARD_COMPENSATION_MAIL_SENDER = '司命台';
+
+function hasIncompleteQuestInLine(playerQuests, line, exceptQuestId = '') {
+    for (const quest of Array.isArray(playerQuests) ? playerQuests : []) {
+        if (!quest || quest.id === exceptQuestId || quest.status === 'completed') {
+            continue;
+        }
+        if (normalizeQuestLine(quest.line) === line) {
+            return true;
+        }
+    }
+    return false;
+}
 
 /** world-runtime quest-state helpers：承接任务状态刷新、自动接续与奖励背包校验。 */
 @Injectable()
@@ -70,7 +82,11 @@ export class WorldRuntimeQuestStateService {
             const previousProgress = quest.progress;
             const previousStatus = quest.status;
             quest.progress = this.worldRuntimeQuestQueryService.resolveQuestProgress(playerId, quest);
-            const nextQuestId = typeof quest.nextQuestId === 'string' ? quest.nextQuestId.trim() : '';
+            const nextQuestId = typeof this.worldRuntimeQuestQueryService.resolveQuestNextQuestId === 'function'
+                ? this.worldRuntimeQuestQueryService.resolveQuestNextQuestId(quest)
+                : typeof quest.nextQuestId === 'string'
+                    ? quest.nextQuestId.trim()
+                    : '';
             const completedByExistingNextQuest = quest.status !== 'completed' && nextQuestId && ownedQuestIds.has(nextQuestId);
             const nextStatus = quest.status === 'completed' || completedByExistingNextQuest
                 ? 'completed'
@@ -109,7 +125,14 @@ export class WorldRuntimeQuestStateService {
         if (player.quests.quests.some((entry) => entry.id === nextQuestId)) {
             return null;
         }
+        if (typeof this.worldRuntimeQuestQueryService.isQuestUnlockedForPlayer === 'function'
+            && !this.worldRuntimeQuestQueryService.isQuestUnlockedForPlayer(player.quests.quests, nextQuestId)) {
+            return null;
+        }
         const nextQuest = this.worldRuntimeQuestQueryService.createQuestStateFromSource(playerId, nextQuestId, 'active');
+        if (normalizeQuestLine(nextQuest.line) === 'main' && hasIncompleteQuestInLine(player.quests.quests, 'main', nextQuest.id)) {
+            return null;
+        }
         player.quests.quests.push(nextQuest);
         this.playerRuntimeService.markQuestStateDirty(playerId);
         return cloneQuestState(nextQuest);

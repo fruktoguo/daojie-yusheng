@@ -57,6 +57,22 @@ function hasIncompletePreviousNpcQuest(playerQuests, npcQuests, beforeIndex) {
     return false;
 }
 
+function hasIncompleteQuestInLine(playerQuests, line, exceptQuestId = '') {
+    for (const quest of Array.isArray(playerQuests) ? playerQuests : []) {
+        if (!quest || quest.id === exceptQuestId || quest.status === 'completed') {
+            continue;
+        }
+        if (normalizeQuestLine(quest.line) === line) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function hasCompletedQuest(playerQuests, questId) {
+    return findPlayerQuestById(playerQuests, questId)?.status === 'completed';
+}
+
 /** 任务只读查询服务：承接任务视图构造、奖励解析与导航目标解析。 */
 @Injectable()
 export class WorldRuntimeQuestQueryService {
@@ -145,6 +161,7 @@ export class WorldRuntimeQuestQueryService {
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
 
         const byQuestId = new Map<string, any>(player.quests.quests.map((entry) => [entry.id, entry]));
+        const hasIncompleteMainQuest = hasIncompleteQuestInLine(player.quests.quests, 'main');
 
         const result = [];
         for (let index = 0; index < npc.quests.length; index += 1) {
@@ -162,6 +179,12 @@ export class WorldRuntimeQuestQueryService {
                 .slice(0, index)
                 .some((candidate) => byQuestId.get(candidate.id)?.status !== 'completed');
             if (blockedByPrevious) {
+                break;
+            }
+            if (!this.isQuestUnlockedForPlayer(player.quests.quests, rawQuest.id)) {
+                break;
+            }
+            if (hasIncompleteMainQuest && this.resolveQuestLineFromCandidate(rawQuest) === 'main') {
                 break;
             }
             result.push(this.createQuestStateFromSource(playerId, rawQuest.id, 'available'));
@@ -182,6 +205,7 @@ export class WorldRuntimeQuestQueryService {
     }
     resolveAvailableNpcQuestMarkerForPlayer(player, npc) {
         const playerQuests = Array.isArray(player?.quests?.quests) ? player.quests.quests : [];
+        const hasIncompleteMainQuest = hasIncompleteQuestInLine(playerQuests, 'main');
         for (let index = 0; index < npc.quests.length; index += 1) {
             const rawQuest = npc.quests[index];
             const questId = typeof rawQuest?.id === 'string' ? rawQuest.id.trim() : '';
@@ -198,13 +222,53 @@ export class WorldRuntimeQuestQueryService {
             if (hasIncompletePreviousNpcQuest(playerQuests, npc.quests, index)) {
                 return undefined;
             }
+            if (!this.isQuestUnlockedForPlayer(playerQuests, questId)) {
+                return undefined;
+            }
             const source = this.templateRepository.getQuestSource(questId);
+            const line = normalizeQuestLine(source?.quest?.line ?? rawQuest.line);
+            if (line === 'main' && hasIncompleteMainQuest) {
+                return undefined;
+            }
             if (source?.giverNpcId && source.giverNpcId !== npc.npcId) {
                 return undefined;
             }
-            return { line: normalizeQuestLine(source?.quest?.line ?? rawQuest.line), state: 'available' };
+            return { line, state: 'available' };
         }
         return undefined;
+    }
+    resolveQuestLineFromCandidate(rawQuest) {
+        const questId = typeof rawQuest?.id === 'string' ? rawQuest.id.trim() : '';
+        if (questId) {
+            const source = this.templateRepository.getQuestSource(questId);
+            return normalizeQuestLine(source?.quest?.line ?? rawQuest.line);
+        }
+        return normalizeQuestLine(rawQuest?.line);
+    }
+    resolveDirectPreviousQuestIds(questId) {
+        const normalizedQuestId = typeof questId === 'string' ? questId.trim() : '';
+        if (!normalizedQuestId) {
+            return [];
+        }
+        const sources: any[] = this.templateRepository.questSourceById instanceof Map
+            ? Array.from(this.templateRepository.questSourceById.values() as Iterable<any>)
+            : [];
+        const previousQuestIds = [];
+        for (const source of sources) {
+            const previousId = typeof source?.quest?.id === 'string' ? source.quest.id.trim() : '';
+            const nextQuestId = typeof source?.quest?.nextQuestId === 'string' ? source.quest.nextQuestId.trim() : '';
+            if (previousId && nextQuestId === normalizedQuestId) {
+                previousQuestIds.push(previousId);
+            }
+        }
+        return previousQuestIds;
+    }
+    isQuestUnlockedForPlayer(playerQuests, questId) {
+        const previousQuestIds = this.resolveDirectPreviousQuestIds(questId);
+        if (previousQuestIds.length === 0) {
+            return true;
+        }
+        return previousQuestIds.every((previousQuestId) => hasCompletedQuest(playerQuests, previousQuestId));
     }
     /**
  * resolveQuestProgress：规范化或转换任务进度。
@@ -260,6 +324,18 @@ export class WorldRuntimeQuestQueryService {
         }
         return !quest.requiredItemId || this.playerRuntimeService.getInventoryCountByItemId(playerId, quest.requiredItemId) >= (quest.requiredItemCount ?? 1);
     }    
+    resolveQuestNextQuestId(quest) {
+        const currentNextQuestId = typeof quest?.nextQuestId === 'string' ? quest.nextQuestId.trim() : '';
+        if (currentNextQuestId) {
+            return currentNextQuestId;
+        }
+        const questId = typeof quest?.id === 'string' ? quest.id.trim() : '';
+        if (!questId) {
+            return '';
+        }
+        const source = this.templateRepository.getQuestSource(questId);
+        return typeof source?.quest?.nextQuestId === 'string' ? source.quest.nextQuestId.trim() : '';
+    }
     /**
  * createQuestStateFromSource：构建并返回目标对象。
  * @param playerId 玩家 ID。

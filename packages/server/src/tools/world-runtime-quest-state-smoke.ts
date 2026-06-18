@@ -10,7 +10,7 @@ const { WorldRuntimeQuestStateService } = require("../runtime/world/world-runtim
  */
 
 
-function createService({ player, progressMap = {}, readyMap = {}, rewardMap = {}, createdQuest = null, log = [], mailLog = [] } = {}) {
+function createService({ player, progressMap = {}, readyMap = {}, rewardMap = {}, nextQuestMap = {}, createdQuest = null, log = [], mailLog = [] } = {}) {
     const playerRuntimeService = {    
     /**
  * getPlayer：读取玩家。
@@ -68,6 +68,13 @@ function createService({ player, progressMap = {}, readyMap = {}, rewardMap = {}
                 ? readyMap[quest.id]
                 : quest.progress >= quest.required;
         },        
+        resolveQuestNextQuestId(quest) {
+            return typeof quest.nextQuestId === 'string' && quest.nextQuestId.trim()
+                ? quest.nextQuestId.trim()
+                : Object.prototype.hasOwnProperty.call(nextQuestMap, quest.id)
+                    ? nextQuestMap[quest.id]
+                    : '';
+        },
         /**
  * createQuestStateFromSource：构建并返回目标对象。
  * @param playerId 玩家 ID。
@@ -174,6 +181,45 @@ function testRefreshCompletesDanglingPreviousQuestWhenNextExists() {
     assert.deepEqual(log, [['markQuestStateDirty', 'player:1']]);
 }
 
+function testRefreshCompletesDanglingPreviousQuestFromCurrentTemplateNextQuest() {
+    const log = [];
+    const player = {
+        quests: {
+            quests: [
+                {
+                    id: 'chapter-one',
+                    line: 'main',
+                    status: 'active',
+                    progress: 0,
+                    required: 1,
+                    rewardItemIds: [],
+                    rewards: [],
+                },
+                {
+                    id: 'chapter-two',
+                    line: 'main',
+                    status: 'active',
+                    progress: 0,
+                    required: 1,
+                    rewardItemIds: [],
+                    rewards: [],
+                },
+            ],
+        },
+    };
+    const service = createService({
+        player,
+        nextQuestMap: { 'chapter-one': 'chapter-two' },
+        log,
+    });
+    service.refreshQuestStates('player:1');
+    assert.deepEqual(player.quests.quests.map((quest) => ({ id: quest.id, status: quest.status })), [
+        { id: 'chapter-one', status: 'completed' },
+        { id: 'chapter-two', status: 'active' },
+    ]);
+    assert.deepEqual(log, [['markQuestStateDirty', 'player:1']]);
+}
+
 function testRefreshSendsMergedCompensationMailForDanglingPreviousQuests() {
     const log = [];
     const mailLog = [];
@@ -265,6 +311,31 @@ function testTryAcceptNextQuest() {
     assert.deepEqual(log, [['markQuestStateDirty', 'player:1']]);
     assert.equal(service.tryAcceptNextQuest('player:1', 'next-quest'), null);
     assert.equal(service.tryAcceptNextQuest('player:1', null), null);
+}
+
+function testTryAcceptNextQuestRejectsSecondMainQuest() {
+    const log = [];
+    const player = {
+        quests: {
+            quests: [{ id: 'current-main', line: 'main', status: 'active', progress: 0, required: 1 }],
+        },
+    };
+    const service = createService({
+        player,
+        createdQuest: {
+            line: 'main',
+            title: '新的主线',
+            progress: 0,
+            required: 1,
+            rewardItemIds: [],
+            rewards: [],
+        },
+        log,
+    });
+    const accepted = service.tryAcceptNextQuest('player:1', 'next-main');
+    assert.equal(accepted, null);
+    assert.deepEqual(player.quests.quests.map((quest) => quest.id), ['current-main']);
+    assert.deepEqual(log, []);
 }
 /**
  * testAdvanceKillQuestProgress：执行testAdvanceKill任务进度相关逻辑。
@@ -386,8 +457,10 @@ function testCanReceiveRewardItems() {
 
 testRefreshQuestStates();
 testRefreshCompletesDanglingPreviousQuestWhenNextExists();
+testRefreshCompletesDanglingPreviousQuestFromCurrentTemplateNextQuest();
 testRefreshSendsMergedCompensationMailForDanglingPreviousQuests();
 testTryAcceptNextQuest();
+testTryAcceptNextQuestRejectsSecondMainQuest();
 testAdvanceKillQuestProgress();
 testAdvanceLearnTechniqueQuest();
 testCanReceiveRewardItems();
