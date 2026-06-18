@@ -4062,7 +4062,7 @@ function renderWorkerPoolSection(wp: any): void {
   const containerEl = document.getElementById('worker-pool-all-pools');
   if (!statusEl || !containerEl) return;
   if (!wp || (!wp.encoding && !wp.instance && !wp.persistence)) {
-    statusEl.textContent = 'Worker Pool 未启用或数据未就绪（所有开关关闭时走主线程 fallback）';
+    statusEl.textContent = 'Worker Pool 未启用或数据未就绪（worker 不可用时由服务端 fallback）';
     containerEl.innerHTML = '';
     return;
   }
@@ -4072,9 +4072,9 @@ function renderWorkerPoolSection(wp: any): void {
     ? `${totalActive} 个 worker 线程活跃 · 累计 ${totalSubmitted} 任务`
     : '所有 Pool 未启用或无活跃 worker';
   const pools = [
-    { key: 'encoding', label: 'AOI 编码池', note: 'envelope encode / pathfind / fov' },
-    { key: 'instance', label: '实例分片池', note: '怪物 AI 预计算 / 资源流动' },
-    { key: 'persistence', label: '持久化序列化池', note: 'JSON.stringify / bigint 转换' },
+    { key: 'encoding', label: 'AOI 计算池', note: 'pathfind / fov；envelope 当前保持 JSON 直发' },
+    { key: 'instance', label: '实例分片池', note: '怪物 AI intent 预计算（空实例/无妖兽不提交）' },
+    { key: 'persistence', label: '持久化写计划池', note: '玩家分域 write plan 构造' },
   ];
   containerEl.innerHTML = pools.map(({ key, label, note }) => {
     const m = wp[key];

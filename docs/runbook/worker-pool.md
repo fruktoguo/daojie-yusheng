@@ -8,8 +8,8 @@ Worker pool 默认开启，不是可选功能。
 
 | Pool | 默认 Worker 数 | 职责 |
 |------|----------------|------|
-| Encoding (CPU) | `min(N_cpu - 2, 6)` | AOI envelope 编码、A* 寻路、FOV 计算 |
-| Instance | `min(N_cpu - 2, 6)` | 实例 tick 子阶段 |
+| Encoding (CPU) | `min(N_cpu - 2, 6)` | A* 寻路、FOV 计算；AOI envelope 当前保持 JSON 直发 |
+| Instance | `min(N_cpu - 2, 6)` | 怪物 AI intent proposals；空实例和无妖兽实例不提交任务，灵气流转仍在主线程 |
 | Persistence | `2` | 持久化 write plan 构造 |
 
 可调环境变量：`SERVER_ENCODING_WORKER_COUNT`、`SERVER_INSTANCE_WORKER_COUNT`、`SERVER_PERSISTENCE_WORKER_COUNT`

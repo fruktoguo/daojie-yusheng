@@ -3,7 +3,7 @@
  * 验证 worker 路径与同步 fallback 路径产生逐字节相等的输出。
  *
  * 覆盖：
- * - Phase 1: AOI envelope JSON binary encode/decode 等价性
+ * - Phase 1: AOI envelope JSON binary encode/decode 等价性，以及当前直发 JSON 的 encoder 占位行为
  * - Phase 2: A* 寻路 worker vs 同步路径等价性
  * - Phase 5: 持久化 write plan worker vs 同步路径等价性
  *
@@ -72,7 +72,7 @@ function testPhase1EnvelopeEquivalence(): void {
 }
 
 async function testPhase1AoiEncoderUsesWorkerPool(): Promise<void> {
-  console.log('\n[Phase 1] AOI encoder worker pool metrics');
+  console.log('\n[Phase 1] AOI encoder direct-send placeholder');
   const metrics = new WorkerPoolMetricsService();
   const pool = new EncodingWorkerPoolService(metrics);
   const encoder = new AoiEnvelopeEncoderService(pool);
@@ -87,9 +87,9 @@ async function testPhase1AoiEncoderUsesWorkerPool(): Promise<void> {
     const encoded = await encoder.encodeEnvelopeAsync(envelope);
     const snapshot = metrics.getMetrics('encoding');
     assert(snapshot.activeWorkers > 0, 'encoding pool spawned worker threads');
-    assert(snapshot.totalSubmitted === 2, 'AOI encoder submits one task per non-empty payload');
-    assert(snapshot.totalCompleted === 2, 'AOI encoder completes submitted payload tasks');
-    assert(encoded.worldDelta instanceof Buffer && encoded.selfDelta instanceof Buffer, 'AOI encoder returns binary buffers');
+    assert(snapshot.totalSubmitted === 0, 'AOI encoder does not submit disabled Buffer pre-encoding tasks');
+    assert(snapshot.totalCompleted === 0, 'AOI encoder leaves encoding pool metrics unchanged');
+    assert(encoded.worldDelta === null && encoded.selfDelta === null, 'AOI encoder returns null placeholders for JSON direct-send');
   } finally {
     pool.shutdown();
   }

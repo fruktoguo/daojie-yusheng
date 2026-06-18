@@ -6,7 +6,7 @@
 /**
  * 实例级 tick 编排服务
  * 按阶段推进每个实例的 tick：资源流动、阵法、建筑、传送、怪物、玩家修炼等
- * Phase 4: 实例级独立子阶段可外移到 InstanceWorkerPool；怪物 intent 预计算默认关闭。
+ * Phase 4: 实例级怪物 intent 预计算默认进入 InstanceWorkerPool，权威应用仍在主线程完成。
  */
 import { Injectable, Optional, Inject, Logger } from '@nestjs/common';
 import { DEFAULT_AURA_LEVEL_BASE_VALUE, getAuraLevel, getQiResourceDefaultLevel, parseQiResourceKey, projectQiValue, resolveGameTimeState } from '@mud/shared';
@@ -16,9 +16,6 @@ import { buildStructuredNotice } from './structured-notice.helpers';
 import { InstanceWorkerPoolService } from '../../concurrency/instance-worker-pool.service';
 import { RuntimeMapConfigService } from '../map/runtime-map-config.service';
 import type { TickSectionDurations } from './world-runtime-metrics.service';
-
-const INSTANCE_WORKER_PRECOMPUTE_ENABLED = process.env.SERVER_INSTANCE_WORKER_PRECOMPUTE_ENABLED === 'true'
-    || process.env.SERVER_INSTANCE_WORKER_PRECOMPUTE_ENABLED === '1';
 
 /** world-runtime instance tick orchestration：承接实例级 tick 编排外壳。 */
 @Injectable()
@@ -161,7 +158,6 @@ export class WorldRuntimeInstanceTickOrchestrationService {
    */
   private async precomputeInstanceWorkerIntents(instanceStepPlans, worldTick, deps = null): Promise<Map<string, Array<{ monsterId: string; action: string; targetId?: string }>>> {
     const proposals = new Map<string, Array<{ monsterId: string; action: string; targetId?: string }>>();
-    if (!INSTANCE_WORKER_PRECOMPUTE_ENABLED) return proposals;
     if (!this.instanceWorkerPool) return proposals;
     const activeAiPlans = instanceStepPlans.filter(({ sleepMonsterAi }) => sleepMonsterAi !== true);
     if (activeAiPlans.length <= 0) {
