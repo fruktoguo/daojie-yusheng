@@ -2696,7 +2696,7 @@ export const CLIENT_I18N_MESSAGES = {
   "action.combat-settings.auto-pills.condition.add-hp": "添加生命条件",
   "action.combat-settings.auto-pills.condition.add-qi": "添加灵力条件",
   "action.combat-settings.auto-pills.condition.buff-missing": "当前药品效果未生效时使用",
-  "action.combat-settings.auto-pills.condition.copy": "满足任一条件时就会尝试服用。",
+  "action.combat-settings.auto-pills.condition.copy": "满足全部条件时才会尝试服用。",
   "action.combat-settings.auto-pills.condition.dialog-copy": "{name} 的自动条件",
   "action.combat-settings.auto-pills.condition.dialog-title": "条件设置",
   "action.combat-settings.auto-pills.condition.empty": "还没有设置任何触发条件。",

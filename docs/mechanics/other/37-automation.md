@@ -53,6 +53,7 @@ score = threatValue
 
 - `resource_ratio`: 资源比例判断 `ratio < threshold` 或 `ratio > threshold`
 - `buff_missing`: 目标 buff 不存在时触发
+- 同一药品配置内多条条件为“且”关系，全部满足才会触发；空条件不触发。
 
 ### 资源比例计算
 

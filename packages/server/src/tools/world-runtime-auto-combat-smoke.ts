@@ -438,32 +438,6 @@ function testAutoUsePillTriggersBeforeAutoCombatCommandMaterialization(): void {
   assert.equal(((player.inventory as { items: Array<{ count: number }> }).items[0]?.count), 2);
 }
 
-function testAutoUsePillTriggersWhenAnyConditionMatches(): void {
-  const player = createAutoUsePillPlayer({
-    hp: 90,
-    qi: 30,
-    combat: {
-      autoUsePills: [{
-        itemId: 'pill.minor_heal',
-        conditions: [
-          { type: 'resource_ratio', resource: 'hp', op: 'lt', thresholdPct: 60 },
-          { type: 'resource_ratio', resource: 'qi', op: 'lt', thresholdPct: 40 },
-        ],
-      }],
-    },
-  });
-  const playerRuntimeService = createPlayerRuntimeService(player);
-  const service = new WorldRuntimeAutoCombatService(playerRuntimeService as never);
-
-  service.materializeAutoUsePills(createAutoUsePillDeps(playerRuntimeService.log) as never);
-
-  assert.deepEqual(playerRuntimeService.log, [
-    ['useItemByInstanceId', 'player:1', 'auto-pill-minor-heal'],
-    ['refreshQuestStates', 'player:1'],
-    ['queuePlayerNotice', 'player:1', '自动使用 回春散', 'success'],
-  ]);
-}
-
 function testAutoUsePillSkipsEmptyConditions(): void {
   const player = createAutoUsePillPlayer({
     combat: {
@@ -2344,7 +2318,6 @@ testLockedDepletedHerbTileClearsTarget();
 testLockedFormationContinuesBasicAttack();
 testLockedMiningTileOutsideViewRangeMovesBack();
 testAutoUsePillTriggersBeforeAutoCombatCommandMaterialization();
-testAutoUsePillTriggersWhenAnyConditionMatches();
 testAutoUsePillSkipsEmptyConditions();
 testAutoUsePillSkipsWhenManualCommandIsPending();
 testAutoUseBuffPillTriggersOnlyWhenBuffMissing();
@@ -2353,5 +2326,5 @@ testMaterializeAutoCombatClearsExpiredRetaliatorBeforeEarlyExit();
 console.log(JSON.stringify({
   ok: true,
   case: 'world-runtime-auto-combat',
-  answers: '自动战斗不会在本 tick 行动次数已满时继续物化必然失败的攻击指令；一次性接战和自动战斗会按第一个当前可用技能决定停止距离，目标已在射程内但视线被遮挡时会继续寻找可释放站位；自动追击路径缓存不会在上一段移动未真正落位时跳过首步，缓存下一步被动态占位后会重新规划，且追击寻路会沿用玩家忽略静态障碍能力；当前锁定目标不可达时只对该目标做一次 80% 仇恨降权、清理当前目标并立即重选；普通自动战斗每 tick 按实时仇恨重算目标，只有明确锁定或一次性接战才优先沿用 tracked target；原地战斗会按 AOE 覆盖半径作为停止距离；无需目标的自身 buff 技能只有在存在有效自动战斗目标且缺少对应 buff 时才会按自动技能顺序原地施放，已有 buff 时不会重复刷也不会把 buff 技能当成追击距离；锁定目标失效后只清理当前目标锁，不关闭自动战斗、不发丢失提示；锁定草药、挖矿和阵法会在未清空或未摧毁前继续生成下一次攻击；自动反击会临时抢占非玩家锁定目标并保留原锁定，明确锁定玩家时不擅自切目标，且仇敌 30 分钟未续攻会在 tick 内过期；自动丹药会按任一资源阈值或缺 Buff 条件在 tick 受控流程内使用，空条件不触发，已有 pending command 时不改动背包槽位。',
+  answers: '自动战斗不会在本 tick 行动次数已满时继续物化必然失败的攻击指令；一次性接战和自动战斗会按第一个当前可用技能决定停止距离，目标已在射程内但视线被遮挡时会继续寻找可释放站位；自动追击路径缓存不会在上一段移动未真正落位时跳过首步，缓存下一步被动态占位后会重新规划，且追击寻路会沿用玩家忽略静态障碍能力；当前锁定目标不可达时只对该目标做一次 80% 仇恨降权、清理当前目标并立即重选；普通自动战斗每 tick 按实时仇恨重算目标，只有明确锁定或一次性接战才优先沿用 tracked target；原地战斗会按 AOE 覆盖半径作为停止距离；无需目标的自身 buff 技能只有在存在有效自动战斗目标且缺少对应 buff 时才会按自动技能顺序原地施放，已有 buff 时不会重复刷也不会把 buff 技能当成追击距离；锁定目标失效后只清理当前目标锁，不关闭自动战斗、不发丢失提示；锁定草药、挖矿和阵法会在未清空或未摧毁前继续生成下一次攻击；自动反击会临时抢占非玩家锁定目标并保留原锁定，明确锁定玩家时不擅自切目标，且仇敌 30 分钟未续攻会在 tick 内过期；自动丹药会按资源阈值或缺 Buff 条件在 tick 受控流程内使用，空条件不触发，已有 pending command 时不改动背包槽位。',
 }, null, 2));

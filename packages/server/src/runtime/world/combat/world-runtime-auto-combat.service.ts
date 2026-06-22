@@ -330,7 +330,7 @@ function shouldAutoUsePill(player, item, conditions) {
     if (!Array.isArray(conditions) || conditions.length === 0) {
         return false;
     }
-    return conditions.some((condition) => isAutoUsePillConditionMet(player, item, condition));
+    return conditions.every((condition) => isAutoUsePillConditionMet(player, item, condition));
 }
 
 function resolveAutoBattleEffectiveSkillRange(player, skill, action) {
