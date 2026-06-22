@@ -164,6 +164,7 @@
     "smoke:monster-loot": "pnpm compile && node dist/tools/run-stable-smoke-suite.js --case monster-loot",
     "smoke:monster-runtime": "pnpm compile && node dist/tools/run-stable-smoke-suite.js --case monster-runtime",
     "smoke:content-monster-spawn": "pnpm compile && node dist/tools/content-monster-spawn-smoke.js",
+    "smoke:monster-hydration-index": "pnpm compile && node dist/tools/world-runtime-monster-hydration-index-smoke.js",
     "smoke:tongtian-tower": "pnpm compile && node dist/tools/tongtian-tower-smoke.js",
     "smoke:tongtian-tower:persistence": "pnpm compile && node dist/tools/tongtian-tower-persistence-smoke.js",
     "smoke:event-bus": "pnpm compile && node dist/tools/runtime-event-bus-smoke.js",

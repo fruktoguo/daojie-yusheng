@@ -4310,6 +4310,7 @@ class MapInstanceRuntime {
             if (!monster) {
                 continue;
             }
+            this.clearMonsterRuntimeTileIndex(monster.runtimeId);
             if (typeof entry.monsterName === 'string' && entry.monsterName.trim()) {
                 monster.name = entry.monsterName.trim();
             }
@@ -4318,12 +4319,6 @@ class MapInstanceRuntime {
             }
             if (Number.isFinite(Number(entry.monsterLevel))) {
                 monster.level = Math.max(1, Math.trunc(Number(entry.monsterLevel)));
-            }
-            if (Number.isFinite(Number(entry.tileIndex))) {
-                const tileIndex = Math.trunc(Number(entry.tileIndex));
-                if (tileIndex >= 0 && tileIndex < this.auraByTile.length) {
-                    this.monsterRuntimeIdByTile.set(tileIndex, monster.runtimeId);
-                }
             }
             if (Number.isFinite(Number(entry.x))) {
                 monster.x = Math.trunc(Number(entry.x));
@@ -4379,6 +4374,22 @@ class MapInstanceRuntime {
             }
             if (!recalculateMonsterBaseStatsFromFormula(monster)) {
                 recalculateMonsterDerivedState(monster);
+            }
+            if (monster.alive) {
+                const tileIndex = this.toTileIndex(monster.x, monster.y);
+                if (tileIndex >= 0 && tileIndex < this.auraByTile.length) {
+                    this.monsterRuntimeIdByTile.set(tileIndex, monster.runtimeId);
+                }
+            }
+        }
+    }
+    clearMonsterRuntimeTileIndex(runtimeId) {
+        if (typeof runtimeId !== 'string' || !runtimeId.trim()) {
+            return;
+        }
+        for (const [tileIndex, indexedRuntimeId] of this.monsterRuntimeIdByTile.entries()) {
+            if (indexedRuntimeId === runtimeId) {
+                this.monsterRuntimeIdByTile.delete(tileIndex);
             }
         }
     }
