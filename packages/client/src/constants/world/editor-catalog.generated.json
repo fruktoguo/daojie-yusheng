@@ -8531,7 +8531,7 @@
       "desc": "佩中寒髓缓缓回旋，能让气机周转更快。",
       "equipSlot": "accessory",
       "equipStats": {
-        "qiRegenRate": 24,
+        "qiRegenRate": 6,
         "cooldownSpeed": 44
       }
     },
@@ -8545,8 +8545,8 @@
       "equipSlot": "weapon",
       "equipStats": {
         "spellAtk": 29,
-        "qiRegenRate": 34,
-        "hpRegenRate": 17,
+        "qiRegenRate": 8,
+        "hpRegenRate": 4,
         "cooldownSpeed": 44
       }
     },
@@ -9674,7 +9674,7 @@
       ],
       "equipStats": {
         "resolvePower": 12,
-        "hpRegenRate": 8
+        "hpRegenRate": 2
       }
     },
     {
@@ -10145,8 +10145,8 @@
       "equipSlot": "body",
       "equipStats": {
         "maxHp": 755,
-        "qiRegenRate": 15,
-        "hpRegenRate": 29
+        "qiRegenRate": 4,
+        "hpRegenRate": 7
       }
     },
     {
@@ -11156,7 +11156,7 @@
       "equipSlot": "head",
       "equipStats": {
         "maxHp": 639,
-        "hpRegenRate": 29
+        "hpRegenRate": 7
       }
     },
     {
@@ -11390,7 +11390,7 @@
       "equipStats": {
         "maxQi": 101,
         "spellAtk": 18,
-        "qiRegenRate": 14
+        "qiRegenRate": 3
       }
     },
     {
@@ -11440,7 +11440,7 @@
       "equipStats": {
         "maxQi": 55,
         "spellDef": 10,
-        "qiRegenRate": 7
+        "qiRegenRate": 2
       }
     },
     {
@@ -15149,7 +15149,7 @@
           "equipStats": {
             "maxQi": 55,
             "spellDef": 10,
-            "qiRegenRate": 7
+            "qiRegenRate": 2
           },
           "count": 1
         }
