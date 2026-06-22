@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { createNumericRatioDivisors, createNumericStats, type VisibleBuffState } from '@mud/shared';
 import { WorldProjectorService } from '../network/world-projector.service';
 import { WorldRuntimeDetailQueryService } from '../runtime/world/query/world-runtime-detail-query.service';
+import { createRuntimeTemporaryBuff } from '../runtime/player/runtime-buff-instance';
 
 function createTemplateRepository() {
   return {
@@ -77,7 +78,7 @@ function createPlayer() {
 }
 
 function createBuff(buffId: string, visibility: VisibleBuffState['visibility'], category: VisibleBuffState['category']): VisibleBuffState {
-  return {
+  return createRuntimeTemporaryBuff({
     buffId,
     name: buffId,
     shortMark: buffId.slice(-1),
@@ -88,7 +89,7 @@ function createBuff(buffId: string, visibility: VisibleBuffState['visibility'], 
     stacks: 1,
     maxStacks: 3,
     sourceSkillId: 'skill.monster_buff_smoke',
-  };
+  }) as VisibleBuffState;
 }
 
 function createMonster(buffs: VisibleBuffState[] = []) {

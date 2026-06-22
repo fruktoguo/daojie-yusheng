@@ -688,22 +688,6 @@ function buildGroundPileSignature(piles: ReadonlyMap<string, GroundItemPileView>
   return signature;
 }
 
-function buildTargetingSignature(scene: MapSceneSnapshot): string {
-  const targeting = scene.overlays.targeting;
-  if (!targeting) return 'null';
-  return [
-    targeting.originX,
-    targeting.originY,
-    targeting.range,
-    targeting.visibleOnly === true ? 1 : 0,
-    targeting.shape ?? '',
-    targeting.radius ?? '',
-    targeting.hoverX ?? '',
-    targeting.hoverY ?? '',
-    buildGridPointSignature(targeting.affectedCells),
-  ].join('|');
-}
-
 function getFengShuiOverlayFill(cell: { score: number }): { color: number; alpha: number } {
   const score = Math.max(-1000, Math.min(1000, Math.trunc(Number(cell.score) || 0)));
   const strength = Math.min(1, Math.abs(score) / 1000);
@@ -768,6 +752,7 @@ export class PixiMapRendererAdapter {
   private readonly terrainOverlayLayer = new Container();
   private readonly terrainFogLayer = new Graphics();
   private readonly pathLayer = new Container();
+  private readonly targetingGraphics = new Graphics();
   private readonly senseQiHoverGraphics = new Graphics();
   private readonly groundLayer = new Container();
   private readonly threatArrowLayer = new Container();
@@ -833,7 +818,7 @@ export class PixiMapRendererAdapter {
     if (!canvas) throw new Error('地图宿主节点缺少 canvas');
     this.canvas = canvas;
     this.refreshProfileState();
-    this.pathLayer.addChild(this.senseQiHoverGraphics, this.pathGraphics);
+    this.pathLayer.addChild(this.targetingGraphics, this.senseQiHoverGraphics, this.pathGraphics);
     this.threatArrowGraphics.name = 'threat-arrows';
     this.threatArrowLayer.addChild(this.threatArrowGraphics);
     this.screenLayer.addChild(this.timeOverlayGraphics);
@@ -953,6 +938,7 @@ export class PixiMapRendererAdapter {
     }
     this.profileMeasure('worldOverlays', () => {
       this.rebuildWorldOverlays(scene);
+      this.rebuildTargetingLayer(scene);
       this.rebuildSenseQiHoverLayer(scene);
     });
     this.profileEnd('syncScene', startedAt);
@@ -992,6 +978,7 @@ export class PixiMapRendererAdapter {
     this.clearContainer(this.groundLayer);
     this.clearContainer(this.effectLayer);
     this.threatArrowGraphics.clear();
+    this.targetingGraphics.clear();
     this.senseQiHoverGraphics.clear();
     this.timeOverlayGraphics.clear();
     this.floatingTexts = [];
@@ -1507,7 +1494,6 @@ export class PixiMapRendererAdapter {
 
   private buildTerrainOverlaySignature(scene: MapSceneSnapshot): string {
     return [
-      buildTargetingSignature(scene),
       buildGridPointSignature(scene.overlays.formationRange?.affectedCells),
       scene.overlays.formationRange?.rangeHighlightColor ?? '',
       scene.overlays.senseQi ? `sense:${scene.overlays.senseQi.levelBaseValue ?? ''}` : 'null',
@@ -1863,7 +1849,6 @@ export class PixiMapRendererAdapter {
     for (const cell of scene.overlays.buildPreview?.cells ?? []) buildPreviewCellByKey.set(`${cell.x},${cell.y}`, cell);
     const fengShuiCellByKey = new Map<string, NonNullable<MapSceneSnapshot['overlays']['fengShui']>['cells'][number]>();
     for (const cell of scene.overlays.fengShui?.cells ?? []) fengShuiCellByKey.set(`${cell.x},${cell.y}`, cell);
-    const targetingAffectedKeys = new Set((scene.overlays.targeting?.affectedCells ?? []).map((cell) => `${cell.x},${cell.y}`));
     const formationAffectedKeys = new Set((scene.overlays.formationRange?.affectedCells ?? []).map((cell) => `${cell.x},${cell.y}`));
     for (let y = startY; y < startY + CHUNK_SIZE; y += 1) {
       for (let x = startX; x < startX + CHUNK_SIZE; x += 1) {
@@ -1874,7 +1859,6 @@ export class PixiMapRendererAdapter {
         this.drawTerrainOverlays(overlayGraphics, chunk.overlayContainer, scene, tile, key, x, y, sx, sy, cellSize, senseQiLevelBaseValue, {
           buildPreviewCellByKey,
           fengShuiCellByKey,
-          targetingAffectedKeys,
           formationAffectedKeys,
         });
       }
@@ -1909,30 +1893,10 @@ export class PixiMapRendererAdapter {
     indexes: {
       buildPreviewCellByKey: ReadonlyMap<string, NonNullable<MapSceneSnapshot['overlays']['buildPreview']>['cells'][number]>;
       fengShuiCellByKey: ReadonlyMap<string, NonNullable<MapSceneSnapshot['overlays']['fengShui']>['cells'][number]>;
-      targetingAffectedKeys: ReadonlySet<string>;
       formationAffectedKeys: ReadonlySet<string>;
     },
   ): void {
     const isVisible = scene.terrain.visibleTiles.has(key);
-    const targeting = scene.overlays.targeting;
-    if (targeting && (!targeting.visibleOnly || isVisible)) {
-      const dx = gx - targeting.originX;
-      const dy = gy - targeting.originY;
-      const affected = indexes.targetingAffectedKeys.has(key);
-      const hovered = gx === targeting.hoverX && gy === targeting.hoverY;
-      const inRange = (dx !== 0 || dy !== 0) && isOffsetInRange(dx, dy, targeting.range);
-      if (affected || inRange) {
-        this.drawCellHighlight(
-          graphics,
-          sx,
-          sy,
-          cellSize,
-          affected ? (hovered ? 'rgba(208,76,56,0.42)' : 'rgba(198,72,48,0.3)') : (hovered ? 'rgba(66,153,225,0.3)' : 'rgba(88,180,214,0.18)'),
-          affected ? (hovered ? 'rgba(150,28,24,0.98)' : 'rgba(171,56,36,0.9)') : (hovered ? 'rgba(125,211,252,0.94)' : 'rgba(151,236,255,0.72)'),
-          hovered || affected,
-        );
-      }
-    }
     if (scene.overlays.formationRange && indexes.formationAffectedKeys.has(key)) {
       const color = scene.overlays.formationRange.rangeHighlightColor;
       const fill = colorWithAlpha(color, 0.22);
@@ -2024,6 +1988,54 @@ export class PixiMapRendererAdapter {
       root.position.set(pile.x * cellSize, pile.y * cellSize);
       this.drawGroundPile(root, pile, cellSize);
       this.groundLayer.addChild(root);
+    }
+  }
+
+  private rebuildTargetingLayer(scene: MapSceneSnapshot): void {
+    this.targetingGraphics.clear();
+    const targeting = scene.overlays.targeting;
+    if (!targeting) {
+      return;
+    }
+    const cellSize = getCellSize();
+    const range = Math.max(0, Math.ceil(Number(targeting.range) || 0));
+    const affectedKeys = new Set((targeting.affectedCells ?? []).map((cell) => `${cell.x},${cell.y}`));
+    const drawn = new Set<string>();
+    const drawCell = (gx: number, gy: number): void => {
+      const key = `${gx},${gy}`;
+      if (drawn.has(key)) {
+        return;
+      }
+      const isVisible = scene.terrain.visibleTiles.has(key);
+      if (targeting.visibleOnly && !isVisible) {
+        return;
+      }
+      const dx = gx - targeting.originX;
+      const dy = gy - targeting.originY;
+      const affected = affectedKeys.has(key);
+      const hovered = gx === targeting.hoverX && gy === targeting.hoverY;
+      const inRange = (dx !== 0 || dy !== 0) && isOffsetInRange(dx, dy, targeting.range);
+      if (!affected && !inRange) {
+        return;
+      }
+      this.drawCellHighlight(
+        this.targetingGraphics,
+        gx * cellSize,
+        gy * cellSize,
+        cellSize,
+        affected ? (hovered ? 'rgba(208,76,56,0.42)' : 'rgba(198,72,48,0.3)') : (hovered ? 'rgba(66,153,225,0.3)' : 'rgba(88,180,214,0.18)'),
+        affected ? (hovered ? 'rgba(150,28,24,0.98)' : 'rgba(171,56,36,0.9)') : (hovered ? 'rgba(125,211,252,0.94)' : 'rgba(151,236,255,0.72)'),
+        hovered || affected,
+      );
+      drawn.add(key);
+    };
+    for (let y = targeting.originY - range; y <= targeting.originY + range; y += 1) {
+      for (let x = targeting.originX - range; x <= targeting.originX + range; x += 1) {
+        drawCell(x, y);
+      }
+    }
+    for (const cell of targeting.affectedCells ?? []) {
+      drawCell(cell.x, cell.y);
     }
   }
 

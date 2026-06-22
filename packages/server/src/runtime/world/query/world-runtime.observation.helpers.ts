@@ -217,10 +217,27 @@ export function formatCombatDamageType(damageKind, element) {
 /** 浅拷贝只读展示用 Buff，避免运行时引用污染。 */
 export function cloneVisibleBuff(source) {
     return {
-        ...source,
+        buffId: source.buffId,
+        name: source.name,
+        desc: source.desc,
+        shortMark: source.shortMark,
+        category: source.category,
+        visibility: source.visibility,
+        remainingTicks: source.remainingTicks,
+        duration: source.duration,
+        stacks: source.stacks,
+        maxStacks: source.maxStacks,
+        sourceSkillId: source.sourceSkillId,
+        sourceSkillName: source.sourceSkillName,
+        realmLv: source.realmLv,
+        color: source.color,
         attrs: source.attrs ? { ...source.attrs } : undefined,
+        attrMode: source.attrMode,
         stats: source.stats ? { ...source.stats } : undefined,
+        statMode: source.statMode,
         qiProjection: source.qiProjection ? source.qiProjection.map((entry) => ({ ...entry })) : undefined,
+        infiniteDuration: source.infiniteDuration,
+        presentationScale: source.presentationScale,
     };
 }
 /** 观察展示数值归一化，缺失或非有限值按 0 展示。 */

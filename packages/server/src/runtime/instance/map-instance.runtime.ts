@@ -5839,7 +5839,8 @@ class MapInstanceRuntime {
             && cached.hp === monster.hp
             && cached.maxHp === monster.maxHp
             && cached.qi === monster.qi
-            && cached.maxQi === monster.maxQi) {
+            && cached.maxQi === monster.maxQi
+            && cached.buffs === monster.buffs) {
             return cached;
         }
         const entry = {
@@ -5856,6 +5857,7 @@ class MapInstanceRuntime {
             maxHp: monster.maxHp,
             qi: monster.qi,
             maxQi: monster.maxQi,
+            buffs: monster.buffs,
         };
         freezeRuntimeProjection(entry);
         this.localMonsterViewCacheByRuntimeId.set(monster.runtimeId, entry);
