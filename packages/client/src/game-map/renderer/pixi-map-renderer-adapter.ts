@@ -115,6 +115,7 @@ interface TerrainChunkView {
 interface TerrainChunkStaticSignatureDeps {
   cellSize: number;
   renderRuntimeTileSprites: boolean;
+  terrainTextMode: boolean;
   runtimeTileSpriteRevision: number;
   terrainChunkRevision: number;
 }
@@ -904,13 +905,20 @@ export class PixiMapRendererAdapter {
   }
 
   setPerformanceConfig(config: MapPerformanceConfig): void {
-    const previousRenderRuntimeTileSprites = this.performanceConfig.renderRuntimeTileSprites;
+    const previous = this.performanceConfig;
+    const previousRenderRuntimeTileSprites = previous.renderRuntimeTileSprites;
+    const entityTextModeChanged = previous.npcTextMode !== config.npcTextMode
+      || previous.monsterTextMode !== config.monsterTextMode
+      || previous.herbTextMode !== config.herbTextMode;
     this.performanceConfig = { ...config };
     this.setProfileEnabled(config.showPixiProfiler);
     if (!previousRenderRuntimeTileSprites && this.performanceConfig.renderRuntimeTileSprites) {
       this.ensureRuntimeTileSpritesRequested();
     }
     this.invalidateTerrainChunks();
+    if (entityTextModeChanged) {
+      this.invalidateEntityStaticViews();
+    }
   }
 
   syncScene(
@@ -1170,7 +1178,7 @@ export class PixiMapRendererAdapter {
   }
 
   private resolveRuntimeTileSpriteRef(tile: Tile): PixiTileSpriteRef | null {
-    if (!this.performanceConfig.renderRuntimeTileSprites || this.runtimeTileManifestState !== 'loaded') return null;
+    if (!this.performanceConfig.renderRuntimeTileSprites || this.performanceConfig.terrainTextMode || this.runtimeTileManifestState !== 'loaded') return null;
     const cached = this.runtimeTileSpriteRefCache.get(tile);
     if (cached !== undefined) {
       return cached;
@@ -1699,6 +1707,7 @@ export class PixiMapRendererAdapter {
     const deps: TerrainChunkStaticSignatureDeps = {
       cellSize,
       renderRuntimeTileSprites: this.performanceConfig.renderRuntimeTileSprites,
+      terrainTextMode: this.performanceConfig.terrainTextMode,
       runtimeTileSpriteRevision: this.runtimeTileSpriteRevision,
       terrainChunkRevision: scene.terrain.terrainChunkRevisions.get(chunk.key) ?? 0,
     };
@@ -1729,6 +1738,7 @@ export class PixiMapRendererAdapter {
   private isSameTerrainChunkStaticSignatureDeps(previous: TerrainChunkStaticSignatureDeps, next: TerrainChunkStaticSignatureDeps): boolean {
     return previous.cellSize === next.cellSize
       && previous.renderRuntimeTileSprites === next.renderRuntimeTileSprites
+      && previous.terrainTextMode === next.terrainTextMode
       && previous.runtimeTileSpriteRevision === next.runtimeTileSpriteRevision
       && previous.terrainChunkRevision === next.terrainChunkRevision;
   }
@@ -1742,7 +1752,7 @@ export class PixiMapRendererAdapter {
   private buildTerrainChunkStaticSignature(scene: MapSceneSnapshot, cx: number, cy: number, cellSize: number): string {
     const startX = cx * CHUNK_SIZE;
     const startY = cy * CHUNK_SIZE;
-    let signature = `${cellSize}|${this.performanceConfig.renderRuntimeTileSprites ? 1 : 0}|${this.runtimeTileSpriteRevision}`;
+    let signature = `${cellSize}|${this.performanceConfig.renderRuntimeTileSprites ? 1 : 0}|${this.performanceConfig.terrainTextMode ? 1 : 0}|${this.runtimeTileSpriteRevision}`;
     for (let y = startY - 1; y <= startY + CHUNK_SIZE; y += 1) {
       for (let x = startX - 1; x <= startX + CHUNK_SIZE; x += 1) {
         const key = `${x},${y}`;
@@ -2203,6 +2213,7 @@ export class PixiMapRendererAdapter {
       anim.npcQuestMarker ? `${anim.npcQuestMarker.line}:${anim.npcQuestMarker.state}` : '',
       anim.formationShowText === false ? 1 : 0,
       anim.formationRangeHighlightColor ?? '',
+      this.isEntityTextMode(anim.kind) ? 1 : 0,
     ].join('|');
     if (signature === view.staticSignature) return;
     const visualScale = (presentation?.scale ?? 1) * Math.max(1, anim.monsterScale ?? 1);
@@ -2210,7 +2221,13 @@ export class PixiMapRendererAdapter {
     view.visualRoot.pivot.set(visualCellSize / 2, visualCellSize - 3);
     view.visualRoot.position.set(cellSize / 2, cellSize - 3);
     view.shadow.clear().ellipse(visualCellSize / 2, visualCellSize - 3, visualCellSize * 0.32, Math.max(2, visualCellSize * 0.1)).fill({ color: 0x000000, alpha: 0.3 });
-    const drewEntityImage = this.patchRuntimeEntitySprite(view, visualCellSize);
+    const forceTextMode = this.isEntityTextMode(anim.kind);
+    let drewEntityImage = false;
+    if (forceTextMode) {
+      view.image.visible = false;
+    } else {
+      drewEntityImage = this.patchRuntimeEntitySprite(view, visualCellSize);
+    }
     view.glyph.text = anim.char;
     view.glyph.style = textStyle('entityGlyph', visualCellSize * 0.75, anim.color);
     view.glyph.visible = !drewEntityImage;
@@ -2228,6 +2245,13 @@ export class PixiMapRendererAdapter {
     view.root.zIndex = resolveWorldObjectRenderOrder(anim.kind);
     view.root.alpha = anim.kind === 'building' && (anim.respawnTotalTicks ?? 0) > 0 ? 0.58 : 1;
     view.staticSignature = signature;
+  }
+
+  private isEntityTextMode(kind: AnimEntity['kind']): boolean {
+    if (kind === 'npc') return this.performanceConfig.npcTextMode;
+    if (kind === 'monster') return this.performanceConfig.monsterTextMode;
+    if (kind === 'container') return this.performanceConfig.herbTextMode;
+    return false;
   }
 
   private patchRuntimeEntitySprite(view: EntityView, visualCellSize: number): boolean {

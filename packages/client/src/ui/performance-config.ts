@@ -65,6 +65,10 @@ export function updateMapPerformanceConfig(patch: Partial<MapPerformanceConfig>)
     || previousConfig.showPixiProfiler !== currentConfig.showPixiProfiler
     || previousConfig.targetFps !== currentConfig.targetFps
     || previousConfig.renderRuntimeTileSprites !== currentConfig.renderRuntimeTileSprites
+    || previousConfig.npcTextMode !== currentConfig.npcTextMode
+    || previousConfig.monsterTextMode !== currentConfig.monsterTextMode
+    || previousConfig.herbTextMode !== currentConfig.herbTextMode
+    || previousConfig.terrainTextMode !== currentConfig.terrainTextMode
   ) {
     window.dispatchEvent(new CustomEvent<MapPerformanceConfig>(MAP_PERFORMANCE_CONFIG_CHANGE_EVENT, {
       detail: cloneConfig(currentConfig),
@@ -97,6 +101,10 @@ function normalizeConfig(raw: Partial<MapPerformanceConfig> | null | undefined):
       ? Math.max(MAP_TARGET_FPS_RANGE.min, Math.min(MAP_TARGET_FPS_RANGE.max, parsedTargetFps))
       : MAP_TARGET_FPS_RANGE.defaultValue,
     renderRuntimeTileSprites: raw?.renderRuntimeTileSprites !== false,
+    npcTextMode: raw?.npcTextMode === true,
+    monsterTextMode: raw?.monsterTextMode === true,
+    herbTextMode: raw?.herbTextMode === true,
+    terrainTextMode: raw?.terrainTextMode === true,
   };
 }
 
@@ -133,5 +141,9 @@ function cloneConfig(config: MapPerformanceConfig): MapPerformanceConfig {
     showPixiProfiler: config.showPixiProfiler,
     targetFps: config.targetFps,
     renderRuntimeTileSprites: config.renderRuntimeTileSprites,
+    npcTextMode: config.npcTextMode,
+    monsterTextMode: config.monsterTextMode,
+    herbTextMode: config.herbTextMode,
+    terrainTextMode: config.terrainTextMode,
   };
 }

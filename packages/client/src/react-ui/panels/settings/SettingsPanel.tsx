@@ -31,8 +31,15 @@ import { formatOfflineGainDuration, formatOfflineGainTime, formatSignedAmount, r
 import { MAP_TARGET_FPS_RANGE } from '../../../constants/ui/performance';
 import { t } from '../../../ui/i18n';
 
+type MapPerformanceRenderToggleKey =
+  | 'renderRuntimeTileSprites'
+  | 'npcTextMode'
+  | 'monsterTextMode'
+  | 'herbTextMode'
+  | 'terrainTextMode';
+
 const PERFORMANCE_RENDER_TOGGLES: Array<{
-  key: 'renderRuntimeTileSprites';
+  key: MapPerformanceRenderToggleKey;
   labelKey: string;
   descKey: string;
 }> = [
@@ -40,6 +47,26 @@ const PERFORMANCE_RENDER_TOGGLES: Array<{
     key: 'renderRuntimeTileSprites',
     labelKey: 'settings.performance.label.render-runtime-tile-sprites',
     descKey: 'settings.performance.desc.render-runtime-tile-sprites',
+  },
+  {
+    key: 'terrainTextMode',
+    labelKey: 'settings.performance.label.terrain-text-mode',
+    descKey: 'settings.performance.desc.terrain-text-mode',
+  },
+  {
+    key: 'npcTextMode',
+    labelKey: 'settings.performance.label.npc-text-mode',
+    descKey: 'settings.performance.desc.npc-text-mode',
+  },
+  {
+    key: 'monsterTextMode',
+    labelKey: 'settings.performance.label.monster-text-mode',
+    descKey: 'settings.performance.desc.monster-text-mode',
+  },
+  {
+    key: 'herbTextMode',
+    labelKey: 'settings.performance.label.herb-text-mode',
+    descKey: 'settings.performance.desc.herb-text-mode',
   },
 ];
 
@@ -544,7 +571,7 @@ const PerformanceTab = memo(function PerformanceTab() {
     setStatus(t('settings.status.target-fps-adjusted', { fps: next.targetFps }));
   }, []);
 
-  const handleRenderToggle = useCallback((key: 'renderRuntimeTileSprites', value: boolean) => {
+  const handleRenderToggle = useCallback((key: MapPerformanceRenderToggleKey, value: boolean) => {
     const next = updateMapPerformanceConfig({ [key]: value });
     setConfig(next);
     setStatus(t('settings.status.render-toggle-adjusted', undefined));

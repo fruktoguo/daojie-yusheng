@@ -22,6 +22,14 @@ export type MapPerformanceConfig = {
   targetFps: number;
   /** 是否启用运行时图包地块贴图。 */
   renderRuntimeTileSprites: boolean;
+  /** NPC 是否切换为文字（glyph）渲染。 */
+  npcTextMode: boolean;
+  /** 怪物是否切换为文字（glyph）渲染。 */
+  monsterTextMode: boolean;
+  /** 草药采集点（container 实体）是否切换为文字（glyph）渲染。 */
+  herbTextMode: boolean;
+  /** 地块是否切换为文字（glyph）渲染。 */
+  terrainTextMode: boolean;
 };
 
 /** 地图性能配置的本地存储键。 */
@@ -36,6 +44,10 @@ export const DEFAULT_MAP_PERFORMANCE_CONFIG: MapPerformanceConfig = {
   showPixiProfiler: false,
   targetFps: 60,
   renderRuntimeTileSprites: true,
+  npcTextMode: false,
+  monsterTextMode: false,
+  herbTextMode: false,
+  terrainTextMode: false,
 };
 
 /** 地图渲染帧率允许范围。 */

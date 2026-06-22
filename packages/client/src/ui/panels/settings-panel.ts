@@ -57,7 +57,12 @@ import {
 } from '../../react-ui/panels/settings/mount-settings-panel';
 
 type SettingsTab = 'account' | 'redeem' | 'ui' | 'performance' | 'offlineGain';
-type MapPerformanceRenderToggleKey = 'renderRuntimeTileSprites';
+type MapPerformanceRenderToggleKey =
+  | 'renderRuntimeTileSprites'
+  | 'npcTextMode'
+  | 'monsterTextMode'
+  | 'herbTextMode'
+  | 'terrainTextMode';
 
 const PERFORMANCE_RENDER_TOGGLES: Array<{
   key: MapPerformanceRenderToggleKey;
@@ -68,6 +73,26 @@ const PERFORMANCE_RENDER_TOGGLES: Array<{
     key: 'renderRuntimeTileSprites',
     labelKey: 'settings.performance.label.render-runtime-tile-sprites',
     descKey: 'settings.performance.desc.render-runtime-tile-sprites',
+  },
+  {
+    key: 'terrainTextMode',
+    labelKey: 'settings.performance.label.terrain-text-mode',
+    descKey: 'settings.performance.desc.terrain-text-mode',
+  },
+  {
+    key: 'npcTextMode',
+    labelKey: 'settings.performance.label.npc-text-mode',
+    descKey: 'settings.performance.desc.npc-text-mode',
+  },
+  {
+    key: 'monsterTextMode',
+    labelKey: 'settings.performance.label.monster-text-mode',
+    descKey: 'settings.performance.desc.monster-text-mode',
+  },
+  {
+    key: 'herbTextMode',
+    labelKey: 'settings.performance.label.herb-text-mode',
+    descKey: 'settings.performance.desc.herb-text-mode',
   },
 ];
 
