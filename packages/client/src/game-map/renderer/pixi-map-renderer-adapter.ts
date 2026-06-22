@@ -768,6 +768,7 @@ export class PixiMapRendererAdapter {
   private readonly terrainOverlayLayer = new Container();
   private readonly terrainFogLayer = new Graphics();
   private readonly pathLayer = new Container();
+  private readonly senseQiHoverGraphics = new Graphics();
   private readonly groundLayer = new Container();
   private readonly threatArrowLayer = new Container();
   private readonly entityLayer = new Container();
@@ -832,7 +833,7 @@ export class PixiMapRendererAdapter {
     if (!canvas) throw new Error('地图宿主节点缺少 canvas');
     this.canvas = canvas;
     this.refreshProfileState();
-    this.pathLayer.addChild(this.pathGraphics);
+    this.pathLayer.addChild(this.senseQiHoverGraphics, this.pathGraphics);
     this.threatArrowGraphics.name = 'threat-arrows';
     this.threatArrowLayer.addChild(this.threatArrowGraphics);
     this.screenLayer.addChild(this.timeOverlayGraphics);
@@ -950,7 +951,10 @@ export class PixiMapRendererAdapter {
       );
       this.lastVisibleTileRevision = scene.terrain.visibleTileRevision;
     }
-    this.profileMeasure('worldOverlays', () => this.rebuildWorldOverlays(scene));
+    this.profileMeasure('worldOverlays', () => {
+      this.rebuildWorldOverlays(scene);
+      this.rebuildSenseQiHoverLayer(scene);
+    });
     this.profileEnd('syncScene', startedAt);
   }
 
@@ -988,6 +992,7 @@ export class PixiMapRendererAdapter {
     this.clearContainer(this.groundLayer);
     this.clearContainer(this.effectLayer);
     this.threatArrowGraphics.clear();
+    this.senseQiHoverGraphics.clear();
     this.timeOverlayGraphics.clear();
     this.floatingTexts = [];
     this.attackTrails = [];
@@ -1505,7 +1510,7 @@ export class PixiMapRendererAdapter {
       buildTargetingSignature(scene),
       buildGridPointSignature(scene.overlays.formationRange?.affectedCells),
       scene.overlays.formationRange?.rangeHighlightColor ?? '',
-      scene.overlays.senseQi ? `${scene.overlays.senseQi.hoverX ?? ''},${scene.overlays.senseQi.hoverY ?? ''},${scene.overlays.senseQi.levelBaseValue ?? ''}` : 'null',
+      scene.overlays.senseQi ? `sense:${scene.overlays.senseQi.levelBaseValue ?? ''}` : 'null',
       scene.overlays.buildPreview ? `${scene.overlays.buildPreview.defId}:${scene.overlays.buildPreview.originX},${scene.overlays.buildPreview.originY}:${scene.overlays.buildPreview.rotation ?? ''}:${buildBuildPreviewSignature(scene.overlays.buildPreview.cells)}` : 'null',
       scene.overlays.fengShui ? `${scene.overlays.fengShui.instanceId}:${scene.overlays.fengShui.revision}:${buildFengShuiOverlaySignature(scene.overlays.fengShui.cells)}` : 'null',
       this.formationRangeSignature,
@@ -1780,7 +1785,7 @@ export class PixiMapRendererAdapter {
   private buildTerrainChunkOverlaySignature(scene: MapSceneSnapshot, cx: number, cy: number, cellSize: number): string {
     const startX = cx * CHUNK_SIZE;
     const startY = cy * CHUNK_SIZE;
-    let signature = `${cellSize}|${this.terrainOverlaySignature}|${scene.terrain.visibleTileRevision}`;
+    let signature = `${cellSize}|${this.terrainOverlaySignature}`;
     for (let y = startY; y < startY + CHUNK_SIZE; y += 1) {
       for (let x = startX; x < startX + CHUNK_SIZE; x += 1) {
         const key = `${x},${y}`;
@@ -1955,9 +1960,6 @@ export class PixiMapRendererAdapter {
       graphics.rect(sx, sy, cellSize, cellSize).fill(style);
       const formationRangeVisual = this.resolveFormationRangeVisual(gx, gy, true);
       if (formationRangeVisual) this.drawFormationRangeVisual(graphics, chunkContainer, sx, sy, cellSize, formationRangeVisual);
-      if (isVisible && gx === scene.overlays.senseQi.hoverX && gy === scene.overlays.senseQi.hoverY) {
-        graphics.rect(sx + 1, sy + 1, cellSize - 2, cellSize - 2).stroke({ color: parseColor(SENSE_QI_OVERLAY_STYLE.hoverStroke), alpha: parseAlpha(SENSE_QI_OVERLAY_STYLE.hoverStroke, 1), width: 2 });
-      }
     }
     const buildCell = indexes.buildPreviewCellByKey.get(key);
     if (buildCell) {
@@ -2023,6 +2025,26 @@ export class PixiMapRendererAdapter {
       this.drawGroundPile(root, pile, cellSize);
       this.groundLayer.addChild(root);
     }
+  }
+
+  private rebuildSenseQiHoverLayer(scene: MapSceneSnapshot): void {
+    this.senseQiHoverGraphics.clear();
+    const overlay = scene.overlays.senseQi;
+    if (!overlay || typeof overlay.hoverX !== 'number' || typeof overlay.hoverY !== 'number') {
+      return;
+    }
+    const key = `${overlay.hoverX},${overlay.hoverY}`;
+    if (!scene.terrain.visibleTiles.has(key)) {
+      return;
+    }
+    const cellSize = getCellSize();
+    this.senseQiHoverGraphics
+      .rect(overlay.hoverX * cellSize + 1, overlay.hoverY * cellSize + 1, cellSize - 2, cellSize - 2)
+      .stroke({
+        color: parseColor(SENSE_QI_OVERLAY_STYLE.hoverStroke),
+        alpha: parseAlpha(SENSE_QI_OVERLAY_STYLE.hoverStroke, 1),
+        width: 2,
+      });
   }
 
   private drawGroundPile(root: Container, pile: GroundItemPileView, cellSize: number): void {

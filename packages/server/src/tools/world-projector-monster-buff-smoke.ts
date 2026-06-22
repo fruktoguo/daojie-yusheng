@@ -187,11 +187,11 @@ function runProjectorProof(): void {
   assert.deepEqual(initial.worldDelta?.m?.[0]?.buffs?.map((buff) => buff.buffId), ['buff.public_burn']);
 
   publicBuff.stacks = 2;
-  const changed = projector.createDeltaEnvelope(createView(monster, 2), player);
+  const changed = projector.createDeltaEnvelope(createView(monster, 1), player);
   assert.deepEqual(changed?.worldDelta?.m?.[0]?.buffs?.map((buff) => `${buff.buffId}:${buff.stacks}`), ['buff.public_burn:2']);
 
   publicBuff.remainingTicks = 0;
-  const removed = projector.createDeltaEnvelope(createView(monster, 3), player);
+  const removed = projector.createDeltaEnvelope(createView(monster, 1), player);
   assert.equal(removed?.worldDelta?.m?.[0]?.buffs, null);
 
   const plainMonster = createMonster([]);

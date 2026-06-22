@@ -4,9 +4,10 @@
  * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
 import { Inject, Injectable, Optional } from '@nestjs/common';
-import { S2C, getFirstGrapheme } from '@mud/shared';
+import { S2C, getFirstGrapheme, type VisibleBuffState } from '@mud/shared';
 import { NativePlayerAuthStoreService } from '../http/native/native-player-auth-store.service';
 import { MapTemplateRepository } from '../runtime/map/map-template.repository';
+import { isSameBuffList } from './projector-compare';
 
 import {
     buildBootstrapPanelDelta,
@@ -42,6 +43,8 @@ type NativePlayerAuthStorePort = {
         displayName?: string | null;
     } | null;
 };
+
+const EMPTY_VISIBLE_MONSTER_BUFFS: VisibleBuffState[] = [];
 
 function capturePlayerStateForFullPanel(player: any): any {
     return capturePanelState(player);
@@ -124,6 +127,7 @@ export class WorldProjectorService {
         const currentWorld = previous.worldRevision === identityView.worldRevision
             && !hasDynamicContainerCountdown(identityView, previous.containers)
             && !hasPlayerPresentationChange(identityView, previous.players)
+            && !hasMonsterBuffPresentationChange(identityView, previous.monsters)
             ? previous
             : captureWorldState(identityView, (mapId) => this.resolveMapName(mapId));
         const worldChanged = previous.worldRevision !== currentWorld.worldRevision || currentWorld !== previous;
@@ -324,6 +328,45 @@ function hasPlayerPresentationChange(view: any, previousPlayers: Map<string, any
         }
     }
     return false;
+}
+
+function hasMonsterBuffPresentationChange(view: any, previousMonsters: Map<string, any>): boolean {
+    if (!Array.isArray(view?.localMonsters)) {
+        return false;
+    }
+    for (const entry of view.localMonsters) {
+        const runtimeId = typeof entry?.runtimeId === 'string' ? entry.runtimeId : '';
+        if (!runtimeId) {
+            continue;
+        }
+        const previous = previousMonsters.get(runtimeId);
+        if (!previous) {
+            continue;
+        }
+        if (!isSameBuffList(previous.buffs ?? [], projectComparablePublicMonsterBuffs(entry?.buffs))) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function projectComparablePublicMonsterBuffs(source: unknown[] | null | undefined): VisibleBuffState[] {
+    if (!Array.isArray(source) || source.length === 0) {
+        return EMPTY_VISIBLE_MONSTER_BUFFS;
+    }
+    const visible: VisibleBuffState[] = [];
+    for (const entry of source) {
+        const buff = entry as VisibleBuffState | null | undefined;
+        if (!buff || buff.visibility !== 'public' || buff.remainingTicks <= 0 || buff.stacks <= 0) {
+            continue;
+        }
+        visible.push(buff);
+    }
+    if (visible.length === 0) {
+        return EMPTY_VISIBLE_MONSTER_BUFFS;
+    }
+    visible.sort((left, right) => left.buffId.localeCompare(right.buffId, 'zh-Hans-CN'));
+    return visible;
 }
 
 function hasPlayerPresentationEntryChange(playerId: string, entry: any, previousPlayers: Map<string, any>): boolean {
