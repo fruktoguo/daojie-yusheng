@@ -43,10 +43,10 @@ const EXPONENTIAL_NUMERIC_KEYS = new Set([
   'breakPower',
   'resolvePower',
   'maxQiOutputPerTick',
+  'qiRegenRate',
+  'hpRegenRate',
 ]);
 const LINEAR_NUMERIC_GROWTH_RATES = {
-  qiRegenRate: 0.02,
-  hpRegenRate: 0.02,
   realmExpPerTick: 0.1,
   techniqueExpPerTick: 0.1,
 };

@@ -34,7 +34,7 @@ import {
   TECHNIQUE_GRADE_ORDER,
 } from './constants/gameplay';
 import { ELEMENT_KEYS } from './constants/gameplay/attributes';
-import { getRealmAttributeMultiplier, getRealmLinearGrowthMultiplier } from './combat';
+import { getRealmAttributeMultiplier } from './combat';
 import { getEffectiveMoveSpeed } from './terrain';
 import { compileValueStatsToActualStats, NUMERIC_STAT_POINTS_PER_VALUE } from './value';
 import type {
@@ -101,21 +101,13 @@ const MONSTER_EXPONENTIAL_NUMERIC_KEYS = [
   'breakPower',
   'resolvePower',
   'maxQiOutputPerTick',
+  'qiRegenRate',
+  'hpRegenRate',
   'cooldownSpeed',
   'moveSpeed',
   'extraAggroRate',
   'viewRange',
 ] as const satisfies readonly NumericScalarStatKey[];
-/** 怪物线性成长的数值键，随等级按线性曲线放大。 */
-const MONSTER_LINEAR_NUMERIC_KEYS = [
-  'qiRegenRate',
-  'hpRegenRate',
-] as const satisfies readonly NumericScalarStatKey[];
-/** 各线性数值键对应的等级成长倍率。 */
-const MONSTER_LINEAR_NUMERIC_GROWTH_RATES: Record<typeof MONSTER_LINEAR_NUMERIC_KEYS[number], number> = {
-  qiRegenRate: 0.02,
-  hpRegenRate: 0.02,
-};
 
 /** 怪物公式输入：由属性、装备、等级和百分比修饰组合而成。 */
 export interface MonsterFormulaInput {
@@ -598,8 +590,8 @@ export interface MonsterTemplateResolvedRecord extends MonsterTemplateConfigured
   drops: MonsterTemplateDropRecord[];
 }
 
-/** 百分比属性累加器，只保留会影响怪物基础数值的四项。 */
-type PercentBonusAccumulator = Pick<NumericStats, 'maxHp' | 'maxQi' | 'physAtk' | 'spellAtk'>;
+/** 百分比属性累加器，只保留会影响怪物基础数值的核心项。 */
+type PercentBonusAccumulator = Pick<NumericStats, 'maxHp' | 'maxQi' | 'physAtk' | 'spellAtk' | 'qiRegenRate' | 'hpRegenRate'>;
 /** 次级属性换算系数。 */
 const MONSTER_SECONDARY_ATTR_RATIO = 0.2;
 /** 怪物默认生命回复速度。 */
@@ -608,8 +600,6 @@ const MONSTER_BASE_HP_REGEN_RATE = 5;
 const MONSTER_DEFAULT_TENDENCY_PERCENT = 100;
 /** 怪物基础视野，配置倾向 100% 时为 8。 */
 const MONSTER_TENDENCY_VIEW_RANGE_BASE = 8;
-/** 怪物基础回复，配置倾向 100% 时为 50。 */
-const MONSTER_TENDENCY_REGEN_BASE = 50;
 /** 1-30 级怪物额外削弱倍率。 */
 const MONSTER_LOW_LEVEL_NERF_MULTIPLIER = 0.5;
 /** 怪物品阶倍率基数。 */
@@ -663,6 +653,8 @@ const MONSTER_TENDENCY_STAT_ATTR_WEIGHTS: Partial<Record<NumericScalarStatKey, P
   breakPower: { strength: 1 },
   resolvePower: { talent: 1 },
   maxQiOutputPerTick: { meridians: 1 },
+  qiRegenRate: { meridians: 1 },
+  hpRegenRate: { constitution: 1 },
   moveSpeed: { perception: 0.5 },
 };
 
@@ -993,10 +985,6 @@ export function resolveMonsterNumericStatsFromTendency(input: MonsterFormulaInpu
       stats[key] = Math.max(0, Math.round(MONSTER_TENDENCY_VIEW_RANGE_BASE * percent / 100));
       continue;
     }
-    if (key === 'hpRegenRate' || key === 'qiRegenRate') {
-      stats[key] = Math.max(0, Math.round(MONSTER_TENDENCY_REGEN_BASE * percent / 100));
-      continue;
-    }
     const statValue = commonMultiplier
       * percent / 100
       * getMonsterSixDimStatMultiplier(key, attrs)
@@ -1022,6 +1010,8 @@ function accumulateAttrPercentBonus(target: PercentBonusAccumulator, attrs: Attr
     if (weight.maxQi !== undefined) target.maxQi += weight.maxQi * value;
     if (weight.physAtk !== undefined) target.physAtk += weight.physAtk * value;
     if (weight.spellAtk !== undefined) target.spellAtk += weight.spellAtk * value;
+    if (weight.qiRegenRate !== undefined) target.qiRegenRate += weight.qiRegenRate * value;
+    if (weight.hpRegenRate !== undefined) target.hpRegenRate += weight.hpRegenRate * value;
   }
 }
 
@@ -1069,6 +1059,8 @@ function applyPercentBonuses(target: NumericStats, bonuses: PercentBonusAccumula
   if (bonuses.maxQi !== 0) target.maxQi *= 1 + bonuses.maxQi / 100;
   if (bonuses.physAtk !== 0) target.physAtk *= 1 + bonuses.physAtk / 100;
   if (bonuses.spellAtk !== 0) target.spellAtk *= 1 + bonuses.spellAtk / 100;
+  if (bonuses.qiRegenRate !== 0) target.qiRegenRate *= 1 + bonuses.qiRegenRate / 100;
+  if (bonuses.hpRegenRate !== 0) target.hpRegenRate *= 1 + bonuses.hpRegenRate / 100;
 }
 
 /** 把装备属性合并进怪物基础属性。 */
@@ -1121,6 +1113,8 @@ export function computeMonsterBaseNumericStatsFromAttrs(
     maxQi: 0,
     physAtk: 0,
     spellAtk: 0,
+    qiRegenRate: 0,
+    hpRegenRate: 0,
   };
   const stats = createNumericStats();
   addPartialNumericStats(stats, template.stats);
@@ -1144,13 +1138,6 @@ export function applyMonsterLevelScaling(stats: NumericStats, level?: number): N
   if (exponentialMultiplier !== 1) {
     for (const key of MONSTER_EXPONENTIAL_NUMERIC_KEYS) {
       scaled[key] = Math.max(0, Math.round(scaled[key] * exponentialMultiplier));
-    }
-  }
-
-  for (const key of MONSTER_LINEAR_NUMERIC_KEYS) {
-    const linearMultiplier = getRealmLinearGrowthMultiplier(normalizedLevel, MONSTER_LINEAR_NUMERIC_GROWTH_RATES[key]);
-    if (linearMultiplier !== 1) {
-      scaled[key] = Math.max(0, Math.round(scaled[key] * linearMultiplier));
     }
   }
   return scaled;

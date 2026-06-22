@@ -9751,7 +9751,7 @@ function recoverPlayerVitals(player, currentTick = -1) {
     let changed = false;
     if (player.hp < player.maxHp && player.attrs.numericStats.hpRegenRate > 0) {
 
-        const heal = Math.max(1, Math.round(player.maxHp * (player.attrs.numericStats.hpRegenRate / 10000)));
+        const heal = Math.max(1, Math.round(player.attrs.numericStats.hpRegenRate));
 
         const nextHp = clamp(player.hp + heal, 0, player.maxHp);
         if (nextHp !== player.hp) {
@@ -9761,7 +9761,7 @@ function recoverPlayerVitals(player, currentTick = -1) {
     }
     if (player.qi < player.maxQi && player.attrs.numericStats.qiRegenRate > 0) {
 
-        const recover = Math.max(1, Math.round(player.maxQi * (player.attrs.numericStats.qiRegenRate / 10000)));
+        const recover = Math.max(1, Math.round(player.attrs.numericStats.qiRegenRate));
 
         const nextQi = clamp(player.qi + recover, 0, player.maxQi);
         if (nextQi !== player.qi) {

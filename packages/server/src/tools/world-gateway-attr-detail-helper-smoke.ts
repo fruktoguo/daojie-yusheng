@@ -651,7 +651,6 @@ function testBodyTrainingScalesAllAttributesLikeRootFoundation() {
     assert.ok(bodyPlayer.attrs.numericStats.maxHp > basePlayer.attrs.numericStats.maxHp);
     assert.ok(bodyPlayer.attrs.numericStats.maxQi > basePlayer.attrs.numericStats.maxQi);
     assert.ok(bodyPlayer.attrs.numericStats.physAtk > basePlayer.attrs.numericStats.physAtk);
-    assert.ok(bodyPlayer.attrs.numericStats.spellAtk > basePlayer.attrs.numericStats.spellAtk);
 }
 
 function testEnhancedEquipmentScalesLiveAndDetailStats() {
@@ -709,10 +708,10 @@ function testEnhancedEquipmentScalesLiveAndDetailStats() {
     const breakdowns = buildAttrDetailNumericStatBreakdowns(plus2Player);
     const plus0Breakdowns = buildAttrDetailNumericStatBreakdowns(plus0Player);
     assert.equal(breakdowns.physAtk?.finalValue, plus2Player.attrs.numericStats.physAtk);
-    assert.ok(breakdowns.physAtk?.attrMultiplierPct > plus0Breakdowns.physAtk.attrMultiplierPct);
+    assert.ok(breakdowns.hpRegenRate?.attrMultiplierPct > plus0Breakdowns.hpRegenRate.attrMultiplierPct);
     assert.ok(breakdowns.spellAtk?.attrMultiplierPct > plus0Breakdowns.spellAtk.attrMultiplierPct);
-    assert.equal(breakdowns.hpRegenRate?.attrMultiplierPct, 0);
-    assert.equal(breakdowns.qiRegenRate?.attrMultiplierPct, 0);
+    assert.equal(breakdowns.qiRegenRate?.attrMultiplierPct, plus0Breakdowns.qiRegenRate.attrMultiplierPct);
+    assert.ok(breakdowns.qiRegenRate?.attrMultiplierPct > 0);
     assert.equal(breakdowns.critDamage?.attrMultiplierPct, 0);
 }
 
@@ -836,8 +835,8 @@ function testBuffStatModePercentUsesMultiplierBreakdown() {
     ]);
     service.recalculate(basePlayer);
     service.recalculate(buffedPlayer);
-    assert.equal(buffedPlayer.attrs.numericStats.physAtk, Math.round(Math.round(basePlayer.attrs.numericStats.physAtk * 1.1) * 1.2));
-    assert.equal(buffedPlayer.attrs.numericStats.spellAtk, Math.round(basePlayer.attrs.numericStats.spellAtk * 1.1));
+    assert.equal(buffedPlayer.attrs.numericStats.physAtk, Math.round(basePlayer.attrs.numericStats.physAtk * 1.1 * 1.2));
+    assert.equal(buffedPlayer.attrs.numericStats.spellAtk, Math.round(resolvePlayerRealmNumericTemplate(PlayerRealmStage.Mortal).stats.spellAtk * 1.1 * 1.1));
     assert.equal(buffedPlayer.attrs.numericStats.extraRange, basePlayer.attrs.numericStats.extraRange + 6);
     const breakdowns = buildAttrDetailNumericStatBreakdowns(buffedPlayer);
     assert.equal(breakdowns.physAtk?.flatBuffValue, 0);
@@ -955,7 +954,7 @@ function testTieguPercentBuffDoesNotCompileRateStats() {
     service.recalculate(tieguPlayer);
     assert.equal(tieguPlayer.attrs.numericStats.physDef, Math.round(basePlayer.attrs.numericStats.physDef * 1.3));
     assert.equal(tieguPlayer.attrs.numericStats.spellDef, Math.round(basePlayer.attrs.numericStats.spellDef * 1.3));
-    assert.equal(tieguPlayer.attrs.numericStats.hpRegenRate, Math.round(basePlayer.attrs.numericStats.hpRegenRate * 1.3));
+    assert.equal(tieguPlayer.attrs.numericStats.hpRegenRate, Math.round(resolvePlayerRealmNumericTemplate(PlayerRealmStage.Mortal).stats.hpRegenRate * 1.1 * 1.3));
     const breakdowns = buildAttrDetailNumericStatBreakdowns(tieguPlayer);
     assert.equal(breakdowns.physDef?.buffMultiplierPct, 30);
     assert.equal(breakdowns.spellDef?.buffMultiplierPct, 30);

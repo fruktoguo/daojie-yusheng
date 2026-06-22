@@ -9,7 +9,7 @@
 | QI_HALF_LIFE_RATE_SCALE | 1,000,000,000 | 同上 |
 | BASE_MAX_QI | 50 | `packages/shared/src/constants/gameplay/combat.ts` |
 | BASE_MAX_QI_OUTPUT_PER_TICK | 10 | 同上 |
-| BASE_QI_REGEN_RATE | 50（万分比） | 同上 |
+| BASE_QI_REGEN_RATE | 2.5（每息固定值） | 同上 |
 
 ## 气机分类
 
@@ -33,7 +33,7 @@ buildQiHalfLifeRateScaled(halfLifeTicks):
 ## 灵力面板
 
 - 灵力上限受 talent(+1%/点) 和 meridians(+1%/点) 百分比加成
-- 每 tick 恢复：`max(1, round(maxQi × (qiRegenRate / 10000)))`
+- 每 tick 恢复：`max(1, round(qiRegenRate))`
 - 每 tick 最大输出：`maxQiOutputPerTick`（超出部分递增惩罚）
 - 启用且已装备法宝的槽位，会先按法宝未强化默认最大灵力的 10% 固定消耗法宝灵力；法宝强化只提高 `maxQi`，不提高该固定消耗
 - 如果法宝当前灵力不足以支付本 tick 固定消耗，该槽位会自动停用，并同步移除对应玩家移动能力

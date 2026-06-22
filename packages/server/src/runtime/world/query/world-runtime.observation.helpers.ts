@@ -237,7 +237,7 @@ function normalizeObservationSpirit(value) {
 function formatWholeObservation(value) {
     return formatDisplayInteger(Math.max(0, normalizeObservationNumber(value)));
 }
-/** 输出百分比展示文本，供回复/速率等属性复用。 */
+/** 输出百分比展示文本，供速率类属性复用。 */
 function formatRateObservation(value) {
     const percent = normalizeObservationNumber(value) / 100;
     return `${percent.toFixed(percent % 1 === 0 ? 0 : percent % 0.1 === 0 ? 1 : 2)}%`;
@@ -269,8 +269,8 @@ function buildObservationLineSpecs(snapshot, includeResources) {
         { threshold: 0.76, label: '破招', value: formatWholeObservation(snapshot.stats.breakPower) },
         { threshold: 0.8, label: '化解', value: formatWholeObservation(snapshot.stats.resolvePower) },
         { threshold: 0.84, label: '最大灵力输出速率', value: `${formatWholeObservation(snapshot.stats.maxQiOutputPerTick)} / 息` },
-        { threshold: 0.87, label: '灵力回复', value: `${formatRateObservation(snapshot.stats.qiRegenRate)} / 息` },
-        { threshold: 0.89, label: '生命回复', value: `${formatRateObservation(snapshot.stats.hpRegenRate)} / 息` },
+        { threshold: 0.87, label: '灵力回复', value: `${formatWholeObservation(snapshot.stats.qiRegenRate)} / 息` },
+        { threshold: 0.89, label: '生命回复', value: `${formatWholeObservation(snapshot.stats.hpRegenRate)} / 息` },
     );
     if (snapshot.realmLabel) {
         lines.push({ threshold: 0.9, label: '境界', value: snapshot.realmLabel });

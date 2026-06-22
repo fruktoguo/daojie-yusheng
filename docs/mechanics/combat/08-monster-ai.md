@@ -67,8 +67,8 @@ buildMonsterAttackDamage(monster):
 ## 怪物 HP/QI 恢复
 
 ```typescript
-HP恢复 = max(1, round(maxHp × (hpRegenRate / 10000)))  // 每 tick
-QI恢复 = max(1, round(maxQi × (qiRegenRate / 10000)))  // 每 tick
+HP恢复 = max(1, round(hpRegenRate))  // 每 tick
+QI恢复 = max(1, round(qiRegenRate))  // 每 tick
 ```
 
 ## 怪物移动
@@ -122,18 +122,7 @@ createGradePercentProfile(rank) = 100 + rank × 10
 getRealmAttributeMultiplier(lv) = (1 + 0.1)^(lv - 1)
 ```
 
-适用: maxHp, maxQi, physAtk, spellAtk, physDef, spellDef, hit, dodge, crit, antiCrit, breakPower, resolvePower, maxQiOutputPerTick, cooldownSpeed, moveSpeed, extraAggroRate, viewRange
-
-### 线性成长公式
-
-```typescript
-getRealmLinearGrowthMultiplier(lv, rate) = 1 + rate × (lv - 1)
-```
-
-| 键 | 成长率 |
-|----|--------|
-| qiRegenRate | 0.02 |
-| hpRegenRate | 0.02 |
+适用: maxHp, maxQi, physAtk, spellAtk, physDef, spellDef, hit, dodge, crit, antiCrit, breakPower, resolvePower, maxQiOutputPerTick, qiRegenRate, hpRegenRate, cooldownSpeed, moveSpeed, extraAggroRate, viewRange
 
 `critDamage = 0` 表示基础暴击伤害为 200%；怪物默认倾向、等级、品阶和血脉倍率不额外生成暴伤。
 

@@ -74,8 +74,8 @@ export const NUMERIC_STAT_ACTUAL_POINTS_PER_CONFIG_VALUE = {
   breakPower: 1,
   resolvePower: 1,
   maxQiOutputPerTick: 1,
-  qiRegenRate: 100,
-  hpRegenRate: 100,
+  qiRegenRate: 1,
+  hpRegenRate: 1,
   cooldownSpeed: 1,
   auraCostReduce: 100,
   auraPowerRate: 100,
@@ -644,8 +644,6 @@ function formatEquipmentStatValue(key: string, value: number): string {
     return `${formatNumber(value / 10)}%`;
   }
   if ([
-    'qiRegenRate',
-    'hpRegenRate',
     'auraCostReduce',
     'auraPowerRate',
     'playerExpRate',

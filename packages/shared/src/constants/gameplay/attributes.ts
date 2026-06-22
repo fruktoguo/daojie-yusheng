@@ -51,11 +51,11 @@ export const BASE_HIT = 0;
 /** 基础灵力输出速率 */
 export const BASE_MAX_QI_OUTPUT_PER_TICK = 10;
 
-/** 基础生命自动回复（万分比） */
-export const BASE_HP_REGEN_RATE = 50;
+/** 基础生命自动回复（每息固定值） */
+export const BASE_HP_REGEN_RATE = 5;
 
-/** 基础灵力自动回复（万分比） */
-export const BASE_QI_REGEN_RATE = 50;
+/** 基础灵力自动回复（每息固定值） */
+export const BASE_QI_REGEN_RATE = 2.5;
 
 /** 体质转换最大生命的基准系数 */
 export const HP_PER_CONSTITUTION = 10;
@@ -115,7 +115,7 @@ export const ATTR_TO_NUMERIC_WEIGHTS: Record<AttrKey, PartialNumericStats> = {
 export const ATTR_TO_PERCENT_NUMERIC_WEIGHTS: Record<AttrKey, PartialNumericStats> = {
   constitution: {
     maxHp: 1,
-    physAtk: 1,
+    hpRegenRate: 1,
     physDef: 1,
   },
   spirit: {
@@ -141,7 +141,7 @@ export const ATTR_TO_PERCENT_NUMERIC_WEIGHTS: Record<AttrKey, PartialNumericStat
   meridians: {
     maxQi: 1,
     maxQiOutputPerTick: 1,
-    spellAtk: 1,
+    qiRegenRate: 1,
   },
 };
 
@@ -176,8 +176,8 @@ export const NUMERIC_SCALAR_STAT_VALUE_TYPES = {
   breakPower: 'ratio_value',
   resolvePower: 'ratio_value',
   maxQiOutputPerTick: 'throughput',
-  qiRegenRate: 'rate_bp',
-  hpRegenRate: 'rate_bp',
+  qiRegenRate: 'flat',
+  hpRegenRate: 'flat',
   cooldownSpeed: 'ratio_value',
   auraCostReduce: 'rate_bp',
   auraPowerRate: 'rate_bp',
@@ -214,8 +214,8 @@ function createScalarMultiplierFloorStats(): Omit<NumericStats, 'elementDamageBo
     breakPower: DEFAULT_RATIO_DIVISOR,
     resolvePower: DEFAULT_RATIO_DIVISOR,
     maxQiOutputPerTick: BASE_MAX_QI_OUTPUT_PER_TICK,
-    qiRegenRate: 10000,
-    hpRegenRate: 10000,
+    qiRegenRate: BASE_QI_REGEN_RATE,
+    hpRegenRate: BASE_HP_REGEN_RATE,
     cooldownSpeed: DEFAULT_RATIO_DIVISOR,
     auraCostReduce: 10000,
     auraPowerRate: 10000,

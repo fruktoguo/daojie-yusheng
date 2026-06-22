@@ -7937,7 +7937,7 @@ function recoverMonsterHp(monster) {
         return false;
     }
 
-    const heal = Math.max(1, Math.round(monster.maxHp * (monster.numericStats.hpRegenRate / 10000)));
+    const heal = Math.max(1, Math.round(monster.numericStats.hpRegenRate));
 
     const nextHp = Math.min(monster.maxHp, monster.hp + heal);
     if (nextHp === monster.hp) {
@@ -7954,7 +7954,7 @@ function recoverMonsterQi(monster) {
         return false;
     }
 
-    const recover = Math.max(1, Math.round(monster.maxQi * (monster.numericStats.qiRegenRate / 10000)));
+    const recover = Math.max(1, Math.round(monster.numericStats.qiRegenRate));
 
     const nextQi = Math.min(monster.maxQi, monster.qi + recover);
     if (nextQi === monster.qi) {

@@ -38,8 +38,6 @@ export const ELEMENT_COLORS = ['#f9a825', '#7cb342', '#039be5', '#e53935', '#6d4
 export const TOOLTIP_STYLE_ID = 'attr-panel-tooltip-style';
 
 export const RATE_BP_KEYS = new Set<NumericCardKey>([
-  'qiRegenRate',
-  'hpRegenRate',
   'auraCostReduce',
   'auraPowerRate',
   'playerExpRate',

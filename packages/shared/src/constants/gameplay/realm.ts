@@ -647,8 +647,8 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
       breakPower: 0,
       resolvePower: 0,
       maxQiOutputPerTick: BASE_MAX_QI_OUTPUT_PER_TICK,
-      qiRegenRate: BASE_QI_REGEN_RATE,
       hpRegenRate: BASE_HP_REGEN_RATE,
+      qiRegenRate: BASE_QI_REGEN_RATE,
       cooldownSpeed: 0,
       auraCostReduce: 0,
       auraPowerRate: 0,
@@ -691,11 +691,13 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
   },
   [PlayerRealmStage.BodyTempering]: buildRealmNumericDelta(PlayerRealmStage.BodyTempering, {
     maxHp: 25,
+    hpRegenRate: 1.25,
     physAtk: 3,
     physDef: 3,
   }, 25),
   [PlayerRealmStage.BoneForging]: buildRealmNumericDelta(PlayerRealmStage.BoneForging, {
     maxHp: 20,
+    hpRegenRate: 1,
     physAtk: 2,
     physDef: 3,
     spellDef: 1,
@@ -704,6 +706,8 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
   [PlayerRealmStage.Meridian]: buildRealmNumericDelta(PlayerRealmStage.Meridian, {
     maxHp: 15,
     maxQi: 25,
+    hpRegenRate: 0.75,
+    qiRegenRate: 1.25,
     spellAtk: 3,
     spellDef: 3,
     hit: 4,
@@ -715,6 +719,8 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
   [PlayerRealmStage.Innate]: buildRealmNumericDelta(PlayerRealmStage.Innate, {
     maxHp: 20,
     maxQi: 15,
+    hpRegenRate: 1,
+    qiRegenRate: 0.75,
     physAtk: 3,
     spellAtk: 5,
     physDef: 2,
@@ -730,6 +736,8 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
   [PlayerRealmStage.QiRefining]: buildRealmNumericDelta(PlayerRealmStage.QiRefining, {
     maxHp: 25,
     maxQi: 35,
+    hpRegenRate: 1.25,
+    qiRegenRate: 1.75,
     physAtk: 2,
     spellAtk: 6,
     physDef: 2,
@@ -745,6 +753,8 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
   [PlayerRealmStage.QiRefiningMiddle]: buildRealmNumericDelta(PlayerRealmStage.QiRefiningMiddle, {
     maxHp: 30,
     maxQi: 40,
+    hpRegenRate: 1.5,
+    qiRegenRate: 2,
     physAtk: 3,
     spellAtk: 6,
     physDef: 3,
@@ -760,6 +770,8 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
   [PlayerRealmStage.QiRefiningLate]: buildRealmNumericDelta(PlayerRealmStage.QiRefiningLate, {
     maxHp: 35,
     maxQi: 55,
+    hpRegenRate: 1.75,
+    qiRegenRate: 2.75,
     physAtk: 3,
     spellAtk: 8,
     physDef: 3,
@@ -775,6 +787,8 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
   [PlayerRealmStage.Foundation]: buildRealmNumericDelta(PlayerRealmStage.Foundation, {
     maxHp: 55,
     maxQi: 65,
+    hpRegenRate: 2.75,
+    qiRegenRate: 3.25,
     physAtk: 6,
     spellAtk: 8,
     physDef: 7,
@@ -790,6 +804,8 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
   [PlayerRealmStage.FoundationMiddle]: buildRealmNumericDelta(PlayerRealmStage.FoundationMiddle, {
     maxHp: 75,
     maxQi: 80,
+    hpRegenRate: 3.75,
+    qiRegenRate: 4,
     physAtk: 7,
     spellAtk: 10,
     physDef: 8,
@@ -805,6 +821,8 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
   [PlayerRealmStage.FoundationLate]: buildRealmNumericDelta(PlayerRealmStage.FoundationLate, {
     maxHp: 100,
     maxQi: 105,
+    hpRegenRate: 5,
+    qiRegenRate: 5.25,
     physAtk: 9,
     spellAtk: 14,
     physDef: 11,
@@ -820,6 +838,8 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
   [PlayerRealmStage.GoldenCore]: buildRealmNumericDelta(PlayerRealmStage.GoldenCore, {
     maxHp: 130,
     maxQi: 140,
+    hpRegenRate: 6.5,
+    qiRegenRate: 7,
     physAtk: 12,
     spellAtk: 18,
     physDef: 14,
@@ -835,6 +855,8 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
   [PlayerRealmStage.GoldenCoreMiddle]: buildRealmNumericDelta(PlayerRealmStage.GoldenCoreMiddle, {
     maxHp: 150,
     maxQi: 160,
+    hpRegenRate: 7.5,
+    qiRegenRate: 8,
     physAtk: 14,
     spellAtk: 22,
     physDef: 16,
@@ -850,6 +872,8 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
   [PlayerRealmStage.GoldenCoreLate]: buildRealmNumericDelta(PlayerRealmStage.GoldenCoreLate, {
     maxHp: 180,
     maxQi: 190,
+    hpRegenRate: 9,
+    qiRegenRate: 9.5,
     physAtk: 16,
     spellAtk: 26,
     physDef: 18,
@@ -865,6 +889,8 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
   [PlayerRealmStage.Nascent]: buildRealmNumericDelta(PlayerRealmStage.Nascent, {
     maxHp: 220,
     maxQi: 240,
+    hpRegenRate: 11,
+    qiRegenRate: 12,
     physAtk: 20,
     spellAtk: 32,
     physDef: 22,
@@ -880,6 +906,8 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
   [PlayerRealmStage.NascentMiddle]: buildRealmNumericDelta(PlayerRealmStage.NascentMiddle, {
     maxHp: 260,
     maxQi: 280,
+    hpRegenRate: 13,
+    qiRegenRate: 14,
     physAtk: 24,
     spellAtk: 38,
     physDef: 26,
@@ -895,6 +923,8 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
   [PlayerRealmStage.NascentLate]: buildRealmNumericDelta(PlayerRealmStage.NascentLate, {
     maxHp: 300,
     maxQi: 320,
+    hpRegenRate: 15,
+    qiRegenRate: 16,
     physAtk: 28,
     spellAtk: 44,
     physDef: 30,
@@ -910,6 +940,8 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
   [PlayerRealmStage.SoulTransform]: buildRealmNumericDelta(PlayerRealmStage.SoulTransform, {
     maxHp: 360,
     maxQi: 400,
+    hpRegenRate: 18,
+    qiRegenRate: 20,
     physAtk: 34,
     spellAtk: 54,
     physDef: 36,
@@ -925,6 +957,8 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
   [PlayerRealmStage.SoulTransformMiddle]: buildRealmNumericDelta(PlayerRealmStage.SoulTransformMiddle, {
     maxHp: 420,
     maxQi: 460,
+    hpRegenRate: 21,
+    qiRegenRate: 23,
     physAtk: 40,
     spellAtk: 64,
     physDef: 42,
@@ -940,6 +974,8 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
   [PlayerRealmStage.SoulTransformLate]: buildRealmNumericDelta(PlayerRealmStage.SoulTransformLate, {
     maxHp: 500,
     maxQi: 540,
+    hpRegenRate: 25,
+    qiRegenRate: 27,
     physAtk: 48,
     spellAtk: 76,
     physDef: 50,
@@ -955,6 +991,8 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
   [PlayerRealmStage.VoidRefine]: buildRealmNumericDelta(PlayerRealmStage.VoidRefine, {
     maxHp: 600,
     maxQi: 660,
+    hpRegenRate: 30,
+    qiRegenRate: 33,
     physAtk: 58,
     spellAtk: 92,
     physDef: 60,
@@ -970,6 +1008,8 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
   [PlayerRealmStage.VoidRefineMiddle]: buildRealmNumericDelta(PlayerRealmStage.VoidRefineMiddle, {
     maxHp: 700,
     maxQi: 780,
+    hpRegenRate: 35,
+    qiRegenRate: 39,
     physAtk: 68,
     spellAtk: 108,
     physDef: 70,
@@ -985,6 +1025,8 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
   [PlayerRealmStage.VoidRefineLate]: buildRealmNumericDelta(PlayerRealmStage.VoidRefineLate, {
     maxHp: 820,
     maxQi: 900,
+    hpRegenRate: 41,
+    qiRegenRate: 45,
     physAtk: 80,
     spellAtk: 128,
     physDef: 82,
@@ -1000,6 +1042,8 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
   [PlayerRealmStage.BodyIntegration]: buildRealmNumericDelta(PlayerRealmStage.BodyIntegration, {
     maxHp: 1000,
     maxQi: 1100,
+    hpRegenRate: 50,
+    qiRegenRate: 55,
     physAtk: 96,
     spellAtk: 154,
     physDef: 98,
@@ -1015,6 +1059,8 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
   [PlayerRealmStage.BodyIntegrationMiddle]: buildRealmNumericDelta(PlayerRealmStage.BodyIntegrationMiddle, {
     maxHp: 1200,
     maxQi: 1320,
+    hpRegenRate: 60,
+    qiRegenRate: 66,
     physAtk: 114,
     spellAtk: 182,
     physDef: 116,
@@ -1030,6 +1076,8 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
   [PlayerRealmStage.BodyIntegrationLate]: buildRealmNumericDelta(PlayerRealmStage.BodyIntegrationLate, {
     maxHp: 1400,
     maxQi: 1540,
+    hpRegenRate: 70,
+    qiRegenRate: 77,
     physAtk: 134,
     spellAtk: 214,
     physDef: 136,
@@ -1045,6 +1093,8 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
   [PlayerRealmStage.Mahayana]: buildRealmNumericDelta(PlayerRealmStage.Mahayana, {
     maxHp: 1700,
     maxQi: 1870,
+    hpRegenRate: 85,
+    qiRegenRate: 93.5,
     physAtk: 160,
     spellAtk: 256,
     physDef: 162,
@@ -1060,6 +1110,8 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
   [PlayerRealmStage.MahayanaMiddle]: buildRealmNumericDelta(PlayerRealmStage.MahayanaMiddle, {
     maxHp: 2000,
     maxQi: 2200,
+    hpRegenRate: 100,
+    qiRegenRate: 110,
     physAtk: 190,
     spellAtk: 304,
     physDef: 192,
@@ -1075,6 +1127,8 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
   [PlayerRealmStage.MahayanaLate]: buildRealmNumericDelta(PlayerRealmStage.MahayanaLate, {
     maxHp: 2400,
     maxQi: 2640,
+    hpRegenRate: 120,
+    qiRegenRate: 132,
     physAtk: 226,
     spellAtk: 362,
     physDef: 228,
@@ -1090,6 +1144,8 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
   [PlayerRealmStage.Tribulation]: buildRealmNumericDelta(PlayerRealmStage.Tribulation, {
     maxHp: 2900,
     maxQi: 3200,
+    hpRegenRate: 145,
+    qiRegenRate: 160,
     physAtk: 270,
     spellAtk: 432,
     physDef: 272,
@@ -1105,6 +1161,8 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
   [PlayerRealmStage.TribulationMiddle]: buildRealmNumericDelta(PlayerRealmStage.TribulationMiddle, {
     maxHp: 3500,
     maxQi: 3850,
+    hpRegenRate: 175,
+    qiRegenRate: 192.5,
     physAtk: 322,
     spellAtk: 516,
     physDef: 324,
@@ -1120,6 +1178,8 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
   [PlayerRealmStage.TribulationLate]: buildRealmNumericDelta(PlayerRealmStage.TribulationLate, {
     maxHp: 4200,
     maxQi: 4620,
+    hpRegenRate: 210,
+    qiRegenRate: 231,
     physAtk: 386,
     spellAtk: 618,
     physDef: 388,
@@ -1135,6 +1195,8 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
   [PlayerRealmStage.Ascension]: buildRealmNumericDelta(PlayerRealmStage.Ascension, {
     maxHp: 5000,
     maxQi: 5500,
+    hpRegenRate: 250,
+    qiRegenRate: 275,
     physAtk: 460,
     spellAtk: 736,
     physDef: 462,

@@ -249,7 +249,7 @@ function testObservationMissingNumericValuesRenderAsZero() {
   assert.equal(observation.lines.find((line) => line.label === '生命')?.value, '0 / 0');
   assert.equal(observation.lines.find((line) => line.label === '灵力')?.value, '0 / 0');
   assert.equal(observation.lines.find((line) => line.label === '暴击伤害')?.value, '200%');
-  assert.equal(observation.lines.find((line) => line.label === '灵力回复')?.value, '0% / 息');
+  assert.equal(observation.lines.find((line) => line.label === '灵力回复')?.value, '0 / 息');
 }
 
 function testObservationLargeValuesUseChineseUnits() {

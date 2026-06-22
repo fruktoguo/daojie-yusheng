@@ -19,12 +19,12 @@
 
 | 属性 | 加成目标 |
 |------|----------|
-| constitution | maxHp +1%, physAtk +1%, physDef +1% |
+| constitution | maxHp +1%, hpRegenRate +1%, physDef +1% |
 | spirit | spellAtk +1%, spellDef +1%, hit +1% |
 | perception | dodge +1%, moveSpeed +0.5%, antiCrit +1% |
 | talent | maxHp +1%, maxQi +1%, resolvePower +1% |
 | strength | physAtk +1%, crit +1%, breakPower +1% |
-| meridians | maxQi +1%, maxQiOutputPerTick +1%, spellAtk +1% |
+| meridians | maxQi +1%, maxQiOutputPerTick +1%, qiRegenRate +1% |
 
 每点属性提供对应数值面板的 1% 百分比乘区加成（perception→moveSpeed 为 0.5%）。
 
@@ -84,7 +84,7 @@ REALM_ATTRIBUTE_GROWTH_RATE = 0.1
 getRealmAttributeMultiplier(realmLv) = (1 + 0.1)^(realmLv - 1)
 ```
 
-适用: maxHp, maxQi, physAtk, spellAtk, physDef, spellDef, hit, dodge, crit, antiCrit, breakPower, resolvePower, maxQiOutputPerTick
+适用: maxHp, maxQi, physAtk, spellAtk, physDef, spellDef, hit, dodge, crit, antiCrit, breakPower, resolvePower, maxQiOutputPerTick, qiRegenRate, hpRegenRate
 
 ### 线性成长属性
 
@@ -95,8 +95,6 @@ getRealmLinearGrowthMultiplier(realmLv, rate) = 1 + rate × (realmLv - 1)
 
 | 属性 | 成长率 |
 |------|--------|
-| qiRegenRate | 0.02 |
-| hpRegenRate | 0.02 |
 | realmExpPerTick | 0.1 |
 | techniqueExpPerTick | 0.1 |
 
@@ -111,8 +109,8 @@ getRealmLinearGrowthMultiplier(realmLv, rate) = 1 + rate × (realmLv - 1)
 | BASE_PHYS_ATK | 10 |
 | BASE_SPELL_ATK | 5 |
 | BASE_MAX_QI_OUTPUT_PER_TICK | 10 |
-| BASE_HP_REGEN_RATE | 50（万分比） |
-| BASE_QI_REGEN_RATE | 50（万分比） |
+| BASE_HP_REGEN_RATE | 5（每息固定值） |
+| BASE_QI_REGEN_RATE | 2.5（每息固定值） |
 | HP_PER_CONSTITUTION | 10 |
 
 ## Buff 效果因子

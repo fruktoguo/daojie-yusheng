@@ -398,12 +398,12 @@ const REALM_EXPONENTIAL_NUMERIC_KEYS = [
     'breakPower',
     'resolvePower',
     'maxQiOutputPerTick',
+    'qiRegenRate',
+    'hpRegenRate',
 ];
 
 const REALM_LINEAR_NUMERIC_GROWTH_RATES = {
     critDamage: 0.1,
-    qiRegenRate: 0.02,
-    hpRegenRate: 0.02,
     realmExpPerTick: 0.1,
     techniqueExpPerTick: 0.1,
 };
