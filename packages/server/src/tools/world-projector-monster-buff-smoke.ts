@@ -192,7 +192,17 @@ function runProjectorProof(): void {
 
   publicBuff.remainingTicks = 0;
   const removed = projector.createDeltaEnvelope(createView(monster, 3), player);
-  assert.deepEqual(removed?.worldDelta?.m?.[0]?.buffs, []);
+  assert.equal(removed?.worldDelta?.m?.[0]?.buffs, null);
+
+  const plainMonster = createMonster([]);
+  plainMonster.runtimeId = 'monster:buff:none';
+  const plainProjector = new WorldProjectorService(createTemplateRepository() as never, null);
+  const plainInitial = plainProjector.createInitialEnvelope(
+    { playerId: player.playerId, sessionId: 'monster_plain_session' },
+    createView(plainMonster, 1),
+    player,
+  );
+  assert.equal(Object.prototype.hasOwnProperty.call(plainInitial.worldDelta?.m?.[0] ?? {}, 'buffs'), false);
 }
 
 function runDetailProof(): void {

@@ -108,6 +108,7 @@ import { buildAttrDetailBonuses } from './world-gateway-attr-detail.helper';
 
 const npcProjectionCache = new WeakMap<ProjectorNpcLike, ProjectedNpcEntry>();
 const monsterProjectionCache = new WeakMap<ProjectorMonsterLike, ProjectedMonsterEntry>();
+const monsterPublicBuffProjectionCache = new WeakMap<unknown[], { signature: string; projected?: VisibleBuffState[] }>();
 const portalProjectionCache = new WeakMap<ProjectorPortalLike, ProjectedPortalEntry>();
 const groundPileProjectionCache = new WeakMap<ProjectorGroundPileLike, ProjectedGroundPileEntry>();
 const containerProjectionCache = new WeakMap<ProjectorContainerLike, ProjectedContainerEntry>();
@@ -115,6 +116,7 @@ const buildingProjectionCache = new WeakMap<ProjectorBuildingLike, ProjectedBuil
 const formationProjectionCache = new WeakMap<ProjectorFormationLike, ProjectedFormationEntry>();
 const attrBonusCloneCache = new WeakMap<AttrBonus[], AttrBonus[]>();
 const projectedAttrBonusCache = new WeakMap<ProjectorPlayerLike, { signature: string; bonuses: AttrBonus[] }>();
+const EMPTY_VISIBLE_BUFFS: VisibleBuffState[] = [];
 
 type SpecialStatsCacheEntry = {
     attrsRevision: number;
@@ -399,21 +401,26 @@ function buildFullWorldDeltaFromState(
         sc: entry.sc ?? undefined,
         sm: entry.sm ?? undefined,
     }));
-    const monsters: WorldMonsterPatchView[] = Array.from(state.monsters, ([id, entry]) => ({
-        id,
-        mid: entry.mid,
-        x: entry.x,
-        y: entry.y,
-        f: entry.f,
-        hp: entry.hp,
-        maxHp: entry.maxHp,
-        qi: entry.qi,
-        maxQi: entry.maxQi,
-        n: entry.n,
-        c: entry.c,
-        tr: entry.tr,
-        buffs: entry.buffs,
-    }));
+    const monsters: WorldMonsterPatchView[] = Array.from(state.monsters, ([id, entry]) => {
+        const patch: WorldMonsterPatchView = {
+            id,
+            mid: entry.mid,
+            x: entry.x,
+            y: entry.y,
+            f: entry.f,
+            hp: entry.hp,
+            maxHp: entry.maxHp,
+            qi: entry.qi,
+            maxQi: entry.maxQi,
+            n: entry.n,
+            c: entry.c,
+            tr: entry.tr,
+        };
+        if (entry.buffs) {
+            patch.buffs = entry.buffs;
+        }
+        return patch;
+    });
     const npcs: WorldNpcPatchView[] = Array.from(state.npcs, ([id, entry]) => ({
         id,
         x: entry.x,
@@ -669,21 +676,38 @@ function projectMonsterEntry(entry: ProjectorMonsterLike): ProjectedMonsterEntry
         && cached.n === entry.name
         && cached.c === entry.color
         && cached.tr === entry.tier
-        && isSameBuffList(cached.buffs ?? [], buffs)) {
+        && isSameBuffList(cached.buffs ?? EMPTY_VISIBLE_BUFFS, buffs ?? EMPTY_VISIBLE_BUFFS)) {
         return cached;
     }
     const monsterId = cached?.mid ?? entry.monsterId;
     const projected = freezeProjectedEntry({
         mid: monsterId, x: entry.x, y: entry.y, f: entry.facing, hp: entry.hp, maxHp: entry.maxHp, qi: entry.qi, maxQi: entry.maxQi, n: entry.name, c: entry.color, tr: entry.tier,
-        buffs: buffs.length > 0 ? buffs : undefined,
+        buffs,
     });
     monsterProjectionCache.set(entry, projected);
     return projected;
 }
 
-function projectPublicMonsterBuffs(source: unknown[] | null | undefined): VisibleBuffState[] {
+function projectPublicMonsterBuffs(source: unknown[] | null | undefined): VisibleBuffState[] | undefined {
     if (!Array.isArray(source) || source.length === 0) {
-        return [];
+        return undefined;
+    }
+    let signature = '';
+    let hasPublicBuff = false;
+    for (const entry of source) {
+        const buff = entry as VisibleBuffState | null | undefined;
+        if (!buff || buff.visibility !== 'public' || buff.remainingTicks <= 0 || buff.stacks <= 0) {
+            continue;
+        }
+        hasPublicBuff = true;
+        signature += `${buff.buffId}:${buff.remainingTicks}:${buff.stacks}:${buff.duration}:${buff.maxStacks};`;
+    }
+    if (!hasPublicBuff) {
+        return undefined;
+    }
+    const cached = monsterPublicBuffProjectionCache.get(source);
+    if (cached?.signature === signature) {
+        return cached.projected;
     }
     const projected: VisibleBuffState[] = [];
     for (const entry of source) {
@@ -694,6 +718,7 @@ function projectPublicMonsterBuffs(source: unknown[] | null | undefined): Visibl
         projected.push(cloneVisibleBuffProjection(buff));
     }
     projected.sort((left, right) => left.buffId.localeCompare(right.buffId, 'zh-Hans-CN'));
+    monsterPublicBuffProjectionCache.set(source, { signature, projected });
     return projected;
 }
 

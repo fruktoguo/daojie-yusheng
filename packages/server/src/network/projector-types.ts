@@ -263,7 +263,7 @@ export interface ProjectedMonsterEntry {
   n: string;
   c: string;
   tr?: MonsterTier;
-  buffs?: VisibleBuffState[];
+  buffs?: VisibleBuffState[] | undefined;
 }
 export interface ProjectedPortalEntry {
   n: string;
