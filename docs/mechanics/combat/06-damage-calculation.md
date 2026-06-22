@@ -67,10 +67,10 @@ crit = random() < critChance
 
 ```typescript
 // 常量
-DEFENSE_REALM_DEFENSE_MULTIPLIER_BASE = 1.15
+DEFENSE_REALM_DEFENSE_MULTIPLIER_BASE = 1.11
 DEFENSE_REDUCTION_BASELINE = 100
 
-scaledDefense = defense × 1.15 ^ defenderRealmLv
+scaledDefense = defense × 1.11 ^ defenderRealmLv
 reductionBasis = max(1, attackBasis + 100)
 defenseReductionRate = ratioValue(scaledDefense, reductionBasis)
 ```

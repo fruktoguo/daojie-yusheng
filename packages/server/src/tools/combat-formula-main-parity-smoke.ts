@@ -94,7 +94,7 @@ withRandom(0.99, () => {
         targetStats: { physDef: 100 },
         baseDamage: 100,
     });
-    assert.equal(defended.damage, 91, '护甲减伤应使用 防御*1.15^被攻击者等级 与 攻击+100 的动态分母');
+    assert.equal(defended.damage, 91, '护甲减伤应使用 防御*1.11^被攻击者等级 与 攻击+100 的动态分母');
 
     const defendedByRealm = resolve({
         attackerStats: { physAtk: 1000 },
@@ -103,7 +103,7 @@ withRandom(0.99, () => {
         targetRealmLv: 12,
         baseDamage: 100,
     });
-    assert.equal(defendedByRealm.damage, 67, '被攻击者等级应按 1.15^等级 放大护甲后参与减伤');
+    assert.equal(defendedByRealm.damage, 76, '被攻击者等级应按 1.11^等级 放大护甲后参与减伤');
 
     const spellDefendedByRealm = resolve({
         attackerStats: { spellAtk: 900 },
@@ -113,7 +113,7 @@ withRandom(0.99, () => {
         baseDamage: 100,
         damageKind: 'spell',
     });
-    assert.equal(spellDefendedByRealm.damage, 71, '魔抗减伤应与护甲使用同一套等级放大公式');
+    assert.equal(spellDefendedByRealm.damage, 78, '魔抗减伤应与护甲使用同一套等级放大公式');
 
     const realmSuppressed = resolve({
         attackerStats: { physAtk: 100 },

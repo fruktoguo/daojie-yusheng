@@ -9,7 +9,7 @@ import { randomFillSync } from 'node:crypto';
 type CombatRng = (() => number) | null;
 
 /** 防御减伤公式中被攻击者等级防御成长系数。 */
-const DEFENSE_REALM_DEFENSE_MULTIPLIER_BASE = 1.15;
+const DEFENSE_REALM_DEFENSE_MULTIPLIER_BASE = 1.11;
 /** 防御减伤公式中基础值。 */
 const DEFENSE_REDUCTION_BASELINE = 100;
 const COMBAT_RANDOM_POOL_SIZE = 4096;
@@ -109,7 +109,7 @@ export function resolveOpposedCombatRate(value: number, opposingValue: number) {
 
 /**
  * 防御减伤率计算。
- * 公式：defense * 1.15^defenderRealmLv / (defense * 1.15^defenderRealmLv + attackBasis + 100)。
+ * 公式：defense * 1.11^defenderRealmLv / (defense * 1.11^defenderRealmLv + attackBasis + 100)。
  */
 export function resolveDefenseReductionRate(defense: number, attackBasis: number, defenderRealmLv = 1) {
     const normalizedDefense = Math.max(0, Number(defense) || 0);
