@@ -508,7 +508,7 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
       maxQi: patch.maxQi ?? previous?.maxQi,
       npcQuestMarker: previous?.npcQuestMarker,
       observation: previous?.observation,
-      buffs: previous?.buffs,
+      buffs: patch.buffs === null ? undefined : (patch.buffs ?? previous?.buffs),
     };
   }
   /**

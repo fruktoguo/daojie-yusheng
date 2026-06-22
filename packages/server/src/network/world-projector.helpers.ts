@@ -33,7 +33,7 @@ import {
   getFirstGrapheme,
 } from '@mud/shared';
 import { cloneAutoUsePillList, cloneCombatTargetingRules, isSameAutoUsePillList, isSameCombatTargetingRules } from '../runtime/player/player-combat-config.helpers';
-import { projectVisiblePlayerBuffs } from '../runtime/player/player-buff-projection.helpers';
+import { cloneVisibleBuffProjection, projectVisiblePlayerBuffs } from '../runtime/player/player-buff-projection.helpers';
 import {
   type ProjectorViewLike,
   type ProjectorPlayerLike,
@@ -412,6 +412,7 @@ function buildFullWorldDeltaFromState(
         n: entry.n,
         c: entry.c,
         tr: entry.tr,
+        buffs: entry.buffs,
     }));
     const npcs: WorldNpcPatchView[] = Array.from(state.npcs, ([id, entry]) => ({
         id,
@@ -655,6 +656,7 @@ function projectNpcEntry(entry: ProjectorNpcLike): ProjectedNpcEntry {
 }
 
 function projectMonsterEntry(entry: ProjectorMonsterLike): ProjectedMonsterEntry {
+    const buffs = projectPublicMonsterBuffs(entry.buffs);
     const cached = monsterProjectionCache.get(entry);
     if (cached
         && cached.x === entry.x
@@ -666,14 +668,32 @@ function projectMonsterEntry(entry: ProjectorMonsterLike): ProjectedMonsterEntry
         && cached.maxQi === entry.maxQi
         && cached.n === entry.name
         && cached.c === entry.color
-        && cached.tr === entry.tier) {
+        && cached.tr === entry.tier
+        && isSameBuffList(cached.buffs ?? [], buffs)) {
         return cached;
     }
     const monsterId = cached?.mid ?? entry.monsterId;
     const projected = freezeProjectedEntry({
         mid: monsterId, x: entry.x, y: entry.y, f: entry.facing, hp: entry.hp, maxHp: entry.maxHp, qi: entry.qi, maxQi: entry.maxQi, n: entry.name, c: entry.color, tr: entry.tier,
+        buffs: buffs.length > 0 ? buffs : undefined,
     });
     monsterProjectionCache.set(entry, projected);
+    return projected;
+}
+
+function projectPublicMonsterBuffs(source: unknown[] | null | undefined): VisibleBuffState[] {
+    if (!Array.isArray(source) || source.length === 0) {
+        return [];
+    }
+    const projected: VisibleBuffState[] = [];
+    for (const entry of source) {
+        const buff = entry as VisibleBuffState | null | undefined;
+        if (!buff || buff.visibility !== 'public' || buff.remainingTicks <= 0 || buff.stacks <= 0) {
+            continue;
+        }
+        projected.push(cloneVisibleBuffProjection(buff));
+    }
+    projected.sort((left, right) => left.buffId.localeCompare(right.buffId, 'zh-Hans-CN'));
     return projected;
 }
 

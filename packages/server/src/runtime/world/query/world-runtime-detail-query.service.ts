@@ -31,6 +31,33 @@ const {
     isTileVisibleInView,
 } = world_runtime_path_planning_helpers_1;
 
+function projectObservableMonsterBuffs(buffs) {
+    if (!Array.isArray(buffs) || buffs.length === 0) {
+        return [];
+    }
+    return buffs
+        .filter((entry) => entry
+        && (entry.visibility === 'public' || entry.visibility === 'observe_only')
+        && entry.remainingTicks > 0
+        && entry.stacks > 0)
+        .map((entry) => cloneVisibleBuff(entry))
+        .sort((left, right) => left.buffId.localeCompare(right.buffId, 'zh-Hans-CN'));
+}
+
+function uniqueMonsterViewsByRuntimeId(monsters) {
+    const seen = new Set();
+    const unique = [];
+    for (const monster of monsters) {
+        const runtimeId = typeof monster?.runtimeId === 'string' ? monster.runtimeId : '';
+        if (!runtimeId || seen.has(runtimeId)) {
+            continue;
+        }
+        seen.add(runtimeId);
+        unique.push(monster);
+    }
+    return unique;
+}
+
 /** 世界运行时详情查询服务：承接只读 detail / tile-detail 组装。 */
 @Injectable()
 export class WorldRuntimeDetailQueryService {
@@ -143,7 +170,7 @@ export class WorldRuntimeDetailQueryService {
                     alive: monster.alive,
                     respawnTicks: monster.respawnTicks,
                     observation: buildMonsterObservation(viewer.attrs.finalAttrs.spirit, monster),
-                    buffs: monster.buffs.map((entry) => cloneVisibleBuff(entry)),
+                    buffs: projectObservableMonsterBuffs(monster.buffs),
                 },
             };
         }
@@ -292,7 +319,7 @@ export class WorldRuntimeDetailQueryService {
             ? instance.getBuildingsAtTile(x, y)
             : [];
         const npcs = view.localNpcs.filter((entry) => entry.x === x && entry.y === y);
-        const monsters = view.localMonsters.filter((entry) => entry.x === x && entry.y === y);
+        const monsters = uniqueMonsterViewsByRuntimeId(view.localMonsters.filter((entry) => entry.x === x && entry.y === y));
         const players = [
             ...(view.self.x === x && view.self.y === y ? [viewer.playerId] : []),
             ...view.visiblePlayers.filter((entry) => entry.x === x && entry.y === y).map((entry) => entry.playerId),
@@ -353,7 +380,7 @@ export class WorldRuntimeDetailQueryService {
                 lootPreview: observation.clarity === 'complete'
                     ? buildMonsterLootPreview(this.contentTemplateRepository, viewer, monster)
                     : undefined,
-                buffs: monster.buffs.map((entry) => cloneVisibleBuff(entry)),
+                buffs: projectObservableMonsterBuffs(monster.buffs),
             });
         }
         for (const npcView of npcs) {

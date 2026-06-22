@@ -58,6 +58,7 @@ import {
   isSameTechniqueSkillList,
   isSameActionEntry,
   isSameBuffEntry,
+  isSameBuffList,
 } from './projector-compare';
 
 /** 对比前后帧玩家实体，生成 add/remove/update patch 列表。 */
@@ -154,7 +155,7 @@ export function diffMonsterEntries(previous: Map<string, ProjectedMonsterEntry>,
     for (const [runtimeId, entry] of current) {
         const prev = previous.get(runtimeId);
         if (!prev) {
-            result.push({ id: runtimeId, mid: entry.mid, x: entry.x, y: entry.y, f: entry.f, hp: entry.hp, maxHp: entry.maxHp, qi: entry.qi, maxQi: entry.maxQi, n: entry.n, c: entry.c, tr: entry.tr });
+            result.push({ id: runtimeId, mid: entry.mid, x: entry.x, y: entry.y, f: entry.f, hp: entry.hp, maxHp: entry.maxHp, qi: entry.qi, maxQi: entry.maxQi, n: entry.n, c: entry.c, tr: entry.tr, buffs: entry.buffs ?? [] });
             continue;
         }
         if (prev === entry) {
@@ -173,6 +174,7 @@ export function diffMonsterEntries(previous: Map<string, ProjectedMonsterEntry>,
         if (prev.n !== entry.n) { delta.n = entry.n; changed = true; }
         if (prev.c !== entry.c) { delta.c = entry.c; changed = true; }
         if (prev.tr !== entry.tr) { delta.tr = entry.tr; changed = true; }
+        if (!isSameBuffList(prev.buffs ?? [], entry.buffs ?? [])) { delta.buffs = entry.buffs ?? []; changed = true; }
         if (changed) { result.push(delta); }
     }
     for (const runtimeId of previous.keys()) {

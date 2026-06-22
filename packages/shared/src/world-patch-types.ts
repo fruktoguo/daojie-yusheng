@@ -351,6 +351,11 @@ export interface WorldMonsterPatchView {
 
   sc?: number | null;  
   /**
+ * buffs：公开 Buff 状态，仅用于地图实体图标。
+ */
+
+  buffs?: VisibleBuffState[] | null;
+  /**
  * rm：rm相关字段。
  */
 

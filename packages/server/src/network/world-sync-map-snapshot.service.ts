@@ -29,7 +29,7 @@ import { RuntimeMapConfigService } from '../runtime/map/runtime-map-config.servi
 import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
 import { WorldRuntimeService } from '../runtime/world/world-runtime.service';
 import { WorldSyncMinimapService } from './world-sync-minimap.service';
-import { projectVisiblePlayerBuffs } from '../runtime/player/player-buff-projection.helpers';
+import { cloneVisibleBuffProjection, projectVisiblePlayerBuffs } from '../runtime/player/player-buff-projection.helpers';
 import { projectPlayerQiResourceValue, resolvePlayerQiResourceProjection } from '../runtime/world/world-runtime-qi-projection.helpers';
 
 interface WorldRuntimePort {
@@ -72,7 +72,7 @@ const visibleTilesSnapshotCacheByPlayer = new WeakMap<object, any>();
 const npcRenderEntityCache = new WeakMap<object, any>();
 const containerRenderEntityCache = new WeakMap<object, any>();
 const formationRenderEntityCache = new WeakMap<object, any>();
-const monsterBuffProjectionCache = new WeakMap<any[], any[]>();
+const monsterBuffProjectionCache = new WeakMap<any[], { visible: any[]; projected: any[] }>();
 const instanceStaticTileDiffPlanCache = new WeakMap<object, any>();
 
 /** map/static snapshot 构造服务：承接 world-sync 的可见区域与静态展示构造。 */
@@ -946,15 +946,17 @@ function projectMonsterBuffs(buffs) {
   if (!Array.isArray(buffs)) {
     return undefined;
   }
-  if (buffs.length === 0) {
+  const visibleBuffs = buffs.filter((buff) => buff?.visibility === 'public' && (buff?.remainingTicks ?? 0) > 0 && (buff?.stacks ?? 0) > 0);
+  if (visibleBuffs.length === 0) {
     return [];
   }
+  visibleBuffs.sort((left, right) => left.buffId.localeCompare(right.buffId, 'zh-Hans-CN'));
   const cached = monsterBuffProjectionCache.get(buffs);
-  if (cached && isSameShallowRecordList(cached, buffs)) {
-    return cached;
+  if (cached && isSameShallowRecordList(cached.visible, visibleBuffs)) {
+    return cached.projected;
   }
-  const projected = buffs.map((buff) => ({ ...buff }));
-  monsterBuffProjectionCache.set(buffs, projected);
+  const projected = visibleBuffs.map((buff) => cloneVisibleBuffProjection(buff));
+  monsterBuffProjectionCache.set(buffs, { visible: projected, projected });
   return projected;
 }
 
