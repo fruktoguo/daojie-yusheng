@@ -3027,14 +3027,17 @@ export class PixiMapRendererAdapter {
   }
 
   private destroyFloatingTextEffect(entry: FloatingTextEffect): void {
+    entry.text.parent?.removeChild(entry.text);
     entry.text.destroy();
   }
 
   private destroyAttackTrailEffect(entry: AttackTrailEffect): void {
+    entry.graphics.parent?.removeChild(entry.graphics);
     entry.graphics.destroy();
   }
 
   private destroyWarningZoneEffect(zone: WarningZoneEffect): void {
+    zone.graphics.parent?.removeChild(zone.graphics);
     zone.graphics.destroy();
   }
 

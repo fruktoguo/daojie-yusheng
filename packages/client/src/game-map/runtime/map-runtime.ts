@@ -3,7 +3,7 @@
  *
  * 维护时要保证表现层只处理显示和输入命中，移动合法性、占位和地图权威状态仍以服务端为准。
  */
-import { VIEW_RADIUS } from '@mud/shared';
+import { VIEW_RADIUS, type CombatEffect } from '@mud/shared';
 import { getCellSize } from '../../display';
 import { CameraController } from '../camera/camera-controller';
 import { InteractionController } from '../interaction/interaction-controller';
@@ -25,6 +25,36 @@ import { DEFAULT_SAFE_AREA } from '../../constants/world/map-runtime';
 import { MAP_TARGET_FPS_RANGE, type MapPerformanceConfig } from '../../constants/ui/performance';
 
 const MAP_FRAME_SCHEDULE_MAX_EARLY_TOLERANCE_MS = 2;
+const MAX_RENDERED_COMBAT_EFFECTS_PER_DELTA = 96;
+const MAX_RENDERED_ATTACK_EFFECTS_PER_DELTA = 48;
+const MAX_RENDERED_FLOAT_EFFECTS_PER_DELTA = 64;
+const MAX_RENDERED_WARNING_ZONE_EFFECTS_PER_DELTA = 16;
+
+function selectRenderableCombatEffects(effects: readonly CombatEffect[]): CombatEffect[] {
+  if (effects.length <= MAX_RENDERED_COMBAT_EFFECTS_PER_DELTA) {
+    return [...effects];
+  }
+  const selected: CombatEffect[] = [];
+  let attackCount = 0;
+  let floatCount = 0;
+  let warningCount = 0;
+  for (let index = effects.length - 1; index >= 0 && selected.length < MAX_RENDERED_COMBAT_EFFECTS_PER_DELTA; index -= 1) {
+    const effect = effects[index];
+    if (!effect) continue;
+    if (effect.type === 'attack') {
+      if (attackCount >= MAX_RENDERED_ATTACK_EFFECTS_PER_DELTA) continue;
+      attackCount += 1;
+    } else if (effect.type === 'warning_zone') {
+      if (warningCount >= MAX_RENDERED_WARNING_ZONE_EFFECTS_PER_DELTA) continue;
+      warningCount += 1;
+    } else {
+      if (floatCount >= MAX_RENDERED_FLOAT_EFFECTS_PER_DELTA) continue;
+      floatCount += 1;
+    }
+    selected.push(effect);
+  }
+  return selected.reverse();
+}
 
 /** 地图运行时编排器，驱动 store、场景、投影、渲染、交互与小地图同步。 */
 export class MapRuntime implements MapRuntimeApi {
@@ -174,7 +204,7 @@ export class MapRuntime implements MapRuntimeApi {
   applyWorldDelta(data: MapWorldDeltaInput): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    for (const effect of data.effects ?? []) {
+    for (const effect of selectRenderableCombatEffects(data.effects ?? [])) {
       this.renderer.enqueueEffect(effect);
     }
     this.store.applyWorldDelta(data);

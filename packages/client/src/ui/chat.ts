@@ -251,6 +251,30 @@ function mergeMessages(
   };
 }
 
+/** 高频战斗日志只保留会话内窗口，避免 IndexedDB 写队列拖慢战斗操作。 */
+function shouldPersistChatEntry(entry: ChatStoredMessage): boolean {
+  return entry.kind !== 'combat';
+}
+
+/** 追加单条实时消息。正常服务端消息按时间递增，避免每条消息重排整个频道。 */
+function appendRealtimeMessage(state: ChatChannelState, entry: ChatStoredMessage): void {
+  const last = state.messages[state.messages.length - 1];
+  if (!last || last.at < entry.at || (last.at === entry.at && last.id.localeCompare(entry.id) <= 0)) {
+    state.messages.push(entry);
+    state.messageIds.add(entry.id);
+    const overflow = state.messages.length - CHAT_LOG_MAX_PERSISTED_MESSAGES_PER_CHANNEL;
+    if (overflow > 0) {
+      const removed = state.messages.splice(0, overflow);
+      for (const oldEntry of removed) state.messageIds.delete(oldEntry.id);
+      state.hasLoadedAll = false;
+    }
+    return;
+  }
+  const merged = mergeMessages(state.messages, [entry]);
+  state.messages = merged.messages;
+  state.messageIds = merged.ids;
+}
+
 /** 格式化消息时间戳。 */
 function formatStamp(at: number): string {
   const date = new Date(at);
@@ -1187,8 +1211,12 @@ export class ChatUI {
       ...(resolvedOptions?.structuredGroup ? { structuredGroup: resolvedOptions.structuredGroup } : undefined),
     };
     const channels = this.resolveChannels(entry);
+    const shouldPersist = shouldPersistChatEntry(entry);
     const duplicateInAllChannels = channels.every((channel) => this.channelStates.get(channel)?.messageIds.has(resolvedId));
     if (duplicateInAllChannels) {
+      if (!shouldPersist) {
+        return true;
+      }
       if (this.persistedMessageKeys.has(messageKey)) {
         return true;
       }
@@ -1205,10 +1233,7 @@ export class ChatUI {
         continue;
       }
       if (!state.messageIds.has(entry.id)) {
-        state.messages.push(entry);
-        const merged = mergeMessages([], state.messages);
-        state.messages = merged.messages;
-        state.messageIds = merged.ids;
+        appendRealtimeMessage(state, entry);
       }
       if (!this.logbookVisible) {
         this.trimChannelState(state, CHAT_LOG_MAX_VISIBLE_MESSAGES);
@@ -1225,6 +1250,10 @@ export class ChatUI {
         state.loadedCount = Math.min(total, state.loadedCount + 1);
       }
       this.renderChannel(channel, { stickToBottom });
+    }
+
+    if (!shouldPersist) {
+      return true;
     }
 
     const persistencePromise = appendChannelMessages(scopeId, entry, channels)
