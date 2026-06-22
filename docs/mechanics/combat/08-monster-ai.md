@@ -67,8 +67,8 @@ buildMonsterAttackDamage(monster):
 ## 怪物 HP/QI 恢复
 
 ```typescript
-HP恢复 = max(1, round(hpRegenRate))  // 每 tick
-QI恢复 = max(1, round(qiRegenRate))  // 每 tick
+HP恢复 = round(hpRegenRate)  // 每 tick，≤ 0 时不恢复
+QI恢复 = round(qiRegenRate)  // 每 tick，≤ 0 时不恢复
 ```
 
 ## 怪物移动

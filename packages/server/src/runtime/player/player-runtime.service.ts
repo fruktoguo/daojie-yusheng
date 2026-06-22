@@ -9751,22 +9751,24 @@ function recoverPlayerVitals(player, currentTick = -1) {
     let changed = false;
     if (player.hp < player.maxHp && player.attrs.numericStats.hpRegenRate > 0) {
 
-        const heal = Math.max(1, Math.round(player.attrs.numericStats.hpRegenRate));
-
-        const nextHp = clamp(player.hp + heal, 0, player.maxHp);
-        if (nextHp !== player.hp) {
-            player.hp = nextHp;
-            changed = true;
+        const heal = Math.round(player.attrs.numericStats.hpRegenRate);
+        if (heal > 0) {
+            const nextHp = clamp(player.hp + heal, 0, player.maxHp);
+            if (nextHp !== player.hp) {
+                player.hp = nextHp;
+                changed = true;
+            }
         }
     }
     if (player.qi < player.maxQi && player.attrs.numericStats.qiRegenRate > 0) {
 
-        const recover = Math.max(1, Math.round(player.attrs.numericStats.qiRegenRate));
-
-        const nextQi = clamp(player.qi + recover, 0, player.maxQi);
-        if (nextQi !== player.qi) {
-            player.qi = nextQi;
-            changed = true;
+        const recover = Math.round(player.attrs.numericStats.qiRegenRate);
+        if (recover > 0) {
+            const nextQi = clamp(player.qi + recover, 0, player.maxQi);
+            if (nextQi !== player.qi) {
+                player.qi = nextQi;
+                changed = true;
+            }
         }
     }
     return changed;

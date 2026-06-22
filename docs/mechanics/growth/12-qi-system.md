@@ -33,7 +33,7 @@ buildQiHalfLifeRateScaled(halfLifeTicks):
 ## 灵力面板
 
 - 灵力上限受 talent(+1%/点) 和 meridians(+1%/点) 百分比加成
-- 每 tick 恢复：`max(1, round(qiRegenRate))`
+- 每 tick 恢复：`round(qiRegenRate)`；最终值 ≤ 0 时本 tick 不恢复
 - 每 tick 最大输出：`maxQiOutputPerTick`（超出部分递增惩罚）
 - 启用且已装备法宝的槽位，会先按法宝未强化默认最大灵力的 10% 固定消耗法宝灵力；法宝强化只提高 `maxQi`，不提高该固定消耗
 - 如果法宝当前灵力不足以支付本 tick 固定消耗，该槽位会自动停用，并同步移除对应玩家移动能力
