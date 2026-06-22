@@ -3349,8 +3349,6 @@ export class PixiMapRendererAdapter {
       latestFrame: state.lastFrameSample,
     };
     window.__mudPixiProfile = snapshot;
-    console.table(Object.fromEntries(PIXI_PROFILE_METRIC_KEYS.map((key) => [key, metrics[key]])));
-    console.info('[map] Pixi profile counters', snapshot.counters, snapshot.renderer);
   }
 
   private resolveActionTextStyle(effect: Extract<CombatEffect, { type: 'float' }>): FloatingActionTextStyle | undefined {
