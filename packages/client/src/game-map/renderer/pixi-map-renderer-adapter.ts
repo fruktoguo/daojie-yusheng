@@ -355,6 +355,26 @@ function buildGridPointSignature(cells: readonly GridPoint[] | null | undefined)
   return signature;
 }
 
+function buildTargetingOverlaySignature(state: MapSceneSnapshot['overlays']['targeting']): string {
+  if (!state) return 'targeting:null';
+  return [
+    state.originX,
+    state.originY,
+    state.range,
+    state.visibleOnly === true ? 1 : 0,
+    state.shape ?? '',
+    state.radius ?? '',
+    state.hoverX ?? '',
+    state.hoverY ?? '',
+    buildGridPointSignature(state.affectedCells),
+  ].join('|');
+}
+
+function buildSenseQiHoverSignature(state: MapSceneSnapshot['overlays']['senseQi']): string {
+  if (!state || typeof state.hoverX !== 'number' || typeof state.hoverY !== 'number') return 'sense-hover:null';
+  return `${state.hoverX},${state.hoverY}`;
+}
+
 function resolveEntityFallbackLabel(kind: string | null | undefined): string {
   switch (kind) {
     case 'crowd': return translateUi('map-render.entity.crowd', undefined);
@@ -681,8 +701,8 @@ function buildGroundPileSignature(piles: ReadonlyMap<string, GroundItemPileView>
   let signature = String(piles.size);
   for (const pile of piles.values()) {
     signature += `|${pile.sourceId}:${pile.x},${pile.y}:${pile.items.length}`;
-    for (const item of pile.items.slice(0, 9)) {
-      signature += `,${item.itemKey}:${item.count}:${item.groundLabel ?? ''}:${item.grade ?? ''}`;
+    for (const item of pile.items) {
+      signature += `,${item.itemKey}:${item.itemId}:${item.type}:${item.count}:${item.groundLabel ?? ''}:${item.grade ?? ''}:${item.enhanceLevel ?? ''}:${item.name}`;
     }
   }
   return signature;
@@ -752,6 +772,7 @@ export class PixiMapRendererAdapter {
   private readonly terrainOverlayLayer = new Container();
   private readonly terrainFogLayer = new Graphics();
   private readonly pathLayer = new Container();
+  private readonly interactionOverlayGraphics = new Graphics();
   private readonly targetingGraphics = new Graphics();
   private readonly senseQiHoverGraphics = new Graphics();
   private readonly groundLayer = new Container();
@@ -780,6 +801,11 @@ export class PixiMapRendererAdapter {
   private lastEntityMotionToken?: number;
   private formationRangeSignature = '';
   private terrainOverlaySignature = '';
+  private groundPileSignature = '';
+  private interactionOverlaySignature = '';
+  private targetingOverlaySignature = '';
+  private senseQiHoverSignature = '';
+  private pathLayerSignature = '';
   private pathCells: GridPoint[] = [];
   private fadingPath: FadingPathState | null = null;
   private threatArrows: Array<{ ownerId: string; targetId: string }> = [];
@@ -818,7 +844,7 @@ export class PixiMapRendererAdapter {
     if (!canvas) throw new Error('地图宿主节点缺少 canvas');
     this.canvas = canvas;
     this.refreshProfileState();
-    this.pathLayer.addChild(this.targetingGraphics, this.senseQiHoverGraphics, this.pathGraphics);
+    this.pathLayer.addChild(this.interactionOverlayGraphics, this.targetingGraphics, this.senseQiHoverGraphics, this.pathGraphics);
     this.threatArrowGraphics.name = 'threat-arrows';
     this.threatArrowLayer.addChild(this.threatArrowGraphics);
     this.screenLayer.addChild(this.timeOverlayGraphics);
@@ -938,6 +964,7 @@ export class PixiMapRendererAdapter {
     }
     this.profileMeasure('worldOverlays', () => {
       this.rebuildWorldOverlays(scene);
+      this.rebuildInteractionOverlayLayer(scene);
       this.rebuildTargetingLayer(scene);
       this.rebuildSenseQiHoverLayer(scene);
     });
@@ -978,6 +1005,7 @@ export class PixiMapRendererAdapter {
     this.clearContainer(this.groundLayer);
     this.clearContainer(this.effectLayer);
     this.threatArrowGraphics.clear();
+    this.interactionOverlayGraphics.clear();
     this.targetingGraphics.clear();
     this.senseQiHoverGraphics.clear();
     this.timeOverlayGraphics.clear();
@@ -988,6 +1016,11 @@ export class PixiMapRendererAdapter {
     this.formationRangeSenseQiVisuals.clear();
     this.formationRangeSignature = '';
     this.terrainOverlaySignature = '';
+    this.groundPileSignature = '';
+    this.interactionOverlaySignature = '';
+    this.targetingOverlaySignature = '';
+    this.senseQiHoverSignature = '';
+    this.pathLayerSignature = '';
     this.visibleTileFadeStartedAt.clear();
     this.hiddenTileFadeStartedAt.clear();
     this.previousVisibleTileKeys.clear();
@@ -1000,6 +1033,16 @@ export class PixiMapRendererAdapter {
   syncDisplayMetrics(): void {
     const cellSize = getCellSize();
     this.invalidateTerrainChunks();
+    this.groundPileSignature = '';
+    this.interactionOverlaySignature = '';
+    this.targetingOverlaySignature = '';
+    this.senseQiHoverSignature = '';
+    this.pathLayerSignature = '';
+    this.clearContainer(this.groundLayer);
+    this.interactionOverlayGraphics.clear();
+    this.targetingGraphics.clear();
+    this.senseQiHoverGraphics.clear();
+    this.pathGraphics.clear();
     for (const view of this.entities.values()) {
       const targetWX = view.anim.gridX * cellSize;
       const targetWY = view.anim.gridY * cellSize;
@@ -1494,11 +1537,7 @@ export class PixiMapRendererAdapter {
 
   private buildTerrainOverlaySignature(scene: MapSceneSnapshot): string {
     return [
-      buildGridPointSignature(scene.overlays.formationRange?.affectedCells),
-      scene.overlays.formationRange?.rangeHighlightColor ?? '',
       scene.overlays.senseQi ? `sense:${scene.overlays.senseQi.levelBaseValue ?? ''}` : 'null',
-      scene.overlays.buildPreview ? `${scene.overlays.buildPreview.defId}:${scene.overlays.buildPreview.originX},${scene.overlays.buildPreview.originY}:${scene.overlays.buildPreview.rotation ?? ''}:${buildBuildPreviewSignature(scene.overlays.buildPreview.cells)}` : 'null',
-      scene.overlays.fengShui ? `${scene.overlays.fengShui.instanceId}:${scene.overlays.fengShui.revision}:${buildFengShuiOverlaySignature(scene.overlays.fengShui.cells)}` : 'null',
       this.formationRangeSignature,
     ].join('||');
   }
@@ -1845,22 +1884,13 @@ export class PixiMapRendererAdapter {
     const startX = chunk.cx * CHUNK_SIZE;
     const startY = chunk.cy * CHUNK_SIZE;
     const senseQiLevelBaseValue = normalizeAuraLevelBaseValue(scene.overlays.senseQi?.levelBaseValue);
-    const buildPreviewCellByKey = new Map<string, NonNullable<MapSceneSnapshot['overlays']['buildPreview']>['cells'][number]>();
-    for (const cell of scene.overlays.buildPreview?.cells ?? []) buildPreviewCellByKey.set(`${cell.x},${cell.y}`, cell);
-    const fengShuiCellByKey = new Map<string, NonNullable<MapSceneSnapshot['overlays']['fengShui']>['cells'][number]>();
-    for (const cell of scene.overlays.fengShui?.cells ?? []) fengShuiCellByKey.set(`${cell.x},${cell.y}`, cell);
-    const formationAffectedKeys = new Set((scene.overlays.formationRange?.affectedCells ?? []).map((cell) => `${cell.x},${cell.y}`));
     for (let y = startY; y < startY + CHUNK_SIZE; y += 1) {
       for (let x = startX; x < startX + CHUNK_SIZE; x += 1) {
         const key = `${x},${y}`;
         const tile = scene.terrain.tileCache.get(key);
         const sx = x * cellSize;
         const sy = y * cellSize;
-        this.drawTerrainOverlays(overlayGraphics, chunk.overlayContainer, scene, tile, key, x, y, sx, sy, cellSize, senseQiLevelBaseValue, {
-          buildPreviewCellByKey,
-          fengShuiCellByKey,
-          formationAffectedKeys,
-        });
+        this.drawTerrainOverlays(overlayGraphics, chunk.overlayContainer, scene, tile, key, x, y, sx, sy, cellSize, senseQiLevelBaseValue);
       }
     }
     chunk.overlayContainer.addChild(overlayGraphics);
@@ -1890,28 +1920,8 @@ export class PixiMapRendererAdapter {
     sy: number,
     cellSize: number,
     senseQiLevelBaseValue: number,
-    indexes: {
-      buildPreviewCellByKey: ReadonlyMap<string, NonNullable<MapSceneSnapshot['overlays']['buildPreview']>['cells'][number]>;
-      fengShuiCellByKey: ReadonlyMap<string, NonNullable<MapSceneSnapshot['overlays']['fengShui']>['cells'][number]>;
-      formationAffectedKeys: ReadonlySet<string>;
-    },
   ): void {
     const isVisible = scene.terrain.visibleTiles.has(key);
-    if (scene.overlays.formationRange && indexes.formationAffectedKeys.has(key)) {
-      const color = scene.overlays.formationRange.rangeHighlightColor;
-      const fill = colorWithAlpha(color, 0.22);
-      const stroke = colorWithAlpha(color, 0.86);
-      graphics.rect(sx + 1, sy + 1, cellSize - 2, cellSize - 2).fill(fill);
-      graphics.rect(sx + 1.5, sy + 1.5, cellSize - 3, cellSize - 3).stroke({ ...stroke, width: 2 });
-    }
-    if (tile && scene.overlays.fengShui && isVisible) {
-      graphics.rect(sx, sy, cellSize, cellSize).fill({ color: 0x080605, alpha: 0.34 });
-    }
-    const fengShuiCell = indexes.fengShuiCellByKey.get(key);
-    if (fengShuiCell) {
-      graphics.rect(sx + 1, sy + 1, cellSize - 2, cellSize - 2).fill(getFengShuiOverlayFill(fengShuiCell));
-      graphics.rect(sx + 1.5, sy + 1.5, cellSize - 3, cellSize - 3).stroke({ ...getFengShuiOverlayStroke(fengShuiCell), width: 1 });
-    }
     if (tile && !scene.overlays.senseQi && isVisible) {
       const visibleFormationRangeVisual = this.resolveFormationRangeVisual(gx, gy, false);
       if (visibleFormationRangeVisual) this.drawFormationRangeVisual(graphics, chunkContainer, sx, sy, cellSize, visibleFormationRangeVisual);
@@ -1924,10 +1934,6 @@ export class PixiMapRendererAdapter {
       graphics.rect(sx, sy, cellSize, cellSize).fill(style);
       const formationRangeVisual = this.resolveFormationRangeVisual(gx, gy, true);
       if (formationRangeVisual) this.drawFormationRangeVisual(graphics, chunkContainer, sx, sy, cellSize, formationRangeVisual);
-    }
-    const buildCell = indexes.buildPreviewCellByKey.get(key);
-    if (buildCell) {
-      this.drawCellHighlight(graphics, sx, sy, cellSize, buildCell.ok ? (buildCell.warning ? 'rgba(217,119,6,0.24)' : 'rgba(22,163,74,0.24)') : 'rgba(220,38,38,0.30)', buildCell.ok ? (buildCell.warning ? 'rgba(245,158,11,0.92)' : 'rgba(34,197,94,0.92)') : 'rgba(248,113,113,0.96)', false);
     }
   }
 
@@ -1980,6 +1986,11 @@ export class PixiMapRendererAdapter {
   }
 
   private rebuildWorldOverlays(scene: MapSceneSnapshot): void {
+    const signature = `${getCellSize()}|${buildGroundPileSignature(scene.groundPiles)}`;
+    if (signature === this.groundPileSignature) {
+      return;
+    }
+    this.groundPileSignature = signature;
     this.clearContainer(this.groundLayer);
     const cellSize = getCellSize();
     this.profileSetCounter('groundPiles', scene.groundPiles.size);
@@ -1991,7 +2002,76 @@ export class PixiMapRendererAdapter {
     }
   }
 
+  private rebuildInteractionOverlayLayer(scene: MapSceneSnapshot): void {
+    const cellSize = getCellSize();
+    const signature = [
+      cellSize,
+      scene.overlays.formationRange
+        ? `${scene.overlays.formationRange.rangeHighlightColor ?? ''}:${buildGridPointSignature(scene.overlays.formationRange.affectedCells)}`
+        : 'formation:null',
+      scene.overlays.buildPreview
+        ? `${scene.overlays.buildPreview.defId}:${scene.overlays.buildPreview.originX},${scene.overlays.buildPreview.originY}:${scene.overlays.buildPreview.rotation ?? ''}:${buildBuildPreviewSignature(scene.overlays.buildPreview.cells)}`
+        : 'build:null',
+      scene.overlays.fengShui
+        ? `${scene.terrain.visibleTileRevision}:${scene.overlays.fengShui.instanceId}:${scene.overlays.fengShui.revision}:${buildFengShuiOverlaySignature(scene.overlays.fengShui.cells)}`
+        : 'feng:null',
+    ].join('|');
+    if (signature === this.interactionOverlaySignature) {
+      return;
+    }
+    this.interactionOverlaySignature = signature;
+    this.interactionOverlayGraphics.clear();
+    const formationRange = scene.overlays.formationRange;
+    if (formationRange) {
+      const fill = colorWithAlpha(formationRange.rangeHighlightColor, 0.22);
+      const stroke = colorWithAlpha(formationRange.rangeHighlightColor, 0.86);
+      for (const cell of formationRange.affectedCells) {
+        const sx = cell.x * cellSize;
+        const sy = cell.y * cellSize;
+        this.interactionOverlayGraphics.rect(sx + 1, sy + 1, cellSize - 2, cellSize - 2).fill(fill);
+        this.interactionOverlayGraphics.rect(sx + 1.5, sy + 1.5, cellSize - 3, cellSize - 3).stroke({ ...stroke, width: 2 });
+      }
+    }
+    if (scene.overlays.fengShui) {
+      for (const key of scene.terrain.visibleTiles) {
+        const tile = scene.terrain.tileCache.get(key);
+        if (!tile) {
+          continue;
+        }
+        const [rawX, rawY] = key.split(',', 2);
+        const x = Number(rawX);
+        const y = Number(rawY);
+        if (!Number.isFinite(x) || !Number.isFinite(y)) {
+          continue;
+        }
+        this.interactionOverlayGraphics.rect(x * cellSize, y * cellSize, cellSize, cellSize).fill({ color: 0x080605, alpha: 0.34 });
+      }
+      for (const cell of scene.overlays.fengShui.cells) {
+        const sx = cell.x * cellSize;
+        const sy = cell.y * cellSize;
+        this.interactionOverlayGraphics.rect(sx + 1, sy + 1, cellSize - 2, cellSize - 2).fill(getFengShuiOverlayFill(cell));
+        this.interactionOverlayGraphics.rect(sx + 1.5, sy + 1.5, cellSize - 3, cellSize - 3).stroke({ ...getFengShuiOverlayStroke(cell), width: 1 });
+      }
+    }
+    for (const cell of scene.overlays.buildPreview?.cells ?? []) {
+      this.drawCellHighlight(
+        this.interactionOverlayGraphics,
+        cell.x * cellSize,
+        cell.y * cellSize,
+        cellSize,
+        cell.ok ? (cell.warning ? 'rgba(217,119,6,0.24)' : 'rgba(22,163,74,0.24)') : 'rgba(220,38,38,0.30)',
+        cell.ok ? (cell.warning ? 'rgba(245,158,11,0.92)' : 'rgba(34,197,94,0.92)') : 'rgba(248,113,113,0.96)',
+        false,
+      );
+    }
+  }
+
   private rebuildTargetingLayer(scene: MapSceneSnapshot): void {
+    const signature = `${getCellSize()}|${scene.terrain.visibleTileRevision}|${buildTargetingOverlaySignature(scene.overlays.targeting)}`;
+    if (signature === this.targetingOverlaySignature) {
+      return;
+    }
+    this.targetingOverlaySignature = signature;
     this.targetingGraphics.clear();
     const targeting = scene.overlays.targeting;
     if (!targeting) {
@@ -2040,6 +2120,11 @@ export class PixiMapRendererAdapter {
   }
 
   private rebuildSenseQiHoverLayer(scene: MapSceneSnapshot): void {
+    const signature = `${getCellSize()}|${scene.terrain.visibleTileRevision}|${buildSenseQiHoverSignature(scene.overlays.senseQi)}`;
+    if (signature === this.senseQiHoverSignature) {
+      return;
+    }
+    this.senseQiHoverSignature = signature;
     this.senseQiHoverGraphics.clear();
     const overlay = scene.overlays.senseQi;
     if (!overlay || typeof overlay.hoverX !== 'number' || typeof overlay.hoverY !== 'number') {
@@ -2085,14 +2170,29 @@ export class PixiMapRendererAdapter {
   }
 
   private rebuildPathLayer(scene: MapSceneSnapshot): void {
+    const now = performance.now();
+    const fadingAlpha = this.getFadingPathAlpha(now);
+    const playerX = scene.player?.x ?? 0;
+    const playerY = scene.player?.y ?? 0;
+    const signature = [
+      getCellSize(),
+      playerX,
+      playerY,
+      buildGridPointSignature(this.pathCells),
+      this.fadingPath ? buildGridPointSignature(this.fadingPath.cells) : 'fade:null',
+      this.fadingPath ? fadingAlpha.toFixed(3) : '0',
+    ].join('|');
+    if (signature === this.pathLayerSignature) {
+      return;
+    }
+    this.pathLayerSignature = signature;
     this.pathGraphics.clear();
     this.profileSetCounter('pathCells', this.pathCells.length);
     this.profileSetCounter('fadingPathCells', this.fadingPath?.cells.length ?? 0);
     this.drawPathCells(this.pathGraphics, this.pathCells, 1);
-    const fadingAlpha = this.getFadingPathAlpha(performance.now());
     if (this.fadingPath && fadingAlpha > 0) this.drawPathCells(this.pathGraphics, this.fadingPath.cells, fadingAlpha * PATH_TRAIL_FADE_ALPHA);
-    this.drawPathArrows(this.pathGraphics, scene.player?.x ?? 0, scene.player?.y ?? 0, this.pathCells, 1);
-    if (this.fadingPath && fadingAlpha > 0) this.drawPathArrows(this.pathGraphics, scene.player?.x ?? 0, scene.player?.y ?? 0, this.fadingPath.cells, fadingAlpha * PATH_TRAIL_FADE_ALPHA);
+    this.drawPathArrows(this.pathGraphics, playerX, playerY, this.pathCells, 1);
+    if (this.fadingPath && fadingAlpha > 0) this.drawPathArrows(this.pathGraphics, playerX, playerY, this.fadingPath.cells, fadingAlpha * PATH_TRAIL_FADE_ALPHA);
   }
 
   private drawPathCells(graphics: Graphics, cells: GridPoint[], alpha: number): void {
