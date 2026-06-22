@@ -35,6 +35,7 @@ docs/mechanics/
 
 | 文件 | 系统 | 关键内容 |
 |------|------|----------|
+| [00-combat-numeric-system](./combat/00-combat-numeric-system.md) | 战斗公式与数值系统总览 | 属性结算、护甲/魔抗减伤、暴击、冷却、灵力消耗、怪物数值 |
 | [05-combat-flow](./combat/05-combat-flow.md) | 战斗流程 | 管线顺序、技能施放、吟唱、事件环、自动战斗 |
 | [06-damage-calculation](./combat/06-damage-calculation.md) | 伤害计算 | 对抗率公式、破防/闪避/暴击判定、防御减伤、境界差乘区 |
 | [07-threat-system](./combat/07-threat-system.md) | 威胁系统 | 仇恨计算、距离衰减、丢失目标衰减、目标选择 |
