@@ -67,14 +67,16 @@ crit = random() < critChance
 
 ```typescript
 // 常量
-DEFENSE_REDUCTION_ATTACK_RATIO = 0.1
+DEFENSE_REALM_DEFENSE_MULTIPLIER_BASE = 1.15
 DEFENSE_REDUCTION_BASELINE = 100
 
-reductionBasis = max(1, attackBasis × 0.1 + 100)
-defenseReductionRate = ratioValue(defense, reductionBasis)
+scaledDefense = defense × 1.15 ^ defenderRealmLv
+reductionBasis = max(1, attackBasis + 100)
+defenseReductionRate = ratioValue(scaledDefense, reductionBasis)
 ```
 
-- 攻击力越高，防御有效减伤率越低（穿透效果）
+- 攻击力越高，防御有效减伤率越低
+- 被攻击者境界等级越高，同等防御值的有效减伤率越高
 - 化解成功时 defense × 2
 
 ## 元素减免叠乘

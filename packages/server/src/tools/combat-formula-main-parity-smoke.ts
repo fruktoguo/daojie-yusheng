@@ -1,16 +1,20 @@
-// @ts-nocheck
-"use strict";
+import assert from 'node:assert/strict';
+import {
+    DEFAULT_PLAYER_REALM_STAGE,
+    PLAYER_REALM_NUMERIC_TEMPLATES,
+    cloneNumericRatioDivisors,
+    cloneNumericStats,
+    type NumericRatioDivisors,
+    type NumericStats,
+} from '@mud/shared';
+import { PlayerCombatService } from '../runtime/combat/player-combat.service';
+import { resetCombatRngForTesting, setCombatRngForTesting } from '../runtime/combat/combat-resolution.helpers';
+import { resolveCombatDamage } from '../runtime/combat/combat-pipeline-compose';
+import { resolveMonsterCombatExpEquivalentFallback } from '../runtime/combat/monster-combat-exp-equivalent.helper';
 
-const assert = require("node:assert/strict");
-const shared_1 = require("@mud/shared");
-const { PlayerCombatService } = require("../runtime/combat/player-combat.service");
-const combat_resolution_helpers_1 = require("../runtime/combat/combat-resolution.helpers");
-const combat_pipeline_compose_1 = require("../runtime/combat/combat-pipeline-compose");
-const { resolveMonsterCombatExpEquivalentFallback } = require("../runtime/combat/monster-combat-exp-equivalent.helper");
-
-function createStats(patch = {}) {
+function createStats(patch: Partial<NumericStats> = {}): NumericStats {
     return {
-        ...(0, shared_1.cloneNumericStats)(shared_1.PLAYER_REALM_NUMERIC_TEMPLATES[shared_1.DEFAULT_PLAYER_REALM_STAGE].stats),
+        ...cloneNumericStats(PLAYER_REALM_NUMERIC_TEMPLATES[DEFAULT_PLAYER_REALM_STAGE].stats),
         maxHp: 100,
         maxQi: 0,
         physAtk: 0,
@@ -30,31 +34,43 @@ function createStats(patch = {}) {
     };
 }
 
-function createRatios() {
-    return (0, shared_1.cloneNumericRatioDivisors)(shared_1.PLAYER_REALM_NUMERIC_TEMPLATES[shared_1.DEFAULT_PLAYER_REALM_STAGE].ratioDivisors);
+function createRatios(): NumericRatioDivisors {
+    return cloneNumericRatioDivisors(PLAYER_REALM_NUMERIC_TEMPLATES[DEFAULT_PLAYER_REALM_STAGE].ratioDivisors);
 }
 
-function withRandom(value, fn) {
+function withRandom<T>(value: number, fn: () => T): T {
     const previous = Math.random;
     Math.random = () => value;
-    combat_resolution_helpers_1.setCombatRngForTesting(() => value);
+    setCombatRngForTesting(() => value);
     try {
         return fn();
     }
     finally {
         Math.random = previous;
-        combat_resolution_helpers_1.resetCombatRngForTesting();
+        resetCombatRngForTesting();
     }
 }
 
-function resolve(params) {
-    return (0, combat_pipeline_compose_1.resolveCombatDamage)({
-        attackerStats: createStats(params.attackerStats),
-        attackerRatios: createRatios(),
+interface ResolveParams {
+    attackerStats?: Partial<NumericStats>;
+    targetStats?: Partial<NumericStats>;
+    attackerRealmLv?: number;
+    targetRealmLv?: number;
+    attackerCombatExp?: number;
+    targetCombatExp?: number;
+    baseDamage?: number;
+    damageKind?: 'physical' | 'spell';
+    damageMultiplier?: number;
+}
+
+function resolve(params: ResolveParams) {
+    return resolveCombatDamage({
+        attackerStats: createStats(params.attackerStats) as unknown as Record<string, unknown>,
+        attackerRatios: createRatios() as unknown as Record<string, unknown>,
         attackerRealmLv: params.attackerRealmLv ?? 1,
         attackerCombatExp: params.attackerCombatExp ?? 0,
-        targetStats: createStats(params.targetStats),
-        targetRatios: createRatios(),
+        targetStats: createStats(params.targetStats) as unknown as Record<string, unknown>,
+        targetRatios: createRatios() as unknown as Record<string, unknown>,
         targetRealmLv: params.targetRealmLv ?? 1,
         targetCombatExp: params.targetCombatExp ?? 0,
         baseDamage: params.baseDamage ?? 100,
@@ -78,7 +94,26 @@ withRandom(0.99, () => {
         targetStats: { physDef: 100 },
         baseDamage: 100,
     });
-    assert.equal(defended.damage, 67, '护甲减伤应使用 攻击*0.1+100 的动态分母');
+    assert.equal(defended.damage, 91, '护甲减伤应使用 防御*1.15^被攻击者等级 与 攻击+100 的动态分母');
+
+    const defendedByRealm = resolve({
+        attackerStats: { physAtk: 1000 },
+        targetStats: { physDef: 100 },
+        attackerRealmLv: 12,
+        targetRealmLv: 12,
+        baseDamage: 100,
+    });
+    assert.equal(defendedByRealm.damage, 67, '被攻击者等级应按 1.15^等级 放大护甲后参与减伤');
+
+    const spellDefendedByRealm = resolve({
+        attackerStats: { spellAtk: 900 },
+        targetStats: { spellDef: 100 },
+        attackerRealmLv: 10,
+        targetRealmLv: 10,
+        baseDamage: 100,
+        damageKind: 'spell',
+    });
+    assert.equal(spellDefendedByRealm.damage, 71, '魔抗减伤应与护甲使用同一套等级放大公式');
 
     const realmSuppressed = resolve({
         attackerStats: { physAtk: 100 },

@@ -8,8 +8,8 @@ import { randomFillSync } from 'node:crypto';
 
 type CombatRng = (() => number) | null;
 
-/** 防御减伤公式中攻击力占比系数。 */
-const DEFENSE_REDUCTION_ATTACK_RATIO = 0.1;
+/** 防御减伤公式中被攻击者等级防御成长系数。 */
+const DEFENSE_REALM_DEFENSE_MULTIPLIER_BASE = 1.15;
 /** 防御减伤公式中基础值。 */
 const DEFENSE_REDUCTION_BASELINE = 100;
 const COMBAT_RANDOM_POOL_SIZE = 4096;
@@ -109,15 +109,16 @@ export function resolveOpposedCombatRate(value: number, opposingValue: number) {
 
 /**
  * 防御减伤率计算。
- * 公式：defense / (attackBasis * DEFENSE_REDUCTION_ATTACK_RATIO + DEFENSE_REDUCTION_BASELINE)。
- * 攻击力越高，防御的有效减伤率越低（穿透效果）。
+ * 公式：defense * 1.15^defenderRealmLv / (defense * 1.15^defenderRealmLv + attackBasis + 100)。
  */
-export function resolveDefenseReductionRate(defense: number, attackBasis: number) {
+export function resolveDefenseReductionRate(defense: number, attackBasis: number, defenderRealmLv = 1) {
     const normalizedDefense = Math.max(0, Number(defense) || 0);
     if (normalizedDefense <= 0) {
         return 0;
     }
+    const normalizedDefenderRealmLv = Math.max(1, Math.floor(Number(defenderRealmLv) || 1));
+    const scaledDefense = normalizedDefense * Math.pow(DEFENSE_REALM_DEFENSE_MULTIPLIER_BASE, normalizedDefenderRealmLv);
     const normalizedAttackBasis = Math.max(0, Number(attackBasis) || 0);
-    const reductionBasis = Math.max(1, normalizedAttackBasis * DEFENSE_REDUCTION_ATTACK_RATIO + DEFENSE_REDUCTION_BASELINE);
-    return Math.max(0, ratioValue(normalizedDefense, reductionBasis));
+    const reductionBasis = Math.max(1, normalizedAttackBasis + DEFENSE_REDUCTION_BASELINE);
+    return Math.max(0, ratioValue(scaledDefense, reductionBasis));
 }

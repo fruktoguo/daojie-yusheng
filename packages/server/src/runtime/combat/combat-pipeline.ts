@@ -208,7 +208,7 @@ export function resolveDefense(ctx: CombatResolveContext): void {
   if (ctx.resolved) defense *= 2;
   const as = ctx.attackerStats as { physAtk?: number; spellAtk?: number };
   const defenseAttackBasis = ctx.damageKind === 'physical' ? (as.physAtk ?? 0) : (as.spellAtk ?? 0);
-  let reduction = resolveDefenseReductionRate(defense, defenseAttackBasis);
+  let reduction = resolveDefenseReductionRate(defense, defenseAttackBasis, ctx.targetRealmLv);
   if (ctx.element) {
     const tr = ctx.targetRatios as { elementDamageReduce?: Record<string, number> };
     const elementReduceValue = ts.elementDamageReduce?.[ctx.element] ?? 0;
