@@ -20,7 +20,7 @@ export const TUTORIAL_MECHANIC_TOPICS: SharedTutorialTopic[] = [
   {
     "id": "operations",
     "label": "操作",
-    "summary": "操作介绍玩家在主界面看到的常用面板和按钮。正文里的关键入口可以 hover 查看所在位置，例如属性界面、行囊录、功法、任务、坊市、交互、技能、开关和行动。",
+    "summary": "操作",
     "sections": [
       {
         "title": "角色信息",
@@ -111,12 +111,6 @@ export const TUTORIAL_MECHANIC_TOPICS: SharedTutorialTopic[] = [
           "观察可以查看目标地块上的玩家、怪物、NPC、传送阵、灵器等信息"
         ]
       }
-    ],
-    "tips": [
-      "操作百科只解释入口和基本用途，资源、战斗、交易和移动结果都以服务端确认为准",
-      "不清楚按钮位置时，hover 正文里的入口词可以查看路径提示",
-      "任务不是强制线，卡住时可以先修炼、探索、交易或提升炼体",
-      "行动栏里的交互和行动最常用，探索时优先查看这两个分页"
     ]
   },
   {

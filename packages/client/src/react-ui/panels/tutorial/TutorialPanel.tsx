@@ -359,10 +359,12 @@ const TopicPane = memo(function TopicPane({ topic, active, activeOperationSectio
       aria-hidden={active ? 'false' : 'true'}
       {...{ [paneAttrName]: topic.id }}
     >
-      <div className="tutorial-pane-hero">
-        <div className="tutorial-pane-kicker">{t(kickerKey)}</div>
-        <div className="tutorial-pane-summary"><RichText text={topic.summary} /></div>
-      </div>
+      {topic.id !== 'operations' && (
+        <div className="tutorial-pane-hero">
+          <div className="tutorial-pane-kicker">{t(kickerKey)}</div>
+          <div className="tutorial-pane-summary"><RichText text={topic.summary} /></div>
+        </div>
+      )}
       {topic.id === 'operations' ? (
         <>
           {activeSection && (
