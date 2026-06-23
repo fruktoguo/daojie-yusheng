@@ -120,8 +120,8 @@ function main(): void {
 
   assertContains(
     craftSource,
-    /testFormationMaintenanceTickUsesStrategyHelper[\s\S]*?remainingQiBudget, 14[\s\S]*?dirtyDomains\.has\('active_job'\), true/,
-    'formation maintenance tick must consume player qi into formation budget and dirty active job',
+    /testFormationMaintenanceTickUsesStrategyHelper[\s\S]*?formationSkill: \{ level: 2[\s\S]*?player\.qi, 34[\s\S]*?remainingQiBudget, 42[\s\S]*?dirtyDomains\.has\('active_job'\), true/,
+    'formation maintenance tick must consume player qi and apply formation level multiplier to formation budget',
   );
   assertContains(
     craftSource,
@@ -142,7 +142,7 @@ function main(): void {
       '采集覆盖完成入包 dirty domain、永久失效恢复释放 activeSearch。',
       '建造覆盖取消/完成/异常恢复释放 activeBuilder。',
       '挖矿覆盖取消无伤害/无掉落/无经验，tick 只发起锁定地块战斗，资产由战斗链路结算。',
-      '阵法维护覆盖每息灵力转入预算、灵力不足停止和异常恢复清队列。',
+      '阵法维护覆盖每息消耗玩家灵力、按阵法等级加成后转入预算、灵力不足停止和异常恢复清队列。',
     ],
   }, null, 2));
 }

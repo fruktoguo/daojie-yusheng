@@ -19,6 +19,7 @@ export function resolveFormationMaintenanceTick(
     ? formationService.resolveMaintainableFormation(playerId, job.formationInstanceId, ctx)
     : formationService.findOwnedFormation(playerId, job.formationInstanceId);
   const rate = resolveFormationMaintenanceRate(player);
+  const levelMultiplier = resolveFormationMaintenanceLevelMultiplier(player);
   const transfer = Math.min(rate, Math.max(0, Math.floor(Number((player as { qi?: unknown } | null)?.qi) || 0)));
   if (transfer <= 0) {
     (player as { formationJob?: PlayerFormationJob | null }).formationJob = null;
@@ -29,9 +30,10 @@ export function resolveFormationMaintenanceTick(
 
   const playerRuntimeService = resolvePlayerRuntimeService(ctx);
   playerRuntimeService?.spendQi?.(playerId, transfer);
+  const boostedTransfer = transfer * levelMultiplier;
   formationService.setFormationRemainingQiBudget(
     formation,
-    formationService.resolveFormationRemainingQiBudget(formation) + transfer,
+    formationService.resolveFormationRemainingQiBudget(formation) + boostedTransfer,
   );
   if (formationService.resolveFormationRemainingSpiritStoneBudget(formation) > 0) {
     formation.active = true;
@@ -110,6 +112,11 @@ function resolveFormationMaintenanceRate(player: unknown): number {
     ) || 0,
   );
   return Math.max(1, Math.floor(output));
+}
+
+function resolveFormationMaintenanceLevelMultiplier(player: unknown): number {
+  const level = Number((player as { formationSkill?: { level?: unknown } } | null)?.formationSkill?.level);
+  return Math.max(1, Math.floor(Number.isFinite(level) ? level : 1));
 }
 
 function resolvePlayerId(player: unknown): string {

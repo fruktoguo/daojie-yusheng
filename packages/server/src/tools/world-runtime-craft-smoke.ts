@@ -1385,8 +1385,8 @@ function testFormationMaintenanceTickUsesStrategyHelper(): void {
 
   assert.equal(result.ok, true);
   assert.equal(player.qi, 34);
-  assert.equal(formation.remainingQiBudget, 26);
-  assert.equal(formation.remainingAuraBudget, 26);
+  assert.equal(formation.remainingQiBudget, 42);
+  assert.equal(formation.remainingAuraBudget, 42);
   assert.equal(formation.active, true);
   assert.equal(instance.worldRevision, 2);
   assert.equal(player.formationJob.remainingTicks, 1);

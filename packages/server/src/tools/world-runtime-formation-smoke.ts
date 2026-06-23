@@ -460,6 +460,14 @@ async function main() {
   assert.equal(qiBeforeMaintenance - player.qi, 16);
   assert.equal(service.getFormationCombatState(instanceId, formation.id).remainingAuraBudget - auraBeforeMaintenance, 16);
   assert.ok(player.formationSkill.exp > 0);
+  player.formationSkill.level = 3;
+  const boostedAuraBeforeMaintenance = service.getFormationCombatState(instanceId, formation.id).remainingAuraBudget;
+  const qiBeforeBoostedMaintenance = player.qi;
+  const boostedMaintenanceTick = maintenancePipeline.tick(player, "formation", maintenanceCtx);
+  assert.equal(boostedMaintenanceTick.ok, true);
+  assert.equal(qiBeforeBoostedMaintenance - player.qi, 16);
+  assert.equal(service.getFormationCombatState(instanceId, formation.id).remainingAuraBudget - boostedAuraBeforeMaintenance, 48);
+  player.formationSkill.level = 1;
   player.x = 5;
   const nearbyMaintenanceTick = maintenancePipeline.tick(player, "formation", maintenanceCtx);
   assert.equal(nearbyMaintenanceTick.ok, true);
