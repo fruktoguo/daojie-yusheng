@@ -217,6 +217,7 @@ export function TutorialPanelContent() {
               hidePinnedTooltips();
               setMechanicId(id);
             }}
+            onNestedSelect={hidePinnedTooltips}
             tabDataAttr="data-tutorial-mechanic-tab"
             paneDataAttr="data-tutorial-mechanic-pane"
             kickerKey="tutorial.panel.kicker.mechanics"
@@ -245,12 +246,17 @@ interface TopicShellProps {
   ariaLabel: string;
   activeId: string;
   onSelect: (id: string) => void;
+  onNestedSelect?: () => void;
   tabDataAttr: string;
   paneDataAttr: string;
   kickerKey: string;
 }
 
-function TopicShell({ topics, ariaLabel, activeId, onSelect, tabDataAttr, paneDataAttr, kickerKey }: TopicShellProps) {
+function TopicShell({ topics, ariaLabel, activeId, onSelect, onNestedSelect, tabDataAttr, paneDataAttr, kickerKey }: TopicShellProps) {
+  const operationTopic = topics.find((topic) => topic.id === 'operations') ?? null;
+  const [activeOperationSectionTitle, setActiveOperationSectionTitle] = useState(operationTopic?.sections[0]?.title ?? '');
+  const topicAttrName = tabDataAttr.replace('data-', '').replace(/-([a-z])/g, (_, c: string) => c.toUpperCase());
+
   if (topics.length <= 0) {
     return (
       <div className="tutorial-modal-content ui-split-panel-content">
@@ -266,39 +272,86 @@ function TopicShell({ topics, ariaLabel, activeId, onSelect, tabDataAttr, paneDa
       <div className="tutorial-modal-tabs ui-split-panel-tabs" role="tablist" aria-orientation="vertical" aria-label={ariaLabel}>
         {topics.map((topic) => {
           const active = topic.id === activeId;
-          const attrs: Record<string, string> = {};
-          attrs[tabDataAttr.replace('data-', '')] = topic.id;
           return (
-            <button
-              key={topic.id}
-              className={`tutorial-modal-tab ui-split-panel-tab${active ? ' active' : ''}`}
-              type="button"
-              role="tab"
-              aria-selected={active ? 'true' : 'false'}
-              onClick={() => onSelect(topic.id)}
-              {...{ [tabDataAttr.replace('data-', '').replace(/-([a-z])/g, (_, c: string) => c.toUpperCase())]: topic.id }}
-            >
-              <span className="tutorial-modal-tab-label ui-split-panel-tab-label">{topic.label}</span>
-            </button>
+            <div key={topic.id} className="tutorial-modal-tab-group">
+              <button
+                className={`tutorial-modal-tab ui-split-panel-tab${active ? ' active' : ''}`}
+                type="button"
+                role="tab"
+                aria-selected={active ? 'true' : 'false'}
+                onClick={() => onSelect(topic.id)}
+                {...{ [topicAttrName]: topic.id }}
+              >
+                <span className="tutorial-modal-tab-label ui-split-panel-tab-label">{topic.label}</span>
+              </button>
+              {topic.id === 'operations' && topic.sections.length > 0 && (
+                <div className="tutorial-modal-subtabs" role="tablist" aria-label="操作子类">
+                  {topic.sections.map((section) => {
+                    const sectionActive = active && (activeOperationSectionTitle === section.title
+                      || (!activeOperationSectionTitle && section === topic.sections[0]));
+                    return (
+                      <button
+                        key={section.title}
+                        className={`tutorial-modal-tab tutorial-modal-tab--child ui-split-panel-tab${sectionActive ? ' active' : ''}`}
+                        type="button"
+                        role="tab"
+                        aria-selected={sectionActive ? 'true' : 'false'}
+                        data-tutorial-operation-section-tab={section.title}
+                        onClick={() => {
+                          onNestedSelect?.();
+                          setActiveOperationSectionTitle(section.title);
+                          if (activeId !== 'operations') {
+                            onSelect('operations');
+                          }
+                        }}
+                      >
+                        <span className="tutorial-modal-tab-label ui-split-panel-tab-label">{section.title}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           );
         })}
       </div>
       <div className="tutorial-modal-content ui-split-panel-content">
         {topics.map((topic) => (
-          <TopicPane key={topic.id} topic={topic} active={topic.id === activeId} paneDataAttr={paneDataAttr} kickerKey={kickerKey} />
+          <TopicPane
+            key={topic.id}
+            topic={topic}
+            active={topic.id === activeId}
+            activeOperationSectionTitle={activeOperationSectionTitle}
+            paneDataAttr={paneDataAttr}
+            kickerKey={kickerKey}
+          />
         ))}
       </div>
     </div>
   );
 }
 
-const TopicPane = memo(function TopicPane({ topic, active, paneDataAttr, kickerKey }: {
+const TopicPane = memo(function TopicPane({ topic, active, activeOperationSectionTitle, paneDataAttr, kickerKey }: {
   topic: TutorialTopic;
   active: boolean;
+  activeOperationSectionTitle?: string;
   paneDataAttr: string;
   kickerKey: string;
 }) {
   const paneAttrName = paneDataAttr.replace('data-', '').replace(/-([a-z])/g, (_, c: string) => c.toUpperCase());
+  const activeSection = topic.sections.find((section) => section.title === activeOperationSectionTitle) ?? topic.sections[0] ?? null;
+  const renderTips = () => (
+    topic.tips && topic.tips.length > 0 && (
+      <section className="tutorial-tip-card">
+        <div className="tutorial-section-title">{t('tutorial.panel.tip-title')}</div>
+        <ul className="tutorial-section-list tutorial-section-list--tips">
+          {topic.tips.map((tip, ti) => (
+            <li key={ti}><RichText text={tip} /></li>
+          ))}
+        </ul>
+      </section>
+    )
+  );
   return (
     <section
       className={`tutorial-modal-pane${active ? ' active' : ''}`}
@@ -310,27 +363,36 @@ const TopicPane = memo(function TopicPane({ topic, active, paneDataAttr, kickerK
         <div className="tutorial-pane-kicker">{t(kickerKey)}</div>
         <div className="tutorial-pane-summary"><RichText text={topic.summary} /></div>
       </div>
-      <div className="tutorial-pane-sections">
-        {topic.sections.map((section, si) => (
-          <section key={si} className="tutorial-section-card">
-            <div className="tutorial-section-title">{section.title}</div>
-            <ul className="tutorial-section-list">
-              {section.items.map((item, ii) => (
-                <li key={ii}><RichText text={item} /></li>
-              ))}
-            </ul>
-          </section>
-        ))}
-      </div>
-      {topic.tips && topic.tips.length > 0 && (
-        <section className="tutorial-tip-card">
-          <div className="tutorial-section-title">{t('tutorial.panel.tip-title')}</div>
-          <ul className="tutorial-section-list tutorial-section-list--tips">
-            {topic.tips.map((tip, ti) => (
-              <li key={ti}><RichText text={tip} /></li>
+      {topic.id === 'operations' ? (
+        <>
+          {activeSection && (
+            <section className="tutorial-section-card tutorial-operation-card" role="tabpanel">
+              <div className="tutorial-section-title">{activeSection.title}</div>
+              <ul className="tutorial-section-list">
+                {activeSection.items.map((item, ii) => (
+                  <li key={ii}><RichText text={item} /></li>
+                ))}
+              </ul>
+            </section>
+          )}
+          {renderTips()}
+        </>
+      ) : (
+        <>
+          <div className="tutorial-pane-sections">
+            {topic.sections.map((section, si) => (
+              <section key={si} className="tutorial-section-card">
+                <div className="tutorial-section-title">{section.title}</div>
+                <ul className="tutorial-section-list">
+                  {section.items.map((item, ii) => (
+                    <li key={ii}><RichText text={item} /></li>
+                  ))}
+                </ul>
+              </section>
             ))}
-          </ul>
-        </section>
+          </div>
+          {renderTips()}
+        </>
       )}
     </section>
   );

@@ -3374,6 +3374,30 @@
       overflow-y: auto;
       padding-right: 4px;
     }
+    .tutorial-modal-tab-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 0;
+    }
+    .tutorial-modal-subtabs {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      min-width: 0;
+      padding-left: 14px;
+    }
+    .tutorial-modal-tab--child {
+      min-height: 34px;
+      padding: 7px 10px;
+      font-size: var(--font-size-role-body-12);
+      border-color: rgba(133, 68, 45, 0.16);
+      background: linear-gradient(180deg, rgba(214, 188, 142, 0.08), var(--surface-muted));
+      box-shadow: inset 2px 0 0 rgba(133, 68, 45, 0.16);
+    }
+    .tutorial-modal-tab--child.active {
+      box-shadow: inset 3px 0 0 rgba(197, 60, 60, 0.72);
+    }
     .tutorial-modal-pane {
       display: none;
       min-height: 100%;
@@ -4055,10 +4079,18 @@
         gap: 6px;
         padding-right: 0;
       }
+      .tutorial-modal-subtabs {
+        gap: 5px;
+        padding-left: 8px;
+      }
       .tutorial-modal-tab {
         min-height: 42px;
         padding: 8px 10px;
         font-size: var(--font-size-role-body-12);
+      }
+      .tutorial-modal-tab--child {
+        min-height: 34px;
+        padding: 7px 8px;
       }
       .tutorial-flow-grid {
         grid-template-columns: minmax(0, 1fr);
