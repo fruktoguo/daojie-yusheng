@@ -40,6 +40,22 @@ interface TutorialOperationHint {
 }
 
 const TUTORIAL_OPERATION_HINTS: TutorialOperationHint[] = [
+  { label: t('tutorial.hint.attr.label', undefined), path: t('tutorial.hint.attr.path', undefined) },
+  { label: t('tutorial.hint.bag-scroll.label', undefined), path: t('tutorial.hint.bag-scroll.path', undefined) },
+  { label: t('tutorial.hint.body-training.label', undefined), path: t('tutorial.hint.body-training.path', undefined) },
+  { label: t('tutorial.hint.map-info.label', undefined), path: t('tutorial.hint.map-info.path', undefined) },
+  { label: t('tutorial.hint.leaderboard.label', undefined), path: t('tutorial.hint.leaderboard.path', undefined) },
+  { label: t('tutorial.hint.world-info.label', undefined), path: t('tutorial.hint.world-info.path', undefined) },
+  { label: t('tutorial.hint.log.label', undefined), path: t('tutorial.hint.log.path', undefined) },
+  { label: t('tutorial.hint.mail.label', undefined), path: t('tutorial.hint.mail.path', undefined) },
+  { label: t('tutorial.hint.auction.label', undefined), path: t('tutorial.hint.auction.path', undefined) },
+  { label: t('tutorial.hint.system-shop.label', undefined), path: t('tutorial.hint.system-shop.path', undefined) },
+  { label: t('tutorial.hint.interaction.label', undefined), path: t('tutorial.hint.interaction.path', undefined) },
+  { label: t('tutorial.hint.skill-management.label', undefined), path: t('tutorial.hint.skill-management.path', undefined) },
+  { label: t('tutorial.hint.combat-settings.label', undefined), path: t('tutorial.hint.combat-settings.path', undefined) },
+  { label: t('tutorial.hint.skill-preset.label', undefined), path: t('tutorial.hint.skill-preset.path', undefined) },
+  { label: t('tutorial.hint.target-lock-preset.label', undefined), path: t('tutorial.hint.target-lock-preset.path', undefined) },
+  { label: t('tutorial.hint.retreat.label', undefined), path: t('tutorial.hint.retreat.path', undefined) },
   { label: t('tutorial.hint.click-map-tile.label', undefined), path: t('tutorial.hint.click-map-tile.path', undefined) },
   { label: t('tutorial.hint.simple-tutorial.label', undefined), path: t('tutorial.hint.simple-tutorial.path', undefined) },
   { label: t('tutorial.hint.breakthrough-button.label', undefined), path: t('tutorial.hint.breakthrough-button.path', undefined) },

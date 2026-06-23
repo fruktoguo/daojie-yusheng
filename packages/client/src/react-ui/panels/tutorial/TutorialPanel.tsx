@@ -22,6 +22,22 @@ interface TutorialOperationHint {
 // ─── 静态数据 ─────────────────────────────────────────────────────────────────
 
 const TUTORIAL_OPERATION_HINTS: TutorialOperationHint[] = [
+  { label: t('tutorial.hint.attr.label'), path: t('tutorial.hint.attr.path') },
+  { label: t('tutorial.hint.bag-scroll.label'), path: t('tutorial.hint.bag-scroll.path') },
+  { label: t('tutorial.hint.body-training.label'), path: t('tutorial.hint.body-training.path') },
+  { label: t('tutorial.hint.map-info.label'), path: t('tutorial.hint.map-info.path') },
+  { label: t('tutorial.hint.leaderboard.label'), path: t('tutorial.hint.leaderboard.path') },
+  { label: t('tutorial.hint.world-info.label'), path: t('tutorial.hint.world-info.path') },
+  { label: t('tutorial.hint.log.label'), path: t('tutorial.hint.log.path') },
+  { label: t('tutorial.hint.mail.label'), path: t('tutorial.hint.mail.path') },
+  { label: t('tutorial.hint.auction.label'), path: t('tutorial.hint.auction.path') },
+  { label: t('tutorial.hint.system-shop.label'), path: t('tutorial.hint.system-shop.path') },
+  { label: t('tutorial.hint.interaction.label'), path: t('tutorial.hint.interaction.path') },
+  { label: t('tutorial.hint.skill-management.label'), path: t('tutorial.hint.skill-management.path') },
+  { label: t('tutorial.hint.combat-settings.label'), path: t('tutorial.hint.combat-settings.path') },
+  { label: t('tutorial.hint.skill-preset.label'), path: t('tutorial.hint.skill-preset.path') },
+  { label: t('tutorial.hint.target-lock-preset.label'), path: t('tutorial.hint.target-lock-preset.path') },
+  { label: t('tutorial.hint.retreat.label'), path: t('tutorial.hint.retreat.path') },
   { label: t('tutorial.hint.click-map-tile.label'), path: t('tutorial.hint.click-map-tile.path') },
   { label: t('tutorial.hint.simple-tutorial.label'), path: t('tutorial.hint.simple-tutorial.path') },
   { label: t('tutorial.hint.breakthrough-button.label'), path: t('tutorial.hint.breakthrough-button.path') },
