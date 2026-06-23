@@ -4,7 +4,7 @@
  * 维护时要保持状态变更受控，所有影响资产或位置的结果都应能被持久化与恢复链覆盖。
  */
 import { BadRequestException, ForbiddenException, Logger, NotFoundException } from '@nestjs/common';
-import { FORMATION_AURA_PER_SPIRIT_STONE, TileType, formatDisplayInteger, getFirstGrapheme, getGraphemeCount } from '@mud/shared';
+import { FORMATION_AURA_PER_SPIRIT_STONE, SECT_ENTRANCE_RELOCATION_COOLDOWN_MS, TileType, formatDisplayInteger, getFirstGrapheme, getGraphemeCount } from '@mud/shared';
 import { Pool } from 'pg';
 import { resolveServerDatabaseUrl } from '../../config/env-alias';
 import { buildStructuredNotice } from './structured-notice.helpers';
@@ -155,6 +155,82 @@ class WorldRuntimeSectService {
         return sect;
     }
 
+    dispatchRelocateSectEntrance(playerId, itemInstanceId, item, deps) {
+        const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
+        const sectId = this.reconcilePlayerSectId(playerId) || normalizeOptionalString(player.sectId);
+        if (!sectId) {
+            throw new BadRequestException('你当前没有宗门');
+        }
+        const sect = this.findSectById(sectId);
+        if (!sect || sect.status === 'dissolved') {
+            throw new BadRequestException('你当前没有有效宗门');
+        }
+        ensureSectState(sect, this.playerRuntimeService);
+        assertSectLeaderOrDeputy(sect, playerId);
+        const now = Date.now();
+        const cooldownUntil = normalizeIntegerWithDefault(sect.entranceRelocationCooldownUntil, 0);
+        if (cooldownUntil > now) {
+            throw new BadRequestException(`宗门迁移冷却尚未结束，剩余 ${formatDurationMs(cooldownUntil - now)}`);
+        }
+        const location = deps.getPlayerLocationOrThrow(playerId);
+        const entranceInstance = deps.getInstanceRuntimeOrThrow(location.instanceId);
+        const descriptor = parseRuntimeInstanceDescriptor(location.instanceId);
+        assertCanCreateSectAtInstance(entranceInstance, descriptor);
+        const targetX = Math.trunc(Number(player.x));
+        const targetY = Math.trunc(Number(player.y));
+        if (!Number.isFinite(targetX) || !Number.isFinite(targetY)) {
+            throw new BadRequestException('当前位置无法迁移宗门山门');
+        }
+        if (sect.entranceInstanceId === location.instanceId && sect.entranceX === targetX && sect.entranceY === targetY) {
+            throw new BadRequestException('宗门山门已经位于当前位置');
+        }
+        assertSectFoundingAreaClear(
+            Array.from(this.sectsById.values()),
+            entranceInstance,
+            location.instanceId,
+            targetX,
+            targetY,
+            sect.sectId,
+        );
+        const previousEntranceInstanceId = sect.entranceInstanceId;
+        const previousEntranceInstance = deps.getInstanceRuntime?.(previousEntranceInstanceId);
+        const sectInstance = this.ensureSectRuntimeInstance(sect, deps);
+        const guardianId = `formation:sect_guardian:${sect.sectId}`;
+        const previousGuardian = deps.worldRuntimeFormationService?.findFormationInInstance?.(previousEntranceInstanceId, guardianId) ?? null;
+        if (previousEntranceInstance && previousEntranceInstance !== entranceInstance) {
+            removeSectRuntimePortals(previousEntranceInstance, sect.sectId);
+            touchRuntimeInstanceRevision(deps, previousEntranceInstanceId);
+        }
+        if (previousGuardian && previousEntranceInstanceId !== location.instanceId) {
+            deps.worldRuntimeFormationService?.removeFormationFromInstance?.(previousEntranceInstanceId, guardianId, deps);
+        }
+        sect.entranceInstanceId = location.instanceId;
+        sect.entranceTemplateId = entranceInstance.template.id;
+        sect.entranceX = targetX;
+        sect.entranceY = targetY;
+        sect.lastEntranceRelocatedAt = now;
+        sect.entranceRelocationCooldownUntil = now + SECT_ENTRANCE_RELOCATION_COOLDOWN_MS;
+        sect.updatedAt = now;
+        this.attachSectPortals(sect, entranceInstance, sectInstance);
+        this.ensureGuardianFormation(sect, deps, previousGuardian);
+        this.playerRuntimeService.consumeInventoryItemByInstanceId(playerId, itemInstanceId, 1);
+        touchRuntimeInstanceRevision(deps, entranceInstance.meta.instanceId);
+        touchRuntimeInstanceRevision(deps, sectInstance.meta.instanceId);
+        this.persistSectsSoon();
+        deps.refreshQuestStates?.(playerId);
+        deps.refreshPlayerContextActions?.(playerId);
+        const itemName = normalizeOptionalString(item?.name) || '迁宗令';
+        const nRelocated = buildStructuredNotice('success', 'notice.sect.entrance-relocated', `${itemName}化作新山门，${sect.name}入口已迁至当前位置。`, {
+            vars: { itemName, sectName: sect.name, cooldownDays: 3 },
+            pills: [
+                { key: 'itemName', style: 'target' },
+                { key: 'sectName', style: 'target' },
+            ],
+        });
+        deps.queuePlayerNotice(playerId, nRelocated.text, nRelocated.kind, undefined, undefined, nRelocated.structured);
+        return sect;
+    }
+
     ensureSectRuntimeInstanceById(instanceId, deps) {
         const sect = this.findSectByInstanceId(instanceId);
         return sect ? this.ensureSectRuntimeInstance(sect, deps) : null;
@@ -268,11 +344,12 @@ class WorldRuntimeSectService {
         });
     }
 
-    ensureGuardianFormation(sect, deps) {
+    ensureGuardianFormation(sect, deps, previousGuardian = null) {
         if (typeof deps.worldRuntimeFormationService?.upsertSectGuardianFormation !== 'function') {
             return null;
         }
         ensureSectState(sect, this.playerRuntimeService);
+        const fallbackSpiritStoneCount = Math.ceil(SECT_GUARDIAN_INITIAL_AURA / FORMATION_AURA_PER_SPIRIT_STONE);
         return deps.worldRuntimeFormationService.upsertSectGuardianFormation({
             formationId: 'sect_guardian_barrier',
             id: `formation:sect_guardian:${sect.sectId}`,
@@ -284,11 +361,16 @@ class WorldRuntimeSectService {
             eyeInstanceId: sect.sectInstanceId,
             eyeX: sect.coreX,
             eyeY: sect.coreY,
-            radius: 1,
-            spiritStoneCount: Math.ceil(SECT_GUARDIAN_INITIAL_AURA / FORMATION_AURA_PER_SPIRIT_STONE),
-            remainingQiBudget: SECT_GUARDIAN_INITIAL_AURA,
-            remainingSpiritStoneBudget: Math.ceil(SECT_GUARDIAN_INITIAL_AURA / FORMATION_AURA_PER_SPIRIT_STONE),
-            active: true,
+            radius: Math.max(1, Math.trunc(Number(previousGuardian?.stats?.radius ?? previousGuardian?.radius ?? 1) || 1)),
+            allocation: previousGuardian?.allocation,
+            spiritStoneCount: Math.max(1, Math.trunc(Number(previousGuardian?.spiritStoneCount ?? fallbackSpiritStoneCount) || fallbackSpiritStoneCount)),
+            remainingQiBudget: Number.isFinite(Number(previousGuardian?.remainingQiBudget ?? previousGuardian?.remainingAuraBudget))
+                ? Math.max(0, Number(previousGuardian.remainingQiBudget ?? previousGuardian.remainingAuraBudget))
+                : SECT_GUARDIAN_INITIAL_AURA,
+            remainingSpiritStoneBudget: Number.isFinite(Number(previousGuardian?.remainingSpiritStoneBudget))
+                ? Math.max(0, Number(previousGuardian.remainingSpiritStoneBudget))
+                : fallbackSpiritStoneCount,
+            active: previousGuardian ? previousGuardian.active !== false : true,
         }, deps);
     }
 
@@ -2000,6 +2082,23 @@ function assertSectLeader(sect, playerId) {
     }
 }
 
+function assertSectLeaderOrDeputy(sect, playerId) {
+    const normalizedPlayerId = normalizeOptionalString(playerId);
+    if (!normalizedPlayerId) {
+        throw new ForbiddenException('只有宗主或副宗主可以执行该操作');
+    }
+    if (sect.leaderPlayerId === normalizedPlayerId) {
+        return;
+    }
+    const member = Array.isArray(sect.members)
+        ? sect.members.find((entry) => entry?.playerId === normalizedPlayerId)
+        : null;
+    if (member?.roleId === 'leader' || member?.roleId === 'deputy') {
+        return;
+    }
+    throw new ForbiddenException('只有宗主或副宗主可以执行该操作');
+}
+
 function assertSectPermission(sect, playerId, permissionId) {
     if (!hasSectPermission(sect, playerId, permissionId)) {
         throw new ForbiddenException('当前职位没有该宗门权限');
@@ -2144,6 +2243,8 @@ function normalizeSectEntry(entry) {
             createdAt: Number.isFinite(Number(entry.createdAt)) ? Number(entry.createdAt) : Date.now(),
         })),
         rolePermissions: normalizeSectRolePermissions(entry.rolePermissions),
+        lastEntranceRelocatedAt: normalizeIntegerWithDefault(entry.lastEntranceRelocatedAt, 0),
+        entranceRelocationCooldownUntil: normalizeIntegerWithDefault(entry.entranceRelocationCooldownUntil, 0),
         createdAt: Number.isFinite(Number(entry.createdAt)) ? Number(entry.createdAt) : Date.now(),
         updatedAt: Number.isFinite(Number(entry.updatedAt)) ? Number(entry.updatedAt) : Date.now(),
     };
@@ -2248,9 +2349,10 @@ function assertCanCreateSectAtInstance(instance, descriptor) {
     throw new BadRequestException('只能在大地图现世线建立宗门。');
 }
 
-function assertSectFoundingAreaClear(sects, instance, instanceId, centerX, centerY) {
+function assertSectFoundingAreaClear(sects, instance, instanceId, centerX, centerY, ignoredSectId = null) {
     const x0 = Math.trunc(Number(centerX));
     const y0 = Math.trunc(Number(centerY));
+    const ignored = normalizeOptionalString(ignoredSectId);
     if (!Number.isFinite(x0) || !Number.isFinite(y0)) {
         throw new BadRequestException('当前位置无法开辟宗门入口');
     }
@@ -2259,7 +2361,8 @@ function assertSectFoundingAreaClear(sects, instance, instanceId, centerX, cente
             if (typeof instance?.isInBounds === 'function' && instance.isInBounds(x, y) !== true) {
                 continue;
             }
-            if (typeof instance?.getPortalAtTile === 'function' && instance.getPortalAtTile(x, y)) {
+            const portal = typeof instance?.getPortalAtTile === 'function' ? instance.getPortalAtTile(x, y) : null;
+            if (portal && (!ignored || normalizeOptionalString(portal?.sectId) !== ignored)) {
                 throw new BadRequestException('宗门山门五格阵基内不能有传送点');
             }
             if (hasNpcAtTile(instance, x, y)) {
@@ -2273,6 +2376,9 @@ function assertSectFoundingAreaClear(sects, instance, instanceId, centerX, cente
     const normalizedInstanceId = normalizeOptionalString(instanceId);
     for (const sect of Array.isArray(sects) ? sects : []) {
         if (!sect || sect.status === 'dissolved' || normalizeOptionalString(sect.entranceInstanceId) !== normalizedInstanceId) {
+            continue;
+        }
+        if (ignored && normalizeOptionalString(sect.sectId) === ignored) {
             continue;
         }
         if (chebyshevDistance(x0, y0, sect.entranceX, sect.entranceY) <= SECT_FOUNDING_CLEAR_RADIUS) {
@@ -2312,6 +2418,20 @@ function normalizeOptionalString(value) {
 
 function chebyshevDistance(ax, ay, bx, by) {
     return Math.max(Math.abs(Math.trunc(Number(ax)) - Math.trunc(Number(bx))), Math.abs(Math.trunc(Number(ay)) - Math.trunc(Number(by))));
+}
+
+function formatDurationMs(ms) {
+    const totalSeconds = Math.max(0, Math.ceil(Number(ms) / 1000));
+    const days = Math.floor(totalSeconds / 86400);
+    const hours = Math.floor((totalSeconds % 86400) / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    if (days > 0) {
+        return hours > 0 ? `${days}天${hours}小时` : `${days}天`;
+    }
+    if (hours > 0) {
+        return minutes > 0 ? `${hours}小时${minutes}分钟` : `${hours}小时`;
+    }
+    return `${Math.max(1, minutes)}分钟`;
 }
 
 function touchRuntimeInstanceRevision(deps, instanceId) {

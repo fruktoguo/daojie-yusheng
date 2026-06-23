@@ -1509,6 +1509,29 @@ class WorldRuntimeFormationService {
         return null;
     }
 
+    removeFormationFromInstance(instanceId, formationInstanceId, deps = null) {
+        const normalizedInstanceId = normalizeInstanceId(instanceId);
+        const normalizedId = typeof formationInstanceId === 'string' ? formationInstanceId.trim() : '';
+        if (!normalizedInstanceId || !normalizedId) {
+            return null;
+        }
+        const formations = this.formationsByInstanceId.get(normalizedInstanceId);
+        if (!Array.isArray(formations) || formations.length <= 0) {
+            return null;
+        }
+        const index = formations.findIndex((entry) => entry.id === normalizedId);
+        if (index < 0) {
+            return null;
+        }
+        const [formation] = formations.splice(index, 1);
+        if (formations.length <= 0) {
+            this.formationsByInstanceId.delete(normalizedInstanceId);
+        }
+        touchRuntimeInstanceRevision(deps, normalizedInstanceId);
+        this.persistFormationRemovalSoon(formation);
+        return formation ?? null;
+    }
+
     findFormationByInstanceOrId(instanceId, formationInstanceId) {
         const normalizedId = typeof formationInstanceId === 'string' ? formationInstanceId.trim() : '';
         if (!normalizedId) {

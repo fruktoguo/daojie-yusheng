@@ -8,7 +8,7 @@
  * 处理丹药、技能书、传送符、灵石等各类物品的使用逻辑分支
  */
 import { Inject, Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
-import { DEFAULT_QI_RESOURCE_DESCRIPTOR, MERIT_MONTH_CARD_DURATION_DAYS, MERIT_MONTH_CARD_POOL_GRANT, MERIT_MONTH_CARD_USE_BEHAVIOR, buildQiResourceKey, getItemDisplayName } from '@mud/shared';
+import { DEFAULT_QI_RESOURCE_DESCRIPTOR, MERIT_MONTH_CARD_DURATION_DAYS, MERIT_MONTH_CARD_POOL_GRANT, MERIT_MONTH_CARD_USE_BEHAVIOR, SECT_ENTRANCE_RELOCATION_USE_BEHAVIOR, buildQiResourceKey, getItemDisplayName } from '@mud/shared';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { REFINED_SHA_RESOURCE_KEY } from '../../constants/gameplay/pvp';
 import { ActivityRuntimeService, normalizeActivityError } from '../activity/activity-runtime.service';
@@ -86,6 +86,10 @@ export class WorldRuntimeUseItemService {
         }
         if (item.useBehavior === 'create_sect') {
             deps.worldRuntimeSectService.dispatchCreateSect(playerId, itemInstanceId, item, deps, payload);
+            return;
+        }
+        if (item.useBehavior === SECT_ENTRANCE_RELOCATION_USE_BEHAVIOR) {
+            deps.worldRuntimeSectService.dispatchRelocateSectEntrance(playerId, itemInstanceId, item, deps);
             return;
         }
         if (item.useBehavior === CURRENT_RESPAWN_BIND_USE_BEHAVIOR) {

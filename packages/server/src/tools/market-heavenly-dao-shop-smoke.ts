@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 
-import { HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID } from '@mud/shared';
+import { HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID, SECT_ENTRANCE_RELOCATION_ITEM_ID } from '@mud/shared';
 import { MarketRuntimeService } from '../runtime/market/market-runtime.service';
 
 type SmokeItem = {
@@ -26,6 +26,7 @@ function createContentRepository() {
     [HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID, '功德'],
     ['spirit_stone', '灵石'],
     ['sect_founding_token', '建宗令'],
+    [SECT_ENTRANCE_RELOCATION_ITEM_ID, '迁宗令'],
     ['pill.ningxiang', '凝相丹'],
   ]);
   return {
@@ -161,6 +162,20 @@ async function main(): Promise<void> {
   assert.equal(playerAfterPill.inventory.items.find((entry) => entry.itemId === 'pill.ningxiang')?.count, 1);
   assert.equal(pillResult.notices[0]?.structured?.vars?.itemLabel, '凝相丹');
   assert.equal(pillResult.notices[0]?.structured?.vars?.cost, 1);
+
+  const meritStackForRelocate = playerAfterPill.inventory.items.find((entry) => entry.itemId === HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID);
+  assert.ok(meritStackForRelocate);
+  meritStackForRelocate.count = 149;
+  const meritWalletForRelocate = playerAfterPill.wallet.balances.find((entry) => entry.walletType === HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID);
+  assert.ok(meritWalletForRelocate);
+  meritWalletForRelocate.balance = 149;
+
+  const relocateResult = await service.buyHeavenlyDaoShopItem(playerId, { itemId: SECT_ENTRANCE_RELOCATION_ITEM_ID, quantity: 1 });
+  const playerAfterRelocate = runtimePlayers.get(playerId)!;
+  assert.equal(playerAfterRelocate.inventory.items.find((entry) => entry.itemId === HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID)?.count, 49);
+  assert.equal(playerAfterRelocate.inventory.items.find((entry) => entry.itemId === SECT_ENTRANCE_RELOCATION_ITEM_ID)?.count, 1);
+  assert.equal(relocateResult.notices[0]?.structured?.vars?.itemLabel, '迁宗令');
+  assert.equal(relocateResult.notices[0]?.structured?.vars?.cost, 100);
 
   const rejected = await service.buyHeavenlyDaoShopItem(playerId, { itemId: 'sect_founding_token', quantity: 1 });
   const playerAfterReject = runtimePlayers.get(playerId)!;

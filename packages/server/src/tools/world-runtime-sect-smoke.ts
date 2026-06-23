@@ -166,6 +166,11 @@ async function main() {
     worldRuntimeSectService: sectService,
     worldRuntimeFormationService: {
       upsertSectGuardianFormation(input) {
+        const existing = guardians.find((entry) => entry.id === input.id);
+        if (existing) {
+          Object.assign(existing, input);
+          return existing;
+        }
         guardians.push(input);
         return input;
       },
@@ -463,6 +468,49 @@ async function main() {
   assert.ok(enterAction);
   sectService.executeSectAction(deputyPlayerId, enterAction.id, deps);
   assert.equal(transfers.at(-1).targetInstanceId, entrance.targetInstanceId);
+
+  player.inventory.items[1] = {
+    itemId: "sect_entrance_relocation_token",
+    name: "迁宗令",
+    type: "consumable",
+    count: 1,
+    useBehavior: "relocate_sect_entrance",
+  };
+  player.x = 4;
+  player.y = 0;
+  await useItemService.dispatchUseItem(playerId, 1, deps);
+  const relocatedSect = sectService.findSectById(player.sectId);
+  assert.equal(player.inventory.items[1].count, 0);
+  assert.equal(relocatedSect.entranceInstanceId, publicInstanceId);
+  assert.equal(relocatedSect.entranceX, 4);
+  assert.equal(relocatedSect.entranceY, 0);
+  assert.ok(relocatedSect.entranceRelocationCooldownUntil > Date.now());
+  assert.equal(publicInstance.getPortalAtTile(2, 2), null);
+  const relocatedEntrance = publicInstance.getPortalAtTile(4, 0);
+  assert.equal(relocatedEntrance.kind, "sect_entrance");
+  assert.equal(relocatedEntrance.sectId, relocatedSect.sectId);
+  assert.equal(relocatedEntrance.targetInstanceId, entrance.targetInstanceId);
+  const relocatedCore = sectInstance.getPortalAtTile(0, 0);
+  assert.equal(relocatedCore.kind, "sect_core");
+  assert.equal(relocatedCore.targetInstanceId, publicInstanceId);
+  assert.equal(relocatedCore.targetX, 4);
+  assert.equal(relocatedCore.targetY, 0);
+  const relocatedGuardian = guardians.find((entry) => entry.id === `formation:sect_guardian:${relocatedSect.sectId}`);
+  assert.equal(relocatedGuardian.instanceId, publicInstanceId);
+  assert.equal(relocatedGuardian.x, 4);
+  assert.equal(relocatedGuardian.y, 0);
+  player.inventory.items[2] = {
+    itemId: "sect_entrance_relocation_token",
+    name: "迁宗令",
+    type: "consumable",
+    count: 1,
+    useBehavior: "relocate_sect_entrance",
+  };
+  player.x = 4;
+  player.y = 1;
+  await assert.rejects(() => useItemService.dispatchUseItem(playerId, 2, deps), /宗门迁移冷却尚未结束/);
+  assert.equal(player.inventory.items[2].count, 1);
+  relocatedSect.entranceRelocationCooldownUntil = 0;
 
   assert.equal(sectInstance.template.width, 1);
   assert.equal(sectInstance.template.height, 1);
@@ -820,6 +868,10 @@ async function main() {
   assert.match(memberManageData, /"realmLv":6/);
   assert.throws(() => sectService.executeSectAction(deputyPlayerId, "sect:guardian:toggle", deps), /当前职位没有该宗门权限/);
   assert.throws(() => sectService.executeSectAction(laborPlayerId, "sect:guardian:toggle", deps), /当前职位没有该宗门权限/);
+  assert.throws(() => sectService.dispatchRelocateSectEntrance(laborPlayerId, 0, {
+    itemId: "sect_entrance_relocation_token",
+    name: "迁宗令",
+  }, deps), /只有宗主或副宗主/);
   const laborCoreActions = sectService.buildSectCoreActions({
     playerId: laborPlayerId,
     self: { x: expandedSect.coreX, y: expandedSect.coreY },

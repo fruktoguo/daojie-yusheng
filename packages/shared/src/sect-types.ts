@@ -6,6 +6,15 @@
 /** 宗门 ID。 */
 export type SectId = string;
 
+/** 迁宗令道具 ID。 */
+export const SECT_ENTRANCE_RELOCATION_ITEM_ID = 'sect_entrance_relocation_token';
+
+/** 迁宗令消耗品使用行为。 */
+export const SECT_ENTRANCE_RELOCATION_USE_BEHAVIOR = 'relocate_sect_entrance';
+
+/** 宗门山门迁移冷却：绑定宗门，持续 3 天。 */
+export const SECT_ENTRANCE_RELOCATION_COOLDOWN_MS = 3 * 24 * 60 * 60 * 1000;
+
 /** 宗门成员角色。 */
 export type SectMemberRole = 'leader' | 'elder' | 'member';
 

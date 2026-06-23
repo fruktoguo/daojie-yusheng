@@ -9918,6 +9918,14 @@
       "mapUnlockId": "qizhen_crossing"
     },
     {
+      "itemId": "sect_entrance_relocation_token",
+      "name": "迁宗令",
+      "type": "consumable",
+      "grade": "黄阶",
+      "desc": "宗主或副宗主可使用，将本宗山门入口传送阵迁至当前位置；宗门迁移冷却为 3 天，冷却绑定宗门。",
+      "useBehavior": "relocate_sect_entrance"
+    },
+    {
       "itemId": "mat.green_spirit_stem",
       "name": "青灵茎",
       "type": "material",
