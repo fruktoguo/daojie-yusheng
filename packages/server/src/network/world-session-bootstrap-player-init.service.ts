@@ -215,6 +215,10 @@ export class WorldSessionBootstrapPlayerInitService {
                     'enhancement_record',
                     'logbook',
                 ],
+                {
+                    expectedRuntimeOwnerId: presence?.runtimeOwnerId ?? null,
+                    expectedSessionEpoch: presence?.sessionEpoch ?? null,
+                },
             );
         }
         await this.mailRuntimeService?.ensurePlayerMailbox(input.playerId);

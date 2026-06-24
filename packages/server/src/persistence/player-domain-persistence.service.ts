@@ -255,6 +255,8 @@ export interface PlayerSnapshotProjectionDomainWriteOptions {
   allowInventoryEmptyOverwrite?: boolean;
   allowEquipmentEmptyOverwrite?: boolean;
   allowBuffEmptyOverwrite?: boolean;
+  expectedRuntimeOwnerId?: string | null;
+  expectedSessionEpoch?: number | null;
 }
 
 interface PlayerDomainPruneOptions {
@@ -1962,6 +1964,7 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
 
     await this.withTransaction(async (client) => {
       await acquirePlayerPersistenceLock(client, normalizedPlayerId);
+      await assertPlayerSnapshotProjectionFenceCurrent(client, normalizedPlayerId, options);
       if (requiresLiveDbStateWrite) {
         await savePlayerSnapshotProjectionDomainsWithClient(
           client,
@@ -8226,6 +8229,46 @@ function normalizePlayerIdList(value: unknown): string[] {
 function normalizeOptionalString(value: unknown): string | null {
   const normalized = normalizeRequiredString(value);
   return normalized ? normalized : null;
+}
+
+async function assertPlayerSnapshotProjectionFenceCurrent(
+  client: PoolClient,
+  playerId: string,
+  options: PlayerSnapshotProjectionDomainWriteOptions,
+): Promise<void> {
+  const expectedEpoch = normalizeOptionalInteger(options.expectedSessionEpoch) ?? 0;
+  const expectedOwner = normalizeOptionalString(options.expectedRuntimeOwnerId);
+  if (expectedEpoch <= 0 && !expectedOwner) {
+    return;
+  }
+  const result = await client.query<{
+    runtime_owner_id?: unknown;
+    session_epoch?: unknown;
+  }>(
+    `SELECT runtime_owner_id, session_epoch
+       FROM ${PLAYER_PRESENCE_TABLE}
+      WHERE player_id = $1
+      FOR UPDATE`,
+    [playerId],
+  );
+  const row = result.rows[0];
+  if (!row) {
+    return;
+  }
+  const persistedEpoch = normalizeOptionalInteger(row.session_epoch) ?? 0;
+  if (persistedEpoch <= 0) {
+    return;
+  }
+  if (expectedEpoch <= 0 || expectedEpoch < persistedEpoch) {
+    throw new Error(`player_snapshot_projection_stale_session:${playerId}:expected=${expectedEpoch || 'none'}:persisted=${persistedEpoch}`);
+  }
+  if (expectedEpoch > persistedEpoch) {
+    return;
+  }
+  const persistedOwner = normalizeOptionalString(row.runtime_owner_id);
+  if (persistedOwner && expectedOwner !== persistedOwner) {
+    throw new Error(`player_snapshot_projection_stale_owner:${playerId}:expected=${expectedOwner ?? 'none'}:persisted=${persistedOwner}`);
+  }
 }
 
 async function acquireSchemaInitLock(client: PoolClient): Promise<void> {

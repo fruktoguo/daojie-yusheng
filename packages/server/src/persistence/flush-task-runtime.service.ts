@@ -511,6 +511,8 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
             allowInventoryEmptyOverwrite: task.domain === 'inventory',
             allowEquipmentEmptyOverwrite: task.domain === 'equipment',
             allowBuffEmptyOverwrite: task.domain === 'buff',
+            expectedRuntimeOwnerId: payload.runtimeOwnerId ?? null,
+            expectedSessionEpoch: payload.sessionEpoch ?? null,
           },
         );
         if (await this.flushLedgerService.markFlushTaskFlushed(task)) processed += 1;

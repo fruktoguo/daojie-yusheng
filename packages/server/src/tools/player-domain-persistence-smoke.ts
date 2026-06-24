@@ -60,6 +60,7 @@ async function main(): Promise<void> {
   const equipmentClearPlayerId = `${playerId}_equipment_clear`;
   const autoPreferenceClearPlayerId = `${playerId}_auto_pref_clear`;
   const marketConflictOwnerId = `${playerId}_market_conflict_owner`;
+  const projectionFencePlayerId = `${playerId}_projection_fence`;
   const now = Date.now();
   const databasePoolProvider = new DatabasePoolProvider();
   const service = new PlayerDomainPersistenceService(null, databasePoolProvider);
@@ -81,6 +82,7 @@ async function main(): Promise<void> {
     await cleanupPlayer(pool, equipmentClearPlayerId);
     await cleanupPlayer(pool, autoPreferenceClearPlayerId);
     await cleanupPlayer(pool, marketConflictOwnerId);
+    await cleanupPlayer(pool, projectionFencePlayerId);
 
     await service.savePlayerPresence(playerId, {
       online: true,
@@ -1081,6 +1083,103 @@ async function main(): Promise<void> {
       throw new Error(`unexpected equipment rows after allowed empty projection: ${JSON.stringify(equipmentRowsAfterAllowedProjection)}`);
     }
 
+    const projectionFenceVersion = now + 360;
+    await service.savePlayerPresence(projectionFencePlayerId, {
+      online: true,
+      inWorld: true,
+      runtimeOwnerId: `runtime:${projectionFencePlayerId}:10`,
+      sessionEpoch: 10,
+      lastHeartbeatAt: projectionFenceVersion,
+      offlineSinceAt: null,
+      versionSeed: projectionFenceVersion,
+    });
+    const currentProjectionSnapshot = buildSnapshot(projectionFenceVersion);
+    currentProjectionSnapshot.inventory = {
+      revision: 1,
+      capacity: 20,
+      items: [{
+        itemId: 'current_yujian_absent_marker',
+        count: 1,
+        itemInstanceId: `inv:${projectionFencePlayerId}:current`,
+      }],
+    };
+    currentProjectionSnapshot.techniques = {
+      revision: 1,
+      techniques: [{
+        techId: 'current.learned.tech',
+        level: 1,
+        exp: 0,
+        expToNext: 1,
+        realmLv: 1,
+        skillsEnabled: true,
+      }],
+      cultivatingTechId: 'current.learned.tech',
+      pendingComprehensions: [],
+    };
+    await service.savePlayerSnapshotProjectionDomains(
+      projectionFencePlayerId,
+      currentProjectionSnapshot,
+      ['inventory', 'technique'],
+      {
+        allowInventoryEmptyOverwrite: true,
+        expectedRuntimeOwnerId: `runtime:${projectionFencePlayerId}:10`,
+        expectedSessionEpoch: 10,
+      },
+    );
+    const staleProjectionSnapshot = buildSnapshot(projectionFenceVersion + 1);
+    staleProjectionSnapshot.inventory = {
+      revision: 2,
+      capacity: 20,
+      items: [{
+        itemId: 'stale_resurrected_yujian',
+        count: 1,
+        itemInstanceId: `inv:${projectionFencePlayerId}:stale`,
+      }],
+    };
+    staleProjectionSnapshot.techniques = {
+      revision: 2,
+      techniques: [],
+      cultivatingTechId: null,
+      pendingComprehensions: [],
+    };
+    let staleProjectionRejected = false;
+    try {
+      await service.savePlayerSnapshotProjectionDomains(
+        projectionFencePlayerId,
+        staleProjectionSnapshot,
+        ['inventory', 'technique'],
+        {
+          allowInventoryEmptyOverwrite: true,
+          expectedRuntimeOwnerId: `runtime:${projectionFencePlayerId}:9`,
+          expectedSessionEpoch: 9,
+        },
+      );
+    } catch (error) {
+      staleProjectionRejected = error instanceof Error
+        && error.message.includes('player_snapshot_projection_stale_session');
+    }
+    if (!staleProjectionRejected) {
+      throw new Error('expected stale player snapshot projection to be rejected by session fence');
+    }
+    const fencedInventoryRows = await fetchRows(
+      pool,
+      'SELECT item_id FROM player_inventory_item WHERE player_id = $1 ORDER BY slot_index ASC',
+      [projectionFencePlayerId],
+    );
+    const fencedTechniqueRows = await fetchRows(
+      pool,
+      'SELECT tech_id FROM player_technique_state WHERE player_id = $1 ORDER BY tech_id ASC',
+      [projectionFencePlayerId],
+    );
+    if (
+      fencedInventoryRows.length !== 1
+      || fencedInventoryRows[0]?.item_id !== 'current_yujian_absent_marker'
+      || fencedTechniqueRows.length !== 1
+      || fencedTechniqueRows[0]?.tech_id !== 'current.learned.tech'
+    ) {
+      throw new Error(`stale projection changed fenced player domains: inventory=${JSON.stringify(fencedInventoryRows)} technique=${JSON.stringify(fencedTechniqueRows)}`);
+    }
+
     const directAnchorRow = await fetchSingleRow(
       pool,
       'SELECT respawn_template_id, last_safe_template_id, preferred_line_preset FROM player_world_anchor WHERE player_id = $1',
@@ -1327,7 +1426,7 @@ async function main(): Promise<void> {
           playerId,
           edgePlayerId,
           directPlayerId,
-    answers: 'with-db 下 PlayerDomainPersistenceService 已能把 presence、wallet、vitals、progression core、attr、body training、inventory、market storage、map unlock、equipment、technique、persistent buff、quest、combat/auto-*、强化记录、日志与职业作业投影写入当前已落地的分域表，并支持 inventory/wallet/equipment/map/technique/buff/quest/auto/profession/alchemy/enhancement/logbook/market storage 快照 stale 行清理、wallet/market storage/equipment 非法 entry 拒绝静默跳过、运行时显式选项清空最后一个 inventory/equipment/buff row、auto_battle_skill/auto_use_item_rule 清空偏好列表、wallet/market storage 的 loadPlayerDomains 读链与对应 watermark 推进，以及 alchemy/forging/enhancement/transmission/gather/mining/building/formation 旧快照 job 写入 player_active_job、player_active_job 再按统一 job kind 投影恢复到 progression.<kind>Job',
+    answers: 'with-db 下 PlayerDomainPersistenceService 已能把 presence、wallet、vitals、progression core、attr、body training、inventory、market storage、map unlock、equipment、technique、persistent buff、quest、combat/auto-*、强化记录、日志与职业作业投影写入当前已落地的分域表，并支持 inventory/wallet/equipment/map/technique/buff/quest/auto/profession/alchemy/enhancement/logbook/market storage 快照 stale 行清理、wallet/market storage/equipment 非法 entry 拒绝静默跳过、运行时显式选项清空最后一个 inventory/equipment/buff row、auto_battle_skill/auto_use_item_rule 清空偏好列表、旧 session projection 不会覆盖当前玩家分域、wallet/market storage 的 loadPlayerDomains 读链与对应 watermark 推进，以及 alchemy/forging/enhancement/transmission/gather/mining/building/formation 旧快照 job 写入 player_active_job、player_active_job 再按统一 job kind 投影恢复到 progression.<kind>Job',
           excludes: '不证明 bootstrap 分域恢复、域级 dirty set、分域多 worker、完整玩家全域拆表都已落地',
           completionMapping: 'release:proof:with-db.player-domain-persistence',
           projectedTables: [...PLAYER_DOMAIN_PROJECTED_TABLES],
@@ -1370,6 +1469,7 @@ async function main(): Promise<void> {
     await cleanupPlayer(pool, equipmentClearPlayerId).catch(() => undefined);
     await cleanupPlayer(pool, autoPreferenceClearPlayerId).catch(() => undefined);
     await cleanupPlayer(pool, marketConflictOwnerId).catch(() => undefined);
+    await cleanupPlayer(pool, projectionFencePlayerId).catch(() => undefined);
     await pool.end().catch(() => undefined);
     await service.onModuleDestroy().catch(() => undefined);
     await databasePoolProvider.onModuleDestroy().catch(() => undefined);

@@ -473,6 +473,7 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
       }
       // Phase 9：分域服务内部会优先通过 PersistenceWorkerPool 构建 write plan，
       // 主线程在通过 lease 校验后只负责执行计划内 SQL 并据结果 markPersisted。
+      const projectionPresence = this.playerRuntimeService.describePersistencePresence(playerId);
       await this.playerDomainPersistenceService.savePlayerSnapshotProjectionDomains(
         playerId,
         snapshot,
@@ -481,6 +482,8 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
           allowInventoryEmptyOverwrite: projectedDomains.has('inventory'),
           allowEquipmentEmptyOverwrite: projectedDomains.has('equipment'),
           allowBuffEmptyOverwrite: projectedDomains.has('buff'),
+          expectedRuntimeOwnerId: projectionPresence?.runtimeOwnerId ?? null,
+          expectedSessionEpoch: projectionPresence?.sessionEpoch ?? null,
         },
       );
       for (const domain of projectedDomains) {
