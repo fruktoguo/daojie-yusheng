@@ -60,6 +60,8 @@ const INSTANCE_PAYLOAD_STATE_DOMAINS = new Set(['ground_item', 'overlay', 'monst
 interface PlayerSnapshotProjectionPayload {
   kind: typeof PLAYER_SNAPSHOT_PROJECTION_PAYLOAD_KIND;
   snapshot: PersistedPlayerSnapshot;
+  runtimeOwnerId?: string | null;
+  sessionEpoch?: number | null;
 }
 
 interface InstanceDomainDeltaPayload {
@@ -269,7 +271,16 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
       return null;
     }
     const snapshot = this.playerRuntimeService.buildPersistenceSnapshot?.(playerId, new Set([domain])) ?? null;
-    return snapshot ? { kind: PLAYER_SNAPSHOT_PROJECTION_PAYLOAD_KIND, snapshot } : null;
+    if (!snapshot) {
+      return null;
+    }
+    const presence = this.playerRuntimeService.describePersistencePresence?.(playerId) ?? null;
+    return {
+      kind: PLAYER_SNAPSHOT_PROJECTION_PAYLOAD_KIND,
+      snapshot,
+      runtimeOwnerId: presence?.runtimeOwnerId ?? null,
+      sessionEpoch: presence?.sessionEpoch ?? null,
+    };
   }
 
   private async collectPlayerTasks(): Promise<void> {
@@ -486,6 +497,11 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
         if (!payload) {
           continue;
         }
+        if (!await this.isPlayerProjectionPayloadFenceCurrent(playerId, payload)) {
+          this.logger.warn(`玩家刷盘丢弃 stale projection：playerId=${playerId} domain=${task.domain} payloadEpoch=${payload.sessionEpoch ?? 'none'} payloadOwner=${payload.runtimeOwnerId ?? 'none'}`);
+          if (await this.flushLedgerService.markFlushTaskFlushed(task)) processed += 1;
+          continue;
+        }
         const domains = new Set([task.domain]);
         await this.playerDomainPersistenceService.savePlayerSnapshotProjectionDomains(
           playerId,
@@ -501,6 +517,41 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
       }
     }
     return processed;
+  }
+
+  private async isPlayerProjectionPayloadFenceCurrent(
+    playerId: string,
+    payload: PlayerSnapshotProjectionPayload,
+  ): Promise<boolean> {
+    const payloadEpoch = normalizeInt(payload.sessionEpoch, 0, 0, Number.MAX_SAFE_INTEGER);
+    const payloadOwner = normalizeNullableString(payload.runtimeOwnerId);
+    if (payloadEpoch <= 0) {
+      const persistedPresence = await this.loadPersistedPlayerPresence(playerId);
+      return !persistedPresence?.sessionEpoch;
+    }
+    const persistedPresence = await this.loadPersistedPlayerPresence(playerId);
+    const persistedEpoch = normalizeInt(persistedPresence?.sessionEpoch, 0, 0, Number.MAX_SAFE_INTEGER);
+    if (persistedEpoch <= 0) {
+      return true;
+    }
+    if (persistedEpoch !== payloadEpoch) {
+      return payloadEpoch > persistedEpoch;
+    }
+    const persistedOwner = normalizeNullableString(persistedPresence?.runtimeOwnerId);
+    return !payloadOwner || !persistedOwner || payloadOwner === persistedOwner;
+  }
+
+  private async loadPersistedPlayerPresence(playerId: string): Promise<{
+    runtimeOwnerId?: string | null;
+    sessionEpoch?: number | null;
+  } | null> {
+    const loader = (this.playerDomainPersistenceService as unknown as {
+      loadPlayerPresence?: (targetPlayerId: string) => Promise<{
+        runtimeOwnerId?: string | null;
+        sessionEpoch?: number | null;
+      } | null>;
+    }).loadPlayerPresence;
+    return typeof loader === 'function' ? await loader.call(this.playerDomainPersistenceService, playerId) : null;
   }
 
   private async processInstanceTasks(tasks: FlushTask[]): Promise<number> {
@@ -1026,12 +1077,20 @@ function normalizePlayerSnapshotProjectionPayload(value: unknown): PlayerSnapsho
   if (record.kind !== PLAYER_SNAPSHOT_PROJECTION_PAYLOAD_KIND || !record.snapshot || typeof record.snapshot !== 'object') {
     return null;
   }
-  return { kind: PLAYER_SNAPSHOT_PROJECTION_PAYLOAD_KIND, snapshot: record.snapshot as PersistedPlayerSnapshot };
+  return {
+    kind: PLAYER_SNAPSHOT_PROJECTION_PAYLOAD_KIND,
+    snapshot: record.snapshot as PersistedPlayerSnapshot,
+    runtimeOwnerId: normalizeNullableString(record.runtimeOwnerId),
+    sessionEpoch: normalizeNullableNumber(record.sessionEpoch),
+  };
 }
 
 function resolvePlayerPayloadRuntimeOwnerId(payload: PlayerPresenceUpsertInput | PlayerSnapshotProjectionPayload | null): string | null {
-  if (!payload || 'snapshot' in payload) {
+  if (!payload) {
     return null;
+  }
+  if ('snapshot' in payload) {
+    return payload.runtimeOwnerId ?? null;
   }
   return payload.runtimeOwnerId ?? null;
 }
@@ -1041,7 +1100,7 @@ function buildPlayerPayloadFencingToken(payload: PlayerPresenceUpsertInput | Pla
     return null;
   }
   if ('snapshot' in payload) {
-    return `${payload.kind}:${Math.max(0, Math.trunc(Number(payload.snapshot.savedAt ?? 0)))}`;
+    return `${payload.kind}:${Math.max(0, Math.trunc(Number(payload.snapshot.savedAt ?? 0)))}:${payload.runtimeOwnerId ?? 'none'}:${Math.max(0, Math.trunc(Number(payload.sessionEpoch ?? 0)))}`;
   }
   return `${payload.runtimeOwnerId ?? 'none'}:${Math.max(0, Math.trunc(Number(payload.sessionEpoch ?? 0)))}`;
 }

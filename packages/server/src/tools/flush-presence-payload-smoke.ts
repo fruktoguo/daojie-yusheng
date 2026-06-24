@@ -137,13 +137,62 @@ async function main(): Promise<void> {
     assert.deepEqual((savedProjections[0]?.snapshot as { inventory?: unknown })?.inventory, { items: [{ itemId: 'ore' }] });
     assert.deepEqual((savedProjections[1]?.snapshot as { quests?: unknown })?.quests, { entries: [{ questId: 'quest-1' }] });
     assert.equal(flushed.length, 3);
+
+    const staleProjectionTask: FlushTask = {
+      scope: 'player',
+      id: 'player-stale-snapshot-1',
+      domain: 'technique',
+      priority: 'normal',
+      latestRevision: 10,
+      payloadJson: {
+        kind: 'player_snapshot_projection',
+        runtimeOwnerId: 'old-owner',
+        sessionEpoch: 9,
+        snapshot: { version: 1, savedAt: 100, placement: { templateId: 'map-1', x: 1, y: 2 }, techniques: { techniques: [{ techId: 'old-tech' }] } },
+      },
+    };
+    let staleProjectionClaimed = false;
+    const staleProjectionRuntime = new FlushTaskRuntimeService(
+      {} as never,
+      {} as never,
+      { flushPlayerDomains: async () => { throw new Error('stale snapshot payload should not use runtime flush fallback'); } } as never,
+      {
+        isEnabled: () => true,
+        claimReadyFlushTasks: async () => {
+          if (staleProjectionClaimed) return [];
+          staleProjectionClaimed = true;
+          return [staleProjectionTask];
+        },
+        markFlushTaskFlushed: async (flushedTask: FlushTask) => {
+          flushed.push(flushedTask);
+          return true;
+        },
+        markFlushTaskRetry: async () => true,
+        markFlushTasksRetry: async () => 0,
+      } as never,
+      { signalPlayerFlush: () => undefined, signalInstanceFlush: () => undefined } as never,
+      undefined,
+      undefined,
+      {
+        isEnabled: () => true,
+        loadPlayerPresence: async () => ({ runtimeOwnerId: 'new-owner', sessionEpoch: 10 }),
+        savePlayerPresence: async () => undefined,
+        savePlayerSnapshotProjectionDomains: async () => {
+          throw new Error('stale projection must not be persisted');
+        },
+      } as never,
+    );
+    const staleProjectionProcessed = await staleProjectionRuntime.runOnce('stale-snapshot-payload-smoke');
+    assert.equal(staleProjectionProcessed, 1);
+    assert.equal(savedProjections.length, 2);
+    assert.equal(flushed.length, 4);
   } finally {
     restoreEnv('SERVER_RUNTIME_ROLE', previousRole);
     restoreEnv('SERVER_FLUSH_TASK_RUNTIME_MODE', previousMode);
   }
   console.log(JSON.stringify({
     ok: true,
-    answers: '玩家 presence 与 snapshot projectable flush task 可在 worker role 下从 staging payload 写入 PlayerDomainPersistenceService，并 mark flushed。',
+    answers: '玩家 presence 与 snapshot projectable flush task 可在 worker role 下从 staging payload 写入 PlayerDomainPersistenceService，并 mark flushed；旧 session/owner 的 projection 会被丢弃，避免旧运行态覆盖新分域。',
     excludes: '不证明邮件/市场/GM edit 或实例 domain，也不证明真实 DB with-db 竞争。',
     completionMapping: 'flush-player-payload',
   }, null, 2));
