@@ -105,7 +105,10 @@ import {
   type QuestState,
   QUEST_LINE_LABELS,
   QUEST_STATUS_LABELS,
+  TECHNIQUE_CATEGORY_LABELS,
   type TechniqueState,
+  type TechniqueCategory,
+  type TechniqueGrade,
   TECHNIQUE_GRADE_LABELS,
   TECHNIQUE_REALM_LABELS,
   TechniqueRealm,
@@ -749,6 +752,60 @@ let currentEditorTab: GmEditorTab = 'basic';
 let currentDatabaseTable = 'server_player_snapshot';
 let currentInventoryAddType: (typeof ITEM_TYPES)[number] = 'material';
 let currentInventorySearchQuery = '';
+type GmTechniqueEditorSubtab = 'overview' | 'manage' | 'details';
+type GmTechniqueCandidateSource = 'system' | 'systemRandom' | 'generated';
+type GmTechniqueCategoryFilter = 'all' | TechniqueCategory;
+type GmTechniqueGradeFilter = 'all' | TechniqueGrade;
+interface GmTechniqueCandidate {
+  source: 'system' | 'generated';
+  techId: string;
+  name: string;
+  category?: TechniqueCategory | string | null;
+  grade?: TechniqueGrade | string | null;
+  realmLv?: number | null;
+  meta: string;
+  learned: boolean;
+}
+
+const GM_TECHNIQUE_CATEGORY_FILTER_OPTIONS: readonly { value: GmTechniqueCategoryFilter; label: string }[] = [
+  { value: 'all', label: '全部类别' },
+  { value: 'internal', label: TECHNIQUE_CATEGORY_LABELS.internal },
+  { value: 'arts', label: TECHNIQUE_CATEGORY_LABELS.arts },
+  { value: 'divine', label: TECHNIQUE_CATEGORY_LABELS.divine },
+  { value: 'secret', label: TECHNIQUE_CATEGORY_LABELS.secret },
+];
+const GM_TECHNIQUE_GRADE_FILTER_OPTIONS: readonly { value: GmTechniqueGradeFilter; label: string }[] = [
+  { value: 'all', label: '全部品阶' },
+  { value: 'mortal', label: TECHNIQUE_GRADE_LABELS.mortal },
+  { value: 'yellow', label: TECHNIQUE_GRADE_LABELS.yellow },
+  { value: 'mystic', label: TECHNIQUE_GRADE_LABELS.mystic },
+  { value: 'earth', label: TECHNIQUE_GRADE_LABELS.earth },
+  { value: 'heaven', label: TECHNIQUE_GRADE_LABELS.heaven },
+  { value: 'spirit', label: TECHNIQUE_GRADE_LABELS.spirit },
+  { value: 'saint', label: TECHNIQUE_GRADE_LABELS.saint },
+  { value: 'emperor', label: TECHNIQUE_GRADE_LABELS.emperor },
+];
+const GM_TECHNIQUE_PAGE_SIZE_OPTIONS = [10, 20, 50] as const;
+let currentTechniqueEditorSubtab: GmTechniqueEditorSubtab = 'overview';
+let currentTechniqueCandidateSource: GmTechniqueCandidateSource = 'system';
+let currentTechniqueCategoryFilter: GmTechniqueCategoryFilter = 'all';
+let currentTechniqueGradeFilter: GmTechniqueGradeFilter = 'all';
+let currentTechniqueRealmLvFilter = '';
+let currentTechniqueSearchQuery = '';
+let currentTechniqueCandidatePage = 1;
+let currentTechniqueLearnedPage = 1;
+let currentTechniquePageSize = 20;
+let currentTechniqueRandomPickCount = 5;
+let generatedTechniqueCandidatePageTotal = 1;
+let generatedTechniqueCandidateTotal = 0;
+let generatedTechniqueCandidateLoading = false;
+let generatedTechniqueCandidateError = '';
+let generatedTechniqueCandidates: GmGeneratedTechniqueSummary[] = [];
+let generatedTechniqueCandidateRequestNonce = 0;
+let techniqueCandidateSearchTimer: number | null = null;
+const selectedTechniqueCandidateIds = new Set<string>();
+const selectedGeneratedTechniqueCandidateById = new Map<string, GmGeneratedTechniqueSummary>();
+const selectedLearnedTechniqueIds = new Set<string>();
 /** currentPlayerSort：当前玩家排序。 */
 let currentPlayerSort: GmPlayerSortMode = (playerSortSelect.value as GmPlayerSortMode) || 'realm-desc';
 /** currentPlayerAccountStatusFilter：当前玩家账号状态筛选。 */
@@ -851,6 +908,116 @@ function buildGmTechniqueGenerationJobsApiPath(params: URLSearchParams): string 
 
 function buildGmTechniqueGenerationJobDetailApiPath(id: string): string {
   return `${GM_API_BASE_PATH}/technique-generation/jobs/${encodeURIComponent(id)}`;
+}
+
+function buildTechniqueCandidateGeneratedQueryParams(): URLSearchParams {
+  const params = new URLSearchParams({
+    page: String(currentTechniqueCandidatePage),
+    pageSize: String(currentTechniquePageSize),
+    publishedOnly: 'true',
+  });
+  const keyword = currentTechniqueSearchQuery.trim();
+  if (keyword) {
+    params.set('keyword', keyword);
+  }
+  if (currentTechniqueCategoryFilter !== 'all') {
+    params.set('category', currentTechniqueCategoryFilter);
+  }
+  if (currentTechniqueGradeFilter !== 'all') {
+    params.set('grade', currentTechniqueGradeFilter);
+  }
+  const realmLv = getTechniqueRealmLvFilterValue();
+  if (realmLv !== null) {
+    params.set('realmLv', String(realmLv));
+  }
+  return params;
+}
+
+function patchTechniqueManagerListsFromDraft(): void {
+  if (!draftSnapshot) {
+    return;
+  }
+  const candidateListEl = editorContentEl.querySelector<HTMLElement>('[data-gm-technique-candidate-list]');
+  if (candidateListEl) {
+    candidateListEl.innerHTML = renderTechniqueCandidateList(ensureArray(draftSnapshot.techniques));
+  }
+  const learnedListEl = editorContentEl.querySelector<HTMLElement>('[data-gm-technique-learned-list]');
+  if (learnedListEl) {
+    learnedListEl.innerHTML = renderLearnedTechniqueList(ensureArray(draftSnapshot.techniques));
+  }
+}
+
+function patchTechniqueManagerBodyFromDraft(): void {
+  if (!draftSnapshot) {
+    return;
+  }
+  const bodyEl = editorContentEl.querySelector<HTMLElement>('[data-gm-technique-body]');
+  if (!bodyEl) {
+    rerenderTechniqueEditor();
+    return;
+  }
+  const techniques = ensureArray(draftSnapshot.techniques);
+  const autoBattleSkills = ensureArray(draftSnapshot.autoBattleSkills);
+  bodyEl.innerHTML = currentTechniqueEditorSubtab === 'overview'
+    ? renderTechniqueOverview(techniques, autoBattleSkills)
+    : currentTechniqueEditorSubtab === 'manage'
+      ? renderTechniqueManage(techniques)
+      : renderTechniqueDetails(techniques);
+  editorContentEl.querySelectorAll<HTMLElement>('[data-technique-subtab]').forEach((button) => {
+    button.classList.toggle('active', button.dataset.techniqueSubtab === currentTechniqueEditorSubtab);
+  });
+}
+
+async function loadGeneratedTechniqueCandidates(silent = true): Promise<void> {
+  if (!token) {
+    return;
+  }
+  const nonce = ++generatedTechniqueCandidateRequestNonce;
+  generatedTechniqueCandidateLoading = true;
+  generatedTechniqueCandidateError = '';
+  patchTechniqueManagerListsFromDraft();
+  try {
+    const result = await request<GmGeneratedTechniqueListRes>(
+      buildGmGeneratedTechniquesApiPath(buildTechniqueCandidateGeneratedQueryParams()),
+    );
+    if (nonce !== generatedTechniqueCandidateRequestNonce) {
+      return;
+    }
+    generatedTechniqueCandidates = result.techniques;
+    currentTechniqueCandidatePage = result.page.page;
+    generatedTechniqueCandidatePageTotal = Math.max(1, result.page.totalPages);
+    generatedTechniqueCandidateTotal = result.page.total;
+    if (!silent) {
+      setStatus(`已加载玩家自创功法第 ${result.page.page} / ${result.page.totalPages} 页，共 ${result.page.total} 条`);
+    }
+  } catch (error) {
+    if (nonce !== generatedTechniqueCandidateRequestNonce) {
+      return;
+    }
+    generatedTechniqueCandidateError = error instanceof Error ? error.message : t('gm.request.failed');
+    generatedTechniqueCandidates = [];
+    generatedTechniqueCandidatePageTotal = 1;
+    generatedTechniqueCandidateTotal = 0;
+  } finally {
+    if (nonce === generatedTechniqueCandidateRequestNonce) {
+      generatedTechniqueCandidateLoading = false;
+      patchTechniqueManagerListsFromDraft();
+    }
+  }
+}
+
+function scheduleGeneratedTechniqueCandidateLoad(): void {
+  if (techniqueCandidateSearchTimer !== null) {
+    window.clearTimeout(techniqueCandidateSearchTimer);
+  }
+  techniqueCandidateSearchTimer = window.setTimeout(() => {
+    techniqueCandidateSearchTimer = null;
+    if (currentTechniqueCandidateSource === 'generated') {
+      loadGeneratedTechniqueCandidates(true).catch((error: unknown) => {
+        setStatus(error instanceof Error ? error.message : t('gm.request.failed'), true);
+      });
+    }
+  }, 250);
 }
 
 function buildGmDatabaseBackupDownloadApiPath(backupId: string): string {
@@ -2288,6 +2455,18 @@ function buildEditorStructureKey(detail: GmManagedPlayerRecord, draft: PlayerSta
     ensureArray(draft.inventory.items).length,
     ensureArray(draft.autoBattleSkills).length,
     ensureArray(draft.techniques).length,
+    currentTechniqueEditorSubtab,
+    currentTechniqueCandidateSource,
+    currentTechniqueCategoryFilter,
+    currentTechniqueGradeFilter,
+    currentTechniqueRealmLvFilter,
+    currentTechniqueSearchQuery,
+    currentTechniqueCandidatePage,
+    currentTechniqueLearnedPage,
+    currentTechniquePageSize,
+    generatedTechniqueCandidatePageTotal,
+    generatedTechniqueCandidateTotal,
+    generatedTechniqueCandidates.map((entry) => `${entry.id}:${entry.updatedAt}`).join(','),
     GM_CRAFT_SKILL_EDITOR_ENTRIES.map((entry) => {
       const skill = getCraftSkillDraft(draft, entry.key);
       return `${entry.key}:${skill.level}:${skill.exp}:${skill.expToNext}`;
@@ -2404,8 +2583,14 @@ function patchEditorPreview(detail: GmManagedPlayerRecord, draft: PlayerState): 
     editorContentEl.querySelector<HTMLElement>(`[data-preview="auto-skill-meta"][data-index="${index}"]`)!.textContent = getAutoSkillCardMeta(entry);
   });
   ensureArray(draft.techniques).forEach((technique, index) => {
-    editorContentEl.querySelector<HTMLElement>(`[data-preview="technique-title"][data-index="${index}"]`)!.textContent = getTechniqueCardTitle(technique, index);
-    editorContentEl.querySelector<HTMLElement>(`[data-preview="technique-meta"][data-index="${index}"]`)!.textContent = getTechniqueCardMeta(technique);
+    const titleEl = editorContentEl.querySelector<HTMLElement>(`[data-preview="technique-title"][data-index="${index}"]`);
+    if (titleEl) {
+      titleEl.textContent = getTechniqueCardTitle(technique, index);
+    }
+    const metaEl = editorContentEl.querySelector<HTMLElement>(`[data-preview="technique-meta"][data-index="${index}"]`);
+    if (metaEl) {
+      metaEl.textContent = getTechniqueCardMeta(technique);
+    }
   });
   ensureArray(draft.quests).forEach((quest, index) => {
     editorContentEl.querySelector<HTMLElement>(`[data-preview="quest-title"][data-index="${index}"]`)!.textContent = getQuestCardTitle(quest, index);
@@ -7029,6 +7214,461 @@ function renderAttributeSummaryGrid(draft: PlayerState): string {
   `;
 }
 
+function getTechniqueCategoryDisplayLabel(category: string | null | undefined): string {
+  return category ? (TECHNIQUE_CATEGORY_LABELS as Record<string, string>)[category] ?? category : '未知类别';
+}
+
+function getTechniqueGradeDisplayLabel(grade: string | null | undefined): string {
+  return grade ? (TECHNIQUE_GRADE_LABELS as Record<string, string>)[grade] ?? grade : '未知品阶';
+}
+
+function getTechniqueRealmLevelDisplayLabel(realmLv: number | null | undefined): string {
+  if (!Number.isFinite(realmLv)) {
+    return '境界 Lv.-';
+  }
+  const level = Math.trunc(Number(realmLv));
+  const realm = editorCatalog?.realmLevels.find((entry) => entry.realmLv === level);
+  return realm ? `${realm.displayName} · Lv.${level}` : `境界 Lv.${level}`;
+}
+
+function normalizeTechniquePageSize(value: unknown): number {
+  const numeric = Math.trunc(Number(value));
+  return GM_TECHNIQUE_PAGE_SIZE_OPTIONS.includes(numeric as (typeof GM_TECHNIQUE_PAGE_SIZE_OPTIONS)[number])
+    ? numeric
+    : 20;
+}
+
+function getTechniqueRealmLvFilterValue(): number | null {
+  const raw = currentTechniqueRealmLvFilter.trim();
+  if (!raw) {
+    return null;
+  }
+  const numeric = Number(raw);
+  return Number.isFinite(numeric) && numeric > 0 ? Math.trunc(numeric) : null;
+}
+
+function getLearnedTechniqueIdSet(techniques: TechniqueState[]): Set<string> {
+  return new Set(techniques.map((technique) => technique.techId).filter(Boolean));
+}
+
+function getTechniqueCategoryCounts(techniques: TechniqueState[]): Record<TechniqueCategory, number> {
+  const counts: Record<TechniqueCategory, number> = {
+    internal: 0,
+    arts: 0,
+    divine: 0,
+    secret: 0,
+  };
+  for (const technique of techniques) {
+    const category = (technique.category || findTechniqueCatalogEntry(technique.techId)?.category || 'internal') as TechniqueCategory;
+    if (category in counts) {
+      counts[category] += 1;
+    }
+  }
+  return counts;
+}
+
+function buildTechniqueCandidateMeta(candidate: Pick<GmTechniqueCandidate, 'source' | 'category' | 'grade' | 'realmLv' | 'techId'>): string {
+  const sourceLabel = candidate.source === 'generated' ? '玩家自创' : '系统功法';
+  return [
+    sourceLabel,
+    getTechniqueCategoryDisplayLabel(candidate.category),
+    getTechniqueGradeDisplayLabel(candidate.grade),
+    getTechniqueRealmLevelDisplayLabel(candidate.realmLv),
+    candidate.techId,
+  ].filter(Boolean).join(' · ');
+}
+
+function buildSystemTechniqueCandidates(learnedIds: Set<string>): GmTechniqueCandidate[] {
+  return (editorCatalog?.techniques ?? []).map((option) => {
+    const candidate: GmTechniqueCandidate = {
+      source: 'system',
+      techId: option.id,
+      name: option.name,
+      category: option.category,
+      grade: option.grade,
+      realmLv: option.realmLv ?? null,
+      meta: '',
+      learned: learnedIds.has(option.id),
+    };
+    candidate.meta = buildTechniqueCandidateMeta(candidate);
+    return candidate;
+  });
+}
+
+function buildGeneratedTechniqueCandidates(learnedIds: Set<string>): GmTechniqueCandidate[] {
+  return generatedTechniqueCandidates.map((summary) => {
+    const candidate: GmTechniqueCandidate = {
+      source: 'generated',
+      techId: summary.id,
+      name: summary.name,
+      category: summary.category,
+      grade: summary.grade,
+      realmLv: summary.realmLv ?? null,
+      meta: '',
+      learned: learnedIds.has(summary.id),
+    };
+    candidate.meta = buildTechniqueCandidateMeta(candidate);
+    return candidate;
+  });
+}
+
+function matchesTechniqueFilters(entry: {
+  techId: string;
+  name?: string | null;
+  category?: string | null;
+  grade?: string | null;
+  realmLv?: number | null;
+  meta?: string | null;
+}): boolean {
+  if (currentTechniqueCategoryFilter !== 'all' && entry.category !== currentTechniqueCategoryFilter) {
+    return false;
+  }
+  if (currentTechniqueGradeFilter !== 'all' && entry.grade !== currentTechniqueGradeFilter) {
+    return false;
+  }
+  const realmLvFilter = getTechniqueRealmLvFilterValue();
+  if (realmLvFilter !== null && Math.trunc(Number(entry.realmLv ?? 0)) !== realmLvFilter) {
+    return false;
+  }
+  const keyword = currentTechniqueSearchQuery.trim().toLowerCase();
+  if (!keyword) {
+    return true;
+  }
+  return [
+    entry.techId,
+    entry.name ?? '',
+    entry.meta ?? '',
+    getTechniqueCategoryDisplayLabel(entry.category),
+    getTechniqueGradeDisplayLabel(entry.grade),
+  ].some((value) => value.toLowerCase().includes(keyword));
+}
+
+function getFilteredSystemTechniqueCandidates(learnedIds: Set<string>): GmTechniqueCandidate[] {
+  return buildSystemTechniqueCandidates(learnedIds)
+    .filter(matchesTechniqueFilters)
+    .sort((left, right) => left.name.localeCompare(right.name, 'zh-Hans-CN'));
+}
+
+function getFilteredLearnedTechniques(techniques: TechniqueState[]): Array<{ technique: TechniqueState; index: number; meta: string }> {
+  return techniques
+    .map((technique, index) => {
+      const catalogEntry = findTechniqueCatalogEntry(technique.techId);
+      const category = technique.category ?? catalogEntry?.category ?? null;
+      const grade = technique.grade ?? catalogEntry?.grade ?? null;
+      const realmLv = technique.realmLv ?? catalogEntry?.realmLv ?? null;
+      const meta = [
+        getTechniqueCategoryDisplayLabel(category),
+        getTechniqueGradeDisplayLabel(grade),
+        getTechniqueRealmLevelDisplayLabel(realmLv),
+        `等级 ${Math.max(1, Math.trunc(Number(technique.level) || 1))}`,
+        technique.techId,
+      ].join(' · ');
+      return { technique, index, meta };
+    })
+    .filter((entry) => matchesTechniqueFilters({
+      techId: entry.technique.techId,
+      name: entry.technique.name,
+      category: entry.technique.category ?? findTechniqueCatalogEntry(entry.technique.techId)?.category ?? null,
+      grade: entry.technique.grade ?? findTechniqueCatalogEntry(entry.technique.techId)?.grade ?? null,
+      realmLv: entry.technique.realmLv ?? findTechniqueCatalogEntry(entry.technique.techId)?.realmLv ?? null,
+      meta: entry.meta,
+    }));
+}
+
+function paginateTechniqueEntries<T>(items: T[], page: number, pageSize: number): {
+  items: T[];
+  page: number;
+  total: number;
+  totalPages: number;
+} {
+  const total = items.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const normalizedPage = Math.min(Math.max(1, page), totalPages);
+  const offset = (normalizedPage - 1) * pageSize;
+  return {
+    items: items.slice(offset, offset + pageSize),
+    page: normalizedPage,
+    total,
+    totalPages,
+  };
+}
+
+function createTechniqueFromGeneratedSummary(summary: GmGeneratedTechniqueSummary): TechniqueState {
+  const existing = draftSnapshot?.techniques.find((technique) => technique.techId === summary.id);
+  if (existing) {
+    return clone(existing);
+  }
+  return {
+    ...createDefaultTechnique(),
+    techId: summary.id,
+    name: summary.name,
+    grade: (summary.grade as TechniqueGrade | undefined) ?? 'mortal',
+    category: (summary.category as TechniqueCategory | undefined) ?? 'internal',
+    realmLv: Math.max(1, Math.trunc(Number(summary.realmLv) || 1)),
+  };
+}
+
+function getTechniqueCandidatePageData(techniques: TechniqueState[]): {
+  items: GmTechniqueCandidate[];
+  page: number;
+  total: number;
+  totalPages: number;
+} {
+  const learnedIds = getLearnedTechniqueIdSet(techniques);
+  if (currentTechniqueCandidateSource === 'generated') {
+    return {
+      items: buildGeneratedTechniqueCandidates(learnedIds),
+      page: currentTechniqueCandidatePage,
+      total: generatedTechniqueCandidateTotal,
+      totalPages: generatedTechniqueCandidatePageTotal,
+    };
+  }
+  return paginateTechniqueEntries(
+    getFilteredSystemTechniqueCandidates(learnedIds),
+    currentTechniqueCandidatePage,
+    currentTechniquePageSize,
+  );
+}
+
+function renderTechniqueFilterControls(mode: 'candidates' | 'learned'): string {
+  const sourceOptions: Array<{ value: GmTechniqueCandidateSource; label: string }> = [
+    { value: 'system', label: '系统功法' },
+    { value: 'systemRandom', label: '系统随机功法' },
+    { value: 'generated', label: '玩家自创功法' },
+  ];
+  const pageSizeOptions = GM_TECHNIQUE_PAGE_SIZE_OPTIONS.map((value) => ({ value, label: `${value} 条/页` }));
+  return `
+    <div class="gm-technique-filters">
+      ${mode === 'candidates' ? `
+        <label class="editor-field">
+          <span>来源</span>
+          <select data-technique-filter="source">
+            ${optionsMarkup(sourceOptions, currentTechniqueCandidateSource)}
+          </select>
+        </label>
+      ` : ''}
+      <label class="editor-field">
+        <span>类别</span>
+        <select data-technique-filter="category">
+          ${optionsMarkup([...GM_TECHNIQUE_CATEGORY_FILTER_OPTIONS], currentTechniqueCategoryFilter)}
+        </select>
+      </label>
+      <label class="editor-field">
+        <span>品阶</span>
+        <select data-technique-filter="grade">
+          ${optionsMarkup([...GM_TECHNIQUE_GRADE_FILTER_OPTIONS], currentTechniqueGradeFilter)}
+        </select>
+      </label>
+      <label class="editor-field">
+        <span>境界等级</span>
+        <input
+          type="number"
+          min="1"
+          step="1"
+          data-technique-filter="realmLv"
+          value="${escapeHtml(currentTechniqueRealmLvFilter)}"
+          placeholder="全部"
+        />
+      </label>
+      <label class="editor-field wide">
+        <span>名称 / ID 搜索</span>
+        <input
+          type="search"
+          data-technique-filter="keyword"
+          autocomplete="off"
+          spellcheck="false"
+          value="${escapeHtml(currentTechniqueSearchQuery)}"
+          placeholder="输入功法名、ID、类别或品阶"
+        />
+      </label>
+      <label class="editor-field">
+        <span>分页</span>
+        <select data-technique-filter="pageSize">
+          ${optionsMarkup(pageSizeOptions, currentTechniquePageSize)}
+        </select>
+      </label>
+      ${mode === 'candidates' && currentTechniqueCandidateSource === 'systemRandom' ? `
+        <label class="editor-field">
+          <span>随机数量</span>
+          <input type="number" min="1" step="1" data-technique-filter="randomCount" value="${escapeHtml(String(currentTechniqueRandomPickCount))}" />
+        </label>
+      ` : ''}
+    </div>
+  `;
+}
+
+function renderTechniqueOverview(techniques: TechniqueState[], autoBattleSkills: AutoBattleSkillConfig[]): string {
+  const counts = getTechniqueCategoryCounts(techniques);
+  return `
+    <div class="stats-grid">
+      <div class="stats-card">
+        <div class="stats-card-label">已学总数</div>
+        <div class="stats-card-value">${techniques.length}</div>
+        <div class="stats-card-note">当前写入玩家功法分域的功法数量</div>
+      </div>
+      ${GM_TECHNIQUE_CATEGORY_FILTER_OPTIONS.filter((entry) => entry.value !== 'all').map((entry) => `
+        <div class="stats-card">
+          <div class="stats-card-label">${escapeHtml(entry.label)}</div>
+          <div class="stats-card-value">${counts[entry.value as TechniqueCategory] ?? 0}</div>
+          <div class="stats-card-note">${escapeHtml(entry.label)}类已学数量</div>
+        </div>
+      `).join('')}
+      <div class="stats-card">
+        <div class="stats-card-label">自动技能</div>
+        <div class="stats-card-value">${autoBattleSkills.length}</div>
+        <div class="stats-card-note">自动战斗技能槽数量</div>
+      </div>
+    </div>
+  `;
+}
+
+function renderTechniqueCandidateList(techniques: TechniqueState[]): string {
+  const isGenerated = currentTechniqueCandidateSource === 'generated';
+  const pageData = getTechniqueCandidatePageData(techniques);
+  currentTechniqueCandidatePage = pageData.page;
+  const selectedOnPage = pageData.items.filter((entry) => selectedTechniqueCandidateIds.has(entry.techId)).length;
+  const allPageSelected = pageData.items.length > 0 && selectedOnPage === pageData.items.length;
+  const listMeta = isGenerated && generatedTechniqueCandidateLoading
+    ? '正在加载玩家自创功法...'
+    : `第 ${pageData.page} / ${Math.max(1, pageData.totalPages)} 页 · 共 ${pageData.total} 条 · 已选 ${selectedTechniqueCandidateIds.size} 条`;
+  return `
+    <div class="gm-technique-list-head">
+      <div class="editor-note">${escapeHtml(listMeta)}</div>
+      <div class="button-row">
+        ${isGenerated ? `<button class="small-btn" type="button" data-action="refresh-generated-technique-candidates">刷新自创功法</button>` : ''}
+        ${currentTechniqueCandidateSource === 'systemRandom' ? `<button class="small-btn" type="button" data-action="random-select-technique-candidates">随机选择</button>` : ''}
+        <button class="small-btn" type="button" data-action="select-page-technique-candidates">${allPageSelected ? '取消本页' : '全选本页'}</button>
+        <button class="small-btn" type="button" data-action="clear-technique-candidate-selection" ${selectedTechniqueCandidateIds.size === 0 ? 'disabled' : ''}>清空选择</button>
+        <button class="small-btn primary" type="button" data-action="add-selected-techniques" ${selectedTechniqueCandidateIds.size === 0 ? 'disabled' : ''}>添加选中未学</button>
+        <button class="small-btn danger" type="button" data-action="remove-selected-technique-candidates" ${selectedTechniqueCandidateIds.size === 0 ? 'disabled' : ''}>移除选中已学</button>
+      </div>
+    </div>
+    ${generatedTechniqueCandidateError ? `<div class="editor-note" style="color: var(--stamp-red);">${escapeHtml(generatedTechniqueCandidateError)}</div>` : ''}
+    <div class="gm-technique-candidate-list">
+      ${pageData.items.length > 0
+        ? pageData.items.map((candidate) => `
+          <label class="gm-technique-row ${candidate.learned ? 'learned' : ''}">
+            <input
+              type="checkbox"
+              data-technique-candidate-id="${escapeHtml(candidate.techId)}"
+              ${selectedTechniqueCandidateIds.has(candidate.techId) ? 'checked' : ''}
+            />
+            <div class="gm-technique-row-main">
+              <div class="gm-technique-row-title">${escapeHtml(candidate.name || candidate.techId)}</div>
+              <div class="gm-technique-row-meta">${escapeHtml(candidate.meta)}</div>
+            </div>
+            <span class="pill ${candidate.learned ? 'online' : ''}">${candidate.learned ? '已学' : '未学'}</span>
+          </label>
+        `).join('')
+        : `<div class="editor-note">${isGenerated && generatedTechniqueCandidateLoading ? '正在加载...' : '没有匹配的功法。'}</div>`}
+    </div>
+    <div class="gm-technique-pagination">
+      <button class="small-btn" type="button" data-action="technique-candidate-prev" ${pageData.page <= 1 ? 'disabled' : ''}>上一页</button>
+      <div class="editor-note">第 ${pageData.page} / ${Math.max(1, pageData.totalPages)} 页</div>
+      <button class="small-btn" type="button" data-action="technique-candidate-next" ${pageData.page >= pageData.totalPages ? 'disabled' : ''}>下一页</button>
+    </div>
+  `;
+}
+
+function renderTechniqueManage(techniques: TechniqueState[]): string {
+  const catalogDisabledNote = hasServerEditorCatalog()
+    ? ''
+    : '<div class="editor-note" style="color: var(--stamp-red);">服务端编辑目录不可用，系统功法无法添加。</div>';
+  return `
+    ${catalogDisabledNote}
+    ${renderTechniqueFilterControls('candidates')}
+    <div data-gm-technique-candidate-list>
+      ${renderTechniqueCandidateList(techniques)}
+    </div>
+  `;
+}
+
+function renderLearnedTechniqueList(techniques: TechniqueState[]): string {
+  const filtered = getFilteredLearnedTechniques(techniques);
+  const pageData = paginateTechniqueEntries(filtered, currentTechniqueLearnedPage, currentTechniquePageSize);
+  currentTechniqueLearnedPage = pageData.page;
+  const selectedOnPage = pageData.items.filter((entry) => selectedLearnedTechniqueIds.has(entry.technique.techId)).length;
+  const allPageSelected = pageData.items.length > 0 && selectedOnPage === pageData.items.length;
+  return `
+    <div class="gm-technique-list-head">
+      <div class="editor-note">第 ${pageData.page} / ${Math.max(1, pageData.totalPages)} 页 · 共 ${pageData.total} 条 · 已选 ${selectedLearnedTechniqueIds.size} 条</div>
+      <div class="button-row">
+        <button class="small-btn" type="button" data-action="select-page-learned-techniques">${allPageSelected ? '取消本页' : '全选本页'}</button>
+        <button class="small-btn" type="button" data-action="clear-learned-technique-selection" ${selectedLearnedTechniqueIds.size === 0 ? 'disabled' : ''}>清空选择</button>
+        <button class="small-btn" type="button" data-action="max-selected-learned-techniques" ${selectedLearnedTechniqueIds.size === 0 ? 'disabled' : ''}>选中满级</button>
+        <button class="small-btn danger" type="button" data-action="remove-selected-learned-techniques" ${selectedLearnedTechniqueIds.size === 0 ? 'disabled' : ''}>移除选中</button>
+      </div>
+    </div>
+    <div class="editor-card-list gm-technique-learned-list">
+      ${pageData.items.length > 0
+        ? pageData.items.map(({ technique, index, meta }) => `
+          <div class="editor-card gm-technique-learned-card">
+            <div class="editor-card-head">
+              <label class="gm-technique-select-row">
+                <input
+                  type="checkbox"
+                  data-learned-technique-id="${escapeHtml(technique.techId)}"
+                  ${selectedLearnedTechniqueIds.has(technique.techId) ? 'checked' : ''}
+                />
+                <span>
+                  <span class="editor-card-title" data-preview="technique-title" data-index="${index}">${escapeHtml(getTechniqueCardTitle(technique, index))}</span>
+                  <span class="editor-card-meta" data-preview="technique-meta" data-index="${index}">${escapeHtml(meta)}</span>
+                </span>
+              </label>
+              <button class="small-btn danger" type="button" data-action="remove-technique" data-index="${index}">删除</button>
+            </div>
+            ${getTechniqueEditorControls(index, technique)}
+          </div>
+        `).join('')
+        : '<div class="editor-note">没有匹配的已学功法。</div>'}
+    </div>
+    <div class="gm-technique-pagination">
+      <button class="small-btn" type="button" data-action="technique-learned-prev" ${pageData.page <= 1 ? 'disabled' : ''}>上一页</button>
+      <div class="editor-note">第 ${pageData.page} / ${Math.max(1, pageData.totalPages)} 页</div>
+      <button class="small-btn" type="button" data-action="technique-learned-next" ${pageData.page >= pageData.totalPages ? 'disabled' : ''}>下一页</button>
+    </div>
+  `;
+}
+
+function renderTechniqueDetails(techniques: TechniqueState[]): string {
+  return `
+    ${renderTechniqueFilterControls('learned')}
+    <div data-gm-technique-learned-list>
+      ${renderLearnedTechniqueList(techniques)}
+    </div>
+  `;
+}
+
+function renderTechniqueManager(techniques: TechniqueState[], autoBattleSkills: AutoBattleSkillConfig[]): string {
+  const subtabs: Array<{ value: GmTechniqueEditorSubtab; label: string }> = [
+    { value: 'overview', label: '总览' },
+    { value: 'manage', label: '添加/移除' },
+    { value: 'details', label: '已学详情' },
+  ];
+  const body = currentTechniqueEditorSubtab === 'overview'
+    ? renderTechniqueOverview(techniques, autoBattleSkills)
+    : currentTechniqueEditorSubtab === 'manage'
+      ? renderTechniqueManage(techniques)
+      : renderTechniqueDetails(techniques);
+  return `
+    <div class="gm-technique-manager" data-gm-technique-manager>
+      <div class="gm-technique-subtabs">
+        ${subtabs.map((entry) => `
+          <button
+            class="workspace-tab ${currentTechniqueEditorSubtab === entry.value ? 'active' : ''}"
+            type="button"
+            data-action="switch-technique-subtab"
+            data-technique-subtab="${entry.value}"
+          >${escapeHtml(entry.label)}</button>
+        `).join('')}
+      </div>
+      <div class="gm-technique-subtab-body" data-gm-technique-body>
+        ${body}
+      </div>
+    </div>
+  `;
+}
+
 /** renderEditorTabSection：渲染编辑器Tab Section。 */
 function renderEditorTabSection(tab: GmEditorTab, content: string): string {
   return `<div data-editor-tab="${tab}">${content}</div>`;
@@ -7230,21 +7870,6 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
       </div>
     `).join('')
     : '<div class="editor-note">当前没有自动战斗技能配置。</div>';
-
-  const techniqueMarkup = techniques.length > 0
-    ? techniques.map((technique, index) => `
-      <div class="editor-card">
-        <div class="editor-card-head">
-          <div>
-            <div class="editor-card-title" data-preview="technique-title" data-index="${index}">${escapeHtml(getTechniqueCardTitle(technique, index))}</div>
-            <div class="editor-card-meta" data-preview="technique-meta" data-index="${index}">${escapeHtml(getTechniqueCardMeta(technique))}</div>
-          </div>
-          <button class="small-btn danger" type="button" data-action="remove-technique" data-index="${index}">删除</button>
-        </div>
-        ${getTechniqueEditorControls(index, technique)}
-      </div>
-    `).join('')
-    : '<div class="editor-note">当前没有已学会功法。</div>';
 
   const questMarkup = quests.length > 0
     ? quests.map((quest, index) => `
@@ -7544,21 +8169,11 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
     <section class="editor-section">
       <div class="editor-section-head">
         <div>
-          <div class="editor-section-title">功法</div>
-          <div class="editor-section-note">等级、经验、技能与层级结构。</div>
-        </div>
-        <div class="button-row">
-          <label class="editor-field" style="min-width: 220px;">
-            <span>新增功法</span>
-            <select data-catalog-select="technique"${catalogActionDisabled}>
-              <option value="">选择功法模板</option>
-              ${optionsMarkup(getTechniqueCatalogOptions(), '')}
-            </select>
-          </label>
-          <button class="small-btn" type="button" data-action="add-technique-from-catalog"${catalogActionDisabled}>加入角色</button>
+          <div class="editor-section-title">功法管理</div>
+          <div class="editor-section-note">按总览、批量添加/移除、已学详情分页管理，避免功法数量增长后一次性渲染全部卡片。</div>
         </div>
       </div>
-      <div class="editor-card-list">${techniqueMarkup}</div>
+      ${renderTechniqueManager(techniques, autoBattleSkills)}
     </section>
     `)}
 
@@ -10333,6 +10948,326 @@ async function setSelectedPlayerMonthCardPool(): Promise<void> {
   }
 }
 
+function syncTechniqueEditorDraft(): boolean {
+  const synced = syncVisualEditorToDraft(getEditorTabSection('techniques') ?? undefined);
+  if (!synced.ok) {
+    setStatus(synced.message, true);
+    return false;
+  }
+  return true;
+}
+
+function rerenderTechniqueEditor(): void {
+  lastEditorStructureKey = null;
+  if (state) {
+    renderEditor(state);
+  }
+}
+
+function clearTechniqueCandidateSelection(): void {
+  selectedTechniqueCandidateIds.clear();
+  selectedGeneratedTechniqueCandidateById.clear();
+}
+
+function updateGeneratedCandidateSelectionCache(techId: string, selected: boolean): void {
+  if (!selected) {
+    selectedGeneratedTechniqueCandidateById.delete(techId);
+    return;
+  }
+  const summary = generatedTechniqueCandidates.find((entry) => entry.id === techId);
+  if (summary) {
+    selectedGeneratedTechniqueCandidateById.set(techId, summary);
+  }
+}
+
+function toggleTechniqueCandidateSelection(techId: string, selected: boolean): void {
+  if (selected) {
+    selectedTechniqueCandidateIds.add(techId);
+  } else {
+    selectedTechniqueCandidateIds.delete(techId);
+  }
+  if (currentTechniqueCandidateSource === 'generated') {
+    updateGeneratedCandidateSelectionCache(techId, selected);
+  }
+}
+
+function handleTechniqueFilterChange(target: HTMLInputElement | HTMLSelectElement): boolean {
+  const filter = target.dataset.techniqueFilter;
+  if (!filter) {
+    return false;
+  }
+
+  if (filter === 'source') {
+    currentTechniqueCandidateSource = (target.value as GmTechniqueCandidateSource) || 'system';
+    currentTechniqueCandidatePage = 1;
+    clearTechniqueCandidateSelection();
+    patchTechniqueManagerBodyFromDraft();
+    if (currentTechniqueCandidateSource === 'generated') {
+      loadGeneratedTechniqueCandidates(true).catch((error: unknown) => {
+        setStatus(error instanceof Error ? error.message : t('gm.request.failed'), true);
+      });
+    }
+    return true;
+  }
+
+  if (filter === 'category') {
+    currentTechniqueCategoryFilter = (target.value as GmTechniqueCategoryFilter) || 'all';
+  } else if (filter === 'grade') {
+    currentTechniqueGradeFilter = (target.value as GmTechniqueGradeFilter) || 'all';
+  } else if (filter === 'realmLv') {
+    currentTechniqueRealmLvFilter = target.value.trim();
+  } else if (filter === 'keyword') {
+    currentTechniqueSearchQuery = target.value;
+  } else if (filter === 'pageSize') {
+    currentTechniquePageSize = normalizeTechniquePageSize(target.value);
+  } else if (filter === 'randomCount') {
+    currentTechniqueRandomPickCount = Math.max(1, Math.trunc(Number(target.value) || 1));
+  }
+
+  currentTechniqueCandidatePage = 1;
+  currentTechniqueLearnedPage = 1;
+  if (currentTechniqueCandidateSource === 'generated') {
+    scheduleGeneratedTechniqueCandidateLoad();
+  }
+  patchTechniqueManagerListsFromDraft();
+  return true;
+}
+
+function selectCurrentTechniqueCandidatePage(): void {
+  if (!draftSnapshot) {
+    return;
+  }
+  const pageData = getTechniqueCandidatePageData(ensureArray(draftSnapshot.techniques));
+  const allSelected = pageData.items.length > 0 && pageData.items.every((entry) => selectedTechniqueCandidateIds.has(entry.techId));
+  for (const candidate of pageData.items) {
+    toggleTechniqueCandidateSelection(candidate.techId, !allSelected);
+  }
+  patchTechniqueManagerListsFromDraft();
+}
+
+function selectRandomTechniqueCandidates(): void {
+  if (!draftSnapshot) {
+    return;
+  }
+  const learnedIds = getLearnedTechniqueIdSet(ensureArray(draftSnapshot.techniques));
+  const candidates = getFilteredSystemTechniqueCandidates(learnedIds)
+    .filter((candidate) => !candidate.learned);
+  if (candidates.length === 0) {
+    setStatus('当前筛选条件下没有可随机添加的系统功法。', true);
+    return;
+  }
+  const shuffled = candidates.slice();
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
+  }
+  clearTechniqueCandidateSelection();
+  for (const candidate of shuffled.slice(0, Math.min(currentTechniqueRandomPickCount, shuffled.length))) {
+    selectedTechniqueCandidateIds.add(candidate.techId);
+  }
+  patchTechniqueManagerListsFromDraft();
+}
+
+function addSelectedTechniqueCandidatesToDraft(): void {
+  if (!syncTechniqueEditorDraft() || !draftSnapshot) {
+    return;
+  }
+  const selectedIds = Array.from(selectedTechniqueCandidateIds);
+  if (selectedIds.length === 0) {
+    setStatus('请先勾选要添加的功法。', true);
+    return;
+  }
+  const learnedIds = getLearnedTechniqueIdSet(ensureArray(draftSnapshot.techniques));
+  let added = 0;
+  mutateDraft((draft) => {
+    for (const techId of selectedIds) {
+      if (!techId || learnedIds.has(techId)) {
+        continue;
+      }
+      if (currentTechniqueCandidateSource === 'generated') {
+        const summary = selectedGeneratedTechniqueCandidateById.get(techId)
+          ?? generatedTechniqueCandidates.find((entry) => entry.id === techId);
+        if (!summary) {
+          continue;
+        }
+        draft.techniques.push(createTechniqueFromGeneratedSummary(summary));
+      } else {
+        if (!findTechniqueCatalogEntry(techId)) {
+          continue;
+        }
+        draft.techniques.push(createTechniqueFromCatalog(techId));
+      }
+      learnedIds.add(techId);
+      added += 1;
+    }
+    if (!draft.cultivatingTechId && draft.techniques[0]) {
+      draft.cultivatingTechId = draft.techniques[0].techId;
+    }
+  });
+  clearTechniqueCandidateSelection();
+  patchTechniqueManagerListsFromDraft();
+  setStatus(added > 0 ? `已加入 ${added} 个功法到草稿，保存功法标签后生效。` : '选中功法都已经学会或不在当前候选源中。', added === 0);
+}
+
+function removeTechniqueIdsFromDraft(techIds: Set<string>): number {
+  if (techIds.size === 0) {
+    return 0;
+  }
+  let removed = 0;
+  mutateDraft((draft) => {
+    const before = draft.techniques.length;
+    draft.techniques = ensureArray(draft.techniques).filter((technique) => !techIds.has(technique.techId));
+    removed = before - draft.techniques.length;
+    if (draft.cultivatingTechId && techIds.has(draft.cultivatingTechId)) {
+      draft.cultivatingTechId = undefined;
+    }
+    draft.autoBattleSkills = ensureArray(draft.autoBattleSkills).filter((entry) => !techIds.has(entry.skillId));
+  });
+  return removed;
+}
+
+function removeSelectedTechniqueCandidatesFromDraft(): void {
+  if (!syncTechniqueEditorDraft()) {
+    return;
+  }
+  const removed = removeTechniqueIdsFromDraft(new Set(selectedTechniqueCandidateIds));
+  clearTechniqueCandidateSelection();
+  patchTechniqueManagerListsFromDraft();
+  setStatus(removed > 0 ? `已从草稿移除 ${removed} 个功法，保存功法标签后生效。` : '选中项里没有当前已学功法。', removed === 0);
+}
+
+function selectCurrentLearnedTechniquePage(): void {
+  if (!draftSnapshot) {
+    return;
+  }
+  const pageData = paginateTechniqueEntries(
+    getFilteredLearnedTechniques(ensureArray(draftSnapshot.techniques)),
+    currentTechniqueLearnedPage,
+    currentTechniquePageSize,
+  );
+  const allSelected = pageData.items.length > 0 && pageData.items.every((entry) => selectedLearnedTechniqueIds.has(entry.technique.techId));
+  for (const entry of pageData.items) {
+    if (allSelected) {
+      selectedLearnedTechniqueIds.delete(entry.technique.techId);
+    } else {
+      selectedLearnedTechniqueIds.add(entry.technique.techId);
+    }
+  }
+  patchTechniqueManagerListsFromDraft();
+}
+
+function removeSelectedLearnedTechniquesFromDraft(): void {
+  if (!syncTechniqueEditorDraft()) {
+    return;
+  }
+  const removed = removeTechniqueIdsFromDraft(new Set(selectedLearnedTechniqueIds));
+  selectedLearnedTechniqueIds.clear();
+  patchTechniqueManagerListsFromDraft();
+  setStatus(removed > 0 ? `已从草稿移除 ${removed} 个已学功法，保存功法标签后生效。` : '没有移除任何已学功法。', removed === 0);
+}
+
+function maxSelectedLearnedTechniquesInDraft(): void {
+  if (!syncTechniqueEditorDraft() || !draftSnapshot) {
+    return;
+  }
+  const selectedIds = new Set(selectedLearnedTechniqueIds);
+  if (selectedIds.size === 0) {
+    setStatus('请先勾选要满级的已学功法。', true);
+    return;
+  }
+  let changedCount = 0;
+  mutateDraft((draft) => {
+    draft.techniques = ensureArray(draft.techniques).map((technique) => {
+      if (!selectedIds.has(technique.techId)) {
+        return technique;
+      }
+      changedCount += 1;
+      return buildMaxLevelTechniqueState(technique);
+    });
+  });
+  setStatus(changedCount > 0 ? `已把 ${changedCount} 个功法设为满级草稿，保存功法标签后生效。` : '没有匹配到可满级的已学功法。', changedCount === 0);
+}
+
+function handleTechniqueEditorAction(action: string, trigger: HTMLElement): boolean {
+  switch (action) {
+    case 'switch-technique-subtab': {
+      if (!syncTechniqueEditorDraft()) return true;
+      const subtab = trigger.dataset.techniqueSubtab as GmTechniqueEditorSubtab | undefined;
+      if (!subtab) return true;
+      currentTechniqueEditorSubtab = subtab;
+      patchTechniqueManagerBodyFromDraft();
+      if (subtab === 'manage' && currentTechniqueCandidateSource === 'generated') {
+        loadGeneratedTechniqueCandidates(true).catch((error: unknown) => {
+          setStatus(error instanceof Error ? error.message : t('gm.request.failed'), true);
+        });
+      }
+      return true;
+    }
+    case 'refresh-generated-technique-candidates':
+      loadGeneratedTechniqueCandidates(false).catch((error: unknown) => {
+        setStatus(error instanceof Error ? error.message : t('gm.request.failed'), true);
+      });
+      return true;
+    case 'technique-candidate-prev':
+      if (currentTechniqueCandidatePage > 1) {
+        currentTechniqueCandidatePage -= 1;
+        if (currentTechniqueCandidateSource === 'generated') {
+          loadGeneratedTechniqueCandidates(true).catch((error: unknown) => setStatus(error instanceof Error ? error.message : t('gm.request.failed'), true));
+        } else {
+          patchTechniqueManagerListsFromDraft();
+        }
+      }
+      return true;
+    case 'technique-candidate-next':
+      currentTechniqueCandidatePage += 1;
+      if (currentTechniqueCandidateSource === 'generated') {
+        loadGeneratedTechniqueCandidates(true).catch((error: unknown) => setStatus(error instanceof Error ? error.message : t('gm.request.failed'), true));
+      } else {
+        patchTechniqueManagerListsFromDraft();
+      }
+      return true;
+    case 'technique-learned-prev':
+      currentTechniqueLearnedPage = Math.max(1, currentTechniqueLearnedPage - 1);
+      patchTechniqueManagerListsFromDraft();
+      return true;
+    case 'technique-learned-next':
+      currentTechniqueLearnedPage += 1;
+      patchTechniqueManagerListsFromDraft();
+      return true;
+    case 'select-page-technique-candidates':
+      selectCurrentTechniqueCandidatePage();
+      return true;
+    case 'clear-technique-candidate-selection':
+      clearTechniqueCandidateSelection();
+      patchTechniqueManagerListsFromDraft();
+      return true;
+    case 'random-select-technique-candidates':
+      selectRandomTechniqueCandidates();
+      return true;
+    case 'add-selected-techniques':
+      addSelectedTechniqueCandidatesToDraft();
+      return true;
+    case 'remove-selected-technique-candidates':
+      removeSelectedTechniqueCandidatesFromDraft();
+      return true;
+    case 'select-page-learned-techniques':
+      selectCurrentLearnedTechniquePage();
+      return true;
+    case 'clear-learned-technique-selection':
+      selectedLearnedTechniqueIds.clear();
+      patchTechniqueManagerListsFromDraft();
+      return true;
+    case 'remove-selected-learned-techniques':
+      removeSelectedLearnedTechniquesFromDraft();
+      return true;
+    case 'max-selected-learned-techniques':
+      maxSelectedLearnedTechniquesInDraft();
+      return true;
+    default:
+      return false;
+  }
+}
+
 /** runPlayerTechniqueShortcut：处理run玩家Technique Shortcut。 */
 async function runPlayerTechniqueShortcut(
   action: 'grant-all-unlearned-technique-books' | 'max-all-techniques' | 'learn-all-techniques' | 'remove-all-techniques',
@@ -11656,6 +12591,12 @@ playerListEl.addEventListener('click', (event) => {
   /** editorDirty：编辑器Dirty。 */
   editorDirty = false;
   currentInventorySearchQuery = '';
+  currentTechniqueSearchQuery = '';
+  currentTechniqueRealmLvFilter = '';
+  currentTechniqueCandidatePage = 1;
+  currentTechniqueLearnedPage = 1;
+  clearTechniqueCandidateSelection();
+  selectedLearnedTechniqueIds.clear();
   render();
   loadSelectedPlayerDetail(playerId, true).catch((error: unknown) => {
     setStatus(error instanceof Error ? error.message : t('gm.player.detail-load-failed'), true);
@@ -11744,6 +12685,9 @@ editorContentEl.addEventListener('click', (event) => {
     });
     return;
   }
+  if (handleTechniqueEditorAction(action, trigger)) {
+    return;
+  }
   if (action === 'grant-all-consumables' || action === 'grant-all-equipment') {
     runPlayerItemShortcut(action).catch((error: unknown) => {
       setStatus(error instanceof Error ? error.message : t('gm.request.failed'), true);
@@ -11763,6 +12707,13 @@ editorContentEl.addEventListener('input', (event) => {
     if (target instanceof HTMLInputElement && target.dataset.inventorySearch !== undefined) {
       currentInventorySearchQuery = target.value;
       patchInventoryListFromDraft();
+      return;
+    }
+    if (
+      (target instanceof HTMLInputElement || target instanceof HTMLSelectElement)
+      && target.dataset.techniqueFilter !== undefined
+    ) {
+      handleTechniqueFilterChange(target);
       return;
     }
     const binding = target.dataset.mailBind;
@@ -11805,6 +12756,27 @@ editorContentEl.addEventListener('change', (event) => {
         }
         return;
       }
+    }
+    if (target instanceof HTMLInputElement && target.dataset.techniqueCandidateId !== undefined) {
+      toggleTechniqueCandidateSelection(target.dataset.techniqueCandidateId, target.checked);
+      patchTechniqueManagerListsFromDraft();
+      return;
+    }
+    if (target instanceof HTMLInputElement && target.dataset.learnedTechniqueId !== undefined) {
+      if (target.checked) {
+        selectedLearnedTechniqueIds.add(target.dataset.learnedTechniqueId);
+      } else {
+        selectedLearnedTechniqueIds.delete(target.dataset.learnedTechniqueId);
+      }
+      patchTechniqueManagerListsFromDraft();
+      return;
+    }
+    if (
+      (target instanceof HTMLInputElement || target instanceof HTMLSelectElement)
+      && target.dataset.techniqueFilter !== undefined
+    ) {
+      handleTechniqueFilterChange(target);
+      return;
     }
   }
   if (target instanceof HTMLSelectElement && target.dataset.gmPositionMapCategory !== undefined) {

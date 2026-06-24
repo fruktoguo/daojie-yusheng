@@ -50,6 +50,13 @@ export class NativeGmGeneratedTechniqueService {
     return listGeneratedTechniquesForGm(pool, {
       page: normalizePositiveInteger(query?.page, 1),
       pageSize: normalizePositiveInteger(query?.pageSize, 50),
+      keyword: normalizeOptionalString(query?.keyword),
+      category: normalizeOptionalString(query?.category),
+      grade: normalizeOptionalString(query?.grade),
+      realmLv: normalizeOptionalPositiveInteger(query?.realmLv),
+      status: normalizeOptionalString(query?.status),
+      createdByPlayerId: normalizeOptionalString(query?.createdByPlayerId),
+      publishedOnly: normalizeBoolean(query?.publishedOnly),
     });
   }
 
@@ -128,4 +135,29 @@ function normalizePositiveInteger(value: unknown, fallback: number): number {
     return fallback;
   }
   return Math.max(1, Math.trunc(numeric));
+}
+
+function normalizeOptionalPositiveInteger(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return null;
+  }
+  return Math.max(1, Math.trunc(numeric));
+}
+
+function normalizeOptionalString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+}
+
+function normalizeBoolean(value: unknown): boolean | undefined {
+  if (value === true || value === 'true' || value === '1') {
+    return true;
+  }
+  if (value === false || value === 'false' || value === '0') {
+    return false;
+  }
+  return undefined;
 }

@@ -159,6 +159,20 @@ export interface GmGeneratedTechniqueListQuery {
   page?: number;
   /** 每页条数，服务端固定限制到最多 50。 */
   pageSize?: number;
+  /** 名称、ID、生成 ID 或创建者玩家 ID 关键字。 */
+  keyword?: string;
+  /** 功法类别过滤。 */
+  category?: TechniqueCategory | 'all';
+  /** 功法品阶过滤。 */
+  grade?: TechniqueGrade | 'all';
+  /** 境界等级过滤。 */
+  realmLv?: number;
+  /** 生成记录状态过滤。 */
+  status?: string;
+  /** 创建者玩家 ID 精确过滤。 */
+  createdByPlayerId?: string;
+  /** 仅返回已发布功法；用于 GM 给玩家添加可学习自创功法。 */
+  publishedOnly?: boolean;
 }
 
 /** GM AI 生成功法列表摘要。列表响应不携带大 JSON。 */

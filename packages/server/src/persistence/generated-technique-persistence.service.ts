@@ -217,6 +217,13 @@ export async function loadPublishedGeneratedTechniques(pool: Pool): Promise<Gene
 export interface ListGeneratedTechniquesForGmParams {
   page: number;
   pageSize: number;
+  keyword?: string;
+  category?: string;
+  grade?: string;
+  realmLv?: number | null;
+  status?: string;
+  createdByPlayerId?: string;
+  publishedOnly?: boolean;
 }
 
 export interface ListTechniqueGenerationJobsForGmParams {
@@ -277,11 +284,18 @@ export async function listGeneratedTechniquesForGm(
 ): Promise<{ techniques: GmGeneratedTechniqueSummary[]; page: GmGeneratedTechniqueListPage }> {
   const pageSize = clampInteger(params.pageSize, 1, 50, 50);
   const requestedPage = clampInteger(params.page, 1, 1_000_000, 1);
-  const countResult = await pool.query(`SELECT COUNT(*)::int AS total FROM ${GENERATED_TECHNIQUE_TABLE}`);
+  const filter = buildGeneratedTechniqueGmFilter(params);
+  const countResult = await pool.query(
+    `SELECT COUNT(*)::int AS total FROM ${GENERATED_TECHNIQUE_TABLE}${filter.whereSql}`,
+    filter.values,
+  );
   const total = normalizeInteger((countResult.rows[0] as { total?: unknown } | undefined)?.total, 0);
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const page = Math.min(requestedPage, totalPages);
   const offset = (page - 1) * pageSize;
+  const listValues = [...filter.values, pageSize, offset];
+  const limitParam = listValues.length - 1;
+  const offsetParam = listValues.length;
   const listResult = await pool.query(
     `SELECT id,
             generation_id,
@@ -297,9 +311,10 @@ export async function listGeneratedTechniquesForGm(
             created_at,
             updated_at
        FROM ${GENERATED_TECHNIQUE_TABLE}
+      ${filter.whereSql}
       ORDER BY created_at DESC, id DESC
-      LIMIT $1 OFFSET $2`,
-    [pageSize, offset],
+      LIMIT $${limitParam} OFFSET $${offsetParam}`,
+    listValues,
   );
 
   return {
@@ -310,6 +325,67 @@ export async function listGeneratedTechniquesForGm(
       total,
       totalPages,
     },
+  };
+}
+
+function buildGeneratedTechniqueGmFilter(params: ListGeneratedTechniquesForGmParams): {
+  whereSql: string;
+  values: unknown[];
+} {
+  const clauses: string[] = [];
+  const values: unknown[] = [];
+  const pushValue = (value: unknown): string => {
+    values.push(value);
+    return `$${values.length}`;
+  };
+
+  const keyword = normalizeOptionalString(params.keyword);
+  if (keyword) {
+    const param = pushValue(`%${keyword.toLowerCase()}%`);
+    clauses.push(`(
+      LOWER(id) LIKE ${param}
+      OR LOWER(generation_id) LIKE ${param}
+      OR LOWER(COALESCE(display_name, '')) LIKE ${param}
+      OR LOWER(COALESCE(template->>'name', '')) LIKE ${param}
+      OR LOWER(created_by_player_id) LIKE ${param}
+    )`);
+  }
+
+  const category = normalizeOptionalString(params.category);
+  if (category && category !== 'all') {
+    const param = pushValue(category);
+    clauses.push(`COALESCE(category, template->>'category') = ${param}`);
+  }
+
+  const grade = normalizeOptionalString(params.grade);
+  if (grade && grade !== 'all') {
+    const param = pushValue(grade);
+    clauses.push(`COALESCE(grade, template->>'grade') = ${param}`);
+  }
+
+  if (Number.isFinite(params.realmLv) && params.realmLv !== null) {
+    const realmLv = Math.trunc(Number(params.realmLv));
+    const param = pushValue(realmLv);
+    clauses.push(`(realm_lv = ${param} OR template->>'realmLv' = ${param}::text)`);
+  }
+
+  const status = normalizeOptionalString(params.status);
+  if (status) {
+    clauses.push(`status = ${pushValue(status)}`);
+  }
+
+  const createdByPlayerId = normalizeOptionalString(params.createdByPlayerId);
+  if (createdByPlayerId) {
+    clauses.push(`created_by_player_id = ${pushValue(createdByPlayerId)}`);
+  }
+
+  if (params.publishedOnly === true) {
+    clauses.push('is_published = true');
+  }
+
+  return {
+    whereSql: clauses.length > 0 ? ` WHERE ${clauses.join(' AND ')}` : '',
+    values,
   };
 }
 

@@ -1300,6 +1300,102 @@
       justify-content: start;
     }
 
+    .gm-technique-manager {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .gm-technique-subtabs,
+    .gm-technique-list-head,
+    .gm-technique-pagination {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .gm-technique-subtab-body {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .gm-technique-filters {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(140px, 1fr));
+      gap: 10px;
+      align-items: end;
+    }
+
+    .gm-technique-filters .editor-field.wide {
+      grid-column: span 2;
+    }
+
+    .gm-technique-candidate-list {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .gm-technique-row {
+      display: grid;
+      grid-template-columns: 18px minmax(0, 1fr) auto;
+      gap: 8px;
+      align-items: center;
+      min-width: 0;
+      padding: 9px 10px;
+      border: 1px solid var(--wash-ink);
+      background: rgba(248,248,245,0.94);
+      color: var(--ink-dark);
+    }
+
+    .gm-technique-row.learned {
+      background: rgba(197,60,60,0.06);
+    }
+
+    .gm-technique-row input,
+    .gm-technique-select-row input {
+      width: 16px;
+      height: 16px;
+    }
+
+    .gm-technique-row-main,
+    .gm-technique-select-row span {
+      min-width: 0;
+    }
+
+    .gm-technique-row-title {
+      font-family: var(--font-heading-sub);
+      font-size: 13px;
+      color: var(--ink-black);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .gm-technique-row-meta {
+      margin-top: 3px;
+      font-size: 11px;
+      color: var(--ink-grey);
+      word-break: break-all;
+    }
+
+    .gm-technique-select-row {
+      display: grid;
+      grid-template-columns: 18px minmax(0, 1fr);
+      gap: 8px;
+      align-items: start;
+      min-width: 0;
+    }
+
+    .gm-technique-learned-card .editor-card-head {
+      align-items: flex-start;
+    }
+
     .editor-card-head {
       display: flex;
       align-items: center;
@@ -1630,6 +1726,12 @@
       .inventory-compact-list {
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
+      .gm-technique-filters {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .gm-technique-candidate-list {
+        grid-template-columns: 1fr;
+      }
       .editor-grid,
       .editor-grid.compact,
       .editor-stat-grid,
@@ -1646,6 +1748,18 @@
     @media (max-width: 980px) {
       .inventory-compact-list {
         grid-template-columns: 1fr;
+      }
+      .gm-technique-filters,
+      .gm-technique-filters .editor-field.wide {
+        grid-template-columns: 1fr;
+        grid-column: auto;
+      }
+      .gm-technique-row {
+        grid-template-columns: 18px minmax(0, 1fr);
+      }
+      .gm-technique-row .pill {
+        grid-column: 2;
+        justify-self: flex-start;
       }
     }
 
