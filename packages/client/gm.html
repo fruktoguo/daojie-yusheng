@@ -170,6 +170,18 @@
       font-size: 16px;
     }
 
+    .login-autofill-anchor {
+      position: absolute;
+      left: -10000px;
+      width: 1px;
+      height: 1px;
+      margin: 0;
+      padding: 0;
+      border: 0;
+      opacity: 0;
+      pointer-events: none;
+    }
+
     .form-group input,
     .search-input,
     .number-input,
@@ -2569,10 +2581,11 @@
       <img class="login-logo" src="/logo.png" data-i18n-alt="gm.login-logo-daojie-yusheng.alt" alt="道劫余生" />
       <div class="login-title" data-i18n="gm.login-title-inspector-office">监察司</div>
       <div class="login-subtitle" data-i18n="gm.login-subtitle-login-subtitle">独立 GM 管理台 · 仅限持密进入</div>
-      <form id="gm-login-form">
+      <form id="gm-login-form" autocomplete="on">
+        <input id="gm-username" class="login-autofill-anchor" type="text" name="username" value="gm" autocomplete="username" tabindex="-1" aria-hidden="true" />
         <div class="form-group">
           <label for="gm-password" data-i18n="gm.gm-password">GM 密码</label>
-          <input id="gm-password" type="password" data-i18n-placeholder="gm.password.placeholder" placeholder="输入 GM 管理密码" autocomplete="current-password" />
+          <input id="gm-password" type="password" name="password" data-i18n-placeholder="gm.password.placeholder" placeholder="输入 GM 管理密码" autocomplete="current-password" />
         </div>
         <div class="login-actions">
           <button id="login-submit" class="action-btn primary" type="submit" data-i18n="gm.login-submit">入司</button>

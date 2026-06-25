@@ -13,6 +13,7 @@ const status = runVerificationSteps({
   dbEnabled: false,
   shadowEnabled: false,
   steps: [
+    { label: 'proof:gm-login-autofill', args: ['proof:gm-login-autofill'] },
     { label: 'build:client', args: ['build:client'] },
   ],
 });

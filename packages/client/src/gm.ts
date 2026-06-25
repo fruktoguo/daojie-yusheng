@@ -1188,6 +1188,7 @@ function persistGmPassword(password: string): void {
 /** syncPersistedGmPasswordToInputs：同步Persisted GM密码To Inputs。 */
 function syncPersistedGmPasswordToInputs(): void {
   const persistedPassword = readPersistedGmPassword();
+  if (!persistedPassword) return;
   passwordInput.value = persistedPassword;
   gmPasswordCurrentInput.value = persistedPassword;
 }
