@@ -9,7 +9,7 @@
       "desc": "继续历练，达到半步筑基，完成当前版本主线。",
       "objectiveType": "realm_stage",
       "objectiveText": "历练至半步筑基",
-      "targetRealmStage": "QiRefining",
+      "targetRealmStage": "QiRefiningLate",
       "targetRealmLv": 30,
       "targetMapId": "sky_ruins",
       "targetName": "半步筑基",
