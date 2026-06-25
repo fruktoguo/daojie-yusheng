@@ -280,12 +280,13 @@ function TopicShell({ topics, ariaLabel, activeId, onSelect, onNestedSelect, tab
                 type="button"
                 role="tab"
                 aria-selected={active ? 'true' : 'false'}
+                aria-expanded={topic.sections.length > 0 ? (active ? 'true' : 'false') : undefined}
                 onClick={() => onSelect(topic.id)}
                 {...{ [topicAttrName]: topic.id }}
               >
                 <span className="tutorial-modal-tab-label ui-split-panel-tab-label">{topic.label}</span>
               </button>
-              {topic.sections.length > 0 && (
+              {active && topic.sections.length > 0 && (
                 <div className="tutorial-modal-subtabs" role="tablist" aria-label={`${topic.label}子类`}>
                   {topic.sections.map((section) => {
                     const sectionActive = active && resolveActiveSectionTitle(topic) === section.title;
@@ -357,11 +358,6 @@ const TopicPane = memo(function TopicPane({ topic, active, activeSectionTitle, p
       aria-hidden={active ? 'false' : 'true'}
       {...{ [paneAttrName]: topic.id }}
     >
-      {topic.id !== 'operations' && (
-        <div className="tutorial-pane-hero">
-          <div className="tutorial-pane-summary"><RichText text={topic.summary} /></div>
-        </div>
-      )}
       {topic.id === 'operations' ? (
         <>
           {activeSection && (

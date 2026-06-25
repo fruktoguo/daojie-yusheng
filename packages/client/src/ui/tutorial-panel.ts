@@ -344,6 +344,7 @@ export class TutorialPanel {
   private renderTab(topic: TutorialTopic): string {
     const active = topic.id === this.activeTopicId;
     const activeSectionTitle = this.resolveActiveSectionTitle(topic);
+    const expandedAttr = topic.sections.length > 0 ? `aria-expanded="${active ? 'true' : 'false'}"` : '';
     return `
       <div class="tutorial-modal-tab-group">
         <button
@@ -352,6 +353,7 @@ export class TutorialPanel {
           role="tab"
           data-tutorial-tab="${escapeHtml(topic.id)}"
           aria-selected="${active ? 'true' : 'false'}"
+          ${expandedAttr}
         >
           <span class="tutorial-modal-tab-label ui-split-panel-tab-label">${escapeHtml(topic.label)}</span>
         </button>
@@ -359,6 +361,7 @@ export class TutorialPanel {
           topic,
           active,
           activeSectionTitle,
+          'data-tutorial-section-tabs',
           'data-tutorial-section-tab',
           'data-tutorial-section-topic',
         )}
@@ -377,10 +380,6 @@ export class TutorialPanel {
         role="tabpanel"
         aria-hidden="${active ? 'false' : 'true'}"
       >
-        <div class="tutorial-pane-hero">
-          <div class="tutorial-pane-kicker">${escapeHtml(t('tutorial.panel.kicker.operations', undefined))}</div>
-          <div class="tutorial-pane-summary">${renderTutorialRichText(topic.summary)}</div>
-        </div>
         <div class="tutorial-pane-sections">
           ${this.renderTopicSectionPanes(
             topic,
@@ -405,6 +404,7 @@ export class TutorialPanel {
   private renderMechanicTab(topic: TutorialTopic): string {
     const active = topic.id === this.activeMechanicTopicId;
     const activeSectionTitle = this.resolveActiveSectionTitle(topic);
+    const expandedAttr = topic.sections.length > 0 ? `aria-expanded="${active ? 'true' : 'false'}"` : '';
     return `
       <div class="tutorial-modal-tab-group">
         <button
@@ -413,6 +413,7 @@ export class TutorialPanel {
           role="tab"
           data-tutorial-mechanic-tab="${escapeHtml(topic.id)}"
           aria-selected="${active ? 'true' : 'false'}"
+          ${expandedAttr}
         >
           <span class="tutorial-modal-tab-label ui-split-panel-tab-label">${escapeHtml(topic.label)}</span>
         </button>
@@ -420,6 +421,7 @@ export class TutorialPanel {
           topic,
           active,
           activeSectionTitle,
+          'data-tutorial-mechanic-section-tabs',
           'data-tutorial-mechanic-section-tab',
           'data-tutorial-mechanic-section-topic',
         )}
@@ -438,9 +440,6 @@ export class TutorialPanel {
         role="tabpanel"
         aria-hidden="${active ? 'false' : 'true'}"
       >
-        <div class="tutorial-pane-hero">
-          <div class="tutorial-pane-summary">${renderTutorialRichText(topic.summary)}</div>
-        </div>
         ${topic.id === 'realm-table' ? this.renderRealmTable() : `
           <div class="tutorial-pane-sections">
             ${this.renderTopicSectionPanes(
@@ -473,6 +472,7 @@ export class TutorialPanel {
     topic: TutorialTopic,
     topicActive: boolean,
     activeSectionTitle: string,
+    sectionTabsAttr: string,
     sectionTabAttr: string,
     sectionTopicAttr: string,
   ): string {
@@ -480,7 +480,14 @@ export class TutorialPanel {
       return '';
     }
     return `
-      <div class="tutorial-modal-subtabs" role="tablist" aria-label="${escapeHtml(`${topic.label}子类`)}">
+      <div
+        class="tutorial-modal-subtabs"
+        role="tablist"
+        aria-label="${escapeHtml(`${topic.label}子类`)}"
+        aria-hidden="${topicActive ? 'false' : 'true'}"
+        ${topicActive ? '' : 'hidden'}
+        ${sectionTabsAttr}="${escapeHtml(topic.id)}"
+      >
         ${topic.sections.map((section) => {
           const sectionActive = topicActive && section.title === activeSectionTitle;
           return `
@@ -734,12 +741,23 @@ export class TutorialPanel {
     });
     body.querySelectorAll<HTMLElement>('[data-tutorial-tab]').forEach((entry) => {
       const active = entry.dataset.tutorialTab === this.activeTopicId;
+      const topic = TUTORIAL_TOPICS.find((item) => item.id === entry.dataset.tutorialTab);
       entry.classList.toggle('active', active);
       entry.setAttribute('aria-selected', active ? 'true' : 'false');
+      if (topic && topic.sections.length > 0) {
+        entry.setAttribute('aria-expanded', active ? 'true' : 'false');
+      } else {
+        entry.removeAttribute('aria-expanded');
+      }
     });
     body.querySelectorAll<HTMLElement>('[data-tutorial-pane]').forEach((entry) => {
       const active = entry.dataset.tutorialPane === this.activeTopicId;
       entry.classList.toggle('active', active);
+      entry.setAttribute('aria-hidden', active ? 'false' : 'true');
+    });
+    body.querySelectorAll<HTMLElement>('[data-tutorial-section-tabs]').forEach((entry) => {
+      const active = entry.dataset.tutorialSectionTabs === this.activeTopicId;
+      entry.hidden = !active;
       entry.setAttribute('aria-hidden', active ? 'false' : 'true');
     });
     body.querySelectorAll<HTMLElement>('[data-tutorial-section-tab]').forEach((entry) => {
@@ -761,12 +779,23 @@ export class TutorialPanel {
     });
     body.querySelectorAll<HTMLElement>('[data-tutorial-mechanic-tab]').forEach((entry) => {
       const active = entry.dataset.tutorialMechanicTab === this.activeMechanicTopicId;
+      const topic = TUTORIAL_MECHANIC_TOPICS.find((item) => item.id === entry.dataset.tutorialMechanicTab);
       entry.classList.toggle('active', active);
       entry.setAttribute('aria-selected', active ? 'true' : 'false');
+      if (topic && topic.sections.length > 0) {
+        entry.setAttribute('aria-expanded', active ? 'true' : 'false');
+      } else {
+        entry.removeAttribute('aria-expanded');
+      }
     });
     body.querySelectorAll<HTMLElement>('[data-tutorial-mechanic-pane]').forEach((entry) => {
       const active = entry.dataset.tutorialMechanicPane === this.activeMechanicTopicId;
       entry.classList.toggle('active', active);
+      entry.setAttribute('aria-hidden', active ? 'false' : 'true');
+    });
+    body.querySelectorAll<HTMLElement>('[data-tutorial-mechanic-section-tabs]').forEach((entry) => {
+      const active = entry.dataset.tutorialMechanicSectionTabs === this.activeMechanicTopicId;
+      entry.hidden = !active;
       entry.setAttribute('aria-hidden', active ? 'false' : 'true');
     });
     body.querySelectorAll<HTMLElement>('[data-tutorial-mechanic-section-tab]').forEach((entry) => {
