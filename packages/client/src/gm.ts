@@ -145,6 +145,8 @@ import {
   type GmMarketTradeItem,
   type GmMarketTradeListQuery,
   type GmMarketTradeListRes,
+  expandTechniqueExpCurve,
+  getTechniqueExpToNext,
 } from '@mud/shared';
 import {
   GM_FACING_OPTIONS,
@@ -7398,13 +7400,21 @@ function createTechniqueFromGeneratedSummary(summary: GmGeneratedTechniqueSummar
   if (existing) {
     return clone(existing);
   }
+  const grade = (summary.grade as TechniqueGrade | undefined) ?? 'mortal';
+  const category = (summary.category as TechniqueCategory | undefined) ?? 'internal';
+  const realmLv = Math.max(1, Math.trunc(Number(summary.realmLv) || 1));
+  // 自创功法未定稿时，估算经验曲线以便修炼系统可正常推进
+  const expCurve = expandTechniqueExpCurve(grade, realmLv, realmLv * 3, 1, category);
+  const layers = expCurve.perLayerExp.map((expToNext, i) => ({ level: i + 1, expToNext }));
   return {
     ...createDefaultTechnique(),
     techId: summary.id,
     name: summary.name,
-    grade: (summary.grade as TechniqueGrade | undefined) ?? 'mortal',
-    category: (summary.category as TechniqueCategory | undefined) ?? 'internal',
-    realmLv: Math.max(1, Math.trunc(Number(summary.realmLv) || 1)),
+    grade,
+    category,
+    realmLv,
+    layers,
+    expToNext: getTechniqueExpToNext(1, layers),
   };
 }
 

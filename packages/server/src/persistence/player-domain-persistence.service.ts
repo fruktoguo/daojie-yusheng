@@ -13,7 +13,7 @@
  * 按域独立读写，支持增量刷盘、恢复水位和旧快照兼容水合。
  */
 import { Inject, Injectable, Logger, Optional, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
-import { ARTIFACT_SLOTS, createItemStackSignature, EQUIP_SLOTS, isLegacyItemInstanceId, PLAYER_HEARTBEAT_TIMEOUT_MS, TechniqueRealm } from '@mud/shared';
+import { ARTIFACT_SLOTS, createItemStackSignature, EQUIP_SLOTS, isCreatedTechniqueId, isLegacyItemInstanceId, PLAYER_HEARTBEAT_TIMEOUT_MS, TechniqueRealm } from '@mud/shared';
 import type { OfflineGainReportView, PlayerStatisticPeriodTotalView } from '@mud/shared';
 import { randomUUID } from 'node:crypto';
 import type { PoolClient } from 'pg';
@@ -7531,12 +7531,22 @@ function hydrateProjectedTechniqueState(
     return hydrated;
   }
   const fallbackName = resolveProjectedTechniqueName(dynamicState.techId, contentTemplateRepository) ?? dynamicState.techId;
+  // 自创功法在玩家分域中无静态模板；若 expToNext > 0 则按 realmLv 估算存根层数，
+  // 保证修炼系统能正常推进而不因 layers:[] 导致 maxLevel = currentLevel 被卡住
+  const expToNext = Math.max(0, Math.trunc(Number(dynamicState.expToNext ?? 0)));
+  const realmLv = Math.max(1, Math.trunc(Number(dynamicState.realmLv ?? 1)));
+  const stubLayers = isCreatedTechniqueId(dynamicState.techId) && expToNext > 0
+    ? Array.from({ length: realmLv * 3 }, (_, i) => ({
+        level: i + 1,
+        expToNext: i < realmLv * 3 - 1 ? expToNext : 0,
+      }))
+    : [];
   return {
     ...dynamicState,
     name: fallbackName,
     realm: TechniqueRealm.Entry,
     skills: [],
-    layers: [],
+    layers: stubLayers,
   };
 }
 
