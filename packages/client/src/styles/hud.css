@@ -312,13 +312,33 @@
       padding-top: 4px;
       text-align: center;
     }
+    .hud-realm-heading {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      width: 100%;
+      min-width: 0;
+    }
     .hud-realm-value {
       font-size: var(--font-size-role-realm-level-40);
       font-family: var(--font-role-realm-level);
       color: var(--ink-black);
       line-height: 1;
+      flex: 1 1 auto;
+      min-width: 0;
       width: 100%;
       text-align: center;
+      overflow-wrap: anywhere;
+    }
+    .hud-realm-level {
+      flex: 0 0 auto;
+      font-family: var(--font-role-body);
+      font-size: var(--font-size-role-realm-level-18);
+      font-weight: var(--font-weight-role-label);
+      color: var(--ink-grey);
+      line-height: 1.1;
+      text-align: right;
+      white-space: nowrap;
     }
     .hud-realm-sub {
       font-size: var(--font-size-role-realm-level-18);

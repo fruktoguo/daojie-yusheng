@@ -18,6 +18,7 @@ export interface ReactHudStatusState {
   objective: string;
   threat: string;
   realmLabel: string;
+  realmLevelLabel: string;
   realmReviewLabel: string;
   realmActionLabel: string;
   showRealmAction: boolean;
@@ -38,6 +39,7 @@ const DEFAULT_HUD_STATUS: ReactHudStatusState = {
   objective: t('shell.objective', undefined),
   threat: t('shell.threat', undefined),
   realmLabel: '-',
+  realmLevelLabel: '',
   realmReviewLabel: '-',
   realmActionLabel: t('shell.breakthrough', undefined),
   showRealmAction: false,
@@ -175,7 +177,10 @@ const HudStatusView = memo(function HudStatusView() {
               {state.realmActionLabel}
             </button>
             <div className="hud-realm-main">
-              <div className="hud-realm-value" id="hud-realm">{state.realmLabel}</div>
+              <div className="hud-realm-heading">
+                <div className="hud-realm-value" id="hud-realm">{state.realmLabel}</div>
+                <div className="hud-realm-level" id="hud-realm-level">{state.realmLevelLabel}</div>
+              </div>
               <div className="hud-realm-sub" id="hud-realm-sub">{state.realmReviewLabel}</div>
             </div>
             <div className="hud-progress-shell">

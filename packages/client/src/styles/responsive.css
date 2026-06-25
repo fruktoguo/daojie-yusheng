@@ -347,6 +347,9 @@
       .mobile-ui-pane [data-mobile-section="overview"] .hud-realm-value {
         font-size: var(--font-size-28);
       }
+      .mobile-ui-pane [data-mobile-section="overview"] .hud-realm-level {
+        font-size: var(--font-size-16);
+      }
       .mobile-ui-pane [data-mobile-section="overview"] .hud-realm-sub {
         font-size: var(--font-size-16);
       }

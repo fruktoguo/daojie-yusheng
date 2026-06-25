@@ -109,6 +109,8 @@ export class HUD {
   private threatDiv = document.getElementById('hud-threat')!;
   /** realmValue：境界值。 */
   private realmValue = document.getElementById('hud-realm')!;
+  /** realmLevel：境界等级标签。 */
+  private realmLevel = document.getElementById('hud-realm-level')!;
   /** realmSub：境界Sub。 */
   private realmSub = document.getElementById('hud-realm-sub')!;
   /** breakthroughButton：breakthrough按钮。 */
@@ -180,10 +182,10 @@ export class HUD {
     this.setText(this.objectiveDiv, 'objective', meta?.boneAgeLabel ?? this.buildBoneAgeLabel(player));
     this.setText(this.threatDiv, 'threat', meta?.lifespanLabel ?? this.buildLifespanLabel(player));
 
-    const realmLabel = meta?.realmLabel ?? (player.realm?.displayName
-      ? `${player.realm.displayName} lv${player.realm.realmLv}`
-      : player.realmName ?? player.realmStage ?? '-');
+    const realmLabel = meta?.realmLabel ?? player.realm?.displayName ?? player.realmName ?? player.realmStage ?? '-';
+    const realmLevelLabel = this.buildRealmLevelLabel(player);
     this.setText(this.realmValue, 'realm', realmLabel);
+    this.setText(this.realmLevel, 'realm-level', realmLevelLabel);
     const realmReviewLabel = meta?.realmReviewLabel ?? player.realm?.review ?? player.realmReview ?? '-';
     this.setText(this.realmSub, 'realm-sub', realmReviewLabel);
     const breakthroughPreview = player.realm?.breakthrough;
@@ -238,9 +240,8 @@ export class HUD {
   }
 
   private buildReactHudStatus(player: PlayerState, meta?: HUDMeta): ReactHudStatusState {
-    const realmLabel = meta?.realmLabel ?? (player.realm?.displayName
-      ? `${player.realm.displayName} lv${player.realm.realmLv}`
-      : player.realmName ?? player.realmStage ?? '-');
+    const realmLabel = meta?.realmLabel ?? player.realm?.displayName ?? player.realmName ?? player.realmStage ?? '-';
+    const realmLevelLabel = this.buildRealmLevelLabel(player);
     const realmReviewLabel = meta?.realmReviewLabel ?? player.realm?.review ?? player.realmReview ?? '-';
     const breakthroughPreview = player.realm?.breakthrough;
     const canBreakthrough = player.realm?.breakthroughReady === true && breakthroughPreview?.canBreakthrough === true;
@@ -266,6 +267,7 @@ export class HUD {
       objective: meta?.boneAgeLabel ?? this.buildBoneAgeLabel(player),
       threat: meta?.lifespanLabel ?? this.buildLifespanLabel(player),
       realmLabel,
+      realmLevelLabel,
       realmReviewLabel,
       realmActionLabel,
       showRealmAction,
@@ -287,6 +289,15 @@ export class HUD {
       text: formatDisplayCurrentMax(roundedValue, roundedMax),
       width: `${Math.round(ratio * 100)}%`,
     };
+  }
+
+  private buildRealmLevelLabel(player: PlayerState): string {
+    const rawRealmLv = player.realm?.realmLv ?? player.realmLv;
+    const realmLv = Number(rawRealmLv);
+    if (!Number.isFinite(realmLv) || realmLv <= 0) {
+      return '';
+    }
+    return `lv${formatDisplayInteger(Math.floor(realmLv))}`;
   }
 
   private buildCultivate(player: PlayerState): { text: string; width: string } {
