@@ -180,7 +180,9 @@ export class HUD {
     this.setText(this.objectiveDiv, 'objective', meta?.boneAgeLabel ?? this.buildBoneAgeLabel(player));
     this.setText(this.threatDiv, 'threat', meta?.lifespanLabel ?? this.buildLifespanLabel(player));
 
-    const realmLabel = meta?.realmLabel ?? player.realm?.displayName ?? player.realmName ?? player.realmStage ?? '-';
+    const realmLabel = meta?.realmLabel ?? (player.realm?.displayName
+      ? `${player.realm.displayName} lv${player.realm.realmLv}`
+      : player.realmName ?? player.realmStage ?? '-');
     this.setText(this.realmValue, 'realm', realmLabel);
     const realmReviewLabel = meta?.realmReviewLabel ?? player.realm?.review ?? player.realmReview ?? '-';
     this.setText(this.realmSub, 'realm-sub', realmReviewLabel);
@@ -236,7 +238,9 @@ export class HUD {
   }
 
   private buildReactHudStatus(player: PlayerState, meta?: HUDMeta): ReactHudStatusState {
-    const realmLabel = meta?.realmLabel ?? player.realm?.displayName ?? player.realmName ?? player.realmStage ?? '-';
+    const realmLabel = meta?.realmLabel ?? (player.realm?.displayName
+      ? `${player.realm.displayName} lv${player.realm.realmLv}`
+      : player.realmName ?? player.realmStage ?? '-');
     const realmReviewLabel = meta?.realmReviewLabel ?? player.realm?.review ?? player.realmReview ?? '-';
     const breakthroughPreview = player.realm?.breakthrough;
     const canBreakthrough = player.realm?.breakthroughReady === true && breakthroughPreview?.canBreakthrough === true;

@@ -20,6 +20,7 @@ export * from './attributes';
 export * from './technique';
 export * from './technique-arts-strength';
 export * from './realm';
+export * from './realm-table';
 export * from './equipment';
 export * from './monster';
 export * from './navigation';

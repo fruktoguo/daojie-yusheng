@@ -1401,6 +1401,10 @@
       color: var(--tech-realm-level-ink);
       background: var(--tech-realm-level-bg);
     }
+    .realm-lv-suffix {
+      font-size: 0.75em;
+      opacity: 0.75;
+    }
     .tech-realm {
       color: var(--tech-realm-ink);
       background: var(--tech-realm-bg);
@@ -3569,6 +3573,28 @@
       border-color: rgba(133, 68, 45, 0.42);
       background: rgba(214, 188, 142, 0.24);
       color: var(--ink-black);
+    }
+    .realm-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: var(--font-size-role-body-14);
+    }
+    .realm-table th,
+    .realm-table td {
+      padding: 6px 10px;
+      border: 1px solid var(--wash-ink);
+      text-align: left;
+    }
+    .realm-table th {
+      background: rgba(214, 188, 142, 0.14);
+      color: var(--ink-black);
+      font-weight: var(--font-weight-semibold);
+    }
+    .realm-table td {
+      color: var(--ink-grey);
+    }
+    .realm-table tr:nth-child(even) td {
+      background: rgba(214, 188, 142, 0.06);
     }
     .detail-modal-head {
       display: flex;

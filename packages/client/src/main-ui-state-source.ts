@@ -290,7 +290,9 @@ export function createMainUiStateSource(options: MainUiStateSourceOptions) {
       options.hud.update(player, {
         mapName: options.mapRuntime.getMapMeta()?.name ?? t('hud.map-name.unknown'),
         mapDanger: this.resolveMapDanger(),
-        realmLabel: player.realm?.displayName ?? resolveRealmLabel(player),
+        realmLabel: player.realm?.displayName
+          ? `${player.realm.displayName} lv${player.realm.realmLv}`
+          : resolveRealmLabel(player),
         realmReviewLabel: player.realm?.review ?? player.realmReview,
         realmActionLabel: heavenGateAction?.label,
         showRealmAction: heavenGateAction?.visible,

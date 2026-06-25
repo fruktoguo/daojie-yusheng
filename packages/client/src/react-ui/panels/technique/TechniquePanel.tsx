@@ -99,6 +99,12 @@ function getTechniqueRealmLevelLabel(realmLv: number): string {
   return getLocalRealmLevelEntry(normalizedRealmLv)?.displayName ?? `Lv.${formatDisplayInteger(normalizedRealmLv)}`;
 }
 
+function getTechniqueRealmLevelData(realmLv: number): { displayName: string; lv: number } {
+  const normalizedRealmLv = Math.max(1, Math.floor(Number(realmLv) || 1));
+  const displayName = getLocalRealmLevelEntry(normalizedRealmLv)?.displayName ?? `Lv.${formatDisplayInteger(normalizedRealmLv)}`;
+  return { displayName, lv: normalizedRealmLv };
+}
+
 function sortTechniques(techniques: TechniqueState[]): TechniqueState[] {
   return [...techniques].sort((a, b) => {
     const ga = GRADE_SORT_INDEX.get(a.grade!) ?? 99;
@@ -231,7 +237,9 @@ const PendingTechniqueCard = memo(function PendingTechniqueCard({ pending, isCul
           {pending.sourceKind === 'created' && <span className="tech-badge tech-category">自创</span>}
           <span className="tech-badge tech-grade">{getTechniqueGradeLabel(pending.grade)}</span>
           <span className="tech-badge tech-category">{getTechniqueCategoryLabel(pending.category)}</span>
-          <span className="tech-badge tech-realm-level">{realmLabel}</span>
+          <span className="tech-badge tech-realm-level">
+            {(() => { const d = getTechniqueRealmLevelData(pending.realmLv); return <>{d.displayName}<small className="realm-lv-suffix"> lv{d.lv}</small></>; })()}
+          </span>
           {pending.activeTransferJob && <span className="tech-badge tech-grade">{pending.activeTransferJob.status === 'blocked' ? '等待传授' : '传授中'}</span>}
           {!selfComprehensionAllowed && <span className="tech-badge tech-grade">需传法</span>}
         </span>
@@ -305,7 +313,9 @@ const TechniqueCard = memo(function TechniqueCard({ tech, isCultivating, preview
           <span className="tech-name">{tech.name}</span>
           <span className="tech-badge tech-grade">{gradeLabel}</span>
           <span className="tech-badge tech-category">{categoryLabel}</span>
-          <span className="tech-badge tech-realm-level">{realmLevelLabel}</span>
+          <span className="tech-badge tech-realm-level">
+            {(() => { const d = getTechniqueRealmLevelData(tech.realmLv); return <>{d.displayName}<small className="realm-lv-suffix"> lv{d.lv}</small></>; })()}
+          </span>
           <span className="tech-layer">{t('technique.card.layer', { level: tech.level, maxLevel })}</span>
         </span>
         <span className="tech-progress-meta">

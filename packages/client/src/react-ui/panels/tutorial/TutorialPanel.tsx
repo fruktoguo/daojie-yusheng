@@ -10,6 +10,7 @@ import {
 } from '../../../constants/ui/tutorial';
 import { t } from '../../../ui/i18n';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../../../ui/floating-tooltip';
+import { gameplayConstants } from '@mud/shared';
 
 // ─── 类型 ────────────────────────────────────────────────────────────────────
 
@@ -380,6 +381,8 @@ const TopicPane = memo(function TopicPane({ topic, active, activeOperationSectio
           )}
           {renderTips()}
         </>
+      ) : topic.id === 'realm-table' ? (
+        <RealmTablePane />
       ) : (
         <>
           <div className="tutorial-pane-sections">
@@ -397,6 +400,39 @@ const TopicPane = memo(function TopicPane({ topic, active, activeOperationSectio
           {renderTips()}
         </>
       )}
+    </section>
+  );
+});
+
+// ─── 境界表 ──────────────────────────────────────────────────────────────────
+
+const REALM_TABLE_ROWS = gameplayConstants.getRealmTable();
+
+const PATH_LABEL: Record<string, string> = { martial: '武道', immortal: '仙道', ascended: '飞升' };
+
+const RealmTablePane = memo(function RealmTablePane() {
+  return (
+    <section className="tutorial-modal-pane active">
+      <table className="realm-table">
+        <thead>
+          <tr>
+            <th>境界</th>
+            <th>等级区间</th>
+            <th>道路</th>
+            <th>突破所需修为</th>
+          </tr>
+        </thead>
+        <tbody>
+          {REALM_TABLE_ROWS.map((row) => (
+            <tr key={row.stage}>
+              <td>{row.name}</td>
+              <td>Lv.{row.levelFrom}{row.levelFrom !== row.levelTo ? `–${row.levelTo}` : ''}</td>
+              <td>{PATH_LABEL[row.path] ?? row.path}</td>
+              <td>{row.progressToNext > 0 ? row.progressToNext.toLocaleString() : '—'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </section>
   );
 });
