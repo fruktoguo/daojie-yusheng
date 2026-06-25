@@ -194,6 +194,8 @@ export class TutorialPanel {
   private activeMechanicTopicId = TUTORIAL_MECHANIC_TOPICS[0]?.id ?? 'aura';
   /** activeFlowTopicId：活跃流转Topic ID。 */
   private activeFlowTopicId: TutorialFlowTopicId = TUTORIAL_FLOW_TOPICS[0]?.id ?? 'how-to-play';
+  /** activeSectionTitleByTopic：每个百科专题当前选中的子页标题。 */
+  private readonly activeSectionTitleByTopic: Record<string, string> = {};
   /** tooltip：提示。 */
   private readonly tooltip = new FloatingTooltip();  
   /**
@@ -340,22 +342,33 @@ export class TutorialPanel {
   /** renderTab：渲染Tab。 */
   private renderTab(topic: TutorialTopic): string {
     const active = topic.id === this.activeTopicId;
+    const activeSectionTitle = this.resolveActiveSectionTitle(topic);
     return `
-      <button
-        class="tutorial-modal-tab ui-split-panel-tab${active ? ' active' : ''}"
-        type="button"
-        role="tab"
-        data-tutorial-tab="${escapeHtml(topic.id)}"
-        aria-selected="${active ? 'true' : 'false'}"
-      >
-        <span class="tutorial-modal-tab-label ui-split-panel-tab-label">${escapeHtml(topic.label)}</span>
-      </button>
+      <div class="tutorial-modal-tab-group">
+        <button
+          class="tutorial-modal-tab ui-split-panel-tab${active ? ' active' : ''}"
+          type="button"
+          role="tab"
+          data-tutorial-tab="${escapeHtml(topic.id)}"
+          aria-selected="${active ? 'true' : 'false'}"
+        >
+          <span class="tutorial-modal-tab-label ui-split-panel-tab-label">${escapeHtml(topic.label)}</span>
+        </button>
+        ${this.renderTopicSectionTabs(
+          topic,
+          active,
+          activeSectionTitle,
+          'data-tutorial-section-tab',
+          'data-tutorial-section-topic',
+        )}
+      </div>
     `;
   }
 
   /** renderPane：渲染Pane。 */
   private renderPane(topic: TutorialTopic): string {
     const active = topic.id === this.activeTopicId;
+    const activeSectionTitle = this.resolveActiveSectionTitle(topic);
     return `
       <section
         class="tutorial-modal-pane${active ? ' active' : ''}"
@@ -368,14 +381,12 @@ export class TutorialPanel {
           <div class="tutorial-pane-summary">${renderTutorialRichText(topic.summary)}</div>
         </div>
         <div class="tutorial-pane-sections">
-          ${topic.sections.map((section) => `
-            <section class="tutorial-section-card">
-              <div class="tutorial-section-title">${escapeHtml(section.title)}</div>
-              <ul class="tutorial-section-list">
-                ${section.items.map((item) => `<li>${renderTutorialRichText(item)}</li>`).join('')}
-              </ul>
-            </section>
-          `).join('')}
+          ${this.renderTopicSectionPanes(
+            topic,
+            activeSectionTitle,
+            'data-tutorial-section-pane',
+            'data-tutorial-section-topic',
+          )}
         </div>
         ${topic.tips && topic.tips.length > 0 ? `
           <section class="tutorial-tip-card">
@@ -392,22 +403,33 @@ export class TutorialPanel {
   /** renderMechanicTab：渲染Mechanic Tab。 */
   private renderMechanicTab(topic: TutorialTopic): string {
     const active = topic.id === this.activeMechanicTopicId;
+    const activeSectionTitle = this.resolveActiveSectionTitle(topic);
     return `
-      <button
-        class="tutorial-modal-tab ui-split-panel-tab${active ? ' active' : ''}"
-        type="button"
-        role="tab"
-        data-tutorial-mechanic-tab="${escapeHtml(topic.id)}"
-        aria-selected="${active ? 'true' : 'false'}"
-      >
-        <span class="tutorial-modal-tab-label ui-split-panel-tab-label">${escapeHtml(topic.label)}</span>
-      </button>
+      <div class="tutorial-modal-tab-group">
+        <button
+          class="tutorial-modal-tab ui-split-panel-tab${active ? ' active' : ''}"
+          type="button"
+          role="tab"
+          data-tutorial-mechanic-tab="${escapeHtml(topic.id)}"
+          aria-selected="${active ? 'true' : 'false'}"
+        >
+          <span class="tutorial-modal-tab-label ui-split-panel-tab-label">${escapeHtml(topic.label)}</span>
+        </button>
+        ${this.renderTopicSectionTabs(
+          topic,
+          active,
+          activeSectionTitle,
+          'data-tutorial-mechanic-section-tab',
+          'data-tutorial-mechanic-section-topic',
+        )}
+      </div>
     `;
   }
 
   /** renderMechanicPane：渲染Mechanic Pane。 */
   private renderMechanicPane(topic: TutorialTopic): string {
     const active = topic.id === this.activeMechanicTopicId;
+    const activeSectionTitle = this.resolveActiveSectionTitle(topic);
     return `
       <section
         class="tutorial-modal-pane${active ? ' active' : ''}"
@@ -420,14 +442,12 @@ export class TutorialPanel {
           <div class="tutorial-pane-summary">${renderTutorialRichText(topic.summary)}</div>
         </div>
         <div class="tutorial-pane-sections">
-          ${topic.sections.map((section) => `
-            <section class="tutorial-section-card">
-              <div class="tutorial-section-title">${escapeHtml(section.title)}</div>
-              <ul class="tutorial-section-list">
-                ${section.items.map((item) => `<li>${renderTutorialRichText(item)}</li>`).join('')}
-              </ul>
-            </section>
-          `).join('')}
+          ${this.renderTopicSectionPanes(
+            topic,
+            activeSectionTitle,
+            'data-tutorial-mechanic-section-pane',
+            'data-tutorial-mechanic-section-topic',
+          )}
         </div>
         ${topic.tips && topic.tips.length > 0 ? `
           <section class="tutorial-tip-card">
@@ -439,6 +459,71 @@ export class TutorialPanel {
         ` : ''}
       </section>
     `;
+  }
+
+  /** resolveActiveSectionTitle：获取专题当前子页标题。 */
+  private resolveActiveSectionTitle(topic: TutorialTopic): string {
+    return this.activeSectionTitleByTopic[topic.id] ?? topic.sections[0]?.title ?? '';
+  }
+
+  /** renderTopicSectionTabs：渲染专题左侧子页签。 */
+  private renderTopicSectionTabs(
+    topic: TutorialTopic,
+    topicActive: boolean,
+    activeSectionTitle: string,
+    sectionTabAttr: string,
+    sectionTopicAttr: string,
+  ): string {
+    if (topic.sections.length <= 0) {
+      return '';
+    }
+    return `
+      <div class="tutorial-modal-subtabs" role="tablist" aria-label="${escapeHtml(`${topic.label}子类`)}">
+        ${topic.sections.map((section) => {
+          const sectionActive = topicActive && section.title === activeSectionTitle;
+          return `
+            <button
+              class="tutorial-modal-tab tutorial-modal-tab--child ui-split-panel-tab${sectionActive ? ' active' : ''}"
+              type="button"
+              role="tab"
+              aria-selected="${sectionActive ? 'true' : 'false'}"
+              ${sectionTabAttr}="${escapeHtml(section.title)}"
+              ${sectionTopicAttr}="${escapeHtml(topic.id)}"
+            >
+              <span class="tutorial-modal-tab-label ui-split-panel-tab-label">${escapeHtml(section.title)}</span>
+            </button>
+          `;
+        }).join('')}
+      </div>
+    `;
+  }
+
+  /** renderTopicSectionPanes：渲染专题右侧子页内容。 */
+  private renderTopicSectionPanes(
+    topic: TutorialTopic,
+    activeSectionTitle: string,
+    sectionPaneAttr: string,
+    sectionTopicAttr: string,
+  ): string {
+    return topic.sections.map((section) => {
+      const sectionActive = section.title === activeSectionTitle;
+      return `
+        <section
+          class="tutorial-section-card tutorial-topic-section-pane${sectionActive ? ' active' : ''}"
+          role="tabpanel"
+          aria-label="${escapeHtml(section.title)}"
+          aria-hidden="${sectionActive ? 'false' : 'true'}"
+          ${sectionActive ? '' : 'hidden'}
+          ${sectionPaneAttr}="${escapeHtml(section.title)}"
+          ${sectionTopicAttr}="${escapeHtml(topic.id)}"
+        >
+          <div class="tutorial-section-title">${escapeHtml(section.title)}</div>
+          <ul class="tutorial-section-list">
+            ${section.items.map((item) => `<li>${renderTutorialRichText(item)}</li>`).join('')}
+          </ul>
+        </section>
+      `;
+    }).join('');
   }
 
   /** renderFlowGuide：渲染流转Guide。 */
@@ -546,6 +631,22 @@ export class TutorialPanel {
         this.sync(body);
         return;
       }
+      const topicSectionTab = target.closest<HTMLElement>('[data-tutorial-section-tab]');
+      if (topicSectionTab) {
+        const nextTopicId = topicSectionTab.dataset.tutorialSectionTopic;
+        const nextSectionTitle = topicSectionTab.dataset.tutorialSectionTab;
+        if (!nextTopicId || !nextSectionTitle) {
+          return;
+        }
+        const unchanged = nextTopicId === this.activeTopicId && this.activeSectionTitleByTopic[nextTopicId] === nextSectionTitle;
+        this.activeTopicId = nextTopicId;
+        this.activeSectionTitleByTopic[nextTopicId] = nextSectionTitle;
+        this.tooltip.hide(true);
+        if (!unchanged) {
+          this.sync(body);
+        }
+        return;
+      }
       const mechanicTab = target.closest<HTMLElement>('[data-tutorial-mechanic-tab]');
       if (mechanicTab) {
         const nextId = mechanicTab.dataset.tutorialMechanicTab;
@@ -555,6 +656,22 @@ export class TutorialPanel {
         this.activeMechanicTopicId = nextId;
         this.tooltip.hide(true);
         this.sync(body);
+        return;
+      }
+      const mechanicSectionTab = target.closest<HTMLElement>('[data-tutorial-mechanic-section-tab]');
+      if (mechanicSectionTab) {
+        const nextTopicId = mechanicSectionTab.dataset.tutorialMechanicSectionTopic;
+        const nextSectionTitle = mechanicSectionTab.dataset.tutorialMechanicSectionTab;
+        if (!nextTopicId || !nextSectionTitle) {
+          return;
+        }
+        const unchanged = nextTopicId === this.activeMechanicTopicId && this.activeSectionTitleByTopic[nextTopicId] === nextSectionTitle;
+        this.activeMechanicTopicId = nextTopicId;
+        this.activeSectionTitleByTopic[nextTopicId] = nextSectionTitle;
+        this.tooltip.hide(true);
+        if (!unchanged) {
+          this.sync(body);
+        }
         return;
       }
       const flowTab = target.closest<HTMLElement>('[data-tutorial-flow-tab]');
@@ -594,6 +711,23 @@ export class TutorialPanel {
       entry.classList.toggle('active', active);
       entry.setAttribute('aria-hidden', active ? 'false' : 'true');
     });
+    body.querySelectorAll<HTMLElement>('[data-tutorial-section-tab]').forEach((entry) => {
+      const topicId = entry.dataset.tutorialSectionTopic ?? '';
+      const sectionTitle = entry.dataset.tutorialSectionTab ?? '';
+      const topic = TUTORIAL_TOPICS.find((item) => item.id === topicId);
+      const active = topicId === this.activeTopicId && sectionTitle === (topic ? this.resolveActiveSectionTitle(topic) : '');
+      entry.classList.toggle('active', active);
+      entry.setAttribute('aria-selected', active ? 'true' : 'false');
+    });
+    body.querySelectorAll<HTMLElement>('[data-tutorial-section-pane]').forEach((entry) => {
+      const topicId = entry.dataset.tutorialSectionTopic ?? '';
+      const sectionTitle = entry.dataset.tutorialSectionPane ?? '';
+      const topic = TUTORIAL_TOPICS.find((item) => item.id === topicId);
+      const active = topicId === this.activeTopicId && sectionTitle === (topic ? this.resolveActiveSectionTitle(topic) : '');
+      entry.classList.toggle('active', active);
+      entry.hidden = !active;
+      entry.setAttribute('aria-hidden', active ? 'false' : 'true');
+    });
     body.querySelectorAll<HTMLElement>('[data-tutorial-mechanic-tab]').forEach((entry) => {
       const active = entry.dataset.tutorialMechanicTab === this.activeMechanicTopicId;
       entry.classList.toggle('active', active);
@@ -602,6 +736,23 @@ export class TutorialPanel {
     body.querySelectorAll<HTMLElement>('[data-tutorial-mechanic-pane]').forEach((entry) => {
       const active = entry.dataset.tutorialMechanicPane === this.activeMechanicTopicId;
       entry.classList.toggle('active', active);
+      entry.setAttribute('aria-hidden', active ? 'false' : 'true');
+    });
+    body.querySelectorAll<HTMLElement>('[data-tutorial-mechanic-section-tab]').forEach((entry) => {
+      const topicId = entry.dataset.tutorialMechanicSectionTopic ?? '';
+      const sectionTitle = entry.dataset.tutorialMechanicSectionTab ?? '';
+      const topic = TUTORIAL_MECHANIC_TOPICS.find((item) => item.id === topicId);
+      const active = topicId === this.activeMechanicTopicId && sectionTitle === (topic ? this.resolveActiveSectionTitle(topic) : '');
+      entry.classList.toggle('active', active);
+      entry.setAttribute('aria-selected', active ? 'true' : 'false');
+    });
+    body.querySelectorAll<HTMLElement>('[data-tutorial-mechanic-section-pane]').forEach((entry) => {
+      const topicId = entry.dataset.tutorialMechanicSectionTopic ?? '';
+      const sectionTitle = entry.dataset.tutorialMechanicSectionPane ?? '';
+      const topic = TUTORIAL_MECHANIC_TOPICS.find((item) => item.id === topicId);
+      const active = topicId === this.activeMechanicTopicId && sectionTitle === (topic ? this.resolveActiveSectionTitle(topic) : '');
+      entry.classList.toggle('active', active);
+      entry.hidden = !active;
       entry.setAttribute('aria-hidden', active ? 'false' : 'true');
     });
     body.querySelectorAll<HTMLElement>('[data-tutorial-flow-tab]').forEach((entry) => {

@@ -298,7 +298,7 @@ function TopicShell({ topics, ariaLabel, activeId, onSelect, onNestedSelect, tab
                         type="button"
                         role="tab"
                         aria-selected={sectionActive ? 'true' : 'false'}
-                        data-tutorial-operation-section-tab={section.title}
+                        data-tutorial-topic-section-tab={section.title}
                         onClick={() => {
                           onNestedSelect?.();
                           setActiveSectionByTopic((prev) => ({ ...prev, [topic.id]: section.title }));
@@ -323,7 +323,7 @@ function TopicShell({ topics, ariaLabel, activeId, onSelect, onNestedSelect, tab
             key={topic.id}
             topic={topic}
             active={topic.id === activeId}
-            activeOperationSectionTitle={resolveActiveSectionTitle(topic)}
+            activeSectionTitle={resolveActiveSectionTitle(topic)}
             paneDataAttr={paneDataAttr}
             kickerKey={kickerKey}
           />
@@ -333,15 +333,15 @@ function TopicShell({ topics, ariaLabel, activeId, onSelect, onNestedSelect, tab
   );
 }
 
-const TopicPane = memo(function TopicPane({ topic, active, activeOperationSectionTitle, paneDataAttr, kickerKey }: {
+const TopicPane = memo(function TopicPane({ topic, active, activeSectionTitle, paneDataAttr, kickerKey }: {
   topic: TutorialTopic;
   active: boolean;
-  activeOperationSectionTitle?: string;
+  activeSectionTitle?: string;
   paneDataAttr: string;
   kickerKey: string;
 }) {
   const paneAttrName = paneDataAttr.replace('data-', '').replace(/-([a-z])/g, (_, c: string) => c.toUpperCase());
-  const activeSection = topic.sections.find((section) => section.title === activeOperationSectionTitle) ?? topic.sections[0] ?? null;
+  const activeSection = topic.sections.find((section) => section.title === activeSectionTitle) ?? topic.sections[0] ?? null;
   const renderTips = () => (
     topic.tips && topic.tips.length > 0 && (
       <section className="tutorial-tip-card">
@@ -370,7 +370,7 @@ const TopicPane = memo(function TopicPane({ topic, active, activeOperationSectio
       {topic.id === 'operations' ? (
         <>
           {activeSection && (
-            <section className="tutorial-section-card tutorial-operation-card" role="tabpanel">
+            <section className="tutorial-section-card" role="tabpanel" aria-label={activeSection.title}>
               <div className="tutorial-section-title">{activeSection.title}</div>
               <ul className="tutorial-section-list">
                 {activeSection.items.map((item, ii) => (
@@ -385,18 +385,16 @@ const TopicPane = memo(function TopicPane({ topic, active, activeOperationSectio
         <RealmTablePane />
       ) : (
         <>
-          <div className="tutorial-pane-sections">
-            {topic.sections.map((section, si) => (
-              <section key={si} className="tutorial-section-card">
-                <div className="tutorial-section-title">{section.title}</div>
-                <ul className="tutorial-section-list">
-                  {section.items.map((item, ii) => (
-                    <li key={ii}><RichText text={item} /></li>
-                  ))}
-                </ul>
-              </section>
-            ))}
-          </div>
+          {activeSection && (
+            <section className="tutorial-section-card" role="tabpanel" aria-label={activeSection.title}>
+              <div className="tutorial-section-title">{activeSection.title}</div>
+              <ul className="tutorial-section-list">
+                {activeSection.items.map((item, ii) => (
+                  <li key={ii}><RichText text={item} /></li>
+                ))}
+              </ul>
+            </section>
+          )}
           {renderTips()}
         </>
       )}
