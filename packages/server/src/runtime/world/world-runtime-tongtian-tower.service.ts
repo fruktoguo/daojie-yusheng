@@ -414,6 +414,8 @@ export class WorldRuntimeTongtianTowerService {
       displayName: `通天塔 第 ${layer} 层`,
       instanceOrigin: 'gm_manual',
       routeDomain: 'system',
+      supportsPvp: false,
+      canDamageTile: false,
     });
     this.ensureLayerState(instance, layer, deps.tick);
     return instance;

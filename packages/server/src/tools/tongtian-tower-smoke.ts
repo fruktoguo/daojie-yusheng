@@ -89,6 +89,11 @@ async function main(): Promise<void> {
   );
 
   const layer1 = deps.getInstanceRuntimeOrThrow('tower:tongtian:layer:1');
+  const layer1CreateInput = deps.createInstanceCalls.find((input: any) => input.instanceId === 'tower:tongtian:layer:1');
+  assert.equal(layer1CreateInput?.supportsPvp, false, '通天塔正常创建路径必须显式禁用 PVP，不能依赖实例默认能力');
+  assert.equal(layer1CreateInput?.canDamageTile, false, '通天塔正常创建路径必须显式禁用地块攻击');
+  assert.equal(layer1.meta.supportsPvp, false, '通天塔实例不允许玩家互攻');
+  assert.equal(layer1.meta.canDamageTile, false, '通天塔实例不允许攻击地块');
   const layer1TimeAtNight = resolveGameTimeState(0, 20, layer1.template.source.time, 1);
   const layer1TimeLater = resolveGameTimeState(6900, 20, layer1.template.source.time, 1);
   assert.equal(layer1TimeAtNight.phase, 'day', '通天塔应恒定白昼，不进入夜晚相位');
@@ -226,8 +231,11 @@ async function main(): Promise<void> {
   connectToPublicMap(deps, 'player:cache', 31, 15);
   const cachedLayerView = tower.executeAction('player:cache', 'tower:tongtian:enter', deps);
   assert.equal(cachedLayerView.instance.instanceId, 'tower:tongtian:layer:7');
+  const cachedLayer = deps.getInstanceRuntimeOrThrow('tower:tongtian:layer:7');
+  assert.equal(cachedLayer.meta.supportsPvp, false, '通天塔恢复缓存路径必须保持禁 PVP');
+  assert.equal(cachedLayer.meta.canDamageTile, false, '通天塔恢复缓存路径必须保持禁地块攻击');
   assert.equal(
-    deps.getInstanceRuntimeOrThrow('tower:tongtian:layer:7').__towerRestoreMarker,
+    cachedLayer.__towerRestoreMarker,
     'hydrated:tower:tongtian:layer:7',
     '恢复后的通天塔层应保留磁盘回填标记',
   );
@@ -533,6 +541,8 @@ function createDeps(
         linePreset: input.linePreset,
         lineIndex: input.lineIndex,
         instanceOrigin: input.instanceOrigin,
+        supportsPvp: input.supportsPvp,
+        canDamageTile: input.canDamageTile,
         routeDomain: input.routeDomain,
       });
       instances.set(input.instanceId, instance);

@@ -34,6 +34,12 @@ getLayerMonsterLevel(layer) = normalizeLayer(layer)  // 怪物等级 = 层数
 - 模板 ID 格式: `tongtian_tower_layer_{layer}`
 - 层数无上限，玩家通关当前层后解锁下一层
 
+## 实例能力
+
+- 通天塔层实例使用 `linePreset: 'peaceful'`
+- 显式禁用 PVP：`supportsPvp: false`
+- 显式禁用地块攻击：`canDamageTile: false`
+
 ## 波次生成公式
 
 ```typescript
