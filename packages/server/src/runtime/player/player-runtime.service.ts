@@ -194,6 +194,17 @@ export class PlayerRuntimeService {
                 return lateExisting;
             }
             await this.finalizeOfflineGainSessionForPlayer(lateExisting, Date.now());
+            // 与 non-existing 路径（line ~247）保持一致：rebind 前先对齐 DB 持久化 epoch，
+            // 防止玩家已在内存但 sessionEpoch 低于 DB 值时断线 flush 触发 stale_session 围栏错误。
+            const lateExistingEpochFloor = Number.isFinite(options?.sessionEpochFloor)
+                ? Math.max(0, Math.trunc(Number(options.sessionEpochFloor)))
+                : 0;
+            if (lateExistingEpochFloor > 0) {
+                lateExisting.sessionEpoch = Math.max(
+                    Math.max(0, Math.trunc(Number(lateExisting.sessionEpoch ?? 0))),
+                    lateExistingEpochFloor,
+                );
+            }
             if (options?.forceRebind === true) {
                 this.bindRuntimeSession(lateExisting, sessionId);
             } else {
@@ -235,6 +246,16 @@ export class PlayerRuntimeService {
                 player.offlineSinceAt = Number.isFinite(Number(session?.startedAt))
                     ? Math.max(0, Math.trunc(Number(session.startedAt)))
                     : Date.now();
+            }
+            // 防御：offlineGain 阻塞 session 期间玩家未 bind，但断线 flush 仍需正确围栏值
+            const pathCEpochFloor = Number.isFinite(options?.sessionEpochFloor)
+                ? Math.max(0, Math.trunc(Number(options.sessionEpochFloor)))
+                : 0;
+            if (pathCEpochFloor > 0) {
+                player.sessionEpoch = Math.max(
+                    Math.max(0, Math.trunc(Number(player.sessionEpoch ?? 0))),
+                    pathCEpochFloor,
+                );
             }
             this.players.set(playerId, player);
             return player;
