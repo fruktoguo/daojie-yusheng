@@ -247,6 +247,16 @@ export class PlayerRuntimeService {
                     ? Math.max(0, Math.trunc(Number(session.startedAt)))
                     : Date.now();
             }
+            // 防御：offlineGain 阻塞 session 期间玩家未 bind，但断线 flush 仍需正确围栏值
+            const pathCEpochFloor = Number.isFinite(options?.sessionEpochFloor)
+                ? Math.max(0, Math.trunc(Number(options.sessionEpochFloor)))
+                : 0;
+            if (pathCEpochFloor > 0) {
+                player.sessionEpoch = Math.max(
+                    Math.max(0, Math.trunc(Number(player.sessionEpoch ?? 0))),
+                    pathCEpochFloor,
+                );
+            }
             this.players.set(playerId, player);
             return player;
         }
