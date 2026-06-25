@@ -959,7 +959,7 @@ function patchTechniqueManagerBodyFromDraft(): void {
   const techniques = ensureArray(draftSnapshot.techniques);
   const autoBattleSkills = ensureArray(draftSnapshot.autoBattleSkills);
   bodyEl.innerHTML = currentTechniqueEditorSubtab === 'overview'
-    ? renderTechniqueOverview(techniques, autoBattleSkills)
+    ? renderTechniqueOverview(techniques, autoBattleSkills, draftSnapshot.cultivatingTechId)
     : currentTechniqueEditorSubtab === 'manage'
       ? renderTechniqueManage(techniques)
       : renderTechniqueDetails(techniques);
@@ -7497,8 +7497,31 @@ function renderTechniqueFilterControls(mode: 'candidates' | 'learned'): string {
   `;
 }
 
-function renderTechniqueOverview(techniques: TechniqueState[], autoBattleSkills: AutoBattleSkillConfig[]): string {
+function renderTechniqueOverview(techniques: TechniqueState[], autoBattleSkills: AutoBattleSkillConfig[], cultivatingTechId: string | undefined): string {
   const counts = getTechniqueCategoryCounts(techniques);
+  const autoBattleMarkup = autoBattleSkills.length > 0
+    ? autoBattleSkills.map((entry, index) => `
+      <div class="editor-card">
+        <div class="editor-card-head">
+          <div>
+            <div class="editor-card-title" data-preview="auto-skill-title" data-index="${index}">${escapeHtml(getAutoSkillCardTitle(entry, index))}</div>
+            <div class="editor-card-meta" data-preview="auto-skill-meta" data-index="${index}">${escapeHtml(getAutoSkillCardMeta(entry))}</div>
+          </div>
+          <button class="small-btn danger" type="button" data-action="remove-auto-skill" data-index="${index}">删除</button>
+        </div>
+        <div class="editor-grid compact">
+          ${textField('技能 ID', `autoBattleSkills.${index}.skillId`, entry.skillId)}
+          <div class="editor-field">
+            <span>启用状态</span>
+            <label class="editor-toggle">
+              <input type="checkbox" data-bind="autoBattleSkills.${index}.enabled" data-kind="boolean" ${entry.enabled ? 'checked' : ''} />
+              <span>自动战斗时允许使用</span>
+            </label>
+          </div>
+        </div>
+      </div>
+    `).join('')
+    : '<div class="editor-note">当前没有自动战斗技能配置。</div>';
   return `
     <div class="stats-grid">
       <div class="stats-card">
@@ -7519,6 +7542,17 @@ function renderTechniqueOverview(techniques: TechniqueState[], autoBattleSkills:
         <div class="stats-card-note">自动战斗技能槽数量</div>
       </div>
     </div>
+    <div class="editor-section-head" style="margin-top: 12px;">
+      <div>
+        <div class="editor-section-title">修炼与自动战斗</div>
+        <div class="editor-section-note">主修功法与自动技能列表。</div>
+      </div>
+      <button class="small-btn" type="button" data-action="add-auto-skill">新增自动技能</button>
+    </div>
+    <div class="editor-grid compact" style="margin-bottom: 10px;">
+      ${selectField('主修功法', 'cultivatingTechId', cultivatingTechId ?? '', getLearnedTechniqueOptions(techniques, true), 'wide')}
+    </div>
+    <div class="editor-card-list">${autoBattleMarkup}</div>
   `;
 }
 
@@ -7639,14 +7673,14 @@ function renderTechniqueDetails(techniques: TechniqueState[]): string {
   `;
 }
 
-function renderTechniqueManager(techniques: TechniqueState[], autoBattleSkills: AutoBattleSkillConfig[]): string {
+function renderTechniqueManager(techniques: TechniqueState[], autoBattleSkills: AutoBattleSkillConfig[], cultivatingTechId: string | undefined): string {
   const subtabs: Array<{ value: GmTechniqueEditorSubtab; label: string }> = [
     { value: 'overview', label: '总览' },
     { value: 'manage', label: '添加/移除' },
     { value: 'details', label: '已学详情' },
   ];
   const body = currentTechniqueEditorSubtab === 'overview'
-    ? renderTechniqueOverview(techniques, autoBattleSkills)
+    ? renderTechniqueOverview(techniques, autoBattleSkills, cultivatingTechId)
     : currentTechniqueEditorSubtab === 'manage'
       ? renderTechniqueManage(techniques)
       : renderTechniqueDetails(techniques);
@@ -7846,30 +7880,6 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
 
   const inventoryMarkup = getInventoryListMarkup(inventoryItems);
   const visibleInventoryCount = getVisibleInventoryItems(inventoryItems).length;
-
-  const autoBattleMarkup = autoBattleSkills.length > 0
-    ? autoBattleSkills.map((entry, index) => `
-      <div class="editor-card">
-        <div class="editor-card-head">
-          <div>
-            <div class="editor-card-title" data-preview="auto-skill-title" data-index="${index}">${escapeHtml(getAutoSkillCardTitle(entry, index))}</div>
-            <div class="editor-card-meta" data-preview="auto-skill-meta" data-index="${index}">${escapeHtml(getAutoSkillCardMeta(entry))}</div>
-          </div>
-          <button class="small-btn danger" type="button" data-action="remove-auto-skill" data-index="${index}">删除</button>
-        </div>
-        <div class="editor-grid compact">
-          ${textField('技能 ID', `autoBattleSkills.${index}.skillId`, entry.skillId)}
-          <div class="editor-field">
-            <span>启用状态</span>
-            <label class="editor-toggle">
-              <input type="checkbox" data-bind="autoBattleSkills.${index}.enabled" data-kind="boolean" ${entry.enabled ? 'checked' : ''} />
-              <span>自动战斗时允许使用</span>
-            </label>
-          </div>
-        </div>
-      </div>
-    `).join('')
-    : '<div class="editor-note">当前没有自动战斗技能配置。</div>';
 
   const questMarkup = quests.length > 0
     ? quests.map((quest, index) => `
@@ -8155,25 +8165,11 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
     <section class="editor-section">
       <div class="editor-section-head">
         <div>
-          <div class="editor-section-title">修炼与自动战斗</div>
-          <div class="editor-section-note">主修功法与自动技能列表。</div>
-        </div>
-        <button class="small-btn" type="button" data-action="add-auto-skill">新增自动技能</button>
-      </div>
-      <div class="editor-grid compact" style="margin-bottom: 10px;">
-        ${selectField('主修功法', 'cultivatingTechId', draft.cultivatingTechId ?? '', getLearnedTechniqueOptions(techniques, true), 'wide')}
-      </div>
-      <div class="editor-card-list">${autoBattleMarkup}</div>
-    </section>
-
-    <section class="editor-section">
-      <div class="editor-section-head">
-        <div>
           <div class="editor-section-title">功法管理</div>
           <div class="editor-section-note">按总览、批量添加/移除、已学详情分页管理，避免功法数量增长后一次性渲染全部卡片。</div>
         </div>
       </div>
-      ${renderTechniqueManager(techniques, autoBattleSkills)}
+      ${renderTechniqueManager(techniques, autoBattleSkills, draft.cultivatingTechId)}
     </section>
     `)}
 

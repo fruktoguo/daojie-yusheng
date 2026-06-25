@@ -253,8 +253,10 @@ interface TopicShellProps {
 }
 
 function TopicShell({ topics, ariaLabel, activeId, onSelect, onNestedSelect, tabDataAttr, paneDataAttr, kickerKey }: TopicShellProps) {
-  const operationTopic = topics.find((topic) => topic.id === 'operations') ?? null;
-  const [activeOperationSectionTitle, setActiveOperationSectionTitle] = useState(operationTopic?.sections[0]?.title ?? '');
+  // 每个 topic 各记一份当前选中子节，切回某个一级 Tab 时仍停在上次看的子节
+  const [activeSectionByTopic, setActiveSectionByTopic] = useState<Record<string, string>>({});
+  const resolveActiveSectionTitle = (topic: TutorialTopic) =>
+    activeSectionByTopic[topic.id] ?? topic.sections[0]?.title ?? '';
   const topicAttrName = tabDataAttr.replace('data-', '').replace(/-([a-z])/g, (_, c: string) => c.toUpperCase());
 
   if (topics.length <= 0) {
@@ -284,11 +286,10 @@ function TopicShell({ topics, ariaLabel, activeId, onSelect, onNestedSelect, tab
               >
                 <span className="tutorial-modal-tab-label ui-split-panel-tab-label">{topic.label}</span>
               </button>
-              {topic.id === 'operations' && topic.sections.length > 0 && (
-                <div className="tutorial-modal-subtabs" role="tablist" aria-label="操作子类">
+              {topic.sections.length > 0 && (
+                <div className="tutorial-modal-subtabs" role="tablist" aria-label={`${topic.label}子类`}>
                   {topic.sections.map((section) => {
-                    const sectionActive = active && (activeOperationSectionTitle === section.title
-                      || (!activeOperationSectionTitle && section === topic.sections[0]));
+                    const sectionActive = active && resolveActiveSectionTitle(topic) === section.title;
                     return (
                       <button
                         key={section.title}
@@ -299,9 +300,9 @@ function TopicShell({ topics, ariaLabel, activeId, onSelect, onNestedSelect, tab
                         data-tutorial-operation-section-tab={section.title}
                         onClick={() => {
                           onNestedSelect?.();
-                          setActiveOperationSectionTitle(section.title);
-                          if (activeId !== 'operations') {
-                            onSelect('operations');
+                          setActiveSectionByTopic((prev) => ({ ...prev, [topic.id]: section.title }));
+                          if (activeId !== topic.id) {
+                            onSelect(topic.id);
                           }
                         }}
                       >
@@ -321,7 +322,7 @@ function TopicShell({ topics, ariaLabel, activeId, onSelect, onNestedSelect, tab
             key={topic.id}
             topic={topic}
             active={topic.id === activeId}
-            activeOperationSectionTitle={activeOperationSectionTitle}
+            activeOperationSectionTitle={resolveActiveSectionTitle(topic)}
             paneDataAttr={paneDataAttr}
             kickerKey={kickerKey}
           />
