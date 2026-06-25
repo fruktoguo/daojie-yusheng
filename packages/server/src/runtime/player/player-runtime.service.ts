@@ -191,6 +191,18 @@ export class PlayerRuntimeService {
                         ? Math.max(0, Math.trunc(Number(session.startedAt)))
                         : Date.now();
                 }
+                // 防御：离线挂机玩家被 restoreOfflineHangingPlayer 以 sessionEpoch=0 恢复入内存，
+                // offlineGain 阻塞期间不 bind 但断线 flush 仍读 sessionEpoch（getSessionFence 返回 max(1,0)=1），
+                // 必须对齐 DB floor，否则每次断线都触发 expected=1 < persisted 围栏错误。
+                const blockedEpochFloor = Number.isFinite(options?.sessionEpochFloor)
+                    ? Math.max(0, Math.trunc(Number(options.sessionEpochFloor)))
+                    : 0;
+                if (blockedEpochFloor > 0) {
+                    lateExisting.sessionEpoch = Math.max(
+                        Math.max(0, Math.trunc(Number(lateExisting.sessionEpoch ?? 0))),
+                        blockedEpochFloor,
+                    );
+                }
                 return lateExisting;
             }
             await this.finalizeOfflineGainSessionForPlayer(lateExisting, Date.now());
@@ -313,7 +325,18 @@ export class PlayerRuntimeService {
         (player as any)._hydratedFromPersistence = true;
         player.sessionId = null;
         player.runtimeOwnerId = null;
-        player.sessionEpoch = 0;
+        // 从 DB presence 读取真实 session_epoch 作为底线，禁止重置为 0。
+        // 否则离线挂机玩家恢复后内存 epoch=0，重连/断线 flush 时 getSessionFence 返回 max(1,0)=1，
+        // 与 DB 持久 epoch 不一致触发 player_snapshot_projection_stale_session 围栏错误。
+        let restoredSessionEpoch = 0;
+        if (typeof persistenceService?.loadPlayerPresence === 'function') {
+            const persistedPresence = await persistenceService.loadPlayerPresence(normalizedPlayerId);
+            const persistedEpoch = Number(persistedPresence?.sessionEpoch);
+            if (Number.isFinite(persistedEpoch) && persistedEpoch > 0) {
+                restoredSessionEpoch = Math.trunc(persistedEpoch);
+            }
+        }
+        player.sessionEpoch = restoredSessionEpoch;
         player.lastHeartbeatAt = null;
         (player as any).transferState = null;
         (player as any).transferTargetNodeId = null;
