@@ -2,10 +2,10 @@
   "quests": [
     {
       "id": "q_sky_puppet_scrap",
-      "title": "残宫傀壳",
-      "desc": "观星残影说封柱边那些天宫傀壳比真正的怪物更烦。去把它们拆一轮，省得下一批人还没见到天门，就先被这些旧壳耗死。",
+      "title": "残宫破傀壳",
+      "desc": "封柱周遭天宫傀壳盘踞，当尽行清除，以免后来者尚未见天门便折损于旧壳之中。",
       "story": "有些地方会把过去留下来，不是为了纪念，是因为连清理它们的人都死在了半路上。",
-      "objectiveText": "清掉天宫傀壳",
+      "objectiveText": "清除天宫傀壳",
       "targetMonsterId": "m_sky_puppet",
       "targetCount": 6,
       "targetMapId": "sky_ruins",
@@ -28,10 +28,10 @@
     },
     {
       "id": "q_sky_hunter_spoil",
-      "title": "猎者遗物",
-      "desc": "既然你已经能在残宫站住，观星残影便要你顺手多收一批天宫猎者的遗物。它说这些东西留给人间，比继续烂在天上有用得多。",
+      "title": "收天宫遗物",
+      "desc": "观星残影嘱咐收取天宫猎者遗留之物，此等遗存留于人间，远胜腐朽于天上。",
       "story": "凡人篇走到这里，已经不是活着就算赢，而是终于能从天上抢一点东西回地上用。",
-      "objectiveText": "击败天宫猎者并收回星陨金",
+      "objectiveText": "击败天宫猎者，收回星陨金",
       "targetMonsterId": "m_void_hunter",
       "targetCount": 6,
       "targetMapId": "sky_ruins",

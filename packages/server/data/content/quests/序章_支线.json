@@ -30,7 +30,7 @@
       "id": "q_lan_refuse_tail",
       "title": "药香驱鼠患",
       "desc": "药铺后巷废料堆常招鼠患，兰药师令清除灰尾鼠，并取鼠尾归来，以配驱虫之药。",
-      "story": "兰药师嘴上说着"药不轻给"，可谁真替她把脏活做了，她也从不让人白跑。",
+      "story": "兰药师嘴上说着「药不轻给」，可谁真替她把脏活做了，她也从不让人白跑。",
       "objectiveText": "清除药铺后巷鼠患，取回鼠尾",
       "targetMonsterId": "m_town_rat_refuse",
       "targetCount": 6,
