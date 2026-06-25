@@ -2250,6 +2250,16 @@ export interface GmEditorRealmOption {
 
   phaseName?: string;
   /**
+ * expToNext：当前等级升级所需修为。
+ */
+
+  expToNext?: number;
+  /**
+ * runtimeExpToNext：运行时已展开的升级所需修为。
+ */
+
+  runtimeExpToNext?: number;
+  /**
  * review：review相关字段。
  */
 

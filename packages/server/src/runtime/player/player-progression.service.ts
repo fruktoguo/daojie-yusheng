@@ -1055,6 +1055,8 @@ export class PlayerProgressionService {
             displayName: entry.displayName,
             name: entry.name,
             phaseName: entry.phaseName ?? undefined,
+            expToNext: entry.runtimeExpToNext,
+            runtimeExpToNext: entry.runtimeExpToNext,
             review: entry.review,
         })).sort((left, right) => left.realmLv - right.realmLv);
     }

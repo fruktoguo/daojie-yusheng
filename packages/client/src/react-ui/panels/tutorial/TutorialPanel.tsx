@@ -8,9 +8,9 @@ import {
   TUTORIAL_MECHANIC_TOPICS,
   type TutorialTopic,
 } from '../../../constants/ui/tutorial';
+import { getTutorialRealmLevelTableRows } from '../../../constants/ui/realm-level-table';
 import { t } from '../../../ui/i18n';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../../../ui/floating-tooltip';
-import { gameplayConstants } from '@mud/shared';
 
 // ─── 类型 ────────────────────────────────────────────────────────────────────
 
@@ -221,7 +221,6 @@ export function TutorialPanelContent() {
             onNestedSelect={hidePinnedTooltips}
             tabDataAttr="data-tutorial-mechanic-tab"
             paneDataAttr="data-tutorial-mechanic-pane"
-            kickerKey="tutorial.panel.kicker.mechanics"
           />
         </section>
       </div>
@@ -250,10 +249,9 @@ interface TopicShellProps {
   onNestedSelect?: () => void;
   tabDataAttr: string;
   paneDataAttr: string;
-  kickerKey: string;
 }
 
-function TopicShell({ topics, ariaLabel, activeId, onSelect, onNestedSelect, tabDataAttr, paneDataAttr, kickerKey }: TopicShellProps) {
+function TopicShell({ topics, ariaLabel, activeId, onSelect, onNestedSelect, tabDataAttr, paneDataAttr }: TopicShellProps) {
   // 每个 topic 各记一份当前选中子节，切回某个一级 Tab 时仍停在上次看的子节
   const [activeSectionByTopic, setActiveSectionByTopic] = useState<Record<string, string>>({});
   const resolveActiveSectionTitle = (topic: TutorialTopic) =>
@@ -325,7 +323,6 @@ function TopicShell({ topics, ariaLabel, activeId, onSelect, onNestedSelect, tab
             active={topic.id === activeId}
             activeSectionTitle={resolveActiveSectionTitle(topic)}
             paneDataAttr={paneDataAttr}
-            kickerKey={kickerKey}
           />
         ))}
       </div>
@@ -333,12 +330,11 @@ function TopicShell({ topics, ariaLabel, activeId, onSelect, onNestedSelect, tab
   );
 }
 
-const TopicPane = memo(function TopicPane({ topic, active, activeSectionTitle, paneDataAttr, kickerKey }: {
+const TopicPane = memo(function TopicPane({ topic, active, activeSectionTitle, paneDataAttr }: {
   topic: TutorialTopic;
   active: boolean;
   activeSectionTitle?: string;
   paneDataAttr: string;
-  kickerKey: string;
 }) {
   const paneAttrName = paneDataAttr.replace('data-', '').replace(/-([a-z])/g, (_, c: string) => c.toUpperCase());
   const activeSection = topic.sections.find((section) => section.title === activeSectionTitle) ?? topic.sections[0] ?? null;
@@ -363,7 +359,6 @@ const TopicPane = memo(function TopicPane({ topic, active, activeSectionTitle, p
     >
       {topic.id !== 'operations' && (
         <div className="tutorial-pane-hero">
-          <div className="tutorial-pane-kicker">{t(kickerKey)}</div>
           <div className="tutorial-pane-summary"><RichText text={topic.summary} /></div>
         </div>
       )}
@@ -404,9 +399,7 @@ const TopicPane = memo(function TopicPane({ topic, active, activeSectionTitle, p
 
 // ─── 境界表 ──────────────────────────────────────────────────────────────────
 
-const REALM_TABLE_ROWS = gameplayConstants.getRealmTable();
-
-const PATH_LABEL: Record<string, string> = { martial: '武道', immortal: '仙道', ascended: '飞升' };
+const REALM_LEVEL_TABLE_ROWS = getTutorialRealmLevelTableRows();
 
 const RealmTablePane = memo(function RealmTablePane() {
   return (
@@ -414,19 +407,19 @@ const RealmTablePane = memo(function RealmTablePane() {
       <table className="realm-table">
         <thead>
           <tr>
-            <th>境界</th>
-            <th>等级区间</th>
-            <th>道路</th>
-            <th>突破所需修为</th>
+            <th>Lv</th>
+            <th>等级名</th>
+            <th>大境界</th>
+            <th>升级所需修为</th>
           </tr>
         </thead>
         <tbody>
-          {REALM_TABLE_ROWS.map((row) => (
-            <tr key={row.stage}>
-              <td>{row.name}</td>
-              <td>Lv.{row.levelFrom}{row.levelFrom !== row.levelTo ? `–${row.levelTo}` : ''}</td>
-              <td>{PATH_LABEL[row.path] ?? row.path}</td>
-              <td>{row.progressToNext > 0 ? row.progressToNext.toLocaleString() : '—'}</td>
+          {REALM_LEVEL_TABLE_ROWS.map((row) => (
+            <tr key={row.realmLv}>
+              <td>Lv.{row.realmLv}</td>
+              <td>{row.displayName}</td>
+              <td>{row.repeatedMajorRealm ? '—' : row.majorRealmName}</td>
+              <td>{row.expToNext > 0 ? row.expToNext.toLocaleString() : '—'}</td>
             </tr>
           ))}
         </tbody>

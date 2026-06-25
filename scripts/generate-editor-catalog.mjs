@@ -99,7 +99,7 @@ const techniques = loadTechniques(path.join(contentDir, 'techniques'), sharedTec
 /**
  * 记录境界levels。
  */
-const realmLevels = loadRealmLevels(realmLevelsConfig.levels);
+const realmLevels = loadRealmLevels(realmLevelsConfig.levels, realmLevelsConfig.expMultiplier);
 /**
  * 记录buffs。
  */
@@ -723,16 +723,27 @@ function normalizeTechniqueCategory(category, skills) {
 /**
  * 加载境界levels。
  */
-function loadRealmLevels(levels) {
+function resolveRuntimeRealmExpToNext(rawExpToNext, rawExpMultiplier) {
+  const expToNext = Math.max(0, Math.floor(Number(rawExpToNext) || 0));
+  const expMultiplier = Math.max(1, Math.floor(Number(rawExpMultiplier) || 1));
+  return expToNext * expMultiplier;
+}
+
+function loadRealmLevels(levels, expMultiplier) {
   return (Array.isArray(levels) ? levels : [])
     .filter((entry) => Number.isFinite(entry?.realmLv) && typeof entry?.displayName === 'string' && typeof entry?.name === 'string')
-    .map((entry) => ({
-      realmLv: Math.max(1, Math.floor(Number(entry.realmLv))),
-      displayName: entry.displayName,
-      name: entry.name,
-      phaseName: typeof entry.phaseName === 'string' && entry.phaseName.trim().length > 0 ? entry.phaseName : undefined,
-      review: typeof entry.review === 'string' && entry.review.trim().length > 0 ? entry.review : undefined,
-    }))
+    .map((entry) => {
+      const runtimeExpToNext = resolveRuntimeRealmExpToNext(entry.expToNext, expMultiplier);
+      return {
+        realmLv: Math.max(1, Math.floor(Number(entry.realmLv))),
+        displayName: entry.displayName,
+        name: entry.name,
+        phaseName: typeof entry.phaseName === 'string' && entry.phaseName.trim().length > 0 ? entry.phaseName : undefined,
+        expToNext: runtimeExpToNext,
+        runtimeExpToNext,
+        review: typeof entry.review === 'string' && entry.review.trim().length > 0 ? entry.review : undefined,
+      };
+    })
     .sort((left, right) => left.realmLv - right.realmLv);
 }
 

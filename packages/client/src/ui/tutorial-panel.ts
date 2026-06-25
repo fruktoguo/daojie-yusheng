@@ -10,6 +10,7 @@ import {
   type TutorialFlowTopic,
   type TutorialTopic,
 } from '../constants/ui/tutorial';
+import { getTutorialRealmLevelTableRows } from '../constants/ui/realm-level-table';
 import { detailModalHost } from './detail-modal-host';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from './floating-tooltip';
 import { t } from './i18n';
@@ -438,17 +439,18 @@ export class TutorialPanel {
         aria-hidden="${active ? 'false' : 'true'}"
       >
         <div class="tutorial-pane-hero">
-          <div class="tutorial-pane-kicker">${escapeHtml(t('tutorial.panel.kicker.mechanics', undefined))}</div>
           <div class="tutorial-pane-summary">${renderTutorialRichText(topic.summary)}</div>
         </div>
-        <div class="tutorial-pane-sections">
-          ${this.renderTopicSectionPanes(
-            topic,
-            activeSectionTitle,
-            'data-tutorial-mechanic-section-pane',
-            'data-tutorial-mechanic-section-topic',
-          )}
-        </div>
+        ${topic.id === 'realm-table' ? this.renderRealmTable() : `
+          <div class="tutorial-pane-sections">
+            ${this.renderTopicSectionPanes(
+              topic,
+              activeSectionTitle,
+              'data-tutorial-mechanic-section-pane',
+              'data-tutorial-mechanic-section-topic',
+            )}
+          </div>
+        `}
         ${topic.tips && topic.tips.length > 0 ? `
           <section class="tutorial-tip-card">
             <div class="tutorial-section-title">${escapeHtml(t('tutorial.panel.tip-title', undefined))}</div>
@@ -524,6 +526,35 @@ export class TutorialPanel {
         </section>
       `;
     }).join('');
+  }
+
+  /** renderRealmTable：渲染逐级境界表。 */
+  private renderRealmTable(): string {
+    const rows = getTutorialRealmLevelTableRows();
+    return `
+      <section class="tutorial-section-card">
+        <table class="realm-table">
+          <thead>
+            <tr>
+              <th>Lv</th>
+              <th>等级名</th>
+              <th>大境界</th>
+              <th>升级所需修为</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map((row) => `
+              <tr>
+                <td>Lv.${escapeHtml(String(row.realmLv))}</td>
+                <td>${escapeHtml(row.displayName)}</td>
+                <td>${escapeHtml(row.repeatedMajorRealm ? '—' : row.majorRealmName)}</td>
+                <td>${escapeHtml(row.expToNext > 0 ? row.expToNext.toLocaleString() : '—')}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </section>
+    `;
   }
 
   /** renderFlowGuide：渲染流转Guide。 */
