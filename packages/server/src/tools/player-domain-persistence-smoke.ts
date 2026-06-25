@@ -1388,7 +1388,7 @@ async function main(): Promise<void> {
     }
     if (
       !walletOnlyDomains
-      || walletOnlyDomains.hasProjectedState !== false
+      || walletOnlyDomains.hasProjectedState !== true
       || walletOnlyDomains.walletRows.length !== 1
       || String(walletOnlyDomains.walletRows[0]?.wallet_type ?? '') !== 'spirit_stone'
       || Number(walletOnlyDomains.walletRows[0]?.balance ?? 0) !== 66

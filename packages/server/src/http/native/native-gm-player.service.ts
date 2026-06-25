@@ -249,6 +249,7 @@ interface PlayerDomainPersistenceServiceLike {
     options?: {
       allowInventoryEmptyOverwrite?: boolean;
       allowEquipmentEmptyOverwrite?: boolean;
+      allowArtifactEmptyOverwrite?: boolean;
       allowBuffEmptyOverwrite?: boolean;
     },
   ): Promise<void>;
@@ -1981,10 +1982,8 @@ export class NativeGmPlayerService {
         domains,
         {
           allowInventoryEmptyOverwrite: domains.includes('inventory') && Array.isArray(submittedSnapshot?.inventory?.items),
-          allowEquipmentEmptyOverwrite: (
-            (domains.includes('equipment') && submittedSnapshot?.equipment && typeof submittedSnapshot.equipment === 'object')
-            || (domains.includes('artifact') && submittedSnapshot?.artifacts && typeof submittedSnapshot.artifacts === 'object')
-          ),
+          allowEquipmentEmptyOverwrite: domains.includes('equipment') && submittedSnapshot?.equipment && typeof submittedSnapshot.equipment === 'object',
+          allowArtifactEmptyOverwrite: domains.includes('artifact') && submittedSnapshot?.artifacts && typeof submittedSnapshot.artifacts === 'object',
           allowBuffEmptyOverwrite: domains.includes('buff') && Array.isArray(submittedSnapshot?.temporaryBuffs),
         },
       );

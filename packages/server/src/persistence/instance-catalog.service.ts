@@ -26,6 +26,7 @@ const CREATE_INSTANCE_CATALOG_TABLE_SQL = `
     lease_token varchar(180),
     lease_expire_at timestamptz,
     ownership_epoch bigint NOT NULL DEFAULT 0,
+    metadata_version bigint NOT NULL DEFAULT 0,
     cluster_id varchar(120),
     shard_key varchar(120) NOT NULL,
     route_domain varchar(120),
@@ -39,6 +40,11 @@ const CREATE_INSTANCE_CATALOG_TABLE_SQL = `
 const ALTER_INSTANCE_CATALOG_ADD_DESTROY_AT_SQL = `
   ALTER TABLE ${INSTANCE_CATALOG_TABLE}
   ADD COLUMN IF NOT EXISTS destroy_at timestamptz
+`;
+
+const ALTER_INSTANCE_CATALOG_ADD_METADATA_VERSION_SQL = `
+  ALTER TABLE ${INSTANCE_CATALOG_TABLE}
+  ADD COLUMN IF NOT EXISTS metadata_version bigint NOT NULL DEFAULT 0
 `;
 
 const CREATE_INSTANCE_CATALOG_STATUS_INDEX_SQL = `
@@ -116,10 +122,15 @@ export class InstanceCatalogService implements OnModuleInit {
     lastActiveAt?: string | null;
     lastPersistedAt?: string | null;
     preserveExistingLease?: boolean;
+    metadataVersion?: number | null;
   }): Promise<void> {
     if (!this.pool || !this.enabled) {
       return;
     }
+    const metadataVersion = Math.max(
+      0,
+      Math.trunc(Number(input.metadataVersion ?? input.ownershipEpoch ?? 0) || 0),
+    );
     await this.pool.query(
       `
         INSERT INTO ${INSTANCE_CATALOG_TABLE}(
@@ -127,26 +138,26 @@ export class InstanceCatalogService implements OnModuleInit {
           owner_player_id, owner_sect_id, party_id, line_id,
           status, runtime_status,
           assigned_node_id, lease_token, lease_expire_at, ownership_epoch,
-          cluster_id, shard_key, route_domain, destroy_at, created_at, last_active_at, last_persisted_at
+          metadata_version, cluster_id, shard_key, route_domain, destroy_at, created_at, last_active_at, last_persisted_at
         )
         VALUES (
           $1, $2, $3, $4,
           $5, $6, $7, $8,
           $9, $10,
           $11, $12, $13, COALESCE($14, 0),
-          $15, $16, $17, $18, now(), $19, $20
+          $15, $16, $17, $18, $19, now(), $20, $21
         )
         ON CONFLICT (instance_id)
         DO UPDATE SET
-          template_id = EXCLUDED.template_id,
-          instance_type = EXCLUDED.instance_type,
-          persistent_policy = EXCLUDED.persistent_policy,
-          owner_player_id = EXCLUDED.owner_player_id,
-          owner_sect_id = EXCLUDED.owner_sect_id,
-          party_id = EXCLUDED.party_id,
-          line_id = EXCLUDED.line_id,
+          template_id = CASE WHEN ${INSTANCE_CATALOG_TABLE}.metadata_version <= EXCLUDED.metadata_version THEN EXCLUDED.template_id ELSE ${INSTANCE_CATALOG_TABLE}.template_id END,
+          instance_type = CASE WHEN ${INSTANCE_CATALOG_TABLE}.metadata_version <= EXCLUDED.metadata_version THEN EXCLUDED.instance_type ELSE ${INSTANCE_CATALOG_TABLE}.instance_type END,
+          persistent_policy = CASE WHEN ${INSTANCE_CATALOG_TABLE}.metadata_version <= EXCLUDED.metadata_version THEN EXCLUDED.persistent_policy ELSE ${INSTANCE_CATALOG_TABLE}.persistent_policy END,
+          owner_player_id = CASE WHEN ${INSTANCE_CATALOG_TABLE}.metadata_version <= EXCLUDED.metadata_version THEN EXCLUDED.owner_player_id ELSE ${INSTANCE_CATALOG_TABLE}.owner_player_id END,
+          owner_sect_id = CASE WHEN ${INSTANCE_CATALOG_TABLE}.metadata_version <= EXCLUDED.metadata_version THEN EXCLUDED.owner_sect_id ELSE ${INSTANCE_CATALOG_TABLE}.owner_sect_id END,
+          party_id = CASE WHEN ${INSTANCE_CATALOG_TABLE}.metadata_version <= EXCLUDED.metadata_version THEN EXCLUDED.party_id ELSE ${INSTANCE_CATALOG_TABLE}.party_id END,
+          line_id = CASE WHEN ${INSTANCE_CATALOG_TABLE}.metadata_version <= EXCLUDED.metadata_version THEN EXCLUDED.line_id ELSE ${INSTANCE_CATALOG_TABLE}.line_id END,
           status = CASE
-            WHEN $21
+            WHEN $22
               AND ${INSTANCE_CATALOG_TABLE}.assigned_node_id IS NOT NULL
               AND ${INSTANCE_CATALOG_TABLE}.lease_token IS NOT NULL
               AND ${INSTANCE_CATALOG_TABLE}.lease_expire_at IS NOT NULL
@@ -155,7 +166,7 @@ export class InstanceCatalogService implements OnModuleInit {
             ELSE EXCLUDED.status
           END,
           runtime_status = CASE
-            WHEN $21
+            WHEN $22
               AND ${INSTANCE_CATALOG_TABLE}.assigned_node_id IS NOT NULL
               AND ${INSTANCE_CATALOG_TABLE}.lease_token IS NOT NULL
               AND ${INSTANCE_CATALOG_TABLE}.lease_expire_at IS NOT NULL
@@ -164,7 +175,7 @@ export class InstanceCatalogService implements OnModuleInit {
             ELSE EXCLUDED.runtime_status
           END,
           assigned_node_id = CASE
-            WHEN $21
+            WHEN $22
               AND ${INSTANCE_CATALOG_TABLE}.assigned_node_id IS NOT NULL
               AND ${INSTANCE_CATALOG_TABLE}.lease_token IS NOT NULL
               AND ${INSTANCE_CATALOG_TABLE}.lease_expire_at IS NOT NULL
@@ -173,7 +184,7 @@ export class InstanceCatalogService implements OnModuleInit {
             ELSE EXCLUDED.assigned_node_id
           END,
           lease_token = CASE
-            WHEN $21
+            WHEN $22
               AND ${INSTANCE_CATALOG_TABLE}.assigned_node_id IS NOT NULL
               AND ${INSTANCE_CATALOG_TABLE}.lease_token IS NOT NULL
               AND ${INSTANCE_CATALOG_TABLE}.lease_expire_at IS NOT NULL
@@ -182,7 +193,7 @@ export class InstanceCatalogService implements OnModuleInit {
             ELSE EXCLUDED.lease_token
           END,
           lease_expire_at = CASE
-            WHEN $21
+            WHEN $22
               AND ${INSTANCE_CATALOG_TABLE}.assigned_node_id IS NOT NULL
               AND ${INSTANCE_CATALOG_TABLE}.lease_token IS NOT NULL
               AND ${INSTANCE_CATALOG_TABLE}.lease_expire_at IS NOT NULL
@@ -191,7 +202,7 @@ export class InstanceCatalogService implements OnModuleInit {
             ELSE EXCLUDED.lease_expire_at
           END,
           ownership_epoch = CASE
-            WHEN $21
+            WHEN $22
               AND ${INSTANCE_CATALOG_TABLE}.assigned_node_id IS NOT NULL
               AND ${INSTANCE_CATALOG_TABLE}.lease_token IS NOT NULL
               AND ${INSTANCE_CATALOG_TABLE}.lease_expire_at IS NOT NULL
@@ -199,12 +210,21 @@ export class InstanceCatalogService implements OnModuleInit {
             THEN ${INSTANCE_CATALOG_TABLE}.ownership_epoch
             ELSE EXCLUDED.ownership_epoch
           END,
-          cluster_id = EXCLUDED.cluster_id,
-          shard_key = EXCLUDED.shard_key,
-          route_domain = EXCLUDED.route_domain,
-          destroy_at = EXCLUDED.destroy_at,
-          last_active_at = EXCLUDED.last_active_at,
-          last_persisted_at = EXCLUDED.last_persisted_at
+          metadata_version = GREATEST(${INSTANCE_CATALOG_TABLE}.metadata_version, EXCLUDED.metadata_version),
+          cluster_id = CASE WHEN ${INSTANCE_CATALOG_TABLE}.metadata_version <= EXCLUDED.metadata_version THEN EXCLUDED.cluster_id ELSE ${INSTANCE_CATALOG_TABLE}.cluster_id END,
+          shard_key = CASE WHEN ${INSTANCE_CATALOG_TABLE}.metadata_version <= EXCLUDED.metadata_version THEN EXCLUDED.shard_key ELSE ${INSTANCE_CATALOG_TABLE}.shard_key END,
+          route_domain = CASE WHEN ${INSTANCE_CATALOG_TABLE}.metadata_version <= EXCLUDED.metadata_version THEN EXCLUDED.route_domain ELSE ${INSTANCE_CATALOG_TABLE}.route_domain END,
+          destroy_at = CASE WHEN ${INSTANCE_CATALOG_TABLE}.metadata_version <= EXCLUDED.metadata_version THEN EXCLUDED.destroy_at ELSE ${INSTANCE_CATALOG_TABLE}.destroy_at END,
+          last_active_at = CASE
+            WHEN ${INSTANCE_CATALOG_TABLE}.last_active_at IS NULL THEN EXCLUDED.last_active_at
+            WHEN EXCLUDED.last_active_at IS NULL THEN ${INSTANCE_CATALOG_TABLE}.last_active_at
+            ELSE GREATEST(${INSTANCE_CATALOG_TABLE}.last_active_at, EXCLUDED.last_active_at)
+          END,
+          last_persisted_at = CASE
+            WHEN ${INSTANCE_CATALOG_TABLE}.last_persisted_at IS NULL THEN EXCLUDED.last_persisted_at
+            WHEN EXCLUDED.last_persisted_at IS NULL THEN ${INSTANCE_CATALOG_TABLE}.last_persisted_at
+            ELSE GREATEST(${INSTANCE_CATALOG_TABLE}.last_persisted_at, EXCLUDED.last_persisted_at)
+          END
       `,
       [
         input.instanceId,
@@ -221,6 +241,7 @@ export class InstanceCatalogService implements OnModuleInit {
         input.leaseToken ?? null,
         input.leaseExpireAt ?? null,
         input.ownershipEpoch ?? null,
+        metadataVersion,
         input.clusterId ?? null,
         input.shardKey,
         input.routeDomain ?? null,
@@ -432,6 +453,7 @@ async function ensureInstanceCatalogTable(pool: Pool): Promise<void> {
     await client.query('BEGIN');
     await client.query(CREATE_INSTANCE_CATALOG_TABLE_SQL);
     await client.query(ALTER_INSTANCE_CATALOG_ADD_DESTROY_AT_SQL);
+    await client.query(ALTER_INSTANCE_CATALOG_ADD_METADATA_VERSION_SQL);
     await client.query(CREATE_INSTANCE_CATALOG_STATUS_INDEX_SQL);
     await client.query(CREATE_INSTANCE_CATALOG_ASSIGNED_NODE_INDEX_SQL);
     await client.query(CREATE_INSTANCE_CATALOG_SHARD_INDEX_SQL);

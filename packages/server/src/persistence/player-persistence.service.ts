@@ -429,6 +429,7 @@ export class PlayerPersistenceService implements OnModuleInit, OnModuleDestroy {
           saved_at = EXCLUDED.saved_at,
           updated_at = now(),
           payload = EXCLUDED.payload
+        WHERE ${PLAYER_SNAPSHOT_TABLE}.saved_at <= EXCLUDED.saved_at
       `,
       [
         playerId,

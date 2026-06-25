@@ -27,6 +27,11 @@ const INSTANCE_DOMAIN_INSTANCE_TABLES = [
   'instance_monster_runtime_state',
   'instance_event_state',
   'instance_overlay_chunk',
+  'instance_building_cell',
+  'instance_building_state',
+  'instance_room_cell',
+  'instance_room_state',
+  'instance_fengshui_state',
 ];
 
 export interface PostgresRestoreSectCleanupReport {

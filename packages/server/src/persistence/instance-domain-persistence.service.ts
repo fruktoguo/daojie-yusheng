@@ -1484,6 +1484,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     if (!normalizedInstanceId) {
       return;
     }
+    const checkpointVersion = resolveInstanceCheckpointVersion(payload);
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
@@ -1492,16 +1493,19 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
         `
           INSERT INTO ${INSTANCE_CHECKPOINT_TABLE}(
             instance_id,
+            checkpoint_version,
             checkpoint_payload,
             updated_at
           )
-          VALUES ($1, $2::jsonb, now())
+          VALUES ($1, $2, $3::jsonb, now())
           ON CONFLICT (instance_id)
           DO UPDATE SET
+            checkpoint_version = EXCLUDED.checkpoint_version,
             checkpoint_payload = EXCLUDED.checkpoint_payload,
             updated_at = now()
+          WHERE ${INSTANCE_CHECKPOINT_TABLE}.checkpoint_version <= EXCLUDED.checkpoint_version
         `,
-        [normalizedInstanceId, JSON.stringify(payload ?? {})],
+        [normalizedInstanceId, checkpointVersion, JSON.stringify(payload ?? {})],
       );
       await client.query('COMMIT');
     } catch (error: unknown) {
@@ -1540,6 +1544,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     if (!normalizedInstanceId) {
       return;
     }
+    const watermarkVersion = resolveInstanceWatermarkVersion(payload);
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
@@ -1548,16 +1553,19 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
         `
           INSERT INTO ${INSTANCE_RECOVERY_WATERMARK_TABLE}(
             instance_id,
+            watermark_version,
             watermark_payload,
             updated_at
           )
-          VALUES ($1, $2::jsonb, now())
+          VALUES ($1, $2, $3::jsonb, now())
           ON CONFLICT (instance_id)
           DO UPDATE SET
+            watermark_version = EXCLUDED.watermark_version,
             watermark_payload = EXCLUDED.watermark_payload,
             updated_at = now()
+          WHERE ${INSTANCE_RECOVERY_WATERMARK_TABLE}.watermark_version <= EXCLUDED.watermark_version
         `,
-        [normalizedInstanceId, JSON.stringify(payload ?? {})],
+        [normalizedInstanceId, watermarkVersion, JSON.stringify(payload ?? {})],
       );
       await client.query('COMMIT');
     } catch (error: unknown) {
@@ -1787,9 +1795,9 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
       .map((item) => {
         const instanceId = normalizeRequiredString(item.instanceId);
         if (!instanceId) return null;
-        return { instanceId, payload: item.payload };
+        return { instanceId, payload: item.payload, watermarkVersion: resolveInstanceWatermarkVersion(item.payload) };
       })
-      .filter(Boolean) as Array<{ instanceId: string; payload: unknown }>;
+      .filter(Boolean) as Array<{ instanceId: string; payload: unknown; watermarkVersion: number }>;
     if (entries.length === 0) return;
     entries.sort((a, b) => a.instanceId < b.instanceId ? -1 : a.instanceId > b.instanceId ? 1 : 0);
     const client = await this.pool.connect();
@@ -1800,10 +1808,14 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
       }
       for (const entry of entries) {
         await client.query(
-          `INSERT INTO ${INSTANCE_RECOVERY_WATERMARK_TABLE}(instance_id, watermark_payload, updated_at)
-           VALUES ($1, $2::jsonb, now())
-           ON CONFLICT (instance_id) DO UPDATE SET watermark_payload = EXCLUDED.watermark_payload, updated_at = now()`,
-          [entry.instanceId, JSON.stringify(entry.payload ?? {})],
+          `INSERT INTO ${INSTANCE_RECOVERY_WATERMARK_TABLE}(instance_id, watermark_version, watermark_payload, updated_at)
+           VALUES ($1, $2, $3::jsonb, now())
+           ON CONFLICT (instance_id) DO UPDATE SET
+             watermark_version = EXCLUDED.watermark_version,
+             watermark_payload = EXCLUDED.watermark_payload,
+             updated_at = now()
+           WHERE ${INSTANCE_RECOVERY_WATERMARK_TABLE}.watermark_version <= EXCLUDED.watermark_version`,
+          [entry.instanceId, entry.watermarkVersion, JSON.stringify(entry.payload ?? {})],
         );
       }
       await client.query('COMMIT');
@@ -3549,6 +3561,11 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
         `DELETE FROM ${INSTANCE_MONSTER_RUNTIME_STATE_TABLE} WHERE instance_id = $1`,
         `DELETE FROM ${INSTANCE_EVENT_STATE_TABLE} WHERE instance_id = $1`,
         `DELETE FROM ${INSTANCE_OVERLAY_CHUNK_TABLE} WHERE instance_id = $1`,
+        `DELETE FROM ${INSTANCE_BUILDING_CELL_TABLE} WHERE instance_id = $1`,
+        `DELETE FROM ${INSTANCE_BUILDING_STATE_TABLE} WHERE instance_id = $1`,
+        `DELETE FROM ${INSTANCE_ROOM_CELL_TABLE} WHERE instance_id = $1`,
+        `DELETE FROM ${INSTANCE_ROOM_STATE_TABLE} WHERE instance_id = $1`,
+        `DELETE FROM ${INSTANCE_FENGSHUI_STATE_TABLE} WHERE instance_id = $1`,
       ];
       let deleted = 0;
       for (const statement of statements) {
@@ -3761,9 +3778,14 @@ async function ensureInstanceCheckpointTable(pool: Pool): Promise<void> {
     await client.query(`
       CREATE TABLE IF NOT EXISTS ${INSTANCE_CHECKPOINT_TABLE} (
         instance_id varchar(100) NOT NULL PRIMARY KEY,
+        checkpoint_version bigint NOT NULL DEFAULT 0,
         checkpoint_payload jsonb NOT NULL DEFAULT '{}'::jsonb,
         updated_at timestamptz NOT NULL DEFAULT now()
       )
+    `);
+    await client.query(`
+      ALTER TABLE ${INSTANCE_CHECKPOINT_TABLE}
+      ADD COLUMN IF NOT EXISTS checkpoint_version bigint NOT NULL DEFAULT 0
     `);
     await client.query(`
       CREATE INDEX IF NOT EXISTS instance_checkpoint_updated_idx
@@ -3787,9 +3809,14 @@ async function ensureInstanceRecoveryWatermarkTable(pool: Pool): Promise<void> {
     await client.query(`
       CREATE TABLE IF NOT EXISTS ${INSTANCE_RECOVERY_WATERMARK_TABLE} (
         instance_id varchar(100) NOT NULL PRIMARY KEY,
+        watermark_version bigint NOT NULL DEFAULT 0,
         watermark_payload jsonb NOT NULL DEFAULT '{}'::jsonb,
         updated_at timestamptz NOT NULL DEFAULT now()
       )
+    `);
+    await client.query(`
+      ALTER TABLE ${INSTANCE_RECOVERY_WATERMARK_TABLE}
+      ADD COLUMN IF NOT EXISTS watermark_version bigint NOT NULL DEFAULT 0
     `);
     await client.query(`
       CREATE INDEX IF NOT EXISTS instance_recovery_watermark_updated_idx
@@ -4463,6 +4490,38 @@ function normalizeJsonObjectPayload(value: unknown): Record<string, unknown> {
   } catch {
     return {};
   }
+}
+
+function resolveInstanceCheckpointVersion(payload: unknown): number {
+  const root = normalizeJsonObjectPayload(payload);
+  const snapshot = normalizeJsonObjectPayload(root.snapshot);
+  return normalizeMonotonicVersion(
+    snapshot.persistenceRevision,
+    root.persistenceRevision,
+    snapshot.tick,
+    root.tick,
+    snapshot.savedAt,
+    root.savedAt,
+  );
+}
+
+function resolveInstanceWatermarkVersion(payload: unknown): number {
+  const root = normalizeJsonObjectPayload(payload);
+  return normalizeMonotonicVersion(
+    root.persistenceRevision,
+    root.tick,
+    root.flushedAt,
+  );
+}
+
+function normalizeMonotonicVersion(...values: unknown[]): number {
+  for (const value of values) {
+    const parsed = normalizeNullableInteger(value);
+    if (parsed !== null && parsed >= 0) {
+      return parsed;
+    }
+  }
+  return 0;
 }
 
 function shouldReplaceContainerState(

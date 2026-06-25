@@ -158,6 +158,9 @@ export class WorldRuntimePersistenceStateService {
             }
             return { persistedDomains: [], skipped: true };
         }
+        if (!await isLiveCatalogLeaseWritable(deps, instanceId, instance, 'flush_instance_domains_catalog_fence_failed')) {
+            return { persistedDomains: [], skipped: true };
+        }
         const persistence = deps.instanceDomainPersistenceService;
         if (!persistence?.isEnabled?.()) {
             return { persistedDomains: [], skipped: true };
@@ -226,13 +229,18 @@ export class WorldRuntimePersistenceStateService {
         }
         if (currentDomains.has('container_state')) {
             const containerStates = deps.worldRuntimeLootContainerService.buildContainerPersistenceStates(instanceId);
-            for (const state of containerStates) {
-                await persistence.saveContainerState({
-                    instanceId,
-                    containerId: state.containerId,
-                    sourceId: state.sourceId,
-                    statePayload: state,
-                });
+            if (typeof persistence.replaceContainerStates === 'function') {
+                await persistence.replaceContainerStates(instanceId, containerStates);
+            }
+            else {
+                for (const state of containerStates) {
+                    await persistence.saveContainerState({
+                        instanceId,
+                        containerId: state.containerId,
+                        sourceId: state.sourceId,
+                        statePayload: state,
+                    });
+                }
             }
             persistedDomains.push('container_state');
         }
@@ -300,6 +308,9 @@ export class WorldRuntimePersistenceStateService {
         if (unsupportedDomains.length > 0) {
             throw new Error(`unsupported_instance_persistence_domains:${instanceId}:${unsupportedDomains.join(',')}`);
         }
+        if (persistedDomains.length > 0 && !await isLiveCatalogLeaseWritable(deps, instanceId, instance, 'flush_instance_domains_catalog_fence_before_mark_failed')) {
+            return { persistedDomains, skipped: true };
+        }
         if (persistedDomains.length > 0 && typeof persistence.saveInstanceRecoveryWatermark === 'function') {
             await persistence.saveInstanceRecoveryWatermark(instanceId, buildInstanceDomainRecoveryWatermark(instance, persistedDomains));
         }
@@ -357,6 +368,42 @@ export class WorldRuntimePersistenceStateService {
         }
     }
 };
+
+async function isLiveCatalogLeaseWritable(deps, instanceId, instance, fenceReason) {
+    if (!deps?.instanceCatalogService?.isEnabled?.()) {
+        return true;
+    }
+    const nodeId = typeof deps.nodeRegistryService?.getNodeId === 'function'
+        ? deps.nodeRegistryService.getNodeId()
+        : '';
+    if (!nodeId) {
+        return true;
+    }
+    const catalog = await deps.instanceCatalogService.loadInstanceCatalog(instanceId);
+    if (!catalog) {
+        return true;
+    }
+    const assignedNodeId = typeof catalog.assigned_node_id === 'string' ? catalog.assigned_node_id.trim() : '';
+    const catalogLeaseToken = typeof catalog.lease_token === 'string' ? catalog.lease_token.trim() : '';
+    const runtimeLeaseToken = typeof instance?.meta?.leaseToken === 'string' ? instance.meta.leaseToken.trim() : '';
+    const catalogEpoch = Number.isFinite(Number(catalog.ownership_epoch)) ? Math.trunc(Number(catalog.ownership_epoch)) : 0;
+    const runtimeEpoch = Number.isFinite(Number(instance?.meta?.ownershipEpoch)) ? Math.trunc(Number(instance.meta.ownershipEpoch)) : 0;
+    const leaseExpireAt = catalog.lease_expire_at ? new Date(catalog.lease_expire_at).getTime() : 0;
+    const status = typeof catalog.status === 'string' ? catalog.status.trim() : '';
+    const runtimeStatus = typeof catalog.runtime_status === 'string' ? catalog.runtime_status.trim() : '';
+    const writable = status !== 'destroyed'
+        && runtimeStatus !== 'fenced'
+        && assignedNodeId === nodeId
+        && catalogLeaseToken.length > 0
+        && catalogLeaseToken === runtimeLeaseToken
+        && catalogEpoch === runtimeEpoch
+        && Number.isFinite(leaseExpireAt)
+        && leaseExpireAt > Date.now();
+    if (!writable && typeof deps.fenceInstanceRuntime === 'function') {
+        deps.fenceInstanceRuntime(instanceId, fenceReason);
+    }
+    return writable;
+}
 
 function resolveStableStringComparer(deps) {
     if (typeof deps?.compareStableStrings === 'function') {

@@ -28,10 +28,12 @@ const PLAYER_DOMAIN_PROJECTION_TARGETS = [
   'progression',
   'attr',
   'wallet',
+  'sect_membership',
   'market_storage',
   'inventory',
   'map_unlock',
   'equipment',
+  'artifact',
   'technique',
   'body_training',
   'buff',
@@ -159,6 +161,12 @@ async function main() {
         entry.playerId,
         entry.snapshot,
         PLAYER_DOMAIN_PROJECTION_TARGETS,
+        {
+          allowInventoryEmptyOverwrite: true,
+          allowEquipmentEmptyOverwrite: true,
+          allowArtifactEmptyOverwrite: true,
+          allowBuffEmptyOverwrite: true,
+        },
       );
       const existingPresence = typeof domainService.loadPlayerPresence === 'function'
         ? await domainService.loadPlayerPresence(entry.playerId)

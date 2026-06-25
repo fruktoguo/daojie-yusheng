@@ -235,6 +235,19 @@ export class MailPersistenceService implements OnModuleInit, OnModuleDestroy {
         await acquirePlayerMailLock(client, normalizedPlayerId);
 
         const stableMailboxMails = sortMailsByStableKey(normalizedMailbox.mails);
+        const currentFence = await loadMailboxWriteFence(client, normalizedPlayerId);
+        if (currentFence.counterVersion > normalizedMailbox.revision) {
+          this.logger.warn(
+            `跳过旧邮箱全量快照：playerId=${normalizedPlayerId} currentRevision=${currentFence.counterVersion} incomingRevision=${normalizedMailbox.revision}`,
+          );
+          await client.query('COMMIT');
+          return;
+        }
+        if (stableMailboxMails.length === 0 && currentFence.mailCount > 0 && normalizedMailbox.revision <= currentFence.counterVersion) {
+          throw new Error(
+            `mailbox_full_snapshot_empty_overwrite_refused:${normalizedPlayerId}:current=${currentFence.counterVersion}:incoming=${normalizedMailbox.revision}`,
+          );
+        }
         if (stableMailboxMails.length > 0) {
           await upsertStructuredMails(client, normalizedPlayerId, stableMailboxMails);
           await upsertStructuredAttachments(client, normalizedPlayerId, stableMailboxMails);
@@ -542,6 +555,24 @@ async function acquirePlayerMailLock(
   await client.query('SELECT pg_advisory_xact_lock($1::integer, hashtext($2))', [7101, playerId]);
 }
 
+async function loadMailboxWriteFence(
+  client: import('pg').PoolClient,
+  playerId: string,
+): Promise<{ counterVersion: number; mailCount: number }> {
+  const counterResult = await client.query<{ counter_version?: unknown }>(
+    `SELECT counter_version FROM ${PLAYER_MAIL_COUNTER_TABLE} WHERE player_id = $1 LIMIT 1`,
+    [playerId],
+  );
+  const mailCountResult = await client.query<{ mail_count?: unknown }>(
+    `SELECT count(*)::int AS mail_count FROM ${PLAYER_MAIL_TABLE} WHERE player_id = $1`,
+    [playerId],
+  );
+  return {
+    counterVersion: Math.max(0, Math.trunc(Number(counterResult.rows[0]?.counter_version ?? 0) || 0)),
+    mailCount: Math.max(0, Math.trunc(Number(mailCountResult.rows[0]?.mail_count ?? 0) || 0)),
+  };
+}
+
 async function ensureStructuredMailTables(pool: Pool): Promise<void> {
   const client = await pool.connect();
   try {
@@ -825,6 +856,7 @@ async function upsertStructuredMailCounter(
         counter_version = EXCLUDED.counter_version,
         welcome_mail_delivered_at = EXCLUDED.welcome_mail_delivered_at,
         updated_at = now()
+      WHERE ${PLAYER_MAIL_COUNTER_TABLE}.counter_version <= EXCLUDED.counter_version
     `,
     [
       playerId,
@@ -1017,6 +1049,7 @@ async function upsertStructuredMails(
         claimed_at = EXCLUDED.claimed_at,
         deleted_at = EXCLUDED.deleted_at,
         updated_at = EXCLUDED.updated_at
+      WHERE ${PLAYER_MAIL_TABLE}.mail_version <= EXCLUDED.mail_version
     `,
     values,
   );

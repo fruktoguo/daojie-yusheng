@@ -112,6 +112,7 @@ interface BatchPersistencePort {
   saveInstanceCheckpoint?(instanceId: string, payload: unknown): Promise<void>;
   replaceGroundItemTiles?(instanceId: string, tileIndices: unknown[], entries: unknown[]): Promise<void>;
   saveContainerState?(input: { instanceId: string; containerId?: unknown; sourceId?: unknown; statePayload: unknown }): Promise<void>;
+  replaceContainerStates?(instanceId: string, states: Array<{ containerId: string; sourceId: string; [key: string]: unknown }>): Promise<void>;
   saveOverlayChunk?(input: { instanceId: string; patchKind?: unknown; chunkKey?: unknown; patchVersion?: unknown; patchPayload?: unknown }): Promise<void>;
   saveMonsterRuntimeDelta?(instanceId: string, upserts: unknown[], deletes: unknown[]): Promise<void>;
   replaceMonsterRuntimeStates?(instanceId: string, states: unknown[]): Promise<void>;
@@ -510,6 +511,7 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
           {
             allowInventoryEmptyOverwrite: task.domain === 'inventory',
             allowEquipmentEmptyOverwrite: task.domain === 'equipment',
+            allowArtifactEmptyOverwrite: task.domain === 'artifact',
             allowBuffEmptyOverwrite: task.domain === 'buff',
             expectedRuntimeOwnerId: payload.runtimeOwnerId ?? null,
             expectedSessionEpoch: payload.sessionEpoch ?? null,
@@ -730,9 +732,13 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
           const record = state as { containerId?: unknown };
           return normalizeString(record.containerId);
         });
-        for (const state of states) {
-          const record = state as { containerId?: unknown; sourceId?: unknown };
-          await persistence.saveContainerState?.({ instanceId, containerId: record.containerId, sourceId: record.sourceId, statePayload: state });
+        if (typeof persistence.replaceContainerStates === 'function') {
+          await persistence.replaceContainerStates(instanceId, states as Array<{ containerId: string; sourceId: string; [key: string]: unknown }>);
+        } else {
+          for (const state of states) {
+            const record = state as { containerId?: unknown; sourceId?: unknown };
+            await persistence.saveContainerState?.({ instanceId, containerId: record.containerId, sourceId: record.sourceId, statePayload: state });
+          }
         }
         return;
       }

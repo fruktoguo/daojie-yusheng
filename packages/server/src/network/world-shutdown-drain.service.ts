@@ -124,6 +124,16 @@ export class WorldShutdownDrainService implements BeforeApplicationShutdown {
       this.shutdownStatusService.recordInstanceFlushFailed('tongtian_tower_flush');
       this.logger.error('最终落盘通天塔数据失败', error instanceof Error ? error.stack : String(error));
     }
+    try {
+      if (typeof this.worldRuntimeService.worldRuntimeSectService?.flushAllNow === 'function') {
+        await this.worldRuntimeService.worldRuntimeSectService.flushAllNow();
+        this.shutdownStatusService.recordInstanceFlushed();
+      }
+    } catch (error) {
+      finalFlushFailed = true;
+      this.shutdownStatusService.recordInstanceFlushFailed('sect_flush');
+      this.logger.error('最终落盘宗门数据失败', error instanceof Error ? error.stack : String(error));
+    }
     this.shutdownStatusService.completePhase('final_flushing');
 
     this.shutdownStatusService.beginPhase('leases_releasing', reason);

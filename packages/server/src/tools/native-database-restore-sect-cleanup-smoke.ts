@@ -88,6 +88,12 @@ async function main(): Promise<void> {
     assert.equal(await countRows(pool, 'SELECT count(*)::int AS count FROM instance_formation_state WHERE owner_sect_id = $1', [validSectId]), 1);
     assert.equal(await countRows(pool, 'SELECT count(*)::int AS count FROM instance_checkpoint WHERE instance_id = $1', [orphanInstanceId]), 0);
     assert.equal(await countRows(pool, 'SELECT count(*)::int AS count FROM instance_checkpoint WHERE instance_id = $1', [validInstanceId]), 1);
+    assert.equal(await countRows(pool, 'SELECT count(*)::int AS count FROM instance_building_state WHERE instance_id = $1', [orphanInstanceId]), 0);
+    assert.equal(await countRows(pool, 'SELECT count(*)::int AS count FROM instance_building_state WHERE instance_id = $1', [validInstanceId]), 1);
+    assert.equal(await countRows(pool, 'SELECT count(*)::int AS count FROM instance_room_state WHERE instance_id = $1', [orphanInstanceId]), 0);
+    assert.equal(await countRows(pool, 'SELECT count(*)::int AS count FROM instance_room_state WHERE instance_id = $1', [validInstanceId]), 1);
+    assert.equal(await countRows(pool, 'SELECT count(*)::int AS count FROM instance_fengshui_state WHERE instance_id = $1', [orphanInstanceId]), 0);
+    assert.equal(await countRows(pool, 'SELECT count(*)::int AS count FROM instance_fengshui_state WHERE instance_id = $1', [validInstanceId]), 1);
     assert.equal(await countRows(pool, 'SELECT count(*)::int AS count FROM instance_catalog WHERE instance_id = $1', [orphanInstanceId]), 0);
     assert.equal(await countRows(pool, 'SELECT count(*)::int AS count FROM instance_catalog WHERE instance_id = $1', [validInstanceId]), 1);
 
@@ -137,6 +143,11 @@ async function cleanupFixture(pool: Pool, sectIds: string[], instanceIds: string
   await pool.query('DELETE FROM instance_catalog WHERE instance_id = ANY($1::varchar[]) OR owner_sect_id = ANY($2::varchar[])', [instanceIds, sectIds]).catch(() => undefined);
   await pool.query('DELETE FROM instance_checkpoint WHERE instance_id = ANY($1::varchar[])', [instanceIds]).catch(() => undefined);
   await pool.query('DELETE FROM instance_recovery_watermark WHERE instance_id = ANY($1::varchar[])', [instanceIds]).catch(() => undefined);
+  await pool.query('DELETE FROM instance_building_cell WHERE instance_id = ANY($1::varchar[])', [instanceIds]).catch(() => undefined);
+  await pool.query('DELETE FROM instance_building_state WHERE instance_id = ANY($1::varchar[])', [instanceIds]).catch(() => undefined);
+  await pool.query('DELETE FROM instance_room_cell WHERE instance_id = ANY($1::varchar[])', [instanceIds]).catch(() => undefined);
+  await pool.query('DELETE FROM instance_room_state WHERE instance_id = ANY($1::varchar[])', [instanceIds]).catch(() => undefined);
+  await pool.query('DELETE FROM instance_fengshui_state WHERE instance_id = ANY($1::varchar[])', [instanceIds]).catch(() => undefined);
   await pool.query('DELETE FROM instance_formation_state WHERE instance_id = ANY($1::varchar[]) OR owner_sect_id = ANY($2::varchar[])', [instanceIds, sectIds]).catch(() => undefined);
   await pool.query('DELETE FROM server_sect WHERE sect_id = ANY($1::varchar[])', [sectIds]).catch(() => undefined);
 }
@@ -219,6 +230,55 @@ async function insertInstanceRows(pool: Pool, instanceId: string, sectId: string
         portals: [{ x: 1, y: 1, sectId, targetInstanceId: instanceId, targetMapId: 'sect_domain', targetX: 0, targetY: 0 }],
       }),
     ],
+  );
+  await pool.query(
+    `
+      INSERT INTO instance_building_state(
+        instance_id, building_id, def_id, x, y, rotation, owner_sect_id, room_id,
+        hp, max_hp, state, created_at_tick, updated_at_tick, revision, payload, updated_at
+      )
+      VALUES ($1, $2, 'sect_hall', 0, 0, 0, $3, $4, 100, 100, 'active', 1, 1, 1, '{}'::jsonb, now())
+    `,
+    [instanceId, `building:${sectId}`, sectId, `room:${sectId}`],
+  );
+  await pool.query(
+    `
+      INSERT INTO instance_building_cell(
+        instance_id, building_id, tile_index, x, y, tile_type, previous_tile_type,
+        previous_terrain_type, previous_surface_type, previous_structure_type, updated_at
+      )
+      VALUES ($1, $2, 0, 0, 0, 'floor', 'stone', NULL, NULL, NULL, now())
+    `,
+    [instanceId, `building:${sectId}`],
+  );
+  await pool.query(
+    `
+      INSERT INTO instance_room_state(
+        instance_id, room_id, role, enclosed, semi_outdoor, min_x, min_y, max_x, max_y,
+        area, perimeter, door_count, window_count, roof_coverage_ratio, room_hash,
+        updated_at_tick, revision, updated_at
+      )
+      VALUES ($1, $2, 'main_hall', true, false, 0, 0, 1, 1, 4, 8, 1, 0, 1, $2, 1, 1, now())
+    `,
+    [instanceId, `room:${sectId}`],
+  );
+  await pool.query(
+    `
+      INSERT INTO instance_room_cell(instance_id, room_id, tile_index, x, y, edge_flags, updated_at)
+      VALUES ($1, $2, 0, 0, 0, 0, now())
+    `,
+    [instanceId, `room:${sectId}`],
+  );
+  await pool.query(
+    `
+      INSERT INTO instance_fengshui_state(
+        instance_id, room_id, score, grade, primary_element, function_element, qi_score,
+        shape_score, enclosure_score, sha_score, comfort_score, integrity_score,
+        element_score, formation_score, revision, updated_at_tick, detail_json, updated_at
+      )
+      VALUES ($1, $2, 1, 'plain', 'neutral', 'neutral', 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, '{}'::jsonb, now())
+    `,
+    [instanceId, `room:${sectId}`],
   );
 }
 

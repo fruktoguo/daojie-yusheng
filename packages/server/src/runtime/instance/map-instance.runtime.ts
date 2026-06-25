@@ -4116,9 +4116,14 @@ class MapInstanceRuntime {
         if (topologyChangedCellCount > 0) {
             this.recalculateRoomsAndFengShuiAfterTopologyChange({ reason: 'runtime_tiles_hydrated', dirtyCellCount: topologyChangedCellCount });
         }
+        const repairedRuntimeTiles = this.getDirtyDomains().has('tile_cell');
         this.persistentRevision = 1;
         this.persistedRevision = 1;
         this.clearDirtyDomains();
+        if (repairedRuntimeTiles) {
+            this.persistentRevision += 1;
+            this.markPersistenceDirtyDomains(['tile_cell']);
+        }
     }
     /** applyPersistedTileLayers：回填动态地块的分层真源；修正旧库中 tileType 与分层自相矛盾的记录。 */
     applyPersistedTileLayers(tileIndex, entry) {
@@ -4724,9 +4729,6 @@ class MapInstanceRuntime {
                 sectId: portal.sectId,
             }))
             .sort((left, right) => left.y - right.y || left.x - right.x);
-        if (portals.length === 0) {
-            return [];
-        }
         return [{
             patchKind: 'portal',
             chunkKey: 'runtime_portals',

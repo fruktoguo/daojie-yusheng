@@ -27,10 +27,12 @@ const PLAYER_DOMAIN_PROJECTION_TARGETS = [
   'progression',
   'attr',
   'wallet',
+  'sect_membership',
   'market_storage',
   'inventory',
   'map_unlock',
   'equipment',
+  'artifact',
   'technique',
   'body_training',
   'buff',
@@ -413,6 +415,7 @@ async function convertPlayers(pool, services, limit) {
       await services.playerDomains.savePlayerSnapshotProjectionDomains(playerId, snapshot, PLAYER_DOMAIN_PROJECTION_TARGETS, {
         allowInventoryEmptyOverwrite: true,
         allowEquipmentEmptyOverwrite: true,
+        allowArtifactEmptyOverwrite: true,
         allowBuffEmptyOverwrite: true,
       });
       await services.playerDomains.savePlayerPresence(playerId, {

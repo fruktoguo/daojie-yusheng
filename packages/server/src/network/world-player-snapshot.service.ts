@@ -56,6 +56,12 @@ interface PlayerDomainSnapshotPort {
     playerId: string,
     snapshot: PersistedPlayerSnapshot | null | undefined,
     domains: Iterable<string>,
+    options?: {
+      allowInventoryEmptyOverwrite?: boolean;
+      allowEquipmentEmptyOverwrite?: boolean;
+      allowArtifactEmptyOverwrite?: boolean;
+      allowBuffEmptyOverwrite?: boolean;
+    },
   ): Promise<void>;
   loadProjectedSnapshot(
     playerId: string,
@@ -71,10 +77,12 @@ const NATIVE_STARTER_PROJECTION_DOMAINS = Object.freeze([
   'progression',
   'attr',
   'wallet',
+  'sect_membership',
   'market_storage',
   'inventory',
   'map_unlock',
   'equipment',
+  'artifact',
   'technique',
   'body_training',
   'buff',
@@ -219,6 +227,12 @@ export class WorldPlayerSnapshotService {
         normalizedPlayerId,
         starterSnapshot,
         NATIVE_STARTER_PROJECTION_DOMAINS,
+        {
+          allowInventoryEmptyOverwrite: true,
+          allowEquipmentEmptyOverwrite: true,
+          allowArtifactEmptyOverwrite: true,
+          allowBuffEmptyOverwrite: true,
+        },
       );
       this.logger.debug(`原生新手分域快照已补种：playerId=${normalizedPlayerId}`);
       return {

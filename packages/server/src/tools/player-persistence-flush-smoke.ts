@@ -99,6 +99,7 @@ function createHarness() {
     domains: string[];
     allowInventoryEmptyOverwrite?: boolean;
     allowEquipmentEmptyOverwrite?: boolean;
+    allowArtifactEmptyOverwrite?: boolean;
     allowBuffEmptyOverwrite?: boolean;
   }> = [];
   const presenceCalls: string[] = [];
@@ -155,6 +156,7 @@ function createHarness() {
       options?: {
         allowInventoryEmptyOverwrite?: boolean;
         allowEquipmentEmptyOverwrite?: boolean;
+        allowArtifactEmptyOverwrite?: boolean;
         allowBuffEmptyOverwrite?: boolean;
       },
     ) {
@@ -163,6 +165,7 @@ function createHarness() {
         domains: Array.from(domains).sort(),
         allowInventoryEmptyOverwrite: options?.allowInventoryEmptyOverwrite,
         allowEquipmentEmptyOverwrite: options?.allowEquipmentEmptyOverwrite,
+        allowArtifactEmptyOverwrite: options?.allowArtifactEmptyOverwrite,
         allowBuffEmptyOverwrite: options?.allowBuffEmptyOverwrite,
       });
     },
@@ -230,6 +233,7 @@ async function testSelectiveProjectionFlush(): Promise<void> {
       domains: ['inventory'],
       allowInventoryEmptyOverwrite: true,
       allowEquipmentEmptyOverwrite: false,
+      allowArtifactEmptyOverwrite: false,
       allowBuffEmptyOverwrite: false,
     },
   ]);
@@ -252,6 +256,7 @@ async function testWalletSelectiveProjectionFlush(): Promise<void> {
       domains: ['wallet'],
       allowInventoryEmptyOverwrite: false,
       allowEquipmentEmptyOverwrite: false,
+      allowArtifactEmptyOverwrite: false,
       allowBuffEmptyOverwrite: false,
     },
   ]);
@@ -274,6 +279,7 @@ async function testBuffSelectiveProjectionAllowsEmptyOverwrite(): Promise<void> 
       domains: ['attr', 'buff'],
       allowInventoryEmptyOverwrite: false,
       allowEquipmentEmptyOverwrite: false,
+      allowArtifactEmptyOverwrite: false,
       allowBuffEmptyOverwrite: true,
     },
   ]);
@@ -296,6 +302,7 @@ async function testEquipmentSelectiveProjectionAllowsEmptyOverwrite(): Promise<v
       domains: ['attr', 'equipment'],
       allowInventoryEmptyOverwrite: false,
       allowEquipmentEmptyOverwrite: true,
+      allowArtifactEmptyOverwrite: false,
       allowBuffEmptyOverwrite: false,
     },
   ]);
@@ -348,6 +355,7 @@ async function testWorkerPoolSubmitIsNotUsed(): Promise<void> {
       domains: ['inventory'],
       allowInventoryEmptyOverwrite: true,
       allowEquipmentEmptyOverwrite: false,
+      allowArtifactEmptyOverwrite: false,
       allowBuffEmptyOverwrite: false,
     },
   ]);

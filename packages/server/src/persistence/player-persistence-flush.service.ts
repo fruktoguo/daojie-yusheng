@@ -481,6 +481,7 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
         {
           allowInventoryEmptyOverwrite: projectedDomains.has('inventory'),
           allowEquipmentEmptyOverwrite: projectedDomains.has('equipment'),
+          allowArtifactEmptyOverwrite: projectedDomains.has('artifact'),
           allowBuffEmptyOverwrite: projectedDomains.has('buff'),
           expectedRuntimeOwnerId: projectionPresence?.runtimeOwnerId ?? null,
           expectedSessionEpoch: projectionPresence?.sessionEpoch ?? null,

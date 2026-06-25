@@ -3589,7 +3589,12 @@ export class MarketRuntimeService {
             }
         }
         for (const snapshot of context.onlinePlayerSnapshots.values()) {
-            this.playerRuntimeService.restoreSnapshot(snapshot);
+            if (snapshot?.playerId && Array.isArray(snapshot.inventory?.items)) {
+                this.playerRuntimeService.replaceInventoryItems(snapshot.playerId, snapshot.inventory.items);
+            }
+            if (snapshot?.playerId && Array.isArray(snapshot.wallet?.balances)) {
+                this.playerRuntimeService.replaceWalletBalances(snapshot.playerId, snapshot.wallet.balances);
+            }
         }
     }
     /**

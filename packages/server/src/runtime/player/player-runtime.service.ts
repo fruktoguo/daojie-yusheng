@@ -3631,6 +3631,7 @@ export class PlayerRuntimeService {
         }
         player.sectId = normalized;
         player.selfRevision += 1;
+        markPlayerDirtyDomains(player, ['sect_membership']);
         this.bumpPersistentRevision(player);
         return player;
     }
