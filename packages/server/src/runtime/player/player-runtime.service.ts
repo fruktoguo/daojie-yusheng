@@ -4194,7 +4194,7 @@ export class PlayerRuntimeService {
             }
             recordPlayerTickPerf(options, 'playerTick.artifactTickMs', artifactTickStartedAt);
             const idleCultivationResumeStartedAt = performance.now();
-            if (player.hp > 0 && shouldResumeIdleCultivation(player, playerTick, options.idleCultivationBlockedPlayerIds)) {
+            if (player.hp > 0 && shouldResumeIdleCultivation(player, playerTick)) {
                 player.combat.cultivationActive = true;
                 this.playerAttributesService.recalculate(player);
                 markPlayerDirtyDomains(player, ['combat_pref', 'attr']);
@@ -9880,16 +9880,13 @@ function normalizeCultivationAuraMultiplier(value) {
  * @returns 无返回值，完成ResumeIdleCultivation的条件判断。
  */
 
-function shouldResumeIdleCultivation(player, currentTick, blockedPlayerIds) {
+function shouldResumeIdleCultivation(player, currentTick) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (player.hp <= 0
         || player.combat.cultivationActive
         || player.combat.autoIdleCultivation === false
         || hasAnyRemainingTechniqueJob(player)) {
-        return false;
-    }
-    if (blockedPlayerIds?.has(player.playerId)) {
         return false;
     }
     return currentTick - player.combat.lastActiveTick >= AUTO_IDLE_CULTIVATION_DELAY_TICKS;

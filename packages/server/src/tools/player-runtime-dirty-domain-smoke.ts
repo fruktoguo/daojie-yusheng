@@ -773,7 +773,26 @@ function testInfiniteConsumableBuffSustainsUntilResourceRunsOut(): void {
 
 function createRealProgressionServiceForSmoke() {
   const service = new PlayerProgressionService(
-    {} as never,
+    {
+      createTechniqueState(techId: string) {
+        return {
+          techId,
+          name: techId,
+          level: 1,
+          exp: 0,
+          expToNext: 10,
+          realmLv: 1,
+          grade: 'mortal',
+          category: 'internal',
+          skillsEnabled: true,
+          skills: [],
+          layers: [
+            { level: 1, expToNext: 10 },
+            { level: 2, expToNext: 0 },
+          ],
+        };
+      },
+    } as never,
     {
       recalculate() {
         return true;
@@ -1361,6 +1380,60 @@ function testAdvanceSinglePlayerTickDirtyDomain(): void {
   assertDirtyDomains(service, playerId, ['progression', 'buff', 'attr'], ['snapshot']);
 }
 
+function testIdleCultivationResumeIgnoresStaleNavigationBlockForPendingComprehension(): void {
+  const playerId = 'player:idle-cultivation-pending';
+  const service = createHydratedService(playerId);
+  const progressionService = createRealProgressionServiceForSmoke();
+  (service as unknown as { playerProgressionService: ReturnType<typeof createRealProgressionServiceForSmoke> }).playerProgressionService = progressionService;
+  const player = service.getPlayerOrThrow(playerId);
+  player.realm = {
+    stage: '炼气',
+    realmLv: 1,
+    progress: 0,
+    progressToNext: 100,
+    breakthroughReady: false,
+    nextStage: undefined,
+    breakthroughItems: [],
+    minTechniqueLevel: 1,
+    minTechniqueRealm: 1,
+  } as never;
+  player.combat.cultivationActive = false;
+  player.combat.autoIdleCultivation = true;
+  player.combat.lastActiveTick = 0;
+  player.lifeElapsedTicks = 9;
+  player.attrs.numericStats.realmExpPerTick = 1;
+  player.attrs.numericStats.techniqueExpPerTick = 5;
+  player.techniques.techniques = [] as never;
+  player.techniques.cultivatingTechId = 'manual.tech';
+  player.pendingTechniqueComprehensions = [{
+    techId: 'manual.tech',
+    name: '待悟功法',
+    sourceKind: 'normal',
+    selfComprehensionAllowed: true,
+    progress: 0,
+    requiredProgress: 10,
+    realmLv: 1,
+    grade: 'mortal',
+    category: 'internal',
+    createdAtTick: 0,
+    updatedAtTick: 0,
+    activeTransferJob: null,
+  }] as never;
+  player.transmissionSkill = { level: 1, exp: 0, expToNext: 60 } as never;
+  service.markPersisted(playerId);
+
+  service.advanceSinglePlayerTick(player, 10, {
+    idleCultivationBlockedPlayerIds: new Set([playerId]),
+  });
+
+  assert.equal(player.combat.cultivationActive, true);
+  assert.equal(player.realm.progress, 1);
+  assert.ok(
+    (player.pendingTechniqueComprehensions[0]?.progress ?? 0) > 0
+      || player.techniques.techniques.some((entry) => entry.techId === 'manual.tech'),
+  );
+}
+
 function testAdvanceSinglePlayerTickAutoRefinesRootFoundation(): void {
   const playerId = 'player:tick-auto-root-foundation';
   const service = createHydratedService(playerId);
@@ -1574,6 +1647,7 @@ testLogbookDirtyDomain();
   testProgressionServiceDirtyDomains();
   testHeavenGateEnterRecalculatesAttributes();
   testAdvanceSinglePlayerTickDirtyDomain();
+  testIdleCultivationResumeIgnoresStaleNavigationBlockForPendingComprehension();
   testAdvanceSinglePlayerTickAutoRefinesRootFoundation();
   testEnableAutoRootFoundationStopsImmediatelyAtCap();
   testRespawnDirtyDomains();
