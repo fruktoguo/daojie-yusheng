@@ -11498,6 +11498,15 @@
       "grade": "yellow"
     },
     {
+      "itemId": "merit_eternal",
+      "name": "永恒",
+      "type": "consumable",
+      "grade": "heaven",
+      "desc": "使用后为功德月卡总池增加 90000 功德，并将领取时间重置为 30 天；永久拥有功德月卡权益，每日签到固定池增加 1000 功德，天道商店所有物品打 9 折。只要不被击杀，离线挂机不会因时长耗尽而离场。",
+      "allowBatchUse": true,
+      "useBehavior": "activate_merit_eternal"
+    },
+    {
       "itemId": "mat.ember_branch",
       "name": "余烬枝",
       "type": "material",

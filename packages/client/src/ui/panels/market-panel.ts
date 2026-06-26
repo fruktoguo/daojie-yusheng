@@ -11,12 +11,14 @@ import {
   C2S_RequestMarketListings,
   COMBAT_EQUIP_SLOTS,
   computeBestEnhancementExpectedCost,
+  calculateHeavenlyDaoShopDiscountedPrice,
   calculateMarketTradeTotalCost,
   createItemStackSignature,
   EnhancementExpectedCostStrategy,
   AUCTION_DEFAULT_DURATION_HOURS,
   EquipSlot,
   HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID,
+  HEAVENLY_DAO_SHOP_ETERNAL_DISCOUNT_PERCENT,
   HEAVENLY_DAO_SHOP_ITEMS,
   getMarketMinimumTradeQuantity,
   Inventory,
@@ -541,6 +543,7 @@ export class MarketPanel {
     const marketModalOpen = detailModalHost.isOpenFor(MarketPanel.MODAL_OWNER);
     const auctionModalOpen = detailModalHost.isOpenFor(MarketPanel.AUCTION_MODAL_OWNER);
     const auctionConsignModalOpen = detailModalHost.isOpenFor(MarketPanel.AUCTION_CONSIGN_MODAL_OWNER);
+    const heavenlyDaoShopOpen = detailModalHost.isOpenFor(MarketPanel.HEAVENLY_DAO_SHOP_MODAL_OWNER);
     const previousMarketUpdate = this.marketUpdate;
     const previousSelectedItemKey = this.selectedItemKey;
     const knownListedItems = data.listedItems.length > 0 ? data.listedItems : this.getKnownListedItems(this.marketUpdate);
@@ -576,6 +579,9 @@ export class MarketPanel {
       this.patchAuctionModalLiveState({ patchDetail: false });
     } else if (auctionConsignModalOpen) {
       this.patchAuctionConsignModalState();
+    } else if (heavenlyDaoShopOpen) {
+      this.captureHeavenlyDaoShopAssetSignature(this.player, this.inventory);
+      this.patchHeavenlyDaoShopModal();
     } else {
       this.syncTradeDialogOverlay();
     }
@@ -911,10 +917,16 @@ export class MarketPanel {
   }
 
   openHeavenlyDaoShopFromInventory(): void {
+    if (!this.requestMarketBootstrap()) {
+      this.callbacks?.onRequestMarket();
+    }
     this.openHeavenlyDaoShopModal();
   }
 
   private openHeavenlyDaoShopFromPane(): void {
+    if (!this.requestMarketBootstrap()) {
+      this.callbacks?.onRequestMarket();
+    }
     this.openHeavenlyDaoShopModal();
   }
 
@@ -936,6 +948,27 @@ export class MarketPanel {
     return getPlayerOwnedItemCount(this.player, this.inventory, HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID);
   }
 
+  private getHeavenlyDaoShopDiscountPercent(): number {
+    const discountPercent = this.marketUpdate?.heavenlyDaoShopDiscountPercent ?? 0;
+    if (!Number.isFinite(Number(discountPercent))) {
+      return 0;
+    }
+    return Math.max(0, Math.min(HEAVENLY_DAO_SHOP_ETERNAL_DISCOUNT_PERCENT, Math.trunc(Number(discountPercent))));
+  }
+
+  private getHeavenlyDaoShopUnitPrice(basePrice: number): number {
+    return calculateHeavenlyDaoShopDiscountedPrice(basePrice, this.getHeavenlyDaoShopDiscountPercent());
+  }
+
+  private getHeavenlyDaoShopDiscountLabel(): string {
+    const discountPercent = this.getHeavenlyDaoShopDiscountPercent();
+    if (discountPercent <= 0) {
+      return '';
+    }
+    const rate = (100 - discountPercent) / 10;
+    return Number.isInteger(rate) ? `${rate}折` : `${formatDisplayNumber(rate)}折`;
+  }
+
   private captureHeavenlyDaoShopAssetSignature(player: PlayerState | null, inventory: Inventory): boolean {
     const nextSignature = this.buildHeavenlyDaoShopAssetSignature(player, inventory);
     if (nextSignature === this.heavenlyDaoShopAssetSignature) {
@@ -954,6 +987,7 @@ export class MarketPanel {
     for (const itemId of trackedItemIds) {
       parts.push(`${itemId}:${getPlayerOwnedItemCount(player, inventory, itemId)}`);
     }
+    parts.push(`discount:${this.getHeavenlyDaoShopDiscountPercent()}`);
     return parts.join('|');
   }
 
@@ -1007,7 +1041,9 @@ export class MarketPanel {
       const itemName = template?.name ?? entry.itemId;
       const countText = entry.count > 1 ? ` x${formatDisplayInteger(entry.count)}` : '';
       const ownedCount = getPlayerOwnedItemCount(this.player, this.inventory, entry.itemId);
-      const insufficient = owned < entry.price;
+      const unitPrice = this.getHeavenlyDaoShopUnitPrice(entry.price);
+      const discountLabel = this.getHeavenlyDaoShopDiscountLabel();
+      const insufficient = owned < unitPrice;
       const active = entry.itemId === selectedItemId ? ' active' : '';
       return `
         <button class="market-item-cell ui-surface-card ui-surface-card--compact${active}" data-heavenly-dao-shop-select="${escapeHtmlAttr(entry.itemId)}" type="button">
@@ -1016,7 +1052,7 @@ export class MarketPanel {
             <span class="market-item-cell-owned ${ownedCount > 0 ? '' : 'hidden'}">${ownedCount > 0 ? formatDisplayCountBadge(ownedCount) : ''}</span>
           </div>
           <div class="market-item-cell-prices">
-            <span>${formatDisplayInteger(entry.price)} ${escapeHtml(currencyName)}</span>
+            <span>${formatDisplayInteger(unitPrice)} ${escapeHtml(currencyName)}${discountLabel ? `（${escapeHtml(discountLabel)}）` : ''}</span>
             <span>${insufficient ? `${escapeHtml(currencyName)}不足` : '可兑换'}</span>
           </div>
         </button>
@@ -1038,11 +1074,13 @@ export class MarketPanel {
     const ownedCurrency = this.getHeavenlyDaoShopCurrencyOwned();
     const quantityText = this.heavenlyDaoShopQuantityDrafts.get(entry.itemId) ?? '1';
     const quantity = this.parseHeavenlyDaoShopQuantity(entry.itemId);
-    const totalCost = quantity === null ? null : quantity * entry.price;
+    const unitPrice = this.getHeavenlyDaoShopUnitPrice(entry.price);
+    const discountLabel = this.getHeavenlyDaoShopDiscountLabel();
+    const totalCost = quantity === null ? null : quantity * unitPrice;
     const invalidTotal = totalCost === null || !Number.isSafeInteger(totalCost) || totalCost <= 0;
     const insufficientCurrency = !invalidTotal && totalCost > ownedCurrency;
     const displayTotal = invalidTotal ? '--' : formatDisplayInteger(totalCost ?? 0);
-    const affordableCount = entry.price > 0 ? Math.floor(ownedCurrency / entry.price) : 0;
+    const affordableCount = unitPrice > 0 ? Math.floor(ownedCurrency / unitPrice) : 0;
     const maxPurchasable = Math.min(HEAVENLY_DAO_SHOP_MAX_QUANTITY, affordableCount);
     const ownedCount = getPlayerOwnedItemCount(this.player, this.inventory, entry.itemId);
     const countText = entry.count > 1 ? ` x${formatDisplayInteger(entry.count)}` : '';
@@ -1078,8 +1116,9 @@ export class MarketPanel {
           <div class="market-trade-dialog-field">
             <span>单价</span>
             <div class="market-price-display">
-              <strong>${formatDisplayInteger(entry.price)}</strong>
+              <strong>${formatDisplayInteger(unitPrice)}</strong>
               <span>${escapeHtml(currencyName)}</span>
+              ${discountLabel ? `<span>${escapeHtml(discountLabel)}</span>` : ''}
             </div>
           </div>
         </div>
@@ -1303,7 +1342,8 @@ export class MarketPanel {
 
     const currencyName = this.getHeavenlyDaoShopCurrencyName();
     const quantity = this.parseHeavenlyDaoShopQuantity(itemId);
-    const totalCost = quantity === null ? null : quantity * entry.price;
+    const unitPrice = this.getHeavenlyDaoShopUnitPrice(entry.price);
+    const totalCost = quantity === null ? null : quantity * unitPrice;
     const invalidTotal = totalCost === null || !Number.isSafeInteger(totalCost) || totalCost <= 0;
     const insufficientCurrency = !invalidTotal && totalCost > this.getHeavenlyDaoShopCurrencyOwned();
     const displayTotal = invalidTotal ? '--' : formatDisplayInteger(totalCost ?? 0);

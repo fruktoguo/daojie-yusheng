@@ -196,6 +196,11 @@ export interface MarketUpdateView {
  */
 
   storage: MarketStorage;
+  /**
+ * heavenlyDaoShopDiscountPercent：天道商店折扣百分比。
+ */
+
+  heavenlyDaoShopDiscountPercent?: number;
 }
 
 /** 坊市分页分类计数，按服务端分页分组口径统计。 */

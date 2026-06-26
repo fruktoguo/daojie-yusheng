@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 
-import { HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID, SECT_ENTRANCE_RELOCATION_ITEM_ID } from '@mud/shared';
+import { HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID, HEAVENLY_DAO_SHOP_ETERNAL_DISCOUNT_PERCENT, SECT_ENTRANCE_RELOCATION_ITEM_ID } from '@mud/shared';
 import { MarketRuntimeService } from '../runtime/market/market-runtime.service';
 
 type SmokeItem = {
@@ -196,6 +196,39 @@ async function main(): Promise<void> {
   assert.equal(playerAfterSectToken.inventory.items.find((entry) => entry.itemId === 'sect_founding_token')?.count, 1);
   assert.equal(sectTokenResult.notices[0]?.structured?.vars?.itemLabel, '建宗令');
   assert.equal(sectTokenResult.notices[0]?.structured?.vars?.cost, 2_000);
+
+  const discountedPlayerId = 'player:heavenly-dao-shop-eternal';
+  runtimePlayers.set(discountedPlayerId, {
+    playerId: discountedPlayerId,
+    inventory: {
+      capacity: 10,
+      items: [{ itemId: HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID, count: 100, name: '功德', type: 'consumable' }],
+    },
+    wallet: { balances: [{ walletType: HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID, balance: 100 }] },
+  });
+  const discountedService = new MarketRuntimeService(
+    createContentRepository() as never,
+    createPlayerRuntimeService(runtimePlayers) as never,
+    { async persistMutation() { return undefined; } } as never,
+    { isEnabled() { return false; } } as never,
+    null as never,
+    null as never,
+    null as never,
+    null as never,
+    {
+      getCachedHeavenlyDaoShopDiscountPercent: () => HEAVENLY_DAO_SHOP_ETERNAL_DISCOUNT_PERCENT,
+      getHeavenlyDaoShopDiscountPercent: async () => HEAVENLY_DAO_SHOP_ETERNAL_DISCOUNT_PERCENT,
+    } as never,
+  );
+  assert.equal(
+    discountedService.buildMarketUpdate(discountedPlayerId).heavenlyDaoShopDiscountPercent,
+    HEAVENLY_DAO_SHOP_ETERNAL_DISCOUNT_PERCENT,
+  );
+  const discountedResult = await discountedService.buyHeavenlyDaoShopItem(discountedPlayerId, { itemId: 'spirit_stone', quantity: 1 });
+  const discountedPlayer = runtimePlayers.get(discountedPlayerId)!;
+  assert.equal(discountedPlayer.inventory.items.find((entry) => entry.itemId === HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID)?.count, 10);
+  assert.equal(discountedPlayer.inventory.items.find((entry) => entry.itemId === 'spirit_stone')?.count, 240);
+  assert.equal(discountedResult.notices[0]?.structured?.vars?.cost, 90);
 
   console.log('market-heavenly-dao-shop-smoke passed');
 }

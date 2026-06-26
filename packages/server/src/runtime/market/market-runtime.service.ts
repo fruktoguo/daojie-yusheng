@@ -5,7 +5,7 @@
  */
 import { BadRequestException, Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { createHash, randomUUID } from 'crypto';
-import { AUCTION_DEFAULT_DURATION_HOURS, AUCTION_LISTING_FEE_BASE, AUCTION_LISTING_FEE_RATE, AUCTION_MAX_DURATION_HOURS, AUCTION_MIN_DURATION_HOURS, EQUIP_SLOTS, HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID, HEAVENLY_DAO_SHOP_ITEMS, ITEM_TYPES, MARKET_MAX_ENHANCE_LEVEL, MARKET_MAX_UNIT_PRICE, TECHNIQUE_EQUIP_SLOTS, calculateMarketTradeTotalCost, canMergeItemStack, createItemStackSignature, getItemDisplayName, getMarketMinimumTradeQuantity, getMarketPriceStep, isValidMarketPrice, isValidMarketTradeQuantity, normalizeMarketPriceUp } from '@mud/shared';
+import { AUCTION_DEFAULT_DURATION_HOURS, AUCTION_LISTING_FEE_BASE, AUCTION_LISTING_FEE_RATE, AUCTION_MAX_DURATION_HOURS, AUCTION_MIN_DURATION_HOURS, EQUIP_SLOTS, HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID, HEAVENLY_DAO_SHOP_ITEMS, ITEM_TYPES, MARKET_MAX_ENHANCE_LEVEL, MARKET_MAX_UNIT_PRICE, TECHNIQUE_EQUIP_SLOTS, calculateHeavenlyDaoShopDiscountedPrice, calculateMarketTradeTotalCost, canMergeItemStack, createItemStackSignature, getItemDisplayName, getMarketMinimumTradeQuantity, getMarketPriceStep, isValidMarketPrice, isValidMarketTradeQuantity, normalizeMarketPriceUp } from '@mud/shared';
 import { assignItemInstanceIdIfNeeded } from '../world/item-instance-id.helpers';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { AUCTION_GLOBAL_TRADE_HISTORY_LIMIT, AUCTION_MY_TRADE_HISTORY_VISIBLE_LIMIT, AUCTION_TRADE_HISTORY_PAGE_SIZE, MARKET_CURRENCY_ITEM_ID, MARKET_MAX_ORDER_QUANTITY, MARKET_STORAGE_RUNTIME_CACHE_LIMIT, MARKET_TRADE_HISTORY_PAGE_SIZE, MARKET_TRADE_HISTORY_RUNTIME_CACHE_LIMIT, MARKET_TRADE_HISTORY_VISIBLE_LIMIT } from '../../constants/gameplay/market';
@@ -17,6 +17,7 @@ import { PlayerDomainPersistenceService } from '../../persistence/player-domain-
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { InstanceCatalogService } from '../../persistence/instance-catalog.service';
 import { buildStructuredNotice } from '../world/structured-notice.helpers';
+import { ActivityRuntimeService } from '../activity/activity-runtime.service';
 
 const AUCTION_EXTENSION_WINDOW_MS = 30 * 1000;
 const AUCTION_MAX_EXTENSION_MS = 60 * 60 * 1000;
@@ -59,6 +60,8 @@ export class MarketRuntimeService {
     playerIdentityPersistenceService: any = null;
     /** 玩家分域持久化服务，用于 durable 市场操作前同步 session fencing。 */
     playerDomainPersistenceService: any = null;
+    /** 活动权益服务，用于天道商店折扣结算。 */
+    activityRuntimeService: any = null;
     /** 运行时日志器，记录加载、撮合与持久化异常。 */
     logger = new Logger(MarketRuntimeService.name);
     /** 当前仍然有效的求购/出售挂单。 */
@@ -95,6 +98,7 @@ export class MarketRuntimeService {
         @Optional() @Inject(PlayerPersistenceFlushService) playerPersistenceFlushService: any = null,
         @Optional() @Inject(PlayerIdentityPersistenceService) playerIdentityPersistenceService: any = null,
         @Optional() @Inject(PlayerDomainPersistenceService) playerDomainPersistenceService: any = null,
+        @Optional() @Inject(ActivityRuntimeService) activityRuntimeService: any = null,
     ) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.playerRuntimeService = playerRuntimeService;
@@ -104,6 +108,7 @@ export class MarketRuntimeService {
         this.playerPersistenceFlushService = playerPersistenceFlushService ?? null;
         this.playerIdentityPersistenceService = playerIdentityPersistenceService ?? null;
         this.playerDomainPersistenceService = playerDomainPersistenceService ?? null;
+        this.activityRuntimeService = activityRuntimeService ?? null;
     }
     /** 应用完成启动后再回填坊市快照，避免早于持久化服务初始化导致空装载。 */
     async onApplicationBootstrap() {
@@ -129,7 +134,9 @@ export class MarketRuntimeService {
             if (!shopItem || !quantity) {
                 return this.singleMessage(playerId, '天道商店商品不存在。', 'warn');
             }
-            const totalCost = shopItem.price * quantity;
+            const discountPercent = await this.resolveHeavenlyDaoShopDiscountPercent(playerId);
+            const unitPrice = calculateHeavenlyDaoShopDiscountedPrice(shopItem.price, discountPercent);
+            const totalCost = unitPrice * quantity;
             if (!Number.isSafeInteger(totalCost) || totalCost <= 0) {
                 return this.singleMessage(playerId, '天道商店价格异常，已拒绝本次购买。', 'warn');
             }
@@ -231,6 +238,7 @@ export class MarketRuntimeService {
             listedItems: [],
             myOrders: this.buildOwnOrders(playerId),
             storage: this.getStorage(playerId),
+            heavenlyDaoShopDiscountPercent: this.resolveCachedHeavenlyDaoShopDiscountPercent(playerId),
         };
     }
     /** 构造分页坊市列表，支持品类、部位和功法书分类过滤。 */
@@ -2905,6 +2913,20 @@ export class MarketRuntimeService {
             return null;
         }
         return quantity;
+    }
+    async resolveHeavenlyDaoShopDiscountPercent(playerId) {
+        if (typeof this.activityRuntimeService?.getHeavenlyDaoShopDiscountPercent !== 'function') {
+            return 0;
+        }
+        const discountPercent = await this.activityRuntimeService.getHeavenlyDaoShopDiscountPercent(playerId).catch(() => 0);
+        return Number.isFinite(Number(discountPercent)) ? Math.max(0, Math.min(100, Math.trunc(Number(discountPercent)))) : 0;
+    }
+    resolveCachedHeavenlyDaoShopDiscountPercent(playerId) {
+        if (typeof this.activityRuntimeService?.getCachedHeavenlyDaoShopDiscountPercent !== 'function') {
+            return 0;
+        }
+        const discountPercent = this.activityRuntimeService.getCachedHeavenlyDaoShopDiscountPercent(playerId);
+        return Number.isFinite(Number(discountPercent)) ? Math.max(0, Math.min(100, Math.trunc(Number(discountPercent)))) : 0;
     }
     /**
  * normalizeUnitPrice：规范化或转换Unit价格。

@@ -683,6 +683,8 @@ export interface GmManagedPlayerMonthCardView {
   startAt: number | null;
   expireAt: number | null;
   lastClaimDate: string | null;
+  eternalEnabled: boolean;
+  dailySignInFixedMeritBonus: number;
 }
 
 /** GM 玩家列表的排序方式。 */

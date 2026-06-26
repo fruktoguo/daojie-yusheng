@@ -136,15 +136,26 @@ export class ActivityPanel {
     if (!status) {
       return card;
     }
+    const subtitle = status.eternal
+      ? '永恒'
+      : status.active
+        ? `剩余 ${status.remainingDays} 天`
+        : status.poolRemainingMerit > 0 ? '待激活' : '未激活';
+    const offlineText = status.offlineMaxHours === null ? '永久' : `${status.offlineMaxHours} 小时`;
+    const shopDiscountText = status.heavenlyDaoShopDiscountPercent > 0
+      ? `${(100 - status.heavenlyDaoShopDiscountPercent) / 10}折`
+      : '无';
     card.append(
-      this.createHeader('功德月卡', status.active ? `剩余 ${status.remainingDays} 天` : status.poolRemainingMerit > 0 ? '待激活' : '未激活'),
+      this.createHeader('功德月卡', subtitle),
       this.createMetricGrid([
         ['每日领取', `${status.dailyRewardMerit} 功德`],
         ['月卡总池', `${status.poolTotalMerit} 功德`],
         ['当前剩余', `${status.poolRemainingMerit} 功德`],
-        ['离线时长', `${status.offlineMaxHours} 小时`],
+        ['离线时长', offlineText],
+        ['商店折扣', shopDiscountText],
+        ['签到固定池', `${status.dailySignInFixedMeritBonus} 功德`],
         ['月卡道具', `${status.itemCount} 个`],
-        ['领取期限', status.expireAt && status.active ? formatTime(status.expireAt) : '未激活'],
+        ['领取期限', status.eternal ? '永久' : status.expireAt && status.active ? formatTime(status.expireAt) : '未激活'],
       ]),
     );
     const actions = document.createElement('div');
@@ -166,10 +177,15 @@ export class ActivityPanel {
     if (!status) {
       return card;
     }
+    const rewardPreview = status.rewardPreview;
+    const rewardText = rewardPreview.fixedMerit > 0
+      ? `${rewardPreview.randomMinMerit}-${rewardPreview.randomMaxMerit} + ${rewardPreview.fixedMerit} 功德`
+      : `${rewardPreview.randomMinMerit}-${rewardPreview.randomMaxMerit} 功德`;
     card.append(
       this.createHeader('每日签到', status.canClaimToday ? '今日可领' : '今日已领'),
       this.createMetricGrid([
-        ['签到奖励', `${status.rewardMerit} 功德`],
+        ['签到奖励', rewardText],
+        ['上次获得', status.lastRewardMerit === null ? '无' : `${status.lastRewardMerit} 功德`],
         ['连续签到', `${status.streakDays} 天`],
         ['累计签到', `${status.totalDays} 天`],
         ['今日日期', status.today],

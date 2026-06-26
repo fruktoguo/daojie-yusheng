@@ -8,7 +8,7 @@
  * 处理丹药、技能书、传送符、灵石等各类物品的使用逻辑分支
  */
 import { Inject, Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
-import { DEFAULT_QI_RESOURCE_DESCRIPTOR, MERIT_MONTH_CARD_DURATION_DAYS, MERIT_MONTH_CARD_POOL_GRANT, MERIT_MONTH_CARD_USE_BEHAVIOR, SECT_ENTRANCE_RELOCATION_USE_BEHAVIOR, buildQiResourceKey, getItemDisplayName } from '@mud/shared';
+import { DEFAULT_QI_RESOURCE_DESCRIPTOR, MERIT_ETERNAL_DAILY_SIGN_IN_FIXED_BONUS, MERIT_ETERNAL_POOL_GRANT, MERIT_ETERNAL_USE_BEHAVIOR, MERIT_MONTH_CARD_DURATION_DAYS, MERIT_MONTH_CARD_POOL_GRANT, MERIT_MONTH_CARD_USE_BEHAVIOR, SECT_ENTRANCE_RELOCATION_USE_BEHAVIOR, buildQiResourceKey, getItemDisplayName } from '@mud/shared';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { REFINED_SHA_RESOURCE_KEY } from '../../constants/gameplay/pvp';
 import { ActivityRuntimeService, normalizeActivityError } from '../activity/activity-runtime.service';
@@ -107,6 +107,10 @@ export class WorldRuntimeUseItemService {
             await this.handleMeritMonthCardItem(playerId, itemInstanceId, item, deps, count);
             return;
         }
+        if (item.useBehavior === MERIT_ETERNAL_USE_BEHAVIOR) {
+            await this.handleMeritEternalItem(playerId, itemInstanceId, item, deps, count);
+            return;
+        }
         const learnedTechniqueId = this.contentTemplateRepository.getLearnTechniqueId(item.itemId);
         const mapUnlockIds = Array.isArray(item.mapUnlockIds) && item.mapUnlockIds.length > 0
             ? item.mapUnlockIds
@@ -160,6 +164,30 @@ export class WorldRuntimeUseItemService {
                 count: normalizedCount,
                 merit: MERIT_MONTH_CARD_POOL_GRANT * normalizedCount,
                 days: MERIT_MONTH_CARD_DURATION_DAYS,
+            },
+            pills: [{ key: 'itemName', style: 'target' }],
+        });
+        deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);
+    }
+
+    async handleMeritEternalItem(playerId, itemInstanceId, item, deps, count = 1) {
+        const normalizedCount = normalizeUseItemCount(count, item);
+        this.playerRuntimeService.consumeInventoryItemByInstanceId(playerId, itemInstanceId, normalizedCount);
+        try {
+            await this.activityRuntimeService.activateEternalMonthCard(playerId, Date.now(), normalizedCount);
+        }
+        catch (error) {
+            this.playerRuntimeService.receiveInventoryItem(playerId, { ...item, count: normalizedCount });
+            throw normalizeActivityError(error);
+        }
+        deps.refreshQuestStates(playerId);
+        const itemName = getItemDisplayName(item);
+        const n = buildStructuredNotice('success', 'notice.activity.eternal-activated', '已激活永恒，永久拥有功德月卡权益', {
+            vars: {
+                itemName,
+                count: normalizedCount,
+                merit: MERIT_ETERNAL_POOL_GRANT * normalizedCount,
+                dailySignInFixedMerit: MERIT_ETERNAL_DAILY_SIGN_IN_FIXED_BONUS * normalizedCount,
             },
             pills: [{ key: 'itemName', style: 'target' }],
         });

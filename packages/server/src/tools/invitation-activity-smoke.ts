@@ -91,6 +91,11 @@ async function main(): Promise<void> {
   assert.equal(status.invitation.totalInvitees, 2);
   assert.equal(status.invitation.qiReachedCount, 2);
   assert.equal(status.invitation.foundationReachedCount, 1);
+  assert.deepEqual(status.dailySignIn.rewardPreview, {
+    randomMinMerit: 1,
+    randomMaxMerit: 71,
+    fixedMerit: 0,
+  });
   assert.equal(status.hasRedDot, true);
   assert.deepEqual(granted, [
     { playerId: 'p_inviter', itemId: SPIRIT_STONE_ITEM_ID, count: INVITATION_INVITEE_SPIRIT_STONE_REWARD },

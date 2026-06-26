@@ -32,6 +32,18 @@ export const HEAVENLY_DAO_SHOP_ITEMS = [
   { itemId: 'pill.shatter_spirit', count: 1, price: 10 },
 ] as const;
 
+/** 永恒权益下天道商店折扣百分比。 */
+export const HEAVENLY_DAO_SHOP_ETERNAL_DISCOUNT_PERCENT = 10;
+
+export function calculateHeavenlyDaoShopDiscountedPrice(price: number, discountPercent = 0): number {
+  const normalizedPrice = Math.max(1, Math.trunc(Number(price) || 0));
+  const normalizedDiscount = Math.min(99, Math.max(0, Math.trunc(Number(discountPercent) || 0)));
+  if (normalizedDiscount <= 0) {
+    return normalizedPrice;
+  }
+  return Math.max(1, Math.floor(normalizedPrice * (100 - normalizedDiscount) / 100));
+}
+
 /** 拍卖上架费基础值 */
 export const AUCTION_LISTING_FEE_BASE = 10;
 

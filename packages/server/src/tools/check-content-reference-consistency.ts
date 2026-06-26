@@ -7,7 +7,7 @@
 
 const fs = require("node:fs");
 const path = require("node:path");
-const { ELEMENT_KEYS, NUMERIC_STATS_KEYS, SECT_ENTRANCE_RELOCATION_USE_BEHAVIOR, resolveMapGroupInfo } = require("@mud/shared");
+const { ELEMENT_KEYS, MERIT_ETERNAL_USE_BEHAVIOR, MERIT_MONTH_CARD_USE_BEHAVIOR, NUMERIC_STATS_KEYS, SECT_ENTRANCE_RELOCATION_USE_BEHAVIOR, resolveMapGroupInfo } = require("@mud/shared");
 
 const packageRoot = path.resolve(__dirname, "..", "..");
 const contentRoot = path.join(packageRoot, "data", "content");
@@ -397,7 +397,7 @@ function validateItemRefs(errors, items, refs) {
 
 function hasConsumableUseRuntimeEffect(item) {
   if (typeof item?.learnTechniqueId === "string" && item.learnTechniqueId.length > 0) return true;
-  if (item?.useBehavior === "create_sect" || item?.useBehavior === "bind_current_respawn" || item?.useBehavior === SECT_ENTRANCE_RELOCATION_USE_BEHAVIOR) return true;
+  if (item?.useBehavior === "create_sect" || item?.useBehavior === "bind_current_respawn" || item?.useBehavior === SECT_ENTRANCE_RELOCATION_USE_BEHAVIOR || item?.useBehavior === MERIT_MONTH_CARD_USE_BEHAVIOR || item?.useBehavior === MERIT_ETERNAL_USE_BEHAVIOR) return true;
   if (typeof item?.formationDiskTier === "string" && item.formationDiskTier.length > 0) return true;
   if (typeof item?.healAmount === "number" && item.healAmount > 0) return true;
   if (typeof item?.healPercent === "number" && item.healPercent > 0) return true;

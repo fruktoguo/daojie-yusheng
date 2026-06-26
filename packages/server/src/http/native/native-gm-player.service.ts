@@ -299,6 +299,8 @@ interface ActivityPersistenceServiceLike {
     expireAt: number;
     totalPoolMerit: number;
     remainingPoolMerit: number;
+    eternalEnabled: boolean;
+    dailySignInFixedMeritBonus: number;
     lastClaimDate: string | null;
   } | null>;
   setMonthCardPool(playerId: string, totalPoolMerit: number, remainingPoolMerit: number): Promise<{
@@ -306,6 +308,8 @@ interface ActivityPersistenceServiceLike {
     expireAt: number;
     totalPoolMerit: number;
     remainingPoolMerit: number;
+    eternalEnabled: boolean;
+    dailySignInFixedMeritBonus: number;
     lastClaimDate: string | null;
   }>;
 }
@@ -2793,6 +2797,8 @@ export class NativeGmPlayerService {
     expireAt: number;
     totalPoolMerit: number;
     remainingPoolMerit: number;
+    eternalEnabled?: boolean;
+    dailySignInFixedMeritBonus?: number;
     lastClaimDate: string | null;
   }) {
     return {
@@ -2801,6 +2807,8 @@ export class NativeGmPlayerService {
       startAt: record.startAt > 0 ? Math.trunc(record.startAt) : null,
       expireAt: record.expireAt > 0 ? Math.trunc(record.expireAt) : null,
       lastClaimDate: record.lastClaimDate ?? null,
+      eternalEnabled: record.eternalEnabled === true,
+      dailySignInFixedMeritBonus: Math.max(0, Math.trunc(Number(record.dailySignInFixedMeritBonus) || 0)),
     };
   }
 

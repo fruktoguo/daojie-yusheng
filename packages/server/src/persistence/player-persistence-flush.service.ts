@@ -585,6 +585,9 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
     const activeMonthCardPlayerIds = new Set(
       await this.activityPersistenceService?.listActiveMonthCardPlayerIds?.(now).catch(() => []) ?? [],
     );
+    const eternalMonthCardPlayerIds = new Set(
+      await this.activityPersistenceService?.listEternalMonthCardPlayerIds?.().catch(() => []) ?? [],
+    );
     const expiredPlayerIds: string[] = [];
     for (const [playerId, player] of players) {
       if (!player) continue;
@@ -592,6 +595,7 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
       if (!isOffline) continue;
       const offlineSince = Number(player.offlineSinceAt);
       if (!Number.isFinite(offlineSince) || offlineSince <= 0) continue;
+      if (eternalMonthCardPlayerIds.has(playerId)) continue;
       const timeoutMs = activeMonthCardPlayerIds.has(playerId) ? monthCardOfflineTimeoutMs : baseOfflineTimeoutMs;
       if (now - offlineSince >= timeoutMs) {
         expiredPlayerIds.push(playerId);

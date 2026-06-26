@@ -7,11 +7,16 @@
 export const MERIT_ITEM_ID = 'merit';
 export const MERIT_MONTH_CARD_ITEM_ID = 'merit_month_card';
 export const MERIT_MONTH_CARD_USE_BEHAVIOR = 'activate_merit_month_card';
+export const MERIT_ETERNAL_ITEM_ID = 'merit_eternal';
+export const MERIT_ETERNAL_USE_BEHAVIOR = 'activate_merit_eternal';
 export const MERIT_MONTH_CARD_DURATION_DAYS = 30;
 export const MERIT_MONTH_CARD_POOL_GRANT = 3000;
+export const MERIT_ETERNAL_POOL_GRANT = 90_000;
+export const MERIT_ETERNAL_DAILY_SIGN_IN_FIXED_BONUS = 1_000;
 export const MERIT_MONTH_CARD_OFFLINE_MAX_HOURS = 72;
 export const BASE_OFFLINE_MAX_HOURS = 48;
-export const DAILY_SIGN_IN_REWARD_MERIT = 20;
+export const DAILY_SIGN_IN_RANDOM_MIN_MERIT = 1;
+export const DAILY_SIGN_IN_RANDOM_BASE_MAX_MERIT = 40;
 export const SPIRIT_STONE_ITEM_ID = 'spirit_stone';
 export const INVITATION_INVITEE_SPIRIT_STONE_REWARD = 666;
 export const INVITATION_INVITEE_MERIT_REWARD = 100;
@@ -29,8 +34,11 @@ export interface MeritMonthCardStatusView {
   dailyRewardMerit: number;
   poolTotalMerit: number;
   poolRemainingMerit: number;
+  eternal: boolean;
+  heavenlyDaoShopDiscountPercent: number;
+  dailySignInFixedMeritBonus: number;
   claimWindowDays: number;
-  offlineMaxHours: number;
+  offlineMaxHours: number | null;
   canClaimToday: boolean;
   lastClaimDate: string | null;
   today: string;
@@ -44,7 +52,12 @@ export interface DailySignInStatusView {
   streakDays: number;
   totalDays: number;
   today: string;
-  rewardMerit: number;
+  rewardPreview: {
+    randomMinMerit: number;
+    randomMaxMerit: number;
+    fixedMerit: number;
+  };
+  lastRewardMerit: number | null;
 }
 
 export type InvitationStageKey = 'registered' | 'qi' | 'foundation';

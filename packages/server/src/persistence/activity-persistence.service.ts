@@ -6,7 +6,6 @@
 import { Injectable, Logger, Inject } from '@nestjs/common';
 import type { Pool } from 'pg';
 import {
-  DAILY_SIGN_IN_REWARD_MERIT,
   INVITATION_FOUNDATION_REALM_MIN_LEVEL,
   INVITATION_INVITEE_MERIT_REWARD,
   INVITATION_INVITEE_SPIRIT_STONE_REWARD,
@@ -17,6 +16,8 @@ import {
   MERIT_ITEM_ID,
   MERIT_MONTH_CARD_DURATION_DAYS,
   MERIT_MONTH_CARD_POOL_GRANT,
+  MERIT_ETERNAL_DAILY_SIGN_IN_FIXED_BONUS,
+  MERIT_ETERNAL_POOL_GRANT,
 } from '@mud/shared';
 import { resolveServerDatabaseUrl } from '../config/env-alias';
 import { DatabasePoolProvider } from './database-pool.provider';
@@ -34,6 +35,8 @@ export interface ActivityMonthCardRecord {
   expireAt: number;
   totalPoolMerit: number;
   remainingPoolMerit: number;
+  eternalEnabled: boolean;
+  dailySignInFixedMeritBonus: number;
   lastClaimDate: string | null;
 }
 
@@ -47,6 +50,7 @@ export interface ActivityDailySignInRecord {
   lastClaimDate: string | null;
   streakDays: number;
   totalDays: number;
+  lastRewardMerit: number | null;
 }
 
 export interface ActivityInvitationRecord {
@@ -133,7 +137,8 @@ export class ActivityPersistenceService {
       return null;
     }
     const result = await this.pool.query(
-      `SELECT player_id, start_at_ms, expire_at_ms, total_pool_merit, remaining_pool_merit, last_claim_date
+      `SELECT player_id, start_at_ms, expire_at_ms, total_pool_merit, remaining_pool_merit,
+              eternal_enabled, daily_sign_in_fixed_merit_bonus, last_claim_date
          FROM ${MONTH_CARD_TABLE}
         WHERE player_id = $1`,
       [normalizedPlayerId],
@@ -147,7 +152,7 @@ export class ActivityPersistenceService {
       return null;
     }
     const result = await this.pool.query(
-      `SELECT player_id, last_claim_date, streak_days, total_days
+      `SELECT player_id, last_claim_date, streak_days, total_days, last_reward_merit
          FROM ${DAILY_SIGN_IN_TABLE}
         WHERE player_id = $1`,
       [normalizedPlayerId],
@@ -171,7 +176,8 @@ export class ActivityPersistenceService {
     try {
       await client.query('BEGIN');
       const current = await client.query(
-        `SELECT player_id, start_at_ms, expire_at_ms, total_pool_merit, remaining_pool_merit, last_claim_date
+        `SELECT player_id, start_at_ms, expire_at_ms, total_pool_merit, remaining_pool_merit,
+                eternal_enabled, daily_sign_in_fixed_merit_bonus, last_claim_date
            FROM ${MONTH_CARD_TABLE}
           WHERE player_id = $1
           FOR UPDATE`,
@@ -201,6 +207,78 @@ export class ActivityPersistenceService {
         expireAt,
         totalPoolMerit,
         remainingPoolMerit,
+        eternalEnabled: existing?.eternalEnabled ?? false,
+        dailySignInFixedMeritBonus: existing?.dailySignInFixedMeritBonus ?? 0,
+        lastClaimDate: existing?.lastClaimDate ?? null,
+      };
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async activateEternalMonthCard(
+    playerId: string,
+    nowMs = Date.now(),
+    poolGrant = MERIT_ETERNAL_POOL_GRANT,
+    fixedSignInBonus = MERIT_ETERNAL_DAILY_SIGN_IN_FIXED_BONUS,
+    durationDays = MERIT_MONTH_CARD_DURATION_DAYS,
+  ): Promise<ActivityMonthCardRecord> {
+    const normalizedPlayerId = normalizePlayerId(playerId);
+    if (!this.pool || !this.enabled || !normalizedPlayerId) {
+      throw new Error('activity_persistence_unavailable');
+    }
+    const durationMs = Math.max(1, Math.trunc(durationDays)) * DAY_MS;
+    const grantedMerit = Math.max(0, Math.trunc(Number(poolGrant) || 0));
+    const grantedFixedBonus = Math.max(0, Math.trunc(Number(fixedSignInBonus) || 0));
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const current = await client.query(
+        `SELECT player_id, start_at_ms, expire_at_ms, total_pool_merit, remaining_pool_merit,
+                eternal_enabled, daily_sign_in_fixed_merit_bonus, last_claim_date
+           FROM ${MONTH_CARD_TABLE}
+          WHERE player_id = $1
+          FOR UPDATE`,
+        [normalizedPlayerId],
+      );
+      const existing = normalizeMonthCardRow(current.rows[0], normalizedPlayerId);
+      const startAt = Math.trunc(nowMs);
+      const expireAt = startAt + durationMs;
+      const totalPoolMerit = calculateMonthCardNextPool(existing?.remainingPoolMerit ?? 0, grantedMerit);
+      const remainingPoolMerit = totalPoolMerit;
+      const dailySignInFixedMeritBonus = Math.max(
+        0,
+        Math.trunc(Number(existing?.dailySignInFixedMeritBonus ?? 0) || 0) + grantedFixedBonus,
+      );
+      await client.query(
+        `INSERT INTO ${MONTH_CARD_TABLE}(
+           player_id, start_at_ms, expire_at_ms, total_pool_merit, remaining_pool_merit,
+           eternal_enabled, daily_sign_in_fixed_merit_bonus, last_claim_date, created_at, updated_at
+         )
+         VALUES ($1, $2, $3, $4, $5, true, $6, $7, now(), now())
+         ON CONFLICT (player_id)
+         DO UPDATE SET
+           start_at_ms = EXCLUDED.start_at_ms,
+           expire_at_ms = EXCLUDED.expire_at_ms,
+           total_pool_merit = EXCLUDED.total_pool_merit,
+           remaining_pool_merit = EXCLUDED.remaining_pool_merit,
+           eternal_enabled = true,
+           daily_sign_in_fixed_merit_bonus = EXCLUDED.daily_sign_in_fixed_merit_bonus,
+           updated_at = now()`,
+        [normalizedPlayerId, startAt, expireAt, totalPoolMerit, remainingPoolMerit, dailySignInFixedMeritBonus, existing?.lastClaimDate ?? null],
+      );
+      await client.query('COMMIT');
+      return {
+        playerId: normalizedPlayerId,
+        startAt,
+        expireAt,
+        totalPoolMerit,
+        remainingPoolMerit,
+        eternalEnabled: true,
+        dailySignInFixedMeritBonus,
         lastClaimDate: existing?.lastClaimDate ?? null,
       };
     } catch (error) {
@@ -221,14 +299,15 @@ export class ActivityPersistenceService {
     try {
       await client.query('BEGIN');
       const current = await client.query(
-        `SELECT player_id, start_at_ms, expire_at_ms, total_pool_merit, remaining_pool_merit, last_claim_date
+        `SELECT player_id, start_at_ms, expire_at_ms, total_pool_merit, remaining_pool_merit,
+                eternal_enabled, daily_sign_in_fixed_merit_bonus, last_claim_date
            FROM ${MONTH_CARD_TABLE}
           WHERE player_id = $1
           FOR UPDATE`,
         [normalizedPlayerId],
       );
       const monthCard = normalizeMonthCardRow(current.rows[0], normalizedPlayerId);
-      if (!monthCard || monthCard.expireAt <= nowMs || monthCard.remainingPoolMerit <= 0) {
+      if (!monthCard || (!monthCard.eternalEnabled && monthCard.expireAt <= nowMs) || monthCard.remainingPoolMerit <= 0) {
         throw new Error('month_card_inactive');
       }
       if (monthCard.lastClaimDate === normalizedClaimDate) {
@@ -251,10 +330,10 @@ export class ActivityPersistenceService {
       );
       await client.query('COMMIT');
       return {
-        record: {
-          ...monthCard,
-          remainingPoolMerit,
-          lastClaimDate: normalizedClaimDate,
+          record: {
+            ...monthCard,
+            remainingPoolMerit,
+            lastClaimDate: normalizedClaimDate,
         },
         rewardMerit,
       };
@@ -288,7 +367,8 @@ export class ActivityPersistenceService {
     try {
       await client.query('BEGIN');
       const current = await client.query(
-        `SELECT player_id, start_at_ms, expire_at_ms, total_pool_merit, remaining_pool_merit, last_claim_date
+        `SELECT player_id, start_at_ms, expire_at_ms, total_pool_merit, remaining_pool_merit,
+                eternal_enabled, daily_sign_in_fixed_merit_bonus, last_claim_date
            FROM ${MONTH_CARD_TABLE}
           WHERE player_id = $1
           FOR UPDATE`,
@@ -321,6 +401,8 @@ export class ActivityPersistenceService {
         expireAt,
         totalPoolMerit: normalizedTotalPool,
         remainingPoolMerit: normalizedRemainingPool,
+        eternalEnabled: existing?.eternalEnabled ?? false,
+        dailySignInFixedMeritBonus: existing?.dailySignInFixedMeritBonus ?? 0,
         lastClaimDate,
       };
     } catch (error) {
@@ -342,7 +424,7 @@ export class ActivityPersistenceService {
     try {
       await client.query('BEGIN');
       const current = await client.query(
-        `SELECT player_id, last_claim_date, streak_days, total_days
+        `SELECT player_id, last_claim_date, streak_days, total_days, last_reward_merit
            FROM ${DAILY_SIGN_IN_TABLE}
           WHERE player_id = $1
           FOR UPDATE`,
@@ -352,23 +434,25 @@ export class ActivityPersistenceService {
       if (existing?.lastClaimDate === normalizedClaimDate) {
         throw new Error('daily_sign_in_already_claimed');
       }
+      const rewardMerit = Math.max(1, Math.trunc(Number((rewardPayload as { count?: unknown } | null)?.count) || 1));
       const streakDays = existing?.lastClaimDate === previousDate ? existing.streakDays + 1 : 1;
       const totalDays = (existing?.totalDays ?? 0) + 1;
       await client.query(
         `INSERT INTO ${DAILY_SIGN_IN_CLAIM_TABLE}(player_id, claim_date, reward_payload, created_at)
          VALUES ($1, $2, $3::jsonb, now())`,
-        [normalizedPlayerId, normalizedClaimDate, JSON.stringify(rewardPayload ?? { itemId: MERIT_ITEM_ID, count: DAILY_SIGN_IN_REWARD_MERIT })],
+        [normalizedPlayerId, normalizedClaimDate, JSON.stringify(rewardPayload ?? { itemId: MERIT_ITEM_ID, count: rewardMerit })],
       );
       await client.query(
-        `INSERT INTO ${DAILY_SIGN_IN_TABLE}(player_id, last_claim_date, streak_days, total_days, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, now(), now())
+        `INSERT INTO ${DAILY_SIGN_IN_TABLE}(player_id, last_claim_date, streak_days, total_days, last_reward_merit, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, now(), now())
          ON CONFLICT (player_id)
          DO UPDATE SET
            last_claim_date = EXCLUDED.last_claim_date,
            streak_days = EXCLUDED.streak_days,
            total_days = EXCLUDED.total_days,
+           last_reward_merit = EXCLUDED.last_reward_merit,
            updated_at = now()`,
-        [normalizedPlayerId, normalizedClaimDate, streakDays, totalDays],
+        [normalizedPlayerId, normalizedClaimDate, streakDays, totalDays, rewardMerit],
       );
       await client.query('COMMIT');
       return {
@@ -376,6 +460,7 @@ export class ActivityPersistenceService {
         lastClaimDate: normalizedClaimDate,
         streakDays,
         totalDays,
+        lastRewardMerit: rewardMerit,
       };
     } catch (error) {
       await client.query('ROLLBACK').catch(() => undefined);
@@ -392,12 +477,26 @@ export class ActivityPersistenceService {
     if (!this.pool || !this.enabled) {
       return [];
     }
+      const result = await this.pool.query(
+        `SELECT player_id
+           FROM ${MONTH_CARD_TABLE}
+          WHERE (eternal_enabled = true OR expire_at_ms > $1)
+            AND remaining_pool_merit > 0`,
+        [Math.trunc(nowMs)],
+      );
+    return result.rows
+      .map((row) => normalizePlayerId(row?.player_id))
+      .filter((playerId) => playerId.length > 0);
+  }
+
+  async listEternalMonthCardPlayerIds(): Promise<string[]> {
+    if (!this.pool || !this.enabled) {
+      return [];
+    }
     const result = await this.pool.query(
       `SELECT player_id
          FROM ${MONTH_CARD_TABLE}
-        WHERE expire_at_ms > $1
-          AND remaining_pool_merit > 0`,
-      [Math.trunc(nowMs)],
+        WHERE eternal_enabled = true`,
     );
     return result.rows
       .map((row) => normalizePlayerId(row?.player_id))
@@ -672,6 +771,8 @@ async function ensureActivityTables(pool: Pool): Promise<void> {
         expire_at_ms bigint NOT NULL,
         total_pool_merit integer NOT NULL DEFAULT 0,
         remaining_pool_merit integer NOT NULL DEFAULT 0,
+        eternal_enabled boolean NOT NULL DEFAULT false,
+        daily_sign_in_fixed_merit_bonus integer NOT NULL DEFAULT 0,
         last_claim_date varchar(10),
         created_at timestamptz NOT NULL DEFAULT now(),
         updated_at timestamptz NOT NULL DEFAULT now()
@@ -679,6 +780,8 @@ async function ensureActivityTables(pool: Pool): Promise<void> {
     `);
     await client.query(`ALTER TABLE ${MONTH_CARD_TABLE} ADD COLUMN IF NOT EXISTS total_pool_merit integer NOT NULL DEFAULT 0`);
     await client.query(`ALTER TABLE ${MONTH_CARD_TABLE} ADD COLUMN IF NOT EXISTS remaining_pool_merit integer NOT NULL DEFAULT 0`);
+    await client.query(`ALTER TABLE ${MONTH_CARD_TABLE} ADD COLUMN IF NOT EXISTS eternal_enabled boolean NOT NULL DEFAULT false`);
+    await client.query(`ALTER TABLE ${MONTH_CARD_TABLE} ADD COLUMN IF NOT EXISTS daily_sign_in_fixed_merit_bonus integer NOT NULL DEFAULT 0`);
     const nowMs = Date.now();
     const legacyDailyReward = Math.floor(MERIT_MONTH_CARD_POOL_GRANT / MERIT_MONTH_CARD_DURATION_DAYS);
     await client.query(
@@ -715,10 +818,12 @@ async function ensureActivityTables(pool: Pool): Promise<void> {
         last_claim_date varchar(10),
         streak_days integer NOT NULL DEFAULT 0,
         total_days integer NOT NULL DEFAULT 0,
+        last_reward_merit integer,
         created_at timestamptz NOT NULL DEFAULT now(),
         updated_at timestamptz NOT NULL DEFAULT now()
       )
     `);
+    await client.query(`ALTER TABLE ${DAILY_SIGN_IN_TABLE} ADD COLUMN IF NOT EXISTS last_reward_merit integer`);
     await client.query(`
       CREATE TABLE IF NOT EXISTS ${DAILY_SIGN_IN_CLAIM_TABLE} (
         player_id varchar(128) NOT NULL,
@@ -771,6 +876,7 @@ function normalizeMonthCardRow(row: any, fallbackPlayerId: string): ActivityMont
   const expireAt = Math.max(0, Math.trunc(Number(row.expire_at_ms) || 0));
   const totalPoolMerit = Math.max(0, Math.trunc(Number(row.total_pool_merit) || 0));
   const remainingPoolMerit = Math.max(0, Math.trunc(Number(row.remaining_pool_merit) || 0));
+  const dailySignInFixedMeritBonus = Math.max(0, Math.trunc(Number(row.daily_sign_in_fixed_merit_bonus) || 0));
   if (!playerId || expireAt <= 0) {
     return null;
   }
@@ -780,6 +886,8 @@ function normalizeMonthCardRow(row: any, fallbackPlayerId: string): ActivityMont
     expireAt,
     totalPoolMerit,
     remainingPoolMerit,
+    eternalEnabled: row.eternal_enabled === true,
+    dailySignInFixedMeritBonus,
     lastClaimDate: normalizeDateKey(row.last_claim_date) || null,
   };
 }
@@ -813,6 +921,9 @@ function normalizeDailySignInRow(row: any, fallbackPlayerId: string): ActivityDa
     lastClaimDate: normalizeDateKey(row.last_claim_date) || null,
     streakDays: Math.max(0, Math.trunc(Number(row.streak_days) || 0)),
     totalDays: Math.max(0, Math.trunc(Number(row.total_days) || 0)),
+    lastRewardMerit: Number.isFinite(Number(row.last_reward_merit))
+      ? Math.max(0, Math.trunc(Number(row.last_reward_merit)))
+      : null,
   };
 }
 

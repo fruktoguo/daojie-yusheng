@@ -4,9 +4,12 @@
  * 负责把低频活动持久化状态投影为玩家视图，并执行领取奖励的在线资产变更。
  */
 import { BadRequestException, Inject, Injectable, Optional } from '@nestjs/common';
+import { randomInt } from 'crypto';
 import {
   BASE_OFFLINE_MAX_HOURS,
-  DAILY_SIGN_IN_REWARD_MERIT,
+  DAILY_SIGN_IN_RANDOM_BASE_MAX_MERIT,
+  DAILY_SIGN_IN_RANDOM_MIN_MERIT,
+  HEAVENLY_DAO_SHOP_ETERNAL_DISCOUNT_PERCENT,
   INVITATION_FOUNDATION_REALM_MIN_LEVEL,
   INVITATION_INVITEE_MERIT_REWARD,
   INVITATION_INVITEE_SPIRIT_STONE_REWARD,
@@ -15,6 +18,8 @@ import {
   INVITATION_INVITER_QI_REALM_MERIT_REWARD,
   INVITATION_QI_REALM_MIN_LEVEL,
   MERIT_ITEM_ID,
+  MERIT_ETERNAL_DAILY_SIGN_IN_FIXED_BONUS,
+  MERIT_ETERNAL_POOL_GRANT,
   MERIT_MONTH_CARD_DURATION_DAYS,
   MERIT_MONTH_CARD_ITEM_ID,
   MERIT_MONTH_CARD_OFFLINE_MAX_HOURS,
@@ -31,8 +36,37 @@ import { PlayerRuntimeService } from '../player/player-runtime.service';
 const CHINA_TIME_OFFSET_MS = 8 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+interface DailySignInRewardPreview {
+  randomMinMerit: number;
+  randomMaxMerit: number;
+  fixedMerit: number;
+}
+
+function buildDailySignInRewardPreview(historicalMaxRealmLv: number, fixedMerit: number): DailySignInRewardPreview {
+  const normalizedHistoricalMaxRealmLv = Math.max(0, Math.trunc(Number(historicalMaxRealmLv) || 0));
+  const randomMinMerit = DAILY_SIGN_IN_RANDOM_MIN_MERIT;
+  const randomMaxMerit = Math.max(randomMinMerit, DAILY_SIGN_IN_RANDOM_BASE_MAX_MERIT + normalizedHistoricalMaxRealmLv);
+  return {
+    randomMinMerit,
+    randomMaxMerit,
+    fixedMerit: Math.max(0, Math.trunc(Number(fixedMerit) || 0)),
+  };
+}
+
+function rollDailySignInReward(preview: DailySignInRewardPreview): { randomMerit: number; fixedMerit: number; totalMerit: number } {
+  const randomMerit = randomInt(preview.randomMinMerit, preview.randomMaxMerit + 1);
+  const fixedMerit = Math.max(0, Math.trunc(Number(preview.fixedMerit) || 0));
+  return {
+    randomMerit,
+    fixedMerit,
+    totalMerit: randomMerit + fixedMerit,
+  };
+}
+
 @Injectable()
 export class ActivityRuntimeService {
+  private readonly eternalBenefitPlayerIds = new Set<string>();
+
   constructor(
     @Inject(ActivityPersistenceService) private readonly activityPersistenceService: ActivityPersistenceService,
     @Inject(PlayerRuntimeService) private readonly playerRuntimeService: PlayerRuntimeService,
@@ -53,22 +87,32 @@ export class ActivityRuntimeService {
       this.buildInvitationStatus(playerId),
     ]);
     const inventory = this.resolveMonthCardInventory(playerId);
-    const active = Boolean(monthCard && monthCard.expireAt > nowMs && monthCard.remainingPoolMerit > 0);
-    const dailyRewardMerit = monthCard && active ? calculateMonthCardDailyReward(monthCard) : 0;
-    const monthCardCanClaim = active && dailyRewardMerit > 0 && monthCard?.lastClaimDate !== today;
+    const eternal = monthCard?.eternalEnabled === true;
+    const monthCardRewardActive = Boolean(monthCard && (eternal || monthCard.expireAt > nowMs) && monthCard.remainingPoolMerit > 0);
+    const monthCardBenefitActive = Boolean(eternal || monthCardRewardActive);
+    this.setCachedEternalBenefit(playerId, eternal);
+    const dailyRewardMerit = monthCard && monthCardRewardActive ? calculateMonthCardDailyReward(monthCard) : 0;
+    const monthCardCanClaim = monthCardRewardActive && dailyRewardMerit > 0 && monthCard?.lastClaimDate !== today;
     const dailyCanClaim = dailySignIn?.lastClaimDate !== today;
+    const dailySignInRewardPreview = buildDailySignInRewardPreview(
+      this.resolveHighestRealmLv(playerId),
+      monthCard?.dailySignInFixedMeritBonus ?? 0,
+    );
     return {
       serverNow: nowMs,
       monthCard: {
-        active,
+        active: monthCardBenefitActive,
         startAt: monthCard?.startAt ?? null,
         expireAt: monthCard?.expireAt ?? null,
-        remainingDays: active && monthCard ? Math.max(1, Math.ceil((monthCard.expireAt - nowMs) / DAY_MS)) : 0,
+        remainingDays: !eternal && monthCardRewardActive && monthCard ? Math.max(1, Math.ceil((monthCard.expireAt - nowMs) / DAY_MS)) : 0,
         dailyRewardMerit,
         poolTotalMerit: monthCard?.totalPoolMerit ?? 0,
         poolRemainingMerit: monthCard?.remainingPoolMerit ?? 0,
         claimWindowDays: MERIT_MONTH_CARD_DURATION_DAYS,
-        offlineMaxHours: active ? MERIT_MONTH_CARD_OFFLINE_MAX_HOURS : BASE_OFFLINE_MAX_HOURS,
+        eternal,
+        heavenlyDaoShopDiscountPercent: eternal ? HEAVENLY_DAO_SHOP_ETERNAL_DISCOUNT_PERCENT : 0,
+        dailySignInFixedMeritBonus: dailySignInRewardPreview.fixedMerit,
+        offlineMaxHours: eternal ? null : monthCardBenefitActive ? MERIT_MONTH_CARD_OFFLINE_MAX_HOURS : BASE_OFFLINE_MAX_HOURS,
         canClaimToday: monthCardCanClaim,
         lastClaimDate: monthCard?.lastClaimDate ?? null,
         today,
@@ -81,7 +125,8 @@ export class ActivityRuntimeService {
         streakDays: dailySignIn?.streakDays ?? 0,
         totalDays: dailySignIn?.totalDays ?? 0,
         today,
-        rewardMerit: DAILY_SIGN_IN_REWARD_MERIT,
+        rewardPreview: dailySignInRewardPreview,
+        lastRewardMerit: dailySignIn?.lastRewardMerit ?? null,
       },
       invitation,
       hasRedDot: monthCardCanClaim || dailyCanClaim || invitationHasPendingReward,
@@ -91,6 +136,18 @@ export class ActivityRuntimeService {
   async activateMeritMonthCard(playerId: string, nowMs = Date.now(), count = 1) {
     const normalizedCount = Math.max(1, Math.trunc(Number(count) || 1));
     return this.activityPersistenceService.activateMonthCard(playerId, nowMs, normalizedCount * MERIT_MONTH_CARD_POOL_GRANT);
+  }
+
+  async activateEternalMonthCard(playerId: string, nowMs = Date.now(), count = 1) {
+    const normalizedCount = Math.max(1, Math.trunc(Number(count) || 1));
+    const record = await this.activityPersistenceService.activateEternalMonthCard(
+      playerId,
+      nowMs,
+      normalizedCount * MERIT_ETERNAL_POOL_GRANT,
+      normalizedCount * MERIT_ETERNAL_DAILY_SIGN_IN_FIXED_BONUS,
+    );
+    this.setCachedEternalBenefit(playerId, true);
+    return record;
   }
 
   async claimMeritMonthCard(playerId: string, nowMs = Date.now()): Promise<void> {
@@ -103,15 +160,42 @@ export class ActivityRuntimeService {
   async claimDailySignIn(playerId: string, nowMs = Date.now()): Promise<void> {
     this.playerRuntimeService.getPlayerOrThrow(playerId);
     const today = getChinaDateKey(nowMs);
+    const monthCard = await this.activityPersistenceService.loadMonthCard(playerId);
+    const historicalMaxRealmLv = this.resolveHighestRealmLv(playerId);
+    const rewardPreview = buildDailySignInRewardPreview(
+      historicalMaxRealmLv,
+      monthCard?.dailySignInFixedMeritBonus ?? 0,
+    );
+    const reward = rollDailySignInReward(rewardPreview);
     await this.activityPersistenceService.claimDailySignIn(playerId, today, {
       itemId: MERIT_ITEM_ID,
-      count: DAILY_SIGN_IN_REWARD_MERIT,
+      count: reward.totalMerit,
+      randomMerit: reward.randomMerit,
+      fixedMerit: reward.fixedMerit,
+      randomMinMerit: rewardPreview.randomMinMerit,
+      randomMaxMerit: rewardPreview.randomMaxMerit,
+      historicalMaxRealmLv,
     });
-    this.grantMerit(playerId, DAILY_SIGN_IN_REWARD_MERIT);
+    this.grantMerit(playerId, reward.totalMerit);
   }
 
   async listActiveMonthCardPlayerIds(nowMs = Date.now()): Promise<string[]> {
     return this.activityPersistenceService.listActiveMonthCardPlayerIds(nowMs);
+  }
+
+  async listEternalMonthCardPlayerIds(): Promise<string[]> {
+    return this.activityPersistenceService.listEternalMonthCardPlayerIds();
+  }
+
+  async getHeavenlyDaoShopDiscountPercent(playerId: string): Promise<number> {
+    const monthCard = await this.activityPersistenceService.loadMonthCard(playerId);
+    const eternal = monthCard?.eternalEnabled === true;
+    this.setCachedEternalBenefit(playerId, eternal);
+    return eternal ? HEAVENLY_DAO_SHOP_ETERNAL_DISCOUNT_PERCENT : 0;
+  }
+
+  getCachedHeavenlyDaoShopDiscountPercent(playerId: string): number {
+    return this.eternalBenefitPlayerIds.has(playerId) ? HEAVENLY_DAO_SHOP_ETERNAL_DISCOUNT_PERCENT : 0;
   }
 
   getOfflineMaxHoursForPlayer(playerId: string, activeMonthCardPlayerIds: ReadonlySet<string>): number {
@@ -227,6 +311,17 @@ export class ActivityRuntimeService {
       }
     }
     return { itemCount, firstItemInstanceId };
+  }
+
+  private setCachedEternalBenefit(playerId: string, enabled: boolean): void {
+    if (!playerId) {
+      return;
+    }
+    if (enabled) {
+      this.eternalBenefitPlayerIds.add(playerId);
+      return;
+    }
+    this.eternalBenefitPlayerIds.delete(playerId);
   }
 }
 

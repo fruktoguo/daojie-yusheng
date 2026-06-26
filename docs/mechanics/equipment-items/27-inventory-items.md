@@ -58,3 +58,28 @@ signature = itemId + '#' + enhanceLevel
 - 玩家主动使用、丢弃、摧毁、装备、布阵、强化、市场上架等资产操作必须以 `itemInstanceId` 定位背包目标；背包数组顺序和 UI 格子只用于展示、排序和面板 patch。
 - 自动用药: 背包前 12 格内的消耗品可被自动战斗系统使用
 - 恢复药效果: 当前恢复丹药统一为基准瞬回 + 120 息自动恢复提升；恢复气血和恢复灵力分别使用 `hp` / `qi` 两组通用冷却，当前恢复药配置为 60 息，同组 60 息内只能服用一枚。
+
+## 功德权益消耗品
+
+源文件:
+
+- `packages/shared/src/activity-types.ts`
+- `packages/server/src/runtime/world/world-runtime-use-item.service.ts`
+- `packages/server/src/persistence/activity-persistence.service.ts`
+
+### 功德月卡
+
+- 物品 ID：`merit_month_card`
+- 使用行为：`activate_merit_month_card`
+- 每次使用为功德月卡总池增加 3000 功德，并把领取时间重置为 30 天
+- 批量使用时按数量叠加新增功德
+
+### 永恒
+
+- 物品 ID：`merit_eternal`
+- 使用行为：`activate_merit_eternal`
+- 每次使用为功德月卡总池增加 90000 功德，并把领取时间重置为 30 天
+- 激活后永久拥有功德月卡权益：月卡每日领取、每日签到固定池加成、天道商店折扣、离线挂机保留权益
+- 每次使用使每日签到固定池增加 1000 功德；后续新增签到加成应继续扩展随机池或固定池，不应把最终签到奖励写死在领取逻辑中
+- 天道商店所有物品按 9 折结算
+- 只要玩家未被击杀，离线挂机不会因时长耗尽从“离线挂机”转为“离线”

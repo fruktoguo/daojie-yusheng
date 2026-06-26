@@ -1313,6 +1313,7 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
     offlineTimeoutMs: number = 48 * 60 * 60 * 1000,
     extendedPlayerIds: string[] = [],
     extendedOfflineTimeoutMs: number = offlineTimeoutMs,
+    permanentPlayerIds: string[] = [],
   ): Promise<Array<{
     playerId: string;
     instanceId: string;
@@ -1326,6 +1327,7 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
     const cutoffAt = now - Math.max(0, Math.trunc(offlineTimeoutMs));
     const extendedCutoffAt = now - Math.max(0, Math.trunc(extendedOfflineTimeoutMs));
     const normalizedExtendedPlayerIds = normalizePlayerIdList(extendedPlayerIds);
+    const normalizedPermanentPlayerIds = normalizePlayerIdList(permanentPlayerIds);
     const result = await this.pool.query<{
       player_id?: unknown;
       instance_id?: unknown;
@@ -1341,6 +1343,8 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
           AND pc.instance_id IS NOT NULL
           AND pc.instance_id <> ''
           AND (
+            p.player_id = ANY($4::text[])
+            OR
             COALESCE(p.offline_since_at, 0) >= $1
             OR (
               p.player_id = ANY($2::text[])
@@ -1348,7 +1352,7 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
             )
           )
       `,
-      [cutoffAt, normalizedExtendedPlayerIds, extendedCutoffAt],
+      [cutoffAt, normalizedExtendedPlayerIds, extendedCutoffAt, normalizedPermanentPlayerIds],
     );
     return result.rows
       .map((row) => ({
@@ -1384,6 +1388,7 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
     offlineTimeoutMs: number = 48 * 60 * 60 * 1000,
     extendedPlayerIds: string[] = [],
     extendedOfflineTimeoutMs: number = offlineTimeoutMs,
+    permanentPlayerIds: string[] = [],
   ): Promise<number> {
     if (!this.pool || !this.enabled) {
       return 0;
@@ -1392,19 +1397,21 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
     const cutoffAt = now - Math.max(0, Math.trunc(offlineTimeoutMs));
     const extendedCutoffAt = now - Math.max(0, Math.trunc(extendedOfflineTimeoutMs));
     const normalizedExtendedPlayerIds = normalizePlayerIdList(extendedPlayerIds);
+    const normalizedPermanentPlayerIds = normalizePlayerIdList(permanentPlayerIds);
     const result = await this.pool.query(
       `
         UPDATE ${PLAYER_PRESENCE_TABLE}
         SET in_world = false, updated_at = now()
         WHERE in_world = true
           AND online = false
+          AND NOT (player_id = ANY($4::text[]))
           AND COALESCE(offline_since_at, 0) < $1
           AND NOT (
             player_id = ANY($2::text[])
             AND COALESCE(offline_since_at, 0) >= $3
           )
       `,
-      [cutoffAt, normalizedExtendedPlayerIds, extendedCutoffAt],
+      [cutoffAt, normalizedExtendedPlayerIds, extendedCutoffAt, normalizedPermanentPlayerIds],
     );
     return Number(result.rowCount ?? 0);
   }
