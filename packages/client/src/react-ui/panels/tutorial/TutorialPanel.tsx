@@ -195,8 +195,13 @@ type SearchMatch = { topic: TutorialTopic; sections: Array<{ title: string; item
 function getSearchMatches(topics: TutorialTopic[], query: string): SearchMatch[] {
   const q = query.toLowerCase();
   return topics.flatMap((topic) => {
-    const topicHit = topic.label.toLowerCase().includes(q);
-    if (topic.id === 'realm-table') return topicHit ? [{ topic, sections: [], tips: [] }] : [];
+    const topicHit = topic.label.toLowerCase().includes(q) || topic.summary.toLowerCase().includes(q);
+    if (topic.id === 'realm-table') {
+      const realmHit = topicHit || REALM_LEVEL_TABLE_ROWS.some(
+        (row) => row.displayName.toLowerCase().includes(q) || row.majorRealmName.toLowerCase().includes(q)
+      );
+      return realmHit ? [{ topic, sections: [], tips: [] }] : [];
+    }
     const sections = topic.sections.flatMap((s) => {
       const sectionHit = s.title.toLowerCase().includes(q);
       const items = (topicHit || sectionHit) ? s.items : s.items.filter((item) => item.toLowerCase().includes(q));
