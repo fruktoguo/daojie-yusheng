@@ -2339,6 +2339,7 @@ notice.action.compass-required,通知,需要装备铜罗盘才能望气,
 notice.action.cultivation-toggled,通知,修炼已{state},
 notice.action.qi-sense-toggled,通知,望气视角已{state},
 notice.activity.month-card-activated,通知,已使用{itemName} x{count}，月卡总池增加 {merit} 功德，领取时间重置为 {days} 天,
+notice.activity.eternal-activated,通知,已使用{itemName} x{count}，月卡总池增加 {merit} 功德，每日签到固定池增加 {dailySignInFixedMerit} 功德，已获得永恒权益,
 notice.channel.combat,通知,战斗,战斗频道兜底名
 notice.channel.grudge,通知,情仇,情仇频道兜底名
 notice.channel.loot,通知,掉落,掉落频道兜底名

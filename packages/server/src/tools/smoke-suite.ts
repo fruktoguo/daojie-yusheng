@@ -128,6 +128,7 @@ const smokeCases = [
     { name: 'auth-bootstrap-native', scriptFile: 'auth-bootstrap-smoke.js' },
     { name: 'auth-bootstrap-legacy-import', scriptFile: 'auth-bootstrap-smoke.js' },
     { name: 'gm', scriptFile: 'gm-smoke.js' },
+    { name: 'month-card-pool', scriptFile: 'month-card-pool-smoke.js', standalone: true },
     { name: 'redeem-code', scriptFile: 'redeem-code-smoke.js' },
     { name: 'redeem-code-persistence-startup', scriptFile: 'redeem-code-persistence-startup-smoke.js', standalone: true },
     { name: 'redeem-code-persistence-claim-db', scriptFile: 'redeem-code-persistence-claim-db-smoke.js', standalone: true },
