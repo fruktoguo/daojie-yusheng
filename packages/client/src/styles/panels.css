@@ -694,6 +694,24 @@
       font-size: var(--font-size-12);
       text-align: center;
     }
+    .inventory-pagination {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .inventory-pagination[hidden] {
+      display: none;
+    }
+    .inventory-pagination-status {
+      min-width: 150px;
+      color: var(--ink-grey);
+      font-size: var(--font-size-12);
+      text-align: center;
+      white-space: nowrap;
+    }
     .inventory-cell {
       display: grid;
       grid-template-rows: auto 1fr auto;

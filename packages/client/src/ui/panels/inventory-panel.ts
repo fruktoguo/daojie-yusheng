@@ -192,6 +192,10 @@ interface InventoryShellRefs {
  */
 
   loadHint: HTMLDivElement;
+  pager: HTMLDivElement;
+  pagerPrev: HTMLButtonElement;
+  pagerStatus: HTMLSpanElement;
+  pagerNext: HTMLButtonElement;
 }
 
 /** InventoryCellRefs：背包格子内部稳定节点引用。 */
@@ -219,6 +223,8 @@ interface InventoryPagedSnapshot {
   totalItems: number;
   totalVisibleItems: number;
   capacity: number;
+  offset: number;
+  limit: number;
   items: Array<{ item: ItemStack; slotIndex: number }>;
   loading: boolean;
   requestId: string | null;
@@ -248,6 +254,7 @@ const FORMATION_DISK_TIER_BY_ITEM_ID: Record<string, keyof typeof FORMATION_DISK
 const HEAVEN_GATE_REROLL_AVERAGE_BONUS = 2;
 /** INVENTORY_INITIAL_RENDER_COUNT：背包初始渲染数量。 */
 const INVENTORY_INITIAL_RENDER_COUNT = 72;
+const INVENTORY_PAGE_SIZE = INVENTORY_INITIAL_RENDER_COUNT;
 /** INVENTORY_RENDER_BATCH_SIZE：背包渲染BATCH SIZE。 */
 const INVENTORY_RENDER_BATCH_SIZE = 48;
 /** INVENTORY_LOAD_MORE_THRESHOLD_PX：背包LOAD MORE THRESHOLD PX。 */
@@ -332,6 +339,7 @@ export class InventoryPanel {
   /** renderedVisibleCount：rendered可见数量。 */
   private renderedVisibleCount = INVENTORY_INITIAL_RENDER_COUNT;
   private pagedSnapshot: InventoryPagedSnapshot | null = null;
+  private inventoryPageOffset = 0;
   private inventoryPageRequestSeq = 0;
   /** pendingLoadMoreFrame：待处理Load More帧。 */
   private pendingLoadMoreFrame: number | null = null;
@@ -374,6 +382,7 @@ export class InventoryPanel {
       onFilterChange: (filter) => this.handleReactFilterChange(filter),
       onSortInventory: () => this.onSortInventory?.(),
       onRequestLoadMore: (scrollTarget) => this.maybeLoadMoreVisibleItems(scrollTarget),
+      onPageChange: (direction) => this.requestAdjacentInventoryPage(direction),
       onPrimaryAction: (slotIndex, itemInstanceId) => this.handlePrimaryAction(slotIndex, itemInstanceId, { closeModal: false }),
       onDropOne: (slotIndex, itemInstanceId) => this.handleDropOne(slotIndex, itemInstanceId),
     });
@@ -415,6 +424,7 @@ export class InventoryPanel {
     this.inventoryCooldownStateCache.clear();
     this.renderedVisibleCount = INVENTORY_INITIAL_RENDER_COUNT;
     this.pagedSnapshot = null;
+    this.inventoryPageOffset = 0;
     this.inventoryPageRequestSeq = 0;
     if (this.pendingLoadMoreFrame !== null) {
       cancelAnimationFrame(this.pendingLoadMoreFrame);
@@ -527,11 +537,19 @@ export class InventoryPanel {
     }
 
     const offset = Math.max(0, Math.trunc(Number(page.offset) || 0));
-    const limit = Math.max(1, Math.trunc(Number(page.limit) || INVENTORY_RENDER_BATCH_SIZE));
+    const limit = Math.max(1, Math.trunc(Number(page.limit) || INVENTORY_PAGE_SIZE));
     const totalVisibleItems = Math.max(0, Math.trunc(Number(page.total) || 0));
     const totalItems = Math.max(0, Math.trunc(Number(page.totalItems) || 0));
     const capacity = Math.max(0, Math.trunc(Number(page.capacity) || 0));
     const revision = Math.max(1, Math.trunc(Number(page.revision) || 1));
+    if (totalVisibleItems > 0 && offset >= totalVisibleItems) {
+      const lastOffset = Math.floor((totalVisibleItems - 1) / limit) * limit;
+      if (lastOffset !== offset) {
+        this.inventoryPageOffset = lastOffset;
+        this.requestInventoryPage(lastOffset, limit);
+        return;
+      }
+    }
     const previousInventory = this.lastInventory;
     const nextItems = previousInventory?.items ? previousInventory.items.slice() : [];
     nextItems.length = totalItems;
@@ -548,24 +566,6 @@ export class InventoryPanel {
       })
       .filter((entry): entry is { item: ItemStack; slotIndex: number } => entry !== null);
 
-    const existingPagedItems = this.pagedSnapshot
-      && this.pagedSnapshot.filter === filter
-      && this.pagedSnapshot.revision === revision
-      && offset > 0
-      ? this.pagedSnapshot.items.slice()
-      : [];
-    const mergedPagedItems: Array<{ item: ItemStack; slotIndex: number } | undefined> = existingPagedItems;
-    for (let index = 0; index < pageItems.length; index += 1) {
-      mergedPagedItems[offset + index] = pageItems[index];
-    }
-    const contiguousPagedItems: Array<{ item: ItemStack; slotIndex: number }> = [];
-    for (const entry of mergedPagedItems) {
-      if (!entry) {
-        break;
-      }
-      contiguousPagedItems.push(entry);
-    }
-
     const nextInventory: Inventory = {
       capacity,
       items: nextItems,
@@ -576,17 +576,20 @@ export class InventoryPanel {
     this.syncInventoryCooldownTickBase(nextInventory);
     this.syncInventoryCooldownStateCache(nextInventory.cooldowns ?? []);
     this.lastInventory = nextInventory;
+    this.inventoryPageOffset = offset;
     this.pagedSnapshot = {
       filter,
       revision,
       totalItems,
       totalVisibleItems,
       capacity,
-      items: contiguousPagedItems,
+      offset,
+      limit,
+      items: pageItems,
       loading: false,
       requestId: null,
     };
-    this.renderedVisibleCount = contiguousPagedItems.length;
+    this.renderedVisibleCount = pageItems.length;
 
     if (this.useReactPanel()) {
       this.pendingVisibleRefresh = false;
@@ -603,7 +606,6 @@ export class InventoryPanel {
       this.renderModal();
     }
     this.syncCooldownRefresh();
-    this.scheduleLoadMoreCheck();
   }
   /**
  * syncPlayerContext：处理玩家上下文并更新相关状态。
@@ -716,6 +718,7 @@ export class InventoryPanel {
     this.activeFilter = filter;
     this.renderedVisibleCount = INVENTORY_INITIAL_RENDER_COUNT;
     this.pagedSnapshot = null;
+    this.inventoryPageOffset = 0;
     this.ensureInventoryPageRequested(true);
     if (!this.lastInventory) {
       this.syncReactState(null);
@@ -811,24 +814,30 @@ export class InventoryPanel {
         capacity: 0,
         emptyText: t('inventory.empty.all', undefined),
         loadHint: null,
+        pagination: null,
       });
       mountReactInventoryPanel();
       return;
     }
 
+    const paged = this.getActivePagedSnapshot();
     let visibleSnapshot = this.collectVisibleItems(inventory);
-    const previousRenderedVisibleCount = this.renderedVisibleCount;
-    this.syncRenderedVisibleCount(visibleSnapshot.totalVisibleItems);
-    if (previousRenderedVisibleCount !== this.renderedVisibleCount) {
-      visibleSnapshot = this.collectVisibleItems(inventory);
+    if (!paged) {
+      const previousRenderedVisibleCount = this.renderedVisibleCount;
+      this.syncRenderedVisibleCount(visibleSnapshot.totalVisibleItems);
+      if (previousRenderedVisibleCount !== this.renderedVisibleCount) {
+        visibleSnapshot = this.collectVisibleItems(inventory);
+      }
+    } else {
+      this.renderedVisibleCount = visibleSnapshot.renderedItems.length;
     }
     const cooldownStateMap = this.getCooldownStateMap(inventory);
     const items = visibleSnapshot.renderedItems.map(({ item, slotIndex }) => (
       this.buildReactInventoryItemView(item, slotIndex, cooldownStateMap.get(item.itemId) ?? null)
     ));
-    const paged = this.getActivePagedSnapshot();
     const totalItems = paged?.totalItems ?? inventory.items.length;
     const capacity = paged?.capacity ?? inventory.capacity;
+    const pagination = this.buildInventoryPaginationState(paged);
     syncReactInventoryPanelState({
       inventory,
       title: t('inventory.title.with-count', {
@@ -844,12 +853,13 @@ export class InventoryPanel {
       emptyText: visibleSnapshot.totalVisibleItems === 0
         ? totalItems === 0 ? t('inventory.empty.all', undefined) : t('inventory.empty.filter', undefined)
         : null,
-      loadHint: items.length < visibleSnapshot.totalVisibleItems
+      loadHint: !paged && items.length < visibleSnapshot.totalVisibleItems
         ? t('inventory.load-more', {
           rendered: formatDisplayInteger(items.length),
           total: formatDisplayInteger(visibleSnapshot.totalVisibleItems),
         })
         : null,
+      pagination,
     });
     mountReactInventoryPanel();
   }
@@ -913,6 +923,7 @@ export class InventoryPanel {
         this.activeFilter = filter;
         this.renderedVisibleCount = INVENTORY_INITIAL_RENDER_COUNT;
         this.pagedSnapshot = null;
+        this.inventoryPageOffset = 0;
         this.ensureInventoryPageRequested(true);
         if (this.lastInventory) {
           this.render(this.lastInventory);
@@ -924,6 +935,15 @@ export class InventoryPanel {
 
       if (target.closest('[data-sort-inventory]')) {
         this.onSortInventory?.();
+        return;
+      }
+
+      const pageButton = target.closest<HTMLElement>('[data-inventory-page-action]');
+      if (pageButton) {
+        const action = pageButton.dataset.inventoryPageAction;
+        if (action === 'prev' || action === 'next') {
+          this.requestAdjacentInventoryPage(action);
+        }
         return;
       }
 
@@ -1165,7 +1185,23 @@ export class InventoryPanel {
     loadHint.dataset.inventoryLoadHint = 'true';
     loadHint.hidden = true;
 
-    sectionEl.replaceChildren(head, filters, empty, grid, loadHint);
+    const pager = document.createElement('div');
+    pager.className = 'inventory-pagination';
+    pager.dataset.inventoryPagination = 'true';
+    pager.hidden = true;
+    const pagerPrev = createSmallBtn(t('inventory.pagination.prev', undefined, '上一页'), {
+      className: 'ghost',
+      dataset: { inventoryPageAction: 'prev' },
+    });
+    const pagerStatus = document.createElement('span');
+    pagerStatus.className = 'inventory-pagination-status';
+    const pagerNext = createSmallBtn(t('inventory.pagination.next', undefined, '下一页'), {
+      className: 'ghost',
+      dataset: { inventoryPageAction: 'next' },
+    });
+    pager.append(pagerPrev, pagerStatus, pagerNext);
+
+    sectionEl.replaceChildren(head, filters, empty, grid, pager, loadHint);
     preserveSelection(this.pane, () => {
       this.pane.replaceChildren(sectionEl);
     });
@@ -1177,6 +1213,10 @@ export class InventoryPanel {
       grid,
       empty,
       loadHint,
+      pager,
+      pagerPrev,
+      pagerStatus,
+      pagerNext,
     };
     return this.shellRefs;
   }
@@ -2611,12 +2651,17 @@ export class InventoryPanel {
     }
 
     let visibleSnapshot = this.collectVisibleItems(inventory);
-    const previousRenderedVisibleCount = this.renderedVisibleCount;
-    this.syncRenderedVisibleCount(visibleSnapshot.totalVisibleItems);
-    if (previousRenderedVisibleCount !== this.renderedVisibleCount) {
-      visibleSnapshot = this.collectVisibleItems(inventory);
+    if (!paged) {
+      const previousRenderedVisibleCount = this.renderedVisibleCount;
+      this.syncRenderedVisibleCount(visibleSnapshot.totalVisibleItems);
+      if (previousRenderedVisibleCount !== this.renderedVisibleCount) {
+        visibleSnapshot = this.collectVisibleItems(inventory);
+      }
+    } else {
+      this.renderedVisibleCount = visibleSnapshot.renderedItems.length;
     }
     const { renderedItems, totalVisibleItems } = visibleSnapshot;
+    this.patchInventoryPagination(refs, paged);
     if (totalVisibleItems === 0) {
       refs.empty.hidden = false;
       refs.empty.textContent = totalItemsForTitle === 0 ? t('inventory.empty.all', undefined) : t('inventory.empty.filter', undefined);
@@ -2631,7 +2676,7 @@ export class InventoryPanel {
     refs.empty.hidden = true;
     refs.grid.hidden = false;
     const cooldownStateMap = this.getCooldownStateMap(inventory);
-    if (renderedItems.length < totalVisibleItems) {
+    if (!paged && renderedItems.length < totalVisibleItems) {
       refs.loadHint.hidden = false;
       refs.loadHint.textContent = t('inventory.load-more', { rendered: formatDisplayInteger(renderedItems.length), total: formatDisplayInteger(totalVisibleItems) });
     } else {
@@ -3337,6 +3382,67 @@ export class InventoryPanel {
     (inventory as Inventory & { revision?: number }).revision = Math.max(1, Math.trunc(Number(revision) || 1));
   }
 
+  private buildInventoryPaginationState(paged: InventoryPagedSnapshot | null): {
+    label: string;
+    canPrev: boolean;
+    canNext: boolean;
+    loading: boolean;
+  } | null {
+    if (!paged) {
+      return null;
+    }
+    const limit = Math.max(1, Math.trunc(Number(paged.limit) || INVENTORY_PAGE_SIZE));
+    const total = Math.max(0, Math.trunc(Number(paged.totalVisibleItems) || 0));
+    const offset = Math.max(0, Math.trunc(Number(paged.offset) || 0));
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+    const page = Math.min(totalPages, Math.floor(offset / limit) + 1);
+    const from = total > 0 ? Math.min(total, offset + 1) : 0;
+    const to = Math.min(total, offset + paged.items.length);
+    return {
+      label: t('inventory.pagination.meta', {
+        page: formatDisplayInteger(page),
+        totalPages: formatDisplayInteger(totalPages),
+        from: formatDisplayInteger(from),
+        to: formatDisplayInteger(to),
+        total: formatDisplayInteger(total),
+      }, `第 ${formatDisplayInteger(page)} / ${formatDisplayInteger(totalPages)} 页 · ${formatDisplayInteger(from)}-${formatDisplayInteger(to)} / ${formatDisplayInteger(total)}`),
+      canPrev: offset > 0,
+      canNext: offset + limit < total,
+      loading: paged.loading,
+    };
+  }
+
+  private patchInventoryPagination(refs: InventoryShellRefs, paged: InventoryPagedSnapshot | null): void {
+    const state = this.buildInventoryPaginationState(paged);
+    if (!state) {
+      refs.pager.hidden = true;
+      refs.pagerStatus.textContent = '';
+      refs.pagerPrev.disabled = true;
+      refs.pagerNext.disabled = true;
+      return;
+    }
+    refs.pager.hidden = false;
+    refs.pagerStatus.textContent = state.label;
+    refs.pagerPrev.disabled = !state.canPrev || state.loading;
+    refs.pagerNext.disabled = !state.canNext || state.loading;
+  }
+
+  private requestAdjacentInventoryPage(direction: 'prev' | 'next'): void {
+    const paged = this.pagedSnapshot?.filter === this.activeFilter ? this.pagedSnapshot : null;
+    const limit = Math.max(1, Math.trunc(Number(paged?.limit) || INVENTORY_PAGE_SIZE));
+    const total = Math.max(0, Math.trunc(Number(paged?.totalVisibleItems) || 0));
+    const currentOffset = Math.max(0, Math.trunc(Number(paged?.offset ?? this.inventoryPageOffset) || 0));
+    const maxOffset = total > 0 ? Math.floor((total - 1) / limit) * limit : 0;
+    const nextOffset = direction === 'prev'
+      ? Math.max(0, currentOffset - limit)
+      : Math.min(maxOffset, currentOffset + limit);
+    if (nextOffset === currentOffset) {
+      return;
+    }
+    this.requestInventoryPage(nextOffset, limit);
+    this.scrollToTop();
+  }
+
   private getActivePagedSnapshot(): InventoryPagedSnapshot | null {
     if (!this.pagedSnapshot || this.pagedSnapshot.filter !== this.activeFilter) {
       return null;
@@ -3365,7 +3471,7 @@ export class InventoryPanel {
     if (!force && activePage && (activePage.loading || activePage.items.length > 0)) {
       return;
     }
-    this.requestInventoryPage(0, INVENTORY_INITIAL_RENDER_COUNT);
+    this.requestInventoryPage(this.inventoryPageOffset, INVENTORY_PAGE_SIZE);
   }
 
   private requestInventoryPage(offset: number, limit: number): void {
@@ -3373,16 +3479,19 @@ export class InventoryPanel {
       return;
     }
     const normalizedOffset = Math.max(0, Math.trunc(Number(offset) || 0));
-    const normalizedLimit = Math.max(1, Math.trunc(Number(limit) || INVENTORY_RENDER_BATCH_SIZE));
+    const normalizedLimit = Math.max(1, Math.trunc(Number(limit) || INVENTORY_PAGE_SIZE));
     const requestId = `inventory:${Date.now()}:${this.inventoryPageRequestSeq += 1}`;
     const existing = this.pagedSnapshot?.filter === this.activeFilter ? this.pagedSnapshot : null;
+    this.inventoryPageOffset = normalizedOffset;
     this.pagedSnapshot = {
       filter: this.activeFilter,
       revision: existing?.revision ?? this.getInventoryRevision(this.lastInventory) ?? 0,
       totalItems: existing?.totalItems ?? this.lastInventory?.items.length ?? 0,
       totalVisibleItems: existing?.totalVisibleItems ?? 0,
       capacity: existing?.capacity ?? this.lastInventory?.capacity ?? 0,
-      items: existing?.items ?? [],
+      offset: normalizedOffset,
+      limit: normalizedLimit,
+      items: existing?.offset === normalizedOffset ? existing.items : [],
       loading: true,
       requestId,
     };
@@ -3460,6 +3569,9 @@ export class InventoryPanel {
     if (!this.lastInventory || !this.isPaneVisible()) {
       return;
     }
+    if (this.pagedSnapshot?.filter === this.activeFilter) {
+      return;
+    }
     const visibleItemCount = this.countVisibleItems(this.lastInventory);
     if (visibleItemCount === 0 || this.renderedVisibleCount >= visibleItemCount) {
       return;
@@ -3470,14 +3582,6 @@ export class InventoryPanel {
     }
     const remainingDistance = scrollContainer.scrollHeight - scrollContainer.scrollTop - scrollContainer.clientHeight;
     if (remainingDistance > INVENTORY_LOAD_MORE_THRESHOLD_PX) {
-      return;
-    }
-    const paged = this.getActivePagedSnapshot();
-    if (paged) {
-      if (paged.loading || paged.items.length >= paged.totalVisibleItems) {
-        return;
-      }
-      this.requestInventoryPage(paged.items.length, INVENTORY_RENDER_BATCH_SIZE);
       return;
     }
     const nextRenderedCount = Math.min(visibleItemCount, this.renderedVisibleCount + INVENTORY_RENDER_BATCH_SIZE);

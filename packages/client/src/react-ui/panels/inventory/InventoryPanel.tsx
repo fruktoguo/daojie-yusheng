@@ -53,6 +53,14 @@ export interface ReactInventoryPanelState {
   capacity: number;
   emptyText: string | null;
   loadHint: string | null;
+  pagination: ReactInventoryPaginationState | null;
+}
+
+export interface ReactInventoryPaginationState {
+  label: string;
+  canPrev: boolean;
+  canNext: boolean;
+  loading: boolean;
 }
 
 export const { store: inventoryPanelStore, useStore: useInventoryPanelStore } = createPanelStore<ReactInventoryPanelState>({
@@ -66,12 +74,14 @@ export const { store: inventoryPanelStore, useStore: useInventoryPanelStore } = 
   capacity: 0,
   emptyText: t('inventory.empty.all', undefined),
   loadHint: null,
+  pagination: null,
 });
 
 interface InventoryPanelCallbacks {
   onFilterChange: ((filter: InventoryFilter) => void) | null;
   onSortInventory: (() => void) | null;
   onRequestLoadMore: ((scrollTarget: HTMLElement) => void) | null;
+  onPageChange: ((direction: 'prev' | 'next') => void) | null;
   onPrimaryAction: ((slotIndex: number, itemInstanceId: string | null) => void) | null;
   onDropOne: ((slotIndex: number, itemInstanceId: string) => void) | null;
 }
@@ -80,6 +90,7 @@ const callbacks: InventoryPanelCallbacks = {
   onFilterChange: null,
   onSortInventory: null,
   onRequestLoadMore: null,
+  onPageChange: null,
   onPrimaryAction: null,
   onDropOne: null,
 };
@@ -127,6 +138,27 @@ export const InventoryPanel = memo(function InventoryPanel() {
       {state.loadHint && (
         <div className="inventory-load-hint" data-inventory-load-hint="true">
           {state.loadHint}
+        </div>
+      )}
+      {state.pagination && (
+        <div className="inventory-pagination" data-inventory-pagination="true">
+          <button
+            className="small-btn ghost"
+            type="button"
+            disabled={!state.pagination.canPrev || state.pagination.loading}
+            onClick={() => callbacks.onPageChange?.('prev')}
+          >
+            {t('inventory.pagination.prev', undefined, '上一页')}
+          </button>
+          <span className="inventory-pagination-status">{state.pagination.label}</span>
+          <button
+            className="small-btn ghost"
+            type="button"
+            disabled={!state.pagination.canNext || state.pagination.loading}
+            onClick={() => callbacks.onPageChange?.('next')}
+          >
+            {t('inventory.pagination.next', undefined, '下一页')}
+          </button>
         </div>
       )}
     </div>
