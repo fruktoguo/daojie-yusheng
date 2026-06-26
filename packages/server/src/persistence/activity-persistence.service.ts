@@ -353,6 +353,7 @@ export class ActivityPersistenceService {
     totalPoolMerit: number,
     remainingPoolMerit: number,
     nowMs = Date.now(),
+    options: { eternalEnabled?: boolean; dailySignInFixedMeritBonus?: number } = {},
   ): Promise<ActivityMonthCardRecord> {
     const normalizedPlayerId = normalizePlayerId(playerId);
     if (!this.pool || !this.enabled || !normalizedPlayerId) {
@@ -376,23 +377,43 @@ export class ActivityPersistenceService {
       );
       const existing = normalizeMonthCardRow(current.rows[0], normalizedPlayerId);
       const startAt = existing?.startAt && existing.startAt > 0 ? existing.startAt : Math.trunc(nowMs);
-      const shouldCreateActiveWindow = normalizedRemainingPool > 0 && (!existing || existing.expireAt <= nowMs);
+      const eternalEnabled = typeof options.eternalEnabled === 'boolean'
+        ? options.eternalEnabled
+        : existing?.eternalEnabled ?? false;
+      const dailySignInFixedMeritBonus = Number.isFinite(Number(options.dailySignInFixedMeritBonus))
+        ? Math.max(0, Math.trunc(Number(options.dailySignInFixedMeritBonus)))
+        : existing?.dailySignInFixedMeritBonus ?? 0;
+      const shouldCreateActiveWindow = (normalizedRemainingPool > 0 || eternalEnabled || dailySignInFixedMeritBonus > 0) && (!existing || existing.expireAt <= nowMs);
       const expireAt = shouldCreateActiveWindow
         ? Math.trunc(nowMs) + MERIT_MONTH_CARD_DURATION_DAYS * DAY_MS
         : existing?.expireAt ?? Math.trunc(nowMs);
       const lastClaimDate = existing?.lastClaimDate ?? null;
       await client.query(
-        `INSERT INTO ${MONTH_CARD_TABLE}(player_id, start_at_ms, expire_at_ms, total_pool_merit, remaining_pool_merit, last_claim_date, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, now(), now())
+        `INSERT INTO ${MONTH_CARD_TABLE}(
+           player_id, start_at_ms, expire_at_ms, total_pool_merit, remaining_pool_merit,
+           eternal_enabled, daily_sign_in_fixed_merit_bonus, last_claim_date, created_at, updated_at
+         )
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now(), now())
          ON CONFLICT (player_id)
          DO UPDATE SET
            start_at_ms = EXCLUDED.start_at_ms,
            expire_at_ms = EXCLUDED.expire_at_ms,
            total_pool_merit = EXCLUDED.total_pool_merit,
            remaining_pool_merit = EXCLUDED.remaining_pool_merit,
+           eternal_enabled = EXCLUDED.eternal_enabled,
+           daily_sign_in_fixed_merit_bonus = EXCLUDED.daily_sign_in_fixed_merit_bonus,
            last_claim_date = EXCLUDED.last_claim_date,
            updated_at = now()`,
-        [normalizedPlayerId, startAt, expireAt, normalizedTotalPool, normalizedRemainingPool, lastClaimDate],
+        [
+          normalizedPlayerId,
+          startAt,
+          expireAt,
+          normalizedTotalPool,
+          normalizedRemainingPool,
+          eternalEnabled,
+          dailySignInFixedMeritBonus,
+          lastClaimDate,
+        ],
       );
       await client.query('COMMIT');
       return {
@@ -401,8 +422,8 @@ export class ActivityPersistenceService {
         expireAt,
         totalPoolMerit: normalizedTotalPool,
         remainingPoolMerit: normalizedRemainingPool,
-        eternalEnabled: existing?.eternalEnabled ?? false,
-        dailySignInFixedMeritBonus: existing?.dailySignInFixedMeritBonus ?? 0,
+        eternalEnabled,
+        dailySignInFixedMeritBonus,
         lastClaimDate,
       };
     } catch (error) {

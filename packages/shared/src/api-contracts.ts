@@ -2365,6 +2365,13 @@ export interface GmAddPlayerCombatExpReq {
 export interface GmSetPlayerMonthCardPoolReq {
   totalPoolMerit: number;
   remainingPoolMerit: number;
+  eternalEnabled?: boolean;
+  dailySignInFixedMeritBonus?: number;
+}
+
+/** GM 直接激活玩家永恒权益请求。 */
+export interface GmActivatePlayerEternalBenefitReq {
+  count?: number;
 }
 
 /** GM 生成机器人请求。 */

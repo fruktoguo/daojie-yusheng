@@ -1086,6 +1086,7 @@ gm.editor-section-title-player-migration,静态HTML-GM,角色迁移,静态 HTML�
 gm.editor-section-title-save-cleanup,静态HTML-GM,存档清理,静态 HTML：packages/client/gm.html
 gm.editor-tab-basic,静态HTML-GM,基础,静态 HTML：packages/client/gm.html
 gm.editor-tab-buffs,静态HTML-GM,Buff,静态 HTML：packages/client/gm.html
+gm.editor-tab-benefits,静态HTML-GM,权益,静态 HTML：packages/client/gm.html
 gm.editor-tab-items,静态HTML-GM,物品,静态 HTML：packages/client/gm.html
 gm.editor-tab-mail,静态HTML-GM,邮件,静态 HTML：packages/client/gm.html
 gm.editor-tab-position,静态HTML-GM,位置,静态 HTML：packages/client/gm.html

@@ -17,6 +17,7 @@ import {
   GM_ACCESS_TOKEN_STORAGE_KEY,
   GM_APPLY_DELAY_MS,
   GM_PANEL_POLL_INTERVAL_MS,
+  type GmActivatePlayerEternalBenefitReq,
   type GmAppendRedeemCodesReq,
   type GmAppendRedeemCodesRes,
   type GmBanManagedPlayerReq,
@@ -238,6 +239,7 @@ const editorTabBuffsBtn = document.getElementById('editor-tab-buffs') as HTMLBut
 /** editorTabTechniquesBtn：编辑器Tab Techniques Btn。 */
 const editorTabTechniquesBtn = document.getElementById('editor-tab-techniques') as HTMLButtonElement;
 const editorTabCraftSkillsBtn = document.getElementById('editor-tab-craft-skills') as HTMLButtonElement;
+const editorTabBenefitsBtn = document.getElementById('editor-tab-benefits') as HTMLButtonElement;
 /** editorTabShortcutsBtn：编辑器Tab Shortcuts Btn。 */
 const editorTabShortcutsBtn = document.getElementById('editor-tab-shortcuts') as HTMLButtonElement;
 /** editorTabItemsBtn：编辑器Tab物品Btn。 */
@@ -588,7 +590,7 @@ const redeemGroupEditorEl = document.getElementById('redeem-group-editor') as HT
 const redeemCodeListEl = document.getElementById('redeem-code-list') as HTMLDivElement | null;
 
 /** GmEditorTab：GM 玩家编辑器顶部标签页 ID。 */
-type GmEditorTab = GmPlayerUpdateSection | 'shortcuts' | 'mail' | 'risk' | 'persisted';
+type GmEditorTab = GmPlayerUpdateSection | 'benefits' | 'shortcuts' | 'mail' | 'risk' | 'persisted';
 
 /** GmServerTab：服务器监察子标签页 ID。 */
 type GmServerTab = 'overview' | 'traffic' | 'cpu' | 'memory' | 'database' | 'logs' | 'workers' | 'envCheck' | 'objects';
@@ -3566,6 +3568,8 @@ function getEditorTabLabel(tab: GmEditorTab): string {
       return '功法';
     case 'craftSkills':
       return '技艺';
+    case 'benefits':
+      return '权益';
     case 'shortcuts':
       return '快捷操作';
     case 'items':
@@ -3593,6 +3597,7 @@ function switchEditorTab(tab: GmEditorTab): void {
   editorTabBuffsBtn.classList.toggle('active', tab === 'buffs');
   editorTabTechniquesBtn.classList.toggle('active', tab === 'techniques');
   editorTabCraftSkillsBtn.classList.toggle('active', tab === 'craftSkills');
+  editorTabBenefitsBtn.classList.toggle('active', tab === 'benefits');
   editorTabShortcutsBtn.classList.toggle('active', tab === 'shortcuts');
   editorTabItemsBtn.classList.toggle('active', tab === 'items');
   editorTabQuestsBtn.classList.toggle('active', tab === 'quests');
@@ -3610,6 +3615,8 @@ function switchEditorTab(tab: GmEditorTab): void {
     savePlayerBtn.textContent = '邮件标签不直接保存';
   } else if (tab === 'risk') {
     savePlayerBtn.textContent = '风险标签不直接保存';
+  } else if (tab === 'benefits') {
+    savePlayerBtn.textContent = '权益标签按钮会直接提交';
   } else if (tab === 'shortcuts') {
     savePlayerBtn.textContent = '快捷标签按钮会直接提交';
   } else {
@@ -3624,6 +3631,7 @@ function switchEditorTab(tab: GmEditorTab): void {
   savePlayerBtn.disabled = tab === 'persisted'
     || tab === 'mail'
     || tab === 'risk'
+    || tab === 'benefits'
     || tab === 'shortcuts'
     || !selectedPlayerId
     || ((tab === 'buffs' || tab === 'techniques' || tab === 'items' || tab === 'quests') && !hasServerEditorCatalog());
@@ -7773,6 +7781,11 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
   const activity = getManagedAccountActivityMeta(player);
   const monthCardTotalPoolMerit = Math.max(0, Math.trunc(Number(player.monthCard?.totalPoolMerit) || 0));
   const monthCardRemainingPoolMerit = Math.max(0, Math.trunc(Number(player.monthCard?.remainingPoolMerit) || 0));
+  const monthCardEternalEnabled = player.monthCard?.eternalEnabled === true;
+  const monthCardDailySignInFixedMeritBonus = Math.max(0, Math.trunc(Number(player.monthCard?.dailySignInFixedMeritBonus) || 0));
+  const monthCardStartAt = Number(player.monthCard?.startAt ?? 0);
+  const monthCardExpireAt = Number(player.monthCard?.expireAt ?? 0);
+  const monthCardLastClaimDate = player.monthCard?.lastClaimDate ?? null;
   const catalogFallbackNote = getEditorCatalogFallbackNote();
   const catalogActionDisabled = hasServerEditorCatalog() ? '' : ' disabled';
 
@@ -8196,6 +8209,85 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
     </section>
     `)}
 
+    ${renderEditorTabSection('benefits', `
+    <section class="editor-section">
+      <div class="editor-section-head">
+        <div>
+          <div class="editor-section-title">权益</div>
+          <div class="editor-section-note">这里编辑活动权益真源，不走整份玩家快照覆盖；保存后会直接刷新玩家详情。</div>
+        </div>
+      </div>
+      <div class="stats-grid" style="margin-bottom: 12px;">
+        <div class="stats-card">
+          <div class="stats-card-label">月卡总池</div>
+          <div class="stats-card-value">${monthCardTotalPoolMerit}</div>
+          <div class="stats-card-note">功德月卡累计领取池</div>
+        </div>
+        <div class="stats-card">
+          <div class="stats-card-label">月卡剩余</div>
+          <div class="stats-card-value">${monthCardRemainingPoolMerit}</div>
+          <div class="stats-card-note">每日领取会从这里扣除</div>
+        </div>
+        <div class="stats-card">
+          <div class="stats-card-label">永恒权益</div>
+          <div class="stats-card-value">${monthCardEternalEnabled ? '已开启' : '未开启'}</div>
+          <div class="stats-card-note">开启后拥有永久月卡权益</div>
+        </div>
+        <div class="stats-card">
+          <div class="stats-card-label">签到固定池</div>
+          <div class="stats-card-value">${monthCardDailySignInFixedMeritBonus}</div>
+          <div class="stats-card-note">每日签到随机池之外的固定功德</div>
+        </div>
+      </div>
+      <div class="editor-card-list">
+        <div class="editor-card">
+          <div class="editor-card-head">
+            <div>
+              <div class="editor-card-title">功德月卡权益</div>
+              <div class="editor-card-meta">当前窗口：${monthCardStartAt > 0 ? formatTradeTimestamp(monthCardStartAt) : '无'} 至 ${monthCardExpireAt > 0 ? formatTradeTimestamp(monthCardExpireAt) : '无'}；上次领取：${monthCardLastClaimDate ?? '无'}。</div>
+            </div>
+            <button class="small-btn primary" type="button" data-action="set-month-card-benefits">保存权益</button>
+          </div>
+          <div class="editor-grid compact">
+            <label class="editor-field">
+              <span>月卡功德总池</span>
+              <input id="benefit-month-card-total-pool" type="number" min="0" step="1" value="${monthCardTotalPoolMerit}" />
+            </label>
+            <label class="editor-field">
+              <span>剩余功德</span>
+              <input id="benefit-month-card-remaining-pool" type="number" min="0" step="1" value="${monthCardRemainingPoolMerit}" />
+            </label>
+            <label class="editor-field">
+              <span>签到固定池</span>
+              <input id="benefit-daily-sign-in-fixed-merit" type="number" min="0" step="1" value="${monthCardDailySignInFixedMeritBonus}" />
+            </label>
+            <label class="editor-toggle" style="align-self: end;">
+              <input id="benefit-eternal-enabled" type="checkbox" ${monthCardEternalEnabled ? 'checked' : ''} />
+              <span>开启永恒权益</span>
+            </label>
+          </div>
+          <div class="editor-note">保存会同时写入月卡总池、剩余池、永恒开关和签到固定池。若原本没有领取窗口且仍有权益数据，会自动创建 30 天窗口。</div>
+        </div>
+        <div class="editor-card">
+          <div class="editor-card-head">
+            <div>
+              <div class="editor-card-title">永恒</div>
+              <div class="editor-card-meta">按消耗品效果直接为该玩家激活：月卡总池 +90000、重置月卡时间、开启永久权益、每日签到固定池 +1000。</div>
+            </div>
+            <div class="button-row">
+              <label class="editor-field" style="min-width: 140px;">
+                <span>使用次数</span>
+                <input id="benefit-eternal-use-count" type="number" min="1" step="1" value="1" />
+              </label>
+              <button class="small-btn primary" type="button" data-action="activate-eternal-benefit">使用永恒</button>
+            </div>
+          </div>
+          <div class="editor-note">这个操作不消耗玩家背包物品，属于 GM 直接授予同等权益；执行后刷新详情即可看到新总池和固定池。</div>
+        </div>
+      </div>
+    </section>
+    `)}
+
     ${renderEditorTabSection('shortcuts', `
     <section class="editor-section">
       <div class="editor-section-head">
@@ -8324,25 +8416,6 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
                 <input id="shortcut-combat-exp-amount" type="text" inputmode="text" autocomplete="off" spellcheck="false" placeholder="例如 -100 / 100" value="0" />
               </label>
               <button class="small-btn primary" type="button" data-action="add-combat-exp">确认调整</button>
-            </div>
-          </div>
-        </div>
-        <div class="editor-card">
-          <div class="editor-card-head">
-            <div>
-              <div class="editor-card-title">功德月卡池</div>
-              <div class="editor-card-meta">当前总池 ${monthCardTotalPoolMerit}，剩余 ${monthCardRemainingPoolMerit}。保存后若原本无有效领取窗口且剩余大于 0，会自动给 30 天领取窗口。</div>
-            </div>
-            <div class="button-row">
-              <label class="editor-field" style="min-width: 160px;">
-                <span>月卡功德总池</span>
-                <input id="shortcut-month-card-total-pool" type="number" min="0" step="1" value="${monthCardTotalPoolMerit}" />
-              </label>
-              <label class="editor-field" style="min-width: 160px;">
-                <span>剩余功德</span>
-                <input id="shortcut-month-card-remaining-pool" type="number" min="0" step="1" value="${monthCardRemainingPoolMerit}" />
-              </label>
-              <button class="small-btn primary" type="button" data-action="set-month-card-pool">确认修改</button>
             </div>
           </div>
         </div>
@@ -10592,7 +10665,7 @@ async function changeGmPassword(): Promise<void> {
 
 /** getCurrentEditorSaveSection：读取当前编辑器保存Section。 */
 function getCurrentEditorSaveSection(): GmPlayerUpdateSection | null {
-  return currentEditorTab === 'persisted' || currentEditorTab === 'mail' || currentEditorTab === 'risk' || currentEditorTab === 'shortcuts' ? null : currentEditorTab;
+  return currentEditorTab === 'persisted' || currentEditorTab === 'mail' || currentEditorTab === 'risk' || currentEditorTab === 'benefits' || currentEditorTab === 'shortcuts' ? null : currentEditorTab;
 }
 
 /** buildTechniqueSaveSnapshot：构建Technique保存快照。 */
@@ -10926,13 +10999,23 @@ async function setSelectedPlayerMonthCardPool(): Promise<void> {
     return;
   }
 
-  const totalInput = editorContentEl.querySelector<HTMLInputElement>('#shortcut-month-card-total-pool');
-  const remainingInput = editorContentEl.querySelector<HTMLInputElement>('#shortcut-month-card-remaining-pool');
-  const button = editorContentEl.querySelector<HTMLButtonElement>('[data-action="set-month-card-pool"]');
+  const totalInput = editorContentEl.querySelector<HTMLInputElement>('#benefit-month-card-total-pool');
+  const remainingInput = editorContentEl.querySelector<HTMLInputElement>('#benefit-month-card-remaining-pool');
+  const eternalInput = editorContentEl.querySelector<HTMLInputElement>('#benefit-eternal-enabled');
+  const fixedInput = editorContentEl.querySelector<HTMLInputElement>('#benefit-daily-sign-in-fixed-merit');
+  const button = editorContentEl.querySelector<HTMLButtonElement>('[data-action="set-month-card-benefits"]');
   const totalPoolMerit = Number(totalInput?.value ?? '');
   const remainingPoolMerit = Number(remainingInput?.value ?? '');
-  if (!Number.isInteger(totalPoolMerit) || totalPoolMerit < 0 || !Number.isInteger(remainingPoolMerit) || remainingPoolMerit < 0) {
-    setStatus('月卡功德总池和剩余功德必须是非负整数', true);
+  const dailySignInFixedMeritBonus = Number(fixedInput?.value ?? '');
+  if (
+    !Number.isInteger(totalPoolMerit)
+    || totalPoolMerit < 0
+    || !Number.isInteger(remainingPoolMerit)
+    || remainingPoolMerit < 0
+    || !Number.isInteger(dailySignInFixedMeritBonus)
+    || dailySignInFixedMeritBonus < 0
+  ) {
+    setStatus('月卡功德总池、剩余功德和签到固定池必须是非负整数', true);
     return;
   }
   if (button) {
@@ -10942,10 +11025,49 @@ async function setSelectedPlayerMonthCardPool(): Promise<void> {
     setPendingStatus(`正在修改 ${detail.name} 的功德月卡池...`);
     await request<BasicOkRes>(`${GM_API_BASE_PATH}/players/${encodeURIComponent(detail.id)}/month-card/pool`, {
       method: 'POST',
-      body: JSON.stringify({ totalPoolMerit, remainingPoolMerit } satisfies GmSetPlayerMonthCardPoolReq),
+      body: JSON.stringify({
+        totalPoolMerit,
+        remainingPoolMerit,
+        eternalEnabled: eternalInput?.checked === true,
+        dailySignInFixedMeritBonus,
+      } satisfies GmSetPlayerMonthCardPoolReq),
     });
     editorDirty = false;
     await delayRefresh(`已修改 ${detail.name} 的功德月卡池`);
+  } catch (error) {
+    setStatus(error instanceof Error ? error.message : t('gm.request.failed'), true);
+  } finally {
+    if (button) {
+      button.disabled = false;
+    }
+  }
+}
+
+async function activateSelectedPlayerEternalBenefit(): Promise<void> {
+  const detail = getSelectedPlayerDetail();
+  if (!detail) {
+    setStatus(t('gm.player.choose'), true);
+    return;
+  }
+
+  const countInput = editorContentEl.querySelector<HTMLInputElement>('#benefit-eternal-use-count');
+  const button = editorContentEl.querySelector<HTMLButtonElement>('[data-action="activate-eternal-benefit"]');
+  const count = Number(countInput?.value ?? '');
+  if (!Number.isInteger(count) || count <= 0) {
+    setStatus('永恒使用次数必须是正整数', true);
+    return;
+  }
+  if (button) {
+    button.disabled = true;
+  }
+  try {
+    setPendingStatus(`正在为 ${detail.name} 激活永恒权益...`);
+    await request<BasicOkRes>(`${GM_API_BASE_PATH}/players/${encodeURIComponent(detail.id)}/month-card/eternal/activate`, {
+      method: 'POST',
+      body: JSON.stringify({ count } satisfies GmActivatePlayerEternalBenefitReq),
+    });
+    editorDirty = false;
+    await delayRefresh(`已为 ${detail.name} 激活永恒权益`);
   } catch (error) {
     setStatus(error instanceof Error ? error.message : t('gm.request.failed'), true);
   } finally {
@@ -12675,8 +12797,14 @@ editorContentEl.addEventListener('click', (event) => {
     });
     return;
   }
-  if (action === 'set-month-card-pool') {
+  if (action === 'set-month-card-benefits') {
     setSelectedPlayerMonthCardPool().catch((error: unknown) => {
+      setStatus(error instanceof Error ? error.message : t('gm.request.failed'), true);
+    });
+    return;
+  }
+  if (action === 'activate-eternal-benefit') {
+    activateSelectedPlayerEternalBenefit().catch((error: unknown) => {
       setStatus(error instanceof Error ? error.message : t('gm.request.failed'), true);
     });
     return;
@@ -13178,6 +13306,7 @@ editorTabRealmBtn.addEventListener('click', () => switchEditorTab('realm'));
 editorTabBuffsBtn.addEventListener('click', () => switchEditorTab('buffs'));
 editorTabTechniquesBtn.addEventListener('click', () => switchEditorTab('techniques'));
 editorTabCraftSkillsBtn.addEventListener('click', () => switchEditorTab('craftSkills'));
+editorTabBenefitsBtn.addEventListener('click', () => switchEditorTab('benefits'));
 editorTabShortcutsBtn.addEventListener('click', () => switchEditorTab('shortcuts'));
 editorTabItemsBtn.addEventListener('click', () => switchEditorTab('items'));
 editorTabQuestsBtn.addEventListener('click', () => switchEditorTab('quests'));

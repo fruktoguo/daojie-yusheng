@@ -9,7 +9,7 @@
  * 性能计数器重置等 GM 面板所需的全部 HTTP 端点。所有路由需 GM 鉴权。
  */
 import { BadRequestException, Body, Controller, Delete, Get, Inject, Optional, Param, Post, Put, Query, Req, UseGuards } from '@nestjs/common';
-import { type GmBanManagedPlayerReq, type GmCreateWorldInstanceReq, type GmGeneratedTechniqueListQuery, type GmListPlayersQuery, type GmSetPlayerMonthCardPoolReq, type GmTechniqueGenerationJobListQuery, type GmTransferPlayerToInstanceReq } from '@mud/shared';
+import { type GmActivatePlayerEternalBenefitReq, type GmBanManagedPlayerReq, type GmCreateWorldInstanceReq, type GmGeneratedTechniqueListQuery, type GmListPlayersQuery, type GmSetPlayerMonthCardPoolReq, type GmTechniqueGenerationJobListQuery, type GmTransferPlayerToInstanceReq } from '@mud/shared';
 
 import { RedeemCodeRuntimeService } from '../../runtime/redeem/redeem-code-runtime.service';
 import {
@@ -101,6 +101,8 @@ interface AddPlayerCounterBody {
 }
 
 interface SetPlayerMonthCardPoolBody extends Partial<GmSetPlayerMonthCardPoolReq> {}
+
+interface ActivatePlayerEternalBenefitBody extends Partial<GmActivatePlayerEternalBenefitReq> {}
 /**
  * SpawnBotsBody：定义接口结构约束，明确可交付字段含义。
  */
@@ -766,6 +768,19 @@ export class NativeGmController {
       playerId,
       body?.totalPoolMerit,
       body?.remainingPoolMerit,
+      body?.eternalEnabled,
+      body?.dailySignInFixedMeritBonus,
+      extractGmActor(request),
+    );
+    this.nextGmWorldService.invalidatePlayerListCaches();
+    return { ok: true };
+  }
+
+  @Post('players/:playerId/month-card/eternal/activate')
+  async activatePlayerEternalBenefit(@Param('playerId') playerId: string, @Body() body: ActivatePlayerEternalBenefitBody, @Req() request: unknown) {
+    await this.nextGmPlayerService.activatePlayerEternalBenefit(
+      playerId,
+      body?.count,
       extractGmActor(request),
     );
     this.nextGmWorldService.invalidatePlayerListCaches();

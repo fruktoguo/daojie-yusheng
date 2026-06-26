@@ -15,6 +15,8 @@ import {
   Direction,
   ARTIFACT_SLOTS,
   EQUIP_SLOTS,
+  MERIT_ETERNAL_DAILY_SIGN_IN_FIXED_BONUS,
+  MERIT_ETERNAL_POOL_GRANT,
   VIEW_RADIUS,
   getBodyTrainingExpToNext,
   mergeItemStackInto,
@@ -303,7 +305,28 @@ interface ActivityPersistenceServiceLike {
     dailySignInFixedMeritBonus: number;
     lastClaimDate: string | null;
   } | null>;
-  setMonthCardPool(playerId: string, totalPoolMerit: number, remainingPoolMerit: number): Promise<{
+  setMonthCardPool(
+    playerId: string,
+    totalPoolMerit: number,
+    remainingPoolMerit: number,
+    nowMs?: number,
+    options?: { eternalEnabled?: boolean; dailySignInFixedMeritBonus?: number },
+  ): Promise<{
+    startAt: number;
+    expireAt: number;
+    totalPoolMerit: number;
+    remainingPoolMerit: number;
+    eternalEnabled: boolean;
+    dailySignInFixedMeritBonus: number;
+    lastClaimDate: string | null;
+  }>;
+  activateEternalMonthCard(
+    playerId: string,
+    nowMs?: number,
+    poolGrant?: number,
+    fixedSignInBonus?: number,
+    durationDays?: number,
+  ): Promise<{
     startAt: number;
     expireAt: number;
     totalPoolMerit: number;
@@ -918,6 +941,8 @@ export class NativeGmPlayerService {
     playerId: string,
     requestedTotalPool: unknown,
     requestedRemainingPool: unknown,
+    requestedEternalEnabled?: unknown,
+    requestedDailySignInFixedMeritBonus?: unknown,
     actor?: GmActorContext | null,
   ) {
     if (!this.activityPersistenceService?.isEnabled()) {
@@ -925,8 +950,18 @@ export class NativeGmPlayerService {
     }
     const totalPoolMerit = this.parseNonNegativeInteger(requestedTotalPool, '月卡功德总池');
     const remainingPoolMerit = this.parseNonNegativeInteger(requestedRemainingPool, '月卡剩余功德');
+    const eternalEnabled = typeof requestedEternalEnabled === 'boolean' ? requestedEternalEnabled : undefined;
+    const dailySignInFixedMeritBonus = requestedDailySignInFixedMeritBonus === undefined
+      ? undefined
+      : this.parseNonNegativeInteger(requestedDailySignInFixedMeritBonus, '签到固定池');
     const before = await this.activityPersistenceService.loadMonthCard(playerId);
-    const record = await this.activityPersistenceService.setMonthCardPool(playerId, totalPoolMerit, remainingPoolMerit);
+    const record = await this.activityPersistenceService.setMonthCardPool(
+      playerId,
+      totalPoolMerit,
+      remainingPoolMerit,
+      Date.now(),
+      { eternalEnabled, dailySignInFixedMeritBonus },
+    );
     await this.recordGmAuditEntry({
       op: 'gm.player.set_month_card_pool',
       targetType: 'player',
@@ -937,7 +972,41 @@ export class NativeGmPlayerService {
       delta: {
         totalPoolMerit,
         remainingPoolMerit: Math.min(totalPoolMerit, remainingPoolMerit),
+        eternalEnabled: record.eternalEnabled,
+        dailySignInFixedMeritBonus: record.dailySignInFixedMeritBonus,
       },
+      success: true,
+      errorMessage: null,
+    });
+  }
+
+  async activatePlayerEternalBenefit(
+    playerId: string,
+    requestedCount: unknown,
+    actor?: GmActorContext | null,
+  ) {
+    if (!this.activityPersistenceService?.isEnabled()) {
+      throw new BadRequestException('活动持久化不可用，无法激活永恒权益');
+    }
+    const count = requestedCount === undefined ? 1 : this.parseNonNegativeInteger(requestedCount, '永恒使用次数');
+    if (count <= 0) {
+      throw new BadRequestException('永恒使用次数必须大于 0');
+    }
+    const before = await this.activityPersistenceService.loadMonthCard(playerId);
+    const after = await this.activityPersistenceService.activateEternalMonthCard(
+      playerId,
+      Date.now(),
+      count * MERIT_ETERNAL_POOL_GRANT,
+      count * MERIT_ETERNAL_DAILY_SIGN_IN_FIXED_BONUS,
+    );
+    await this.recordGmAuditEntry({
+      op: 'gm.player.activate_eternal_benefit',
+      targetType: 'player',
+      targetId: playerId,
+      actor: actor ?? { tokenRev: null, ip: null, userAgent: null, receivedAt: Date.now() },
+      before: before ? this.toManagedMonthCardView(before) : null,
+      after: this.toManagedMonthCardView(after),
+      delta: { count },
       success: true,
       errorMessage: null,
     });
