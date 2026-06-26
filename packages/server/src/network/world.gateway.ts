@@ -291,6 +291,10 @@ class WorldGateway implements WorldGatewayHelperContext {
     handleSortInventory(@ConnectedSocket() client: Socket, @MessageBody() _payload: any) {
         return this.gatewayInventoryHelper.handleSortInventory(client, _payload);
     }
+    @SubscribeMessage(C2S.RequestInventoryPage)
+    handleRequestInventoryPage(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
+        return this.gatewayInventoryHelper.handleRequestInventoryPage(client, payload);
+    }
     @SubscribeMessage(C2S.Chat)
     handleChat(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayPlayerControlsHelper.handleChat(client, payload);

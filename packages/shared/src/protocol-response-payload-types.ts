@@ -33,6 +33,7 @@ import type {
 import type {
   EquipmentUpdateView,
   ArtifactUpdateView,
+  InventoryPageView,
   InventoryUpdateView,
   LootWindowUpdateView,
   MailOpResultView,
@@ -261,6 +262,8 @@ export interface S2C_AttrUpdate extends AttrUpdateView {}
 export interface S2C_RealmUpdate extends RealmUpdateView {}
 /** 背包面板更新。 */
 export interface S2C_InventoryUpdate extends InventoryUpdateView {}
+/** 背包面板分页响应。 */
+export interface S2C_InventoryPage extends InventoryPageView {}
 /** 装备面板更新。 */
 export interface S2C_EquipmentUpdate extends EquipmentUpdateView {}
 /** 法宝面板更新。 */

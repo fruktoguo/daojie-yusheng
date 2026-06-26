@@ -51,6 +51,7 @@ import type {
   MarkMailReadView,
   RedeemCodesView,
   RepairInventoryItemInstanceIdsView,
+  RequestInventoryPageView,
   RequestAlchemyPanelView,
   RequestAttrDetailView,
   RequestAuctionListingsView,
@@ -255,6 +256,8 @@ export interface C2S_HeavenGateAction extends HeavenGateActionRequestView {}
 export interface C2S_UseItem extends UseItemView {}
 /** 重建背包物品实例 ID。 */
 export interface C2S_RepairInventoryItemInstanceIds extends RepairInventoryItemInstanceIdsView {}
+/** 请求背包分页数据。 */
+export interface C2S_RequestInventoryPage extends RequestInventoryPageView {}
 /** 布置阵法。 */
 export interface C2S_CreateFormation extends FormationCreatePayload {}
 /** 开启/关闭阵法。 */

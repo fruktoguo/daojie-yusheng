@@ -550,6 +550,38 @@ export interface CancelEnhancementView {}
 /** 重建当前玩家背包中缺失或旧格式的物品实例 ID。 */
 export interface RepairInventoryItemInstanceIdsView {}
 
+/** 背包面板分页筛选。 */
+export type InventoryPageFilterView = ItemType | 'all';
+
+/** 请求背包面板分页数据。 */
+export interface RequestInventoryPageView {
+/**
+ * filter：背包分类筛选。
+ */
+
+  filter?: InventoryPageFilterView;
+  /**
+ * offset：筛选后列表偏移量。
+ */
+
+  offset?: number;
+  /**
+ * limit：本次请求数量。
+ */
+
+  limit?: number;
+  /**
+ * requestId：客户端请求 ID，用于忽略过期响应。
+ */
+
+  requestId?: string;
+  /**
+ * knownRevision：客户端当前已知背包版本，仅作诊断和过期保护。
+ */
+
+  knownRevision?: number;
+}
+
 /** 使用背包物品。 */
 export interface UseItemView {
 /**

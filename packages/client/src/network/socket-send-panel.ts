@@ -107,6 +107,9 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
     sendRepairInventoryItemInstanceIds(): void {
       deps.emitEvent(C2S.RepairInventoryItemInstanceIds, {});
     },
+    sendRequestInventoryPage(payload: ClientToServerEventPayload<typeof C2S.RequestInventoryPage>): void {
+      deps.emitEvent(C2S.RequestInventoryPage, payload);
+    },
     sendCreateFormation(payload: ClientToServerEventPayload<typeof C2S.CreateFormation>): void {
       deps.emitEvent(C2S.CreateFormation, payload);
     },

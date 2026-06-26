@@ -747,8 +747,15 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
   function mergeInventoryUpdate(previous: Inventory | undefined, patch: S2C_InventoryUpdate): Inventory {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    const patchRevision = Math.max(1, Math.trunc(Number(
+      (patch as { r?: number; revision?: number }).r
+        ?? (patch as { r?: number; revision?: number }).revision
+        ?? (patch.inventory as { revision?: number } | undefined)?.revision
+        ?? (previous as { revision?: number } | undefined)?.revision
+        ?? 1,
+    ) || 1));
     if (patch.inventory) {
-      return {
+      const next: Inventory & { revision?: number } = {
         capacity: patch.inventory.capacity,
         items: patch.inventory.items.map((item) => hydrateSyncedItemStack(item)),
         cooldowns: patch.inventory.cooldowns
@@ -756,6 +763,8 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
           : undefined,
         serverTick: patch.inventory.serverTick,
       };
+      next.revision = patchRevision;
+      return next;
     }
 
     if (
@@ -766,15 +775,17 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
       && patch.serverTick === undefined
       && (!patch.slots || patch.slots.length === 0)
     ) {
+      (previous as Inventory & { revision?: number }).revision = patchRevision;
       return previous;
     }
 
-    const next: Inventory = {
+    const next: Inventory & { revision?: number } = {
       items: previous ? previous.items.slice() : [],
       capacity: previous?.capacity ?? 0,
       cooldowns: previous?.cooldowns,
       serverTick: previous?.serverTick,
     };
+    next.revision = patchRevision;
     if (patch.capacity !== undefined) {
       next.capacity = patch.capacity;
     }

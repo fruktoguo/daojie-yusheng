@@ -147,6 +147,11 @@ type MainLowFrequencySocketBindingsOptions = {
 
   onMarketTradeHistory: (data: ServerToClientEventPayload<typeof S2C.MarketTradeHistory>) => void;
   /**
+ * onInventoryPage：on背包分页相关字段。
+ */
+
+  onInventoryPage: (data: ServerToClientEventPayload<typeof S2C.InventoryPage>) => void;
+  /**
  * onNpcShop：onNPCShop相关字段。
  */
 
@@ -227,6 +232,7 @@ export function bindMainLowFrequencySocketEvents(options: MainLowFrequencySocket
   options.socket.on(S2C.MarketStorage, options.onMarketStorage);
   options.socket.on(S2C.MarketItemBook, options.onMarketItemBook);
   options.socket.on(S2C.MarketTradeHistory, options.onMarketTradeHistory);
+  options.socket.on(S2C.InventoryPage, options.onInventoryPage);
   options.socket.on(S2C.NpcShop, options.onNpcShop);
   options.socket.on(S2C.BuildResult, options.onBuildResult);
   options.socket.on(S2C.RoomSummaryPatch, options.onRoomSummaryPatch);

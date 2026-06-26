@@ -241,6 +241,7 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
     syncPlayerBridgeState: (player) => reactUiBridge.syncPlayer(player),
     sendUseItem: (itemInstanceId, count, useOptions) => panelSender.sendUseItem(itemInstanceId, count, useOptions),
     sendRepairInventoryItemInstanceIds: () => panelSender.sendRepairInventoryItemInstanceIds(),
+    sendRequestInventoryPage: (payload) => panelSender.sendRequestInventoryPage(payload), hydrateSyncedItemStack: (item, previous) => detailHydrationSource.hydrateSyncedItemStack(item, previous),
     sendCreateFormation: (payload) => panelSender.sendCreateFormation(payload),
     previewFormationRange: (payload) => formationPreviewSource.preview(payload),
     sendDropItem: (itemInstanceId, count) => panelSender.sendDropItem(itemInstanceId, count),

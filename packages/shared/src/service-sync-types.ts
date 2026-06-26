@@ -13,6 +13,7 @@ import type { QuestRuntimeStateView } from './quest-types';
 import type { EquipSlot, ItemType } from './item-runtime-types';
 import type { TechniqueCategory } from './cultivation-types';
 import type { ArtifactSlotUpdateEntry, InventorySlotUpdateEntry, EquipmentSlotUpdateEntry, MarketListingPageEntry, MarketOwnOrderSyncEntry, MarketStorageSyncEntry, SyncedInventoryCooldownState, SyncedInventorySnapshot, SyncedLootWindowState, SyncedNpcShopView } from './synced-panel-types';
+import type { InventoryPageFilterView } from './client-service-request-types';
 
 /** 战利品窗口更新视图。 */
 export interface LootWindowUpdateView {
@@ -67,6 +68,79 @@ export interface InventoryUpdateView {
   cooldowns?: SyncedInventoryCooldownState[];  
   /**
  * serverTick：servertick相关字段。
+ */
+
+  serverTick?: number;
+}
+
+/** 背包分页条目，slotIndex 保留服务端原始背包槽位。 */
+export interface InventoryPageItemView {
+/**
+ * slotIndex：原始背包槽位。
+ */
+
+  slotIndex: number;
+  /**
+ * item：轻量背包物品实例态。
+ */
+
+  item: NonNullable<InventorySlotUpdateEntry['item']>;
+}
+
+/** 背包面板分页响应。 */
+export interface InventoryPageView {
+/**
+ * requestId：客户端请求 ID 回显。
+ */
+
+  requestId?: string;
+  /**
+ * filter：本页使用的分类筛选。
+ */
+
+  filter: InventoryPageFilterView;
+  /**
+ * offset：筛选后列表偏移量。
+ */
+
+  offset: number;
+  /**
+ * limit：本次请求数量上限。
+ */
+
+  limit: number;
+  /**
+ * total：当前筛选下的总条目数。
+ */
+
+  total: number;
+  /**
+ * totalItems：未筛选背包总条目数。
+ */
+
+  totalItems: number;
+  /**
+ * capacity：背包容量。
+ */
+
+  capacity: number;
+  /**
+ * revision：服务端背包版本。
+ */
+
+  revision: number;
+  /**
+ * items：当前页物品。
+ */
+
+  items: InventoryPageItemView[];
+  /**
+ * cooldowns：背包物品冷却状态。
+ */
+
+  cooldowns?: SyncedInventoryCooldownState[];
+  /**
+ * serverTick：服务端 tick。
  */
 
   serverTick?: number;

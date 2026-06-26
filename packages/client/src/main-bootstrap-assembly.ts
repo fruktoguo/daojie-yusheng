@@ -22,6 +22,7 @@ import type { MainBreakthroughStateSource } from './main-breakthrough-state-sour
 import type { MainBuildingFengShuiStateSource } from './main-building-fengshui-state-source';
 import type { MainConnectionStateSource } from './main-connection-state-source';
 import type { MainDetailStateSource } from './main-detail-state-source';
+import type { MainInventoryStateSource } from './main-inventory-state-source';
 import type { MainMailStateSource } from './main-mail-state-source';
 import type { MainMapRuntimeBridgeSource } from './main-map-runtime-bridge-source';
 import type { MainMarketStateSource } from './main-market-state-source';
@@ -318,6 +319,11 @@ type MainBootstrapAssemblyOptions = {
     | 'handleMarketItemBook'
     | 'handleMarketTradeHistory'
   >;
+  /**
+ * inventoryStateSource：背包状态来源相关字段。
+ */
+
+  inventoryStateSource: Pick<MainInventoryStateSource, 'handleInventoryPage'>;
   /**
  * noticeStateSource：notice状态来源相关字段。
  */
@@ -774,6 +780,7 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
     onMarketStorage: (data) => options.marketStateSource.handleMarketStorage(data),
     onMarketItemBook: (data) => options.marketStateSource.handleMarketItemBook(data),
     onMarketTradeHistory: (data) => options.marketStateSource.handleMarketTradeHistory(data),
+    onInventoryPage: (data) => options.inventoryStateSource.handleInventoryPage(data),
     onNpcShop: (data) => options.detailStateSource.handleNpcShop(data),
     onBuildResult: (data) => options.buildingFengShuiStateSource.handleBuildResult(data),
     onRoomSummaryPatch: (data) => options.buildingFengShuiStateSource.handleRoomSummaryPatch(data),

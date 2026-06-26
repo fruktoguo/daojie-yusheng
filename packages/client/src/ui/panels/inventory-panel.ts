@@ -41,6 +41,9 @@ import {
   getFirstGrapheme,
   getGraphemeCount,
   shouldWarnTechniqueLearningDifficulty,
+  type C2S_RequestInventoryPage,
+  type S2C_InventoryPage,
+  type SyncedItemStack,
 } from '@mud/shared';
 import {
   getEquipSlotLabel,
@@ -209,6 +212,18 @@ interface InventoryVisibleSnapshot {
   renderedItems: Array<{ item: ItemStack; slotIndex: number }>;
 }
 
+/** InventoryPagedSnapshot：服务端分页缓存。 */
+interface InventoryPagedSnapshot {
+  filter: InventoryFilter;
+  revision: number;
+  totalItems: number;
+  totalVisibleItems: number;
+  capacity: number;
+  items: Array<{ item: ItemStack; slotIndex: number }>;
+  loading: boolean;
+  requestId: string | null;
+}
+
 /** INVENTORY_SOURCE_COLLAPSED_COUNT：背包来源COLLAPSED数量。 */
 const INVENTORY_SOURCE_COLLAPSED_COUNT = 3;
 /** HEAVEN_SPIRITUAL_ROOT_SEED_ITEM_ID：HEAVEN SPIRITUAL ROOT种子物品ID。 */
@@ -255,6 +270,7 @@ export class InventoryPanel {
   private onUseItem: ((itemInstanceId: string, count?: number, options?: UseItemOptions) => void) | null = null;
   private onOpenHeavenlyDaoShop: (() => void) | null = null;
   private onRepairInventoryItemInstanceIds: (() => void) | null = null;
+  private onRequestInventoryPage: ((payload: C2S_RequestInventoryPage) => void) | null = null;
   /** onDropItem：on掉落物品。 */
   private onDropItem: ((itemInstanceId: string, count: number) => void) | null = null;
   /** onDestroyItem：on Destroy物品。 */
@@ -315,6 +331,8 @@ export class InventoryPanel {
   private playerContextRevision = 0;
   /** renderedVisibleCount：rendered可见数量。 */
   private renderedVisibleCount = INVENTORY_INITIAL_RENDER_COUNT;
+  private pagedSnapshot: InventoryPagedSnapshot | null = null;
+  private inventoryPageRequestSeq = 0;
   /** pendingLoadMoreFrame：待处理Load More帧。 */
   private pendingLoadMoreFrame: number | null = null;
   /** cooldownRefreshTimer：冷却Refresh Timer。 */
@@ -396,6 +414,8 @@ export class InventoryPanel {
     this.inventoryCooldownBaseSyncedAtMs = performance.now();
     this.inventoryCooldownStateCache.clear();
     this.renderedVisibleCount = INVENTORY_INITIAL_RENDER_COUNT;
+    this.pagedSnapshot = null;
+    this.inventoryPageRequestSeq = 0;
     if (this.pendingLoadMoreFrame !== null) {
       cancelAnimationFrame(this.pendingLoadMoreFrame);
       this.pendingLoadMoreFrame = null;
@@ -437,6 +457,7 @@ export class InventoryPanel {
     onRepairInventoryItemInstanceIds: () => void,
     onCreateFormation?: (payload: FormationCreatePayload) => void,
     onPreviewFormationRange?: (payload: FormationRangePreviewPayload) => void,
+    onRequestInventoryPage?: (payload: C2S_RequestInventoryPage) => void,
   ): void {
     this.onUseItem = onUse;
     this.onOpenHeavenlyDaoShop = onOpenHeavenlyDaoShop;
@@ -447,6 +468,7 @@ export class InventoryPanel {
     this.onRepairInventoryItemInstanceIds = onRepairInventoryItemInstanceIds;
     this.onCreateFormation = onCreateFormation ?? null;
     this.onPreviewFormationRange = onPreviewFormationRange ?? null;
+    this.onRequestInventoryPage = onRequestInventoryPage ?? null;
   }
 
   /** 更新背包数据并刷新列表与弹层 */
@@ -456,6 +478,8 @@ export class InventoryPanel {
     this.syncInventoryCooldownTickBase(inventory);
     this.syncInventoryCooldownStateCache(inventory.cooldowns ?? []);
     this.lastInventory = inventory;
+    this.invalidatePagedSnapshotForInventory(inventory);
+    this.ensureInventoryPageRequested();
     if (this.useReactPanel()) {
       this.pendingVisibleRefresh = false;
       this.syncReactState(inventory);
@@ -485,6 +509,102 @@ export class InventoryPanel {
     this.syncPlayerContext(player);
     this.update(player.inventory);
   }  
+  handleInventoryPage(
+    page: S2C_InventoryPage,
+    hydrateSyncedItemStack: (item: SyncedItemStack, previous?: ItemStack) => ItemStack,
+  ): void {
+    const filter = this.normalizeInventoryPageFilter(page.filter);
+    if (filter !== this.activeFilter) {
+      return;
+    }
+    const requestId = typeof page.requestId === 'string' ? page.requestId.trim() : '';
+    if (
+      requestId
+      && this.pagedSnapshot?.requestId
+      && requestId !== this.pagedSnapshot.requestId
+    ) {
+      return;
+    }
+
+    const offset = Math.max(0, Math.trunc(Number(page.offset) || 0));
+    const limit = Math.max(1, Math.trunc(Number(page.limit) || INVENTORY_RENDER_BATCH_SIZE));
+    const totalVisibleItems = Math.max(0, Math.trunc(Number(page.total) || 0));
+    const totalItems = Math.max(0, Math.trunc(Number(page.totalItems) || 0));
+    const capacity = Math.max(0, Math.trunc(Number(page.capacity) || 0));
+    const revision = Math.max(1, Math.trunc(Number(page.revision) || 1));
+    const previousInventory = this.lastInventory;
+    const nextItems = previousInventory?.items ? previousInventory.items.slice() : [];
+    nextItems.length = totalItems;
+
+    const pageItems = (page.items ?? [])
+      .map((entry) => {
+        const slotIndex = Math.max(0, Math.trunc(Number(entry?.slotIndex) || 0));
+        if (!entry?.item) {
+          return null;
+        }
+        const item = hydrateSyncedItemStack(entry.item, nextItems[slotIndex]);
+        nextItems[slotIndex] = item;
+        return { slotIndex, item };
+      })
+      .filter((entry): entry is { item: ItemStack; slotIndex: number } => entry !== null);
+
+    const existingPagedItems = this.pagedSnapshot
+      && this.pagedSnapshot.filter === filter
+      && this.pagedSnapshot.revision === revision
+      && offset > 0
+      ? this.pagedSnapshot.items.slice()
+      : [];
+    const mergedPagedItems: Array<{ item: ItemStack; slotIndex: number } | undefined> = existingPagedItems;
+    for (let index = 0; index < pageItems.length; index += 1) {
+      mergedPagedItems[offset + index] = pageItems[index];
+    }
+    const contiguousPagedItems: Array<{ item: ItemStack; slotIndex: number }> = [];
+    for (const entry of mergedPagedItems) {
+      if (!entry) {
+        break;
+      }
+      contiguousPagedItems.push(entry);
+    }
+
+    const nextInventory: Inventory = {
+      capacity,
+      items: nextItems,
+      cooldowns: page.cooldowns ? page.cooldowns.map((entry) => ({ ...entry })) : previousInventory?.cooldowns,
+      serverTick: page.serverTick ?? previousInventory?.serverTick,
+    };
+    this.setInventoryRevision(nextInventory, revision);
+    this.syncInventoryCooldownTickBase(nextInventory);
+    this.syncInventoryCooldownStateCache(nextInventory.cooldowns ?? []);
+    this.lastInventory = nextInventory;
+    this.pagedSnapshot = {
+      filter,
+      revision,
+      totalItems,
+      totalVisibleItems,
+      capacity,
+      items: contiguousPagedItems,
+      loading: false,
+      requestId: null,
+    };
+    this.renderedVisibleCount = contiguousPagedItems.length;
+
+    if (this.useReactPanel()) {
+      this.pendingVisibleRefresh = false;
+      this.syncReactState(nextInventory);
+    } else if (this.isPaneVisible()) {
+      this.pendingVisibleRefresh = false;
+      if (!this.patchList(nextInventory)) {
+        this.render(nextInventory);
+      }
+    } else {
+      this.pendingVisibleRefresh = true;
+    }
+    if (!this.patchModal()) {
+      this.renderModal();
+    }
+    this.syncCooldownRefresh();
+    this.scheduleLoadMoreCheck();
+  }
   /**
  * syncPlayerContext：处理玩家上下文并更新相关状态。
  * @param player Pick<PlayerState, 'techniques' | 'equipment' | 'unlockedMinimapIds' | 'realm' | 'heavenGate' | 'foundation' | 'qi'> 玩家对象。
@@ -595,6 +715,8 @@ export class InventoryPanel {
     }
     this.activeFilter = filter;
     this.renderedVisibleCount = INVENTORY_INITIAL_RENDER_COUNT;
+    this.pagedSnapshot = null;
+    this.ensureInventoryPageRequested(true);
     if (!this.lastInventory) {
       this.syncReactState(null);
       return;
@@ -704,20 +826,23 @@ export class InventoryPanel {
     const items = visibleSnapshot.renderedItems.map(({ item, slotIndex }) => (
       this.buildReactInventoryItemView(item, slotIndex, cooldownStateMap.get(item.itemId) ?? null)
     ));
+    const paged = this.getActivePagedSnapshot();
+    const totalItems = paged?.totalItems ?? inventory.items.length;
+    const capacity = paged?.capacity ?? inventory.capacity;
     syncReactInventoryPanelState({
       inventory,
       title: t('inventory.title.with-count', {
-        count: formatDisplayInteger(inventory.items.length),
-        capacity: formatDisplayInteger(inventory.capacity),
+        count: formatDisplayInteger(totalItems),
+        capacity: formatDisplayInteger(capacity),
       }),
       items,
       activeFilter: this.activeFilter,
-      totalItems: inventory.items.length,
+      totalItems,
       totalVisibleItems: visibleSnapshot.totalVisibleItems,
       renderedVisibleCount: this.renderedVisibleCount,
-      capacity: inventory.capacity,
+      capacity,
       emptyText: visibleSnapshot.totalVisibleItems === 0
-        ? inventory.items.length === 0 ? t('inventory.empty.all', undefined) : t('inventory.empty.filter', undefined)
+        ? totalItems === 0 ? t('inventory.empty.all', undefined) : t('inventory.empty.filter', undefined)
         : null,
       loadHint: items.length < visibleSnapshot.totalVisibleItems
         ? t('inventory.load-more', {
@@ -787,6 +912,8 @@ export class InventoryPanel {
         }
         this.activeFilter = filter;
         this.renderedVisibleCount = INVENTORY_INITIAL_RENDER_COUNT;
+        this.pagedSnapshot = null;
+        this.ensureInventoryPageRequested(true);
         if (this.lastInventory) {
           this.render(this.lastInventory);
           this.scrollToTop();
@@ -2470,7 +2597,10 @@ export class InventoryPanel {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const refs = this.ensureShell();
-      refs.title.textContent = t('inventory.title.with-count', { count: formatDisplayInteger(inventory.items.length), capacity: formatDisplayInteger(inventory.capacity) });
+    const paged = this.getActivePagedSnapshot();
+    const totalItemsForTitle = paged?.totalItems ?? inventory.items.length;
+    const capacityForTitle = paged?.capacity ?? inventory.capacity;
+      refs.title.textContent = t('inventory.title.with-count', { count: formatDisplayInteger(totalItemsForTitle), capacity: formatDisplayInteger(capacityForTitle) });
 
     for (const tab of INVENTORY_FILTER_TABS) {
       const button = refs.filterButtons.get(tab.id);
@@ -2489,7 +2619,7 @@ export class InventoryPanel {
     const { renderedItems, totalVisibleItems } = visibleSnapshot;
     if (totalVisibleItems === 0) {
       refs.empty.hidden = false;
-      refs.empty.textContent = inventory.items.length === 0 ? t('inventory.empty.all', undefined) : t('inventory.empty.filter', undefined);
+      refs.empty.textContent = totalItemsForTitle === 0 ? t('inventory.empty.all', undefined) : t('inventory.empty.filter', undefined);
       refs.grid.hidden = true;
       refs.grid.replaceChildren();
       this.cellBySlotIndex.clear();
@@ -3193,8 +3323,87 @@ export class InventoryPanel {
     return direct;
   }
 
+  private normalizeInventoryPageFilter(value: unknown): InventoryFilter {
+    const filter = typeof value === 'string' ? value.trim() : 'all';
+    return INVENTORY_FILTER_TABS.some((tab) => tab.id === filter) ? filter as InventoryFilter : 'all';
+  }
+
+  private getInventoryRevision(inventory: Inventory | null | undefined): number | null {
+    const revision = Number((inventory as { revision?: number } | null | undefined)?.revision);
+    return Number.isFinite(revision) && revision > 0 ? Math.trunc(revision) : null;
+  }
+
+  private setInventoryRevision(inventory: Inventory, revision: number): void {
+    (inventory as Inventory & { revision?: number }).revision = Math.max(1, Math.trunc(Number(revision) || 1));
+  }
+
+  private getActivePagedSnapshot(): InventoryPagedSnapshot | null {
+    if (!this.pagedSnapshot || this.pagedSnapshot.filter !== this.activeFilter) {
+      return null;
+    }
+    if (this.pagedSnapshot.items.length <= 0 && this.pagedSnapshot.loading) {
+      return null;
+    }
+    return this.pagedSnapshot;
+  }
+
+  private invalidatePagedSnapshotForInventory(inventory: Inventory): void {
+    const revision = this.getInventoryRevision(inventory);
+    if (!this.pagedSnapshot || revision === null) {
+      return;
+    }
+    if (this.pagedSnapshot.revision !== revision) {
+      this.pagedSnapshot = null;
+    }
+  }
+
+  private ensureInventoryPageRequested(force = false): void {
+    if (!this.onRequestInventoryPage) {
+      return;
+    }
+    const activePage = this.pagedSnapshot?.filter === this.activeFilter ? this.pagedSnapshot : null;
+    if (!force && activePage && (activePage.loading || activePage.items.length > 0)) {
+      return;
+    }
+    this.requestInventoryPage(0, INVENTORY_INITIAL_RENDER_COUNT);
+  }
+
+  private requestInventoryPage(offset: number, limit: number): void {
+    if (!this.onRequestInventoryPage) {
+      return;
+    }
+    const normalizedOffset = Math.max(0, Math.trunc(Number(offset) || 0));
+    const normalizedLimit = Math.max(1, Math.trunc(Number(limit) || INVENTORY_RENDER_BATCH_SIZE));
+    const requestId = `inventory:${Date.now()}:${this.inventoryPageRequestSeq += 1}`;
+    const existing = this.pagedSnapshot?.filter === this.activeFilter ? this.pagedSnapshot : null;
+    this.pagedSnapshot = {
+      filter: this.activeFilter,
+      revision: existing?.revision ?? this.getInventoryRevision(this.lastInventory) ?? 0,
+      totalItems: existing?.totalItems ?? this.lastInventory?.items.length ?? 0,
+      totalVisibleItems: existing?.totalVisibleItems ?? 0,
+      capacity: existing?.capacity ?? this.lastInventory?.capacity ?? 0,
+      items: existing?.items ?? [],
+      loading: true,
+      requestId,
+    };
+    this.onRequestInventoryPage({
+      filter: this.activeFilter,
+      offset: normalizedOffset,
+      limit: normalizedLimit,
+      requestId,
+      knownRevision: this.getInventoryRevision(this.lastInventory) ?? undefined,
+    });
+  }
+
   /** collectVisibleItems：一次遍历收集可见总数和当前已渲染批次。 */
   private collectVisibleItems(inventory: Inventory): InventoryVisibleSnapshot {
+    const paged = this.getActivePagedSnapshot();
+    if (paged) {
+      return {
+        totalVisibleItems: paged.totalVisibleItems,
+        renderedItems: paged.items,
+      };
+    }
     const renderedItems: InventoryVisibleSnapshot['renderedItems'] = [];
     let totalVisibleItems = 0;
     const renderLimit = Math.max(0, this.renderedVisibleCount);
@@ -3213,6 +3422,10 @@ export class InventoryPanel {
 
   /** countVisibleItems：只计数筛选后条目，滚动懒加载热路径避免创建数组。 */
   private countVisibleItems(inventory: Inventory): number {
+    const paged = this.getActivePagedSnapshot();
+    if (paged) {
+      return paged.totalVisibleItems;
+    }
     if (this.activeFilter === 'all') {
       return inventory.items.length;
     }
@@ -3257,6 +3470,14 @@ export class InventoryPanel {
     }
     const remainingDistance = scrollContainer.scrollHeight - scrollContainer.scrollTop - scrollContainer.clientHeight;
     if (remainingDistance > INVENTORY_LOAD_MORE_THRESHOLD_PX) {
+      return;
+    }
+    const paged = this.getActivePagedSnapshot();
+    if (paged) {
+      if (paged.loading || paged.items.length >= paged.totalVisibleItems) {
+        return;
+      }
+      this.requestInventoryPage(paged.items.length, INVENTORY_RENDER_BATCH_SIZE);
       return;
     }
     const nextRenderedCount = Math.min(visibleItemCount, this.renderedVisibleCount + INVENTORY_RENDER_BATCH_SIZE);

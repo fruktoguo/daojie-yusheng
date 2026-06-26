@@ -11,8 +11,12 @@
 import type { WorldGatewayHelperContext } from './world-gateway-context.types';
 
 import { BadRequestException } from '@nestjs/common';
-import { S2C } from '@mud/shared';
+import { ITEM_TYPES, S2C } from '@mud/shared';
 import { buildStructuredNotice } from '../runtime/world/structured-notice.helpers';
+
+const INVENTORY_PAGE_DEFAULT_LIMIT = 72;
+const INVENTORY_PAGE_MAX_LIMIT = 96;
+const INVENTORY_PAGE_FILTERS = new Set<string>(['all', ...ITEM_TYPES]);
 
 /** 世界 socket 背包/装备 helper：只收敛 inventory/equipment 相关入口。 */
 class WorldGatewayInventoryHelper {
@@ -135,6 +139,22 @@ class WorldGatewayInventoryHelper {
         }
         catch (error) {
             this.gateway.worldClientEventService.emitGatewayError(client, 'REPAIR_INVENTORY_ITEM_INSTANCE_IDS_FAILED', error);
+        }
+    }
+    handleRequestInventoryPage(client, payload) {
+        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
+        if (!playerId) {
+            return;
+        }
+        try {
+            const player = this.gateway.playerRuntimeService.getPlayer(playerId);
+            if (!player) {
+                throw new BadRequestException('玩家不存在');
+            }
+            client.emit(S2C.InventoryPage, buildInventoryPagePayload(player, payload));
+        }
+        catch (error) {
+            this.gateway.worldClientEventService.emitGatewayError(client, 'REQUEST_INVENTORY_PAGE_FAILED', error);
         }
     }
     handleSetArtifactSlotEnabled(client, payload) {
@@ -399,4 +419,82 @@ export { WorldGatewayInventoryHelper };
 
 function normalizeInventoryItemInstanceId(value: unknown): string {
     return typeof value === 'string' ? value.trim() : '';
+}
+
+function buildInventoryPagePayload(player: any, payload: any) {
+    const filter = normalizeInventoryPageFilter(payload?.filter);
+    const offset = normalizeInventoryPageOffset(payload?.offset);
+    const limit = normalizeInventoryPageLimit(payload?.limit);
+    const items = Array.isArray(player?.inventory?.items) ? player.inventory.items : [];
+    const pageItems: Array<{ slotIndex: number; item: ReturnType<typeof projectInventoryPageItem> }> = [];
+    let total = 0;
+    for (let slotIndex = 0; slotIndex < items.length; slotIndex += 1) {
+        const item = items[slotIndex];
+        if (!item || !matchesInventoryPageFilter(item, filter)) {
+            continue;
+        }
+        if (total >= offset && pageItems.length < limit) {
+            pageItems.push({
+                slotIndex,
+                item: projectInventoryPageItem(item),
+            });
+        }
+        total += 1;
+    }
+    const cooldowns = Array.isArray(player?.inventory?.cooldowns)
+        ? player.inventory.cooldowns.map((entry) => ({ ...entry }))
+        : undefined;
+    return {
+        requestId: normalizeInventoryPageRequestId(payload?.requestId),
+        filter,
+        offset,
+        limit,
+        total,
+        totalItems: items.length,
+        capacity: Math.max(0, Math.trunc(Number(player?.inventory?.capacity ?? 0) || 0)),
+        revision: Math.max(1, Math.trunc(Number(player?.inventory?.revision ?? 1) || 1)),
+        items: pageItems,
+        ...(cooldowns ? { cooldowns } : {}),
+        ...(Number.isFinite(Number(player?.inventory?.serverTick))
+            ? { serverTick: Math.max(0, Math.trunc(Number(player.inventory.serverTick) || 0)) }
+            : {}),
+    };
+}
+
+function normalizeInventoryPageFilter(value: unknown): string {
+    const filter = typeof value === 'string' ? value.trim() : 'all';
+    return INVENTORY_PAGE_FILTERS.has(filter) ? filter : 'all';
+}
+
+function normalizeInventoryPageOffset(value: unknown): number {
+    const parsed = Math.trunc(Number(value));
+    return Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
+}
+
+function normalizeInventoryPageLimit(value: unknown): number {
+    const parsed = Math.trunc(Number(value));
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+        return INVENTORY_PAGE_DEFAULT_LIMIT;
+    }
+    return Math.max(1, Math.min(INVENTORY_PAGE_MAX_LIMIT, parsed));
+}
+
+function normalizeInventoryPageRequestId(value: unknown): string | undefined {
+    const requestId = typeof value === 'string' ? value.trim() : '';
+    return requestId ? requestId.slice(0, 80) : undefined;
+}
+
+function matchesInventoryPageFilter(item: any, filter: string): boolean {
+    return filter === 'all' || item?.type === filter;
+}
+
+function projectInventoryPageItem(item: any) {
+    const itemInstanceId = normalizeInventoryItemInstanceId(item?.itemInstanceId);
+    const enhanceLevel = Math.max(0, Math.trunc(Number(item?.enhanceLevel ?? 0) || 0));
+    return {
+        itemId: String(item?.itemId ?? ''),
+        ...(itemInstanceId ? { itemInstanceId } : {}),
+        count: Math.max(0, Math.trunc(Number(item?.count ?? 0) || 0)),
+        ...(enhanceLevel > 0 ? { enhanceLevel } : {}),
+    };
 }

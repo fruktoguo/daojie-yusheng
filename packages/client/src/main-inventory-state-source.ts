@@ -3,7 +3,15 @@
  *
  * 维护时要把用户意图、显示派生和服务端权威数据分清，避免为了展示便利复制业务规则。
  */
-import { FormationCreatePayload, Inventory, PlayerState, type FormationRangeShape } from '@mud/shared';
+import {
+  FormationCreatePayload,
+  Inventory,
+  PlayerState,
+  type C2S_RequestInventoryPage,
+  type FormationRangeShape,
+  type S2C_InventoryPage,
+  type SyncedItemStack,
+} from '@mud/shared';
 import type { MainMarketStateSource } from './main-market-state-source';
 import type { MainQuestStateSource } from './main-quest-state-source';
 import { CraftWorkbenchModal } from './ui/craft-workbench-modal';
@@ -60,6 +68,16 @@ type MainInventoryStateSourceOptions = {
  */
 
   sendRepairInventoryItemInstanceIds: () => void;
+  /**
+ * sendRequestInventoryPage：请求服务端背包分页。
+ */
+
+  sendRequestInventoryPage: (payload: C2S_RequestInventoryPage) => void;
+  /**
+ * hydrateSyncedItemStack：水合服务端轻量物品。
+ */
+
+  hydrateSyncedItemStack: (item: SyncedItemStack, previous?: Inventory['items'][number]) => Inventory['items'][number];
   /**
  * sendCreateFormation：send布阵相关字段。
  */
@@ -121,6 +139,7 @@ export function createMainInventoryStateSource(options: MainInventoryStateSource
     () => options.sendRepairInventoryItemInstanceIds(),
     (payload) => options.sendCreateFormation(payload),
     (payload) => options.previewFormationRange?.(payload),
+    (payload) => options.sendRequestInventoryPage(payload),
   );
 
   return {
@@ -166,6 +185,15 @@ export function createMainInventoryStateSource(options: MainInventoryStateSource
       options.craftWorkbenchModal.syncInventory(inventory);
       options.syncInventoryBridgeState(inventory);
       options.syncPlayerBridgeState(player);
+    },
+    /**
+ * handleInventoryPage：处理背包分页响应。
+ * @param page S2C_InventoryPage 背包分页响应。
+ * @returns 无返回值，直接更新背包分页展示。
+ */
+
+    handleInventoryPage(page: S2C_InventoryPage): void {
+      options.inventoryPanel.handleInventoryPage(page, options.hydrateSyncedItemStack);
     },
     /**
  * clear：执行clear相关逻辑。

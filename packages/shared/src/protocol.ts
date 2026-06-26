@@ -97,6 +97,7 @@ export const C2S = {
   UsePortal: 'n:c:usePortal',
   UseItem: 'n:c:useItem',
   RepairInventoryItemInstanceIds: 'n:c:repairInventoryItemInstanceIds',
+  RequestInventoryPage: 'n:c:requestInventoryPage',
   CreateFormation: 'n:c:createFormation',
   SetFormationActive: 'n:c:setFormationActive',
   RefillFormation: 'n:c:refillFormation',
@@ -179,6 +180,7 @@ export const S2C = {
   MarketStorage: 'n:s:marketStorage',
   MarketItemBook: 'n:s:marketItemBook',
   MarketTradeHistory: 'n:s:marketTradeHistory',
+  InventoryPage: 'n:s:inventoryPage',
   AttrDetail: 'n:s:attrDetail',
   Leaderboard: 'n:s:leaderboard',
   LeaderboardPlayerLocations: 'n:s:leaderboardPlayerLocations',
@@ -270,6 +272,7 @@ export interface C2S_PayloadMap extends Record<C2S_EventName, unknown> {
   [C2S.UsePortal]: RequestPayloads.C2S_UsePortal;
   [C2S.UseItem]: RequestPayloads.C2S_UseItem;
   [C2S.RepairInventoryItemInstanceIds]: RequestPayloads.C2S_RepairInventoryItemInstanceIds;
+  [C2S.RequestInventoryPage]: RequestPayloads.C2S_RequestInventoryPage;
   [C2S.CreateFormation]: RequestPayloads.C2S_CreateFormation;
   [C2S.SetFormationActive]: RequestPayloads.C2S_SetFormationActive;
   [C2S.RefillFormation]: RequestPayloads.C2S_RefillFormation;
@@ -348,6 +351,7 @@ export interface S2C_PayloadMap extends Record<S2C_EventName, unknown> {
   [S2C.MarketStorage]: ResponsePayloads.S2C_MarketStorage;
   [S2C.MarketItemBook]: ResponsePayloads.S2C_MarketItemBook;
   [S2C.MarketTradeHistory]: ResponsePayloads.S2C_MarketTradeHistory;
+  [S2C.InventoryPage]: ResponsePayloads.S2C_InventoryPage;
   [S2C.AttrDetail]: S2C_AttrDetail;
   [S2C.Leaderboard]: ResponsePayloads.S2C_Leaderboard;
   [S2C.LeaderboardPlayerLocations]: ResponsePayloads.S2C_LeaderboardPlayerLocations;

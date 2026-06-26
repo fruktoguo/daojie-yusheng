@@ -38,6 +38,7 @@ export function runMainAppBootstrap(context: ReturnType<typeof import('./main-ap
     mailStateSource: context.mailStateSource,
     settingsStateSource: context.settingsStateSource,
     marketStateSource: context.marketStateSource,
+    inventoryStateSource: context.inventoryStateSource,
     noticeStateSource: context.noticeStateSource,
     connectionStateSource: context.connectionStateSource,
     sidePanel: context.sidePanel,

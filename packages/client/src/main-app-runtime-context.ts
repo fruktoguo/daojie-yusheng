@@ -151,6 +151,7 @@ export function createMainAppRuntimeContext(options: InitializeMainAppOptions) {
     mailStateSource: panelContext.mailStateSource,
     settingsStateSource: panelContext.settingsStateSource,
     marketStateSource: panelContext.marketStateSource,
+    inventoryStateSource: panelContext.inventoryStateSource,
     noticeStateSource: panelContext.noticeStateSource,
     connectionStateSource: runtimeOwnerContext.connectionStateSource,
     sidePanel: panelContext.panelDeps.sidePanel,
