@@ -1020,6 +1020,19 @@ export class PlayerRuntimeService {
         if (!player) return null;
         return Math.max(1, Math.floor(player.realm?.realmLv ?? 1));
     }
+    /** 按境界等级读取展示名，避免运行态调用方接触经验等混合配置。 */
+    getRealmLevelDisplayName(realmLv) {
+        const normalizedRealmLv = Math.max(1, Math.floor(Number(realmLv) || 1));
+        if (typeof this.playerProgressionService?.listRealmLevels !== 'function') {
+            return undefined;
+        }
+        const entry = this.playerProgressionService
+            .listRealmLevels()
+            .find((item) => item?.realmLv === normalizedRealmLv);
+        return typeof entry?.displayName === 'string' && entry.displayName.trim()
+            ? entry.displayName.trim()
+            : undefined;
+    }
     /** 按 itemId 消耗背包物品，成功返回 true */
     consumeItemByItemId(playerId, itemId, count = 1) {
         const player = this.getPlayer(playerId);
@@ -5880,8 +5893,8 @@ function cloneQuestRuntimeEntry(entry) {
     if (typeof entry.targetTechniqueId === 'string' && entry.targetTechniqueId.trim()) {
         cloned.targetTechniqueId = entry.targetTechniqueId.trim();
     }
-    if (entry.targetRealmStage !== undefined) {
-        cloned.targetRealmStage = entry.targetRealmStage;
+    if (Number.isFinite(Number(entry.targetRealmLv)) && Number(entry.targetRealmLv) > 0) {
+        cloned.targetRealmLv = Math.floor(Number(entry.targetRealmLv));
     }
     if (typeof entry.nextQuestId === 'string' && entry.nextQuestId.trim()) {
         cloned.nextQuestId = entry.nextQuestId.trim();

@@ -160,11 +160,10 @@
       "story": "灵岭行令在手，清玄不再将人视为纯粹跑腿。言辞坦明：眼下已立于凡武尽头，若欲更进一步，须跨过真正意义上的第一道修行门槛，破境练气，再谈门后之事。",
       "desc": "持续历练，破境至练气，准备面对天穹残宫。",
       "objectiveType": "realm_stage",
-      "objectiveText": "历练至练气境",
-      "targetRealmStage": "QiRefining",
+      "objectiveText": "历练至练气一层",
       "targetRealmLv": 19,
       "targetMapId": "spirit_ridge",
-      "targetName": "练气境",
+      "targetName": "练气一层",
       "required": 1,
       "reward": [
         {

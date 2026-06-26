@@ -243,10 +243,9 @@
       "desc": "镇外苦修，习《站桩功》，备足鼠尾，强健体魄，突破炼皮境，奠定武道根基。",
       "objectiveType": "realm_stage",
       "objectiveText": "备齐鼠尾，达至体魄门槛，突破炼皮境",
-      "targetRealmStage": "BodyTempering",
       "targetRealmLv": 2,
       "targetMapId": "wildlands",
-      "targetName": "炼体境",
+      "targetName": "炼皮",
       "required": 1,
       "reward": [
         {

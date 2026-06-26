@@ -1,92 +1,86 @@
-// @ts-nocheck
-
 /**
- * 回归 smoke：验证“接任务前已达境界”的境界要求任务能正常完成。
- *
- * 背景 bug：createQuestStateFromSource 曾对未接（available）任务，只要进度达标就晋升为 ready。
- * 后果：境界已达标的玩家在 NPC envelope 视图里看到未接任务为 ready，
- *   executeNpcQuestAction / dispatchNpcInteraction 把它误当已接任务去 submit，
- *   而 dispatchAcceptNpcQuest 又因 status !== 'available' 拒绝接取，玩家既接不掉也提交不掉。
+ * 回归 smoke：验证“接任务前已达境界等级”的任务能正常完成。
  *
  * 修复不变量：未接任务（available）一律不晋升为 ready；只有已接任务（active）达标才晋升。
- * 本 smoke 直接装配真实 WorldRuntimeQuestQueryService 验证该不变量（player.attrs.stage 使用数字枚举，与运行态一致）。
  */
-const assert = require("node:assert/strict");
+import assert from 'node:assert/strict';
+import { WorldRuntimeQuestQueryService } from '../runtime/world/query/world-runtime-quest-query.service';
 
-const { WorldRuntimeQuestQueryService } = require("../runtime/world/query/world-runtime-quest-query.service");
-const { PlayerRealmStage } = require("@mud/shared");
+interface RealmLevelSmokePlayer {
+    realm: { realmLv: number };
+}
 
-/** 构造一个境界要求任务的内容源：要求达到 BodyTempering（炼体境）。 */
-function buildRealmStageSource() {
+function buildRealmLevelSource() {
     return {
         quest: {
             id: 'quest:realm_reached',
             line: 'main',
             objectiveType: 'realm_stage',
-            targetRealmStage: PlayerRealmStage.BodyTempering,
+            targetRealmLv: 2,
             required: 1,
-            title: '突破到炼体境',
+            title: '突破到炼皮',
         },
         giverNpcId: 'npc_giver',
     };
 }
 
-/** 装配真实 WorldRuntimeQuestQueryService，仅 mock 仓储与玩家运行态依赖。playerStage 为玩家当前境界枚举值。 */
-function createService(playerStage) {
-    const source = buildRealmStageSource();
+function createService(playerRealmLv: number): WorldRuntimeQuestQueryService {
+    const source = buildRealmLevelSource();
+    const player: RealmLevelSmokePlayer = { realm: { realmLv: playerRealmLv } };
     return new WorldRuntimeQuestQueryService(
         {
             getItemName() { return ''; },
             getTechniqueName() { return ''; },
-        },
+        } as any,
         {
-            getQuestSource(questId) {
+            getQuestSource(questId: string) {
                 return questId === source.quest.id ? source : undefined;
             },
-        },
+        } as any,
         {
-            getPlayerOrThrow() { return { attrs: { stage: playerStage } }; },
-            getPlayer() { return { attrs: { stage: playerStage } }; },
-        },
+            getPlayerOrThrow() { return player; },
+            getPlayer() { return player; },
+            getRealmLevelDisplayName(realmLv: number) {
+                return realmLv === 2 ? '炼皮' : undefined;
+            },
+        } as any,
     );
 }
 
-function testRealmStageAvailableStaysAvailableWhenReached() {
-    // 玩家境界刚好达到目标境界：未接任务必须保持 available（不晋升为 ready）。
-    const service = createService(PlayerRealmStage.BodyTempering);
+function testRealmLevelAvailableStaysAvailableWhenReached() {
+    const service = createService(2);
     const quest = service.createQuestStateFromSource('player:1', 'quest:realm_reached', 'available');
-    assert.equal(quest.status, 'available', '境界达标的未接任务不应晋升为 ready，否则会触发 submit 误判');
+    assert.equal(quest.status, 'available', '境界等级达标的未接任务不应晋升为 ready，否则会触发 submit 误判');
+    assert.equal(quest.progress, quest.required, '进度应已达标');
+    assert.equal(quest.targetRealmLv, 2, '任务运行态应保留目标小境界等级');
+    assert.equal(quest.targetName, '炼皮', '任务目标名应使用境界等级 displayName');
+}
+
+function testRealmLevelAvailableStaysAvailableWhenExceeded() {
+    const service = createService(19);
+    const quest = service.createQuestStateFromSource('player:1', 'quest:realm_reached', 'available');
+    assert.equal(quest.status, 'available', '境界等级超过目标的未接任务也不应晋升为 ready');
     assert.equal(quest.progress, quest.required, '进度应已达标');
 }
 
-function testRealmStageAvailableStaysAvailableWhenExceeded() {
-    // 玩家境界已超过目标境界：未接任务同样必须保持 available。
-    const service = createService(PlayerRealmStage.QiRefining);
-    const quest = service.createQuestStateFromSource('player:1', 'quest:realm_reached', 'available');
-    assert.equal(quest.status, 'available', '境界超过目标的未接任务也不应晋升为 ready');
-    assert.equal(quest.progress, quest.required, '进度应已达标');
-}
-
-function testRealmStageActivePromotesToReadyWhenReached() {
-    // 已接任务达标应正常晋升为 ready，确保不破坏正常的接取→完成流程。
-    const service = createService(PlayerRealmStage.BodyTempering);
+function testRealmLevelActivePromotesToReadyWhenReached() {
+    const service = createService(2);
     const quest = service.createQuestStateFromSource('player:1', 'quest:realm_reached', 'active');
-    assert.equal(quest.status, 'ready', '境界达标的已接任务应晋升为 ready');
+    assert.equal(quest.status, 'ready', '境界等级达标的已接任务应晋升为 ready');
 }
 
-function testRealmStageStaysAvailableWhenNotReached() {
-    // 玩家境界未达标：未接任务保持 available 且进度未满（对照基线）。
-    const service = createService(PlayerRealmStage.Mortal);
+function testRealmLevelStaysAvailableWhenNotReached() {
+    const service = createService(1);
     const quest = service.createQuestStateFromSource('player:1', 'quest:realm_reached', 'available');
     assert.equal(quest.status, 'available');
     assert.ok(quest.progress < quest.required, '未达标时进度不应满');
 }
 
 function main() {
-    testRealmStageAvailableStaysAvailableWhenReached();
-    testRealmStageAvailableStaysAvailableWhenExceeded();
-    testRealmStageActivePromotesToReadyWhenReached();
-    testRealmStageStaysAvailableWhenNotReached();
+    testRealmLevelAvailableStaysAvailableWhenReached();
+    testRealmLevelAvailableStaysAvailableWhenExceeded();
+    testRealmLevelActivePromotesToReadyWhenReached();
+    testRealmLevelStaysAvailableWhenNotReached();
     console.log(JSON.stringify({ ok: true, case: 'world-runtime-quest-realm-stage-ready' }, null, 2));
 }
 

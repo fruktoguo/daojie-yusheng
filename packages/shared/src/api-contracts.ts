@@ -3065,10 +3065,10 @@ export interface GmMapQuestRecord {
 
   targetTechniqueId?: string;
   /**
- * targetRealmStage：目标RealmStage相关字段。
+ * targetRealmLv：目标境界等级。
  */
 
-  targetRealmStage?: string | number;
+  targetRealmLv?: number;
   /**
  * required：required相关字段。
  */

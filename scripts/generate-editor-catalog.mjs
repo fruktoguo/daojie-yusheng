@@ -107,7 +107,7 @@ const buffs = buildBuffCatalog(techniques, items);
 /**
  * 记录quests。
  */
-const quests = loadQuests(path.join(contentDir, 'quests'), path.join(repoRoot, 'packages/server/data/maps'), items, techniques);
+const quests = loadQuests(path.join(contentDir, 'quests'), path.join(repoRoot, 'packages/server/data/maps'), items, techniques, realmLevels);
 
 writeJson(outputPath, {
   techniques,
@@ -293,9 +293,10 @@ function collectAlchemyRoleMaterialItemIds(recipesPath, items, role) {
   return itemIds;
 }
 
-function loadQuests(questsDir, mapsDir, items, techniques) {
+function loadQuests(questsDir, mapsDir, items, techniques, realmLevels) {
   const itemById = new Map(items.map((item) => [item.itemId, item]));
   const techniqueById = new Map(techniques.map((technique) => [technique.id, technique]));
+  const realmLevelByLv = new Map(realmLevels.map((entry) => [entry.realmLv, entry]));
   const { mapById, npcLocationById, inlineQuests } = collectMapQuestContext(mapsDir);
   const entries = [...inlineQuests];
   if (fs.existsSync(questsDir)) {
@@ -309,7 +310,7 @@ function loadQuests(questsDir, mapsDir, items, techniques) {
   const result = [];
   const seen = new Set();
   for (const entry of entries) {
-    const quest = normalizeQuestTemplate(entry, { itemById, techniqueById, mapById, npcLocationById });
+    const quest = normalizeQuestTemplate(entry, { itemById, techniqueById, realmLevelByLv, mapById, npcLocationById });
     if (!quest || seen.has(quest.id)) {
       continue;
     }
@@ -395,7 +396,7 @@ function normalizeQuestTemplate(entry, context) {
     required,
     targetName: resolveQuestTargetName(entry, objectiveType, context, targetNpcLocation),
     targetTechniqueId: optionalText(entry.targetTechniqueId),
-    targetRealmStage: Number.isFinite(Number(entry.targetRealmStage)) ? Number(entry.targetRealmStage) : undefined,
+    targetRealmLv: normalizePositiveInteger(entry.targetRealmLv),
     rewardText: typeof entry.rewardText === 'string' ? entry.rewardText : buildQuestTemplateRewardText(rewards),
     targetMonsterId: normalizeText(entry.targetMonsterId),
     rewardItemId: normalizeText(entry.rewardItemId) || rewardItemIds[0] || '',
@@ -472,7 +473,8 @@ function resolveQuestTargetName(entry, objectiveType, context, targetNpcLocation
     return context.techniqueById.get(techId)?.name ?? techId;
   }
   if (objectiveType === 'realm_stage' || objectiveType === 'realm_progress') {
-    return normalizeText(entry.targetRealmStage);
+    const targetRealmLv = normalizePositiveInteger(entry.targetRealmLv);
+    return context.realmLevelByLv.get(targetRealmLv)?.displayName ?? optionalText(entry.targetName) ?? (targetRealmLv ? `第${targetRealmLv}境` : '');
   }
   return optionalText(entry.targetNpcName) ?? normalizeText(entry.targetMonsterId);
 }
@@ -493,6 +495,11 @@ function normalizeQuestObjectiveType(value) {
 
 function buildQuestTemplateRewardText(rewards) {
   return rewards.map((reward) => `${reward.name ?? reward.itemId} x${reward.count}`).join('、');
+}
+
+function normalizePositiveInteger(value) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) && numeric > 0 ? Math.floor(numeric) : undefined;
 }
 
 function normalizeText(value) {

@@ -163,11 +163,10 @@
       "story": "竹隐客未将真相和盘托出，却已指明前路方向：玄铁矿洞与断碑遗迹之中，埋藏着比匪患兽祸更古老的存在。当下之务，非回首踟蹰，而是将经脉与胆气磨砺至足以踏入其中的程度。",
       "desc": "潜心历练，淬炼经脉，突破通脉境，方可正式踏入矿路与遗迹。",
       "objectiveType": "realm_stage",
-      "objectiveText": "历练至通脉境",
-      "targetRealmStage": "Meridian",
+      "objectiveText": "历练至通脉",
       "targetRealmLv": 7,
       "targetMapId": "bamboo_forest",
-      "targetName": "通脉境",
+      "targetName": "通脉",
       "required": 1,
       "reward": [
         {

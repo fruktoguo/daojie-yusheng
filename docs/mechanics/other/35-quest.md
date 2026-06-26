@@ -36,8 +36,8 @@ available → active → ready → completed
 | talk | 与目标 NPC 对话时直接设为 required |
 | submit_item | `min(required, 背包中目标物品数量)` |
 | learn_technique | 已学会目标功法 → required，否则 0 |
-| realm_stage | 境界 ≥ 目标境界 → required |
-| realm_progress | 境界 > 目标境界（严格大于）→ required |
+| realm_stage | 境界等级 `realmLv` ≥ `targetRealmLv` → required |
+| realm_progress | 境界等级 `realmLv` > `targetRealmLv`（严格大于）→ required |
 
 ## 完成条件
 

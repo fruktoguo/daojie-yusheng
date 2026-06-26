@@ -430,9 +430,7 @@ function normalizeEditableQuestRecord(input: unknown): GmMapQuestRecord | undefi
     targetNpcName: normalizeOptionalTrimmedString(quest.targetNpcName),
     targetMonsterId: normalizeOptionalTrimmedString(quest.targetMonsterId),
     targetTechniqueId: normalizeOptionalTrimmedString(quest.targetTechniqueId),
-    targetRealmStage: typeof quest.targetRealmStage === 'string'
-      ? normalizeOptionalTrimmedString(quest.targetRealmStage)
-      : normalizeOptionalInteger(quest.targetRealmStage),
+    targetRealmLv: normalizeOptionalInteger(quest.targetRealmLv),
     required: normalizeOptionalInteger(quest.required),
     targetCount: normalizeOptionalInteger(quest.targetCount),
     rewardItemId: normalizeOptionalTrimmedString(quest.rewardItemId),
@@ -1414,14 +1412,14 @@ export function validateEditableMapDocument(document: GmMapDocument): string | n
           if (required === undefined || !Number.isInteger(required) || required <= 0) {
             return `${questLabel} 的境界推进需求必须为正整数`;
           }
-          if (quest.targetRealmStage === undefined || `${quest.targetRealmStage}`.trim().length <= 0) {
-            return `${questLabel} 的目标境界阶段不能为空`;
+          if (quest.targetRealmLv === undefined || !Number.isInteger(quest.targetRealmLv) || quest.targetRealmLv <= 0) {
+            return `${questLabel} 的目标境界等级必须为正整数`;
           }
           break;
         }
         case 'realm_stage': {
-          if (quest.targetRealmStage === undefined || `${quest.targetRealmStage}`.trim().length <= 0) {
-            return `${questLabel} 的目标境界阶段不能为空`;
+          if (quest.targetRealmLv === undefined || !Number.isInteger(quest.targetRealmLv) || quest.targetRealmLv <= 0) {
+            return `${questLabel} 的目标境界等级必须为正整数`;
           }
           break;
         }

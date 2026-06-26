@@ -163,11 +163,10 @@
       "story": "清玄闻言不再深究，唯遣往更远处历练。眼下根基尚浅，若欲探明井底真相，须先修至锻骨之境，方能承受荒野更深处之凶险。",
       "desc": "于荒野持续历练，破境至锻骨，为深入青竹林做准备。",
       "objectiveType": "realm_stage",
-      "objectiveText": "历练至锻骨境",
-      "targetRealmStage": "BoneForging",
+      "objectiveText": "历练至锻骨",
       "targetRealmLv": 3,
       "targetMapId": "wildlands",
-      "targetName": "锻骨境",
+      "targetName": "锻骨",
       "required": 1,
       "reward": [
         {

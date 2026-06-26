@@ -11,7 +11,7 @@
 /** 运行时参数标准化工具：统一输入解析、比较稳定性与展示数据。
  * 职责：输入校验、ID 构建、坐标/数值归一化。 */
 import { BadRequestException } from '@nestjs/common';
-import { ARTIFACT_SLOTS, Direction, EQUIP_SLOTS, PLAYER_REALM_CONFIG, PlayerRealmStage, calcQiCostWithOutputLimit, createItemStackSignature, getDamageTrailColor, getItemStackDisplayLabel, mergeItemStackEntryInto, mergeItemStackInto, resolveSkillEffectiveRange } from '@mud/shared';
+import { ARTIFACT_SLOTS, Direction, EQUIP_SLOTS, calcQiCostWithOutputLimit, createItemStackSignature, getDamageTrailColor, getItemStackDisplayLabel, mergeItemStackEntryInto, mergeItemStackInto, resolveSkillEffectiveRange } from '@mud/shared';
 
 /** 统一动作 ID。 */
 export function normalizeRuntimeActionId(actionIdInput) {
@@ -453,22 +453,23 @@ export function normalizeQuestRequired(quest, objectiveType) {
     }
     return 1;
 }
-/** 任务境界目标归一为有效枚举值。 */
-export function normalizeQuestRealmStage(value) {
+/** 任务境界目标等级归一为正整数。 */
+export function normalizeQuestRealmLv(value) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    if (typeof value === 'number' && PlayerRealmStage[value] !== undefined) {
-        return value;
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric) || numeric <= 0) {
+        return undefined;
     }
-    if (typeof value === 'string' && PlayerRealmStage[value] !== undefined) {
-        return PlayerRealmStage[value];
-    }
-    return undefined;
+    return Math.floor(numeric);
 }
 /** 按目标类型解析任务面板显示标签。 */
-export function resolveQuestTargetLabel(objectiveType, quest, targetRealmStage, targetNpcName, requiredItemName, techniqueName) {
+export function resolveQuestTargetLabel(objectiveType, quest, targetRealmLabel, targetNpcName, requiredItemName, techniqueName) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    if ((objectiveType === 'realm_progress' || objectiveType === 'realm_stage') && typeof targetRealmLabel === 'string' && targetRealmLabel.trim()) {
+        return targetRealmLabel.trim();
+    }
     if (typeof quest.targetName === 'string' && quest.targetName.trim()) {
         return quest.targetName;
     }
@@ -482,9 +483,6 @@ export function resolveQuestTargetLabel(objectiveType, quest, targetRealmStage, 
     }
     if (objectiveType === 'learn_technique') {
         return techniqueName || (typeof quest.targetTechniqueId === 'string' ? quest.targetTechniqueId : quest.title);
-    }
-    if ((objectiveType === 'realm_progress' || objectiveType === 'realm_stage') && targetRealmStage !== undefined) {
-        return PLAYER_REALM_CONFIG[targetRealmStage]?.name ?? PlayerRealmStage[targetRealmStage];
     }
     if (objectiveType === 'kill' && typeof quest.targetMonsterId === 'string' && quest.targetMonsterId.trim()) {
         return quest.targetMonsterId;
@@ -520,9 +518,9 @@ export function cloneQuestState(quest, status = quest.status) {
     if (typeof quest.targetTechniqueId === 'string' && quest.targetTechniqueId.trim()) {
         cloned.targetTechniqueId = quest.targetTechniqueId.trim();
     }
-    const targetRealmStage = normalizeQuestRealmStage(quest.targetRealmStage);
-    if (targetRealmStage !== undefined) {
-        cloned.targetRealmStage = targetRealmStage;
+    const targetRealmLv = normalizeQuestRealmLv(quest.targetRealmLv);
+    if (targetRealmLv !== undefined) {
+        cloned.targetRealmLv = targetRealmLv;
     }
     if (typeof quest.nextQuestId === 'string' && quest.nextQuestId.trim()) {
         cloned.nextQuestId = quest.nextQuestId.trim();

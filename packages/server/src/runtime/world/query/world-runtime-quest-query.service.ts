@@ -4,7 +4,6 @@
  * 维护时应避免查询路径产生副作用，并控制返回字段，防止高频同步带出完整大对象。
  */
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { PLAYER_REALM_ORDER } from '@mud/shared';
 import { ContentTemplateRepository } from '../../../content/content-template.repository';
 import { MapTemplateRepository } from '../../map/map-template.repository';
 import { PlayerRuntimeService } from '../../player/player-runtime.service';
@@ -15,24 +14,29 @@ const {
     normalizeQuestLine,
     normalizeQuestObjectiveType,
     normalizeQuestRequired,
-    normalizeQuestRealmStage,
+    normalizeQuestRealmLv,
     resolveQuestTargetLabel,
     buildQuestRewardText,
     cloneQuestState,
     compareQuestViews,
 } = world_runtime_normalization_helpers_1;
 
-function getRealmStageOrderIndex(stage) {
-    return PLAYER_REALM_ORDER.indexOf(stage);
+function normalizeRealmLevel(value) {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric) || numeric <= 0) {
+        return 1;
+    }
+    return Math.floor(numeric);
 }
 
-function isRealmStageReached(currentStage, targetStage, strict) {
-    const currentIndex = getRealmStageOrderIndex(currentStage);
-    const targetIndex = getRealmStageOrderIndex(targetStage);
-    if (currentIndex < 0 || targetIndex < 0) {
-        return false;
-    }
-    return strict ? currentIndex > targetIndex : currentIndex >= targetIndex;
+function getPlayerRealmLevel(player) {
+    return normalizeRealmLevel(player?.realm?.realmLv ?? player?.realmLv ?? player?.attrs?.realmLv);
+}
+
+function isRealmLevelReached(currentRealmLv, targetRealmLv, strict) {
+    const currentLevel = normalizeRealmLevel(currentRealmLv);
+    const targetLevel = normalizeRealmLevel(targetRealmLv);
+    return strict ? currentLevel > targetLevel : currentLevel >= targetLevel;
 }
 
 function findPlayerQuestById(playerQuests, questId) {
@@ -108,6 +112,19 @@ export class WorldRuntimeQuestQueryService {
         this.templateRepository = templateRepository;
         this.playerRuntimeService = playerRuntimeService;
     }    
+    resolveQuestRealmLevelLabel(targetRealmLv) {
+        const normalizedRealmLv = normalizeQuestRealmLv(targetRealmLv);
+        if (normalizedRealmLv === undefined) {
+            return undefined;
+        }
+        const displayName = typeof (this.playerRuntimeService as any)?.getRealmLevelDisplayName === 'function'
+            ? (this.playerRuntimeService as any).getRealmLevelDisplayName(normalizedRealmLv)
+            : undefined;
+        return typeof displayName === 'string' && displayName.trim()
+            ? displayName.trim()
+            : `第${normalizedRealmLv}境`;
+    }
+
     /**
  * buildQuestListView：构建并返回目标对象。
  * @param playerId 玩家 ID。
@@ -295,13 +312,13 @@ export class WorldRuntimeQuestQueryService {
                     : 0;
             case 'realm_stage': {
                 const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
-                return quest.targetRealmStage !== undefined && isRealmStageReached(player.attrs.stage, quest.targetRealmStage, false)
+                return quest.targetRealmLv !== undefined && isRealmLevelReached(getPlayerRealmLevel(player), quest.targetRealmLv, false)
                     ? quest.required
                     : quest.progress;
             }
             case 'realm_progress': {
                 const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
-                return quest.targetRealmStage !== undefined && isRealmStageReached(player.attrs.stage, quest.targetRealmStage, true)
+                return quest.targetRealmLv !== undefined && isRealmLevelReached(getPlayerRealmLevel(player), quest.targetRealmLv, true)
                     ? quest.required
                     : quest.progress;
             }
@@ -383,7 +400,8 @@ export class WorldRuntimeQuestQueryService {
 
         const required = normalizeQuestRequired(quest, objectiveType);
 
-        const targetRealmStage = normalizeQuestRealmStage(quest.targetRealmStage);
+        const targetRealmLv = normalizeQuestRealmLv(quest.targetRealmLv);
+        const targetRealmLabel = this.resolveQuestRealmLevelLabel(targetRealmLv);
 
         const targetNpcId = typeof quest.targetNpcId === 'string' ? quest.targetNpcId.trim() : '';
         const submitNpcId = typeof quest.submitNpcId === 'string' ? quest.submitNpcId.trim() : '';
@@ -397,9 +415,9 @@ export class WorldRuntimeQuestQueryService {
             objectiveType,
             progress: 0,
             required,
-            targetName: resolveQuestTargetLabel(objectiveType, source.quest, targetRealmStage, targetNpcLocation?.npcName, this.contentTemplateRepository.getItemName(typeof source.quest.requiredItemId === 'string' ? source.quest.requiredItemId : ''), this.contentTemplateRepository.getTechniqueName(typeof source.quest.targetTechniqueId === 'string' ? source.quest.targetTechniqueId : '')),
+            targetName: resolveQuestTargetLabel(objectiveType, source.quest, targetRealmLabel, targetNpcLocation?.npcName, this.contentTemplateRepository.getItemName(typeof source.quest.requiredItemId === 'string' ? source.quest.requiredItemId : ''), this.contentTemplateRepository.getTechniqueName(typeof source.quest.targetTechniqueId === 'string' ? source.quest.targetTechniqueId : '')),
             targetTechniqueId: typeof source.quest.targetTechniqueId === 'string' ? source.quest.targetTechniqueId : undefined,
-            targetRealmStage,
+            targetRealmLv,
             targetMonsterId: typeof source.quest.targetMonsterId === 'string' ? source.quest.targetMonsterId : '',
             nextQuestId: typeof source.quest.nextQuestId === 'string' ? source.quest.nextQuestId : undefined,
             requiredItemId: typeof source.quest.requiredItemId === 'string' ? source.quest.requiredItemId : undefined,
@@ -590,7 +608,8 @@ export class WorldRuntimeQuestQueryService {
 
         const sourceQuest = source.quest;
         const objectiveType = normalizeQuestObjectiveType(quest.objectiveType ?? sourceQuest.objectiveType);
-        const targetRealmStage = normalizeQuestRealmStage(quest.targetRealmStage ?? sourceQuest.targetRealmStage);
+        const targetRealmLv = normalizeQuestRealmLv(quest.targetRealmLv ?? sourceQuest.targetRealmLv);
+        const targetRealmLabel = this.resolveQuestRealmLevelLabel(targetRealmLv);
         const targetNpcId = typeof quest.targetNpcId === 'string' && quest.targetNpcId.trim()
             ? quest.targetNpcId.trim()
             : typeof sourceQuest.targetNpcId === 'string' && sourceQuest.targetNpcId.trim()
@@ -637,9 +656,9 @@ export class WorldRuntimeQuestQueryService {
             objectiveType,
             objectiveText: typeof sourceQuest.objectiveText === 'string' ? sourceQuest.objectiveText : undefined,
             required: Number.isInteger(quest.required) ? Number(quest.required) : normalizeQuestRequired(sourceQuest, objectiveType),
-            targetName: resolveQuestTargetLabel(objectiveType, targetNameSource, targetRealmStage, targetNpcLocation?.npcName, this.contentTemplateRepository.getItemName(typeof sourceQuest.requiredItemId === 'string' ? sourceQuest.requiredItemId : ''), this.contentTemplateRepository.getTechniqueName(typeof sourceQuest.targetTechniqueId === 'string' ? sourceQuest.targetTechniqueId : '')),
+            targetName: resolveQuestTargetLabel(objectiveType, targetNameSource, targetRealmLabel, targetNpcLocation?.npcName, this.contentTemplateRepository.getItemName(typeof sourceQuest.requiredItemId === 'string' ? sourceQuest.requiredItemId : ''), this.contentTemplateRepository.getTechniqueName(typeof sourceQuest.targetTechniqueId === 'string' ? sourceQuest.targetTechniqueId : '')),
             targetTechniqueId: typeof quest.targetTechniqueId === 'string' ? quest.targetTechniqueId : sourceQuest.targetTechniqueId,
-            targetRealmStage,
+            targetRealmLv,
             rewardText: buildQuestRewardText(sourceQuest, rewardItems),
             targetMonsterId: typeof quest.targetMonsterId === 'string' ? quest.targetMonsterId : (typeof sourceQuest.targetMonsterId === 'string' ? sourceQuest.targetMonsterId : ''),
             rewardItemId: typeof sourceQuest.rewardItemId === 'string' ? sourceQuest.rewardItemId : (rewardItems[0]?.itemId ?? ''),

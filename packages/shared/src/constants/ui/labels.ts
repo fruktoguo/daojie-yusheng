@@ -274,7 +274,7 @@ export const QUEST_OBJECTIVE_TYPE_LABELS: Record<QuestObjectiveType, string> = {
   submit_item: '提交物品',
   learn_technique: '习得功法',
   realm_progress: '境界推进',
-  realm_stage: '境界阶段',
+  realm_stage: '境界等级',
 };
 
 /** 功法境界中文标签 */

@@ -3,7 +3,6 @@
  *
  * 维护时应保持无副作用、可在浏览器与 Node 环境同时使用，不引入单端专属依赖。
  */
-import type { PlayerRealmStage } from './cultivation-types';
 import type { ItemStack } from './item-runtime-types';
 
 /**
@@ -87,10 +86,10 @@ export interface QuestState {
 
   targetTechniqueId?: string;  
   /**
- * targetRealmStage：目标RealmStage相关字段。
+ * targetRealmLv：目标境界等级。
  */
 
-  targetRealmStage?: PlayerRealmStage;  
+  targetRealmLv?: number;
   /**
  * rewardText：rewardText名称或显示文本。
  */

@@ -185,11 +185,10 @@
       "story": "清玄终于承认，你已经摸到云来镇这场烂局的一角。但他还是那句话: 现在知道太多，对你只有死得更快一个下场。先把内外一炁练到先天，再去碰兽谷里真正往外冒的那股东西。",
       "desc": "潜心历练，突破先天境界，方可承受兽谷深处涌出的凶煞之气。",
       "objectiveType": "realm_stage",
-      "objectiveText": "历练至先天境",
-      "targetRealmStage": "Innate",
+      "objectiveText": "历练至天璇",
       "targetRealmLv": 13,
       "targetMapId": "ancient_ruins",
-      "targetName": "先天境",
+      "targetName": "天璇",
       "required": 1,
       "reward": [
         {

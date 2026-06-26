@@ -9,7 +9,6 @@
       "desc": "历练不辍，达至半步筑基，立定道基，方可续入后章。",
       "objectiveType": "realm_stage",
       "objectiveText": "历练至半步筑基",
-      "targetRealmStage": "QiRefiningLate",
       "targetRealmLv": 30,
       "targetMapId": "sky_ruins",
       "targetName": "半步筑基",
