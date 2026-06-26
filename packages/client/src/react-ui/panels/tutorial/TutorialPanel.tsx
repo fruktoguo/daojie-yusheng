@@ -3,7 +3,7 @@
  *
  * 维护时要保持前端只处理表现和派生状态，避免复制服务端权威真源或让多套 UI 状态互相分叉。
  */
-import { memo, useCallback, useMemo, useRef, useState } from 'react';
+import { type ReactNode, memo, useCallback, useMemo, useRef, useState } from 'react';
 import {
   TUTORIAL_MECHANIC_TOPICS,
   type TutorialTopic,
@@ -188,10 +188,76 @@ function TutorialInlineAction({ hint }: { hint: TutorialOperationHint }) {
   );
 }
 
+// ─── 搜索 ─────────────────────────────────────────────────────────────────────
+
+type SearchMatch = { topic: TutorialTopic; sections: Array<{ title: string; items: string[] }>; tips: string[] };
+
+function getSearchMatches(topics: TutorialTopic[], query: string): SearchMatch[] {
+  const q = query.toLowerCase();
+  return topics.flatMap((topic) => {
+    const topicHit = topic.label.toLowerCase().includes(q);
+    if (topic.id === 'realm-table') return topicHit ? [{ topic, sections: [], tips: [] }] : [];
+    const sections = topic.sections.flatMap((s) => {
+      const sectionHit = s.title.toLowerCase().includes(q);
+      const items = (topicHit || sectionHit) ? s.items : s.items.filter((item) => item.toLowerCase().includes(q));
+      return items.length > 0 ? [{ title: s.title, items }] : [];
+    });
+    const tips = topicHit ? (topic.tips ?? []) : (topic.tips ?? []).filter((tip) => tip.toLowerCase().includes(q));
+    return sections.length > 0 || tips.length > 0 ? [{ topic, sections, tips }] : [];
+  });
+}
+
+function Highlight({ text, query }: { text: string; query: string }) {
+  const q = query.toLowerCase();
+  const parts: ReactNode[] = [];
+  let start = 0;
+  let key = 0;
+  while (start < text.length) {
+    const idx = text.toLowerCase().indexOf(q, start);
+    if (idx === -1) { parts.push(text.slice(start)); break; }
+    if (idx > start) parts.push(text.slice(start, idx));
+    parts.push(<mark key={key++} className="tutorial-search-highlight">{text.slice(idx, idx + q.length)}</mark>);
+    start = idx + q.length;
+  }
+  return <>{parts}</>;
+}
+
+function SearchResults({ query, topics }: { query: string; topics: TutorialTopic[] }) {
+  const matches = useMemo(() => getSearchMatches(topics, query), [topics, query]);
+  if (matches.length === 0) return <div className="tutorial-search-empty">无匹配结果</div>;
+  return (
+    <div className="tutorial-search-results">
+      {matches.map(({ topic, sections, tips }) => (
+        <div key={topic.id} className="tutorial-search-group">
+          <div className="tutorial-search-group-label"><Highlight text={topic.label} query={query} /></div>
+          {topic.id === 'realm-table' && <div className="tutorial-search-match-item">境界升级数据表</div>}
+          {sections.map((section) => (
+            <div key={section.title} className="tutorial-section-card tutorial-search-section">
+              <div className="tutorial-section-title"><Highlight text={section.title} query={query} /></div>
+              <ul className="tutorial-section-list">
+                {section.items.map((item, i) => <li key={i}><RichText text={item} /></li>)}
+              </ul>
+            </div>
+          ))}
+          {tips.length > 0 && (
+            <div className="tutorial-tip-card tutorial-search-section">
+              <div className="tutorial-section-title">{t('tutorial.panel.tip-title')}</div>
+              <ul className="tutorial-section-list tutorial-section-list--tips">
+                {tips.map((tip, i) => <li key={i}><RichText text={tip} /></li>)}
+              </ul>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ─── 主组件 ──────────────────────────────────────────────────────────────────
 
 export function TutorialPanelContent() {
   const [mechanicId, setMechanicId] = useState(TUTORIAL_MECHANIC_TOPICS[0]?.id ?? 'growth');
+  const [searchQuery, setSearchQuery] = useState('');
   const panelRef = useRef<HTMLDivElement | null>(null);
 
   const hidePinnedTooltips = useCallback(() => {
@@ -202,28 +268,43 @@ export function TutorialPanelContent() {
 
   return (
     <div className="tutorial-modal-body" ref={panelRef}>
-      {/* 直接展示百科内容，无需主 Tab 切换 */}
-      <div className="tutorial-modal-main-panes">
-        <section
-          className="tutorial-modal-main-pane tutorial-modal-main-pane--mechanics active"
-          data-tutorial-main-pane="mechanics"
-          role="tabpanel"
-          aria-hidden="false"
-        >
-          <TopicShell
-            topics={TUTORIAL_MECHANIC_TOPICS}
-            ariaLabel={t('tutorial.panel.mechanics-tabs.aria')}
-            activeId={mechanicId}
-            onSelect={(id) => {
-              hidePinnedTooltips();
-              setMechanicId(id);
-            }}
-            onNestedSelect={hidePinnedTooltips}
-            tabDataAttr="data-tutorial-mechanic-tab"
-            paneDataAttr="data-tutorial-mechanic-pane"
-          />
-        </section>
+      <div className="tutorial-search-bar">
+        <input
+          className="tutorial-search-input"
+          type="text"
+          placeholder="搜索百科内容..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
+        {searchQuery && (
+          <button className="tutorial-search-clear" type="button" onClick={() => setSearchQuery('')}>✕</button>
+        )}
       </div>
+      {searchQuery ? (
+        <SearchResults query={searchQuery} topics={TUTORIAL_MECHANIC_TOPICS} />
+      ) : (
+        <div className="tutorial-modal-main-panes">
+          <section
+            className="tutorial-modal-main-pane tutorial-modal-main-pane--mechanics active"
+            data-tutorial-main-pane="mechanics"
+            role="tabpanel"
+            aria-hidden="false"
+          >
+            <TopicShell
+              topics={TUTORIAL_MECHANIC_TOPICS}
+              ariaLabel={t('tutorial.panel.mechanics-tabs.aria')}
+              activeId={mechanicId}
+              onSelect={(id) => {
+                hidePinnedTooltips();
+                setMechanicId(id);
+              }}
+              onNestedSelect={hidePinnedTooltips}
+              tabDataAttr="data-tutorial-mechanic-tab"
+              paneDataAttr="data-tutorial-mechanic-pane"
+            />
+          </section>
+        </div>
+      )}
     </div>
   );
 }

@@ -3592,6 +3592,86 @@
       background: rgba(214, 188, 142, 0.24);
       color: var(--ink-black);
     }
+    .tutorial-search-bar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+    .tutorial-search-input {
+      flex: 1;
+      min-width: 0;
+      height: 34px;
+      padding: 0 10px;
+      border: 1px solid var(--input-border);
+      background: var(--surface-base);
+      color: var(--ink-black);
+      font-family: var(--font-role-body);
+      font-size: var(--font-size-role-body-14);
+      outline: none;
+    }
+    .tutorial-search-input:focus {
+      border-color: var(--stamp-red);
+      box-shadow: 0 0 0 2px rgba(197, 60, 60, 0.1);
+    }
+    .tutorial-search-clear {
+      flex-shrink: 0;
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--input-border);
+      background: transparent;
+      color: var(--ink-muted);
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .tutorial-search-clear:hover {
+      background: rgba(214, 188, 142, 0.14);
+      color: var(--ink-black);
+    }
+    .tutorial-search-results {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      padding-right: 4px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .tutorial-search-empty {
+      padding: 24px 0;
+      text-align: center;
+      color: var(--ink-muted);
+      font-size: var(--font-size-role-body-14);
+    }
+    .tutorial-search-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .tutorial-search-group-label {
+      font-family: var(--font-role-title);
+      font-size: var(--font-size-role-body-15);
+      color: var(--stamp-red);
+      font-weight: var(--font-weight-semibold);
+      padding-bottom: 6px;
+      border-bottom: 1px solid rgba(133, 68, 45, 0.16);
+    }
+    .tutorial-search-section {
+      margin: 0;
+    }
+    .tutorial-search-highlight {
+      background: rgba(197, 60, 60, 0.15);
+      color: var(--stamp-red);
+      padding: 0 1px;
+    }
+    .tutorial-search-match-item {
+      color: var(--ink-dark);
+      font-size: var(--font-size-role-body-14);
+      padding: 4px 0;
+    }
     .realm-table {
       width: 100%;
       border-collapse: collapse;
