@@ -46,7 +46,7 @@ export function resolveServerCorsOptions(): ServerNextCorsOptions | false {
 
   // 非开发环境必须显式配置白名单，防止生产全开
   if (allowedOrigins.length === 0 && !isDevelopmentLikeEnv()) {
-    throw new Error('非开发环境必须显式配置 SERVER_CORS_ORIGINS 或 SERVER_CORS_ORIGINS，禁止继续使用全开 CORS。');
+    throw new Error('非开发环境必须显式配置 SERVER_CORS_ORIGINS 或 CORS_ORIGINS，禁止继续使用全开 CORS。');
   }
 
   const allowedOriginSet = new Set(allowedOrigins.map(normalizeOrigin).filter(Boolean));
@@ -60,7 +60,7 @@ export function resolveServerCorsOptions(): ServerNextCorsOptions | false {
   };
 }
 
-/** 构建 origin 动态校验闭包：白名单匹配 + 开发环境 localhost 放行 */
+/** 构建 origin 动态校验闭包：白名单匹配 + 开发环境本地来源放行 */
 function buildOriginResolver(allowedOriginSet: Set<string>): CorsOriginResolver {
   const allowAll = allowedOriginSet.has('*');
   const developmentLike = isDevelopmentLikeEnv();
@@ -73,7 +73,7 @@ function buildOriginResolver(allowedOriginSet: Set<string>): CorsOriginResolver 
     }
 
     const normalizedOrigin = normalizeOrigin(origin);
-    if (allowAll || allowedOriginSet.has(normalizedOrigin) || (developmentLike && isLocalOrigin(normalizedOrigin))) {
+    if (allowAll || allowedOriginSet.has(normalizedOrigin) || (developmentLike && isDevelopmentLocalOrigin(normalizedOrigin))) {
       callback(null, true);
       return;
     }
@@ -87,9 +87,23 @@ function isDevelopmentLikeEnv(): boolean {
   const runtimeEnv = readTrimmedEnv('SERVER_RUNTIME_ENV', 'APP_ENV', 'NODE_ENV').toLowerCase();
   return DEVELOPMENT_LIKE_ENVS.has(runtimeEnv);
 }
-/** 判断 origin 是否为本地地址（localhost / 127.0.0.1 / [::1]） */
-function isLocalOrigin(origin: string): boolean {
-  return /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/i.test(origin);
+/** 判断 origin 是否为开发本地来源（localhost、回环地址或 /etc/hosts 常用单标签别名） */
+function isDevelopmentLocalOrigin(origin: string): boolean {
+  if (/^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/i.test(origin)) {
+    return true;
+  }
+
+  try {
+    const parsed = new URL(origin);
+    const hostname = parsed.hostname.trim();
+    return (parsed.protocol === 'http:' || parsed.protocol === 'https:')
+      && hostname.length > 0
+      && !hostname.includes('.')
+      && hostname !== '0.0.0.0'
+      && hostname !== '[::]';
+  } catch {
+    return false;
+  }
 }
 /** 去除 origin 尾部斜杠并 trim */
 function normalizeOrigin(origin: string): string {

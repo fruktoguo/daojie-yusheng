@@ -41,7 +41,7 @@
 | `SERVER_CORS_HEADERS` | `CORS_HEADERS` | `Content-Type,Authorization,X-Requested-With` | 允许的头 |
 | `SERVER_CORS_CREDENTIALS` | `CORS_CREDENTIALS` | `false` | 允许携带凭证 |
 
-注意：非开发环境必须显式配置 `SERVER_CORS_ORIGINS`，否则启动报错。
+注意：非开发环境必须显式配置 `SERVER_CORS_ORIGINS`，否则启动报错。开发类环境会额外放行 `localhost`、回环地址，以及 `http://daojie` 这类常用于本机 `/etc/hosts` 的单标签 origin；生产环境不会隐式放行这些别名。
 
 ## 服务地址与运行时
 
