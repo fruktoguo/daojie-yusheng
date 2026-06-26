@@ -7,7 +7,7 @@
  * 建筑系统运行时服务
  * 处理建筑放置、拆除、建造进度、材料消耗和风水计算
  */
-import { calculateTerrainDurability, isGenericBuildMaterialSlotItemId, resolveBuildMaterialCategoryKey, resolveGenericBuildMaterialSlotCategory } from '@mud/shared';
+import { BUILDING_MAX_BUILD_TICKS, calculateTerrainDurability, isGenericBuildMaterialSlotItemId, resolveBuildMaterialCategoryKey, resolveGenericBuildMaterialSlotCategory } from '@mud/shared';
 import { resolveCraftSkillExpToNextByLevel } from '../craft/craft-skill-exp.helpers';
 import { executeBuildingTick } from '../craft/pipeline/strategies/building-tick.helpers';
 import { buildStructuredNotice } from './structured-notice.helpers';
@@ -367,7 +367,7 @@ function resolveSelectedBuildingCost(player, compiled, selectedMaterialItemIds) 
 function normalizeBuildStrength(value, baseBuildTicks = 1) {
     const normalized = Math.trunc(Number(value) || 1);
     const base = Math.max(1, Math.trunc(Number(baseBuildTicks) || 1));
-    return Math.max(base, normalized);
+    return Math.min(BUILDING_MAX_BUILD_TICKS, Math.max(base, normalized));
 }
 function resolveBuildingSkillLevel(player) {
     return Math.max(1, Math.trunc(Number(player?.buildingSkill?.level ?? 1) || 1));

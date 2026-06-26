@@ -4,6 +4,7 @@
  * 维护时要区分“显示用派生数据”和“服务端权威数据”，注释只补充边界说明，不改变任何交互语义。
  */
 import {
+  BUILDING_MAX_BUILD_TICKS,
   C2S,
   S2C,
   calculateTerrainDurability,
@@ -602,6 +603,13 @@ export function createMainBuildingFengShuiStateSource(options: MainBuildingFengS
     }
   }
 
+  function isBuildStrengthInputFocused(): boolean {
+    const activeElement = document.activeElement;
+    return activeElement instanceof HTMLElement
+      && activeElement.dataset.action === 'build-strength'
+      && Boolean(toolbarHost?.contains(activeElement));
+  }
+
   function resetPendingPlacement(clearTargeting = false): void {
     if (!pendingPlacementIntent && !pendingPlacementHover) {
       return;
@@ -642,6 +650,9 @@ export function createMainBuildingFengShuiStateSource(options: MainBuildingFengS
       filteredEntries.map((entry) => entry.id).join(','),
       latestBuildResult?.ok === false ? latestBuildResult.reason ?? '' : latestBuildResult?.ok === true ? 'ok' : '',
     ].join('|');
+    if (!force && isBuildStrengthInputFocused()) {
+      return;
+    }
     if (!force && renderKey === lastToolbarRenderKey) {
       return;
     }
@@ -667,9 +678,8 @@ export function createMainBuildingFengShuiStateSource(options: MainBuildingFengS
       onChangeBuildStrength: (value) => {
         resetPendingPlacement(true);
         const minBuildStrength = resolveBuildingBaseBuildTicks(selectedEntry);
-        buildStrength = Math.max(minBuildStrength, Math.min(9999, Math.trunc(value)));
+        buildStrength = Math.max(minBuildStrength, Math.min(BUILDING_MAX_BUILD_TICKS, Math.trunc(value)));
         latestBuildResult = null;
-        syncActiveBuildMode(true);
       },
       onSelect: (defId) => {
         resetPendingPlacement(true);
@@ -1047,7 +1057,7 @@ function renderBuildModeToolbar(options: BuildModeToolbarOptions): void {
   const strengthInput = document.createElement('input');
   strengthInput.type = 'number';
   strengthInput.min = String(resolveBuildingBaseBuildTicks(selected));
-  strengthInput.max = '9999';
+  strengthInput.max = String(BUILDING_MAX_BUILD_TICKS);
   strengthInput.step = '1';
   strengthInput.value = String(options.buildStrength);
   strengthInput.dataset.uiKey = 'building-mode-build-strength';
@@ -1059,8 +1069,9 @@ function renderBuildModeToolbar(options: BuildModeToolbarOptions): void {
   const strengthHint = document.createElement('div');
   strengthHint.className = 'building-mode-strength-hint';
   strengthHint.textContent = selected
-    ? `建造 ${projectedBuildTicks} 息，完工耐久 ${projectedMaxHp}，营造等级 Lv.${builderSkillLevel}`
+    ? `建造 ${projectedBuildTicks} 息，完工耐久 ${projectedMaxHp} 生命值，营造等级 Lv.${builderSkillLevel}`
     : '每 1 强度 = 1 息工时 = 1x 生命倍率';
+  strengthHint.dataset.role = 'building-strength-summary';
   const strengthHintSecondary = document.createElement('div');
   strengthHintSecondary.className = 'building-mode-strength-hint';
   strengthHintSecondary.textContent = '营造经验按原始建造时间结算。';
@@ -1086,8 +1097,9 @@ function renderBuildModeToolbar(options: BuildModeToolbarOptions): void {
     : pendingPlacementHint(options)
       ? pendingPlacementHint(options)
     : selected
-      ? `建造 ${projectedBuildTicks} 息 · 完工耐久 ${projectedMaxHp}`
+      ? `建造 ${projectedBuildTicks} 息 · 完工耐久 ${projectedMaxHp} 生命值`
       : '未选中造物';
+  stageStatus.dataset.role = 'building-stage-status';
   const headMain = document.createElement('div');
   headMain.className = 'building-mode-stage-summary';
   headMain.replaceChildren(title, stageStatus);
@@ -1173,7 +1185,14 @@ function renderBuildModeToolbar(options: BuildModeToolbarOptions): void {
   });
   const strengthFilterInput = options.host.querySelector<HTMLInputElement>('[data-action="build-strength"]');
   strengthFilterInput?.addEventListener('input', () => {
-    const nextValue = Math.max(1, Math.min(9999, Math.trunc(Number(strengthFilterInput.value) || 1)));
+    const nextValue = Math.max(1, Math.min(BUILDING_MAX_BUILD_TICKS, Math.trunc(Number(strengthFilterInput.value) || 1)));
+    options.onChangeBuildStrength(nextValue);
+    patchBuildModeStrengthProjection(options.host, selected, nextValue, builderSkillLevel, options.latestBuildResult, options.pendingPlacementActive);
+  }, { signal });
+  strengthFilterInput?.addEventListener('blur', () => {
+    const minBuildStrength = resolveBuildingBaseBuildTicks(selected);
+    const nextValue = Math.max(minBuildStrength, Math.min(BUILDING_MAX_BUILD_TICKS, Math.trunc(Number(strengthFilterInput.value) || minBuildStrength)));
+    strengthFilterInput.value = String(nextValue);
     options.onChangeBuildStrength(nextValue);
   }, { signal });
   options.host.querySelectorAll<HTMLButtonElement>('.building-mode-item[data-def-id]').forEach((button) => {
@@ -1219,6 +1238,31 @@ function renderBuildModeToolbar(options: BuildModeToolbarOptions): void {
     event.preventDefault();
     options.onExit();
   }, { signal });
+}
+
+function patchBuildModeStrengthProjection(
+  root: HTMLElement | null,
+  selected: BuildingCatalogEntry | null,
+  buildStrength: number,
+  builderSkillLevel: number,
+  latestBuildResult: ServerToClientEventPayload<typeof S2C.BuildResult> | null,
+  pendingPlacementActive: boolean,
+): void {
+  if (!root) {
+    return;
+  }
+  const projectedBuildTicks = selected ? resolveProjectedBuildDurationTicks(buildStrength) : 0;
+  const projectedMaxHp = selected ? resolveProjectedBuildMaxHp(selected, buildStrength, builderSkillLevel) : 0;
+  const strengthSummary = root.querySelector<HTMLElement>('[data-role="building-strength-summary"]');
+  if (strengthSummary) {
+    strengthSummary.textContent = selected
+      ? `建造 ${projectedBuildTicks} 息，完工耐久 ${projectedMaxHp} 生命值，营造等级 Lv.${builderSkillLevel}`
+      : '每 1 强度 = 1 息工时 = 1x 生命倍率';
+  }
+  const stageStatus = root.querySelector<HTMLElement>('[data-role="building-stage-status"]');
+  if (stageStatus && selected && latestBuildResult == null && !pendingPlacementActive) {
+    stageStatus.textContent = `建造 ${projectedBuildTicks} 息 · 完工耐久 ${projectedMaxHp} 生命值`;
+  }
 }
 
 function buildModeActionButton(label: string, action: 'place', primary = false): HTMLButtonElement {
