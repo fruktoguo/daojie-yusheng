@@ -116,30 +116,6 @@ export const InventoryPanel = memo(function InventoryPanel() {
       <div className="inventory-panel-head">
         <div className="panel-section-title" data-inventory-title="true">{state.title}</div>
         <div className="inventory-panel-controls">
-          <button className="small-btn" type="button" onClick={() => callbacks.onSortInventory?.()}>
-            {t('inventory.action.sort', undefined)}
-          </button>
-          {state.pagination && (
-            <div className="inventory-pagination" data-inventory-pagination="true">
-              <button
-                className="small-btn ghost"
-                type="button"
-                disabled={!state.pagination.canPrev || state.pagination.loading}
-                onClick={() => callbacks.onPageChange?.('prev')}
-              >
-                {t('inventory.pagination.prev', undefined, '上一页')}
-              </button>
-              <span className="inventory-pagination-status">{state.pagination.label}</span>
-              <button
-                className="small-btn ghost"
-                type="button"
-                disabled={!state.pagination.canNext || state.pagination.loading}
-                onClick={() => callbacks.onPageChange?.('next')}
-              >
-                {t('inventory.pagination.next', undefined, '下一页')}
-              </button>
-            </div>
-          )}
           <input
             className="inventory-search-input"
             type="search"
@@ -152,6 +128,9 @@ export const InventoryPanel = memo(function InventoryPanel() {
               callbacks.onSearchChange?.(value);
             }}
           />
+          <button className="small-btn" type="button" onClick={() => callbacks.onSortInventory?.()}>
+            {t('inventory.action.sort', undefined)}
+          </button>
         </div>
       </div>
       <div className="inventory-filter-tabs">
@@ -182,6 +161,27 @@ export const InventoryPanel = memo(function InventoryPanel() {
       {state.loadHint && (
         <div className="inventory-load-hint" data-inventory-load-hint="true">
           {state.loadHint}
+        </div>
+      )}
+      {state.pagination && (
+        <div className="inventory-pagination" data-inventory-pagination="true">
+          <button
+            className="small-btn ghost"
+            type="button"
+            disabled={!state.pagination.canPrev || state.pagination.loading}
+            onClick={() => callbacks.onPageChange?.('prev')}
+          >
+            {t('inventory.pagination.prev', undefined, '上一页')}
+          </button>
+          <span className="inventory-pagination-status">{state.pagination.label}</span>
+          <button
+            className="small-btn ghost"
+            type="button"
+            disabled={!state.pagination.canNext || state.pagination.loading}
+            onClick={() => callbacks.onPageChange?.('next')}
+          >
+            {t('inventory.pagination.next', undefined, '下一页')}
+          </button>
         </div>
       )}
     </div>

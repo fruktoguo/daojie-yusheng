@@ -1185,7 +1185,6 @@ export class InventoryPanel {
     head.append(titleEl);
     const controls = document.createElement('div');
     controls.className = 'inventory-panel-controls';
-    controls.append(createSmallBtn(t('inventory.action.sort', undefined), { dataset: { sortInventory: 'true' } }));
 
     const filters = document.createElement('div');
     filters.className = 'inventory-filter-tabs';
@@ -1234,10 +1233,13 @@ export class InventoryPanel {
     searchInput.placeholder = t('inventory.search.placeholder', undefined, '搜索物品');
     searchInput.value = this.inventorySearchQuery;
     searchInput.dataset.inventorySearch = 'true';
-    controls.append(pager, searchInput);
+    controls.append(
+      searchInput,
+      createSmallBtn(t('inventory.action.sort', undefined), { dataset: { sortInventory: 'true' } }),
+    );
     head.append(controls);
 
-    sectionEl.replaceChildren(head, filters, empty, grid, loadHint);
+    sectionEl.replaceChildren(head, filters, empty, grid, loadHint, pager);
     preserveSelection(this.pane, () => {
       this.pane.replaceChildren(sectionEl);
     });
