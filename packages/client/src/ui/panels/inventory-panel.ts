@@ -196,6 +196,7 @@ interface InventoryShellRefs {
   pagerPrev: HTMLButtonElement;
   pagerStatus: HTMLSpanElement;
   pagerNext: HTMLButtonElement;
+  searchInput: HTMLInputElement;
 }
 
 /** InventoryCellRefs：背包格子内部稳定节点引用。 */
@@ -219,6 +220,7 @@ interface InventoryVisibleSnapshot {
 /** InventoryPagedSnapshot：服务端分页缓存。 */
 interface InventoryPagedSnapshot {
   filter: InventoryFilter;
+  search: string;
   revision: number;
   totalItems: number;
   totalVisibleItems: number;
@@ -254,11 +256,12 @@ const FORMATION_DISK_TIER_BY_ITEM_ID: Record<string, keyof typeof FORMATION_DISK
 const HEAVEN_GATE_REROLL_AVERAGE_BONUS = 2;
 /** INVENTORY_INITIAL_RENDER_COUNT：背包初始渲染数量。 */
 const INVENTORY_INITIAL_RENDER_COUNT = 72;
-const INVENTORY_PAGE_SIZE = INVENTORY_INITIAL_RENDER_COUNT;
+const INVENTORY_PAGE_SIZE = 30;
 /** INVENTORY_RENDER_BATCH_SIZE：背包渲染BATCH SIZE。 */
 const INVENTORY_RENDER_BATCH_SIZE = 48;
 /** INVENTORY_LOAD_MORE_THRESHOLD_PX：背包LOAD MORE THRESHOLD PX。 */
 const INVENTORY_LOAD_MORE_THRESHOLD_PX = 240;
+const INVENTORY_SEARCH_DEBOUNCE_MS = 250;
 /** INVENTORY_COOLDOWN_REFRESH_MS：背包冷却显示按服务端 1Hz tick 刷新。 */
 const INVENTORY_COOLDOWN_REFRESH_MS = 1000;
 
@@ -340,6 +343,8 @@ export class InventoryPanel {
   private renderedVisibleCount = INVENTORY_INITIAL_RENDER_COUNT;
   private pagedSnapshot: InventoryPagedSnapshot | null = null;
   private inventoryPageOffset = 0;
+  private inventorySearchQuery = '';
+  private inventorySearchRequestTimer: number | null = null;
   private inventoryPageRequestSeq = 0;
   /** pendingLoadMoreFrame：待处理Load More帧。 */
   private pendingLoadMoreFrame: number | null = null;
@@ -425,7 +430,12 @@ export class InventoryPanel {
     this.renderedVisibleCount = INVENTORY_INITIAL_RENDER_COUNT;
     this.pagedSnapshot = null;
     this.inventoryPageOffset = 0;
+    this.inventorySearchQuery = '';
     this.inventoryPageRequestSeq = 0;
+    if (this.inventorySearchRequestTimer !== null) {
+      window.clearTimeout(this.inventorySearchRequestTimer);
+      this.inventorySearchRequestTimer = null;
+    }
     if (this.pendingLoadMoreFrame !== null) {
       cancelAnimationFrame(this.pendingLoadMoreFrame);
       this.pendingLoadMoreFrame = null;
@@ -527,6 +537,10 @@ export class InventoryPanel {
     if (filter !== this.activeFilter) {
       return;
     }
+    const search = this.normalizeInventorySearchQuery(page.search);
+    if (search !== this.inventorySearchQuery) {
+      return;
+    }
     const requestId = typeof page.requestId === 'string' ? page.requestId.trim() : '';
     if (
       requestId
@@ -579,6 +593,7 @@ export class InventoryPanel {
     this.inventoryPageOffset = offset;
     this.pagedSnapshot = {
       filter,
+      search,
       revision,
       totalItems,
       totalVisibleItems,
@@ -815,6 +830,7 @@ export class InventoryPanel {
         emptyText: t('inventory.empty.all', undefined),
         loadHint: null,
         pagination: null,
+        searchQuery: this.inventorySearchQuery,
       });
       mountReactInventoryPanel();
       return;
@@ -860,6 +876,7 @@ export class InventoryPanel {
         })
         : null,
       pagination,
+      searchQuery: this.inventorySearchQuery,
     });
     mountReactInventoryPanel();
   }
@@ -908,6 +925,14 @@ export class InventoryPanel {
 
   /** bindPaneEvents：绑定Pane事件。 */
   private bindPaneEvents(): void {
+    this.pane.addEventListener('input', (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLInputElement) || !target.matches('[data-inventory-search]')) {
+        return;
+      }
+      this.handleInventorySearchInput(target.value);
+    });
+
     this.pane.addEventListener('click', (event) => {
       const target = event.target;
       if (!(target instanceof HTMLElement)) {
@@ -1158,7 +1183,9 @@ export class InventoryPanel {
     const head = document.createElement('div');
     head.className = 'inventory-panel-head';
     head.append(titleEl);
-    head.append(createSmallBtn(t('inventory.action.sort', undefined), { dataset: { sortInventory: 'true' } }));
+    const controls = document.createElement('div');
+    controls.className = 'inventory-panel-controls';
+    controls.append(createSmallBtn(t('inventory.action.sort', undefined), { dataset: { sortInventory: 'true' } }));
 
     const filters = document.createElement('div');
     filters.className = 'inventory-filter-tabs';
@@ -1200,8 +1227,17 @@ export class InventoryPanel {
       dataset: { inventoryPageAction: 'next' },
     });
     pager.append(pagerPrev, pagerStatus, pagerNext);
+    const searchInput = document.createElement('input');
+    searchInput.className = 'inventory-search-input';
+    searchInput.type = 'search';
+    searchInput.autocomplete = 'off';
+    searchInput.placeholder = t('inventory.search.placeholder', undefined, '搜索物品');
+    searchInput.value = this.inventorySearchQuery;
+    searchInput.dataset.inventorySearch = 'true';
+    controls.append(pager, searchInput);
+    head.append(controls);
 
-    sectionEl.replaceChildren(head, filters, empty, grid, pager, loadHint);
+    sectionEl.replaceChildren(head, filters, empty, grid, loadHint);
     preserveSelection(this.pane, () => {
       this.pane.replaceChildren(sectionEl);
     });
@@ -1217,6 +1253,7 @@ export class InventoryPanel {
       pagerPrev,
       pagerStatus,
       pagerNext,
+      searchInput,
     };
     return this.shellRefs;
   }
@@ -2662,6 +2699,7 @@ export class InventoryPanel {
     }
     const { renderedItems, totalVisibleItems } = visibleSnapshot;
     this.patchInventoryPagination(refs, paged);
+    this.patchInventorySearchInput(refs);
     if (totalVisibleItems === 0) {
       refs.empty.hidden = false;
       refs.empty.textContent = totalItemsForTitle === 0 ? t('inventory.empty.all', undefined) : t('inventory.empty.filter', undefined);
@@ -3373,6 +3411,13 @@ export class InventoryPanel {
     return INVENTORY_FILTER_TABS.some((tab) => tab.id === filter) ? filter as InventoryFilter : 'all';
   }
 
+  private normalizeInventorySearchQuery(value: unknown): string {
+    if (typeof value !== 'string') {
+      return '';
+    }
+    return value.replace(/\s+/g, ' ').trim().slice(0, 64).toLowerCase();
+  }
+
   private getInventoryRevision(inventory: Inventory | null | undefined): number | null {
     const revision = Number((inventory as { revision?: number } | null | undefined)?.revision);
     return Number.isFinite(revision) && revision > 0 ? Math.trunc(revision) : null;
@@ -3427,8 +3472,19 @@ export class InventoryPanel {
     refs.pagerNext.disabled = !state.canNext || state.loading;
   }
 
+  private patchInventorySearchInput(refs: InventoryShellRefs): void {
+    if (document.activeElement === refs.searchInput) {
+      return;
+    }
+    if (refs.searchInput.value !== this.inventorySearchQuery) {
+      refs.searchInput.value = this.inventorySearchQuery;
+    }
+  }
+
   private requestAdjacentInventoryPage(direction: 'prev' | 'next'): void {
-    const paged = this.pagedSnapshot?.filter === this.activeFilter ? this.pagedSnapshot : null;
+    const paged = this.pagedSnapshot?.filter === this.activeFilter && this.pagedSnapshot.search === this.inventorySearchQuery
+      ? this.pagedSnapshot
+      : null;
     const limit = Math.max(1, Math.trunc(Number(paged?.limit) || INVENTORY_PAGE_SIZE));
     const total = Math.max(0, Math.trunc(Number(paged?.totalVisibleItems) || 0));
     const currentOffset = Math.max(0, Math.trunc(Number(paged?.offset ?? this.inventoryPageOffset) || 0));
@@ -3443,8 +3499,46 @@ export class InventoryPanel {
     this.scrollToTop();
   }
 
+  private handleInventorySearchInput(value: string): void {
+    const search = this.normalizeInventorySearchQuery(value);
+    if (search === this.inventorySearchQuery) {
+      return;
+    }
+    this.inventorySearchQuery = search;
+    this.inventoryPageOffset = 0;
+    this.renderedVisibleCount = INVENTORY_INITIAL_RENDER_COUNT;
+    this.pagedSnapshot = null;
+    if (this.inventorySearchRequestTimer !== null) {
+      window.clearTimeout(this.inventorySearchRequestTimer);
+    }
+    this.inventorySearchRequestTimer = window.setTimeout(() => {
+      this.inventorySearchRequestTimer = null;
+      this.ensureInventoryPageRequested(true);
+    }, INVENTORY_SEARCH_DEBOUNCE_MS);
+  }
+
+  private matchesInventorySearch(item: ItemStack | null | undefined): boolean {
+    if (!this.inventorySearchQuery) {
+      return true;
+    }
+    if (!item) {
+      return false;
+    }
+    const searchable = [
+      item.itemId,
+      item.name,
+      item.groundLabel,
+      item.type,
+      item.grade,
+    ]
+      .map((value) => typeof value === 'string' ? value.toLowerCase() : '')
+      .filter(Boolean)
+      .join(' ');
+    return this.inventorySearchQuery.split(' ').every((term) => term.length === 0 || searchable.includes(term));
+  }
+
   private getActivePagedSnapshot(): InventoryPagedSnapshot | null {
-    if (!this.pagedSnapshot || this.pagedSnapshot.filter !== this.activeFilter) {
+    if (!this.pagedSnapshot || this.pagedSnapshot.filter !== this.activeFilter || this.pagedSnapshot.search !== this.inventorySearchQuery) {
       return null;
     }
     if (this.pagedSnapshot.items.length <= 0 && this.pagedSnapshot.loading) {
@@ -3467,7 +3561,9 @@ export class InventoryPanel {
     if (!this.onRequestInventoryPage) {
       return;
     }
-    const activePage = this.pagedSnapshot?.filter === this.activeFilter ? this.pagedSnapshot : null;
+    const activePage = this.pagedSnapshot?.filter === this.activeFilter && this.pagedSnapshot.search === this.inventorySearchQuery
+      ? this.pagedSnapshot
+      : null;
     if (!force && activePage && (activePage.loading || activePage.items.length > 0)) {
       return;
     }
@@ -3481,10 +3577,13 @@ export class InventoryPanel {
     const normalizedOffset = Math.max(0, Math.trunc(Number(offset) || 0));
     const normalizedLimit = Math.max(1, Math.trunc(Number(limit) || INVENTORY_PAGE_SIZE));
     const requestId = `inventory:${Date.now()}:${this.inventoryPageRequestSeq += 1}`;
-    const existing = this.pagedSnapshot?.filter === this.activeFilter ? this.pagedSnapshot : null;
+    const existing = this.pagedSnapshot?.filter === this.activeFilter && this.pagedSnapshot.search === this.inventorySearchQuery
+      ? this.pagedSnapshot
+      : null;
     this.inventoryPageOffset = normalizedOffset;
     this.pagedSnapshot = {
       filter: this.activeFilter,
+      search: this.inventorySearchQuery,
       revision: existing?.revision ?? this.getInventoryRevision(this.lastInventory) ?? 0,
       totalItems: existing?.totalItems ?? this.lastInventory?.items.length ?? 0,
       totalVisibleItems: existing?.totalVisibleItems ?? 0,
@@ -3497,6 +3596,7 @@ export class InventoryPanel {
     };
     this.onRequestInventoryPage({
       filter: this.activeFilter,
+      search: this.inventorySearchQuery,
       offset: normalizedOffset,
       limit: normalizedLimit,
       requestId,
@@ -3518,7 +3618,7 @@ export class InventoryPanel {
     const renderLimit = Math.max(0, this.renderedVisibleCount);
     for (let slotIndex = 0; slotIndex < inventory.items.length; slotIndex += 1) {
       const item = inventory.items[slotIndex];
-      if (!item || (this.activeFilter !== 'all' && item.type !== this.activeFilter)) {
+      if (!item || (this.activeFilter !== 'all' && item.type !== this.activeFilter) || !this.matchesInventorySearch(item)) {
         continue;
       }
       totalVisibleItems += 1;
@@ -3535,12 +3635,12 @@ export class InventoryPanel {
     if (paged) {
       return paged.totalVisibleItems;
     }
-    if (this.activeFilter === 'all') {
+    if (this.activeFilter === 'all' && !this.inventorySearchQuery) {
       return inventory.items.length;
     }
     let count = 0;
     for (const item of inventory.items) {
-      if (item?.type === this.activeFilter) {
+      if ((this.activeFilter === 'all' || item?.type === this.activeFilter) && this.matchesInventorySearch(item)) {
         count += 1;
       }
     }

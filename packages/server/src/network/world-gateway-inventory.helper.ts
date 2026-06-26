@@ -14,8 +14,8 @@ import { BadRequestException } from '@nestjs/common';
 import { ITEM_TYPES, S2C } from '@mud/shared';
 import { buildStructuredNotice } from '../runtime/world/structured-notice.helpers';
 
-const INVENTORY_PAGE_DEFAULT_LIMIT = 72;
-const INVENTORY_PAGE_MAX_LIMIT = 96;
+const INVENTORY_PAGE_DEFAULT_LIMIT = 30;
+const INVENTORY_PAGE_MAX_LIMIT = 30;
 const INVENTORY_PAGE_FILTERS = new Set<string>(['all', ...ITEM_TYPES]);
 
 /** 世界 socket 背包/装备 helper：只收敛 inventory/equipment 相关入口。 */
@@ -423,6 +423,7 @@ function normalizeInventoryItemInstanceId(value: unknown): string {
 
 function buildInventoryPagePayload(player: any, payload: any) {
     const filter = normalizeInventoryPageFilter(payload?.filter);
+    const search = normalizeInventoryPageSearch(payload?.search);
     const offset = normalizeInventoryPageOffset(payload?.offset);
     const limit = normalizeInventoryPageLimit(payload?.limit);
     const items = Array.isArray(player?.inventory?.items) ? player.inventory.items : [];
@@ -430,7 +431,7 @@ function buildInventoryPagePayload(player: any, payload: any) {
     let total = 0;
     for (let slotIndex = 0; slotIndex < items.length; slotIndex += 1) {
         const item = items[slotIndex];
-        if (!item || !matchesInventoryPageFilter(item, filter)) {
+        if (!item || !matchesInventoryPageFilter(item, filter) || !matchesInventoryPageSearch(item, search)) {
             continue;
         }
         if (total >= offset && pageItems.length < limit) {
@@ -447,6 +448,7 @@ function buildInventoryPagePayload(player: any, payload: any) {
     return {
         requestId: normalizeInventoryPageRequestId(payload?.requestId),
         filter,
+        search,
         offset,
         limit,
         total,
@@ -479,6 +481,13 @@ function normalizeInventoryPageLimit(value: unknown): number {
     return Math.max(1, Math.min(INVENTORY_PAGE_MAX_LIMIT, parsed));
 }
 
+function normalizeInventoryPageSearch(value: unknown): string {
+    if (typeof value !== 'string') {
+        return '';
+    }
+    return value.replace(/\s+/g, ' ').trim().slice(0, 64).toLowerCase();
+}
+
 function normalizeInventoryPageRequestId(value: unknown): string | undefined {
     const requestId = typeof value === 'string' ? value.trim() : '';
     return requestId ? requestId.slice(0, 80) : undefined;
@@ -486,6 +495,26 @@ function normalizeInventoryPageRequestId(value: unknown): string | undefined {
 
 function matchesInventoryPageFilter(item: any, filter: string): boolean {
     return filter === 'all' || item?.type === filter;
+}
+
+function matchesInventoryPageSearch(item: any, search: string): boolean {
+    if (!search) {
+        return true;
+    }
+    const searchable = [
+        item?.itemId,
+        item?.name,
+        item?.groundLabel,
+        item?.type,
+        item?.grade,
+    ]
+        .map((value) => typeof value === 'string' ? value.toLowerCase() : '')
+        .filter(Boolean)
+        .join(' ');
+    if (!searchable) {
+        return false;
+    }
+    return search.split(' ').every((term) => term.length === 0 || searchable.includes(term));
 }
 
 function projectInventoryPageItem(item: any) {

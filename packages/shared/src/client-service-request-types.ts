@@ -561,6 +561,11 @@ export interface RequestInventoryPageView {
 
   filter?: InventoryPageFilterView;
   /**
+ * search：背包搜索词，先和分类过滤合并，再分页。
+ */
+
+  search?: string;
+  /**
  * offset：筛选后列表偏移量。
  */
 

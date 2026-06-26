@@ -678,10 +678,22 @@
     .inventory-panel-head {
       display: flex;
       align-items: center;
-      justify-content: space-between;
+      justify-content: flex-start;
       gap: 10px;
       margin-bottom: 10px;
       flex-wrap: wrap;
+    }
+    .inventory-panel-head .panel-section-title {
+      margin-bottom: 0;
+    }
+    .inventory-panel-controls {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex: 1;
+      flex-wrap: wrap;
+      gap: 8px;
+      min-width: 0;
     }
     .inventory-grid {
       display: grid;
@@ -697,10 +709,10 @@
     .inventory-pagination {
       display: flex;
       align-items: center;
-      justify-content: flex-end;
+      justify-content: center;
       flex-wrap: wrap;
       gap: 8px;
-      margin-top: 12px;
+      margin-top: 0;
     }
     .inventory-pagination[hidden] {
       display: none;
@@ -711,6 +723,22 @@
       font-size: var(--font-size-12);
       text-align: center;
       white-space: nowrap;
+    }
+    .inventory-search-input {
+      width: min(220px, 100%);
+      min-width: 140px;
+      height: 30px;
+      padding: 4px 10px;
+      border: 1px solid rgba(34, 26, 19, 0.16);
+      background: var(--surface-muted-strong);
+      color: var(--ink-black);
+      font-family: var(--font-role-body);
+      font-size: var(--font-size-role-body-12);
+      outline: none;
+    }
+    .inventory-search-input:focus {
+      border-color: rgba(139, 48, 35, 0.42);
+      background: var(--surface-hover);
     }
     .inventory-cell {
       display: grid;

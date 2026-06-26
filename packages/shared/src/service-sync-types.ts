@@ -100,6 +100,11 @@ export interface InventoryPageView {
 
   filter: InventoryPageFilterView;
   /**
+ * search：本页使用的搜索词。
+ */
+
+  search: string;
+  /**
  * offset：筛选后列表偏移量。
  */
 

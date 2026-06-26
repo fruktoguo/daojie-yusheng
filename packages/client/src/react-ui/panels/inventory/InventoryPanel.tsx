@@ -3,7 +3,7 @@
  *
  * 维护时要保持它只处理前端表现和组件契约，不保存业务真源，也不绕过共享规则或服务端权威运行时。
  */
-import { memo, type CSSProperties } from 'react';
+import { memo, useEffect, useState, type CSSProperties } from 'react';
 import type { Inventory, ItemType } from '@mud/shared';
 import { createPanelStore } from '../../stores/create-panel-store';
 import { INVENTORY_FILTER_TABS, type InventoryFilter } from '../../../constants/ui/inventory';
@@ -54,6 +54,7 @@ export interface ReactInventoryPanelState {
   emptyText: string | null;
   loadHint: string | null;
   pagination: ReactInventoryPaginationState | null;
+  searchQuery: string;
 }
 
 export interface ReactInventoryPaginationState {
@@ -75,6 +76,7 @@ export const { store: inventoryPanelStore, useStore: useInventoryPanelStore } = 
   emptyText: t('inventory.empty.all', undefined),
   loadHint: null,
   pagination: null,
+  searchQuery: '',
 });
 
 interface InventoryPanelCallbacks {
@@ -82,6 +84,7 @@ interface InventoryPanelCallbacks {
   onSortInventory: (() => void) | null;
   onRequestLoadMore: ((scrollTarget: HTMLElement) => void) | null;
   onPageChange: ((direction: 'prev' | 'next') => void) | null;
+  onSearchChange: ((value: string) => void) | null;
   onPrimaryAction: ((slotIndex: number, itemInstanceId: string | null) => void) | null;
   onDropOne: ((slotIndex: number, itemInstanceId: string) => void) | null;
 }
@@ -91,6 +94,7 @@ const callbacks: InventoryPanelCallbacks = {
   onSortInventory: null,
   onRequestLoadMore: null,
   onPageChange: null,
+  onSearchChange: null,
   onPrimaryAction: null,
   onDropOne: null,
 };
@@ -101,14 +105,54 @@ export function setInventoryPanelCallbacks(cbs: Partial<InventoryPanelCallbacks>
 
 export const InventoryPanel = memo(function InventoryPanel() {
   const state = useInventoryPanelStore();
+  const [searchDraft, setSearchDraft] = useState(state.searchQuery);
+
+  useEffect(() => {
+    setSearchDraft(state.searchQuery);
+  }, [state.searchQuery]);
 
   return (
     <div className="panel-section">
       <div className="inventory-panel-head">
         <div className="panel-section-title" data-inventory-title="true">{state.title}</div>
-        <button className="small-btn" type="button" onClick={() => callbacks.onSortInventory?.()}>
-          {t('inventory.action.sort', undefined)}
-        </button>
+        <div className="inventory-panel-controls">
+          <button className="small-btn" type="button" onClick={() => callbacks.onSortInventory?.()}>
+            {t('inventory.action.sort', undefined)}
+          </button>
+          {state.pagination && (
+            <div className="inventory-pagination" data-inventory-pagination="true">
+              <button
+                className="small-btn ghost"
+                type="button"
+                disabled={!state.pagination.canPrev || state.pagination.loading}
+                onClick={() => callbacks.onPageChange?.('prev')}
+              >
+                {t('inventory.pagination.prev', undefined, '上一页')}
+              </button>
+              <span className="inventory-pagination-status">{state.pagination.label}</span>
+              <button
+                className="small-btn ghost"
+                type="button"
+                disabled={!state.pagination.canNext || state.pagination.loading}
+                onClick={() => callbacks.onPageChange?.('next')}
+              >
+                {t('inventory.pagination.next', undefined, '下一页')}
+              </button>
+            </div>
+          )}
+          <input
+            className="inventory-search-input"
+            type="search"
+            value={searchDraft}
+            placeholder={t('inventory.search.placeholder', undefined, '搜索物品')}
+            autoComplete="off"
+            onChange={(event) => {
+              const value = event.currentTarget.value;
+              setSearchDraft(value);
+              callbacks.onSearchChange?.(value);
+            }}
+          />
+        </div>
       </div>
       <div className="inventory-filter-tabs">
           {INVENTORY_FILTER_TABS.map((tab) => (
@@ -138,27 +182,6 @@ export const InventoryPanel = memo(function InventoryPanel() {
       {state.loadHint && (
         <div className="inventory-load-hint" data-inventory-load-hint="true">
           {state.loadHint}
-        </div>
-      )}
-      {state.pagination && (
-        <div className="inventory-pagination" data-inventory-pagination="true">
-          <button
-            className="small-btn ghost"
-            type="button"
-            disabled={!state.pagination.canPrev || state.pagination.loading}
-            onClick={() => callbacks.onPageChange?.('prev')}
-          >
-            {t('inventory.pagination.prev', undefined, '上一页')}
-          </button>
-          <span className="inventory-pagination-status">{state.pagination.label}</span>
-          <button
-            className="small-btn ghost"
-            type="button"
-            disabled={!state.pagination.canNext || state.pagination.loading}
-            onClick={() => callbacks.onPageChange?.('next')}
-          >
-            {t('inventory.pagination.next', undefined, '下一页')}
-          </button>
         </div>
       )}
     </div>
