@@ -697,8 +697,8 @@
     }
     .inventory-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
-      gap: 8px;
+      grid-template-columns: repeat(auto-fill, minmax(78px, 1fr));
+      gap: 6px;
     }
     .inventory-load-hint {
       padding: 10px 0 2px;
@@ -743,11 +743,11 @@
     }
     .inventory-cell {
       display: grid;
-      grid-template-rows: 18px minmax(34px, 1fr);
-      gap: 4px;
-      min-height: 82px;
+      grid-template-rows: 14px minmax(30px, 1fr);
+      gap: 2px;
+      min-height: 74px;
       width: 100%;
-      padding: 10px 8px 16px;
+      padding: 8px 8px 14px;
       border: 1px solid var(--wash-ink);
       background: var(--surface-gradient-entry);
       box-shadow: inset 0 0 0 1px rgba(255,255,255,0.5);
@@ -892,7 +892,8 @@
       display: flex;
       align-items: center;
       justify-content: flex-end;
-      min-height: 18px;
+      position: static;
+      min-height: 14px;
     }
     .inventory-cell-type {
       position: absolute;
@@ -915,6 +916,9 @@
       white-space: nowrap;
       pointer-events: none;
       transform: rotate(-45deg);
+    }
+    .inventory-cell-type[hidden] {
+      display: none;
     }
     .inventory-cell-grade-line {
       display: none;
@@ -949,8 +953,9 @@
       text-overflow: ellipsis;
     }
     .item-card-chip--level {
-      right: 4px;
+      left: 4px;
       bottom: 3px;
+      max-width: calc(100% - 58px);
       color: color-mix(in srgb, var(--inventory-grade-border, rgba(94, 94, 94, 0.56)) 82%, var(--ink-black));
       border: 1px solid color-mix(in srgb, var(--inventory-grade-border, rgba(94, 94, 94, 0.56)) 88%, rgba(255,255,255,0.12));
       background:
@@ -1001,14 +1006,25 @@
       --item-chip-rgb: 128, 97, 171;
     }
     .inventory-cell-count {
+      position: absolute;
+      right: 4px;
+      bottom: 3px;
+      z-index: 3;
+      max-width: 48px;
+      padding: 1px 5px 2px;
+      border: 1px solid rgba(34, 26, 19, 0.12);
+      background: color-mix(in srgb, var(--paper-light) 84%, rgba(255,255,255,0.2));
+      box-shadow: 0 3px 8px rgba(0,0,0,0.08);
       font-size: var(--font-size-11);
       font-weight: var(--font-weight-strong);
       color: var(--ink-black);
-      justify-self: end;
-      min-width: 4ch;
+      min-width: 0;
       font-variant-numeric: tabular-nums;
       text-align: right;
       white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      pointer-events: none;
     }
     .inventory-cell-name {
       display: flex;
@@ -1021,8 +1037,8 @@
       color: var(--ink-black);
       letter-spacing: 0;
       width: 100%;
-      min-height: 34px;
-      max-height: 34px;
+      min-height: 30px;
+      max-height: 30px;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;

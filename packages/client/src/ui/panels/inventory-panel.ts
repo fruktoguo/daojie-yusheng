@@ -72,7 +72,7 @@ import {
   describeMaterialValueDetails,
   ItemTooltipCooldownState,
 } from '../equipment-tooltip';
-import { getItemDecorClassName, getItemDisplayMeta } from '../item-display';
+import { getItemDecorClassName, getItemDisplayMeta, type ItemDisplayMeta } from '../item-display';
 import { preserveSelection } from '../selection-preserver';
 import { createEmptyHint, createPanelSectionWithTitle, createSmallBtn } from '../ui-primitives';
 import { describePreviewBonuses } from '../stat-preview';
@@ -109,6 +109,11 @@ const FORMATION_SETUP_MAX_DURATION_MINUTES = 24 * 60;
 type UseItemOptions = {
   sectName?: string;
   sectMark?: string;
+};
+
+type InventoryCellRibbon = {
+  label: string;
+  title?: string;
 };
 
 function replaceElementHtml(root: HTMLElement, html: string): void {
@@ -878,6 +883,7 @@ export class InventoryPanel {
     const displayName = itemMeta.displayItem.name;
     const primaryAction = this.getPrimaryAction(item, cooldownState);
     const gradeLineLabel = this.getInventoryGradeLineLabel(item);
+    const ribbon = this.getInventoryCellRibbon(item, itemMeta);
     return {
       slotIndex,
       itemInstanceId: this.getInventoryItemInstanceId(item) || null,
@@ -887,17 +893,11 @@ export class InventoryPanel {
       nameClassName: 'inventory-cell-name',
       countLabel: formatDisplayCountBadge(item.count),
       itemType: item.type,
-      typeLabel: this.getInventoryCellTypeLabel(item),
+      ribbonLabel: ribbon?.label,
+      ribbonTitle: ribbon?.title,
       gradeLineLabel: gradeLineLabel ?? undefined,
       cellClassName: `${getItemDecorClassName('inventory-cell', item)}${cooldownState ? ' inventory-cell--cooldown' : ''}`,
       grade: itemMeta.grade ?? undefined,
-      affinityBadge: itemMeta.affinityBadge
-        ? {
-          label: itemMeta.affinityBadge.label,
-          title: itemMeta.affinityBadge.title,
-          className: `item-card-chip item-card-chip--affinity item-card-chip--${itemMeta.affinityBadge.tone} item-card-chip--element-${itemMeta.affinityBadge.element}`,
-        }
-        : undefined,
       levelLabel: itemMeta.levelLabel ?? undefined,
       cooldown: cooldownState
         ? {
@@ -1267,6 +1267,7 @@ export class InventoryPanel {
     const type = document.createElement('span');
     type.className = 'inventory-cell-type';
     type.dataset.itemType = 'true';
+    type.hidden = true;
     head.append(type);
     const count = document.createElement('span');
     count.className = 'inventory-cell-count';
@@ -1325,6 +1326,7 @@ export class InventoryPanel {
     cooldownRemaining: number,
   ): string {
     return [
+      'ribbon-v2',
       String(slotIndex),
       itemIdentity,
       String(item.count),
@@ -1385,19 +1387,7 @@ export class InventoryPanel {
 
     const itemMeta = getItemDisplayMeta(item);
     const displayName = itemMeta.displayItem.name;
-    let affinityNode = cell.querySelector<HTMLElement>('[data-item-affinity="true"]');
-    if (itemMeta.affinityBadge) {
-      if (!affinityNode) {
-        affinityNode = document.createElement('span');
-        affinityNode.dataset.itemAffinity = 'true';
-        cell.append(affinityNode);
-      }
-      affinityNode.textContent = itemMeta.affinityBadge.label;
-      affinityNode.setAttribute('aria-label', itemMeta.affinityBadge.title);
-      affinityNode.className = `item-card-chip item-card-chip--affinity item-card-chip--${itemMeta.affinityBadge.tone} item-card-chip--element-${itemMeta.affinityBadge.element}`;
-    } else {
-      affinityNode?.remove();
-    }
+    cell.querySelector<HTMLElement>('[data-item-affinity="true"]')?.remove();
 
     let levelNode = cell.querySelector<HTMLElement>('[data-item-level="true"]');
     if (itemMeta.levelLabel) {
@@ -1431,7 +1421,14 @@ export class InventoryPanel {
     cell.className = getItemDecorClassName('inventory-cell', item);
     cell.classList.toggle('inventory-cell--cooldown', cooldownState !== null);
 
-    refs.type.textContent = this.getInventoryCellTypeLabel(item);
+    const ribbon = this.getInventoryCellRibbon(item, itemMeta);
+    refs.type.hidden = !ribbon;
+    refs.type.textContent = ribbon?.label ?? '';
+    if (ribbon?.title) {
+      refs.type.setAttribute('aria-label', ribbon.title);
+    } else {
+      refs.type.removeAttribute('aria-label');
+    }
     refs.gradeLine.hidden = !gradeLineLabel;
     refs.gradeLine.textContent = gradeLineLabel ?? '';
     refs.count.textContent = formatDisplayCountBadge(item.count);
@@ -1452,8 +1449,17 @@ export class InventoryPanel {
     return true;
   }
 
-  private getInventoryCellTypeLabel(item: ItemStack): string {
-    return getItemTypeLabel(item.type);
+  private getInventoryCellRibbon(item: ItemStack, itemMeta: ItemDisplayMeta): InventoryCellRibbon | null {
+    if (itemMeta.affinityBadge) {
+      return {
+        label: itemMeta.affinityBadge.label,
+        title: itemMeta.affinityBadge.title,
+      };
+    }
+    if (item.type === 'skill_book') {
+      return { label: '功法' };
+    }
+    return null;
   }
 
   private getInventoryGradeLineLabel(_item: ItemStack): string | null {

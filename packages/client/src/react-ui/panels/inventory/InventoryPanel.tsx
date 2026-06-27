@@ -18,15 +18,11 @@ export interface ReactInventoryItemView {
   nameClassName: string;
   countLabel: string;
   itemType: ItemType;
-  typeLabel: string;
+  ribbonLabel?: string;
+  ribbonTitle?: string;
   gradeLineLabel?: string;
   cellClassName: string;
   grade?: string;
-  affinityBadge?: {
-    label: string;
-    title: string;
-    className: string;
-  };
   levelLabel?: string;
   cooldown?: {
     title: string;
@@ -225,7 +221,14 @@ const InventoryCell = memo(function InventoryCell({ item }: { item: ReactInvento
         </span>
       </div>
       <div className="inventory-cell-head">
-        <span className="inventory-cell-type" data-item-type="true">{item.typeLabel}</span>
+        <span
+          className="inventory-cell-type"
+          data-item-type="true"
+          aria-label={item.ribbonTitle}
+          hidden={!item.ribbonLabel}
+        >
+          {item.ribbonLabel ?? ''}
+        </span>
         <span className="inventory-cell-count" data-item-count="true">{item.countLabel}</span>
       </div>
       <div
@@ -238,15 +241,6 @@ const InventoryCell = memo(function InventoryCell({ item }: { item: ReactInvento
       <div className={item.nameClassName} data-item-name="true" aria-label={item.name}>
         {item.name}
       </div>
-      {item.affinityBadge && (
-        <span
-          className={item.affinityBadge.className}
-          data-item-affinity="true"
-          aria-label={item.affinityBadge.title}
-        >
-          {item.affinityBadge.label}
-        </span>
-      )}
       {item.levelLabel && (
         <span className="item-card-chip item-card-chip--level" data-item-level="true">
           {item.levelLabel}
