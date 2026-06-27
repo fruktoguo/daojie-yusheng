@@ -855,7 +855,8 @@
       left: 50%;
       top: 5px;
       z-index: 5;
-      max-width: calc(100% - 58px);
+      max-width: none;
+      min-width: max-content;
       padding: 3px 8px 4px;
       border: 1px solid color-mix(in srgb, var(--inventory-grade-border, rgba(139, 48, 35, 0.46)) 70%, rgba(255,255,255,0.2));
       border-radius: 999px;
@@ -868,8 +869,8 @@
       font-weight: var(--font-weight-strong);
       line-height: 1.1;
       white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      overflow: visible;
+      text-overflow: clip;
       pointer-events: none;
       opacity: 0;
       transform: translate(-50%, -2px) scale(0.96);
