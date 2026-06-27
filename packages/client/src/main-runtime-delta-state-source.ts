@@ -547,7 +547,7 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
       x: patch.x ?? previous?.wx ?? 0,
       y: patch.y ?? previous?.wy ?? 0,
       char: patch.ch ?? previous?.char ?? '阵',
-      color: previous?.color ?? PORTAL_ENTITY_COLOR,
+      color: patch.c === null ? PORTAL_ENTITY_COLOR : (patch.c ?? previous?.color ?? PORTAL_ENTITY_COLOR),
       name: patch.n ?? previous?.name ?? '传送阵',
       kind: (previous?.kind ?? 'portal') as TickRenderEntity['kind'],
       hp: previous?.hp,
