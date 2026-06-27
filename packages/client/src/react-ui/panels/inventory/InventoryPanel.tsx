@@ -19,6 +19,7 @@ export interface ReactInventoryItemView {
   countLabel: string;
   itemType: ItemType;
   typeLabel: string;
+  gradeLineLabel?: string;
   cellClassName: string;
   grade?: string;
   affinityBadge?: {
@@ -220,6 +221,13 @@ const InventoryCell = memo(function InventoryCell({ item }: { item: ReactInvento
       <div className="inventory-cell-head">
         <span className="inventory-cell-type" data-item-type="true">{item.typeLabel}</span>
         <span className="inventory-cell-count" data-item-count="true">{item.countLabel}</span>
+      </div>
+      <div
+        className="inventory-cell-grade-line"
+        data-item-grade-line="true"
+        hidden={item.itemType !== 'consumable'}
+      >
+        {item.gradeLineLabel ?? ''}
       </div>
       <div className={item.nameClassName} data-item-name="true" aria-label={item.name}>
         {item.name}

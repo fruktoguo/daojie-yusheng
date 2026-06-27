@@ -203,6 +203,7 @@ interface InventoryShellRefs {
 interface InventoryCellRefs {
   type: HTMLElement;
   count: HTMLElement;
+  gradeLine: HTMLElement;
   name: HTMLElement;
   cooldown: HTMLElement;
   cooldownPie: HTMLElement;
@@ -891,6 +892,7 @@ export class InventoryPanel {
     const itemMeta = getItemDisplayMeta(item);
     const displayName = itemMeta.displayItem.name;
     const primaryAction = this.getPrimaryAction(item, cooldownState);
+    const consumableGradeLineLabel = this.getConsumableGradeLineLabel(item);
     return {
       slotIndex,
       itemInstanceId: this.getInventoryItemInstanceId(item) || null,
@@ -900,7 +902,8 @@ export class InventoryPanel {
       nameClassName: `inventory-cell-name ${this.getNameClass(displayName)}`.trim(),
       countLabel: formatDisplayCountBadge(item.count),
       itemType: item.type,
-      typeLabel: getItemAffixTypeLabel(item, getItemTypeLabel(item.type)),
+      typeLabel: this.getInventoryCellTypeLabel(item),
+      gradeLineLabel: consumableGradeLineLabel ?? undefined,
       cellClassName: `${getItemDecorClassName('inventory-cell', item)}${cooldownState ? ' inventory-cell--cooldown' : ''}`,
       grade: itemMeta.grade ?? undefined,
       affinityBadge: itemMeta.affinityBadge
@@ -1292,6 +1295,11 @@ export class InventoryPanel {
     count.dataset.itemCount = 'true';
     head.append(count);
 
+    const gradeLine = document.createElement('div');
+    gradeLine.className = 'inventory-cell-grade-line';
+    gradeLine.dataset.itemGradeLine = 'true';
+    gradeLine.hidden = true;
+
     const name = document.createElement('div');
     name.className = 'inventory-cell-name';
     name.dataset.itemName = 'true';
@@ -1305,10 +1313,11 @@ export class InventoryPanel {
     });
     actions.append(dropButton);
 
-    cell.append(cooldown, head, name, actions);
+    cell.append(cooldown, head, gradeLine, name, actions);
     this.cellRefs.set(cell, {
       type,
       count,
+      gradeLine,
       name,
       cooldown,
       cooldownPie,
@@ -1327,16 +1336,17 @@ export class InventoryPanel {
     }
     const type = cell.querySelector<HTMLElement>('[data-item-type="true"]');
     const count = cell.querySelector<HTMLElement>('[data-item-count="true"]');
+    const gradeLine = cell.querySelector<HTMLElement>('[data-item-grade-line="true"]');
     const name = cell.querySelector<HTMLElement>('[data-item-name="true"]');
     const cooldown = cell.querySelector<HTMLElement>('[data-item-cooldown="true"]');
     const cooldownPie = cell.querySelector<HTMLElement>('[data-item-cooldown-pie="true"]');
     const cooldownLabel = cell.querySelector<HTMLElement>('[data-item-cooldown-label="true"]');
     const actions = cell.querySelector<HTMLElement>('[data-item-actions="true"]');
     const dropButton = cell.querySelector<HTMLButtonElement>('[data-inline-drop]');
-    if (!type || !count || !name || !cooldown || !cooldownPie || !cooldownLabel || !actions || !dropButton) {
+    if (!type || !count || !gradeLine || !name || !cooldown || !cooldownPie || !cooldownLabel || !actions || !dropButton) {
       return null;
     }
-    const refs = { type, count, name, cooldown, cooldownPie, cooldownLabel, actions, dropButton };
+    const refs = { type, count, gradeLine, name, cooldown, cooldownPie, cooldownLabel, actions, dropButton };
     this.cellRefs.set(cell, refs);
     return refs;
   }
@@ -1465,7 +1475,10 @@ export class InventoryPanel {
     cell.className = getItemDecorClassName('inventory-cell', item);
     cell.classList.toggle('inventory-cell--cooldown', cooldownState !== null);
 
-    refs.type.textContent = getItemAffixTypeLabel(item, getItemTypeLabel(item.type));
+    const gradeLineLabel = this.getConsumableGradeLineLabel(item);
+    refs.type.textContent = this.getInventoryCellTypeLabel(item);
+    refs.gradeLine.hidden = item.type !== 'consumable';
+    refs.gradeLine.textContent = gradeLineLabel ?? '';
     refs.count.textContent = formatDisplayCountBadge(item.count);
     refs.name.textContent = displayName;
     refs.name.setAttribute('aria-label', displayName);
@@ -1483,6 +1496,19 @@ export class InventoryPanel {
       refs.cooldownLabel.textContent = '';
     }
     return true;
+  }
+
+  private getInventoryCellTypeLabel(item: ItemStack): string {
+    const typeLabel = getItemTypeLabel(item.type);
+    return item.type === 'consumable' ? typeLabel : getItemAffixTypeLabel(item, typeLabel);
+  }
+
+  private getConsumableGradeLineLabel(item: ItemStack): string | null {
+    if (item.type !== 'consumable') {
+      return null;
+    }
+    const itemMeta = getItemDisplayMeta(item);
+    return itemMeta.gradeLabel ? `· ${itemMeta.gradeLabel}` : '';
   }
 
   /** renderModal：渲染弹窗。 */

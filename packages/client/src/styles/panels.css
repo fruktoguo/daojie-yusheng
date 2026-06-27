@@ -895,8 +895,9 @@
       gap: 8px;
     }
     .inventory-cell[data-item-type="consumable"] {
-      grid-template-rows: 20px minmax(38px, 1fr) auto;
-      min-height: 102px;
+      grid-template-rows: 20px 14px minmax(38px, 1fr) auto;
+      gap: 4px;
+      min-height: 108px;
     }
     .inventory-cell[data-item-type="consumable"] .inventory-cell-head {
       display: grid;
@@ -914,6 +915,24 @@
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+    }
+    .inventory-cell-grade-line {
+      display: none;
+      min-width: 0;
+      min-height: 14px;
+      color: color-mix(in srgb, var(--inventory-grade-border, rgba(94, 94, 94, 0.56)) 72%, var(--ink-grey));
+      font-size: var(--font-size-10);
+      line-height: 14px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-variant-numeric: tabular-nums;
+    }
+    .inventory-cell[data-item-type="consumable"] .inventory-cell-grade-line {
+      display: block;
+    }
+    .inventory-cell-grade-line[hidden] {
+      display: none;
     }
     .item-card-chip {
       position: absolute;
