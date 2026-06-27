@@ -743,11 +743,11 @@
     }
     .inventory-cell {
       display: grid;
-      grid-template-rows: 14px minmax(30px, 1fr);
-      gap: 2px;
-      min-height: 74px;
+      grid-template-rows: 0 minmax(30px, 1fr);
+      gap: 0;
+      min-height: 66px;
       width: 100%;
-      padding: 8px 8px 14px;
+      padding: 5px 7px 13px;
       border: 1px solid var(--wash-ink);
       background: var(--surface-gradient-entry);
       box-shadow: inset 0 0 0 1px rgba(255,255,255,0.5);
@@ -893,21 +893,21 @@
       align-items: center;
       justify-content: flex-end;
       position: static;
-      min-height: 14px;
+      min-height: 0;
     }
     .inventory-cell-type {
       position: absolute;
-      top: 4px;
-      left: -31px;
+      top: 6px;
+      left: -47px;
       z-index: 3;
-      width: 86px;
+      width: 129px;
       padding: 2px 0;
       background: color-mix(in srgb, rgba(var(--inventory-grade-rgb, 94, 94, 94), 0.9) 72%, var(--ink-black));
       color: #f8f2e8;
       font-size: 9px;
       font-weight: var(--font-weight-strong);
       line-height: 1.1;
-      letter-spacing: 0.08em;
+      letter-spacing: 0.04em;
       text-align: center;
       text-transform: uppercase;
       box-shadow: 0 6px 14px rgba(0, 0, 0, 0.12);
@@ -1039,6 +1039,7 @@
       width: 100%;
       min-height: 30px;
       max-height: 30px;
+      margin-top: 1px;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
