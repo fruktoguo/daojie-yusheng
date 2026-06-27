@@ -3079,6 +3079,11 @@ export interface GmMapQuestRecord {
 
   targetRealmLv?: number;
   /**
+ * acceptRealmLv：接取任务所需的最低境界等级。
+ */
+
+  acceptRealmLv?: number;
+  /**
  * required：required相关字段。
  */
 

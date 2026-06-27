@@ -10,7 +10,7 @@ const { WorldRuntimeQuestStateService } = require("../runtime/world/world-runtim
  */
 
 
-function createService({ player, progressMap = {}, readyMap = {}, rewardMap = {}, nextQuestMap = {}, chainGapMap = {}, questTemplateMap = {}, createdQuest = null, log = [], mailLog = [] } = {}) {
+function createService({ player, progressMap = {}, readyMap = {}, rewardMap = {}, nextQuestMap = {}, chainGapMap = {}, questTemplateMap = {}, hydratedQuestMap = {}, acceptRealmReachedMap = {}, unlockedQuestMap = {}, createdQuest = null, log = [], mailLog = [] } = {}) {
     const playerRuntimeService = {    
     /**
  * getPlayer：读取玩家。
@@ -68,6 +68,36 @@ function createService({ player, progressMap = {}, readyMap = {}, rewardMap = {}
                 ? readyMap[quest.id]
                 : quest.progress >= quest.required;
         },        
+        hydrateQuestRuntimeState(playerId, quest) {
+            if (!Object.prototype.hasOwnProperty.call(hydratedQuestMap, quest.id)) {
+                return quest;
+            }
+            const hydrated = {
+                ...quest,
+                ...hydratedQuestMap[quest.id],
+                id: quest.id,
+                status: quest.status,
+                progress: quest.progress,
+            };
+            if (typeof quest.targetName === 'string'
+                && quest.targetName.trim()
+                && quest.targetName.trim() !== hydrated.targetMonsterId) {
+                hydrated.targetName = quest.targetName.trim();
+            }
+            return {
+                ...hydrated,
+            };
+        },
+        isQuestUnlockedForPlayer(playerQuests, questId) {
+            return Object.prototype.hasOwnProperty.call(unlockedQuestMap, questId)
+                ? unlockedQuestMap[questId]
+                : true;
+        },
+        isQuestAcceptRealmReachedForPlayer(player, questId) {
+            return Object.prototype.hasOwnProperty.call(acceptRealmReachedMap, questId)
+                ? acceptRealmReachedMap[questId]
+                : true;
+        },
         resolveQuestNextQuestId(quest) {
             return typeof quest.nextQuestId === 'string' && quest.nextQuestId.trim()
                 ? quest.nextQuestId.trim()
@@ -415,6 +445,33 @@ function testTryAcceptNextQuestRejectsSecondMainQuest() {
     assert.deepEqual(player.quests.quests.map((quest) => quest.id), ['current-main']);
     assert.deepEqual(log, []);
 }
+
+function testTryAcceptNextQuestRejectsInsufficientAcceptRealm() {
+    const log = [];
+    const player = {
+        realm: { realmLv: 3 },
+        quests: {
+            quests: [{ id: 'current', status: 'completed', progress: 1, required: 1 }],
+        },
+    };
+    const service = createService({
+        player,
+        acceptRealmReachedMap: { 'next-realm-gated': false },
+        createdQuest: {
+            line: 'main',
+            title: '境界门槛任务',
+            progress: 0,
+            required: 1,
+            rewardItemIds: [],
+            rewards: [],
+        },
+        log,
+    });
+    const accepted = service.tryAcceptNextQuest('player:1', 'next-realm-gated');
+    assert.equal(accepted, null);
+    assert.deepEqual(player.quests.quests.map((quest) => quest.id), ['current']);
+    assert.deepEqual(log, []);
+}
 /**
  * testAdvanceKillQuestProgress：执行testAdvanceKill任务进度相关逻辑。
  * @returns 无返回值，直接更新testAdvanceKill任务进度相关状态。
@@ -449,6 +506,67 @@ function testAdvanceKillQuestProgress() {
     service.advanceKillQuestProgress('player:1', 'rat', '灰尾鼠');
     assert.equal(player.quests.quests[0].progress, 1);
     assert.equal(player.quests.quests[0].targetName, '灰尾鼠');
+    assert.deepEqual(log, [['markQuestStateDirty', 'player:1']]);
+}
+
+function testAdvanceKillQuestProgressHydratesCorruptedRuntimeEntry() {
+    const log = [];
+    const player = {
+        quests: {
+            quests: [
+                {
+                    id: 'kill-rat',
+                    line: 'side',
+                    status: 'active',
+                    objectiveType: 'kill',
+                    targetMonsterId: '',
+                    targetName: '',
+                    progress: 0,
+                    required: 1,
+                    rewardItemIds: [],
+                    rewards: [],
+                },
+            ],
+        },
+    };
+    const service = createService({
+        player,
+        hydratedQuestMap: {
+            'kill-rat': {
+                line: 'main',
+                objectiveType: 'kill',
+                targetMonsterId: 'rat',
+                required: 2,
+                targetName: 'rat',
+                acceptRealmLv: 4,
+            },
+        },
+        progressMap: { 'kill-rat': 1 },
+        readyMap: { 'kill-rat': false },
+        log,
+    });
+    service.advanceKillQuestProgress('player:1', 'rat', '灰尾鼠');
+    assert.deepEqual(player.quests.quests.map((quest) => ({
+        id: quest.id,
+        line: quest.line,
+        objectiveType: quest.objectiveType,
+        targetMonsterId: quest.targetMonsterId,
+        targetName: quest.targetName,
+        progress: quest.progress,
+        required: quest.required,
+        acceptRealmLv: quest.acceptRealmLv,
+    })), [
+        {
+            id: 'kill-rat',
+            line: 'main',
+            objectiveType: 'kill',
+            targetMonsterId: 'rat',
+            targetName: '灰尾鼠',
+            progress: 1,
+            required: 2,
+            acceptRealmLv: 4,
+        },
+    ]);
     assert.deepEqual(log, [['markQuestStateDirty', 'player:1']]);
 }
 /**
@@ -511,6 +629,60 @@ function testAdvanceLearnTechniqueQuest() {
     unchangedService.advanceLearnTechniqueQuest('player:1', 'technique.scroll');
     assert.deepEqual(unchangedLog, []);
 }
+
+function testAdvanceLearnTechniqueQuestHydratesCorruptedRuntimeEntry() {
+    const log = [];
+    const player = {
+        quests: {
+            quests: [
+                {
+                    id: 'learn-fire',
+                    line: 'side',
+                    status: 'active',
+                    objectiveType: 'kill',
+                    targetMonsterId: '',
+                    progress: 0,
+                    required: 1,
+                    rewardItemIds: [],
+                    rewards: [],
+                },
+            ],
+        },
+    };
+    const service = createService({
+        player,
+        hydratedQuestMap: {
+            'learn-fire': {
+                line: 'main',
+                objectiveType: 'learn_technique',
+                targetTechniqueId: 'technique.fire',
+                required: 1,
+            },
+        },
+        progressMap: { 'learn-fire': 1 },
+        readyMap: { 'learn-fire': true },
+        log,
+    });
+    service.advanceLearnTechniqueQuest('player:1', 'technique.fire');
+    assert.deepEqual(player.quests.quests.map((quest) => ({
+        id: quest.id,
+        line: quest.line,
+        objectiveType: quest.objectiveType,
+        targetTechniqueId: quest.targetTechniqueId,
+        progress: quest.progress,
+        status: quest.status,
+    })), [
+        {
+            id: 'learn-fire',
+            line: 'main',
+            objectiveType: 'learn_technique',
+            targetTechniqueId: 'technique.fire',
+            progress: 1,
+            status: 'ready',
+        },
+    ]);
+    assert.deepEqual(log, [['markQuestStateDirty', 'player:1']]);
+}
 /**
  * testCanReceiveRewardItems：判断testCanReceiveReward道具是否满足条件。
  * @returns 无返回值，直接更新testCanReceiveReward道具相关状态。
@@ -540,8 +712,11 @@ testRefreshSendsMergedCompensationMailForDanglingPreviousQuests();
 testRefreshCompletesAndCompensatesMissingQuestChainGap();
 testTryAcceptNextQuest();
 testTryAcceptNextQuestRejectsSecondMainQuest();
+testTryAcceptNextQuestRejectsInsufficientAcceptRealm();
 testAdvanceKillQuestProgress();
+testAdvanceKillQuestProgressHydratesCorruptedRuntimeEntry();
 testAdvanceLearnTechniqueQuest();
+testAdvanceLearnTechniqueQuestHydratesCorruptedRuntimeEntry();
 testCanReceiveRewardItems();
 
 console.log(JSON.stringify({ ok: true, case: 'world-runtime-quest-state' }, null, 2));

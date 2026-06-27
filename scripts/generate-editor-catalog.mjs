@@ -397,6 +397,7 @@ function normalizeQuestTemplate(entry, context) {
     targetName: resolveQuestTargetName(entry, objectiveType, context, targetNpcLocation),
     targetTechniqueId: optionalText(entry.targetTechniqueId),
     targetRealmLv: normalizePositiveInteger(entry.targetRealmLv),
+    acceptRealmLv: normalizePositiveInteger(entry.acceptRealmLv),
     rewardText: typeof entry.rewardText === 'string' ? entry.rewardText : buildQuestTemplateRewardText(rewards),
     targetMonsterId: normalizeText(entry.targetMonsterId),
     rewardItemId: normalizeText(entry.rewardItemId) || rewardItemIds[0] || '',

@@ -5896,6 +5896,9 @@ function cloneQuestRuntimeEntry(entry) {
     if (Number.isFinite(Number(entry.targetRealmLv)) && Number(entry.targetRealmLv) > 0) {
         cloned.targetRealmLv = Math.floor(Number(entry.targetRealmLv));
     }
+    if (Number.isFinite(Number(entry.acceptRealmLv)) && Number(entry.acceptRealmLv) > 0) {
+        cloned.acceptRealmLv = Math.floor(Number(entry.acceptRealmLv));
+    }
     if (typeof entry.nextQuestId === 'string' && entry.nextQuestId.trim()) {
         cloned.nextQuestId = entry.nextQuestId.trim();
     }

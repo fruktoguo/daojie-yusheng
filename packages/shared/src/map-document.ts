@@ -237,6 +237,12 @@ function normalizeOptionalInteger(value: unknown): number | undefined {
   return Number.isFinite(value) ? Math.floor(Number(value)) : undefined;
 }
 
+/** 将可空正整数字段收敛为正整数，0/非法值统一视为未设置。 */
+function normalizeOptionalPositiveInteger(value: unknown): number | undefined {
+  const integer = normalizeOptionalInteger(value);
+  return integer !== undefined && integer > 0 ? integer : undefined;
+}
+
 /** 将任务线字段收敛到合法枚举。 */
 function normalizeQuestLine(value: unknown): QuestLine | undefined {
   return value === 'main' || value === 'side' || value === 'daily' || value === 'encounter'
@@ -431,6 +437,7 @@ function normalizeEditableQuestRecord(input: unknown): GmMapQuestRecord | undefi
     targetMonsterId: normalizeOptionalTrimmedString(quest.targetMonsterId),
     targetTechniqueId: normalizeOptionalTrimmedString(quest.targetTechniqueId),
     targetRealmLv: normalizeOptionalInteger(quest.targetRealmLv),
+    acceptRealmLv: normalizeOptionalPositiveInteger(quest.acceptRealmLv),
     required: normalizeOptionalInteger(quest.required),
     targetCount: normalizeOptionalInteger(quest.targetCount),
     rewardItemId: normalizeOptionalTrimmedString(quest.rewardItemId),
@@ -1361,6 +1368,10 @@ export function validateEditableMapDocument(document: GmMapDocument): string | n
       if (targetPointError) return targetPointError;
       const submitPointError = ensureOptionalPoint(quest.submitMapId, quest.submitX, quest.submitY, `${questLabel} 的提交地点`);
       if (submitPointError) return submitPointError;
+
+      if (quest.acceptRealmLv !== undefined && (!Number.isInteger(quest.acceptRealmLv) || quest.acceptRealmLv <= 0)) {
+        return `${questLabel} 的接取境界等级必须为正整数`;
+      }
 
       const objectiveType = quest.objectiveType ?? 'kill';
       switch (objectiveType) {

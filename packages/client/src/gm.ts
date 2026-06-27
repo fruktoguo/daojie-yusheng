@@ -7937,6 +7937,7 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
           ${textField('目标怪物 ID', `quests.${index}.targetMonsterId`, quest.targetMonsterId)}
           ${nullableTextField('目标功法 ID', `quests.${index}.targetTechniqueId`, quest.targetTechniqueId, 'undefined')}
           ${numberField('目标境界等级', `quests.${index}.targetRealmLv`, typeof quest.targetRealmLv === 'number' ? quest.targetRealmLv : 0)}
+          ${numberField('接取境界等级', `quests.${index}.acceptRealmLv`, typeof quest.acceptRealmLv === 'number' ? quest.acceptRealmLv : 0)}
           ${textField('发放者 ID', `quests.${index}.giverId`, quest.giverId)}
           ${textField('发放者名称', `quests.${index}.giverName`, quest.giverName)}
           ${nullableTextField('发放地图 ID', `quests.${index}.giverMapId`, quest.giverMapId, 'undefined')}

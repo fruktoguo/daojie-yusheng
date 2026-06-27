@@ -522,6 +522,10 @@ export function cloneQuestState(quest, status = quest.status) {
     if (targetRealmLv !== undefined) {
         cloned.targetRealmLv = targetRealmLv;
     }
+    const acceptRealmLv = normalizeQuestRealmLv(quest.acceptRealmLv);
+    if (acceptRealmLv !== undefined) {
+        cloned.acceptRealmLv = acceptRealmLv;
+    }
     if (typeof quest.nextQuestId === 'string' && quest.nextQuestId.trim()) {
         cloned.nextQuestId = quest.nextQuestId.trim();
     }

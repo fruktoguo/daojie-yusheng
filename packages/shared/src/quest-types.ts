@@ -91,6 +91,11 @@ export interface QuestState {
 
   targetRealmLv?: number;
   /**
+ * acceptRealmLv：接取任务所需的最低境界等级。
+ */
+
+  acceptRealmLv?: number;
+  /**
  * rewardText：rewardText名称或显示文本。
  */
 

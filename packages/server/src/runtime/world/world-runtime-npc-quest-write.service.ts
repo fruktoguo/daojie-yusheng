@@ -63,6 +63,7 @@ export class WorldRuntimeNpcQuestWriteService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const npc = deps.resolveAdjacentNpc(playerId, npcId);
+        deps.refreshQuestStates(playerId);
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
         let changed = false;
         for (const quest of player.quests.quests) {
@@ -117,6 +118,10 @@ export class WorldRuntimeNpcQuestWriteService {
         if (typeof deps?.worldRuntimeQuestQueryService?.isQuestUnlockedForPlayer === 'function'
             && !deps.worldRuntimeQuestQueryService.isQuestUnlockedForPlayer(player.quests.quests, questView.id)) {
             throw new BadRequestException('前置任务尚未完成');
+        }
+        if (typeof deps?.worldRuntimeQuestQueryService?.isQuestAcceptRealmReachedForPlayer === 'function'
+            && !deps.worldRuntimeQuestQueryService.isQuestAcceptRealmReachedForPlayer(player, questView.id)) {
+            throw new BadRequestException('境界不足，暂无法接取该任务');
         }
         if (normalizeQuestLine(questView.line) === 'main' && hasIncompleteQuestInLine(player.quests.quests, 'main', questId)) {
             throw new BadRequestException('当前已有进行中的主线任务');

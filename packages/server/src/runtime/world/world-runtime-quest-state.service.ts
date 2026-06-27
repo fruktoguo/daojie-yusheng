@@ -26,6 +26,41 @@ function hasIncompleteQuestInLine(playerQuests, line, exceptQuestId = '') {
     return false;
 }
 
+function normalizeComparableQuestValue(value) {
+    return value === undefined || value === null ? '' : value;
+}
+
+function areQuestRuntimeStatesEquivalent(left, right) {
+    const fields = [
+        'id',
+        'line',
+        'status',
+        'objectiveType',
+        'progress',
+        'required',
+        'targetMonsterId',
+        'targetName',
+        'targetTechniqueId',
+        'targetRealmLv',
+        'acceptRealmLv',
+        'nextQuestId',
+        'requiredItemId',
+        'requiredItemCount',
+        'giverId',
+        'guideFlowId',
+        'targetMapId',
+        'targetNpcId',
+        'submitNpcId',
+        'submitMapId',
+    ];
+    for (const field of fields) {
+        if (normalizeComparableQuestValue(left?.[field]) !== normalizeComparableQuestValue(right?.[field])) {
+            return false;
+        }
+    }
+    return true;
+}
+
 /** world-runtime quest-state helpers：承接任务状态刷新、自动接续与奖励背包校验。 */
 @Injectable()
 export class WorldRuntimeQuestStateService {
@@ -78,7 +113,12 @@ export class WorldRuntimeQuestStateService {
         let changed = forceDirty;
         const compensationAttachmentsByItemId = new Map();
         const ownedQuestIds = new Set(player.quests.quests.map((entry) => entry.id));
-        for (const quest of player.quests.quests) {
+        for (let index = 0; index < player.quests.quests.length; index += 1) {
+            const quest = this.hydrateQuestRuntimeState(playerId, player.quests.quests[index]);
+            if (quest !== player.quests.quests[index]) {
+                player.quests.quests[index] = quest;
+                changed = true;
+            }
             const previousProgress = quest.progress;
             const previousStatus = quest.status;
             quest.progress = this.worldRuntimeQuestQueryService.resolveQuestProgress(playerId, quest);
@@ -110,6 +150,16 @@ export class WorldRuntimeQuestStateService {
             this.playerRuntimeService.markQuestStateDirty(playerId);
         }
         this.deliverQuestCompensationMail(playerId, compensationAttachmentsByItemId);
+    }
+    hydrateQuestRuntimeState(playerId, quest) {
+        if (typeof this.worldRuntimeQuestQueryService.hydrateQuestRuntimeState !== 'function') {
+            return quest;
+        }
+        const hydrated = this.worldRuntimeQuestQueryService.hydrateQuestRuntimeState(playerId, quest);
+        if (!hydrated || areQuestRuntimeStatesEquivalent(quest, hydrated)) {
+            return quest;
+        }
+        return hydrated;
     }
     completeMissingQuestChainGaps(playerId, player, ownedQuestIds, compensationAttachmentsByItemId) {
         if (typeof this.worldRuntimeQuestQueryService.resolveQuestChainGapToOwnedQuest !== 'function') {
@@ -172,6 +222,10 @@ export class WorldRuntimeQuestStateService {
             && !this.worldRuntimeQuestQueryService.isQuestUnlockedForPlayer(player.quests.quests, nextQuestId)) {
             return null;
         }
+        if (typeof this.worldRuntimeQuestQueryService.isQuestAcceptRealmReachedForPlayer === 'function'
+            && !this.worldRuntimeQuestQueryService.isQuestAcceptRealmReachedForPlayer(player, nextQuestId)) {
+            return null;
+        }
         const nextQuest = this.worldRuntimeQuestQueryService.createQuestStateFromSource(playerId, nextQuestId, 'active');
         if (normalizeQuestLine(nextQuest.line) === 'main' && hasIncompleteQuestInLine(player.quests.quests, 'main', nextQuest.id)) {
             return null;
@@ -196,7 +250,12 @@ export class WorldRuntimeQuestStateService {
             return;
         }
         let changed = false;
-        for (const quest of player.quests.quests) {
+        for (let index = 0; index < player.quests.quests.length; index += 1) {
+            const quest = this.hydrateQuestRuntimeState(playerId, player.quests.quests[index]);
+            if (quest !== player.quests.quests[index]) {
+                player.quests.quests[index] = quest;
+                changed = true;
+            }
             if (quest.status !== 'active' || quest.objectiveType !== 'kill' || quest.targetMonsterId !== monsterId) {
                 continue;
             }
@@ -228,7 +287,12 @@ export class WorldRuntimeQuestStateService {
             return;
         }
         let changed = false;
-        for (const quest of player.quests.quests) {
+        for (let index = 0; index < player.quests.quests.length; index += 1) {
+            const quest = this.hydrateQuestRuntimeState(playerId, player.quests.quests[index]);
+            if (quest !== player.quests.quests[index]) {
+                player.quests.quests[index] = quest;
+                changed = true;
+            }
             if (quest.status !== 'active' || quest.objectiveType !== 'learn_technique' || quest.targetTechniqueId !== techniqueId) {
                 continue;
             }
