@@ -4,7 +4,7 @@
  * 维护时应避免查询路径产生副作用，并控制返回字段，防止高频同步带出完整大对象。
  */
 import { Injectable } from '@nestjs/common';
-import { RETURN_TO_SPAWN_ACTION_ID, RETURN_TO_SPAWN_COOLDOWN_TICKS } from '@mud/shared';
+import { RETURN_TO_SPAWN_ACTION_ID, RETURN_TO_SPAWN_COOLDOWN_TICKS, formatDisplayInteger } from '@mud/shared';
 import { MapTemplateRepository } from '../../map/map-template.repository';
 import { PlayerRuntimeService } from '../../player/player-runtime.service';
 import { WorldRuntimeNpcQuestInteractionQueryService } from './world-runtime-npc-quest-interaction-query.service';
@@ -186,18 +186,24 @@ export class WorldRuntimeContextActionQueryService {
             ? deps.worldRuntimeFormationService.listOwnedFormationsAt(view.instance.instanceId, view.playerId, view.self.x, view.self.y)
             : [];
         for (const formation of localFormations) {
+            const remainingQi = Math.max(0, Math.floor(Number(formation.remainingQiBudget ?? formation.remainingAuraBudget) || 0));
+            const remainingStones = Math.max(0, Math.floor(Number(formation.remainingSpiritStoneBudget) || 0));
+            const radius = Math.max(1, Math.trunc(Number(formation.radius) || 1));
+            const refillStones = Math.max(0, Math.trunc(Number(formation.refillSpiritStoneCount) || 0));
+            const refillQi = Math.max(0, Math.trunc(Number(formation.refillQiCost) || 0));
+            const qiLabel = formatDisplayInteger(remainingQi);
             actions.push({
                 id: `formation:toggle:${formation.id}`,
                 name: formation.active ? `关闭：${formation.name}` : `开启：${formation.name}`,
                 type: 'interact',
-                desc: `阵眼灵力 ${formation.remainingQiBudget ?? formation.remainingAuraBudget}，灵石 ${formation.remainingSpiritStoneBudget ?? 0}，半径 ${formation.radius}。`,
+                desc: `阵眼灵力 ${qiLabel}，灵石 ${formatDisplayInteger(remainingStones)}，半径 ${formatDisplayInteger(radius)}。`,
                 cooldownLeft: 0,
             });
             actions.push({
                 id: `formation:refill:${formation.id}`,
                 name: `资源补给：${formation.name}`,
                 type: 'interact',
-                desc: `一次性消耗 ${formation.refillSpiritStoneCount} 灵石和 ${formation.refillQiCost} 灵力，补给当前阵法资源池。`,
+                desc: `一次性消耗 ${formatDisplayInteger(refillStones)} 灵石和 ${formatDisplayInteger(refillQi)} 灵力，补给当前阵法资源池。`,
                 cooldownLeft: 0,
             });
             const maintaining = player.formationJob
@@ -205,11 +211,11 @@ export class WorldRuntimeContextActionQueryService {
                 && player.formationJob.formationInstanceId === formation.id;
             actions.push({
                 id: maintaining ? `formation:cancel_maintain:${formation.id}` : `formation:maintain:${formation.id}`,
-                name: maintaining ? `停止维护：${formation.name}` : `维护：${formation.name}`,
+                name: maintaining ? `停止补充：${formation.name}` : `补充灵力：${formation.name}`,
                 type: 'interact',
                 desc: maintaining
-                    ? '停止持续向阵法注入自身灵力。'
-                    : '持续向阵法注入自身灵力，每息获得阵法技艺经验。',
+                    ? `停止持续向阵法注入自身灵力。当前阵眼灵力 ${qiLabel}。`
+                    : `持续向阵法注入自身灵力，每息获得阵法技艺经验。当前阵眼灵力 ${qiLabel}。`,
                 cooldownLeft: 0,
             });
         }

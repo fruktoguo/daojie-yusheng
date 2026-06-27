@@ -93,7 +93,8 @@ async function main(): Promise<void> {
   assert.equal(status.invitation.foundationReachedCount, 1);
   assert.deepEqual(status.dailySignIn.rewardPreview, {
     randomMinMerit: 1,
-    randomMaxMerit: 71,
+    randomMaxMerit: 710,
+    expectedRandomMerit: 36,
     fixedMerit: 0,
   });
   assert.equal(status.hasRedDot, true);

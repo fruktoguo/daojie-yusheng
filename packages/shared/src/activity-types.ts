@@ -55,6 +55,7 @@ export interface DailySignInStatusView {
   rewardPreview: {
     randomMinMerit: number;
     randomMaxMerit: number;
+    expectedRandomMerit: number;
     fixedMerit: number;
   };
   lastRewardMerit: number | null;

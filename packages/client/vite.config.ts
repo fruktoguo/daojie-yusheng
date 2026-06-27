@@ -99,19 +99,22 @@ export default defineConfig(({ mode }) => {
         },
       },
     },
-    server: proxyTarget
-      ? {
-          proxy: {
-            '/api/auth': proxyTarget,
-            '/api/account': proxyTarget,
-            '/api/gm': proxyTarget,
-            '/integrations/': proxyTarget,
-            '/socket.io': {
-              target: proxyTarget,
-              ws: true,
+    server: {
+      allowedHosts: ['daojie'],
+      ...(proxyTarget
+        ? {
+            proxy: {
+              '/api/auth': proxyTarget,
+              '/api/account': proxyTarget,
+              '/api/gm': proxyTarget,
+              '/integrations/': proxyTarget,
+              '/socket.io': {
+                target: proxyTarget,
+                ws: true,
+              },
             },
-          },
-        }
-      : undefined,
+          }
+        : {}),
+    },
   };
 });

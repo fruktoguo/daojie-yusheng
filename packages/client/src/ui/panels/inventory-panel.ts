@@ -1853,8 +1853,8 @@ export class InventoryPanel {
       const halfLifeTicks = Math.max(1, Math.trunc(template.effect.convergenceHalfLifeTicks ?? FORMATION_TICKS_PER_DAY));
       const perTickGain = stats.effectValue > 0 ? stats.effectValue / halfLifeTicks : 0;
       return [
-        { label: '每息增加灵力', value: this.formatFormationDecimal(perTickGain) },
-        { label: '预计最大灵力', value: this.formatFormationDecimal(stats.effectValue) },
+        { label: '每息增加灵力', value: formatDisplayNumber(perTickGain, { maximumFractionDigits: 2, compactMaximumFractionDigits: 2 }) },
+        { label: '预计最大灵力', value: formatDisplayInteger(stats.effectValue) },
       ];
     }
     if (template.effect.kind === 'terrain_stabilizer') {
@@ -1888,7 +1888,7 @@ export class InventoryPanel {
     const rawDurability = Math.max(1, Math.ceil((stats.totalQiBudget ?? stats.totalAuraBudget) * damagePerAura));
     const effectiveDurability = Math.max(1, Math.ceil(rawDurability / Math.max(0.000001, 1 - selfDamageReduction)));
     return [
-      { label: '预计承受伤害', value: this.formatFormationDecimal(effectiveDurability) },
+      { label: '预计承受伤害', value: formatDisplayInteger(effectiveDurability) },
       { label: '阵法减伤', value: this.formatFormationPercent(selfDamageReduction) },
     ];
   }
@@ -1989,23 +1989,7 @@ export class InventoryPanel {
   }
 
   private formatFormationResourceCost(qiCost: number, spiritStoneCost: number): string {
-    return `每日 ${formatDisplayInteger(qiCost)}灵力 / ${formatDisplayNumber(spiritStoneCost)}灵石`;
-  }
-
-  private formatFormationDecimal(value: number): string {
-    const normalizedValue = Number.isFinite(value) ? Number(value) : 0;
-    const sign = normalizedValue < 0 ? '-' : '';
-    const absValue = Math.abs(normalizedValue);
-    const units = [
-      { value: 1e12, suffix: '兆' },
-      { value: 1e8, suffix: '亿' },
-      { value: 1e4, suffix: '万' },
-    ] as const;
-    const unit = units.find((entry) => absValue >= entry.value);
-    if (unit) {
-      return `${sign}${(absValue / unit.value).toFixed(2)}${unit.suffix}`;
-    }
-    return `${sign}${absValue.toFixed(2)}`;
+    return `每日 ${formatDisplayInteger(qiCost)}灵力 / ${formatDisplayInteger(spiritStoneCost)}灵石`;
   }
 
   private getSelectedFormationTemplate(body: HTMLElement): FormationTemplate {

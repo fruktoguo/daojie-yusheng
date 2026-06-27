@@ -178,9 +178,12 @@ export class ActivityPanel {
       return card;
     }
     const rewardPreview = status.rewardPreview;
+    const expectedRandomMerit = Number.isInteger(rewardPreview.expectedRandomMerit)
+      ? `${rewardPreview.expectedRandomMerit}`
+      : `约 ${rewardPreview.expectedRandomMerit.toFixed(1)}`;
     const rewardText = rewardPreview.fixedMerit > 0
-      ? `${rewardPreview.randomMinMerit}-${rewardPreview.randomMaxMerit} + ${rewardPreview.fixedMerit} 功德`
-      : `${rewardPreview.randomMinMerit}-${rewardPreview.randomMaxMerit} 功德`;
+      ? `${expectedRandomMerit} + ${rewardPreview.fixedMerit} 功德`
+      : `${expectedRandomMerit} 功德`;
     card.append(
       this.createHeader('每日签到', status.canClaimToday ? '今日可领' : '今日已领'),
       this.createMetricGrid([

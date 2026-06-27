@@ -4,7 +4,6 @@
  * 负责把低频活动持久化状态投影为玩家视图，并执行领取奖励的在线资产变更。
  */
 import { BadRequestException, Inject, Injectable, Optional } from '@nestjs/common';
-import { randomInt } from 'crypto';
 import {
   BASE_OFFLINE_MAX_HOURS,
   DAILY_SIGN_IN_RANDOM_BASE_MAX_MERIT,
@@ -32,29 +31,40 @@ import { ActivityPersistenceService, calculateMonthCardDailyReward } from '../..
 import { PlayerCountersPersistenceService } from '../../persistence/player-counters-persistence.service';
 import { NativePlayerAuthStoreService } from '../../http/native/native-player-auth-store.service';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
+import { rollExpandedMeanInteger } from '../random/bounded-random';
 
 const CHINA_TIME_OFFSET_MS = 8 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
+const DAILY_SIGN_IN_RANDOM_MAX_MULTIPLIER = 10;
 
 interface DailySignInRewardPreview {
   randomMinMerit: number;
   randomMaxMerit: number;
+  baseRandomMaxMerit: number;
+  targetRandomMeanMerit: number;
   fixedMerit: number;
 }
 
 function buildDailySignInRewardPreview(historicalMaxRealmLv: number, fixedMerit: number): DailySignInRewardPreview {
   const normalizedHistoricalMaxRealmLv = Math.max(0, Math.trunc(Number(historicalMaxRealmLv) || 0));
   const randomMinMerit = DAILY_SIGN_IN_RANDOM_MIN_MERIT;
-  const randomMaxMerit = Math.max(randomMinMerit, DAILY_SIGN_IN_RANDOM_BASE_MAX_MERIT + normalizedHistoricalMaxRealmLv);
+  const baseRandomMaxMerit = Math.max(randomMinMerit, DAILY_SIGN_IN_RANDOM_BASE_MAX_MERIT + normalizedHistoricalMaxRealmLv);
+  const randomMaxMerit = Math.max(randomMinMerit, baseRandomMaxMerit * DAILY_SIGN_IN_RANDOM_MAX_MULTIPLIER);
   return {
     randomMinMerit,
     randomMaxMerit,
+    baseRandomMaxMerit,
+    targetRandomMeanMerit: (randomMinMerit + baseRandomMaxMerit) / 2,
     fixedMerit: Math.max(0, Math.trunc(Number(fixedMerit) || 0)),
   };
 }
 
 function rollDailySignInReward(preview: DailySignInRewardPreview): { randomMerit: number; fixedMerit: number; totalMerit: number } {
-  const randomMerit = randomInt(preview.randomMinMerit, preview.randomMaxMerit + 1);
+  const randomMerit = rollExpandedMeanInteger({
+    min: preview.randomMinMerit,
+    max: preview.randomMaxMerit,
+    targetMean: preview.targetRandomMeanMerit,
+  });
   const fixedMerit = Math.max(0, Math.trunc(Number(preview.fixedMerit) || 0));
   return {
     randomMerit,
@@ -125,7 +135,12 @@ export class ActivityRuntimeService {
         streakDays: dailySignIn?.streakDays ?? 0,
         totalDays: dailySignIn?.totalDays ?? 0,
         today,
-        rewardPreview: dailySignInRewardPreview,
+        rewardPreview: {
+          randomMinMerit: dailySignInRewardPreview.randomMinMerit,
+          randomMaxMerit: dailySignInRewardPreview.randomMaxMerit,
+          expectedRandomMerit: dailySignInRewardPreview.targetRandomMeanMerit,
+          fixedMerit: dailySignInRewardPreview.fixedMerit,
+        },
         lastRewardMerit: dailySignIn?.lastRewardMerit ?? null,
       },
       invitation,
