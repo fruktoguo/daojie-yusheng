@@ -1043,7 +1043,7 @@
       font-size: var(--font-size-12);
     }
     .inventory-cell-name--book-title {
-      font-size: var(--font-size-10);
+      font-size: var(--font-size-11);
     }
     .inventory-cell[data-item-grade-line-visible="true"] .inventory-cell-name--book-title {
       display: flex;
