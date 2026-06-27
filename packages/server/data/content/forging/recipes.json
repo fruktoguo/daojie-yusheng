@@ -2362,7 +2362,7 @@
     "ingredients": [
       {
         "itemId": "mat.fivephase_vein_crystal",
-        "count": 200,
+        "count": 10,
         "role": "main"
       },
       {
@@ -2389,7 +2389,7 @@
     "mainIngredients": [
       {
         "itemId": "mat.fivephase_vein_crystal",
-        "count": 200
+        "count": 10
       }
     ],
     "requiredAuxElements": {
