@@ -493,6 +493,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
       forgingSkill: player.forgingSkill ? cloneJson(player.forgingSkill) : undefined,
       miningSkill: player.miningSkill ? cloneJson(player.miningSkill) : undefined,
       formationSkill: player.formationSkill ? cloneJson(player.formationSkill) : undefined,
+      transmissionSkill: player.transmissionSkill ? cloneJson(player.transmissionSkill) : undefined,
     };
   }
   /**
@@ -1426,6 +1427,8 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
       const previousAutoUsePills = player?.autoUsePills ?? [];
       const previousCombatTargetingRules = player?.combatTargetingRules;
       const previousAutoBattleTargetingMode = player?.autoBattleTargetingMode ?? 'auto';
+      const previousCombatTargetId = player?.combatTargetId;
+      const previousCombatTargetLocked = player?.combatTargetLocked ?? false;
       const previousAllowAoePlayerHit = player?.allowAoePlayerHit ?? false;
       const previousRetaliatePlayerTargetId = player?.retaliatePlayerTargetId ?? null;
       const previousAutoRootFoundation = player?.autoRootFoundation ?? false;
@@ -1441,6 +1444,12 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
         }),
       );
       const nextAutoBattleTargetingMode = normalizeAutoBattleTargetingMode(data.autoBattleTargetingMode ?? player?.autoBattleTargetingMode);
+      const nextCombatTargetId = data.combatTargetId === undefined
+        ? player?.combatTargetId
+        : data.combatTargetId ?? undefined;
+      const nextCombatTargetLocked = nextCombatTargetId
+        ? (data.combatTargetLocked ?? player?.combatTargetLocked ?? false)
+        : false;
       const nextRetaliatePlayerTargetId = data.retaliatePlayerTargetId ?? player?.retaliatePlayerTargetId ?? null;
       const nextAutoIdleCultivation = data.autoIdleCultivation ?? player?.autoIdleCultivation ?? true;
       const nextAutoSwitchCultivation = data.autoSwitchCultivation ?? player?.autoSwitchCultivation ?? false;
@@ -1453,6 +1462,8 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
         || !isPlainEqual(previousAutoUsePills, nextAutoUsePills)
         || !isPlainEqual(previousCombatTargetingRules ?? null, nextCombatTargetingRules)
         || previousAutoBattleTargetingMode !== nextAutoBattleTargetingMode
+        || previousCombatTargetId !== nextCombatTargetId
+        || previousCombatTargetLocked !== nextCombatTargetLocked
         || previousAutoRootFoundation !== nextAutoRootFoundation
         || haveActionRenderStructureChanges(previousActions, mergedActions);
       if (player) {
@@ -1468,6 +1479,8 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
         player.autoUsePills = cloneJson(nextAutoUsePills);
         player.combatTargetingRules = cloneJson(nextCombatTargetingRules);
         player.autoBattleTargetingMode = nextAutoBattleTargetingMode;
+        player.combatTargetId = nextCombatTargetId;
+        player.combatTargetLocked = nextCombatTargetLocked;
         player.autoRetaliate = data.autoRetaliate ?? (player.autoRetaliate !== false);
         player.autoBattleStationary = nextAutoBattleStationary;
         player.allowAoePlayerHit = nextAllowAoePlayerHit;

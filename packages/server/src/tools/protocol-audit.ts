@@ -1325,6 +1325,9 @@ function assertInitialPanelDeltaIsRevisionOnly(payload) {
   assertPanelSectionRevisionOnly('eq', payload.eq, ['r', 'slots'], function (value) {
     return Array.isArray(value) && value.length === 0;
   });
+  assertPanelSectionRevisionOnly('art', payload.art, ['r', 'slots'], function (value) {
+    return Array.isArray(value) && value.length === 0;
+  });
   assertPanelSectionRevisionOnly('tech', payload.tech, ['r', 'techniques'], function (value) {
     return Array.isArray(value) && value.length === 0;
   });

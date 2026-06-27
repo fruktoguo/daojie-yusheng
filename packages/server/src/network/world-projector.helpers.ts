@@ -899,6 +899,7 @@ function buildPanelCursor(player: ProjectorPlayerLike, previousCursor?: Projecte
             ? previousCursor.artifactSlotSignatures
             : buildArtifactSlotSignatures(resolveArtifactPanelSlots(player)),
         techniqueRevision: player.techniques.revision,
+        techniqueSignature: buildTechniquePanelSignature(player),
         attrRevision: player.attrs.revision,
         actionRevision: player.actions.revision,
         actionIds: canReuseActionCursor
@@ -927,6 +928,7 @@ function buildAttrPanelSignature(player: ProjectorPlayerLike): string {
         attr.revision,
         attr.stage ?? '',
         player.boneAgeBaseYears,
+        player.lifeElapsedTicks ?? '',
         player.lifespanYears ?? '',
         realm?.progress ?? '',
         realm?.progressToNext ?? '',
@@ -1007,6 +1009,18 @@ function buildActionPanelSignature(player: ProjectorPlayerLike): string {
         buildAutoUsePillsSignature(player.combat.autoUsePills),
         buildCombatTargetingRulesSignature(player.combat.combatTargetingRules),
     ].join('|');
+}
+
+function buildTechniquePanelSignature(player: ProjectorPlayerLike): string {
+    return buildStableProtocolSignature({
+        revision: player.techniques.revision,
+        cultivatingTechId: player.techniques.cultivatingTechId ?? null,
+        bodyTraining: player.bodyTraining ?? null,
+        pendingComprehensions: clonePendingComprehensions(
+            player.pendingTechniqueComprehensions,
+            (player as { transmissionJob?: unknown }).transmissionJob,
+        ),
+    });
 }
 
 function buildAutoUsePillsSignature(configs: AutoUsePillConfig[] | null | undefined): string {
@@ -1154,6 +1168,7 @@ function canReuseAttrPanelSlice(previousAttr: ProjectedAttrPanelState, player: P
     return previousAttr.revision === player.attrs.revision
         && previousAttr.stage === player.attrs.stage
         && previousAttr.boneAgeBaseYears === player.boneAgeBaseYears
+        && previousAttr.lifeElapsedTicks === player.lifeElapsedTicks
         && previousAttr.lifespanYears === player.lifespanYears
         && previousAttr.realmProgress === player.realm?.progress
         && previousAttr.realmProgressToNext === player.realm?.progressToNext
@@ -1556,7 +1571,7 @@ function buildPanelUpdate(previous: PlayerStateSlice, player: ProjectorPlayerLik
         skipTechnique: hasTechniqueCache,
     }) ?? {};
     let techniquePanel = previous.techniquePanel;
-    if (previous.techniquePanel && previous.panelCursor.techniqueRevision !== panelCursor.techniqueRevision) {
+    if (previous.techniquePanel && previous.panelCursor.techniqueSignature !== panelCursor.techniqueSignature) {
         const currentTechnique = captureTechniquePanelSlice(player);
         const techniquePatch = diffTechniqueEntries(previous.techniquePanel.techniques, currentTechnique.techniques);
         const removed = diffRemovedTechniqueIds(previous.techniquePanel.techniques, currentTechnique.techniques);
@@ -1618,7 +1633,7 @@ function buildPanelDeltaFromCursor(
         const slotPatch = diffArtifactSlotsFromCursor(previousCursor, currentCursor, artifact.slots);
         delta.art = { r: artifact.revision, slots: slotPatch };
     }
-    if (!options.skipTechnique && previousCursor.techniqueRevision !== currentCursor.techniqueRevision) {
+    if (!options.skipTechnique && previousCursor.techniqueSignature !== currentCursor.techniqueSignature) {
         const technique = captureTechniquePanelSlice(player);
         delta.tech = {
             r: technique.revision,
@@ -1902,17 +1917,62 @@ function isSamePendingComprehensions(
         const rightEntry = rightList[index];
         if (!leftEntry || !rightEntry
             || leftEntry.techId !== rightEntry.techId
+            || leftEntry.name !== rightEntry.name
+            || leftEntry.sourceKind !== rightEntry.sourceKind
+            || leftEntry.creatorPlayerId !== rightEntry.creatorPlayerId
+            || leftEntry.selfComprehensionAllowed !== rightEntry.selfComprehensionAllowed
             || leftEntry.progress !== rightEntry.progress
             || leftEntry.requiredProgress !== rightEntry.requiredProgress
-            || leftEntry.activeTransferJob?.jobId !== rightEntry.activeTransferJob?.jobId
-            || leftEntry.activeTransferJob?.status !== rightEntry.activeTransferJob?.status
-            || leftEntry.activeTransferJob?.progressGainPerTick !== rightEntry.activeTransferJob?.progressGainPerTick
-            || leftEntry.activeTransferJob?.estimatedRemainingTicks !== rightEntry.activeTransferJob?.estimatedRemainingTicks
-            || !isSameProgressBreakdown(leftEntry.activeTransferJob?.progressBreakdown, rightEntry.activeTransferJob?.progressBreakdown)) {
+            || leftEntry.realmLv !== rightEntry.realmLv
+            || leftEntry.grade !== rightEntry.grade
+            || leftEntry.category !== rightEntry.category
+            || leftEntry.createdAtTick !== rightEntry.createdAtTick
+            || leftEntry.updatedAtTick !== rightEntry.updatedAtTick
+            || !isSameTransmissionJobState(leftEntry.activeTransferJob, rightEntry.activeTransferJob)) {
             return false;
         }
     }
     return true;
+}
+
+function isSameTransmissionJobState(
+    left: TechniqueTransmissionJobState | null | undefined,
+    right: TechniqueTransmissionJobState | null | undefined,
+): boolean {
+    if (left === right) {
+        return true;
+    }
+    if (!left || !right) {
+        return left == null && right == null;
+    }
+    return left.jobId === right.jobId
+        && left.teacherPlayerId === right.teacherPlayerId
+        && left.teacherName === right.teacherName
+        && left.startedAtTick === right.startedAtTick
+        && left.status === right.status
+        && left.blockedReason === right.blockedReason
+        && left.range === right.range
+        && left.progressGainPerTick === right.progressGainPerTick
+        && left.estimatedRemainingTicks === right.estimatedRemainingTicks
+        && left.interruptWaitRemainingTicks === right.interruptWaitRemainingTicks
+        && isSameProgressBreakdown(left.progressBreakdown, right.progressBreakdown)
+        && isSameTransmissionInterruptState(left.interruptState, right.interruptState);
+}
+
+function isSameTransmissionInterruptState(
+    left: TechniqueTransmissionJobState['interruptState'],
+    right: TechniqueTransmissionJobState['interruptState'],
+): boolean {
+    if (left === right) {
+        return true;
+    }
+    if (!left || !right) {
+        return left == null && right == null;
+    }
+    return left.reason === right.reason
+        && left.waitTotalTicks === right.waitTotalTicks
+        && left.waitRemainingTicks === right.waitRemainingTicks
+        && left.startedAtTick === right.startedAtTick;
 }
 
 function isSameProgressBreakdown(

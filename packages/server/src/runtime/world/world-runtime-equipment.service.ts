@@ -61,6 +61,7 @@ export class WorldRuntimeEquipmentService {
         const n1 = buildStructuredNotice('success', 'notice.equip.equipped', `装备 ${itemName}`, { vars: { itemName }, pills: [{ key: 'itemName', style: 'target' }] });
         deps.queuePlayerNotice(playerId, n1.text, n1.kind, undefined, undefined, n1.structured);
         deps.worldRuntimeCraftMutationService.emitAllTechniqueActivityPanelUpdates(playerId, deps);
+        deps?.requestPlayerDeltaSync?.(playerId);
     }    
     /**
  * dispatchUnequipItem：判断Unequip道具是否满足条件。
@@ -89,6 +90,7 @@ export class WorldRuntimeEquipmentService {
         const n2 = buildStructuredNotice('info', 'notice.equip.unequipped', `卸下 ${itemName}`, { vars: { itemName }, pills: [{ key: 'itemName', style: 'target' }] });
         deps.queuePlayerNotice(playerId, n2.text, n2.kind, undefined, undefined, n2.structured);
         deps.worldRuntimeCraftMutationService.emitAllTechniqueActivityPanelUpdates(playerId, deps);
+        deps?.requestPlayerDeltaSync?.(playerId);
     }
     /** 设置法宝槽位启用开关。 */
     async dispatchSetArtifactSlotEnabled(playerId, slot, enabled, deps) {

@@ -203,6 +203,7 @@ export class WorldGatewayActionHelper {
         playerId,
         this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.executeAction(playerId, actionId, target, this.gateway.worldRuntimeService),
       );
+      this.gateway.worldSyncService?.emitDeltaSync(playerId, client);
       if (actionId === 'realm:auto_refine_root_foundation' || actionId.startsWith('realm:auto_refine_root_foundation:')) {
         await this.gateway.playerPersistenceFlushService?.flushPlayer(playerId);
         this.gateway.worldSyncService?.emitDeltaSync(playerId, client);
@@ -222,6 +223,7 @@ export class WorldGatewayActionHelper {
       this.gateway.worldRuntimeService,
     );
     this.emitProtocolActionResult(client, playerId, result);
+    this.gateway.worldSyncService?.emitDeltaSync(playerId, client);
     if (actionId.startsWith('tower:tongtian:')) {
       await this.gateway.worldRuntimeService.worldRuntimeTongtianTowerService?.flushPlayerProgress(playerId);
       this.gateway.worldSyncService?.emitDeltaSync(playerId, client);

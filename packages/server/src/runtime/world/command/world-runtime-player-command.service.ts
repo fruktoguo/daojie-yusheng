@@ -140,6 +140,10 @@ function removeTechniqueActivityQueueItem(player, queueId) {
     return removed;
 }
 
+function requestPlayerDeltaSync(deps, playerId) {
+    deps?.requestPlayerDeltaSync?.(playerId);
+}
+
 function resolveTechniqueActivityJob(player, kind) {
     if (!player || typeof player !== 'object') {
         return null;
@@ -636,12 +640,15 @@ export class WorldRuntimePlayerCommandService {
                 return;
             case 'createFormation':
                 deps.worldRuntimeFormationService.dispatchCreateFormation(playerId, command.payload, deps);
+                requestPlayerDeltaSync(deps, playerId);
                 return;
             case 'setFormationActive':
                 deps.worldRuntimeFormationService.dispatchSetFormationActive(playerId, command.payload, deps);
+                requestPlayerDeltaSync(deps, playerId);
                 return;
             case 'refillFormation':
                 deps.worldRuntimeFormationService.dispatchRefillFormation(playerId, command.payload, deps);
+                requestPlayerDeltaSync(deps, playerId);
                 return;
             case 'equip':
                 return this.worldRuntimeEquipmentService.dispatchEquipItem(playerId, command.itemInstanceId, deps);
@@ -650,6 +657,7 @@ export class WorldRuntimePlayerCommandService {
                 return this.worldRuntimeEquipmentService.dispatchSetArtifactSlotEnabled(playerId, command.slot, command.enabled, deps);
             case 'dropItem':
                 this.worldRuntimeItemGroundService.dispatchDropItem(playerId, command.itemInstanceId, command.count, deps);
+                requestPlayerDeltaSync(deps, playerId);
                 return;
             case 'moveTo':
                 this.worldRuntimeNavigationService.dispatchMoveTo(playerId, command.x, command.y, command.allowNearestReachable, command.clientPathHint, command.mapId, deps);
@@ -674,9 +682,13 @@ export class WorldRuntimePlayerCommandService {
                 return this.dispatchCombatCommand(playerId, player, command, deps, () => runWithMiningJobCombatMarker(player, command, () => this.worldRuntimeCombatCommandService.dispatchEngageBattle(playerId, command.targetPlayerId, command.targetMonsterId, command.targetX, command.targetY, command.locked, deps)));
             }
             case 'takeGround':
-                return this.worldRuntimeItemGroundService.dispatchTakeGround(playerId, command.sourceId, command.itemKey, deps);
+                await this.worldRuntimeItemGroundService.dispatchTakeGround(playerId, command.sourceId, command.itemKey, deps);
+                requestPlayerDeltaSync(deps, playerId);
+                return;
             case 'takeGroundAll':
-                return this.worldRuntimeItemGroundService.dispatchTakeGroundAll(playerId, command.sourceId, deps);
+                await this.worldRuntimeItemGroundService.dispatchTakeGroundAll(playerId, command.sourceId, deps);
+                requestPlayerDeltaSync(deps, playerId);
+                return;
             case 'unequip':
                 return this.worldRuntimeEquipmentService.dispatchUnequipItem(playerId, command.slot, deps, command.expectedItemInstanceId);
                 return;
@@ -730,27 +742,37 @@ export class WorldRuntimePlayerCommandService {
             case 'cancelEnhancement':
                 return this.dispatchCancelTechniqueActivity(playerId, 'enhancement', deps);
             case 'startGather':
-                this.dispatchStartTechniqueActivity(playerId, 'gather', command.payload, deps);
+                await this.dispatchStartTechniqueActivity(playerId, 'gather', command.payload, deps);
+                requestPlayerDeltaSync(deps, playerId);
                 return;
             case 'cancelGather':
-                this.dispatchCancelTechniqueActivity(playerId, 'gather', deps);
+                await this.dispatchCancelTechniqueActivity(playerId, 'gather', deps);
+                requestPlayerDeltaSync(deps, playerId);
                 return;
             case 'startMining':
-                this.dispatchStartTechniqueActivity(playerId, 'mining', command.payload, deps);
+                await this.dispatchStartTechniqueActivity(playerId, 'mining', command.payload, deps);
+                requestPlayerDeltaSync(deps, playerId);
                 return;
             case 'cancelMining':
-                this.dispatchCancelTechniqueActivity(playerId, 'mining', deps);
+                await this.dispatchCancelTechniqueActivity(playerId, 'mining', deps);
+                requestPlayerDeltaSync(deps, playerId);
                 return;
             case 'startBuilding':
-                this.dispatchStartTechniqueActivity(playerId, 'building', { buildingId: command.buildingId }, deps);
+                await this.dispatchStartTechniqueActivity(playerId, 'building', { buildingId: command.buildingId }, deps);
+                requestPlayerDeltaSync(deps, playerId);
                 return;
             case 'cancelBuilding':
-                this.dispatchCancelTechniqueActivity(playerId, 'building', deps);
+                await this.dispatchCancelTechniqueActivity(playerId, 'building', deps);
+                requestPlayerDeltaSync(deps, playerId);
                 return;
             case 'startFormationMaintenance':
-                return this.dispatchStartTechniqueActivity(playerId, 'formation', command.payload, deps);
+                await this.dispatchStartTechniqueActivity(playerId, 'formation', command.payload, deps);
+                requestPlayerDeltaSync(deps, playerId);
+                return;
             case 'cancelFormationMaintenance':
-                return this.dispatchCancelTechniqueActivity(playerId, 'formation', deps);
+                await this.dispatchCancelTechniqueActivity(playerId, 'formation', deps);
+                requestPlayerDeltaSync(deps, playerId);
+                return;
             case 'cancelTechniqueActivity':
                 return this.dispatchCancelTechniqueActivityByRef(playerId, command.cancelRef, deps);
             case 'redeemCodes':

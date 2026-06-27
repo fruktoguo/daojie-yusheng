@@ -45,6 +45,7 @@ interface WorldGatewayPlayerControlsDeps {
   };
   worldSyncService?: {
     emitInitialSync(playerId: string, socketOverride?: Socket): void;
+    emitDeltaSync(playerId: string, socketOverride?: Socket): void;
   };
   playerRuntimeService: {
     getPlayer(playerId: string): {
@@ -169,6 +170,7 @@ export class WorldGatewayPlayerControlsHelper {
     }
     try {
       this.gateway.playerRuntimeService.updateAutoBattleSkills(playerId, payload?.skills ?? []);
+      this.gateway.worldSyncService?.emitDeltaSync(playerId, client);
     } catch (error) {
       this.gateway.worldClientEventService.emitGatewayError(client, 'UPDATE_AUTO_BATTLE_SKILLS_FAILED', error);
     }
@@ -184,6 +186,7 @@ export class WorldGatewayPlayerControlsHelper {
     }
     try {
       this.gateway.playerRuntimeService.updateAutoUsePills(playerId, payload?.pills ?? []);
+      this.gateway.worldSyncService?.emitDeltaSync(playerId, client);
     } catch (error) {
       this.gateway.worldClientEventService.emitGatewayError(client, 'UPDATE_AUTO_USE_PILLS_FAILED', error);
     }
@@ -199,6 +202,7 @@ export class WorldGatewayPlayerControlsHelper {
     }
     try {
       this.gateway.playerRuntimeService.updateCombatTargetingRules(playerId, payload?.combatTargetingRules);
+      this.gateway.worldSyncService?.emitDeltaSync(playerId, client);
     } catch (error) {
       this.gateway.worldClientEventService.emitGatewayError(client, 'UPDATE_COMBAT_TARGETING_RULES_FAILED', error);
     }
@@ -215,6 +219,7 @@ export class WorldGatewayPlayerControlsHelper {
     try {
       const mode = typeof payload === 'string' ? payload : payload?.mode;
       this.gateway.playerRuntimeService.updateAutoBattleTargetingMode(playerId, mode ?? 'auto');
+      this.gateway.worldSyncService?.emitDeltaSync(playerId, client);
     } catch (error) {
       this.gateway.worldClientEventService.emitGatewayError(client, 'UPDATE_AUTO_BATTLE_TARGETING_MODE_FAILED', error);
     }
@@ -234,6 +239,7 @@ export class WorldGatewayPlayerControlsHelper {
         payload?.techId ?? '',
         payload?.enabled !== false,
       );
+      this.gateway.worldSyncService?.emitDeltaSync(playerId, client);
     } catch (error) {
       this.gateway.worldClientEventService.emitGatewayError(client, 'UPDATE_TECHNIQUE_SKILL_AVAILABILITY_FAILED', error);
     }

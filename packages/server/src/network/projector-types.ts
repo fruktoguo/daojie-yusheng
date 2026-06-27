@@ -523,6 +523,7 @@ export interface ProjectedPanelCursor {
   artifactRevision: number;
   artifactSlotSignatures: Record<string, string>;
   techniqueRevision: number;
+  techniqueSignature: string;
   attrRevision: number;
   actionRevision: number;
   actionIds: string[];
