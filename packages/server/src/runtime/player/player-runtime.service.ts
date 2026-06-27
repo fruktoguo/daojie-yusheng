@@ -9889,6 +9889,7 @@ function shouldResumeIdleCultivation(player, currentTick) {
     if (player.hp <= 0
         || player.combat.cultivationActive
         || player.combat.autoIdleCultivation === false
+        || hasRemainingTechniqueActivityQueue(player)
         || hasAnyRemainingTechniqueJob(player)) {
         return false;
     }

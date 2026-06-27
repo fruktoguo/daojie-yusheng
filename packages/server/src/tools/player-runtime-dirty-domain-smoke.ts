@@ -1434,6 +1434,63 @@ function testIdleCultivationResumeIgnoresStaleNavigationBlockForPendingComprehen
   );
 }
 
+function testIdleCultivationResumeRequiresTenIdleTicksAndNoTechniqueQueue(): void {
+  const playerId = 'player:idle-cultivation-delay';
+  const service = createHydratedService(playerId);
+  const progressionService = createRealProgressionServiceForSmoke();
+  (service as unknown as { playerProgressionService: ReturnType<typeof createRealProgressionServiceForSmoke> }).playerProgressionService = progressionService;
+  const player = service.getPlayerOrThrow(playerId);
+  player.realm = {
+    stage: '炼气',
+    realmLv: 1,
+    progress: 0,
+    progressToNext: 100,
+    breakthroughReady: false,
+    nextStage: undefined,
+    breakthroughItems: [],
+    minTechniqueLevel: 1,
+    minTechniqueRealm: 1,
+  } as never;
+  player.combat.cultivationActive = false;
+  player.combat.autoIdleCultivation = true;
+  player.combat.lastActiveTick = 0;
+  player.lifeElapsedTicks = 8;
+  player.attrs.numericStats.realmExpPerTick = 1;
+  player.attrs.numericStats.techniqueExpPerTick = 1;
+  player.techniqueActivityQueue = [];
+  service.markPersisted(playerId);
+
+  service.advanceSinglePlayerTick(player, 9, {});
+  assert.equal(player.combat.cultivationActive, false);
+
+  service.advanceSinglePlayerTick(player, 10, {});
+  assert.equal(player.combat.cultivationActive, true);
+
+  player.combat.cultivationActive = false;
+  player.combat.lastActiveTick = 12;
+  player.lifeElapsedTicks = 20;
+  service.advanceSinglePlayerTick(player, 21, {});
+  assert.equal(player.combat.cultivationActive, false);
+  service.advanceSinglePlayerTick(player, 22, {});
+  assert.equal(player.combat.cultivationActive, true);
+
+  player.combat.cultivationActive = false;
+  player.combat.lastActiveTick = 0;
+  player.lifeElapsedTicks = 39;
+  player.techniqueActivityQueue = [{
+    queueId: 'queue:idle:block',
+    kind: 'gather',
+    state: 'sleeping',
+    payload: {},
+  }] as never;
+  service.advanceSinglePlayerTick(player, 40, {});
+  assert.equal(player.combat.cultivationActive, false);
+
+  player.techniqueActivityQueue = [];
+  service.advanceSinglePlayerTick(player, 41, {});
+  assert.equal(player.combat.cultivationActive, true);
+}
+
 function testAdvanceSinglePlayerTickAutoRefinesRootFoundation(): void {
   const playerId = 'player:tick-auto-root-foundation';
   const service = createHydratedService(playerId);
@@ -1648,6 +1705,7 @@ testLogbookDirtyDomain();
   testHeavenGateEnterRecalculatesAttributes();
   testAdvanceSinglePlayerTickDirtyDomain();
   testIdleCultivationResumeIgnoresStaleNavigationBlockForPendingComprehension();
+  testIdleCultivationResumeRequiresTenIdleTicksAndNoTechniqueQueue();
   testAdvanceSinglePlayerTickAutoRefinesRootFoundation();
   testEnableAutoRootFoundationStopsImmediatelyAtCap();
   testRespawnDirtyDomains();
