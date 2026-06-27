@@ -765,9 +765,9 @@
     .inventory-cell--grade {
       border-color: var(--inventory-grade-border);
       box-shadow:
-        inset 0 0 0 1px rgba(255,255,255,0.36),
-        inset 0 0 0 1px color-mix(in srgb, var(--inventory-grade-border) 90%, rgba(255,255,255,0.08)),
-        0 0 0 1px rgba(var(--inventory-grade-rgb), 0.05);
+        inset 0 0 0 1px rgba(255,255,255,0.5),
+        inset 0 0 0 1px color-mix(in srgb, var(--inventory-grade-border) 82%, rgba(255,255,255,0.18)),
+        0 0 0 1px rgba(var(--inventory-grade-rgb), 0.04);
     }
     .inventory-cell--grade::before {
       content: '';
@@ -776,13 +776,9 @@
       pointer-events: none;
       border-radius: 10px;
       background:
-        linear-gradient(180deg, rgba(var(--inventory-grade-rgb), 0.2), rgba(var(--inventory-grade-rgb), 0) 72%) top / 100% 18px no-repeat,
-        linear-gradient(0deg, rgba(var(--inventory-grade-rgb), 0.16), rgba(var(--inventory-grade-rgb), 0) 70%) bottom / 100% 16px no-repeat,
-        linear-gradient(90deg, rgba(var(--inventory-grade-rgb), 0.12), rgba(var(--inventory-grade-rgb), 0) 68%) left / 14px 100% no-repeat,
-        linear-gradient(270deg, rgba(var(--inventory-grade-rgb), 0.12), rgba(var(--inventory-grade-rgb), 0) 68%) right / 14px 100% no-repeat,
-        radial-gradient(circle at 10% 10%, rgba(var(--inventory-grade-rgb), 0.14), rgba(var(--inventory-grade-rgb), 0) 34%),
-        radial-gradient(circle at 90% 10%, rgba(var(--inventory-grade-rgb), 0.12), rgba(var(--inventory-grade-rgb), 0) 32%);
-      opacity: 0.9;
+        linear-gradient(180deg, rgba(var(--inventory-grade-rgb), 0.13), rgba(var(--inventory-grade-rgb), 0) 68%) top / 100% 18px no-repeat,
+        linear-gradient(0deg, rgba(var(--inventory-grade-rgb), 0.09), rgba(var(--inventory-grade-rgb), 0) 66%) bottom / 100% 16px no-repeat;
+      opacity: 0.76;
       z-index: 0;
     }
     .inventory-cell--grade::after {
@@ -792,41 +788,41 @@
       pointer-events: none;
       border-radius: 9px;
       box-shadow:
-        inset 0 0 14px rgba(var(--inventory-grade-rgb), 0.1),
-        inset 0 0 24px rgba(var(--inventory-grade-rgb), 0.05);
+        inset 0 0 12px rgba(var(--inventory-grade-rgb), 0.07),
+        inset 0 0 20px rgba(var(--inventory-grade-rgb), 0.035);
       z-index: 1;
     }
     .inventory-cell--grade-mortal {
-      --inventory-grade-border: rgba(126, 116, 104, 0.52);
-      --inventory-grade-rgb: 126, 116, 104;
+      --inventory-grade-border: rgba(139, 143, 149, 0.7);
+      --inventory-grade-rgb: 139, 143, 149;
     }
     .inventory-cell--grade-yellow {
-      --inventory-grade-border: rgba(173, 143, 74, 0.58);
-      --inventory-grade-rgb: 173, 143, 74;
+      --inventory-grade-border: rgba(199, 154, 38, 0.72);
+      --inventory-grade-rgb: 199, 154, 38;
     }
     .inventory-cell--grade-mystic {
-      --inventory-grade-border: rgba(96, 126, 170, 0.6);
-      --inventory-grade-rgb: 96, 126, 170;
+      --inventory-grade-border: rgba(79, 143, 216, 0.74);
+      --inventory-grade-rgb: 79, 143, 216;
     }
     .inventory-cell--grade-earth {
-      --inventory-grade-border: rgba(82, 134, 96, 0.62);
-      --inventory-grade-rgb: 82, 134, 96;
+      --inventory-grade-border: rgba(123, 97, 209, 0.74);
+      --inventory-grade-rgb: 123, 97, 209;
     }
     .inventory-cell--grade-heaven {
-      --inventory-grade-border: rgba(105, 154, 191, 0.64);
-      --inventory-grade-rgb: 105, 154, 191;
+      --inventory-grade-border: rgba(209, 107, 63, 0.76);
+      --inventory-grade-rgb: 209, 107, 63;
     }
     .inventory-cell--grade-spirit {
-      --inventory-grade-border: rgba(76, 153, 142, 0.64);
-      --inventory-grade-rgb: 76, 153, 142;
+      --inventory-grade-border: rgba(26, 163, 122, 0.76);
+      --inventory-grade-rgb: 26, 163, 122;
     }
     .inventory-cell--grade-saint {
-      --inventory-grade-border: rgba(183, 106, 132, 0.66);
-      --inventory-grade-rgb: 183, 106, 132;
+      --inventory-grade-border: rgba(210, 79, 127, 0.78);
+      --inventory-grade-rgb: 210, 79, 127;
     }
     .inventory-cell--grade-emperor {
-      --inventory-grade-border: rgba(146, 104, 178, 0.7);
-      --inventory-grade-rgb: 146, 104, 178;
+      --inventory-grade-border: rgba(211, 58, 44, 0.8);
+      --inventory-grade-rgb: 211, 58, 44;
     }
     .inventory-cell:hover {
       transform: translateY(-1px);
