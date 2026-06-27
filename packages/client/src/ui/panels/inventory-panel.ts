@@ -1456,6 +1456,7 @@ export class InventoryPanel {
     cell.dataset.itemRenderKey = renderKey;
     cell.dataset.openItem = String(slotIndex);
     cell.dataset.itemSlot = String(slotIndex);
+    cell.dataset.itemType = item.type;
     if (itemMeta.grade) {
       cell.dataset.itemGrade = itemMeta.grade;
     } else {

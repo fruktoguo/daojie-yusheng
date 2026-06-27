@@ -894,10 +894,26 @@
       justify-content: space-between;
       gap: 8px;
     }
+    .inventory-cell[data-item-type="consumable"] {
+      grid-template-rows: 20px minmax(38px, 1fr) auto;
+      min-height: 102px;
+    }
+    .inventory-cell[data-item-type="consumable"] .inventory-cell-head {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(4ch, max-content);
+      align-items: center;
+      min-height: 20px;
+    }
     .inventory-cell-type {
       font-size: var(--font-size-10);
       line-height: 1.2;
       color: var(--ink-grey);
+    }
+    .inventory-cell[data-item-type="consumable"] .inventory-cell-type {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
     .item-card-chip {
       position: absolute;
@@ -970,6 +986,13 @@
       font-weight: var(--font-weight-strong);
       color: var(--ink-black);
     }
+    .inventory-cell[data-item-type="consumable"] .inventory-cell-count {
+      justify-self: end;
+      min-width: 4ch;
+      font-variant-numeric: tabular-nums;
+      text-align: right;
+      white-space: nowrap;
+    }
     .inventory-cell-name {
       display: flex;
       align-items: center;
@@ -984,6 +1007,15 @@
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+    }
+    .inventory-cell[data-item-type="consumable"] .inventory-cell-name {
+      display: -webkit-box;
+      min-height: 38px;
+      max-height: 38px;
+      white-space: normal;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+      overflow-wrap: anywhere;
     }
     .inventory-cell-name--compact {
       font-size: var(--font-size-13);
@@ -1011,6 +1043,23 @@
     }
     .inventory-cell-actions .small-btn.danger {
       margin-left: auto;
+    }
+    .inventory-cell[data-item-type="consumable"] .inventory-cell-actions {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      align-items: center;
+      min-height: 24px;
+    }
+    .inventory-cell[data-item-type="consumable"] .inventory-cell-actions .small-btn {
+      width: 100%;
+      max-width: none;
+      justify-content: center;
+      padding-right: 4px;
+      padding-left: 4px;
+      text-align: center;
+    }
+    .inventory-cell[data-item-type="consumable"] .inventory-cell-actions .small-btn.danger {
+      margin-left: 0;
     }
 
     /* 装备槽 */
