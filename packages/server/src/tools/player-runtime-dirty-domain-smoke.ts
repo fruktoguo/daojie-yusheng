@@ -518,6 +518,29 @@ function testDebitWalletFallsBackToInventory(): void {
   assert.equal(service.getWalletBalanceByType(playerId, 'spirit_stone'), 2);
 }
 
+function testWalletAndMarketStorageDirtySnapshotIncludesDomains(): void {
+  const playerId = 'player:wallet-snapshot';
+  const service = createHydratedService(playerId);
+  const player = service.getPlayerOrThrow(playerId);
+
+  service.replaceWalletBalances(playerId, [
+    { walletType: 'spirit_stone', balance: 9, frozenBalance: 0, version: 3 },
+  ]);
+  player.marketStorage = {
+    items: [{ itemId: 'rat_tail', count: 2, storageItemId: 'storage:rat-tail:1', slotIndex: 1 }],
+  } as never;
+  service.markPersistenceDirtyDomains(player, ['market_storage']);
+
+  const snapshot = service.buildPersistenceSnapshot(playerId, new Set(['wallet', 'market_storage']));
+
+  assert.deepEqual(snapshot?.wallet?.balances, [
+    { walletType: 'spirit_stone', balance: 9, frozenBalance: 0, version: 3 },
+  ]);
+  assert.deepEqual(snapshot?.marketStorage?.items, [
+    { itemId: 'rat_tail', count: 2, storageItemId: 'storage:rat-tail:1', slotIndex: 1 },
+  ]);
+}
+
 function testOnlineItemStatisticRecordIsQueued(): void {
   const playerId = 'player:stat-online-item';
   const service = createHydratedService(playerId);
@@ -1680,6 +1703,7 @@ testLogbookDirtyDomain();
   testReceiveWalletItemDirtyDomain();
   testCreditWalletUsesInventoryCache();
   testDebitWalletFallsBackToInventory();
+  testWalletAndMarketStorageDirtySnapshotIncludesDomains();
   testOnlineItemStatisticRecordIsQueued();
   testOnlineSpiritStoneStatisticTotalsAndRecords();
   testOfflineAssetStatisticMergesWithoutExtraDuration();

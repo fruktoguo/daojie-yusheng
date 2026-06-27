@@ -7671,6 +7671,16 @@ function buildRuntimePlayerPersistenceSnapshot(player, mapTemplateRepository = n
             items: [],
             lockedItems: [],
         },
+        wallet: needsDomain('wallet') ? {
+            balances: Array.isArray(player.wallet?.balances)
+                ? player.wallet.balances.map((entry) => ({ ...entry }))
+                : [],
+        } : undefined,
+        marketStorage: needsDomain('market_storage') ? {
+            items: Array.isArray(player.marketStorage?.items)
+                ? player.marketStorage.items.map((entry) => ({ ...entry }))
+                : [],
+        } : undefined,
         equipment: needsDomain('equipment') ? {
             revision: player.equipment.revision,
             slots: player.equipment.slots.map((entry) => ({

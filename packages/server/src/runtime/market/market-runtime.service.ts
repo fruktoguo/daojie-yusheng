@@ -3015,7 +3015,7 @@ export class MarketRuntimeService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const player = this.playerRuntimeService.getPlayer(playerId);
-        if (player) {
+        if (player && this.hasActiveProjectionFence(playerId)) {
             this.captureOnlinePlayerState(playerId, context);
             if (this.playerRuntimeService.canReceiveInventoryItem(playerId, item.itemId)) {
                 this.playerRuntimeService.receiveInventoryItem(playerId, item);
@@ -3026,6 +3026,26 @@ export class MarketRuntimeService {
             return;
         }
         this.mergeStorageItem(playerId, item, context);
+    }
+    /**
+ * hasActiveProjectionFence：判断玩家当前是否拥有可用于分域投影的 session fence。
+ * @param playerId 玩家 ID。
+ * @returns 有 runtimeOwnerId 与 sessionEpoch 时返回 true。
+ */
+
+    hasActiveProjectionFence(playerId) {
+        const presence = typeof this.playerRuntimeService?.describePersistencePresence === 'function'
+            ? this.playerRuntimeService.describePersistencePresence(playerId)
+            : null;
+        const player = presence ? null : this.playerRuntimeService.getPlayer?.(playerId);
+        const fenceSource = presence ?? player;
+        const runtimeOwnerId = typeof fenceSource?.runtimeOwnerId === 'string' ? fenceSource.runtimeOwnerId.trim() : '';
+        const sessionEpoch = Number.isFinite(Number(presence?.sessionEpoch))
+            ? Math.max(0, Math.trunc(Number(presence.sessionEpoch)))
+            : Number.isFinite(Number(player?.sessionEpoch))
+                ? Math.max(0, Math.trunc(Number(player.sessionEpoch)))
+            : 0;
+        return Boolean(runtimeOwnerId && sessionEpoch > 0);
     }
     /**
  * mergeStorageItem：处理Storage道具并更新相关状态。
@@ -3339,6 +3359,10 @@ export class MarketRuntimeService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         if (context.onlinePlayerSnapshots.has(playerId)) {
+            return;
+        }
+
+        if (!this.hasActiveProjectionFence(playerId)) {
             return;
         }
 
@@ -3701,6 +3725,9 @@ export class MarketRuntimeService {
         const playerIds = Array.from(onlineSnapshots.keys());
         for (const affectedPlayerId of playerIds) {
             if (typeof affectedPlayerId !== 'string' || !affectedPlayerId) {
+                continue;
+            }
+            if (!this.hasActiveProjectionFence(affectedPlayerId)) {
                 continue;
             }
             try {
