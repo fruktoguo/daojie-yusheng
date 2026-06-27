@@ -853,9 +853,9 @@
     .inventory-cell-action-hint {
       position: absolute;
       left: 50%;
-      top: 50%;
+      top: 5px;
       z-index: 5;
-      max-width: calc(100% - 14px);
+      max-width: calc(100% - 58px);
       padding: 3px 8px 4px;
       border: 1px solid color-mix(in srgb, var(--inventory-grade-border, rgba(139, 48, 35, 0.46)) 70%, rgba(255,255,255,0.2));
       border-radius: 999px;
@@ -872,7 +872,7 @@
       text-overflow: ellipsis;
       pointer-events: none;
       opacity: 0;
-      transform: translate(-50%, -50%) scale(0.96);
+      transform: translate(-50%, -2px) scale(0.96);
       transition: opacity 0.14s ease, transform 0.14s ease;
     }
     .inventory-cell-action-hint[hidden] {
@@ -881,7 +881,7 @@
     .inventory-cell--actionable:hover .inventory-cell-action-hint,
     .inventory-cell--actionable:focus-within .inventory-cell-action-hint {
       opacity: 1;
-      transform: translate(-50%, -50%) scale(1);
+      transform: translate(-50%, 0) scale(1);
     }
     .inventory-cell--cooldown {
       border-color: color-mix(in srgb, var(--inventory-grade-border, rgba(94, 94, 94, 0.56)) 54%, rgba(139, 48, 35, 0.38));
