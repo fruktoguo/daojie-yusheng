@@ -1509,7 +1509,10 @@ export class InventoryPanel {
   }
 
   private usesInventoryGradeLine(item: ItemStack): boolean {
-    return item.type === 'consumable' || item.type === 'material' || item.type === 'skill_book';
+    return item.type === 'equipment'
+      || item.type === 'consumable'
+      || item.type === 'material'
+      || item.type === 'skill_book';
   }
 
   private getInventoryGradeLineLabel(item: ItemStack): string | null {
