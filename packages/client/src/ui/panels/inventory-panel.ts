@@ -884,6 +884,7 @@ export class InventoryPanel {
     const primaryAction = this.getPrimaryAction(item, cooldownState);
     const gradeLineLabel = this.getInventoryGradeLineLabel(item);
     const ribbon = this.getInventoryCellRibbon(item, itemMeta);
+    const primaryActionHint = this.getPrimaryActionHint(primaryAction);
     return {
       slotIndex,
       itemInstanceId: this.getInventoryItemInstanceId(item) || null,
@@ -896,10 +897,11 @@ export class InventoryPanel {
       ribbonLabel: ribbon?.label,
       ribbonTitle: ribbon?.title,
       gradeLineLabel: gradeLineLabel ?? undefined,
-      cellClassName: `${getItemDecorClassName('inventory-cell', item)}${cooldownState ? ' inventory-cell--cooldown' : ''}`,
+      cellClassName: `${getItemDecorClassName('inventory-cell', item)}${cooldownState ? ' inventory-cell--cooldown' : ''}${primaryActionHint ? ' inventory-cell--actionable' : ''}`,
       grade: itemMeta.grade ?? undefined,
       levelLabel: itemMeta.levelLabel ?? undefined,
       enhanceLabel: itemMeta.enhanceLabel ?? undefined,
+      primaryActionHint: primaryActionHint ?? undefined,
       cooldown: cooldownState
         ? {
           title: this.getItemCooldownTitle(cooldownState, cooldownRemaining),
@@ -1284,7 +1286,12 @@ export class InventoryPanel {
     name.className = 'inventory-cell-name';
     name.dataset.itemName = 'true';
 
-    cell.append(cooldown, head, gradeLine, name);
+    const actionHint = document.createElement('span');
+    actionHint.className = 'inventory-cell-action-hint';
+    actionHint.dataset.itemActionHintNode = 'true';
+    actionHint.hidden = true;
+
+    cell.append(cooldown, head, gradeLine, name, actionHint);
     this.cellRefs.set(cell, {
       type,
       count,
@@ -1327,7 +1334,7 @@ export class InventoryPanel {
     cooldownRemaining: number,
   ): string {
     return [
-      'ribbon-v4',
+      'ribbon-v5',
       String(slotIndex),
       itemIdentity,
       String(item.count),
@@ -1388,6 +1395,8 @@ export class InventoryPanel {
 
     const itemMeta = getItemDisplayMeta(item);
     const displayName = itemMeta.displayItem.name;
+    const primaryAction = this.getPrimaryAction(item, cooldownState);
+    const primaryActionHint = this.getPrimaryActionHint(primaryAction);
     cell.querySelector<HTMLElement>('[data-item-affinity="true"]')?.remove();
 
     let levelNode = cell.querySelector<HTMLElement>('[data-item-level="true"]');
@@ -1434,6 +1443,12 @@ export class InventoryPanel {
     }
     cell.className = getItemDecorClassName('inventory-cell', item);
     cell.classList.toggle('inventory-cell--cooldown', cooldownState !== null);
+    cell.classList.toggle('inventory-cell--actionable', primaryActionHint !== null);
+    if (primaryActionHint) {
+      cell.dataset.itemActionHint = primaryActionHint;
+    } else {
+      delete cell.dataset.itemActionHint;
+    }
 
     const ribbon = this.getInventoryCellRibbon(item, itemMeta);
     refs.type.hidden = !ribbon;
@@ -1449,6 +1464,15 @@ export class InventoryPanel {
     refs.name.textContent = displayName;
     refs.name.setAttribute('aria-label', displayName);
     refs.name.className = 'inventory-cell-name';
+    let actionHintNode = cell.querySelector<HTMLElement>('[data-item-action-hint-node="true"]');
+    if (!actionHintNode) {
+      actionHintNode = document.createElement('span');
+      actionHintNode.className = 'inventory-cell-action-hint';
+      actionHintNode.dataset.itemActionHintNode = 'true';
+      cell.append(actionHintNode);
+    }
+    actionHintNode.hidden = !primaryActionHint;
+    actionHintNode.textContent = primaryActionHint ?? '';
 
     refs.cooldown.hidden = cooldownState === null;
     if (cooldownState) {
@@ -1585,6 +1609,7 @@ export class InventoryPanel {
           this.sourceExpanded = !this.sourceExpanded;
           this.renderModal();
         }, { signal });
+        this.bindItemDetailActions(body, signal, item, slotIndex);
       },
     });
     this.lastModalRenderKey = this.buildModalRenderKey(item);
@@ -2424,6 +2449,7 @@ export class InventoryPanel {
     statusLabel: string | null,
   ): void {
     const previewItem = resolvePreviewItem(item);
+    const actionHtml = this.renderItemDetailActionsHtml(item);
     replaceElementHtml(body, `
       <div class="quest-detail-grid inventory-detail-grid">
         <div class="quest-detail-section">
@@ -2466,7 +2492,64 @@ export class InventoryPanel {
           ? `<button class="small-btn ghost inventory-source-toggle" data-inventory-source-toggle="true" type="button">${this.sourceExpanded ? t('inventory.source.collapse', undefined) : t('inventory.source.expand-all', { count: sourceEntryCount })}</button>`
           : ''}
       </div>
+      ${actionHtml}
     `);
+  }
+
+  private renderItemDetailActionsHtml(item: ItemStack): string {
+    const primaryAction = this.getPrimaryAction(item);
+    const canUseBatch = this.canBatchUseFromDetail(item, primaryAction);
+    const primaryButton = this.isPrimaryActionable(primaryAction)
+      ? `<button class="small-btn" type="button" data-inventory-detail-action="primary">${this.escapeHtml(primaryAction.label)}</button>`
+      : '';
+    const batchUseButton = canUseBatch
+      ? `<button class="small-btn ghost" type="button" data-inventory-detail-action="batch-use">${t('inventory.action.batch-use', undefined)}</button>`
+      : '';
+    const dropButton = this.onDropItem
+      ? `<button class="small-btn ghost" type="button" data-inventory-detail-action="drop">${item.count > 1 ? t('inventory.action.batch-drop', undefined) : t('inventory.action.drop-one', undefined)}</button>`
+      : '';
+    const destroyButton = this.onDestroyItem
+      ? `<button class="small-btn ghost danger" type="button" data-inventory-detail-action="destroy">${item.count > 1 ? t('inventory.action.batch-destroy', undefined) : t('inventory.action.destroy', undefined)}</button>`
+      : '';
+    if (!primaryButton && !batchUseButton && !dropButton && !destroyButton) {
+      return '';
+    }
+    return `
+      <div class="inventory-detail-actions">
+        <div class="inventory-detail-actions-group">
+          ${primaryButton}
+          ${batchUseButton}
+        </div>
+        <div class="inventory-detail-actions-group inventory-detail-actions-group--right">
+          ${dropButton}
+          ${destroyButton}
+        </div>
+      </div>
+    `;
+  }
+
+  private bindItemDetailActions(body: HTMLElement, signal: AbortSignal, item: ItemStack, slotIndex: number): void {
+    body.querySelectorAll<HTMLElement>('[data-inventory-detail-action]').forEach((button) => {
+      button.addEventListener('click', (event) => {
+        event.stopPropagation();
+        const action = button.dataset.inventoryDetailAction;
+        if (action === 'primary') {
+          this.handlePrimaryAction(slotIndex, this.getInventoryItemInstanceId(item), { closeModal: true });
+          return;
+        }
+        if (action === 'batch-use') {
+          this.openActionDialog('use', slotIndex, item.count);
+          return;
+        }
+        if (action === 'drop') {
+          this.openActionDialog('drop', slotIndex, item.count);
+          return;
+        }
+        if (action === 'destroy') {
+          this.openActionDialog('destroy', slotIndex, item.count);
+        }
+      }, { signal });
+    });
   }
 
   /** renderDestroyConfirmBody：渲染摧毁确认主体。 */
@@ -3085,6 +3168,27 @@ export class InventoryPanel {
       return { label: t('inventory.action.label.use', undefined), kind: 'use' };
     }
     return null;
+  }
+
+  private isPrimaryActionable(action: InventoryPrimaryAction | null): action is InventoryPrimaryAction {
+    return action !== null && action.kind !== 'status' && action.disabled !== true;
+  }
+
+  private getPrimaryActionHint(action: InventoryPrimaryAction | null): string | null {
+    if (!this.isPrimaryActionable(action)) {
+      return null;
+    }
+    return `右键${action.label}`;
+  }
+
+  private canBatchUseFromDetail(item: ItemStack, primaryAction: InventoryPrimaryAction | null): boolean {
+    return this.isPrimaryActionable(primaryAction)
+      && primaryAction.kind === 'use'
+      && item.type === 'consumable'
+      && item.count > 1
+      && !this.isFormationDiskItem(item)
+      && !this.isSectFoundingTokenItem(item)
+      && item.itemId !== MERIT_ITEM_ID;
   }
 
   private isFormationDiskItem(item: ItemStack): boolean {

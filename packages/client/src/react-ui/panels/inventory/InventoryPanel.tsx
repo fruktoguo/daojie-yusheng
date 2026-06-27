@@ -25,6 +25,7 @@ export interface ReactInventoryItemView {
   grade?: string;
   levelLabel?: string;
   enhanceLabel?: string;
+  primaryActionHint?: string;
   cooldown?: {
     title: string;
     progress: string;
@@ -198,6 +199,7 @@ const InventoryCell = memo(function InventoryCell({ item }: { item: ReactInvento
       data-item-type={item.itemType}
       data-item-grade={item.grade}
       data-item-grade-line-visible={item.gradeLineLabel ? 'true' : undefined}
+      data-item-action-hint={item.primaryActionHint}
       onContextMenu={(event) => {
         event.preventDefault();
         if (!item.primaryAction || item.primaryAction.disabled === true) {
@@ -250,6 +252,11 @@ const InventoryCell = memo(function InventoryCell({ item }: { item: ReactInvento
       {item.enhanceLabel && (
         <span className="item-card-chip item-card-chip--enhance" data-item-enhance="true">
           {item.enhanceLabel}
+        </span>
+      )}
+      {item.primaryActionHint && (
+        <span className="inventory-cell-action-hint" data-item-action-hint-node="true">
+          {item.primaryActionHint}
         </span>
       )}
     </div>
