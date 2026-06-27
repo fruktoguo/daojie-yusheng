@@ -745,9 +745,9 @@
       display: grid;
       grid-template-rows: 18px minmax(34px, 1fr);
       gap: 4px;
-      min-height: 76px;
+      min-height: 82px;
       width: 100%;
-      padding: 8px 8px 10px;
+      padding: 10px 8px 16px;
       border: 1px solid var(--wash-ink);
       background: var(--surface-gradient-entry);
       box-shadow: inset 0 0 0 1px rgba(255,255,255,0.5);
@@ -755,7 +755,7 @@
       text-align: left;
       cursor: pointer;
       position: relative;
-      overflow: visible;
+      overflow: hidden;
       isolation: isolate;
     }
     .inventory-cell > * {
@@ -896,10 +896,10 @@
     }
     .inventory-cell-type {
       position: absolute;
-      top: 7px;
-      left: -25px;
+      top: 4px;
+      left: -31px;
       z-index: 3;
-      width: 78px;
+      width: 86px;
       padding: 2px 0;
       background: color-mix(in srgb, rgba(var(--inventory-grade-rgb, 94, 94, 94), 0.9) 72%, var(--ink-black));
       color: #f8f2e8;
@@ -949,8 +949,8 @@
       text-overflow: ellipsis;
     }
     .item-card-chip--level {
-      right: -2px;
-      bottom: -8px;
+      right: 4px;
+      bottom: 3px;
       color: color-mix(in srgb, var(--inventory-grade-border, rgba(94, 94, 94, 0.56)) 82%, var(--ink-black));
       border: 1px solid color-mix(in srgb, var(--inventory-grade-border, rgba(94, 94, 94, 0.56)) 88%, rgba(255,255,255,0.12));
       background:
@@ -960,8 +960,8 @@
         0 0 14px rgba(var(--inventory-grade-rgb, 94, 94, 94), 0.16);
     }
     .item-card-chip--affinity {
-      left: -2px;
-      bottom: -8px;
+      left: 4px;
+      bottom: 3px;
       color: color-mix(in srgb, rgba(var(--item-chip-rgb, 94, 94, 94), 0.92) 82%, var(--ink-black));
       border: 1px solid rgba(var(--item-chip-rgb, 94, 94, 94), 0.42);
       background:
