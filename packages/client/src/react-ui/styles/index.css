@@ -214,8 +214,8 @@
 }
 
 .react-ui-game-item--grade-yellow {
-  --react-ui-item-grade-border: rgba(199, 154, 38, 0.72);
-  --react-ui-item-grade-rgb: 199, 154, 38;
+  --react-ui-item-grade-border: rgba(69, 179, 107, 0.72);
+  --react-ui-item-grade-rgb: 69, 179, 107;
 }
 
 .react-ui-game-item--grade-mystic {
@@ -229,23 +229,31 @@
 }
 
 .react-ui-game-item--grade-heaven {
-  --react-ui-item-grade-border: rgba(209, 107, 63, 0.76);
-  --react-ui-item-grade-rgb: 209, 107, 63;
+  --react-ui-item-grade-border: rgba(226, 138, 46, 0.76);
+  --react-ui-item-grade-rgb: 226, 138, 46;
 }
 
 .react-ui-game-item--grade-spirit {
-  --react-ui-item-grade-border: rgba(26, 163, 122, 0.76);
-  --react-ui-item-grade-rgb: 26, 163, 122;
+  --react-ui-item-grade-border: rgba(37, 184, 216, 0.76);
+  --react-ui-item-grade-rgb: 37, 184, 216;
 }
 
 .react-ui-game-item--grade-saint {
-  --react-ui-item-grade-border: rgba(210, 79, 127, 0.78);
-  --react-ui-item-grade-rgb: 210, 79, 127;
+  --react-ui-item-grade-border: rgba(217, 74, 74, 0.78);
+  --react-ui-item-grade-rgb: 217, 74, 74;
 }
 
 .react-ui-game-item--grade-emperor {
-  --react-ui-item-grade-border: rgba(211, 58, 44, 0.8);
-  --react-ui-item-grade-rgb: 211, 58, 44;
+  --react-ui-item-grade-border: rgba(236, 86, 72, 0.82);
+  --react-ui-item-grade-rgb: 236, 86, 72;
+}
+
+.react-ui-game-item--grade-emperor::before {
+  background:
+    linear-gradient(115deg, rgba(236, 86, 72, 0.16), rgba(229, 151, 43, 0.14) 18%, rgba(227, 204, 63, 0.12) 34%, rgba(69, 179, 107, 0.13) 50%, rgba(37, 184, 216, 0.14) 66%, rgba(123, 97, 209, 0.15) 82%, rgba(210, 79, 183, 0.16)),
+    linear-gradient(180deg, rgba(var(--react-ui-item-grade-rgb), 0.08), rgba(var(--react-ui-item-grade-rgb), 0) 68%) top / 100% 18px no-repeat,
+    linear-gradient(0deg, rgba(var(--react-ui-item-grade-rgb), 0.06), rgba(var(--react-ui-item-grade-rgb), 0) 66%) bottom / 100% 16px no-repeat;
+  opacity: 0.82;
 }
 
 .react-ui-game-item:hover,

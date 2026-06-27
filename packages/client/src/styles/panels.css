@@ -797,8 +797,8 @@
       --inventory-grade-rgb: 139, 143, 149;
     }
     .inventory-cell--grade-yellow {
-      --inventory-grade-border: rgba(199, 154, 38, 0.72);
-      --inventory-grade-rgb: 199, 154, 38;
+      --inventory-grade-border: rgba(69, 179, 107, 0.72);
+      --inventory-grade-rgb: 69, 179, 107;
     }
     .inventory-cell--grade-mystic {
       --inventory-grade-border: rgba(79, 143, 216, 0.74);
@@ -809,20 +809,27 @@
       --inventory-grade-rgb: 123, 97, 209;
     }
     .inventory-cell--grade-heaven {
-      --inventory-grade-border: rgba(209, 107, 63, 0.76);
-      --inventory-grade-rgb: 209, 107, 63;
+      --inventory-grade-border: rgba(226, 138, 46, 0.76);
+      --inventory-grade-rgb: 226, 138, 46;
     }
     .inventory-cell--grade-spirit {
-      --inventory-grade-border: rgba(26, 163, 122, 0.76);
-      --inventory-grade-rgb: 26, 163, 122;
+      --inventory-grade-border: rgba(37, 184, 216, 0.76);
+      --inventory-grade-rgb: 37, 184, 216;
     }
     .inventory-cell--grade-saint {
-      --inventory-grade-border: rgba(210, 79, 127, 0.78);
-      --inventory-grade-rgb: 210, 79, 127;
+      --inventory-grade-border: rgba(217, 74, 74, 0.78);
+      --inventory-grade-rgb: 217, 74, 74;
     }
     .inventory-cell--grade-emperor {
-      --inventory-grade-border: rgba(211, 58, 44, 0.8);
-      --inventory-grade-rgb: 211, 58, 44;
+      --inventory-grade-border: rgba(236, 86, 72, 0.82);
+      --inventory-grade-rgb: 236, 86, 72;
+    }
+    .inventory-cell--grade-emperor::before {
+      background:
+        linear-gradient(115deg, rgba(236, 86, 72, 0.16), rgba(229, 151, 43, 0.14) 18%, rgba(227, 204, 63, 0.12) 34%, rgba(69, 179, 107, 0.13) 50%, rgba(37, 184, 216, 0.14) 66%, rgba(123, 97, 209, 0.15) 82%, rgba(210, 79, 183, 0.16)),
+        linear-gradient(180deg, rgba(var(--inventory-grade-rgb), 0.08), rgba(var(--inventory-grade-rgb), 0) 68%) top / 100% 18px no-repeat,
+        linear-gradient(0deg, rgba(var(--inventory-grade-rgb), 0.06), rgba(var(--inventory-grade-rgb), 0) 66%) bottom / 100% 16px no-repeat;
+      opacity: 0.82;
     }
     .inventory-cell:hover {
       transform: translateY(-1px);
