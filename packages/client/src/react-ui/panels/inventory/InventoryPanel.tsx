@@ -24,6 +24,7 @@ export interface ReactInventoryItemView {
   cellClassName: string;
   grade?: string;
   levelLabel?: string;
+  enhanceLabel?: string;
   cooldown?: {
     title: string;
     progress: string;
@@ -244,6 +245,11 @@ const InventoryCell = memo(function InventoryCell({ item }: { item: ReactInvento
       {item.levelLabel && (
         <span className="item-card-chip item-card-chip--level" data-item-level="true">
           {item.levelLabel}
+        </span>
+      )}
+      {item.enhanceLabel && (
+        <span className="item-card-chip item-card-chip--enhance" data-item-enhance="true">
+          {item.enhanceLabel}
         </span>
       )}
     </div>

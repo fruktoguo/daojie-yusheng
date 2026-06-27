@@ -29,6 +29,7 @@
     "itemId": "spirit_stone",
     "name": "灵石",
     "type": "consumable",
+    "grade": "heaven",
     "desc": "内蕴温和灵机，捏碎后可滋养脚下地脉。使用时为当前所处地块增加 100 点灵力，可批量使用。",
     "tileAuraGainAmount": 100,
     "allowBatchUse": true
@@ -37,6 +38,7 @@
     "itemId": "merit",
     "name": "功德",
     "type": "consumable",
+    "grade": "saint",
     "desc": "天道垂记的无形功业，可在天道商店中兑换稀有物资。"
   },
   {
@@ -52,7 +54,7 @@
     "itemId": "merit_eternal",
     "name": "永恒",
     "type": "consumable",
-    "grade": "heaven",
+    "grade": "saint",
     "desc": "使用后为功德月卡总池增加 90000 功德，并将领取时间重置为 30 天；永久拥有功德月卡权益，每日签到固定池增加 1000 功德，天道商店所有物品打 9 折。只要不被击杀，离线挂机不会因时长耗尽而离场。",
     "allowBatchUse": true,
     "useBehavior": "activate_merit_eternal"
@@ -395,6 +397,7 @@
     "itemId": "fate_stone",
     "name": "命石",
     "type": "consumable",
+    "grade": "heaven",
     "level": 1,
     "desc": "以当前地脉落脚处为引的命石。只能在云来镇、栖真渡、云墟台或自己所属宗门使用，使用后会将当前地图设为复活点与遁返落点。",
     "useBehavior": "bind_current_respawn"

@@ -68,6 +68,11 @@ export interface ItemDisplayMeta {
 
   levelLabel: string | null;  
   /**
+ * enhanceLabel：强化等级显示文本。
+ */
+
+  enhanceLabel: string | null;  
+  /**
  * affinityBadge：affinityBadge相关字段。
  */
 
@@ -186,13 +191,15 @@ export function getItemDisplayMeta(item: ItemStack): ItemDisplayMeta {
     ? Math.max(1, Math.floor(techniqueTemplate?.realmLv ?? 1))
     : null;
   const realmEntry = techniqueRealmLv ? getLocalRealmLevelEntry(techniqueRealmLv) : null;
+  const isEnhanceableItem = displayItem.type === 'equipment' || displayItem.type === 'artifact';
   return {
     displayItem,
     grade,
     gradeLabel: grade ? getTechniqueGradeLabel(grade) : null,
     levelLabel: displayItem.type === 'skill_book'
       ? (realmEntry?.displayName ?? (techniqueRealmLv ? `境${formatDisplayInteger(techniqueRealmLv)}` : null))
-      : (enhanceLevel > 0 ? `+${formatDisplayInteger(enhanceLevel)}` : (level > 0 ? `Lv.${formatDisplayInteger(level)}` : null)),
+      : (level > 0 ? `Lv.${formatDisplayInteger(level)}` : null),
+    enhanceLabel: isEnhanceableItem && enhanceLevel > 0 ? `+${formatDisplayInteger(enhanceLevel)}` : null,
     affinityBadge: getItemAffinityBadge(displayItem),
   };
 }
@@ -243,5 +250,4 @@ export function getItemAffinityBadge(item: ItemStack): ItemAffinityBadge | null 
     element,
   };
 }
-
 

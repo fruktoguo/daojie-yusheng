@@ -182,7 +182,7 @@
   box-shadow:
     inset 0 0 0 1px rgba(255,255,255,0.5),
     inset 0 0 0 1px color-mix(in srgb, var(--react-ui-item-grade-border) 82%, rgba(255,255,255,0.18)),
-    0 0 0 1px rgba(var(--react-ui-item-grade-rgb), 0.04);
+    0 0 0 1px rgba(var(--react-ui-item-grade-rgb), 0.08);
 }
 
 .react-ui-game-item--grade::before {
@@ -191,9 +191,9 @@
   inset: 0;
   pointer-events: none;
   background:
-    linear-gradient(180deg, rgba(var(--react-ui-item-grade-rgb), 0.13), rgba(var(--react-ui-item-grade-rgb), 0) 68%) top / 100% 18px no-repeat,
-    linear-gradient(0deg, rgba(var(--react-ui-item-grade-rgb), 0.09), rgba(var(--react-ui-item-grade-rgb), 0) 66%) bottom / 100% 16px no-repeat;
-  opacity: 0.76;
+    linear-gradient(180deg, rgba(var(--react-ui-item-grade-rgb), 0.24), rgba(var(--react-ui-item-grade-rgb), 0.06) 64%, rgba(var(--react-ui-item-grade-rgb), 0) 100%) top / 100% 28px no-repeat,
+    linear-gradient(0deg, rgba(var(--react-ui-item-grade-rgb), 0.18), rgba(var(--react-ui-item-grade-rgb), 0.04) 62%, rgba(var(--react-ui-item-grade-rgb), 0) 100%) bottom / 100% 24px no-repeat;
+  opacity: 0.94;
   z-index: 0;
 }
 
@@ -203,8 +203,8 @@
   inset: 0;
   pointer-events: none;
   box-shadow:
-    inset 0 0 12px rgba(var(--react-ui-item-grade-rgb), 0.07),
-    inset 0 0 20px rgba(var(--react-ui-item-grade-rgb), 0.035);
+    inset 0 0 14px rgba(var(--react-ui-item-grade-rgb), 0.12),
+    inset 0 0 24px rgba(var(--react-ui-item-grade-rgb), 0.06);
   z-index: 1;
 }
 
@@ -250,10 +250,10 @@
 
 .react-ui-game-item--grade-emperor::before {
   background:
-    linear-gradient(115deg, rgba(236, 86, 72, 0.16), rgba(229, 151, 43, 0.14) 18%, rgba(227, 204, 63, 0.12) 34%, rgba(69, 179, 107, 0.13) 50%, rgba(37, 184, 216, 0.14) 66%, rgba(123, 97, 209, 0.15) 82%, rgba(210, 79, 183, 0.16)),
-    linear-gradient(180deg, rgba(var(--react-ui-item-grade-rgb), 0.08), rgba(var(--react-ui-item-grade-rgb), 0) 68%) top / 100% 18px no-repeat,
-    linear-gradient(0deg, rgba(var(--react-ui-item-grade-rgb), 0.06), rgba(var(--react-ui-item-grade-rgb), 0) 66%) bottom / 100% 16px no-repeat;
-  opacity: 0.82;
+    linear-gradient(115deg, rgba(236, 86, 72, 0.3), rgba(229, 151, 43, 0.25) 18%, rgba(227, 204, 63, 0.22) 34%, rgba(69, 179, 107, 0.24) 50%, rgba(37, 184, 216, 0.25) 66%, rgba(123, 97, 209, 0.27) 82%, rgba(210, 79, 183, 0.3)),
+    linear-gradient(180deg, rgba(var(--react-ui-item-grade-rgb), 0.14), rgba(var(--react-ui-item-grade-rgb), 0) 68%) top / 100% 28px no-repeat,
+    linear-gradient(0deg, rgba(var(--react-ui-item-grade-rgb), 0.1), rgba(var(--react-ui-item-grade-rgb), 0) 66%) bottom / 100% 24px no-repeat;
+  opacity: 0.96;
 }
 
 .react-ui-game-item:hover,

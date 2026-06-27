@@ -899,6 +899,7 @@ export class InventoryPanel {
       cellClassName: `${getItemDecorClassName('inventory-cell', item)}${cooldownState ? ' inventory-cell--cooldown' : ''}`,
       grade: itemMeta.grade ?? undefined,
       levelLabel: itemMeta.levelLabel ?? undefined,
+      enhanceLabel: itemMeta.enhanceLabel ?? undefined,
       cooldown: cooldownState
         ? {
           title: this.getItemCooldownTitle(cooldownState, cooldownRemaining),
@@ -1326,7 +1327,7 @@ export class InventoryPanel {
     cooldownRemaining: number,
   ): string {
     return [
-      'ribbon-v2',
+      'ribbon-v4',
       String(slotIndex),
       itemIdentity,
       String(item.count),
@@ -1402,6 +1403,19 @@ export class InventoryPanel {
       levelNode?.remove();
     }
 
+    let enhanceNode = cell.querySelector<HTMLElement>('[data-item-enhance="true"]');
+    if (itemMeta.enhanceLabel) {
+      if (!enhanceNode) {
+        enhanceNode = document.createElement('span');
+        enhanceNode.className = 'item-card-chip item-card-chip--enhance';
+        enhanceNode.dataset.itemEnhance = 'true';
+        cell.append(enhanceNode);
+      }
+      enhanceNode.textContent = itemMeta.enhanceLabel;
+    } else {
+      enhanceNode?.remove();
+    }
+
     cell.dataset.itemKey = itemIdentity;
     cell.dataset.itemRenderKey = renderKey;
     cell.dataset.openItem = String(slotIndex);
@@ -1459,7 +1473,29 @@ export class InventoryPanel {
     if (item.type === 'skill_book') {
       return { label: '功法' };
     }
+    if (item.type === 'material') {
+      return {
+        label: this.getInventoryMaterialRibbonLabel(item),
+        title: getItemTypeLabel(item.type),
+      };
+    }
+    if (item.type === 'consumable' || item.type === 'equipment' || item.type === 'artifact') {
+      return { label: getItemTypeLabel(item.type) };
+    }
     return null;
+  }
+
+  private getInventoryMaterialRibbonLabel(item: ItemStack): string {
+    switch (item.materialCategory) {
+      case 'herb':
+        return '药材';
+      case 'exotic':
+        return '异材';
+      case 'ore':
+        return '矿石';
+      default:
+        return getItemTypeLabel(item.type);
+    }
   }
 
   private getInventoryGradeLineLabel(_item: ItemStack): string | null {
