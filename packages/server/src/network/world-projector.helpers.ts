@@ -113,7 +113,7 @@ const portalProjectionCache = new WeakMap<ProjectorPortalLike, ProjectedPortalEn
 const groundPileProjectionCache = new WeakMap<ProjectorGroundPileLike, ProjectedGroundPileEntry>();
 const containerProjectionCache = new WeakMap<ProjectorContainerLike, ProjectedContainerEntry>();
 const buildingProjectionCache = new WeakMap<ProjectorBuildingLike, ProjectedBuildingEntry>();
-const formationProjectionCache = new WeakMap<ProjectorFormationLike, ProjectedFormationEntry>();
+const formationProjectionCache = new WeakMap<ProjectorFormationLike, { signature: string; projected: ProjectedFormationEntry }>();
 const attrBonusCloneCache = new WeakMap<AttrBonus[], AttrBonus[]>();
 const projectedAttrBonusCache = new WeakMap<ProjectorPlayerLike, { signature: string; bonuses: AttrBonus[] }>();
 const EMPTY_VISIBLE_BUFFS: VisibleBuffState[] = [];
@@ -768,13 +768,39 @@ function projectBuildingEntry(entry: ProjectorBuildingLike): ProjectedBuildingEn
 }
 
 function projectFormationEntry(entry: ProjectorFormationLike): ProjectedFormationEntry {
+    const signature = buildFormationProjectionSignature(entry);
     const cached = formationProjectionCache.get(entry);
-    if (cached) { return cached; }
+    if (cached?.signature === signature) { return cached.projected; }
     const projected = freezeProjectedEntry({
         x: entry.x, y: entry.y, n: entry.name, ch: entry.char ?? '◎', c: entry.active === false ? '#9aa0a6' : entry.color ?? '#4da3ff', ac: entry.active === false ? 0 as const : 1 as const, rs: normalizeOptionalNonNegativeInteger(entry.radius), sh: entry.rangeShape, hl: entry.rangeHighlightColor, bch: entry.boundaryChar, bc: entry.boundaryColor, bhl: entry.boundaryRangeHighlightColor, ev: entry.eyeVisibleWithoutSenseQi === true ? 1 as const : 0 as const, rv: entry.rangeVisibleWithoutSenseQi === true ? 1 as const : 0 as const, bv: entry.boundaryVisibleWithoutSenseQi === true ? 1 as const : 0 as const, tx: entry.showText === false ? 0 as const : 1 as const, bd: entry.blocksBoundary === true ? 1 as const : 0 as const, os: entry.ownerSectId ?? null, op: entry.ownerPlayerId ?? null, lt: entry.lifecycle === 'persistent' ? 1 as const : 0 as const,
     });
-    formationProjectionCache.set(entry, projected);
+    formationProjectionCache.set(entry, { signature, projected });
     return projected;
+}
+
+function buildFormationProjectionSignature(entry: ProjectorFormationLike): string {
+    return [
+        entry.x,
+        entry.y,
+        entry.name,
+        entry.char ?? '◎',
+        entry.active === false ? 0 : 1,
+        entry.active === false ? '#9aa0a6' : entry.color ?? '#4da3ff',
+        normalizeOptionalNonNegativeInteger(entry.radius) ?? '',
+        entry.rangeShape ?? '',
+        entry.rangeHighlightColor ?? '',
+        entry.boundaryChar ?? '',
+        entry.boundaryColor ?? '',
+        entry.boundaryRangeHighlightColor ?? '',
+        entry.eyeVisibleWithoutSenseQi === true ? 1 : 0,
+        entry.rangeVisibleWithoutSenseQi === true ? 1 : 0,
+        entry.boundaryVisibleWithoutSenseQi === true ? 1 : 0,
+        entry.showText === false ? 0 : 1,
+        entry.blocksBoundary === true ? 1 : 0,
+        entry.ownerSectId ?? '',
+        entry.ownerPlayerId ?? '',
+        entry.lifecycle === 'persistent' ? 1 : 0,
+    ].join('|');
 }
 
 function freezeProjectedEntry<T extends object>(entry: T): T {
@@ -1549,7 +1575,7 @@ function buildPanelUpdate(previous: PlayerStateSlice, player: ProjectorPlayerLik
     } else if (!techniquePanel) {
         techniquePanel = captureTechniquePanelSlice(player);
     }
-    const finalDelta = delta.inv || delta.eq || delta.tech || delta.attr || delta.act || delta.buff ? delta : null;
+    const finalDelta = delta.inv || delta.eq || delta.art || delta.tech || delta.attr || delta.act || delta.buff ? delta : null;
     return { delta: finalDelta, panelCursor, attrPanel: currentAttrPanel, actionPanel: currentActionPanel, techniquePanel };
 }
 
