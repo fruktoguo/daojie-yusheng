@@ -202,6 +202,7 @@ const InventoryCell = memo(function InventoryCell({ item }: { item: ReactInvento
       data-item-key={item.itemKey}
       data-item-type={item.itemType}
       data-item-grade={item.grade}
+      data-item-grade-line-visible={item.gradeLineLabel ? 'true' : undefined}
     >
       <div
         className="inventory-cell-cooldown"
@@ -225,7 +226,7 @@ const InventoryCell = memo(function InventoryCell({ item }: { item: ReactInvento
       <div
         className="inventory-cell-grade-line"
         data-item-grade-line="true"
-        hidden={item.itemType !== 'consumable'}
+        hidden={!item.gradeLineLabel}
       >
         {item.gradeLineLabel ?? ''}
       </div>

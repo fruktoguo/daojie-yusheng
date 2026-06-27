@@ -892,7 +892,7 @@ export class InventoryPanel {
     const itemMeta = getItemDisplayMeta(item);
     const displayName = itemMeta.displayItem.name;
     const primaryAction = this.getPrimaryAction(item, cooldownState);
-    const consumableGradeLineLabel = this.getConsumableGradeLineLabel(item);
+    const gradeLineLabel = this.getInventoryGradeLineLabel(item);
     return {
       slotIndex,
       itemInstanceId: this.getInventoryItemInstanceId(item) || null,
@@ -903,7 +903,7 @@ export class InventoryPanel {
       countLabel: formatDisplayCountBadge(item.count),
       itemType: item.type,
       typeLabel: this.getInventoryCellTypeLabel(item),
-      gradeLineLabel: consumableGradeLineLabel ?? undefined,
+      gradeLineLabel: gradeLineLabel ?? undefined,
       cellClassName: `${getItemDecorClassName('inventory-cell', item)}${cooldownState ? ' inventory-cell--cooldown' : ''}`,
       grade: itemMeta.grade ?? undefined,
       affinityBadge: itemMeta.affinityBadge
@@ -1472,12 +1472,17 @@ export class InventoryPanel {
     } else {
       delete cell.dataset.itemGrade;
     }
+    const gradeLineLabel = this.getInventoryGradeLineLabel(item);
+    if (gradeLineLabel) {
+      cell.dataset.itemGradeLineVisible = 'true';
+    } else {
+      delete cell.dataset.itemGradeLineVisible;
+    }
     cell.className = getItemDecorClassName('inventory-cell', item);
     cell.classList.toggle('inventory-cell--cooldown', cooldownState !== null);
 
-    const gradeLineLabel = this.getConsumableGradeLineLabel(item);
     refs.type.textContent = this.getInventoryCellTypeLabel(item);
-    refs.gradeLine.hidden = item.type !== 'consumable';
+    refs.gradeLine.hidden = !gradeLineLabel;
     refs.gradeLine.textContent = gradeLineLabel ?? '';
     refs.count.textContent = formatDisplayCountBadge(item.count);
     refs.name.textContent = displayName;
@@ -1500,11 +1505,15 @@ export class InventoryPanel {
 
   private getInventoryCellTypeLabel(item: ItemStack): string {
     const typeLabel = getItemTypeLabel(item.type);
-    return item.type === 'consumable' ? typeLabel : getItemAffixTypeLabel(item, typeLabel);
+    return this.usesInventoryGradeLine(item) ? typeLabel : getItemAffixTypeLabel(item, typeLabel);
   }
 
-  private getConsumableGradeLineLabel(item: ItemStack): string | null {
-    if (item.type !== 'consumable') {
+  private usesInventoryGradeLine(item: ItemStack): boolean {
+    return item.type === 'consumable' || item.type === 'material' || item.type === 'skill_book';
+  }
+
+  private getInventoryGradeLineLabel(item: ItemStack): string | null {
+    if (!this.usesInventoryGradeLine(item)) {
       return null;
     }
     const itemMeta = getItemDisplayMeta(item);

@@ -894,23 +894,23 @@
       justify-content: space-between;
       gap: 8px;
     }
-    .inventory-cell[data-item-type="consumable"] {
-      grid-template-rows: 20px 14px minmax(38px, 1fr) auto;
-      gap: 4px;
+    .inventory-cell[data-item-grade-line-visible="true"] {
+      grid-template-rows: 18px 12px minmax(38px, 1fr) auto;
+      gap: 2px;
       min-height: 108px;
     }
-    .inventory-cell[data-item-type="consumable"] .inventory-cell-head {
+    .inventory-cell[data-item-grade-line-visible="true"] .inventory-cell-head {
       display: grid;
       grid-template-columns: minmax(0, 1fr) minmax(4ch, max-content);
       align-items: center;
-      min-height: 20px;
+      min-height: 18px;
     }
     .inventory-cell-type {
       font-size: var(--font-size-10);
       line-height: 1.2;
       color: var(--ink-grey);
     }
-    .inventory-cell[data-item-type="consumable"] .inventory-cell-type {
+    .inventory-cell[data-item-grade-line-visible="true"] .inventory-cell-type {
       min-width: 0;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -919,16 +919,16 @@
     .inventory-cell-grade-line {
       display: none;
       min-width: 0;
-      min-height: 14px;
+      min-height: 12px;
       color: color-mix(in srgb, var(--inventory-grade-border, rgba(94, 94, 94, 0.56)) 72%, var(--ink-grey));
       font-size: var(--font-size-10);
-      line-height: 14px;
+      line-height: 12px;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
       font-variant-numeric: tabular-nums;
     }
-    .inventory-cell[data-item-type="consumable"] .inventory-cell-grade-line {
+    .inventory-cell[data-item-grade-line-visible="true"] .inventory-cell-grade-line {
       display: block;
     }
     .inventory-cell-grade-line[hidden] {
@@ -1005,7 +1005,7 @@
       font-weight: var(--font-weight-strong);
       color: var(--ink-black);
     }
-    .inventory-cell[data-item-type="consumable"] .inventory-cell-count {
+    .inventory-cell[data-item-grade-line-visible="true"] .inventory-cell-count {
       justify-self: end;
       min-width: 4ch;
       font-variant-numeric: tabular-nums;
@@ -1027,7 +1027,7 @@
       overflow: hidden;
       text-overflow: ellipsis;
     }
-    .inventory-cell[data-item-type="consumable"] .inventory-cell-name {
+    .inventory-cell[data-item-grade-line-visible="true"] .inventory-cell-name {
       display: -webkit-box;
       min-height: 38px;
       max-height: 38px;
