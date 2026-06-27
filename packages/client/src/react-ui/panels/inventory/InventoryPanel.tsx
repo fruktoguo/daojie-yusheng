@@ -87,7 +87,6 @@ interface InventoryPanelCallbacks {
   onPageChange: ((direction: 'prev' | 'next') => void) | null;
   onSearchChange: ((value: string) => void) | null;
   onPrimaryAction: ((slotIndex: number, itemInstanceId: string | null) => void) | null;
-  onDropOne: ((slotIndex: number, itemInstanceId: string) => void) | null;
 }
 
 const callbacks: InventoryPanelCallbacks = {
@@ -97,7 +96,6 @@ const callbacks: InventoryPanelCallbacks = {
   onPageChange: null,
   onSearchChange: null,
   onPrimaryAction: null,
-  onDropOne: null,
 };
 
 export function setInventoryPanelCallbacks(cbs: Partial<InventoryPanelCallbacks>): void {
@@ -203,6 +201,13 @@ const InventoryCell = memo(function InventoryCell({ item }: { item: ReactInvento
       data-item-type={item.itemType}
       data-item-grade={item.grade}
       data-item-grade-line-visible={item.gradeLineLabel ? 'true' : undefined}
+      onContextMenu={(event) => {
+        event.preventDefault();
+        if (!item.primaryAction || item.primaryAction.disabled === true) {
+          return;
+        }
+        callbacks.onPrimaryAction?.(item.slotIndex, item.itemInstanceId);
+      }}
     >
       <div
         className="inventory-cell-cooldown"
@@ -232,34 +237,6 @@ const InventoryCell = memo(function InventoryCell({ item }: { item: ReactInvento
       </div>
       <div className={item.nameClassName} data-item-name="true" aria-label={item.name}>
         {item.name}
-      </div>
-      <div className="inventory-cell-actions" data-item-actions="true">
-        {item.primaryAction && (
-          <button
-            className="small-btn"
-            type="button"
-            data-item-primary="true"
-            data-inline-primary={item.slotIndex}
-            disabled={item.primaryAction.disabled === true}
-            onClick={(event) => {
-              event.stopPropagation();
-              callbacks.onPrimaryAction?.(item.slotIndex, item.itemInstanceId);
-            }}
-          >
-            {item.primaryAction.label}
-          </button>
-        )}
-        <button
-          className="small-btn danger"
-          type="button"
-          data-inline-drop={item.slotIndex}
-          onClick={(event) => {
-            event.stopPropagation();
-            callbacks.onDropOne?.(item.slotIndex, item.itemInstanceId ?? '');
-          }}
-        >
-          {t('inventory.action.drop-one', undefined)}
-        </button>
       </div>
       {item.affinityBadge && (
         <span

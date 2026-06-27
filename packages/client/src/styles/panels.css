@@ -743,11 +743,11 @@
     }
     .inventory-cell {
       display: grid;
-      grid-template-rows: auto 1fr auto;
-      gap: 6px;
-      min-height: 84px;
+      grid-template-rows: 18px minmax(34px, 1fr);
+      gap: 4px;
+      min-height: 76px;
       width: 100%;
-      padding: 8px;
+      padding: 8px 8px 10px;
       border: 1px solid var(--wash-ink);
       background: var(--surface-gradient-entry);
       box-shadow: inset 0 0 0 1px rgba(255,255,255,0.5);
@@ -890,31 +890,31 @@
     }
     .inventory-cell-head {
       display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 8px;
-    }
-    .inventory-cell[data-item-grade-line-visible="true"] {
-      grid-template-rows: 18px 12px minmax(38px, 1fr) auto;
-      gap: 2px;
-      min-height: 108px;
-    }
-    .inventory-cell[data-item-grade-line-visible="true"] .inventory-cell-head {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(4ch, max-content);
       align-items: center;
+      justify-content: flex-end;
       min-height: 18px;
     }
     .inventory-cell-type {
-      font-size: var(--font-size-10);
-      line-height: 1.2;
-      color: var(--ink-grey);
-    }
-    .inventory-cell[data-item-grade-line-visible="true"] .inventory-cell-type {
-      min-width: 0;
+      position: absolute;
+      top: 7px;
+      left: -25px;
+      z-index: 3;
+      width: 78px;
+      padding: 2px 0;
+      background: color-mix(in srgb, rgba(var(--inventory-grade-rgb, 94, 94, 94), 0.9) 72%, var(--ink-black));
+      color: #f8f2e8;
+      font-size: 9px;
+      font-weight: var(--font-weight-strong);
+      line-height: 1.1;
+      letter-spacing: 0.08em;
+      text-align: center;
+      text-transform: uppercase;
+      box-shadow: 0 6px 14px rgba(0, 0, 0, 0.12);
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+      pointer-events: none;
+      transform: rotate(-45deg);
     }
     .inventory-cell-grade-line {
       display: none;
@@ -1004,8 +1004,6 @@
       font-size: var(--font-size-11);
       font-weight: var(--font-weight-strong);
       color: var(--ink-black);
-    }
-    .inventory-cell[data-item-grade-line-visible="true"] .inventory-cell-count {
       justify-self: end;
       min-width: 4ch;
       font-variant-numeric: tabular-nums;
@@ -1018,23 +1016,16 @@
       justify-content: center;
       text-align: center;
       font-family: var(--font-role-body);
-      font-size: var(--font-size-role-body-15);
-      line-height: 1.28;
+      font-size: var(--font-size-13);
+      line-height: 1.2;
       color: var(--ink-black);
       letter-spacing: 0;
-      min-height: 30px;
+      width: 100%;
+      min-height: 34px;
+      max-height: 34px;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-    }
-    .inventory-cell[data-item-grade-line-visible="true"] .inventory-cell-name {
-      display: -webkit-box;
-      min-height: 38px;
-      max-height: 38px;
-      white-space: normal;
-      -webkit-box-orient: vertical;
-      -webkit-line-clamp: 2;
-      overflow-wrap: anywhere;
     }
     .inventory-cell-name--compact {
       font-size: var(--font-size-13);
@@ -1042,60 +1033,6 @@
     .inventory-cell-name--tiny {
       font-size: var(--font-size-12);
     }
-    .inventory-cell-name--book-title {
-      font-size: var(--font-size-11);
-    }
-    .inventory-cell[data-item-grade-line-visible="true"] .inventory-cell-name--book-title {
-      display: flex;
-      width: 100%;
-      min-height: 38px;
-      max-height: 38px;
-      align-items: center;
-      justify-content: center;
-      white-space: nowrap;
-      overflow-wrap: normal;
-      text-overflow: ellipsis;
-      -webkit-line-clamp: unset;
-    }
-    .inventory-cell-actions {
-      display: flex;
-      width: 100%;
-      min-width: 0;
-      justify-content: flex-start;
-      align-items: center;
-      gap: 6px;
-      min-height: 22px;
-    }
-    .inventory-cell-actions .small-btn {
-      flex: 0 1 auto;
-      min-width: 0;
-      max-width: calc(50% - 3px);
-      min-height: 22px;
-      padding: 1px 6px;
-      font-size: var(--font-size-11);
-      white-space: nowrap;
-    }
-    .inventory-cell-actions .small-btn.danger {
-      margin-left: auto;
-    }
-    .inventory-cell[data-item-type="consumable"] .inventory-cell-actions {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      align-items: center;
-      min-height: 24px;
-    }
-    .inventory-cell[data-item-type="consumable"] .inventory-cell-actions .small-btn {
-      width: 100%;
-      max-width: none;
-      justify-content: center;
-      padding-right: 4px;
-      padding-left: 4px;
-      text-align: center;
-    }
-    .inventory-cell[data-item-type="consumable"] .inventory-cell-actions .small-btn.danger {
-      margin-left: 0;
-    }
-
     /* 装备槽 */
     .equipment-subtabs {
       display: grid;

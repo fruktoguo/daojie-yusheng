@@ -72,7 +72,7 @@ import {
   describeMaterialValueDetails,
   ItemTooltipCooldownState,
 } from '../equipment-tooltip';
-import { getItemAffixTypeLabel, getItemDecorClassName, getItemDisplayMeta } from '../item-display';
+import { getItemDecorClassName, getItemDisplayMeta } from '../item-display';
 import { preserveSelection } from '../selection-preserver';
 import { createEmptyHint, createPanelSectionWithTitle, createSmallBtn } from '../ui-primitives';
 import { describePreviewBonuses } from '../stat-preview';
@@ -208,8 +208,6 @@ interface InventoryCellRefs {
   cooldown: HTMLElement;
   cooldownPie: HTMLElement;
   cooldownLabel: HTMLElement;
-  actions: HTMLElement;
-  dropButton: HTMLButtonElement;
 }
 
 /** InventoryVisibleSnapshot：单次背包筛选收集结果。 */
@@ -390,7 +388,6 @@ export class InventoryPanel {
       onRequestLoadMore: (scrollTarget) => this.maybeLoadMoreVisibleItems(scrollTarget),
       onPageChange: (direction) => this.requestAdjacentInventoryPage(direction),
       onPrimaryAction: (slotIndex, itemInstanceId) => this.handlePrimaryAction(slotIndex, itemInstanceId, { closeModal: false }),
-      onDropOne: (slotIndex, itemInstanceId) => this.handleDropOne(slotIndex, itemInstanceId),
     });
     this.bindPaneEvents();
     this.bindTooltipEvents();
@@ -801,18 +798,6 @@ export class InventoryPanel {
     }
   }
 
-  private handleDropOne(slotIndex: number, expectedItemInstanceId?: string): void {
-    const item = Number.isFinite(slotIndex) ? this.lastInventory?.items[slotIndex] : null;
-    const itemInstanceId = this.getInventoryItemInstanceId(item);
-    if (!itemInstanceId || (expectedItemInstanceId && itemInstanceId !== expectedItemInstanceId)) {
-      if (!itemInstanceId) {
-        this.repairMissingInventoryItemInstanceIds();
-      }
-      return;
-    }
-    this.onDropItem?.(itemInstanceId, 1);
-  }
-
   private repairMissingInventoryItemInstanceIds(): void {
     this.onRepairInventoryItemInstanceIds?.();
   }
@@ -899,7 +884,7 @@ export class InventoryPanel {
       itemId: item.itemId,
       itemKey: itemIdentity,
       name: displayName,
-      nameClassName: `inventory-cell-name ${this.getNameClass(displayName, item)}`.trim(),
+      nameClassName: 'inventory-cell-name',
       countLabel: formatDisplayCountBadge(item.count),
       itemType: item.type,
       typeLabel: this.getInventoryCellTypeLabel(item),
@@ -975,30 +960,6 @@ export class InventoryPanel {
         return;
       }
 
-      const primaryButton = target.closest<HTMLElement>('[data-inline-primary]');
-      if (primaryButton) {
-        event.stopPropagation();
-        const rawIndex = primaryButton.dataset.inlinePrimary;
-        if (!rawIndex) {
-          return;
-        }
-        const slotIndex = parseInt(rawIndex, 10);
-        this.handlePrimaryAction(slotIndex);
-        return;
-      }
-
-      const dropButton = target.closest<HTMLElement>('[data-inline-drop]');
-      if (dropButton) {
-        event.stopPropagation();
-        const rawIndex = dropButton.dataset.inlineDrop;
-        if (!rawIndex) {
-          return;
-        }
-        const slotIndex = parseInt(rawIndex, 10);
-        this.handleDropOne(slotIndex);
-        return;
-      }
-
       const cell = target.closest<HTMLElement>('[data-open-item]');
       if (!cell) {
         return;
@@ -1017,6 +978,23 @@ export class InventoryPanel {
         return;
       }
       this.renderModal();
+    });
+
+    this.pane.addEventListener('contextmenu', (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) {
+        return;
+      }
+      const cell = target.closest<HTMLElement>('[data-open-item]');
+      if (!cell) {
+        return;
+      }
+      event.preventDefault();
+      const rawIndex = cell.dataset.openItem;
+      if (!rawIndex) {
+        return;
+      }
+      this.handlePrimaryAction(parseInt(rawIndex, 10), null, { closeModal: false });
     });
   }
 
@@ -1304,16 +1282,7 @@ export class InventoryPanel {
     name.className = 'inventory-cell-name';
     name.dataset.itemName = 'true';
 
-    const actions = document.createElement('div');
-    actions.className = 'inventory-cell-actions';
-    actions.dataset.itemActions = 'true';
-    const dropButton = createSmallBtn(t('inventory.action.drop-one', undefined), {
-      variants: ['danger'],
-      dataset: { inlineDrop: String(slotIndex) },
-    });
-    actions.append(dropButton);
-
-    cell.append(cooldown, head, gradeLine, name, actions);
+    cell.append(cooldown, head, gradeLine, name);
     this.cellRefs.set(cell, {
       type,
       count,
@@ -1322,8 +1291,6 @@ export class InventoryPanel {
       cooldown,
       cooldownPie,
       cooldownLabel,
-      actions,
-      dropButton,
     });
     return cell;
   }
@@ -1341,12 +1308,10 @@ export class InventoryPanel {
     const cooldown = cell.querySelector<HTMLElement>('[data-item-cooldown="true"]');
     const cooldownPie = cell.querySelector<HTMLElement>('[data-item-cooldown-pie="true"]');
     const cooldownLabel = cell.querySelector<HTMLElement>('[data-item-cooldown-label="true"]');
-    const actions = cell.querySelector<HTMLElement>('[data-item-actions="true"]');
-    const dropButton = cell.querySelector<HTMLButtonElement>('[data-inline-drop]');
-    if (!type || !count || !gradeLine || !name || !cooldown || !cooldownPie || !cooldownLabel || !actions || !dropButton) {
+    if (!type || !count || !gradeLine || !name || !cooldown || !cooldownPie || !cooldownLabel) {
       return null;
     }
-    const refs = { type, count, gradeLine, name, cooldown, cooldownPie, cooldownLabel, actions, dropButton };
+    const refs = { type, count, gradeLine, name, cooldown, cooldownPie, cooldownLabel };
     this.cellRefs.set(cell, refs);
     return refs;
   }
@@ -1420,21 +1385,6 @@ export class InventoryPanel {
 
     const itemMeta = getItemDisplayMeta(item);
     const displayName = itemMeta.displayItem.name;
-    const primaryAction = this.getPrimaryAction(item, cooldownState);
-    let primaryButton = refs.actions.querySelector<HTMLButtonElement>('[data-item-primary="true"]');
-
-    if (primaryAction) {
-      if (!primaryButton) {
-        primaryButton = createSmallBtn(primaryAction.label, { dataset: { itemPrimary: 'true' } });
-        refs.actions.insertBefore(primaryButton, refs.dropButton);
-      }
-      primaryButton.textContent = primaryAction.label;
-      primaryButton.dataset.inlinePrimary = String(slotIndex);
-      primaryButton.disabled = primaryAction.disabled === true;
-    } else if (primaryButton) {
-      primaryButton.remove();
-    }
-
     let affinityNode = cell.querySelector<HTMLElement>('[data-item-affinity="true"]');
     if (itemMeta.affinityBadge) {
       if (!affinityNode) {
@@ -1487,8 +1437,7 @@ export class InventoryPanel {
     refs.count.textContent = formatDisplayCountBadge(item.count);
     refs.name.textContent = displayName;
     refs.name.setAttribute('aria-label', displayName);
-    refs.name.className = `inventory-cell-name ${this.getNameClass(displayName, item)}`.trim();
-    refs.dropButton.dataset.inlineDrop = String(slotIndex);
+    refs.name.className = 'inventory-cell-name';
 
     refs.cooldown.hidden = cooldownState === null;
     if (cooldownState) {
@@ -1504,23 +1453,11 @@ export class InventoryPanel {
   }
 
   private getInventoryCellTypeLabel(item: ItemStack): string {
-    const typeLabel = getItemTypeLabel(item.type);
-    return this.usesInventoryGradeLine(item) ? typeLabel : getItemAffixTypeLabel(item, typeLabel);
+    return getItemTypeLabel(item.type);
   }
 
-  private usesInventoryGradeLine(item: ItemStack): boolean {
-    return item.type === 'equipment'
-      || item.type === 'consumable'
-      || item.type === 'material'
-      || item.type === 'skill_book';
-  }
-
-  private getInventoryGradeLineLabel(item: ItemStack): string | null {
-    if (!this.usesInventoryGradeLine(item)) {
-      return null;
-    }
-    const itemMeta = getItemDisplayMeta(item);
-    return itemMeta.gradeLabel ? `· ${itemMeta.gradeLabel}` : '';
+  private getInventoryGradeLineLabel(_item: ItemStack): string | null {
+    return null;
   }
 
   /** renderModal：渲染弹窗。 */
@@ -1581,10 +1518,7 @@ export class InventoryPanel {
       : describePreviewBonuses(previewItem.equipAttrs, previewItem.equipStats, previewItem.equipValueStats);
     const materialValueLines = item.type === 'material' ? describeMaterialValueDetails(previewItem) : [];
     const effectLines = formatItemEffects(item);
-    const primaryAction = this.getPrimaryAction(item);
     const statusLabel = this.getItemStatusLabel(item);
-    const canBatchUse = primaryAction?.kind === 'use' && this.canBatchUseItem(item);
-    const canBatchDropOrDestroy = this.canBatchDropOrDestroy(item);
     const sourceEntryCount = getItemSourceEntryCount(previewItem.itemId);
     const useSpecialSourceSummary = isSpecialSourceSummaryItem(previewItem.itemId);
     const canToggleSourceList = !useSpecialSourceSummary && sourceEntryCount > INVENTORY_SOURCE_COLLAPSED_COUNT;
@@ -1597,50 +1531,13 @@ export class InventoryPanel {
       title: displayItem.name,
       subtitle: t('inventory.modal.item-subtitle', { type: getItemTypeLabel(item.type), count: formatDisplayCountBadge(item.count) }),
       renderBody: (body) => {
-        this.renderItemDetailBody(body, item, sourceListHtml, sourceEntryCount, canToggleSourceList, primaryAction, canBatchUse, canBatchDropOrDestroy, bonusLines, materialValueLines, effectLines, statusLabel);
+        this.renderItemDetailBody(body, item, sourceListHtml, sourceEntryCount, canToggleSourceList, bonusLines, materialValueLines, effectLines, statusLabel);
       },
       onClose: () => {
         this.clearFormationWorldPreview();
         this.resetModalState();
       },
       onAfterRender: (body, signal) => {
-        body.querySelector<HTMLElement>('[data-inventory-primary]')?.addEventListener('click', (event) => {
-          event.stopPropagation();
-          if (!primaryAction || primaryAction.kind === 'status') {
-            return;
-          }
-          const itemInstanceId = this.getInventoryItemInstanceId(item);
-          if (!itemInstanceId) {
-            return;
-          }
-          if (primaryAction.kind === 'equip') {
-            this.onEquipItem?.(itemInstanceId);
-            this.closeModal();
-            return;
-          }
-          if (this.isFormationDiskItem(item)) {
-            this.openFormationDialog(slotIndex);
-            return;
-          }
-          if (this.isSectFoundingTokenItem(item)) {
-            this.openSectFoundingDialog(slotIndex);
-            return;
-          }
-          if (this.requiresUseConfirmation(item)) {
-            this.openActionDialog('use', slotIndex, 1);
-            return;
-          }
-          this.handlePrimaryAction(slotIndex, itemInstanceId, { closeModal: true });
-        }, { signal });
-        body.querySelectorAll<HTMLElement>('[data-inventory-open-action]').forEach((button) => button.addEventListener('click', (event) => {
-          event.stopPropagation();
-          const kind = button.dataset.inventoryOpenAction as InventoryActionKind | undefined;
-          const defaultCount = Number.parseInt(button.dataset.defaultCount ?? '1', 10);
-          if (!kind) {
-            return;
-          }
-          this.openActionDialog(kind, slotIndex, Number.isFinite(defaultCount) ? defaultCount : 1);
-        }, { signal }));
         body.querySelector<HTMLElement>('[data-inventory-source-toggle="true"]')?.addEventListener('click', (event) => {
           event.stopPropagation();
           this.sourceExpanded = !this.sourceExpanded;
@@ -2479,9 +2376,6 @@ export class InventoryPanel {
     sourceListHtml: string,
     sourceEntryCount: number,
     canToggleSourceList: boolean,
-    primaryAction: InventoryPrimaryAction | null,
-    canBatchUse: boolean,
-    canBatchDropOrDestroy: boolean,
     bonusLines: string[],
     materialValueLines: string[],
     effectLines: string[],
@@ -2529,18 +2423,6 @@ export class InventoryPanel {
         ${canToggleSourceList
           ? `<button class="small-btn ghost inventory-source-toggle" data-inventory-source-toggle="true" type="button">${this.sourceExpanded ? t('inventory.source.collapse', undefined) : t('inventory.source.expand-all', { count: sourceEntryCount })}</button>`
           : ''}
-      </div>
-      <div class="inventory-detail-actions">
-        <div class="inventory-detail-actions-group inventory-detail-actions-group--left">
-          ${primaryAction ? `<button class="small-btn" data-inventory-primary="true" type="button" ${primaryAction.disabled ? 'disabled' : ''}>${primaryAction.label}</button>` : ''}
-          ${canBatchUse ? `<button class="small-btn ghost" data-inventory-open-action="use" data-default-count="1" type="button">${t('inventory.action.batch-use', undefined)}</button>` : ''}
-        </div>
-        <div class="inventory-detail-actions-group inventory-detail-actions-group--right">
-          <button class="small-btn ghost" data-inventory-open-action="drop" data-default-count="1" type="button">${t('inventory.action.drop-one', undefined)}</button>
-          ${canBatchDropOrDestroy ? `<button class="small-btn ghost" data-inventory-open-action="drop" data-default-count="${item.count}" type="button">${t('inventory.action.batch-drop', undefined)}</button>` : ''}
-          <button class="small-btn danger" data-inventory-open-action="destroy" data-default-count="1" type="button">${t('inventory.action.destroy', undefined)}</button>
-          ${canBatchDropOrDestroy ? `<button class="small-btn danger" data-inventory-open-action="destroy" data-default-count="${item.count}" type="button">${t('inventory.action.batch-destroy', undefined)}</button>` : ''}
-        </div>
       </div>
     `);
   }
@@ -2833,11 +2715,6 @@ export class InventoryPanel {
     return INVENTORY_PANEL_USABLE_ITEM_TYPES.has(item.type);
   }
 
-  /** canBatchUseItem：判断是否Batch使用物品。 */
-  private canBatchUseItem(item: ItemStack): boolean {
-    return item.allowBatchUse === true && this.canUseItem(item) && !this.isFormationDiskItem(item) && !this.isSectFoundingTokenItem(item) && item.count > 1;
-  }
-
   /** getUseCountFromInput：读取使用数量From输入。 */
   private getUseCountFromInput(input: HTMLInputElement | null, maxCount: number): number {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -2861,11 +2738,6 @@ export class InventoryPanel {
     const maxLength = Math.max(1, String(maxCount).length);
     const chars = Math.max(4, valueLength, maxLength) + 1;
     input.style.width = `calc(${chars}ch + 18px)`;
-  }
-
-  /** canBatchDropOrDestroy：判断是否Batch掉落Or Destroy。 */
-  private canBatchDropOrDestroy(item: ItemStack): boolean {
-    return item.count > 1;
   }
 
   /** getSpiritualRootSeedTier：读取Spiritual Root种子Tier。 */
@@ -3398,23 +3270,6 @@ export class InventoryPanel {
   private getItemCooldownTitle(cooldownState: InventoryItemCooldownState, remainingTicks?: number): string {
     const remaining = remainingTicks ?? this.getItemCooldownRemainingTicks(cooldownState);
     return `使用冷却 ${formatDisplayInteger(remaining)} / ${formatDisplayInteger(cooldownState.cooldown)} 息`;
-  }
-
-  /** getNameClass：读取名称Class。 */
-  private getNameClass(name: string, item?: Pick<ItemStack, 'type'>): string {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const length = getGraphemeCount(name);
-    const classes: string[] = [];
-    if (item?.type === 'skill_book' && name.includes('《') && name.includes('》')) {
-      return 'inventory-cell-name--book-title';
-    }
-    if (length >= 7) {
-      classes.push('inventory-cell-name--tiny');
-    } else if (length >= 5) {
-      classes.push('inventory-cell-name--compact');
-    }
-    return classes.join(' ');
   }
 
   /** getItemIdentity：读取物品身份。 */
