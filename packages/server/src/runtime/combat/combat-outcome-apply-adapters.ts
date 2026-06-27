@@ -238,8 +238,8 @@ export function createContainerOutcomeApplyAdapter(handlers: OutcomeHandlers = {
       : result?.currentTick ?? deps?.currentTick ?? deps?.tick ?? 0;
     const applied = callFirstDefined([
       () => handlers.applyContainerDamage?.({ targetId, x, y, damage, container, currentTick, outcome, result, application, deps, instance }),
-      () => container ? deps?.worldRuntimeLootContainerService?.damageAttackableContainerAtTile?.(outcome?.instanceId, container, currentTick) : null,
-      () => container ? deps?.worldRuntimeLootContainerService?.damageHerbContainerAtTile?.(outcome?.instanceId, container, currentTick) : null,
+      () => container ? deps?.worldRuntimeLootContainerService?.damageAttackableContainerAtTile?.(outcome?.instanceId, container, currentTick, deps) : null,
+      () => container ? deps?.worldRuntimeLootContainerService?.damageHerbContainerAtTile?.(outcome?.instanceId, container, currentTick, deps) : null,
       () => deps?.damageContainerAtTile?.(outcome?.instanceId, x, y, damage, outcome?.actor?.id, currentTick),
     ]);
     if (!applied) {

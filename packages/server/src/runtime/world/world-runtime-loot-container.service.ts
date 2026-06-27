@@ -586,7 +586,12 @@ export class WorldRuntimeLootContainerService {
 
     markContainerPersistenceDirty(instanceId) {
         this.dirtyContainerPersistenceInstanceIds.add(instanceId);
-    }    
+    }
+
+    markContainerVisibleStateDirty(instanceId, deps = null) {
+        this.markContainerPersistenceDirty(instanceId);
+        touchRuntimeInstanceRevision(deps, instanceId);
+    }
     /**
  * dispatchStartGather：开始草药采集。
  * @param playerId 玩家 ID。
@@ -643,7 +648,7 @@ export class WorldRuntimeLootContainerService {
         };
         this.playerRuntimeService.bumpPersistentRevision(player);
         this.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job']);
-        this.markContainerPersistenceDirty(location.instanceId);
+        this.markContainerVisibleStateDirty(location.instanceId, deps);
         return buildContainerTickResult(false, [
             buildGatherTechniqueNotice(
                 'info',
@@ -678,7 +683,7 @@ export class WorldRuntimeLootContainerService {
             const state = this.ensureContainerState(location.instanceId, container, instance.tick);
             if (isActiveSearchOwnedByPlayer(state.activeSearch, playerId)) {
                 state.activeSearch = undefined;
-                this.markContainerPersistenceDirty(location.instanceId);
+                this.markContainerVisibleStateDirty(location.instanceId, deps);
             }
         }
         player.gatherJob = null;
@@ -749,7 +754,7 @@ export class WorldRuntimeLootContainerService {
         const state = this.ensureContainerState(parsedSource.instanceId, container, instance.tick);
         if (isActiveSearchOwnedByPlayer(state.activeSearch, playerId)) {
             state.activeSearch = undefined;
-            this.markContainerPersistenceDirty(parsedSource.instanceId);
+            this.markContainerVisibleStateDirty(parsedSource.instanceId, deps);
         }
     }
 
@@ -798,7 +803,7 @@ export class WorldRuntimeLootContainerService {
  * @returns 返回草药攻击结果；非草药目标返回 null。
  */
 
-    damageHerbContainerAtTile(instanceId, container, currentTick) {
+    damageHerbContainerAtTile(instanceId, container, currentTick, deps = null) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         if (!container || container.variant !== 'herb') {
@@ -811,7 +816,7 @@ export class WorldRuntimeLootContainerService {
         if (!targetRow) {
             if (typeof state.refreshAtTick !== 'number') {
                 state.refreshAtTick = resolveContainerRefreshAtTick(container, normalizedTick);
-                this.markContainerPersistenceDirty(instanceId);
+                this.markContainerVisibleStateDirty(instanceId, deps);
             }
             return {
                 title: container.name,
@@ -836,7 +841,7 @@ export class WorldRuntimeLootContainerService {
                 state.refreshAtTick = resolveContainerRefreshAtTick(container, normalizedTick);
             }
         }
-        this.markContainerPersistenceDirty(instanceId);
+        this.markContainerVisibleStateDirty(instanceId, deps);
         return {
             title: container.name,
             item: removed,
@@ -846,8 +851,8 @@ export class WorldRuntimeLootContainerService {
         };
     }
 
-    damageAttackableContainerAtTile(instanceId, container, currentTick) {
-        return this.damageHerbContainerAtTile(instanceId, container, currentTick);
+    damageAttackableContainerAtTile(instanceId, container, currentTick, deps = null) {
+        return this.damageHerbContainerAtTile(instanceId, container, currentTick, deps);
     }
 
     getHerbContainerWorldProjection(instanceId, container, currentTick) {
@@ -1196,7 +1201,7 @@ export class WorldRuntimeLootContainerService {
         if (!resolved.state.activeSearch && hasHiddenContainerEntries(resolved.state.entries)) {
             this.beginContainerSearch(resolved.state, resolved.container.grade);
         }
-        this.markContainerPersistenceDirty(instanceId);
+        this.markContainerVisibleStateDirty(instanceId, deps);
         return { ...row.item };
     }    
     /**
@@ -1234,7 +1239,7 @@ export class WorldRuntimeLootContainerService {
             if (!resolved.state.activeSearch && hasHiddenContainerEntries(resolved.state.entries)) {
                 this.beginContainerSearch(resolved.state, resolved.container.grade);
             }
-            this.markContainerPersistenceDirty(instanceId);
+            this.markContainerVisibleStateDirty(instanceId, deps);
         }
         return takenItems;
     }    
@@ -1669,6 +1674,16 @@ function mergeContainerEntries(entries, nextEntries) {
 
 function countContainerEntryItems(entries) {
     return entries.reduce((sum, entry) => sum + Math.max(0, Math.trunc(Number(entry?.item?.count) || 0)), 0);
+}
+
+function touchRuntimeInstanceRevision(deps, instanceId) {
+    const instance = typeof deps?.getInstanceRuntime === 'function'
+        ? deps.getInstanceRuntime(instanceId)
+        : null;
+    if (!instance || !Number.isFinite(Number(instance.worldRevision))) {
+        return;
+    }
+    instance.worldRevision += 1;
 }
 
 function getContainerRespawnRemainingTicks(state, currentTick) {
