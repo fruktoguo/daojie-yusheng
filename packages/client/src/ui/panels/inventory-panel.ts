@@ -899,7 +899,7 @@ export class InventoryPanel {
       itemId: item.itemId,
       itemKey: itemIdentity,
       name: displayName,
-      nameClassName: `inventory-cell-name ${this.getNameClass(displayName)}`.trim(),
+      nameClassName: `inventory-cell-name ${this.getNameClass(displayName, item)}`.trim(),
       countLabel: formatDisplayCountBadge(item.count),
       itemType: item.type,
       typeLabel: this.getInventoryCellTypeLabel(item),
@@ -1487,7 +1487,7 @@ export class InventoryPanel {
     refs.count.textContent = formatDisplayCountBadge(item.count);
     refs.name.textContent = displayName;
     refs.name.setAttribute('aria-label', displayName);
-    refs.name.className = `inventory-cell-name ${this.getNameClass(displayName)}`.trim();
+    refs.name.className = `inventory-cell-name ${this.getNameClass(displayName, item)}`.trim();
     refs.dropButton.dataset.inlineDrop = String(slotIndex);
 
     refs.cooldown.hidden = cooldownState === null;
@@ -3401,17 +3401,26 @@ export class InventoryPanel {
   }
 
   /** getNameClass：读取名称Class。 */
-  private getNameClass(name: string): string {
+  private getNameClass(name: string, item?: Pick<ItemStack, 'type'>): string {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    const length = [...name].length;
+    const length = getGraphemeCount(name);
+    const classes: string[] = [];
     if (length >= 7) {
-      return 'inventory-cell-name--tiny';
+      classes.push('inventory-cell-name--tiny');
+    } else if (length >= 5) {
+      classes.push('inventory-cell-name--compact');
     }
-    if (length >= 5) {
-      return 'inventory-cell-name--compact';
+    if (item?.type === 'skill_book' && name.includes('《') && name.includes('》') && length >= 7) {
+      classes.push('inventory-cell-name--book-title');
+      if (length >= 10) {
+        classes.push('inventory-cell-name--book-title-long');
+      }
+      if (length >= 12) {
+        classes.push('inventory-cell-name--book-title-dense');
+      }
     }
-    return '';
+    return classes.join(' ');
   }
 
   /** getItemIdentity：读取物品身份。 */
