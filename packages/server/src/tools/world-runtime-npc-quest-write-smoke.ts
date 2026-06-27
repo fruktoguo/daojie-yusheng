@@ -578,7 +578,6 @@ async function testDispatchSubmitNpcQuestFallsBackWhenDurableUnavailable() {
     assert.equal(player.quests.quests[0].status, 'completed');
     assert.deepEqual(log, [
         ['refreshQuestStates', 'player:1'],
-        ['createQuestStateFromSource', 'player:1', 'quest:next', 'active'],
         ['consumeInventoryItemByItemId', 'player:1', 'quest_token', 1],
         ['receiveInventoryItem', 'player:1', 'rat_tail', 2],
         ['creditWallet', 'player:1', 'spirit_stone', 3],
@@ -627,6 +626,9 @@ async function testDispatchSubmitNpcQuestUsesDurableInventoryGrant() {
                 { itemId: 'spirit_stone', count: 3 },
             ];
         },
+        getPlayerLocation() {
+            return { instanceId: 'instance:quest-smoke' };
+        },
         durableOperationService: {
             isEnabled() {
                 return true;
@@ -645,6 +647,24 @@ async function testDispatchSubmitNpcQuestUsesDurableInventoryGrant() {
                 return {
                     assigned_node_id: 'node:quest-smoke',
                     ownership_epoch: 11,
+                };
+            },
+        },
+        worldRuntimeQuestQueryService: {
+            materializeQuestView(_playerId, quest) {
+                return {
+                    ...quest,
+                    title: quest.id === 'quest:next' ? '后续任务' : quest.id,
+                };
+            },
+            createQuestStateFromSource(playerId, questId, status = 'active') {
+                log.push(['createQuestStateFromSource', playerId, questId, status]);
+                return {
+                    id: questId,
+                    title: questId === 'quest:next' ? '后续任务' : questId,
+                    status,
+                    progress: 0,
+                    required: 1,
                 };
             },
         },

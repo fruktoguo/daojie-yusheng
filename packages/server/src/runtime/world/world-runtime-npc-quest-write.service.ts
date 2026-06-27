@@ -7,8 +7,10 @@
  * NPC 任务写路径服务
  * 处理任务交互推进、接取、提交三个直接写入动作
  */
-import { Inject, Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, BadRequestException, NotFoundException, Optional } from '@nestjs/common';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
+import { DurableOperationService } from '../../persistence/durable-operation.service';
+import { PlayerDomainPersistenceService } from '../../persistence/player-domain-persistence.service';
 import { buildStructuredNotice } from './structured-notice.helpers';
 import * as world_runtime_normalization_helpers_1 from './world-runtime.normalization.helpers';
 
@@ -40,6 +42,8 @@ export class WorldRuntimeNpcQuestWriteService {
  */
 
     playerRuntimeService;    
+    durableOperationService;
+    playerDomainPersistenceService;
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param playerRuntimeService 参数说明。
@@ -48,8 +52,14 @@ export class WorldRuntimeNpcQuestWriteService {
 
     constructor(
         @Inject(PlayerRuntimeService) playerRuntimeService: any,
+        @Optional()
+        @Inject(DurableOperationService) durableOperationService: DurableOperationService | null = null,
+        @Optional()
+        @Inject(PlayerDomainPersistenceService) playerDomainPersistenceService: PlayerDomainPersistenceService | null = null,
     ) {
         this.playerRuntimeService = playerRuntimeService;
+        this.durableOperationService = durableOperationService;
+        this.playerDomainPersistenceService = playerDomainPersistenceService;
     }    
     /**
  * dispatchInteractNpcQuest：判断InteractNPC任务是否满足条件。
@@ -164,6 +174,51 @@ export class WorldRuntimeNpcQuestWriteService {
         if (nextInventoryItems == null) {
             throw new BadRequestException('背包空间不足，无法领取奖励');
         }
+        const durableOperationService = typeof this.durableOperationService?.isEnabled === 'function'
+            ? this.durableOperationService
+            : (typeof deps?.durableOperationService?.isEnabled === 'function' ? deps.durableOperationService : null);
+        if (durableOperationService?.isEnabled?.() === true) {
+            await this.syncCurrentPresenceFence(playerId);
+            const runtimeOwnerId = this.getCurrentRuntimeOwnerId(playerId, deps);
+            const sessionEpoch = this.getCurrentSessionEpoch(playerId, deps);
+            if (runtimeOwnerId && sessionEpoch) {
+                const plannedNextQuest = buildNextQuestState(playerId, player, quest, questView, deps);
+                const nextQuestEntries = buildQuestProgressSnapshots(plannedNextQuest.nextQuests);
+                const nextWalletBalances = applyQuestWalletRewards(player.wallet?.balances ?? [], walletRewards);
+                const location = typeof deps?.getPlayerLocation === 'function' ? deps.getPlayerLocation(playerId) : null;
+                const leaseContext = await resolveInstanceLeaseContext(location?.instanceId ?? null, deps);
+                const operationId = `op:${playerId}:npc-quest:${quest.id}:${Date.now().toString(36)}`;
+                const runSubmit = async () => durableOperationService.submitNpcQuestRewards({
+                    operationId,
+                    playerId,
+                    expectedRuntimeOwnerId: this.getCurrentRuntimeOwnerId(playerId, deps) ?? runtimeOwnerId,
+                    expectedSessionEpoch: this.getCurrentSessionEpoch(playerId, deps) ?? sessionEpoch,
+                    expectedInstanceId: location?.instanceId ?? null,
+                    expectedAssignedNodeId: leaseContext?.assignedNodeId ?? null,
+                    expectedOwnershipEpoch: leaseContext?.ownershipEpoch ?? null,
+                    questId: quest.id,
+                    nextInventoryItems,
+                    nextWalletBalances,
+                    nextQuestEntries,
+                });
+                try {
+                    await runSubmit();
+                }
+                catch (error) {
+                    if (!shouldRetryQuestSubmitFence(error) || !(await this.syncCurrentPresenceFence(playerId))) {
+                        throw error;
+                    }
+                    await runSubmit();
+                }
+                this.playerRuntimeService.replaceInventoryItems(playerId, nextInventoryItems.map((entry) => ({ ...(entry.rawPayload ?? entry), itemId: entry.itemId, count: entry.count })));
+                this.playerRuntimeService.replaceWalletBalances(playerId, nextWalletBalances);
+                player.quests.quests = plannedNextQuest.nextQuests.map((entry) => cloneQuestState(entry, entry.status));
+                this.playerRuntimeService.markQuestStateDirty(playerId);
+                deps.refreshQuestStates(playerId, true);
+                notifyQuestSubmitted(deps, playerId, npc, questView, plannedNextQuest.nextQuest);
+                return;
+            }
+        }
         if (requiredItemId && requiredItemCount > 0) {
             this.playerRuntimeService.consumeInventoryItemByItemId(playerId, requiredItemId, requiredItemCount);
         }
@@ -177,13 +232,7 @@ export class WorldRuntimeNpcQuestWriteService {
         this.playerRuntimeService.markQuestStateDirty(playerId);
         const nextQuest = deps.tryAcceptNextQuest(playerId, questView.nextQuestId ?? quest.nextQuestId);
         deps.refreshQuestStates(playerId, true);
-        const nReward = buildStructuredNotice('success', 'notice.quest.reward', `${npc.name}：做得不错，这是你的奖励 ${questView.rewardText || '。'}`, { vars: { npcName: npc.name, rewardText: questView.rewardText || '。' }, pills: [{ key: 'npcName', style: 'target' }] });
-        deps.queuePlayerNotice(playerId, nReward.text, nReward.kind, undefined, undefined, nReward.structured);
-        if (nextQuest) {
-            const nextQuestView = materializeQuestForNpcWrite(deps, playerId, nextQuest);
-            const nAutoAccept = buildStructuredNotice('info', 'notice.quest.auto-accept', `新的任务《${nextQuestView.title}》已自动接取`, { vars: { questTitle: nextQuestView.title }, pills: [{ key: 'questTitle', style: 'target' }] });
-            deps.queuePlayerNotice(playerId, nAutoAccept.text, nAutoAccept.kind, undefined, undefined, nAutoAccept.structured);
-        }
+        notifyQuestSubmitted(deps, playerId, npc, questView, nextQuest);
     }    
     /**
  * enqueueNpcInteraction：处理NPCInteraction并更新相关状态。
@@ -353,11 +402,171 @@ export class WorldRuntimeNpcQuestWriteService {
         const nDialogue = buildStructuredNotice('info', 'notice.quest.npc-dialogue', `${npc.name}：${npc.dialogue}`, { vars: { npcName: npc.name, dialogue: npc.dialogue }, pills: [{ key: 'npcName', style: 'target' }] });
         deps.queuePlayerNotice(playerId, nDialogue.text, nDialogue.kind, undefined, undefined, nDialogue.structured);
     }
+
+    async syncCurrentPresenceFence(playerId) {
+        if (!this.playerDomainPersistenceService?.isEnabled?.()) {
+            return false;
+        }
+        const persistedPresence = typeof this.playerDomainPersistenceService?.loadPlayerPresence === 'function'
+            ? await this.playerDomainPersistenceService.loadPlayerPresence(playerId)
+            : null;
+        let presence = this.playerRuntimeService.describePersistencePresence?.(playerId) ?? null;
+        if (!presence?.runtimeOwnerId || !presence?.sessionEpoch) {
+            return false;
+        }
+        const persistedSessionEpoch = Number.isFinite(persistedPresence?.sessionEpoch)
+            ? Math.max(0, Math.trunc(Number(persistedPresence.sessionEpoch)))
+            : 0;
+        const persistedRuntimeOwnerId = typeof persistedPresence?.runtimeOwnerId === 'string'
+            ? persistedPresence.runtimeOwnerId.trim()
+            : '';
+        const runtimeSessionEpoch = Math.max(0, Math.trunc(Number(presence.sessionEpoch ?? 0)));
+        const runtimeOwnerId = typeof presence.runtimeOwnerId === 'string' ? presence.runtimeOwnerId.trim() : '';
+        if (
+            typeof this.playerRuntimeService.ensureRuntimeSessionFenceAtLeast === 'function'
+            && persistedSessionEpoch > 0
+            && (
+                runtimeSessionEpoch <= persistedSessionEpoch
+                || (persistedRuntimeOwnerId && persistedRuntimeOwnerId !== runtimeOwnerId)
+            )
+        ) {
+            this.playerRuntimeService.ensureRuntimeSessionFenceAtLeast(playerId, persistedSessionEpoch);
+            presence = this.playerRuntimeService.describePersistencePresence?.(playerId) ?? null;
+        }
+        if (!presence?.runtimeOwnerId || !presence?.sessionEpoch) {
+            return false;
+        }
+        await this.playerDomainPersistenceService.savePlayerPresence(playerId, {
+            ...presence,
+            versionSeed: Date.now(),
+        });
+        return true;
+    }
+
+    getCurrentRuntimeOwnerId(playerId, deps) {
+        const player = typeof deps?.getPlayerOrThrow === 'function'
+            ? deps.getPlayerOrThrow(playerId)
+            : this.playerRuntimeService.getPlayerOrThrow(playerId);
+        return typeof player?.runtimeOwnerId === 'string' && player.runtimeOwnerId.trim()
+            ? player.runtimeOwnerId.trim()
+            : null;
+    }
+
+    getCurrentSessionEpoch(playerId, deps) {
+        const player = typeof deps?.getPlayerOrThrow === 'function'
+            ? deps.getPlayerOrThrow(playerId)
+            : this.playerRuntimeService.getPlayerOrThrow(playerId);
+        return Number.isFinite(player?.sessionEpoch)
+            ? Math.max(1, Math.trunc(Number(player.sessionEpoch)))
+            : null;
+    }
 };
 
 function isWalletRewardItemId(itemId) {
     return typeof itemId === 'string' && itemId.trim() === 'spirit_stone';
 }
+
+function notifyQuestSubmitted(deps, playerId, npc, questView, nextQuest) {
+    const nReward = buildStructuredNotice('success', 'notice.quest.reward', `${npc.name}：做得不错，这是你的奖励 ${questView.rewardText || '。'}`, { vars: { npcName: npc.name, rewardText: questView.rewardText || '。' }, pills: [{ key: 'npcName', style: 'target' }] });
+    deps.queuePlayerNotice(playerId, nReward.text, nReward.kind, undefined, undefined, nReward.structured);
+    if (nextQuest) {
+        const nextQuestView = materializeQuestForNpcWrite(deps, playerId, nextQuest);
+        const nAutoAccept = buildStructuredNotice('info', 'notice.quest.auto-accept', `新的任务《${nextQuestView.title}》已自动接取`, { vars: { questTitle: nextQuestView.title }, pills: [{ key: 'questTitle', style: 'target' }] });
+        deps.queuePlayerNotice(playerId, nAutoAccept.text, nAutoAccept.kind, undefined, undefined, nAutoAccept.structured);
+    }
+}
+
+function buildNextQuestState(playerId, player, quest, questView, deps) {
+    const nextQuests = Array.isArray(player.quests?.quests)
+        ? player.quests.quests.map((entry) => cloneQuestState(entry, entry.status))
+        : [];
+    const targetQuest = nextQuests.find((entry) => entry.id === quest.id);
+    if (!targetQuest) {
+        throw new NotFoundException('该任务当前无法提交');
+    }
+    targetQuest.status = 'completed';
+    targetQuest.progress = targetQuest.required;
+    const nextQuestId = typeof questView.nextQuestId === 'string' && questView.nextQuestId.trim()
+        ? questView.nextQuestId.trim()
+        : (typeof quest.nextQuestId === 'string' ? quest.nextQuestId.trim() : '');
+    let nextQuest = null;
+    if (nextQuestId && !nextQuests.some((entry) => entry.id === nextQuestId)) {
+        const canUnlock = typeof deps?.worldRuntimeQuestQueryService?.isQuestUnlockedForPlayer !== 'function'
+            || deps.worldRuntimeQuestQueryService.isQuestUnlockedForPlayer(nextQuests, nextQuestId);
+        const canAcceptRealm = typeof deps?.worldRuntimeQuestQueryService?.isQuestAcceptRealmReachedForPlayer !== 'function'
+            || deps.worldRuntimeQuestQueryService.isQuestAcceptRealmReachedForPlayer(player, nextQuestId);
+        if (canUnlock && canAcceptRealm) {
+            const created = typeof deps?.worldRuntimeQuestQueryService?.createQuestStateFromSource === 'function'
+                ? deps.worldRuntimeQuestQueryService.createQuestStateFromSource(playerId, nextQuestId, 'active')
+                : (typeof deps?.createQuestStateFromSource === 'function' ? deps.createQuestStateFromSource(playerId, nextQuestId, 'active') : null);
+            if (created && !(normalizeQuestLine(created.line) === 'main' && hasIncompleteQuestInLine(nextQuests, 'main', created.id))) {
+                nextQuest = cloneQuestState(created, 'active');
+                nextQuests.push(nextQuest);
+            }
+        }
+    }
+    return { nextQuests, nextQuest };
+}
+
+function buildQuestProgressSnapshots(quests) {
+    return (Array.isArray(quests) ? quests : []).map((quest) => ({
+        questId: quest.id,
+        status: quest.status,
+        progressPayload: quest.status === 'completed'
+            ? null
+            : { progress: Math.max(0, Math.trunc(Number(quest.progress ?? 0))) },
+        rawPayload: quest.status === 'completed'
+            ? omitProgressForCompletedQuest(quest)
+            : { ...quest },
+    }));
+}
+
+function omitProgressForCompletedQuest(quest) {
+    const { progress: _progress, ...rest } = quest ?? {};
+    return { ...rest, status: 'completed' };
+}
+
+function applyQuestWalletRewards(existingBalances, rewards) {
+    const balances = collapseWalletBalances(existingBalances);
+    for (const reward of Array.isArray(rewards) ? rewards : []) {
+        const walletType = typeof reward?.itemId === 'string' ? reward.itemId.trim() : '';
+        const amount = Math.max(0, Math.trunc(Number(reward?.count ?? 0)));
+        if (!walletType || amount <= 0) {
+            continue;
+        }
+        const entry = balances.find((row) => row.walletType === walletType);
+        if (entry) {
+            entry.balance += amount;
+            entry.version += 1;
+        } else {
+            balances.push({ walletType, balance: amount, frozenBalance: 0, version: 1 });
+        }
+    }
+    return balances;
+}
+
+function collapseWalletBalances(existingBalances) {
+    const byType = new Map();
+    for (const entry of Array.isArray(existingBalances) ? existingBalances : []) {
+        const walletType = typeof entry?.walletType === 'string' ? entry.walletType.trim() : '';
+        if (!walletType) {
+            continue;
+        }
+        const existing = byType.get(walletType);
+        const balance = Math.max(0, Math.trunc(Number(entry?.balance ?? 0)));
+        const frozenBalance = Math.max(0, Math.trunc(Number(entry?.frozenBalance ?? 0)));
+        const version = Math.max(0, Math.trunc(Number(entry?.version ?? 0)));
+        if (existing) {
+            existing.balance += balance;
+            existing.frozenBalance += frozenBalance;
+            existing.version = Math.max(existing.version, version);
+            continue;
+        }
+        byType.set(walletType, { walletType, balance, frozenBalance, version });
+    }
+    return Array.from(byType.values());
+}
+
 function buildNextQuestInventorySnapshots(currentItems, capacity, requiredItemId, requiredItemCount, grantedItems) {
     const snapshot = Array.isArray(currentItems)
         ? currentItems.map((entry) => ({
@@ -408,4 +617,28 @@ function buildNextQuestInventorySnapshots(currentItems, capacity, requiredItemId
         });
     }
     return compacted;
+}
+
+function shouldRetryQuestSubmitFence(error) {
+    const message = String(error instanceof Error ? error.message : error);
+    return message.startsWith('player_session_fencing_conflict');
+}
+
+async function resolveInstanceLeaseContext(instanceId, deps) {
+    const normalizedInstanceId = typeof instanceId === 'string' ? instanceId.trim() : '';
+    const instanceCatalogService = deps?.instanceCatalogService ?? null;
+    if (!normalizedInstanceId || !instanceCatalogService?.isEnabled?.()) {
+        return null;
+    }
+    const catalog = await instanceCatalogService.loadInstanceCatalog?.(normalizedInstanceId);
+    const assignedNodeId = typeof catalog?.assigned_node_id === 'string' && catalog.assigned_node_id.trim()
+        ? catalog.assigned_node_id.trim()
+        : '';
+    const ownershipEpoch = Number.isFinite(Number(catalog?.ownership_epoch))
+        ? Math.max(1, Math.trunc(Number(catalog.ownership_epoch)))
+        : 0;
+    if (!assignedNodeId || ownershipEpoch <= 0) {
+        return null;
+    }
+    return { assignedNodeId, ownershipEpoch };
 }
