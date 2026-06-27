@@ -13,11 +13,12 @@
 ## 物品类型
 
 ```typescript
-ItemType = 'consumable' | 'equipment' | 'material' | 'quest_item' | 'skill_book'
+ItemType = 'consumable' | 'equipment' | 'artifact' | 'material' | 'quest_item' | 'skill_book'
 ```
 
 - 可使用类型: `['consumable', 'skill_book']`
-- 排序权重: equipment=0, consumable=1, material=2, skill_book=3, quest_item=4
+- 一键整理类型权重: equipment=0, consumable=1, skill_book=2, quest_item=3, material=4, artifact=5
+- 一键整理比较顺序: 品阶降序 → 等级降序 → 类型权重升序 → `itemId` 升序 → `name` 升序 → `enhanceLevel` 升序。`enhanceLevel` 升序表示强化等级越高越靠后。
 
 ## 物品堆叠规则
 

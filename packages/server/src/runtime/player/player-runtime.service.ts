@@ -10,7 +10,7 @@
  */
 import { Inject, BadRequestException, Injectable, Logger, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
-import { ARTIFACT_SLOTS, ARTIFACT_UNLOCK_REALM_LV, ATTR_KEYS, AUTO_IDLE_CULTIVATION_DELAY_TICKS, BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER, DEFAULT_BASE_ATTRS, DEFAULT_BONE_AGE_YEARS, DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS, DEFAULT_INVENTORY_CAPACITY, DEFAULT_PLAYER_REALM_STAGE, Direction, EQUIP_SLOTS, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, RETURN_TO_SPAWN_ACTION_ID, RETURN_TO_SPAWN_COOLDOWN_TICKS, TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH, TechniqueRealm, calculateTechniqueComprehensionProgressGain, calculateTechniqueComprehensionRequiredProgress, canMergeItemStack, cloneCraftEquipmentStats, coalesceItemStackList, compileValueStatsToActualStats, computeCraftSkillExpGain, createItemStackSignature, enforceSkillEnabledLimit, getBodyTrainingExpToNext, isCreatedTechniqueId, mergeItemStackInto, normalizeBodyTrainingState, normalizeHorizontalFacing, percentModifierToMultiplier, resolveArtifactMaxQi, resolvePlayerSkillSlotLimit, resolveSkillRequiresTarget, resolveTechniqueStandardMaxHpRecoveryAmount, resolveTechniqueStandardMaxQiRecoveryAmount, signedRatioValue } from '@mud/shared';
+import { ARTIFACT_SLOTS, ARTIFACT_UNLOCK_REALM_LV, ATTR_KEYS, AUTO_IDLE_CULTIVATION_DELAY_TICKS, BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER, DEFAULT_BASE_ATTRS, DEFAULT_BONE_AGE_YEARS, DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS, DEFAULT_INVENTORY_CAPACITY, DEFAULT_PLAYER_REALM_STAGE, Direction, EQUIP_SLOTS, ITEM_TYPE_SORT_ORDER, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, RETURN_TO_SPAWN_ACTION_ID, RETURN_TO_SPAWN_COOLDOWN_TICKS, TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH, TECHNIQUE_GRADE_ORDER, TechniqueRealm, calculateTechniqueComprehensionProgressGain, calculateTechniqueComprehensionRequiredProgress, canMergeItemStack, cloneCraftEquipmentStats, coalesceItemStackList, compileValueStatsToActualStats, computeCraftSkillExpGain, createItemStackSignature, enforceSkillEnabledLimit, getBodyTrainingExpToNext, isCreatedTechniqueId, mergeItemStackInto, normalizeBodyTrainingState, normalizeHorizontalFacing, percentModifierToMultiplier, resolveArtifactMaxQi, resolvePlayerSkillSlotLimit, resolveSkillRequiresTarget, resolveTechniqueStandardMaxHpRecoveryAmount, resolveTechniqueStandardMaxQiRecoveryAmount, signedRatioValue } from '@mud/shared';
 import { assignItemInstanceIdIfNeeded, compareItemInstanceId, isItemInstanceIdHardCheckEnabled } from '../world/item-instance-id.helpers';
 import { isNativeGmBotPlayerId } from '../../http/native/native-gm.constants';
 import { PVP_SHA_BACKLASH_BUFF_ID, PVP_SHA_BACKLASH_DECAY_TICKS, PVP_SHA_BACKLASH_PERCENT_PER_STACK, PVP_SHA_BACKLASH_SOURCE_ID, PVP_SHA_BACKLASH_STACK_DIVISOR, PVP_SHA_INFUSION_ATTACK_CAP_PERCENT, PVP_SHA_INFUSION_BUFF_ID, PVP_SHA_INFUSION_DECAY_TICKS, PVP_SHA_INFUSION_SOURCE_ID, PVP_SOUL_INJURY_BUFF_ID, PVP_SOUL_INJURY_DURATION_TICKS, PVP_SOUL_INJURY_SOURCE_ID } from '../../constants/gameplay/pvp';
@@ -8974,9 +8974,32 @@ function clamp(value, min, max) {
  */
 
 function compareInventoryItems(left, right) {
-    return left.itemId.localeCompare(right.itemId, 'zh-Hans-CN')
-        || (left.name ?? '').localeCompare(right.name ?? '', 'zh-Hans-CN')
-        || right.count - left.count;
+    return resolveInventoryGradeOrder(right) - resolveInventoryGradeOrder(left)
+        || resolveInventoryLevelOrder(right) - resolveInventoryLevelOrder(left)
+        || resolveInventoryTypeOrder(left) - resolveInventoryTypeOrder(right)
+        || String(left.itemId ?? '').localeCompare(String(right.itemId ?? ''), 'zh-Hans-CN')
+        || String(left.name ?? '').localeCompare(String(right.name ?? ''), 'zh-Hans-CN')
+        || resolveInventoryEnhanceLevelOrder(left) - resolveInventoryEnhanceLevelOrder(right);
+}
+
+function resolveInventoryGradeOrder(item) {
+    const index = TECHNIQUE_GRADE_ORDER.indexOf(item?.grade);
+    return index >= 0 ? index : -1;
+}
+
+function resolveInventoryLevelOrder(item) {
+    const value = Number(item?.level);
+    return Number.isFinite(value) ? Math.trunc(value) : 0;
+}
+
+function resolveInventoryTypeOrder(item) {
+    const order = ITEM_TYPE_SORT_ORDER[item?.type];
+    return Number.isFinite(order) ? order : Object.keys(ITEM_TYPE_SORT_ORDER).length;
+}
+
+function resolveInventoryEnhanceLevelOrder(item) {
+    const value = Number(item?.enhanceLevel);
+    return Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : 0;
 }
 /**
  * consumeInventoryItemAt：执行consume背包道具At相关逻辑。

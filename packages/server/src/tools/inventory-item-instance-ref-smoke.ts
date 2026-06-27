@@ -25,6 +25,7 @@ interface SmokePlayer {
     slots: Array<{ slot: string; item: ItemStack | null }>;
   };
   wallet: { balances: Array<{ walletType: string; balance: number; frozenBalance: number; version: number }> };
+  dirtyDomains: Set<string>;
   [key: string]: unknown;
 }
 
@@ -47,8 +48,15 @@ function createPlayerRuntimeService(repository: ContentTemplateRepository): Play
 }
 
 function createItem(repository: ContentTemplateRepository, itemId: string, count: number, itemInstanceId: string, overrides: Partial<ItemStack> = {}): ItemStack {
+  const templateItem = repository.createItem(itemId, count) ?? {
+    itemId,
+    count,
+    name: itemId,
+    type: 'material',
+    desc: '',
+  };
   return {
-    ...repository.createItem(itemId, count),
+    ...templateItem,
     itemInstanceId,
     ...overrides,
   } as ItemStack;
@@ -377,6 +385,8 @@ async function testMarketSellOrderAfterReorder(repository: ContentTemplateReposi
 function testFormationCreateAfterReorder(repository: ContentTemplateRepository): void {
   const playerRuntimeService = createPlayerRuntimeService(repository);
   const player = createPlayer(repository);
+  player.qi = 1_000_000;
+  player.maxQi = 1_000_000;
   installPlayer(playerRuntimeService, player);
   const targetId = 'inst-formation-disk';
   reorderInventory(player);
@@ -412,6 +422,46 @@ function testFormationCreateAfterReorder(repository: ContentTemplateRepository):
   assert.deepEqual(itemIds(player).includes('minor_qi_pill'), true);
 }
 
+function testSortInventoryOrder(repository: ContentTemplateRepository): void {
+  const service = createPlayerRuntimeService(repository);
+  const player = createPlayer(repository);
+  player.inventory.items = [
+    createItem(repository, 'mat.zeta', 1, 'sort-mat-zeta', { name: '紫矿', type: 'material', grade: 'heaven', level: 10 }),
+    createItem(repository, 'book.alpha', 1, 'sort-book-alpha', { name: '青书', type: 'skill_book', grade: 'earth', level: 12 }),
+    createItem(repository, 'consumable.beta', 1, 'sort-consumable-beta', { name: '灵丹', type: 'consumable', grade: 'earth', level: 12 }),
+    createItem(repository, 'quest.gamma', 1, 'sort-quest-gamma', { name: '令牌', type: 'quest_item', grade: 'earth', level: 12 }),
+    createItem(repository, 'equip.beta', 1, 'sort-equip-beta-low', { name: '铜剑', type: 'equipment', grade: 'earth', level: 12, enhanceLevel: 1 }),
+    createItem(repository, 'equip.beta', 1, 'sort-equip-beta-high', { name: '铜剑', type: 'equipment', grade: 'earth', level: 12, enhanceLevel: 3 }),
+    createItem(repository, 'equip.alpha', 1, 'sort-equip-alpha', { name: '铁剑', type: 'equipment', grade: 'earth', level: 12, enhanceLevel: 0 }),
+    createItem(repository, 'equip.delta', 1, 'sort-equip-delta', { name: '木剑', type: 'equipment', grade: 'earth', level: 9 }),
+    createItem(repository, 'artifact.omega', 1, 'sort-artifact-omega', { name: '法宝', type: 'artifact', grade: 'earth', level: 12 }),
+    createItem(repository, 'mat.merge', 2, 'sort-mat-merge-a', { name: '灵砂', type: 'material', grade: 'mortal', level: 1 }),
+    createItem(repository, 'mat.merge', 3, 'sort-mat-merge-b', { name: '灵砂', type: 'material', grade: 'mortal', level: 1 }),
+  ];
+  installPlayer(service, player);
+
+  service.sortInventory(playerId);
+
+  assert.deepEqual(
+    player.inventory.items.map((item) => `${item.itemId}:${item.count}:${item.enhanceLevel ?? 0}`),
+    [
+      'mat.zeta:1:0',
+      'equip.alpha:1:0',
+      'equip.beta:1:1',
+      'equip.beta:1:3',
+      'consumable.beta:1:0',
+      'book.alpha:1:0',
+      'quest.gamma:1:0',
+      'artifact.omega:1:0',
+      'equip.delta:1:0',
+      'mat.merge:5:0',
+    ],
+  );
+  assert.equal(player.inventory.revision, 2);
+  assert.equal(player.persistentRevision, 2);
+  assert.equal(player.dirtyDomains.has('inventory'), true);
+}
+
 async function main(): Promise<void> {
   const repository = createRepository();
   testUseItemAfterReorder(repository);
@@ -421,6 +471,7 @@ async function main(): Promise<void> {
   testEnhancementFinishAfterQueuedReorder(repository);
   await testMarketSellOrderAfterReorder(repository);
   testFormationCreateAfterReorder(repository);
+  testSortInventoryOrder(repository);
   console.log('inventory-item-instance-ref-smoke ok');
 }
 

@@ -27,9 +27,9 @@ export const ITEM_USABLE_TYPES: ItemType[] = ['consumable', 'skill_book'];
 /** 背包整理时的物品类型排序权重。 */
 export const ITEM_TYPE_SORT_ORDER: Record<ItemType, number> = {
   equipment: 0,
-  artifact: 1,
-  consumable: 2,
-  material: 3,
-  skill_book: 4,
-  quest_item: 5,
+  consumable: 1,
+  skill_book: 2,
+  quest_item: 3,
+  material: 4,
+  artifact: 5,
 };
