@@ -862,6 +862,16 @@ export class NativeGmController {
     return this.nextGmPlayerService.repairMarketStorageItemIds();
   }
 
+  @Post('shortcuts/compat/quest-progress-payloads/dry-run')
+  async dryRunRepairQuestProgressPayloads(@Req() request: unknown) {
+    return this.nextGmPlayerService.repairQuestProgressPayloads('dry-run', extractGmActor(request));
+  }
+
+  @Post('shortcuts/compat/quest-progress-payloads/apply')
+  async applyRepairQuestProgressPayloads(@Req() request: unknown) {
+    return this.nextGmPlayerService.repairQuestProgressPayloads('apply', extractGmActor(request));
+  }
+
   @Post('shortcuts/players/refresh-online-technique-templates')
   async refreshOnlinePlayerTechniqueTemplates() {
     return this.nextGmPlayerService.refreshOnlinePlayerTechniqueTemplates();

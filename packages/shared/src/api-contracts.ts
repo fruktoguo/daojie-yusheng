@@ -2543,6 +2543,13 @@ export interface GmShortcutRunRes {
  */
 
   repairedAt?: string;
+  questProgressRepairMode?: 'dry-run' | 'apply';
+  questProgressScannedRows?: number;
+  questProgressKnownRows?: number;
+  questProgressUnknownRows?: number;
+  questProgressPatchedRows?: number;
+  questProgressUnknownQuestIds?: Array<{ questId: string; count: number }>;
+  questProgressSamplePatches?: Array<{ playerId: string; questId: string; status: string; progress: unknown }>;
   /**
  * refreshedOnlinePlayers：刷新功法模板的在线玩家数。
  */

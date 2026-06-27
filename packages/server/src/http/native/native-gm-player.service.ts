@@ -29,6 +29,7 @@ import { MapTemplateRepository } from '../../runtime/map/map-template.repository
 import { DatabasePoolProvider } from '../../persistence/database-pool.provider';
 import { GmAuditLogPersistenceService, type GmAuditLogEntry } from '../../persistence/gm-audit-log-persistence.service';
 import { repairMarketStorageItemIds } from '../../persistence/market-storage-item-id-repair';
+import { repairQuestProgressPayloads } from '../../persistence/quest-progress-payload-repair';
 import { PlayerDomainPersistenceService } from '../../persistence/player-domain-persistence.service';
 import { ActivityPersistenceService } from '../../persistence/activity-persistence.service';
 import { MarketRuntimeService } from '../../runtime/market/market-runtime.service';
@@ -1253,6 +1254,50 @@ export class NativeGmPlayerService {
       marketStorageInvalidSlotRowsBefore: result.before.invalidSlotRows,
       marketStorageInvalidSlotRowsAfter: result.after.invalidSlotRows,
       repairedMarketStorageSample: result.repairedSample,
+      repairedAt: result.repairedAt,
+    };
+  }
+
+  async repairQuestProgressPayloads(mode: 'dry-run' | 'apply', actor?: GmActorContext | null) {
+    const pool = this.databasePoolProvider?.getPool('gm-quest-progress-payload-repair') ?? null;
+    if (!pool) {
+      throw new BadRequestException('数据库未启用，无法修复任务进度 payload');
+    }
+    const result = await repairQuestProgressPayloads(pool, { mode });
+    if (mode === 'apply') {
+      await this.recordGmAuditEntry({
+        op: 'gm.compat.repair_quest_progress_payloads',
+        targetType: 'player_quest_progress',
+        targetId: 'all',
+        actor: actor ?? { tokenRev: null, ip: null, userAgent: null, receivedAt: Date.now() },
+        before: {
+          scannedRows: result.scannedRows,
+          patchedRows: result.patchedRows,
+          unknownQuestRows: result.unknownQuestRows,
+        },
+        after: {
+          patchedRows: result.patchedRows,
+          unknownQuestIds: result.unknownQuestIds,
+          repairedAt: result.repairedAt,
+        },
+        delta: {
+          patchedRows: result.patchedRows,
+          knownQuestRows: result.knownQuestRows,
+          unknownQuestRows: result.unknownQuestRows,
+        },
+        success: true,
+        errorMessage: null,
+      });
+    }
+    return {
+      ok: true,
+      questProgressRepairMode: result.mode,
+      questProgressScannedRows: result.scannedRows,
+      questProgressKnownRows: result.knownQuestRows,
+      questProgressUnknownRows: result.unknownQuestRows,
+      questProgressPatchedRows: result.patchedRows,
+      questProgressUnknownQuestIds: result.unknownQuestIds,
+      questProgressSamplePatches: result.samplePatches,
       repairedAt: result.repairedAt,
     };
   }

@@ -12147,6 +12147,55 @@ async function migrateAiArtsStrengthDraftsV1ToV2(): Promise<void> {
   }
 }
 
+async function repairQuestProgressPayloads(): Promise<void> {
+  const button = document.getElementById('shortcut-repair-quest-progress-payloads') as HTMLButtonElement | null;
+  if (button) {
+    button.disabled = true;
+  }
+  try {
+    setPendingStatus(t('gm.shortcut.repair-quest-progress.dry-run-started'));
+    const preview = await request<GmShortcutRunRes>(`${GM_API_BASE_PATH}/shortcuts/compat/quest-progress-payloads/dry-run`, {
+      method: 'POST',
+    });
+    const patchedRows = Math.floor(preview.questProgressPatchedRows ?? 0);
+    const unknownRows = Math.floor(preview.questProgressUnknownRows ?? 0);
+    if (patchedRows <= 0) {
+      setStatus(t('gm.shortcut.repair-quest-progress.noop', {
+        scannedRows: Math.floor(preview.questProgressScannedRows ?? 0),
+        unknownRows,
+      }), unknownRows > 0);
+      return;
+    }
+    const unknownLabel = (preview.questProgressUnknownQuestIds ?? [])
+      .slice(0, 6)
+      .map((entry) => `${entry.questId} x${entry.count}`)
+      .join('，') || '无';
+    if (!window.confirm(t('gm.shortcut.repair-quest-progress.confirm', {
+      scannedRows: Math.floor(preview.questProgressScannedRows ?? 0),
+      patchedRows,
+      unknownRows,
+      unknownLabel,
+    }))) {
+      setStatus(t('gm.shortcut.repair-quest-progress.cancelled'));
+      return;
+    }
+    const result = await request<GmShortcutRunRes>(`${GM_API_BASE_PATH}/shortcuts/compat/quest-progress-payloads/apply`, {
+      method: 'POST',
+    });
+    await delayRefresh(t('gm.shortcut.repair-quest-progress.done', {
+      scannedRows: Math.floor(result.questProgressScannedRows ?? 0),
+      patchedRows: Math.floor(result.questProgressPatchedRows ?? 0),
+      unknownRows: Math.floor(result.questProgressUnknownRows ?? 0),
+    }));
+  } catch (error) {
+    setStatus(error instanceof Error ? error.message : t('gm.request.failed'), true);
+  } finally {
+    if (button) {
+      button.disabled = false;
+    }
+  }
+}
+
 async function refreshOnlineTechniqueTemplates(): Promise<void> {
   if (!window.confirm(t('gm.shortcut.refresh-online-technique-templates.confirm'))) {
     return;
@@ -13357,6 +13406,9 @@ document.getElementById('shortcut-repair-market-storage-item-ids')?.addEventList
 });
 document.getElementById('shortcut-migrate-ai-arts-strength-v1-to-v2')?.addEventListener('click', () => {
   migrateAiArtsStrengthDraftsV1ToV2().catch((e) => console.error('[GM]', e));
+});
+document.getElementById('shortcut-repair-quest-progress-payloads')?.addEventListener('click', () => {
+  repairQuestProgressPayloads().catch((e) => console.error('[GM]', e));
 });
 document.getElementById('shortcut-refresh-online-technique-templates')?.addEventListener('click', () => {
   refreshOnlineTechniqueTemplates().catch((e) => console.error('[GM]', e));
