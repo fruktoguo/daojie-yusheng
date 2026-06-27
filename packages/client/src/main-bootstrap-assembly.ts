@@ -44,6 +44,7 @@ import { bindMainHighFrequencySocketEvents } from './main-high-frequency-socket-
 import { bindMainLowFrequencySocketEvents } from './main-low-frequency-socket-bindings';
 import { contentResolver } from './content/content-resolver';
 import {
+  getTechniqueGenerationSelectedItemSpend,
   syncTechniqueGenerationState,
   techniqueGenerationStore,
 } from './react-ui/panels/technique-generation/mount-technique-generation-panel';
@@ -813,7 +814,7 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
           error: '',
         });
         if (techniqueGenerationStore.getState().visible) {
-          options.techniqueGenerationSender.sendGetStatus();
+          options.techniqueGenerationSender.sendGetStatus(getTechniqueGenerationSelectedItemSpend());
         }
         return;
       }
@@ -826,7 +827,7 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
           error: '',
         });
         if (techniqueGenerationStore.getState().visible) {
-          options.techniqueGenerationSender.sendGetStatus();
+          options.techniqueGenerationSender.sendGetStatus(getTechniqueGenerationSelectedItemSpend());
         }
         return;
       }
@@ -865,7 +866,7 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
           : (data.preview && (!grade || !category) ? '功法领悟结果格式异常' : ''),
       });
       if (shouldRefreshAfterFailure) {
-        options.techniqueGenerationSender.sendGetStatus();
+        options.techniqueGenerationSender.sendGetStatus(getTechniqueGenerationSelectedItemSpend());
       }
     },
     onError: (data) => options.connectionStateSource.handleError(data),

@@ -2,6 +2,7 @@
 import { detailModalHost } from './ui/detail-modal-host';
 import {
   closeTechniqueGenerationPanel,
+  getTechniqueGenerationSelectedItemSpend,
   openTechniqueGenerationPanel,
   setTechniqueGenerationCallbacks,
   syncTechniqueGenerationState,
@@ -46,7 +47,7 @@ export function createMainTechniqueGenerationPanelSource(
         renderBody: (body) => body.replaceChildren(),
         onAfterRender: (body) => {
           openTechniqueGenerationPanel(body);
-          sender.sendGetStatus();
+          sender.sendGetStatus(getTechniqueGenerationSelectedItemSpend());
           syncTechniqueGenerationState({ available: true, unavailableReason: '' });
         },
         onClose: () => closeTechniqueGenerationPanel(),

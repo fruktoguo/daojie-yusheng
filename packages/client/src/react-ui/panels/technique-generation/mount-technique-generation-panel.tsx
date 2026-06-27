@@ -53,4 +53,8 @@ export function syncTechniqueGenerationState(state: Partial<TechniqueGenerationP
   techniqueGenerationStore.patchState(state);
 }
 
+export function getTechniqueGenerationSelectedItemSpend(): number {
+  return techniqueGenerationStore.getState().selectedItemSpend;
+}
+
 export { setTechniqueGenerationCallbacks, techniqueGenerationStore };

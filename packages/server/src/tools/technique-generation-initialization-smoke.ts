@@ -546,12 +546,14 @@ async function testGatewayStatusEmitsRollRange(): Promise<void> {
   const payload = emitted[0]?.payload as {
     available?: boolean;
     rollRange?: {
+      itemSpendMax?: number;
       itemSpendDefault?: number;
       realmLvChances?: unknown[];
       gradeChances?: unknown[];
     };
   };
   assert.equal(payload.available, true);
+  assert.equal(payload.rollRange?.itemSpendMax, 100);
   assert.equal(payload.rollRange?.itemSpendDefault, 3);
   assert.ok((payload.rollRange?.realmLvChances?.length ?? 0) > 0);
   assert.ok((payload.rollRange?.gradeChances?.length ?? 0) > 0);

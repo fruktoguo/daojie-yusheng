@@ -37,6 +37,7 @@ export interface TechniqueGenerationPanelState {
       chance: number;
     }>;
   } | null;
+  selectedItemSpend: number;
   generating: boolean;
   currentJob: {
     jobId: string;
@@ -67,6 +68,7 @@ export const { store: techniqueGenerationStore, useStore: useTechniqueGeneration
     available: false,
     unavailableReason: '',
     rollRange: null,
+    selectedItemSpend: 1,
     generating: false,
     currentJob: null,
     currentDraft: null,
@@ -154,7 +156,7 @@ export const TechniqueGenerationPanel = memo(function TechniqueGenerationPanel()
   const [selectedCategory, setSelectedCategory] = useState<CategoryTab>('internal');
   const [playerContext, setPlayerContext] = useState('');
   const [customName, setCustomName] = useState('');
-  const [itemSpend, setItemSpend] = useState(1);
+  const itemSpend = state.selectedItemSpend;
 
   useEffect(() => () => hideTechniqueGenerationTooltip(), []);
 
@@ -166,8 +168,11 @@ export const TechniqueGenerationPanel = memo(function TechniqueGenerationPanel()
   useEffect(() => {
     const min = state.rollRange?.itemSpendMin ?? 1;
     const max = state.rollRange?.itemSpendMax ?? 1;
-    setItemSpend((current) => Math.max(min, Math.min(max, current)));
-  }, [state.rollRange?.itemSpendMin, state.rollRange?.itemSpendMax]);
+    const next = Math.max(min, Math.min(max, state.selectedItemSpend));
+    if (next !== state.selectedItemSpend) {
+      techniqueGenerationStore.patchState({ selectedItemSpend: next });
+    }
+  }, [state.rollRange?.itemSpendMin, state.rollRange?.itemSpendMax, state.selectedItemSpend]);
 
   const handleGenerate = useCallback(() => {
     if (state.generating) return;
@@ -178,7 +183,7 @@ export const TechniqueGenerationPanel = memo(function TechniqueGenerationPanel()
     const min = state.rollRange?.itemSpendMin ?? 1;
     const max = state.rollRange?.itemSpendMax ?? 1;
     const next = Math.max(min, Math.min(max, Math.trunc(value)));
-    setItemSpend(next);
+    techniqueGenerationStore.patchState({ selectedItemSpend: next });
     callbacks.onPreviewItemSpend?.(next);
   }, [state.rollRange?.itemSpendMin, state.rollRange?.itemSpendMax]);
 
