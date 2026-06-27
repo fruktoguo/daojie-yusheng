@@ -1042,6 +1042,9 @@
     .inventory-cell-name--tiny {
       font-size: var(--font-size-12);
     }
+    .inventory-cell-name--book-title {
+      font-size: var(--font-size-10);
+    }
     .inventory-cell[data-item-grade-line-visible="true"] .inventory-cell-name--book-title {
       display: flex;
       width: 100%;
@@ -1053,12 +1056,6 @@
       overflow-wrap: normal;
       text-overflow: ellipsis;
       -webkit-line-clamp: unset;
-    }
-    .inventory-cell-name--book-title-long {
-      font-size: var(--font-size-11);
-    }
-    .inventory-cell-name--book-title-dense {
-      font-size: var(--font-size-10);
     }
     .inventory-cell-actions {
       display: flex;

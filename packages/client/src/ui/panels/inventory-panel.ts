@@ -3406,19 +3406,13 @@ export class InventoryPanel {
 
     const length = getGraphemeCount(name);
     const classes: string[] = [];
+    if (item?.type === 'skill_book' && name.includes('《') && name.includes('》')) {
+      return 'inventory-cell-name--book-title';
+    }
     if (length >= 7) {
       classes.push('inventory-cell-name--tiny');
     } else if (length >= 5) {
       classes.push('inventory-cell-name--compact');
-    }
-    if (item?.type === 'skill_book' && name.includes('《') && name.includes('》') && length >= 7) {
-      classes.push('inventory-cell-name--book-title');
-      if (length >= 10) {
-        classes.push('inventory-cell-name--book-title-long');
-      }
-      if (length >= 12) {
-        classes.push('inventory-cell-name--book-title-dense');
-      }
     }
     return classes.join(' ');
   }
