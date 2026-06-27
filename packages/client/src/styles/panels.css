@@ -697,7 +697,7 @@
     }
     .inventory-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(78px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
       gap: 6px;
     }
     .inventory-load-hint {
@@ -897,17 +897,17 @@
     }
     .inventory-cell-type {
       position: absolute;
-      top: 6px;
-      left: -47px;
+      top: 4px;
+      left: -31px;
       z-index: 3;
-      width: 129px;
+      width: 86px;
       padding: 2px 0;
       background: color-mix(in srgb, rgba(var(--inventory-grade-rgb, 94, 94, 94), 0.9) 72%, var(--ink-black));
       color: #f8f2e8;
       font-size: 9px;
       font-weight: var(--font-weight-strong);
       line-height: 1.1;
-      letter-spacing: 0.04em;
+      letter-spacing: 0.08em;
       text-align: center;
       text-transform: uppercase;
       box-shadow: 0 6px 14px rgba(0, 0, 0, 0.12);
@@ -1012,7 +1012,8 @@
       right: 4px;
       bottom: 3px;
       z-index: 3;
-      max-width: 48px;
+      max-width: none;
+      min-width: max-content;
       padding: 1px 5px 2px;
       border: 1px solid rgba(34, 26, 19, 0.12);
       background: color-mix(in srgb, var(--paper-light) 84%, rgba(255,255,255,0.2));
@@ -1024,8 +1025,8 @@
       font-variant-numeric: tabular-nums;
       text-align: right;
       white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      overflow: visible;
+      text-overflow: clip;
       pointer-events: none;
     }
     .inventory-cell-name {
