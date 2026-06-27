@@ -743,11 +743,11 @@
     }
     .inventory-cell {
       display: grid;
-      grid-template-rows: 0 minmax(30px, 1fr);
-      gap: 0;
-      min-height: 66px;
+      grid-template-rows: 14px minmax(30px, 1fr);
+      gap: 2px;
+      min-height: 74px;
       width: 100%;
-      padding: 5px 7px 13px;
+      padding: 8px 8px 14px;
       border: 1px solid var(--wash-ink);
       background: var(--surface-gradient-entry);
       box-shadow: inset 0 0 0 1px rgba(255,255,255,0.5);
@@ -893,7 +893,7 @@
       align-items: center;
       justify-content: flex-end;
       position: static;
-      min-height: 0;
+      min-height: 14px;
     }
     .inventory-cell-type {
       position: absolute;
@@ -953,9 +953,11 @@
       text-overflow: ellipsis;
     }
     .item-card-chip--level {
-      left: 4px;
-      bottom: 3px;
-      max-width: calc(100% - 58px);
+      top: 3px;
+      right: 4px;
+      bottom: auto;
+      max-width: none;
+      text-align: right;
       color: color-mix(in srgb, var(--inventory-grade-border, rgba(94, 94, 94, 0.56)) 82%, var(--ink-black));
       border: 1px solid color-mix(in srgb, var(--inventory-grade-border, rgba(94, 94, 94, 0.56)) 88%, rgba(255,255,255,0.12));
       background:
@@ -1039,7 +1041,6 @@
       width: 100%;
       min-height: 30px;
       max-height: 30px;
-      margin-top: 1px;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
