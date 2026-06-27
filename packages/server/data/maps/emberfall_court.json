@@ -215,12 +215,12 @@
     [
       24,
       18,
-      "spawn_ember_bone_patrol_b"
+      "m_ember_bone_patrol"
     ],
     [
       28,
       22,
-      "spawn_ember_bone_patrol_c"
+      "m_ember_bone_patrol"
     ],
     [
       19,
@@ -230,12 +230,12 @@
     [
       35,
       39,
-      "spawn_ember_flame_guard_b"
+      "m_ember_flame_guard"
     ],
     [
       29,
       42,
-      "spawn_ember_flame_guard_c"
+      "m_ember_flame_guard"
     ],
     [
       28,

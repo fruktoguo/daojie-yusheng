@@ -372,7 +372,7 @@ function normalizeQuestTemplate(entry, context) {
     return null;
   }
   const objectiveType = normalizeQuestObjectiveType(entry.objectiveType);
-  const required = Math.max(1, Math.trunc(Number(entry.required ?? entry.targetCount ?? 1)));
+  const required = normalizeQuestRequired(entry, objectiveType);
   const rewards = normalizeQuestRewards(entry, context.itemById);
   const rewardItemIds = rewards.map((reward) => reward.itemId);
   const targetNpcLocation = normalizeText(entry.targetNpcId) ? context.npcLocationById.get(normalizeText(entry.targetNpcId)) : null;
@@ -492,6 +492,18 @@ function normalizeQuestObjectiveType(value) {
     || value === 'realm_stage'
     ? value
     : 'kill';
+}
+
+function normalizeQuestRequired(entry, objectiveType) {
+  if (objectiveType === 'submit_item') {
+    const requiredItemCount = normalizePositiveInteger(entry.requiredItemCount);
+    if (requiredItemCount !== undefined) {
+      return requiredItemCount;
+    }
+  }
+  return normalizePositiveInteger(entry.required)
+    ?? normalizePositiveInteger(entry.targetCount)
+    ?? 1;
 }
 
 function buildQuestTemplateRewardText(rewards) {

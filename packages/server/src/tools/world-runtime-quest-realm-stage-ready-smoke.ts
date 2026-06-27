@@ -76,11 +76,27 @@ function testRealmLevelStaysAvailableWhenNotReached() {
     assert.ok(quest.progress < quest.required, '未达标时进度不应满');
 }
 
+function testRealmLevelProgressResetsWhenNotReached() {
+    const service = createService(1);
+    const progress = service.resolveQuestProgress('player:1', {
+        id: 'quest:realm_reached',
+        line: 'main',
+        status: 'ready',
+        objectiveType: 'realm_stage',
+        progress: 1,
+        required: 1,
+        targetMonsterId: '',
+        targetRealmLv: 2,
+    });
+    assert.equal(progress, 0, '境界任务未达标时必须归零，不能沿用历史满进度');
+}
+
 function main() {
     testRealmLevelAvailableStaysAvailableWhenReached();
     testRealmLevelAvailableStaysAvailableWhenExceeded();
     testRealmLevelActivePromotesToReadyWhenReached();
     testRealmLevelStaysAvailableWhenNotReached();
+    testRealmLevelProgressResetsWhenNotReached();
     console.log(JSON.stringify({ ok: true, case: 'world-runtime-quest-realm-stage-ready' }, null, 2));
 }
 

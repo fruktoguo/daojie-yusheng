@@ -239,12 +239,12 @@
     [
       25,
       30,
-      "spawn_guizang_dualphase_beast_b"
+      "m_guizang_dualphase_beast"
     ],
     [
       31,
       22,
-      "spawn_guizang_dualphase_beast_c"
+      "m_guizang_dualphase_beast"
     ],
     [
       15,
@@ -254,12 +254,12 @@
     [
       12,
       45,
-      "spawn_guizang_ruined_relic_b"
+      "m_guizang_ruined_relic"
     ],
     [
       34,
       24,
-      "spawn_guizang_ruined_relic_c"
+      "m_guizang_ruined_relic"
     ],
     [
       30,

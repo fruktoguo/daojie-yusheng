@@ -362,13 +362,13 @@ export class WorldRuntimeQuestQueryService {
                 const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
                 return quest.targetRealmLv !== undefined && isRealmLevelReached(getPlayerRealmLevel(player), quest.targetRealmLv, false)
                     ? quest.required
-                    : quest.progress;
+                    : 0;
             }
             case 'realm_progress': {
                 const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
                 return quest.targetRealmLv !== undefined && isRealmLevelReached(getPlayerRealmLevel(player), quest.targetRealmLv, true)
                     ? quest.required
-                    : quest.progress;
+                    : 0;
             }
             default:
                 return quest.progress;

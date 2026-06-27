@@ -227,12 +227,12 @@
     [
       18,
       23,
-      "spawn_cold_moonscale_b"
+      "m_cold_moonscale"
     ],
     [
       37,
       30,
-      "spawn_cold_moonscale_c"
+      "m_cold_moonscale"
     ],
     [
       34,
@@ -242,12 +242,12 @@
     [
       48,
       24,
-      "spawn_cold_bridge_patrol_b"
+      "m_cold_bridge_patrol"
     ],
     [
       34,
       54,
-      "spawn_cold_bridge_patrol_c"
+      "m_cold_bridge_patrol"
     ],
     [
       30,

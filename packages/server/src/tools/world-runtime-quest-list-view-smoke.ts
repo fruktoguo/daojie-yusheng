@@ -90,6 +90,14 @@ function createQuestQueryService(log, quests) {
                 rewards: Array.isArray(quest.rewards) ? quest.rewards.map((reward) => ({ ...reward })) : [],
             }));
         },        
+        getPlayer(playerId) {
+            log.push(['getPlayer', playerId]);
+            return {
+                quests: {
+                    revision: 1,
+                },
+            };
+        },
         /**
  * getPlayerOrThrow：读取玩家OrThrow。
  * @param playerId 玩家 ID。
@@ -118,6 +126,8 @@ function testQuestQueryServiceBuildQuestListView() {
     const service = createQuestQueryService(log, quests);
     const view = service.buildQuestListView('player:1');
     assert.deepEqual(view, {
+        r: 1,
+        full: 1,
         quests: [{
             id: 'quest:1',
             title: '云游初试',
@@ -133,7 +143,7 @@ function testQuestQueryServiceBuildQuestListView() {
     assert.notEqual(view.quests[0], quests[0]);
     assert.notEqual(view.quests[0].rewards, quests[0].rewards);
     assert.notEqual(view.quests[0].rewards[0], quests[0].rewards[0]);
-    assert.deepEqual(log, [['listQuests', 'player:1']]);
+    assert.deepEqual(log, [['getPlayer', 'player:1'], ['listQuests', 'player:1']]);
 }
 /**
  * testWorldRuntimeFacadeBuildQuestListView：读取test世界运行态FacadeBuild任务列表视图并返回结果。
@@ -288,7 +298,7 @@ function testContentQuestFilesBindToNpcTemplates() {
     assert.ok(questSource, 'content quest should be indexed by quest id');
     assert.equal(questSource.giverNpcId, 'npc_old_gate_guard');
     assert.equal(questSource.giverMapId, 'yunlai_town');
-    assert.equal(questSource.quest.title, '先进镇里');
+    assert.equal(questSource.quest.title, '初入云来镇');
     const totalQuestBindings = repository.list()
         .flatMap((template) => template.npcs)
         .reduce((sum, npc) => sum + npc.quests.length, 0);

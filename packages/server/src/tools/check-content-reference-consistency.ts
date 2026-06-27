@@ -258,9 +258,11 @@ function collectMapRefs() {
     npcIdsByMap.set(map.id, mapNpcIds);
     const mapMonsterIds = new Set();
     for (const monster of map.monsterSpawns ?? []) {
-      const monsterTemplateId = typeof monster?.templateId === "string"
-        ? monster.templateId
-        : (typeof monster?.id === "string" ? monster.id : null);
+      const monsterTemplateId = Array.isArray(monster) && typeof monster[2] === "string"
+        ? monster[2]
+        : typeof monster?.templateId === "string"
+          ? monster.templateId
+          : (typeof monster?.id === "string" ? monster.id : null);
       if (!monsterTemplateId) {
         continue;
       }
@@ -601,6 +603,31 @@ function validateMapMonsterRefs(errors, mapRefs, monsterIds) {
     }
   }
 }
+
+function normalizeQuestObjectiveType(value) {
+  return value === "kill"
+    || value === "talk"
+    || value === "submit_item"
+    || value === "learn_technique"
+    || value === "realm_progress"
+    || value === "realm_stage"
+    ? value
+    : null;
+}
+
+function normalizePositiveInteger(value) {
+  return Number.isInteger(value) && Number(value) > 0 ? Number(value) : null;
+}
+
+function resolveQuestRequired(quest, objectiveType) {
+  if (objectiveType === "submit_item") {
+    return normalizePositiveInteger(quest?.requiredItemCount)
+      ?? normalizePositiveInteger(quest?.required)
+      ?? normalizePositiveInteger(quest?.targetCount);
+  }
+  return normalizePositiveInteger(quest?.required)
+    ?? normalizePositiveInteger(quest?.targetCount);
+}
 /**
  * validateQuestRefs：判断任务Ref是否满足条件。
  * @param errors 参数说明。
@@ -615,6 +642,19 @@ function validateQuestRefs(errors, questFiles, refs) {
     for (const quest of questFile.payload?.quests ?? []) {
       const questId = typeof quest?.id === "string" ? quest.id : `unknown-quest@${questFile.relativePath}`;
       const label = `${questId} @ ${questFile.relativePath}`;
+      const objectiveType = normalizeQuestObjectiveType(quest?.objectiveType ?? "kill");
+      const required = resolveQuestRequired(quest, objectiveType);
+
+      if (!objectiveType) {
+        errors.push(`${label}: objectiveType 非法 -> ${quest?.objectiveType}`);
+        continue;
+      }
+      if (required == null) {
+        errors.push(`${label}: required/targetCount 必须提供正整数`);
+      }
+      if (quest?.acceptRealmLv !== undefined && normalizePositiveInteger(quest.acceptRealmLv) == null) {
+        errors.push(`${label}: acceptRealmLv 必须是正整数`);
+      }
 
       if (typeof quest?.nextQuestId === "string" && !refs.questIds.has(quest.nextQuestId)) {
         errors.push(`${label}: nextQuestId 不存在 -> ${quest.nextQuestId}`);
@@ -627,6 +667,27 @@ function validateQuestRefs(errors, questFiles, refs) {
       }
       if (typeof quest?.targetMonsterId === "string" && !refs.monsterIds.has(quest.targetMonsterId)) {
         errors.push(`${label}: targetMonsterId 不存在 -> ${quest.targetMonsterId}`);
+      }
+      if (objectiveType === "kill" && typeof quest?.targetMonsterId !== "string") {
+        errors.push(`${label}: kill 任务必须配置 targetMonsterId`);
+      }
+      if (objectiveType === "talk" && typeof quest?.targetNpcId !== "string") {
+        errors.push(`${label}: talk 任务必须配置 targetNpcId`);
+      }
+      if (objectiveType === "submit_item") {
+        if (typeof quest?.requiredItemId !== "string") {
+          errors.push(`${label}: submit_item 任务必须配置 requiredItemId`);
+        }
+        if (normalizePositiveInteger(quest?.requiredItemCount) == null) {
+          errors.push(`${label}: submit_item 任务必须配置正整数 requiredItemCount`);
+        }
+      }
+      if (objectiveType === "learn_technique" && typeof quest?.targetTechniqueId !== "string") {
+        errors.push(`${label}: learn_technique 任务必须配置 targetTechniqueId`);
+      }
+      if ((objectiveType === "realm_stage" || objectiveType === "realm_progress")
+        && normalizePositiveInteger(quest?.targetRealmLv) == null) {
+        errors.push(`${label}: ${objectiveType} 任务必须配置正整数 targetRealmLv`);
       }
       for (const reward of quest?.reward ?? []) {
         if (typeof reward?.itemId === "string" && !refs.itemIds.has(reward.itemId)) {

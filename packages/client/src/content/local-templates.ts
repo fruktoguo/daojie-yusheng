@@ -220,26 +220,27 @@ function stripInvalidPreviewInstanceId(item: ItemStack): ItemStack {
   return sanitized;
 }
 
-/** 用本地模板补齐任务展示字段，保留服务端运行态字段。 */
+/** 用本地模板补齐静态展示字段，运行态只覆盖状态和进度。 */
 export function resolvePreviewQuest(quest: QuestState): QuestState {
   const template = getLocalQuestTemplate(quest.id);
-  const required = normalizeQuestPreviewNumber(quest.required ?? template?.required, 1, 1);
-  const progress = quest.status === 'completed'
-    ? required
-    : normalizeQuestPreviewNumber(quest.progress ?? template?.progress, 0, 0);
-  const merged = template
+  const base = template
     ? {
-      ...template,
       ...quest,
-      status: quest.status ?? template.status,
-      progress,
-      required,
+      ...template,
     }
     : {
       ...quest,
-      progress,
-      required,
     };
+  const required = normalizeQuestPreviewNumber(base.required, 1, 1);
+  const progress = quest.status === 'completed'
+    ? required
+    : normalizeQuestPreviewNumber(quest.progress, 0, 0);
+  const merged = {
+    ...base,
+    status: quest.status ?? template?.status ?? base.status,
+    progress,
+    required,
+  };
   return {
     ...merged,
     rewardItemIds: Array.isArray(merged.rewardItemIds) ? merged.rewardItemIds.slice() : [],

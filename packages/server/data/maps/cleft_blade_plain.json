@@ -107,12 +107,12 @@
     [
       66,
       10,
-      "spawn_cleft_stele_puppet_b"
+      "m_cleft_stele_puppet"
     ],
     [
       51,
       8,
-      "spawn_cleft_stele_puppet_c"
+      "m_cleft_stele_puppet"
     ],
     [
       14,
@@ -122,12 +122,12 @@
     [
       36,
       9,
-      "spawn_cleft_iron_guard_b"
+      "m_cleft_iron_guard"
     ],
     [
       44,
       14,
-      "spawn_cleft_iron_guard_c"
+      "m_cleft_iron_guard"
     ],
     [
       9,
