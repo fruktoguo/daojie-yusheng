@@ -15,6 +15,7 @@ import {
 
 import { WorldSyncMapSnapshotService } from '../network/world-sync-map-snapshot.service';
 import { ContentTemplateRepository } from '../content/content-template.repository';
+import { getDefaultBuildingRuntime } from '../runtime/building/building-default-content';
 import { MapInstanceRuntime } from '../runtime/instance/map-instance.runtime';
 import { WorldRuntimeBasicAttackService } from '../runtime/world/combat/world-runtime-basic-attack.service';
 import { WorldRuntimeCombatActionService } from '../runtime/world/combat/world-runtime-combat-action.service';
@@ -215,6 +216,42 @@ function testDamagedTileShowsHpBarPayload() {
   assert.equal(tile?.hpVisible, true);
   assert.equal(tile?.maxHp, maxHp);
   assert.equal(tile?.hp, maxHp - 1);
+}
+
+function testDamagedFacilityBuildingShowsHpBarPayload() {
+  const template = createTemplate();
+  const instance = createInstance(template);
+  const { catalog, rules } = getDefaultBuildingRuntime();
+  instance.configureBuildingRuntime(catalog, rules);
+  const placed = instance.placeBuildingInstance({
+    buildingId: 'building:scripture:hp-bar',
+    defId: 'scripture_platform',
+    x: 1,
+    y: 1,
+    state: 'active',
+  });
+  assert.equal(placed.ok, true);
+
+  const combat = instance.getTileCombatState(1, 1);
+  assert.equal(combat?.building, true);
+  assert.equal(combat?.buildingId, 'building:scripture:hp-bar');
+  assert.equal(combat?.targetName, '藏经台');
+  assert.equal(combat?.maxHp, 120);
+
+  const damaged = instance.damageTile(1, 1, 1);
+  assert.equal(damaged?.building, true);
+  assert.equal(damaged?.hp, 119);
+
+  const snapshotService = createSnapshotService(instance);
+  const tile = snapshotService.buildTileSyncState(template, 'instance:tile-smoke', 1, 1);
+  assert.equal(tile?.hpVisible, true);
+  assert.equal(tile?.maxHp, 120);
+  assert.equal(tile?.hp, 119);
+
+  const destroyed = instance.damageTile(1, 1, 120);
+  assert.equal(destroyed?.destroyed, true);
+  assert.equal(instance.buildingById.has('building:scripture:hp-bar'), false);
+  assert.equal(instance.getTileCombatState(1, 1)?.building, undefined);
 }
 
 function testObservedDamageableTileDetailIncludesHpAndOmitsZeroAura() {
@@ -882,6 +919,7 @@ async function testSkillTileDamageGrantsMiningExp() {
 
 async function main() {
   testDamagedTileShowsHpBarPayload();
+  testDamagedFacilityBuildingShowsHpBarPayload();
   testObservedDamageableTileDetailIncludesHpAndOmitsZeroAura();
   testObservationMissingNumericValuesRenderAsZero();
   testObservationLargeValuesUseChineseUnits();

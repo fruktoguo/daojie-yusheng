@@ -81,6 +81,12 @@ function normalizeAppliedDamage(value, fallback = 0) {
     }
     return Math.max(0, Math.round(Number(fallback) || 0));
 }
+function resolveTileCombatTargetName(tileState) {
+    if (typeof tileState?.targetName === 'string' && tileState.targetName.trim()) {
+        return tileState.targetName.trim();
+    }
+    return uiLabels.TILE_TYPE_LABELS[tileState?.tileType] ?? '地块';
+}
 function buildBasicAttackNoticeResolution(resolvedDamage, damageKind) {
     const resolution: Record<string, unknown> = {
         rawDamage: resolvedDamage.rawDamage,
@@ -633,6 +639,7 @@ export class WorldRuntimeBasicAttackService {
         ensureInstanceSupportsTileDamage(instance);
         let tileType: string | undefined;
         let tileMaxHp = 0;
+        let tileTargetName = '地块';
         if (typeof instance.getTileCombatState === 'function') {
             const tileState = instance.getTileCombatState(targetX, targetY);
             if (!tileState || tileState.destroyed === true) {
@@ -640,6 +647,7 @@ export class WorldRuntimeBasicAttackService {
             }
             tileType = tileState.tileType;
             tileMaxHp = tileState.maxHp ?? 0;
+            tileTargetName = resolveTileCombatTargetName(tileState);
         }
         const effectiveBaseDamage = resolveMiningAdjustedTileDamage({
             attacker,
@@ -692,8 +700,8 @@ export class WorldRuntimeBasicAttackService {
             damageFloat: { x: targetX, y: targetY, damage: appliedDamage, color: effectColor },
             notices: [{
                 playerId: attacker.playerId,
-                text: `${formatCombatActionClause('你', formatTargetLabelWithHp(uiLabels.TILE_TYPE_LABELS[tileType] ?? '地块', result.hp ?? 0, tileMaxHp), '攻击')}，造成 ${formatCombatDamageBreakdown(baseDamage, appliedDamage, damageKind)} 伤害`,
-                combat: buildCombatNoticePayload({ caster: '你', target: uiLabels.TILE_TYPE_LABELS[tileType] ?? '地块', targetHp: result.hp ?? 0, targetMaxHp: tileMaxHp, skill: '攻击', resolution: { rawDamage: baseDamage, damage: appliedDamage, damageKind } }),
+                text: `${formatCombatActionClause('你', formatTargetLabelWithHp(tileTargetName, result.hp ?? 0, tileMaxHp), '攻击')}，造成 ${formatCombatDamageBreakdown(baseDamage, appliedDamage, damageKind)} 伤害`,
+                combat: buildCombatNoticePayload({ caster: '你', target: tileTargetName, targetHp: result.hp ?? 0, targetMaxHp: tileMaxHp, skill: '攻击', resolution: { rawDamage: baseDamage, damage: appliedDamage, damageKind } }),
             }],
         });
     }

@@ -2756,14 +2756,15 @@ class MapInstanceRuntime {
                 continue;
             }
             const compiled = this.buildingCatalog?.defByHandle?.[building.defHandle] ?? this.buildingCatalog?.defById?.get?.(building.defId);
-            if (!compiled?.visualTileType || compiled.layerId !== 1) {
+            if (!compiled) {
                 continue;
             }
             const maxHp = Math.max(1, Math.trunc(Number(building.maxHp) || Number(compiled.maxHp) || 1));
             const hp = Math.max(0, Math.min(maxHp, Math.trunc(Number(building.hp) || maxHp)));
             return {
                 buildingId: building.id,
-                tileType: compiled.visualTileType,
+                targetName: resolveBuildingCombatTargetName(building, compiled),
+                tileType: resolveBuildingCombatTileType(building, compiled),
                 hp,
                 maxHp,
                 modifiedAt: Number.isFinite(Number(building.updatedAtTick)) ? Math.max(0, Math.trunc(Number(building.updatedAtTick))) : null,
@@ -2973,6 +2974,7 @@ class MapInstanceRuntime {
                 maxHp,
                 appliedDamage,
                 targetType: current.tileType,
+                targetName: current.targetName,
                 buildingId: building.id,
                 building: true,
             };
@@ -8375,6 +8377,24 @@ function buildingUsesActiveTopology(buildingOrState) {
         ? buildingOrState
         : normalizeBuildingState(buildingOrState?.state);
     return state !== 'planned' && state !== 'building' && state !== 'destroyed';
+}
+function resolveBuildingCombatTileType(building, compiled) {
+    if (typeof compiled?.visualTileType === 'string' && compiled.visualTileType.trim()) {
+        return compiled.visualTileType.trim();
+    }
+    if (typeof building?.defId === 'string' && building.defId.trim()) {
+        return building.defId.trim();
+    }
+    return 'building';
+}
+function resolveBuildingCombatTargetName(building, compiled) {
+    if (typeof compiled?.name === 'string' && compiled.name.trim()) {
+        return compiled.name.trim();
+    }
+    if (typeof building?.defId === 'string' && building.defId.trim()) {
+        return building.defId.trim();
+    }
+    return '建筑';
 }
 function normalizeBuildingRemainingTicks(value, fallbackValue = undefined) {
     const resolved = Number.isFinite(Number(value))

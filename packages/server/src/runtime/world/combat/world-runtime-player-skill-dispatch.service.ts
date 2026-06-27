@@ -155,6 +155,12 @@ function normalizeAppliedDamage(value, fallback = 0) {
     }
     return Math.max(0, Math.round(Number(fallback) || 0));
 }
+function resolveTileCombatTargetName(tileState) {
+    if (typeof tileState?.targetName === 'string' && tileState.targetName.trim()) {
+        return tileState.targetName.trim();
+    }
+    return uiLabels.TILE_TYPE_LABELS[tileState?.tileType] ?? '地块';
+}
 
 function recordPlayerSkillDispatchPerf(deps, key, startedAt, count = 1) {
     const recorder = deps?.recordPendingCommandSectionDuration;
@@ -1941,6 +1947,7 @@ export class WorldRuntimePlayerSkillDispatchService {
                 this.playerRuntimeService.markPersistenceDirtyDomains(attacker, ['profession']);
                 this.playerRuntimeService.bumpPersistentRevision(attacker);
             }
+            const tileTargetName = resolveTileCombatTargetName(tileState);
             const presentationStartedAt = performance.now();
             emitCombatPresentation({
                 deps,
@@ -1950,8 +1957,8 @@ export class WorldRuntimePlayerSkillDispatchService {
                 damageFloat: { x: target.x, y: target.y, damage: appliedDamage, color: effectColor },
                 notices: [{
                     playerId: attacker.playerId,
-                    text: `${formatCombatActionClause('你', formatTargetLabelWithHp(uiLabels.TILE_TYPE_LABELS[tileState.tileType] ?? '地块', tileDamageResult?.hp ?? 0, tileState.maxHp), skill.name)}，造成 ${formatCombatDamageBreakdown(result.totalDamage, appliedDamage, damageKind, damageElement)} 伤害`,
-                    combat: buildCombatNoticePayload({ caster: '你', target: uiLabels.TILE_TYPE_LABELS[tileState.tileType] ?? '地块', targetHp: tileDamageResult?.hp ?? 0, targetMaxHp: tileState.maxHp, skill: skill.name, resolution: { rawDamage: result.totalDamage, damage: appliedDamage, damageKind, element: damageElement } }),
+                    text: `${formatCombatActionClause('你', formatTargetLabelWithHp(tileTargetName, tileDamageResult?.hp ?? 0, tileState.maxHp), skill.name)}，造成 ${formatCombatDamageBreakdown(result.totalDamage, appliedDamage, damageKind, damageElement)} 伤害`,
+                    combat: buildCombatNoticePayload({ caster: '你', target: tileTargetName, targetHp: tileDamageResult?.hp ?? 0, targetMaxHp: tileState.maxHp, skill: skill.name, resolution: { rawDamage: result.totalDamage, damage: appliedDamage, damageKind, element: damageElement } }),
                 }],
             });
             recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.presentationMs', presentationStartedAt);
