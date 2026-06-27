@@ -479,6 +479,7 @@ interface CombatPreferencesRow {
   autoSwitchCultivation: boolean;
   autoRootFoundation: boolean;
   senseQiActive: boolean;
+  cultivationActive: boolean;
   cultivatingTechId: string | null;
   targetingRulesPayload: Record<string, unknown> | null;
 }
@@ -718,6 +719,7 @@ interface PlayerCombatPreferencesLoadRow {
   auto_switch_cultivation?: unknown;
   auto_root_foundation?: unknown;
   sense_qi_active?: unknown;
+  cultivation_active?: unknown;
   cultivating_tech_id?: unknown;
   targeting_rules_payload?: unknown;
 }
@@ -2367,6 +2369,7 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
             auto_switch_cultivation,
             auto_root_foundation,
             sense_qi_active,
+            cultivation_active,
             cultivating_tech_id,
             targeting_rules_payload
           FROM ${PLAYER_COMBAT_PREFERENCES_TABLE}
@@ -3995,6 +3998,7 @@ export async function ensurePlayerDomainTablesWithClient(client: PoolClient): Pr
       auto_switch_cultivation boolean NOT NULL DEFAULT true,
       auto_root_foundation boolean NOT NULL DEFAULT false,
       sense_qi_active boolean NOT NULL DEFAULT false,
+      cultivation_active boolean NOT NULL DEFAULT true,
       cultivating_tech_id varchar(120),
       targeting_rules_payload jsonb,
       updated_at timestamptz NOT NULL DEFAULT now()
@@ -4007,6 +4011,10 @@ export async function ensurePlayerDomainTablesWithClient(client: PoolClient): Pr
   await client.query(`
     ALTER TABLE ${PLAYER_COMBAT_PREFERENCES_TABLE}
     ADD COLUMN IF NOT EXISTS auto_root_foundation boolean NOT NULL DEFAULT false
+  `);
+  await client.query(`
+    ALTER TABLE ${PLAYER_COMBAT_PREFERENCES_TABLE}
+    ADD COLUMN IF NOT EXISTS cultivation_active boolean NOT NULL DEFAULT true
   `);
   await client.query(`
     CREATE TABLE IF NOT EXISTS ${PLAYER_AUTO_BATTLE_SKILL_TABLE} (
@@ -5791,11 +5799,12 @@ async function replacePlayerCombatPreferences(
         auto_switch_cultivation,
         auto_root_foundation,
         sense_qi_active,
+        cultivation_active,
         cultivating_tech_id,
         targeting_rules_payload,
         updated_at
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16::jsonb, now())
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17::jsonb, now())
       ON CONFLICT (player_id)
       DO UPDATE SET
         auto_battle = EXCLUDED.auto_battle,
@@ -5811,6 +5820,7 @@ async function replacePlayerCombatPreferences(
         auto_switch_cultivation = EXCLUDED.auto_switch_cultivation,
         auto_root_foundation = EXCLUDED.auto_root_foundation,
         sense_qi_active = EXCLUDED.sense_qi_active,
+        cultivation_active = EXCLUDED.cultivation_active,
         cultivating_tech_id = EXCLUDED.cultivating_tech_id,
         targeting_rules_payload = EXCLUDED.targeting_rules_payload,
         updated_at = now()
@@ -5830,6 +5840,7 @@ async function replacePlayerCombatPreferences(
       row.autoSwitchCultivation,
       row.autoRootFoundation,
       row.senseQiActive,
+      row.cultivationActive,
       row.cultivatingTechId,
       JSON.stringify(row.targetingRulesPayload),
     ],
@@ -6680,6 +6691,7 @@ function buildCombatPreferencesRow(snapshot: PersistedPlayerSnapshot): CombatPre
     autoSwitchCultivation: combat.autoSwitchCultivation === true,
     autoRootFoundation: combat.autoRootFoundation === true,
     senseQiActive: combat.senseQiActive === true,
+    cultivationActive: combat.cultivationActive === true,
     cultivatingTechId: normalizeOptionalString(snapshot.techniques?.cultivatingTechId),
     targetingRulesPayload: targetingRulesPayload ? { ...targetingRulesPayload } : null,
   };
@@ -7788,6 +7800,7 @@ function applyProjectedCombatPreferences(
     autoSwitchCultivation: row.auto_switch_cultivation === true,
     autoRootFoundation: row.auto_root_foundation === true,
     senseQiActive: row.sense_qi_active === true,
+    cultivationActive: row.cultivation_active !== false,
     combatTargetingRules: targetingRules ? { ...targetingRules } : undefined,
   };
   snapshot.techniques = {

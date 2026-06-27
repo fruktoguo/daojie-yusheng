@@ -165,7 +165,7 @@ async function main(): Promise<void> {
     );
     const combatPreferenceRow = await fetchSingleRow(
       pool,
-      'SELECT auto_battle, auto_battle_targeting_mode, retaliate_player_target_id, retaliate_player_target_last_attack_tick, auto_root_foundation, sense_qi_active, cultivating_tech_id FROM player_combat_preferences WHERE player_id = $1',
+      'SELECT auto_battle, auto_battle_targeting_mode, retaliate_player_target_id, retaliate_player_target_last_attack_tick, auto_root_foundation, sense_qi_active, cultivation_active, cultivating_tech_id FROM player_combat_preferences WHERE player_id = $1',
       [playerId],
     );
     const autoBattleSkillRows = await fetchRows(
@@ -335,9 +335,18 @@ async function main(): Promise<void> {
       || Number(combatPreferenceRow.retaliate_player_target_last_attack_tick) !== 3456
       || combatPreferenceRow.auto_root_foundation !== true
       || combatPreferenceRow.sense_qi_active !== true
+      || combatPreferenceRow.cultivation_active !== true
       || combatPreferenceRow.cultivating_tech_id !== 'qi.breathing'
     ) {
       throw new Error(`unexpected player_combat_preferences row: ${JSON.stringify(combatPreferenceRow)}`);
+    }
+    const projectedSnapshot = await service.loadProjectedSnapshot(playerId, () => buildSnapshot(now));
+    if (
+      !projectedSnapshot
+      || projectedSnapshot.combat?.cultivationActive !== true
+      || projectedSnapshot.techniques?.cultivatingTechId !== 'qi.breathing'
+    ) {
+      throw new Error(`unexpected projected cultivation state: ${JSON.stringify(projectedSnapshot?.combat ?? null)}`);
     }
     if (
       autoBattleSkillRows.length !== 2
@@ -724,6 +733,7 @@ async function main(): Promise<void> {
         autoSwitchCultivation: true,
         autoRootFoundation: true,
         senseQiActive: true,
+        cultivationActive: true,
         cultivatingTechId: 'qi.direct_flow',
         targetingRulesPayload: {
           includeEliteMonsters: true,
@@ -2946,6 +2956,7 @@ function buildSnapshot(now: number): PersistedPlayerSnapshot {
       autoSwitchCultivation: false,
       autoRootFoundation: true,
       senseQiActive: true,
+      cultivationActive: true,
       combatTargetingRules: {
         hostile: ['monster', 'boss'],
         friendly: ['non_hostile_players'],

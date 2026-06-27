@@ -174,6 +174,7 @@ interface PlayerSnapshotCombat {
   autoRootFoundation?: boolean;
   senseQiActive: boolean;
   wangQiActive?: boolean;
+  cultivationActive?: boolean;
   autoBattleSkills: unknown[];
   autoUsePills?: unknown[];
 }
