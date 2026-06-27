@@ -28,7 +28,7 @@ export const CLIENT_I18N_MESSAGES = {
   "inventory.action.label.equip": "装备",
   "inventory.action.label.formation": "布阵",
   "inventory.action.label.learn": "学习",
-  "inventory.action.label.sect-founding": "建立宗门",
+  "inventory.action.label.sect-founding": "使用",
   "inventory.action.label.use": "使用",
   "inventory.action.sort": "一键整理",
   "inventory.destroy.back-count": "返回修改数量",
