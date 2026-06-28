@@ -497,6 +497,10 @@ class WorldGateway implements WorldGatewayHelperContext {
     handleDropItem(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayInventoryHelper.handleDropItem(client, payload);
     }
+    @SubscribeMessage(C2S.BulkDropItems)
+    handleBulkDropItems(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
+        return this.gatewayInventoryHelper.handleBulkDropItems(client, payload);
+    }
     @SubscribeMessage(C2S.TakeGround)
     handleTakeGround(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayInventoryHelper.handleTakeGround(client, payload);

@@ -244,7 +244,7 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
     sendRequestInventoryPage: (payload) => panelSender.sendRequestInventoryPage(payload), hydrateSyncedItemStack: (item, previous) => detailHydrationSource.hydrateSyncedItemStack(item, previous),
     sendCreateFormation: (payload) => panelSender.sendCreateFormation(payload),
     previewFormationRange: (payload) => formationPreviewSource.preview(payload),
-    sendDropItem: (itemInstanceId, count) => panelSender.sendDropItem(itemInstanceId, count),
+    sendDropItem: (itemInstanceId, count) => panelSender.sendDropItem(itemInstanceId, count), sendBulkDropItems: (itemInstanceIds) => panelSender.sendBulkDropItems(itemInstanceIds),
     sendDestroyItem: (itemInstanceId, count) => panelSender.sendDestroyItem(itemInstanceId, count),
     sendEquip: (itemInstanceId) => panelSender.sendEquip(itemInstanceId),
     sendSortInventory: () => panelSender.sendSortInventory(),

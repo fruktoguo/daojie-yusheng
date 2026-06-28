@@ -83,6 +83,7 @@ export const { store: inventoryPanelStore, useStore: useInventoryPanelStore } = 
 interface InventoryPanelCallbacks {
   onFilterChange: ((filter: InventoryFilter) => void) | null;
   onSortInventory: (() => void) | null;
+  onOpenBulkDiscard: (() => void) | null;
   onRequestLoadMore: ((scrollTarget: HTMLElement) => void) | null;
   onPageChange: ((direction: 'prev' | 'next') => void) | null;
   onSearchChange: ((value: string) => void) | null;
@@ -92,6 +93,7 @@ interface InventoryPanelCallbacks {
 const callbacks: InventoryPanelCallbacks = {
   onFilterChange: null,
   onSortInventory: null,
+  onOpenBulkDiscard: null,
   onRequestLoadMore: null,
   onPageChange: null,
   onSearchChange: null,
@@ -129,6 +131,9 @@ export const InventoryPanel = memo(function InventoryPanel() {
           />
           <button className="small-btn" type="button" onClick={() => callbacks.onSortInventory?.()}>
             {t('inventory.action.sort', undefined)}
+          </button>
+          <button className="small-btn danger" type="button" onClick={() => callbacks.onOpenBulkDiscard?.()}>
+            一键丢弃
           </button>
         </div>
       </div>

@@ -625,6 +625,15 @@ export interface DropItemView {
   count: number;
 }
 
+/** 批量丢弃背包物品。 */
+export interface BulkDropItemsView {
+/**
+ * itemRefs：背包物品稳定引用列表，每个堆叠全量丢弃。
+ */
+
+  itemRefs: InventoryItemRefView[];
+}
+
 /** 摧毁背包物品。 */
 export interface DestroyItemView {
 /**

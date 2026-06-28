@@ -130,6 +130,11 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
     sendDropItem(itemInstanceId: string, count: number): void {
       deps.emitEvent(C2S.DropItem, { itemRef: buildInventoryItemRef(itemInstanceId), count });
     },
+    sendBulkDropItems(itemInstanceIds: string[]): void {
+      deps.emitEvent(C2S.BulkDropItems, {
+        itemRefs: itemInstanceIds.map((itemInstanceId) => buildInventoryItemRef(itemInstanceId)),
+      });
+    },
     /**
  * sendDestroyItem：执行sendDestroy道具相关逻辑。
  * @param itemInstanceId string 背包物品实例 ID。

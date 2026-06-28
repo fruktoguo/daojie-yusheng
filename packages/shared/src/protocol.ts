@@ -106,6 +106,7 @@ export const C2S = {
   RoomSetRole: 'n:c:roomSetRole',
   FengShuiObserve: 'n:c:fengShuiObserve',
   DropItem: 'n:c:dropItem',
+  BulkDropItems: 'n:c:bulkDropItems',
   DestroyItem: 'n:c:destroyItem',
   StopLootHarvest: 'n:c:stopLootHarvest',
   StartGather: 'n:c:startGather',
@@ -281,6 +282,7 @@ export interface C2S_PayloadMap extends Record<C2S_EventName, unknown> {
   [C2S.RoomSetRole]: RequestPayloads.C2S_RoomSetRole;
   [C2S.FengShuiObserve]: RequestPayloads.C2S_FengShuiObserve;
   [C2S.DropItem]: RequestPayloads.C2S_DropItem;
+  [C2S.BulkDropItems]: RequestPayloads.C2S_BulkDropItems;
   [C2S.DestroyItem]: RequestPayloads.C2S_DestroyItem;
   [C2S.TakeGround]: RequestPayloads.C2S_TakeLoot;
   [C2S.SortInventory]: RequestPayloads.C2S_SortInventory;

@@ -16,6 +16,7 @@ import { buildStructuredNotice } from '../runtime/world/structured-notice.helper
 
 const INVENTORY_PAGE_DEFAULT_LIMIT = 30;
 const INVENTORY_PAGE_MAX_LIMIT = 30;
+const BULK_DROP_MAX_ITEMS = 200;
 const INVENTORY_PAGE_FILTERS = new Set<string>(['all', ...ITEM_TYPES]);
 
 /** 世界 socket 背包/装备 helper：只收敛 inventory/equipment 相关入口。 */
@@ -240,6 +241,20 @@ class WorldGatewayInventoryHelper {
     handleDropItem(client, payload) {
         this.executeDropItem(client, payload);
     }    
+    handleBulkDropItems(client, payload) {
+        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
+        if (!playerId) {
+            return;
+        }
+        try {
+            const itemInstanceIds = normalizeBulkDropItemInstanceIds(payload);
+            this.gateway.worldRuntimeService.worldRuntimeItemGroundService.dispatchBulkDropItems(playerId, itemInstanceIds, this.gateway.worldRuntimeService);
+            (this.gateway.worldRuntimeService as { requestPlayerDeltaSync?: (targetPlayerId: string) => void }).requestPlayerDeltaSync?.(playerId);
+        }
+        catch (error) {
+            this.gateway.worldClientEventService.emitGatewayError(client, 'BULK_DROP_ITEMS_FAILED', error);
+        }
+    }
     /**
  * handleTakeGround：处理Take地面并更新相关状态。
  * @param client 参数说明。
@@ -491,6 +506,27 @@ function normalizeInventoryPageSearch(value: unknown): string {
 function normalizeInventoryPageRequestId(value: unknown): string | undefined {
     const requestId = typeof value === 'string' ? value.trim() : '';
     return requestId ? requestId.slice(0, 80) : undefined;
+}
+
+function normalizeBulkDropItemInstanceIds(payload: any): string[] {
+    const refs = Array.isArray(payload?.itemRefs) ? payload.itemRefs : [];
+    const itemInstanceIds: string[] = [];
+    const seen = new Set<string>();
+    for (const ref of refs) {
+        const itemInstanceId = normalizeInventoryItemInstanceId(ref?.itemInstanceId);
+        if (!itemInstanceId || seen.has(itemInstanceId)) {
+            continue;
+        }
+        seen.add(itemInstanceId);
+        itemInstanceIds.push(itemInstanceId);
+        if (itemInstanceIds.length >= BULK_DROP_MAX_ITEMS) {
+            break;
+        }
+    }
+    if (itemInstanceIds.length === 0) {
+        throw new BadRequestException('请选择要丢弃的物品。');
+    }
+    return itemInstanceIds;
 }
 
 function matchesInventoryPageFilter(item: any, filter: string): boolean {

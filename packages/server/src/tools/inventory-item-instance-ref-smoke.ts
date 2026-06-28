@@ -253,6 +253,24 @@ function testDropItemAfterReorder(repository: ContentTemplateRepository): void {
   assert.equal(player.inventory.items.some((item) => item.itemInstanceId === 'inst-minor-heal'), true);
 }
 
+function testBulkDropItems(repository: ContentTemplateRepository): void {
+  const service = createPlayerRuntimeService(repository);
+  const player = createPlayer(repository);
+  installPlayer(service, player);
+  const dropped: ItemStack[] = [];
+
+  new WorldRuntimeItemGroundService(service).dispatchBulkDropItems(
+    playerId,
+    ['inst-minor-heal', 'inst-minor-qi'],
+    createGroundDeps(dropped),
+  );
+
+  assert.deepEqual(dropped.map((item) => item.itemInstanceId).sort(), ['inst-minor-heal', 'inst-minor-qi']);
+  assert.equal(player.inventory.items.some((item) => item.itemInstanceId === 'inst-minor-heal'), false);
+  assert.equal(player.inventory.items.some((item) => item.itemInstanceId === 'inst-minor-qi'), false);
+  assert.equal(player.inventory.items.some((item) => item.itemInstanceId === 'inst-equip-target'), true);
+}
+
 async function testEquipItemAfterReorder(repository: ContentTemplateRepository): Promise<void> {
   const service = createPlayerRuntimeService(repository);
   const player = createPlayer(repository);
@@ -495,6 +513,7 @@ async function main(): Promise<void> {
   const repository = createRepository();
   testUseItemAfterReorder(repository);
   testDropItemAfterReorder(repository);
+  testBulkDropItems(repository);
   await testEquipItemAfterReorder(repository);
   testEnhancementStartAfterReorder(repository);
   testEnhancementFinishAfterQueuedReorder(repository);

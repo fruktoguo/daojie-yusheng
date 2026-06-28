@@ -59,6 +59,43 @@ export class WorldRuntimeItemGroundService {
         });
         deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);
     }
+    dispatchBulkDropItems(playerId, itemInstanceIds, deps) {
+        const location = deps.getPlayerLocationOrThrow(playerId);
+        const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
+        const instance = deps.getInstanceRuntimeOrThrow(location.instanceId);
+        const normalizedIds = normalizeBulkDropItemInstanceIds(itemInstanceIds);
+        if (normalizedIds.length === 0) {
+            throw new BadRequestException('请选择要丢弃的物品。');
+        }
+
+        let droppedStacks = 0;
+        let droppedCount = 0;
+        for (const itemInstanceId of normalizedIds) {
+            const current = this.playerRuntimeService.peekInventoryItemByInstanceId(playerId, itemInstanceId);
+            if (!current) {
+                continue;
+            }
+            const count = Math.max(1, Math.trunc(Number(current.count ?? 1) || 1));
+            const item = this.playerRuntimeService.splitInventoryItemByInstanceId(playerId, itemInstanceId, count);
+            const displayItem = normalizeGroundNoticeItem(this.playerRuntimeService, item);
+            const pile = instance.dropGroundItem(player.x, player.y, displayItem);
+            if (!pile) {
+                this.playerRuntimeService.receiveInventoryItem(playerId, item);
+                throw new BadRequestException(`无法在 ${player.x},${player.y} 掉落物品`);
+            }
+            droppedStacks += 1;
+            droppedCount += Math.max(1, Math.trunc(Number(displayItem.count ?? 1) || 1));
+        }
+        if (droppedStacks === 0) {
+            throw new BadRequestException('选中的物品已不在背包中。');
+        }
+        deps.refreshQuestStates(playerId);
+        const n = buildStructuredNotice('info', 'notice.item.bulk_dropped', `已丢弃 ${droppedStacks} 组物品`, {
+            vars: { stackCount: String(droppedStacks), itemCount: String(droppedCount) },
+            pills: [{ key: 'stackCount', style: 'target' }],
+        });
+        deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);
+    }
     /**
  * dispatchTakeGround：判断Take地面是否满足条件。
  * @param playerId 玩家 ID。
@@ -104,4 +141,21 @@ export class WorldRuntimeItemGroundService {
 function normalizeGroundNoticeItem(playerRuntimeService, item) {
     const normalized = playerRuntimeService?.contentTemplateRepository?.normalizeItem?.(item);
     return normalized && typeof normalized === 'object' ? normalized : item;
+}
+
+function normalizeBulkDropItemInstanceIds(input) {
+    if (!Array.isArray(input)) {
+        return [];
+    }
+    const result = [];
+    const seen = new Set();
+    for (const entry of input) {
+        const itemInstanceId = typeof entry === 'string' ? entry.trim() : '';
+        if (!itemInstanceId || seen.has(itemInstanceId)) {
+            continue;
+        }
+        seen.add(itemInstanceId);
+        result.push(itemInstanceId);
+    }
+    return result;
 }

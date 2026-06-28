@@ -38,6 +38,7 @@ import type {
   CancelEnhancementView,
   CancelMarketOrderView,
   CastSkillView,
+  BulkDropItemsView,
   ClaimMailAttachmentsView,
   ClaimMarketStorageView,
   CreateMarketBuyOrderView,
@@ -276,6 +277,8 @@ export interface C2S_RoomSetRole extends RoomSetRoleRequestView {}
 export interface C2S_FengShuiObserve extends FengShuiObserveRequestView {}
 /** 丢弃背包物品。 */
 export interface C2S_DropItem extends DropItemView {}
+/** 批量丢弃背包物品。 */
+export interface C2S_BulkDropItems extends BulkDropItemsView {}
 /** 彻底摧毁背包物品。 */
 export interface C2S_DestroyItem extends DestroyItemView {}
 /** 拿取地面掉落或容器战利品。 */
