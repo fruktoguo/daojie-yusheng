@@ -25,9 +25,10 @@ import {
   MERIT_MONTH_CARD_POOL_GRANT,
   SPIRIT_STONE_ITEM_ID,
   type ActivityStatusView,
+  type DailySignInFortuneView,
   type InvitationStatusView,
 } from '@mud/shared';
-import { ActivityPersistenceService, calculateMonthCardDailyReward } from '../../persistence/activity-persistence.service';
+import { ActivityPersistenceService, calculateMonthCardDailyReward, type ActivityDailySignInRecord } from '../../persistence/activity-persistence.service';
 import { PlayerCountersPersistenceService } from '../../persistence/player-counters-persistence.service';
 import { NativePlayerAuthStoreService } from '../../http/native/native-player-auth-store.service';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
@@ -36,30 +37,46 @@ import { rollExpandedMeanInteger } from '../random/bounded-random';
 const CHINA_TIME_OFFSET_MS = 8 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const DAILY_SIGN_IN_RANDOM_MAX_MULTIPLIER = 10;
+const DAILY_SIGN_IN_STREAK_MEAN_BONUS_PER_DAY = 0.01;
+const DAILY_SIGN_IN_PERFECT_FORTUNE_LUCK_DELTA = 666;
 
-interface DailySignInRewardPreview {
+export interface DailySignInRewardPreview {
   randomMinMerit: number;
   randomMaxMerit: number;
   baseRandomMaxMerit: number;
   targetRandomMeanMerit: number;
   fixedMerit: number;
+  effectiveStreakDays: number;
+  streakBonusPercent: number;
 }
 
-function buildDailySignInRewardPreview(historicalMaxRealmLv: number, fixedMerit: number): DailySignInRewardPreview {
+export function buildDailySignInRewardPreview(
+  historicalMaxRealmLv: number,
+  fixedMerit: number,
+  effectiveStreakDays = 0,
+): DailySignInRewardPreview {
   const normalizedHistoricalMaxRealmLv = Math.max(0, Math.trunc(Number(historicalMaxRealmLv) || 0));
+  const normalizedEffectiveStreakDays = Math.max(0, Math.trunc(Number(effectiveStreakDays) || 0));
   const randomMinMerit = DAILY_SIGN_IN_RANDOM_MIN_MERIT;
   const baseRandomMaxMerit = Math.max(randomMinMerit, DAILY_SIGN_IN_RANDOM_BASE_MAX_MERIT + normalizedHistoricalMaxRealmLv);
   const randomMaxMerit = Math.max(randomMinMerit, baseRandomMaxMerit * DAILY_SIGN_IN_RANDOM_MAX_MULTIPLIER);
+  const baseTargetMean = (randomMinMerit + baseRandomMaxMerit) / 2;
+  const streakBonus = normalizedEffectiveStreakDays * DAILY_SIGN_IN_STREAK_MEAN_BONUS_PER_DAY;
+  const targetRandomMeanMerit = streakBonus > 0
+    ? baseTargetMean + (baseRandomMaxMerit - baseTargetMean) * streakBonus / (1 + streakBonus)
+    : baseTargetMean;
   return {
     randomMinMerit,
     randomMaxMerit,
     baseRandomMaxMerit,
-    targetRandomMeanMerit: (randomMinMerit + baseRandomMaxMerit) / 2,
+    targetRandomMeanMerit,
     fixedMerit: Math.max(0, Math.trunc(Number(fixedMerit) || 0)),
+    effectiveStreakDays: normalizedEffectiveStreakDays,
+    streakBonusPercent: Math.round(streakBonus * 100),
   };
 }
 
-function rollDailySignInReward(preview: DailySignInRewardPreview): { randomMerit: number; fixedMerit: number; totalMerit: number } {
+function rollDailySignInReward(preview: DailySignInRewardPreview): { randomMerit: number; fixedMerit: number; totalMerit: number; fortune: DailySignInFortuneView } {
   const randomMerit = rollExpandedMeanInteger({
     min: preview.randomMinMerit,
     max: preview.randomMaxMerit,
@@ -70,7 +87,104 @@ function rollDailySignInReward(preview: DailySignInRewardPreview): { randomMerit
     randomMerit,
     fixedMerit,
     totalMerit: randomMerit + fixedMerit,
+    fortune: buildDailySignInFortune(randomMerit, preview),
   };
+}
+
+export function buildDailySignInFortune(randomMerit: number, preview: DailySignInRewardPreview): DailySignInFortuneView {
+  const normalizedRandomMerit = Math.max(preview.randomMinMerit, Math.trunc(Number(randomMerit) || preview.randomMinMerit));
+  const baseSpan = Math.max(1, preview.baseRandomMaxMerit - preview.randomMinMerit);
+  const ratio = Math.max(0, (normalizedRandomMerit - preview.randomMinMerit) / baseSpan);
+  const perfect = normalizedRandomMerit >= preview.randomMaxMerit;
+  return {
+    tier: perfect ? 'perfect' : resolveDailySignInFortuneTier(ratio),
+    ratioPercent: Math.round(ratio * 1000) / 10,
+    luckDelta: perfect
+      ? DAILY_SIGN_IN_PERFECT_FORTUNE_LUCK_DELTA
+      : Math.floor(ratio <= 1 ? ratio * 30 - 10 : ratio * 20),
+    randomMerit: normalizedRandomMerit,
+    baseRandomMaxMerit: preview.baseRandomMaxMerit,
+    randomMaxMerit: preview.randomMaxMerit,
+  };
+}
+
+function resolveDailySignInFortuneTier(ratio: number): DailySignInFortuneView['tier'] {
+  if (ratio > 8) {
+    return 'transcendent_4';
+  }
+  if (ratio > 4) {
+    return 'transcendent_3';
+  }
+  if (ratio > 2) {
+    return 'transcendent_2';
+  }
+  if (ratio > 1) {
+    return 'transcendent_1';
+  }
+  if (ratio >= 0.8) {
+    return 'great';
+  }
+  if (ratio >= 0.6) {
+    return 'good';
+  }
+  if (ratio >= 0.4) {
+    return 'neutral';
+  }
+  if (ratio >= 0.2) {
+    return 'bad';
+  }
+  return 'very_bad';
+}
+
+function resolveEffectiveDailySignInStreakDays(dailySignIn: ActivityDailySignInRecord | null | undefined, today: string): number {
+  if (!dailySignIn?.lastClaimDate) {
+    return 1;
+  }
+  if (dailySignIn.lastClaimDate === today) {
+    return Math.max(1, Math.trunc(Number(dailySignIn.streakDays) || 0));
+  }
+  return dailySignIn.lastClaimDate === shiftChinaDateKey(today, -1)
+    ? Math.max(1, Math.trunc(Number(dailySignIn.streakDays) || 0) + 1)
+    : 1;
+}
+
+function normalizeDailySignInFortuneView(payload: unknown): DailySignInFortuneView | null {
+  const source = payload && typeof payload === 'object'
+    ? (payload as { fortune?: Partial<DailySignInFortuneView> }).fortune
+    : null;
+  if (!source || typeof source !== 'object') {
+    return null;
+  }
+  const tier = normalizeDailySignInFortuneTier(source.tier);
+  if (!tier) {
+    return null;
+  }
+  return {
+    tier,
+    ratioPercent: Math.max(0, Number(source.ratioPercent) || 0),
+    luckDelta: Math.trunc(Number(source.luckDelta) || 0),
+    randomMerit: Math.max(0, Math.trunc(Number(source.randomMerit) || 0)),
+    baseRandomMaxMerit: Math.max(0, Math.trunc(Number(source.baseRandomMaxMerit) || 0)),
+    randomMaxMerit: Math.max(0, Math.trunc(Number(source.randomMaxMerit) || 0)),
+  };
+}
+
+function normalizeDailySignInFortuneTier(value: unknown): DailySignInFortuneView['tier'] | null {
+  switch (value) {
+    case 'very_bad':
+    case 'bad':
+    case 'neutral':
+    case 'good':
+    case 'great':
+    case 'transcendent_1':
+    case 'transcendent_2':
+    case 'transcendent_3':
+    case 'transcendent_4':
+    case 'perfect':
+      return value;
+    default:
+      return null;
+  }
 }
 
 @Injectable()
@@ -107,6 +221,7 @@ export class ActivityRuntimeService {
     const dailySignInRewardPreview = buildDailySignInRewardPreview(
       this.resolveHighestRealmLv(playerId),
       monthCard?.dailySignInFixedMeritBonus ?? 0,
+      resolveEffectiveDailySignInStreakDays(dailySignIn, today),
     );
     return {
       serverNow: nowMs,
@@ -138,10 +253,14 @@ export class ActivityRuntimeService {
         rewardPreview: {
           randomMinMerit: dailySignInRewardPreview.randomMinMerit,
           randomMaxMerit: dailySignInRewardPreview.randomMaxMerit,
+          baseRandomMaxMerit: dailySignInRewardPreview.baseRandomMaxMerit,
           expectedRandomMerit: dailySignInRewardPreview.targetRandomMeanMerit,
           fixedMerit: dailySignInRewardPreview.fixedMerit,
+          effectiveStreakDays: dailySignInRewardPreview.effectiveStreakDays,
+          streakBonusPercent: dailySignInRewardPreview.streakBonusPercent,
         },
         lastRewardMerit: dailySignIn?.lastRewardMerit ?? null,
+        lastFortune: normalizeDailySignInFortuneView(dailySignIn?.lastRewardPayload),
       },
       invitation,
       hasRedDot: monthCardCanClaim || dailyCanClaim || invitationHasPendingReward,
@@ -175,11 +294,15 @@ export class ActivityRuntimeService {
   async claimDailySignIn(playerId: string, nowMs = Date.now()): Promise<void> {
     this.playerRuntimeService.getPlayerOrThrow(playerId);
     const today = getChinaDateKey(nowMs);
-    const monthCard = await this.activityPersistenceService.loadMonthCard(playerId);
+    const [monthCard, dailySignIn] = await Promise.all([
+      this.activityPersistenceService.loadMonthCard(playerId),
+      this.activityPersistenceService.loadDailySignIn(playerId),
+    ]);
     const historicalMaxRealmLv = this.resolveHighestRealmLv(playerId);
     const rewardPreview = buildDailySignInRewardPreview(
       historicalMaxRealmLv,
       monthCard?.dailySignInFixedMeritBonus ?? 0,
+      resolveEffectiveDailySignInStreakDays(dailySignIn, today),
     );
     const reward = rollDailySignInReward(rewardPreview);
     await this.activityPersistenceService.claimDailySignIn(playerId, today, {
@@ -189,8 +312,14 @@ export class ActivityRuntimeService {
       fixedMerit: reward.fixedMerit,
       randomMinMerit: rewardPreview.randomMinMerit,
       randomMaxMerit: rewardPreview.randomMaxMerit,
+      baseRandomMaxMerit: rewardPreview.baseRandomMaxMerit,
+      targetRandomMeanMerit: rewardPreview.targetRandomMeanMerit,
+      effectiveStreakDays: rewardPreview.effectiveStreakDays,
+      streakBonusPercent: rewardPreview.streakBonusPercent,
       historicalMaxRealmLv,
+      fortune: reward.fortune,
     });
+    this.playerRuntimeService.adjustLuck?.(playerId, reward.fortune.luckDelta);
     this.grantMerit(playerId, reward.totalMerit);
   }
 
@@ -343,6 +472,15 @@ export class ActivityRuntimeService {
 export function getChinaDateKey(nowMs = Date.now()): string {
   const shifted = new Date(nowMs + CHINA_TIME_OFFSET_MS);
   return shifted.toISOString().slice(0, 10);
+}
+
+function shiftChinaDateKey(dateKey: string, offsetDays: number): string {
+  const normalizedDateKey = typeof dateKey === 'string' ? dateKey.trim() : '';
+  const time = Date.parse(`${normalizedDateKey}T00:00:00.000Z`);
+  if (!Number.isFinite(time)) {
+    return normalizedDateKey;
+  }
+  return new Date(time + Math.trunc(Number(offsetDays) || 0) * DAY_MS).toISOString().slice(0, 10);
 }
 
 export function normalizeActivityError(error: unknown): BadRequestException {

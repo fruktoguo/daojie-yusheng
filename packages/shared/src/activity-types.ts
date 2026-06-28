@@ -26,6 +26,27 @@ export const INVITATION_INVITER_FOUNDATION_REALM_MERIT_REWARD = 600;
 export const INVITATION_QI_REALM_MIN_LEVEL = 19;
 export const INVITATION_FOUNDATION_REALM_MIN_LEVEL = 31;
 
+export type DailySignInFortuneTierKey =
+  | 'very_bad'
+  | 'bad'
+  | 'neutral'
+  | 'good'
+  | 'great'
+  | 'transcendent_1'
+  | 'transcendent_2'
+  | 'transcendent_3'
+  | 'transcendent_4'
+  | 'perfect';
+
+export interface DailySignInFortuneView {
+  tier: DailySignInFortuneTierKey;
+  ratioPercent: number;
+  luckDelta: number;
+  randomMerit: number;
+  baseRandomMaxMerit: number;
+  randomMaxMerit: number;
+}
+
 export interface MeritMonthCardStatusView {
   active: boolean;
   startAt: number | null;
@@ -55,10 +76,14 @@ export interface DailySignInStatusView {
   rewardPreview: {
     randomMinMerit: number;
     randomMaxMerit: number;
+    baseRandomMaxMerit: number;
     expectedRandomMerit: number;
     fixedMerit: number;
+    effectiveStreakDays: number;
+    streakBonusPercent: number;
   };
   lastRewardMerit: number | null;
+  lastFortune: DailySignInFortuneView | null;
 }
 
 export type InvitationStageKey = 'registered' | 'qi' | 'foundation';

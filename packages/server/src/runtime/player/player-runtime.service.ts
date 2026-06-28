@@ -1800,6 +1800,34 @@ export class PlayerRuntimeService {
         return player;
     }
     /**
+ * adjustLuck：调整玩家基础幸运值，保持存档真源非负。
+ * @param playerId 玩家 ID。
+ * @param delta 幸运变化量。
+ * @returns 实际生效的幸运变化量。
+ */
+
+    adjustLuck(playerId, delta) {
+        const player = this.getPlayerOrThrow(playerId);
+        const normalizedDelta = Math.trunc(Number(delta) || 0);
+        if (normalizedDelta === 0) {
+            return 0;
+        }
+        const before = Math.max(0, Math.trunc(Number(player.luck ?? 0) || 0));
+        const after = Math.max(0, before + normalizedDelta);
+        const appliedDelta = after - before;
+        if (appliedDelta === 0) {
+            return 0;
+        }
+        player.luck = after;
+        const attrChanged = this.playerAttributesService.recalculate(player);
+        markPlayerDirtyDomains(player, attrChanged ? ['progression', 'attr'] : ['progression']);
+        if (!attrChanged) {
+            this.playerAttributesService.markPanelDirty(player);
+        }
+        this.bumpPersistentRevision(player);
+        return appliedDelta;
+    }
+    /**
  * getWalletBalanceByType：读取指定钱包类型余额。
  * @param playerId 玩家 ID。
  * @param walletType 钱包类型。

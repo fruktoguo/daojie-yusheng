@@ -51,6 +51,7 @@ export interface ActivityDailySignInRecord {
   streakDays: number;
   totalDays: number;
   lastRewardMerit: number | null;
+  lastRewardPayload: unknown | null;
 }
 
 export interface ActivityInvitationRecord {
@@ -152,9 +153,13 @@ export class ActivityPersistenceService {
       return null;
     }
     const result = await this.pool.query(
-      `SELECT player_id, last_claim_date, streak_days, total_days, last_reward_merit
-         FROM ${DAILY_SIGN_IN_TABLE}
-        WHERE player_id = $1`,
+      `SELECT s.player_id, s.last_claim_date, s.streak_days, s.total_days, s.last_reward_merit,
+              c.reward_payload AS last_reward_payload
+         FROM ${DAILY_SIGN_IN_TABLE} s
+          LEFT JOIN ${DAILY_SIGN_IN_CLAIM_TABLE} c
+            ON c.player_id = s.player_id
+           AND c.claim_date = s.last_claim_date
+        WHERE s.player_id = $1`,
       [normalizedPlayerId],
     );
     return normalizeDailySignInRow(result.rows[0], normalizedPlayerId);
@@ -482,6 +487,7 @@ export class ActivityPersistenceService {
         streakDays,
         totalDays,
         lastRewardMerit: rewardMerit,
+        lastRewardPayload: rewardPayload ?? { itemId: MERIT_ITEM_ID, count: rewardMerit },
       };
     } catch (error) {
       await client.query('ROLLBACK').catch(() => undefined);
@@ -945,7 +951,26 @@ function normalizeDailySignInRow(row: any, fallbackPlayerId: string): ActivityDa
     lastRewardMerit: Number.isFinite(Number(row.last_reward_merit))
       ? Math.max(0, Math.trunc(Number(row.last_reward_merit)))
       : null,
+    lastRewardPayload: normalizeJsonObject(row.last_reward_payload),
   };
+}
+
+function normalizeJsonObject(value: unknown): unknown | null {
+  if (!value) {
+    return null;
+  }
+  if (typeof value === 'object') {
+    return value;
+  }
+  if (typeof value !== 'string') {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch {
+    return null;
+  }
 }
 
 function normalizeInvitationRow(row: any): ActivityInvitationRecord | null {

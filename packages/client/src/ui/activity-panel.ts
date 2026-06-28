@@ -18,6 +18,20 @@ type ActivityPanelOptions = {
   isConnected: () => boolean;
 };
 type ActivityTab = 'month-card' | 'sign-in' | 'invitation';
+type DailySignInFortune = NonNullable<ActivityStatusView['dailySignIn']['lastFortune']>;
+
+const DAILY_SIGN_IN_FORTUNE_LABELS: Record<DailySignInFortune['tier'], string> = {
+  very_bad: '下下签 · 劫气缠身',
+  bad: '下签 · 时运不济',
+  neutral: '中签 · 气数平平',
+  good: '上签 · 福缘渐起',
+  great: '上上签 · 福星高照',
+  transcendent_1: '超签一阶 · 鸿福齐天',
+  transcendent_2: '超签二阶 · 气运如虹',
+  transcendent_3: '超签三阶 · 天眷独宠',
+  transcendent_4: '超签四阶 · 诸天共佑',
+  perfect: '满签 · 天命唯一',
+};
 
 export class ActivityPanel {
   private static readonly MODAL_OWNER = 'activity-panel';
@@ -184,11 +198,15 @@ export class ActivityPanel {
     const rewardText = rewardPreview.fixedMerit > 0
       ? `${expectedRandomMerit} + ${rewardPreview.fixedMerit} 功德`
       : `${expectedRandomMerit} 功德`;
+    const lastFortune = status.lastFortune;
     card.append(
       this.createHeader('每日签到', status.canClaimToday ? '今日可领' : '今日已领'),
       this.createMetricGrid([
         ['签到奖励', rewardText],
+        ['连续加成', `${rewardPreview.effectiveStreakDays} 天 / +${rewardPreview.streakBonusPercent}%`],
+        ['基础满签', `${rewardPreview.baseRandomMaxMerit} 功德`],
         ['上次获得', status.lastRewardMerit === null ? '无' : `${status.lastRewardMerit} 功德`],
+        ['上次签运', lastFortune ? formatDailySignInFortune(lastFortune) : '无'],
         ['连续签到', `${status.streakDays} 天`],
         ['累计签到', `${status.totalDays} 天`],
         ['今日日期', status.today],
@@ -338,6 +356,12 @@ export class ActivityPanel {
     button.classList.toggle('has-unread', hasRedDot);
     button.dataset.hasUnread = hasRedDot ? 'true' : 'false';
   }
+}
+
+function formatDailySignInFortune(fortune: DailySignInFortune): string {
+  const label = DAILY_SIGN_IN_FORTUNE_LABELS[fortune.tier] ?? '中签 · 气数平平';
+  const luck = fortune.luckDelta > 0 ? `+${fortune.luckDelta}` : String(fortune.luckDelta);
+  return `${label}（幸运 ${luck}）`;
 }
 
 function formatTime(value: number): string {
