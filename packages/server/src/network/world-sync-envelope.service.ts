@@ -358,7 +358,7 @@ function filterCombatEffects(effects, visibleTiles) {
     return effects
         .filter((effect) => {
             if (effect.type === 'attack') {
-                return visibleTiles.has(buildCoordKey(effect.fromX, effect.fromY)) || visibleTiles.has(buildCoordKey(effect.toX, effect.toY));
+                return visibleTiles.has(buildCoordKey(effect.fromX, effect.fromY)) && visibleTiles.has(buildCoordKey(effect.toX, effect.toY));
             }
             if (effect.type === 'warning_zone') {
                 return effect.cells.some((cell) => visibleTiles.has(buildCoordKey(cell.x, cell.y)));

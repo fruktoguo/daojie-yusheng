@@ -9,15 +9,17 @@ import { WorldSyncEnvelopeService } from '../network/world-sync-envelope.service
 async function main(): Promise<void> {
   const noEventsProof = runNoEventsProof();
   const sharedVisibleSetProof = runSharedVisibleSetProof();
+  const hiddenAttackEndpointProof = runHiddenAttackEndpointProof();
   const clearCacheProof = runClearCacheProof();
 
   console.log(JSON.stringify({
     ok: true,
     noEventsProof,
     sharedVisibleSetProof,
+    hiddenAttackEndpointProof,
     clearCacheProof,
     answers:
-      'WorldDelta 组包在没有实例表现事件时不再构造玩家可见 tile Set；战斗特效和 AOI 表现同时存在时只构造一次可见 Set；玩家同步缓存清理会同步丢弃 EventBus 玩家队列。',
+      'WorldDelta 组包在没有实例表现事件时不再构造玩家可见 tile Set；战斗特效和 AOI 表现同时存在时只构造一次可见 Set；攻击线必须起点和终点都可见才下发；玩家同步缓存清理会同步丢弃 EventBus 玩家队列。',
     excludes:
       '不证明正式服真实 RSS 曲线，只证明 envelope 热路径避免了无事件时的可见格子 Set 分配和双重构造。',
   }, null, 2));
@@ -40,7 +42,7 @@ function runSharedVisibleSetProof(): { visibleSetBuilds: number; combatEffects: 
   const counters = { visibleSetBuilds: 0, templateReads: 0 };
   const service = createService(
     counters,
-    [{ type: 'attack', fromX: 0, fromY: 0, toX: 5, toY: 5 }],
+    [{ type: 'attack', fromX: 0, fromY: 0, toX: 1, toY: 1 }],
     [{ entityId: 'monster_1', type: 'hit', x: 1, y: 1 }],
   );
 
@@ -59,6 +61,26 @@ function runSharedVisibleSetProof(): { visibleSetBuilds: number; combatEffects: 
     combatEffects: combatEffects.length,
     aoiEffects: aoiEffects.length,
     mirroredCombatEffects: mirroredCombatEffects.length,
+  };
+}
+
+function runHiddenAttackEndpointProof(): { visibleSetBuilds: number; combatEffects: number } {
+  const counters = { visibleSetBuilds: 0, templateReads: 0 };
+  const service = createService(
+    counters,
+    [{ type: 'attack', fromX: 0, fromY: 0, toX: 5, toY: 5 }],
+    [],
+  );
+
+  const result = service.appendEventBusPayload('player_1', {}, createView(), createPlayer(), { drainPlayer: true });
+  const combatEffects = result?.worldDelta?.fx ?? [];
+
+  assert.equal(counters.visibleSetBuilds, 1);
+  assert.equal(counters.templateReads, 1);
+  assert.equal(combatEffects.length, 0);
+  return {
+    visibleSetBuilds: counters.visibleSetBuilds,
+    combatEffects: combatEffects.length,
   };
 }
 
