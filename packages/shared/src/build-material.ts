@@ -24,6 +24,14 @@ const GENERIC_BUILD_MATERIAL_CATEGORY_BY_ITEM_ID: Record<string, BuildMaterialCa
   transparent: 'transparent',
 };
 
+const BUILD_MATERIAL_TAGS_BY_CATEGORY: Record<Exclude<BuildMaterialCategoryKey, 'other'>, readonly string[]> = {
+  stone: ['石材', 'stone'],
+  wood: ['木材', 'wood'],
+  cloth: ['布料', 'cloth'],
+  metal: ['金属', '金属材', 'metal'],
+  transparent: ['透明材', '透明', 'glass', 'transparent'],
+};
+
 function includesAny(text: string, keywords: string[]): boolean {
   return keywords.some((keyword) => text.includes(keyword));
 }
@@ -39,7 +47,66 @@ export function resolveGenericBuildMaterialSlotCategory(itemId: string | undefin
   return GENERIC_BUILD_MATERIAL_CATEGORY_BY_ITEM_ID[itemId] ?? 'other';
 }
 
+export function getBuildMaterialCategoryLabel(category: BuildMaterialCategoryKey): string {
+  switch (category) {
+    case 'stone':
+      return '石材';
+    case 'wood':
+      return '木材';
+    case 'cloth':
+      return '布料';
+    case 'metal':
+      return '金属材';
+    case 'transparent':
+      return '透明材';
+    default:
+      return '杂项';
+  }
+}
+
+function resolveExplicitBuildMaterialCategoryKeys(tags: readonly string[]): BuildMaterialCategoryKey[] {
+  const normalizedTags = tags.map((tag) => tag.trim().toLowerCase()).filter(Boolean);
+  const result: BuildMaterialCategoryKey[] = [];
+  for (const [category, aliases] of Object.entries(BUILD_MATERIAL_TAGS_BY_CATEGORY) as Array<[Exclude<BuildMaterialCategoryKey, 'other'>, readonly string[]]>) {
+    if (aliases.some((alias) => normalizedTags.includes(alias.toLowerCase()))) {
+      result.push(category);
+    }
+  }
+  return result;
+}
+
+export function resolveBuildMaterialCategoryKeys(source: BuildMaterialLike | string | undefined | null): BuildMaterialCategoryKey[] {
+  const itemId = typeof source === 'string'
+    ? source
+    : typeof source?.itemId === 'string'
+      ? source.itemId
+      : '';
+  if (isGenericBuildMaterialSlotItemId(itemId)) {
+    return [resolveGenericBuildMaterialSlotCategory(itemId)];
+  }
+  const tags = Array.isArray((source as BuildMaterialLike | undefined)?.tags)
+    ? ((source as BuildMaterialLike).tags ?? []).filter((entry): entry is string => typeof entry === 'string')
+    : [];
+  const explicit = resolveExplicitBuildMaterialCategoryKeys(tags);
+  if (explicit.length > 0) {
+    return explicit;
+  }
+  const fallback = resolveInferredBuildMaterialCategoryKey(source);
+  return fallback === 'other' ? [] : [fallback];
+}
+
+export function hasBuildMaterialCategory(source: BuildMaterialLike | string | undefined | null, category: BuildMaterialCategoryKey): boolean {
+  if (category === 'other') {
+    return false;
+  }
+  return resolveBuildMaterialCategoryKeys(source).includes(category);
+}
+
 export function resolveBuildMaterialCategoryKey(source: BuildMaterialLike | string | undefined | null): BuildMaterialCategoryKey {
+  return resolveBuildMaterialCategoryKeys(source)[0] ?? resolveInferredBuildMaterialCategoryKey(source);
+}
+
+function resolveInferredBuildMaterialCategoryKey(source: BuildMaterialLike | string | undefined | null): BuildMaterialCategoryKey {
   const itemId = typeof source === 'string'
     ? source
     : typeof source?.itemId === 'string'

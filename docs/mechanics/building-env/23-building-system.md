@@ -73,6 +73,20 @@ TypedArray 索引结构，按 cellIndex 存储:
 4. 地块不可行走 → 'tile_not_clear'
 ```
 
+## 建造材料 tag
+
+建筑 `economy.cost[].itemId` 可以使用通用建材槽位：`stone`、`wood`、`cloth`、`metal`、`glass`/`transparent`。这些槽位不是具体物品 ID，而是要求玩家从背包里选择带有对应建材 tag 的材料：
+
+| 槽位 | 需要的 tag |
+|----|----|
+| stone | 石材 |
+| wood | 木材 |
+| cloth | 布料 |
+| metal | 金属 |
+| glass / transparent | 透明材 |
+
+材料配置的 `tags` 是显式集合，可以同时包含多个建材 tag。例如玻璃类材料应同时标记 `石材`、`透明材`，这样既能满足石材槽，也能满足透明材槽。服务端建造校验和客户端候选筛选都优先读取显式 tag；旧的名称、ID、`materialCategory` 推断只作为缺失 tag 时的兼容兜底。
+
 ## 房间检测
 
 源文件: `packages/server/src/runtime/building/room-detection.service.ts`

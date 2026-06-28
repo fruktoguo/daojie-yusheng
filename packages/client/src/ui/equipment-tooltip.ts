@@ -169,6 +169,13 @@ export function describeMaterialValueDetails(item: ItemStack): string[] {
   return parts.length > 0 ? [t('equipment-tooltip.material-values.elements', { values: parts.join(' / ') })] : [];
 }
 
+function describeItemTags(item: ItemStack): string | null {
+  const tags = Array.isArray(item.tags)
+    ? item.tags.map((tag) => tag.trim()).filter(Boolean)
+    : [];
+  return tags.length > 0 ? Array.from(new Set(tags)).join(' / ') : null;
+}
+
 /** normalizeBuffMark：规范化Buff Mark。 */
 function normalizeBuffMark(name: string, shortMark?: string): string {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -780,6 +787,7 @@ export function buildItemTooltipPayload(item: ItemStack, context?: ItemTooltipCo
   const sourceListHtml = renderItemSourceListHtml(previewItem.itemId, { maxEntries: 3, compact: true });
   const statusLabel = resolveItemStatusLabel(previewItem, context);
   const medicineCategoryLabel = resolveMedicineCategoryLabel(previewItem);
+  const itemTagsLabel = describeItemTags(previewItem);
   if (previewItem.type !== 'equipment') {
     const effectLines = previewItem.effects?.length
       ? previewItem.effects.flatMap((effect) => buildPlainEffectSummary(effect))
@@ -796,6 +804,7 @@ export function buildItemTooltipPayload(item: ItemStack, context?: ItemTooltipCo
         : [`<span class="skill-tooltip-desc">${escapeHtml(previewItem.desc ?? '')}</span>`]),
       renderPlainLine(t('equipment-tooltip.label.type', undefined), getItemTypeLabel(previewItem.type)),
       ...(medicineCategoryLabel ? [renderPlainLine(t('equipment-tooltip.label.category', undefined), medicineCategoryLabel)] : []),
+      ...(itemTagsLabel ? [renderPlainLine(t('equipment-tooltip.label.tags', undefined), itemTagsLabel)] : []),
       ...materialValueLines.map((line) => renderPlainLine(t('equipment-tooltip.label.element-values', undefined), line.replace(/^五行：/, ''))),
       ...(statusLabel ? [renderPlainLine(t('equipment-tooltip.label.status', undefined), statusLabel)] : []),
       ...techniqueBookLines,
@@ -817,6 +826,7 @@ export function buildItemTooltipPayload(item: ItemStack, context?: ItemTooltipCo
     `<span class="skill-tooltip-desc">${escapeHtml(enhancedPreviewItem.desc ?? '')}</span>`,
     renderPlainLine(t('equipment-tooltip.label.type', undefined), getItemTypeLabel(enhancedPreviewItem.type)),
     ...(enhancedPreviewItem.equipSlot ? [renderPlainLine(t('equipment-tooltip.label.slot', undefined), getEquipSlotLabel(enhancedPreviewItem.equipSlot))] : []),
+    ...(itemTagsLabel ? [renderPlainLine(t('equipment-tooltip.label.tags', undefined), itemTagsLabel)] : []),
     ...(statusLabel ? [renderPlainLine(t('equipment-tooltip.label.status', undefined), statusLabel)] : []),
     ...(attributeBlock ? [attributeBlock] : []),
     ...effectSummaries.flatMap((entry) => entry.lines),

@@ -3302,6 +3302,7 @@ equipment-tooltip.label.slot,装备提示,部位,范围D固定前端可见文本
 equipment-tooltip.label.source,装备提示,来源,范围D固定前端可见文本
 equipment-tooltip.label.stat-aura,装备提示,常驻特效,范围D固定前端可见文本
 equipment-tooltip.label.status,装备提示,状态,范围D固定前端可见文本
+equipment-tooltip.label.tags,装备提示,标签,范围D固定前端可见文本
 equipment-tooltip.label.timed-buff,装备提示,触发增益,范围D固定前端可见文本
 equipment-tooltip.label.trigger-conditions,装备提示,触发条件,范围D固定前端可见文本
 equipment-tooltip.label.type,装备提示,类型,范围D固定前端可见文本

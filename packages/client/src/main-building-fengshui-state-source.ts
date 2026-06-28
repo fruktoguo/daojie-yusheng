@@ -8,6 +8,7 @@ import {
   C2S,
   S2C,
   calculateTerrainDurability,
+  hasBuildMaterialCategory,
   isGenericBuildMaterialSlotItemId,
   resolveBuildMaterialCategoryKey,
   resolveGenericBuildMaterialSlotCategory,
@@ -314,7 +315,13 @@ function getPlayerInventoryMaterialCandidates(
       tags: item?.tags ?? getLocalItemTemplate(itemId)?.tags,
       type: item?.type ?? getLocalItemTemplate(itemId)?.type,
     });
-    if (categoryKey !== resolveGenericBuildMaterialSlotCategory(requirement.itemId)) {
+    if (!hasBuildMaterialCategory({
+      itemId,
+      name: item?.name ?? getLocalItemTemplate(itemId)?.name,
+      materialCategory: item?.materialCategory ?? getLocalItemTemplate(itemId)?.materialCategory,
+      tags: item?.tags ?? getLocalItemTemplate(itemId)?.tags,
+      type: item?.type ?? getLocalItemTemplate(itemId)?.type,
+    }, resolveGenericBuildMaterialSlotCategory(requirement.itemId))) {
       continue;
     }
     candidates.set(itemId, {

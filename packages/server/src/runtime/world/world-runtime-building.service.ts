@@ -7,7 +7,7 @@
  * 建筑系统运行时服务
  * 处理建筑放置、拆除、建造进度、材料消耗和风水计算
  */
-import { BUILDING_MAX_BUILD_TICKS, calculateTerrainDurability, isGenericBuildMaterialSlotItemId, resolveBuildMaterialCategoryKey, resolveGenericBuildMaterialSlotCategory } from '@mud/shared';
+import { BUILDING_MAX_BUILD_TICKS, calculateTerrainDurability, hasBuildMaterialCategory, isGenericBuildMaterialSlotItemId, resolveGenericBuildMaterialSlotCategory } from '@mud/shared';
 import { resolveCraftSkillExpToNextByLevel } from '../craft/craft-skill-exp.helpers';
 import { executeBuildingTick } from '../craft/pipeline/strategies/building-tick.helpers';
 import { buildStructuredNotice } from './structured-notice.helpers';
@@ -340,9 +340,8 @@ function resolveSelectedBuildingCost(player, compiled, selectedMaterialItemIds) 
             if ((inventoryItem.type ?? 'material') !== 'material') {
                 return { ok: false, reason: `build_material_invalid:${selectedItemId}` };
             }
-            const selectedCategory = resolveBuildMaterialCategoryKey(inventoryItem);
             const requiredCategory = resolveGenericBuildMaterialSlotCategory(slotItemId);
-            if (selectedCategory !== requiredCategory) {
+            if (!hasBuildMaterialCategory(inventoryItem, requiredCategory)) {
                 return { ok: false, reason: `build_material_category_mismatch:${selectedItemId}:${slotItemId}` };
             }
             consumedByItemId.set(selectedItemId, (consumedByItemId.get(selectedItemId) ?? 0) + required);
