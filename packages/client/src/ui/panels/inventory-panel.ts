@@ -1802,24 +1802,14 @@ export class InventoryPanel {
   }
 
   private renderBulkDiscardRowContent(entry: BulkDiscardEntry): string {
-    const enhanceLabel = this.getBulkDiscardEnhanceLabel(entry.item);
     return `
       <span class="inventory-bulk-discard-info">
         <span class="inventory-bulk-discard-name">${this.escapeHtml(entry.name)}</span>
         <span class="inventory-bulk-discard-meta">
-          ${enhanceLabel ? `<span>${this.escapeHtml(enhanceLabel)}</span>` : ''}
           <span>数量 ${formatDisplayInteger(Math.max(0, Math.floor(Number(entry.item.count) || 0)))}</span>
         </span>
       </span>
     `;
-  }
-
-  private getBulkDiscardEnhanceLabel(item: ItemStack): string | null {
-    if (item.type !== 'equipment' && item.type !== 'artifact') {
-      return null;
-    }
-    const enhanceLevel = Math.max(0, Math.floor(Number(item.enhanceLevel) || 0));
-    return enhanceLevel > 0 ? `强化 +${formatDisplayInteger(enhanceLevel)}` : null;
   }
 
   private matchesBulkDiscardFilter(item: ItemStack): boolean {
