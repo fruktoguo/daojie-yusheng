@@ -499,8 +499,8 @@ function testSortInventoryTechniqueBookOrder(repository: ContentTemplateReposito
     [
       'book.huangting_zaishan',
       'book.wildsunder_chart',
-      'book.wuqi_guiliu',
       'book.baihong_duanyue',
+      'book.wuqi_guiliu',
       'book.dimai_fumai',
     ],
   );
