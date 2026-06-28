@@ -31,10 +31,20 @@ function resolveEquipmentLuck(player: any): number {
   return total;
 }
 
+export function resolvePlayerDailySignInFortuneLuck(player: any, nowMs = Date.now()): number {
+  const expireAt = Number(player?.dailySignInFortuneExpireAt ?? 0);
+  if (!Number.isFinite(expireAt) || expireAt <= nowMs) {
+    return 0;
+  }
+  return Math.trunc(Number(player?.dailySignInFortuneLuck ?? 0) || 0);
+}
+
 export function resolvePlayerEffectiveLuck(player: any): number {
   const techniqueSpecialStats = calcTechniqueFinalSpecialStatBonus(resolvePlayerTechniqueStates(player));
-  return normalizePositiveInteger(player?.luck)
+  const total = normalizePositiveInteger(player?.luck)
     + normalizePositiveInteger(techniqueSpecialStats.luck)
     + resolveEquipmentLuck(player)
-    + Math.trunc(Number(player?.fengShuiLuck ?? 0) || 0);
+    + Math.trunc(Number(player?.fengShuiLuck ?? 0) || 0)
+    + resolvePlayerDailySignInFortuneLuck(player);
+  return Math.max(0, total);
 }

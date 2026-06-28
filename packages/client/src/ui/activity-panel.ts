@@ -203,8 +203,6 @@ export class ActivityPanel {
       this.createHeader('每日签到', status.canClaimToday ? '今日可领' : '今日已领'),
       this.createMetricGrid([
         ['签到奖励', rewardText],
-        ['连续加成', `${rewardPreview.effectiveStreakDays} 天 / +${rewardPreview.streakBonusPercent}%`],
-        ['基础满签', `${rewardPreview.baseRandomMaxMerit} 功德`],
         ['上次获得', status.lastRewardMerit === null ? '无' : `${status.lastRewardMerit} 功德`],
         ['上次签运', lastFortune ? formatDailySignInFortune(lastFortune) : '无'],
         ['连续签到', `${status.streakDays} 天`],

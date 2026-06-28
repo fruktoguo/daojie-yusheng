@@ -223,6 +223,10 @@ export class ActivityRuntimeService {
       monthCard?.dailySignInFixedMeritBonus ?? 0,
       resolveEffectiveDailySignInStreakDays(dailySignIn, today),
     );
+    const lastFortune = dailySignIn?.lastClaimDate === today
+      ? normalizeDailySignInFortuneView(dailySignIn?.lastRewardPayload)
+      : null;
+    this.syncDailySignInFortuneLuck(playerId, lastFortune, nowMs);
     return {
       serverNow: nowMs,
       monthCard: {
@@ -260,7 +264,7 @@ export class ActivityRuntimeService {
           streakBonusPercent: dailySignInRewardPreview.streakBonusPercent,
         },
         lastRewardMerit: dailySignIn?.lastRewardMerit ?? null,
-        lastFortune: normalizeDailySignInFortuneView(dailySignIn?.lastRewardPayload),
+        lastFortune,
       },
       invitation,
       hasRedDot: monthCardCanClaim || dailyCanClaim || invitationHasPendingReward,
@@ -319,7 +323,7 @@ export class ActivityRuntimeService {
       historicalMaxRealmLv,
       fortune: reward.fortune,
     });
-    this.playerRuntimeService.adjustLuck?.(playerId, reward.fortune.luckDelta);
+    this.playerRuntimeService.setDailySignInFortuneLuck?.(playerId, reward.fortune.luckDelta, getNextChinaMidnightMs(nowMs));
     this.grantMerit(playerId, reward.totalMerit);
   }
 
@@ -467,6 +471,14 @@ export class ActivityRuntimeService {
     }
     this.eternalBenefitPlayerIds.delete(playerId);
   }
+
+  private syncDailySignInFortuneLuck(playerId: string, fortune: DailySignInFortuneView | null, nowMs: number): void {
+    this.playerRuntimeService.setDailySignInFortuneLuck?.(
+      playerId,
+      fortune?.luckDelta ?? 0,
+      fortune ? getNextChinaMidnightMs(nowMs) : 0,
+    );
+  }
 }
 
 export function getChinaDateKey(nowMs = Date.now()): string {
@@ -481,6 +493,11 @@ function shiftChinaDateKey(dateKey: string, offsetDays: number): string {
     return normalizedDateKey;
   }
   return new Date(time + Math.trunc(Number(offsetDays) || 0) * DAY_MS).toISOString().slice(0, 10);
+}
+
+function getNextChinaMidnightMs(nowMs = Date.now()): number {
+  const nextDateKey = shiftChinaDateKey(getChinaDateKey(nowMs), 1);
+  return Date.parse(`${nextDateKey}T00:00:00.000Z`) - CHINA_TIME_OFFSET_MS;
 }
 
 export function normalizeActivityError(error: unknown): BadRequestException {

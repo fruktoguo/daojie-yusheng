@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 
 import { buildDailySignInFortune, buildDailySignInRewardPreview } from '../runtime/activity/activity-runtime.service';
+import { resolvePlayerDailySignInFortuneLuck, resolvePlayerEffectiveLuck } from '../runtime/player/player-special-stat.helpers';
 import { installSmokeTimeout } from './smoke-timeout';
 
 installSmokeTimeout(__filename);
@@ -31,6 +32,13 @@ function main(): void {
   assert.equal(buildDailySignInFortune(799, day0).luckDelta, 202);
   assert.equal(buildDailySignInFortune(800, day0).tier, 'perfect');
   assert.equal(buildDailySignInFortune(800, day0).luckDelta, 666);
+  const futureExpireAt = Date.now() + 60_000;
+  const pastExpireAt = Date.now() - 60_000;
+  assert.equal(resolvePlayerEffectiveLuck({ luck: 20, dailySignInFortuneLuck: -10, dailySignInFortuneExpireAt: futureExpireAt }), 10);
+  assert.equal(resolvePlayerEffectiveLuck({ luck: 0, dailySignInFortuneLuck: -10, dailySignInFortuneExpireAt: futureExpireAt }), 0);
+  assert.equal(resolvePlayerEffectiveLuck({ luck: 20, dailySignInFortuneLuck: -10, dailySignInFortuneExpireAt: pastExpireAt }), 20);
+  assert.equal(resolvePlayerDailySignInFortuneLuck({ dailySignInFortuneLuck: 666, dailySignInFortuneExpireAt: 2000 }, 1000), 666);
+  assert.equal(resolvePlayerDailySignInFortuneLuck({ dailySignInFortuneLuck: 666, dailySignInFortuneExpireAt: 1000 }, 1000), 0);
 
   process.stdout.write(JSON.stringify({
     ok: true,

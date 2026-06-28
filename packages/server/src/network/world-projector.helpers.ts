@@ -34,6 +34,7 @@ import {
 } from '@mud/shared';
 import { cloneAutoUsePillList, cloneCombatTargetingRules, isSameAutoUsePillList, isSameCombatTargetingRules } from '../runtime/player/player-combat-config.helpers';
 import { cloneVisibleBuffProjection, projectVisiblePlayerBuffs } from '../runtime/player/player-buff-projection.helpers';
+import { resolvePlayerDailySignInFortuneLuck } from '../runtime/player/player-special-stat.helpers';
 import {
   type ProjectorViewLike,
   type ProjectorPlayerLike,
@@ -129,6 +130,7 @@ type SpecialStatsCacheEntry = {
     comprehension: number;
     luck: number;
     fengShuiLuck: number;
+    dailySignInFortuneLuck: number;
     stats: PlayerSpecialStats;
 };
 
@@ -148,6 +150,7 @@ function resolvePlayerSpecialStatsCached(player: ProjectorPlayerLike): PlayerSpe
     const comprehension = Math.max(0, Math.trunc(Number(player.comprehension ?? 0) || 0));
     const luck = Math.max(0, Math.trunc(Number(player.luck ?? 0) || 0));
     const fengShuiLuck = Math.trunc(Number(player.fengShuiLuck ?? 0) || 0);
+    const dailySignInFortuneLuck = resolvePlayerDailySignInFortuneLuck(player);
     const cached = specialStatsCache.get(player);
     if (cached
         && cached.attrsRevision === player.attrs.revision
@@ -159,7 +162,8 @@ function resolvePlayerSpecialStatsCached(player: ProjectorPlayerLike): PlayerSpe
         && cached.combatExp === player.combatExp
         && cached.comprehension === comprehension
         && cached.luck === luck
-        && cached.fengShuiLuck === fengShuiLuck) {
+        && cached.fengShuiLuck === fengShuiLuck
+        && cached.dailySignInFortuneLuck === dailySignInFortuneLuck) {
         return cached.stats;
     }
     const stats = resolvePlayerSpecialStats(player);
@@ -174,6 +178,7 @@ function resolvePlayerSpecialStatsCached(player: ProjectorPlayerLike): PlayerSpe
         comprehension,
         luck,
         fengShuiLuck,
+        dailySignInFortuneLuck,
         stats,
     });
     return stats;
@@ -182,6 +187,7 @@ function resolvePlayerSpecialStatsCached(player: ProjectorPlayerLike): PlayerSpe
 function resolvePlayerSpecialStats(player: ProjectorPlayerLike): PlayerSpecialStats {
   const techniqueSpecialStats = calcTechniqueFinalSpecialStatBonus(player.techniques.techniques.map(toTechniqueState));
   const equipmentSpecialStats = resolveEquipmentSpecialStats(player);
+  const baseLuck = Math.max(0, Math.trunc(Number(player.luck ?? 0) || 0));
   return {
     foundation: player.foundation,
     rootFoundation: Math.max(0, Math.trunc(Number(player.rootFoundation ?? 0) || 0)),
@@ -190,10 +196,11 @@ function resolvePlayerSpecialStats(player: ProjectorPlayerLike): PlayerSpecialSt
     comprehension: Math.max(0, Math.trunc(Number(player.comprehension ?? 0) || 0))
       + Math.max(0, Math.trunc(Number(techniqueSpecialStats.comprehension ?? 0) || 0))
       + Math.max(0, Math.trunc(Number(equipmentSpecialStats.comprehension ?? 0) || 0)),
-    luck: Math.max(0, Math.trunc(Number(player.luck ?? 0) || 0))
+    luck: Math.max(0, baseLuck
       + Math.max(0, Math.trunc(Number(techniqueSpecialStats.luck ?? 0) || 0))
       + Math.max(0, Math.trunc(Number(equipmentSpecialStats.luck ?? 0) || 0))
-      + Math.trunc(Number(player.fengShuiLuck ?? 0) || 0),
+      + Math.trunc(Number(player.fengShuiLuck ?? 0) || 0)
+      + resolvePlayerDailySignInFortuneLuck(player)),
   };
 }
 

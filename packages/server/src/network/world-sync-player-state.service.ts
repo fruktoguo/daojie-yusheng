@@ -16,6 +16,7 @@ import {
 } from '@mud/shared';
 import { projectVisiblePlayerBuffs } from '../runtime/player/player-buff-projection.helpers';
 import { projectHeavenGateState, projectRealmState } from '../runtime/player/player-realm-projection.helpers';
+import { resolvePlayerDailySignInFortuneLuck } from '../runtime/player/player-special-stat.helpers';
 
 const autoBattleSkillCloneCache = new WeakMap<any[], any[]>();
 const autoUsePillCloneCache = new WeakMap<any[], any[]>();
@@ -291,6 +292,7 @@ function isSameConditionList(left, right) {
 function resolvePlayerSpecialStats(player) {
   const techniqueSpecialStats = calcTechniqueFinalSpecialStatBonus(player.techniques?.techniques ?? []);
   const equipmentSpecialStats = resolveEquipmentSpecialStats(player);
+  const baseLuck = Math.max(0, Math.trunc(Number(player.luck ?? 0) || 0));
   return {
     foundation: Math.max(0, Math.trunc(Number(player.foundation ?? 0) || 0)),
     rootFoundation: Math.max(0, Math.trunc(Number(player.rootFoundation ?? 0) || 0)),
@@ -299,10 +301,11 @@ function resolvePlayerSpecialStats(player) {
     comprehension: Math.max(0, Math.trunc(Number(player.comprehension ?? 0) || 0))
       + Math.max(0, Math.trunc(Number(techniqueSpecialStats.comprehension ?? 0) || 0))
       + Math.max(0, Math.trunc(Number(equipmentSpecialStats.comprehension ?? 0) || 0)),
-    luck: Math.max(0, Math.trunc(Number(player.luck ?? 0) || 0))
+    luck: Math.max(0, baseLuck
       + Math.max(0, Math.trunc(Number(techniqueSpecialStats.luck ?? 0) || 0))
       + Math.max(0, Math.trunc(Number(equipmentSpecialStats.luck ?? 0) || 0))
-      + Math.trunc(Number(player.fengShuiLuck ?? 0) || 0),
+      + Math.trunc(Number(player.fengShuiLuck ?? 0) || 0)
+      + resolvePlayerDailySignInFortuneLuck(player)),
   };
 }
 

@@ -5,6 +5,7 @@
  */
 import { ATTR_KEYS, ATTR_TO_NUMERIC_WEIGHTS, ATTR_TO_PERCENT_NUMERIC_WEIGHTS, CULTIVATE_EXP_PER_TICK, CULTIVATION_REALM_EXP_PER_TICK, DEFAULT_PLAYER_REALM_STAGE, ELEMENT_KEYS, NUMERIC_SCALAR_STAT_KEYS, PLAYER_REALM_CONFIG, TECHNIQUE_MAX_ATTR_PERCENT_BONUS_SOURCE, TechniqueRealm, addPartialNumericStats, applyEquipmentAttributeEffectivenessToItemStack, calcTechniqueFinalAttrBonus, calcTechniqueFinalSpecialStatBonus, calcTechniqueMaxAttrPercentBonus, calcTechniqueQiProjectionModifiers, cloneNumericStats, compileValueStatsToActualStats, createNumericStats, getRealmAttributeMultiplier, getRealmLinearGrowthMultiplier, resolvePlayerRealmAttributeBonus, resolvePlayerRealmNumericTemplate, type PartialNumericStats } from '@mud/shared';
 import { PVP_SHA_INFUSION_ATTACK_CAP_PERCENT, PVP_SHA_INFUSION_BUFF_ID } from '../constants/gameplay/pvp';
+import { resolvePlayerDailySignInFortuneLuck } from '../runtime/player/player-special-stat.helpers';
 
 export function buildAttrDetailBonuses(player) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -207,10 +208,12 @@ function applySpecialStatWeights(target, player, techniqueSpecialStats) {
     const comprehension = Math.max(0, Math.trunc(Number(player.comprehension ?? 0) || 0))
         + Math.max(0, Math.trunc(Number(techniqueSpecialStats?.comprehension ?? 0) || 0))
         + Math.max(0, Math.trunc(Number(equipmentSpecialStats.comprehension ?? 0) || 0));
-    const luck = Math.max(0, Math.trunc(Number(player.luck ?? 0) || 0))
+    const baseLuck = Math.max(0, Math.trunc(Number(player.luck ?? 0) || 0));
+    const luck = Math.max(0, baseLuck
         + Math.max(0, Math.trunc(Number(techniqueSpecialStats?.luck ?? 0) || 0))
         + Math.max(0, Math.trunc(Number(equipmentSpecialStats.luck ?? 0) || 0))
-        + Math.trunc(Number(player.fengShuiLuck ?? 0) || 0);
+        + Math.trunc(Number(player.fengShuiLuck ?? 0) || 0)
+        + resolvePlayerDailySignInFortuneLuck(player));
     if (comprehension > 0) {
         target.playerExpRate += comprehension * 100;
         target.techniqueExpRate += comprehension * 100;

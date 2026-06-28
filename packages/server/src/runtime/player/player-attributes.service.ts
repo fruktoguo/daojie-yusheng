@@ -11,6 +11,7 @@
 import { Injectable } from '@nestjs/common';
 import { ATTR_KEYS, ATTR_TO_NUMERIC_WEIGHTS, ATTR_TO_PERCENT_NUMERIC_WEIGHTS, CRAFT_EQUIPMENT_STAT_KEYS, CULTIVATE_EXP_PER_TICK, CULTIVATION_REALM_EXP_PER_TICK, DEFAULT_BASE_ATTRS, DEFAULT_PLAYER_REALM_STAGE, ELEMENT_KEYS, NUMERIC_SCALAR_STAT_KEYS, NUMERIC_STAT_MULTIPLIER_FLOORS, addCraftEquipmentStatsFromItem, addPartialNumericStats, applyEquipmentAttributeEffectivenessToItemStack, calcBodyTrainingAttrPercentBonus, calcTechniqueFinalAttrBonus, calcTechniqueFinalSpecialStatBonus, calcTechniqueMaxAttrPercentBonus, cloneCraftEquipmentStats, cloneNumericRatioDivisors, cloneNumericStats, compileValueStatsToActualStats, createEmptyCraftEquipmentStats, createNumericStats, getEffectiveMoveSpeed, getRealmAttributeMultiplier, getRealmLinearGrowthMultiplier, percentModifierToMultiplier, resolvePlayerRealmAttributeBonus, resolvePlayerRealmNumericTemplate } from '@mud/shared';
 import { PVP_SHA_INFUSION_ATTACK_CAP_PERCENT, PVP_SHA_INFUSION_BUFF_ID } from '../../constants/gameplay/pvp';
+import { resolvePlayerDailySignInFortuneLuck } from './player-special-stat.helpers';
 
 /** 玩家属性结算器：把境界、装备、buff 和根骨折算成最终面板。 */
 @Injectable()
@@ -559,10 +560,12 @@ function applySpecialStatWeights(target, player, techniqueSpecialStats, enhanced
     const comprehension = Math.max(0, Math.trunc(Number(player.comprehension ?? 0) || 0))
         + Math.max(0, Math.trunc(Number(techniqueSpecialStats?.comprehension ?? 0) || 0))
         + Math.max(0, Math.trunc(Number(equipmentSpecialStats.comprehension ?? 0) || 0));
-    const luck = Math.max(0, Math.trunc(Number(player.luck ?? 0) || 0))
+    const baseLuck = Math.max(0, Math.trunc(Number(player.luck ?? 0) || 0));
+    const luck = Math.max(0, baseLuck
         + Math.max(0, Math.trunc(Number(techniqueSpecialStats?.luck ?? 0) || 0))
         + Math.max(0, Math.trunc(Number(equipmentSpecialStats.luck ?? 0) || 0))
-        + Math.trunc(Number(player.fengShuiLuck ?? 0) || 0);
+        + Math.trunc(Number(player.fengShuiLuck ?? 0) || 0)
+        + resolvePlayerDailySignInFortuneLuck(player));
     if (comprehension > 0) {
         target.playerExpRate += comprehension * 100;
         target.techniqueExpRate += comprehension * 100;

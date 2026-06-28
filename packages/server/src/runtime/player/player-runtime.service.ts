@@ -413,6 +413,8 @@ export class PlayerRuntimeService {
             combatExp: 0,
             comprehension: 0,
             luck: 0,
+            dailySignInFortuneLuck: 0,
+            dailySignInFortuneExpireAt: 0,
             bodyTraining: normalizeBodyTrainingState(),
             boneAgeBaseYears: DEFAULT_BONE_AGE_YEARS,
             lifeElapsedTicks: 0,
@@ -1800,32 +1802,33 @@ export class PlayerRuntimeService {
         return player;
     }
     /**
- * adjustLuck：调整玩家基础幸运值，保持存档真源非负。
+ * setDailySignInFortuneLuck：设置每日签运临时幸运，过期后读取端自动忽略。
  * @param playerId 玩家 ID。
- * @param delta 幸运变化量。
- * @returns 实际生效的幸运变化量。
+ * @param luckDelta 临时幸运变化量。
+ * @param expireAtMs 过期时间戳。
+ * @returns 是否改变了运行态。
  */
 
-    adjustLuck(playerId, delta) {
+    setDailySignInFortuneLuck(playerId, luckDelta, expireAtMs) {
         const player = this.getPlayerOrThrow(playerId);
-        const normalizedDelta = Math.trunc(Number(delta) || 0);
-        if (normalizedDelta === 0) {
-            return 0;
+        const normalizedLuckDelta = Math.trunc(Number(luckDelta) || 0);
+        const normalizedExpireAtMs = Math.max(0, Math.trunc(Number(expireAtMs) || 0));
+        const nowMs = Date.now();
+        const nextLuck = normalizedExpireAtMs > nowMs ? normalizedLuckDelta : 0;
+        const nextExpireAtMs = nextLuck !== 0 ? normalizedExpireAtMs : 0;
+        const currentLuck = Math.trunc(Number(player.dailySignInFortuneLuck ?? 0) || 0);
+        const currentExpireAtMs = Math.max(0, Math.trunc(Number(player.dailySignInFortuneExpireAt ?? 0) || 0));
+        if (currentLuck === nextLuck && currentExpireAtMs === nextExpireAtMs) {
+            return false;
         }
-        const before = Math.max(0, Math.trunc(Number(player.luck ?? 0) || 0));
-        const after = Math.max(0, before + normalizedDelta);
-        const appliedDelta = after - before;
-        if (appliedDelta === 0) {
-            return 0;
-        }
-        player.luck = after;
+        player.dailySignInFortuneLuck = nextLuck;
+        player.dailySignInFortuneExpireAt = nextExpireAtMs;
         const attrChanged = this.playerAttributesService.recalculate(player);
-        markPlayerDirtyDomains(player, attrChanged ? ['progression', 'attr'] : ['progression']);
         if (!attrChanged) {
             this.playerAttributesService.markPanelDirty(player);
         }
-        this.bumpPersistentRevision(player);
-        return appliedDelta;
+        markPlayerDirtyDomains(player, ['attr']);
+        return true;
     }
     /**
  * getWalletBalanceByType：读取指定钱包类型余额。
@@ -5032,6 +5035,8 @@ export class PlayerRuntimeService {
             combatExp: normalizeCounter(snapshot.progression?.combatExp),
             comprehension: normalizeCounter(snapshot.progression?.comprehension),
             luck: normalizeCounter(snapshot.progression?.luck),
+            dailySignInFortuneLuck: 0,
+            dailySignInFortuneExpireAt: 0,
             bodyTraining: normalizeBodyTrainingState(snapshot.progression?.bodyTraining),
             boneAgeBaseYears: normalizeBoneAgeBaseYears(snapshot.progression?.boneAgeBaseYears),
             lifeElapsedTicks: normalizeLifeElapsedTicks(snapshot.progression?.lifeElapsedTicks),
