@@ -149,6 +149,14 @@ export class ContentTemplateRepository {
         }
         return this.techniqueTemplates.get(techniqueId)?.category ?? null;
     }
+
+    getTechniqueGradeForBookItem(itemId) {
+        const techniqueId = this.itemTemplates.get(itemId)?.learnTechniqueId;
+        if (!techniqueId) {
+            return null;
+        }
+        return this.techniqueRegistry.getTechniqueGrade(techniqueId);
+    }
     
     hydrateTechniqueState(input) {
         const techId = typeof input?.techId === 'string' ? input.techId.trim() : '';

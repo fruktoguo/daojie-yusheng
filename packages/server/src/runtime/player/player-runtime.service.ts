@@ -2698,7 +2698,7 @@ export class PlayerRuntimeService {
                 mergedOrder.push(clone);
             }
         }
-        mergedOrder.sort(compareInventoryItems);
+        mergedOrder.sort((left, right) => compareInventoryItems(left, right, this.contentTemplateRepository));
         player.inventory.items = mergedOrder;
 
         let changed = previous.length !== player.inventory.items.length;
@@ -8973,21 +8973,38 @@ function clamp(value, min, max) {
  * @returns 无返回值，直接更新compare背包道具相关状态。
  */
 
-function compareInventoryItems(left, right) {
-    return resolveInventoryGradeOrder(right) - resolveInventoryGradeOrder(left)
-        || resolveInventoryLevelOrder(right) - resolveInventoryLevelOrder(left)
+const TECHNIQUE_CATEGORY_SORT_ORDER = {
+    internal: 0,
+    arts: 1,
+    divine: 2,
+    secret: 3,
+};
+
+function compareInventoryItems(left, right, contentTemplateRepository = null) {
+    return resolveInventoryGradeOrder(right, contentTemplateRepository) - resolveInventoryGradeOrder(left, contentTemplateRepository)
+        || resolveInventoryLevelOrder(right, contentTemplateRepository) - resolveInventoryLevelOrder(left, contentTemplateRepository)
         || resolveInventoryTypeOrder(left) - resolveInventoryTypeOrder(right)
+        || resolveInventoryTechniqueCategoryOrder(left, contentTemplateRepository) - resolveInventoryTechniqueCategoryOrder(right, contentTemplateRepository)
         || String(left.itemId ?? '').localeCompare(String(right.itemId ?? ''), 'zh-Hans-CN')
         || String(left.name ?? '').localeCompare(String(right.name ?? ''), 'zh-Hans-CN')
         || resolveInventoryEnhanceLevelOrder(left) - resolveInventoryEnhanceLevelOrder(right);
 }
 
-function resolveInventoryGradeOrder(item) {
-    const index = TECHNIQUE_GRADE_ORDER.indexOf(item?.grade);
+function resolveInventoryGradeOrder(item, contentTemplateRepository = null) {
+    const grade = item?.type === 'skill_book'
+        ? (contentTemplateRepository?.getTechniqueGradeForBookItem?.(String(item?.itemId ?? '')) ?? item?.grade)
+        : item?.grade;
+    const index = TECHNIQUE_GRADE_ORDER.indexOf(grade);
     return index >= 0 ? index : -1;
 }
 
-function resolveInventoryLevelOrder(item) {
+function resolveInventoryLevelOrder(item, contentTemplateRepository = null) {
+    if (item?.type === 'skill_book') {
+        const sortLevel = contentTemplateRepository?.getItemSortLevel?.(item);
+        if (Number.isFinite(sortLevel)) {
+            return Math.max(1, Math.trunc(sortLevel));
+        }
+    }
     const value = Number(item?.level);
     return Number.isFinite(value) ? Math.trunc(value) : 0;
 }
@@ -8995,6 +9012,15 @@ function resolveInventoryLevelOrder(item) {
 function resolveInventoryTypeOrder(item) {
     const order = ITEM_TYPE_SORT_ORDER[item?.type];
     return Number.isFinite(order) ? order : Object.keys(ITEM_TYPE_SORT_ORDER).length;
+}
+
+function resolveInventoryTechniqueCategoryOrder(item, contentTemplateRepository = null) {
+    if (item?.type !== 'skill_book') {
+        return 0;
+    }
+    const category = contentTemplateRepository?.getTechniqueCategoryForBookItem?.(String(item?.itemId ?? '')) ?? item?.category;
+    const order = TECHNIQUE_CATEGORY_SORT_ORDER[category];
+    return Number.isFinite(order) ? order : Object.keys(TECHNIQUE_CATEGORY_SORT_ORDER).length;
 }
 
 function resolveInventoryEnhanceLevelOrder(item) {

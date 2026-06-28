@@ -116,6 +116,11 @@ export class TechniqueTemplateRegistry {
     return Number.isFinite(realmLv) ? Math.max(1, Math.trunc(Number(realmLv))) : null;
   }
 
+  getTechniqueGrade(techniqueId: string): string | null {
+    const grade = this.tryGetRef(techniqueId)?.grade;
+    return typeof grade === 'string' && grade.length > 0 ? grade : null;
+  }
+
   listTechniqueTemplates(): Array<Record<string, unknown>> {
     return Array.from(this.techniqueTemplates.values(), (template) => ({
       id: template.id,

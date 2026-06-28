@@ -967,6 +967,30 @@
     .inventory-cell-type[hidden] {
       display: none;
     }
+    .inventory-cell-learned-ribbon {
+      position: absolute;
+      top: 17px;
+      left: -19px;
+      z-index: 4;
+      width: 74px;
+      padding: 2px 0;
+      background: color-mix(in srgb, rgba(88, 88, 88, 0.88) 78%, var(--ink-black));
+      color: rgba(248, 242, 232, 0.96);
+      font-size: 9px;
+      font-weight: var(--font-weight-strong);
+      line-height: 1.1;
+      letter-spacing: 0.04em;
+      text-align: center;
+      box-shadow: 0 5px 12px rgba(0, 0, 0, 0.14);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      pointer-events: none;
+      transform: rotate(-45deg);
+    }
+    .inventory-cell-learned-ribbon[hidden] {
+      display: none;
+    }
     .inventory-cell-grade-line {
       display: none;
       min-width: 0;

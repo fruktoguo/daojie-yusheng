@@ -20,6 +20,8 @@ export interface ReactInventoryItemView {
   itemType: ItemType;
   ribbonLabel?: string;
   ribbonTitle?: string;
+  learnedRibbonLabel?: string;
+  learnedRibbonTitle?: string;
   gradeLineLabel?: string;
   cellClassName: string;
   grade?: string;
@@ -234,6 +236,15 @@ const InventoryCell = memo(function InventoryCell({ item }: { item: ReactInvento
         </span>
         <span className="inventory-cell-count" data-item-count="true">{item.countLabel}</span>
       </div>
+      {item.learnedRibbonLabel && (
+        <span
+          className="inventory-cell-learned-ribbon"
+          data-item-learned-ribbon="true"
+          aria-label={item.learnedRibbonTitle}
+        >
+          {item.learnedRibbonLabel}
+        </span>
+      )}
       <div
         className="inventory-cell-grade-line"
         data-item-grade-line="true"

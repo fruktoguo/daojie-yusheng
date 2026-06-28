@@ -207,6 +207,7 @@ interface InventoryShellRefs {
 /** InventoryCellRefs：背包格子内部稳定节点引用。 */
 interface InventoryCellRefs {
   type: HTMLElement;
+  learnedRibbon: HTMLElement;
   count: HTMLElement;
   gradeLine: HTMLElement;
   name: HTMLElement;
@@ -884,6 +885,7 @@ export class InventoryPanel {
     const primaryAction = this.getPrimaryAction(item, cooldownState);
     const gradeLineLabel = this.getInventoryGradeLineLabel(item);
     const ribbon = this.getInventoryCellRibbon(item, itemMeta);
+    const learnedRibbon = this.getInventoryLearnedRibbon(item);
     const primaryActionHint = this.getPrimaryActionHint(primaryAction);
     return {
       slotIndex,
@@ -896,6 +898,8 @@ export class InventoryPanel {
       itemType: item.type,
       ribbonLabel: ribbon?.label,
       ribbonTitle: ribbon?.title,
+      learnedRibbonLabel: learnedRibbon?.label,
+      learnedRibbonTitle: learnedRibbon?.title,
       gradeLineLabel: gradeLineLabel ?? undefined,
       cellClassName: `${getItemDecorClassName('inventory-cell', item)}${cooldownState ? ' inventory-cell--cooldown' : ''}${primaryActionHint ? ' inventory-cell--actionable' : ''}`,
       grade: itemMeta.grade ?? undefined,
@@ -1277,6 +1281,11 @@ export class InventoryPanel {
     count.dataset.itemCount = 'true';
     head.append(count);
 
+    const learnedRibbon = document.createElement('span');
+    learnedRibbon.className = 'inventory-cell-learned-ribbon';
+    learnedRibbon.dataset.itemLearnedRibbon = 'true';
+    learnedRibbon.hidden = true;
+
     const gradeLine = document.createElement('div');
     gradeLine.className = 'inventory-cell-grade-line';
     gradeLine.dataset.itemGradeLine = 'true';
@@ -1291,9 +1300,10 @@ export class InventoryPanel {
     actionHint.dataset.itemActionHintNode = 'true';
     actionHint.hidden = true;
 
-    cell.append(cooldown, head, gradeLine, name, actionHint);
+    cell.append(cooldown, head, learnedRibbon, gradeLine, name, actionHint);
     this.cellRefs.set(cell, {
       type,
+      learnedRibbon,
       count,
       gradeLine,
       name,
@@ -1311,16 +1321,17 @@ export class InventoryPanel {
       return cached;
     }
     const type = cell.querySelector<HTMLElement>('[data-item-type="true"]');
+    const learnedRibbon = cell.querySelector<HTMLElement>('[data-item-learned-ribbon="true"]');
     const count = cell.querySelector<HTMLElement>('[data-item-count="true"]');
     const gradeLine = cell.querySelector<HTMLElement>('[data-item-grade-line="true"]');
     const name = cell.querySelector<HTMLElement>('[data-item-name="true"]');
     const cooldown = cell.querySelector<HTMLElement>('[data-item-cooldown="true"]');
     const cooldownPie = cell.querySelector<HTMLElement>('[data-item-cooldown-pie="true"]');
     const cooldownLabel = cell.querySelector<HTMLElement>('[data-item-cooldown-label="true"]');
-    if (!type || !count || !gradeLine || !name || !cooldown || !cooldownPie || !cooldownLabel) {
+    if (!type || !learnedRibbon || !count || !gradeLine || !name || !cooldown || !cooldownPie || !cooldownLabel) {
       return null;
     }
-    const refs = { type, count, gradeLine, name, cooldown, cooldownPie, cooldownLabel };
+    const refs = { type, learnedRibbon, count, gradeLine, name, cooldown, cooldownPie, cooldownLabel };
     this.cellRefs.set(cell, refs);
     return refs;
   }
@@ -1334,7 +1345,7 @@ export class InventoryPanel {
     cooldownRemaining: number,
   ): string {
     return [
-      'ribbon-v5',
+      'ribbon-v6',
       String(slotIndex),
       itemIdentity,
       String(item.count),
@@ -1451,12 +1462,20 @@ export class InventoryPanel {
     }
 
     const ribbon = this.getInventoryCellRibbon(item, itemMeta);
+    const learnedRibbon = this.getInventoryLearnedRibbon(item);
     refs.type.hidden = !ribbon;
     refs.type.textContent = ribbon?.label ?? '';
     if (ribbon?.title) {
       refs.type.setAttribute('aria-label', ribbon.title);
     } else {
       refs.type.removeAttribute('aria-label');
+    }
+    refs.learnedRibbon.hidden = !learnedRibbon;
+    refs.learnedRibbon.textContent = learnedRibbon?.label ?? '';
+    if (learnedRibbon?.title) {
+      refs.learnedRibbon.setAttribute('aria-label', learnedRibbon.title);
+    } else {
+      refs.learnedRibbon.removeAttribute('aria-label');
     }
     refs.gradeLine.hidden = !gradeLineLabel;
     refs.gradeLine.textContent = gradeLineLabel ?? '';
@@ -1507,6 +1526,18 @@ export class InventoryPanel {
       return { label: getItemTypeLabel(item.type) };
     }
     return null;
+  }
+
+  private getInventoryLearnedRibbon(item: ItemStack): InventoryCellRibbon | null {
+    if (item.type !== 'skill_book') {
+      return null;
+    }
+    const techniqueId = resolveTechniqueIdFromBookItemId(item.itemId);
+    if (!techniqueId || !this.learnedTechniqueIds.has(techniqueId)) {
+      return null;
+    }
+    const label = t('inventory.status.learned', undefined);
+    return { label, title: label };
   }
 
   private getInventoryMaterialRibbonLabel(item: ItemStack): string {

@@ -462,6 +462,35 @@ function testSortInventoryOrder(repository: ContentTemplateRepository): void {
   assert.equal(player.dirtyDomains.has('inventory'), true);
 }
 
+function testSortInventoryTechniqueBookOrder(repository: ContentTemplateRepository): void {
+  const service = createPlayerRuntimeService(repository);
+  const player = createPlayer(repository);
+  player.inventory.items = [
+    createItem(repository, 'book.dimai_fumai', 1, 'sort-book-yellow-internal', { type: 'skill_book' }),
+    createItem(repository, 'book.baihong_duanyue', 1, 'sort-book-mystic-arts', { type: 'skill_book' }),
+    createItem(repository, 'book.wildsunder_chart', 1, 'sort-book-mystic-divine', { type: 'skill_book' }),
+    createItem(repository, 'book.huangting_zaishan', 1, 'sort-book-earth-arts', { type: 'skill_book' }),
+    createItem(repository, 'book.wuqi_guiliu', 1, 'sort-book-mystic-internal', { type: 'skill_book' }),
+  ];
+  installPlayer(service, player);
+
+  service.sortInventory(playerId);
+
+  assert.deepEqual(
+    player.inventory.items.map((item) => item.itemId),
+    [
+      'book.huangting_zaishan',
+      'book.wildsunder_chart',
+      'book.wuqi_guiliu',
+      'book.baihong_duanyue',
+      'book.dimai_fumai',
+    ],
+  );
+  assert.equal(player.inventory.revision, 2);
+  assert.equal(player.persistentRevision, 2);
+  assert.equal(player.dirtyDomains.has('inventory'), true);
+}
+
 async function main(): Promise<void> {
   const repository = createRepository();
   testUseItemAfterReorder(repository);
@@ -472,6 +501,7 @@ async function main(): Promise<void> {
   await testMarketSellOrderAfterReorder(repository);
   testFormationCreateAfterReorder(repository);
   testSortInventoryOrder(repository);
+  testSortInventoryTechniqueBookOrder(repository);
   console.log('inventory-item-instance-ref-smoke ok');
 }
 
