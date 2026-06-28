@@ -320,6 +320,7 @@ export class InventoryPanel {
   private selectedItemKey: string | null = null;
   /** actionDialog：动作对话。 */
   private actionDialog: InventoryActionDialogState | null = null;
+  private bulkDiscardModalOpen = false;
   private bulkDiscardSelectedIds = new Set<string>();
   private bulkDiscardFilter: InventoryFilter = 'all';
   private bulkDiscardConfirmOpen = false;
@@ -424,6 +425,7 @@ export class InventoryPanel {
     this.selectedSlotIndex = null;
     this.selectedItemKey = null;
     this.actionDialog = null;
+    this.bulkDiscardModalOpen = false;
     this.bulkDiscardSelectedIds.clear();
     this.bulkDiscardFilter = 'all';
     this.bulkDiscardConfirmOpen = false;
@@ -1588,14 +1590,17 @@ export class InventoryPanel {
     this.bulkDiscardFilter = this.activeFilter;
     this.bulkDiscardSelectedIds.clear();
     this.bulkDiscardConfirmOpen = false;
+    this.bulkDiscardModalOpen = true;
     this.renderBulkDiscardModal();
   }
 
   private renderBulkDiscardModal(): void {
     if (!this.lastInventory) {
+      this.bulkDiscardModalOpen = false;
       detailModalHost.close(InventoryPanel.MODAL_OWNER);
       return;
     }
+    this.bulkDiscardModalOpen = true;
     const allEntries = this.getBulkDiscardEntries();
     const existingIds = new Set(allEntries.map((entry) => entry.itemInstanceId));
     for (const itemInstanceId of Array.from(this.bulkDiscardSelectedIds)) {
@@ -1804,6 +1809,10 @@ export class InventoryPanel {
   private renderModal(): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    if (this.bulkDiscardModalOpen) {
+      this.renderBulkDiscardModal();
+      return;
+    }
     if (!this.lastInventory || !this.selectedItemKey) {
       detailModalHost.close(InventoryPanel.MODAL_OWNER);
       return;
@@ -3063,6 +3072,24 @@ export class InventoryPanel {
   private patchModal(): boolean {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    if (this.bulkDiscardModalOpen) {
+      if (!this.lastInventory) {
+        this.bulkDiscardModalOpen = false;
+        this.lastModalRenderKey = null;
+        detailModalHost.close(InventoryPanel.MODAL_OWNER);
+        return true;
+      }
+      if (!detailModalHost.isOpenFor(InventoryPanel.MODAL_OWNER)) {
+        this.bulkDiscardModalOpen = false;
+        this.lastModalRenderKey = null;
+        return true;
+      }
+      const nextRenderKey = this.buildBulkDiscardRenderKey();
+      if (this.lastModalRenderKey !== nextRenderKey) {
+        this.renderBulkDiscardModal();
+      }
+      return true;
+    }
     if (!this.lastInventory || !this.selectedItemKey) {
       this.lastModalRenderKey = null;
       detailModalHost.close(InventoryPanel.MODAL_OWNER);
@@ -4174,6 +4201,7 @@ export class InventoryPanel {
     this.selectedSlotIndex = null;
     this.selectedItemKey = null;
     this.actionDialog = null;
+    this.bulkDiscardModalOpen = false;
     this.bulkDiscardSelectedIds.clear();
     this.bulkDiscardFilter = 'all';
     this.bulkDiscardConfirmOpen = false;
