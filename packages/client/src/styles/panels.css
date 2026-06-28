@@ -773,7 +773,7 @@
     }
     .inventory-bulk-discard-list {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
       gap: 6px;
       max-height: min(46dvh, 420px);
       overflow: auto;
@@ -788,7 +788,7 @@
       align-items: center;
       gap: 6px;
       min-width: 0;
-      min-height: 32px;
+      min-height: 44px;
       padding: 5px 8px;
       border: 1px solid var(--wash-ink);
       background: var(--surface-muted);
@@ -815,10 +815,26 @@
       font-weight: var(--font-weight-strong);
       line-height: 1;
     }
+    .inventory-bulk-discard-info {
+      display: grid;
+      min-width: 0;
+      gap: 3px;
+    }
     .inventory-bulk-discard-name {
       min-width: 0;
       overflow: hidden;
       text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .inventory-bulk-discard-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px 8px;
+      color: var(--ink-grey);
+      font-size: var(--font-size-11);
+      line-height: 1.2;
+    }
+    .inventory-bulk-discard-meta span {
       white-space: nowrap;
     }
     .inventory-bulk-discard-warning {

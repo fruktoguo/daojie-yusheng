@@ -1656,7 +1656,7 @@ export class InventoryPanel {
             return `
               <button class="inventory-bulk-discard-row${checked ? ' selected' : ''}" type="button" data-bulk-discard-toggle="${this.escapeHtml(entry.itemInstanceId)}" aria-pressed="${checked ? 'true' : 'false'}">
                 <span class="inventory-bulk-discard-check">${checked ? '✓' : ''}</span>
-                <span class="inventory-bulk-discard-name">${this.escapeHtml(entry.name)}</span>
+                ${this.renderBulkDiscardRowContent(entry)}
               </button>
             `;
           }).join('') : '<div class="empty-hint">当前筛选下没有可丢弃物品</div>'}
@@ -1744,7 +1744,7 @@ export class InventoryPanel {
               ${selectedEntries.map((entry) => `
                 <div class="inventory-bulk-discard-row selected">
                   <span class="inventory-bulk-discard-check">✓</span>
-                  <span class="inventory-bulk-discard-name">${this.escapeHtml(entry.name)}</span>
+                  ${this.renderBulkDiscardRowContent(entry)}
                 </div>
               `).join('')}
             </div>
@@ -1799,6 +1799,27 @@ export class InventoryPanel {
 
   private getBulkDiscardSelectedEntries(): BulkDiscardEntry[] {
     return this.getBulkDiscardEntries().filter((entry) => this.bulkDiscardSelectedIds.has(entry.itemInstanceId));
+  }
+
+  private renderBulkDiscardRowContent(entry: BulkDiscardEntry): string {
+    const enhanceLabel = this.getBulkDiscardEnhanceLabel(entry.item);
+    return `
+      <span class="inventory-bulk-discard-info">
+        <span class="inventory-bulk-discard-name">${this.escapeHtml(entry.name)}</span>
+        <span class="inventory-bulk-discard-meta">
+          ${enhanceLabel ? `<span>${this.escapeHtml(enhanceLabel)}</span>` : ''}
+          <span>数量 ${formatDisplayInteger(Math.max(0, Math.floor(Number(entry.item.count) || 0)))}</span>
+        </span>
+      </span>
+    `;
+  }
+
+  private getBulkDiscardEnhanceLabel(item: ItemStack): string | null {
+    if (item.type !== 'equipment' && item.type !== 'artifact') {
+      return null;
+    }
+    const enhanceLevel = Math.max(0, Math.floor(Number(item.enhanceLevel) || 0));
+    return enhanceLevel > 0 ? `强化 +${formatDisplayInteger(enhanceLevel)}` : null;
   }
 
   private matchesBulkDiscardFilter(item: ItemStack): boolean {
