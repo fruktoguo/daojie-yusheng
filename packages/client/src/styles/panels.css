@@ -976,12 +976,12 @@
       align-items: center;
       justify-content: center;
       width: 104px;
-      height: 15px;
+      height: 18px;
       padding: 0;
       background: color-mix(in srgb, rgba(72, 72, 72, 0.68) 72%, var(--ink-black));
       color: rgba(248, 242, 232, 0.96);
-      font-size: 9px;
-      font-weight: 800;
+      font-size: 10px;
+      font-weight: 900;
       line-height: 1;
       letter-spacing: 0.04em;
       text-align: center;
