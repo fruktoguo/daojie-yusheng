@@ -38,6 +38,8 @@ export function setReactAttrPanelCallbacks(callbacks: {
   onRequestDetail?: () => void;
   onOpenCraftSkill?: (key: string) => void;
   onBindCraftSkill?: (key: string) => void;
+  onOpenSpecialDetails?: () => void;
+  onCloseSpecialDetails?: () => void;
   onSwitchTab?: (tab: AttrTab) => void;
 }): void {
   setAttrPanelCallbacks(callbacks);

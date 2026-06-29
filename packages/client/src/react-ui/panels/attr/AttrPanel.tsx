@@ -21,6 +21,7 @@ import type {
   AttrNumericPaneSnapshot,
   AttrPaneSnapshot,
   AttrRadarPaneSnapshot,
+  AttrSpecialDetailPaneSnapshot,
 } from '../../../ui/panels/attr-panel';
 
 // ─── Store ───────────────────────────────────────────────────────────────────
@@ -53,6 +54,8 @@ interface AttrPanelCallbacks {
   onRequestDetail: (() => void) | null;
   onOpenCraftSkill: ((key: string) => void) | null;
   onBindCraftSkill: ((key: string) => void) | null;
+  onOpenSpecialDetails: (() => void) | null;
+  onCloseSpecialDetails: (() => void) | null;
   onSwitchTab: ((tab: AttrTab) => void) | null;
 }
 
@@ -60,6 +63,8 @@ const callbacks: AttrPanelCallbacks = {
   onRequestDetail: null,
   onOpenCraftSkill: null,
   onBindCraftSkill: null,
+  onOpenSpecialDetails: null,
+  onCloseSpecialDetails: null,
   onSwitchTab: null,
 };
 
@@ -134,6 +139,9 @@ const AttrPaneView = memo(function AttrPaneView({ pane }: { pane: AttrPaneSnapsh
   }
   if (pane.kind === 'numeric') {
     return <NumericPane pane={pane} />;
+  }
+  if (pane.kind === 'special-detail') {
+    return <SpecialDetailPane pane={pane} />;
   }
   if (pane.kind === 'craft') {
     return <CraftPane pane={pane} />;
@@ -238,9 +246,65 @@ const RadarPane = memo(function RadarPane({ pane }: { pane: AttrRadarPaneSnapsho
 const NumericPane = memo(function NumericPane({ pane }: { pane: AttrNumericPaneSnapshot }) {
   return (
     <div className="panel-section">
-      <div className="panel-section-title">{pane.title}</div>
+      <div className="attr-section-head">
+        <div className="panel-section-title">{pane.title}</div>
+        {pane.actions && pane.actions.length > 0 && (
+          <div className="attr-section-actions">
+            {pane.actions.map((action) => (
+              <button
+                key={action.key}
+                className="small-btn"
+                type="button"
+                onClick={() => {
+                  if (action.key === 'special-details') {
+                    callbacks.onOpenSpecialDetails?.();
+                  }
+                }}
+              >
+                {action.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
       <div className="attr-grid wide">
         {pane.cards.map((card) => <NumericCard key={card.key} card={card} />)}
+      </div>
+    </div>
+  );
+});
+
+const SpecialDetailPane = memo(function SpecialDetailPane({ pane }: { pane: AttrSpecialDetailPaneSnapshot }) {
+  return (
+    <div className="panel-section attr-special-detail">
+      <div className="attr-section-head">
+        <div className="panel-section-title">{pane.title}</div>
+        <div className="attr-section-actions">
+          <button className="small-btn ghost" type="button" onClick={() => callbacks.onCloseSpecialDetails?.()}>
+            {pane.backLabel}
+          </button>
+        </div>
+      </div>
+      <div className="attr-special-detail-sections">
+        {pane.sections.map((section) => (
+          <section key={section.key} className="attr-special-detail-section">
+            <h4 className="attr-special-detail-section-title">{section.title}</h4>
+            <div className="attr-special-detail-grid">
+              {section.rows.map((row) => (
+                <div
+                  key={row.key}
+                  className="attr-special-detail-row"
+                  data-tooltip-key={row.key}
+                  data-tooltip-title={row.label}
+                  data-tooltip-detail={row.detail}
+                >
+                  <span className="attr-special-detail-label">{row.label}</span>
+                  <strong className="attr-special-detail-value">{row.value}</strong>
+                </div>
+              ))}
+            </div>
+          </section>
+        ))}
       </div>
     </div>
   );

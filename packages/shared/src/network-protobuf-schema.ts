@@ -282,6 +282,16 @@ message AttrUpdatePayload {
   optional uint32 realmProgress = 15;
   optional uint32 realmProgressToNext = 16;
   optional bool realmBreakthroughReady = 17;
+  optional string numericStatBreakdownsJson = 18;
+  optional string alchemySkillJson = 19;
+  optional string buildingSkillJson = 20;
+  optional string gatherSkillJson = 21;
+  optional string enhancementSkillJson = 22;
+  optional string forgingSkillJson = 23;
+  optional string miningSkillJson = 24;
+  optional string formationSkillJson = 25;
+  optional string transmissionSkillJson = 26;
+  optional string craftEffectStatsJson = 27;
 }
 
 message PlayerSpecialStatsPayload {

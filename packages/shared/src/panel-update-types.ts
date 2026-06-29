@@ -6,6 +6,7 @@
 import type { BodyTrainingState, PendingTechniqueComprehensionState, PlayerRealmStage, PlayerSpecialStats, TechniqueCategory, TechniqueGrade, TechniqueLayerDef, TechniqueRealm, TechniqueState } from './cultivation-types';
 import type { ActionType } from './action-combat-types';
 import type { AttrBonus, Attributes } from './attribute-types';
+import type { CraftEffectStatsPatch } from './craft-effect-stats';
 import type { SkillDef } from './skill-types';
 import type { AutoBattleTargetingMode, AutoUsePillConfig, CombatTargetingRules } from './automation-types';
 import type { PlayerState } from './player-runtime-types';
@@ -63,6 +64,11 @@ export interface AttrUpdateView {
  */
 
   specialStats?: Partial<PlayerSpecialStats>;  
+  /**
+ * craftEffectStats：技艺四属性最终投影。
+ */
+
+  craftEffectStats?: CraftEffectStatsPatch;
   /**
  * boneAgeBaseYears：boneAgeBaseYear相关字段。
  */

@@ -32,6 +32,7 @@ import {
   normalizeCombatTargetingRules,
   resolveSkillRequiresTarget,
   TechniqueRealm,
+  cloneCraftEffectStats,
 } from '@mud/shared';
 import {
   getLocalItemTemplate,
@@ -480,6 +481,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
         comprehension: Math.max(0, Math.floor(player.comprehension ?? 0)),
         luck: Math.max(0, Math.floor(player.luck ?? 0)),
       },
+      craftEffectStats: cloneCraftEffectStats(undefined),
       boneAgeBaseYears: player.boneAgeBaseYears,
       lifeElapsedTicks: player.lifeElapsedTicks,
       lifespanYears: player.lifespanYears ?? null,
@@ -548,6 +550,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
           ?? previous?.specialStats?.luck
           ?? Math.max(0, Math.floor(player?.luck ?? 0)),
       },
+      craftEffectStats: cloneCraftEffectStats(patch.craftEffectStats ?? previous?.craftEffectStats),
       boneAgeBaseYears: patch.boneAgeBaseYears ?? previous?.boneAgeBaseYears ?? player?.boneAgeBaseYears ?? undefined,
       lifeElapsedTicks: patch.lifeElapsedTicks ?? previous?.lifeElapsedTicks ?? player?.lifeElapsedTicks ?? undefined,
       lifespanYears: patch.lifespanYears === null

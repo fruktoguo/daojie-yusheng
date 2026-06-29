@@ -17,6 +17,8 @@ import type {
   AutoUsePillConfig,
   BodyTrainingState,
   CombatTargetingRules,
+  CraftEffectStats,
+  CraftEffectStatsPatch,
   EquipmentSlotUpdateEntry,
   FormationLifecycle,
   FormationRangeShape,
@@ -409,6 +411,7 @@ export interface ProjectorPlayerLike {
     finalAttrs: Attributes;
     numericStats: ProjectedNumericStats;
     ratioDivisors: ProjectedRatioDivisors;
+    craftEffectStats?: CraftEffectStatsPatch;
   };
   actions: {
     revision: number;
@@ -446,6 +449,7 @@ export interface ProjectedAttrPanelState {
   finalAttrs: Attributes;
   numericStats: ProjectedNumericStats;
   ratioDivisors: ProjectedRatioDivisors;
+  craftEffectStats: CraftEffectStats;
   specialStats: PlayerSpecialStats;
   boneAgeBaseYears: number;
   lifeElapsedTicks: number;

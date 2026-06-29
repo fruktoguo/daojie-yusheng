@@ -305,6 +305,7 @@ export function toWireAttrUpdate(payload: S2C_AttrUpdate): Record<string, unknow
   if (payload.maxHp !== undefined) wire.maxHp = payload.maxHp;
   if (payload.qi !== undefined) wire.qi = payload.qi;
   if (payload.specialStats) wire.specialStats = toWirePartialPlayerSpecialStats(payload.specialStats);
+  if (payload.craftEffectStats !== undefined) wire.craftEffectStatsJson = JSON.stringify(payload.craftEffectStats);
   if (payload.boneAgeBaseYears !== undefined) wire.boneAgeBaseYears = payload.boneAgeBaseYears;
   if (payload.lifeElapsedTicks !== undefined) wire.lifeElapsedTicks = payload.lifeElapsedTicks;
   if (payload.realmProgress !== undefined) wire.realmProgress = payload.realmProgress;
@@ -341,6 +342,7 @@ export function fromWireAttrUpdate(wire: Record<string, unknown>): S2C_AttrUpdat
   if (hasOwn(wire, 'maxHp')) payload.maxHp = Number(wire.maxHp ?? 0);
   if (hasOwn(wire, 'qi')) payload.qi = Number(wire.qi ?? 0);
   if (hasOwn(wire, 'specialStats')) payload.specialStats = fromWirePartialPlayerSpecialStats(wire.specialStats as Record<string, unknown>);
+  if (typeof wire.craftEffectStatsJson === 'string') payload.craftEffectStats = parseJson(wire.craftEffectStatsJson);
   if (hasOwn(wire, 'boneAgeBaseYears')) payload.boneAgeBaseYears = Number(wire.boneAgeBaseYears ?? 0);
   if (hasOwn(wire, 'lifeElapsedTicks')) payload.lifeElapsedTicks = Number(wire.lifeElapsedTicks ?? 0);
   if (hasOwn(wire, 'realmProgress')) payload.realmProgress = Number(wire.realmProgress ?? 0);

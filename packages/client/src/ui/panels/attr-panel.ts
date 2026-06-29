@@ -16,8 +16,10 @@ import {
   AttrKey,
   Attributes,
   BASE_MOVE_POINTS_PER_TICK,
+  CRAFT_EFFECT_SKILL_KINDS,
   CULTIVATE_EXP_PER_TICK,
   CULTIVATION_REALM_EXP_PER_TICK,
+  cloneCraftEffectStats,
   DEFAULT_QI_EFFICIENCY_BP,
   ELEMENT_KEYS,
   HeavenGateRootValues,
@@ -27,6 +29,9 @@ import {
   S2C_AttrDetail,
   PlayerState,
   PlayerSpecialStats,
+  type CraftEffectKind,
+  type CraftEffectSkillKind,
+  type CraftEffectStatsPatch,
   type QiElementKey,
   type QiFamilyKey,
   type QiFormKey,
@@ -101,6 +106,26 @@ const QI_VISIBILITY_RANK: Record<DisplayQiProjection['visibility'], number> = {
 };
 
 const OPENABLE_CRAFT_SKILL_KEYS = new Set(['alchemy', 'forging', 'enhancement', 'transmission', 'building']);
+const SPECIAL_DETAIL_ACTION_KEY = 'special-details';
+
+const CRAFT_EFFECT_SKILL_LABELS: Record<CraftEffectSkillKind, string> = {
+  alchemy: '炼丹',
+  forging: '炼器',
+  enhancement: '强化',
+  transmission: '传法',
+  gather: '采集',
+  mining: '挖矿',
+  building: '营造',
+  formation: '阵法',
+};
+
+const CRAFT_EFFECT_KIND_LABELS: Record<CraftEffectKind, string> = {
+  speedRate: '速度',
+  successRate: '成功率',
+  outputRate: '产出',
+  expRate: '经验',
+};
+const CRAFT_EFFECT_DETAIL_KINDS: CraftEffectKind[] = ['speedRate', 'successRate', 'outputRate', 'expRate'];
 
 /** formatRateBp：格式化速率Bp。 */
 function formatRateBp(value: number): string {
@@ -111,6 +136,12 @@ function formatRateBp(value: number): string {
 /** formatSimplePercent：格式化Simple Percent。 */
 function formatSimplePercent(value: number): string {
   return formatDisplayPercent(value);
+}
+
+function formatSignedRatePercent(value: number): string {
+  const numericValue = Number.isFinite(value) ? value : 0;
+  const sign = numericValue >= 0 ? '+' : '';
+  return `${sign}${formatDisplayPercent(numericValue * 100)}`;
 }
 
 /** getCraftProgressRatio：读取制作进度Ratio。 */
@@ -792,6 +823,11 @@ export interface AttrNumericCardSnapshot {
   tooltipDetail: string;
 }
 
+export interface AttrPaneActionSnapshot {
+  key: string;
+  label: string;
+}
+
 /** 数值属性页的渲染快照，按卡片列表组织。 */
 export interface AttrNumericPaneSnapshot {
 /**
@@ -809,6 +845,27 @@ export interface AttrNumericPaneSnapshot {
  */
 
   cards: AttrNumericCardSnapshot[];
+  actions?: AttrPaneActionSnapshot[];
+}
+
+export interface AttrSpecialDetailRowSnapshot {
+  key: string;
+  label: string;
+  value: string;
+  detail?: string;
+}
+
+export interface AttrSpecialDetailSectionSnapshot {
+  key: string;
+  title: string;
+  rows: AttrSpecialDetailRowSnapshot[];
+}
+
+export interface AttrSpecialDetailPaneSnapshot {
+  kind: 'special-detail';
+  title: string;
+  backLabel: string;
+  sections: AttrSpecialDetailSectionSnapshot[];
 }
 
 /** 属性页占位快照，用于尚未同步到数据时的提示。 */
@@ -894,7 +951,7 @@ export interface AttrCraftPaneSnapshot {
 }
 
 /** 单个属性页的统一渲染快照类型。 */
-export type AttrPaneSnapshot = AttrRadarPaneSnapshot | AttrNumericPaneSnapshot | AttrPlaceholderPaneSnapshot | AttrCraftPaneSnapshot;
+export type AttrPaneSnapshot = AttrRadarPaneSnapshot | AttrNumericPaneSnapshot | AttrPlaceholderPaneSnapshot | AttrCraftPaneSnapshot | AttrSpecialDetailPaneSnapshot;
 
 /** 整个属性面板的渲染快照，按分页保存各页内容。 */
 export interface AttrPanelSnapshot {
@@ -935,6 +992,7 @@ export class AttrPanel {
   private detailStale = false;
   /** detailRequested：是否已发出详情请求。 */
   private detailRequested = false;
+  private specialDetailOpen = false;
   private renderPendingWhileHidden = false;
   /**
  * 构造器：初始化 当前 实例并建立基础状态。
@@ -948,6 +1006,8 @@ export class AttrPanel {
       onRequestDetail: () => this.callbacks?.onRequestDetail?.(),
       onOpenCraftSkill: (key) => this.openCraftSkill(key),
       onBindCraftSkill: (key) => this.bindCraftSkill(key),
+      onOpenSpecialDetails: () => this.openSpecialDetails(),
+      onCloseSpecialDetails: () => this.closeSpecialDetails(),
       onSwitchTab: (tab) => this.switchTab(tab),
     });
     this.bindPaneEvents();
@@ -967,6 +1027,7 @@ export class AttrPanel {
     this.detailData = null;
     this.detailStale = false;
     this.detailRequested = false;
+    this.specialDetailOpen = false;
     this.renderPendingWhileHidden = false;
     this.lastSnapshot = null;
     this.lastStructureKey = null;
@@ -1008,6 +1069,7 @@ export class AttrPanel {
       data.numericStats as NumericStats | undefined,
       data.ratioDivisors as NumericRatioDivisors | undefined,
       data.specialStats as PlayerSpecialStats | undefined,
+      data.craftEffectStats,
       data.alchemySkill,
       data.buildingSkill,
       data.gatherSkill,
@@ -1054,6 +1116,7 @@ export class AttrPanel {
         comprehension: Math.max(0, Math.floor(player.comprehension ?? 0)),
         luck: Math.max(0, Math.floor(player.luck ?? 0)),
       },
+      craftEffectStats: cloneCraftEffectStats(undefined),
       alchemySkill: player.alchemySkill,
       buildingSkill: player.buildingSkill,
       gatherSkill: player.gatherSkill,
@@ -1079,6 +1142,7 @@ export class AttrPanel {
         comprehension: Math.max(0, Math.floor(player.comprehension ?? 0)),
         luck: Math.max(0, Math.floor(player.luck ?? 0)),
       },
+      this.latestData.craftEffectStats,
       player.alchemySkill,
       player.buildingSkill,
       player.gatherSkill,
@@ -1118,6 +1182,7 @@ export class AttrPanel {
       detail.finalAttrs,
       detail.numericStats,
       detail.ratioDivisors,
+      undefined,
       undefined,
       detail.alchemySkill,
       detail.buildingSkill,
@@ -1203,6 +1268,7 @@ export class AttrPanel {
     stats?: NumericStats,
     ratioDivisors?: NumericRatioDivisors,
     specialStats?: PlayerSpecialStats,
+    craftEffectStats?: CraftEffectStatsPatch,
     alchemySkill?: PlayerState['alchemySkill'],
     buildingSkill?: PlayerState['buildingSkill'],
     gatherSkill?: PlayerState['gatherSkill'],
@@ -1254,7 +1320,7 @@ export class AttrPanel {
             cooldownSpeed: '冷却速度',
           },
         }, final, numericStatBreakdowns),
-        special: this.buildSpecialPaneSnapshot(stats, ratioDivisors, specialStats, final, numericStatBreakdowns),
+        special: this.buildSpecialPaneSnapshot(stats, ratioDivisors, specialStats, craftEffectStats, final, numericStatBreakdowns),
         craft: this.buildCraftPaneSnapshot(alchemySkill, buildingSkill, gatherSkill, enhancementSkill, forgingSkill, miningSkill, formationSkill, transmissionSkill),
       },
     };
@@ -1582,6 +1648,7 @@ export class AttrPanel {
     stats?: NumericStats,
     ratios?: NumericRatioDivisors,
     specialStats?: PlayerSpecialStats,
+    craftEffectStats?: CraftEffectStatsPatch,
     attrs?: Attributes,
     breakdowns?: NumericStatBreakdownMap,
   ): AttrPaneSnapshot {
@@ -1589,6 +1656,10 @@ export class AttrPanel {
 
     if (!stats || !ratios) {
       return { kind: 'placeholder', message: '异禀未显' };
+    }
+
+    if (this.specialDetailOpen) {
+      return this.buildSpecialDetailPaneSnapshot(stats, ratios, specialStats, craftEffectStats, attrs, breakdowns);
     }
 
     const specialCards = this.buildSpecialStatCards(['foundation', 'combatExp'], specialStats);
@@ -1615,8 +1686,99 @@ export class AttrPanel {
       kind: 'numeric',
       title: numericPane.title,
       cards: [...specialCards, ...numericPane.cards],
+      actions: [{
+        key: SPECIAL_DETAIL_ACTION_KEY,
+        label: '全部特殊属性',
+      }],
     };
   }  
+
+  private buildSpecialDetailPaneSnapshot(
+    stats: NumericStats,
+    ratios: NumericRatioDivisors,
+    specialStats?: PlayerSpecialStats,
+    craftEffectStats?: CraftEffectStatsPatch,
+    attrs?: Attributes,
+    breakdowns?: NumericStatBreakdownMap,
+  ): AttrSpecialDetailPaneSnapshot {
+    const numericPane = this.buildNumericPaneSnapshot('数值特殊属性', stats, ratios, {
+      keys: ['viewRange', 'moveSpeed', 'playerExpRate', 'techniqueExpRate', 'realmExpPerTick', 'techniqueExpPerTick', 'lootRate', 'rareLootRate'],
+      ratioKeys: [],
+      legends: {
+        viewRange: '视野范围',
+        moveSpeed: '移动速度',
+        playerExpRate: '境界修为',
+        techniqueExpRate: '功法经验',
+        realmExpPerTick: '每息境界修为',
+        techniqueExpPerTick: '每息功法经验',
+        lootRate: '掉落增幅',
+        rareLootRate: '稀有掉落',
+      },
+    }, attrs, breakdowns);
+    const normalizedCraftEffectStats = cloneCraftEffectStats(craftEffectStats);
+    return {
+      kind: 'special-detail',
+      title: '全部特殊属性',
+      backLabel: '返回特殊',
+      sections: [{
+        key: 'core',
+        title: '基础特殊属性',
+        rows: this.buildAllSpecialStatRows(specialStats),
+      }, {
+        key: 'numeric',
+        title: '数值特殊属性',
+        rows: numericPane.kind === 'numeric'
+          ? numericPane.cards.map((card) => ({
+              key: card.key,
+              label: card.label,
+              value: card.value,
+              detail: card.tooltipDetail,
+            }))
+          : [],
+      }, {
+        key: 'craft',
+        title: '技艺加成',
+        rows: CRAFT_EFFECT_SKILL_KINDS.flatMap((skillKind) => CRAFT_EFFECT_DETAIL_KINDS.map((effectKind) => {
+          const value = normalizedCraftEffectStats[skillKind][effectKind];
+          const label = `${CRAFT_EFFECT_SKILL_LABELS[skillKind]}${CRAFT_EFFECT_KIND_LABELS[effectKind]}`;
+          return {
+            key: `${skillKind}.${effectKind}`,
+            label,
+            value: formatSignedRatePercent(value),
+            detail: `${CRAFT_EFFECT_SKILL_LABELS[skillKind]}技艺的${CRAFT_EFFECT_KIND_LABELS[effectKind]}加成。`,
+          };
+        })),
+      }],
+    };
+  }
+
+  private buildAllSpecialStatRows(specialStats?: PlayerSpecialStats): AttrSpecialDetailRowSnapshot[] {
+    const keys: Array<PlayerSpecialCardKey | 'bodyTrainingLevel'> = [
+      'foundation',
+      'rootFoundation',
+      'bodyTrainingLevel',
+      'combatExp',
+      'comprehension',
+      'luck',
+    ];
+    return keys.map((key) => {
+      const value = Math.max(0, Math.floor(Number(specialStats?.[key as keyof PlayerSpecialStats] ?? 0) || 0));
+      if (key === 'bodyTrainingLevel') {
+        return {
+          key,
+          label: '炼体层数',
+          value: formatDisplayInteger(value),
+          detail: '炼体层数的六维增幅已计入六维构成，这里展示原始特殊属性值。',
+        };
+      }
+      return {
+        key,
+        label: PLAYER_SPECIAL_TOOLTIP_LABELS[key],
+        value: formatDisplayInteger(value),
+        detail: PLAYER_SPECIAL_TOOLTIP_DESCRIPTIONS[key],
+      };
+    });
+  }
 
   /** buildSpecialStatCards：构建特殊属性卡片。 */
   private buildSpecialStatCards(keys: PlayerSpecialCardKey[], specialStats?: PlayerSpecialStats): AttrNumericCardSnapshot[] {
@@ -1870,6 +2032,34 @@ export class AttrPanel {
     }
   }
 
+  private openSpecialDetails(): void {
+    if (this.specialDetailOpen) {
+      return;
+    }
+    this.clearTooltipTarget();
+    this.tooltip.hide(true);
+    this.specialDetailOpen = true;
+    this.rerenderLatestSnapshot();
+  }
+
+  private closeSpecialDetails(): void {
+    if (!this.specialDetailOpen) {
+      return;
+    }
+    this.clearTooltipTarget();
+    this.tooltip.hide(true);
+    this.specialDetailOpen = false;
+    this.rerenderLatestSnapshot();
+  }
+
+  private rerenderLatestSnapshot(): void {
+    const latestData = this.latestData;
+    if (!latestData) {
+      return;
+    }
+    this.renderLatestData(latestData);
+  }
+
   /** renderTabs：渲染标签页。 */
   private renderTabs(): string {
     return (Object.keys(ATTR_TAB_LABELS) as AttrTab[])
@@ -1886,7 +2076,12 @@ export class AttrPanel {
     }
     if (snapshot.kind === 'numeric') {
       return `<div class="panel-section" data-pane-kind="numeric">
-        <div class="panel-section-title" data-numeric-title="true">${snapshot.title}</div>
+        <div class="attr-section-head">
+          <div class="panel-section-title" data-numeric-title="true">${snapshot.title}</div>
+          ${snapshot.actions?.length ? `<div class="attr-section-actions" data-numeric-actions="true">
+            ${snapshot.actions.map((action) => `<button class="small-btn" data-attr-pane-action="${escapeHtml(action.key)}" type="button">${escapeHtml(action.label)}</button>`).join('')}
+          </div>` : ''}
+        </div>
         <div class="attr-grid wide">
           ${snapshot.cards.map((card) => renderAttrMiniCard(card, {
             cardAttr: 'data-numeric-card',
@@ -1894,6 +2089,31 @@ export class AttrPanel {
             valueAttr: 'data-numeric-value',
             subAttr: 'data-numeric-sub',
           })).join('')}
+        </div>
+      </div>`;
+    }
+    if (snapshot.kind === 'special-detail') {
+      return `<div class="panel-section attr-special-detail" data-pane-kind="special-detail">
+        <div class="attr-section-head">
+          <div class="panel-section-title" data-special-detail-title="true">${escapeHtml(snapshot.title)}</div>
+          <div class="attr-section-actions">
+            <button class="small-btn ghost" data-attr-pane-action="special-detail-back" type="button">${escapeHtml(snapshot.backLabel)}</button>
+          </div>
+        </div>
+        <div class="attr-special-detail-sections">
+          ${snapshot.sections.map((section) => `
+            <section class="attr-special-detail-section" data-special-detail-section="${escapeHtml(section.key)}">
+              <h4 class="attr-special-detail-section-title">${escapeHtml(section.title)}</h4>
+              <div class="attr-special-detail-grid">
+                ${section.rows.map((row) => `
+                  <div class="attr-special-detail-row" data-special-detail-row="${escapeHtml(row.key)}" ${row.detail ? `data-tooltip-title="${escapeHtml(row.label)}" data-tooltip-detail="${escapeHtml(row.detail)}"` : ''}>
+                    <span class="attr-special-detail-label">${escapeHtml(row.label)}</span>
+                    <strong class="attr-special-detail-value">${escapeHtml(row.value)}</strong>
+                  </div>
+                `).join('')}
+              </div>
+            </section>
+          `).join('')}
         </div>
       </div>`;
     }
@@ -2033,7 +2253,8 @@ export class AttrPanel {
     if (snapshot.kind === 'numeric') {
       const titleNode = pane.querySelector<HTMLElement>('[data-numeric-title="true"]');
       const cardNodes = pane.querySelectorAll<HTMLElement>('[data-numeric-card]');
-      if (!titleNode || cardNodes.length !== snapshot.cards.length) {
+      const actionNodes = pane.querySelectorAll<HTMLElement>('[data-attr-pane-action]');
+      if (!titleNode || cardNodes.length !== snapshot.cards.length || actionNodes.length !== (snapshot.actions?.length ?? 0)) {
         return false;
       }
       titleNode.textContent = snapshot.title;
@@ -2054,6 +2275,38 @@ export class AttrPanel {
         valueNode.textContent = card.value;
         subNode.textContent = card.sub ?? '';
         subNode.classList.toggle('hidden', !card.sub);
+      }
+      return true;
+    }
+    if (snapshot.kind === 'special-detail') {
+      const titleNode = pane.querySelector<HTMLElement>('[data-special-detail-title="true"]');
+      const rowNodes = pane.querySelectorAll<HTMLElement>('[data-special-detail-row]');
+      const expectedRowCount = snapshot.sections.reduce((total, section) => total + section.rows.length, 0);
+      if (!titleNode || rowNodes.length !== expectedRowCount) {
+        return false;
+      }
+      titleNode.textContent = snapshot.title;
+      for (const section of snapshot.sections) {
+        for (const row of section.rows) {
+          const rowNode = pane.querySelector<HTMLElement>(`[data-special-detail-row="${row.key}"]`);
+          if (!rowNode) {
+            return false;
+          }
+          const labelNode = rowNode.querySelector<HTMLElement>('.attr-special-detail-label');
+          const valueNode = rowNode.querySelector<HTMLElement>('.attr-special-detail-value');
+          if (!labelNode || !valueNode) {
+            return false;
+          }
+          labelNode.textContent = row.label;
+          valueNode.textContent = row.value;
+          if (row.detail) {
+            rowNode.setAttribute('data-tooltip-title', row.label);
+            rowNode.setAttribute('data-tooltip-detail', row.detail);
+          } else {
+            rowNode.removeAttribute('data-tooltip-title');
+            rowNode.removeAttribute('data-tooltip-detail');
+          }
+        }
       }
       return true;
     }
@@ -2208,7 +2461,7 @@ export class AttrPanel {
   private buildStructureKey(snapshot: AttrPanelSnapshot): string {
     const entries = Object.entries(snapshot.panes).map(([tab, pane]) => {
       if (pane.kind === 'numeric') {
-        return [tab, { kind: pane.kind, cards: pane.cards.map((card) => card.key) }];
+        return [tab, { kind: pane.kind, cards: pane.cards.map((card) => card.key), actions: pane.actions?.map((action) => action.key) ?? [] }];
       }
       if (pane.kind === 'radar') {
         return [tab, {
@@ -2221,6 +2474,12 @@ export class AttrPanel {
       if (pane.kind === 'craft') {
         return [tab, { kind: pane.kind, skills: pane.skills.map((skill) => skill.key) }];
       }
+      if (pane.kind === 'special-detail') {
+        return [tab, {
+          kind: pane.kind,
+          sections: pane.sections.map((section) => [section.key, section.rows.map((row) => row.key)]),
+        }];
+      }
       return [tab, { kind: pane.kind }];
     });
     return JSON.stringify(Object.fromEntries(entries));
@@ -2231,6 +2490,20 @@ export class AttrPanel {
     this.pane.addEventListener('click', (event) => {
       const target = event.target;
       if (!(target instanceof HTMLElement)) {
+        return;
+      }
+      const paneActionButton = target.closest<HTMLElement>('[data-attr-pane-action]');
+      if (paneActionButton) {
+        const actionKey = paneActionButton.dataset.attrPaneAction;
+        if (actionKey === SPECIAL_DETAIL_ACTION_KEY) {
+          this.openSpecialDetails();
+          event.preventDefault();
+          event.stopPropagation();
+        } else if (actionKey === 'special-detail-back') {
+          this.closeSpecialDetails();
+          event.preventDefault();
+          event.stopPropagation();
+        }
         return;
       }
       const craftBindButton = target.closest<HTMLElement>('[data-craft-bind]');

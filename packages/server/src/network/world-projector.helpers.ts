@@ -8,6 +8,10 @@ import {
   type Attributes,
   type AutoUsePillConfig,
   type CombatTargetingRules,
+  CRAFT_EFFECT_KINDS,
+  CRAFT_EFFECT_SKILL_KINDS,
+  type CraftEffectStats,
+  type CraftEffectStatsPatch,
   type MapEnterView,
   type PlayerSpecialStats,
   type S2C_PanelActionDelta,
@@ -30,6 +34,7 @@ import {
   type WorldPortalPatchView,
   applyEquipmentAttributeEffectivenessToItemStack,
   calcTechniqueFinalSpecialStatBonus,
+  cloneCraftEffectStats,
   getFirstGrapheme,
 } from '@mud/shared';
 import { cloneAutoUsePillList, cloneCombatTargetingRules, isSameAutoUsePillList, isSameCombatTargetingRules } from '../runtime/player/player-combat-config.helpers';
@@ -944,6 +949,7 @@ function buildAttrPanelSignature(player: ProjectorPlayerLike): string {
         stableShallowSignature(attr.finalAttrs),
         stableShallowSignature(attr.numericStats),
         stableShallowSignature(attr.ratioDivisors),
+        resolveCraftEffectStatsSignature(attr.craftEffectStats),
         resolvePlayerSpecialStatsSignature(resolvePlayerSpecialStatsCached(player)),
         buildCraftSkillSignature(player.alchemySkill),
         buildCraftSkillSignature(player.forgingSkill),
@@ -955,6 +961,14 @@ function buildAttrPanelSignature(player: ProjectorPlayerLike): string {
         buildCraftSkillSignature(player.transmissionSkill),
         buildAttrBonusesSignature(buildAttrBonuses(player)),
     ].join('|');
+}
+
+function resolveCraftEffectStatsSignature(stats: CraftEffectStatsPatch | null | undefined): string {
+    const normalized = cloneCraftEffectStats(stats);
+    return CRAFT_EFFECT_SKILL_KINDS.map((skillKind) => {
+        const block = normalized[skillKind];
+        return CRAFT_EFFECT_KINDS.map((effectKind) => block[effectKind]).join(',');
+    }).join(';');
 }
 
 function resolvePlayerSpecialStatsSignature(stats: PlayerSpecialStats): string {
@@ -1188,8 +1202,22 @@ function canReuseAttrPanelSlice(previousAttr: ProjectedAttrPanelState, player: P
         && isSameCraftSkillState(previousAttr.miningSkill, player.miningSkill)
         && isSameCraftSkillState(previousAttr.formationSkill, player.formationSkill)
         && isSameCraftSkillState(previousAttr.transmissionSkill, player.transmissionSkill)
+        && isSameCraftEffectStats(previousAttr.craftEffectStats, player.attrs.craftEffectStats)
         && isSameSpecialStats(previousAttr.specialStats, resolvePlayerSpecialStatsCached(player))
         && isSameAttrBonuses(previousAttr.bonuses, buildAttrBonuses(player));
+}
+
+function isSameCraftEffectStats(left: CraftEffectStatsPatch | null | undefined, right: CraftEffectStatsPatch | null | undefined): boolean {
+    for (const skillKind of CRAFT_EFFECT_SKILL_KINDS) {
+        const leftBlock = left[skillKind];
+        const rightBlock = right[skillKind];
+        for (const effectKind of CRAFT_EFFECT_KINDS) {
+            if ((Number(leftBlock?.[effectKind]) || 0) !== (Number(rightBlock?.[effectKind]) || 0)) {
+                return false;
+            }
+        }
+    }
+    return true;
 }
 
 function canReuseActionPanelSlice(previousAction: ProjectedActionPanelState, player: ProjectorPlayerLike): boolean {
@@ -1276,6 +1304,7 @@ function captureAttrPanelSlice(player: ProjectorPlayerLike): ProjectedAttrPanelS
         finalAttrs: cloneAttributes(player.attrs.finalAttrs),
         numericStats: cloneNumericStats(player.attrs.numericStats),
         ratioDivisors: cloneNumericRatioDivisors(player.attrs.ratioDivisors),
+        craftEffectStats: cloneCraftEffectStats(player.attrs.craftEffectStats),
         specialStats: cloneSpecialStats(resolvePlayerSpecialStatsCached(player)),
         boneAgeBaseYears: player.boneAgeBaseYears,
         lifeElapsedTicks: player.lifeElapsedTicks,
@@ -1364,6 +1393,7 @@ function buildFullAttrDeltaFromState(attr: ProjectedAttrPanelState): ProjectedAt
         finalAttrs: attr.finalAttrs,
         numericStats: attr.numericStats,
         ratioDivisors: attr.ratioDivisors,
+        craftEffectStats: attr.craftEffectStats,
         specialStats: attr.specialStats,
         boneAgeBaseYears: attr.boneAgeBaseYears,
         lifeElapsedTicks: attr.lifeElapsedTicks,
@@ -1497,6 +1527,7 @@ function buildAttrDeltaFromState(previousAttr: ProjectedAttrPanelState, currentA
     const finalAttrsPatch = diffAttributes(previousAttr.finalAttrs, currentAttr.finalAttrs);
     const numericStatsPatch = diffNumericStats(previousAttr.numericStats, currentAttr.numericStats);
     const ratioDivisorsPatch = diffRatioDivisors(previousAttr.ratioDivisors, currentAttr.ratioDivisors);
+    const craftEffectStatsChanged = !isSameCraftEffectStats(previousAttr.craftEffectStats, currentAttr.craftEffectStats);
     const nextSpecialStats = currentAttr.specialStats;
     const specialStatsChanged = !isSameSpecialStats(previousAttr.specialStats, nextSpecialStats);
     const boneAgeBaseYearsChanged = previousAttr.boneAgeBaseYears !== currentAttr.boneAgeBaseYears;
@@ -1521,6 +1552,7 @@ function buildAttrDeltaFromState(previousAttr: ProjectedAttrPanelState, currentA
         finalAttrs: finalAttrsPatch.patch,
         numericStats: numericStatsPatch.patch,
         ratioDivisors: ratioDivisorsPatch.patch,
+        craftEffectStats: craftEffectStatsChanged ? currentAttr.craftEffectStats : undefined,
         specialStats: specialStatsChanged ? buildSpecialStatsPatch(previousAttr.specialStats, nextSpecialStats) : undefined,
         boneAgeBaseYears: boneAgeBaseYearsChanged ? currentAttr.boneAgeBaseYears : undefined,
         lifeElapsedTicks: lifeElapsedTicksChanged ? currentAttr.lifeElapsedTicks : undefined,
