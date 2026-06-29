@@ -1086,12 +1086,11 @@ export class ActionPanel {
         }
         html += `<div class="panel-section">
           <div class="panel-section-title">${t('action.section.toggle', undefined)}</div>
-          ${this.renderAttackIntensityControl()}
           <div class="intel-grid compact">`;
         for (const action of switchEntries) {
           html += this.renderSwitchItem(action);
         }
-        html += '</div></div></div>';
+        html += `</div>${this.renderAttackIntensityControl()}</div></div>`;
         continue;
       }
       if (tab.id === 'utility') {
@@ -1473,21 +1472,19 @@ export class ActionPanel {
     return `
       <div class="attack-intensity-control" role="group" aria-label="${t('action.attack-intensity.title', undefined)}">
         <div class="attack-intensity-head">
-          <div>
-            <div class="attack-intensity-title">${t('action.attack-intensity.title', undefined)}</div>
-            <div class="attack-intensity-desc">${t('action.attack-intensity.desc', undefined)}</div>
-          </div>
-          <span class="attack-intensity-current">${t('action.attack-intensity.current', { value: active })}</span>
+          <div class="attack-intensity-title">${t('action.attack-intensity.title', undefined)}</div>
         </div>
         <div class="attack-intensity-track">
           ${COMBAT_ATTACK_INTENSITY_OPTIONS.map((value) => `
             <button
-              class="attack-intensity-segment ${value === active ? 'active' : ''}"
+              class="attack-intensity-segment attack-intensity-segment--${value} ${value === active ? 'active' : ''}"
               data-attack-intensity="${value}"
+              data-intensity-label="${t('action.attack-intensity.option', { value })}"
               type="button"
+              aria-label="${t('action.attack-intensity.option', { value })}"
               aria-pressed="${value === active ? 'true' : 'false'}"
             >
-              <span>${t('action.attack-intensity.option', { value })}</span>
+              <span>${value}</span>
             </button>
           `).join('')}
         </div>
