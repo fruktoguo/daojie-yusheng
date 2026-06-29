@@ -7,7 +7,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
-import { ALCHEMY_FURNACE_OUTPUT_COUNT, ARTIFACT_CRAFT_BASE_SUCCESS_RATE, ELEMENT_KEYS, EQUIP_SLOTS, ENHANCEMENT_HAMMER_TAG, ENHANCEMENT_SPIRIT_STONE_ITEM_ID, MAX_ENHANCE_LEVEL, TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH, TECHNIQUE_GRADE_ORDER, addCraftElementVector, applyCraftOutputRate, canMergeItemStack, cloneCraftEffectStats, compactCraftElementVector, computeAlchemyAdjustedBrewTicks, computeAlchemyAdjustedSuccessRate, computeAlchemyBatchOutputCountWithSize, computeAlchemyBrewTicks, computeAlchemyTotalJobTicks, computeCraftSkillExpGain, computeEnhancementAdjustedSuccessRate, computeEnhancementJobBaseTicks, computeEnhancementJobTicks, computeEnhancementToolSpeedRate, computeFivePhaseElementMatch, computeLuckSuccessRateBonus, createEmptyCraftElementVector, createItemStackSignature, getAlchemySpiritStoneCost, getItemDisplayName, isLegacyItemInstanceId, normalizeCraftElementVector } from '@mud/shared';
+import { ALCHEMY_FURNACE_OUTPUT_COUNT, ARTIFACT_CRAFT_BASE_SUCCESS_RATE, ELEMENT_KEYS, EQUIP_SLOTS, ENHANCEMENT_HAMMER_TAG, ENHANCEMENT_SPIRIT_STONE_ITEM_ID, MAX_ENHANCE_LEVEL, TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH, TECHNIQUE_GRADE_ORDER, addCraftElementVector, applyCraftOutputRate, canMergeItemStack, cloneCraftEffectStats, compactCraftElementVector, computeAlchemyAdjustedBrewTicks, computeAlchemyAdjustedSuccessRate, computeAlchemyBatchOutputCountWithSize, computeAlchemyBrewTicks, computeAlchemyTotalJobTicks, computeCraftSkillExpGain, computeEnhancementAdjustedSuccessRate, computeEnhancementJobBaseTicks, computeEnhancementJobTicks, computeEnhancementToolSpeedRate, computeFivePhaseElementMatch, computeLuckSuccessRateBonus, createEmptyCraftElementVector, createItemStackSignature, getAlchemySpiritStoneCost, getItemDisplayName, isLegacyItemInstanceId, normalizeCraftEffectStatsPatch, normalizeCraftElementVector } from '@mud/shared';
 import type { ItemStack } from '@mud/shared';
 import { assignItemInstanceIdIfNeeded, compareItemInstanceId, isItemInstanceIdHardCheckEnabled } from '../world/item-instance-id.helpers';
 import { lockItem, unlockItem, getLockedItem, lockedItemToItemStack } from '../player/inventory-lock.helpers';
@@ -2675,15 +2675,29 @@ function cloneItem(item) {
     if (!item || typeof item !== 'object') {
         return undefined;
     }
+    const flat = flattenItemForClone(item);
     return {
-        ...item,
-        equipAttrs: item.equipAttrs ? { ...item.equipAttrs } : undefined,
-        equipStats: item.equipStats ? clonePartialNumericStats(item.equipStats) : undefined,
-        equipValueStats: item.equipValueStats ? { ...item.equipValueStats } : undefined,
-        consumeBuffs: Array.isArray(item.consumeBuffs) ? item.consumeBuffs.map((entry) => ({ ...entry })) : undefined,
-        effects: Array.isArray(item.effects) ? item.effects.map((entry) => ({ ...entry })) : undefined,
-        tags: Array.isArray(item.tags) ? item.tags.slice() : undefined,
+        ...flat,
+        equipAttrs: flat.equipAttrs ? { ...flat.equipAttrs } : undefined,
+        equipStats: flat.equipStats ? clonePartialNumericStats(flat.equipStats) : undefined,
+        equipValueStats: flat.equipValueStats ? { ...flat.equipValueStats } : undefined,
+        equipSpecialStats: flat.equipSpecialStats ? { ...flat.equipSpecialStats } : undefined,
+        craftEffectStats: normalizeCraftEffectStatsPatch(flat.craftEffectStats),
+        consumeBuffs: Array.isArray(flat.consumeBuffs) ? flat.consumeBuffs.map((entry) => ({ ...entry })) : undefined,
+        effects: Array.isArray(flat.effects) ? flat.effects.map((entry) => ({ ...entry })) : undefined,
+        tags: Array.isArray(flat.tags) ? flat.tags.slice() : undefined,
     };
+}
+
+function flattenItemForClone(item) {
+    if (!item || Object.getPrototypeOf(item) === Object.prototype || Object.getPrototypeOf(item) === null) {
+        return item;
+    }
+    const result = {};
+    for (const key in item) {
+        result[key] = item[key];
+    }
+    return result;
 }
 
 function isEnhanceableItem(item) {

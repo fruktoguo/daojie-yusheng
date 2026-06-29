@@ -153,6 +153,23 @@ function getMaterialCategoryLabel(category: MaterialCategory | undefined): strin
   }
 }
 
+function resolveItemTagLabel(tag: string): string {
+  switch (tag) {
+    case 'alchemy_furnace':
+      return t('equipment-tooltip.tag.alchemy-furnace', undefined);
+    case 'forging_tool':
+      return t('equipment-tooltip.tag.forging-tool', undefined);
+    case 'enhancement_hammer':
+      return t('equipment-tooltip.tag.enhancement-hammer', undefined);
+    case 'mining_pickaxe':
+      return t('equipment-tooltip.tag.mining-pickaxe', undefined);
+    case 'building_hammer':
+      return t('equipment-tooltip.tag.building-hammer', undefined);
+    default:
+      return tag;
+  }
+}
+
 export function describeMaterialValueDetails(item: ItemStack): string[] {
   const previewItem = resolvePreviewItem(item);
   const elementValues = previewItem.materialValues?.elements;
@@ -178,7 +195,7 @@ function renderItemTagPills(item: ItemStack): string | null {
     return null;
   }
   const pills = uniqueTags
-    .map((tag) => `<span class="equipment-tooltip-tag-pill">${escapeHtml(tag)}</span>`)
+    .map((tag) => `<span class="equipment-tooltip-tag-pill">${escapeHtml(resolveItemTagLabel(tag))}</span>`)
     .join('');
   return `<span class="equipment-tooltip-tag-list">${pills}</span>`;
 }
@@ -620,6 +637,7 @@ export function describeItemEffectDetails(item: ItemStack): string[] {
 
 /** describeEquipmentUtilityBonuses：整理装备功能性词条。 */
 export function describeEquipmentUtilityBonuses(item: ItemStack): string[] {
+  const previewItem = resolvePreviewItem(item);
   const lines: string[] = [];
   const formatSignedRate = (value: number): string => `${value > 0 ? '+' : ''}${formatDisplayPercent(value * 100)}`;
   const craftLabels: Record<string, string> = {
@@ -632,7 +650,7 @@ export function describeEquipmentUtilityBonuses(item: ItemStack): string[] {
     building: t('equipment-tooltip.craft.building', undefined),
     formation: t('equipment-tooltip.craft.formation', undefined),
   };
-  for (const [skillKind, block] of Object.entries(item.craftEffectStats ?? {})) {
+  for (const [skillKind, block] of Object.entries(previewItem.craftEffectStats ?? {})) {
     if (!block || typeof block !== 'object') {
       continue;
     }

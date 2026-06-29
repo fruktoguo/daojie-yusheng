@@ -4,7 +4,7 @@
  * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
 import { Injectable } from '@nestjs/common';
-import { ENHANCEMENT_HAMMER_TAG, MAX_ENHANCE_LEVEL, cloneCraftEffectStats, computeEnhancementAdjustedSuccessRate, computeEnhancementJobTicks, computeEnhancementToolSpeedRate, computeLuckSuccessRateBonus } from '@mud/shared';
+import { ENHANCEMENT_HAMMER_TAG, MAX_ENHANCE_LEVEL, cloneCraftEffectStats, computeEnhancementAdjustedSuccessRate, computeEnhancementJobTicks, computeEnhancementToolSpeedRate, computeLuckSuccessRateBonus, normalizeCraftEffectStatsPatch } from '@mud/shared';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { assignItemInstanceIdIfNeeded } from '../world/item-instance-id.helpers';
 import { resolvePlayerEffectiveLuck } from '../player/player-special-stat.helpers';
@@ -286,15 +286,29 @@ function cloneItem(item) {
     if (!item || typeof item !== 'object') {
         return undefined;
     }
+    const flat = flattenItemForClone(item);
     return {
-        ...item,
-        equipAttrs: item.equipAttrs ? { ...item.equipAttrs } : undefined,
-        equipStats: item.equipStats ? clonePartialNumericStats(item.equipStats) : undefined,
-        equipValueStats: item.equipValueStats ? { ...item.equipValueStats } : undefined,
-        consumeBuffs: Array.isArray(item.consumeBuffs) ? item.consumeBuffs.map((entry) => ({ ...entry })) : undefined,
-        effects: Array.isArray(item.effects) ? item.effects.map((entry) => ({ ...entry })) : undefined,
-        tags: Array.isArray(item.tags) ? item.tags.slice() : undefined,
+        ...flat,
+        equipAttrs: flat.equipAttrs ? { ...flat.equipAttrs } : undefined,
+        equipStats: flat.equipStats ? clonePartialNumericStats(flat.equipStats) : undefined,
+        equipValueStats: flat.equipValueStats ? { ...flat.equipValueStats } : undefined,
+        equipSpecialStats: flat.equipSpecialStats ? { ...flat.equipSpecialStats } : undefined,
+        craftEffectStats: normalizeCraftEffectStatsPatch(flat.craftEffectStats),
+        consumeBuffs: Array.isArray(flat.consumeBuffs) ? flat.consumeBuffs.map((entry) => ({ ...entry })) : undefined,
+        effects: Array.isArray(flat.effects) ? flat.effects.map((entry) => ({ ...entry })) : undefined,
+        tags: Array.isArray(flat.tags) ? flat.tags.slice() : undefined,
     };
+}
+
+function flattenItemForClone(item) {
+    if (!item || Object.getPrototypeOf(item) === Object.prototype || Object.getPrototypeOf(item) === null) {
+        return item;
+    }
+    const result = {};
+    for (const key in item) {
+        result[key] = item[key];
+    }
+    return result;
 }
 
 function isEnhanceableItem(item) {

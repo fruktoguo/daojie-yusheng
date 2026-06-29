@@ -115,6 +115,10 @@ function createTechniqueTool(
   };
 }
 
+function createTemplateBackedItem<T extends Record<string, unknown>>(template: T, ownFields: Record<string, unknown>): T {
+  return Object.assign(Object.create(template), ownFields);
+}
+
 function resolveTechniqueToolSlot(tags: string[]): string {
   if (tags.includes('alchemy_furnace')) return 'technique_alchemy';
   if (tags.includes('forging_tool')) return 'technique_forging';
@@ -218,6 +222,33 @@ function testEnhancedHammerAffectsEnhancementPanelAndJob(): void {
   assert.equal(result.ok, true);
   assert.equal(player.enhancementJob?.successRate, expectedSuccessRate);
   assert.equal(player.enhancementJob?.totalTicks, expectedTicks);
+}
+
+function testRuntimeItemCloneKeepsTemplateBackedCraftEffectStats(): void {
+  const service = createService();
+  const hammerTemplate = createTechniqueTool('equip.test_proto_hammer', ['enhancement_hammer'], {
+    enhancement: { successRate: 0.1, speedRate: 0.5 },
+  });
+  const templateBackedHammer = createTemplateBackedItem(hammerTemplate, {
+    itemId: hammerTemplate.itemId,
+    count: 1,
+    itemInstanceId: 'proto-hammer-instance',
+  });
+  const player = createPlayer(hammerTemplate);
+  const candidate = service.buildEnhancementCandidate(
+    player as never,
+    { source: 'inventory', itemInstanceId: 'proto-hammer-instance' } as never,
+    templateBackedHammer as never,
+  );
+
+  assert.ok(candidate, 'expected template-backed hammer enhancement candidate');
+  assert.deepEqual(candidate.item.tags, hammerTemplate.tags);
+  assert.deepEqual(candidate.item.craftEffectStats, hammerTemplate.craftEffectStats);
+  player.equipment.slots = [{ slot: 'technique_enhancement', item: candidate.item }];
+  const craftEffectStats = recalculatePlayerCraftEffectStats(player);
+  const effectiveHammer = applyEquipmentAttributeEffectivenessToItemStack(candidate.item as never, player.realm.realmLv);
+  assert.equal(craftEffectStats.enhancement.successRate, effectiveHammer.craftEffectStats?.enhancement?.successRate);
+  assert.equal(craftEffectStats.enhancement.speedRate, effectiveHammer.craftEffectStats?.enhancement?.speedRate);
 }
 
 function testEquipmentRealmEffectivenessUsesExponentialPenalty(): void {
@@ -461,6 +492,7 @@ function testGeneratedEditorCatalogKeepsCraftEffectStats(): void {
 
 function main(): void {
   testEnhancedHammerAffectsEnhancementPanelAndJob();
+  testRuntimeItemCloneKeepsTemplateBackedCraftEffectStats();
   testEquipmentRealmEffectivenessUsesExponentialPenalty();
   testEnhancedAlchemyAndForgingToolsAffectJobs();
   testEnhancedMiningPickaxeAlreadyAffectsTileDamage();
