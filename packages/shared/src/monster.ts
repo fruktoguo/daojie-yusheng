@@ -41,6 +41,7 @@ import type {
   Attributes,
   NumericStatPercentages,
 } from './attribute-types';
+import type { CraftEffectStatsPatch } from './craft-effect-stats';
 import type { EquipSlot, EquipmentSlots, ItemStack, ItemType } from './item-runtime-types';
 import type { MonsterAggroMode, MonsterTier } from './world-core-types';
 import type { MonsterInitialBuffDef } from './skill-types';
@@ -381,6 +382,11 @@ export interface MonsterTemplateEditorItem {
  */
 
   equipValueStats?: PartialNumericStats;  
+  /**
+ * craftEffectStats：技艺效果属性。
+ */
+
+  craftEffectStats?: CraftEffectStatsPatch;
   /**
  * effects：effect相关字段。
  */
@@ -1403,6 +1409,7 @@ function createMonsterTemplateEquipmentItem(item: MonsterTemplateEditorItem): It
     equipAttrs: item.equipAttrs,
     equipStats: item.equipStats ?? compileValueStatsToActualStats(item.equipValueStats),
     equipValueStats: item.equipValueStats,
+    craftEffectStats: item.craftEffectStats,
     effects: item.effects,
     tags: item.tags,
     mapUnlockId: item.mapUnlockId,

@@ -235,6 +235,16 @@ function normalizeItemAttrs(attrs) {
 }
 
 /**
+ * 透传物品模板上的技艺效果属性，供怪物装备目录和本地编辑器预览保持同一契约。
+ */
+function cloneCraftEffectStats(stats) {
+  if (!stats || typeof stats !== 'object' || Array.isArray(stats)) {
+    return undefined;
+  }
+  return JSON.parse(JSON.stringify(stats));
+}
+
+/**
  * 汇总编辑器可展示的物品模板，并补齐筛选和展示所需字段。
  */
 function listEditorItems() {
@@ -266,6 +276,7 @@ function listEditorItems() {
         equipAttrs: normalizeItemAttrs(entry.equipAttrs),
         equipStats: compileValueStatsToActualStats(normalizeEquipValueStats(entry.equipValueStats)) ?? normalizeEquipValueStats(entry.equipStats),
         equipValueStats: normalizeEquipValueStats(entry.equipValueStats),
+        craftEffectStats: cloneCraftEffectStats(entry.craftEffectStats),
         effects: Array.isArray(entry.effects) ? entry.effects : undefined,
         tags: Array.isArray(entry.tags) ? entry.tags.filter((tag) => typeof tag === 'string').map((tag) => tag.trim()).filter(Boolean) : undefined,
         contextActions: Array.isArray(entry.contextActions) ? entry.contextActions.filter((action) => action && typeof action === 'object') : undefined,

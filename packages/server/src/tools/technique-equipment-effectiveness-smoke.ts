@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
 
 import {
   applyEquipmentAttributeEffectivenessToItemStack,
+  CRAFT_EFFECT_KINDS,
+  CRAFT_EFFECT_SKILL_KINDS,
   computeAlchemyAdjustedBrewTicks,
   computeAlchemyAdjustedSuccessRate,
   computeLuckSuccessRateBonus,
@@ -20,6 +24,34 @@ import { CraftPanelAlchemyQueryService } from '../runtime/craft/craft-panel-alch
 import { CraftPanelEnhancementQueryService } from '../runtime/craft/craft-panel-enhancement-query.service';
 import { PlayerAttributesService } from '../runtime/player/player-attributes.service';
 import { resolveMiningAdjustedTileDamage, resolveMiningDropRateBonus } from '../runtime/world/combat/tile-drop.helpers';
+
+const REMOVED_TOOL_STAT_FIELD_NAMES = [
+  ['alchemy', 'Success', 'Rate'],
+  ['alchemy', 'Speed', 'Rate'],
+  ['forging', 'Success', 'Rate'],
+  ['forging', 'Speed', 'Rate'],
+  ['enhancement', 'Success', 'Rate'],
+  ['enhancement', 'Speed', 'Rate'],
+  ['mining', 'Damage', 'Rate'],
+  ['mining', 'Drop', 'Rate'],
+  ['building', 'Speed', 'Rate'],
+].map((parts) => parts.join(''));
+
+const TOOL_TAG_TO_SKILL_KIND = {
+  alchemy_furnace: 'alchemy',
+  forging_tool: 'forging',
+  enhancement_hammer: 'enhancement',
+  mining_pickaxe: 'mining',
+  building_hammer: 'building',
+} as const;
+
+const TECHNIQUE_SLOT_TO_SKILL_KIND = {
+  technique_alchemy: 'alchemy',
+  technique_forging: 'forging',
+  technique_enhancement: 'enhancement',
+  technique_mining: 'mining',
+  technique_building: 'building',
+} as const;
 
 function createRepository() {
   return {
@@ -308,12 +340,133 @@ function testBuildingHammerProjectsHiddenCraftStats(): void {
   assert.equal(craftEffectStats.building.speedRate, effectiveHammer.craftEffectStats?.building?.speedRate);
 }
 
+function findRepoRoot(): string {
+  let current = process.cwd();
+  for (let index = 0; index < 6; index += 1) {
+    const packageJsonPath = path.join(current, 'package.json');
+    if (fs.existsSync(packageJsonPath)) {
+      try {
+        const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+        if (packageJson?.name === 'daojie-yusheng') {
+          return current;
+        }
+      } catch {
+        // 继续向上找仓库根。
+      }
+    }
+    const parent = path.dirname(current);
+    if (parent === current) {
+      break;
+    }
+    current = parent;
+  }
+  return process.cwd();
+}
+
+function walkJsonFiles(root: string): string[] {
+  const result: string[] = [];
+  for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
+    const filePath = path.join(root, entry.name);
+    if (entry.isDirectory()) {
+      result.push(...walkJsonFiles(filePath));
+    } else if (entry.name.endsWith('.json')) {
+      result.push(filePath);
+    }
+  }
+  return result;
+}
+
+function loadContentItems(): Array<Record<string, any>> {
+  const itemsRoot = path.join(findRepoRoot(), 'packages/server/data/content/items');
+  return walkJsonFiles(itemsRoot).flatMap((filePath) => {
+    const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    assert.ok(Array.isArray(parsed), `item content file must be array: ${filePath}`);
+    return parsed.map((item) => ({ ...item, __filePath: filePath }));
+  });
+}
+
+function assertNoLegacyCraftEquipmentFields(value: unknown, location: string): void {
+  if (!value || typeof value !== 'object') {
+    return;
+  }
+  if (Array.isArray(value)) {
+    value.forEach((entry, index) => assertNoLegacyCraftEquipmentFields(entry, `${location}[${index}]`));
+    return;
+  }
+  for (const [key, child] of Object.entries(value)) {
+    assert.equal(
+      REMOVED_TOOL_STAT_FIELD_NAMES.includes(key),
+      false,
+      `legacy craft equipment field ${key} remains at ${location}`,
+    );
+    assertNoLegacyCraftEquipmentFields(child, `${location}.${key}`);
+  }
+}
+
+function resolveContentToolSkillKind(item: Record<string, any>): keyof typeof TECHNIQUE_SLOT_TO_SKILL_KIND | null {
+  if (typeof item.equipSlot === 'string' && item.equipSlot in TECHNIQUE_SLOT_TO_SKILL_KIND) {
+    return item.equipSlot as keyof typeof TECHNIQUE_SLOT_TO_SKILL_KIND;
+  }
+  for (const tag of item.tags ?? []) {
+    if (typeof tag === 'string' && tag in TOOL_TAG_TO_SKILL_KIND) {
+      const skillKind = TOOL_TAG_TO_SKILL_KIND[tag as keyof typeof TOOL_TAG_TO_SKILL_KIND];
+      return `technique_${skillKind}` as keyof typeof TECHNIQUE_SLOT_TO_SKILL_KIND;
+    }
+  }
+  return null;
+}
+
+function assertCraftEffectStatsPatch(stats: unknown, itemId: string, expectedSkillKind: string): void {
+  assert.ok(stats && typeof stats === 'object' && !Array.isArray(stats), `${itemId} must define craftEffectStats`);
+  const block = (stats as Record<string, unknown>)[expectedSkillKind];
+  assert.ok(block && typeof block === 'object' && !Array.isArray(block), `${itemId} must define craftEffectStats.${expectedSkillKind}`);
+  for (const skillKind of Object.keys(stats as Record<string, unknown>)) {
+    assert.ok(CRAFT_EFFECT_SKILL_KINDS.includes(skillKind as never), `${itemId} has unknown craftEffectStats skill ${skillKind}`);
+  }
+  for (const effectKind of Object.keys(block as Record<string, unknown>)) {
+    assert.ok(CRAFT_EFFECT_KINDS.includes(effectKind as never), `${itemId} has unknown craftEffectStats effect ${effectKind}`);
+    assert.equal(typeof (block as Record<string, unknown>)[effectKind], 'number', `${itemId}.${expectedSkillKind}.${effectKind} must be number`);
+  }
+}
+
+function testContentTechniqueToolsUseCraftEffectStatsOnly(): void {
+  const items = loadContentItems();
+  for (const item of items) {
+    assertNoLegacyCraftEquipmentFields(item, item.itemId ?? item.__filePath);
+  }
+
+  const techniqueTools = items.filter((item) => resolveContentToolSkillKind(item));
+  assert.ok(techniqueTools.length > 0, 'expected content technique tools');
+  for (const item of techniqueTools) {
+    const slot = resolveContentToolSkillKind(item);
+    assert.ok(slot, `expected technique slot for ${item.itemId}`);
+    const expectedSkillKind = TECHNIQUE_SLOT_TO_SKILL_KIND[slot];
+    assertCraftEffectStatsPatch(item.craftEffectStats, item.itemId, expectedSkillKind);
+  }
+}
+
+function testGeneratedEditorCatalogKeepsCraftEffectStats(): void {
+  const repoRoot = findRepoRoot();
+  const generatedCatalogPath = path.join(repoRoot, 'packages/client/src/constants/world/editor-catalog.generated.json');
+  const generatedCatalog = JSON.parse(fs.readFileSync(generatedCatalogPath, 'utf8'));
+  const generatedItems = new Map<string, Record<string, any>>(
+    (generatedCatalog.items ?? []).map((item: Record<string, any>) => [String(item.itemId), item]),
+  );
+  for (const item of loadContentItems().filter((entry) => resolveContentToolSkillKind(entry))) {
+    const generated = generatedItems.get(item.itemId);
+    assert.ok(generated, `generated editor catalog missing ${item.itemId}`);
+    assert.deepEqual(generated.craftEffectStats, item.craftEffectStats, `generated editor catalog lost craftEffectStats for ${item.itemId}`);
+  }
+}
+
 function main(): void {
   testEnhancedHammerAffectsEnhancementPanelAndJob();
   testEquipmentRealmEffectivenessUsesExponentialPenalty();
   testEnhancedAlchemyAndForgingToolsAffectJobs();
   testEnhancedMiningPickaxeAlreadyAffectsTileDamage();
   testBuildingHammerProjectsHiddenCraftStats();
+  testContentTechniqueToolsUseCraftEffectStatsOnly();
+  testGeneratedEditorCatalogKeepsCraftEffectStats();
   console.log(JSON.stringify({ ok: true, case: 'technique-equipment-effectiveness' }, null, 2));
 }
 
