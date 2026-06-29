@@ -5368,6 +5368,25 @@
       color: var(--ink-grey);
       font-weight: var(--font-weight-semibold);
     }
+    .equipment-tooltip-tag-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin: 1px 0;
+    }
+    .equipment-tooltip-tag-pill {
+      display: inline-flex;
+      align-items: center;
+      max-width: 100%;
+      padding: 2px 8px;
+      border: 1px solid rgba(78, 132, 146, 0.28);
+      border-radius: 999px;
+      background: rgba(78, 132, 146, 0.12);
+      color: var(--tooltip-head-ink);
+      font-size: var(--font-size-12);
+      line-height: 1.45;
+      overflow-wrap: anywhere;
+    }
     .equipment-tooltip-attribute-block {
       display: grid;
       gap: 6px;

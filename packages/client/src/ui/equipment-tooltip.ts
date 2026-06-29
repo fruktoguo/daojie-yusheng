@@ -169,11 +169,18 @@ export function describeMaterialValueDetails(item: ItemStack): string[] {
   return parts.length > 0 ? [t('equipment-tooltip.material-values.elements', { values: parts.join(' / ') })] : [];
 }
 
-function describeItemTags(item: ItemStack): string | null {
+function renderItemTagPills(item: ItemStack): string | null {
   const tags = Array.isArray(item.tags)
     ? item.tags.map((tag) => tag.trim()).filter(Boolean)
     : [];
-  return tags.length > 0 ? Array.from(new Set(tags)).join(' / ') : null;
+  const uniqueTags = Array.from(new Set(tags));
+  if (uniqueTags.length === 0) {
+    return null;
+  }
+  const pills = uniqueTags
+    .map((tag) => `<span class="equipment-tooltip-tag-pill">${escapeHtml(tag)}</span>`)
+    .join('');
+  return `<span class="equipment-tooltip-tag-list">${pills}</span>`;
 }
 
 /** normalizeBuffMark：规范化Buff Mark。 */
@@ -787,7 +794,7 @@ export function buildItemTooltipPayload(item: ItemStack, context?: ItemTooltipCo
   const sourceListHtml = renderItemSourceListHtml(previewItem.itemId, { maxEntries: 3, compact: true });
   const statusLabel = resolveItemStatusLabel(previewItem, context);
   const medicineCategoryLabel = resolveMedicineCategoryLabel(previewItem);
-  const itemTagsLabel = describeItemTags(previewItem);
+  const itemTagsHtml = renderItemTagPills(previewItem);
   if (previewItem.type !== 'equipment') {
     const effectLines = previewItem.effects?.length
       ? previewItem.effects.flatMap((effect) => buildPlainEffectSummary(effect))
@@ -804,7 +811,7 @@ export function buildItemTooltipPayload(item: ItemStack, context?: ItemTooltipCo
         : [`<span class="skill-tooltip-desc">${escapeHtml(previewItem.desc ?? '')}</span>`]),
       renderPlainLine(t('equipment-tooltip.label.type', undefined), getItemTypeLabel(previewItem.type)),
       ...(medicineCategoryLabel ? [renderPlainLine(t('equipment-tooltip.label.category', undefined), medicineCategoryLabel)] : []),
-      ...(itemTagsLabel ? [renderPlainLine(t('equipment-tooltip.label.tags', undefined), itemTagsLabel)] : []),
+      ...(itemTagsHtml ? [itemTagsHtml] : []),
       ...materialValueLines.map((line) => renderPlainLine(t('equipment-tooltip.label.element-values', undefined), line.replace(/^五行：/, ''))),
       ...(statusLabel ? [renderPlainLine(t('equipment-tooltip.label.status', undefined), statusLabel)] : []),
       ...techniqueBookLines,
@@ -826,7 +833,7 @@ export function buildItemTooltipPayload(item: ItemStack, context?: ItemTooltipCo
     `<span class="skill-tooltip-desc">${escapeHtml(enhancedPreviewItem.desc ?? '')}</span>`,
     renderPlainLine(t('equipment-tooltip.label.type', undefined), getItemTypeLabel(enhancedPreviewItem.type)),
     ...(enhancedPreviewItem.equipSlot ? [renderPlainLine(t('equipment-tooltip.label.slot', undefined), getEquipSlotLabel(enhancedPreviewItem.equipSlot))] : []),
-    ...(itemTagsLabel ? [renderPlainLine(t('equipment-tooltip.label.tags', undefined), itemTagsLabel)] : []),
+    ...(itemTagsHtml ? [itemTagsHtml] : []),
     ...(statusLabel ? [renderPlainLine(t('equipment-tooltip.label.status', undefined), statusLabel)] : []),
     ...(attributeBlock ? [attributeBlock] : []),
     ...effectSummaries.flatMap((entry) => entry.lines),
