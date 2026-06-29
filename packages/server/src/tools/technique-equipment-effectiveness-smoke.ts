@@ -154,7 +154,38 @@ function createPlayer(weapon: ReturnType<typeof createTechniqueTool>) {
 function recalculatePlayerCraftStats(player: ReturnType<typeof createPlayer>) {
   const attrService = new PlayerAttributesService();
   attrService.recalculate(player as never);
+  assertCraftEffectStatsProjection(player);
   return player.attrs.craftStats;
+}
+
+function assertCraftEffectStatsProjection(player: ReturnType<typeof createPlayer>): void {
+  const craftStats = player.attrs.craftStats;
+  const effectStats = player.attrs.craftEffectStats;
+  assert.ok(effectStats, 'expected craftEffectStats projection');
+  assert.equal(effectStats.alchemy.successRate, craftStats.alchemySuccessRate);
+  assert.equal(effectStats.alchemy.speedRate, craftStats.alchemySpeedRate);
+  assert.equal(effectStats.alchemy.outputRate, 0);
+  assert.equal(effectStats.alchemy.expRate, 0);
+  assert.equal(effectStats.forging.successRate, craftStats.forgingSuccessRate);
+  assert.equal(effectStats.forging.speedRate, craftStats.forgingSpeedRate);
+  assert.equal(effectStats.forging.outputRate, 0);
+  assert.equal(effectStats.forging.expRate, 0);
+  assert.equal(effectStats.enhancement.successRate, craftStats.enhancementSuccessRate);
+  assert.equal(effectStats.enhancement.speedRate, craftStats.enhancementSpeedRate);
+  assert.equal(effectStats.enhancement.outputRate, 0);
+  assert.equal(effectStats.enhancement.expRate, 0);
+  assert.equal(effectStats.transmission.successRate, 0);
+  assert.equal(effectStats.transmission.speedRate, 0);
+  assert.equal(effectStats.transmission.outputRate, 0);
+  assert.equal(effectStats.transmission.expRate, 0);
+  assert.equal(effectStats.mining.successRate, 0);
+  assert.equal(effectStats.mining.speedRate, craftStats.miningDamageRate);
+  assert.equal(effectStats.mining.outputRate, craftStats.miningDropRate);
+  assert.equal(effectStats.mining.expRate, 0);
+  assert.equal(effectStats.building.successRate, 0);
+  assert.equal(effectStats.building.speedRate, craftStats.buildingSpeedRate);
+  assert.equal(effectStats.building.outputRate, 0);
+  assert.equal(effectStats.building.expRate, 0);
 }
 
 function testEnhancedHammerAffectsEnhancementPanelAndJob(): void {

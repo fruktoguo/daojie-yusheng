@@ -9,7 +9,7 @@
  * 并在属性变化时同步更新生命/灵力上限和当前值比例。
  */
 import { Injectable } from '@nestjs/common';
-import { ATTR_KEYS, ATTR_TO_NUMERIC_WEIGHTS, ATTR_TO_PERCENT_NUMERIC_WEIGHTS, CRAFT_EQUIPMENT_STAT_KEYS, CULTIVATE_EXP_PER_TICK, CULTIVATION_REALM_EXP_PER_TICK, DEFAULT_BASE_ATTRS, DEFAULT_PLAYER_REALM_STAGE, ELEMENT_KEYS, NUMERIC_SCALAR_STAT_KEYS, NUMERIC_STAT_MULTIPLIER_FLOORS, addCraftEquipmentStatsFromItem, addPartialNumericStats, applyEquipmentAttributeEffectivenessToItemStack, calcBodyTrainingAttrPercentBonus, calcTechniqueFinalAttrBonus, calcTechniqueFinalSpecialStatBonus, calcTechniqueMaxAttrPercentBonus, cloneCraftEquipmentStats, cloneNumericRatioDivisors, cloneNumericStats, compileValueStatsToActualStats, createEmptyCraftEquipmentStats, createNumericStats, getEffectiveMoveSpeed, getRealmAttributeMultiplier, getRealmLinearGrowthMultiplier, percentModifierToMultiplier, resolvePlayerRealmAttributeBonus, resolvePlayerRealmNumericTemplate } from '@mud/shared';
+import { ATTR_KEYS, ATTR_TO_NUMERIC_WEIGHTS, ATTR_TO_PERCENT_NUMERIC_WEIGHTS, CRAFT_EFFECT_KINDS, CRAFT_EFFECT_SKILL_KINDS, CRAFT_EQUIPMENT_STAT_KEYS, CULTIVATE_EXP_PER_TICK, CULTIVATION_REALM_EXP_PER_TICK, DEFAULT_BASE_ATTRS, DEFAULT_PLAYER_REALM_STAGE, ELEMENT_KEYS, NUMERIC_SCALAR_STAT_KEYS, NUMERIC_STAT_MULTIPLIER_FLOORS, addCraftEquipmentStatsFromItem, addPartialNumericStats, applyEquipmentAttributeEffectivenessToItemStack, calcBodyTrainingAttrPercentBonus, calcTechniqueFinalAttrBonus, calcTechniqueFinalSpecialStatBonus, calcTechniqueMaxAttrPercentBonus, cloneCraftEffectStats, cloneCraftEquipmentStats, cloneNumericRatioDivisors, cloneNumericStats, compileValueStatsToActualStats, craftEquipmentStatsToCraftEffectStats, createEmptyCraftEffectStats, createEmptyCraftEquipmentStats, createNumericStats, getEffectiveMoveSpeed, getRealmAttributeMultiplier, getRealmLinearGrowthMultiplier, percentModifierToMultiplier, resolvePlayerRealmAttributeBonus, resolvePlayerRealmNumericTemplate } from '@mud/shared';
 import { PVP_SHA_INFUSION_ATTACK_CAP_PERCENT, PVP_SHA_INFUSION_BUFF_ID } from '../../constants/gameplay/pvp';
 import { resolvePlayerDailySignInFortuneLuck } from './player-special-stat.helpers';
 
@@ -39,6 +39,7 @@ export class PlayerAttributesService {
             numericStats,
             ratioDivisors: cloneNumericRatioDivisors(template.ratioDivisors),
             craftStats: createEmptyCraftEquipmentStats(),
+            craftEffectStats: createEmptyCraftEffectStats(),
         };
     }
     /** 重新计算玩家的最终属性和数值面板。 */
@@ -60,6 +61,7 @@ export class PlayerAttributesService {
         player.attrs.numericStats = next.numericStats;
         player.attrs.ratioDivisors = next.ratioDivisors;
         player.attrs.craftStats = next.craftStats;
+        player.attrs.craftEffectStats = next.craftEffectStats;
         player.attrs.revision += 1;
 
         const nextMaxHp = Math.max(1, Math.round(next.numericStats.maxHp));
@@ -239,6 +241,7 @@ export class PlayerAttributesService {
             numericStats,
             ratioDivisors: cloneNumericRatioDivisors(template.ratioDivisors),
             craftStats,
+            craftEffectStats: craftEquipmentStatsToCraftEffectStats(craftStats),
         };
     }
 };
@@ -950,7 +953,8 @@ function hasAttrStateChanged(previous, next) {
         || !isSameAttributes(previous.finalAttrs, next.finalAttrs)
         || !isSameNumericStats(previous.numericStats, next.numericStats)
         || !isSameRatioDivisors(previous.ratioDivisors, next.ratioDivisors)
-        || !isSameCraftEquipmentStats(previous.craftStats, next.craftStats);
+        || !isSameCraftEquipmentStats(previous.craftStats, next.craftStats)
+        || !isSameCraftEffectStats(previous.craftEffectStats, next.craftEffectStats);
 }
 /**
  * isSameAttributes：判断SameAttribute是否满足条件。
@@ -976,6 +980,19 @@ function isSameCraftEquipmentStats(left, right) {
     for (const key of CRAFT_EQUIPMENT_STAT_KEYS) {
         if (normalizedLeft[key] !== normalizedRight[key]) {
             return false;
+        }
+    }
+    return true;
+}
+
+function isSameCraftEffectStats(left, right) {
+    const normalizedLeft = cloneCraftEffectStats(left);
+    const normalizedRight = cloneCraftEffectStats(right);
+    for (const skillKind of CRAFT_EFFECT_SKILL_KINDS) {
+        for (const effectKind of CRAFT_EFFECT_KINDS) {
+            if (normalizedLeft[skillKind][effectKind] !== normalizedRight[skillKind][effectKind]) {
+                return false;
+            }
         }
     }
     return true;

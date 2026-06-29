@@ -48,6 +48,7 @@ export * from './target-ref';
 export * from './terrain';
 export * from './map-layer-types';
 export * from './craft-duration';
+export * from './craft-effect-stats';
 export * from './craft-elements';
 export * from './craft-skill';
 export * from './craft-success';
