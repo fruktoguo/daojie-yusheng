@@ -4153,6 +4153,26 @@ export class PlayerRuntimeService {
     advanceSinglePlayerTick(player, currentTick, options: any = {}) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+            if (options.__attributeRecalculationDeferred !== true
+                && typeof this.playerAttributesService?.withDeferredRecalculation === 'function') {
+                options.__attributeRecalculationDeferred = true;
+                try {
+                    const deferred = this.playerAttributesService.withDeferredRecalculation(
+                        player,
+                        () => this.advanceSinglePlayerTick(player, currentTick, options),
+                    );
+                    if (deferred?.requested === true) {
+                        this.playerProgressionService?.refreshPreview?.(player);
+                    }
+                    if (deferred?.changed === true || deferred?.panelDirtyChanged === true) {
+                        markPlayerDirtyDomains(player, ['attr']);
+                    }
+                    return deferred?.value;
+                }
+                finally {
+                    delete options.__attributeRecalculationDeferred;
+                }
+            }
             // stateDelta 快照：记录 tick 前的关键数值
             const stateSnapshotStartedAt = performance.now();
             const _prevHp = player.hp;

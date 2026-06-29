@@ -5,6 +5,7 @@ import {
   countEnabledSkillEntries,
   createNumericRatioDivisors,
   createNumericStats,
+  DEFAULT_PLAYER_REALM_STAGE,
   DEFAULT_BONE_AGE_YEARS,
   DEFAULT_INVENTORY_CAPACITY,
   Direction,
@@ -13,6 +14,7 @@ import {
 } from '@mud/shared';
 
 import { PlayerProgressionService } from '../runtime/player/player-progression.service';
+import { PlayerAttributesService } from '../runtime/player/player-attributes.service';
 import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
 
 function createPlayerRuntimeService() {
@@ -1168,6 +1170,140 @@ function testEquipmentBuffConditionKeepsAttrDirtyDomain(): void {
   assertDirtyDomains(service, playerId, ['buff', 'attr'], ['snapshot']);
 }
 
+function createAttributeServiceSmokePlayer(attributeService: PlayerAttributesService) {
+  return {
+    playerId: 'player:deferred-attr-service',
+    hp: 100,
+    maxHp: 100,
+    qi: 0,
+    maxQi: 0,
+    selfRevision: 1,
+    realm: {
+      stage: DEFAULT_PLAYER_REALM_STAGE,
+      realmLv: 1,
+    },
+    attrs: attributeService.createInitialState(),
+    equipment: { slots: [] },
+    techniques: { techniques: [] },
+    buffs: { buffs: [] },
+    runtimeBonuses: [],
+    bodyTraining: { level: 0, exp: 0, expToNext: 0 },
+    combat: { cultivationActive: false },
+  };
+}
+
+function testDeferredAttributeRecalculationCoalescesRequests(): void {
+  const attributeService = new PlayerAttributesService();
+  const player = createAttributeServiceSmokePlayer(attributeService);
+  const originalBuildState = attributeService.buildState.bind(attributeService);
+  let buildStateCalls = 0;
+  attributeService.buildState = (target: unknown) => {
+    buildStateCalls += 1;
+    return originalBuildState(target);
+  };
+
+  const beforeRevision = player.attrs.revision;
+  const result = attributeService.withDeferredRecalculation(player, () => {
+    assert.equal(attributeService.recalculate(player), true);
+    assert.equal(attributeService.recalculate(player), true);
+    attributeService.markPanelDirty(player);
+  });
+
+  assert.equal(result.requested, true);
+  assert.equal(buildStateCalls, 1, 'expected deferred attribute recalculation to build state once');
+  assert.equal(player.attrs.revision, beforeRevision + 1, 'expected deferred recalc or panel dirty to bump attrs revision once');
+}
+
+function testAdvanceSinglePlayerTickCoalescesAttributeRecalculation(): void {
+  const playerId = 'player:tick-attr-coalesce';
+  const service = createHydratedService(playerId);
+  const player = service.getPlayerOrThrow(playerId);
+  let requestedRecalculations = 0;
+  let actualRecalculations = 0;
+  const attributeService = {
+    createInitialState() {
+      return player.attrs;
+    },
+    recalculate(target: typeof player) {
+      actualRecalculations += 1;
+      target.attrs.revision += 1;
+      target.selfRevision += 1;
+      return true;
+    },
+    markPanelDirty() {
+      return undefined;
+    },
+    withDeferredRecalculation(target: typeof player, callback: () => unknown) {
+      let pending = 0;
+      const originalRecalculate = this.recalculate;
+      this.recalculate = () => {
+        requestedRecalculations += 1;
+        pending += 1;
+        return true;
+      };
+      let value;
+      try {
+        value = callback();
+      } finally {
+        this.recalculate = originalRecalculate;
+      }
+      if (pending > 0) {
+        actualRecalculations += 1;
+        target.attrs.revision += 1;
+        target.selfRevision += 1;
+      }
+      return { value, requested: pending > 0, changed: pending > 0, panelDirtyChanged: false };
+    },
+  };
+  (service as unknown as { playerAttributesService: typeof attributeService }).playerAttributesService = attributeService;
+  (service as unknown as {
+    playerProgressionService: {
+      refreshPreview(player: unknown): void;
+      advanceCultivation(player: unknown, elapsedTicks: number, options?: unknown): unknown;
+      autoRefineRootFoundation(player: unknown): unknown;
+    };
+  }).playerProgressionService = {
+    refreshPreview() {},
+    advanceCultivation() {
+      return { changed: false, notices: [], actionsDirty: false, dirtyDomains: [] };
+    },
+    autoRefineRootFoundation() {
+      return { changed: false, notices: [], actionsDirty: false, dirtyDomains: [] };
+    },
+  };
+  player.hp = 100;
+  player.maxHp = 100;
+  player.combat.cultivationActive = false;
+  player.combat.autoIdleCultivation = true;
+  player.combat.lastActiveTick = 0;
+  player.lifeElapsedTicks = 98;
+  player.buffs.buffs.push({
+    buffId: 'buff:attr-expiring',
+    name: 'attr-expiring',
+    desc: '',
+    baseDesc: '',
+    shortMark: '',
+    category: 'temporary',
+    visibility: 'public',
+    duration: 1,
+    remainingTicks: 1,
+    stacks: 1,
+    maxStacks: 1,
+    sourceSkillId: null,
+    sourceSkillName: null,
+    realmLv: 0,
+    color: null,
+    attrs: { constitution: 1 },
+  });
+  service.markPersisted(playerId);
+
+  service.advanceSinglePlayerTick(player, 99, {});
+
+  assert.equal(requestedRecalculations, 2, 'expected buff expiry and idle cultivation resume to both request recalculation');
+  assert.equal(actualRecalculations, 1, 'expected player tick to flush one actual attribute recalculation');
+  assertDirtyDomains(service, playerId, ['attr'], ['snapshot']);
+}
+
 function testProgressionServiceDirtyDomains(): void {
   const playerId = 'player:progression-service';
   const runtime = createPlayerRuntimeService();
@@ -1775,6 +1911,8 @@ testLogbookDirtyDomain();
   testBodyTrainingHugeExpStaysPersistable();
   testApplyTemporaryBuffDirtyDomain();
   testEquipmentBuffConditionKeepsAttrDirtyDomain();
+  testDeferredAttributeRecalculationCoalescesRequests();
+  testAdvanceSinglePlayerTickCoalescesAttributeRecalculation();
   testProgressionServiceDirtyDomains();
   testHeavenGateEnterRecalculatesAttributes();
   testAdvanceSinglePlayerTickDirtyDomain();

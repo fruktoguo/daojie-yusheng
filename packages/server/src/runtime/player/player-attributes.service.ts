@@ -23,6 +23,7 @@ export class PlayerAttributesService {
     techniqueStatesScratch = [];
     enhancedEquipmentScratch = [];
     techniqueBonusCache = new WeakMap();
+    deferredRecalculationStates = new WeakMap();
 
     /** 创建默认属性快照，供新角色和重建场景使用。 */
     createInitialState() {
@@ -45,6 +46,61 @@ export class PlayerAttributesService {
     recalculate(player) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+        const deferred = this.deferredRecalculationStates.get(player);
+        if (deferred && deferred.depth > 0) {
+            deferred.recalculateRequested = true;
+            return true;
+        }
+        return this.recalculateNow(player);
+    }
+    /** 在受控区间内合并同一玩家的多次属性重算请求，区间结束后最多实际结算一次。 */
+    withDeferredRecalculation(player, callback) {
+        let state = this.deferredRecalculationStates.get(player);
+        const isOuter = !state;
+        if (!state) {
+            state = {
+                depth: 0,
+                recalculateRequested: false,
+                panelDirtyRequested: false,
+            };
+            this.deferredRecalculationStates.set(player, state);
+        }
+        state.depth += 1;
+        let value;
+        let thrown;
+        try {
+            value = callback();
+        }
+        catch (error) {
+            thrown = error;
+        }
+        state.depth -= 1;
+        let flushResult = {
+            requested: state.recalculateRequested,
+            changed: false,
+            panelDirtyChanged: false,
+        };
+        if (isOuter && state.depth <= 0) {
+            this.deferredRecalculationStates.delete(player);
+            flushResult = this.flushDeferredRecalculation(player, state);
+        }
+        if (thrown) {
+            throw thrown;
+        }
+        return { value, ...flushResult };
+    }
+    flushDeferredRecalculation(player, state) {
+        const requested = state.recalculateRequested === true;
+        const panelDirtyRequested = state.panelDirtyRequested === true;
+        const changed = requested ? this.recalculateNow(player) : false;
+        let panelDirtyChanged = false;
+        if (panelDirtyRequested && !changed) {
+            this.markPanelDirtyNow(player);
+            panelDirtyChanged = true;
+        }
+        return { requested, changed, panelDirtyChanged };
+    }
+    recalculateNow(player) {
         const previousMaxHp = Math.max(1, Math.round(player.maxHp));
 
         const previousMaxQi = Math.max(0, Math.round(player.maxQi));
@@ -78,6 +134,14 @@ export class PlayerAttributesService {
     }
     /** 只让属性面板标脏，不重新结算具体数值。 */
     markPanelDirty(player) {
+        const deferred = this.deferredRecalculationStates.get(player);
+        if (deferred && deferred.depth > 0) {
+            deferred.panelDirtyRequested = true;
+            return;
+        }
+        this.markPanelDirtyNow(player);
+    }
+    markPanelDirtyNow(player) {
         player.attrs.revision += 1;
         player.selfRevision += 1;
     }
