@@ -1087,7 +1087,6 @@ export class AttrPanel {
       if (this.tooltipTarget) {
         this.requestDetailIfNeeded();
       }
-      this.patchSpecialDetailsModal(data);
       return;
     }
     if (this.lastStructureKey !== structureKey || !this.patch(snapshot)) {
@@ -1099,7 +1098,6 @@ export class AttrPanel {
     if (this.tooltipTarget) {
       this.requestDetailIfNeeded();
     }
-    this.patchSpecialDetailsModal(data);
   }
 
   /** 使用玩家状态初始化属性面板。 */
@@ -2014,25 +2012,20 @@ export class AttrPanel {
     }
     this.clearTooltipTarget();
     this.tooltip.hide(true);
-    this.patchSpecialDetailsModal(latestData, true);
+    this.openSpecialDetailsModal(latestData);
   }
 
-  private patchSpecialDetailsModal(data: S2C_AttrUpdate, forceOpen = false): void {
-    if (!forceOpen && !detailModalHost.isOpenFor(SPECIAL_DETAIL_MODAL_OWNER)) {
-      return;
-    }
+  private openSpecialDetailsModal(data: S2C_AttrUpdate): void {
     const snapshot = this.buildSpecialDetailPaneSnapshotFromData(data);
     if (!snapshot) {
-      if (forceOpen) {
-        detailModalHost.open({
-          ownerId: SPECIAL_DETAIL_MODAL_OWNER,
-          variantClass: 'detail-modal--attr-special',
-          size: 'wide',
-          title: '全部特殊属性',
-          subtitle: '当前属性数据尚未同步完整',
-          renderBody: (body) => replaceElementHtml(body, '<div class="empty-hint">暂无特殊属性数据</div>'),
-        });
-      }
+      detailModalHost.open({
+        ownerId: SPECIAL_DETAIL_MODAL_OWNER,
+        variantClass: 'detail-modal--attr-special',
+        size: 'wide',
+        title: '全部特殊属性',
+        subtitle: '当前属性数据尚未同步完整',
+        renderBody: (body) => replaceElementHtml(body, '<div class="empty-hint">暂无特殊属性数据</div>'),
+      });
       return;
     }
     const modalOptions = {
@@ -2047,9 +2040,7 @@ export class AttrPanel {
         this.tooltip.hide(true);
       },
     };
-    if (!detailModalHost.patch(modalOptions)) {
-      detailModalHost.open(modalOptions);
-    }
+    detailModalHost.open(modalOptions);
   }
 
   /** renderTabs：渲染标签页。 */
