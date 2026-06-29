@@ -313,6 +313,8 @@ function buildBaseEnhancementPreviewItem(item: EnhancementItemView): ItemStack {
     equipStats: template?.equipStats ?? source.equipStats,
     equipValueStats: template?.equipValueStats ?? source.equipValueStats,
     effects: template?.effects ?? source.effects,
+    artifactMaxQiFactor: template?.artifactMaxQiFactor ?? source.artifactMaxQiFactor,
+    artifactEffects: template?.artifactEffects ?? source.artifactEffects,
     alchemySuccessRate: template?.alchemySuccessRate ?? source.alchemySuccessRate,
     alchemySpeedRate: template?.alchemySpeedRate ?? source.alchemySpeedRate,
     enhancementSuccessRate: template?.enhancementSuccessRate ?? source.enhancementSuccessRate,

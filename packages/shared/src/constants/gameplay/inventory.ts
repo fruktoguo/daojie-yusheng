@@ -33,3 +33,17 @@ export const ITEM_TYPE_SORT_ORDER: Record<ItemType, number> = {
   material: 4,
   artifact: 5,
 };
+
+/** 装备筛选页中同时展示战斗装备、技艺工具和法宝。 */
+export function matchesInventoryTypeFilter(
+  itemType: ItemType | null | undefined,
+  filter: ItemType | 'all',
+): boolean {
+  if (filter === 'all') {
+    return true;
+  }
+  if (filter === 'equipment') {
+    return itemType === 'equipment' || itemType === 'artifact';
+  }
+  return itemType === filter;
+}

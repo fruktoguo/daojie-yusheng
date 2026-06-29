@@ -11,7 +11,7 @@
 import type { WorldGatewayHelperContext } from './world-gateway-context.types';
 
 import { BadRequestException } from '@nestjs/common';
-import { ITEM_TYPES, S2C } from '@mud/shared';
+import { ITEM_TYPES, S2C, matchesInventoryTypeFilter, type ItemType } from '@mud/shared';
 import { buildStructuredNotice } from '../runtime/world/structured-notice.helpers';
 
 const INVENTORY_PAGE_DEFAULT_LIMIT = 30;
@@ -530,7 +530,10 @@ function normalizeBulkDropItemInstanceIds(payload: any): string[] {
 }
 
 function matchesInventoryPageFilter(item: any, filter: string): boolean {
-    return filter === 'all' || item?.type === filter;
+    return matchesInventoryTypeFilter(
+        typeof item?.type === 'string' ? item.type as ItemType : null,
+        filter === 'all' ? 'all' : filter as ItemType,
+    );
 }
 
 function matchesInventoryPageSearch(item: any, search: string): boolean {

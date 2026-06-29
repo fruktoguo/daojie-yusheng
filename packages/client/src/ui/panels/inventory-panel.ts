@@ -40,6 +40,7 @@ import {
   createItemStackSignature,
   getFirstGrapheme,
   getGraphemeCount,
+  matchesInventoryTypeFilter,
   shouldWarnTechniqueLearningDifficulty,
   type C2S_RequestInventoryPage,
   type S2C_InventoryPage,
@@ -1813,7 +1814,7 @@ export class InventoryPanel {
   }
 
   private matchesBulkDiscardFilter(item: ItemStack): boolean {
-    return this.bulkDiscardFilter === 'all' || item.type === this.bulkDiscardFilter;
+    return matchesInventoryTypeFilter(item.type, this.bulkDiscardFilter);
   }
 
   /** renderModal：渲染弹窗。 */
@@ -3962,7 +3963,7 @@ export class InventoryPanel {
     const renderLimit = Math.max(0, this.renderedVisibleCount);
     for (let slotIndex = 0; slotIndex < inventory.items.length; slotIndex += 1) {
       const item = inventory.items[slotIndex];
-      if (!item || (this.activeFilter !== 'all' && item.type !== this.activeFilter) || !this.matchesInventorySearch(item)) {
+      if (!item || !matchesInventoryTypeFilter(item.type, this.activeFilter) || !this.matchesInventorySearch(item)) {
         continue;
       }
       totalVisibleItems += 1;
@@ -3984,7 +3985,7 @@ export class InventoryPanel {
     }
     let count = 0;
     for (const item of inventory.items) {
-      if ((this.activeFilter === 'all' || item?.type === this.activeFilter) && this.matchesInventorySearch(item)) {
+      if (matchesInventoryTypeFilter(item?.type, this.activeFilter) && this.matchesInventorySearch(item)) {
         count += 1;
       }
     }

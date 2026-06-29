@@ -17,6 +17,7 @@ ItemType = 'consumable' | 'equipment' | 'artifact' | 'material' | 'quest_item' |
 ```
 
 - 可使用类型: `['consumable', 'skill_book']`
+- 背包“装备”筛选包含 `equipment` 与 `artifact`，法宝不单独占一个背包筛选页。
 - 一键整理类型权重: equipment=0, consumable=1, skill_book=2, quest_item=3, material=4, artifact=5
 - 一键整理比较顺序: 品阶降序 → 等级降序 → 类型权重升序 → `itemId` 升序 → `name` 升序 → `enhanceLevel` 升序。`enhanceLevel` 升序表示强化等级越高越靠后。
 
