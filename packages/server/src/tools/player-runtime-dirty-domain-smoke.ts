@@ -1119,6 +1119,55 @@ function testApplyTemporaryBuffDirtyDomain(): void {
   assert.ok(player.persistentRevision > persistedRevision, 'expected applyTemporaryBuff to bump persistentRevision');
 }
 
+function testEquipmentBuffConditionKeepsAttrDirtyDomain(): void {
+  const playerId = 'player:equipment-buff-condition';
+  const service = createHydratedService(playerId);
+  const player = service.getPlayerOrThrow(playerId);
+  player.equipment.slots = [
+    {
+      slot: 'weapon',
+      item: {
+        itemId: 'equip.buff_condition_blade',
+        name: '条件剑',
+        type: 'equipment',
+        count: 1,
+        level: 1,
+        equipSlot: 'weapon',
+        effects: [
+          {
+            type: 'progress_boost',
+            conditions: {
+              items: [{ type: 'has_buff', buffId: 'buff:plain-gate' }],
+            },
+            stats: { physAtk: 10 },
+          },
+        ],
+      },
+    },
+  ];
+  service.markPersisted(playerId);
+
+  service.applyTemporaryBuff(playerId, {
+    buffId: 'buff:plain-gate',
+    name: 'plain-gate',
+    desc: '',
+    baseDesc: '',
+    shortMark: '',
+    category: 'temporary',
+    visibility: 'public',
+    duration: 2,
+    remainingTicks: 2,
+    stacks: 1,
+    maxStacks: 1,
+    sourceSkillId: null,
+    sourceSkillName: null,
+    realmLv: 0,
+    color: null,
+  });
+
+  assertDirtyDomains(service, playerId, ['buff', 'attr'], ['snapshot']);
+}
+
 function testProgressionServiceDirtyDomains(): void {
   const playerId = 'player:progression-service';
   const runtime = createPlayerRuntimeService();
@@ -1400,7 +1449,7 @@ function testAdvanceSinglePlayerTickDirtyDomain(): void {
   service.advanceSinglePlayerTick(player, 2, {});
 
   assert.equal(player.buffs.buffs.length, 0);
-  assertDirtyDomains(service, playerId, ['progression', 'buff', 'attr'], ['snapshot']);
+  assertDirtyDomains(service, playerId, ['progression', 'buff'], ['snapshot', 'attr']);
 }
 
 function testIdleCultivationResumeIgnoresStaleNavigationBlockForPendingComprehension(): void {
@@ -1725,6 +1774,7 @@ testLogbookDirtyDomain();
   testInfuseBodyTrainingDirtyDomain();
   testBodyTrainingHugeExpStaysPersistable();
   testApplyTemporaryBuffDirtyDomain();
+  testEquipmentBuffConditionKeepsAttrDirtyDomain();
   testProgressionServiceDirtyDomains();
   testHeavenGateEnterRecalculatesAttributes();
   testAdvanceSinglePlayerTickDirtyDomain();

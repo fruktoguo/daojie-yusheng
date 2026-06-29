@@ -3880,7 +3880,7 @@ export class PlayerRuntimeService {
             const previousPersistOnDeath = existing.persistOnDeath === true;
             const previousPersistOnReturnToSpawn = existing.persistOnReturnToSpawn === true;
             const previousActive = isRuntimeBuffActive(existing);
-            const affectsAttributes = doesTemporaryBuffAffectAttributes(existing) || doesTemporaryBuffAffectAttributes(buff);
+            const affectsAttributes = doesBuffAffectAttributeProjection(player, existing) || doesBuffAffectAttributeProjection(player, buff);
             const sameAttributePayload = isSameTemporaryBuffAttributePayload(existing, buff);
             const samePrototypePayload = isSameTemporaryBuffPrototypePayload(existing, buff);
             if (isConsumableBuffSource(buff)) {
@@ -3928,7 +3928,7 @@ export class PlayerRuntimeService {
         else {
             player.buffs.buffs.push(createRuntimeTemporaryBuff(buff));
             changed = true;
-            attrRelevantChanged = doesTemporaryBuffAffectAttributes(buff);
+            attrRelevantChanged = doesBuffAffectAttributeProjection(player, buff);
         }
         if (!changed) {
             return player;
@@ -5706,6 +5706,34 @@ function isRuntimeBuffActive(buff) {
 
 function doesTemporaryBuffAffectAttributes(buff) {
     return Boolean(buff && (buff.attrs || buff.stats));
+}
+
+function doesBuffAffectAttributeProjection(player, buff) {
+    return doesTemporaryBuffAffectAttributes(buff) || doesBuffGateEquipmentProgressEffect(player, buff?.buffId);
+}
+
+function doesBuffGateEquipmentProgressEffect(player, buffId) {
+    const normalizedBuffId = typeof buffId === 'string' ? buffId.trim() : '';
+    if (!normalizedBuffId) {
+        return false;
+    }
+    for (const slotEntry of player?.equipment?.slots ?? []) {
+        const effects = Array.isArray(slotEntry?.item?.effects) ? slotEntry.item.effects : [];
+        for (const effect of effects) {
+            if (effect?.type !== 'progress_boost') {
+                continue;
+            }
+            if (doesEquipmentConditionListReferenceBuff(effect.conditions, normalizedBuffId)) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+function doesEquipmentConditionListReferenceBuff(conditions, buffId) {
+    const items = Array.isArray(conditions?.items) ? conditions.items : [];
+    return items.some((condition) => condition?.type === 'has_buff' && condition.buffId === buffId);
 }
 
 function isSameTemporaryBuffAttributePayload(left, right) {
@@ -9697,7 +9725,7 @@ function tickTemporaryBuffs(buffs, player = null) {
         }
         if (activeBuffIds && buff.expireWithBuffId && !activeBuffIds.has(buff.expireWithBuffId)) {
             buff.remainingTicks = 0;
-            attrChanged = true;
+            attrChanged = doesBuffAffectAttributeProjection(player, buff) || attrChanged;
             listChanged = true;
             continue;
         }
@@ -9716,7 +9744,7 @@ function tickTemporaryBuffs(buffs, player = null) {
                 vitalsChanged = vitalsChanged || sustainResult.vitalsChanged;
                 if (!sustainResult.sustained) {
                     buff.remainingTicks = 0;
-                    attrChanged = true;
+                    attrChanged = doesBuffAffectAttributeProjection(player, buff) || attrChanged;
                     listChanged = true;
                     continue;
                 }
@@ -9734,11 +9762,11 @@ function tickTemporaryBuffs(buffs, player = null) {
             if (buff.stacks > 1) {
                 buff.stacks -= 1;
                 buff.remainingTicks = Math.max(1, Math.round(buff.duration || 1));
-                attrChanged = true;
+                attrChanged = doesBuffAffectAttributeProjection(player, buff) || attrChanged;
             }
         }
         if (buff.remainingTicks <= 0 || buff.stacks <= 0) {
-            attrChanged = true;
+            attrChanged = doesBuffAffectAttributeProjection(player, buff) || attrChanged;
             listChanged = true;
         }
     }
@@ -9755,7 +9783,7 @@ function tickTemporaryBuffs(buffs, player = null) {
             const buff = buffs[index];
             if (buff.remainingTicks > 0 && buff.expireWithBuffId && !finalActiveBuffIds.has(buff.expireWithBuffId)) {
                 buff.remainingTicks = 0;
-                attrChanged = true;
+                attrChanged = doesBuffAffectAttributeProjection(player, buff) || attrChanged;
                 listChanged = true;
             }
         }
