@@ -606,14 +606,14 @@ function buildFullPanelDeltaFromState(panel: ProjectedPanelState): S2C_PanelDelt
     };
 }
 
-/** 构造 bootstrap 首包 PanelDelta：仅含 revision，不含完整列表，客户端按需拉取。 */
+/** 构造 bootstrap 首包 PanelDelta：列表类仅含 revision；属性额外带 Bootstrap.self 覆盖不到的技艺效果投影。 */
 function buildBootstrapPanelDelta(player: ProjectorPlayerLike): S2C_PanelDelta {
     return {
         inv: { r: player.inventory.revision },
         eq: { r: player.equipment.revision, slots: [] },
         art: { r: resolveArtifactPanelRevision(player), slots: [] },
         tech: { r: player.techniques.revision, techniques: [] },
-        attr: { r: player.attrs.revision },
+        attr: { r: player.attrs.revision, craftEffectStats: cloneCraftEffectStats(player.attrs.craftEffectStats) },
         act: { r: player.actions.revision, actions: [] },
         buff: { r: player.buffs.revision },
     };

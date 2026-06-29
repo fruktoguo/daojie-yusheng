@@ -23,6 +23,7 @@ import { CraftPanelRuntimeService } from '../runtime/craft/craft-panel-runtime.s
 import { CraftPanelAlchemyQueryService } from '../runtime/craft/craft-panel-alchemy-query.service';
 import { CraftPanelEnhancementQueryService } from '../runtime/craft/craft-panel-enhancement-query.service';
 import { PlayerAttributesService } from '../runtime/player/player-attributes.service';
+import { buildBootstrapPanelDelta } from '../network/world-projector.helpers';
 import { resolveMiningAdjustedTileDamage, resolveMiningDropRateBonus } from '../runtime/world/combat/tile-drop.helpers';
 
 const REMOVED_TOOL_STAT_FIELD_NAMES = [
@@ -222,6 +223,18 @@ function testEnhancedHammerAffectsEnhancementPanelAndJob(): void {
   assert.equal(result.ok, true);
   assert.equal(player.enhancementJob?.successRate, expectedSuccessRate);
   assert.equal(player.enhancementJob?.totalTicks, expectedTicks);
+}
+
+function testBootstrapPanelDeltaIncludesCraftEffectStats(): void {
+  const hammer = createTechniqueTool('equip.test_hammer', ['enhancement_hammer'], {
+    enhancement: { successRate: 0.1, speedRate: 0.5 },
+  });
+  const player = createPlayer(hammer);
+  const craftEffectStats = recalculatePlayerCraftEffectStats(player);
+  const panelDelta = buildBootstrapPanelDelta(player as never);
+
+  assert.equal(panelDelta.attr?.craftEffectStats?.enhancement?.successRate, craftEffectStats.enhancement.successRate);
+  assert.equal(panelDelta.attr?.craftEffectStats?.enhancement?.speedRate, craftEffectStats.enhancement.speedRate);
 }
 
 function testRuntimeItemCloneKeepsTemplateBackedCraftEffectStats(): void {
@@ -492,6 +505,7 @@ function testGeneratedEditorCatalogKeepsCraftEffectStats(): void {
 
 function main(): void {
   testEnhancedHammerAffectsEnhancementPanelAndJob();
+  testBootstrapPanelDeltaIncludesCraftEffectStats();
   testRuntimeItemCloneKeepsTemplateBackedCraftEffectStats();
   testEquipmentRealmEffectivenessUsesExponentialPenalty();
   testEnhancedAlchemyAndForgingToolsAffectJobs();
