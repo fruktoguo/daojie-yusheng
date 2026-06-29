@@ -1694,45 +1694,17 @@ export class AttrPanel {
   private buildSpecialDetailPaneSnapshot(
     stats: NumericStats,
     ratios: NumericRatioDivisors,
-    specialStats?: PlayerSpecialStats,
     craftEffectStats?: CraftEffectStatsPatch,
-    attrs?: Attributes,
-    breakdowns?: NumericStatBreakdownMap,
   ): AttrSpecialDetailPaneSnapshot {
-    const numericPane = this.buildNumericPaneSnapshot('数值特殊属性', stats, ratios, {
-      keys: ['viewRange', 'moveSpeed', 'playerExpRate', 'techniqueExpRate', 'realmExpPerTick', 'techniqueExpPerTick', 'lootRate', 'rareLootRate'],
-      ratioKeys: [],
-      legends: {
-        viewRange: '视野范围',
-        moveSpeed: '移动速度',
-        playerExpRate: '境界修为',
-        techniqueExpRate: '功法经验',
-        realmExpPerTick: '每息境界修为',
-        techniqueExpPerTick: '每息功法经验',
-        lootRate: '掉落增幅',
-        rareLootRate: '稀有掉落',
-      },
-    }, attrs, breakdowns);
     const normalizedCraftEffectStats = cloneCraftEffectStats(craftEffectStats);
     return {
       kind: 'special-detail',
       title: '全部特殊属性',
       backLabel: '返回特殊',
       sections: [{
-        key: 'core',
-        title: '基础特殊属性',
-        rows: this.buildAllSpecialStatRows(specialStats),
-      }, {
-        key: 'numeric',
-        title: '数值特殊属性',
-        rows: numericPane.kind === 'numeric'
-          ? numericPane.cards.map((card) => ({
-              key: card.key,
-              label: card.label,
-              value: card.value,
-              detail: card.tooltipDetail,
-            }))
-          : [],
+        key: 'element',
+        title: '五行伤害与减伤',
+        rows: this.buildElementSpecialDetailRows(stats, ratios),
       }, {
         key: 'craft',
         title: '技艺加成',
@@ -1756,43 +1728,30 @@ export class AttrPanel {
     if (!stats || !ratios) {
       return null;
     }
-    const baseAttrs = this.resolveCompleteAttrs(data.baseAttrs);
-    const finalAttrs = this.resolveCompleteAttrs(data.finalAttrs) ?? (baseAttrs && data.bonuses ? this.mergeAttrs(baseAttrs, data.bonuses) : undefined);
     return this.buildSpecialDetailPaneSnapshot(
       stats,
       ratios,
-      data.specialStats as PlayerSpecialStats | undefined,
       data.craftEffectStats,
-      finalAttrs,
-      this.resolveRenderNumericStatBreakdowns(data.numericStatBreakdowns),
     );
   }
 
-  private buildAllSpecialStatRows(specialStats?: PlayerSpecialStats): AttrSpecialDetailRowSnapshot[] {
-    const keys: Array<PlayerSpecialCardKey | 'bodyTrainingLevel'> = [
-      'foundation',
-      'rootFoundation',
-      'bodyTrainingLevel',
-      'combatExp',
-      'comprehension',
-      'luck',
-    ];
-    return keys.map((key) => {
-      const value = Math.max(0, Math.floor(Number(specialStats?.[key as keyof PlayerSpecialStats] ?? 0) || 0));
-      if (key === 'bodyTrainingLevel') {
-        return {
-          key,
-          label: '炼体层数',
-          value: formatDisplayInteger(value),
-          detail: '炼体层数的六维增幅已计入六维构成，这里展示原始特殊属性值。',
-        };
-      }
-      return {
-        key,
-        label: PLAYER_SPECIAL_TOOLTIP_LABELS[key],
-        value: formatDisplayInteger(value),
-        detail: PLAYER_SPECIAL_TOOLTIP_DESCRIPTIONS[key],
-      };
+  private buildElementSpecialDetailRows(stats: NumericStats, ratios: NumericRatioDivisors): AttrSpecialDetailRowSnapshot[] {
+    return ELEMENT_KEYS.flatMap((key) => {
+      const elementLabel = ELEMENT_KEY_LABELS[key];
+      const damageBonus = Math.round(Number(stats.elementDamageBonus?.[key] ?? 0) || 0);
+      const reduceValue = Number(stats.elementDamageReduce?.[key] ?? 0) || 0;
+      const reduceDivisor = Number(ratios.elementDamageReduce?.[key] ?? 100) || 100;
+      return [{
+        key: `element.${key}.damageBonus`,
+        label: `${elementLabel}伤害增幅`,
+        value: formatDisplayPercent(damageBonus),
+        detail: `${elementLabel}属性总伤害增幅。`,
+      }, {
+        key: `element.${key}.damageReduce`,
+        label: `${elementLabel}实际减伤`,
+        value: formatRatioPercent(reduceValue, reduceDivisor),
+        detail: `${elementLabel}属性总减伤，已按当前减伤分母折算。`,
+      }];
     });
   }
 
