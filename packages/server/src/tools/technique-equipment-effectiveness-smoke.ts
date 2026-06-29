@@ -161,11 +161,16 @@ function createPlayer(weapon: ReturnType<typeof createTechniqueTool>) {
       ],
     },
     equipment: {
+      revision: 1,
       slots: [
         { slot: 'weapon', item: null },
         { slot: weapon.equipSlot, item: weapon },
       ],
     },
+    artifacts: { revision: 1, slots: [] },
+    techniques: { revision: 1, techniques: [], cultivatingTechId: null },
+    actions: { revision: 1, actions: [] },
+    buffs: { revision: 1, buffs: [] },
     alchemySkill: { level: 1, exp: 0, expToNext: 60 },
     forgingSkill: { level: 1, exp: 0, expToNext: 60 },
     gatherSkill: { level: 1, exp: 0, expToNext: 60 },
@@ -349,7 +354,7 @@ function testEnhancedAlchemyAndForgingToolsAffectJobs(): void {
 
 function testEnhancedMiningPickaxeAlreadyAffectsTileDamage(): void {
   const pickaxe = createTechniqueTool('equip.test_pickaxe', ['mining_pickaxe'], {
-    mining: { speedRate: 0.5, outputRate: 0.15 },
+    mining: { speedRate: 0.5, outputRate: 0.15, expRate: 0.3 },
   });
   const player = createPlayer(pickaxe);
   player.miningSkill.level = 7;
@@ -358,6 +363,7 @@ function testEnhancedMiningPickaxeAlreadyAffectsTileDamage(): void {
   const effectivePickaxe = applyEquipmentAttributeEffectivenessToItemStack(pickaxe as never, player.realm.realmLv);
   assert.equal(craftEffectStats.mining.speedRate, effectivePickaxe.craftEffectStats?.mining?.speedRate);
   assert.equal(craftEffectStats.mining.outputRate, effectivePickaxe.craftEffectStats?.mining?.outputRate);
+  assert.equal(craftEffectStats.mining.expRate, effectivePickaxe.craftEffectStats?.mining?.expRate);
   const result = resolveMiningAdjustedTileDamage({
     attacker: player,
     tileType: TileType.SpiritOre,

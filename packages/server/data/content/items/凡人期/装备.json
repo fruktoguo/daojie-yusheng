@@ -368,7 +368,8 @@
     "craftEffectStats": {
       "mining": {
         "speedRate": 0.5,
-        "outputRate": 0.1
+        "outputRate": 0.1,
+        "expRate": 0.3
       }
     }
   }

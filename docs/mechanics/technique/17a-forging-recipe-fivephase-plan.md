@@ -110,7 +110,7 @@
 - `alchemy_furnace` + `craftEffectStats.alchemy.successRate/speedRate`：炼丹成功率与速度。
 - `forging_tool` + `craftEffectStats.forging.successRate/speedRate`：炼器成功率与速度。
 - `enhancement_hammer` + `craftEffectStats.enhancement.successRate/speedRate`：强化成功率与速度。
-- `mining_pickaxe` + `craftEffectStats.mining.speedRate/outputRate`：挖矿破坏速度与矿物额外产出。`outputRate` 按固定额外数量 + 小数概率额外 1 个结算，不再并入地块掉落概率。
+- `mining_pickaxe` + `craftEffectStats.mining.speedRate/outputRate/expRate`：挖矿破坏速度、矿物额外产出与挖矿技艺经验。`outputRate` 按固定额外数量 + 小数概率额外 1 个结算，不再并入地块掉落概率。
 - `building_hammer` + `craftEffectStats.building.speedRate`：每息建造进度增幅。
 
 ### 练气期生活工具
@@ -122,7 +122,7 @@
 | 赤纹丹炉 | 丹炉 | `alchemy_furnace` / `alchemy:open` | 炉心赤晶x1(主)；净潮水精x1(辅) | 金+24 / 木+24 / 水+46 / 火+46 | `alchemy.successRate +0.16`；`alchemy.speedRate +0.30` |
 | 锋岳炼器钳 | 炼器钳 | `forging_tool` / `forging:open` | 锋纹残晶x1(主)；镇岳石胆x1(辅) | 金+46 / 水+24 / 火+24 / 土+46 | `forging.successRate +0.16`；`forging.speedRate +0.30` |
 | 五炁强化锤 | 强化锤 | `enhancement_hammer` / `enhancement:open` | 五炁尘x1(主)；厚岩核x1(辅) | 金+46 / 木+31 / 水+31 / 火+31 / 土+57 | `enhancement.successRate +0.015`；`enhancement.speedRate +0.25` |
-| 归藏矿镐 | 矿镐 | `mining_pickaxe` / `mining:start` | 归藏脉核x1(主)；残兵铁片x1(辅) | 金+65 / 水+25 / 土+79 | `mining.speedRate +0.80`；`mining.outputRate +0.15` |
+| 归藏矿镐 | 矿镐 | `mining_pickaxe` / `mining:start` | 归藏脉核x1(主)；残兵铁片x1(辅) | 金+65 / 水+25 / 土+79 | `mining.speedRate +0.80`；`mining.outputRate +0.15`；`mining.expRate +0.50` |
 | 半基营造锤 | 营造锤 | `building_hammer` / `building:open` | 半基灵胚x1(主)；生灵木心x1(辅) | 木+84 / 水+25 / 土+88 | `building.speedRate +0.25` |
 
 ### 筑基期生活工具
@@ -136,5 +136,5 @@
 | 焚元丹炉 | 丹炉 | `alchemy_furnace` / `alchemy:open` | 焚王余烬x1(主)；五行蟾液x1(辅) | 金+55 / 木+117 / 水+55 / 火+170 / 土+55 | `alchemy.successRate +0.24`；`alchemy.speedRate +0.40` |
 | 深铁炼器钳 | 炼器钳 | `forging_tool` / `forging:open` | 深渊铁精x1(主)；熔核碎片x1(辅) | 金+135 / 水+57 / 火+103 / 土+99 | `forging.successRate +0.24`；`forging.speedRate +0.40` |
 | 玄壤强化锤 | 强化锤 | `enhancement_hammer` / `enhancement:open` | 五行脉晶x1(主)；玄壤精土x1(辅) | 金+121 / 木+58 / 水+58 / 火+58 / 土+174 | `enhancement.successRate +0.02`；`enhancement.speedRate +0.35` |
-| 地龙矿镐 | 矿镐 | `mining_pickaxe` / `mining:start` | 地龙脊骨x1(主)；深渊土精x1(辅) | 金+66 / 水+66 / 土+248 | `mining.speedRate +1.20`；`mining.outputRate +0.20` |
+| 地龙矿镐 | 矿镐 | `mining_pickaxe` / `mining:start` | 地龙脊骨x1(主)；深渊土精x1(辅) | 金+66 / 水+66 / 土+248 | `mining.speedRate +1.20`；`mining.outputRate +0.20`；`mining.expRate +0.70` |
 | 混元营造锤 | 营造锤 | `building_hammer` / `building:open` | 混元脉石x1(主)；木火精华x1(辅) | 金+55 / 木+167 / 水+55 / 火+116 / 土+55 | `building.speedRate +0.35` |

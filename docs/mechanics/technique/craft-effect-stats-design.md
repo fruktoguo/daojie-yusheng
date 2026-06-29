@@ -101,7 +101,7 @@ type CraftEffectStats = Record<
 {
   "craftEffectStats": {
     "alchemy": { "successRate": 0.1, "speedRate": 0.2 },
-    "mining": { "speedRate": 0.5, "outputRate": 0.1 }
+    "mining": { "speedRate": 0.5, "outputRate": 0.1, "expRate": 0.3 }
   }
 }
 ```

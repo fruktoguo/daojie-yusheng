@@ -8075,7 +8075,8 @@
       "craftEffectStats": {
         "mining": {
           "speedRate": 1.2,
-          "outputRate": 0.2
+          "outputRate": 0.2,
+          "expRate": 0.7
         }
       }
     },
@@ -8514,7 +8515,8 @@
       "craftEffectStats": {
         "mining": {
           "speedRate": 0.8,
-          "outputRate": 0.15
+          "outputRate": 0.15,
+          "expRate": 0.5
         }
       }
     },
@@ -10700,7 +10702,8 @@
       "craftEffectStats": {
         "mining": {
           "speedRate": 0.5,
-          "outputRate": 0.1
+          "outputRate": 0.1,
+          "expRate": 0.3
         }
       }
     },
