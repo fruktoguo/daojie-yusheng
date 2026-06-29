@@ -72,6 +72,7 @@ import {
   resolveSpiritualRootsFromBonuses,
 } from '../../utils/spiritual-roots';
 import { t } from '../i18n';
+import { detailModalHost } from '../detail-modal-host';
 import {
   mountReactAttrPanel,
   setReactAttrPanelCallbacks,
@@ -107,6 +108,7 @@ const QI_VISIBILITY_RANK: Record<DisplayQiProjection['visibility'], number> = {
 
 const OPENABLE_CRAFT_SKILL_KEYS = new Set(['alchemy', 'forging', 'enhancement', 'transmission', 'building']);
 const SPECIAL_DETAIL_ACTION_KEY = 'special-details';
+const SPECIAL_DETAIL_MODAL_OWNER = 'attr:special-details';
 
 const CRAFT_EFFECT_SKILL_LABELS: Record<CraftEffectSkillKind, string> = {
   alchemy: '炼丹',
@@ -951,7 +953,7 @@ export interface AttrCraftPaneSnapshot {
 }
 
 /** 单个属性页的统一渲染快照类型。 */
-export type AttrPaneSnapshot = AttrRadarPaneSnapshot | AttrNumericPaneSnapshot | AttrPlaceholderPaneSnapshot | AttrCraftPaneSnapshot | AttrSpecialDetailPaneSnapshot;
+export type AttrPaneSnapshot = AttrRadarPaneSnapshot | AttrNumericPaneSnapshot | AttrPlaceholderPaneSnapshot | AttrCraftPaneSnapshot;
 
 /** 整个属性面板的渲染快照，按分页保存各页内容。 */
 export interface AttrPanelSnapshot {
@@ -992,7 +994,6 @@ export class AttrPanel {
   private detailStale = false;
   /** detailRequested：是否已发出详情请求。 */
   private detailRequested = false;
-  private specialDetailOpen = false;
   private renderPendingWhileHidden = false;
   /**
  * 构造器：初始化 当前 实例并建立基础状态。
@@ -1007,7 +1008,6 @@ export class AttrPanel {
       onOpenCraftSkill: (key) => this.openCraftSkill(key),
       onBindCraftSkill: (key) => this.bindCraftSkill(key),
       onOpenSpecialDetails: () => this.openSpecialDetails(),
-      onCloseSpecialDetails: () => this.closeSpecialDetails(),
       onSwitchTab: (tab) => this.switchTab(tab),
     });
     this.bindPaneEvents();
@@ -1027,7 +1027,6 @@ export class AttrPanel {
     this.detailData = null;
     this.detailStale = false;
     this.detailRequested = false;
-    this.specialDetailOpen = false;
     this.renderPendingWhileHidden = false;
     this.lastSnapshot = null;
     this.lastStructureKey = null;
@@ -1037,6 +1036,7 @@ export class AttrPanel {
     this.tabButtons.clear();
     this.paneEls.clear();
     this.tooltip.hide(true);
+    detailModalHost.close(SPECIAL_DETAIL_MODAL_OWNER);
     if (this.useReactPanel()) {
       unmountReactAttrPanel();
     }
@@ -1087,6 +1087,7 @@ export class AttrPanel {
       if (this.tooltipTarget) {
         this.requestDetailIfNeeded();
       }
+      this.patchSpecialDetailsModal(data);
       return;
     }
     if (this.lastStructureKey !== structureKey || !this.patch(snapshot)) {
@@ -1098,6 +1099,7 @@ export class AttrPanel {
     if (this.tooltipTarget) {
       this.requestDetailIfNeeded();
     }
+    this.patchSpecialDetailsModal(data);
   }
 
   /** 使用玩家状态初始化属性面板。 */
@@ -1658,10 +1660,6 @@ export class AttrPanel {
       return { kind: 'placeholder', message: '异禀未显' };
     }
 
-    if (this.specialDetailOpen) {
-      return this.buildSpecialDetailPaneSnapshot(stats, ratios, specialStats, craftEffectStats, attrs, breakdowns);
-    }
-
     const specialCards = this.buildSpecialStatCards(['foundation', 'combatExp'], specialStats);
 
     const numericPane = this.buildNumericPaneSnapshot('特殊属性', stats, ratios, {
@@ -1750,6 +1748,24 @@ export class AttrPanel {
         })),
       }],
     };
+  }
+
+  private buildSpecialDetailPaneSnapshotFromData(data: S2C_AttrUpdate): AttrSpecialDetailPaneSnapshot | null {
+    const stats = data.numericStats as NumericStats | undefined;
+    const ratios = data.ratioDivisors as NumericRatioDivisors | undefined;
+    if (!stats || !ratios) {
+      return null;
+    }
+    const baseAttrs = this.resolveCompleteAttrs(data.baseAttrs);
+    const finalAttrs = this.resolveCompleteAttrs(data.finalAttrs) ?? (baseAttrs && data.bonuses ? this.mergeAttrs(baseAttrs, data.bonuses) : undefined);
+    return this.buildSpecialDetailPaneSnapshot(
+      stats,
+      ratios,
+      data.specialStats as PlayerSpecialStats | undefined,
+      data.craftEffectStats,
+      finalAttrs,
+      this.resolveRenderNumericStatBreakdowns(data.numericStatBreakdowns),
+    );
   }
 
   private buildAllSpecialStatRows(specialStats?: PlayerSpecialStats): AttrSpecialDetailRowSnapshot[] {
@@ -2033,31 +2049,48 @@ export class AttrPanel {
   }
 
   private openSpecialDetails(): void {
-    if (this.specialDetailOpen) {
-      return;
-    }
-    this.clearTooltipTarget();
-    this.tooltip.hide(true);
-    this.specialDetailOpen = true;
-    this.rerenderLatestSnapshot();
-  }
-
-  private closeSpecialDetails(): void {
-    if (!this.specialDetailOpen) {
-      return;
-    }
-    this.clearTooltipTarget();
-    this.tooltip.hide(true);
-    this.specialDetailOpen = false;
-    this.rerenderLatestSnapshot();
-  }
-
-  private rerenderLatestSnapshot(): void {
     const latestData = this.latestData;
     if (!latestData) {
       return;
     }
-    this.renderLatestData(latestData);
+    this.clearTooltipTarget();
+    this.tooltip.hide(true);
+    this.patchSpecialDetailsModal(latestData, true);
+  }
+
+  private patchSpecialDetailsModal(data: S2C_AttrUpdate, forceOpen = false): void {
+    if (!forceOpen && !detailModalHost.isOpenFor(SPECIAL_DETAIL_MODAL_OWNER)) {
+      return;
+    }
+    const snapshot = this.buildSpecialDetailPaneSnapshotFromData(data);
+    if (!snapshot) {
+      if (forceOpen) {
+        detailModalHost.open({
+          ownerId: SPECIAL_DETAIL_MODAL_OWNER,
+          variantClass: 'detail-modal--attr-special',
+          size: 'wide',
+          title: '全部特殊属性',
+          subtitle: '当前属性数据尚未同步完整',
+          renderBody: (body) => replaceElementHtml(body, '<div class="empty-hint">暂无特殊属性数据</div>'),
+        });
+      }
+      return;
+    }
+    const modalOptions = {
+      ownerId: SPECIAL_DETAIL_MODAL_OWNER,
+      variantClass: 'detail-modal--attr-special',
+      size: 'wide' as const,
+      title: snapshot.title,
+      subtitle: '所有特殊属性最终值',
+      renderBody: (body: HTMLElement) => replaceElementHtml(body, this.renderSpecialDetailBody(snapshot)),
+      onClose: () => {
+        this.clearTooltipTarget();
+        this.tooltip.hide(true);
+      },
+    };
+    if (!detailModalHost.patch(modalOptions)) {
+      detailModalHost.open(modalOptions);
+    }
   }
 
   /** renderTabs：渲染标签页。 */
@@ -2089,31 +2122,6 @@ export class AttrPanel {
             valueAttr: 'data-numeric-value',
             subAttr: 'data-numeric-sub',
           })).join('')}
-        </div>
-      </div>`;
-    }
-    if (snapshot.kind === 'special-detail') {
-      return `<div class="panel-section attr-special-detail" data-pane-kind="special-detail">
-        <div class="attr-section-head">
-          <div class="panel-section-title" data-special-detail-title="true">${escapeHtml(snapshot.title)}</div>
-          <div class="attr-section-actions">
-            <button class="small-btn ghost" data-attr-pane-action="special-detail-back" type="button">${escapeHtml(snapshot.backLabel)}</button>
-          </div>
-        </div>
-        <div class="attr-special-detail-sections">
-          ${snapshot.sections.map((section) => `
-            <section class="attr-special-detail-section" data-special-detail-section="${escapeHtml(section.key)}">
-              <h4 class="attr-special-detail-section-title">${escapeHtml(section.title)}</h4>
-              <div class="attr-special-detail-grid">
-                ${section.rows.map((row) => `
-                  <div class="attr-special-detail-row" data-special-detail-row="${escapeHtml(row.key)}" ${row.detail ? `data-tooltip-title="${escapeHtml(row.label)}" data-tooltip-detail="${escapeHtml(row.detail)}"` : ''}>
-                    <span class="attr-special-detail-label">${escapeHtml(row.label)}</span>
-                    <strong class="attr-special-detail-value">${escapeHtml(row.value)}</strong>
-                  </div>
-                `).join('')}
-              </div>
-            </section>
-          `).join('')}
         </div>
       </div>`;
     }
@@ -2197,6 +2205,26 @@ export class AttrPanel {
     </div>`;
   }
 
+  private renderSpecialDetailBody(snapshot: AttrSpecialDetailPaneSnapshot): string {
+    return `<div class="attr-special-detail" data-pane-kind="special-detail">
+      <div class="attr-special-detail-sections">
+        ${snapshot.sections.map((section) => `
+          <section class="attr-special-detail-section" data-special-detail-section="${escapeHtml(section.key)}">
+            <h4 class="attr-special-detail-section-title">${escapeHtml(section.title)}</h4>
+            <div class="attr-special-detail-grid">
+              ${section.rows.map((row) => `
+                <div class="attr-special-detail-row" data-special-detail-row="${escapeHtml(row.key)}" ${row.detail ? `title="${escapeHtml(row.detail)}"` : ''}>
+                  <span class="attr-special-detail-label">${escapeHtml(row.label)}</span>
+                  <strong class="attr-special-detail-value">${escapeHtml(row.value)}</strong>
+                </div>
+              `).join('')}
+            </div>
+          </section>
+        `).join('')}
+      </div>
+    </div>`;
+  }
+
   /** patch：处理patch。 */
   private patch(snapshot: AttrPanelSnapshot): boolean {
     this.patchTabState();
@@ -2275,38 +2303,6 @@ export class AttrPanel {
         valueNode.textContent = card.value;
         subNode.textContent = card.sub ?? '';
         subNode.classList.toggle('hidden', !card.sub);
-      }
-      return true;
-    }
-    if (snapshot.kind === 'special-detail') {
-      const titleNode = pane.querySelector<HTMLElement>('[data-special-detail-title="true"]');
-      const rowNodes = pane.querySelectorAll<HTMLElement>('[data-special-detail-row]');
-      const expectedRowCount = snapshot.sections.reduce((total, section) => total + section.rows.length, 0);
-      if (!titleNode || rowNodes.length !== expectedRowCount) {
-        return false;
-      }
-      titleNode.textContent = snapshot.title;
-      for (const section of snapshot.sections) {
-        for (const row of section.rows) {
-          const rowNode = pane.querySelector<HTMLElement>(`[data-special-detail-row="${row.key}"]`);
-          if (!rowNode) {
-            return false;
-          }
-          const labelNode = rowNode.querySelector<HTMLElement>('.attr-special-detail-label');
-          const valueNode = rowNode.querySelector<HTMLElement>('.attr-special-detail-value');
-          if (!labelNode || !valueNode) {
-            return false;
-          }
-          labelNode.textContent = row.label;
-          valueNode.textContent = row.value;
-          if (row.detail) {
-            rowNode.setAttribute('data-tooltip-title', row.label);
-            rowNode.setAttribute('data-tooltip-detail', row.detail);
-          } else {
-            rowNode.removeAttribute('data-tooltip-title');
-            rowNode.removeAttribute('data-tooltip-detail');
-          }
-        }
       }
       return true;
     }
@@ -2474,12 +2470,6 @@ export class AttrPanel {
       if (pane.kind === 'craft') {
         return [tab, { kind: pane.kind, skills: pane.skills.map((skill) => skill.key) }];
       }
-      if (pane.kind === 'special-detail') {
-        return [tab, {
-          kind: pane.kind,
-          sections: pane.sections.map((section) => [section.key, section.rows.map((row) => row.key)]),
-        }];
-      }
       return [tab, { kind: pane.kind }];
     });
     return JSON.stringify(Object.fromEntries(entries));
@@ -2497,10 +2487,6 @@ export class AttrPanel {
         const actionKey = paneActionButton.dataset.attrPaneAction;
         if (actionKey === SPECIAL_DETAIL_ACTION_KEY) {
           this.openSpecialDetails();
-          event.preventDefault();
-          event.stopPropagation();
-        } else if (actionKey === 'special-detail-back') {
-          this.closeSpecialDetails();
           event.preventDefault();
           event.stopPropagation();
         }

@@ -1573,9 +1573,6 @@
       }
     }
     @media (max-width: 560px) {
-      .attr-special-detail-grid {
-        grid-template-columns: 1fr;
-      }
       .artifact-slot {
         flex-direction: column;
         align-items: stretch;
@@ -2194,6 +2191,10 @@
         radial-gradient(circle at top right, rgba(110, 156, 104, 0.14), transparent 28%),
         radial-gradient(circle at bottom left, rgba(189, 149, 83, 0.12), transparent 32%),
         var(--surface-gradient-paper);
+    }
+    .detail-modal-card.detail-modal--attr-special {
+      width: min(980px, calc(100vw - 24px));
+      max-height: min(86dvh, calc(100dvh - var(--detail-modal-padding-top) - var(--detail-modal-padding-bottom) - (var(--detail-modal-safe-gap) * 2)));
     }
     .detail-modal-card.detail-modal--technique {
       --detail-modal-compact-scale: 0.8;
