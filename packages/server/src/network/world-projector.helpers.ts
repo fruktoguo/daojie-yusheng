@@ -36,6 +36,7 @@ import {
   calcTechniqueFinalSpecialStatBonus,
   cloneCraftEffectStats,
   getFirstGrapheme,
+  normalizeCombatAttackIntensity,
 } from '@mud/shared';
 import { cloneAutoUsePillList, cloneCombatTargetingRules, isSameAutoUsePillList, isSameCombatTargetingRules } from '../runtime/player/player-combat-config.helpers';
 import { cloneVisibleBuffProjection, projectVisiblePlayerBuffs } from '../runtime/player/player-buff-projection.helpers';
@@ -1235,6 +1236,7 @@ function canReuseActionPanelSlice(previousAction: ProjectedActionPanelState, pla
         && previousAction.autoIdleCultivation === player.combat.autoIdleCultivation
         && previousAction.autoSwitchCultivation === player.combat.autoSwitchCultivation
         && previousAction.autoRootFoundation === (player.combat.autoRootFoundation === true)
+        && previousAction.combatAttackIntensity === normalizeCombatAttackIntensity(player.combat.combatAttackIntensity)
         && previousAction.cultivationActive === player.combat.cultivationActive
         && previousAction.senseQiActive === player.combat.senseQiActive
         && previousAction.wangQiActive === (player.combat.wangQiActive === true);
@@ -1340,6 +1342,7 @@ function captureActionPanelSlice(player: ProjectorPlayerLike): ProjectedActionPa
         autoIdleCultivation: player.combat.autoIdleCultivation,
         autoSwitchCultivation: player.combat.autoSwitchCultivation,
         autoRootFoundation: player.combat.autoRootFoundation === true,
+        combatAttackIntensity: normalizeCombatAttackIntensity(player.combat.combatAttackIntensity),
         cultivationActive: player.combat.cultivationActive,
         senseQiActive: player.combat.senseQiActive,
         wangQiActive: player.combat.wangQiActive === true,
@@ -1435,6 +1438,7 @@ function buildFullActionDeltaFromState(action: ProjectedActionPanelState): S2C_P
         autoIdleCultivation: action.autoIdleCultivation,
         autoSwitchCultivation: action.autoSwitchCultivation,
         autoRootFoundation: action.autoRootFoundation,
+        combatAttackIntensity: action.combatAttackIntensity,
         cultivationActive: action.cultivationActive,
         senseQiActive: action.senseQiActive,
         wangQiActive: action.wangQiActive,
@@ -1495,6 +1499,9 @@ function buildActionDeltaFromState(
             : undefined,
         autoRootFoundation: previousAction.autoRootFoundation !== currentAction.autoRootFoundation
             ? currentAction.autoRootFoundation
+            : undefined,
+        combatAttackIntensity: previousAction.combatAttackIntensity !== currentAction.combatAttackIntensity
+            ? currentAction.combatAttackIntensity
             : undefined,
         cultivationActive: previousAction.cultivationActive !== currentAction.cultivationActive
             ? currentAction.cultivationActive
@@ -2114,6 +2121,7 @@ function buildPanelDeltaFromState(previousPanel: ProjectedPanelState, currentPan
             autoIdleCultivation: currentAction.autoIdleCultivation,
             autoSwitchCultivation: currentAction.autoSwitchCultivation,
             autoRootFoundation: currentAction.autoRootFoundation,
+            combatAttackIntensity: currentAction.combatAttackIntensity,
             cultivationActive: currentAction.cultivationActive,
             senseQiActive: currentAction.senseQiActive,
             wangQiActive: currentAction.wangQiActive,

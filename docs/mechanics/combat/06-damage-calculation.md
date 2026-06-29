@@ -143,6 +143,22 @@ percentModifierToMultiplier(percent):
   percent < 0: return 1 / (1 + |percent|/100)  // 反比衰减，不会压到0
 ```
 
+## 出手力度修正
+
+源文件: `packages/shared/src/automation-types.ts`
+
+```typescript
+damageMultiplier = intensity / 10
+qiCostMultiplier:
+  intensity = 1: 0.5
+  intensity = 12: 2
+  otherwise: 1
+```
+
+- 普攻：力度作为额外伤害乘区进入普攻结算。
+- 技能：每个 damage effect 的公式基础伤害按力度倍率缩放后进入战斗管线。
+- 技能灵力：先按 `calcQiCostWithOutputLimit` 计算标准实际消耗，再按力度修正实际扣除；面板仍显示标准消耗。
+
 ## 灵力消耗超限惩罚
 
 ```typescript

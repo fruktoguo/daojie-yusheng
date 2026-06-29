@@ -229,6 +229,7 @@ message ActionsUpdatePayload {
   optional bool clearRetaliatePlayerTargetId = 18;
   optional bool wangQiActive = 19;
   optional bool autoRootFoundation = 20;
+  optional int32 combatAttackIntensity = 21;
 }
 
 message ActionUpdateEntryPayload {

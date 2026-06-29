@@ -13,7 +13,7 @@
  * 按域独立读写，支持增量刷盘、恢复水位和旧快照兼容水合。
  */
 import { Inject, Injectable, Logger, Optional, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
-import { ARTIFACT_SLOTS, createItemStackSignature, EQUIP_SLOTS, isCreatedTechniqueId, isLegacyItemInstanceId, PLAYER_HEARTBEAT_TIMEOUT_MS, TechniqueRealm } from '@mud/shared';
+import { ARTIFACT_SLOTS, createItemStackSignature, DEFAULT_COMBAT_ATTACK_INTENSITY, EQUIP_SLOTS, isCreatedTechniqueId, isLegacyItemInstanceId, normalizeCombatAttackIntensity, PLAYER_HEARTBEAT_TIMEOUT_MS, TechniqueRealm } from '@mud/shared';
 import type { OfflineGainReportView, PlayerStatisticPeriodTotalView } from '@mud/shared';
 import { randomUUID } from 'node:crypto';
 import type { PoolClient } from 'pg';
@@ -478,6 +478,7 @@ interface CombatPreferencesRow {
   autoIdleCultivation: boolean;
   autoSwitchCultivation: boolean;
   autoRootFoundation: boolean;
+  combatAttackIntensity: number;
   senseQiActive: boolean;
   cultivationActive: boolean;
   cultivatingTechId: string | null;
@@ -718,6 +719,7 @@ interface PlayerCombatPreferencesLoadRow {
   auto_idle_cultivation?: unknown;
   auto_switch_cultivation?: unknown;
   auto_root_foundation?: unknown;
+  combat_attack_intensity?: unknown;
   sense_qi_active?: unknown;
   cultivation_active?: unknown;
   cultivating_tech_id?: unknown;
@@ -2368,6 +2370,7 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
             auto_idle_cultivation,
             auto_switch_cultivation,
             auto_root_foundation,
+            combat_attack_intensity,
             sense_qi_active,
             cultivation_active,
             cultivating_tech_id,
@@ -3997,6 +4000,7 @@ export async function ensurePlayerDomainTablesWithClient(client: PoolClient): Pr
       auto_idle_cultivation boolean NOT NULL DEFAULT true,
       auto_switch_cultivation boolean NOT NULL DEFAULT true,
       auto_root_foundation boolean NOT NULL DEFAULT false,
+      combat_attack_intensity integer NOT NULL DEFAULT 10,
       sense_qi_active boolean NOT NULL DEFAULT false,
       cultivation_active boolean NOT NULL DEFAULT true,
       cultivating_tech_id varchar(120),
@@ -4011,6 +4015,10 @@ export async function ensurePlayerDomainTablesWithClient(client: PoolClient): Pr
   await client.query(`
     ALTER TABLE ${PLAYER_COMBAT_PREFERENCES_TABLE}
     ADD COLUMN IF NOT EXISTS auto_root_foundation boolean NOT NULL DEFAULT false
+  `);
+  await client.query(`
+    ALTER TABLE ${PLAYER_COMBAT_PREFERENCES_TABLE}
+    ADD COLUMN IF NOT EXISTS combat_attack_intensity integer NOT NULL DEFAULT 10
   `);
   await client.query(`
     ALTER TABLE ${PLAYER_COMBAT_PREFERENCES_TABLE}
@@ -5798,13 +5806,14 @@ async function replacePlayerCombatPreferences(
         auto_idle_cultivation,
         auto_switch_cultivation,
         auto_root_foundation,
+        combat_attack_intensity,
         sense_qi_active,
         cultivation_active,
         cultivating_tech_id,
         targeting_rules_payload,
         updated_at
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17::jsonb, now())
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18::jsonb, now())
       ON CONFLICT (player_id)
       DO UPDATE SET
         auto_battle = EXCLUDED.auto_battle,
@@ -5819,6 +5828,7 @@ async function replacePlayerCombatPreferences(
         auto_idle_cultivation = EXCLUDED.auto_idle_cultivation,
         auto_switch_cultivation = EXCLUDED.auto_switch_cultivation,
         auto_root_foundation = EXCLUDED.auto_root_foundation,
+        combat_attack_intensity = EXCLUDED.combat_attack_intensity,
         sense_qi_active = EXCLUDED.sense_qi_active,
         cultivation_active = EXCLUDED.cultivation_active,
         cultivating_tech_id = EXCLUDED.cultivating_tech_id,
@@ -5839,6 +5849,7 @@ async function replacePlayerCombatPreferences(
       row.autoIdleCultivation,
       row.autoSwitchCultivation,
       row.autoRootFoundation,
+      row.combatAttackIntensity,
       row.senseQiActive,
       row.cultivationActive,
       row.cultivatingTechId,
@@ -6690,6 +6701,7 @@ function buildCombatPreferencesRow(snapshot: PersistedPlayerSnapshot): CombatPre
     autoIdleCultivation: combat.autoIdleCultivation === true,
     autoSwitchCultivation: combat.autoSwitchCultivation === true,
     autoRootFoundation: combat.autoRootFoundation === true,
+    combatAttackIntensity: normalizeCombatAttackIntensity(combat.combatAttackIntensity ?? DEFAULT_COMBAT_ATTACK_INTENSITY),
     senseQiActive: combat.senseQiActive === true,
     cultivationActive: combat.cultivationActive === true,
     cultivatingTechId: normalizeOptionalString(snapshot.techniques?.cultivatingTechId),
@@ -7799,6 +7811,7 @@ function applyProjectedCombatPreferences(
     autoIdleCultivation: row.auto_idle_cultivation === true,
     autoSwitchCultivation: row.auto_switch_cultivation === true,
     autoRootFoundation: row.auto_root_foundation === true,
+    combatAttackIntensity: normalizeCombatAttackIntensity(row.combat_attack_intensity ?? DEFAULT_COMBAT_ATTACK_INTENSITY),
     senseQiActive: row.sense_qi_active === true,
     cultivationActive: row.cultivation_active !== false,
     combatTargetingRules: targetingRules ? { ...targetingRules } : undefined,

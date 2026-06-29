@@ -4,7 +4,7 @@
  * 维护时要保证结算仍由服务端权威执行，客户端只接收结构化结果和必要表现字段。
  */
 import { Inject, Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
-import { formatDisplayNumber, getBasicAttackCombatExperienceDamageMultiplier, getDamageTrailColor, horizontalFacingFromTo, uiLabels } from '@mud/shared';
+import { formatDisplayNumber, getBasicAttackCombatExperienceDamageMultiplier, getDamageTrailColor, horizontalFacingFromTo, resolveCombatAttackIntensityDamageMultiplier, uiLabels } from '@mud/shared';
 import { PlayerRuntimeService } from '../../player/player-runtime.service';
 import { resolveCombatDamage } from '../../combat/combat-pipeline-compose';
 import { createCombatOutcomeApplyAdapters } from '../../combat/combat-outcome-apply-adapters';
@@ -180,6 +180,7 @@ export class WorldRuntimeBasicAttackService {
         const baseDamage = Math.max(1, Math.round(damageKind === 'spell'
             ? attacker.attrs.numericStats.spellAtk
             : attacker.attrs.numericStats.physAtk));
+        const attackIntensityDamageMultiplier = resolveCombatAttackIntensityDamageMultiplier(attacker.combat?.combatAttackIntensity);
         const instance = deps.getInstanceRuntimeOrThrow(attacker.instanceId);
         const actionPlan = this.resolvePlayerBasicAttackActionPlan(
             attacker,
@@ -199,23 +200,23 @@ export class WorldRuntimeBasicAttackService {
         const plannedTarget = actionPlan.selectedTargets?.[0] ?? actionPlan.targetEntries?.[0] ?? null;
         if (plannedTarget?.kind === CombatTargetKind.Formation) {
             if (plannedTarget.source === 'formation_boundary') {
-                return this.dispatchBasicAttackToTile(attacker, plannedTarget.x, plannedTarget.y, damageKind, baseDamage, deps, currentTick, { plannedTarget });
+                return this.dispatchBasicAttackToTile(attacker, plannedTarget.x, plannedTarget.y, damageKind, baseDamage, deps, currentTick, { plannedTarget, attackIntensityDamageMultiplier });
             }
             return this.dispatchBasicAttackToFormation(attacker, plannedTarget.runtime ?? {
                 id: plannedTarget.id,
                 name: plannedTarget.name ?? plannedTarget.id,
                 x: plannedTarget.x,
                 y: plannedTarget.y,
-            }, damageKind, baseDamage, deps);
+            }, damageKind, baseDamage, deps, attackIntensityDamageMultiplier);
         }
         if (plannedTarget?.kind === CombatTargetKind.Monster) {
-            return this.dispatchBasicAttackToMonster(attacker, plannedTarget.id, damageKind, baseDamage, deps);
+            return this.dispatchBasicAttackToMonster(attacker, plannedTarget.id, damageKind, baseDamage, deps, attackIntensityDamageMultiplier);
         }
         if (plannedTarget?.kind === CombatTargetKind.Player) {
-            return this.dispatchBasicAttackToPlayer(attacker, plannedTarget.id, damageKind, baseDamage, currentTick, deps);
+            return this.dispatchBasicAttackToPlayer(attacker, plannedTarget.id, damageKind, baseDamage, currentTick, deps, attackIntensityDamageMultiplier);
         }
         if (plannedTarget?.kind === CombatTargetKind.Tile || plannedTarget?.kind === CombatTargetKind.Container) {
-            return this.dispatchBasicAttackToTile(attacker, plannedTarget.x, plannedTarget.y, damageKind, baseDamage, deps, currentTick, { plannedTarget });
+            return this.dispatchBasicAttackToTile(attacker, plannedTarget.x, plannedTarget.y, damageKind, baseDamage, deps, currentTick, { plannedTarget, attackIntensityDamageMultiplier });
         }
         throw new BadRequestException('必须指定目标');
     }
@@ -271,7 +272,7 @@ export class WorldRuntimeBasicAttackService {
         }
         return new BadRequestException('必须指定目标');
     }
-    dispatchBasicAttackToFormation(attacker, formation, damageKind, baseDamage, deps) {
+    dispatchBasicAttackToFormation(attacker, formation, damageKind, baseDamage, deps, attackIntensityDamageMultiplier = 1) {
   // 阵法无生命条，承受伤害时直接按配置折算扣除阵眼剩余灵力。
 
         ensureHostileRelation(resolveCombatRelation(attacker, { kind: 'terrain' }));
@@ -281,6 +282,7 @@ export class WorldRuntimeBasicAttackService {
         const instance = deps.getInstanceRuntimeOrThrow(attacker.instanceId);
         applyPlayerBasicAttackFacing(this.playerRuntimeService, instance, attacker, formation.x, formation.y);
         const effectColor = getDamageTrailColor(damageKind);
+        const scaledDamage = Math.max(1, Math.round(baseDamage * attackIntensityDamageMultiplier));
         const appliedOutcome = this.applyPlayerBasicAttackOutcome({ ...deps, instance }, attacker, {
             kind: CombatTargetKind.Formation,
             id: formation.id,
@@ -292,11 +294,11 @@ export class WorldRuntimeBasicAttackService {
             targetX: formation.x,
             targetY: formation.y,
             damageKind,
-            damage: baseDamage,
-            rawDamage: baseDamage,
+            damage: scaledDamage,
+            rawDamage: scaledDamage,
         });
         const adapterResult = appliedOutcome?.adapterResult ?? {};
-        const appliedDamage = normalizeAppliedDamage(adapterResult.appliedDamage, baseDamage);
+        const appliedDamage = normalizeAppliedDamage(adapterResult.appliedDamage, scaledDamage);
         const auraDamage = Math.max(0, Number(adapterResult.auraDamage) || 0);
         emitCombatPresentation({
             deps,
@@ -306,8 +308,8 @@ export class WorldRuntimeBasicAttackService {
             damageFloat: { x: formation.x, y: formation.y, damage: appliedDamage, color: effectColor },
             notices: [{
                 playerId: attacker.playerId,
-                text: `${formatCombatActionClause('你', formation.name, '攻击')}，造成 ${formatCombatDamageBreakdown(baseDamage, appliedDamage, damageKind)} 伤害，削减阵眼灵力 ${formatAuraDamage(auraDamage)}。`,
-                combat: buildCombatNoticePayload({ caster: '你', target: formation.name, skill: '攻击', formationResolution: { rawDamage: baseDamage, damage: appliedDamage, damageKind, auraDamage } }),
+                text: `${formatCombatActionClause('你', formation.name, '攻击')}，造成 ${formatCombatDamageBreakdown(scaledDamage, appliedDamage, damageKind)} 伤害，削减阵眼灵力 ${formatAuraDamage(auraDamage)}。`,
+                combat: buildCombatNoticePayload({ caster: '你', target: formation.name, skill: '攻击', formationResolution: { rawDamage: scaledDamage, damage: appliedDamage, damageKind, auraDamage } }),
             }],
         });
     }
@@ -322,7 +324,7 @@ export class WorldRuntimeBasicAttackService {
  * @returns 无返回值，直接更新BasicAttackTo怪物相关状态。
  */
 
-    async dispatchBasicAttackToMonster(attacker, targetMonsterId, damageKind, baseDamage, deps) {
+    async dispatchBasicAttackToMonster(attacker, targetMonsterId, damageKind, baseDamage, deps, attackIntensityDamageMultiplier = 1) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const instance = deps.getInstanceRuntimeOrThrow(attacker.instanceId);
@@ -335,7 +337,7 @@ export class WorldRuntimeBasicAttackService {
             throw new BadRequestException('目标超出攻击距离');
         }
         applyPlayerBasicAttackFacing(this.playerRuntimeService, instance, attacker, monster.x, monster.y);
-        const resolvedDamage = this.resolveBasicAttackDamageAgainstMonster(attacker, monster, baseDamage, damageKind, deps);
+        const resolvedDamage = this.resolveBasicAttackDamageAgainstMonster(attacker, monster, baseDamage, damageKind, deps, attackIntensityDamageMultiplier);
         const effectColor = getDamageTrailColor(damageKind);
         const appliedOutcome = this.applyPlayerBasicAttackOutcome({ ...deps, instance }, attacker, {
             kind: CombatTargetKind.Monster,
@@ -383,7 +385,7 @@ export class WorldRuntimeBasicAttackService {
  * @returns 无返回值，直接更新BasicAttackTo玩家相关状态。
  */
 
-    async dispatchBasicAttackToPlayer(attacker, targetPlayerId, damageKind, baseDamage, currentTick, deps) {
+    async dispatchBasicAttackToPlayer(attacker, targetPlayerId, damageKind, baseDamage, currentTick, deps, attackIntensityDamageMultiplier = 1) {
         const instance = deps.getInstanceRuntimeOrThrow(attacker.instanceId);
         ensureInstanceSupportsPlayerCombat(instance);
         if (instance.isPointInSafeZone(attacker.x, attacker.y)) {
@@ -413,7 +415,7 @@ export class WorldRuntimeBasicAttackService {
             throw new BadRequestException('目标被遮挡');
         }
         applyPlayerBasicAttackFacing(this.playerRuntimeService, instance, attacker, target.x, target.y);
-        const resolvedDamage = this.resolveBasicAttackDamageAgainstPlayer(attacker, target, baseDamage, damageKind);
+        const resolvedDamage = this.resolveBasicAttackDamageAgainstPlayer(attacker, target, baseDamage, damageKind, attackIntensityDamageMultiplier);
         const effectColor = getDamageTrailColor(damageKind);
         emitCombatPresentation({
             deps,
@@ -502,6 +504,7 @@ export class WorldRuntimeBasicAttackService {
         const planTargetsBoundary = plannedTarget?.kind === CombatTargetKind.Formation && plannedTarget.source === 'formation_boundary';
         const planTargetsContainer = plannedTarget?.kind === CombatTargetKind.Container;
         const planTargetsTile = plannedTarget?.kind === CombatTargetKind.Tile;
+        const scaledBaseDamage = Math.max(1, Math.round(baseDamage * (Number(options?.attackIntensityDamageMultiplier) || 1)));
         const instance = deps.getInstanceRuntimeOrThrow(attacker.instanceId);
         const boundary = !planTargetsTile && !planTargetsContainer && typeof deps.worldRuntimeFormationService?.getBoundaryBarrierCombatState === 'function'
             ? deps.worldRuntimeFormationService.getBoundaryBarrierCombatState(attacker.instanceId, targetX, targetY)
@@ -524,12 +527,12 @@ export class WorldRuntimeBasicAttackService {
                 targetX,
                 targetY,
                 damageKind,
-                damage: baseDamage,
-                rawDamage: baseDamage,
+                damage: scaledBaseDamage,
+                rawDamage: scaledBaseDamage,
                 formationBoundary: true,
             });
             const adapterResult = appliedOutcome?.adapterResult ?? {};
-            const appliedDamage = normalizeAppliedDamage(adapterResult.appliedDamage, baseDamage);
+            const appliedDamage = normalizeAppliedDamage(adapterResult.appliedDamage, scaledBaseDamage);
             const auraDamage = Math.max(0, Number(adapterResult.auraDamage) || 0);
             emitCombatPresentation({
                 deps,
@@ -539,8 +542,8 @@ export class WorldRuntimeBasicAttackService {
                 damageFloat: { x: targetX, y: targetY, damage: appliedDamage, color: effectColor },
                 notices: [{
                     playerId: attacker.playerId,
-                    text: `${formatCombatActionClause('你', boundary.name, '攻击')}边界，造成 ${formatCombatDamageBreakdown(baseDamage, appliedDamage, damageKind)} 伤害，削减阵眼灵力 ${formatAuraDamage(auraDamage)}。`,
-                    combat: buildCombatNoticePayload({ caster: '你', target: boundary.name, skill: '攻击', formationResolution: { rawDamage: baseDamage, damage: appliedDamage, damageKind, auraDamage } }),
+                    text: `${formatCombatActionClause('你', boundary.name, '攻击')}边界，造成 ${formatCombatDamageBreakdown(scaledBaseDamage, appliedDamage, damageKind)} 伤害，削减阵眼灵力 ${formatAuraDamage(auraDamage)}。`,
+                    combat: buildCombatNoticePayload({ caster: '你', target: boundary.name, skill: '攻击', formationResolution: { rawDamage: scaledBaseDamage, damage: appliedDamage, damageKind, auraDamage } }),
                 }],
             });
             return;
@@ -580,8 +583,8 @@ export class WorldRuntimeBasicAttackService {
                 targetX,
                 targetY,
                 damageKind,
-                damage: baseDamage,
-                rawDamage: baseDamage,
+                damage: scaledBaseDamage,
+                rawDamage: scaledBaseDamage,
                 container,
                 currentTick: containerTick,
             })
@@ -652,7 +655,7 @@ export class WorldRuntimeBasicAttackService {
         const effectiveBaseDamage = resolveMiningAdjustedTileDamage({
             attacker,
             tileType,
-            baseDamage,
+            baseDamage: scaledBaseDamage,
         }).damage;
         const mitigatedDamage = typeof deps.worldRuntimeFormationService?.mitigateTerrainDamage === 'function'
             ? deps.worldRuntimeFormationService.mitigateTerrainDamage(attacker.instanceId, targetX, targetY, effectiveBaseDamage)
@@ -700,8 +703,8 @@ export class WorldRuntimeBasicAttackService {
             damageFloat: { x: targetX, y: targetY, damage: appliedDamage, color: effectColor },
             notices: [{
                 playerId: attacker.playerId,
-                text: `${formatCombatActionClause('你', formatTargetLabelWithHp(tileTargetName, result.hp ?? 0, tileMaxHp), '攻击')}，造成 ${formatCombatDamageBreakdown(baseDamage, appliedDamage, damageKind)} 伤害`,
-                combat: buildCombatNoticePayload({ caster: '你', target: tileTargetName, targetHp: result.hp ?? 0, targetMaxHp: tileMaxHp, skill: '攻击', resolution: { rawDamage: baseDamage, damage: appliedDamage, damageKind } }),
+                text: `${formatCombatActionClause('你', formatTargetLabelWithHp(tileTargetName, result.hp ?? 0, tileMaxHp), '攻击')}，造成 ${formatCombatDamageBreakdown(effectiveBaseDamage, appliedDamage, damageKind)} 伤害`,
+                combat: buildCombatNoticePayload({ caster: '你', target: tileTargetName, targetHp: result.hp ?? 0, targetMaxHp: tileMaxHp, skill: '攻击', resolution: { rawDamage: effectiveBaseDamage, damage: appliedDamage, damageKind } }),
             }],
         });
     }
@@ -714,7 +717,7 @@ export class WorldRuntimeBasicAttackService {
  * @returns 返回结算结果。
  */
 
-    resolveBasicAttackDamageAgainstMonster(attacker, monster, baseDamage, damageKind, deps = null) {
+    resolveBasicAttackDamageAgainstMonster(attacker, monster, baseDamage, damageKind, deps = null, attackIntensityDamageMultiplier = 1) {
         const monsterCombatExp = this.resolveMonsterCombatExpEquivalent(monster);
         const combatExpMultiplier = getBasicAttackCombatExperienceDamageMultiplier(Math.max(1, attacker.combatExp ?? 0), Math.max(1, monsterCombatExp));
         const monsterStats = resolveSuppressedMonsterNumericStats(
@@ -733,7 +736,7 @@ export class WorldRuntimeBasicAttackService {
             Math.max(1, monsterCombatExp),
             baseDamage,
             damageKind,
-            combatExpMultiplier,
+            combatExpMultiplier * attackIntensityDamageMultiplier,
         );
     }
     resolveMonsterCombatExpEquivalent(monster) {
@@ -755,7 +758,7 @@ export class WorldRuntimeBasicAttackService {
  * @returns 返回结算结果。
  */
 
-    resolveBasicAttackDamageAgainstPlayer(attacker, target, baseDamage, damageKind) {
+    resolveBasicAttackDamageAgainstPlayer(attacker, target, baseDamage, damageKind, attackIntensityDamageMultiplier = 1) {
         const combatExpMultiplier = getBasicAttackCombatExperienceDamageMultiplier(Math.max(1, attacker.combatExp ?? 0), Math.max(1, target.combatExp ?? 0));
         return this.resolveBasicAttackDamage(
             attacker.attrs.numericStats,
@@ -768,7 +771,7 @@ export class WorldRuntimeBasicAttackService {
             Math.max(1, target.combatExp ?? 0),
             baseDamage,
             damageKind,
-            combatExpMultiplier,
+            combatExpMultiplier * attackIntensityDamageMultiplier,
         );
     }
     /**

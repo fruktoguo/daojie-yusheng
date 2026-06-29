@@ -9,7 +9,7 @@
  * 包含快照数据的规范化、来源标记和旧格式兼容。
  */
 import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
-import { DEFAULT_INVENTORY_CAPACITY } from '@mud/shared';
+import { DEFAULT_COMBAT_ATTACK_INTENSITY, DEFAULT_INVENTORY_CAPACITY, normalizeCombatAttackIntensity } from '@mud/shared';
 import { Pool, type PoolClient } from 'pg';
 
 import { resolveServerDatabaseUrl } from '../config/env-alias';
@@ -172,6 +172,7 @@ interface PlayerSnapshotCombat {
   autoIdleCultivation: boolean;
   autoSwitchCultivation: boolean;
   autoRootFoundation?: boolean;
+  combatAttackIntensity?: number;
   senseQiActive: boolean;
   wangQiActive?: boolean;
   cultivationActive?: boolean;
@@ -702,6 +703,7 @@ function normalizePlayerSnapshotPayload(raw: unknown): PersistedPlayerSnapshot |
       autoIdleCultivation: combat?.autoIdleCultivation !== false,
       autoSwitchCultivation: combat?.autoSwitchCultivation === true,
       autoRootFoundation: combat?.autoRootFoundation === true,
+      combatAttackIntensity: normalizeCombatAttackIntensity(combat?.combatAttackIntensity ?? DEFAULT_COMBAT_ATTACK_INTENSITY),
       senseQiActive: combat?.senseQiActive === true,
       wangQiActive: combat?.wangQiActive === true,
       autoBattleSkills: Array.isArray(combat?.autoBattleSkills) ? combat.autoBattleSkills : [],

@@ -5,7 +5,7 @@
  */
 import type { NumericRatioDivisors, NumericStats } from './numeric';
 import type { ActionDef } from './action-combat-types';
-import type { AutoBattleSkillConfig, AutoBattleTargetingMode, AutoUsePillConfig, CombatTargetingRules } from './automation-types';
+import type { AutoBattleSkillConfig, AutoBattleTargetingMode, AutoUsePillConfig, CombatAttackIntensity, CombatTargetingRules } from './automation-types';
 import type { BodyTrainingState, HeavenGateRootValues, HeavenGateState, PendingTechniqueComprehensionState, PlayerRealmState, TechniqueState } from './cultivation-types';
 import type {
   AlchemySkillState,
@@ -171,6 +171,8 @@ export interface PlayerState {
  */
 
   autoRootFoundation?: boolean;
+  /** 出手力度档位，单位为“成”。 */
+  combatAttackIntensity?: CombatAttackIntensity;
   /**
  * cultivationActive：cultivation激活状态相关字段。
  */

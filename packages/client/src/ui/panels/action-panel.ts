@@ -9,18 +9,22 @@ import {
   AutoBattleTargetingMode,
   AutoUsePillCondition,
   AutoUsePillConfig,
+  COMBAT_ATTACK_INTENSITY_OPTIONS,
   CombatTargetingRuleKey,
   CombatTargetingRules,
+  DEFAULT_COMBAT_ATTACK_INTENSITY,
   DEFAULT_PLAYER_REALM_STAGE,
   ItemStack,
   PlayerState,
   SkillDef,
   getTechniqueMaxLevel,
+  normalizeCombatAttackIntensity,
   resolveTechniqueStandardMaxHpRecoveryAmount,
   resolveTechniqueStandardMaxQiRecoveryAmount,
   resolveSkillRequiresTarget,
   resolveSkillUnlockLevel,
   type ElementKey,
+  type CombatAttackIntensity,
   type SkillDamageKind,
 } from '@mud/shared';
 import { detailModalHost } from '../detail-modal-host';
@@ -724,6 +728,8 @@ export class ActionPanel {
   private autoIdleCultivation = true;
   /** 是否自动切换修炼模式。 */
   private autoSwitchCultivation = false;
+  /** 当前出手力度档位，单位为“成”。 */
+  private combatAttackIntensity: CombatAttackIntensity = DEFAULT_COMBAT_ATTACK_INTENSITY;
   /** 当前是否处于修炼态。 */
   private cultivationActive = false;
   /** 当前动作列表快照，包含系统补进来的工具动作。 */
@@ -869,6 +875,7 @@ export class ActionPanel {
       this.allowAoePlayerHit = player.allowAoePlayerHit === true;
       this.autoIdleCultivation = player.autoIdleCultivation !== false;
       this.autoSwitchCultivation = player.autoSwitchCultivation === true;
+      this.combatAttackIntensity = normalizeCombatAttackIntensity(player.combatAttackIntensity);
       this.cultivationActive = player.cultivationActive === true;
     }
     this.currentActions = this.withUtilityActions(actions);
@@ -900,6 +907,7 @@ export class ActionPanel {
       this.allowAoePlayerHit = player.allowAoePlayerHit === true;
       this.autoIdleCultivation = player.autoIdleCultivation !== false;
       this.autoSwitchCultivation = player.autoSwitchCultivation === true;
+      this.combatAttackIntensity = normalizeCombatAttackIntensity(player.combatAttackIntensity);
       this.cultivationActive = player.cultivationActive === true;
     }
     this.currentActions = this.withUtilityActions(actions);
@@ -928,6 +936,7 @@ export class ActionPanel {
     this.allowAoePlayerHit = player.allowAoePlayerHit === true;
     this.autoIdleCultivation = player.autoIdleCultivation !== false;
     this.autoSwitchCultivation = player.autoSwitchCultivation === true;
+    this.combatAttackIntensity = normalizeCombatAttackIntensity(player.combatAttackIntensity);
     this.cultivationActive = player.cultivationActive === true;
     this.render(this.currentActions);
     this.renderSkillManagementModalIfOpen();
@@ -1009,6 +1018,7 @@ export class ActionPanel {
       this.allowAoePlayerHit ? 'aoe' : '',
       this.autoIdleCultivation ? 'idle' : '',
       this.autoSwitchCultivation ? 'switch' : '',
+      `intensity:${this.combatAttackIntensity}`,
       this.cultivationActive ? 'cultivation' : '',
       this.previewPlayer?.autoBattleTargetingMode ?? '',
       actions.map((action) => [
@@ -1076,6 +1086,7 @@ export class ActionPanel {
         }
         html += `<div class="panel-section">
           <div class="panel-section-title">${t('action.section.toggle', undefined)}</div>
+          ${this.renderAttackIntensityControl()}
           <div class="intel-grid compact">`;
         for (const action of switchEntries) {
           html += this.renderSwitchItem(action);
@@ -1160,6 +1171,20 @@ export class ActionPanel {
         if (!tab) return;
         this.activeTab = tab;
         this.render(actions);
+      }, { signal });
+    });
+    this.pane.querySelectorAll<HTMLButtonElement>('[data-attack-intensity]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const intensity = normalizeCombatAttackIntensity(button.dataset.attackIntensity);
+        if (intensity === this.combatAttackIntensity) {
+          return;
+        }
+        this.combatAttackIntensity = intensity;
+        if (this.previewPlayer) {
+          this.previewPlayer.combatAttackIntensity = intensity;
+        }
+        this.render(this.currentActions);
+        this.onAction?.(`combat:attack_intensity:${intensity}`, false, undefined, undefined, t('action.attack-intensity.title', undefined));
       }, { signal });
     });
     this.pane.querySelectorAll<HTMLElement>('[data-action-skill-tab]').forEach((button) => {
@@ -1440,6 +1465,34 @@ export class ActionPanel {
       default:
         return { active: false, label: t('common.action.execute', undefined) };
     }
+  }
+
+  /** 渲染出手力度分段横条。 */
+  private renderAttackIntensityControl(): string {
+    const active = normalizeCombatAttackIntensity(this.combatAttackIntensity);
+    return `
+      <div class="attack-intensity-control" role="group" aria-label="${t('action.attack-intensity.title', undefined)}">
+        <div class="attack-intensity-head">
+          <div>
+            <div class="attack-intensity-title">${t('action.attack-intensity.title', undefined)}</div>
+            <div class="attack-intensity-desc">${t('action.attack-intensity.desc', undefined)}</div>
+          </div>
+          <span class="attack-intensity-current">${t('action.attack-intensity.current', { value: active })}</span>
+        </div>
+        <div class="attack-intensity-track">
+          ${COMBAT_ATTACK_INTENSITY_OPTIONS.map((value) => `
+            <button
+              class="attack-intensity-segment ${value === active ? 'active' : ''}"
+              data-attack-intensity="${value}"
+              type="button"
+              aria-pressed="${value === active ? 'true' : 'false'}"
+            >
+              <span>${t('action.attack-intensity.option', { value })}</span>
+            </button>
+          `).join('')}
+        </div>
+      </div>
+    `;
   }
 
   /** 渲染一条状态开关卡片。 */

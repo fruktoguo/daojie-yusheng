@@ -1282,7 +1282,7 @@ export class WorldRuntimeAutoCombatService {
             if (!skill || excludedSkillIds?.has(skill.id)) {
                 continue;
             }
-            if (player.qi < resolveAutoBattleSkillQiCost(skill.cost, player.attrs.numericStats.maxQiOutputPerTick)) {
+            if (player.qi < resolveAutoBattleSkillQiCost(skill.cost, player.attrs.numericStats.maxQiOutputPerTick, player.combat?.combatAttackIntensity)) {
                 continue;
             }
             if (isAutoSelfBuffSkill(skill)) {

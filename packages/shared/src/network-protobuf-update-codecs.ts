@@ -4,6 +4,7 @@
  * 维护时应保持无副作用、可在浏览器与 Node 环境同时使用，不引入单端专属依赖。
  */
 import type { ActionDef } from './action-combat-types';
+import { normalizeCombatAttackIntensity } from './automation-types';
 import type { AttrBonus } from './attribute-types';
 import type { BodyTrainingState, TechniqueCategory, TechniqueGrade, TechniqueLayerDef, TechniqueState } from './cultivation-types';
 import { compactNumericStatBreakdownMap, normalizeNumericStatBreakdownMap, type NumericStatBreakdownMap } from './numeric';
@@ -237,6 +238,7 @@ export function toWireActionsUpdate(payload: S2C_ActionsUpdate): Record<string, 
   if (payload.autoIdleCultivation !== undefined) wire.autoIdleCultivation = payload.autoIdleCultivation;
   if (payload.autoSwitchCultivation !== undefined) wire.autoSwitchCultivation = payload.autoSwitchCultivation;
   if (payload.autoRootFoundation !== undefined) wire.autoRootFoundation = payload.autoRootFoundation;
+  if (payload.combatAttackIntensity !== undefined) wire.combatAttackIntensity = payload.combatAttackIntensity;
   if (payload.cultivationActive !== undefined) wire.cultivationActive = payload.cultivationActive;
   if (payload.senseQiActive !== undefined) wire.senseQiActive = payload.senseQiActive;
   if (payload.wangQiActive !== undefined) wire.wangQiActive = payload.wangQiActive;
@@ -285,6 +287,7 @@ export function fromWireActionsUpdate(wire: Record<string, unknown>): S2C_Action
   if (hasOwn(wire, 'autoIdleCultivation')) payload.autoIdleCultivation = Boolean(wire.autoIdleCultivation);
   if (hasOwn(wire, 'autoSwitchCultivation')) payload.autoSwitchCultivation = Boolean(wire.autoSwitchCultivation);
   if (hasOwn(wire, 'autoRootFoundation')) payload.autoRootFoundation = Boolean(wire.autoRootFoundation);
+  if (hasOwn(wire, 'combatAttackIntensity')) payload.combatAttackIntensity = normalizeCombatAttackIntensity(wire.combatAttackIntensity);
   if (hasOwn(wire, 'cultivationActive')) payload.cultivationActive = Boolean(wire.cultivationActive);
   if (hasOwn(wire, 'senseQiActive')) payload.senseQiActive = Boolean(wire.senseQiActive);
   if (hasOwn(wire, 'wangQiActive')) payload.wangQiActive = Boolean(wire.wangQiActive);

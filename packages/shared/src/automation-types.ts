@@ -214,3 +214,54 @@ export function isAutoBattleTargetingMode(value: unknown): value is AutoBattleTa
 export function normalizeAutoBattleTargetingMode(value: unknown): AutoBattleTargetingMode {
   return isAutoBattleTargetingMode(value) ? value : 'auto';
 }
+
+/** 出手力度档位：单位为“成”。 */
+export type CombatAttackIntensity = 1 | 3 | 7 | 10 | 12;
+
+/** 出手力度可选档位。 */
+export const COMBAT_ATTACK_INTENSITY_OPTIONS = [1, 3, 7, 10, 12] as const satisfies readonly CombatAttackIntensity[];
+
+/** 默认出手力度，保持原有 10 成行为。 */
+export const DEFAULT_COMBAT_ATTACK_INTENSITY: CombatAttackIntensity = 10;
+
+export function isCombatAttackIntensity(value: unknown): value is CombatAttackIntensity {
+  return typeof value === 'number'
+    && Number.isInteger(value)
+    && (COMBAT_ATTACK_INTENSITY_OPTIONS as readonly number[]).includes(value);
+}
+
+export function normalizeCombatAttackIntensity(value: unknown): CombatAttackIntensity {
+  const numeric = typeof value === 'string' && value.trim()
+    ? Number(value)
+    : Number(value);
+  return isCombatAttackIntensity(numeric) ? numeric : DEFAULT_COMBAT_ATTACK_INTENSITY;
+}
+
+/** 出手力度对应的伤害倍率。 */
+export function resolveCombatAttackIntensityDamageMultiplier(value: unknown): number {
+  return normalizeCombatAttackIntensity(value) / 10;
+}
+
+/** 出手力度对应的实际灵力消耗倍率。 */
+export function resolveCombatAttackIntensityQiCostMultiplier(value: unknown): number {
+  const intensity = normalizeCombatAttackIntensity(value);
+  if (intensity === 1) {
+    return 0.5;
+  }
+  if (intensity === 12) {
+    return 2;
+  }
+  return 1;
+}
+
+/** 按出手力度修正已经套过标准公式的实际灵力消耗。 */
+export function applyCombatAttackIntensityQiCost(effectiveCost: number, value: unknown): number {
+  if (!Number.isFinite(effectiveCost)) {
+    return effectiveCost;
+  }
+  const normalizedCost = Math.max(0, Math.round(Number(effectiveCost) || 0));
+  if (normalizedCost <= 0) {
+    return 0;
+  }
+  return Math.max(0, Math.round(normalizedCost * resolveCombatAttackIntensityQiCostMultiplier(value)));
+}

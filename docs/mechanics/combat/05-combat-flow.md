@@ -31,6 +31,25 @@
 6. 逐效果结算（damage / heal / buff）
 ```
 
+## 出手力度
+
+源文件:
+- `packages/shared/src/automation-types.ts`
+- `packages/server/src/runtime/combat/player-combat.service.ts`
+- `packages/server/src/runtime/world/combat/world-runtime-basic-attack.service.ts`
+
+玩家可在行动栏「开关」页选择出手力度：1 成、3 成、7 成、10 成、12 成。默认 10 成，保持原有伤害与灵力消耗。
+
+| 档位 | 伤害倍率 | 技能实际灵力消耗 |
+|------|----------|------------------|
+| 1 成 | 10% | 标准公式结算后降低 50% |
+| 3 成 | 30% | 标准公式 |
+| 7 成 | 70% | 标准公式 |
+| 10 成 | 100% | 标准公式 |
+| 12 成 | 120% | 标准公式结算后翻倍 |
+
+灵力修正只影响服务端实际扣费，不改变技能面板显示的标准消耗。
+
 ## 吟唱系统（Pending Cast）
 
 源文件: `packages/server/src/runtime/combat/pending-combat-cast.helpers.ts`

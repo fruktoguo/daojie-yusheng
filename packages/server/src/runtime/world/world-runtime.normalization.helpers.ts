@@ -11,7 +11,7 @@
 /** 运行时参数标准化工具：统一输入解析、比较稳定性与展示数据。
  * 职责：输入校验、ID 构建、坐标/数值归一化。 */
 import { BadRequestException } from '@nestjs/common';
-import { ARTIFACT_SLOTS, Direction, EQUIP_SLOTS, calcQiCostWithOutputLimit, createItemStackSignature, getDamageTrailColor, getItemStackDisplayLabel, mergeItemStackEntryInto, mergeItemStackInto, resolveSkillEffectiveRange } from '@mud/shared';
+import { ARTIFACT_SLOTS, Direction, EQUIP_SLOTS, applyCombatAttackIntensityQiCost, calcQiCostWithOutputLimit, createItemStackSignature, getDamageTrailColor, getItemStackDisplayLabel, mergeItemStackEntryInto, mergeItemStackInto, resolveSkillEffectiveRange } from '@mud/shared';
 
 /** 统一动作 ID。 */
 export function normalizeRuntimeActionId(actionIdInput) {
@@ -732,7 +732,7 @@ export function resolveRuntimeSkillRange(skill) {
     return resolveSkillEffectiveRange(skill);
 }
 /** 计算自动战斗可允许的技能气耗上限。 */
-export function resolveAutoBattleSkillQiCost(baseCost, maxQiOutputPerTick) {
+export function resolveAutoBattleSkillQiCost(baseCost, maxQiOutputPerTick, combatAttackIntensity = undefined) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const normalizedBaseCost = Number.isFinite(baseCost) ? Math.max(0, Math.round(baseCost ?? 0)) : 0;
@@ -741,6 +741,6 @@ export function resolveAutoBattleSkillQiCost(baseCost, maxQiOutputPerTick) {
     }
 
     const outputCap = Number.isFinite(maxQiOutputPerTick) ? Math.max(0, Math.round(maxQiOutputPerTick)) : 0;
-    return Math.round(calcQiCostWithOutputLimit(normalizedBaseCost, outputCap));
+    return applyCombatAttackIntensityQiCost(Math.round(calcQiCostWithOutputLimit(normalizedBaseCost, outputCap)), combatAttackIntensity);
 }
 export const buildLegacyNpcQuestProgressText = buildNpcQuestProgressText;

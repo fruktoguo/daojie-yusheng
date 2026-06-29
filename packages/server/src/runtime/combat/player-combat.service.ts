@@ -4,7 +4,7 @@
  * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
 import { Inject, BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { calcQiCostWithOutputLimit, compileValueStatsToActualStats, percentModifierToMultiplier, resolveSkillEffectiveRange, signedRatioValue } from '@mud/shared';
+import { applyCombatAttackIntensityQiCost, calcQiCostWithOutputLimit, compileValueStatsToActualStats, percentModifierToMultiplier, resolveCombatAttackIntensityDamageMultiplier, resolveSkillEffectiveRange, signedRatioValue } from '@mud/shared';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { resolveMonsterCombatExpEquivalentFallback } from './monster-combat-exp-equivalent.helper';
 import { resolveCombatDamage, resolveTileCombatDamage } from './combat-pipeline-compose';
@@ -208,7 +208,8 @@ export class PlayerCombatService {
         let qiCost = 0;
         if (options?.skipResourceAndCooldown !== true && !resolved.skipQiCost) {
             const plannedCost = normalizeSkillQiCost(resolved.skill.cost);
-            qiCost = Math.round(calcQiCostWithOutputLimit(plannedCost, Math.max(0, attacker.attrs.numericStats.maxQiOutputPerTick)));
+            const standardQiCost = Math.round(calcQiCostWithOutputLimit(plannedCost, Math.max(0, attacker.attrs.numericStats.maxQiOutputPerTick)));
+            qiCost = applyCombatAttackIntensityQiCost(standardQiCost, options?.combatAttackIntensity ?? attacker.combatAttackIntensity);
             if (!Number.isFinite(qiCost) || attacker.qi < qiCost) {
                 throw new BadRequestException(`技能 ${resolved.skill.id} 元气不足`);
             }
@@ -244,6 +245,7 @@ export class PlayerCombatService {
             techLevel: resolved.level,
             targetCount,
         };
+        const damageMultiplier = resolveCombatAttackIntensityDamageMultiplier(options?.combatAttackIntensity ?? attacker.combatAttackIntensity);
         const combatContext = createEffectDamageContext(attacker, target, options?.isTileTarget === true);
         const sectionRecorder = typeof options?.recordSkillCastSectionDuration === 'function'
             ? options.recordSkillCastSectionDuration
@@ -252,7 +254,7 @@ export class PlayerCombatService {
             if (effect.type === 'damage') {
                 // 伤害效果：求值公式 → 结算命中/暴击/防御
                 const formulaStartedAt = sectionRecorder ? performance.now() : 0;
-                const baseDamage = Math.max(1, Math.round(evaluateSkillFormula(effect.formula, formulaContext)));
+                const baseDamage = Math.max(1, Math.round(evaluateSkillFormula(effect.formula, formulaContext) * damageMultiplier));
                 sectionRecorder?.('formulaEvalMs', performance.now() - formulaStartedAt);
 
                 const damageStartedAt = sectionRecorder ? performance.now() : 0;
@@ -418,6 +420,7 @@ function toCombatPlayerState(player) {
         maxHp: player.maxHp,
         qi: player.qi,
         maxQi: player.maxQi,
+        combatAttackIntensity: player.combat?.combatAttackIntensity,
         realm: player.realm,
         realmLv: player.realm?.realmLv,
         combatExp: player.combatExp,

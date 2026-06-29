@@ -29,6 +29,7 @@ import {
   EQUIP_SLOTS,
   isPlainEqual,
   normalizeAutoBattleTargetingMode,
+  normalizeCombatAttackIntensity,
   normalizeCombatTargetingRules,
   resolveSkillRequiresTarget,
   TechniqueRealm,
@@ -1429,6 +1430,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
       const previousAllowAoePlayerHit = player?.allowAoePlayerHit ?? false;
       const previousRetaliatePlayerTargetId = player?.retaliatePlayerTargetId ?? null;
       const previousAutoRootFoundation = player?.autoRootFoundation ?? false;
+      const previousCombatAttackIntensity = normalizeCombatAttackIntensity(player?.combatAttackIntensity);
       const nextAutoBattle = data.autoBattle ?? player?.autoBattle ?? false;
       const nextAutoUsePills = data.autoUsePills ?? player?.autoUsePills ?? [];
       const nextAutoRetaliate = data.autoRetaliate ?? player?.autoRetaliate ?? true;
@@ -1451,6 +1453,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
       const nextAutoIdleCultivation = data.autoIdleCultivation ?? player?.autoIdleCultivation ?? true;
       const nextAutoSwitchCultivation = data.autoSwitchCultivation ?? player?.autoSwitchCultivation ?? false;
       const nextAutoRootFoundation = data.autoRootFoundation ?? player?.autoRootFoundation ?? false;
+      const nextCombatAttackIntensity = normalizeCombatAttackIntensity(data.combatAttackIntensity ?? player?.combatAttackIntensity);
       const nextCultivationActive = data.cultivationActive ?? player?.cultivationActive ?? false;
       const nextSenseQiActive = data.senseQiActive ?? player?.senseQiActive ?? false;
       const nextWangQiActive = data.wangQiActive ?? player?.wangQiActive ?? false;
@@ -1462,6 +1465,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
         || previousCombatTargetId !== nextCombatTargetId
         || previousCombatTargetLocked !== nextCombatTargetLocked
         || previousAutoRootFoundation !== nextAutoRootFoundation
+        || previousCombatAttackIntensity !== nextCombatAttackIntensity
         || haveActionRenderStructureChanges(previousActions, mergedActions);
       if (player) {
         player.actions = mergedActions;
@@ -1485,6 +1489,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
         player.autoIdleCultivation = nextAutoIdleCultivation;
         player.autoSwitchCultivation = nextAutoSwitchCultivation;
         player.autoRootFoundation = nextAutoRootFoundation;
+        player.combatAttackIntensity = nextCombatAttackIntensity;
         player.cultivationActive = nextCultivationActive;
         player.senseQiActive = nextSenseQiActive;
         player.wangQiActive = nextWangQiActive;

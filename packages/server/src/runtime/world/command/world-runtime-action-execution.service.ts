@@ -4,6 +4,7 @@
  * 维护时要保持状态变更受控，所有影响资产或位置的结果都应能被持久化与恢复链覆盖。
  */
 import { Inject, Injectable, BadRequestException, ServiceUnavailableException } from '@nestjs/common';
+import { isCombatAttackIntensity, normalizeCombatAttackIntensity } from '@mud/shared';
 import { PlayerRuntimeService } from '../../player/player-runtime.service';
 import { WorldRuntimeNpcQuestWriteService } from '../world-runtime-npc-quest-write.service';
 import { buildStructuredNotice } from '../structured-notice.helpers';
@@ -161,6 +162,19 @@ export class WorldRuntimeActionExecutionService {
         }
         if (actionId === 'toggle:auto_switch_cultivation') {
             return this.toggleCombatSetting(playerId, currentTick, 'autoSwitchCultivation', deps);
+        }
+        if (actionId.startsWith('combat:attack_intensity:')) {
+            const rawIntensity = Number(actionId.slice('combat:attack_intensity:'.length));
+            if (!isCombatAttackIntensity(rawIntensity)) {
+                throw new BadRequestException('出手力度档位无效');
+            }
+            const intensity = normalizeCombatAttackIntensity(rawIntensity);
+            this.playerRuntimeService.updateCombatSettings(playerId, { combatAttackIntensity: intensity }, currentTick);
+            const notice = buildStructuredNotice('info', 'notice.action.attack-intensity-updated', '出手力度已调整', {
+                vars: { intensity },
+            });
+            deps.queuePlayerNotice(playerId, notice.text, notice.kind, undefined, undefined, notice.structured);
+            return { kind: 'queued', view: deps.getPlayerViewOrThrow(playerId) };
         }
         if (actionId === 'realm:auto_refine_root_foundation' || actionId.startsWith('realm:auto_refine_root_foundation:')) {
             const mode = actionId.slice('realm:auto_refine_root_foundation'.length).replace(/^:/, '');

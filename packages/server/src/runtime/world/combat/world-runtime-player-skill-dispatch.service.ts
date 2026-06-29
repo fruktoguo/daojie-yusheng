@@ -4,7 +4,7 @@
  * 维护时要保证结算仍由服务端权威执行，客户端只接收结构化结果和必要表现字段。
  */
 import { Inject, BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { TileType, buildEffectiveTargetingGeometry, calcQiCostWithOutputLimit, computeAffectedCellsFromAnchor, formatDisplayNumber, horizontalFacingFromTo, parseTileTargetRef, percentModifierToMultiplier, resolveSkillRequiresTarget, signedRatioValue, uiLabels } from '@mud/shared';
+import { TileType, applyCombatAttackIntensityQiCost, buildEffectiveTargetingGeometry, calcQiCostWithOutputLimit, computeAffectedCellsFromAnchor, formatDisplayNumber, horizontalFacingFromTo, parseTileTargetRef, percentModifierToMultiplier, resolveSkillRequiresTarget, signedRatioValue, uiLabels } from '@mud/shared';
 import { PlayerCombatService } from '../../combat/player-combat.service';
 import { createCombatOutcomeApplyAdapters } from '../../combat/combat-outcome-apply-adapters';
 import { resolveMonsterCombatExpEquivalentFallback } from '../../combat/monster-combat-exp-equivalent.helper';
@@ -249,7 +249,8 @@ function spendSkillCostAndStartCooldown(playerRuntimeService, attacker, skill, c
         throw new BadRequestException(`技能 ${skill.id} 尚在冷却`);
     }
     const plannedCost = Math.max(0, Math.round(Number(skill.cost) || 0));
-    const qiCost = Math.round(calcQiCostWithOutputLimit(plannedCost, Math.max(0, attacker.attrs?.numericStats?.maxQiOutputPerTick ?? 0)));
+    const standardQiCost = Math.round(calcQiCostWithOutputLimit(plannedCost, Math.max(0, attacker.attrs?.numericStats?.maxQiOutputPerTick ?? 0)));
+    const qiCost = applyCombatAttackIntensityQiCost(standardQiCost, attacker.combat?.combatAttackIntensity);
     if (qiCost > 0) {
         if (!Number.isFinite(qiCost) || attacker.qi < qiCost) {
             throw new BadRequestException(`技能 ${skill.id} 元气不足`);
@@ -986,7 +987,8 @@ export class WorldRuntimePlayerSkillDispatchService {
         attacker.combat.pendingSkillCast = undefined;
         const skillQiCost = Number.isFinite(skill.cost) ? Math.max(0, Math.round(Number(skill.cost))) : 0;
         if (skillQiCost > 0) {
-            const effectiveCost = Math.round(calcQiCostWithOutputLimit(skillQiCost, Math.max(0, attacker.attrs?.numericStats?.maxQiOutputPerTick ?? 0)));
+            const standardCost = Math.round(calcQiCostWithOutputLimit(skillQiCost, Math.max(0, attacker.attrs?.numericStats?.maxQiOutputPerTick ?? 0)));
+            const effectiveCost = applyCombatAttackIntensityQiCost(standardCost, attacker.combat?.combatAttackIntensity);
             if (Number.isFinite(effectiveCost) && attacker.qi < effectiveCost) {
                 this.recordPlayerSkillReject(deps, attacker, skill, pendingCast, CombatRejectReason.InsufficientResource, {
                     phase: 'pending_cast_resolve_resource_check',

@@ -8,7 +8,7 @@ import type { ActionType } from './action-combat-types';
 import type { AttrBonus, Attributes } from './attribute-types';
 import type { CraftEffectStatsPatch } from './craft-effect-stats';
 import type { SkillDef } from './skill-types';
-import type { AutoBattleTargetingMode, AutoUsePillConfig, CombatTargetingRules } from './automation-types';
+import type { AutoBattleTargetingMode, AutoUsePillConfig, CombatAttackIntensity, CombatTargetingRules } from './automation-types';
 import type { PlayerState } from './player-runtime-types';
 import type { VisibleBuffState } from './world-core-types';
 import type { NumericStatBreakdownMap, PartialNumericRatioDivisors, PartialNumericStats } from './numeric';
@@ -410,6 +410,11 @@ export interface ActionsUpdateView {
 
   autoRootFoundation?: boolean;
   /**
+ * combatAttackIntensity：出手力度档位，单位为“成”。
+ */
+
+  combatAttackIntensity?: CombatAttackIntensity;
+  /**
  * cultivationActive：cultivation激活状态相关字段。
  */
 
@@ -557,6 +562,11 @@ export interface PanelActionDeltaView {
  */
 
   autoRootFoundation?: boolean;
+  /**
+ * combatAttackIntensity：出手力度档位，单位为“成”。
+ */
+
+  combatAttackIntensity?: CombatAttackIntensity;
   /**
  * cultivationActive：cultivation激活状态相关字段。
  */

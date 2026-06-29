@@ -431,6 +431,7 @@ export interface ProjectorPlayerLike {
     autoIdleCultivation?: boolean;
     autoSwitchCultivation?: boolean;
     autoRootFoundation?: boolean;
+    combatAttackIntensity?: import('@mud/shared').CombatAttackIntensity;
     cultivationActive?: boolean;
     senseQiActive?: boolean;
     wangQiActive?: boolean;
@@ -482,6 +483,7 @@ export interface ProjectedActionPanelState {
   autoIdleCultivation?: boolean;
   autoSwitchCultivation?: boolean;
   autoRootFoundation?: boolean;
+  combatAttackIntensity?: import('@mud/shared').CombatAttackIntensity;
   cultivationActive?: boolean;
   senseQiActive?: boolean;
   wangQiActive?: boolean;

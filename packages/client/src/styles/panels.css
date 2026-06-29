@@ -8983,6 +8983,105 @@
       background: rgba(84, 119, 55, 0.18);
       box-shadow: inset 0 -2px 0 rgba(120, 167, 84, 0.75);
     }
+    .attack-intensity-control {
+      display: grid;
+      gap: 8px;
+      margin-bottom: 10px;
+      padding: 10px;
+      border: 1px solid rgba(34, 26, 19, 0.12);
+      background: var(--surface-muted-strong);
+    }
+    .attack-intensity-head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 6px 10px;
+    }
+    .attack-intensity-title {
+      font-size: var(--font-size-13);
+      color: var(--ink-black);
+    }
+    .attack-intensity-desc {
+      margin-top: 2px;
+      font-size: var(--font-size-11);
+      line-height: 1.45;
+      color: var(--ink-grey);
+    }
+    .attack-intensity-current {
+      flex: 0 0 auto;
+      min-width: 54px;
+      padding: 3px 8px;
+      border: 1px solid rgba(84, 119, 55, 0.24);
+      background: rgba(84, 119, 55, 0.08);
+      color: #365b2d;
+      font-size: var(--font-size-11);
+      text-align: center;
+      white-space: nowrap;
+    }
+    .attack-intensity-track {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 0;
+      overflow: hidden;
+      border: 1px solid rgba(34, 26, 19, 0.14);
+      background: rgba(255, 251, 244, 0.76);
+    }
+    .attack-intensity-segment {
+      min-width: 0;
+      min-height: 36px;
+      padding: 7px 6px;
+      border: 0;
+      border-right: 1px solid rgba(34, 26, 19, 0.12);
+      background: transparent;
+      color: var(--ink-grey);
+      font-size: var(--font-size-12);
+      line-height: 1.2;
+      cursor: pointer;
+    }
+    .attack-intensity-segment:last-child {
+      border-right: 0;
+    }
+    .attack-intensity-segment:hover {
+      background: rgba(214, 188, 142, 0.12);
+      color: var(--ink-black);
+    }
+    .attack-intensity-segment.active {
+      background: rgba(125, 27, 27, 0.12);
+      color: var(--stamp-red);
+      box-shadow: inset 0 -2px 0 rgba(125, 27, 27, 0.58);
+    }
+    .attack-intensity-segment span {
+      display: block;
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+    :root[data-color-mode="dark"] .attack-intensity-control {
+      border-color: rgba(255, 255, 255, 0.08);
+      background: rgba(22, 25, 22, 0.86);
+    }
+    :root[data-color-mode="dark"] .attack-intensity-current {
+      border-color: rgba(120, 167, 84, 0.3);
+      background: rgba(84, 119, 55, 0.18);
+      color: #bddba4;
+    }
+    :root[data-color-mode="dark"] .attack-intensity-track {
+      border-color: rgba(255, 255, 255, 0.1);
+      background: rgba(11, 13, 12, 0.58);
+    }
+    :root[data-color-mode="dark"] .attack-intensity-segment {
+      border-right-color: rgba(255, 255, 255, 0.08);
+      color: rgba(232, 226, 214, 0.68);
+    }
+    :root[data-color-mode="dark"] .attack-intensity-segment:hover {
+      background: rgba(214, 188, 142, 0.1);
+      color: rgba(255, 251, 244, 0.92);
+    }
+    :root[data-color-mode="dark"] .attack-intensity-segment.active {
+      background: rgba(125, 27, 27, 0.26);
+      color: #ffb2a3;
+      box-shadow: inset 0 -2px 0 rgba(196, 92, 92, 0.7);
+    }
     .auto-pill-shell {
       display: flex;
       flex-direction: column;

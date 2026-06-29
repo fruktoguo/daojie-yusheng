@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {
     DEFAULT_PLAYER_REALM_STAGE,
     PLAYER_REALM_NUMERIC_TEMPLATES,
+    applyCombatAttackIntensityQiCost,
     cloneNumericRatioDivisors,
     cloneNumericStats,
     type NumericRatioDivisors,
@@ -141,6 +142,52 @@ withRandom(0, () => {
     });
     assert.equal(critical.crit, true, 'critDamage=0 should still allow critical resolution');
     assert.equal(critical.damage, 200, 'critDamage=0 should mean the base critical multiplier is exactly 200%');
+});
+
+withRandom(0.99, () => {
+    const service = new PlayerCombatService({});
+    const makeCombatant = (combatAttackIntensity: number) => ({
+        playerId: `player:intensity:${combatAttackIntensity}`,
+        hp: 1000,
+        maxHp: 1000,
+        qi: 1000,
+        maxQi: 1000,
+        combatAttackIntensity,
+        realm: { realmLv: 1 },
+        combatExp: 0,
+        attrs: {
+            numericStats: createStats({ maxQiOutputPerTick: 100 }),
+            ratioDivisors: createRatios(),
+        },
+        buffs: { buffs: [] },
+        techniques: { techniques: [] },
+        combat: { cooldownReadyTickBySkillId: {}, combatAttackIntensity },
+    });
+    const skill = {
+        id: 'skill:intensity:test',
+        name: '力度测试',
+        cost: 10,
+        cooldown: 1,
+        range: 1,
+        effects: [{ type: 'damage', formula: 100, target: 'enemy', damageKind: 'physical' }],
+    };
+    let spentQi = 0;
+    const low = service.executeResolvedSkillCast(makeCombatant(1), makeCombatant(10), { skill, level: 1, readyTick: 0 }, 1, 1, {
+        spendQi: (amount: number) => { spentQi += amount; },
+        setCooldownReadyTick: () => undefined,
+    });
+    assert.equal(low.totalDamage, 10, '1 成应造成 10% 技能伤害');
+    assert.equal(low.qiCost, 5, '1 成应在标准实际消耗后降低 50%');
+    assert.equal(spentQi, 5, '1 成实际扣费应使用修正后的灵力消耗');
+
+    spentQi = 0;
+    const over = service.executeResolvedSkillCast(makeCombatant(12), makeCombatant(10), { skill, level: 1, readyTick: 0 }, 1, 1, {
+        spendQi: (amount: number) => { spentQi += amount; },
+        setCooldownReadyTick: () => undefined,
+    });
+    assert.equal(over.totalDamage, 120, '12 成应造成 120% 技能伤害');
+    assert.equal(over.qiCost, 20, '12 成应在标准实际消耗后翻倍');
+    assert.equal(applyCombatAttackIntensityQiCost(10, 7), 10, '7 成灵力消耗应保持标准公式');
 });
 
 withRandom(0.99, () => {

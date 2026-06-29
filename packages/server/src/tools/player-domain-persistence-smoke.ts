@@ -165,7 +165,7 @@ async function main(): Promise<void> {
     );
     const combatPreferenceRow = await fetchSingleRow(
       pool,
-      'SELECT auto_battle, auto_battle_targeting_mode, retaliate_player_target_id, retaliate_player_target_last_attack_tick, auto_root_foundation, sense_qi_active, cultivation_active, cultivating_tech_id FROM player_combat_preferences WHERE player_id = $1',
+      'SELECT auto_battle, auto_battle_targeting_mode, retaliate_player_target_id, retaliate_player_target_last_attack_tick, auto_root_foundation, combat_attack_intensity, sense_qi_active, cultivation_active, cultivating_tech_id FROM player_combat_preferences WHERE player_id = $1',
       [playerId],
     );
     const autoBattleSkillRows = await fetchRows(
@@ -334,6 +334,7 @@ async function main(): Promise<void> {
       || combatPreferenceRow.retaliate_player_target_id !== 'rival_alpha'
       || Number(combatPreferenceRow.retaliate_player_target_last_attack_tick) !== 3456
       || combatPreferenceRow.auto_root_foundation !== true
+      || Number(combatPreferenceRow.combat_attack_intensity) !== 12
       || combatPreferenceRow.sense_qi_active !== true
       || combatPreferenceRow.cultivation_active !== true
       || combatPreferenceRow.cultivating_tech_id !== 'qi.breathing'
@@ -732,6 +733,7 @@ async function main(): Promise<void> {
         autoIdleCultivation: false,
         autoSwitchCultivation: true,
         autoRootFoundation: true,
+        combatAttackIntensity: 12,
         senseQiActive: true,
         cultivationActive: true,
         cultivatingTechId: 'qi.direct_flow',
@@ -2955,6 +2957,7 @@ function buildSnapshot(now: number): PersistedPlayerSnapshot {
       autoIdleCultivation: true,
       autoSwitchCultivation: false,
       autoRootFoundation: true,
+      combatAttackIntensity: 12,
       senseQiActive: true,
       cultivationActive: true,
       combatTargetingRules: {
