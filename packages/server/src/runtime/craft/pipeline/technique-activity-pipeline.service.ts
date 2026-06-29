@@ -30,6 +30,18 @@ import {
   getStrategyActiveJob,
   setStrategyActiveJob,
 } from './technique-activity-strategy';
+import { applyPlayerCraftExpRate } from '../craft-effect-runtime.helpers';
+
+const CRAFT_EFFECT_SKILL_BY_SKILL_SLOT: Record<string, RuntimeTechniqueActivityKind> = {
+  alchemySkill: 'alchemy',
+  forgingSkill: 'forging',
+  enhancementSkill: 'enhancement',
+  transmissionSkill: 'transmission',
+  gatherSkill: 'gather',
+  miningSkill: 'mining',
+  buildingSkill: 'building',
+  formationSkill: 'formation',
+};
 
 export interface CraftTickResult {
   ok: boolean;
@@ -120,7 +132,11 @@ export function applyTechniqueActivityResolveExperience(
   if (!skillState) {
     return { finalGain: 0, attrChanged: false };
   }
-  const { finalGain } = computeExpGainFromParams(resolved.expParams);
+  const { finalGain: rawFinalGain } = computeExpGainFromParams(resolved.expParams);
+  const skillKind = CRAFT_EFFECT_SKILL_BY_SKILL_SLOT[skillSlot];
+  const finalGain = skillKind
+    ? applyPlayerCraftExpRate(player, skillKind, rawFinalGain)
+    : rawFinalGain;
   if (finalGain <= 0) {
     return { finalGain: 0, attrChanged: false };
   }

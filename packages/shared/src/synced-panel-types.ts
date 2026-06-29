@@ -4,6 +4,7 @@
  * 维护时应保持无副作用、可在浏览器与 Node 环境同时使用，不引入单端专属依赖。
  */
 import type { TechniqueCategory, TechniqueGrade } from './cultivation-types';
+import type { CraftEffectStatsPatch } from './craft-effect-stats';
 import type { ArtifactSlot, ConsumableBuffDef, EquipmentEffectDef, EquipSlot, ItemStack, ItemType, TileResourceGainDef } from './item-runtime-types';
 import type { LootSearchProgressView, LootSourceKind } from './loot-view-types';
 import type { MarketListedItemView, MarketOrderBookView, MarketOwnOrderView, MarketStorage, MarketTradeHistoryEntryView } from './market-types';
@@ -161,40 +162,10 @@ export interface SyncedItemStack {
 
   enhanceLevel?: number;
   /**
- * alchemySuccessRate：炼丹SuccessRate数值。
+ * craftEffectStats：技艺效果属性。
  */
 
-  alchemySuccessRate?: number;
-  /**
- * alchemySpeedRate：炼丹SpeedRate数值。
- */
-
-  alchemySpeedRate?: number;
-  /**
- * enhancementSuccessRate：强化SuccessRate数值。
- */
-
-  enhancementSuccessRate?: number;
-  /**
- * enhancementSpeedRate：强化SpeedRate数值。
- */
-
-  enhancementSpeedRate?: number;
-  /**
- * miningDamageRate：挖矿对矿脉伤害增幅比率。
- */
-
-  miningDamageRate?: number;
-  /**
- * miningDropRate：矿物额外概率。
- */
-
-  miningDropRate?: number;
-  /**
- * buildingSpeedRate：每息建造进度增幅比率。
- */
-
-  buildingSpeedRate?: number;
+  craftEffectStats?: CraftEffectStatsPatch;
   /**
  * mapUnlockId：地图UnlockID标识。
  */

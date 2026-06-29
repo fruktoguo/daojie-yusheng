@@ -7678,7 +7678,11 @@
           "cooldownLeft": 0
         }
       ],
-      "buildingSpeedRate": 0.25
+      "craftEffectStats": {
+        "building": {
+          "speedRate": 0.25
+        }
+      }
     },
     {
       "itemId": "mat.ice_crystal_silk",
@@ -7841,8 +7845,12 @@
           "cooldownLeft": 0
         }
       ],
-      "alchemySuccessRate": 0.16,
-      "alchemySpeedRate": 0.3
+      "craftEffectStats": {
+        "alchemy": {
+          "successRate": 0.16,
+          "speedRate": 0.3
+        }
+      }
     },
     {
       "itemId": "pill.crimson_bud_elixir",
@@ -8064,8 +8072,12 @@
           "range": 999
         }
       ],
-      "miningDamageRate": 1.2,
-      "miningDropRate": 0.2
+      "craftEffectStats": {
+        "mining": {
+          "speedRate": 1.2,
+          "outputRate": 0.2
+        }
+      }
     },
     {
       "itemId": "mat.dragon_inner_core",
@@ -8270,8 +8282,12 @@
           "cooldownLeft": 0
         }
       ],
-      "alchemySuccessRate": 0.24,
-      "alchemySpeedRate": 0.4
+      "craftEffectStats": {
+        "alchemy": {
+          "successRate": 0.24,
+          "speedRate": 0.4
+        }
+      }
     },
     {
       "itemId": "equip.sealed_path_token",
@@ -8363,8 +8379,12 @@
           "cooldownLeft": 0
         }
       ],
-      "alchemySuccessRate": 0.16,
-      "alchemySpeedRate": 0.3
+      "craftEffectStats": {
+        "forging": {
+          "successRate": 0.16,
+          "speedRate": 0.3
+        }
+      }
     },
     {
       "itemId": "equip.geng_gate_blade",
@@ -8491,8 +8511,12 @@
           "range": 999
         }
       ],
-      "miningDamageRate": 0.8,
-      "miningDropRate": 0.15
+      "craftEffectStats": {
+        "mining": {
+          "speedRate": 0.8,
+          "outputRate": 0.15
+        }
+      }
     },
     {
       "itemId": "guizang_vein_core",
@@ -9071,7 +9095,11 @@
           "cooldownLeft": 0
         }
       ],
-      "buildingSpeedRate": 0.35
+      "craftEffectStats": {
+        "building": {
+          "speedRate": 0.35
+        }
+      }
     },
     {
       "itemId": "mat.living_charcoal",
@@ -10158,8 +10186,12 @@
           "cooldownLeft": 0
         }
       ],
-      "alchemySuccessRate": 0.24,
-      "alchemySpeedRate": 0.4
+      "craftEffectStats": {
+        "forging": {
+          "successRate": 0.24,
+          "speedRate": 0.4
+        }
+      }
     },
     {
       "itemId": "mat.abyss_spirit_mud",
@@ -10665,8 +10697,12 @@
           "range": 999
         }
       ],
-      "miningDamageRate": 0.5,
-      "miningDropRate": 0.1
+      "craftEffectStats": {
+        "mining": {
+          "speedRate": 0.5,
+          "outputRate": 0.1
+        }
+      }
     },
     {
       "itemId": "equip.copper_forging_tool",
@@ -10688,8 +10724,12 @@
           "cooldownLeft": 0
         }
       ],
-      "alchemySuccessRate": 0.1,
-      "alchemySpeedRate": 0.2
+      "craftEffectStats": {
+        "forging": {
+          "successRate": 0.1,
+          "speedRate": 0.2
+        }
+      }
     },
     {
       "itemId": "equip.copper_luopan",
@@ -10723,8 +10763,12 @@
           "cooldownLeft": 0
         }
       ],
-      "enhancementSuccessRate": 0.01,
-      "enhancementSpeedRate": 0.2
+      "craftEffectStats": {
+        "enhancement": {
+          "successRate": 0.01,
+          "speedRate": 0.2
+        }
+      }
     },
     {
       "itemId": "equip.copper_pill_furnace",
@@ -10746,8 +10790,12 @@
           "cooldownLeft": 0
         }
       ],
-      "alchemySuccessRate": 0.1,
-      "alchemySpeedRate": 0.2
+      "craftEffectStats": {
+        "alchemy": {
+          "successRate": 0.1,
+          "speedRate": 0.2
+        }
+      }
     },
     {
       "itemId": "equip.copper_building_hammer",
@@ -10769,7 +10817,11 @@
           "cooldownLeft": 0
         }
       ],
-      "buildingSpeedRate": 0.2
+      "craftEffectStats": {
+        "building": {
+          "speedRate": 0.2
+        }
+      }
     },
     {
       "itemId": "mat.earth_beetle_core",
@@ -10882,8 +10934,12 @@
           "cooldownLeft": 0
         }
       ],
-      "enhancementSuccessRate": 0.015,
-      "enhancementSpeedRate": 0.25
+      "craftEffectStats": {
+        "enhancement": {
+          "successRate": 0.015,
+          "speedRate": 0.25
+        }
+      }
     },
     {
       "itemId": "mat.fivephase_secretion",
@@ -11170,8 +11226,12 @@
           "cooldownLeft": 0
         }
       ],
-      "enhancementSuccessRate": 0.02,
-      "enhancementSpeedRate": 0.35
+      "craftEffectStats": {
+        "enhancement": {
+          "successRate": 0.02,
+          "speedRate": 0.35
+        }
+      }
     },
     {
       "itemId": "black_iron_chunk",

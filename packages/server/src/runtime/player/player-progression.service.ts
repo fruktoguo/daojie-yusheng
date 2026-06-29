@@ -12,6 +12,7 @@ import { getMonsterCombatExpGradeFactor, resolveMonsterCombatExpTierFactor } fro
 import { PlayerAttributesService } from './player-attributes.service';
 import { PlayerCountersPersistenceService } from '../../persistence/player-counters-persistence.service';
 import { normalizeRuntimeRealmExpMultiplier, normalizeRuntimeRealmLevelEntry } from './realm-runtime-exp.helpers';
+import { applyPlayerCraftExpRate, resolvePlayerCraftEffectStat } from '../craft/craft-effect-runtime.helpers';
 
 /** 境界配置文件路径，启动时从这里加载所有境界参数。 */
 const REALM_LEVELS_PATH = ['packages', 'server', 'data', 'content', 'realm-levels.json'];
@@ -2107,6 +2108,7 @@ export class PlayerProgressionService {
             techniqueRealmLv: pending.realmLv,
             learnerRealmLv: player.realm?.realmLv ?? 1,
             learnerTransmissionLevel: player.transmissionSkill?.level ?? 1,
+            transmissionSpeedRate: resolvePlayerCraftEffectStat(player, 'transmission', 'speedRate'),
         });
         if (normalized <= 0) {
             return resolved;
@@ -2514,7 +2516,7 @@ function applyTransmissionSkillExpFromTicks(player, elapsedTicks, targetLevel, g
     if (!skill) {
         return false;
     }
-    const gain = computeCraftSkillExpGain({
+    const baseGain = computeCraftSkillExpGain({
         skillLevel: skill.level,
         targetLevel: Math.max(1, Math.floor(Number(targetLevel) || 1)),
         baseActionTicks: elapsedTicks,
@@ -2523,6 +2525,7 @@ function applyTransmissionSkillExpFromTicks(player, elapsedTicks, targetLevel, g
         failureCount: 0,
         successMultiplier: 1,
     }).finalGain;
+    const gain = applyPlayerCraftExpRate(player, 'transmission', baseGain);
     return applyCraftSkillExpLocal(skill, gain, getExpToNextByLevel);
 }
 

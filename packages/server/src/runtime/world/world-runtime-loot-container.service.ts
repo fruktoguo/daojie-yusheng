@@ -10,6 +10,7 @@ import { ContentTemplateRepository } from '../../content/content-template.reposi
 import { PlayerDomainPersistenceService } from '../../persistence/player-domain-persistence.service';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { resolveCraftSkillExpToNextByLevel } from '../craft/craft-skill-exp.helpers';
+import { resolvePlayerCraftEffectStat } from '../craft/craft-effect-runtime.helpers';
 import { executeGatherTick } from '../craft/pipeline/strategies/gather-tick.helpers';
 import { reassignItemInstanceId } from './item-instance-id.helpers';
 import { buildStructuredNotice } from './structured-notice.helpers';
@@ -66,7 +67,10 @@ function computeHerbNativeGatherTicks(container, row) {
 function computeEffectiveHerbGatherTicks(player, container, row) {
     const nativeGatherTicks = computeHerbNativeGatherTicks(container, row);
     const gatherLevel = Math.max(1, Math.floor(Number(player?.gatherSkill?.level) || 1));
-    return computeAdjustedCraftTicks(nativeGatherTicks, gatherLevel * GATHER_SPEED_PER_LEVEL);
+    return computeAdjustedCraftTicks(
+        nativeGatherTicks,
+        gatherLevel * GATHER_SPEED_PER_LEVEL + Math.max(0, resolvePlayerCraftEffectStat(player, 'gather', 'speedRate')),
+    );
 }
 
 function prepareLootGrantItemsForReceiver(sourceType, items) {

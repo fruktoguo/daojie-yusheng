@@ -71,9 +71,11 @@ interface EnhancementSmokePlayer {
     items: ItemStack[];
   };
   attrs: {
-    craftStats: {
-      enhancementSuccessRate: number;
-      enhancementSpeedRate: number;
+    craftEffectStats: {
+      enhancement: {
+        successRate: number;
+        speedRate: number;
+      };
     };
   };
   equipment: {
@@ -112,9 +114,11 @@ function createPlayer(): EnhancementSmokePlayer {
       ],
     },
     attrs: {
-      craftStats: {
-        enhancementSuccessRate: 0.01,
-        enhancementSpeedRate: 0.2,
+      craftEffectStats: {
+        enhancement: {
+          successRate: 0.01,
+          speedRate: 0.2,
+        },
       },
     },
     equipment: {
@@ -122,7 +126,9 @@ function createPlayer(): EnhancementSmokePlayer {
         {
           slot: "weapon",
           item: {
-            ...createEquipment("equip.copper_enhancement_hammer", 1, { enhancementSuccessRate: 0.01, enhancementSpeedRate: 0.2 }),
+            ...createEquipment("equip.copper_enhancement_hammer", 1, {
+              craftEffectStats: { enhancement: { successRate: 0.01, speedRate: 0.2 } },
+            }),
             tags: ["enhancement_hammer"],
           },
         },

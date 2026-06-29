@@ -4,7 +4,7 @@
  * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
 import { Injectable } from '@nestjs/common';
-import { ENHANCEMENT_HAMMER_TAG, MAX_ENHANCE_LEVEL, cloneCraftEquipmentStats, computeEnhancementAdjustedSuccessRate, computeEnhancementJobTicks, computeEnhancementToolSpeedRate, computeLuckSuccessRateBonus } from '@mud/shared';
+import { ENHANCEMENT_HAMMER_TAG, MAX_ENHANCE_LEVEL, cloneCraftEffectStats, computeEnhancementAdjustedSuccessRate, computeEnhancementJobTicks, computeEnhancementToolSpeedRate, computeLuckSuccessRateBonus } from '@mud/shared';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { assignItemInstanceIdIfNeeded } from '../world/item-instance-id.helpers';
 import { resolvePlayerEffectiveLuck } from '../player/player-special-stat.helpers';
@@ -72,7 +72,7 @@ export class CraftPanelEnhancementQueryService {
         const hammerItemId = hammer?.tags?.includes(ENHANCEMENT_HAMMER_TAG) ? hammer.itemId : undefined;
         return {
             hammerItemId,
-            toolStats: cloneCraftEquipmentStats(player?.attrs?.craftStats),
+            toolStats: cloneCraftEffectStats(player?.attrs?.craftEffectStats),
             enhancementSkillLevel: Math.max(1, Math.floor(Number(player.enhancementSkill?.level ?? player.enhancementSkillLevel) || 1)),
             candidates: this.collectEnhancementCandidates(player, enhancementConfigs),
             records: (player.enhancementRecords ?? []).map((entry) => cloneEnhancementRecord(entry)),
@@ -134,11 +134,11 @@ export class CraftPanelEnhancementQueryService {
             return null;
         }
         const nextLevel = currentLevel + 1;
-        const toolStats = cloneCraftEquipmentStats(player?.attrs?.craftStats);
+        const toolStats = cloneCraftEffectStats(player?.attrs?.craftEffectStats);
         const enhancementSkillLevel = Math.max(1, Math.floor(Number(player.enhancementSkill?.level ?? player.enhancementSkillLevel) || 1));
         const config = enhancementConfigs.get(item.itemId);
         const requirements = getEnhancementRequirements(config, nextLevel);
-        const totalSpeedRate = computeEnhancementToolSpeedRate(toolStats.enhancementSpeedRate, enhancementSkillLevel, item.level);
+        const totalSpeedRate = computeEnhancementToolSpeedRate(toolStats.enhancement.speedRate, enhancementSkillLevel, item.level);
         return {
             ref,
             item: summarizeEnhancementItem(item),
@@ -149,7 +149,7 @@ export class CraftPanelEnhancementQueryService {
                 nextLevel,
                 enhancementSkillLevel,
                 item.level,
-                toolStats.enhancementSuccessRate,
+                toolStats.enhancement.successRate,
                 computeLuckSuccessRateBonus(resolvePlayerEffectiveLuck(player))
             ),
             durationTicks: computeEnhancementJobTicks(item.level, totalSpeedRate),

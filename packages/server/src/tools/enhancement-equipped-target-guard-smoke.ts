@@ -26,8 +26,7 @@ function createRuntime(): { service: CraftPanelRuntimeService; player: any } {
             type: 'equipment',
             name: '强化锤',
             tags: ['enhancement_hammer'],
-            enhancementSpeedRate: 0,
-            enhancementSuccessRate: 0,
+            craftEffectStats: {},
           },
         },
         {

@@ -13,6 +13,7 @@ import {
   getMiningDropRateBonus,
   getMiningDamageMultiplier,
   TileType,
+  type CraftEffectStatsPatch,
 } from '@mud/shared';
 import { CraftPanelRuntimeService } from '../runtime/craft/craft-panel-runtime.service';
 import { CraftPanelAlchemyQueryService } from '../runtime/craft/craft-panel-alchemy-query.service';
@@ -65,15 +66,7 @@ function createService(): CraftPanelRuntimeService {
 function createTechniqueTool(
   itemId: string,
   tags: string[],
-  utility: {
-    alchemySuccessRate?: number;
-    alchemySpeedRate?: number;
-    enhancementSuccessRate?: number;
-    enhancementSpeedRate?: number;
-    miningDamageRate?: number;
-    miningDropRate?: number;
-    buildingSpeedRate?: number;
-  },
+  craftEffectStats: CraftEffectStatsPatch,
 ) {
   const equipSlot = resolveTechniqueToolSlot(tags);
   return {
@@ -86,7 +79,7 @@ function createTechniqueTool(
     equipSlot,
     enhanceLevel: 10,
     tags,
-    ...utility,
+    craftEffectStats,
   };
 }
 
@@ -151,69 +144,37 @@ function createPlayer(weapon: ReturnType<typeof createTechniqueTool>) {
   };
 }
 
-function recalculatePlayerCraftStats(player: ReturnType<typeof createPlayer>) {
+function recalculatePlayerCraftEffectStats(player: ReturnType<typeof createPlayer>) {
   const attrService = new PlayerAttributesService();
   attrService.recalculate(player as never);
-  assertCraftEffectStatsProjection(player);
-  return player.attrs.craftStats;
-}
-
-function assertCraftEffectStatsProjection(player: ReturnType<typeof createPlayer>): void {
-  const craftStats = player.attrs.craftStats;
-  const effectStats = player.attrs.craftEffectStats;
-  assert.ok(effectStats, 'expected craftEffectStats projection');
-  assert.equal(effectStats.alchemy.successRate, craftStats.alchemySuccessRate);
-  assert.equal(effectStats.alchemy.speedRate, craftStats.alchemySpeedRate);
-  assert.equal(effectStats.alchemy.outputRate, 0);
-  assert.equal(effectStats.alchemy.expRate, 0);
-  assert.equal(effectStats.forging.successRate, craftStats.forgingSuccessRate);
-  assert.equal(effectStats.forging.speedRate, craftStats.forgingSpeedRate);
-  assert.equal(effectStats.forging.outputRate, 0);
-  assert.equal(effectStats.forging.expRate, 0);
-  assert.equal(effectStats.enhancement.successRate, craftStats.enhancementSuccessRate);
-  assert.equal(effectStats.enhancement.speedRate, craftStats.enhancementSpeedRate);
-  assert.equal(effectStats.enhancement.outputRate, 0);
-  assert.equal(effectStats.enhancement.expRate, 0);
-  assert.equal(effectStats.transmission.successRate, 0);
-  assert.equal(effectStats.transmission.speedRate, 0);
-  assert.equal(effectStats.transmission.outputRate, 0);
-  assert.equal(effectStats.transmission.expRate, 0);
-  assert.equal(effectStats.mining.successRate, 0);
-  assert.equal(effectStats.mining.speedRate, craftStats.miningDamageRate);
-  assert.equal(effectStats.mining.outputRate, craftStats.miningDropRate);
-  assert.equal(effectStats.mining.expRate, 0);
-  assert.equal(effectStats.building.successRate, 0);
-  assert.equal(effectStats.building.speedRate, craftStats.buildingSpeedRate);
-  assert.equal(effectStats.building.outputRate, 0);
-  assert.equal(effectStats.building.expRate, 0);
+  return player.attrs.craftEffectStats;
 }
 
 function testEnhancedHammerAffectsEnhancementPanelAndJob(): void {
   const service = createService();
   const hammer = createTechniqueTool('equip.test_hammer', ['enhancement_hammer'], {
-    enhancementSuccessRate: 0.1,
-    enhancementSpeedRate: 0.5,
+    enhancement: { successRate: 0.1, speedRate: 0.5 },
   });
   const player = createPlayer(hammer);
   player.luck = 3;
-  const craftStats = recalculatePlayerCraftStats(player);
+  const craftEffectStats = recalculatePlayerCraftEffectStats(player);
   const effectiveHammer = applyEquipmentAttributeEffectivenessToItemStack(hammer as never, player.realm.realmLv);
-  assert.equal(craftStats.enhancementSuccessRate, effectiveHammer.enhancementSuccessRate);
-  assert.equal(craftStats.enhancementSpeedRate, effectiveHammer.enhancementSpeedRate);
+  assert.equal(craftEffectStats.enhancement.successRate, effectiveHammer.craftEffectStats?.enhancement?.successRate);
+  assert.equal(craftEffectStats.enhancement.speedRate, effectiveHammer.craftEffectStats?.enhancement?.speedRate);
   const expectedSuccessRate = computeEnhancementAdjustedSuccessRate(
     1,
     player.enhancementSkill.level,
     1,
-    craftStats.enhancementSuccessRate,
+    craftEffectStats.enhancement.successRate,
     computeLuckSuccessRateBonus(player.luck),
   );
   const expectedTicks = computeEnhancementJobTicks(
     1,
-    computeEnhancementToolSpeedRate(craftStats.enhancementSpeedRate, player.enhancementSkill.level, 1),
+    computeEnhancementToolSpeedRate(craftEffectStats.enhancement.speedRate, player.enhancementSkill.level, 1),
   );
 
   const panel = service.buildEnhancementPanelPayload(player as never);
-  assert.equal(panel.state.toolStats.enhancementSuccessRate, craftStats.enhancementSuccessRate);
+  assert.equal(panel.state.toolStats.enhancement?.successRate, craftEffectStats.enhancement.successRate);
   const candidate = panel.state.candidates.find((entry: any) => entry.item.itemId === 'equip.test_blade');
   assert.ok(candidate, 'expected enhancement candidate');
   assert.equal(candidate.successRate, expectedSuccessRate);
@@ -242,7 +203,7 @@ function testEquipmentRealmEffectivenessUsesExponentialPenalty(): void {
     enhanceLevel: 0,
     equipAttrs: { constitution: 100 },
     equipStats: { physAtk: 100 },
-    enhancementSpeedRate: 1,
+    craftEffectStats: { enhancement: { speedRate: 1 } },
   };
   const effectiveItem = applyEquipmentAttributeEffectivenessToItemStack(baseItem as never, playerRealmLv);
   const breakdown = getEquipmentAttributeEffectivenessBreakdown(baseItem as never, playerRealmLv);
@@ -251,7 +212,7 @@ function testEquipmentRealmEffectivenessUsesExponentialPenalty(): void {
   assert.equal(breakdown.realmPercent, expectedMultiplier * 100);
   assert.equal(effectiveItem.equipAttrs?.constitution, Math.ceil((100 * expectedMultiplier - Number.EPSILON) * 100) / 100);
   assert.equal(effectiveItem.equipStats?.physAtk, Math.ceil((100 * expectedMultiplier - Number.EPSILON) * 100) / 100);
-  assert.equal(effectiveItem.enhancementSpeedRate, Math.ceil((1 * expectedMultiplier - Number.EPSILON) * 10_000) / 10_000);
+  assert.equal(effectiveItem.craftEffectStats?.enhancement?.speedRate, Math.ceil((1 * expectedMultiplier - Number.EPSILON) * 10_000) / 10_000);
 }
 
 function testEnhancedAlchemyAndForgingToolsAffectJobs(): void {
@@ -271,17 +232,16 @@ function testEnhancedAlchemyAndForgingToolsAffectJobs(): void {
     service.alchemyCatalog = [recipe];
     service.forgingCatalog = [recipe];
     const tool = createTechniqueTool(`equip.test_${kind}_tool`, [kind === 'forging' ? 'forging_tool' : 'alchemy_furnace'], {
-      alchemySuccessRate: 0.1,
-      alchemySpeedRate: 0.5,
+      [kind]: { successRate: 0.1, speedRate: 0.5 },
     });
     const player = createPlayer(tool);
     player.luck = 4;
-    const craftStats = recalculatePlayerCraftStats(player);
+    const craftEffectStats = recalculatePlayerCraftEffectStats(player);
     const effectiveTool = applyEquipmentAttributeEffectivenessToItemStack(tool as never, player.realm.realmLv);
-    const expectedToolSuccessRate = kind === 'forging' ? craftStats.forgingSuccessRate : craftStats.alchemySuccessRate;
-    const expectedToolSpeedRate = kind === 'forging' ? craftStats.forgingSpeedRate : craftStats.alchemySpeedRate;
-    assert.equal(expectedToolSuccessRate, effectiveTool.alchemySuccessRate);
-    assert.equal(expectedToolSpeedRate, effectiveTool.alchemySpeedRate);
+    const expectedToolSuccessRate = craftEffectStats[kind].successRate;
+    const expectedToolSpeedRate = craftEffectStats[kind].speedRate;
+    assert.equal(expectedToolSuccessRate, effectiveTool.craftEffectStats?.[kind]?.successRate);
+    assert.equal(expectedToolSpeedRate, effectiveTool.craftEffectStats?.[kind]?.speedRate);
     const expectedTicks = computeAlchemyAdjustedBrewTicks(
       recipe.baseBrewTicks,
       recipe,
@@ -313,16 +273,15 @@ function testEnhancedAlchemyAndForgingToolsAffectJobs(): void {
 
 function testEnhancedMiningPickaxeAlreadyAffectsTileDamage(): void {
   const pickaxe = createTechniqueTool('equip.test_pickaxe', ['mining_pickaxe'], {
-    miningDamageRate: 0.5,
-    miningDropRate: 0.15,
+    mining: { speedRate: 0.5, outputRate: 0.15 },
   });
   const player = createPlayer(pickaxe);
   player.miningSkill.level = 7;
   player.luck = 5;
-  const craftStats = recalculatePlayerCraftStats(player);
+  const craftEffectStats = recalculatePlayerCraftEffectStats(player);
   const effectivePickaxe = applyEquipmentAttributeEffectivenessToItemStack(pickaxe as never, player.realm.realmLv);
-  assert.equal(craftStats.miningDamageRate, effectivePickaxe.miningDamageRate);
-  assert.equal(craftStats.miningDropRate, effectivePickaxe.miningDropRate);
+  assert.equal(craftEffectStats.mining.speedRate, effectivePickaxe.craftEffectStats?.mining?.speedRate);
+  assert.equal(craftEffectStats.mining.outputRate, effectivePickaxe.craftEffectStats?.mining?.outputRate);
   const result = resolveMiningAdjustedTileDamage({
     attacker: player,
     tileType: TileType.SpiritOre,
@@ -331,22 +290,22 @@ function testEnhancedMiningPickaxeAlreadyAffectsTileDamage(): void {
   assert.equal(result.isOreTile, true);
   assert.equal(
     result.damage,
-    Math.round(100 * getMiningDamageMultiplier(player.miningSkill.level) * (1 + Number(craftStats.miningDamageRate))),
+    Math.round(100 * getMiningDamageMultiplier(player.miningSkill.level) * (1 + Number(craftEffectStats.mining.speedRate))),
   );
   assert.equal(
     resolveMiningDropRateBonus(player),
-    Number(craftStats.miningDropRate) + getMiningDropRateBonus(player.miningSkill.level) + computeLuckSuccessRateBonus(player.luck),
+    getMiningDropRateBonus(player.miningSkill.level) + computeLuckSuccessRateBonus(player.luck),
   );
 }
 
 function testBuildingHammerProjectsHiddenCraftStats(): void {
   const hammer = createTechniqueTool('equip.test_building_hammer', ['building_hammer'], {
-    buildingSpeedRate: 0.4,
+    building: { speedRate: 0.4 },
   });
   const player = createPlayer(hammer);
-  const craftStats = recalculatePlayerCraftStats(player);
+  const craftEffectStats = recalculatePlayerCraftEffectStats(player);
   const effectiveHammer = applyEquipmentAttributeEffectivenessToItemStack(hammer as never, player.realm.realmLv);
-  assert.equal(craftStats.buildingSpeedRate, effectiveHammer.buildingSpeedRate);
+  assert.equal(craftEffectStats.building.speedRate, effectiveHammer.craftEffectStats?.building?.speedRate);
 }
 
 function main(): void {

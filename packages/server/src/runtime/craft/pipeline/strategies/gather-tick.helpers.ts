@@ -1,4 +1,5 @@
 import {
+  applyCraftOutputRate,
   computeAdjustedCraftTicks,
   computeCraftSkillExpGain,
   resolveAlchemyGradeValue,
@@ -7,6 +8,7 @@ import {
 } from '@mud/shared';
 import type { PipelineContext } from '../technique-activity-strategy';
 import { resolveCraftSkillExpToNextByLevel } from '../../craft-skill-exp.helpers';
+import { applyPlayerCraftExpRate, resolvePlayerCraftEffectStat } from '../../craft-effect-runtime.helpers';
 import { reassignItemInstanceId } from '../../../world/item-instance-id.helpers';
 import {
   buildContainerSourceId,
@@ -121,10 +123,15 @@ export async function executeGatherTick(
   }
 
   state.activeSearch = undefined;
+  harvestedItem.count = applyCraftOutputRate(
+    Math.max(1, Math.floor(Number(harvestedItem.count) || 1)),
+    resolvePlayerCraftEffectStat(player, 'gather', 'outputRate'),
+  );
   prepareLootGrantItemsForReceiver([harvestedItem]);
   playerRuntimeService.receiveInventoryItem?.(playerId, harvestedItem);
   const skillExpResult = applyGatherSkillExp(
     playerRuntimeService,
+    player,
     player.gatherSkill,
     harvestedItem.level,
     computeHerbNativeGatherTicks(container, harvestedRow),
@@ -211,7 +218,9 @@ function computeHerbNativeGatherTicks(container: Record<string, any>, row: Recor
 function computeEffectiveHerbGatherTicks(player: Record<string, any>, container: Record<string, any>, row: Record<string, any>): number {
   const nativeGatherTicks = computeHerbNativeGatherTicks(container, row);
   const gatherLevel = Math.max(1, Math.floor(Number(player?.gatherSkill?.level) || 1));
-  return computeAdjustedCraftTicks(nativeGatherTicks, gatherLevel * GATHER_SPEED_PER_LEVEL);
+  const skillSpeedRate = gatherLevel * GATHER_SPEED_PER_LEVEL;
+  const effectSpeedRate = Math.max(0, resolvePlayerCraftEffectStat(player, 'gather', 'speedRate'));
+  return computeAdjustedCraftTicks(nativeGatherTicks, skillSpeedRate + effectSpeedRate);
 }
 
 function prepareLootGrantItemsForReceiver(items: Array<Record<string, any>>): void {
@@ -222,6 +231,7 @@ function prepareLootGrantItemsForReceiver(items: Array<Record<string, any>>): vo
 
 function applyGatherSkillExp(
   source: unknown,
+  player: Record<string, any>,
   skill: { level: number; exp: number; expToNext: number } | null | undefined,
   targetLevel: unknown,
   baseActionTicks: number,
@@ -229,7 +239,7 @@ function applyGatherSkillExp(
   if (!skill) {
     return { changed: false, gain: 0 };
   }
-  const gain = computeCraftSkillExpGain({
+  const baseGain = computeCraftSkillExpGain({
     skillLevel: skill.level,
     targetLevel: Math.max(1, Math.floor(Number(targetLevel) || 1)),
     baseActionTicks,
@@ -238,6 +248,7 @@ function applyGatherSkillExp(
     failureCount: 0,
     successMultiplier: 1,
   }).finalGain;
+  const gain = applyPlayerCraftExpRate(player, 'gather', baseGain);
   return {
     changed: applyCraftSkillExp(source, skill, gain),
     gain,

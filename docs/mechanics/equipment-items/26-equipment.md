@@ -31,7 +31,7 @@ ARTIFACT_SLOTS = ['artifact_1']
 | technique_mining | 挖矿工具 | mining_pickaxe |
 | technique_building | 营造工具 | building_hammer |
 
-技艺工具的数值属性在玩家属性结算阶段汇总到隐藏投影 `player.attrs.craftStats`。该投影只供服务端技艺运行时和对应技艺面板预估使用，不并入公开 `numericStats`，也不在属性面板展示。
+技艺工具的数值属性直接写入物品模板 `craftEffectStats`，在玩家属性结算阶段汇总到 `player.attrs.craftEffectStats`。该投影只供服务端技艺运行时和对应技艺面板预估使用，不并入公开 `numericStats`，也不在属性面板展示。
 
 ## 法宝槽位
 

@@ -7,7 +7,8 @@ import type {
   AlchemyIngredientSelection,
   AlchemyRecipeCatalogEntry,
   AlchemyRecipeCategory,
-  CraftEquipmentStats,
+  CraftEffectSkillKind,
+  CraftEffectStatsPatch,
   CraftElementVector,
   CraftQueueStartMode,
   PlayerAlchemyPreset,
@@ -54,10 +55,11 @@ type ConfirmStartRequest = {
 };
 
 function readCraftToolStat(
-  stats: Partial<CraftEquipmentStats> | null | undefined,
-  key: keyof CraftEquipmentStats,
+  stats: CraftEffectStatsPatch | null | undefined,
+  skillKind: CraftEffectSkillKind,
+  effectKind: 'successRate' | 'speedRate' | 'outputRate' | 'expRate',
 ): number {
-  const value = Number(stats?.[key]);
+  const value = Number(stats?.[skillKind]?.[effectKind]);
   return Number.isFinite(value) ? value : 0;
 }
 
@@ -399,11 +401,10 @@ export class CraftAlchemyView {
 
   private getAlchemyFurnaceBonuses(): { successRate: number; speedRate: number } {
     const toolStats = this.parent.alchemyPanel?.state?.toolStats;
-    const successKey = this.parent.activeMode === 'forging' ? 'forgingSuccessRate' : 'alchemySuccessRate';
-    const speedKey = this.parent.activeMode === 'forging' ? 'forgingSpeedRate' : 'alchemySpeedRate';
+    const skillKind = this.parent.activeMode === 'forging' ? 'forging' : 'alchemy';
     return {
-      successRate: readCraftToolStat(toolStats, successKey),
-      speedRate: readCraftToolStat(toolStats, speedKey),
+      successRate: readCraftToolStat(toolStats, skillKind, 'successRate'),
+      speedRate: readCraftToolStat(toolStats, skillKind, 'speedRate'),
     };
   }
 

@@ -11,6 +11,7 @@ import {
 import { getLockedItem } from '../../../player/inventory-lock.helpers';
 import { advanceTechniqueActivityPause } from '../../technique-activity-runtime.helpers';
 import type { PipelineContext } from '../technique-activity-strategy';
+import { applyPlayerCraftExpRate } from '../../craft-effect-runtime.helpers';
 
 export function executeEnhancementTick(craftService: any, player: any, ctx: PipelineContext): unknown {
   craftService.ensureCraftSkills(player);
@@ -106,7 +107,11 @@ export function executeEnhancementTick(craftService: any, player: any, ctx: Pipe
       : 0;
   craftService.recordEnhancementStepResult(player, job, success, resultingLevel);
 
-  const skillGain = resolveEnhancementSkillExpGain(player.enhancementSkill, job.targetItemLevel, success, ctx);
+  const skillGain = applyPlayerCraftExpRate(
+    player,
+    'enhancement',
+    resolveEnhancementSkillExpGain(player.enhancementSkill, job.targetItemLevel, success, ctx),
+  );
   const skillChanged = applyEnhancementSkillExp(player.enhancementSkill, skillGain, ctx);
   player.enhancementSkillLevel = player.enhancementSkill.level;
   if (skillChanged) {

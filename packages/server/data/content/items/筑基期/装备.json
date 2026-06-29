@@ -329,8 +329,12 @@
         "cooldownLeft": 0
       }
     ],
-    "alchemySuccessRate": 0.24,
-    "alchemySpeedRate": 0.4
+    "craftEffectStats": {
+      "alchemy": {
+        "successRate": 0.24,
+        "speedRate": 0.4
+      }
+    }
   },
   {
     "itemId": "equip.foundation_deepiron_forging_tongs",
@@ -352,8 +356,12 @@
         "cooldownLeft": 0
       }
     ],
-    "alchemySuccessRate": 0.24,
-    "alchemySpeedRate": 0.4
+    "craftEffectStats": {
+      "forging": {
+        "successRate": 0.24,
+        "speedRate": 0.4
+      }
+    }
   },
   {
     "itemId": "equip.foundation_darksoil_enhancement_hammer",
@@ -375,8 +383,12 @@
         "cooldownLeft": 0
       }
     ],
-    "enhancementSuccessRate": 0.02,
-    "enhancementSpeedRate": 0.35
+    "craftEffectStats": {
+      "enhancement": {
+        "successRate": 0.02,
+        "speedRate": 0.35
+      }
+    }
   },
   {
     "itemId": "equip.foundation_dragonspine_mining_pickaxe",
@@ -401,8 +413,12 @@
         "range": 999
       }
     ],
-    "miningDamageRate": 1.2,
-    "miningDropRate": 0.2
+    "craftEffectStats": {
+      "mining": {
+        "speedRate": 1.2,
+        "outputRate": 0.2
+      }
+    }
   },
   {
     "itemId": "equip.foundation_mixed_origin_building_hammer",
@@ -424,6 +440,10 @@
         "cooldownLeft": 0
       }
     ],
-    "buildingSpeedRate": 0.35
+    "craftEffectStats": {
+      "building": {
+        "speedRate": 0.35
+      }
+    }
   }
 ]

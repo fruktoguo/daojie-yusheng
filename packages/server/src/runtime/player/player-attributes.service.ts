@@ -9,7 +9,7 @@
  * 并在属性变化时同步更新生命/灵力上限和当前值比例。
  */
 import { Injectable } from '@nestjs/common';
-import { ATTR_KEYS, ATTR_TO_NUMERIC_WEIGHTS, ATTR_TO_PERCENT_NUMERIC_WEIGHTS, CRAFT_EFFECT_KINDS, CRAFT_EFFECT_SKILL_KINDS, CRAFT_EQUIPMENT_STAT_KEYS, CULTIVATE_EXP_PER_TICK, CULTIVATION_REALM_EXP_PER_TICK, DEFAULT_BASE_ATTRS, DEFAULT_PLAYER_REALM_STAGE, ELEMENT_KEYS, NUMERIC_SCALAR_STAT_KEYS, NUMERIC_STAT_MULTIPLIER_FLOORS, addCraftEquipmentStatsFromItem, addPartialNumericStats, applyEquipmentAttributeEffectivenessToItemStack, calcBodyTrainingAttrPercentBonus, calcTechniqueFinalAttrBonus, calcTechniqueFinalSpecialStatBonus, calcTechniqueMaxAttrPercentBonus, cloneCraftEffectStats, cloneCraftEquipmentStats, cloneNumericRatioDivisors, cloneNumericStats, compileValueStatsToActualStats, craftEquipmentStatsToCraftEffectStats, createEmptyCraftEffectStats, createEmptyCraftEquipmentStats, createNumericStats, getEffectiveMoveSpeed, getRealmAttributeMultiplier, getRealmLinearGrowthMultiplier, percentModifierToMultiplier, resolvePlayerRealmAttributeBonus, resolvePlayerRealmNumericTemplate } from '@mud/shared';
+import { ATTR_KEYS, ATTR_TO_NUMERIC_WEIGHTS, ATTR_TO_PERCENT_NUMERIC_WEIGHTS, CRAFT_EFFECT_KINDS, CRAFT_EFFECT_SKILL_KINDS, CULTIVATE_EXP_PER_TICK, CULTIVATION_REALM_EXP_PER_TICK, DEFAULT_BASE_ATTRS, DEFAULT_PLAYER_REALM_STAGE, ELEMENT_KEYS, NUMERIC_SCALAR_STAT_KEYS, NUMERIC_STAT_MULTIPLIER_FLOORS, addCraftEffectStatsFromItem, addPartialNumericStats, applyEquipmentAttributeEffectivenessToItemStack, calcBodyTrainingAttrPercentBonus, calcTechniqueFinalAttrBonus, calcTechniqueFinalSpecialStatBonus, calcTechniqueMaxAttrPercentBonus, cloneCraftEffectStats, cloneNumericRatioDivisors, cloneNumericStats, compileValueStatsToActualStats, createEmptyCraftEffectStats, createNumericStats, getEffectiveMoveSpeed, getRealmAttributeMultiplier, getRealmLinearGrowthMultiplier, percentModifierToMultiplier, resolvePlayerRealmAttributeBonus, resolvePlayerRealmNumericTemplate } from '@mud/shared';
 import { PVP_SHA_INFUSION_ATTACK_CAP_PERCENT, PVP_SHA_INFUSION_BUFF_ID } from '../../constants/gameplay/pvp';
 import { resolvePlayerDailySignInFortuneLuck } from './player-special-stat.helpers';
 
@@ -38,7 +38,6 @@ export class PlayerAttributesService {
             finalAttrs: createBaseAttributes(),
             numericStats,
             ratioDivisors: cloneNumericRatioDivisors(template.ratioDivisors),
-            craftStats: createEmptyCraftEquipmentStats(),
             craftEffectStats: createEmptyCraftEffectStats(),
         };
     }
@@ -60,7 +59,6 @@ export class PlayerAttributesService {
         player.attrs.finalAttrs = next.finalAttrs;
         player.attrs.numericStats = next.numericStats;
         player.attrs.ratioDivisors = next.ratioDivisors;
-        player.attrs.craftStats = next.craftStats;
         player.attrs.craftEffectStats = next.craftEffectStats;
         player.attrs.revision += 1;
 
@@ -122,7 +120,7 @@ export class PlayerAttributesService {
         const finalAttrs = cloneAttributes(baseAttrs);
         const enhancedEquipment = this.enhancedEquipmentScratch;
         enhancedEquipment.length = 0;
-        const craftStats = createEmptyCraftEquipmentStats();
+        const craftEffectStats = createEmptyCraftEffectStats();
         for (const entry of player.equipment.slots) {
             const item = entry?.item;
             if (!item || typeof item !== 'object') {
@@ -134,7 +132,7 @@ export class PlayerAttributesService {
             }
             enhancedEquipment.push(enhancedItem);
             addAttributes(finalAttrs, enhancedItem.equipAttrs);
-            addCraftEquipmentStatsFromItem(craftStats, enhancedItem);
+            addCraftEffectStatsFromItem(craftEffectStats, enhancedItem);
         }
         const attrPercentBonuses = resetAttributePercentBonusAccumulator(this.attrPercentBonusAccumulatorScratch);
         const rootFoundation = Math.max(0, Math.trunc(Number(player.rootFoundation ?? 0) || 0));
@@ -240,8 +238,7 @@ export class PlayerAttributesService {
             finalAttrs,
             numericStats,
             ratioDivisors: cloneNumericRatioDivisors(template.ratioDivisors),
-            craftStats,
-            craftEffectStats: craftEquipmentStatsToCraftEffectStats(craftStats),
+            craftEffectStats,
         };
     }
 };
@@ -953,7 +950,6 @@ function hasAttrStateChanged(previous, next) {
         || !isSameAttributes(previous.finalAttrs, next.finalAttrs)
         || !isSameNumericStats(previous.numericStats, next.numericStats)
         || !isSameRatioDivisors(previous.ratioDivisors, next.ratioDivisors)
-        || !isSameCraftEquipmentStats(previous.craftStats, next.craftStats)
         || !isSameCraftEffectStats(previous.craftEffectStats, next.craftEffectStats);
 }
 /**
@@ -968,17 +964,6 @@ function isSameAttributes(left, right) {
 
     for (const key of ATTR_KEYS) {
         if (left[key] !== right[key]) {
-            return false;
-        }
-    }
-    return true;
-}
-
-function isSameCraftEquipmentStats(left, right) {
-    const normalizedLeft = cloneCraftEquipmentStats(left);
-    const normalizedRight = cloneCraftEquipmentStats(right);
-    for (const key of CRAFT_EQUIPMENT_STAT_KEYS) {
-        if (normalizedLeft[key] !== normalizedRight[key]) {
             return false;
         }
     }

@@ -159,7 +159,7 @@ export function dispatchStartBuildingConstruction(runtime, playerId, buildingIdI
 }
 
 function resolveBuildingProgressPerTick(player) {
-    const speedRate = Math.max(0, Number(player?.attrs?.craftStats?.buildingSpeedRate) || 0);
+    const speedRate = Math.max(0, Number(player?.attrs?.craftEffectStats?.building?.speedRate) || 0);
     return 1 + speedRate;
 }
 

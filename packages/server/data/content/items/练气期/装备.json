@@ -632,8 +632,12 @@
         "cooldownLeft": 0
       }
     ],
-    "alchemySuccessRate": 0.16,
-    "alchemySpeedRate": 0.3
+    "craftEffectStats": {
+      "alchemy": {
+        "successRate": 0.16,
+        "speedRate": 0.3
+      }
+    }
   },
   {
     "itemId": "equip.qi_fengyue_forging_tongs",
@@ -655,8 +659,12 @@
         "cooldownLeft": 0
       }
     ],
-    "alchemySuccessRate": 0.16,
-    "alchemySpeedRate": 0.3
+    "craftEffectStats": {
+      "forging": {
+        "successRate": 0.16,
+        "speedRate": 0.3
+      }
+    }
   },
   {
     "itemId": "equip.qi_fivephase_enhancement_hammer",
@@ -678,8 +686,12 @@
         "cooldownLeft": 0
       }
     ],
-    "enhancementSuccessRate": 0.015,
-    "enhancementSpeedRate": 0.25
+    "craftEffectStats": {
+      "enhancement": {
+        "successRate": 0.015,
+        "speedRate": 0.25
+      }
+    }
   },
   {
     "itemId": "equip.qi_guizang_mining_pickaxe",
@@ -704,8 +716,12 @@
         "range": 999
       }
     ],
-    "miningDamageRate": 0.8,
-    "miningDropRate": 0.15
+    "craftEffectStats": {
+      "mining": {
+        "speedRate": 0.8,
+        "outputRate": 0.15
+      }
+    }
   },
   {
     "itemId": "equip.qi_halfbase_building_hammer",
@@ -727,6 +743,10 @@
         "cooldownLeft": 0
       }
     ],
-    "buildingSpeedRate": 0.25
+    "craftEffectStats": {
+      "building": {
+        "speedRate": 0.25
+      }
+    }
   }
 ]

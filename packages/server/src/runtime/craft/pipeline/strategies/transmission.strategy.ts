@@ -16,6 +16,7 @@ import {
   type TechniqueActivityStartValidationResult,
 } from '@mud/shared';
 import type { TechniqueActivityStrategy, PipelineContext, PersistenceDomain } from '../technique-activity-strategy';
+import { applyPlayerCraftExpRate, resolvePlayerCraftEffectStat } from '../../craft-effect-runtime.helpers';
 import { advanceTechniqueActivityPause } from '../../technique-activity-runtime.helpers';
 
 type TransmissionValidatedPayload = {
@@ -968,6 +969,8 @@ function resolveTransmissionProgressBreakdown(learner: any, teacher: any, techni
     learnerRealmLv: learner?.realm?.realmLv ?? 1,
     learnerTransmissionLevel: learner?.transmissionSkill?.level ?? 1,
     teacherTransmissionLevel: teacher?.transmissionSkill?.level ?? 1,
+    transmissionSpeedRate: Math.max(0, resolvePlayerCraftEffectStat(learner, 'transmission', 'speedRate'))
+      + Math.max(0, resolvePlayerCraftEffectStat(teacher, 'transmission', 'speedRate')),
   });
 }
 
@@ -977,6 +980,7 @@ function resolveScriptureRecordingProgressBreakdown(recorder: any, techniqueReal
     techniqueRealmLv: Math.max(1, Math.floor(Number(techniqueRealmLv) || 1)),
     learnerRealmLv: recorder?.realm?.realmLv ?? 1,
     learnerTransmissionLevel: recorder?.transmissionSkill?.level ?? 1,
+    transmissionSpeedRate: resolvePlayerCraftEffectStat(recorder, 'transmission', 'speedRate'),
   });
 }
 
@@ -986,6 +990,7 @@ function resolveScriptureContemplationProgressBreakdown(learner: any, techniqueR
     techniqueRealmLv: Math.max(1, Math.floor(Number(techniqueRealmLv) || 1)),
     learnerRealmLv: learner?.realm?.realmLv ?? 1,
     learnerTransmissionLevel: learner?.transmissionSkill?.level ?? 1,
+    transmissionSpeedRate: resolvePlayerCraftEffectStat(learner, 'transmission', 'speedRate'),
   });
 }
 
@@ -994,7 +999,7 @@ function applyTransmissionSkillExpFromTicks(player: any, elapsedTicks: number, t
   if (!skill) {
     return false;
   }
-  const gain = computeCraftSkillExpGain({
+  const baseGain = computeCraftSkillExpGain({
     skillLevel: skill.level,
     targetLevel: Math.max(1, Math.floor(Number(targetLevel) || 1)),
     baseActionTicks: elapsedTicks,
@@ -1003,6 +1008,7 @@ function applyTransmissionSkillExpFromTicks(player: any, elapsedTicks: number, t
     failureCount: 0,
     successMultiplier: 1,
   }).finalGain;
+  const gain = applyPlayerCraftExpRate(player, 'transmission', baseGain);
   return applyCraftSkillExpLocal(skill, gain, getExpToNextByLevel);
 }
 

@@ -2,11 +2,11 @@
 
 ## 定位
 
-本文记录技艺属性重构的设计口径和当前落地状态。当前已经新增标准四属性类型与旧工具投影映射；技艺业务结算仍主要读取旧 `player.attrs.craftStats`，后续需要分批迁移到标准结构。
+本文记录技艺属性重构的设计口径和当前落地状态。当前技艺装备、玩家属性结算和技艺业务消费已经统一改为 `CraftEffectStats`，生活工具不再使用旧扁平工具字段。
 
 目标是把技艺相关的成功率、速度、产出率、经验倍率从分散业务逻辑、装备工具字段、等级加成、环境加成和特殊效果中收敛为统一的玩家技艺加成属性。来源可以很多，但最终消费形态应该稳定为“技艺维度 + 四项固定加成”，避免每新增一种加成就把业务结算逻辑再硬编码一遍。
 
-当前阶段先作为设计记录，后续代码迁移应分批落地，并保持现有数值语义不变。
+当前阶段的权威运行态字段是 `player.attrs.craftEffectStats`。装备、buff、环境、风水、阵法等来源后续都应贡献同一种 `CraftEffectStatsPatch`，业务结算不再直接读取来源细节。
 
 ## 核心模型
 
@@ -55,13 +55,16 @@ type CraftEffectStats = Record<
 - `createEmptyCraftEffectStats`
 - `cloneCraftEffectStats`
 - `addCraftEffectStatsPatch`
-- `craftEquipmentStatsToCraftEffectStats`
+- `normalizeCraftEffectStatsPatch`
+- `readCraftEffectStat`
+- `applyCraftOutputRate`
+- `applyCraftExpRate`
 
 ## 与现有属性边界
 
 - `NumericStats` 继续承载通用战斗、成长、移动和掉落面板属性，例如 `cooldownSpeed`、`playerExpRate`、`techniqueExpRate`、`lootRate`、`rareLootRate`、`elementDamageBonus`、`elementDamageReduce`。
 - 新的 `CraftEffectStats` 只承载技艺专属加成，不替代 `NumericStats`。
-- 当前 `player.attrs.craftStats` 更接近隐藏技艺工具投影，只服务部分工具属性。后续应迁移为 `CraftEffectStats`，或在过渡期映射到 `CraftEffectStats`。
+- `player.attrs.craftEffectStats` 是服务端结算和面板预估共同使用的技艺效果快照。
 - `qiProjection` 仍是灵气可见性、吸收效率和灵气环境投影系统，不并入技艺四属性。
 - 环境、阵法、风水、buff、装备、功法、称号等都可以作为来源贡献到 `CraftEffectStats`，但来源生命周期仍由各自系统负责。
 
@@ -73,7 +76,7 @@ type CraftEffectStats = Record<
 4. 需要动态生效的特殊效果必须明确写入 job 生命周期规则，不能隐式穿透。
 5. 成功率只在对应技艺概率曲线里消费，不跨技艺复用。
 6. 速度只影响耗时或每 tick 进度，不直接修改成功率或产出。
-7. 产出率只影响结果数量、掉落概率、副产物、返材、省耗、收获等，不直接修改成功率。
+7. 产出率只影响结果数量、掉落、副产物、返材、省耗、收获等，不直接修改成功率。数量型产出按“固定额外数量 + 小数概率额外 1 个”结算，例如基础 1 个、`outputRate=3.5` 时固定额外 3 个，并有 50% 概率再额外 1 个。
 8. UI 面板和服务端结算使用同一快照，避免预览和实际结果不一致。
 9. 来源拆解要可投影给属性详情和技艺面板，便于解释装备、功法、buff、风水、阵法等来源。
 
@@ -84,47 +87,39 @@ type CraftEffectStats = Record<
 | 炼丹 `alchemy` | 炼丹成功率、五行匹配后的额外修正、技艺等级成功率、幸运成功率、工具成功率 | 炼丹耗时修正、技艺等级速度、工具速度 | 成丹数量、额外成丹、副产物、返材 | 炼丹技艺经验倍率 |
 | 炼器 `forging` | 炼器成功率、五行匹配后的额外修正、技艺等级成功率、幸运成功率、工具成功率 | 炼器耗时修正、技艺等级速度、工具速度 | 成品数量、副产物、返材、额外产物 | 炼器技艺经验倍率 |
 | 强化 `enhancement` | 强化目标等级基础概率后的额外成功率、强化技艺等级修正、幸运成功率、工具成功率 | 强化耗时修正、强化技艺等级速度、工具速度 | 保护、返材、省耗、额外强化收益 | 强化技艺经验倍率 |
-| 传法 `transmission` | 当前多为固定成功，预留特殊传法成功判定 | 传法与领悟进度速度 | 传法额外收益或额外副产物，当前预留 | 传法技艺经验倍率 |
+| 传法 `transmission` | 暂不消费 | 功法领悟进度速度，自悟和传授别人都生效 | 当前预留 | 传法技艺经验倍率，只影响传法技艺自身经验 |
 | 采集 `gather` | 当前多为固定成功，预留采集失败、品质或特殊资源判定 | 草药采集等级速度、采集工具速度、环境速度 | 额外草药、稀有草药、额外采集数量 | 采集技艺经验倍率 |
 | 挖矿 `mining` | 当前多为地块破坏固定成功，预留矿脉判定 | 挖矿等级地块伤害、工具地块伤害、环境破坏速度 | 矿物掉落、额外矿物、稀有矿物、幸运地块掉落 | 挖矿技艺经验倍率 |
 | 营造 `building` | 当前多为建造固定成功，预留特殊建筑失败或品质判定 | 建造每息进度、营造工具速度、个人建造速度 | 返材、额外耐久、额外建筑品质、额外建筑产物 | 营造技艺经验倍率 |
 | 阵法 `formation` | 布阵成功率、维护成功率，当前多为固定成功 | 布阵速度、维护速度 | 阵法效果产出、维护灵力效率、额外范围、额外持续时间 | 阵法技艺经验倍率 |
 
-## 现有字段合并目标
+## 当前落地状态
 
-后续迁移时，分散字段和机制应按消费语义合并到对应技艺属性：
+生活工具和物品模板直接写 `craftEffectStats`：
 
-| 现有机制或字段 | 合并目标 |
+```json
+{
+  "craftEffectStats": {
+    "alchemy": { "successRate": 0.1, "speedRate": 0.2 },
+    "mining": { "speedRate": 0.5, "outputRate": 0.1 }
+  }
+}
+```
+
+当前已经接入的消费点：
+
+| 技艺 | 已消费属性 |
 | --- | --- |
-| `alchemySuccessRate` | `alchemy.successRate` |
-| `alchemySpeedRate` | `alchemy.speedRate` |
-| `forgingSuccessRate` | `forging.successRate` |
-| `forgingSpeedRate` | `forging.speedRate` |
-| `enhancementSuccessRate` | `enhancement.successRate` |
-| `enhancementSpeedRate` | `enhancement.speedRate` |
-| `miningDamageRate` | `mining.speedRate` |
-| `miningDropRate` | `mining.outputRate` |
-| `buildingSpeedRate` | `building.speedRate` |
-| 幸运成功率 | 按消费场景分别贡献到 `alchemy.successRate`、`forging.successRate`、`enhancement.successRate` |
-| 幸运地块掉落或额外采集 | 贡献到 `mining.outputRate` 或 `gather.outputRate` |
-| 技艺等级成功率和速度 | 在构建技艺快照时折算进对应槽，或保留为内置来源 |
-| 五行匹配 | 仍作为配方和材料基础判定；需要统一展示时，结果归入对应 `successRate` 来源拆解 |
-| 工具强化后的技艺属性 | 先折算成最终 `CraftEffectStats`，业务逻辑不重复读取装备细节 |
+| 炼丹 `alchemy` | `successRate`、`speedRate`、`outputRate`、`expRate` |
+| 炼器 `forging` | `successRate`、`speedRate`、`outputRate`、`expRate` |
+| 强化 `enhancement` | `successRate`、`speedRate`、`expRate` |
+| 传法 `transmission` | `speedRate`、`expRate` |
+| 采集 `gather` | `speedRate`、`outputRate`、`expRate` |
+| 挖矿 `mining` | `speedRate`、`outputRate`、`expRate` |
+| 营造 `building` | `speedRate`、`expRate` |
+| 阵法 `formation` | `expRate` |
 
-## 迁移顺序
-
-1. 已新增共享类型和空快照构造：`CraftEffectStats`、`CraftEffectStatsPatch`，每个技艺块固定包含 `successRate/speedRate/outputRate/expRate`。
-2. 已在玩家属性结算中从旧 `craftStats` 映射出 `craftEffectStats`。
-3. 保留旧 `craftStats` 到新结构的兼容映射，先不删除旧字段。
-4. 后续在玩家属性结算中从装备、功法、buff、runtimeBonuses、环境和阵法直接收集技艺效果来源。
-5. 优先迁移预览和结算最容易对齐的路径：
-   - 强化成功率和速度。
-   - 炼丹、炼器成功率和速度。
-   - 建造速度。
-   - 挖矿地块伤害和掉落。
-   - 采集速度和产出。
-6. 迁移来源拆解 UI 和属性详情，让玩家能看到每类加成来自哪里。
-7. 删除或降级旧字段前，补协议审计和最小 smoke。
+其中 `expRate` 统一只影响对应技艺自身经验。传法的 `speedRate` 影响功法领悟进度；传法的 `expRate` 只影响传法技艺经验。
 
 ## 属性面板未显式展示的隐藏特殊属性
 
@@ -146,14 +141,7 @@ type CraftEffectStats = Record<
 
 | 隐藏项 | 当前承载 | 当前消费 | 问题 | 后续归并口径 |
 | --- | --- | --- | --- | --- |
-| 技艺工具属性 | `player.attrs.craftStats` | 炼丹、炼器、强化、挖矿、营造结算和技艺面板预估 | 不是属性面板卡片，只是隐藏投影；字段仍按旧工具名展开。 | 迁移为 `specialEffectStats.craft`，每个技艺统一为 `successRate/speedRate/outputRate/expRate`。 |
-| 炼丹成功率/速度 | `craftStats.alchemySuccessRate`、`craftStats.alchemySpeedRate` | 炼丹成功率和耗时 | 只从工具投影读取，来源拆解不统一。 | `craft.alchemy.successRate`、`craft.alchemy.speedRate`。 |
-| 炼器成功率/速度 | `craftStats.forgingSuccessRate`、`craftStats.forgingSpeedRate` | 炼器成功率和耗时 | 历史上部分炼器工具复用 `alchemy*` 字段，再投影成 forging 字段。 | `craft.forging.successRate`、`craft.forging.speedRate`。 |
-| 强化成功率/速度 | `craftStats.enhancementSuccessRate`、`craftStats.enhancementSpeedRate` | 强化成功率和耗时 | 幸运、技艺等级、工具成功率分散传参。 | `craft.enhancement.successRate`、`craft.enhancement.speedRate`。 |
-| 挖矿地块伤害 | `craftStats.miningDamageRate` | 地块伤害结算 | 实际语义是完成挖矿更快，不是普通战斗伤害。 | `craft.mining.speedRate`。 |
-| 挖矿地块产出 | `craftStats.miningDropRate` | 矿物掉落概率 | 与挖矿等级、幸运加成在地块掉落逻辑里现算。 | `craft.mining.outputRate`。 |
-| 营造建造速度 | `craftStats.buildingSpeedRate` | 建造每 tick 进度 | 在建造 tick 辅助函数和世界建造服务里直接读取。 | `craft.building.speedRate`。 |
-| 传法技艺加成 | 公式内 `progressGain` / job 投影 `progressGainPerTick` | pending 功法自悟、击杀推进、传法推进 | 当前是公式结果或 job 投影，不是面板特殊属性；传法和领悟不应拆成两个玩家属性。 | 抽成 `craft.transmission.speedRate`，经验加成归入 `craft.transmission.expRate`。 |
+| 技艺效果属性 | `player.attrs.craftEffectStats` | 炼丹、炼器、强化、传法、采集、挖矿、营造、阵法相关结算和面板预估 | 不是属性面板卡片，当前仍属于隐藏特殊属性。 | 后续接入属性详情来源拆解，按技艺展示 `successRate/speedRate/outputRate/expRate`。 |
 
 ### 不应计入“未显示特殊属性”的项
 

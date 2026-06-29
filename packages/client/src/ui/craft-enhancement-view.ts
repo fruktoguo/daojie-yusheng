@@ -5,7 +5,7 @@
  */
 import type {
   C2S_StartEnhancement,
-  CraftEquipmentStats,
+  CraftEffectStatsPatch,
   EnhancementTargetRef,
   ItemStack,
   PlayerEnhancementRecord,
@@ -142,13 +142,7 @@ function buildBaseEnhancementPreviewItem(item: EnhancementItemView): ItemStack {
     effects: template?.effects ?? source.effects,
     artifactMaxQiFactor: template?.artifactMaxQiFactor ?? source.artifactMaxQiFactor,
     artifactEffects: template?.artifactEffects ?? source.artifactEffects,
-    alchemySuccessRate: template?.alchemySuccessRate ?? source.alchemySuccessRate,
-    alchemySpeedRate: template?.alchemySpeedRate ?? source.alchemySpeedRate,
-    enhancementSuccessRate: template?.enhancementSuccessRate ?? source.enhancementSuccessRate,
-    enhancementSpeedRate: template?.enhancementSpeedRate ?? source.enhancementSpeedRate,
-    miningDamageRate: template?.miningDamageRate ?? source.miningDamageRate,
-    miningDropRate: template?.miningDropRate ?? source.miningDropRate,
-    buildingSpeedRate: template?.buildingSpeedRate ?? source.buildingSpeedRate,
+    craftEffectStats: template?.craftEffectStats ?? source.craftEffectStats,
     enhanceLevel: 0,
   };
 }
@@ -160,8 +154,8 @@ function getEnhancementDisplayName(item: EnhancementItemView): string {
   });
 }
 
-function getEnhancementToolSuccessRate(stats: Partial<CraftEquipmentStats> | null | undefined): number {
-  const value = Number(stats?.enhancementSuccessRate);
+function getEnhancementToolSuccessRate(stats: CraftEffectStatsPatch | null | undefined): number {
+  const value = Number(stats?.enhancement?.successRate);
   return Number.isFinite(value)
     ? value
     : 0;

@@ -9,7 +9,8 @@ import type {
   AlchemyRecipeCategory,
   C2S_SaveAlchemyPreset,
   C2S_StartEnhancement,
-  CraftEquipmentStats,
+  CraftEffectSkillKind,
+  CraftEffectStatsPatch,
   CraftElementVector,
   CraftQueueItemView,
   CraftQueueStartMode,
@@ -315,13 +316,7 @@ function buildBaseEnhancementPreviewItem(item: EnhancementItemView): ItemStack {
     effects: template?.effects ?? source.effects,
     artifactMaxQiFactor: template?.artifactMaxQiFactor ?? source.artifactMaxQiFactor,
     artifactEffects: template?.artifactEffects ?? source.artifactEffects,
-    alchemySuccessRate: template?.alchemySuccessRate ?? source.alchemySuccessRate,
-    alchemySpeedRate: template?.alchemySpeedRate ?? source.alchemySpeedRate,
-    enhancementSuccessRate: template?.enhancementSuccessRate ?? source.enhancementSuccessRate,
-    enhancementSpeedRate: template?.enhancementSpeedRate ?? source.enhancementSpeedRate,
-    miningDamageRate: template?.miningDamageRate ?? source.miningDamageRate,
-    miningDropRate: template?.miningDropRate ?? source.miningDropRate,
-    buildingSpeedRate: template?.buildingSpeedRate ?? source.buildingSpeedRate,
+    craftEffectStats: template?.craftEffectStats ?? source.craftEffectStats,
     enhanceLevel: 0,
   };
 }
@@ -334,17 +329,18 @@ function getEnhancementDisplayName(item: EnhancementItemView): string {
 }
 
 function readCraftToolStat(
-  stats: Partial<CraftEquipmentStats> | null | undefined,
-  key: keyof CraftEquipmentStats,
+  stats: CraftEffectStatsPatch | null | undefined,
+  skillKind: CraftEffectSkillKind,
+  effectKind: 'successRate' | 'speedRate' | 'outputRate' | 'expRate',
 ): number {
-  const value = Number(stats?.[key]);
+  const value = Number(stats?.[skillKind]?.[effectKind]);
   return Number.isFinite(value)
     ? value
     : 0;
 }
 
-function getEnhancementToolSuccessRate(stats: Partial<CraftEquipmentStats> | null | undefined): number {
-  return readCraftToolStat(stats, 'enhancementSuccessRate');
+function getEnhancementToolSuccessRate(stats: CraftEffectStatsPatch | null | undefined): number {
+  return readCraftToolStat(stats, 'enhancement', 'successRate');
 }
 
 function createEmptyEquipmentSlots(): EquipmentSlots {
@@ -4913,11 +4909,10 @@ export class CraftWorkbenchModal {
 
   private getAlchemyFurnaceBonuses(): { successRate: number; speedRate: number } {
     const toolStats = this.alchemyPanel?.state?.toolStats;
-    const successKey = this.activeMode === 'forging' ? 'forgingSuccessRate' : 'alchemySuccessRate';
-    const speedKey = this.activeMode === 'forging' ? 'forgingSpeedRate' : 'alchemySpeedRate';
+    const skillKind = this.activeMode === 'forging' ? 'forging' : 'alchemy';
     return {
-      successRate: readCraftToolStat(toolStats, successKey),
-      speedRate: readCraftToolStat(toolStats, speedKey),
+      successRate: readCraftToolStat(toolStats, skillKind, 'successRate'),
+      speedRate: readCraftToolStat(toolStats, skillKind, 'speedRate'),
     };
   }
 

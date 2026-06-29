@@ -9,9 +9,9 @@
 import type { TechniqueActivityCancelRef, TechniqueActivityInterruptState, TechniqueActivityJobBase, TechniqueActivityTaskKind } from './technique-activity-types';
 import type { TechniqueCategory, TechniqueGrade, TechniqueTransmissionBlockedReason, TechniqueTransmissionJobStatus } from './cultivation-types';
 import type { CraftElementMatchSnapshot, CraftElementVector } from './craft-elements';
+import type { CraftEffectStatsPatch } from './craft-effect-stats';
 import type { EquipSlot, ItemStack, ItemType } from './item-runtime-types';
 import type { TechniqueComprehensionProgressBreakdown } from './technique-comprehension';
-import type { CraftEquipmentStats } from './constants/gameplay/equipment';
 
 /** 制造型技艺任务的启动排队策略。 */
 export type CraftQueueStartMode = 'replace' | 'preserve' | 'append';
@@ -368,7 +368,7 @@ export interface SyncedAlchemyPanelState {
  * toolStats：服务端属性结算后的隐藏技艺工具属性投影。
  */
 
-  toolStats?: Partial<CraftEquipmentStats>;
+  toolStats?: CraftEffectStatsPatch;
   /**
  * presets：preset相关字段。
  */
@@ -1115,7 +1115,7 @@ export interface SyncedEnhancementPanelState {
  * toolStats：服务端属性结算后的隐藏技艺工具属性投影。
  */
 
-  toolStats?: Partial<CraftEquipmentStats>;
+  toolStats?: CraftEffectStatsPatch;
   /**
  * enhancementSkillLevel：强化技能等级数值。
  */

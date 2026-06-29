@@ -4,6 +4,7 @@ import {
   DEFAULT_CRAFT_EXP_TO_NEXT,
   resolveCraftSkillExpToNextByLevel,
 } from '../../craft-skill-exp.helpers';
+import { applyPlayerCraftExpRate, resolvePlayerCraftEffectStat } from '../../craft-effect-runtime.helpers';
 
 export function executeBuildingTick(
   playerId: string,
@@ -137,7 +138,7 @@ function applyBuildingSkillExp(source: unknown, player: Record<string, any>, bui
     return 0;
   }
   const skill = ensureBuildingSkillState(source, player);
-  const gain = computeCraftSkillExpGain({
+  const baseGain = computeCraftSkillExpGain({
     skillLevel: skill.level,
     targetLevel: skill.level,
     baseActionTicks: normalizeBuildStrength(buildStrength),
@@ -146,6 +147,7 @@ function applyBuildingSkillExp(source: unknown, player: Record<string, any>, bui
     failureCount: 0,
     successMultiplier: 1,
   }).finalGain;
+  const gain = applyPlayerCraftExpRate(player, 'building', baseGain);
   if (gain <= 0) {
     return 0;
   }
@@ -276,7 +278,7 @@ function resolveBuildingRemainingProgress(building: Record<string, any>): number
 }
 
 function resolveBuildingProgressPerTick(player: Record<string, any>): number {
-  const speedRate = Math.max(0, Number(player?.attrs?.craftStats?.buildingSpeedRate) || 0);
+  const speedRate = Math.max(0, resolvePlayerCraftEffectStat(player, 'building', 'speedRate'));
   return 1 + speedRate;
 }
 

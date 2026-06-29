@@ -74,6 +74,8 @@ export interface TechniqueComprehensionProgressBreakdown {
   realmFactor: number;
   learnerTransmissionFactor: number;
   teacherTransmissionFactor?: number;
+  transmissionSpeedRate?: number;
+  transmissionSpeedFactor?: number;
 }
 
 export function getTechniqueComprehensionProgressDifficultyFactor(input: {
@@ -97,6 +99,7 @@ export function calculateTechniqueComprehensionProgressBreakdown(input: {
   learnerRealmLv: number;
   learnerTransmissionLevel?: number;
   teacherTransmissionLevel?: number;
+  transmissionSpeedRate?: number;
 }): TechniqueComprehensionProgressBreakdown {
   const baseProgress = Number(input.baseProgress);
   const normalizedBaseProgress = Number.isFinite(baseProgress) && baseProgress > 0 ? baseProgress : 0;
@@ -117,9 +120,11 @@ export function calculateTechniqueComprehensionProgressBreakdown(input: {
   const difficultyFactor = Number.isFinite(rawDifficultyFactor) && rawDifficultyFactor > 0
     ? rawDifficultyFactor
     : 1;
+  const transmissionSpeedRate = Math.max(0, Number(input.transmissionSpeedRate) || 0);
+  const transmissionSpeedFactor = 1 + transmissionSpeedRate;
   return {
     baseProgress: normalizedBaseProgress,
-    progressGain: normalizedBaseProgress > 0 ? Math.max(0, normalizedBaseProgress / difficultyFactor) : 0,
+    progressGain: normalizedBaseProgress > 0 ? Math.max(0, normalizedBaseProgress / difficultyFactor * transmissionSpeedFactor) : 0,
     difficultyFactor,
     techniqueRealmLv,
     learnerRealmLv,
@@ -128,6 +133,8 @@ export function calculateTechniqueComprehensionProgressBreakdown(input: {
     realmFactor,
     learnerTransmissionFactor,
     ...(teacherTransmissionFactor === undefined ? {} : { teacherTransmissionFactor }),
+    transmissionSpeedRate,
+    transmissionSpeedFactor,
   };
 }
 
@@ -137,6 +144,7 @@ export function calculateTechniqueComprehensionProgressGain(input: {
   learnerRealmLv: number;
   learnerTransmissionLevel?: number;
   teacherTransmissionLevel?: number;
+  transmissionSpeedRate?: number;
 }): number {
   const baseProgress = Number(input.baseProgress);
   if (!Number.isFinite(baseProgress) || baseProgress <= 0) {

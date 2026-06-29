@@ -255,8 +255,12 @@
         "cooldownLeft": 0
       }
     ],
-    "alchemySuccessRate": 0.1,
-    "alchemySpeedRate": 0.2
+    "craftEffectStats": {
+      "alchemy": {
+        "successRate": 0.1,
+        "speedRate": 0.2
+      }
+    }
   },
   {
     "itemId": "equip.copper_enhancement_hammer",
@@ -278,8 +282,12 @@
         "cooldownLeft": 0
       }
     ],
-    "enhancementSuccessRate": 0.01,
-    "enhancementSpeedRate": 0.2
+    "craftEffectStats": {
+      "enhancement": {
+        "successRate": 0.01,
+        "speedRate": 0.2
+      }
+    }
   },
   {
     "itemId": "equip.copper_forging_tool",
@@ -301,8 +309,12 @@
         "cooldownLeft": 0
       }
     ],
-    "alchemySuccessRate": 0.1,
-    "alchemySpeedRate": 0.2
+    "craftEffectStats": {
+      "forging": {
+        "successRate": 0.1,
+        "speedRate": 0.2
+      }
+    }
   },
   {
     "itemId": "equip.copper_building_hammer",
@@ -324,7 +336,11 @@
         "cooldownLeft": 0
       }
     ],
-    "buildingSpeedRate": 0.2
+    "craftEffectStats": {
+      "building": {
+        "speedRate": 0.2
+      }
+    }
   },
   {
     "itemId": "equip.copper_mining_pickaxe",
@@ -349,7 +365,11 @@
         "range": 999
       }
     ],
-    "miningDamageRate": 0.5,
-    "miningDropRate": 0.1
+    "craftEffectStats": {
+      "mining": {
+        "speedRate": 0.5,
+        "outputRate": 0.1
+      }
+    }
   }
 ]

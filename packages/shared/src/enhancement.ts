@@ -17,6 +17,7 @@ import type { PartialNumericStats } from './numeric';
 import { ELEMENT_KEYS, NUMERIC_SCALAR_STAT_KEYS } from './numeric';
 import { ATTR_KEYS } from './constants/gameplay/attributes';
 import { computeAdjustedCraftTicks } from './craft-duration';
+import { scaleCraftEffectStatsPatch } from './craft-effect-stats';
 import {
   applyAsymptoticSuccessModifier,
   applyMultiplicativeSuccessModifier,
@@ -566,13 +567,10 @@ export function applyEnhancementToItemStack(item: ItemStack): ItemStack {
     equipAttrs: scaleEnhancedAttributes(flat.equipAttrs, enhanceLevel),
     equipStats: scaleEnhancedNumericStats(flat.equipStats, enhanceLevel),
     equipValueStats: scaleEnhancedNumericStats(flat.equipValueStats, enhanceLevel),
-    alchemySuccessRate: cloneScaledUtilityRate(flat.alchemySuccessRate, enhanceLevel),
-    alchemySpeedRate: cloneScaledUtilityRate(flat.alchemySpeedRate, enhanceLevel),
-    enhancementSuccessRate: cloneScaledUtilityRate(flat.enhancementSuccessRate, enhanceLevel),
-    enhancementSpeedRate: cloneScaledUtilityRate(flat.enhancementSpeedRate, enhanceLevel),
-    miningDamageRate: cloneScaledUtilityRate(flat.miningDamageRate, enhanceLevel),
-    miningDropRate: cloneScaledUtilityRate(flat.miningDropRate, enhanceLevel),
-    buildingSpeedRate: cloneScaledUtilityRate(flat.buildingSpeedRate, enhanceLevel),
+    craftEffectStats: scaleCraftEffectStatsPatch(
+      flat.craftEffectStats,
+      (value) => cloneScaledUtilityRate(value, enhanceLevel) ?? 0,
+    ),
   };
 }
 
@@ -610,12 +608,9 @@ export function applyEquipmentAttributeEffectivenessToItemStack(
     equipStats: scaleEquipmentEffectivenessNumericStats(enhancedItem.equipStats, realmMultiplier),
     equipValueStats: scaleEquipmentEffectivenessNumericStats(enhancedItem.equipValueStats, realmMultiplier),
     equipSpecialStats: scaleEquipmentEffectivenessSpecialStats(enhancedItem.equipSpecialStats, realmMultiplier),
-    alchemySuccessRate: typeof enhancedItem.alchemySuccessRate === 'number' ? scaleEquipmentEffectivenessUtilityRate(enhancedItem.alchemySuccessRate, realmMultiplier) : enhancedItem.alchemySuccessRate,
-    alchemySpeedRate: typeof enhancedItem.alchemySpeedRate === 'number' ? scaleEquipmentEffectivenessUtilityRate(enhancedItem.alchemySpeedRate, realmMultiplier) : enhancedItem.alchemySpeedRate,
-    enhancementSuccessRate: typeof enhancedItem.enhancementSuccessRate === 'number' ? scaleEquipmentEffectivenessUtilityRate(enhancedItem.enhancementSuccessRate, realmMultiplier) : enhancedItem.enhancementSuccessRate,
-    enhancementSpeedRate: typeof enhancedItem.enhancementSpeedRate === 'number' ? scaleEquipmentEffectivenessUtilityRate(enhancedItem.enhancementSpeedRate, realmMultiplier) : enhancedItem.enhancementSpeedRate,
-    miningDamageRate: typeof enhancedItem.miningDamageRate === 'number' ? scaleEquipmentEffectivenessUtilityRate(enhancedItem.miningDamageRate, realmMultiplier) : enhancedItem.miningDamageRate,
-    miningDropRate: typeof enhancedItem.miningDropRate === 'number' ? scaleEquipmentEffectivenessUtilityRate(enhancedItem.miningDropRate, realmMultiplier) : enhancedItem.miningDropRate,
-    buildingSpeedRate: typeof enhancedItem.buildingSpeedRate === 'number' ? scaleEquipmentEffectivenessUtilityRate(enhancedItem.buildingSpeedRate, realmMultiplier) : enhancedItem.buildingSpeedRate,
+    craftEffectStats: scaleCraftEffectStatsPatch(
+      enhancedItem.craftEffectStats,
+      (value) => scaleEquipmentEffectivenessUtilityRate(value, realmMultiplier),
+    ),
   };
 }

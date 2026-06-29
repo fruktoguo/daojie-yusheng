@@ -622,27 +622,37 @@ export function describeItemEffectDetails(item: ItemStack): string[] {
 export function describeEquipmentUtilityBonuses(item: ItemStack): string[] {
   const lines: string[] = [];
   const formatSignedRate = (value: number): string => `${value > 0 ? '+' : ''}${formatDisplayPercent(value * 100)}`;
-  const craftLabel = item.tags?.includes('forging_tool') && !item.tags?.includes('alchemy_furnace') ? t('equipment-tooltip.craft.forging', undefined) : t('equipment-tooltip.craft.alchemy', undefined);
-  if (typeof item.alchemySpeedRate === 'number' && item.alchemySpeedRate !== 0) {
-    lines.push(t('equipment-tooltip.utility.speed', { craft: craftLabel, value: formatSignedRate(item.alchemySpeedRate) }));
-  }
-  if (typeof item.alchemySuccessRate === 'number' && item.alchemySuccessRate !== 0) {
-    lines.push(t('equipment-tooltip.utility.success', { craft: craftLabel, value: formatSignedRate(item.alchemySuccessRate) }));
-  }
-  if (typeof item.enhancementSpeedRate === 'number' && item.enhancementSpeedRate !== 0) {
-    lines.push(t('equipment-tooltip.utility.enhancement-speed', { value: formatSignedRate(item.enhancementSpeedRate) }));
-  }
-  if (typeof item.enhancementSuccessRate === 'number' && item.enhancementSuccessRate !== 0) {
-    lines.push(t('equipment-tooltip.utility.enhancement-success', { value: formatSignedRate(item.enhancementSuccessRate) }));
-  }
-  if (typeof item.miningDamageRate === 'number' && item.miningDamageRate !== 0) {
-    lines.push(t('equipment-tooltip.utility.mining-damage', { value: formatSignedRate(item.miningDamageRate) }));
-  }
-  if (typeof item.miningDropRate === 'number' && item.miningDropRate !== 0) {
-    lines.push(t('equipment-tooltip.utility.mining-drop', { value: formatSignedRate(item.miningDropRate) }));
-  }
-  if (typeof item.buildingSpeedRate === 'number' && item.buildingSpeedRate !== 0) {
-    lines.push(t('equipment-tooltip.utility.building-speed', { value: formatSignedRate(item.buildingSpeedRate) }));
+  const craftLabels: Record<string, string> = {
+    alchemy: t('equipment-tooltip.craft.alchemy', undefined),
+    forging: t('equipment-tooltip.craft.forging', undefined),
+    enhancement: t('equipment-tooltip.craft.enhancement', undefined),
+    transmission: t('equipment-tooltip.craft.transmission', undefined),
+    gather: t('equipment-tooltip.craft.gather', undefined),
+    mining: t('equipment-tooltip.craft.mining', undefined),
+    building: t('equipment-tooltip.craft.building', undefined),
+    formation: t('equipment-tooltip.craft.formation', undefined),
+  };
+  for (const [skillKind, block] of Object.entries(item.craftEffectStats ?? {})) {
+    if (!block || typeof block !== 'object') {
+      continue;
+    }
+    const craft = craftLabels[skillKind] ?? skillKind;
+    const successRate = Number(block.successRate);
+    const speedRate = Number(block.speedRate);
+    const outputRate = Number(block.outputRate);
+    const expRate = Number(block.expRate);
+    if (Number.isFinite(speedRate) && speedRate !== 0) {
+      lines.push(t('equipment-tooltip.utility.speed', { craft, value: formatSignedRate(speedRate) }));
+    }
+    if (Number.isFinite(successRate) && successRate !== 0) {
+      lines.push(t('equipment-tooltip.utility.success', { craft, value: formatSignedRate(successRate) }));
+    }
+    if (Number.isFinite(outputRate) && outputRate !== 0) {
+      lines.push(t('equipment-tooltip.utility.output', { craft, value: formatSignedRate(outputRate) }));
+    }
+    if (Number.isFinite(expRate) && expRate !== 0) {
+      lines.push(t('equipment-tooltip.utility.exp', { craft, value: formatSignedRate(expRate) }));
+    }
   }
   return lines;
 }

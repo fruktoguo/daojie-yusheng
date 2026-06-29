@@ -5,6 +5,8 @@
  */
 import { Inject, Injectable } from '@nestjs/common';
 import {
+  CRAFT_EFFECT_KINDS,
+  CRAFT_EFFECT_SKILL_KINDS,
   DEFAULT_AURA_LEVEL_BASE_VALUE,
   S2C,
   TileType,
@@ -821,11 +823,21 @@ function isSameSyncedItem(left: SyncedItemStack | null | undefined, right: Synce
     && left.tileAuraGainAmount === right.tileAuraGainAmount
     && shallowEqualTileResourceGainArray(left.tileResourceGains, right.tileResourceGains)
     && left.spiritualRootSeedTier === right.spiritualRootSeedTier
-    && left.alchemySuccessRate === right.alchemySuccessRate
-    && left.alchemySpeedRate === right.alchemySpeedRate
-    && left.enhancementSuccessRate === right.enhancementSuccessRate
-    && left.enhancementSpeedRate === right.enhancementSpeedRate
+    && shallowEqualCraftEffectStats(left.craftEffectStats, right.craftEffectStats)
     && left.allowBatchUse === right.allowBatchUse;
+}
+
+function shallowEqualCraftEffectStats(left: SyncedItemStack['craftEffectStats'], right: SyncedItemStack['craftEffectStats']): boolean {
+  for (const skillKind of CRAFT_EFFECT_SKILL_KINDS) {
+    const leftBlock = left?.[skillKind];
+    const rightBlock = right?.[skillKind];
+    for (const effectKind of CRAFT_EFFECT_KINDS) {
+      if ((Number(leftBlock?.[effectKind]) || 0) !== (Number(rightBlock?.[effectKind]) || 0)) {
+        return false;
+      }
+    }
+  }
+  return true;
 }
 
 function shallowEqualTileResourceGainArray(

@@ -3,7 +3,6 @@
  *
  * 它只描述玩家最终技艺效果投影，不直接承载装备、buff、建筑、风水等来源生命周期。
  */
-import type { CraftEquipmentStats } from './constants/gameplay/equipment';
 
 /** 技艺加成维度：成功率、速度、产出、经验。 */
 export const CRAFT_EFFECT_KINDS = ['successRate', 'speedRate', 'outputRate', 'expRate'] as const;
@@ -94,22 +93,105 @@ export function addCraftEffectStatsPatch(target: CraftEffectStats, patch: CraftE
   }
 }
 
-/** 把旧技艺工具隐藏投影映射成标准四属性结构。 */
-export function craftEquipmentStatsToCraftEffectStats(source: Partial<CraftEquipmentStats> | null | undefined): CraftEffectStats {
-  const result = createEmptyCraftEffectStats();
+export function normalizeCraftEffectStatsPatch(source: CraftEffectStatsPatch | null | undefined): CraftEffectStatsPatch | undefined {
   if (!source || typeof source !== 'object') {
-    return result;
+    return undefined;
   }
-  result.alchemy.successRate = readFiniteNumber(source.alchemySuccessRate);
-  result.alchemy.speedRate = readFiniteNumber(source.alchemySpeedRate);
-  result.forging.successRate = readFiniteNumber(source.forgingSuccessRate);
-  result.forging.speedRate = readFiniteNumber(source.forgingSpeedRate);
-  result.enhancement.successRate = readFiniteNumber(source.enhancementSuccessRate);
-  result.enhancement.speedRate = readFiniteNumber(source.enhancementSpeedRate);
-  result.mining.speedRate = readFiniteNumber(source.miningDamageRate);
-  result.mining.outputRate = readFiniteNumber(source.miningDropRate);
-  result.building.speedRate = readFiniteNumber(source.buildingSpeedRate);
-  return result;
+  const result: CraftEffectStatsPatch = {};
+  for (const skillKind of CRAFT_EFFECT_SKILL_KINDS) {
+    const sourceBlock = source[skillKind];
+    if (!sourceBlock || typeof sourceBlock !== 'object') {
+      continue;
+    }
+    const block: Partial<CraftEffectStatBlock> = {};
+    for (const effectKind of CRAFT_EFFECT_KINDS) {
+      const value = Number(sourceBlock[effectKind]);
+      if (Number.isFinite(value) && value !== 0) {
+        block[effectKind] = value;
+      }
+    }
+    if (Object.keys(block).length > 0) {
+      result[skillKind] = block;
+    }
+  }
+  return Object.keys(result).length > 0 ? result : undefined;
+}
+
+export function readCraftEffectStat(
+  source: CraftEffectStatsPatch | null | undefined,
+  skillKind: CraftEffectSkillKind,
+  effectKind: CraftEffectKind,
+): number {
+  if (!source || typeof source !== 'object') {
+    return 0;
+  }
+  const block = source[skillKind];
+  if (!block || typeof block !== 'object') {
+    return 0;
+  }
+  return readFiniteNumber(block[effectKind]);
+}
+
+export function scaleCraftEffectStatsPatch(
+  source: CraftEffectStatsPatch | null | undefined,
+  scale: (value: number) => number,
+): CraftEffectStatsPatch | undefined {
+  if (!source || typeof source !== 'object') {
+    return undefined;
+  }
+  const result: CraftEffectStatsPatch = {};
+  for (const skillKind of CRAFT_EFFECT_SKILL_KINDS) {
+    const sourceBlock = source[skillKind];
+    if (!sourceBlock || typeof sourceBlock !== 'object') {
+      continue;
+    }
+    const block: Partial<CraftEffectStatBlock> = {};
+    for (const effectKind of CRAFT_EFFECT_KINDS) {
+      const value = Number(sourceBlock[effectKind]);
+      if (Number.isFinite(value)) {
+        const scaled = scale(value);
+        if (Number.isFinite(scaled)) {
+          block[effectKind] = scaled;
+        }
+      }
+    }
+    if (Object.keys(block).length > 0) {
+      result[skillKind] = block;
+    }
+  }
+  return Object.keys(result).length > 0 ? result : undefined;
+}
+
+/**
+ * 按百分比额外产出率计算整数产出。
+ * 例如 base=1, outputRate=3.5 时固定额外 3 个，并有 50% 概率再额外 1 个。
+ */
+export function applyCraftOutputRate(baseCount: number, outputRate: number, random: () => number = Math.random): number {
+  const base = Math.max(0, Math.floor(Number(baseCount) || 0));
+  if (base <= 0) {
+    return 0;
+  }
+  const rate = Math.max(0, Number(outputRate) || 0);
+  if (rate <= 0) {
+    return base;
+  }
+  const expectedExtra = base * rate;
+  const fixedExtra = Math.floor(expectedExtra);
+  const chanceExtra = expectedExtra - fixedExtra;
+  const rolledExtra = chanceExtra > 0 && random() < chanceExtra ? 1 : 0;
+  return base + fixedExtra + rolledExtra;
+}
+
+export function applyCraftExpRate(baseGain: number, expRate: number): number {
+  const gain = Math.max(0, Math.floor(Number(baseGain) || 0));
+  if (gain <= 0) {
+    return 0;
+  }
+  const multiplier = 1 + Math.max(0, Number(expRate) || 0);
+  if (multiplier <= 0) {
+    return 0;
+  }
+  return Math.max(1, Math.round(gain * multiplier));
 }
 
 function readFiniteNumber(value: unknown): number {

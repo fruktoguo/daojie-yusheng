@@ -5,6 +5,7 @@
  */
 import {
   MINING_EXP_BASE_ACTION_TICKS,
+  applyCraftOutputRate,
   computeCraftSkillExpGain,
   computeLuckSuccessRateBonus,
   getOreMiningLevel,
@@ -13,6 +14,7 @@ import {
   isOreMinableTileType,
 } from '@mud/shared';
 import { resolveCraftSkillExpToNextByLevel } from '../../craft/craft-skill-exp.helpers';
+import { applyPlayerCraftExpRate, resolvePlayerCraftEffectStat } from '../../craft/craft-effect-runtime.helpers';
 import { buildStructuredNotice } from '../structured-notice.helpers';
 import * as worldRuntimeNormalizationHelpers from '../world-runtime.normalization.helpers';
 import { resolvePlayerEffectiveLuck } from '../../player/player-special-stat.helpers';
@@ -34,9 +36,9 @@ export function resolveMiningAdjustedTileDamage(input: {
   }
 
   const miningLevel = input.attacker?.miningSkill?.level ?? 0;
-  const miningDamageRate = input.attacker?.attrs?.craftStats?.miningDamageRate ?? 0;
+  const miningSpeedRate = resolvePlayerCraftEffectStat(input.attacker, 'mining', 'speedRate');
   const levelMultiplier = getMiningDamageMultiplier(miningLevel);
-  const equipMultiplier = 1 + Math.max(0, Number(miningDamageRate) || 0);
+  const equipMultiplier = 1 + Math.max(0, Number(miningSpeedRate) || 0);
   return {
     damage: Math.max(1, Math.round(baseDamage * levelMultiplier * equipMultiplier)),
     isOreTile,
@@ -45,10 +47,9 @@ export function resolveMiningAdjustedTileDamage(input: {
 
 export function resolveMiningDropRateBonus(attacker: any): number {
   const miningLevel = attacker?.miningSkill?.level ?? 0;
-  const weaponBonus = Math.max(0, Number(attacker?.attrs?.craftStats?.miningDropRate) || 0);
   const skillBonus = getMiningDropRateBonus(miningLevel);
   const luckBonus = computeLuckSuccessRateBonus(resolvePlayerEffectiveLuck(attacker));
-  return weaponBonus + skillBonus + luckBonus;
+  return skillBonus + luckBonus;
 }
 
 export function applyMiningExpForTileDamage(input: {
@@ -73,7 +74,7 @@ export function applyMiningExpForTileDamage(input: {
   const realmLevel = input.attacker?.realmLv ?? input.attacker?.realm?.realmLv ?? 1;
   const miningLevel = Math.max(1, Math.floor(Number(skill.level) || 1));
   const referenceLevel = Math.min(oreTileLevel, miningLevel, realmLevel);
-  const gain = computeCraftSkillExpGain({
+  const baseGain = computeCraftSkillExpGain({
     skillLevel: miningLevel,
     targetLevel: referenceLevel,
     baseActionTicks: MINING_EXP_BASE_ACTION_TICKS,
@@ -82,6 +83,7 @@ export function applyMiningExpForTileDamage(input: {
     failureCount: 0,
     successMultiplier: 1,
   }).finalGain;
+  const gain = applyPlayerCraftExpRate(input.attacker, 'mining', baseGain);
 
   if (gain <= 0) {
     return { gained: 0, changed: false };
@@ -129,13 +131,15 @@ export function spawnTileDrops(input: {
   if (typeof receiveInventoryItem !== 'function') {
     throw new Error('tile_drop_receive_inventory_item_missing');
   }
+  const player = input.deps?.playerRuntimeService?.getPlayer?.(input.playerId);
+  const outputRate = resolvePlayerCraftEffectStat(player, 'mining', 'outputRate');
   const labels: string[] = [];
   for (const drop of drops) {
     const itemId = typeof drop?.itemId === 'string' ? drop.itemId.trim() : '';
     if (!itemId) {
       continue;
     }
-    const count = Math.max(1, Math.trunc(Number(drop?.count) || 1));
+    const count = applyCraftOutputRate(Math.max(1, Math.trunc(Number(drop?.count) || 1)), outputRate);
     const item = typeof content?.createItem === 'function'
       ? content.createItem(itemId, count)
       : null;
