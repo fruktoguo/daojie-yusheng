@@ -137,6 +137,8 @@ type MainResetStateSourceOptions = {
  */
 
   clearActivityState: () => void;
+  /** 清理道友面板和宝库弹层。 */
+  clearSocialState: () => void;
   /** 清理建造、房间和风水低频投影。 */
   clearBuildingFengShuiState: () => void;
   /**
@@ -212,6 +214,7 @@ export function createMainResetStateSource(options: MainResetStateSourceOptions)
       options.clearWorldPanel();
       options.clearMailState();
       options.clearActivityState();
+      options.clearSocialState();
       options.clearBuildingFengShuiState();
       options.resetMapRuntime();
       options.resetReactUiBridge();

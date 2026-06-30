@@ -15,6 +15,7 @@ import { EquipmentPanel } from './ui/panels/equipment-panel';
 import { TechniquePanel } from './ui/panels/technique-panel';
 import { BodyTrainingPanel } from './ui/panels/body-training-panel';
 import { QuestPanel } from './ui/panels/quest-panel';
+import { SocialPanel, TreasureVaultModal } from './ui/panels/social-panel';
 import { ActionPanel } from './ui/panels/action-panel';
 import { LootPanel } from './ui/panels/loot-panel';
 import { SettingsPanel } from './ui/panels/settings-panel';
@@ -56,6 +57,8 @@ export function createMainFrontendModules(windowRef: Window) {
     techniquePanel: new TechniquePanel(),
     bodyTrainingPanel: new BodyTrainingPanel(),
     questPanel: new QuestPanel(),
+    socialPanel: new SocialPanel(),
+    treasureVaultModal: new TreasureVaultModal(),
     actionPanel: new ActionPanel(),
     lootPanel: new LootPanel(),
     worldPanel: new WorldPanel(),

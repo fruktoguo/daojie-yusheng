@@ -8,6 +8,24 @@
  * 由 protocol.ts 统一 re-export，外部消费者不需要直接导入本文件。
  */
 import type { MailDetailSyncView } from './service-sync-types';
+export type {
+  C2S_RemoveDaoistRelationView,
+  C2S_RequestNearbyDaoistCandidatesView,
+  C2S_RequestSocialPanelView,
+  C2S_RequestTreasureVaultView,
+  C2S_RespondDaoistRequestView,
+  C2S_SendDaoistDirectMessageView,
+  C2S_SendDaoistRequestView,
+  C2S_TreasureVaultDepositView,
+  C2S_TreasureVaultWithdrawView,
+  C2S_UpdateDaoistRelationLevelView,
+  C2S_UpdateTreasureVaultPermissionsView,
+  DaoistDirectMessageView,
+  SocialOperationResultView,
+  SocialPanelView,
+  TreasureVaultDetailView,
+  TreasureVaultOperationResultView,
+} from './social-types';
 
 /** 邮件详情同步包。 */
 export interface S2C_MailDetail extends MailDetailSyncView {}

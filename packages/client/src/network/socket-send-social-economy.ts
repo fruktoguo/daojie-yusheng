@@ -39,6 +39,42 @@ export function createSocketSocialEconomySender(deps: SocialEconomySenderDeps) {
     sendClaimDailySignIn(): void {
       deps.emitEvent(C2S.ClaimDailySignIn, {});
     },
+    sendRequestSocialPanel(): void {
+      deps.emitEvent(C2S.RequestSocialPanel, {});
+    },
+    sendRequestNearbyDaoistCandidates(): void {
+      deps.emitEvent(C2S.RequestNearbyDaoistCandidates, {});
+    },
+    sendDaoistRequest(targetPlayerId: string): void {
+      deps.emitEvent(C2S.SendDaoistRequest, { targetPlayerId });
+    },
+    respondDaoistRequest(requestId: string, accept: boolean): void {
+      deps.emitEvent(C2S.RespondDaoistRequest, { requestId, accept });
+    },
+    updateDaoistRelationLevel(
+      targetPlayerId: string,
+      level: ClientToServerEventPayload<typeof C2S.UpdateDaoistRelationLevel>['level'],
+    ): void {
+      deps.emitEvent(C2S.UpdateDaoistRelationLevel, { targetPlayerId, level });
+    },
+    removeDaoistRelation(targetPlayerId: string): void {
+      deps.emitEvent(C2S.RemoveDaoistRelation, { targetPlayerId });
+    },
+    sendDaoistDirectMessage(targetPlayerId: string, message: string): void {
+      deps.emitEvent(C2S.SendDaoistDirectMessage, { targetPlayerId, message });
+    },
+    sendRequestTreasureVault(payload: ClientToServerEventPayload<typeof C2S.RequestTreasureVault>): void {
+      deps.emitEvent(C2S.RequestTreasureVault, payload);
+    },
+    sendTreasureVaultDeposit(payload: ClientToServerEventPayload<typeof C2S.TreasureVaultDeposit>): void {
+      deps.emitEvent(C2S.TreasureVaultDeposit, payload);
+    },
+    sendTreasureVaultWithdraw(payload: ClientToServerEventPayload<typeof C2S.TreasureVaultWithdraw>): void {
+      deps.emitEvent(C2S.TreasureVaultWithdraw, payload);
+    },
+    sendUpdateTreasureVaultPermissions(payload: ClientToServerEventPayload<typeof C2S.UpdateTreasureVaultPermissions>): void {
+      deps.emitEvent(C2S.UpdateTreasureVaultPermissions, payload);
+    },
     /**
  * sendRequestMailSummary：执行sendRequest邮件摘要相关逻辑。
  * @returns 无返回值，直接更新sendRequest邮件摘要相关状态。

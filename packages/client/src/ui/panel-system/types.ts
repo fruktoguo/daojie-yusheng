@@ -13,6 +13,7 @@ export type PanelId =
   | 'technique'
   | 'body-training'
   | 'quest'
+  | 'social'
   | 'market'
   | 'action'
   | 'world-map-intel'

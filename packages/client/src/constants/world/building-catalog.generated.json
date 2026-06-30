@@ -163,5 +163,45 @@
     "opening": "none",
     "blocksMove": true,
     "blocksSight": false
+  },
+  {
+    "id": "treasure_vault",
+    "name": "宝库",
+    "layer": "furniture",
+    "visualGlyph": "宝",
+    "visualColor": "#d69e2e",
+    "allowRotate": true,
+    "footprint": [
+      {
+        "dx": 0,
+        "dy": 0
+      }
+    ],
+    "cost": [
+      {
+        "itemId": "wood",
+        "count": 6
+      },
+      {
+        "itemId": "metal",
+        "count": 2
+      }
+    ],
+    "traits": [
+      "facility.treasure_vault",
+      "storage.item"
+    ],
+    "elementVector": {
+      "earth": 16,
+      "metal": 8
+    },
+    "durabilityMultiplier": 120,
+    "buildTicks": 3600,
+    "maxHp": 160,
+    "stability": 12,
+    "comfort": 2,
+    "opening": "none",
+    "blocksMove": false,
+    "blocksSight": false
   }
 ]

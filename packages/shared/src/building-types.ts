@@ -92,6 +92,9 @@ export interface BuildingDef {
     cost?: BuildingCostEntry[];
     refund?: BuildingCostEntry[];
   };
+  treasureVault?: {
+    capacity?: number;
+  };
 }
 
 export interface CompiledBuildingDef {
@@ -121,6 +124,7 @@ export interface CompiledBuildingDef {
   costItemIds: string[];
   costCounts: Uint32Array;
   cellLayerTarget: CellLayerTarget;
+  treasureVaultCapacity: number;
 }
 
 export interface CompiledBuildingCatalog {

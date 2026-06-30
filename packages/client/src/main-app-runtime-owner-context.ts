@@ -285,7 +285,7 @@ export function createMainRuntimeOwnerContext(options: CreateMainRuntimeOwnerCon
       cancelTargeting: () => targetingStateSource.cancelTargeting(),
     },
     refreshHudChrome: () => panelContext.uiStateSource.refreshHudChrome(),
-    syncPlayerContext: (player) => panelContext.inventoryStateSource.syncPlayerContext(player),
+    syncPlayerContext: (player) => { panelContext.inventoryStateSource.syncPlayerContext(player); panelContext.socialStateSource.syncPlayerContext(player ?? null); },
     hideObserveModal: () => mapRuntimeBridgeSource.hideObserveModal(),
     clearLootPanel: () => panelContext.panelDeps.lootPanel.clear(),
     setPanelRuntimeMapId: (mapId) => panelContext.panelRuntimeSource.setRuntimeMapId(mapId),
@@ -348,7 +348,7 @@ export function createMainRuntimeOwnerContext(options: CreateMainRuntimeOwnerCon
     initWorldSummaryState: () => panelContext.worldSummaryStateSource.init(),
     refreshUiChrome: () => panelContext.uiStateSource.refreshUiChrome(),
     initMailState: (playerId) => panelContext.mailStateSource.initFromPlayer(playerId),
-    initActivityState: () => panelContext.activityStateSource.init(),
+    initActivityState: () => panelContext.activityStateSource.init(), initSocialState: () => panelContext.socialStateSource.init(),
     hideObserveModal: () => mapRuntimeBridgeSource.hideObserveModal(),
     applyWorldDelta: (data, mapIdHint, instanceIdHint) => runtimeDeltaStateSource.handleWorldDelta(data, mapIdHint, instanceIdHint),
     applySelfDelta: (data) => runtimeDeltaStateSource.handleSelfDelta(data),
@@ -417,7 +417,7 @@ export function createMainRuntimeOwnerContext(options: CreateMainRuntimeOwnerCon
     clearWorldSummaryState: () => panelContext.worldSummaryStateSource.clear(),
     clearLootPanel: () => panelContext.panelDeps.lootPanel.clear(),
     clearWorldPanel: () => panelContext.panelDeps.worldPanel.clear(),
-    clearMailState: () => panelContext.mailStateSource.clear(), clearActivityState: () => panelContext.activityStateSource.clear(), clearBuildingFengShuiState: () => panelContext.buildingFengShuiStateSource.clear(),
+    clearMailState: () => panelContext.mailStateSource.clear(), clearActivityState: () => panelContext.activityStateSource.clear(), clearSocialState: () => panelContext.socialStateSource.clear(), clearBuildingFengShuiState: () => panelContext.buildingFengShuiStateSource.clear(),
     resetMapRuntime: () => mapRuntime.reset(),
     resetReactUiBridge: () => {
       reactUiBridge.reset();

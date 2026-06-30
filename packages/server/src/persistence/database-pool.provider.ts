@@ -152,6 +152,8 @@ export function resolveDatabasePoolGroup(name: string): DatabasePoolGroup {
     || normalized.includes('instance-catalog')
     || normalized.includes('mail')
     || normalized.includes('market')
+    || normalized.includes('social')
+    || normalized.includes('treasure-vault')
     || normalized.includes('activity')
     || normalized.includes('redeem-code')
     || normalized.includes('combat-audit')

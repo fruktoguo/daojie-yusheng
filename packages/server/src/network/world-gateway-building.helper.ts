@@ -12,6 +12,7 @@ import { Injectable } from '@nestjs/common';
 import { S2C } from '@mud/shared';
 import type { Socket } from 'socket.io';
 import { WorldRuntimeService } from '../runtime/world/world-runtime.service';
+import { TreasureVaultRuntimeService } from '../runtime/building/treasure-vault-runtime.service';
 import { WorldClientEventService } from './world-client-event.service';
 import { WorldGatewayGuardHelper } from './world-gateway-guard.helper';
 import { WorldSyncService } from './world-sync.service';
@@ -24,6 +25,7 @@ class WorldGatewayBuildingHelper {
         private readonly worldRuntimeService: WorldRuntimeService,
         private readonly worldClientEventService: WorldClientEventService,
         private readonly worldSyncService: WorldSyncService,
+        private readonly treasureVaultRuntimeService: TreasureVaultRuntimeService,
     ) {}
 
     handleBuildPlaceIntent(client: Socket, payload: any) {
@@ -44,12 +46,22 @@ class WorldGatewayBuildingHelper {
         }
     }
 
-    handleBuildDeconstruct(client: Socket, payload: any) {
+    async handleBuildDeconstruct(client: Socket, payload: any) {
         const playerId = this.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
         try {
+            const requestId = typeof payload?.requestId === 'string' ? payload.requestId.trim() : '';
+            const buildingId = typeof payload?.buildingId === 'string' ? payload.buildingId.trim() : '';
+            if (buildingId) {
+                const location = this.worldRuntimeService.getPlayerLocationOrThrow(playerId);
+                const hasStoredItems = await this.treasureVaultRuntimeService.hasStoredItems(location.instanceId, buildingId);
+                if (hasStoredItems) {
+                    client.emit(S2C.BuildResult, { requestId, ok: false, reason: 'treasure_vault_not_empty' });
+                    return;
+                }
+            }
             const result = this.worldRuntimeService.handleBuildDeconstructIntent(playerId, payload);
             client.emit(S2C.BuildResult, result);
             if (result?.ok === true) {

@@ -132,6 +132,7 @@ export function compileBuildingDefinitions(definitions: readonly BuildingDef[]):
       costItemIds: cost.map((entry, costIndex) => normalizeRequiredKey(entry.itemId, `${id}.cost[${costIndex}].itemId`)),
       costCounts: Uint32Array.from(cost.map((entry) => clampInt(entry.count, 1, Number.MAX_SAFE_INTEGER))),
       cellLayerTarget,
+      treasureVaultCapacity: clampInt(definition.treasureVault?.capacity, 0, Number.MAX_SAFE_INTEGER, 0),
     };
 
     defs.push(compiled);

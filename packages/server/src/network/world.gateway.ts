@@ -4,7 +4,7 @@
  * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
 import { ConnectedSocket, MessageBody, SubscribeMessage, WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
-import { Inject, Logger } from '@nestjs/common';
+import { Inject, Logger, Optional } from '@nestjs/common';
 import { C2S } from '@mud/shared';
 import { Server, Socket } from 'socket.io';
 import * as msgpackParser from 'socket.io-msgpack-parser';
@@ -19,6 +19,8 @@ import { CraftPanelRuntimeService } from '../runtime/craft/craft-panel-runtime.s
 import { LeaderboardRuntimeService } from '../runtime/player/leaderboard-runtime.service';
 import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
 import { ActivityRuntimeService } from '../runtime/activity/activity-runtime.service';
+import { TreasureVaultRuntimeService } from '../runtime/building/treasure-vault-runtime.service';
+import { SocialRuntimeService } from '../runtime/social/social-runtime.service';
 import { RuntimeGmStateService } from '../runtime/gm/runtime-gm-state.service';
 import { WorldRuntimeService } from '../runtime/world/world-runtime.service';
 import { WorldClientEventService } from './world-client-event.service';
@@ -80,7 +82,7 @@ const GM_CONNECT_CONTRACT = Object.freeze({
 class WorldGateway implements WorldGatewayHelperContext {
         worldGmSocketService: WorldGmSocketService; worldProtocolProjectionService: WorldProtocolProjectionService; sessionBootstrapService: WorldSessionBootstrapService; healthReadinessService: HealthReadinessService;
         playerDomainPersistenceService: PlayerDomainPersistenceService; playerPersistenceFlushService: PlayerPersistenceFlushService; playerRuntimeService: PlayerRuntimeService; mailRuntimeService: MailRuntimeService;
-        marketRuntimeService: MarketRuntimeService; craftPanelRuntimeService: CraftPanelRuntimeService; activityRuntimeService: ActivityRuntimeService; leaderboardRuntimeService: LeaderboardRuntimeService;
+        marketRuntimeService: MarketRuntimeService; craftPanelRuntimeService: CraftPanelRuntimeService; activityRuntimeService: ActivityRuntimeService; socialRuntimeService: SocialRuntimeService; treasureVaultRuntimeService: TreasureVaultRuntimeService; leaderboardRuntimeService: LeaderboardRuntimeService;
         runtimeGmStateService: RuntimeGmStateService; worldRuntimeService: WorldRuntimeService; worldClientEventService: WorldClientEventService; worldSessionService: WorldSessionService; playerSessionRouteService: PlayerSessionRouteService;
         worldSyncService: WorldSyncService;
         gatewayBootstrapHelper: WorldGatewayBootstrapHelper; gatewayGmCommandHelper: WorldGatewayGmCommandHelper; gatewayActivityHelper: WorldGatewayActivityHelper;
@@ -92,7 +94,7 @@ class WorldGateway implements WorldGatewayHelperContext {
         @WebSocketServer()
         server!: Server; logger: Logger = new Logger(WorldGateway.name);
         private draining = false;
-    constructor(worldGmSocketService: WorldGmSocketService, worldProtocolProjectionService: WorldProtocolProjectionService, sessionBootstrapService: WorldSessionBootstrapService, healthReadinessService: HealthReadinessService, playerDomainPersistenceService: PlayerDomainPersistenceService, playerPersistenceFlushService: PlayerPersistenceFlushService, playerRuntimeService: PlayerRuntimeService, mailRuntimeService: MailRuntimeService, @Inject(MarketRuntimeService) marketRuntimeService: MarketRuntimeService, craftPanelRuntimeService: CraftPanelRuntimeService, activityRuntimeService: ActivityRuntimeService, leaderboardRuntimeService: LeaderboardRuntimeService, runtimeGmStateService: RuntimeGmStateService, @Inject(WorldRuntimeService) worldRuntimeService: WorldRuntimeService, worldClientEventService: WorldClientEventService, worldSessionService: WorldSessionService, playerSessionRouteService: PlayerSessionRouteService, worldSyncService: WorldSyncService, gatewayGuardHelper: WorldGatewayGuardHelper, gatewayClientEmitHelper: WorldGatewayClientEmitHelper, gatewaySessionStateHelper: WorldGatewaySessionStateHelper, gatewayBuildingHelper: WorldGatewayBuildingHelper, gatewayMovementHelper: WorldGatewayMovementHelper, gatewayNpcHelper: WorldGatewayNpcHelper, gatewayCraftHelper: WorldGatewayCraftHelper, gatewayActivityHelper: WorldGatewayActivityHelper, gatewayReadModelHelper: WorldGatewayReadModelHelper, gatewayPresenceHelper: WorldGatewayPresenceHelper, private readonly gatewayContentHelper: WorldGatewayContentHelper, private readonly techniqueGenerationService: TechniqueGenerationService) {
+    constructor(worldGmSocketService: WorldGmSocketService, worldProtocolProjectionService: WorldProtocolProjectionService, sessionBootstrapService: WorldSessionBootstrapService, healthReadinessService: HealthReadinessService, playerDomainPersistenceService: PlayerDomainPersistenceService, playerPersistenceFlushService: PlayerPersistenceFlushService, playerRuntimeService: PlayerRuntimeService, mailRuntimeService: MailRuntimeService, @Inject(MarketRuntimeService) marketRuntimeService: MarketRuntimeService, craftPanelRuntimeService: CraftPanelRuntimeService, activityRuntimeService: ActivityRuntimeService, leaderboardRuntimeService: LeaderboardRuntimeService, runtimeGmStateService: RuntimeGmStateService, @Inject(WorldRuntimeService) worldRuntimeService: WorldRuntimeService, worldClientEventService: WorldClientEventService, worldSessionService: WorldSessionService, playerSessionRouteService: PlayerSessionRouteService, worldSyncService: WorldSyncService, gatewayGuardHelper: WorldGatewayGuardHelper, gatewayClientEmitHelper: WorldGatewayClientEmitHelper, gatewaySessionStateHelper: WorldGatewaySessionStateHelper, gatewayBuildingHelper: WorldGatewayBuildingHelper, gatewayMovementHelper: WorldGatewayMovementHelper, gatewayNpcHelper: WorldGatewayNpcHelper, gatewayCraftHelper: WorldGatewayCraftHelper, gatewayActivityHelper: WorldGatewayActivityHelper, gatewayReadModelHelper: WorldGatewayReadModelHelper, gatewayPresenceHelper: WorldGatewayPresenceHelper, private readonly gatewayContentHelper: WorldGatewayContentHelper, private readonly techniqueGenerationService: TechniqueGenerationService, @Optional() @Inject(SocialRuntimeService) socialRuntimeService: SocialRuntimeService = undefined, @Optional() @Inject(TreasureVaultRuntimeService) treasureVaultRuntimeService: TreasureVaultRuntimeService = undefined) {
         this.worldGmSocketService = worldGmSocketService;
         this.worldProtocolProjectionService = worldProtocolProjectionService;
         this.sessionBootstrapService = sessionBootstrapService;
@@ -104,6 +106,8 @@ class WorldGateway implements WorldGatewayHelperContext {
         this.marketRuntimeService = marketRuntimeService;
         this.craftPanelRuntimeService = craftPanelRuntimeService;
         this.activityRuntimeService = activityRuntimeService;
+        this.socialRuntimeService = socialRuntimeService;
+        this.treasureVaultRuntimeService = treasureVaultRuntimeService;
         this.leaderboardRuntimeService = leaderboardRuntimeService;
         this.runtimeGmStateService = runtimeGmStateService;
         this.worldRuntimeService = worldRuntimeService;
@@ -298,6 +302,50 @@ class WorldGateway implements WorldGatewayHelperContext {
     @SubscribeMessage(C2S.Chat)
     handleChat(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayPlayerControlsHelper.handleChat(client, payload);
+    }
+    @SubscribeMessage(C2S.RequestSocialPanel)
+    handleRequestSocialPanel(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
+        return this.gatewayPlayerControlsHelper.handleRequestSocialPanel(client, payload);
+    }
+    @SubscribeMessage(C2S.RequestNearbyDaoistCandidates)
+    handleRequestNearbyDaoistCandidates(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
+        return this.gatewayPlayerControlsHelper.handleRequestNearbyDaoistCandidates(client, payload);
+    }
+    @SubscribeMessage(C2S.SendDaoistRequest)
+    handleSendDaoistRequest(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
+        return this.gatewayPlayerControlsHelper.handleSendDaoistRequest(client, payload);
+    }
+    @SubscribeMessage(C2S.RespondDaoistRequest)
+    handleRespondDaoistRequest(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
+        return this.gatewayPlayerControlsHelper.handleRespondDaoistRequest(client, payload);
+    }
+    @SubscribeMessage(C2S.UpdateDaoistRelationLevel)
+    handleUpdateDaoistRelationLevel(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
+        return this.gatewayPlayerControlsHelper.handleUpdateDaoistRelationLevel(client, payload);
+    }
+    @SubscribeMessage(C2S.RemoveDaoistRelation)
+    handleRemoveDaoistRelation(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
+        return this.gatewayPlayerControlsHelper.handleRemoveDaoistRelation(client, payload);
+    }
+    @SubscribeMessage(C2S.SendDaoistDirectMessage)
+    handleSendDaoistDirectMessage(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
+        return this.gatewayPlayerControlsHelper.handleSendDaoistDirectMessage(client, payload);
+    }
+    @SubscribeMessage(C2S.RequestTreasureVault)
+    handleRequestTreasureVault(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
+        return this.gatewayPlayerControlsHelper.handleRequestTreasureVault(client, payload);
+    }
+    @SubscribeMessage(C2S.TreasureVaultDeposit)
+    handleTreasureVaultDeposit(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
+        return this.gatewayPlayerControlsHelper.handleTreasureVaultDeposit(client, payload);
+    }
+    @SubscribeMessage(C2S.TreasureVaultWithdraw)
+    handleTreasureVaultWithdraw(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
+        return this.gatewayPlayerControlsHelper.handleTreasureVaultWithdraw(client, payload);
+    }
+    @SubscribeMessage(C2S.UpdateTreasureVaultPermissions)
+    handleUpdateTreasureVaultPermissions(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
+        return this.gatewayPlayerControlsHelper.handleUpdateTreasureVaultPermissions(client, payload);
     }
     @SubscribeMessage(C2S.AckSystemMessages)
     handleAckSystemMessages(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {

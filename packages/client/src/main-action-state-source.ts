@@ -91,6 +91,11 @@ type MainActionStateSourceOptions = {
 
   openScripturePlatformRecordingModal: (buildingId: string) => void;
   /**
+ * openTreasureVault：打开宝库弹层。
+ */
+
+  openTreasureVault: (buildingId: string) => void;
+  /**
  * openWorldMigrationModal：打开世界迁移弹窗。
  */
 
@@ -186,6 +191,15 @@ export function createMainActionStateSource(options: MainActionStateSourceOption
           options.cancelTargeting();
           options.hideObserveModal();
           options.openScripturePlatformRecordingModal(safeDecodeActionPart(encodedBuildingId));
+          return;
+        }
+      }
+      if (actionId.startsWith('treasure_vault:open:')) {
+        const encodedBuildingId = actionId.slice('treasure_vault:open:'.length).trim();
+        if (encodedBuildingId && !encodedBuildingId.includes(':')) {
+          options.cancelTargeting();
+          options.hideObserveModal();
+          options.openTreasureVault(safeDecodeActionPart(encodedBuildingId));
           return;
         }
       }

@@ -15,6 +15,8 @@ import type { MarketRuntimeService } from '../runtime/market/market-runtime.serv
 import type { LeaderboardRuntimeService } from '../runtime/player/leaderboard-runtime.service';
 import type { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
 import type { ActivityRuntimeService } from '../runtime/activity/activity-runtime.service';
+import type { TreasureVaultRuntimeService } from '../runtime/building/treasure-vault-runtime.service';
+import type { SocialRuntimeService } from '../runtime/social/social-runtime.service';
 import type { WorldRuntimeService } from '../runtime/world/world-runtime.service';
 import type { WorldClientEventService } from './world-client-event.service';
 import type { WorldGmSocketService } from './world-gm-socket.service';
@@ -53,6 +55,8 @@ export interface WorldGatewayHelperContext {
   marketRuntimeService: MarketRuntimeService;
   craftPanelRuntimeService: CraftPanelRuntimeService;
   activityRuntimeService: ActivityRuntimeService;
+  socialRuntimeService: SocialRuntimeService;
+  treasureVaultRuntimeService: TreasureVaultRuntimeService;
   leaderboardRuntimeService: LeaderboardRuntimeService;
   runtimeGmStateService: RuntimeGmStateService;
   worldRuntimeService: WorldRuntimeService;

@@ -1004,6 +1004,7 @@ shell.map-tick-rate-char-time,静态HTML-主界面,时,静态 HTML：packages/cl
 shell.map-tick-rate-char-turn,静态HTML-主界面,转,静态 HTML：packages/client/index.html
 shell.map-zoom-reset-label-reset,静态HTML-主界面,重置,静态 HTML：packages/client/index.html
 shell.market,静态HTML-主界面,坊市,静态 HTML：packages/client/index.html
+shell.social,静态HTML-主界面,道友,静态 HTML：packages/client/index.html
 shell.mobile-action,静态HTML-主界面,行动,静态 HTML：packages/client/index.html
 shell.mobile-attrs,静态HTML-主界面,属性,静态 HTML：packages/client/index.html
 shell.mobile-bag,静态HTML-主界面,行囊,静态 HTML：packages/client/index.html
@@ -1580,6 +1581,7 @@ panel.registry.mail,面板注册,飞书,
 panel.registry.market,面板注册,坊市,
 panel.registry.minimap,面板注册,小地图,
 panel.registry.quest,面板注册,任务,
+panel.registry.social,面板注册,道友,
 panel.registry.settings,面板注册,设置,
 panel.registry.technique,面板注册,功法,
 panel.registry.world-map-intel,面板注册,地图情报,

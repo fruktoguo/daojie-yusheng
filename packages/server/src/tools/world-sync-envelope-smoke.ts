@@ -81,7 +81,7 @@ function testEnvelopeService() {
  */
 
         buildVisibleTileKeySet() {
-            return new Set(['3,4']);
+            return new Set(['3,4', '7,8']);
         },
     });
     const view = {

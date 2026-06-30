@@ -30,7 +30,25 @@ export type * from './protocol-response-payload-types';
 // ===== 域文件接口引用（供 PayloadMap 使用） =====
 import type { S2C_Bootstrap, S2C_MapStatic, S2C_PanelDelta, S2C_Detail, S2C_AttrDetail } from './protocol-core';
 import type { S2C_AlchemyPanel, S2C_EnhancementPanel, S2C_TechniqueActivityTasks } from './protocol-craft';
-import type { S2C_MailDetail } from './protocol-social';
+import type {
+  C2S_RemoveDaoistRelationView,
+  C2S_RequestNearbyDaoistCandidatesView,
+  C2S_RequestSocialPanelView,
+  C2S_RequestTreasureVaultView,
+  C2S_RespondDaoistRequestView,
+  C2S_SendDaoistDirectMessageView,
+  C2S_SendDaoistRequestView,
+  C2S_TreasureVaultDepositView,
+  C2S_TreasureVaultWithdrawView,
+  C2S_UpdateDaoistRelationLevelView,
+  C2S_UpdateTreasureVaultPermissionsView,
+  DaoistDirectMessageView,
+  SocialOperationResultView,
+  SocialPanelView,
+  S2C_MailDetail,
+  TreasureVaultDetailView,
+  TreasureVaultOperationResultView,
+} from './protocol-social';
 import type { C2S_RequestContentTemplates, S2C_ContentTemplates } from './content-resolver-types';
 
 // ===== 本地 shadowing 接口（与 export type * 同名，必须留在本文件以避免 TS2308） =====
@@ -139,6 +157,17 @@ export const C2S = {
   CancelTechniqueTransmission: 'n:c:cancelTechniqueTransmission',
   DebugResetSpawn: 'n:c:debugResetSpawn',
   Chat: 'n:c:chat',
+  RequestSocialPanel: 'n:c:requestSocialPanel',
+  RequestNearbyDaoistCandidates: 'n:c:requestNearbyDaoistCandidates',
+  SendDaoistRequest: 'n:c:sendDaoistRequest',
+  RespondDaoistRequest: 'n:c:respondDaoistRequest',
+  UpdateDaoistRelationLevel: 'n:c:updateDaoistRelationLevel',
+  RemoveDaoistRelation: 'n:c:removeDaoistRelation',
+  SendDaoistDirectMessage: 'n:c:sendDaoistDirectMessage',
+  RequestTreasureVault: 'n:c:requestTreasureVault',
+  TreasureVaultDeposit: 'n:c:treasureVaultDeposit',
+  TreasureVaultWithdraw: 'n:c:treasureVaultWithdraw',
+  UpdateTreasureVaultPermissions: 'n:c:updateTreasureVaultPermissions',
   AckSystemMessages: 'n:c:ackSystemMessages',
   AckOfflineGainReports: 'n:c:ackOfflineGainReports',
   RequestOfflineGainReports: 'n:c:requestOfflineGainReports',
@@ -164,6 +193,11 @@ export const S2C = {
   LootWindowUpdate: 'n:s:lootWindowUpdate',
   QuestNavigateResult: 'n:s:questNavigateResult',
   Notice: 'n:s:notice',
+  SocialPanel: 'n:s:socialPanel',
+  SocialOperationResult: 'n:s:socialOperationResult',
+  DaoistDirectMessage: 'n:s:daoistDirectMessage',
+  TreasureVaultDetail: 'n:s:treasureVaultDetail',
+  TreasureVaultOperationResult: 'n:s:treasureVaultOperationResult',
   OfflineGainReports: 'n:s:offlineGainReports',
   ActivityStatus: 'n:s:activityStatus',
   ActivityOperationResult: 'n:s:activityOperationResult',
@@ -311,6 +345,17 @@ export interface C2S_PayloadMap extends Record<C2S_EventName, unknown> {
   [C2S.CancelTechniqueTransmission]: RequestPayloads.C2S_CancelTechniqueTransmission;
   [C2S.DebugResetSpawn]: RequestPayloads.C2S_DebugResetSpawn;
   [C2S.Chat]: RequestPayloads.C2S_Chat;
+  [C2S.RequestSocialPanel]: C2S_RequestSocialPanelView;
+  [C2S.RequestNearbyDaoistCandidates]: C2S_RequestNearbyDaoistCandidatesView;
+  [C2S.SendDaoistRequest]: C2S_SendDaoistRequestView;
+  [C2S.RespondDaoistRequest]: C2S_RespondDaoistRequestView;
+  [C2S.UpdateDaoistRelationLevel]: C2S_UpdateDaoistRelationLevelView;
+  [C2S.RemoveDaoistRelation]: C2S_RemoveDaoistRelationView;
+  [C2S.SendDaoistDirectMessage]: C2S_SendDaoistDirectMessageView;
+  [C2S.RequestTreasureVault]: C2S_RequestTreasureVaultView;
+  [C2S.TreasureVaultDeposit]: C2S_TreasureVaultDepositView;
+  [C2S.TreasureVaultWithdraw]: C2S_TreasureVaultWithdrawView;
+  [C2S.UpdateTreasureVaultPermissions]: C2S_UpdateTreasureVaultPermissionsView;
   [C2S.AckSystemMessages]: RequestPayloads.C2S_AckSystemMessages;
   [C2S.AckOfflineGainReports]: RequestPayloads.C2S_AckOfflineGainReports;
   [C2S.RequestOfflineGainReports]: RequestPayloads.C2S_RequestOfflineGainReports;
@@ -336,6 +381,11 @@ export interface S2C_PayloadMap extends Record<S2C_EventName, unknown> {
   [S2C.LootWindowUpdate]: ResponsePayloads.S2C_LootWindowUpdate;
   [S2C.QuestNavigateResult]: ResponsePayloads.S2C_QuestNavigateResult;
   [S2C.Notice]: ResponsePayloads.S2C_Notice;
+  [S2C.SocialPanel]: SocialPanelView;
+  [S2C.SocialOperationResult]: SocialOperationResultView;
+  [S2C.DaoistDirectMessage]: DaoistDirectMessageView;
+  [S2C.TreasureVaultDetail]: TreasureVaultDetailView;
+  [S2C.TreasureVaultOperationResult]: TreasureVaultOperationResultView;
   [S2C.OfflineGainReports]: ResponsePayloads.S2C_OfflineGainReports;
   [S2C.ActivityStatus]: ResponsePayloads.S2C_ActivityStatus;
   [S2C.ActivityOperationResult]: ResponsePayloads.S2C_ActivityOperationResult;

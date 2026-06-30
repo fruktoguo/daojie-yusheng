@@ -20,6 +20,11 @@ interface WorldGatewayPlayerControlsDeps {
     acknowledgeSystemMessages(playerId: string, payload: ClientToServerEventPayload<typeof C2S.AckSystemMessages>): void;
     emitGatewayError(client: Socket, code: string, error: unknown): void;
   };
+  socialRuntimeService: any;
+  treasureVaultRuntimeService: any;
+  worldSessionService: {
+    getSocketByPlayerId(playerId: string): any;
+  };
   worldRuntimeService: {
     buildQuestListView(playerId: string, input?: unknown): unknown;
     worldRuntimeCommandIntakeFacadeService: {
@@ -275,6 +280,197 @@ export class WorldGatewayPlayerControlsHelper {
       );
     } catch (error) {
       this.gateway.worldClientEventService.emitGatewayError(client, 'REQUEST_QUESTS_FAILED', error);
+    }
+  }
+
+  async handleRequestSocialPanel(
+    client: Socket,
+    _payload: ClientToServerEventPayload<typeof C2S.RequestSocialPanel>,
+  ): Promise<void> {
+    const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
+    if (!playerId) {
+      return;
+    }
+    try {
+      client.emit(S2C.SocialPanel, await this.gateway.socialRuntimeService.buildPanel(playerId, this.gateway.worldRuntimeService));
+    } catch (error) {
+      this.gateway.worldClientEventService.emitGatewayError(client, 'REQUEST_SOCIAL_PANEL_FAILED', error);
+    }
+  }
+
+  async handleRequestNearbyDaoistCandidates(
+    client: Socket,
+    _payload: ClientToServerEventPayload<typeof C2S.RequestNearbyDaoistCandidates>,
+  ): Promise<void> {
+    const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
+    if (!playerId) {
+      return;
+    }
+    try {
+      client.emit(S2C.SocialPanel, await this.gateway.socialRuntimeService.buildPanel(playerId, this.gateway.worldRuntimeService));
+    } catch (error) {
+      this.gateway.worldClientEventService.emitGatewayError(client, 'REQUEST_DAOIST_CANDIDATES_FAILED', error);
+    }
+  }
+
+  async handleSendDaoistRequest(
+    client: Socket,
+    payload: ClientToServerEventPayload<typeof C2S.SendDaoistRequest>,
+  ): Promise<void> {
+    const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
+    if (!playerId) {
+      return;
+    }
+    try {
+      const result = await this.gateway.socialRuntimeService.sendRequest(playerId, payload?.targetPlayerId, this.gateway.worldRuntimeService);
+      this.emitSocialOperationResult(client, 'request', result);
+      this.emitTargetSocialPanel(payload?.targetPlayerId, result?.targetPanel);
+    } catch (error) {
+      this.gateway.worldClientEventService.emitGatewayError(client, 'SEND_DAOIST_REQUEST_FAILED', error);
+    }
+  }
+
+  async handleRespondDaoistRequest(
+    client: Socket,
+    payload: ClientToServerEventPayload<typeof C2S.RespondDaoistRequest>,
+  ): Promise<void> {
+    const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
+    if (!playerId) {
+      return;
+    }
+    try {
+      const result = await this.gateway.socialRuntimeService.respondRequest(playerId, payload?.requestId, payload?.accept === true, this.gateway.worldRuntimeService);
+      this.emitSocialOperationResult(client, 'respond', result);
+      this.emitTargetSocialPanel(result?.fromPlayerId, result?.fromPanel);
+    } catch (error) {
+      this.gateway.worldClientEventService.emitGatewayError(client, 'RESPOND_DAOIST_REQUEST_FAILED', error);
+    }
+  }
+
+  async handleUpdateDaoistRelationLevel(
+    client: Socket,
+    payload: ClientToServerEventPayload<typeof C2S.UpdateDaoistRelationLevel>,
+  ): Promise<void> {
+    const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
+    if (!playerId) {
+      return;
+    }
+    try {
+      const result = await this.gateway.socialRuntimeService.updateRelationLevel(playerId, payload?.targetPlayerId, payload?.level, this.gateway.worldRuntimeService);
+      this.emitSocialOperationResult(client, 'level', result);
+      this.emitTargetSocialPanel(payload?.targetPlayerId, result?.targetPanel);
+    } catch (error) {
+      this.gateway.worldClientEventService.emitGatewayError(client, 'UPDATE_DAOIST_RELATION_FAILED', error);
+    }
+  }
+
+  async handleRemoveDaoistRelation(
+    client: Socket,
+    payload: ClientToServerEventPayload<typeof C2S.RemoveDaoistRelation>,
+  ): Promise<void> {
+    const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
+    if (!playerId) {
+      return;
+    }
+    try {
+      const result = await this.gateway.socialRuntimeService.removeRelation(playerId, payload?.targetPlayerId, this.gateway.worldRuntimeService);
+      this.emitSocialOperationResult(client, 'remove', result);
+      this.emitTargetSocialPanel(payload?.targetPlayerId, result?.targetPanel);
+    } catch (error) {
+      this.gateway.worldClientEventService.emitGatewayError(client, 'REMOVE_DAOIST_RELATION_FAILED', error);
+    }
+  }
+
+  async handleSendDaoistDirectMessage(
+    client: Socket,
+    payload: ClientToServerEventPayload<typeof C2S.SendDaoistDirectMessage>,
+  ): Promise<void> {
+    const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
+    if (!playerId) {
+      return;
+    }
+    try {
+      const result = await this.gateway.socialRuntimeService.createDirectMessage(playerId, payload?.targetPlayerId, payload?.message);
+      client.emit(S2C.SocialOperationResult, { ok: result?.ok === true, operation: 'message', reason: result?.reason });
+      if (result?.message) {
+        client.emit(S2C.DaoistDirectMessage, result.message);
+        const targetSocket = this.gateway.worldSessionService.getSocketByPlayerId(result.message.toPlayerId);
+        targetSocket?.emit(S2C.DaoistDirectMessage, result.message);
+      }
+    } catch (error) {
+      this.gateway.worldClientEventService.emitGatewayError(client, 'SEND_DAOIST_MESSAGE_FAILED', error);
+    }
+  }
+
+  async handleRequestTreasureVault(
+    client: Socket,
+    payload: ClientToServerEventPayload<typeof C2S.RequestTreasureVault>,
+  ): Promise<void> {
+    await this.handleTreasureVaultOperation(client, 'REQUEST_TREASURE_VAULT_FAILED', () => this.gateway.treasureVaultRuntimeService.buildDetail(this.gateway.gatewayGuardHelper.requirePlayerId(client), payload, this.gateway.worldRuntimeService));
+  }
+
+  async handleTreasureVaultDeposit(
+    client: Socket,
+    payload: ClientToServerEventPayload<typeof C2S.TreasureVaultDeposit>,
+  ): Promise<void> {
+    await this.handleTreasureVaultOperation(client, 'TREASURE_VAULT_DEPOSIT_FAILED', () => this.gateway.treasureVaultRuntimeService.deposit(this.gateway.gatewayGuardHelper.requirePlayerId(client), payload, this.gateway.worldRuntimeService), true);
+  }
+
+  async handleTreasureVaultWithdraw(
+    client: Socket,
+    payload: ClientToServerEventPayload<typeof C2S.TreasureVaultWithdraw>,
+  ): Promise<void> {
+    await this.handleTreasureVaultOperation(client, 'TREASURE_VAULT_WITHDRAW_FAILED', () => this.gateway.treasureVaultRuntimeService.withdraw(this.gateway.gatewayGuardHelper.requirePlayerId(client), payload, this.gateway.worldRuntimeService), true);
+  }
+
+  async handleUpdateTreasureVaultPermissions(
+    client: Socket,
+    payload: ClientToServerEventPayload<typeof C2S.UpdateTreasureVaultPermissions>,
+  ): Promise<void> {
+    await this.handleTreasureVaultOperation(client, 'TREASURE_VAULT_PERMISSIONS_FAILED', () => this.gateway.treasureVaultRuntimeService.updatePermissions(this.gateway.gatewayGuardHelper.requirePlayerId(client), payload, this.gateway.worldRuntimeService));
+  }
+
+  private emitSocialOperationResult(client: Socket, operation: 'request' | 'respond' | 'level' | 'remove' | 'message', result: any): void {
+    client.emit(S2C.SocialOperationResult, {
+      ok: result?.ok === true,
+      operation,
+      reason: result?.reason,
+      ...(result?.panel ? { panel: result.panel } : {}),
+    });
+    if (result?.panel) {
+      client.emit(S2C.SocialPanel, result.panel);
+    }
+  }
+
+  private emitTargetSocialPanel(targetPlayerId: unknown, panel: unknown): void {
+    const normalizedTargetPlayerId = typeof targetPlayerId === 'string' ? targetPlayerId.trim() : '';
+    if (!normalizedTargetPlayerId || !panel) {
+      return;
+    }
+    this.gateway.worldSessionService.getSocketByPlayerId(normalizedTargetPlayerId)?.emit(S2C.SocialPanel, panel);
+  }
+
+  private async handleTreasureVaultOperation(
+    client: Socket,
+    errorCode: string,
+    run: () => Promise<any>,
+    emitDelta = false,
+  ): Promise<void> {
+    const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
+    if (!playerId) {
+      return;
+    }
+    try {
+      const result = await run();
+      client.emit(S2C.TreasureVaultOperationResult, result);
+      if (result?.detail) {
+        client.emit(S2C.TreasureVaultDetail, result.detail);
+      }
+      if (emitDelta && result?.ok === true) {
+        this.gateway.worldSyncService?.emitDeltaSync(playerId, client);
+      }
+    } catch (error) {
+      this.gateway.worldClientEventService.emitGatewayError(client, errorCode, error);
     }
   }
 }

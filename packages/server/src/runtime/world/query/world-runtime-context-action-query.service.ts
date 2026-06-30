@@ -234,6 +234,18 @@ export class WorldRuntimeContextActionQueryService {
                     if (building?.defId === 'scripture_platform' && building?.state === 'active') {
                         actions.push(...buildScripturePlatformActions(player, building));
                     }
+                    if (isTreasureVaultBuilding(instance, building)) {
+                        const buildingName = typeof entry?.name === 'string' && entry.name.trim()
+                            ? entry.name.trim()
+                            : '宝库';
+                        actions.push({
+                            id: `treasure_vault:open:${encodeURIComponent(building.id)}`,
+                            name: `打开：${buildingName}`,
+                            type: 'interact',
+                            desc: '查看附近宝库，并按创建者设定的权限存取物品。',
+                            cooldownLeft: 0,
+                        });
+                    }
                     continue;
                 }
                 const remainingTicks = Math.max(1, Math.trunc(Number(entry?.remainingTicks ?? building.buildRemainingTicks ?? building.buildStrength ?? 1)));
@@ -354,6 +366,18 @@ function buildScripturePlatformActions(player, building) {
 
 function normalizeText(value) {
     return typeof value === 'string' && value.trim() ? value.trim() : '';
+}
+
+function isTreasureVaultBuilding(instance, building) {
+    if (!building || building.state !== 'active') {
+        return false;
+    }
+    if (building.defId === 'treasure_vault' || building.defHandle === 'treasure_vault') {
+        return true;
+    }
+    const compiled = instance?.buildingCatalog?.defByHandle?.[building.defHandle]
+        ?? instance?.buildingCatalog?.defById?.get?.(building.defId);
+    return Math.max(0, Math.trunc(Number(compiled?.treasureVaultCapacity) || 0)) > 0;
 }
 
 function appendEquippedContextActions(actions, player) {

@@ -32,6 +32,7 @@ import type { MainRuntimeMonitorSource } from './main-runtime-monitor-source';
 import type { MainRuntimeStateSource } from './main-runtime-state-source';
 import type { MainSettingsStateSource } from './main-settings-state-source';
 import type { MainActivityStateSource } from './main-activity-state-source';
+import type { MainSocialStateSource } from './main-social-state-source';
 import type { MainTargetingStateSource } from './main-targeting-state-source';
 import type { MainUiStateSource } from './main-ui-state-source';
 import { ChangelogPanel } from './ui/changelog-panel';
@@ -290,6 +291,14 @@ type MainBootstrapAssemblyOptions = {
  */
 
   activityStateSource: Pick<MainActivityStateSource, 'handleActivityStatus' | 'handleActivityOperationResult'>;
+  socialStateSource: Pick<
+    MainSocialStateSource,
+    | 'handleSocialPanel'
+    | 'handleSocialOperationResult'
+    | 'handleDaoistDirectMessage'
+    | 'handleTreasureVaultDetail'
+    | 'handleTreasureVaultOperationResult'
+  >;
   /**
  * mailStateSource：邮件状态来源相关字段。
  */
@@ -769,6 +778,11 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
     }),
     onActivityStatus: (data) => options.activityStateSource.handleActivityStatus(data),
     onActivityOperationResult: (data) => options.activityStateSource.handleActivityOperationResult(data),
+    onSocialPanel: (data) => options.socialStateSource.handleSocialPanel(data),
+    onSocialOperationResult: (data) => options.socialStateSource.handleSocialOperationResult(data),
+    onDaoistDirectMessage: (data) => options.socialStateSource.handleDaoistDirectMessage(data),
+    onTreasureVaultDetail: (data) => options.socialStateSource.handleTreasureVaultDetail(data),
+    onTreasureVaultOperationResult: (data) => options.socialStateSource.handleTreasureVaultOperationResult(data),
     onMailSummary: (data) => options.mailStateSource.handleMailSummary(data.summary),
     onMailPage: (data) => options.mailStateSource.handleMailPage(data.page),
     onMailDetail: (data) => options.mailStateSource.handleMailDetail(data.detail, data.error),

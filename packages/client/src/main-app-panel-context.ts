@@ -17,6 +17,7 @@ import { createMainNoticeStateSource } from './main-notice-state-source';
 import { createMainPanelRuntimeSource } from './main-panel-runtime-source';
 import { createMainQuestStateSource } from './main-quest-state-source';
 import { createMainSettingsStateSource } from './main-settings-state-source';
+import { createMainSocialStateSource } from './main-social-state-source';
 import { createMainTechniqueGenerationPanelSource } from './main-technique-generation-panel-source';
 import { createMainTechniqueStateSource } from './main-technique-state-source';
 import { createMainUiStateSource } from './main-ui-state-source';
@@ -81,6 +82,8 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
       techniquePanel,
       bodyTrainingPanel,
       questPanel,
+      socialPanel,
+      treasureVaultModal,
       actionPanel,
       lootPanel,
       worldPanel,
@@ -103,14 +106,11 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
     socket: socialEconomySender,
     isSocketConnected: () => socket.connected,
   });
+  const socialStateSource = createMainSocialStateSource({ socialPanel, treasureVaultModal, socket: socialEconomySender, getPlayer: () => rootRuntimeSource.getPlayer(), hydrateInventoryItem: (item, previous) => detailHydrationSource.hydrateSyncedItemStack(item, previous), showToast: (message, kind) => uiStateSource.showToast(message, kind) });
 
   let uiStateSource!: ReturnType<typeof createMainUiStateSource>;
   let panelDeltaStateSource!: ReturnType<typeof import('./main-panel-delta-state-source').createMainPanelDeltaStateSource>;
-  const techniqueActivityOpeners = {
-    alchemy: () => craftWorkbenchModal.openAlchemy(),
-    forging: () => craftWorkbenchModal.openForging(),
-    enhancement: () => craftWorkbenchModal.openEnhancement(),
-  } as const satisfies Record<ClientTechniqueActivityKind | 'forging', () => void>;
+  const techniqueActivityOpeners = { alchemy: () => craftWorkbenchModal.openAlchemy(), forging: () => craftWorkbenchModal.openForging(), enhancement: () => craftWorkbenchModal.openEnhancement() } as const satisfies Record<ClientTechniqueActivityKind | 'forging', () => void>;
   const techniqueGenerationPanelSource = createMainTechniqueGenerationPanelSource({ sender: techniqueGenerationSender });
   const actionStateSource = createMainActionStateSource({
     actionPanel,
@@ -125,6 +125,7 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
     openBuildingPanel: () => buildingFengShuiStateSource.openBuildingPanel(),
     openTransmissionPanel: () => craftWorkbenchModal.openTransmission(),
     openScripturePlatformRecordingModal: (buildingId) => openScripturePlatformRecordingModal({ buildingId, getPlayer: () => rootRuntimeSource.getPlayer(), sendAction: (actionId) => runtimeSender.sendAction(actionId), showToast: (message, kind) => callbacks.showToast(message, kind) }),
+    openTreasureVault: (buildingId) => socialStateSource.openTreasureVault(buildingId),
     openWorldMigrationModal: () => openWorldMigrationModal({
       getPlayer: () => rootRuntimeSource.getPlayer(),
       sendAction: (actionId, target) => runtimeSender.sendAction(actionId, target),
@@ -187,9 +188,7 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
     sendAction: (actionId) => runtimeSender.sendAction(actionId),
     defaultAuraLevelBaseValue: DEFAULT_AURA_LEVEL_BASE_VALUE,
   });
-  const detailHydrationSource = createMainDetailHydrationSource({
-    hydrateSyncedItemStack: callbacks.hydrateSyncedItemStack,
-  });
+  const detailHydrationSource = createMainDetailHydrationSource({ hydrateSyncedItemStack: callbacks.hydrateSyncedItemStack });
   const worldSummaryStateSource = createMainWorldSummaryStateSource({
     socket: panelSender,
     worldPanel,
@@ -284,7 +283,7 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
   });
 
   return {
-    mailStateSource, activityStateSource, buildingFengShuiStateSource,
+    mailStateSource, activityStateSource, socialStateSource, buildingFengShuiStateSource,
     actionStateSource,
     techniqueStateSource,
     attrDetailStateSource,

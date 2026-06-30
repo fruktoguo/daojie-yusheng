@@ -67,6 +67,26 @@ const DEFAULT_BUILDING_DEFS: BuildingDef[] = [
     },
     economy: { buildTicks: 3600, durabilityMultiplier: 100, maxHp: 120, cost: [{ itemId: 'wood', count: 8 }] },
   },
+  {
+    id: 'treasure_vault',
+    name: '宝库',
+    visual: { glyph: '宝', color: '#d69e2e', layer: 'furniture' },
+    placement: { layer: 'furniture', footprint: [{ dx: 0, dy: 0 }] },
+    topology: { blocksMove: false },
+    fengShui: {
+      elementVector: { earth: 16, metal: 8 },
+      traits: ['facility.treasure_vault', 'storage.item'],
+      stability: 12,
+      comfort: 2,
+    },
+    economy: {
+      buildTicks: 3600,
+      durabilityMultiplier: 120,
+      maxHp: 160,
+      cost: [{ itemId: 'wood', count: 6 }, { itemId: 'metal', count: 2 }],
+    },
+    treasureVault: { capacity: 80 },
+  },
 ];
 
 const DEFAULT_FENGSHUI_RULES: FengShuiRuleDef[] = [

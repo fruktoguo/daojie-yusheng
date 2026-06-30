@@ -104,6 +104,15 @@ export function buildDefaultPanelRegistry(): PanelRegistry {
       preservesInteractionState: true,
     },
     {
+      id: 'social',
+      title: t('panel.registry.social'),
+      templateKind: 'embedded',
+      rootSelector: '#pane-social',
+      defaultPlacement: { desktop: 'right-top', mobile: 'external' },
+      supports: ['desktop', 'mobile'],
+      preservesInteractionState: true,
+    },
+    {
       id: 'market',
       title: t('panel.registry.market'),
       templateKind: 'embedded',

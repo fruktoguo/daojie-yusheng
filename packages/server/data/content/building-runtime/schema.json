@@ -48,6 +48,12 @@
             "cost": { "type": "array", "items": { "type": "object" } },
             "refund": { "type": "array", "items": { "type": "object" } }
           }
+        },
+        "treasureVault": {
+          "type": "object",
+          "properties": {
+            "capacity": { "type": "integer", "minimum": 1 }
+          }
         }
       }
     },
