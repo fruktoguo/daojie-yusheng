@@ -143,10 +143,10 @@ interface InventoryActionDialogState {
 
   itemKey: string;
   /**
- * defaultCount：数量或计量字段。
+ * countDraft：数量输入草稿，编辑期允许空值或未完成数字，提交时再归一化。
  */
 
-  defaultCount: number;
+  countDraft: string;
   /**
  * confirmDestroy：confirmDestroy相关字段。
  */
@@ -2591,7 +2591,7 @@ export class InventoryPanel {
     const labels = this.resolveActionLabels(dialog.kind);
     const maxCount = item.count;
     const halfCount = Math.max(1, Math.ceil(maxCount / 2));
-    const selectedCount = Math.max(1, Math.min(maxCount, dialog.defaultCount));
+    const selectedCount = this.normalizeActionCountDraft(dialog.countDraft, maxCount);
     const specialUseSummary = dialog.kind === 'use' ? this.getSpecialUseConfirmSummary(item) : null;
     const displayName = getItemDisplayMeta(item).displayItem.name;
 
@@ -2672,7 +2672,7 @@ export class InventoryPanel {
       subtitle: t('inventory.action-dialog.subtitle.max-count', { itemName: displayName, count: formatDisplayInteger(maxCount) }),
       hint: t('common.modal.click-blank-cancel', undefined),
       renderBody: (body) => {
-        this.renderActionDialogBody(body, labels, selectedCount, halfCount, maxCount);
+        this.renderActionDialogBody(body, labels, dialog.countDraft, halfCount, maxCount);
       },
       onClose: () => {
         this.resetModalState();
@@ -2681,11 +2681,11 @@ export class InventoryPanel {
         const countInput = body.querySelector<HTMLInputElement>('[data-inventory-action-count="true"]');
         this.syncActionCountInputWidth(countInput, maxCount);
         countInput?.addEventListener('input', () => {
-          const nextValue = String(this.getUseCountFromInput(countInput, maxCount));
-          if (countInput.value !== nextValue) {
-            countInput.value = nextValue;
-          }
+          this.updateActionCountDraft(countInput);
           this.syncActionCountInputWidth(countInput, maxCount);
+        }, { signal });
+        countInput?.addEventListener('blur', () => {
+          this.commitActionCountInput(countInput, maxCount);
         }, { signal });
         body.querySelectorAll<HTMLElement>('[data-inventory-quick-count]').forEach((button) => button.addEventListener('click', (event) => {
           event.stopPropagation();
@@ -2693,6 +2693,7 @@ export class InventoryPanel {
             return;
           }
           countInput.value = button.dataset.inventoryQuickCount ?? '1';
+          this.updateActionCountDraft(countInput);
           this.syncActionCountInputWidth(countInput, maxCount);
         }, { signal }));
         body.querySelector<HTMLElement>('[data-inventory-action-cancel]')?.addEventListener('click', (event) => {
@@ -2702,7 +2703,7 @@ export class InventoryPanel {
         }, { signal });
         body.querySelector<HTMLElement>('[data-inventory-action-confirm]')?.addEventListener('click', (event) => {
           event.stopPropagation();
-          const selected = this.getUseCountFromInput(countInput, maxCount);
+          const selected = this.commitActionCountInput(countInput, maxCount);
           const itemInstanceId = this.getInventoryItemInstanceId(item);
           if (dialog.kind === 'use') {
             if (!itemInstanceId) {
@@ -2724,7 +2725,7 @@ export class InventoryPanel {
           }
           this.actionDialog = {
             ...dialog,
-            defaultCount: selected,
+            countDraft: String(selected),
             confirmDestroy: true,
           };
           this.renderModal();
@@ -2967,7 +2968,7 @@ export class InventoryPanel {
  * danger：danger相关字段。
  */
  danger: boolean },
-    selectedCount: number,
+    countDraft: string,
     halfCount: number,
     maxCount: number,
   ): void {
@@ -2985,7 +2986,7 @@ export class InventoryPanel {
             min="1"
             max="${maxCount}"
             step="1"
-            value="${selectedCount}"
+            value="${this.escapeHtml(countDraft)}"
             inputmode="numeric"
           />
         </div>
@@ -3161,11 +3162,35 @@ export class InventoryPanel {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const rawValue = input?.value ?? '1';
+    return this.normalizeActionCountDraft(rawValue, maxCount);
+  }
+
+  private normalizeActionCountDraft(rawValue: string, maxCount: number): number {
     const parsed = Number.parseInt(rawValue, 10);
     if (!Number.isFinite(parsed)) {
       return 1;
     }
     return Math.max(1, Math.min(maxCount, parsed));
+  }
+
+  private updateActionCountDraft(input: HTMLInputElement | null): void {
+    if (!input || !this.actionDialog) {
+      return;
+    }
+    this.actionDialog = {
+      ...this.actionDialog,
+      countDraft: input.value,
+    };
+  }
+
+  private commitActionCountInput(input: HTMLInputElement | null, maxCount: number): number {
+    const selected = this.getUseCountFromInput(input, maxCount);
+    if (input) {
+      input.value = String(selected);
+      this.updateActionCountDraft(input);
+      this.syncActionCountInputWidth(input, maxCount);
+    }
+    return selected;
   }
 
   /** syncActionCountInputWidth：同步动作数量输入Width。 */
@@ -3418,7 +3443,7 @@ export class InventoryPanel {
     this.actionDialog = {
       kind,
       itemKey: item ? this.getItemIdentity(item) : '',
-      defaultCount: Math.max(1, defaultCount),
+      countDraft: String(Math.max(1, defaultCount)),
       confirmDestroy: false,
     };
     this.renderModal();
@@ -4235,7 +4260,7 @@ export class InventoryPanel {
         String(item.count),
         this.actionDialog.kind,
         this.actionDialog.confirmDestroy ? '1' : '0',
-        String(this.actionDialog.defaultCount),
+        this.actionDialog.countDraft,
       ].join('|');
     }
 
