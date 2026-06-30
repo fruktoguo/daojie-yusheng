@@ -9,6 +9,7 @@ import {
   getMiningDamageMultiplier,
   getTileTraversalCost,
   TERRAIN_DESTROYED_RESTORE_TICKS,
+  TERRAIN_REGEN_RATE_PER_TICK,
   TERRAIN_RESTORE_RETRY_DELAY_TICKS,
   TileType,
 } from '@mud/shared';
@@ -407,6 +408,59 @@ function testDestroyedTileRecoveryRespectsStabilizerAndHydrates() {
   assert.equal(restored.getEffectiveTileType(1, 0), TileType.Wall);
   assert.equal(restored.isWalkable(1, 0), false);
   assert.deepEqual(restored.buildTileDamagePersistenceEntries(), []);
+}
+
+function testTerrainStabilizerAddsHpRecoveryToDamageableTileTypes() {
+  const template = createTemplate();
+  const instance = createInstance(template);
+  const { catalog, rules } = getDefaultBuildingRuntime();
+  instance.configureBuildingRuntime(catalog, rules);
+
+  const systemBeforeDamage = instance.getTileCombatState(1, 0);
+  assert.ok(systemBeforeDamage);
+  const systemDamage = instance.damageTile(1, 0, 200);
+  assert.equal(systemDamage?.destroyed, false);
+  const systemDamagedHp = instance.getTileCombatState(1, 0)?.hp ?? 0;
+
+  const temporaryCreated = instance.createTemporaryTile(2, 1, TileType.Stone, 100, 60, 1);
+  assert.equal(temporaryCreated.created, true);
+  const temporaryDamage = instance.damageTile(2, 1, 10);
+  assert.equal(temporaryDamage?.temporary, true);
+  const temporaryDamagedHp = instance.getTileCombatState(2, 1)?.hp ?? 0;
+
+  const placed = instance.placeBuildingInstance({
+    buildingId: 'building:stabilizer:recovery',
+    defId: 'scripture_platform',
+    x: 1,
+    y: 1,
+    state: 'active',
+  });
+  assert.equal(placed.ok, true);
+  const buildingDamage = instance.damageTile(1, 1, 10);
+  assert.equal(buildingDamage?.building, true);
+  const buildingDamagedHp = instance.getTileCombatState(1, 1)?.hp ?? 0;
+
+  const terrainStabilizerChecker = (x: number, y: number) => (
+    (x === 1 && y === 0)
+    || (x === 2 && y === 1)
+    || (x === 1 && y === 1)
+  );
+  Object.defineProperty(terrainStabilizerChecker, 'hasTerrainStabilizer', {
+    value: true,
+    enumerable: false,
+  });
+  assert.equal(instance.advanceTileRecovery(() => false, null, terrainStabilizerChecker), true);
+
+  const systemMaxHp = systemBeforeDamage.maxHp;
+  const systemRecover = Math.max(1, Math.floor(systemMaxHp * TERRAIN_REGEN_RATE_PER_TICK));
+  assert.equal(instance.getTileCombatState(1, 0)?.hp, systemDamagedHp + systemRecover * 2);
+
+  const temporaryRecover = Math.max(1, Math.floor(100 * TERRAIN_REGEN_RATE_PER_TICK));
+  assert.equal(instance.getTileCombatState(2, 1)?.hp, temporaryDamagedHp + temporaryRecover);
+
+  const buildingMaxHp = buildingDamage?.maxHp ?? 120;
+  const buildingRecover = Math.max(1, Math.floor(buildingMaxHp * TERRAIN_REGEN_RATE_PER_TICK));
+  assert.equal(instance.getTileCombatState(1, 1)?.hp, buildingDamagedHp + buildingRecover);
 }
 
 function testDestroyedTileDoesNotRespawnUnderUnit() {
@@ -927,6 +981,7 @@ async function main() {
   testDestroyedTileBecomesPathReachable();
   testDestroyedStoneTurnsIntoWalkableGroundProjection();
   testDestroyedTileRecoveryRespectsStabilizerAndHydrates();
+  testTerrainStabilizerAddsHpRecoveryToDamageableTileTypes();
   testDestroyedTileDoesNotRespawnUnderUnit();
   testSpecialTerrainRestoreSpeedMatchesMain();
   testStoneDurabilityScalesWithMapLv();

@@ -626,7 +626,7 @@ class WorldRuntimeFormationService {
     createTerrainStabilizationChecker(instanceId) {
         const formations = this.formationsByInstanceId.get(instanceId);
         if (!formations || formations.length <= 0) {
-            return () => false;
+            return buildTerrainStabilizationChecker(() => false, false);
         }
         const snapshots = [];
         for (const formation of formations) {
@@ -641,9 +641,9 @@ class WorldRuntimeFormationService {
             });
         }
         if (snapshots.length <= 0) {
-            return () => false;
+            return buildTerrainStabilizationChecker(() => false, false);
         }
-        return (x, y) => {
+        return buildTerrainStabilizationChecker((x, y) => {
             const tileX = Math.trunc(Number(x));
             const tileY = Math.trunc(Number(y));
             if (!Number.isFinite(tileX) || !Number.isFinite(tileY)) {
@@ -655,7 +655,7 @@ class WorldRuntimeFormationService {
                 }
             }
             return false;
-        };
+        }, true);
     }
 
     resolveTerrainDamageReduction(instanceId, x, y) {
@@ -1778,6 +1778,15 @@ function isActiveFormationOfKind(formation, kind) {
         && formation?.template?.effect?.kind === kind
         && resolveFormationRemainingQiBudget(formation) > 0
         && resolveFormationRemainingSpiritStoneBudget(formation) > 0;
+}
+
+function buildTerrainStabilizationChecker(checker, hasTerrainStabilizer) {
+    Object.defineProperty(checker, 'hasTerrainStabilizer', {
+        value: hasTerrainStabilizer === true,
+        enumerable: false,
+        configurable: false,
+    });
+    return checker;
 }
 
 function forEachFormationAffectedRuntimeCell(instance, formation, visitor) {

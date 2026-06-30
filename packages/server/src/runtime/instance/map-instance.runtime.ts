@@ -3191,19 +3191,21 @@ class MapInstanceRuntime {
         }
         return { scanned, removed: toDelete.length };
     }
-    /** advanceTileRecovery：推进可破坏地块的自然修复与复生。 */
-    advanceTileRecovery(isTerrainStabilized, tileRecoveryProvider) {
+    /** advanceTileRecovery：推进可破坏地块的自然修复、固脉额外修复与复生。 */
+    advanceTileRecovery(isTerrainStabilized, tileRecoveryProvider, terrainStabilizerHpRecoveryChecker = null) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        if (this.tileDamageByTile.size === 0) {
+        const hasStabilizerHpRecovery = canAttemptTerrainStabilizerHpRecovery(terrainStabilizerHpRecoveryChecker);
+        if (this.tileDamageByTile.size === 0 && !hasStabilizerHpRecovery) {
             return false;
         }
 
-        // 通过 provider 检查恢复是否启用
+        let naturalTileRecoveryEnabled = true;
+        // 通过 provider 检查普通地形恢复是否启用；固脉额外回血是阵法效果，单独结算。
         if (tileRecoveryProvider && typeof tileRecoveryProvider.getRecoveryConfig === 'function') {
             const config = tileRecoveryProvider.getRecoveryConfig(this.meta?.instanceId);
             if (config && config.enabled === false) {
-                return false;
+                naturalTileRecoveryEnabled = false;
             }
         }
 
@@ -3231,6 +3233,9 @@ class MapInstanceRuntime {
                 : null;
             const maxHp = Math.max(1, Math.trunc(Number(current?.maxHp) || resolveTileDurability(this.template, tileType, x, y, layerState)));
             if (current?.destroyed === true) {
+                if (!naturalTileRecoveryEnabled) {
+                    continue;
+                }
                 if (typeof isTerrainStabilized === 'function' && isTerrainStabilized(x, y) === true) {
                     continue;
                 }
@@ -3280,7 +3285,16 @@ class MapInstanceRuntime {
                 changed = true;
                 continue;
             }
-            const repairAmount = Math.max(1, Math.floor(maxHp * TERRAIN_REGEN_RATE_PER_TICK));
+            const baseRepairAmount = naturalTileRecoveryEnabled
+                ? resolveTerrainHpRecoveryAmount(maxHp)
+                : 0;
+            const stabilizerRepairAmount = hasTerrainStabilizerHpRecoveryAt(terrainStabilizerHpRecoveryChecker, x, y)
+                ? resolveTerrainHpRecoveryAmount(maxHp)
+                : 0;
+            const repairAmount = baseRepairAmount + stabilizerRepairAmount;
+            if (repairAmount <= 0) {
+                continue;
+            }
             const nextHp = Math.min(maxHp, hp + repairAmount);
             if (nextHp >= maxHp) {
                 this.tileDamageByTile.delete(tileIndex);
@@ -3304,6 +3318,11 @@ class MapInstanceRuntime {
             changed = true;
         }
 
+        if (hasStabilizerHpRecovery) {
+            changed = this.advanceTemporaryTileHpRecoveryByTerrainStabilizer(terrainStabilizerHpRecoveryChecker, now) || changed;
+            changed = this.advanceBuildingHpRecoveryByTerrainStabilizer(terrainStabilizerHpRecoveryChecker) || changed;
+        }
+
         if (changed) {
             if (topologyChangedCellCount > 0) {
                 this.recalculateRoomsAndFengShuiAfterTopologyChange({ reason: 'tile_recovered', dirtyCellCount: topologyChangedCellCount });
@@ -3316,6 +3335,105 @@ class MapInstanceRuntime {
             }
             this.worldRevision += 1;
             this.persistentRevision += 1;
+        }
+        return changed;
+    }
+    /** advanceTemporaryTileHpRecoveryByTerrainStabilizer：固脉范围内的临时地块每息恢复 1% 最大生命。 */
+    advanceTemporaryTileHpRecoveryByTerrainStabilizer(terrainStabilizerHpRecoveryChecker, now = Date.now()) {
+        if (this.temporaryTileByTile.size === 0 || !canAttemptTerrainStabilizerHpRecovery(terrainStabilizerHpRecoveryChecker)) {
+            return false;
+        }
+        let changed = false;
+        for (const [tileIndex, state] of this.temporaryTileByTile.entries()) {
+            if (!state || !Number.isFinite(Number(tileIndex))) {
+                continue;
+            }
+            const normalizedTileIndex = Math.trunc(Number(tileIndex));
+            const x = this.tilePlane.getX(normalizedTileIndex);
+            const y = this.tilePlane.getY(normalizedTileIndex);
+            if (!hasTerrainStabilizerHpRecoveryAt(terrainStabilizerHpRecoveryChecker, x, y)) {
+                continue;
+            }
+            const maxHp = Math.max(1, Math.trunc(Number(state.maxHp) || 1));
+            const hp = Math.max(0, Math.min(maxHp, Math.trunc(Number(state.hp) || maxHp)));
+            if (hp >= maxHp) {
+                continue;
+            }
+            const nextHp = Math.min(maxHp, hp + resolveTerrainHpRecoveryAmount(maxHp));
+            this.temporaryTileByTile.set(normalizedTileIndex, {
+                ...state,
+                hp: nextHp,
+                maxHp,
+                modifiedAt: now,
+            });
+            this.markStaticTileSyncDirtyByIndex(normalizedTileIndex);
+            this.markPersistenceDirtyDomains(['temporary_tile']);
+            changed = true;
+        }
+        return changed;
+    }
+    /** advanceBuildingHpRecoveryByTerrainStabilizer：固脉范围内的玩家建筑地块每息恢复 1% 最大生命。 */
+    advanceBuildingHpRecoveryByTerrainStabilizer(terrainStabilizerHpRecoveryChecker) {
+        if (this.buildingById.size === 0 || !canAttemptTerrainStabilizerHpRecovery(terrainStabilizerHpRecoveryChecker)) {
+            return false;
+        }
+        let changed = false;
+        const fengShuiInfluenceCells = new Set();
+        for (const [buildingId, building] of this.buildingById.entries()) {
+            if (!building || !buildingUsesActiveTopology(building)) {
+                continue;
+            }
+            const compiled = this.buildingCatalog?.defByHandle?.[building.defHandle] ?? this.buildingCatalog?.defById?.get?.(building.defId);
+            const maxHp = Math.max(1, Math.trunc(Number(building.maxHp) || Number(compiled?.maxHp) || 1));
+            const rawHp = Number(building.hp);
+            const hp = Number.isFinite(rawHp)
+                ? Math.max(0, Math.min(maxHp, Math.trunc(rawHp)))
+                : maxHp;
+            if (hp <= 0 || hp >= maxHp) {
+                continue;
+            }
+            const cells = this.buildingCellsById.get(buildingId);
+            if (!Array.isArray(cells) || cells.length === 0) {
+                continue;
+            }
+            let coveredCellIndex = -1;
+            for (const cellIndexInput of cells) {
+                const cellIndex = Math.trunc(Number(cellIndexInput));
+                if (!Number.isFinite(cellIndex) || cellIndex < 0) {
+                    continue;
+                }
+                const x = this.tilePlane.getX(cellIndex);
+                const y = this.tilePlane.getY(cellIndex);
+                if (hasTerrainStabilizerHpRecoveryAt(terrainStabilizerHpRecoveryChecker, x, y)) {
+                    coveredCellIndex = cellIndex;
+                    break;
+                }
+            }
+            if (coveredCellIndex < 0) {
+                continue;
+            }
+            const nextHp = Math.min(maxHp, hp + resolveTerrainHpRecoveryAmount(maxHp));
+            building.hp = nextHp;
+            building.maxHp = maxHp;
+            building.updatedAtTick = this.tick;
+            building.revision = Math.max(1, Math.trunc(Number(building.revision) || 1)) + 1;
+            for (const cellIndexInput of cells) {
+                const cellIndex = Math.trunc(Number(cellIndexInput));
+                if (Number.isFinite(cellIndex) && cellIndex >= 0) {
+                    this.markStaticTileSyncDirtyByIndex(cellIndex);
+                    if (nextHp >= maxHp && this.isCellInRoomInfluence(cellIndex)) {
+                        fengShuiInfluenceCells.add(cellIndex);
+                    }
+                }
+            }
+            this.markPersistenceDirtyDomains(['building']);
+            changed = true;
+        }
+        if (fengShuiInfluenceCells.size > 0) {
+            for (const cellIndex of fengShuiInfluenceCells) {
+                this.recalculateFengShuiAfterRoomInfluenceChange(cellIndex, 'building_integrity_recovered');
+            }
+            this.markPersistenceDirtyDomains(['fengshui']);
         }
         return changed;
     }
@@ -7007,6 +7125,17 @@ function calculateTileRestoreRetryTicks(tileType) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     return Math.max(1, Math.ceil(TERRAIN_RESTORE_RETRY_DELAY_TICKS / getTileRestoreSpeedMultiplier(tileType)));
+}
+/** resolveTerrainHpRecoveryAmount：地块生命恢复统一按最大生命 1% 取整，至少 1 点。 */
+function resolveTerrainHpRecoveryAmount(maxHp) {
+    const normalizedMaxHp = Math.max(1, Math.trunc(Number(maxHp) || 1));
+    return Math.max(1, Math.floor(normalizedMaxHp * TERRAIN_REGEN_RATE_PER_TICK));
+}
+function canAttemptTerrainStabilizerHpRecovery(checker) {
+    return typeof checker === 'function' && checker.hasTerrainStabilizer !== false;
+}
+function hasTerrainStabilizerHpRecoveryAt(checker, x, y) {
+    return canAttemptTerrainStabilizerHpRecovery(checker) && checker(x, y) === true;
 }
 /** normalizeTileRestoreTicksLeft：恢复持久化地块复生倒计时。 */
 function normalizeTileRestoreTicksLeft(value, tileType) {

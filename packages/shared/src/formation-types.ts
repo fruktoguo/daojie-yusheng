@@ -257,7 +257,7 @@ export const BUILTIN_FORMATION_TEMPLATES: FormationTemplate[] = [
   {
     id: 'earth_stabilizing',
     name: '固脉阵',
-    desc: '稳固范围内地脉，阻止可攻击地块复生和临时地块自然消散，并按效果灵力降低可拆除地块受到的伤害。',
+    desc: '稳固范围内地脉，阻止可攻击地块复生和临时地块自然消散，按效果灵力降低可拆除地块受到的伤害，并使范围内受损地块每息额外恢复 1% 最大生命。',
     minSpiritStoneCount: 1000,
     damagePerAura: FORMATION_DEFAULT_DAMAGE_PER_AURA,
     cost: {

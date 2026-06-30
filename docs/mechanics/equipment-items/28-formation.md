@@ -44,7 +44,7 @@ actualStrength = floor(baseStrength × diskMultiplier × skillStrengthMultiplier
 ```
 
 - 聚灵阵: `targetAura = actualStrength × 100`
-- 固脉阵: `damageReduction = actualStrength / (actualStrength + 1000)`，约 10 强度降低 1% 地块受击伤害
+- 固脉阵: `damageReduction = actualStrength / (actualStrength + 1000)`，约 10 强度降低 1% 地块受击伤害；范围内受损地块额外每息恢复 `maxHp × 1%`
 - 太玄封界阵: `damageReduction = actualStrength / (actualStrength + 1000)`，约 10 强度降低 1% 边界受击损耗
 - 护宗大阵: `damageReduction = actualStrength / (actualStrength + 100)`，约 1 强度降低 1% 边界受击损耗
 
@@ -132,6 +132,11 @@ Setup 模式中，输入框显示为“基础强度”，协议字段仍沿用 `
 - tile_aura_source: 向地块注入灵气
   - 每息注入量按 `(目标灵气 - 当前灵气) / convergenceHalfLifeTicks` 计算，地块灵气以 double 保存。
 - terrain_stabilizer: 稳定地形，防止破坏
+  - 被摧毁的系统地块在固脉范围内暂停复生倒计时，离开固脉影响后按原倒计时继续复生。
+  - 技能创建的临时地块在固脉范围内暂停自然消散，离开固脉影响后继续按过期时间消散。
+  - 范围内受损但未摧毁的系统地块额外每息恢复 `maxHp × 1%`；系统地块本身已有 `1%/息` 自然恢复，因此受固脉影响时合计为 `2%/息`。
+  - 范围内受损但未摧毁的玩家建筑地块、技能临时地块每息恢复 `maxHp × 1%`；这两类地块没有普通自然回血，只吃固脉提供的这一份。
+  - 固脉回血只按是否处于任一激活固脉范围判断，不随固脉强度提高，不因多个固脉重叠叠加。
 - boundary_barrier: 边界屏障，阻挡进入
 - monster_suppression: 封魔压制
   - 范围内所有妖兽按最高封魔阵强度获得“压制”层数，每点强度增加 1 层。
