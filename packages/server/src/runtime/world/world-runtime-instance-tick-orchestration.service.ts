@@ -421,14 +421,22 @@ export class WorldRuntimeInstanceTickOrchestrationService {
                 const terrainStabilizationChecker = typeof isFormationTerrainStabilized === 'function'
                     ? isFormationTerrainStabilized
                     : ((x, y) => deps.worldRuntimeFormationService?.isTerrainStabilized?.(instance.meta.instanceId, x, y) === true);
-                const terrainStabilizerHpRecoveryChecker = typeof isFormationTerrainStabilized === 'function'
-                    && (isFormationTerrainStabilized as { hasTerrainStabilizer?: boolean }).hasTerrainStabilizer === true
-                    ? isFormationTerrainStabilized
-                    : null;
+                const hasFormationTerrainStabilizer = typeof isFormationTerrainStabilized === 'function'
+                    && (isFormationTerrainStabilized as { hasTerrainStabilizer?: boolean }).hasTerrainStabilizer === true;
+                const instanceIdText = String(instance.meta.instanceId ?? '');
+                const hasSectInnateStabilizer = instanceIdText.startsWith('sect:')
+                    && typeof deps.worldRuntimeSectService?.findSectByInstanceId === 'function'
+                    && deps.worldRuntimeSectService.findSectByInstanceId(instance.meta.instanceId) !== null;
                 const isTerrainStabilized = (x, y) => (
                     terrainStabilizationChecker(x, y) === true
                     || deps.worldRuntimeSectService?.isSectInnateStabilized?.(instance.meta.instanceId, x, y) === true
                 );
+                const terrainStabilizerHpRecoveryChecker = hasFormationTerrainStabilizer || hasSectInnateStabilizer
+                    ? Object.defineProperty((x: number, y: number) => isTerrainStabilized(x, y), 'hasTerrainStabilizer', {
+                        value: true,
+                        enumerable: false,
+                    })
+                    : null;
                 const instanceIntents = sleepMonsterAi === true ? null : (workerProposals.get(instance.meta.instanceId) ?? null);
                 // T-19: 复用预分配容器
                 reusableTickResult.completedBuildings.length = 0;

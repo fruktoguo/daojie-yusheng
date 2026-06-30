@@ -7,7 +7,7 @@ const { MapInstanceRuntime } = require("../runtime/instance/map-instance.runtime
 const { WorldRuntimeSectService } = require("../runtime/world/world-runtime-sect.service");
 const { WorldRuntimePlayerSessionService } = require("../runtime/world/world-runtime-player-session.service");
 const { WorldRuntimeUseItemService } = require("../runtime/world/world-runtime-use-item.service");
-const { Direction } = require("@mud/shared");
+const { Direction, TERRAIN_REGEN_RATE_PER_TICK } = require("@mud/shared");
 const { WorldSyncMapSnapshotService } = require("../network/world-sync-map-snapshot.service");
 const { buildFullWorldDelta } = require("../network/world-projector.helpers");
 const { WorldRuntimeDetailQueryService } = require("../runtime/world/query/world-runtime-detail-query.service");
@@ -660,7 +660,7 @@ async function main() {
   assert.equal(fullHpBoundaryTile.maxHp, undefined);
   assert.equal(fullHpBoundaryTile.hpVisible, undefined);
   sectInstance.disconnectPlayer(playerId);
-  const damagedBoundary = sectInstance.damageTile(edgeX + 1, edgeY, 1);
+  const damagedBoundary = sectInstance.damageTile(edgeX + 1, edgeY, 10000);
   assert.equal(damagedBoundary.destroyed, false);
   assert.equal(sectInstance.template.width, 1);
   assert.equal(sectInstance.template.height, 1);
@@ -670,11 +670,17 @@ async function main() {
   assert.equal(sectInstance.getTileLayerState(edgeX + 1, edgeY).structure, "stone");
   assert.equal(sectInstance.isWalkable(edgeX + 1, edgeY, playerId), false);
   assert.equal(sectInstance.tilePlane.getCellCount(), 30);
-  assert.equal(sectInstance.getTileCombatState(edgeX + 1, edgeY).hp, damagedBoundary.maxHp - 1);
+  assert.equal(sectInstance.getTileCombatState(edgeX + 1, edgeY).hp, damagedBoundary.maxHp - 10000);
   const damagedBoundaryTile = sectSnapshotService.buildTileSyncState(sectInstance.template, sectInstance.meta.instanceId, edgeX + 1, edgeY, player);
   assert.equal(damagedBoundaryTile.hpVisible, true);
-  assert.equal(sectInstance.advanceTileRecovery((x, y) => sectService.isSectInnateStabilized(sectInstance.meta.instanceId, x, y)), true);
-  assert.equal(sectInstance.getTileCombatState(edgeX + 1, edgeY).hp, damagedBoundary.maxHp);
+  const sectInnateStabilizerChecker = (x, y) => sectService.isSectInnateStabilized(sectInstance.meta.instanceId, x, y);
+  Object.defineProperty(sectInnateStabilizerChecker, "hasTerrainStabilizer", {
+    value: true,
+    enumerable: false,
+  });
+  assert.equal(sectInstance.advanceTileRecovery(sectInnateStabilizerChecker, null, sectInnateStabilizerChecker), true);
+  const sectInnateRecover = Math.max(1, Math.floor(damagedBoundary.maxHp * TERRAIN_REGEN_RATE_PER_TICK));
+  assert.equal(sectInstance.getTileCombatState(edgeX + 1, edgeY).hp, damagedBoundary.maxHp - 10000 + sectInnateRecover * 2);
   const destroyed = sectInstance.damageTile(edgeX + 1, edgeY, Number.MAX_SAFE_INTEGER);
   assert.equal(destroyed.destroyed, true);
   assert.equal(destroyed.sectBoundaryOpened, true);

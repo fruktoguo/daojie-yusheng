@@ -42,17 +42,18 @@ calculateTileRestoreRetryTicks(tileType) =
      - 无阻挡 → 删除 damage 记录，恢复原始地块
 2. destroyed=false (受损):
    - repairAmount = max(1, floor(maxHp × 0.01))
-   - 若处于激活固脉阵范围内，额外追加同等一份 `max(1, floor(maxHp × 0.01))`
+   - 若处于固脉效果范围内，额外追加同等一份 `max(1, floor(maxHp × 0.01))`
    - nextHp = min(maxHp, hp + repairAmount)
    - nextHp ≥ maxHp → 完全恢复，删除 damage 记录
 ```
 
 ## 固脉额外回血
 
-- 固脉阵只给“受损但未摧毁”的地块回血，不直接修复 destroyed=true 的地块。
+- 固脉效果包括固脉阵和宗门核心范围内的先天固脉；两者共享同一套地块回血语义。
+- 固脉只给“受损但未摧毁”的地块回血，不直接修复 destroyed=true 的地块。
 - 系统地块已有自然恢复 `1%/息`，被固脉覆盖时额外获得 `1%/息`，合计 `2%/息`。
 - 玩家建筑地块和技能创建的临时地块默认没有自然回血；被固脉覆盖时获得 `1%/息`。
-- 多个固脉阵重叠不叠加回血，固脉强度只影响减伤，不影响回血比例。
+- 多个固脉来源重叠不叠加回血，固脉阵强度只影响减伤，不影响回血比例。
 
 ## 挖矿与地块破坏边界
 
