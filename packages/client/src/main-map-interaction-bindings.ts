@@ -7,6 +7,7 @@ import { encodeTileTargetRef, isPointInRange, type ActionDef, type PlayerState, 
 import { resolveClientSkillCastAvailability } from './client-skill-cast-availability';
 import type { MainNavigationObservedEntity } from './main-navigation-state-source';
 import { t } from './ui/i18n';
+import { formatDisplayNumber } from './utils/number';
 /**
  * PendingTargetedAction：统一结构类型，保证协议与运行时一致性。
  */
@@ -409,7 +410,7 @@ export function bindMainMapInteractions(options: MainMapInteractionBindingsOptio
         }
         if (pendingTargetedAction.actionId === 'loot:open') {
         if (!player || !isPointInRange({ x: player.x, y: player.y }, { x: target.x, y: target.y }, pendingTargetedAction.range)) {
-          options.showToast(t('map-interaction.toast.loot-out-of-range', { range: pendingTargetedAction.range }));
+          options.showToast(t('map-interaction.toast.loot-out-of-range', { range: formatDisplayNumber(pendingTargetedAction.range) }));
           return;
           }
           options.resetLootPanelManualCloseSuppression();
@@ -419,7 +420,7 @@ export function bindMainMapInteractions(options: MainMapInteractionBindingsOptio
         }
         if (pendingTargetedAction.actionId === 'building:place') {
           if (!player || !isPointInRange({ x: player.x, y: player.y }, { x: target.x, y: target.y }, pendingTargetedAction.range)) {
-            options.showToast(t('map-interaction.toast.build-out-of-range', { range: pendingTargetedAction.range }));
+            options.showToast(t('map-interaction.toast.build-out-of-range', { range: formatDisplayNumber(pendingTargetedAction.range) }));
             return;
           }
           if (!options.getVisibleTileAt(target.x, target.y)) {
@@ -435,7 +436,7 @@ export function bindMainMapInteractions(options: MainMapInteractionBindingsOptio
           return;
         }
         if (!player || !isPointInRange({ x: player.x, y: player.y }, { x: target.x, y: target.y }, pendingTargetedAction.range)) {
-          options.showToast(t('map-interaction.toast.cast-out-of-range', { range: pendingTargetedAction.range }));
+          options.showToast(t('map-interaction.toast.cast-out-of-range', { range: formatDisplayNumber(pendingTargetedAction.range) }));
           return;
         }
         if (!options.hasAffectableTargetInArea(pendingTargetedAction, target.x, target.y)) {

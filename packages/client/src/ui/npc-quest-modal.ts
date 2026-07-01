@@ -10,6 +10,7 @@ import { detailModalHost } from './detail-modal-host';
 import { requestGuidedTour } from './guided-tour-events';
 import { bindInlineItemTooltips, renderInlineItemChip, renderInlineMonsterChip, renderTextWithInlineItemHighlights } from './item-inline-tooltip';
 import { t } from './i18n';
+import { formatDisplayInteger } from '../utils/number';
 
 const UNKNOWN_QUEST_ITEM_NAME = '未知物品';
 
@@ -251,7 +252,7 @@ export class NpcQuestModal {
       subtitle: this.loading && !this.state
         ? t('npc-quest.modal.loading', undefined)
         : this.state
-          ? t('npc-quest.modal.subtitle-count', { count: this.state.quests.length })
+          ? t('npc-quest.modal.subtitle-count', { count: formatDisplayInteger(this.state.quests.length) })
           : t('npc-quest.modal.empty-subtitle', undefined),
     };
   }

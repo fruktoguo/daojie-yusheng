@@ -15,6 +15,7 @@ import {
 import { detailModalHost } from './detail-modal-host';
 import { GUIDED_TOUR_START_EVENT, type GuidedTourStartEventDetail } from './guided-tour-events';
 import { t } from './i18n';
+import { formatDisplayInteger } from '../utils/number';
 
 type GuidedTourLayoutTarget = 'left' | 'right' | 'bottom';
 
@@ -280,7 +281,7 @@ export class GuidedTour {
 
       const meta = this.documentRef.createElement('div');
       meta.className = 'guided-tour-list-item-meta';
-      meta.textContent = t('guided-tour.list.step-count', { count: flow.steps.length }, `${flow.steps.length} 步`);
+      meta.textContent = t('guided-tour.list.step-count', { count: formatDisplayInteger(flow.steps.length) }, `${formatDisplayInteger(flow.steps.length)} 步`);
 
       const button = this.documentRef.createElement('button');
       button.className = 'small-btn guided-tour-list-start';
@@ -479,8 +480,8 @@ export class GuidedTour {
       <div class="guided-tour-card-kicker">${this.escapeHtml(resolveCopy(flow.titleKey, flow.titleFallback))}</div>
       <div class="guided-tour-card-title">${this.escapeHtml(resolveCopy(step.titleKey, step.titleFallback))}</div>
       <div class="guided-tour-card-body">${this.escapeHtml(resolveCopy(step.bodyKey, step.bodyFallback))}</div>
-      <div class="guided-tour-progress" aria-label="${this.escapeHtml(t('guided-tour.progress.aria', { current: stepCurrent, total: stepTotal }, `第 ${stepCurrent} / ${stepTotal} 步`))}">
-        <span>${this.escapeHtml(t('guided-tour.progress.label', { current: stepCurrent, total: stepTotal }, `${stepCurrent}/${stepTotal}`))}</span>
+      <div class="guided-tour-progress" aria-label="${this.escapeHtml(t('guided-tour.progress.aria', { current: formatDisplayInteger(stepCurrent), total: formatDisplayInteger(stepTotal) }, `第 ${formatDisplayInteger(stepCurrent)} / ${formatDisplayInteger(stepTotal)} 步`))}">
+        <span>${this.escapeHtml(t('guided-tour.progress.label', { current: formatDisplayInteger(stepCurrent), total: formatDisplayInteger(stepTotal) }, `${formatDisplayInteger(stepCurrent)}/${formatDisplayInteger(stepTotal)}`))}</span>
         <div class="guided-tour-progress-track">
           <div class="guided-tour-progress-fill" style="width:${Math.round((stepCurrent / stepTotal) * 100)}%"></div>
         </div>

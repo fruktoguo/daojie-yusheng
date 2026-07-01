@@ -2788,7 +2788,7 @@ export class InventoryPanel {
         <strong>${t('inventory.detail.sources', undefined)}</strong>
         ${sourceListHtml}
         ${canToggleSourceList
-          ? `<button class="small-btn ghost inventory-source-toggle" data-inventory-source-toggle="true" type="button">${this.sourceExpanded ? t('inventory.source.collapse', undefined) : t('inventory.source.expand-all', { count: sourceEntryCount })}</button>`
+          ? `<button class="small-btn ghost inventory-source-toggle" data-inventory-source-toggle="true" type="button">${this.sourceExpanded ? t('inventory.source.collapse', undefined) : t('inventory.source.expand-all', { count: formatDisplayInteger(sourceEntryCount) })}</button>`
           : ''}
       </div>
       ${actionHtml}

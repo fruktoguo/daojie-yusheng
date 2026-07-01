@@ -26,6 +26,7 @@ import { detailModalHost } from './ui/detail-modal-host';
 import { FloatingTooltip } from './ui/floating-tooltip';
 import { t } from './ui/i18n';
 import type { SidePanel, SidePanelLayoutCollapseState } from './ui/side-panel';
+import { formatDisplayInteger, formatDisplayNumber } from './utils/number';
 
 type MainBuildingFengShuiStateSourceOptions = {
   socket: SocketBuildingSender;
@@ -383,7 +384,7 @@ function formatSelectedMaterialSummary(slots: BuildMaterialSlot[]): string {
   if (slots.length === 0) {
     return '无耗材';
   }
-  return slots.map((slot) => `${slot.selectedLabel ?? slot.requirement.label} x${slot.requirement.count}`).join('、');
+  return slots.map((slot) => `${slot.selectedLabel ?? slot.requirement.label} x${formatDisplayInteger(slot.requirement.count)}`).join('、');
 }
 
 function resolveBuildingDisplayLabel(entry: BuildingCatalogEntry): string {
@@ -1071,12 +1072,12 @@ function renderBuildModeToolbar(options: BuildModeToolbarOptions): void {
   strengthInput.dataset.action = 'build-strength';
   strengthInput.inputMode = 'numeric';
   const strengthUnit = document.createElement('span');
-  strengthUnit.textContent = `最低 ${resolveBuildingBaseBuildTicks(selected)}`;
+  strengthUnit.textContent = `最低 ${formatDisplayInteger(resolveBuildingBaseBuildTicks(selected))}`;
   strengthInputWrap.replaceChildren(strengthInput, strengthUnit);
   const strengthHint = document.createElement('div');
   strengthHint.className = 'building-mode-strength-hint';
   strengthHint.textContent = selected
-    ? `建造 ${projectedBuildTicks} 息，完工耐久 ${projectedMaxHp} 生命值，营造等级 Lv.${builderSkillLevel}`
+    ? `建造 ${formatDisplayInteger(projectedBuildTicks)} 息，完工耐久 ${formatDisplayInteger(projectedMaxHp)} 生命值，营造等级 Lv.${formatDisplayInteger(builderSkillLevel)}`
     : '每 1 强度 = 1 息工时 = 1x 生命倍率';
   strengthHint.dataset.role = 'building-strength-summary';
   const strengthHintSecondary = document.createElement('div');
@@ -1094,7 +1095,7 @@ function renderBuildModeToolbar(options: BuildModeToolbarOptions): void {
   titleMain.textContent = selected?.name ?? '暂无符合条件的造物';
   const titleSub = document.createElement('span');
   titleSub.textContent = selected
-    ? `点击地图选择建造位置 · 营造 Lv.${builderSkillLevel} · ${formatSelectedMaterialSummary(options.materialSlots)}`
+    ? `点击地图选择建造位置 · 营造 Lv.${formatDisplayInteger(builderSkillLevel)} · ${formatSelectedMaterialSummary(options.materialSlots)}`
     : '请选择造物';
   title.replaceChildren(titleMain, titleSub);
   const stageStatus = document.createElement('div');
@@ -1104,7 +1105,7 @@ function renderBuildModeToolbar(options: BuildModeToolbarOptions): void {
     : pendingPlacementHint(options)
       ? pendingPlacementHint(options)
     : selected
-      ? `建造 ${projectedBuildTicks} 息 · 完工耐久 ${projectedMaxHp} 生命值`
+      ? `建造 ${formatDisplayInteger(projectedBuildTicks)} 息 · 完工耐久 ${formatDisplayInteger(projectedMaxHp)} 生命值`
       : '未选中造物';
   stageStatus.dataset.role = 'building-stage-status';
   const headMain = document.createElement('div');
@@ -1263,12 +1264,12 @@ function patchBuildModeStrengthProjection(
   const strengthSummary = root.querySelector<HTMLElement>('[data-role="building-strength-summary"]');
   if (strengthSummary) {
     strengthSummary.textContent = selected
-      ? `建造 ${projectedBuildTicks} 息，完工耐久 ${projectedMaxHp} 生命值，营造等级 Lv.${builderSkillLevel}`
+      ? `建造 ${formatDisplayInteger(projectedBuildTicks)} 息，完工耐久 ${formatDisplayInteger(projectedMaxHp)} 生命值，营造等级 Lv.${formatDisplayInteger(builderSkillLevel)}`
       : '每 1 强度 = 1 息工时 = 1x 生命倍率';
   }
   const stageStatus = root.querySelector<HTMLElement>('[data-role="building-stage-status"]');
   if (stageStatus && selected && latestBuildResult == null && !pendingPlacementActive) {
-    stageStatus.textContent = `建造 ${projectedBuildTicks} 息 · 完工耐久 ${projectedMaxHp} 生命值`;
+    stageStatus.textContent = `建造 ${formatDisplayInteger(projectedBuildTicks)} 息 · 完工耐久 ${formatDisplayInteger(projectedMaxHp)} 生命值`;
   }
 }
 
@@ -1292,7 +1293,7 @@ function pendingPlacementHint(options: BuildModeToolbarOptions): string | null {
 }
 
 function formatPlayerCoord(player: PlayerState | null): string {
-  return player ? `${player.x},${player.y}` : '未入世';
+  return player ? `${formatDisplayInteger(player.x)},${formatDisplayInteger(player.y)}` : '未入世';
 }
 
 function formatBuildingLayer(layer: string): string {
@@ -1303,7 +1304,7 @@ function formatMaterialSummary(cost: Array<{ itemId: string; count: number }> | 
   if (!cost?.length) {
     return '无耗材';
   }
-  return cost.map((entry) => `${resolveBuildMaterialLabel(entry.itemId)} x${entry.count}`).join('、');
+  return cost.map((entry) => `${resolveBuildMaterialLabel(entry.itemId)} x${formatDisplayInteger(entry.count)}`).join('、');
 }
 
 function formatElementVectorVerbose(vector: Record<string, number | undefined> | undefined): string {
@@ -1311,7 +1312,15 @@ function formatElementVectorVerbose(vector: Record<string, number | undefined> |
   if (entries.length === 0) {
     return '中性';
   }
-  return entries.map(([key, value]) => `${getElementKeyLabel(key, key)} ${value}`).join(' / ');
+  return entries.map(([key, value]) => `${getElementKeyLabel(key, key)} ${formatSignedNumber(Number(value) || 0)}`).join(' / ');
+}
+
+function formatBuildingDurabilityMultiplier(def: BuildingCatalogEntry): string {
+  const multiplier = Number(def.durabilityMultiplier ?? 0);
+  if (multiplier > 0) {
+    return formatDisplayNumber(multiplier);
+  }
+  return formatDisplayInteger(Math.max(0, Math.trunc(Number(def.maxHp) || 0)));
 }
 
 function buildBuildingTooltipText(def: BuildingCatalogEntry, buildStrength: number, builderSkillLevel: number): string {
@@ -1321,17 +1330,17 @@ function buildBuildingTooltipText(def: BuildingCatalogEntry, buildStrength: numb
     `显示：${resolveBuildingDisplayLabel(def)}`,
     `类型：${formatBuildingLayer(def.layer)}`,
     `材料：${formatMaterialSummary(def.cost)}`,
-    `耐久系数：${Number(def.durabilityMultiplier ?? 0) > 0 ? Number(def.durabilityMultiplier).toLocaleString('zh-CN') : Math.max(0, Math.trunc(Number(def.maxHp) || 0))}`,
-    `当前建造强度：${projectedDuration}`,
-    `当前完工耐久：${projectedMaxHp}`,
-    `营造等级：Lv.${builderSkillLevel}`,
-    `稳定：${Math.max(0, Math.trunc(Number(def.stability) || 0))}`,
+    `耐久系数：${formatBuildingDurabilityMultiplier(def)}`,
+    `当前建造强度：${formatDisplayInteger(projectedDuration)}`,
+    `当前完工耐久：${formatDisplayInteger(projectedMaxHp)}`,
+    `营造等级：Lv.${formatDisplayInteger(builderSkillLevel)}`,
+    `稳定：${formatDisplayInteger(Math.max(0, Math.trunc(Number(def.stability) || 0)))}`,
     `五行：${formatElementVectorVerbose(def.elementVector)}`,
     `标签：${(def.traits ?? []).join('、') || '无'}`,
-    `占地：${Math.max(1, def.footprint?.length ?? 1)} 格`,
+    `占地：${formatDisplayInteger(Math.max(1, def.footprint?.length ?? 1))} 格`,
   ];
   if (typeof def.comfort === 'number' && def.comfort !== 0) {
-    lines.push(`舒适：${def.comfort > 0 ? '+' : ''}${def.comfort}`);
+    lines.push(`舒适：${formatSignedNumber(def.comfort)}`);
   }
   if (def.blocksMove === true || def.blocksSight === true) {
     lines.push(`阻挡：${def.blocksMove === true ? '移动' : ''}${def.blocksMove === true && def.blocksSight === true ? ' / ' : ''}${def.blocksSight === true ? '视线' : ''}`);
@@ -1391,7 +1400,7 @@ function splitTooltipLines(value: string): string[] {
 function openOrPatchFengShuiDetail(data: FengShuiDetailPayload): void {
   const options = {
     ownerId: FENGSHUI_DETAIL_MODAL_OWNER,
-    title: `风水：${formatGrade(data.fengShui.grade)} ${data.fengShui.score}`,
+    title: `风水：${formatGrade(data.fengShui.grade)} ${formatDisplayInteger(data.fengShui.score)}`,
     subtitle: `${formatRoomRole(data.room.role)} · ${data.fengShui.primaryElement} / ${data.fengShui.functionElement}`,
     hint: '点击空白处关闭',
     size: 'md' as const,
@@ -1408,8 +1417,8 @@ function renderFengShuiDetailBody(body: HTMLElement, data: FengShuiDetailPayload
   const metrics = document.createElement('div');
   metrics.className = 'fengshui-detail-metrics';
   for (const entry of [
-    ['面积', String(data.room.area)],
-    ['门窗', `${data.room.doorCount}/${data.room.windowCount}`],
+    ['面积', formatDisplayInteger(data.room.area)],
+    ['门窗', `${formatDisplayInteger(data.room.doorCount)}/${formatDisplayInteger(data.room.windowCount)}`],
     ['封闭', data.room.enclosed ? '完整' : '开放'],
     ['幸运', formatSignedNumber(Math.trunc(data.fengShui.score / 10))],
   ]) {
@@ -1472,7 +1481,10 @@ function renderFengShuiDetailBody(body: HTMLElement, data: FengShuiDetailPayload
 
 function formatSignedNumber(value: number): string {
   const normalized = Math.trunc(Number(value) || 0);
-  return normalized > 0 ? `+${normalized}` : String(normalized);
+  if (normalized > 0) {
+    return `+${formatDisplayInteger(normalized)}`;
+  }
+  return formatDisplayInteger(normalized);
 }
 
 function formatGrade(grade: string): string {

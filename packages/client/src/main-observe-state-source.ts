@@ -436,7 +436,10 @@ function buildObservationRows(rows: Array<{
 
 function formatSignedInteger(value: number): string {
   const normalized = Math.trunc(Number(value) || 0);
-  return normalized > 0 ? `+${normalized}` : String(normalized);
+  if (normalized > 0) {
+    return `+${formatDisplayInteger(normalized)}`;
+  }
+  return formatDisplayInteger(normalized);
 }
 
 /**
@@ -1270,7 +1273,7 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
           { label: t('observe.fengshui.label.area', undefined), value: typeof wangQiRoomInfo.area === 'number' ? formatDisplayInteger(Math.max(0, Math.round(wangQiRoomInfo.area))) : t('observe.value.unknown', undefined) },
           { label: t('observe.fengshui.label.enclosure', undefined), value: typeof wangQiRoomInfo.enclosed === 'boolean' ? (wangQiRoomInfo.enclosed ? t('observe.fengshui.enclosed', undefined) : t('observe.fengshui.open', undefined)) : t('observe.value.unknown', undefined) },
           { label: t('observe.fengshui.label.doors-windows', undefined), value: `${formatDisplayInteger(Math.max(0, Math.round(wangQiRoomInfo.doorCount ?? 0)))}/${formatDisplayInteger(Math.max(0, Math.round(wangQiRoomInfo.windowCount ?? 0)))}` },
-          { label: t('observe.fengshui.label.score', undefined), value: `${wangQiRoomInfo.fengShuiLabel} ${Math.round(wangQiRoomInfo.score)}` },
+          { label: t('observe.fengshui.label.score', undefined), value: `${wangQiRoomInfo.fengShuiLabel} ${formatDisplayInteger(Math.round(wangQiRoomInfo.score))}` },
           { label: t('observe.fengshui.label.luck', undefined), value: formatSignedInteger(Math.trunc(Math.round(wangQiRoomInfo.score) / 10)) },
         );
         const detail = wangQiRoomInfo.detail;

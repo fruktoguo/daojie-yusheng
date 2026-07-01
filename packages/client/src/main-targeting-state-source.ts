@@ -21,7 +21,7 @@ import {
 } from './main-targeting-helpers';
 import type { BuildingSenseQiRoomInfo } from './main-building-fengshui-state-source';
 import { t } from './ui/i18n';
-import { formatDisplayNumber } from './utils/number';
+import { formatDisplayInteger, formatDisplayNumber } from './utils/number';
 
 const WANG_QI_FENGSHUI_OVERLAY_REQUEST_INTERVAL_MS = 3000;
 /**
@@ -326,7 +326,7 @@ function appendWangQiRoomLines(lines: string[], info: BuildingSenseQiRoomInfo | 
   lines.push(t('targeting.wangqi.room', { room: info.roomLabel }));
   const roomParts: string[] = [];
   if (typeof info.area === 'number') {
-    roomParts.push(t('targeting.wangqi.area', { area: Math.max(0, Math.round(info.area)) }));
+    roomParts.push(t('targeting.wangqi.area', { area: formatDisplayInteger(Math.max(0, Math.round(info.area))) }));
   }
   if (typeof info.enclosed === 'boolean') {
     roomParts.push(info.enclosed
@@ -335,8 +335,8 @@ function appendWangQiRoomLines(lines: string[], info: BuildingSenseQiRoomInfo | 
   }
   if (typeof info.doorCount === 'number' || typeof info.windowCount === 'number') {
     roomParts.push(t('targeting.wangqi.doors-windows', {
-      doors: Math.max(0, Math.round(info.doorCount ?? 0)),
-      windows: Math.max(0, Math.round(info.windowCount ?? 0)),
+      doors: formatDisplayInteger(Math.max(0, Math.round(info.doorCount ?? 0))),
+      windows: formatDisplayInteger(Math.max(0, Math.round(info.windowCount ?? 0))),
     }));
   }
   if (roomParts.length > 0) {
@@ -344,8 +344,8 @@ function appendWangQiRoomLines(lines: string[], info: BuildingSenseQiRoomInfo | 
   }
   const score = Math.round(info.score);
   const luck = Math.trunc(score / 10);
-  lines.push(t('targeting.wangqi.fengshui', { label: info.fengShuiLabel, score }));
-  lines.push(t('targeting.wangqi.luck', { luck: luck > 0 ? `+${luck}` : String(luck) }));
+  lines.push(t('targeting.wangqi.fengshui', { label: info.fengShuiLabel, score: formatDisplayInteger(score) }));
+  lines.push(t('targeting.wangqi.luck', { luck: luck > 0 ? `+${formatDisplayInteger(luck)}` : formatDisplayInteger(luck) }));
 }
 
 function isTileInsideFormationRange(entity: MainTargetingObservedEntity, x: number, y: number): boolean {
@@ -558,7 +558,7 @@ export function createMainTargetingStateSource(options: MainTargetingStateSource
         options.showToast(t('targeting.toast.observe', undefined));
         return;
       }
-      options.showToast(t('targeting.toast.select-range', { range: pendingTargetedAction.range }));
+      options.showToast(t('targeting.toast.select-range', { range: formatDisplayNumber(pendingTargetedAction.range) }));
     },
     /**
  * cancelTargeting：读取cancelTargeting并返回结果。
@@ -616,20 +616,23 @@ export function createMainTargetingStateSource(options: MainTargetingStateSource
       });
       if (options.targetingBadgeEl) {
         const rangeLabel = pendingTargetedAction.actionId === 'client:observe'
-          ? t('targeting.badge.vision-range', { range: pendingTargetedAction.range })
-          : t('targeting.badge.cast-range', { range: geometry.range });
+          ? t('targeting.badge.vision-range', { range: formatDisplayNumber(pendingTargetedAction.range) })
+          : t('targeting.badge.cast-range', { range: formatDisplayNumber(geometry.range) });
+        const maxTargetsLabel = pendingTargetedAction.maxTargets
+          ? t('targeting.badge.max-targets', { count: formatDisplayInteger(pendingTargetedAction.maxTargets) })
+          : '';
         const shapeLabel = geometry.shape === 'line'
-          ? t('targeting.badge.shape.line', { maxTargets: pendingTargetedAction.maxTargets ? ` ${pendingTargetedAction.maxTargets}目标` : '' })
+          ? t('targeting.badge.shape.line', { maxTargets: pendingTargetedAction.maxTargets ? ` ${formatDisplayInteger(pendingTargetedAction.maxTargets)}目标` : '' })
           : geometry.shape === 'ring'
-            ? t('targeting.badge.shape.ring', { inner: Math.max(0, geometry.innerRadius ?? Math.max((geometry.radius ?? 1) - 1, 0)), outer: Math.max(0, geometry.radius ?? 1), maxTargets: pendingTargetedAction.maxTargets ? t('targeting.badge.max-targets', { count: pendingTargetedAction.maxTargets }) : '' })
+            ? t('targeting.badge.shape.ring', { inner: formatDisplayNumber(Math.max(0, geometry.innerRadius ?? Math.max((geometry.radius ?? 1) - 1, 0))), outer: formatDisplayNumber(Math.max(0, geometry.radius ?? 1)), maxTargets: maxTargetsLabel })
             : geometry.shape === 'checkerboard'
-              ? t('targeting.badge.shape.checkerboard', { width: Math.max(1, geometry.width ?? 1), height: Math.max(1, geometry.height ?? geometry.width ?? 1), maxTargets: pendingTargetedAction.maxTargets ? t('targeting.badge.max-targets', { count: pendingTargetedAction.maxTargets }) : '' })
+              ? t('targeting.badge.shape.checkerboard', { width: formatDisplayNumber(Math.max(1, geometry.width ?? 1)), height: formatDisplayNumber(Math.max(1, geometry.height ?? geometry.width ?? 1)), maxTargets: maxTargetsLabel })
               : geometry.shape === 'box'
-                ? t('targeting.badge.shape.box', { width: Math.max(1, geometry.width ?? 1), height: Math.max(1, geometry.height ?? geometry.width ?? 1), maxTargets: pendingTargetedAction.maxTargets ? t('targeting.badge.max-targets', { count: pendingTargetedAction.maxTargets }) : '' })
+                ? t('targeting.badge.shape.box', { width: formatDisplayNumber(Math.max(1, geometry.width ?? 1)), height: formatDisplayNumber(Math.max(1, geometry.height ?? geometry.width ?? 1)), maxTargets: maxTargetsLabel })
                 : geometry.shape === 'orientedBox'
-                  ? t('targeting.badge.shape.oriented-box', { width: Math.max(1, geometry.width ?? 1), height: Math.max(1, geometry.height ?? geometry.width ?? 1), maxTargets: pendingTargetedAction.maxTargets ? t('targeting.badge.max-targets', { count: pendingTargetedAction.maxTargets }) : '' })
+                  ? t('targeting.badge.shape.oriented-box', { width: formatDisplayNumber(Math.max(1, geometry.width ?? 1)), height: formatDisplayNumber(Math.max(1, geometry.height ?? geometry.width ?? 1)), maxTargets: maxTargetsLabel })
                   : geometry.shape === 'area'
-                    ? t('targeting.badge.shape.area', { radius: Math.max(0, geometry.radius ?? 1), maxTargets: pendingTargetedAction.maxTargets ? t('targeting.badge.max-targets', { count: pendingTargetedAction.maxTargets }) : '' })
+                    ? t('targeting.badge.shape.area', { radius: formatDisplayNumber(Math.max(0, geometry.radius ?? 1)), maxTargets: maxTargetsLabel })
                     : '';
         options.targetingBadgeEl.textContent = t('targeting.badge.selected', {
           actionName: pendingTargetedAction.actionName,

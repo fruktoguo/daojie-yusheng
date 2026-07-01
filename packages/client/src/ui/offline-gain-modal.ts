@@ -13,6 +13,7 @@ import {
 } from '../offline-gain-storage';
 import { formatOfflineGainDuration, renderOfflineGainReports } from './offline-gain-render';
 import { t } from './i18n';
+import { formatDisplayInteger } from '../utils/number';
 
 type OfflineGainToastKind = 'success' | 'warn' | 'system';
 
@@ -115,7 +116,7 @@ function patchOrOpenOfflineGainModal(
   const variantClass = blocking
     ? 'detail-modal--offline-gain detail-modal--offline-gain-blocking'
     : 'detail-modal--offline-gain';
-  const subtitle = t('offline-gain.modal.subtitle', { count: reports.length, duration: formatOfflineGainDuration(totalDurationMs) });
+  const subtitle = t('offline-gain.modal.subtitle', { count: formatDisplayInteger(reports.length), duration: formatOfflineGainDuration(totalDurationMs) });
   if (blocking && patchOpenOfflineGainBlockingReports(reports, variantClass, subtitle)) {
     return;
   }
@@ -140,7 +141,7 @@ function patchOrOpenOfflineGainModal(
       });
       detailModalHost.close(OFFLINE_GAIN_MODAL_OWNER);
       if (confirmResult.storageOk) {
-        options.showToast(t('offline-gain.toast.saved', { count: confirmResult.reportCount }), 'success');
+        options.showToast(t('offline-gain.toast.saved', { count: formatDisplayInteger(confirmResult.reportCount) }), 'success');
       } else {
         options.showToast(t('offline-gain.toast.local-save-failed'), 'warn');
       }

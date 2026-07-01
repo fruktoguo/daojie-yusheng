@@ -22,6 +22,7 @@ import { FloatingTooltip, prefersPinnedTooltipInteraction } from './floating-too
 import { bindInlineItemTooltips, renderInlineItemChip } from './item-inline-tooltip';
 import { describePreviewBonuses } from './stat-preview';
 import { t } from './i18n';
+import { formatDisplayCurrentMax, formatDisplayInteger } from '../utils/number';
 
 const LEADERBOARD_PLAYER_LOCATION_EVENT = 'mud:leaderboard-player-locations';
 const UNKNOWN_PORTAL_TARGET_MAP_NAME = '未知地域';
@@ -64,7 +65,7 @@ function formatRespawnTicks(respawnTicks: number | undefined): string {
   if (typeof respawnTicks !== 'number' || !Number.isFinite(respawnTicks) || respawnTicks <= 0) {
     return t('entity-detail.respawn.soon', undefined);
   }
-  return t('entity-detail.respawn.after', { ticks: Math.max(1, Math.round(respawnTicks)) });
+  return t('entity-detail.respawn.after', { ticks: formatDisplayInteger(Math.max(1, Math.round(respawnTicks))) });
 }
 
 /** formatNpcQuestMarker：格式化NPC任务标记。 */
@@ -297,10 +298,10 @@ export class EntityDetailModal {
         <div class="ui-title-block-subtitle">${escapeHtml(npc.role ?? t('entity-detail.npc.no-role-mark', undefined))}</div>
       </div>
       <div class="ui-detail-grid ui-detail-grid--section">
-        <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.field.position', undefined)}</strong><span>(${npc.x}, ${npc.y})</span></div>
+        <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.field.position', undefined)}</strong><span>(${formatDisplayInteger(npc.x)}, ${formatDisplayInteger(npc.y)})</span></div>
         <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.npc.field.role', undefined)}</strong><span>${escapeHtml(npc.role ?? t('entity-detail.value.none', undefined))}</span></div>
         <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.npc.field.shop', undefined)}</strong><span>${npc.hasShop ? t('entity-detail.npc.shop.available', undefined) : t('entity-detail.value.none', undefined)}</span></div>
-        <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.npc.field.quest', undefined)}</strong><span>${t('entity-detail.count.entries', { count: npc.questCount ?? 0 })}</span></div>
+        <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.npc.field.quest', undefined)}</strong><span>${t('entity-detail.count.entries', { count: formatDisplayInteger(npc.questCount ?? 0) })}</span></div>
         <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.npc.field.quest-state', undefined)}</strong><span>${escapeHtml(formatNpcQuestMarker(npc.questMarker ?? null))}</span></div>
       </div>
       <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.npc.field.dialogue', undefined)}</strong><div>${escapeHtml(npc.dialogue)}</div></div>
@@ -318,13 +319,13 @@ export class EntityDetailModal {
     return `
       <div class="ui-title-block">
         <div class="ui-title-block-title">${escapeHtml(monster.name)}</div>
-        <div class="ui-title-block-subtitle">${t('entity-detail.monster.subtitle', { tier: escapeHtml(getMonsterTierLabel(monster.tier)), level: monster.level })}</div>
+        <div class="ui-title-block-subtitle">${t('entity-detail.monster.subtitle', { tier: escapeHtml(getMonsterTierLabel(monster.tier)), level: formatDisplayInteger(monster.level) })}</div>
       </div>
       <div class="ui-detail-grid ui-detail-grid--section">
-        <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.field.position', undefined)}</strong><span>(${monster.x}, ${monster.y})</span></div>
-        <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.label.life', undefined)}</strong><span>${monster.hp}/${monster.maxHp}</span></div>
-        <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.label.qi', undefined)}</strong><span>${monster.qi}/${monster.maxQi}</span></div>
-        <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.monster.field.level', undefined)}</strong><span>${monster.level}</span></div>
+        <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.field.position', undefined)}</strong><span>(${formatDisplayInteger(monster.x)}, ${formatDisplayInteger(monster.y)})</span></div>
+        <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.label.life', undefined)}</strong><span>${formatDisplayCurrentMax(monster.hp, monster.maxHp)}</span></div>
+        <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.label.qi', undefined)}</strong><span>${formatDisplayCurrentMax(monster.qi, monster.maxQi)}</span></div>
+        <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.monster.field.level', undefined)}</strong><span>${formatDisplayInteger(monster.level)}</span></div>
         <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.monster.field.tier', undefined)}</strong><span>${escapeHtml(getMonsterTierLabel(monster.tier))}</span></div>
         <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.field.state', undefined)}</strong><span>${monster.alive ? t('entity-detail.monster.alive', undefined) : t('entity-detail.monster.respawning', undefined)}</span></div>
         <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.monster.field.respawn', undefined)}</strong><span>${escapeHtml(monster.alive ? t('entity-detail.respawn.none', undefined) : formatRespawnTicks(monster.respawnTicks))}</span></div>
@@ -357,9 +358,9 @@ export class EntityDetailModal {
       <div class="ui-detail-grid ui-detail-grid--section">
         ${titleRow}
         <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.field.category', undefined)}</strong><span>${t('entity-detail.player.subtitle', undefined)}</span></div>
-        <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.field.position', undefined)}</strong><span>(${player.x}, ${player.y})</span></div>
-        <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.label.life', undefined)}</strong><span>${player.hp}/${player.maxHp}</span></div>
-        <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.label.qi', undefined)}</strong><span>${player.qi}/${player.maxQi}</span></div>
+        <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.field.position', undefined)}</strong><span>(${formatDisplayInteger(player.x)}, ${formatDisplayInteger(player.y)})</span></div>
+        <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.label.life', undefined)}</strong><span>${formatDisplayCurrentMax(player.hp, player.maxHp)}</span></div>
+        <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.label.qi', undefined)}</strong><span>${formatDisplayCurrentMax(player.qi, player.maxQi)}</span></div>
       </div>
       ${this.renderTrackedPlayerIntel(player.id)}
       ${this.renderObservation(player.observation, true)}
@@ -378,7 +379,7 @@ export class EntityDetailModal {
         </div>
       `;
     }
-    const coordinate = `${tracked.mapName} (${tracked.x}, ${tracked.y})`;
+    const coordinate = `${tracked.mapName} (${formatDisplayInteger(tracked.x)}, ${formatDisplayInteger(tracked.y)})`;
     const status = tracked.online ? t('entity-detail.player.tracking.online', undefined) : t('entity-detail.player.tracking.offline', undefined);
     return `
       <div class="ui-detail-grid ui-detail-grid--section">
@@ -403,7 +404,7 @@ export class EntityDetailModal {
         ? t('entity-detail.portal.kind.gate', undefined)
         : t('entity-detail.portal.kind.portal', undefined);
     const destination = typeof portal.targetX === 'number' && typeof portal.targetY === 'number'
-      ? `(${portal.targetX}, ${portal.targetY})`
+      ? `(${formatDisplayInteger(portal.targetX)}, ${formatDisplayInteger(portal.targetY)})`
       : t('entity-detail.value.unknown', undefined);
     const targetMapName = portal.targetMapName?.trim() || UNKNOWN_PORTAL_TARGET_MAP_NAME;
     return `
@@ -412,7 +413,7 @@ export class EntityDetailModal {
         <div class="ui-title-block-subtitle">${escapeHtml(portalKind)}</div>
       </div>
       <div class="ui-detail-grid ui-detail-grid--section">
-        <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.field.position', undefined)}</strong><span>(${portal.x}, ${portal.y})</span></div>
+        <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.field.position', undefined)}</strong><span>(${formatDisplayInteger(portal.x)}, ${formatDisplayInteger(portal.y)})</span></div>
         <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.field.type', undefined)}</strong><span>${escapeHtml(portalKind)}</span></div>
         <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.portal.field.target-map', undefined)}</strong><span>${escapeHtml(targetMapName)}</span></div>
         <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.portal.field.target-coordinate', undefined)}</strong><span>${escapeHtml(destination)}</span></div>
@@ -435,10 +436,10 @@ export class EntityDetailModal {
     return `
       <div class="ui-title-block">
         <div class="ui-title-block-title">${t('entity-detail.ground.title', undefined)}</div>
-        <div class="ui-title-block-subtitle">${escapeHtml(t('entity-detail.count.items', { count: ground.items.length }))}</div>
+        <div class="ui-title-block-subtitle">${escapeHtml(t('entity-detail.count.items', { count: formatDisplayInteger(ground.items.length) }))}</div>
       </div>
       <div class="ui-detail-grid ui-detail-grid--section">
-        <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.field.position', undefined)}</strong><span>(${ground.x}, ${ground.y})</span></div>
+        <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.field.position', undefined)}</strong><span>(${formatDisplayInteger(ground.x)}, ${formatDisplayInteger(ground.y)})</span></div>
         <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.field.category', undefined)}</strong><span>${t('entity-detail.ground.title', undefined)}</span></div>
       </div>
       <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.ground.field.items', undefined)}</strong><div>${items}</div></div>
@@ -458,7 +459,7 @@ export class EntityDetailModal {
         <div class="ui-title-block-subtitle">${t('entity-detail.container.searchable', undefined)}</div>
       </div>
       <div class="ui-detail-grid ui-detail-grid--section">
-        <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.field.position', undefined)}</strong><span>(${container.x}, ${container.y})</span></div>
+        <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.field.position', undefined)}</strong><span>(${formatDisplayInteger(container.x)}, ${formatDisplayInteger(container.y)})</span></div>
         <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.field.name', undefined)}</strong><span>${escapeHtml(container.name)}</span></div>
         <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.container.field.grade', undefined)}</strong><span>${container.grade}</span></div>
         <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.field.category', undefined)}</strong><span>${t('entity-detail.container.searchable', undefined)}</span></div>
@@ -512,7 +513,7 @@ export class EntityDetailModal {
     return `
       <div class="ui-detail-grid ui-detail-grid--section">
         <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.observation.field.clarity', undefined)}</strong><span>${escapeHtml(formatObservationClarity(observation.clarity))}</span></div>
-        <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.observation.field.count', undefined)}</strong><span>${t('entity-detail.count.entries', { count: lines.length })}</span></div>
+        <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.observation.field.count', undefined)}</strong><span>${t('entity-detail.count.entries', { count: formatDisplayInteger(lines.length) })}</span></div>
       </div>
       <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.observation.field.verdict', undefined)}</strong><div>${escapeHtml(observation.verdict ?? t('entity-detail.observation.no-more', undefined))}</div></div>
       <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.observation.field.details', undefined)}</strong><div>${rows}</div></div>
@@ -536,8 +537,8 @@ export class EntityDetailModal {
       <div class="ui-detail-field ui-detail-field--section">
         <strong>${t('entity-detail.field.state', undefined)}</strong>
         <div class="ui-detail-grid ui-detail-grid--section">
-          <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.buff.visible-count', undefined)}</strong><span>${t('entity-detail.count.items', { count: visibleCount })}</span></div>
-          <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.buff.insight-count', undefined)}</strong><span>${t('entity-detail.count.items', { count: insightCount })}</span></div>
+          <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.buff.visible-count', undefined)}</strong><span>${t('entity-detail.count.items', { count: formatDisplayInteger(visibleCount) })}</span></div>
+          <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.buff.insight-count', undefined)}</strong><span>${t('entity-detail.count.items', { count: formatDisplayInteger(insightCount) })}</span></div>
         </div>
         <div class="observe-buff-columns">
           ${this.renderBuffSection(t('entity-detail.buff.section.public-buffs', undefined), publicBuffs, t('entity-detail.buff.empty.buffs', undefined))}
@@ -713,7 +714,10 @@ export class EntityDetailModal {
       t('entity-detail.buff.tooltip.remaining', { duration: this.formatBuffDuration(buff) }),
     ];
     if (buff.maxStacks > 1) {
-      lines.push(t('entity-detail.buff.tooltip.stacks', { stacks: Math.max(0, Math.round(buff.stacks)), max: Math.max(1, Math.round(buff.maxStacks)) }));
+      lines.push(t('entity-detail.buff.tooltip.stacks', {
+        stacks: formatDisplayInteger(Math.max(0, Math.round(buff.stacks))),
+        max: formatDisplayInteger(Math.max(1, Math.round(buff.maxStacks))),
+      }));
     }
     if (buff.sourceSkillName || buff.sourceSkillId) {
       lines.push(t('entity-detail.buff.tooltip.source', { source: buff.sourceSkillName ?? t('entity-detail.value.unknown', undefined) }));

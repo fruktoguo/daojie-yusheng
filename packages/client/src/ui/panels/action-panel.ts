@@ -2041,7 +2041,7 @@ export class ActionPanel {
       : '';
     const autoBattleMeta = isAutoBattleSkill
       ? `<span class="action-type ${autoBattleEnabled ? 'auto-battle-enabled' : 'auto-battle-disabled'}">${autoBattleEnabled ? t('action.skill.auto-state.enabled', undefined) : t('action.skill.auto-state.disabled', undefined)}</span>
-         ${autoBattleOrder ? `<span class="action-type">${t('action.skill.order', { order: autoBattleOrder })}</span>` : ''}`
+         ${autoBattleOrder ? `<span class="action-type">${t('action.skill.order', { order: formatDisplayInteger(autoBattleOrder) })}</span>` : ''}`
       : '';
     const autoBattleControls = isAutoBattleSkill
       ? `<button class="small-btn ghost ${autoBattleEnabled ? 'active' : ''}" data-auto-battle-toggle="${action.id}" type="button">${autoBattleEnabled ? t('action.skill.auto-toggle.on', undefined) : t('action.skill.auto-toggle.off', undefined)}</button>
@@ -2059,10 +2059,10 @@ export class ActionPanel {
         <div>
           <span class="action-name">${escapeHtml(action.name)}</span>
           <span class="action-type">[${getActionTypeLabel(action.type)}]</span>
-          ${typeof action.range === 'number' ? `<span class="action-type">${t('action.range', { range: action.range })}</span>` : ''}
+          ${typeof action.range === 'number' ? `<span class="action-type">${t('action.range', { range: formatDisplayNumber(action.range) })}</span>` : ''}
           ${isAutoBattleSkill
             ? `<span class="action-type ${autoBattleEnabled ? 'auto-battle-enabled' : 'auto-battle-disabled'}" data-action-auto-state="${action.id}">${autoBattleEnabled ? t('action.skill.auto-state.enabled', undefined) : t('action.skill.auto-state.disabled', undefined)}</span>
-               <span class="action-type" data-action-auto-order="${action.id}"${autoBattleOrder ? '' : ' hidden'}>${autoBattleOrder ? t('action.skill.order', { order: autoBattleOrder }) : ''}</span>`
+               <span class="action-type" data-action-auto-order="${action.id}"${autoBattleOrder ? '' : ' hidden'}>${autoBattleOrder ? t('action.skill.order', { order: formatDisplayInteger(autoBattleOrder) }) : ''}</span>`
             : autoBattleMeta}
           ${this.renderShortcutBadge(action.id)}
         </div>
@@ -2072,7 +2072,7 @@ export class ActionPanel {
       <div class="action-cta ui-action-row ui-action-row--end">
         ${autoBattleControls}
         <button class="small-btn ghost" data-bind-action="${action.id}" type="button">${this.getBindButtonLabel(action.id)}</button>
-        <span class="action-cd" data-action-cd="${action.id}"${onCd ? '' : ' hidden'}>${onCd ? t('action.cooldown', { ticks: action.cooldownLeft }) : ''}</span>
+        <span class="action-cd" data-action-cd="${action.id}"${onCd ? '' : ' hidden'}>${onCd ? t('action.cooldown', { ticks: formatDisplayInteger(action.cooldownLeft) }) : ''}</span>
         <button class="small-btn" data-action="${action.id}" data-action-exec="${action.id}" data-action-name="${escapeHtml(action.name)}" data-action-range="${action.range ?? ''}" data-action-target="${action.requiresTarget ? '1' : '0'}" data-action-target-mode="${action.targetMode ?? ''}"${onCd ? ' hidden' : ''}>${executeLabel}</button>
       </div>
     </div>`;
@@ -2312,7 +2312,7 @@ export class ActionPanel {
       if (!cdNode || !execNode) {
         return false;
       }
-      cdNode.textContent = onCd ? t('action.cooldown.left', { ticks: action.cooldownLeft }) : '';
+      cdNode.textContent = onCd ? t('action.cooldown.left', { ticks: formatDisplayInteger(action.cooldownLeft) }) : '';
       cdNode.hidden = !onCd;
       execNode.hidden = onCd;
       execNode.disabled = onCd;
@@ -2774,8 +2774,8 @@ export class ActionPanel {
   ): { filter: string; sort: string } {
     const totalSkills = this.getSkillActions(this.getSkillManagementPreviewActions()).length;
     const filter = this.skillManagementFilterToggles.size > 0
-      ? t('action.skill.manage.scope.filtered', { filteredCount: filteredEntries.length, totalCount: totalSkills })
-      : t('action.skill.manage.scope.all', { count: filteredEntries.length });
+      ? t('action.skill.manage.scope.filtered', { filteredCount: formatDisplayInteger(filteredEntries.length), totalCount: formatDisplayInteger(totalSkills) })
+      : t('action.skill.manage.scope.all', { count: formatDisplayInteger(filteredEntries.length) });
     const sortFieldLabel = ({
       custom: t('action.skill.manage.sort.field.custom', undefined),
       actualDamage: t('action.skill.manage.sort.field.actual-damage', undefined),
@@ -4351,7 +4351,7 @@ export class ActionPanel {
       parts.push(t('action.combat-settings.auto-pills.effect.heal-amount', { value: formatDisplayNumber(entry.healAmount ?? 0) }));
     }
     if ((entry.healPercent ?? 0) > 0) {
-      parts.push(t('action.combat-settings.auto-pills.effect.heal-percent', { value: Math.round((entry.healPercent ?? 0) * 100) }));
+      parts.push(t('action.combat-settings.auto-pills.effect.heal-percent', { value: formatDisplayInteger(Math.round((entry.healPercent ?? 0) * 100)) }));
     }
     if ((entry.baselineHealPercent ?? 0) > 0) {
       parts.push(t('action.combat-settings.auto-pills.effect.baseline-heal-amount', {
@@ -4364,7 +4364,7 @@ export class ActionPanel {
       }));
     }
     if ((entry.qiPercent ?? 0) > 0) {
-      parts.push(t('action.combat-settings.auto-pills.effect.qi-percent', { value: Math.round((entry.qiPercent ?? 0) * 100) }));
+      parts.push(t('action.combat-settings.auto-pills.effect.qi-percent', { value: formatDisplayInteger(Math.round((entry.qiPercent ?? 0) * 100)) }));
     }
     if ((entry.consumeBuffs?.length ?? 0) > 0) {
       parts.push(t('action.combat-settings.auto-pills.effect.buffs', {
@@ -4438,7 +4438,7 @@ export class ActionPanel {
   private getSkillPresetSummaryLine(skills: SkillPresetSkillState[]): string {
     const auto = skills.filter((skill) => skill.enabled !== false).length;
     const manual = skills.length - auto;
-    return t('action.skill-preset.summary.recorded', { count: skills.length, auto, manual });
+    return t('action.skill-preset.summary.recorded', { count: formatDisplayInteger(skills.length), auto: formatDisplayInteger(auto), manual: formatDisplayInteger(manual) });
   }
 
   /** 对比方案与当前技能列表，给出命中和缺失的摘要。 */
@@ -4940,7 +4940,7 @@ export class ActionPanel {
     this.downloadSkillPresetPayload('skill-presets.txt', this.buildSkillPresetExportText(this.skillPresets));
     this.skillPresetStatus = {
       tone: 'success',
-      text: t('action.skill-preset.status.exported-all', { count: this.skillPresets.length }),
+      text: t('action.skill-preset.status.exported-all', { count: formatDisplayInteger(this.skillPresets.length) }),
     };
     this._renderSkillPresetModal();
   }
@@ -5002,7 +5002,7 @@ export class ActionPanel {
       this.skillPresetNameDraft = imported[0]?.name ?? this.buildDefaultSkillPresetName();
       this.skillPresetStatus = {
         tone: 'success',
-        text: t('action.skill-preset.status.imported', { count: imported.length }),
+        text: t('action.skill-preset.status.imported', { count: formatDisplayInteger(imported.length) }),
       };
       this.saveSkillPresets();
       this._renderSkillPresetModal();
@@ -5267,10 +5267,10 @@ export class ActionPanel {
           </div>
           <div class="skill-manage-summary">
             <span>${t('action.skill.manage.summary.enabled', { slotSummary })}</span>
-            <span>${t('action.skill.manage.summary.filtered', { count: filteredEntries.length })}</span>
-            <span>${t('action.skill.manage.summary.auto', { count: autoEntries.length })}</span>
-            <span>${t('action.skill.manage.summary.manual', { count: manualEntries.length })}</span>
-            <span>${t('action.skill.manage.summary.disabled', { count: disabledEntries.length })}</span>
+            <span>${t('action.skill.manage.summary.filtered', { count: formatDisplayInteger(filteredEntries.length) })}</span>
+            <span>${t('action.skill.manage.summary.auto', { count: formatDisplayInteger(autoEntries.length) })}</span>
+            <span>${t('action.skill.manage.summary.manual', { count: formatDisplayInteger(manualEntries.length) })}</span>
+            <span>${t('action.skill.manage.summary.disabled', { count: formatDisplayInteger(disabledEntries.length) })}</span>
           </div>
           ${this.skillManagementSortOpen ? this.renderSkillManagementSortPanel() : ''}
           ${this.skillManagementFilterOpen ? `
@@ -5467,7 +5467,7 @@ export class ActionPanel {
     } satisfies Record<SkillManagementBulkMode, string>)[mode];
     this.skillManagementStatus = {
       tone: 'success',
-      text: t('action.skill.manage.bulk.done', { count: filteredSkillIds.size, label }),
+      text: t('action.skill.manage.bulk.done', { count: formatDisplayInteger(filteredSkillIds.size), label }),
     };
     this.applySkillManagementDraftMutation((skills) => skills.map((action) => (
       filteredSkillIds.has(action.id)
@@ -5851,10 +5851,10 @@ export class ActionPanel {
         <div>
           <span class="action-name">${escapeHtml(action.name)}</span>
           <span class="action-type">${t('action.card.skill-type', undefined)}</span>
-          ${typeof action.range === 'number' ? `<span class="action-type">${t('action.range', { range: action.range })}</span>` : ''}
+          ${typeof action.range === 'number' ? `<span class="action-type">${t('action.range', { range: formatDisplayNumber(action.range) })}</span>` : ''}
           <span class="action-type ${autoBattleEnabled ? 'auto-battle-enabled' : 'auto-battle-disabled'}">${autoBattleEnabled ? t('action.skill.auto-state.enabled', undefined) : t('action.skill.auto-state.disabled', undefined)}</span>
           <span class="action-type ${skillEnabled ? 'auto-battle-enabled' : 'auto-battle-disabled'}">${skillEnabled ? t('action.skill.manage.skill-enabled.enabled', undefined) : t('action.skill.manage.skill-enabled.disabled', undefined)}</span>
-          ${autoBattleOrder ? `<span class="action-type">${t('action.skill.order', { order: autoBattleOrder })}</span>` : ''}
+          ${autoBattleOrder ? `<span class="action-type">${t('action.skill.order', { order: formatDisplayInteger(autoBattleOrder) })}</span>` : ''}
         </div>
         <div class="action-desc">${escapeHtml(stripSectManagementData(action.desc))}</div>
         ${affinityChip}

@@ -10,6 +10,7 @@ import {
   type SkillDef,
 } from '@mud/shared';
 import { getEstimatedPlayerTick, getEstimatedServerTick } from './runtime/server-tick';
+import { formatDisplayInteger } from './utils/number';
 
 export type ClientSkillCastUnavailableReason =
   | 'missing_player'
@@ -95,7 +96,7 @@ export function resolveClientSkillCastAvailability(
     return {
       ok: false,
       reason: 'cooldown',
-      message: `${skill.name || action.name || '技能'}尚在冷却，还需 ${cooldownLeft} 息。`,
+      message: `${skill.name || action.name || '技能'}尚在冷却，还需 ${formatDisplayInteger(cooldownLeft)} 息。`,
       action,
       skill,
       cooldownLeft,
@@ -136,7 +137,7 @@ export function resolveClientSkillCastAvailability(
     return {
       ok: false,
       reason: 'insufficient_qi',
-      message: `${skill.name || action.name || '技能'}灵力不足，需要 ${qiCost}，当前 ${currentQi}。`,
+      message: `${skill.name || action.name || '技能'}灵力不足，需要 ${formatDisplayInteger(qiCost)}，当前 ${formatDisplayInteger(currentQi)}。`,
       action,
       skill,
       cooldownLeft,

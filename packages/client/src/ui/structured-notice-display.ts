@@ -5,6 +5,7 @@
  */
 import type { StructuredNoticePayload } from '@mud/shared';
 import { getLocalItemTemplate } from '../content/local-templates';
+import { formatDisplayNumber } from '../utils/number';
 import { hasI18nKey, tLoose } from './i18n';
 
 type I18nValue = string | number | boolean | null | undefined;
@@ -41,7 +42,11 @@ export function normalizeStructuredNoticeVars(
   }
   const resolved: Record<string, I18nValue> = {};
   for (const [key, value] of Object.entries(vars)) {
-    resolved[key] = typeof value === 'string' ? resolveClientDisplayToken(value) : value;
+    resolved[key] = typeof value === 'string'
+      ? resolveClientDisplayToken(value)
+      : typeof value === 'number'
+        ? formatDisplayNumber(value)
+        : value;
   }
   return resolved;
 }

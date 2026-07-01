@@ -14,7 +14,7 @@ import type {
 import { detailModalHost } from '../detail-modal-host';
 import { buildSkillTooltipContent, type SkillPreviewMetrics, summarizeSkillPreviewMetrics } from '../skill-tooltip';
 import { t } from '../i18n';
-import { formatDisplayNumber } from '../../utils/number';
+import { formatDisplayInteger, formatDisplayNumber } from '../../utils/number';
 import { ACTION_SKILL_PRESETS_KEY } from '../../constants/ui/action';
 import {
   decodePresetTextValue,
@@ -542,7 +542,7 @@ export class SkillManagementSubpanel {
       enabled: t('action.skill.manage.bulk.enabled-label', undefined),
       disabled: t('action.skill.manage.bulk.disabled-label', undefined),
     } satisfies Record<SkillManagementBulkMode, string>)[mode];
-    this.p.skillManagementStatus = { tone: 'success', text: t('action.skill.manage.bulk.done', { count: filteredSkillIds.size, label }) };
+    this.p.skillManagementStatus = { tone: 'success', text: t('action.skill.manage.bulk.done', { count: formatDisplayInteger(filteredSkillIds.size), label }) };
     this.p.applySkillManagementDraftMutation((skills) => skills.map((action) => (
       filteredSkillIds.has(action.id)
         ? mode === 'enabled'
@@ -740,7 +740,7 @@ export class SkillManagementSubpanel {
   exportAllSkillPresets(): void {
     if (this.p.skillPresets.length === 0) return;
     this.downloadSkillPresetPayload('skill-presets.txt', this.buildSkillPresetExportText(this.p.skillPresets));
-    this.p.skillPresetStatus = { tone: 'success', text: t('action.skill-preset.status.exported-all', { count: this.p.skillPresets.length }) };
+    this.p.skillPresetStatus = { tone: 'success', text: t('action.skill-preset.status.exported-all', { count: formatDisplayInteger(this.p.skillPresets.length) }) };
     this.renderSkillPresetModal();
   }
 
@@ -778,7 +778,7 @@ export class SkillManagementSubpanel {
       this.p.skillPresets = [...imported, ...this.p.skillPresets];
       this.p.selectedSkillPresetId = imported[0]?.id ?? this.p.selectedSkillPresetId;
       this.p.skillPresetNameDraft = imported[0]?.name ?? this.buildDefaultSkillPresetName();
-      this.p.skillPresetStatus = { tone: 'success', text: t('action.skill-preset.status.imported', { count: imported.length }) };
+      this.p.skillPresetStatus = { tone: 'success', text: t('action.skill-preset.status.imported', { count: formatDisplayInteger(imported.length) }) };
       this.saveSkillPresets();
       this.renderSkillPresetModal();
     } catch {

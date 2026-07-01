@@ -522,7 +522,7 @@ export class CombatSettingsSubpanel {
       parts.push(t('action.combat-settings.auto-pills.effect.heal-amount', { value: formatDisplayNumber(entry.healAmount ?? 0) }));
     }
     if ((entry.healPercent ?? 0) > 0) {
-      parts.push(t('action.combat-settings.auto-pills.effect.heal-percent', { value: Math.round((entry.healPercent ?? 0) * 100) }));
+      parts.push(t('action.combat-settings.auto-pills.effect.heal-percent', { value: formatDisplayNumber(Math.round((entry.healPercent ?? 0) * 100)) }));
     }
     if ((entry.baselineHealPercent ?? 0) > 0) {
       parts.push(t('action.combat-settings.auto-pills.effect.baseline-heal-amount', {
@@ -535,7 +535,7 @@ export class CombatSettingsSubpanel {
       }));
     }
     if ((entry.qiPercent ?? 0) > 0) {
-      parts.push(t('action.combat-settings.auto-pills.effect.qi-percent', { value: Math.round((entry.qiPercent ?? 0) * 100) }));
+      parts.push(t('action.combat-settings.auto-pills.effect.qi-percent', { value: formatDisplayNumber(Math.round((entry.qiPercent ?? 0) * 100)) }));
     }
     if ((entry.consumeBuffs?.length ?? 0) > 0) {
       parts.push(t('action.combat-settings.auto-pills.effect.buffs', {
