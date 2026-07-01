@@ -1022,7 +1022,7 @@ export class ChatUI {
   /** 各频道的缓存与加载状态。 */
   private channelStates = new Map<ChatChannel, ChatChannelState>();
   /** 发送消息的外部回调。 */
-  private onSend: ((message: string) => void) | null = null;
+  private onSend: ((message: string, channel: ChatMessageScope) => void) | null = null;
   /** 当前激活的聊天频道。 */
   private activeChannel: ChatChannel = DEFAULT_CHAT_CHANNEL;
   /** 当前聊天范围 ID。 */
@@ -1100,7 +1100,7 @@ export class ChatUI {
  */
 
 
-  setCallback(onSend: (message: string) => void): void {
+  setCallback(onSend: (message: string, channel: ChatMessageScope) => void): void {
     this.onSend = onSend;
   }
 
@@ -1282,12 +1282,12 @@ export class ChatUI {
     }
     if (entry.kind === 'chat') {
       if (entry.scope === 'sect') {
-        return ['sect', 'world'];
+        return ['sect'];
       }
       if (entry.scope === 'world') {
         return ['world'];
       }
-      return ['nearby', 'world'];
+      return ['nearby'];
     }
     return ['system'];
   }
@@ -1571,7 +1571,10 @@ export class ChatUI {
     if (!message) {
       return;
     }
-    this.onSend?.(message);
+    const targetChannel: ChatMessageScope = this.activeChannel === 'sect' || this.activeChannel === 'world'
+      ? this.activeChannel
+      : 'nearby';
+    this.onSend?.(message.slice(0, 200), targetChannel);
     this.input.value = '';
   }
 

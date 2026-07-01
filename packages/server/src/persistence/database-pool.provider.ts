@@ -153,6 +153,7 @@ export function resolveDatabasePoolGroup(name: string): DatabasePoolGroup {
     || normalized.includes('mail')
     || normalized.includes('market')
     || normalized.includes('social')
+    || normalized.includes('chat')
     || normalized.includes('treasure-vault')
     || normalized.includes('activity')
     || normalized.includes('redeem-code')

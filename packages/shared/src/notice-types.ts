@@ -9,6 +9,9 @@ import type { SkillDamageKind } from './skill-types';
 /** 通知消息类型。 */
 export type NoticeKind = 'info' | 'success' | 'warn' | 'travel' | 'combat' | 'loot' | 'system' | 'chat' | 'grudge' | 'quest';
 
+/** 聊天消息频道范围。 */
+export type ChatMessageScope = 'nearby' | 'world' | 'sect';
+
 /** 战斗结算结果标签。 */
 export type CombatResolutionLabel = 'dodged' | 'crit' | 'broken' | 'resolved';
 
@@ -159,6 +162,8 @@ export interface NoticeItemView {
   structured?: StructuredNoticePayload;
   /** 结构化通知数据（多条合并）。 */
   structuredGroup?: StructuredNoticePayload[];
+  /** 聊天频道范围，客户端据此落入附近/世界/宗门本地日志。 */
+  scope?: ChatMessageScope;
 }
 
 /** 通知批次视图。 */
@@ -230,4 +235,6 @@ export interface SystemMessageView {
   };
   /** 结构化通知数据，存在时客户端优先使用此字段渲染。 */
   structured?: StructuredNoticePayload;
+  /** 聊天频道范围，客户端据此落入附近/世界/宗门本地日志。 */
+  scope?: ChatMessageScope;
 }

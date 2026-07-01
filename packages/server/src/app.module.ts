@@ -83,6 +83,7 @@ import { CraftPanelAlchemyQueryService } from './runtime/craft/craft-panel-alche
 import { CraftPanelEnhancementQueryService } from './runtime/craft/craft-panel-enhancement-query.service';
 import { TreasureVaultRuntimeService } from './runtime/building/treasure-vault-runtime.service';
 import { SocialRuntimeService } from './runtime/social/social-runtime.service';
+import { ChatRuntimeService } from './runtime/chat/chat-runtime.service';
 import { WorldRuntimeNpcShopQueryService } from './runtime/world/query/world-runtime-npc-shop-query.service';
 import { WorldRuntimeQuestQueryService } from './runtime/world/query/world-runtime-quest-query.service';
 import { WorldRuntimeQuestStateService } from './runtime/world/world-runtime-quest-state.service';
@@ -394,6 +395,7 @@ const WORLD_GATEWAY_PROVIDERS = shouldStartHttpServer()
     GeneratedTechniqueStoreService,
     TechniqueGenerationService,
     MailRuntimeService,
+    ChatRuntimeService,
     BackgroundWorkerRuntimeService,
     AssetAuditLogRetentionWorker,
     FlushLedgerRetentionWorker,

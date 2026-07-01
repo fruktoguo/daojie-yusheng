@@ -129,7 +129,11 @@ export function createMainNoticeStateSource(options: MainNoticeStateSourceOption
         return;
       }
       if (data.kind === 'chat') {
-        void options.chatUI.addMessage(rawText, data.from, data.kind);
+        void options.chatUI.addMessage(rawText, data.from, data.kind, {
+          id: data.id,
+          at: data.occurredAt,
+          scope: (data as any).scope,
+        });
         return;
       }
       if (data.kind === 'grudge') {

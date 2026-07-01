@@ -226,6 +226,8 @@ export interface ChatRequestView {
  */
 
   message: string;
+  /** channel：目标聊天频道；默认 nearby。 */
+  channel?: 'nearby' | 'world' | 'sect';
 }
 
 /** 系统消息已读回执。 */

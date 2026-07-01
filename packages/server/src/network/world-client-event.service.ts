@@ -9,11 +9,12 @@
  * 是 runtime 结果到 socket 事件的唯一翻译层。
  */
 
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import { S2C, type QuestNavigateResultView } from '@mud/shared';
 import { MailRuntimeService } from '../runtime/mail/mail-runtime.service';
 import { MarketRuntimeService } from '../runtime/market/market-runtime.service';
 import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
+import { ChatRuntimeService } from '../runtime/chat/chat-runtime.service';
 import { WorldSessionService } from './world-session.service';
 import { WorldSyncQuestLootService } from './world-sync-quest-loot.service';
 
@@ -83,6 +84,8 @@ export class WorldClientEventService {
     worldSessionService;
     /** 复用 quest / loot 同步服务里的拾取窗口推送。 */
     worldSyncQuestLootService;
+    /** 聊天频道运行时，负责频道裁定、历史保留和最小范围下发。 */
+    chatRuntimeService;
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param mailRuntimeService 参数说明。
@@ -99,12 +102,14 @@ export class WorldClientEventService {
         @Inject(PlayerRuntimeService) playerRuntimeService: any,
         @Inject(WorldSessionService) worldSessionService: any,
         @Inject(WorldSyncQuestLootService) worldSyncQuestLootService: any,
+        @Optional() @Inject(ChatRuntimeService) chatRuntimeService: any = undefined,
     ) {
         this.mailRuntimeService = mailRuntimeService;
         this.marketRuntimeService = marketRuntimeService;
         this.playerRuntimeService = playerRuntimeService;
         this.worldSessionService = worldSessionService;
         this.worldSyncQuestLootService = worldSyncQuestLootService;
+        this.chatRuntimeService = chatRuntimeService;
     }
     /** 记录客户端偏好的 mainline 协议。 */
     markPrefersMainline(client) {
@@ -238,6 +243,9 @@ export class WorldClientEventService {
                     kind: 'chat',
                     text: payload.text,
                     from: payload.from,
+                    occurredAt: payload.occurredAt,
+                    scope: payload.scope,
+                    messageId: payload.messageId,
                 }],
         });
     }
@@ -260,14 +268,16 @@ export class WorldClientEventService {
             client.data.prefilledPendingLogbookMessageIds = null;
         }
     }
-    /** 将同实例内的聊天广播给所有在线玩家。 */
+    /** 将聊天意图交给频道运行时裁定并按增量下发。 */
     broadcastChat(playerId, payload) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        const message = typeof payload?.message === 'string' ? payload.message.trim() : '';
-        if (!message) {
+        if (this.chatRuntimeService && typeof this.chatRuntimeService.handlePlayerChat === 'function') {
+            void this.chatRuntimeService.handlePlayerChat(playerId, payload);
             return;
         }
+        const message = typeof payload?.message === 'string' ? payload.message.trim() : '';
+        if (!message) return;
 
         const player = this.playerRuntimeService.getPlayer(playerId);
         if (!player) {
@@ -284,6 +294,9 @@ export class WorldClientEventService {
             text: message.slice(0, 200).replace(/[<>&"']/g, (ch) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;' })[ch] || ch),
             kind: 'chat',
             from: chatLabel,
+            scope: 'nearby',
+            occurredAt: Date.now(),
+            messageId: `chat:fallback:${Date.now()}`,
         };
         const instanceId = typeof player.instanceId === 'string' && player.instanceId.trim()
             ? player.instanceId.trim()
@@ -300,6 +313,9 @@ export class WorldClientEventService {
                     kind: 'chat',
                     text: chatMsg.text,
                     from: chatMsg.from,
+                    scope: chatMsg.scope,
+                    occurredAt: chatMsg.occurredAt,
+                    messageId: chatMsg.messageId,
                 }],
             })) {
             return;

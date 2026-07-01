@@ -20,6 +20,9 @@ interface WorldClientEventPort {
     emitActivityStatus(client: BootstrapClientLike, status: unknown): void;
     emitMailSummaryForPlayer(client: BootstrapClientLike, playerId: string): Promise<void>;
     emitPendingLogbookMessages(client: BootstrapClientLike, playerId: string): void;
+    chatRuntimeService?: {
+        emitInitialHistory(client: BootstrapClientLike, playerId: string): Promise<void>;
+    };
 }
 
 interface ActivityRuntimePort {
@@ -70,6 +73,7 @@ export class WorldSessionBootstrapPostEmitService {
             this.worldClientEventService?.emitActivityStatus(client, activityStatus);
         }
         await this.worldClientEventService?.emitMailSummaryForPlayer(client, playerId);
+        await this.worldClientEventService?.chatRuntimeService?.emitInitialHistory(client, playerId);
         this.worldClientEventService?.emitPendingLogbookMessages(client, playerId);
         const offlineGainBlocking = await this.playerRuntimeService?.hasActiveOfflineGainSession?.(playerId) === true;
         const offlineGainReports = offlineGainBlocking

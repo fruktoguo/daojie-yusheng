@@ -319,8 +319,8 @@ export function createSocketSocialEconomySender(deps: SocialEconomySenderDeps) {
  */
 
 
-    sendChat(message: string): void {
-      deps.emitEvent(C2S.Chat, { message });
+    sendChat(message: string, channel?: 'nearby' | 'world' | 'sect'): void {
+      deps.emitEvent(C2S.Chat, { message, ...(channel ? { channel } : undefined) });
     },
     /**
  * ackSystemMessages：执行ackSystemMessage相关逻辑。

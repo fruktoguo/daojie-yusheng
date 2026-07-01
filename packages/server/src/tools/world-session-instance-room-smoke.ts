@@ -101,21 +101,23 @@ function testChatBroadcastUsesInstanceRoom(): void {
         return null;
       },
     } as never,
-    null as never,
     sessionService as never,
+    null as never,
     null as never,
   );
 
   eventService.broadcastChat('player:1', { message: '<hello>' });
 
-  assert.deepEqual(roomEmits, [
-    [
-      'room.emit',
-      buildWorldInstanceRoomId('instance:a'),
-      S2C.Notice,
-      { items: [{ kind: 'chat', text: '&lt;hello&gt;', from: '甲' }] },
-    ],
-  ]);
+  assert.equal(roomEmits.length, 1);
+  assert.deepEqual(roomEmits[0]?.slice(0, 3), ['room.emit', buildWorldInstanceRoomId('instance:a'), S2C.Notice]);
+  const payload = roomEmits[0]?.[3] as any;
+  const item = payload?.items?.[0];
+  assert.equal(item?.kind, 'chat');
+  assert.equal(item?.text, '&lt;hello&gt;');
+  assert.equal(item?.from, '甲');
+  assert.equal(item?.scope, 'nearby');
+  assert.equal(typeof item?.occurredAt, 'number');
+  assert.equal(typeof item?.messageId, 'string');
   assert.equal(log.some((entry) => Array.isArray(entry) && entry[0] === 'socket.emit'), false);
 }
 

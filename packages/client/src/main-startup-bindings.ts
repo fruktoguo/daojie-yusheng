@@ -233,7 +233,7 @@ type MainStartupBindingsOptions = {
  * setCallback：Callback相关字段。
  */
 
-    setCallback: (handler: (message: string) => void) => void;
+    setCallback: (handler: (message: string, channel: 'nearby' | 'world' | 'sect') => void) => void;
   };
   /**
  * zoom：zoom相关字段。
@@ -479,8 +479,8 @@ export function bindMainStartup(options: MainStartupBindingsOptions): void {
     options.adminSender.sendDebugResetSpawn();
   });
 
-  options.chatUI.setCallback((message) => {
-    options.socialEconomySender.sendChat(message);
+  options.chatUI.setCallback((message, channel) => {
+    options.socialEconomySender.sendChat(message, channel);
   });
 
   bindZoomControls({
