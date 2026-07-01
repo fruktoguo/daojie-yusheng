@@ -4,6 +4,7 @@ import {
   computeAlchemyAdjustedSuccessRate,
   computeCraftAdjustedSuccessRate,
   computeEnhancementAdjustedSuccessRate,
+  getEnhancementPercent,
   computeEnhancementJobTicks,
   computeEnhancementToolSpeedRate,
   ENHANCEMENT_LOWER_LEVEL_DECAY_PER_LEVEL,
@@ -166,6 +167,11 @@ function main() {
     computeEnhancementAdjustedSuccessRate(1, 24, 30, 0.15),
     expectedEnhancementCombinedRate,
     "enhancement success modifier must add positive modifiers before applying the shared probability curve",
+  );
+  assert.deepEqual(
+    [1, 5, 10].map((level) => getEnhancementPercent(level)),
+    [110, 162, 260],
+    "enhancement percent must not be inflated by floating-point tails at exact percentage boundaries",
   );
 
   const service = new CraftPanelEnhancementQueryService(repository);

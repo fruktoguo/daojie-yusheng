@@ -84,7 +84,7 @@ spiritStoneCost = hasMaterialCost ? floor(itemLevel / 10) : ceil(itemLevel / 10)
 
 ```ts
 enhancementPercent = ceil(100 × (1.1)^enhanceLevel)
-// +1 = 110%, +5 ≈ 161%, +10 ≈ 259%
+// +1 = 110%, +5 ≈ 162%, +10 ≈ 260%
 ```
 
 该倍率同时用于装备属性增幅和法宝最大灵力上限增幅。法宝特效消耗不随强化放大，仍按未强化默认最大灵力计算固定消耗。

@@ -135,7 +135,7 @@ on_equip, on_unequip, on_tick, on_move, on_attack, on_hit, on_kill, on_skill_cas
 
 ```typescript
 enhancementPercent = ceil(100 × 1.1^enhanceLevel)
-// +1 = 110%, +5 ≈ 161%, +10 ≈ 259%
+// +1 = 110%, +5 ≈ 162%, +10 ≈ 260%
 ```
 
 ## 装备境界有效性

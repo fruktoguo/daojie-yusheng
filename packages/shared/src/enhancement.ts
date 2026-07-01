@@ -88,7 +88,9 @@ export function getEnhancementSpiritStoneCost(itemLevel: number | undefined, has
 
 export function getEnhancementPercent(level: number | undefined): number {
   const normalized = normalizeEnhanceLevel(level);
-  return Math.ceil(100 * ((1 + ENHANCEMENT_RATE_PER_LEVEL) ** normalized));
+  const rawPercent = 100 * ((1 + ENHANCEMENT_RATE_PER_LEVEL) ** normalized);
+  const epsilon = Math.max(Number.EPSILON, Math.abs(rawPercent) * Number.EPSILON * 4);
+  return Math.ceil(rawPercent - epsilon);
 }
 
 function normalizeEquipmentRealmLv(value: unknown): number {
