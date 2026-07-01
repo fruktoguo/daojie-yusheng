@@ -158,6 +158,8 @@ const COMBAT_RESULT_PATTERN = /^(?<before>.*?)(?:（(?<details>[^）]+)）)?，(
 const COMBAT_HEAL_PILL_COLOR = 'var(--chat-pill-buff)';
 /** 闪避结果胶囊的颜色。 */
 const COMBAT_RESULT_PILL_COLOR = 'var(--chat-pill-result)';
+/** 可主动发送聊天内容的频道。 */
+const CHAT_SENDABLE_CHANNELS = new Set<ChatChannel>(['nearby', 'world', 'sect']);
 
 const COMBAT_DAMAGE_ELEMENT_LABEL_TO_KEY: Record<string, ElementKey> = {
   金: 'metal',
@@ -1551,6 +1553,7 @@ export class ChatUI {
       this.clearInactiveChannels();
       this.renderChannel(channel, { stickToBottom: true });
     }
+    this.syncComposeAvailability();
   }
 
   /** 判断日志列表是否接近底部。 */
@@ -1568,14 +1571,25 @@ export class ChatUI {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const message = this.input.value.trim();
-    if (!message) {
+    if (!message || !CHAT_SENDABLE_CHANNELS.has(this.activeChannel)) {
       return;
     }
-    const targetChannel: ChatMessageScope = this.activeChannel === 'sect' || this.activeChannel === 'world'
-      ? this.activeChannel
-      : 'nearby';
+    const targetChannel = this.activeChannel as ChatMessageScope;
     this.onSend?.(message.slice(0, 200), targetChannel);
     this.input.value = '';
+  }
+
+  /** 同步当前频道是否允许输入发送。 */
+  private syncComposeAvailability(): void {
+    const sendable = CHAT_SENDABLE_CHANNELS.has(this.activeChannel);
+    this.input.disabled = !sendable;
+    this.sendBtn.toggleAttribute('disabled', !sendable);
+    this.input.setAttribute('aria-disabled', sendable ? 'false' : 'true');
+    this.sendBtn.setAttribute('aria-disabled', sendable ? 'false' : 'true');
+    this.input.placeholder = sendable ? t('shell.chat-input.placeholder', undefined) : '当前频道仅接收消息';
+    if (!sendable) {
+      this.input.value = '';
+    }
   }
 
   /** 构建消息的持久化键。 */

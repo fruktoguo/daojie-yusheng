@@ -378,6 +378,19 @@
       border-color: var(--ink-black);
     }
 
+    #chat-input:disabled,
+    #chat-send:disabled {
+      cursor: not-allowed;
+      opacity: 0.48;
+      filter: grayscale(0.75);
+    }
+
+    #chat-input:disabled {
+      background: var(--surface-muted);
+      color: var(--ink-grey);
+      border-color: var(--wash-ink);
+    }
+
     #debug-panel {
       position: fixed;
       right: 18px;
