@@ -5,6 +5,7 @@
  */
 import type { CellLayerTarget } from './map-layer-types';
 import type { TechniqueCategory, TechniqueGrade } from './cultivation-types';
+import type { CraftEffectStatsPatch } from './craft-effect-stats';
 import type { TileType } from './world-core-types';
 
 export type FiveElement = 'metal' | 'wood' | 'water' | 'fire' | 'earth' | 'neutral';
@@ -95,6 +96,7 @@ export interface BuildingDef {
   treasureVault?: {
     capacity?: number;
   };
+  craftEffectStats?: CraftEffectStatsPatch;
 }
 
 export interface CompiledBuildingDef {
@@ -125,6 +127,7 @@ export interface CompiledBuildingDef {
   costCounts: Uint32Array;
   cellLayerTarget: CellLayerTarget;
   treasureVaultCapacity: number;
+  craftEffectStats?: CraftEffectStatsPatch;
 }
 
 export interface CompiledBuildingCatalog {

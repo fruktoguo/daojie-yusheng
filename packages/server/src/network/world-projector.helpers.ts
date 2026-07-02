@@ -1935,6 +1935,10 @@ function normalizeProgressBreakdown(value: unknown): TechniqueTransmissionJobSta
     }
     const teacherTransmissionLevel = normalizePositiveProjectionNumber(source.teacherTransmissionLevel);
     const teacherTransmissionFactor = normalizePositiveProjectionNumber(source.teacherTransmissionFactor);
+    const transmissionSpeedRate = normalizeNonNegativeProjectionNumber(source.transmissionSpeedRate);
+    const learnerTransmissionSpeedRate = normalizeNonNegativeProjectionNumber(source.learnerTransmissionSpeedRate);
+    const teacherTransmissionSpeedRate = normalizeNonNegativeProjectionNumber(source.teacherTransmissionSpeedRate);
+    const transmissionSpeedFactor = normalizePositiveProjectionNumber(source.transmissionSpeedFactor);
     return {
         baseProgress,
         progressGain,
@@ -1946,6 +1950,10 @@ function normalizeProgressBreakdown(value: unknown): TechniqueTransmissionJobSta
         realmFactor,
         learnerTransmissionFactor,
         ...(teacherTransmissionFactor === undefined ? {} : { teacherTransmissionFactor }),
+        ...(transmissionSpeedRate === undefined ? {} : { transmissionSpeedRate }),
+        ...(learnerTransmissionSpeedRate === undefined ? {} : { learnerTransmissionSpeedRate }),
+        ...(teacherTransmissionSpeedRate === undefined ? {} : { teacherTransmissionSpeedRate }),
+        ...(transmissionSpeedFactor === undefined ? {} : { transmissionSpeedFactor }),
     };
 }
 
@@ -2037,7 +2045,11 @@ function isSameProgressBreakdown(
         && left.teacherTransmissionLevel === right.teacherTransmissionLevel
         && left.realmFactor === right.realmFactor
         && left.learnerTransmissionFactor === right.learnerTransmissionFactor
-        && left.teacherTransmissionFactor === right.teacherTransmissionFactor;
+        && left.teacherTransmissionFactor === right.teacherTransmissionFactor
+        && left.transmissionSpeedRate === right.transmissionSpeedRate
+        && left.learnerTransmissionSpeedRate === right.learnerTransmissionSpeedRate
+        && left.teacherTransmissionSpeedRate === right.teacherTransmissionSpeedRate
+        && left.transmissionSpeedFactor === right.transmissionSpeedFactor;
 }
 
 function buildPanelDeltaFromState(previousPanel: ProjectedPanelState, currentPanel: ProjectedPanelState): S2C_PanelDelta | null {

@@ -770,6 +770,48 @@ function testTransmissionBlocksCancelsAndContinues() {
   assert.equal(teacherB.transmissionSkill.exp, getExpectedTransmissionExpGain(1, 1, 1));
 }
 
+function testTransmissionUsesStandingFacilitySpeedForBothPlayers() {
+  const { runtimeService } = createRuntimeService();
+  const teacher = createPlayer('teacher:mat', 0, 0);
+  const learner = createPlayer('learner:mat', 0, 1);
+  teacher.techniques.techniques.push({ ...createdTechnique });
+  runtimeService.players.set(teacher.playerId, teacher);
+  runtimeService.players.set(learner.playerId, learner);
+  const matDef = { handle: 1, id: 'meditation_mat', craftEffectStats: { transmission: { speedRate: 1 } } };
+  const instance: any = {
+    buildingCatalog: {
+      defByHandle: [undefined, matDef],
+      defById: new Map([[matDef.id, matDef]]),
+    },
+    buildingById: new Map([
+      ['mat:teacher', { id: 'mat:teacher', defId: matDef.id, defHandle: matDef.handle, state: 'active' }],
+      ['mat:learner', { id: 'mat:learner', defId: matDef.id, defHandle: matDef.handle, state: 'active' }],
+    ]),
+    buildingIdByCell: new Map([
+      [0, new Set(['mat:teacher'])],
+      [1000, new Set(['mat:learner'])],
+    ]),
+    toTileIndex(x: number, y: number) {
+      return Math.floor(Number(x) || 0) + Math.floor(Number(y) || 0) * 1000;
+    },
+  };
+  const { pipeline, ctx } = createTransmissionPipelineWithInstance(runtimeService, instance);
+  const startResult = pipeline.start(learner, 'transmission', {
+    learnerPlayerId: learner.playerId,
+    teacherPlayerId: teacher.playerId,
+    techniqueId: createdTechnique.techId,
+  }, ctx as never);
+  assert.equal(startResult.ok, true, startResult.error);
+  assert.equal(learner.transmissionJob?.progressBreakdown?.learnerTransmissionSpeedRate, 1);
+  assert.equal(learner.transmissionJob?.progressBreakdown?.teacherTransmissionSpeedRate, 1);
+  assert.equal(learner.transmissionJob?.progressBreakdown?.transmissionSpeedRate, 2);
+  assert.equal(learner.transmissionJob?.progressBreakdown?.transmissionSpeedFactor, 3);
+  assert.equal(learner.transmissionJob?.progressGainPerTick, 3);
+
+  pipeline.tick(learner, 'transmission', ctx as never);
+  assert.equal(learner.pendingTechniqueComprehensions[0]?.progress, 3);
+}
+
 function testScriptureRecordingUsesTransmissionJobAndLocksBuilding() {
   const { runtimeService } = createRuntimeService();
   const recorder = createPlayer('recorder:scripture', 0, 0);
@@ -983,6 +1025,7 @@ testCultivationCanStoreFractionalComprehensionProgress();
 testPendingTechniqueNameResolvesDisplayName();
 testTransmissionRefreshesStaleRequiredProgress();
 testTransmissionBlocksCancelsAndContinues();
+testTransmissionUsesStandingFacilitySpeedForBothPlayers();
 testScriptureRecordingUsesTransmissionJobAndLocksBuilding();
 testScriptureContemplationStartsJobAndCompletesTechnique();
 

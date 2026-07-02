@@ -406,6 +406,10 @@ function resolveProgressBreakdown(value: unknown): TechniqueComprehensionProgres
   }
   const teacherTransmissionLevel = resolvePositiveNumber(source.teacherTransmissionLevel);
   const teacherTransmissionFactor = resolvePositiveNumber(source.teacherTransmissionFactor);
+  const transmissionSpeedRate = resolveNonNegativeNumber(source.transmissionSpeedRate);
+  const learnerTransmissionSpeedRate = resolveNonNegativeNumber(source.learnerTransmissionSpeedRate);
+  const teacherTransmissionSpeedRate = resolveNonNegativeNumber(source.teacherTransmissionSpeedRate);
+  const transmissionSpeedFactor = resolvePositiveNumber(source.transmissionSpeedFactor);
   return {
     baseProgress,
     progressGain,
@@ -417,6 +421,10 @@ function resolveProgressBreakdown(value: unknown): TechniqueComprehensionProgres
     realmFactor,
     learnerTransmissionFactor,
     ...(teacherTransmissionFactor === undefined ? {} : { teacherTransmissionFactor }),
+    ...(transmissionSpeedRate === undefined ? {} : { transmissionSpeedRate }),
+    ...(learnerTransmissionSpeedRate === undefined ? {} : { learnerTransmissionSpeedRate }),
+    ...(teacherTransmissionSpeedRate === undefined ? {} : { teacherTransmissionSpeedRate }),
+    ...(transmissionSpeedFactor === undefined ? {} : { transmissionSpeedFactor }),
   };
 }
 

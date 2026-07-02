@@ -75,6 +75,8 @@ export interface TechniqueComprehensionProgressBreakdown {
   learnerTransmissionFactor: number;
   teacherTransmissionFactor?: number;
   transmissionSpeedRate?: number;
+  learnerTransmissionSpeedRate?: number;
+  teacherTransmissionSpeedRate?: number;
   transmissionSpeedFactor?: number;
 }
 
@@ -100,6 +102,8 @@ export function calculateTechniqueComprehensionProgressBreakdown(input: {
   learnerTransmissionLevel?: number;
   teacherTransmissionLevel?: number;
   transmissionSpeedRate?: number;
+  learnerTransmissionSpeedRate?: number;
+  teacherTransmissionSpeedRate?: number;
 }): TechniqueComprehensionProgressBreakdown {
   const baseProgress = Number(input.baseProgress);
   const normalizedBaseProgress = Number.isFinite(baseProgress) && baseProgress > 0 ? baseProgress : 0;
@@ -120,7 +124,12 @@ export function calculateTechniqueComprehensionProgressBreakdown(input: {
   const difficultyFactor = Number.isFinite(rawDifficultyFactor) && rawDifficultyFactor > 0
     ? rawDifficultyFactor
     : 1;
-  const transmissionSpeedRate = Math.max(0, Number(input.transmissionSpeedRate) || 0);
+  const learnerTransmissionSpeedRate = Math.max(0, Number(input.learnerTransmissionSpeedRate) || 0);
+  const teacherTransmissionSpeedRate = Math.max(0, Number(input.teacherTransmissionSpeedRate) || 0);
+  const explicitTransmissionSpeedRate = input.transmissionSpeedRate === undefined
+    ? undefined
+    : Math.max(0, Number(input.transmissionSpeedRate) || 0);
+  const transmissionSpeedRate = explicitTransmissionSpeedRate ?? (learnerTransmissionSpeedRate + teacherTransmissionSpeedRate);
   const transmissionSpeedFactor = 1 + transmissionSpeedRate;
   return {
     baseProgress: normalizedBaseProgress,
@@ -134,6 +143,8 @@ export function calculateTechniqueComprehensionProgressBreakdown(input: {
     learnerTransmissionFactor,
     ...(teacherTransmissionFactor === undefined ? {} : { teacherTransmissionFactor }),
     transmissionSpeedRate,
+    learnerTransmissionSpeedRate,
+    ...(teacherTransmissionLevel === undefined ? {} : { teacherTransmissionSpeedRate }),
     transmissionSpeedFactor,
   };
 }
@@ -145,6 +156,8 @@ export function calculateTechniqueComprehensionProgressGain(input: {
   learnerTransmissionLevel?: number;
   teacherTransmissionLevel?: number;
   transmissionSpeedRate?: number;
+  learnerTransmissionSpeedRate?: number;
+  teacherTransmissionSpeedRate?: number;
 }): number {
   const baseProgress = Number(input.baseProgress);
   if (!Number.isFinite(baseProgress) || baseProgress <= 0) {

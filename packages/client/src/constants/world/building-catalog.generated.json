@@ -165,6 +165,45 @@
     "blocksSight": false
   },
   {
+    "id": "meditation_mat",
+    "name": "蒲团",
+    "layer": "facility",
+    "visualGlyph": "蒲",
+    "visualColor": "#8b5e34",
+    "allowRotate": true,
+    "footprint": [
+      {
+        "dx": 0,
+        "dy": 0
+      }
+    ],
+    "cost": [
+      {
+        "itemId": "cloth",
+        "count": 2
+      },
+      {
+        "itemId": "wood",
+        "count": 1
+      }
+    ],
+    "traits": [
+      "facility.meditation"
+    ],
+    "elementVector": {
+      "wood": 8,
+      "earth": 6
+    },
+    "durabilityMultiplier": 30,
+    "buildTicks": 600,
+    "maxHp": 60,
+    "stability": 4,
+    "comfort": 4,
+    "opening": "none",
+    "blocksMove": false,
+    "blocksSight": false
+  },
+  {
     "id": "treasure_vault",
     "name": "宝库",
     "layer": "furniture",

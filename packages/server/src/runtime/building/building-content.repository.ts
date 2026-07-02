@@ -22,6 +22,7 @@ import {
   BUILDING_TOPOLOGY_ROOM_BOUNDARY,
   BUILDING_TOPOLOGY_SEMI_OUTDOOR_LINK,
   BUILDING_VISUAL_LAYER_ID_BY_KEY,
+  normalizeCraftEffectStatsPatch,
   FENGSHUI_ELEMENT_INDEX,
   getDefaultTileDurabilityMultiplier,
   resolvePlacementLayerTarget,
@@ -133,6 +134,7 @@ export function compileBuildingDefinitions(definitions: readonly BuildingDef[]):
       costCounts: Uint32Array.from(cost.map((entry) => clampInt(entry.count, 1, Number.MAX_SAFE_INTEGER))),
       cellLayerTarget,
       treasureVaultCapacity: clampInt(definition.treasureVault?.capacity, 0, Number.MAX_SAFE_INTEGER, 0),
+      craftEffectStats: normalizeCraftEffectStatsPatch(definition.craftEffectStats),
     };
 
     defs.push(compiled);

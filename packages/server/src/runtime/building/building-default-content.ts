@@ -5,7 +5,7 @@
  */
 /**
  * 建筑默认内容定义。
- * 提供内置建筑模板（石墙、木门、木窗、地板、藏经台）和默认风水规则，
+ * 提供内置建筑模板（石墙、木门、木窗、地板、藏经台、蒲团）和默认风水规则，
  * 在无外部配置文件时作为兜底使用。
  */
 import * as fs from 'node:fs';
@@ -66,6 +66,22 @@ const DEFAULT_BUILDING_DEFS: BuildingDef[] = [
       qiAffinity: 2,
     },
     economy: { buildTicks: 3600, durabilityMultiplier: 100, maxHp: 120, cost: [{ itemId: 'wood', count: 8 }] },
+  },
+  {
+    id: 'meditation_mat',
+    name: '蒲团',
+    visual: { glyph: '蒲', color: '#8b5e34', layer: 'furniture' },
+    placement: { layer: 'facility', footprint: [{ dx: 0, dy: 0 }] },
+    topology: { blocksMove: false },
+    fengShui: {
+      elementVector: { wood: 8, earth: 6 },
+      traits: ['facility.meditation'],
+      comfort: 4,
+      stability: 4,
+      qiAffinity: 1,
+    },
+    economy: { buildTicks: 600, durabilityMultiplier: 30, maxHp: 60, cost: [{ itemId: 'cloth', count: 2 }, { itemId: 'wood', count: 1 }] },
+    craftEffectStats: { transmission: { speedRate: 1 } },
   },
   {
     id: 'treasure_vault',

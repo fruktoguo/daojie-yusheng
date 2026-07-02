@@ -101,6 +101,10 @@ TypedArray 索引结构，按 cellIndex 存储:
 
 权限裁定由服务端执行。客户端只展示权限和库存视图，并提交存取或权限修改意图。
 
+## 蒲团
+
+蒲团是设施层建筑，表现为地面交互物，不阻挡移动。建成后站在蒲团上的玩家获得 `craftEffectStats.transmission.speedRate +1.0`，即传法标准属性中的速度 +100%。传法结算会同时读取学习者和传授者脚下设施贡献的传法速度，并把双方速度合计应用到每息领悟进度公式。
+
 ## 房间检测
 
 源文件: `packages/server/src/runtime/building/room-detection.service.ts`

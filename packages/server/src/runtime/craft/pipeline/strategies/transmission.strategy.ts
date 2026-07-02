@@ -9,6 +9,7 @@ import {
   computeCraftSkillExpGain,
   getTechniqueMaxLevel,
   isCreatedTechniqueId,
+  readCraftEffectStat,
   type PlayerTransmissionJob,
   type TechniqueActivityNoticeMessage,
   type TechniqueActivityResolveResult,
@@ -153,7 +154,7 @@ export class TransmissionStrategy implements TechniqueActivityStrategy<PlayerTra
     const remaining = Math.max(1, Math.ceil(required - Math.min(required, progress)));
     const deps = resolveTransmissionDeps(ctx);
     const teacher = deps?.playerRuntimeService?.getPlayer?.(validated.teacherPlayerId) ?? null;
-    const progressBreakdown = resolveTransmissionProgressBreakdown(learner, teacher, validated.realmLv);
+    const progressBreakdown = resolveTransmissionProgressBreakdown(learner, teacher, validated.realmLv, ctx);
     return {
       jobRunId: `transmission:${validated.learnerPlayerId}:${validated.techniqueId}:${resolvePlayerRuntimeTick(learner)}`,
       jobType: 'transmission',
@@ -257,7 +258,7 @@ export class TransmissionStrategy implements TechniqueActivityStrategy<PlayerTra
     refreshPendingRequirement(learner, pending, teacherTechnique, teacher, job);
     const previousProgress = Math.max(0, Number(pending.progress) || 0);
     const requiredProgress = Math.max(1, Number(pending.requiredProgress) || 1);
-    const progressBreakdown = resolveTransmissionProgressBreakdown(learner, teacher, pending.realmLv ?? teacherTechnique.realmLv);
+    const progressBreakdown = resolveTransmissionProgressBreakdown(learner, teacher, pending.realmLv ?? teacherTechnique.realmLv, ctx);
     const progressGain = progressBreakdown.progressGain;
     pending.progress = Math.min(requiredProgress, previousProgress + progressGain);
     pending.updatedAtTick = resolvePlayerRuntimeTick(learner);
@@ -516,7 +517,7 @@ function createScriptureRecordingJob(recorder: any, validated: TransmissionValid
     markScriptureBuildingDirty(instance, building);
   }
   const remaining = Math.max(0, required - progress);
-  const progressBreakdown = resolveScriptureRecordingProgressBreakdown(recorder, validated.realmLv);
+  const progressBreakdown = resolveScriptureRecordingProgressBreakdown(recorder, validated.realmLv, ctx);
   return {
     jobRunId,
     jobType: 'scripture_recording',
@@ -560,7 +561,7 @@ function createScriptureContemplationJob(learner: any, validated: TransmissionVa
   const required = Math.max(1, Number(validated.requiredProgress) || 1);
   const remaining = Math.max(0, required - Math.min(required, progress));
   const currentTick = resolvePlayerRuntimeTick(learner);
-  const progressBreakdown = resolveScriptureContemplationProgressBreakdown(learner, validated.realmLv);
+  const progressBreakdown = resolveScriptureContemplationProgressBreakdown(learner, validated.realmLv, ctx);
   markTransmissionDirty(learner, ctx, ['technique', 'active_job']);
   return {
     jobRunId: `scripture_contemplation:${validated.buildingId}:${validated.techniqueId}:${currentTick}`,
@@ -741,7 +742,7 @@ function executeScriptureRecordingTick(recorder: any, job: PlayerTransmissionJob
     learnerRealmLv: recorder.realm?.realmLv ?? 1,
   });
   const previousProgress = Math.max(0, Math.min(requiredProgress, Number(building.scriptureProgress) || 0));
-  const progressBreakdown = resolveScriptureRecordingProgressBreakdown(recorder, building.scriptureRealmLv ?? job.realmLv);
+  const progressBreakdown = resolveScriptureRecordingProgressBreakdown(recorder, building.scriptureRealmLv ?? job.realmLv, ctx);
   const nextProgress = Math.min(requiredProgress, previousProgress + progressBreakdown.progressGain);
   building.scriptureTechniqueId = job.techniqueId;
   building.scriptureTechniqueName = job.techniqueName;
@@ -846,7 +847,7 @@ function executeScriptureContemplationTick(learner: any, job: PlayerTransmission
   pending.grade = building.scriptureGrade ?? job.grade ?? pending.grade;
   pending.category = building.scriptureCategory ?? job.category ?? pending.category;
   pending.updatedAtTick = resolvePlayerRuntimeTick(learner);
-  const progressBreakdown = resolveScriptureContemplationProgressBreakdown(learner, pending.realmLv);
+  const progressBreakdown = resolveScriptureContemplationProgressBreakdown(learner, pending.realmLv, ctx);
   pending.progress = Math.min(requiredProgress, previousProgress + progressBreakdown.progressGain);
   job.techniqueName = pending.name;
   job.realmLv = pending.realmLv;
@@ -962,36 +963,78 @@ function updateJobProgress(
   job.progressBreakdown = progressBreakdown;
 }
 
-function resolveTransmissionProgressBreakdown(learner: any, teacher: any, techniqueRealmLv: unknown): ReturnType<typeof calculateTechniqueComprehensionProgressBreakdown> {
+function resolveTransmissionProgressBreakdown(learner: any, teacher: any, techniqueRealmLv: unknown, ctx: PipelineContext): ReturnType<typeof calculateTechniqueComprehensionProgressBreakdown> {
+  const learnerTransmissionSpeedRate = resolvePlayerTransmissionSpeedRate(learner, ctx);
+  const teacherTransmissionSpeedRate = resolvePlayerTransmissionSpeedRate(teacher, ctx);
   return calculateTechniqueComprehensionProgressBreakdown({
     baseProgress: 1,
     techniqueRealmLv: Math.max(1, Math.floor(Number(techniqueRealmLv) || 1)),
     learnerRealmLv: learner?.realm?.realmLv ?? 1,
     learnerTransmissionLevel: learner?.transmissionSkill?.level ?? 1,
     teacherTransmissionLevel: teacher?.transmissionSkill?.level ?? 1,
-    transmissionSpeedRate: Math.max(0, resolvePlayerCraftEffectStat(learner, 'transmission', 'speedRate'))
-      + Math.max(0, resolvePlayerCraftEffectStat(teacher, 'transmission', 'speedRate')),
+    learnerTransmissionSpeedRate,
+    teacherTransmissionSpeedRate,
   });
 }
 
-function resolveScriptureRecordingProgressBreakdown(recorder: any, techniqueRealmLv: unknown): ReturnType<typeof calculateTechniqueComprehensionProgressBreakdown> {
+function resolveScriptureRecordingProgressBreakdown(recorder: any, techniqueRealmLv: unknown, ctx: PipelineContext): ReturnType<typeof calculateTechniqueComprehensionProgressBreakdown> {
   return calculateTechniqueComprehensionProgressBreakdown({
     baseProgress: 10,
     techniqueRealmLv: Math.max(1, Math.floor(Number(techniqueRealmLv) || 1)),
     learnerRealmLv: recorder?.realm?.realmLv ?? 1,
     learnerTransmissionLevel: recorder?.transmissionSkill?.level ?? 1,
-    transmissionSpeedRate: resolvePlayerCraftEffectStat(recorder, 'transmission', 'speedRate'),
+    learnerTransmissionSpeedRate: resolvePlayerTransmissionSpeedRate(recorder, ctx),
   });
 }
 
-function resolveScriptureContemplationProgressBreakdown(learner: any, techniqueRealmLv: unknown): ReturnType<typeof calculateTechniqueComprehensionProgressBreakdown> {
+function resolveScriptureContemplationProgressBreakdown(learner: any, techniqueRealmLv: unknown, ctx: PipelineContext): ReturnType<typeof calculateTechniqueComprehensionProgressBreakdown> {
   return calculateTechniqueComprehensionProgressBreakdown({
     baseProgress: 1,
     techniqueRealmLv: Math.max(1, Math.floor(Number(techniqueRealmLv) || 1)),
     learnerRealmLv: learner?.realm?.realmLv ?? 1,
     learnerTransmissionLevel: learner?.transmissionSkill?.level ?? 1,
-    transmissionSpeedRate: resolvePlayerCraftEffectStat(learner, 'transmission', 'speedRate'),
+    learnerTransmissionSpeedRate: resolvePlayerTransmissionSpeedRate(learner, ctx),
   });
+}
+
+function resolvePlayerTransmissionSpeedRate(player: any, ctx: PipelineContext): number {
+  return Math.max(0, resolvePlayerCraftEffectStat(player, 'transmission', 'speedRate'))
+    + resolveStandingBuildingTransmissionSpeedRate(player, ctx);
+}
+
+function resolveStandingBuildingTransmissionSpeedRate(player: any, ctx: PipelineContext): number {
+  const instanceId = normalizeText(player?.instanceId);
+  if (!instanceId) {
+    return 0;
+  }
+  const deps = resolveTransmissionDeps(ctx);
+  const instance = deps?.getInstanceRuntime?.(instanceId) ?? ctx.getInstanceRuntime?.(instanceId) ?? null;
+  if (!instance || typeof instance !== 'object') {
+    return 0;
+  }
+  const x = Math.floor(Number(player?.x) || 0);
+  const y = Math.floor(Number(player?.y) || 0);
+  const cellIndex = typeof instance.toTileIndex === 'function'
+    ? Math.trunc(Number(instance.toTileIndex(x, y)))
+    : Math.trunc(Number(instance.tilePlane?.getCellIndex?.(x, y)));
+  if (!Number.isFinite(cellIndex) || cellIndex < 0) {
+    return 0;
+  }
+  const buildingIds = instance.buildingIdByCell?.get?.(cellIndex);
+  if (!buildingIds || typeof buildingIds[Symbol.iterator] !== 'function') {
+    return 0;
+  }
+  let speedRate = 0;
+  for (const buildingId of buildingIds as Iterable<unknown>) {
+    const building = instance.buildingById?.get?.(buildingId);
+    if (!building || building.state !== 'active') {
+      continue;
+    }
+    const compiled = instance.buildingCatalog?.defByHandle?.[building.defHandle]
+      ?? instance.buildingCatalog?.defById?.get?.(building.defId);
+    speedRate += Math.max(0, readCraftEffectStat(compiled?.craftEffectStats, 'transmission', 'speedRate'));
+  }
+  return speedRate;
 }
 
 function applyTransmissionSkillExpFromTicks(player: any, elapsedTicks: number, targetLevel: unknown, getExpToNextByLevel: (level: number) => number): boolean {

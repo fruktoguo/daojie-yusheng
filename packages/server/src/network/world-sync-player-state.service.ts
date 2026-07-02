@@ -208,6 +208,10 @@ function normalizeProgressBreakdown(value) {
   }
   const teacherTransmissionLevel = normalizePositiveProjectionNumber(value.teacherTransmissionLevel);
   const teacherTransmissionFactor = normalizePositiveProjectionNumber(value.teacherTransmissionFactor);
+  const transmissionSpeedRate = normalizeNonNegativeProjectionNumber(value.transmissionSpeedRate);
+  const learnerTransmissionSpeedRate = normalizeNonNegativeProjectionNumber(value.learnerTransmissionSpeedRate);
+  const teacherTransmissionSpeedRate = normalizeNonNegativeProjectionNumber(value.teacherTransmissionSpeedRate);
+  const transmissionSpeedFactor = normalizePositiveProjectionNumber(value.transmissionSpeedFactor);
   return {
     baseProgress,
     progressGain,
@@ -219,6 +223,10 @@ function normalizeProgressBreakdown(value) {
     realmFactor,
     learnerTransmissionFactor,
     ...(teacherTransmissionFactor === undefined ? {} : { teacherTransmissionFactor }),
+    ...(transmissionSpeedRate === undefined ? {} : { transmissionSpeedRate }),
+    ...(learnerTransmissionSpeedRate === undefined ? {} : { learnerTransmissionSpeedRate }),
+    ...(teacherTransmissionSpeedRate === undefined ? {} : { teacherTransmissionSpeedRate }),
+    ...(transmissionSpeedFactor === undefined ? {} : { transmissionSpeedFactor }),
   };
 }
 

@@ -214,6 +214,19 @@ function formatComprehensionProgressBreakdown(breakdown: TechniqueComprehensionP
   if (breakdown.teacherTransmissionFactor !== undefined) {
     parts.push(`传授者传法 ${formatComprehensionFactorBonus(breakdown.teacherTransmissionFactor)}`);
   }
+  const ownSpeedRate = Number(breakdown.learnerTransmissionSpeedRate);
+  if (Number.isFinite(ownSpeedRate) && ownSpeedRate > 0) {
+    parts.push(`自身速度 ${formatComprehensionBonusPercent(ownSpeedRate * 100)}`);
+  }
+  const otherSpeedRate = Number(breakdown.teacherTransmissionSpeedRate);
+  if (Number.isFinite(otherSpeedRate) && otherSpeedRate > 0) {
+    parts.push(`对方速度 ${formatComprehensionBonusPercent(otherSpeedRate * 100)}`);
+  } else {
+    const totalSpeedRate = Number(breakdown.transmissionSpeedRate);
+    if (Number.isFinite(totalSpeedRate) && totalSpeedRate > 0 && !(ownSpeedRate > 0)) {
+      parts.push(`传法速度 ${formatComprehensionBonusPercent(totalSpeedRate * 100)}`);
+    }
+  }
   const totalBonus = breakdown.baseProgress > 0
     ? ((breakdown.progressGain / breakdown.baseProgress) - 1) * 100
     : 0;

@@ -54,7 +54,8 @@
           "properties": {
             "capacity": { "type": "integer", "minimum": 1 }
           }
-        }
+        },
+        "craftEffectStats": { "type": "object" }
       }
     },
     "fengShuiRule": {
