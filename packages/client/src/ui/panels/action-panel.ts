@@ -1469,24 +1469,189 @@ export class ActionPanel {
   /** 渲染出手力度分段横条。 */
   private renderAttackIntensityControl(): string {
     const active = normalizeCombatAttackIntensity(this.combatAttackIntensity);
+    
+    // 生成 12 成万剑归宗的随机飞剑粒子
+    let domainHtml = '';
+    for (let i = 0; i < 45; i++) {
+      const isRightToLeft = Math.random() > 0.5;
+      const startX = isRightToLeft ? '110%' : '-10%';
+      const endX = isRightToLeft ? '-10%' : '110%';
+      const yOffset = (Math.random() * 80 + 10) + '%';
+      const scale = (Math.random() * 0.4 + 0.3).toFixed(2);
+      const duration = (Math.random() * 0.8 + 0.4).toFixed(2);
+      const delay = (Math.random() * 1.5).toFixed(2);
+      const opacity = (Math.random() * 0.6 + 0.4).toFixed(2);
+      const color = isRightToLeft ? '#ff4d4d' : '#ff7676';
+      const angle = isRightToLeft ? '180deg' : '0deg';
+      
+      domainHtml += `
+        <svg class="mini-arrow" style="
+          --start-x: ${startX}; --end-x: ${endX}; --y-offset: ${yOffset}; 
+          --scale: ${scale}; --duration: ${duration}s; --delay: ${delay}s;
+          --max-opacity: ${opacity}; --angle: ${angle};
+        " viewBox="0 0 100 20">
+          <path d="M 0 10 L 80 0 L 100 10 L 80 20 Z" fill="${color}"/>
+          <path d="M 20 5 L 20 15" stroke="#333" stroke-width="2"/>
+        </svg>
+      `;
+    }
+
+    // 翻译按钮标签和成数 (1成=封, 3成=刃, 7成=芒, 10成=御, 12成=极)
+    const labelsMap: Record<number, string> = {
+      1: '封',
+      3: '刃',
+      7: '芒',
+      10: '御',
+      12: '极'
+    };
+
     return `
-      <div class="attack-intensity-control" role="group" aria-label="${t('action.attack-intensity.title', undefined)}">
-        <div class="attack-intensity-head">
-          <div class="attack-intensity-title">${t('action.attack-intensity.title', undefined)}</div>
+      <div class="attack-intensity-control state-${active}" role="group" aria-label="${t('action.attack-intensity.title', undefined)}">
+        <!-- 头部信息 -->
+        <div class="mystic-force-header">
+          <div class="mystic-force-title-container">
+            <div class="mystic-force-icon"></div>
+            <div class="mystic-force-title">${t('action.attack-intensity.title', undefined)}</div>
+          </div>
         </div>
-        <div class="attack-intensity-track">
-          ${COMBAT_ATTACK_INTENSITY_OPTIONS.map((value) => `
-            <button
-              class="attack-intensity-segment attack-intensity-segment--${value} ${value === active ? 'active' : ''}"
-              data-attack-intensity="${value}"
-              data-intensity-label="${t('action.attack-intensity.option', { value })}"
-              type="button"
-              aria-label="${t('action.attack-intensity.option', { value })}"
-              aria-pressed="${value === active ? 'true' : 'false'}"
-            >
-              <span>${value}</span>
-            </button>
-          `).join('')}
+
+        <div class="mystic-sword-box" id="swordBox">
+          <!-- 特殊背景光效层 -->
+          <div class="mystic-box-glow-effect glow-state-${active}" id="boxGlow"></div>
+
+          <!-- 万剑大阵：覆盖整个横条 -->
+          <div class="mystic-sword-domain" id="swordDomain">
+            ${domainHtml}
+          </div>
+
+          <!-- 武器层 -->
+          <div class="mystic-weapon-layer">
+            <!-- 剑身: 剑柄在右，剑刃指向左 -->
+            <div class="mystic-sword-body">
+              <svg viewBox="0 0 1000 200" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <linearGradient id="metal-light" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="#ffffff"/>
+                    <stop offset="30%" stop-color="#e8ebf0"/>
+                    <stop offset="100%" stop-color="#b8bec7"/>
+                  </linearGradient>
+                  <linearGradient id="metal-dark" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="#9fa5ad"/>
+                    <stop offset="70%" stop-color="#6a727d"/>
+                    <stop offset="100%" stop-color="#3d444d"/>
+                  </linearGradient>
+                  <linearGradient id="gold-grad" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stop-color="#8a6f1d"/>
+                    <stop offset="20%" stop-color="#ffe89e"/>
+                    <stop offset="45%" stop-color="#d4af37"/>
+                    <stop offset="55%" stop-color="#fdf0cd"/>
+                    <stop offset="80%" stop-color="#d4af37"/>
+                    <stop offset="100%" stop-color="#5c4910"/>
+                  </linearGradient>
+                  <linearGradient id="jade-grad" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stop-color="#a3e2c9"/>
+                    <stop offset="50%" stop-color="#3a9668"/>
+                    <stop offset="100%" stop-color="#144027"/>
+                  </linearGradient>
+                  <linearGradient id="tassel-grad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="#ff5e5e"/>
+                    <stop offset="50%" stop-color="#cc0000"/>
+                    <stop offset="100%" stop-color="#660000"/>
+                  </linearGradient>
+                  <pattern id="cord-wrap" width="8" height="18" patternUnits="userSpaceOnUse">
+                    <path d="M 0 0 L 4 9 L 0 18 L 4 18 L 8 9 L 4 0 Z" fill="#991f1f" stroke="#4d0f0f" stroke-width="0.3"/>
+                    <path d="M 4 0 L 8 9 L 4 18 L 0 9 Z" fill="#1b1c1e" stroke="#000000" stroke-width="0.3"/>
+                  </pattern>
+                </defs>
+
+                <g id="main-sword-geom">
+                  <path d="M 733 100 L 733 88 L 90 88 L 50 100 Z" fill="url(#metal-light)"/>
+                  <path d="M 733 100 L 733 112 L 90 112 L 50 100 Z" fill="url(#metal-dark)"/>
+                  <path d="M 733 100 L 50 100" stroke="#ffffff" stroke-width="1.2" opacity="0.9"/>
+                  <path class="sword-runes" d="M 680 100 L 220 100" stroke="#6cf" stroke-width="1.5" stroke-dasharray="10 5 3 5" fill="none" opacity="0.8" />
+                  <path d="M 743 76 L 743 124 L 733 124 L 733 76 Z" fill="url(#gold-grad)" stroke="#4d3b0e" stroke-width="1"/>
+                  <line x1="738" y1="76" x2="738" y2="124" stroke="#4d3b0e" stroke-width="1"/>
+                  <circle cx="738" cy="100" r="4" fill="#e61d1d" stroke="#ffe89e" stroke-width="0.6"/>
+                  <rect x="743" y="91" width="137" height="18" rx="2" fill="url(#cord-wrap)"/>
+                  <circle cx="888" cy="100" r="9" fill="url(#gold-grad)" stroke="#4d3b0e" stroke-width="1"/>
+                  <circle cx="888" cy="100" r="4.5" fill="#e61d1d"/>
+                </g>
+
+                <g class="tassel-sway">
+                  <path d="M 897 100 Q 920 112, 932 125" fill="none" stroke="url(#tassel-grad)" stroke-width="3.0" stroke-linecap="round"/>
+                  <circle cx="932" cy="125" r="6" fill="url(#jade-grad)" stroke="#144027" stroke-width="1"/>
+                  <circle cx="932" cy="125" r="2.5" fill="#ffe89e"/>
+                  <path d="M 932 131 C 928 144, 920 174, 925 194 M 932 131 C 932 149, 935 177, 937 196 M 932 131 C 936 144, 945 174, 942 193" fill="none" stroke="url(#tassel-grad)" stroke-width="1.8" stroke-linecap="round" opacity="0.95"/>
+                </g>
+              </svg>
+            </div>
+            
+            <!-- 剑鞘 -->
+            <div class="mystic-sheath-body">
+              <svg viewBox="0 0 1000 200" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <linearGradient id="wood-grad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="#140b05"/>
+                    <stop offset="25%" stop-color="#2c1a10"/>
+                    <stop offset="50%" stop-color="#20120b"/>
+                    <stop offset="75%" stop-color="#3b2316"/>
+                    <stop offset="100%" stop-color="#0f0703"/>
+                  </linearGradient>
+                  <linearGradient id="gold-grad-s" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stop-color="#8a6f1d"/>
+                    <stop offset="30%" stop-color="#ffe89e"/>
+                    <stop offset="50%" stop-color="#d4af37"/>
+                    <stop offset="100%" stop-color="#5c4910"/>
+                  </linearGradient>
+                  <linearGradient id="jade-grad-s" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stop-color="#a3e2c9"/>
+                    <stop offset="50%" stop-color="#3a9668"/>
+                    <stop offset="100%" stop-color="#144027"/>
+                  </linearGradient>
+                  <linearGradient id="tassel-grad-s" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="#ff5e5e"/>
+                    <stop offset="100%" stop-color="#660000"/>
+                  </linearGradient>
+                </defs>
+
+                <g id="main-sheath-geom">
+                  <path d="M 733 100 L 733 85 L 85 85 L 30 100 Z" fill="url(#wood-grad)" stroke="#1a0d06" stroke-width="0.5"/>
+                  <path d="M 733 100 L 733 115 L 85 115 L 30 100 Z" fill="url(#wood-grad)" stroke="#1a0d06" stroke-width="0.5"/>
+                  <path d="M 733 82 L 733 118 L 700 115 L 700 85 Z" fill="url(#gold-grad-s)" stroke="#4d3b0e" stroke-width="1"/>
+                  <rect x="708" y="93" width="8" height="14" rx="1" fill="url(#jade-grad-s)" stroke="#144027" stroke-width="0.5"/>
+                  <path d="M 100 85 L 30 100 L 100 115 L 85 100 Z" fill="url(#gold-grad-s)" stroke="#4d3b0e" stroke-width="1"/>
+                  <rect x="495" y="86" width="15" height="28" fill="url(#gold-grad-s)" stroke="#4d3b0e" stroke-width="0.5"/>
+                  <circle cx="502" cy="114" r="4" fill="none" stroke="url(#gold-grad-s)" stroke-width="1.5"/>
+                  <rect x="295" y="87" width="15" height="26" fill="url(#gold-grad-s)" stroke="#4d3b0e" stroke-width="0.5"/>
+                  <circle cx="302" cy="113" r="4" fill="none" stroke="url(#gold-grad-s)" stroke-width="1.5"/>
+                  <path d="M 302 113 Q 400 132, 502 114" fill="none" stroke="url(#tassel-grad-s)" stroke-width="2.5" stroke-linecap="round"/>
+                </g>
+
+                <g class="pendant-sway">
+                  <path d="M 302 113 L 302 136" stroke="url(#tassel-grad-s)" stroke-width="1.8" stroke-linecap="round"/>
+                  <circle cx="302" cy="145" r="9" fill="url(#jade-grad-s)" stroke="#144027" stroke-width="1"/>
+                  <circle cx="302" cy="145" r="3" fill="none" stroke="url(#gold-grad-s)" stroke-width="1.2"/>
+                  <path d="M 302 155 L 302 174" stroke="url(#tassel-grad-s)" stroke-width="2.5" stroke-linecap="round"/>
+                  <path d="M 300 174 L 297 190 M 302 174 L 302 193 M 304 174 L 307 190" stroke="url(#tassel-grad-s)" stroke-width="1.2" opacity="0.9"/>
+                </g>
+              </svg>
+            </div>
+          </div>
+
+          <!-- 点击档位按钮 -->
+          <div class="mystic-seal-bar">
+            ${COMBAT_ATTACK_INTENSITY_OPTIONS.map((value) => `
+              <button
+                class="mystic-seal-node mystic-seal--${value} ${value === active ? 'active' : ''}"
+                data-attack-intensity="${value}"
+                type="button"
+                aria-label="${t('action.attack-intensity.option', { value })}"
+                aria-pressed="${value === active ? 'true' : 'false'}"
+              >
+                ${labelsMap[value]} <span>${value}成</span>
+              </button>
+            `).join('')}
+          </div>
         </div>
       </div>
     `;

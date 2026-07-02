@@ -8997,159 +8997,340 @@
       box-shadow: inset 0 -2px 0 rgba(120, 167, 84, 0.75);
     }
     .attack-intensity-control {
-      display: grid;
-      gap: 10px;
-      margin-top: 12px;
-      padding: 11px 12px 12px;
-      border: 1px solid rgba(34, 26, 19, 0.12);
-      background: var(--surface-muted-strong);
+      --panel-border-color: #c7b39b;
+      --panel-bg: linear-gradient(180deg, #fbfaf7, #f3efe6);
+      --text-color-title: #3c352e;
+      --text-color-label: #6e6155;
+      
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 10px 18px 18px;
+      border: 1px solid var(--panel-border-color);
+      background: var(--panel-bg);
+      position: relative;
+      border-radius: 4px;
+      user-select: none;
+      box-shadow: inset 0 0 35px rgba(199, 179, 155, 0.15), 0 4px 15px rgba(34, 26, 19, 0.05);
     }
-    .attack-intensity-head {
+
+    .mystic-force-header {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 0;
+      z-index: 2;
+      margin-bottom: 2px;
+    }
+    .mystic-force-title-container {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .mystic-force-icon {
+      width: 12px;
+      height: 12px;
+      border: 1px solid var(--panel-border-color);
+      border-radius: 50%;
+      background: linear-gradient(90deg, var(--text-color-title) 50%, transparent 50%);
+      animation: spin-slow 8s linear infinite;
+      position: relative;
+    }
+    .mystic-force-icon::before, .mystic-force-icon::after {
+      content: "";
+      position: absolute;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      left: 3px;
+    }
+    .mystic-force-icon::before { top: 0; background: var(--text-color-title); }
+    .mystic-force-icon::after { bottom: 0; background: #faf9f6; }
+    :root[data-color-mode="dark"] .mystic-force-icon::after { background: #191c1a; }
+
+    @keyframes spin-slow {
+      100% { transform: rotate(360deg); }
+    }
+
+    .mystic-force-title {
+      font-family: 'Noto Serif SC', 'Songti SC', 'STSong', serif;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-color-title);
+      letter-spacing: 1px;
+    }
+
+    .mystic-sword-box {
+      position: relative;
+      height: 190px;
+      margin: 5px 0;
       display: flex;
       align-items: center;
       justify-content: center;
+      overflow: hidden;
+      border-radius: 4px;
+      border: 1px dashed rgba(199, 179, 155, 0.25);
+      background: rgba(34, 26, 19, 0.02);
+      transition: box-shadow 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+      z-index: 1;
     }
-    .attack-intensity-title {
-      font-size: var(--font-size-13);
-      font-weight: 700;
-      color: var(--ink-black);
+
+    .mystic-box-glow-effect {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0;
+      transition: opacity 0.6s ease;
     }
-    .attack-intensity-track {
+
+    /* 1成：普通内阴影 */
+    .attack-intensity-control.state-1 .mystic-sword-box { box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.15); }
+    
+    /* 3成：碧水清芒流光 */
+    .attack-intensity-control.state-3 .mystic-sword-box { box-shadow: inset 0 0 25px rgba(67, 143, 128, 0.45); }
+    .glow-state-3 {
+      opacity: 1;
+      background: linear-gradient(90deg, transparent, rgba(67, 143, 128, 0.18), transparent);
+      background-size: 200% 100%;
+      animation: flow-left-to-right 3s linear infinite;
+    }
+
+    /* 7成：九天金雷闪烁 */
+    .attack-intensity-control.state-7 .mystic-sword-box { box-shadow: inset 0 0 35px rgba(181, 131, 42, 0.55); }
+    .glow-state-7 {
+      opacity: 1;
+      background: linear-gradient(90deg, transparent, rgba(181, 131, 42, 0.22), transparent);
+      background-size: 200% 100%;
+      animation: flow-left-to-right 2s linear infinite, lightning-flicker 5s ease-in-out infinite;
+    }
+
+    /* 10成：真火熔岩律动 */
+    .attack-intensity-control.state-10 .mystic-sword-box { box-shadow: inset 0 0 45px rgba(175, 67, 41, 0.65); }
+    .glow-state-10 {
+      opacity: 1;
+      background: 
+        radial-gradient(circle at 30% 50%, rgba(175, 67, 41, 0.18) 0%, transparent 65%),
+        radial-gradient(circle at 70% 50%, rgba(220, 100, 50, 0.12) 0%, transparent 65%);
+      animation: flame-pulse 2.5s ease-in-out infinite alternate;
+    }
+
+    /* 12成：寂灭虚空扭曲 */
+    .attack-intensity-control.state-12 .mystic-sword-box { box-shadow: inset 0 0 60px rgba(170, 17, 17, 0.85); }
+    .glow-state-12 {
+      opacity: 1;
+      background: 
+        radial-gradient(circle at 50% 50%, rgba(170, 17, 17, 0.3) 0%, transparent 75%),
+        linear-gradient(to right, rgba(170, 17, 17, 0.08) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(170, 17, 17, 0.08) 1px, transparent 1px);
+      background-size: 100% 100%, 24px 24px, 24px 24px;
+      animation: space-tear 12s linear infinite;
+    }
+
+    @keyframes flow-left-to-right {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+    @keyframes lightning-flicker {
+      0%, 90%, 94%, 98%, 100% { background-color: transparent; }
+      92%, 96% { background-color: rgba(255, 230, 150, 0.1); }
+    }
+    @keyframes flame-pulse {
+      0% { transform: scale(1); opacity: 0.7; }
+      100% { transform: scale(1.08); opacity: 1; }
+    }
+    @keyframes space-tear {
+      0% { background-position: 0 0, 0 0, 0 0; }
+      100% { background-position: 0 0, 48px 0, 0 48px; }
+    }
+
+    .mystic-weapon-layer {
+      position: absolute;
+      width: 90%;
+      height: 120px;
+      top: 10px;
+      z-index: 2;
+      pointer-events: none;
+    }
+
+    .mystic-sword-body, .mystic-sheath-body {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    .mystic-sword-body svg, .mystic-sheath-body svg {
+      width: 100%;
+      height: 100%;
+      transition: all 0.4s ease;
+      overflow: visible;
+    }
+
+    .mystic-sheath-body {
+      z-index: 3;
+      transform-origin: left center;
+      transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s;
+    }
+
+    @keyframes sway {
+      0% { transform: rotate(-15deg); }
+      50% { transform: rotate(15deg); }
+      100% { transform: rotate(-15deg); }
+    }
+    .tassel-sway {
+      transform-origin: 890px 100px;
+      animation: sway 2.4s ease-in-out infinite;
+    }
+
+    @keyframes pendant-sway-anim {
+      0% { transform: rotate(-12deg); }
+      50% { transform: rotate(12deg); }
+      100% { transform: rotate(-12deg); }
+    }
+    .pendant-sway {
+      transform-origin: 302px 109px;
+      animation: pendant-sway-anim 3.0s ease-in-out infinite;
+    }
+
+    @keyframes rune-pulse {
+      0% { stroke-width: 1.2px; opacity: 0.6; }
+      50% { stroke-width: 2.0px; opacity: 1; filter: drop-shadow(0 0 3px var(--rune-glow)); }
+      100% { stroke-width: 1.2px; opacity: 0.6; }
+    }
+    .sword-runes {
+      animation: rune-pulse 2s infinite;
+    }
+
+    .mystic-sword-domain {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 1;
+      opacity: 0;
+      transition: opacity 0.5s;
+    }
+    .mini-arrow {
+      position: absolute;
+      width: 30px;
+      height: 6px;
+      top: var(--y-offset);
+      transform: rotate(var(--angle)) scale(var(--scale));
+      opacity: 0;
+      pointer-events: none;
+    }
+    .state-12 .mini-arrow {
+      animation: fly-sword var(--duration) linear infinite;
+      animation-delay: var(--delay);
+    }
+    @keyframes fly-sword {
+      0% { left: var(--start-x); opacity: 0; }
+      15% { opacity: var(--max-opacity); }
+      85% { opacity: var(--max-opacity); }
+      100% { left: var(--end-x); opacity: 0; }
+    }
+    @keyframes shake {
+      0% { transform: translate(1px, 1px) rotate(0deg); }
+      20% { transform: translate(-1px, -1px) rotate(-0.5deg); }
+      40% { transform: translate(1px, -1px) rotate(0.5deg); }
+      60% { transform: translate(-1px, 1px) rotate(0deg); }
+      80% { transform: translate(1px, 1px) rotate(0.5deg); }
+      100% { transform: translate(0px, 0px) rotate(-0.5deg); }
+    }
+
+    .mystic-seal-bar {
+      position: absolute;
+      bottom: 15px;
+      left: 6%;
+      right: 6%;
       display: grid;
       grid-template-columns: repeat(5, minmax(0, 1fr));
-      align-items: start;
-      position: relative;
-      min-height: 62px;
-      padding: 2px 8px 0;
-      isolation: isolate;
+      gap: 6px;
+      z-index: 5;
     }
-    .attack-intensity-track::before {
-      content: "";
-      position: absolute;
-      left: calc(10% + 8px);
-      right: calc(10% + 8px);
-      top: 21px;
-      height: 3px;
-      border-radius: 999px;
-      background: linear-gradient(90deg, rgba(96, 154, 137, 0.42), rgba(128, 167, 86, 0.46), rgba(211, 151, 64, 0.54), rgba(178, 77, 55, 0.62), rgba(125, 27, 27, 0.72));
-      box-shadow: 0 1px 0 rgba(255, 251, 244, 0.75);
-      z-index: 0;
-    }
-    .attack-intensity-segment {
-      --attack-intensity-color: #6c897f;
-      --attack-intensity-bg: rgba(108, 137, 127, 0.12);
-      --attack-intensity-ring: rgba(108, 137, 127, 0.24);
-      display: grid;
-      place-items: center;
+    .mystic-seal-node {
       justify-self: center;
-      position: relative;
-      z-index: 1;
-      width: 38px;
-      height: 38px;
-      min-width: 38px;
-      padding: 0;
-      border: 0;
-      border-radius: 999px;
-      background: var(--attack-intensity-bg);
-      color: var(--attack-intensity-color);
-      font-size: var(--font-size-12);
-      line-height: 1.2;
-      cursor: pointer;
-      transition: transform 120ms ease, box-shadow 120ms ease, background 120ms ease, color 120ms ease;
-    }
-    .attack-intensity-segment::before {
-      content: "";
-      position: absolute;
-      inset: 6px;
-      border-radius: inherit;
-      background: linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(255, 255, 255, 0.18));
-      box-shadow: inset 0 0 0 1px var(--attack-intensity-ring), 0 2px 8px rgba(34, 26, 19, 0.08);
-    }
-    .attack-intensity-segment::after {
-      content: attr(data-intensity-label);
-      position: absolute;
-      left: 50%;
-      top: 42px;
-      transform: translateX(-50%);
-      color: var(--ink-grey);
-      font-size: var(--font-size-11);
-      white-space: nowrap;
-    }
-    .attack-intensity-segment:hover {
-      transform: translateY(-1px);
-      color: var(--ink-black);
-    }
-    .attack-intensity-segment.active {
-      color: #fffaf0;
-      transform: translateY(-2px) scale(1.08);
-      box-shadow: 0 0 0 5px var(--attack-intensity-bg), 0 8px 18px rgba(34, 26, 19, 0.14);
-    }
-    .attack-intensity-segment.active::before {
-      inset: 4px;
-      background: radial-gradient(circle at 35% 28%, rgba(255, 255, 255, 0.74), rgba(255, 255, 255, 0.14) 36%, var(--attack-intensity-color) 70%);
-      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.38), 0 0 14px var(--attack-intensity-ring);
-    }
-    .attack-intensity-segment--1 {
-      --attack-intensity-color: #65998f;
-      --attack-intensity-bg: rgba(101, 153, 143, 0.14);
-      --attack-intensity-ring: rgba(101, 153, 143, 0.34);
-    }
-    .attack-intensity-segment--1.active {
-      box-shadow: 0 0 0 5px rgba(101, 153, 143, 0.12), 0 6px 16px rgba(101, 153, 143, 0.18);
-    }
-    .attack-intensity-segment--3 {
-      --attack-intensity-color: #6d9f5d;
-      --attack-intensity-bg: rgba(109, 159, 93, 0.15);
-      --attack-intensity-ring: rgba(109, 159, 93, 0.36);
-    }
-    .attack-intensity-segment--7 {
-      --attack-intensity-color: #c4923a;
-      --attack-intensity-bg: rgba(196, 146, 58, 0.17);
-      --attack-intensity-ring: rgba(196, 146, 58, 0.42);
-    }
-    .attack-intensity-segment--10 {
-      --attack-intensity-color: #b45137;
-      --attack-intensity-bg: rgba(180, 81, 55, 0.18);
-      --attack-intensity-ring: rgba(180, 81, 55, 0.48);
-    }
-    .attack-intensity-segment--12 {
-      --attack-intensity-color: #9b1f1f;
-      --attack-intensity-bg: rgba(155, 31, 31, 0.2);
-      --attack-intensity-ring: rgba(155, 31, 31, 0.56);
-    }
-    .attack-intensity-segment--12.active {
-      transform: translateY(-2px) scale(1.14);
-      box-shadow: 0 0 0 6px rgba(155, 31, 31, 0.16), 0 10px 22px rgba(125, 27, 27, 0.28), 0 0 24px rgba(196, 58, 46, 0.24);
-    }
-    .attack-intensity-segment--12.active::before {
-      background: radial-gradient(circle at 32% 24%, rgba(255, 231, 188, 0.88), rgba(255, 120, 72, 0.36) 34%, #9b1f1f 72%);
-      box-shadow: inset 0 0 0 1px rgba(255, 210, 168, 0.58), 0 0 16px rgba(196, 58, 46, 0.5);
-    }
-    .attack-intensity-segment span {
-      position: relative;
-      z-index: 1;
+      width: auto;
+      padding: 0 10px;
+      height: 28px;
+      border-radius: 14px;
+      border: 1px solid var(--panel-border-color);
+      background: var(--surface-card, #faf9f6);
+      color: var(--text-color-label);
+      font-family: 'Noto Serif SC', 'Songti SC', 'STSong', serif;
+      font-size: 10px;
       font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.06);
+      transition: all 0.25s ease;
+      white-space: nowrap;
+      pointer-events: auto;
     }
+    .mystic-seal-node span {
+      font-family: var(--font-sans);
+      font-size: 8px;
+      font-weight: 500;
+      opacity: 0.7;
+    }
+    .mystic-seal-node:hover {
+      transform: translateY(-1.5px);
+      border-color: var(--seal-active-color);
+    }
+    .mystic-seal-node.active {
+      color: #fff;
+      background: var(--seal-active-color);
+      border-color: transparent;
+      transform: scale(1.05) translateY(-1.5px);
+      box-shadow: 0 0 8px var(--seal-glow-color);
+    }
+    .mystic-seal-node.active span {
+      color: #fff;
+      opacity: 0.9;
+    }
+
+    .mystic-seal--1 { --seal-active-color: #438f80; --seal-glow-color: rgba(67, 143, 128, 0.45); }
+    .mystic-seal--3 { --seal-active-color: #559143; --seal-glow-color: rgba(85, 145, 67, 0.45); }
+    .mystic-seal--7 { --seal-active-color: #b5832a; --seal-glow-color: rgba(181, 131, 42, 0.45); }
+    .mystic-seal--10 { --seal-active-color: #af4329; --seal-glow-color: rgba(175, 67, 41, 0.45); }
+    .mystic-seal--12 { --seal-active-color: #aa1111; --seal-glow-color: rgba(170, 17, 17, 0.55); }
+
+    /* 状态驱动过渡 */
+    .state-3 .mystic-sheath-body { transform: translateX(-15%); }
+    .state-7 .mystic-sheath-body { transform: translateX(-40%); }
+    .state-10 .mystic-sheath-body { transform: translateX(-75%); opacity: 0.6; }
+    .state-12 .mystic-sheath-body { transform: translateX(-80%); opacity: 0; }
+    .state-12 .mystic-sword-body { animation: shake 0.2s infinite; }
+    .state-12 .mystic-sword-domain { opacity: 1; }
+
+    @media (max-width: 480px) {
+      .mystic-seal-node {
+        padding: 0 4px;
+        font-size: 9px;
+        gap: 1px;
+      }
+      .mystic-seal-node span {
+        font-size: 7px;
+      }
+    }
+
+    /* 暗色模式适配 */
     :root[data-color-mode="dark"] .attack-intensity-control {
-      border-color: rgba(255, 255, 255, 0.08);
-      background: rgba(22, 25, 22, 0.86);
+      --panel-border-color: #4a4135;
+      --panel-bg: linear-gradient(180deg, #151816, #1c1e1c);
+      --text-color-title: #d5c8bb;
+      --text-color-label: #a39587;
     }
-    :root[data-color-mode="dark"] .attack-intensity-title {
-      color: rgba(255, 251, 244, 0.9);
+    :root[data-color-mode="dark"] .mystic-sword-box {
+      border-color: rgba(74, 65, 53, 0.3);
+      background: rgba(0,0,0,0.2);
     }
-    :root[data-color-mode="dark"] .attack-intensity-track::before {
-      background: linear-gradient(90deg, rgba(121, 186, 170, 0.36), rgba(139, 191, 103, 0.42), rgba(218, 159, 72, 0.5), rgba(196, 92, 72, 0.58), rgba(220, 65, 54, 0.7));
-      box-shadow: 0 1px 0 rgba(0, 0, 0, 0.42);
-    }
-    :root[data-color-mode="dark"] .attack-intensity-segment::before {
-      background: linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.04));
-      box-shadow: inset 0 0 0 1px var(--attack-intensity-ring), 0 2px 10px rgba(0, 0, 0, 0.32);
-    }
-    :root[data-color-mode="dark"] .attack-intensity-segment::after {
-      color: rgba(232, 226, 214, 0.68);
-    }
-    :root[data-color-mode="dark"] .attack-intensity-segment.active {
-      color: #fff7e8;
+    :root[data-color-mode="dark"] .mystic-seal-node {
+      background: #232624;
+      border-color: #554a3b;
     }
     .auto-pill-shell {
       display: flex;
