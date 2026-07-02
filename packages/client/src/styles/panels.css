@@ -9062,7 +9062,7 @@
 
     .mystic-sword-box {
       position: relative;
-      height: 190px;
+      height: 100px;
       margin: 5px 0;
       display: flex;
       align-items: center;
@@ -9147,8 +9147,8 @@
     .mystic-weapon-layer {
       position: absolute;
       width: 90%;
-      height: 120px;
-      top: 10px;
+      height: 90px;
+      top: 5px;
       z-index: 2;
       pointer-events: none;
     }
@@ -9240,7 +9240,7 @@
 
     .mystic-seal-bar {
       position: absolute;
-      bottom: 15px;
+      bottom: 8px;
       left: 6%;
       right: 6%;
       display: grid;
@@ -9251,21 +9251,21 @@
     .mystic-seal-node {
       justify-self: center;
       width: auto;
-      padding: 0 10px;
-      height: 28px;
-      border-radius: 14px;
+      padding: 0 8px;
+      height: 24px;
+      border-radius: 12px;
       border: 1px solid var(--panel-border-color);
       background: var(--surface-card, #faf9f6);
       color: var(--text-color-label);
       font-family: 'Noto Serif SC', 'Songti SC', 'STSong', serif;
-      font-size: 10px;
+      font-size: 9px;
       font-weight: 700;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 3px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.06);
+      gap: 2px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
       transition: all 0.25s ease;
       white-space: nowrap;
       pointer-events: auto;

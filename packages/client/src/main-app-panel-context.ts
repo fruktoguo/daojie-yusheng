@@ -124,6 +124,7 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
     openTechniqueActivity: (kind) => techniqueActivityOpeners[kind](),
     openBuildingPanel: () => buildingFengShuiStateSource.openBuildingPanel(),
     openTransmissionPanel: () => craftWorkbenchModal.openTransmission(),
+    openTechniqueRefiningPanel: () => craftWorkbenchModal.openTechniqueRefining(),
     openScripturePlatformRecordingModal: (buildingId) => openScripturePlatformRecordingModal({ buildingId, getPlayer: () => rootRuntimeSource.getPlayer(), sendAction: (actionId) => runtimeSender.sendAction(actionId), showToast: (message, kind) => callbacks.showToast(message, kind) }),
     openTreasureVault: (buildingId) => socialStateSource.openTreasureVault(buildingId),
     openWorldMigrationModal: () => openWorldMigrationModal({

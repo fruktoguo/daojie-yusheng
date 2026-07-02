@@ -526,6 +526,7 @@ type MainBootstrapAssemblyOptions = {
     | 'sendSetArtifactSlotEnabled'
     | 'sendRequestLeaderboard'
     | 'sendRequestWorldSummary'
+    | 'sendDestroyItem'
   >;
   /**
  * socialEconomySender：socialEconomySender相关字段。

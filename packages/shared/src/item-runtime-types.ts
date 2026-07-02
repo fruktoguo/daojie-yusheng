@@ -854,6 +854,7 @@ export interface Inventory {
  * items：集合字段。
  */
 
+  revision?: number;
   items: ItemStack[];  
   /**
  * capacity：capacity相关字段。

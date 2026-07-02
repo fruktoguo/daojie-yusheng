@@ -98,10 +98,11 @@ type CraftWorkbenchCallbacks = {
   onCancelEnhancement: () => void;
   onStartTransmission?: (learnerPlayerId: string, techId: string, options?: { mode?: 'transmission' | 'craft_book'; maxLevel?: number }) => void;
   onCancelTransmission?: (techId: string) => void;
+  onDecomposeTechniqueBook?: (itemInstanceId: string, count: number) => void;
   getTransmissionTargets?: () => Array<{ playerId: string; name: string }>;
 };
 
-type CraftMode = 'alchemy' | 'forging' | 'enhancement' | 'transmission' | null;
+type CraftMode = 'alchemy' | 'forging' | 'enhancement' | 'transmission' | 'technique_refining' | null;
 type AlchemyTab = 'full' | 'simple';
 type AlchemyRealmTab = 'mortal' | 'qi' | 'foundation';
 type AlchemyMaterialPickerSortKey = 'name' | 'level' | 'grade' | 'metal' | 'wood' | 'water' | 'fire' | 'earth' | 'count';
@@ -589,6 +590,8 @@ export class CraftWorkbenchModal {
   private transmissionTechniques: PlayerState['techniques'] = [];
   private pendingTechniqueComprehensions: PlayerState['pendingTechniqueComprehensions'] = [];
   private lastTransmissionRenderKey: string | null = null;
+  private selectedTechniqueBookIds = new Set<string>();
+  private selectedTechniqueBookCount = 1;
   private playerRealmLv: number | null = null;
   private inventory: PlayerState['inventory'] = { items: [], capacity: 0 };
   private equipment: EquipmentSlots = createEmptyEquipmentSlots();
@@ -755,6 +758,14 @@ export class CraftWorkbenchModal {
   openTransmission(): void {
     this.activeMode = 'transmission';
     this.loading = false;
+    this.render();
+  }
+
+  openTechniqueRefining(): void {
+    this.activeMode = 'technique_refining';
+    this.loading = false;
+    this.selectedTechniqueBookIds.clear();
+    this.selectedTechniqueBookCount = 1;
     this.render();
   }
 
@@ -1570,6 +1581,14 @@ export class CraftWorkbenchModal {
         body: this.renderCraftBody(),
       };
     }
+    if (this.activeMode === 'technique_refining') {
+      return {
+        title: t('craft.workbench.modal.title'),
+        subtitle: this.getCraftSubtitle(),
+        variantClass: 'detail-modal--craft detail-modal--craft-transmission detail-modal--craft-technique-refining',
+        body: this.renderCraftBody(),
+      };
+    }
     return null;
   }
 
@@ -1585,6 +1604,9 @@ export class CraftWorkbenchModal {
     }
     if (this.activeMode === 'transmission') {
       return '功法领悟与传授';
+    }
+    if (this.activeMode === 'technique_refining') {
+      return '功法书分解与制造';
     }
     return t('craft.workbench.modal.subtitle.default');
   }
@@ -1619,6 +1641,9 @@ export class CraftWorkbenchModal {
     if (this.activeMode === 'transmission') {
       this.lastTransmissionRenderKey = this.buildTransmissionRenderKey();
       return this.renderTransmissionBody();
+    }
+    if (this.activeMode === 'technique_refining') {
+      return this.renderTechniqueRefiningBody();
     }
     return this.renderForgingPlaceholder();
   }
@@ -1720,6 +1745,8 @@ export class CraftWorkbenchModal {
       this.forgingSkillLevel,
       this.enhancementSkillLevel,
       this.buildCraftQueueStructureKey(),
+      this.selectedTechniqueBookIds.size,
+      this.selectedTechniqueBookCount,
     ].join('::');
   }
 
@@ -1745,6 +1772,7 @@ export class CraftWorkbenchModal {
       this.alchemySkillLevel,
       this.forgingSkillLevel,
       this.enhancementSkillLevel,
+      this.inventory.revision ?? 0,
     ].join(':');
   }
 
@@ -1754,6 +1782,7 @@ export class CraftWorkbenchModal {
       { mode: 'forging', label: t('craft.workbench.mode.forging'), note: t('craft.workbench.level.short', { level: formatDisplayInteger(this.forgingSkillLevel) }) },
       { mode: 'enhancement', label: t('craft.workbench.mode.enhancement'), note: t('craft.workbench.level.short', { level: formatDisplayInteger(this.enhancementSkillLevel) }) },
       { mode: 'transmission', label: '传法', note: '功法' },
+      { mode: 'technique_refining', label: '炼法台', note: '残页' },
     ];
     return tabs.map((tab) => `
       <button class="craft-mode-tab ${this.activeMode === tab.mode ? 'active' : ''}" type="button" data-craft-action="switch-craft-mode" data-mode="${tab.mode}" data-guided-tour-craft-mode="${tab.mode}">
@@ -1959,6 +1988,105 @@ export class CraftWorkbenchModal {
     return Math.max(1, ...layerLevels, Math.floor(Number(tech?.level) || 1));
   }
 
+  private renderTechniqueRefiningBody(): string {
+    const books = this.getTechniqueBookInventoryItems();
+    const selectedItems = this.getSelectedTechniqueBookItems();
+    const singleSelected = selectedItems.length === 1 ? selectedItems[0] : null;
+    const maxCount = singleSelected ? Math.max(1, Math.floor(Number(singleSelected.count) || 1)) : 1;
+    if (singleSelected && this.selectedTechniqueBookCount > maxCount) {
+      this.selectedTechniqueBookCount = maxCount;
+    }
+    return `
+      <div class="alchemy-tab-stack" data-technique-refining-panel="true">
+        <section class="alchemy-summary-card">
+          <div class="alchemy-summary-head">
+            <div class="alchemy-summary-title">功法书分解</div>
+            <span class="alchemy-summary-mode">${formatDisplayInteger(books.length)} 种功法书</span>
+          </div>
+          ${books.length > 0 ? `
+            <div class="inventory-grid treasure-vault-inventory-grid">
+              ${books.map((item) => this.renderTechniqueBookCell(item)).join('')}
+            </div>
+          ` : '<div class="empty-hint">背包里暂无可分解功法书</div>'}
+        </section>
+        <section class="alchemy-summary-card">
+          <div class="alchemy-summary-head">
+            <div class="alchemy-summary-title">分解确认</div>
+            <span class="alchemy-summary-mode">${formatDisplayInteger(selectedItems.length)} 种已选</span>
+          </div>
+          ${this.renderTechniqueRefiningSelectionSummary(selectedItems, maxCount)}
+        </section>
+        <section class="alchemy-summary-card">
+          <div class="alchemy-summary-head">
+            <div class="alchemy-summary-title">制造功法书</div>
+            <span class="alchemy-summary-mode">消耗功法残页</span>
+          </div>
+          ${this.renderTransmissionBookCraftPicker(this.transmissionTechniques ?? [])}
+        </section>
+      </div>
+    `;
+  }
+
+  private renderTechniqueBookCell(item: ItemStack): string {
+    const itemInstanceId = this.getItemInstanceId(item);
+    const itemMeta = getItemDisplayMeta(item);
+    const displayName = itemMeta.displayItem.name;
+    const selected = itemInstanceId ? this.selectedTechniqueBookIds.has(itemInstanceId) : false;
+    const gradeLine = itemMeta.gradeLabel ?? getItemTypeLabel(item.type);
+    return `
+      <button class="${getItemDecorClassName(`inventory-cell${selected ? ' active' : ''}`, item)}" type="button" data-craft-action="technique-refining-toggle-book" data-item-instance-id="${escapeHtmlAttr(itemInstanceId)}" aria-label="选择${escapeHtml(displayName)}">
+        <div class="inventory-cell-head">
+          <span class="inventory-cell-type">功法书</span>
+          <span class="inventory-cell-count">${escapeHtml(formatDisplayInteger(Math.max(1, Math.floor(Number(item.count) || 1))))}</span>
+        </div>
+        <span class="inventory-cell-learned-ribbon" ${selected ? '' : 'hidden'}>已选</span>
+        <div class="inventory-cell-grade-line">${escapeHtml(gradeLine)}</div>
+        <div class="inventory-cell-name" aria-label="${escapeHtml(displayName)}">${escapeHtml(displayName)}</div>
+        ${itemMeta.levelLabel ? `<span class="item-card-chip item-card-chip--level">${escapeHtml(itemMeta.levelLabel)}</span>` : ''}
+      </button>
+    `;
+  }
+
+  private renderTechniqueRefiningSelectionSummary(items: ItemStack[], maxCount: number): string {
+    if (items.length === 0) {
+      return '<div class="empty-hint">请选择一个或多个功法书。单选可指定数量，多选会按各自全数分解。</div>';
+    }
+    const isSingle = items.length === 1;
+    const countControls = isSingle ? `
+      <div class="transmission-teach-picker">
+        <span>分解数量</span>
+        <button class="small-btn ghost" type="button" data-craft-action="technique-refining-count" data-count="1">1</button>
+        <button class="small-btn ghost" type="button" data-craft-action="technique-refining-count" data-count="${Math.max(1, Math.ceil(maxCount / 2))}">半数</button>
+        <button class="small-btn ghost" type="button" data-craft-action="technique-refining-count" data-count="${maxCount}">全部</button>
+        <strong>${formatDisplayInteger(Math.max(1, Math.min(maxCount, this.selectedTechniqueBookCount)))}/${formatDisplayInteger(maxCount)}</strong>
+      </div>
+    ` : '<div class="empty-hint">多选模式会分解所选每种功法书的全部数量。</div>';
+    return `
+      <div class="craft-queue-list">
+        ${items.map((item) => `<div class="craft-queue-item"><span>${escapeHtml(getItemTypeLabel(item.type))}</span><strong>${escapeHtml(getItemDisplayName(item))}</strong><em>x${formatDisplayInteger(item.count)}</em></div>`).join('')}
+      </div>
+      ${countControls}
+      <div class="inventory-detail-actions">
+        <div class="inventory-detail-actions-group inventory-detail-actions-group--right">
+          <button class="small-btn danger" type="button" data-craft-action="technique-refining-decompose">确认分解</button>
+        </div>
+      </div>
+    `;
+  }
+
+  private getTechniqueBookInventoryItems(): ItemStack[] {
+    return (this.inventory.items ?? []).filter((item) => item?.type === 'skill_book' && this.getItemInstanceId(item));
+  }
+
+  private getSelectedTechniqueBookItems(): ItemStack[] {
+    const selected = this.selectedTechniqueBookIds;
+    return this.getTechniqueBookInventoryItems().filter((item) => selected.has(this.getItemInstanceId(item)));
+  }
+
+  private getItemInstanceId(item: ItemStack | undefined): string {
+    return typeof item?.itemInstanceId === 'string' && item.itemInstanceId.trim() ? item.itemInstanceId.trim() : '';
+  }
+
   private renderForgingPlaceholder(): string {
     return `
       <div class="craft-placeholder-panel">
@@ -1990,6 +2118,9 @@ export class CraftWorkbenchModal {
     if (this.activeMode === 'transmission') {
       return '传法';
     }
+    if (this.activeMode === 'technique_refining') {
+      return '炼法台';
+    }
     return t('craft.workbench.mode.craft');
   }
 
@@ -2006,6 +2137,9 @@ export class CraftWorkbenchModal {
     if (this.activeMode === 'transmission') {
       return '用于功法领悟与传授。';
     }
+    if (this.activeMode === 'technique_refining') {
+      return '分解功法书为残页，也可以用残页制造指定层数的功法书。';
+    }
     return t('craft.workbench.profession.description.default');
   }
 
@@ -2021,7 +2155,7 @@ export class CraftWorkbenchModal {
     if (this.activeMode === 'enhancement') {
       this.bindEnhancementEvents(body, signal);
     }
-    if (this.activeMode === 'transmission') {
+    if (this.activeMode === 'transmission' || this.activeMode === 'technique_refining') {
       this.bindTransmissionEvents(body, signal);
     }
     if (this.activeMode === 'alchemy' || this.activeMode === 'forging') {
@@ -2049,7 +2183,49 @@ export class CraftWorkbenchModal {
           this.openEnhancement();
         } else if (mode === 'transmission') {
           this.openTransmission();
+        } else if (mode === 'technique_refining') {
+          this.openTechniqueRefining();
         }
+        return;
+      }
+      if (action === 'technique-refining-toggle-book') {
+        const itemInstanceId = (target.dataset.itemInstanceId ?? '').trim();
+        if (!itemInstanceId) {
+          return;
+        }
+        if (this.selectedTechniqueBookIds.has(itemInstanceId)) {
+          this.selectedTechniqueBookIds.delete(itemInstanceId);
+        } else {
+          this.selectedTechniqueBookIds.add(itemInstanceId);
+        }
+        if (this.selectedTechniqueBookIds.size !== 1) {
+          this.selectedTechniqueBookCount = 1;
+        }
+        this.render();
+        return;
+      }
+      if (action === 'technique-refining-count') {
+        const count = Math.max(1, Math.floor(Number(target.dataset.count ?? '1') || 1));
+        this.selectedTechniqueBookCount = count;
+        this.render();
+        return;
+      }
+      if (action === 'technique-refining-decompose') {
+        const selectedItems = this.getSelectedTechniqueBookItems();
+        const isSingle = selectedItems.length === 1;
+        for (const item of selectedItems) {
+          const itemInstanceId = this.getItemInstanceId(item);
+          if (!itemInstanceId) {
+            continue;
+          }
+          const count = isSingle
+            ? Math.max(1, Math.min(Math.floor(Number(item.count) || 1), this.selectedTechniqueBookCount))
+            : Math.max(1, Math.floor(Number(item.count) || 1));
+          this.callbacks?.onDecomposeTechniqueBook?.(itemInstanceId, count);
+        }
+        this.selectedTechniqueBookIds.clear();
+        this.selectedTechniqueBookCount = 1;
+        this.render();
         return;
       }
       if (action === 'cancel-queue-entry') {

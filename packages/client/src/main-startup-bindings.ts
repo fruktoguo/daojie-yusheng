@@ -211,6 +211,7 @@ type MainStartupBindingsOptions = {
  */
 
       onCancelEnhancement: () => void;
+      onDecomposeTechniqueBook?: (itemInstanceId: string, count: number) => void;
     }) => void;
   };
   /**
@@ -327,6 +328,7 @@ type MainStartupBindingsOptions = {
     | 'sendStartEnhancement'
     | 'sendCancelEnhancement'
     | 'sendCancelTechniqueActivity'
+    | 'sendDestroyItem'
   >;
   /**
  * socialEconomySender：socialEconomySender相关字段。
@@ -472,6 +474,7 @@ export function bindMainStartup(options: MainStartupBindingsOptions): void {
     onCancelTechniqueActivity: (cancelRef) => options.panelSender.sendCancelTechniqueActivity(cancelRef),
     onStartEnhancement: (payload) => options.panelSender.sendStartEnhancement(payload),
     onCancelEnhancement: () => options.panelSender.sendCancelEnhancement(),
+    onDecomposeTechniqueBook: (itemInstanceId, count) => options.panelSender.sendDestroyItem(itemInstanceId, count, { mode: 'decompose_technique_book' }),
   });
 
   options.debugPanel.setCallbacks(() => {

@@ -86,6 +86,8 @@ type MainActionStateSourceOptions = {
  */
 
   openTransmissionPanel: () => void;
+  /** openTechniqueRefiningPanel：打开炼法台面板。 */
+  openTechniqueRefiningPanel: () => void;
   /**
  * openScripturePlatformRecordingModal：打开藏经台录入弹层。
  */
@@ -184,6 +186,12 @@ export function createMainActionStateSource(options: MainActionStateSourceOption
         options.cancelTargeting();
         options.hideObserveModal();
         options.openTransmissionPanel();
+        return;
+      }
+      if (actionId === 'technique_refining:open') {
+        options.cancelTargeting();
+        options.hideObserveModal();
+        options.openTechniqueRefiningPanel();
         return;
       }
       if (actionId.startsWith('scripture:record:')) {

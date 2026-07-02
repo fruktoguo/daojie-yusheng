@@ -256,6 +256,18 @@ export class WorldRuntimeContextActionQueryService {
                             });
                         }
                     }
+                    if (building?.defId === 'technique_refining_table' && building?.state === 'active') {
+                        const buildingName = typeof entry?.name === 'string' && entry.name.trim()
+                            ? entry.name.trim()
+                            : '炼法台';
+                        actions.push({
+                            id: 'technique_refining:open',
+                            name: `炼法：${buildingName}`,
+                            type: 'interact',
+                            desc: '打开炼法台，选择背包内功法书分解为功法残页，或制造指定层数的功法书。',
+                            cooldownLeft: 0,
+                        });
+                    }
                     continue;
                 }
                 const remainingTicks = Math.max(1, Math.trunc(Number(entry?.remainingTicks ?? building.buildRemainingTicks ?? building.buildStrength ?? 1)));

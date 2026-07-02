@@ -7,7 +7,7 @@ import { memo, useLayoutEffect } from 'react';
 import { createPanelStore } from '../../stores/create-panel-store';
 
 export interface ReactCraftWorkbenchState {
-  activeMode: 'alchemy' | 'forging' | 'enhancement' | 'transmission' | null;
+  activeMode: 'alchemy' | 'forging' | 'enhancement' | 'transmission' | 'technique_refining' | null;
   tabsKey: string;
   tabsHtml: string;
   headerKey: string;
