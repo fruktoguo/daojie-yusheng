@@ -43,6 +43,11 @@ async function run() {
   const service = new WorldRuntimeCombatActionService();
   assert.equal(resolveTargetingGeometryMaxTargets({ range: 4, shape: 'box', width: 7, height: 7 }), 49);
   assert.equal(resolveTargetingGeometryMaxTargets({ range: 5, shape: 'box', width: 9, height: 9 }), 81);
+  assert.equal(resolveTargetingGeometryMaxTargets({ range: 4, shape: 'area', radius: 2 }), 13);
+  assert.equal(resolveTargetingGeometryMaxTargets({ range: 4, shape: 'ring', innerRadius: 1, radius: 3 }), 24);
+  assert.ok(resolveTargetingGeometryMaxTargets({ range: 5, shape: 'line', width: 3 }) >= 10);
+  assert.ok(resolveTargetingGeometryMaxTargets({ range: 5, shape: 'orientedBox', width: 3, height: 5 }) >= 15);
+  assert.equal(resolveTargetingGeometryMaxTargets({ range: 4, shape: 'checkerboard', width: 7, height: 7 }), 25);
   const diagnostics = [];
   const logs = [];
   const deps = {

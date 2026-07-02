@@ -100,13 +100,22 @@ export function resolveTargetingGeometryMaxTargets(spec: TargetingGeometrySpec):
   }
   const origin = { x: 0, y: 0 };
   const range = Math.max(0, Math.floor(Number(spec.range) || 0));
-  const anchor = { x: range, y: 0 };
-  const cells = computeAffectedCellsFromAnchor(origin, anchor, {
+  const effectiveSpec = {
     ...spec,
     range,
     shape,
-  });
-  return Math.max(1, cells.length);
+  };
+  let maxTargets = 1;
+  for (let y = -range; y <= range; y += 1) {
+    for (let x = -range; x <= range; x += 1) {
+      const anchor = { x, y };
+      const cells = computeAffectedCellsFromAnchor(origin, anchor, effectiveSpec);
+      if (cells.length > maxTargets) {
+        maxTargets = cells.length;
+      }
+    }
+  }
+  return maxTargets;
 }
 
 /** 使用 Bresenham 算法枚举两点连线经过的格子。 */
