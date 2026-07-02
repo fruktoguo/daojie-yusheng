@@ -6,6 +6,7 @@
 import type {
   DaoistDirectMessageView,
   DaoistRelationLevel,
+  ItemStack,
   SocialPanelView,
   SyncedItemStack,
   TreasureVaultDetailView,
@@ -15,6 +16,9 @@ import type {
   TreasureVaultOperationResultView,
 } from '@mud/shared';
 import { getItemStackDisplayLabel } from '@mud/shared';
+import { getItemTypeLabel } from '../../domain-labels';
+import { getItemDecorClassName, getItemDisplayMeta, type ItemDisplayMeta } from '../item-display';
+import { formatDisplayCountBadge } from '../../utils/number';
 
 type SocialPanelCallbacks = {
   onRefresh(): void;
@@ -30,6 +34,11 @@ type TreasureVaultCallbacks = {
   onDeposit(itemInstanceId: string, count: number): void;
   onWithdraw(storageItemId: string, count: number): void;
   onUpdatePermissions(permissions: TreasureVaultPermissionMap): void;
+};
+
+type InventoryCellRibbon = {
+  label: string;
+  title?: string;
 };
 
 export type TreasureVaultModalTab = 'items' | 'permissions';
@@ -406,21 +415,88 @@ export class TreasureVaultModal {
       return `<div class="empty-hint">宝库为空</div>`;
     }
     return `
-      <div class="ui-list">
+      <div class="inventory-grid treasure-vault-inventory-grid">
         ${detail.items.map((item) => `
-          <div class="ui-list-row" data-vault-row="true">
-            <div class="ui-list-main">
-              <div class="ui-list-title">${escapeHtml(getItemStackDisplayLabel(item))}</div>
-              <div class="ui-list-subtitle">${escapeHtml(item.itemId)}</div>
-            </div>
-            ${detail.effectivePermissions.withdraw ? `
-              <input class="ui-input compact" data-vault-withdraw-count type="number" min="1" max="${Math.max(1, Number(item.count) || 1)}" value="1">
-              <button class="small-btn" type="button" data-vault-action="withdraw" data-storage-item-id="${escapeHtml(item.storageItemId)}">取出</button>
-            ` : ''}
-          </div>
+          ${this.renderInventoryCell(item, detail.effectivePermissions.withdraw)}
         `).join('')}
       </div>
     `;
+  }
+
+  private renderInventoryCell(item: TreasureVaultDetailView['items'][number], canWithdraw: boolean): string {
+    const itemMeta = getItemDisplayMeta(item as ItemStack);
+    const displayName = itemMeta.displayItem.name;
+    const ribbon = this.getInventoryCellRibbon(item as ItemStack, itemMeta);
+    const learnedRibbon = this.getInventoryLearnedRibbon(item as ItemStack);
+    const gradeLineLabel = this.getInventoryGradeLineLabel(item as ItemStack);
+    const levelChip = itemMeta.levelLabel
+      ? `<span class="item-card-chip item-card-chip--level" data-item-level="true">${escapeHtml(itemMeta.levelLabel)}</span>`
+      : '';
+    const enhanceChip = itemMeta.enhanceLabel
+      ? `<span class="item-card-chip item-card-chip--enhance" data-item-enhance="true">${escapeHtml(itemMeta.enhanceLabel)}</span>`
+      : '';
+    return `
+      <div class="${getItemDecorClassName('inventory-cell', item as ItemStack)}${canWithdraw ? ' treasure-vault-inventory-cell--withdrawable' : ''}" data-vault-row="true" data-item-type="${escapeHtml(item.type)}" ${itemMeta.grade ? `data-item-grade="${escapeHtml(itemMeta.grade)}"` : ''} ${gradeLineLabel ? 'data-item-grade-line-visible="true"' : ''}>
+        <div class="inventory-cell-head">
+          <span class="inventory-cell-type" ${ribbon ? '' : 'hidden'}>${escapeHtml(ribbon?.label ?? '')}</span>
+          <span class="inventory-cell-count">${escapeHtml(formatDisplayCountBadge(item.count))}</span>
+        </div>
+        <span class="inventory-cell-learned-ribbon" ${learnedRibbon ? '' : 'hidden'}>${escapeHtml(learnedRibbon?.label ?? '')}</span>
+        <div class="inventory-cell-grade-line" ${gradeLineLabel ? '' : 'hidden'}>${escapeHtml(gradeLineLabel ?? '')}</div>
+        <div class="inventory-cell-name" aria-label="${escapeHtml(displayName)}">${escapeHtml(displayName)}</div>
+        ${levelChip}
+        ${enhanceChip}
+        ${canWithdraw ? `
+          <div class="treasure-vault-withdraw-controls">
+            <input class="ui-input compact" data-vault-withdraw-count type="number" min="1" max="${Math.max(1, Number(item.count) || 1)}" value="1" aria-label="取出数量">
+            <button class="small-btn" type="button" data-vault-action="withdraw" data-storage-item-id="${escapeHtml(item.storageItemId)}">取出</button>
+          </div>
+        ` : ''}
+      </div>
+    `;
+  }
+
+  private getInventoryCellRibbon(item: ItemStack, itemMeta: ItemDisplayMeta): InventoryCellRibbon | null {
+    if (itemMeta.affinityBadge) {
+      return {
+        label: itemMeta.affinityBadge.label,
+        title: itemMeta.affinityBadge.title,
+      };
+    }
+    if (item.type === 'skill_book') {
+      return { label: '功法' };
+    }
+    if (item.type === 'material') {
+      return {
+        label: this.getInventoryMaterialRibbonLabel(item),
+        title: getItemTypeLabel(item.type),
+      };
+    }
+    if (item.type === 'consumable' || item.type === 'equipment' || item.type === 'artifact') {
+      return { label: getItemTypeLabel(item.type) };
+    }
+    return null;
+  }
+
+  private getInventoryLearnedRibbon(_item: ItemStack): InventoryCellRibbon | null {
+    return null;
+  }
+
+  private getInventoryMaterialRibbonLabel(item: ItemStack): string {
+    switch (item.materialCategory) {
+      case 'herb':
+        return '药材';
+      case 'exotic':
+        return '异材';
+      case 'ore':
+        return '矿石';
+      default:
+        return getItemTypeLabel(item.type);
+    }
+  }
+
+  private getInventoryGradeLineLabel(_item: ItemStack): string | null {
+    return null;
   }
 
   private renderDeposit(detail: TreasureVaultDetailView): string {
