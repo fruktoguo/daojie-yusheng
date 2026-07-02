@@ -75,11 +75,12 @@ export class NativeGmAiProviderController {
     const scope = normalizeScope(scopeRaw);
     const provider = normalizeProvider(kind, body?.provider);
     const baseURL = normalizeRequiredString(body?.baseURL, 'baseURL');
-    const models = normalizeAiProviderModels(body?.models, body?.modelName);
-    if (models.length <= 0) {
+    const normalizedModels = normalizeAiProviderModels(body?.models, body?.modelName);
+    if (normalizedModels.length <= 0) {
       throw new BadRequestException('至少需要配置一个模型');
     }
-    const modelName = normalizeRequiredString(models.find((model) => model.enabled)?.name ?? models[0]?.name, 'modelName');
+    const modelName = normalizeRequiredString(resolveSelectedModelName(body?.modelName, normalizedModels), 'modelName');
+    const models = markSelectedModel(normalizedModels, modelName);
     const secretKeyRef = normalizeSecretKeyRef(body?.secretKeyRef);
     const timeoutMs = normalizeTimeoutMs(body?.timeoutMs, kind);
     const actor = extractGmActor(request);
@@ -186,11 +187,13 @@ export class NativeGmAiProviderController {
     const modelName = normalizeRequiredString(decodeURIComponent(modelNameRaw), 'modelName');
     const actor = extractGmActor(request);
     const record = await this.getRecordOrThrow(scope, kind);
-    const models = record.models.filter((model) => model.name !== modelName);
+    const remainingModels = record.models.filter((model) => model.name !== modelName);
+    const selectedModelName = resolveSelectedModelName(record.modelName, remainingModels);
+    const models = markSelectedModel(remainingModels, selectedModelName);
     const item = await this.aiProviderConfigService.upsert({
       ...record,
       models,
-      modelName: models.find((model) => model.enabled)?.name ?? models[0]?.name ?? '',
+      modelName: selectedModelName,
       updatedBy: actor.tokenRev ?? 'gm',
     });
     if (!item) throw new BadRequestException('AI provider 模型删除失败');
@@ -328,6 +331,24 @@ function normalizeRequiredString(raw: unknown, field: string): string {
   const value = String(raw ?? '').trim();
   if (!value) throw new BadRequestException(`${field} is required`);
   return value;
+}
+
+function resolveSelectedModelName(raw: unknown, models: AiProviderModelRecord[]): string {
+  const requested = typeof raw === 'string' ? raw.trim() : '';
+  if (requested && models.some((model) => model.name === requested && model.enabled !== false)) {
+    return requested;
+  }
+  if (requested && models.some((model) => model.name === requested)) {
+    return requested;
+  }
+  return models.find((model) => model.enabled)?.name ?? models[0]?.name ?? '';
+}
+
+function markSelectedModel(models: AiProviderModelRecord[], modelName: string): AiProviderModelRecord[] {
+  if (!modelName) {
+    return models.map((model) => ({ ...model, enabled: false }));
+  }
+  return models.map((model) => ({ ...model, enabled: model.name === modelName }));
 }
 
 function normalizeOptionalString(raw: unknown): string {

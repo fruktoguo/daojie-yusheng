@@ -164,10 +164,49 @@ const run = async (): Promise<void> => {
     assert.equal(openAiImagePayload.prompt, 'prompt');
 
     await runAiProviderSecretFailureSmoke();
+    await runAiProviderSelectedModelSmoke();
   } finally {
     restoreEnv();
   }
 };
+
+async function runAiProviderSelectedModelSmoke(): Promise<void> {
+  const persistence = {
+    async get(scope: string, kind: 'text' | 'image') {
+      return {
+        scope,
+        kind,
+        provider: 'openai-compatible',
+        enabled: true,
+        baseURL: 'https://compat.example.com/v1',
+        modelName: 'second-model',
+        models: [
+          { name: 'first-model', enabled: true, source: 'manual', addedAt: new Date(0).toISOString() },
+          { name: 'second-model', enabled: false, source: 'manual', addedAt: new Date(0).toISOString() },
+        ],
+        secretKeyRef: 'selected_key',
+        timeoutMs: 30_000,
+        imageSize: '',
+        imageQuality: '',
+        revision: 1,
+        updatedAt: new Date(0).toISOString(),
+        updatedBy: 'smoke',
+      };
+    },
+    async list() { return []; },
+    async upsert() { return null; },
+    async delete() { return false; },
+  };
+  const secretStore = {
+    isAvailable: () => true,
+    async readSecret() {
+      return 'selected-api-key';
+    },
+  };
+  const service = new AiProviderConfigService(persistence as never, secretStore as never);
+  const config = await service.getTextModelConfig('technique');
+  assert.equal(config?.modelName, 'second-model');
+}
 
 async function runAiProviderSecretFailureSmoke(): Promise<void> {
   const persistence = {

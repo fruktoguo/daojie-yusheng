@@ -109,5 +109,9 @@ export class AiProviderConfigService {
 }
 
 function resolveDefaultModelName(record: AiProviderConfigRecord): string {
-  return record.models.find((model) => model.enabled)?.name || record.modelName;
+  const configuredModelName = record.modelName.trim();
+  if (configuredModelName && record.models.some((model) => model.name === configuredModelName)) {
+    return configuredModelName;
+  }
+  return record.models.find((model) => model.enabled)?.name || configuredModelName;
 }

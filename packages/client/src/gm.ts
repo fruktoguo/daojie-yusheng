@@ -9859,9 +9859,10 @@ function renderAiProviderConfigRow(item: GmAiProviderConfigItem): string {
   const enabledBadge = item.enabled ? '<span class="env-badge source-process_env">已启用</span>' : '<span class="env-badge source-unset">已禁用</span>';
   const secretBadge = item.secretConfigured ? '<span class="env-badge source-runtime_file">密钥已配置</span>' : '<span class="env-badge meta">密钥未配置</span>';
   const imageFieldsClass = item.kind === 'image' ? '' : 'hidden';
-  const models = item.models;
+  const models = normalizeAiProviderModelSelection(item.models, item.modelName);
+  const selectedModelName = resolveAiProviderSelectedModelName(models, item.modelName);
   const modelRowsHtml = models.length > 0
-    ? models.map((model) => renderAiProviderModelRow(item, model)).join('')
+    ? models.map((model) => renderAiProviderModelRow(item, model, model.name === selectedModelName)).join('')
     : '<div class="ai-model-row"><div class="ai-model-name">当前没有模型</div><div class="ai-model-meta">请手动添加或获取模型列表</div><div class="ai-model-actions"></div></div>';
   return `
     <div class="env-row" data-ai-kind="${escapeHtml(item.kind)}" data-ai-scope="${escapeHtml(item.scope)}" data-ai-draft="${item.revision <= 0 ? 'true' : 'false'}">
@@ -9905,10 +9906,11 @@ function renderAiProviderConfigRow(item: GmAiProviderConfigItem): string {
   `;
 }
 
-function renderAiProviderModelRow(item: GmAiProviderConfigItem, model: GmAiProviderModelItem): string {
+function renderAiProviderModelRow(item: GmAiProviderConfigItem, model: GmAiProviderModelItem, isSelected: boolean): string {
   const sourceLabel = model.source === 'fetched' ? '接口获取' : model.source === 'legacy' ? '旧配置' : '手动';
   const stateKey = getAiModelStateKey(item.kind, item.scope, model.name);
   const testState = aiModelTestStateByKey.get(stateKey);
+  const defaultInputName = `ai-model-default-${item.kind}-${item.scope}`;
   const testStateHtml = testState
     ? `<span class="ai-model-test-state" data-kind="${testState.kind}" title="${escapeHtml(testState.text)}">${escapeHtml(testState.text)}</span>`
     : '<span class="ai-model-test-state" data-kind="idle">未测试</span>';
@@ -9917,10 +9919,11 @@ function renderAiProviderModelRow(item: GmAiProviderConfigItem, model: GmAiProvi
       <div class="ai-model-name" title="${escapeHtml(model.name)}">${escapeHtml(model.name)}</div>
       <div class="ai-model-meta">
         <span>${escapeHtml(sourceLabel)}</span>
-        <span>${model.enabled ? '启用' : '禁用'}</span>
+        <span>${isSelected ? '当前使用' : '备用'}</span>
         ${testStateHtml}
       </div>
       <div class="ai-model-actions">
+        <label class="env-persist-label"><input data-ai-model-default type="radio" name="${escapeHtml(defaultInputName)}" ${isSelected ? 'checked' : ''} />使用</label>
         <button class="small-btn" type="button" data-ai-test-model="${escapeHtml(model.name)}" ${item.secretConfigured ? '' : 'disabled'}>测试</button>
         <button class="small-btn danger" type="button" data-ai-delete-model="${escapeHtml(model.name)}">删除模型</button>
       </div>
@@ -9930,6 +9933,20 @@ function renderAiProviderModelRow(item: GmAiProviderConfigItem, model: GmAiProvi
 
 function getAiModelStateKey(kind: GmAiProviderKind, scope: string, modelName: string): string {
   return `${kind}:${scope}:${modelName}`;
+}
+
+function resolveAiProviderSelectedModelName(models: GmAiProviderModelItem[], preferredName = ''): string {
+  const preferred = preferredName.trim();
+  if (preferred && models.some((model) => model.name === preferred)) {
+    return preferred;
+  }
+  return models.find((model) => model.enabled)?.name ?? models[0]?.name ?? '';
+}
+
+function normalizeAiProviderModelSelection(models: GmAiProviderModelItem[], preferredName = ''): GmAiProviderModelItem[] {
+  const selectedName = resolveAiProviderSelectedModelName(models, preferredName);
+  if (!selectedName) return [];
+  return models.map((model) => ({ ...model, enabled: model.name === selectedName }));
 }
 
 function addAiProviderConfig(kind: GmAiProviderKind): void {
@@ -9975,7 +9992,8 @@ function createDraftAiProviderConfig(kind: GmAiProviderKind, scope: string): GmA
 async function saveAiProviderConfig(kind: GmAiProviderKind, scope: string, rowEl: HTMLElement): Promise<void> {
   const provider = rowEl.querySelector<HTMLSelectElement>('[data-ai-provider]')?.value ?? '';
   const baseURL = rowEl.querySelector<HTMLInputElement>('[data-ai-base-url]')?.value ?? '';
-  const models = readAiProviderModelsFromRow(rowEl);
+  const models = normalizeAiProviderModelSelection(readAiProviderModelsFromRow(rowEl));
+  const modelName = resolveAiProviderSelectedModelName(models);
   const timeoutMsRaw = rowEl.querySelector<HTMLInputElement>('[data-ai-timeout-ms]')?.value ?? '';
   const imageSize = rowEl.querySelector<HTMLInputElement>('[data-ai-image-size]')?.value ?? '';
   const imageQuality = rowEl.querySelector<HTMLInputElement>('[data-ai-image-quality]')?.value ?? '';
@@ -9987,7 +10005,7 @@ async function saveAiProviderConfig(kind: GmAiProviderKind, scope: string, rowEl
   const body: GmAiProviderConfigSetReq = {
     provider: provider as GmAiTextProvider | GmAiImageProvider,
     baseURL,
-    modelName: models.find((model) => model.enabled)?.name ?? models[0]?.name ?? '',
+    modelName,
     models,
     timeoutMs: Number.isFinite(timeoutMs) ? Math.trunc(timeoutMs) : undefined,
     imageSize: kind === 'image' ? imageSize : undefined,
@@ -10006,7 +10024,11 @@ async function saveAiProviderConfig(kind: GmAiProviderKind, scope: string, rowEl
 
 function readAiProviderModelsFromRow(rowEl: HTMLElement): GmAiProviderModelItem[] {
   const models: GmAiProviderModelItem[] = [];
-  rowEl.querySelectorAll<HTMLElement>('[data-ai-model-row]').forEach((modelEl) => {
+  const modelRows = [...rowEl.querySelectorAll<HTMLElement>('[data-ai-model-row]')];
+  const selectedModelName = modelRows
+    .find((modelEl) => modelEl.querySelector<HTMLInputElement>('[data-ai-model-default]')?.checked)
+    ?.dataset.aiModelName?.trim() ?? '';
+  modelRows.forEach((modelEl) => {
     const name = modelEl.dataset.aiModelName?.trim() || modelEl.querySelector<HTMLElement>('.ai-model-name')?.textContent?.trim() || '';
     if (!name || models.some((model) => model.name === name)) return;
     const source = modelEl.dataset.aiModelSource === 'fetched' || modelEl.dataset.aiModelSource === 'legacy'
@@ -10014,7 +10036,7 @@ function readAiProviderModelsFromRow(rowEl: HTMLElement): GmAiProviderModelItem[
       : 'manual';
     models.push({
       name,
-      enabled: true,
+      enabled: selectedModelName ? name === selectedModelName : models.length === 0,
       source,
       addedAt: modelEl.dataset.aiModelAddedAt || new Date().toISOString(),
     });
@@ -10040,7 +10062,7 @@ function addAiProviderModel(rowEl: HTMLElement): void {
     enabled: true,
     source: 'manual',
     addedAt: new Date().toISOString(),
-  }));
+  }, false));
   renderAiProviderConfigsFromDom(rowEl);
 }
 
@@ -10048,9 +10070,13 @@ function renderAiProviderConfigsFromDom(rowEl: HTMLElement): void {
   const kind = rowEl.dataset.aiKind as GmAiProviderKind;
   const scope = rowEl.dataset.aiScope ?? 'default';
   const index = aiProviderConfigs.findIndex((item) => item.kind === kind && item.scope === scope);
-  const models = readAiProviderModelsFromRow(rowEl);
+  const models = normalizeAiProviderModelSelection(readAiProviderModelsFromRow(rowEl));
   if (index >= 0) {
-    aiProviderConfigs[index] = { ...aiProviderConfigs[index], models, modelName: models[0]?.name ?? aiProviderConfigs[index].modelName };
+    aiProviderConfigs[index] = {
+      ...aiProviderConfigs[index],
+      models,
+      modelName: resolveAiProviderSelectedModelName(models, aiProviderConfigs[index].modelName),
+    };
   }
   renderAiProviderConfigs();
 }
@@ -10142,11 +10168,13 @@ async function testAiProviderModel(kind: GmAiProviderKind, scope: string, modelN
 async function saveAiProviderModels(kind: GmAiProviderKind, scope: string, models: GmAiProviderModelItem[]): Promise<void> {
   const item = aiProviderConfigs.find((entry) => entry.kind === kind && entry.scope === scope);
   if (!item) throw new Error('AI provider 配置不存在');
+  const selectedModels = normalizeAiProviderModelSelection(models, item.modelName);
+  const modelName = resolveAiProviderSelectedModelName(selectedModels, item.modelName);
   const body: GmAiProviderConfigSetReq = {
     provider: item.provider,
     baseURL: item.baseURL,
-    modelName: models.find((model) => model.enabled)?.name ?? models[0]?.name ?? item.modelName,
-    models,
+    modelName,
+    models: selectedModels,
     timeoutMs: item.timeoutMs,
     imageSize: kind === 'image' ? item.imageSize : undefined,
     imageQuality: kind === 'image' ? item.imageQuality : undefined,
