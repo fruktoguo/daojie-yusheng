@@ -49,6 +49,7 @@ import {
   computeFivePhaseElementMatch,
   createEmptyCraftElementVector,
   calculateTechniqueComprehensionProgressBreakdown,
+  calculateTechniqueBookDecomposeFragments,
   getAlchemySpiritStoneCost,
   getItemDisplayName,
   isCreatedTechniqueId,
@@ -56,7 +57,7 @@ import {
   normalizeAlchemyQuantity,
   type TechniqueComprehensionProgressBreakdown,
 } from '@mud/shared';
-import { getLocalItemTemplate, getLocalRealmLevelEntry } from '../content/local-templates';
+import { getLocalItemTemplate, getLocalRealmLevelEntry, getLocalTechniqueTemplate } from '../content/local-templates';
 import { getEquipSlotLabel, getItemTypeLabel, getTechniqueCategoryLabel, getTechniqueGradeLabel } from '../domain-labels';
 import { formatDisplayInteger, formatDisplayNumber, formatDisplayPercent, formatDisplaySignedNumber } from '../utils/number';
 import { confirmModalHost } from './confirm-modal-host';
@@ -569,6 +570,7 @@ export class CraftWorkbenchModal {
   private static readonly ALCHEMY_CONFIRM_OWNER = 'craft-workbench-modal:alchemy-confirm';
   private static readonly ALCHEMY_MATERIAL_PICKER_OWNER = 'craft-workbench-modal:alchemy-material-picker';
   private static readonly ALCHEMY_PRESET_PICKER_OWNER = 'craft-workbench-modal:alchemy-preset-picker';
+  private static readonly TECHNIQUE_REFINING_CONFIRM_OWNER = 'craft-workbench-modal:technique-refining-confirm';
 
   private callbacks: CraftWorkbenchCallbacks | null = null;
   private transmissionCallbacks: Pick<CraftWorkbenchCallbacks, 'onStartTransmission' | 'onCancelTransmission' | 'getTransmissionTargets'> | null = null;
@@ -968,6 +970,7 @@ export class CraftWorkbenchModal {
     this.lastEnhancementCandidateSourceKey = null;
     confirmModalHost.close(CraftWorkbenchModal.ALCHEMY_CONFIRM_OWNER);
     confirmModalHost.close(CraftWorkbenchModal.ALCHEMY_PRESET_PICKER_OWNER);
+    confirmModalHost.close(CraftWorkbenchModal.TECHNIQUE_REFINING_CONFIRM_OWNER);
     confirmModalHost.close(`${CraftWorkbenchModal.MODAL_OWNER}:enhancement-picker`);
     confirmModalHost.close(`${CraftWorkbenchModal.MODAL_OWNER}:enhancement-history-list`);
     confirmModalHost.close(`${CraftWorkbenchModal.MODAL_OWNER}:enhancement-history-session`);
@@ -1152,6 +1155,7 @@ export class CraftWorkbenchModal {
       onClose: () => {
         confirmModalHost.close(CraftWorkbenchModal.ALCHEMY_CONFIRM_OWNER);
         confirmModalHost.close(CraftWorkbenchModal.ALCHEMY_PRESET_PICKER_OWNER);
+        confirmModalHost.close(CraftWorkbenchModal.TECHNIQUE_REFINING_CONFIRM_OWNER);
         confirmModalHost.close(`${CraftWorkbenchModal.MODAL_OWNER}:enhancement-picker`);
         confirmModalHost.close(`${CraftWorkbenchModal.MODAL_OWNER}:enhancement-history-list`);
         confirmModalHost.close(`${CraftWorkbenchModal.MODAL_OWNER}:enhancement-history-session`);
@@ -1191,6 +1195,7 @@ export class CraftWorkbenchModal {
       onClose: () => {
         confirmModalHost.close(CraftWorkbenchModal.ALCHEMY_CONFIRM_OWNER);
         confirmModalHost.close(CraftWorkbenchModal.ALCHEMY_PRESET_PICKER_OWNER);
+        confirmModalHost.close(CraftWorkbenchModal.TECHNIQUE_REFINING_CONFIRM_OWNER);
         confirmModalHost.close(`${CraftWorkbenchModal.MODAL_OWNER}:enhancement-picker`);
         confirmModalHost.close(`${CraftWorkbenchModal.MODAL_OWNER}:enhancement-history-list`);
         confirmModalHost.close(`${CraftWorkbenchModal.MODAL_OWNER}:enhancement-history-session`);
@@ -1351,12 +1356,20 @@ export class CraftWorkbenchModal {
     definition: { title: string; subtitle: string; variantClass: string; body: string },
   ): boolean {
     if (this.activeMode === 'technique_refining') {
-      return detailModalHost.patch({
+      if (!detailModalHost.patch({
         ownerId: CraftWorkbenchModal.MODAL_OWNER,
         variantClass: definition.variantClass,
         title: definition.title,
         subtitle: definition.subtitle,
         hint: t('craft.workbench.modal.close-hint'),
+      })) {
+        return false;
+      }
+      if (this.tryPatchTechniqueRefiningBody(body)) {
+        return true;
+      }
+      detailModalHost.patch({
+        ownerId: CraftWorkbenchModal.MODAL_OWNER,
         renderBody: (nextBody) => {
           replaceElementHtml(nextBody, definition.body);
         },
@@ -1365,6 +1378,7 @@ export class CraftWorkbenchModal {
           this.bindActions(nextBody, signal);
         },
       });
+      return true;
     }
     if (this.useReactPanel()) {
       return this.tryPatchReactModal(body, definition, true);
@@ -1414,20 +1428,27 @@ export class CraftWorkbenchModal {
       return;
     }
     if (this.activeMode === 'technique_refining') {
-      detailModalHost.patch({
+      if (!detailModalHost.patch({
         ownerId: CraftWorkbenchModal.MODAL_OWNER,
         variantClass: definition.variantClass,
         title: definition.title,
         subtitle: definition.subtitle,
         hint: t('craft.workbench.modal.close-hint'),
-        renderBody: (nextBody) => {
-          replaceElementHtml(nextBody, definition.body);
-        },
-        onAfterRender: (nextBody, signal) => {
-          bindInlineItemTooltips(nextBody, signal);
-          this.bindActions(nextBody, signal);
-        },
-      });
+      })) {
+        return;
+      }
+      if (!this.tryPatchTechniqueRefiningBody(body)) {
+        detailModalHost.patch({
+          ownerId: CraftWorkbenchModal.MODAL_OWNER,
+          renderBody: (nextBody) => {
+            replaceElementHtml(nextBody, definition.body);
+          },
+          onAfterRender: (nextBody, signal) => {
+            bindInlineItemTooltips(nextBody, signal);
+            this.bindActions(nextBody, signal);
+          },
+        });
+      }
       return;
     }
     if (this.useReactPanel()) {
@@ -1568,6 +1589,107 @@ export class CraftWorkbenchModal {
     }
     if (!this.patchCraftQueuePanel(body)) {
       this.patchOpenCraftShell();
+    }
+  }
+
+  private tryPatchTechniqueRefiningBody(body: HTMLElement): boolean {
+    if (this.activeMode !== 'technique_refining') {
+      return false;
+    }
+    const panel = body.querySelector<HTMLElement>('[data-technique-refining-panel="true"]');
+    if (!panel) {
+      return false;
+    }
+    const books = this.getTechniqueBookInventoryItems();
+    if (panel.dataset.techniqueRefiningBooksKey !== this.buildTechniqueRefiningBooksKey(books)) {
+      return false;
+    }
+    const selectedItems = this.getSelectedTechniqueBookItems();
+    const availableIds = new Set(books.map((item) => this.getItemInstanceId(item)).filter(Boolean));
+    let selectionChanged = false;
+    for (const itemInstanceId of [...this.selectedTechniqueBookIds]) {
+      if (!availableIds.has(itemInstanceId)) {
+        this.selectedTechniqueBookIds.delete(itemInstanceId);
+        selectionChanged = true;
+      }
+    }
+    const nextSelectedItems = selectionChanged ? this.getSelectedTechniqueBookItems() : selectedItems;
+    const singleSelected = nextSelectedItems.length === 1 ? nextSelectedItems[0] : null;
+    const maxCount = singleSelected ? Math.max(1, Math.floor(Number(singleSelected.count) || 1)) : 1;
+    if (singleSelected && this.selectedTechniqueBookCount > maxCount) {
+      this.selectedTechniqueBookCount = maxCount;
+    }
+    const booksMode = panel.querySelector<HTMLElement>('[data-technique-refining-book-count="true"]');
+    if (booksMode) {
+      booksMode.textContent = `${formatDisplayInteger(books.length)} 种功法书`;
+    }
+    const fragmentMode = panel.querySelector<HTMLElement>('[data-technique-refining-fragment-total="true"]');
+    if (fragmentMode) {
+      fragmentMode.textContent = `${formatDisplayInteger(this.calculateSelectedTechniqueBookFragments(nextSelectedItems))} 张功法残页`;
+    }
+    for (const item of books) {
+      const itemInstanceId = this.getItemInstanceId(item);
+      if (!itemInstanceId) {
+        continue;
+      }
+      const selector = `[data-item-instance-id="${this.escapeCssAttrSelector(itemInstanceId)}"]`;
+      const cell = panel.querySelector<HTMLElement>(selector);
+      if (!cell) {
+        continue;
+      }
+      const selected = this.selectedTechniqueBookIds.has(itemInstanceId);
+      cell.classList.toggle('active', selected);
+      cell.querySelector<HTMLElement>('.inventory-cell-learned-ribbon')?.toggleAttribute('hidden', !selected);
+      const countNode = cell.querySelector<HTMLElement>('.inventory-cell-count');
+      if (countNode) {
+        countNode.textContent = formatDisplayInteger(Math.max(1, Math.floor(Number(item.count) || 1)));
+      }
+    }
+    const summary = panel.querySelector<HTMLElement>('[data-technique-refining-selection-summary="true"]');
+    if (!summary) {
+      return false;
+    }
+    const summaryKey = this.buildTechniqueRefiningSelectionSummaryKey(nextSelectedItems, maxCount);
+    if (summary.dataset.techniqueRefiningSummaryKey !== summaryKey) {
+      replaceElementHtml(summary, this.renderTechniqueRefiningSelectionSummaryContent(nextSelectedItems, maxCount));
+      summary.dataset.techniqueRefiningSummaryKey = summaryKey;
+    } else {
+      this.patchTechniqueRefiningTotals(panel);
+    }
+    return true;
+  }
+
+  private patchTechniqueRefiningTotals(root: HTMLElement): void {
+    const selectedItems = this.getSelectedTechniqueBookItems();
+    const singleSelected = selectedItems.length === 1 ? selectedItems[0] : null;
+    const maxCount = singleSelected ? Math.max(1, Math.floor(Number(singleSelected.count) || 1)) : 1;
+    if (singleSelected) {
+      this.selectedTechniqueBookCount = Math.max(1, Math.min(maxCount, this.selectedTechniqueBookCount));
+    }
+    const totalFragments = this.calculateSelectedTechniqueBookFragments(selectedItems);
+    const summary = root.querySelector<HTMLElement>('[data-technique-refining-selection-summary="true"]');
+    if (summary) {
+      summary.dataset.techniqueRefiningSummaryKey = this.buildTechniqueRefiningSelectionSummaryKey(selectedItems, maxCount);
+    }
+    const fragmentMode = root.querySelector<HTMLElement>('[data-technique-refining-fragment-total="true"]');
+    if (fragmentMode) {
+      fragmentMode.textContent = `${formatDisplayInteger(totalFragments)} 张功法残页`;
+    }
+    const countLabel = root.querySelector<HTMLElement>('[data-technique-refining-count-label="true"]');
+    if (countLabel) {
+      countLabel.textContent = `${formatDisplayInteger(Math.max(1, Math.min(maxCount, this.selectedTechniqueBookCount)))}/${formatDisplayInteger(maxCount)}`;
+    }
+    const totalHint = root.querySelector<HTMLElement>('[data-technique-refining-total-hint="true"]');
+    if (totalHint) {
+      totalHint.textContent = `预计合计获得 ${formatDisplayInteger(totalFragments)} 张功法残页。`;
+    }
+    const singleItemTotal = root.querySelector<HTMLElement>('[data-technique-refining-item-total="true"]');
+    if (singleItemTotal && singleSelected) {
+      singleItemTotal.textContent = `预计 ${formatDisplayInteger(this.calculateTechniqueBookFragments(singleSelected) * this.getSelectedTechniqueBookDecomposeCount(singleSelected, true))} 张`;
+    }
+    const singleItemCount = root.querySelector<HTMLElement>('[data-technique-refining-item-count="true"]');
+    if (singleItemCount && singleSelected) {
+      singleItemCount.textContent = `x${formatDisplayInteger(this.getSelectedTechniqueBookDecomposeCount(singleSelected, true))}`;
     }
   }
 
@@ -2029,11 +2151,11 @@ export class CraftWorkbenchModal {
       this.selectedTechniqueBookCount = maxCount;
     }
     return `
-      <div class="alchemy-tab-stack" data-technique-refining-panel="true">
+      <div class="alchemy-tab-stack" data-technique-refining-panel="true" data-technique-refining-books-key="${escapeHtmlAttr(this.buildTechniqueRefiningBooksKey(books))}">
         <section class="alchemy-summary-card">
           <div class="alchemy-summary-head">
             <div class="alchemy-summary-title">功法书分解</div>
-            <span class="alchemy-summary-mode">${formatDisplayInteger(books.length)} 种功法书</span>
+            <span class="alchemy-summary-mode" data-technique-refining-book-count="true">${formatDisplayInteger(books.length)} 种功法书</span>
           </div>
           ${books.length > 0 ? `
             <div class="inventory-grid treasure-vault-inventory-grid">
@@ -2043,10 +2165,12 @@ export class CraftWorkbenchModal {
         </section>
         <section class="alchemy-summary-card">
           <div class="alchemy-summary-head">
-            <div class="alchemy-summary-title">分解确认</div>
-            <span class="alchemy-summary-mode">${formatDisplayInteger(selectedItems.length)} 种已选</span>
+            <div class="alchemy-summary-title">预计获得</div>
+            <span class="alchemy-summary-mode" data-technique-refining-fragment-total="true">${formatDisplayInteger(this.calculateSelectedTechniqueBookFragments(selectedItems))} 张功法残页</span>
           </div>
-          ${this.renderTechniqueRefiningSelectionSummary(selectedItems, maxCount)}
+          <div data-technique-refining-selection-summary="true" data-technique-refining-summary-key="${escapeHtmlAttr(this.buildTechniqueRefiningSelectionSummaryKey(selectedItems, maxCount))}">
+            ${this.renderTechniqueRefiningSelectionSummaryContent(selectedItems, maxCount)}
+          </div>
         </section>
         <section class="alchemy-summary-card">
           <div class="alchemy-summary-head">
@@ -2074,12 +2198,13 @@ export class CraftWorkbenchModal {
         <span class="inventory-cell-learned-ribbon" ${selected ? '' : 'hidden'}>已选</span>
         <div class="inventory-cell-grade-line">${escapeHtml(gradeLine)}</div>
         <div class="inventory-cell-name" aria-label="${escapeHtml(displayName)}">${escapeHtml(displayName)}</div>
+        <span class="item-card-chip">预计 ${formatDisplayInteger(this.calculateTechniqueBookFragments(item))} 张/本</span>
         ${itemMeta.levelLabel ? `<span class="item-card-chip item-card-chip--level">${escapeHtml(itemMeta.levelLabel)}</span>` : ''}
       </button>
     `;
   }
 
-  private renderTechniqueRefiningSelectionSummary(items: ItemStack[], maxCount: number): string {
+  private renderTechniqueRefiningSelectionSummaryContent(items: ItemStack[], maxCount: number): string {
     if (items.length === 0) {
       return '<div class="empty-hint">请选择一个或多个功法书。单选可指定数量，多选会按各自全数分解。</div>';
     }
@@ -2091,20 +2216,126 @@ export class CraftWorkbenchModal {
         <button class="small-btn ghost" type="button" data-craft-action="technique-refining-count" data-count="1">1</button>
         <button class="small-btn ghost" type="button" data-craft-action="technique-refining-count" data-count="${Math.max(1, Math.ceil(maxCount / 2))}">半数</button>
         <button class="small-btn ghost" type="button" data-craft-action="technique-refining-count" data-count="${maxCount}">全部</button>
-        <strong>${formatDisplayInteger(Math.max(1, Math.min(maxCount, this.selectedTechniqueBookCount)))}/${formatDisplayInteger(maxCount)}</strong>
+        <strong data-technique-refining-count-label="true">${formatDisplayInteger(Math.max(1, Math.min(maxCount, this.selectedTechniqueBookCount)))}/${formatDisplayInteger(maxCount)}</strong>
       </div>
     ` : '<div class="empty-hint">多选模式会分解所选每种功法书的全部数量。</div>';
+    const totalFragments = this.calculateSelectedTechniqueBookFragments(items);
     return `
       <div class="craft-queue-list">
-        ${items.map((item) => `<div class="craft-queue-item"><span>${escapeHtml(getItemTypeLabel(item.type))}</span><strong>${escapeHtml(getItemDisplayName(item))}</strong><em>x${formatDisplayInteger(item.count)}</em></div>`).join('')}
+        ${items.map((item) => `<div class="craft-queue-item"><span data-technique-refining-item-total="${items.length === 1 ? 'true' : 'false'}">预计 ${formatDisplayInteger(this.calculateTechniqueBookFragments(item) * this.getSelectedTechniqueBookDecomposeCount(item, items.length === 1))} 张</span><strong>${escapeHtml(getItemDisplayName(item))}</strong><em data-technique-refining-item-count="${items.length === 1 ? 'true' : 'false'}">x${formatDisplayInteger(this.getSelectedTechniqueBookDecomposeCount(item, items.length === 1))}</em></div>`).join('')}
       </div>
       ${countControls}
+      <div class="empty-hint" data-technique-refining-total-hint="true">预计合计获得 ${formatDisplayInteger(totalFragments)} 张功法残页。</div>
       <div class="inventory-detail-actions">
         <div class="inventory-detail-actions-group inventory-detail-actions-group--right">
           <button class="small-btn danger" type="button" data-craft-action="technique-refining-decompose">确认分解</button>
         </div>
       </div>
     `;
+  }
+
+  private calculateTechniqueBookFragments(item: ItemStack): number {
+    const technique = typeof item.learnTechniqueId === 'string' && item.learnTechniqueId.trim()
+      ? getLocalTechniqueTemplate(item.learnTechniqueId.trim())
+      : null;
+    return calculateTechniqueBookDecomposeFragments({
+      realmLv: technique?.realmLv ?? item.level,
+      grade: technique?.grade ?? item.grade,
+      maxLevel: item.learnTechniqueMaxLevel,
+    });
+  }
+
+  private calculateSelectedTechniqueBookFragments(items = this.getSelectedTechniqueBookItems()): number {
+    const isSingle = items.length === 1;
+    return items.reduce(
+      (sum, item) => sum + this.calculateTechniqueBookFragments(item) * this.getSelectedTechniqueBookDecomposeCount(item, isSingle),
+      0,
+    );
+  }
+
+  private buildTechniqueRefiningBooksKey(items = this.getTechniqueBookInventoryItems()): string {
+    return items
+      .map((item) => [
+        this.getItemInstanceId(item),
+        item.itemId,
+        Math.max(1, Math.floor(Number(item.count) || 1)),
+        item.grade ?? '',
+        Math.max(1, Math.floor(Number(item.level) || 1)),
+        item.learnTechniqueMaxLevel ?? '',
+        getItemDisplayName(item),
+      ].join(':'))
+      .join('|');
+  }
+
+  private buildTechniqueRefiningSelectionSummaryKey(items: ItemStack[], maxCount: number): string {
+    return [
+      items.map((item) => `${this.getItemInstanceId(item)}:${Math.max(1, Math.floor(Number(item.count) || 1))}`).join('|'),
+      maxCount,
+      this.selectedTechniqueBookCount,
+    ].join('::');
+  }
+
+  private openTechniqueRefiningConfirmModal(): void {
+    const selectedItems = this.getSelectedTechniqueBookItems();
+    if (selectedItems.length === 0) {
+      return;
+    }
+    const isSingle = selectedItems.length === 1;
+    const entries = selectedItems
+      .map((item) => {
+        const itemInstanceId = this.getItemInstanceId(item);
+        if (!itemInstanceId) {
+          return null;
+        }
+        const count = this.getSelectedTechniqueBookDecomposeCount(item, isSingle);
+        const fragments = this.calculateTechniqueBookFragments(item) * count;
+        return {
+          itemInstanceId,
+          count,
+          fragments,
+          name: getItemDisplayName(item),
+        };
+      })
+      .filter((entry): entry is { itemInstanceId: string; count: number; fragments: number; name: string } => Boolean(entry));
+    if (entries.length === 0) {
+      return;
+    }
+    const totalFragments = entries.reduce((sum, entry) => sum + entry.fragments, 0);
+    confirmModalHost.open({
+      ownerId: CraftWorkbenchModal.TECHNIQUE_REFINING_CONFIRM_OWNER,
+      title: '确认分解功法书',
+      subtitle: `预计获得 ${formatDisplayInteger(totalFragments)} 张功法残页`,
+      bodyHtml: `
+        <div class="craft-queue-list">
+          ${entries.map((entry) => `
+            <div class="craft-queue-item">
+              <span>预计 ${formatDisplayInteger(entry.fragments)} 张</span>
+              <strong>${escapeHtml(entry.name)}</strong>
+              <em>x${formatDisplayInteger(entry.count)}</em>
+            </div>
+          `).join('')}
+        </div>
+        <div class="empty-hint">分解后功法书会被消耗，获得的功法残页会进入背包。</div>
+      `,
+      confirmLabel: '确认分解',
+      cancelLabel: '取消',
+      confirmButtonClass: 'danger',
+      onConfirm: () => {
+        for (const entry of entries) {
+          this.callbacks?.onDecomposeTechniqueBook?.(entry.itemInstanceId, entry.count);
+        }
+        this.selectedTechniqueBookIds.clear();
+        this.selectedTechniqueBookCount = 1;
+        this.patchOpenCraftShell();
+      },
+    });
+  }
+
+  private getSelectedTechniqueBookDecomposeCount(item: ItemStack, isSingle: boolean): number {
+    const itemCount = Math.max(1, Math.floor(Number(item.count) || 1));
+    return isSingle
+      ? Math.max(1, Math.min(itemCount, this.selectedTechniqueBookCount))
+      : itemCount;
   }
 
   private getTechniqueBookInventoryItems(): ItemStack[] {
@@ -2118,6 +2349,12 @@ export class CraftWorkbenchModal {
 
   private getItemInstanceId(item: ItemStack | undefined): string {
     return typeof item?.itemInstanceId === 'string' && item.itemInstanceId.trim() ? item.itemInstanceId.trim() : '';
+  }
+
+  private escapeCssAttrSelector(value: string): string {
+    return typeof CSS !== 'undefined' && typeof CSS.escape === 'function'
+      ? CSS.escape(value)
+      : value.replaceAll('\\', '\\\\').replaceAll('"', '\\"');
   }
 
   private renderForgingPlaceholder(): string {
@@ -2234,31 +2471,17 @@ export class CraftWorkbenchModal {
         if (this.selectedTechniqueBookIds.size !== 1) {
           this.selectedTechniqueBookCount = 1;
         }
-        this.render();
+        this.patchOpenCraftShell();
         return;
       }
       if (action === 'technique-refining-count') {
         const count = Math.max(1, Math.floor(Number(target.dataset.count ?? '1') || 1));
         this.selectedTechniqueBookCount = count;
-        this.render();
+        this.patchOpenCraftShell();
         return;
       }
       if (action === 'technique-refining-decompose') {
-        const selectedItems = this.getSelectedTechniqueBookItems();
-        const isSingle = selectedItems.length === 1;
-        for (const item of selectedItems) {
-          const itemInstanceId = this.getItemInstanceId(item);
-          if (!itemInstanceId) {
-            continue;
-          }
-          const count = isSingle
-            ? Math.max(1, Math.min(Math.floor(Number(item.count) || 1), this.selectedTechniqueBookCount))
-            : Math.max(1, Math.floor(Number(item.count) || 1));
-          this.callbacks?.onDecomposeTechniqueBook?.(itemInstanceId, count);
-        }
-        this.selectedTechniqueBookIds.clear();
-        this.selectedTechniqueBookCount = 1;
-        this.render();
+        this.openTechniqueRefiningConfirmModal();
         return;
       }
       if (action === 'cancel-queue-entry') {
@@ -2500,6 +2723,7 @@ export class CraftWorkbenchModal {
     body.addEventListener('input', (event) => {
       if (event.target instanceof HTMLInputElement && event.target.matches('[data-technique-refining-count-input="true"]')) {
         this.selectedTechniqueBookCount = Math.max(1, Math.floor(Number(event.target.value || '1') || 1));
+        this.patchTechniqueRefiningTotals(body);
         return;
       }
       const input = event.target instanceof HTMLInputElement
