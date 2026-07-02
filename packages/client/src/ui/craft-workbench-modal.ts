@@ -703,6 +703,10 @@ export class CraftWorkbenchModal {
     if (inventory) {
       this.inventory = inventory;
     }
+    if (this.activeMode === 'technique_refining' && detailModalHost.isOpenFor(CraftWorkbenchModal.MODAL_OWNER)) {
+      this.patchOpenCraftShell();
+      return;
+    }
     this.requestCurrentPanelForExternalStateSync(previousCandidateSourceKey);
     this.syncAlchemyConfirmModal();
   }
@@ -885,6 +889,9 @@ export class CraftWorkbenchModal {
         cancelRef: { ...task.cancelRef },
       }))
       : [];
+    if (this.activeMode === 'technique_refining') {
+      return;
+    }
     if (detailModalHost.isOpenFor(CraftWorkbenchModal.MODAL_OWNER)) {
       this.patchOpenCraftQueueOnly();
     }
@@ -1406,6 +1413,23 @@ export class CraftWorkbenchModal {
     if (!definition || !(body instanceof HTMLElement)) {
       return;
     }
+    if (this.activeMode === 'technique_refining') {
+      detailModalHost.patch({
+        ownerId: CraftWorkbenchModal.MODAL_OWNER,
+        variantClass: definition.variantClass,
+        title: definition.title,
+        subtitle: definition.subtitle,
+        hint: t('craft.workbench.modal.close-hint'),
+        renderBody: (nextBody) => {
+          replaceElementHtml(nextBody, definition.body);
+        },
+        onAfterRender: (nextBody, signal) => {
+          bindInlineItemTooltips(nextBody, signal);
+          this.bindActions(nextBody, signal);
+        },
+      });
+      return;
+    }
     if (this.useReactPanel()) {
       if (!detailModalHost.patch({
         ownerId: CraftWorkbenchModal.MODAL_OWNER,
@@ -1521,6 +1545,9 @@ export class CraftWorkbenchModal {
   }
 
   private patchOpenCraftQueueOnly(): void {
+    if (this.activeMode === 'technique_refining') {
+      return;
+    }
     if (!detailModalHost.isOpenFor(CraftWorkbenchModal.MODAL_OWNER)) {
       return;
     }
