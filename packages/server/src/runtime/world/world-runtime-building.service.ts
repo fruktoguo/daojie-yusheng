@@ -88,7 +88,7 @@ export function handleBuildPlaceIntent(runtime, playerId, payload) {
         consumeBuildingCost(runtime.playerRuntimeService, playerId, costResolution.consumedItems);
     }
     catch (error) {
-        context.instance.deconstructBuildingInstance?.(result.building?.id);
+        context.instance.deconstructBuildingInstance?.(result.building?.id, { treasureVaultRecovered: true });
         throw error;
     }
     return recordBuildingOperation(runtime, operationKey, {
@@ -198,7 +198,7 @@ export function tickBuildingConstruction(runtime, playerId) {
     });
 }
 
-export function handleBuildDeconstructIntent(runtime, playerId, payload) {
+export async function handleBuildDeconstructIntent(runtime, playerId, payload) {
     const requestId = normalizeBuildingRequestId(payload?.requestId);
     if (!requestId) {
         return { requestId: '', ok: false, reason: 'request_id_required' };
@@ -217,12 +217,44 @@ export function handleBuildDeconstructIntent(runtime, playerId, payload) {
     if (building.ownerPlayerId && building.ownerPlayerId !== playerId) {
         return recordBuildingOperation(runtime, operationKey, { requestId, ok: false, reason: 'building_owner_mismatch' }, { action: 'deconstruct', playerId, instanceId: context.instance.meta.instanceId, buildingId });
     }
-    const result = context.instance.deconstructBuildingInstance(buildingId);
+    const recovery = await recoverTreasureVaultItemsBeforeDeconstruct(runtime, context.instance, building, 'deconstruct');
+    if (recovery.ok !== true) {
+        return recordBuildingOperation(runtime, operationKey, { requestId, ok: false, reason: recovery.reason ?? 'treasure_vault_recovery_failed' }, { action: 'deconstruct', playerId, instanceId: context.instance.meta.instanceId, buildingId });
+    }
+    const result = context.instance.deconstructBuildingInstance(buildingId, { treasureVaultRecovered: true });
     return recordBuildingOperation(runtime, operationKey, {
         requestId,
         ok: result?.ok === true,
         reason: result?.ok === true ? undefined : result?.reason ?? 'deconstruct_failed',
+        treasureVaultRecoveryMailId: recovery.mailId,
+        treasureVaultRecoveredItems: recovery.itemCount,
     }, { action: 'deconstruct', playerId, instanceId: context.instance.meta.instanceId, buildingId });
+}
+
+async function recoverTreasureVaultItemsBeforeDeconstruct(runtime, instance, building, reason) {
+    if (!isTreasureVaultBuilding(instance, building)) {
+        return { ok: true, itemCount: 0 };
+    }
+    const service = runtime?.treasureVaultRuntimeService;
+    if (typeof service?.recoverVaultItemsToOwnerMail !== 'function') {
+        return { ok: false, itemCount: 0, reason: 'treasure_vault_recovery_unavailable' };
+    }
+    return service.recoverVaultItemsToOwnerMail({
+        instanceId: instance?.meta?.instanceId,
+        buildingId: building?.id,
+        buildingName: resolveBuildingDisplayName(instance, building) ?? building?.name ?? building?.defId ?? '宝库',
+        ownerPlayerId: building?.ownerPlayerId ?? null,
+        reason,
+    });
+}
+
+function isTreasureVaultBuilding(instance, building) {
+    if (building?.defId === 'treasure_vault' || building?.defHandle === 'treasure_vault') {
+        return true;
+    }
+    const compiled = instance?.buildingCatalog?.defByHandle?.[building?.defHandle]
+        ?? instance?.buildingCatalog?.defById?.get?.(building?.defId);
+    return Math.max(0, Math.trunc(Number(compiled?.treasureVaultCapacity) || 0)) > 0;
 }
 
 export function listBuildingOperationAudit(runtime, limit = 50) {

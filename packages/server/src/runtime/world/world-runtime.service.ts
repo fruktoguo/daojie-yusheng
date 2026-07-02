@@ -76,6 +76,7 @@ import { WorldRuntimeSectService } from './world-runtime-sect.service';
 import { WorldRuntimeSystemCommandEnqueueService } from './command/world-runtime-system-command-enqueue.service';
 import { WorldRuntimeTongtianTowerService } from './world-runtime-tongtian-tower.service';
 import { MailRuntimeService } from '../mail/mail-runtime.service';
+import { TreasureVaultRuntimeService } from '../building/treasure-vault-runtime.service';
 import { ActivityRuntimeService } from '../activity/activity-runtime.service';
 import { PlayerCombatService } from '../combat/player-combat.service';
 import { DurableOperationService } from '../../persistence/durable-operation.service';
@@ -337,6 +338,7 @@ export class WorldRuntimeService {
     playerPersistenceFlushService;
 
     mailRuntimeService;
+    treasureVaultRuntimeService;
 
     durableOperationService;
 
@@ -431,6 +433,7 @@ export class WorldRuntimeService {
         @Inject(NodeRegistryService) nodeRegistryService: NodeRegistryService,
         @Inject(PlayerPersistenceFlushService) playerPersistenceFlushService: PlayerPersistenceFlushService,
         @Inject(MailRuntimeService) mailRuntimeService: MailRuntimeService,
+        @Inject(TreasureVaultRuntimeService) treasureVaultRuntimeService: TreasureVaultRuntimeService,
         @Inject(ActivityRuntimeService) activityRuntimeService: ActivityRuntimeService,
         @Inject(DurableOperationService) durableOperationService: DurableOperationService,
         @Inject(RuntimeEventBusService) runtimeEventBusService: RuntimeEventBusService = undefined,
@@ -514,6 +517,7 @@ export class WorldRuntimeService {
         this.nodeRegistryService = nodeRegistryService;
         this.playerPersistenceFlushService = playerPersistenceFlushService;
         this.mailRuntimeService = mailRuntimeService;
+        this.treasureVaultRuntimeService = treasureVaultRuntimeService;
         this.activityRuntimeService = activityRuntimeService;
         this.durableOperationService = durableOperationService;
         this.runtimeEventBusService = runtimeEventBusService;
@@ -810,7 +814,7 @@ export class WorldRuntimeService {
         handleBuildPlaceIntent(playerId, payload) {
         return handleBuildPlaceIntent(this, playerId, payload);
     }
-        handleBuildDeconstructIntent(playerId, payload) {
+        async handleBuildDeconstructIntent(playerId, payload) {
         return handleBuildDeconstructIntent(this, playerId, payload);
     }
         handleStartBuildingConstruction(playerId, buildingId) {

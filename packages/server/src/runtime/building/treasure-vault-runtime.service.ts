@@ -19,8 +19,13 @@ import { ContentTemplateRepository } from '../../content/content-template.reposi
 import { DatabasePoolProvider } from '../../persistence/database-pool.provider';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { SocialRuntimeService } from '../social/social-runtime.service';
+import { MailRuntimeService } from '../mail/mail-runtime.service';
 
 const TREASURE_VAULT_STORAGE_TABLE = 'instance_building_storage_item';
+const PLAYER_MAIL_TABLE = 'player_mail';
+const PLAYER_MAIL_ATTACHMENT_TABLE = 'player_mail_attachment';
+const PLAYER_MAIL_COUNTER_TABLE = 'player_mail_counter';
+const PLAYER_RECOVERY_WATERMARK_TABLE = 'player_recovery_watermark';
 const TREASURE_VAULT_DEF_ID = 'treasure_vault';
 const DEFAULT_TREASURE_VAULT_CAPACITY = 80;
 const DEFAULT_PERMISSIONS: TreasureVaultPermissionMap = {
@@ -47,6 +52,7 @@ export class TreasureVaultRuntimeService {
     @Inject(PlayerRuntimeService) private readonly playerRuntimeService: PlayerRuntimeService,
     @Inject(ContentTemplateRepository) private readonly contentTemplateRepository: ContentTemplateRepository,
     @Inject(SocialRuntimeService) private readonly socialRuntimeService: SocialRuntimeService,
+    @Inject(MailRuntimeService) private readonly mailRuntimeService: MailRuntimeService,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -195,6 +201,110 @@ export class TreasureVaultRuntimeService {
       [normalizedInstanceId, normalizedBuildingId],
     );
     return (result.rows ?? []).length > 0;
+  }
+
+  async recoverVaultItemsToOwnerMail(input: { instanceId?: string; buildingId?: string; buildingName?: string; ownerPlayerId?: string | null; reason?: string }): Promise<{ ok: boolean; itemCount: number; mailId?: string; reason?: string }> {
+    const instanceId = normalizeString(input.instanceId);
+    const buildingId = normalizeString(input.buildingId);
+    const ownerPlayerId = normalizeString(input.ownerPlayerId);
+    if (!instanceId || !buildingId) {
+      return { ok: false, itemCount: 0, reason: 'building_not_found' };
+    }
+    if (!this.pool || !this.enabled) {
+      return { ok: false, itemCount: 0, reason: 'treasure_vault_persistence_disabled' };
+    }
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const rowsResult = await client.query(
+        `SELECT storage_item_id, instance_id, building_id, slot_index, item_id, count, enhance_level, raw_payload
+           FROM ${TREASURE_VAULT_STORAGE_TABLE}
+          WHERE instance_id = $1 AND building_id = $2
+          ORDER BY slot_index ASC, storage_item_id ASC
+          FOR UPDATE`,
+        [instanceId, buildingId],
+      );
+      const rows = rowsResult.rows ?? [];
+      if (rows.length === 0) {
+        await client.query('COMMIT');
+        return { ok: true, itemCount: 0 };
+      }
+      if (!ownerPlayerId) {
+        await client.query('ROLLBACK');
+        return { ok: false, itemCount: rows.length, reason: 'treasure_vault_owner_required' };
+      }
+      const createdAt = Date.now();
+      const mailId = buildVaultRecoveryMailId(ownerPlayerId, instanceId, buildingId);
+      const buildingName = normalizeString(input.buildingName) || '宝库';
+      const reason = normalizeString(input.reason) || 'deconstruct';
+      await client.query(
+        `INSERT INTO ${PLAYER_MAIL_TABLE}(
+          mail_id, player_id, sender_type, sender_label, template_id, mail_type,
+          title, body, source_type, source_ref_id, metadata_jsonb, mail_version,
+          created_at, expire_at, first_seen_at, read_at, claimed_at, deleted_at, updated_at
+        ) VALUES ($1, $2, 'system', $3, NULL, 'system', $4, $5, $6, $7, $8::jsonb, 1, $9, NULL, NULL, NULL, NULL, NULL, to_timestamp($10::double precision / 1000.0))
+        ON CONFLICT (mail_id) DO NOTHING`,
+        [
+          mailId,
+          ownerPlayerId,
+          '司命台',
+          `宝库物品返还：${buildingName}`,
+          `你的宝库「${buildingName}」已被拆除或摧毁。为避免资产丢失，库内全部物品已随本邮件返还。`,
+          'treasure_vault_recovery',
+          `${instanceId}:${buildingId}`,
+          JSON.stringify({ args: [], instanceId, buildingId, buildingName, reason }),
+          createdAt,
+          createdAt,
+        ],
+      );
+      const existingAttachmentResult = await client.query(
+        `SELECT 1 FROM ${PLAYER_MAIL_ATTACHMENT_TABLE} WHERE mail_id = $1 LIMIT 1`,
+        [mailId],
+      );
+      if ((existingAttachmentResult.rowCount ?? 0) === 0) {
+        const values: unknown[] = [];
+        const placeholders: string[] = [];
+        let parameterIndex = 1;
+        for (let index = 0; index < rows.length; index += 1) {
+          const row = rows[index];
+          const item = buildItemFromStorageRow(row, Math.max(1, Math.trunc(Number(row.count) || 1)));
+          placeholders.push(
+            `($${parameterIndex}, $${parameterIndex + 1}, $${parameterIndex + 2}, 'item', $${parameterIndex + 3}, $${parameterIndex + 4}, NULL, NULL, $${parameterIndex + 5}::jsonb, NULL, NULL, now())`,
+          );
+          values.push(
+            `mail_attachment:${mailId}:${index}`,
+            mailId,
+            ownerPlayerId,
+            normalizeString(item.itemId),
+            normalizePositiveCount(item.count),
+            JSON.stringify(buildRawPayloadForMail(item)),
+          );
+          parameterIndex += 6;
+        }
+        await client.query(
+          `INSERT INTO ${PLAYER_MAIL_ATTACHMENT_TABLE}(
+            attachment_id, mail_id, player_id, attachment_kind, item_id, count,
+            currency_type, amount, item_payload_jsonb, claim_operation_id, claimed_at, created_at
+          ) VALUES ${placeholders.join(',\n')}`,
+          values,
+        );
+      }
+      await client.query(
+        `DELETE FROM ${TREASURE_VAULT_STORAGE_TABLE}
+          WHERE instance_id = $1 AND building_id = $2`,
+        [instanceId, buildingId],
+      );
+      await refreshMailCounters(client, ownerPlayerId, createdAt);
+      await client.query('COMMIT');
+      this.mailRuntimeService.discardMailboxCache(ownerPlayerId);
+      return { ok: true, itemCount: rows.length, mailId };
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      this.logger.error('宝库物品返还邮件迁移失败，已保留宝库库存不删除', error instanceof Error ? error.stack : String(error));
+      return { ok: false, itemCount: 0, reason: error instanceof Error ? error.message : 'treasure_vault_recovery_failed' };
+    } finally {
+      client.release();
+    }
   }
 
   private async buildDetailView(playerId: string, instance: any, building: any): Promise<TreasureVaultDetailView> {
@@ -469,6 +579,63 @@ function buildRawPayload(item: any): Record<string, unknown> {
     payload[key] = value;
   }
   return payload;
+}
+
+function buildRawPayloadForMail(item: any): Record<string, unknown> {
+  return {
+    ...buildRawPayload(item),
+    itemId: normalizeString(item?.itemId),
+    count: normalizePositiveCount(item?.count),
+  };
+}
+
+function buildVaultRecoveryMailId(ownerPlayerId: string, instanceId: string, buildingId: string): string {
+  return `mail:treasure_vault_recovery:${normalizeMailIdPart(ownerPlayerId)}:${normalizeMailIdPart(instanceId)}:${normalizeMailIdPart(buildingId)}`;
+}
+
+function normalizeMailIdPart(value: unknown): string {
+  return String(value ?? '').trim().replace(/[^a-zA-Z0-9_-]+/g, '_').slice(0, 32) || 'unknown';
+}
+
+async function refreshMailCounters(client: any, playerId: string, latestMailAt: number): Promise<void> {
+  const counters = await client.query(
+    `SELECT
+       COUNT(*) FILTER (WHERE read_at IS NULL AND deleted_at IS NULL AND (expire_at IS NULL OR expire_at > $2))::bigint AS unread_count,
+       COUNT(*) FILTER (WHERE claimed_at IS NULL AND deleted_at IS NULL AND (expire_at IS NULL OR expire_at > $2) AND EXISTS (
+         SELECT 1 FROM ${PLAYER_MAIL_ATTACHMENT_TABLE} attachment
+          WHERE attachment.mail_id = mail.mail_id AND attachment.claimed_at IS NULL
+       ))::bigint AS unclaimed_count,
+       MAX(created_at)::bigint AS latest_mail_at,
+       COALESCE(MAX(mail_version), 1)::bigint AS mail_version
+     FROM ${PLAYER_MAIL_TABLE} mail
+     WHERE player_id = $1`,
+    [playerId, Date.now()],
+  );
+  const row = counters.rows?.[0] ?? {};
+  const unreadCount = Math.max(0, Math.trunc(Number(row.unread_count) || 0));
+  const unclaimedCount = Math.max(0, Math.trunc(Number(row.unclaimed_count) || 0));
+  const latest = Number.isFinite(Number(row.latest_mail_at)) ? Math.max(latestMailAt, Math.trunc(Number(row.latest_mail_at))) : latestMailAt;
+  const version = Math.max(1, Math.trunc(Number(row.mail_version) || 1));
+  await client.query(
+    `INSERT INTO ${PLAYER_MAIL_COUNTER_TABLE}(player_id, unread_count, unclaimed_count, latest_mail_at, counter_version, updated_at)
+     VALUES ($1, $2, $3, $4, $5, now())
+     ON CONFLICT (player_id) DO UPDATE SET
+       unread_count = EXCLUDED.unread_count,
+       unclaimed_count = EXCLUDED.unclaimed_count,
+       latest_mail_at = EXCLUDED.latest_mail_at,
+       counter_version = GREATEST(${PLAYER_MAIL_COUNTER_TABLE}.counter_version, EXCLUDED.counter_version),
+       updated_at = now()`,
+    [playerId, unreadCount, unclaimedCount, latest, version],
+  );
+  await client.query(
+    `INSERT INTO ${PLAYER_RECOVERY_WATERMARK_TABLE}(player_id, mail_version, mail_counter_version, updated_at)
+     VALUES ($1, $2, $3, now())
+     ON CONFLICT (player_id) DO UPDATE SET
+       mail_version = GREATEST(${PLAYER_RECOVERY_WATERMARK_TABLE}.mail_version, EXCLUDED.mail_version),
+       mail_counter_version = GREATEST(${PLAYER_RECOVERY_WATERMARK_TABLE}.mail_counter_version, EXCLUDED.mail_counter_version),
+       updated_at = now()`,
+    [playerId, version, version],
+  );
 }
 
 function resolveNextSlotIndex(rows: any[]): number {

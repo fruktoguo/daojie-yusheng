@@ -627,7 +627,12 @@ export class MailRuntimeService {
                     walletCredits.push({ walletType: itemId, count });
                     continue;
                 }
-                const item = this.contentTemplateRepository.createItem(itemId, count);
+                const attachmentPayload = attachment && typeof attachment === 'object'
+                    ? attachment
+                    : null;
+                const item = attachmentPayload && typeof attachmentPayload.type === 'string'
+                    ? this.contentTemplateRepository.normalizeItem({ ...attachmentPayload, itemId, count })
+                    : this.contentTemplateRepository.createItem(itemId, count);
                 if (!item) {
                     return null;
                 }
@@ -987,6 +992,7 @@ function normalizeAttachments(attachments) {
     return attachments
         .filter((entry) => entry && typeof entry.itemId === 'string' && entry.itemId.trim().length > 0)
         .map((entry) => ({
+        ...entry,
         itemId: entry.itemId.trim(),
         count: Number.isFinite(entry.count) ? Math.max(1, Math.trunc(Number(entry.count))) : 1,
     }));

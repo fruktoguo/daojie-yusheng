@@ -1419,7 +1419,7 @@ class MapInstanceRuntime {
         return { ok: true, building, changed: true };
     }
     /** deconstructBuildingInstance：服务端权威拆除建筑，调用方负责返还和审计。 */
-    deconstructBuildingInstance(buildingIdInput) {
+    deconstructBuildingInstance(buildingIdInput, options: { treasureVaultRecovered?: boolean } = {}) {
         const buildingId = normalizeBuildingId(buildingIdInput);
         if (!buildingId || !this.buildingById.has(buildingId)) {
             return { ok: false, reason: 'building_not_found' };
@@ -1428,6 +1428,9 @@ class MapInstanceRuntime {
         const compiled = building && this.buildingCatalog?.defByHandle
             ? this.buildingCatalog.defByHandle[building.defHandle] ?? this.buildingCatalog.defById?.get?.(building.defId)
             : null;
+        if (isTreasureVaultBuildingForRuntime(compiled, building) && options?.treasureVaultRecovered !== true) {
+            return { ok: false, reason: 'treasure_vault_recovery_required' };
+        }
         const changedCells = (this.buildingCellsById.get(buildingId) ?? []).slice();
         const wasInRoomInfluence = changedCells.some((cellIndex) => this.isCellInRoomInfluence(cellIndex));
         const previousTileTypes = this.buildingPreviousTileTypeById.get(buildingId) ?? [];
@@ -2953,7 +2956,28 @@ class MapInstanceRuntime {
                 building.state = 'destroyed';
                 building.updatedAtTick = this.tick;
                 building.revision = Math.max(1, Math.trunc(Number(building.revision) || 1)) + 1;
-                this.deconstructBuildingInstance(building.id);
+                const deconstructResult = this.deconstructBuildingInstance(building.id);
+                if (deconstructResult?.ok !== true && deconstructResult?.reason === 'treasure_vault_recovery_required') {
+                    building.hp = 1;
+                    building.state = 'active';
+                    building.updatedAtTick = this.tick;
+                    building.revision = Math.max(1, Math.trunc(Number(building.revision) || 1)) + 1;
+                    this.markStaticTileSyncDirtyByIndex(tileIndex);
+                    this.worldRevision += 1;
+                    this.persistentRevision += 1;
+                    this.markPersistenceDirtyDomainsHighPriority(['building']);
+                    return {
+                        destroyed: false,
+                        hp: 1,
+                        maxHp,
+                        appliedDamage,
+                        targetType: current.tileType,
+                        targetName: current.targetName,
+                        buildingId: building.id,
+                        building: true,
+                        protectedByTreasureVaultRecovery: true,
+                    };
+                }
             }
             else {
                 building.hp = nextHp;
@@ -8506,6 +8530,13 @@ function buildingUsesActiveTopology(buildingOrState) {
         ? buildingOrState
         : normalizeBuildingState(buildingOrState?.state);
     return state !== 'planned' && state !== 'building' && state !== 'destroyed';
+}
+
+function isTreasureVaultBuildingForRuntime(compiled, building) {
+    if (building?.defId === 'treasure_vault' || building?.defHandle === 'treasure_vault') {
+        return true;
+    }
+    return Math.max(0, Math.trunc(Number(compiled?.treasureVaultCapacity) || 0)) > 0;
 }
 function resolveBuildingCombatTileType(building, compiled) {
     if (typeof compiled?.visualTileType === 'string' && compiled.visualTileType.trim()) {

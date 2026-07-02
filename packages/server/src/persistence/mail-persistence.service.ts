@@ -33,6 +33,7 @@ const MAIL_BIGINT_COLUMNS_BY_TABLE = {
 interface MailAttachmentPayload {
   itemId: string;
   count: number;
+  [key: string]: unknown;
 }
 
 interface MailArgPayload {
@@ -87,6 +88,7 @@ interface StructuredAttachmentRow {
   mail_id?: unknown;
   item_id?: unknown;
   count?: unknown;
+  item_payload_jsonb?: unknown;
 }
 
 interface StructuredCounterRow {
@@ -199,7 +201,7 @@ export class MailPersistenceService implements OnModuleInit, OnModuleDestroy {
       if ((mailResult.rowCount ?? 0) > 0 || (counterResult.rowCount ?? 0) > 0) {
         const attachmentResult = await client.query<StructuredAttachmentRow>(
           `
-            SELECT mail_id, item_id, count
+            SELECT mail_id, item_id, count, item_payload_jsonb
             FROM ${PLAYER_MAIL_ATTACHMENT_TABLE}
             WHERE player_id = $1
             ORDER BY mail_id ASC, attachment_id ASC
@@ -1304,9 +1306,11 @@ function buildMailboxFromStructuredRows(
     if (!mailId || !itemId) {
       continue;
     }
+    const rawPayload = asRecord(attachmentRow.item_payload_jsonb);
     const attachment: MailAttachmentPayload = {
+      ...rawPayload,
       itemId,
-      count: Math.max(1, Math.trunc(Number(attachmentRow.count ?? 1))),
+      count: Math.max(1, Math.trunc(Number(attachmentRow.count ?? rawPayload.count ?? 1))),
     };
     const list = attachmentsByMailId.get(mailId);
     if (list) {
@@ -1415,12 +1419,7 @@ function normalizeMailEntry(raw: unknown): MailEntryPayload | null {
     attachments: Array.isArray(candidate.attachments)
       ? candidate.attachments
           .filter((entry) => typeof entry === 'object' && entry !== null && typeof (entry as Record<string, unknown>).itemId === 'string')
-          .map((entry) => ({
-            itemId: String((entry as Record<string, unknown>).itemId),
-            count: Number.isFinite((entry as Record<string, unknown>).count)
-              ? Math.max(1, Math.trunc(Number((entry as Record<string, unknown>).count ?? 1)))
-              : 1,
-          }))
+          .map((entry) => normalizeMailAttachment(entry as Record<string, unknown>))
       : [],
     createdAt: normalizeRequiredInteger(candidate.createdAt, Date.now()),
     updatedAt: normalizeRequiredInteger(candidate.updatedAt, Date.now()),
@@ -1429,6 +1428,16 @@ function normalizeMailEntry(raw: unknown): MailEntryPayload | null {
     readAt: normalizeOptionalInteger(candidate.readAt),
     claimedAt: normalizeOptionalInteger(candidate.claimedAt),
     deletedAt: normalizeOptionalInteger(candidate.deletedAt),
+  };
+}
+
+function normalizeMailAttachment(entry: Record<string, unknown>): MailAttachmentPayload {
+  return {
+    ...entry,
+    itemId: String(entry.itemId).trim(),
+    count: Number.isFinite(entry.count)
+      ? Math.max(1, Math.trunc(Number(entry.count ?? 1)))
+      : 1,
   };
 }
 
