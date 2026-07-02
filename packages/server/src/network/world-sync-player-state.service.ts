@@ -10,6 +10,7 @@ import {
   calcTechniqueFinalSpecialStatBonus,
   cloneNumericRatioDivisors,
   cloneNumericStats,
+  normalizeCombatAttackIntensity,
   type BootstrapArtifactView,
   type BootstrapEquipmentView,
   type PlayerMovementCapabilitiesState,
@@ -58,6 +59,7 @@ function buildPlayerSyncState(player, view, unlockedMinimapIds) {
     autoIdleCultivation: player.combat.autoIdleCultivation,
     autoSwitchCultivation: player.combat.autoSwitchCultivation,
     autoRootFoundation: player.combat.autoRootFoundation === true,
+    combatAttackIntensity: normalizeCombatAttackIntensity(player.combat.combatAttackIntensity),
     cultivationActive: player.combat.cultivationActive,
     instanceId: player.instanceId || view.instance.instanceId,
     mapId: view.instance.templateId,
@@ -464,8 +466,20 @@ function toItemStackState(entry) {
     : undefined;
   const stack = {
     itemId: entry.itemId,
+    name: entry.name,
+    type: entry.type,
+    desc: entry.desc,
+    groundLabel: entry.groundLabel,
+    grade: entry.grade,
+    level: entry.level,
     ...(itemInstanceId ? { itemInstanceId } : {}),
     count: entry.count,
+    ...(typeof entry.learnTechniqueId === 'string' && entry.learnTechniqueId.trim()
+      ? { learnTechniqueId: entry.learnTechniqueId.trim() }
+      : {}),
+    ...(Number.isFinite(Number(entry.learnTechniqueMaxLevel))
+      ? { learnTechniqueMaxLevel: Math.max(1, Math.trunc(Number(entry.learnTechniqueMaxLevel))) }
+      : {}),
   };
   return normalizedEnhanceLevel > 0 ? { ...stack, enhanceLevel: normalizedEnhanceLevel } : stack;
 }

@@ -120,6 +120,7 @@ function createPlayer(): any {
             allowAoePlayerHit: false,
             autoIdleCultivation: false,
             autoSwitchCultivation: true,
+            combatAttackIntensity: 12,
             cultivationActive: true,
             autoBattle: false,
             autoBattleSkills: [],
@@ -166,6 +167,7 @@ function testPlayerState() {
     assert.equal(npcAction?.type, 'interact');
     assert.equal(npcAction?.desc, 'desc');
     assert.equal(state.actions.find((action) => action.id === 'travel:return_spawn')?.desc, '催动归引灵符，遁返回 云来镇，之后需调息 1800 息。');
+    assert.equal(state.combatAttackIntensity, 12);
     assert.deepEqual(state.unlockedMinimapIds, ['map.a', 'map.b']);
 }
 

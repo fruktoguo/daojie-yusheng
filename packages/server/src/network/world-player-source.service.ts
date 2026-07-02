@@ -310,6 +310,7 @@ function toPlayerSnapshotFromMigrationRow(row) {
 
             autoSwitchCultivation: row.autoSwitchCultivation === true,
             autoRootFoundation: row.autoRootFoundation === true,
+            combatAttackIntensity: shared_1.normalizeCombatAttackIntensity(row.combatAttackIntensity ?? shared_1.DEFAULT_COMBAT_ATTACK_INTENSITY),
             senseQiActive: false,
             wangQiActive: false,
             autoBattleSkills: normalizeAutoBattleSkills(row.autoBattleSkills),
