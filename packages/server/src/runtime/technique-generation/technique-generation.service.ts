@@ -398,14 +398,16 @@ export class TechniqueGenerationService {
       return null;
     }
     const result = await pool.query(
-      `SELECT gt.template
+      `SELECT gt.template,
+              gt.model_name
        FROM technique_generation_job j
        JOIN generated_technique gt ON gt.id = j.draft_technique_id
        WHERE j.id = $1 AND j.player_id = $2 AND j.status = 'generated_draft'
        LIMIT 1`,
       [jobId, playerId],
     );
-    const template = result.rows[0]?.template as TechniqueTemplate | undefined;
+    const row = result.rows[0] as { template?: unknown; model_name?: unknown } | undefined;
+    const template = row?.template as TechniqueTemplate | undefined;
     if (!template) {
       return null;
     }
@@ -425,6 +427,7 @@ export class TechniqueGenerationService {
       skills: Array.isArray(template.skills) ? template.skills : undefined,
       maxLayer,
       expDifficulty: template.expDifficulty ?? 1,
+      modelName: typeof row?.model_name === 'string' && row.model_name.trim() ? row.model_name.trim() : undefined,
       budgetPercent: template.budgetPercent,
       totalBudget: template.totalBudget,
     };

@@ -377,6 +377,8 @@ export interface S2C_TechniqueGenerationResult {
     desc: string;
     maxLayer: number;
     expDifficulty?: number;
+    /** 本次自创功法实际使用的 AI 模型名。 */
+    modelName?: string;
     fullLevelAttrs?: Partial<Attributes>;
     skills?: SkillDef[];
   };
@@ -426,6 +428,8 @@ export interface S2C_TechniqueGenerationStatus {
     desc: string;
     maxLayer: number;
     expDifficulty?: number;
+    /** 本次自创功法实际使用的 AI 模型名。 */
+    modelName?: string;
     fullLevelAttrs?: Partial<Attributes>;
     skills?: SkillDef[];
   } | null;

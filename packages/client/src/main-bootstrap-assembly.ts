@@ -857,6 +857,7 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
             realmLv: data.preview.realmLv,
             desc: data.preview.desc,
             maxLayer: data.preview.maxLayer,
+            modelName: data.preview.modelName,
             fullLevelAttrs: data.preview.fullLevelAttrs,
             skills: data.preview.skills,
           },

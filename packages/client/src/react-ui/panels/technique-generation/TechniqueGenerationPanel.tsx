@@ -56,6 +56,7 @@ export interface TechniqueGenerationPanelState {
     realmLv: number;
     desc: string;
     maxLayer: number;
+    modelName?: string;
     fullLevelAttrs?: Partial<Attributes>;
     skills?: SkillDef[];
   } | null;
@@ -294,6 +295,12 @@ export const TechniqueGenerationPanel = memo(function TechniqueGenerationPanel()
               <span>层数</span>
               <strong>{state.currentDraft.maxLayer}</strong>
             </div>
+            {state.currentDraft.modelName && (
+              <div className="technique-generation-panel__metric">
+                <span>使用模型</span>
+                <strong>{state.currentDraft.modelName}</strong>
+              </div>
+            )}
             {state.currentDraft.desc && (
               <p className="technique-generation-panel__desc">{state.currentDraft.desc}</p>
             )}

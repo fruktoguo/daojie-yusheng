@@ -56,6 +56,7 @@ export interface TechniquePreview {
   skills?: SkillDef[];
   maxLayer: number;
   expDifficulty: number;
+  modelName?: string;
   budgetPercent?: number;
   totalBudget?: number;
 }

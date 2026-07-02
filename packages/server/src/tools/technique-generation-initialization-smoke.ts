@@ -425,6 +425,7 @@ async function testCurrentStatusRestoresGeneratedDraftPreview(): Promise<void> {
               maxLayer: 9,
               expDifficulty: 1,
             },
+            model_name: 'deepseek-chat',
           }],
           rowCount: 1,
         };
@@ -459,6 +460,7 @@ async function testCurrentStatusRestoresGeneratedDraftPreview(): Promise<void> {
   assert.equal(status.currentJob?.status, 'generated_draft');
   assert.equal(status.currentDraft?.techniqueId, 'gen_restore_draft_smoke');
   assert.equal(status.currentDraft?.suggestedName, '烟霞诀');
+  assert.equal(status.currentDraft?.modelName, 'deepseek-chat');
   assert.ok(queries.some((entry) => entry.sql.includes('ORDER BY CASE status')));
 }
 
