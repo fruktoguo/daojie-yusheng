@@ -44,16 +44,6 @@
     "economy": { "buildTicks": 3600, "durabilityMultiplier": 100, "maxHp": 120, "cost": [{ "itemId": "wood", "count": 8 }] }
   },
   {
-    "id": "meditation_mat",
-    "name": "蒲团",
-    "visual": { "glyph": "蒲", "color": "#8b5e34", "layer": "furniture" },
-    "placement": { "layer": "facility", "footprint": [{ "dx": 0, "dy": 0 }] },
-    "topology": { "blocksMove": false },
-    "fengShui": { "elementVector": { "wood": 8, "earth": 6 }, "traits": ["facility.meditation"], "comfort": 4, "stability": 4, "qiAffinity": 1 },
-    "economy": { "buildTicks": 600, "durabilityMultiplier": 30, "maxHp": 60, "cost": [{ "itemId": "cloth", "count": 2 }, { "itemId": "wood", "count": 1 }] },
-    "craftEffectStats": { "transmission": { "speedRate": 1 } }
-  },
-  {
     "id": "treasure_vault",
     "name": "宝库",
     "visual": { "glyph": "宝", "color": "#d69e2e", "layer": "furniture" },
@@ -62,5 +52,15 @@
     "fengShui": { "elementVector": { "earth": 16, "metal": 8 }, "traits": ["facility.treasure_vault", "storage.item"], "stability": 12, "comfort": 2 },
     "economy": { "buildTicks": 3600, "durabilityMultiplier": 120, "maxHp": 160, "cost": [{ "itemId": "wood", "count": 6 }, { "itemId": "metal", "count": 2 }] },
     "treasureVault": { "capacity": 80 }
+  },
+  {
+    "id": "meditation_mat",
+    "name": "蒲团",
+    "visual": { "glyph": "蒲", "color": "#8b5e34", "layer": "furniture" },
+    "placement": { "layer": "facility", "footprint": [{ "dx": 0, "dy": 0 }] },
+    "topology": { "blocksMove": false },
+    "fengShui": { "elementVector": { "wood": 8, "earth": 6 }, "traits": ["facility.meditation"], "comfort": 4, "stability": 4, "qiAffinity": 1 },
+    "economy": { "buildTicks": 600, "durabilityMultiplier": 30, "maxHp": 60, "cost": [{ "itemId": "cloth", "count": 2 }, { "itemId": "wood", "count": 1 }] },
+    "craftEffectStats": { "transmission": { "speedRate": 1 } }
   }
 ]
