@@ -399,7 +399,7 @@ type MainBootstrapAssemblyOptions = {
  * craftWorkbenchModal：炼制Workbench弹层相关字段。
  */
 
-  craftWorkbenchModal: Pick<CraftWorkbenchModal, 'setCallbacks' | 'setTransmissionCallbacks' | 'openAlchemy' | 'openForging' | 'openEnhancement' | 'openTransmission'>;
+  craftWorkbenchModal: Pick<CraftWorkbenchModal, 'setCallbacks' | 'setTransmissionCallbacks' | 'openAlchemy' | 'openForging' | 'openEnhancement' | 'openTransmission' | 'openTechniqueRefining'>;
   /**
  * debugPanel：debug面板相关字段。
  */

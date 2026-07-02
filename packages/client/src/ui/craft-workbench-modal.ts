@@ -1116,7 +1116,7 @@ export class CraftWorkbenchModal {
     if (this.activeMode === 'enhancement') {
       this.lastEnhancementRenderKey = this.buildEnhancementPanelRenderKey();
     }
-    if (this.useReactPanel()) {
+    if (this.activeMode !== 'technique_refining' && this.useReactPanel()) {
       this.renderReact(definition);
       return;
     }
@@ -1343,6 +1343,22 @@ export class CraftWorkbenchModal {
     body: HTMLElement,
     definition: { title: string; subtitle: string; variantClass: string; body: string },
   ): boolean {
+    if (this.activeMode === 'technique_refining') {
+      return detailModalHost.patch({
+        ownerId: CraftWorkbenchModal.MODAL_OWNER,
+        variantClass: definition.variantClass,
+        title: definition.title,
+        subtitle: definition.subtitle,
+        hint: t('craft.workbench.modal.close-hint'),
+        renderBody: (nextBody) => {
+          replaceElementHtml(nextBody, definition.body);
+        },
+        onAfterRender: (nextBody, signal) => {
+          bindInlineItemTooltips(nextBody, signal);
+          this.bindActions(nextBody, signal);
+        },
+      });
+    }
     if (this.useReactPanel()) {
       return this.tryPatchReactModal(body, definition, true);
     }
@@ -1825,13 +1841,6 @@ export class CraftWorkbenchModal {
             <span class="alchemy-summary-mode">${formatDisplayInteger(learned.length)} 门可传 · ${formatDisplayInteger(targets.length)} 人附近</span>
           </div>
           ${this.renderTransmissionTeachPicker(learned, targets)}
-        </section>
-        <section class="alchemy-summary-card">
-          <div class="alchemy-summary-head">
-            <div class="alchemy-summary-title">制造功法书</div>
-            <span class="alchemy-summary-mode">消耗功法残页</span>
-          </div>
-          ${this.renderTransmissionBookCraftPicker(this.transmissionTechniques ?? [])}
         </section>
       </div>
     `;
