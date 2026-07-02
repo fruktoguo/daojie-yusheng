@@ -11,6 +11,7 @@ import type {
 import type { SocketSocialEconomySender } from './network/socket-send-social-economy';
 import type { ToastKind } from './main-app-assembly-types';
 import { SocialPanel, TreasureVaultModal } from './ui/panels/social-panel';
+import type { TreasureVaultModalTab } from './ui/panels/social-panel';
 
 type MainSocialStateSourceOptions = {
   socialPanel: SocialPanel;
@@ -107,9 +108,10 @@ export function createMainSocialStateSource(options: MainSocialStateSourceOption
       options.treasureVaultModal.clear();
     },
     syncPlayerContext,
-    openTreasureVault(buildingId: string): void {
+    openTreasureVault(buildingId: string, initialTab: TreasureVaultModalTab = 'items'): void {
       const normalizedBuildingId = buildingId.trim();
       if (!normalizedBuildingId) return;
+      options.treasureVaultModal.setPreferredTab(initialTab);
       options.socket.sendRequestTreasureVault({ buildingId: normalizedBuildingId });
     },
     handleSocialPanel(view: SocialPanelView): void {

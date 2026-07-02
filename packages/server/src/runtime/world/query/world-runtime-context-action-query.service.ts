@@ -238,13 +238,23 @@ export class WorldRuntimeContextActionQueryService {
                         const buildingName = typeof entry?.name === 'string' && entry.name.trim()
                             ? entry.name.trim()
                             : '宝库';
+                        const encodedBuildingId = encodeURIComponent(building.id);
                         actions.push({
-                            id: `treasure_vault:open:${encodeURIComponent(building.id)}`,
+                            id: `treasure_vault:open:${encodedBuildingId}`,
                             name: `打开：${buildingName}`,
                             type: 'interact',
                             desc: '查看附近宝库，并按创建者设定的权限存取物品。',
                             cooldownLeft: 0,
                         });
+                        if (typeof building.ownerPlayerId === 'string' && building.ownerPlayerId.trim() === player.id) {
+                            actions.push({
+                                id: `treasure_vault:permissions:${encodedBuildingId}`,
+                                name: `设置权限：${buildingName}`,
+                                type: 'interact',
+                                desc: '建造者可设置宝库查看、存入、取出的使用权限。',
+                                cooldownLeft: 0,
+                            });
+                        }
                     }
                     continue;
                 }

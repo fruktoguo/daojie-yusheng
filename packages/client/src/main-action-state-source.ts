@@ -14,6 +14,7 @@ import {
 import { resolveClientSkillCastAvailability } from './client-skill-cast-availability';
 import type { SocketRuntimeSender } from './network/socket-send-runtime';
 import type { ClientTechniqueActivityKind } from './technique-activity-client.helpers';
+import type { TreasureVaultModalTab } from './ui/panels/social-panel';
 import type { ToastKind } from './main-app-assembly-types';
 import { ActionPanel } from './ui/panels/action-panel';
 /**
@@ -94,7 +95,7 @@ type MainActionStateSourceOptions = {
  * openTreasureVault：打开宝库弹层。
  */
 
-  openTreasureVault: (buildingId: string) => void;
+  openTreasureVault: (buildingId: string, initialTab?: TreasureVaultModalTab) => void;
   /**
  * openWorldMigrationModal：打开世界迁移弹窗。
  */
@@ -200,6 +201,15 @@ export function createMainActionStateSource(options: MainActionStateSourceOption
           options.cancelTargeting();
           options.hideObserveModal();
           options.openTreasureVault(safeDecodeActionPart(encodedBuildingId));
+          return;
+        }
+      }
+      if (actionId.startsWith('treasure_vault:permissions:')) {
+        const encodedBuildingId = actionId.slice('treasure_vault:permissions:'.length).trim();
+        if (encodedBuildingId && !encodedBuildingId.includes(':')) {
+          options.cancelTargeting();
+          options.hideObserveModal();
+          options.openTreasureVault(safeDecodeActionPart(encodedBuildingId), 'permissions');
           return;
         }
       }

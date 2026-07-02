@@ -101,3 +101,107 @@
   background: var(--overlay-backdrop);
   backdrop-filter: blur(3px);
 }
+
+.treasure-vault-modal-layer {
+  z-index: 4300;
+  background: var(--overlay-backdrop);
+  backdrop-filter: blur(5px);
+}
+
+.treasure-vault-modal-layer.hidden {
+  display: none;
+}
+
+.treasure-vault-modal-card {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 12px;
+}
+
+.treasure-vault-modal-head {
+  align-items: center;
+}
+
+.treasure-vault-body {
+  min-height: 0;
+}
+
+.treasure-vault-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(280px, 0.8fr);
+  gap: 14px;
+  min-height: 0;
+}
+
+.treasure-vault-section {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--wash-ink);
+  background: var(--surface-muted);
+}
+
+.treasure-vault-section--items {
+  min-height: 280px;
+}
+
+.treasure-vault-section--actions {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+}
+
+.treasure-vault-permission-summary,
+.treasure-vault-permission-editor {
+  display: grid;
+  gap: 10px;
+}
+
+.treasure-vault-permission-editor {
+  padding: 12px;
+  border: 1px solid var(--wash-ink);
+  background: var(--surface-muted);
+}
+
+.treasure-vault-permission-editor .ui-list-row,
+.treasure-vault-section .ui-list-row {
+  align-items: center;
+}
+
+.treasure-vault-permission-editor .inline-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin: 4px 10px 4px 0;
+  color: var(--ink-grey);
+  font-size: var(--font-size-12);
+}
+
+.treasure-vault-section .ui-input-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 76px auto;
+  gap: 8px;
+  align-items: center;
+}
+
+@media (max-width: 760px) {
+  .treasure-vault-modal-layer {
+    --ui-modal-padding: 12px;
+    align-items: stretch;
+  }
+
+  .treasure-vault-modal-card {
+    max-height: calc(100dvh - var(--ui-modal-padding-top, 12px) - var(--ui-modal-padding-bottom, 12px));
+  }
+
+  .treasure-vault-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .treasure-vault-tabs {
+    overflow-x: auto;
+  }
+
+  .treasure-vault-section .ui-input-row {
+    grid-template-columns: 1fr;
+  }
+}

@@ -32,6 +32,8 @@ type TreasureVaultCallbacks = {
   onUpdatePermissions(permissions: TreasureVaultPermissionMap): void;
 };
 
+export type TreasureVaultModalTab = 'items' | 'permissions';
+
 const RELATION_LABEL: Record<DaoistRelationLevel, string> = {
   dao_friend: '道友',
   close_friend: '至交',
@@ -250,10 +252,12 @@ export class TreasureVaultModal {
   private detail: TreasureVaultDetailView | null = null;
   private inventoryItems: SyncedItemStack[] = [];
   private currentPlayerId: string | null = null;
+  private activeTab: TreasureVaultModalTab = 'items';
+  private preferredTab: TreasureVaultModalTab = 'items';
 
   constructor() {
     this.root = document.createElement('div');
-    this.root.className = 'modal-backdrop hidden';
+    this.root.className = 'ui-modal-layer treasure-vault-modal-layer hidden';
     document.body.appendChild(this.root);
     this.bindEvents();
   }
@@ -268,8 +272,14 @@ export class TreasureVaultModal {
     if (this.detail) this.render();
   }
 
+  setPreferredTab(tab: TreasureVaultModalTab): void {
+    this.preferredTab = tab;
+    this.activeTab = tab;
+  }
+
   showDetail(detail: TreasureVaultDetailView): void {
     this.detail = detail;
+    this.activeTab = this.resolveVisibleTab(this.preferredTab, detail);
     this.root.classList.remove('hidden');
     this.render();
   }
@@ -282,6 +292,8 @@ export class TreasureVaultModal {
 
   clear(): void {
     this.detail = null;
+    this.activeTab = 'items';
+    this.preferredTab = 'items';
     this.root.classList.add('hidden');
     this.root.innerHTML = '';
   }
@@ -300,14 +312,23 @@ export class TreasureVaultModal {
       if (!this.callbacks || !this.detail) {
         return;
       }
+      if (action === 'tab') {
+        const tab = target.dataset.vaultTab as TreasureVaultModalTab | undefined;
+        if (tab === 'items' || tab === 'permissions') {
+          this.activeTab = this.resolveVisibleTab(tab, this.detail);
+          this.preferredTab = this.activeTab;
+          this.render();
+        }
+        return;
+      }
       if (action === 'deposit') {
         const itemInstanceId = this.root.querySelector<HTMLSelectElement>('[data-vault-deposit-item]')?.value ?? '';
-        const count = Number(this.root.querySelector<HTMLInputElement>('[data-vault-deposit-count]')?.value ?? 1);
+        const count = normalizePositiveCount(this.root.querySelector<HTMLInputElement>('[data-vault-deposit-count]')?.value);
         if (itemInstanceId) this.callbacks.onDeposit(itemInstanceId, count);
       }
       if (action === 'withdraw') {
         const storageItemId = target.dataset.storageItemId ?? '';
-        const count = Number((target.closest('[data-vault-row]')?.querySelector<HTMLInputElement>('[data-vault-withdraw-count]'))?.value ?? 1);
+        const count = normalizePositiveCount((target.closest('[data-vault-row]')?.querySelector<HTMLInputElement>('[data-vault-withdraw-count]'))?.value);
         if (storageItemId) this.callbacks.onWithdraw(storageItemId, count);
       }
       if (action === 'permissions') {
@@ -323,20 +344,56 @@ export class TreasureVaultModal {
       return;
     }
     const canEditPermissions = detail.ownerPlayerId === this.currentPlayerId;
+    const activeTab = this.resolveVisibleTab(this.activeTab, detail);
+    this.activeTab = activeTab;
     this.root.innerHTML = `
-      <div class="modal-shell ui-workspace-shell">
-        <div class="modal-header">
+      <div class="ui-modal-card ui-modal-card--wide treasure-vault-modal-card" role="dialog" aria-modal="true" aria-label="${escapeHtml(detail.buildingName)}">
+        <div class="ui-modal-head treasure-vault-modal-head">
           <div>
-            <div class="modal-title">${escapeHtml(detail.buildingName)}</div>
-            <div class="modal-subtitle">${detail.items.length}/${detail.capacity}</div>
+            <div class="ui-modal-title">${escapeHtml(detail.buildingName)}仓库</div>
+            <div class="ui-modal-subtitle">${this.renderVaultSubtitle(detail)}</div>
           </div>
           <button class="icon-btn" type="button" data-vault-action="close">x</button>
         </div>
-        <div class="modal-body">
-          ${this.renderItems(detail)}
-          ${this.renderDeposit(detail)}
-          ${this.renderPermissions(detail, canEditPermissions)}
+        <div class="ui-tabbed-modal-shell treasure-vault-shell">
+          <div class="ui-tabbed-modal-tabs treasure-vault-tabs">
+            <button class="ui-tabbed-modal-tab ${activeTab === 'items' ? 'active' : ''}" type="button" data-vault-action="tab" data-vault-tab="items">仓库</button>
+            ${canEditPermissions ? `<button class="ui-tabbed-modal-tab ${activeTab === 'permissions' ? 'active' : ''}" type="button" data-vault-action="tab" data-vault-tab="permissions">使用权限</button>` : ''}
+          </div>
+          <div class="ui-modal-body treasure-vault-body">
+            ${activeTab === 'permissions'
+              ? this.renderPermissions(detail, canEditPermissions)
+              : this.renderWarehouse(detail, canEditPermissions)}
+          </div>
         </div>
+      </div>
+    `;
+  }
+
+  private resolveVisibleTab(tab: TreasureVaultModalTab, detail: TreasureVaultDetailView): TreasureVaultModalTab {
+    if (tab === 'permissions' && detail.ownerPlayerId !== this.currentPlayerId) {
+      return 'items';
+    }
+    return tab;
+  }
+
+  private renderVaultSubtitle(detail: TreasureVaultDetailView): string {
+    const owner = detail.ownerName ? ` · 建造者：${escapeHtml(detail.ownerName)}` : '';
+    return `容量 ${detail.items.length}/${detail.capacity}${owner}`;
+  }
+
+  private renderWarehouse(detail: TreasureVaultDetailView, canEditPermissions: boolean): string {
+    return `
+      <div class="treasure-vault-layout">
+        <section class="treasure-vault-section treasure-vault-section--items">
+          <div class="panel-section-title">宝库物品</div>
+          ${this.renderItems(detail)}
+        </section>
+        <aside class="treasure-vault-section treasure-vault-section--actions">
+          <div class="panel-section-title">存取</div>
+          ${this.renderDeposit(detail)}
+          ${this.renderPermissionSummary(detail, canEditPermissions)}
+        </aside>
       </div>
     `;
   }
@@ -368,12 +425,15 @@ export class TreasureVaultModal {
 
   private renderDeposit(detail: TreasureVaultDetailView): string {
     if (!detail.effectivePermissions.deposit) {
-      return '';
+      return '<div class="empty-hint compact">无权向宝库存入物品</div>';
     }
     const options = this.inventoryItems
       .filter((item) => typeof item.itemInstanceId === 'string' && item.itemInstanceId.length > 0)
       .map((item) => `<option value="${escapeHtml(item.itemInstanceId as string)}">${escapeHtml(getItemStackDisplayLabel(item))}</option>`)
       .join('');
+    if (!options) {
+      return '<div class="empty-hint compact">背包里暂无可存入物品</div>';
+    }
     return `
       <div class="ui-input-row">
         <select class="ui-input" data-vault-deposit-item>${options}</select>
@@ -383,9 +443,39 @@ export class TreasureVaultModal {
     `;
   }
 
-  private renderPermissions(detail: TreasureVaultDetailView, canEdit: boolean): string {
+  private renderPermissionSummary(detail: TreasureVaultDetailView, canEditPermissions: boolean): string {
     return `
-      <div class="ui-list">
+      <div class="treasure-vault-permission-summary">
+        <div class="panel-section-title">当前规则</div>
+        ${PERMISSION_KINDS.map((kind) => `
+          <div class="panel-row">
+            <span class="panel-label">${PERMISSION_KIND_LABEL[kind]}</span>
+            <span class="panel-value">${this.renderScopeSummary(detail.permissions[kind])}</span>
+          </div>
+        `).join('')}
+        ${canEditPermissions
+          ? '<button class="small-btn" type="button" data-vault-action="tab" data-vault-tab="permissions">设置使用权限</button>'
+          : '<div class="panel-subtext">使用权限仅建造者可设置。</div>'}
+      </div>
+    `;
+  }
+
+  private renderScopeSummary(scopes: TreasureVaultPermissionScope[] | undefined): string {
+    const normalized = (scopes ?? []).filter((scope) => PERMISSION_SCOPES.includes(scope));
+    if (normalized.length === 0) {
+      return '仅建造者';
+    }
+    return normalized.map((scope) => PERMISSION_SCOPE_LABEL[scope]).join('、');
+  }
+
+  private renderPermissions(detail: TreasureVaultDetailView, canEdit: boolean): string {
+    if (!canEdit) {
+      return '<div class="empty-hint">使用权限仅建造者可设置。</div>';
+    }
+    return `
+      <div class="treasure-vault-permission-editor">
+        <div class="panel-section-title">设置使用权限</div>
+        <div class="panel-subtext">建造者始终拥有查看、存入、取出和修改权限；下方规则只影响其他玩家。</div>
         ${PERMISSION_KINDS.map((kind) => `
           <div class="ui-list-row">
             <div class="ui-list-main">
@@ -401,7 +491,9 @@ export class TreasureVaultModal {
             </div>
           </div>
         `).join('')}
-        ${canEdit ? '<button class="small-btn" type="button" data-vault-action="permissions">保存权限</button>' : ''}
+        <div class="ui-inline-actions-end">
+          <button class="small-btn" type="button" data-vault-action="permissions">保存权限</button>
+        </div>
       </div>
     `;
   }
@@ -436,4 +528,9 @@ function escapeHtml(value: unknown): string {
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;');
+}
+
+function normalizePositiveCount(value: unknown): number {
+  const count = Math.trunc(Number(value));
+  return Number.isFinite(count) && count > 0 ? count : 1;
 }
