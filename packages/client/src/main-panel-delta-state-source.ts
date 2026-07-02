@@ -1070,17 +1070,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
       const next = nextActions[index]!;
       if (
         previous.id !== next.id
-        || previous.name !== next.name
-        || previous.desc !== next.desc
         || previous.type !== next.type
-        || previous.range !== next.range
-        || previous.requiresTarget !== next.requiresTarget
-        || previous.targetMode !== next.targetMode
-        || previous.scriptureTechniqueId !== next.scriptureTechniqueId
-        || previous.scriptureTechniqueName !== next.scriptureTechniqueName
-        || previous.scriptureTechniqueRealmLv !== next.scriptureTechniqueRealmLv
-        || previous.scriptureTechniqueGrade !== next.scriptureTechniqueGrade
-        || previous.scriptureTechniqueCategory !== next.scriptureTechniqueCategory
         || previous.autoBattleEnabled !== next.autoBattleEnabled
         || previous.skillEnabled !== next.skillEnabled
       ) {

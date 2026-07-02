@@ -522,6 +522,14 @@ interface ActionRowRefs {
  */
 
   toggleNode?: HTMLButtonElement;
+  /** nameNode：动作标题节点。 */
+  nameNode?: HTMLElement;
+  /** descNode：动作描述节点。 */
+  descNode?: HTMLElement;
+  /** rangeNode：范围标签节点。 */
+  rangeNode?: HTMLElement;
+  /** bindNode：快捷键绑定按钮。 */
+  bindNode?: HTMLButtonElement;
 }
 
 /** 技能管理列表里的单条条目，包含动作本体和预览指标。 */
@@ -1012,30 +1020,32 @@ export class ActionPanel {
   }
 
   private buildActionPanelContentKey(actions: ActionDef[]): string {
+    const visibleStructure = this.getActionPanelVisibleStructure(actions);
     return [
       this.activeTab,
       this.activeSkillTab,
-      this.bindingActionId ?? '',
       this.previewPlayer?.autoBattleTargetingMode ?? '',
-      actions.map((action) => [
+      visibleStructure,
+    ].join('::');
+  }
+
+  /** 只记录会改变行动栏 DOM 结构的字段；文本、冷却、开关状态由局部 patch 负责。 */
+  private getActionPanelVisibleStructure(actions: ActionDef[]): string {
+    const parts: string[] = [];
+    for (const action of actions) {
+      if (!this.isActionVisibleInCurrentPane(action)) {
+        continue;
+      }
+      parts.push([
         action.id,
         action.type,
-        action.name,
-        action.desc,
-        action.scriptureTechniqueId ?? '',
-        action.scriptureTechniqueName ?? '',
-        action.scriptureTechniqueRealmLv ?? '',
-        action.scriptureTechniqueGrade ?? '',
-        action.scriptureTechniqueCategory ?? '',
-        action.range ?? '',
-        action.requiresTarget ? 'target' : '',
-        action.targetMode ?? '',
         this.isSwitchAction(action) ? 'switch' : '',
-        action.autoBattleEnabled === false ? 'auto-off' : '',
+        this.isUtilityAction(action) ? 'utility' : '',
         action.skillEnabled === false ? 'skill-off' : '',
-        this.shortcutBindings.get(action.id) ?? '',
-      ].join('/')).join('|'),
-    ].join('::');
+        action.autoBattleEnabled === false ? 'manual' : 'auto',
+      ].join('/'));
+    }
+    return parts.join('|');
   }
 
   /** patch 行动栏里随 tick 变化的节点，失败时由调用方回退到完整渲染。 */
@@ -1148,6 +1158,10 @@ export class ActionPanel {
       const stateNode = row.querySelector<HTMLElement>('[data-action-auto-state]');
       const orderNode = row.querySelector<HTMLElement>('[data-action-auto-order]');
       const toggleNode = row.querySelector<HTMLButtonElement>('[data-auto-battle-toggle]');
+      const nameNode = row.querySelector<HTMLElement>('[data-action-name-node]');
+      const descNode = row.querySelector<HTMLElement>('[data-action-desc-node]');
+      const rangeNode = row.querySelector<HTMLElement>('[data-action-range-node]');
+      const bindNode = row.querySelector<HTMLButtonElement>('[data-bind-action]');
       this.actionRowRefs.set(actionId, {
         row,
         cdNode,
@@ -1155,6 +1169,10 @@ export class ActionPanel {
         stateNode: stateNode ?? undefined,
         orderNode: orderNode ?? undefined,
         toggleNode: toggleNode ?? undefined,
+        nameNode: nameNode ?? undefined,
+        descNode: descNode ?? undefined,
+        rangeNode: rangeNode ?? undefined,
+        bindNode: bindNode ?? undefined,
       });
     });
   }
@@ -1179,7 +1197,7 @@ export class ActionPanel {
         if (this.previewPlayer) {
           this.previewPlayer.combatAttackIntensity = intensity;
         }
-        this.render(this.currentActions);
+        this.syncCachedAttackIntensityControl();
         this.onAction?.(`combat:attack_intensity:${intensity}`, false, undefined, undefined, t('action.attack-intensity.title', undefined));
       }, { signal });
     });
@@ -1705,8 +1723,8 @@ export class ActionPanel {
     const state = this.getSwitchCardState(action);
     return `<div class="gm-player-row ${state.active ? 'is-active' : ''}" data-action-card="${action.id}" role="button" tabindex="0">
       <div>
-        <div class="gm-player-name">${escapeHtml(this.getSwitchCardTitle(action))}</div>
-        <div class="gm-player-meta">${escapeHtml(stripSectManagementData(action.desc))}${this.renderShortcutMeta(action.id)}</div>
+        <div class="gm-player-name" data-switch-title="${action.id}">${escapeHtml(this.getSwitchCardTitle(action))}</div>
+        <div class="gm-player-meta" data-switch-meta="${action.id}">${escapeHtml(stripSectManagementData(action.desc))}${this.renderShortcutMeta(action.id)}</div>
       </div>
       <div class="action-card-side">
         <div class="gm-player-stat" data-switch-state="${action.id}">${state.label}</div>
@@ -2265,16 +2283,16 @@ export class ActionPanel {
     return `<div class="action-item ${onCd ? 'cooldown' : ''} ${isAutoBattleSkill ? 'action-item-draggable' : ''}" data-action-row="${action.id}" data-action-card="${action.id}" role="button" tabindex="0"${rowAttrs}>
       <div class="action-copy ${skillContext ? 'action-copy-tooltip' : ''} ${affinityChip ? 'action-copy--with-affinity' : ''}"${tooltipAttrs}>
         <div>
-          <span class="action-name">${escapeHtml(action.name)}</span>
+          <span class="action-name" data-action-name-node="${action.id}">${escapeHtml(action.name)}</span>
           <span class="action-type">[${getActionTypeLabel(action.type)}]</span>
-          ${typeof action.range === 'number' ? `<span class="action-type">${t('action.range', { range: formatDisplayNumber(action.range) })}</span>` : ''}
+          <span class="action-type" data-action-range-node="${action.id}"${typeof action.range === 'number' ? '' : ' hidden'}>${typeof action.range === 'number' ? t('action.range', { range: formatDisplayNumber(action.range) }) : ''}</span>
           ${isAutoBattleSkill
             ? `<span class="action-type ${autoBattleEnabled ? 'auto-battle-enabled' : 'auto-battle-disabled'}" data-action-auto-state="${action.id}">${autoBattleEnabled ? t('action.skill.auto-state.enabled', undefined) : t('action.skill.auto-state.disabled', undefined)}</span>
                <span class="action-type" data-action-auto-order="${action.id}"${autoBattleOrder ? '' : ' hidden'}>${autoBattleOrder ? t('action.skill.order', { order: formatDisplayInteger(autoBattleOrder) }) : ''}</span>`
             : autoBattleMeta}
           ${this.renderShortcutBadge(action.id)}
         </div>
-        <div class="action-desc">${this.renderActionDescription(action)}</div>
+        <div class="action-desc" data-action-desc-node="${action.id}">${this.renderActionDescription(action)}</div>
         ${affinityChip}
       </div>
       <div class="action-cta ui-action-row ui-action-row--end">
@@ -2480,12 +2498,24 @@ export class ActionPanel {
       }
       const row = this.pane.querySelector<HTMLElement>(`[data-action-card="${CSS.escape(action.id)}"]`);
       const stateNode = row?.querySelector<HTMLElement>('[data-switch-state]');
+      const titleNode = row?.querySelector<HTMLElement>('[data-switch-title]');
+      const metaNode = row?.querySelector<HTMLElement>('[data-switch-meta]');
+      const bindNode = row?.querySelector<HTMLButtonElement>('[data-bind-action]');
       if (!row || !stateNode) {
         return false;
       }
       const state = this.getSwitchCardState(action);
       row.classList.toggle('is-active', state.active);
       stateNode.textContent = state.label;
+      if (titleNode) {
+        titleNode.textContent = this.getSwitchCardTitle(action);
+      }
+      if (metaNode) {
+        metaNode.textContent = `${stripSectManagementData(action.desc)}${this.renderShortcutMeta(action.id)}`;
+      }
+      if (bindNode) {
+        bindNode.textContent = this.getBindButtonLabel(action.id);
+      }
     }
     return true;
   }
@@ -2520,10 +2550,15 @@ export class ActionPanel {
       if (!cdNode || !execNode) {
         return false;
       }
+      this.patchActionRowStaticText(action, refs);
       cdNode.textContent = onCd ? t('action.cooldown.left', { ticks: formatDisplayInteger(action.cooldownLeft) }) : '';
       cdNode.hidden = !onCd;
       execNode.hidden = onCd;
       execNode.disabled = onCd;
+      execNode.dataset.actionName = action.name;
+      execNode.dataset.actionRange = action.range == null ? '' : String(action.range);
+      execNode.dataset.actionTarget = action.requiresTarget ? '1' : '0';
+      execNode.dataset.actionTargetMode = action.targetMode ?? '';
 
       if (action.type === 'skill') {
         const stateNode = refs.stateNode;
@@ -2546,6 +2581,28 @@ export class ActionPanel {
     }
 
     return true;
+  }
+
+  /** 动作行中允许每息变化的展示字段只改节点内容，不重建整行。 */
+  private patchActionRowStaticText(action: ActionDef, refs: ActionRowRefs): void {
+    if (refs.nameNode) {
+      refs.nameNode.textContent = action.name;
+    }
+    if (refs.descNode) {
+      const nextDesc = this.renderActionDescription(action);
+      if (refs.descNode.innerHTML !== nextDesc) {
+        refs.descNode.innerHTML = nextDesc;
+      }
+    }
+    if (refs.rangeNode) {
+      const range = typeof action.range === 'number' ? action.range : null;
+      const hasRange = range !== null;
+      refs.rangeNode.hidden = !hasRange;
+      refs.rangeNode.textContent = range === null ? '' : t('action.range', { range: formatDisplayNumber(range) });
+    }
+    if (refs.bindNode) {
+      refs.bindNode.textContent = this.getBindButtonLabel(action.id);
+    }
   }
 
   /** 判断当前页签里是否实际渲染了这条行动。 */
