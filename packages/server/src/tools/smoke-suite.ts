@@ -197,6 +197,7 @@ const smokeCases = [
   { name: 'mail-expiration-archive-worker', scriptFile: 'mail-expiration-archive-worker-smoke.js', standalone: true },
   { name: 'mail-soft-delete-purge-worker', scriptFile: 'mail-soft-delete-purge-worker-smoke.js', standalone: true },
   { name: 'mail-structured-mutation', scriptFile: 'mail-structured-mutation-smoke.js', standalone: true },
+  { name: 'treasure-vault-asset-safety', scriptFile: 'treasure-vault-asset-safety-smoke.js', standalone: true },
   { name: 'mail-schema-report', scriptFile: 'mail-schema-report-smoke.js', standalone: true },
   { name: 'outbox-dispatcher', scriptFile: 'outbox-dispatcher-smoke.js', standalone: true },
   { name: 'outbox-dispatcher-backoff', scriptFile: 'outbox-dispatcher-backoff-smoke.js', standalone: true },
@@ -296,6 +297,7 @@ const SMOKE_CASE_GROUPS = Object.freeze({
     'mail-expiration-archive-worker',
     'mail-soft-delete-purge-worker',
     'mail-structured-mutation',
+    'treasure-vault-asset-safety',
     'mail-schema-report',
     'outbox-dispatcher',
     'outbox-dispatcher-backoff',
@@ -328,6 +330,7 @@ const DB_SMOKE_CASES = new Set([
     'player-anchor-checkpoint-flush-worker',
     'player-state-flush-worker',
     'durable-operation',
+    'treasure-vault-asset-safety',
   'gm-database',
   'shutdown-drain',
 ]);

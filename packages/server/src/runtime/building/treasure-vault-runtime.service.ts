@@ -350,7 +350,7 @@ export class TreasureVaultRuntimeService {
       return [];
     }
     const result = await this.pool.query(
-      `SELECT instance_id, building_id,
+      `SELECT storage.instance_id, storage.building_id,
               COALESCE(MAX(storage.owner_player_id), MAX(building.owner_player_id), MAX(catalog.owner_player_id)) AS owner_player_id,
               COALESCE(MAX(storage.building_name), MAX(building.def_id), '宝库') AS building_name,
               COUNT(*)::bigint AS item_count
