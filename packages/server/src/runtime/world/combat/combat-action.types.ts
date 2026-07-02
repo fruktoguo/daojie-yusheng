@@ -125,7 +125,7 @@ export function createCombatActionDefinition(input: AnyRecord = {}) {
     cost: input.cost ?? null,
     cooldownTicks: Math.max(0, Math.floor(Number(input.cooldownTicks) || 0)),
     windupTicks: Math.max(0, Math.floor(Number(input.windupTicks) || 0)),
-    maxTargets: Math.max(1, Math.floor(Number(input.maxTargets) || 1)),
+    maxTargets: Math.max(0, Math.floor(Number(input.maxTargets) || 0)),
     raw: input.raw,
   };
 }

@@ -1113,7 +1113,7 @@ export class WorldRuntimeCombatActionService {
         ...baseDefinition.geometry,
         ...effectiveGeometry,
       },
-      maxTargets: Math.max(1, Math.floor(Number(input.maxTargets ?? baseDefinition.maxTargets) || 1)),
+      maxTargets: Math.max(0, Math.floor(Number(input.maxTargets ?? baseDefinition.maxTargets) || 0)),
       raw: skill,
     };
   }
@@ -3034,8 +3034,8 @@ function normalizeWindupTicks(skill: AnyRecord = {}) {
 
 function resolveSkillMaxTargets(skill: AnyRecord = {}, geometry = normalizeSkillGeometry(skill)) {
   const configured = Number(skill.targeting?.maxTargets ?? skill.maxTargets);
-  if (Number.isFinite(configured) && configured > 0) {
-    return Math.max(1, Math.floor(configured));
+  if (Number.isFinite(configured) && configured >= 0) {
+    return Math.max(0, Math.floor(configured));
   }
   return resolveTargetingGeometryMaxTargets(geometry);
 }
@@ -3397,22 +3397,16 @@ function isPlayerLocatedInCombatActionInstance(deps, instance, playerId, instanc
 
 function resolveMonsterSkillMaxTargets(skill) {
   const configured = Number(skill?.targeting?.maxTargets);
-  if (Number.isFinite(configured) && configured > 0) {
-    return Math.max(1, Math.floor(configured));
+  if (Number.isFinite(configured) && configured >= 0) {
+    return Math.max(0, Math.floor(configured));
   }
-  const shape = skill?.targeting?.shape ?? 'single';
-  if (shape === 'single') {
-    return 1;
-  }
-  const width = Math.max(1, Math.round(Number(skill?.targeting?.width) || 1));
-  const height = Math.max(1, Math.round(Number(skill?.targeting?.height) || 1));
-  const range = Math.max(1, Math.round(Number(skill?.targeting?.range ?? skill?.range) || 1));
-  const radius = Math.max(1, Math.round(Number(skill?.targeting?.radius) || range || 1));
-  if (shape === 'box' || shape === 'checkerboard') {
-    return width * height;
-  }
-  if (shape === 'line') {
-    return Math.max(1, range) * width;
-  }
-  return Math.max(1, (radius * 2 + 1) * (radius * 2 + 1));
+  return resolveTargetingGeometryMaxTargets({
+    range: Math.max(0, Math.floor(Number(skill?.targeting?.range ?? skill?.range) || 0)),
+    shape: skill?.targeting?.shape ?? 'single',
+    radius: skill?.targeting?.radius,
+    innerRadius: skill?.targeting?.innerRadius,
+    width: skill?.targeting?.width,
+    height: skill?.targeting?.height,
+    checkerParity: skill?.targeting?.checkerParity,
+  });
 }

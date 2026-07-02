@@ -7,6 +7,7 @@ const {
   COMBAT_PROTOCOL_LAYER_SPECS,
   estimateCombatAoiResultEventFieldCount,
   resolveTargetingGeometryMaxTargets,
+  normalizeTargetingDefaultMaxTargets,
 } = require('@mud/shared');
 const {
   CombatActionPhase,
@@ -48,6 +49,8 @@ async function run() {
   assert.ok(resolveTargetingGeometryMaxTargets({ range: 5, shape: 'line', width: 3 }) >= 10);
   assert.ok(resolveTargetingGeometryMaxTargets({ range: 5, shape: 'orientedBox', width: 3, height: 5 }) >= 15);
   assert.equal(resolveTargetingGeometryMaxTargets({ range: 4, shape: 'checkerboard', width: 7, height: 7 }), 25);
+  assert.equal(normalizeTargetingDefaultMaxTargets({ shape: 'box', range: 4, width: 7, height: 7, maxTargets: 0 }).maxTargets, 0);
+  assert.equal(normalizeTargetingDefaultMaxTargets({ shape: 'box', range: 4, width: 7, height: 7, maxTargets: -1 }).maxTargets, 49);
   const diagnostics = [];
   const logs = [];
   const deps = {

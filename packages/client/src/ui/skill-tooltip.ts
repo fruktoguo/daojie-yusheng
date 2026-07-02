@@ -8,7 +8,7 @@
  * 根据 SkillDef 和玩家上下文生成带公式预览的富文本提示内容
  */
 
-import { AttrKey, NumericScalarStatKey, SkillDef, SkillFormula, SkillFormulaVar, TemporaryBuffState, calcQiCostWithOutputLimit, formatBuffMaxStacks, resolveTargetingGeometryMaxTargets } from '@mud/shared';
+import { AttrKey, NumericScalarStatKey, SkillDef, SkillFormula, SkillFormulaVar, TemporaryBuffState, calcQiCostWithOutputLimit, formatBuffMaxStacks } from '@mud/shared';
 import type { PlayerState } from '@mud/shared';
 import { FORMULA_VAR_LABELS, FORMULA_VAR_META, type SkillScalingMeta } from '../constants/ui/skill-tooltip';
 import { getElementKeyLabel } from '../domain-labels';
@@ -135,18 +135,7 @@ type ResolvedPreviewValue = {
 
 function resolveSkillDisplayMaxTargets(skill: SkillDef): number {
   const configured = skill.targeting?.maxTargets;
-  if (typeof configured === 'number' && Number.isFinite(configured) && configured > 0) {
-    return Math.max(1, Math.floor(configured));
-  }
-  return resolveTargetingGeometryMaxTargets({
-    range: skill.targeting?.range ?? skill.range,
-    shape: skill.targeting?.shape ?? 'single',
-    radius: skill.targeting?.radius,
-    innerRadius: skill.targeting?.innerRadius,
-    width: skill.targeting?.width,
-    height: skill.targeting?.height,
-    checkerParity: skill.targeting?.checkerParity,
-  });
+  return Number.isFinite(Number(configured)) ? Math.max(0, Math.floor(Number(configured))) : 0;
 }
 
 /** BuffFormulaMeta：Buff 公式变量元信息。 */

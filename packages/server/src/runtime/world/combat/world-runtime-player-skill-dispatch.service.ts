@@ -200,7 +200,10 @@ function buildEffectivePlayerSkillGeometry(attacker, skill) {
 
 function resolveSkillTargetLimit(skill, effectiveGeometry = null) {
     const configuredMaxTargets = skill.targeting?.maxTargets;
-    if (!Number.isFinite(configuredMaxTargets) || (configuredMaxTargets ?? 0) <= 0) {
+    if (Number.isFinite(Number(configuredMaxTargets)) && Number(configuredMaxTargets) >= 0) {
+        return Math.max(0, Math.floor(Number(configuredMaxTargets)));
+    }
+    if (!Number.isFinite(configuredMaxTargets) || configuredMaxTargets === -1) {
         return resolveTargetingGeometryMaxTargets(effectiveGeometry ?? {
             range: resolveRuntimeSkillRange(skill),
             shape: skill.targeting?.shape ?? 'single',
@@ -211,7 +214,7 @@ function resolveSkillTargetLimit(skill, effectiveGeometry = null) {
             checkerParity: skill.targeting?.checkerParity,
         });
     }
-    return Math.max(1, Math.round(configuredMaxTargets));
+    return Math.max(0, Math.floor(Number(configuredMaxTargets) || 0));
 }
 
 function getTemporaryTileEffects(skill) {

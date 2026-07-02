@@ -6,6 +6,7 @@
 import type { ElementKey, NumericScalarStatKey } from './numeric';
 import type { SkillDamageKind, SkillDef, SkillEffectDef, SkillFormula, SkillFormulaVar, SkillTargetingDef } from './skill-types';
 import type { TechniqueGrade } from './cultivation-types';
+import { resolveTargetingGeometryMaxTargets } from './targeting';
 import { calculateTechniqueSkillQiCost } from './technique';
 import {
   TECHNIQUE_ARTS_STRENGTH_ALLOWED_ATTRIBUTE_BASE_STATS,
@@ -1426,39 +1427,39 @@ function calculateTechLevelScale(strength: number): number {
 
 function buildTargetingDef(target: NormalizedTechniqueArtsStrengthTarget): SkillTargetingDef | undefined {
   if (target.rawTargeting !== undefined) {
-    return target.rawTargeting === null ? undefined : { ...target.rawTargeting };
+    return target.rawTargeting === null ? undefined : normalizeTargetingDefaultMaxTargets({ ...target.rawTargeting });
   }
   if (target.type === 'line') {
-    return stripUndefinedTargeting({
+    return normalizeTargetingDefaultMaxTargets(stripUndefinedTargeting({
       shape: 'line',
       range: target.range,
       width: target.width,
       maxTargets: target.maxTargets,
       targetMode: target.targetMode,
-    });
+    }));
   }
   if (target.type === 'box') {
-    return stripUndefinedTargeting({
+    return normalizeTargetingDefaultMaxTargets(stripUndefinedTargeting({
       shape: 'box',
       range: target.range,
       width: target.width,
       height: target.height,
       maxTargets: target.maxTargets,
       targetMode: target.targetMode,
-    });
+    }));
   }
   if (target.type === 'orientedBox') {
-    return stripUndefinedTargeting({
+    return normalizeTargetingDefaultMaxTargets(stripUndefinedTargeting({
       shape: 'orientedBox',
       range: target.range,
       width: target.width,
       height: target.height,
       maxTargets: target.maxTargets,
       targetMode: target.targetMode,
-    });
+    }));
   }
   if (target.type === 'checkerboard') {
-    return stripUndefinedTargeting({
+    return normalizeTargetingDefaultMaxTargets(stripUndefinedTargeting({
       shape: 'checkerboard',
       range: target.range,
       width: target.width,
@@ -1466,33 +1467,52 @@ function buildTargetingDef(target: NormalizedTechniqueArtsStrengthTarget): Skill
       checkerParity: target.checkerParity,
       maxTargets: target.maxTargets,
       targetMode: target.targetMode,
-    });
+    }));
   }
   if (target.type === 'area') {
-    return stripUndefinedTargeting({
+    return normalizeTargetingDefaultMaxTargets(stripUndefinedTargeting({
       shape: 'area',
       range: target.range,
       radius: target.radius,
       maxTargets: target.maxTargets,
       targetMode: target.targetMode,
-    });
+    }));
   }
   if (target.type === 'ring') {
-    return stripUndefinedTargeting({
+    return normalizeTargetingDefaultMaxTargets(stripUndefinedTargeting({
       shape: 'ring',
       range: target.range,
       radius: target.radius,
       innerRadius: target.innerRadius,
       maxTargets: target.maxTargets,
       targetMode: target.targetMode,
-    });
+    }));
   }
-  return stripUndefinedTargeting({
+  return normalizeTargetingDefaultMaxTargets(stripUndefinedTargeting({
     shape: 'single',
     range: target.range,
     maxTargets: target.maxTargets,
     targetMode: target.targetMode,
-  });
+  }));
+}
+
+export function normalizeTargetingDefaultMaxTargets(targeting: SkillTargetingDef): SkillTargetingDef {
+  const configured = targeting.maxTargets;
+  if (Number.isFinite(Number(configured)) && Number(configured) >= 0) {
+    return { ...targeting, maxTargets: Math.floor(Number(configured)) };
+  }
+  return {
+    ...targeting,
+    maxTargets: resolveTargetingGeometryMaxTargets({
+      range: Number.isFinite(Number(targeting.range)) ? Math.max(0, Math.floor(Number(targeting.range))) : 0,
+      shape: targeting.shape ?? 'single',
+      radius: targeting.radius,
+      innerRadius: targeting.innerRadius,
+      width: targeting.width,
+      height: targeting.height,
+      checkerParity: targeting.checkerParity,
+    }),
+  };
 }
 
 function stripUndefinedTargeting(targeting: SkillTargetingDef): SkillTargetingDef {

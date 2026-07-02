@@ -7,7 +7,6 @@ import {
   type ActionDef,
   type GridPoint,
   type PlayerState,
-  resolveTargetingGeometryMaxTargets,
   type TargetingShape,
   type Tile,
 } from '@mud/shared';
@@ -618,9 +617,7 @@ export function createMainTargetingStateSource(options: MainTargetingStateSource
       if (options.targetingBadgeEl) {
         const displayedMaxTargets = pendingTargetedAction.maxTargets && pendingTargetedAction.maxTargets > 0
           ? pendingTargetedAction.maxTargets
-          : geometry.shape && geometry.shape !== 'single'
-            ? resolveTargetingGeometryMaxTargets(geometry)
-            : undefined;
+          : undefined;
         const rangeLabel = pendingTargetedAction.actionId === 'client:observe'
           ? t('targeting.badge.vision-range', { range: formatDisplayNumber(pendingTargetedAction.range) })
           : t('targeting.badge.cast-range', { range: formatDisplayNumber(geometry.range) });

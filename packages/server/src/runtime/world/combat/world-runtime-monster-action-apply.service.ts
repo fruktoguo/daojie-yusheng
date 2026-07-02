@@ -4,7 +4,7 @@
  * 维护时要保证结算仍由服务端权威执行，客户端只接收结构化结果和必要表现字段。
  */
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { getDamageTrailColor, resolveSkillRequiresTarget } from '@mud/shared';
+import { getDamageTrailColor, resolveSkillRequiresTarget, resolveTargetingGeometryMaxTargets } from '@mud/shared';
 import { PlayerCombatService } from '../../combat/player-combat.service';
 import { resolveCombatDamage } from '../../combat/combat-pipeline-compose';
 import { createCombatOutcomeApplyAdapters } from '../../combat/combat-outcome-apply-adapters';
@@ -717,8 +717,8 @@ function resolveMonsterSkillMaxTargets(skill) {
         return monsterSkillMaxTargetsCache.get(skillId)!;
     }
     const configured = Number(skill?.targeting?.maxTargets);
-    if (Number.isFinite(configured) && configured > 0) {
-        const result = Math.max(1, Math.floor(configured));
+    if (Number.isFinite(configured) && configured >= 0) {
+        const result = Math.max(0, Math.floor(configured));
         if (skillId) monsterSkillMaxTargetsCache.set(skillId, result);
         return result;
     }
@@ -736,17 +736,7 @@ function resolveMonsterSkillMaxTargets(skill) {
         height: skill?.targeting?.height,
         checkerParity: skill?.targeting?.checkerParity,
     };
-    const width = Math.max(1, Math.round(Number(geometry.width) || 1));
-    const height = Math.max(1, Math.round(Number(geometry.height) || 1));
-    const radius = Math.max(1, Math.round(Number(geometry.radius) || geometry.range || 1));
-    let result: number;
-    if (shape === 'box' || shape === 'checkerboard') {
-        result = width * height;
-    } else if (shape === 'line') {
-        result = Math.max(1, geometry.range) * width;
-    } else {
-        result = Math.max(1, (radius * 2 + 1) * (radius * 2 + 1));
-    }
+    const result = resolveTargetingGeometryMaxTargets(geometry);
     if (skillId) monsterSkillMaxTargetsCache.set(skillId, result);
     return result;
 }
