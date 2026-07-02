@@ -315,6 +315,10 @@ export class TreasureVaultModal {
 
   private bindEvents(): void {
     this.root.addEventListener('click', (event) => {
+      if (event.target === this.root) {
+        this.clear();
+        return;
+      }
       const target = event.target instanceof HTMLElement ? event.target.closest<HTMLElement>('[data-vault-action]') : null;
       if (!target) {
         return;
@@ -374,7 +378,6 @@ export class TreasureVaultModal {
             <div class="ui-modal-title">${escapeHtml(detail.buildingName)}仓库</div>
             <div class="ui-modal-subtitle">${this.renderVaultSubtitle(detail)}</div>
           </div>
-          <button class="icon-btn" type="button" data-vault-action="close">x</button>
         </div>
         <div class="ui-tabbed-modal-shell treasure-vault-shell">
           <div class="ui-tabbed-modal-tabs treasure-vault-tabs">

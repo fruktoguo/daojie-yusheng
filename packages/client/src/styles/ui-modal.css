@@ -103,7 +103,7 @@
 }
 
 .treasure-vault-modal-layer {
-  z-index: 4300;
+  z-index: 300;
   background: var(--overlay-backdrop);
   backdrop-filter: blur(5px);
 }
