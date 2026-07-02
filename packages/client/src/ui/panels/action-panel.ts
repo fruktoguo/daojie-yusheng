@@ -660,6 +660,8 @@ export class ActionPanel {
   private readonly AUTO_USE_PILL_SLOT_LIMIT = 12;
   /** 面板根节点，后续只做局部 patch。 */
   private pane = document.getElementById('pane-action')!;
+  /** 缓存出手力度控制条 DOM，避免频繁全量 re-render 破坏 SVG 及 CSS 关键帧动画的连贯性 */
+  private cachedAttackIntensityEl: HTMLElement | null = null;
   /** 执行动作的外部回调，由战斗/交互层接手真正执行。 */
   private onAction: ((actionId: string, requiresTarget?: boolean, targetMode?: string, range?: number, actionName?: string) => void) | null = null;
   /** 同步自动战斗技能配置的外部回调，保存顺位和开关状态。 */
@@ -979,6 +981,7 @@ export class ActionPanel {
       replaceElementHtml(this.pane, html);
       this.paneRenderEvents = new AbortController();
       const eventSignal = this.paneRenderEvents.signal;
+      this.injectCachedAttackIntensityControl();
       this.captureActionRowRefs();
       this.bindEvents(actions, eventSignal);
       this.bindTooltips(this.pane, eventSignal);
@@ -994,6 +997,7 @@ export class ActionPanel {
     this.paneRenderEvents = new AbortController();
     const eventSignal = this.paneRenderEvents.signal;
     const bindCurrentReactContent = () => {
+      this.injectCachedAttackIntensityControl();
       this.captureActionRowRefs();
       this.bindEvents(this.currentActions, eventSignal);
       this.bindTooltips(this.pane, eventSignal);
@@ -1468,45 +1472,65 @@ export class ActionPanel {
 
   /** 渲染出手力度分段横条。 */
   private renderAttackIntensityControl(): string {
+    return `<div class="attack-intensity-control-placeholder" data-attack-intensity-placeholder="true"></div>`;
+  }
+
+  /** 将缓存的出手力度控制条插入到占位符中，并增量同步状态，以保证 SVG 动效不被打断 */
+  private injectCachedAttackIntensityControl(): void {
     const active = normalizeCombatAttackIntensity(this.combatAttackIntensity);
+    console.log('[ActionPanel] 开始注入出手力度控制条. 当前力度:', active);
     
-    // 生成 12 成万剑归宗的随机飞剑粒子
-    let domainHtml = '';
-    for (let i = 0; i < 45; i++) {
-      const isRightToLeft = Math.random() > 0.5;
-      const startX = isRightToLeft ? '110%' : '-10%';
-      const endX = isRightToLeft ? '-10%' : '110%';
-      const yOffset = (Math.random() * 80 + 10) + '%';
-      const scale = (Math.random() * 0.4 + 0.3).toFixed(2);
-      const duration = (Math.random() * 0.8 + 0.4).toFixed(2);
-      const delay = (Math.random() * 1.5).toFixed(2);
-      const opacity = (Math.random() * 0.6 + 0.4).toFixed(2);
-      const color = isRightToLeft ? '#ff4d4d' : '#ff7676';
-      const angle = isRightToLeft ? '180deg' : '0deg';
-      
-      domainHtml += `
-        <svg class="mini-arrow" style="
-          --start-x: ${startX}; --end-x: ${endX}; --y-offset: ${yOffset}; 
-          --scale: ${scale}; --duration: ${duration}s; --delay: ${delay}s;
-          --max-opacity: ${opacity}; --angle: ${angle};
-        " viewBox="0 0 100 20">
-          <path d="M 0 10 L 80 0 L 100 10 L 80 20 Z" fill="${color}"/>
-          <path d="M 20 5 L 20 15" stroke="#333" stroke-width="2"/>
-        </svg>
-      `;
+    const placeholder = this.pane.querySelector('[data-attack-intensity-placeholder="true"]');
+    console.log('[ActionPanel] 查找占位符节点:', placeholder);
+    if (!placeholder) {
+      console.warn('[ActionPanel] 未能在面板 DOM 中找到出手力度占位符，跳过注入');
+      return;
     }
 
-    // 翻译按钮标签和成数 (1成=封, 3成=刃, 7成=芒, 10成=御, 12成=极)
-    const labelsMap: Record<number, string> = {
-      1: '封',
-      3: '刃',
-      7: '芒',
-      10: '御',
-      12: '极'
-    };
+    // 如果还没有创建过缓存的控制条，在这里初始化它
+    if (!this.cachedAttackIntensityEl) {
+      console.log('[ActionPanel] 初始化全新的出手力度控制条 DOM 缓存');
+      const container = document.createElement('div');
+      container.className = `attack-intensity-control state-${active}`;
+      container.setAttribute('role', 'group');
+      container.setAttribute('aria-label', t('action.attack-intensity.title', undefined));
 
-    return `
-      <div class="attack-intensity-control state-${active}" role="group" aria-label="${t('action.attack-intensity.title', undefined)}">
+      // 预生成 12 成万剑归宗的随机飞剑粒子
+      let domainHtml = '';
+      for (let i = 0; i < 45; i++) {
+        const isRightToLeft = Math.random() > 0.5;
+        const startX = isRightToLeft ? '110%' : '-10%';
+        const endX = isRightToLeft ? '-10%' : '110%';
+        const yOffset = (Math.random() * 80 + 10) + '%';
+        const scale = (Math.random() * 0.4 + 0.3).toFixed(2);
+        const duration = (Math.random() * 0.8 + 0.4).toFixed(2);
+        const delay = (Math.random() * 1.5).toFixed(2);
+        const opacity = (Math.random() * 0.6 + 0.4).toFixed(2);
+        const color = isRightToLeft ? '#ff4d4d' : '#ff7676';
+        const angle = isRightToLeft ? '180deg' : '0deg';
+        
+        domainHtml += `
+          <svg class="mini-arrow" style="
+            --start-x: ${startX}; --end-x: ${endX}; --y-offset: ${yOffset}; 
+            --scale: ${scale}; --duration: ${duration}s; --delay: ${delay}s;
+            --max-opacity: ${opacity}; --angle: ${angle};
+          " viewBox="0 0 100 20">
+            <path d="M 0 10 L 80 0 L 100 10 L 80 20 Z" fill="${color}"/>
+            <path d="M 20 5 L 20 15" stroke="#333" stroke-width="2"/>
+          </svg>
+        `;
+      }
+
+      // 翻译按钮标签和成数 (1成=封, 3成=刃, 7成=芒, 10成=御, 12成=极)
+      const labelsMap: Record<number, string> = {
+        1: '封',
+        3: '刃',
+        7: '芒',
+        10: '御',
+        12: '极'
+      };
+
+      container.innerHTML = `
         <!-- 头部信息 -->
         <div class="mystic-force-header">
           <div class="mystic-force-title-container">
@@ -1653,8 +1677,31 @@ export class ActionPanel {
             `).join('')}
           </div>
         </div>
-      </div>
-    `;
+      `;
+      this.cachedAttackIntensityEl = container;
+    } else {
+      console.log('[ActionPanel] 增量更新已有的出手力度控制条 DOM 缓存, 目标状态:', active);
+      this.cachedAttackIntensityEl.className = `attack-intensity-control state-${active}`;
+      
+      const boxGlow = this.cachedAttackIntensityEl.querySelector('#boxGlow');
+      if (boxGlow) {
+        boxGlow.className = `mystic-box-glow-effect glow-state-${active}`;
+      }
+
+      const buttons = this.cachedAttackIntensityEl.querySelectorAll('.mystic-seal-node');
+      buttons.forEach((node) => {
+        if (node instanceof HTMLButtonElement) {
+          const val = parseInt(node.dataset.attackIntensity ?? '1');
+          node.classList.toggle('active', val === active);
+          node.setAttribute('aria-pressed', val === active ? 'true' : 'false');
+        }
+      });
+    }
+
+    if (this.cachedAttackIntensityEl) {
+      console.log('[ActionPanel] 成功替换占位符为持久化的控制条 DOM');
+      placeholder.replaceWith(this.cachedAttackIntensityEl);
+    }
   }
 
   /** 渲染一条状态开关卡片。 */
