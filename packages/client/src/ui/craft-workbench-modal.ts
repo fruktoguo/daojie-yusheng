@@ -1583,10 +1583,10 @@ export class CraftWorkbenchModal {
     }
     if (this.activeMode === 'technique_refining') {
       return {
-        title: t('craft.workbench.modal.title'),
+        title: '炼法台',
         subtitle: this.getCraftSubtitle(),
-        variantClass: 'detail-modal--craft detail-modal--craft-transmission detail-modal--craft-technique-refining',
-        body: this.renderCraftBody(),
+        variantClass: 'detail-modal--craft detail-modal--craft-technique-refining',
+        body: this.renderTechniqueRefiningBody(),
       };
     }
     return null;
@@ -1641,9 +1641,6 @@ export class CraftWorkbenchModal {
     if (this.activeMode === 'transmission') {
       this.lastTransmissionRenderKey = this.buildTransmissionRenderKey();
       return this.renderTransmissionBody();
-    }
-    if (this.activeMode === 'technique_refining') {
-      return this.renderTechniqueRefiningBody();
     }
     return this.renderForgingPlaceholder();
   }
@@ -1782,7 +1779,6 @@ export class CraftWorkbenchModal {
       { mode: 'forging', label: t('craft.workbench.mode.forging'), note: t('craft.workbench.level.short', { level: formatDisplayInteger(this.forgingSkillLevel) }) },
       { mode: 'enhancement', label: t('craft.workbench.mode.enhancement'), note: t('craft.workbench.level.short', { level: formatDisplayInteger(this.enhancementSkillLevel) }) },
       { mode: 'transmission', label: '传法', note: '功法' },
-      { mode: 'technique_refining', label: '炼法台', note: '残页' },
     ];
     return tabs.map((tab) => `
       <button class="craft-mode-tab ${this.activeMode === tab.mode ? 'active' : ''}" type="button" data-craft-action="switch-craft-mode" data-mode="${tab.mode}" data-guided-tour-craft-mode="${tab.mode}">
