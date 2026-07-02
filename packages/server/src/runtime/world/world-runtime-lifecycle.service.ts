@@ -107,7 +107,7 @@ export class WorldRuntimeLifecycleService {
         let restoredDomainInstances = 0;
         if (!domainPersistenceEnabled) {
             if (typeof deps.worldRuntimeSectService?.restoreSects === 'function') {
-                await deps.worldRuntimeSectService.restoreSects(deps);
+                await deps.worldRuntimeSectService.restoreSects(deps, { ensureGuardianFormations: false });
             }
             for (const [instanceId, instance] of deps.listInstanceEntries()) {
                 if (!instance.meta.persistent) {
@@ -121,11 +121,12 @@ export class WorldRuntimeLifecycleService {
                     }
                 }
             }
+            await restoreSectGuardiansAfterFormationRestore(deps);
             logInstanceRestoreSummary(deps, restoredDomainInstances, restoredFormationInstances, restoredFormationCount);
             return;
         }
         if (typeof deps.worldRuntimeSectService?.restoreSects === 'function') {
-            await deps.worldRuntimeSectService.restoreSects(deps);
+            await deps.worldRuntimeSectService.restoreSects(deps, { ensureGuardianFormations: false });
         }
         for (const [instanceId, instance] of deps.listInstanceEntries()) {
             if (!instance.meta.persistent) {
@@ -203,6 +204,7 @@ export class WorldRuntimeLifecycleService {
                 }
             }
         }
+        await restoreSectGuardiansAfterFormationRestore(deps);
         logInstanceRestoreSummary(deps, restoredDomainInstances, restoredFormationInstances, restoredFormationCount);
     }    
     /**
@@ -332,7 +334,7 @@ export class WorldRuntimeLifecycleService {
             await restoreCatalogInstanceShellsAfterReset(deps, catalogEntries);
         }
         if (typeof deps.worldRuntimeSectService?.restoreSects === 'function') {
-            await deps.worldRuntimeSectService.restoreSects(deps);
+            await deps.worldRuntimeSectService.restoreSects(deps, { ensureGuardianFormations: false });
         }
         if (restoreInstanceDomains) {
             await this.restorePublicInstancePersistence(deps);
@@ -534,6 +536,13 @@ function logInstanceRestoreSummary(deps, restoredDomainInstances, restoredFormat
     deps.logger.log(
         `实例持久化恢复完成：分域回填 ${restoredDomainInstances} 个实例，阵法恢复 ${restoredFormationCount} 个 / ${restoredFormationInstances} 个实例`,
     );
+}
+
+async function restoreSectGuardiansAfterFormationRestore(deps) {
+    if (typeof deps.worldRuntimeSectService?.restoreSects !== 'function') {
+        return;
+    }
+    await deps.worldRuntimeSectService.restoreSects(deps, { ensureGuardianFormations: true });
 }
 
 async function restoreCatalogInstanceShellsAfterReset(deps, catalogEntries) {

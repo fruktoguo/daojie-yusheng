@@ -1390,30 +1390,34 @@ class WorldRuntimeFormationService {
               )
         `, [instanceId]);
         return {
-            formations: (result.rows ?? []).map((row) => ({
-                id: row.formation_instance_id,
-                ownerPlayerId: row.owner_player_id,
-                ownerSectId: row.owner_sect_id,
-                formationId: row.formation_id,
-                lifecycle: row.lifecycle,
-                diskItemId: row.disk_item_id,
-                diskTier: row.disk_tier,
-                diskMultiplier: Number(row.disk_multiplier),
-                spiritStoneCount: Number(row.spirit_stone_count),
-                qiCost: Number(row.qi_cost),
-                x: Number(row.x),
-                y: Number(row.y),
-                eyeInstanceId: row.eye_instance_id,
-                eyeX: Number(row.eye_x),
-                eyeY: Number(row.eye_y),
-                allocation: row.allocation_payload ?? {},
-                active: row.active !== false,
-                remainingAuraBudget: Number(row.remaining_aura_budget),
-                remainingQiBudget: Number(row.remaining_qi_budget),
-                remainingSpiritStoneBudget: Number(row.remaining_spirit_stone_budget),
-                createdAt: Number(row.created_at_ms),
-                updatedAt: Number(row.updated_at_ms),
-            })),
+            formations: (result.rows ?? []).map((row) => {
+                const remainingAuraBudget = normalizeLoadedFormationBudget(row.remaining_aura_budget);
+                const remainingQiBudget = resolveLoadedRemainingQiBudget(row.remaining_qi_budget, remainingAuraBudget);
+                return {
+                    id: row.formation_instance_id,
+                    ownerPlayerId: row.owner_player_id,
+                    ownerSectId: row.owner_sect_id,
+                    formationId: row.formation_id,
+                    lifecycle: row.lifecycle,
+                    diskItemId: row.disk_item_id,
+                    diskTier: row.disk_tier,
+                    diskMultiplier: Number(row.disk_multiplier),
+                    spiritStoneCount: Number(row.spirit_stone_count),
+                    qiCost: Number(row.qi_cost),
+                    x: Number(row.x),
+                    y: Number(row.y),
+                    eyeInstanceId: row.eye_instance_id,
+                    eyeX: Number(row.eye_x),
+                    eyeY: Number(row.eye_y),
+                    allocation: row.allocation_payload ?? {},
+                    active: row.active !== false,
+                    remainingAuraBudget,
+                    remainingQiBudget,
+                    remainingSpiritStoneBudget: normalizeLoadedFormationBudget(row.remaining_spirit_stone_budget),
+                    createdAt: Number(row.created_at_ms),
+                    updatedAt: Number(row.updated_at_ms),
+                };
+            }),
         };
     }
 
@@ -1667,6 +1671,19 @@ function normalizeNonNegativeInteger(input) {
         throw new BadRequestException('灵力消耗不能为负');
     }
     return value;
+}
+
+function normalizeLoadedFormationBudget(input) {
+    const value = Number(input);
+    return Number.isFinite(value) ? Math.max(0, value) : 0;
+}
+
+function resolveLoadedRemainingQiBudget(input, remainingAuraBudget) {
+    const remainingQiBudget = normalizeLoadedFormationBudget(input);
+    if (remainingQiBudget > 0 || remainingAuraBudget <= 0) {
+        return remainingQiBudget;
+    }
+    return remainingAuraBudget;
 }
 
 function resolveFormationPlacement(playerId, player, location, instance) {

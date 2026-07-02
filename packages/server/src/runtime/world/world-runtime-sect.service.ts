@@ -360,10 +360,14 @@ class WorldRuntimeSectService {
             return null;
         }
         ensureSectState(sect, this.playerRuntimeService);
+        const guardianId = `formation:sect_guardian:${sect.sectId}`;
+        const existingGuardian = previousGuardian
+            ?? deps.worldRuntimeFormationService?.findFormationInInstance?.(sect.entranceInstanceId, guardianId)
+            ?? null;
         const fallbackSpiritStoneCount = Math.ceil(SECT_GUARDIAN_INITIAL_AURA / FORMATION_AURA_PER_SPIRIT_STONE);
         return deps.worldRuntimeFormationService.upsertSectGuardianFormation({
             formationId: 'sect_guardian_barrier',
-            id: `formation:sect_guardian:${sect.sectId}`,
+            id: guardianId,
             ownerSectId: sect.sectId,
             ownerPlayerId: sect.leaderPlayerId,
             instanceId: sect.entranceInstanceId,
@@ -372,16 +376,16 @@ class WorldRuntimeSectService {
             eyeInstanceId: sect.sectInstanceId,
             eyeX: sect.coreX,
             eyeY: sect.coreY,
-            radius: Math.max(1, Math.trunc(Number(previousGuardian?.stats?.radius ?? previousGuardian?.radius ?? 1) || 1)),
-            allocation: previousGuardian?.allocation,
-            spiritStoneCount: Math.max(1, Math.trunc(Number(previousGuardian?.spiritStoneCount ?? fallbackSpiritStoneCount) || fallbackSpiritStoneCount)),
-            remainingQiBudget: Number.isFinite(Number(previousGuardian?.remainingQiBudget ?? previousGuardian?.remainingAuraBudget))
-                ? Math.max(0, Number(previousGuardian.remainingQiBudget ?? previousGuardian.remainingAuraBudget))
+            radius: Math.max(1, Math.trunc(Number(existingGuardian?.stats?.radius ?? existingGuardian?.radius ?? 1) || 1)),
+            allocation: existingGuardian?.allocation,
+            spiritStoneCount: Math.max(1, Math.trunc(Number(existingGuardian?.spiritStoneCount ?? fallbackSpiritStoneCount) || fallbackSpiritStoneCount)),
+            remainingQiBudget: Number.isFinite(Number(existingGuardian?.remainingQiBudget ?? existingGuardian?.remainingAuraBudget))
+                ? Math.max(0, Number(existingGuardian.remainingQiBudget ?? existingGuardian.remainingAuraBudget))
                 : SECT_GUARDIAN_INITIAL_AURA,
-            remainingSpiritStoneBudget: Number.isFinite(Number(previousGuardian?.remainingSpiritStoneBudget))
-                ? Math.max(0, Number(previousGuardian.remainingSpiritStoneBudget))
+            remainingSpiritStoneBudget: Number.isFinite(Number(existingGuardian?.remainingSpiritStoneBudget))
+                ? Math.max(0, Number(existingGuardian.remainingSpiritStoneBudget))
                 : fallbackSpiritStoneCount,
-            active: previousGuardian ? previousGuardian.active !== false : true,
+            active: existingGuardian ? existingGuardian.active !== false : true,
         }, deps);
     }
 
@@ -1362,10 +1366,12 @@ class WorldRuntimeSectService {
         return true;
     }
 
-    async restoreSects(deps) {
+    async restoreSects(deps, options = {}) {
         if (!this.restored) {
             await this.restoreSectTemplates(deps);
         }
+        const restoreOptions = options as { ensureGuardianFormations?: boolean };
+        const ensureGuardianFormations = restoreOptions.ensureGuardianFormations !== false;
         for (const sect of this.sectsById.values()) {
             this.registerSectTemplate(sect);
             const entranceInstance = deps.getInstanceRuntime(sect.entranceInstanceId);
@@ -1375,7 +1381,9 @@ class WorldRuntimeSectService {
             }
             if (entranceInstance && sectInstance) {
                 this.attachSectPortals(sect, entranceInstance, sectInstance);
-                this.ensureGuardianFormation(sect, deps);
+                if (ensureGuardianFormations) {
+                    this.ensureGuardianFormation(sect, deps);
+                }
             }
         }
         return this.sectsById.size;

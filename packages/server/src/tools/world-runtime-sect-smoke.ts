@@ -353,6 +353,24 @@ async function main() {
   assert.equal(sectService.findSectById(player.sectId).name, "青玄宗");
   assert.equal(sectService.findSectById(player.sectId).mark, "玄");
   assert.equal(sectService.findSectById(player.sectId).members.find((entry) => entry.playerId === playerId).name, "烟测");
+  guardians[0].remainingQiBudget = 3210000;
+  guardians[0].remainingAuraBudget = 3210000;
+  guardians[0].remainingSpiritStoneBudget = 32100;
+  guardians[0].active = false;
+  await sectService.restoreSects(deps, { ensureGuardianFormations: false });
+  assert.equal(guardians.length, 1);
+  assert.equal(guardians[0].remainingQiBudget, 3210000);
+  assert.equal(guardians[0].remainingSpiritStoneBudget, 32100);
+  assert.equal(guardians[0].active, false);
+  await sectService.restoreSects(deps, { ensureGuardianFormations: true });
+  assert.equal(guardians.length, 1);
+  assert.equal(guardians[0].remainingQiBudget, 3210000);
+  assert.equal(guardians[0].remainingSpiritStoneBudget, 32100);
+  assert.equal(guardians[0].active, false);
+  guardians[0].remainingQiBudget = 100000;
+  guardians[0].remainingAuraBudget = 100000;
+  guardians[0].remainingSpiritStoneBudget = 1000;
+  guardians[0].active = true;
 
   const entrance = publicInstance.getPortalAtTile(2, 2);
   assert.equal(entrance.kind, "sect_entrance");

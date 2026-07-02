@@ -1163,7 +1163,7 @@ async function runFormationPersistenceSmoke(playerRuntimeService) {
       updatedAt: 222,
     }]);
     await saveService.saveInstanceFormations(persistenceInstanceId);
-    const rows = await pool.query("SELECT formation_instance_id, formation_id, lifecycle, spirit_stone_count, qi_cost, remaining_aura_budget FROM instance_formation_state WHERE instance_id = $1", [persistenceInstanceId]);
+    const rows = await pool.query("SELECT formation_instance_id, formation_id, lifecycle, spirit_stone_count, qi_cost, remaining_aura_budget, remaining_qi_budget FROM instance_formation_state WHERE instance_id = $1", [persistenceInstanceId]);
     assert.equal(rows.rowCount, 1);
     assert.equal(rows.rows[0].formation_instance_id, formationId);
     assert.equal(rows.rows[0].formation_id, "spirit_gathering");
@@ -1171,6 +1171,7 @@ async function runFormationPersistenceSmoke(playerRuntimeService) {
     assert.equal(Number(rows.rows[0].spirit_stone_count), largeSpiritStoneCount);
     assert.equal(Number(rows.rows[0].qi_cost), largeQiCost);
     assert.equal(Number(rows.rows[0].remaining_aura_budget), 12345);
+    assert.equal(Number(rows.rows[0].remaining_qi_budget), 12345);
     const guardian = guardianStartupService.upsertSectGuardianFormation({
       instanceId: persistenceInstanceId,
       id: `formation:sect_guardian:formation-smoke`,
@@ -1196,12 +1197,24 @@ async function runFormationPersistenceSmoke(playerRuntimeService) {
       VALUES ($1, $2, $3, 'sect:smoke:orphan', 'sect_guardian_barrier', 'persistent',
         '', 'mortal', 1, 1, 0, 9, 9, $1, 9, 9, '{}'::jsonb, true, 100000, 1, 1, now())
     `, [persistenceInstanceId, orphanGuardianId, detachedOwnerPlayerId]);
+    const legacyAuraOnlyFormationId = `formation:${persistenceInstanceId}:legacy-aura-only`;
+    await pool.query(`
+      INSERT INTO instance_formation_state(
+        instance_id, formation_instance_id, owner_player_id, owner_sect_id, formation_id, lifecycle,
+        disk_item_id, disk_tier, disk_multiplier, spirit_stone_count, qi_cost,
+        x, y, eye_instance_id, eye_x, eye_y, allocation_payload, active,
+        remaining_aura_budget, remaining_qi_budget, remaining_spirit_stone_budget, created_at_ms, updated_at_ms, updated_at
+      )
+      VALUES ($1, $2, $3, 'sect:smoke', 'spirit_gathering', 'deployed',
+        'formation_disk.mortal', 'mortal', 1, 100, 1000, 4, 4, $1, 4, 4, '{}'::jsonb, true,
+        77777, 0, 100, 1, 1, now())
+    `, [persistenceInstanceId, legacyAuraOnlyFormationId, playerId]);
     const rowsAfterGuardianStartup = await pool.query("SELECT formation_instance_id, formation_id, lifecycle, x, y FROM instance_formation_state WHERE instance_id = $1 ORDER BY formation_instance_id ASC", [persistenceInstanceId]);
-    assert.equal(rowsAfterGuardianStartup.rowCount, 3);
+    assert.equal(rowsAfterGuardianStartup.rowCount, 4);
     assert.ok(rowsAfterGuardianStartup.rows.some((row) => row.formation_instance_id === formationId && row.formation_id === "spirit_gathering" && row.lifecycle === "deployed"));
     assert.ok(rowsAfterGuardianStartup.rows.some((row) => row.formation_instance_id === guardian.id && row.formation_id === "sect_guardian_barrier" && row.lifecycle === "persistent"));
     const restoredCount = await restoreService.restoreInstanceFormations(persistenceInstanceId);
-    assert.equal(restoredCount, 2);
+    assert.equal(restoredCount, 3);
     const restored = restoreService.findFormationInInstance(persistenceInstanceId, formationId);
     assert.equal(restored.remainingAuraBudget, 12345);
     assert.equal(restored.ownerSectId, "sect:smoke");
@@ -1211,6 +1224,9 @@ async function runFormationPersistenceSmoke(playerRuntimeService) {
     const restoredGuardian = restoreService.findFormationInInstance(persistenceInstanceId, guardian.id);
     assert.equal(restoredGuardian.lifecycle, "persistent");
     assert.equal(restoredGuardian.eyeInstanceId, "sect:smoke:inner");
+    const restoredLegacyAuraOnly = restoreService.findFormationInInstance(persistenceInstanceId, legacyAuraOnlyFormationId);
+    assert.equal(restoredLegacyAuraOnly.remainingAuraBudget, 77777);
+    assert.equal(restoredLegacyAuraOnly.remainingQiBudget, 77777);
     assert.equal(restoreService.findFormationInInstance(persistenceInstanceId, orphanGuardianId), null);
     assert.equal(await countRows(pool, "SELECT count(*)::int AS count FROM instance_formation_state WHERE formation_instance_id = $1", [orphanGuardianId]), 0);
     return restoredCount;
