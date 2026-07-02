@@ -8,7 +8,7 @@
  * 根据 SkillDef 和玩家上下文生成带公式预览的富文本提示内容
  */
 
-import { AttrKey, NumericScalarStatKey, SkillDef, SkillFormula, SkillFormulaVar, TemporaryBuffState, calcQiCostWithOutputLimit, formatBuffMaxStacks } from '@mud/shared';
+import { AttrKey, NumericScalarStatKey, SkillDef, SkillFormula, SkillFormulaVar, TemporaryBuffState, calcQiCostWithOutputLimit, formatBuffMaxStacks, resolveTargetingGeometryMaxTargets } from '@mud/shared';
 import type { PlayerState } from '@mud/shared';
 import { FORMULA_VAR_LABELS, FORMULA_VAR_META, type SkillScalingMeta } from '../constants/ui/skill-tooltip';
 import { getElementKeyLabel } from '../domain-labels';
@@ -132,6 +132,22 @@ type ResolvedPreviewValue = {
 
   known: boolean;
 };
+
+function resolveSkillDisplayMaxTargets(skill: SkillDef): number {
+  const configured = skill.targeting?.maxTargets;
+  if (typeof configured === 'number' && Number.isFinite(configured) && configured > 0) {
+    return Math.max(1, Math.floor(configured));
+  }
+  return resolveTargetingGeometryMaxTargets({
+    range: skill.targeting?.range ?? skill.range,
+    shape: skill.targeting?.shape ?? 'single',
+    radius: skill.targeting?.radius,
+    innerRadius: skill.targeting?.innerRadius,
+    width: skill.targeting?.width,
+    height: skill.targeting?.height,
+    checkerParity: skill.targeting?.checkerParity,
+  });
+}
 
 /** BuffFormulaMeta：Buff 公式变量元信息。 */
 type BuffFormulaMeta = {
@@ -951,11 +967,7 @@ export function summarizeSkillPreviewMetrics(skill: SkillDef, context: SkillTool
   }
 
   const shape = previewSkill.targeting?.shape ?? 'single';
-  const targetCount = typeof previewSkill.targeting?.maxTargets === 'number' && previewSkill.targeting.maxTargets > 0
-    ? previewSkill.targeting.maxTargets
-    : shape === 'single'
-      ? 1
-      : 99;
+  const targetCount = resolveSkillDisplayMaxTargets(previewSkill);
   const maxQiOutputPerTick = context.player?.numericStats?.maxQiOutputPerTick;
 
   return {
@@ -980,33 +992,34 @@ function formatTargeting(skill: SkillDef): string {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   const shape = skill.targeting?.shape ?? 'single';
+  const maxTargets = resolveSkillDisplayMaxTargets(skill);
   if (shape === 'line') {
-    return t('skill-tooltip.targeting.line', { count: formatDisplayInteger(skill.targeting?.maxTargets ?? 99) });
+    return t('skill-tooltip.targeting.line', { count: formatDisplayInteger(maxTargets) });
   }
   if (shape === 'ring') {
     return t('skill-tooltip.targeting.ring', {
       inner: formatDisplayNumber(skill.targeting?.innerRadius ?? Math.max((skill.targeting?.radius ?? 1) - 1, 0)),
       outer: formatDisplayNumber(skill.targeting?.radius ?? 1),
-      count: formatDisplayInteger(skill.targeting?.maxTargets ?? 99),
+      count: formatDisplayInteger(maxTargets),
     });
   }
   if (shape === 'checkerboard') {
     const width = skill.targeting?.width ?? 1;
     const height = skill.targeting?.height ?? width;
-    return t('skill-tooltip.targeting.checkerboard', { width: formatDisplayInteger(width), height: formatDisplayInteger(height), count: formatDisplayInteger(skill.targeting?.maxTargets ?? 99) });
+    return t('skill-tooltip.targeting.checkerboard', { width: formatDisplayInteger(width), height: formatDisplayInteger(height), count: formatDisplayInteger(maxTargets) });
   }
   if (shape === 'area') {
-    return t('skill-tooltip.targeting.area', { radius: formatDisplayNumber(skill.targeting?.radius ?? 1), count: formatDisplayInteger(skill.targeting?.maxTargets ?? 99) });
+    return t('skill-tooltip.targeting.area', { radius: formatDisplayNumber(skill.targeting?.radius ?? 1), count: formatDisplayInteger(maxTargets) });
   }
   if (shape === 'box') {
     const width = skill.targeting?.width ?? 1;
     const height = skill.targeting?.height ?? width;
-    return t('skill-tooltip.targeting.box', { width: formatDisplayInteger(width), height: formatDisplayInteger(height), count: formatDisplayInteger(skill.targeting?.maxTargets ?? 99) });
+    return t('skill-tooltip.targeting.box', { width: formatDisplayInteger(width), height: formatDisplayInteger(height), count: formatDisplayInteger(maxTargets) });
   }
   if (shape === 'orientedBox') {
     const width = skill.targeting?.width ?? 1;
     const height = skill.targeting?.height ?? width;
-    return t('skill-tooltip.targeting.oriented-box', { width: formatDisplayInteger(width), height: formatDisplayInteger(height), count: formatDisplayInteger(skill.targeting?.maxTargets ?? 99) });
+    return t('skill-tooltip.targeting.oriented-box', { width: formatDisplayInteger(width), height: formatDisplayInteger(height), count: formatDisplayInteger(maxTargets) });
   }
   return skill.targetMode === 'tile'
     ? t('skill-tooltip.targeting.single-tile', undefined)

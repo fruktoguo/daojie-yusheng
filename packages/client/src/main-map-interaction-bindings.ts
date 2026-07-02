@@ -439,7 +439,8 @@ export function bindMainMapInteractions(options: MainMapInteractionBindingsOptio
           options.showToast(t('map-interaction.toast.cast-out-of-range', { range: formatDisplayNumber(pendingTargetedAction.range) }));
           return;
         }
-        if (!options.hasAffectableTargetInArea(pendingTargetedAction, target.x, target.y)) {
+        const action = options.getCurrentActionDef(pendingTargetedAction.actionId);
+        if (action?.type !== 'skill' && !options.hasAffectableTargetInArea(pendingTargetedAction, target.x, target.y)) {
           options.showToast(t('map-interaction.toast.no-target'));
           return;
         }
@@ -448,7 +449,6 @@ export function bindMainMapInteractions(options: MainMapInteractionBindingsOptio
           options.showToast(t('map-interaction.toast.target-required'));
           return;
         }
-        const action = options.getCurrentActionDef(pendingTargetedAction.actionId);
         if (action?.type === 'skill') {
           const availability = resolveClientSkillCastAvailability(player, action);
           if (!availability.ok) {

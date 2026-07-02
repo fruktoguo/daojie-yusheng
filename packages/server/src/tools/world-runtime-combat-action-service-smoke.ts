@@ -6,6 +6,7 @@ const {
   COMBAT_AOI_RESULT_FIELD_BUDGET,
   COMBAT_PROTOCOL_LAYER_SPECS,
   estimateCombatAoiResultEventFieldCount,
+  resolveTargetingGeometryMaxTargets,
 } = require('@mud/shared');
 const {
   CombatActionPhase,
@@ -40,6 +41,8 @@ const { WorldRuntimePlayerSkillDispatchService } = require('../runtime/world/com
 
 async function run() {
   const service = new WorldRuntimeCombatActionService();
+  assert.equal(resolveTargetingGeometryMaxTargets({ range: 4, shape: 'box', width: 7, height: 7 }), 49);
+  assert.equal(resolveTargetingGeometryMaxTargets({ range: 5, shape: 'box', width: 9, height: 9 }), 81);
   const diagnostics = [];
   const logs = [];
   const deps = {

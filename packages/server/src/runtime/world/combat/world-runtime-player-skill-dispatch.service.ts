@@ -4,7 +4,7 @@
  * 维护时要保证结算仍由服务端权威执行，客户端只接收结构化结果和必要表现字段。
  */
 import { Inject, BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { TileType, applyCombatAttackIntensityQiCost, buildEffectiveTargetingGeometry, calcQiCostWithOutputLimit, computeAffectedCellsFromAnchor, formatDisplayNumber, horizontalFacingFromTo, parseTileTargetRef, percentModifierToMultiplier, resolveSkillRequiresTarget, signedRatioValue, uiLabels } from '@mud/shared';
+import { TileType, applyCombatAttackIntensityQiCost, buildEffectiveTargetingGeometry, calcQiCostWithOutputLimit, computeAffectedCellsFromAnchor, formatDisplayNumber, horizontalFacingFromTo, parseTileTargetRef, percentModifierToMultiplier, resolveSkillRequiresTarget, resolveTargetingGeometryMaxTargets, signedRatioValue, uiLabels } from '@mud/shared';
 import { PlayerCombatService } from '../../combat/player-combat.service';
 import { createCombatOutcomeApplyAdapters } from '../../combat/combat-outcome-apply-adapters';
 import { resolveMonsterCombatExpEquivalentFallback } from '../../combat/monster-combat-exp-equivalent.helper';
@@ -198,10 +198,18 @@ function buildEffectivePlayerSkillGeometry(attacker, skill) {
     });
 }
 
-function resolveSkillTargetLimit(skill) {
+function resolveSkillTargetLimit(skill, effectiveGeometry = null) {
     const configuredMaxTargets = skill.targeting?.maxTargets;
     if (!Number.isFinite(configuredMaxTargets) || (configuredMaxTargets ?? 0) <= 0) {
-        return 99;
+        return resolveTargetingGeometryMaxTargets(effectiveGeometry ?? {
+            range: resolveRuntimeSkillRange(skill),
+            shape: skill.targeting?.shape ?? 'single',
+            radius: skill.targeting?.radius,
+            innerRadius: skill.targeting?.innerRadius,
+            width: skill.targeting?.width,
+            height: skill.targeting?.height,
+            checkerParity: skill.targeting?.checkerParity,
+        });
     }
     return Math.max(1, Math.round(configuredMaxTargets));
 }
@@ -1265,13 +1273,14 @@ export class WorldRuntimePlayerSkillDispatchService {
             ? deps.resolveCurrentTickForPlayerId(attacker.playerId)
             : 0;
         const targetInput = this.toPlayerSkillPlanTargetInput(primaryTarget, anchor);
+        const effectiveGeometry = buildEffectivePlayerSkillGeometry(attacker, skill);
         const actionPlan = this.resolvePlayerSkillActionPlanForDispatch(attacker, skill, {
             ...targetInput,
             targetX: targetInput.resolvedTargets ? targetInput.targetX : (targetInput.targetX ?? anchor.x),
             targetY: targetInput.resolvedTargets ? targetInput.targetY : (targetInput.targetY ?? anchor.y),
             currentTick,
-            effectiveGeometry: buildEffectivePlayerSkillGeometry(attacker, skill),
-            maxTargets: resolveSkillTargetLimit(skill),
+            effectiveGeometry,
+            maxTargets: resolveSkillTargetLimit(skill, effectiveGeometry),
             skipResourceAndCooldown: true,
         }, instance, deps);
         recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.targetPlanMs', startedAt);
@@ -1331,7 +1340,7 @@ export class WorldRuntimePlayerSkillDispatchService {
                 skipResolvedTargetRangeValidation: true,
                 currentTick,
                 effectiveGeometry,
-                maxTargets: resolveSkillTargetLimit(skill),
+                maxTargets: resolveSkillTargetLimit(skill, effectiveGeometry),
             }, instance, deps);
             recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.targetPlanMs', targetPlanStartedAt);
             if (!actionPlan?.ok) {

@@ -7,6 +7,7 @@ import {
   type ActionDef,
   type GridPoint,
   type PlayerState,
+  resolveTargetingGeometryMaxTargets,
   type TargetingShape,
   type Tile,
 } from '@mud/shared';
@@ -615,14 +616,19 @@ export function createMainTargetingStateSource(options: MainTargetingStateSource
         hoverY: pendingTargetedAction.hoverY,
       });
       if (options.targetingBadgeEl) {
+        const displayedMaxTargets = pendingTargetedAction.maxTargets && pendingTargetedAction.maxTargets > 0
+          ? pendingTargetedAction.maxTargets
+          : geometry.shape && geometry.shape !== 'single'
+            ? resolveTargetingGeometryMaxTargets(geometry)
+            : undefined;
         const rangeLabel = pendingTargetedAction.actionId === 'client:observe'
           ? t('targeting.badge.vision-range', { range: formatDisplayNumber(pendingTargetedAction.range) })
           : t('targeting.badge.cast-range', { range: formatDisplayNumber(geometry.range) });
-        const maxTargetsLabel = pendingTargetedAction.maxTargets
-          ? t('targeting.badge.max-targets', { count: formatDisplayInteger(pendingTargetedAction.maxTargets) })
+        const maxTargetsLabel = displayedMaxTargets
+          ? t('targeting.badge.max-targets', { count: formatDisplayInteger(displayedMaxTargets) })
           : '';
         const shapeLabel = geometry.shape === 'line'
-          ? t('targeting.badge.shape.line', { maxTargets: pendingTargetedAction.maxTargets ? ` ${formatDisplayInteger(pendingTargetedAction.maxTargets)}目标` : '' })
+          ? t('targeting.badge.shape.line', { maxTargets: displayedMaxTargets ? ` ${formatDisplayInteger(displayedMaxTargets)}目标` : '' })
           : geometry.shape === 'ring'
             ? t('targeting.badge.shape.ring', { inner: formatDisplayNumber(Math.max(0, geometry.innerRadius ?? Math.max((geometry.radius ?? 1) - 1, 0))), outer: formatDisplayNumber(Math.max(0, geometry.radius ?? 1)), maxTargets: maxTargetsLabel })
             : geometry.shape === 'checkerboard'

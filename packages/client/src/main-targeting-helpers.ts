@@ -241,12 +241,13 @@ export function resolveTargetRefForAction(
     : (target.entityKind === 'monster' || target.entityKind === 'formation') && target.entityId
       ? target.entityId
       : null;
+  const skill = getSkillDefByActionId(myPlayer, action.actionId);
   const geometry = getEffectiveTargetingGeometry(action, myPlayer);
   if ((geometry.shape ?? 'single') !== 'single') {
     return encodeTileTargetRef({ x: target.x, y: target.y });
   }
   if (action.targetMode === 'entity') {
-    return entityTargetRef;
+    return entityTargetRef ?? (skill ? encodeTileTargetRef({ x: target.x, y: target.y }) : null);
   }
   if (action.targetMode === 'tile') {
     return encodeTileTargetRef({ x: target.x, y: target.y });

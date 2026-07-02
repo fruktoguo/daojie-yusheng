@@ -8,6 +8,7 @@ import {
   assertCombatAoiResultEventBudget,
   computeAffectedCellsFromAnchor,
   normalizeCombatProtocolResult,
+  resolveTargetingGeometryMaxTargets,
   resolveSkillRequiresTarget,
 } from '@mud/shared';
 import {
@@ -3036,21 +3037,7 @@ function resolveSkillMaxTargets(skill: AnyRecord = {}, geometry = normalizeSkill
   if (Number.isFinite(configured) && configured > 0) {
     return Math.max(1, Math.floor(configured));
   }
-  const shape = geometry.shape ?? 'single';
-  if (shape === 'single') {
-    return 1;
-  }
-  const width = Math.max(1, Math.round(Number(geometry.width) || 1));
-  const height = Math.max(1, Math.round(Number(geometry.height) || 1));
-  const range = Math.max(1, Math.round(Number(geometry.range) || 1));
-  const radius = Math.max(1, Math.round(Number(geometry.radius) || range || 1));
-  if (shape === 'box' || shape === 'checkerboard') {
-    return width * height;
-  }
-  if (shape === 'line') {
-    return Math.max(1, range) * width;
-  }
-  return Math.max(1, (radius * 2 + 1) * (radius * 2 + 1));
+  return resolveTargetingGeometryMaxTargets(geometry);
 }
 
 function normalizePositiveInteger(value) {

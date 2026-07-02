@@ -92,6 +92,23 @@ export interface TargetingGeometryResolution {
   extraArea?: number;
 }
 
+/** 按最终目标几何推算理论最大影响目标数，用于服务端上限和客户端展示统一口径。 */
+export function resolveTargetingGeometryMaxTargets(spec: TargetingGeometrySpec): number {
+  const shape = normalizeTargetingShape(spec);
+  if (shape === 'single') {
+    return 1;
+  }
+  const origin = { x: 0, y: 0 };
+  const range = Math.max(0, Math.floor(Number(spec.range) || 0));
+  const anchor = { x: range, y: 0 };
+  const cells = computeAffectedCellsFromAnchor(origin, anchor, {
+    ...spec,
+    range,
+    shape,
+  });
+  return Math.max(1, cells.length);
+}
+
 /** 使用 Bresenham 算法枚举两点连线经过的格子。 */
 export function getLineCells(start: GridPoint, end: GridPoint): GridPoint[] {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
