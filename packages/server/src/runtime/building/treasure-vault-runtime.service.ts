@@ -26,6 +26,8 @@ const PLAYER_MAIL_TABLE = 'player_mail';
 const PLAYER_MAIL_ATTACHMENT_TABLE = 'player_mail_attachment';
 const PLAYER_MAIL_COUNTER_TABLE = 'player_mail_counter';
 const PLAYER_RECOVERY_WATERMARK_TABLE = 'player_recovery_watermark';
+const INSTANCE_CATALOG_TABLE = 'instance_catalog';
+const INSTANCE_BUILDING_STATE_TABLE = 'instance_building_state';
 const TREASURE_VAULT_DEF_ID = 'treasure_vault';
 const DEFAULT_TREASURE_VAULT_CAPACITY = 80;
 const DEFAULT_PERMISSIONS: TreasureVaultPermissionMap = {
@@ -115,7 +117,7 @@ export class TreasureVaultRuntimeService {
     let extracted: any = null;
     try {
       extracted = this.playerRuntimeService.splitInventoryItemByInstanceId(playerId, itemInstanceId, count);
-      await this.storeItem(resolved.instance.meta.instanceId, resolved.building.id, extracted, resolved.capacity);
+      await this.storeItem(resolved.instance.meta.instanceId, resolved.building.id, extracted, resolved.capacity, resolved.building, resolved.instance);
       return { ok: true, operation: 'deposit', detail: await this.buildDetailView(playerId, resolved.instance, resolved.building) };
     } catch (error) {
       if (extracted) {
@@ -161,7 +163,7 @@ export class TreasureVaultRuntimeService {
       return { ok: true, operation: 'withdraw', detail: await this.buildDetailView(playerId, resolved.instance, resolved.building) };
     } catch (error) {
       try {
-        await this.storeItem(resolved.instance.meta.instanceId, resolved.building.id, item, resolved.capacity);
+        await this.storeItem(resolved.instance.meta.instanceId, resolved.building.id, item, resolved.capacity, resolved.building, resolved.instance);
       } catch (rollbackError) {
         this.logger.error('宝库取出失败后回滚库内物品失败', rollbackError instanceof Error ? rollbackError.stack : String(rollbackError));
       }
@@ -206,7 +208,6 @@ export class TreasureVaultRuntimeService {
   async recoverVaultItemsToOwnerMail(input: { instanceId?: string; buildingId?: string; buildingName?: string; ownerPlayerId?: string | null; reason?: string }): Promise<{ ok: boolean; itemCount: number; mailId?: string; reason?: string }> {
     const instanceId = normalizeString(input.instanceId);
     const buildingId = normalizeString(input.buildingId);
-    const ownerPlayerId = normalizeString(input.ownerPlayerId);
     if (!instanceId || !buildingId) {
       return { ok: false, itemCount: 0, reason: 'building_not_found' };
     }
@@ -217,7 +218,7 @@ export class TreasureVaultRuntimeService {
     try {
       await client.query('BEGIN');
       const rowsResult = await client.query(
-        `SELECT storage_item_id, instance_id, building_id, slot_index, item_id, count, enhance_level, raw_payload
+        `SELECT storage_item_id, instance_id, building_id, slot_index, item_id, count, enhance_level, raw_payload, owner_player_id, building_name
            FROM ${TREASURE_VAULT_STORAGE_TABLE}
           WHERE instance_id = $1 AND building_id = $2
           ORDER BY slot_index ASC, storage_item_id ASC
@@ -229,13 +230,17 @@ export class TreasureVaultRuntimeService {
         await client.query('COMMIT');
         return { ok: true, itemCount: 0 };
       }
+      const ownerPlayerId = normalizeString(input.ownerPlayerId)
+        || normalizeString(rows.find((row) => normalizeString(row.owner_player_id))?.owner_player_id);
       if (!ownerPlayerId) {
         await client.query('ROLLBACK');
         return { ok: false, itemCount: rows.length, reason: 'treasure_vault_owner_required' };
       }
       const createdAt = Date.now();
       const mailId = buildVaultRecoveryMailId(ownerPlayerId, instanceId, buildingId);
-      const buildingName = normalizeString(input.buildingName) || '宝库';
+      const buildingName = normalizeString(input.buildingName)
+        || normalizeString(rows.find((row) => normalizeString(row.building_name))?.building_name)
+        || '宝库';
       const reason = normalizeString(input.reason) || 'deconstruct';
       await client.query(
         `INSERT INTO ${PLAYER_MAIL_TABLE}(
@@ -305,6 +310,97 @@ export class TreasureVaultRuntimeService {
     } finally {
       client.release();
     }
+  }
+
+  async recoverVaultItemsForInstance(input: { instanceId?: string; reason?: string; limit?: number }): Promise<{ ok: boolean; recoveredVaults: number; recoveredItems: number; blockedVaults: number; reason?: string }> {
+    const instanceId = normalizeString(input.instanceId);
+    if (!instanceId || !this.pool || !this.enabled) {
+      return { ok: false, recoveredVaults: 0, recoveredItems: 0, blockedVaults: 0, reason: instanceId ? 'treasure_vault_persistence_disabled' : 'instance_not_found' };
+    }
+    const groups = await this.listVaultStorageGroupsForInstance(instanceId, input.limit);
+    return this.recoverVaultStorageGroups(groups, normalizeString(input.reason) || 'instance_recovery');
+  }
+
+  async recoverOrphanedVaultItems(input: { limit?: number; reason?: string } = {}): Promise<{ ok: boolean; recoveredVaults: number; recoveredItems: number; blockedVaults: number; reason?: string }> {
+    if (!this.pool || !this.enabled) {
+      return { ok: false, recoveredVaults: 0, recoveredItems: 0, blockedVaults: 0, reason: 'treasure_vault_persistence_disabled' };
+    }
+    const limit = normalizePositiveLimit(input.limit, 100);
+    const result = await this.pool.query(
+      `SELECT storage.instance_id, storage.building_id,
+              COALESCE(MAX(storage.owner_player_id), MAX(building.owner_player_id), MAX(catalog.owner_player_id)) AS owner_player_id,
+              COALESCE(MAX(storage.building_name), MAX(building.def_id), '宝库') AS building_name,
+              COUNT(*)::bigint AS item_count
+         FROM ${TREASURE_VAULT_STORAGE_TABLE} storage
+         LEFT JOIN ${INSTANCE_CATALOG_TABLE} catalog ON catalog.instance_id = storage.instance_id
+         LEFT JOIN ${INSTANCE_BUILDING_STATE_TABLE} building ON building.instance_id = storage.instance_id AND building.building_id = storage.building_id
+        WHERE catalog.instance_id IS NULL
+           OR catalog.status = 'destroyed'
+           OR catalog.runtime_status = 'stopped'
+        GROUP BY storage.instance_id, storage.building_id
+        ORDER BY storage.instance_id ASC, storage.building_id ASC
+        LIMIT $1`,
+      [limit],
+    );
+    return this.recoverVaultStorageGroups(result.rows ?? [], normalizeString(input.reason) || 'orphan_scan');
+  }
+
+  private async listVaultStorageGroupsForInstance(instanceId: string, limit?: number): Promise<any[]> {
+    if (!this.pool || !this.enabled) {
+      return [];
+    }
+    const result = await this.pool.query(
+      `SELECT instance_id, building_id,
+              COALESCE(MAX(storage.owner_player_id), MAX(building.owner_player_id), MAX(catalog.owner_player_id)) AS owner_player_id,
+              COALESCE(MAX(storage.building_name), MAX(building.def_id), '宝库') AS building_name,
+              COUNT(*)::bigint AS item_count
+         FROM ${TREASURE_VAULT_STORAGE_TABLE} storage
+         LEFT JOIN ${INSTANCE_BUILDING_STATE_TABLE} building ON building.instance_id = storage.instance_id AND building.building_id = storage.building_id
+         LEFT JOIN ${INSTANCE_CATALOG_TABLE} catalog ON catalog.instance_id = storage.instance_id
+        WHERE storage.instance_id = $1
+        GROUP BY storage.instance_id, storage.building_id
+        ORDER BY storage.building_id ASC
+        LIMIT $2`,
+      [instanceId, normalizePositiveLimit(limit, 500)],
+    );
+    return result.rows ?? [];
+  }
+
+  private async recoverVaultStorageGroups(groups: any[], reason: string): Promise<{ ok: boolean; recoveredVaults: number; recoveredItems: number; blockedVaults: number; reason?: string }> {
+    let recoveredVaults = 0;
+    let recoveredItems = 0;
+    let blockedVaults = 0;
+    for (const group of groups) {
+      const ownerPlayerId = normalizeString(group.owner_player_id);
+      if (!ownerPlayerId) {
+        blockedVaults += 1;
+        this.logger.warn(`发现无法自动返还的宝库库存：缺少 owner_player_id instance=${normalizeString(group.instance_id)} building=${normalizeString(group.building_id)}`);
+        continue;
+      }
+      const recovered = await this.recoverVaultItemsToOwnerMail({
+        instanceId: group.instance_id,
+        buildingId: group.building_id,
+        ownerPlayerId,
+        buildingName: group.building_name,
+        reason,
+      });
+      if (recovered.ok === true) {
+        if (recovered.itemCount > 0) {
+          recoveredVaults += 1;
+          recoveredItems += recovered.itemCount;
+        }
+        continue;
+      }
+      blockedVaults += 1;
+      this.logger.warn(`宝库库存自动返还失败：instance=${normalizeString(group.instance_id)} building=${normalizeString(group.building_id)} reason=${recovered.reason ?? 'unknown'}`);
+    }
+    return {
+      ok: blockedVaults === 0,
+      recoveredVaults,
+      recoveredItems,
+      blockedVaults,
+      ...(blockedVaults > 0 ? { reason: 'treasure_vault_recovery_blocked' } : {}),
+    };
   }
 
   private async buildDetailView(playerId: string, instance: any, building: any): Promise<TreasureVaultDetailView> {
@@ -382,19 +478,25 @@ export class TreasureVaultRuntimeService {
     return false;
   }
 
-  private async storeItem(instanceId: string, buildingId: string, item: any, capacity: number): Promise<void> {
+  private async storeItem(instanceId: string, buildingId: string, item: any, capacity: number, building?: any, instance?: any): Promise<void> {
     if (!this.pool || !this.enabled) {
       throw new Error('treasure_vault_persistence_disabled');
     }
     const rows = await this.loadStorageRows(instanceId, buildingId);
     const signature = createItemStackSignature(item);
+    const ownerPlayerId = normalizeString(building?.ownerPlayerId);
+    const buildingName = resolveBuildingName(instance, building);
     const existing = rows.find((row) => createItemStackSignature(buildItemFromStorageRow(row, Math.max(1, Math.trunc(Number(row.count) || 1)))) === signature);
     if (existing) {
       await this.pool.query(
         `UPDATE ${TREASURE_VAULT_STORAGE_TABLE}
-            SET count = count + $4, updated_at = now(), raw_payload = raw_payload || $5::jsonb
+            SET count = count + $4,
+                updated_at = now(),
+                raw_payload = raw_payload || $5::jsonb,
+                owner_player_id = COALESCE(NULLIF($6, ''), owner_player_id),
+                building_name = COALESCE(NULLIF($7, ''), building_name)
           WHERE instance_id = $1 AND building_id = $2 AND storage_item_id = $3`,
-        [instanceId, buildingId, existing.storage_item_id, normalizePositiveCount(item.count), JSON.stringify(buildRawPayload(item))],
+        [instanceId, buildingId, existing.storage_item_id, normalizePositiveCount(item.count), JSON.stringify(buildRawPayload(item)), ownerPlayerId, buildingName],
       );
       return;
     }
@@ -404,8 +506,8 @@ export class TreasureVaultRuntimeService {
     const slotIndex = resolveNextSlotIndex(rows);
     await this.pool.query(
       `INSERT INTO ${TREASURE_VAULT_STORAGE_TABLE}
-        (storage_item_id, instance_id, building_id, slot_index, item_id, count, enhance_level, raw_payload)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb)`,
+        (storage_item_id, instance_id, building_id, slot_index, item_id, count, enhance_level, raw_payload, owner_player_id, building_name)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, NULLIF($9, ''), NULLIF($10, ''))`,
       [
         randomUUID(),
         instanceId,
@@ -415,6 +517,8 @@ export class TreasureVaultRuntimeService {
         normalizePositiveCount(item.count),
         Number.isFinite(Number(item.enhanceLevel)) ? Math.max(0, Math.trunc(Number(item.enhanceLevel))) : null,
         JSON.stringify(buildRawPayload(item)),
+        ownerPlayerId,
+        buildingName,
       ],
     );
   }
@@ -449,7 +553,7 @@ export class TreasureVaultRuntimeService {
       return null;
     }
     const result = await this.pool.query(
-      `SELECT storage_item_id, instance_id, building_id, slot_index, item_id, count, enhance_level, raw_payload
+      `SELECT storage_item_id, instance_id, building_id, slot_index, item_id, count, enhance_level, raw_payload, owner_player_id, building_name
          FROM ${TREASURE_VAULT_STORAGE_TABLE}
         WHERE instance_id = $1 AND building_id = $2 AND storage_item_id = $3
         LIMIT 1`,
@@ -463,7 +567,7 @@ export class TreasureVaultRuntimeService {
       return [];
     }
     const result = await this.pool.query(
-      `SELECT storage_item_id, instance_id, building_id, slot_index, item_id, count, enhance_level, raw_payload
+      `SELECT storage_item_id, instance_id, building_id, slot_index, item_id, count, enhance_level, raw_payload, owner_player_id, building_name
          FROM ${TREASURE_VAULT_STORAGE_TABLE}
         WHERE instance_id = $1 AND building_id = $2
         ORDER BY slot_index ASC, storage_item_id ASC`,
@@ -498,10 +602,14 @@ async function ensureTreasureVaultTables(pool: PoolLike): Promise<void> {
         count bigint NOT NULL DEFAULT 1,
         enhance_level bigint,
         raw_payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+        owner_player_id varchar(100),
+        building_name varchar(160),
         updated_at timestamptz NOT NULL DEFAULT now(),
         UNIQUE (instance_id, building_id, slot_index)
       )
     `);
+    await client.query(`ALTER TABLE ${TREASURE_VAULT_STORAGE_TABLE} ADD COLUMN IF NOT EXISTS owner_player_id varchar(100)`);
+    await client.query(`ALTER TABLE ${TREASURE_VAULT_STORAGE_TABLE} ADD COLUMN IF NOT EXISTS building_name varchar(160)`);
     await client.query(`
       CREATE INDEX IF NOT EXISTS instance_building_storage_item_building_idx
       ON ${TREASURE_VAULT_STORAGE_TABLE}(instance_id, building_id, slot_index ASC)
@@ -509,6 +617,10 @@ async function ensureTreasureVaultTables(pool: PoolLike): Promise<void> {
     await client.query(`
       CREATE INDEX IF NOT EXISTS instance_building_storage_item_item_idx
       ON ${TREASURE_VAULT_STORAGE_TABLE}(item_id, instance_id, building_id)
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS instance_building_storage_item_owner_idx
+      ON ${TREASURE_VAULT_STORAGE_TABLE}(owner_player_id, instance_id, building_id)
     `);
   } finally {
     client.release();
@@ -650,6 +762,11 @@ function resolveNextSlotIndex(rows: any[]): number {
 function normalizePositiveCount(value: unknown): number {
   const numeric = Number(value);
   return Number.isFinite(numeric) ? Math.max(1, Math.trunc(numeric)) : 1;
+}
+
+function normalizePositiveLimit(value: unknown, fallback: number): number {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) && numeric > 0 ? Math.min(10_000, Math.trunc(numeric)) : fallback;
 }
 
 function normalizeString(value: unknown): string {
