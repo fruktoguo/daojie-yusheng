@@ -224,7 +224,21 @@ function loadItems(itemsDir) {
     })
     .filter((item) => typeof item?.itemId === 'string' && typeof item?.name === 'string' && typeof item?.type === 'string')
     .map((item) => normalizeItemEquipmentBaseline({ ...item }))
+    .map((item) => normalizeTechniqueBookTemplate(item))
     .sort((left, right) => sortByNameThenId(left.name, right.name, left.itemId, right.itemId));
+}
+
+function normalizeTechniqueBookTemplate(item) {
+  if (!item || item.type !== 'skill_book') {
+    return item;
+  }
+  if (typeof item.learnTechniqueId === 'string' && item.learnTechniqueId.trim()) {
+    item.learnTechniqueId = item.learnTechniqueId.trim();
+  }
+  if (Number.isFinite(Number(item.learnTechniqueMaxLevel))) {
+    item.learnTechniqueMaxLevel = Math.max(1, Math.trunc(Number(item.learnTechniqueMaxLevel)));
+  }
+  return item;
 }
 
 function normalizeItemEquipmentBaseline(item) {

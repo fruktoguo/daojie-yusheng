@@ -16,6 +16,8 @@ export interface InventoryItemPersistenceSource {
   count?: unknown;
   rawPayload?: unknown;
   enhanceLevel?: unknown;
+  learnTechniqueId?: unknown;
+  learnTechniqueMaxLevel?: unknown;
 }
 
 /** 装备槽持久化来源数据结构 */
@@ -25,6 +27,8 @@ export interface EquipmentItemPersistenceSource {
   slot?: unknown;
   rawPayload?: unknown;
   enhanceLevel?: unknown;
+  learnTechniqueId?: unknown;
+  learnTechniqueMaxLevel?: unknown;
 }
 
 /** 物品模板仓储接口，用于水合时规范化物品 */
@@ -38,6 +42,8 @@ const INVENTORY_LEGACY_MIRROR_KEYS = new Set([
   'count',
   'enhanceLevel',
   'enhancementLevel',
+  'learnTechniqueId',
+  'learnTechniqueMaxLevel',
 ]);
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -95,6 +101,23 @@ function normalizeEnhanceLevel(...values: unknown[]): number | null {
   return Math.max(0, normalized);
 }
 
+function normalizePositiveInteger(...values: unknown[]): number | null {
+  const normalized = normalizeOptionalInteger(...values);
+  if (normalized == null) {
+    return null;
+  }
+  return Math.max(1, normalized);
+}
+
+function buildLearnTechniquePayload(source: InventoryItemPersistenceSource | EquipmentItemPersistenceSource, rawPayload: Record<string, unknown> | null): Record<string, unknown> {
+  const learnTechniqueId = normalizeOptionalString(source?.learnTechniqueId, rawPayload?.learnTechniqueId);
+  const learnTechniqueMaxLevel = normalizePositiveInteger(source?.learnTechniqueMaxLevel, rawPayload?.learnTechniqueMaxLevel);
+  return {
+    ...(learnTechniqueId ? { learnTechniqueId } : {}),
+    ...(learnTechniqueMaxLevel == null ? {} : { learnTechniqueMaxLevel }),
+  };
+}
+
 function buildLegacyInventoryOverrides(rawPayload: Record<string, unknown> | null): Record<string, unknown> {
   if (!rawPayload) {
     return {};
@@ -121,7 +144,10 @@ export function buildPersistedInventoryItemRawPayload(
     rawPayload?.enhancementLevel,
   );
 
-  return enhanceLevel == null ? {} : { enhanceLevel };
+  return {
+    ...(enhanceLevel == null ? {} : { enhanceLevel }),
+    ...buildLearnTechniquePayload(source, rawPayload),
+  };
 }
 
 /** 构建装备槽持久化 rawPayload：itemId 存列字段，rawPayload 只保留实例态强化等级。 */
@@ -135,7 +161,10 @@ export function buildPersistedEquipmentItemRawPayload(
     rawPayload?.enhancementLevel,
   );
 
-  return enhanceLevel == null ? {} : { enhanceLevel };
+  return {
+    ...(enhanceLevel == null ? {} : { enhanceLevel }),
+    ...buildLearnTechniquePayload(source, rawPayload),
+  };
 }
 
 /** 从持久化来源水合完整物品对象，兼容旧格式并通过模板仓储规范化 */
@@ -149,6 +178,7 @@ export function hydratePersistedInventoryItem(
     ?? 'unknown_item';
   const count = normalizeMinimumInteger(rawPayload?.count ?? source?.count, 1, 1);
   const enhanceLevel = normalizeEnhanceLevel(source?.enhanceLevel, rawPayload?.enhanceLevel, rawPayload?.enhancementLevel);
+  const learnTechniquePayload = buildLearnTechniquePayload(source, rawPayload);
   // 优先来自列存储 source.itemInstanceId；兼容历史 rawPayload 写过该字段的情况
   const itemInstanceId = normalizeOptionalString(source?.itemInstanceId, rawPayload?.itemInstanceId);
   const legacyOverrides = buildLegacyInventoryOverrides(rawPayload);
@@ -161,6 +191,7 @@ export function hydratePersistedInventoryItem(
         count,
         ...(enhanceLevel == null ? {} : { enhanceLevel }),
         ...(itemInstanceId == null ? {} : { itemInstanceId }),
+        ...learnTechniquePayload,
       }),
     );
     if (hydrated) {
@@ -185,6 +216,7 @@ export function hydratePersistedInventoryItem(
       count,
       ...(enhanceLevel == null ? {} : { enhanceLevel }),
       ...(itemInstanceId == null ? {} : { itemInstanceId }),
+      ...learnTechniquePayload,
     };
   }
 
@@ -193,6 +225,7 @@ export function hydratePersistedInventoryItem(
     count,
     ...(enhanceLevel == null ? {} : { enhanceLevel }),
     ...(itemInstanceId == null ? {} : { itemInstanceId }),
+    ...learnTechniquePayload,
   };
 }
 

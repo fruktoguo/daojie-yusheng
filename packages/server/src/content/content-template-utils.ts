@@ -8,7 +8,7 @@ import * as path from 'path';
 import { DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS, DEFAULT_PLAYER_REALM_STAGE, DEFAULT_QI_RESOURCE_DESCRIPTOR, Direction, ELEMENT_KEYS, EQUIP_SLOTS, NUMERIC_SCALAR_STAT_KEYS, PLAYER_REALM_NUMERIC_TEMPLATES, TECHNIQUE_EXP_BASE, TechniqueRealm, buildQiResourceKey, calculateTechniqueSkillQiCost, cloneNumericRatioDivisors, cloneNumericStats, compileEquipmentBaselinePercentsToActualStats, compileValueStatsToActualStats, createMonsterMainCombatStatModifierStats, deriveTechniqueRealm, expandTechniqueArtsStrengthContentSkill, expandTechniqueAttrRatio, expandTechniqueExpCurve, expandTechniqueLayerGains, getTechniqueExpToNext, getTileTypeFromMapChar, inferMonsterTierFromName, isTileTypeWalkable, normalizeCraftEffectStatsPatch, normalizeEditableMapDocument, normalizeMonsterTier as normalizeSharedMonsterTier, normalizeTechniqueAttrRatio, resolveMonsterTemplateRecord, resolveSkillRequiresTarget, resolveSkillUnlockLevel, scaleTechniqueExp, shouldExpandTechniqueAttrRatio } from '@mud/shared';
 import { resolveProjectPath } from '../common/project-path';
 
-const ITEM_INSTANCE_FIELD_KEYS = new Set(['itemId', 'itemInstanceId', 'count', 'enhanceLevel', 'enhancementLevel']);
+const ITEM_INSTANCE_FIELD_KEYS = new Set(['itemId', 'itemInstanceId', 'count', 'enhanceLevel', 'enhancementLevel', 'learnTechniqueId', 'learnTechniqueMaxLevel']);
 
 function createItemInstanceFromTemplate(template, source: any = {}) {
     const instance = Object.create(template);
@@ -35,6 +35,26 @@ function createItemInstanceFromTemplate(template, source: any = {}) {
     if (itemInstanceId) {
         defineInstanceValue(instance, 'itemInstanceId', itemInstanceId);
     }
+    const learnTechniqueId = typeof source?.learnTechniqueId === 'string' && source.learnTechniqueId.trim()
+        ? source.learnTechniqueId.trim()
+        : undefined;
+    if (learnTechniqueId) {
+        defineInstanceValue(instance, 'learnTechniqueId', learnTechniqueId);
+    }
+    const learnTechniqueMaxLevel = normalizeItemInstancePositiveInteger(source?.learnTechniqueMaxLevel);
+    if (learnTechniqueMaxLevel > 0) {
+        defineInstanceValue(instance, 'learnTechniqueMaxLevel', learnTechniqueMaxLevel);
+    }
+    if (template.itemId === 'book.custom_technique') {
+        const name = typeof source?.name === 'string' && source.name.trim() ? source.name.trim() : undefined;
+        const desc = typeof source?.desc === 'string' && source.desc.trim() ? source.desc.trim() : undefined;
+        if (name) {
+            defineInstanceValue(instance, 'name', name);
+        }
+        if (desc) {
+            defineInstanceValue(instance, 'desc', desc);
+        }
+    }
     return instance;
 }
 
@@ -53,6 +73,11 @@ function normalizeItemInstanceCount(value) {
 }
 
 function normalizeItemInstanceEnhanceLevel(value) {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? Math.max(0, Math.trunc(numeric)) : 0;
+}
+
+function normalizeItemInstancePositiveInteger(value) {
     const numeric = Number(value);
     return Number.isFinite(numeric) ? Math.max(0, Math.trunc(numeric)) : 0;
 }

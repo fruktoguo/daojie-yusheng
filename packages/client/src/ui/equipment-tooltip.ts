@@ -487,7 +487,9 @@ function resolveItemStatusLabel(item: ItemStack, context?: ItemTooltipContext): 
     return t('equipment-tooltip.status.cooldown', { cooldown: formatDisplayInteger(activeCooldown.cooldownLeft) });
   }
   if (item.type === 'skill_book') {
-    const techniqueId = resolveTechniqueIdFromBookItemId(item.itemId);
+    const techniqueId = typeof item.learnTechniqueId === 'string' && item.learnTechniqueId.trim()
+      ? item.learnTechniqueId.trim()
+      : resolveTechniqueIdFromBookItemId(item.itemId);
     if (techniqueId && context?.learnedTechniqueIds?.has(techniqueId)) {
       return t('equipment-tooltip.status.learned', undefined);
     }

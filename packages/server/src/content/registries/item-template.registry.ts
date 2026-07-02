@@ -157,6 +157,8 @@ export class ItemTemplateRegistry {
       formationDiskMultiplier: template.formationDiskMultiplier,
       spiritualRootSeedTier: template.spiritualRootSeedTier,
       allowBatchUse: template.allowBatchUse,
+      learnTechniqueId: template.learnTechniqueId,
+      learnTechniqueMaxLevel: template.learnTechniqueMaxLevel,
     })).sort((left, right) => (left.itemId as string).localeCompare(right.itemId as string, 'zh-Hans-CN'));
   }
 }

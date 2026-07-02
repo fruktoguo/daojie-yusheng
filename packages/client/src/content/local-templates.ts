@@ -75,6 +75,9 @@ function resolveTechniqueCategoryFromTemplate(template: GmEditorTechniqueOption 
 export function resolveTechniqueIdFromBookItemId(itemId: string): string | null {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+  if (itemId === 'book.custom_technique') {
+    return null;
+  }
   if (itemId.startsWith('book.')) {
     return itemId.slice(5);
   }

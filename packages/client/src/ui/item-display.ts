@@ -170,7 +170,9 @@ function getTechniqueBookTemplate(item: ItemStack) {
   if (item.type !== 'skill_book') {
     return null;
   }
-  const techniqueId = resolveTechniqueIdFromBookItemId(item.itemId);
+  const techniqueId = typeof item.learnTechniqueId === 'string' && item.learnTechniqueId.trim()
+    ? item.learnTechniqueId.trim()
+    : resolveTechniqueIdFromBookItemId(item.itemId);
   if (!techniqueId) {
     return null;
   }
@@ -250,4 +252,3 @@ export function getItemAffinityBadge(item: ItemStack): ItemAffinityBadge | null 
     element,
   };
 }
-

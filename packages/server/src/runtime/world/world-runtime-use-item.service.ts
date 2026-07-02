@@ -8,7 +8,7 @@
  * 处理丹药、技能书、传送符、灵石等各类物品的使用逻辑分支
  */
 import { Inject, Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
-import { DEFAULT_QI_RESOURCE_DESCRIPTOR, MERIT_ETERNAL_DAILY_SIGN_IN_FIXED_BONUS, MERIT_ETERNAL_POOL_GRANT, MERIT_ETERNAL_USE_BEHAVIOR, MERIT_MONTH_CARD_DURATION_DAYS, MERIT_MONTH_CARD_POOL_GRANT, MERIT_MONTH_CARD_USE_BEHAVIOR, SECT_ENTRANCE_RELOCATION_USE_BEHAVIOR, buildQiResourceKey, getItemDisplayName } from '@mud/shared';
+import { CUSTOM_TECHNIQUE_BOOK_ITEM_ID, DEFAULT_QI_RESOURCE_DESCRIPTOR, MERIT_ETERNAL_DAILY_SIGN_IN_FIXED_BONUS, MERIT_ETERNAL_POOL_GRANT, MERIT_ETERNAL_USE_BEHAVIOR, MERIT_MONTH_CARD_DURATION_DAYS, MERIT_MONTH_CARD_POOL_GRANT, MERIT_MONTH_CARD_USE_BEHAVIOR, SECT_ENTRANCE_RELOCATION_USE_BEHAVIOR, TECHNIQUE_FRAGMENT_ITEM_ID, buildQiResourceKey, calculateTechniqueBookCraftFragmentCost, calculateTechniqueBookDecomposeFragments, getItemDisplayName, getTechniqueMaxLevel } from '@mud/shared';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { REFINED_SHA_RESOURCE_KEY } from '../../constants/gameplay/pvp';
 import { ActivityRuntimeService, normalizeActivityError } from '../activity/activity-runtime.service';
@@ -111,7 +111,7 @@ export class WorldRuntimeUseItemService {
             await this.handleMeritEternalItem(playerId, itemInstanceId, item, deps, count);
             return;
         }
-        const learnedTechniqueId = this.contentTemplateRepository.getLearnTechniqueId(item.itemId);
+        const learnedTechniqueId = this.resolveLearnTechniqueId(item);
         const mapUnlockIds = Array.isArray(item.mapUnlockIds) && item.mapUnlockIds.length > 0
             ? item.mapUnlockIds
             : item.mapUnlockId
@@ -133,7 +133,22 @@ export class WorldRuntimeUseItemService {
         if (count > 1) {
             throw new BadRequestException('该物品不支持批量使用');
         }
-        this.playerRuntimeService.useItemByInstanceId(playerId, itemInstanceId);
+        if (item.itemId === CUSTOM_TECHNIQUE_BOOK_ITEM_ID) {
+            if (!learnedTechniqueId) {
+                throw new NotFoundException('功法书缺少功法 ID');
+            }
+            this.playerRuntimeService.consumeInventoryItemByInstanceId(playerId, itemInstanceId, 1);
+            this.playerRuntimeService.addPendingTechniqueComprehensionById(
+                playerId,
+                learnedTechniqueId,
+                'normal',
+                null,
+                { maxLevel: item.learnTechniqueMaxLevel },
+            );
+        }
+        else {
+            this.playerRuntimeService.useItemByInstanceId(playerId, itemInstanceId);
+        }
         if (learnedTechniqueId) {
             deps.refreshQuestStates(playerId);
             const itemName = getItemDisplayName(item);
@@ -199,6 +214,105 @@ export class WorldRuntimeUseItemService {
             ? this.contentTemplateRepository.normalizeItem(item)
             : null;
         return normalized && typeof normalized === 'object' ? normalized : item;
+    }
+    resolveLearnTechniqueId(item) {
+        const explicit = typeof item?.learnTechniqueId === 'string' && item.learnTechniqueId.trim()
+            ? item.learnTechniqueId.trim()
+            : '';
+        return explicit || this.contentTemplateRepository.getLearnTechniqueId(item.itemId);
+    }
+    dispatchCraftTechniqueBook(playerId, techniqueIdInput, maxLevelInput, deps) {
+        this.assertNearTechniqueRefiningTable(playerId, deps);
+        const techniqueId = typeof techniqueIdInput === 'string' && techniqueIdInput.trim() ? techniqueIdInput.trim() : '';
+        if (!techniqueId) {
+            throw new BadRequestException('功法 ID 不能为空');
+        }
+        const technique = this.contentTemplateRepository.createTechniqueState(techniqueId);
+        if (!technique) {
+            throw new NotFoundException(`功法不存在：${techniqueId}`);
+        }
+        const maxTemplateLevel = getTechniqueMaxLevel(Array.isArray(technique.layers) ? technique.layers : undefined, technique.level ?? 1);
+        const maxLevel = Number.isFinite(Number(maxLevelInput))
+            ? Math.max(1, Math.min(maxTemplateLevel, Math.trunc(Number(maxLevelInput))))
+            : maxTemplateLevel;
+        const cost = calculateTechniqueBookCraftFragmentCost({
+            realmLv: technique.realmLv,
+            grade: technique.grade,
+            maxLevel,
+        });
+        const consumed = this.playerRuntimeService.consumeItemByItemId(playerId, TECHNIQUE_FRAGMENT_ITEM_ID, cost);
+        if (!consumed) {
+            throw new BadRequestException('功法残页不足');
+        }
+        this.playerRuntimeService.receiveInventoryItem(playerId, {
+            itemId: CUSTOM_TECHNIQUE_BOOK_ITEM_ID,
+            count: 1,
+            learnTechniqueId: techniqueId,
+            learnTechniqueMaxLevel: maxLevel,
+            name: maxLevel >= maxTemplateLevel ? `《${technique.name}》` : `《${technique.name}》残卷`,
+            type: 'skill_book',
+            desc: maxLevel >= maxTemplateLevel
+                ? `完整记载${technique.name}。`
+                : `记载${technique.name}前 ${maxLevel} 层的残卷。`,
+            grade: technique.grade,
+            level: technique.realmLv,
+        });
+        deps.refreshQuestStates?.(playerId);
+        const n = buildStructuredNotice('success', 'notice.item.technique-book-crafted', '功法书已制成', {
+            vars: { techniqueName: technique.name ?? techniqueId, count: cost, maxLevel },
+            pills: [{ key: 'techniqueName', style: 'skill' }],
+        });
+        deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);
+    }
+    dispatchDecomposeTechniqueBook(playerId, itemInstanceId, deps, countInput = 1) {
+        this.assertNearTechniqueRefiningTable(playerId, deps);
+        const item = this.resolveUseItemView(this.playerRuntimeService.peekInventoryItemByInstanceId(playerId, itemInstanceId));
+        if (!item || item.type !== 'skill_book') {
+            throw new BadRequestException('只能分解功法书');
+        }
+        const count = Math.max(1, Math.min(Math.trunc(Number(item.count) || 1), Math.trunc(Number(countInput) || 1)));
+        const techniqueId = this.resolveLearnTechniqueId(item);
+        const technique = techniqueId ? this.contentTemplateRepository.createTechniqueState(techniqueId) : null;
+        const fragmentsPerBook = calculateTechniqueBookDecomposeFragments({
+            realmLv: technique?.realmLv ?? item.level,
+            grade: technique?.grade ?? item.grade,
+            maxLevel: item.learnTechniqueMaxLevel,
+        });
+        const fragments = fragmentsPerBook * count;
+        this.playerRuntimeService.consumeInventoryItemByInstanceId(playerId, itemInstanceId, count);
+        this.playerRuntimeService.receiveInventoryItem(playerId, { itemId: TECHNIQUE_FRAGMENT_ITEM_ID, count: fragments });
+        const itemName = getItemDisplayName(item);
+        const n = buildStructuredNotice('success', 'notice.item.technique-book-decomposed', '功法书已分解', {
+            vars: { itemName, count: fragments },
+            pills: [{ key: 'itemName', style: 'skill' }],
+        });
+        deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);
+    }
+    assertNearTechniqueRefiningTable(playerId, deps) {
+        const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
+        const instanceId = typeof player?.instanceId === 'string' && player.instanceId.trim()
+            ? player.instanceId.trim()
+            : normalizeOptionalStringSafe(deps.getPlayerLocationOrThrow?.(playerId)?.instanceId);
+        const instance = instanceId
+            ? (deps.getInstanceRuntime?.(instanceId) ?? deps.getInstanceRuntimeOrThrow?.(instanceId))
+            : null;
+        const buildings = instance?.buildingById?.values?.();
+        if (!buildings || typeof buildings[Symbol.iterator] !== 'function') {
+            throw new BadRequestException('需要在炼法台 1 格范围内操作');
+        }
+        const playerX = Math.floor(Number(player?.x) || 0);
+        const playerY = Math.floor(Number(player?.y) || 0);
+        for (const building of buildings) {
+            if (building?.defId !== 'technique_refining_table' || building?.state !== 'active') {
+                continue;
+            }
+            const dx = Math.abs(playerX - Math.floor(Number(building.x) || 0));
+            const dy = Math.abs(playerY - Math.floor(Number(building.y) || 0));
+            if (Math.max(dx, dy) <= 1) {
+                return;
+            }
+        }
+        throw new BadRequestException('需要在炼法台 1 格范围内操作');
     }
     /**
  * handleMapUnlockItem：处理地图Unlock道具并更新相关状态。

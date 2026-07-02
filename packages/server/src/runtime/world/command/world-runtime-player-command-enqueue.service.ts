@@ -241,11 +241,14 @@ export class WorldRuntimePlayerCommandEnqueueService {
             techniqueId: normalizeTechniqueId(techniqueIdInput),
         }, deps);
     }
-    enqueueStartTechniqueTransmission(playerId, learnerPlayerIdInput, techniqueIdInput, deps) {
+    enqueueStartTechniqueTransmission(playerId, learnerPlayerIdInput, techniqueIdInput, deps, payloadInput = undefined) {
+        const payload = payloadInput && typeof payloadInput === 'object' ? payloadInput : {};
         return this.enqueueNormalizedPlayerCommand(playerId, {
             kind: 'startTechniqueTransmission',
             learnerPlayerId: typeof learnerPlayerIdInput === 'string' ? learnerPlayerIdInput.trim() : '',
             techniqueId: normalizeTechniqueId(techniqueIdInput),
+            mode: payload.mode === 'craft_book' ? 'craft_book' : undefined,
+            maxLevel: Number.isFinite(Number(payload.maxLevel)) ? Math.max(1, Math.trunc(Number(payload.maxLevel))) : undefined,
         }, deps);
     }
     enqueueCancelTechniqueTransmission(playerId, techniqueIdInput, deps) {

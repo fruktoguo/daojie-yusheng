@@ -931,7 +931,7 @@ function completeTransmission(
     ? (ctx.contentTemplateRepository as any).createTechniqueState(pending.techId)
     : null;
   if (technique && !learner.techniques.techniques.some((entry: any) => entry?.techId === technique.techId)) {
-    learner.techniques.techniques.push(toTechniqueUpdateEntry(technique));
+    learner.techniques.techniques.push(toTechniqueUpdateEntry(technique, pending.maxLevel));
     learner.techniques.techniques.sort((left: any, right: any) =>
       (left.realmLv ?? 0) - (right.realmLv ?? 0) || String(left.techId).localeCompare(String(right.techId), 'zh-Hans-CN'));
   }
@@ -1160,12 +1160,20 @@ function normalizeText(value: unknown): string {
   return typeof value === 'string' && value.trim() ? value.trim() : '';
 }
 
-function toTechniqueUpdateEntry(technique: any): any {
+function toTechniqueUpdateEntry(technique: any, maxLevelInput: unknown = undefined): any {
+  const maxLevel = Number.isFinite(Number(maxLevelInput))
+    ? Math.max(1, Math.trunc(Number(maxLevelInput)))
+    : undefined;
+  const layers = Array.isArray(technique.layers)
+    ? (maxLevel === undefined ? technique.layers : technique.layers.filter((layer: any) => Math.max(1, Math.floor(Number(layer?.level) || 1)) <= maxLevel))
+    : [];
+  const finalMaxLevel = maxLevel === undefined ? undefined : Math.max(1, getTechniqueMaxLevel(layers, maxLevel));
+  const level = finalMaxLevel === undefined ? technique.level : Math.min(Math.max(1, Math.floor(Number(technique.level) || 1)), finalMaxLevel);
   return {
     techId: technique.techId,
-    level: technique.level,
+    level,
     exp: technique.exp,
-    expToNext: technique.expToNext,
+    expToNext: finalMaxLevel !== undefined && level >= finalMaxLevel ? 0 : technique.expToNext,
     realmLv: technique.realmLv,
     realm: technique.realm,
     skillsEnabled: technique.skillsEnabled !== false,
@@ -1173,7 +1181,7 @@ function toTechniqueUpdateEntry(technique: any): any {
     grade: technique.grade,
     category: technique.category,
     skills: Array.isArray(technique.skills) ? technique.skills : [],
-    layers: Array.isArray(technique.layers) ? technique.layers : [],
+    layers,
   };
 }
 

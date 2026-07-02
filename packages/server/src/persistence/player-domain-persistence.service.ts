@@ -6566,7 +6566,9 @@ function buildTechniqueComprehensionRows(snapshot: PersistedPlayerSnapshot): Tec
       updatedAtTick: normalizeMinimumInteger(normalized?.updatedAtTick, 0, 0),
       activeTransferJobId: null,
       activeTransferTeacherId: null,
-      rawPayload: {},
+      rawPayload: {
+        ...(normalizeOptionalInteger(normalized?.maxLevel) === undefined ? {} : { maxLevel: normalizeOptionalInteger(normalized?.maxLevel) }),
+      },
     });
   }
   return rows;
@@ -7665,6 +7667,7 @@ function applyProjectedTechniqueComprehensions(
           : 'normal',
         creatorPlayerId: normalizeOptionalString(row.creator_player_id) ?? undefined,
         selfComprehensionAllowed: row.self_comprehension_allowed !== false,
+        maxLevel: normalizeOptionalInteger(asRecord(decodeJsonValue(row.raw_payload))?.maxLevel) ?? undefined,
         progress: normalizeMinimumNumber(row.progress, 0, 0),
         requiredProgress: normalizeMinimumNumber(row.required_progress, 1, 1),
         realmLv: normalizeOptionalInteger(row.realm_lv) ?? 1,

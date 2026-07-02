@@ -298,6 +298,7 @@ function resolvePendingCommandPerfKey(command) {
         case 'castSkill':
             return 'pendingCommands.castSkillMs';
         case 'useItem':
+        case 'craftTechniqueBook':
         case 'equip':
         case 'unequip':
         case 'dropItem':

@@ -659,6 +659,8 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
       groundLabel: item.groundLabel ?? previousSameItem?.groundLabel ?? template?.groundLabel,
       grade: item.grade ?? previousSameItem?.grade ?? template?.grade,
       level: item.level ?? previousSameItem?.level ?? template?.level,
+      learnTechniqueId: item.learnTechniqueId ?? previousSameItem?.learnTechniqueId ?? template?.learnTechniqueId,
+      learnTechniqueMaxLevel: item.learnTechniqueMaxLevel ?? previousSameItem?.learnTechniqueMaxLevel ?? template?.learnTechniqueMaxLevel,
       materialCategory: item.materialCategory ?? previousSameItem?.materialCategory ?? template?.materialCategory,
       materialValues: item.materialValues
         ? cloneJson(item.materialValues)

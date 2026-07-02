@@ -53,6 +53,15 @@ class WorldGatewayInventoryHelper {
             if (!itemInstanceId) {
                 throw new Error('背包物品目标缺失，请重新选择。');
             }
+            if (payload?.mode === 'decompose_technique_book') {
+                this.gateway.worldRuntimeService.worldRuntimeUseItemService.dispatchDecomposeTechniqueBook(
+                    playerId,
+                    itemInstanceId,
+                    this.gateway.worldRuntimeService,
+                    payload?.count,
+                );
+                return;
+            }
             const destroyed = this.gateway.playerRuntimeService.destroyInventoryItemByInstanceId(playerId, itemInstanceId, payload?.count);
             this.gateway.playerRuntimeService.enqueueNotice(playerId, {
                 text: `你摧毁了 ${destroyed.name ?? destroyed.itemId} x${destroyed.count}。`,
@@ -559,10 +568,24 @@ function matchesInventoryPageSearch(item: any, search: string): boolean {
 function projectInventoryPageItem(item: any) {
     const itemInstanceId = normalizeInventoryItemInstanceId(item?.itemInstanceId);
     const enhanceLevel = Math.max(0, Math.trunc(Number(item?.enhanceLevel ?? 0) || 0));
+    const learnTechniqueId = typeof item?.learnTechniqueId === 'string' && item.learnTechniqueId.trim()
+        ? item.learnTechniqueId.trim()
+        : undefined;
+    const learnTechniqueMaxLevel = Number.isFinite(Number(item?.learnTechniqueMaxLevel))
+        ? Math.max(1, Math.trunc(Number(item.learnTechniqueMaxLevel)))
+        : undefined;
     return {
         itemId: String(item?.itemId ?? ''),
+        name: typeof item?.name === 'string' ? item.name : undefined,
+        type: typeof item?.type === 'string' ? item.type : undefined,
+        desc: typeof item?.desc === 'string' ? item.desc : undefined,
+        groundLabel: typeof item?.groundLabel === 'string' ? item.groundLabel : undefined,
+        grade: typeof item?.grade === 'string' ? item.grade : undefined,
+        level: Number.isFinite(Number(item?.level)) ? Math.max(1, Math.trunc(Number(item.level))) : undefined,
         ...(itemInstanceId ? { itemInstanceId } : {}),
         count: Math.max(0, Math.trunc(Number(item?.count ?? 0) || 0)),
         ...(enhanceLevel > 0 ? { enhanceLevel } : {}),
+        ...(learnTechniqueId ? { learnTechniqueId } : {}),
+        ...(learnTechniqueMaxLevel === undefined ? {} : { learnTechniqueMaxLevel }),
     };
 }

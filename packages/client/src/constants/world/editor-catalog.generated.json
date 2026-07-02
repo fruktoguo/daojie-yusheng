@@ -8443,6 +8443,28 @@
       "useBehavior": "activate_merit_month_card"
     },
     {
+      "itemId": "mat.technique_fragment",
+      "name": "功法残页",
+      "type": "material",
+      "desc": "分解功法书得到的残页，可在炼法台中重制功法书。",
+      "materialCategory": "exotic",
+      "tags": [
+        "功法",
+        "残页",
+        "异材"
+      ]
+    },
+    {
+      "itemId": "book.custom_technique",
+      "name": "功法书",
+      "type": "skill_book",
+      "desc": "可承载任意功法层数的通用功法书模板。",
+      "tags": [
+        "功法书",
+        "通用模板"
+      ]
+    },
+    {
       "itemId": "map.ancient_ruins",
       "name": "古遗迹残图",
       "type": "consumable",

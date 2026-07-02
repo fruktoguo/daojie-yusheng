@@ -96,7 +96,7 @@ type CraftWorkbenchCallbacks = {
   onCancelTechniqueActivity: (cancelRef: TechniqueActivityCancelRef) => void;
   onStartEnhancement: (payload: C2S_StartEnhancement) => void;
   onCancelEnhancement: () => void;
-  onStartTransmission?: (learnerPlayerId: string, techId: string) => void;
+  onStartTransmission?: (learnerPlayerId: string, techId: string, options?: { mode?: 'transmission' | 'craft_book'; maxLevel?: number }) => void;
   onCancelTransmission?: (techId: string) => void;
   getTransmissionTargets?: () => Array<{ playerId: string; name: string }>;
 };
@@ -1801,6 +1801,13 @@ export class CraftWorkbenchModal {
           </div>
           ${this.renderTransmissionTeachPicker(learned, targets)}
         </section>
+        <section class="alchemy-summary-card">
+          <div class="alchemy-summary-head">
+            <div class="alchemy-summary-title">制造功法书</div>
+            <span class="alchemy-summary-mode">消耗功法残页</span>
+          </div>
+          ${this.renderTransmissionBookCraftPicker(this.transmissionTechniques ?? [])}
+        </section>
       </div>
     `;
   }
@@ -1924,6 +1931,34 @@ export class CraftWorkbenchModal {
     `;
   }
 
+  private renderTransmissionBookCraftPicker(techniques: PlayerState['techniques']): string {
+    if (techniques.length === 0) {
+      return '<div class="empty-hint">暂无可制造为功法书的自创功法</div>';
+    }
+    const techniqueOptions = techniques.map((tech) => {
+      const metaText = this.getTransmissionTechniqueMetaText(tech);
+      const maxLevel = this.resolveTechniqueMaxLevel(tech);
+      const search = `${tech.name ?? ''} ${tech.techId} ${metaText}`.toLowerCase();
+      return `<option value="${escapeHtmlAttr(tech.techId)}" data-search="${escapeHtmlAttr(search)}" data-max-level="${maxLevel}">${escapeHtml(tech.name ?? tech.techId)} · ${escapeHtml(metaText)} · ${formatDisplayInteger(maxLevel)}层</option>`;
+    }).join('');
+    const firstMaxLevel = this.resolveTechniqueMaxLevel(techniques[0]);
+    return `
+      <div class="transmission-teach-picker">
+        <input class="ui-search-input" type="search" data-transmission-book-search="true" placeholder="搜索要制书的功法">
+        <select class="ui-input" data-transmission-book-tech-select="true">
+          ${techniqueOptions}
+        </select>
+        <input class="ui-input" type="number" min="1" max="${firstMaxLevel}" value="${firstMaxLevel}" data-transmission-book-level-input="true" aria-label="功法书层数">
+        <button class="small-btn" type="button" data-craft-action="transmission-craft-book">制造功法书</button>
+      </div>
+    `;
+  }
+
+  private resolveTechniqueMaxLevel(tech: PlayerState['techniques'][number] | undefined): number {
+    const layerLevels = (tech?.layers ?? []).map((layer) => Math.max(1, Math.floor(Number(layer.level) || 1)));
+    return Math.max(1, ...layerLevels, Math.floor(Number(tech?.level) || 1));
+  }
+
   private renderForgingPlaceholder(): string {
     return `
       <div class="craft-placeholder-panel">
@@ -2038,6 +2073,16 @@ export class CraftWorkbenchModal {
         const learnerPlayerId = (body.querySelector<HTMLSelectElement>('[data-transmission-target-select="true"]')?.value ?? '').trim();
         if (techId && learnerPlayerId) {
           (this.transmissionCallbacks?.onStartTransmission ?? this.callbacks?.onStartTransmission)?.(learnerPlayerId, techId);
+        }
+        return;
+      }
+      if (action === 'transmission-craft-book') {
+        const select = body.querySelector<HTMLSelectElement>('[data-transmission-book-tech-select="true"]');
+        const techId = (select?.value ?? '').trim();
+        const maxLevelInput = body.querySelector<HTMLInputElement>('[data-transmission-book-level-input="true"]');
+        const maxLevel = Math.max(1, Math.floor(Number(maxLevelInput?.value ?? select?.selectedOptions[0]?.dataset.maxLevel ?? 1) || 1));
+        if (techId) {
+          (this.transmissionCallbacks?.onStartTransmission ?? this.callbacks?.onStartTransmission)?.('', techId, { mode: 'craft_book', maxLevel });
         }
         return;
       }
@@ -2244,23 +2289,30 @@ export class CraftWorkbenchModal {
 
   private bindTransmissionEvents(body: HTMLElement, signal: AbortSignal): void {
     body.addEventListener('input', (event) => {
-      const input = event.target instanceof HTMLInputElement && event.target.matches('[data-transmission-tech-search="true"]')
+      const input = event.target instanceof HTMLInputElement
+        && (event.target.matches('[data-transmission-tech-search="true"]') || event.target.matches('[data-transmission-book-search="true"]'))
         ? event.target
         : null;
       if (!input) return;
-      this.filterTransmissionTechniqueOptions(body, input.value);
+      if (input.matches('[data-transmission-book-search="true"]')) {
+        this.filterTransmissionTechniqueOptions(body, input.value, '[data-transmission-book-tech-select="true"]');
+        this.syncTransmissionBookLevelInput(body);
+      } else {
+        this.filterTransmissionTechniqueOptions(body, input.value, '[data-transmission-tech-select="true"]');
+      }
     }, { signal });
     body.addEventListener('change', (event) => {
       const changed = event.target instanceof HTMLSelectElement
-        && (event.target.matches('[data-transmission-tech-select="true"]') || event.target.matches('[data-transmission-target-select="true"]'));
+        && (event.target.matches('[data-transmission-tech-select="true"]') || event.target.matches('[data-transmission-target-select="true"]') || event.target.matches('[data-transmission-book-tech-select="true"]'));
       if (changed) {
         this.syncTransmissionStartButton(body);
+        this.syncTransmissionBookLevelInput(body);
       }
     }, { signal });
   }
 
-  private filterTransmissionTechniqueOptions(body: HTMLElement, query: string): void {
-    const select = body.querySelector<HTMLSelectElement>('[data-transmission-tech-select="true"]');
+  private filterTransmissionTechniqueOptions(body: HTMLElement, query: string, selector = '[data-transmission-tech-select="true"]'): void {
+    const select = body.querySelector<HTMLSelectElement>(selector);
     if (!select) return;
     const normalizedQuery = query.trim().toLowerCase();
     let firstVisibleValue = '';
@@ -2286,6 +2338,15 @@ export class CraftWorkbenchModal {
     if (button) {
       button.disabled = !techId || !learnerPlayerId;
     }
+  }
+
+  private syncTransmissionBookLevelInput(body: HTMLElement): void {
+    const select = body.querySelector<HTMLSelectElement>('[data-transmission-book-tech-select="true"]');
+    const input = body.querySelector<HTMLInputElement>('[data-transmission-book-level-input="true"]');
+    if (!select || !input) return;
+    const maxLevel = Math.max(1, Math.floor(Number(select.selectedOptions[0]?.dataset.maxLevel ?? 1) || 1));
+    input.max = String(maxLevel);
+    input.value = String(Math.max(1, Math.min(maxLevel, Math.floor(Number(input.value || maxLevel) || maxLevel))));
   }
 
   private adjustNumericInput(body: HTMLElement, selector: string, delta: number): void {

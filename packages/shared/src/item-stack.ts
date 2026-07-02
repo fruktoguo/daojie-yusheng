@@ -26,12 +26,12 @@ const ITEM_DISPLAY_UNKNOWN_NAME = '未知物品';
  * 与 server 侧 buildPersistedInventoryItemRawPayload 保持同步：
  * 新增 rawPayload 字段时同步加到这里即可，签名自动包含。
  */
-export const ITEM_INSTANCE_PAYLOAD_KEYS: readonly string[] = ['enhanceLevel'];
+export const ITEM_INSTANCE_PAYLOAD_KEYS: readonly string[] = ['enhanceLevel', 'learnTechniqueId', 'learnTechniqueMaxLevel'];
 
 /** 规范化单个实例态字段值：数字取整、其余类型 JSON 序列化。 */
 function normalizePayloadValue(key: string, value: unknown): string {
   if (value == null) {
-    return key === 'enhanceLevel' ? '0' : '';
+    return key === 'enhanceLevel' || key === 'learnTechniqueMaxLevel' ? '0' : '';
   }
   if (typeof value === 'number') {
     return Number.isFinite(value) ? String(Math.trunc(value)) : '';

@@ -82,7 +82,9 @@ export function isSameItem(left: SyncedItemStack | null | undefined, right: Sync
         && isSameTileResourceGainList(left.tileResourceGains, right.tileResourceGains)
         && left.spiritualRootSeedTier === right.spiritualRootSeedTier
         && isSameCraftEffectStats(left.craftEffectStats, right.craftEffectStats)
-        && left.allowBatchUse === right.allowBatchUse;
+        && left.allowBatchUse === right.allowBatchUse
+        && left.learnTechniqueId === right.learnTechniqueId
+        && left.learnTechniqueMaxLevel === right.learnTechniqueMaxLevel;
 }
 
 function isSameCraftEffectStats(left: SyncedItemStack['craftEffectStats'], right: SyncedItemStack['craftEffectStats']): boolean {

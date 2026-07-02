@@ -143,8 +143,12 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
  */
 
 
-    sendDestroyItem(itemInstanceId: string, count: number): void {
-      deps.emitEvent(C2S.DestroyItem, { itemRef: buildInventoryItemRef(itemInstanceId), count });
+    sendDestroyItem(itemInstanceId: string, count: number, options?: { mode?: 'decompose_technique_book' }): void {
+      deps.emitEvent(C2S.DestroyItem, {
+        itemRef: buildInventoryItemRef(itemInstanceId),
+        count,
+        ...(options?.mode ? { mode: options.mode } : {}),
+      });
     },
     /**
  * sendTakeLoot：执行sendTake掉落相关逻辑。

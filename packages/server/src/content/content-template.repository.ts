@@ -621,7 +621,7 @@ export class ContentTemplateRepository {
     }
 };
 
-const ITEM_INSTANCE_FIELD_KEYS = new Set(['itemId', 'count', 'enhanceLevel', 'enhancementLevel']);
+const ITEM_INSTANCE_FIELD_KEYS = new Set(['itemId', 'count', 'enhanceLevel', 'enhancementLevel', 'learnTechniqueId', 'learnTechniqueMaxLevel']);
 
 function createItemInstanceFromTemplate(template, source: any = {}) {
     const instance = Object.create(template);
@@ -641,6 +641,26 @@ function createItemInstanceFromTemplate(template, source: any = {}) {
     const enhanceLevel = normalizeItemInstanceEnhanceLevel(source?.enhanceLevel ?? source?.enhancementLevel ?? template.enhanceLevel);
     if (enhanceLevel > 0) {
         defineInstanceValue(instance, 'enhanceLevel', enhanceLevel);
+    }
+    const learnTechniqueId = typeof source?.learnTechniqueId === 'string' && source.learnTechniqueId.trim()
+        ? source.learnTechniqueId.trim()
+        : undefined;
+    if (learnTechniqueId) {
+        defineInstanceValue(instance, 'learnTechniqueId', learnTechniqueId);
+    }
+    const learnTechniqueMaxLevel = normalizeItemInstancePositiveInteger(source?.learnTechniqueMaxLevel);
+    if (learnTechniqueMaxLevel > 0) {
+        defineInstanceValue(instance, 'learnTechniqueMaxLevel', learnTechniqueMaxLevel);
+    }
+    if (template.itemId === 'book.custom_technique') {
+        const name = typeof source?.name === 'string' && source.name.trim() ? source.name.trim() : undefined;
+        const desc = typeof source?.desc === 'string' && source.desc.trim() ? source.desc.trim() : undefined;
+        if (name) {
+            defineInstanceValue(instance, 'name', name);
+        }
+        if (desc) {
+            defineInstanceValue(instance, 'desc', desc);
+        }
     }
     return instance;
 }
@@ -690,6 +710,11 @@ function normalizeTerrainEffect(raw): TerrainEffectDef | null {
 }
 
 function normalizeItemInstanceEnhanceLevel(value) {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? Math.max(0, Math.trunc(numeric)) : 0;
+}
+
+function normalizeItemInstancePositiveInteger(value) {
     const numeric = Number(value);
     return Number.isFinite(numeric) ? Math.max(0, Math.trunc(numeric)) : 0;
 }

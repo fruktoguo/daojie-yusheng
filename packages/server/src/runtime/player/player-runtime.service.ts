@@ -10,7 +10,7 @@
  */
 import { Inject, BadRequestException, Injectable, Logger, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
-import { ARTIFACT_SLOTS, ARTIFACT_UNLOCK_REALM_LV, ATTR_KEYS, AUTO_IDLE_CULTIVATION_DELAY_TICKS, BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER, DEFAULT_BASE_ATTRS, DEFAULT_BONE_AGE_YEARS, DEFAULT_COMBAT_ATTACK_INTENSITY, DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS, DEFAULT_INVENTORY_CAPACITY, DEFAULT_PLAYER_REALM_STAGE, Direction, EQUIP_SLOTS, ITEM_TYPE_SORT_ORDER, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, RETURN_TO_SPAWN_ACTION_ID, RETURN_TO_SPAWN_COOLDOWN_TICKS, TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH, TECHNIQUE_GRADE_ORDER, TechniqueRealm, calculateTechniqueComprehensionProgressGain, calculateTechniqueComprehensionRequiredProgress, canMergeItemStack, cloneCraftEffectStats, coalesceItemStackList, compileValueStatsToActualStats, computeCraftSkillExpGain, createItemStackSignature, enforceSkillEnabledLimit, getBodyTrainingExpToNext, isCreatedTechniqueId, mergeItemStackInto, normalizeBodyTrainingState, normalizeCombatAttackIntensity, normalizeHorizontalFacing, percentModifierToMultiplier, resolveArtifactMaxQi, resolvePlayerSkillSlotLimit, resolveSkillRequiresTarget, resolveTechniqueStandardMaxHpRecoveryAmount, resolveTechniqueStandardMaxQiRecoveryAmount, signedRatioValue } from '@mud/shared';
+import { ARTIFACT_SLOTS, ARTIFACT_UNLOCK_REALM_LV, ATTR_KEYS, AUTO_IDLE_CULTIVATION_DELAY_TICKS, BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER, DEFAULT_BASE_ATTRS, DEFAULT_BONE_AGE_YEARS, DEFAULT_COMBAT_ATTACK_INTENSITY, DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS, DEFAULT_INVENTORY_CAPACITY, DEFAULT_PLAYER_REALM_STAGE, Direction, EQUIP_SLOTS, ITEM_TYPE_SORT_ORDER, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, RETURN_TO_SPAWN_ACTION_ID, RETURN_TO_SPAWN_COOLDOWN_TICKS, TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH, TECHNIQUE_GRADE_ORDER, TechniqueRealm, calculateTechniqueComprehensionProgressGain, calculateTechniqueComprehensionRequiredProgress, canMergeItemStack, cloneCraftEffectStats, coalesceItemStackList, compileValueStatsToActualStats, computeCraftSkillExpGain, createItemStackSignature, enforceSkillEnabledLimit, getBodyTrainingExpToNext, getTechniqueMaxLevel, isCreatedTechniqueId, mergeItemStackInto, normalizeBodyTrainingState, normalizeCombatAttackIntensity, normalizeHorizontalFacing, percentModifierToMultiplier, resolveArtifactMaxQi, resolvePlayerSkillSlotLimit, resolveSkillRequiresTarget, resolveTechniqueStandardMaxHpRecoveryAmount, resolveTechniqueStandardMaxQiRecoveryAmount, signedRatioValue } from '@mud/shared';
 import { assignItemInstanceIdIfNeeded, compareItemInstanceId, isItemInstanceIdHardCheckEnabled } from '../world/item-instance-id.helpers';
 import { isNativeGmBotPlayerId } from '../../http/native/native-gm.constants';
 import { PVP_SHA_BACKLASH_BUFF_ID, PVP_SHA_BACKLASH_DECAY_TICKS, PVP_SHA_BACKLASH_PERCENT_PER_STACK, PVP_SHA_BACKLASH_SOURCE_ID, PVP_SHA_BACKLASH_STACK_DIVISOR, PVP_SHA_INFUSION_ATTACK_CAP_PERCENT, PVP_SHA_INFUSION_BUFF_ID, PVP_SHA_INFUSION_DECAY_TICKS, PVP_SHA_INFUSION_SOURCE_ID, PVP_SOUL_INJURY_BUFF_ID, PVP_SOUL_INJURY_DURATION_TICKS, PVP_SOUL_INJURY_SOURCE_ID } from '../../constants/gameplay/pvp';
@@ -1126,7 +1126,7 @@ export class PlayerRuntimeService {
         return result;
     }
     /** 将功法加入未领悟列表，不直接学会。 */
-    addPendingTechniqueComprehensionById(playerId, techniqueId, sourceKind = 'normal', creatorPlayerId = null) {
+    addPendingTechniqueComprehensionById(playerId, techniqueId, sourceKind = 'normal', creatorPlayerId = null, options = undefined) {
         const player = this.getPlayer(playerId);
         if (!player) return false;
         const normalizedTechId = typeof techniqueId === 'string' && techniqueId.trim() ? techniqueId.trim() : '';
@@ -1142,6 +1142,7 @@ export class PlayerRuntimeService {
             ? player.pendingTechniqueComprehensions
             : [];
         const existing = pending.find((entry) => entry?.techId === normalizedTechId);
+        const maxLevel = resolveTechniqueBookMaxLevel(options?.maxLevel, technique);
         const requiredProgress = calculateTechniqueComprehensionRequiredProgress({
             sourceKind: normalizedSourceKind,
             techniqueRealmLv: technique.realmLv,
@@ -1155,6 +1156,9 @@ export class PlayerRuntimeService {
             existing.updatedAtTick = currentTick;
             existing.name = technique.name ?? existing.name ?? normalizedTechId;
             existing.sourceKind = normalizedSourceKind;
+            if (maxLevel !== undefined) {
+                existing.maxLevel = maxLevel;
+            }
             selfComprehensionAllowed = resolvePendingSelfComprehensionAllowed(
                 player.playerId,
                 normalizedSourceKind,
@@ -1183,6 +1187,7 @@ export class PlayerRuntimeService {
                 realmLv: Math.max(1, Math.floor(Number(technique.realmLv) || 1)),
                 grade: technique.grade ?? undefined,
                 category: technique.category ?? undefined,
+                maxLevel,
                 createdAtTick: currentTick,
                 updatedAtTick: currentTick,
             });
@@ -2468,7 +2473,9 @@ export class PlayerRuntimeService {
             throw new NotFoundException(`背包槽位不存在：${slotIndex}`);
         }
 
-        const learnTechniqueId = this.contentTemplateRepository.getLearnTechniqueId(item.itemId);
+        const learnTechniqueId = typeof item.learnTechniqueId === 'string' && item.learnTechniqueId.trim()
+            ? item.learnTechniqueId.trim()
+            : this.contentTemplateRepository.getLearnTechniqueId(item.itemId);
 
         let consumed = false;
         let autoBattleSkillsChanged = false;
@@ -2482,6 +2489,7 @@ export class PlayerRuntimeService {
             if (!technique) {
                 throw new NotFoundException(`功法不存在：${learnTechniqueId}`);
             }
+            const bookMaxLevel = resolveTechniqueBookMaxLevel(item.learnTechniqueMaxLevel, technique);
             const pending = Array.isArray(player.pendingTechniqueComprehensions)
                 ? player.pendingTechniqueComprehensions
                 : [];
@@ -2498,6 +2506,9 @@ export class PlayerRuntimeService {
                 existing.updatedAtTick = currentTick;
                 existing.name = technique.name ?? existing.name ?? learnTechniqueId;
                 existing.selfComprehensionAllowed = true;
+                if (bookMaxLevel !== undefined) {
+                    existing.maxLevel = bookMaxLevel;
+                }
             }
             else {
                 pending.push({
@@ -2510,6 +2521,7 @@ export class PlayerRuntimeService {
                     realmLv: Math.max(1, Math.floor(Number(technique.realmLv) || 1)),
                     grade: technique.grade ?? undefined,
                     category: technique.category ?? undefined,
+                    maxLevel: bookMaxLevel,
                     createdAtTick: currentTick,
                     updatedAtTick: currentTick,
                 });
@@ -9254,6 +9266,14 @@ function toTechniqueUpdateEntry(technique) {
         skills: technique.skills,
         layers: technique.layers ?? null,
     };
+}
+
+function resolveTechniqueBookMaxLevel(input, technique) {
+    const maxLevel = Number.isFinite(Number(input)) ? Math.max(1, Math.trunc(Number(input))) : undefined;
+    if (maxLevel === undefined) {
+        return undefined;
+    }
+    return Math.min(maxLevel, getTechniqueMaxLevel(Array.isArray(technique?.layers) ? technique.layers : undefined, maxLevel));
 }
 /**
  * buildActionEntries：构建并返回目标对象。

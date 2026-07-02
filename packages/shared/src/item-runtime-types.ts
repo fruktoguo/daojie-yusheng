@@ -832,10 +832,20 @@ export interface ItemStack {
 
   spiritualRootSeedTier?: 'heaven' | 'divine';
   /**
-   * allowBatchUse：allowBatchUse相关字段。
-   */
+  * allowBatchUse：allowBatchUse相关字段。
+  */
 
   allowBatchUse?: boolean;
+  /**
+   * learnTechniqueId：通用功法书指定的功法 ID。
+   */
+
+  learnTechniqueId?: string;
+  /**
+   * learnTechniqueMaxLevel：通用功法书指定可领悟到的最高层数。
+   */
+
+  learnTechniqueMaxLevel?: number;
 }
 
 /** 背包。 */

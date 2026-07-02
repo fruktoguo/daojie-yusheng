@@ -1,5 +1,17 @@
 [
   {
+    "itemId": "mat.technique_fragment",
+    "name": "功法残页",
+    "type": "material",
+    "desc": "分解功法书得到的残页，可在炼法台中重制功法书。",
+    "materialCategory": "exotic",
+    "tags": [
+      "功法",
+      "残页",
+      "异材"
+    ]
+  },
+  {
     "itemId": "mat.beast_bone",
     "name": "妖兽骨",
     "type": "material",

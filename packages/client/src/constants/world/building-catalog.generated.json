@@ -205,6 +205,47 @@
     "blocksSight": false
   },
   {
+    "id": "technique_refining_table",
+    "name": "炼法台",
+    "layer": "facility",
+    "visualGlyph": "法",
+    "visualColor": "#7c3aed",
+    "allowRotate": true,
+    "footprint": [
+      {
+        "dx": 0,
+        "dy": 0
+      }
+    ],
+    "cost": [
+      {
+        "itemId": "wood",
+        "count": 4
+      },
+      {
+        "itemId": "stone",
+        "count": 2
+      }
+    ],
+    "traits": [
+      "facility.technique_refining",
+      "craft.technique_book"
+    ],
+    "elementVector": {
+      "fire": 10,
+      "wood": 8,
+      "earth": 4
+    },
+    "durabilityMultiplier": 80,
+    "buildTicks": 1800,
+    "maxHp": 100,
+    "stability": 8,
+    "comfort": 2,
+    "opening": "none",
+    "blocksMove": false,
+    "blocksSight": false
+  },
+  {
     "id": "meditation_mat",
     "name": "蒲团",
     "layer": "facility",

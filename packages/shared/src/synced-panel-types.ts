@@ -206,6 +206,10 @@ export interface SyncedItemStack {
    */
 
   allowBatchUse?: boolean;
+  /** 通用功法书指定的功法 ID。 */
+  learnTechniqueId?: string;
+  /** 通用功法书指定可领悟到的最高层数。 */
+  learnTechniqueMaxLevel?: number;
 }
 
 /** 背包完整快照。 */

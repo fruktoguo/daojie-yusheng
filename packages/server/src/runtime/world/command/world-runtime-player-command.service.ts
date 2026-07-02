@@ -699,6 +699,9 @@ export class WorldRuntimePlayerCommandService {
                 this.worldRuntimeCultivationService.dispatchForgetTechnique(playerId, command.techniqueId, deps);
                 return;
             case 'startTechniqueTransmission':
+                if (command.mode === 'craft_book') {
+                    return this.worldRuntimeUseItemService.dispatchCraftTechniqueBook(playerId, command.techniqueId, command.maxLevel, deps);
+                }
                 if (isDuplicateTechniqueTransmissionStart(this.playerRuntimeService, playerId, command)) {
                     return;
                 }

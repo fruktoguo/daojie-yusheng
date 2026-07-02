@@ -2166,7 +2166,7 @@ export class PlayerProgressionService {
                 }],
             };
         }
-        const learnedEntry = toTechniqueUpdateEntryLocal(technique);
+        const learnedEntry = toTechniqueUpdateEntryLocal(technique, pending.maxLevel);
         if (!player.techniques.techniques.some((entry) => entry.techId === learnedEntry.techId)) {
             player.techniques.techniques.push(learnedEntry);
             player.techniques.techniques.sort((left, right) => (left.realmLv ?? 0) - (right.realmLv ?? 0) || left.techId.localeCompare(right.techId, 'zh-Hans-CN'));
@@ -2648,12 +2648,20 @@ function snapshotCultivatingTechnique(player) {
     };
 }
 
-function toTechniqueUpdateEntryLocal(technique) {
+function toTechniqueUpdateEntryLocal(technique, maxLevelInput = undefined) {
+    const maxLevel = Number.isFinite(Number(maxLevelInput))
+        ? Math.max(1, Math.trunc(Number(maxLevelInput)))
+        : undefined;
+    const layers = Array.isArray(technique.layers)
+        ? (maxLevel === undefined ? technique.layers : technique.layers.filter((layer) => Math.max(1, Math.floor(Number(layer?.level) || 1)) <= maxLevel))
+        : [];
+    const finalMaxLevel = maxLevel === undefined ? undefined : Math.max(1, getTechniqueMaxLevel(layers, maxLevel));
+    const level = finalMaxLevel === undefined ? technique.level : Math.min(Math.max(1, Math.floor(Number(technique.level) || 1)), finalMaxLevel);
     return {
         techId: technique.techId,
-        level: technique.level,
+        level,
         exp: technique.exp,
-        expToNext: technique.expToNext,
+        expToNext: finalMaxLevel !== undefined && level >= finalMaxLevel ? 0 : technique.expToNext,
         realmLv: technique.realmLv,
         realm: technique.realm ?? TechniqueRealm.Entry,
         skillsEnabled: technique.skillsEnabled !== false,
@@ -2661,7 +2669,7 @@ function toTechniqueUpdateEntryLocal(technique) {
         grade: technique.grade ?? null,
         category: technique.category ?? null,
         skills: technique.skills,
-        layers: technique.layers ?? null,
+        layers,
     };
 }
 /**

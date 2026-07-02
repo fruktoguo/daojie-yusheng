@@ -2198,6 +2198,10 @@ export interface GmEditorItemOption {
    */
 
   allowBatchUse?: boolean;
+  /** 通用功法书指定的功法 ID。 */
+  learnTechniqueId?: ItemStack['learnTechniqueId'];
+  /** 通用功法书指定可领悟到的最高层数。 */
+  learnTechniqueMaxLevel?: ItemStack['learnTechniqueMaxLevel'];
 }
 
 /** GM 编辑器里的境界候选项。 */

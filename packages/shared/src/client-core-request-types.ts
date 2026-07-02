@@ -199,6 +199,10 @@ export interface StartTechniqueTransmissionRequestView {
  */
 
   techId: string;
+  /** mode：传法面板动作模式。 */
+  mode?: 'transmission' | 'craft_book';
+  /** maxLevel：制造功法书时指定的最高层数。 */
+  maxLevel?: number;
 }
 
 /** 取消自己身上的传法 job。 */

@@ -1,5 +1,15 @@
 [
   {
+    "itemId": "book.custom_technique",
+    "name": "功法书",
+    "type": "skill_book",
+    "desc": "可承载任意功法层数的通用功法书模板。",
+    "tags": [
+      "功法书",
+      "通用模板"
+    ]
+  },
+  {
     "itemId": "book.qingmu_sword",
     "name": "《青木剑诀》",
     "type": "skill_book",

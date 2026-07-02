@@ -68,7 +68,7 @@ interface WorldGatewayActionDeps {
       usePortal(playerId: string, deps: unknown): void;
       enqueueCultivate(playerId: string, techId: string | null, deps: unknown): void;
       enqueueForgetTechnique(playerId: string, techId: string | null, deps: unknown): void;
-      enqueueStartTechniqueTransmission(playerId: string, learnerPlayerId: string, techId: string | null, deps: unknown): void;
+      enqueueStartTechniqueTransmission(playerId: string, learnerPlayerId: string, techId: string | null, deps: unknown, payload?: unknown): void;
       enqueueCancelTechniqueTransmission(playerId: string, techId: string | null, deps: unknown): void;
       enqueueCastSkill(
         playerId: string,
@@ -353,6 +353,7 @@ export class WorldGatewayActionHelper {
         payload?.learnerPlayerId ?? '',
         payload?.techId ?? null,
         this.gateway.worldRuntimeService,
+        payload,
       );
     } catch (error) {
       this.gateway.worldClientEventService.emitGatewayError(client, 'START_TECHNIQUE_TRANSMISSION_FAILED', error);

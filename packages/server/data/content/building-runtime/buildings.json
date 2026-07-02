@@ -54,6 +54,15 @@
     "treasureVault": { "capacity": 80 }
   },
   {
+    "id": "technique_refining_table",
+    "name": "炼法台",
+    "visual": { "glyph": "法", "color": "#7c3aed", "layer": "furniture" },
+    "placement": { "layer": "facility", "footprint": [{ "dx": 0, "dy": 0 }] },
+    "topology": { "blocksMove": false },
+    "fengShui": { "elementVector": { "fire": 10, "wood": 8, "earth": 4 }, "traits": ["facility.technique_refining", "craft.technique_book"], "comfort": 2, "stability": 8, "qiAffinity": 1 },
+    "economy": { "buildTicks": 1800, "durabilityMultiplier": 80, "maxHp": 100, "cost": [{ "itemId": "wood", "count": 4 }, { "itemId": "stone", "count": 2 }] }
+  },
+  {
     "id": "meditation_mat",
     "name": "蒲团",
     "visual": { "glyph": "蒲", "color": "#8b5e34", "layer": "furniture" },

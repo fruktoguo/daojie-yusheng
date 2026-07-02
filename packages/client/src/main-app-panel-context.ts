@@ -143,7 +143,7 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
   });
   craftWorkbenchModal.setTransmissionCallbacks({
     getTransmissionTargets: () => getNearbyTransmissionTargets(),
-    onStartTransmission: (learnerPlayerId, techId) => runtimeSender.sendStartTechniqueTransmission(learnerPlayerId, techId),
+    onStartTransmission: (learnerPlayerId, techId, options) => runtimeSender.sendStartTechniqueTransmission(learnerPlayerId, techId, options),
     onCancelTransmission: (techId) => runtimeSender.sendCancelTechniqueTransmission(techId),
   });
   const attrDetailStateSource = createMainAttrDetailStateSource({
@@ -244,7 +244,7 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
     sendCreateFormation: (payload) => panelSender.sendCreateFormation(payload),
     previewFormationRange: (payload) => formationPreviewSource.preview(payload),
     sendDropItem: (itemInstanceId, count) => panelSender.sendDropItem(itemInstanceId, count), sendBulkDropItems: (itemInstanceIds) => panelSender.sendBulkDropItems(itemInstanceIds),
-    sendDestroyItem: (itemInstanceId, count) => panelSender.sendDestroyItem(itemInstanceId, count),
+    sendDestroyItem: (itemInstanceId, count, options) => panelSender.sendDestroyItem(itemInstanceId, count, options),
     sendEquip: (itemInstanceId) => panelSender.sendEquip(itemInstanceId),
     sendSortInventory: () => panelSender.sendSortInventory(),
   });

@@ -623,6 +623,8 @@ export interface DropItemView {
  */
 
   count: number;
+  /** mode：特殊销毁模式。 */
+  mode?: 'decompose_technique_book';
 }
 
 /** 批量丢弃背包物品。 */

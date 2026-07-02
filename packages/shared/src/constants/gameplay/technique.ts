@@ -89,6 +89,18 @@ export const TECHNIQUE_GRADE_ORDER: TechniqueGrade[] = [
   'emperor',
 ];
 
+/** 功法残页物品 ID。 */
+export const TECHNIQUE_FRAGMENT_ITEM_ID = 'mat.technique_fragment';
+
+/** 通用功法书物品模板 ID。 */
+export const CUSTOM_TECHNIQUE_BOOK_ITEM_ID = 'book.custom_technique';
+
+/** 分解功法书获得残页的公式倍率。 */
+export const TECHNIQUE_BOOK_DECOMPOSE_FRAGMENT_BASE = 1;
+
+/** 制造功法书相对分解产出的残页消耗倍率。 */
+export const TECHNIQUE_BOOK_CRAFT_FRAGMENT_COST_MULTIPLIER = 5;
+
 /** 技能灵力消耗中各功法品阶对应的指数倍率 */
 export const TECHNIQUE_GRADE_QI_COST_MULTIPLIERS: Record<TechniqueGrade, number> = {
   mortal: 1,
