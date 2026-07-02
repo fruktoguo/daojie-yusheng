@@ -2055,6 +2055,7 @@ export class CraftWorkbenchModal {
     const countControls = isSingle ? `
       <div class="transmission-teach-picker">
         <span>分解数量</span>
+        <input class="ui-input" type="number" min="1" max="${maxCount}" value="${Math.max(1, Math.min(maxCount, this.selectedTechniqueBookCount))}" data-technique-refining-count-input="true" aria-label="分解数量">
         <button class="small-btn ghost" type="button" data-craft-action="technique-refining-count" data-count="1">1</button>
         <button class="small-btn ghost" type="button" data-craft-action="technique-refining-count" data-count="${Math.max(1, Math.ceil(maxCount / 2))}">半数</button>
         <button class="small-btn ghost" type="button" data-craft-action="technique-refining-count" data-count="${maxCount}">全部</button>
@@ -2465,6 +2466,10 @@ export class CraftWorkbenchModal {
 
   private bindTransmissionEvents(body: HTMLElement, signal: AbortSignal): void {
     body.addEventListener('input', (event) => {
+      if (event.target instanceof HTMLInputElement && event.target.matches('[data-technique-refining-count-input="true"]')) {
+        this.selectedTechniqueBookCount = Math.max(1, Math.floor(Number(event.target.value || '1') || 1));
+        return;
+      }
       const input = event.target instanceof HTMLInputElement
         && (event.target.matches('[data-transmission-tech-search="true"]') || event.target.matches('[data-transmission-book-search="true"]'))
         ? event.target
