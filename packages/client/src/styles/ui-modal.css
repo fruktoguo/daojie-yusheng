@@ -148,35 +148,6 @@
   grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
 }
 
-.treasure-vault-inventory-cell--withdrawable {
-  padding-bottom: 42px;
-}
-
-.treasure-vault-withdraw-controls {
-  position: absolute;
-  left: 5px;
-  right: 5px;
-  bottom: 5px;
-  z-index: 6;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 4px;
-  align-items: center;
-}
-
-.treasure-vault-withdraw-controls .ui-input {
-  min-width: 0;
-  height: 24px;
-  padding: 2px 5px;
-  font-size: var(--font-size-11);
-}
-
-.treasure-vault-withdraw-controls .small-btn {
-  min-height: 24px;
-  padding: 2px 7px;
-  font-size: var(--font-size-11);
-}
-
 .treasure-vault-section--actions {
   display: grid;
   align-content: start;

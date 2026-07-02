@@ -19,6 +19,10 @@ import { getItemStackDisplayLabel } from '@mud/shared';
 import { getItemTypeLabel } from '../../domain-labels';
 import { getItemDecorClassName, getItemDisplayMeta, type ItemDisplayMeta } from '../item-display';
 import { formatDisplayCountBadge } from '../../utils/number';
+import { detailModalHost } from '../detail-modal-host';
+import { describeEquipmentBonuses, describeItemEffectDetails, describeMaterialValueDetails } from '../equipment-tooltip';
+import { resolvePreviewItem } from '../../content/local-templates';
+import { describePreviewBonuses } from '../stat-preview';
 
 type SocialPanelCallbacks = {
   onRefresh(): void;
@@ -256,6 +260,7 @@ export class SocialPanel {
 }
 
 export class TreasureVaultModal {
+  private static readonly ITEM_DETAIL_MODAL_OWNER = 'treasure-vault-item-detail';
   private readonly root: HTMLDivElement;
   private callbacks: TreasureVaultCallbacks | null = null;
   private detail: TreasureVaultDetailView | null = null;
@@ -303,6 +308,7 @@ export class TreasureVaultModal {
     this.detail = null;
     this.activeTab = 'items';
     this.preferredTab = 'items';
+    detailModalHost.close(TreasureVaultModal.ITEM_DETAIL_MODAL_OWNER);
     this.root.classList.add('hidden');
     this.root.innerHTML = '';
   }
@@ -324,10 +330,15 @@ export class TreasureVaultModal {
       if (action === 'tab') {
         const tab = target.dataset.vaultTab as TreasureVaultModalTab | undefined;
         if (tab === 'items' || tab === 'permissions') {
+          detailModalHost.close(TreasureVaultModal.ITEM_DETAIL_MODAL_OWNER);
           this.activeTab = this.resolveVisibleTab(tab, this.detail);
           this.preferredTab = this.activeTab;
           this.render();
         }
+        return;
+      }
+      if (action === 'item-detail') {
+        this.openItemDetail(target.dataset.storageItemId ?? '');
         return;
       }
       if (action === 'deposit') {
@@ -337,8 +348,9 @@ export class TreasureVaultModal {
       }
       if (action === 'withdraw') {
         const storageItemId = target.dataset.storageItemId ?? '';
-        const count = normalizePositiveCount((target.closest('[data-vault-row]')?.querySelector<HTMLInputElement>('[data-vault-withdraw-count]'))?.value);
+        const count = target.dataset.vaultWithdrawMode === 'all' ? this.resolveStorageItemCount(storageItemId) : 1;
         if (storageItemId) this.callbacks.onWithdraw(storageItemId, count);
+        detailModalHost.close(TreasureVaultModal.ITEM_DETAIL_MODAL_OWNER);
       }
       if (action === 'permissions') {
         this.callbacks.onUpdatePermissions(this.readPermissions());
@@ -417,13 +429,13 @@ export class TreasureVaultModal {
     return `
       <div class="inventory-grid treasure-vault-inventory-grid">
         ${detail.items.map((item) => `
-          ${this.renderInventoryCell(item, detail.effectivePermissions.withdraw)}
+          ${this.renderInventoryCell(item)}
         `).join('')}
       </div>
     `;
   }
 
-  private renderInventoryCell(item: TreasureVaultDetailView['items'][number], canWithdraw: boolean): string {
+  private renderInventoryCell(item: TreasureVaultDetailView['items'][number]): string {
     const itemMeta = getItemDisplayMeta(item as ItemStack);
     const displayName = itemMeta.displayItem.name;
     const ribbon = this.getInventoryCellRibbon(item as ItemStack, itemMeta);
@@ -436,7 +448,7 @@ export class TreasureVaultModal {
       ? `<span class="item-card-chip item-card-chip--enhance" data-item-enhance="true">${escapeHtml(itemMeta.enhanceLabel)}</span>`
       : '';
     return `
-      <div class="${getItemDecorClassName('inventory-cell', item as ItemStack)}${canWithdraw ? ' treasure-vault-inventory-cell--withdrawable' : ''}" data-vault-row="true" data-item-type="${escapeHtml(item.type)}" ${itemMeta.grade ? `data-item-grade="${escapeHtml(itemMeta.grade)}"` : ''} ${gradeLineLabel ? 'data-item-grade-line-visible="true"' : ''}>
+      <button class="${getItemDecorClassName('inventory-cell', item as ItemStack)}" type="button" data-vault-action="item-detail" data-storage-item-id="${escapeHtml(item.storageItemId)}" data-vault-row="true" data-item-type="${escapeHtml(item.type)}" ${itemMeta.grade ? `data-item-grade="${escapeHtml(itemMeta.grade)}"` : ''} ${gradeLineLabel ? 'data-item-grade-line-visible="true"' : ''} aria-label="查看${escapeHtml(displayName)}详情">
         <div class="inventory-cell-head">
           <span class="inventory-cell-type" ${ribbon ? '' : 'hidden'}>${escapeHtml(ribbon?.label ?? '')}</span>
           <span class="inventory-cell-count">${escapeHtml(formatDisplayCountBadge(item.count))}</span>
@@ -446,14 +458,69 @@ export class TreasureVaultModal {
         <div class="inventory-cell-name" aria-label="${escapeHtml(displayName)}">${escapeHtml(displayName)}</div>
         ${levelChip}
         ${enhanceChip}
-        ${canWithdraw ? `
-          <div class="treasure-vault-withdraw-controls">
-            <input class="ui-input compact" data-vault-withdraw-count type="number" min="1" max="${Math.max(1, Number(item.count) || 1)}" value="1" aria-label="取出数量">
-            <button class="small-btn" type="button" data-vault-action="withdraw" data-storage-item-id="${escapeHtml(item.storageItemId)}">取出</button>
-          </div>
-        ` : ''}
-      </div>
+      </button>
     `;
+  }
+
+  private openItemDetail(storageItemId: string): void {
+    const detail = this.detail;
+    if (!detail || !detail.effectivePermissions.view) return;
+    const item = detail.items.find((entry) => entry.storageItemId === storageItemId);
+    if (!item) return;
+    const previewItem = resolvePreviewItem(item as ItemStack);
+    const itemMeta = getItemDisplayMeta(item as ItemStack);
+    const bonusLines = item.type === 'equipment' || item.type === 'artifact'
+      ? describeEquipmentBonuses(previewItem, undefined)
+      : describePreviewBonuses(previewItem.equipAttrs, previewItem.equipStats, previewItem.equipValueStats);
+    const materialValueLines = item.type === 'material' ? describeMaterialValueDetails(previewItem) : [];
+    const effectLines = describeItemEffectDetails(item as ItemStack);
+    detailModalHost.open({
+      ownerId: TreasureVaultModal.ITEM_DETAIL_MODAL_OWNER,
+      title: itemMeta.displayItem.name,
+      subtitle: `${resolveItemTypeLabel(item as ItemStack)} · ${formatDisplayCountBadge(item.count)}`,
+      renderBody: (body) => {
+        body.replaceChildren(createFragmentFromHtml(this.renderItemDetailBody(item, previewItem, bonusLines, materialValueLines, effectLines, detail.effectivePermissions.withdraw)));
+      },
+      onAfterRender: (body, signal) => {
+        body.querySelectorAll<HTMLElement>('[data-vault-detail-withdraw]').forEach((button) => {
+          button.addEventListener('click', (event) => {
+            event.stopPropagation();
+            const mode = button.dataset.vaultDetailWithdraw === 'all' ? 'all' : 'one';
+            this.callbacks?.onWithdraw(item.storageItemId, mode === 'all' ? Math.max(1, Math.trunc(Number(item.count) || 1)) : 1);
+            detailModalHost.close(TreasureVaultModal.ITEM_DETAIL_MODAL_OWNER);
+          }, { signal });
+        });
+      },
+    });
+  }
+
+  private renderItemDetailBody(
+    item: TreasureVaultDetailView['items'][number],
+    previewItem: ItemStack,
+    bonusLines: string[],
+    materialValueLines: string[],
+    effectLines: string[],
+    canWithdraw: boolean,
+  ): string {
+    const actionHtml = canWithdraw
+      ? `<div class="inventory-detail-actions"><div class="inventory-detail-actions-group inventory-detail-actions-group--right inventory-detail-actions-group--stretch"><button class="small-btn ghost" type="button" data-vault-detail-withdraw="one">取出一个</button><button class="small-btn" type="button" data-vault-detail-withdraw="all">取出全部</button></div></div>`
+      : '<div class="empty-hint compact">无权取出该宝库物品</div>';
+    return `
+      <div class="quest-detail-grid inventory-detail-grid">
+        <div class="quest-detail-section"><strong>物品类型</strong><span>${escapeHtml(resolveItemTypeLabel(item as ItemStack))}</span></div>
+        <div class="quest-detail-section"><strong>当前数量</strong><span>${escapeHtml(formatDisplayCountBadge(item.count))}</span></div>
+      </div>
+      <div class="quest-detail-section"><strong>描述</strong><span>${escapeHtml(previewItem.desc)}</span></div>
+      ${bonusLines.length > 0 ? `<div class="quest-detail-section"><strong>属性</strong><span>${escapeHtml(bonusLines.join(' / '))}</span></div>` : ''}
+      ${materialValueLines.length > 0 ? `<div class="quest-detail-section"><strong>材料五行</strong><span>${escapeHtml(materialValueLines.join(' / '))}</span></div>` : ''}
+      ${effectLines.length > 0 ? `<div class="quest-detail-section"><strong>效果</strong><span>${escapeHtml(effectLines.join(' / '))}</span></div>` : ''}
+      ${actionHtml}
+    `;
+  }
+
+  private resolveStorageItemCount(storageItemId: string): number {
+    const item = this.detail?.items.find((entry) => entry.storageItemId === storageItemId);
+    return Math.max(1, Math.trunc(Number(item?.count) || 1));
   }
 
   private getInventoryCellRibbon(item: ItemStack, itemMeta: ItemDisplayMeta): InventoryCellRibbon | null {
@@ -604,6 +671,18 @@ function escapeHtml(value: unknown): string {
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;');
+}
+
+function createFragmentFromHtml(html: string): DocumentFragment {
+  const template = document.createElement('template');
+  template.innerHTML = html.trim();
+  return template.content.cloneNode(true) as DocumentFragment;
+}
+
+function resolveItemTypeLabel(item: ItemStack): string {
+  return typeof item.type === 'string' && item.type.trim()
+    ? getItemTypeLabel(item.type)
+    : '物品';
 }
 
 function normalizePositiveCount(value: unknown): number {
