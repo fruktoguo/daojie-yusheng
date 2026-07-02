@@ -1016,14 +1016,6 @@ export class ActionPanel {
       this.activeTab,
       this.activeSkillTab,
       this.bindingActionId ?? '',
-      this.autoBattle ? 'auto' : '',
-      this.autoRetaliate ? 'retaliate' : '',
-      this.autoBattleStationary ? 'stationary' : '',
-      this.allowAoePlayerHit ? 'aoe' : '',
-      this.autoIdleCultivation ? 'idle' : '',
-      this.autoSwitchCultivation ? 'switch' : '',
-      `intensity:${this.combatAttackIntensity}`,
-      this.cultivationActive ? 'cultivation' : '',
       this.previewPlayer?.autoBattleTargetingMode ?? '',
       actions.map((action) => [
         action.id,
@@ -1048,6 +1040,7 @@ export class ActionPanel {
 
   /** patch 行动栏里随 tick 变化的节点，失败时由调用方回退到完整渲染。 */
   private patchDynamicActionPanel(): boolean {
+    this.syncCachedAttackIntensityControl();
     return this.patchToggleCards() && this.patchActionRows();
   }
 
@@ -1478,18 +1471,13 @@ export class ActionPanel {
   /** 将缓存的出手力度控制条插入到占位符中，并增量同步状态，以保证 SVG 动效不被打断 */
   private injectCachedAttackIntensityControl(): void {
     const active = normalizeCombatAttackIntensity(this.combatAttackIntensity);
-    console.log('[ActionPanel] 开始注入出手力度控制条. 当前力度:', active);
-    
     const placeholder = this.pane.querySelector('[data-attack-intensity-placeholder="true"]');
-    console.log('[ActionPanel] 查找占位符节点:', placeholder);
     if (!placeholder) {
-      console.warn('[ActionPanel] 未能在面板 DOM 中找到出手力度占位符，跳过注入');
       return;
     }
 
     // 如果还没有创建过缓存的控制条，在这里初始化它
     if (!this.cachedAttackIntensityEl) {
-      console.log('[ActionPanel] 初始化全新的出手力度控制条 DOM 缓存');
       const container = document.createElement('div');
       container.className = `attack-intensity-control state-${active}`;
       container.setAttribute('role', 'group');
@@ -1680,28 +1668,36 @@ export class ActionPanel {
       `;
       this.cachedAttackIntensityEl = container;
     } else {
-      console.log('[ActionPanel] 增量更新已有的出手力度控制条 DOM 缓存, 目标状态:', active);
-      this.cachedAttackIntensityEl.className = `attack-intensity-control state-${active}`;
-      
-      const boxGlow = this.cachedAttackIntensityEl.querySelector('#boxGlow');
-      if (boxGlow) {
-        boxGlow.className = `mystic-box-glow-effect glow-state-${active}`;
-      }
-
-      const buttons = this.cachedAttackIntensityEl.querySelectorAll('.mystic-seal-node');
-      buttons.forEach((node) => {
-        if (node instanceof HTMLButtonElement) {
-          const val = parseInt(node.dataset.attackIntensity ?? '1');
-          node.classList.toggle('active', val === active);
-          node.setAttribute('aria-pressed', val === active ? 'true' : 'false');
-        }
-      });
+      this.syncCachedAttackIntensityControl();
     }
 
     if (this.cachedAttackIntensityEl) {
-      console.log('[ActionPanel] 成功替换占位符为持久化的控制条 DOM');
       placeholder.replaceWith(this.cachedAttackIntensityEl);
     }
+  }
+
+  /** 只同步出手力度控制条状态，不重建 SVG 和动画节点。 */
+  private syncCachedAttackIntensityControl(): void {
+    const active = normalizeCombatAttackIntensity(this.combatAttackIntensity);
+    if (!this.cachedAttackIntensityEl) {
+      return;
+    }
+    this.cachedAttackIntensityEl.className = `attack-intensity-control state-${active}`;
+
+    const boxGlow = this.cachedAttackIntensityEl.querySelector('#boxGlow');
+    if (boxGlow) {
+      boxGlow.className = `mystic-box-glow-effect glow-state-${active}`;
+    }
+
+    this.cachedAttackIntensityEl.querySelectorAll('.mystic-seal-node').forEach((node) => {
+      if (!(node instanceof HTMLButtonElement)) {
+        return;
+      }
+      const value = normalizeCombatAttackIntensity(node.dataset.attackIntensity);
+      const isActive = value === active;
+      node.classList.toggle('active', isActive);
+      node.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    });
   }
 
   /** 渲染一条状态开关卡片。 */
