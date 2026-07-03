@@ -165,6 +165,9 @@ export function resolvePreviewItem(item: ItemStack): ItemStack {
   const isCustomTechniqueBook = sourceItem.itemId === 'book.custom_technique'
     && typeof sourceItem.learnTechniqueId === 'string'
     && sourceItem.learnTechniqueId.trim().length > 0;
+  const customTechnique = isCustomTechniqueBook
+    ? getLocalTechniqueTemplate(sourceItem.learnTechniqueId?.trim() ?? '')
+    : null;
   const sourceName = resolvePreviewItemName(sourceItem, template?.name);
   const sourceDesc = resolvePreviewItemDesc(sourceItem, template?.desc);
   if (!template) {
@@ -177,8 +180,8 @@ export function resolvePreviewItem(item: ItemStack): ItemStack {
     type: sourceItem.type || template.type,
     desc: sourceDesc ?? '',
     groundLabel: sourceItem.groundLabel ?? template.groundLabel,
-    grade: sourceItem.grade ?? template.grade,
-    level: sourceItem.level ?? template.level,
+    grade: sourceItem.grade ?? customTechnique?.grade ?? template.grade,
+    level: sourceItem.level ?? customTechnique?.realmLv ?? template.level,
     learnTechniqueId: sourceItem.learnTechniqueId ?? template.learnTechniqueId,
     learnTechniqueMaxLevel: sourceItem.learnTechniqueMaxLevel ?? template.learnTechniqueMaxLevel,
     materialCategory: sourceItem.materialCategory ?? template.materialCategory,
