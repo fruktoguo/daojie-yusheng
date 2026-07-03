@@ -280,13 +280,14 @@ export class TechniqueGenerationService {
         }
         const parsed = parsedResult.value;
 
-        const fixedCandidate = applyServerFixedTechniqueFields(parsed, {
+        const fixedCandidate = normalizeGeneratedTechniqueCandidateForServer(parsed, {
           category: params.category as TechniqueCategory,
           grade: params.grade,
           realmLv: params.realmLv,
           maxLayer,
           budgetPercent,
           totalBudget,
+          playerContext: params.playerContext,
         });
         const validation = validateTechniqueCandidate(fixedCandidate, params.category as TechniqueCategory);
         if (!validation.valid) {
@@ -778,7 +779,7 @@ function normalizeRefundItemSpend(value: unknown): number {
   return Math.max(1, Math.trunc(numeric));
 }
 
-function applyServerFixedTechniqueFields(
+export function normalizeGeneratedTechniqueCandidateForServer(
   candidate: Record<string, unknown>,
   fixed: {
     category: TechniqueCategory;
@@ -787,9 +788,10 @@ function applyServerFixedTechniqueFields(
     maxLayer: number;
     budgetPercent: number;
     totalBudget: number;
+    playerContext?: string;
   },
 ): Record<string, unknown> {
-  return {
+  const fixedCandidate = {
     ...candidate,
     grade: fixed.grade,
     category: fixed.category,
@@ -798,6 +800,64 @@ function applyServerFixedTechniqueFields(
     budgetPercent: fixed.budgetPercent,
     totalBudget: fixed.totalBudget,
   };
+  return normalizeGeneratedArtsTargetModes(fixedCandidate, fixed);
+}
+
+function normalizeGeneratedArtsTargetModes(
+  candidate: Record<string, unknown>,
+  context: {
+    category: TechniqueCategory;
+    playerContext?: string;
+  },
+): Record<string, unknown> {
+  if (context.category !== 'arts' || !Array.isArray(candidate.skills)) {
+    return candidate;
+  }
+  return {
+    ...candidate,
+    skills: candidate.skills.map((skill) => normalizeGeneratedArtsSkillTargetMode(skill, candidate, context.playerContext)),
+  };
+}
+
+function normalizeGeneratedArtsSkillTargetMode(
+  rawSkill: unknown,
+  candidate: Record<string, unknown>,
+  playerContext: string | undefined,
+): unknown {
+  if (!rawSkill || typeof rawSkill !== 'object' || Array.isArray(rawSkill)) {
+    return rawSkill;
+  }
+  const skill = rawSkill as Record<string, unknown>;
+  const rawTarget = skill.target;
+  if (!rawTarget || typeof rawTarget !== 'object' || Array.isArray(rawTarget)) {
+    return rawSkill;
+  }
+  const target = rawTarget as Record<string, unknown>;
+  if (target.targetMode !== 'tile' || shouldKeepGeneratedArtsTileTargetMode(candidate, skill, playerContext)) {
+    return rawSkill;
+  }
+  return {
+    ...skill,
+    target: {
+      ...target,
+      targetMode: 'entity',
+    },
+  };
+}
+
+function shouldKeepGeneratedArtsTileTargetMode(
+  candidate: Record<string, unknown>,
+  skill: Record<string, unknown>,
+  playerContext: string | undefined,
+): boolean {
+  const text = [
+    playerContext,
+    candidate.name,
+    candidate.desc,
+    skill.name,
+    skill.desc,
+  ].filter((value): value is string => typeof value === 'string').join(' ');
+  return /地块|地形|土地|建筑|墙|城墙|石头|岩石|矿|采矿|开荒|扩地|拓地|破坏|拆除|摧毁|阵法|屏障|护宗|障碍|临时/.test(text);
 }
 
 type ParseAiJsonObjectResult =

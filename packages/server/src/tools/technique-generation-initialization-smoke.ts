@@ -14,7 +14,10 @@ import {
 import type { SkillFormula, SkillFormulaVar } from '@mud/shared';
 import type { Socket } from 'socket.io';
 
-import { TechniqueGenerationService } from '../runtime/technique-generation/technique-generation.service';
+import {
+  TechniqueGenerationService,
+  normalizeGeneratedTechniqueCandidateForServer,
+} from '../runtime/technique-generation/technique-generation.service';
 import type { GeneratedTechniqueStoreService } from '../runtime/technique-generation/generated-technique-store.service';
 import type { AiTextModelConfig } from '../ai/ai-model-config';
 import { WorldGatewayTechniqueGenerationHelper } from '../network/world-gateway-technique-generation.helper';
@@ -828,7 +831,7 @@ async function testArtsCandidateAcceptsStrengthShape(): Promise<void> {
       unlockLevel: 1,
       damageKind: 'spell',
       element: 'wood',
-      target: { type: 'line', targetMode: 'tile' },
+      target: { type: 'line', targetMode: 'entity' },
       structureStrength: { damage: 4, cost: 0, cooldown: 1, chant: 0, castRange: 3, area: 1 },
       formulaStrength: {
         attributeBases: { spellAtk: 4, resolvePower: 1 },
@@ -837,6 +840,64 @@ async function testArtsCandidateAcceptsStrengthShape(): Promise<void> {
     }],
   }, 'arts');
   assert.equal(result.valid, true);
+}
+
+async function testArtsTileTargetModeNormalizesForEntityDamage(): Promise<void> {
+  const fixed = normalizeGeneratedTechniqueCandidateForServer({
+    name: '裂风剑诀',
+    category: 'arts',
+    maxLayer: 9,
+    skills: [{
+      name: '裂风斩',
+      desc: '凝风成刃，直斩前方敌人。',
+      unlockLevel: 1,
+      damageKind: 'spell',
+      element: 'wood',
+      target: { type: 'line', targetMode: 'tile' },
+      structureStrength: { damage: 4, cost: 0, cooldown: 1, chant: 0, castRange: 3, area: 1 },
+      formulaStrength: {
+        attributeBases: { spellAtk: 4 },
+      },
+    }],
+  }, {
+    category: 'arts',
+    grade: 'mystic',
+    realmLv: 31,
+    maxLayer: 9,
+    budgetPercent: 1,
+    totalBudget: calcArtsBudgetMax('mystic', 31),
+    playerContext: '范围攻击，打前方敌人',
+  });
+  const skill = (fixed.skills as { target?: { targetMode?: string } }[])[0];
+  assert.equal(skill?.target?.targetMode, 'entity');
+
+  const terrainFixed = normalizeGeneratedTechniqueCandidateForServer({
+    name: '裂石诀',
+    category: 'arts',
+    maxLayer: 9,
+    skills: [{
+      name: '裂石术',
+      desc: '震裂地块与临时石头。',
+      unlockLevel: 1,
+      damageKind: 'spell',
+      element: 'earth',
+      target: { type: 'area', targetMode: 'tile' },
+      structureStrength: { damage: 1, cost: 0, cooldown: 0, chant: 0, castRange: 0, area: 2 },
+      formulaStrength: {
+        attributeBases: { spellAtk: 1 },
+      },
+    }],
+  }, {
+    category: 'arts',
+    grade: 'mystic',
+    realmLv: 31,
+    maxLayer: 9,
+    budgetPercent: 1,
+    totalBudget: calcArtsBudgetMax('mystic', 31),
+    playerContext: '破坏地块和临时障碍',
+  });
+  const terrainSkill = (terrainFixed.skills as { target?: { targetMode?: string } }[])[0];
+  assert.equal(terrainSkill?.target?.targetMode, 'tile');
 }
 
 async function testTechniquePromptIncludesRolledBudgetContext(): Promise<void> {
@@ -854,6 +915,8 @@ async function testTechniquePromptIncludesRolledBudgetContext(): Promise<void> {
     generationContext?: Record<string, unknown>;
     budgetContext?: Record<string, unknown>;
     strengthRules?: { calculationFormulas?: string[] };
+    outputChecklist?: string[];
+    outputExample?: { skills?: { target?: { targetMode?: string } }[] };
   };
   assert.equal(artsPayload.generationContext?.grade, 'earth');
   assert.equal(artsPayload.generationContext?.realmLv, 43);
@@ -862,6 +925,8 @@ async function testTechniquePromptIncludesRolledBudgetContext(): Promise<void> {
   assert.equal(artsPayload.generationContext?.budgetPercent, 1.1);
   assertApprox(Number(artsPayload.budgetContext?.actualTotalBudget), calcArtsBudgetMax('earth', 43) * 1.1, 0.0001);
   assert.ok(artsPayload.strengthRules?.calculationFormulas?.some((entry) => entry.includes('itemBudget')));
+  assert.ok(artsPayload.outputChecklist?.some((entry) => entry.includes('targetMode 必须优先使用 entity')));
+  assert.equal(artsPayload.outputExample?.skills?.[0]?.target?.targetMode, 'entity');
 
   const internalPrompt = buildTechniquePrompt({
     category: 'internal',
@@ -887,7 +952,7 @@ async function testZeroRangeArtsStrengthExpandsAsMinimumCastRangeSkill(): Promis
     unlockLevel: 1,
     damageKind: 'spell',
     element: 'metal',
-    target: { type: 'area', targetMode: 'tile' },
+    target: { type: 'area', targetMode: 'entity' },
     structureStrength: { damage: 1, cost: 0, cooldown: 0, chant: 0, castRange: 0, area: 4 },
     formulaStrength: {
       attributeBases: { spellAtk: 1 },
@@ -902,7 +967,9 @@ async function testZeroRangeArtsStrengthExpandsAsMinimumCastRangeSkill(): Promis
   });
   assert.equal(expanded.skill.range, 1);
   assert.equal(expanded.skill.requiresTarget, undefined);
+  assert.equal(expanded.skill.targetMode, 'entity');
   assert.equal(expanded.skill.targeting?.range, 1);
+  assert.equal(expanded.skill.targeting?.targetMode, 'entity');
   assert.ok((expanded.skill.targeting?.radius ?? 0) >= 0);
 }
 
@@ -913,7 +980,7 @@ async function testArtsStrengthBudgetAllocatesAndRefundsByItem(): Promise<void> 
     unlockLevel: 1,
     damageKind: 'spell',
     element: 'water',
-    target: { type: 'area', targetMode: 'tile' },
+    target: { type: 'area', targetMode: 'entity' },
     structureStrength: { damage: 1, cost: -20, cooldown: 80, chant: 0, castRange: 6, area: 6 },
     formulaStrength: {
       attributeBases: { spellAtk: 1 },
@@ -932,7 +999,9 @@ async function testArtsStrengthBudgetAllocatesAndRefundsByItem(): Promise<void> 
   assert.equal(expanded.budgetBreakdown.positiveWeight, 93);
   assert.equal(expanded.budgetBreakdown.negativeWeight, 20);
   assert.equal(expanded.skill.range, 3);
+  assert.equal(expanded.skill.targetMode, 'entity');
   assert.equal(expanded.skill.targeting?.range, 3);
+  assert.equal(expanded.skill.targeting?.targetMode, 'entity');
   assert.equal(expanded.skill.targeting?.radius, 1);
   assert.equal(expanded.skill.cooldown, 34);
   assertApprox(expanded.skill.costMultiplier ?? 0, 9.5892, 0.0001);
@@ -1014,6 +1083,7 @@ async function main(): Promise<void> {
   await testGeneratedArtsTechniqueRecoversDraftSkillShape();
   await testInternalCandidateRejectsUnknownAttrRatioKeys();
   await testArtsCandidateAcceptsStrengthShape();
+  await testArtsTileTargetModeNormalizesForEntityDamage();
   await testTechniquePromptIncludesRolledBudgetContext();
   await testZeroRangeArtsStrengthExpandsAsMinimumCastRangeSkill();
   await testArtsStrengthBudgetAllocatesAndRefundsByItem();

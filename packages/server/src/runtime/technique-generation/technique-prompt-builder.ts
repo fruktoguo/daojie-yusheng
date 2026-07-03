@@ -198,6 +198,7 @@ function buildArtsStrengthPromptInput(params: TechniquePromptParams): Record<str
       rangeMeaning: [
         'target 只描述目标形状和目标模式，不承载任何预算权重；不要在 target 里写 castRangeWeight、areaWeight 或真实范围字段。',
         'target.type 选择 single/line/box/area；真实范围、距离和覆盖格数由 structureStrength.castRange / structureStrength.area 展开。',
+        'targetMode 表示点选对象类型：普通伤害术法默认使用 entity；只有玩家明确要求破坏地块、地形、建筑、墙体、阵法或临时障碍时才使用 tile；需要同时影响实体和地形时才使用 any。',
         '玩家主题中的“范围32格”表示希望覆盖强度接近32格，不是真实半径32；请用 structureStrength.area 表达覆盖倾向。',
         `structureStrength.castRange 表示施法距离预算倾向：1格为0预算，2格约消耗1*${constants.structure.castRangeBudgetGrowth}预算，3格约消耗2*${constants.structure.castRangeBudgetGrowth}^2预算；不要把它当作最终施法距离。`,
         `影响范围按预算换算覆盖格：每1点实际范围预算约增加${constants.structure.coverageCellsPerBudget}格，line/box/area 会按各自形状向下取整成真实宽度、边长或半径。`,
@@ -223,6 +224,7 @@ function buildArtsStrengthPromptInput(params: TechniquePromptParams): Record<str
       'formulaStrength.attributeBases 至少1个、最多5个 key，key 必须来自 allowedAttributeBaseStats。',
       'formulaStrength.attributeBases 的值必须是正构成权重；最低伤害也要写 1，不能写 0 或负数。',
       'target 只允许 type/targetMode；不要输出 castRangeWeight/areaWeight/range/radius/width/height。',
+      '普通攻击、范围攻击、打怪或打人术法的 targetMode 必须优先使用 entity，不能因为 type 是 line/box/area 就写 tile。',
       'structureStrength 必须只包含 damage/cost/cooldown/chant/castRange/area；为了表达玩家偏好，建议六个字段都写出来。',
       '施法距离和影响范围权重必须写在 structureStrength.castRange / structureStrength.area，不要写进 target。',
       '属性基底优先按主题选择，例如蛮力/拳掌偏 physAtk 或 breakPower，玄妙法术偏 spellAtk，身法风格可少量使用 dodge/moveSpeed。',
@@ -242,7 +244,7 @@ function buildArtsStrengthPromptInput(params: TechniquePromptParams): Record<str
           unlockLevel: 1,
           damageKind: 'physical',
           element: 'metal',
-          target: { type: 'line', targetMode: 'tile' },
+          target: { type: 'line', targetMode: 'entity' },
           structureStrength: { damage: 4, cost: 0, cooldown: 1, chant: 0, castRange: 3, area: 1 },
           formulaStrength: {
             attributeBases: { physAtk: 4 },
