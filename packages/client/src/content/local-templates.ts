@@ -162,21 +162,22 @@ export function resolvePreviewItem(item: ItemStack): ItemStack {
 
   const sourceItem = stripInvalidPreviewInstanceId(item);
   const template = getLocalItemTemplate(sourceItem.itemId);
-  const sourceName = isUsableClientItemNameCandidate(sourceItem.itemId, sourceItem.name)
-    ? sourceItem.name
-    : undefined;
+  const sourceName = resolvePreviewItemName(sourceItem, template?.name);
+  const sourceDesc = resolvePreviewItemDesc(sourceItem, template?.desc);
   if (!template) {
-    return sourceName ? sourceItem : { ...sourceItem, name: sourceItem.itemId };
+    return sourceName ? { ...sourceItem, name: sourceName } : { ...sourceItem, name: sourceItem.itemId };
   }
   return {
     ...sourceItem,
     itemInstanceId: sourceItem.itemInstanceId,
     name: sourceName ?? template.name,
     type: sourceItem.type || template.type,
-    desc: sourceItem.desc || template.desc || '',
+    desc: sourceDesc ?? '',
     groundLabel: sourceItem.groundLabel ?? template.groundLabel,
     grade: sourceItem.grade ?? template.grade,
     level: sourceItem.level ?? template.level,
+    learnTechniqueId: sourceItem.learnTechniqueId ?? template.learnTechniqueId,
+    learnTechniqueMaxLevel: sourceItem.learnTechniqueMaxLevel ?? template.learnTechniqueMaxLevel,
     materialCategory: sourceItem.materialCategory ?? template.materialCategory,
     materialValues: sourceItem.materialValues ?? template.materialValues,
     equipSlot: template.equipSlot ?? sourceItem.equipSlot,
@@ -206,6 +207,59 @@ export function resolvePreviewItem(item: ItemStack): ItemStack {
     useBehavior: sourceItem.useBehavior ?? template.useBehavior,
     allowBatchUse: sourceItem.allowBatchUse ?? template.allowBatchUse,
   };
+}
+
+function resolvePreviewItemName(item: ItemStack, templateName: string | undefined): string | undefined {
+  const sourceName = isUsableClientItemNameCandidate(item.itemId, item.name)
+    ? item.name
+    : undefined;
+  if (item.itemId !== 'book.custom_technique') {
+    return sourceName;
+  }
+  const techniqueId = typeof item.learnTechniqueId === 'string' && item.learnTechniqueId.trim()
+    ? item.learnTechniqueId.trim()
+    : '';
+  const technique = techniqueId ? getLocalTechniqueTemplate(techniqueId) : null;
+  if (!technique) {
+    return sourceName;
+  }
+  const maxLevel = getPreviewTechniqueMaxLevel(technique);
+  const learnMaxLevel = Number.isFinite(Number(item.learnTechniqueMaxLevel))
+    ? Math.max(1, Math.min(maxLevel, Math.floor(Number(item.learnTechniqueMaxLevel))))
+    : maxLevel;
+  return learnMaxLevel >= maxLevel
+    ? `《${technique.name}》`
+    : `《${technique.name}》残卷`;
+}
+
+function resolvePreviewItemDesc(item: ItemStack, templateDesc: string | undefined): string | undefined {
+  const sourceDesc = typeof item.desc === 'string' && item.desc.trim() && item.desc !== templateDesc
+    ? item.desc
+    : undefined;
+  if (sourceDesc || item.itemId !== 'book.custom_technique') {
+    return sourceDesc ?? templateDesc;
+  }
+  const techniqueId = typeof item.learnTechniqueId === 'string' && item.learnTechniqueId.trim()
+    ? item.learnTechniqueId.trim()
+    : '';
+  const technique = techniqueId ? getLocalTechniqueTemplate(techniqueId) : null;
+  if (!technique) {
+    return templateDesc;
+  }
+  const maxLevel = getPreviewTechniqueMaxLevel(technique);
+  const learnMaxLevel = Number.isFinite(Number(item.learnTechniqueMaxLevel))
+    ? Math.max(1, Math.min(maxLevel, Math.floor(Number(item.learnTechniqueMaxLevel))))
+    : maxLevel;
+  return learnMaxLevel >= maxLevel
+    ? `完整记载${technique.name}。`
+    : `记载${technique.name}前 ${learnMaxLevel} 层的残卷。`;
+}
+
+function getPreviewTechniqueMaxLevel(technique: GmEditorTechniqueOption): number {
+  return Math.max(
+    1,
+    ...((technique.layers ?? []).map((layer) => Math.max(1, Math.floor(Number(layer.level) || 1)))),
+  );
 }
 
 function stripInvalidPreviewInstanceId(item: ItemStack): ItemStack {
