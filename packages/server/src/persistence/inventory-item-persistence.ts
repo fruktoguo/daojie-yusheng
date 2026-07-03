@@ -18,6 +18,8 @@ export interface InventoryItemPersistenceSource {
   enhanceLevel?: unknown;
   learnTechniqueId?: unknown;
   learnTechniqueMaxLevel?: unknown;
+  grade?: unknown;
+  level?: unknown;
 }
 
 /** 装备槽持久化来源数据结构 */
@@ -29,6 +31,8 @@ export interface EquipmentItemPersistenceSource {
   enhanceLevel?: unknown;
   learnTechniqueId?: unknown;
   learnTechniqueMaxLevel?: unknown;
+  grade?: unknown;
+  level?: unknown;
 }
 
 /** 物品模板仓储接口，用于水合时规范化物品 */
@@ -37,6 +41,8 @@ export interface InventoryItemTemplateRepository {
   normalizeItem(item: unknown): unknown;
 }
 
+const CUSTOM_TECHNIQUE_BOOK_ITEM_ID = 'book.custom_technique';
+
 const INVENTORY_LEGACY_MIRROR_KEYS = new Set([
   'itemId',
   'count',
@@ -44,6 +50,8 @@ const INVENTORY_LEGACY_MIRROR_KEYS = new Set([
   'enhancementLevel',
   'learnTechniqueId',
   'learnTechniqueMaxLevel',
+  'grade',
+  'level',
 ]);
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -112,9 +120,15 @@ function normalizePositiveInteger(...values: unknown[]): number | null {
 function buildLearnTechniquePayload(source: InventoryItemPersistenceSource | EquipmentItemPersistenceSource, rawPayload: Record<string, unknown> | null): Record<string, unknown> {
   const learnTechniqueId = normalizeOptionalString(source?.learnTechniqueId, rawPayload?.learnTechniqueId);
   const learnTechniqueMaxLevel = normalizePositiveInteger(source?.learnTechniqueMaxLevel, rawPayload?.learnTechniqueMaxLevel);
+  const itemId = normalizeOptionalString(source?.itemId, rawPayload?.itemId);
+  const shouldPersistBookDisplay = Boolean(learnTechniqueId) || itemId === CUSTOM_TECHNIQUE_BOOK_ITEM_ID;
+  const grade = shouldPersistBookDisplay ? normalizeOptionalString(source?.grade, rawPayload?.grade) : null;
+  const level = shouldPersistBookDisplay ? normalizePositiveInteger(source?.level, rawPayload?.level) : null;
   return {
     ...(learnTechniqueId ? { learnTechniqueId } : {}),
     ...(learnTechniqueMaxLevel == null ? {} : { learnTechniqueMaxLevel }),
+    ...(grade ? { grade } : {}),
+    ...(level == null ? {} : { level }),
   };
 }
 

@@ -1584,6 +1584,9 @@ export class InventoryPanel {
   }
 
   private getInventoryGradeLineLabel(item: ItemStack): string | null {
+    if (item.type !== 'skill_book') {
+      return null;
+    }
     return getItemDisplayMeta(item).gradeLabel;
   }
 

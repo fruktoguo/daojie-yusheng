@@ -8,7 +8,7 @@ import * as path from 'path';
 import { DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS, DEFAULT_PLAYER_REALM_STAGE, DEFAULT_QI_RESOURCE_DESCRIPTOR, Direction, ELEMENT_KEYS, EQUIP_SLOTS, NUMERIC_SCALAR_STAT_KEYS, PLAYER_REALM_NUMERIC_TEMPLATES, TECHNIQUE_EXP_BASE, TechniqueRealm, buildQiResourceKey, calculateTechniqueSkillQiCost, cloneNumericRatioDivisors, cloneNumericStats, compileEquipmentBaselinePercentsToActualStats, compileValueStatsToActualStats, createMonsterMainCombatStatModifierStats, deriveTechniqueRealm, expandTechniqueArtsStrengthContentSkill, expandTechniqueAttrRatio, expandTechniqueExpCurve, expandTechniqueLayerGains, getTechniqueExpToNext, getTileTypeFromMapChar, inferMonsterTierFromName, isTileTypeWalkable, normalizeCraftEffectStatsPatch, normalizeEditableMapDocument, normalizeMonsterTier as normalizeSharedMonsterTier, normalizeTargetingDefaultMaxTargets, normalizeTechniqueAttrRatio, resolveMonsterTemplateRecord, resolveSkillRequiresTarget, resolveSkillUnlockLevel, scaleTechniqueExp, shouldExpandTechniqueAttrRatio } from '@mud/shared';
 import { resolveProjectPath } from '../common/project-path';
 
-const ITEM_INSTANCE_FIELD_KEYS = new Set(['itemId', 'itemInstanceId', 'count', 'enhanceLevel', 'enhancementLevel', 'learnTechniqueId', 'learnTechniqueMaxLevel']);
+const ITEM_INSTANCE_FIELD_KEYS = new Set(['itemId', 'itemInstanceId', 'count', 'enhanceLevel', 'enhancementLevel', 'learnTechniqueId', 'learnTechniqueMaxLevel', 'grade', 'level']);
 
 function createItemInstanceFromTemplate(template, source: any = {}) {
     const instance = Object.create(template);
@@ -53,6 +53,14 @@ function createItemInstanceFromTemplate(template, source: any = {}) {
         }
         if (desc) {
             defineInstanceValue(instance, 'desc', desc);
+        }
+        const grade = typeof source?.grade === 'string' && source.grade.trim() ? source.grade.trim() : undefined;
+        const level = normalizeItemInstancePositiveInteger(source?.level);
+        if (grade) {
+            defineInstanceValue(instance, 'grade', grade);
+        }
+        if (level > 0) {
+            defineInstanceValue(instance, 'level', level);
         }
     }
     return instance;

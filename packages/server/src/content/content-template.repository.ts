@@ -621,7 +621,7 @@ export class ContentTemplateRepository {
     }
 };
 
-const ITEM_INSTANCE_FIELD_KEYS = new Set(['itemId', 'count', 'enhanceLevel', 'enhancementLevel', 'learnTechniqueId', 'learnTechniqueMaxLevel']);
+const ITEM_INSTANCE_FIELD_KEYS = new Set(['itemId', 'count', 'enhanceLevel', 'enhancementLevel', 'learnTechniqueId', 'learnTechniqueMaxLevel', 'grade', 'level']);
 
 function createItemInstanceFromTemplate(template, source: any = {}) {
     const instance = Object.create(template);
@@ -660,6 +660,14 @@ function createItemInstanceFromTemplate(template, source: any = {}) {
         }
         if (desc) {
             defineInstanceValue(instance, 'desc', desc);
+        }
+        const grade = typeof source?.grade === 'string' && source.grade.trim() ? source.grade.trim() : undefined;
+        const level = normalizeItemInstancePositiveInteger(source?.level);
+        if (grade) {
+            defineInstanceValue(instance, 'grade', grade);
+        }
+        if (level > 0) {
+            defineInstanceValue(instance, 'level', level);
         }
     }
     return instance;
