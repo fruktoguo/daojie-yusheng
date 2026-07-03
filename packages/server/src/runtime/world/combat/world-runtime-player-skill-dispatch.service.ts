@@ -17,6 +17,7 @@ import { CombatPendingCastCancelReason, CombatPendingCastStatus, cancelPendingCo
 import { buildStructuredNotice } from '../structured-notice.helpers';
 import { applyMiningExpForTileDamage, resolveMiningAdjustedTileDamage, resolveMiningDropRateBonus, spawnTileDrops } from './tile-drop.helpers';
 import { WorldRuntimeThreatService } from './world-runtime-threat.service';
+import { resolvePlayerDisplayName } from '../../player/player-display-name';
 import { resolveSuppressedMonsterNumericStats } from './formation-combat-effect.helpers';
 import * as world_runtime_normalization_helpers_1 from '../world-runtime.normalization.helpers';
 import * as world_runtime_path_planning_helpers_1 from '../world-runtime.path-planning.helpers';
@@ -254,7 +255,7 @@ function resolveTechniqueLevelForSkill(player, skillId) {
     return 1;
 }
 
-function spendSkillCostAndStartCooldown(playerRuntimeService, attacker, skill, currentTick) {
+function spendSkillCostAndStartCooldown(playerRuntimeService, attacker, skill, currentTick, instance = null) {
     const readyTick = normalizePlayerSkillCooldownReadyTick(attacker, skill, currentTick);
     if (currentTick < readyTick) {
         throw new BadRequestException(`技能 ${skill.id} 尚在冷却`);
@@ -267,6 +268,7 @@ function spendSkillCostAndStartCooldown(playerRuntimeService, attacker, skill, c
             throw new BadRequestException(`技能 ${skill.id} 元气不足`);
         }
         playerRuntimeService.spendQi(attacker.playerId, qiCost);
+        instance?.disperseQiAt?.(attacker.x, attacker.y, qiCost);
     }
     playerRuntimeService.setSkillCooldownReadyTick(attacker.playerId, skill.id, currentTick + resolvePlayerSkillCooldownTicks(attacker, skill.cooldown), currentTick);
     return qiCost;
@@ -803,7 +805,7 @@ export class WorldRuntimePlayerSkillDispatchService {
         if (plans.length <= 0) {
             throw new BadRequestException('没有可生成石头的地块');
         }
-        spendSkillCostAndStartCooldown(this.playerRuntimeService, attacker, skill, currentTick);
+        spendSkillCostAndStartCooldown(this.playerRuntimeService, attacker, skill, currentTick, instance);
         applyPlayerHorizontalFacingToward(this.playerRuntimeService, instance, attacker, anchor);
         emitCombatPresentation({
             deps,
@@ -863,10 +865,10 @@ export class WorldRuntimePlayerSkillDispatchService {
             throw new BadRequestException('目标超出技能范围');
         }
         const currentTick = deps.resolveCurrentTickForPlayerId(attacker.playerId);
-        const qiCost = spendSkillCostAndStartCooldown(this.playerRuntimeService, attacker, skill, currentTick);
+        const instance = deps.getInstanceRuntime?.(attacker.instanceId) ?? null;
+        const qiCost = spendSkillCostAndStartCooldown(this.playerRuntimeService, attacker, skill, currentTick, instance);
         const cooldownReadyTick = Math.max(0, Math.trunc(Number(attacker.combat?.cooldownReadyTickBySkillId?.[skill.id] ?? 0)));
         deps.worldRuntimeNavigationService?.clearNavigationIntent?.(attacker.playerId);
-        const instance = deps.getInstanceRuntime?.(attacker.instanceId) ?? null;
         applyPlayerHorizontalFacingToward(this.playerRuntimeService, instance, attacker, anchor);
         const geometry = buildEffectivePlayerSkillGeometry(attacker, skill);
         const warningOrigin = (geometry.shape ?? 'single') === 'line'
@@ -1401,6 +1403,7 @@ export class WorldRuntimePlayerSkillDispatchService {
             range: effectiveRange,
             resolvedSkill,
             attackerCombatState,
+            onQiSpent: (player, amount) => instance.disperseQiAt?.(player?.x, player?.y, amount),
             recordSkillCastSectionDuration,
         };
         const targetApplyStartedAt = performance.now();
@@ -1658,13 +1661,13 @@ export class WorldRuntimePlayerSkillDispatchService {
                     notices: [
                         {
                             playerId: attacker.playerId,
-                            text: `${formatCombatActionClause('你', formatTargetLabelWithHp(targetPlayer.name ?? targetPlayer.playerId, updatedTarget?.hp ?? targetPlayer.hp, targetPlayer.maxHp), skill.name)}，${formatCombatResolutionOutcome(primaryRoll, primaryRoll.damageKind ?? damageKind, primaryRoll.element ?? damageElement)}`,
-                            combat: buildCombatNoticePayload({ caster: '你', target: targetPlayer.name ?? targetPlayer.playerId, targetHp: updatedTarget?.hp ?? targetPlayer.hp, targetMaxHp: targetPlayer.maxHp, skill: skill.name, resolution: { ...primaryRoll, damageKind: primaryRoll.damageKind ?? damageKind, element: primaryRoll.element ?? damageElement } }),
+                            text: `${formatCombatActionClause('你', formatTargetLabelWithHp(resolvePlayerDisplayName(targetPlayer, { playerId: targetPlayer.playerId, fallback: '未知玩家' }), updatedTarget?.hp ?? targetPlayer.hp, targetPlayer.maxHp), skill.name)}，${formatCombatResolutionOutcome(primaryRoll, primaryRoll.damageKind ?? damageKind, primaryRoll.element ?? damageElement)}`,
+                            combat: buildCombatNoticePayload({ caster: '你', target: resolvePlayerDisplayName(targetPlayer, { playerId: targetPlayer.playerId, fallback: '未知玩家' }), targetHp: updatedTarget?.hp ?? targetPlayer.hp, targetMaxHp: targetPlayer.maxHp, skill: skill.name, resolution: { ...primaryRoll, damageKind: primaryRoll.damageKind ?? damageKind, element: primaryRoll.element ?? damageElement } }),
                         },
                         {
                             playerId: targetPlayer.playerId,
-                            text: `${formatCombatActionClause(attacker.name ?? attacker.playerId, '你', skill.name)}，${formatCombatResolutionOutcome(primaryRoll, primaryRoll.damageKind ?? damageKind, primaryRoll.element ?? damageElement)}`,
-                            combat: buildCombatNoticePayload({ caster: attacker.name ?? attacker.playerId, target: '你', skill: skill.name, resolution: { ...primaryRoll, damageKind: primaryRoll.damageKind ?? damageKind, element: primaryRoll.element ?? damageElement } }),
+                            text: `${formatCombatActionClause(resolvePlayerDisplayName(attacker, { playerId: attacker.playerId, fallback: '未知玩家' }), '你', skill.name)}，${formatCombatResolutionOutcome(primaryRoll, primaryRoll.damageKind ?? damageKind, primaryRoll.element ?? damageElement)}`,
+                            combat: buildCombatNoticePayload({ caster: resolvePlayerDisplayName(attacker, { playerId: attacker.playerId, fallback: '未知玩家' }), target: '你', skill: skill.name, resolution: { ...primaryRoll, damageKind: primaryRoll.damageKind ?? damageKind, element: primaryRoll.element ?? damageElement } }),
                         },
                     ],
                 });

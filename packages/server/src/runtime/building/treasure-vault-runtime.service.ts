@@ -20,6 +20,7 @@ import { DatabasePoolProvider } from '../../persistence/database-pool.provider';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { SocialRuntimeService } from '../social/social-runtime.service';
 import { MailRuntimeService } from '../mail/mail-runtime.service';
+import { resolvePlayerDisplayName } from '../player/player-display-name';
 
 const TREASURE_VAULT_STORAGE_TABLE = 'instance_building_storage_item';
 const PLAYER_MAIL_TABLE = 'player_mail';
@@ -660,7 +661,7 @@ function resolveBuildingName(instance: any, building: any): string {
 }
 
 function resolveOwnerName(player: any): string | undefined {
-  return normalizeString(player?.displayName) || normalizeString(player?.name) || normalizeString(player?.playerId) || undefined;
+  return player ? resolvePlayerDisplayName(player, { playerId: player?.playerId ?? player?.id, fallback: '未知玩家' }) : undefined;
 }
 
 function projectStorageRow(row: any): TreasureVaultItemView {

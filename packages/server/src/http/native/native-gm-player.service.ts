@@ -33,6 +33,7 @@ import { repairQuestProgressPayloads } from '../../persistence/quest-progress-pa
 import { PlayerDomainPersistenceService } from '../../persistence/player-domain-persistence.service';
 import { ActivityPersistenceService } from '../../persistence/activity-persistence.service';
 import { MarketRuntimeService } from '../../runtime/market/market-runtime.service';
+import { resolvePlayerDisplayName } from '../../runtime/player/player-display-name';
 import { PlayerProgressionService } from '../../runtime/player/player-progression.service';
 import { PlayerRuntimeService } from '../../runtime/player/player-runtime.service';
 import { createRuntimeTemporaryBuff, materializeRuntimeTemporaryBuff } from '../../runtime/player/runtime-buff-instance';
@@ -2845,7 +2846,7 @@ export class NativeGmPlayerService {
   ) {
     const player = this.toLegacyPlayerStateFromPersistence(playerId, persistedSnapshot);
     const monthCard = await this.loadManagedMonthCardView(playerId);
-    const roleName = resolveManagedPlayerName(player, account, playerId);
+    const roleName = resolveManagedPlayerName(player, account, '未知角色');
     const displayName = resolveManagedPlayerDisplayName(player, account, roleName);
     const meta = {
       userId: account?.userId,
@@ -3084,8 +3085,8 @@ export class NativeGmPlayerService {
 
     return {
       id: playerId,
-      name: playerId,
-      displayName: playerId,
+      name: snapshot.name,
+      displayName: snapshot.displayName,
       isBot: isNativeGmBotPlayerId(playerId),
       mapId: snapshot.placement.templateId,
       x: snapshot.placement.x,
@@ -3226,23 +3227,24 @@ function normalizeOptionalPlayerNo(value: unknown): number | null {
 }
 
 function resolveManagedPlayerName(player, account, fallback: string): string {
-  return normalizeManagedIdentityText(account?.playerName)
-    || normalizeManagedIdentityText(player?.name)
-    || normalizeManagedIdentityText(account?.displayName)
-    || normalizeManagedIdentityText(account?.username)
-    || fallback;
+  return resolvePlayerDisplayName({
+    playerId: player?.id,
+    playerName: account?.playerName,
+    name: player?.name,
+    displayName: account?.displayName ?? player?.displayName,
+    username: account?.username,
+  }, { fallback });
 }
 
 function resolveManagedPlayerDisplayName(player, account, fallback: string): string {
-  return normalizeManagedIdentityText(account?.displayName)
-    || normalizeManagedIdentityText(player?.displayName)
-    || normalizeManagedIdentityText(account?.playerName)
-    || fallback;
+  return resolvePlayerDisplayName({
+    playerId: player?.id,
+    displayName: account?.displayName ?? player?.displayName,
+    playerName: account?.playerName,
+    name: player?.name,
+  }, { fallback });
 }
 
-function normalizeManagedIdentityText(value: unknown): string {
-  return typeof value === 'string' ? value.trim() : '';
-}
 /**
  * clamp：执行clamp相关逻辑。
  * @param value 参数说明。

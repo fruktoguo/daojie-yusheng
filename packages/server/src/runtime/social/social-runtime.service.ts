@@ -16,6 +16,7 @@ import type {
 import { resolveServerDatabaseUrl } from '../../config/env-alias';
 import { DatabasePoolProvider } from '../../persistence/database-pool.provider';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
+import { resolvePlayerDisplayName } from '../player/player-display-name';
 
 const DAOIST_RELATION_TABLE = 'player_daoist_relation';
 const DAOIST_REQUEST_TABLE = 'player_daoist_request';
@@ -457,11 +458,7 @@ function normalizeString(value: unknown): string {
 }
 
 function resolvePlayerName(player: any, fallback = ''): string {
-  const displayName = normalizeString(player?.displayName);
-  if (displayName) return displayName;
-  const name = normalizeString(player?.name);
-  if (name) return name;
-  return normalizeString(player?.playerId) || normalizeString(player?.id) || fallback;
+  return resolvePlayerDisplayName(player, { playerId: player?.playerId ?? player?.id ?? fallback, fallback: '未知玩家' });
 }
 
 function normalizeDirectMessage(value: unknown): string {

@@ -16,5 +16,10 @@ export function resolveNearbyTransmissionTargets(
   return entities
     .filter((entity) => entity.kind === 'player' && entity.id !== player.id)
     .filter((entity) => Math.max(Math.abs(Math.floor(entity.wx) - Math.floor(player.x)), Math.abs(Math.floor(entity.wy) - Math.floor(player.y))) <= 2)
-    .map((entity) => ({ playerId: entity.id, name: entity.name ?? entity.id }));
+    .map((entity) => ({ playerId: entity.id, name: resolveTransmissionTargetName(entity.name) }));
+}
+
+function resolveTransmissionTargetName(name: unknown): string {
+  const normalized = typeof name === 'string' ? name.trim() : '';
+  return normalized || '未知玩家';
 }

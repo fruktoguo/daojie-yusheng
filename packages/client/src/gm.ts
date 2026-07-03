@@ -1930,7 +1930,7 @@ function getShortcutMailTargetOptions(): Array<{
   if (selectedTargetId && !options.some((option) => option.value === selectedTargetId)) {
     const fallbackLabel = selectedPlayerDetail?.id === selectedTargetId
       ? `${selectedPlayerDetail.roleName} · ${formatPlayerNo(selectedPlayerDetail.playerNo)} · ${selectedPlayerDetail.account?.username || t('gm.text.no-account')} · ${t('gm.text.selected')}`
-      : t('gm.text.current-target', { targetId: selectedTargetId });
+      : `未知角色 · ${t('gm.text.current-target', { targetId: '未加载' })}`;
     options.push({ value: selectedTargetId, label: fallbackLabel });
   }
   return options;
@@ -10457,7 +10457,7 @@ function renderTechniqueGenerationJobDetail(): void {
   }
   const summary = techniqueGenerationJobs.find((job) => job.id === selectedTechniqueGenerationJobId) ?? null;
   generatedTechniqueDetailMetaEl.textContent = summary
-    ? `${formatTechniqueGenerationJobStatus(summary.status)} · ${formatTechniqueGenerationJobItemState(summary)} · ${summary.playerId}`
+    ? `${formatTechniqueGenerationJobStatus(summary.status)} · ${formatTechniqueGenerationJobItemState(summary)} · ${formatTechniqueGenerationJobPlayerLabel(summary)}`
     : selectedTechniqueGenerationJobId;
   generatedTechniqueDetailEmptyEl.classList.add('hidden');
   generatedTechniqueDetailEl.classList.remove('hidden');
@@ -10485,6 +10485,17 @@ function formatTechniqueGenerationJobItemState(job: GmTechniqueGenerationJobSumm
     return '已返还玉简';
   }
   return job.itemConsumed ? '已扣玉简' : '未扣玉简';
+}
+
+function formatTechniqueGenerationJobPlayerLabel(job: GmTechniqueGenerationJobSummary): string {
+  const candidates = [job.playerName, job.playerDisplayName];
+  for (const candidate of candidates) {
+    const normalized = typeof candidate === 'string' ? candidate.trim() : '';
+    if (normalized && normalized !== job.playerId && !/^p_[0-9a-f-]+(?:_\d+)?$/i.test(normalized)) {
+      return normalized;
+    }
+  }
+  return '未知角色';
 }
 
 function formatTechniqueGenerationJobStatus(status: string): string {

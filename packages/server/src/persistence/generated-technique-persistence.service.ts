@@ -21,6 +21,7 @@ import type {
   GmTechniqueGenerationJobDetailRes,
   GmTechniqueGenerationJobSummary,
 } from '@mud/shared';
+import { resolvePlayerDisplayName } from '../runtime/player/player-display-name';
 
 // ─── 表名常量 ───
 
@@ -255,6 +256,8 @@ interface GeneratedTechniqueGmRow {
 interface TechniqueGenerationJobGmRow {
   id: string;
   player_id: string;
+  player_name?: string | null;
+  player_display_name?: string | null;
   status: string;
   requested_category?: string | null;
   rolled_grade?: string | null;
@@ -447,28 +450,32 @@ export async function listTechniqueGenerationJobsForGm(
   const page = Math.min(requestedPage, totalPages);
   const offset = (page - 1) * pageSize;
   const listResult = await pool.query(
-    `SELECT id,
-            player_id,
-            status,
-            requested_category,
-            rolled_grade,
-            rolled_realm_lv,
-            draft_technique_id,
-            model_name,
-            attempt_count,
-            item_consumed,
-            item_spend,
-            consumed_at,
-            item_refunded,
-            refunded_at,
-            draft_expire_at,
-            finished_at,
-            error_code,
-            error_message,
-            created_at,
-            updated_at
-       FROM ${TECHNIQUE_GENERATION_JOB_TABLE}
-      ORDER BY created_at DESC, id DESC
+    `SELECT job.id,
+            job.player_id,
+            ident.player_name,
+            COALESCE(ident.display_name, auth.display_name, ident.player_name, auth.pending_role_name) AS player_display_name,
+            job.status,
+            job.requested_category,
+            job.rolled_grade,
+            job.rolled_realm_lv,
+            job.draft_technique_id,
+            job.model_name,
+            job.attempt_count,
+            job.item_consumed,
+            job.item_spend,
+            job.consumed_at,
+            job.item_refunded,
+            job.refunded_at,
+            job.draft_expire_at,
+            job.finished_at,
+            job.error_code,
+            job.error_message,
+            job.created_at,
+            job.updated_at
+       FROM ${TECHNIQUE_GENERATION_JOB_TABLE} job
+       LEFT JOIN server_player_identity ident ON ident.player_id = job.player_id
+       LEFT JOIN server_player_auth auth ON auth.player_id = job.player_id
+      ORDER BY job.created_at DESC, job.id DESC
       LIMIT $1 OFFSET $2`,
     [pageSize, offset],
   );
@@ -489,29 +496,33 @@ export async function getTechniqueGenerationJobForGm(
   id: string,
 ): Promise<GmTechniqueGenerationJobDetailRes['job'] | null> {
   const result = await pool.query(
-    `SELECT id,
-            player_id,
-            status,
-            requested_category,
-            rolled_grade,
-            rolled_realm_lv,
-            player_context,
-            draft_technique_id,
-            model_name,
-            attempt_count,
-            item_consumed,
-            item_spend,
-            consumed_at,
-            item_refunded,
-            refunded_at,
-            draft_expire_at,
-            finished_at,
-            error_code,
-            error_message,
-            created_at,
-            updated_at
-       FROM ${TECHNIQUE_GENERATION_JOB_TABLE}
-      WHERE id = $1
+    `SELECT job.id,
+            job.player_id,
+            ident.player_name,
+            COALESCE(ident.display_name, auth.display_name, ident.player_name, auth.pending_role_name) AS player_display_name,
+            job.status,
+            job.requested_category,
+            job.rolled_grade,
+            job.rolled_realm_lv,
+            job.player_context,
+            job.draft_technique_id,
+            job.model_name,
+            job.attempt_count,
+            job.item_consumed,
+            job.item_spend,
+            job.consumed_at,
+            job.item_refunded,
+            job.refunded_at,
+            job.draft_expire_at,
+            job.finished_at,
+            job.error_code,
+            job.error_message,
+            job.created_at,
+            job.updated_at
+       FROM ${TECHNIQUE_GENERATION_JOB_TABLE} job
+       LEFT JOIN server_player_identity ident ON ident.player_id = job.player_id
+       LEFT JOIN server_player_auth auth ON auth.player_id = job.player_id
+      WHERE job.id = $1
       LIMIT 1`,
     [id],
   );
@@ -1073,9 +1084,16 @@ function toGeneratedTechniqueRawJson(row: GeneratedTechniqueGmRow): Record<strin
 }
 
 function toTechniqueGenerationJobSummary(row: TechniqueGenerationJobGmRow): GmTechniqueGenerationJobSummary {
+  const playerName = resolvePlayerDisplayName({
+    playerId: row.player_id,
+    playerName: row.player_name,
+    displayName: row.player_display_name,
+  }, { fallback: '未知角色' });
   return {
     id: row.id,
     playerId: row.player_id,
+    playerName,
+    playerDisplayName: playerName,
     status: row.status,
     requestedCategory: row.requested_category ?? null,
     rolledGrade: row.rolled_grade ?? null,
@@ -1101,6 +1119,8 @@ function toTechniqueGenerationJobRawJson(row: TechniqueGenerationJobGmRow): Reco
   return {
     id: row.id,
     player_id: row.player_id,
+    player_name: row.player_name ?? null,
+    player_display_name: row.player_display_name ?? null,
     status: row.status,
     requested_category: row.requested_category ?? null,
     rolled_grade: row.rolled_grade ?? null,

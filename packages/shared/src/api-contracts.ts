@@ -232,6 +232,8 @@ export interface GmTechniqueGenerationJobListQuery {
 export interface GmTechniqueGenerationJobSummary {
   id: string;
   playerId: string;
+  playerName?: string | null;
+  playerDisplayName?: string | null;
   status: string;
   requestedCategory?: string | null;
   rolledGrade?: string | null;

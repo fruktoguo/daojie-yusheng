@@ -388,6 +388,7 @@ export class RedeemCodePersistenceService {
         const code = typeof input?.code === 'string' ? input.code.trim().toUpperCase() : '';
         const playerId = typeof input?.playerId === 'string' ? input.playerId.trim() : '';
         const playerName = typeof input?.playerName === 'string' ? input.playerName.trim() : '';
+        const usedByRoleName = playerName || '未知角色';
         const usedAt = typeof input?.usedAt === 'string' && input.usedAt.trim() ? input.usedAt.trim() : new Date().toISOString();
         if (!code || !playerId) {
             return { ok: false, reason: 'invalid_input' };
@@ -415,7 +416,7 @@ export class RedeemCodePersistenceService {
                   WHERE code = $1 AND status = 'active'
                   RETURNING code_id, group_id, code, status, used_by_player_id, used_by_role_name, used_at, updated_at
                 `,
-                [code, playerId, playerName || playerId, usedAt, playerId, playerName || playerId, usedAt],
+                    [code, playerId, usedByRoleName, usedAt, playerId, usedByRoleName, usedAt],
             );
             if ((result.rowCount ?? 0) !== 1) {
                 await client.query('ROLLBACK');
@@ -451,7 +452,7 @@ export class RedeemCodePersistenceService {
                     code: typeof row.code === 'string' ? row.code : '',
                     status: 'used',
                     usedByPlayerId: typeof row.used_by_player_id === 'string' ? row.used_by_player_id : playerId,
-                    usedByRoleName: typeof row.used_by_role_name === 'string' ? row.used_by_role_name : (playerName || playerId),
+                    usedByRoleName: typeof row.used_by_role_name === 'string' ? row.used_by_role_name : usedByRoleName,
                     usedAt: normalizeNullableDbTimestamp(row.used_at) ?? usedAt,
                     updatedAt: normalizeDbTimestamp(row.updated_at),
                 },

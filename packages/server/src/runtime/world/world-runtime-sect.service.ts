@@ -9,6 +9,7 @@ import { Pool } from 'pg';
 import { resolveServerDatabaseUrl } from '../../config/env-alias';
 import { buildStructuredNotice } from './structured-notice.helpers';
 import * as world_runtime_normalization_helpers_1 from './world-runtime.normalization.helpers';
+import { resolveSectMemberDisplayName } from '../player/player-display-name';
 
 const SECT_TABLE = 'server_sect';
 const SECT_TEMPLATE_PREFIX = 'sect_domain:';
@@ -2018,7 +2019,11 @@ function normalizeSectApplications(input, members = []) {
         const status = entry?.status === 'approved' || entry?.status === 'rejected' ? entry.status : 'pending';
         applications.push({
             playerId,
-            name: normalizeOptionalString(entry?.name ?? entry?.playerName) || playerId,
+            name: resolveSectMemberDisplayName({
+                playerId,
+                name: entry?.name,
+                playerName: entry?.playerName,
+            }, playerId),
             status,
             appliedAt: Number.isFinite(Number(entry?.appliedAt)) ? Number(entry.appliedAt) : Date.now(),
             updatedAt: Number.isFinite(Number(entry?.updatedAt)) ? Number(entry.updatedAt) : Date.now(),
@@ -2074,7 +2079,10 @@ function normalizeSectMembers(input, fallback) {
         seen.add(playerId);
         members.push({
             playerId,
-            name: normalizeOptionalString(entry?.name) || playerId,
+            name: resolveSectMemberDisplayName({
+                playerId,
+                name: entry?.name,
+            }, playerId),
             roleId: normalizeSectRoleId(entry?.roleId ?? entry?.role, { allowSupreme: true, fallback: 'outer' }),
             joinedAt: Number.isFinite(Number(entry?.joinedAt)) ? Number(entry.joinedAt) : now,
         });
@@ -2083,7 +2091,10 @@ function normalizeSectMembers(input, fallback) {
     if (leaderPlayerId && !seen.has(leaderPlayerId)) {
         members.unshift({
             playerId: leaderPlayerId,
-            name: normalizeOptionalString(fallback?.leaderName) || leaderPlayerId,
+            name: resolveSectMemberDisplayName({
+                playerId: leaderPlayerId,
+                name: fallback?.leaderName,
+            }, leaderPlayerId),
             roleId: 'leader',
             joinedAt: now,
         });
@@ -2107,11 +2118,7 @@ function buildSectMemberEntry(player, roleId, joinedAt = Date.now()) {
 }
 
 function resolvePlayerDisplayName(player, fallback = '') {
-    return normalizeOptionalString(player?.name)
-        || normalizeOptionalString(player?.displayName)
-        || normalizeOptionalString(player?.playerId)
-        || normalizeOptionalString(fallback)
-        || '未知成员';
+    return resolveSectMemberDisplayName(player, player?.playerId ?? player?.id ?? fallback);
 }
 
 function resolveSectMemberPresenceLabel(player) {

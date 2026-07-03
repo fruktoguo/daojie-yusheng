@@ -23,6 +23,7 @@ import type { GameTimeState, MapTimeConfig, TimePaletteEntry, TimePhaseId } from
 import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { getTileIndex, MapTemplateRepository } from '../../runtime/map/map-template.repository';
 import { RuntimeMapConfigService } from '../../runtime/map/runtime-map-config.service';
+import { resolvePlayerDisplayName } from '../../runtime/player/player-display-name';
 import { PlayerRuntimeService } from '../../runtime/player/player-runtime.service';
 import { WorldRuntimeService } from '../../runtime/world/world-runtime.service';
 import { buildPublicInstanceId } from '../../runtime/world/world-runtime.normalization.helpers';
@@ -823,13 +824,14 @@ export class NativeGmMapRuntimeQueryService {
         }
 
         const player = this.playerRuntimeService.getPlayer(entry.playerId);
+        const playerName = resolvePlayerDisplayName(player, { playerId: entry.playerId });
         entities.push({
           id: entry.playerId,
           x: entry.x,
           y: entry.y,
-          char: player?.displayName?.[0] ?? player?.name?.[0] ?? '人',
+          char: playerName[0] ?? '人',
           color: typeof player?.sessionId === 'string' && player.sessionId.length > 0 ? '#4caf50' : '#888',
-          name: player?.name ?? entry.playerId,
+          name: playerName,
           kind: 'player',
           hp: player?.hp,
           maxHp: player?.maxHp,

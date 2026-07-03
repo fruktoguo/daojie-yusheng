@@ -12,6 +12,7 @@ import { BadRequestException, Inject, Injectable, Logger } from '@nestjs/common'
 import { type GmCreateWorldInstanceReq, type GmListPlayersQuery, type GmPlayerListRes, type GmTransferPlayerToInstanceReq, type GmWorldInstanceLinePreset } from '@mud/shared';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { MapTemplateRepository } from '../../runtime/map/map-template.repository';
+import { resolvePlayerDisplayName } from '../../runtime/player/player-display-name';
 import { RuntimeMapConfigService } from '../../runtime/map/runtime-map-config.service';
 import { RuntimeGmStateService } from '../../runtime/gm/runtime-gm-state.service';
 import { WorldRuntimeService } from '../../runtime/world/world-runtime.service';
@@ -759,9 +760,11 @@ export class NativeGmWorldService {
         if (!playerId || !Number.isFinite(x) || !Number.isFinite(y)) {
           return null;
         }
-        const displayName = typeof row.display_name === 'string' && row.display_name.trim()
-          ? row.display_name.trim()
-          : (typeof row.player_name === 'string' && row.player_name.trim() ? row.player_name.trim() : playerId);
+        const displayName = resolvePlayerDisplayName({
+          playerId,
+          displayName: row.display_name,
+          playerName: row.player_name,
+        });
         const hp = Number(row.hp);
         const maxHp = Number(row.max_hp);
         return {

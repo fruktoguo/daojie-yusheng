@@ -19,6 +19,7 @@ import {
 import type { TechniqueActivityStrategy, PipelineContext, PersistenceDomain } from '../technique-activity-strategy';
 import { applyPlayerCraftExpRate, resolvePlayerCraftEffectStat } from '../../craft-effect-runtime.helpers';
 import { advanceTechniqueActivityPause } from '../../technique-activity-runtime.helpers';
+import { resolvePlayerDisplayName as resolveRuntimePlayerDisplayName } from '../../../player/player-display-name';
 
 type TransmissionValidatedPayload = {
   mode?: 'transmission' | 'scripture_recording' | 'scripture_contemplation';
@@ -441,7 +442,7 @@ function validateScriptureRecordingStart(
       realmLv: Math.max(1, Math.floor(Number(technique.realmLv) || 1)),
       grade: technique.grade ?? undefined,
       category: technique.category ?? undefined,
-      teacherName: recorder.displayName ?? recorder.name ?? recorder.playerId,
+      teacherName: resolveRuntimePlayerDisplayName(recorder, { playerId: recorder.playerId, fallback: '未知玩家' }),
       buildingId,
     },
   };
@@ -491,7 +492,7 @@ function validateScriptureContemplationStart(
       realmLv: Math.max(1, Math.floor(Number(building.scriptureRealmLv) || 1)),
       grade: building.scriptureGrade ?? undefined,
       category: building.scriptureCategory ?? undefined,
-      teacherName: learner.displayName ?? learner.name ?? learner.playerId,
+      teacherName: resolveRuntimePlayerDisplayName(learner, { playerId: learner.playerId, fallback: '未知玩家' }),
       buildingId,
     },
   };
@@ -654,7 +655,7 @@ function refreshPendingRequirement(learner: any, pending: any, teacherTechnique:
   job.realmLv = pending.realmLv;
   job.grade = pending.grade;
   job.category = pending.category;
-  job.teacherName = teacher.displayName ?? teacher.name ?? job.teacherPlayerId;
+  job.teacherName = resolveRuntimePlayerDisplayName(teacher, { playerId: job.teacherPlayerId, fallback: job.teacherName ?? '未知玩家' });
 }
 
 function queueTeacherTransmissionStartNotice(validated: TransmissionValidatedPayload, ctx: PipelineContext): void {

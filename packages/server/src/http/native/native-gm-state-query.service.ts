@@ -22,6 +22,7 @@ import {
 import { MapTemplateRepository } from '../../runtime/map/map-template.repository';
 import { DatabasePoolProvider } from '../../persistence/database-pool.provider';
 import { PlayerDomainPersistenceService } from '../../persistence/player-domain-persistence.service';
+import { resolvePlayerDisplayName } from '../../runtime/player/player-display-name';
 import { PlayerProgressionService } from '../../runtime/player/player-progression.service';
 import { PlayerRuntimeService } from '../../runtime/player/player-runtime.service';
 import { materializeRuntimeTemporaryBuff } from '../../runtime/player/runtime-buff-instance';
@@ -547,8 +548,18 @@ export class NativeGmStateQueryService {
   private async toManagedPlayerSummaryEntryFromSummaryRow(row: GmPersistedPlayerSummaryRow): Promise<GmPersistedPlayerSummaryEntry> {
     const playerId = normalizeDisplayString(row.player_id) || 'unknown-player';
     const playerNo = normalizeOptionalPlayerNo(row.player_no);
-    const roleName = normalizeDisplayString(row.role_name) || playerId;
-    const displayName = normalizeDisplayString(row.display_name) || roleName;
+    const roleName = resolvePlayerDisplayName({
+      playerId,
+      roleName: row.role_name,
+      displayName: row.display_name,
+      username: row.username,
+    }, { fallback: '未知角色' });
+    const displayName = resolvePlayerDisplayName({
+      playerId,
+      displayName: row.display_name,
+      roleName,
+      username: row.username,
+    }, { fallback: roleName });
     const mapId = normalizeDisplayString(row.map_id) || 'yunlai_town';
     const meta = {
       userId: normalizeDisplayString(row.user_id) || undefined,
@@ -738,7 +749,7 @@ export class NativeGmStateQueryService {
 
   private async toManagedPlayerSummaryFromPersistence(playerId, snapshot, updatedAt, account = null, presence = null) {
     const player = this.toLegacyPlayerStateFromPersistence(playerId, snapshot);
-    const roleName = resolveManagedPlayerName(player, account, playerId);
+    const roleName = resolveManagedPlayerName(player, account, '未知角色');
     const displayName = resolveManagedPlayerDisplayName(player, account, roleName);
     const meta = {
       userId: account?.userId,
@@ -1361,18 +1372,22 @@ function compareName(left, right) {
 }
 
 function resolveManagedPlayerName(player, account, fallback: string): string {
-  return normalizeDisplayString(account?.playerName)
-    || normalizeDisplayString(player?.name)
-    || normalizeDisplayString(account?.displayName)
-    || normalizeDisplayString(account?.username)
-    || fallback;
+  return resolvePlayerDisplayName({
+    playerId: player?.id,
+    playerName: account?.playerName,
+    name: player?.name,
+    displayName: account?.displayName ?? player?.displayName,
+    username: account?.username,
+  }, { fallback });
 }
 
 function resolveManagedPlayerDisplayName(player, account, fallback: string): string {
-  return normalizeDisplayString(account?.displayName)
-    || normalizeDisplayString(player?.displayName)
-    || normalizeDisplayString(account?.playerName)
-    || fallback;
+  return resolvePlayerDisplayName({
+    playerId: player?.id,
+    displayName: account?.displayName ?? player?.displayName,
+    playerName: account?.playerName,
+    name: player?.name,
+  }, { fallback });
 }
 
 function normalizeDisplayString(value: unknown): string {

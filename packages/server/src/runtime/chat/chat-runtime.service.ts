@@ -10,6 +10,7 @@ import { resolveServerDatabaseUrl } from '../../config/env-alias';
 import { DatabasePoolProvider } from '../../persistence/database-pool.provider';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { WorldSessionService } from '../../network/world-session.service';
+import { resolvePlayerDisplayName } from '../player/player-display-name';
 
 const CHAT_MESSAGE_TABLE = 'server_chat_message';
 const CHAT_HISTORY_LIMIT = 100;
@@ -333,5 +334,5 @@ function normalizeNullableInteger(value: unknown): number | null {
 }
 
 function resolvePlayerName(player: RuntimePlayerLike, fallback = ''): string {
-  return normalizeString(player.displayName) || normalizeString(player.name) || normalizeString(player.playerId) || normalizeString(player.id) || fallback;
+  return resolvePlayerDisplayName(player, { playerId: player.playerId ?? player.id ?? fallback, fallback: '未知玩家' });
 }

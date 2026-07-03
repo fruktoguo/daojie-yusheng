@@ -16,6 +16,7 @@ import { emitCombatPresentation } from './world-runtime-combat-presentation.help
 import { buildStructuredNotice } from '../structured-notice.helpers';
 import { applyMiningExpForTileDamage, resolveMiningAdjustedTileDamage, resolveMiningDropRateBonus, spawnTileDrops } from './tile-drop.helpers';
 import { WorldRuntimeThreatService } from './world-runtime-threat.service';
+import { resolvePlayerDisplayName } from '../../player/player-display-name';
 import { resolveSuppressedMonsterNumericStats } from './formation-combat-effect.helpers';
 import * as world_runtime_path_planning_helpers_1 from '../world-runtime.path-planning.helpers';
 import * as world_runtime_observation_helpers_1 from '../query/world-runtime.observation.helpers';
@@ -475,13 +476,13 @@ export class WorldRuntimeBasicAttackService {
             notices: [
                 {
                     playerId: attacker.playerId,
-                    text: `${formatCombatActionClause('你', formatTargetLabelWithHp(target.name ?? target.playerId, updated.hp, updated.maxHp ?? target.maxHp), '攻击')}，${formatCombatResolutionOutcome(resolvedDamage, damageKind)}`,
-                    combat: buildCombatNoticePayload({ caster: '你', target: target.name ?? target.playerId, targetHp: updated.hp, targetMaxHp: updated.maxHp ?? target.maxHp, skill: '攻击', resolution: buildBasicAttackNoticeResolution(resolvedDamage, damageKind) }),
+                    text: `${formatCombatActionClause('你', formatTargetLabelWithHp(resolvePlayerDisplayName(target, { playerId: target.playerId, fallback: '未知玩家' }), updated.hp, updated.maxHp ?? target.maxHp), '攻击')}，${formatCombatResolutionOutcome(resolvedDamage, damageKind)}`,
+                    combat: buildCombatNoticePayload({ caster: '你', target: resolvePlayerDisplayName(target, { playerId: target.playerId, fallback: '未知玩家' }), targetHp: updated.hp, targetMaxHp: updated.maxHp ?? target.maxHp, skill: '攻击', resolution: buildBasicAttackNoticeResolution(resolvedDamage, damageKind) }),
                 },
                 {
                     playerId: target.playerId,
-                    text: `${formatCombatActionClause(attacker.name ?? attacker.playerId, '你', '攻击')}，${formatCombatResolutionOutcome(resolvedDamage, damageKind)}`,
-                    combat: buildCombatNoticePayload({ caster: attacker.name ?? attacker.playerId, target: '你', skill: '攻击', resolution: buildBasicAttackNoticeResolution(resolvedDamage, damageKind) }),
+                    text: `${formatCombatActionClause(resolvePlayerDisplayName(attacker, { playerId: attacker.playerId, fallback: '未知玩家' }), '你', '攻击')}，${formatCombatResolutionOutcome(resolvedDamage, damageKind)}`,
+                    combat: buildCombatNoticePayload({ caster: resolvePlayerDisplayName(attacker, { playerId: attacker.playerId, fallback: '未知玩家' }), target: '你', skill: '攻击', resolution: buildBasicAttackNoticeResolution(resolvedDamage, damageKind) }),
                 },
             ],
         });
