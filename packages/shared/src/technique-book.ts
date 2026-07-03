@@ -17,19 +17,28 @@ export function calculateTechniqueBookDecomposeFragments(input: {
   realmLv?: number | null;
   grade?: TechniqueGrade | null;
   maxLevel?: number | null;
+  totalMaxLevel?: number | null;
 }): number {
   const realmLv = Math.max(1, Math.floor(Number(input.realmLv) || 1));
-  const maxLevel = Number.isFinite(Number(input.maxLevel))
-    ? Math.max(1, Math.floor(Number(input.maxLevel)))
+  const totalMaxLevel = Number.isFinite(Number(input.totalMaxLevel))
+    ? Math.max(1, Math.floor(Number(input.totalMaxLevel)))
     : realmLv;
-  const effectiveLevel = Math.max(1, Math.min(realmLv, maxLevel));
-  return Math.max(1, Math.floor(effectiveLevel * getTechniqueGradePower(input.grade) * TECHNIQUE_BOOK_DECOMPOSE_FRAGMENT_BASE));
+  const maxLevelInput = Number.isFinite(Number(input.maxLevel))
+    ? Math.max(1, Math.floor(Number(input.maxLevel)))
+    : totalMaxLevel;
+  const effectiveLevel = Math.max(1, Math.min(totalMaxLevel, maxLevelInput));
+  const fullFragments = Math.max(1, Math.floor(realmLv * getTechniqueGradePower(input.grade) * TECHNIQUE_BOOK_DECOMPOSE_FRAGMENT_BASE));
+  const levelFactor = totalMaxLevel <= 1
+    ? 1
+    : 0.5 + 0.5 * ((effectiveLevel - 1) / (totalMaxLevel - 1));
+  return Math.max(1, Math.round(fullFragments * levelFactor));
 }
 
 export function calculateTechniqueBookCraftFragmentCost(input: {
   realmLv?: number | null;
   grade?: TechniqueGrade | null;
   maxLevel?: number | null;
+  totalMaxLevel?: number | null;
 }): number {
   return calculateTechniqueBookDecomposeFragments(input) * TECHNIQUE_BOOK_CRAFT_FRAGMENT_COST_MULTIPLIER;
 }

@@ -2249,6 +2249,7 @@ export class CraftWorkbenchModal {
       realmLv: technique?.realmLv ?? item.level,
       grade: technique?.grade ?? item.grade,
       maxLevel: effectiveMaxLevel,
+      totalMaxLevel: templateMaxLevel,
     });
   }
 
@@ -2278,10 +2279,12 @@ export class CraftWorkbenchModal {
   }
 
   private calculateTechniqueBookCraftCost(tech: PlayerState['techniques'][number] | undefined, maxLevelInput: number): number {
+    const templateMaxLevel = this.resolveTechniqueMaxLevel(tech);
     return calculateTechniqueBookCraftFragmentCost({
       realmLv: tech?.realmLv,
       grade: tech?.grade,
       maxLevel: maxLevelInput,
+      totalMaxLevel: templateMaxLevel,
     });
   }
 

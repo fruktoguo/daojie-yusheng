@@ -104,6 +104,21 @@ transmissionSkillFactor:
 
 `self_comprehension_allowed` 表示是否允许通过主修修炼自行领悟。功法书开启的普通功法、自己创建的自创功法为 `true`；被其他玩家传授加入的 pending 功法为 `false`，只能由传法 job 推进，不能设为主修；客户端按钮必须置灰，服务端必须拒绝该主修切换。
 
+## 功法书残页制造与分解
+
+炼法台制造功法书时，残卷消耗按可修层数相对模板满层线性缩放：1 层消耗完整书的 50%，满层消耗 100%，中间按层数线性过渡。
+
+```typescript
+fullFragments = realmLv × gradePower
+levelFactor = totalMaxLevel <= 1
+  ? 1
+  : 0.5 + 0.5 × ((learnMaxLevel - 1) / (totalMaxLevel - 1))
+decomposeFragments = round(fullFragments × levelFactor)
+craftCost = decomposeFragments × 4
+```
+
+完整功法书不写 `learnTechniqueMaxLevel`，缺省表示可修至模板满层；残卷才写 `learnTechniqueMaxLevel`。分解和制造使用同一层数幅度，分解返还为制造消耗的 1/4。
+
 已掌握功法可以从功法详情底部发起遗忘。客户端必须使用独立确认弹窗收集二次确认；服务端收到遗忘意图后只删除 `player_technique_state` 中对应的已掌握功法，若它正是主修功法则同时清空主修并停止修炼，随后重算属性、技能行动和自动战斗技能列表并标记 `technique/auto_battle_skill/attr` 脏域。遗忘不删除同名未领悟进度，也不绕过服务端权威校验。
 
 ## 技能灵力消耗

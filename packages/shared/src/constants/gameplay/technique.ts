@@ -99,7 +99,7 @@ export const CUSTOM_TECHNIQUE_BOOK_ITEM_ID = 'book.custom_technique';
 export const TECHNIQUE_BOOK_DECOMPOSE_FRAGMENT_BASE = 1;
 
 /** 制造功法书相对分解产出的残页消耗倍率。 */
-export const TECHNIQUE_BOOK_CRAFT_FRAGMENT_COST_MULTIPLIER = 5;
+export const TECHNIQUE_BOOK_CRAFT_FRAGMENT_COST_MULTIPLIER = 4;
 
 /** 技能灵力消耗中各功法品阶对应的指数倍率 */
 export const TECHNIQUE_GRADE_QI_COST_MULTIPLIERS: Record<TechniqueGrade, number> = {

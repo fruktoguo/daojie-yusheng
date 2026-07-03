@@ -239,6 +239,7 @@ export class WorldRuntimeUseItemService {
             realmLv: technique.realmLv,
             grade: technique.grade,
             maxLevel,
+            totalMaxLevel: maxTemplateLevel,
         });
         const consumed = this.playerRuntimeService.consumeItemByItemId(playerId, TECHNIQUE_FRAGMENT_ITEM_ID, cost);
         if (!consumed) {
@@ -283,6 +284,7 @@ export class WorldRuntimeUseItemService {
             realmLv: technique?.realmLv ?? item.level,
             grade: technique?.grade ?? item.grade,
             maxLevel: effectiveMaxLevel,
+            totalMaxLevel: templateMaxLevel,
         });
         const fragments = fragmentsPerBook * count;
         this.playerRuntimeService.consumeInventoryItemByInstanceId(playerId, itemInstanceId, count);
