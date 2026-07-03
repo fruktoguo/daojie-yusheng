@@ -40,6 +40,7 @@ import {
   createItemStackSignature,
   getFirstGrapheme,
   getGraphemeCount,
+  getTechniqueMaxLevel,
   matchesInventoryTypeFilter,
   shouldWarnTechniqueLearningDifficulty,
   type C2S_RequestInventoryPage,
@@ -1537,14 +1538,18 @@ export class InventoryPanel {
   }
 
   private getInventoryCellRibbon(item: ItemStack, itemMeta: ItemDisplayMeta): InventoryCellRibbon | null {
+    if (item.type === 'skill_book') {
+      const isFragment = this.isTechniqueBookFragment(item);
+      return {
+        label: isFragment ? '残卷' : '功法',
+        title: isFragment ? '功法残卷' : '完整功法书',
+      };
+    }
     if (itemMeta.affinityBadge) {
       return {
         label: itemMeta.affinityBadge.label,
         title: itemMeta.affinityBadge.title,
       };
-    }
-    if (item.type === 'skill_book') {
-      return { label: '功法' };
     }
     if (item.type === 'material') {
       return {
@@ -1583,11 +1588,32 @@ export class InventoryPanel {
     }
   }
 
-  private getInventoryGradeLineLabel(item: ItemStack): string | null {
+  private getInventoryGradeLineLabel(_item: ItemStack): string | null {
+    return null;
+  }
+
+  private isTechniqueBookFragment(item: ItemStack): boolean {
     if (item.type !== 'skill_book') {
-      return null;
+      return false;
     }
-    return getItemDisplayMeta(item).gradeLabel;
+    const techniqueId = this.getTechniqueIdFromBookItem(item);
+    const rawLearnMaxLevel = Number(item.learnTechniqueMaxLevel);
+    if (!Number.isFinite(rawLearnMaxLevel)) {
+      return false;
+    }
+    if (!techniqueId) {
+      return true;
+    }
+    const technique = getLocalTechniqueTemplate(techniqueId);
+    if (!technique) {
+      return true;
+    }
+    const templateMaxLevel = getTechniqueMaxLevel(
+      Array.isArray(technique.layers) ? technique.layers : undefined,
+      1,
+    );
+    const learnMaxLevel = Math.max(1, Math.min(templateMaxLevel, Math.floor(rawLearnMaxLevel)));
+    return learnMaxLevel < templateMaxLevel;
   }
 
   private openBulkDiscardModal(): void {

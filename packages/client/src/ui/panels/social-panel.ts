@@ -15,13 +15,13 @@ import type {
   TreasureVaultPermissionScope,
   TreasureVaultOperationResultView,
 } from '@mud/shared';
-import { getItemStackDisplayLabel } from '@mud/shared';
+import { getItemStackDisplayLabel, getTechniqueMaxLevel } from '@mud/shared';
 import { getItemTypeLabel } from '../../domain-labels';
 import { getItemDecorClassName, getItemDisplayMeta, type ItemDisplayMeta } from '../item-display';
 import { formatDisplayCountBadge } from '../../utils/number';
 import { detailModalHost } from '../detail-modal-host';
 import { describeEquipmentBonuses, describeItemEffectDetails, describeMaterialValueDetails } from '../equipment-tooltip';
-import { resolvePreviewItem } from '../../content/local-templates';
+import { getLocalTechniqueTemplate, resolvePreviewItem, resolveTechniqueIdFromBookItemId } from '../../content/local-templates';
 import { describePreviewBonuses } from '../stat-preview';
 
 type SocialPanelCallbacks = {
@@ -527,14 +527,18 @@ export class TreasureVaultModal {
   }
 
   private getInventoryCellRibbon(item: ItemStack, itemMeta: ItemDisplayMeta): InventoryCellRibbon | null {
+    if (item.type === 'skill_book') {
+      const isFragment = this.isTechniqueBookFragment(item);
+      return {
+        label: isFragment ? '残卷' : '功法',
+        title: isFragment ? '功法残卷' : '完整功法书',
+      };
+    }
     if (itemMeta.affinityBadge) {
       return {
         label: itemMeta.affinityBadge.label,
         title: itemMeta.affinityBadge.title,
       };
-    }
-    if (item.type === 'skill_book') {
-      return { label: '功法' };
     }
     if (item.type === 'material') {
       return {
@@ -567,6 +571,32 @@ export class TreasureVaultModal {
 
   private getInventoryGradeLineLabel(_item: ItemStack): string | null {
     return null;
+  }
+
+  private isTechniqueBookFragment(item: ItemStack): boolean {
+    if (item.type !== 'skill_book') {
+      return false;
+    }
+    const rawLearnMaxLevel = Number(item.learnTechniqueMaxLevel);
+    if (!Number.isFinite(rawLearnMaxLevel)) {
+      return false;
+    }
+    const techniqueId = typeof item.learnTechniqueId === 'string' && item.learnTechniqueId.trim()
+      ? item.learnTechniqueId.trim()
+      : resolveTechniqueIdFromBookItemId(item.itemId);
+    if (!techniqueId) {
+      return true;
+    }
+    const technique = getLocalTechniqueTemplate(techniqueId);
+    if (!technique) {
+      return true;
+    }
+    const templateMaxLevel = getTechniqueMaxLevel(
+      Array.isArray(technique.layers) ? technique.layers : undefined,
+      1,
+    );
+    const learnMaxLevel = Math.max(1, Math.min(templateMaxLevel, Math.floor(rawLearnMaxLevel)));
+    return learnMaxLevel < templateMaxLevel;
   }
 
   private renderDeposit(detail: TreasureVaultDetailView): string {
