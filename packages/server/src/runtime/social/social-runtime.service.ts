@@ -106,9 +106,10 @@ export class SocialRuntimeService {
       if (distance > DAOIST_NEARBY_RADIUS) {
         continue;
       }
+      const targetRuntimePlayer = this.playerRuntimeService.getPlayer(targetPlayerId);
       result.push({
         playerId: targetPlayerId,
-        name: resolvePlayerName(entry),
+        name: resolvePlayerName(targetRuntimePlayer, targetPlayerId),
         distance,
         ...(relations.get(targetPlayerId) ? { relationLevel: relations.get(targetPlayerId) } : {}),
         ...(pending.get(targetPlayerId) ? { pendingRequest: pending.get(targetPlayerId) } : {}),
