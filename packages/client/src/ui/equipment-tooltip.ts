@@ -785,7 +785,9 @@ function buildEquipmentComparisonAsideCard(item: ItemStack, playerRealmLv?: numb
 
 /** buildTechniqueBookTooltipLines：构建功法书 tooltip 行。 */
 function buildTechniqueBookTooltipLines(item: ItemStack): string[] {
-  const techniqueId = resolveTechniqueIdFromBookItemId(item.itemId);
+  const techniqueId = typeof item.learnTechniqueId === 'string' && item.learnTechniqueId.trim()
+    ? item.learnTechniqueId.trim()
+    : resolveTechniqueIdFromBookItemId(item.itemId);
   if (!techniqueId) {
     return [];
   }
@@ -800,6 +802,9 @@ function buildTechniqueBookTooltipLines(item: ItemStack): string[] {
     1,
     ...((technique.layers ?? []).map((layer) => Math.max(1, Math.floor(layer.level)))),
   );
+  const learnMaxLevel = Number.isFinite(Number(item.learnTechniqueMaxLevel))
+    ? Math.max(1, Math.min(maxLevel, Math.floor(Number(item.learnTechniqueMaxLevel))))
+    : maxLevel;
   const skillNames = (technique.skills ?? [])
     .map((skill) => skill.name.trim())
     .filter((name) => name.length > 0);
@@ -808,7 +813,8 @@ function buildTechniqueBookTooltipLines(item: ItemStack): string[] {
     renderPlainLine(t('equipment-tooltip.technique-book.desc', undefined), item.desc?.trim() || t('equipment-tooltip.technique-book.no-desc', undefined)),
     renderPlainLine(t('equipment-tooltip.technique-book.realm', undefined), realmLabel),
     renderPlainLine(t('equipment-tooltip.technique-book.grade', undefined), getTechniqueGradeLabel(technique.grade)),
-    renderPlainLine(t('equipment-tooltip.technique-book.max-attrs', undefined), formatTechniqueCumulativeBonusSummary(maxLevel, technique.layers)),
+    renderPlainLine('可修至', learnMaxLevel >= maxLevel ? `满层（${formatDisplayInteger(maxLevel)} 层）` : `${formatDisplayInteger(learnMaxLevel)} / ${formatDisplayInteger(maxLevel)} 层`),
+    renderPlainLine(t('equipment-tooltip.technique-book.max-attrs', undefined), formatTechniqueCumulativeBonusSummary(learnMaxLevel, technique.layers)),
     renderPlainLine(
       t('equipment-tooltip.technique-book.skills-label', { count: skillNames.length > 0 ? `（${formatDisplayInteger(skillNames.length)}）` : '' }),
       skillNames.length > 0 ? skillNames.join('、') : t('equipment-tooltip.value.none', undefined),

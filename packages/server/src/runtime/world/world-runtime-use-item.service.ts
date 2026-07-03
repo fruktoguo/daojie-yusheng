@@ -248,7 +248,7 @@ export class WorldRuntimeUseItemService {
             itemId: CUSTOM_TECHNIQUE_BOOK_ITEM_ID,
             count: 1,
             learnTechniqueId: techniqueId,
-            learnTechniqueMaxLevel: maxLevel,
+            ...(maxLevel < maxTemplateLevel ? { learnTechniqueMaxLevel: maxLevel } : {}),
             name: maxLevel >= maxTemplateLevel ? `《${technique.name}》` : `《${technique.name}》残卷`,
             type: 'skill_book',
             desc: maxLevel >= maxTemplateLevel
@@ -273,10 +273,16 @@ export class WorldRuntimeUseItemService {
         const count = Math.max(1, Math.min(Math.trunc(Number(item.count) || 1), Math.trunc(Number(countInput) || 1)));
         const techniqueId = this.resolveLearnTechniqueId(item);
         const technique = techniqueId ? this.contentTemplateRepository.createTechniqueState(techniqueId) : null;
+        const templateMaxLevel = technique
+            ? getTechniqueMaxLevel(Array.isArray(technique.layers) ? technique.layers : undefined, technique.level ?? 1)
+            : undefined;
+        const effectiveMaxLevel = Number.isFinite(Number(item.learnTechniqueMaxLevel))
+            ? item.learnTechniqueMaxLevel
+            : templateMaxLevel;
         const fragmentsPerBook = calculateTechniqueBookDecomposeFragments({
             realmLv: technique?.realmLv ?? item.level,
             grade: technique?.grade ?? item.grade,
-            maxLevel: item.learnTechniqueMaxLevel,
+            maxLevel: effectiveMaxLevel,
         });
         const fragments = fragmentsPerBook * count;
         this.playerRuntimeService.consumeInventoryItemByInstanceId(playerId, itemInstanceId, count);

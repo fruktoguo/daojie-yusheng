@@ -49,6 +49,7 @@ import {
   computeFivePhaseElementMatch,
   createEmptyCraftElementVector,
   calculateTechniqueComprehensionProgressBreakdown,
+  calculateTechniqueBookCraftFragmentCost,
   calculateTechniqueBookDecomposeFragments,
   getAlchemySpiritStoneCost,
   getItemDisplayName,
@@ -1681,15 +1682,7 @@ export class CraftWorkbenchModal {
     }
     const totalHint = root.querySelector<HTMLElement>('[data-technique-refining-total-hint="true"]');
     if (totalHint) {
-      totalHint.textContent = `预计合计获得 ${formatDisplayInteger(totalFragments)} 张功法残页。`;
-    }
-    const singleItemTotal = root.querySelector<HTMLElement>('[data-technique-refining-item-total="true"]');
-    if (singleItemTotal && singleSelected) {
-      singleItemTotal.textContent = `预计 ${formatDisplayInteger(this.calculateTechniqueBookFragments(singleSelected) * this.getSelectedTechniqueBookDecomposeCount(singleSelected, true))} 张`;
-    }
-    const singleItemCount = root.querySelector<HTMLElement>('[data-technique-refining-item-count="true"]');
-    if (singleItemCount && singleSelected) {
-      singleItemCount.textContent = `x${formatDisplayInteger(this.getSelectedTechniqueBookDecomposeCount(singleSelected, true))}`;
+      totalHint.textContent = `${formatDisplayInteger(totalFragments)} 张`;
     }
   }
 
@@ -2122,16 +2115,18 @@ export class CraftWorkbenchModal {
       const metaText = this.getTransmissionTechniqueMetaText(tech);
       const maxLevel = this.resolveTechniqueMaxLevel(tech);
       const search = `${tech.name ?? ''} ${tech.techId} ${metaText}`.toLowerCase();
-      return `<option value="${escapeHtmlAttr(tech.techId)}" data-search="${escapeHtmlAttr(search)}" data-max-level="${maxLevel}">${escapeHtml(tech.name ?? tech.techId)} · ${escapeHtml(metaText)} · ${formatDisplayInteger(maxLevel)}层</option>`;
+      return `<option value="${escapeHtmlAttr(tech.techId)}" data-search="${escapeHtmlAttr(search)}" data-max-level="${maxLevel}">${escapeHtml(tech.name ?? tech.techId)} · ${escapeHtml(metaText)} · 满层 ${formatDisplayInteger(maxLevel)} 层</option>`;
     }).join('');
     const firstMaxLevel = this.resolveTechniqueMaxLevel(techniques[0]);
+    const firstCost = this.calculateTechniqueBookCraftCost(techniques[0], firstMaxLevel);
     return `
-      <div class="transmission-teach-picker">
+      <div class="transmission-teach-picker transmission-book-craft-picker">
         <input class="ui-search-input" type="search" data-transmission-book-search="true" placeholder="搜索要制书的功法">
         <select class="ui-input" data-transmission-book-tech-select="true">
           ${techniqueOptions}
         </select>
         <input class="ui-input" type="number" min="1" max="${firstMaxLevel}" value="${firstMaxLevel}" data-transmission-book-level-input="true" aria-label="功法书层数">
+        <span class="alchemy-summary-mode" data-transmission-book-cost-text="true">消耗 ${formatDisplayInteger(firstCost)} 张残页 · 可修至 ${formatDisplayInteger(firstMaxLevel)} 层</span>
         <button class="small-btn" type="button" data-craft-action="transmission-craft-book">制造功法书</button>
       </div>
     `;
@@ -2189,6 +2184,7 @@ export class CraftWorkbenchModal {
     const displayName = itemMeta.displayItem.name;
     const selected = itemInstanceId ? this.selectedTechniqueBookIds.has(itemInstanceId) : false;
     const gradeLine = itemMeta.gradeLabel ?? getItemTypeLabel(item.type);
+    const learnMaxLabel = this.formatTechniqueBookLearnMaxLevelLabel(item);
     return `
       <button class="${getItemDecorClassName(`inventory-cell${selected ? ' active' : ''}`, item)}" type="button" data-craft-action="technique-refining-toggle-book" data-item-instance-id="${escapeHtmlAttr(itemInstanceId)}" aria-label="选择${escapeHtml(displayName)}">
         <div class="inventory-cell-head">
@@ -2198,7 +2194,7 @@ export class CraftWorkbenchModal {
         <span class="inventory-cell-learned-ribbon" ${selected ? '' : 'hidden'}>已选</span>
         <div class="inventory-cell-grade-line">${escapeHtml(gradeLine)}</div>
         <div class="inventory-cell-name" aria-label="${escapeHtml(displayName)}">${escapeHtml(displayName)}</div>
-        <span class="item-card-chip">预计 ${formatDisplayInteger(this.calculateTechniqueBookFragments(item))} 张/本</span>
+        <span class="item-card-chip">${escapeHtml(learnMaxLabel)}</span>
         ${itemMeta.levelLabel ? `<span class="item-card-chip item-card-chip--level">${escapeHtml(itemMeta.levelLabel)}</span>` : ''}
       </button>
     `;
@@ -2210,7 +2206,7 @@ export class CraftWorkbenchModal {
     }
     const isSingle = items.length === 1;
     const countControls = isSingle ? `
-      <div class="transmission-teach-picker">
+      <div class="technique-refining-count-controls">
         <span>分解数量</span>
         <input class="ui-input" type="number" min="1" max="${maxCount}" value="${Math.max(1, Math.min(maxCount, this.selectedTechniqueBookCount))}" data-technique-refining-count-input="true" aria-label="分解数量">
         <button class="small-btn ghost" type="button" data-craft-action="technique-refining-count" data-count="1">1</button>
@@ -2218,14 +2214,17 @@ export class CraftWorkbenchModal {
         <button class="small-btn ghost" type="button" data-craft-action="technique-refining-count" data-count="${maxCount}">全部</button>
         <strong data-technique-refining-count-label="true">${formatDisplayInteger(Math.max(1, Math.min(maxCount, this.selectedTechniqueBookCount)))}/${formatDisplayInteger(maxCount)}</strong>
       </div>
-    ` : '<div class="empty-hint">多选模式会分解所选每种功法书的全部数量。</div>';
+    ` : '';
     const totalFragments = this.calculateSelectedTechniqueBookFragments(items);
     return `
-      <div class="craft-queue-list">
-        ${items.map((item) => `<div class="craft-queue-item"><span data-technique-refining-item-total="${items.length === 1 ? 'true' : 'false'}">预计 ${formatDisplayInteger(this.calculateTechniqueBookFragments(item) * this.getSelectedTechniqueBookDecomposeCount(item, items.length === 1))} 张</span><strong>${escapeHtml(getItemDisplayName(item))}</strong><em data-technique-refining-item-count="${items.length === 1 ? 'true' : 'false'}">x${formatDisplayInteger(this.getSelectedTechniqueBookDecomposeCount(item, items.length === 1))}</em></div>`).join('')}
+      <div class="technique-refining-summary-row ${isSingle ? '' : 'is-multi'}">
+        <div class="alchemy-summary-metric">
+          <span class="alchemy-summary-metric-label">预计获得</span>
+          <strong class="alchemy-summary-metric-value" data-technique-refining-total-hint="true">${formatDisplayInteger(totalFragments)} 张</strong>
+        </div>
+        ${isSingle ? `<div class="alchemy-summary-metric">${countControls}</div>` : ''}
       </div>
-      ${countControls}
-      <div class="empty-hint" data-technique-refining-total-hint="true">预计合计获得 ${formatDisplayInteger(totalFragments)} 张功法残页。</div>
+      ${isSingle ? '' : '<div class="empty-hint">多选模式会分解所选每种功法书的全部数量。</div>'}
       <div class="inventory-detail-actions">
         <div class="inventory-detail-actions-group inventory-detail-actions-group--right">
           <button class="small-btn danger" type="button" data-craft-action="technique-refining-decompose">确认分解</button>
@@ -2238,11 +2237,36 @@ export class CraftWorkbenchModal {
     const technique = typeof item.learnTechniqueId === 'string' && item.learnTechniqueId.trim()
       ? getLocalTechniqueTemplate(item.learnTechniqueId.trim())
       : null;
+    const templateMaxLevel = Math.max(
+      1,
+      ...((technique?.layers ?? []).map((layer) => Math.max(1, Math.floor(Number(layer.level) || 1)))),
+      Math.floor(Number(item.level) || 1),
+    );
+    const effectiveMaxLevel = Number.isFinite(Number(item.learnTechniqueMaxLevel))
+      ? item.learnTechniqueMaxLevel
+      : templateMaxLevel;
     return calculateTechniqueBookDecomposeFragments({
       realmLv: technique?.realmLv ?? item.level,
       grade: technique?.grade ?? item.grade,
-      maxLevel: item.learnTechniqueMaxLevel,
+      maxLevel: effectiveMaxLevel,
     });
+  }
+
+  private formatTechniqueBookLearnMaxLevelLabel(item: ItemStack): string {
+    const technique = typeof item.learnTechniqueId === 'string' && item.learnTechniqueId.trim()
+      ? getLocalTechniqueTemplate(item.learnTechniqueId.trim())
+      : null;
+    const templateMaxLevel = Math.max(
+      1,
+      ...((technique?.layers ?? []).map((layer) => Math.max(1, Math.floor(Number(layer.level) || 1)))),
+      Math.floor(Number(item.level) || 1),
+    );
+    const learnMaxLevel = Number.isFinite(Number(item.learnTechniqueMaxLevel))
+      ? Math.max(1, Math.min(templateMaxLevel, Math.floor(Number(item.learnTechniqueMaxLevel))))
+      : templateMaxLevel;
+    return learnMaxLevel >= templateMaxLevel
+      ? `可修至满层 ${formatDisplayInteger(templateMaxLevel)}`
+      : `可修至 ${formatDisplayInteger(learnMaxLevel)} 层`;
   }
 
   private calculateSelectedTechniqueBookFragments(items = this.getSelectedTechniqueBookItems()): number {
@@ -2251,6 +2275,14 @@ export class CraftWorkbenchModal {
       (sum, item) => sum + this.calculateTechniqueBookFragments(item) * this.getSelectedTechniqueBookDecomposeCount(item, isSingle),
       0,
     );
+  }
+
+  private calculateTechniqueBookCraftCost(tech: PlayerState['techniques'][number] | undefined, maxLevelInput: number): number {
+    return calculateTechniqueBookCraftFragmentCost({
+      realmLv: tech?.realmLv,
+      grade: tech?.grade,
+      maxLevel: maxLevelInput,
+    });
   }
 
   private buildTechniqueRefiningBooksKey(items = this.getTechniqueBookInventoryItems()): string {
@@ -2306,14 +2338,9 @@ export class CraftWorkbenchModal {
       title: '确认分解功法书',
       subtitle: `预计获得 ${formatDisplayInteger(totalFragments)} 张功法残页`,
       bodyHtml: `
-        <div class="craft-queue-list">
-          ${entries.map((entry) => `
-            <div class="craft-queue-item">
-              <span>预计 ${formatDisplayInteger(entry.fragments)} 张</span>
-              <strong>${escapeHtml(entry.name)}</strong>
-              <em>x${formatDisplayInteger(entry.count)}</em>
-            </div>
-          `).join('')}
+        <div class="alchemy-summary-metric">
+          <span class="alchemy-summary-metric-label">预计获得</span>
+          <strong class="alchemy-summary-metric-value">${formatDisplayInteger(totalFragments)} 张功法残页</strong>
         </div>
         <div class="empty-hint">分解后功法书会被消耗，获得的功法残页会进入背包。</div>
       `,
@@ -2726,6 +2753,10 @@ export class CraftWorkbenchModal {
         this.patchTechniqueRefiningTotals(body);
         return;
       }
+      if (event.target instanceof HTMLInputElement && event.target.matches('[data-transmission-book-level-input="true"]')) {
+        this.syncTransmissionBookLevelInput(body);
+        return;
+      }
       const input = event.target instanceof HTMLInputElement
         && (event.target.matches('[data-transmission-tech-search="true"]') || event.target.matches('[data-transmission-book-search="true"]'))
         ? event.target
@@ -2782,8 +2813,15 @@ export class CraftWorkbenchModal {
     const input = body.querySelector<HTMLInputElement>('[data-transmission-book-level-input="true"]');
     if (!select || !input) return;
     const maxLevel = Math.max(1, Math.floor(Number(select.selectedOptions[0]?.dataset.maxLevel ?? 1) || 1));
+    const selectedTechId = (select.value ?? '').trim();
+    const selectedTech = (this.transmissionTechniques ?? []).find((tech) => tech.techId === selectedTechId);
+    const nextLevel = Math.max(1, Math.min(maxLevel, Math.floor(Number(input.value || maxLevel) || maxLevel)));
     input.max = String(maxLevel);
-    input.value = String(Math.max(1, Math.min(maxLevel, Math.floor(Number(input.value || maxLevel) || maxLevel))));
+    input.value = String(nextLevel);
+    const costText = body.querySelector<HTMLElement>('[data-transmission-book-cost-text="true"]');
+    if (costText) {
+      costText.textContent = `消耗 ${formatDisplayInteger(this.calculateTechniqueBookCraftCost(selectedTech, nextLevel))} 张残页 · 可修至 ${formatDisplayInteger(nextLevel)} 层`;
+    }
   }
 
   private adjustNumericInput(body: HTMLElement, selector: string, delta: number): void {

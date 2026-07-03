@@ -12297,6 +12297,29 @@
     .transmission-teach-picker .small-btn {
       min-height: 39px;
     }
+    .transmission-book-craft-picker {
+      grid-template-columns: minmax(140px, 1fr) minmax(180px, 1.4fr) minmax(120px, 0.75fr) minmax(150px, 1fr) auto;
+    }
+    .technique-refining-summary-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(220px, 1.15fr);
+      gap: 10px;
+      align-items: stretch;
+    }
+    .technique-refining-summary-row.is-multi {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .technique-refining-count-controls {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      min-width: 0;
+    }
+    .technique-refining-count-controls .ui-input {
+      width: 88px;
+      flex: 0 0 88px;
+    }
     .scripture-record-picker {
       grid-template-columns: minmax(140px, 1fr) minmax(180px, 1.5fr) auto;
     }
@@ -13412,6 +13435,9 @@
         min-width: 900px;
       }
       .transmission-teach-picker {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .technique-refining-summary-row {
         grid-template-columns: minmax(0, 1fr);
       }
       .scripture-record-picker {
