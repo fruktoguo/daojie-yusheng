@@ -110,6 +110,7 @@ class WorldRuntimeFormationService {
         const placement = resolveFormationPlacement(playerId, player, location, instance);
         this.assertCanPay(playerId, qiCost, spiritStoneCount);
         this.playerRuntimeService.spendQi(playerId, qiCost);
+        instance.disperseQiAt?.(placement.x, placement.y, qiCost);
         this.playerRuntimeService.debitWallet(playerId, FORMATION_SPIRIT_STONE_ITEM_ID, spiritStoneCount);
         this.playerRuntimeService.consumeInventoryItemByInstanceId(playerId, itemInstanceId, 1);
         const now = Date.now();
@@ -302,6 +303,7 @@ class WorldRuntimeFormationService {
         this.assertCanPay(playerId, qiAmount, spiritStoneCount);
         if (qiAmount > 0) {
             this.playerRuntimeService.spendQi(playerId, qiAmount);
+            dispersePlayerQiSpend(deps, this.playerRuntimeService.getPlayerOrThrow(playerId), qiAmount);
         }
         if (spiritStoneCount > 0) {
             this.playerRuntimeService.debitWallet(playerId, FORMATION_SPIRIT_STONE_ITEM_ID, spiritStoneCount);
@@ -509,6 +511,7 @@ class WorldRuntimeFormationService {
         this.assertCanInject(playerId, qiAmount, spiritStoneCount);
         if (qiAmount > 0) {
             this.playerRuntimeService.spendQi(playerId, qiAmount);
+            dispersePlayerQiSpend(deps, this.playerRuntimeService.getPlayerOrThrow(playerId), qiAmount);
         }
         if (spiritStoneCount > 0) {
             this.playerRuntimeService.debitWallet(playerId, FORMATION_SPIRIT_STONE_ITEM_ID, spiritStoneCount);
@@ -2171,6 +2174,13 @@ function touchRuntimeInstanceRevision(deps, instanceId) {
         ? deps.getInstanceRuntime(instanceId)
         : null;
     touchInstanceRevision(instance);
+}
+
+function dispersePlayerQiSpend(deps, player, qiAmount) {
+    const instance = typeof deps?.getInstanceRuntime === 'function'
+        ? deps.getInstanceRuntime(player?.instanceId)
+        : null;
+    instance?.disperseQiAt?.(player?.x, player?.y, qiAmount);
 }
 
 function touchInstanceRevision(instance) {

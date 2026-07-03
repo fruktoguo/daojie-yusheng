@@ -600,6 +600,7 @@ export class WorldRuntimeInstanceTickOrchestrationService {
                             idleCultivationBlockedPlayerIds: blockedPlayerIds,
                             cultivationAuraMultiplierByPlayerId,
                             markPlayerDefeated: (defeatedPlayerId) => this.markPlayerDefeated(defeatedPlayerId),
+                            onPlayerQiSpent: (player, amount) => instance.disperseQiAt?.(player?.x, player?.y, amount),
                             recordTickSectionDuration: (key, durationMs, count = 1) => addTickSectionDuration(sectionDurations, key, durationMs, count),
                         }));
                     }

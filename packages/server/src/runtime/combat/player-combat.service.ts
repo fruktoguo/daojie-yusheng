@@ -52,6 +52,7 @@ export class PlayerCombatService {
                     return;
                 }
                 this.playerRuntimeService.spendQi(attacker.playerId, amount);
+                options?.onQiSpent?.(attacker, amount);
             },
             setCooldownReadyTick: (readyTick) => {
                 if (options?.skipResourceAndCooldown === true) {
@@ -92,6 +93,7 @@ export class PlayerCombatService {
                     return;
                 }
                 this.playerRuntimeService.spendQi(attacker.playerId, amount);
+                options?.onQiSpent?.(attacker, amount);
             },
             setCooldownReadyTick: (readyTick) => {
                 if (options?.skipResourceAndCooldown === true) {
@@ -131,6 +133,7 @@ export class PlayerCombatService {
                     return;
                 }
                 this.playerRuntimeService.spendQi(attacker.playerId, amount);
+                options?.onQiSpent?.(attacker, amount);
             },
             setCooldownReadyTick: (readyTick) => {
                 if (options?.skipResourceAndCooldown === true) {

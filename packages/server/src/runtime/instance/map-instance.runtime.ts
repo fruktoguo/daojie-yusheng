@@ -8,7 +8,7 @@
  * 单张地图的全部运行态：地块平面、占位、妖兽 AI、战斗、建筑、
  * 资源刷新、灵气流动、AOI 广播和持久化脏域追踪。
  */
-import { BUILDING_TOPOLOGY_BLOCKS_MOVE, BUILDING_TOPOLOGY_BLOCKS_SIGHT, DEFAULT_AGGRO_THRESHOLD, DEFAULT_PASSIVE_THREAT_PER_TICK, DEFAULT_QI_RESOURCE_DESCRIPTOR, Direction, GROUND_ITEM_EXPIRE_TICKS, LOST_TARGET_THREAT_DECAY_RATIO, LOST_TARGET_THREAT_FLAT_DECAY_HP_RATIO, MAX_THREAT_VALUE, MOVE_POINT_UNIT, QI_HALF_LIFE_RATE_SCALE, StructureType, TERRAIN_DESTROYED_RESTORE_TICKS, TERRAIN_REGEN_RATE_PER_TICK, TERRAIN_RESTORE_RETRY_DELAY_TICKS, THREAT_DISTANCE_FALLOFF_PER_TILE, TILE_AURA_HALF_LIFE_RATE_SCALE, TILE_AURA_HALF_LIFE_RATE_SCALED, TerrainType, TileType, buildEffectiveTargetingGeometry, buildQiResourceKey, calcQiCostWithOutputLimit, calculateTerrainDurability, composeTileTypeFromLayers, computeAffectedCellsFromAnchor, createItemStackSignature, createNumericStats, doesTileTypeBlockSight, getEffectiveMoveSpeed, getLayeredTileTraversalCost, getMaxStoredMovePoints, getMovePointsPerTick, getStructureDurabilityProfile, getTileTraversalCost, getTileTypeFromMapChar, horizontalFacingFromDelta, horizontalFacingFromTo, isGroundInteractableCellLayerTarget, isOffsetInRange, isTileTypeWalkable, mergeItemStackEntryInto, normalizeHorizontalFacing, normalizeStructureType, normalizeSurfaceType, normalizeTerrainType, parseQiResourceKey, percentModifierToMultiplier, resolveDefaultTileLayerFallback, resolveMonsterTemplateRecord, resolveSkillRequiresTarget, resolveTileLayerSeedFromTemplateContext, resolveTileLayerSeedFromTileType } from '@mud/shared';
+import { BUILDING_TOPOLOGY_BLOCKS_MOVE, BUILDING_TOPOLOGY_BLOCKS_SIGHT, DEFAULT_AGGRO_THRESHOLD, DEFAULT_PASSIVE_THREAT_PER_TICK, DEFAULT_QI_RESOURCE_DESCRIPTOR, DEFAULT_QI_RUNTIME_FLOW_CONFIGS, DISPERSED_AURA_RESOURCE_KEY, Direction, GROUND_ITEM_EXPIRE_TICKS, LOST_TARGET_THREAT_DECAY_RATIO, LOST_TARGET_THREAT_FLAT_DECAY_HP_RATIO, MAX_THREAT_VALUE, MOVE_POINT_UNIT, QI_HALF_LIFE_RATE_SCALE, StructureType, TERRAIN_DESTROYED_RESTORE_TICKS, TERRAIN_REGEN_RATE_PER_TICK, TERRAIN_RESTORE_RETRY_DELAY_TICKS, THREAT_DISTANCE_FALLOFF_PER_TILE, TILE_AURA_HALF_LIFE_RATE_SCALE, TILE_AURA_HALF_LIFE_RATE_SCALED, TerrainType, TileType, buildEffectiveTargetingGeometry, buildQiResourceKey, calcQiCostWithOutputLimit, calculateDispersedAuraGainPerTile, calculateTerrainDurability, composeTileTypeFromLayers, computeAffectedCellsFromAnchor, createItemStackSignature, createNumericStats, doesTileTypeBlockSight, getEffectiveMoveSpeed, getLayeredTileTraversalCost, getMaxStoredMovePoints, getMovePointsPerTick, getStructureDurabilityProfile, getTileTraversalCost, getTileTypeFromMapChar, horizontalFacingFromDelta, horizontalFacingFromTo, isGroundInteractableCellLayerTarget, isOffsetInRange, isTileTypeWalkable, mergeItemStackEntryInto, normalizeHorizontalFacing, normalizeStructureType, normalizeSurfaceType, normalizeTerrainType, parseQiResourceKey, percentModifierToMultiplier, resolveDefaultTileLayerFallback, resolveMonsterTemplateRecord, resolveSkillRequiresTarget, resolveTileLayerSeedFromTemplateContext, resolveTileLayerSeedFromTileType } from '@mud/shared';
 import { readTrimmedEnv } from '../../config/env-alias';
 import '../map/map-template.repository';
 import { RuntimeTilePlane } from '../map/runtime-tile-plane';
@@ -25,6 +25,11 @@ const DEFAULT_TILE_AURA_RESOURCE_KEY = buildQiResourceKey(DEFAULT_QI_RESOURCE_DE
 const TILE_AURA_FLOW_RATE_SCALE = TILE_AURA_HALF_LIFE_RATE_SCALE ?? QI_HALF_LIFE_RATE_SCALE ?? 1_000_000_000;
 const TILE_AURA_FLOW_RATE_SCALED = Math.max(1, Math.trunc(Number(TILE_AURA_HALF_LIFE_RATE_SCALED) || 1));
 const TILE_AURA_FLOW_RATE = TILE_AURA_FLOW_RATE_SCALED / TILE_AURA_FLOW_RATE_SCALE;
+const DISPERSED_AURA_FLOW_CONFIG = DEFAULT_QI_RUNTIME_FLOW_CONFIGS[DISPERSED_AURA_RESOURCE_KEY];
+const DISPERSED_AURA_FLOW_RATE_SCALE = Math.max(1, Math.trunc(Number(DISPERSED_AURA_FLOW_CONFIG?.halfLifeRateScale) || QI_HALF_LIFE_RATE_SCALE || 1_000_000_000));
+const DISPERSED_AURA_FLOW_RATE_SCALED = Math.max(1, Math.trunc(Number(DISPERSED_AURA_FLOW_CONFIG?.halfLifeRateScaled) || TILE_AURA_FLOW_RATE_SCALED));
+const DISPERSED_AURA_FLOW_RATE = DISPERSED_AURA_FLOW_RATE_SCALED / DISPERSED_AURA_FLOW_RATE_SCALE;
+const DISPERSED_AURA_MIN_DECAY_PER_TICK = Math.max(0, Math.trunc(Number(DISPERSED_AURA_FLOW_CONFIG?.minimumDecayPerTick) || 0));
 const TILE_RESOURCE_EPSILON = 1e-9;
 const DEFAULT_TILE_LAYER_FALLBACK_SEED = resolveDefaultTileLayerFallback();
 const BASE_CHANT_TICK_DURATION_MS = 1000;
@@ -3991,6 +3996,24 @@ class MapInstanceRuntime {
 
         return this.addTileResource(DEFAULT_TILE_AURA_RESOURCE_KEY, x, y, amount);
     }
+    /** disperseQiAt：按单次灵力消耗向周围 3x3 地块注入逸散灵气。 */
+    disperseQiAt(x, y, qiCost) {
+        const perTileGain = calculateDispersedAuraGainPerTile(qiCost);
+        if (perTileGain <= 0 || !Number.isFinite(Number(x)) || !Number.isFinite(Number(y))) {
+            return 0;
+        }
+        const centerX = Math.trunc(Number(x));
+        const centerY = Math.trunc(Number(y));
+        let affected = 0;
+        for (let dy = -1; dy <= 1; dy += 1) {
+            for (let dx = -1; dx <= 1; dx += 1) {
+                if (this.addTileResource(DISPERSED_AURA_RESOURCE_KEY, centerX + dx, centerY + dy, perTileGain) !== null) {
+                    affected += 1;
+                }
+            }
+        }
+        return affected;
+    }
     /** addTileResource：给地块叠加指定资源。 */
     addTileResource(resourceKey, x, y, amount) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -4039,7 +4062,9 @@ class MapInstanceRuntime {
                     continue;
                 }
                 const diff = Math.abs(current - base);
-                const step = Math.min(diff, diff * TILE_AURA_FLOW_RATE);
+                const flowRate = getTileResourceFlowRate(resourceKey);
+                const minDecay = getTileResourceMinimumDecayPerTick(resourceKey);
+                const step = Math.min(diff, Math.max(diff * flowRate, minDecay));
                 remainderBucket[tileIndex] = 0;
                 if (step <= TILE_RESOURCE_EPSILON) {
                     this.setTileResourceValueByIndex(resourceKey, tileIndex, base, current);
@@ -6134,6 +6159,7 @@ class MapInstanceRuntime {
                 if (!committedSkillCast.ok) {
                     continue;
                 }
+                this.disperseQiAt(monster.x, monster.y, committedSkillCast.qiCost);
                 this.markMonsterRuntimePersistenceDirty(monster.runtimeId);
                 changed = true;
                 const skillAnchor = resolveMonsterSkillAnchor(monster, skill, target);
@@ -8825,10 +8851,19 @@ function isNaturalAuraFlowResource(resourceKey) {
     if (resourceKey === DEFAULT_TILE_AURA_RESOURCE_KEY) {
         return true;
     }
+    if (resourceKey === DISPERSED_AURA_RESOURCE_KEY) {
+        return true;
+    }
     const parsed = typeof parseQiResourceKey === 'function'
         ? parseQiResourceKey(resourceKey)
         : null;
     return parsed?.family === 'aura' && parsed?.form === 'refined';
+}
+function getTileResourceFlowRate(resourceKey) {
+    return resourceKey === DISPERSED_AURA_RESOURCE_KEY ? DISPERSED_AURA_FLOW_RATE : TILE_AURA_FLOW_RATE;
+}
+function getTileResourceMinimumDecayPerTick(resourceKey) {
+    return resourceKey === DISPERSED_AURA_RESOURCE_KEY ? DISPERSED_AURA_MIN_DECAY_PER_TICK : 0;
 }
 /** resolveSkillRange：解析技能射程。 */
 function resolveSkillRange(skill) {

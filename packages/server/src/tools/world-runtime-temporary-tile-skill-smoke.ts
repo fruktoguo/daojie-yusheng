@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 
-import { TileType } from '@mud/shared';
+import { DISPERSED_AURA_RESOURCE_KEY, TileType } from '@mud/shared';
 
 import { MapInstanceRuntime } from '../runtime/instance/map-instance.runtime';
 import { MapTemplateRepository } from '../runtime/map/map-template.repository';
@@ -56,7 +56,7 @@ function main(): void {
   const skill = {
     id: SKILL_ID,
     name: '叩地成岳',
-    cost: 0,
+    cost: 100,
     cooldown: 1,
     range: 6,
     targeting: {
@@ -80,8 +80,8 @@ function main(): void {
     y: 1,
     hp: 100,
     maxHp: 100,
-    qi: 100,
-    maxQi: 100,
+    qi: 200,
+    maxQi: 200,
     instanceId: instance.meta.instanceId,
     lifeElapsedTicks: 5000,
     realmLv: 1,
@@ -109,7 +109,9 @@ function main(): void {
     },
   };
   const playerRuntimeService = {
-    spendQi(): void {},
+    spendQi(_playerId: string, amount: number): void {
+      attacker.qi -= amount;
+    },
     setSkillCooldownReadyTick(_playerId: string, skillId: string, readyTick: number): void {
       attacker.combat.cooldownReadyTickBySkillId[skillId] = readyTick;
     },
@@ -134,7 +136,15 @@ function main(): void {
   const entries = instance.buildTemporaryTilePersistenceEntries();
   assert.equal(entries.length, 1);
   assert.equal(entries[0]?.expiresAtTick, 70);
+  assert.equal(attacker.qi, 100);
   assert.equal(attacker.combat.cooldownReadyTickBySkillId[SKILL_ID], 5001);
+  for (let y = 0; y < 3; y += 1) {
+    for (let x = 0; x < 3; x += 1) {
+      assert.equal(instance.getTileResource(DISPERSED_AURA_RESOURCE_KEY, x, y), 10);
+    }
+  }
+  assert.equal(instance.advanceTileResourceFlow(), true);
+  assert.equal(instance.getTileResource(DISPERSED_AURA_RESOURCE_KEY, 1, 1), 9);
   assert.equal(instance.advanceTemporaryTiles(69), false);
   assert.equal(instance.getEffectiveTileType(2, 1), TileType.Stone);
   assert.equal(instance.advanceTemporaryTiles(70), true);

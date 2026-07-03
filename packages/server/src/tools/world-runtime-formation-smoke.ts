@@ -18,7 +18,7 @@ const { MapTemplateRepository } = require("../runtime/map/map-template.repositor
 const { MapInstanceRuntime } = require("../runtime/instance/map-instance.runtime");
 const { buildFullWorldDelta } = require("../network/world-projector.helpers");
 const { resolveFormationMonsterExpMultiplier, resolveSuppressedMonsterNumericStats } = require("../runtime/world/combat/formation-combat-effect.helpers");
-const { DEFAULT_FORMATION_TILE_AURA_RESOURCE_KEY, FORMATION_TICKS_PER_DAY, QI_HALF_LIFE_RATE_SCALE, TileType, buildQiHalfLifeRateScaled, createNumericStats, decodeMessage, encodeMessage, fromWireTick, resolveFormationSetupPlan, tickPayloadType, toWireTick } = require("@mud/shared");
+const { DEFAULT_FORMATION_TILE_AURA_RESOURCE_KEY, DISPERSED_AURA_RESOURCE_KEY, FORMATION_TICKS_PER_DAY, QI_HALF_LIFE_RATE_SCALE, TileType, buildQiHalfLifeRateScaled, calculateDispersedAuraGainPerTile, createNumericStats, decodeMessage, encodeMessage, fromWireTick, resolveFormationSetupPlan, tickPayloadType, toWireTick } = require("@mud/shared");
 
 const playerId = "player:formation-smoke";
 const sectPlayerId = "player:formation-sect-member";
@@ -71,6 +71,15 @@ async function main() {
     addTileResource(resourceKey, x, y, value) {
       const key = `${resourceKey}:${x},${y}`;
       tileResources.set(key, (tileResources.get(key) ?? 0) + value);
+    },
+    disperseQiAt(x, y, qiCost) {
+      const perTileGain = calculateDispersedAuraGainPerTile(qiCost);
+      for (let dy = -1; dy <= 1; dy += 1) {
+        for (let dx = -1; dx <= 1; dx += 1) {
+          this.addTileResource(DISPERSED_AURA_RESOURCE_KEY, x + dx, y + dy, perTileGain);
+        }
+      }
+      return 9;
     },
   };
   const playerRuntimeService = {
@@ -278,7 +287,7 @@ async function main() {
   service.advanceInstanceFormations(instance, 2, deps);
   assert.equal(service.listRuntimeFormations(instanceId).length, 1);
   assert.ok(tileResources.size > 0);
-  const firstAuraGain = Array.from(tileResources.values())[0];
+  const firstAuraGain = instance.getTileResource(DEFAULT_FORMATION_TILE_AURA_RESOURCE_KEY, 4, 5);
   assert.ok(Math.abs(firstAuraGain - (formation.stats.effectValue / FORMATION_TICKS_PER_DAY)) < 0.000001);
   const wireTick = toWireTick({
     p: [],
@@ -422,20 +431,22 @@ async function main() {
   const qiBeforeRefill = player.qi;
   const stonesBeforeRefill = player.wallet.spirit_stone;
   const formationExpBeforeRefill = player.formationSkill.exp;
+  const dispersedBeforeRefill = instance.getTileResource(DISPERSED_AURA_RESOURCE_KEY, 4, 5);
   service.dispatchRefillFormation(playerId, {
     formationInstanceId: formation.id,
     spiritStoneCount: 1,
-    qiCost: 1,
+    qiCost: 100,
   }, deps);
   assert.equal(notices[notices.length - 1]?.structured?.key, "notice.formation.refilled");
   assert.deepEqual(notices[notices.length - 1]?.structured?.vars, {
     formationName: "聚灵阵",
     spiritStoneCount: "1",
-    qiAmount: "1",
+    qiAmount: "100",
   });
-  assert.equal(player.qi, qiBeforeRefill - 1);
+  assert.equal(player.qi, qiBeforeRefill - 100);
   assert.equal(player.wallet.spirit_stone, stonesBeforeRefill - 1);
-  assert.equal(Math.round(service.getFormationCombatState(instanceId, formation.id).remainingAuraBudget - auraBeforeRefill), 1);
+  assert.equal(Math.round(service.getFormationCombatState(instanceId, formation.id).remainingAuraBudget - auraBeforeRefill), 100);
+  assert.equal(instance.getTileResource(DISPERSED_AURA_RESOURCE_KEY, 4, 5) - dispersedBeforeRefill, 10);
   assert.equal(player.formationJob ?? null, null);
   assert.equal(player.techniqueActivityQueue?.length ?? 0, 0);
   assert.equal(player.formationSkill.exp, formationExpBeforeRefill);

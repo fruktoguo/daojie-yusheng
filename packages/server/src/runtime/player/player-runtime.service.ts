@@ -4249,7 +4249,12 @@ export class PlayerRuntimeService {
             }
             recordPlayerTickPerf(options, 'playerTick.vitalsRecoveryMs', vitalsRecoveryStartedAt);
             const artifactTickStartedAt = performance.now();
+            const qiBeforeArtifactTick = Math.max(0, Math.round(Number(player.qi) || 0));
             const artifactTickResult = advancePlayerArtifactQiTick(player);
+            const qiSpentByArtifactTick = Math.max(0, qiBeforeArtifactTick - Math.max(0, Math.round(Number(player.qi) || 0)));
+            if (qiSpentByArtifactTick > 0 && typeof options.onPlayerQiSpent === 'function') {
+                options.onPlayerQiSpent(player, qiSpentByArtifactTick);
+            }
             if (artifactTickResult.artifactChanged || artifactTickResult.buffChanged || artifactTickResult.vitalsChanged) {
                 if (artifactTickResult.artifactEnabledChanged) {
                     this.refreshMovementCapabilities(player);
