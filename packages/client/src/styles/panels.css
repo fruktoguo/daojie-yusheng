@@ -12298,7 +12298,23 @@
       min-height: 39px;
     }
     .transmission-book-craft-picker {
-      grid-template-columns: minmax(140px, 1fr) minmax(180px, 1.4fr) minmax(120px, 0.75fr) minmax(150px, 1fr) auto;
+      grid-template-columns: minmax(140px, 1fr) minmax(220px, 1.6fr) minmax(120px, 0.75fr) minmax(170px, 1fr) auto;
+    }
+    .transmission-book-craft-filters {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(140px, 1fr));
+      gap: 10px;
+      min-width: 0;
+    }
+    .technique-refining-book-grid {
+      grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+    }
+    .technique-refining-book-grid .inventory-cell-name {
+      min-height: 40px;
+      max-height: none;
+      white-space: normal;
+      overflow: visible;
+      text-overflow: clip;
     }
     .technique-refining-summary-row {
       display: grid;

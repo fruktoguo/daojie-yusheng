@@ -264,7 +264,7 @@ export class WorldRuntimeContextActionQueryService {
                             id: 'technique_refining:open',
                             name: `炼法：${buildingName}`,
                             type: 'interact',
-                            desc: '打开炼法台，选择背包内功法书分解为功法残页，或制造指定层数的功法书。',
+                            desc: '打开炼法台，选择背包内功法书分解为功法残页，或抄录指定层数的功法书。',
                             cooldownLeft: 0,
                         });
                     }

@@ -8,7 +8,7 @@
  * 处理丹药、技能书、传送符、灵石等各类物品的使用逻辑分支
  */
 import { Inject, Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
-import { CUSTOM_TECHNIQUE_BOOK_ITEM_ID, DEFAULT_QI_RESOURCE_DESCRIPTOR, MERIT_ETERNAL_DAILY_SIGN_IN_FIXED_BONUS, MERIT_ETERNAL_POOL_GRANT, MERIT_ETERNAL_USE_BEHAVIOR, MERIT_MONTH_CARD_DURATION_DAYS, MERIT_MONTH_CARD_POOL_GRANT, MERIT_MONTH_CARD_USE_BEHAVIOR, SECT_ENTRANCE_RELOCATION_USE_BEHAVIOR, TECHNIQUE_FRAGMENT_ITEM_ID, buildQiResourceKey, calculateTechniqueBookCraftFragmentCost, calculateTechniqueBookDecomposeFragments, getItemDisplayName, getTechniqueMaxLevel } from '@mud/shared';
+import { CUSTOM_TECHNIQUE_BOOK_ITEM_ID, DEFAULT_QI_RESOURCE_DESCRIPTOR, MERIT_ETERNAL_DAILY_SIGN_IN_FIXED_BONUS, MERIT_ETERNAL_POOL_GRANT, MERIT_ETERNAL_USE_BEHAVIOR, MERIT_MONTH_CARD_DURATION_DAYS, MERIT_MONTH_CARD_POOL_GRANT, MERIT_MONTH_CARD_USE_BEHAVIOR, SECT_ENTRANCE_RELOCATION_USE_BEHAVIOR, TECHNIQUE_FRAGMENT_ITEM_ID, buildQiResourceKey, calculateTechniqueBookCraftFragmentCost, calculateTechniqueBookDecomposeFragments, getItemDisplayName, getTechniqueMaxLevel, isCreatedTechniqueId } from '@mud/shared';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { REFINED_SHA_RESOURCE_KEY } from '../../constants/gameplay/pvp';
 import { ActivityRuntimeService, normalizeActivityError } from '../activity/activity-runtime.service';
@@ -245,16 +245,19 @@ export class WorldRuntimeUseItemService {
         if (!techniqueId) {
             throw new BadRequestException('功法 ID 不能为空');
         }
+        if (!isCreatedTechniqueId(techniqueId)) {
+            throw new BadRequestException('只能抄录自创功法');
+        }
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
         if (!hasPlayerLearnedTechnique(player, techniqueId)) {
-            throw new BadRequestException('只能制造已掌握功法的功法书');
+            throw new BadRequestException('只能抄录已掌握功法');
         }
         const technique = this.contentTemplateRepository.createTechniqueState(techniqueId);
         if (!technique) {
             throw new NotFoundException(`功法不存在：${techniqueId}`);
         }
         if (technique.category === 'divine') {
-            throw new BadRequestException('神通不能制造为功法书');
+            throw new BadRequestException('神通不能抄录为功法书');
         }
         const maxTemplateLevel = getTechniqueMaxLevel(Array.isArray(technique.layers) ? technique.layers : undefined, technique.level ?? 1);
         const maxLevel = Number.isFinite(Number(maxLevelInput))
@@ -284,7 +287,7 @@ export class WorldRuntimeUseItemService {
             level: technique.realmLv,
         });
         deps.refreshQuestStates?.(playerId);
-        const n = buildStructuredNotice('success', 'notice.item.technique-book-crafted', '功法书已制成', {
+        const n = buildStructuredNotice('success', 'notice.item.technique-book-crafted', '功法书已抄录', {
             vars: { techniqueName: technique.name ?? techniqueId, count: cost, maxLevel },
             pills: [{ key: 'techniqueName', style: 'skill' }],
         });

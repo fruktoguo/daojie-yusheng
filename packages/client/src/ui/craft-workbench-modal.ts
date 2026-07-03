@@ -56,6 +56,7 @@ import {
   isCreatedTechniqueId,
   normalizeEnhanceLevel,
   normalizeAlchemyQuantity,
+  type TechniqueGrade,
   type TechniqueCategory,
   type TechniqueComprehensionProgressBreakdown,
 } from '@mud/shared';
@@ -116,6 +117,8 @@ type CraftQueueProgressView = {
   label: string;
   detail: string;
 };
+type TechniqueBookCraftGradeFilter = 'all' | TechniqueGrade;
+type TechniqueBookCraftCategoryFilter = 'all' | TechniqueCategory;
 type CraftQueueDisplayItem = CraftQueueItemView & {
   isActive?: boolean;
   progress?: CraftQueueProgressView;
@@ -596,6 +599,8 @@ export class CraftWorkbenchModal {
   private lastTransmissionRenderKey: string | null = null;
   private selectedTechniqueBookIds = new Set<string>();
   private selectedTechniqueBookCount = 1;
+  private techniqueBookCraftGradeFilter: TechniqueBookCraftGradeFilter = 'all';
+  private techniqueBookCraftCategoryFilter: TechniqueBookCraftCategoryFilter = 'all';
   private playerRealmLv: number | null = null;
   private inventory: PlayerState['inventory'] = { items: [], capacity: 0 };
   private equipment: EquipmentSlots = createEmptyEquipmentSlots();
@@ -1606,6 +1611,9 @@ export class CraftWorkbenchModal {
     if (panel.dataset.techniqueRefiningBooksKey !== this.buildTechniqueRefiningBooksKey(books)) {
       return false;
     }
+    if (panel.dataset.techniqueRefiningCraftKey !== this.buildTechniqueBookCraftPickerKey()) {
+      return false;
+    }
     const selectedItems = this.getSelectedTechniqueBookItems();
     const availableIds = new Set(books.map((item) => this.getItemInstanceId(item)).filter(Boolean));
     let selectionChanged = false;
@@ -1765,7 +1773,7 @@ export class CraftWorkbenchModal {
       return '功法领悟与传授';
     }
     if (this.activeMode === 'technique_refining') {
-      return '功法书分解与制造';
+      return '功法书分解与抄录';
     }
     return t('craft.workbench.modal.subtitle.default');
   }
@@ -2007,9 +2015,24 @@ export class CraftWorkbenchModal {
       .filter((tech): tech is PlayerState['techniques'][number] => Boolean(tech));
   }
 
+  private getFilteredTechniqueBookCraftCandidates(): PlayerState['techniques'] {
+    return this.getTechniqueBookCraftCandidates().filter((tech) => {
+      if (this.techniqueBookCraftGradeFilter !== 'all' && tech.grade !== this.techniqueBookCraftGradeFilter) {
+        return false;
+      }
+      if (this.techniqueBookCraftCategoryFilter !== 'all' && tech.category !== this.techniqueBookCraftCategoryFilter) {
+        return false;
+      }
+      return true;
+    });
+  }
+
   private resolveTechniqueBookCraftCandidate(tech: PlayerState['techniques'][number] | undefined): PlayerState['techniques'][number] | null {
     const techId = typeof tech?.techId === 'string' && tech.techId.trim() ? tech.techId.trim() : '';
     if (!techId) {
+      return null;
+    }
+    if (!isCreatedTechniqueId(techId)) {
       return null;
     }
     const template = getLocalTechniqueTemplate(techId);
@@ -2138,26 +2161,54 @@ export class CraftWorkbenchModal {
   }
 
   private renderTransmissionBookCraftPicker(techniques: PlayerState['techniques']): string {
+    const filteredTechniques = this.getFilteredTechniqueBookCraftCandidates();
+    const gradeOptions = [
+      `<option value="all"${this.techniqueBookCraftGradeFilter === 'all' ? ' selected' : ''}>全部品阶</option>`,
+      ...TECHNIQUE_GRADE_ORDER.map((grade) => `<option value="${escapeHtmlAttr(grade)}"${this.techniqueBookCraftGradeFilter === grade ? ' selected' : ''}>${escapeHtml(getTechniqueGradeLabel(grade))}</option>`),
+    ].join('');
+    const categoryOptions = ([
+      ['all', '全部类型'],
+      ['arts', getTechniqueCategoryLabel('arts')],
+      ['internal', getTechniqueCategoryLabel('internal')],
+      ['divine', getTechniqueCategoryLabel('divine')],
+      ['secret', getTechniqueCategoryLabel('secret')],
+    ] as Array<[TechniqueBookCraftCategoryFilter, string]>)
+      .map(([category, label]) => `<option value="${escapeHtmlAttr(category)}"${this.techniqueBookCraftCategoryFilter === category ? ' selected' : ''}>${escapeHtml(label)}</option>`)
+      .join('');
+    const filterControls = `
+      <div class="transmission-book-craft-filters">
+        <select class="ui-input" data-transmission-book-grade-filter="true" aria-label="抄录功法品阶筛选">
+          ${gradeOptions}
+        </select>
+        <select class="ui-input" data-transmission-book-category-filter="true" aria-label="抄录功法类型筛选">
+          ${categoryOptions}
+        </select>
+      </div>
+    `;
     if (techniques.length === 0) {
-      return '<div class="empty-hint">暂无可制造为功法书的自创功法</div>';
+      return `${filterControls}<div class="empty-hint">暂无可抄录的自创功法</div>`;
     }
-    const techniqueOptions = techniques.map((tech) => {
+    if (filteredTechniques.length === 0) {
+      return `${filterControls}<div class="empty-hint">当前筛选下暂无可抄录功法</div>`;
+    }
+    const techniqueOptions = filteredTechniques.map((tech) => {
       const metaText = this.getTransmissionTechniqueMetaText(tech);
       const maxLevel = this.resolveTechniqueMaxLevel(tech);
       const search = `${tech.name ?? ''} ${tech.techId} ${metaText}`.toLowerCase();
       return `<option value="${escapeHtmlAttr(tech.techId)}" data-search="${escapeHtmlAttr(search)}" data-max-level="${maxLevel}">${escapeHtml(tech.name ?? tech.techId)} · ${escapeHtml(metaText)} · 满层 ${formatDisplayInteger(maxLevel)} 层</option>`;
     }).join('');
-    const firstMaxLevel = this.resolveTechniqueMaxLevel(techniques[0]);
-    const firstCost = this.calculateTechniqueBookCraftCost(techniques[0], firstMaxLevel);
+    const firstMaxLevel = this.resolveTechniqueMaxLevel(filteredTechniques[0]);
+    const firstCost = this.calculateTechniqueBookCraftCost(filteredTechniques[0], firstMaxLevel);
     return `
+      ${filterControls}
       <div class="transmission-teach-picker transmission-book-craft-picker">
-        <input class="ui-search-input" type="search" data-transmission-book-search="true" placeholder="搜索要制书的功法">
+        <input class="ui-search-input" type="search" data-transmission-book-search="true" placeholder="搜索要抄录的功法">
         <select class="ui-input" data-transmission-book-tech-select="true">
           ${techniqueOptions}
         </select>
         <input class="ui-input" type="number" min="1" max="${firstMaxLevel}" value="${firstMaxLevel}" data-transmission-book-level-input="true" aria-label="功法书层数">
-        <span class="alchemy-summary-mode" data-transmission-book-cost-text="true">消耗 ${formatDisplayInteger(firstCost)} 张残页 · 可修至 ${formatDisplayInteger(firstMaxLevel)} 层</span>
-        <button class="small-btn" type="button" data-craft-action="transmission-craft-book">制造功法书</button>
+        <span class="alchemy-summary-mode" data-transmission-book-cost-text="true">消耗 ${formatDisplayInteger(firstCost)} 张残页 · 抄录至 ${formatDisplayInteger(firstMaxLevel)} 层</span>
+        <button class="small-btn" type="button" data-craft-action="transmission-craft-book">抄录</button>
       </div>
     `;
   }
@@ -2176,14 +2227,14 @@ export class CraftWorkbenchModal {
       this.selectedTechniqueBookCount = maxCount;
     }
     return `
-      <div class="alchemy-tab-stack" data-technique-refining-panel="true" data-technique-refining-books-key="${escapeHtmlAttr(this.buildTechniqueRefiningBooksKey(books))}">
+      <div class="alchemy-tab-stack" data-technique-refining-panel="true" data-technique-refining-books-key="${escapeHtmlAttr(this.buildTechniqueRefiningBooksKey(books))}" data-technique-refining-craft-key="${escapeHtmlAttr(this.buildTechniqueBookCraftPickerKey())}">
         <section class="alchemy-summary-card">
           <div class="alchemy-summary-head">
             <div class="alchemy-summary-title">功法书分解</div>
             <span class="alchemy-summary-mode" data-technique-refining-book-count="true">${formatDisplayInteger(books.length)} 种功法书</span>
           </div>
           ${books.length > 0 ? `
-            <div class="inventory-grid treasure-vault-inventory-grid">
+            <div class="inventory-grid treasure-vault-inventory-grid technique-refining-book-grid">
               ${books.map((item) => this.renderTechniqueBookCell(item)).join('')}
             </div>
           ` : '<div class="empty-hint">背包里暂无可分解功法书</div>'}
@@ -2199,7 +2250,7 @@ export class CraftWorkbenchModal {
         </section>
         <section class="alchemy-summary-card">
           <div class="alchemy-summary-head">
-            <div class="alchemy-summary-title">制造功法书</div>
+            <div class="alchemy-summary-title">抄录功法</div>
             <span class="alchemy-summary-mode">消耗功法残页</span>
           </div>
           ${this.renderTransmissionBookCraftPicker(this.getTechniqueBookCraftCandidates())}
@@ -2214,7 +2265,6 @@ export class CraftWorkbenchModal {
     const displayName = itemMeta.displayItem.name;
     const selected = itemInstanceId ? this.selectedTechniqueBookIds.has(itemInstanceId) : false;
     const gradeLine = itemMeta.gradeLabel ?? getItemTypeLabel(item.type);
-    const learnMaxLabel = this.formatTechniqueBookLearnMaxLevelLabel(item);
     return `
       <button class="${getItemDecorClassName(`inventory-cell${selected ? ' active' : ''}`, item)}" type="button" data-craft-action="technique-refining-toggle-book" data-item-instance-id="${escapeHtmlAttr(itemInstanceId)}" aria-label="选择${escapeHtml(displayName)}">
         <div class="inventory-cell-head">
@@ -2224,7 +2274,6 @@ export class CraftWorkbenchModal {
         <span class="inventory-cell-learned-ribbon" ${selected ? '' : 'hidden'}>已选</span>
         <div class="inventory-cell-grade-line">${escapeHtml(gradeLine)}</div>
         <div class="inventory-cell-name" aria-label="${escapeHtml(displayName)}">${escapeHtml(displayName)}</div>
-        <span class="item-card-chip">${escapeHtml(learnMaxLabel)}</span>
         ${itemMeta.levelLabel ? `<span class="item-card-chip item-card-chip--level">${escapeHtml(itemMeta.levelLabel)}</span>` : ''}
       </button>
     `;
@@ -2283,23 +2332,6 @@ export class CraftWorkbenchModal {
     });
   }
 
-  private formatTechniqueBookLearnMaxLevelLabel(item: ItemStack): string {
-    const technique = typeof item.learnTechniqueId === 'string' && item.learnTechniqueId.trim()
-      ? getLocalTechniqueTemplate(item.learnTechniqueId.trim())
-      : null;
-    const templateMaxLevel = Math.max(
-      1,
-      ...((technique?.layers ?? []).map((layer) => Math.max(1, Math.floor(Number(layer.level) || 1)))),
-      Math.floor(Number(item.level) || 1),
-    );
-    const learnMaxLevel = Number.isFinite(Number(item.learnTechniqueMaxLevel))
-      ? Math.max(1, Math.min(templateMaxLevel, Math.floor(Number(item.learnTechniqueMaxLevel))))
-      : templateMaxLevel;
-    return learnMaxLevel >= templateMaxLevel
-      ? `可修至满层 ${formatDisplayInteger(templateMaxLevel)}`
-      : `可修至 ${formatDisplayInteger(learnMaxLevel)} 层`;
-  }
-
   private calculateSelectedTechniqueBookFragments(items = this.getSelectedTechniqueBookItems()): number {
     const isSingle = items.length === 1;
     return items.reduce(
@@ -2330,6 +2362,21 @@ export class CraftWorkbenchModal {
         getItemDisplayName(item),
       ].join(':'))
       .join('|');
+  }
+
+  private buildTechniqueBookCraftPickerKey(): string {
+    return [
+      this.techniqueBookCraftGradeFilter,
+      this.techniqueBookCraftCategoryFilter,
+      this.getTechniqueBookCraftCandidates()
+        .map((tech) => [
+          tech.techId,
+          tech.grade ?? '',
+          tech.category ?? '',
+          this.resolveTechniqueMaxLevel(tech),
+        ].join(':'))
+        .join('|'),
+    ].join('::');
   }
 
   private buildTechniqueRefiningSelectionSummaryKey(items: ItemStack[], maxCount: number): string {
@@ -2468,7 +2515,7 @@ export class CraftWorkbenchModal {
       return '用于功法领悟与传授。';
     }
     if (this.activeMode === 'technique_refining') {
-      return '分解功法书为残页，也可以用残页制造指定层数的功法书。';
+      return '分解功法书为残页，也可以用残页抄录指定层数的功法书。';
     }
     return t('craft.workbench.profession.description.default');
   }
@@ -2803,6 +2850,16 @@ export class CraftWorkbenchModal {
       }
     }, { signal });
     body.addEventListener('change', (event) => {
+      if (event.target instanceof HTMLSelectElement && event.target.matches('[data-transmission-book-grade-filter="true"]')) {
+        this.techniqueBookCraftGradeFilter = this.normalizeTechniqueBookCraftGradeFilter(event.target.value);
+        this.patchOpenCraftShell();
+        return;
+      }
+      if (event.target instanceof HTMLSelectElement && event.target.matches('[data-transmission-book-category-filter="true"]')) {
+        this.techniqueBookCraftCategoryFilter = this.normalizeTechniqueBookCraftCategoryFilter(event.target.value);
+        this.patchOpenCraftShell();
+        return;
+      }
       const changed = event.target instanceof HTMLSelectElement
         && (event.target.matches('[data-transmission-tech-select="true"]') || event.target.matches('[data-transmission-target-select="true"]') || event.target.matches('[data-transmission-book-tech-select="true"]'));
       if (changed) {
@@ -2810,6 +2867,14 @@ export class CraftWorkbenchModal {
         this.syncTransmissionBookLevelInput(body);
       }
     }, { signal });
+  }
+
+  private normalizeTechniqueBookCraftGradeFilter(value: string): TechniqueBookCraftGradeFilter {
+    return TECHNIQUE_GRADE_ORDER.includes(value as TechniqueGrade) ? value as TechniqueGrade : 'all';
+  }
+
+  private normalizeTechniqueBookCraftCategoryFilter(value: string): TechniqueBookCraftCategoryFilter {
+    return value === 'arts' || value === 'internal' || value === 'divine' || value === 'secret' ? value : 'all';
   }
 
   private filterTransmissionTechniqueOptions(body: HTMLElement, query: string, selector = '[data-transmission-tech-select="true"]'): void {
@@ -2847,13 +2912,13 @@ export class CraftWorkbenchModal {
     if (!select || !input) return;
     const maxLevel = Math.max(1, Math.floor(Number(select.selectedOptions[0]?.dataset.maxLevel ?? 1) || 1));
     const selectedTechId = (select.value ?? '').trim();
-    const selectedTech = this.getTechniqueBookCraftCandidates().find((tech) => tech.techId === selectedTechId);
+    const selectedTech = this.getFilteredTechniqueBookCraftCandidates().find((tech) => tech.techId === selectedTechId);
     const nextLevel = Math.max(1, Math.min(maxLevel, Math.floor(Number(input.value || maxLevel) || maxLevel)));
     input.max = String(maxLevel);
     input.value = String(nextLevel);
     const costText = body.querySelector<HTMLElement>('[data-transmission-book-cost-text="true"]');
     if (costText) {
-      costText.textContent = `消耗 ${formatDisplayInteger(this.calculateTechniqueBookCraftCost(selectedTech, nextLevel))} 张残页 · 可修至 ${formatDisplayInteger(nextLevel)} 层`;
+      costText.textContent = `消耗 ${formatDisplayInteger(this.calculateTechniqueBookCraftCost(selectedTech, nextLevel))} 张残页 · 抄录至 ${formatDisplayInteger(nextLevel)} 层`;
     }
   }
 

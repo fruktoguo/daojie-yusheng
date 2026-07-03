@@ -1,5 +1,5 @@
 /**
- * 功法书分解与制造的共享公式。
+ * 功法书分解与抄录的共享公式。
  */
 import type { TechniqueGrade } from './cultivation-types';
 import {

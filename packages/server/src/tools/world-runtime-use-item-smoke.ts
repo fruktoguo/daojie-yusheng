@@ -186,10 +186,22 @@ function createService(overrides = {}) {
             return itemId === 'manual_scroll' ? 'technique.scroll' : null;
         },
         createTechniqueState(techniqueId) {
-            if (techniqueId === 'technique.refining.smoke') {
+            if (techniqueId === 'gen_refining_smoke') {
                 return {
                     techId: techniqueId,
                     name: '炼法烟测诀',
+                    category: 'arts',
+                    realmLv: 4,
+                    grade: 'yellow',
+                    level: 1,
+                    layers: [{ level: 1 }, { level: 2 }, { level: 3 }, { level: 4 }],
+                };
+            }
+            if (techniqueId === 'technique.refining.smoke') {
+                return {
+                    techId: techniqueId,
+                    name: '系统炼法烟测诀',
+                    category: 'arts',
                     realmLv: 4,
                     grade: 'yellow',
                     level: 1,
@@ -470,16 +482,16 @@ function testTechniqueRefiningCraftBookBranch() {
         x: 3,
         y: 4,
         techniques: {
-            techniques: [{ techId: 'technique.refining.smoke' }],
+            techniques: [{ techId: 'gen_refining_smoke' }],
         },
     });
-    service.dispatchCraftTechniqueBook('player:1', 'technique.refining.smoke', 2, createTechniqueRefiningDeps(log));
+    service.dispatchCraftTechniqueBook('player:1', 'gen_refining_smoke', 2, createTechniqueRefiningDeps(log));
     assert.deepEqual(log, [
         ['consumeItemByItemId', 'player:1', 'mat.technique_fragment', 20],
         ['receiveInventoryItem', 'player:1', {
             itemId: 'book.custom_technique',
             count: 1,
-            learnTechniqueId: 'technique.refining.smoke',
+            learnTechniqueId: 'gen_refining_smoke',
             learnTechniqueMaxLevel: 2,
             name: '《炼法烟测诀》残卷',
             type: 'skill_book',
@@ -488,7 +500,7 @@ function testTechniqueRefiningCraftBookBranch() {
             level: 4,
         }],
         ['refreshQuestStates', 'player:1'],
-        ['queuePlayerNotice', 'player:1', '功法书已制成', 'success'],
+        ['queuePlayerNotice', 'player:1', '功法书已抄录', 'success'],
     ]);
 }
 
@@ -499,11 +511,11 @@ function testTechniqueRefiningCraftRejectsOutOfRange() {
         x: 8,
         y: 8,
         techniques: {
-            techniques: [{ techId: 'technique.refining.smoke' }],
+            techniques: [{ techId: 'gen_refining_smoke' }],
         },
     });
     assert.throws(
-        () => service.dispatchCraftTechniqueBook('player:1', 'technique.refining.smoke', 2, createTechniqueRefiningDeps(log)),
+        () => service.dispatchCraftTechniqueBook('player:1', 'gen_refining_smoke', 2, createTechniqueRefiningDeps(log)),
         /需要在炼法台 1 格范围内操作/,
     );
     assert.deepEqual(log, []);
@@ -516,12 +528,29 @@ function testTechniqueRefiningCraftRejectsUnknownOrUnlearnedTechnique() {
         x: 3,
         y: 4,
         techniques: {
-            techniques: [{ techId: 'technique.refining.smoke' }],
+            techniques: [{ techId: 'gen_refining_smoke' }],
         },
     });
     assert.throws(
         () => service.dispatchCraftTechniqueBook('player:1', 'technique.unknown', 1, createTechniqueRefiningDeps(log)),
-        /只能制造已掌握功法的功法书/,
+        /只能抄录自创功法/,
+    );
+    assert.deepEqual(log, []);
+}
+
+function testTechniqueRefiningCraftRejectsSystemTechnique() {
+    const log = [];
+    const service = createService({ log });
+    service.playerRuntimeService.getPlayerOrThrow = () => ({
+        x: 3,
+        y: 4,
+        techniques: {
+            techniques: [{ techId: 'technique.refining.smoke' }],
+        },
+    });
+    assert.throws(
+        () => service.dispatchCraftTechniqueBook('player:1', 'technique.refining.smoke', 2, createTechniqueRefiningDeps(log)),
+        /只能抄录自创功法/,
     );
     assert.deepEqual(log, []);
 }
@@ -582,6 +611,7 @@ async function main() {
     testTechniqueRefiningCraftBookBranch();
     testTechniqueRefiningCraftRejectsOutOfRange();
     testTechniqueRefiningCraftRejectsUnknownOrUnlearnedTechnique();
+    testTechniqueRefiningCraftRejectsSystemTechnique();
     testTechniqueRefiningDecomposeBookBranch();
     testTechniqueRefiningDecomposeRejectsMissingTemplate();
 
