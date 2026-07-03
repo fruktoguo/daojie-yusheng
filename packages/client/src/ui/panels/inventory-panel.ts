@@ -1371,10 +1371,14 @@ export class InventoryPanel {
     cooldownRemaining: number,
   ): string {
     return [
-      'ribbon-v6',
+      'ribbon-v7',
       String(slotIndex),
       itemIdentity,
       String(item.count),
+      String(item.grade ?? ''),
+      String(item.level ?? ''),
+      String(item.learnTechniqueId ?? ''),
+      String(item.learnTechniqueMaxLevel ?? ''),
       String(this.playerContextRevision),
       cooldownState
         ? `${cooldownState.startedAtTick}:${cooldownState.cooldown}:${cooldownRemaining}`
@@ -1579,8 +1583,8 @@ export class InventoryPanel {
     }
   }
 
-  private getInventoryGradeLineLabel(_item: ItemStack): string | null {
-    return null;
+  private getInventoryGradeLineLabel(item: ItemStack): string | null {
+    return getItemDisplayMeta(item).gradeLabel;
   }
 
   private openBulkDiscardModal(): void {
