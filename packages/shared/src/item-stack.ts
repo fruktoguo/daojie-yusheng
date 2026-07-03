@@ -81,6 +81,17 @@ export function isLegacyItemInstanceId(id: string | undefined | null): boolean {
  *   - null/undefined 等非法 ItemStack 直接拒绝，防止 NPE 透传到 push/find
  */
 export function canMergeItemStack(item: Pick<ItemStack, 'type' | 'itemInstanceId'> | ItemStackMergeItem | null | undefined): boolean {
+  if (
+    item
+    && typeof (item as ItemStackMergeItem).itemId === 'string'
+    && (item as ItemStackMergeItem).itemId === 'book.custom_technique'
+    && (
+      typeof (item as Record<string, unknown>).learnTechniqueId !== 'string'
+      || ((item as Record<string, unknown>).learnTechniqueId as string).trim().length === 0
+    )
+  ) {
+    return false;
+  }
   return Boolean(item);
 }
 

@@ -63,7 +63,13 @@ export interface DurableInventoryItemSnapshot {
   itemId: string;
   itemInstanceId?: string;
   count: number;
+  name?: string;
+  desc?: string;
   enhanceLevel?: number | null;
+  learnTechniqueId?: string;
+  learnTechniqueMaxLevel?: number;
+  grade?: string;
+  level?: number;
   rawPayload: unknown;
 }
 
@@ -3445,7 +3451,13 @@ async function replacePlayerInventoryItems(
     const rawPayload = buildPersistedInventoryItemRawPayload({
       itemId,
       count,
+      name: item.name,
+      desc: item.desc,
       enhanceLevel: item.enhanceLevel,
+      learnTechniqueId: item.learnTechniqueId,
+      learnTechniqueMaxLevel: item.learnTechniqueMaxLevel,
+      grade: item.grade,
+      level: item.level,
       rawPayload: item.rawPayload,
     });
     // 优先取 sourceItem 自带的稳定 instanceId（装备类必须有；非装备类回退到 inv:{playerId}:{index}

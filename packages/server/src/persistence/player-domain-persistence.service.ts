@@ -4512,7 +4512,13 @@ async function replacePlayerInventoryItems(
     const persistedPayload = buildPersistedInventoryItemRawPayload({
       itemId,
       count,
+      name: entry?.name,
+      desc: entry?.desc,
       enhanceLevel: entry?.enhanceLevel,
+      learnTechniqueId: entry?.learnTechniqueId,
+      learnTechniqueMaxLevel: entry?.learnTechniqueMaxLevel,
+      grade: entry?.grade,
+      level: entry?.level,
       rawPayload,
     });
     if (lockedBy != null) {
@@ -5015,7 +5021,13 @@ async function replacePlayerMarketStorageItems(
     const persistedPayload = buildPersistedInventoryItemRawPayload({
       itemId,
       count,
+      name: entry?.name,
+      desc: entry?.desc,
       enhanceLevel,
+      learnTechniqueId: entry?.learnTechniqueId,
+      learnTechniqueMaxLevel: entry?.learnTechniqueMaxLevel,
+      grade: entry?.grade,
+      level: entry?.level,
       rawPayload,
     });
     const row = {

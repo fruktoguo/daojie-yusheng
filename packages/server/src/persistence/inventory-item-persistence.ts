@@ -14,6 +14,8 @@ export interface InventoryItemPersistenceSource {
   itemId?: unknown;
   itemInstanceId?: unknown;
   count?: unknown;
+  name?: unknown;
+  desc?: unknown;
   rawPayload?: unknown;
   enhanceLevel?: unknown;
   learnTechniqueId?: unknown;
@@ -27,6 +29,8 @@ export interface EquipmentItemPersistenceSource {
   itemId?: unknown;
   itemInstanceId?: unknown;
   slot?: unknown;
+  name?: unknown;
+  desc?: unknown;
   rawPayload?: unknown;
   enhanceLevel?: unknown;
   learnTechniqueId?: unknown;
@@ -122,11 +126,15 @@ function buildLearnTechniquePayload(source: InventoryItemPersistenceSource | Equ
   const learnTechniqueMaxLevel = normalizePositiveInteger(source?.learnTechniqueMaxLevel, rawPayload?.learnTechniqueMaxLevel);
   const itemId = normalizeOptionalString(source?.itemId, rawPayload?.itemId);
   const shouldPersistBookDisplay = Boolean(learnTechniqueId) || itemId === CUSTOM_TECHNIQUE_BOOK_ITEM_ID;
+  const name = shouldPersistBookDisplay ? normalizeOptionalString(source?.name, rawPayload?.name) : null;
+  const desc = shouldPersistBookDisplay ? normalizeOptionalString(source?.desc, rawPayload?.desc) : null;
   const grade = shouldPersistBookDisplay ? normalizeOptionalString(source?.grade, rawPayload?.grade) : null;
   const level = shouldPersistBookDisplay ? normalizePositiveInteger(source?.level, rawPayload?.level) : null;
   return {
     ...(learnTechniqueId ? { learnTechniqueId } : {}),
     ...(learnTechniqueMaxLevel == null ? {} : { learnTechniqueMaxLevel }),
+    ...(name ? { name } : {}),
+    ...(desc ? { desc } : {}),
     ...(grade ? { grade } : {}),
     ...(level == null ? {} : { level }),
   };
