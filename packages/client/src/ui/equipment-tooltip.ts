@@ -789,11 +789,11 @@ function buildTechniqueBookTooltipLines(item: ItemStack): string[] {
     ? item.learnTechniqueId.trim()
     : resolveTechniqueIdFromBookItemId(item.itemId);
   if (!techniqueId) {
-    return [];
+    return buildTechniqueBookFallbackTooltipLines(item);
   }
   const technique = getLocalTechniqueTemplate(techniqueId);
   if (!technique) {
-    return [];
+    return buildTechniqueBookFallbackTooltipLines(item);
   }
   const realmLabel = technique.realmLv
     ? (getLocalRealmLevelEntry(technique.realmLv)?.displayName ?? `Lv.${formatDisplayInteger(technique.realmLv)}`)
@@ -820,6 +820,29 @@ function buildTechniqueBookTooltipLines(item: ItemStack): string[] {
       skillNames.length > 0 ? skillNames.join('、') : t('equipment-tooltip.value.none', undefined),
     ),
   ];
+}
+
+function buildTechniqueBookFallbackTooltipLines(item: ItemStack): string[] {
+  const learnMaxLevel = resolveTechniqueBookItemLearnMaxLevel(item);
+  const lines = [
+    renderPlainLine(t('equipment-tooltip.technique-book.desc', undefined), item.desc?.trim() || t('equipment-tooltip.technique-book.no-desc', undefined)),
+  ];
+  if (learnMaxLevel !== null) {
+    lines.push(renderPlainLine('可修至', `${formatDisplayInteger(learnMaxLevel)} 层`));
+  }
+  return lines;
+}
+
+function resolveTechniqueBookItemLearnMaxLevel(item: ItemStack): number | null {
+  if (Number.isFinite(Number(item.learnTechniqueMaxLevel))) {
+    return Math.max(1, Math.floor(Number(item.learnTechniqueMaxLevel)));
+  }
+  const desc = typeof item.desc === 'string' ? item.desc : '';
+  const match = desc.match(/前\s*(\d+)\s*层/);
+  if (!match) {
+    return null;
+  }
+  return Math.max(1, Math.floor(Number(match[1]) || 1));
 }
 
 /** buildItemTooltipPayload：构建物品提示载荷。 */

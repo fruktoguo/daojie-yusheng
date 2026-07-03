@@ -162,6 +162,9 @@ export function resolvePreviewItem(item: ItemStack): ItemStack {
 
   const sourceItem = stripInvalidPreviewInstanceId(item);
   const template = getLocalItemTemplate(sourceItem.itemId);
+  const isCustomTechniqueBook = sourceItem.itemId === 'book.custom_technique'
+    && typeof sourceItem.learnTechniqueId === 'string'
+    && sourceItem.learnTechniqueId.trim().length > 0;
   const sourceName = resolvePreviewItemName(sourceItem, template?.name);
   const sourceDesc = resolvePreviewItemDesc(sourceItem, template?.desc);
   if (!template) {
@@ -197,7 +200,7 @@ export function resolvePreviewItem(item: ItemStack): ItemStack {
     enhanceLevel: sourceItem.enhanceLevel ?? template.enhanceLevel,
     craftEffectStats: sourceItem.craftEffectStats ?? template.craftEffectStats,
     consumeBuffs: sourceItem.consumeBuffs ?? template.consumeBuffs,
-    tags: sourceItem.tags ?? template.tags,
+    tags: sourceItem.tags ?? (isCustomTechniqueBook ? ['功法书'] : template.tags),
     contextActions: sourceItem.contextActions ?? template.contextActions,
     mapUnlockId: sourceItem.mapUnlockId ?? template.mapUnlockId,
     mapUnlockIds: sourceItem.mapUnlockIds ?? template.mapUnlockIds,
