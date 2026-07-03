@@ -56,6 +56,7 @@ import {
   isCreatedTechniqueId,
   normalizeEnhanceLevel,
   normalizeAlchemyQuantity,
+  type TechniqueCategory,
   type TechniqueComprehensionProgressBreakdown,
 } from '@mud/shared';
 import { getLocalItemTemplate, getLocalRealmLevelEntry, getLocalTechniqueTemplate } from '../content/local-templates';
@@ -98,7 +99,7 @@ type CraftWorkbenchCallbacks = {
   onCancelTechniqueActivity: (cancelRef: TechniqueActivityCancelRef) => void;
   onStartEnhancement: (payload: C2S_StartEnhancement) => void;
   onCancelEnhancement: () => void;
-  onStartTransmission?: (learnerPlayerId: string, techId: string, options?: { mode?: 'transmission' | 'craft_book'; maxLevel?: number }) => void;
+  onStartTransmission?: (learnerPlayerId: string, techId: string, options?: { mode?: 'transmission' | 'craft_book' | 'scripture_recording' | 'scripture_contemplation'; maxLevel?: number; buildingId?: string }) => void;
   onCancelTransmission?: (techId: string) => void;
   onDecomposeTechniqueBook?: (itemInstanceId: string, count: number) => void;
   getTransmissionTargets?: () => Array<{ playerId: string; name: string }>;
@@ -696,7 +697,7 @@ export class CraftWorkbenchModal {
     const luckChanged = this.playerLuck !== nextLuck;
     this.playerRealmLv = nextRealmLv;
     this.playerLuck = nextLuck;
-    if ((realmChanged || luckChanged || this.activeMode === 'transmission') && detailModalHost.isOpenFor(CraftWorkbenchModal.MODAL_OWNER)) {
+    if ((realmChanged || luckChanged || this.activeMode === 'transmission' || this.activeMode === 'technique_refining') && detailModalHost.isOpenFor(CraftWorkbenchModal.MODAL_OWNER)) {
       this.patchOpenCraftShell();
     }
   }
@@ -2000,6 +2001,35 @@ export class CraftWorkbenchModal {
     return [gradeLabel, categoryLabel, realmLabel].join(' · ');
   }
 
+  private getTechniqueBookCraftCandidates(): PlayerState['techniques'] {
+    return (this.transmissionTechniques ?? [])
+      .map((tech) => this.resolveTechniqueBookCraftCandidate(tech))
+      .filter((tech): tech is PlayerState['techniques'][number] => Boolean(tech));
+  }
+
+  private resolveTechniqueBookCraftCandidate(tech: PlayerState['techniques'][number] | undefined): PlayerState['techniques'][number] | null {
+    const techId = typeof tech?.techId === 'string' && tech.techId.trim() ? tech.techId.trim() : '';
+    if (!techId) {
+      return null;
+    }
+    const template = getLocalTechniqueTemplate(techId);
+    const category = (tech?.category ?? template?.category) as TechniqueCategory | undefined;
+    if (category === 'divine') {
+      return null;
+    }
+    return {
+      ...tech,
+      techId,
+      name: tech?.name || template?.name || techId,
+      grade: tech?.grade ?? template?.grade,
+      category: category ?? (template?.skills?.length ? 'arts' : 'internal'),
+      realmLv: tech?.realmLv ?? template?.realmLv,
+      layers: Array.isArray(tech?.layers) && tech.layers.length > 0
+        ? tech.layers
+        : (template?.layers ?? []),
+    } as PlayerState['techniques'][number];
+  }
+
   private renderTransmissionPendingRow(entry: NonNullable<PlayerState['pendingTechniqueComprehensions']>[number]): string {
     const required = Math.max(1, Math.floor(Number(entry.requiredProgress) || 1));
     const progress = Math.max(0, Math.floor(Number(entry.progress) || 0));
@@ -2172,7 +2202,7 @@ export class CraftWorkbenchModal {
             <div class="alchemy-summary-title">制造功法书</div>
             <span class="alchemy-summary-mode">消耗功法残页</span>
           </div>
-          ${this.renderTransmissionBookCraftPicker(this.transmissionTechniques ?? [])}
+          ${this.renderTransmissionBookCraftPicker(this.getTechniqueBookCraftCandidates())}
         </section>
       </div>
     `;
@@ -2817,7 +2847,7 @@ export class CraftWorkbenchModal {
     if (!select || !input) return;
     const maxLevel = Math.max(1, Math.floor(Number(select.selectedOptions[0]?.dataset.maxLevel ?? 1) || 1));
     const selectedTechId = (select.value ?? '').trim();
-    const selectedTech = (this.transmissionTechniques ?? []).find((tech) => tech.techId === selectedTechId);
+    const selectedTech = this.getTechniqueBookCraftCandidates().find((tech) => tech.techId === selectedTechId);
     const nextLevel = Math.max(1, Math.min(maxLevel, Math.floor(Number(input.value || maxLevel) || maxLevel)));
     input.max = String(maxLevel);
     input.value = String(nextLevel);

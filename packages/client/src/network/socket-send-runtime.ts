@@ -228,12 +228,13 @@ export function createSocketRuntimeSender(deps: RuntimeSenderDeps) {
     sendCultivate(techId: string | null): void {
       deps.emitEvent(C2S.Cultivate, { techId });
     },    
-    sendStartTechniqueTransmission(learnerPlayerId: string, techId: string, options?: { mode?: 'transmission' | 'craft_book'; maxLevel?: number }): void {
+    sendStartTechniqueTransmission(learnerPlayerId: string, techId: string, options?: { mode?: 'transmission' | 'craft_book' | 'scripture_recording' | 'scripture_contemplation'; maxLevel?: number; buildingId?: string }): void {
       deps.emitEvent(C2S.StartTechniqueTransmission, {
         learnerPlayerId,
         techId,
         ...(options?.mode ? { mode: options.mode } : {}),
         ...(Number.isFinite(Number(options?.maxLevel)) ? { maxLevel: Math.max(1, Math.floor(Number(options?.maxLevel))) } : {}),
+        ...(typeof options?.buildingId === 'string' && options.buildingId.trim() ? { buildingId: options.buildingId.trim() } : {}),
       });
     },
     sendCancelTechniqueTransmission(techId: string): void {

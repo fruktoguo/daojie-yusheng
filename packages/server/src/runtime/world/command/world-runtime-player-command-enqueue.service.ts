@@ -17,6 +17,15 @@ const {
     normalizeCoordinate,
 } = world_runtime_normalization_helpers_1;
 
+function normalizeTechniqueTransmissionMode(value) {
+    return value === 'craft_book'
+        || value === 'scripture_recording'
+        || value === 'scripture_contemplation'
+        || value === 'transmission'
+        ? value
+        : undefined;
+}
+
 /** world-runtime player-command enqueue orchestration：承接玩家命令入队前的归一化、校验与排队。 */
 @Injectable()
 export class WorldRuntimePlayerCommandEnqueueService {
@@ -243,12 +252,14 @@ export class WorldRuntimePlayerCommandEnqueueService {
     }
     enqueueStartTechniqueTransmission(playerId, learnerPlayerIdInput, techniqueIdInput, deps, payloadInput = undefined) {
         const payload = payloadInput && typeof payloadInput === 'object' ? payloadInput : {};
+        const mode = normalizeTechniqueTransmissionMode(payload.mode);
         return this.enqueueNormalizedPlayerCommand(playerId, {
             kind: 'startTechniqueTransmission',
             learnerPlayerId: typeof learnerPlayerIdInput === 'string' ? learnerPlayerIdInput.trim() : '',
             techniqueId: normalizeTechniqueId(techniqueIdInput),
-            mode: payload.mode === 'craft_book' ? 'craft_book' : undefined,
+            mode,
             maxLevel: Number.isFinite(Number(payload.maxLevel)) ? Math.max(1, Math.trunc(Number(payload.maxLevel))) : undefined,
+            buildingId: typeof payload.buildingId === 'string' && payload.buildingId.trim() ? payload.buildingId.trim() : undefined,
         }, deps);
     }
     enqueueCancelTechniqueTransmission(playerId, techniqueIdInput, deps) {

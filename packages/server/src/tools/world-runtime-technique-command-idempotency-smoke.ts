@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 
+import { WorldRuntimePlayerCommandEnqueueService } from '../runtime/world/command/world-runtime-player-command-enqueue.service';
 import { WorldRuntimePlayerCommandService } from '../runtime/world/command/world-runtime-player-command.service';
 import { WorldRuntimePendingCommandService } from '../runtime/world/command/world-runtime-pending-command.service';
 
@@ -146,6 +147,57 @@ async function testDifferentTransmissionStartStillReachesPipeline(): Promise<voi
   ]);
 }
 
+function testTechniqueTransmissionEnqueuePreservesScriptureModes(): void {
+  const service = new WorldRuntimePlayerCommandEnqueueService({} as never);
+  const queued: unknown[] = [];
+  service.enqueueStartTechniqueTransmission('player:1', '', 'gen_alpha', {
+    getPlayerLocationOrThrow(playerId: string): { instanceId: string } {
+      return { instanceId: `instance:${playerId}` };
+    },
+    enqueuePendingCommand(playerId: string, command: unknown): void {
+      queued.push([playerId, command]);
+    },
+    getPlayerViewOrThrow(playerId: string): { playerId: string } {
+      return { playerId };
+    },
+  }, {
+    mode: 'scripture_recording',
+    buildingId: 'building:scripture:1',
+  });
+  service.enqueueStartTechniqueTransmission('player:2', '', 'scripture:building:2', {
+    getPlayerLocationOrThrow(playerId: string): { instanceId: string } {
+      return { instanceId: `instance:${playerId}` };
+    },
+    enqueuePendingCommand(playerId: string, command: unknown): void {
+      queued.push([playerId, command]);
+    },
+    getPlayerViewOrThrow(playerId: string): { playerId: string } {
+      return { playerId };
+    },
+  }, {
+    mode: 'scripture_contemplation',
+    buildingId: 'building:scripture:2',
+  });
+  assert.deepEqual(queued, [
+    ['player:1', {
+      kind: 'startTechniqueTransmission',
+      learnerPlayerId: '',
+      techniqueId: 'gen_alpha',
+      mode: 'scripture_recording',
+      maxLevel: undefined,
+      buildingId: 'building:scripture:1',
+    }],
+    ['player:2', {
+      kind: 'startTechniqueTransmission',
+      learnerPlayerId: '',
+      techniqueId: 'scripture:building:2',
+      mode: 'scripture_contemplation',
+      maxLevel: undefined,
+      buildingId: 'building:scripture:2',
+    }],
+  ]);
+}
+
 async function testTechniqueRejectLogsAtInfoLevel(): Promise<void> {
   const service = new WorldRuntimePendingCommandService();
   const log: LogEntry[] = [];
@@ -217,6 +269,7 @@ async function testChantCombatRejectLogsAtInfoLevel(): Promise<void> {
 async function main(): Promise<void> {
   await testDuplicateTransmissionStartIsIdempotent();
   await testDifferentTransmissionStartStillReachesPipeline();
+  testTechniqueTransmissionEnqueuePreservesScriptureModes();
   await testTechniqueRejectLogsAtInfoLevel();
   await testChantCombatRejectLogsAtInfoLevel();
   console.log('world-runtime-technique-command-idempotency-smoke passed');

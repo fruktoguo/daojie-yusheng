@@ -24,6 +24,24 @@ function normalizeOptionalStringSafe(value) {
     return typeof value === 'string' && value.trim() ? value.trim() : null;
 }
 
+function hasPlayerLearnedTechnique(player, techniqueId) {
+    const normalizedTechniqueId = normalizeOptionalStringSafe(techniqueId);
+    if (!normalizedTechniqueId) {
+        return false;
+    }
+    const learned = Array.isArray(player?.techniques?.techniques)
+        ? player.techniques.techniques
+        : Array.isArray(player?.techniques)
+            ? player.techniques
+            : [];
+    return learned.some((entry) => {
+        const entryTechniqueId = normalizeOptionalStringSafe(entry?.techId)
+            ?? normalizeOptionalStringSafe(entry?.techniqueId)
+            ?? normalizeOptionalStringSafe(entry?.id);
+        return entryTechniqueId === normalizedTechniqueId;
+    });
+}
+
 /** world-runtime use-item orchestration：承接物品使用结算分支。 */
 @Injectable()
 export class WorldRuntimeUseItemService {
@@ -227,9 +245,16 @@ export class WorldRuntimeUseItemService {
         if (!techniqueId) {
             throw new BadRequestException('功法 ID 不能为空');
         }
+        const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
+        if (!hasPlayerLearnedTechnique(player, techniqueId)) {
+            throw new BadRequestException('只能制造已掌握功法的功法书');
+        }
         const technique = this.contentTemplateRepository.createTechniqueState(techniqueId);
         if (!technique) {
             throw new NotFoundException(`功法不存在：${techniqueId}`);
+        }
+        if (technique.category === 'divine') {
+            throw new BadRequestException('神通不能制造为功法书');
         }
         const maxTemplateLevel = getTechniqueMaxLevel(Array.isArray(technique.layers) ? technique.layers : undefined, technique.level ?? 1);
         const maxLevel = Number.isFinite(Number(maxLevelInput))
@@ -274,6 +299,9 @@ export class WorldRuntimeUseItemService {
         const count = Math.max(1, Math.min(Math.trunc(Number(item.count) || 1), Math.trunc(Number(countInput) || 1)));
         const techniqueId = this.resolveLearnTechniqueId(item);
         const technique = techniqueId ? this.contentTemplateRepository.createTechniqueState(techniqueId) : null;
+        if (!technique) {
+            throw new BadRequestException('功法书缺少有效功法模板');
+        }
         const templateMaxLevel = technique
             ? getTechniqueMaxLevel(Array.isArray(technique.layers) ? technique.layers : undefined, technique.level ?? 1)
             : undefined;

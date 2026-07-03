@@ -10,7 +10,7 @@ const { WorldRuntimeUseItemService } = require("../runtime/world/world-runtime-u
  */
 
 
-function createDeps(log) {
+function createDeps(log, overrides = {}) {
     return {    
     /**
  * refreshQuestStates：执行refresh任务状态相关逻辑。
@@ -45,14 +45,17 @@ function createDeps(log) {
  * @returns 无返回值，完成玩家位置OrThrow的读取/组装。
  */
 
-        getPlayerLocationOrThrow() { return { instanceId: 'instance:1' }; },        
+        getPlayerLocationOrThrow() { return overrides.location ?? { instanceId: 'instance:1' }; },
         /**
  * getInstanceRuntimeOrThrow：读取Instance运行态OrThrow。
  * @returns 无返回值，完成Instance运行态OrThrow的读取/组装。
  */
 
+        getInstanceRuntime(instanceId) {
+            return overrides.instance ?? this.getInstanceRuntimeOrThrow(instanceId);
+        },
         getInstanceRuntimeOrThrow() {
-            return {            
+            return overrides.instance ?? {
             meta: {
                 instanceId: 'public:wildlands',
             },
@@ -83,6 +86,22 @@ function createDeps(log) {
             };
         },
     };
+}
+
+function createTechniqueRefiningDeps(log, overrides = {}) {
+    const building = overrides.building ?? {
+        id: 'building:technique-refining',
+        defId: 'technique_refining_table',
+        state: 'active',
+        x: 3,
+        y: 4,
+    };
+    return createDeps(log, {
+        location: { instanceId: 'instance:technique-refining' },
+        instance: {
+            buildingById: new Map([[building.id, building]]),
+        },
+    });
 }
 /**
  * createService：构建并返回目标对象。
@@ -147,7 +166,14 @@ function createService(overrides = {}) {
  * @returns 无返回值，完成玩家OrThrow的读取/组装。
  */
 
-        getPlayerOrThrow() { return { x: 3, y: 4, sectId: overrides.playerSectId ?? null }; },
+        getPlayerOrThrow() { return { x: overrides.playerX ?? 3, y: overrides.playerY ?? 4, sectId: overrides.playerSectId ?? null }; },
+        consumeItemByItemId(playerId, itemId, count) {
+            overrides.log.push(['consumeItemByItemId', playerId, itemId, count]);
+            return overrides.consumeItemByItemIdResult ?? true;
+        },
+        receiveInventoryItem(playerId, item) {
+            overrides.log.push(['receiveInventoryItem', playerId, item]);
+        },
     };
     const contentTemplateRepository = {    
     /**
@@ -158,6 +184,29 @@ function createService(overrides = {}) {
 
         getLearnTechniqueId(itemId) {
             return itemId === 'manual_scroll' ? 'technique.scroll' : null;
+        },
+        createTechniqueState(techniqueId) {
+            if (techniqueId === 'technique.refining.smoke') {
+                return {
+                    techId: techniqueId,
+                    name: '炼法烟测诀',
+                    realmLv: 4,
+                    grade: 'yellow',
+                    level: 1,
+                    layers: [{ level: 1 }, { level: 2 }, { level: 3 }, { level: 4 }],
+                };
+            }
+            if (techniqueId === 'technique.scroll') {
+                return {
+                    techId: techniqueId,
+                    name: '功法玉简',
+                    realmLv: 1,
+                    grade: 'mortal',
+                    level: 1,
+                    layers: [{ level: 1 }],
+                };
+            }
+            return null;
         },
     };
     const templateRepository = {    
@@ -414,6 +463,109 @@ function testTechniqueGenerationOpenPanelBranch() {
     ]);
 }
 
+function testTechniqueRefiningCraftBookBranch() {
+    const log = [];
+    const service = createService({ log });
+    service.playerRuntimeService.getPlayerOrThrow = () => ({
+        x: 3,
+        y: 4,
+        techniques: {
+            techniques: [{ techId: 'technique.refining.smoke' }],
+        },
+    });
+    service.dispatchCraftTechniqueBook('player:1', 'technique.refining.smoke', 2, createTechniqueRefiningDeps(log));
+    assert.deepEqual(log, [
+        ['consumeItemByItemId', 'player:1', 'mat.technique_fragment', 20],
+        ['receiveInventoryItem', 'player:1', {
+            itemId: 'book.custom_technique',
+            count: 1,
+            learnTechniqueId: 'technique.refining.smoke',
+            learnTechniqueMaxLevel: 2,
+            name: '《炼法烟测诀》残卷',
+            type: 'skill_book',
+            desc: '记载炼法烟测诀前 2 层的残卷。',
+            grade: 'yellow',
+            level: 4,
+        }],
+        ['refreshQuestStates', 'player:1'],
+        ['queuePlayerNotice', 'player:1', '功法书已制成', 'success'],
+    ]);
+}
+
+function testTechniqueRefiningCraftRejectsOutOfRange() {
+    const log = [];
+    const service = createService({ log, playerX: 8, playerY: 8 });
+    service.playerRuntimeService.getPlayerOrThrow = () => ({
+        x: 8,
+        y: 8,
+        techniques: {
+            techniques: [{ techId: 'technique.refining.smoke' }],
+        },
+    });
+    assert.throws(
+        () => service.dispatchCraftTechniqueBook('player:1', 'technique.refining.smoke', 2, createTechniqueRefiningDeps(log)),
+        /需要在炼法台 1 格范围内操作/,
+    );
+    assert.deepEqual(log, []);
+}
+
+function testTechniqueRefiningCraftRejectsUnknownOrUnlearnedTechnique() {
+    const log = [];
+    const service = createService({ log });
+    service.playerRuntimeService.getPlayerOrThrow = () => ({
+        x: 3,
+        y: 4,
+        techniques: {
+            techniques: [{ techId: 'technique.refining.smoke' }],
+        },
+    });
+    assert.throws(
+        () => service.dispatchCraftTechniqueBook('player:1', 'technique.unknown', 1, createTechniqueRefiningDeps(log)),
+        /只能制造已掌握功法的功法书/,
+    );
+    assert.deepEqual(log, []);
+}
+
+function testTechniqueRefiningDecomposeBookBranch() {
+    const log = [];
+    const service = createService({ log });
+    service.playerRuntimeService.peekInventoryItem = () => ({
+        itemId: 'book.custom_technique',
+        itemInstanceId: 'item:book:1',
+        name: '《炼法烟测诀》残卷',
+        type: 'skill_book',
+        count: 3,
+        learnTechniqueId: 'technique.refining.smoke',
+        learnTechniqueMaxLevel: 2,
+    });
+    service.dispatchDecomposeTechniqueBook('player:1', 'item:book:1', createTechniqueRefiningDeps(log), 2);
+    assert.deepEqual(log, [
+        ['consumeInventoryItem', 'player:1', 'item:book:1', 2],
+        ['receiveInventoryItem', 'player:1', { itemId: 'mat.technique_fragment', count: 10 }],
+        ['queuePlayerNotice', 'player:1', '功法书已分解', 'success'],
+    ]);
+}
+
+function testTechniqueRefiningDecomposeRejectsMissingTemplate() {
+    const log = [];
+    const service = createService({ log });
+    service.playerRuntimeService.peekInventoryItem = () => ({
+        itemId: 'book.custom_technique',
+        itemInstanceId: 'item:book:missing-template',
+        name: '异常功法书',
+        type: 'skill_book',
+        count: 1,
+        learnTechniqueId: 'technique.missing',
+        grade: 'heaven',
+        level: 80,
+    });
+    assert.throws(
+        () => service.dispatchDecomposeTechniqueBook('player:1', 'item:book:missing-template', createTechniqueRefiningDeps(log), 1),
+        /功法书缺少有效功法模板/,
+    );
+    assert.deepEqual(log, []);
+}
+
 async function main() {
     testMapUnlockBranch();
     testMapGroupUnlockBranch();
@@ -427,6 +579,11 @@ async function main() {
     testLegacyTileAuraBranch();
     testNormalUseBranch();
     testTechniqueGenerationOpenPanelBranch();
+    testTechniqueRefiningCraftBookBranch();
+    testTechniqueRefiningCraftRejectsOutOfRange();
+    testTechniqueRefiningCraftRejectsUnknownOrUnlearnedTechnique();
+    testTechniqueRefiningDecomposeBookBranch();
+    testTechniqueRefiningDecomposeRejectsMissingTemplate();
 
     console.log(JSON.stringify({ ok: true, case: 'world-runtime-use-item' }, null, 2));
 }

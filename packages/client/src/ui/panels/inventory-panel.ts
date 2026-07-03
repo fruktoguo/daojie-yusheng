@@ -299,7 +299,7 @@ export class InventoryPanel {
   private onDropItem: ((itemInstanceId: string, count: number) => void) | null = null;
   private onBulkDropItems: ((itemInstanceIds: string[]) => void) | null = null;
   /** onDestroyItem：on Destroy物品。 */
-  private onDestroyItem: ((itemInstanceId: string, count: number, options?: { mode?: 'decompose_technique_book' }) => void) | null = null;
+  private onDestroyItem: ((itemInstanceId: string, count: number) => void) | null = null;
   /** onEquipItem：on Equip物品。 */
   private onEquipItem: ((itemInstanceId: string) => void) | null = null;
   /** onSortInventory：on排序背包。 */
@@ -495,7 +495,7 @@ export class InventoryPanel {
     onOpenHeavenlyDaoShop: () => void,
     onDrop: (itemInstanceId: string, count: number) => void,
     onBulkDrop: (itemInstanceIds: string[]) => void,
-    onDestroy: (itemInstanceId: string, count: number, options?: { mode?: 'decompose_technique_book' }) => void,
+    onDestroy: (itemInstanceId: string, count: number) => void,
     onEquip: (itemInstanceId: string) => void,
     onSort: () => void,
     onRepairInventoryItemInstanceIds: () => void,
@@ -2656,11 +2656,7 @@ export class InventoryPanel {
               this.repairMissingInventoryItemInstanceIds();
               return;
             }
-            this.onDestroyItem?.(
-              itemInstanceId,
-              selectedCount,
-              item.type === 'skill_book' ? { mode: 'decompose_technique_book' } : undefined,
-            );
+            this.onDestroyItem?.(itemInstanceId, selectedCount);
             this.closeModal();
           }, { signal });
         },
@@ -2845,7 +2841,7 @@ export class InventoryPanel {
       ? `<button class="small-btn ghost" type="button" data-inventory-detail-action="drop">${item.count > 1 ? t('inventory.action.batch-drop', undefined) : t('inventory.action.drop-one', undefined)}</button>`
       : '';
     const destroyButton = this.onDestroyItem
-      ? `<button class="small-btn ghost danger" type="button" data-inventory-detail-action="destroy">${item.type === 'skill_book' ? '分解' : (item.count > 1 ? t('inventory.action.batch-destroy', undefined) : t('inventory.action.destroy', undefined))}</button>`
+      ? `<button class="small-btn ghost danger" type="button" data-inventory-detail-action="destroy">${item.count > 1 ? t('inventory.action.batch-destroy', undefined) : t('inventory.action.destroy', undefined)}</button>`
       : '';
     if (!primaryButton && !batchUseButton && !dropButton && !destroyButton) {
       return '';

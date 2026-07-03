@@ -98,7 +98,7 @@ type MainInventoryStateSourceOptions = {
  * sendDestroyItem：sendDestroy道具相关字段。
  */
 
-  sendDestroyItem: (itemInstanceId: string, count: number, options?: { mode?: 'decompose_technique_book' }) => void;
+  sendDestroyItem: (itemInstanceId: string, count: number) => void;
   /**
  * sendEquip：sendEquip相关字段。
  */
@@ -135,7 +135,7 @@ export function createMainInventoryStateSource(options: MainInventoryStateSource
     () => options.marketStateSource.openHeavenlyDaoShopFromInventory(),
     (itemInstanceId, count) => options.sendDropItem(itemInstanceId, count),
     (itemInstanceIds) => options.sendBulkDropItems(itemInstanceIds),
-    (itemInstanceId, count, destroyOptions) => options.sendDestroyItem(itemInstanceId, count, destroyOptions),
+    (itemInstanceId, count) => options.sendDestroyItem(itemInstanceId, count),
     (itemInstanceId) => options.sendEquip(itemInstanceId),
     () => options.sendSortInventory(),
     () => options.sendRepairInventoryItemInstanceIds(),
