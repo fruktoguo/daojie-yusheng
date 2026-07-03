@@ -20,6 +20,7 @@ import {
   GENERATED_TECHNIQUE_TABLE,
 } from '../../../../persistence/generated-technique-persistence.service';
 import { GeneratedTechniqueStoreService } from '../../../../runtime/technique-generation/generated-technique-store.service';
+import { normalizeGeneratedTechniqueTargetModes } from '../../../../runtime/technique-generation/generated-technique-target-mode-normalizer';
 import { calcArtsBudgetMax } from '../../../../runtime/technique-generation/technique-budget-normalizer';
 import type {
   GmCompatConversionRunOptions,
@@ -240,7 +241,10 @@ function analyzeRow(row: CandidateRow): MigrationAnalysis {
     return { changed: false };
   }
   const migratedRawCandidate = migrateRawCandidate(rawCandidate);
-  const normalized = normalizeTechniqueArtsStrengthTemplate(migratedRawCandidate.value);
+  const targetModeNormalizedRawCandidate = normalizeGeneratedTechniqueTargetModes(migratedRawCandidate.value, {
+    category: 'arts',
+  });
+  const normalized = normalizeTechniqueArtsStrengthTemplate(targetModeNormalizedRawCandidate);
   if (!normalized.ok || !normalized.template) {
     return {
       changed: false,
@@ -266,7 +270,7 @@ function analyzeRow(row: CandidateRow): MigrationAnalysis {
     skills: expansion.expandedSkills.map((entry) => entry.skill),
   };
   const skillDefChanged = !isJsonEqual(asRecord(row.template)?.skills, updatedTemplate.skills);
-  const reportChanged = !isJsonEqual(artsStrength?.rawCandidate, migratedRawCandidate.value)
+  const reportChanged = !isJsonEqual(artsStrength?.rawCandidate, targetModeNormalizedRawCandidate)
     || !isJsonEqual(artsStrength?.normalizedTemplate, normalized.template)
     || !isJsonEqual(artsStrength?.expansion, buildExpansionReport(expansion.expandedSkills));
   const changed = migratedRawCandidate.changed || skillDefChanged || reportChanged;
@@ -275,13 +279,13 @@ function analyzeRow(row: CandidateRow): MigrationAnalysis {
   }
   return {
     changed: true,
-    migratedRawCandidate: migratedRawCandidate.value,
+    migratedRawCandidate: targetModeNormalizedRawCandidate,
     normalizedTemplate: normalized.template,
     updatedTemplate,
     expandedSkills: expansion.expandedSkills,
     beforeSummary: buildSummary(rawCandidate),
     afterSummary: {
-      ...asRecord(buildSummary(migratedRawCandidate.value)),
+      ...asRecord(buildSummary(targetModeNormalizedRawCandidate)),
       skillDefChanged,
     },
   };
@@ -478,6 +482,7 @@ function buildSummary(candidate: Record<string, unknown>): unknown {
     skillName: typeof skill?.name === 'string' ? skill.name : null,
     target: target ? {
       type: target.type ?? target.shape ?? null,
+      targetMode: target.targetMode ?? null,
       range: target.range ?? null,
       radius: target.radius ?? null,
       width: target.width ?? null,

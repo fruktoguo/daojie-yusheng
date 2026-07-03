@@ -18,6 +18,7 @@ import {
   TechniqueGenerationService,
   normalizeGeneratedTechniqueCandidateForServer,
 } from '../runtime/technique-generation/technique-generation.service';
+import { AiArtsStrengthV1ToV2Conversion } from '../gm/compat-conversions/conversions/technique/ai-arts-strength-v1-to-v2';
 import type { GeneratedTechniqueStoreService } from '../runtime/technique-generation/generated-technique-store.service';
 import type { AiTextModelConfig } from '../ai/ai-model-config';
 import { WorldGatewayTechniqueGenerationHelper } from '../network/world-gateway-technique-generation.helper';
@@ -63,13 +64,15 @@ function createFakeConnectedPool(
   records: QueryRecord[],
   handler: (sql: string, params: unknown[] | undefined) => { rows: unknown[]; rowCount?: number },
 ): Pool {
+  const query = async (sql: unknown, params?: unknown[]) => {
+    const text = String(sql);
+    records.push({ sql: text, params });
+    return handler(text, params);
+  };
   return {
+    query,
     connect: async () => ({
-      query: async (sql: unknown, params?: unknown[]) => {
-        const text = String(sql);
-        records.push({ sql: text, params });
-        return handler(text, params);
-      },
+      query,
       release: () => undefined,
     }),
   } as unknown as Pool;
@@ -900,6 +903,101 @@ async function testArtsTileTargetModeNormalizesForEntityDamage(): Promise<void> 
   assert.equal(terrainSkill?.target?.targetMode, 'tile');
 }
 
+async function testAiArtsStrengthMigrationNormalizesPublishedTileDamageSkill(): Promise<void> {
+  const queries: QueryRecord[] = [];
+  let storedTemplate: any = null;
+  let storedValidationReport: any = null;
+  let refreshCount = 0;
+  const row = createPublishedTileDamageArtsRow();
+  const pool = createFakeConnectedPool(queries, (sql) => {
+    if (sql.includes('SELECT id,') && sql.includes('FROM generated_technique') && sql.includes("validation_report ? 'artsStrength'")) {
+      return { rows: [row], rowCount: 1 };
+    }
+    if (sql.includes('UPDATE generated_technique') && sql.includes('SET template = $2::jsonb')) {
+      const params = queries[queries.length - 1]?.params ?? [];
+      storedTemplate = JSON.parse(String(params[1]));
+      storedValidationReport = JSON.parse(String(params[2]));
+      return { rows: [], rowCount: 1 };
+    }
+    return { rows: [], rowCount: 0 };
+  });
+  const conversion = new AiArtsStrengthV1ToV2Conversion(
+    { getPool: () => pool } as never,
+    null,
+    { refreshAfterPublish: async () => { refreshCount += 1; } } as unknown as GeneratedTechniqueStoreService,
+  );
+
+  const dryRun = await conversion.run({ mode: 'dry-run' });
+  assert.equal(dryRun.matchedRows, 1);
+  assert.equal(dryRun.convertedRows, 1);
+  assert.equal((dryRun.samples[0]?.before as any)?.target?.targetMode, 'tile');
+  assert.equal((dryRun.samples[0]?.after as any)?.target?.targetMode, 'entity');
+
+  const applied = await conversion.run({ mode: 'apply' });
+  assert.equal(applied.matchedRows, 1);
+  assert.equal(applied.convertedRows, 1);
+  assert.equal(refreshCount, 1);
+  assert.equal(storedTemplate?.skills?.[0]?.targetMode, 'entity');
+  assert.equal(storedTemplate?.skills?.[0]?.targeting?.targetMode, 'entity');
+  assert.equal(storedValidationReport?.artsStrength?.rawCandidate?.skills?.[0]?.target?.targetMode, 'entity');
+  assert.equal(storedValidationReport?.artsStrength?.normalizedTemplate?.skills?.[0]?.target?.targetMode, 'entity');
+}
+
+function createPublishedTileDamageArtsRow(): Record<string, unknown> {
+  const rawCandidate = {
+    name: '万虚归墟',
+    desc: '引动虚空乱流，以大湮灭之法吞没八方，灵力激荡，威压天地。',
+    grade: 'heaven',
+    category: 'arts',
+    realmLv: 45,
+    maxLayer: 9,
+    budgetPercent: 1.0012,
+    totalBudget: 89.5433,
+    skills: [{
+      name: '大湮灭术',
+      desc: '虚空塌陷，湮灭万物，瞬息吞噬广大区域。',
+      unlockLevel: 1,
+      damageKind: 'spell',
+      element: 'water',
+      target: { type: 'area', targetMode: 'tile' },
+      structureStrength: { area: 100, cost: -10, chant: 0, damage: -100, cooldown: 30, castRange: -100 },
+      formulaStrength: { attributeBases: { spellAtk: 1 } },
+    }],
+  };
+  const skill = expandTechniqueArtsStrengthSkill({
+    techniqueId: 'gen_e24a698b2bc44477',
+    grade: 'heaven',
+    realmLv: 45,
+    skillIndex: 0,
+    skill: normalizeTechniqueArtsStrengthSkill(rawCandidate.skills[0]),
+    targetBudget: rawCandidate.totalBudget,
+  }).skill;
+  return {
+    id: 'gen_e24a698b2bc44477',
+    status: 'published',
+    display_name: '万虚归墟',
+    grade: 'heaven',
+    realm_lv: 45,
+    template: {
+      id: 'gen_e24a698b2bc44477',
+      name: '万虚归墟',
+      grade: 'heaven',
+      category: 'arts',
+      realmLv: 45,
+      budgetPercent: 1.0012,
+      totalBudget: 89.5433,
+      maxLayer: 9,
+      skills: [skill],
+    },
+    validation_report: {
+      artsStrength: {
+        version: 2,
+        rawCandidate,
+      },
+    },
+  };
+}
+
 async function testTechniquePromptIncludesRolledBudgetContext(): Promise<void> {
   const artsPrompt = buildTechniquePrompt({
     category: 'arts',
@@ -1084,6 +1182,7 @@ async function main(): Promise<void> {
   await testInternalCandidateRejectsUnknownAttrRatioKeys();
   await testArtsCandidateAcceptsStrengthShape();
   await testArtsTileTargetModeNormalizesForEntityDamage();
+  await testAiArtsStrengthMigrationNormalizesPublishedTileDamageSkill();
   await testTechniquePromptIncludesRolledBudgetContext();
   await testZeroRangeArtsStrengthExpandsAsMinimumCastRangeSkill();
   await testArtsStrengthBudgetAllocatesAndRefundsByItem();
