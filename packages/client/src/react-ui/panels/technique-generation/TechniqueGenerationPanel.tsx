@@ -5,7 +5,7 @@
  */
 import { memo, useCallback, useEffect, useState, type CSSProperties, type PointerEvent, type ReactElement } from 'react';
 import type { AttrKey, Attributes, SkillDef, TechniqueCategory, TechniqueGrade } from '@mud/shared';
-import { ATTR_KEYS, resolveSkillUnlockLevel } from '@mud/shared';
+import { ATTR_KEYS, CUSTOM_TECHNIQUE_NAME_MAX_LENGTH, CUSTOM_TECHNIQUE_NAME_MIN_LENGTH, resolveSkillUnlockLevel } from '@mud/shared';
 import { createPanelStore } from '../../stores/create-panel-store';
 import { ATTR_KEY_LABELS, getTechniqueCategoryLabel, getTechniqueGradeLabel } from '../../../domain-labels';
 import { ATTR_COLORS, ATTR_ICON_ATLAS_CELLS } from '../../../constants/ui/attr-panel';
@@ -163,7 +163,7 @@ export const TechniqueGenerationPanel = memo(function TechniqueGenerationPanel()
 
   useEffect(() => {
     if (!state.currentDraft) return;
-    setCustomName([...state.currentDraft.suggestedName].slice(0, 8).join(''));
+    setCustomName([...state.currentDraft.suggestedName].slice(0, CUSTOM_TECHNIQUE_NAME_MAX_LENGTH).join(''));
   }, [state.currentDraft?.techniqueId, state.currentDraft?.suggestedName]);
 
   useEffect(() => {
@@ -327,15 +327,15 @@ export const TechniqueGenerationPanel = memo(function TechniqueGenerationPanel()
           <div className="technique-generation-panel__naming">
             <label className="technique-generation-panel__field-label" htmlFor="technique-generation-name">
               为功法命名
-              <span>2-8字</span>
+              <span>{CUSTOM_TECHNIQUE_NAME_MIN_LENGTH}-{CUSTOM_TECHNIQUE_NAME_MAX_LENGTH}字</span>
             </label>
             <input
               id="technique-generation-name"
               type="text"
               value={customName}
-              onChange={(e) => setCustomName(e.target.value.slice(0, 8))}
+              onChange={(e) => setCustomName([...e.target.value].slice(0, CUSTOM_TECHNIQUE_NAME_MAX_LENGTH).join(''))}
               placeholder={state.currentDraft.suggestedName || '输入功法名'}
-              maxLength={8}
+              maxLength={CUSTOM_TECHNIQUE_NAME_MAX_LENGTH}
             />
           </div>
 
@@ -344,7 +344,7 @@ export const TechniqueGenerationPanel = memo(function TechniqueGenerationPanel()
               type="button"
               className="small-btn technique-generation-panel__adopt"
               onClick={handleAdopt}
-              disabled={!state.currentDraft.jobId || [...customName.trim()].length < 2}
+              disabled={!state.currentDraft.jobId || [...customName.trim()].length < CUSTOM_TECHNIQUE_NAME_MIN_LENGTH}
             >
               采纳并学习
             </button>

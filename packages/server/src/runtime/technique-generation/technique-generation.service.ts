@@ -15,6 +15,8 @@ import type { Pool } from 'pg';
 import { Injectable } from '@nestjs/common';
 import type { Attributes, TechniqueCategory, TechniqueLayerDef, TechniqueTemplate } from '@mud/shared';
 import {
+  CUSTOM_TECHNIQUE_NAME_MAX_LENGTH,
+  CUSTOM_TECHNIQUE_NAME_MIN_LENGTH,
   TECHNIQUE_GRADE_ORDER,
   TECHNIQUE_INTERNAL_DEFAULT_MAX_LAYER,
   calcInternalTechniqueAttrTotalByBudgetPercent,
@@ -448,8 +450,13 @@ export class TechniqueGenerationService {
 
     // 命名校验
     const name = params.customName.trim();
-    if (!name || [...name].length < 2 || [...name].length > 8) {
-      return { success: false, error: '功法名称需 2~8 字', errorCode: 'NAME_INVALID' };
+    const nameLength = [...name].length;
+    if (!name || nameLength < CUSTOM_TECHNIQUE_NAME_MIN_LENGTH || nameLength > CUSTOM_TECHNIQUE_NAME_MAX_LENGTH) {
+      return {
+        success: false,
+        error: `功法名称需 ${CUSTOM_TECHNIQUE_NAME_MIN_LENGTH}~${CUSTOM_TECHNIQUE_NAME_MAX_LENGTH} 字`,
+        errorCode: 'NAME_INVALID',
+      };
     }
 
     // 归一化名称（用于唯一检查）

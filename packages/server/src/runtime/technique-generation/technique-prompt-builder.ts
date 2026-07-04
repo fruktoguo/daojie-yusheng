@@ -13,6 +13,8 @@
 
 import type { PlayerRealmStage, TechniqueCategory, TechniqueGrade } from '@mud/shared';
 import {
+  CUSTOM_TECHNIQUE_NAME_MAX_LENGTH,
+  CUSTOM_TECHNIQUE_NAME_MIN_LENGTH,
   PLAYER_REALM_ORDER,
   PLAYER_REALM_STAGE_LEVEL_RANGES,
   TECHNIQUE_ARTS_STRENGTH_ALLOWED_ATTRIBUTE_BASE_STATS,
@@ -49,7 +51,7 @@ const INTERNAL_SYSTEM_PROMPT = `你是修仙游戏的功法设计师。根据玩
 输出格式：单个 JSON 对象，可被 JSON.parse 直接解析。
 
 必填字段：
-- name: string（中文，2~8字）
+- name: string（中文，${CUSTOM_TECHNIQUE_NAME_MIN_LENGTH}~${CUSTOM_TECHNIQUE_NAME_MAX_LENGTH}字）
 - category: "internal"
 - attrRatio: Record<AttrKey, number>（六维分配权重，正数，服务端归一化）
 - maxLayer: number（层数，3~49）

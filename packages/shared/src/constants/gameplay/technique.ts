@@ -95,6 +95,12 @@ export const TECHNIQUE_FRAGMENT_ITEM_ID = 'mat.technique_fragment';
 /** 通用功法书物品模板 ID。 */
 export const CUSTOM_TECHNIQUE_BOOK_ITEM_ID = 'book.custom_technique';
 
+/** 自创功法名称最小字数。 */
+export const CUSTOM_TECHNIQUE_NAME_MIN_LENGTH = 2;
+
+/** 自创功法名称最大字数。 */
+export const CUSTOM_TECHNIQUE_NAME_MAX_LENGTH = 20;
+
 /** 分解功法书获得残页的公式倍率。 */
 export const TECHNIQUE_BOOK_DECOMPOSE_FRAGMENT_BASE = 1;
 
