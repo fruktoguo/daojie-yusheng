@@ -37,7 +37,9 @@ export function executeAlchemyLikeTick(craftService: any, player: unknown, jobKi
     return craftService.buildAlchemyLikeTickResult();
   }
 
-  const successCount = craftService.resolveAlchemyLikeBatchSuccess(job);
+  const currentSuccessRate = craftService.resolveAlchemyLikeCurrentSuccessRate(player, jobKind, job);
+  job.successRate = currentSuccessRate;
+  const successCount = craftService.resolveAlchemyLikeBatchSuccess(job, currentSuccessRate);
   const failureCount = Math.max(0, Number(job.outputCount) - successCount);
   job.completedCount += 1;
   job.successCount += successCount;

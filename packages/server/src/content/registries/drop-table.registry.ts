@@ -63,7 +63,12 @@ export class DropTableRegistry {
   }
 
   rollLootPoolItems(query: any): any[] {
-    const chance = typeof query.chance === 'number' ? Math.max(0, Math.min(1, query.chance)) : 1;
+    const baseChance = typeof query.chance === 'number' ? Math.max(0, Math.min(1, query.chance)) : 1;
+    const chance = applyLootChanceBonus(
+      baseChance,
+      query.lootRateBonus,
+      query.rareLootRateBonus,
+    );
     if (chance <= 0 || Math.random() > chance) {
       return [];
     }
@@ -415,6 +420,29 @@ export class DropTableRegistry {
     result.sort((left, right) => left.localeCompare(right, 'zh-Hans-CN'));
     return result;
   }
+}
+
+function applyLootChanceBonus(
+  baseChanceInput: unknown,
+  lootRateBonusInput: unknown,
+  rareLootRateBonusInput: unknown,
+): number {
+  const baseChance = typeof baseChanceInput === 'number'
+    ? Math.max(0, Math.min(1, baseChanceInput))
+    : 1;
+  if (baseChance <= 0) {
+    return 0;
+  }
+  const lootRateBonus = Number.isFinite(lootRateBonusInput) ? Number(lootRateBonusInput) : 0;
+  const rareLootRateBonus = Number.isFinite(rareLootRateBonusInput) ? Number(rareLootRateBonusInput) : 0;
+  const totalRateBonus = lootRateBonus + (baseChance <= 0.001 ? rareLootRateBonus : 0);
+  const rollEquivalent = totalRateBonus >= 0
+    ? 1 + totalRateBonus / 10000
+    : 1 / (1 + Math.abs(totalRateBonus) / 10000);
+  if (rollEquivalent <= 0) {
+    return 0;
+  }
+  return 1 - Math.pow(1 - baseChance, rollEquivalent);
 }
 
 function normalizeTechniqueGrade(raw: any): string {

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 
+import { createItemStackSignature } from '@mud/shared';
 import { WorldRuntimeLootContainerService } from '../runtime/world/world-runtime-loot-container.service';
 import { canReceiveItemStack } from '../runtime/world/world-runtime.normalization.helpers';
 
@@ -15,6 +16,7 @@ async function main(): Promise<void> {
   await testGroundTakeAllIteratesStableEntrySnapshot();
   await testGroundTakeLongHammerOperationIdFitsOutboxLimit();
   await testContainerTakeDurableGrant();
+  await testContainerLootPoolUsesViewerLuck();
   await testContainerTakeAllDurableGrant();
   await testStartGatherSupportsColonInstanceId();
   await testHydrateContainerStatesCanonicalizesLegacySource();
@@ -741,6 +743,48 @@ async function testContainerTakeDurableGrant() {
   ]);
 }
 
+async function testContainerLootPoolUsesViewerLuck() {
+  const player = buildPlayer('player:container:lucky', 'inst:luck', 'runtime:container:luck', 25);
+  player.x = 4;
+  player.y = 5;
+  (player as typeof player & { luck: number }).luck = 100;
+  const rollQueries: Array<Record<string, unknown>> = [];
+  const service = new WorldRuntimeLootContainerService({
+    rollLootPoolItems(query: Record<string, unknown>) {
+      rollQueries.push(query);
+      return [{ itemId: 'lucky_leaf', name: '福叶', count: 1, type: 'material' }];
+    },
+  } as never, buildPlayerRuntimeService(player, {
+    lootWindowTarget: { tileX: 4, tileY: 5 },
+  }) as never);
+  const container = {
+    id: 'lucky_chest',
+    variant: 'chest',
+    grade: 'mortal',
+    x: 4,
+    y: 5,
+    lootPools: [{
+      chance: 0.5,
+      rolls: 1,
+      countMin: 1,
+      countMax: 1,
+      allowDuplicates: false,
+    }],
+    drops: [],
+    name: '福缘箱',
+  };
+
+  service.prepareContainerLootSource('inst:luck', container as never, 1, player as never);
+  const persisted = service.buildContainerPersistenceStates('inst:luck');
+
+  assert.equal(rollQueries.length, 1);
+  assert.equal(rollQueries[0]?.lootRateBonus, 10000);
+  assert.equal(rollQueries[0]?.rareLootRateBonus, 10000);
+  assert.equal(persisted[0]?.entries.length, 1);
+  assert.equal(persisted[0]?.entries[0]?.item.itemId, 'lucky_leaf');
+  assert.equal(persisted[0]?.entries[0]?.visible, false);
+}
+
 async function testContainerTakeAllDurableGrant() {
   const log: Array<unknown[]> = [];
   const durableCalls: Array<Record<string, unknown>> = [];
@@ -1405,7 +1449,7 @@ async function testGatherCompletionFormatsTemplateNameAndConsumesOneStock() {
       },
     ],
     activeSearch: {
-      itemKey: 'mat.sunmelt_seed#0',
+      itemKey: createItemStackSignature({ itemId: 'mat.sunmelt_seed', count: 1, level: 20, type: 'material' } as never),
       totalTicks: 1,
       remainingTicks: 1,
     },
@@ -1493,7 +1537,7 @@ async function testGatherCompletionKeepsExpiredGrowthAvailable() {
       },
     ],
     activeSearch: {
-      itemKey: 'mat.sunmelt_seed#0',
+      itemKey: createItemStackSignature({ itemId: 'mat.sunmelt_seed', name: '融阳子', count: 1, level: 20, type: 'material' } as never),
       totalTicks: 1,
       remainingTicks: 1,
     },

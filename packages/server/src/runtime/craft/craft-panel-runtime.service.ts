@@ -100,6 +100,7 @@ export class CraftPanelRuntimeService {
     /** 读取炼丹面板的状态和可见目录，同步客户端所需的数据快照。 */
     buildAlchemyPanelPayload(player, knownCatalogVersion) {
         this.ensureCraftSkills(player);
+        this.refreshAlchemyLikeActiveJobSuccessRate(player, 'alchemy');
         return this.craftPanelAlchemyQueryService.buildAlchemyPanelPayload(
             player,
             knownCatalogVersion,
@@ -111,11 +112,13 @@ export class CraftPanelRuntimeService {
     /** 读取炼丹面板运行态增量，高频刷新不重复下发目录和预设。 */
     buildAlchemyPanelPatchPayload(player) {
         this.ensureCraftSkills(player);
+        this.refreshAlchemyLikeActiveJobSuccessRate(player, 'alchemy');
         return this.craftPanelAlchemyQueryService.buildAlchemyPanelPatchPayload(player, 'alchemy');
     }
     /** 读取炼器面板状态，复用炼丹面板结构但返回炼器目录。 */
     buildForgingPanelPayload(player, knownCatalogVersion) {
         this.ensureCraftSkills(player);
+        this.refreshAlchemyLikeActiveJobSuccessRate(player, 'forging');
         const payload = {
             ...this.craftPanelAlchemyQueryService.buildAlchemyPanelPayload(
                 player,
@@ -140,6 +143,7 @@ export class CraftPanelRuntimeService {
     /** 读取炼器面板运行态增量，高频刷新不重复下发目录和预设。 */
     buildForgingPanelPatchPayload(player) {
         this.ensureCraftSkills(player);
+        this.refreshAlchemyLikeActiveJobSuccessRate(player, 'forging');
         return this.craftPanelAlchemyQueryService.buildAlchemyPanelPatchPayload(player, 'forging');
     }
     /** 读取强化面板状态并在未装备强化锤时返回错误。 */
@@ -723,8 +727,8 @@ export class CraftPanelRuntimeService {
         return resumed;
     }
     /** 解析当前批次成功数。 */
-    resolveAlchemyLikeBatchSuccess(job) {
-        return resolveAlchemyBatchSuccess(job.outputCount, job.successRate);
+    resolveAlchemyLikeBatchSuccess(job, successRate = undefined) {
+        return resolveAlchemyBatchSuccess(job.outputCount, successRate ?? job.successRate);
     }
     /** 构建炼丹/炼器批次结算 result；后续公共 pipeline 会直接消费该结构。 */
     buildAlchemyLikeBatchResolveResult(player, jobKind, job, successCount, failureCount, completed, messages) {
@@ -1250,6 +1254,33 @@ export class CraftPanelRuntimeService {
     }
     getLuckSuccessRateBonus(player) {
         return computeLuckSuccessRateBonus(resolvePlayerEffectiveLuck(player));
+    }
+
+    resolveAlchemyLikeCurrentSuccessRate(player, jobKind, job) {
+        const normalizedJobKind = jobKind === 'forging' ? 'forging' : 'alchemy';
+        const baseRate = Number.isFinite(Number(job?.baseElementSuccessRate))
+            ? Number(job.baseElementSuccessRate)
+            : Number(job?.successRate ?? 0);
+        const targetLevel = Math.max(1, Math.floor(Number(job?.outputLevel ?? 1) || 1));
+        const craftSkillLevel = normalizedJobKind === 'forging'
+            ? player?.forgingSkill?.level
+            : player?.alchemySkill?.level;
+        return computeAlchemyAdjustedSuccessRate(
+            baseRate,
+            targetLevel,
+            craftSkillLevel,
+            this.getAlchemyLikeToolSuccessRate(player, normalizedJobKind),
+            this.getLuckSuccessRateBonus(player),
+        );
+    }
+
+    refreshAlchemyLikeActiveJobSuccessRate(player, jobKind) {
+        const normalizedJobKind = jobKind === 'forging' ? 'forging' : 'alchemy';
+        const job = this.getAlchemyLikeActiveJob(player, normalizedJobKind);
+        if (!job) {
+            return;
+        }
+        job.successRate = this.resolveAlchemyLikeCurrentSuccessRate(player, normalizedJobKind, job);
     }
 
     /**

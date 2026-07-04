@@ -4,7 +4,13 @@ installSmokeTimeout(__filename);
 
 import assert from 'node:assert/strict';
 
-import { ARTIFACT_CRAFT_BASE_SUCCESS_RATE, computeAlchemyBrewTicks, computeFivePhaseElementMatch } from '@mud/shared';
+import {
+  ARTIFACT_CRAFT_BASE_SUCCESS_RATE,
+  computeAlchemyAdjustedSuccessRate,
+  computeAlchemyBrewTicks,
+  computeFivePhaseElementMatch,
+  computeLuckSuccessRateBonus,
+} from '@mud/shared';
 import type { AlchemyRecipeCatalogEntry, RuntimeTechniqueActivityKind } from '@mud/shared';
 import { WorldRuntimeAlchemyService } from '../runtime/world/world-runtime-alchemy.service';
 import { WorldRuntimeCraftMutationService } from '../runtime/world/world-runtime-craft-mutation.service';
@@ -63,6 +69,7 @@ async function main(): Promise<void> {
   await testAlchemyQuantityUsesResourceLimitsWithoutFixedCap();
   await testAlchemyQueueStartsNextJobFromUnifiedQueue();
   await testAlchemyFailureDoesNotCreateOutput();
+  await testAlchemyBatchUsesCurrentLuckSuccessRate();
   await testAlchemyOutputDropsWhenInventoryFull();
   await testLegacyActiveAlchemyAndForgingJobsContinueToCompletion();
   await testForgingUsesIndependentJobSlot();
@@ -81,6 +88,7 @@ async function main(): Promise<void> {
       '炼丹/炼器取消不再暴露 strategy executeCancel，公共 cancelLifecycle 通过 computeRefund 物化退款。',
       '炼丹/炼器中断不再暴露 strategy executeInterrupt，公共 interrupt lifecycle 统一刷新独立等待条和 active job version。',
       '炼丹失败不产出，背包满时产出掉地。',
+      '炼丹/炼器每批结算前会按当前有效幸运重算成功率。',
       '旧 active alchemy/forging job 能继续 tick 到完成。',
       '炼器使用独立 forgingJob 槽位。',
       '炼器成功、失败、背包满掉地、打断、取消和队列都有独立 proof。',
@@ -355,6 +363,7 @@ async function testAlchemyFailureDoesNotCreateOutput(): Promise<void> {
     quantity: 1,
   }, ctx.deps);
   assert.equal(start.ok, true);
+  player.alchemyJob.baseElementSuccessRate = 0;
   forceAlchemyLikeJobReadyToResolve(player.alchemyJob, 0);
 
   const result = craftService.tickTechniqueActivity(player, 'alchemy', ctx.deps);
@@ -362,6 +371,53 @@ async function testAlchemyFailureDoesNotCreateOutput(): Promise<void> {
   assert.equal(player.alchemyJob, null);
   assert.equal(countPlayerItem(player, 'pill.qi'), 0);
   assert.deepEqual(result.groundDrops, []);
+}
+
+async function testAlchemyBatchUsesCurrentLuckSuccessRate(): Promise<void> {
+  const player = createPlayer('player:alchemy:dynamic-luck', [
+    { itemId: 'herb.qi', count: 2 },
+  ]);
+  const { craftService } = createCraftHarness(player);
+  const ctx = craftService.buildPipelineContext(createDeps([]));
+
+  const start = craftService.startTechniqueActivity(player, 'alchemy', {
+    recipeId: ALCHEMY_RECIPE.recipeId,
+    ingredients: [{ itemId: 'herb.qi', count: 1 }],
+    quantity: 1,
+  }, ctx.deps);
+  assert.equal(start.ok, true);
+  const job = player.alchemyJob;
+  assert.ok(job);
+
+  job.baseElementSuccessRate = 0.1;
+  job.outputCount = 1;
+  job.quantity = 2;
+  player.luck = 200;
+  job.successRate = 0;
+  job.remainingTicks = 2;
+  job.workRemainingTicks = 2;
+  job.currentBatchRemainingTicks = 1;
+
+  const expectedRate = computeAlchemyAdjustedSuccessRate(
+    job.baseElementSuccessRate,
+    job.outputLevel,
+    player.alchemySkill.level,
+    0,
+    computeLuckSuccessRateBonus(player.luck),
+  );
+  const originalRandom = Math.random;
+  Math.random = () => 0.2;
+  try {
+    const result = craftService.tickTechniqueActivity(player, 'alchemy', ctx.deps);
+    assert.equal(result.ok, true);
+  } finally {
+    Math.random = originalRandom;
+  }
+
+  assert.ok(player.alchemyJob);
+  assert.equal(player.alchemyJob.successRate, expectedRate);
+  assert.equal(player.alchemyJob.completedCount, 1);
+  assert.equal(countPlayerItem(player, 'pill.qi'), 1);
 }
 
 async function testAlchemyOutputDropsWhenInventoryFull(): Promise<void> {
@@ -452,6 +508,7 @@ async function testForgingResolveEdges(): Promise<void> {
   const failureCtx = failureCraftService.buildPipelineContext(createDeps([]));
   const failureStart = startForgingJob(failureCraftService, failurePlayer, failureCtx.deps);
   assert.equal(failureStart.ok, true);
+  failurePlayer.forgingJob.baseElementSuccessRate = 0;
   forceAlchemyLikeJobReadyToResolve(failurePlayer.forgingJob, 0);
   const failureResult = failureCraftService.tickTechniqueActivity(failurePlayer, 'forging', failureCtx.deps);
   assert.equal(failureResult.ok, true);

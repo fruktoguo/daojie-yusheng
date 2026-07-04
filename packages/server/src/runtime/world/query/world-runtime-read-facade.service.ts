@@ -129,7 +129,7 @@ export class WorldRuntimeReadFacadeService {
         const instance = deps.getInstanceRuntimeOrThrow(player.instanceId);
         const container = instance.getContainerAtTile(tileX, tileY);
         if (container) {
-            deps.worldRuntimeLootContainerService.prepareContainerLootSource(instance.meta.instanceId, container, instance.tick);
+            deps.worldRuntimeLootContainerService.prepareContainerLootSource(instance.meta.instanceId, container, instance.tick, player);
         }
         return deps.worldRuntimePlayerViewQueryService.buildLootWindowSyncState(deps, playerId, tileX, tileY);
     }
