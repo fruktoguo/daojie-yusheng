@@ -1216,12 +1216,12 @@ export class ActionPanel {
       this.interactionFloatingPanel = new FloatingListPanel({
         id: 'floating-interaction-list',
         title: '交互列表',
-        storageKey: 'mud:floating-interaction-list:v1',
+        storageKey: 'mud:floating-interaction-list:v2',
         className: 'floating-list-panel--interaction',
-        defaultLeft: Math.max(12, window.innerWidth - 370),
+        defaultLeft: Math.max(12, window.innerWidth - 280),
         defaultTop: 128,
-        minWidth: 280,
-        maxWidth: 380,
+        minWidth: 200,
+        maxWidth: 280,
       });
     }
     return this.interactionFloatingPanel;
@@ -1250,11 +1250,34 @@ export class ActionPanel {
   }
 
   private renderFloatingInteractionList(actions: ActionDef[]): string {
+    const groups = this.getFloatingInteractionGroups(actions);
     return `
       <div class="floating-list-panel__list floating-interaction-quick-list">
-        ${actions.map((action) => this.renderFloatingInteractionButton(action)).join('')}
+        ${groups.map((group) => `
+          <section class="floating-interaction-group">
+            <div class="floating-interaction-group-title">${escapeHtml(group.label)}</div>
+            <div class="floating-interaction-group-list">
+              ${group.actions.map((action) => this.renderFloatingInteractionButton(action)).join('')}
+            </div>
+          </section>
+        `).join('')}
       </div>
     `;
+  }
+
+  private getFloatingInteractionGroups(actions: ActionDef[]): Array<{ label: string; actions: ActionDef[] }> {
+    const order: Array<{ type: ActionDef['type']; label: string }> = [
+      { type: 'craft', label: '技艺' },
+      { type: 'quest', label: '任务' },
+      { type: 'travel', label: '传送' },
+      { type: 'interact', label: '交互' },
+    ];
+    return order
+      .map((group) => ({
+        label: group.label,
+        actions: actions.filter((action) => action.type === group.type),
+      }))
+      .filter((group) => group.actions.length > 0);
   }
 
   private renderFloatingInteractionButton(action: ActionDef): string {

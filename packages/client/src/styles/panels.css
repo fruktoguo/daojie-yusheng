@@ -10934,6 +10934,12 @@
       backdrop-filter: blur(10px);
       overflow: hidden;
     }
+    .floating-list-panel--interaction {
+      width: min(280px, calc(100vw - 16px));
+    }
+    .floating-list-panel--queue {
+      width: min(300px, calc(100vw - 16px));
+    }
     .floating-list-panel.is-dragging {
       user-select: none;
       cursor: grabbing;
@@ -11015,12 +11021,34 @@
       justify-content: flex-start;
     }
     .floating-interaction-quick-list {
-      gap: 6px;
+      gap: 8px;
+    }
+    .floating-interaction-group {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      padding-top: 7px;
+      border-top: 1px solid rgba(84, 57, 35, 0.14);
+    }
+    .floating-interaction-group:first-child {
+      padding-top: 0;
+      border-top: 0;
+    }
+    .floating-interaction-group-title {
+      color: var(--ink-grey);
+      font-size: var(--font-size-11);
+      font-weight: 800;
+      line-height: 1.2;
+    }
+    .floating-interaction-group-list {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
     }
     .floating-interaction-quick-btn {
       width: 100%;
-      min-height: 34px;
-      padding: 7px 10px;
+      min-height: 30px;
+      padding: 6px 9px;
       border: 1px solid rgba(84, 57, 35, 0.18);
       border-radius: 8px;
       background: rgba(255, 251, 242, 0.9);
@@ -11042,6 +11070,63 @@
     .floating-interaction-quick-btn.is-cooldown {
       opacity: 0.55;
       cursor: not-allowed;
+    }
+    .floating-job-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .floating-job-item {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      padding: 7px 8px;
+      border: 1px solid rgba(84, 57, 35, 0.15);
+      border-radius: 8px;
+      background: rgba(255, 251, 242, 0.86);
+    }
+    .floating-job-item.active {
+      border-color: rgba(111, 79, 45, 0.28);
+      background: rgba(255, 247, 228, 0.95);
+    }
+    .floating-job-main {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto auto;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+    }
+    .floating-job-name {
+      min-width: 0;
+      overflow: hidden;
+      color: var(--ink-strong);
+      font-size: var(--font-size-13);
+      font-weight: 800;
+      line-height: 1.25;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .floating-job-count,
+    .floating-job-progress {
+      color: var(--ink-grey);
+      font-size: var(--font-size-11);
+      line-height: 1.2;
+      white-space: nowrap;
+    }
+    .floating-job-progress {
+      color: var(--ink-strong);
+      font-weight: 800;
+    }
+    .floating-job-bar {
+      height: 4px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: rgba(84, 57, 35, 0.1);
+    }
+    .floating-job-fill {
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, rgba(128, 83, 40, 0.82), rgba(189, 134, 66, 0.88));
     }
     .floating-list-panel .craft-queue-head {
       margin-bottom: 6px;
@@ -11074,6 +11159,20 @@
     :root[data-color-mode="dark"] .floating-interaction-quick-btn:hover {
       border-color: rgba(246, 238, 224, 0.28);
       background: rgba(58, 47, 39, 0.96);
+    }
+    :root[data-color-mode="dark"] .floating-interaction-group {
+      border-top-color: rgba(246, 238, 224, 0.13);
+    }
+    :root[data-color-mode="dark"] .floating-job-item {
+      border-color: rgba(246, 238, 224, 0.14);
+      background: rgba(45, 37, 31, 0.84);
+    }
+    :root[data-color-mode="dark"] .floating-job-item.active {
+      border-color: rgba(246, 238, 224, 0.22);
+      background: rgba(58, 47, 39, 0.92);
+    }
+    :root[data-color-mode="dark"] .floating-job-bar {
+      background: rgba(246, 238, 224, 0.12);
     }
     @media (max-width: 760px) {
       .floating-list-panel {

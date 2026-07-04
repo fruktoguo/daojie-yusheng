@@ -637,7 +637,7 @@ export class CraftWorkbenchModal {
   private lastEnhancementRenderKey: string | null = null;
   private lastEnhancementCandidateSourceKey: string | null = null;
   private readonly enhancementFormulaTooltip = new FloatingTooltip();
-  /** 行动队列浮窗宿主，复用技艺队列渲染与取消逻辑。 */
+  /** 行动队列浮窗宿主，只展示技艺通用 job 的精简状态。 */
   private queueFloatingPanel: FloatingListPanel | null = null;
   /** 行动队列浮窗当前绑定的事件。 */
   private queueFloatingEvents: AbortController | null = null;
@@ -1922,15 +1922,12 @@ export class CraftWorkbenchModal {
       return;
     }
     const panel = this.ensureQueueFloatingPanel();
-    const queueKey = this.buildCraftQueueStructureKey(queue);
+    const queueKey = this.buildFloatingQueueKey(queue);
     if (panel.getBodyKey() !== queueKey) {
-      panel.updateContent(this.renderCraftQueuePanelContent(queue));
+      panel.updateContent(this.renderFloatingQueueList(queue));
       panel.setBodyKey(queueKey);
       this.queueFloatingEvents?.abort();
-      this.queueFloatingEvents = new AbortController();
-      this.bindActions(panel.body, this.queueFloatingEvents.signal);
-    } else {
-      this.patchCraftQueueProgress(panel.body);
+      this.queueFloatingEvents = null;
     }
     panel.setTransientHidden(false);
   }
@@ -1940,15 +1937,57 @@ export class CraftWorkbenchModal {
       this.queueFloatingPanel = new FloatingListPanel({
         id: 'floating-action-queue',
         title: '行动队列',
-        storageKey: 'mud:floating-action-queue:v1',
+        storageKey: 'mud:floating-action-queue:v2',
         className: 'floating-list-panel--queue',
-        defaultLeft: Math.max(12, window.innerWidth - 370),
+        defaultLeft: Math.max(12, window.innerWidth - 300),
         defaultTop: 420,
-        minWidth: 280,
-        maxWidth: 380,
+        minWidth: 220,
+        maxWidth: 300,
       });
     }
     return this.queueFloatingPanel;
+  }
+
+  private buildFloatingQueueKey(queue = this.getCraftQueueSnapshot()): string {
+    return queue
+      .map((entry) => [
+        entry.queueId,
+        entry.label,
+        entry.quantity ?? '',
+        entry.isActive ? 'active' : 'idle',
+        entry.state ?? '',
+        entry.progress?.label ?? '',
+        entry.progress?.ratio ?? 0,
+      ].join(':'))
+      .join('|');
+  }
+
+  private renderFloatingQueueList(queue = this.getCraftQueueSnapshot()): string {
+    return `
+      <div class="floating-job-list">
+        ${queue.map((entry) => this.renderFloatingQueueItem(entry)).join('')}
+      </div>
+    `;
+  }
+
+  private renderFloatingQueueItem(entry: CraftQueueDisplayItem): string {
+    const progress = entry.progress ?? {
+      ratio: entry.isActive ? 0 : 0,
+      label: entry.isActive ? '--' : '等待中',
+      detail: '',
+    };
+    return `
+      <div class="floating-job-item${entry.isActive ? ' active' : ''}">
+        <div class="floating-job-main">
+          <span class="floating-job-name">${escapeHtml(entry.label)}</span>
+          ${entry.quantity ? `<span class="floating-job-count">x${formatDisplayInteger(entry.quantity)}</span>` : ''}
+          <strong class="floating-job-progress">${escapeHtml(progress.label)}</strong>
+        </div>
+        <div class="floating-job-bar" aria-hidden="true">
+          <div class="floating-job-fill" style="width:${(Math.max(0, Math.min(1, progress.ratio)) * 100).toFixed(2)}%"></div>
+        </div>
+      </div>
+    `;
   }
 
   private buildCraftHeaderKey(): string {
