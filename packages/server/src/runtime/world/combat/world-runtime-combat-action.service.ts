@@ -1090,14 +1090,7 @@ export class WorldRuntimeCombatActionService {
       ? input.allowedTargetKinds
       : isPlayerSelfOnlySkill(skill)
         ? [CombatTargetKind.Self]
-        : [
-          CombatTargetKind.Player,
-          CombatTargetKind.Monster,
-          CombatTargetKind.Tile,
-          CombatTargetKind.Formation,
-          CombatTargetKind.Container,
-          CombatTargetKind.Self,
-        ];
+        : baseDefinition.allowedTargetKinds;
     const effectiveGeometry = input.effectiveGeometry ?? null;
     if (!effectiveGeometry) {
       return {
@@ -2973,6 +2966,16 @@ function resolveSkillAllowedTargetKinds(skill: AnyRecord = {}) {
     return [CombatTargetKind.Self];
   }
   if (targetMode === 'tile') {
+    const geometry = normalizeSkillGeometry(skill);
+    if ((geometry.shape ?? 'single') !== 'single') {
+      return [
+        CombatTargetKind.Player,
+        CombatTargetKind.Monster,
+        CombatTargetKind.Tile,
+        CombatTargetKind.Formation,
+        CombatTargetKind.Container,
+      ];
+    }
     return [CombatTargetKind.Tile];
   }
   if (targetMode === 'entity') {

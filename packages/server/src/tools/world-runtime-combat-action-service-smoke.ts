@@ -763,6 +763,51 @@ async function run() {
   assert.equal(monsterTargets.targets[0].kind, CombatTargetKind.Monster);
   assert.equal(monsterTargets.targets[0].id, 'monster:target');
 
+  const entityAreaSkill = {
+    id: 'skill:entity-area',
+    name: '实体范围测试术',
+    range: 3,
+    targetMode: 'entity',
+    targeting: {
+      targetMode: 'entity',
+      shape: 'area',
+      radius: 1,
+      maxTargets: 9,
+    },
+    effects: [{ type: 'damage', damageKind: 'spell' }],
+  };
+  const entityAreaPlan = service.resolvePlayerSkillActionPlan({
+    playerId: 'player:attacker',
+    targetRef: 'tile:12:10',
+    attacker: {
+      playerId: 'player:attacker',
+      hp: 100,
+      instanceId: 'instance:test',
+      x: 10,
+      y: 10,
+    },
+    skill: entityAreaSkill,
+    instance: {
+      ...targetInstance,
+      canSeeTileFrom: () => true,
+      getMonsterAtTile: (x, y) => (x === 12 && y === 10
+        ? { runtimeId: 'monster:area-target', x, y, alive: true }
+        : null),
+      getPlayersAtTile: (x, y) => (x === 12 && y === 11 ? [{ playerId: 'player:area-target' }] : []),
+    },
+    playerRuntimeService: {
+      getPlayer: (playerId) => ({ playerId, hp: 100, instanceId: 'instance:test' }),
+    },
+    resolveCombatRelation: () => ({ hostile: true }),
+  });
+  assert.equal(entityAreaPlan.ok, true);
+  assert.equal(entityAreaPlan.selectedTargets.length, 2);
+  assert.deepEqual(
+    entityAreaPlan.selectedTargets.map((target) => target.kind).sort(),
+    [CombatTargetKind.Monster, CombatTargetKind.Player].sort(),
+  );
+  assert.equal(entityAreaPlan.selectedTargets.some((target) => target.kind === CombatTargetKind.Tile), false);
+
   const playerBasicAttackPlan = service.resolvePlayerBasicAttackActionPlan({
     playerId: 'player:attacker',
     targetMonsterId: 'monster:near',
