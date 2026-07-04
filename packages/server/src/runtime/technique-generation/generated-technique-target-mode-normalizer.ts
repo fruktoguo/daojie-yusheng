@@ -1,7 +1,7 @@
 /**
  * AI 生成功法目标模式冷路径归一化。
  *
- * 普通伤害术法默认打实体；只有明确表达地形、建筑或临时障碍破坏时才保留 tile。
+ * 普通范围伤害术法默认同时影响实体和可破坏地块；只有单体误标 tile 时才收窄为实体。
  */
 import type { TechniqueCategory } from '@mud/shared';
 
@@ -40,13 +40,19 @@ function normalizeGeneratedArtsSkillTargetMode(
   if (target.targetMode !== 'tile' || shouldKeepGeneratedArtsTileTargetMode(candidate, skill, playerContext)) {
     return rawSkill;
   }
+  const nextTargetMode = isGeneratedArtsAreaTarget(target) ? 'any' : 'entity';
   return {
     ...skill,
     target: {
       ...target,
-      targetMode: 'entity',
+      targetMode: nextTargetMode,
     },
   };
+}
+
+function isGeneratedArtsAreaTarget(target: Record<string, unknown>): boolean {
+  const type = typeof target.type === 'string' ? target.type : 'single';
+  return type !== 'single';
 }
 
 function shouldKeepGeneratedArtsTileTargetMode(

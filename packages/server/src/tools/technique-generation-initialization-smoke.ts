@@ -872,7 +872,35 @@ async function testArtsTileTargetModeNormalizesForEntityDamage(): Promise<void> 
     playerContext: '范围攻击，打前方敌人',
   });
   const skill = (fixed.skills as { target?: { targetMode?: string } }[])[0];
-  assert.equal(skill?.target?.targetMode, 'entity');
+  assert.equal(skill?.target?.targetMode, 'any');
+
+  const singleFixed = normalizeGeneratedTechniqueCandidateForServer({
+    name: '点星诀',
+    category: 'arts',
+    maxLayer: 9,
+    skills: [{
+      name: '点星指',
+      desc: '凝聚星芒点杀眼前敌人。',
+      unlockLevel: 1,
+      damageKind: 'spell',
+      element: 'water',
+      target: { type: 'single', targetMode: 'tile' },
+      structureStrength: { damage: 4, cost: 0, cooldown: 1, chant: 0, castRange: 3, area: 0 },
+      formulaStrength: {
+        attributeBases: { spellAtk: 4 },
+      },
+    }],
+  }, {
+    category: 'arts',
+    grade: 'mystic',
+    realmLv: 31,
+    maxLayer: 9,
+    budgetPercent: 1,
+    totalBudget: calcArtsBudgetMax('mystic', 31),
+    playerContext: '单体攻击，打眼前敌人',
+  });
+  const singleSkill = (singleFixed.skills as { target?: { targetMode?: string } }[])[0];
+  assert.equal(singleSkill?.target?.targetMode, 'entity');
 
   const terrainFixed = normalizeGeneratedTechniqueCandidateForServer({
     name: '裂石诀',
@@ -931,16 +959,16 @@ async function testAiArtsStrengthMigrationNormalizesPublishedTileDamageSkill(): 
   assert.equal(dryRun.matchedRows, 1);
   assert.equal(dryRun.convertedRows, 1);
   assert.equal((dryRun.samples[0]?.before as any)?.target?.targetMode, 'tile');
-  assert.equal((dryRun.samples[0]?.after as any)?.target?.targetMode, 'entity');
+  assert.equal((dryRun.samples[0]?.after as any)?.target?.targetMode, 'any');
 
   const applied = await conversion.run({ mode: 'apply' });
   assert.equal(applied.matchedRows, 1);
   assert.equal(applied.convertedRows, 1);
   assert.equal(refreshCount, 1);
-  assert.equal(storedTemplate?.skills?.[0]?.targetMode, 'entity');
-  assert.equal(storedTemplate?.skills?.[0]?.targeting?.targetMode, 'entity');
-  assert.equal(storedValidationReport?.artsStrength?.rawCandidate?.skills?.[0]?.target?.targetMode, 'entity');
-  assert.equal(storedValidationReport?.artsStrength?.normalizedTemplate?.skills?.[0]?.target?.targetMode, 'entity');
+  assert.equal(storedTemplate?.skills?.[0]?.targetMode, 'any');
+  assert.equal(storedTemplate?.skills?.[0]?.targeting?.targetMode, 'any');
+  assert.equal(storedValidationReport?.artsStrength?.rawCandidate?.skills?.[0]?.target?.targetMode, 'any');
+  assert.equal(storedValidationReport?.artsStrength?.normalizedTemplate?.skills?.[0]?.target?.targetMode, 'any');
 }
 
 function createPublishedTileDamageArtsRow(): Record<string, unknown> {
@@ -1023,8 +1051,8 @@ async function testTechniquePromptIncludesRolledBudgetContext(): Promise<void> {
   assert.equal(artsPayload.generationContext?.budgetPercent, 1.1);
   assertApprox(Number(artsPayload.budgetContext?.actualTotalBudget), calcArtsBudgetMax('earth', 43) * 1.1, 0.0001);
   assert.ok(artsPayload.strengthRules?.calculationFormulas?.some((entry) => entry.includes('itemBudget')));
-  assert.ok(artsPayload.outputChecklist?.some((entry) => entry.includes('targetMode 必须优先使用 entity')));
-  assert.equal(artsPayload.outputExample?.skills?.[0]?.target?.targetMode, 'entity');
+  assert.ok(artsPayload.outputChecklist?.some((entry) => entry.includes('普通范围伤害术法的 targetMode 必须优先使用 any')));
+  assert.equal(artsPayload.outputExample?.skills?.[0]?.target?.targetMode, 'any');
 
   const internalPrompt = buildTechniquePrompt({
     category: 'internal',

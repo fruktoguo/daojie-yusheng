@@ -1647,7 +1647,7 @@ export class WorldRuntimeCombatActionService {
         : typeof input.instance?.canSeeTileFrom === 'function'
           ? input.instance.canSeeTileFrom.bind(input.instance)
           : null;
-      if (input.requiresLineOfSight !== false && canSeeTileFrom) {
+      if (input.requiresLineOfSight !== false && !isGeometryCollectedTarget && canSeeTileFrom) {
         const lineOfSightRange = isGeometryCollectedTarget
           ? Math.max(range, distance)
           : range;

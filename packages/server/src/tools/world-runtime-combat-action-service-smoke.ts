@@ -808,6 +808,44 @@ async function run() {
   );
   assert.equal(entityAreaPlan.selectedTargets.some((target) => target.kind === CombatTargetKind.Tile), false);
 
+  const anyAreaSkill = {
+    ...entityAreaSkill,
+    id: 'skill:any-area',
+    name: '实体地块范围测试术',
+    targetMode: 'any',
+    targeting: {
+      ...entityAreaSkill.targeting,
+      targetMode: 'any',
+      maxTargets: 20,
+    },
+  };
+  const anyAreaPlan = service.resolvePlayerSkillActionPlan({
+    playerId: 'player:attacker',
+    targetRef: 'tile:12:10',
+    attacker: {
+      playerId: 'player:attacker',
+      hp: 100,
+      instanceId: 'instance:test',
+      x: 10,
+      y: 10,
+    },
+    skill: anyAreaSkill,
+    instance: {
+      ...targetInstance,
+      canSeeTileFrom: () => false,
+      getMonsterAtTile: (x, y) => (x === 12 && y === 10
+        ? { runtimeId: 'monster:any-area-target', x, y, alive: true }
+        : null),
+      getPlayersAtTile: () => [],
+    },
+    canDamageTile: true,
+    resolveCombatRelation: () => ({ hostile: true }),
+  });
+  assert.equal(anyAreaPlan.ok, true);
+  assert.equal(anyAreaPlan.selectedTargets.some((target) => target.kind === CombatTargetKind.Monster), true);
+  assert.equal(anyAreaPlan.selectedTargets.some((target) => target.kind === CombatTargetKind.Tile), true);
+  assert.equal(anyAreaPlan.details.rejectedTargets.some((entry) => entry.reason === CombatRejectReason.LineOfSightBlocked), false);
+
   const playerBasicAttackPlan = service.resolvePlayerBasicAttackActionPlan({
     playerId: 'player:attacker',
     targetMonsterId: 'monster:near',
