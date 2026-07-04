@@ -408,6 +408,7 @@ export class InventoryPanel {
       onOpenBulkDiscard: () => this.openBulkDiscardModal(),
       onRequestLoadMore: (scrollTarget) => this.maybeLoadMoreVisibleItems(scrollTarget),
       onPageChange: (direction) => this.requestAdjacentInventoryPage(direction),
+      onSearchChange: (value) => this.handleInventorySearchInput(value),
       onPrimaryAction: (slotIndex, itemInstanceId) => this.handlePrimaryAction(slotIndex, itemInstanceId, { closeModal: false }),
     });
     this.bindPaneEvents();
