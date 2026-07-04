@@ -74,6 +74,7 @@ interface MarketPanelCallbacks {
   onOpenAuction: ((tab: AuctionHouseTab) => void) | null;
   onOpenAuctionConsign: (() => void) | null;
   onOpenHeavenlyDaoShop: (() => void) | null;
+  onOpenTechniqueGeneration: (() => void) | null;
   onBuyHeavenlyDaoShopItem: ((itemId: string, quantity: number) => void) | null;
   onCreateSellOrder: ((slotIndex: number, quantity: number, unitPrice: number) => void) | null;
   onCreateBuyOrder: ((itemKey: string, quantity: number, unitPrice: number) => void) | null;
@@ -88,6 +89,7 @@ const callbacks: MarketPanelCallbacks = {
   onOpenAuction: null,
   onOpenAuctionConsign: null,
   onOpenHeavenlyDaoShop: null,
+  onOpenTechniqueGeneration: null,
   onBuyHeavenlyDaoShopItem: null,
   onCreateSellOrder: null,
   onCreateBuyOrder: null,
@@ -116,6 +118,10 @@ export const MarketPanel = memo(function MarketPanel() {
     callbacks.onOpenHeavenlyDaoShop?.();
   }, []);
 
+  const handleOpenTechniqueGeneration = useCallback(() => {
+    callbacks.onOpenTechniqueGeneration?.();
+  }, []);
+
   return (
     <div className="market-pane-wrapper">
       <div className="panel-section market-pane ui-surface-pane ui-surface-pane--stack">
@@ -129,6 +135,9 @@ export const MarketPanel = memo(function MarketPanel() {
           </button>
           <button className="small-btn" type="button" onClick={handleOpenHeavenlyDaoShop}>
             天道商店
+          </button>
+          <button className="small-btn" type="button" onClick={handleOpenTechniqueGeneration}>
+            悟道
           </button>
         </div>
       </div>

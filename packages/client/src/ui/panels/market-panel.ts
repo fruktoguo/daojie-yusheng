@@ -160,6 +160,8 @@ interface MarketPanelCallbacks {
   onBuyoutAuctionLot: (lotId: string, itemKey: string) => void;
   /** 购买天道商店商品。 */
   onBuyHeavenlyDaoShopItem: (itemId: string, quantity: number) => void;
+  /** 打开自创功法悟道页面。 */
+  onOpenTechniqueGeneration?: () => void;
   /**
  * onCancelOrder：onCancel订单相关字段。
  */
@@ -472,6 +474,7 @@ export class MarketPanel {
       onOpenAuction: (tab) => this.openAuctionFromPane(tab),
       onOpenAuctionConsign: () => this.openAuctionConsignFromPane(),
       onOpenHeavenlyDaoShop: () => this.openHeavenlyDaoShopFromPane(),
+      onOpenTechniqueGeneration: () => this.callbacks?.onOpenTechniqueGeneration?.(),
       onBuyHeavenlyDaoShopItem: (itemId, quantity) => this.callbacks?.onBuyHeavenlyDaoShopItem(itemId, quantity),
     });
     this.bindPaneEvents();
@@ -845,6 +848,7 @@ export class MarketPanel {
             <button class="small-btn" data-market-open type="button">坊市</button>
             <button class="small-btn" data-auction-open="participate" type="button">拍卖行</button>
             <button class="small-btn" data-heavenly-dao-shop-open type="button">天道商店</button>
+            <button class="small-btn" data-technique-generation-open type="button">悟道</button>
           </div>
         </div>
       `);
@@ -874,6 +878,10 @@ export class MarketPanel {
       }
       if (target.closest('[data-heavenly-dao-shop-open]')) {
         this.openHeavenlyDaoShopFromPane();
+        return;
+      }
+      if (target.closest('[data-technique-generation-open]')) {
+        this.callbacks?.onOpenTechniqueGeneration?.();
         return;
       }
     });

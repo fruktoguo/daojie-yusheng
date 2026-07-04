@@ -50,6 +50,7 @@ import {
   syncTechniqueGenerationState,
   techniqueGenerationStore,
 } from './react-ui/panels/technique-generation/mount-technique-generation-panel';
+import { confirmModalHost } from './ui/confirm-modal-host';
 import { cacheUnlockedMinimapLibrary, getCachedMinimapVersions } from './map-static-cache';
 import { bindMainMapInteractions } from './main-map-interaction-bindings';
 import { bindMainShellInteractions } from './main-shell-bindings';
@@ -837,7 +838,27 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
         return;
       }
       if (data.result === 'discarded') {
-        options.showToast('已放弃功法草稿', 'system');
+        const refund = data.discardRefund;
+        if (refund && refund.refundAmount > 0) {
+          const ratioText = `${Math.round(refund.refundRatio * 100)}%`;
+          confirmModalHost.open({
+            ownerId: 'technique-generation-discard-refund',
+            title: '悟道返还',
+            subtitle: '取消领悟',
+            bodyHtml: `
+              <div class="confirm-summary-list">
+                <div><span>本次投入</span><strong>${refund.itemSpend} 枚悟道玉简</strong></div>
+                <div><span>返还比例</span><strong>${ratioText}</strong></div>
+                <div><span>返还功德</span><strong>${refund.refundAmount}</strong></div>
+              </div>
+            `,
+            confirmLabel: '知道了',
+            cancelLabel: '关闭',
+          });
+          options.showToast(`已取消领悟，返还 ${refund.refundAmount} 功德`, 'system');
+        } else {
+          options.showToast('已取消领悟', 'system');
+        }
         syncTechniqueGenerationState({
           generating: false,
           currentDraft: null,

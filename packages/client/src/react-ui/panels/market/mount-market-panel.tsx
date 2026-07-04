@@ -64,6 +64,7 @@ export function setReactMarketPanelCallbacks(callbacks: {
   onOpenAuction?: (tab: AuctionHouseTab) => void;
   onOpenAuctionConsign?: () => void;
   onOpenHeavenlyDaoShop?: () => void;
+  onOpenTechniqueGeneration?: () => void;
   onBuyHeavenlyDaoShopItem?: (itemId: string, quantity: number) => void;
 }): void {
   setMarketPanelCallbacks(callbacks);

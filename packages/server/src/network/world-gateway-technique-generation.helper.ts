@@ -270,7 +270,17 @@ export class WorldGatewayTechniqueGenerationHelper {
     const jobId = String(request.jobId ?? '');
     let result: Awaited<ReturnType<TechniqueGenerationService['discardDraft']>>;
     try {
-      result = await this.techniqueGenerationService!.discardDraft(playerId, jobId);
+      result = await this.techniqueGenerationService!.discardDraft({
+        playerId,
+        jobId,
+        refundCurrency: async (itemId, count) => {
+          if (typeof this.deps.playerRuntimeService.grantItem !== 'function') {
+            return false;
+          }
+          this.deps.playerRuntimeService.grantItem(playerId, itemId, count);
+          return true;
+        },
+      });
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : '功法放弃失败';
       client.emit(S2C.TechniqueGenerationResult, {
@@ -284,7 +294,11 @@ export class WorldGatewayTechniqueGenerationHelper {
       jobId,
       result: result.success ? 'discarded' : 'failed',
       errorMessage: result.success ? undefined : result.error ?? '功法放弃失败',
+      discardRefund: result.success ? result.refund : undefined,
     });
+    if (result.success) {
+      this.deps.worldSyncService?.emitDeltaSync(playerId, client);
+    }
     return result;
   }
 }

@@ -387,6 +387,12 @@ export interface S2C_TechniqueGenerationResult {
   };
   techniqueId?: string;
   techniqueName?: string;
+  discardRefund?: {
+    itemSpend: number;
+    refundRatio: number;
+    refundAmount: number;
+    refundCurrencyItemId: string;
+  };
   errorMessage?: string;
 }
 

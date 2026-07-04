@@ -178,6 +178,7 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
     socket: socialEconomySender,
     getPlayer: () => rootRuntimeSource.getPlayer(),
     hydrateInventoryItem: (item) => detailHydrationSource.hydrateSyncedItemStack(item),
+    openTechniqueGeneration: () => techniqueGenerationPanelSource.openNamedPanel('technique_generation'),
   });
   const breakthroughStateSource = createMainBreakthroughStateSource({
     getPlayer: () => rootRuntimeSource.getPlayer(),

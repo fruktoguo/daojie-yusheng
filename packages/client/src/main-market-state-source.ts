@@ -55,6 +55,7 @@ type MainMarketStateSourceOptions = {
  */
 
   hydrateInventoryItem: (item: SyncedItemStack) => Inventory['items'][number];
+  openTechniqueGeneration: () => void;
 };
 /**
  * MainMarketStateSource：统一结构类型，保证协议与运行时一致性。
@@ -84,6 +85,7 @@ export function createMainMarketStateSource(options: MainMarketStateSourceOption
     onPlaceAuctionBid: (lotId, itemKey, unitPrice) => options.socket.sendPlaceAuctionBid(lotId, itemKey, unitPrice),
     onBuyoutAuctionLot: (lotId, itemKey) => options.socket.sendBuyoutAuctionLot(lotId, itemKey),
     onBuyHeavenlyDaoShopItem: (itemId, quantity) => options.socket.sendBuyHeavenlyDaoShopItem(itemId, quantity),
+    onOpenTechniqueGeneration: () => options.openTechniqueGeneration(),
     onCancelOrder: (orderId) => options.socket.sendCancelMarketOrder(orderId),
     onClaimStorage: () => options.socket.sendClaimMarketStorage(),
   });

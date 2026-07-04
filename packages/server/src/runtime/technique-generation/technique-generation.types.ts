@@ -45,6 +45,20 @@ export interface AdoptResult {
   errorCode?: string;
 }
 
+export interface DiscardRefundResult {
+  itemSpend: number;
+  refundRatio: number;
+  refundAmount: number;
+  refundCurrencyItemId: string;
+}
+
+export interface DiscardResult {
+  success: boolean;
+  refund?: DiscardRefundResult;
+  error?: string;
+  errorCode?: string;
+}
+
 export interface TechniquePreview {
   techniqueId: string;
   suggestedName: string;

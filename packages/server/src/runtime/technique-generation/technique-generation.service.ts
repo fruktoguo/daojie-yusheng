@@ -12,11 +12,13 @@
 
 import { randomUUID } from 'crypto';
 import type { Pool } from 'pg';
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import type { Attributes, TechniqueCategory, TechniqueLayerDef, TechniqueTemplate } from '@mud/shared';
 import {
   CUSTOM_TECHNIQUE_NAME_MAX_LENGTH,
   CUSTOM_TECHNIQUE_NAME_MIN_LENGTH,
+  HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID,
+  HEAVENLY_DAO_SHOP_ITEMS,
   TECHNIQUE_GRADE_ORDER,
   TECHNIQUE_INTERNAL_DEFAULT_MAX_LAYER,
   calcInternalTechniqueAttrTotalByBudgetPercent,
@@ -69,10 +71,16 @@ import type {
   AdoptResult,
   GenerationStatus,
   TechniquePreview,
+  DiscardResult,
 } from './technique-generation.types';
+
+const DISCARD_REFUND_RATIO_MIN = 0.3;
+const DISCARD_REFUND_RATIO_MAX = 0.7;
+const TECHNIQUE_GENERATION_REFUND_BASE_PRICE = HEAVENLY_DAO_SHOP_ITEMS.find((entry) => entry.itemId === 'wudao_yujian')?.price ?? 1000;
 
 @Injectable()
 export class TechniqueGenerationService {
+  private readonly logger = new Logger(TechniqueGenerationService.name);
   private pool: Pool | null = null;
   private generatedStore: GeneratedTechniqueStoreService | null = null;
   private modelConfigResolver: (() => Promise<AiTextModelConfig | null>) | null = null;
@@ -506,22 +514,52 @@ export class TechniqueGenerationService {
     return { success: true, techniqueId, techniqueName: name };
   }
 
-  /** 放弃草稿 */
-  async discardDraft(playerId: string, jobId: string): Promise<{ success: boolean; error?: string }> {
+  /** 取消草稿并按悟道玉简投入折算返还功德。 */
+  async discardDraft(params: {
+    playerId: string;
+    jobId: string;
+    refundCurrency?: (itemId: string, count: number) => Promise<boolean>;
+  }): Promise<DiscardResult> {
     const pool = this.pool;
     if (!pool) {
-      return { success: false, error: '功法领悟系统未就绪' };
+      return { success: false, error: '功法领悟系统未就绪', errorCode: 'SERVICE_UNAVAILABLE' };
     }
     const jobResult = await pool.query(
-      `SELECT status FROM technique_generation_job WHERE id = $1 AND player_id = $2`,
-      [jobId, playerId],
+      `SELECT status, item_spend, item_consumed, item_refunded
+         FROM technique_generation_job
+        WHERE id = $1 AND player_id = $2`,
+      [params.jobId, params.playerId],
     );
     const job = jobResult.rows[0] as Record<string, unknown> | undefined;
     if (!job || job.status !== 'generated_draft') {
-      return { success: false, error: '无可放弃的草稿' };
+      return { success: false, error: '无可取消的草稿', errorCode: 'JOB_STATE_INVALID' };
     }
-    await updateGenerationJobStatus(pool, jobId, 'discarded');
-    return { success: true };
+    const itemSpend = normalizeRefundItemSpend(job.item_spend);
+    const refundRatio = rollDiscardRefundRatio();
+    const refundAmount = Math.max(1, Math.floor(itemSpend * TECHNIQUE_GENERATION_REFUND_BASE_PRICE * refundRatio));
+    const refundCurrencyItemId = HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID;
+
+    if (job.item_consumed === true && job.item_refunded !== true) {
+      const refundOk = await params.refundCurrency?.(refundCurrencyItemId, refundAmount);
+      if (!refundOk) {
+        return { success: false, error: '取消返还失败', errorCode: 'REFUND_FAILED' };
+      }
+      await markGenerationJobItemRefunded(pool, params.jobId);
+    }
+
+    await updateGenerationJobStatus(pool, params.jobId, 'discarded');
+    this.logger.log(
+      `自创功法取消返还 playerId=${params.playerId} jobId=${params.jobId} itemSpend=${itemSpend} refundRatio=${Math.round(refundRatio * 100)}% refundCurrency=${refundCurrencyItemId} refundAmount=${refundAmount}`,
+    );
+    return {
+      success: true,
+      refund: {
+        itemSpend,
+        refundRatio,
+        refundAmount,
+        refundCurrencyItemId,
+      },
+    };
   }
 
   /** 过期清理 */
@@ -721,6 +759,11 @@ function normalizePositiveInteger(value: unknown, fallback: number): number {
     return fallback;
   }
   return Math.max(0, Math.trunc(numeric));
+}
+
+function rollDiscardRefundRatio(): number {
+  const raw = DISCARD_REFUND_RATIO_MIN + Math.random() * (DISCARD_REFUND_RATIO_MAX - DISCARD_REFUND_RATIO_MIN);
+  return Math.round(raw * 10000) / 10000;
 }
 
 function formatTechniqueGenerationTimestamp(value: unknown): string {

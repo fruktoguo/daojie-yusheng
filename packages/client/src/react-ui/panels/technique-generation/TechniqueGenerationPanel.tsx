@@ -349,7 +349,7 @@ export const TechniqueGenerationPanel = memo(function TechniqueGenerationPanel()
               采纳并学习
             </button>
             <button type="button" className="small-btn ghost" onClick={handleDiscard}>
-              放弃
+              取消领悟
             </button>
           </div>
         </div>
