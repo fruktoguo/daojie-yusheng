@@ -29,6 +29,7 @@ import {
 } from '@mud/shared';
 import { detailModalHost } from '../detail-modal-host';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../floating-tooltip';
+import { FloatingListPanel } from '../floating-list-panel';
 import { buildSkillTooltipContent, type SkillPreviewMetrics, summarizeSkillPreviewMetrics } from '../skill-tooltip';
 import { buildItemTooltipPayload } from '../equipment-tooltip';
 import { preserveSelection } from '../selection-preserver';
@@ -71,6 +72,7 @@ type SkillEnabledEntry = {
 };
 
 const UNKNOWN_AUTO_USE_PILL_NAME = '未知物品';
+const FLOATING_INTERACTION_ACTION_TYPES = new Set(['quest', 'interact', 'travel', 'craft']);
 
 function replaceElementHtml(root: HTMLElement, html: string): void {
   const template = document.createElement('template');
@@ -792,6 +794,10 @@ export class ActionPanel {
   private lastRenderedContentKey = '';
   /** 当前面板主体这一轮 render 绑定的 DOM 监听，重绘前统一撤销。 */
   private paneRenderEvents: AbortController | null = null;
+  /** 交互浮窗宿主，复用行动面板动作卡片和执行逻辑。 */
+  private interactionFloatingPanel: FloatingListPanel | null = null;
+  /** 交互浮窗当前内容绑定的事件。 */
+  private interactionFloatingEvents: AbortController | null = null;
 
   // ─── 子面板实例 ───
   private readonly skillMgmt = new SkillManagementSubpanel(this);
@@ -838,6 +844,7 @@ export class ActionPanel {
       unmountReactActionPanel();
       replaceElementHtml(this.pane, `<div class="empty-hint">${t('action.empty.no-actions', undefined)}</div>`);
     }
+    this.interactionFloatingPanel?.setTransientHidden(true);
   }  
   /**
  * setCallbacks：写入Callback。
@@ -870,6 +877,7 @@ export class ActionPanel {
   toggleShortcutBinding(actionId: string): void {
     this.bindingActionId = this.bindingActionId === actionId ? null : actionId;
     this.render(this.currentActions);
+    this.refreshInteractionFloatingPanel();
     this.renderSkillManagementModalIfOpen();
     this.notifyShortcutBindingChanged();
   }
@@ -897,6 +905,7 @@ export class ActionPanel {
       this.renderSkillPresetModalIfOpen();
       this.renderCombatSettingsModalIfOpen();
       this.renderSectManagementModalIfOpen();
+      this.refreshInteractionFloatingPanel();
       return;
     }
     this.render(this.currentActions);
@@ -904,6 +913,7 @@ export class ActionPanel {
     this.renderSkillPresetModalIfOpen();
     this.renderCombatSettingsModalIfOpen();
     this.renderSectManagementModalIfOpen();
+    this.refreshInteractionFloatingPanel();
   }
 
   /** 只同步会变的动作状态，优先走局部 patch，避免整块重绘。 */
@@ -933,6 +943,7 @@ export class ActionPanel {
     this.renderTargetingPlanModalIfOpen();
     this.renderCombatSettingsModalIfOpen();
     this.renderSectManagementModalIfOpen();
+    this.refreshInteractionFloatingPanel();
   }
 
   /** 从玩家快照初始化面板状态。 */
@@ -954,6 +965,7 @@ export class ActionPanel {
     this.renderTargetingPlanModalIfOpen();
     this.renderCombatSettingsModalIfOpen();
     this.renderSectManagementModalIfOpen();
+    this.refreshInteractionFloatingPanel();
   }
 
   /** 同步玩家上下文到面板缓存。 */
@@ -1175,6 +1187,79 @@ export class ActionPanel {
         bindNode: bindNode ?? undefined,
       });
     });
+  }
+
+  /** 刷新独立浮动交互列表，保持主行动面板以外也能快速执行附近交互。 */
+  private refreshInteractionFloatingPanel(): void {
+    const actions = this.getFloatingInteractionActions();
+    if (actions.length === 0) {
+      this.interactionFloatingPanel?.setTransientHidden(true);
+      this.interactionFloatingEvents?.abort();
+      this.interactionFloatingEvents = null;
+      return;
+    }
+    const panel = this.ensureInteractionFloatingPanel();
+    const contentKey = this.buildFloatingInteractionKey(actions);
+    if (panel.getBodyKey() !== contentKey) {
+      panel.updateContent(this.renderFloatingInteractionList(actions));
+      panel.setBodyKey(contentKey);
+      this.interactionFloatingEvents?.abort();
+      this.interactionFloatingEvents = new AbortController();
+      const signal = this.interactionFloatingEvents.signal;
+      this.bindActionCardEvents(panel.body, signal);
+      this.bindActionExecEvents(panel.body, signal);
+      this.bindBindActionEvents(panel.body, signal);
+      this.bindTooltips(panel.body, signal);
+    }
+    panel.setTransientHidden(false);
+  }
+
+  private ensureInteractionFloatingPanel(): FloatingListPanel {
+    if (!this.interactionFloatingPanel) {
+      this.interactionFloatingPanel = new FloatingListPanel({
+        id: 'floating-interaction-list',
+        title: '交互列表',
+        storageKey: 'mud:floating-interaction-list:v1',
+        className: 'floating-list-panel--interaction',
+        defaultLeft: Math.max(12, window.innerWidth - 370),
+        defaultTop: 128,
+        minWidth: 280,
+        maxWidth: 380,
+      });
+    }
+    return this.interactionFloatingPanel;
+  }
+
+  private getFloatingInteractionActions(): ActionDef[] {
+    return this.currentActions.filter((action) => (
+      FLOATING_INTERACTION_ACTION_TYPES.has(action.type)
+      && !this.isUtilityAction(action)
+      && !this.isSwitchAction(action)
+    ));
+  }
+
+  private buildFloatingInteractionKey(actions: ActionDef[]): string {
+    return actions
+      .map((action) => [
+        action.id,
+        action.type,
+        action.name,
+        stripSectManagementData(action.desc),
+        action.cooldownLeft,
+        action.range ?? '',
+        action.requiresTarget ? 'target' : 'instant',
+        this.getBindButtonLabel(action.id),
+      ].join(':'))
+      .join('|');
+  }
+
+  private renderFloatingInteractionList(actions: ActionDef[]): string {
+    return `
+      <div class="floating-list-panel__count">${formatDisplayInteger(actions.length)} 个可用交互</div>
+      <div class="floating-list-panel__list action-card-list">
+        ${actions.map((action) => this.renderActionItem(action)).join('')}
+      </div>
+    `;
   }
 
   /** 给当前渲染出来的动作区装配标签切换、入口按钮和快捷操作事件。 */

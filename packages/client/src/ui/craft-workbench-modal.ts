@@ -67,6 +67,7 @@ import { confirmModalHost } from './confirm-modal-host';
 import { detailModalHost } from './detail-modal-host';
 import { describeEquipmentBonuses } from './equipment-tooltip';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from './floating-tooltip';
+import { FloatingListPanel } from './floating-list-panel';
 import { t } from './i18n';
 import { bindInlineItemTooltips, renderInlineItemChip } from './item-inline-tooltip';
 import { getItemAffixTypeLabel, getItemDecorClassName, getItemDisplayMeta } from './item-display';
@@ -636,6 +637,10 @@ export class CraftWorkbenchModal {
   private lastEnhancementRenderKey: string | null = null;
   private lastEnhancementCandidateSourceKey: string | null = null;
   private readonly enhancementFormulaTooltip = new FloatingTooltip();
+  /** 行动队列浮窗宿主，复用技艺队列渲染与取消逻辑。 */
+  private queueFloatingPanel: FloatingListPanel | null = null;
+  /** 行动队列浮窗当前绑定的事件。 */
+  private queueFloatingEvents: AbortController | null = null;
 
   /** @internal Sub-view delegates */
   readonly alchemyView = new CraftAlchemyView(this as unknown as CraftAlchemyParent);
@@ -898,6 +903,7 @@ export class CraftWorkbenchModal {
         cancelRef: { ...task.cancelRef },
       }))
       : [];
+    this.refreshQueueFloatingPanel();
     if (this.activeMode === 'technique_refining') {
       return;
     }
@@ -956,6 +962,9 @@ export class CraftWorkbenchModal {
     this.enhancementPanel = null;
     this.techniqueActivityTasksSynced = false;
     this.techniqueActivityTasks = [];
+    this.queueFloatingPanel?.setTransientHidden(true);
+    this.queueFloatingEvents?.abort();
+    this.queueFloatingEvents = null;
     this.alchemyCatalog = [];
     this.alchemyCatalogVersion = 0;
     this.selectedAlchemyRecipeId = null;
@@ -1573,6 +1582,7 @@ export class CraftWorkbenchModal {
   }
 
   private patchOpenCraftQueueOnly(): void {
+    this.refreshQueueFloatingPanel();
     if (this.activeMode === 'technique_refining') {
       return;
     }
@@ -1899,7 +1909,46 @@ export class CraftWorkbenchModal {
       queuePanel.dataset.craftQueueKey = queueKey;
     }
     this.patchCraftQueueProgress(queuePanel);
+    this.refreshQueueFloatingPanel();
     return true;
+  }
+
+  private refreshQueueFloatingPanel(): void {
+    const queue = this.getCraftQueueSnapshot();
+    if (queue.length === 0) {
+      this.queueFloatingPanel?.setTransientHidden(true);
+      this.queueFloatingEvents?.abort();
+      this.queueFloatingEvents = null;
+      return;
+    }
+    const panel = this.ensureQueueFloatingPanel();
+    const queueKey = this.buildCraftQueueStructureKey(queue);
+    if (panel.getBodyKey() !== queueKey) {
+      panel.updateContent(this.renderCraftQueuePanelContent(queue));
+      panel.setBodyKey(queueKey);
+      this.queueFloatingEvents?.abort();
+      this.queueFloatingEvents = new AbortController();
+      this.bindActions(panel.body, this.queueFloatingEvents.signal);
+    } else {
+      this.patchCraftQueueProgress(panel.body);
+    }
+    panel.setTransientHidden(false);
+  }
+
+  private ensureQueueFloatingPanel(): FloatingListPanel {
+    if (!this.queueFloatingPanel) {
+      this.queueFloatingPanel = new FloatingListPanel({
+        id: 'floating-action-queue',
+        title: '行动队列',
+        storageKey: 'mud:floating-action-queue:v1',
+        className: 'floating-list-panel--queue',
+        defaultLeft: Math.max(12, window.innerWidth - 370),
+        defaultTop: 420,
+        minWidth: 280,
+        maxWidth: 380,
+      });
+    }
+    return this.queueFloatingPanel;
   }
 
   private buildCraftHeaderKey(): string {

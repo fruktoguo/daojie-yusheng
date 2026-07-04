@@ -10920,6 +10920,132 @@
     .craft-queue-item:not(.active) .craft-queue-progress-fill {
       background: rgba(122, 91, 65, 0.28);
     }
+    .floating-list-panel {
+      position: fixed;
+      z-index: 1800;
+      width: min(380px, calc(100vw - 16px));
+      max-height: min(52vh, 520px);
+      display: flex;
+      flex-direction: column;
+      border: 1px solid rgba(84, 57, 35, 0.22);
+      background: rgba(255, 251, 242, 0.94);
+      color: var(--ink-strong);
+      box-shadow: 0 14px 36px rgba(28, 21, 15, 0.22);
+      backdrop-filter: blur(10px);
+      overflow: hidden;
+    }
+    .floating-list-panel.is-dragging {
+      user-select: none;
+      cursor: grabbing;
+    }
+    .floating-list-panel__bar {
+      min-height: 34px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 6px 8px 6px 12px;
+      border-bottom: 1px solid rgba(84, 57, 35, 0.16);
+      background: rgba(238, 222, 190, 0.88);
+      cursor: grab;
+      touch-action: none;
+    }
+    .floating-list-panel__title {
+      min-width: 0;
+      color: var(--ink-black);
+      font-size: var(--font-size-13);
+      font-weight: 800;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .floating-list-panel__tools {
+      display: inline-flex;
+      gap: 4px;
+      flex: 0 0 auto;
+    }
+    .floating-list-panel__tool {
+      width: 24px;
+      height: 22px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid rgba(84, 57, 35, 0.2);
+      background: rgba(255, 251, 242, 0.82);
+      color: var(--ink-strong);
+      font-size: var(--font-size-13);
+      line-height: 1;
+      cursor: pointer;
+    }
+    .floating-list-panel__tool:hover {
+      border-color: rgba(84, 57, 35, 0.38);
+      background: rgba(255, 251, 242, 0.98);
+    }
+    .floating-list-panel__body {
+      min-height: 0;
+      overflow: auto;
+      padding: 8px;
+    }
+    .floating-list-panel.is-collapsed .floating-list-panel__body {
+      display: none;
+    }
+    .floating-list-panel__count {
+      margin-bottom: 6px;
+      color: var(--ink-grey);
+      font-size: var(--font-size-11);
+      line-height: 1.3;
+    }
+    .floating-list-panel__list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .floating-list-panel .action-item {
+      margin-bottom: 0;
+      padding: 8px;
+      gap: 8px;
+    }
+    .floating-list-panel .action-desc {
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .floating-list-panel .action-cta {
+      justify-content: flex-start;
+    }
+    .floating-list-panel .craft-queue-head {
+      margin-bottom: 6px;
+    }
+    .floating-list-panel .craft-queue-list {
+      max-height: none;
+    }
+    :root[data-color-mode="dark"] .floating-list-panel {
+      border-color: rgba(246, 238, 224, 0.18);
+      background: rgba(34, 28, 24, 0.92);
+      box-shadow: 0 14px 36px rgba(0, 0, 0, 0.38);
+    }
+    :root[data-color-mode="dark"] .floating-list-panel__bar {
+      border-bottom-color: rgba(246, 238, 224, 0.14);
+      background: rgba(55, 44, 34, 0.94);
+    }
+    :root[data-color-mode="dark"] .floating-list-panel__title {
+      color: var(--ink-strong);
+    }
+    :root[data-color-mode="dark"] .floating-list-panel__tool {
+      border-color: rgba(246, 238, 224, 0.18);
+      background: rgba(45, 37, 31, 0.9);
+      color: var(--ink-strong);
+    }
+    @media (max-width: 760px) {
+      .floating-list-panel {
+        width: min(340px, calc(100vw - 16px));
+        max-height: min(46dvh, 420px);
+      }
+      .floating-list-panel__body {
+        padding: 6px;
+      }
+    }
     .craft-placeholder-panel {
       display: grid;
       align-content: start;
