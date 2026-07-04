@@ -67,6 +67,14 @@ async function main(): Promise<void> {
         failedInstanceIds: [],
       };
     },
+    worldRuntimeFormationService: {
+      async flushAllNow() {
+        order.push('flushFormations');
+      },
+    },
+    async closeForShutdown() {
+      order.push('closeRuntime');
+    },
   };
   const nodeRegistryService = {
     getNodeId() {
@@ -98,7 +106,9 @@ async function main(): Promise<void> {
   assert.deepEqual(first.instances.leaseReleaseSkipped, []);
   assert.equal(first.node.deregistered, true);
   assert.ok(order.indexOf('flushTower') < order.indexOf('releaseLeases'));
+  assert.ok(order.indexOf('flushFormations') < order.indexOf('releaseLeases'));
   assert.ok(order.indexOf('releaseLeases') < order.indexOf('deregisterNode'));
+  assert.ok(order.indexOf('deregisterNode') < order.indexOf('closeRuntime'));
   assert.equal(order.filter((item) => item === 'releaseLeases').length, 1);
   assert.equal(order.filter((item) => item === 'deregisterNode').length, 1);
   assert.equal(barrier.isTrafficOpen(), false);

@@ -29,6 +29,7 @@ const instanceId = "real:formation_smoke";
 async function main() {
   await testFormationDeferredPersistenceDoesNotLazyInitialize();
   await testFormationShutdownFlushesUnrestoredRuntimeInstances();
+  await testFormationFlushAllNowFlushesPendingInstances();
   const notices = [];
   const player = {
     playerId,
@@ -1024,6 +1025,23 @@ async function testFormationShutdownFlushesUnrestoredRuntimeInstances() {
   assert.deepEqual(savedInstanceIds, [instanceId]);
   assert.equal(service.persistenceReady, false);
   assert.equal(service.persistencePool, null);
+}
+
+async function testFormationFlushAllNowFlushesPendingInstances() {
+  const service = new WorldRuntimeFormationService(
+    { getFormationTemplate: () => null },
+    {},
+  );
+  const instanceId = "inst:formation:flush-all";
+  service.formationsByInstanceId.set(instanceId, []);
+  service._formationPersistTimers.set(instanceId, setTimeout(() => undefined, 10_000));
+  const savedInstanceIds = [];
+  service.saveInstanceFormations = async (targetInstanceId) => {
+    savedInstanceIds.push(targetInstanceId);
+  };
+  await service.flushAllNow();
+  assert.deepEqual(savedInstanceIds, [instanceId]);
+  assert.equal(service._formationPersistTimers.size, 0);
 }
 
 function testFormationSuppressionEffects(service) {

@@ -273,8 +273,8 @@ process.on('uncaughtException', (error: Error) => {
 });
 
 // ─── Graceful shutdown 超时兜底 ───
-// 此处注册独立超时：SIGTERM/SIGINT 后最多等 15s，超时强制退出。
-const GRACEFUL_SHUTDOWN_TIMEOUT_MS = 15_000;
+// 此处注册独立超时：SIGTERM/SIGINT 后最多等 28s，给 30s stop_grace_period 预留退出余量。
+const GRACEFUL_SHUTDOWN_TIMEOUT_MS = 28_000;
 let shutdownTimerSet = false;
 for (const signal of ['SIGTERM', 'SIGINT'] as const) {
   process.on(signal, () => {

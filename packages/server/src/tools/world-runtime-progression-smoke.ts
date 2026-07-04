@@ -351,6 +351,12 @@ function testEmptyBreakthroughRequirementsShowPathSevered() {
         },
     });
     service.onModuleInit();
+    service.breakthroughTransitions.set(30, {
+        fromRealmLv: 30,
+        toRealmLv: 31,
+        rootFoundationItems: [],
+        requirements: [],
+    });
     const player = {
         realm: service.createRealmStateFromLevel(30, Number.MAX_SAFE_INTEGER),
         inventory: { items: [{ itemId: 'spirit_stone', count: 164 }], revision: 0 },
@@ -421,6 +427,7 @@ function testItemOnlyBreakthroughRequirementCanBreakthrough() {
     assert.equal(player.inventory.revision, 1);
     assert.equal(player.inventory.items.find((entry) => entry.itemId === 'spirit_stone')?.count, 164);
     assert.equal(player.inventory.items.some((entry) => entry.itemId === 'rat_tail'), false);
+    assert.ok(result.dirtyDomains.includes('inventory'), `突破消耗材料后必须标记 inventory 脏域，got ${result.dirtyDomains.join(',')}`);
 }
 
 function testOptionalOnlyBreakthroughRequirementKeepsRouteOpen() {

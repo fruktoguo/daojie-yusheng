@@ -1229,6 +1229,17 @@ class WorldRuntimeFormationService {
         });
     }
 
+    async flushAllNow() {
+        for (const [instanceId, timer] of this._formationPersistTimers) {
+            clearTimeout(timer);
+            this._formationPersistTimers.delete(instanceId);
+        }
+        const instanceIds = Array.from(this.formationsByInstanceId.keys());
+        for (const instanceId of instanceIds) {
+            await this.saveInstanceFormations(instanceId);
+        }
+    }
+
     /**
      * releaseInstance：实例销毁/fencing 卸载收口，清理内存中按 instanceId 索引的阵法状态。
      * 防止 destroyManagedInstance / fenceInstanceRuntime 卸载实例时遗留 formationsByInstanceId 与

@@ -411,6 +411,9 @@ async function main(): Promise<void> {
     process.env.SERVER_FLUSH_TASK_RUNTIME_MODE = 'worker';
     const deltaFlushed: string[] = [];
     const deltaPersistence = {
+      saveTileDamageStates: async (instanceId: string, entries: unknown[]) => {
+        deltaFlushed.push(`tile_damage_full:${instanceId}:${entries.length}`);
+      },
       saveTileDamageDeltaBatch: async (rows: Array<{ instanceId: string; upserts: unknown[]; deletes: unknown[] }>) => {
         deltaFlushed.push(...rows.map((row) => `tile_damage:${row.instanceId}:${row.upserts.length}:${row.deletes.length}`));
       },
@@ -440,6 +443,23 @@ async function main(): Promise<void> {
               revision: 8,
               upserts: [{ tileIndex: 1 }],
               deletes: [2],
+            },
+          },
+          {
+            scope: 'instance',
+            id: 'instance-full-damage',
+            domain: 'tile_damage',
+            priority: 'low',
+            latestRevision: 8,
+            ownershipEpoch: 1,
+            payloadJson: {
+              kind: 'instance_domain_delta',
+              domain: 'tile_damage',
+              revision: 8,
+              fullReplace: true,
+              upserts: [],
+              deletes: [],
+              entries: [{ tileIndex: 3 }],
             },
           },
           {
@@ -482,9 +502,16 @@ async function main(): Promise<void> {
       undefined,
     );
     const deltaProcessed = await deltaRuntime.runOnce('instance-delta-payload:revision');
-    assert.equal(deltaProcessed, 2);
-    assert.deepEqual(deltaFlushed, ['tile_damage:instance-current-damage:1:1']);
-    assert.deepEqual(deltaFlushedTasks.sort(), ['tile_damage:instance-current-damage', 'tile_damage:instance-stale-damage']);
+    assert.equal(deltaProcessed, 3);
+    assert.deepEqual(deltaFlushed, [
+      'tile_damage_full:instance-full-damage:1',
+      'tile_damage:instance-current-damage:1:1',
+    ]);
+    assert.deepEqual(deltaFlushedTasks.sort(), [
+      'tile_damage:instance-current-damage',
+      'tile_damage:instance-full-damage',
+      'tile_damage:instance-stale-damage',
+    ]);
   } finally {
     restoreEnv('SERVER_RUNTIME_ROLE', previousRole);
     restoreEnv('SERVER_FLUSH_TASK_RUNTIME_MODE', previousMode);

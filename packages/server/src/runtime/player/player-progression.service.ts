@@ -936,7 +936,9 @@ export class PlayerProgressionService {
                     kind: 'success',
                     structured: { key: 'notice.progression.breakthrough', vars: { realmName: targetRealm.displayName }, pills: [{ key: 'realmName', style: 'target' }] },
                 }],
-            dirtyDomains: ['progression', 'attr', 'vitals'],
+            dirtyDomains: consumedItems
+                ? ['inventory', 'progression', 'attr', 'vitals']
+                : ['progression', 'attr', 'vitals'],
         };
     }
     /** 凝练 1 点根基：消耗当前境界整条修为和当前突破材料。 */

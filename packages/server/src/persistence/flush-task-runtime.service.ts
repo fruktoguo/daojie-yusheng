@@ -67,8 +67,10 @@ interface PlayerSnapshotProjectionPayload {
 interface InstanceDomainDeltaPayload {
   kind: typeof INSTANCE_DOMAIN_DELTA_PAYLOAD_KIND;
   domain: string;
+  fullReplace?: boolean;
   upserts: unknown[];
   deletes: unknown[];
+  entries?: unknown[];
   revision?: number;
   watermarkPayload?: unknown;
 }
@@ -105,6 +107,7 @@ interface InstanceRuntimeView {
 }
 
 interface BatchPersistencePort {
+  saveTileDamageStates?(instanceId: string, entries: unknown[]): Promise<void>;
   saveTileDamageDeltaBatch?(deltas: Array<{ instanceId: string; upserts: unknown[]; deletes: unknown[] }>): Promise<void>;
   saveTileResourceDeltaBatch?(deltas: Array<{ instanceId: string; upserts: unknown[]; deletes: unknown[] }>): Promise<void>;
   saveInstanceRecoveryWatermarkBatch?(rows: Array<{ instanceId: string; payload: unknown }>): Promise<void>;
@@ -126,7 +129,14 @@ interface WorldRuntimeFlushTaskPort {
   listDirtyPersistentInstances?(): string[];
   getInstanceRuntime?(instanceId: string): InstanceRuntimeView | null;
   flushInstanceDomains?(instanceId: string, domains?: string[] | null): Promise<{ skipped?: boolean } | null>;
-  buildDomainDeltaBatch?(domain: string, instanceIds: string[]): Array<{ instanceId: string; upserts?: unknown[]; deletes?: unknown[]; watermarkPayload?: unknown }>;
+  buildDomainDeltaBatch?(domain: string, instanceIds: string[]): Array<{
+    instanceId: string;
+    fullReplace?: boolean;
+    upserts?: unknown[];
+    deletes?: unknown[];
+    entries?: unknown[];
+    watermarkPayload?: unknown;
+  }>;
   markDomainBatchPersisted?(domain: string, instanceIds: string[]): void;
 }
 
@@ -318,8 +328,10 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
       return {
         kind: INSTANCE_DOMAIN_DELTA_PAYLOAD_KIND,
         domain,
-        upserts: delta.upserts ?? [],
-        deletes: delta.deletes ?? [],
+        fullReplace: delta.fullReplace === true,
+        upserts: delta.fullReplace === true ? [] : (delta.upserts ?? []),
+        deletes: delta.fullReplace === true ? [] : (delta.deletes ?? []),
+        entries: delta.fullReplace === true ? (delta.entries ?? []) : undefined,
         revision: resolveRevision(runtime.getPersistenceRevision?.()),
         watermarkPayload: delta.watermarkPayload,
       };
@@ -851,7 +863,14 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
         const deltas = this.worldRuntimeService.buildDomainDeltaBatch?.(domain, domainTasks.map((task) => task.id)) ?? [];
         if (deltas.length === 0) continue;
         if (domain === 'tile_damage') {
-          await persistence.saveTileDamageDeltaBatch?.(deltas.map((delta) => ({ instanceId: delta.instanceId, upserts: delta.upserts ?? [], deletes: delta.deletes ?? [] })));
+          const fullReplaceDeltas = deltas.filter((delta) => delta.fullReplace === true);
+          for (const delta of fullReplaceDeltas) {
+            await persistence.saveTileDamageStates?.(delta.instanceId, delta.entries ?? []);
+          }
+          const rowDeltas = deltas.filter((delta) => delta.fullReplace !== true);
+          if (rowDeltas.length > 0) {
+            await persistence.saveTileDamageDeltaBatch?.(rowDeltas.map((delta) => ({ instanceId: delta.instanceId, upserts: delta.upserts ?? [], deletes: delta.deletes ?? [] })));
+          }
         } else {
           await persistence.saveTileResourceDeltaBatch?.(deltas.map((delta) => ({ instanceId: delta.instanceId, upserts: delta.upserts ?? [], deletes: delta.deletes ?? [] })));
         }
@@ -919,11 +938,18 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
       return processed;
     }
     if (domain === 'tile_damage') {
-      await persistence?.saveTileDamageDeltaBatch?.(currentRows.map((row) => ({
-        instanceId: row.task.id,
-        upserts: row.payload.upserts,
-        deletes: row.payload.deletes,
-      })));
+      const fullReplaceRows = currentRows.filter((row) => row.payload.fullReplace === true);
+      for (const row of fullReplaceRows) {
+        await persistence?.saveTileDamageStates?.(row.task.id, row.payload.entries ?? []);
+      }
+      const deltaRows = currentRows.filter((row) => row.payload.fullReplace !== true);
+      if (deltaRows.length > 0) {
+        await persistence?.saveTileDamageDeltaBatch?.(deltaRows.map((row) => ({
+          instanceId: row.task.id,
+          upserts: row.payload.upserts,
+          deletes: row.payload.deletes,
+        })));
+      }
     } else if (domain === 'tile_resource') {
       await persistence?.saveTileResourceDeltaBatch?.(currentRows.map((row) => ({
         instanceId: row.task.id,
@@ -1052,8 +1078,10 @@ function normalizeInstanceDomainDeltaPayload(value: unknown): InstanceDomainDelt
   return {
     kind: INSTANCE_DOMAIN_DELTA_PAYLOAD_KIND,
     domain: record.domain,
+    fullReplace: record.fullReplace === true,
     upserts: Array.isArray(record.upserts) ? record.upserts : [],
     deletes: Array.isArray(record.deletes) ? record.deletes : [],
+    entries: Array.isArray(record.entries) ? record.entries : [],
     revision: normalizeOptionalRevision(record.revision),
     watermarkPayload: record.watermarkPayload,
   };

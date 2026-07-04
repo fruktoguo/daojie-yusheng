@@ -20,6 +20,8 @@ import { WorldGateway } from './world.gateway';
 import { ShutdownStatusService, type ShutdownResultSnapshot } from '../lifecycle/shutdown-status.service';
 import { StartupBarrierService } from '../lifecycle/startup-barrier.service';
 
+const SHUTDOWN_SESSION_DRAIN_PARALLELISM = 32;
+
 @Injectable()
 export class WorldShutdownDrainService implements BeforeApplicationShutdown {
   private readonly logger = new Logger(WorldShutdownDrainService.name);
@@ -64,7 +66,7 @@ export class WorldShutdownDrainService implements BeforeApplicationShutdown {
     this.startupBarrierService.closeInstanceWrites();
     this.shutdownStatusService.beginPhase('sessions_draining', reason);
     const detachedBindings = this.worldGateway.disconnectAllForShutdown('server_shutdown');
-    for (const binding of detachedBindings) {
+    await runConcurrent(detachedBindings, SHUTDOWN_SESSION_DRAIN_PARALLELISM, async (binding) => {
       const result = await this.worldGateway.drainDetachedBinding(binding);
       this.shutdownStatusService.recordPlayerDetached();
       if (!result?.presencePersisted) {
@@ -73,7 +75,7 @@ export class WorldShutdownDrainService implements BeforeApplicationShutdown {
       if (!result?.flushSucceeded) {
         this.shutdownStatusService.recordPlayerFlushFailed(binding.playerId);
       }
-    }
+    });
     this.shutdownStatusService.completePhase('sessions_draining', {
       detached: detachedBindings.length,
       presenceFailed: this.shutdownStatusService.getSnapshot().players.presenceFailed.length,
@@ -133,6 +135,16 @@ export class WorldShutdownDrainService implements BeforeApplicationShutdown {
       finalFlushFailed = true;
       this.shutdownStatusService.recordInstanceFlushFailed('sect_flush');
       this.logger.error('最终落盘宗门数据失败', error instanceof Error ? error.stack : String(error));
+    }
+    try {
+      if (typeof this.worldRuntimeService.worldRuntimeFormationService?.flushAllNow === 'function') {
+        await this.worldRuntimeService.worldRuntimeFormationService.flushAllNow();
+        this.shutdownStatusService.recordInstanceFlushed();
+      }
+    } catch (error) {
+      finalFlushFailed = true;
+      this.shutdownStatusService.recordInstanceFlushFailed('formation_flush');
+      this.logger.error('最终落盘阵法数据失败', error instanceof Error ? error.stack : String(error));
     }
     this.shutdownStatusService.completePhase('final_flushing');
 
@@ -210,5 +222,17 @@ export class WorldShutdownDrainService implements BeforeApplicationShutdown {
     const finalSnapshot = this.shutdownStatusService.getSnapshot();
     this.logger.log(`关闭 drain 完成：${JSON.stringify({ phase: finalSnapshot.phase, players: finalSnapshot.players, instances: finalSnapshot.instances, node: finalSnapshot.node })}`);
     return finalSnapshot;
+  }
+}
+
+async function runConcurrent<T>(
+  values: readonly T[],
+  parallelism: number,
+  worker: (value: T) => Promise<void>,
+): Promise<void> {
+  const normalizedParallelism = Math.max(1, Math.trunc(Number(parallelism) || 1));
+  for (let index = 0; index < values.length; index += normalizedParallelism) {
+    const slice = values.slice(index, index + normalizedParallelism);
+    await Promise.all(slice.map((value) => worker(value)));
   }
 }

@@ -333,12 +333,16 @@ export class WorldRuntimePersistenceStateService {
             if (domain === 'tile_damage') {
                 const delta = typeof instance.buildTileDamagePersistenceDelta === 'function'
                     ? instance.buildTileDamagePersistenceDelta() : null;
-                if (delta && delta.fullReplace !== true) {
+                if (delta) {
                     results.push({
                         instanceId,
                         domain: 'tile_damage',
-                        upserts: delta.upserts ?? [],
-                        deletes: delta.deletes ?? [],
+                        fullReplace: delta.fullReplace === true,
+                        upserts: delta.fullReplace === true ? [] : (delta.upserts ?? []),
+                        deletes: delta.fullReplace === true ? [] : (delta.deletes ?? []),
+                        entries: delta.fullReplace === true && typeof instance.buildTileDamagePersistenceEntries === 'function'
+                            ? instance.buildTileDamagePersistenceEntries()
+                            : undefined,
                         watermarkPayload: buildInstanceDomainRecoveryWatermark(instance, ['tile_damage']),
                     });
                 }

@@ -61,6 +61,9 @@ async function main(): Promise<void> {
     async releaseLocalInstanceLeasesForShutdown() {
       throw new Error('releaseLocalInstanceLeasesForShutdown should not be called when final flush fails');
     },
+    async closeForShutdown() {
+      order.push('closeRuntime');
+    },
   };
   const nodeRegistryService = {
     getNodeId() {
