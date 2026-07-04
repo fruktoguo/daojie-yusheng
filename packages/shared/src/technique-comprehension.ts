@@ -80,6 +80,11 @@ export interface TechniqueComprehensionProgressBreakdown {
   transmissionSpeedFactor?: number;
 }
 
+function normalizeTransmissionSpeedRate(value: unknown): number {
+  const normalized = Number(value);
+  return Number.isFinite(normalized) ? normalized : 0;
+}
+
 export function getTechniqueComprehensionProgressDifficultyFactor(input: {
   techniqueRealmLv: number;
   learnerRealmLv: number;
@@ -124,13 +129,13 @@ export function calculateTechniqueComprehensionProgressBreakdown(input: {
   const difficultyFactor = Number.isFinite(rawDifficultyFactor) && rawDifficultyFactor > 0
     ? rawDifficultyFactor
     : 1;
-  const learnerTransmissionSpeedRate = Math.max(0, Number(input.learnerTransmissionSpeedRate) || 0);
-  const teacherTransmissionSpeedRate = Math.max(0, Number(input.teacherTransmissionSpeedRate) || 0);
+  const learnerTransmissionSpeedRate = normalizeTransmissionSpeedRate(input.learnerTransmissionSpeedRate);
+  const teacherTransmissionSpeedRate = normalizeTransmissionSpeedRate(input.teacherTransmissionSpeedRate);
   const explicitTransmissionSpeedRate = input.transmissionSpeedRate === undefined
     ? undefined
-    : Math.max(0, Number(input.transmissionSpeedRate) || 0);
+    : normalizeTransmissionSpeedRate(input.transmissionSpeedRate);
   const transmissionSpeedRate = explicitTransmissionSpeedRate ?? (learnerTransmissionSpeedRate + teacherTransmissionSpeedRate);
-  const transmissionSpeedFactor = 1 + transmissionSpeedRate;
+  const transmissionSpeedFactor = Math.max(0, 1 + transmissionSpeedRate);
   return {
     baseProgress: normalizedBaseProgress,
     progressGain: normalizedBaseProgress > 0 ? Math.max(0, normalizedBaseProgress / difficultyFactor * transmissionSpeedFactor) : 0,

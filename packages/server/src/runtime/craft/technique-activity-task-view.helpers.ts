@@ -385,6 +385,11 @@ function resolveNonNegativeNumber(value: unknown): number | undefined {
   return Number.isFinite(numeric) && numeric >= 0 ? numeric : undefined;
 }
 
+function resolveFiniteNumber(value: unknown): number | undefined {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : undefined;
+}
+
 function resolveProgressBreakdown(value: unknown): TechniqueComprehensionProgressBreakdown | undefined {
   if (!value || typeof value !== 'object') {
     return undefined;
@@ -406,9 +411,9 @@ function resolveProgressBreakdown(value: unknown): TechniqueComprehensionProgres
   }
   const teacherTransmissionLevel = resolvePositiveNumber(source.teacherTransmissionLevel);
   const teacherTransmissionFactor = resolvePositiveNumber(source.teacherTransmissionFactor);
-  const transmissionSpeedRate = resolveNonNegativeNumber(source.transmissionSpeedRate);
-  const learnerTransmissionSpeedRate = resolveNonNegativeNumber(source.learnerTransmissionSpeedRate);
-  const teacherTransmissionSpeedRate = resolveNonNegativeNumber(source.teacherTransmissionSpeedRate);
+  const transmissionSpeedRate = resolveFiniteNumber(source.transmissionSpeedRate);
+  const learnerTransmissionSpeedRate = resolveFiniteNumber(source.learnerTransmissionSpeedRate);
+  const teacherTransmissionSpeedRate = resolveFiniteNumber(source.teacherTransmissionSpeedRate);
   const transmissionSpeedFactor = resolvePositiveNumber(source.transmissionSpeedFactor);
   return {
     baseProgress,

@@ -77,7 +77,7 @@ difficultyFactor =
   × transmissionSkillFactor(learnerTransmissionLevel, techniqueRealmLv)
   × transmissionSkillFactor(teacherTransmissionLevel, techniqueRealmLv) // 仅传法时
 
-transmissionSpeedFactor = 1 + learnerTransmissionSpeedRate + teacherTransmissionSpeedRate // 传法时
+transmissionSpeedFactor = max(0, 1 + learnerTransmissionSpeedRate + teacherTransmissionSpeedRate) // 传法时；自行领悟仅使用 learnerTransmissionSpeedRate
 
 realmFactor:
   technique > learner → 1.1^(technique - learner)
@@ -98,7 +98,7 @@ transmissionSkillFactor:
 
 怪物击杀可推进当前主修 pending 的领悟进度，但领悟量不使用怪物经验值、等级差、血脉层次或掉落倍率换算；每击杀一个怪物只等同于自悟修炼 1 息的领悟增量。
 
-传法与自行领悟界面应展示当前估算速率、预计剩余完成息数和速率构成。速率构成至少包含基准进度、境界差影响、自身传法等级影响；传法 job 额外展示传授者传法等级影响、双方传法速度属性影响和合计影响。传法速率与构成由服务端随 job 投影给学习者；自行领悟速率与构成可由客户端按当前玩家境界、传法等级和 pending 功法境界本地推算。速率展示只用于估算，不要求每息额外发送网络包。
+传法与自行领悟界面应展示当前估算速率、预计剩余完成息数和速率构成。速率构成至少包含基准进度、境界差影响、自身传法等级影响；传法 job 额外展示传授者传法等级影响、双方传法速度属性影响和合计影响。玩家个人领悟速度贡献由 `craftEffectStats.transmission.speedRate`、脚下设施传法速度和 `techniqueExpRate / 10000` 相加得到，允许正负值共同参与；A 给 B 传法时，A/B 各自先计算自己的个人领悟速度贡献，再把双方贡献相加成总传法速度增益或减益。传法速率与构成由服务端随 job 投影给学习者；自行领悟速率与构成可由客户端按当前玩家境界、传法等级和 pending 功法境界本地推算。速率展示只用于估算，不要求每息额外发送网络包。
 
 功法玩家态持久化只保存动态真源字段，不保存模板可补全的重复字段。已掌握功法从 `player_technique_state` 的 `tech_id/level/exp/exp_to_next/realm_lv/skills_enabled` 恢复，并在运行时通过内容模板补全 `name/grade/category/skills/layers`。未领悟功法从 `player_technique_comprehension` 的 `tech_id/source_kind/progress/required_progress/realm_lv/grade/category/creator_player_id/self_comprehension_allowed/created_at_tick/updated_at_tick` 恢复；`raw_payload` 不作为功法重复字段真源。
 

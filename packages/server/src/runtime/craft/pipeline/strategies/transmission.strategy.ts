@@ -999,8 +999,14 @@ function resolveScriptureContemplationProgressBreakdown(learner: any, techniqueR
 }
 
 function resolvePlayerTransmissionSpeedRate(player: any, ctx: PipelineContext): number {
-  return Math.max(0, resolvePlayerCraftEffectStat(player, 'transmission', 'speedRate'))
+  return resolvePlayerCraftEffectStat(player, 'transmission', 'speedRate')
+    + resolveTechniqueExpRateAsComprehensionSpeedRate(player)
     + resolveStandingBuildingTransmissionSpeedRate(player, ctx);
+}
+
+function resolveTechniqueExpRateAsComprehensionSpeedRate(player: any): number {
+  const normalized = Number(player?.attrs?.numericStats?.techniqueExpRate);
+  return Number.isFinite(normalized) ? normalized / 10000 : 0;
 }
 
 function resolveStandingBuildingTransmissionSpeedRate(player: any, ctx: PipelineContext): number {

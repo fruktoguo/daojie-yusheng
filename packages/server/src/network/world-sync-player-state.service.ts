@@ -190,6 +190,11 @@ function normalizeNonNegativeProjectionNumber(value) {
   return Number.isFinite(normalized) && normalized >= 0 ? normalized : undefined;
 }
 
+function normalizeSignedProjectionNumber(value) {
+  const normalized = Number(value);
+  return Number.isFinite(normalized) ? normalized : undefined;
+}
+
 function normalizeProgressBreakdown(value) {
   if (!value || typeof value !== 'object') {
     return undefined;
@@ -210,9 +215,9 @@ function normalizeProgressBreakdown(value) {
   }
   const teacherTransmissionLevel = normalizePositiveProjectionNumber(value.teacherTransmissionLevel);
   const teacherTransmissionFactor = normalizePositiveProjectionNumber(value.teacherTransmissionFactor);
-  const transmissionSpeedRate = normalizeNonNegativeProjectionNumber(value.transmissionSpeedRate);
-  const learnerTransmissionSpeedRate = normalizeNonNegativeProjectionNumber(value.learnerTransmissionSpeedRate);
-  const teacherTransmissionSpeedRate = normalizeNonNegativeProjectionNumber(value.teacherTransmissionSpeedRate);
+  const transmissionSpeedRate = normalizeSignedProjectionNumber(value.transmissionSpeedRate);
+  const learnerTransmissionSpeedRate = normalizeSignedProjectionNumber(value.learnerTransmissionSpeedRate);
+  const teacherTransmissionSpeedRate = normalizeSignedProjectionNumber(value.teacherTransmissionSpeedRate);
   const transmissionSpeedFactor = normalizePositiveProjectionNumber(value.transmissionSpeedFactor);
   return {
     baseProgress,

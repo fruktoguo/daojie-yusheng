@@ -5,7 +5,7 @@
  */
 import { Injectable, Logger, Optional, Inject } from '@nestjs/common';
 import * as fs from 'fs';
-import { ATTR_KEYS, DEFAULT_PLAYER_REALM_STAGE, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, PLAYER_REALM_STAGE_LEVEL_RANGES, PlayerRealmStage, SHATTER_SPIRIT_PILL_COST_RATIO as SHARED_SHATTER_SPIRIT_PILL_COST_RATIO, TechniqueRealm, calculateTechniqueComprehensionProgressGain, calculateTechniqueComprehensionRequiredProgress, computeCraftSkillExpGain, deriveTechniqueRealm, getBodyTrainingExpToNext, getMonsterKillExpLevelAdjustment, getMonsterLevelExpDecayMultiplier, getTechniqueExpLevelAdjustment, getTechniqueExpToNext, getTechniqueMaxLevel, isCreatedTechniqueId, normalizeBodyTrainingState } from '@mud/shared';
+import { ATTR_KEYS, DEFAULT_PLAYER_REALM_STAGE, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, PLAYER_REALM_STAGE_LEVEL_RANGES, PlayerRealmStage, SHATTER_SPIRIT_PILL_COST_RATIO as SHARED_SHATTER_SPIRIT_PILL_COST_RATIO, TechniqueRealm, calculateTechniqueComprehensionProgressGain, calculateTechniqueComprehensionRequiredProgress, computeCraftSkillExpGain, deriveTechniqueRealm, getBodyTrainingExpToNext, getMonsterKillExpLevelAdjustment, getMonsterLevelExpDecayMultiplier, getTechniqueExpLevelAdjustment, getTechniqueExpToNext, getTechniqueMaxLevel, isCreatedTechniqueId, normalizeBodyTrainingState, readCraftEffectStat } from '@mud/shared';
 import { resolveProjectPath } from '../../common/project-path';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { getMonsterCombatExpGradeFactor, resolveMonsterCombatExpTierFactor } from '../combat/monster-combat-exp-equivalent.helper';
@@ -442,6 +442,7 @@ export class PlayerProgressionService {
                 minimumGain: 1,
                 allowPendingComprehension: true,
                 pendingComprehensionTicks,
+                getInstanceRuntime: options.getInstanceRuntime,
             }));
         }
         if (!mutation.changed) {
@@ -498,6 +499,7 @@ export class PlayerProgressionService {
                 minimumGain: 0,
                 allowPendingComprehension: true,
                 pendingComprehensionTicks: 1,
+                getInstanceRuntime: input.getInstanceRuntime,
             }));
         }
 
@@ -2110,7 +2112,7 @@ export class PlayerProgressionService {
             techniqueRealmLv: pending.realmLv,
             learnerRealmLv: player.realm?.realmLv ?? 1,
             learnerTransmissionLevel: player.transmissionSkill?.level ?? 1,
-            transmissionSpeedRate: resolvePlayerCraftEffectStat(player, 'transmission', 'speedRate'),
+            transmissionSpeedRate: resolvePlayerComprehensionSpeedRate(player, options),
         });
         if (normalized <= 0) {
             return resolved;
@@ -3168,6 +3170,61 @@ function normalizeProgressionAmount(value) {
 
     const numeric = Number(value);
     return Number.isFinite(numeric) ? Math.max(0, Math.floor(numeric)) : 0;
+}
+
+function resolvePlayerComprehensionSpeedRate(player: any, options: any = {}): number {
+    return resolveFiniteNumber(resolvePlayerCraftEffectStat(player, 'transmission', 'speedRate'))
+        + resolveTechniqueExpRateAsComprehensionSpeedRate(player)
+        + resolveStandingBuildingTransmissionSpeedRate(player, options);
+}
+
+function resolveTechniqueExpRateAsComprehensionSpeedRate(player: any): number {
+    return resolveFiniteNumber(player?.attrs?.numericStats?.techniqueExpRate) / 10000;
+}
+
+function resolveStandingBuildingTransmissionSpeedRate(player: any, options: any = {}): number {
+    const instanceId = normalizeProgressionText(player?.instanceId);
+    if (!instanceId) {
+        return 0;
+    }
+    const instance = typeof options.getInstanceRuntime === 'function'
+        ? options.getInstanceRuntime(instanceId)
+        : options.instanceRuntime;
+    if (!instance || typeof instance !== 'object') {
+        return 0;
+    }
+    const x = Math.floor(Number(player?.x) || 0);
+    const y = Math.floor(Number(player?.y) || 0);
+    const cellIndex = typeof instance.toTileIndex === 'function'
+        ? Math.trunc(Number(instance.toTileIndex(x, y)))
+        : Math.trunc(Number(instance.tilePlane?.getCellIndex?.(x, y)));
+    if (!Number.isFinite(cellIndex) || cellIndex < 0) {
+        return 0;
+    }
+    const buildingIds = instance.buildingIdByCell?.get?.(cellIndex);
+    if (!buildingIds || typeof buildingIds[Symbol.iterator] !== 'function') {
+        return 0;
+    }
+    let speedRate = 0;
+    for (const buildingId of buildingIds as Iterable<unknown>) {
+        const building = instance.buildingById?.get?.(buildingId);
+        if (!building || building.state !== 'active') {
+            continue;
+        }
+        const compiled = instance.buildingCatalog?.defByHandle?.[building.defHandle]
+            ?? instance.buildingCatalog?.defById?.get?.(building.defId);
+        speedRate += resolveFiniteNumber(readCraftEffectStat(compiled?.craftEffectStats, 'transmission', 'speedRate'));
+    }
+    return speedRate;
+}
+
+function resolveFiniteNumber(value: unknown): number {
+    const normalized = Number(value);
+    return Number.isFinite(normalized) ? normalized : 0;
+}
+
+function normalizeProgressionText(value: unknown): string {
+    return typeof value === 'string' && value.trim().length > 0 ? value.trim() : '';
 }
 /**
  * normalizeProgressionTicks：规范化或转换修炼进度tick。

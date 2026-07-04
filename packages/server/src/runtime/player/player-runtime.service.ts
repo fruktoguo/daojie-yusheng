@@ -1533,6 +1533,7 @@ export class PlayerRuntimeService {
 
         const result = this.playerProgressionService.advanceCultivation(player, elapsedTicks, {
             auraMultiplier: normalizeCultivationAuraMultiplier(options?.auraMultiplier),
+            getInstanceRuntime: options?.getInstanceRuntime,
         });
         return this.applyProgressionResultWithStatistics(player, result, statisticBefore, currentTick);
     }
@@ -1549,7 +1550,9 @@ export class PlayerRuntimeService {
         const player = this.getPlayerOrThrow(playerId);
         const statisticBefore = this.captureOfflineGainBeforeTick(player);
 
-        const result = this.playerProgressionService.grantMonsterKillProgress(player, input);
+        const result = this.playerProgressionService.grantMonsterKillProgress(player, {
+            ...input,
+        });
         return this.applyProgressionResultWithStatistics(player, result, statisticBefore, currentTick);
     }
     /**
@@ -4283,6 +4286,7 @@ export class PlayerRuntimeService {
                 const cultivationAdvanceStartedAt = performance.now();
                 const result = this.playerProgressionService.advanceCultivation(player, 1, {
                     auraMultiplier: resolveCultivationAuraMultiplier(player, options),
+                    getInstanceRuntime: options.getInstanceRuntime,
                 });
                 this.applyProgressionResult(player, result, playerTick);
                 statisticChangedThisTick = statisticChangedThisTick || result?.changed === true;

@@ -141,6 +141,7 @@ export class WorldRuntimePlayerCombatService {
                 contributionRatio,
                 expAdjustmentRealmLv: Math.max(topContributionRealmLv, killerRealmLv, participant.realmLv),
                 isKiller: participant.playerId === killerPlayerId,
+                getInstanceRuntime: (instanceId) => deps.getInstanceRuntime?.(instanceId) ?? null,
             }, deps.resolveCurrentTickForPlayerId(participant.playerId));
             if (auditEnabled) {
                 const afterProgression = capturePlayerProgressionAuditSnapshot(this.playerRuntimeService.getPlayer(participant.playerId));

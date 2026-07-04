@@ -152,6 +152,29 @@ function createTransmissionPipelineWithInstance(runtimeService: PlayerRuntimeSer
   return { pipeline, ctx };
 }
 
+function createMeditationMatInstance(players: Array<{ id: string; x: number; y: number }>, speedRate = 1): any {
+  const matDef = { handle: 1, id: 'meditation_mat', craftEffectStats: { transmission: { speedRate } } };
+  const buildingById = new Map<string, any>();
+  const buildingIdByCell = new Map<number, Set<string>>();
+  for (const player of players) {
+    const cellIndex = player.x + player.y * 1000;
+    const buildingId = `mat:${player.id}`;
+    buildingById.set(buildingId, { id: buildingId, defId: matDef.id, defHandle: matDef.handle, state: 'active' });
+    buildingIdByCell.set(cellIndex, new Set([buildingId]));
+  }
+  return {
+    buildingCatalog: {
+      defByHandle: [undefined, matDef],
+      defById: new Map([[matDef.id, matDef]]),
+    },
+    buildingById,
+    buildingIdByCell,
+    toTileIndex(x: number, y: number) {
+      return Math.floor(Number(x) || 0) + Math.floor(Number(y) || 0) * 1000;
+    },
+  };
+}
+
 function startTransmissionWithPipeline(
   runtimeService: PlayerRuntimeService,
   teacherPlayerId: string,
@@ -361,6 +384,31 @@ function testSelfComprehensionProgressesOnlyWithoutTransmission() {
   assert.ok((acceleratedLearner.pendingTechniqueComprehensions[0]?.progress ?? 0) > 4);
   assert.equal(acceleratedLearner.transmissionSkill.exp, getExpectedTransmissionExpGain(8, 1, 4));
 
+  const insightfulLearner = createPlayer('learner:self-insightful', 0, 0);
+  insightfulLearner.attrs.numericStats.techniqueExpRate = 10000;
+  insightfulLearner.techniques.cultivatingTechId = createdTechnique.techId;
+  insightfulLearner.pendingTechniqueComprehensions.push({
+    techId: createdTechnique.techId,
+    name: createdTechnique.name,
+    sourceKind: 'created',
+    selfComprehensionAllowed: true,
+    progress: 0,
+    requiredProgress: 100,
+    realmLv: 1,
+    grade: 'mortal',
+    category: 'internal',
+    createdAtTick: 0,
+    updatedAtTick: 0,
+    activeTransferJob: null,
+  });
+  const insightfulProgressed = progressionService.advanceTechniqueProgressInternal(insightfulLearner, 999, {
+    allowPendingComprehension: true,
+    pendingComprehensionTicks: 4,
+  });
+  assert.equal(insightfulProgressed.changed, true);
+  assert.equal(insightfulLearner.pendingTechniqueComprehensions[0]?.progress, 8);
+  assert.equal(insightfulLearner.transmissionSkill.exp, getExpectedTransmissionExpGain(1, 1, 4));
+
   learner.transmissionJob = {
     jobRunId: 'job:test',
     jobType: 'transmission',
@@ -516,7 +564,40 @@ function testCultivationUsesElapsedTicksForPendingComprehension() {
   const result = progressionService.advanceCultivation(learner, 1, { auraMultiplier: 10 });
   assert.equal(result.changed, true);
   assert.equal(learner.pendingTechniqueComprehensions[0]?.requiredProgress, expectedRequiredProgress('created', createdTechnique, learner.realm.realmLv));
-  assert.equal(learner.pendingTechniqueComprehensions[0]?.progress, 1);
+  assert.equal(learner.pendingTechniqueComprehensions[0]?.progress, 11);
+  assert.equal(learner.transmissionSkill.exp, getExpectedTransmissionExpGain(1, 1, 1));
+}
+
+function testSelfComprehensionUsesStandingFacilitySpeed() {
+  const { progressionService } = createRuntimeService();
+  const learner = createPlayer('learner:self-mat', 0, 0);
+  learner.combat.cultivationActive = true;
+  learner.attrs.numericStats.techniqueExpPerTick = 999;
+  learner.techniques.cultivatingTechId = createdTechnique.techId;
+  learner.pendingTechniqueComprehensions.push({
+    techId: createdTechnique.techId,
+    name: createdTechnique.name,
+    sourceKind: 'created',
+    selfComprehensionAllowed: true,
+    progress: 0,
+    requiredProgress: 10,
+    realmLv: 1,
+    grade: 'mortal',
+    category: 'internal',
+    createdAtTick: 0,
+    updatedAtTick: 0,
+    activeTransferJob: null,
+  });
+  const instance = createMeditationMatInstance([{ id: learner.playerId, x: learner.x, y: learner.y }]);
+
+  const result = progressionService.advanceCultivation(learner, 1, {
+    auraMultiplier: 10,
+    getInstanceRuntime(instanceId: string) {
+      return instanceId === learner.instanceId ? instance : null;
+    },
+  });
+  assert.equal(result.changed, true);
+  assert.equal(learner.pendingTechniqueComprehensions[0]?.progress, 2);
   assert.equal(learner.transmissionSkill.exp, getExpectedTransmissionExpGain(1, 1, 1));
 }
 
@@ -590,10 +671,10 @@ function testMonsterKillProgressesComprehensionByOneCultivationTick() {
     isKiller: true,
   });
   assert.equal(result.changed, true);
-  assert.equal(learner.pendingTechniqueComprehensions[0]?.progress, 1);
+  assert.equal(learner.pendingTechniqueComprehensions[0]?.progress, 11);
   assert.equal(learner.transmissionSkill.exp, getExpectedTransmissionExpGain(1, 1, 1));
   assert.ok(
-    result.notices.some((notice: any) => String(notice.structured?.vars?.details ?? '').includes(`${createdTechnique.name} 领悟进度 +1`)),
+    result.notices.some((notice: any) => String(notice.structured?.vars?.details ?? '').includes(`${createdTechnique.name} 领悟进度 +11`)),
   );
 }
 
@@ -664,7 +745,7 @@ function testCultivationCanStoreFractionalComprehensionProgress() {
 
   const result = progressionService.advanceCultivation(learner, 1, { auraMultiplier: 10 });
   assert.equal(result.changed, true);
-  assertAlmostEqual(learner.pendingTechniqueComprehensions[0]?.progress ?? 0, 1 / (1.1 * 1.05), 'fractional self comprehension progress');
+  assertAlmostEqual(learner.pendingTechniqueComprehensions[0]?.progress ?? 0, 11 / (1.1 * 1.05), 'fractional self comprehension progress');
 }
 
 function testPendingTechniqueNameResolvesDisplayName() {
@@ -775,26 +856,14 @@ function testTransmissionUsesStandingFacilitySpeedForBothPlayers() {
   const teacher = createPlayer('teacher:mat', 0, 0);
   const learner = createPlayer('learner:mat', 0, 1);
   teacher.techniques.techniques.push({ ...createdTechnique });
+  teacher.attrs.numericStats.techniqueExpRate = -5000;
+  learner.attrs.numericStats.techniqueExpRate = 10000;
   runtimeService.players.set(teacher.playerId, teacher);
   runtimeService.players.set(learner.playerId, learner);
-  const matDef = { handle: 1, id: 'meditation_mat', craftEffectStats: { transmission: { speedRate: 1 } } };
-  const instance: any = {
-    buildingCatalog: {
-      defByHandle: [undefined, matDef],
-      defById: new Map([[matDef.id, matDef]]),
-    },
-    buildingById: new Map([
-      ['mat:teacher', { id: 'mat:teacher', defId: matDef.id, defHandle: matDef.handle, state: 'active' }],
-      ['mat:learner', { id: 'mat:learner', defId: matDef.id, defHandle: matDef.handle, state: 'active' }],
-    ]),
-    buildingIdByCell: new Map([
-      [0, new Set(['mat:teacher'])],
-      [1000, new Set(['mat:learner'])],
-    ]),
-    toTileIndex(x: number, y: number) {
-      return Math.floor(Number(x) || 0) + Math.floor(Number(y) || 0) * 1000;
-    },
-  };
+  const instance = createMeditationMatInstance([
+    { id: teacher.playerId, x: teacher.x, y: teacher.y },
+    { id: learner.playerId, x: learner.x, y: learner.y },
+  ]);
   const { pipeline, ctx } = createTransmissionPipelineWithInstance(runtimeService, instance);
   const startResult = pipeline.start(learner, 'transmission', {
     learnerPlayerId: learner.playerId,
@@ -802,14 +871,14 @@ function testTransmissionUsesStandingFacilitySpeedForBothPlayers() {
     techniqueId: createdTechnique.techId,
   }, ctx as never);
   assert.equal(startResult.ok, true, startResult.error);
-  assert.equal(learner.transmissionJob?.progressBreakdown?.learnerTransmissionSpeedRate, 1);
-  assert.equal(learner.transmissionJob?.progressBreakdown?.teacherTransmissionSpeedRate, 1);
-  assert.equal(learner.transmissionJob?.progressBreakdown?.transmissionSpeedRate, 2);
-  assert.equal(learner.transmissionJob?.progressBreakdown?.transmissionSpeedFactor, 3);
-  assert.equal(learner.transmissionJob?.progressGainPerTick, 3);
+  assert.equal(learner.transmissionJob?.progressBreakdown?.learnerTransmissionSpeedRate, 2);
+  assert.equal(learner.transmissionJob?.progressBreakdown?.teacherTransmissionSpeedRate, 0.5);
+  assert.equal(learner.transmissionJob?.progressBreakdown?.transmissionSpeedRate, 2.5);
+  assert.equal(learner.transmissionJob?.progressBreakdown?.transmissionSpeedFactor, 3.5);
+  assert.equal(learner.transmissionJob?.progressGainPerTick, 3.5);
 
   pipeline.tick(learner, 'transmission', ctx as never);
-  assert.equal(learner.pendingTechniqueComprehensions[0]?.progress, 3);
+  assert.equal(learner.pendingTechniqueComprehensions[0]?.progress, 3.5);
 }
 
 function testScriptureRecordingUsesTransmissionJobAndLocksBuilding() {
@@ -1018,6 +1087,7 @@ testCreatedPendingWithoutCreatorDoesNotAutoMainTechnique();
 testRequiredProgressUsesPreFoundationLearnerReduction();
 testDynamicFactorsApplyToProgressGain();
 testCultivationUsesElapsedTicksForPendingComprehension();
+testSelfComprehensionUsesStandingFacilitySpeed();
 testAutoSwitchCultivationCanSelectPendingComprehension();
 testMonsterKillProgressesComprehensionByOneCultivationTick();
 testMonsterKillAutoSwitchesAndProgressesPendingComprehension();

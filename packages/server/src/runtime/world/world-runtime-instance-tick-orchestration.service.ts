@@ -599,6 +599,7 @@ export class WorldRuntimeInstanceTickOrchestrationService {
                         }, () => deps.playerRuntimeService.advanceTickForPlayerIds([playerId], instance.tick, {
                             idleCultivationBlockedPlayerIds: blockedPlayerIds,
                             cultivationAuraMultiplierByPlayerId,
+                            getInstanceRuntime: (instanceId) => deps.getInstanceRuntime(instanceId),
                             markPlayerDefeated: (defeatedPlayerId) => this.markPlayerDefeated(defeatedPlayerId),
                             onPlayerQiSpent: (player, amount) => instance.disperseQiAt?.(player?.x, player?.y, amount),
                             recordTickSectionDuration: (key, durationMs, count = 1) => addTickSectionDuration(sectionDurations, key, durationMs, count),
