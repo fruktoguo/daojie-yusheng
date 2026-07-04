@@ -24,6 +24,13 @@ import {
   updateMapPerformanceConfig,
   type MapPerformanceConfig,
 } from '../../../ui/performance-config';
+import {
+  FLOATING_PANEL_PREFERENCES_CHANGED_EVENT,
+  getFloatingPanelPreferences,
+  updateFloatingPanelPreference,
+  type FloatingPanelPreferenceKey,
+  type FloatingPanelPreferences,
+} from '../../../ui/floating-panel-preferences';
 import { validateDisplayName, validatePassword, validateRoleName } from '../../../ui/account-rules';
 import { checkDisplayNameAvailability, getAccessToken, updateDisplayName, updatePassword, updateRoleName } from '../../../ui/auth-api';
 import { readOfflineGainReportsFromBrowser, readPlayerStatisticTotalsFromBrowser } from '../../../offline-gain-storage';
@@ -67,6 +74,23 @@ const PERFORMANCE_RENDER_TOGGLES: Array<{
     key: 'herbTextMode',
     labelKey: 'settings.performance.label.herb-text-mode',
     descKey: 'settings.performance.desc.herb-text-mode',
+  },
+];
+
+const FLOATING_PANEL_TOGGLES: Array<{
+  key: FloatingPanelPreferenceKey;
+  title: string;
+  desc: string;
+}> = [
+  {
+    key: 'actionQueue',
+    title: '行动队列',
+    desc: '显示技艺通用 jobs 的任务名、数量和当前进度。',
+  },
+  {
+    key: 'interactionList',
+    title: '交互列表',
+    desc: '显示附近技艺、任务、传送和交互的快捷按钮。',
   },
 ];
 
@@ -441,6 +465,7 @@ const UiTab = memo(function UiTab() {
   const [colorMode, setColorMode] = useState<UiColorMode>(() => getUiStyleConfig().colorMode);
   const [fontOffset, setFontOffset] = useState(() => getUiStyleConfig().globalFontOffset);
   const [uiScale, setUiScale] = useState(() => getUiStyleConfig().uiScale);
+  const [floatingPanels, setFloatingPanels] = useState(() => getFloatingPanelPreferences());
   const [status, setStatus] = useState(t('settings.ui.status.saved-local', undefined));
 
   const handleColorMode = useCallback((mode: UiColorMode) => {
@@ -479,6 +504,23 @@ const UiTab = memo(function UiTab() {
     setFontOffset(next.globalFontOffset);
     setUiScale(next.uiScale);
     setStatus(t('settings.status.ui-reset', undefined));
+  }, []);
+
+  useEffect(() => {
+    const handleFloatingPanelPreferenceChange = (event: Event) => {
+      const next = event instanceof CustomEvent
+        ? event.detail as FloatingPanelPreferences
+        : getFloatingPanelPreferences();
+      setFloatingPanels(next);
+    };
+    window.addEventListener(FLOATING_PANEL_PREFERENCES_CHANGED_EVENT, handleFloatingPanelPreferenceChange);
+    return () => window.removeEventListener(FLOATING_PANEL_PREFERENCES_CHANGED_EVENT, handleFloatingPanelPreferenceChange);
+  }, []);
+
+  const handleFloatingPanelToggle = useCallback((key: FloatingPanelPreferenceKey, enabled: boolean) => {
+    const next = updateFloatingPanelPreference(key, enabled);
+    setFloatingPanels(next);
+    setStatus(enabled ? '悬浮窗已开启' : '悬浮窗已关闭，可在这里重新开启');
   }, []);
 
   return (
@@ -538,6 +580,24 @@ const UiTab = memo(function UiTab() {
           </div>
         </div>
         <div className="account-settings-status ui-status-text">{status}</div>
+      </div>
+      <div className="panel-section account-settings-section ui-surface-pane ui-surface-pane--stack">
+        <div className="panel-section-title">悬浮窗</div>
+        <div className="settings-ui-copy ui-form-copy">关闭后的悬浮窗不会自动显示，可在这里重新开启。</div>
+        <div className="settings-performance-card ui-card-list">
+          {FLOATING_PANEL_TOGGLES.map((item) => (
+            <div key={item.key} className="settings-performance-row ui-data-table-row">
+              <div className="settings-performance-meta ui-data-table-meta">
+                <div className="settings-performance-name ui-data-table-name">{item.title}</div>
+                <div className="settings-performance-desc ui-data-table-desc">{item.desc}</div>
+              </div>
+              <div className="settings-performance-actions ui-inline-actions-end-wrap">
+                <button className={`small-btn ghost${!floatingPanels[item.key] ? ' active' : ''}`} type="button" aria-pressed={!floatingPanels[item.key] ? 'true' : 'false'} onClick={() => handleFloatingPanelToggle(item.key, false)}>关</button>
+                <button className={`small-btn ghost${floatingPanels[item.key] ? ' active' : ''}`} type="button" aria-pressed={floatingPanels[item.key] ? 'true' : 'false'} onClick={() => handleFloatingPanelToggle(item.key, true)}>开</button>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </>
   );

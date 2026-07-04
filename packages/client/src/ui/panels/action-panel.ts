@@ -30,6 +30,11 @@ import {
 import { detailModalHost } from '../detail-modal-host';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../floating-tooltip';
 import { FloatingListPanel } from '../floating-list-panel';
+import {
+  FLOATING_PANEL_PREFERENCES_CHANGED_EVENT,
+  isFloatingPanelEnabled,
+  updateFloatingPanelPreference,
+} from '../floating-panel-preferences';
 import { buildSkillTooltipContent, type SkillPreviewMetrics, summarizeSkillPreviewMetrics } from '../skill-tooltip';
 import { buildItemTooltipPayload } from '../equipment-tooltip';
 import { preserveSelection } from '../selection-preserver';
@@ -809,6 +814,7 @@ export class ActionPanel {
     this.skillPresets = this.skillMgmt.loadSkillPresets();
     this.selectedSkillPresetId = this.skillPresets[0]?.id ?? null;
     window.addEventListener('keydown', (event) => this.handleGlobalKeydown(event));
+    window.addEventListener(FLOATING_PANEL_PREFERENCES_CHANGED_EVENT, () => this.refreshInteractionFloatingPanel());
   }
 
   /** 清空面板、重置缓存并关掉关联弹层。 */
@@ -1191,6 +1197,10 @@ export class ActionPanel {
 
   /** 刷新独立浮动交互列表，保持主行动面板以外也能快速执行附近交互。 */
   private refreshInteractionFloatingPanel(): void {
+    if (!isFloatingPanelEnabled('interactionList')) {
+      this.interactionFloatingPanel?.setTransientHidden(true);
+      return;
+    }
     const actions = this.getFloatingInteractionActions();
     if (actions.length === 0) {
       this.interactionFloatingPanel?.setTransientHidden(true);
@@ -1199,6 +1209,7 @@ export class ActionPanel {
       return;
     }
     const panel = this.ensureInteractionFloatingPanel();
+    panel.setClosed(false);
     const contentKey = this.buildFloatingInteractionKey(actions);
     if (panel.getBodyKey() !== contentKey) {
       panel.updateContent(this.renderFloatingInteractionList(actions));
@@ -1222,6 +1233,7 @@ export class ActionPanel {
         defaultTop: 128,
         minWidth: 200,
         maxWidth: 280,
+        onClose: () => updateFloatingPanelPreference('interactionList', false),
       });
     }
     return this.interactionFloatingPanel;

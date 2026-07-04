@@ -39,6 +39,13 @@ import {
   resetMapPerformanceConfig,
   updateMapPerformanceConfig,
 } from '../performance-config';
+import {
+  FLOATING_PANEL_PREFERENCES_CHANGED_EVENT,
+  getFloatingPanelPreferences,
+  updateFloatingPanelPreference,
+  type FloatingPanelPreferenceKey,
+  type FloatingPanelPreferences,
+} from '../floating-panel-preferences';
 import { readOfflineGainReportsFromBrowser, readPlayerStatisticTotalsFromBrowser } from '../../offline-gain-storage';
 import {
   formatOfflineGainDuration,
@@ -414,6 +421,13 @@ export class SettingsPanel {
 
     this.syncUiGlobalFontOffsetRow(body, config.globalFontOffset);
     this.syncUiScaleRow(body, config.uiScale);
+    this.syncFloatingPanelControls(body, getFloatingPanelPreferences());
+    window.addEventListener(FLOATING_PANEL_PREFERENCES_CHANGED_EVENT, (event) => {
+      const nextPreferences = event instanceof CustomEvent
+        ? event.detail as FloatingPanelPreferences
+        : getFloatingPanelPreferences();
+      this.syncFloatingPanelControls(body, nextPreferences);
+    }, { signal });
 
     body.querySelectorAll<HTMLButtonElement>('[data-ui-color-mode]').forEach((button) => {
       button.addEventListener('click', () => {
@@ -486,6 +500,19 @@ export class SettingsPanel {
       this.syncUiScaleRow(body, nextConfig.uiScale);
       setStatus(styleStatus, t('settings.status.ui-reset', undefined), 'success');
     }, { signal });
+
+    body.querySelectorAll<HTMLButtonElement>('[data-floating-panel-toggle]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const key = button.dataset.floatingPanelToggle as FloatingPanelPreferenceKey | undefined;
+        if (key !== 'actionQueue' && key !== 'interactionList') {
+          return;
+        }
+        const enabled = button.dataset.floatingPanelValue === 'on';
+        const nextPreferences = updateFloatingPanelPreference(key, enabled);
+        this.syncFloatingPanelControls(body, nextPreferences);
+        setStatus(styleStatus, enabled ? '悬浮窗已开启' : '悬浮窗已关闭，可在这里重新开启', 'success');
+      }, { signal });
+    });
   }
 
   /** bindRedeemSettings：绑定兑换设置。 */
@@ -650,6 +677,18 @@ export class SettingsPanel {
     }
   }
 
+  private syncFloatingPanelControls(body: HTMLElement, preferences: FloatingPanelPreferences): void {
+    body.querySelectorAll<HTMLButtonElement>('[data-floating-panel-toggle]').forEach((button) => {
+      const key = button.dataset.floatingPanelToggle as FloatingPanelPreferenceKey | undefined;
+      if (key !== 'actionQueue' && key !== 'interactionList') {
+        return;
+      }
+      const active = (button.dataset.floatingPanelValue === 'on') === preferences[key];
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
+  }
+
   /** syncPerformanceControls：同步性能设置控件。 */
   private syncPerformanceControls(body: HTMLElement, config: MapPerformanceConfig): void {
     body.querySelectorAll<HTMLButtonElement>('[data-performance-fps-toggle]').forEach((button) => {
@@ -734,6 +773,7 @@ export class SettingsPanel {
   /** renderUiTab：渲染界面Tab。 */
   private renderUiTab(): string {
     const config = getUiStyleConfig();
+    const floatingPreferences = getFloatingPanelPreferences();
     return `
       <div class="panel-section account-settings-section ui-surface-pane ui-surface-pane--stack">
         <div class="panel-section-title">${escapeHtml(t('settings.ui.section.color-mode', undefined))}</div>
@@ -817,6 +857,46 @@ export class SettingsPanel {
           </div>
         </div>
       <div id="settings-ui-style-status" class="account-settings-status ui-status-text">${escapeHtml(t('settings.ui.status.saved-local', undefined))}</div>
+      </div>
+      <div class="panel-section account-settings-section ui-surface-pane ui-surface-pane--stack">
+        <div class="panel-section-title">悬浮窗</div>
+        <div class="settings-ui-copy ui-form-copy">关闭后的悬浮窗不会自动显示，可在这里重新开启。</div>
+        <div class="settings-performance-card ui-card-list">
+          ${this.renderFloatingPanelPreferenceRow('actionQueue', '行动队列', '显示技艺通用 jobs 的任务名、数量和当前进度。', floatingPreferences.actionQueue)}
+          ${this.renderFloatingPanelPreferenceRow('interactionList', '交互列表', '显示附近技艺、任务、传送和交互的快捷按钮。', floatingPreferences.interactionList)}
+        </div>
+      </div>
+    `;
+  }
+
+  private renderFloatingPanelPreferenceRow(
+    key: FloatingPanelPreferenceKey,
+    title: string,
+    desc: string,
+    enabled: boolean,
+  ): string {
+    return `
+      <div class="settings-performance-row ui-data-table-row">
+        <div class="settings-performance-meta ui-data-table-meta">
+          <div class="settings-performance-name ui-data-table-name">${escapeHtml(title)}</div>
+          <div class="settings-performance-desc ui-data-table-desc">${escapeHtml(desc)}</div>
+        </div>
+        <div class="settings-performance-actions ui-inline-actions-end-wrap">
+          <button
+            class="small-btn ghost${enabled ? '' : ' active'}"
+            type="button"
+            data-floating-panel-toggle="${key}"
+            data-floating-panel-value="off"
+            aria-pressed="${enabled ? 'false' : 'true'}"
+          >关</button>
+          <button
+            class="small-btn ghost${enabled ? ' active' : ''}"
+            type="button"
+            data-floating-panel-toggle="${key}"
+            data-floating-panel-value="on"
+            aria-pressed="${enabled ? 'true' : 'false'}"
+          >开</button>
+        </div>
       </div>
     `;
   }

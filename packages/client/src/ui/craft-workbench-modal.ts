@@ -68,6 +68,11 @@ import { detailModalHost } from './detail-modal-host';
 import { describeEquipmentBonuses } from './equipment-tooltip';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from './floating-tooltip';
 import { FloatingListPanel } from './floating-list-panel';
+import {
+  FLOATING_PANEL_PREFERENCES_CHANGED_EVENT,
+  isFloatingPanelEnabled,
+  updateFloatingPanelPreference,
+} from './floating-panel-preferences';
 import { t } from './i18n';
 import { bindInlineItemTooltips, renderInlineItemChip } from './item-inline-tooltip';
 import { getItemAffixTypeLabel, getItemDecorClassName, getItemDisplayMeta } from './item-display';
@@ -646,6 +651,10 @@ export class CraftWorkbenchModal {
   readonly alchemyView = new CraftAlchemyView(this as unknown as CraftAlchemyParent);
   readonly enhancementView = new CraftEnhancementView(this as unknown as CraftEnhancementParent);
   readonly queueView = new CraftQueueView(this as unknown as CraftQueueParent);
+
+  constructor() {
+    window.addEventListener(FLOATING_PANEL_PREFERENCES_CHANGED_EVENT, () => this.refreshQueueFloatingPanel());
+  }
 
   setCallbacks(callbacks: CraftWorkbenchCallbacks): void {
     this.callbacks = callbacks;
@@ -1914,6 +1923,10 @@ export class CraftWorkbenchModal {
   }
 
   private refreshQueueFloatingPanel(): void {
+    if (!isFloatingPanelEnabled('actionQueue')) {
+      this.queueFloatingPanel?.setTransientHidden(true);
+      return;
+    }
     const queue = this.getCraftQueueSnapshot();
     if (queue.length === 0) {
       this.queueFloatingPanel?.setTransientHidden(true);
@@ -1922,6 +1935,7 @@ export class CraftWorkbenchModal {
       return;
     }
     const panel = this.ensureQueueFloatingPanel();
+    panel.setClosed(false);
     const queueKey = this.buildFloatingQueueKey(queue);
     if (panel.getBodyKey() !== queueKey) {
       panel.updateContent(this.renderFloatingQueueList(queue));
@@ -1943,6 +1957,7 @@ export class CraftWorkbenchModal {
         defaultTop: 420,
         minWidth: 220,
         maxWidth: 300,
+        onClose: () => updateFloatingPanelPreference('actionQueue', false),
       });
     }
     return this.queueFloatingPanel;

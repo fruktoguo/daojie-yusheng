@@ -10934,6 +10934,9 @@
       backdrop-filter: blur(10px);
       overflow: hidden;
     }
+    .floating-list-panel[hidden] {
+      display: none !important;
+    }
     .floating-list-panel--interaction {
       width: min(280px, calc(100vw - 16px));
     }

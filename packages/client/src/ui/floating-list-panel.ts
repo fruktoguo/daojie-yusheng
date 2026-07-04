@@ -19,6 +19,7 @@ export type FloatingListPanelOptions = {
   defaultTop: number;
   minWidth?: number;
   maxWidth?: number;
+  onClose?: () => void;
 };
 
 const DEFAULT_MIN_WIDTH = 240;
@@ -65,6 +66,7 @@ export class FloatingListPanel {
   private readonly defaultTop: number;
   private readonly minWidth: number;
   private readonly maxWidth: number;
+  private readonly onClose: (() => void) | null;
   private readonly eventAbort = new AbortController();
   private transientHidden = false;
   private dragState: {
@@ -79,6 +81,7 @@ export class FloatingListPanel {
     this.defaultTop = options.defaultTop;
     this.minWidth = options.minWidth ?? DEFAULT_MIN_WIDTH;
     this.maxWidth = options.maxWidth ?? DEFAULT_MAX_WIDTH;
+    this.onClose = options.onClose ?? null;
     this.state = readStoredState(this.storageKey);
 
     this.root = document.createElement('section');
@@ -124,6 +127,15 @@ export class FloatingListPanel {
 
   setTransientHidden(hidden: boolean): void {
     this.transientHidden = hidden;
+    this.applyState();
+  }
+
+  setClosed(closed: boolean): void {
+    if (this.state.closed === closed) {
+      return;
+    }
+    this.state.closed = closed;
+    this.persist();
     this.applyState();
   }
 
@@ -180,6 +192,7 @@ export class FloatingListPanel {
       this.state.closed = true;
       this.persist();
       this.applyState();
+      this.onClose?.();
     }, { signal });
   }
 
