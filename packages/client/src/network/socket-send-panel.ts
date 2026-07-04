@@ -110,6 +110,9 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
     sendRequestInventoryPage(payload: ClientToServerEventPayload<typeof C2S.RequestInventoryPage>): void {
       deps.emitEvent(C2S.RequestInventoryPage, payload);
     },
+    sendRequestTechniquePage(payload: ClientToServerEventPayload<typeof C2S.RequestTechniquePage>): void {
+      deps.emitEvent(C2S.RequestTechniquePage, payload);
+    },
     sendCreateFormation(payload: ClientToServerEventPayload<typeof C2S.CreateFormation>): void {
       deps.emitEvent(C2S.CreateFormation, payload);
     },

@@ -138,10 +138,7 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
     getCurrentActionDef: callbacks.getCurrentActionDef,
   });
   const getNearbyTransmissionTargets = () => resolveNearbyTransmissionTargets(rootRuntimeSource.getPlayer(), rootRuntimeSource.getLatestEntities());
-  const techniqueStateSource = createMainTechniqueStateSource({
-    techniquePanel,
-    socket: runtimeSender,
-  });
+  const techniqueStateSource = createMainTechniqueStateSource({ techniquePanel, socket: runtimeSender, panelSocket: panelSender });
   craftWorkbenchModal.setTransmissionCallbacks({
     getTransmissionTargets: () => getNearbyTransmissionTargets(),
     onStartTransmission: (learnerPlayerId, techId, options) => runtimeSender.sendStartTechniqueTransmission(learnerPlayerId, techId, options),

@@ -3,8 +3,9 @@
  *
  * 维护时要把用户意图、显示派生和服务端权威数据分清，避免为了展示便利复制业务规则。
  */
-import { PlayerState, TechniqueState } from '@mud/shared';
+import { PlayerState, TechniqueState, type C2S_RequestTechniquePage, type S2C_TechniquePage } from '@mud/shared';
 import type { SocketRuntimeSender } from './network/socket-send-runtime';
+import type { SocketPanelSender } from './network/socket-send-panel';
 import { TechniquePanel } from './ui/panels/technique-panel';
 /**
  * MainTechniqueStateSourceOptions：统一结构类型，保证协议与运行时一致性。
@@ -16,12 +17,13 @@ type MainTechniqueStateSourceOptions = {
  * techniquePanel：功法面板相关字段。
  */
 
-  techniquePanel: Pick<TechniquePanel, 'setCallbacks' | 'initFromPlayer' | 'update' | 'syncDynamic' | 'clear'>;  
+  techniquePanel: Pick<TechniquePanel, 'setCallbacks' | 'initFromPlayer' | 'update' | 'syncDynamic' | 'handleTechniquePage' | 'clear'>;
   /**
  * socket：socket相关字段。
  */
 
   socket: Pick<SocketRuntimeSender, 'sendCultivate' | 'sendCancelTechniqueTransmission' | 'sendForgetTechnique'>;
+  panelSocket: Pick<SocketPanelSender, 'sendRequestTechniquePage'>;
 };
 /**
  * MainTechniqueStateSource：统一结构类型，保证协议与运行时一致性。
@@ -42,6 +44,7 @@ export function createMainTechniqueStateSource(options: MainTechniqueStateSource
     (techId) => options.socket.sendForgetTechnique(techId),
     undefined,
     (techId) => options.socket.sendCancelTechniqueTransmission(techId),
+    (payload: C2S_RequestTechniquePage) => options.panelSocket.sendRequestTechniquePage(payload),
   );
 
   return {  
@@ -78,6 +81,9 @@ export function createMainTechniqueStateSource(options: MainTechniqueStateSource
     syncDynamic(techniques: TechniqueState[], cultivatingTechId?: string, player?: PlayerState): void {
       options.techniquePanel.syncDynamic(techniques, cultivatingTechId, player);
     },    
+    handleTechniquePage(page: S2C_TechniquePage): void {
+      options.techniquePanel.handleTechniquePage(page);
+    },
     /**
  * clear：执行clear相关逻辑。
  * @returns 无返回值，直接更新clear相关状态。

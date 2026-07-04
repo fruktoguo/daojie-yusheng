@@ -53,6 +53,7 @@ import type {
   RedeemCodesView,
   RepairInventoryItemInstanceIdsView,
   RequestInventoryPageView,
+  RequestTechniquePageView,
   RequestAlchemyPanelView,
   RequestAttrDetailView,
   RequestAuctionListingsView,
@@ -259,6 +260,8 @@ export interface C2S_UseItem extends UseItemView {}
 export interface C2S_RepairInventoryItemInstanceIds extends RepairInventoryItemInstanceIdsView {}
 /** 请求背包分页数据。 */
 export interface C2S_RequestInventoryPage extends RequestInventoryPageView {}
+/** 请求功法分页数据。 */
+export interface C2S_RequestTechniquePage extends RequestTechniquePageView {}
 /** 布置阵法。 */
 export interface C2S_CreateFormation extends FormationCreatePayload {}
 /** 开启/关闭阵法。 */

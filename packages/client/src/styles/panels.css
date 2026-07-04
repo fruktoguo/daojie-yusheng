@@ -1610,6 +1610,29 @@
       flex-direction: column;
       gap: 10px;
     }
+    .tech-panel-toolbar {
+      display: flex;
+      justify-content: flex-end;
+    }
+    .tech-search-box {
+      flex: 1 1 220px;
+      max-width: 320px;
+    }
+    .tech-search-input {
+      width: 100%;
+      min-height: 34px;
+      padding: 0 11px;
+      border: 1px solid var(--wash-ink);
+      background: var(--paper-white);
+      color: var(--ink-black);
+      font-size: var(--font-size-12);
+      outline: none;
+      transition: border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
+    }
+    .tech-search-input:focus {
+      border-color: var(--stamp-red);
+      box-shadow: inset 0 0 0 1px rgba(139, 48, 35, 0.14);
+    }
     .tech-filter-tabs {
       display: flex;
       flex-wrap: wrap;

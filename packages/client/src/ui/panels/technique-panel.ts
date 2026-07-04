@@ -25,6 +25,8 @@ import {
   TechniqueLayerDef,
   TechniqueRealm,
   TechniqueState,
+  type C2S_RequestTechniquePage,
+  type S2C_TechniquePage,
 } from '@mud/shared';
 import { getTechniqueCategoryLabel, getTechniqueGradeLabel, getTechniqueRealmLabel } from '../../domain-labels';
 import { getLocalRealmLevelEntry, resolvePreviewTechnique, resolvePreviewTechniques } from '../../content/local-templates';
@@ -84,6 +86,20 @@ interface TechniqueCardNodeRefs {
   skillToggleButton: HTMLButtonElement | null;
 }
 
+/** TechniquePagedSnapshot：服务端分页缓存。 */
+interface TechniquePagedSnapshot {
+  requestId?: string;
+  category: TechniqueCategoryFilter;
+  status: TechniqueStatusFilter;
+  search: string;
+  offset: number;
+  limit: number;
+  total: number;
+  totalItems: number;
+  revision: number;
+  items: TechniqueState[];
+}
+
 /** TechniqueCategoryFilter：功法分类筛选条件。 */
 type TechniqueCategoryFilter = 'all' | TechniqueCategory;
 /** TechniqueStatusFilter：功法圆满进度筛选条件。 */
@@ -124,6 +140,7 @@ const TECHNIQUE_GRADE_SORT_INDEX = new Map(
   TECHNIQUE_GRADE_ORDER.map((grade, index) => [grade, index] as const),
 );
 const TECHNIQUE_PANEL_PAGE_SIZE = 12;
+const TECHNIQUE_SEARCH_DEBOUNCE_MS = 180;
 
 /** escapeHtml：转义 HTML 文本中的危险字符。 */
 function escapeHtml(value: string): string {
@@ -390,6 +407,7 @@ export class TechniquePanel {
   private onToggleTechniqueSkills: ((techId: string, enabled: boolean) => void) | null = null;
   private onForgetTechnique: ((techId: string) => void) | null = null;
   private onCancelTechniqueTransmission: ((techId: string) => void) | null = null;
+  private onRequestTechniquePage: ((payload: C2S_RequestTechniquePage) => void) | null = null;
   /** tooltip：提示。 */
   private tooltip = new FloatingTooltip();
   /** constellationCanvas：星图Canvas。 */
@@ -402,8 +420,14 @@ export class TechniquePanel {
   private categoryFilter: TechniqueCategoryFilter = 'all';
   /** statusFilter：状态筛选。 */
   private statusFilter: TechniqueStatusFilter = 'in_progress';
+  /** searchQuery：功法名称搜索词。 */
+  private searchQuery = '';
   /** currentPage：当前分页页码，从 1 开始。 */
   private currentPage = 1;
+  private pageRequestSeq = 0;
+  private pendingRequestId: string | null = null;
+  private searchDebounceTimer: number | null = null;
+  private pagedSnapshot: TechniquePagedSnapshot | null = null;
   /** lastState：last状态。 */
   private lastState: TechniquePanelState = { techniques: [] };
   /** lastVisibleTechniqueIds：last可见Technique ID 列表。 */
@@ -464,6 +488,9 @@ export class TechniquePanel {
   /** clear：清理clear。 */
   clear(): void {
     this.renderPendingWhileHidden = false;
+    this.clearSearchDebounceTimer();
+    this.pendingRequestId = null;
+    this.pagedSnapshot = null;
     this.lastState = { techniques: [] };
     this.lastVisibleTechniqueIds = null;
     this.cardNodeRefs.clear();
@@ -495,16 +522,21 @@ export class TechniquePanel {
     onForgetTechnique?: (techId: string) => void,
     onToggleTechniqueSkills?: (techId: string, enabled: boolean) => void,
     onCancelTechniqueTransmission?: (techId: string) => void,
+    onRequestTechniquePage?: (payload: C2S_RequestTechniquePage) => void,
   ): void {
     this.onCultivate = onCultivate;
     this.onForgetTechnique = onForgetTechnique ?? null;
     this.onToggleTechniqueSkills = onToggleTechniqueSkills ?? null;
     this.onCancelTechniqueTransmission = onCancelTechniqueTransmission ?? null;
+    this.onRequestTechniquePage = onRequestTechniquePage ?? null;
+    this.ensureTechniquePageRequested(true);
   }
 
   /** 更新功法列表与主修状态 */
   update(techniques: TechniqueState[], cultivatingTechId?: string, previewPlayer?: PlayerState): void {
     this.lastState = { techniques, cultivatingTechId, previewPlayer, pendingComprehensions: previewPlayer?.pendingTechniqueComprehensions };
+    this.mergePagedSnapshotFromRuntime(techniques);
+    this.ensureTechniquePageRequested();
     if (this.deferRenderIfHidden()) {
       return;
     }
@@ -523,6 +555,8 @@ export class TechniquePanel {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     this.lastState = { techniques, cultivatingTechId, previewPlayer, pendingComprehensions: previewPlayer?.pendingTechniqueComprehensions };
+    this.mergePagedSnapshotFromRuntime(techniques);
+    this.ensureTechniquePageRequested();
     if (this.deferRenderIfHidden()) {
       return;
     }
@@ -545,6 +579,176 @@ export class TechniquePanel {
   /** initFromPlayer：初始化From玩家。 */
   initFromPlayer(player: PlayerState): void {
     this.update(player.techniques, player.cultivatingTechId, player);
+  }
+
+  handleTechniquePage(page: S2C_TechniquePage): void {
+    const category = this.normalizeTechniqueCategoryFilter(page.category);
+    const status = this.normalizeTechniqueStatusFilter(page.status);
+    const search = this.normalizeTechniqueSearch(page.search);
+    const offset = this.normalizeTechniquePageOffset(page.offset);
+    const limit = this.normalizeTechniquePageLimit(page.limit);
+    const expectedOffset = (this.currentPage - 1) * TECHNIQUE_PANEL_PAGE_SIZE;
+    if (
+      page.requestId !== this.pendingRequestId
+      || category !== this.categoryFilter
+      || status !== this.statusFilter
+      || search !== this.searchQuery
+      || offset !== expectedOffset
+    ) {
+      return;
+    }
+    this.pendingRequestId = null;
+    const items = sortTechniquesForPanel(resolvePreviewTechniques(page.items as TechniqueState[]));
+    this.pagedSnapshot = {
+      requestId: page.requestId,
+      category,
+      status,
+      search,
+      offset,
+      limit,
+      total: Math.max(0, Math.trunc(Number(page.total) || 0)),
+      totalItems: Math.max(0, Math.trunc(Number(page.totalItems) || 0)),
+      revision: Math.max(1, Math.trunc(Number(page.revision) || 1)),
+      items,
+    };
+    this.lastVisibleTechniqueIds = null;
+    this.syncReactState();
+    if (this.deferRenderIfHidden()) {
+      return;
+    }
+    if (this.useReactPanel()) {
+      mountReactTechniquePanel();
+      this.patchModal();
+      return;
+    }
+    if (!this.patchList()) {
+      this.renderList();
+    }
+  }
+
+  private mergePagedSnapshotFromRuntime(techniques: TechniqueState[]): void {
+    if (!this.pagedSnapshot) {
+      return;
+    }
+    const runtimeById = new Map(resolvePreviewTechniques(techniques).map((tech) => [tech.techId, tech]));
+    let changed = false;
+    const items = this.pagedSnapshot.items.map((item) => {
+      const next = runtimeById.get(item.techId);
+      if (!next) {
+        return item;
+      }
+      changed = true;
+      return next;
+    });
+    if (changed) {
+      this.pagedSnapshot = { ...this.pagedSnapshot, items };
+    }
+  }
+
+  private clearSearchDebounceTimer(): void {
+    if (this.searchDebounceTimer !== null) {
+      window.clearTimeout(this.searchDebounceTimer);
+      this.searchDebounceTimer = null;
+    }
+  }
+
+  private normalizeTechniqueCategoryFilter(value: unknown): TechniqueCategoryFilter {
+    return TECHNIQUE_CATEGORY_FILTERS.some((filter) => filter.value === value)
+      ? value as TechniqueCategoryFilter
+      : 'all';
+  }
+
+  private normalizeTechniqueStatusFilter(value: unknown): TechniqueStatusFilter {
+    return TECHNIQUE_STATUS_FILTERS.some((filter) => filter.value === value)
+      ? value as TechniqueStatusFilter
+      : 'in_progress';
+  }
+
+  private normalizeTechniqueSearch(value: unknown): string {
+    return typeof value === 'string'
+      ? value.replace(/\s+/g, ' ').trim().slice(0, 64).toLowerCase()
+      : '';
+  }
+
+  private normalizeTechniquePageOffset(value: unknown): number {
+    const parsed = Math.trunc(Number(value));
+    return Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
+  }
+
+  private normalizeTechniquePageLimit(value: unknown): number {
+    const parsed = Math.trunc(Number(value));
+    return Number.isFinite(parsed) && parsed > 0 ? Math.max(1, Math.min(24, parsed)) : TECHNIQUE_PANEL_PAGE_SIZE;
+  }
+
+  private getRequestedTechniqueOffset(): number {
+    return (Math.max(1, this.currentPage) - 1) * TECHNIQUE_PANEL_PAGE_SIZE;
+  }
+
+  private hasActivePagedSnapshot(): boolean {
+    const snapshot = this.pagedSnapshot;
+    return Boolean(
+      snapshot
+      && snapshot.category === this.categoryFilter
+      && snapshot.status === this.statusFilter
+      && snapshot.search === this.searchQuery
+      && snapshot.offset === this.getRequestedTechniqueOffset()
+      && snapshot.limit === TECHNIQUE_PANEL_PAGE_SIZE,
+    );
+  }
+
+  private hasPagedListContext(): boolean {
+    return Boolean(
+      this.onRequestTechniquePage
+      && (this.pendingRequestId || this.pagedSnapshot || this.searchQuery || this.categoryFilter !== 'all' || this.statusFilter !== 'in_progress'),
+    );
+  }
+
+  private ensureTechniquePageRequested(force = false): void {
+    if (!this.onRequestTechniquePage) {
+      return;
+    }
+    if (!force && (this.pendingRequestId || this.hasActivePagedSnapshot())) {
+      return;
+    }
+    this.requestTechniquePage();
+  }
+
+  private requestTechniquePage(): void {
+    if (!this.onRequestTechniquePage) {
+      return;
+    }
+    this.clearSearchDebounceTimer();
+    const requestId = `tech:${Date.now()}:${++this.pageRequestSeq}`;
+    this.pendingRequestId = requestId;
+    this.onRequestTechniquePage({
+      category: this.categoryFilter,
+      status: this.statusFilter,
+      search: this.searchQuery,
+      offset: this.getRequestedTechniqueOffset(),
+      limit: TECHNIQUE_PANEL_PAGE_SIZE,
+      requestId,
+      knownRevision: this.pagedSnapshot?.revision,
+    });
+  }
+
+  private scheduleTechniqueSearchRequest(): void {
+    this.clearSearchDebounceTimer();
+    this.searchDebounceTimer = window.setTimeout(() => {
+      this.searchDebounceTimer = null;
+      this.requestTechniquePage();
+    }, TECHNIQUE_SEARCH_DEBOUNCE_MS);
+  }
+
+  private resetTechniquePageAndRequest(debounce = false): void {
+    this.currentPage = 1;
+    this.pendingRequestId = null;
+    this.pagedSnapshot = null;
+    this.lastVisibleTechniqueIds = null;
+    if (debounce) {
+      this.scheduleTechniqueSearchRequest();
+    } else {
+      this.requestTechniquePage();
+    }
   }
 
   private useReactPanel(): boolean {
@@ -614,7 +818,9 @@ export class TechniquePanel {
       this.patchModal();
       return;
     }
-    this.renderList();
+    if (!this.patchList()) {
+      this.renderList();
+    }
     this.patchModal();
   }
 
@@ -640,7 +846,10 @@ export class TechniquePanel {
       this.patchModal();
       return;
     }
-    this.renderList();
+    this.mergePagedSnapshotFromRuntime(this.lastState.techniques);
+    if (!this.patchList()) {
+      this.renderList();
+    }
     this.patchModal();
   }
 
@@ -684,7 +893,7 @@ export class TechniquePanel {
 
     const techniques = this.getDisplayTechniques();
     const pendingComprehensions = this.lastState.pendingComprehensions ?? this.lastState.previewPlayer?.pendingTechniqueComprehensions ?? [];
-    if (techniques.length === 0 && pendingComprehensions.length === 0) {
+    if (techniques.length === 0 && pendingComprehensions.length === 0 && !this.hasPagedListContext()) {
       this.clear();
       return;
     }
@@ -692,6 +901,7 @@ export class TechniquePanel {
     this.ensureShell();
     this.patchFilterTabs(techniques);
     this.patchList();
+    this.ensureTechniquePageRequested();
   }
 
   /** ensureShell：确保Shell。 */
@@ -704,6 +914,14 @@ export class TechniquePanel {
 
     const shell = document.createElement('div');
     shell.className = 'tech-panel-shell';
+
+    const toolbar = document.createElement('div');
+    toolbar.className = 'tech-panel-toolbar';
+    toolbar.innerHTML = `
+      <label class="tech-search-box">
+        <input class="tech-search-input" data-tech-search="true" type="search" placeholder="搜索功法名称" value="${escapeHtml(this.searchQuery)}" autocomplete="off" aria-label="搜索功法" />
+      </label>
+    `.trim();
 
     const topTabs = document.createElement('div');
     topTabs.className = 'tech-filter-tabs ui-filter-tabs';
@@ -750,7 +968,7 @@ export class TechniquePanel {
       <button class="small-btn ghost" data-tech-page-action="next" type="button">下一页</button>
     `.trim();
     body.append(sideTabs, list);
-    shell.append(topTabs, body, pagination);
+    shell.append(toolbar, topTabs, body, pagination);
 
     preserveSelection(this.pane, () => {
       this.pane.replaceChildren(shell);
@@ -953,6 +1171,12 @@ export class TechniquePanel {
   private getFilteredEmptyHint(): string {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    if (this.pendingRequestId) {
+      return '正在加载功法...';
+    }
+    if (this.searchQuery) {
+      return `没有找到名称包含“${this.searchQuery}”的功法`;
+    }
     if (this.statusFilter === 'in_progress') {
       return t('technique.empty.no-in-progress', undefined);
     }
@@ -964,11 +1188,17 @@ export class TechniquePanel {
 
   /** getDisplayTechniques：读取显示Techniques。 */
   private getDisplayTechniques(): TechniqueState[] {
+    if (this.hasActivePagedSnapshot()) {
+      return this.pagedSnapshot?.items ?? [];
+    }
     return sortTechniquesForPanel(resolvePreviewTechniques(this.lastState.techniques));
   }
 
   /** getVisibleTechniques：读取可见Techniques。 */
   private getVisibleTechniques(techniques: TechniqueState[]): TechniqueState[] {
+    if (this.hasActivePagedSnapshot()) {
+      return techniques;
+    }
     return techniques.filter((tech) => (
       this.matchesCategoryFilter(tech) && this.matchesStatusFilter(tech)
     ));
@@ -981,11 +1211,15 @@ export class TechniquePanel {
     startIndex: number;
     endIndex: number;
   } {
-    const totalItems = filteredTechniques.length;
+    const paged = this.hasActivePagedSnapshot() ? this.pagedSnapshot : null;
+    const totalItems = paged?.total ?? filteredTechniques.length;
     const totalPages = Math.max(1, Math.ceil(totalItems / TECHNIQUE_PANEL_PAGE_SIZE));
     const currentPage = Math.min(Math.max(1, this.currentPage), totalPages);
     if (currentPage !== this.currentPage) {
       this.currentPage = currentPage;
+      if (paged) {
+        this.ensureTechniquePageRequested(true);
+      }
     }
     const startIndex = (currentPage - 1) * TECHNIQUE_PANEL_PAGE_SIZE;
     return {
@@ -998,6 +1232,9 @@ export class TechniquePanel {
   }
 
   private getPagedTechniques(filteredTechniques: TechniqueState[]): TechniqueState[] {
+    if (this.hasActivePagedSnapshot()) {
+      return this.pagedSnapshot?.items ?? [];
+    }
     const pageState = this.getPageState(filteredTechniques);
     return filteredTechniques.slice(pageState.startIndex, pageState.endIndex);
   }
@@ -1035,15 +1272,18 @@ export class TechniquePanel {
   private patchFilterTabs(techniques: TechniqueState[]): boolean {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    const pagedTotal = this.hasActivePagedSnapshot() ? this.pagedSnapshot?.total ?? 0 : null;
     for (const filter of TECHNIQUE_CATEGORY_FILTERS) {
       const button = this.pane.querySelector<HTMLButtonElement>(`[data-tech-category-filter="${filter.value}"]`);
       const countNode = this.pane.querySelector<HTMLElement>(`[data-tech-category-count="${filter.value}"]`);
       if (!button || !countNode) {
         return false;
       }
-      const count = techniques.filter((tech) => (
-        this.matchesStatusFilter(tech) && (filter.value === 'all' || resolveTechniqueCategory(tech) === filter.value)
-      )).length;
+      const count = pagedTotal === null
+        ? techniques.filter((tech) => (
+          this.matchesStatusFilter(tech) && (filter.value === 'all' || resolveTechniqueCategory(tech) === filter.value)
+        )).length
+        : filter.value === this.categoryFilter ? pagedTotal : 0;
       button.classList.toggle('active', this.categoryFilter === filter.value);
       countNode.textContent = formatDisplayInteger(count);
     }
@@ -1054,9 +1294,11 @@ export class TechniquePanel {
       if (!button || !countNode) {
         return false;
       }
-      const count = techniques.filter((tech) => (
-        this.matchesCategoryFilter(tech) && this.matchesStatusFilter(tech, filter.value)
-      )).length;
+      const count = pagedTotal === null
+        ? techniques.filter((tech) => (
+          this.matchesCategoryFilter(tech) && this.matchesStatusFilter(tech, filter.value)
+        )).length
+        : filter.value === this.statusFilter ? pagedTotal : 0;
       button.classList.toggle('active', this.statusFilter === filter.value);
       countNode.textContent = formatDisplayInteger(count);
     }
@@ -1343,6 +1585,22 @@ export class TechniquePanel {
 
   /** bindPaneEvents：绑定Pane事件。 */
   private bindPaneEvents(): void {
+    this.pane.addEventListener('input', (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLInputElement) || target.dataset.techSearch !== 'true') {
+        return;
+      }
+      const nextSearch = this.normalizeTechniqueSearch(target.value);
+      if (nextSearch === this.searchQuery) {
+        return;
+      }
+      this.searchQuery = nextSearch;
+      this.resetTechniquePageAndRequest(true);
+      if (!this.patchList()) {
+        this.renderList();
+      }
+    });
+
     this.pane.addEventListener('click', (event) => {
       const target = event.target;
       if (!(target instanceof HTMLElement)) {
@@ -1351,22 +1609,26 @@ export class TechniquePanel {
 
       const categoryButton = target.closest<HTMLElement>('[data-tech-category-filter]');
       if (categoryButton) {
-        const filter = categoryButton.dataset.techCategoryFilter as TechniqueCategoryFilter | undefined;
-        if (filter && this.categoryFilter !== filter) {
+        const filter = this.normalizeTechniqueCategoryFilter(categoryButton.dataset.techCategoryFilter);
+        if (this.categoryFilter !== filter) {
           this.categoryFilter = filter;
-          this.currentPage = 1;
-          this.renderList();
+          this.resetTechniquePageAndRequest();
+          if (!this.patchList()) {
+            this.renderList();
+          }
         }
         return;
       }
 
       const statusButton = target.closest<HTMLElement>('[data-tech-status-filter]');
       if (statusButton) {
-        const filter = statusButton.dataset.techStatusFilter as TechniqueStatusFilter | undefined;
-        if (filter && this.statusFilter !== filter) {
+        const filter = this.normalizeTechniqueStatusFilter(statusButton.dataset.techStatusFilter);
+        if (this.statusFilter !== filter) {
           this.statusFilter = filter;
-          this.currentPage = 1;
-          this.renderList();
+          this.resetTechniquePageAndRequest();
+          if (!this.patchList()) {
+            this.renderList();
+          }
         }
         return;
       }
@@ -1383,7 +1645,13 @@ export class TechniquePanel {
             : this.currentPage;
         if (nextPage !== this.currentPage) {
           this.currentPage = nextPage;
-          this.renderList();
+          this.pendingRequestId = null;
+          this.pagedSnapshot = null;
+          this.lastVisibleTechniqueIds = null;
+          this.requestTechniquePage();
+          if (!this.patchList()) {
+            this.renderList();
+          }
         }
         return;
       }
@@ -1707,7 +1975,8 @@ export class TechniquePanel {
 
     const techniques = this.getDisplayTechniques();
     const pendingComprehensions = this.lastState.pendingComprehensions ?? this.lastState.previewPlayer?.pendingTechniqueComprehensions ?? [];
-    if (techniques.length === 0 && pendingComprehensions.length === 0) {
+    const hasPagedListContext = this.hasPagedListContext();
+    if (techniques.length === 0 && pendingComprehensions.length === 0 && !hasPagedListContext) {
       return false;
     }
     if (!this.patchFilterTabs(techniques)) {
@@ -2058,6 +2327,10 @@ export class TechniquePanel {
 
   /** findPreviewTechnique：查找Preview Technique。 */
   private findPreviewTechnique(techId: string): TechniqueState | undefined {
+    const pagedTechnique = this.pagedSnapshot?.items.find((entry) => entry.techId === techId);
+    if (pagedTechnique) {
+      return resolvePreviewTechnique(pagedTechnique);
+    }
     const technique = this.lastState.techniques.find((entry) => entry.techId === techId);
     return technique ? resolvePreviewTechnique(technique) : undefined;
   }

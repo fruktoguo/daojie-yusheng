@@ -587,6 +587,51 @@ export interface RequestInventoryPageView {
   knownRevision?: number;
 }
 
+/** 功法面板分页分类筛选。 */
+export type TechniquePageCategoryFilterView = TechniqueCategory | 'all';
+
+/** 功法面板分页圆满状态筛选。 */
+export type TechniquePageStatusFilterView = 'in_progress' | 'completed' | 'all';
+
+/** 请求功法面板分页数据。 */
+export interface RequestTechniquePageView {
+/**
+ * category：功法分类筛选。
+ */
+
+  category?: TechniquePageCategoryFilterView;
+  /**
+ * status：功法圆满状态筛选。
+ */
+
+  status?: TechniquePageStatusFilterView;
+  /**
+ * search：功法名称搜索词，先和筛选合并，再分页。
+ */
+
+  search?: string;
+  /**
+ * offset：筛选后列表偏移量。
+ */
+
+  offset?: number;
+  /**
+ * limit：本次请求数量。
+ */
+
+  limit?: number;
+  /**
+ * requestId：客户端请求 ID，用于忽略过期响应。
+ */
+
+  requestId?: string;
+  /**
+ * knownRevision：客户端当前已知功法版本，仅作诊断和过期保护。
+ */
+
+  knownRevision?: number;
+}
+
 /** 使用背包物品。 */
 export interface UseItemView {
 /**

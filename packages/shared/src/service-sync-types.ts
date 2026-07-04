@@ -13,7 +13,8 @@ import type { QuestRuntimeStateView } from './quest-types';
 import type { EquipSlot, ItemType } from './item-runtime-types';
 import type { TechniqueCategory } from './cultivation-types';
 import type { ArtifactSlotUpdateEntry, InventorySlotUpdateEntry, EquipmentSlotUpdateEntry, MarketListingPageEntry, MarketOwnOrderSyncEntry, MarketStorageSyncEntry, SyncedInventoryCooldownState, SyncedInventorySnapshot, SyncedLootWindowState, SyncedNpcShopView } from './synced-panel-types';
-import type { InventoryPageFilterView } from './client-service-request-types';
+import type { InventoryPageFilterView, TechniquePageCategoryFilterView, TechniquePageStatusFilterView } from './client-service-request-types';
+import type { TechniqueUpdateEntryView } from './panel-update-types';
 
 /** 战利品窗口更新视图。 */
 export interface LootWindowUpdateView {
@@ -149,6 +150,60 @@ export interface InventoryPageView {
  */
 
   serverTick?: number;
+}
+
+/** 功法面板分页响应。 */
+export interface TechniquePageView {
+/**
+ * requestId：客户端请求 ID 回显。
+ */
+
+  requestId?: string;
+  /**
+ * category：本页使用的分类筛选。
+ */
+
+  category: TechniquePageCategoryFilterView;
+  /**
+ * status：本页使用的圆满状态筛选。
+ */
+
+  status: TechniquePageStatusFilterView;
+  /**
+ * search：本页使用的搜索词。
+ */
+
+  search: string;
+  /**
+ * offset：筛选后列表偏移量。
+ */
+
+  offset: number;
+  /**
+ * limit：本次请求数量上限。
+ */
+
+  limit: number;
+  /**
+ * total：当前筛选下的总功法数。
+ */
+
+  total: number;
+  /**
+ * totalItems：未筛选已学功法总数。
+ */
+
+  totalItems: number;
+  /**
+ * revision：服务端功法版本。
+ */
+
+  revision: number;
+  /**
+ * items：当前页功法。
+ */
+
+  items: TechniqueUpdateEntryView[];
 }
 
 /** 装备面板更新视图。 */

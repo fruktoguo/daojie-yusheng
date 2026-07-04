@@ -48,6 +48,7 @@ import { WorldGatewaySessionStateHelper } from './world-gateway-session-state.he
 import { WorldGatewayPresenceHelper } from './world-gateway-presence.helper';
 import { WorldGatewayContentHelper } from './world-gateway-content.helper';
 import { WorldGatewayTechniqueGenerationHelper } from './world-gateway-technique-generation.helper';
+import { WorldGatewayTechniqueHelper } from './world-gateway-technique.helper';
 import { TechniqueGenerationService } from '../runtime/technique-generation/technique-generation.service';
 import type { WorldGatewayHelperContext } from './world-gateway-context.types';
 
@@ -90,6 +91,7 @@ class WorldGateway implements WorldGatewayHelperContext {
         gatewayNpcHelper: WorldGatewayNpcHelper; gatewayCraftHelper: WorldGatewayCraftHelper; gatewayMarketHelper: WorldGatewayMarketHelper; gatewayReadModelHelper: WorldGatewayReadModelHelper; gatewayActionHelper: WorldGatewayActionHelper;
         gatewayBuildingHelper: WorldGatewayBuildingHelper;
         gatewayClientEmitHelper: WorldGatewayClientEmitHelper; gatewayGuardHelper: WorldGatewayGuardHelper; gatewaySessionStateHelper: WorldGatewaySessionStateHelper;         gatewayPresenceHelper: WorldGatewayPresenceHelper;
+        gatewayTechniqueHelper: WorldGatewayTechniqueHelper;
         gatewayTechniqueGenerationHelper: WorldGatewayTechniqueGenerationHelper;
         @WebSocketServer()
         server!: Server; logger: Logger = new Logger(WorldGateway.name);
@@ -138,6 +140,7 @@ class WorldGateway implements WorldGatewayHelperContext {
         this.gatewayGuardHelper = gatewayGuardHelper;
         this.gatewaySessionStateHelper = gatewaySessionStateHelper;
         this.gatewayPresenceHelper = gatewayPresenceHelper;
+        this.gatewayTechniqueHelper = new WorldGatewayTechniqueHelper(this);
         this.gatewayTechniqueGenerationHelper = new WorldGatewayTechniqueGenerationHelper(this as any);
         this.gatewayTechniqueGenerationHelper.setService(this.techniqueGenerationService);
     }
@@ -298,6 +301,10 @@ class WorldGateway implements WorldGatewayHelperContext {
     @SubscribeMessage(C2S.RequestInventoryPage)
     handleRequestInventoryPage(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayInventoryHelper.handleRequestInventoryPage(client, payload);
+    }
+    @SubscribeMessage(C2S.RequestTechniquePage)
+    handleRequestTechniquePage(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
+        return this.gatewayTechniqueHelper.handleRequestTechniquePage(client, payload);
     }
     @SubscribeMessage(C2S.Chat)
     handleChat(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
