@@ -123,6 +123,7 @@ const TECHNIQUE_STATUS_FILTERS: Array<{
 const TECHNIQUE_GRADE_SORT_INDEX = new Map(
   TECHNIQUE_GRADE_ORDER.map((grade, index) => [grade, index] as const),
 );
+const TECHNIQUE_PANEL_PAGE_SIZE = 12;
 
 /** escapeHtml：转义 HTML 文本中的危险字符。 */
 function escapeHtml(value: string): string {
@@ -401,6 +402,8 @@ export class TechniquePanel {
   private categoryFilter: TechniqueCategoryFilter = 'all';
   /** statusFilter：状态筛选。 */
   private statusFilter: TechniqueStatusFilter = 'in_progress';
+  /** currentPage：当前分页页码，从 1 开始。 */
+  private currentPage = 1;
   /** lastState：last状态。 */
   private lastState: TechniquePanelState = { techniques: [] };
   /** lastVisibleTechniqueIds：last可见Technique ID 列表。 */
@@ -408,6 +411,8 @@ export class TechniquePanel {
   private renderPendingWhileHidden = false;
   /** cardNodeRefs：缓存每张功法卡片的子节点引用，避免每 tick 重复 querySelector。 */
   private cardNodeRefs = new Map<string, TechniqueCardNodeRefs>();  
+  /** cardPatchSignatures：记录卡片已写入的显示签名，避免未变化功法重复写 DOM。 */
+  private cardPatchSignatures = new Map<string, string>();
   /**
  * shellRefs：shellRef相关字段。
  */
@@ -428,6 +433,11 @@ export class TechniquePanel {
  */
 
     sideTabs: HTMLDivElement;    
+    /**
+ * pagination：分页控件。
+ */
+
+    pagination: HTMLDivElement;
     /**
  * list：集合字段。
  */
@@ -457,6 +467,7 @@ export class TechniquePanel {
     this.lastState = { techniques: [] };
     this.lastVisibleTechniqueIds = null;
     this.cardNodeRefs.clear();
+    this.cardPatchSignatures.clear();
     this.shellRefs = null;
     if (this.useReactPanel()) {
       syncReactTechniquePanelState({ techniques: [] });
@@ -684,23 +695,7 @@ export class TechniquePanel {
   }
 
   /** ensureShell：确保Shell。 */
-  private ensureShell(): {  
-  /**
- * shell：shell相关字段。
- */
- shell: HTMLDivElement;  
- /**
- * topTabs：topTab相关字段。
- */
- topTabs: HTMLDivElement;  
- /**
- * sideTabs：sideTab相关字段。
- */
- sideTabs: HTMLDivElement;  
- /**
- * list：集合字段。
- */
- list: HTMLDivElement } {
+  private ensureShell(): NonNullable<typeof this.shellRefs> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (this.shellRefs?.shell.isConnected) {
@@ -746,13 +741,21 @@ export class TechniquePanel {
     const list = document.createElement('div');
     list.className = 'tech-panel-list';
     list.dataset.techList = 'true';
+    const pagination = document.createElement('div');
+    pagination.className = 'tech-pagination';
+    pagination.dataset.techPagination = 'true';
+    pagination.innerHTML = `
+      <button class="small-btn ghost" data-tech-page-action="prev" type="button">上一页</button>
+      <span class="tech-pagination-status" data-tech-page-status="true"></span>
+      <button class="small-btn ghost" data-tech-page-action="next" type="button">下一页</button>
+    `.trim();
     body.append(sideTabs, list);
-    shell.append(topTabs, body);
+    shell.append(topTabs, body, pagination);
 
     preserveSelection(this.pane, () => {
       this.pane.replaceChildren(shell);
     });
-    this.shellRefs = { shell, topTabs, sideTabs, list };
+    this.shellRefs = { shell, topTabs, sideTabs, pagination, list };
     return this.shellRefs;
   }
 
@@ -887,6 +890,22 @@ export class TechniquePanel {
     }
   }
 
+  private buildTechniqueCardPatchSignature(tech: TechniqueState): string {
+    const showSkillToggle = shouldShowTechniqueSkillToggle(tech);
+    const skillsEnabled = showSkillToggle ? areTechniqueSkillsEnabled(tech, this.lastState.previewPlayer) : false;
+    const isCultivating = this.lastState.cultivatingTechId === tech.techId;
+    return [
+      tech.level,
+      tech.exp ?? 0,
+      tech.expToNext ?? 0,
+      tech.realmLv,
+      getResolvedTechniqueRealm(tech),
+      isCultivating ? 1 : 0,
+      showSkillToggle ? 1 : 0,
+      skillsEnabled ? 1 : 0,
+    ].join('|');
+  }
+
   /** syncTechniqueListContent：同步Technique列表Content。 */
   private syncTechniqueListContent(listRoot: HTMLElement, orderedNodes: HTMLElement[]): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -897,6 +916,7 @@ export class TechniquePanel {
         const techId = child instanceof HTMLElement ? child.dataset.techCard : undefined;
         if (techId) {
           this.cardNodeRefs.delete(techId);
+          this.cardPatchSignatures.delete(techId);
         }
         child.remove();
       }
@@ -952,6 +972,53 @@ export class TechniquePanel {
     return techniques.filter((tech) => (
       this.matchesCategoryFilter(tech) && this.matchesStatusFilter(tech)
     ));
+  }
+
+  private getPageState(filteredTechniques: TechniqueState[]): {
+    totalItems: number;
+    totalPages: number;
+    currentPage: number;
+    startIndex: number;
+    endIndex: number;
+  } {
+    const totalItems = filteredTechniques.length;
+    const totalPages = Math.max(1, Math.ceil(totalItems / TECHNIQUE_PANEL_PAGE_SIZE));
+    const currentPage = Math.min(Math.max(1, this.currentPage), totalPages);
+    if (currentPage !== this.currentPage) {
+      this.currentPage = currentPage;
+    }
+    const startIndex = (currentPage - 1) * TECHNIQUE_PANEL_PAGE_SIZE;
+    return {
+      totalItems,
+      totalPages,
+      currentPage,
+      startIndex,
+      endIndex: Math.min(totalItems, startIndex + TECHNIQUE_PANEL_PAGE_SIZE),
+    };
+  }
+
+  private getPagedTechniques(filteredTechniques: TechniqueState[]): TechniqueState[] {
+    const pageState = this.getPageState(filteredTechniques);
+    return filteredTechniques.slice(pageState.startIndex, pageState.endIndex);
+  }
+
+  private patchPagination(filteredTechniques: TechniqueState[]): boolean {
+    const pagination = this.pane.querySelector<HTMLElement>('[data-tech-pagination="true"]');
+    const status = this.pane.querySelector<HTMLElement>('[data-tech-page-status="true"]');
+    const prev = this.pane.querySelector<HTMLButtonElement>('[data-tech-page-action="prev"]');
+    const next = this.pane.querySelector<HTMLButtonElement>('[data-tech-page-action="next"]');
+    if (!pagination || !status || !prev || !next) {
+      return false;
+    }
+    const pageState = this.getPageState(filteredTechniques);
+    const shouldShow = pageState.totalItems > TECHNIQUE_PANEL_PAGE_SIZE;
+    pagination.hidden = !shouldShow;
+    status.textContent = shouldShow
+      ? `第 ${formatDisplayInteger(pageState.currentPage)} / ${formatDisplayInteger(pageState.totalPages)} 页 · 共 ${formatDisplayInteger(pageState.totalItems)} 门`
+      : '';
+    prev.disabled = pageState.currentPage <= 1;
+    next.disabled = pageState.currentPage >= pageState.totalPages;
+    return true;
   }
 
   /** isSameTechniqueIdSequence：判断是否Same Technique ID Sequence。 */
@@ -1287,6 +1354,7 @@ export class TechniquePanel {
         const filter = categoryButton.dataset.techCategoryFilter as TechniqueCategoryFilter | undefined;
         if (filter && this.categoryFilter !== filter) {
           this.categoryFilter = filter;
+          this.currentPage = 1;
           this.renderList();
         }
         return;
@@ -1297,6 +1365,24 @@ export class TechniquePanel {
         const filter = statusButton.dataset.techStatusFilter as TechniqueStatusFilter | undefined;
         if (filter && this.statusFilter !== filter) {
           this.statusFilter = filter;
+          this.currentPage = 1;
+          this.renderList();
+        }
+        return;
+      }
+
+      const pageButton = target.closest<HTMLElement>('[data-tech-page-action]');
+      if (pageButton) {
+        event.stopPropagation();
+        const action = pageButton.dataset.techPageAction;
+        const pageState = this.getPageState(this.getVisibleTechniques(this.getDisplayTechniques()));
+        const nextPage = action === 'prev'
+          ? Math.max(1, this.currentPage - 1)
+          : action === 'next'
+            ? Math.min(pageState.totalPages, this.currentPage + 1)
+            : this.currentPage;
+        if (nextPage !== this.currentPage) {
+          this.currentPage = nextPage;
           this.renderList();
         }
         return;
@@ -1628,7 +1714,11 @@ export class TechniquePanel {
       return false;
     }
     const filteredTechniques = this.getVisibleTechniques(techniques);
-    const visibleTechniqueIds = filteredTechniques.map((tech) => tech.techId);
+    if (!this.patchPagination(filteredTechniques)) {
+      return false;
+    }
+    const pageTechniques = this.getPagedTechniques(filteredTechniques);
+    const visibleTechniqueIds = pageTechniques.map((tech) => tech.techId);
     const listRoot = this.pane.querySelector<HTMLElement>('[data-tech-list="true"]');
     if (!listRoot) {
       return false;
@@ -1654,7 +1744,7 @@ export class TechniquePanel {
     for (const pending of pendingComprehensions) {
       orderedCards.push(this.createPendingTechniqueCardElement(pending));
     }
-    for (const tech of filteredTechniques) {
+    for (const tech of pageTechniques) {
       const card = existingCards.get(tech.techId) ?? this.createTechniqueCardElement(tech);
       existingCards.delete(tech.techId);
       orderedCards.push(card);
@@ -1662,7 +1752,7 @@ export class TechniquePanel {
     this.syncTechniqueListContent(listRoot, orderedCards);
 
     const { cultivatingTechId } = this.lastState;
-    for (const tech of filteredTechniques) {
+    for (const tech of pageTechniques) {
       let refs = this.cardNodeRefs.get(tech.techId);
       if (!refs) {
         const card = listRoot.querySelector<HTMLElement>(`[data-tech-card="${CSS.escape(tech.techId)}"]`);
@@ -1678,6 +1768,10 @@ export class TechniquePanel {
       const showSkillToggle = shouldShowTechniqueSkillToggle(tech);
       if (showSkillToggle !== Boolean(skillToggleButton)) {
         return false;
+      }
+      const nextSignature = this.buildTechniqueCardPatchSignature(tech);
+      if (this.cardPatchSignatures.get(tech.techId) === nextSignature) {
+        continue;
       }
 
       const maxLevel = getTechniqueMaxLevel(tech.layers, tech.level);
@@ -1705,6 +1799,7 @@ export class TechniquePanel {
       cultivateButton.classList.toggle('danger', isCultivating);
       cultivateButton.dataset.cultivate = isCultivating ? '' : tech.techId;
       cultivateButton.dataset.cultivateStop = isCultivating ? tech.techId : '';
+      this.cardPatchSignatures.set(tech.techId, nextSignature);
     }
 
     this.lastVisibleTechniqueIds = visibleTechniqueIds;

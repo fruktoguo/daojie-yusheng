@@ -3,7 +3,7 @@
  *
  * 维护时要保持它只处理前端表现和组件契约，不保存业务真源，也不绕过共享规则或服务端权威运行时。
  */
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import type { PlayerState, TechniqueCategory, TechniqueState } from '@mud/shared';
 import { getTechniqueMaxLevel, TECHNIQUE_GRADE_ORDER } from '@mud/shared';
 import { createPanelStore } from '../../stores/create-panel-store';
@@ -68,6 +68,7 @@ const STATUS_FILTERS: Array<{ value: TechniqueStatusFilter; label: string }> = [
 ];
 
 const GRADE_SORT_INDEX = new Map(TECHNIQUE_GRADE_ORDER.map((g, i) => [g, i] as const));
+const TECHNIQUE_PANEL_PAGE_SIZE = 12;
 
 function resolveTechniqueCategory(tech: TechniqueState): TechniqueCategory {
   return tech.category ?? 'arts';
@@ -120,6 +121,7 @@ export const TechniquePanel = memo(function TechniquePanel() {
   const { techniques, pendingComprehensions, cultivatingTechId, previewPlayer } = useTechniquePanelStore();
   const [categoryFilter, setCategoryFilter] = useState<TechniqueCategoryFilter>('all');
   const [statusFilter, setStatusFilter] = useState<TechniqueStatusFilter>('in_progress');
+  const [currentPage, setCurrentPage] = useState(1);
 
   const filtered = useMemo(() => {
     let list = techniques;
@@ -134,6 +136,18 @@ export const TechniquePanel = memo(function TechniquePanel() {
     }
     return sortTechniques(list);
   }, [techniques, categoryFilter, statusFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / TECHNIQUE_PANEL_PAGE_SIZE));
+  const safePage = Math.min(Math.max(1, currentPage), totalPages);
+  useEffect(() => {
+    if (safePage !== currentPage) {
+      setCurrentPage(safePage);
+    }
+  }, [currentPage, safePage]);
+  const pagedTechniques = useMemo(() => {
+    const start = (safePage - 1) * TECHNIQUE_PANEL_PAGE_SIZE;
+    return filtered.slice(start, start + TECHNIQUE_PANEL_PAGE_SIZE);
+  }, [filtered, safePage]);
 
   const categoryCounts = useMemo(() => {
     const counts: Record<string, number> = { all: techniques.length };
@@ -156,7 +170,10 @@ export const TechniquePanel = memo(function TechniquePanel() {
             key={f.value}
             className={`tech-filter-tab ui-filter-tab${categoryFilter === f.value ? ' active' : ''}`}
             type="button"
-            onClick={() => setCategoryFilter(f.value)}
+            onClick={() => {
+              setCategoryFilter(f.value);
+              setCurrentPage(1);
+            }}
           >
             {f.label}
             <span className="tech-filter-count">{categoryCounts[f.value] ?? 0}</span>
@@ -170,7 +187,10 @@ export const TechniquePanel = memo(function TechniquePanel() {
               key={f.value}
               className={`tech-side-tab ui-subtab-btn${statusFilter === f.value ? ' active' : ''}`}
               type="button"
-              onClick={() => setStatusFilter(f.value)}
+              onClick={() => {
+                setStatusFilter(f.value);
+                setCurrentPage(1);
+              }}
             >
               <span>{f.label}</span>
             </button>
@@ -185,7 +205,7 @@ export const TechniquePanel = memo(function TechniquePanel() {
             />
           ))}
           {filtered.length > 0
-            ? filtered.map((tech) => (
+            ? pagedTechniques.map((tech) => (
               <TechniqueCard
                 key={tech.techId}
                 tech={tech}
@@ -196,6 +216,15 @@ export const TechniquePanel = memo(function TechniquePanel() {
             : <div className="empty-hint">{resolveFilteredEmptyHint(statusFilter)}</div>}
         </div>
       </div>
+      {filtered.length > TECHNIQUE_PANEL_PAGE_SIZE && (
+        <div className="tech-pagination">
+          <button className="small-btn ghost" type="button" disabled={safePage <= 1} onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}>上一页</button>
+          <span className="tech-pagination-status">
+            第 {formatDisplayInteger(safePage)} / {formatDisplayInteger(totalPages)} 页 · 共 {formatDisplayInteger(filtered.length)} 门
+          </span>
+          <button className="small-btn ghost" type="button" disabled={safePage >= totalPages} onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}>下一页</button>
+        </div>
+      )}
     </div>
   );
 });
