@@ -37,10 +37,13 @@ function normalizeGeneratedArtsSkillTargetMode(
     return rawSkill;
   }
   const target = rawTarget as Record<string, unknown>;
-  if (target.targetMode !== 'tile' || shouldKeepGeneratedArtsTileTargetMode(candidate, skill, playerContext)) {
+  if (target.targetMode === 'tile' && shouldKeepGeneratedArtsTileTargetMode(candidate, skill, playerContext)) {
     return rawSkill;
   }
-  const nextTargetMode = isGeneratedArtsAreaTarget(target) ? 'any' : 'entity';
+  const nextTargetMode = resolveGeneratedArtsTargetMode(target);
+  if (!nextTargetMode || target.targetMode === nextTargetMode) {
+    return rawSkill;
+  }
   return {
     ...skill,
     target: {
@@ -48,6 +51,13 @@ function normalizeGeneratedArtsSkillTargetMode(
       targetMode: nextTargetMode,
     },
   };
+}
+
+function resolveGeneratedArtsTargetMode(target: Record<string, unknown>): 'any' | 'entity' | null {
+  if (target.targetMode !== 'tile' && target.targetMode !== 'entity') {
+    return null;
+  }
+  return isGeneratedArtsAreaTarget(target) ? 'any' : target.targetMode === 'tile' ? 'entity' : null;
 }
 
 function isGeneratedArtsAreaTarget(target: Record<string, unknown>): boolean {

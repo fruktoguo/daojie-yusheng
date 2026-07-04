@@ -874,6 +874,34 @@ async function testArtsTileTargetModeNormalizesForEntityDamage(): Promise<void> 
   const skill = (fixed.skills as { target?: { targetMode?: string } }[])[0];
   assert.equal(skill?.target?.targetMode, 'any');
 
+  const previousEntityFixed = normalizeGeneratedTechniqueCandidateForServer({
+    name: '裂风剑诀',
+    category: 'arts',
+    maxLayer: 9,
+    skills: [{
+      name: '裂风斩',
+      desc: '凝风成刃，直斩前方敌人。',
+      unlockLevel: 1,
+      damageKind: 'spell',
+      element: 'wood',
+      target: { type: 'line', targetMode: 'entity' },
+      structureStrength: { damage: 4, cost: 0, cooldown: 1, chant: 0, castRange: 3, area: 1 },
+      formulaStrength: {
+        attributeBases: { spellAtk: 4 },
+      },
+    }],
+  }, {
+    category: 'arts',
+    grade: 'mystic',
+    realmLv: 31,
+    maxLayer: 9,
+    budgetPercent: 1,
+    totalBudget: calcArtsBudgetMax('mystic', 31),
+    playerContext: '上一版错误迁移后的范围攻击',
+  });
+  const previousEntitySkill = (previousEntityFixed.skills as { target?: { targetMode?: string } }[])[0];
+  assert.equal(previousEntitySkill?.target?.targetMode, 'any');
+
   const singleFixed = normalizeGeneratedTechniqueCandidateForServer({
     name: '点星诀',
     category: 'arts',
