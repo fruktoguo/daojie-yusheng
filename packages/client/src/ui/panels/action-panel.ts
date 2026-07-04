@@ -1206,10 +1206,7 @@ export class ActionPanel {
       this.interactionFloatingEvents?.abort();
       this.interactionFloatingEvents = new AbortController();
       const signal = this.interactionFloatingEvents.signal;
-      this.bindActionCardEvents(panel.body, signal);
       this.bindActionExecEvents(panel.body, signal);
-      this.bindBindActionEvents(panel.body, signal);
-      this.bindTooltips(panel.body, signal);
     }
     panel.setTransientHidden(false);
   }
@@ -1244,21 +1241,36 @@ export class ActionPanel {
         action.id,
         action.type,
         action.name,
-        stripSectManagementData(action.desc),
         action.cooldownLeft,
         action.range ?? '',
         action.requiresTarget ? 'target' : 'instant',
-        this.getBindButtonLabel(action.id),
+        action.targetMode ?? '',
       ].join(':'))
       .join('|');
   }
 
   private renderFloatingInteractionList(actions: ActionDef[]): string {
     return `
-      <div class="floating-list-panel__count">${formatDisplayInteger(actions.length)} 个可用交互</div>
-      <div class="floating-list-panel__list action-card-list">
-        ${actions.map((action) => this.renderActionItem(action)).join('')}
+      <div class="floating-list-panel__list floating-interaction-quick-list">
+        ${actions.map((action) => this.renderFloatingInteractionButton(action)).join('')}
       </div>
+    `;
+  }
+
+  private renderFloatingInteractionButton(action: ActionDef): string {
+    const onCd = action.cooldownLeft > 0;
+    return `
+      <button
+        class="floating-interaction-quick-btn${onCd ? ' is-cooldown' : ''}"
+        type="button"
+        data-action="${escapeHtml(action.id)}"
+        data-action-exec="${escapeHtml(action.id)}"
+        data-action-name="${escapeHtml(action.name)}"
+        data-action-range="${action.range ?? ''}"
+        data-action-target="${action.requiresTarget ? '1' : '0'}"
+        data-action-target-mode="${action.targetMode ?? ''}"
+        ${onCd ? 'disabled aria-disabled="true" title="冷却中"' : ''}
+      >${escapeHtml(action.name)}</button>
     `;
   }
 

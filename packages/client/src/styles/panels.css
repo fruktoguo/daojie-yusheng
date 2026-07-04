@@ -11014,6 +11014,35 @@
     .floating-list-panel .action-cta {
       justify-content: flex-start;
     }
+    .floating-interaction-quick-list {
+      gap: 6px;
+    }
+    .floating-interaction-quick-btn {
+      width: 100%;
+      min-height: 34px;
+      padding: 7px 10px;
+      border: 1px solid rgba(84, 57, 35, 0.18);
+      border-radius: 8px;
+      background: rgba(255, 251, 242, 0.9);
+      color: var(--ink-strong);
+      font-size: var(--font-size-13);
+      font-weight: 700;
+      line-height: 1.25;
+      text-align: left;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      cursor: pointer;
+    }
+    .floating-interaction-quick-btn:hover {
+      border-color: rgba(84, 57, 35, 0.34);
+      background: rgba(255, 251, 242, 1);
+    }
+    .floating-interaction-quick-btn:disabled,
+    .floating-interaction-quick-btn.is-cooldown {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
     .floating-list-panel .craft-queue-head {
       margin-bottom: 6px;
     }
@@ -11036,6 +11065,15 @@
       border-color: rgba(246, 238, 224, 0.18);
       background: rgba(45, 37, 31, 0.9);
       color: var(--ink-strong);
+    }
+    :root[data-color-mode="dark"] .floating-interaction-quick-btn {
+      border-color: rgba(246, 238, 224, 0.16);
+      background: rgba(45, 37, 31, 0.9);
+      color: var(--ink-strong);
+    }
+    :root[data-color-mode="dark"] .floating-interaction-quick-btn:hover {
+      border-color: rgba(246, 238, 224, 0.28);
+      background: rgba(58, 47, 39, 0.96);
     }
     @media (max-width: 760px) {
       .floating-list-panel {
