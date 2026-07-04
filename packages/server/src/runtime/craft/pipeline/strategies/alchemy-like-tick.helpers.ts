@@ -37,6 +37,30 @@ export function executeAlchemyLikeTick(craftService: any, player: unknown, jobKi
     return craftService.buildAlchemyLikeTickResult();
   }
 
+  const batchConsume = craftService.consumeAlchemyLikeBatchResources(player, job);
+  if (!batchConsume.ok) {
+    craftService.setAlchemyLikeActiveJob(player, jobKind, null);
+    craftService.finalizeMutation(player, {
+      persistentOnly: true,
+      dirtyDomains: ['active_job'],
+    });
+    return {
+      ok: true,
+      panelChanged: true,
+      inventoryChanged: false,
+      equipmentChanged: false,
+      attrChanged: false,
+      messages: [{
+        kind: 'system',
+        key: jobKind === 'forging'
+          ? 'notice.craft.forging.batch-resources-missing'
+          : 'notice.craft.alchemy.batch-resources-missing',
+      }],
+      groundDrops: [],
+      craftRealmExpGain: 0,
+    };
+  }
+
   const currentSuccessRate = craftService.resolveAlchemyLikeCurrentSuccessRate(player, jobKind, job);
   job.successRate = currentSuccessRate;
   const successCount = craftService.resolveAlchemyLikeBatchSuccess(job, currentSuccessRate);
@@ -67,7 +91,7 @@ export function executeAlchemyLikeTick(craftService: any, player: unknown, jobKi
   resolved.craftRealmExpGain = expResult.finalGain / 2;
 
   craftService.finalizeMutation(player, {
-    inventoryChanged: inventoryResult.inventoryChanged,
+    inventoryChanged: inventoryResult.inventoryChanged || Boolean(batchConsume.inventoryChanged),
     attrChanged: expResult.attrChanged,
     persistentOnly: true,
     dirtyDomains: [
@@ -83,7 +107,7 @@ export function executeAlchemyLikeTick(craftService: any, player: unknown, jobKi
       ...(nextStartResult.messages ?? []),
     ];
     return materializeTechniqueActivityResolveResult(resolved, {
-      inventoryChanged: Boolean(nextStartResult.inventoryChanged),
+      inventoryChanged: Boolean(nextStartResult.inventoryChanged) || Boolean(batchConsume.inventoryChanged),
       equipmentChanged: Boolean(nextStartResult.equipmentChanged),
       attrChanged: expResult.attrChanged || Boolean(nextStartResult.attrChanged),
       additionalGroundDrops: nextStartResult.groundDrops ?? [],
@@ -92,6 +116,7 @@ export function executeAlchemyLikeTick(craftService: any, player: unknown, jobKi
 
   job.currentBatchRemainingTicks = job.batchBrewTicks;
   return materializeTechniqueActivityResolveResult(resolved, {
+    inventoryChanged: Boolean(batchConsume.inventoryChanged),
     attrChanged: expResult.attrChanged,
   });
 }

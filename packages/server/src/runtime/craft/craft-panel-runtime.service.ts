@@ -420,26 +420,54 @@ export class CraftPanelRuntimeService {
             normalizeCraftQueueStartMode(payload?.queueMode),
         );
     }
-    /** 真正启动炼丹/炼器 job 前消耗材料和灵石。 */
+    /** 真正启动炼丹/炼器 job 前只校验单批资源，实际扣除延后到每批完成结算前。 */
     consumeAlchemyLikeStartResources(player, validated) {
-        for (const ingredient of validated.ingredients) {
-            const requiredCount = ingredient.count * validated.quantity;
+        return this.validateAlchemyLikeBatchResources(player, validated);
+    }
+    /** 校验炼丹/炼器单批结算所需资源。 */
+    validateAlchemyLikeBatchResources(player, validatedOrJob) {
+        const ingredients = Array.isArray(validatedOrJob?.ingredients) ? validatedOrJob.ingredients : [];
+        for (const ingredient of ingredients) {
+            const requiredCount = Math.max(1, Math.trunc(Number(ingredient.count) || 0));
             if (countInventoryItem(player, ingredient.itemId) < requiredCount) {
                 return { ok: false, error: `${this.contentTemplateRepository.getItemName(ingredient.itemId) ?? ingredient.itemId} 数量不足。` };
             }
         }
-        if (validated.spiritStoneCost > 0 && !this.playerRuntimeService.canAffordWallet(player.playerId, SPIRIT_STONE_ITEM_ID, validated.spiritStoneCost)) {
-            return { ok: false, error: `灵石不足，需要 ${validated.spiritStoneCost} 枚。` };
-        }
-        for (const ingredient of validated.ingredients) {
-            consumeInventoryItemByItemId(player, ingredient.itemId, ingredient.count * validated.quantity);
-        }
-        if (validated.spiritStoneCost > 0) {
-            this.playerRuntimeService.debitWallet(player.playerId, SPIRIT_STONE_ITEM_ID, validated.spiritStoneCost);
+        const batchSpiritStoneCost = this.resolveAlchemyLikeBatchSpiritStoneCost(validatedOrJob);
+        if (batchSpiritStoneCost > 0 && !this.playerRuntimeService.canAffordWallet(player.playerId, SPIRIT_STONE_ITEM_ID, batchSpiritStoneCost)) {
+            return { ok: false, error: `灵石不足，需要 ${batchSpiritStoneCost} 枚。` };
         }
         return { ok: true };
     }
-    /** 创建炼丹/炼器 active job；调用方负责先完成资源消耗。 */
+    /** 扣除炼丹/炼器单批结算所需资源。 */
+    consumeAlchemyLikeBatchResources(player, job) {
+        const validation = this.validateAlchemyLikeBatchResources(player, job);
+        if (!validation.ok) {
+            return validation;
+        }
+        const ingredients = Array.isArray(job?.ingredients) ? job.ingredients : [];
+        let inventoryChanged = false;
+        for (const ingredient of ingredients) {
+            consumeInventoryItemByItemId(player, ingredient.itemId, Math.max(1, Math.trunc(Number(ingredient.count) || 0)));
+            inventoryChanged = true;
+        }
+        const batchSpiritStoneCost = this.resolveAlchemyLikeBatchSpiritStoneCost(job);
+        if (batchSpiritStoneCost > 0) {
+            this.playerRuntimeService.debitWallet(player.playerId, SPIRIT_STONE_ITEM_ID, batchSpiritStoneCost);
+            inventoryChanged = true;
+        }
+        return { ok: true, inventoryChanged };
+    }
+    /** 解析炼丹/炼器单批灵石成本。 */
+    resolveAlchemyLikeBatchSpiritStoneCost(job) {
+        const quantity = Math.max(1, Math.floor(Number(job?.quantity) || 1));
+        const totalCost = Math.max(0, Math.floor(Number(job?.spiritStoneCost) || 0));
+        const completedCount = Math.max(0, Math.floor(Number(job?.completedCount) || 0));
+        const baseCost = Math.floor(totalCost / quantity);
+        const remainder = totalCost % quantity;
+        return baseCost + (completedCount < remainder ? 1 : 0);
+    }
+    /** 创建炼丹/炼器 active job；资源会在每批完成结算前扣除。 */
     createAlchemyLikeStartJob(player, validated) {
         const recipe = validated.recipe;
         const nextJob = {
@@ -477,10 +505,9 @@ export class CraftPanelRuntimeService {
         setAlchemyLikeJob(player, validated.jobKind, nextJob);
         return nextJob;
     }
-    /** 标记炼丹/炼器 start 对背包和 active job 的权威变更。 */
+    /** 标记炼丹/炼器 start 对 active job 的权威变更。 */
     finalizeAlchemyLikeStart(player) {
         this.finalizeMutation(player, {
-            inventoryChanged: true,
             persistentOnly: true,
             dirtyDomains: ['active_job'],
         });
@@ -528,7 +555,7 @@ export class CraftPanelRuntimeService {
         const result = {
             ok: true,
             panelChanged: true,
-            inventoryChanged: true,
+            inventoryChanged: false,
             messages: this.buildAlchemyLikeStartMessages(validation.validated),
         };
         this.recordTechniqueActivityStatisticMutation(player, result);
@@ -550,54 +577,25 @@ export class CraftPanelRuntimeService {
         this.ensureCraftSkills(player);
         const normalizedJobKind = jobKind === 'forging' ? 'forging' : 'alchemy';
         const job = getAlchemyLikeJob(player, normalizedJobKind);
-        if (!job || job.remainingTicks <= 0) {
+        if (!job) {
             return buildCraftMutationResult(normalizedJobKind === 'forging' ? '当前没有可取消的炼器任务。' : '当前没有可取消的炼丹任务。');
         }
         this.playerRuntimeService.captureOfflineGainBeforeTick?.(player);
-        const refundableBatchCount = Math.max(0, job.quantity - job.completedCount - (job.phase === 'brewing' ? 1 : 0));
-        const groundDrops = [];
-        let inventoryChanged = false;
-        for (const ingredient of job.ingredients) {
-            const refundCount = ingredient.count * refundableBatchCount;
-            if (refundCount > 0) {
-                const refundItem = this.contentTemplateRepository.normalizeItem({
-                    itemId: ingredient.itemId,
-                    count: refundCount,
-                });
-                if (refundItem.itemId === SPIRIT_STONE_ITEM_ID) {
-                    this.playerRuntimeService.creditWallet(player.playerId, SPIRIT_STONE_ITEM_ID, refundCount);
-                    inventoryChanged = true;
-                }
-                else if (canReceiveCraftItem(player, refundItem)) {
-                    receiveInventoryItem(player, this.contentTemplateRepository, refundItem);
-                    inventoryChanged = true;
-                } else {
-                    groundDrops.push(refundItem);
-                }
-            }
-        }
-        if (job.spiritStoneCost > 0 && refundableBatchCount > 0) {
-            const refundableSpiritStones = Math.floor(job.spiritStoneCost * (refundableBatchCount / Math.max(1, job.quantity)));
-            if (refundableSpiritStones > 0) {
-                this.playerRuntimeService.creditWallet(player.playerId, SPIRIT_STONE_ITEM_ID, refundableSpiritStones);
-                inventoryChanged = true;
-            }
-        }
         setAlchemyLikeJob(player, normalizedJobKind, null);
         this.finalizeMutation(player, {
-            inventoryChanged,
+            inventoryChanged: false,
             persistentOnly: true,
             dirtyDomains: ['active_job'],
         });
         const result = {
             ok: true,
             panelChanged: true,
-            inventoryChanged,
-            groundDrops,
+            inventoryChanged: false,
+            groundDrops: [],
             messages: [{
                     kind: 'system',
-                    key: refundableBatchCount > 0
-                        ? 'notice.craft.alchemy.cancel-refunded'
+                    key: normalizedJobKind === 'forging'
+                        ? 'notice.craft.forging.cancel-no-refund'
                         : 'notice.craft.alchemy.cancel-no-refund',
                 }],
         };
@@ -716,6 +714,10 @@ export class CraftPanelRuntimeService {
     /** 读取炼丹/炼器 active job，供 pipeline strategy 推进。 */
     getAlchemyLikeActiveJob(player, jobKind = 'alchemy') {
         return getAlchemyLikeJob(player, jobKind === 'forging' ? 'forging' : 'alchemy');
+    }
+    /** 设置炼丹/炼器 active job，供 pipeline strategy 在异常结算时权威清理。 */
+    setAlchemyLikeActiveJob(player, jobKind = 'alchemy', job = null) {
+        setAlchemyLikeJob(player, jobKind === 'forging' ? 'forging' : 'alchemy', job);
     }
     /** 推进炼丹/炼器打断等待，只改等待状态，不修改实际工作量。 */
     advanceAlchemyLikePausedJob(player, job) {

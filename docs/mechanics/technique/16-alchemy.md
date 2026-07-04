@@ -76,11 +76,9 @@ alchemySpiritStoneCost = recipeLevel × quantity  // consumesSpiritStone=true时
 
 ## 单次炼制批量
 
-```typescript
-maxQuantity = min(材料可支持批数, 灵石可支持批数)
-```
+开始制作时不再用当前材料/灵石反推 `maxQuantity`。`quantity` 只决定 job 总批次数和总耗时；服务端在开始前只校验一次“单批材料 + 单批灵石”是否满足，实际资源在每批完成结算前再次校验并扣除一批。
 
-不设置额外固定批数上限。
+不设置额外固定批数上限。若后续批次完成结算时材料或灵石不足，该 job 会停止，不产出该批，也不会继续吞掉后续队列项的材料。
 
 ## 产出数量
 
@@ -96,18 +94,21 @@ batchOutputCount = outputCount × furnaceOutputCount
 startAlchemy:
   1. 校验配方存在 → 校验投料合法性 → 校验数量
   2. 检查是否有活跃任务（有则入队列）
-  3. 检查材料充足 → 检查灵石充足
-  4. 扣除材料 → 扣除灵石
-  5. 计算 batchBrewTicks/totalTicks/successRate/batchOutputCount
-  6. 创建 job (phase='brewing')
+  3. 检查单批材料充足 → 检查单批灵石充足（只校验，不扣除）
+  4. 计算 batchBrewTicks/totalTicks/successRate/batchOutputCount
+  5. 创建 job (phase='brewing')
 
 tickAlchemy:
   1. phase='paused' → 只推进 interruptWaitRemainingTicks / pausedTicks，不改实际工作进度
   2. phase='brewing' → remainingTicks/workRemainingTicks/currentBatchRemainingTicks -= 1
-  3. 单批完成 → 逐件判定成功(Math.random() < successRate)
-  4. 产出入背包 → 计算技能经验 → 判断是否全部完成
-  5. 全部完成 → 启动队列下一项
+  3. 单批完成前再次检查并扣除一批材料/灵石
+  4. 单批资源不足 → 停止当前 job，不产出该批
+  5. 单批资源扣除成功 → 逐件判定成功(Math.random() < successRate)
+  6. 产出入背包 → 计算技能经验 → 判断是否全部完成
+  7. 全部完成 → 启动队列下一项
 ```
+
+取消当前炼丹 job 时只清理任务；未完成批次由于尚未扣除资源，不再执行材料或灵石退还。
 
 ## 面板表现约束
 

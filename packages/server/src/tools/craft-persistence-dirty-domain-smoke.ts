@@ -70,6 +70,16 @@ function createService() {
   const techniqueActivityQueueWrites: Array<{ playerId: string; rows: unknown[]; versionSeed?: number | null }> = [];
   const service = new CraftPanelRuntimeService(
     {
+      createItem(itemId: string, count: number) {
+        return {
+          itemId,
+          name: itemId,
+          type: 'material',
+          count,
+          tags: [],
+          materialValues: { elements: { wood: 1 } },
+        };
+      },
       normalizeItem(item: Record<string, unknown>) {
         return {
           count: 1,
@@ -193,6 +203,12 @@ function resetDirty(player: { dirtyDomains: Set<string>; persistentRevision: num
   player.persistentRevision = 1;
 }
 
+function countInventoryItem(player: ReturnType<typeof createPlayer>, itemId: string): number {
+  return player.inventory.items
+    .filter((item) => item.itemId === itemId)
+    .reduce((total, item) => total + Math.max(0, Math.trunc(Number(item.count ?? 0))), 0);
+}
+
 function assertDomains(player: { dirtyDomains: Set<string> }, expected: string[], absent: string[] = []) {
   for (const domain of expected) {
     assert.ok(player.dirtyDomains.has(domain), `expected dirty domain ${domain}, got ${Array.from(player.dirtyDomains).join(',')}`);
@@ -242,6 +258,54 @@ function testTickAlchemyMarksActiveJob() {
   assert.equal(activeJobWrites.length, 1);
   assert.equal(activeJobWrites[0].playerId, player.playerId);
   assert.equal(activeJobWrites[0].versionSeed, player.persistentRevision);
+  assert.equal((activeJobWrites[0].row as Record<string, unknown> | null)?.jobVersion, 3);
+}
+
+function testAlchemyCompletionConsumesOneBatchResources() {
+  const { service, runtimeHarness, playerStore, activeJobWrites } = createService();
+  const player = createPlayer();
+  playerStore.set(player.playerId, player);
+
+  const grassBeforeStart = countInventoryItem(player, 'moondew_grass');
+  const walletBeforeStart = getWalletBalance(player, 'spirit_stone');
+  const start = service.startAlchemy(player as never, {
+    recipeId: 'qi_pill',
+    quantity: 2,
+    ingredients: [{ itemId: 'moondew_grass', count: 1 }],
+  });
+  assert.equal(start.ok, true);
+  assert.equal(countInventoryItem(player, 'moondew_grass'), grassBeforeStart);
+  assert.equal(getWalletBalance(player, 'spirit_stone'), walletBeforeStart);
+  assert.equal(player.alchemyJob?.jobVersion, 2);
+
+  resetDirty(player);
+  activeJobWrites.length = 0;
+  runtimeHarness.walletDebits.length = 0;
+  if (!player.alchemyJob) {
+    throw new Error('alchemy job missing before resource completion tick');
+  }
+  player.alchemyJob.remainingTicks = 2;
+  player.alchemyJob.workRemainingTicks = 2;
+  player.alchemyJob.currentBatchRemainingTicks = 1;
+  player.alchemyJob.baseElementSuccessRate = 1;
+  player.alchemyJob.successRate = 1;
+
+  const originalRandom = Math.random;
+  Math.random = () => 0;
+  try {
+    service.tickAlchemy(player as never);
+  } finally {
+    Math.random = originalRandom;
+  }
+
+  assertDomains(player, ['inventory', 'active_job', 'profession'], ['snapshot', 'wallet']);
+  assert.equal(countInventoryItem(player, 'moondew_grass'), grassBeforeStart - 1);
+  assert.equal(getWalletBalance(player, 'spirit_stone'), walletBeforeStart);
+  assert.deepEqual(runtimeHarness.walletDebits, []);
+  assert.equal(player.alchemyJob?.completedCount, 1);
+  assert.equal(player.alchemyJob?.jobVersion, 3);
+  assert.equal(activeJobWrites.length, 1);
+  assert.equal(activeJobWrites[0].playerId, player.playerId);
   assert.equal((activeJobWrites[0].row as Record<string, unknown> | null)?.jobVersion, 3);
 }
 
@@ -332,6 +396,7 @@ function countMatches(source: string, pattern: RegExp): number {
 function main() {
   testSaveAlchemyPresetDirtyDomain();
   testTickAlchemyMarksActiveJob();
+  testAlchemyCompletionConsumesOneBatchResources();
   testTickEnhancementMarksDomains();
   testActiveJobVersionBumpHasSingleImplementation();
 
@@ -339,7 +404,7 @@ function main() {
     JSON.stringify(
       {
         ok: true,
-        answers: 'CraftPanelRuntimeService 现已把 alchemy_preset / active_job / enhancement_record / profession 显式接入 dirtyDomains，并让 active_job 的 jobVersion 随 craft 变更单调前进；active job version 递增实现只保留在 bumpTechniqueActivityJobVersion；同时强化灵石校验/扣费已切到 wallet，炼丹与强化不再只能退回 snapshot',
+        answers: 'CraftPanelRuntimeService 现已把 alchemy_preset / active_job / enhancement_record / profession 显式接入 dirtyDomains，并让 active_job 的 jobVersion 随 craft 变更单调前进；active job version 递增实现只保留在 bumpTechniqueActivityJobVersion；同时强化灵石校验/扣费已切到 wallet，炼丹完成结算才扣除单批材料和灵石',
         completionMapping: 'release:proof:with-db.craft-persistence-dirty-domains',
       },
       null,

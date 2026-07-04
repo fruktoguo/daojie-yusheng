@@ -66,7 +66,8 @@ async function main(): Promise<void> {
   testMainOnlyForgingRecipeStartsWithFullFivePhaseMatch();
   testArtifactForgingCapsBaseSuccessRateAtTenPercent();
   await testDirectAlchemyJobNoPreparationAndSeparateInterruptWait();
-  await testAlchemyQuantityUsesResourceLimitsWithoutFixedCap();
+  await testAlchemyQuantityStartsWithSingleBatchResources();
+  await testAlchemyStopsWhenBatchResourcesMissing();
   await testAlchemyQueueStartsNextJobFromUnifiedQueue();
   await testAlchemyFailureDoesNotCreateOutput();
   await testAlchemyBatchUsesCurrentLuckSuccessRate();
@@ -82,10 +83,11 @@ async function main(): Promise<void> {
     answers: [
       '炼丹/炼器创建后直接进入实际制作 job，不再创建玩家可见准备阶段。',
       '打断等待独立于 workRemainingTicks/workTotalTicks。',
-      '炼丹/炼器单次任务数量不再卡固定上限，资源足够时可创建 10000 批，资源不足时按材料/灵石校验失败。',
+      '炼丹/炼器单次任务数量不再卡固定上限，开始时只校验单批材料/灵石。',
+      '炼丹/炼器每批完成结算前扣除一批材料/灵石，资源不足时停止当前任务且不产出。',
       '制造型队列写入 techniqueActivityQueue，当前任务完成后能启动下一项。',
       '炼丹/炼器入队不会提前消耗材料或灵石。',
-      '炼丹/炼器取消不再暴露 strategy executeCancel，公共 cancelLifecycle 通过 computeRefund 物化退款。',
+      '炼丹/炼器取消不再暴露 strategy executeCancel，公共 cancelLifecycle 只清理未完成任务，不退还未扣除批次。',
       '炼丹/炼器中断不再暴露 strategy executeInterrupt，公共 interrupt lifecycle 统一刷新独立等待条和 active job version。',
       '炼丹失败不产出，背包满时产出掉地。',
       '炼丹/炼器每批结算前会按当前有效幸运重算成功率。',
@@ -249,13 +251,14 @@ async function testDirectAlchemyJobNoPreparationAndSeparateInterruptWait(): Prom
   assert.equal((cancel.messages ?? []).some((message) => String(message.text ?? '').includes('炉')), false);
 }
 
-async function testAlchemyQuantityUsesResourceLimitsWithoutFixedCap(): Promise<void> {
+async function testAlchemyQuantityStartsWithSingleBatchResources(): Promise<void> {
   const player = createPlayer('player:alchemy:quantity:three-digits', [
-    { itemId: 'herb.qi', count: 120 },
-    { itemId: 'spirit_stone', count: 120 },
+    { itemId: 'herb.qi', count: 1 },
   ]);
   const { craftService } = createCraftHarness(player);
   const ctx = craftService.buildPipelineContext(createDeps([]));
+  const materialCountBeforeStart = countPlayerItem(player, 'herb.qi');
+  const spiritStonesBeforeStart = resolveWalletBalance(player, 'spirit_stone');
 
   const start = craftService.startTechniqueActivity(player, 'alchemy', {
     recipeId: ALCHEMY_RECIPE.recipeId,
@@ -266,14 +269,17 @@ async function testAlchemyQuantityUsesResourceLimitsWithoutFixedCap(): Promise<v
   assert.equal(start.ok, true);
   assert.equal(player.alchemyJob?.quantity, 100);
   assert.equal(player.alchemyJob?.workTotalTicks, ALCHEMY_RECIPE.baseBrewTicks * 100);
+  assert.equal(countPlayerItem(player, 'herb.qi'), materialCountBeforeStart);
+  assert.equal(resolveWalletBalance(player, 'spirit_stone'), spiritStonesBeforeStart);
 
   const highQuantity = 10000;
-  const highQuantityPlayer = createPlayer('player:alchemy:quantity:resource-limit', [
-    { itemId: 'herb.qi', count: highQuantity },
-    { itemId: 'spirit_stone', count: highQuantity },
+  const highQuantityPlayer = createPlayer('player:alchemy:quantity:single-batch-resource', [
+    { itemId: 'herb.qi', count: 1 },
   ]);
   const { craftService: highQuantityCraftService } = createCraftHarness(highQuantityPlayer);
   const highQuantityCtx = highQuantityCraftService.buildPipelineContext(createDeps([]));
+  const highQuantityMaterialBeforeStart = countPlayerItem(highQuantityPlayer, 'herb.qi');
+  const highQuantitySpiritStonesBeforeStart = resolveWalletBalance(highQuantityPlayer, 'spirit_stone');
 
   const highQuantityStart = highQuantityCraftService.startTechniqueActivity(highQuantityPlayer, 'alchemy', {
     recipeId: ALCHEMY_RECIPE.recipeId,
@@ -283,23 +289,74 @@ async function testAlchemyQuantityUsesResourceLimitsWithoutFixedCap(): Promise<v
 
   assert.equal(highQuantityStart.ok, true);
   assert.equal(highQuantityPlayer.alchemyJob?.quantity, highQuantity);
+  assert.equal(countPlayerItem(highQuantityPlayer, 'herb.qi'), highQuantityMaterialBeforeStart);
+  assert.equal(resolveWalletBalance(highQuantityPlayer, 'spirit_stone'), highQuantitySpiritStonesBeforeStart);
 
-  const overResourcePlayer = createPlayer('player:alchemy:quantity:over-resource', [
-    { itemId: 'herb.qi', count: highQuantity },
-    { itemId: 'spirit_stone', count: highQuantity },
-  ]);
-  const { craftService: overResourceCraftService } = createCraftHarness(overResourcePlayer);
-  const overResourceCtx = overResourceCraftService.buildPipelineContext(createDeps([]));
+  const missingSingleBatchPlayer = createPlayer('player:alchemy:quantity:missing-single-batch-resource', []);
+  const { craftService: missingSingleBatchCraftService } = createCraftHarness(missingSingleBatchPlayer);
+  const missingSingleBatchCtx = missingSingleBatchCraftService.buildPipelineContext(createDeps([]));
 
-  const overResourceStart = overResourceCraftService.startTechniqueActivity(overResourcePlayer, 'alchemy', {
+  const missingSingleBatchStart = missingSingleBatchCraftService.startTechniqueActivity(missingSingleBatchPlayer, 'alchemy', {
     recipeId: ALCHEMY_RECIPE.recipeId,
     ingredients: [{ itemId: 'herb.qi', count: 1 }],
     quantity: highQuantity + 1,
-  }, overResourceCtx.deps);
+  }, missingSingleBatchCtx.deps);
 
-  assert.equal(overResourceStart.ok, false);
-  assert.match(String(overResourceStart.error ?? ''), /数量不足|灵石不足/);
-  assert.equal(overResourcePlayer.alchemyJob, null);
+  assert.equal(missingSingleBatchStart.ok, false);
+  assert.match(String(missingSingleBatchStart.error ?? ''), /数量不足|灵石不足/);
+  assert.equal(missingSingleBatchPlayer.alchemyJob, null);
+}
+
+async function testAlchemyStopsWhenBatchResourcesMissing(): Promise<void> {
+  const player = createPlayer('player:alchemy:batch-resource-missing', [
+    { itemId: 'herb.qi', count: 1 },
+  ]);
+  const { craftService } = createCraftHarness(player);
+  const ctx = craftService.buildPipelineContext(createDeps([]));
+
+  const start = craftService.startTechniqueActivity(player, 'alchemy', {
+    recipeId: ALCHEMY_RECIPE.recipeId,
+    ingredients: [{ itemId: 'herb.qi', count: 1 }],
+    quantity: 2,
+  }, ctx.deps);
+  assert.equal(start.ok, true);
+  assert.equal(countPlayerItem(player, 'herb.qi'), 1);
+  assert.equal(resolveWalletBalance(player, 'spirit_stone'), 100);
+
+  if (!player.alchemyJob) {
+    throw new Error('alchemy job missing before first batch resource tick');
+  }
+  player.alchemyJob.baseElementSuccessRate = 1;
+  player.alchemyJob.successRate = 1;
+  player.alchemyJob.remainingTicks = 2;
+  player.alchemyJob.workRemainingTicks = 2;
+  player.alchemyJob.currentBatchRemainingTicks = 1;
+
+  const originalRandom = Math.random;
+  Math.random = () => 0;
+  try {
+    const firstBatch = craftService.tickTechniqueActivity(player, 'alchemy', ctx.deps);
+    assert.equal(firstBatch.ok, true);
+  } finally {
+    Math.random = originalRandom;
+  }
+
+  assert.ok(player.alchemyJob);
+  assert.equal(player.alchemyJob.completedCount, 1);
+  assert.equal(countPlayerItem(player, 'herb.qi'), 0);
+  assert.equal(resolveWalletBalance(player, 'spirit_stone'), 100);
+  assert.equal(countPlayerItem(player, 'pill.qi'), 6);
+
+  player.alchemyJob.remainingTicks = 1;
+  player.alchemyJob.workRemainingTicks = 1;
+  player.alchemyJob.currentBatchRemainingTicks = 1;
+  const missingResources = craftService.tickTechniqueActivity(player, 'alchemy', ctx.deps);
+  assert.equal(missingResources.ok, true);
+  assert.equal(missingResources.messages?.[0]?.key, 'notice.craft.alchemy.batch-resources-missing');
+  assert.equal(player.alchemyJob, null);
+  assert.equal(countPlayerItem(player, 'herb.qi'), 0);
+  assert.equal(resolveWalletBalance(player, 'spirit_stone'), 100);
+  assert.equal(countPlayerItem(player, 'pill.qi'), 6);
 }
 
 async function testAlchemyQueueStartsNextJobFromUnifiedQueue(): Promise<void> {
@@ -445,8 +502,12 @@ async function testAlchemyOutputDropsWhenInventoryFull(): Promise<void> {
 }
 
 async function testLegacyActiveAlchemyAndForgingJobsContinueToCompletion(): Promise<void> {
-  const alchemyPlayer = createPlayer('player:alchemy:legacy-active', []);
-  const forgingPlayer = createPlayer('player:forging:legacy-active', []);
+  const alchemyPlayer = createPlayer('player:alchemy:legacy-active', [
+    { itemId: 'herb.qi', count: 1 },
+  ]);
+  const forgingPlayer = createPlayer('player:forging:legacy-active', [
+    { itemId: 'ore.copper', count: 1 },
+  ]);
   const { craftService: alchemyCraftService } = createCraftHarness(alchemyPlayer);
   const { craftService: forgingCraftService } = createCraftHarness(forgingPlayer);
   const alchemyCtx = alchemyCraftService.buildPipelineContext(createDeps([]));

@@ -71,11 +71,13 @@ RuntimeTechniqueActivityKind = 'alchemy' | 'forging' | 'enhancement' | 'transmis
 ### 管线生命周期
 
 ```
-start → [validateStart → consumeResources → createJob]
-  → tick循环 → [conditionCheck → pause → advance → resolve → skillExp → output → completion]
+start → [validateStart → checkStartResources → createJob]
+  → tick循环 → [conditionCheck → pause → advance → checkAndConsumeBatchResources → resolve → skillExp → output → completion]
 interrupt → [暂停/休眠]
-cancel → [computeRefund → 清理job]
+cancel → [computeRefundOrCleanup → 清理job]
 ```
+
+配方型炼丹/锻造的 start 阶段只校验单批材料和单批灵石是否满足，不提前扣除全部批次资源；每批完成结算前再次校验并扣除一批材料/灵石，资源不足则停止当前 job 且不产出该批。取消时未完成批次尚未扣资源，因此不再退还未完成批次材料或灵石。
 
 ### 统一任务可见性
 
