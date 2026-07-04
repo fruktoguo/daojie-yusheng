@@ -37,6 +37,9 @@ import {
 
 /** 强化与炼丹计算中固定使用的灵石物品 ID。 */
 const SPIRIT_STONE_ITEM_ID = ENHANCEMENT_SPIRIT_STONE_ITEM_ID;
+/** 炼丹/炼器资源扣除策略版本：每批完成结算前扣除一批。 */
+const ALCHEMY_LIKE_RESOURCE_CONSUMPTION_MODE_PER_BATCH = 'perBatchOnResolve';
+const ALCHEMY_LIKE_RESOURCE_CONSUMPTION_VERSION = 2;
 
 /** 制作运行时服务：负责炼丹与强化的任务创建、进度推进与结果落库。 */
 @Injectable()
@@ -467,6 +470,86 @@ export class CraftPanelRuntimeService {
         const remainder = totalCost % quantity;
         return baseCost + (completedCount < remainder ? 1 : 0);
     }
+    /** 判断 active job 是否已经使用逐批完成前扣料语义。 */
+    isAlchemyLikePerBatchResourceJob(job) {
+        return job?.resourceConsumptionMode === ALCHEMY_LIKE_RESOURCE_CONSUMPTION_MODE_PER_BATCH
+            || Math.trunc(Number(job?.resourceConsumptionVersion) || 0) >= ALCHEMY_LIKE_RESOURCE_CONSUMPTION_VERSION
+            || job?.resourcesDeductedAtStart === false;
+    }
+    /** 标记炼丹/炼器 job 已迁移到逐批扣料语义，避免旧预扣返还重复执行。 */
+    markAlchemyLikePerBatchResourceJob(job) {
+        if (!job || typeof job !== 'object') {
+            return;
+        }
+        job.resourceConsumptionMode = ALCHEMY_LIKE_RESOURCE_CONSUMPTION_MODE_PER_BATCH;
+        job.resourceConsumptionVersion = ALCHEMY_LIKE_RESOURCE_CONSUMPTION_VERSION;
+        job.resourcesDeductedAtStart = false;
+    }
+    /** 计算旧版本启动时全量预扣的未完成批次资源返还。 */
+    computeLegacyAlchemyLikePrepaidRefund(job) {
+        const quantity = Math.max(1, Math.trunc(Number(job?.quantity) || 1));
+        const completedCount = Math.min(quantity, Math.max(0, Math.trunc(Number(job?.completedCount) || 0)));
+        const refundableBatchCount = Math.max(0, quantity - completedCount);
+        const ingredients = Array.isArray(job?.ingredients) ? job.ingredients : [];
+        const items = [];
+        for (const ingredient of ingredients) {
+            const count = Math.max(1, Math.trunc(Number(ingredient?.count) || 0)) * refundableBatchCount;
+            if (!ingredient?.itemId || count <= 0) {
+                continue;
+            }
+            items.push({ itemId: ingredient.itemId, count });
+        }
+        const totalSpiritStoneCost = Math.max(0, Math.trunc(Number(job?.spiritStoneCost) || 0));
+        const baseCost = Math.floor(totalSpiritStoneCost / quantity);
+        const remainder = totalSpiritStoneCost % quantity;
+        const completedSpiritStoneCost = (baseCost * completedCount) + Math.min(completedCount, remainder);
+        return {
+            items,
+            spiritStones: Math.max(0, totalSpiritStoneCost - completedSpiritStoneCost),
+        };
+    }
+    /** 兼容旧 active job：旧版启动已全量扣料，迁移时返还未完成批次资源。 */
+    ensureAlchemyLikeJobResourceCompatibility(player, jobKind = 'alchemy', job = undefined) {
+        const normalizedJobKind = jobKind === 'forging' ? 'forging' : 'alchemy';
+        const activeJob = job ?? getAlchemyLikeJob(player, normalizedJobKind);
+        if (!activeJob || this.isAlchemyLikePerBatchResourceJob(activeJob)) {
+            return { migrated: false, inventoryChanged: false, walletChanged: false, spiritStones: 0 };
+        }
+        const refund = this.computeLegacyAlchemyLikePrepaidRefund(activeJob);
+        let inventoryChanged = false;
+        let walletChanged = false;
+        let creditedSpiritStones = 0;
+        for (const item of refund.items) {
+            if (item.itemId === SPIRIT_STONE_ITEM_ID) {
+                this.playerRuntimeService.creditWallet(player.playerId, SPIRIT_STONE_ITEM_ID, item.count);
+                creditedSpiritStones += item.count;
+                walletChanged = true;
+                inventoryChanged = true;
+                continue;
+            }
+            receiveInventoryItem(player, this.contentTemplateRepository, { itemId: item.itemId, count: item.count });
+            inventoryChanged = true;
+        }
+        if (refund.spiritStones > 0) {
+            this.playerRuntimeService.creditWallet(player.playerId, SPIRIT_STONE_ITEM_ID, refund.spiritStones);
+            creditedSpiritStones += refund.spiritStones;
+            walletChanged = true;
+            inventoryChanged = true;
+        }
+        this.markAlchemyLikePerBatchResourceJob(activeJob);
+        activeJob.legacyPrepaidResourceRefundedAt = Date.now();
+        this.finalizeMutation(player, {
+            inventoryChanged,
+            persistentOnly: true,
+            dirtyDomains: ['active_job'],
+        });
+        return {
+            migrated: true,
+            inventoryChanged,
+            walletChanged,
+            spiritStones: creditedSpiritStones,
+        };
+    }
     /** 创建炼丹/炼器 active job；资源会在每批完成结算前扣除。 */
     createAlchemyLikeStartJob(player, validated) {
         const recipe = validated.recipe;
@@ -491,6 +574,9 @@ export class CraftPanelRuntimeService {
             interruptWaitRemainingTicks: 0,
             interruptState: null,
             spiritStoneCost: validated.spiritStoneCost,
+            resourceConsumptionMode: ALCHEMY_LIKE_RESOURCE_CONSUMPTION_MODE_PER_BATCH,
+            resourceConsumptionVersion: ALCHEMY_LIKE_RESOURCE_CONSUMPTION_VERSION,
+            resourcesDeductedAtStart: false,
             totalTicks: validated.totalTicks,
             remainingTicks: validated.totalTicks,
             successRate: validated.successRate,
@@ -581,16 +667,17 @@ export class CraftPanelRuntimeService {
             return buildCraftMutationResult(normalizedJobKind === 'forging' ? '当前没有可取消的炼器任务。' : '当前没有可取消的炼丹任务。');
         }
         this.playerRuntimeService.captureOfflineGainBeforeTick?.(player);
+        const compatibility = this.ensureAlchemyLikeJobResourceCompatibility(player, normalizedJobKind, job);
         setAlchemyLikeJob(player, normalizedJobKind, null);
         this.finalizeMutation(player, {
-            inventoryChanged: false,
+            inventoryChanged: Boolean(compatibility.inventoryChanged),
             persistentOnly: true,
             dirtyDomains: ['active_job'],
         });
         const result = {
             ok: true,
             panelChanged: true,
-            inventoryChanged: false,
+            inventoryChanged: Boolean(compatibility.inventoryChanged),
             groundDrops: [],
             messages: [{
                     kind: 'system',
@@ -714,6 +801,14 @@ export class CraftPanelRuntimeService {
     /** 读取炼丹/炼器 active job，供 pipeline strategy 推进。 */
     getAlchemyLikeActiveJob(player, jobKind = 'alchemy') {
         return getAlchemyLikeJob(player, jobKind === 'forging' ? 'forging' : 'alchemy');
+    }
+    /** 启动/恢复后的轻量兼容检查：旧预扣 active job 会返还未完成批次并标记新扣料版本。 */
+    ensureAlchemyLikeActiveJobResourceCompatibilityMutation(player, jobKind = 'alchemy') {
+        const compatibility = this.ensureAlchemyLikeJobResourceCompatibility(player, jobKind);
+        if (!compatibility.migrated) {
+            return this.buildAlchemyLikeTickResult();
+        }
+        return this.buildAlchemyLikeTickResult(true, [], Boolean(compatibility.inventoryChanged));
     }
     /** 设置炼丹/炼器 active job，供 pipeline strategy 在异常结算时权威清理。 */
     setAlchemyLikeActiveJob(player, jobKind = 'alchemy', job = null) {

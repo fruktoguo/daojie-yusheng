@@ -34,6 +34,7 @@ export function computeAlchemyLikeCancelRefund(
       }],
     };
   }
+  const compatibility = craftService.ensureAlchemyLikeJobResourceCompatibility(player, jobKind, job);
 
   const resolved: TechniqueActivityResolveResult = {
     successCount: 0,
@@ -42,7 +43,7 @@ export function computeAlchemyLikeCancelRefund(
     inventoryDelta: {
       granted: [],
       dropped: [],
-      changed: false,
+      changed: Boolean(compatibility.inventoryChanged),
     },
     panelDirty: {
       changed: true,
@@ -67,7 +68,7 @@ export function computeAlchemyLikeCancelRefund(
   };
 
   craftService.finalizeMutation(player, {
-    inventoryChanged: false,
+    inventoryChanged: Boolean(compatibility.inventoryChanged),
     persistentOnly: true,
   });
 
@@ -76,11 +77,11 @@ export function computeAlchemyLikeCancelRefund(
     spiritStones: 0,
     inventoryDelta: {
       ...(resolved.inventoryDelta ?? {}),
-      changed: false,
+      changed: Boolean(compatibility.inventoryChanged),
     },
     walletDelta: {
-      spiritStones: 0,
-      changed: false,
+      spiritStones: Number(compatibility.spiritStones ?? 0),
+      changed: Boolean(compatibility.walletChanged),
     },
     panelDirty: resolved.panelDirty,
     messages: resolved.messages,

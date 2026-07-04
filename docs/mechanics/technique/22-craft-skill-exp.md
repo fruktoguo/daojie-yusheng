@@ -103,6 +103,8 @@ cancel → [computeRefundOrCleanup → 清理job]
 
 炼丹、锻造开始后直接表现为制作 job，不保留玩家可见的开炉、准备、炉火稳定等阶段。旧存档或兼容字段如果仍存在这些状态，水合到运行态时必须规整为实际制作阶段或明确停止，不能继续向客户端暴露旧阶段。
 
+炼丹、锻造资源扣除以 active job 上的 `resourceConsumptionMode=perBatchOnResolve` / `resourceConsumptionVersion=2` 为版本真源。创建和入队只校验单批资源是否满足，不提前扣除；每批完成结算前再次校验并扣除一批材料和本批灵石，资源不足则停止当前 job 且不产出。缺少该版本标记的旧版 active 炼丹/锻造 job 视为启动时已全量预扣，服务器恢复后首轮 craft tick、正常 tick 或取消前必须先返还 `quantity - completedCount` 个未完成批次的材料和未完成批次灵石，并写回新版本标记，避免重复返还。等待队列项没有 active job 和可审计预扣标记，不能盲目返还材料，必须等真正启动成 active job 后按新语义校验与扣除。
+
 ### 技艺动作判定表
 
 | 动作 | 是否进入技艺 job | 判定 |

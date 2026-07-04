@@ -15,13 +15,25 @@ export function executeAlchemyLikeTick(craftService: any, player: unknown, jobKi
   const jobKind = jobKindInput === 'forging' ? 'forging' : 'alchemy';
   craftService.ensureCraftSkills(player);
   const job = craftService.getAlchemyLikeActiveJob(player, jobKind);
-  if (!job || Number(job.remainingTicks) <= 0) {
+  if (!job) {
     return craftService.buildAlchemyLikeTickResult();
+  }
+  const compatibility = craftService.ensureAlchemyLikeJobResourceCompatibility(player, jobKind, job);
+  if (Number(job.remainingTicks) <= 0) {
+    return craftService.buildAlchemyLikeTickResult(
+      Boolean(compatibility.inventoryChanged),
+      [],
+      Boolean(compatibility.inventoryChanged),
+    );
   }
 
   if (job.phase === 'paused') {
     const resumed = craftService.advanceAlchemyLikePausedJob(player, job);
-    return craftService.buildAlchemyLikeTickResult(Boolean(resumed?.resumed));
+    return craftService.buildAlchemyLikeTickResult(
+      Boolean(resumed?.resumed) || Boolean(compatibility.inventoryChanged),
+      [],
+      Boolean(compatibility.inventoryChanged),
+    );
   }
 
   job.phase = 'brewing';
@@ -31,10 +43,15 @@ export function executeAlchemyLikeTick(craftService: any, player: unknown, jobKi
 
   if (job.currentBatchRemainingTicks > 0 && job.remainingTicks > 0) {
     craftService.finalizeMutation(player, {
+      inventoryChanged: Boolean(compatibility.inventoryChanged),
       persistentOnly: true,
       dirtyDomains: ['active_job'],
     });
-    return craftService.buildAlchemyLikeTickResult();
+    return craftService.buildAlchemyLikeTickResult(
+      Boolean(compatibility.inventoryChanged),
+      [],
+      Boolean(compatibility.inventoryChanged),
+    );
   }
 
   const batchConsume = craftService.consumeAlchemyLikeBatchResources(player, job);
@@ -47,7 +64,7 @@ export function executeAlchemyLikeTick(craftService: any, player: unknown, jobKi
     return {
       ok: true,
       panelChanged: true,
-      inventoryChanged: false,
+      inventoryChanged: Boolean(compatibility.inventoryChanged),
       equipmentChanged: false,
       attrChanged: false,
       messages: [{
@@ -91,7 +108,7 @@ export function executeAlchemyLikeTick(craftService: any, player: unknown, jobKi
   resolved.craftRealmExpGain = expResult.finalGain / 2;
 
   craftService.finalizeMutation(player, {
-    inventoryChanged: inventoryResult.inventoryChanged || Boolean(batchConsume.inventoryChanged),
+    inventoryChanged: inventoryResult.inventoryChanged || Boolean(batchConsume.inventoryChanged) || Boolean(compatibility.inventoryChanged),
     attrChanged: expResult.attrChanged,
     persistentOnly: true,
     dirtyDomains: [
@@ -107,7 +124,9 @@ export function executeAlchemyLikeTick(craftService: any, player: unknown, jobKi
       ...(nextStartResult.messages ?? []),
     ];
     return materializeTechniqueActivityResolveResult(resolved, {
-      inventoryChanged: Boolean(nextStartResult.inventoryChanged) || Boolean(batchConsume.inventoryChanged),
+      inventoryChanged: Boolean(nextStartResult.inventoryChanged)
+        || Boolean(batchConsume.inventoryChanged)
+        || Boolean(compatibility.inventoryChanged),
       equipmentChanged: Boolean(nextStartResult.equipmentChanged),
       attrChanged: expResult.attrChanged || Boolean(nextStartResult.attrChanged),
       additionalGroundDrops: nextStartResult.groundDrops ?? [],
@@ -116,7 +135,7 @@ export function executeAlchemyLikeTick(craftService: any, player: unknown, jobKi
 
   job.currentBatchRemainingTicks = job.batchBrewTicks;
   return materializeTechniqueActivityResolveResult(resolved, {
-    inventoryChanged: Boolean(batchConsume.inventoryChanged),
+    inventoryChanged: Boolean(batchConsume.inventoryChanged) || Boolean(compatibility.inventoryChanged),
     attrChanged: expResult.attrChanged,
   });
 }

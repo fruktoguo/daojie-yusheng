@@ -90,6 +90,7 @@ export class WorldRuntimeCraftTickService {
             if (!player) {
                 continue;
             }
+            this.ensureAlchemyLikeResourceCompatibilityAfterRestore(playerId, player, deps);
             for (const kind of this.craftPanelRuntimeService.listActiveTechniqueActivityKinds(player)) {
                 const result = await Promise.resolve(this.craftPanelRuntimeService.tickTechniqueActivity(player, kind, deps));
                 this.sleepConditionalTechniqueActivityIfRequested(player, result);
@@ -140,6 +141,19 @@ export class WorldRuntimeCraftTickService {
                 remainingMs: remaining * 1000,
                 label: task.targetLabel || task.label,
             });
+        }
+    }
+
+    /** 玩家从持久化恢复后，首轮 craft tick 先迁移旧预扣炼丹/炼器 job。 */
+    private ensureAlchemyLikeResourceCompatibilityAfterRestore(playerId: string, player: any, deps: any): void {
+        if (typeof this.craftPanelRuntimeService.ensureAlchemyLikeActiveJobResourceCompatibilityMutation !== 'function') {
+            return;
+        }
+        for (const kind of ['alchemy', 'forging']) {
+            const result = this.craftPanelRuntimeService.ensureAlchemyLikeActiveJobResourceCompatibilityMutation(player, kind);
+            if (result?.ok && (result.panelChanged || result.inventoryChanged)) {
+                this.worldRuntimeCraftMutationService.flushCraftMutation(playerId, result, kind, deps);
+            }
         }
     }
 

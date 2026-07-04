@@ -73,6 +73,7 @@ async function main(): Promise<void> {
   await testAlchemyBatchUsesCurrentLuckSuccessRate();
   await testAlchemyOutputDropsWhenInventoryFull();
   await testLegacyActiveAlchemyAndForgingJobsContinueToCompletion();
+  await testLegacyPrepaidAlchemyLikeJobsRefundUnfinishedBatchesOnce();
   await testForgingUsesIndependentJobSlot();
   await testForgingResolveEdges();
   await testForgingInterruptCancelAndQueue();
@@ -92,6 +93,7 @@ async function main(): Promise<void> {
       '炼丹失败不产出，背包满时产出掉地。',
       '炼丹/炼器每批结算前会按当前有效幸运重算成功率。',
       '旧 active alchemy/forging job 能继续 tick 到完成。',
+      '旧版本已预扣资源的炼丹/炼器 active job 会自动返还未完成批次并标记为逐批扣料。',
       '炼器使用独立 forgingJob 槽位。',
       '炼器成功、失败、背包满掉地、打断、取消和队列都有独立 proof。',
       'WorldRuntimeAlchemyService 通过统一 technique activity 入口启动并刷新面板。',
@@ -525,6 +527,65 @@ async function testLegacyActiveAlchemyAndForgingJobsContinueToCompletion(): Prom
   assert.equal(forgingPlayer.forgingJob, null);
   assert.equal(countPlayerItem(alchemyPlayer, 'pill.qi'), 1);
   assert.equal(countPlayerItem(forgingPlayer, 'equip.copper_sword'), 1);
+}
+
+async function testLegacyPrepaidAlchemyLikeJobsRefundUnfinishedBatchesOnce(): Promise<void> {
+  const alchemyPlayer = createPlayer('player:alchemy:legacy-prepaid-refund', []);
+  const { craftService: alchemyCraftService } = createCraftHarness(alchemyPlayer);
+  const alchemyCtx = alchemyCraftService.buildPipelineContext(createDeps([]));
+  alchemyPlayer.alchemyJob = {
+    ...createLegacyAlchemyLikeJob('alchemy'),
+    quantity: 3,
+    completedCount: 1,
+    totalTicks: 3,
+    remainingTicks: 2,
+    workTotalTicks: 3,
+    workRemainingTicks: 2,
+    spiritStoneCost: 5,
+  };
+
+  const alchemyCancel = alchemyCraftService.cancelTechniqueActivity(alchemyPlayer, 'alchemy', alchemyCtx.deps);
+  assert.equal(alchemyCancel.ok, true);
+  assert.equal(alchemyPlayer.alchemyJob, null);
+  assert.equal(countPlayerItem(alchemyPlayer, 'herb.qi'), 2);
+  assert.equal(countPlayerItem(alchemyPlayer, 'spirit_stone'), 3);
+  assert.equal(resolveWalletBalance(alchemyPlayer, 'spirit_stone'), 103);
+  assert.equal((alchemyCancel as any).inventoryChanged, true);
+
+  const forgingPlayer = createPlayer('player:forging:legacy-prepaid-refund', []);
+  const { craftService: forgingCraftService } = createCraftHarness(forgingPlayer);
+  const forgingCtx = forgingCraftService.buildPipelineContext(createDeps([]));
+  forgingPlayer.forgingJob = {
+    ...createLegacyAlchemyLikeJob('forging'),
+    quantity: 2,
+    totalTicks: 2,
+    remainingTicks: 2,
+    workTotalTicks: 2,
+    workRemainingTicks: 2,
+  };
+
+  const compatibility = forgingCraftService.ensureAlchemyLikeJobResourceCompatibility(
+    forgingPlayer,
+    'forging',
+    forgingPlayer.forgingJob,
+  );
+  assert.equal(compatibility.migrated, true);
+  assert.equal(countPlayerItem(forgingPlayer, 'ore.copper'), 2);
+  assert.equal(forgingPlayer.forgingJob?.resourceConsumptionMode, 'perBatchOnResolve');
+  assert.equal(forgingPlayer.forgingJob?.resourcesDeductedAtStart, false);
+
+  const secondCompatibility = forgingCraftService.ensureAlchemyLikeJobResourceCompatibility(
+    forgingPlayer,
+    'forging',
+    forgingPlayer.forgingJob,
+  );
+  assert.equal(secondCompatibility.migrated, false);
+  assert.equal(countPlayerItem(forgingPlayer, 'ore.copper'), 2);
+
+  const forgingCancel = forgingCraftService.cancelTechniqueActivity(forgingPlayer, 'forging', forgingCtx.deps);
+  assert.equal(forgingCancel.ok, true);
+  assert.equal(forgingPlayer.forgingJob, null);
+  assert.equal(countPlayerItem(forgingPlayer, 'ore.copper'), 2);
 }
 
 async function testForgingUsesIndependentJobSlot(): Promise<void> {
