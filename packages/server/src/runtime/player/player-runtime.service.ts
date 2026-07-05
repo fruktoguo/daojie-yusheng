@@ -344,6 +344,7 @@ export class PlayerRuntimeService {
         (player as any).transferStartedAt = null;
         (player as any).transferDeadlineAt = null;
         (player as any).transferWriteBlocked = false;
+        (player as any).transferBufferedNotices = [];
         if (!Number.isFinite(player.offlineSinceAt)) {
             player.offlineSinceAt = Date.now();
         }
@@ -5381,6 +5382,7 @@ export class PlayerRuntimeService {
  */
 
     bindRuntimeSession(player, sessionId) {
+        this.ensureTransferRuntimeState(player);
         this.rollbackExpiredTransfer(player);
         player.transferWriteBlocked = false;
         player.sessionId = sessionId;
@@ -5393,6 +5395,7 @@ export class PlayerRuntimeService {
         return player;
     }
     refreshRuntimeSession(player, sessionId) {
+        this.ensureTransferRuntimeState(player);
         this.rollbackExpiredTransfer(player);
         player.transferWriteBlocked = false;
         const normalizedSessionId = typeof sessionId === 'string' ? sessionId.trim() : '';
@@ -5427,6 +5430,7 @@ export class PlayerRuntimeService {
         return this.getSessionFence(playerId);
     }
     beginTransfer(player, targetNodeId) {
+        this.ensureTransferRuntimeState(player);
         const normalizedTargetNodeId = typeof targetNodeId === 'string' ? targetNodeId.trim() : '';
         const now = Date.now();
         const normalizedSessionId = typeof player?.sessionId === 'string' && player.sessionId.trim()
@@ -5445,6 +5449,7 @@ export class PlayerRuntimeService {
         return player;
     }
     completeTransfer(player) {
+        this.ensureTransferRuntimeState(player);
         player.transferState = null;
         player.transferTargetNodeId = null;
         player.transferStartedAt = null;
@@ -5458,6 +5463,7 @@ export class PlayerRuntimeService {
         if (!player || player.transferState !== 'in_transfer') {
             return false;
         }
+        this.ensureTransferRuntimeState(player);
         if (!Number.isFinite(player.transferDeadlineAt) || now < Number(player.transferDeadlineAt)) {
             return false;
         }
@@ -5471,7 +5477,20 @@ export class PlayerRuntimeService {
         markPlayerDirtyDomains(player, [PLAYER_PERSISTENCE_DIRTY_PRESENCE_DOMAIN]);
         return true;
     }
+    ensureTransferRuntimeState(player) {
+        if (!player) {
+            return player;
+        }
+        if (!Array.isArray(player.transferBufferedNotices)) {
+            player.transferBufferedNotices = [];
+        }
+        if (player.transferWriteBlocked !== true) {
+            player.transferWriteBlocked = false;
+        }
+        return player;
+    }
     flushTransferBufferedNotices(player) {
+        this.ensureTransferRuntimeState(player);
         if (!player || !Array.isArray(player.transferBufferedNotices) || player.transferBufferedNotices.length === 0) {
             return player;
         }
@@ -6065,6 +6084,9 @@ function cloneQuestRuntimeEntries(entries) {
 function cloneRuntimePlayerState(player) {
     return {
         ...player,
+        transferBufferedNotices: Array.isArray(player.transferBufferedNotices)
+            ? player.transferBufferedNotices.map((entry) => ({ ...entry }))
+            : [],
         runtimeOwnerId: typeof player.runtimeOwnerId === 'string' ? player.runtimeOwnerId : null,
         sessionEpoch: Number.isFinite(player.sessionEpoch) ? Math.trunc(Number(player.sessionEpoch)) : 0,
         lastHeartbeatAt: Number.isFinite(player.lastHeartbeatAt)
