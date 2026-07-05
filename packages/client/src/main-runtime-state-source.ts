@@ -26,6 +26,11 @@ import { getStaticClientActionDef } from './constants/ui/action';
 import { endRuntimeProfileMetric, startRuntimeProfileMetric } from './debug/runtime-profiler';
 import { markPlayerLifeTickSynced } from './runtime/server-tick';
 import { handleTickEventBusPayload } from './network/event-bus-consumer';
+
+const DEFERRED_RUNTIME_SIDE_EFFECT_BATCH_LIMIT = 32;
+const DEFERRED_RUNTIME_SIDE_EFFECT_BUDGET_MS = 6;
+const DEFERRED_RUNTIME_SIDE_EFFECT_COMPACT_LIMIT = 256;
+const DEFERRED_RUNTIME_SIDE_EFFECT_MAX_RETAINED = 384;
 /**
  * MainRuntimeStateSourceOptions：统一结构类型，保证协议与运行时一致性。
  */
@@ -465,6 +470,7 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
     | { type: 'eventBus'; payload: NonNullable<S2C_WorldDelta['eventBus']> }
     | { type: 'panelDelta'; payload: S2C_PanelDelta }
   > = [];
+  let deferredSideEffectsFlushIndex = 0;
 
   const resolveMapEnterHints = (player: PlayerState | null | undefined): { mapIdHint?: string; instanceIdHint?: string } => {
     return {
@@ -509,6 +515,7 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
 
   const clearDeferredRuntimeSideEffects = (): void => {
     deferredRuntimeSideEffects.length = 0;
+    deferredSideEffectsFlushIndex = 0;
     deferredSideEffectsScheduled = false;
     if (deferredSideEffectsRaf !== null && typeof window !== 'undefined') {
       window.cancelAnimationFrame(deferredSideEffectsRaf);
@@ -523,23 +530,55 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
   const flushDeferredRuntimeSideEffects = (): void => {
     const startedAt = startRuntimeProfileMetric();
     try {
-      deferredSideEffectsScheduled = false;
       deferredSideEffectsRaf = null;
       deferredSideEffectsTimer = null;
-      while (deferredRuntimeSideEffects.length > 0) {
-        const item = deferredRuntimeSideEffects.shift();
+      let processed = 0;
+      while (deferredSideEffectsFlushIndex < deferredRuntimeSideEffects.length) {
+        const item = deferredRuntimeSideEffects[deferredSideEffectsFlushIndex];
+        deferredSideEffectsFlushIndex += 1;
         if (!item) {
           continue;
         }
         if (item.type === 'eventBus') {
           applyEventBusPayload(item.payload);
-          continue;
+        } else {
+          options.applyPanelDelta(item.payload);
         }
-        options.applyPanelDelta(item.payload);
+        processed += 1;
+        if (
+          processed >= DEFERRED_RUNTIME_SIDE_EFFECT_BATCH_LIMIT
+          || performance.now() - startedAt >= DEFERRED_RUNTIME_SIDE_EFFECT_BUDGET_MS
+        ) {
+          break;
+        }
       }
+      if (deferredSideEffectsFlushIndex >= deferredRuntimeSideEffects.length) {
+        deferredRuntimeSideEffects.length = 0;
+        deferredSideEffectsFlushIndex = 0;
+        deferredSideEffectsScheduled = false;
+        return;
+      }
+      if (deferredSideEffectsFlushIndex > DEFERRED_RUNTIME_SIDE_EFFECT_COMPACT_LIMIT) {
+        deferredRuntimeSideEffects.splice(0, deferredSideEffectsFlushIndex);
+        deferredSideEffectsFlushIndex = 0;
+      }
+      deferredSideEffectsScheduled = false;
+      scheduleDeferredRuntimeSideEffects();
     } finally {
       endRuntimeProfileMetric('runtime.flushDeferredSideEffects', startedAt);
     }
+  };
+
+  const compactDeferredRuntimeSideEffectsIfNeeded = (): void => {
+    if (deferredRuntimeSideEffects.length <= DEFERRED_RUNTIME_SIDE_EFFECT_COMPACT_LIMIT) {
+      return;
+    }
+    const retainedStart = Math.max(deferredSideEffectsFlushIndex, deferredRuntimeSideEffects.length - DEFERRED_RUNTIME_SIDE_EFFECT_MAX_RETAINED);
+    if (retainedStart <= 0) {
+      return;
+    }
+    deferredRuntimeSideEffects.splice(0, retainedStart);
+    deferredSideEffectsFlushIndex = Math.max(0, deferredSideEffectsFlushIndex - retainedStart);
   };
 
   const scheduleDeferredRuntimeSideEffects = (): void => {
@@ -562,11 +601,13 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
       return;
     }
     deferredRuntimeSideEffects.push({ type: 'eventBus', payload: data.eventBus });
+    compactDeferredRuntimeSideEffectsIfNeeded();
     scheduleDeferredRuntimeSideEffects();
   };
 
   const deferPanelDelta = (data: S2C_PanelDelta): void => {
     deferredRuntimeSideEffects.push({ type: 'panelDelta', payload: data });
+    compactDeferredRuntimeSideEffectsIfNeeded();
     scheduleDeferredRuntimeSideEffects();
   };
 
