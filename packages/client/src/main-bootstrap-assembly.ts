@@ -495,7 +495,7 @@ type MainBootstrapAssemblyOptions = {
  * socket：socket相关字段。
  */
 
-  socket: Pick<SocketManager, 'on' | 'onKick' | 'onConnectError' | 'onDisconnect' | 'emitEvent' | 'content'>;
+  socket: Pick<SocketManager, 'on' | 'onKick' | 'onConnectError' | 'onDisconnect' | 'emitEvent' | 'suspendForHiddenPage' | 'content'>;
   /**
  * runtimeSender：运行态Sender相关字段。
  */
@@ -680,6 +680,7 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
     scheduleConnectionRecovery: (delayMs, forceRefresh) => options.runtimeMonitorSource.scheduleConnectionRecovery(delayMs, forceRefresh),
     restartPingLoop: () => options.runtimeMonitorSource.restartPingLoop(),
     stopPingLoop: () => options.runtimeMonitorSource.stopPingLoop(),
+    suspendConnectionForHiddenPage: () => options.socket.suspendForHiddenPage(),
     clearPendingSocketPing: () => options.runtimeMonitorSource.clearPendingSocketPing(),
     renderPingLatency: (latencyMs, status) => options.runtimeMonitorSource.renderPingLatency(latencyMs, status),
     hasPendingTargetedAction: () => options.targetingStateSource.hasPendingTargetedAction(),

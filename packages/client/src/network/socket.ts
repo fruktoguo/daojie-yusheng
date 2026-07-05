@@ -149,6 +149,11 @@ export class SocketManager {
     this.disposeSocket({ clearToken: true });
   }
 
+  /** 页面进入后台时挂起实时连接，保留登录态供前台恢复重新拉取首包。 */
+  suspendForHiddenPage(): void {
+    this.disposeSocket({ clearToken: false });
+  }
+
   /** 使用已有 token 重新发起连接。 */
   reconnect(token?: string): boolean {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。

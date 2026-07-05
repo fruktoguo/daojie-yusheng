@@ -72,6 +72,8 @@ type MainShellBindingsOptions = {
  */
 
   stopPingLoop: () => void;  
+  /** 页面进入后台时挂起实时连接，回前台再走恢复首包。 */
+  suspendConnectionForHiddenPage: () => void;
   /**
  * clearPendingSocketPing：clearPendingSocketPing相关字段。
  */
@@ -176,10 +178,13 @@ export function bindMainShellInteractions(options: MainShellBindingsOptions): vo
   });
   options.documentRef.addEventListener('visibilitychange', () => {
     if (options.documentRef.visibilityState === 'hidden') {
+      options.clearPendingSocketPing();
       options.stopPingLoop();
+      options.suspendConnectionForHiddenPage();
+      options.renderPingLatency(null, '离线');
       return;
     }
-    options.scheduleConnectionRecovery(150);
+    options.scheduleConnectionRecovery(150, true);
     options.restartPingLoop();
   });
   window.addEventListener('contextmenu', (event) => {
