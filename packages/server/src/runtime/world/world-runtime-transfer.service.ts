@@ -75,13 +75,23 @@ export class WorldRuntimeTransferService {
             targetY: transfer.targetY,
             reason: transfer.reason,
         });
-        source.disconnectPlayer(transfer.playerId);
-        target.connectPlayer({
-            playerId: transfer.playerId,
-            sessionId: transfer.sessionId,
-            preferredX: transfer.targetX,
-            preferredY: transfer.targetY,
-        });
+        try {
+            target.connectPlayer({
+                playerId: transfer.playerId,
+                sessionId: transfer.sessionId,
+                preferredX: transfer.targetX,
+                preferredY: transfer.targetY,
+            });
+        }
+        catch (error) {
+            if (runtimePlayer && typeof deps.playerRuntimeService?.completeTransfer === 'function') {
+                deps.playerRuntimeService.completeTransfer(runtimePlayer);
+            }
+            throw error;
+        }
+        if (target !== source) {
+            source.disconnectPlayer(transfer.playerId);
+        }
         target.setPlayerMoveSpeed(transfer.playerId, runtimePlayer?.attrs.numericStats.moveSpeed ?? 0);
         deps.setPlayerLocation(transfer.playerId, {
             instanceId: target.meta.instanceId,

@@ -275,17 +275,111 @@ async function main(): Promise<void> {
   assert.deepEqual(logs, [
     ['interruptCraftForReason', playerId, 'move'],
     ['getOrCreateDefaultLineInstance', 'transfer_target_map'],
-    ['disconnectPlayer', playerId],
     ['connectPlayer', {
       playerId,
       sessionId,
       preferredX: 41,
       preferredY: 12,
     }],
+    ['disconnectPlayer', playerId],
     ['setPlayerMoveSpeed', playerId, 18],
     ['setPlayerLocation', playerId, 'public:transfer_target_map', sessionId],
     ['handleTransfer', 'portal'],
   ]);
+
+  const failedPlayerId = 'player:transfer:target-fail';
+  const failedSessionId = 'session:transfer:target-fail';
+  const failedPlayer = runtime.ensurePlayer(failedPlayerId, failedSessionId);
+  failedPlayer.instanceId = 'instance:old';
+  failedPlayer.templateId = 'old_map';
+  failedPlayer.x = 8;
+  failedPlayer.y = 9;
+
+  const failureLogs: Array<[string, ...unknown[]]> = [];
+  const failedSource = {
+    meta: { instanceId: 'instance:old' },
+    tick: 100,
+    disconnectPlayer(id: string) {
+      failureLogs.push(['disconnectPlayer', id]);
+    },
+  };
+  const failedTarget = {
+    meta: { instanceId: 'public:transfer_target_map' },
+    tick: 7,
+    connectPlayer(payload: unknown) {
+      failureLogs.push(['connectPlayer', payload]);
+      throw new Error('目标实例没有可用出生点');
+    },
+    setPlayerMoveSpeed(id: string, speed: number) {
+      failureLogs.push(['setPlayerMoveSpeed', id, speed]);
+    },
+  };
+
+  assert.throws(
+    () => transferService.applyTransfer(
+      {
+        playerId: failedPlayerId,
+        sessionId: failedSessionId,
+        fromInstanceId: 'instance:old',
+        targetMapId: 'transfer_target_map',
+        targetX: 41,
+        targetY: 12,
+        reason: 'portal',
+      },
+      {
+        getInstanceRuntime(instanceId: string) {
+          return instanceId === 'instance:old' ? failedSource : null;
+        },
+        getOrCreateDefaultLineInstance(mapId: string) {
+          failureLogs.push(['getOrCreateDefaultLineInstance', mapId]);
+          return failedTarget;
+        },
+        getOrCreatePublicInstance() {
+          throw new Error('unexpected public instance fallback');
+        },
+        setPlayerLocation(id: string, location: { instanceId: string; sessionId: string }) {
+          failureLogs.push(['setPlayerLocation', id, location.instanceId, location.sessionId]);
+        },
+        getPlayerViewOrThrow() {
+          throw new Error('target connect failure must not read moved view');
+        },
+        playerRuntimeService: runtime,
+        worldRuntimeCraftInterruptService: {
+          interruptCraftForReason(id: string, activePlayer: typeof failedPlayer, reason: string) {
+            failureLogs.push(['interruptCraftForReason', id, reason]);
+            assert.equal(id, failedPlayerId);
+            assert.equal(activePlayer, failedPlayer);
+            assert.equal(reason, 'move');
+          },
+        },
+        worldRuntimeNavigationService: {
+          handleTransfer(entry: { reason: string }) {
+            failureLogs.push(['handleTransfer', entry.reason]);
+          },
+        } as never,
+      } as never,
+    ),
+    /目标实例没有可用出生点/,
+  );
+
+  assert.deepEqual(failureLogs, [
+    ['interruptCraftForReason', failedPlayerId, 'move'],
+    ['getOrCreateDefaultLineInstance', 'transfer_target_map'],
+    ['connectPlayer', {
+      playerId: failedPlayerId,
+      sessionId: failedSessionId,
+      preferredX: 41,
+      preferredY: 12,
+    }],
+  ]);
+  assert.equal(failedPlayer.transferState, null);
+  assert.equal(failedPlayer.transferTargetNodeId, null);
+  assert.equal(failedPlayer.transferDeadlineAt, null);
+  assert.equal(failedPlayer.transferWriteBlocked, false);
+  assert.equal(failedPlayer.instanceId, 'instance:old');
+  assert.equal(failedPlayer.templateId, 'old_map');
+  assert.equal(failedPlayer.x, 8);
+  assert.equal(failedPlayer.y, 9);
 
   console.log(
     JSON.stringify(
@@ -301,7 +395,7 @@ async function main(): Promise<void> {
         },
         dirtyDomains: Array.from(dirtyDomains).sort(),
         answers:
-          'WorldRuntimeTransferService.applyTransfer 现已直接证明会在跨实例前触发统一技艺中断，且不修改技艺实际工作进度；同时会通过真实 PlayerRuntimeService.syncFromWorldView 更新玩家落点，玩家 tick 与技能冷却不会随源/目标地图 tick 差异被平移，并把 world_anchor 与 position_checkpoint 一起打进 dirty domains',
+          'WorldRuntimeTransferService.applyTransfer 现已直接证明会在跨实例前触发统一技艺中断，且不修改技艺实际工作进度；同时会通过真实 PlayerRuntimeService.syncFromWorldView 更新玩家落点，玩家 tick 与技能冷却不会随源/目标地图 tick 差异被平移，并把 world_anchor 与 position_checkpoint 一起打进 dirty domains；目标实例连接失败时不会先断开源实例玩家，也会清理传送态',
         excludes:
           '不证明 player_position_checkpoint/player_world_anchor 的跨节点协议消息格式已完全固化，也不证明真实多节点 socket redirect、route handoff 或数据库写回时序',
         completionMapping: 'release:proof:world-runtime-transfer.placement-dirty-domains',
