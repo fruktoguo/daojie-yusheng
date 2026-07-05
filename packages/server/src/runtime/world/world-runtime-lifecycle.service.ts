@@ -33,7 +33,8 @@ function logOfflineRestoreMissingInstance(deps, instanceId, playerId) {
 
 async function persistBuildingRoomStateAfterUnknownDefPrune(deps, domainPersistenceService, instanceId, instance, hydrateResult) {
     const skippedCount = Math.max(0, Math.trunc(Number(hydrateResult?.skippedUnknownDefCount) || 0));
-    if (skippedCount <= 0 || typeof domainPersistenceService?.saveBuildingRoomFengShuiState !== 'function') {
+    const skippedProtectedPlacementCount = Math.max(0, Math.trunc(Number(hydrateResult?.skippedProtectedPlacementCount) || 0));
+    if ((skippedCount <= 0 && skippedProtectedPlacementCount <= 0) || typeof domainPersistenceService?.saveBuildingRoomFengShuiState !== 'function') {
         return;
     }
     const state = typeof instance?.buildBuildingRoomFengShuiPersistenceState === 'function'
@@ -43,9 +44,14 @@ async function persistBuildingRoomStateAfterUnknownDefPrune(deps, domainPersiste
             rooms: typeof instance?.listRoomSummaries === 'function' ? instance.listRoomSummaries() : [],
             roomCells: [],
             fengShui: [],
-        };
+    };
     await domainPersistenceService.saveBuildingRoomFengShuiState(instanceId, state);
-    deps.logger?.warn?.(`启动清理了 ${skippedCount} 个未知建筑定义实例：${instanceId}`);
+    if (skippedCount > 0) {
+        deps.logger?.warn?.(`启动清理了 ${skippedCount} 个未知建筑定义实例：${instanceId}`);
+    }
+    if (skippedProtectedPlacementCount > 0) {
+        deps.logger?.warn?.(`启动清理了 ${skippedProtectedPlacementCount} 个违规保护点位建筑：${instanceId}`);
+    }
 }
 
 /** world-runtime lifecycle seam：承接公共实例 bootstrap、持久化恢复与整体验证前 rebuild。 */
@@ -114,7 +120,7 @@ export class WorldRuntimeLifecycleService {
                     continue;
                 }
                 if (typeof deps.worldRuntimeFormationService?.restoreInstanceFormations === 'function') {
-                    const restoredFormations = await deps.worldRuntimeFormationService.restoreInstanceFormations(instanceId);
+                    const restoredFormations = await deps.worldRuntimeFormationService.restoreInstanceFormations(instanceId, instance);
                     if (restoredFormations > 0) {
                         restoredFormationInstances += 1;
                         restoredFormationCount += restoredFormations;
@@ -185,7 +191,7 @@ export class WorldRuntimeLifecycleService {
                     hydrateInstanceFromCheckpoint(instance, checkpoint, deps, instanceId);
                 }
                 if (typeof deps.worldRuntimeFormationService?.restoreInstanceFormations === 'function') {
-                    const restoredFormations = await deps.worldRuntimeFormationService.restoreInstanceFormations(instanceId);
+                    const restoredFormations = await deps.worldRuntimeFormationService.restoreInstanceFormations(instanceId, instance);
                     if (restoredFormations > 0) {
                         restoredFormationInstances += 1;
                         restoredFormationCount += restoredFormations;
@@ -197,7 +203,7 @@ export class WorldRuntimeLifecycleService {
                 continue;
             }
             if (typeof deps.worldRuntimeFormationService?.restoreInstanceFormations === 'function') {
-                const restoredFormations = await deps.worldRuntimeFormationService.restoreInstanceFormations(instanceId);
+                const restoredFormations = await deps.worldRuntimeFormationService.restoreInstanceFormations(instanceId, instance);
                 if (restoredFormations > 0) {
                     restoredFormationInstances += 1;
                     restoredFormationCount += restoredFormations;

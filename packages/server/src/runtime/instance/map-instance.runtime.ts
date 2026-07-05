@@ -20,6 +20,7 @@ import { CombatPendingCastCancelReason, cancelPendingCombatCast, createMonsterPe
 import { createRuntimeTemporaryBuff, refreshRuntimeTemporaryBuffPrototype } from '../player/runtime-buff-instance';
 import { canPlayerIgnoreStaticObstacle as canPlayerIgnoreStaticObstacleFromState } from '../player/player-movement-capability.helpers';
 import { resolveTileDamageDropMultiplier } from '../world/combat/tile-drop.helpers';
+import { findProtectedPlacementConflict } from '../world/protected-placement.helpers';
 
 const DEFAULT_TILE_AURA_RESOURCE_KEY = buildQiResourceKey(DEFAULT_QI_RESOURCE_DESCRIPTOR);
 const TILE_AURA_FLOW_RATE_SCALE = TILE_AURA_HALF_LIFE_RATE_SCALE ?? QI_HALF_LIFE_RATE_SCALE ?? 1_000_000_000;
@@ -1241,6 +1242,10 @@ class MapInstanceRuntime {
         if (!Number.isFinite(x) || !Number.isFinite(y)) {
             return { ok: false, reason: 'invalid_coordinate' };
         }
+        const anchorConflict = findProtectedPlacementConflict(this, [{ x, y }]);
+        if (anchorConflict.ok !== true) {
+            return { ok: false, reason: anchorConflict.reason, x: anchorConflict.x, y: anchorConflict.y };
+        }
         const rotation = normalizeBuildingRotation(input?.rotation);
         const footprint = compiled.footprintByRotation[rotationToIndex(rotation)] ?? compiled.footprintByRotation[0];
         const cells = [];
@@ -2126,6 +2131,7 @@ class MapInstanceRuntime {
         this.buildingCellsById = new Map();
         this.buildingPreviousTileTypeById = new Map();
         let skippedUnknownDefCount = 0;
+        let skippedProtectedPlacementCount = 0;
         for (const entry of buildings) {
             const id = normalizeBuildingId(entry?.id ?? entry?.buildingId);
             const defId = normalizeBuildingId(entry?.defId);
@@ -2172,6 +2178,11 @@ class MapInstanceRuntime {
                 scriptureRecordedAtTick: Number.isFinite(Number(entry?.scriptureRecordedAtTick)) ? Math.max(0, Math.trunc(Number(entry.scriptureRecordedAtTick))) : undefined,
                 scriptureUpdatedAtTick: Number.isFinite(Number(entry?.scriptureUpdatedAtTick)) ? Math.max(0, Math.trunc(Number(entry.scriptureUpdatedAtTick))) : undefined,
             };
+            const anchorConflict = findProtectedPlacementConflict(this, [{ x: building.x, y: building.y }]);
+            if (anchorConflict.ok !== true) {
+                skippedProtectedPlacementCount += 1;
+                continue;
+            }
             this.buildingById.set(id, building);
             const cells = resolvePersistedBuildingCells(this, building, entry?.cells, compiled);
             this.buildingCellsById.set(id, cells);
@@ -2187,14 +2198,14 @@ class MapInstanceRuntime {
                 }
             }
         }
-        if (skippedUnknownDefCount > 0) {
+        if (skippedUnknownDefCount > 0 || skippedProtectedPlacementCount > 0) {
             this.worldRevision += 1;
             this.persistentRevision += 1;
             this.markPersistenceDirtyDomains(['building', 'room', 'fengshui']);
         }
         if (this.buildingCatalog?.defByHandle) {
             this.rebuildBuildingRoomFengShuiState();
-            return { buildingCount: this.buildingById.size, rebuilt: true, skippedUnknownDefCount };
+            return { buildingCount: this.buildingById.size, rebuilt: true, skippedUnknownDefCount, skippedProtectedPlacementCount };
         }
         this.roomsById = new Map();
         this.roomIdsByHandle = [];
@@ -2239,7 +2250,7 @@ class MapInstanceRuntime {
                 this.fengShuiByRoomId.set(roomId, snapshot);
             }
         }
-        return { buildingCount: this.buildingById.size, rebuilt: false, skippedUnknownDefCount };
+        return { buildingCount: this.buildingById.size, rebuilt: false, skippedUnknownDefCount, skippedProtectedPlacementCount };
     }
     /** setPlayerMoveSpeed：设置玩家移动速度。 */
     setPlayerMoveSpeed(playerId, moveSpeed) {
@@ -2758,6 +2769,8 @@ class MapInstanceRuntime {
         if (!Array.isArray(ids) || ids.length === 0) {
             return null;
         }
+        let selected = null;
+        let selectedPriority = -1;
         for (const buildingId of ids) {
             const building = this.buildingById.get(buildingId);
             if (!building || !buildingUsesActiveTopology(building)) {
@@ -2769,7 +2782,7 @@ class MapInstanceRuntime {
             }
             const maxHp = Math.max(1, Math.trunc(Number(building.maxHp) || Number(compiled.maxHp) || 1));
             const hp = Math.max(0, Math.min(maxHp, Math.trunc(Number(building.hp) || maxHp)));
-            return {
+            const candidate = {
                 buildingId: building.id,
                 targetName: resolveBuildingCombatTargetName(building, compiled),
                 tileType: resolveBuildingCombatTileType(building, compiled),
@@ -2780,8 +2793,13 @@ class MapInstanceRuntime {
                 destroyed: hp <= 0 || building.state === 'destroyed',
                 building: true,
             };
+            const priority = resolveBuildingCombatTargetPriority(compiled, building);
+            if (priority > selectedPriority) {
+                selected = candidate;
+                selectedPriority = priority;
+            }
         }
-        return null;
+        return selected;
     }
     /** getTileCombatState：读取指定地块战斗状态。 */
     getTileCombatState(x, y) {
@@ -8581,6 +8599,23 @@ function resolveBuildingCombatTargetName(building, compiled) {
         return building.defId.trim();
     }
     return '建筑';
+}
+function resolveBuildingCombatTargetPriority(compiled, building) {
+    const layerId = Math.max(0, Math.trunc(Number(compiled?.layerId) || 0));
+    switch (layerId) {
+        case 1:
+            return 50;
+        case 3:
+            return 40;
+        case 4:
+            return 30;
+        case 5:
+            return 20;
+        case 2:
+            return 10;
+        default:
+            return buildingUsesActiveTopology(building) ? 1 : 0;
+    }
 }
 function normalizeBuildingRemainingTicks(value, fallbackValue = undefined) {
     const resolved = Number.isFinite(Number(value))

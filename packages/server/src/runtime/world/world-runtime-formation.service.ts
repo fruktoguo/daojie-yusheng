@@ -9,6 +9,7 @@ import { Pool } from 'pg';
 import { resolveServerDatabaseUrl } from '../../config/env-alias';
 import { ensureBigintColumnType, ensureDoubleColumnType } from '../../persistence/schema-bigint-migration';
 import { buildStructuredNotice } from './structured-notice.helpers';
+import { findProtectedPlacementConflict, formatProtectedPlacementConflictReason } from './protected-placement.helpers';
 
 const TERRAIN_STABILIZER_EFFECT_KIND = 'terrain_stabilizer';
 const TILE_AURA_SOURCE_EFFECT_KIND = 'tile_aura_source';
@@ -108,6 +109,13 @@ class WorldRuntimeFormationService {
         }
         assertCanPlaceFormationInInstance(instance);
         const placement = resolveFormationPlacement(playerId, player, location, instance);
+        assertFormationProtectedPlacementAllowed(instance, {
+            x: placement.x,
+            y: placement.y,
+            template,
+            stats,
+            name: template.name,
+        });
         this.assertCanPay(playerId, qiCost, spiritStoneCount);
         this.playerRuntimeService.spendQi(playerId, qiCost);
         instance.disperseQiAt?.(placement.x, placement.y, qiCost);
@@ -1082,7 +1090,7 @@ class WorldRuntimeFormationService {
         return formations;
     }
 
-    async restoreInstanceFormations(instanceId) {
+    async restoreInstanceFormations(instanceId, instance = null) {
         const normalizedInstanceId = normalizeInstanceId(instanceId);
         if (!normalizedInstanceId) {
             return 0;
@@ -1094,6 +1102,13 @@ class WorldRuntimeFormationService {
         for (const entry of entries) {
             const formation = this.restoreFormationEntry(normalizedInstanceId, entry);
             if (!formation) {
+                continue;
+            }
+            if (instance && !isPersistentFormation(formation) && !isFormationProtectedPlacementAllowed(instance, formation)) {
+                this.logger.warn(`启动清理了违规阵法：${normalizedInstanceId} ${formation.id} ${formation.name}`);
+                await this.deleteFormationSnapshot(formation).catch((error) => {
+                    this.logger.warn(`启动清理违规阵法持久态失败：${normalizedInstanceId} ${formation.id} ${error instanceof Error ? error.message : String(error)}`);
+                });
                 continue;
             }
             restored.push(formation);
@@ -1550,6 +1565,45 @@ class WorldRuntimeFormationService {
         return formation ?? null;
     }
 
+    pruneInvalidPlacementsInInstance(instanceId, instance, options: { deps?: unknown } = {}) {
+        const normalizedInstanceId = normalizeInstanceId(instanceId);
+        if (!normalizedInstanceId || !instance) {
+            return { removedCount: 0, keptSectGuardianCount: 0 };
+        }
+        const formations = this.formationsByInstanceId.get(normalizedInstanceId);
+        if (!Array.isArray(formations) || formations.length <= 0) {
+            return { removedCount: 0, keptSectGuardianCount: 0 };
+        }
+        const kept = [];
+        let removedCount = 0;
+        let keptSectGuardianCount = 0;
+        for (const formation of formations) {
+            if (isPersistentFormation(formation) || formation?.formationId === 'sect_guardian_barrier') {
+                if (!isFormationProtectedPlacementAllowed(instance, formation)) {
+                    keptSectGuardianCount += 1;
+                    this.logger.warn(`启动发现宗门护宗阵保护点位冲突，暂不清理：${normalizedInstanceId} ${formation?.id ?? ''}`);
+                }
+                kept.push(formation);
+                continue;
+            }
+            if (!isFormationProtectedPlacementAllowed(instance, formation)) {
+                removedCount += 1;
+                this.persistFormationRemovalSoon(formation);
+                continue;
+            }
+            kept.push(formation);
+        }
+        if (kept.length > 0) {
+            this.formationsByInstanceId.set(normalizedInstanceId, kept);
+        } else {
+            this.formationsByInstanceId.delete(normalizedInstanceId);
+        }
+        if (removedCount > 0) {
+            touchRuntimeInstanceRevision(options?.deps, normalizedInstanceId);
+        }
+        return { removedCount, keptSectGuardianCount };
+    }
+
     findFormationByInstanceOrId(instanceId, formationInstanceId) {
         const normalizedId = typeof formationInstanceId === 'string' ? formationInstanceId.trim() : '';
         if (!normalizedId) {
@@ -1846,6 +1900,26 @@ function forEachFormationAffectedRuntimeCell(instance, formation, visitor) {
             visitor(x, y);
         }
     }
+}
+
+function assertFormationProtectedPlacementAllowed(instance, formation) {
+    const conflict = findFormationProtectedPlacementConflict(instance, formation);
+    if (conflict.ok !== true) {
+        const formationName = normalizeOptionalString(formation?.name) || '阵法';
+        throw new BadRequestException(`${formationName}范围内${formatProtectedPlacementConflictReason(conflict.reason)}`);
+    }
+}
+
+function isFormationProtectedPlacementAllowed(instance, formation) {
+    return findFormationProtectedPlacementConflict(instance, formation).ok;
+}
+
+function findFormationProtectedPlacementConflict(instance, formation) {
+    const points = [];
+    forEachFormationAffectedRuntimeCell(instance, formation, (x, y) => {
+        points.push({ x, y });
+    });
+    return findProtectedPlacementConflict(instance, points);
 }
 
 function isFormationAffectedCell(shape, centerX, centerY, x, y, radius) {

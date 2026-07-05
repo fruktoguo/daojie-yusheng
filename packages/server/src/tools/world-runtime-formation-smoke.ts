@@ -185,6 +185,26 @@ async function main() {
     qiCost: 1,
     allocation: { effectPercent: 33, rangePercent: 33, durationPercent: 33 },
   }, deps), /不能通过阵盘布置/);
+  assert.throws(() => service.dispatchCreateFormation(playerId, {
+    itemInstanceId: "formation-disk:mystic:1",
+    formationId: "spirit_gathering",
+    setup: { radius: 1, durationHours: 1, effectValue: 1000 },
+  }, {
+    ...deps,
+    getInstanceRuntime(targetInstanceId) {
+      return targetInstanceId === instanceId
+        ? {
+          ...instance,
+          getPortalAtTile(x, y) {
+            return x === 4 && y === 5 ? { id: "portal:formation:blocked", x, y } : null;
+          },
+        }
+        : null;
+    },
+  }), /聚灵阵范围内不能与传送点重叠/);
+  assert.equal(player.qi, 1000000);
+  assert.equal(player.wallet.spirit_stone, 100000);
+  assert.equal(player.inventory.items[0].count, 2);
 
   const formation = service.dispatchCreateFormation(playerId, {
     itemInstanceId: "formation-disk:mystic:1",

@@ -25,7 +25,8 @@ const LOCAL_LEASE_DEGRADED_REASONS = new Set([
 
 async function persistBuildingRoomStateAfterUnknownDefPrune(runtime, domainPersistenceService, instanceId, instance, hydrateResult) {
   const skippedCount = Math.max(0, Math.trunc(Number(hydrateResult?.skippedUnknownDefCount) || 0));
-  if (skippedCount <= 0 || typeof domainPersistenceService?.saveBuildingRoomFengShuiState !== 'function') {
+  const skippedProtectedPlacementCount = Math.max(0, Math.trunc(Number(hydrateResult?.skippedProtectedPlacementCount) || 0));
+  if ((skippedCount <= 0 && skippedProtectedPlacementCount <= 0) || typeof domainPersistenceService?.saveBuildingRoomFengShuiState !== 'function') {
     return;
   }
   const state = typeof instance?.buildBuildingRoomFengShuiPersistenceState === 'function'
@@ -35,9 +36,14 @@ async function persistBuildingRoomStateAfterUnknownDefPrune(runtime, domainPersi
       rooms: typeof instance?.listRoomSummaries === 'function' ? instance.listRoomSummaries() : [],
       roomCells: [],
       fengShui: [],
-    };
+  };
   await domainPersistenceService.saveBuildingRoomFengShuiState(instanceId, state);
-  runtime.logger?.warn?.(`启动清理了 ${skippedCount} 个未知建筑定义实例：${instanceId}`);
+  if (skippedCount > 0) {
+    runtime.logger?.warn?.(`启动清理了 ${skippedCount} 个未知建筑定义实例：${instanceId}`);
+  }
+  if (skippedProtectedPlacementCount > 0) {
+    runtime.logger?.warn?.(`启动清理了 ${skippedProtectedPlacementCount} 个违规保护点位建筑：${instanceId}`);
+  }
 }
 
 export function syncManagedInstanceRegistration(runtime, instanceId, instance) {
@@ -867,7 +873,8 @@ async function restorePersistentInstanceFormations(runtime, instanceId) {
   if (typeof runtime.worldRuntimeFormationService?.restoreInstanceFormations !== 'function') {
     return;
   }
-  const restoredFormations = await runtime.worldRuntimeFormationService.restoreInstanceFormations(instanceId);
+  const instance = runtime.getInstanceRuntime?.(instanceId) ?? null;
+  const restoredFormations = await runtime.worldRuntimeFormationService.restoreInstanceFormations(instanceId, instance);
   if (restoredFormations > 0) {
     runtime.logger.debug?.(`实例阵法已恢复：${instanceId} x${restoredFormations}`);
   }

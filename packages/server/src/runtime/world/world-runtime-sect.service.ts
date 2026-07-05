@@ -10,6 +10,7 @@ import { resolveServerDatabaseUrl } from '../../config/env-alias';
 import { buildStructuredNotice } from './structured-notice.helpers';
 import * as world_runtime_normalization_helpers_1 from './world-runtime.normalization.helpers';
 import { resolveSectMemberDisplayName } from '../player/player-display-name';
+import { findProtectedPlacementConflict, formatProtectedPlacementConflictReason, iterateSquareProtectedPlacementPoints } from './protected-placement.helpers';
 
 const SECT_TABLE = 'server_sect';
 const SECT_TEMPLATE_PREFIX = 'sect_domain:';
@@ -1377,6 +1378,9 @@ class WorldRuntimeSectService {
             this.registerSectTemplate(sect);
             const entranceInstance = deps.getInstanceRuntime(sect.entranceInstanceId);
             const sectInstance = this.ensureSectRuntimeInstance(sect, deps);
+            if (entranceInstance) {
+                logSectEntranceProtectedPlacementConflict(this.logger, sect, entranceInstance);
+            }
             if (sectInstance) {
                 syncSectRuntimeDomainTiles(sect, sectInstance);
             }
@@ -2493,22 +2497,13 @@ function assertSectFoundingAreaClear(sects, instance, instanceId, centerX, cente
     if (!Number.isFinite(x0) || !Number.isFinite(y0)) {
         throw new BadRequestException('当前位置无法开辟宗门入口');
     }
-    for (let y = y0 - SECT_FOUNDING_CLEAR_RADIUS; y <= y0 + SECT_FOUNDING_CLEAR_RADIUS; y += 1) {
-        for (let x = x0 - SECT_FOUNDING_CLEAR_RADIUS; x <= x0 + SECT_FOUNDING_CLEAR_RADIUS; x += 1) {
-            if (typeof instance?.isInBounds === 'function' && instance.isInBounds(x, y) !== true) {
-                continue;
-            }
-            const portal = typeof instance?.getPortalAtTile === 'function' ? instance.getPortalAtTile(x, y) : null;
-            if (portal && (!ignored || normalizeOptionalString(portal?.sectId) !== ignored)) {
-                throw new BadRequestException('宗门山门五格阵基内不能有传送点');
-            }
-            if (hasNpcAtTile(instance, x, y)) {
-                throw new BadRequestException('宗门山门五格阵基内不能有场景人物');
-            }
-            if (typeof instance?.getSafeZoneAtTile === 'function' && instance.getSafeZoneAtTile(x, y)) {
-                throw new BadRequestException('宗门山门五格阵基内不能有安全区');
-            }
-        }
+    const conflict = findProtectedPlacementConflict(
+        instance,
+        iterateSquareProtectedPlacementPoints(x0, y0, SECT_FOUNDING_CLEAR_RADIUS),
+        { ignoredPortalSectId: ignored },
+    );
+    if (conflict.ok !== true) {
+        throw new BadRequestException(`宗门山门五格阵基内${formatProtectedPlacementConflictReason(conflict.reason)}`);
     }
     const normalizedInstanceId = normalizeOptionalString(instanceId);
     for (const sect of Array.isArray(sects) ? sects : []) {
@@ -2524,25 +2519,23 @@ function assertSectFoundingAreaClear(sects, instance, instanceId, centerX, cente
     }
 }
 
-function hasNpcAtTile(instance, x, y) {
-    if (!instance) {
-        return false;
+function logSectEntranceProtectedPlacementConflict(logger, sect, instance) {
+    if (!sect || !instance) {
+        return;
     }
-    if (typeof instance.toTileIndex === 'function' && instance.npcIdByTile instanceof Map) {
-        try {
-            return instance.npcIdByTile.has(instance.toTileIndex(x, y));
-        } catch (_error) {
-            return false;
-        }
+    const x = Math.trunc(Number(sect.entranceX));
+    const y = Math.trunc(Number(sect.entranceY));
+    if (!Number.isFinite(x) || !Number.isFinite(y)) {
+        return;
     }
-    if (instance.npcsById instanceof Map) {
-        for (const npc of instance.npcsById.values()) {
-            if (Math.trunc(Number(npc?.x)) === x && Math.trunc(Number(npc?.y)) === y) {
-                return true;
-            }
-        }
+    const conflict = findProtectedPlacementConflict(
+        instance,
+        iterateSquareProtectedPlacementPoints(x, y, SECT_FOUNDING_CLEAR_RADIUS),
+        { ignoredPortalSectId: normalizeOptionalString(sect.sectId) },
+    );
+    if (conflict.ok !== true) {
+        logger?.warn?.(`启动发现宗门山门五格阵基保护点位冲突，暂不清理：${normalizeOptionalString(sect.sectId) ?? ''} ${formatProtectedPlacementConflictReason(conflict.reason)} (${conflict.x},${conflict.y})`);
     }
-    return false;
 }
 
 function normalizeOptionalString(value) {

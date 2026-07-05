@@ -67,11 +67,14 @@ TypedArray 索引结构，按 cellIndex 存储:
 
 ```
 检查顺序:
-1. occupancy[cellIndex] !== 0 → 'occupied'
-2. structure 层已有建筑 → 'structure_overlap'
-3. 同层已有建筑 → 'building_layer_overlap'
-4. 地块不可行走 → 'tile_not_clear'
+1. 建造锚点与传送点、场景人物或安全区重叠 → `protected_placement_portal` / `protected_placement_npc` / `protected_placement_safe_zone`
+2. occupancy[cellIndex] !== 0 → 'occupied'
+3. structure 层已有建筑 → 'structure_overlap'
+4. 同层已有建筑 → 'building_layer_overlap'
+5. 地块不可行走 → 'tile_not_clear'
 ```
+
+服务器启动恢复建筑时会执行同一保护点位自检；违规建筑会直接从运行态和持久化快照中清理。
 
 ## 建造材料 tag
 

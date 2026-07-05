@@ -450,6 +450,15 @@ function normalizeMaterialFailure(reason: string | undefined): string {
   if (reason === 'structure_overlap') {
     return '目标位置已有结构';
   }
+  if (reason === 'protected_placement_portal') {
+    return '目标位置不能与传送点重叠';
+  }
+  if (reason === 'protected_placement_npc') {
+    return '目标位置不能与场景人物重叠';
+  }
+  if (reason === 'protected_placement_safe_zone') {
+    return '目标位置不能与安全区重叠';
+  }
   if (reason === 'building_not_found') {
     return '建筑不存在';
   }

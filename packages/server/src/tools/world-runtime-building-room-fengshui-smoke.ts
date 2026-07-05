@@ -19,7 +19,7 @@ const {
   inferRoomRole,
 } = require("../runtime/building/fengshui-calculator.service");
 
-function main() {
+async function main() {
   const catalog = compileBuildingDefinitions([
     {
       id: "stone_wall",
@@ -374,6 +374,42 @@ function main() {
   assert.equal(staleHydrateResult.skippedUnknownDefCount, 1);
   assert.equal(staleRecoveredInstance.buildingById.has("building:removed:def"), false);
   assert.equal(staleRecoveredInstance.buildBuildingRoomFengShuiPersistenceState().buildings.some((entry) => entry.defId === "removed_building_def"), false);
+  const protectedPlacementInstance = new MapInstanceRuntime({
+    instanceId: "real:building_room_runtime_protected_smoke",
+    template: templateRepository.getOrThrow("building_room_runtime_smoke"),
+    monsterSpawns: [],
+    kind: "public",
+    persistent: true,
+    createdAt: Date.now(),
+    displayName: "建筑保护点位烟测",
+    linePreset: "real",
+    lineIndex: 1,
+    instanceOrigin: "smoke",
+    defaultEntry: true,
+    canDamageTile: true,
+  });
+  protectedPlacementInstance.configureBuildingRuntime(catalog, rules);
+  protectedPlacementInstance.getPortalAtTile = (x, y) => (x === 1 && y === 1 ? { id: "portal:building:blocked", x, y } : null);
+  const protectedPlacementResult = protectedPlacementInstance.placeBuildingInstance({ defId: "stone_wall", x: 1, y: 1 });
+  assert.equal(protectedPlacementResult.ok, false);
+  assert.equal(protectedPlacementResult.reason, "protected_placement_portal");
+  const protectedHydrateResult = protectedPlacementInstance.hydrateBuildingRoomFengShuiState({
+    buildings: [{
+      id: "building:protected:portal",
+      defId: "stone_wall",
+      x: 1,
+      y: 1,
+      state: "active",
+      hp: 100,
+      maxHp: 100,
+      cells: [{ tileIndex: protectedPlacementInstance.toTileIndex(1, 1), x: 1, y: 1 }],
+    }],
+    rooms: [],
+    roomCells: [],
+    fengShui: [],
+  });
+  assert.equal(protectedHydrateResult.skippedProtectedPlacementCount, 1);
+  assert.equal(protectedPlacementInstance.buildingById.has("building:protected:portal"), false);
   const recoveredDamagedWall = recoveredInstance.buildBuildingPersistenceEntries()
     .find((entry) => entry.defId === "stone_wall" && entry.x === 0 && entry.y === 1);
   assert.ok(recoveredDamagedWall);
@@ -887,12 +923,12 @@ function main() {
   });
   assert.ok(observe.overlay);
   assertWangQiObserveRespectsPlayerView();
-  const deconstructResult = WorldRuntimeService.prototype.handleBuildDeconstructIntent.call(commandRuntime, commandPlayer.playerId, {
+  const deconstructResult = await WorldRuntimeService.prototype.handleBuildDeconstructIntent.call(commandRuntime, commandPlayer.playerId, {
     requestId: "deconstruct:req:1",
     buildingId: placeResult.building.id,
   });
   assert.equal(deconstructResult.ok, true);
-  const duplicateDeconstructResult = WorldRuntimeService.prototype.handleBuildDeconstructIntent.call(commandRuntime, commandPlayer.playerId, {
+  const duplicateDeconstructResult = await WorldRuntimeService.prototype.handleBuildDeconstructIntent.call(commandRuntime, commandPlayer.playerId, {
     requestId: "deconstruct:req:1",
     buildingId: placeResult.building.id,
   });
@@ -1156,4 +1192,7 @@ function addCompiledContribution(aggregate, compiled, catalog) {
   aggregate.shaRaw = Math.max(0, aggregate.shaEmit - aggregate.shaReduce);
 }
 
-main();
+main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});
