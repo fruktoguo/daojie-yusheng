@@ -191,6 +191,9 @@ function hydrateMissingTechniqueState(input: Record<string, unknown>): Record<st
 
 /** 将 TechniqueTemplate（生成功法缓存格式）转为 TechniqueTemplateRecord（Registry 内部格式） */
 function generatedTemplateToRecord(template: TechniqueTemplate): TechniqueTemplateRecord {
+  if (hasLegacyTechniqueDraftField(template)) {
+    throw new Error(`生成功法模板 ${template.id} 含 artsStrength/raw* 旧草稿字段，请先执行显式兼容转换`);
+  }
   const normalized = normalizeTechniqueTemplate(template);
   if (normalized) {
     return normalized as TechniqueTemplateRecord;
@@ -210,4 +213,17 @@ function generatedTemplateToRecord(template: TechniqueTemplate): TechniqueTempla
     skills: (template.skills ?? []) as unknown as Array<Record<string, unknown>>,
     layers: (template.layers ?? []) as Array<Record<string, unknown> & { level: number; expToNext?: number; attrs?: Record<string, unknown>; specialStats?: Record<string, unknown>; qiProjection?: unknown }>,
   };
+}
+
+function hasLegacyTechniqueDraftField(value: unknown): boolean {
+  if (!value || typeof value !== 'object') return false;
+  if (Array.isArray(value)) return value.some((entry) => hasLegacyTechniqueDraftField(entry));
+  return Object.entries(value).some(([key, child]) => (
+    key === 'artsStrength'
+    || key === 'rawRange'
+    || key === 'rawTargeting'
+    || key === 'rawFormula'
+    || key === 'rawCandidate'
+    || hasLegacyTechniqueDraftField(child)
+  ));
 }

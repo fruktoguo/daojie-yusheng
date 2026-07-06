@@ -1,33 +1,105 @@
 {
+  "format": 2,
   "id": "verdant_vine_vale_02_slope",
   "name": "青萝谷·02引藤坡",
+  "mapGroupId": "verdant_vine_vale",
+  "mapGroupName": "青萝谷",
+  "mapGroupOrder": 40,
+  "mapGroupMemberOrder": 2,
   "width": 30,
   "height": 18,
   "routeDomain": "system",
+  "mapLv": 21,
   "spaceVisionMode": "isolated",
   "description": "青萝谷第一段子图。引藤坡不是直着抬升的坡，而是被横藤、湿地边和碎石桩切成几次弯折，主路像被一路拽着走，左右明明有空地，却总让人觉得停不住脚。",
-  "tiles": [
-    "##############################",
-    "#,,,,,,,,TTTTTTTT,,,,,,,,,,,,#",
-    "#,,,TTTTTT,,,,,,,,,,,,,TTTT,,#",
-    "#,,TT,,,,,,,,TTTTTT,,,,,,,T,,#",
-    "#,,T,,;;;;,TTTT,,TTTT,,;;;;T,#",
-    "#,,T,::===:,,,,,,,,,::===:T,,#",
-    "#,,TT:,,..:,,TTTT,,,:..,,TT,,#",
-    "#,,,,:..TT:===P.===:TT..:,,,,#",
-    "#,,,,:..TTT,,,::,,,TTT.:,,,,,#",
-    "#,,oP:===::===TT===::===:ooP,#",
-    "#,,o.:...TT,,,TT,,,TT...:oo.,#",
-    "#,,,,:..TTT===::===TTT..:,,,,#",
-    "#,,,,:..TT,:,,::,,,:TT..:,,,,#",
-    "#,,TT:===::,,,,,,,,::===:TT,,#",
-    "#,,T,;;;;,,TTTT,,TTTT,,;;;;T,#",
-    "#,,T,,,,,,,,,,TTTT,,,,,,,,T,,#",
-    "#,,,TTTT,,,,,,,,,,,,,,TTTT,,,#",
-    "##############################"
+  "terrain": [
+    "草草草草草草草草草草草草草草草草草草草草草草草草草草草草草草",
+    "草草草草草草草草草草草草草草草草草草草草草草草草草草草草草草",
+    "草草草草草草草草草草草草草草草草草草草草草草草草草草草草草草",
+    "草草草草草草草草草草草草草草草草草草草草草草草草草草草草草草",
+    "草草草草草草泥泥泥泥草草草草草草草草草草草草草泥泥泥泥草草草",
+    "草草草草草草草草草草草草草草草草草草草草草草草草草草草草草草",
+    "草草草草草草草草草草草草草草草草草草草草草草草草草草草草草草",
+    "草草草草草草草草草草草草草草草草草草草草草草草草草草草草草草",
+    "草草草草草草草草草草草草草草草草草草草草草草草草草草草草草草",
+    "草草草草草草草草草草草草草草草草草草草草草草草草草草草草草草",
+    "草草草草草草草草草草草草草草草草草草草草草草草草草草草草草草",
+    "草草草草草草草草草草草草草草草草草草草草草草草草草草草草草草",
+    "草草草草草草草草草草草草草草草草草草草草草草草草草草草草草草",
+    "草草草草草草草草草草草草草草草草草草草草草草草草草草草草草草",
+    "草草草草草泥泥泥泥草草草草草草草草草草草草草草泥泥泥泥草草草",
+    "草草草草草草草草草草草草草草草草草草草草草草草草草草草草草草",
+    "草草草草草草草草草草草草草草草草草草草草草草草草草草草草草草",
+    "草草草草草草草草草草草草草草草草草草草草草草草草草草草草草草"
+  ],
+  "structure": [
+    "墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙",
+    "墙........树树树树树树树树............墙",
+    "墙...树树树树树树.............树树树树..墙",
+    "墙..树树........树树树树树树.......树..墙",
+    "墙..树.......树树树树..树树树树......树.墙",
+    "墙..树......................树..墙",
+    "墙..树树........树树树树........树树..墙",
+    "墙.......树树..........树树.......墙",
+    "墙.......树树树........树树树.......墙",
+    "墙..石..........树树.........石石..墙",
+    "墙..石.....树树...树树...树树....石石..墙",
+    "墙.......树树树........树树树.......墙",
+    "墙.......树树..........树树.......墙",
+    "墙..树树....................树树..墙",
+    "墙..树.......树树树树..树树树树......树.墙",
+    "墙..树..........树树树树........树..墙",
+    "墙...树树树树..............树树树树...墙",
+    "墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙"
+  ],
+  "surface": [
+    "板板板板板板板板板板板板板板板板板板板板板板板板板板板板板板",
+    "板............................板",
+    "板.............................",
+    "板.............................",
+    "板.............................",
+    "板....径径路路路径.........径径路路路径....",
+    "板....径..板板径.........径板板.......",
+    "板....径板板..径路路路板板路路路径..板板径.....",
+    "板....径板板......径径......板径......",
+    "板..板板径路路路径径路路路..路路路径径路路路径板板板..",
+    "板..板板径板板板............板板板径板板板..",
+    "板....径板板...路路路径径路路路...板板径.....",
+    "板....径板板...径..径径...径..板板径.....",
+    "板....径路路路径径........径径路路路径.....",
+    "板.............................",
+    "板.............................",
+    "板............................板",
+    "板板.板板板板板板............板板板板板板.板板"
+  ],
+  "monsterSpawns": [
+    {
+      "id": "spawn_verdant_02_sprite_a",
+      "templateId": "m_verdant_lesser_sprite",
+      "x": 23,
+      "y": 7,
+      "grade": "mortal"
+    },
+    {
+      "id": "spawn_verdant_02_child_a",
+      "templateId": "m_verdant_parasitic_child",
+      "x": 12,
+      "y": 9,
+      "grade": "mortal"
+    },
+    {
+      "id": "spawn_verdant_02_child_b",
+      "templateId": "m_verdant_parasitic_child",
+      "x": 6,
+      "y": 11,
+      "grade": "mortal"
+    }
   ],
   "portals": [
     {
+      "id": "verdant_vine_vale_02_slope:27,9",
+      "targetPortalId": "verdant_vine_vale_01_entry:4,8",
+      "direction": "two_way",
       "x": 27,
       "y": 9,
       "targetMapId": "verdant_vine_vale_01_entry",
@@ -37,12 +109,12 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false,
-      "id": "verdant_vine_vale_02_slope:27,9",
-      "direction": "two_way",
-      "targetPortalId": "verdant_vine_vale_01_entry:4,8"
+      "hidden": false
     },
     {
+      "id": "verdant_vine_vale_02_slope:4,9",
+      "targetPortalId": "verdant_vine_vale_03_bridge:27,9",
+      "direction": "two_way",
       "x": 4,
       "y": 9,
       "targetMapId": "verdant_vine_vale_03_bridge",
@@ -52,12 +124,12 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false,
-      "id": "verdant_vine_vale_02_slope:4,9",
-      "direction": "two_way",
-      "targetPortalId": "verdant_vine_vale_03_bridge:27,9"
+      "hidden": false
     },
     {
+      "id": "verdant_vine_vale_02_slope:14,7",
+      "targetPortalId": "verdant_vine_vale_04_garden:24,4",
+      "direction": "two_way",
       "x": 14,
       "y": 7,
       "targetMapId": "verdant_vine_vale_04_garden",
@@ -67,15 +139,12 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false,
-      "id": "verdant_vine_vale_02_slope:14,7",
-      "direction": "two_way",
-      "targetPortalId": "verdant_vine_vale_04_garden:24,4"
+      "hidden": false
     }
   ],
   "spawnPoint": {
-    "x": 27,
-    "y": 9
+    "x": 26,
+    "y": 8
   },
   "time": {
     "offsetTicks": 210,
@@ -99,7 +168,6 @@
       }
     }
   },
-  "auras": [],
   "resources": [
     {
       "x": 23,
@@ -118,29 +186,6 @@
       "y": 14,
       "resourceKey": "aura.refined.wood",
       "value": 8000
-    }
-  ],
-  "safeZones": [],
-  "landmarks": [],
-  "npcs": [],
-  "monsterSpawns": [
-    {
-      "id": "spawn_verdant_02_sprite_a",
-      "templateId": "m_verdant_lesser_sprite",
-      "x": 23,
-      "y": 7
-    },
-    {
-      "id": "spawn_verdant_02_child_a",
-      "templateId": "m_verdant_parasitic_child",
-      "x": 12,
-      "y": 9
-    },
-    {
-      "id": "spawn_verdant_02_child_b",
-      "templateId": "m_verdant_parasitic_child",
-      "x": 6,
-      "y": 11
     }
   ],
   "resourceNodeGroups": [
@@ -181,6 +226,5 @@
         }
       ]
     }
-  ],
-  "mapLv": 21
+  ]
 }

@@ -1,33 +1,105 @@
 {
+  "format": 2,
   "id": "verdant_vine_vale_01_entry",
   "name": "青萝谷·01回渡药圃",
+  "mapGroupId": "verdant_vine_vale",
+  "mapGroupName": "青萝谷",
+  "mapGroupOrder": 40,
+  "mapGroupMemberOrder": 1,
   "width": 30,
   "height": 18,
   "routeDomain": "system",
+  "mapLv": 19,
   "spaceVisionMode": "isolated",
   "description": "青萝谷入口子图。回渡药圃先用畦道、藤棚和晒叶台把节奏压慢，人在这里不会马上被木行压力逼死，但一离开药圃主路，藤墙、水沟和湿地就会开始把脚步一点点拽进谷里。",
-  "tiles": [
-    "##############################",
-    "#,,,,,,,,,TTTTTT,,,,,,,,,,,,,#",
-    "#,,,TTTT,,,,,,,,,,,,TTTT,,,,,#",
-    "#,,TT::T,oooo,~~,oooo,T::TT,,#",
-    "#,,T:::=:====P~~:====:=:::T,,#",
-    "#,,TT::T,..,,.~~:,,..,T::TT,,#",
-    "#,,,,,,:..TTT:~~:TTT..:,,,,,,#",
-    "#,,ooo,:..T=T:~~:T=T..:,,oo,,#",
-    "#,,oP==:==:=T:~~:T=:==:===Po,#",
-    "#,,o.==:==:=T:~~:T=:==:===.o,#",
-    "#,,ooo,:..T=T:~~:T=T..:,,oo,,#",
-    "#,,,,,,:..TTT:~~:TTT..:,,,,,,#",
-    "#,,TT::T,..,,:~~:,,..,T::TT,,#",
-    "#,,T:::=:====:~~:====:=:::T,,#",
-    "#,,TT::T,oooo,~~,oooo,T::TT,,#",
-    "#,,,TTTT,,,,,,,,,,,,TTTT,,,,,#",
-    "#,,,,,,,,,TTTTTT,,,,,,,,,,,,,#",
-    "##############################"
+  "terrain": [
+    "草草草草草草草草草草草草草草草草草草草草草草草草草草草草草草",
+    "草草草草草草草草草草草草草草草草草草草草草草草草草草草草草草",
+    "草草草草草草草草草草草草草草草草草草草草草草草草草草草草草草",
+    "草草草草草草草草草草草草草草水水草草草草草草草草草草草草草草",
+    "草草草草草草草草草草草草草草水水草草草草草草草草草草草草草草",
+    "草草草草草草草草草草草草草草水水草草草草草草草草草草草草草草",
+    "草草草草草草草草草草草草草草水水草草草草草草草草草草草草草草",
+    "草草草草草草草草草草草草草草水水草草草草草草草草草草草草草草",
+    "草草草草草草草草草草草草草草水水草草草草草草草草草草草草草草",
+    "草草草草草草草草草草草草草草水水草草草草草草草草草草草草草草",
+    "草草草草草草草草草草草草草草水水草草草草草草草草草草草草草草",
+    "草草草草草草草草草草草草草草水水草草草草草草草草草草草草草草",
+    "草草草草草草草草草草草草草草水水草草草草草草草草草草草草草草",
+    "草草草草草草草草草草草草草草水水草草草草草草草草草草草草草草",
+    "草草草草草草草草草草草草草草水水草草草草草草草草草草草草草草",
+    "草草草草草草草草草草草草草草草草草草草草草草草草草草草草草草",
+    "草草草草草草草草草草草草草草草草草草草草草草草草草草草草草草",
+    "草草草草草草草草草草草草草草草草草草草草草草草草草草草草草草"
+  ],
+  "structure": [
+    "墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙",
+    "墙.........树树树树树树.............墙",
+    "墙...树树树树............树树树树.....墙",
+    "墙..树树..树.石石石石....石石石石.树..树树..墙",
+    "墙..树......................树..墙",
+    "墙..树树..树..............树..树树..墙",
+    "墙.........树树树....树树树.........墙",
+    "墙..石石石....树.树....树.树.....石石..墙",
+    "墙..石........树....树.........石.墙",
+    "墙..石........树....树.........石.墙",
+    "墙..石石石....树.树....树.树.....石石..墙",
+    "墙.........树树树....树树树.........墙",
+    "墙..树树..树..............树..树树..墙",
+    "墙..树......................树..墙",
+    "墙..树树..树.石石石石....石石石石.树..树树..墙",
+    "墙...树树树树............树树树树.....墙",
+    "墙.........树树树树树树.............墙",
+    "墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙墙"
+  ],
+  "surface": [
+    "板板板板板板板板板板板板板板板板板板板板板板板板板板板板板板",
+    "板............................板",
+    "板.............................",
+    "板....径径..板板板板....板板板板..径径.....",
+    "板...径径径路径路路路路板..径路路路路径路径径径....",
+    "板....径径..板板..板..径..板板..径径.....",
+    "板......径板板...径..径...板板径.......",
+    "板..板板板.径板板.路.径..径.路.板板径..板板...",
+    "板..板板路路径路路径路.径..径.路径路路径路路路板板..",
+    "板..板板路路径路路径路.径..径.路径路路径路路路板板..",
+    "板..板板板.径板板.路.径..径.路.板板径..板板...",
+    "板......径板板...径..径...板板径.......",
+    "板....径径..板板..径..径..板板..径径.....",
+    "板...径径径路径路路路路径..径路路路路径路径径径....",
+    "板....径径..板板板板....板板板板..径径.....",
+    "板.............................",
+    "板............................板",
+    "板板.......板板板板板板板板...........板板"
+  ],
+  "monsterSpawns": [
+    {
+      "id": "spawn_verdant_01_sprite_a",
+      "templateId": "m_verdant_lesser_sprite",
+      "x": 20,
+      "y": 10,
+      "grade": "mortal"
+    },
+    {
+      "id": "spawn_verdant_01_sprite_b",
+      "templateId": "m_verdant_lesser_sprite",
+      "x": 11,
+      "y": 10,
+      "grade": "mortal"
+    },
+    {
+      "id": "spawn_verdant_01_sprite_c",
+      "templateId": "m_verdant_lesser_sprite",
+      "x": 8,
+      "y": 5,
+      "grade": "mortal"
+    }
   ],
   "portals": [
     {
+      "id": "verdant_vine_vale_01_entry:26,8",
+      "targetPortalId": "qizhen_crossing:50,21",
+      "direction": "two_way",
       "x": 26,
       "y": 8,
       "targetMapId": "qizhen_crossing",
@@ -37,12 +109,12 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false,
-      "id": "verdant_vine_vale_01_entry:26,8",
-      "direction": "two_way",
-      "targetPortalId": "qizhen_crossing:50,21"
+      "hidden": false
     },
     {
+      "id": "verdant_vine_vale_01_entry:4,8",
+      "targetPortalId": "verdant_vine_vale_02_slope:27,9",
+      "direction": "two_way",
       "x": 4,
       "y": 8,
       "targetMapId": "verdant_vine_vale_02_slope",
@@ -52,12 +124,12 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false,
-      "id": "verdant_vine_vale_01_entry:4,8",
-      "direction": "two_way",
-      "targetPortalId": "verdant_vine_vale_02_slope:27,9"
+      "hidden": false
     },
     {
+      "id": "verdant_vine_vale_01_entry:13,4",
+      "targetPortalId": "verdant_vine_vale_03_bridge:24,3",
+      "direction": "two_way",
       "x": 13,
       "y": 4,
       "targetMapId": "verdant_vine_vale_03_bridge",
@@ -67,10 +139,7 @@
       "trigger": "manual",
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
-      "hidden": false,
-      "id": "verdant_vine_vale_01_entry:13,4",
-      "direction": "two_way",
-      "targetPortalId": "verdant_vine_vale_03_bridge:24,3"
+      "hidden": false
     }
   ],
   "spawnPoint": {
@@ -99,7 +168,6 @@
       }
     }
   },
-  "auras": [],
   "resources": [
     {
       "x": 22,
@@ -118,29 +186,6 @@
       "y": 10,
       "resourceKey": "aura.refined.wood",
       "value": 8000
-    }
-  ],
-  "safeZones": [],
-  "landmarks": [],
-  "npcs": [],
-  "monsterSpawns": [
-    {
-      "id": "spawn_verdant_01_sprite_a",
-      "templateId": "m_verdant_lesser_sprite",
-      "x": 20,
-      "y": 10
-    },
-    {
-      "id": "spawn_verdant_01_sprite_b",
-      "templateId": "m_verdant_lesser_sprite",
-      "x": 11,
-      "y": 10
-    },
-    {
-      "id": "spawn_verdant_01_sprite_c",
-      "templateId": "m_verdant_lesser_sprite",
-      "x": 8,
-      "y": 5
     }
   ],
   "resourceNodeGroups": [
@@ -185,6 +230,5 @@
         }
       ]
     }
-  ],
-  "mapLv": 19
+  ]
 }

@@ -1708,6 +1708,22 @@ function serializeMonsterSpawnForFormatV2(spawn: GmMapMonsterSpawnRecord): unkno
   return persisted;
 }
 
+/** 运行时地图加载严格只接受已发布的 format:2 真源，旧格式必须先走显式兼容转换。 */
+export function assertRuntimeMapDocumentV2(raw: unknown, file = 'map document'): asserts raw is Record<string, unknown> {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    throw new Error(`地图文件 ${file} 必须是 format:2 对象`);
+  }
+  const document = raw as Record<string, unknown>;
+  const legacyKeys = ['tiles', 'layeredCells', 'terrainRows', 'surfaceRows', 'structureRows', 'interactableRows']
+    .filter((key) => Object.prototype.hasOwnProperty.call(document, key));
+  if (document.format !== 2 || legacyKeys.length > 0) {
+    throw new Error(`地图文件 ${file} 仍为旧格式或混合格式，请先执行 GM/工具兼容转换。legacyKeys=${legacyKeys.join(',') || 'format'}`);
+  }
+  if (!Array.isArray(document.terrain) || !Array.isArray(document.structure)) {
+    throw new Error(`地图文件 ${file} 缺少 format:2 terrain/structure 分层字符图`);
+  }
+}
+
 /** format:2 预处理：将分层中文字符图解码为内部结构。非 format:2 原样返回。 */
 function preprocessFormatV2(raw: unknown): unknown {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return raw;

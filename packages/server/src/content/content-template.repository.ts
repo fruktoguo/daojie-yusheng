@@ -11,7 +11,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
-import { DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS, DEFAULT_INVENTORY_CAPACITY, DEFAULT_PLAYER_REALM_STAGE, DEFAULT_QI_RESOURCE_DESCRIPTOR, Direction, ELEMENT_KEYS, EQUIP_SLOTS, NUMERIC_SCALAR_STAT_KEYS, PLAYER_REALM_NUMERIC_TEMPLATES, TECHNIQUE_EXP_BASE, TechniqueRealm, buildQiResourceKey, calculateTechniqueSkillQiCost, cloneNumericRatioDivisors, cloneNumericStats, compileEquipmentBaselinePercentsToActualStats, compileValueStatsToActualStats, createMonsterMainCombatStatModifierStats, deriveTechniqueRealm, expandTechniqueArtsStrengthContentSkill, expandTechniqueAttrRatio, expandTechniqueExpCurve, expandTechniqueLayerGains, getTechniqueExpToNext, getTileTypeFromMapChar, inferMonsterTierFromName, isTileTypeWalkable, normalizeCraftEffectStatsPatch, normalizeEditableMapDocument, normalizeMonsterTier as normalizeSharedMonsterTier, normalizeTargetingDefaultMaxTargets, resolveMonsterTemplateRecord, resolveSkillRequiresTarget, resolveSkillUnlockLevel, scaleTechniqueExp, shouldExpandTechniqueAttrRatio, type TerrainEffectDef } from '@mud/shared';
+import { DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS, DEFAULT_INVENTORY_CAPACITY, DEFAULT_PLAYER_REALM_STAGE, DEFAULT_QI_RESOURCE_DESCRIPTOR, Direction, ELEMENT_KEYS, EQUIP_SLOTS, NUMERIC_SCALAR_STAT_KEYS, PLAYER_REALM_NUMERIC_TEMPLATES, TECHNIQUE_EXP_BASE, TechniqueRealm, assertRuntimeMapDocumentV2, buildQiResourceKey, calculateTechniqueSkillQiCost, cloneNumericRatioDivisors, cloneNumericStats, compileEquipmentBaselinePercentsToActualStats, compileValueStatsToActualStats, createMonsterMainCombatStatModifierStats, deriveTechniqueRealm, expandTechniqueAttrRatio, expandTechniqueExpCurve, expandTechniqueLayerGains, getTechniqueExpToNext, getTileTypeFromMapChar, inferMonsterTierFromName, isTileTypeWalkable, normalizeCraftEffectStatsPatch, normalizeEditableMapDocument, normalizeMonsterTier as normalizeSharedMonsterTier, normalizeTargetingDefaultMaxTargets, resolveMonsterTemplateRecord, resolveSkillRequiresTarget, resolveSkillUnlockLevel, scaleTechniqueExp, shouldExpandTechniqueAttrRatio, type TerrainEffectDef } from '@mud/shared';
 import { resolveProjectPath } from '../common/project-path';
 import { assignItemInstanceIdIfNeeded } from '../runtime/world/item-instance-id.helpers';
 import { BuffTemplateRegistry } from './registries/buff-template.registry';
@@ -194,6 +194,7 @@ export class ContentTemplateRepository {
         }
 
         const raw = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+        assertRuntimeMapDocumentV2(raw, filePath);
 
         const document = normalizeEditableMapDocument(raw);
 
@@ -1813,6 +1814,10 @@ function normalizeTechniqueTemplate(raw, sharedTechniqueBuffs = new Map()) {
         return null;
     }
 
+    if (hasLegacyTechniqueDraftField(raw)) {
+        return null;
+    }
+
     const candidate = raw;
     if (typeof candidate.id !== 'string'
         || typeof candidate.name !== 'string'
@@ -2081,16 +2086,33 @@ function resolveTechniqueLayerSpecialStats(entry, templateLayer) {
     return templateLayer?.specialStats ? { ...templateLayer.specialStats } : undefined;
 }
 
+function hasLegacyTechniqueDraftField(value) {
+    if (!value || typeof value !== 'object') {
+        return false;
+    }
+    if (Array.isArray(value)) {
+        return value.some((entry) => hasLegacyTechniqueDraftField(entry));
+    }
+    return Object.entries(value).some(([key, child]) => (
+        key === 'artsStrength'
+        || key === 'rawRange'
+        || key === 'rawTargeting'
+        || key === 'rawFormula'
+        || key === 'rawCandidate'
+        || hasLegacyTechniqueDraftField(child)
+    ));
+}
+
 function normalizeSkill(raw, grade, realmLv, sharedTechniqueBuffs = new Map()) {
 
     if (!raw || typeof raw !== 'object') {
         return null;
     }
 
-    const expandedStrength = isRecord(raw.artsStrength)
-        ? expandTechniqueArtsStrengthContentSkill(raw, { techniqueId: '', grade, realmLv })?.skill
-        : null;
-    const candidate = expandedStrength ?? raw;
+    if (hasLegacyTechniqueDraftField(raw)) {
+        return null;
+    }
+    const candidate = raw;
     if (typeof candidate.id !== 'string'
         || typeof candidate.name !== 'string'
         || typeof candidate.desc !== 'string'

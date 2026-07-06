@@ -91,7 +91,7 @@
 
 ### P03. 配置文件原始编辑入口只校验 JSON 语法，绕过内容 schema 与启动期失败门禁
 
-- **状态**：已部分修复（2026-07-06）：raw JSON 保存已扩展到 monsters/items/techniques/technique-buffs/recipes/enhancements/formations/terrain/starter/quests/building-runtime 等路径级门禁，并拒绝 artsStrength/raw* 旧术法草稿字段；服务端物品 registry 已启动期聚合错误并 fail-fast。地图旧格式运行时 fallback 仍归入 P27 的兼容转换收口项。
+- **状态**：已修复（2026-07-06）：raw JSON 保存已扩展到 monsters/items/techniques/technique-buffs/recipes/enhancements/formations/terrain/starter/quests/building-runtime 等路径级门禁，并拒绝 artsStrength/raw* 旧术法草稿字段；地图编辑保存统一序列化为 format:2，服务端地图运行时加载和怪物 fallback 均先执行 format:2 严格门禁，旧格式转换已归入显式迁移工具。
 - **严重级别**：high
 - **分类**：schema-validation
 - **置信度**：confirmed
@@ -367,7 +367,7 @@
 
 ### P26. AI 术法草稿/旧还原字段可被服务端内容加载直接展开，兼容边界未收敛到 GM 转换
 
-- **状态**：已部分修复（2026-07-06）：config-editor raw JSON 保存已拒绝 artsStrength/rawRange/rawTargeting/rawFormula/rawCandidate 等旧术法草稿字段，阻止新增草稿从编辑入口进入内容真源。运行时 loader 与 generated fallback 仍保留展开兼容，完整收口仍需 GM 一键转换、旧草稿扫描、回读验证后再拒载。
+- **状态**：已修复（2026-07-06）：静态功法内容已通过显式迁移工具展开为正式 SkillDef，复扫确认 artsStrength/rawRange/rawTargeting/rawFormula/rawCandidate 残留为 0；config-editor raw JSON 保存继续拒绝旧草稿字段；服务端静态内容 loader 与 generatedStore fallback 均先拒绝 artsStrength/raw* 旧字段，不再在运行时按当前公式静默重算。
 - **严重级别**：medium
 - **分类**：draft-compatibility
 - **置信度**：confirmed
@@ -379,7 +379,7 @@
 
 ### P27. 地图旧格式/分层格式转换仍在 shared normalizer 中，并被服务端运行时 fallback 读取
 
-- **状态**：未完成（2026-07-06）：该项涉及地图发布真源、编辑器 normalizer、服务端 fallback 刷怪读取和旧地图迁移，直接拒载会影响现有内容；最小下一步是先落统一 GM 兼容转换入口与地图旧格式扫描/回读 proof，再把运行时 loader 收窄为只接受发布后新格式。
+- **状态**：已修复（2026-07-06）：6 个旧格式 compose 地图已通过显式迁移工具转换为 format:2，复扫确认旧 tiles/layeredCells/terrainRows/surfaceRows/structureRows/interactableRows 残留为 0；config-editor 地图保存统一输出 format:2；服务端 MapTemplateRepository 与 ContentTemplateRepository 怪物 fallback 读取地图前执行 assertRuntimeMapDocumentV2，运行时只接受发布后新真源。
 - **严重级别**：medium
 - **分类**：legacy-format-boundary
 - **置信度**：confirmed

@@ -8,80 +8,72 @@
  */
 import * as fs from 'fs';
 import * as path from 'path';
-import { normalizeEditableMapDocument, TerrainType, StructureType, SurfaceType, GmMapDocument, gameplayConstants } from '@mud/shared';
+import { normalizeEditableMapDocument, serializeEditableMapDocumentToFormatV2 } from '@mud/shared';
 
-const { TERRAIN_TYPE_TO_CHAR, STRUCTURE_TYPE_TO_CHAR, SURFACE_TYPE_TO_CHAR, LAYER_EMPTY_CHAR } = gameplayConstants;
 const MAPS_DIR = path.resolve(__dirname, '../../data/maps');
+const LEGACY_MAP_KEYS = ['tiles', 'layeredCells', 'terrainRows', 'surfaceRows', 'structureRows', 'interactableRows'];
 
-function main() {
-  const files = fs.readdirSync(MAPS_DIR).filter((f) => f.endsWith('.json'));
-  let converted = 0, skipped = 0;
-  for (const file of files) {
-    const filePath = path.join(MAPS_DIR, file);
-    const raw = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-    if (raw.format === 2) { skipped++; continue; }
-    const normalized = normalizeEditableMapDocument(raw);
-    const output = convertToFormatV2(normalized, raw);
-    fs.writeFileSync(filePath, JSON.stringify(output, null, 2) + '\n', 'utf-8');
-    converted++;
-    console.log(`✓ ${file}`);
+function main(): void {
+  const mode = process.argv.includes('--apply') ? 'apply' : (process.argv.includes('--check') ? 'check' : 'dry-run');
+  const files = collectJsonFiles(MAPS_DIR);
+  let matched = 0;
+  let converted = 0;
+  const samples: string[] = [];
+  const errors: string[] = [];
+
+  for (const filePath of files) {
+    try {
+      const raw = JSON.parse(fs.readFileSync(filePath, 'utf-8')) as Record<string, unknown>;
+      if (!isLegacyMapDocument(raw)) {
+        continue;
+      }
+      matched += 1;
+      const normalized = normalizeEditableMapDocument(raw);
+      const output = serializeEditableMapDocumentToFormatV2(normalized);
+      assertRuntimeMapDocumentV2(output, filePath);
+      if (mode === 'apply') {
+        fs.writeFileSync(filePath, `${JSON.stringify(output, null, 2)}\n`, 'utf-8');
+        converted += 1;
+      }
+      if (samples.length < 10) {
+        samples.push(path.relative(MAPS_DIR, filePath));
+      }
+    } catch (error) {
+      errors.push(`${filePath}: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
-  console.log(`\n完成：${converted} 个文件已转换，${skipped} 个已跳过`);
+
+  const result = { ok: errors.length === 0, mode, matched, converted, samples, errors };
+  console.log(JSON.stringify(result, null, 2));
+  if (errors.length > 0 || (mode === 'check' && matched > 0)) {
+    process.exit(1);
+  }
 }
 
-function convertToFormatV2(doc: GmMapDocument, raw: Record<string, unknown>): Record<string, unknown> {
-  const { width, height } = doc;
-  const terrainLines: string[] = [];
-  const structureLines: string[] = [];
-  const surfaceLines: string[] = [];
-  let hasSurface = false;
-  for (let y = 0; y < height; y++) {
-    let tLine = '', sLine = '', fLine = '';
-    for (let x = 0; x < width; x++) {
-      const terrain = doc.terrainRows?.[y]?.[x] ?? TerrainType.Floor;
-      const structure = doc.structureRows?.[y]?.[x] ?? null;
-      const surface = doc.surfaceRows?.[y]?.[x] ?? null;
-      tLine += TERRAIN_TYPE_TO_CHAR.get(terrain as TerrainType) ?? '地';
-      sLine += structure ? (STRUCTURE_TYPE_TO_CHAR.get(structure as StructureType) ?? LAYER_EMPTY_CHAR) : LAYER_EMPTY_CHAR;
-      const fc = surface ? (SURFACE_TYPE_TO_CHAR.get(surface as SurfaceType) ?? LAYER_EMPTY_CHAR) : LAYER_EMPTY_CHAR;
-      fLine += fc;
-      if (surface) hasSurface = true;
+function collectJsonFiles(dir: string, output: string[] = []): string[] {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      collectJsonFiles(fullPath, output);
+    } else if (entry.isFile() && entry.name.endsWith('.json')) {
+      output.push(fullPath);
     }
-    terrainLines.push(tLine);
-    structureLines.push(sLine);
-    surfaceLines.push(fLine);
   }
-  const auras = (doc.auras ?? []).map((a) => [a.x, a.y, a.value]);
-  const monsterSpawns = (doc.monsterSpawns ?? []).map((m) => [m.x, m.y, m.id]);
-  const output: Record<string, unknown> = { format: 2, id: doc.id, name: doc.name };
-  if (doc.mapGroupId) output.mapGroupId = doc.mapGroupId;
-  if (doc.mapGroupName) output.mapGroupName = doc.mapGroupName;
-  if (doc.mapGroupOrder !== undefined) output.mapGroupOrder = doc.mapGroupOrder;
-  if (doc.mapGroupMemberOrder !== undefined) output.mapGroupMemberOrder = doc.mapGroupMemberOrder;
-  output.width = width;
-  output.height = height;
-  if (doc.routeDomain) output.routeDomain = doc.routeDomain;
-  const mapLv = (doc as unknown as Record<string, unknown>).mapLv;
-  if (mapLv) output.mapLv = mapLv;
-  if (doc.spaceVisionMode) output.spaceVisionMode = doc.spaceVisionMode;
-  if (doc.parentMapId) output.parentMapId = doc.parentMapId;
-  if (doc.description) output.description = doc.description;
-  output.terrain = terrainLines;
-  output.structure = structureLines;
-  if (hasSurface) output.surface = surfaceLines;
-  if (auras.length > 0) output.auras = auras;
-  if (monsterSpawns.length > 0) output.monsterSpawns = monsterSpawns;
-  if (doc.portals && doc.portals.length > 0) output.portals = doc.portals;
-  output.spawnPoint = doc.spawnPoint;
-  const time = (doc as unknown as Record<string, unknown>).time;
-  if (time) output.time = time;
-  if (raw.resources && (raw.resources as unknown[]).length > 0) output.resources = raw.resources;
-  if (raw.safeZones && (raw.safeZones as unknown[]).length > 0) output.safeZones = raw.safeZones;
-  if (raw.landmarks && (raw.landmarks as unknown[]).length > 0) output.landmarks = raw.landmarks;
-  if (raw.npcs && (raw.npcs as unknown[]).length > 0) output.npcs = raw.npcs;
-  if (raw.tileEffects && (raw.tileEffects as unknown[]).length > 0) output.tileEffects = raw.tileEffects;
-  if (raw.resourceNodeGroups && (raw.resourceNodeGroups as unknown[]).length > 0) output.resourceNodeGroups = raw.resourceNodeGroups;
-  return output;
+  return output.sort((left, right) => left.localeCompare(right, 'zh-CN'));
+}
+
+function isLegacyMapDocument(raw: Record<string, unknown>): boolean {
+  return raw.format !== 2 || LEGACY_MAP_KEYS.some((key) => Object.prototype.hasOwnProperty.call(raw, key));
+}
+
+function assertRuntimeMapDocumentV2(raw: Record<string, unknown>, filePath: string): void {
+  const legacyKeys = LEGACY_MAP_KEYS.filter((key) => Object.prototype.hasOwnProperty.call(raw, key));
+  if (raw.format !== 2 || legacyKeys.length > 0) {
+    throw new Error(`转换后仍含旧地图字段：${legacyKeys.join(',') || 'format'} (${filePath})`);
+  }
+  if (!Array.isArray(raw.terrain) || !Array.isArray(raw.structure)) {
+    throw new Error(`转换后缺少 format:2 terrain/structure (${filePath})`);
+  }
 }
 
 main();

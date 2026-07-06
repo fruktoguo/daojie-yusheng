@@ -22,6 +22,7 @@ const {
   cloneMapDocument,
   ITEM_TYPES,
   normalizeEditableMapDocument,
+  serializeEditableMapDocumentToFormatV2,
   resolveMonsterExpMultiplier,
   resolveMonsterTemplateRecord,
   shouldPersistMonsterExpMultiplier,
@@ -845,8 +846,7 @@ function dehydrateMapDocument(document) {
       ? document.monsterSpawns.map((spawn) => dehydrateMonsterSpawnRecord(spawn, monsterTemplates))
       : [],
   });
-  delete normalized.layeredCells;
-  return normalized;
+  return serializeEditableMapDocumentToFormatV2(normalized);
 }
 
 /**

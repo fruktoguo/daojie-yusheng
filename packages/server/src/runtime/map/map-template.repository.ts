@@ -11,7 +11,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
-import { DEFAULT_QI_RESOURCE_DESCRIPTOR, buildQiResourceKey, composeTileTypeFromLayers, doesTileTypeBlockSight, getTileTypeFromMapChar, isTileTypeWalkable, normalizeConfiguredAuraValue, normalizeEditableMapDocument, parseQiResourceKey, validateEditableMapPortalReciprocity } from '@mud/shared';
+import { DEFAULT_QI_RESOURCE_DESCRIPTOR, assertRuntimeMapDocumentV2, buildQiResourceKey, composeTileTypeFromLayers, doesTileTypeBlockSight, getTileTypeFromMapChar, isTileTypeWalkable, normalizeConfiguredAuraValue, normalizeEditableMapDocument, parseQiResourceKey, validateEditableMapPortalReciprocity } from '@mud/shared';
 import { resolveProjectPath } from '../../common/project-path';
 import { ContainerTemplateRegistry } from './registries/container-template.registry';
 import { LandmarkTemplateRegistry } from './registries/landmark-template.registry';
@@ -191,6 +191,7 @@ export class MapTemplateRepository {
         const documents = [];
         for (const file of files) {
             const raw = JSON.parse(fs.readFileSync(file, 'utf-8'));
+            assertRuntimeMapDocumentV2(raw, file);
             documents.push(normalizeEditableMapDocument(raw));
         }
         const portalValidationError = validateEditableMapPortalReciprocity(documents);
