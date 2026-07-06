@@ -831,10 +831,27 @@ class MapInstanceRuntime {
             this.playerIdsByChunk.delete(chunkKey);
         }
     }
+    rebuildPlayerSpatialIndexesFromPlayers() {
+        this.playerIdsByTile.clear();
+        this.playerTileIndexedPlayerCount = 0;
+        this.playerIdsByChunk.clear();
+        this.playerChunkIndexedPlayerCount = 0;
+        for (const player of this.playersById.values()) {
+            this.addPlayerToTileIndex(player);
+        }
+    }
+    ensurePlayerSpatialIndexesConsistent() {
+        if (this.playerTileIndexedPlayerCount === this.playersById.size
+            && this.playerChunkIndexedPlayerCount === this.playersById.size) {
+            return;
+        }
+        this.rebuildPlayerSpatialIndexesFromPlayers();
+    }
     collectPlayersByTileIndices(tileIndices) {
         if (!(tileIndices instanceof Set)) {
             return Array.from(this.playersById.values());
         }
+        this.ensurePlayerSpatialIndexesConsistent();
         if (this.playerTileIndexedPlayerCount !== this.playersById.size) {
             return Array.from(this.playersById.values());
         }
@@ -864,6 +881,7 @@ class MapInstanceRuntime {
         if (this.playersById.size === 0) {
             return [];
         }
+        this.ensurePlayerSpatialIndexesConsistent();
         if (this.playerChunkIndexedPlayerCount !== this.playersById.size) {
             return Array.from(this.playersById.values());
         }
