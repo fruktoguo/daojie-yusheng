@@ -500,6 +500,14 @@ async function main() {
  */
         const initialHttpState = await authedGetJson('/api/gm/state', gmToken);
         assertGmStateShape(initialHttpState, 'initial http gm state');
+        const queriedHttpFullState = await authedGetJson(`/api/gm/state?page=1&pageSize=5&sort=name&keyword=${encodeURIComponent(auth.loginName)}&includePlayers=1&refresh=1`, gmToken);
+        assertGmStateShape(queriedHttpFullState, 'queried http gm state');
+        assertGmStateQueryContract(queriedHttpFullState, {
+            pageSize: 5,
+            sort: 'name',
+            keyword: auth.loginName,
+            expectedPlayerId: auth.playerId,
+        });
         const queriedHttpState = await authedGetJson(`/api/gm/players?page=1&pageSize=5&sort=name&keyword=${encodeURIComponent(auth.loginName)}&refresh=1`, gmToken);
         assertGmStateShape(queriedHttpState, 'queried http gm players', { requireStateFields: false });
         assertGmStateQueryContract(queriedHttpState, {

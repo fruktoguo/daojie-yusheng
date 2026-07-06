@@ -327,6 +327,7 @@ export class NativeGmStateQueryService {
 
     return {
       ...listView,
+      mapIds: this.listSortedMapIds(),
       perf,
     };
   }
