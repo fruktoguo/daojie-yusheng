@@ -19,6 +19,9 @@ import { NativePlayerAuthService, type RegistrationActivationCodeIssueView } fro
 /** GM 登录请求体。 */
 interface GmLoginBody {
   password?: string;
+  scopes?: unknown;
+  scope?: unknown;
+  role?: unknown;
 }
 
 /** GM 修改密码请求体。 */
@@ -41,7 +44,7 @@ interface RequestLike {
 
 /** GM 鉴权服务端口：登录和修改密码。 */
 interface RuntimeGmAuthServicePort {
-  login(password: string): Promise<unknown>;
+  login(password: string, options?: { scopes?: unknown; scope?: unknown; role?: unknown }): Promise<unknown>;
   changePassword(currentPassword: string, newPassword: string): Promise<unknown>;
 }
 
@@ -64,7 +67,11 @@ export class NativeGmAuthController {
   async login(@Body() body: GmLoginBody, @Req() request: RequestLike) {
     this.rateLimitService.assertAllowed('gmLogin', request, 'gm');
     try {
-      const result = await this.authService.login(body?.password ?? '');
+      const result = await this.authService.login(body?.password ?? '', {
+        scopes: body?.scopes,
+        scope: body?.scope,
+        role: body?.role,
+      });
       this.rateLimitService.recordSuccess('gmLogin', request, 'gm');
       return result;
     } catch (error) {

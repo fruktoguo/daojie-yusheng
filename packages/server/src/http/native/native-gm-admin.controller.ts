@@ -26,6 +26,11 @@ import { runGmEnvCheck } from '../../runtime/gm/gm-env-check.service';
 /** 数据库恢复请求体。 */
 interface DatabaseRestoreBody {
   backupId?: string;
+  confirmationPhrase?: unknown;
+  confirmPhrase?: unknown;
+  expectedChecksum?: unknown;
+  expectedChecksumSha256?: unknown;
+  checksumSha256?: unknown;
 }
 
 /** 数据库清理请求体。 */
@@ -33,6 +38,8 @@ interface DatabaseCleanupBody {
   target?: string;
   mode?: 'older_than' | 'all';
   olderThanDays?: number;
+  confirmationPhrase?: unknown;
+  confirmPhrase?: unknown;
 }
 
 /** Express 响应接口（下载用）。 */
@@ -131,8 +138,8 @@ export class NativeGmAdminController {
 
   /** 触发一次数据库全量备份。 */
   @Post('database/backup')
-  triggerDatabaseBackup() {
-    return this.nextGmAdminService.triggerDatabaseBackup();
+  triggerDatabaseBackup(@Req() request: unknown) {
+    return this.nextGmAdminService.triggerDatabaseBackup(extractGmActor(request));
   }
 
   /** 上传本地数据库备份文件并登记到备份列表。 */
@@ -146,13 +153,15 @@ export class NativeGmAdminController {
       stream: request,
       fileName,
       contentLength,
+      actor: extractGmActor(request),
     });
   }
 
   /** 下载指定备份文件；已压缩备份直接下发，旧版未压缩 dump 才在响应流中补 gzip。 */
   @Get('database/backups/:backupId/download')
-  async downloadDatabaseBackup(@Param('backupId') backupId: string, @Res() response: DownloadResponseLike) {
-    const record = await this.nextGmAdminService.getBackupDownloadRecord(backupId);
+  async downloadDatabaseBackup(@Param('backupId') backupId: string, @Req() request: unknown, @Res() response: DownloadResponseLike) {
+    const actor = extractGmActor(request);
+    const record = await this.nextGmAdminService.getBackupDownloadRecord(backupId, actor);
     // 确认文件存在
     const fileStat = await stat(record.filePath).catch(() => { throw new NotFoundException('备份文件不存在'); });
     const backupFileName = record.fileName.toLowerCase();
@@ -175,8 +184,8 @@ export class NativeGmAdminController {
 
   /** 从指定备份恢复数据库。 */
   @Post('database/restore')
-  triggerDatabaseRestore(@Body() body: DatabaseRestoreBody) {
-    return this.nextGmAdminService.triggerDatabaseRestore(body?.backupId ?? '');
+  triggerDatabaseRestore(@Body() body: DatabaseRestoreBody, @Req() request: unknown) {
+    return this.nextGmAdminService.triggerDatabaseRestore(body?.backupId ?? '', extractGmActor(request), body);
   }
 
   /** 查询各表占用统计。 */
@@ -187,7 +196,13 @@ export class NativeGmAdminController {
 
   /** 清理指定表的过期数据。 */
   @Post('database/cleanup')
-  triggerDatabaseCleanup(@Body() body: DatabaseCleanupBody) {
-    return this.nextGmAdminService.cleanupDatabaseTable(body?.target ?? '', body?.mode, body?.olderThanDays);
+  triggerDatabaseCleanup(@Body() body: DatabaseCleanupBody, @Req() request: unknown) {
+    return this.nextGmAdminService.cleanupDatabaseTable(
+      body?.target ?? '',
+      body?.mode,
+      body?.olderThanDays,
+      extractGmActor(request),
+      body,
+    );
   }
 }

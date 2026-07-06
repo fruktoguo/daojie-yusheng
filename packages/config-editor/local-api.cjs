@@ -21,6 +21,7 @@ const {
   cloneMapDocument,
   compileValueStatsToActualStats,
   ITEM_TYPES,
+  compileEquipmentBaselinePercentsToActualStats,
   normalizeEditableMapDocument,
   resolveMonsterExpMultiplier,
   resolveMonsterTemplateRecord,
@@ -274,15 +275,28 @@ function listEditorItems() {
         desc: typeof entry.desc === 'string' ? entry.desc.trim() : '',
         equipSlot: typeof entry.equipSlot === 'string' ? entry.equipSlot : undefined,
         equipAttrs: normalizeItemAttrs(entry.equipAttrs),
-        equipStats: compileValueStatsToActualStats(normalizeEquipValueStats(entry.equipValueStats)) ?? normalizeEquipValueStats(entry.equipStats),
+        materialCategory: typeof entry.materialCategory === 'string' ? entry.materialCategory.trim() : undefined,
+        materialValues: entry.materialValues && typeof entry.materialValues === 'object' && !Array.isArray(entry.materialValues) ? JSON.parse(JSON.stringify(entry.materialValues)) : undefined,
+        equipStats: compileEquipmentBaselinePercentsToActualStats(normalizeEquipValueStats(entry.equipBaselinePercents), { grade: entry.grade, level: entry.level })
+          ?? compileValueStatsToActualStats(normalizeEquipValueStats(entry.equipValueStats))
+          ?? normalizeEquipValueStats(entry.equipStats),
         equipValueStats: normalizeEquipValueStats(entry.equipValueStats),
+        equipSpecialStats: entry.equipSpecialStats && typeof entry.equipSpecialStats === 'object' && !Array.isArray(entry.equipSpecialStats) ? JSON.parse(JSON.stringify(entry.equipSpecialStats)) : undefined,
         craftEffectStats: cloneCraftEffectStats(entry.craftEffectStats),
+        consumeBuffs: Array.isArray(entry.consumeBuffs) ? JSON.parse(JSON.stringify(entry.consumeBuffs)) : undefined,
         effects: Array.isArray(entry.effects) ? entry.effects : undefined,
         tags: Array.isArray(entry.tags) ? entry.tags.filter((tag) => typeof tag === 'string').map((tag) => tag.trim()).filter(Boolean) : undefined,
         contextActions: Array.isArray(entry.contextActions) ? entry.contextActions.filter((action) => action && typeof action === 'object') : undefined,
         mapUnlockId: typeof entry.mapUnlockId === 'string' ? entry.mapUnlockId.trim() : undefined,
+        mapUnlockIds: Array.isArray(entry.mapUnlockIds) ? entry.mapUnlockIds.filter((id) => typeof id === 'string' && id.trim()).map((id) => id.trim()) : undefined,
+        respawnBindMapId: typeof entry.respawnBindMapId === 'string' ? entry.respawnBindMapId.trim() : undefined,
         tileAuraGainAmount: Number.isFinite(entry.tileAuraGainAmount) ? Number(entry.tileAuraGainAmount) : undefined,
+        tileResourceGains: Array.isArray(entry.tileResourceGains) ? JSON.parse(JSON.stringify(entry.tileResourceGains)) : undefined,
+        useBehavior: typeof entry.useBehavior === 'string' ? entry.useBehavior.trim() : undefined,
+        spiritualRootSeedTier: typeof entry.spiritualRootSeedTier === 'string' ? entry.spiritualRootSeedTier : undefined,
         allowBatchUse: entry.allowBatchUse === true ? true : undefined,
+        learnTechniqueId: typeof entry.learnTechniqueId === 'string' ? entry.learnTechniqueId.trim() : undefined,
+        learnTechniqueMaxLevel: Number.isFinite(entry.learnTechniqueMaxLevel) ? Number(entry.learnTechniqueMaxLevel) : undefined,
       });
     }
   }
@@ -1043,12 +1057,42 @@ function readContentFile(relativePath) {
 /**
  * 写回单个内容配置文件。
  */
+function validateContentFileBeforeSave(relativePath, parsed) {
+  const normalizedPath = String(relativePath || '').replaceAll('\\', '/');
+  if (normalizedPath.startsWith('monsters/')) {
+    if (!Array.isArray(parsed)) throw new Error('怪物配置必须是数组');
+    for (const entry of parsed) resolveMonsterTemplateRecord(entry, buildEditorItemLookup());
+    return;
+  }
+  if (normalizedPath.startsWith('items/')) {
+    if (!Array.isArray(parsed)) throw new Error('物品配置必须是数组');
+    for (const entry of parsed) {
+      if (!entry || typeof entry !== 'object' || typeof entry.itemId !== 'string' || !entry.itemId.trim() || typeof entry.name !== 'string' || !entry.name.trim()) {
+        throw new Error('物品配置存在缺少 itemId/name 的条目');
+      }
+      if (entry.type !== undefined && !ITEM_TYPES.includes(entry.type)) throw new Error(`物品 ${entry.itemId} 的类型非法`);
+    }
+    return;
+  }
+  if (normalizedPath.startsWith('techniques/')) {
+    if (!Array.isArray(parsed)) throw new Error('功法配置必须是数组');
+    for (const entry of parsed) {
+      if (!entry || typeof entry !== 'object' || typeof entry.id !== 'string' || !entry.id.trim() || typeof entry.name !== 'string' || !entry.name.trim()) {
+        throw new Error('功法配置存在缺少 id/name 的条目');
+      }
+      if (entry.grade !== undefined && !TECHNIQUE_GRADES.includes(entry.grade)) throw new Error(`功法 ${entry.id} 的品阶非法`);
+      if (entry.category !== undefined && !TECHNIQUE_CATEGORIES.includes(entry.category)) throw new Error(`功法 ${entry.id} 的分类非法`);
+    }
+  }
+}
+
 function saveContentFile(relativePath, content) {
   const filePath = ensureWithin(CONTENT_DIR, relativePath);
   if (!filePath.endsWith('.json')) {
     throw new Error('只允许保存 JSON 配置文件');
   }
   const parsed = JSON.parse(content);
+  validateContentFileBeforeSave(relativePath, parsed);
   fs.writeFileSync(filePath, `${JSON.stringify(parsed, null, 2)}\n`, 'utf-8');
 }
 

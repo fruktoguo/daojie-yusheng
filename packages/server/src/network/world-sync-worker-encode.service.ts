@@ -78,12 +78,11 @@ export class WorldSyncWorkerEncodeService {
     );
 
     for (const pending of encodedEmits) {
-      protocol.sendEncodedEnvelope(pending.socket, pending.envelope, pending.encoded ?? {
-        mapEnter: null,
-        worldDelta: null,
-        selfDelta: null,
-        panelDelta: null,
-      });
+      if (pending.encoded) {
+        protocol.sendEncodedEnvelope(pending.socket, pending.envelope, pending.encoded);
+      } else {
+        protocol.sendEnvelope(pending.socket, pending.envelope);
+      }
       pending.postEmitFn();
     }
   }

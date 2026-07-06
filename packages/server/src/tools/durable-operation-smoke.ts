@@ -3282,6 +3282,7 @@ async function main(): Promise<void> {
       leasedMarketBuyInstanceId,
       leasedMarketCancelInstanceId,
       leasedActiveJobCancelInstanceId,
+      leasedActiveJobCompleteInstanceId,
       `instance:${shopPlayerId}:lease`,
       runtimeLeaseInstanceId,
     ]).catch(() => undefined);
@@ -3299,6 +3300,7 @@ async function main(): Promise<void> {
     await cleanupPlayer(pool, activeJobStartPlayerId).catch(() => undefined);
     await cleanupPlayer(pool, activeJobCancelPlayerId).catch(() => undefined);
     await cleanupPlayer(pool, activeJobPlayerId).catch(() => undefined);
+    await cleanupPlayer(pool, activeJobCompletePlayerId).catch(() => undefined);
     await pool.end().catch(() => undefined);
     await mailPersistence.onModuleDestroy().catch(() => undefined);
     await leaseAwareService.onModuleDestroy().catch(() => undefined);

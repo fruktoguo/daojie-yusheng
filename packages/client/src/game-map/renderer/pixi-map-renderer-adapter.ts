@@ -792,6 +792,8 @@ export class PixiMapRendererAdapter {
   private readonly hiddenTileFadeStartedAt = new Map<string, { startedAt: number; durationMs: number }>();
   private previousVisibleTileKeys = new Set<string>();
   private terrainFogSignature = '';
+  private terrainFogActiveSignature = '';
+  private terrainFogLastRebuildAt = 0;
   private canvas: HTMLCanvasElement | null = null;
   private ready = false;
   private width = 1;
@@ -1025,6 +1027,8 @@ export class PixiMapRendererAdapter {
     this.hiddenTileFadeStartedAt.clear();
     this.previousVisibleTileKeys.clear();
     this.terrainFogSignature = '';
+    this.terrainFogActiveSignature = '';
+    this.terrainFogLastRebuildAt = 0;
     this.lastVisibleTileRevision = -1;
     this.timeAtmosphere.initialized = false;
     this.resetProfileState();
@@ -1682,9 +1686,19 @@ export class PixiMapRendererAdapter {
       scene.terrain.tileCache.size,
     ].join('|');
     const hasActiveFogTransitions = this.visibleTileFadeStartedAt.size > 0 || this.hiddenTileFadeStartedAt.size > 0;
+    const activeSignature = hasActiveFogTransitions
+      ? `${signature}|${this.visibleTileFadeStartedAt.size}|${this.hiddenTileFadeStartedAt.size}`
+      : '';
+    if (hasActiveFogTransitions
+      && activeSignature === this.terrainFogActiveSignature
+      && now - this.terrainFogLastRebuildAt < 32) {
+      return;
+    }
     if (!hasActiveFogTransitions && signature === this.terrainFogSignature) {
       return;
     }
+    this.terrainFogActiveSignature = activeSignature;
+    this.terrainFogLastRebuildAt = now;
     this.terrainFogSignature = hasActiveFogTransitions ? '' : signature;
     this.terrainFogLayer.clear();
     for (let cy = startCY; cy <= endCY; cy += 1) {
@@ -1717,6 +1731,7 @@ export class PixiMapRendererAdapter {
     }
     if (this.visibleTileFadeStartedAt.size === 0 && this.hiddenTileFadeStartedAt.size === 0) {
       this.terrainFogSignature = signature;
+      this.terrainFogActiveSignature = '';
     }
   }
 

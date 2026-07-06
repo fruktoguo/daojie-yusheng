@@ -15,20 +15,22 @@ import type {
 /** 提供当前地图快照的读取函数。 */
 type SnapshotProvider = () => MapStoreSnapshot;
 
+type PointerPosition = Pick<PointerEvent, 'clientX' | 'clientY'>;
+
 /** 处理地图点击与悬停命中，转换为交互目标坐标。 */
 export class InteractionController {
   /** 已绑定事件监听的画布引用。 */
   private canvas: HTMLCanvasElement | null = null;
   /** 交互回调集合。 */
-  private callbacks: MapRuntimeInteractionCallbacks = {};  
-  /**
- * 构造器：初始化 当前 实例并建立基础状态。
- * @param getSnapshot SnapshotProvider 参数说明。
- * @param getCamera () => CameraController 参数说明。
- * @param projection TopdownProjection 参数说明。
- * @returns 无返回值，完成实例初始化。
- */
-
+  private callbacks: MapRuntimeInteractionCallbacks = {};
+  /** 等待下一帧合并处理的悬停坐标。 */
+  private pendingHoverPosition: PointerPosition | null = null;
+  /** 当前悬停 rAF 句柄。 */
+  private hoverRafHandle: number | null = null;
+  /** 最近一次发给 UI 的悬停目标签名，用于同格去重。 */
+  private lastHoverSignature: string | null = null;
+  /** 绑定前的 touch-action 样式，解绑时恢复。 */
+  private previousTouchAction = '';
 
   constructor(
     private readonly getSnapshot: SnapshotProvider,
@@ -36,31 +38,34 @@ export class InteractionController {
     private readonly projection: TopdownProjection,
   ) {}
 
-  /** 绑定鼠标事件到画布。 */
+  /** 绑定 pointer 事件到画布，统一鼠标、触控与触控笔输入。 */
   attach(canvas: HTMLCanvasElement): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
     if (this.canvas === canvas) {
       return;
     }
     this.detach();
     this.canvas = canvas;
-    canvas.addEventListener('click', this.handleClick);
-    canvas.addEventListener('mousemove', this.handleMove);
-    canvas.addEventListener('mouseleave', this.handleLeave);
+    this.previousTouchAction = canvas.style.touchAction;
+    canvas.style.touchAction = 'none';
+    canvas.addEventListener('pointerdown', this.handlePointerDown);
+    canvas.addEventListener('pointermove', this.handlePointerMove);
+    canvas.addEventListener('pointerleave', this.handlePointerLeave);
+    canvas.addEventListener('pointercancel', this.handlePointerLeave);
   }
 
-  /** 解绑鼠标事件，避免内存泄漏。 */
+  /** 解绑 pointer 事件，避免内存泄漏和后台 rAF 残留。 */
   detach(): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
     if (!this.canvas) {
       return;
     }
-    this.canvas.removeEventListener('click', this.handleClick);
-    this.canvas.removeEventListener('mousemove', this.handleMove);
-    this.canvas.removeEventListener('mouseleave', this.handleLeave);
+    this.canvas.removeEventListener('pointerdown', this.handlePointerDown);
+    this.canvas.removeEventListener('pointermove', this.handlePointerMove);
+    this.canvas.removeEventListener('pointerleave', this.handlePointerLeave);
+    this.canvas.removeEventListener('pointercancel', this.handlePointerLeave);
+    this.canvas.style.touchAction = this.previousTouchAction;
     this.canvas = null;
+    this.clearPendingHover();
+    this.lastHoverSignature = null;
   }
 
   /** 替换交互回调。 */
@@ -71,39 +76,60 @@ export class InteractionController {
   /** 销毁时清理监听。 */
   destroy(): void {
     this.detach();
-  }  
-  /**
- * handleClick：handleClick相关字段。
- */
+  }
 
-
-  private readonly handleClick = (event: MouseEvent): void => {
+  private readonly handlePointerDown = (event: PointerEvent): void => {
+    if (event.pointerType === 'mouse' && event.button !== 0) {
+      return;
+    }
     const target = this.resolveTarget(event);
     if (target) {
       this.callbacks.onTarget?.(target);
     }
-  };  
-  /**
- * handleMove：handleMove相关字段。
- */
-
-
-  private readonly handleMove = (event: MouseEvent): void => {
-    this.callbacks.onHover?.(this.resolveTarget(event));
-  };  
-  /**
- * handleLeave：handleLeave相关字段。
- */
-
-
-  private readonly handleLeave = (): void => {
-    this.callbacks.onHover?.(null);
   };
 
-  /** 根据鼠标事件反查地图坐标与命中实体/地块。 */
-  private resolveTarget(event: MouseEvent): MapInteractionTarget | null {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+  private readonly handlePointerMove = (event: PointerEvent): void => {
+    this.pendingHoverPosition = { clientX: event.clientX, clientY: event.clientY };
+    if (this.hoverRafHandle !== null) {
+      return;
+    }
+    this.hoverRafHandle = window.requestAnimationFrame(this.flushPendingHover);
+  };
 
+  private readonly handlePointerLeave = (): void => {
+    this.clearPendingHover();
+    this.emitHoverIfChanged(null);
+  };
+
+  private readonly flushPendingHover = (): void => {
+    this.hoverRafHandle = null;
+    const position = this.pendingHoverPosition;
+    this.pendingHoverPosition = null;
+    this.emitHoverIfChanged(position ? this.resolveTarget(position) : null);
+  };
+
+  private clearPendingHover(): void {
+    this.pendingHoverPosition = null;
+    if (this.hoverRafHandle === null) {
+      return;
+    }
+    window.cancelAnimationFrame(this.hoverRafHandle);
+    this.hoverRafHandle = null;
+  }
+
+  private emitHoverIfChanged(target: MapInteractionTarget | null): void {
+    const signature = target
+      ? `${target.x},${target.y}|${target.entityId ?? ''}|${target.entityKind ?? ''}|${target.walkable ? 1 : 0}|${target.visible ? 1 : 0}|${target.known ? 1 : 0}`
+      : 'none';
+    if (signature === this.lastHoverSignature) {
+      return;
+    }
+    this.lastHoverSignature = signature;
+    this.callbacks.onHover?.(target);
+  }
+
+  /** 根据 pointer 坐标反查地图坐标与命中实体/地块。 */
+  private resolveTarget(event: PointerPosition): MapInteractionTarget | null {
     if (!this.canvas) {
       return null;
     }
@@ -150,6 +176,3 @@ export class InteractionController {
     };
   }
 }
-
-
-

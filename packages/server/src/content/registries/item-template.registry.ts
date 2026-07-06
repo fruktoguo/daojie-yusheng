@@ -5,6 +5,7 @@
  */
 import { Injectable } from '@nestjs/common';
 import * as fs from 'fs';
+import { resolveItemTemplateAliasId } from '@mud/shared';
 import { resolveProjectPath } from '../../common/project-path';
 import {
   collectJsonFiles,
@@ -21,11 +22,6 @@ type ItemTemplateRecord = Record<string, unknown> & {
   type?: string;
 };
 
-const ITEM_TEMPLATE_ALIASES = new Map<string, string>([
-  ['equip.copper_array_plate', 'formation_disk.mortal'],
-  ['fate_stone.qizhen_crossing', 'fate_stone'],
-  ['fate_stone.yunlai_town', 'fate_stone'],
-]);
 
 @Injectable()
 export class ItemTemplateRegistry {
@@ -33,18 +29,26 @@ export class ItemTemplateRegistry {
 
   loadAll(): void {
     this.itemTemplates.clear();
+    const errors: string[] = [];
     const itemFiles = collectJsonFiles(resolveProjectPath('packages', 'server', 'data', 'content', 'items'));
     for (const file of itemFiles) {
       const parsed = JSON.parse(fs.readFileSync(file, 'utf-8'));
       if (!Array.isArray(parsed)) {
+        errors.push(`${file}: 物品配置文件必须是数组`);
         continue;
       }
-      for (const entry of parsed) {
+      parsed.forEach((entry, index) => {
         const normalized = normalizeItemTemplate(entry);
-        if (normalized) {
-          this.itemTemplates.set(normalized.itemId, normalized as ItemTemplateRecord);
+        if (!normalized) {
+          errors.push(`${file}[${index}]: 物品模板缺少有效 itemId 或字段非法`);
+          return;
         }
-      }
+        this.itemTemplates.set(normalized.itemId, normalized as ItemTemplateRecord);
+      });
+    }
+    if (errors.length > 0) {
+      this.itemTemplates.clear();
+      throw new Error(`物品模板加载失败:\n${errors.join('\n')}`);
     }
     freezeTemplateMap(this.itemTemplates);
   }
@@ -164,6 +168,5 @@ export class ItemTemplateRegistry {
 }
 
 function resolveItemTemplateId(itemId: unknown): string {
-  const normalized = String(itemId ?? '').trim();
-  return ITEM_TEMPLATE_ALIASES.get(normalized) ?? normalized;
+  return resolveItemTemplateAliasId(itemId);
 }

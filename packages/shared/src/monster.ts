@@ -361,7 +361,22 @@ export interface MonsterTemplateEditorItem {
  * level：等级数值。
  */
 
-  level?: number;  
+  level?: number;
+  /**
+   * materialCategory：材料主分类。
+   */
+
+  materialCategory?: ItemStack['materialCategory'];
+  /**
+   * materialValues：材料属性值。
+   */
+
+  materialValues?: ItemStack['materialValues'];
+  /**
+   * equipBaselinePercents：装备基准值占比源配置。
+   */
+
+  equipBaselinePercents?: PartialNumericStats;
   /**
  * equipSlot：equipSlot相关字段。
  */
@@ -383,10 +398,20 @@ export interface MonsterTemplateEditorItem {
 
   equipValueStats?: PartialNumericStats;  
   /**
+   * equipSpecialStats：装备特殊属性。
+   */
+
+  equipSpecialStats?: ItemStack['equipSpecialStats'];
+  /**
  * craftEffectStats：技艺效果属性。
  */
 
   craftEffectStats?: CraftEffectStatsPatch;
+  /**
+   * consumeBuffs：消耗后附加的 Buff。
+   */
+
+  consumeBuffs?: ItemStack['consumeBuffs'];
   /**
  * effects：effect相关字段。
  */
@@ -432,7 +457,17 @@ export interface MonsterTemplateEditorItem {
  */
 
   allowBatchUse?: boolean;
+  /**
+   * spiritualRootSeedTier：灵根幼苗品阶。
+   */
+
+  spiritualRootSeedTier?: ItemStack['spiritualRootSeedTier'];
+  /** 通用功法书指定的功法 ID。 */
+  learnTechniqueId?: ItemStack['learnTechniqueId'];
+  /** 通用功法书指定可领悟到的最高层数。 */
+  learnTechniqueMaxLevel?: ItemStack['learnTechniqueMaxLevel'];
 }
+
 
 /** 怪物模板来源口径，用来区分 value_stats 和属性驱动。 */
 export type MonsterTemplateSourceMode = 'value_stats' | 'attributes' | 'tendency';
@@ -623,7 +658,7 @@ const MONSTER_TIER_HP_MULTIPLIERS: Record<MonsterTier, number> = {
   demon_king: 10,
 };
 /** 按倾向公式计算的基础数值键。 */
-const MONSTER_TENDENCY_NUMERIC_KEYS = [
+export const MONSTER_TENDENCY_NUMERIC_KEYS = [
   'maxHp',
   'maxQi',
   'physAtk',

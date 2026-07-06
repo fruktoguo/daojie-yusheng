@@ -130,22 +130,34 @@ export class WorldRuntimeRespawnService {
             targetInstance = deps.getOrCreatePublicInstance(deps.resolveDefaultRespawnMapId());
         }
         if (!targetInstance) {
+            deps.worldRuntimeGmQueueService?.markPendingRespawn?.(playerId);
             return;
         }
-        if (previous) {
-            previousInstance?.disconnectPlayer(playerId);
+        const attachReady = resolveRespawnTargetAttachReady(targetInstance, deps);
+        if (!attachReady.ok) {
+            deps.worldRuntimeGmQueueService?.markPendingRespawn?.(playerId);
+            return;
         }
         const respawnPlacement = resolveRespawnPlacement(
             targetInstance.template,
             targetMapId === boundRespawnMapId ? player.respawnX : undefined,
             targetMapId === boundRespawnMapId ? player.respawnY : undefined,
         );
-        const runtimePlayer = targetInstance.connectPlayer({
-            playerId,
-            sessionId: player.sessionId ?? previous?.sessionId ?? `session:${playerId}`,
-            preferredX: respawnPlacement.x,
-            preferredY: respawnPlacement.y,
-        });
+        let runtimePlayer;
+        try {
+            runtimePlayer = targetInstance.connectPlayer({
+                playerId,
+                sessionId: player.sessionId ?? previous?.sessionId ?? `session:${playerId}`,
+                preferredX: respawnPlacement.x,
+                preferredY: respawnPlacement.y,
+            });
+        } catch (error) {
+            deps.worldRuntimeGmQueueService?.markPendingRespawn?.(playerId);
+            return;
+        }
+        if (previous && previousInstance && previousInstance !== targetInstance) {
+            previousInstance.disconnectPlayer(playerId);
+        }
         targetInstance.setPlayerMoveSpeed(playerId, player.attrs.numericStats.moveSpeed);
         deps.setPlayerLocation(playerId, {
             instanceId: targetInstance.meta.instanceId,
@@ -185,6 +197,23 @@ function resolveRespawnTargetInstance(deps, targetMapId, boundRespawnInstanceId)
     return deps.getOrCreatePublicInstance(targetMapId);
 }
 
+function resolveRespawnTargetAttachReady(instance, deps) {
+    const instanceId = typeof instance?.meta?.instanceId === 'string' ? instance.meta.instanceId.trim() : '';
+    if (instanceId && typeof deps?.worldRuntimeService?.instanceReadyForPlayerAttach === 'function') {
+        return deps.worldRuntimeService.instanceReadyForPlayerAttach(instanceId);
+    }
+    const runtimeStatus = typeof instance?.meta?.runtimeStatus === 'string' ? instance.meta.runtimeStatus.trim() : '';
+    if (runtimeStatus === 'fenced') return { ok: false, reason: 'lease_fenced' };
+    if (runtimeStatus === 'lease_degraded') return { ok: false, reason: 'lease_degraded' };
+    if (runtimeStatus === 'template_missing') return { ok: false, reason: 'template_missing' };
+    if (runtimeStatus === 'stopped') return { ok: false, reason: 'instance_stopped' };
+    const status = typeof instance?.meta?.status === 'string' ? instance.meta.status.trim() : '';
+    if (status === 'destroyed') return { ok: false, reason: 'instance_destroyed' };
+    if (typeof deps?.isInstanceLeaseWritable === 'function' && !deps.isInstanceLeaseWritable(instance)) {
+        return { ok: false, reason: 'lease_not_local' };
+    }
+    return { ok: true, reason: 'ready' };
+}
 function resolveRespawnPlacement(template, inputX, inputY) {
     const spawnX = Number.isFinite(template?.spawnX) ? Math.trunc(template.spawnX) : 0;
     const spawnY = Number.isFinite(template?.spawnY) ? Math.trunc(template.spawnY) : 0;

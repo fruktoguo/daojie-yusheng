@@ -8,7 +8,7 @@ import * as bcrypt from 'bcryptjs';
 import { createHmac, randomBytes, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 import { Pool } from 'pg';
-import { GM_AUTH_CONTRACT } from '../../http/native/native-gm-contract';
+import { GM_AUTH_CONTRACT, GM_HIGH_RISK_CONFIRMATION_CONTRACT } from '../../http/native/native-gm-contract';
 import {
     resolveServerAllowInsecureLocalGmPassword,
     resolveServerDatabaseUrl,
@@ -37,13 +37,27 @@ interface GmPasswordRecord {
     updatedAt: string;
 }
 
+interface GmLoginOptions {
+    scopes?: unknown;
+    scope?: unknown;
+    role?: unknown;
+}
+
+interface GmTokenPayload {
+    role?: unknown;
+    gmRole?: unknown;
+    exp?: unknown;
+    rev?: unknown;
+    scopes?: unknown;
+}
+
 /**
  * GM token 校验完整结果。
  * - ok=true 时携带 payload.rev / exp 供 Guard 落 audit actor.tokenRev；
  * - ok=false 时携带 reason 供 Guard / 监控 / 限流分级使用。
  */
 export type GmAuthValidationResult =
-    | { ok: true; rev: string | null; exp: number }
+    | { ok: true; rev: string | null; exp: number; scopes: readonly string[] }
     | { ok: false; reason: 'empty_token' | 'malformed_token' | 'role_mismatch' | 'expired' | 'rev_mismatch' | 'signature_mismatch' };
 
 /** GM 密码记录 key。 */
@@ -134,7 +148,7 @@ export class RuntimeGmAuthService {
         }
     }
     /** 校验 GM 密码并签发访问 token。 */
-    async login(password) {
+    async login(password, options: GmLoginOptions = {}) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const normalizedPassword = typeof password === 'string' ? password : '';
@@ -149,7 +163,7 @@ export class RuntimeGmAuthService {
         const effectiveRecord = await this.maybeMigrateLegacyRecord(normalizedPassword, record);
         this.memoryRecord = effectiveRecord;
         return {
-            accessToken: this.issueToken(effectiveRecord),
+            accessToken: this.issueToken(effectiveRecord, options),
             expiresInSec: this.getTokenTtlSec(),
         };
     }
@@ -208,7 +222,7 @@ export class RuntimeGmAuthService {
             return { ok: false, reason: 'malformed_token' };
         }
 
-        let payload: { role?: unknown; exp?: unknown; rev?: unknown } | null = null;
+        let payload: GmTokenPayload | null = null;
         try {
             payload = JSON.parse(payloadJson);
         }
@@ -233,6 +247,7 @@ export class RuntimeGmAuthService {
             ok: true,
             rev: typeof payload.rev === 'string' ? payload.rev : null,
             exp: payload.exp as number,
+            scopes: normalizeGmTokenScopes(payload.scopes),
         };
     }
     /** 从持久化层重新载入密码记录。 */
@@ -246,12 +261,14 @@ export class RuntimeGmAuthService {
         this.memoryRecord = await this.loadPasswordRecordFromDb();
     }
     /** 生成当前记录对应的访问 token。 */
-    issueToken(record) {
+    issueToken(record, options: GmLoginOptions = {}) {
 
         const payloadBase64 = encodeBase64Url(JSON.stringify({
             role: 'gm',
+            gmRole: resolveGmTokenRole(options.role),
             exp: Date.now() + this.getTokenTtlSec() * 1000,
             rev: record.updatedAt,
+            scopes: resolveGmTokenScopes(options.scopes ?? options.scope),
         }));
 
         const signature = signTokenPayload(payloadBase64, this.getSigningSecret(record));
@@ -564,6 +581,75 @@ function decodeBase64Url(input) {
  * @param right 参数说明。
  * @returns 无返回值，直接更新safeEqual相关状态。
  */
+
+function normalizeGmTokenScopes(value: unknown): string[] {
+    if (!Array.isArray(value)) return [];
+    const scopes: string[] = [];
+    const seen = new Set<string>();
+    for (const item of value) {
+        if (typeof item !== 'string') continue;
+        const scope = item.trim();
+        if (!scope || seen.has(scope)) continue;
+        seen.add(scope);
+        scopes.push(scope);
+    }
+    return scopes;
+}
+
+function resolveGmTokenRole(value: unknown): string {
+    const requestedRole = normalizeGmTokenText(value);
+    if (requestedRole) {
+        const allowedRoles = normalizeGmTokenTextList(process.env.SERVER_GM_ALLOWED_ROLES ?? process.env.GM_ALLOWED_ROLES ?? '');
+        if (allowedRoles.length > 0 && !allowedRoles.includes(requestedRole)) {
+            throw new BadRequestException(`GM role 未被允许：${requestedRole}`);
+        }
+        return requestedRole;
+    }
+    return normalizeGmTokenText(process.env.SERVER_GM_ROLE ?? process.env.GM_ROLE ?? '') || 'gm';
+}
+
+function resolveGmTokenScopes(value: unknown): string[] {
+    const defaultScopes = normalizeGmTokenTextList(process.env.SERVER_GM_TOKEN_SCOPES ?? process.env.GM_TOKEN_SCOPES ?? '');
+    const requestedScopes = normalizeGmTokenTextList(value);
+    const highRiskScopes = new Set(Object.values(GM_HIGH_RISK_CONFIRMATION_CONTRACT.scopes));
+    const configuredAllowedScopes = normalizeGmTokenTextList(process.env.SERVER_GM_ALLOWED_SCOPES ?? process.env.GM_ALLOWED_SCOPES ?? '');
+    const allowedScopes = configuredAllowedScopes.length > 0 ? new Set(configuredAllowedScopes) : highRiskScopes;
+    const desiredScopes = requestedScopes.length > 0 ? requestedScopes : defaultScopes;
+    for (const scope of desiredScopes) {
+        if (!highRiskScopes.has(scope)) {
+            throw new BadRequestException(`GM scope 不属于已知高危权限：${scope}`);
+        }
+        if (!allowedScopes.has(scope)) {
+            throw new BadRequestException(`GM scope 未被显式授权：${scope}`);
+        }
+    }
+    return desiredScopes;
+}
+
+function normalizeGmTokenTextList(value: unknown): string[] {
+    const rawItems = Array.isArray(value)
+        ? value
+        : typeof value === 'string'
+            ? value.split(/[\s,]+/u)
+            : [];
+    const scopes: string[] = [];
+    const seen = new Set<string>();
+    for (const item of rawItems) {
+        const normalized = normalizeGmTokenText(item);
+        if (!normalized || seen.has(normalized)) continue;
+        seen.add(normalized);
+        scopes.push(normalized);
+    }
+    return scopes;
+}
+
+function normalizeGmTokenText(value: unknown): string {
+    const text = typeof value === 'string' ? value.trim() : '';
+    if (!text || !/^[a-z][a-z0-9:_-]{0,95}$/iu.test(text)) {
+        return '';
+    }
+    return text;
+}
 
 function safeEqual(left, right) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。

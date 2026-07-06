@@ -20,6 +20,7 @@ import {
   MONSTER_TIER_LABELS,
   TECHNIQUE_GRADE_ORDER,
   TECHNIQUE_GRADE_LABELS,
+  MONSTER_TENDENCY_NUMERIC_KEYS,
   NUMERIC_SCALAR_STAT_KEYS,
   NUMERIC_SCALAR_STAT_LABELS,
   ITEM_TYPE_LABELS,
@@ -34,27 +35,8 @@ const AGGRO_MODES: Array<{ value: MonsterAggroMode; label: string }> = [
   { value: 'night_only', label: '夜间主动 (night_only)' },
 ];
 
-/** 倾向 tab 中可编辑的基础数值键，跟 monster.ts 的 MONSTER_TENDENCY_NUMERIC_KEYS 对齐。 */
-const STAT_TENDENCY_KEYS = [
-  'maxHp',
-  'maxQi',
-  'physAtk',
-  'spellAtk',
-  'physDef',
-  'spellDef',
-  'hit',
-  'dodge',
-  'crit',
-  'antiCrit',
-  'critDamage',
-  'breakPower',
-  'resolvePower',
-  'maxQiOutputPerTick',
-  'qiRegenRate',
-  'hpRegenRate',
-  'viewRange',
-  'moveSpeed',
-] as const;
+/** 倾向 tab 中可编辑的基础数值键，从 shared 导出避免编辑器与运行时漂移。 */
+const STAT_TENDENCY_KEYS = MONSTER_TENDENCY_NUMERIC_KEYS;
 
 type StatTendencyKey = typeof STAT_TENDENCY_KEYS[number];
 

@@ -414,6 +414,10 @@ function validateScriptureRecordingStart(
   if (existingTechniqueId && Number(building.scriptureRecordedAtTick) > 0) {
     return { ok: false, error: '藏经台已有藏书，不能修改。' };
   }
+  const activeRecordingJobRunId = normalizeText(building.scriptureRecordingJobRunId);
+  if (activeRecordingJobRunId) {
+    return { ok: false, error: '藏经台已有录入任务进行中。' };
+  }
   const technique = findPlayerTechnique(recorder, techniqueId);
   if (!technique) {
     return { ok: false, error: '尚未掌握该功法。' };
@@ -503,7 +507,7 @@ function createScriptureRecordingJob(recorder: any, validated: TransmissionValid
   const required = Math.max(1, Number(validated.requiredProgress) || 1);
   const currentTick = resolvePlayerRuntimeTick(recorder);
   const progress = Math.max(0, Math.min(required, Number(building?.scriptureProgress) || 0));
-  const jobRunId = `scripture_recording:${validated.buildingId}:${validated.techniqueId}:${currentTick}`;
+  const jobRunId = `scripture_recording:${validated.buildingId}:${validated.techniqueId}:${recorder.playerId}:${currentTick}`;
   if (building) {
     building.scriptureTechniqueId = validated.techniqueId;
     building.scriptureTechniqueName = validated.techniqueName;
@@ -722,6 +726,10 @@ function executeScriptureRecordingTick(recorder: any, job: PlayerTransmissionJob
   }
   const currentTechniqueId = normalizeText(building.scriptureTechniqueId);
   if (currentTechniqueId && currentTechniqueId !== job.techniqueId) {
+    return blockScriptureRecording(recorder, job, 'scripture_recording_locked', ctx);
+  }
+  const activeRecordingJobRunId = normalizeText(building.scriptureRecordingJobRunId);
+  if (activeRecordingJobRunId && activeRecordingJobRunId !== normalizeText(job.jobRunId)) {
     return blockScriptureRecording(recorder, job, 'scripture_recording_locked', ctx);
   }
   if (Number(building.scriptureRecordedAtTick) > 0) {

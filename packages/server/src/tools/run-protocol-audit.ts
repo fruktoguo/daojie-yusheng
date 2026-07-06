@@ -11,13 +11,40 @@ const lib = require("./protocol-audit-lib.js");
 const nextGmContract = require("../http/native/native-gm-contract");
 const serverEntry = path.join(lib.distRoot, "main.js");
 const GM_AUTH_TABLE = "server_gm_auth";
+const PROTOCOL_AUDIT_TOKEN_SEED_SCOPES = ["server_player_identities_v1", "server_player_snapshots_v1"];
+
+function isWithDbAuditMode() {
+  return process.argv.includes("--with-db") || process.env.SERVER_PROTOCOL_AUDIT_DB_MODE === "with-db";
+}
+
+function resolveAuditDatabaseUrl() {
+  return process.env.SERVER_DATABASE_URL || process.env.DATABASE_URL || "";
+}
+
+function buildAuditChildEnv(overrides) {
+  const env = {
+    ...process.env,
+    ...(overrides || {}),
+  };
+  if (!isWithDbAuditMode()) {
+    env.DATABASE_URL = "";
+    env.SERVER_DATABASE_URL = "";
+    env.DATABASE_POOLER_URL = "";
+    env.SERVER_DATABASE_POOLER_URL = "";
+  }
+  return env;
+}
+
+function isMissingTableError(error) {
+  return error && typeof error === "object" && error.code === "42P01";
+}
 
 function resolveAuditGmPassword() {
   return process.env.SERVER_GM_PASSWORD || process.env.GM_PASSWORD || "admin123";
 }
 
 async function snapshotLocalGmPasswordRecordIfNeeded() {
-  const databaseUrl = process.env.SERVER_DATABASE_URL || process.env.DATABASE_URL || "";
+  const databaseUrl = resolveAuditDatabaseUrl();
   if (!databaseUrl.trim()) {
     return null;
   }
@@ -48,7 +75,7 @@ async function snapshotLocalGmPasswordRecordIfNeeded() {
 }
 
 async function resetLocalGmPasswordRecordIfNeeded() {
-  const databaseUrl = process.env.SERVER_DATABASE_URL || process.env.DATABASE_URL || "";
+  const databaseUrl = resolveAuditDatabaseUrl();
   if (!databaseUrl.trim()) {
     return;
   }
@@ -84,7 +111,7 @@ async function restoreLocalGmPasswordRecordIfNeeded(snapshot) {
       await pool.query(`DELETE FROM ${GM_AUTH_TABLE} WHERE record_key = $1`, [
         nextGmContract.GM_AUTH_CONTRACT.passwordRecordKey,
       ]).catch((error) => {
-        if (!error || typeof error !== "object" || error.code !== "42P01") {
+        if (!isMissingTableError(error)) {
           throw error;
         }
       });
@@ -115,6 +142,57 @@ async function restoreLocalGmPasswordRecordIfNeeded(snapshot) {
   }
 }
 
+async function snapshotProtocolAuditDocumentsIfNeeded() {
+  if (!isWithDbAuditMode()) {
+    return null;
+  }
+  const databaseUrl = resolveAuditDatabaseUrl();
+  if (!databaseUrl.trim()) {
+    return null;
+  }
+  const pool = new pg.Pool({ connectionString: databaseUrl });
+  try {
+    const result = await pool.query(
+      'SELECT scope, key, payload, "updatedAt" FROM persistent_documents WHERE scope = ANY($1::text[])',
+      [PROTOCOL_AUDIT_TOKEN_SEED_SCOPES],
+    ).catch((error) => {
+      if (isMissingTableError(error)) {
+        return { rows: [] };
+      }
+      throw error;
+    });
+    return { databaseUrl, rows: result.rows };
+  } finally {
+    await pool.end().catch(() => undefined);
+  }
+}
+
+async function restoreProtocolAuditDocumentsIfNeeded(snapshot) {
+  if (!snapshot?.databaseUrl) {
+    return;
+  }
+  const pool = new pg.Pool({ connectionString: snapshot.databaseUrl });
+  try {
+    await pool.query('DELETE FROM persistent_documents WHERE scope = ANY($1::text[])', [
+      PROTOCOL_AUDIT_TOKEN_SEED_SCOPES,
+    ]).catch((error) => {
+      if (!isMissingTableError(error)) {
+        throw error;
+      }
+    });
+    for (const row of snapshot.rows ?? []) {
+      await pool.query(`
+        INSERT INTO persistent_documents(scope, key, payload, "updatedAt")
+        VALUES ($1, $2, $3::jsonb, $4)
+        ON CONFLICT (scope, key)
+        DO UPDATE SET payload = EXCLUDED.payload, "updatedAt" = EXCLUDED."updatedAt"
+      `, [row.scope, row.key, JSON.stringify(row.payload ?? {}), row.updatedAt]);
+    }
+  } finally {
+    await pool.end().catch(() => undefined);
+  }
+}
+
 async function ensureGmAuthTable(pool) {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS ${GM_AUTH_TABLE} (
@@ -137,12 +215,7 @@ function startAuditServer(requestedPort, gmPassword) {
  */
     const child = childProcess.spawn("node", [serverEntry], {
       cwd: lib.repoRoot,
-      env: {
-        ...process.env,
-        DATABASE_URL: "",
-        SERVER_DATABASE_URL: "",
-        DATABASE_POOLER_URL: "",
-        SERVER_DATABASE_POOLER_URL: "",
+      env: buildAuditChildEnv({
         SERVER_SKIP_LOCAL_ENV_AUTOLOAD: "1",
         SERVER_RUNTIME_ENV: process.env.SERVER_RUNTIME_ENV || process.env.APP_ENV || process.env.NODE_ENV || "test",
         SERVER_PORT: String(requestedPort),
@@ -152,7 +225,7 @@ function startAuditServer(requestedPort, gmPassword) {
         SERVER_ALLOW_INSECURE_LOCAL_GM_PASSWORD: process.env.SERVER_ALLOW_INSECURE_LOCAL_GM_PASSWORD || "1",
         SERVER_REGISTRATION_ACTIVATION_CODES: process.env.SERVER_REGISTRATION_ACTIVATION_CODES || "PROTOCOL-AUDIT",
         SERVER_GM_PASSWORD: gmPassword,
-      },
+      }),
       stdio: ["ignore", "pipe", "pipe"],
     });
 /**
@@ -224,8 +297,7 @@ async function runAudit(baseUrl, gmPassword) {
   const auditScript = path.join(lib.distRoot, "tools", "protocol-audit.js");
   const child = childProcess.spawn("node", [auditScript], {
     cwd: lib.repoRoot,
-    env: {
-      ...process.env,
+    env: buildAuditChildEnv({
       SERVER_URL: baseUrl,
       SERVER_SHADOW_URL: baseUrl,
       SERVER_RUNTIME_ENV: process.env.SERVER_RUNTIME_ENV || process.env.APP_ENV || process.env.NODE_ENV || "test",
@@ -233,7 +305,7 @@ async function runAudit(baseUrl, gmPassword) {
       GM_PASSWORD: gmPassword,
       SERVER_ALLOW_INSECURE_LOCAL_GM_PASSWORD: process.env.SERVER_ALLOW_INSECURE_LOCAL_GM_PASSWORD || "1",
       SERVER_REGISTRATION_ACTIVATION_CODES: process.env.SERVER_REGISTRATION_ACTIVATION_CODES || "PROTOCOL-AUDIT",
-    },
+    }),
     stdio: "inherit",
   });
   return new Promise((resolve, reject) => {
@@ -267,8 +339,11 @@ async function main() {
  */
   let server = null;
   const gmPasswordRecordSnapshot = await snapshotLocalGmPasswordRecordIfNeeded();
+  const protocolAuditDocumentSnapshot = await snapshotProtocolAuditDocumentsIfNeeded();
   try {
-    await resetLocalGmPasswordRecordIfNeeded();
+    if (!isWithDbAuditMode()) {
+      await resetLocalGmPasswordRecordIfNeeded();
+    }
     server = await startAuditServer(desiredPort, gmPassword);
 /**
  * 记录base地址。
@@ -278,6 +353,7 @@ async function main() {
     process.exitCode = await runAudit(baseUrl, gmPassword);
   } finally {
     await lib.stopServer(server && server.child ? server.child : null);
+    await restoreProtocolAuditDocumentsIfNeeded(protocolAuditDocumentSnapshot);
     await restoreLocalGmPasswordRecordIfNeeded(gmPasswordRecordSnapshot);
   }
 }

@@ -18,9 +18,11 @@ import {
   GM_RUNTIME_MAINTENANCE_FLAG_KEY,
 } from '../../persistence/gm-runtime-flag-persistence.service';
 import { GmConfigPersistenceService } from '../../persistence/gm-config-persistence.service';
+import { GmAuditLogPersistenceService } from '../../persistence/gm-audit-log-persistence.service';
 import { listGameConfigDescriptors, getGameConfigDescriptor } from '../../config/game-config-registry';
-import { GM_HTTP_CONTRACT } from './native-gm-contract';
+import { GM_HIGH_RISK_CONFIRMATION_CONTRACT, GM_HTTP_CONTRACT } from './native-gm-contract';
 import { extractGmActor } from './native-gm-actor-context';
+import { assertGmHighRiskOperationAllowed, type GmHighRiskConfirmationBody } from './native-gm-high-risk';
 import { NativeGmAuthGuard } from './native-gm-auth.guard';
 import { NativeGmGeneratedTechniqueService } from './native-gm-generated-technique.service';
 import { NativeGmMailService } from './native-gm-mail.service';
@@ -170,6 +172,8 @@ interface DirectMailBody {
 interface BroadcastMailBody {
   [key: string]: unknown;
 }
+
+type RestartServerBody = GmHighRiskConfirmationBody;
 /**
  * RedeemCodeGroupBody：定义接口结构约束，明确可交付字段含义。
  */
@@ -207,6 +211,10 @@ interface SetMaintenanceBody {
  */
 
   active?: boolean;
+}
+
+interface RuntimeFlagBody {
+  value?: boolean;
 }
 
 interface NodeMigrationBody {
@@ -263,6 +271,9 @@ export class NativeGmController {
     @Inject(NativeGmGeneratedTechniqueService) private readonly nextGmGeneratedTechniqueService: NativeGmGeneratedTechniqueService,
     @Inject(NativeGmMarketTradeService) private readonly nextGmMarketTradeService: NativeGmMarketTradeService,
     @Inject(AiArtsStrengthV1ToV2Conversion) private readonly aiArtsStrengthV1ToV2Conversion: AiArtsStrengthV1ToV2Conversion,
+    @Optional()
+    @Inject(GmAuditLogPersistenceService)
+    private readonly gmAuditLogPersistenceService: GmAuditLogPersistenceService | null = null,
 
   ) {
     this.redeemCodeRuntimeService = redeemCodeRuntimeService;
@@ -374,9 +385,16 @@ export class NativeGmController {
 
 
   @Post('world/instances/:instanceId/freeze')
-  freezeWorldInstanceWriting(@Param('instanceId') instanceId: string) {
-    this.nextGmWorldService.freezeInstanceWriting(instanceId);
-    return { ok: true };
+  freezeWorldInstanceWriting(@Param('instanceId') instanceId: string, @Req() request: unknown) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.world.instances.freeze',
+      request,
+      targetType: 'world_instance',
+      targetId: instanceId,
+    }, () => {
+      this.nextGmWorldService.freezeInstanceWriting(instanceId);
+      return { ok: true };
+    });
   }
   /**
  * unfreezeWorldInstanceWriting：解冻实例写入。
@@ -386,8 +404,13 @@ export class NativeGmController {
 
 
   @Post('world/instances/:instanceId/unfreeze')
-  unfreezeWorldInstanceWriting(@Param('instanceId') instanceId: string) {
-    return this.nextGmWorldService.unfreezeInstanceWriting(instanceId);
+  unfreezeWorldInstanceWriting(@Param('instanceId') instanceId: string, @Req() request: unknown) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.world.instances.unfreeze',
+      request,
+      targetType: 'world_instance',
+      targetId: instanceId,
+    }, () => this.nextGmWorldService.unfreezeInstanceWriting(instanceId));
   }
   /**
  * getWorldInstanceLease：读取实例 lease / owner。
@@ -408,8 +431,13 @@ export class NativeGmController {
 
 
   @Post('world/players/:playerId/flush')
-  flushWorldPlayer(@Param('playerId') playerId: string) {
-    return this.nextGmWorldService.flushPlayerPersistence(playerId);
+  flushWorldPlayer(@Param('playerId') playerId: string, @Req() request: unknown) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.world.players.flush',
+      request,
+      targetType: 'player',
+      targetId: playerId,
+    }, () => this.nextGmWorldService.flushPlayerPersistence(playerId));
   }
   /**
  * flushWorldInstance：强制刷单实例。
@@ -419,8 +447,13 @@ export class NativeGmController {
 
 
   @Post('world/instances/:instanceId/flush')
-  flushWorldInstance(@Param('instanceId') instanceId: string) {
-    return this.nextGmWorldService.flushInstancePersistence(instanceId);
+  flushWorldInstance(@Param('instanceId') instanceId: string, @Req() request: unknown) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.world.instances.flush',
+      request,
+      targetType: 'world_instance',
+      targetId: instanceId,
+    }, () => this.nextGmWorldService.flushInstancePersistence(instanceId));
   }
   /**
  * rebuildWorldInstance：强制重建某实例。
@@ -430,8 +463,13 @@ export class NativeGmController {
 
 
   @Post('world/instances/:instanceId/rebuild')
-  rebuildWorldInstance(@Param('instanceId') instanceId: string) {
-    return this.nextGmWorldService.rebuildPersistentInstance(instanceId);
+  rebuildWorldInstance(@Param('instanceId') instanceId: string, @Req() request: unknown) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.world.instances.rebuild',
+      request,
+      targetType: 'world_instance',
+      targetId: instanceId,
+    }, () => this.nextGmWorldService.rebuildPersistentInstance(instanceId));
   }
   /**
  * migrateWorldInstance：手动迁移实例到指定节点。
@@ -442,12 +480,20 @@ export class NativeGmController {
 
 
   @Post('world/instances/:instanceId/migrate')
-  migrateWorldInstance(@Param('instanceId') instanceId: string, @Body() body: NodeMigrationBody) {
-    const targetNodeId = typeof body?.targetNodeId === 'string' ? body.targetNodeId.trim() : '';
-    if (!targetNodeId) {
-      throw new BadRequestException('目标节点 ID 不能为空');
-    }
-    return this.nextGmWorldService.migrateInstanceToNode(instanceId, targetNodeId);
+  migrateWorldInstance(@Param('instanceId') instanceId: string, @Body() body: NodeMigrationBody, @Req() request: unknown) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.world.instances.migrate',
+      request,
+      targetType: 'world_instance',
+      targetId: instanceId,
+      after: { targetNodeId: typeof body?.targetNodeId === 'string' ? body.targetNodeId.trim() : '' },
+    }, () => {
+      const targetNodeId = typeof body?.targetNodeId === 'string' ? body.targetNodeId.trim() : '';
+      if (!targetNodeId) {
+        throw new BadRequestException('目标节点 ID 不能为空');
+      }
+      return this.nextGmWorldService.migrateInstanceToNode(instanceId, targetNodeId);
+    });
   }
   /**
  * migrateWorldPlayer：手动迁移玩家到指定节点。
@@ -458,12 +504,20 @@ export class NativeGmController {
 
 
   @Post('world/players/:playerId/migrate')
-  migrateWorldPlayer(@Param('playerId') playerId: string, @Body() body: NodeMigrationBody) {
-    const targetNodeId = typeof body?.targetNodeId === 'string' ? body.targetNodeId.trim() : '';
-    if (!targetNodeId) {
-      throw new BadRequestException('目标节点 ID 不能为空');
-    }
-    return this.nextGmWorldService.migratePlayerToNode(playerId, targetNodeId);
+  migrateWorldPlayer(@Param('playerId') playerId: string, @Body() body: NodeMigrationBody, @Req() request: unknown) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.world.players.migrate',
+      request,
+      targetType: 'player',
+      targetId: playerId,
+      after: { targetNodeId: typeof body?.targetNodeId === 'string' ? body.targetNodeId.trim() : '' },
+    }, () => {
+      const targetNodeId = typeof body?.targetNodeId === 'string' ? body.targetNodeId.trim() : '';
+      if (!targetNodeId) {
+        throw new BadRequestException('目标节点 ID 不能为空');
+      }
+      return this.nextGmWorldService.migratePlayerToNode(playerId, targetNodeId);
+    });
   }
   /**
  * getEditorCatalog：读取Editor目录。
@@ -572,13 +626,23 @@ export class NativeGmController {
   }
 
   @Post('world/instances/:instanceId/recalculate-building-fengshui')
-  recalculateWorldInstanceBuildingFengShui(@Param('instanceId') instanceId: string) {
-    return this.nextGmWorldService.recalculateWorldInstanceBuildingState(instanceId);
+  recalculateWorldInstanceBuildingFengShui(@Param('instanceId') instanceId: string, @Req() request: unknown) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.world.instances.building_fengshui.recalculate',
+      request,
+      targetType: 'world_instance',
+      targetId: instanceId,
+    }, () => this.nextGmWorldService.recalculateWorldInstanceBuildingState(instanceId));
   }
 
   @Post('world/instances/:instanceId/repair-building-fengshui')
-  repairWorldInstanceBuildingFengShui(@Param('instanceId') instanceId: string) {
-    return this.nextGmWorldService.repairWorldInstanceBuildingState(instanceId);
+  repairWorldInstanceBuildingFengShui(@Param('instanceId') instanceId: string, @Req() request: unknown) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.world.instances.building_fengshui.repair',
+      request,
+      targetType: 'world_instance',
+      targetId: instanceId,
+    }, () => this.nextGmWorldService.repairWorldInstanceBuildingState(instanceId));
   }
 
   /**
@@ -589,8 +653,18 @@ export class NativeGmController {
 
 
   @Post('world/instances')
-  createWorldInstance(@Body() body: GmCreateWorldInstanceReq) {
-    return this.nextGmWorldService.createWorldInstance(body);
+  createWorldInstance(@Body() body: GmCreateWorldInstanceReq, @Req() request: unknown) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.world.instances.create',
+      request,
+      targetType: 'world_instance',
+      targetId: typeof body?.templateId === 'string' ? body.templateId : null,
+      after: (result) => ({
+        templateId: body?.templateId ?? null,
+        linePreset: body?.linePreset ?? null,
+        instanceId: result?.instance?.instanceId ?? null,
+      }),
+    }, () => this.nextGmWorldService.createWorldInstance(body));
   }
   /**
  * transferPlayerToInstance：迁移玩家到指定实例。
@@ -600,8 +674,14 @@ export class NativeGmController {
 
 
   @Post('world/instances/transfer-player')
-  transferPlayerToInstance(@Body() body: GmTransferPlayerToInstanceReq) {
-    return this.nextGmWorldService.transferPlayerToInstance(body);
+  transferPlayerToInstance(@Body() body: GmTransferPlayerToInstanceReq, @Req() request: unknown) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.world.instances.transfer_player',
+      request,
+      targetType: 'player',
+      targetId: body?.playerId ?? null,
+      after: { playerId: body?.playerId ?? null, instanceId: body?.instanceId ?? null },
+    }, () => this.nextGmWorldService.transferPlayerToInstance(body));
   }
   /**
  * getPlayer：读取玩家。
@@ -629,19 +709,27 @@ export class NativeGmController {
 
 
   @Post('players/:playerId/password')
-  async updatePlayerPassword(@Param('playerId') playerId: string, @Body() body: UpdatePlayerPasswordBody) {
-    const rawPassword = typeof body?.newPassword === 'string'
-      ? body.newPassword
-      : typeof body?.password === 'string'
-        ? body.password
-        : '';
-    const nextPassword = rawPassword.trim();
-    if (!nextPassword) {
-      throw new BadRequestException('新密码不能为空');
-    }
-    await this.nextManagedAccountService.updateManagedPlayerPassword(playerId, nextPassword);
-    this.nextGmWorldService.invalidatePlayerListCaches();
-    return { ok: true };
+  async updatePlayerPassword(@Param('playerId') playerId: string, @Body() body: UpdatePlayerPasswordBody, @Req() request: unknown) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.players.password.update',
+      request,
+      targetType: 'player',
+      targetId: playerId,
+      after: { passwordProvided: typeof body?.newPassword === 'string' || typeof body?.password === 'string' },
+    }, async () => {
+      const rawPassword = typeof body?.newPassword === 'string'
+        ? body.newPassword
+        : typeof body?.password === 'string'
+          ? body.password
+          : '';
+      const nextPassword = rawPassword.trim();
+      if (!nextPassword) {
+        throw new BadRequestException('新密码不能为空');
+      }
+      await this.nextManagedAccountService.updateManagedPlayerPassword(playerId, nextPassword);
+      this.nextGmWorldService.invalidatePlayerListCaches();
+      return { ok: true };
+    });
   }
   /**
  * updatePlayerAccount：处理玩家Account并更新相关状态。
@@ -652,10 +740,18 @@ export class NativeGmController {
 
 
   @Put('players/:playerId/account')
-  async updatePlayerAccount(@Param('playerId') playerId: string, @Body() body: UpdatePlayerAccountBody) {
-    await this.nextManagedAccountService.updateManagedPlayerAccount(playerId, body?.username ?? '');
-    this.nextGmWorldService.invalidatePlayerListCaches();
-    return { ok: true };
+  async updatePlayerAccount(@Param('playerId') playerId: string, @Body() body: UpdatePlayerAccountBody, @Req() request: unknown) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.players.account.update',
+      request,
+      targetType: 'player',
+      targetId: playerId,
+      after: { username: body?.username ?? '' },
+    }, async () => {
+      await this.nextManagedAccountService.updateManagedPlayerAccount(playerId, body?.username ?? '');
+      this.nextGmWorldService.invalidatePlayerListCaches();
+      return { ok: true };
+    });
   }
   /**
  * banPlayerAccount：封禁玩家账号。
@@ -666,10 +762,18 @@ export class NativeGmController {
 
 
   @Post('players/:playerId/ban')
-  async banPlayerAccount(@Param('playerId') playerId: string, @Body() body: GmBanManagedPlayerReq) {
-    await this.nextManagedAccountService.banManagedPlayerAccount(playerId, body?.reason ?? '');
-    this.nextGmWorldService.invalidatePlayerListCaches();
-    return { ok: true };
+  async banPlayerAccount(@Param('playerId') playerId: string, @Body() body: GmBanManagedPlayerReq, @Req() request: unknown) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.players.account.ban',
+      request,
+      targetType: 'player',
+      targetId: playerId,
+      after: { reasonLength: typeof body?.reason === 'string' ? body.reason.length : 0 },
+    }, async () => {
+      await this.nextManagedAccountService.banManagedPlayerAccount(playerId, body?.reason ?? '');
+      this.nextGmWorldService.invalidatePlayerListCaches();
+      return { ok: true };
+    });
   }
 
   /**
@@ -680,10 +784,17 @@ export class NativeGmController {
 
 
   @Post('players/:playerId/unban')
-  async unbanPlayerAccount(@Param('playerId') playerId: string) {
-    await this.nextManagedAccountService.unbanManagedPlayerAccount(playerId);
-    this.nextGmWorldService.invalidatePlayerListCaches();
-    return { ok: true };
+  async unbanPlayerAccount(@Param('playerId') playerId: string, @Req() request: unknown) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.players.account.unban',
+      request,
+      targetType: 'player',
+      targetId: playerId,
+    }, async () => {
+      await this.nextManagedAccountService.unbanManagedPlayerAccount(playerId);
+      this.nextGmWorldService.invalidatePlayerListCaches();
+      return { ok: true };
+    });
   }
 
   /**
@@ -696,9 +807,17 @@ export class NativeGmController {
 
   @Put('players/:playerId')
   async updatePlayer(@Param('playerId') playerId: string, @Body() body: UpdatePlayerBody, @Req() request: unknown) {
-    await this.nextGmPlayerService.updatePlayer(playerId, body ?? {}, extractGmActor(request));
-    this.nextGmWorldService.invalidatePlayerListCaches();
-    return { ok: true };
+    return this.executeAuditedGmWrite({
+      op: 'gm.players.update',
+      request,
+      targetType: 'player',
+      targetId: playerId,
+      after: { changedFields: Object.keys(body ?? {}) },
+    }, async (actor) => {
+      await this.nextGmPlayerService.updatePlayer(playerId, body ?? {}, actor);
+      this.nextGmWorldService.invalidatePlayerListCaches();
+      return { ok: true };
+    });
   }
   /**
  * resetPlayer：执行reset玩家相关逻辑。
@@ -711,13 +830,20 @@ export class NativeGmController {
   async resetPlayer(@Param('playerId') playerId: string, @Req() request: unknown) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    if (this.nextGmPlayerService.hasRuntimePlayer(playerId)) {
-      this.nextGmPlayerService.resetPlayer(playerId);
-    } else {
-      await this.nextGmPlayerService.resetPersistedPlayer(playerId, extractGmActor(request));
-    }
-    this.nextGmWorldService.invalidatePlayerListCaches();
-    return { ok: true };
+    return this.executeAuditedGmWrite({
+      op: 'gm.players.reset',
+      request,
+      targetType: 'player',
+      targetId: playerId,
+    }, async (actor) => {
+      if (this.nextGmPlayerService.hasRuntimePlayer(playerId)) {
+        this.nextGmPlayerService.resetPlayer(playerId);
+      } else {
+        await this.nextGmPlayerService.resetPersistedPlayer(playerId, actor);
+      }
+      this.nextGmWorldService.invalidatePlayerListCaches();
+      return { ok: true };
+    });
   }
   /**
  * setPlayerBodyTrainingLevel：设置玩家炼体等级。
@@ -729,9 +855,17 @@ export class NativeGmController {
 
   @Post('players/:playerId/body-training/level')
   async setPlayerBodyTrainingLevel(@Param('playerId') playerId: string, @Body() body: SetPlayerBodyTrainingLevelBody, @Req() request: unknown) {
-    await this.nextGmPlayerService.setPlayerBodyTrainingLevel(playerId, body?.level, extractGmActor(request));
-    this.nextGmWorldService.invalidatePlayerListCaches();
-    return { ok: true };
+    return this.executeAuditedGmWrite({
+      op: 'gm.players.body_training.level.set',
+      request,
+      targetType: 'player',
+      targetId: playerId,
+      after: { level: body?.level ?? null },
+    }, async (actor) => {
+      await this.nextGmPlayerService.setPlayerBodyTrainingLevel(playerId, body?.level, actor);
+      this.nextGmWorldService.invalidatePlayerListCaches();
+      return { ok: true };
+    });
   }
   /**
  * addPlayerFoundation：调整玩家底蕴。
@@ -743,9 +877,17 @@ export class NativeGmController {
 
   @Post('players/:playerId/foundation/add')
   async addPlayerFoundation(@Param('playerId') playerId: string, @Body() body: AddPlayerCounterBody, @Req() request: unknown) {
-    await this.nextGmPlayerService.addPlayerFoundation(playerId, body?.amount, extractGmActor(request));
-    this.nextGmWorldService.invalidatePlayerListCaches();
-    return { ok: true };
+    return this.executeAuditedGmWrite({
+      op: 'gm.players.foundation.add',
+      request,
+      targetType: 'player',
+      targetId: playerId,
+      after: { amount: body?.amount ?? null },
+    }, async (actor) => {
+      await this.nextGmPlayerService.addPlayerFoundation(playerId, body?.amount, actor);
+      this.nextGmWorldService.invalidatePlayerListCaches();
+      return { ok: true };
+    });
   }
   /**
  * addPlayerCombatExp：调整玩家战斗经验。
@@ -757,34 +899,63 @@ export class NativeGmController {
 
   @Post('players/:playerId/combat-exp/add')
   async addPlayerCombatExp(@Param('playerId') playerId: string, @Body() body: AddPlayerCounterBody, @Req() request: unknown) {
-    await this.nextGmPlayerService.addPlayerCombatExp(playerId, body?.amount, extractGmActor(request));
-    this.nextGmWorldService.invalidatePlayerListCaches();
-    return { ok: true };
+    return this.executeAuditedGmWrite({
+      op: 'gm.players.combat_exp.add',
+      request,
+      targetType: 'player',
+      targetId: playerId,
+      after: { amount: body?.amount ?? null },
+    }, async (actor) => {
+      await this.nextGmPlayerService.addPlayerCombatExp(playerId, body?.amount, actor);
+      this.nextGmWorldService.invalidatePlayerListCaches();
+      return { ok: true };
+    });
   }
 
   @Post('players/:playerId/month-card/pool')
   async setPlayerMonthCardPool(@Param('playerId') playerId: string, @Body() body: SetPlayerMonthCardPoolBody, @Req() request: unknown) {
-    await this.nextGmPlayerService.setPlayerMonthCardPool(
-      playerId,
-      body?.totalPoolMerit,
-      body?.remainingPoolMerit,
-      body?.eternalEnabled,
-      body?.dailySignInFixedMeritBonus,
-      extractGmActor(request),
-    );
-    this.nextGmWorldService.invalidatePlayerListCaches();
-    return { ok: true };
+    return this.executeAuditedGmWrite({
+      op: 'gm.players.month_card.pool.set',
+      request,
+      targetType: 'player',
+      targetId: playerId,
+      after: {
+        totalPoolMerit: body?.totalPoolMerit ?? null,
+        remainingPoolMerit: body?.remainingPoolMerit ?? null,
+        eternalEnabled: body?.eternalEnabled ?? null,
+        dailySignInFixedMeritBonus: body?.dailySignInFixedMeritBonus ?? null,
+      },
+    }, async (actor) => {
+      await this.nextGmPlayerService.setPlayerMonthCardPool(
+        playerId,
+        body?.totalPoolMerit,
+        body?.remainingPoolMerit,
+        body?.eternalEnabled,
+        body?.dailySignInFixedMeritBonus,
+        actor,
+      );
+      this.nextGmWorldService.invalidatePlayerListCaches();
+      return { ok: true };
+    });
   }
 
   @Post('players/:playerId/month-card/eternal/activate')
   async activatePlayerEternalBenefit(@Param('playerId') playerId: string, @Body() body: ActivatePlayerEternalBenefitBody, @Req() request: unknown) {
-    await this.nextGmPlayerService.activatePlayerEternalBenefit(
-      playerId,
-      body?.count,
-      extractGmActor(request),
-    );
-    this.nextGmWorldService.invalidatePlayerListCaches();
-    return { ok: true };
+    return this.executeAuditedGmWrite({
+      op: 'gm.players.month_card.eternal.activate',
+      request,
+      targetType: 'player',
+      targetId: playerId,
+      after: { count: body?.count ?? null },
+    }, async (actor) => {
+      await this.nextGmPlayerService.activatePlayerEternalBenefit(
+        playerId,
+        body?.count,
+        actor,
+      );
+      this.nextGmWorldService.invalidatePlayerListCaches();
+      return { ok: true };
+    });
   }
   /**
  * resetHeavenGate：执行resetHeavenGate相关逻辑。
@@ -795,9 +966,16 @@ export class NativeGmController {
 
   @Post('players/:playerId/heaven-gate/reset')
   async resetHeavenGate(@Param('playerId') playerId: string, @Req() request: unknown) {
-    await this.nextGmPlayerService.resetHeavenGate(playerId, extractGmActor(request));
-    this.nextGmWorldService.invalidatePlayerListCaches();
-    return { ok: true };
+    return this.executeAuditedGmWrite({
+      op: 'gm.players.heaven_gate.reset',
+      request,
+      targetType: 'player',
+      targetId: playerId,
+    }, async (actor) => {
+      await this.nextGmPlayerService.resetHeavenGate(playerId, actor);
+      this.nextGmWorldService.invalidatePlayerListCaches();
+      return { ok: true };
+    });
   }
   /**
  * spawnBots：执行spawnBot相关逻辑。
@@ -807,10 +985,18 @@ export class NativeGmController {
 
 
   @Post('bots/spawn')
-  async spawnBots(@Body() body: SpawnBotsBody) {
-    this.nextGmPlayerService.spawnBots(body?.anchorPlayerId ?? '', body?.count);
-    this.nextGmWorldService.invalidatePlayerListCaches();
-    return { ok: true };
+  async spawnBots(@Body() body: SpawnBotsBody, @Req() request: unknown) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.bots.spawn',
+      request,
+      targetType: 'bot',
+      targetId: body?.anchorPlayerId ?? null,
+      after: { anchorPlayerId: body?.anchorPlayerId ?? '', count: body?.count ?? null },
+    }, () => {
+      this.nextGmPlayerService.spawnBots(body?.anchorPlayerId ?? '', body?.count);
+      this.nextGmWorldService.invalidatePlayerListCaches();
+      return { ok: true };
+    });
   }
   /**
  * removeBots：处理Bot并更新相关状态。
@@ -820,10 +1006,18 @@ export class NativeGmController {
 
 
   @Post('bots/remove')
-  async removeBots(@Body() body: RemoveBotsBody) {
-    this.nextGmPlayerService.removeBots(body?.playerIds ?? [], body?.all ?? false);
-    this.nextGmWorldService.invalidatePlayerListCaches();
-    return { ok: true };
+  async removeBots(@Body() body: RemoveBotsBody, @Req() request: unknown) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.bots.remove',
+      request,
+      targetType: 'bot',
+      targetId: body?.all === true ? 'all' : null,
+      after: { playerIds: body?.playerIds ?? [], all: body?.all === true },
+    }, () => {
+      this.nextGmPlayerService.removeBots(body?.playerIds ?? [], body?.all ?? false);
+      this.nextGmWorldService.invalidatePlayerListCaches();
+      return { ok: true };
+    });
   }
   /**
  * returnAllPlayersToDefaultSpawn：执行returnAll玩家To默认Spawn相关逻辑。
@@ -832,10 +1026,18 @@ export class NativeGmController {
 
 
   @Post('shortcuts/players/return-all-to-default-spawn')
-  async returnAllPlayersToDefaultSpawn(@Body() body: GmPlayerScopeBody) {
-    const result = await this.nextGmPlayerService.returnAllPlayersToDefaultSpawn(body ?? {});
-    this.nextGmWorldService.invalidatePlayerListCaches();
-    return result;
+  async returnAllPlayersToDefaultSpawn(@Body() body: GmPlayerScopeBody, @Req() request: unknown) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.shortcuts.players.return_all_to_default_spawn',
+      request,
+      targetType: 'player',
+      targetId: 'scope',
+      after: { playerIds: body?.playerIds ?? [], targetPlayerIds: body?.targetPlayerIds ?? [] },
+    }, async () => {
+      const result = await this.nextGmPlayerService.returnAllPlayersToDefaultSpawn(body ?? {});
+      this.nextGmWorldService.invalidatePlayerListCaches();
+      return result;
+    });
   }
   /**
  * cleanupAllPlayersInvalidItems：清理全部非机器人的无效物品。
@@ -844,22 +1046,43 @@ export class NativeGmController {
 
 
   @Post('shortcuts/players/cleanup-invalid-items')
-  async cleanupAllPlayersInvalidItems(@Body() body: GmPlayerScopeBody) {
-    const result = await this.nextGmPlayerService.cleanupAllPlayersInvalidItems(body ?? {});
-    this.nextGmWorldService.invalidatePlayerListCaches();
-    return result;
+  async cleanupAllPlayersInvalidItems(@Body() body: GmPlayerScopeBody, @Req() request: unknown) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.shortcuts.players.cleanup_invalid_items',
+      request,
+      targetType: 'player',
+      targetId: 'scope',
+      after: { playerIds: body?.playerIds ?? [], targetPlayerIds: body?.targetPlayerIds ?? [] },
+    }, async () => {
+      const result = await this.nextGmPlayerService.cleanupAllPlayersInvalidItems(body ?? {});
+      this.nextGmWorldService.invalidatePlayerListCaches();
+      return result;
+    });
   }
 
   @Post('shortcuts/players/migrate-recovery-pills')
-  async migrateAllPlayersRecoveryPills(@Body() body: GmPlayerScopeBody) {
-    const result = await this.nextGmPlayerService.migrateAllPlayersRecoveryPills(body ?? {});
-    this.nextGmWorldService.invalidatePlayerListCaches();
-    return result;
+  async migrateAllPlayersRecoveryPills(@Body() body: GmPlayerScopeBody, @Req() request: unknown) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.shortcuts.players.migrate_recovery_pills',
+      request,
+      targetType: 'player',
+      targetId: 'scope',
+      after: { playerIds: body?.playerIds ?? [], targetPlayerIds: body?.targetPlayerIds ?? [] },
+    }, async () => {
+      const result = await this.nextGmPlayerService.migrateAllPlayersRecoveryPills(body ?? {});
+      this.nextGmWorldService.invalidatePlayerListCaches();
+      return result;
+    });
   }
 
   @Post('shortcuts/maintenance/repair-market-storage-item-ids')
-  async repairMarketStorageItemIds() {
-    return this.nextGmPlayerService.repairMarketStorageItemIds();
+  async repairMarketStorageItemIds(@Req() request: unknown) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.shortcuts.maintenance.repair_market_storage_item_ids',
+      request,
+      targetType: 'maintenance',
+      targetId: 'market_storage_item_ids',
+    }, () => this.nextGmPlayerService.repairMarketStorageItemIds());
   }
 
   @Post('shortcuts/compat/quest-progress-payloads/dry-run')
@@ -869,12 +1092,22 @@ export class NativeGmController {
 
   @Post('shortcuts/compat/quest-progress-payloads/apply')
   async applyRepairQuestProgressPayloads(@Req() request: unknown) {
-    return this.nextGmPlayerService.repairQuestProgressPayloads('apply', extractGmActor(request));
+    return this.executeAuditedGmWrite({
+      op: 'gm.shortcuts.compat.quest_progress_payloads.apply',
+      request,
+      targetType: 'compat_conversion',
+      targetId: 'quest_progress_payloads',
+    }, (actor) => this.nextGmPlayerService.repairQuestProgressPayloads('apply', actor));
   }
 
   @Post('shortcuts/players/refresh-online-technique-templates')
-  async refreshOnlinePlayerTechniqueTemplates() {
-    return this.nextGmPlayerService.refreshOnlinePlayerTechniqueTemplates();
+  async refreshOnlinePlayerTechniqueTemplates(@Req() request: unknown) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.shortcuts.players.refresh_online_technique_templates',
+      request,
+      targetType: 'player',
+      targetId: 'online_technique_templates',
+    }, () => this.nextGmPlayerService.refreshOnlinePlayerTechniqueTemplates());
   }
 
   @Post('shortcuts/compat/ai-arts-strength-v1-to-v2/dry-run')
@@ -887,10 +1120,15 @@ export class NativeGmController {
 
   @Post('shortcuts/compat/ai-arts-strength-v1-to-v2/apply')
   async applyAiArtsStrengthV1ToV2(@Req() request: unknown) {
-    return this.aiArtsStrengthV1ToV2Conversion.run({
+    return this.executeAuditedGmWrite({
+      op: 'gm.shortcuts.compat.ai_arts_strength_v1_to_v2.apply',
+      request,
+      targetType: 'compat_conversion',
+      targetId: 'ai_arts_strength_v1_to_v2',
+    }, (actor) => this.aiArtsStrengthV1ToV2Conversion.run({
       mode: 'apply',
-      actor: extractGmActor(request),
-    });
+      actor,
+    }));
   }
   /**
  * cleanupAbnormalTemporaryTiles：清理异常临时石头。
@@ -899,8 +1137,13 @@ export class NativeGmController {
 
 
   @Post('shortcuts/world/cleanup-abnormal-temporary-tiles')
-  async cleanupAbnormalTemporaryTiles() {
-    return this.nextGmWorldService.cleanupAbnormalTemporaryTiles();
+  async cleanupAbnormalTemporaryTiles(@Req() request: unknown) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.shortcuts.world.cleanup_abnormal_temporary_tiles',
+      request,
+      targetType: 'world',
+      targetId: 'temporary_tiles',
+    }, () => this.nextGmWorldService.cleanupAbnormalTemporaryTiles());
   }
   /**
  * compensateAllPlayersCombatExp：补偿全部非机器人的战斗经验。
@@ -909,10 +1152,18 @@ export class NativeGmController {
 
 
   @Post('shortcuts/compensation/combat-exp-2026-04-09')
-  async compensateAllPlayersCombatExp(@Body() body: GmPlayerScopeBody) {
-    const result = await this.nextGmPlayerService.compensateAllPlayersCombatExp(body ?? {});
-    this.nextGmWorldService.invalidatePlayerListCaches();
-    return result;
+  async compensateAllPlayersCombatExp(@Body() body: GmPlayerScopeBody, @Req() request: unknown) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.shortcuts.compensation.combat_exp_2026_04_09',
+      request,
+      targetType: 'player',
+      targetId: 'scope',
+      after: { playerIds: body?.playerIds ?? [], targetPlayerIds: body?.targetPlayerIds ?? [] },
+    }, async () => {
+      const result = await this.nextGmPlayerService.compensateAllPlayersCombatExp(body ?? {});
+      this.nextGmWorldService.invalidatePlayerListCaches();
+      return result;
+    });
   }
   /**
  * compensateAllPlayersFoundation：补偿全部非机器人的底蕴。
@@ -921,10 +1172,18 @@ export class NativeGmController {
 
 
   @Post('shortcuts/compensation/foundation-2026-04-09')
-  async compensateAllPlayersFoundation(@Body() body: GmPlayerScopeBody) {
-    const result = await this.nextGmPlayerService.compensateAllPlayersFoundation(body ?? {});
-    this.nextGmWorldService.invalidatePlayerListCaches();
-    return result;
+  async compensateAllPlayersFoundation(@Body() body: GmPlayerScopeBody, @Req() request: unknown) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.shortcuts.compensation.foundation_2026_04_09',
+      request,
+      targetType: 'player',
+      targetId: 'scope',
+      after: { playerIds: body?.playerIds ?? [], targetPlayerIds: body?.targetPlayerIds ?? [] },
+    }, async () => {
+      const result = await this.nextGmPlayerService.compensateAllPlayersFoundation(body ?? {});
+      this.nextGmWorldService.invalidatePlayerListCaches();
+      return result;
+    });
   }
   /**
  * resetNetworkPerf：执行resetNetworkPerf相关逻辑。
@@ -933,14 +1192,29 @@ export class NativeGmController {
 
 
   @Post('perf/network/reset')
-  resetNetworkPerf() {
-    this.nextGmWorldService.resetNetworkPerf();
-    return { ok: true };
+  resetNetworkPerf(@Req() request: unknown) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.perf.network.reset',
+      request,
+      targetType: 'perf',
+      targetId: 'network',
+    }, () => {
+      this.nextGmWorldService.resetNetworkPerf();
+      return { ok: true };
+    });
   }
   @Post('perf/network/payload-capture')
-  setNetworkPayloadCapture(@Body() body: { enabled?: unknown }) {
-    this.nextGmWorldService.setNetworkPayloadCaptureEnabled(body?.enabled === true);
-    return { ok: true, enabled: body?.enabled === true };
+  setNetworkPayloadCapture(@Body() body: { enabled?: unknown }, @Req() request: unknown) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.perf.network.payload_capture.set',
+      request,
+      targetType: 'perf',
+      targetId: 'network_payload_capture',
+      after: { enabled: body?.enabled === true },
+    }, () => {
+      this.nextGmWorldService.setNetworkPayloadCaptureEnabled(body?.enabled === true);
+      return { ok: true, enabled: body?.enabled === true };
+    });
   }
   /**
  * resetCpuPerf：执行resetCpuPerf相关逻辑。
@@ -949,9 +1223,16 @@ export class NativeGmController {
 
 
   @Post('perf/cpu/reset')
-  resetCpuPerf() {
-    this.nextGmWorldService.resetCpuPerf();
-    return { ok: true };
+  resetCpuPerf(@Req() request: unknown) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.perf.cpu.reset',
+      request,
+      targetType: 'perf',
+      targetId: 'cpu',
+    }, () => {
+      this.nextGmWorldService.resetCpuPerf();
+      return { ok: true };
+    });
   }
   /**
  * writeHeapSnapshot：生成 V8 Heap Snapshot 文件。
@@ -960,15 +1241,26 @@ export class NativeGmController {
 
 
   @Post('perf/memory/heap-snapshot')
-  async writeHeapSnapshot(@Query('deleteAfterSummary') deleteAfterSummary?: string) {
+  async writeHeapSnapshot(@Query('deleteAfterSummary') deleteAfterSummary: string | undefined, @Req() request: unknown) {
     const shouldDelete = typeof deleteAfterSummary === 'string'
       && (deleteAfterSummary === '1' || deleteAfterSummary.toLowerCase() === 'true');
-    return this.nextGmWorldService.writeHeapSnapshot({ deleteSnapshotAfterSummary: shouldDelete });
+    return this.executeAuditedGmWrite({
+      op: 'gm.perf.memory.heap_snapshot.write',
+      request,
+      targetType: 'perf',
+      targetId: 'heap_snapshot',
+      after: { deleteSnapshotAfterSummary: shouldDelete },
+    }, () => this.nextGmWorldService.writeHeapSnapshot({ deleteSnapshotAfterSummary: shouldDelete }));
   }
 
   @Post('perf/memory/gc')
-  triggerManualGc() {
-    return this.nextGmWorldService.triggerManualGc();
+  triggerManualGc(@Req() request: unknown) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.perf.memory.gc.trigger',
+      request,
+      targetType: 'perf',
+      targetId: 'manual_gc',
+    }, () => this.nextGmWorldService.triggerManualGc());
   }
 
   /**
@@ -991,9 +1283,16 @@ export class NativeGmController {
 
 
   @Post('perf/pathfinding/reset')
-  resetPathfindingPerf() {
-    this.nextGmWorldService.resetPathfindingPerf();
-    return { ok: true };
+  resetPathfindingPerf(@Req() request: unknown) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.perf.pathfinding.reset',
+      request,
+      targetType: 'perf',
+      targetId: 'pathfinding',
+    }, () => {
+      this.nextGmWorldService.resetPathfindingPerf();
+      return { ok: true };
+    });
   }
   /**
  * createDirectMail：构建并返回目标对象。
@@ -1004,9 +1303,17 @@ export class NativeGmController {
 
 
   @Post('players/:playerId/mail')
-  async createDirectMail(@Param('playerId') playerId: string, @Body() body: DirectMailBody) {
-    const mailId = await this.nextGmMailService.createDirectMail(playerId, body ?? {});
-    return { ok: true, mailId };
+  async createDirectMail(@Param('playerId') playerId: string, @Body() body: DirectMailBody, @Req() request: unknown) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.mail.direct.create',
+      request,
+      targetType: 'mail',
+      targetId: playerId,
+      after: (result) => result,
+    }, async () => {
+      const mailId = await this.nextGmMailService.createDirectMail(playerId, body ?? {});
+      return { ok: true, mailId };
+    });
   }
   /**
  * createBroadcastMail：构建并返回目标对象。
@@ -1016,9 +1323,17 @@ export class NativeGmController {
 
 
   @Post('mail/broadcast')
-  async createBroadcastMail(@Body() body: BroadcastMailBody) {
-    const result = await this.nextGmMailService.createBroadcastMail(body ?? {});
-    return { ok: true, mailId: result.mailId, batchId: result.batchId, recipientCount: result.recipientCount };
+  async createBroadcastMail(@Body() body: BroadcastMailBody, @Req() request: unknown) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.mail.broadcast.create',
+      request,
+      targetType: 'mail',
+      targetId: 'broadcast',
+      after: (result) => result,
+    }, async () => {
+      const result = await this.nextGmMailService.createBroadcastMail(body ?? {});
+      return { ok: true, mailId: result.mailId, batchId: result.batchId, recipientCount: result.recipientCount };
+    });
   }
   /**
  * getRedeemCodeGroups：读取RedeemCodeGroup。
@@ -1038,8 +1353,14 @@ export class NativeGmController {
 
 
   @Post('redeem-code-groups')
-  async createRedeemCodeGroup(@Body() body: RedeemCodeGroupBody) {
-    return this.redeemCodeRuntimeService.createGroup(body?.name ?? '', body?.rewards ?? [], Number(body?.count));
+  async createRedeemCodeGroup(@Body() body: RedeemCodeGroupBody, @Req() request: unknown) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.redeem_code_groups.create',
+      request,
+      targetType: 'redeem_code_group',
+      targetId: null,
+      after: { name: body?.name ?? '', rewardCount: body?.rewards?.length ?? 0, count: Number(body?.count) },
+    }, () => this.redeemCodeRuntimeService.createGroup(body?.name ?? '', body?.rewards ?? [], Number(body?.count)));
   }
   /**
  * getRedeemCodeGroup：读取RedeemCodeGroup。
@@ -1061,8 +1382,14 @@ export class NativeGmController {
 
 
   @Put('redeem-code-groups/:groupId')
-  async updateRedeemCodeGroup(@Param('groupId') groupId: string, @Body() body: RedeemCodeGroupBody) {
-    return this.redeemCodeRuntimeService.updateGroup(groupId, body?.name ?? '', body?.rewards ?? []);
+  async updateRedeemCodeGroup(@Param('groupId') groupId: string, @Body() body: RedeemCodeGroupBody, @Req() request: unknown) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.redeem_code_groups.update',
+      request,
+      targetType: 'redeem_code_group',
+      targetId: groupId,
+      after: { name: body?.name ?? '', rewardCount: body?.rewards?.length ?? 0 },
+    }, () => this.redeemCodeRuntimeService.updateGroup(groupId, body?.name ?? '', body?.rewards ?? []));
   }
   /**
  * deleteRedeemCodeGroup：删除未产生使用记录的兑换码分组。
@@ -1072,8 +1399,13 @@ export class NativeGmController {
 
 
   @Delete('redeem-code-groups/:groupId')
-  async deleteRedeemCodeGroup(@Param('groupId') groupId: string) {
-    return this.redeemCodeRuntimeService.deleteGroup(groupId);
+  async deleteRedeemCodeGroup(@Param('groupId') groupId: string, @Req() request: unknown) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.redeem_code_groups.delete',
+      request,
+      targetType: 'redeem_code_group',
+      targetId: groupId,
+    }, () => this.redeemCodeRuntimeService.deleteGroup(groupId));
   }
   /**
  * appendRedeemCodes：执行appendRedeemCode相关逻辑。
@@ -1084,8 +1416,14 @@ export class NativeGmController {
 
 
   @Post('redeem-code-groups/:groupId/codes')
-  async appendRedeemCodes(@Param('groupId') groupId: string, @Body() body: RedeemCodeGroupBody) {
-    return this.redeemCodeRuntimeService.appendCodes(groupId, Number(body?.count));
+  async appendRedeemCodes(@Param('groupId') groupId: string, @Body() body: RedeemCodeGroupBody, @Req() request: unknown) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.redeem_code_groups.codes.append',
+      request,
+      targetType: 'redeem_code_group',
+      targetId: groupId,
+      after: { count: Number(body?.count) },
+    }, () => this.redeemCodeRuntimeService.appendCodes(groupId, Number(body?.count)));
   }
   /**
  * destroyRedeemCode：执行destroyRedeemCode相关逻辑。
@@ -1095,8 +1433,13 @@ export class NativeGmController {
 
 
   @Delete('redeem-codes/:codeId')
-  async destroyRedeemCode(@Param('codeId') codeId: string) {
-    return this.redeemCodeRuntimeService.destroyCode(codeId);
+  async destroyRedeemCode(@Param('codeId') codeId: string, @Req() request: unknown) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.redeem_codes.delete',
+      request,
+      targetType: 'redeem_code',
+      targetId: codeId,
+    }, () => this.redeemCodeRuntimeService.destroyCode(codeId));
   }
   /**
  * updateMapTick：处理地图tick并更新相关状态。
@@ -1107,15 +1450,29 @@ export class NativeGmController {
 
 
   @Put('maps/:mapId/tick')
-  async updateMapTick(@Param('mapId') mapId: string, @Body() body: MapConfigBody) {
-    await this.nextGmWorldService.updateMapTick(mapId, body ?? {});
-    return { ok: true };
+  async updateMapTick(@Param('mapId') mapId: string, @Body() body: MapConfigBody, @Req() request: unknown) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.maps.tick.update',
+      request,
+      targetType: 'map',
+      targetId: mapId,
+      after: body ?? {},
+    }, async () => {
+      await this.nextGmWorldService.updateMapTick(mapId, body ?? {});
+      return { ok: true };
+    });
   }
 
   /** 按 instanceId 更新单个实例的 tickSpeed。 */
   @Put('instances/:instanceId/tick')
-  async updateInstanceTick(@Param('instanceId') instanceId: string, @Body() body: MapConfigBody) {
-    return this.nextGmWorldService.updateInstanceTick(instanceId, body ?? {});
+  async updateInstanceTick(@Param('instanceId') instanceId: string, @Body() body: MapConfigBody, @Req() request: unknown) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.instances.tick.update',
+      request,
+      targetType: 'world_instance',
+      targetId: instanceId,
+      after: body ?? {},
+    }, () => this.nextGmWorldService.updateInstanceTick(instanceId, body ?? {}));
   }
   /**
  * updateMapTime：处理地图时间并更新相关状态。
@@ -1126,9 +1483,17 @@ export class NativeGmController {
 
 
   @Put('maps/:mapId/time')
-  async updateMapTime(@Param('mapId') mapId: string, @Body() body: MapConfigBody) {
-    await this.nextGmWorldService.updateMapTime(mapId, body ?? {});
-    return { ok: true };
+  async updateMapTime(@Param('mapId') mapId: string, @Body() body: MapConfigBody, @Req() request: unknown) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.maps.time.update',
+      request,
+      targetType: 'map',
+      targetId: mapId,
+      after: body ?? {},
+    }, async () => {
+      await this.nextGmWorldService.updateMapTime(mapId, body ?? {});
+      return { ok: true };
+    });
   }
   /**
  * reloadTickConfig：读取reloadtick配置并返回结果。
@@ -1137,8 +1502,13 @@ export class NativeGmController {
 
 
   @Post('tick-config/reload')
-  async reloadTickConfig() {
-    return this.nextGmWorldService.reloadTickConfig();
+  async reloadTickConfig(@Req() request: unknown) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.tick_config.reload',
+      request,
+      targetType: 'tick_config',
+      targetId: 'runtime',
+    }, () => this.nextGmWorldService.reloadTickConfig());
   }
   /**
  * clearWorldObservation：执行clear世界Observation相关逻辑。
@@ -1148,9 +1518,16 @@ export class NativeGmController {
 
 
   @Delete('world-observers/:viewerId')
-  clearWorldObservation(@Param('viewerId') viewerId: string) {
-    this.nextGmWorldService.clearWorldObservation(viewerId);
-    return { ok: true };
+  clearWorldObservation(@Param('viewerId') viewerId: string, @Req() request: unknown) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.world_observers.delete',
+      request,
+      targetType: 'world_observer',
+      targetId: viewerId,
+    }, () => {
+      this.nextGmWorldService.clearWorldObservation(viewerId);
+      return { ok: true };
+    });
   }
 
   @Get('runtime-flags')
@@ -1165,74 +1542,112 @@ export class NativeGmController {
   }
 
   @Post('maintenance')
-  async setMaintenance(@Body() body: SetMaintenanceBody) {
-    if (!this.runtimeFlagService.isEnabled()) {
-      throw new BadRequestException('当前未启用 GM 运行时开关持久化，无法切换维护中');
-    }
-    const active = body?.active === true;
-    await this.runtimeFlagService.setFlag(GM_RUNTIME_MAINTENANCE_FLAG_KEY, active);
-    return {
-      ok: true,
-      active,
-    };
+  async setMaintenance(@Body() body: SetMaintenanceBody, @Req() request: unknown) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.runtime.maintenance.set',
+      request,
+      targetType: 'runtime_flag',
+      targetId: GM_RUNTIME_MAINTENANCE_FLAG_KEY,
+      after: { active: body?.active === true },
+    }, async () => {
+      if (!this.runtimeFlagService.isEnabled()) {
+        throw new BadRequestException('当前未启用 GM 运行时开关持久化，无法切换维护中');
+      }
+      const active = body?.active === true;
+      await this.runtimeFlagService.setFlag(GM_RUNTIME_MAINTENANCE_FLAG_KEY, active);
+      return {
+        ok: true,
+        active,
+      };
+    });
   }
 
   @Post('server/restart')
-  restartServer() {
-    if (restartRequestedAt !== null) {
+  restartServer(@Body() body: RestartServerBody, @Req() request: unknown) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.server.restart',
+      request,
+      targetType: 'server',
+      targetId: 'process',
+      after: (result) => result,
+    }, (actor) => {
+      assertGmHighRiskOperationAllowed(actor, body, {
+        scope: GM_HIGH_RISK_CONFIRMATION_CONTRACT.scopes.runtimeOperation,
+        confirmationPhrase: GM_HIGH_RISK_CONFIRMATION_CONTRACT.phrases.serverRestart,
+        operationName: '服务端重启',
+      });
+      if (restartRequestedAt !== null) {
+        return {
+          ok: true,
+          restartRequested: true,
+          requestedAt: restartRequestedAt,
+          alreadyRequested: true,
+        };
+      }
+      restartRequestedAt = new Date().toISOString();
+      const delayMs = 500;
+      setTimeout(() => {
+        process.kill(process.pid, 'SIGTERM');
+      }, delayMs).unref();
       return {
         ok: true,
         restartRequested: true,
         requestedAt: restartRequestedAt,
-        alreadyRequested: true,
+        delayMs,
       };
-    }
-    restartRequestedAt = new Date().toISOString();
-    const delayMs = 500;
-    setTimeout(() => {
-      process.kill(process.pid, 'SIGTERM');
-    }, delayMs).unref();
-    return {
-      ok: true,
-      restartRequested: true,
-      requestedAt: restartRequestedAt,
-      delayMs,
-    };
+    });
   }
 
   @Post('runtime-flags/:key')
-  async setRuntimeFlag(@Param('key') key: string, @Body() body: { value?: boolean }) {
-    if (!key || typeof key !== 'string') {
-      throw new BadRequestException('key is required');
-    }
-    const value = body?.value === true;
-    await this.runtimeFlagService.setFlag(key, value);
-    if (key.trim() === GM_NETWORK_PAYLOAD_CAPTURE_FLAG_KEY) {
-      this.nextGmWorldService.setNetworkPayloadCaptureEnabled(value);
-    }
-    return {
-      ok: true,
-      key,
-      value,
-    };
+  async setRuntimeFlag(@Param('key') key: string, @Body() body: RuntimeFlagBody, @Req() request: unknown) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.runtime_flags.set',
+      request,
+      targetType: 'runtime_flag',
+      targetId: typeof key === 'string' ? key.trim() : null,
+      after: { key: typeof key === 'string' ? key.trim() : key, value: body?.value === true },
+    }, async () => {
+      if (!key || typeof key !== 'string') {
+        throw new BadRequestException('key is required');
+      }
+      const normalizedKey = key.trim();
+      const value = body?.value === true;
+      await this.runtimeFlagService.setFlag(normalizedKey, value);
+      if (normalizedKey === GM_NETWORK_PAYLOAD_CAPTURE_FLAG_KEY) {
+        this.nextGmWorldService.setNetworkPayloadCaptureEnabled(value);
+      }
+      return {
+        ok: true,
+        key: normalizedKey,
+        value,
+      };
+    });
   }
 
   @Delete('runtime-flags/:key')
-  async deleteRuntimeFlag(@Param('key') key: string) {
-    if (!key || typeof key !== 'string') {
-      throw new BadRequestException('key is required');
-    }
-    if (key.trim() === GM_NETWORK_PAYLOAD_CAPTURE_FLAG_KEY) {
-      await this.runtimeFlagService.setFlag(GM_NETWORK_PAYLOAD_CAPTURE_FLAG_KEY, false);
-      this.nextGmWorldService.setNetworkPayloadCaptureEnabled(false);
-      return { ok: true, key: GM_NETWORK_PAYLOAD_CAPTURE_FLAG_KEY };
-    }
-    const normalizedKey = key.trim();
-    await this.runtimeFlagService.deleteFlag(normalizedKey);
-    return {
-      ok: true,
-      key: normalizedKey,
-    };
+  async deleteRuntimeFlag(@Param('key') key: string, @Req() request: unknown) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.runtime_flags.delete',
+      request,
+      targetType: 'runtime_flag',
+      targetId: typeof key === 'string' ? key.trim() : null,
+      after: { key: typeof key === 'string' ? key.trim() : key },
+    }, async () => {
+      if (!key || typeof key !== 'string') {
+        throw new BadRequestException('key is required');
+      }
+      const normalizedKey = key.trim();
+      if (normalizedKey === GM_NETWORK_PAYLOAD_CAPTURE_FLAG_KEY) {
+        await this.runtimeFlagService.setFlag(GM_NETWORK_PAYLOAD_CAPTURE_FLAG_KEY, false);
+        this.nextGmWorldService.setNetworkPayloadCaptureEnabled(false);
+        return { ok: true, key: GM_NETWORK_PAYLOAD_CAPTURE_FLAG_KEY };
+      }
+      await this.runtimeFlagService.deleteFlag(normalizedKey);
+      return {
+        ok: true,
+        key: normalizedKey,
+      };
+    });
   }
 
   // ─── 游戏配置中心 ───
@@ -1267,40 +1682,55 @@ export class NativeGmController {
   }
 
   @Post('game-config/:key')
-  async setGameConfig(@Param('key') key: string, @Body() body: { value?: string }) {
-    if (!key || typeof key !== 'string') {
-      throw new BadRequestException('key is required');
-    }
-    const descriptor = getGameConfigDescriptor(key.trim());
-    if (!descriptor) {
-      throw new BadRequestException(`Unknown config key: ${key}`);
-    }
-    const value = typeof body?.value === 'string' ? body.value : String(body?.value ?? '');
-    // 基本校验
-    if (descriptor.valueType === 'number') {
-      const num = Number(value);
-      if (Number.isNaN(num)) throw new BadRequestException('value must be a valid number');
-      if (descriptor.min !== undefined && num < descriptor.min) throw new BadRequestException(`value must be >= ${descriptor.min}`);
-      if (descriptor.max !== undefined && num > descriptor.max) throw new BadRequestException(`value must be <= ${descriptor.max}`);
-    }
-    if (descriptor.valueType === 'boolean') {
-      if (value !== 'true' && value !== 'false') throw new BadRequestException('value must be "true" or "false"');
-    }
-    await this.gmConfigService.setValue(descriptor.key, value);
-    return { ok: true, key: descriptor.key, value, pendingRestart: true };
+  async setGameConfig(@Param('key') key: string, @Body() body: { value?: string }, @Req() request: unknown) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.game_config.set',
+      request,
+      targetType: 'game_config',
+      targetId: typeof key === 'string' ? key.trim() : null,
+      after: { key: typeof key === 'string' ? key.trim() : key, value: body?.value ?? null },
+    }, async () => {
+      if (!key || typeof key !== 'string') {
+        throw new BadRequestException('key is required');
+      }
+      const descriptor = getGameConfigDescriptor(key.trim());
+      if (!descriptor) {
+        throw new BadRequestException(`Unknown config key: ${key}`);
+      }
+      const value = typeof body?.value === 'string' ? body.value : String(body?.value ?? '');
+      // 基本校验
+      if (descriptor.valueType === 'number') {
+        const num = Number(value);
+        if (Number.isNaN(num)) throw new BadRequestException('value must be a valid number');
+        if (descriptor.min !== undefined && num < descriptor.min) throw new BadRequestException(`value must be >= ${descriptor.min}`);
+        if (descriptor.max !== undefined && num > descriptor.max) throw new BadRequestException(`value must be <= ${descriptor.max}`);
+      }
+      if (descriptor.valueType === 'boolean') {
+        if (value !== 'true' && value !== 'false') throw new BadRequestException('value must be "true" or "false"');
+      }
+      await this.gmConfigService.setValue(descriptor.key, value);
+      return { ok: true, key: descriptor.key, value, pendingRestart: true };
+    });
   }
 
   @Delete('game-config/:key')
-  async deleteGameConfig(@Param('key') key: string) {
-    if (!key || typeof key !== 'string') {
-      throw new BadRequestException('key is required');
-    }
-    const descriptor = getGameConfigDescriptor(key.trim());
-    if (!descriptor) {
-      throw new BadRequestException(`Unknown config key: ${key}`);
-    }
-    await this.gmConfigService.deleteValue(descriptor.key);
-    return { ok: true, key: descriptor.key, restoredDefault: descriptor.defaultValue };
+  async deleteGameConfig(@Param('key') key: string, @Req() request: unknown) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.game_config.delete',
+      request,
+      targetType: 'game_config',
+      targetId: typeof key === 'string' ? key.trim() : null,
+    }, async () => {
+      if (!key || typeof key !== 'string') {
+        throw new BadRequestException('key is required');
+      }
+      const descriptor = getGameConfigDescriptor(key.trim());
+      if (!descriptor) {
+        throw new BadRequestException(`Unknown config key: ${key}`);
+      }
+      await this.gmConfigService.deleteValue(descriptor.key);
+      return { ok: true, key: descriptor.key, restoredDefault: descriptor.defaultValue };
+    });
   }
 
   /**
@@ -1318,6 +1748,70 @@ export class NativeGmController {
       playerKeyword: query?.playerKeyword,
       itemKeyword: query?.itemKeyword,
     });
+  }
+
+  private async executeAuditedGmWrite<T>(
+    input: {
+      op: string;
+      request: unknown;
+      targetType: string;
+      targetId?: string | null;
+      before?: unknown;
+      after?: unknown | ((result: T) => unknown);
+    },
+    work: (actor: ReturnType<typeof extractGmActor>) => T | Promise<T>,
+  ): Promise<T> {
+    const actor = extractGmActor(input.request);
+    try {
+      const result = await work(actor);
+      const after = typeof input.after === 'function' ? input.after(result) : input.after ?? { result };
+      await this.recordGmWriteAudit({
+        ...input,
+        actor,
+        after,
+        success: true,
+        errorMessage: null,
+      });
+      return result;
+    } catch (error) {
+      await this.recordGmWriteAudit({
+        op: input.op,
+        actor,
+        targetType: input.targetType,
+        targetId: input.targetId,
+        before: input.before,
+        success: false,
+        errorMessage: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
+  }
+
+  private async recordGmWriteAudit(input: {
+    op: string;
+    actor: ReturnType<typeof extractGmActor>;
+    targetType: string;
+    targetId?: string | null;
+    before?: unknown;
+    after?: unknown;
+    success: boolean;
+    errorMessage: string | null;
+  }): Promise<void> {
+    if (!this.gmAuditLogPersistenceService) return;
+    try {
+      await this.gmAuditLogPersistenceService.recordEntry({
+        op: input.op,
+        targetType: input.targetType,
+        targetId: input.targetId ?? null,
+        actor: input.actor,
+        before: input.before ?? {},
+        after: input.after ?? {},
+        success: input.success,
+        errorMessage: input.errorMessage,
+      });
+    } catch {
+      // 审计服务内部已保护；这里避免 GM 写操作被审计链路反向阻断。
+    }
   }
 }
 

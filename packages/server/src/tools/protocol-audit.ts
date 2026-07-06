@@ -79,6 +79,29 @@ var DOC_OUTPUT = path.resolve(__dirname, "../../../../docs/protocol-audit.md");
 var SERVER_DATABASE_URL = envAlias.resolveServerDatabaseUrl();
 var HAS_DATABASE = Boolean(SERVER_DATABASE_URL);
 
+function normalizeAuditDisplayNameText(value) {
+  return typeof value === 'string' ? value.trim().normalize('NFC') : '';
+}
+
+function isAuditPlayerIdLikeDisplayText(value) {
+  var normalized = normalizeAuditDisplayNameText(value);
+  return /^p_[0-9a-f-]+(?:_\d+)?$/i.test(normalized) || /^player[:_-]/i.test(normalized);
+}
+
+function resolveAuditPlayerDisplayName(source, playerId) {
+  var normalizedPlayerId = normalizeAuditDisplayNameText(playerId)
+    || normalizeAuditDisplayNameText(source?.playerId)
+    || normalizeAuditDisplayNameText(source?.id);
+  var candidates = [source?.playerName, source?.roleName, source?.pendingRoleName, source?.name, source?.displayName, source?.username];
+  for (var i = 0; i < candidates.length; i += 1) {
+    var normalized = normalizeAuditDisplayNameText(candidates[i]);
+    if (normalized && normalized !== normalizedPlayerId && !isAuditPlayerIdLikeDisplayText(normalized)) {
+      return normalized;
+    }
+  }
+  return '未知玩家';
+}
+
 function resolveRequestedAuditCases() {
   var raw = typeof process.env.SERVER_PROTOCOL_AUDIT_CASES === 'string'
     ? process.env.SERVER_PROTOCOL_AUDIT_CASES.trim()
@@ -1331,7 +1354,9 @@ function assertInitialPanelDeltaIsRevisionOnly(payload) {
   assertPanelSectionRevisionOnly('tech', payload.tech, ['r', 'techniques'], function (value) {
     return Array.isArray(value) && value.length === 0;
   });
-  assertPanelSectionRevisionOnly('attr', payload.attr, ['r']);
+  assertPanelSectionRevisionOnly('attr', payload.attr, ['r', 'craftEffectStats'], function (value) {
+    return value && typeof value === 'object' && !Array.isArray(value);
+  });
   assertPanelSectionRevisionOnly('act', payload.act, ['r', 'actions'], function (value) {
     return Array.isArray(value) && value.length === 0;
   });
@@ -1739,9 +1764,7 @@ async function heartbeatChatCase(runtime) {
 /**
  * 记录聊天发送者标签。
  */
-  var senderChatLabel = typeof senderState?.displayName === 'string' && senderState.displayName.trim()
-    ? senderState.displayName.trim()
-    : (typeof senderState?.name === 'string' && senderState.name.trim() ? senderState.name.trim() : senderId);
+  var senderChatLabel = resolveAuditPlayerDisplayName(senderState, senderId);
   sender.emit(C2S.Heartbeat, { clientAt: 2002 });
   await emitAndWait(sender, C2S.Ping, { clientAt: 2003 }, S2C.Pong, function (payload) {
     return payload && payload.clientAt === 2003;

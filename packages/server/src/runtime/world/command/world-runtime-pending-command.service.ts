@@ -532,7 +532,11 @@ export class WorldRuntimePendingCommandService {
     async dispatchPendingCommands(deps, recordTickSectionDuration = null) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        for (const [playerId, command] of this.pendingCommands) {
+        const pendingEntries = Array.from(this.pendingCommands.entries());
+        for (const [playerId, command] of pendingEntries) {
+            if (this.pendingCommands.get(playerId) !== command) {
+                continue;
+            }
             const commandDispatchStartedAt = performance.now();
             let commandDispatchRecorded = false;
             const previousRecorder = deps?.recordPendingCommandSectionDuration;
@@ -599,9 +603,11 @@ export class WorldRuntimePendingCommandService {
                         delete deps.recordPendingCommandSectionDuration;
                     }
                 }
+                if (this.pendingCommands.get(playerId) === command) {
+                    this.pendingCommands.delete(playerId);
+                }
             }
         }
-        this.pendingCommands.clear();
     }
     /**
  * resetState：执行reset状态相关逻辑。

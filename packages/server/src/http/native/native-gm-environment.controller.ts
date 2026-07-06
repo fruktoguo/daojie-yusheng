@@ -14,11 +14,13 @@ import type {
   GmReloadEnvironmentVarsRes,
   GmSetEnvironmentVarReq,
 } from '@mud/shared';
-import { GM_HTTP_CONTRACT } from './native-gm-contract';
+import { GM_HIGH_RISK_CONFIRMATION_CONTRACT, GM_HTTP_CONTRACT } from './native-gm-contract';
 import { NativeGmAuthGuard } from './native-gm-auth.guard';
 import { extractGmActor } from './native-gm-actor-context';
 import { GmAuditLogPersistenceService } from '../../persistence/gm-audit-log-persistence.service';
 import { RuntimeEnvManagementService } from '../../runtime/gm/runtime-env-management.service';
+import { isSensitiveRuntimeEnvKey } from '../../runtime/gm/runtime-env-registry';
+import { assertGmHighRiskOperationAllowed, type GmHighRiskConfirmationBody } from './native-gm-high-risk';
 
 @Controller(GM_HTTP_CONTRACT.gmBasePath)
 @UseGuards(NativeGmAuthGuard)
@@ -40,20 +42,25 @@ export class NativeGmEnvironmentController {
   @Post('environment/vars/:key')
   async set(
     @Param('key') key: string,
-    @Body() body: GmSetEnvironmentVarReq,
+    @Body() body: GmSetEnvironmentVarReq & GmHighRiskConfirmationBody,
     @Req() request: unknown,
   ) {
     if (!body || typeof body.value !== 'string') {
       throw new BadRequestException('value is required');
     }
     const actor = extractGmActor(request);
+    assertGmHighRiskOperationAllowed(actor, body, {
+      scope: GM_HIGH_RISK_CONFIRMATION_CONTRACT.scopes.environment,
+      confirmationPhrase: GM_HIGH_RISK_CONFIRMATION_CONTRACT.phrases.environmentSet,
+      operationName: '环境变量写入',
+    });
     const item = this.runtimeEnvManagementService.set(key, body.value, body.persist === true);
     await this.recordAudit(
       'gm.environment.set',
       actor,
       key,
       undefined,
-      { value: item.value, source: item.source, persistent: item.persistent, persist: body.persist === true },
+      buildEnvironmentAuditAfter(key, body.value, item.source, item.persistent, body.persist === true),
       true,
       null,
     );
@@ -61,16 +68,26 @@ export class NativeGmEnvironmentController {
   }
 
   @Delete('environment/vars/:key')
-  async remove(@Param('key') key: string, @Req() request: unknown) {
+  async remove(@Param('key') key: string, @Body() body: GmHighRiskConfirmationBody, @Req() request: unknown) {
     const actor = extractGmActor(request);
+    assertGmHighRiskOperationAllowed(actor, body, {
+      scope: GM_HIGH_RISK_CONFIRMATION_CONTRACT.scopes.environment,
+      confirmationPhrase: GM_HIGH_RISK_CONFIRMATION_CONTRACT.phrases.environmentDelete,
+      operationName: '环境变量删除',
+    });
     const item = this.runtimeEnvManagementService.delete(key);
     await this.recordAudit('gm.environment.delete', actor, key, undefined, { source: item.source }, true, null);
     return { ok: true, item };
   }
 
   @Post('environment/reload')
-  async reload(@Req() request: unknown): Promise<GmReloadEnvironmentVarsRes> {
+  async reload(@Body() body: GmHighRiskConfirmationBody, @Req() request: unknown): Promise<GmReloadEnvironmentVarsRes> {
     const actor = extractGmActor(request);
+    assertGmHighRiskOperationAllowed(actor, body, {
+      scope: GM_HIGH_RISK_CONFIRMATION_CONTRACT.scopes.environment,
+      confirmationPhrase: GM_HIGH_RISK_CONFIRMATION_CONTRACT.phrases.environmentReload,
+      operationName: '环境变量重载',
+    });
     const res = this.runtimeEnvManagementService.reload();
     await this.recordAudit('gm.environment.reload', actor, null, undefined, { count: res.count }, true, null);
     return res;
@@ -101,4 +118,15 @@ export class NativeGmEnvironmentController {
       // 审计失败不阻断 GM 操作。
     }
   }
+}
+
+function buildEnvironmentAuditAfter(key: string, value: string, source: string, persistent: boolean, persistRequested: boolean) {
+  const sensitive = isSensitiveRuntimeEnvKey(key);
+  return {
+    source,
+    persistent,
+    persist: persistRequested,
+    sensitive,
+    valueLength: sensitive ? undefined : value.length,
+  };
 }

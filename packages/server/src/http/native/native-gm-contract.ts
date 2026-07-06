@@ -45,6 +45,27 @@ export const NATIVE_GM_SOCKET_CONTRACT = Object.freeze({
   pushStateAfterMutation: true,
 });
 
+/** 高危 GM 操作契约：scope 与二次确认短语集中维护，避免入口散落硬编码。 */
+export const GM_HIGH_RISK_CONFIRMATION_CONTRACT = Object.freeze({
+  scopes: {
+    disasterRecovery: 'gm:disaster_recovery',
+    secret: 'gm:secret',
+    environment: 'gm:environment',
+    runtimeOperation: 'gm:runtime_operation',
+  },
+  phrases: {
+    databaseRestore: 'RESTORE SERVER PERSISTENCE',
+    databaseCleanup: 'CLEAN DATABASE TABLE',
+    secretRead: 'READ GM SECRET',
+    secretWrite: 'WRITE GM SECRET',
+    secretDelete: 'DELETE GM SECRET',
+    environmentSet: 'SET RUNTIME ENV',
+    environmentDelete: 'DELETE RUNTIME ENV',
+    environmentReload: 'RELOAD RUNTIME ENV',
+    serverRestart: 'RESTART SERVER',
+  },
+});
+
 /** 数据库恢复契约：恢复前后的刷盘、清理、重载策略。 */
 export const NATIVE_GM_RESTORE_CONTRACT = Object.freeze({
   restoreMode: 'replace_server_persistence',
@@ -57,5 +78,5 @@ export const NATIVE_GM_RESTORE_CONTRACT = Object.freeze({
   reloadMarketAfterRestore: true,
   reloadGmAuthAfterRestore: true,
   preImportBackupEnabled: true,
-  requiresMaintenance: false,
+  requiresMaintenance: true,
 });

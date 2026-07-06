@@ -13,14 +13,15 @@
  *  - 每次 get / set / delete / list 必落 gm_audit_log，便于运营追溯密钥访问；
  *  - 高风险操作（dual-control / IP 白名单 / WebAuthn）留独立改造批次接入。
  */
-import { Body, Controller, Delete, Get, Inject, Param, Post, Req, UseGuards } from '@nestjs/common';
-import { GM_HTTP_CONTRACT } from './native-gm-contract';
+import { Body, Controller, Delete, Get, Inject, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { GM_HIGH_RISK_CONFIRMATION_CONTRACT, GM_HTTP_CONTRACT } from './native-gm-contract';
 import { NativeGmAuthGuard } from './native-gm-auth.guard';
 import { NativeGmSecretStoreService } from './native-gm-secret-store.service';
 import { extractGmActor } from './native-gm-actor-context';
 import { GmAuditLogPersistenceService } from '../../persistence/gm-audit-log-persistence.service';
+import { assertGmHighRiskOperationAllowed, type GmHighRiskConfirmationBody } from './native-gm-high-risk';
 
-interface SetSecretBody {
+interface SetSecretBody extends GmHighRiskConfirmationBody {
   key?: string;
   value?: string;
   description?: string;
@@ -70,8 +71,13 @@ export class NativeGmSecretController {
   }
 
   @Get('secrets/:key')
-  async getOne(@Param('key') key: string, @Req() request: unknown) {
+  async getOne(@Param('key') key: string, @Query() query: GmHighRiskConfirmationBody, @Req() request: unknown) {
     const actor = extractGmActor(request);
+    assertGmHighRiskOperationAllowed(actor, query, {
+      scope: GM_HIGH_RISK_CONFIRMATION_CONTRACT.scopes.secret,
+      confirmationPhrase: GM_HIGH_RISK_CONFIRMATION_CONTRACT.phrases.secretRead,
+      operationName: '密钥读取',
+    });
     try {
       const record = await this.secretStore.get(key);
       // N51：get 是单密钥访问路径，每次必落 audit；记录 found 状态但不记录 value。
@@ -104,6 +110,11 @@ export class NativeGmSecretController {
   @Post('secrets')
   async set(@Body() body: SetSecretBody, @Req() request: unknown) {
     const actor = extractGmActor(request);
+    assertGmHighRiskOperationAllowed(actor, body, {
+      scope: GM_HIGH_RISK_CONFIRMATION_CONTRACT.scopes.secret,
+      confirmationPhrase: GM_HIGH_RISK_CONFIRMATION_CONTRACT.phrases.secretWrite,
+      operationName: '密钥写入',
+    });
     const targetKey = body?.key ?? '';
     try {
       await this.secretStore.set(targetKey, body?.value ?? '', body?.description ?? '');
@@ -137,8 +148,13 @@ export class NativeGmSecretController {
   }
 
   @Delete('secrets/:key')
-  async remove(@Param('key') key: string, @Req() request: unknown) {
+  async remove(@Param('key') key: string, @Body() body: GmHighRiskConfirmationBody, @Req() request: unknown) {
     const actor = extractGmActor(request);
+    assertGmHighRiskOperationAllowed(actor, body, {
+      scope: GM_HIGH_RISK_CONFIRMATION_CONTRACT.scopes.secret,
+      confirmationPhrase: GM_HIGH_RISK_CONFIRMATION_CONTRACT.phrases.secretDelete,
+      operationName: '密钥删除',
+    });
     try {
       const deleted = await this.secretStore.delete(key);
       await this.recordSecretAudit({

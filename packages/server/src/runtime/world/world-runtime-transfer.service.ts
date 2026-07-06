@@ -39,17 +39,6 @@ export class WorldRuntimeTransferService {
             return;
         }
         const runtimePlayer = deps.playerRuntimeService?.getPlayer?.(transfer.playerId) ?? null;
-        if (runtimePlayer && typeof deps.playerRuntimeService?.beginTransfer === 'function') {
-            deps.playerRuntimeService.beginTransfer(runtimePlayer, transfer.targetMapId);
-        }
-        // 阶段 9 收口：实例迁移前静默清理玩家 pending cast，避免在旧实例 tick 或新实例 tick 里触发错位结算。
-        // 资源/冷却保持 committed_no_refund / committed_no_rollback，不产生玩家通知，仅走结构化诊断。
-        if (typeof deps.worldRuntimePlayerSkillDispatchService?.cancelPendingPlayerSkillCastForInstanceTransfer === 'function') {
-            deps.worldRuntimePlayerSkillDispatchService.cancelPendingPlayerSkillCastForInstanceTransfer(transfer.playerId, deps);
-        }
-        if (runtimePlayer && typeof deps.worldRuntimeCraftInterruptService?.interruptCraftForReason === 'function') {
-            deps.worldRuntimeCraftInterruptService.interruptCraftForReason(transfer.playerId, runtimePlayer, 'move', deps);
-        }
         const linePreset = runtimePlayer?.worldPreference?.linePreset === 'real' ? 'real' : 'peaceful';
         let target = null;
         const targetInstanceId = typeof transfer.targetInstanceId === 'string' && transfer.targetInstanceId.trim()
@@ -65,6 +54,22 @@ export class WorldRuntimeTransferService {
             target = typeof deps.getOrCreateDefaultLineInstance === 'function'
                 ? deps.getOrCreateDefaultLineInstance(transfer.targetMapId, linePreset)
                 : deps.getOrCreatePublicInstance(transfer.targetMapId);
+        }
+        const attachReady = resolveTransferTargetAttachReady(target, deps);
+        if (!attachReady.ok) {
+            this.logger.warn(`传送目标实例暂不可进入：playerId=${transfer.playerId} target=${target?.meta?.instanceId ?? 'missing'} reason=${attachReady.reason}`);
+            return;
+        }
+        if (runtimePlayer && typeof deps.playerRuntimeService?.beginTransfer === 'function') {
+            deps.playerRuntimeService.beginTransfer(runtimePlayer, transfer.targetMapId);
+        }
+        // 阶段 9 收口：实例迁移前静默清理玩家 pending cast，避免在旧实例 tick 或新实例 tick 里触发错位结算。
+        // 资源/冷却保持 committed_no_refund / committed_no_rollback，不产生玩家通知，仅走结构化诊断。
+        if (typeof deps.worldRuntimePlayerSkillDispatchService?.cancelPendingPlayerSkillCastForInstanceTransfer === 'function') {
+            deps.worldRuntimePlayerSkillDispatchService.cancelPendingPlayerSkillCastForInstanceTransfer(transfer.playerId, deps);
+        }
+        if (runtimePlayer && typeof deps.worldRuntimeCraftInterruptService?.interruptCraftForReason === 'function') {
+            deps.worldRuntimeCraftInterruptService.interruptCraftForReason(transfer.playerId, runtimePlayer, 'move', deps);
         }
         logServerNextMovement(this.logger, 'runtime.transfer.apply', {
             playerId: transfer.playerId,
@@ -115,3 +120,24 @@ export class WorldRuntimeTransferService {
         }, deps);
     }
 };
+
+function resolveTransferTargetAttachReady(instance, deps) {
+    if (!instance) {
+        return { ok: false, reason: 'instance_missing' };
+    }
+    const instanceId = typeof instance?.meta?.instanceId === 'string' ? instance.meta.instanceId.trim() : '';
+    if (instanceId && typeof deps?.worldRuntimeService?.instanceReadyForPlayerAttach === 'function') {
+        return deps.worldRuntimeService.instanceReadyForPlayerAttach(instanceId);
+    }
+    const runtimeStatus = typeof instance?.meta?.runtimeStatus === 'string' ? instance.meta.runtimeStatus.trim() : '';
+    if (runtimeStatus === 'fenced') return { ok: false, reason: 'lease_fenced' };
+    if (runtimeStatus === 'lease_degraded') return { ok: false, reason: 'lease_degraded' };
+    if (runtimeStatus === 'template_missing') return { ok: false, reason: 'template_missing' };
+    if (runtimeStatus === 'stopped') return { ok: false, reason: 'instance_stopped' };
+    const status = typeof instance?.meta?.status === 'string' ? instance.meta.status.trim() : '';
+    if (status === 'destroyed') return { ok: false, reason: 'instance_destroyed' };
+    if (typeof deps?.isInstanceLeaseWritable === 'function' && !deps.isInstanceLeaseWritable(instance)) {
+        return { ok: false, reason: 'lease_not_local' };
+    }
+    return { ok: true, reason: 'ready' };
+}

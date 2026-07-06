@@ -756,7 +756,7 @@ export class MarketRuntimeService {
             }
 
             const durableOperationService = this.durableOperationService;
-            const canUseDurableBuyNow = false;
+            const canUseDurableBuyNow = Boolean(durableOperationService?.isEnabled?.());
             let buyerSnapshot = null;
             const matchedSellerPlans = [];
             if (canUseDurableBuyNow) {
@@ -927,7 +927,7 @@ export class MarketRuntimeService {
             }
 
             const durableOperationService = this.durableOperationService;
-            const canUseDurableSellNow = false;
+            const canUseDurableSellNow = Boolean(durableOperationService?.isEnabled?.());
             let sellerSnapshot = null;
             const matchedBuyerPlans = [];
             if (canUseDurableSellNow) {

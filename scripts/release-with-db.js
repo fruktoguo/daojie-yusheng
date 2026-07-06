@@ -51,11 +51,11 @@ const childEnv = {
 const steps = [
   { label: 'build:client', args: ['build:client'] },
   { label: 'verify:release:with-db', args: ['--filter', '@mud/server', 'verify:release:with-db'] },
-  { label: 'audit:protocol', args: ['--filter', '@mud/server', 'audit:protocol:compiled'], serial: true },
+  { label: 'audit:protocol:with-db', args: ['--filter', '@mud/server', 'audit:protocol:compiled:with-db'], serial: true },
 ];
 
 async function main() {
-  process.stdout.write('[release:with-db] steps=build:client -> verify:release:with-db -> audit:protocol\n');
+  process.stdout.write('[release:with-db] steps=build:client -> verify:release:with-db -> audit:protocol:with-db\n');
   process.stdout.write('[release:with-db] gate=with-db\n');
 
   const status = await runReleaseVerificationSteps({

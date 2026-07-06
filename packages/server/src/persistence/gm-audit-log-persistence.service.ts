@@ -165,11 +165,11 @@ export class GmAuditLogPersistenceService implements OnModuleInit, OnModuleDestr
           op,
           (entry.targetType ?? null),
           (entry.targetId ?? null),
-          JSON.stringify(entry.before ?? {}),
-          JSON.stringify(entry.after ?? {}),
-          JSON.stringify(entry.delta ?? {}),
+          JSON.stringify(redactGmAuditValue(entry.before ?? {})),
+          JSON.stringify(redactGmAuditValue(entry.after ?? {})),
+          JSON.stringify(redactGmAuditValue(entry.delta ?? {})),
           entry.success === true,
-          entry.errorMessage ?? null,
+          redactGmAuditText(entry.errorMessage ?? null),
         ],
       );
     } catch (error) {
@@ -306,4 +306,61 @@ export class GmAuditLogPersistenceService implements OnModuleInit, OnModuleDestr
       client.release();
     }
   }
+}
+
+const GM_AUDIT_REDACTED_VALUE = '[REDACTED]';
+const GM_AUDIT_CIRCULAR_VALUE = '[Circular]';
+const GM_AUDIT_MAX_REDACTION_DEPTH = 8;
+const GM_AUDIT_MAX_TEXT_LENGTH = 2048;
+
+function redactGmAuditValue(value: unknown, depth = 0, seen = new WeakSet<object>()): unknown {
+  if (value === null || value === undefined) return value;
+  if (typeof value === 'string') return redactGmAuditText(value);
+  if (typeof value !== 'object') return value;
+  if (depth >= GM_AUDIT_MAX_REDACTION_DEPTH) return '[MaxDepth]';
+  if (seen.has(value)) return GM_AUDIT_CIRCULAR_VALUE;
+  seen.add(value);
+  if (Array.isArray(value)) {
+    return value.map((item) => redactGmAuditValue(item, depth + 1, seen));
+  }
+  const output: Record<string, unknown> = {};
+  for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
+    output[key] = isSensitiveGmAuditKey(key)
+      ? GM_AUDIT_REDACTED_VALUE
+      : redactGmAuditValue(item, depth + 1, seen);
+  }
+  return output;
+}
+
+function redactGmAuditText(value: string | null): string | null {
+  if (value === null) return null;
+  const redacted = value
+    .replace(/\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]+/gi, '$1 [REDACTED]')
+    .replace(/\b(postgres(?:ql)?|mysql|redis|mongodb):\/\/[^\s"']+/gi, '$1://[REDACTED]')
+    .replace(/((?:password|passwd|pwd|secret|token|api[_-]?key|authorization|credential)\s*[:=]\s*)[^\s,;}"']+/gi, '$1[REDACTED]');
+  return redacted.length > GM_AUDIT_MAX_TEXT_LENGTH
+    ? `${redacted.slice(0, GM_AUDIT_MAX_TEXT_LENGTH)}…[truncated]`
+    : redacted;
+}
+
+function isSensitiveGmAuditKey(key: string): boolean {
+  const normalized = key.trim().toUpperCase();
+  if (!normalized) return false;
+  return normalized === 'VALUE'
+    || normalized === 'KEY'
+    || normalized.includes('PASSWORD')
+    || normalized.includes('PASSWD')
+    || normalized.includes('SECRET')
+    || normalized.includes('TOKEN')
+    || normalized.includes('AUTHORIZATION')
+    || normalized.includes('CREDENTIAL')
+    || normalized.includes('COOKIE')
+    || normalized.includes('ENCRYPTED')
+    || normalized.includes('CIPHER')
+    || normalized.includes('SALT')
+    || normalized.includes('HASH')
+    || normalized.endsWith('_KEY')
+    || normalized.endsWith('-KEY')
+    || normalized.includes('DATABASE_URL')
+    || normalized.includes('CONNECTION_STRING');
 }

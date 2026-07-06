@@ -26,6 +26,7 @@ export interface GmActorContext {
   ip: string | null;
   userAgent: string | null;
   receivedAt: number;
+  scopes: readonly string[];
 }
 
 /** 用于本工具的最小 request 形状；不绑定具体 HTTP 框架。 */
@@ -55,8 +56,9 @@ export function attachGmActor(
 ): GmActorContext {
   const req = (request as GmActorRequestLike | null | undefined) ?? null;
   const actor: GmActorContext = {
-    tokenRev: validation?.ok ? (validation.rev ?? null) : null,
     ...buildActorFromRequest(req),
+    tokenRev: validation?.ok ? (validation.rev ?? null) : null,
+    scopes: validation?.ok ? validation.scopes : [],
   };
   if (req && typeof req === 'object') {
     (req as { gmActor?: GmActorContext }).gmActor = actor;
@@ -74,6 +76,7 @@ function buildActorFromRequest(req: GmActorRequestLike | null): GmActorContext {
     ip,
     userAgent,
     receivedAt: Date.now(),
+    scopes: [],
   };
 }
 
@@ -83,6 +86,7 @@ function normalizeActor(actor: GmActorContext): GmActorContext {
     ip: actor.ip ?? null,
     userAgent: actor.userAgent ?? null,
     receivedAt: Number.isFinite(actor.receivedAt) ? actor.receivedAt : Date.now(),
+    scopes: Array.isArray(actor.scopes) ? actor.scopes.filter((scope) => typeof scope === 'string' && scope.trim()) : [],
   };
 }
 

@@ -482,6 +482,13 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
     };
   };
 
+  const buildChatPersistenceScope = (player: PlayerState): string => {
+    const playerId = String(player.id || 'anonymous').trim() || 'anonymous';
+    const mapId = String(player.mapId || latestMapEnter?.mid || 'unknown-map').trim() || 'unknown-map';
+    const instanceId = String(player.instanceId || latestMapEnter?.iid || mapId).trim() || mapId;
+    return `${playerId}|${mapId}|${instanceId}`;
+  };
+
   const applyMapStaticToCurrentRuntime = (data: S2C_MapStatic): void => {
     options.applyMapStaticToRuntime(data);
     const player = options.getPlayer();
@@ -869,7 +876,7 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
         options.setRuntimePathCells();
       }
       options.showSidePanel();
-      options.setChatPersistenceScope(player.id);
+      options.setChatPersistenceScope(buildChatPersistenceScope(player));
       options.showChat();
       options.showHud();
       options.resizeCanvas();

@@ -144,6 +144,96 @@ function replaceElementHtml(root: HTMLElement, html: string): void {
   root.replaceChildren(createFragmentFromHtml(html));
 }
 
+
+type FocusSnapshot = {
+  path: number[];
+  selectionStart: number | null;
+  selectionEnd: number | null;
+  selectionDirection: 'forward' | 'backward' | 'none' | null;
+};
+
+type ScrollSnapshot = {
+  path: number[];
+  scrollTop: number;
+  scrollLeft: number;
+};
+
+type DetailModalInteractionSnapshot = {
+  focus: FocusSnapshot | null;
+  scrolls: ScrollSnapshot[];
+};
+
+type SelectableElement = HTMLInputElement | HTMLTextAreaElement;
+
+function getElementPath(root: HTMLElement, element: Element): number[] | null {
+  const path: number[] = [];
+  let current: Element | null = element;
+  while (current && current !== root) {
+    const parent: HTMLElement | null = current.parentElement;
+    if (!parent) return null;
+    path.push(Array.prototype.indexOf.call(parent.children, current));
+    current = parent;
+  }
+  return current === root ? path.reverse() : null;
+}
+
+function resolveElementPath(root: HTMLElement, path: number[]): HTMLElement | null {
+  let current: Element = root;
+  for (const index of path) {
+    const next = current.children.item(index);
+    if (!(next instanceof HTMLElement)) return null;
+    current = next;
+  }
+  return current instanceof HTMLElement ? current : null;
+}
+
+function isSelectableElement(element: Element): element is SelectableElement {
+  return element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement;
+}
+
+function captureDetailModalInteraction(root: HTMLElement): DetailModalInteractionSnapshot {
+  const active = document.activeElement;
+  const activeElement = active instanceof HTMLElement && root.contains(active) ? active : null;
+  const focusPath = activeElement ? getElementPath(root, activeElement) : null;
+  const selectableElement = activeElement && isSelectableElement(activeElement) ? activeElement : null;
+  const focus = focusPath ? {
+    path: focusPath,
+    selectionStart: selectableElement ? selectableElement.selectionStart : null,
+    selectionEnd: selectableElement ? selectableElement.selectionEnd : null,
+    selectionDirection: selectableElement ? selectableElement.selectionDirection : null,
+  } : null;
+  const scrolls: ScrollSnapshot[] = [];
+  for (const element of [root, ...Array.from(root.querySelectorAll<HTMLElement>('*'))]) {
+    if (element.scrollTop !== 0 || element.scrollLeft !== 0) {
+      const path = element === root ? [] : getElementPath(root, element);
+      if (path) scrolls.push({ path, scrollTop: element.scrollTop, scrollLeft: element.scrollLeft });
+    }
+  }
+  return { focus, scrolls };
+}
+
+function restoreDetailModalInteraction(root: HTMLElement, snapshot: DetailModalInteractionSnapshot): void {
+  for (const entry of snapshot.scrolls) {
+    const element = resolveElementPath(root, entry.path);
+    if (!element) continue;
+    element.scrollTop = entry.scrollTop;
+    element.scrollLeft = entry.scrollLeft;
+  }
+  if (!snapshot.focus) return;
+  const focused = resolveElementPath(root, snapshot.focus.path);
+  if (!focused) return;
+  focused.focus({ preventScroll: true });
+  if (isSelectableElement(focused) && snapshot.focus.selectionStart !== null && snapshot.focus.selectionEnd !== null) {
+    focused.setSelectionRange(snapshot.focus.selectionStart, snapshot.focus.selectionEnd, snapshot.focus.selectionDirection ?? 'none');
+  }
+}
+
+function preserveDetailModalInteraction(root: HTMLElement, render: () => void): void {
+  const snapshot = captureDetailModalInteraction(root);
+  preserveSelection(root, render);
+  restoreDetailModalInteraction(root, snapshot);
+}
+
 /** DetailModalHost：详情弹窗宿主实现。 */
 class DetailModalHost {
   /** modal：弹窗。 */
@@ -191,7 +281,7 @@ class DetailModalHost {
     this.subtitle.classList.toggle('hidden', !options.subtitle);
     this.hint.textContent = options.hint ?? t('modal.detail.close-hint', undefined);
     const renderSignal = this.prepareBodyRenderSignal();
-    preserveSelection(this.body, () => {
+    preserveDetailModalInteraction(this.body, () => {
       if (typeof options.renderBody === 'function') {
         this.patchBodyFromRenderer(options.renderBody);
         return;
@@ -244,7 +334,7 @@ class DetailModalHost {
     }
     if (typeof options.renderBody === 'function' || options.bodyHtml !== undefined) {
       const renderSignal = this.prepareBodyRenderSignal();
-      preserveSelection(this.body, () => {
+      preserveDetailModalInteraction(this.body, () => {
         if (typeof options.renderBody === 'function') {
           this.patchBodyFromRenderer(options.renderBody);
           return;

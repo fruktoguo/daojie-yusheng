@@ -17,17 +17,23 @@ async function main() {
     packageRoot,
   });
   const scriptPath = path.join(snapshot.distRoot, 'tools', 'run-protocol-audit.js');
+  const withDbAudit = process.argv.includes('--with-db') || process.env.SERVER_PROTOCOL_AUDIT_DB_MODE === 'with-db';
+  const childEnv: NodeJS.ProcessEnv = {
+    ...process.env,
+    SERVER_SKIP_LOCAL_ENV_AUTOLOAD: '1',
+    SERVER_PACKAGE_ROOT: packageRoot,
+    SERVER_TOOL_DIST_ROOT: snapshot.distRoot,
+  };
+  if (!withDbAudit) {
+    childEnv.DATABASE_URL = '';
+    childEnv.SERVER_DATABASE_URL = '';
+    childEnv.DATABASE_POOLER_URL = '';
+    childEnv.SERVER_DATABASE_POOLER_URL = '';
+  }
 
   const child = spawn('node', [scriptPath, ...process.argv.slice(2)], {
     cwd: repoRoot,
-    env: {
-      ...process.env,
-      DATABASE_URL: '',
-      SERVER_DATABASE_URL: '',
-      SERVER_SKIP_LOCAL_ENV_AUTOLOAD: '1',
-      SERVER_PACKAGE_ROOT: packageRoot,
-      SERVER_TOOL_DIST_ROOT: snapshot.distRoot,
-    },
+    env: childEnv,
     stdio: 'inherit',
   });
 

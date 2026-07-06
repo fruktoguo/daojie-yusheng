@@ -654,6 +654,10 @@ class MapInstanceRuntime {
         const existing = this.playersById.get(request.playerId);
         if (existing) {
             existing.sessionId = request.sessionId;
+            const hasPreferredPosition = Number.isFinite(request.preferredX) && Number.isFinite(request.preferredY);
+            if (hasPreferredPosition) {
+                this.relocatePlayer(request.playerId, request.preferredX, request.preferredY);
+            }
             this.playerViewCacheByPlayerId.delete(request.playerId);
             this.autoCombatViewCacheByPlayerId.delete(request.playerId);
             this.autoCombatTileVisibilityCacheByPlayerId.delete(request.playerId);

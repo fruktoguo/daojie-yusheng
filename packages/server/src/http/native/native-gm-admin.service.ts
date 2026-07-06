@@ -18,9 +18,12 @@ import { pipeline } from 'node:stream/promises';
 import { Pool } from 'pg';
 import { resolveServerDatabaseUrl } from '../../config/env-alias';
 import { DatabasePoolProvider } from '../../persistence/database-pool.provider';
+import { GmAuditLogPersistenceService } from '../../persistence/gm-audit-log-persistence.service';
 import { NativeDatabaseRestoreCoordinatorService } from './native-database-restore-coordinator.service';
-import { GM_AUTH_CONTRACT, NATIVE_GM_RESTORE_CONTRACT } from './native-gm-contract';
+import { GM_AUTH_CONTRACT, GM_HIGH_RISK_CONFIRMATION_CONTRACT, NATIVE_GM_RESTORE_CONTRACT } from './native-gm-contract';
 import { WorldRuntimeService } from '../../runtime/world/world-runtime.service';
+import type { GmActorContext } from './native-gm-actor-context';
+import { assertGmHighRiskOperationAllowed, type GmHighRiskConfirmationBody } from './native-gm-high-risk';
 import {
     buildPostgresDumpFileName,
     computeDatabaseBackupFileSha256,
@@ -280,6 +283,7 @@ export class NativeGmAdminService {
         @Inject(NativeDatabaseRestoreCoordinatorService) private readonly databaseRestoreCoordinator,
         @Inject(WorldRuntimeService) private readonly worldRuntimeService = null,
         @Inject(DatabasePoolProvider) private readonly databasePoolProvider: DatabasePoolProvider | null = null,
+        @Inject(GmAuditLogPersistenceService) private readonly gmAuditLogPersistenceService: GmAuditLogPersistenceService | null = null,
     ) {
     }
     /**
@@ -370,7 +374,7 @@ export class NativeGmAdminService {
  * @returns 无返回值，直接更新triggerDatabaseBackup相关状态。
  */
 
-    triggerDatabaseBackup() {
+    triggerDatabaseBackup(actor?: GmActorContext) {
 
         const backupId = buildBackupId();
 
@@ -393,6 +397,12 @@ export class NativeGmAdminService {
                 job,
             });
         });
+        void this.recordDatabaseAudit('gm.database.backup', actor, backupId, undefined, {
+            jobId: job.id,
+            backupId,
+            kind: 'manual',
+            scope: BACKUP_SCOPE_LABEL,
+        }, true, null);
         return {
             job,
             scope: BACKUP_SCOPE_LABEL,
@@ -404,22 +414,42 @@ export class NativeGmAdminService {
  * @returns 无返回值，完成BackupDownloadRecord的读取/组装。
  */
 
-    async getBackupDownloadRecord(backupId) {
+    async getBackupDownloadRecord(backupId, actor?: GmActorContext) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
-        const record = await this.findBackupRecord(backupId);
-        if (!record) {
-            throw new BadRequestException('目标备份不存在');
+        const normalizedBackupId = typeof backupId === 'string' ? backupId.trim() : '';
+        try {
+            const record = await this.findBackupRecord(normalizedBackupId);
+            if (!record) {
+                throw new BadRequestException('目标备份不存在');
+            }
+            if (!record.filePath) {
+                throw new BadRequestException('目标备份文件不存在，请检查备份卷或目录配置');
+            }
+            const fileStat = await fsPromises.stat(record.filePath).catch(() => null);
+            if (!fileStat?.isFile()) {
+                throw new BadRequestException('备份文件不存在');
+            }
+            const format = await resolveBackupRecordFormat(record);
+            await this.recordDatabaseAudit('gm.database.backup.download', actor, normalizedBackupId || null, undefined, {
+                backupId: normalizedBackupId,
+                fileName: record.fileName,
+                sizeBytes: fileStat.size,
+                checksumSha256: record.checksumSha256 ?? null,
+                format,
+                scope: record.scope,
+            }, true, null);
+            return {
+                filePath: record.filePath,
+                fileName: record.fileName,
+                format,
+            };
+        } catch (error) {
+            await this.recordDatabaseAudit('gm.database.backup.download', actor, normalizedBackupId || null, undefined, {
+                backupId: normalizedBackupId,
+            }, false, error instanceof Error ? error.message : String(error));
+            throw error;
         }
-        if (!record.filePath) {
-            throw new BadRequestException('目标备份文件不存在，请检查备份卷或目录配置');
-        }
-        return {
-            filePath: record.filePath,
-            fileName: record.fileName,
-            format: await resolveBackupRecordFormat(record),
-        };
     }
     /**
  * uploadDatabaseBackup：上传本地备份文件并登记为可恢复备份。
@@ -430,6 +460,7 @@ export class NativeGmAdminService {
     async uploadDatabaseBackup(input) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+        const actor = input?.actor as GmActorContext | undefined;
         this.assertNoRunningDatabaseJob();
         if (!input?.stream || typeof input.stream.pipe !== 'function') {
             throw new BadRequestException('缺少数据库备份上传内容');
@@ -485,6 +516,16 @@ export class NativeGmAdminService {
                 format: uploaded.format,
             };
             await this.persistBackupMetadata(record);
+            await this.recordDatabaseAudit('gm.database.upload', actor, record.id, undefined, {
+                backupId: record.id,
+                fileName: record.fileName,
+                originalFileName,
+                sizeBytes: record.sizeBytes,
+                checksumSha256: record.checksumSha256,
+                tablesCount: record.tablesCount,
+                scope: record.scope,
+                format: record.format,
+            }, true, null);
             return {
                 backup: {
                     id: record.id,
@@ -505,6 +546,11 @@ export class NativeGmAdminService {
             await fsPromises.rm(uploadFilePath, { force: true }).catch(() => undefined);
             await fsPromises.rm(rawUploadTempPath, { force: true }).catch(() => undefined);
             await fsPromises.rm(finalFilePath, { force: true }).catch(() => undefined);
+            await this.recordDatabaseAudit('gm.database.upload', actor, backupId, undefined, {
+                backupId,
+                originalFileName,
+                sizeBytes,
+            }, false, error instanceof Error ? error.message : String(error));
             throw error;
         }
     }
@@ -514,10 +560,19 @@ export class NativeGmAdminService {
  * @returns 无返回值，直接更新triggerDatabaseRestore相关状态。
  */
 
-    async triggerDatabaseRestore(backupId) {
+    async triggerDatabaseRestore(backupId, actor?: GmActorContext, confirmation?: GmHighRiskConfirmationBody) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        const record = await this.findBackupRecord(backupId);
+        assertGmHighRiskOperationAllowed(actor ?? buildSystemGmActor(), confirmation, {
+            scope: GM_HIGH_RISK_CONFIRMATION_CONTRACT.scopes.disasterRecovery,
+            confirmationPhrase: GM_HIGH_RISK_CONFIRMATION_CONTRACT.phrases.databaseRestore,
+            operationName: '数据库恢复',
+        });
+        const normalizedBackupId = typeof backupId === 'string' ? backupId.trim() : '';
+        if (NATIVE_GM_RESTORE_CONTRACT.requiresMaintenance && !this.isRuntimeMaintenanceActive()) {
+            throw new BadRequestException('数据库恢复必须先进入维护态');
+        }
+        const record = await this.findBackupRecord(normalizedBackupId);
         if (!record) {
             throw new BadRequestException('目标备份不存在');
         }
@@ -535,6 +590,7 @@ export class NativeGmAdminService {
         if (!recordedChecksum) {
             throw new BadRequestException('目标备份缺少 checksumSha256，无法校验 PostgreSQL 数据库归档完整性');
         }
+        assertRestoreConfirmationMatchesBackup(normalizedBackupId, confirmation, recordedChecksum);
         const actualChecksum = await computeDatabaseBackupFileSha256(record.filePath);
         if (actualChecksum !== recordedChecksum) {
             throw new BadRequestException('目标备份 checksumSha256 校验失败，PostgreSQL 数据库归档可能已损坏或被篡改');
@@ -546,14 +602,21 @@ export class NativeGmAdminService {
         const checkpointBackupId = buildBackupId();
 
         const job = this.startDatabaseJob({
-            id: `restore:${backupId}:${Date.now().toString(36)}`,
+            id: `restore:${normalizedBackupId}:${Date.now().toString(36)}`,
             type: 'restore',
             status: 'running',
             startedAt,
-            sourceBackupId: backupId,
+            sourceBackupId: normalizedBackupId,
             checkpointBackupId,
             phase: RESTORE_JOB_PHASE.VALIDATING,
         });
+        void this.recordDatabaseAudit('gm.database.restore.start', actor, normalizedBackupId, undefined, {
+            jobId: job.id,
+            sourceBackupId: normalizedBackupId,
+            checkpointBackupId,
+            checksumSha256: recordedChecksum,
+            fileName: record.fileName,
+        }, true, null);
         void this.runDatabaseJob(job, async () => {
             this.updateDatabaseJobPhase(job, RESTORE_JOB_PHASE.CREATING_PRE_IMPORT_BACKUP);
             await this.createDatabaseBackupSnapshot({
@@ -564,30 +627,47 @@ export class NativeGmAdminService {
             });
             this.appendDatabaseJobLog(job, `导入前备份已生成：${checkpointBackupId}`);
             process.env.SERVER_RUNTIME_RESTORE_ACTIVE = '1';
-            this.updateDatabaseJobPhase(job, RESTORE_JOB_PHASE.PREPARING_RUNTIME);
-            await this.databaseRestoreCoordinator.prepareForRestore();
-            this.updateDatabaseJobPhase(job, RESTORE_JOB_PHASE.APPLYING_DOCUMENTS);
-            const databaseUrl = resolveServerDatabaseUrl();
-            if (!databaseUrl.trim()) {
-                throw new BadRequestException('当前未提供 SERVER_DATABASE_URL/DATABASE_URL，无法执行 PostgreSQL 数据库恢复');
+            try {
+                this.updateDatabaseJobPhase(job, RESTORE_JOB_PHASE.PREPARING_RUNTIME);
+                await this.databaseRestoreCoordinator.prepareForRestore();
+                this.updateDatabaseJobPhase(job, RESTORE_JOB_PHASE.APPLYING_DOCUMENTS);
+                const databaseUrl = resolveServerDatabaseUrl();
+                if (!databaseUrl.trim()) {
+                    throw new BadRequestException('当前未提供 SERVER_DATABASE_URL/DATABASE_URL，无法执行 PostgreSQL 数据库恢复');
+                }
+                await restorePostgresCustomDump(record.filePath, databaseUrl);
+                if (this.pool) {
+                    await restorePreservedGmAuthRecord(this.pool, preservedGmAuthRecord);
+                    await ensureNativeGmAdminTables(this.pool);
+                }
+                this.appendDatabaseJobLog(job, preservedGmAuthRecord
+                    ? '数据库恢复 SQL 已应用，当前 GM 密码记录已保留，GM 元表已重建并回填备份列表'
+                    : '数据库恢复 SQL 已应用，GM 元表已重建并回填备份列表');
+                job.appliedAt = new Date().toISOString();
+                this.updateDatabaseJobPhase(job, RESTORE_JOB_PHASE.COMMITTED);
+                job.status = 'completed';
+                job.finishedAt = new Date().toISOString();
+                this.lastDatabaseJob = { ...job };
+                this.currentDatabaseJob = null;
+                await this.persistDatabaseJobState().catch(() => undefined);
+                await this.recordDatabaseAudit('gm.database.restore.complete', actor, normalizedBackupId, undefined, {
+                    jobId: job.id,
+                    sourceBackupId: normalizedBackupId,
+                    checkpointBackupId,
+                    appliedAt: job.appliedAt,
+                }, true, null);
+                this.logger.log('数据库恢复已完成，即将发送 SIGTERM 触发优雅重启，确保所有子系统从干净状态初始化');
+                setTimeout(() => process.kill(process.pid, 'SIGTERM'), 500);
+            } catch (error) {
+                delete process.env.SERVER_RUNTIME_RESTORE_ACTIVE;
+                await this.recordDatabaseAudit('gm.database.restore.complete', actor, normalizedBackupId, undefined, {
+                    jobId: job.id,
+                    sourceBackupId: normalizedBackupId,
+                    checkpointBackupId,
+                    phase: job.phase,
+                }, false, error instanceof Error ? error.message : String(error));
+                throw error;
             }
-            await restorePostgresCustomDump(record.filePath, databaseUrl);
-            if (this.pool) {
-                await restorePreservedGmAuthRecord(this.pool, preservedGmAuthRecord);
-                await ensureNativeGmAdminTables(this.pool);
-            }
-            this.appendDatabaseJobLog(job, preservedGmAuthRecord
-                ? '数据库恢复 SQL 已应用，当前 GM 密码记录已保留，GM 元表已重建并回填备份列表'
-                : '数据库恢复 SQL 已应用，GM 元表已重建并回填备份列表');
-            job.appliedAt = new Date().toISOString();
-            this.updateDatabaseJobPhase(job, RESTORE_JOB_PHASE.COMMITTED);
-            job.status = 'completed';
-            job.finishedAt = new Date().toISOString();
-            this.lastDatabaseJob = { ...job };
-            this.currentDatabaseJob = null;
-            await this.persistDatabaseJobState().catch(() => undefined);
-            this.logger.log('数据库恢复已完成，即将发送 SIGTERM 触发优雅重启，确保所有子系统从干净状态初始化');
-            setTimeout(() => process.kill(process.pid, 'SIGTERM'), 500);
         });
         return {
             job,
@@ -1347,7 +1427,12 @@ export class NativeGmAdminService {
         };
     }
 
-    async cleanupDatabaseTable(target: string, mode: 'older_than' | 'all' = 'older_than', olderThanDays = 7) {
+    async cleanupDatabaseTable(target: string, mode: 'older_than' | 'all' = 'older_than', olderThanDays = 7, actor?: GmActorContext, confirmation?: GmHighRiskConfirmationBody) {
+        assertGmHighRiskOperationAllowed(actor ?? buildSystemGmActor(), confirmation, {
+            scope: GM_HIGH_RISK_CONFIRMATION_CONTRACT.scopes.disasterRecovery,
+            confirmationPhrase: GM_HIGH_RISK_CONFIRMATION_CONTRACT.phrases.databaseCleanup,
+            operationName: '数据库清理',
+        });
         if (!this.pool || !this.persistenceEnabled) {
             throw new BadRequestException('数据库连接不可用');
         }
@@ -1357,7 +1442,23 @@ export class NativeGmAdminService {
         }
         const columns = await loadPublicRegularTableColumns(this.pool, tableName);
         if (DATABASE_CLEANUP_SPECIALIZED_TABLES.has(tableName)) {
-            return cleanupSpecializedFlushLedgerTable(this.pool, tableName, mode);
+            try {
+                const result = await cleanupSpecializedFlushLedgerTable(this.pool, tableName, mode);
+                await this.recordDatabaseAudit('gm.database.cleanup', actor, tableName, undefined, {
+                    target: tableName,
+                    mode,
+                    deletedRows: result.deletedRows,
+                    specialized: true,
+                }, true, null);
+                return result;
+            } catch (error) {
+                await this.recordDatabaseAudit('gm.database.cleanup', actor, tableName, undefined, {
+                    target: tableName,
+                    mode,
+                    specialized: true,
+                }, false, error instanceof Error ? error.message : String(error));
+                throw error;
+            }
         }
         const cleanupBlockedReason = getDatabaseCleanupBlockedReason(tableName, columns);
         if (cleanupBlockedReason) {
@@ -1369,6 +1470,11 @@ export class NativeGmAdminService {
             const deletedRows = Number(countResult.rows[0]?.row_count ?? 0);
             await this.pool.query(`TRUNCATE TABLE ${quotedTableName}`);
             await this.pool.query(`ANALYZE ${quotedTableName}`);
+            await this.recordDatabaseAudit('gm.database.cleanup', actor, tableName, undefined, {
+                target: tableName,
+                mode,
+                deletedRows,
+            }, true, null);
             return {
                 target: tableName,
                 mode,
@@ -1390,6 +1496,13 @@ export class NativeGmAdminService {
         );
         const deletedRows = result.rowCount ?? 0;
         await this.pool.query(`ANALYZE ${quotedTableName}`);
+        await this.recordDatabaseAudit('gm.database.cleanup', actor, tableName, undefined, {
+            target: tableName,
+            mode,
+            olderThanDays,
+            deletedRows,
+            cleanupTimeColumn: cleanupTimeColumn.columnName,
+        }, true, null);
         return {
             target: tableName,
             mode,
@@ -1397,6 +1510,29 @@ export class NativeGmAdminService {
             message: `已清理 ${tableName} 中 ${olderThanDays} 天前的 ${deletedRows} 条记录`,
         };
     }
+
+    private async recordDatabaseAudit(
+        op: string,
+        actor: GmActorContext | undefined,
+        targetId: string | null,
+        before: unknown,
+        after: unknown,
+        success: boolean,
+        errorMessage: string | null,
+    ): Promise<void> {
+        if (!this.gmAuditLogPersistenceService || !actor) return;
+        await this.gmAuditLogPersistenceService.recordEntry({
+            op,
+            targetType: 'database',
+            targetId,
+            actor,
+            before,
+            after,
+            success,
+            errorMessage,
+        }).catch(() => undefined);
+    }
+
 }
 
 async function cleanupSpecializedFlushLedgerTable(pool: Pool, tableName: string, mode: 'older_than' | 'all') {
@@ -1455,6 +1591,39 @@ async function cleanupSpecializedFlushLedgerTable(pool: Pool, tableName: string,
     } finally {
         client.release();
     }
+}
+
+function assertRestoreConfirmationMatchesBackup(
+    backupId: string,
+    confirmation: GmHighRiskConfirmationBody | undefined,
+    recordedChecksum: string,
+): void {
+    if (!backupId) {
+        throw new BadRequestException('数据库恢复请求体缺少 backupId');
+    }
+    const confirmedBackupId = typeof confirmation?.backupId === 'string' ? confirmation.backupId.trim() : '';
+    if (confirmedBackupId !== backupId) {
+        throw new BadRequestException('数据库恢复需要在请求体中提交 backupId，并与目标备份精确一致');
+    }
+    const expectedChecksum = pickRestoreExpectedChecksum(confirmation);
+    if (!expectedChecksum || expectedChecksum !== recordedChecksum) {
+        throw new BadRequestException('数据库恢复需要在请求体中提交 expectedChecksum，并与目标备份 checksumSha256 精确一致');
+    }
+}
+
+function pickRestoreExpectedChecksum(confirmation: GmHighRiskConfirmationBody | undefined): string {
+    const raw = typeof confirmation?.expectedChecksum === 'string'
+        ? confirmation.expectedChecksum
+        : typeof confirmation?.expectedChecksumSha256 === 'string'
+            ? confirmation.expectedChecksumSha256
+            : typeof confirmation?.checksumSha256 === 'string'
+                ? confirmation.checksumSha256
+                : '';
+    return raw.trim();
+}
+
+function buildSystemGmActor(): GmActorContext {
+    return { tokenRev: null, ip: null, userAgent: null, receivedAt: Date.now(), scopes: [] };
 }
 
 function formatPgBytes(bytes: number): string {

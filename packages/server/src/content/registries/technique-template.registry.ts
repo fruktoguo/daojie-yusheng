@@ -48,18 +48,26 @@ export class TechniqueTemplateRegistry {
 
   loadAll(sharedTechniqueBuffs = new Map<string, Record<string, unknown>>()): void {
     this.techniqueTemplates.clear();
+    const errors: string[] = [];
     const techniqueFiles = collectJsonFiles(resolveProjectPath('packages', 'server', 'data', 'content', 'techniques'));
     for (const file of techniqueFiles) {
       const parsed = JSON.parse(fs.readFileSync(file, 'utf-8'));
       if (!Array.isArray(parsed)) {
+        errors.push(`${file}: 功法配置文件必须是数组`);
         continue;
       }
-      for (const entry of parsed) {
+      parsed.forEach((entry, index) => {
         const normalized = normalizeTechniqueTemplate(entry, sharedTechniqueBuffs);
-        if (normalized) {
-          this.techniqueTemplates.set(normalized.id, normalized as TechniqueTemplateRecord);
+        if (!normalized) {
+          errors.push(`${file}[${index}]: 功法模板缺少有效 id/name/grade 或字段非法`);
+          return;
         }
-      }
+        this.techniqueTemplates.set(normalized.id, normalized as TechniqueTemplateRecord);
+      });
+    }
+    if (errors.length > 0) {
+      this.techniqueTemplates.clear();
+      throw new Error(`功法模板加载失败:\n${errors.join('\n')}`);
     }
     freezeTemplateMap(this.techniqueTemplates);
   }

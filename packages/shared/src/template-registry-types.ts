@@ -21,3 +21,19 @@ export interface TemplateRegistry<TId extends string, TTemplate, TInstance> {
   /** 调试与冷路径枚举入口；禁止在 tick 热路径使用。 */
   listIds(): readonly TId[];
 }
+
+
+/** 旧物品模板 ID 到当前模板 ID 的统一只读映射，供服务端、客户端和迁移工具共同引用。 */
+export const ITEM_TEMPLATE_ALIASES = Object.freeze({
+  'equip.copper_array_plate': 'formation_disk.mortal',
+  'fate_stone.qizhen_crossing': 'fate_stone',
+  'fate_stone.yunlai_town': 'fate_stone',
+} as const);
+
+export type ItemTemplateAliasId = keyof typeof ITEM_TEMPLATE_ALIASES;
+
+/** 解析物品模板 ID，避免客户端/服务端各自维护 alias 集合。 */
+export function resolveItemTemplateAliasId(itemId: unknown): string {
+  const normalized = String(itemId ?? '').trim();
+  return ITEM_TEMPLATE_ALIASES[normalized as ItemTemplateAliasId] ?? normalized;
+}
