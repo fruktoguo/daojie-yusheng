@@ -30,6 +30,14 @@ async function main() {
       fengShui: { elementVector: { earth: 10 }, stability: 6 },
     },
     {
+      id: "wide_stone_wall",
+      name: "宽石墙",
+      placement: { layer: "structure", footprint: [{ dx: 0, dy: 0 }, { dx: 1, dy: 0 }] },
+      topology: { blocksMove: true, blocksSight: true, roomBoundary: 100 },
+      visual: { tileType: TileType.Wall },
+      fengShui: { elementVector: { earth: 16 }, stability: 8 },
+    },
+    {
       id: "wooden_door",
       name: "木门",
       placement: { layer: "structure", footprint: [{ dx: 0, dy: 0 }] },
@@ -105,7 +113,7 @@ async function main() {
     },
   ]);
 
-  assert.equal(catalog.defs.length, 8);
+  assert.equal(catalog.defs.length, 9);
   assert.ok(catalog.traitIdsByKey.get("facility.alchemy.heat_source") > 0);
   assert.ok(catalog.traitIdsByKey.get("comfort.rest") > 0);
   assert.ok(catalog.traitIdsByKey.get("facility.scripture_platform") > 0);
@@ -410,6 +418,76 @@ async function main() {
   });
   assert.equal(protectedHydrateResult.skippedProtectedPlacementCount, 1);
   assert.equal(protectedPlacementInstance.buildingById.has("building:protected:portal"), false);
+
+  const protectedFootprintPlacementInstance = new MapInstanceRuntime({
+    instanceId: "real:building_room_runtime_protected_footprint_smoke",
+    template: templateRepository.getOrThrow("building_room_runtime_smoke"),
+    monsterSpawns: [],
+    kind: "public",
+    persistent: true,
+    createdAt: Date.now(),
+    displayName: "建筑保护点位 footprint 烟测",
+    linePreset: "real",
+    lineIndex: 1,
+    instanceOrigin: "smoke",
+    defaultEntry: true,
+    canDamageTile: true,
+  });
+  protectedFootprintPlacementInstance.configureBuildingRuntime(catalog, rules);
+  protectedFootprintPlacementInstance.getPortalAtTile = (x, y) => (x === 2 && y === 1 ? { id: "portal:building:footprint", x, y } : null);
+  const protectedFootprintPlaceResult = protectedFootprintPlacementInstance.placeBuildingInstance({ defId: "wide_stone_wall", x: 1, y: 1 });
+  assert.equal(protectedFootprintPlaceResult.ok, false);
+  assert.equal(protectedFootprintPlaceResult.reason, "protected_placement_portal");
+  assert.equal(protectedFootprintPlaceResult.x, 2);
+  assert.equal(protectedFootprintPlaceResult.y, 1);
+
+  const protectedFootprintHydrateInstance = new MapInstanceRuntime({
+    instanceId: "real:building_room_runtime_protected_footprint_hydrate_smoke",
+    template: templateRepository.getOrThrow("building_room_runtime_smoke"),
+    monsterSpawns: [],
+    kind: "public",
+    persistent: true,
+    createdAt: Date.now(),
+    displayName: "建筑保护点位 footprint 恢复烟测",
+    linePreset: "real",
+    lineIndex: 1,
+    instanceOrigin: "smoke",
+    defaultEntry: true,
+    canDamageTile: true,
+  });
+  protectedFootprintHydrateInstance.configureBuildingRuntime(catalog, rules);
+  protectedFootprintHydrateInstance.getPortalAtTile = (x, y) => (x === 2 && y === 1 ? { id: "portal:building:footprint:hydrate", x, y } : null);
+  const anchorTileIndex = protectedFootprintHydrateInstance.toTileIndex(1, 1);
+  const portalTileIndex = protectedFootprintHydrateInstance.toTileIndex(2, 1);
+  const anchorPreviousTileType = protectedFootprintHydrateInstance.tilePlane.getTileType(anchorTileIndex);
+  const portalPreviousTileType = protectedFootprintHydrateInstance.tilePlane.getTileType(portalTileIndex);
+  protectedFootprintHydrateInstance.applyBuildingVisualTileType(anchorTileIndex, catalog.defById.get("wide_stone_wall"));
+  protectedFootprintHydrateInstance.applyBuildingVisualTileType(portalTileIndex, catalog.defById.get("wide_stone_wall"));
+  assert.equal(protectedFootprintHydrateInstance.tilePlane.getTileType(portalTileIndex), TileType.Wall);
+  const protectedFootprintHydrateResult = protectedFootprintHydrateInstance.hydrateBuildingRoomFengShuiState({
+    buildings: [{
+      id: "building:protected:footprint:portal",
+      defId: "wide_stone_wall",
+      x: 1,
+      y: 1,
+      state: "active",
+      hp: 100,
+      maxHp: 100,
+      cells: [
+        { tileIndex: anchorTileIndex, x: 1, y: 1, previousTileType: anchorPreviousTileType },
+        { tileIndex: portalTileIndex, x: 2, y: 1, previousTileType: portalPreviousTileType },
+      ],
+    }],
+    rooms: [],
+    roomCells: [],
+    fengShui: [],
+  });
+  assert.equal(protectedFootprintHydrateResult.skippedProtectedPlacementCount, 1);
+  assert.equal(protectedFootprintHydrateResult.restoredSkippedBuildingTileCellCount, 2);
+  assert.equal(protectedFootprintHydrateInstance.buildingById.has("building:protected:footprint:portal"), false);
+  assert.equal(protectedFootprintHydrateInstance.tilePlane.getTileType(anchorTileIndex), anchorPreviousTileType);
+  assert.equal(protectedFootprintHydrateInstance.tilePlane.getTileType(portalTileIndex), portalPreviousTileType);
+  assert.equal(protectedFootprintHydrateInstance.buildRuntimeTilePersistenceEntries().length, 0);
   const recoveredDamagedWall = recoveredInstance.buildBuildingPersistenceEntries()
     .find((entry) => entry.defId === "stone_wall" && entry.x === 0 && entry.y === 1);
   assert.ok(recoveredDamagedWall);

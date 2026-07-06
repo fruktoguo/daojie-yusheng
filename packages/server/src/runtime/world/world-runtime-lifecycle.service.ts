@@ -34,23 +34,35 @@ function logOfflineRestoreMissingInstance(deps, instanceId, playerId) {
 async function persistBuildingRoomStateAfterUnknownDefPrune(deps, domainPersistenceService, instanceId, instance, hydrateResult) {
     const skippedCount = Math.max(0, Math.trunc(Number(hydrateResult?.skippedUnknownDefCount) || 0));
     const skippedProtectedPlacementCount = Math.max(0, Math.trunc(Number(hydrateResult?.skippedProtectedPlacementCount) || 0));
-    if ((skippedCount <= 0 && skippedProtectedPlacementCount <= 0) || typeof domainPersistenceService?.saveBuildingRoomFengShuiState !== 'function') {
+    const restoredSkippedBuildingTileCellCount = Math.max(0, Math.trunc(Number(hydrateResult?.restoredSkippedBuildingTileCellCount) || 0));
+    if (skippedCount <= 0 && skippedProtectedPlacementCount <= 0 && restoredSkippedBuildingTileCellCount <= 0) {
         return;
     }
-    const state = typeof instance?.buildBuildingRoomFengShuiPersistenceState === 'function'
-        ? instance.buildBuildingRoomFengShuiPersistenceState()
-        : {
-            buildings: typeof instance?.buildBuildingPersistenceEntries === 'function' ? instance.buildBuildingPersistenceEntries() : [],
-            rooms: typeof instance?.listRoomSummaries === 'function' ? instance.listRoomSummaries() : [],
-            roomCells: [],
-            fengShui: [],
-    };
-    await domainPersistenceService.saveBuildingRoomFengShuiState(instanceId, state);
+    if (typeof domainPersistenceService?.saveBuildingRoomFengShuiState === 'function') {
+        const state = typeof instance?.buildBuildingRoomFengShuiPersistenceState === 'function'
+            ? instance.buildBuildingRoomFengShuiPersistenceState()
+            : {
+                buildings: typeof instance?.buildBuildingPersistenceEntries === 'function' ? instance.buildBuildingPersistenceEntries() : [],
+                rooms: typeof instance?.listRoomSummaries === 'function' ? instance.listRoomSummaries() : [],
+                roomCells: [],
+                fengShui: [],
+        };
+        await domainPersistenceService.saveBuildingRoomFengShuiState(instanceId, state);
+    }
+    if (restoredSkippedBuildingTileCellCount > 0 && typeof domainPersistenceService?.replaceRuntimeTileCells === 'function') {
+        await domainPersistenceService.replaceRuntimeTileCells(
+            instanceId,
+            typeof instance?.buildRuntimeTilePersistenceEntries === 'function' ? instance.buildRuntimeTilePersistenceEntries() : [],
+        );
+    }
     if (skippedCount > 0) {
         deps.logger?.warn?.(`启动清理了 ${skippedCount} 个未知建筑定义实例：${instanceId}`);
     }
     if (skippedProtectedPlacementCount > 0) {
         deps.logger?.warn?.(`启动清理了 ${skippedProtectedPlacementCount} 个违规保护点位建筑：${instanceId}`);
+    }
+    if (restoredSkippedBuildingTileCellCount > 0) {
+        deps.logger?.warn?.(`启动恢复了 ${restoredSkippedBuildingTileCellCount} 个违规建筑占用地块：${instanceId}`);
     }
 }
 

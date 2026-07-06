@@ -1260,6 +1260,10 @@ class MapInstanceRuntime {
             if (cellIndex < 0) {
                 return { ok: false, reason: 'out_of_bounds', x: cellX, y: cellY };
             }
+            const cellProtectedConflict = findProtectedPlacementConflict(this, [{ x: cellX, y: cellY }]);
+            if (cellProtectedConflict.ok !== true) {
+                return { ok: false, reason: cellProtectedConflict.reason, x: cellProtectedConflict.x, y: cellProtectedConflict.y };
+            }
             if (this.occupancy[cellIndex] !== INVALID_OCCUPANCY && input?.ignoreOccupancy !== true) {
                 return { ok: false, reason: 'occupied', x: cellX, y: cellY };
             }
@@ -2136,6 +2140,7 @@ class MapInstanceRuntime {
         this.buildingPreviousTileTypeById = new Map();
         let skippedUnknownDefCount = 0;
         let skippedProtectedPlacementCount = 0;
+        let restoredSkippedBuildingTileCellCount = 0;
         for (const entry of buildings) {
             const id = normalizeBuildingId(entry?.id ?? entry?.buildingId);
             const defId = normalizeBuildingId(entry?.defId);
@@ -2143,8 +2148,15 @@ class MapInstanceRuntime {
                 continue;
             }
             const compiled = this.buildingCatalog?.defById?.get?.(defId);
+            const persistedLocation = {
+                x: Math.trunc(Number(entry?.x) || 0),
+                y: Math.trunc(Number(entry?.y) || 0),
+                rotation: normalizeBuildingRotation(entry?.rotation),
+            };
             if (this.buildingCatalog?.defById && !compiled) {
                 skippedUnknownDefCount += 1;
+                const skippedCells = resolvePersistedBuildingCells(this, persistedLocation, entry?.cells, null);
+                restoredSkippedBuildingTileCellCount += restoreSkippedPersistedBuildingTileCells(this, entry?.cells, skippedCells);
                 continue;
             }
             const defHandle = Math.max(0, Math.trunc(Number(entry?.defHandle) || compiled?.handle || 0));
@@ -2153,9 +2165,9 @@ class MapInstanceRuntime {
                 defId,
                 defHandle,
                 instanceId: this.meta.instanceId,
-                x: Math.trunc(Number(entry?.x) || 0),
-                y: Math.trunc(Number(entry?.y) || 0),
-                rotation: normalizeBuildingRotation(entry?.rotation),
+                x: persistedLocation.x,
+                y: persistedLocation.y,
+                rotation: persistedLocation.rotation,
                 ownerPlayerId: typeof entry?.ownerPlayerId === 'string' && entry.ownerPlayerId.trim() ? entry.ownerPlayerId.trim() : null,
                 ownerSectId: typeof entry?.ownerSectId === 'string' && entry.ownerSectId.trim() ? entry.ownerSectId.trim() : null,
                 roomId: typeof entry?.roomId === 'string' && entry.roomId.trim() ? entry.roomId.trim() : null,
@@ -2182,13 +2194,17 @@ class MapInstanceRuntime {
                 scriptureRecordedAtTick: Number.isFinite(Number(entry?.scriptureRecordedAtTick)) ? Math.max(0, Math.trunc(Number(entry.scriptureRecordedAtTick))) : undefined,
                 scriptureUpdatedAtTick: Number.isFinite(Number(entry?.scriptureUpdatedAtTick)) ? Math.max(0, Math.trunc(Number(entry.scriptureUpdatedAtTick))) : undefined,
             };
-            const anchorConflict = findProtectedPlacementConflict(this, [{ x: building.x, y: building.y }]);
-            if (anchorConflict.ok !== true) {
+            const cells = resolvePersistedBuildingCells(this, building, entry?.cells, compiled);
+            const placementConflict = findProtectedPlacementConflict(
+                this,
+                iterateBuildingProtectedPlacementPoints(this, cells, building.x, building.y),
+            );
+            if (placementConflict.ok !== true) {
                 skippedProtectedPlacementCount += 1;
+                restoredSkippedBuildingTileCellCount += restoreSkippedPersistedBuildingTileCells(this, entry?.cells, cells);
                 continue;
             }
             this.buildingById.set(id, building);
-            const cells = resolvePersistedBuildingCells(this, building, entry?.cells, compiled);
             this.buildingCellsById.set(id, cells);
             const previousTileTypes = resolvePersistedBuildingPreviousTileTypes(this, entry?.cells);
             if (previousTileTypes.length > 0) {
@@ -2205,11 +2221,16 @@ class MapInstanceRuntime {
         if (skippedUnknownDefCount > 0 || skippedProtectedPlacementCount > 0) {
             this.worldRevision += 1;
             this.persistentRevision += 1;
-            this.markPersistenceDirtyDomains(['building', 'room', 'fengshui']);
+            this.markPersistenceDirtyDomains([
+                'building',
+                'room',
+                'fengshui',
+                ...(restoredSkippedBuildingTileCellCount > 0 ? ['tile_cell'] : []),
+            ]);
         }
         if (this.buildingCatalog?.defByHandle) {
             this.rebuildBuildingRoomFengShuiState();
-            return { buildingCount: this.buildingById.size, rebuilt: true, skippedUnknownDefCount, skippedProtectedPlacementCount };
+            return { buildingCount: this.buildingById.size, rebuilt: true, skippedUnknownDefCount, skippedProtectedPlacementCount, restoredSkippedBuildingTileCellCount };
         }
         this.roomsById = new Map();
         this.roomIdsByHandle = [];
@@ -2254,7 +2275,7 @@ class MapInstanceRuntime {
                 this.fengShuiByRoomId.set(roomId, snapshot);
             }
         }
-        return { buildingCount: this.buildingById.size, rebuilt: false, skippedUnknownDefCount, skippedProtectedPlacementCount };
+        return { buildingCount: this.buildingById.size, rebuilt: false, skippedUnknownDefCount, skippedProtectedPlacementCount, restoredSkippedBuildingTileCellCount };
     }
     /** setPlayerMoveSpeed：设置玩家移动速度。 */
     setPlayerMoveSpeed(playerId, moveSpeed) {
@@ -8769,6 +8790,50 @@ function resolvePersistedBuildingCells(instance, building, persistedCells, compi
     }
     return Array.from(new Set(cells));
 }
+function* iterateBuildingProtectedPlacementPoints(instance, cellIndices, anchorX, anchorY) {
+    const seen = new Set();
+    const normalizedAnchorX = Math.trunc(Number(anchorX));
+    const normalizedAnchorY = Math.trunc(Number(anchorY));
+    if (Number.isFinite(normalizedAnchorX) && Number.isFinite(normalizedAnchorY)) {
+        seen.add(`${normalizedAnchorX}:${normalizedAnchorY}`);
+        yield { x: normalizedAnchorX, y: normalizedAnchorY };
+    }
+    for (const cellIndexInput of Array.isArray(cellIndices) ? cellIndices : []) {
+        const cellIndex = Math.trunc(Number(cellIndexInput));
+        if (!Number.isFinite(cellIndex) || cellIndex < 0 || cellIndex >= instance.tilePlane.getCellCount()) {
+            continue;
+        }
+        const x = instance.tilePlane.getX(cellIndex);
+        const y = instance.tilePlane.getY(cellIndex);
+        const key = `${x}:${y}`;
+        if (seen.has(key)) {
+            continue;
+        }
+        seen.add(key);
+        yield { x, y };
+    }
+}
+function restoreSkippedPersistedBuildingTileCells(instance, persistedCells, cellIndices) {
+    const previousStateByCell = new Map(resolvePersistedBuildingPreviousTileTypes(instance, persistedCells));
+    let restoredCount = 0;
+    const restoredCells = new Set();
+    for (const cellIndexInput of Array.isArray(cellIndices) ? cellIndices : []) {
+        const cellIndex = Math.trunc(Number(cellIndexInput));
+        if (!Number.isFinite(cellIndex) || cellIndex < 0 || cellIndex >= instance.tilePlane.getCellCount() || restoredCells.has(cellIndex)) {
+            continue;
+        }
+        restoredCells.add(cellIndex);
+        const previousState = previousStateByCell.get(cellIndex);
+        const changed = previousState
+            ? instance.restoreBuildingPreviousTileState(cellIndex, previousState)
+            : instance.applyDefaultTileLayerFallback(cellIndex);
+        if (changed) {
+            restoredCount += 1;
+            instance.markStaticTileSyncDirtyByIndex?.(cellIndex, { sightBlockingChanged: true });
+        }
+    }
+    return restoredCount;
+}
 function resolvePersistedBuildingPreviousTileTypes(instance, persistedCells) {
     const previousTileTypes = [];
     for (const cell of Array.isArray(persistedCells) ? persistedCells : []) {
@@ -8784,16 +8849,39 @@ function resolvePersistedBuildingPreviousTileTypes(instance, persistedCells) {
             ? Math.trunc(Number(cell.tileIndex))
             : instance.toTileIndex(cell?.x, cell?.y);
         if (tileIndex >= 0) {
-            previousTileTypes.push([tileIndex, {
-                tileType: previousTileType,
-                terrainType: normalizeOptionalLayerString(cell?.previousTerrainType ?? cell?.previous_terrain_type),
-                surfaceType: normalizeNullableLayerString(cell?.previousSurfaceType ?? cell?.previous_surface_type),
-                structureType: normalizeNullableLayerString(cell?.previousStructureType ?? cell?.previous_structure_type),
-                interactableKinds: normalizeInteractableKindList(cell?.previousInteractableKinds ?? cell?.previous_interactable_kinds),
-            }]);
+            const previousState: Record<string, unknown> = { tileType: previousTileType };
+            const terrainValue = readPersistedCellProperty(cell, 'previousTerrainType', 'previous_terrain_type');
+            if (terrainValue.exists) {
+                const terrainType = normalizeOptionalLayerString(terrainValue.value);
+                if (terrainType) {
+                    previousState.terrainType = terrainType;
+                }
+            }
+            const surfaceValue = readPersistedCellProperty(cell, 'previousSurfaceType', 'previous_surface_type');
+            if (surfaceValue.exists) {
+                previousState.surfaceType = normalizeNullableLayerString(surfaceValue.value);
+            }
+            const structureValue = readPersistedCellProperty(cell, 'previousStructureType', 'previous_structure_type');
+            if (structureValue.exists) {
+                previousState.structureType = normalizeNullableLayerString(structureValue.value);
+            }
+            const interactableValue = readPersistedCellProperty(cell, 'previousInteractableKinds', 'previous_interactable_kinds');
+            if (interactableValue.exists) {
+                previousState.interactableKinds = normalizeInteractableKindList(interactableValue.value);
+            }
+            previousTileTypes.push([tileIndex, previousState]);
         }
     }
     return previousTileTypes;
+}
+function readPersistedCellProperty(cell, camelKey, snakeKey) {
+    if (cell && Object.prototype.hasOwnProperty.call(cell, camelKey)) {
+        return { exists: true, value: cell[camelKey] };
+    }
+    if (cell && Object.prototype.hasOwnProperty.call(cell, snakeKey)) {
+        return { exists: true, value: cell[snakeKey] };
+    }
+    return { exists: false, value: undefined };
 }
 function resolvePreviousBuildingTileType(previousState) {
     if (typeof previousState === 'string') {
