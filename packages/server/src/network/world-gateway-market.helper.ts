@@ -206,6 +206,7 @@ class WorldGatewayMarketHelper {
                 listingMode: payload?.listingMode,
                 buyoutPrice: payload?.buyoutPrice,
                 auctionDurationHours: payload?.auctionDurationHours,
+                operationId: payload?.operationId ?? payload?.requestId,
             });
             await this.gateway.flushMarketResult(result);
         }
@@ -243,6 +244,7 @@ class WorldGatewayMarketHelper {
                 itemId: payload?.itemId ?? '',
                 quantity: payload?.quantity,
                 unitPrice: payload?.unitPrice,
+                operationId: payload?.operationId ?? payload?.requestId,
             });
             await this.gateway.flushMarketResult(result);
         }
@@ -340,6 +342,7 @@ class WorldGatewayMarketHelper {
             const result = await this.gateway.marketRuntimeService.buyHeavenlyDaoShopItem(playerId, {
                 itemId: payload?.itemId ?? '',
                 quantity: payload?.quantity,
+                operationId: payload?.operationId ?? payload?.requestId,
             });
             await this.gateway.flushMarketResult(result);
         }

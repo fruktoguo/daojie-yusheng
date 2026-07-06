@@ -668,12 +668,16 @@ export interface WorldDeltaView {
  * sr：sr相关字段。
  */
 
-  sr: number;  
+  sr: number;
+  /** full：1 表示当前 worldDelta 是视野动态对象全量快照。 */
+  full?: 1;
+  /** reset：1 表示客户端应用前需重置动态实体、地面物和威胁箭头。 */
+  reset?: 1;
   /**
  * p：p相关字段。
  */
 
-  p?: WorldPlayerPatchView[];  
+  p?: WorldPlayerPatchView[];
   /**
  * m：m相关字段。
  */

@@ -805,6 +805,10 @@ export interface MapWorldDeltaInput {
  */
 
   resetInstanceId?: string;
+  /** full：服务端声明该帧是动态 AOI 全量快照。 */
+  full?: boolean;
+  /** reset：应用本帧前清空动态实体、地面物和威胁箭头。 */
+  reset?: boolean;
 }
 
 /** 本体增量入参。 */

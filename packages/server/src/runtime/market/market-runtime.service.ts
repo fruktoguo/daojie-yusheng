@@ -160,7 +160,8 @@ export class MarketRuntimeService {
             this.playerRuntimeService.debitWallet(playerId, HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID, totalCost);
             this.deliverItemToPlayer(playerId, item, context);
             const itemLabel = this.formatMarketItemStackLabel(item);
-            await this.commitDurableMarketMutationIfAvailable(context, playerId, 'heavenly_dao_shop_purchase', {
+            const durableCommitted = await this.commitDurableMarketMutationIfAvailable(context, playerId, 'heavenly_dao_shop_purchase', {
+                operationId: payload?.operationId ?? payload?.requestId,
                 itemId: shopItem.itemId,
                 quantity,
                 outputCount,
@@ -168,6 +169,9 @@ export class MarketRuntimeService {
                 totalCost,
                 discountPercent,
             });
+            if (this.durableOperationService?.isEnabled?.() && !durableCommitted) {
+                throw new Error('heavenly_dao_shop_purchase_durable_commit_failed');
+            }
             return this.singleStructuredMessage(playerId, 'success', 'notice.market.heavenly-dao-shop.purchased', `购买 ${itemLabel}，消耗 ${currencyName} x${totalCost}`, {
                 vars: { itemLabel, currency: currencyName, cost: totalCost },
                 pills: [{ key: 'itemLabel', style: 'target' }, { key: 'currency', style: 'target' }],
@@ -175,52 +179,109 @@ export class MarketRuntimeService {
         });
     }
     /** 可用时通过强事务服务提交玩家侧坊市 mutation，当前未启用或缺少通用接口时回退常规 flush。 */
-    async commitDurableMarketMutationIfAvailable(context, playerId, operationType, payload = undefined) {
+    async commitDurableMarketMutationIfAvailable(context, playerId, operationType, payload = undefined, options = {}) {
         const durableOperationService = this.durableOperationService;
         if (!durableOperationService?.isEnabled?.() || typeof durableOperationService.settleMarketMutation !== 'function') {
-            return;
+            return false;
         }
         const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
         const normalizedOperationType = typeof operationType === 'string' && operationType.trim()
             ? operationType.trim()
             : 'market_mutation';
         if (!normalizedPlayerId) {
-            return;
+            return false;
         }
-        const snapshot = this.playerRuntimeService.snapshot(normalizedPlayerId);
-        const runtimeOwnerId = typeof snapshot?.runtimeOwnerId === 'string' && snapshot.runtimeOwnerId.trim()
-            ? snapshot.runtimeOwnerId.trim()
+        const primarySnapshot = this.playerRuntimeService.snapshot(normalizedPlayerId);
+        const runtimeOwnerId = typeof primarySnapshot?.runtimeOwnerId === 'string' && primarySnapshot.runtimeOwnerId.trim()
+            ? primarySnapshot.runtimeOwnerId.trim()
             : '';
-        const sessionEpoch = Number.isFinite(snapshot?.sessionEpoch)
-            ? Math.max(1, Math.trunc(Number(snapshot.sessionEpoch)))
+        const sessionEpoch = Number.isFinite(primarySnapshot?.sessionEpoch)
+            ? Math.max(1, Math.trunc(Number(primarySnapshot.sessionEpoch)))
             : 0;
-        if (!snapshot?.inventory || !snapshot?.wallet || !runtimeOwnerId || sessionEpoch <= 0) {
-            return;
+        const durableOptions = options as { requirePresenceFence?: boolean; banUser?: unknown };
+        const requirePresenceFence = durableOptions.requirePresenceFence !== false;
+        if (requirePresenceFence && (!primarySnapshot?.inventory || !primarySnapshot?.wallet || !runtimeOwnerId || sessionEpoch <= 0)) {
+            return false;
         }
-        const instanceLease = await this.resolveInstanceLeaseContext(snapshot.instanceId ?? null);
-        const storage = this.storageByPlayerId.has(normalizedPlayerId)
-            ? cloneStorage(this.storageByPlayerId.get(normalizedPlayerId))
-            : null;
+        const affectedPlayerIds = new Set([normalizedPlayerId]);
+        for (const affectedPlayerId of context?.onlinePlayerSnapshots?.keys?.() ?? []) {
+            affectedPlayerIds.add(affectedPlayerId);
+        }
+        for (const affectedPlayerId of context?.dirtyStoragePlayerIds?.values?.() ?? []) {
+            affectedPlayerIds.add(affectedPlayerId);
+        }
+        const playerMutations: Array<{
+            playerId: string;
+            nextInventoryItems?: unknown[];
+            nextWalletBalances?: unknown[];
+            nextMarketStorageItems?: unknown[];
+        }> = [];
+        for (const affectedPlayerId of Array.from(affectedPlayerIds).filter((entry) => typeof entry === 'string' && entry.trim())) {
+            const snapshot = this.playerRuntimeService.snapshot(affectedPlayerId);
+            const storage = this.storageByPlayerId.has(affectedPlayerId)
+                ? cloneStorage(this.storageByPlayerId.get(affectedPlayerId))
+                : null;
+            const mutation: {
+                playerId: string;
+                nextInventoryItems?: unknown[];
+                nextWalletBalances?: unknown[];
+                nextMarketStorageItems?: unknown[];
+            } = { playerId: affectedPlayerId };
+            if (snapshot?.inventory) {
+                mutation.nextInventoryItems = cloneInventoryItems(snapshot.inventory.items ?? []);
+            }
+            if (snapshot?.wallet) {
+                mutation.nextWalletBalances = cloneWalletBalances(snapshot.wallet.balances ?? []);
+            }
+            if (context?.dirtyStoragePlayerIds?.has?.(affectedPlayerId)) {
+                mutation.nextMarketStorageItems = storage ? storage.items : [];
+            }
+            if (mutation.nextInventoryItems || mutation.nextWalletBalances || mutation.nextMarketStorageItems) {
+                playerMutations.push(mutation);
+            }
+        }
+        const instanceLease = requirePresenceFence ? await this.resolveInstanceLeaseContext(primarySnapshot?.instanceId ?? null) : null;
+        const rawOperationId = this.resolveClientMarketOperationId(payload);
+        const operationId = rawOperationId
+            ? `market-${normalizedOperationType}:${normalizedPlayerId}:${rawOperationId}`.slice(0, 180)
+            : `market-${normalizedOperationType}:${normalizedPlayerId}:${Date.now()}:${randomUUID()}`;
         const result = await durableOperationService.settleMarketMutation({
-            operationId: `market-${normalizedOperationType}:${normalizedPlayerId}:${Date.now()}:${randomUUID()}`,
+            operationId,
             playerId: normalizedPlayerId,
-            expectedRuntimeOwnerId: runtimeOwnerId,
-            expectedSessionEpoch: sessionEpoch,
-            expectedInstanceId: snapshot.instanceId ?? null,
+            expectedRuntimeOwnerId: runtimeOwnerId || null,
+            expectedSessionEpoch: sessionEpoch || null,
+            expectedInstanceId: primarySnapshot?.instanceId ?? null,
             expectedAssignedNodeId: instanceLease?.assignedNodeId ?? null,
             expectedOwnershipEpoch: instanceLease?.ownershipEpoch ?? null,
             operationType: normalizedOperationType,
             payload,
-            playerMutations: [{
-                playerId: normalizedPlayerId,
-                nextInventoryItems: cloneInventoryItems(snapshot.inventory.items ?? []),
-                nextWalletBalances: cloneWalletBalances(snapshot.wallet.balances ?? []),
-                nextMarketStorageItems: storage ? storage.items : null,
-            }],
+            requirePresenceFence,
+            playerMutations,
+            upsertOrders: this.openOrders
+                .filter((order) => context?.dirtyOrderIds?.has?.(order.id))
+                .map((order) => ({ ...order, item: { ...order.item } })),
+            deleteOrderIds: Array.from(context?.deletedOrderIds ?? []),
+            tradeRecords: (context?.newTradeRecords ?? []).map((entry) => ({ ...entry })),
+            banUser: durableOptions.banUser ?? null,
         });
         if (result?.ok) {
             context.skipPersistence = true;
+            return true;
         }
+        return false;
+    }
+
+    resolveClientMarketOperationId(payload) {
+        if (!payload || typeof payload !== 'object') {
+            return '';
+        }
+        for (const key of ['operationId', 'requestId', 'clientOperationId', 'idempotencyKey']) {
+            const value = payload?.[key];
+            if (typeof value === 'string' && value.trim()) {
+                return value.trim().slice(0, 96);
+            }
+        }
+        return '';
     }
     async resolveInstanceLeaseContext(instanceId) {
         const normalizedInstanceId = typeof instanceId === 'string' && instanceId.trim() ? instanceId.trim() : '';
@@ -655,6 +716,18 @@ export class MarketRuntimeService {
                 }
             }
             this.compactOpenOrders();
+            const durableCommitted = await this.commitDurableMarketMutationIfAvailable(context, playerId, 'market_create_sell_order', {
+                operationId: payload?.operationId,
+                listingMode,
+                itemId: orderItem.itemId,
+                itemKey,
+                quantity,
+                unitPrice,
+                remainingQuantity: remaining,
+            });
+            if (this.durableOperationService?.isEnabled?.() && !durableCommitted) {
+                throw new Error('market_create_sell_order_durable_commit_failed');
+            }
             return result;
         });
     }
@@ -778,6 +851,17 @@ export class MarketRuntimeService {
                 this.pushNotice(result, playerId, `已挂出求购 ${getItemDisplayName(orderItem)} x${remaining}，单价 ${this.formatUnitPrice(unitPrice)} ${this.getCurrencyItemName()}。`, 'success');
             }
             this.compactOpenOrders();
+            const durableCommitted = await this.commitDurableMarketMutationIfAvailable(context, playerId, 'market_create_buy_order', {
+                operationId: payload?.operationId,
+                itemId: orderItem.itemId,
+                itemKey,
+                quantity,
+                unitPrice,
+                remainingQuantity: remaining,
+            });
+            if (this.durableOperationService?.isEnabled?.() && !durableCommitted) {
+                throw new Error('market_create_buy_order_durable_commit_failed');
+            }
             return result;
         });
     }
@@ -1206,18 +1290,34 @@ export class MarketRuntimeService {
         });
     }
     /** GM 封禁联动：取消目标玩家全部开放求购/挂售/寄拍订单，并返还仍冻结的资产。 */
-    async cancelOpenOrdersForBannedPlayer(playerId) {
+    async cancelOpenOrdersForBannedPlayer(playerId, options = {}) {
         const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
         if (!normalizedPlayerId) {
-            return { affectedPlayerIds: [], notices: [], cancelledOrderIds: [] };
+            return { affectedPlayerIds: [], notices: [], cancelledOrderIds: [], banCommitted: false };
         }
+        const mutationOptions = (options && typeof options === 'object' ? options : {}) as {
+            operationId?: unknown;
+            banUser?: unknown;
+        };
+        const banUser = mutationOptions.banUser ?? null;
+        const operationId = typeof mutationOptions.operationId === 'string' && mutationOptions.operationId.trim()
+            ? mutationOptions.operationId.trim()
+            : undefined;
         const result = await this.runExclusiveMarketMutation(normalizedPlayerId, async (context) => {
             const targetOrders = this.openOrders.filter((order) => order?.ownerId === normalizedPlayerId
                 && order.status === 'open'
                 && order.remainingQuantity > 0);
             if (targetOrders.length === 0) {
-                context.skipPersistence = true;
-                return { affectedPlayerIds: [], notices: [], cancelledOrderIds: [] };
+                const banCommitted = banUser
+                    ? await this.commitDurableMarketMutationIfAvailable(context, normalizedPlayerId, 'market_ban_cancel_orders', {
+                        operationId,
+                        cancelledOrderIds: [],
+                    }, { requirePresenceFence: false, banUser })
+                    : false;
+                if (!banCommitted) {
+                    context.skipPersistence = true;
+                }
+                return { affectedPlayerIds: [], notices: [], cancelledOrderIds: [], banCommitted };
             }
             const affectedPlayerIds = new Set([normalizedPlayerId]);
             for (const order of targetOrders) {
@@ -1263,13 +1363,23 @@ export class MarketRuntimeService {
                 this.touchAffectedPlayer(mutationResult, normalizedPlayerId);
             }
             this.compactOpenOrders();
-            return mutationResult;
+            const banCommitted = await this.commitDurableMarketMutationIfAvailable(context, normalizedPlayerId, 'market_ban_cancel_orders', {
+                operationId,
+                cancelledOrderIds: mutationResult.cancelledOrderIds,
+            }, { requirePresenceFence: false, banUser });
+            if (banUser && this.durableOperationService?.isEnabled?.() && !banCommitted) {
+                throw new Error('banned_player_market_ban_commit_failed');
+            }
+            return { ...mutationResult, banCommitted: Boolean(banUser && banCommitted) };
         });
         const stillOpen = this.openOrders.some((order) => order?.ownerId === normalizedPlayerId
             && order.status === 'open'
             && order.remainingQuantity > 0);
         if (stillOpen) {
             throw new Error('banned_player_market_cancel_incomplete');
+        }
+        if (banUser && this.durableOperationService?.isEnabled?.() && !result?.banCommitted) {
+            throw new Error('banned_player_market_ban_commit_failed');
         }
         return result;
     }

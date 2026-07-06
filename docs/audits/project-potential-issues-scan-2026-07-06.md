@@ -79,7 +79,7 @@
 
 ### P02. 坊市普通挂单/撮合在玩家资产与市场真源之间存在崩溃窗口，可复制或丢失资产
 
-- **状态**：已部分修复（2026-07-06）：即时买入/卖出已恢复 DurableOperationService 主链（见 P09），成交双方 inventory/wallet、水位、outbox 与审计进入同一 durable 事务；普通挂售/求购创建与天道商店仍保留 market 真源与玩家分域分步提交的剩余架构项，后续需补 createSellOrder/createBuyOrder/heavenly-dao-shop 的同等 durable 边界或恢复 worker。
+- **状态**：已修复（2026-07-06）：即时买入/卖出已恢复 DurableOperationService 主链（见 P09）；本轮新增通用 settleMarketMutation，普通挂售、求购、天道商店与 GM 封禁撤单在 durable 可用时把订单/成交/托管仓、玩家 inventory/wallet、水位、outbox 与审计收敛到同一事务；durable 启用但提交失败会回滚并拒绝成功返回。当前已通过本地市场专项 smoke，带 DB release 验证待数据库环境。
 - **严重级别**：critical
 - **分类**：经济/市场资产一致性
 - **置信度**：confirmed
@@ -91,7 +91,7 @@
 
 ### P03. 配置文件原始编辑入口只校验 JSON 语法，绕过内容 schema 与启动期失败门禁
 
-- **状态**：已部分修复（2026-07-06）：raw JSON 保存已对 monsters/items/techniques 加入路径级可用性校验，服务端物品/功法 registry 已改为启动期聚合错误并 fail-fast；地图/掉落等剩余内容类别仍需后续接入同一严格校验管线。
+- **状态**：已部分修复（2026-07-06）：raw JSON 保存已扩展到 monsters/items/techniques/technique-buffs/recipes/enhancements/formations/terrain/starter/quests/building-runtime 等路径级门禁，并拒绝 artsStrength/raw* 旧术法草稿字段；服务端物品 registry 已启动期聚合错误并 fail-fast。地图旧格式运行时 fallback 仍归入 P27 的兼容转换收口项。
 - **严重级别**：high
 - **分类**：schema-validation
 - **置信度**：confirmed
@@ -175,6 +175,7 @@
 
 ### P10. 同图重拉首包把全量 worldDelta 当补丁合并，旧可见实体/地面物残留
 
+- **状态**：已修复（2026-07-06）：服务端初始 full worldDelta 增加 full/reset 标记，客户端收到 full/reset 时会在应用本帧前清空动态实体、地面物与威胁箭头，避免同图后台恢复或断线重拉首包后残留旧 AOI 对象。
 - **严重级别**：high
 - **分类**：恢复态不同步 / 首包语义
 - **置信度**：confirmed
@@ -330,7 +331,7 @@
 
 ### P23. GM 封禁与市场撤单跨真源非原子，崩溃会留下半封禁状态
 
-- **状态**：已修复最小安全顺序（2026-07-06）：banManagedPlayerAccount 改为先执行 cancelOpenOrdersForBannedPlayer，撤单/返还成功后才 authStore.saveUser 写入 bannedAt；撤单失败时不发生账号真源封禁写入，避免依赖第二次 saveUser 回滚。剩余架构项：后续仍建议将 pending_ban、撤单返还、账号封禁和恢复任务收敛为一个可恢复 durable operation。
+- **状态**：已修复（2026-07-06）：banManagedPlayerAccount 现在把封禁状态作为 market_ban_cancel_orders 的 banUser 输入交给 DurableOperationService；durable 可用时撤单、冻结资产返还与 auth bannedAt 同一事务提交，成功后仅替换内存 auth；durable 不可用时保留先撤单后 saveUser 的安全 fallback，撤单失败不写入封禁真源。
 - **严重级别**：medium
 - **分类**：GM 操作/市场资产一致性
 - **置信度**：confirmed
@@ -354,7 +355,7 @@
 
 ### P25. 配置编辑器 item catalog 输出字段少于 shared/client/server 物品契约
 
-- **状态**：已部分修复（2026-07-06）：config-editor item catalog 已补 materialCategory/materialValues/equipBaselinePercents 编译结果、equipSpecialStats、consumeBuffs、mapUnlockIds、respawnBindMapId、tileResourceGains、useBehavior、spiritualRootSeedTier、learnTechniqueId/MaxLevel 等缺失字段；后续仍建议抽成 shared/server 统一 catalog builder。
+- **状态**：已修复（2026-07-06）：新增 shared 的 buildGmEditorItemOptionFromTemplate 作为单一 catalog builder，config-editor /api/editor-catalog 与服务端 ItemTemplateRegistry.listItemTemplates 均复用该口径，覆盖 materialCategory/materialValues/equipBaselinePercents 编译结果、equipSpecialStats、consumeBuffs、mapUnlockIds、respawnBindMapId、tileResourceGains、useBehavior、spiritualRootSeedTier、learnTechniqueId/MaxLevel 等字段。
 - **严重级别**：medium
 - **分类**：catalog-contract
 - **置信度**：confirmed
@@ -366,7 +367,7 @@
 
 ### P26. AI 术法草稿/旧还原字段可被服务端内容加载直接展开，兼容边界未收敛到 GM 转换
 
-- **状态**：未完成（2026-07-06）：该项会改变生产内容加载契约和 AI 术法迁移边界，需先补 GM 一键转换、回读验证与旧草稿审计；最小下一步是新增只读扫描/报告命令，列出仍含 artsStrength/raw* 的内容与 generated template，再决定拒载或迁移。
+- **状态**：已部分修复（2026-07-06）：config-editor raw JSON 保存已拒绝 artsStrength/rawRange/rawTargeting/rawFormula/rawCandidate 等旧术法草稿字段，阻止新增草稿从编辑入口进入内容真源。运行时 loader 与 generated fallback 仍保留展开兼容，完整收口仍需 GM 一键转换、旧草稿扫描、回读验证后再拒载。
 - **严重级别**：medium
 - **分类**：draft-compatibility
 - **置信度**：confirmed
@@ -402,7 +403,7 @@
 
 ### P29. 市场主弹层多处交互直接重开整窗，列表滚动、焦点和交易草稿会被打断
 
-- **状态**：已部分修复（2026-07-06）：DetailModalHost 已在 open/patch 全局恢复焦点、输入选区与子滚动位置，覆盖市场弹层整块重渲染造成的主要交互中断；市场面板稳定壳体与分区局部 patch 仍建议后续单独收敛。
+- **状态**：已部分修复（2026-07-06）：DetailModalHost 已在 open/patch 全局恢复焦点、输入选区与子滚动位置；本轮 MarketPanel.renderModal 在弹层已打开时改走 detailModalHost.patch，不再重复 open 整窗，降低列表滚动、焦点和交易草稿断裂风险。更细粒度的列表/详情/历史分区局部 patch 仍可后续加码。
 - **严重级别**：medium
 - **分类**：交易/市场 UI 连续性
 - **置信度**：confirmed

@@ -201,7 +201,11 @@ type MainRuntimeDeltaStateSourceOptions = {
  */
 
     resetInstanceId?: string;
-  }) => void;  
+    /** full：当前 worldDelta 是动态 AOI 全量快照。 */
+    full?: boolean;
+    /** reset：应用前清空动态实体、地面物和威胁箭头。 */
+    reset?: boolean;
+  }) => void;
   /**
  * applySelfDeltaToRuntime：SelfDeltaTo运行态引用。
  */
@@ -658,7 +662,8 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
   function buildWorldDeltaRuntimeInput(data: S2C_WorldDelta, mapIdHint?: string, instanceIdHint?: string) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    const ignorePreviousEntities = Boolean(mapIdHint || instanceIdHint);
+    const isFullSnapshot = data.full === 1 || data.reset === 1;
+    const ignorePreviousEntities = Boolean(mapIdHint || instanceIdHint || isFullSnapshot);
     const playerPatches: TickRenderEntity[] = [];
     const entityPatches: TickRenderEntity[] = [];
     const removedEntityIds: string[] = [];
@@ -741,6 +746,8 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
       mapId: mapIdHint ?? data.mid,
       resetInstanceId: instanceIdHint,
       resetMapId: mapIdHint,
+      full: data.full === 1,
+      reset: data.reset === 1,
       effects: data.fx ? cloneJson(data.fx) : undefined,
       threatArrows: Array.isArray(data.threatArrows)
         ? data.threatArrows

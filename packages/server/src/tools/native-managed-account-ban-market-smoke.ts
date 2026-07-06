@@ -58,6 +58,7 @@ function createUser(overrides: Partial<UserRecord> = {}): UserRecord {
 async function main(): Promise<void> {
   const user = createUser();
   const savedUsers: UserRecord[] = [];
+  const replacedUsers: UserRecord[] = [];
   const marketCancelledPlayerIds: string[] = [];
   let cacheInvalidationCount = 0;
   const authStore = {
@@ -71,6 +72,10 @@ async function main(): Promise<void> {
       savedUsers.push(structuredClone(nextUser));
       Object.assign(user, nextUser);
       return structuredClone(user);
+    },
+    replaceUser(nextUser: UserRecord) {
+      replacedUsers.push(structuredClone(nextUser));
+      Object.assign(user, nextUser);
     },
   };
   const service = new NativeManagedAccountService(
@@ -91,11 +96,56 @@ async function main(): Promise<void> {
 
   await service.banManagedPlayerAccount(user.playerId, '外挂刷灵石', 'gm:test');
   assert.equal(savedUsers.length, 1);
+  assert.equal(replacedUsers.length, 0);
   assert.equal(savedUsers[0]?.bannedAt !== null, true);
   assert.equal(savedUsers[0]?.banReason, '外挂刷灵石');
   assert.equal(savedUsers[0]?.bannedBy, 'gm:test');
   assert.deepEqual(marketCancelledPlayerIds, [user.playerId]);
   assert.equal(cacheInvalidationCount, 1);
+
+  const durableUser = createUser({ playerId: 'player:ban-market-durable' });
+  const durableSaves: UserRecord[] = [];
+  const durableReplaces: UserRecord[] = [];
+  const durableAuthStore = {
+    getMemoryUserByPlayerId(playerId: string) {
+      return playerId === durableUser.playerId ? structuredClone(durableUser) : null;
+    },
+    async findUserByPlayerId() {
+      return null;
+    },
+    async saveUser(nextUser: UserRecord) {
+      durableSaves.push(structuredClone(nextUser));
+      Object.assign(durableUser, nextUser);
+      return structuredClone(durableUser);
+    },
+    replaceUser(nextUser: UserRecord) {
+      durableReplaces.push(structuredClone(nextUser));
+      Object.assign(durableUser, nextUser);
+    },
+  };
+  const durableService = new NativeManagedAccountService(
+    durableAuthStore as never,
+    { isEnabled: () => false, savePlayerIdentity: async () => undefined } as never,
+    { getPlayerIdentityProjection: () => null, setIdentity: () => undefined } as never,
+    {
+      async cancelOpenOrdersForBannedPlayer(playerId: string, options: Record<string, unknown>) {
+        assert.equal(playerId, durableUser.playerId);
+        assert.ok(options?.operationId, 'expected GM ban operation id');
+        assert.deepEqual((options?.banUser as Record<string, unknown>)?.playerId, durableUser.playerId);
+        return { banCommitted: true };
+      },
+    } as never,
+    {
+      invalidateCaches() {
+        cacheInvalidationCount += 1;
+      },
+    } as never,
+  );
+  await durableService.banManagedPlayerAccount(durableUser.playerId, 'durable封禁', 'gm:durable');
+  assert.equal(durableSaves.length, 0);
+  assert.equal(durableReplaces.length, 1);
+  assert.equal(durableReplaces[0]?.banReason, 'durable封禁');
+  assert.equal(durableReplaces[0]?.bannedBy, 'gm:durable');
 
   const rollbackUser = createUser({ playerId: 'player:ban-market-rollback' });
   const rollbackSaves: UserRecord[] = [];
@@ -110,6 +160,9 @@ async function main(): Promise<void> {
       rollbackSaves.push(structuredClone(nextUser));
       Object.assign(rollbackUser, nextUser);
       return structuredClone(rollbackUser);
+    },
+    replaceUser(nextUser: UserRecord) {
+      Object.assign(rollbackUser, nextUser);
     },
   };
   const rollbackService = new NativeManagedAccountService(

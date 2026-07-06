@@ -18,14 +18,12 @@ const { spawn } = require('child_process');
 const ROOT_DIR = path.resolve(__dirname, '../..');
 const {
   buildEditableMapList,
+  buildGmEditorItemOptionFromTemplate,
   cloneMapDocument,
-  compileValueStatsToActualStats,
   ITEM_TYPES,
-  compileEquipmentBaselinePercentsToActualStats,
   normalizeEditableMapDocument,
   resolveMonsterExpMultiplier,
   resolveMonsterTemplateRecord,
-  serializeEditableMapDocumentToFormatV2,
   shouldPersistMonsterExpMultiplier,
   shouldPersistMonsterTier,
   TECHNIQUE_GRADE_ORDER,
@@ -257,47 +255,10 @@ function listEditorItems() {
       continue;
     }
     for (const entry of entries) {
-      if (!entry || typeof entry !== 'object') {
-        continue;
+      const option = buildGmEditorItemOptionFromTemplate(entry);
+      if (option) {
+        result.push(option);
       }
-      const itemId = typeof entry.itemId === 'string' ? entry.itemId.trim() : '';
-      const name = typeof entry.name === 'string' ? entry.name.trim() : '';
-      if (!itemId || !name) {
-        continue;
-      }
-      result.push({
-        itemId,
-        name,
-        type: ITEM_TYPES.includes(entry.type) ? entry.type : 'material',
-        groundLabel: typeof entry.groundLabel === 'string' ? entry.groundLabel.trim() : undefined,
-        grade: TECHNIQUE_GRADES.includes(entry.grade) ? entry.grade : undefined,
-        level: Number.isFinite(entry.level) ? toPositiveInteger(entry.level, 1) : undefined,
-        desc: typeof entry.desc === 'string' ? entry.desc.trim() : '',
-        equipSlot: typeof entry.equipSlot === 'string' ? entry.equipSlot : undefined,
-        equipAttrs: normalizeItemAttrs(entry.equipAttrs),
-        materialCategory: typeof entry.materialCategory === 'string' ? entry.materialCategory.trim() : undefined,
-        materialValues: entry.materialValues && typeof entry.materialValues === 'object' && !Array.isArray(entry.materialValues) ? JSON.parse(JSON.stringify(entry.materialValues)) : undefined,
-        equipStats: compileEquipmentBaselinePercentsToActualStats(normalizeEquipValueStats(entry.equipBaselinePercents), { grade: entry.grade, level: entry.level })
-          ?? compileValueStatsToActualStats(normalizeEquipValueStats(entry.equipValueStats))
-          ?? normalizeEquipValueStats(entry.equipStats),
-        equipValueStats: normalizeEquipValueStats(entry.equipValueStats),
-        equipSpecialStats: entry.equipSpecialStats && typeof entry.equipSpecialStats === 'object' && !Array.isArray(entry.equipSpecialStats) ? JSON.parse(JSON.stringify(entry.equipSpecialStats)) : undefined,
-        craftEffectStats: cloneCraftEffectStats(entry.craftEffectStats),
-        consumeBuffs: Array.isArray(entry.consumeBuffs) ? JSON.parse(JSON.stringify(entry.consumeBuffs)) : undefined,
-        effects: Array.isArray(entry.effects) ? entry.effects : undefined,
-        tags: Array.isArray(entry.tags) ? entry.tags.filter((tag) => typeof tag === 'string').map((tag) => tag.trim()).filter(Boolean) : undefined,
-        contextActions: Array.isArray(entry.contextActions) ? entry.contextActions.filter((action) => action && typeof action === 'object') : undefined,
-        mapUnlockId: typeof entry.mapUnlockId === 'string' ? entry.mapUnlockId.trim() : undefined,
-        mapUnlockIds: Array.isArray(entry.mapUnlockIds) ? entry.mapUnlockIds.filter((id) => typeof id === 'string' && id.trim()).map((id) => id.trim()) : undefined,
-        respawnBindMapId: typeof entry.respawnBindMapId === 'string' ? entry.respawnBindMapId.trim() : undefined,
-        tileAuraGainAmount: Number.isFinite(entry.tileAuraGainAmount) ? Number(entry.tileAuraGainAmount) : undefined,
-        tileResourceGains: Array.isArray(entry.tileResourceGains) ? JSON.parse(JSON.stringify(entry.tileResourceGains)) : undefined,
-        useBehavior: typeof entry.useBehavior === 'string' ? entry.useBehavior.trim() : undefined,
-        spiritualRootSeedTier: typeof entry.spiritualRootSeedTier === 'string' ? entry.spiritualRootSeedTier : undefined,
-        allowBatchUse: entry.allowBatchUse === true ? true : undefined,
-        learnTechniqueId: typeof entry.learnTechniqueId === 'string' ? entry.learnTechniqueId.trim() : undefined,
-        learnTechniqueMaxLevel: Number.isFinite(entry.learnTechniqueMaxLevel) ? Number(entry.learnTechniqueMaxLevel) : undefined,
-      });
     }
   }
   return result.sort((left, right) => {
@@ -876,13 +837,16 @@ function dehydrateMonsterSpawnRecord(spawn, monsterTemplates) {
  */
 function dehydrateMapDocument(document) {
   const monsterTemplates = loadMonsterTemplates();
-  return serializeEditableMapDocumentToFormatV2({
+  const normalized = normalizeEditableMapDocument({
     ...document,
+    format: undefined,
     layeredCells: undefined,
     monsterSpawns: Array.isArray(document.monsterSpawns)
       ? document.monsterSpawns.map((spawn) => dehydrateMonsterSpawnRecord(spawn, monsterTemplates))
       : [],
   });
+  delete normalized.layeredCells;
+  return normalized;
 }
 
 /**
@@ -1057,32 +1021,115 @@ function readContentFile(relativePath) {
 /**
  * 写回单个内容配置文件。
  */
+function isPlainObject(value) {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
+}
+
+function assertArrayContent(parsed, label) {
+  if (!Array.isArray(parsed)) throw new Error(`${label} 配置必须是数组`);
+}
+
+function assertObjectContent(parsed, label) {
+  if (!isPlainObject(parsed)) throw new Error(`${label} 配置必须是对象`);
+}
+
+function assertIdNameEntry(entry, label, idKey = 'id') {
+  if (!isPlainObject(entry) || typeof entry[idKey] !== 'string' || !entry[idKey].trim()) {
+    throw new Error(`${label} 存在缺少 ${idKey} 的条目`);
+  }
+  if ('name' in entry && (typeof entry.name !== 'string' || !entry.name.trim())) {
+    throw new Error(`${label} ${entry[idKey]} 的名称不能为空`);
+  }
+}
+
+function assertNoLegacyTechniqueDraftFields(value, label, pathParts = []) {
+  if (!value || typeof value !== 'object') return;
+  if (Array.isArray(value)) {
+    value.forEach((entry, index) => assertNoLegacyTechniqueDraftFields(entry, label, [...pathParts, String(index)]));
+    return;
+  }
+  for (const [key, child] of Object.entries(value)) {
+    if (key === 'artsStrength' || key === 'rawRange' || key === 'rawTargeting' || key === 'rawFormula' || key === 'rawCandidate') {
+      throw new Error(`${label} 含旧术法草稿字段 ${[...pathParts, key].join('.')}，请先通过 GM 兼容转换生成正式 SkillDef`);
+    }
+    assertNoLegacyTechniqueDraftFields(child, label, [...pathParts, key]);
+  }
+}
+
+function validateRecipeEntries(parsed, label) {
+  assertArrayContent(parsed, label);
+  for (const entry of parsed) {
+    assertIdNameEntry(entry, label, 'recipeId');
+    if (typeof entry.outputItemId !== 'string' || !entry.outputItemId.trim()) throw new Error(`${label} ${entry.recipeId} 缺少 outputItemId`);
+    if (!Array.isArray(entry.ingredients)) throw new Error(`${label} ${entry.recipeId} 的 ingredients 必须是数组`);
+  }
+}
+
 function validateContentFileBeforeSave(relativePath, parsed) {
   const normalizedPath = String(relativePath || '').replaceAll('\\', '/');
   if (normalizedPath.startsWith('monsters/')) {
-    if (!Array.isArray(parsed)) throw new Error('怪物配置必须是数组');
+    assertArrayContent(parsed, '怪物');
     for (const entry of parsed) resolveMonsterTemplateRecord(entry, buildEditorItemLookup());
     return;
   }
   if (normalizedPath.startsWith('items/')) {
-    if (!Array.isArray(parsed)) throw new Error('物品配置必须是数组');
+    assertArrayContent(parsed, '物品');
     for (const entry of parsed) {
-      if (!entry || typeof entry !== 'object' || typeof entry.itemId !== 'string' || !entry.itemId.trim() || typeof entry.name !== 'string' || !entry.name.trim()) {
-        throw new Error('物品配置存在缺少 itemId/name 的条目');
-      }
+      if (!buildGmEditorItemOptionFromTemplate(entry)) throw new Error('物品配置存在缺少 itemId/name 的条目');
       if (entry.type !== undefined && !ITEM_TYPES.includes(entry.type)) throw new Error(`物品 ${entry.itemId} 的类型非法`);
     }
     return;
   }
   if (normalizedPath.startsWith('techniques/')) {
-    if (!Array.isArray(parsed)) throw new Error('功法配置必须是数组');
+    assertArrayContent(parsed, '功法');
     for (const entry of parsed) {
-      if (!entry || typeof entry !== 'object' || typeof entry.id !== 'string' || !entry.id.trim() || typeof entry.name !== 'string' || !entry.name.trim()) {
-        throw new Error('功法配置存在缺少 id/name 的条目');
-      }
+      assertIdNameEntry(entry, '功法');
+      assertNoLegacyTechniqueDraftFields(entry, `功法 ${entry.id}`);
       if (entry.grade !== undefined && !TECHNIQUE_GRADES.includes(entry.grade)) throw new Error(`功法 ${entry.id} 的品阶非法`);
       if (entry.category !== undefined && !TECHNIQUE_CATEGORIES.includes(entry.category)) throw new Error(`功法 ${entry.id} 的分类非法`);
+      if (entry.skills !== undefined && !Array.isArray(entry.skills)) throw new Error(`功法 ${entry.id} 的 skills 必须是数组`);
     }
+    return;
+  }
+  if (normalizedPath.startsWith('technique-buffs/')) {
+    assertArrayContent(parsed, '功法 Buff');
+    for (const entry of parsed) assertIdNameEntry(entry, '功法 Buff');
+    return;
+  }
+  if (normalizedPath === 'alchemy/recipes.json') return validateRecipeEntries(parsed, '炼丹配方');
+  if (normalizedPath === 'forging/recipes.json') return validateRecipeEntries(parsed, '锻造配方');
+  if (normalizedPath.startsWith('enhancements/')) {
+    assertArrayContent(parsed, '强化配置');
+    for (const entry of parsed) {
+      assertIdNameEntry(entry, '强化配置', 'targetItemId');
+      if (!Array.isArray(entry.steps)) throw new Error(`强化配置 ${entry.targetItemId} 的 steps 必须是数组`);
+    }
+    return;
+  }
+  if (normalizedPath === 'formations.json' || normalizedPath === 'terrain-buffs.json') {
+    assertArrayContent(parsed, normalizedPath);
+    for (const entry of parsed) assertIdNameEntry(entry, normalizedPath, normalizedPath === 'terrain-buffs.json' ? 'buffId' : 'id');
+    return;
+  }
+  if (normalizedPath === 'starter-inventory.json') {
+    assertObjectContent(parsed, '初始背包');
+    if (!Array.isArray(parsed.items)) throw new Error('初始背包 items 必须是数组');
+    return;
+  }
+  if (normalizedPath === 'resource-nodes.json' || normalizedPath === 'terrain-effects.json') {
+    assertObjectContent(parsed, normalizedPath);
+    const key = normalizedPath === 'resource-nodes.json' ? 'resourceNodes' : 'terrainEffects';
+    if (!Array.isArray(parsed[key])) throw new Error(`${normalizedPath} 缺少 ${key} 数组`);
+    return;
+  }
+  if (normalizedPath.startsWith('quests/')) {
+    assertObjectContent(parsed, '任务');
+    if (!Array.isArray(parsed.quests)) throw new Error('任务配置缺少 quests 数组');
+    return;
+  }
+  if (normalizedPath.startsWith('building-runtime/')) {
+    if (normalizedPath.endsWith('schema.json')) return assertObjectContent(parsed, '建筑 schema');
+    assertArrayContent(parsed, '建筑运行时');
   }
 }
 

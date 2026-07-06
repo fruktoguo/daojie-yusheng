@@ -12,6 +12,8 @@ type SmokeItem = {
 
 type SmokePlayer = {
   playerId: string;
+  runtimeOwnerId: string;
+  sessionEpoch: number;
   inventory: { items: SmokeItem[]; capacity: number; revision?: number };
   wallet: { balances: Array<{ walletType: string; balance: number; frozenBalance?: number; version?: number }> };
 };
@@ -134,6 +136,8 @@ async function main(): Promise<void> {
   const playerId = 'player:heavenly-dao-shop';
   const runtimePlayer: SmokePlayer = {
     playerId,
+    runtimeOwnerId: 'smoke-runtime-owner',
+    sessionEpoch: 1,
     inventory: {
       capacity: 10,
       items: [{ itemId: HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID, count: 150, name: '功德', type: 'consumable' }],
@@ -200,6 +204,8 @@ async function main(): Promise<void> {
   const discountedPlayerId = 'player:heavenly-dao-shop-eternal';
   runtimePlayers.set(discountedPlayerId, {
     playerId: discountedPlayerId,
+    runtimeOwnerId: 'smoke-runtime-owner',
+    sessionEpoch: 1,
     inventory: {
       capacity: 10,
       items: [{ itemId: HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID, count: 100, name: '功德', type: 'consumable' }],

@@ -9,6 +9,8 @@ async function main(): Promise<void> {
   const bidderPlayerId = 'player:market-ban-bidder';
   const bidderPlayer = {
     playerId: bidderPlayerId,
+    runtimeOwnerId: 'smoke-runtime-owner',
+    sessionEpoch: 1,
     inventory: { items: [] as RuntimeItem[] },
     wallet: { balances: [] as Array<Record<string, unknown>> },
   };

@@ -1388,7 +1388,7 @@ export class MarketPanel {
   /** 渲染市场详情弹层。 */
   private renderModal(): void {
     const marketUpdate = this.marketUpdate;
-    detailModalHost.open({
+    const modalOptions = {
       ownerId: MarketPanel.MODAL_OWNER,
       size: 'full',
       variantClass: 'detail-modal--market',
@@ -1573,7 +1573,12 @@ export class MarketPanel {
         this.bindMarketModalDelegatedEvents(body, signal);
         this.syncTradeDialogOverlay();
       },
-    });
+    } satisfies Parameters<typeof detailModalHost.open>[0];
+    if (detailModalHost.isOpenFor(MarketPanel.MODAL_OWNER)) {
+      detailModalHost.patch(modalOptions);
+      return;
+    }
+    detailModalHost.open(modalOptions);
   }
 
   /** 打开拍卖行独立弹层。 */

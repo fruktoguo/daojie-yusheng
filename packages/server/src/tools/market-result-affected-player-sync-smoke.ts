@@ -1,4 +1,3 @@
-// @ts-nocheck
 import assert from 'node:assert/strict';
 
 import { S2C } from '@mud/shared';
@@ -42,13 +41,13 @@ async function main(): Promise<void> {
         return undefined;
       },
     },
-    { getAll: () => [] },
     {
       getSocketByPlayerId(playerId: string) {
         return sockets.get(playerId) ?? null;
       },
     },
     { openLootWindow: () => ({ window: null }) },
+    { getAll: () => [] },
   );
 
   await service.flushMarketResult(

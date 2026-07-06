@@ -509,6 +509,8 @@ function buildFullWorldDeltaFromState(
         t: view.tick,
         wr: view.worldRevision,
         sr: view.selfRevision,
+        full: 1,
+        reset: 1,
         p: players.length > 0 ? players : undefined,
         m: monsters.length > 0 ? monsters : undefined,
         n: npcs.length > 0 ? npcs : undefined,

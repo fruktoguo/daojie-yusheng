@@ -713,7 +713,7 @@ export class MapStore {
       : undefined;
     const instanceChanged = Boolean(nextInstanceId && nextInstanceId !== this.player.instanceId);
     const hasEntityPatch = data.playerPatches.length > 0 || data.entityPatches.length > 0 || (data.removedEntityIds?.length ?? 0) > 0;
-    const shouldResetEntities = (preloadingDifferentMap || instanceChanged) && hasEntityPatch;
+    const shouldResetEntities = data.reset === true || data.full === true || ((preloadingDifferentMap || instanceChanged) && hasEntityPatch);
     if (shouldResetEntities) {
       this.clearGroundPiles();
       this.entities = [];

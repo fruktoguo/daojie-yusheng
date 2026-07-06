@@ -5,7 +5,7 @@
  */
 import { Injectable } from '@nestjs/common';
 import * as fs from 'fs';
-import { resolveItemTemplateAliasId } from '@mud/shared';
+import { buildGmEditorItemOptionFromTemplate, type GmEditorItemOption, resolveItemTemplateAliasId } from '@mud/shared';
 import { resolveProjectPath } from '../../common/project-path';
 import {
   collectJsonFiles,
@@ -118,52 +118,11 @@ export class ItemTemplateRegistry {
     return template ? resolveItemTemplateLevel(template) : 1;
   }
 
-  listItemTemplates(): Array<Record<string, unknown>> {
-    return Array.from(this.itemTemplates.values(), (template) => ({
-      itemId: template.itemId,
-      name: template.name,
-      type: template.type,
-      groundLabel: template.groundLabel,
-      grade: template.grade,
-      level: template.level,
-      equipSlot: template.equipSlot,
-      desc: template.desc,
-      equipAttrs: template.equipAttrs ? { ...(template.equipAttrs as object) } : undefined,
-      equipStats: template.equipStats ? { ...(template.equipStats as object) } : undefined,
-      equipValueStats: template.equipValueStats ? { ...(template.equipValueStats as object) } : undefined,
-      equipSpecialStats: template.equipSpecialStats ? { ...(template.equipSpecialStats as object) } : undefined,
-      tags: Array.isArray(template.tags) ? (template.tags as unknown[]).slice() : undefined,
-      contextActions: Array.isArray(template.contextActions) ? (template.contextActions as unknown[]).map((entry) => ({ ...(entry as object) })) : undefined,
-      effects: Array.isArray(template.effects) ? (template.effects as unknown[]).map((entry) => ({ ...(entry as object) })) : undefined,
-      artifactMaxQiFactor: template.artifactMaxQiFactor,
-      artifactEffects: Array.isArray(template.artifactEffects) ? (template.artifactEffects as unknown[]).map((entry) => ({ ...(entry as object) })) : undefined,
-      healAmount: template.healAmount,
-      healPercent: template.healPercent,
-      baselineHealPercent: template.baselineHealPercent,
-      baselineQiPercent: template.baselineQiPercent,
-      qiPercent: template.qiPercent,
-      cooldown: template.cooldown,
-      craftEffectStats: template.craftEffectStats ? { ...(template.craftEffectStats as object) } : undefined,
-      consumeBuffs: Array.isArray(template.consumeBuffs) ? (template.consumeBuffs as Array<Record<string, unknown>>).map((entry) => ({
-        ...entry,
-        attrs: entry.attrs ? { ...(entry.attrs as object) } : undefined,
-        stats: entry.stats ? { ...(entry.stats as object) } : undefined,
-        valueStats: entry.valueStats ? { ...(entry.valueStats as object) } : undefined,
-        qiProjection: Array.isArray(entry.qiProjection) ? (entry.qiProjection as unknown[]).map((projection) => ({ ...(projection as object) })) : undefined,
-      })) : undefined,
-      mapUnlockId: template.mapUnlockId,
-      mapUnlockIds: Array.isArray(template.mapUnlockIds) ? (template.mapUnlockIds as unknown[]).slice() : undefined,
-      respawnBindMapId: template.respawnBindMapId,
-      tileAuraGainAmount: template.tileAuraGainAmount,
-      tileResourceGains: Array.isArray(template.tileResourceGains) ? (template.tileResourceGains as unknown[]).map((entry) => ({ ...(entry as object) })) : undefined,
-      useBehavior: template.useBehavior,
-      formationDiskTier: template.formationDiskTier,
-      formationDiskMultiplier: template.formationDiskMultiplier,
-      spiritualRootSeedTier: template.spiritualRootSeedTier,
-      allowBatchUse: template.allowBatchUse,
-      learnTechniqueId: template.learnTechniqueId,
-      learnTechniqueMaxLevel: template.learnTechniqueMaxLevel,
-    })).sort((left, right) => (left.itemId as string).localeCompare(right.itemId as string, 'zh-Hans-CN'));
+  listItemTemplates(): GmEditorItemOption[] {
+    return Array.from(this.itemTemplates.values())
+      .map((template) => buildGmEditorItemOptionFromTemplate(template))
+      .filter((entry): entry is NonNullable<ReturnType<typeof buildGmEditorItemOptionFromTemplate>> => Boolean(entry))
+      .sort((left, right) => left.itemId.localeCompare(right.itemId, 'zh-Hans-CN'));
   }
 }
 

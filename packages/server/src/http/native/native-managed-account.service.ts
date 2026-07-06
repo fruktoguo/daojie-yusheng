@@ -124,8 +124,25 @@ interface PlayerRuntimePort {
  displayName?: string }): unknown;
 }
 
+interface MarketRuntimeBanUserInput {
+  playerId: string;
+  bannedAt: string;
+  banReason: string;
+  bannedBy: string;
+  updatedAt?: number;
+}
+
+interface MarketRuntimeCancelBanOptions {
+  operationId?: string;
+  banUser?: MarketRuntimeBanUserInput | null;
+}
+
+interface MarketRuntimeBanCancelResult {
+  banCommitted?: boolean;
+}
+
 interface MarketRuntimePort {
-  cancelOpenOrdersForBannedPlayer(playerId: string): Promise<unknown>;
+  cancelOpenOrdersForBannedPlayer(playerId: string, options?: MarketRuntimeCancelBanOptions): Promise<MarketRuntimeBanCancelResult | unknown>;
 }
 
 interface LeaderboardRuntimePort {
@@ -317,18 +334,32 @@ export class NativeManagedAccountService {
     };
   }
 
-  /** GM 快捷封禁托管账号，先完成市场撤单返还，再落账号真源封禁态。 */
+  /** GM 快捷封禁托管账号，优先让市场撤单返还与账号封禁态同一 durable 事务提交。 */
   async banManagedPlayerAccount(playerId: string, reason: string, bannedBy = 'gm'): Promise<void> {
     const user = await this.requireManagedUser(playerId);
-    await this.cancelMarketOrdersForBannedPlayer(user.playerId);
+    const updatedAt = Date.now();
     const nextUser = {
       ...user,
-      bannedAt: new Date().toISOString(),
+      bannedAt: new Date(updatedAt).toISOString(),
       banReason: normalizeModerationReason(reason),
       bannedBy: normalizeModerationActor(bannedBy),
-      updatedAt: Date.now(),
+      updatedAt,
     };
-    await this.authStore.saveUser(nextUser);
+    const banCommitted = await this.cancelMarketOrdersForBannedPlayer(user.playerId, {
+      operationId: `gm-ban:${user.playerId}:${updatedAt}`,
+      banUser: {
+        playerId: user.playerId,
+        bannedAt: nextUser.bannedAt,
+        banReason: nextUser.banReason,
+        bannedBy: nextUser.bannedBy,
+        updatedAt,
+      },
+    });
+    if (banCommitted) {
+      this.authStore.replaceUser(nextUser);
+    } else {
+      await this.authStore.saveUser(nextUser);
+    }
     this.leaderboardRuntimeService?.invalidateCaches();
   }
 
@@ -402,13 +433,17 @@ export class NativeManagedAccountService {
   }
 
   /** 封禁账号后撤销其仍开放的坊市/拍卖订单，资产沿市场托管返还链路回到玩家名下。 */
-  private async cancelMarketOrdersForBannedPlayer(playerId: string): Promise<void> {
+  private async cancelMarketOrdersForBannedPlayer(
+    playerId: string,
+    options?: MarketRuntimeCancelBanOptions,
+  ): Promise<boolean> {
     const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
     if (!normalizedPlayerId || !this.marketRuntimeService) {
-      return;
+      return false;
     }
     try {
-      await this.marketRuntimeService.cancelOpenOrdersForBannedPlayer(normalizedPlayerId);
+      const result = await this.marketRuntimeService.cancelOpenOrdersForBannedPlayer(normalizedPlayerId, options);
+      return Boolean(result && typeof result === 'object' && (result as MarketRuntimeBanCancelResult).banCommitted);
     } catch (error) {
       this.logger.error(
         `封禁账号后撤销坊市订单失败 playerId=${normalizedPlayerId}：${error instanceof Error ? error.message : String(error)}`,

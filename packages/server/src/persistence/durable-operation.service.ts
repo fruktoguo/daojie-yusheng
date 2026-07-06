@@ -112,6 +112,38 @@ export interface DurableMarketStorageItemSnapshot {
   rawPayload?: unknown;
 }
 
+export interface DurableMarketPlayerMutationSnapshot {
+  playerId: string;
+  nextInventoryItems?: DurableInventoryItemSnapshot[] | null;
+  nextWalletBalances?: DurableWalletBalanceSnapshot[] | null;
+  nextMarketStorageItems?: DurableMarketStorageItemSnapshot[] | null;
+}
+
+export interface DurableMarketBanUserSnapshot {
+  playerId: string;
+  bannedAt: string;
+  banReason?: string | null;
+  bannedBy?: string | null;
+}
+
+export interface DurableMarketMutationInput {
+  operationId: string;
+  playerId: string;
+  expectedRuntimeOwnerId: string;
+  expectedSessionEpoch: number;
+  expectedInstanceId?: string | null;
+  expectedAssignedNodeId?: string | null;
+  expectedOwnershipEpoch?: number | null;
+  operationType: string;
+  payload?: unknown;
+  playerMutations?: DurableMarketPlayerMutationSnapshot[] | null;
+  upsertOrders?: readonly unknown[] | null;
+  deleteOrderIds?: readonly unknown[] | null;
+  tradeRecords?: readonly unknown[] | null;
+  banUser?: DurableMarketBanUserSnapshot | null;
+  requirePresenceFence?: boolean;
+}
+
 export interface ClaimMarketStorageInput {
   operationId: string;
   playerId: string;
@@ -2018,6 +2050,105 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
+  /** 通用市场强事务：收敛订单、成交、托管仓、玩家资产与 GM 封禁态。 */
+  async settleMarketMutation(input: DurableMarketMutationInput): Promise<{ ok: boolean; alreadyCommitted: boolean }> {
+    if (!this.pool || !this.enabled) {
+      throw new Error('durable_operation_service_disabled');
+    }
+    const normalizedPlayerId = normalizeRequiredString(input.playerId);
+    const normalizedOperationId = normalizeRequiredString(input.operationId);
+    const operationType = (normalizeRequiredString(input.operationType) || 'market_mutation').slice(0, 64);
+    const playerMutations = normalizeMarketPlayerMutations(input.playerMutations ?? []);
+    const upsertOrders = Array.isArray(input.upsertOrders) ? input.upsertOrders : [];
+    const deleteOrderIds = normalizeStringList(input.deleteOrderIds ?? []);
+    const tradeRecords = Array.isArray(input.tradeRecords) ? input.tradeRecords : [];
+    const banUser = input.banUser && typeof input.banUser === 'object' ? input.banUser : null;
+    if (!normalizedPlayerId || !normalizedOperationId || (playerMutations.length === 0 && upsertOrders.length === 0 && deleteOrderIds.length === 0 && tradeRecords.length === 0 && !banUser)) {
+      throw new Error('invalid_settle_market_mutation_input');
+    }
+    const expectedRuntimeOwnerId = normalizeRequiredString(input.expectedRuntimeOwnerId);
+    const expectedSessionEpoch = Math.max(0, Math.trunc(Number(input.expectedSessionEpoch ?? 0)));
+    const requirePresenceFence = input.requirePresenceFence !== false;
+    if (requirePresenceFence && (!expectedRuntimeOwnerId || expectedSessionEpoch <= 0)) {
+      throw new Error('market_mutation_session_fence_missing');
+    }
+    const now = Date.now();
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const lockPlayerIds = new Set<string>([normalizedPlayerId]);
+      for (const mutation of playerMutations) {
+        lockPlayerIds.add(mutation.playerId);
+      }
+      if (banUser) {
+        lockPlayerIds.add(normalizeRequiredString(banUser.playerId));
+      }
+      for (const lockPlayerId of Array.from(lockPlayerIds).filter(Boolean).sort()) {
+        await acquirePlayerAssetLock(client, lockPlayerId);
+      }
+      const existingOperation = await client.query<{ status?: string }>(`SELECT status FROM ${DURABLE_OPERATION_LOG_TABLE} WHERE operation_id = $1 FOR UPDATE`, [normalizedOperationId]);
+      if (existingOperation.rowCount && existingOperation.rows[0]?.status === 'committed') {
+        await client.query('ROLLBACK');
+        return { ok: true, alreadyCommitted: true };
+      }
+      let persistedRuntimeOwnerId = expectedRuntimeOwnerId;
+      let persistedSessionEpoch = expectedSessionEpoch;
+      if (requirePresenceFence) {
+        const presence = await client.query<{ runtime_owner_id?: string; session_epoch?: string | number }>(`SELECT runtime_owner_id, session_epoch FROM ${PLAYER_PRESENCE_TABLE} WHERE player_id = $1 FOR UPDATE`, [normalizedPlayerId]);
+        await assertInstanceLeaseWritable(client, {
+          expectedInstanceId: input.expectedInstanceId,
+          expectedAssignedNodeId: input.expectedAssignedNodeId,
+          expectedOwnershipEpoch: input.expectedOwnershipEpoch,
+          currentNodeId: this.getCurrentNodeId(),
+        });
+        const presenceRow = presence.rows[0] ?? null;
+        persistedRuntimeOwnerId = normalizeRequiredString(presenceRow?.runtime_owner_id);
+        persistedSessionEpoch = Number(presenceRow?.session_epoch ?? 0);
+        if (persistedRuntimeOwnerId !== expectedRuntimeOwnerId || Math.trunc(persistedSessionEpoch) !== expectedSessionEpoch) {
+          throw new Error('player_session_fencing_conflict:market_mutation');
+        }
+      }
+      if (existingOperation.rowCount === 0) {
+        await insertDurableOperationLog(client, normalizedOperationId, operationType, 'market_mutation', normalizedPlayerId, persistedRuntimeOwnerId, persistedSessionEpoch, input.payload ?? {});
+      }
+      await upsertMarketOrders(client, upsertOrders);
+      if (deleteOrderIds.length > 0) {
+        await client.query(`DELETE FROM ${MARKET_ORDER_TABLE} WHERE order_id = ANY($1::varchar[])`, [deleteOrderIds]);
+      }
+      await insertMarketTradeRecords(client, tradeRecords);
+      for (const mutation of playerMutations) {
+        await persistMarketPlayerMutation(client, mutation, now);
+      }
+      if (banUser) {
+        await persistDurableMarketBanUser(client, banUser);
+      }
+      await insertDurableOutboxEvent(client, normalizedOperationId, 'player.market.mutation', normalizedPlayerId, {
+        playerId: normalizedPlayerId,
+        operationType,
+        affectedPlayerIds: playerMutations.map((entry) => entry.playerId),
+        upsertOrderCount: upsertOrders.length,
+        deleteOrderCount: deleteOrderIds.length,
+        tradeRecordCount: tradeRecords.length,
+        banCommitted: Boolean(banUser),
+      });
+      await insertAssetAuditLog(client, normalizedOperationId, normalizedPlayerId, 'market_mutation', normalizedPlayerId, operationType, {
+        upsertOrderCount: upsertOrders.length,
+        deleteOrderCount: deleteOrderIds.length,
+        tradeRecordCount: tradeRecords.length,
+        playerMutationCount: playerMutations.length,
+        banCommitted: Boolean(banUser),
+      }, {}, {});
+      await client.query(`UPDATE ${DURABLE_OPERATION_LOG_TABLE} SET status = 'committed', committed_at = now() WHERE operation_id = $1`, [normalizedOperationId]);
+      await client.query('COMMIT');
+      return { ok: true, alreadyCommitted: false };
+    } catch (error: unknown) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   /** 事务性更新活跃任务状态：写任务进度快照、记审计日志和 outbox 事件 */
   async updateActiveJobState(input: UpdateActiveJobStateInput): Promise<UpdateActiveJobStateResult> {
     const normalizedPlayerId = normalizeRequiredString(input.playerId);
@@ -3147,6 +3278,55 @@ export async function ensureDurableOperationTables(pool: Pool): Promise<void> {
         updated_at timestamptz NOT NULL DEFAULT now(),
         UNIQUE(player_id, slot_index)
       )
+    `);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS ${MARKET_ORDER_TABLE} (
+        order_id varchar(160) PRIMARY KEY,
+        owner_id varchar(100) NOT NULL,
+        side varchar(16) NOT NULL,
+        status varchar(24) NOT NULL,
+        item_key varchar(240) NOT NULL,
+        item_id varchar(160) NOT NULL,
+        remaining_quantity bigint NOT NULL DEFAULT 0,
+        unit_price numeric(20, 2) NOT NULL DEFAULT 1,
+        created_at_ms bigint NOT NULL,
+        updated_at_ms bigint NOT NULL,
+        raw_payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+        updated_at timestamptz NOT NULL DEFAULT now()
+      )
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS server_market_order_open_idx
+      ON ${MARKET_ORDER_TABLE}(status, item_key, side, unit_price, created_at_ms)
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS server_market_order_owner_idx
+      ON ${MARKET_ORDER_TABLE}(owner_id, status, updated_at_ms DESC)
+    `);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS ${MARKET_TRADE_TABLE} (
+        trade_id varchar(160) PRIMARY KEY,
+        buyer_id varchar(100) NOT NULL,
+        seller_id varchar(100) NOT NULL,
+        item_id varchar(160) NOT NULL,
+        quantity bigint NOT NULL DEFAULT 1,
+        unit_price numeric(20, 2) NOT NULL DEFAULT 1,
+        created_at_ms bigint NOT NULL,
+        raw_payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+        updated_at timestamptz NOT NULL DEFAULT now()
+      )
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS server_market_trade_created_idx
+      ON ${MARKET_TRADE_TABLE}(created_at_ms DESC, trade_id ASC)
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS server_market_trade_buyer_created_idx
+      ON ${MARKET_TRADE_TABLE}(buyer_id, created_at_ms DESC)
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS server_market_trade_seller_created_idx
+      ON ${MARKET_TRADE_TABLE}(seller_id, created_at_ms DESC)
     `);
     await client.query(`
       CREATE TABLE IF NOT EXISTS ${PLAYER_MARKET_STORAGE_ITEM_TABLE} (
@@ -4312,6 +4492,268 @@ function normalizePositiveInteger(
     return fallback;
   }
   return Math.min(max, Math.max(min, Math.trunc(numeric)));
+}
+
+function normalizeStringList(values: readonly unknown[]): string[] {
+  return Array.from(new Set((Array.isArray(values) ? values : [])
+    .map((value) => normalizeRequiredString(value))
+    .filter((value) => value.length > 0)));
+}
+
+function normalizeMarketPlayerMutations(values: readonly DurableMarketPlayerMutationSnapshot[]): DurableMarketPlayerMutationSnapshot[] {
+  const byPlayerId = new Map<string, DurableMarketPlayerMutationSnapshot>();
+  for (const value of Array.isArray(values) ? values : []) {
+    const playerId = normalizeRequiredString(value?.playerId);
+    if (!playerId) {
+      continue;
+    }
+    const current = byPlayerId.get(playerId) ?? { playerId };
+    if (Array.isArray(value.nextInventoryItems)) {
+      current.nextInventoryItems = value.nextInventoryItems as DurableInventoryItemSnapshot[];
+    }
+    if (Array.isArray(value.nextWalletBalances)) {
+      current.nextWalletBalances = value.nextWalletBalances as DurableWalletBalanceSnapshot[];
+    }
+    if (Array.isArray(value.nextMarketStorageItems)) {
+      current.nextMarketStorageItems = value.nextMarketStorageItems as DurableMarketStorageItemSnapshot[];
+    }
+    byPlayerId.set(playerId, current);
+  }
+  return Array.from(byPlayerId.values());
+}
+
+async function insertDurableOperationLog(
+  client: import('pg').PoolClient,
+  operationId: string,
+  operationType: string,
+  aggregateType: string,
+  playerId: string,
+  runtimeOwnerId: string,
+  sessionEpoch: number,
+  payload: unknown,
+): Promise<void> {
+  await client.query(
+    `
+      INSERT INTO ${DURABLE_OPERATION_LOG_TABLE}(
+        operation_id, operation_type, aggregate_type, aggregate_id, player_id,
+        runtime_owner_id, session_epoch, request_id, payload_jsonb, status, created_at
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, now())
+    `,
+    [operationId, operationType, aggregateType, playerId, playerId, runtimeOwnerId || null, sessionEpoch > 0 ? Math.trunc(sessionEpoch) : null, operationId, JSON.stringify(payload ?? {}), 'pending'],
+  );
+}
+
+async function upsertMarketOrders(client: import('pg').PoolClient, orders: readonly unknown[]): Promise<void> {
+  for (const source of Array.isArray(orders) ? orders : []) {
+    const order = source as Record<string, unknown>;
+    const item = order.item && typeof order.item === 'object' ? order.item as Record<string, unknown> : {};
+    const orderId = normalizeRequiredString(order.id ?? order.orderId);
+    const ownerId = normalizeRequiredString(order.ownerId);
+    const side = order.side === 'buy' ? 'buy' : 'sell';
+    const status = normalizeRequiredString(order.status) || 'open';
+    const itemKey = normalizeRequiredString(order.itemKey);
+    const itemId = normalizeRequiredString(item.itemId ?? order.itemId);
+    if (!orderId || !ownerId || !itemKey || !itemId) {
+      throw new Error('invalid_market_order_upsert');
+    }
+    await client.query(
+      `
+        INSERT INTO ${MARKET_ORDER_TABLE}(
+          order_id, owner_id, side, status, item_key, item_id,
+          remaining_quantity, unit_price, created_at_ms, updated_at_ms, raw_payload, updated_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8::numeric, $9, $10, $11::jsonb, now())
+        ON CONFLICT (order_id)
+        DO UPDATE SET
+          owner_id = EXCLUDED.owner_id,
+          side = EXCLUDED.side,
+          status = EXCLUDED.status,
+          item_key = EXCLUDED.item_key,
+          item_id = EXCLUDED.item_id,
+          remaining_quantity = EXCLUDED.remaining_quantity,
+          unit_price = EXCLUDED.unit_price,
+          created_at_ms = EXCLUDED.created_at_ms,
+          updated_at_ms = EXCLUDED.updated_at_ms,
+          raw_payload = EXCLUDED.raw_payload,
+          updated_at = now()
+      `,
+      [
+        orderId,
+        ownerId,
+        side,
+        status,
+        itemKey,
+        itemId,
+        Math.max(0, Math.trunc(Number(order.remainingQuantity ?? 0))),
+        Number.isFinite(Number(order.unitPrice)) ? Number(order.unitPrice) : 1,
+        Math.trunc(Number(order.createdAt ?? Date.now())),
+        Math.trunc(Number(order.updatedAt ?? Date.now())),
+        JSON.stringify(order),
+      ],
+    );
+  }
+}
+
+async function insertMarketTradeRecords(client: import('pg').PoolClient, records: readonly unknown[]): Promise<void> {
+  for (const source of Array.isArray(records) ? records : []) {
+    const record = source as Record<string, unknown>;
+    const tradeId = normalizeRequiredString(record.id ?? record.tradeId);
+    const buyerId = normalizeRequiredString(record.buyerId);
+    const sellerId = normalizeRequiredString(record.sellerId);
+    const itemId = normalizeRequiredString(record.itemId);
+    if (!tradeId || !buyerId || !sellerId || !itemId) {
+      throw new Error('invalid_market_trade_record');
+    }
+    await client.query(
+      `
+        INSERT INTO ${MARKET_TRADE_TABLE}(
+          trade_id, buyer_id, seller_id, item_id, quantity,
+          unit_price, created_at_ms, raw_payload, updated_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6::numeric, $7, $8::jsonb, now())
+        ON CONFLICT (trade_id)
+        DO UPDATE SET
+          buyer_id = EXCLUDED.buyer_id,
+          seller_id = EXCLUDED.seller_id,
+          item_id = EXCLUDED.item_id,
+          quantity = EXCLUDED.quantity,
+          unit_price = EXCLUDED.unit_price,
+          created_at_ms = EXCLUDED.created_at_ms,
+          raw_payload = EXCLUDED.raw_payload,
+          updated_at = now()
+      `,
+      [
+        tradeId,
+        buyerId,
+        sellerId,
+        itemId,
+        Math.max(1, Math.trunc(Number(record.quantity ?? 1))),
+        Number.isFinite(Number(record.unitPrice)) ? Number(record.unitPrice) : 1,
+        Math.trunc(Number(record.createdAt ?? Date.now())),
+        JSON.stringify(record),
+      ],
+    );
+  }
+}
+
+async function persistMarketPlayerMutation(
+  client: import('pg').PoolClient,
+  mutation: DurableMarketPlayerMutationSnapshot,
+  now: number,
+): Promise<void> {
+  const watermark: { inventory?: number; wallet?: number; marketStorage?: number } = {};
+  if (Array.isArray(mutation.nextInventoryItems)) {
+    await replacePlayerInventoryItems(client, mutation.playerId, mutation.nextInventoryItems, { allowEmptyOverwrite: true });
+    watermark.inventory = now;
+  }
+  if (Array.isArray(mutation.nextWalletBalances)) {
+    await replacePlayerWalletRows(client, mutation.playerId, mutation.nextWalletBalances);
+    watermark.wallet = now + 1;
+  }
+  if (Array.isArray(mutation.nextMarketStorageItems)) {
+    await replacePlayerMarketStorageItems(client, mutation.playerId, mutation.nextMarketStorageItems, { allowEmptyOverwrite: true });
+    watermark.marketStorage = now + 2;
+  }
+  await upsertMarketMutationWatermark(client, mutation.playerId, watermark);
+}
+
+async function upsertMarketMutationWatermark(
+  client: import('pg').PoolClient,
+  playerId: string,
+  watermark: { inventory?: number; wallet?: number; marketStorage?: number },
+): Promise<void> {
+  if (watermark.inventory == null && watermark.wallet == null && watermark.marketStorage == null) {
+    return;
+  }
+  await client.query(
+    `
+      INSERT INTO ${PLAYER_RECOVERY_WATERMARK_TABLE}(
+        player_id, inventory_version, wallet_version, market_storage_version, updated_at
+      )
+      VALUES ($1, $2, $3, $4, now())
+      ON CONFLICT (player_id)
+      DO UPDATE SET
+        inventory_version = GREATEST(${PLAYER_RECOVERY_WATERMARK_TABLE}.inventory_version, EXCLUDED.inventory_version),
+        wallet_version = GREATEST(${PLAYER_RECOVERY_WATERMARK_TABLE}.wallet_version, EXCLUDED.wallet_version),
+        market_storage_version = GREATEST(${PLAYER_RECOVERY_WATERMARK_TABLE}.market_storage_version, EXCLUDED.market_storage_version),
+        updated_at = now()
+    `,
+    [playerId, watermark.inventory ?? 0, watermark.wallet ?? 0, watermark.marketStorage ?? 0],
+  );
+}
+
+async function persistDurableMarketBanUser(client: import('pg').PoolClient, banUser: DurableMarketMutationInput['banUser']): Promise<void> {
+  const playerId = normalizeRequiredString(banUser?.playerId);
+  const bannedAt = normalizeRequiredString(banUser?.bannedAt);
+  if (!playerId || !bannedAt) {
+    throw new Error('invalid_durable_market_ban_user');
+  }
+  const banReason = normalizeRequiredString(banUser?.banReason).slice(0, 255) || 'GM 风险复核封禁';
+  const bannedBy = normalizeRequiredString(banUser?.bannedBy).slice(0, 64) || 'gm';
+  const updateResult = await client.query(
+    `
+      UPDATE ${PLAYER_AUTH_TABLE}
+      SET
+        banned_at = $2::timestamptz,
+        ban_reason = $3,
+        banned_by = $4,
+        updated_at = now(),
+        payload = jsonb_set(
+          jsonb_set(jsonb_set(payload, '{bannedAt}', to_jsonb($2::text), true), '{banReason}', to_jsonb($3::text), true),
+          '{bannedBy}', to_jsonb($4::text), true
+        )
+      WHERE player_id = $1
+    `,
+    [playerId, bannedAt, banReason, bannedBy],
+  );
+  if (updateResult.rowCount !== 1) {
+    throw new Error('durable_market_ban_user_not_found');
+  }
+}
+
+async function insertDurableOutboxEvent(
+  client: import('pg').PoolClient,
+  operationId: string,
+  topic: string,
+  partitionKey: string,
+  payload: unknown,
+): Promise<void> {
+  await client.query(
+    `
+      INSERT INTO ${OUTBOX_EVENT_TABLE}(
+        event_id, operation_id, topic, partition_key, payload_jsonb,
+        status, attempt_count, next_retry_at, created_at
+      )
+      VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, now(), now())
+      ON CONFLICT (event_id) DO NOTHING
+    `,
+    [`outbox:${operationId}`, operationId, topic, partitionKey, JSON.stringify(payload ?? {}), 'ready', 0],
+  );
+}
+
+async function insertAssetAuditLog(
+  client: import('pg').PoolClient,
+  operationId: string,
+  playerId: string,
+  assetType: string,
+  assetRefId: string,
+  action: string,
+  delta: unknown,
+  before: unknown,
+  after: unknown,
+): Promise<void> {
+  await client.query(
+    `
+      INSERT INTO ${ASSET_AUDIT_LOG_TABLE}(
+        log_id, operation_id, player_id, asset_type, asset_ref_id, action,
+        delta_jsonb, before_jsonb, after_jsonb, created_at
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, $9::jsonb, now())
+      ON CONFLICT (log_id) DO NOTHING
+    `,
+    [`audit:${operationId}`, operationId, playerId, assetType, assetRefId, action, JSON.stringify(delta ?? {}), JSON.stringify(before ?? {}), JSON.stringify(after ?? {})],
+  );
 }
 
 async function replacePlayerWalletRows(
