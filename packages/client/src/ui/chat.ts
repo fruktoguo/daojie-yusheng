@@ -1197,7 +1197,6 @@ export class ChatUI {
       : options;
     const scopeId = this.currentScopeId;
     const resolvedId = resolvedOptions?.id ?? `${Date.now()}:${this.messageSequence++}`;
-    const messageKey = this.buildMessageKey(scopeId, resolvedId);
     const now = Date.now();
     const resolvedScope = resolvedOptions?.scope ?? (kind === 'chat' ? 'nearby' : undefined);
     const entry: ChatStoredMessage = {
@@ -1214,15 +1213,18 @@ export class ChatUI {
     };
     const channels = this.resolveChannels(entry);
     const shouldPersist = shouldPersistChatEntry(entry);
+    const messageKeys = new Map(channels.map((channel) => [channel, this.buildMessageKey(this.buildChannelScopeId(scopeId, channel), resolvedId)] as const));
     const duplicateInAllChannels = channels.every((channel) => this.channelStates.get(channel)?.messageIds.has(resolvedId));
     if (duplicateInAllChannels) {
       if (!shouldPersist) {
         return true;
       }
-      if (this.persistedMessageKeys.has(messageKey)) {
+      if (channels.every((channel) => this.persistedMessageKeys.has(messageKeys.get(channel)!))) {
         return true;
       }
-      const pendingPersistence = this.pendingPersistence.get(messageKey);
+      const pendingPersistence = channels
+        .map((channel) => this.pendingPersistence.get(messageKeys.get(channel)!))
+        .find((candidate): candidate is Promise<boolean> => Boolean(candidate));
       if (pendingPersistence) {
         return pendingPersistence;
       }
@@ -1258,17 +1260,23 @@ export class ChatUI {
       return true;
     }
 
-    const persistencePromise = appendChannelMessages(scopeId, entry, channels)
+    const persistencePromise = appendChannelMessages(scopeId, entry, channels, (channel) => this.buildChannelScopeId(scopeId, channel))
       .then((persisted) => {
         if (persisted) {
-          this.persistedMessageKeys.add(messageKey);
+          for (const channel of channels) {
+            this.persistedMessageKeys.add(messageKeys.get(channel)!);
+          }
         }
         return persisted;
       })
       .finally(() => {
-        this.pendingPersistence.delete(messageKey);
+        for (const channel of channels) {
+          this.pendingPersistence.delete(messageKeys.get(channel)!);
+        }
       });
-    this.pendingPersistence.set(messageKey, persistencePromise);
+    for (const channel of channels) {
+      this.pendingPersistence.set(messageKeys.get(channel)!, persistencePromise);
+    }
     return persistencePromise;
   }
 
@@ -1503,8 +1511,9 @@ export class ChatUI {
     const previousScrollHeight = log.scrollHeight;
     const previousScrollTop = log.scrollTop;
     const loadToken = this.scopeLoadToken;
+    const channelScopeId = this.buildChannelScopeId(scopeId, channel);
     const olderEntries = await loadOlderChannelMessages(
-      scopeId,
+      channelScopeId,
       channel,
       oldestEntry,
       CHAT_LOG_LOAD_BATCH_SIZE,
@@ -1521,7 +1530,7 @@ export class ChatUI {
     state.messages = merged.messages;
     state.messageIds = merged.ids;
     for (const entry of olderEntries) {
-      this.persistedMessageKeys.add(this.buildMessageKey(scopeId, entry.id));
+      this.persistedMessageKeys.add(this.buildMessageKey(channelScopeId, entry.id));
     }
     state.loadedCount = Math.min(state.messages.length, state.loadedCount + olderEntries.length);
     if (olderEntries.length < CHAT_LOG_LOAD_BATCH_SIZE) {
@@ -1592,6 +1601,21 @@ export class ChatUI {
     }
   }
 
+  /** 根据频道构建持久化作用域：附近/战斗/恩怨随实例隔离，世界/宗门随玩家保留。 */
+  private buildChannelScopeId(scopeId: string, channel: ChatChannel): string {
+    const [playerId = scopeId, mapId = 'unknown-map', instanceId = mapId] = scopeId.split('|');
+    if (channel === 'world') {
+      return `${playerId}|world`;
+    }
+    if (channel === 'sect') {
+      return `${playerId}|sect`;
+    }
+    if (channel === 'combat' || channel === 'grudge' || channel === 'nearby') {
+      return `${playerId}|${mapId}|${instanceId}|${channel}`;
+    }
+    return `${playerId}|system`;
+  }
+
   /** 构建消息的持久化键。 */
   private buildMessageKey(scopeId: string, messageId: string): string {
     return `${scopeId}\n${messageId}`;
@@ -1604,7 +1628,7 @@ export class ChatUI {
     const loadedByChannel = await Promise.all(
       CHAT_CHANNELS.map(async (channel) => ({
         channel,
-        entries: await loadRecentChannelMessages(scopeId, channel, CHAT_LOG_MAX_VISIBLE_MESSAGES),
+        entries: await loadRecentChannelMessages(this.buildChannelScopeId(scopeId, channel), channel, CHAT_LOG_MAX_VISIBLE_MESSAGES),
       })),
     );
     if (loadToken !== this.scopeLoadToken || scopeId !== this.currentScopeId) {
@@ -1612,6 +1636,7 @@ export class ChatUI {
     }
 
     for (const { channel, entries } of loadedByChannel) {
+      const channelScopeId = this.buildChannelScopeId(scopeId, channel);
       const state = this.channelStates.get(channel);
       if (!state) {
         continue;
@@ -1622,7 +1647,7 @@ export class ChatUI {
       state.loadedCount = Math.min(state.messages.length, Math.max(state.loadedCount, entries.length));
       state.hasLoadedAll = entries.length < CHAT_LOG_LOAD_BATCH_SIZE;
       for (const entry of entries) {
-        this.persistedMessageKeys.add(this.buildMessageKey(scopeId, entry.id));
+        this.persistedMessageKeys.add(this.buildMessageKey(channelScopeId, entry.id));
       }
     }
 

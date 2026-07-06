@@ -112,6 +112,15 @@ interface TerrainChunkView {
   lastSeenFrame: number;
 }
 
+interface TerrainFogChunkView {
+  key: string;
+  cx: number;
+  cy: number;
+  graphics: Graphics;
+  signature: string;
+  lastSeenFrame: number;
+}
+
 interface TerrainChunkStaticSignatureDeps {
   cellSize: number;
   renderRuntimeTileSprites: boolean;
@@ -770,7 +779,7 @@ export class PixiMapRendererAdapter {
   private readonly terrainEdgeLayer = new Container();
   private readonly terrainGlyphLayer = new Container();
   private readonly terrainOverlayLayer = new Container();
-  private readonly terrainFogLayer = new Graphics();
+  private readonly terrainFogLayer = new Container();
   private readonly pathLayer = new Container();
   private readonly interactionOverlayGraphics = new Graphics();
   private readonly targetingGraphics = new Graphics();
@@ -784,6 +793,7 @@ export class PixiMapRendererAdapter {
   private readonly threatArrowGraphics = new Graphics();
   private readonly timeOverlayGraphics = new Graphics();
   private readonly terrainChunks = new Map<string, TerrainChunkView>();
+  private readonly terrainFogChunks = new Map<string, TerrainFogChunkView>();
   private readonly entities = new Map<string, EntityView>();
   private readonly formationRangeVisuals = new Map<string, FormationRangeVisual>();
   private readonly formationRangeSenseQiVisuals = new Map<string, FormationRangeVisual>();
@@ -1003,7 +1013,7 @@ export class PixiMapRendererAdapter {
     this.fadingPath = null;
     this.threatArrows = [];
     this.pathGraphics.clear();
-    this.terrainFogLayer.clear();
+    this.clearTerrainFogChunks();
     this.clearContainer(this.groundLayer);
     this.clearContainer(this.effectLayer);
     this.threatArrowGraphics.clear();
@@ -1111,6 +1121,11 @@ export class PixiMapRendererAdapter {
 
   private clearContainer(container: Container): void {
     for (const child of container.removeChildren()) child.destroy({ children: true });
+  }
+
+  private clearTerrainFogChunks(): void {
+    this.terrainFogChunks.clear();
+    this.clearContainer(this.terrainFogLayer);
   }
 
   private updateCameraTransform(camera: CameraState): void {
@@ -1700,38 +1715,97 @@ export class PixiMapRendererAdapter {
     this.terrainFogActiveSignature = activeSignature;
     this.terrainFogLastRebuildAt = now;
     this.terrainFogSignature = hasActiveFogTransitions ? '' : signature;
-    this.terrainFogLayer.clear();
+    const activeFogBucket = hasActiveFogTransitions ? Math.floor(now / 32) : 0;
     for (let cy = startCY; cy <= endCY; cy += 1) {
       for (let cx = startCX; cx <= endCX; cx += 1) {
-        const startX = cx * CHUNK_SIZE;
-        const startY = cy * CHUNK_SIZE;
-        for (let y = startY; y < startY + CHUNK_SIZE; y += 1) {
-          for (let x = startX; x < startX + CHUNK_SIZE; x += 1) {
-            const key = `${x},${y}`;
-            const tile = scene.terrain.tileCache.get(key);
-            const sx = x * cellSize;
-            const sy = y * cellSize;
-            if (!scene.terrain.visibleTiles.has(key)) {
-              const hiddenFade = this.resolveTileFade(this.hiddenTileFadeStartedAt.get(key), now, false);
-              this.terrainFogLayer.rect(sx, sy, cellSize, cellSize).fill({ color: tile ? 0x0c0a08 : 0x080605, alpha: (tile ? 0.72 : 0.94) * hiddenFade });
-              if (hiddenFade >= 1) {
-                this.hiddenTileFadeStartedAt.delete(key);
-              }
-              continue;
-            }
-            const visibleFade = this.resolveTileFade(this.visibleTileFadeStartedAt.get(key), now, true);
-            if (visibleFade > 0) {
-              this.terrainFogLayer.rect(sx, sy, cellSize, cellSize).fill({ color: 0x0c0a08, alpha: 0.72 * visibleFade });
-            } else {
-              this.visibleTileFadeStartedAt.delete(key);
-            }
-          }
+        const chunk = this.getOrCreateTerrainFogChunk(cx, cy);
+        chunk.lastSeenFrame = this.chunkFrame;
+        const chunkSignature = this.buildTerrainFogChunkSignature(scene, cx, cy, cellSize, activeFogBucket);
+        if (chunkSignature !== chunk.signature) {
+          this.rebuildTerrainFogChunk(chunk, scene, cellSize, now, chunkSignature);
         }
       }
     }
+    this.pruneUnusedTerrainFogChunks();
     if (this.visibleTileFadeStartedAt.size === 0 && this.hiddenTileFadeStartedAt.size === 0) {
       this.terrainFogSignature = signature;
       this.terrainFogActiveSignature = '';
+    }
+  }
+
+  private getOrCreateTerrainFogChunk(cx: number, cy: number): TerrainFogChunkView {
+    const key = `${cx},${cy}`;
+    let chunk = this.terrainFogChunks.get(key);
+    if (!chunk) {
+      chunk = { key, cx, cy, graphics: new Graphics(), signature: '', lastSeenFrame: this.chunkFrame };
+      chunk.graphics.label = `terrain-fog-chunk:${key}`;
+      this.terrainFogChunks.set(key, chunk);
+      this.terrainFogLayer.addChild(chunk.graphics);
+    }
+    return chunk;
+  }
+
+  private buildTerrainFogChunkSignature(
+    scene: MapSceneSnapshot,
+    cx: number,
+    cy: number,
+    cellSize: number,
+    activeFogBucket: number,
+  ): string {
+    return [
+      cellSize,
+      cx,
+      cy,
+      scene.terrain.visibleTileRevision,
+      scene.terrain.terrainChunkRevisions.get(`${cx},${cy}`) ?? 0,
+      scene.terrain.tileCache.size,
+      activeFogBucket,
+      this.visibleTileFadeStartedAt.size,
+      this.hiddenTileFadeStartedAt.size,
+    ].join('|');
+  }
+
+  private rebuildTerrainFogChunk(
+    chunk: TerrainFogChunkView,
+    scene: MapSceneSnapshot,
+    cellSize: number,
+    now: number,
+    signature: string,
+  ): void {
+    const startX = chunk.cx * CHUNK_SIZE;
+    const startY = chunk.cy * CHUNK_SIZE;
+    chunk.graphics.clear();
+    for (let y = startY; y < startY + CHUNK_SIZE; y += 1) {
+      for (let x = startX; x < startX + CHUNK_SIZE; x += 1) {
+        const key = `${x},${y}`;
+        const tile = scene.terrain.tileCache.get(key);
+        const sx = x * cellSize;
+        const sy = y * cellSize;
+        if (!scene.terrain.visibleTiles.has(key)) {
+          const hiddenFade = this.resolveTileFade(this.hiddenTileFadeStartedAt.get(key), now, false);
+          chunk.graphics.rect(sx, sy, cellSize, cellSize).fill({ color: tile ? 0x0c0a08 : 0x080605, alpha: (tile ? 0.72 : 0.94) * hiddenFade });
+          if (hiddenFade >= 1) {
+            this.hiddenTileFadeStartedAt.delete(key);
+          }
+          continue;
+        }
+        const visibleFade = this.resolveTileFade(this.visibleTileFadeStartedAt.get(key), now, true);
+        if (visibleFade > 0) {
+          chunk.graphics.rect(sx, sy, cellSize, cellSize).fill({ color: 0x0c0a08, alpha: 0.72 * visibleFade });
+        } else {
+          this.visibleTileFadeStartedAt.delete(key);
+        }
+      }
+    }
+    chunk.signature = signature;
+  }
+
+  private pruneUnusedTerrainFogChunks(): void {
+    for (const [key, chunk] of this.terrainFogChunks) {
+      if (this.chunkFrame - chunk.lastSeenFrame > 4) {
+        chunk.graphics.destroy({ children: true });
+        this.terrainFogChunks.delete(key);
+      }
     }
   }
 

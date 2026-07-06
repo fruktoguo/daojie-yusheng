@@ -571,10 +571,18 @@ export class MarketPanel {
     }
     this.renderPane();
     if (marketModalOpen) {
-      if (this.modalTab === 'market' && this.selectedItemKey) {
-        this.requestItemBook(this.selectedItemKey);
-      }
-      if (this.patchMarketModalLiveState({ patchBook: previousSelectedItemKey !== this.selectedItemKey, requireStableList: canPatchMarketModal })) {
+      if (this.modalTab === 'market') {
+        if (this.selectedItemKey) {
+          this.requestItemBook(this.selectedItemKey);
+        }
+        if (this.patchMarketModalLiveState({ patchBook: previousSelectedItemKey !== this.selectedItemKey, requireStableList: canPatchMarketModal })) {
+          return;
+        }
+      } else if (this.modalTab === 'my-orders') {
+        if (this.patchMyOrdersTab()) {
+          return;
+        }
+      } else if (this.patchTradeHistoryTab()) {
         return;
       }
       this.renderModal();
@@ -616,7 +624,15 @@ export class MarketPanel {
     const canPatchMarketModal = marketModalOpen && this.canPatchCurrentMarketListInPlace();
     this.renderPane();
     if (marketModalOpen) {
-      if (this.patchMarketModalLiveState({ patchBook: previousSelectedItemKey !== this.selectedItemKey, requireStableList: canPatchMarketModal })) {
+      if (this.modalTab === 'market') {
+        if (this.patchMarketModalLiveState({ patchBook: previousSelectedItemKey !== this.selectedItemKey, requireStableList: canPatchMarketModal })) {
+          return;
+        }
+      } else if (this.modalTab === 'my-orders') {
+        if (this.patchMyOrdersTab()) {
+          return;
+        }
+      } else if (this.patchTradeHistoryTab()) {
         return;
       }
       this.renderModal();
@@ -688,7 +704,13 @@ export class MarketPanel {
     };
     this.renderPane();
     if (detailModalHost.isOpenFor(MarketPanel.MODAL_OWNER)) {
-      if (this.patchMarketModalLiveState()) {
+      if (this.patchMyOrdersTab()) {
+        return;
+      }
+      if (this.modalTab === 'market' && this.patchMarketModalLiveState()) {
+        return;
+      }
+      if (this.patchTradeHistoryTab()) {
         return;
       }
       this.renderModal();
@@ -716,7 +738,13 @@ export class MarketPanel {
     };
     this.renderPane();
     if (detailModalHost.isOpenFor(MarketPanel.MODAL_OWNER)) {
-      if (this.patchMarketModalLiveState()) {
+      if (this.patchMyOrdersTab()) {
+        return;
+      }
+      if (this.modalTab === 'market' && this.patchMarketModalLiveState()) {
+        return;
+      }
+      if (this.patchTradeHistoryTab()) {
         return;
       }
       this.renderModal();
@@ -775,6 +803,15 @@ export class MarketPanel {
       this.auctionHistoryScope = data.scope;
     }
     if (detailModalHost.isOpenFor(MarketPanel.MODAL_OWNER)) {
+      if (this.patchTradeHistoryTab()) {
+        return;
+      }
+      if (this.modalTab === 'market' && this.patchMarketModalLiveState()) {
+        return;
+      }
+      if (this.patchMyOrdersTab()) {
+        return;
+      }
       this.renderModal();
     } else if (detailModalHost.isOpenFor(MarketPanel.AUCTION_MODAL_OWNER)) {
       this.patchAuctionModalLiveState();
@@ -1489,15 +1526,6 @@ export class MarketPanel {
           this.requestListings(requestedPage);
         }, { signal }));
 
-        body.querySelectorAll<HTMLElement>('[data-market-history-page]').forEach((button) => button.addEventListener('click', () => {
-          const nextPage = Number.parseInt(button.dataset.marketHistoryPage ?? '1', 10);
-          if (!Number.isFinite(nextPage) || nextPage === this.tradeHistoryPage) {
-            return;
-          }
-          this.requestTradeHistory(nextPage);
-          this.renderModal();
-        }, { signal }));
-
         body.querySelectorAll<HTMLElement>('[data-market-select-item]').forEach((button) => button.addEventListener('click', () => {
           const itemKey = button.dataset.marketSelectItem;
           const groupItemId = button.dataset.marketSelectItemGroup;
@@ -1556,18 +1584,6 @@ export class MarketPanel {
           this.itemBook = null;
           this.tradeDialog = null;
           this.renderModal();
-        }, { signal });
-
-        body.querySelectorAll<HTMLElement>('[data-market-cancel-order]').forEach((button) => button.addEventListener('click', () => {
-          const orderId = button.dataset.marketCancelOrder;
-          if (!orderId) {
-            return;
-          }
-          this.callbacks?.onCancelOrder(orderId);
-        }, { signal }));
-
-        body.querySelector<HTMLElement>('[data-market-claim-storage]')?.addEventListener('click', () => {
-          this.callbacks?.onClaimStorage();
         }, { signal });
 
         this.bindMarketModalDelegatedEvents(body, signal);
@@ -1847,6 +1863,30 @@ export class MarketPanel {
           const confirmPurchase = actionButton.dataset.marketOpenDialogConfirmPurchase === 'true';
           this.openTradeDialog(selected, kind, presetPrice, confirmPurchase);
         }
+        return;
+      }
+      const historyButton = target.closest<HTMLElement>('[data-market-history-page]');
+      if (historyButton && body.contains(historyButton)) {
+        const nextPage = Number.parseInt(historyButton.dataset.marketHistoryPage ?? '1', 10);
+        if (Number.isFinite(nextPage) && nextPage !== this.tradeHistoryPage) {
+          this.requestTradeHistory(nextPage);
+          if (!this.patchTradeHistoryTab()) {
+            this.renderModal();
+          }
+        }
+        return;
+      }
+      const cancelOrderButton = target.closest<HTMLElement>('[data-market-cancel-order]');
+      if (cancelOrderButton && body.contains(cancelOrderButton)) {
+        const orderId = cancelOrderButton.dataset.marketCancelOrder;
+        if (orderId) {
+          this.callbacks?.onCancelOrder(orderId);
+        }
+        return;
+      }
+      const claimStorageButton = target.closest<HTMLElement>('[data-market-claim-storage]');
+      if (claimStorageButton && body.contains(claimStorageButton)) {
+        this.callbacks?.onClaimStorage();
         return;
       }
       if (!tapMode || !(event instanceof PointerEvent)) {
@@ -2307,6 +2347,38 @@ export class MarketPanel {
     this.patchVisibleMarketListPrices(body);
     this.syncVisibleMarketInventoryState();
     this.refreshMarketTooltipContent(body);
+    this.syncTradeDialogOverlay();
+    return true;
+  }
+
+  /** 局部刷新我的订单 tab，避免订单/仓库回包重建整个弹层。 */
+  private patchMyOrdersTab(): boolean {
+    if (this.modalTab !== 'my-orders' || !this.marketUpdate) {
+      return false;
+    }
+    const content = this.getOpenModalBody()?.querySelector<HTMLElement>('.market-modal-content');
+    if (!content?.querySelector('.market-my-orders')) {
+      return false;
+    }
+    const scrollTop = content.scrollTop;
+    replaceElementHtml(content, this.renderMyOrdersTab(this.marketUpdate));
+    content.scrollTop = scrollTop;
+    this.syncTradeDialogOverlay();
+    return true;
+  }
+
+  /** 局部刷新交易历史 tab，避免历史分页回包重建整个弹层。 */
+  private patchTradeHistoryTab(): boolean {
+    if (this.modalTab !== 'trade-history' || !this.marketUpdate) {
+      return false;
+    }
+    const content = this.getOpenModalBody()?.querySelector<HTMLElement>('.market-modal-content');
+    if (!content?.querySelector('.market-trade-history')) {
+      return false;
+    }
+    const scrollTop = content.scrollTop;
+    replaceElementHtml(content, this.renderTradeHistoryTab(this.marketUpdate.currencyItemName));
+    content.scrollTop = scrollTop;
     this.syncTradeDialogOverlay();
     return true;
   }

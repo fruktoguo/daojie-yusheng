@@ -8,7 +8,7 @@
  * 提供数据库状态查询、备份触发、备份上传/下载、数据库恢复和服务端日志查看端点。
  * 所有路由需 GM 鉴权。
  */
-import { Body, Controller, Get, Headers, Param, Post, Query, Req, Res, UseGuards, NotFoundException } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Param, Post, Query, Req, Res, UseGuards, NotFoundException, Optional } from '@nestjs/common';
 import { createReadStream } from 'fs';
 import { pipeline } from 'stream/promises';
 import { stat } from 'fs/promises';
@@ -21,6 +21,7 @@ import { NativeGmAuthGuard } from './native-gm-auth.guard';
 import { NativeGmDiagnosticsService } from './native-gm-diagnostics.service';
 import { NativeGmWorkerService } from './native-gm-worker.service';
 import { SchedulerManagerService } from '../../scheduler/scheduler-manager.service';
+import { GmAuditLogPersistenceService } from '../../persistence/gm-audit-log-persistence.service';
 import { readConsoleLogEntries } from '../../logging/console-log-buffer';
 import { runGmEnvCheck } from '../../runtime/gm/gm-env-check.service';
 /** 数据库恢复请求体。 */
@@ -65,6 +66,7 @@ export class NativeGmAdminController {
     private readonly nativeGmWorkerService: NativeGmWorkerService,
     private readonly nativeGmDiagnosticsService: NativeGmDiagnosticsService,
     private readonly schedulerManagerService: SchedulerManagerService,
+    @Optional() private readonly gmAuditLogPersistenceService?: GmAuditLogPersistenceService,
   ) {}
 
   /** 查询数据库连接状态和备份列表。 */
@@ -87,38 +89,73 @@ export class NativeGmAdminController {
 
   /** 暂停指定 scheduler 任务。 */
   @Post('workers/scheduler/:taskId/pause')
-  pauseSchedulerTask(@Param('taskId') taskId: string) {
-    return { ok: this.schedulerManagerService.setPaused(taskId, true) };
+  pauseSchedulerTask(@Param('taskId') taskId: string, @Req() request: unknown) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.workers.scheduler.pause',
+      request,
+      targetType: 'scheduler_task',
+      targetId: taskId,
+      after: { paused: true },
+    }, () => ({ ok: this.schedulerManagerService.setPaused(taskId, true) }));
   }
 
   /** 恢复指定 scheduler 任务。 */
   @Post('workers/scheduler/:taskId/resume')
-  resumeSchedulerTask(@Param('taskId') taskId: string) {
-    return { ok: this.schedulerManagerService.setPaused(taskId, false) };
+  resumeSchedulerTask(@Param('taskId') taskId: string, @Req() request: unknown) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.workers.scheduler.resume',
+      request,
+      targetType: 'scheduler_task',
+      targetId: taskId,
+      after: { paused: false },
+    }, () => ({ ok: this.schedulerManagerService.setPaused(taskId, false) }));
   }
 
   /** 启用指定 scheduler 任务。 */
   @Post('workers/scheduler/:taskId/enable')
-  enableSchedulerTask(@Param('taskId') taskId: string) {
-    return { ok: this.schedulerManagerService.setEnabled(taskId, true) };
+  enableSchedulerTask(@Param('taskId') taskId: string, @Req() request: unknown) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.workers.scheduler.enable',
+      request,
+      targetType: 'scheduler_task',
+      targetId: taskId,
+      after: { enabled: true },
+    }, () => ({ ok: this.schedulerManagerService.setEnabled(taskId, true) }));
   }
 
   /** 禁用指定 scheduler 任务。 */
   @Post('workers/scheduler/:taskId/disable')
-  disableSchedulerTask(@Param('taskId') taskId: string) {
-    return { ok: this.schedulerManagerService.setEnabled(taskId, false) };
+  disableSchedulerTask(@Param('taskId') taskId: string, @Req() request: unknown) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.workers.scheduler.disable',
+      request,
+      targetType: 'scheduler_task',
+      targetId: taskId,
+      after: { enabled: false },
+    }, () => ({ ok: this.schedulerManagerService.setEnabled(taskId, false) }));
   }
 
   /** 手动触发指定 scheduler 任务。 */
   @Post('workers/scheduler/:taskId/trigger')
-  async triggerSchedulerTask(@Param('taskId') taskId: string) {
-    return { processedCount: await this.schedulerManagerService.triggerTask(taskId) };
+  async triggerSchedulerTask(@Param('taskId') taskId: string, @Req() request: unknown) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.workers.scheduler.trigger',
+      request,
+      targetType: 'scheduler_task',
+      targetId: taskId,
+    }, async () => ({ processedCount: await this.schedulerManagerService.triggerTask(taskId) }));
   }
 
   /** 让 scheduler 进入 drain。 */
   @Post('workers/scheduler/drain')
-  drainScheduler() {
-    return this.schedulerManagerService.stop('gm_drain');
+  drainScheduler(@Req() request: unknown) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.workers.scheduler.drain',
+      request,
+      targetType: 'scheduler',
+      targetId: 'runtime',
+      after: { reason: 'gm_drain' },
+    }, () => this.schedulerManagerService.stop('gm_drain'));
   }
 
   /** 运行环境检测：检查运行时、关键 env 与项目依赖是否可用。 */
@@ -204,5 +241,42 @@ export class NativeGmAdminController {
       extractGmActor(request),
       body,
     );
+  }
+
+  private async executeAuditedGmWrite<T>(
+    input: { op: string; request: unknown; targetType: string; targetId?: string | null; after?: unknown },
+    work: (actor: ReturnType<typeof extractGmActor>) => T | Promise<T>,
+  ): Promise<T> {
+    const actor = extractGmActor(input.request);
+    try {
+      const result = await work(actor);
+      await this.recordGmWriteAudit(input.op, actor, input.targetType, input.targetId ?? null, input.after ?? { result }, true, null);
+      return result;
+    } catch (error) {
+      await this.recordGmWriteAudit(input.op, actor, input.targetType, input.targetId ?? null, {}, false, error instanceof Error ? error.message : String(error));
+      throw error;
+    }
+  }
+
+  private async recordGmWriteAudit(
+    op: string,
+    actor: ReturnType<typeof extractGmActor>,
+    targetType: string,
+    targetId: string | null,
+    after: unknown,
+    success: boolean,
+    errorMessage: string | null,
+  ): Promise<void> {
+    if (!this.gmAuditLogPersistenceService) return;
+    await this.gmAuditLogPersistenceService.recordEntry({
+      op,
+      targetType,
+      targetId,
+      actor,
+      before: {},
+      after,
+      success,
+      errorMessage,
+    }).catch(() => undefined);
   }
 }

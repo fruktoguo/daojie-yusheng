@@ -404,17 +404,20 @@ export async function appendChannelMessages(
   scopeId: string,
   entry: ChatStoredMessage,
   channels: ChatChannel[],
+  resolveChannelScopeId: (channel: ChatChannel) => string = () => scopeId,
 ): Promise<boolean> {
   if (channels.length === 0) {
     return false;
   }
   return new Promise<boolean>((resolve) => {
-    pendingPersistEntries.push({
-      scopeId,
-      entry,
-      channels: [...channels],
-      resolve,
-    });
+    for (const channel of channels) {
+      pendingPersistEntries.push({
+        scopeId: resolveChannelScopeId(channel),
+        entry,
+        channels: [channel],
+        resolve,
+      });
+    }
     schedulePersistFlush();
   });
 }

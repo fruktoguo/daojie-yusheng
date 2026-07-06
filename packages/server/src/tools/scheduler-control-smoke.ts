@@ -78,12 +78,13 @@ async function main(): Promise<void> {
     { executeQuery: async () => ({}) } as never,
     manager,
   );
-  assert.equal(controller.pauseSchedulerTask('control-task').ok, true);
-  assert.equal(controller.resumeSchedulerTask('control-task').ok, true);
-  assert.equal(controller.disableSchedulerTask('control-task').ok, true);
-  assert.equal(controller.enableSchedulerTask('control-task').ok, true);
-  assert.equal((await controller.triggerSchedulerTask('control-task')).processedCount, 2);
-  const drained = controller.drainScheduler();
+  const gmRequest = {} as never;
+  assert.equal((await controller.pauseSchedulerTask('control-task', gmRequest)).ok, true);
+  assert.equal((await controller.resumeSchedulerTask('control-task', gmRequest)).ok, true);
+  assert.equal((await controller.disableSchedulerTask('control-task', gmRequest)).ok, true);
+  assert.equal((await controller.enableSchedulerTask('control-task', gmRequest)).ok, true);
+  assert.equal((await controller.triggerSchedulerTask('control-task', gmRequest)).processedCount, 2);
+  const drained = await controller.drainScheduler(gmRequest);
   assert.equal(drained.stopping, true);
 
   snapshot = manager.getSnapshot();

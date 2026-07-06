@@ -271,7 +271,7 @@
 
 ### P18. 大量高危 GM 写入口未直接落 gm_audit_log
 
-- **状态**：已部分修复（2026-07-06）：GM 主控制器写入口已通过统一审计封装覆盖邮件、世界实例/运行态、兑换码、重启等本组高危路径；本轮未处理扫描报告之外的全部未来新增 GM 写入口。
+- **状态**：已修复（2026-07-06）：GM 主控制器写入口已通过统一审计封装覆盖邮件、世界实例/运行态、兑换码、重启等本组高危路径；本轮补齐 NativeGmAdminController 的 scheduler pause/resume/enable/disable/trigger/drain 写入口审计，扫描范围内高危 GM 写路由已闭环到统一审计口径。
 - **严重级别**：high
 - **分类**：缺少审计 / GM 操作追溯
 - **置信度**：confirmed
@@ -403,7 +403,7 @@
 
 ### P29. 市场主弹层多处交互直接重开整窗，列表滚动、焦点和交易草稿会被打断
 
-- **状态**：已部分修复（2026-07-06）：DetailModalHost 已在 open/patch 全局恢复焦点、输入选区与子滚动位置；本轮 MarketPanel.renderModal 在弹层已打开时改走 detailModalHost.patch，不再重复 open 整窗，降低列表滚动、焦点和交易草稿断裂风险。更细粒度的列表/详情/历史分区局部 patch 仍可后续加码。
+- **状态**：已修复（2026-07-06）：DetailModalHost 已在 open/patch 全局恢复焦点、输入选区与子滚动位置；MarketPanel 普通市场、我的订单、托管仓与交易历史回包均按当前 tab 局部 patch，历史分页/撤单/领取仓库改为委托事件处理，避免回包和分页重建整窗打断滚动、焦点或交易草稿。
 - **严重级别**：medium
 - **分类**：交易/市场 UI 连续性
 - **置信度**：confirmed
@@ -463,7 +463,7 @@
 
 ### P34. 地图每帧雾层遍历当前视口全部格子，视口和 DPR 增大时持续占用渲染预算
 
-- **状态**：已部分修复（2026-07-06）：Pixi 雾层新增静态 signature 缓存，并对 active fade transition 增加 active signature 与 32ms 节流，避免稳定相机/同状态下每帧重复全视口重绘；chunk/RenderTexture 级缓存仍可作为后续性能加码方向。
+- **状态**：已修复（2026-07-06）：Pixi 雾层由单个 Graphics 全视口重绘改为 16x16 terrain fog chunk Graphics 缓存；稳定相机/同状态命中全局 signature，视口移动只创建或重绘新进入 chunk，fade transition 保留 32ms 桶节流，避免每帧清空并重画全部可见格。
 - **严重级别**：medium
 - **分类**：地图渲染性能 / 长时间在线
 - **置信度**：confirmed
@@ -547,7 +547,7 @@
 
 ### P41. 聊天会话按 playerId 持久化，跨地图/跨实例不会隔离附近和战斗日志
 
-- **状态**：已部分修复（2026-07-06）：客户端聊天持久化 scope 已从单 playerId 扩展为 playerId|mapId|instanceId；服务端 ChatRuntimeService 的 nearby 可见性已按 instanceId 与 VIEW_RADIUS 过滤，协议审计 heartbeat-chat 已补齐与运行时一致的展示名断言。combat/world/sect 分频道更细粒度持久化 scope 可后续继续拆分。
+- **状态**：已修复（2026-07-06）：客户端聊天持久化 scope 已从单 playerId 扩展为 playerId|mapId|instanceId，并进一步按频道拆分：world/sect/system 随玩家保留，nearby/combat/grudge 按 mapId+instanceId+channel 隔离；IndexedDB 写入、最近消息恢复、向上翻页和去重键已统一使用频道 scope。
 - **严重级别**：low
 - **分类**：协议消费 / 聊天状态连续性
 - **置信度**：plausible
