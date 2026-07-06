@@ -111,6 +111,7 @@
 - **触发场景**：公共城镇或活动地图聚集 5000 玩家时，每秒同步阶段仅可见玩家收集就会产生约 5000×5000 次玩家距离/可见性检查，还叠加 FOV 与 envelope 构造，容易超出 1Hz tick budget 并拖慢全服 tick。
 - **影响**：在 5000 并发口径下，同步阶段存在 O(P²) 放大，可能导致慢帧、跳帧、同步堆积和断线重拉首包压力。
 - **建议修复方向**：为玩家位置建立按 tile/chunk 的 AOI 索引，按可见 tile/邻近 chunk 收集玩家；同时把 view cache 从全实例 worldRevision 改为局部 AOI revision，避免无关变化击穿所有玩家视图。
+- **状态**：已修复（2026-07-06）：MapInstanceRuntime 维护玩家 tile 与 chunk 双索引，connect/relocate/move/disconnect/模板重定位路径同步更新；collectVisiblePlayers 改为按 shadowcasting 可见 tile 候选收集玩家，并保留索引计数异常时回退 playersById 全量扫描，确保断线、跨图和首包视图仍以权威实例状态为准。
 
 ### P05. 怪物目标解析对每只怪物重复全量扫描玩家
 
@@ -122,6 +123,7 @@
 - **触发场景**：一个实例内有大量怪物和玩家时，怪物 AI 目标解析变成 O(M×P) 加 M 次视野投射；5000 玩家或刷怪密集地图会把主动 AI 推进压成 tick 热点，影响战斗结算与同步。
 - **影响**：怪物 AI 热路径会随玩家数和怪物数乘法增长，难以支撑多人同图和 10000 地图实例长期在线。
 - **建议修复方向**：复用 playerIdsByTile 或新增 chunk AOI 索引，先按 aggro/leash 范围取候选玩家；对无候选怪物跳过 shadowcasting，并缓存/批量计算同区域可见玩家。
+- **状态**：已修复（2026-07-06）：resolveMonsterTarget / idle hint 先按 chunk 候选做 aggro/leash 粗筛，无候选时只推进仇恨衰减并跳过 shadowcasting；存在候选后再按可见 tile 索引收集玩家、推进被动仇恨与最高仇恨选择，保持锁定目标、丢视野追击和索引异常 fallback 的正确性。
 
 ### P06. 藏经录入缺少 jobRunId 占用校验，同一藏经台可被多人并发录入并重复获得传法经验
 

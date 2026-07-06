@@ -44,6 +44,8 @@ type TileDropRollOptions = {
 
 /** DEFAULT_VIEW_RADIUS：默认视野半径。 */
 const DEFAULT_VIEW_RADIUS = 10;
+/** 玩家空间索引 chunk 边长；覆盖默认视野并避免大图同实例全量扫。 */
+const PLAYER_SPATIAL_CHUNK_SIZE = 16;
 
 /** MONSTER_LOST_SIGHT_CHASE_TICKS：妖兽丢失视野后只追击最后目击点的短暂记忆窗口。 */
 const MONSTER_LOST_SIGHT_CHASE_TICKS = 3;
@@ -203,6 +205,12 @@ class MapInstanceRuntime {
  */
 
     playerIdsByTile = new Map();
+    /** 玩家 tile 索引中的唯一玩家计数，用于异常时 O(1) 触发正确性 fallback。 */
+    playerTileIndexedPlayerCount = 0;
+    /** 玩家 chunk 空间索引，供 AOI 与怪物寻敌先缩小候选集。 */
+    playerIdsByChunk = new Map();
+    /** 玩家 chunk 索引中的唯一玩家计数，用于异常时 O(1) 触发正确性 fallback。 */
+    playerChunkIndexedPlayerCount = 0;
     /**
  * playersByHandle：玩家ByHandle相关字段。
  */
@@ -766,7 +774,11 @@ class MapInstanceRuntime {
             playerIds = new Set();
             this.playerIdsByTile.set(tileIndex, playerIds);
         }
+        if (!playerIds.has(player.playerId)) {
+            this.playerTileIndexedPlayerCount += 1;
+        }
         playerIds.add(player.playerId);
+        this.addPlayerToChunkIndex(player);
     }
     removePlayerFromTileIndex(playerId, x, y) {
         if (!playerId || !this.isInBounds(x, y)) {
@@ -774,13 +786,114 @@ class MapInstanceRuntime {
         }
         const tileIndex = this.toTileIndex(x, y);
         const playerIds = this.playerIdsByTile.get(tileIndex);
+        if (playerIds?.delete(playerId)) {
+            this.playerTileIndexedPlayerCount = Math.max(0, this.playerTileIndexedPlayerCount - 1);
+            if (playerIds.size === 0) {
+                this.playerIdsByTile.delete(tileIndex);
+            }
+        }
+        this.removePlayerFromChunkIndex(playerId, x, y);
+    }
+    getPlayerSpatialChunkKey(x, y) {
+        const chunkX = Math.floor(Math.trunc(Number(x) || 0) / PLAYER_SPATIAL_CHUNK_SIZE);
+        const chunkY = Math.floor(Math.trunc(Number(y) || 0) / PLAYER_SPATIAL_CHUNK_SIZE);
+        return `${chunkX},${chunkY}`;
+    }
+    addPlayerToChunkIndex(player) {
+        if (!player?.playerId || !this.isInBounds(player.x, player.y)) {
+            return;
+        }
+        const chunkKey = this.getPlayerSpatialChunkKey(player.x, player.y);
+        let playerIds = this.playerIdsByChunk.get(chunkKey);
+        if (!playerIds) {
+            playerIds = new Set();
+            this.playerIdsByChunk.set(chunkKey, playerIds);
+        }
+        if (!playerIds.has(player.playerId)) {
+            this.playerChunkIndexedPlayerCount += 1;
+        }
+        playerIds.add(player.playerId);
+    }
+    removePlayerFromChunkIndex(playerId, x, y) {
+        if (!playerId || !this.isInBounds(x, y)) {
+            return;
+        }
+        const chunkKey = this.getPlayerSpatialChunkKey(x, y);
+        const playerIds = this.playerIdsByChunk.get(chunkKey);
         if (!playerIds) {
             return;
         }
-        playerIds.delete(playerId);
-        if (playerIds.size === 0) {
-            this.playerIdsByTile.delete(tileIndex);
+        if (!playerIds.delete(playerId)) {
+            return;
         }
+        this.playerChunkIndexedPlayerCount = Math.max(0, this.playerChunkIndexedPlayerCount - 1);
+        if (playerIds.size === 0) {
+            this.playerIdsByChunk.delete(chunkKey);
+        }
+    }
+    collectPlayersByTileIndices(tileIndices) {
+        if (!(tileIndices instanceof Set)) {
+            return Array.from(this.playersById.values());
+        }
+        if (this.playerTileIndexedPlayerCount !== this.playersById.size) {
+            return Array.from(this.playersById.values());
+        }
+        const players = [];
+        const seenPlayerIds = new Set();
+        for (const tileIndexInput of tileIndices) {
+            const tileIndex = Math.trunc(Number(tileIndexInput));
+            const playerIds = this.playerIdsByTile.get(tileIndex);
+            if (!playerIds) {
+                continue;
+            }
+            for (const playerId of playerIds) {
+                if (seenPlayerIds.has(playerId)) {
+                    continue;
+                }
+                const player = this.playersById.get(playerId);
+                if (!player) {
+                    continue;
+                }
+                seenPlayerIds.add(playerId);
+                players.push(player);
+            }
+        }
+        return players;
+    }
+    collectPlayersByChunkRange(centerX, centerY, radius) {
+        if (this.playersById.size === 0) {
+            return [];
+        }
+        if (this.playerChunkIndexedPlayerCount !== this.playersById.size) {
+            return Array.from(this.playersById.values());
+        }
+        const normalizedRadius = Math.max(0, Math.trunc(Number(radius) || 0));
+        const minChunkX = Math.floor((Math.trunc(Number(centerX) || 0) - normalizedRadius) / PLAYER_SPATIAL_CHUNK_SIZE);
+        const maxChunkX = Math.floor((Math.trunc(Number(centerX) || 0) + normalizedRadius) / PLAYER_SPATIAL_CHUNK_SIZE);
+        const minChunkY = Math.floor((Math.trunc(Number(centerY) || 0) - normalizedRadius) / PLAYER_SPATIAL_CHUNK_SIZE);
+        const maxChunkY = Math.floor((Math.trunc(Number(centerY) || 0) + normalizedRadius) / PLAYER_SPATIAL_CHUNK_SIZE);
+        const players = [];
+        const seenPlayerIds = new Set();
+        for (let chunkY = minChunkY; chunkY <= maxChunkY; chunkY += 1) {
+            for (let chunkX = minChunkX; chunkX <= maxChunkX; chunkX += 1) {
+                const playerIds = this.playerIdsByChunk.get(`${chunkX},${chunkY}`);
+                if (!playerIds) {
+                    continue;
+                }
+                for (const playerId of playerIds) {
+                    if (seenPlayerIds.has(playerId)) {
+                        continue;
+                    }
+                    const player = this.playersById.get(playerId);
+                    if (!player) {
+                        continue;
+                    }
+                    seenPlayerIds.add(playerId);
+                    players.push(player);
+                }
+            }
+        }
+        return players;
     }
     /** relocatePlayer：把玩家强制迁到指定落点，仍然复用出生点占位逻辑。 */
     relocatePlayer(playerId, preferredX, preferredY) {
@@ -933,6 +1046,9 @@ class MapInstanceRuntime {
         this.changedAuraTileCount = 0;
         this.changedTileResourceEntryCount = 0;
         this.playerIdsByTile.clear();
+        this.playerTileIndexedPlayerCount = 0;
+        this.playerIdsByChunk.clear();
+        this.playerChunkIndexedPlayerCount = 0;
         this.npcIdByTile.clear();
         this.npcsById.clear();
         this.landmarkIdByTile.clear();
@@ -1039,6 +1155,9 @@ class MapInstanceRuntime {
         this.changedAuraTileCount = 0;
         this.changedTileResourceEntryCount = 0;
         this.playerIdsByTile.clear();
+        this.playerTileIndexedPlayerCount = 0;
+        this.playerIdsByChunk.clear();
+        this.playerChunkIndexedPlayerCount = 0;
         this.npcIdByTile.clear();
         this.npcsById.clear();
         this.landmarkIdByTile.clear();
@@ -5616,8 +5735,11 @@ class MapInstanceRuntime {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const visibility = this.normalizeVisibilityFilter(visibleTileVisibility);
+        const candidates = visibility.indices instanceof Set
+            ? this.collectPlayersByTileIndices(visibility.indices)
+            : this.collectPlayersByChunkRange(observer.x, observer.y, radius);
         const visiblePlayers = [];
-        for (const player of this.playersById.values()) {
+        for (const player of candidates) {
             if (player.playerId === observer.playerId) {
                 continue;
             }
@@ -6990,12 +7112,21 @@ class MapInstanceRuntime {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const aggroRange = Math.max(0, Math.trunc(Number(monster.aggroRange) || 0));
-        let hasNearbyPlayer = !!monster.aggroTargetPlayerId;
-        for (const player of this.playersById.values()) {
-            if (chebyshevDistance(monster.x, monster.y, player.x, player.y) <= aggroRange
-                && chebyshevDistance(monster.spawnX, monster.spawnY, player.x, player.y) <= monster.leashRange) {
-                hasNearbyPlayer = true;
-                break;
+        const nearbyCandidates = this.collectPlayersByChunkRange(monster.x, monster.y, aggroRange);
+        let hasNearbyPlayer = false;
+        if (monster.aggroTargetPlayerId) {
+            const locked = this.playersById.get(monster.aggroTargetPlayerId);
+            hasNearbyPlayer = !!locked
+                && chebyshevDistance(monster.x, monster.y, locked.x, locked.y) <= aggroRange
+                && chebyshevDistance(monster.spawnX, monster.spawnY, locked.x, locked.y) <= monster.leashRange;
+        }
+        if (!hasNearbyPlayer) {
+            for (const player of nearbyCandidates) {
+                if (chebyshevDistance(monster.x, monster.y, player.x, player.y) <= aggroRange
+                    && chebyshevDistance(monster.spawnX, monster.spawnY, player.x, player.y) <= monster.leashRange) {
+                    hasNearbyPlayer = true;
+                    break;
+                }
             }
         }
         if (!hasNearbyPlayer) {
@@ -7003,9 +7134,10 @@ class MapInstanceRuntime {
             return null;
         }
         const visibleTileIndices = this.collectVisibleTileIndices(monster.x, monster.y, aggroRange);
+        const visibleCandidates = this.collectPlayersByTileIndices(visibleTileIndices);
         const activePlayerIds = new Set();
         const extraAggroRate = Number(monster?.numericStats?.extraAggroRate ?? 0) || 0;
-        for (const player of this.playersById.values()) {
+        for (const player of visibleCandidates) {
             if (chebyshevDistance(monster.spawnX, monster.spawnY, player.x, player.y) > monster.leashRange) {
                 continue;
             }
@@ -7046,10 +7178,10 @@ class MapInstanceRuntime {
         }
         const aggroRange = Math.max(0, Math.trunc(Number(monster.aggroRange) || 0));
 
-        // idle hint 快速路径：无 aggroTarget 且无玩家在范围内 → 只 decay
+        // idle hint 快速路径：无 aggroTarget 且候选 chunk 内无玩家 → 只 decay
         if (preIntent.action === 'idle' && !monster.aggroTargetPlayerId) {
             let hasNearbyPlayer = false;
-            for (const player of this.playersById.values()) {
+            for (const player of this.collectPlayersByChunkRange(monster.x, monster.y, aggroRange)) {
                 if (chebyshevDistance(monster.x, monster.y, player.x, player.y) <= aggroRange
                     && chebyshevDistance(monster.spawnX, monster.spawnY, player.x, player.y) <= monster.leashRange) {
                     hasNearbyPlayer = true;
@@ -7060,7 +7192,7 @@ class MapInstanceRuntime {
                 this.decayMonsterThreats(monster, new Set());
                 return null;
             }
-            // 有玩家在范围内 → fallback 完整扫描
+            // 有玩家在范围内 → fallback 完整仇恨推进
             return this.resolveMonsterTarget(monster);
         }
 

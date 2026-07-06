@@ -127,6 +127,7 @@ export class MarketRuntimeService {
     }
     /** 购买坊市内的天道商店固定商品。 */
     async buyHeavenlyDaoShopItem(playerId, payload) {
+        await this.ensureStorageHydrated(playerId);
         return this.runExclusiveMarketMutation(playerId, async (context) => {
             const itemId = typeof payload?.itemId === 'string' ? payload.itemId.trim() : '';
             const quantity = this.normalizeHeavenlyDaoShopQuantity(payload?.quantity);
@@ -159,6 +160,14 @@ export class MarketRuntimeService {
             this.playerRuntimeService.debitWallet(playerId, HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID, totalCost);
             this.deliverItemToPlayer(playerId, item, context);
             const itemLabel = this.formatMarketItemStackLabel(item);
+            await this.commitDurableMarketMutationIfAvailable(context, playerId, 'heavenly_dao_shop_purchase', {
+                itemId: shopItem.itemId,
+                quantity,
+                outputCount,
+                unitPrice,
+                totalCost,
+                discountPercent,
+            });
             return this.singleStructuredMessage(playerId, 'success', 'notice.market.heavenly-dao-shop.purchased', `购买 ${itemLabel}，消耗 ${currencyName} x${totalCost}`, {
                 vars: { itemLabel, currency: currencyName, cost: totalCost },
                 pills: [{ key: 'itemLabel', style: 'target' }, { key: 'currency', style: 'target' }],
