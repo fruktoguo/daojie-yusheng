@@ -1217,30 +1217,38 @@ class WorldRuntimeFormationService {
     }
 
     private _formationPersistTimers = new Map<string, ReturnType<typeof setTimeout>>();
+    private dirtyFormationInstanceIds = new Set<string>();
+    private removedFormationKeysByInstanceId = new Map<string, Set<string>>();
 
     persistInstanceFormationsSoon(instanceId) {
-        if (this._formationPersistTimers.has(instanceId)) return;
-        this._formationPersistTimers.set(instanceId, setTimeout(() => {
-            this._formationPersistTimers.delete(instanceId);
+        const normalizedInstanceId = this.markFormationInstanceDirty(instanceId);
+        if (!normalizedInstanceId || this._formationPersistTimers.has(normalizedInstanceId)) return;
+        this._formationPersistTimers.set(normalizedInstanceId, setTimeout(() => {
+            this._formationPersistTimers.delete(normalizedInstanceId);
             if (!this.persistenceReady || !this.persistencePool) {
-                this.logger.warn(`阵法持久化池未就绪，跳过延迟刷盘：${instanceId}`);
+                this.logger.warn(`阵法持久化池未就绪，保留脏标记等待重试：${normalizedInstanceId}`);
                 return;
             }
-            void this.saveInstanceFormations(instanceId).catch((error) => {
-                this.logger.warn(`阵法持久化失败：${instanceId} ${error instanceof Error ? error.message : String(error)}`);
+            void this.saveInstanceFormations(normalizedInstanceId).catch((error) => {
+                this.dirtyFormationInstanceIds.add(normalizedInstanceId);
+                this.logger.warn(`阵法持久化失败，已保留脏标记：${normalizedInstanceId} ${error instanceof Error ? error.message : String(error)}`);
             });
         }, 5000));
     }
 
     persistFormationSnapshotSoon(formation) {
+        const instanceId = this.markFormationInstanceDirty(formation?.instanceId);
         void this.saveFormationSnapshot(formation).catch((error) => {
-            this.logger.warn(`阵法单体持久化失败：${formation?.instanceId ?? ''} ${error instanceof Error ? error.message : String(error)}`);
+            if (instanceId) this.dirtyFormationInstanceIds.add(instanceId);
+            this.logger.warn(`阵法单体持久化失败，已保留脏标记：${formation?.instanceId ?? ''} ${error instanceof Error ? error.message : String(error)}`);
         });
     }
 
     persistFormationRemovalSoon(formation) {
+        this.markFormationRemovalDirty(formation);
         void this.deleteFormationSnapshot(formation).catch((error) => {
-            this.logger.warn(`阵法删除持久化失败：${formation?.instanceId ?? ''} ${error instanceof Error ? error.message : String(error)}`);
+            this.markFormationRemovalDirty(formation);
+            this.logger.warn(`阵法删除持久化失败，已保留删除重试：${formation?.instanceId ?? ''} ${error instanceof Error ? error.message : String(error)}`);
         });
     }
 
@@ -1249,10 +1257,62 @@ class WorldRuntimeFormationService {
             clearTimeout(timer);
             this._formationPersistTimers.delete(instanceId);
         }
-        const instanceIds = Array.from(this.formationsByInstanceId.keys());
+        const instanceIds = new Set([
+            ...this.formationsByInstanceId.keys(),
+            ...this.dirtyFormationInstanceIds,
+            ...this.removedFormationKeysByInstanceId.keys(),
+        ]);
         for (const instanceId of instanceIds) {
             await this.saveInstanceFormations(instanceId);
         }
+    }
+
+    markFormationInstanceDirty(instanceId) {
+        const normalizedInstanceId = normalizeInstanceId(instanceId);
+        if (!normalizedInstanceId) {
+            return '';
+        }
+        this.dirtyFormationInstanceIds.add(normalizedInstanceId);
+        return normalizedInstanceId;
+    }
+
+    markFormationRemovalDirty(formation) {
+        const normalizedInstanceId = this.markFormationInstanceDirty(formation?.instanceId);
+        const formationInstanceId = normalizeOptionalString(formation?.id);
+        if (!normalizedInstanceId || !formationInstanceId) {
+            return;
+        }
+        let removedKeys = this.removedFormationKeysByInstanceId.get(normalizedInstanceId);
+        if (!removedKeys) {
+            removedKeys = new Set();
+            this.removedFormationKeysByInstanceId.set(normalizedInstanceId, removedKeys);
+        }
+        removedKeys.add(formationInstanceId);
+    }
+
+    clearFormationRemovalDirty(instanceId, formationInstanceId) {
+        const normalizedInstanceId = normalizeInstanceId(instanceId);
+        const normalizedFormationId = normalizeOptionalString(formationInstanceId);
+        if (!normalizedInstanceId || !normalizedFormationId) {
+            return;
+        }
+        const removedKeys = this.removedFormationKeysByInstanceId.get(normalizedInstanceId);
+        if (!removedKeys) {
+            return;
+        }
+        removedKeys.delete(normalizedFormationId);
+        if (removedKeys.size === 0) {
+            this.removedFormationKeysByInstanceId.delete(normalizedInstanceId);
+        }
+    }
+
+    clearFormationInstanceDirty(instanceId) {
+        const normalizedInstanceId = normalizeInstanceId(instanceId);
+        if (!normalizedInstanceId) {
+            return;
+        }
+        this.dirtyFormationInstanceIds.delete(normalizedInstanceId);
+        this.removedFormationKeysByInstanceId.delete(normalizedInstanceId);
     }
 
     /**
@@ -1303,6 +1363,7 @@ class WorldRuntimeFormationService {
             await client.query('BEGIN');
             await upsertFormationStateRow(client, normalizedInstanceId, serialized);
             await client.query('COMMIT');
+            this.clearFormationRemovalDirty(normalizedInstanceId, serialized.id);
         } catch (error) {
             await client.query('ROLLBACK').catch(() => undefined);
             throw error;
@@ -1329,6 +1390,7 @@ class WorldRuntimeFormationService {
             `DELETE FROM ${INSTANCE_FORMATION_STATE_TABLE} WHERE instance_id = $1 AND formation_instance_id = $2`,
             [normalizedInstanceId, formationInstanceId],
         );
+        this.clearFormationRemovalDirty(normalizedInstanceId, formationInstanceId);
     }
 
     async saveInstanceFormations(instanceId) {
@@ -1349,10 +1411,22 @@ class WorldRuntimeFormationService {
             if (canReplaceInstanceRows) {
                 await client.query(`DELETE FROM ${INSTANCE_FORMATION_STATE_TABLE} WHERE instance_id = $1`, [normalizedInstanceId]);
             }
+            else {
+                const removedKeys = this.removedFormationKeysByInstanceId.get(normalizedInstanceId);
+                if (removedKeys) {
+                    for (const formationInstanceId of removedKeys) {
+                        await client.query(
+                            `DELETE FROM ${INSTANCE_FORMATION_STATE_TABLE} WHERE instance_id = $1 AND formation_instance_id = $2`,
+                            [normalizedInstanceId, formationInstanceId],
+                        );
+                    }
+                }
+            }
             for (const formation of formations) {
                 await upsertFormationStateRow(client, normalizedInstanceId, formation);
             }
             await client.query('COMMIT');
+            this.clearFormationInstanceDirty(normalizedInstanceId);
         } catch (error) {
             await client.query('ROLLBACK').catch(() => undefined);
             throw error;

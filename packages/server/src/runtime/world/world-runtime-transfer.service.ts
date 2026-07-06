@@ -60,8 +60,24 @@ export class WorldRuntimeTransferService {
             this.logger.warn(`传送目标实例暂不可进入：playerId=${transfer.playerId} target=${target?.meta?.instanceId ?? 'missing'} reason=${attachReady.reason}`);
             return;
         }
+        const previousSourcePosition = typeof source.getPlayerPosition === 'function'
+            ? source.getPlayerPosition(transfer.playerId)
+            : null;
+        const previousRuntimePlacement = runtimePlayer
+            ? {
+                instanceId: runtimePlayer.instanceId,
+                templateId: runtimePlayer.templateId,
+                x: runtimePlayer.x,
+                y: runtimePlayer.y,
+                facing: runtimePlayer.facing,
+            }
+            : null;
+        let transferBegun = false;
+        let targetConnected = false;
+        let sourceDisconnected = false;
         if (runtimePlayer && typeof deps.playerRuntimeService?.beginTransfer === 'function') {
             deps.playerRuntimeService.beginTransfer(runtimePlayer, transfer.targetMapId);
+            transferBegun = true;
         }
         // 阶段 9 收口：实例迁移前静默清理玩家 pending cast，避免在旧实例 tick 或新实例 tick 里触发错位结算。
         // 资源/冷却保持 committed_no_refund / committed_no_rollback，不产生玩家通知，仅走结构化诊断。
@@ -87,39 +103,118 @@ export class WorldRuntimeTransferService {
                 preferredX: transfer.targetX,
                 preferredY: transfer.targetY,
             });
+            targetConnected = true;
+            if (target !== source) {
+                sourceDisconnected = source.disconnectPlayer(transfer.playerId) !== false;
+            }
+            target.setPlayerMoveSpeed(transfer.playerId, runtimePlayer?.attrs.numericStats.moveSpeed ?? 0);
+            deps.setPlayerLocation(transfer.playerId, {
+                instanceId: target.meta.instanceId,
+                sessionId: transfer.sessionId,
+            });
+            const view = typeof deps.getPlayerViewOrThrow === 'function'
+                ? deps.getPlayerViewOrThrow(transfer.playerId)
+                : null;
+            if (view && typeof deps.refreshPlayerContextActions === 'function') {
+                deps.refreshPlayerContextActions(transfer.playerId, view);
+            }
+            if (view && typeof deps.playerRuntimeService.syncFromWorldView === 'function') {
+                deps.playerRuntimeService.syncFromWorldView(transfer.playerId, transfer.sessionId, view);
+            }
+            deps.worldRuntimeNavigationService.handleTransfer({
+                ...transfer,
+                sourceMapId: source.template?.mapId ?? null,
+            }, deps);
         }
         catch (error) {
-            if (runtimePlayer && typeof deps.playerRuntimeService?.completeTransfer === 'function') {
-                deps.playerRuntimeService.completeTransfer(runtimePlayer);
-            }
+            rollbackTransferRuntimePlacement(runtimePlayer, previousRuntimePlacement);
+            rollbackTransferInstancePlacement({
+                deps,
+                error,
+                logger: this.logger,
+                playerId: transfer.playerId,
+                previousSourcePosition,
+                sessionId: transfer.sessionId,
+                source,
+                sourceDisconnected,
+                target,
+                targetConnected,
+            });
             throw error;
         }
-        if (target !== source) {
-            source.disconnectPlayer(transfer.playerId);
+        finally {
+            if (transferBegun && runtimePlayer && typeof deps.playerRuntimeService?.completeTransfer === 'function') {
+                deps.playerRuntimeService.completeTransfer(runtimePlayer);
+            }
         }
-        target.setPlayerMoveSpeed(transfer.playerId, runtimePlayer?.attrs.numericStats.moveSpeed ?? 0);
-        deps.setPlayerLocation(transfer.playerId, {
-            instanceId: target.meta.instanceId,
-            sessionId: transfer.sessionId,
-        });
-        const view = typeof deps.getPlayerViewOrThrow === 'function'
-            ? deps.getPlayerViewOrThrow(transfer.playerId)
-            : null;
-        if (view && typeof deps.refreshPlayerContextActions === 'function') {
-            deps.refreshPlayerContextActions(transfer.playerId, view);
-        }
-        if (view && typeof deps.playerRuntimeService.syncFromWorldView === 'function') {
-            deps.playerRuntimeService.syncFromWorldView(transfer.playerId, transfer.sessionId, view);
-        }
-        if (runtimePlayer && typeof deps.playerRuntimeService?.completeTransfer === 'function') {
-            deps.playerRuntimeService.completeTransfer(runtimePlayer);
-        }
-        deps.worldRuntimeNavigationService.handleTransfer({
-            ...transfer,
-            sourceMapId: source.template?.mapId ?? null,
-        }, deps);
     }
 };
+
+function rollbackTransferRuntimePlacement(runtimePlayer, previousPlacement) {
+    if (!runtimePlayer || !previousPlacement) {
+        return;
+    }
+    runtimePlayer.instanceId = previousPlacement.instanceId;
+    runtimePlayer.templateId = previousPlacement.templateId;
+    runtimePlayer.x = previousPlacement.x;
+    runtimePlayer.y = previousPlacement.y;
+    runtimePlayer.facing = previousPlacement.facing;
+}
+
+function rollbackTransferInstancePlacement(input) {
+    const {
+        deps,
+        error,
+        logger,
+        playerId,
+        previousSourcePosition,
+        sessionId,
+        source,
+        sourceDisconnected,
+        target,
+        targetConnected,
+    } = input;
+    if (targetConnected && target && target !== source && typeof target.disconnectPlayer === 'function') {
+        try {
+            target.disconnectPlayer(playerId);
+        }
+        catch (rollbackError) {
+            logger.warn(`传送失败回滚目标实例挂接失败：playerId=${playerId} error=${rollbackError instanceof Error ? rollbackError.message : String(rollbackError)}`);
+        }
+    }
+    if (targetConnected && target === source && previousSourcePosition && typeof source.relocatePlayer === 'function') {
+        try {
+            source.relocatePlayer(playerId, previousSourcePosition.x, previousSourcePosition.y);
+        }
+        catch (rollbackError) {
+            logger.warn(`传送失败恢复同实例落点失败：playerId=${playerId} error=${rollbackError instanceof Error ? rollbackError.message : String(rollbackError)}`);
+        }
+    }
+    if (sourceDisconnected && source && target !== source && typeof source.connectPlayer === 'function') {
+        try {
+            source.connectPlayer({
+                playerId,
+                sessionId,
+                preferredX: previousSourcePosition?.x,
+                preferredY: previousSourcePosition?.y,
+            });
+        }
+        catch (rollbackError) {
+            logger.warn(`传送失败恢复源实例挂接失败：playerId=${playerId} error=${rollbackError instanceof Error ? rollbackError.message : String(rollbackError)}`);
+        }
+    }
+    try {
+        if (source?.meta?.instanceId && typeof deps.setPlayerLocation === 'function') {
+            deps.setPlayerLocation(playerId, {
+                instanceId: source.meta.instanceId,
+                sessionId,
+            });
+        }
+    }
+    catch (rollbackError) {
+        logger.warn(`传送失败恢复位置索引失败：playerId=${playerId} cause=${error instanceof Error ? error.message : String(error)} rollback=${rollbackError instanceof Error ? rollbackError.message : String(rollbackError)}`);
+    }
+}
 
 function resolveTransferTargetAttachReady(instance, deps) {
     if (!instance) {

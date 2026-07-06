@@ -72,6 +72,7 @@ export class WorldSyncService {
             breakdown.playerCount = Array.isArray(bindings) ? bindings.length : 0;
 
             const pendingEmits: PendingEnvelopeEmit[] = [];
+            const useWorkerEncode = this.workerEncodeService?.shouldUseWorkerEncode?.() === true;
 
             for (const binding of bindings) {
                 if (this.isOfflineGainBlocking(binding.playerId)) {
@@ -94,29 +95,20 @@ export class WorldSyncService {
                 }
                 breakdown.processedPlayerCount += 1;
 
-                if (this.workerEncodeService) {
-                    const { envelope, player, auxDeferred } = this.prepareDeltaForPlayer(binding.playerId, binding.sessionId, socket, view, breakdown);
-                    if (envelope) {
-                        const playerId = binding.playerId;
-                        pendingEmits.push({
-                            socket, envelope, playerId, player,
-                            postEmitFn: () => {
-                                if (auxDeferred) {
-                                    runMeasuredAuxSync(breakdown, () => this.emitAuxDeltaSync(playerId, socket, view, player));
-                                }
-                                this.worldSyncQuestLootService.emitQuestSyncIfChanged(socket, playerId, player?.quests?.revision);
-                                this.emitPendingRuntimeEvents(playerId, socket, envelope);
-                                emitPendingPlayerStatisticRecords(this.playerRuntimeService, playerId, socket);
-                            },
-                        });
-                    }
-                } else {
-                    this.syncDeltaForPlayer(binding.playerId, binding.sessionId, socket, view, breakdown);
+                const { envelope, player, auxDeferred } = this.prepareDeltaForPlayer(binding.playerId, binding.sessionId, socket, view, breakdown);
+                if (useWorkerEncode && envelope) {
+                    const playerId = binding.playerId;
+                    pendingEmits.push({
+                        socket, envelope, playerId, player,
+                        postEmitFn: () => this.emitDeltaPostSync(playerId, socket, view, player, envelope, auxDeferred, breakdown),
+                    });
+                    continue;
                 }
+                this.emitPreparedDelta(binding.playerId, socket, view, player, envelope, auxDeferred, breakdown);
             }
 
-            if (this.workerEncodeService && pendingEmits.length > 0) {
-                await this.workerEncodeService.flushPendingEmitsViaWorker(pendingEmits);
+            if (useWorkerEncode && pendingEmits.length > 0) {
+                await this.workerEncodeService?.flushPendingEmitsViaWorker(pendingEmits);
             }
         } finally {
             this.runtimeGmStateService?.recordSyncFlushBreakdown?.(breakdown);
@@ -145,17 +137,10 @@ export class WorldSyncService {
         this.clearPlayerCaches(playerId, true);
     }
 
-    unloadDetachedPlayerRuntime(
-        playerId: string,
-        options: { allowOfflineHangingDemotion?: boolean; reason?: string } = {},
-    ): boolean {
-        if (options.allowOfflineHangingDemotion !== true) {
-            return false;
-        }
+    unloadDetachedPlayerRuntime(playerId: string, options: { allowOfflineHangingDemotion?: boolean; reason?: string } = {}): boolean {
+        if (options.allowOfflineHangingDemotion !== true) return false;
         if (typeof this.playerRuntimeService.canUnloadDetachedPlayerRuntime === 'function'
-            && !this.playerRuntimeService.canUnloadDetachedPlayerRuntime(playerId)) {
-            return false;
-        }
+            && !this.playerRuntimeService.canUnloadDetachedPlayerRuntime(playerId)) return false;
         if (typeof this.worldRuntimeService.worldRuntimePlayerSessionService?.disconnectPlayer === 'function') {
             this.worldRuntimeService.worldRuntimePlayerSessionService.disconnectPlayer(playerId, this.worldRuntimeService);
         }
@@ -176,11 +161,19 @@ export class WorldSyncService {
 
     private syncDeltaForPlayer(playerId: string, sessionId: string, socket: any, view: any, breakdown?: SyncFlushBreakdownSample) {
         const { envelope, player, auxDeferred } = this.prepareDeltaForPlayer(playerId, sessionId, socket, view, breakdown);
-        this.emitEnvelope(socket, envelope);
-        incrementSyncFlushCount(breakdown, 'emitEnvelopeCount');
-        if (auxDeferred) {
-            runMeasuredAuxSync(breakdown, () => this.emitAuxDeltaSync(playerId, socket, view, player));
+        this.emitPreparedDelta(playerId, socket, view, player, envelope, auxDeferred, breakdown);
+    }
+
+    private emitPreparedDelta(playerId: string, socket: any, view: any, player: any, envelope: any, auxDeferred: boolean, breakdown?: SyncFlushBreakdownSample) {
+        if (envelope) {
+            this.emitEnvelope(socket, envelope);
+            incrementSyncFlushCount(breakdown, 'emitEnvelopeCount');
         }
+        this.emitDeltaPostSync(playerId, socket, view, player, envelope, auxDeferred, breakdown);
+    }
+
+    private emitDeltaPostSync(playerId: string, socket: any, view: any, player: any, envelope: any, auxDeferred: boolean, breakdown?: SyncFlushBreakdownSample) {
+        if (auxDeferred) runMeasuredAuxSync(breakdown, () => this.emitAuxDeltaSync(playerId, socket, view, player));
         this.worldSyncQuestLootService.emitQuestSyncIfChanged(socket, playerId, player?.quests?.revision);
         incrementSyncFlushCount(breakdown, 'questSyncCount');
         this.emitPendingRuntimeEvents(playerId, socket, envelope);

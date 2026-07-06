@@ -30,6 +30,8 @@ async function main() {
   await testFormationDeferredPersistenceDoesNotLazyInitialize();
   await testFormationShutdownFlushesUnrestoredRuntimeInstances();
   await testFormationFlushAllNowFlushesPendingInstances();
+  await testFormationPersistFailureKeepsDirtyForFlushAll();
+  await testFormationSaveInstanceFormationsReplaysRemovalDirty();
   const notices = [];
   const player = {
     playerId,
@@ -1026,6 +1028,7 @@ async function testFormationDeferredPersistenceDoesNotLazyInitialize() {
   scheduled?.();
   await new Promise((resolve) => originalSetTimeout(resolve, 0));
   assert.equal(ensureCalls, 0);
+  assert.equal(service.dirtyFormationInstanceIds.has("inst:formation:deferred"), true);
 }
 
 async function testFormationShutdownFlushesUnrestoredRuntimeInstances() {
@@ -1062,6 +1065,67 @@ async function testFormationFlushAllNowFlushesPendingInstances() {
   await service.flushAllNow();
   assert.deepEqual(savedInstanceIds, [instanceId]);
   assert.equal(service._formationPersistTimers.size, 0);
+}
+
+async function testFormationPersistFailureKeepsDirtyForFlushAll() {
+  const service = new WorldRuntimeFormationService(
+    { getFormationTemplate: () => null },
+    {},
+  );
+  const instanceId = "inst:formation:retry-dirty";
+  const formation = { instanceId, id: "formation:retry:1" };
+  service.saveFormationSnapshot = async () => {
+    throw new Error("snapshot failed");
+  };
+  service.persistFormationSnapshotSoon(formation);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(service.dirtyFormationInstanceIds.has(instanceId), true);
+  const savedInstanceIds = [];
+  service.saveInstanceFormations = async (targetInstanceId) => {
+    savedInstanceIds.push(targetInstanceId);
+    service.clearFormationInstanceDirty(targetInstanceId);
+  };
+  await service.flushAllNow();
+  assert.deepEqual(savedInstanceIds, [instanceId]);
+  assert.equal(service.dirtyFormationInstanceIds.has(instanceId), false);
+}
+
+async function testFormationSaveInstanceFormationsReplaysRemovalDirty() {
+  const service = new WorldRuntimeFormationService(
+    { getFormationTemplate: () => null },
+    {},
+  );
+  const instanceId = "inst:formation:retry-removal";
+  const formationId = "formation:remove:1";
+  const clientQueries = [];
+  const poolQueries = [];
+  const client = {
+    async query(sql, params) {
+      clientQueries.push([String(sql), params]);
+      return { rowCount: 0, rows: [] };
+    },
+    release() {},
+  };
+  const pool = {
+    async query(sql, params) {
+      poolQueries.push([String(sql), params]);
+      return { rowCount: 0, rows: [] };
+    },
+    async connect() {
+      return client;
+    },
+  };
+  service.ensurePersistencePool = async () => pool;
+  service.markFormationRemovalDirty({ instanceId, id: formationId });
+
+  await service.saveInstanceFormations(instanceId);
+
+  assert.ok(poolQueries.length > 0);
+  assert.ok(clientQueries.some((entry) => entry[0].includes("formation_instance_id = $2")
+    && entry[1]?.[0] === instanceId
+    && entry[1]?.[1] === formationId));
+  assert.equal(service.dirtyFormationInstanceIds.has(instanceId), false);
+  assert.equal(service.removedFormationKeysByInstanceId.has(instanceId), false);
 }
 
 function testFormationSuppressionEffects(service) {

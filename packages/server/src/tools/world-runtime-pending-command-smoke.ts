@@ -123,13 +123,15 @@ async function testAsyncPlayerCommandIsAwaitedBeforeQueueClear() {
         ['dispatchPlayerCommand', 'player:1', 'startAlchemy'],
     ]);
     assert.equal(service.getPendingCommandCount(), 1);
+    service.enqueuePendingCommand('player:1', { kind: 'startForging', payload: { presetId: 'p2' } });
     resolvePlayerCommand();
     await pendingDispatch;
     assert.deepEqual(log, [
         ['dispatchPlayerCommand', 'player:1', 'startAlchemy'],
         ['dispatchPlayerCommand:resolved', 'player:1', 'startAlchemy'],
     ]);
-    assert.equal(service.getPendingCommandCount(), 0);
+    assert.equal(service.getPendingCommandCount(), 1);
+    assert.deepEqual(service.getPendingCommand('player:1'), { kind: 'startForging', payload: { presetId: 'p2' } });
 }
 
 async function testAutoCombatStaleTargetRetriesImmediately() {

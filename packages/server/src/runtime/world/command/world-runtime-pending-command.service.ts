@@ -367,6 +367,8 @@ export class WorldRuntimePendingCommandService {
  */
 
     pendingCommands = new Map();
+    pendingCommandGenerations = new Map();
+    nextPendingCommandGeneration = 1;
     /**
  * isAutoCombatCommand：判断是否是自动战斗派生指令。
  * @param command 输入指令。
@@ -486,7 +488,12 @@ export class WorldRuntimePendingCommandService {
  */
 
     enqueuePendingCommand(playerId, command) {
+        const generation = this.nextPendingCommandGeneration++;
+        if (this.nextPendingCommandGeneration > Number.MAX_SAFE_INTEGER - 1) {
+            this.nextPendingCommandGeneration = 1;
+        }
         this.pendingCommands.set(playerId, command);
+        this.pendingCommandGenerations.set(playerId, generation);
     }
     /**
  * getPendingCommand：读取待处理Command。
@@ -514,6 +521,7 @@ export class WorldRuntimePendingCommandService {
 
     clearPendingCommand(playerId) {
         this.pendingCommands.delete(playerId);
+        this.pendingCommandGenerations.delete(playerId);
     }
     /**
  * getPendingCommandCount：读取待处理Command数量。
@@ -532,9 +540,11 @@ export class WorldRuntimePendingCommandService {
     async dispatchPendingCommands(deps, recordTickSectionDuration = null) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        const pendingEntries = Array.from(this.pendingCommands.entries());
-        for (const [playerId, command] of pendingEntries) {
-            if (this.pendingCommands.get(playerId) !== command) {
+        const pendingEntries = Array.from(this.pendingCommands.entries())
+            .map(([playerId, command]) => [playerId, command, this.pendingCommandGenerations.get(playerId) ?? 0]);
+        for (const [playerId, command, generation] of pendingEntries) {
+            if (this.pendingCommands.get(playerId) !== command
+                || this.pendingCommandGenerations.get(playerId) !== generation) {
                 continue;
             }
             const commandDispatchStartedAt = performance.now();
@@ -603,8 +613,10 @@ export class WorldRuntimePendingCommandService {
                         delete deps.recordPendingCommandSectionDuration;
                     }
                 }
-                if (this.pendingCommands.get(playerId) === command) {
+                if (this.pendingCommands.get(playerId) === command
+                    && this.pendingCommandGenerations.get(playerId) === generation) {
                     this.pendingCommands.delete(playerId);
+                    this.pendingCommandGenerations.delete(playerId);
                 }
             }
         }
@@ -616,5 +628,6 @@ export class WorldRuntimePendingCommandService {
 
     resetState() {
         this.pendingCommands.clear();
+        this.pendingCommandGenerations.clear();
     }
 };

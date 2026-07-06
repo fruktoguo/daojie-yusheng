@@ -273,8 +273,8 @@ async function main(): Promise<void> {
     sessionId,
   });
   assert.deepEqual(logs, [
-    ['interruptCraftForReason', playerId, 'move'],
     ['getOrCreateDefaultLineInstance', 'transfer_target_map'],
+    ['interruptCraftForReason', playerId, 'move'],
     ['connectPlayer', {
       playerId,
       sessionId,
@@ -363,14 +363,15 @@ async function main(): Promise<void> {
   );
 
   assert.deepEqual(failureLogs, [
-    ['interruptCraftForReason', failedPlayerId, 'move'],
     ['getOrCreateDefaultLineInstance', 'transfer_target_map'],
+    ['interruptCraftForReason', failedPlayerId, 'move'],
     ['connectPlayer', {
       playerId: failedPlayerId,
       sessionId: failedSessionId,
       preferredX: 41,
       preferredY: 12,
     }],
+    ['setPlayerLocation', failedPlayerId, 'instance:old', failedSessionId],
   ]);
   assert.equal(failedPlayer.transferState, null);
   assert.equal(failedPlayer.transferTargetNodeId, null);

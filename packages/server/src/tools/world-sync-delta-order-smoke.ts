@@ -16,6 +16,8 @@ interface DeltaOrderSmokeOptions {
     runtimeGmStateService?: {
         recordSyncFlushBreakdown(sample: Record<string, number>): void;
     };
+    useWorkerEncode?: boolean;
+    deltaEnvelope?: Record<string, unknown> | null;
 }
 
 function createService(log: LogEntry[] = [], options: DeltaOrderSmokeOptions = {}) {
@@ -131,11 +133,26 @@ function createService(log: LogEntry[] = [], options: DeltaOrderSmokeOptions = {
         {
             createDeltaEnvelope(playerId: string, inputView: typeof view, inputPlayer: unknown) {
                 log.push(['createDeltaEnvelope', playerId, inputView === view, inputPlayer === player]);
+                if ('deltaEnvelope' in options) {
+                    return options.deltaEnvelope;
+                }
                 return { worldDelta: { t: inputView.tick, p: [{ id: playerId, x: inputView.self.x, y: inputView.self.y }] } };
             },
             clearPlayerCache() {},
         },
         options.runtimeGmStateService ?? {},
+        {
+            shouldUseWorkerEncode() {
+                log.push(['shouldUseWorkerEncode']);
+                return options.useWorkerEncode === true;
+            },
+            async flushPendingEmitsViaWorker(pendingEmits: Array<{ postEmitFn?: () => void }>) {
+                log.push(['flushPendingEmitsViaWorker', pendingEmits.length]);
+                for (const emit of pendingEmits) {
+                    emit.postEmitFn?.();
+                }
+            },
+        } as never,
     );
     return { service };
 }
@@ -210,6 +227,28 @@ function testFlushConnectedPlayersRecordsBreakdownAndSyncsRoomOnce() {
     assert.equal(records[0].questSyncCount, 1);
     assert.equal(records[0].runtimeEventsCount, 1);
     assert.equal(records[0].statisticRecordsCount, 1);
+}
+
+function testFlushConnectedPlayersSkipsWorkerWhenDisabled() {
+    const log = [];
+    const { service } = createService(log, { useWorkerEncode: false });
+
+    service.flushConnectedPlayers();
+
+    assert.ok(log.some((entry) => entry[0] === 'shouldUseWorkerEncode'));
+    assert.ok(log.some((entry) => entry[0] === 'sendEnvelope'));
+    assert.ok(!log.some((entry) => entry[0] === 'flushPendingEmitsViaWorker'));
+    assert.ok(log.some((entry) => entry[0] === 'emitQuestSyncIfChanged'));
+}
+
+function testFlushConnectedPlayersRunsPostSyncWithoutEnvelope() {
+    const log = [];
+    const { service } = createService(log, { deltaEnvelope: null });
+
+    service.flushConnectedPlayers();
+
+    assert.ok(!log.some((entry) => entry[0] === 'sendEnvelope'));
+    assert.ok(log.some((entry) => entry[0] === 'emitQuestSyncIfChanged'));
 }
 
 function testStatisticTotalsPatchUsesCompactOfflineGainPayload() {
@@ -309,6 +348,8 @@ function testOfflineGainBlockingSkipsWorldSync() {
 testAuxDeltaIsSentBeforeMovementEnvelope();
 testMapChangedAuxDeltaStaysAfterMovementEnvelope();
 testFlushConnectedPlayersRecordsBreakdownAndSyncsRoomOnce();
+testFlushConnectedPlayersSkipsWorkerWhenDisabled();
+testFlushConnectedPlayersRunsPostSyncWithoutEnvelope();
 testStatisticTotalsPatchUsesCompactOfflineGainPayload();
 testPendingStatisticRecordsEmitOnlyOncePerConnection();
 testOfflineGainBlockingSkipsWorldSync();

@@ -317,96 +317,95 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
     const promise = (async () => {
       const dirtyPlayerDomains = this.resolveDirtyPlayerDomains();
       const dirtyPlayerIds = Array.from(dirtyPlayerDomains.keys());
-      if (dirtyPlayerIds.length === 0) {
-        return;
-      }
-      diagDirtyCount = dirtyPlayerIds.length;
-      // 统计 domain counts
-      for (const domains of dirtyPlayerDomains.values()) {
-        for (const d of domains) {
-          diagDomainCounts[d] = (diagDomainCounts[d] ?? 0) + 1;
+      if (dirtyPlayerIds.length > 0) {
+        diagDirtyCount = dirtyPlayerIds.length;
+        // 统计 domain counts
+        for (const domains of dirtyPlayerDomains.values()) {
+          for (const d of domains) {
+            diagDomainCounts[d] = (diagDomainCounts[d] ?? 0) + 1;
+          }
         }
-      }
 
-      const batches = chunkValues(dirtyPlayerIds, PLAYER_PERSISTENCE_FLUSH_BATCH_SIZE);
-      for (const batch of batches) {
-        await runConcurrent(
-          batch,
-          PLAYER_PERSISTENCE_FLUSH_PARALLELISM,
-          async (playerId) => {
-            const dirtyDomains = dirtyPlayerDomains.get(playerId) ?? new Set<string>();
-            if (domainEnabled && dirtyDomains.size === 1 && dirtyDomains.has(PLAYER_PERSISTENCE_DIRTY_PRESENCE_DOMAIN)) {
-              const presence = this.playerRuntimeService.describePersistencePresence(playerId);
-              if (!presence) {
-                return;
-              }
-              if (!this.isPlayerPersistenceWritable(playerId)) {
-                this.logger.warn(`跳过玩家在线状态刷盘：租约已失效 playerId=${playerId}`);
-                return;
-              }
-              const presenceSnapshotRevision = this.playerRuntimeService.getPersistenceRevision?.(playerId) ?? null;
-              await retryFlush(PLAYER_PERSISTENCE_FLUSH_RETRY_COUNT, async () => {
-                await this.playerDomainPersistenceService.savePlayerPresence(playerId, presence);
-              });
-              this.playerRuntimeService.markPersisted(
-                playerId,
-                new Set([PLAYER_PERSISTENCE_DIRTY_PRESENCE_DOMAIN]),
-                presenceSnapshotRevision,
-              );
-              return;
-            }
-            const snapshotRevision = this.playerRuntimeService.getPersistenceRevision?.(playerId) ?? null;
-            const buildStart = performance.now();
-            const snapshot = this.playerRuntimeService.buildPersistenceSnapshot(playerId, dirtyDomains);
-            diagBuildMs += performance.now() - buildStart;
-            if (!snapshot) {
-              return;
-            }
-            // 防御：如果玩家不是从持久化恢复的（凭空创建的空白角色），
-            // 检查数据库中是否已有该玩家的 watermark，有则拒绝写入以避免覆盖老玩家存档。
-            if (!isPlayerHydratedFromPersistence(this.playerRuntimeService, playerId)) {
-              const hasWatermark = await this.playerDomainPersistenceService.hasRecoveryWatermark(playerId).catch(() => true);
-              if (hasWatermark) {
-                this.logger.error(
-                  `拒绝空白角色覆盖已有存档：playerId=${playerId} — 玩家未从持久化恢复但数据库中已有 watermark`,
+        const batches = chunkValues(dirtyPlayerIds, PLAYER_PERSISTENCE_FLUSH_BATCH_SIZE);
+        for (const batch of batches) {
+          await runConcurrent(
+            batch,
+            PLAYER_PERSISTENCE_FLUSH_PARALLELISM,
+            async (playerId) => {
+              const dirtyDomains = dirtyPlayerDomains.get(playerId) ?? new Set<string>();
+              if (domainEnabled && dirtyDomains.size === 1 && dirtyDomains.has(PLAYER_PERSISTENCE_DIRTY_PRESENCE_DOMAIN)) {
+                const presence = this.playerRuntimeService.describePersistencePresence(playerId);
+                if (!presence) {
+                  return;
+                }
+                if (!this.isPlayerPersistenceWritable(playerId)) {
+                  this.logger.warn(`跳过玩家在线状态刷盘：租约已失效 playerId=${playerId}`);
+                  return;
+                }
+                const presenceSnapshotRevision = this.playerRuntimeService.getPersistenceRevision?.(playerId) ?? null;
+                await retryFlush(PLAYER_PERSISTENCE_FLUSH_RETRY_COUNT, async () => {
+                  await this.playerDomainPersistenceService.savePlayerPresence(playerId, presence);
+                });
+                this.playerRuntimeService.markPersisted(
+                  playerId,
+                  new Set([PLAYER_PERSISTENCE_DIRTY_PRESENCE_DOMAIN]),
+                  presenceSnapshotRevision,
                 );
                 return;
               }
-            }
-            if (!this.isPlayerPersistenceWritable(playerId)) {
-              this.logger.warn(`跳过玩家快照刷盘：租约已失效 playerId=${playerId}`);
-              return;
-            }
-            // retryFlush 内部把"真正写出去的 domain 集合"通过返回值传出来，
-            // lease 失效或抛错的情况都不会 markPersisted，dirty 保留等下一轮重试。
-            let lastResult: FlushDirtyDomainsResult | null = null;
-            const dbStart = performance.now();
-            await retryFlush(PLAYER_PERSISTENCE_FLUSH_RETRY_COUNT, async () => {
-              lastResult = await this.flushPlayerDirtyDomains(
-                playerId,
-                snapshot,
-                dirtyDomains,
-                reason,
-                domainEnabled,
+              const snapshotRevision = this.playerRuntimeService.getPersistenceRevision?.(playerId) ?? null;
+              const buildStart = performance.now();
+              const snapshot = this.playerRuntimeService.buildPersistenceSnapshot(playerId, dirtyDomains);
+              diagBuildMs += performance.now() - buildStart;
+              if (!snapshot) {
+                return;
+              }
+              // 防御：如果玩家不是从持久化恢复的（凭空创建的空白角色），
+              // 检查数据库中是否已有该玩家的 watermark，有则拒绝写入以避免覆盖老玩家存档。
+              if (!isPlayerHydratedFromPersistence(this.playerRuntimeService, playerId)) {
+                const hasWatermark = await this.playerDomainPersistenceService.hasRecoveryWatermark(playerId).catch(() => true);
+                if (hasWatermark) {
+                  this.logger.error(
+                    `拒绝空白角色覆盖已有存档：playerId=${playerId} — 玩家未从持久化恢复但数据库中已有 watermark`,
+                  );
+                  return;
+                }
+              }
+              if (!this.isPlayerPersistenceWritable(playerId)) {
+                this.logger.warn(`跳过玩家快照刷盘：租约已失效 playerId=${playerId}`);
+                return;
+              }
+              // retryFlush 内部把"真正写出去的 domain 集合"通过返回值传出来，
+              // lease 失效或抛错的情况都不会 markPersisted，dirty 保留等下一轮重试。
+              let lastResult: FlushDirtyDomainsResult | null = null;
+              const dbStart = performance.now();
+              await retryFlush(PLAYER_PERSISTENCE_FLUSH_RETRY_COUNT, async () => {
+                lastResult = await this.flushPlayerDirtyDomains(
+                  playerId,
+                  snapshot,
+                  dirtyDomains,
+                  reason,
+                  domainEnabled,
+                );
+              });
+              diagDbWriteMs += performance.now() - dbStart;
+              if (lastResult && !lastResult.leaseInvalidated && lastResult.persistedDomains.size > 0) {
+                const markStart = performance.now();
+                this.playerRuntimeService.markPersisted(playerId, lastResult.persistedDomains, snapshotRevision);
+                diagMarkMs += performance.now() - markStart;
+              }
+            },
+            (playerId, error) => {
+              this.logger.error(
+                `玩家持久化刷新失败（${reason}） playerId=${playerId}`,
+                error instanceof Error ? error.stack : String(error),
               );
-            });
-            diagDbWriteMs += performance.now() - dbStart;
-            if (lastResult && !lastResult.leaseInvalidated && lastResult.persistedDomains.size > 0) {
-              const markStart = performance.now();
-              this.playerRuntimeService.markPersisted(playerId, lastResult.persistedDomains, snapshotRevision);
-              diagMarkMs += performance.now() - markStart;
-            }
-          },
-          (playerId, error) => {
-            this.logger.error(
-              `玩家持久化刷新失败（${reason}） playerId=${playerId}`,
-              error instanceof Error ? error.stack : String(error),
-            );
-          },
-        );
+            },
+          );
+        }
       }
-      // 同步刷新离线收益累积数据
-      await this.flushOfflineGainAccumulated();
+      // 同步刷新离线收益累积数据；shutdown 强刷必须让失败冒泡，避免误释放 lease。
+      await this.flushOfflineGainAccumulated({ throwOnFailure: reason === 'shutdown' });
     })();
 
     this.flushPromise = promise;
@@ -545,15 +544,18 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
   }
 
   /** 将内存中离线收益会话的 accumulatedPayload 增量写入数据库，防止崩溃丢失。 */
-  private async flushOfflineGainAccumulated(): Promise<void> {
+  private async flushOfflineGainAccumulated(
+    options: { throwOnFailure?: boolean } = {},
+  ): Promise<string[]> {
     const runtimeService = this.playerRuntimeService as any;
     const sessions: Map<string, any> | undefined = runtimeService.offlineGainSessionsByPlayerId;
     if (!sessions || sessions.size === 0) {
-      return;
+      return [];
     }
     if (!this.playerDomainPersistenceService.isEnabled()) {
-      return;
+      return [];
     }
+    const failedPlayerIds: string[] = [];
     for (const [playerId, session] of sessions) {
       if (!session || !session.accumulatedPayload) {
         continue;
@@ -565,11 +567,16 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
           session.accumulatedDurationMs ?? 0,
         );
       } catch (error) {
+        failedPlayerIds.push(playerId);
         this.logger.warn(
           `刷新离线收益累积失败：${playerId} ${error instanceof Error ? error.message : String(error)}`,
         );
       }
     }
+    if (options.throwOnFailure === true && failedPlayerIds.length > 0) {
+      throw new Error(`offline_gain_flush_failed:${failedPlayerIds.join(',')}`);
+    }
+    return failedPlayerIds;
   }
 
   /** 运行时定期检查：将离线超过 48 小时的挂机玩家标记为可卸载，由 reaper 自然完成清理。 */

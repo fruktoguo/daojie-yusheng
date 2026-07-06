@@ -208,13 +208,13 @@ function testApplyTransfer() {
     assert.deepEqual(log, [
         ['getPlayer', 'player:1'],
         ['getOrCreateDefaultLineInstance', 'yunlai_town', 'peaceful'],
-        ['disconnectPlayer', 'player:1'],
         ['connectPlayer', {
             playerId: 'player:1',
             sessionId: 'session:1',
             preferredX: 8,
             preferredY: 9,
         }],
+        ['disconnectPlayer', 'player:1'],
         ['setPlayerMoveSpeed', 'player:1', 12],
         ['handleTransfer', 'auto_portal', 'old_map'],
     ]);
@@ -296,19 +296,19 @@ function testApplyTransferUsesRealPreference() {
     });
     assert.deepEqual(log, [
         ['getPlayer', 'player:real'],
-        ['beginTransfer', 'player:real', 'yunlai_town'],
         ['getOrCreateDefaultLineInstance', 'yunlai_town', 'real'],
-        ['disconnectPlayer', 'player:real'],
+        ['beginTransfer', 'player:real', 'yunlai_town'],
         ['connectPlayer', {
             playerId: 'player:real',
             sessionId: 'session:real',
             preferredX: 3,
             preferredY: 4,
         }],
+        ['disconnectPlayer', 'player:real'],
         ['setPlayerMoveSpeed', 'player:real', 20],
         ['setPlayerLocation', 'player:real', 'real:yunlai_town'],
-        ['completeTransfer', 'player:real'],
         ['handleTransfer', 'manual_portal', 'old_map'],
+        ['completeTransfer', 'player:real'],
     ]);
 }
 
@@ -442,13 +442,13 @@ function testSectPortalTransferKeepsOriginalTarget() {
         },
     });
     assert.deepEqual(log, [
-        ['disconnectPlayer', 'player:outsider'],
         ['connectPlayer', {
             playerId: 'player:outsider',
             sessionId: 'session:outsider',
             preferredX: 10,
             preferredY: 10,
         }],
+        ['disconnectPlayer', 'player:outsider'],
         ['setPlayerMoveSpeed', 'player:outsider', 8],
         ['setPlayerLocation', 'player:outsider', 'public:entrance'],
         ['handleTransfer', 10, 10],

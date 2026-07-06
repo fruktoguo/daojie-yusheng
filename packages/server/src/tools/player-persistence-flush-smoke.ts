@@ -105,11 +105,14 @@ function createHarness() {
   const presenceCalls: string[] = [];
   const markedPersisted: string[] = [];
   const workerSubmitCalls: string[] = [];
+  const offlineGainCalls: Array<{ playerId: string; payload: unknown; durationMs: number }> = [];
+  let offlineGainShouldFail = false;
   let leaseWritable = true;
 
   const playerRuntimeService = {
     dirtyDomains: new Map<string, Set<string>>(),
     snapshots: new Map<string, PersistedPlayerSnapshot>(),
+    offlineGainSessionsByPlayerId: new Map<string, { accumulatedPayload: unknown; accumulatedDurationMs?: number }>(),
     listDirtyPlayers() {
       return Array.from(this.dirtyDomains.keys());
     },
@@ -169,6 +172,12 @@ function createHarness() {
         allowBuffEmptyOverwrite: options?.allowBuffEmptyOverwrite,
       });
     },
+    async updatePlayerOfflineGainAccumulated(playerId: string, payload: unknown, durationMs: number) {
+      if (offlineGainShouldFail) {
+        throw new Error('offline gain write failed');
+      }
+      offlineGainCalls.push({ playerId, payload, durationMs });
+    },
   };
 
   const persistenceWorkerPool = {
@@ -200,6 +209,10 @@ function createHarness() {
     presenceCalls,
     markedPersisted,
     workerSubmitCalls,
+    offlineGainCalls,
+    setOfflineGainFailure(value: boolean) {
+      offlineGainShouldFail = value;
+    },
     setLeaseWritable(value: boolean) {
       leaseWritable = value;
     },
@@ -340,6 +353,38 @@ async function testSnapshotFallbackDomainRejected(): Promise<void> {
   assert.deepEqual(harness.markedPersisted, []);
 }
 
+async function testOfflineGainFlushRunsWithoutDirtyPlayers(): Promise<void> {
+  const harness = createHarness();
+  harness.playerRuntimeService.offlineGainSessionsByPlayerId.set('player:offline', {
+    accumulatedPayload: { progress: 12 },
+    accumulatedDurationMs: 60_000,
+  });
+
+  await harness.service.flushDirtyPlayers();
+
+  assert.deepEqual(harness.fullProjectionCalls, []);
+  assert.deepEqual(harness.selectiveProjectionCalls, []);
+  assert.deepEqual(harness.markedPersisted, []);
+  assert.deepEqual(harness.offlineGainCalls, [
+    { playerId: 'player:offline', payload: { progress: 12 }, durationMs: 60_000 },
+  ]);
+}
+
+async function testOfflineGainShutdownFlushFailureBubbles(): Promise<void> {
+  const harness = createHarness();
+  harness.playerRuntimeService.offlineGainSessionsByPlayerId.set('player:offline-fail', {
+    accumulatedPayload: { progress: 99 },
+    accumulatedDurationMs: 120_000,
+  });
+  harness.setOfflineGainFailure(true);
+
+  await assert.rejects(
+    () => harness.service.flushAllNow(),
+    /offline_gain_flush_failed:player:offline-fail/,
+  );
+  assert.deepEqual(harness.offlineGainCalls, []);
+}
+
 async function testWorkerPoolSubmitIsNotUsed(): Promise<void> {
   const harness = createHarness();
   const playerId = 'player:worker-submit-removed';
@@ -369,13 +414,15 @@ async function main(): Promise<void> {
   await testEquipmentSelectiveProjectionAllowsEmptyOverwrite();
   await testLeaseGuardBlocksFlush();
   await testSnapshotFallbackDomainRejected();
+  await testOfflineGainFlushRunsWithoutDirtyPlayers();
+  await testOfflineGainShutdownFlushFailureBubbles();
   await testWorkerPoolSubmitIsNotUsed();
 
   console.log(
     JSON.stringify(
       {
         ok: true,
-        answers: 'PlayerPersistenceFlushService 现已只写玩家分域表：presence-only 直写、受支持脏域 selective projection、wallet 分域投影；运行时 inventory/equipment/buff dirty flush 显式允许最后一行正常清空，snapshot fallback 脏域会硬失败，lease 失效时不会继续提交。',
+        answers: 'PlayerPersistenceFlushService 现已只写玩家分域表：presence-only 直写、受支持脏域 selective projection、wallet 分域投影；运行时 inventory/equipment/buff dirty flush 显式允许最后一行正常清空，snapshot fallback 脏域会硬失败，lease 失效时不会继续提交；离线收益累积即使没有普通 dirty player 也会刷新，shutdown 失败会冒泡。',
         completionMapping: 'release:proof:with-db.player-persistence-flush-strategy',
       },
       null,

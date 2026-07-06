@@ -147,6 +147,7 @@
 
 ### P08. 复生迁移先断旧实例且未校验目标实例
 
+- **状态**：已修复（2026-07-06）：复生路径已在目标实例 attach/lease readiness 校验通过后再挂接，失败会保留待复生状态；本轮同步复核传送迁移顺序与 rollback smoke。
 - **严重级别**：high
 - **分类**：复生/位置一致性
 - **置信度**：confirmed
@@ -204,6 +205,7 @@
 
 ### P13. 跨图传送绕过目标实例 attach/lease 门禁
 
+- **状态**：已修复（2026-07-06）：跨图传送在 connectPlayer 前统一执行目标实例 attach readiness / lease 检查，拒绝 fenced、degraded、template missing、stopped、destroyed、非本地可写等目标。
 - **严重级别**：high
 - **分类**：服务端权威/实例租约
 - **置信度**：confirmed
@@ -285,6 +287,7 @@
 
 ### P20. 传送失败路径会遗留玩家 in_transfer 状态
 
+- **状态**：已修复（2026-07-06）：传送 beginTransfer 延后到目标校验后，connect/location/sync/navigation 统一纳入 try/catch/finally；失败恢复 runtime placement、源实例挂接与位置索引，finally 清理 in_transfer。
 - **严重级别**：high
 - **分类**：跨图传送/状态恢复
 - **置信度**：confirmed
@@ -296,6 +299,7 @@
 
 ### P21. 待执行命令消费期间会吞掉 await 期间新提交的玩家意图
 
+- **状态**：已修复（2026-07-06）：pending command 消费改为 snapshot + generation 校验，只删除本轮已消费的 command identity；await 期间新提交的同玩家命令保留到下一轮。
 - **严重级别**：high
 - **分类**：队列/玩家意图
 - **置信度**：confirmed
@@ -402,6 +406,7 @@
 
 ### P30. 同实例传送命中 existing 玩家分支时会忽略目标坐标
 
+- **状态**：已修复（2026-07-06）：MapInstanceRuntime.connectPlayer 的 existing 玩家分支已支持 preferredX/preferredY relocate；传送 smoke 覆盖同实例/跨实例目标坐标写入。
 - **严重级别**：medium
 - **分类**：传送/位置权威
 - **置信度**：plausible
@@ -437,6 +442,7 @@
 
 ### P33. 阵法运行态刷盘 fire-and-forget，失败后缺少脏标记和恢复重试
 
+- **状态**：已修复（2026-07-06）：阵法实例保存、单体快照和删除失败会保留 dirty/removal retry；flushAllNow 会覆盖 pending timer、dirty instance 与删除重试，成功后清理重试状态。
 - **严重级别**：medium
 - **分类**：地图/阵法持久化
 - **置信度**：plausible
@@ -460,6 +466,7 @@
 
 ### P35. 同步 worker 服务常驻导致空 envelope tick 跳过 quest/runtime/stat 后置下发
 
+- **状态**：已修复（2026-07-06）：flushConnectedPlayers 改为尊重 shouldUseWorkerEncode；worker 关闭或 envelope 为空时仍执行 auxDeferred、quest、runtime events 与 statistic records 后置同步。
 - **严重级别**：medium
 - **分类**：增量同步 / 后置事件丢失
 - **置信度**：confirmed
@@ -506,6 +513,7 @@
 
 ### P39. 离线收益累计刷盘失败被吞，最终关机可误判成功并释放租约
 
+- **状态**：已修复（2026-07-06）：离线收益累积即使没有普通 dirty player 也会刷新；shutdown/final flush 中离线收益写入失败会汇总并抛出，阻止关机误判成功释放 lease。
 - **严重级别**：medium
 - **分类**：离线收益/关闭恢复
 - **置信度**：confirmed
