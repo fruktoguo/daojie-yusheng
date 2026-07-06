@@ -79,6 +79,7 @@
 
 ### P02. 坊市普通挂单/撮合在玩家资产与市场真源之间存在崩溃窗口，可复制或丢失资产
 
+- **状态**：已部分修复（2026-07-06）：即时买入/卖出已恢复 DurableOperationService 主链（见 P09），成交双方 inventory/wallet、水位、outbox 与审计进入同一 durable 事务；普通挂售/求购创建与天道商店仍保留 market 真源与玩家分域分步提交的剩余架构项，后续需补 createSellOrder/createBuyOrder/heavenly-dao-shop 的同等 durable 边界或恢复 worker。
 - **严重级别**：critical
 - **分类**：经济/市场资产一致性
 - **置信度**：confirmed
@@ -124,6 +125,7 @@
 
 ### P06. 藏经录入缺少 jobRunId 占用校验，同一藏经台可被多人并发录入并重复获得传法经验
 
+- **状态**：已修复（2026-07-06）：藏经录入 start 已拒绝已有 scriptureRecordingJobRunId 的建筑，tick 继续推进时强制校验建筑占用 jobRunId 与当前 job 匹配，完成/取消路径释放占用，避免同一藏经台多 job 并发刷经验。
 - **严重级别**：high
 - **分类**：功法/传法/外部对象占用
 - **置信度**：confirmed
@@ -159,6 +161,7 @@
 
 ### P09. 坊市即时买卖 durable 结算被硬禁用，市场真源与玩家资产存在提交夹缝
 
+- **状态**：已修复（2026-07-06）：buyNow/sellNow 的 canUseDurableBuyNow/canUseDurableSellNow 已改为跟随 DurableOperationService.isEnabled()，可用时走 settleMarketBuyNow/settleMarketSellNow，把买卖双方资产、水位、outbox 与审计收敛到 durable 事务；无 durable 环境仅保留本地验证 fallback。
 - **严重级别**：high
 - **分类**：市场交易/玩家资产持久化
 - **置信度**：confirmed
@@ -217,6 +220,7 @@
 
 ### P14. 兑换码先核销后发奖，崩溃会永久吞奖励
 
+- **状态**：已修复（2026-07-06）：兑换码持久化从“发奖前直接 used”改为 claimCodeForUse 抢占 pending + operationId，奖励 inventory/wallet durable 成功后再 finalizeCodeUse 转 used；durable 失败时不发 notice、不回退 active，保留 pending 供同 operationId 幂等补偿。
 - **严重级别**：high
 - **分类**：玩家资产/兑换码持久化
 - **置信度**：confirmed
@@ -252,6 +256,7 @@
 
 ### P17. 炼丹/锻造/强化完成时仍调用旧 startNextQueuedCraftJob，会丢弃统一队列中的采集/建造/挖矿/阵法/传法任务
 
+- **状态**：已修复（2026-07-06）：炼丹/锻造 completeAlchemyLikeJob 与强化完成路径不再直接消费统一队列；旧 startNextQueuedCraftJob 保留为空兼容实现，队列统一交给 WorldRuntimeCraftTickService 在所有 active job 清空后通过 TechniqueActivityQueueService.tickQueue 推进，避免 shift 丢弃非炼制类任务。
 - **严重级别**：high
 - **分类**：统一技艺队列/跨 tick 恢复
 - **置信度**：confirmed
@@ -323,6 +328,7 @@
 
 ### P23. GM 封禁与市场撤单跨真源非原子，崩溃会留下半封禁状态
 
+- **状态**：已修复最小安全顺序（2026-07-06）：banManagedPlayerAccount 改为先执行 cancelOpenOrdersForBannedPlayer，撤单/返还成功后才 authStore.saveUser 写入 bannedAt；撤单失败时不发生账号真源封禁写入，避免依赖第二次 saveUser 回滚。剩余架构项：后续仍建议将 pending_ban、撤单返还、账号封禁和恢复任务收敛为一个可恢复 durable operation。
 - **严重级别**：medium
 - **分类**：GM 操作/市场资产一致性
 - **置信度**：confirmed
@@ -490,6 +496,7 @@
 
 ### P37. 建造 start 未实现互斥入队，同一玩家可在其他技艺 job 运行时并行建造并获得建造经验
 
+- **状态**：已修复（2026-07-06）：BuildingStrategy 增加 queueStart，当玩家已有炼丹/锻造/强化/传法/采集/挖矿/阵法等其他 active 技艺 job 时，建造 start 不再直接 dispatch 建造 job，而是写入 techniqueActivityQueue，由统一 tick 在所有 active job 清空后推进；旧 direct dispatch 仍建议保留防御性 active-kind 检查作为后续加固项。
 - **严重级别**：medium
 - **分类**：技艺 job 生命周期/建造经验
 - **置信度**：confirmed

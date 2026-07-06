@@ -14,6 +14,7 @@ import {
 import type { AlchemyRecipeCatalogEntry, RuntimeTechniqueActivityKind } from '@mud/shared';
 import { WorldRuntimeAlchemyService } from '../runtime/world/world-runtime-alchemy.service';
 import { WorldRuntimeCraftMutationService } from '../runtime/world/world-runtime-craft-mutation.service';
+import { WorldRuntimeCraftTickService } from '../runtime/world/world-runtime-craft-tick.service';
 import { CraftPanelRuntimeService } from '../runtime/craft/craft-panel-runtime.service';
 
 type SmokeNotice = [event: 'queuePlayerNotice', playerId: string, text: string, kind: string, structuredKey?: string | null];
@@ -366,8 +367,9 @@ async function testAlchemyQueueStartsNextJobFromUnifiedQueue(): Promise<void> {
     { itemId: 'herb.qi', count: 8 },
     { itemId: 'spirit_stone', count: 20 },
   ]);
-  const { craftService } = createCraftHarness(player);
-  const ctx = craftService.buildPipelineContext(createDeps([]));
+  const { craftService, playerRuntimeService } = createCraftHarness(player);
+  const deps = createDeps([]);
+  const ctx = craftService.buildPipelineContext(deps);
 
   const first = craftService.startTechniqueActivity(player, 'alchemy', {
     recipeId: ALCHEMY_RECIPE.recipeId,
@@ -403,10 +405,26 @@ async function testAlchemyQueueStartsNextJobFromUnifiedQueue(): Promise<void> {
   player.alchemyJob.currentBatchRemainingTicks = 1;
   const completed = craftService.tickTechniqueActivity(player, 'alchemy', ctx.deps);
   assert.equal(completed.ok, true);
+  assert.equal(player.alchemyJob, null);
+  assert.equal(player.techniqueActivityQueue.length, 1);
+
+  const flushedKinds: string[] = [];
+  const tickService = new WorldRuntimeCraftTickService(
+    playerRuntimeService,
+    craftService,
+    {
+      flushCraftMutation(_playerId: string, _result: unknown, kind: string): void {
+        flushedKinds.push(kind);
+      },
+    },
+  );
+  await tickService.advanceCraftJobs([player.playerId], deps);
+
   assert.equal(player.techniqueActivityQueue.length, 0);
   assert.equal(player.alchemyJob?.phase, 'brewing');
   assert.equal(player.alchemyJob?.completedCount, 0);
   assert.equal(player.alchemyJob?.workRemainingTicks, player.alchemyJob?.workTotalTicks);
+  assert.deepEqual(flushedKinds, ['alchemy']);
 }
 
 async function testAlchemyFailureDoesNotCreateOutput(): Promise<void> {
@@ -690,8 +708,9 @@ async function testForgingInterruptCancelAndQueue(): Promise<void> {
   const queuePlayer = createPlayer('player:forging:queue', [
     { itemId: 'ore.copper', count: 8 },
   ]);
-  const { craftService: queueCraftService } = createCraftHarness(queuePlayer);
-  const queueCtx = queueCraftService.buildPipelineContext(createDeps([]));
+  const { craftService: queueCraftService, playerRuntimeService: queuePlayerRuntimeService } = createCraftHarness(queuePlayer);
+  const queueDeps = createDeps([]);
+  const queueCtx = queueCraftService.buildPipelineContext(queueDeps);
   const first = startForgingJob(queueCraftService, queuePlayer, queueCtx.deps);
   assert.equal(first.ok, true);
   const oreCountAfterFirstStart = countPlayerItem(queuePlayer, 'ore.copper');
@@ -709,10 +728,26 @@ async function testForgingInterruptCancelAndQueue(): Promise<void> {
   forceAlchemyLikeJobReadyToResolve(queuePlayer.forgingJob, 1);
   const completed = queueCraftService.tickTechniqueActivity(queuePlayer, 'forging', queueCtx.deps);
   assert.equal(completed.ok, true);
+  assert.equal(queuePlayer.forgingJob, null);
+  assert.equal(queuePlayer.techniqueActivityQueue.length, 1);
+
+  const flushedKinds: string[] = [];
+  const tickService = new WorldRuntimeCraftTickService(
+    queuePlayerRuntimeService,
+    queueCraftService,
+    {
+      flushCraftMutation(_playerId: string, _result: unknown, kind: string): void {
+        flushedKinds.push(kind);
+      },
+    },
+  );
+  await tickService.advanceCraftJobs([queuePlayer.playerId], queueDeps);
+
   assert.equal(queuePlayer.techniqueActivityQueue.length, 0);
   assert.equal(queuePlayer.forgingJob?.phase, 'brewing');
   assert.equal(queuePlayer.forgingJob?.completedCount, 0);
   assert.equal(queuePlayer.forgingJob?.workRemainingTicks, queuePlayer.forgingJob?.workTotalTicks);
+  assert.deepEqual(flushedKinds, ['forging']);
 }
 
 function startForgingJob(

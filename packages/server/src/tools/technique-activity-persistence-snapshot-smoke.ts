@@ -192,32 +192,58 @@ async function testQueueCancelMarksActiveJobDirty(): Promise<void> {
 
 async function testTransmissionCancelByTaskRef(): Promise<void> {
   const calls: string[] = [];
+  const player = {
+    playerId: 'player:transmission-cancel',
+    transmissionJob: {
+      jobRunId: 'transmission:player:transmission-cancel:gen_transmission_cancel:1',
+      techniqueId: 'gen_transmission_cancel',
+      remainingTicks: 1,
+    },
+  };
   const commandService = Object.create(WorldRuntimePlayerCommandService.prototype) as WorldRuntimePlayerCommandService;
   (commandService as unknown as { playerRuntimeService: unknown }).playerRuntimeService = {
-    cancelTechniqueTransmission(playerId: string, techniqueId: string) {
-      calls.push(`cancel:${playerId}:${techniqueId}`);
+    getPlayer(playerId: string) {
+      calls.push(`get:${playerId}`);
+      return playerId === player.playerId ? player : null;
+    },
+    getPlayerOrThrow(playerId: string) {
+      calls.push(`getOrThrow:${playerId}`);
+      if (playerId !== player.playerId) {
+        throw new Error(`unknown player: ${playerId}`);
+      }
+      return player;
     },
   };
 
   await commandService.dispatchCancelTechniqueActivityByRef(
-    'player:transmission-cancel',
+    player.playerId,
     {
       kind: 'transmission',
       jobRunId: 'transmission:player:transmission-cancel:gen_transmission_cancel:1',
       techId: 'gen_transmission_cancel',
     },
     {
+      craftPanelRuntimeService: {
+        cancelTechniqueActivity(targetPlayer: typeof player, kind: string) {
+          calls.push(`cancel:${targetPlayer.playerId}:${kind}`);
+          targetPlayer.transmissionJob = null;
+          return { ok: true, panelChanged: true, messages: [], groundDrops: [] };
+        },
+      },
       worldRuntimeCraftMutationService: {
-        emitTechniqueActivityTaskUpdate(playerId: string) {
-          calls.push(`task-update:${playerId}`);
+        flushCraftMutation(playerId: string, _result: unknown, kind: string) {
+          calls.push(`flush:${playerId}:${kind}`);
         },
       },
     } as never,
   );
 
+  assert.equal(player.transmissionJob, null);
   assert.deepEqual(calls, [
-    'cancel:player:transmission-cancel:gen_transmission_cancel',
-    'task-update:player:transmission-cancel',
+    'get:player:transmission-cancel',
+    'getOrThrow:player:transmission-cancel',
+    'cancel:player:transmission-cancel:transmission',
+    'flush:player:transmission-cancel:transmission',
   ]);
 }
 

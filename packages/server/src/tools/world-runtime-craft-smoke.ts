@@ -4,6 +4,7 @@ installSmokeTimeout(__filename);
 
 import assert from 'node:assert/strict';
 
+import { createItemStackSignature } from '@mud/shared';
 import { CraftPanelRuntimeService } from '../runtime/craft/craft-panel-runtime.service';
 import { MapInstanceRuntime } from '../runtime/instance/map-instance.runtime';
 import { BuildingStrategy } from '../runtime/craft/pipeline/strategies/building.strategy';
@@ -2025,24 +2026,25 @@ async function testCraftTickUsesUnifiedPipelineForCraftingKinds(): Promise<void>
 async function testGatherStrategyTickUsesStrategyHelper(): Promise<void> {
   const pipeline = new TechniqueActivityPipelineService();
   pipeline.register(new GatherStrategy());
+  const gatherItem = {
+    itemId: 'herb:test',
+    itemInstanceId: 'herb:source',
+    name: '灵草',
+    type: 'material',
+    count: 1,
+    desc: '测试草药',
+    level: 1,
+    grade: 'mortal',
+  };
   const state = {
     entries: [{
-      item: {
-        itemId: 'herb:test',
-        itemInstanceId: 'herb:source',
-        name: '灵草',
-        type: 'material',
-        count: 1,
-        desc: '测试草药',
-        level: 1,
-        grade: 'mortal',
-      },
+      item: { ...gatherItem },
       createdTick: 1,
       visible: true,
     }],
     activeSearch: {
       playerId: 'player:gather-strategy-tick',
-      itemKey: 'herb:test#0',
+      itemKey: createItemStackSignature(gatherItem),
       totalTicks: 1,
       remainingTicks: 1,
     },

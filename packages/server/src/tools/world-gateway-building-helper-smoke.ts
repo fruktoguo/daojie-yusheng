@@ -71,12 +71,12 @@ function testBuildPlacePushesDeltaAfterSuccess() {
   ]);
 }
 
-function testBuildDeconstructPushesDeltaAfterSuccess() {
+async function testBuildDeconstructPushesDeltaAfterSuccess() {
   const log = [];
   const helper = createHelper(log);
   const client = createClient(log);
 
-  helper.handleBuildDeconstruct(client, { requestId: 'deconstruct:req:1' });
+  await helper.handleBuildDeconstruct(client, { requestId: 'deconstruct:req:1' });
 
   assert.deepEqual(log, [
     ['requirePlayerId', 'socket:building'],
@@ -88,14 +88,14 @@ function testBuildDeconstructPushesDeltaAfterSuccess() {
   ]);
 }
 
-function testFailedBuildDoesNotPushDelta() {
+async function testFailedBuildDoesNotPushDelta() {
   const log = [];
   const helper = createHelper(log, {
     deconstructResult: { ok: false, requestId: 'deconstruct:req:missing', reason: 'building_not_found' },
   });
   const client = createClient(log);
 
-  helper.handleBuildDeconstruct(client, { requestId: 'deconstruct:req:missing' });
+  await helper.handleBuildDeconstruct(client, { requestId: 'deconstruct:req:missing' });
 
   assert.deepEqual(log, [
     ['requirePlayerId', 'socket:building'],
@@ -104,8 +104,15 @@ function testFailedBuildDoesNotPushDelta() {
   ]);
 }
 
-testBuildPlacePushesDeltaAfterSuccess();
-testBuildDeconstructPushesDeltaAfterSuccess();
-testFailedBuildDoesNotPushDelta();
+async function main() {
+  testBuildPlacePushesDeltaAfterSuccess();
+  await testBuildDeconstructPushesDeltaAfterSuccess();
+  await testFailedBuildDoesNotPushDelta();
 
-console.log(JSON.stringify({ ok: true, case: 'world-gateway-building-helper' }, null, 2));
+  console.log(JSON.stringify({ ok: true, case: 'world-gateway-building-helper' }, null, 2));
+}
+
+void main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});

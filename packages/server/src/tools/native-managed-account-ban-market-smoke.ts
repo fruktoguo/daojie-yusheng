@@ -137,9 +137,7 @@ async function main(): Promise<void> {
     () => rollbackService.banManagedPlayerAccount(rollbackUser.playerId, '撤单失败测试', 'gm:test'),
     /market_cancel_failed/,
   );
-  assert.equal(rollbackSaves.length, 2);
-  assert.equal(rollbackSaves[0]?.bannedAt !== null, true);
-  assert.equal(rollbackSaves[1]?.bannedAt, null);
+  assert.equal(rollbackSaves.length, 0);
   assert.equal(rollbackUser.bannedAt, null);
 
   console.log('native-managed-account-ban-market-smoke passed');

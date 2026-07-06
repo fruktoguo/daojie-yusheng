@@ -160,7 +160,7 @@ export class RedeemCodePersistenceService {
                 id: typeof row.code_id === 'string' ? row.code_id : '',
                 groupId: typeof row.group_id === 'string' ? row.group_id : '',
                 code: typeof row.code === 'string' ? row.code : '',
-                status: row.status === 'used' || row.status === 'destroyed' ? row.status : 'active',
+                status: normalizeRedeemCodeStatus(row.status),
                 usedByPlayerId: typeof row.used_by_player_id === 'string' ? row.used_by_player_id : null,
                 usedByRoleName: typeof row.used_by_role_name === 'string' ? row.used_by_role_name : null,
                 usedAt: normalizeNullableDbTimestamp(row.used_at),
@@ -252,6 +252,7 @@ export class RedeemCodePersistenceService {
                       DO UPDATE SET
                         status = CASE
                           WHEN ${REDEEM_CODE_TABLE}.status = 'used' AND EXCLUDED.status <> 'used' THEN ${REDEEM_CODE_TABLE}.status
+                          WHEN ${REDEEM_CODE_TABLE}.status = 'pending' AND EXCLUDED.status = 'active' THEN ${REDEEM_CODE_TABLE}.status
                           WHEN ${REDEEM_CODE_TABLE}.status = 'destroyed' AND EXCLUDED.status = 'active' THEN ${REDEEM_CODE_TABLE}.status
                           ELSE EXCLUDED.status
                         END,
@@ -342,7 +343,7 @@ export class RedeemCodePersistenceService {
                 `,
                 [normalizedGroupId],
             );
-            if (codeResult.rows.some((row) => row.status === 'used')) {
+            if (codeResult.rows.some((row) => row.status === 'used' || row.status === 'pending')) {
                 await client.query('ROLLBACK');
                 return { ok: false, reason: 'used_code_exists' };
             }
@@ -374,10 +375,8 @@ export class RedeemCodePersistenceService {
             client.release();
         }
     }
-    /** 原子核销兑换码：只有 active 状态能被置为 used，跨节点并发只有一个调用成功。 */
+    /** 抢占兑换码为 pending：发奖成功后才 finalize 为 used，避免先永久核销吞奖。 */
     async claimCodeForUse(input) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
         await this.ensureReady();
         if (!this.pool || !this.enabled) {
             if (isRedeemCodeDatabaseConfigured()) {
@@ -388,9 +387,89 @@ export class RedeemCodePersistenceService {
         const code = typeof input?.code === 'string' ? input.code.trim().toUpperCase() : '';
         const playerId = typeof input?.playerId === 'string' ? input.playerId.trim() : '';
         const playerName = typeof input?.playerName === 'string' ? input.playerName.trim() : '';
+        const operationId = typeof input?.operationId === 'string' && input.operationId.trim()
+            ? input.operationId.trim()
+            : `redeem:${playerId}:${code}`;
+        const pendingByRoleName = playerName || '未知角色';
+        const pendingAt = typeof input?.usedAt === 'string' && input.usedAt.trim() ? input.usedAt.trim() : new Date().toISOString();
+        if (!code || !playerId || !operationId) {
+            return { ok: false, reason: 'invalid_input' };
+        }
+        const client = await this.pool.connect();
+        try {
+            await client.query('BEGIN');
+            const result = await client.query(
+                `
+                  UPDATE ${REDEEM_CODE_TABLE}
+                  SET
+                    status = 'pending',
+                    updated_at = $4::timestamptz,
+                    raw_payload = raw_payload
+                      || jsonb_build_object(
+                        'status', 'pending',
+                        'pendingOperationId', $5::text,
+                        'pendingByPlayerId', $2::text,
+                        'pendingByRoleName', $3::text,
+                        'pendingAt', $4::text,
+                        'updatedAt', $4::text
+                      )
+                  WHERE code = $1
+                    AND (
+                      status = 'active'
+                      OR (
+                        status = 'pending'
+                        AND raw_payload->>'pendingOperationId' = $5::text
+                        AND raw_payload->>'pendingByPlayerId' = $2::text
+                      )
+                    )
+                  RETURNING code_id, group_id, code, status, updated_at, raw_payload
+                `,
+                [code, playerId, pendingByRoleName, pendingAt, operationId],
+            );
+            if ((result.rowCount ?? 0) !== 1) {
+                await client.query('ROLLBACK');
+                return { ok: false, reason: 'not_active' };
+            }
+            const row = result.rows[0];
+            await bumpRedeemCodeGroupAndState(client, row.group_id, pendingAt);
+            await client.query('COMMIT');
+            return {
+                ok: true,
+                skipped: false,
+                code: buildRedeemCodeResult(row, {
+                    status: 'pending',
+                    operationId,
+                    playerId,
+                    roleName: pendingByRoleName,
+                    timestamp: pendingAt,
+                }),
+            };
+        }
+        catch (error) {
+            await client.query('ROLLBACK').catch(() => undefined);
+            throw error;
+        }
+        finally {
+            client.release();
+        }
+    }
+
+    /** 发奖完成后把同一 operationId 的 pending 兑换码最终核销为 used。 */
+    async finalizeCodeUse(input) {
+        await this.ensureReady();
+        if (!this.pool || !this.enabled) {
+            if (isRedeemCodeDatabaseConfigured()) {
+                return { ok: false, reason: 'persistence_unavailable' };
+            }
+            return { ok: true, skipped: true };
+        }
+        const code = typeof input?.code === 'string' ? input.code.trim().toUpperCase() : '';
+        const playerId = typeof input?.playerId === 'string' ? input.playerId.trim() : '';
+        const playerName = typeof input?.playerName === 'string' ? input.playerName.trim() : '';
+        const operationId = typeof input?.operationId === 'string' ? input.operationId.trim() : '';
         const usedByRoleName = playerName || '未知角色';
         const usedAt = typeof input?.usedAt === 'string' && input.usedAt.trim() ? input.usedAt.trim() : new Date().toISOString();
-        if (!code || !playerId) {
+        if (!code || !playerId || !operationId) {
             return { ok: false, reason: 'invalid_input' };
         }
         const client = await this.pool.connect();
@@ -403,59 +482,51 @@ export class RedeemCodePersistenceService {
                     status = 'used',
                     used_by_player_id = $2,
                     used_by_role_name = $3,
-                    used_at = $4::timestamptz,
+                    used_at = COALESCE(used_at, $4::timestamptz),
                     updated_at = $4::timestamptz,
                     raw_payload = raw_payload
                       || jsonb_build_object(
                         'status', 'used',
-                        'usedByPlayerId', $5::text,
-                        'usedByRoleName', $6::text,
-                        'usedAt', $7::text,
-                        'updatedAt', $7::text
+                        'redeemOperationId', $5::text,
+                        'usedByPlayerId', $2::text,
+                        'usedByRoleName', $3::text,
+                        'usedAt', $4::text,
+                        'updatedAt', $4::text
                       )
-                  WHERE code = $1 AND status = 'active'
-                  RETURNING code_id, group_id, code, status, used_by_player_id, used_by_role_name, used_at, updated_at
+                  WHERE code = $1
+                    AND (
+                      (
+                        status = 'pending'
+                        AND raw_payload->>'pendingOperationId' = $5::text
+                        AND raw_payload->>'pendingByPlayerId' = $2::text
+                      )
+                      OR (
+                        status = 'used'
+                        AND raw_payload->>'redeemOperationId' = $5::text
+                        AND used_by_player_id = $2::text
+                      )
+                    )
+                  RETURNING code_id, group_id, code, status, used_by_player_id, used_by_role_name, used_at, updated_at, raw_payload
                 `,
-                    [code, playerId, usedByRoleName, usedAt, playerId, usedByRoleName, usedAt],
+                [code, playerId, usedByRoleName, usedAt, operationId],
             );
             if ((result.rowCount ?? 0) !== 1) {
                 await client.query('ROLLBACK');
-                return { ok: false, reason: 'not_active' };
+                return { ok: false, reason: 'not_pending' };
             }
             const row = result.rows[0];
-            await client.query(
-                `
-                  UPDATE ${REDEEM_CODE_GROUP_TABLE}
-                  SET
-                    updated_at = $2::timestamptz,
-                    raw_payload = jsonb_set(raw_payload, '{updatedAt}', to_jsonb($3::text), true)
-                  WHERE group_id = $1
-                `,
-                [row.group_id, usedAt, usedAt],
-            );
-            await client.query(
-                `
-                  INSERT INTO ${REDEEM_CODE_STATE_TABLE}(state_key, revision, updated_at)
-                  VALUES ($1, 2, now())
-                  ON CONFLICT (state_key)
-                  DO UPDATE SET revision = ${REDEEM_CODE_STATE_TABLE}.revision + 1, updated_at = now()
-                `,
-                [REDEEM_CODE_STATE_KEY],
-            );
+            await bumpRedeemCodeGroupAndState(client, row.group_id, usedAt);
             await client.query('COMMIT');
             return {
                 ok: true,
                 skipped: false,
-                code: {
-                    id: typeof row.code_id === 'string' ? row.code_id : '',
-                    groupId: typeof row.group_id === 'string' ? row.group_id : '',
-                    code: typeof row.code === 'string' ? row.code : '',
+                code: buildRedeemCodeResult(row, {
                     status: 'used',
-                    usedByPlayerId: typeof row.used_by_player_id === 'string' ? row.used_by_player_id : playerId,
-                    usedByRoleName: typeof row.used_by_role_name === 'string' ? row.used_by_role_name : usedByRoleName,
-                    usedAt: normalizeNullableDbTimestamp(row.used_at) ?? usedAt,
-                    updatedAt: normalizeDbTimestamp(row.updated_at),
-                },
+                    operationId,
+                    playerId,
+                    roleName: usedByRoleName,
+                    timestamp: usedAt,
+                }),
             };
         }
         catch (error) {
@@ -475,6 +546,45 @@ export class RedeemCodePersistenceService {
         this.pool = null;
         this.enabled = false;
     }
+}
+
+async function bumpRedeemCodeGroupAndState(client, groupId, timestamp) {
+    await client.query(
+        `
+          UPDATE ${REDEEM_CODE_GROUP_TABLE}
+          SET
+            updated_at = $2::timestamptz,
+            raw_payload = jsonb_set(raw_payload, '{updatedAt}', to_jsonb($3::text), true)
+          WHERE group_id = $1
+        `,
+        [groupId, timestamp, timestamp],
+    );
+    await client.query(
+        `
+          INSERT INTO ${REDEEM_CODE_STATE_TABLE}(state_key, revision, updated_at)
+          VALUES ($1, 2, now())
+          ON CONFLICT (state_key)
+          DO UPDATE SET revision = ${REDEEM_CODE_STATE_TABLE}.revision + 1, updated_at = now()
+        `,
+        [REDEEM_CODE_STATE_KEY],
+    );
+}
+
+function buildRedeemCodeResult(row, fallback) {
+    const rawPayload = row?.raw_payload && typeof row.raw_payload === 'object' ? row.raw_payload : {};
+    const status = normalizeRedeemCodeStatus(row?.status ?? fallback.status);
+    return {
+        id: typeof row?.code_id === 'string' ? row.code_id : '',
+        groupId: typeof row?.group_id === 'string' ? row.group_id : '',
+        code: typeof row?.code === 'string' ? row.code : '',
+        status,
+        usedByPlayerId: typeof row?.used_by_player_id === 'string' ? row.used_by_player_id : status === 'used' ? fallback.playerId : null,
+        usedByRoleName: typeof row?.used_by_role_name === 'string' ? row.used_by_role_name : status === 'used' ? fallback.roleName : null,
+        usedAt: normalizeNullableDbTimestamp(row?.used_at) ?? (status === 'used' ? fallback.timestamp : null),
+        updatedAt: normalizeDbTimestamp(row?.updated_at ?? fallback.timestamp),
+        pendingOperationId: typeof rawPayload.pendingOperationId === 'string' ? rawPayload.pendingOperationId : fallback.operationId,
+        redeemOperationId: typeof rawPayload.redeemOperationId === 'string' ? rawPayload.redeemOperationId : status === 'used' ? fallback.operationId : null,
+    };
 }
 
 async function ensureRedeemCodeTables(pool) {
@@ -533,6 +643,10 @@ async function ensureRedeemCodeTables(pool) {
 }
 
 /** 清洗兑换码文档结构，确保组与码条目字段完整可用。 */
+function normalizeRedeemCodeStatus(value) {
+    return value === 'used' || value === 'destroyed' || value === 'pending' ? value : 'active';
+}
+
 function normalizeRedeemCodeDocument(raw) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
@@ -578,7 +692,7 @@ function normalizeRedeemCodeDocument(raw) {
 
                 code: typeof entry.code === 'string' ? entry.code : '',
 
-                status: entry.status === 'used' || entry.status === 'destroyed' ? entry.status : 'active',
+                status: normalizeRedeemCodeStatus(entry.status),
 
                 usedByPlayerId: typeof entry.usedByPlayerId === 'string' ? entry.usedByPlayerId : null,
 
@@ -587,6 +701,16 @@ function normalizeRedeemCodeDocument(raw) {
                 usedAt: typeof entry.usedAt === 'string' ? entry.usedAt : null,
 
                 destroyedAt: typeof entry.destroyedAt === 'string' ? entry.destroyedAt : null,
+
+                pendingOperationId: typeof entry.pendingOperationId === 'string' ? entry.pendingOperationId : null,
+
+                pendingByPlayerId: typeof entry.pendingByPlayerId === 'string' ? entry.pendingByPlayerId : null,
+
+                pendingByRoleName: typeof entry.pendingByRoleName === 'string' ? entry.pendingByRoleName : null,
+
+                pendingAt: typeof entry.pendingAt === 'string' ? entry.pendingAt : null,
+
+                redeemOperationId: typeof entry.redeemOperationId === 'string' ? entry.redeemOperationId : null,
 
                 createdAt: typeof entry.createdAt === 'string' ? entry.createdAt : new Date(0).toISOString(),
 

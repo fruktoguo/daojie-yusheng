@@ -877,16 +877,13 @@ export class CraftPanelRuntimeService {
             getExpToNextByLevel: (level) => resolveCraftSkillExpToNextByLevel(this.playerRuntimeService, level),
         };
     }
-    /** 完成炼丹/炼器 job，并尝试启动统一队列中的下一项。 */
+    /** 完成炼丹/炼器 job；统一队列由 WorldRuntimeCraftTickService 在所有 active job 清空后推进。 */
     completeAlchemyLikeJob(player, jobKind, job) {
         const normalizedJobKind = jobKind === 'forging' ? 'forging' : 'alchemy';
         migrateLegacyCraftQueueToUnifiedQueue(player, job.queuedJobs);
         setAlchemyLikeJob(player, normalizedJobKind, null);
-        const nextStartResult = this.startNextQueuedCraftJob(player);
-        if (!player.alchemyJob && !player.forgingJob && !player.enhancementJob) {
-            this.finalizeMutation(player, { persistentOnly: true, dirtyDomains: ['active_job'] });
-        }
-        return nextStartResult;
+        this.finalizeMutation(player, { persistentOnly: true, dirtyDomains: ['active_job'] });
+        return buildCraftMutationResult();
     }
     buildAlchemyLikeCompletionMessage(jobKind, job) {
         const normalizedJobKind = jobKind === 'forging' ? 'forging' : 'alchemy';
@@ -1219,58 +1216,8 @@ export class CraftPanelRuntimeService {
     migrateLegacyCraftQueueToUnifiedQueue(player, queuedJobs) {
         migrateLegacyCraftQueueToUnifiedQueue(player, queuedJobs);
     }
-    /** 从等待队列取下一项制造任务并启动。 */
-    startNextQueuedCraftJob(player) {
-        const queue = getPlayerTechniqueActivityQueue(player);
-        while (queue.length > 0) {
-            const next = queue.shift();
-            if (!next || typeof next !== 'object') {
-                continue;
-            }
-            const payload = {
-                ...(next.payload && typeof next.payload === 'object' ? next.payload : {}),
-                queueMode: 'append',
-            };
-            const result = next.kind === 'enhancement'
-                ? this.startEnhancement(player, payload)
-                : next.kind === 'alchemy'
-                    ? this.startAlchemy(player, payload)
-                    : next.kind === 'forging'
-                        ? this.startForging(player, payload)
-                        : buildCraftMutationResult('未知制造任务暂未接入运行时。');
-            if (result?.ok) {
-                player.techniqueActivityQueue = queue;
-                return {
-                    ...result,
-                    messages: [
-                        {
-                            kind: 'system',
-                            key: 'notice.craft.queue.started',
-                            vars: { label: next.label },
-                            pills: [{ key: 'label', style: 'target' }],
-                        },
-                        ...(result.messages ?? []),
-                    ],
-                };
-            }
-            if (queue.length <= 0) {
-                player.techniqueActivityQueue = queue;
-                return {
-                    ok: true,
-                    panelChanged: true,
-                    messages: [{
-                            kind: 'system',
-                            key: 'notice.craft.queue.skipped',
-                            vars: {
-                                label: next.label,
-                                error: String((result as Record<string, unknown>)?.error ?? ''),
-                            },
-                            pills: [{ key: 'label', style: 'target' }],
-                        }],
-                };
-            }
-        }
-        player.techniqueActivityQueue = queue;
+    /** 旧完成路径不再直接消费统一队列；保留空实现兼容过渡调用方，避免丢弃非炼制类队列项。 */
+    startNextQueuedCraftJob(_player) {
         return buildCraftMutationResult();
     }
     /**

@@ -57,6 +57,7 @@ function buildHarness(code: string, options: { persistentClaim?: boolean; persis
   const logbookMessages: Array<Record<string, unknown>> = [];
   const persistedDocuments: Array<Record<string, unknown>> = [];
   const claimCalls: Array<Record<string, unknown>> = [];
+  const finalizeCalls: Array<Record<string, unknown>> = [];
   const savedPresences: Array<Record<string, unknown>> = [];
   const persistedPresence = options.persistedPresenceAhead === true
     ? {
@@ -85,6 +86,24 @@ function buildHarness(code: string, options: { persistentClaim?: boolean; persis
       claimCalls.push(input);
       if (input.code !== code) {
         return { ok: false, reason: 'not_active' };
+      }
+      return {
+        ok: true,
+        skipped: false,
+        code: {
+          id: `code:${code}`,
+          groupId: 'group:redeem-smoke',
+          code,
+          status: 'pending',
+          pendingOperationId: input.operationId,
+          updatedAt: input.usedAt,
+        },
+      };
+    };
+    persistenceService.finalizeCodeUse = async (input: Record<string, unknown>) => {
+      finalizeCalls.push(input);
+      if (input.code !== code) {
+        return { ok: false, reason: 'not_pending' };
       }
       return {
         ok: true,
@@ -268,6 +287,7 @@ function buildHarness(code: string, options: { persistentClaim?: boolean; persis
     logbookMessages,
     persistedDocuments,
     claimCalls,
+    finalizeCalls,
     savedPresences,
     deferred,
   };
@@ -343,9 +363,28 @@ async function main(): Promise<void> {
   assert.equal(persistentClaimFailure.claimCalls.length, 1);
   assert.equal(persistentClaimFailure.claimCalls[0]?.playerId, persistentClaimFailure.player.playerId);
   assert.equal(persistentClaimFailure.claimCalls[0]?.code, persistentClaimFailure.code);
-  assert.equal((persistentClaimFailure as any).service.codes[0]?.status, 'used');
+  assert.equal(persistentClaimFailure.claimCalls[0]?.operationId, `op:${persistentClaimFailure.player.playerId}:redeem-code:${persistentClaimFailure.code}`);
+  assert.equal((persistentClaimFailure as any).service.codes[0]?.status, 'pending');
 
-  const staleFence = buildHarness('REDEEM-DURABLE-CODE-004', { persistedPresenceAhead: true });
+  const persistentClaimSuccess = buildHarness('REDEEM-DURABLE-CODE-004', { persistentClaim: true });
+  const persistentClaimSuccessPromise = persistentClaimSuccess.service.redeemCodes(
+    persistentClaimSuccess.player.playerId,
+    [persistentClaimSuccess.code],
+  );
+  await nextTick();
+  persistentClaimSuccess.deferred.resolve({
+    ok: true,
+    alreadyCommitted: false,
+    grantedCount: 2,
+    sourceType: 'redeem_code',
+  });
+  const persistentClaimSuccessResult = await persistentClaimSuccessPromise;
+  assert.equal(persistentClaimSuccessResult.results[0]?.ok, true);
+  assert.equal(persistentClaimSuccess.finalizeCalls.length, 1);
+  assert.equal(persistentClaimSuccess.finalizeCalls[0]?.operationId, `op:${persistentClaimSuccess.player.playerId}:redeem-code:${persistentClaimSuccess.code}`);
+  assert.equal((persistentClaimSuccess as any).service.codes[0]?.status, 'used');
+
+  const staleFence = buildHarness('REDEEM-DURABLE-CODE-005', { persistedPresenceAhead: true });
   const staleFencePromise = staleFence.service.redeemCodes(staleFence.player.playerId, [staleFence.code]);
   await nextTick();
   assert.equal(staleFence.savedPresences.length, 1);
@@ -370,16 +409,18 @@ async function main(): Promise<void> {
   assert.equal(persistentClaimFailure.notices.length, 0);
   assert.equal(persistentClaimFailure.logbookMessages.length, 0);
   assert.equal(persistentClaimFailure.persistedDocuments.length, 0);
-  assert.equal((persistentClaimFailure as any).service.codes[0]?.status, 'used');
+  assert.equal(persistentClaimFailure.finalizeCalls.length, 0);
+  assert.equal((persistentClaimFailure as any).service.codes[0]?.status, 'pending');
 
   console.log(
     JSON.stringify(
       {
         ok: true,
-        durableCallCount: success.durableCalls.length + failure.durableCalls.length + persistentClaimFailure.durableCalls.length + staleFence.durableCalls.length,
-        persistentClaimCount: persistentClaimFailure.claimCalls.length,
+        durableCallCount: success.durableCalls.length + failure.durableCalls.length + persistentClaimFailure.durableCalls.length + persistentClaimSuccess.durableCalls.length + staleFence.durableCalls.length,
+        persistentClaimCount: persistentClaimFailure.claimCalls.length + persistentClaimSuccess.claimCalls.length,
+        persistentFinalizeCount: persistentClaimSuccess.finalizeCalls.length,
         answers:
-          'RedeemCodeRuntimeService 的非钱包奖励会走 grantInventoryItems durable 主链；持久化兑换码会在发奖前先通过 claimCodeForUse 条件更新抢占核销，durable 失败时不发物、不发钱包、不发 notice，并且不会把已抢占的码回退成 active；兑换发奖前会同步数据库 player_presence fence',
+          'RedeemCodeRuntimeService 的非钱包奖励会走 grantInventoryItems durable 主链；持久化兑换码会在发奖前先通过 claimCodeForUse 抢占 pending，奖励 durable 成功后 finalize 为 used；durable 失败时不发物、不发钱包、不发 notice，兑换码保持 pending 供同 operationId 幂等补偿；兑换发奖前会同步数据库 player_presence fence',
         excludes: '不证明 live socket 兑换码链路、真实 PostgreSQL 并发条件更新或任务奖励库存抽象已统一切换到同一 durable 主链',
         completionMapping: 'release:proof:redeem-code-runtime-durable',
       },

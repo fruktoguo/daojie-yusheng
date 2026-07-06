@@ -77,14 +77,37 @@ async function main(): Promise<void> {
       ],
     );
 
+    const operationId = `op:${playerId}:redeem-code:${code}`;
     const claimResult = await service.claimCodeForUse({
       code,
       playerId,
       playerName,
       usedAt: now,
+      operationId,
     });
     assert.equal(claimResult.ok, true);
-    assert.equal(claimResult.code?.usedByPlayerId, playerId);
+    assert.equal(claimResult.code?.status, 'pending');
+    assert.equal(claimResult.code?.pendingOperationId, operationId);
+
+    const pendingRowResult = await pool.query(
+      'SELECT status, used_by_player_id, used_by_role_name, raw_payload FROM server_redeem_code WHERE code_id = $1',
+      [codeId],
+    );
+    const pendingRow = pendingRowResult.rows[0];
+    assert.equal(pendingRow.status, 'pending');
+    assert.equal(pendingRow.used_by_player_id, null);
+    assert.equal(pendingRow.raw_payload?.pendingOperationId, operationId);
+    assert.equal(pendingRow.raw_payload?.pendingByPlayerId, playerId);
+
+    const finalizeResult = await service.finalizeCodeUse({
+      code,
+      playerId,
+      playerName,
+      usedAt: now,
+      operationId,
+    });
+    assert.equal(finalizeResult.ok, true);
+    assert.equal(finalizeResult.code?.usedByPlayerId, playerId);
 
     const rowResult = await pool.query(
       'SELECT status, used_by_player_id, used_by_role_name, raw_payload FROM server_redeem_code WHERE code_id = $1',
@@ -94,6 +117,7 @@ async function main(): Promise<void> {
     assert.equal(row.status, 'used');
     assert.equal(row.used_by_player_id, playerId);
     assert.equal(row.used_by_role_name, playerName);
+    assert.equal(row.raw_payload?.redeemOperationId, operationId);
     assert.equal(row.raw_payload?.usedByPlayerId, playerId);
     assert.equal(row.raw_payload?.usedByRoleName, playerName);
     assert.equal(row.raw_payload?.usedAt, now);
@@ -102,7 +126,7 @@ async function main(): Promise<void> {
       ok: true,
       case: 'redeem-code-persistence-claim-db',
       codeId,
-      answers: 'RedeemCodePersistenceService.claimCodeForUse 已在真实 PostgreSQL 上完成核销和 raw_payload 写入，参数类型不会再冲突',
+      answers: 'RedeemCodePersistenceService.claimCodeForUse 已在真实 PostgreSQL 上抢占 pending，finalizeCodeUse 在发奖成功后核销 used，并保留 operationId 幂等补偿字段',
       excludes: '不证明完整 socket 兑换、背包发奖或跨节点并发竞争',
       completionMapping: 'release:proof:redeem-code-persistence-claim-db',
     }, null, 2));

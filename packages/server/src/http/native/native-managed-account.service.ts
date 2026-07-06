@@ -317,9 +317,10 @@ export class NativeManagedAccountService {
     };
   }
 
-  /** GM 快捷封禁托管账号，封禁状态落在账号真源表。 */
+  /** GM 快捷封禁托管账号，先完成市场撤单返还，再落账号真源封禁态。 */
   async banManagedPlayerAccount(playerId: string, reason: string, bannedBy = 'gm'): Promise<void> {
     const user = await this.requireManagedUser(playerId);
+    await this.cancelMarketOrdersForBannedPlayer(user.playerId);
     const nextUser = {
       ...user,
       bannedAt: new Date().toISOString(),
@@ -328,12 +329,6 @@ export class NativeManagedAccountService {
       updatedAt: Date.now(),
     };
     await this.authStore.saveUser(nextUser);
-    try {
-      await this.cancelMarketOrdersForBannedPlayer(user.playerId);
-    } catch (error) {
-      await this.restoreManagedUserAfterFailedBan(user);
-      throw error;
-    }
     this.leaderboardRuntimeService?.invalidateCaches();
   }
 
@@ -420,23 +415,6 @@ export class NativeManagedAccountService {
         error instanceof Error ? error.stack : undefined,
       );
       throw error;
-    }
-  }
-
-  /** 封禁联动失败时回滚账号状态，避免封禁状态与市场资产状态半完成。 */
-  private async restoreManagedUserAfterFailedBan(previousUser: NativePlayerAuthUser): Promise<void> {
-    try {
-      await this.authStore.saveUser({
-        ...previousUser,
-        updatedAt: Date.now(),
-      });
-      this.leaderboardRuntimeService?.invalidateCaches();
-    } catch (rollbackError) {
-      this.logger.error(
-        `封禁失败后回滚账号状态失败 playerId=${previousUser.playerId} userId=${previousUser.id}：${rollbackError instanceof Error ? rollbackError.message : String(rollbackError)}`,
-        rollbackError instanceof Error ? rollbackError.stack : undefined,
-      );
-      throw rollbackError;
     }
   }
 }

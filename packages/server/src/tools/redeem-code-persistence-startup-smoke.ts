@@ -127,6 +127,7 @@ async function testClaimCodeForUseUsesTypedJsonTimestampParameters(
   },
 ): Promise<void> {
   const usedAt = '2026-05-31T01:41:00.000Z';
+  const operationId = 'op:player:typed-claim:redeem-code:typed';
   const observedQueries: Array<{ sql: string; params: unknown[] }> = [];
   const service = new RedeemCodePersistenceService({});
   (service as any).enabled = true;
@@ -142,11 +143,14 @@ async function testClaimCodeForUseUsesTypedJsonTimestampParameters(
                 code_id: 'redeem-code:typed-claim',
                 group_id: 'redeem-group:typed-claim',
                 code: 'B'.repeat(36),
-                status: 'used',
-                used_by_player_id: 'player:typed-claim',
-                used_by_role_name: '类型烟测',
-                used_at: usedAt,
+                status: 'pending',
                 updated_at: usedAt,
+                raw_payload: {
+                  pendingOperationId: operationId,
+                  pendingByPlayerId: 'player:typed-claim',
+                  pendingByRoleName: '类型烟测',
+                  pendingAt: usedAt,
+                },
               }],
             };
           }
@@ -162,15 +166,19 @@ async function testClaimCodeForUseUsesTypedJsonTimestampParameters(
     playerId: 'player:typed-claim',
     playerName: '类型烟测',
     usedAt,
+    operationId,
   });
 
+  const claimedCode = result.code as Record<string, unknown> | undefined;
   assert.equal(result.ok, true);
+  assert.equal(claimedCode?.status, 'pending');
   const codeUpdate = observedQueries.find((entry) => entry.sql.includes('RETURNING code_id'));
   assert.ok(codeUpdate);
-  assert.ok(codeUpdate.sql.includes("'usedByPlayerId', $5::text"));
-  assert.ok(codeUpdate.sql.includes("'usedByRoleName', $6::text"));
-  assert.ok(codeUpdate.sql.includes("'usedAt', $7::text"));
-  assert.deepEqual(codeUpdate.params, ['B'.repeat(36), 'player:typed-claim', '类型烟测', usedAt, 'player:typed-claim', '类型烟测', usedAt]);
+  assert.ok(codeUpdate.sql.includes("'pendingOperationId', $5::text"));
+  assert.ok(codeUpdate.sql.includes("'pendingByPlayerId', $2::text"));
+  assert.ok(codeUpdate.sql.includes("'pendingByRoleName', $3::text"));
+  assert.ok(codeUpdate.sql.includes("'pendingAt', $4::text"));
+  assert.deepEqual(codeUpdate.params, ['B'.repeat(36), 'player:typed-claim', '类型烟测', usedAt, operationId]);
 
   const groupUpdate = observedQueries.find((entry) => entry.sql.includes('UPDATE server_redeem_code_group'));
   assert.ok(groupUpdate);

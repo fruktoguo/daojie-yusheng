@@ -139,7 +139,6 @@ export function executeEnhancementTick(craftService: any, player: any, ctx: Pipe
 
   craftService.migrateLegacyCraftQueueToUnifiedQueue?.(player, job.queuedJobs);
   const finishResult = craftService.finishEnhancementJob(player, resultingLevel, 'completed');
-  const nextStartResult = craftService.startNextQueuedCraftJob(player);
   return buildEnhancementTickResult(true, [{
     kind: success ? 'quest' : 'system',
     key: success
@@ -152,11 +151,11 @@ export function executeEnhancementTick(craftService: any, player: any, ctx: Pipe
       level: resultingLevel,
     },
     pills: [{ key: 'itemName', style: 'target' }],
-  }, ...(nextStartResult.messages ?? [])],
-  finishResult.inventoryChanged || Boolean(nextStartResult.inventoryChanged),
-  finishResult.equipmentChanged || Boolean(nextStartResult.equipmentChanged),
-  finishResult.attrChanged || skillChanged || Boolean(nextStartResult.attrChanged),
-  [...(finishResult.groundDrops ?? []), ...(nextStartResult.groundDrops ?? [])],
+  }],
+  finishResult.inventoryChanged,
+  finishResult.equipmentChanged,
+  finishResult.attrChanged || skillChanged,
+  finishResult.groundDrops ?? [],
   skillGain / 2);
 }
 

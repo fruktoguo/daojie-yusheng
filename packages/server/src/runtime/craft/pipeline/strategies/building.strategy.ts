@@ -8,6 +8,7 @@
  * 需要建筑存在且玩家为 activeBuilder 时才持续推进，
  * 条件不满足时自动休眠入队列尾部，条件恢复后自动继续。
  */
+import { TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH } from '@mud/shared';
 import type {
   TechniqueActivityResolveResult,
   TechniqueActivityRefundResult,
@@ -41,7 +42,48 @@ export class BuildingStrategy implements TechniqueActivityStrategy {
     if (!playerId || !buildingId || typeof deps?.dispatchStartBuildingConstruction !== 'function') {
       return { ok: false, error: '建造运行时不可用。' };
     }
-    return { ok: true, validated: { playerId, buildingId } };
+    return { ok: true, validated: { playerId, buildingId, payload } };
+  }
+
+  queueStart(player: unknown, validated: unknown, payload: unknown, ctx: PipelineContext): unknown | null {
+    if (!hasOtherActiveTechniqueActivity(player, 'building')) {
+      return null;
+    }
+    const queue = ensureTechniqueActivityQueue(player);
+    if (queue.length >= TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH) {
+      return { ok: false, error: '技艺任务队列已满。', panelChanged: true, messages: [], groundDrops: [] };
+    }
+    const buildingId = resolveBuildingId(validated) || resolveBuildingId(payload);
+    const nextPayload = {
+      ...(payload && typeof payload === 'object' ? payload as Record<string, unknown> : {}),
+      buildingId,
+    };
+    const item = {
+      queueId: createBuildingQueueId(buildingId),
+      kind: 'building',
+      payload: nextPayload,
+      label: '营造任务',
+      state: 'pending',
+      createdAt: Date.now(),
+      cancelRef: { kind: 'building', queueId: '' },
+    };
+    item.cancelRef.queueId = item.queueId;
+    if (normalizeQueueMode((payload as { queueMode?: unknown } | null)?.queueMode) === 'replace') {
+      queue.length = 0;
+    }
+    queue.push(item);
+    markBuildingQueueDirty(player, ctx);
+    return {
+      ok: true,
+      panelChanged: true,
+      messages: [{
+        kind: 'system',
+        key: 'notice.craft.queue.appended',
+        vars: { label: item.label },
+        pills: [{ key: 'label', style: 'target' }],
+      }],
+      groundDrops: [],
+    };
   }
 
   consumeResources(player: unknown, validated: unknown, ctx: PipelineContext): { ok: true } | { ok: false; error?: string } {
@@ -199,6 +241,58 @@ function resolveBuildingId(value: unknown): string {
 
 function resolveBuildingDeps(ctx: PipelineContext): BuildingDepsPort | null {
   return ctx.deps as BuildingDepsPort | null;
+}
+
+function ensureTechniqueActivityQueue(player: unknown): any[] {
+  const target = player as { techniqueActivityQueue?: unknown } | null | undefined;
+  if (!target || typeof target !== 'object') {
+    return [];
+  }
+  if (!Array.isArray(target.techniqueActivityQueue)) {
+    target.techniqueActivityQueue = [];
+  }
+  return target.techniqueActivityQueue as any[];
+}
+
+function hasOtherActiveTechniqueActivity(player: unknown, ownKind: string): boolean {
+  const record = player as Record<string, any> | null | undefined;
+  if (!record) {
+    return false;
+  }
+  const slots = [
+    ['alchemy', record.alchemyJob],
+    ['forging', record.forgingJob],
+    ['enhancement', record.enhancementJob],
+    ['transmission', record.transmissionJob],
+    ['gather', record.gatherJob],
+    ['building', record.buildingJob],
+    ['mining', record.miningJob],
+    ['formation', record.formationJob],
+  ];
+  return slots.some(([kind, job]) => kind !== ownKind && Boolean(job) && Number((job as any).remainingTicks) > 0);
+}
+
+function normalizeQueueMode(value: unknown): 'append' | 'replace' {
+  return value === 'replace' ? 'replace' : 'append';
+}
+
+function createBuildingQueueId(buildingId: string): string {
+  const suffix = buildingId || 'unknown';
+  return `building:${suffix}:${Date.now().toString(36)}`;
+}
+
+function markBuildingQueueDirty(player: unknown, ctx: PipelineContext): void {
+  const deps = resolveBuildingDeps(ctx);
+  const runtime = deps?.playerRuntimeService;
+  const target = player as Record<string, any> | null | undefined;
+  if (!target) {
+    return;
+  }
+  if (target.dirtyDomains && typeof target.dirtyDomains.add === 'function') {
+    target.dirtyDomains.add('active_job');
+  }
+  runtime?.markPersistenceDirtyDomains?.(target, ['active_job']);
+  runtime?.bumpPersistentRevision?.(target);
 }
 
 function resolveInstanceId(player: unknown, job: unknown, deps: BuildingDepsPort | null): string {

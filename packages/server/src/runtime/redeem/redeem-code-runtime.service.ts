@@ -207,7 +207,7 @@ export class RedeemCodeRuntimeService {
         return this.runExclusiveWithRedeemCatalogRollback(async () => {
             const group = this.requireGroup(normalizedGroupId);
             const groupCodes = this.codes.filter((entry) => entry.groupId === group.id);
-            if (groupCodes.some((entry) => entry.status === 'used')) {
+            if (groupCodes.some((entry) => entry.status === 'used' || entry.status === 'pending')) {
                 throw new BadRequestException('已有使用记录的兑换码分组不能删除');
             }
             const deleteFn = this.redeemCodePersistenceService?.deleteGroup;
@@ -250,6 +250,9 @@ export class RedeemCodeRuntimeService {
             }
             if (code.status === 'used') {
                 throw new BadRequestException('已使用的兑换码不能销毁');
+            }
+            if (code.status === 'pending') {
+                throw new BadRequestException('正在兑换中的兑换码不能销毁');
             }
             if (code.status === 'destroyed') {
                 return { ok: true };
@@ -372,7 +375,8 @@ export class RedeemCodeRuntimeService {
                     });
                     continue;
                 }
-                const claimResult = await this.claimCodeForUseBeforeRewards(codeEntry, player, nowIso);
+                const operationId = buildRedeemOperationId(player.playerId, submittedCode);
+                const claimResult = await this.claimCodeForUseBeforeRewards(codeEntry, player, nowIso, operationId);
                 if (!claimResult.ok) {
                     results.push({
                         code: submittedCode,
@@ -396,6 +400,10 @@ export class RedeemCodeRuntimeService {
                 }
                 for (const item of walletItems) {
                     await this.grantWalletReward(player, item, submittedCode);
+                }
+                const finalizeResult = await this.finalizeCodeUseAfterRewards(codeEntry, player, nowIso, operationId);
+                if (!finalizeResult.ok) {
+                    throw new ServiceUnavailableException('redeem_code_finalize_failed');
                 }
                 codeEntry.status = 'used';
                 codeEntry.usedByPlayerId = player.playerId;
@@ -628,8 +636,8 @@ export class RedeemCodeRuntimeService {
         }
         this.playerRuntimeService.replaceInventoryItems(player.playerId, nextInventoryItems.map((entry) => ({ ...(entry.rawPayload ?? entry), itemId: entry.itemId, count: entry.count })));
     }
-    /** 在发奖前抢占核销兑换码；持久化启用时使用数据库条件更新防止跨节点双花。 */
-    async claimCodeForUseBeforeRewards(codeEntry, player, nowIso) {
+    /** 发奖前只抢占为 pending；最终 used 必须在奖励 durable 成功后完成。 */
+    async claimCodeForUseBeforeRewards(codeEntry, player, nowIso, operationId) {
         const claimFn = this.redeemCodePersistenceService?.claimCodeForUse;
         if (typeof claimFn !== 'function') {
             return { ok: true, persistent: false };
@@ -639,15 +647,35 @@ export class RedeemCodeRuntimeService {
             playerId: player.playerId,
             playerName: player.name,
             usedAt: nowIso,
+            operationId,
         });
         if (!result?.ok) {
             return { ok: false, persistent: true, reason: result?.reason ?? 'not_active' };
         }
-        codeEntry.status = 'used';
-        codeEntry.usedByPlayerId = player.playerId;
-        codeEntry.usedByRoleName = player.name;
-        codeEntry.usedAt = nowIso;
-        codeEntry.updatedAt = nowIso;
+        if (result?.skipped !== true) {
+            codeEntry.status = 'pending';
+            codeEntry.pendingOperationId = operationId;
+            codeEntry.updatedAt = nowIso;
+        }
+        return { ok: true, persistent: result?.skipped !== true };
+    }
+
+    /** 奖励 durable 全部成功后，才把 pending 兑换码最终核销为 used。 */
+    async finalizeCodeUseAfterRewards(codeEntry, player, nowIso, operationId) {
+        const finalizeFn = this.redeemCodePersistenceService?.finalizeCodeUse;
+        if (typeof finalizeFn !== 'function') {
+            return { ok: true, persistent: false };
+        }
+        const result = await finalizeFn.call(this.redeemCodePersistenceService, {
+            code: codeEntry.code,
+            playerId: player.playerId,
+            playerName: player.name,
+            usedAt: nowIso,
+            operationId,
+        });
+        if (!result?.ok) {
+            return { ok: false, persistent: true, reason: result?.reason ?? 'not_pending' };
+        }
         return { ok: true, persistent: result?.skipped !== true };
     }
     /** 兑换码钱包奖励必须走 durable 钱包事务，禁止 direct runtime fallback。 */
@@ -931,6 +959,12 @@ function buildNextWalletBalances(existingBalances, walletType, amount) {
  * @param group 参数说明。
  * @returns 无返回值，直接更新Group相关状态。
  */
+
+function buildRedeemOperationId(playerId, submittedCode) {
+    const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : 'unknown-player';
+    const normalizedCode = typeof submittedCode === 'string' ? submittedCode.trim().toUpperCase() : 'unknown-code';
+    return `op:${normalizedPlayerId}:redeem-code:${normalizedCode}`;
+}
 
 function cloneGroup(group) {
     return {
