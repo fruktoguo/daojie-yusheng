@@ -174,6 +174,54 @@ export class MarketRuntimeService {
             });
         });
     }
+    /** 可用时通过强事务服务提交玩家侧坊市 mutation，当前未启用或缺少通用接口时回退常规 flush。 */
+    async commitDurableMarketMutationIfAvailable(context, playerId, operationType, payload = undefined) {
+        const durableOperationService = this.durableOperationService;
+        if (!durableOperationService?.isEnabled?.() || typeof durableOperationService.settleMarketMutation !== 'function') {
+            return;
+        }
+        const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
+        const normalizedOperationType = typeof operationType === 'string' && operationType.trim()
+            ? operationType.trim()
+            : 'market_mutation';
+        if (!normalizedPlayerId) {
+            return;
+        }
+        const snapshot = this.playerRuntimeService.snapshot(normalizedPlayerId);
+        const runtimeOwnerId = typeof snapshot?.runtimeOwnerId === 'string' && snapshot.runtimeOwnerId.trim()
+            ? snapshot.runtimeOwnerId.trim()
+            : '';
+        const sessionEpoch = Number.isFinite(snapshot?.sessionEpoch)
+            ? Math.max(1, Math.trunc(Number(snapshot.sessionEpoch)))
+            : 0;
+        if (!snapshot?.inventory || !snapshot?.wallet || !runtimeOwnerId || sessionEpoch <= 0) {
+            return;
+        }
+        const instanceLease = await this.resolveInstanceLeaseContext(snapshot.instanceId ?? null);
+        const storage = this.storageByPlayerId.has(normalizedPlayerId)
+            ? cloneStorage(this.storageByPlayerId.get(normalizedPlayerId))
+            : null;
+        const result = await durableOperationService.settleMarketMutation({
+            operationId: `market-${normalizedOperationType}:${normalizedPlayerId}:${Date.now()}:${randomUUID()}`,
+            playerId: normalizedPlayerId,
+            expectedRuntimeOwnerId: runtimeOwnerId,
+            expectedSessionEpoch: sessionEpoch,
+            expectedInstanceId: snapshot.instanceId ?? null,
+            expectedAssignedNodeId: instanceLease?.assignedNodeId ?? null,
+            expectedOwnershipEpoch: instanceLease?.ownershipEpoch ?? null,
+            operationType: normalizedOperationType,
+            payload,
+            playerMutations: [{
+                playerId: normalizedPlayerId,
+                nextInventoryItems: cloneInventoryItems(snapshot.inventory.items ?? []),
+                nextWalletBalances: cloneWalletBalances(snapshot.wallet.balances ?? []),
+                nextMarketStorageItems: storage ? storage.items : null,
+            }],
+        });
+        if (result?.ok) {
+            context.skipPersistence = true;
+        }
+    }
     async resolveInstanceLeaseContext(instanceId) {
         const normalizedInstanceId = typeof instanceId === 'string' && instanceId.trim() ? instanceId.trim() : '';
         if (!normalizedInstanceId || !this.instanceCatalogService?.isEnabled?.()) {

@@ -211,6 +211,10 @@ class MapInstanceRuntime {
     playerIdsByChunk = new Map();
     /** 玩家 chunk 索引中的唯一玩家计数，用于异常时 O(1) 触发正确性 fallback。 */
     playerChunkIndexedPlayerCount = 0;
+    /** 玩家空间索引结构修订号，用于低频精确自检。 */
+    playerSpatialIndexRevision = 0;
+    /** 最近完成精确自检的玩家空间索引修订号。 */
+    playerSpatialIndexValidatedRevision = -1;
     /**
  * playersByHandle：玩家ByHandle相关字段。
  */
@@ -776,6 +780,7 @@ class MapInstanceRuntime {
         }
         if (!playerIds.has(player.playerId)) {
             this.playerTileIndexedPlayerCount += 1;
+            this.playerSpatialIndexRevision += 1;
         }
         playerIds.add(player.playerId);
         this.addPlayerToChunkIndex(player);
@@ -788,6 +793,7 @@ class MapInstanceRuntime {
         const playerIds = this.playerIdsByTile.get(tileIndex);
         if (playerIds?.delete(playerId)) {
             this.playerTileIndexedPlayerCount = Math.max(0, this.playerTileIndexedPlayerCount - 1);
+            this.playerSpatialIndexRevision += 1;
             if (playerIds.size === 0) {
                 this.playerIdsByTile.delete(tileIndex);
             }
@@ -811,6 +817,7 @@ class MapInstanceRuntime {
         }
         if (!playerIds.has(player.playerId)) {
             this.playerChunkIndexedPlayerCount += 1;
+            this.playerSpatialIndexRevision += 1;
         }
         playerIds.add(player.playerId);
     }
@@ -827,6 +834,7 @@ class MapInstanceRuntime {
             return;
         }
         this.playerChunkIndexedPlayerCount = Math.max(0, this.playerChunkIndexedPlayerCount - 1);
+        this.playerSpatialIndexRevision += 1;
         if (playerIds.size === 0) {
             this.playerIdsByChunk.delete(chunkKey);
         }
@@ -840,12 +848,27 @@ class MapInstanceRuntime {
             this.addPlayerToTileIndex(player);
         }
     }
-    ensurePlayerSpatialIndexesConsistent() {
-        if (this.playerTileIndexedPlayerCount === this.playersById.size
-            && this.playerChunkIndexedPlayerCount === this.playersById.size) {
-            return;
+    isPlayerSpatialIndexMembershipConsistent() {
+        for (const player of this.playersById.values()) {
+            if (!player?.playerId || !this.isInBounds(player.x, player.y)) {
+                continue;
+            }
+            const tilePlayers = this.playerIdsByTile.get(this.toTileIndex(player.x, player.y));
+            const chunkPlayers = this.playerIdsByChunk.get(this.getPlayerSpatialChunkKey(player.x, player.y));
+            if (!tilePlayers?.has(player.playerId) || !chunkPlayers?.has(player.playerId)) {
+                return false;
+            }
         }
-        this.rebuildPlayerSpatialIndexesFromPlayers();
+        return true;
+    }
+    ensurePlayerSpatialIndexesConsistent() {
+        if (this.playerTileIndexedPlayerCount !== this.playersById.size
+            || this.playerChunkIndexedPlayerCount !== this.playersById.size
+            || (this.playerSpatialIndexValidatedRevision !== this.playerSpatialIndexRevision
+                && !this.isPlayerSpatialIndexMembershipConsistent())) {
+            this.rebuildPlayerSpatialIndexesFromPlayers();
+        }
+        this.playerSpatialIndexValidatedRevision = this.playerSpatialIndexRevision;
     }
     collectPlayersByTileIndices(tileIndices) {
         if (!(tileIndices instanceof Set)) {

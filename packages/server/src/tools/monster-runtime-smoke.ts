@@ -78,6 +78,12 @@ async function main() {
     socket.on(shared_1.S2C.WorldDelta, (payload) => {
         worldEvents.push(smoke_payload_1.decodeSmokePayload(payload));
     });
+    socket.on(shared_1.S2C.SyncEnvelope, (payload) => {
+        const decodedPayload = smoke_payload_1.decodeSmokePayload(payload);
+        if (decodedPayload?.w) {
+            worldEvents.push(decodedPayload.w);
+        }
+    });
     socket.on(shared_1.S2C.InitSession, (payload) => {
         const decodedPayload = smoke_payload_1.decodeSmokePayload(payload);
         playerId = String(decodedPayload?.pid ?? '');
