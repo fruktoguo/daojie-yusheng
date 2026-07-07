@@ -25,11 +25,11 @@
 | 变量 | 别名 | 必填 | 说明 |
 |------|------|------|------|
 | `SERVER_GM_PASSWORD` | `GM_PASSWORD` | 生产必填 | GM 登录密码 |
-| `SERVER_GM_AUTH_SECRET` | `GM_AUTH_SECRET` | 生产必填 | GM token 签名密钥 |
-| `SERVER_SECRET_ENCRYPTION_KEY` | `SECRET_ENCRYPTION_KEY` | 生产必填 | 密钥管理主加密密钥 |
+| `SERVER_GM_AUTH_SECRET` | `GM_AUTH_SECRET` | 否 | GM token 签名密钥；未配置时复用玩家 Token 签名密钥 |
+| `SERVER_SECRET_ENCRYPTION_KEY` | `SECRET_ENCRYPTION_KEY` | 否 | 密钥管理主加密密钥；未配置时复用玩家 Token 签名密钥 |
 | `SERVER_ALLOW_INSECURE_LOCAL_GM_PASSWORD` | - | 否 | 本地开发允许默认密码 |
 
-注意：生产环境必须设置强密码和独立密钥。本地开发设 `SERVER_ALLOW_INSECURE_LOCAL_GM_PASSWORD=true` 即可。
+注意：生产环境必须设置强 GM 密码。`SERVER_GM_AUTH_SECRET` 和 `SERVER_SECRET_ENCRYPTION_KEY` 支持复用玩家 Token 签名密钥兜底，但长期生产运维仍建议配置独立密钥，避免玩家 token 轮换影响 GM 密钥库解密。本地开发设 `SERVER_ALLOW_INSECURE_LOCAL_GM_PASSWORD=true` 即可。
 
 ## CORS
 

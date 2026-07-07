@@ -6,7 +6,7 @@
 /**
  * GM 密钥加密存储服务。
  * 使用 AES-256-GCM 对密钥值进行加密，持久化到 PostgreSQL 专表。
- * 主密钥必须通过 SERVER_SECRET_ENCRYPTION_KEY/SECRET_ENCRYPTION_KEY 显式配置；仅开发/测试环境允许本地回退。
+ * 主密钥优先读取 SERVER_SECRET_ENCRYPTION_KEY/SECRET_ENCRYPTION_KEY，未显式配置时复用玩家 Token 签名密钥。
  */
 import { Injectable, Logger, OnModuleInit, OnModuleDestroy, BadRequestException, Inject } from '@nestjs/common';
 import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from 'node:crypto';
@@ -60,12 +60,12 @@ export class NativeGmSecretStoreService implements OnModuleInit, OnModuleDestroy
   async onModuleInit(): Promise<void> {
     const masterKey = resolveServerSecretEncryptionKey();
     if (!masterKey) {
-      this.logger.warn('未配置 SERVER_SECRET_ENCRYPTION_KEY/SECRET_ENCRYPTION_KEY，密钥管理模块不可用；生产环境不会复用玩家 Token 密钥');
+      this.logger.warn('未配置 SERVER_SECRET_ENCRYPTION_KEY/SECRET_ENCRYPTION_KEY，且没有可复用的玩家 Token 密钥，密钥管理模块不可用');
       return;
     }
     const source = resolveServerSecretEncryptionKeyEnvSource();
     if (source === 'SERVER_PLAYER_TOKEN_SECRET' || source === 'JWT_SECRET') {
-      this.logger.warn(`仅开发/测试环境允许复用 ${source} 作为 GM 密钥管理主密钥，生产环境请配置 SERVER_SECRET_ENCRYPTION_KEY`);
+      this.logger.warn(`未配置 SERVER_SECRET_ENCRYPTION_KEY/SECRET_ENCRYPTION_KEY，正在复用 ${source} 作为 GM 密钥管理主密钥`);
     }
     this.encryptionKey = scryptSync(masterKey, 'gm-secret-store-salt', KEY_LENGTH);
 
@@ -198,7 +198,7 @@ export class NativeGmSecretStoreService implements OnModuleInit, OnModuleDestroy
 
   private assertAvailable(): void {
     if (!this.isAvailable()) {
-      throw new BadRequestException('密钥管理模块不可用：未配置 SERVER_SECRET_ENCRYPTION_KEY 或数据库未连接');
+      throw new BadRequestException('密钥管理模块不可用：未配置 SERVER_SECRET_ENCRYPTION_KEY 且没有可复用的玩家 Token 密钥，或数据库未连接');
     }
   }
 

@@ -288,7 +288,7 @@ export class NativeGmAiProviderController {
 
   private async readApiKeyOrThrow(record: AiProviderConfigRecord): Promise<string> {
     if (!this.secretStore.isAvailable()) {
-      throw new BadRequestException('密钥管理模块不可用：未配置 SERVER_SECRET_ENCRYPTION_KEY 或数据库未连接');
+      throw new BadRequestException('密钥管理模块不可用：未配置 SERVER_SECRET_ENCRYPTION_KEY 且没有可复用的玩家 Token 密钥，或数据库未连接');
     }
     const apiKey = await this.secretStore.readSecret(record.secretKeyRef);
     if (!apiKey) throw new BadRequestException('AI provider 未配置可用 API Key');

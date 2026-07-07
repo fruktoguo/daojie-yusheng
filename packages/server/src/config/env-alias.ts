@@ -30,13 +30,6 @@ type GmInsecureDefaultPasswordEnvSource =
 type ServerUrlEnvSource = 'SERVER_URL';
 type ShadowUrlEnvSource = 'SERVER_SHADOW_URL' | 'SERVER_URL';
 
-const DEVELOPMENT_LIKE_SERVER_ENVS = new Set(['development', 'dev', 'local', 'test']);
-
-function isDevelopmentLikeServerEnv(): boolean {
-  const runtimeEnv = readTrimmedEnv('SERVER_RUNTIME_ENV', 'APP_ENV', 'NODE_ENV').toLowerCase();
-  return DEVELOPMENT_LIKE_SERVER_ENVS.has(runtimeEnv);
-}
-
 /** 按优先级从多个环境变量名中读取第一个非空 trim 值 */
 export function readTrimmedEnv(...names: string[]): string {
 
@@ -151,7 +144,7 @@ export function resolveServerGmAuthSecretEnvSource(): GmAuthSecretEnvSource | nu
 export function resolveServerGmAuthSecret(): string {
   return readTrimmedEnv('SERVER_GM_AUTH_SECRET', 'GM_AUTH_SECRET') || resolveServerPlayerTokenSecret();
 }
-/** 返回 GM 密钥管理主密钥来源名；生产环境必须显式配置，开发/测试环境才允许本地回退。 */
+/** 返回 GM 密钥管理主密钥来源名；未显式配置时复用玩家 Token 签名密钥。 */
 export function resolveServerSecretEncryptionKeyEnvSource(): SecretEncryptionKeyEnvSource | null {
   if (readTrimmedEnv('SERVER_SECRET_ENCRYPTION_KEY')) {
     return 'SERVER_SECRET_ENCRYPTION_KEY';
@@ -161,15 +154,15 @@ export function resolveServerSecretEncryptionKeyEnvSource(): SecretEncryptionKey
     return 'SECRET_ENCRYPTION_KEY';
   }
 
-  return isDevelopmentLikeServerEnv() ? resolveServerPlayerTokenSecretEnvSource() : null;
+  return resolveServerPlayerTokenSecretEnvSource();
 }
-/** 读取 GM 密钥管理主密钥；生产环境必须显式配置，开发/测试环境才允许本地回退。 */
+/** 读取 GM 密钥管理主密钥；未显式配置时复用玩家 Token 签名密钥。 */
 export function resolveServerSecretEncryptionKey(): string {
   const explicitKey = readTrimmedEnv('SERVER_SECRET_ENCRYPTION_KEY', 'SECRET_ENCRYPTION_KEY');
   if (explicitKey) {
     return explicitKey;
   }
-  return isDevelopmentLikeServerEnv() ? resolveServerPlayerTokenSecret() : '';
+  return resolveServerPlayerTokenSecret();
 }
 /** 返回 GM 密码的环境变量来源名 */
 export function resolveServerGmPasswordEnvSource(): GmPasswordEnvSource | null {
