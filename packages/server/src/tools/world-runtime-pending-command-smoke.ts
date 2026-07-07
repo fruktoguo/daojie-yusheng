@@ -134,6 +134,46 @@ async function testAsyncPlayerCommandIsAwaitedBeforeQueueClear() {
     assert.deepEqual(service.getPendingCommand('player:1'), { kind: 'startForging', payload: { presetId: 'p2' } });
 }
 
+async function testCombatResolvedCommandDropsSameTickMoveIntent() {
+    const service = new WorldRuntimePendingCommandService();
+    const log = [];
+    service.enqueuePendingCommand('player:1', {
+        kind: 'basicAttack',
+        targetPlayerId: null,
+        targetMonsterId: 'monster:1',
+        targetX: null,
+        targetY: null,
+        autoCombat: true,
+    });
+    await service.dispatchPendingCommands({
+        dispatchInstanceCommand(playerId, command) {
+            log.push(['dispatchInstanceCommand', playerId, command.kind]);
+        },
+        dispatchPlayerCommand(playerId, command) {
+            log.push(['dispatchPlayerCommand', playerId, command.kind]);
+            service.enqueuePendingCommand(playerId, {
+                kind: 'move',
+                direction: 'west',
+                continuous: false,
+                maxSteps: 1,
+                autoCombat: true,
+            });
+        },
+        logger: {
+            warn(message) {
+                log.push(['warn', message]);
+            },
+        },
+        queuePlayerNotice(playerId, message, tone) {
+            log.push(['queuePlayerNotice', playerId, message, tone]);
+        },
+    });
+    assert.deepEqual(log, [
+        ['dispatchPlayerCommand', 'player:1', 'basicAttack'],
+    ]);
+    assert.equal(service.getPendingCommandCount(), 0);
+}
+
 async function testAutoCombatStaleTargetRetriesImmediately() {
     const service = new WorldRuntimePendingCommandService();
     const log = [];
@@ -1137,6 +1177,7 @@ testQueueOwnershipMethods();
 Promise.resolve()
     .then(() => testDispatchRoutesAndClearsQueue())
     .then(() => testAsyncPlayerCommandIsAwaitedBeforeQueueClear())
+    .then(() => testCombatResolvedCommandDropsSameTickMoveIntent())
     .then(() => testAutoCombatStaleTargetRetriesImmediately())
     .then(() => testAutoCombatFailedSkillFallsBackToAlternativeCommand())
     .then(() => testAutoCombatRetryFailureLogsRetryCommandDebug())

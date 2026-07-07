@@ -359,6 +359,23 @@ function recordPendingCommandPerf(recordTickSectionDuration, key, startedAt, cou
     }
 }
 
+function isSameTickDerivedMovementCommand(command) {
+    if (!command || (command.kind !== 'move' && command.kind !== 'portal')) {
+        return false;
+    }
+    return command.autoCombat === true || typeof command.miningTargetRef === 'string';
+}
+
+function shouldRetainReplacedPendingCommand(previousCommand, nextCommand) {
+    if (!nextCommand) {
+        return false;
+    }
+    if (isSameTickDerivedMovementCommand(nextCommand)) {
+        return false;
+    }
+    return previousCommand !== nextCommand;
+}
+
 /** world-runtime pending command state：承接玩家待执行命令队列所有权与消费。 */
 @Injectable()
 export class WorldRuntimePendingCommandService {
@@ -613,8 +630,12 @@ export class WorldRuntimePendingCommandService {
                         delete deps.recordPendingCommandSectionDuration;
                     }
                 }
-                if (this.pendingCommands.get(playerId) === command
-                    && this.pendingCommandGenerations.get(playerId) === generation) {
+                const currentCommand = this.pendingCommands.get(playerId);
+                const currentGeneration = this.pendingCommandGenerations.get(playerId);
+                if (currentCommand === command && currentGeneration === generation) {
+                    this.pendingCommands.delete(playerId);
+                    this.pendingCommandGenerations.delete(playerId);
+                } else if (!shouldRetainReplacedPendingCommand(command, currentCommand)) {
                     this.pendingCommands.delete(playerId);
                     this.pendingCommandGenerations.delete(playerId);
                 }

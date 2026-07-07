@@ -154,21 +154,14 @@ function createDeps(log) {
         dispatchPendingSystemCommands() { log.push('dispatchPendingSystemCommands'); },
         worldRuntimeNavigationService: {        
         /**
-   * getBlockedPlayerIds：读取Blocked玩家ID。
-   * @returns 无返回值，完成Blocked玩家ID的读取/组装。
-   */
- getBlockedPlayerIds() { log.push('getBlockedPlayerIds'); return new Set(['player:block']); },
-            materializeNavigationCommandsForInstance(instanceId) { log.push(['materializeNavigationCommandsForInstance', instanceId]); },
-        },
-        worldRuntimeAutoCombatService: {
-            materializeAutoCombatCommands() { log.push('materializeAutoCombatCommands'); },
-            materializeAutoUsePillsForInstance(instanceId) { log.push(['materializeAutoUsePillsForInstance', instanceId]); },
-            materializeAutoCombatCommandsForInstance(instanceId) { log.push(['materializeAutoCombatCommandsForInstance', instanceId]); },
-        },
-  /**
-   * applyTransfer：处理Transfer并更新相关状态。
-   * @returns 无返回值，直接更新Transfer相关状态。
-   */
+ * getBlockedPlayerIds：读取Blocked玩家ID。
+ * @returns 无返回值，完成Blocked玩家ID的读取/组装。
+ */
+ getBlockedPlayerIds() { log.push('getBlockedPlayerIds'); return new Set(['player:block']); } },        
+ /**
+ * applyTransfer：处理Transfer并更新相关状态。
+ * @returns 无返回值，直接更新Transfer相关状态。
+ */
 
         applyTransfer() { log.push('applyTransfer'); },        
         /**
@@ -590,62 +583,6 @@ async function verifyTileQiDrainRelocatesPlayerToSpawnOnEmptyQi() {
     assert.ok(log.some((entry) => Array.isArray(entry) && entry[0] === 'queuePlayerNotice'));
 }
 
-async function verifySecondLogicalTickUsesLatestInstancePosition() {
-    const log = [];
-    const deps = createDeps(log);
-    const instance = deps.getInstanceRuntime('instance:1');
-    let position = { x: 1, y: 1 };
-    const player = {
-        playerId: 'player:1',
-        instanceId: 'instance:1',
-        templateId: 'yunlai_town',
-        x: 0,
-        y: 1,
-        selfRevision: 1,
-        persistentRevision: 1,
-        dirtyDomains: new Set(),
-    };
-    instance.tickOnce = () => {
-        log.push(['instance.tickOnce', { ...position }]);
-        position = { x: 1, y: 1 };
-        return { transfers: [], monsterActions: [] };
-    };
-    instance.getPlayerPosition = (playerId) => {
-        assert.equal(playerId, 'player:1');
-        return position;
-    };
-    deps.playerRuntimeService.getPlayer = (playerId) => playerId === 'player:1' ? player : null;
-    deps.playerRuntimeService.syncRuntimeAnchorFromInstance = (playerId, input) => {
-        log.push(['syncRuntimeAnchorFromInstance', playerId, input.x, input.y]);
-        assert.equal(playerId, 'player:1');
-        player.instanceId = input.instanceId;
-        player.templateId = input.templateId;
-        player.x = input.x;
-        player.y = input.y;
-        player.selfRevision += 1;
-        player.persistentRevision += 1;
-        player.dirtyDomains.add('world_anchor');
-        player.dirtyDomains.add('position_checkpoint');
-        return player;
-    };
-    deps.worldRuntimeAutoCombatService.materializeAutoCombatCommandsForInstance = (instanceId) => {
-        log.push(['materializeAutoCombatCommandsForInstance', instanceId, player.x, player.y]);
-    };
-
-    const service = new WorldRuntimeInstanceTickOrchestrationService();
-    const ticks = await service.advanceFrame(deps, 2000, null);
-
-    assert.equal(ticks, 2);
-    assert.deepEqual(
-        log.filter((entry) => Array.isArray(entry) && entry[0] === 'materializeAutoCombatCommandsForInstance'),
-        [['materializeAutoCombatCommandsForInstance', 'instance:1', 1, 1]],
-    );
-    assert.equal(player.x, 1);
-    assert.equal(player.y, 1);
-    assert.equal(player.dirtyDomains.has('world_anchor'), true);
-    assert.equal(player.dirtyDomains.has('position_checkpoint'), true);
-}
-
 async function verifyOperationFailuresAreIsolatedWithinTick() {
     const log = [];
     const diagnostics = [];
@@ -758,7 +695,6 @@ Promise.resolve()
     .then(() => verifyCultivationAuraMultiplierUsesAllAbsorbableQiResources())
     .then(() => verifyTemporaryTileExpiryUsesInstanceTick())
     .then(() => verifyTileQiDrainRelocatesPlayerToSpawnOnEmptyQi())
-    .then(() => verifySecondLogicalTickUsesLatestInstancePosition())
     .then(() => verifyOperationFailuresAreIsolatedWithinTick())
     .then(() => {
     console.log(JSON.stringify({ ok: true, case: 'world-runtime-instance-tick-orchestration' }, null, 2));

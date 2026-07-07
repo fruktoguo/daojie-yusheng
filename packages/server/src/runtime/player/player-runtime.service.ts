@@ -998,39 +998,6 @@ export class PlayerRuntimeService {
         }
         return player;
     }
-
-    /** 从地图实例权威位置回写玩家运行态锚点，供同一帧后续决策读取最新坐标。 */
-    syncRuntimeAnchorFromInstance(playerId, input) {
-        const player = this.getPlayer(playerId);
-        if (!player) {
-            return null;
-        }
-        let anchorChanged = false;
-        if (typeof input?.instanceId === 'string' && input.instanceId && player.instanceId !== input.instanceId) {
-            player.instanceId = input.instanceId;
-            anchorChanged = true;
-        }
-        if (typeof input?.templateId === 'string' && input.templateId && player.templateId !== input.templateId) {
-            player.templateId = input.templateId;
-            anchorChanged = true;
-        }
-        const nextX = Math.trunc(Number(input?.x) || 0);
-        const nextY = Math.trunc(Number(input?.y) || 0);
-        if (player.x !== nextX) {
-            player.x = nextX;
-            anchorChanged = true;
-        }
-        if (player.y !== nextY) {
-            player.y = nextY;
-            anchorChanged = true;
-        }
-        if (anchorChanged) {
-            markPlayerDirtyDomains(player, ['world_anchor', 'position_checkpoint']);
-            this.bumpPersistentRevision(player);
-            player.selfRevision += 1;
-        }
-        return player;
-    }
     /**
  * repairInventoryItemInstanceIds：扫描玩家全背包并补齐缺失或旧格式实例 ID。
  * @param playerId 玩家 ID。
