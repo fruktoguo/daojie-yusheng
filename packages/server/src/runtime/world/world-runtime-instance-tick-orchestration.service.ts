@@ -556,6 +556,14 @@ export class WorldRuntimeInstanceTickOrchestrationService {
                 });
                 addMeasuredTickSection(sectionDurations, 'instance.listPlayerIdsMs', listPlayerIdsStartedAt);
                 if (currentPlayerIds.length > 0) {
+                    const playerAnchorSyncStartedAt = performance.now();
+                    this.runIsolatedSyncOperation(deps, 'player_runtime_anchor_sync_batch', () => ({
+                        instanceId: instance.meta.instanceId,
+                        instanceTick: instance.tick,
+                        worldTick: deps.tick,
+                        playerCount: currentPlayerIds.length,
+                    }), () => syncRuntimeAnchorsFromInstance(instance, currentPlayerIds, deps.playerRuntimeService));
+                    addMeasuredTickSection(sectionDurations, 'instance.playerRuntimeAnchorSyncMs', playerAnchorSyncStartedAt, currentPlayerIds.length);
                     // T-16: 合并为批量调用，减少逐玩家隔离开销
                     const worldTimeVisionStartedAt = performance.now();
                     this.runIsolatedSyncOperation(deps, 'player_world_time_vision_batch', () => ({
@@ -756,6 +764,37 @@ export function syncWorldTimeVisionForPlayers(instance, playerIds, playerRuntime
         if (typeof playerRuntimeService.playerAttributesService?.recalculate === 'function') {
             playerRuntimeService.playerAttributesService.recalculate(player);
         }
+    }
+}
+
+export function syncRuntimeAnchorsFromInstance(instance, playerIds, playerRuntimeService) {
+    if (!instance || typeof instance.getPlayerPosition !== 'function' || !playerRuntimeService) {
+        return;
+    }
+    const instanceId = typeof instance?.meta?.instanceId === 'string' ? instance.meta.instanceId : '';
+    const templateId = resolveInstanceTemplateId(instance);
+    for (const playerId of playerIds) {
+        const position = instance.getPlayerPosition(playerId);
+        if (!position) {
+            continue;
+        }
+        if (typeof playerRuntimeService.syncRuntimeAnchorFromInstance === 'function') {
+            playerRuntimeService.syncRuntimeAnchorFromInstance(playerId, {
+                instanceId,
+                templateId,
+                x: position.x,
+                y: position.y,
+            });
+            continue;
+        }
+        const player = typeof playerRuntimeService.getPlayer === 'function'
+            ? playerRuntimeService.getPlayer(playerId)
+            : null;
+        if (!player) {
+            continue;
+        }
+        player.x = Math.trunc(Number(position.x) || 0);
+        player.y = Math.trunc(Number(position.y) || 0);
     }
 }
 
