@@ -2102,10 +2102,34 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
           currentNodeId: this.getCurrentNodeId(),
         });
         const presenceRow = presence.rows[0] ?? null;
-        persistedRuntimeOwnerId = normalizeRequiredString(presenceRow?.runtime_owner_id);
-        persistedSessionEpoch = Number(presenceRow?.session_epoch ?? 0);
-        if (persistedRuntimeOwnerId !== expectedRuntimeOwnerId || Math.trunc(persistedSessionEpoch) !== expectedSessionEpoch) {
-          throw new Error('player_session_fencing_conflict:market_mutation');
+        const persistedOwnerCandidate = normalizeRequiredString(presenceRow?.runtime_owner_id);
+        const persistedEpochCandidate = Number(presenceRow?.session_epoch ?? 0);
+        const persistedEpoch = Number.isFinite(persistedEpochCandidate)
+          ? Math.trunc(persistedEpochCandidate)
+          : 0;
+        // presence 可能尚未刷入刚绑定的新 runtime session；与玩家分域投影写保持同一口径：
+        // expected epoch 领先 DB 时允许写入，DB 更新随后由 presence dirty flush 追上。
+        if (persistedEpoch > 0) {
+          if (expectedSessionEpoch < persistedEpoch) {
+            throw new Error(buildMarketSessionFenceConflictMessage(
+              expectedRuntimeOwnerId,
+              expectedSessionEpoch,
+              persistedOwnerCandidate,
+              persistedEpoch,
+            ));
+          }
+          if (expectedSessionEpoch === persistedEpoch && persistedOwnerCandidate && persistedOwnerCandidate !== expectedRuntimeOwnerId) {
+            throw new Error(buildMarketSessionFenceConflictMessage(
+              expectedRuntimeOwnerId,
+              expectedSessionEpoch,
+              persistedOwnerCandidate,
+              persistedEpoch,
+            ));
+          }
+          if (expectedSessionEpoch === persistedEpoch) {
+            persistedRuntimeOwnerId = persistedOwnerCandidate || expectedRuntimeOwnerId;
+            persistedSessionEpoch = persistedEpoch;
+          }
         }
       }
       if (existingOperation.rowCount === 0) {
@@ -4498,6 +4522,21 @@ function normalizeStringList(values: readonly unknown[]): string[] {
   return Array.from(new Set((Array.isArray(values) ? values : [])
     .map((value) => normalizeRequiredString(value))
     .filter((value) => value.length > 0)));
+}
+
+function buildMarketSessionFenceConflictMessage(
+  expectedRuntimeOwnerId: string,
+  expectedSessionEpoch: number,
+  persistedRuntimeOwnerId: string,
+  persistedSessionEpoch: number,
+): string {
+  return [
+    'player_session_fencing_conflict:market_mutation',
+    `expectedRuntimeOwnerId=${expectedRuntimeOwnerId || 'null'}`,
+    `expectedSessionEpoch=${expectedSessionEpoch > 0 ? Math.trunc(expectedSessionEpoch) : 'null'}`,
+    `persistedRuntimeOwnerId=${persistedRuntimeOwnerId || 'null'}`,
+    `persistedSessionEpoch=${persistedSessionEpoch > 0 ? Math.trunc(persistedSessionEpoch) : 'null'}`,
+  ].join(':');
 }
 
 function normalizeMarketPlayerMutations(values: readonly DurableMarketPlayerMutationSnapshot[]): DurableMarketPlayerMutationSnapshot[] {

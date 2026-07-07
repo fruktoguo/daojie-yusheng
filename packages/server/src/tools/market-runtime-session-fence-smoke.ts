@@ -1,6 +1,7 @@
 // @ts-nocheck
 import assert from 'node:assert/strict';
 
+import { DurableOperationService } from '../persistence/durable-operation.service';
 import { MarketRuntimeService } from '../runtime/market/market-runtime.service';
 
 async function main(): Promise<void> {
@@ -71,6 +72,8 @@ async function main(): Promise<void> {
   assert.deepEqual(received, [{ playerId: onlinePlayerId, itemId: 'rat_tail', count: 3 }]);
   assert.deepEqual(Array.from(onlineContext.onlinePlayerSnapshots.keys()), [onlinePlayerId]);
   assert.deepEqual(flushed, [onlinePlayerId]);
+  await assertDurableMarketMutationAllowsRuntimeEpochAhead();
+  await assertDurableMarketMutationRejectsStaleRuntimeEpoch();
 
   console.log(
     JSON.stringify(
@@ -83,6 +86,81 @@ async function main(): Promise<void> {
       2,
     ),
   );
+}
+
+async function assertDurableMarketMutationAllowsRuntimeEpochAhead(): Promise<void> {
+  const service = createDurableOperationServiceWithPresence({
+    runtime_owner_id: 'runtime:online:1',
+    session_epoch: 1,
+  });
+  const result = await service.settleMarketMutation({
+    operationId: 'market-session-fence-runtime-ahead',
+    playerId: 'player:market-session-fence',
+    expectedRuntimeOwnerId: 'runtime:online:2',
+    expectedSessionEpoch: 2,
+    operationType: 'market_create_sell_order',
+    upsertOrders: [buildSmokeOrder('order:runtime-ahead')],
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.alreadyCommitted, false);
+}
+
+async function assertDurableMarketMutationRejectsStaleRuntimeEpoch(): Promise<void> {
+  const service = createDurableOperationServiceWithPresence({
+    runtime_owner_id: 'runtime:online:3',
+    session_epoch: 3,
+  });
+  await assert.rejects(
+    () => service.settleMarketMutation({
+      operationId: 'market-session-fence-runtime-stale',
+      playerId: 'player:market-session-fence',
+      expectedRuntimeOwnerId: 'runtime:online:2',
+      expectedSessionEpoch: 2,
+      operationType: 'market_create_sell_order',
+      upsertOrders: [buildSmokeOrder('order:runtime-stale')],
+    }),
+    /player_session_fencing_conflict:market_mutation/,
+  );
+}
+
+function buildSmokeOrder(orderId: string): Record<string, unknown> {
+  const now = Date.now();
+  return {
+    id: orderId,
+    ownerId: 'player:market-session-fence',
+    side: 'sell',
+    status: 'open',
+    itemKey: `${orderId}:rat_tail`,
+    item: { itemId: 'rat_tail', count: 1 },
+    remainingQuantity: 1,
+    unitPrice: 1,
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+function createDurableOperationServiceWithPresence(presenceRow: Record<string, unknown>): DurableOperationService {
+  const client = {
+    async query(sql: string) {
+      const normalizedSql = String(sql);
+      if (normalizedSql.includes('FROM durable_operation_log') && normalizedSql.includes('SELECT status')) {
+        return { rowCount: 0, rows: [] };
+      }
+      if (normalizedSql.includes('FROM player_presence')) {
+        return { rowCount: 1, rows: [presenceRow] };
+      }
+      return { rowCount: 1, rows: [] };
+    },
+    release() {},
+  };
+  const service = new DurableOperationService(null as never, null as never);
+  (service as any).enabled = true;
+  (service as any).pool = {
+    async connect() {
+      return client;
+    },
+  };
+  return service;
 }
 
 void main().catch((error) => {
