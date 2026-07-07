@@ -240,30 +240,52 @@ export class MarketRuntimeService {
                 playerMutations.push(mutation);
             }
         }
-        const instanceLease = requirePresenceFence ? await this.resolveInstanceLeaseContext(primarySnapshot?.instanceId ?? null) : null;
         const rawOperationId = this.resolveClientMarketOperationId(payload);
         const operationId = rawOperationId
             ? `market-${normalizedOperationType}:${normalizedPlayerId}:${rawOperationId}`.slice(0, 180)
             : `market-${normalizedOperationType}:${normalizedPlayerId}:${Date.now()}:${randomUUID()}`;
-        const result = await durableOperationService.settleMarketMutation({
-            operationId,
-            playerId: normalizedPlayerId,
-            expectedRuntimeOwnerId: runtimeOwnerId || null,
-            expectedSessionEpoch: sessionEpoch || null,
-            expectedInstanceId: primarySnapshot?.instanceId ?? null,
-            expectedAssignedNodeId: instanceLease?.assignedNodeId ?? null,
-            expectedOwnershipEpoch: instanceLease?.ownershipEpoch ?? null,
-            operationType: normalizedOperationType,
-            payload,
-            requirePresenceFence,
-            playerMutations,
-            upsertOrders: this.openOrders
-                .filter((order) => context?.dirtyOrderIds?.has?.(order.id))
-                .map((order) => ({ ...order, item: { ...order.item } })),
-            deleteOrderIds: Array.from(context?.deletedOrderIds ?? []),
-            tradeRecords: (context?.newTradeRecords ?? []).map((entry) => ({ ...entry })),
-            banUser: durableOptions.banUser ?? null,
-        });
+        const buildInput = async () => {
+            const snapshot = this.playerRuntimeService.snapshot(normalizedPlayerId);
+            const ownerId = typeof snapshot?.runtimeOwnerId === 'string' && snapshot.runtimeOwnerId.trim()
+                ? snapshot.runtimeOwnerId.trim()
+                : runtimeOwnerId;
+            const epoch = Number.isFinite(snapshot?.sessionEpoch)
+                ? Math.max(1, Math.trunc(Number(snapshot.sessionEpoch)))
+                : sessionEpoch;
+            const lease = requirePresenceFence ? await this.resolveInstanceLeaseContext(snapshot?.instanceId ?? primarySnapshot?.instanceId ?? null) : null;
+            return {
+                operationId,
+                playerId: normalizedPlayerId,
+                expectedRuntimeOwnerId: ownerId || null,
+                expectedSessionEpoch: epoch || null,
+                expectedInstanceId: snapshot?.instanceId ?? primarySnapshot?.instanceId ?? null,
+                expectedAssignedNodeId: lease?.assignedNodeId ?? null,
+                expectedOwnershipEpoch: lease?.ownershipEpoch ?? null,
+                operationType: normalizedOperationType,
+                payload,
+                requirePresenceFence,
+                playerMutations,
+                upsertOrders: this.openOrders
+                    .filter((order) => context?.dirtyOrderIds?.has?.(order.id))
+                    .map((order) => ({ ...order, item: { ...order.item } })),
+                deleteOrderIds: Array.from(context?.deletedOrderIds ?? []),
+                tradeRecords: (context?.newTradeRecords ?? []).map((entry) => ({ ...entry })),
+                banUser: durableOptions.banUser ?? null,
+            };
+        };
+        if (requirePresenceFence) {
+            await this.syncCurrentPresenceFence(normalizedPlayerId);
+        }
+        let result;
+        try {
+            result = await durableOperationService.settleMarketMutation(await buildInput());
+        }
+        catch (error) {
+            if (!requirePresenceFence || !shouldRetryMarketSessionFence(error) || !(await this.syncCurrentPresenceFence(normalizedPlayerId))) {
+                throw error;
+            }
+            result = await durableOperationService.settleMarketMutation(await buildInput());
+        }
         if (result?.ok) {
             context.skipPersistence = true;
             return true;

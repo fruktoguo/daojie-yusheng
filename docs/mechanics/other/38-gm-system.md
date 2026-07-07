@@ -53,6 +53,12 @@
 | POST workers/scheduler/:taskId/trigger | 触发任务 |
 | GET ai/providers | AI 提供者管理 |
 
+## GM AI 配置密钥
+
+- AI 提供者 API Key 存储需要数据库可用，并优先使用独立的 `SERVER_SECRET_ENCRYPTION_KEY`（兼容 `SECRET_ENCRYPTION_KEY`）加密。
+- 未配置独立密钥时，可复用 `SERVER_PLAYER_TOKEN_SECRET` / `JWT_SECRET` 作为兜底以保持旧生产环境可用。
+- GM 环境检测对兜底密钥显示 `warn`；生产建议配置独立 `SERVER_SECRET_ENCRYPTION_KEY`，便于后续密钥轮换与权限隔离。
+
 ## GM 权限等级
 
 - 单一 GM 角色，无分级权限

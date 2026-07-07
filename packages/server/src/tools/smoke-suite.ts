@@ -125,6 +125,7 @@ const smokeCases = [
     { name: 'market-runtime-buy-now', scriptFile: 'market-runtime-buy-now-smoke.js', standalone: true },
     { name: 'market-runtime-sell-now', scriptFile: 'market-runtime-sell-now-smoke.js', standalone: true },
     { name: 'market-runtime-cancel-order', scriptFile: 'market-runtime-cancel-order-smoke.js', standalone: true },
+    { name: 'market-runtime-session-fence', scriptFile: 'market-runtime-session-fence-smoke.js', standalone: true },
     { name: 'market-result-affected-player-sync', scriptFile: 'market-result-affected-player-sync-smoke.js', standalone: true },
     { name: 'market-heavenly-dao-shop', scriptFile: 'market-heavenly-dao-shop-smoke.js', standalone: true },
     { name: 'native-managed-account-ban-market', scriptFile: 'native-managed-account-ban-market-smoke.js', standalone: true },

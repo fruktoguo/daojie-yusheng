@@ -9755,7 +9755,7 @@ function renderAiProviderConfigs(): void {
     return;
   }
 
-  const secretNote = aiSecretStoreAvailable ? '密钥存储可用' : '密钥存储不可用：需配置 SERVER_SECRET_ENCRYPTION_KEY 和数据库';
+  const secretNote = aiSecretStoreAvailable ? '密钥存储可用' : '密钥存储不可用：需数据库可用，并配置 SERVER_SECRET_ENCRYPTION_KEY，或存在可复用的 SERVER_PLAYER_TOKEN_SECRET/JWT_SECRET';
   aiProviderMetaEl.textContent = `共 ${aiProviderConfigs.length} 项配置 · ${secretNote}`;
 
   const rowsByKind = new Map<GmAiProviderKind, GmAiProviderConfigItem[]>();

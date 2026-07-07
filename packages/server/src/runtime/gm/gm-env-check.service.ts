@@ -136,8 +136,10 @@ function buildEnvVarsGroup(): GmEnvCheckGroup {
     const hasValue = value.length > 0 || fallbackValue.length > 0;
 
     let status: GmEnvCheckItem['status'];
-    if (hasValue) {
+    if (value.length > 0) {
       status = 'ok';
+    } else if (fallbackValue.length > 0) {
+      status = 'warn';
     } else if (check.required) {
       status = 'error';
     } else {

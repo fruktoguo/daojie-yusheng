@@ -2107,8 +2107,8 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
         const persistedEpoch = Number.isFinite(persistedEpochCandidate)
           ? Math.trunc(persistedEpochCandidate)
           : 0;
-        // presence 可能尚未刷入刚绑定的新 runtime session；与玩家分域投影写保持同一口径：
-        // expected epoch 领先 DB 时允许写入，DB 更新随后由 presence dirty flush 追上。
+        // presence 可能尚未刷入刚绑定的新 runtime session；expected epoch 领先 DB 时，
+        // 必须在同一事务内把围栏推进到当前 owner，避免旧 owner 借领先 epoch 写入资产。
         if (persistedEpoch > 0) {
           if (expectedSessionEpoch < persistedEpoch) {
             throw new Error(buildMarketSessionFenceConflictMessage(
@@ -2130,6 +2130,11 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
             persistedRuntimeOwnerId = persistedOwnerCandidate || expectedRuntimeOwnerId;
             persistedSessionEpoch = persistedEpoch;
           }
+        }
+        if (expectedSessionEpoch > persistedEpoch) {
+          await advancePlayerPresenceSessionFence(client, normalizedPlayerId, expectedRuntimeOwnerId, expectedSessionEpoch);
+          persistedRuntimeOwnerId = expectedRuntimeOwnerId;
+          persistedSessionEpoch = expectedSessionEpoch;
         }
       }
       if (existingOperation.rowCount === 0) {
@@ -4537,6 +4542,31 @@ function buildMarketSessionFenceConflictMessage(
     `persistedRuntimeOwnerId=${persistedRuntimeOwnerId || 'null'}`,
     `persistedSessionEpoch=${persistedSessionEpoch > 0 ? Math.trunc(persistedSessionEpoch) : 'null'}`,
   ].join(':');
+}
+
+async function advancePlayerPresenceSessionFence(
+  client: import('pg').PoolClient,
+  playerId: string,
+  runtimeOwnerId: string,
+  sessionEpoch: number,
+): Promise<void> {
+  await client.query(
+    `
+      INSERT INTO ${PLAYER_PRESENCE_TABLE}(
+        player_id, online, in_world, runtime_owner_id, session_epoch, updated_at
+      )
+      VALUES ($1, true, true, $2, $3, now())
+      ON CONFLICT (player_id)
+      DO UPDATE SET
+        online = true,
+        in_world = true,
+        runtime_owner_id = EXCLUDED.runtime_owner_id,
+        session_epoch = EXCLUDED.session_epoch,
+        updated_at = now()
+      WHERE ${PLAYER_PRESENCE_TABLE}.session_epoch < EXCLUDED.session_epoch
+    `,
+    [playerId, runtimeOwnerId, Math.max(1, Math.trunc(sessionEpoch))],
+  );
 }
 
 function normalizeMarketPlayerMutations(values: readonly DurableMarketPlayerMutationSnapshot[]): DurableMarketPlayerMutationSnapshot[] {
