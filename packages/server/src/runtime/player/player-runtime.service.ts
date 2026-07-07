@@ -1662,6 +1662,45 @@ export class PlayerRuntimeService {
         return player;
     }
 
+    /** 从实例 tick 的权威位置同步玩家世界锚点，供自动任务下一息使用。 */
+    syncWorldAnchorFromInstanceTick(playerId, input) {
+        const player = this.getPlayer(playerId);
+        if (!player) {
+            return null;
+        }
+
+        let anchorChanged = false;
+        if (player.instanceId !== input.instanceId) {
+            player.instanceId = input.instanceId;
+            anchorChanged = true;
+        }
+        if (player.templateId !== input.templateId) {
+            player.templateId = input.templateId;
+            anchorChanged = true;
+        }
+        if (player.x !== input.x) {
+            player.x = input.x;
+            anchorChanged = true;
+        }
+        if (player.y !== input.y) {
+            player.y = input.y;
+            anchorChanged = true;
+        }
+        if (input.facing !== undefined) {
+            const nextFacing = normalizeHorizontalFacing(input.facing, player.facing);
+            if (player.facing !== nextFacing) {
+                player.facing = nextFacing;
+                anchorChanged = true;
+            }
+        }
+        if (anchorChanged) {
+            markPlayerDirtyDomains(player, ['world_anchor', 'position_checkpoint']);
+            this.bumpPersistentRevision(player);
+            player.selfRevision += 1;
+        }
+        return player;
+    }
+
     /** 离线挂机恢复后从世界视图同步位置/上下文，不创建网络会话 fencing。 */
     syncOfflineFromWorldView(playerId, view) {
         const player = this.getPlayer(playerId);

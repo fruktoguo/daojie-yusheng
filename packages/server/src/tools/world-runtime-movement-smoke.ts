@@ -460,6 +460,70 @@ function testHighCostTileAccumulatesMoveBudget() {
     assert.equal(player.movePoints, 0);
 }
 
+function testExistingPlayerConnectDoesNotRelocateWithoutExplicitFlag() {
+    const templateRepository = new MapTemplateRepository();
+    templateRepository.registerRuntimeMapTemplate({
+        id: 'existing_connect_position_smoke',
+        name: '已有玩家重连位置烟测',
+        width: 5,
+        height: 3,
+        routeDomain: 'system',
+        tiles: [
+            '.....',
+            '.....',
+            '.....',
+        ],
+        spawnPoint: { x: 0, y: 1 },
+        portals: [],
+        npcs: [],
+        monsters: [],
+        safeZones: [],
+        landmarks: [],
+        containers: [],
+        auras: [],
+        tileEffects: [],
+    });
+    const instance = new MapInstanceRuntime({
+        instanceId: 'smoke:existing_connect_position',
+        template: templateRepository.getOrThrow('existing_connect_position_smoke'),
+        monsterSpawns: [],
+        kind: 'public',
+        persistent: false,
+        createdAt: Date.now(),
+        displayName: '已有玩家重连位置烟测',
+        linePreset: 'peaceful',
+        lineIndex: 1,
+        instanceOrigin: 'smoke',
+        defaultEntry: true,
+        canDamageTile: false,
+    });
+    const player = instance.connectPlayer({
+        playerId: 'player:existing-connect',
+        sessionId: 'session:first',
+        preferredX: 0,
+        preferredY: 1,
+    });
+    instance.relocatePlayer(player.playerId, 2, 1);
+    assert.deepEqual(instance.getPlayerPosition(player.playerId), { x: 2, y: 1 });
+
+    instance.connectPlayer({
+        playerId: player.playerId,
+        sessionId: 'session:reconnect',
+        preferredX: 0,
+        preferredY: 1,
+    });
+    assert.deepEqual(instance.getPlayerPosition(player.playerId), { x: 2, y: 1 });
+
+    instance.connectPlayer({
+        playerId: player.playerId,
+        sessionId: 'session:forced',
+        preferredX: 4,
+        preferredY: 1,
+        relocateExisting: true,
+    });
+    assert.deepEqual(instance.getPlayerPosition(player.playerId), { x: 4, y: 1 });
+}
+
 function testCrossMapPointNavigationSurvivesTransfer() {
     const notices = [];
     const service = new WorldRuntimeNavigationService({ getOrThrow: (mapId) => ({ id: mapId, name: mapId }) }, {
@@ -526,6 +590,7 @@ testStaleMiningJobMoveIsIgnored();
 testManualNavigationMoveKeepsBudget();
 testMoveToQueuesInitialInstanceMoveImmediately();
 testHighCostTileAccumulatesMoveBudget();
+testExistingPlayerConnectDoesNotRelocateWithoutExplicitFlag();
 testCrossMapPointNavigationSurvivesTransfer();
 
 console.log(JSON.stringify({ ok: true, case: 'world-runtime-movement' }, null, 2));

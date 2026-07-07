@@ -407,6 +407,7 @@ export class WorldRuntimeActionExecutionService {
             instanceId: targetInstance.meta.instanceId,
             preferredX: Number.isFinite(player.x) ? Math.trunc(player.x) : undefined,
             preferredY: Number.isFinite(player.y) ? Math.trunc(player.y) : undefined,
+            relocateExisting: true,
         }, deps);
         deps.queuePlayerNotice(playerId, buildWorldMigrationNotice(linePreset, false), 'success');
         return {

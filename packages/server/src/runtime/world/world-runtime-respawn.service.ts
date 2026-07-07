@@ -150,6 +150,7 @@ export class WorldRuntimeRespawnService {
                 sessionId: player.sessionId ?? previous?.sessionId ?? `session:${playerId}`,
                 preferredX: respawnPlacement.x,
                 preferredY: respawnPlacement.y,
+                relocateExisting: true,
             });
         } catch (error) {
             deps.worldRuntimeGmQueueService?.markPendingRespawn?.(playerId);

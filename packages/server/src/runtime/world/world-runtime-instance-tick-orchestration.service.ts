@@ -556,6 +556,14 @@ export class WorldRuntimeInstanceTickOrchestrationService {
                 });
                 addMeasuredTickSection(sectionDurations, 'instance.listPlayerIdsMs', listPlayerIdsStartedAt);
                 if (currentPlayerIds.length > 0) {
+                    const playerAnchorSyncStartedAt = performance.now();
+                    this.runIsolatedSyncOperation(deps, 'player_world_anchor_sync_batch', () => ({
+                        instanceId: instance.meta.instanceId,
+                        instanceTick: instance.tick,
+                        worldTick: deps.tick,
+                        playerCount: currentPlayerIds.length,
+                    }), () => syncPlayerWorldAnchorsFromInstance(instance, currentPlayerIds, deps.playerRuntimeService));
+                    addMeasuredTickSection(sectionDurations, 'instance.playerWorldAnchorSyncMs', playerAnchorSyncStartedAt, currentPlayerIds.length);
                     // T-16: 合并为批量调用，减少逐玩家隔离开销
                     const worldTimeVisionStartedAt = performance.now();
                     this.runIsolatedSyncOperation(deps, 'player_world_time_vision_batch', () => ({
@@ -819,6 +827,30 @@ function buildCultivationAuraMultiplierByPlayerId(instance, playerIds, playerRun
         multipliers.set(playerId, resolveCultivationAuraMultiplier(instance, player, position));
     }
     return multipliers;
+}
+
+function syncPlayerWorldAnchorsFromInstance(instance, playerIds, playerRuntimeService) {
+    if (!instance || typeof instance.getPlayerPosition !== 'function' || typeof playerRuntimeService?.syncWorldAnchorFromInstanceTick !== 'function') {
+        return;
+    }
+    const instanceId = typeof instance.meta?.instanceId === 'string' ? instance.meta.instanceId : '';
+    const templateId = typeof instance.meta?.templateId === 'string' ? instance.meta.templateId : '';
+    if (!instanceId || !templateId) {
+        return;
+    }
+    for (const playerId of playerIds) {
+        const position = instance.getPlayerPosition(playerId);
+        if (!position) {
+            continue;
+        }
+        playerRuntimeService.syncWorldAnchorFromInstanceTick(playerId, {
+            instanceId,
+            templateId,
+            x: position.x,
+            y: position.y,
+            facing: position.facing,
+        });
+    }
 }
 
 function resolveCultivationAuraMultiplier(instance, player, position) {

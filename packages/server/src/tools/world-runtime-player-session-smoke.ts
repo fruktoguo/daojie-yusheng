@@ -152,7 +152,7 @@ function testConnectPlayer() {
         ['resolveDefaultRespawnMapId'],
         ['getOrCreateDefaultLineInstance', 'yunlai_town', 'peaceful'],
         ['ensurePlayer', 'player:1', 'session:1'],
-        ['connectPlayer', { playerId: 'player:1', sessionId: 'session:1', preferredX: undefined, preferredY: undefined }],
+        ['connectPlayer', { playerId: 'player:1', sessionId: 'session:1', preferredX: undefined, preferredY: undefined, relocateExisting: false }],
         ['setPlayerMoveSpeed', 'player:1', 12],
         ['setPlayerLocation', 'player:1', { instanceId: 'public:yunlai_town', sessionId: 'session:1' }],
         ['clearPendingRespawn', 'player:1'],
@@ -197,7 +197,7 @@ function testConnectPlayerFallsBackToRealDefaultLine() {
     assert.deepEqual(log.slice(0, 3), [
         ['getOrCreateDefaultLineInstance', 'wildlands', 'real'],
         ['ensurePlayer', 'player:real', 'session:real'],
-        ['connectPlayer', { playerId: 'player:real', sessionId: 'session:real', preferredX: undefined, preferredY: undefined }],
+        ['connectPlayer', { playerId: 'player:real', sessionId: 'session:real', preferredX: undefined, preferredY: undefined, relocateExisting: false }],
     ]);
     assert.deepEqual(log[4], ['setPlayerLocation', 'player:real', { instanceId: 'real:wildlands', sessionId: 'session:real' }]);
 }
@@ -246,7 +246,7 @@ function testConnectOfflinePlayerUsesSharedAttachPath() {
         ['getPlayer', 'player:offline'],
         ['getOrCreateDefaultLineInstance', 'yunlai_town', 'peaceful'],
         ['getPlayer', 'player:offline'],
-        ['connectPlayer', { playerId: 'player:offline', sessionId: null, preferredX: undefined, preferredY: undefined }],
+        ['connectPlayer', { playerId: 'player:offline', sessionId: null, preferredX: undefined, preferredY: undefined, relocateExisting: false }],
         ['setPlayerMoveSpeed', 'player:offline', 9],
         ['setPlayerLocation', 'player:offline', { instanceId: 'public:yunlai_town', sessionId: null }],
         ['getPlayer', 'player:offline'],
@@ -306,6 +306,64 @@ function testConnectPlayerRejectsQuarantinedInstance() {
         /lease_fenced/,
     );
     assert.ok(log.some((entry) => Array.isArray(entry) && entry[0] === 'warn' && String(entry[1]).includes('lease_fenced')));
+}
+
+function testConnectPlayerOnlyRelocatesExistingWhenExplicit() {
+    const log = [];
+    const service = createService(log);
+    const deps = {
+        getPlayerLocation() { return { instanceId: 'public:yunlai_town', sessionId: 'session:existing' }; },
+        getInstanceRuntime(instanceId) {
+            return instanceId === 'public:yunlai_town' ? {
+                meta: { instanceId: 'public:yunlai_town' },
+                connectPlayer(payload) {
+                    log.push(['connectPlayer', payload]);
+                    return { sessionId: payload.sessionId };
+                },
+                setPlayerMoveSpeed(playerId, speed) {
+                    log.push(['setPlayerMoveSpeed', playerId, speed]);
+                },
+            } : null;
+        },
+        setPlayerLocation(playerId, location) { log.push(['setPlayerLocation', playerId, location]); },
+        worldRuntimeGmQueueService: {
+            clearPendingRespawn(playerId) { log.push(['clearPendingRespawn', playerId]); },
+        },
+        playerRuntimeService: {
+            ensurePlayer(playerId, sessionId) {
+                log.push(['ensurePlayer', playerId, sessionId]);
+                return { attrs: { numericStats: { moveSpeed: 12 } } };
+            },
+            getPlayer() {
+                return { attrs: { numericStats: { moveSpeed: 12 } } };
+            },
+        },
+        logger: {
+            debug(message) { log.push(['debug', message]); },
+            warn(message) { log.push(['warn', message]); },
+        },
+    };
+
+    service.connectPlayer({
+        playerId: 'player:existing',
+        sessionId: 'session:existing',
+        instanceId: 'public:yunlai_town',
+        preferredX: 1,
+        preferredY: 2,
+    }, deps);
+    service.connectPlayer({
+        playerId: 'player:existing',
+        sessionId: 'session:existing',
+        instanceId: 'public:yunlai_town',
+        preferredX: 3,
+        preferredY: 4,
+        relocateExisting: true,
+    }, deps);
+
+    assert.deepEqual(log.filter((entry) => Array.isArray(entry) && entry[0] === 'connectPlayer'), [
+        ['connectPlayer', { playerId: 'player:existing', sessionId: 'session:existing', preferredX: 1, preferredY: 2, relocateExisting: false }],
+        ['connectPlayer', { playerId: 'player:existing', sessionId: 'session:existing', preferredX: 3, preferredY: 4, relocateExisting: true }],
+    ]);
 }
 
 function testDisconnectAndRemovePlayer() {
@@ -402,6 +460,7 @@ function testDisconnectAndRemovePlayer() {
     testConnectOfflinePlayerUsesSharedAttachPath();
     testConnectPlayerFallsBackToRealDefaultLine();
     testConnectPlayerRejectsQuarantinedInstance();
+    testConnectPlayerOnlyRelocatesExistingWhenExplicit();
     testDisconnectAndRemovePlayer();
 
 

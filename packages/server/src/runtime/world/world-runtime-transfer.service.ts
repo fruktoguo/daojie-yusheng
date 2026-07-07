@@ -102,6 +102,7 @@ export class WorldRuntimeTransferService {
                 sessionId: transfer.sessionId,
                 preferredX: transfer.targetX,
                 preferredY: transfer.targetY,
+                relocateExisting: true,
             });
             targetConnected = true;
             if (target !== source) {
@@ -197,6 +198,7 @@ function rollbackTransferInstancePlacement(input) {
                 sessionId,
                 preferredX: previousSourcePosition?.x,
                 preferredY: previousSourcePosition?.y,
+                relocateExisting: true,
             });
         }
         catch (rollbackError) {

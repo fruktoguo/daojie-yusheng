@@ -356,6 +356,7 @@ export class WorldRuntimeTongtianTowerService {
       instanceId: targetInstance.meta.instanceId,
       preferredX: this.config.exitX,
       preferredY: this.config.exitY,
+      relocateExisting: true,
     }, deps);
     deps.queuePlayerNotice?.(playerId, '你退出通天塔，回到栖真渡。', 'success');
     void this.cleanupIdleInstances(deps).catch((error) => {
@@ -376,6 +377,7 @@ export class WorldRuntimeTongtianTowerService {
       instanceId: instance.meta.instanceId,
       preferredX: this.config.spawnX,
       preferredY: this.config.spawnY,
+      relocateExisting: true,
     }, deps);
     const state = this.ensureLayerState(instance, layer, deps.tick);
     this.markLayerActive(state, deps.tick);

@@ -21,6 +21,7 @@ interface ConnectPlayerInput {
   preferredX?: number;
   preferredY?: number;
   allowCreateFallback?: boolean;
+  relocateExisting?: boolean;
 }
 
 interface RuntimePlayerLocation {
@@ -46,6 +47,7 @@ interface InstanceRuntimeLike {
     sessionId: string | null;
     preferredX?: number;
     preferredY?: number;
+    relocateExisting?: boolean;
   }): ConnectedInstancePlayer;
   disconnectPlayer(playerId: string): boolean;
   setPlayerMoveSpeed(playerId: string, moveSpeed: number): void;
@@ -205,6 +207,7 @@ export class WorldRuntimePlayerSessionService {
       sessionId,
       preferredX: input.preferredX,
       preferredY: input.preferredY,
+      relocateExisting: input.relocateExisting === true,
     });
     targetInstance.setPlayerMoveSpeed(playerId, playerState.attrs.numericStats.moveSpeed);
     targetInstance.setPlayerMovementCapabilities?.(playerId, playerState.movementCapabilities);
