@@ -1099,11 +1099,6 @@ export class CraftWorkbenchModal {
 
   private ensureEnhancementSelection(): void {
     const candidates = this.enhancementPanel?.state?.candidates ?? [];
-    if (this.enhancementPanel?.state?.job) {
-      this.selectedEnhancementTargetKey = buildEnhancementTargetKey(this.enhancementPanel.state.job.target);
-      this.selectedEnhancementTargetLevel = null;
-      return;
-    }
     if (candidates.length === 0) {
       this.selectedEnhancementTargetKey = null;
       this.selectedEnhancementTargetLevel = null;

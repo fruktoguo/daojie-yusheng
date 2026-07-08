@@ -277,7 +277,14 @@ export class CraftPanelRuntimeService {
         }
         try {
             const result = this.startTechniqueActivity(player, 'enhancement', payload, deps);
-            if (!result.ok || !player?.enhancementJob) {
+            if (!result.ok) {
+                return result;
+            }
+            if ('queued' in result && result.queued === true) {
+                await this.persistTechniqueActivitySnapshot(player);
+                return result;
+            }
+            if (!player?.enhancementJob) {
                 return result;
             }
             try {

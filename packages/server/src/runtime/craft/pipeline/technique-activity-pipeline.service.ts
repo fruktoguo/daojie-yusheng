@@ -59,6 +59,8 @@ export interface CraftMutationResult {
   error?: string;
   panelChanged: boolean;
   messages: TechniqueActivityNoticeMessage[];
+  started?: boolean;
+  queued?: boolean;
   inventoryChanged?: boolean;
   equipmentChanged?: boolean;
   attrChanged?: boolean;
@@ -578,6 +580,8 @@ function startLifecycleResultToMutation(result: TechniqueActivityStartLifecycleR
     error: result.error,
     panelChanged: result.panelChanged ?? result.panelDirty?.changed ?? false,
     messages: result.messages ?? [],
+    started: result.started,
+    queued: result.queued,
     inventoryChanged: result.inventoryChanged ?? Boolean(result.inventoryDelta?.changed),
     equipmentChanged: result.equipmentChanged ?? Boolean(result.equipmentDelta?.changed),
     attrChanged: result.attrChanged,

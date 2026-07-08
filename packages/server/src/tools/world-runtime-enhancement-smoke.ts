@@ -34,6 +34,7 @@ async function main(): Promise<void> {
   await testMissingLockedItemClearsJobWithoutSnapshotFallback();
   await testCancelReturnsLockedTarget();
   await testQueuedEnhancementDoesNotLockOrConsumeResources();
+  await testDurableQueuedEnhancementDuringActiveJobDoesNotStartImmediately();
   await testEnhancementUsesTemplateNameWhenRuntimeItemNameMissing();
   await testArtifactUsesExistingEnhancementLifecycle();
 
@@ -48,6 +49,7 @@ async function main(): Promise<void> {
       '强化取消不再暴露 strategy executeCancel，公共 cancelLifecycle 通过 computeRefund 复用权威 finishEnhancementJob。',
       '强化中断不再暴露 strategy executeInterrupt，公共 interrupt lifecycle 统一刷新独立等待条和 active job version。',
       '已有技艺活动时，强化入队不会提前锁装备或扣灵石。',
+      '强化进行中继续追加强化任务只入队列，不重复提交 active job 强事务。',
       '强化运行态物品缺少 name 或仅有 itemId 时，任务、通知和队列使用内容目录显示名。',
       '法宝复用现有强化生命周期，成功后按实例写回背包并提升 enhanceLevel。',
     ],
@@ -430,6 +432,41 @@ async function testQueuedEnhancementDoesNotLockOrConsumeResources(): Promise<voi
   assert.equal(player.inventory.lockedItems?.length ?? 0, 0);
   assert.equal(player.inventory.items.some((item: { itemInstanceId?: string }) => item.itemInstanceId === targetInstanceId), true);
   assert.equal(Number(player.wallet.balances[0].balance), balanceBefore);
+}
+
+async function testDurableQueuedEnhancementDuringActiveJobDoesNotStartImmediately(): Promise<void> {
+  const durableCalls: DurableEnhancementCall[] = [];
+  const persistedActiveJobs: PersistedActiveJob[] = [];
+  const player = createPlayer('player:enhancement:durable-queue-active', [
+    createEquipmentItem('iron_sword', '铁剑', 8, 1),
+    createEquipmentItem('iron_sword', '铁剑', 8, 0),
+  ]);
+  const { craftService } = createCraftHarness(player, persistedActiveJobs, [], { durableCalls });
+  const firstTarget = player.inventory.items[0];
+  const secondTarget = player.inventory.items[1];
+  const secondTargetInstanceId = secondTarget.itemInstanceId;
+
+  const start = await craftService.startEnhancementDurably(player, {
+    target: buildInventoryRef(firstTarget),
+  });
+  assert.equal(start.ok, true);
+  assert.equal(durableCalls.length, 1);
+  assert.equal(durableCalls[0]?.kind, 'start');
+  const lockedCountAfterStart = player.inventory.lockedItems?.length ?? 0;
+
+  const queued = await craftService.startEnhancementDurably(player, {
+    target: buildInventoryRef(secondTarget),
+    queueMode: 'append',
+  });
+
+  assert.equal(queued.ok, true);
+  assert.equal((queued as { queued?: boolean }).queued, true);
+  assert.equal(player.techniqueActivityQueue.length, 1);
+  assert.equal(player.techniqueActivityQueue[0]?.kind, 'enhancement');
+  assert.equal(player.inventory.lockedItems?.length ?? 0, lockedCountAfterStart);
+  assert.equal(player.inventory.items.some((item: { itemInstanceId?: string }) => item.itemInstanceId === secondTargetInstanceId), true);
+  assert.deepEqual(durableCalls.map((call) => call.kind), ['start']);
+  assert.equal(persistedActiveJobs.at(-1)?.jobType, 'enhancement');
 }
 
 async function testEnhancementUsesTemplateNameWhenRuntimeItemNameMissing(): Promise<void> {

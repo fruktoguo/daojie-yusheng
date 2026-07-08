@@ -584,7 +584,7 @@ export class CraftEnhancementView {
         <div class="enhancement-layout enhancement-layout--single-slot">
           <section class="enhancement-workbench">
             ${activeJob
-              ? this.renderEnhancementActiveJob(activeJob, selected)
+              ? `${this.renderEnhancementActiveJob(activeJob, selected)}${selected ? this.renderEnhancementWorkbench(selected, selectedProtection) : ''}`
               : selected
                 ? this.renderEnhancementWorkbench(selected, selectedProtection)
                 : `
@@ -607,7 +607,7 @@ export class CraftEnhancementView {
     const selected = this.getSelectedEnhancementCandidate();
     const selectedProtection = this.getSelectedEnhancementProtection(selected);
     if (state?.job) {
-      return this.renderEnhancementActiveJob(state.job, selected);
+      return `${this.renderEnhancementActiveJob(state.job, selected)}${selected ? this.renderEnhancementWorkbench(selected, selectedProtection) : ''}`;
     }
     if (selected) {
       return this.renderEnhancementWorkbench(selected, selectedProtection);
@@ -649,11 +649,11 @@ export class CraftEnhancementView {
               <div class="enhancement-section-title">强化目标</div>
               <div class="enhancement-protection-note">${escapeHtml(sourceLabel)}</div>
             </div>
-            <button class="small-btn ghost" type="button" data-enhancement-open-picker="1" ${activeJob ? 'disabled' : ''}>
+            <button class="small-btn ghost" type="button" data-enhancement-open-picker="1">
               ${selectedItem ? '更换目标' : '选择目标'}
             </button>
           </div>
-          <button class="enhancement-target-slot" type="button" data-enhancement-open-picker="1" ${activeJob ? 'disabled' : ''}>
+          <button class="enhancement-target-slot" type="button" data-enhancement-open-picker="1">
             ${selectedItem
               ? `
                 <span class="enhancement-target-slot-name">${escapeHtml(selectedItem.name ?? UNKNOWN_ITEM_NAME)}</span>
@@ -679,11 +679,11 @@ export class CraftEnhancementView {
                 </div>
                 <div class="enhancement-protection-note">${escapeHtml(targetHeadMeta)}</div>
               </div>
-              <button class="small-btn ghost" type="button" data-enhancement-open-picker="1" ${activeJob ? 'disabled' : ''}>
+              <button class="small-btn ghost" type="button" data-enhancement-open-picker="1">
                 ${selectedItem ? '更换目标' : '选择目标'}
               </button>
             </div>
-            <button class="enhancement-target-slot" type="button" data-enhancement-open-picker="1" ${activeJob ? 'disabled' : ''}>
+            <button class="enhancement-target-slot" type="button" data-enhancement-open-picker="1">
               ${selectedItem
                 ? `
                   <span class="enhancement-target-slot-action">点击更换这个目标</span>
@@ -825,7 +825,7 @@ export class CraftEnhancementView {
         ` : ''}
       </div>
       <div class="enhancement-action-row enhancement-action-row--stacked">
-        <button class="small-btn" type="button" data-enhancement-start="1">开始强化</button>
+        <button class="small-btn" type="button" data-enhancement-start="1">${this.getActiveEnhancementJob() ? '追加强化队列' : '开始强化'}</button>
         ${this.renderEnhancementFormulaPill()}
       </div>
     `;
@@ -1159,7 +1159,6 @@ export class CraftEnhancementView {
     }
     const openPicker = target.closest<HTMLElement>('[data-enhancement-open-picker="1"]');
     if (openPicker) {
-      if (this.getActiveEnhancementJob()) return;
       this.openEnhancementPickerModal();
       return;
     }
@@ -1191,7 +1190,7 @@ export class CraftEnhancementView {
     const start = target.closest<HTMLElement>('[data-enhancement-start="1"]');
     if (start) {
       const selected = this.getSelectedEnhancementCandidate();
-      if (!selected || this.getActiveEnhancementJob()) return;
+      if (!selected) return;
       const protection = this.getSelectedEnhancementProtection(selected);
       const targetExpectedInstanceId = typeof selected.item?.itemInstanceId === 'string' && selected.item.itemInstanceId.length > 0
         ? selected.item.itemInstanceId
@@ -1212,6 +1211,7 @@ export class CraftEnhancementView {
           : null,
         targetLevel: this.getSelectedEnhancementTargetLevel(selected) ?? selected.nextLevel,
         protectionStartLevel: protection ? this.getSelectedEnhancementProtectionStartLevel(selected) : null,
+        queueMode: this.getActiveEnhancementJob() ? 'append' : 'replace',
       });
       return;
     }
@@ -1557,11 +1557,6 @@ export class CraftEnhancementView {
 
   ensureEnhancementSelection(): void {
     const candidates = this.parent.enhancementPanel?.state?.candidates ?? [];
-    if (this.parent.enhancementPanel?.state?.job) {
-      this.parent.selectedEnhancementTargetKey = buildEnhancementTargetKey(this.parent.enhancementPanel.state.job.target);
-      this.parent.selectedEnhancementTargetLevel = null;
-      return;
-    }
     if (candidates.length === 0) {
       this.parent.selectedEnhancementTargetKey = null;
       this.parent.selectedEnhancementTargetLevel = null;
