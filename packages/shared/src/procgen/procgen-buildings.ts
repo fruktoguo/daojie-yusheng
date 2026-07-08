@@ -84,15 +84,19 @@ function drawHouse(ctx: BuildContext, x0: number, y0: number, bw: number, bh: nu
       ctx.structureIds[index] = wall;
     }
   }
-  // 院落：够大时加一道内墙切成两间，内墙中点留内门。
+  // 院落：够大时加一道内墙切成两间。内墙门洞必须对齐外门的入口格，
+  // 否则外门若正对内墙轴线，其唯一内邻会是内墙实体，整间被封死。
   if (spec.style === 'courtyard' && Math.min(bw, bh) >= 7) {
+    const doorX = doorIndex % width;
+    const doorY = Math.floor(doorIndex / width);
     if (bw >= bh) {
       const wx = x0 + Math.floor(bw / 2);
-      const gate = y0 + Math.floor(bh / 2);
+      // 外门在上/下边且正对内墙列时，门洞开在门的入口行，让门直接穿过内墙。
+      const gate = doorX === wx ? (doorY === y0 ? y0 + 1 : y0 + bh - 2) : y0 + Math.floor(bh / 2);
       for (let y = y0 + 1; y < y0 + bh - 1; y += 1) ctx.structureIds[y * width + wx] = y === gate ? door : wall;
     } else {
       const wy = y0 + Math.floor(bh / 2);
-      const gate = x0 + Math.floor(bw / 2);
+      const gate = doorY === wy ? (doorX === x0 ? x0 + 1 : x0 + bw - 2) : x0 + Math.floor(bw / 2);
       for (let x = x0 + 1; x < x0 + bw - 1; x += 1) ctx.structureIds[wy * width + x] = x === gate ? door : wall;
     }
   }

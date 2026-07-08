@@ -60,6 +60,27 @@ export function renderMap(
     ctx.arc(cx, cy, Math.max(2.5, cellSize * 0.42), 0, Math.PI * 2);
     ctx.stroke();
   }
+  // 内容锚点：宝箱橙方块、怪物据点红三角
+  for (const anchor of result.contentAnchors) {
+    const cx = (anchor.x + 0.5) * cellSize;
+    const cy = (anchor.y + 0.5) * cellSize;
+    const size = Math.max(3, cellSize * 0.55);
+    if (anchor.kind === 'chest') {
+      ctx.fillStyle = '#f2a740';
+      ctx.fillRect(cx - size / 2, cy - size / 2, size, size);
+      ctx.strokeStyle = '#7a4a10';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(cx - size / 2, cy - size / 2, size, size);
+    } else {
+      ctx.fillStyle = '#e0574f';
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - size / 2);
+      ctx.lineTo(cx + size / 2, cy + size / 2);
+      ctx.lineTo(cx - size / 2, cy + size / 2);
+      ctx.closePath();
+      ctx.fill();
+    }
+  }
 }
 
 /** 图例：只列出本图实际用到的地块（按层分组，含数量）。 */
@@ -82,7 +103,7 @@ export function renderLegend(container: HTMLElement, result: ProcgenMapResult, c
   }
   const markers = document.createElement('span');
   markers.className = 'item';
-  markers.textContent = '◯绿=入口传送阵 ◯紫=出口传送阵';
+  markers.textContent = '◯绿=入口 ◯紫=出口 ■橙=宝箱锚点 ▲红=怪物据点';
   container.appendChild(markers);
 }
 
@@ -102,5 +123,7 @@ export function describeCell(result: ProcgenMapResult, catalog: ProcgenTileCatal
   }
   const portal = result.portals.find((p) => p.x === x && p.y === y);
   if (portal) lines.push(portal.role === 'entry' ? '★ 入口传送阵（出生点）' : '★ 出口传送阵');
+  const anchor = result.contentAnchors.find((a) => a.x === x && a.y === y);
+  if (anchor) lines.push(anchor.kind === 'chest' ? '★ 宝箱锚点' : '★ 怪物据点锚点');
   return lines.join('\n');
 }

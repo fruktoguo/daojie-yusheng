@@ -50,11 +50,15 @@ function generate(): void {
     lastPresetName = preset.name;
     renderMap(canvas, result, lastCatalog, Number(cellSizeInput.value));
     renderLegend(el('legend'), result, lastCatalog);
+    const chestCount = result.contentAnchors.filter((a) => a.kind === 'chest').length;
+    const monsterCount = result.contentAnchors.filter((a) => a.kind === 'monster').length;
+    const doorCount = result.stats.tileCounts['structure:door'] ?? 0;
     el('stats').textContent = [
       `种子：${result.seed}    尺寸：${result.width}×${result.height}`,
       `可行走占比：${(result.stats.walkableRatio * 100).toFixed(1)}%    连通块：${result.stats.regionCount}`,
       `凿通格数：${result.stats.carvedCells}    回填格数：${result.stats.filledCells}`,
-      `传送阵：入口 1 / 出口 ${result.portals.length - 1}    生成耗时：${elapsedMs.toFixed(1)}ms`,
+      `传送阵：入口 1 / 出口 ${result.portals.length - 1}    房屋门数：${doorCount}`,
+      `宝箱锚点：${chestCount}    怪物据点：${monsterCount}    生成耗时：${elapsedMs.toFixed(1)}ms`,
     ].join('\n');
     el('warnings').textContent = result.warnings.length ? `⚠ ${result.warnings.join('\n⚠ ')}` : '';
     renderThumbnails(preset, width, height);
@@ -133,8 +137,10 @@ function exportMapJson(): void {
     monsterSpawns: [],
     npcs: [],
     landmarks: [],
-    // 下划线前缀为 procgen 溯源元信息，引擎 normalize 会忽略，仅供人工追溯生成参数。
+    // 下划线前缀为 procgen 溯源与内容锚点，引擎 normalize 会忽略；仅供策划在编辑器
+    // 对应位置摆宝箱（interactable）与怪物据点（monsterSpawns），并追溯生成参数。
     _procgen: { presetId: result.presetId, seed: result.seed },
+    _procgenContent: result.contentAnchors,
   };
   const blob = new Blob([JSON.stringify(doc, null, 2)], { type: 'application/json' });
   const link = document.createElement('a');
