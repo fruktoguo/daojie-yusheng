@@ -3,7 +3,7 @@
  *
  * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
@@ -13,6 +13,7 @@ import { assignItemInstanceIdIfNeeded, compareItemInstanceId, isItemInstanceIdHa
 import { lockItem, unlockItem, getLockedItem, lockedItemToItemStack } from '../player/inventory-lock.helpers';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { PlayerDomainPersistenceService, buildEnhancementRecordRowsFromEntries, type PlayerTechniqueActivityQueueUpsertInput } from '../../persistence/player-domain-persistence.service';
+import { DurableOperationService } from '../../persistence/durable-operation.service';
 import { resolveProjectPath } from '../../common/project-path';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { CraftPanelAlchemyQueryService, buildForgingAlchemyPanelState } from './craft-panel-alchemy-query.service';
@@ -69,6 +70,11 @@ export class CraftPanelRuntimeService {
  */
 
     craftPanelEnhancementQueryService;
+    /**
+ * durableOperationService：高风险资产操作强事务服务引用。
+ */
+
+    durableOperationService;
     /** 运行时日志器，记录炼丹、强化与配置加载问题。 */
     logger = new Logger(CraftPanelRuntimeService.name);
     /** 缓存炼丹目录，供面板快照和任务校验共用。 */
@@ -86,12 +92,14 @@ export class CraftPanelRuntimeService {
         playerDomainPersistenceService: PlayerDomainPersistenceService,
         craftPanelAlchemyQueryService: CraftPanelAlchemyQueryService,
         craftPanelEnhancementQueryService: CraftPanelEnhancementQueryService,
+        @Optional() @Inject(DurableOperationService) durableOperationService: DurableOperationService | null = null,
     ) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.playerRuntimeService = playerRuntimeService;
         this.playerDomainPersistenceService = playerDomainPersistenceService;
         this.craftPanelAlchemyQueryService = craftPanelAlchemyQueryService;
         this.craftPanelEnhancementQueryService = craftPanelEnhancementQueryService;
+        this.durableOperationService = durableOperationService;
     }
     /** 模块初始化：按需加载炼丹目录和强化配置。 */
     onModuleInit() {
@@ -255,6 +263,38 @@ export class CraftPanelRuntimeService {
         }
         return buildCraftMutationResult(`unsupported technique activity kind: ${kind}`);
     }
+    /** 线上强化启动入口：运行态变更成功后必须同步提交强事务，失败则回滚本次运行态变更。 */
+    async startEnhancementDurably(player, payload, deps = null) {
+        const before = captureEnhancementAssetRuntimeState(player);
+        const durableEnabled = this.shouldUseDurableEnhancementPersistence(player);
+        const previousSuppress = player?.suppressImmediateDomainPersistence;
+        let result;
+        try {
+            if (durableEnabled) {
+                player.suppressImmediateDomainPersistence = true;
+            }
+            result = this.startTechniqueActivity(player, 'enhancement', payload, deps);
+        }
+        finally {
+            if (durableEnabled) {
+                player.suppressImmediateDomainPersistence = previousSuppress;
+            }
+        }
+        if (!result.ok) {
+            return result;
+        }
+        if (!player?.enhancementJob) {
+            return result;
+        }
+        try {
+            await this.commitEnhancementActiveJobWithAssets(player, 'start');
+        }
+        catch (error) {
+            restoreEnhancementAssetRuntimeState(player, before);
+            throw error;
+        }
+        return result;
+    }
     /** 统一派发技艺活动的取消写路径。 */
     cancelTechniqueActivity(player, kind, deps = null) {
         this.ensurePipelineInitialized();
@@ -266,6 +306,36 @@ export class CraftPanelRuntimeService {
             return result;
         }
         return buildCraftMutationResult(`unsupported technique activity kind: ${kind}`);
+    }
+    /** 线上强化取消入口：释放锁定装备和清理 active_job 必须同批强事务提交。 */
+    async cancelEnhancementDurably(player, deps = null) {
+        const before = captureEnhancementAssetRuntimeState(player);
+        const expectedJob = player?.enhancementJob ? { ...player.enhancementJob } : null;
+        const durableEnabled = this.shouldUseDurableEnhancementPersistence(player);
+        const previousSuppress = player?.suppressImmediateDomainPersistence;
+        let result;
+        try {
+            if (durableEnabled) {
+                player.suppressImmediateDomainPersistence = true;
+            }
+            result = this.cancelTechniqueActivity(player, 'enhancement', deps);
+        }
+        finally {
+            if (durableEnabled) {
+                player.suppressImmediateDomainPersistence = previousSuppress;
+            }
+        }
+        if (!result?.ok || !expectedJob) {
+            return result;
+        }
+        try {
+            await this.commitEnhancementActiveJobWithAssets(player, 'cancelled', expectedJob);
+        }
+        catch (error) {
+            restoreEnhancementAssetRuntimeState(player, before);
+            throw error;
+        }
+        return result;
     }
     /** 统一派发技艺活动的中断。 */
     interruptTechniqueActivity(player, kind, reason, deps = null) {
@@ -290,6 +360,175 @@ export class CraftPanelRuntimeService {
             return result;
         }
         return buildCraftTickResult();
+    }
+    /** 线上强化 tick 入口：清理 job 或回写资产时同步提交强事务。 */
+    async tickEnhancementDurably(player, deps = null) {
+        const before = captureEnhancementAssetRuntimeState(player);
+        const expectedJob = player?.enhancementJob ? { ...player.enhancementJob } : null;
+        const durableEnabled = this.shouldUseDurableEnhancementPersistence(player);
+        const previousSuppress = player?.suppressImmediateDomainPersistence;
+        let result;
+        try {
+            if (durableEnabled) {
+                player.suppressImmediateDomainPersistence = true;
+            }
+            result = this.tickTechniqueActivity(player, 'enhancement', deps);
+        }
+        finally {
+            if (durableEnabled) {
+                player.suppressImmediateDomainPersistence = previousSuppress;
+            }
+        }
+        if (!result?.ok) {
+            return result;
+        }
+        const hasAssetBoundary = Boolean(
+            result.inventoryChanged
+            || result.equipmentChanged
+            || !player?.enhancementJob
+            || player.enhancementJob?.jobRunId !== expectedJob?.jobRunId,
+        );
+        if (expectedJob && hasAssetBoundary) {
+            try {
+                await this.commitEnhancementActiveJobWithAssets(player, !player?.enhancementJob ? 'completed' : 'tick', expectedJob);
+            }
+            catch (error) {
+                restoreEnhancementAssetRuntimeState(player, before);
+                throw error;
+            }
+        } else if (expectedJob && player?.enhancementJob) {
+            try {
+                await this.commitEnhancementActiveJobState(player, expectedJob);
+            }
+            catch (error) {
+                restoreEnhancementAssetRuntimeState(player, before);
+                throw error;
+            }
+        }
+        return result;
+    }
+    /** 强化普通进度 tick 只提交 active_job，避免完成时 CAS 版本落后。 */
+    async commitEnhancementActiveJobState(player, expectedJob) {
+        if (!this.shouldUseDurableEnhancementPersistence(player)) {
+            return;
+        }
+        const playerId = typeof player?.playerId === 'string' ? player.playerId.trim() : '';
+        if (!playerId || !expectedJob?.jobRunId) {
+            return;
+        }
+        const presence = await this.resolveDurablePresenceFence(playerId);
+        const activeJob = buildActiveJobSnapshotFromPlayer(player);
+        if (!activeJob) {
+            return;
+        }
+        await this.durableOperationService.updateActiveJobState({
+            operationId: `enhancement:update:${playerId}:${expectedJob.jobRunId}:${Math.max(1, Math.trunc(Number(expectedJob.jobVersion ?? 1)))}`,
+            playerId,
+            expectedRuntimeOwnerId: presence.runtimeOwnerId,
+            expectedSessionEpoch: presence.sessionEpoch,
+            action: 'update',
+            expectedJobRunId: expectedJob.jobRunId,
+            expectedJobVersion: Math.max(1, Math.trunc(Number(expectedJob.jobVersion ?? 1))),
+            nextActiveJob: activeJob,
+        });
+        this.playerRuntimeService.markPersisted?.(playerId, new Set(['active_job']), player.persistentRevision);
+    }
+    /** 对强化 tick 后的资产变更做强事务提交；仅在强化任务 start/finish/stop/cancel 这类资产边界调用。 */
+    async commitEnhancementActiveJobWithAssets(player, action, expectedJob = null) {
+        if (!this.shouldUseDurableEnhancementPersistence(player)) {
+            return;
+        }
+        const playerId = typeof player?.playerId === 'string' ? player.playerId.trim() : '';
+        if (!playerId) {
+            throw new Error('强化强事务提交失败：缺少玩家 ID');
+        }
+        const presence = await this.resolveDurablePresenceFence(playerId);
+        const snapshot = this.playerRuntimeService.buildPersistenceSnapshot?.(
+            playerId,
+            new Set(['inventory', 'equipment', 'active_job', 'enhancement_record']),
+        );
+        if (!snapshot) {
+            throw new Error(`强化强事务提交失败：无法构建玩家快照 playerId=${playerId}`);
+        }
+        const inventoryItems = buildDurableInventoryItemsFromSnapshot(snapshot);
+        const equipmentSlots = buildDurableEquipmentSlotsFromSnapshot(snapshot);
+        const enhancementRecords = buildDurableEnhancementRecordsFromEntries(playerId, player.enhancementRecords ?? []);
+        const activeJob = buildActiveJobSnapshotFromPlayer(player);
+        const jobRunId = typeof expectedJob?.jobRunId === 'string'
+            ? expectedJob.jobRunId
+            : typeof player?.enhancementJob?.jobRunId === 'string'
+            ? player.enhancementJob.jobRunId
+            : null;
+        const jobVersion = Math.max(1, Math.trunc(Number(
+            expectedJob?.jobVersion
+                ?? player?.enhancementJob?.jobVersion
+                ?? 1,
+        )));
+        if (action === 'start') {
+            if (!activeJob) {
+                throw new Error(`强化强事务启动失败：缺少 active job playerId=${playerId}`);
+            }
+            await this.durableOperationService.startActiveJobWithAssets({
+                operationId: `enhancement:start:${playerId}:${activeJob.jobRunId}:${activeJob.jobVersion}`,
+                playerId,
+                expectedRuntimeOwnerId: presence.runtimeOwnerId,
+                expectedSessionEpoch: presence.sessionEpoch,
+                nextInventoryItems: inventoryItems,
+                nextWalletBalances: [],
+                nextActiveJob: activeJob,
+                nextEnhancementRecords: enhancementRecords,
+            });
+        }
+        else {
+            if (!jobRunId) {
+                throw new Error(`强化强事务完成失败：缺少 jobRunId playerId=${playerId}`);
+            }
+            await this.durableOperationService.completeActiveJobWithAssets({
+                operationId: `enhancement:${action}:${playerId}:${jobRunId}:${jobVersion}`,
+                playerId,
+                expectedRuntimeOwnerId: presence.runtimeOwnerId,
+                expectedSessionEpoch: presence.sessionEpoch,
+                expectedJobRunId: jobRunId,
+                expectedJobVersion: jobVersion,
+                nextInventoryItems: inventoryItems,
+                nextWalletBalances: [],
+                nextEquipmentSlots: equipmentSlots,
+                nextEnhancementRecords: enhancementRecords,
+                nextActiveJob: activeJob,
+            });
+        }
+        this.playerRuntimeService.markPersisted?.(
+            playerId,
+            new Set(['inventory', 'equipment', 'active_job', 'enhancement_record']),
+            player.persistentRevision,
+        );
+    }
+    shouldUseDurableEnhancementPersistence(player) {
+        return Boolean(
+            player?.suppressImmediateDomainPersistence !== true
+            && this.durableOperationService
+            && typeof this.durableOperationService.isEnabled === 'function'
+            && this.durableOperationService.isEnabled(),
+        );
+    }
+    async resolveDurablePresenceFence(playerId) {
+        const presence = this.playerRuntimeService.describePersistencePresence?.(playerId) ?? null;
+        if (!presence?.runtimeOwnerId || !presence?.sessionEpoch) {
+            throw new Error(`强化强事务提交失败：缺少在线会话围栏 playerId=${playerId}`);
+        }
+        if (
+            this.playerDomainPersistenceService?.isEnabled?.()
+            && typeof this.playerDomainPersistenceService.savePlayerPresence === 'function'
+        ) {
+            await this.playerDomainPersistenceService.savePlayerPresence(playerId, {
+                ...presence,
+                versionSeed: Date.now(),
+            });
+        }
+        return {
+            runtimeOwnerId: String(presence.runtimeOwnerId),
+            sessionEpoch: Math.max(1, Math.trunc(Number(presence.sessionEpoch))),
+        };
     }
     /** 技艺 pipeline 入口补记直接改背包/技艺经验的收支；已由玩家运行时入口记录的部分会被当前快照过滤。 */
     recordTechniqueActivityStatisticMutation(player, result) {
@@ -2330,12 +2569,7 @@ export class CraftPanelRuntimeService {
         if (options.inventoryChanged || options.equipmentChanged || options.attrChanged || options.persistentOnly || dirtyDomains.length > 0) {
             this.playerRuntimeService.bumpPersistentRevision(player);
         }
-        const hasAssetDirtyDomain = dirtyDomains.includes('inventory')
-            || dirtyDomains.includes('equipment')
-            || dirtyDomains.includes('attr');
-        const activeJobSnapshot = buildActiveJobSnapshotFromPlayer(player);
-        const shouldDeferActiveJobPersistence = hasAssetDirtyDomain && !activeJobSnapshot;
-        if (dirtyDomains.includes('active_job') && !shouldDeferActiveJobPersistence && !player?.suppressImmediateDomainPersistence) {
+        if (dirtyDomains.includes('active_job') && !player?.suppressImmediateDomainPersistence) {
             void this.persistTechniqueActivitySnapshot(player).catch((error) => {
                 console.warn(`活跃任务直写失败，已标记脏数据等待重试：${error instanceof Error ? error.message : String(error)}`);
                 this.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job']);
@@ -3063,6 +3297,122 @@ function buildActiveJobSnapshotFromPlayer(player) {
         return buildActiveJobSnapshot(player.alchemyJob, player.alchemyJob.jobType === 'forging' ? 'forging' : 'alchemy');
     }
     return null;
+}
+
+function captureEnhancementAssetRuntimeState(player) {
+    return {
+        inventory: {
+            revision: player?.inventory?.revision,
+            items: Array.isArray(player?.inventory?.items)
+                ? player.inventory.items.map((entry) => cloneItem(entry))
+                : [],
+            lockedItems: Array.isArray(player?.inventory?.lockedItems)
+                ? player.inventory.lockedItems.map((entry) => ({ ...entry }))
+                : [],
+        },
+        equipment: {
+            revision: player?.equipment?.revision,
+            slots: Array.isArray(player?.equipment?.slots)
+                ? player.equipment.slots.map((entry) => ({
+                    ...entry,
+                    item: entry?.item ? cloneItem(entry.item) : null,
+                }))
+                : [],
+        },
+        enhancementJob: player?.enhancementJob ? cloneEnhancementJob(player.enhancementJob) : null,
+        enhancementRecords: Array.isArray(player?.enhancementRecords)
+            ? player.enhancementRecords.map((entry) => structuredClone(entry))
+            : [],
+        enhancementSkill: player?.enhancementSkill ? { ...player.enhancementSkill } : null,
+        enhancementSkillLevel: player?.enhancementSkillLevel,
+        persistentRevision: player?.persistentRevision,
+        persistedRevision: player?.persistedRevision,
+        dirtyDomains: player?.dirtyDomains instanceof Set ? new Set(player.dirtyDomains) : null,
+    };
+}
+
+function restoreEnhancementAssetRuntimeState(player, snapshot) {
+    if (!player || !snapshot) {
+        return;
+    }
+    if (player.inventory) {
+        player.inventory.revision = snapshot.inventory.revision;
+        player.inventory.items = snapshot.inventory.items.map((entry) => cloneItem(entry));
+        player.inventory.lockedItems = snapshot.inventory.lockedItems.map((entry) => ({ ...entry }));
+    }
+    if (player.equipment) {
+        player.equipment.revision = snapshot.equipment.revision;
+        player.equipment.slots = snapshot.equipment.slots.map((entry) => ({
+            ...entry,
+            item: entry?.item ? cloneItem(entry.item) : null,
+        }));
+    }
+    player.enhancementJob = snapshot.enhancementJob ? cloneEnhancementJob(snapshot.enhancementJob) : null;
+    player.enhancementRecords = snapshot.enhancementRecords.map((entry) => structuredClone(entry));
+    player.enhancementSkill = snapshot.enhancementSkill ? { ...snapshot.enhancementSkill } : null;
+    player.enhancementSkillLevel = snapshot.enhancementSkillLevel;
+    player.persistentRevision = snapshot.persistentRevision;
+    player.persistedRevision = snapshot.persistedRevision;
+    if (snapshot.dirtyDomains instanceof Set) {
+        player.dirtyDomains = new Set(snapshot.dirtyDomains);
+    }
+}
+
+function buildDurableInventoryItemsFromSnapshot(snapshot) {
+    const normalItems = Array.isArray(snapshot?.inventory?.items) ? snapshot.inventory.items : [];
+    const lockedItems = Array.isArray(snapshot?.inventory?.lockedItems) ? snapshot.inventory.lockedItems : [];
+    return [
+        ...normalItems.map((entry) => buildDurableInventoryItemSnapshot(entry, null)),
+        ...lockedItems.map((entry) => buildDurableInventoryItemSnapshot(entry, normalizeText(entry?.lockedBy))),
+    ];
+}
+
+function buildDurableInventoryItemSnapshot(entry, lockedBy) {
+    const rawPayload = entry && typeof entry === 'object' ? { ...entry } : {};
+    return {
+        itemId: normalizeText(entry?.itemId),
+        itemInstanceId: normalizeInventoryItemInstanceId(entry?.itemInstanceId),
+        count: Math.max(1, Math.trunc(Number(entry?.count ?? 1))),
+        lockedBy: lockedBy || null,
+        lockedAt: Number.isFinite(Number(entry?.lockedAt)) ? Math.max(1, Math.trunc(Number(entry.lockedAt))) : null,
+        name: typeof entry?.name === 'string' ? entry.name : undefined,
+        desc: typeof entry?.desc === 'string' ? entry.desc : undefined,
+        enhanceLevel: entry?.enhanceLevel == null ? undefined : normalizeEnhanceLevel(entry.enhanceLevel),
+        learnTechniqueId: typeof entry?.learnTechniqueId === 'string' ? entry.learnTechniqueId : undefined,
+        learnTechniqueMaxLevel: Number.isFinite(Number(entry?.learnTechniqueMaxLevel))
+            ? Math.max(0, Math.trunc(Number(entry.learnTechniqueMaxLevel)))
+            : undefined,
+        grade: typeof entry?.grade === 'string' ? entry.grade : undefined,
+        level: Number.isFinite(Number(entry?.level)) ? Math.max(1, Math.trunc(Number(entry.level))) : undefined,
+        rawPayload,
+    };
+}
+
+function buildDurableEquipmentSlotsFromSnapshot(snapshot) {
+    const slots = Array.isArray(snapshot?.equipment?.slots) ? snapshot.equipment.slots : [];
+    return slots
+        .filter((entry) => entry?.item)
+        .map((entry) => ({
+            slot: normalizeEquipSlot(entry.slot) ?? entry.slot,
+            itemInstanceId: normalizeInventoryItemInstanceId(entry.item?.itemInstanceId),
+            item: { ...entry.item },
+        }));
+}
+
+function buildDurableEnhancementRecordsFromEntries(playerId, entries) {
+    return buildEnhancementRecordRowsFromEntries(playerId, entries).map((row) => ({
+        recordId: row.recordId,
+        itemId: row.itemId,
+        highestLevel: row.highestLevel,
+        levels: Array.isArray(row.levelsPayload) ? row.levelsPayload : [],
+        actionStartedAt: row.actionStartedAt,
+        actionEndedAt: row.actionEndedAt,
+        startLevel: row.startLevel,
+        initialTargetLevel: row.initialTargetLevel,
+        desiredTargetLevel: row.desiredTargetLevel,
+        protectionStartLevel: row.protectionStartLevel,
+        status: row.status,
+    }));
 }
 
 function buildTechniqueActivityQueueSnapshotFromPlayer(player): PlayerTechniqueActivityQueueUpsertInput[] {

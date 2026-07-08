@@ -65,6 +65,8 @@ export interface DurableInventoryItemSnapshot {
   itemId: string;
   itemInstanceId?: string;
   count: number;
+  lockedBy?: string | null;
+  lockedAt?: number | null;
   name?: string;
   desc?: string;
   enhanceLevel?: number | null;
@@ -2435,7 +2437,9 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
           );
         }
 
-        await replacePlayerInventoryItems(client, normalizedPlayerId, normalizedNextInventoryItems);
+        await replacePlayerInventoryItems(client, normalizedPlayerId, normalizedNextInventoryItems, {
+          replaceLockedItems: true,
+        });
         await replacePlayerWalletRows(client, normalizedPlayerId, normalizedNextWalletBalances);
         await replacePlayerActiveJob(client, normalizedPlayerId, normalizedNextActiveJob);
         if (Array.isArray(normalizedNextEnhancementRecords)) {
@@ -2655,7 +2659,9 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
           );
         }
 
-        await replacePlayerInventoryItems(client, normalizedPlayerId, normalizedNextInventoryItems);
+        await replacePlayerInventoryItems(client, normalizedPlayerId, normalizedNextInventoryItems, {
+          replaceLockedItems: true,
+        });
         await replacePlayerWalletRows(client, normalizedPlayerId, normalizedNextWalletBalances);
         if (Array.isArray(normalizedNextEquipmentSlots)) {
           await replacePlayerEquipmentSlots(client, normalizedPlayerId, normalizedNextEquipmentSlots);
@@ -2855,7 +2861,9 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
           );
         }
 
-        await replacePlayerInventoryItems(client, normalizedPlayerId, normalizedNextInventoryItems);
+        await replacePlayerInventoryItems(client, normalizedPlayerId, normalizedNextInventoryItems, {
+          replaceLockedItems: true,
+        });
         await replacePlayerWalletRows(client, normalizedPlayerId, normalizedNextWalletBalances);
         if (Array.isArray(normalizedNextEquipmentSlots)) {
           await replacePlayerEquipmentSlots(client, normalizedPlayerId, normalizedNextEquipmentSlots);
@@ -3568,6 +3576,7 @@ async function ensurePlayerPresenceColumnsWithClient(client: import('pg').PoolCl
 
 interface DurableReplaceOptions {
   allowEmptyOverwrite?: boolean;
+  replaceLockedItems?: boolean;
 }
 
 function safeStringifyDurableEntry(value: unknown): string {
@@ -3649,7 +3658,9 @@ async function replacePlayerInventoryItems(
     item_id: string;
     count: number;
     raw_payload: Record<string, unknown>;
+    locked_by: string | null;
   }>();
+  let lockedSlotCounter = -1;
   for (let index = 0; index < sourceItems.length; index += 1) {
     const item = sourceItems[index];
     const itemId = normalizeRequiredString(item?.itemId);
@@ -3659,6 +3670,7 @@ async function replacePlayerInventoryItems(
       );
     }
     const count = Math.max(1, Math.trunc(Number(item.count ?? 1)));
+    const lockedBy = normalizeOptionalString(item?.lockedBy);
     const rawPayload = buildPersistedInventoryItemRawPayload({
       itemId,
       count,
@@ -3671,6 +3683,13 @@ async function replacePlayerInventoryItems(
       level: item.level,
       rawPayload: item.rawPayload,
     });
+    if (lockedBy != null) {
+      const lockedAt = normalizeOptionalInteger(item?.lockedAt)
+        ?? normalizeOptionalInteger((item?.rawPayload as { lockedAt?: unknown } | null | undefined)?.lockedAt);
+      if (lockedAt != null) {
+        rawPayload.lockedAt = lockedAt;
+      }
+    }
     // 优先取 sourceItem 自带的稳定 instanceId（装备类必须有；非装备类回退到 inv:{playerId}:{index}
     // 让 PG 主键稳定，行为与持久化层保持一致）。
     const sourceItemInstanceId = normalizeRequiredString(item?.itemInstanceId)
@@ -3683,10 +3702,11 @@ async function replacePlayerInventoryItems(
     }
     const row = {
       item_instance_id: itemInstanceId,
-      slot_index: index,
+      slot_index: lockedBy != null ? lockedSlotCounter-- : index,
       item_id: itemId,
       count,
       raw_payload: rawPayload,
+      locked_by: lockedBy,
     };
     const rowSignature = createPersistedInventoryRowSignature(itemId, rawPayload);
     const existingRow = rowsByInstanceId.get(itemInstanceId);
@@ -3699,8 +3719,9 @@ async function replacePlayerInventoryItems(
         continue;
       }
       if (
-        existingRow.slot_index !== index
+        existingRow.slot_index !== row.slot_index
         || existingRow.item_id !== itemId
+        || existingRow.locked_by !== lockedBy
         || existingRowSignature !== rowSignature
       ) {
         throw new Error(
@@ -3742,7 +3763,8 @@ async function replacePlayerInventoryItems(
             slot_index bigint,
             item_id varchar(120),
             count bigint,
-            raw_payload jsonb
+            raw_payload jsonb,
+            locked_by varchar(180)
           )
         )
         INSERT INTO ${PLAYER_INVENTORY_ITEM_TABLE}(
@@ -3752,9 +3774,10 @@ async function replacePlayerInventoryItems(
           item_id,
           count,
           raw_payload,
+          locked_by,
           updated_at
         )
-        SELECT item_instance_id, $1, slot_index, item_id, count, COALESCE(raw_payload, '{}'::jsonb), now()
+        SELECT item_instance_id, $1, slot_index, item_id, count, COALESCE(raw_payload, '{}'::jsonb), locked_by, now()
         FROM incoming
         ON CONFLICT (item_instance_id)
         DO UPDATE SET
@@ -3763,6 +3786,7 @@ async function replacePlayerInventoryItems(
           item_id = EXCLUDED.item_id,
           count = EXCLUDED.count,
           raw_payload = EXCLUDED.raw_payload,
+          locked_by = EXCLUDED.locked_by,
           updated_at = now()
         WHERE ${PLAYER_INVENTORY_ITEM_TABLE}.player_id = EXCLUDED.player_id
       `,
@@ -3781,7 +3805,7 @@ async function replacePlayerInventoryItems(
       )
       DELETE FROM ${PLAYER_INVENTORY_ITEM_TABLE} target
       WHERE target.player_id = $1
-        AND target.locked_by IS NULL
+        ${options.replaceLockedItems === true ? '' : 'AND target.locked_by IS NULL'}
         AND NOT EXISTS (
           SELECT 1
           FROM incoming

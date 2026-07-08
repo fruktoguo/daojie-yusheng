@@ -60,6 +60,7 @@ export class TechniqueActivityQueueService {
     if (mode === 'replace') {
       queue.length = 0;
       queue.push(item);
+      markQueueDirty(player, null);
       return true;
     }
     if (queue.length >= TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH) {
@@ -70,6 +71,7 @@ export class TechniqueActivityQueueService {
     } else {
       queue.push(item);
     }
+    markQueueDirty(player, null);
     return true;
   }
 
@@ -88,6 +90,7 @@ export class TechniqueActivityQueueService {
       retryAfterTicks: TECHNIQUE_ACTIVITY_SLEEP_RETRY_TICKS,
       createdAt: Date.now(),
     });
+    markQueueDirty(player, null);
   }
 
   // ─── 队列推进 ───
@@ -122,6 +125,7 @@ export class TechniqueActivityQueueService {
     if (head.state === 'pending') {
       // 尝试启动
       queue.shift();
+      markQueueDirty(player, ctx);
       return this.pipeline.start(player, head.kind, head.payload, ctx);
     }
 
@@ -137,6 +141,7 @@ export class TechniqueActivityQueueService {
         if (condition.satisfied) {
           // 条件恢复 → 唤醒并启动
           queue.shift();
+          markQueueDirty(player, ctx);
           strategy.onConditionRestored?.(player, conditionJob as any, ctx);
           return this.pipeline.start(player, head.kind, head.payload, ctx);
         }
@@ -167,13 +172,16 @@ export class TechniqueActivityQueueService {
     const idx = queue.findIndex(item => item.queueId === queueId);
     if (idx < 0) return false;
     queue.splice(idx, 1);
+    markQueueDirty(player, null);
     return true;
   }
 
   /** 清空队列。 */
   clear(player: any): void {
     const queue = this.getQueue(player);
+    if (queue.length <= 0) return;
     queue.length = 0;
+    markQueueDirty(player, null);
   }
 }
 
@@ -193,11 +201,11 @@ function queueMutationResult(): CraftMutationResult {
   };
 }
 
-function markQueueDirty(player: any, ctx: PipelineContext): void {
+function markQueueDirty(player: any, ctx: PipelineContext | null): void {
   if (player?.dirtyDomains && typeof player.dirtyDomains.add === 'function') {
     player.dirtyDomains.add('active_job');
   }
-  const runtimeService = (ctx.deps as {
+  const runtimeService = (ctx?.deps as {
     playerRuntimeService?: {
       markPersistenceDirtyDomains?: (player: any, domains: string[]) => void;
       bumpPersistentRevision?: (player: any) => void;

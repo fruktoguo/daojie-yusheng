@@ -62,7 +62,9 @@ export class WorldRuntimeEnhancementService {
         if (player.suppressImmediateDomainPersistence === true) {
             return;
         }
-        const result = this.craftPanelRuntimeService.startTechniqueActivity(player, 'enhancement', payload, deps);
+        const result = typeof this.craftPanelRuntimeService.startEnhancementDurably === 'function'
+            ? await this.craftPanelRuntimeService.startEnhancementDurably(player, payload, deps)
+            : this.craftPanelRuntimeService.startTechniqueActivity(player, 'enhancement', payload, deps);
         if (!result.ok) {
             throw new BadRequestException(result.error ?? '启动强化失败');
         }
@@ -82,7 +84,9 @@ export class WorldRuntimeEnhancementService {
         if (player.suppressImmediateDomainPersistence === true) {
             return;
         }
-        const result = this.craftPanelRuntimeService.cancelTechniqueActivity(player, 'enhancement', deps);
+        const result = typeof this.craftPanelRuntimeService.cancelEnhancementDurably === 'function'
+            ? await this.craftPanelRuntimeService.cancelEnhancementDurably(player, deps)
+            : this.craftPanelRuntimeService.cancelTechniqueActivity(player, 'enhancement', deps);
         if (!result.ok) {
             throw new BadRequestException(result.error ?? '取消强化失败');
         }
@@ -97,6 +101,9 @@ export class WorldRuntimeEnhancementService {
  */
 
     async tickEnhancement(playerId, player, deps) {
-        this.worldRuntimeCraftMutationService.flushCraftMutation(playerId, this.craftPanelRuntimeService.tickTechniqueActivity(player, 'enhancement', deps), 'enhancement', deps);
+        const result = typeof this.craftPanelRuntimeService.tickEnhancementDurably === 'function'
+            ? await this.craftPanelRuntimeService.tickEnhancementDurably(player, deps)
+            : this.craftPanelRuntimeService.tickTechniqueActivity(player, 'enhancement', deps);
+        this.worldRuntimeCraftMutationService.flushCraftMutation(playerId, result, 'enhancement', deps);
     }
 };

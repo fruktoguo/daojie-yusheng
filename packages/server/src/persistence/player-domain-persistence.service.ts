@@ -877,6 +877,7 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
       await ensurePlayerDomainTables(this.pool);
       this.enabled = true;
       await this.expireStaleOnlinePresenceOnStartup();
+      await this.repairOrphanEnhancementLockedItemsOnStartup();
       await this.cleanupDerivedRuntimeBonusEntriesOnStartup();
       this.logger.log('玩家分域持久化已启用');
     } catch (error: unknown) {
@@ -980,6 +981,100 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
     const cleanedCount = Number(result.rowCount ?? 0);
     if (cleanedCount > 0) {
       this.logger.warn(`已清理玩家属性派生加成残留：count=${cleanedCount}`);
+    }
+  }
+
+  private async repairOrphanEnhancementLockedItemsOnStartup(): Promise<void> {
+    if (!this.pool || !this.enabled) {
+      return;
+    }
+
+    const now = Date.now();
+    const result = await this.pool.query(
+      `
+        WITH orphan_locked_candidates AS (
+          SELECT
+            i.player_id,
+            i.item_instance_id,
+            i.slot_index
+          FROM ${PLAYER_INVENTORY_ITEM_TABLE} i
+          LEFT JOIN ${PLAYER_ACTIVE_JOB_TABLE} j
+            ON j.player_id = i.player_id
+          WHERE i.locked_by LIKE 'enhancement:%'
+            AND (
+              j.player_id IS NULL
+              OR j.job_type IS DISTINCT FROM 'enhancement'
+              OR i.locked_by IS DISTINCT FROM ('enhancement:' || j.job_run_id)
+            )
+          FOR UPDATE OF i
+        ),
+        orphan_locked AS (
+          SELECT
+            player_id,
+            item_instance_id,
+            slot_index,
+            row_number() OVER (
+              PARTITION BY player_id
+              ORDER BY slot_index ASC, item_instance_id ASC
+            ) AS restore_order
+          FROM orphan_locked_candidates
+        ),
+        visible_max_slot AS (
+          SELECT
+            i.player_id,
+            COALESCE(MAX(i.slot_index), -1) AS max_slot_index
+          FROM ${PLAYER_INVENTORY_ITEM_TABLE} i
+          WHERE i.locked_by IS NULL
+             OR i.locked_by = ''
+          GROUP BY i.player_id
+        ),
+        restored AS (
+          UPDATE ${PLAYER_INVENTORY_ITEM_TABLE} target
+          SET
+            slot_index = COALESCE(visible_max_slot.max_slot_index, -1) + orphan_locked.restore_order,
+            locked_by = NULL,
+            raw_payload = CASE
+              WHEN jsonb_typeof(COALESCE(target.raw_payload, '{}'::jsonb)) = 'object'
+                THEN COALESCE(target.raw_payload, '{}'::jsonb) - 'lockedAt'
+              ELSE '{}'::jsonb
+            END,
+            updated_at = now()
+          FROM orphan_locked
+          LEFT JOIN visible_max_slot
+            ON visible_max_slot.player_id = orphan_locked.player_id
+          WHERE target.player_id = orphan_locked.player_id
+            AND target.item_instance_id = orphan_locked.item_instance_id
+          RETURNING target.player_id
+        ),
+        affected_players AS (
+          SELECT player_id, COUNT(*)::bigint AS item_count
+          FROM restored
+          GROUP BY player_id
+        )
+        INSERT INTO ${PLAYER_RECOVERY_WATERMARK_TABLE}(
+          player_id,
+          inventory_version,
+          updated_at
+        )
+        SELECT
+          player_id,
+          $1::bigint,
+          now()
+        FROM affected_players
+        ON CONFLICT (player_id)
+        DO UPDATE SET
+          inventory_version = GREATEST(
+            COALESCE(${PLAYER_RECOVERY_WATERMARK_TABLE}.inventory_version, 0),
+            EXCLUDED.inventory_version
+          ),
+          updated_at = now()
+        RETURNING player_id
+      `,
+      [now],
+    );
+    const affectedPlayerCount = Number(result.rowCount ?? 0);
+    if (affectedPlayerCount > 0) {
+      this.logger.warn(`已自动恢复异常强化锁定物品：players=${affectedPlayerCount}`);
     }
   }
 

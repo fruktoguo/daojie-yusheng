@@ -92,7 +92,7 @@ export class WorldRuntimeCraftTickService {
             }
             this.ensureAlchemyLikeResourceCompatibilityAfterRestore(playerId, player, deps);
             for (const kind of this.craftPanelRuntimeService.listActiveTechniqueActivityKinds(player)) {
-                const result = await Promise.resolve(this.craftPanelRuntimeService.tickTechniqueActivity(player, kind, deps));
+                const result = await this.tickActiveTechniqueActivity(player, kind, deps);
                 this.sleepConditionalTechniqueActivityIfRequested(player, result);
                 this.worldRuntimeCraftMutationService.flushCraftMutation(
                     playerId,
@@ -109,6 +109,9 @@ export class WorldRuntimeCraftTickService {
                 if (queueResult?.ok) {
                     const kind = this.resolveQueueResultKind(player);
                     if (kind) {
+                        if (kind === 'enhancement') {
+                            await this.commitQueuedEnhancementStart(player);
+                        }
                         this.worldRuntimeCraftMutationService.flushCraftMutation(playerId, queueResult, kind, deps);
                     }
                 }
@@ -121,6 +124,22 @@ export class WorldRuntimeCraftTickService {
             deps?.queuePlayerNotice?.(playerId, message, 'warn');
           }
         }
+    }
+
+    /** 推进活跃技艺；强化必须走强事务入口，避免完成回写和 active_job 分裂。 */
+    private async tickActiveTechniqueActivity(player: any, kind: string, deps: any): Promise<any> {
+        if (kind === 'enhancement' && typeof this.craftPanelRuntimeService.tickEnhancementDurably === 'function') {
+            return this.craftPanelRuntimeService.tickEnhancementDurably(player, deps);
+        }
+        return Promise.resolve(this.craftPanelRuntimeService.tickTechniqueActivity(player, kind, deps));
+    }
+
+    /** 队列自动启动强化时补交强事务，确保锁定装备和 active_job 同批落库。 */
+    private async commitQueuedEnhancementStart(player: any): Promise<void> {
+        if (!player?.enhancementJob || typeof this.craftPanelRuntimeService.commitEnhancementActiveJobWithAssets !== 'function') {
+            return;
+        }
+        await this.craftPanelRuntimeService.commitEnhancementActiveJobWithAssets(player, 'start');
     }
 
     /** 向 EventBus 发射当前玩家所有活跃 job 的进度快照。 */

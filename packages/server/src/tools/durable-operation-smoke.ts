@@ -504,12 +504,7 @@ async function main(): Promise<void> {
     if (runtimeSummary.unreadCount !== 0 || runtimeSummary.claimableCount !== 0) {
       throw new Error(`unexpected runtime mail summary after claim: ${JSON.stringify(runtimeSummary)}`);
     }
-    const runtimeInventoryItem = runtimePlayerState.inventoryItems[0];
-    if (
-      runtimePlayerState.inventoryItems.length !== 1
-      || runtimeInventoryItem?.itemId !== 'spirit_stone'
-      || Number(runtimeInventoryItem?.count ?? 0) !== 1
-    ) {
+    if (runtimePlayerState.inventoryItems.length !== 0) {
       throw new Error(`unexpected runtime inventory after durable claim: ${JSON.stringify(runtimePlayerState.inventoryItems)}`);
     }
     const runtimeWalletBalances = runtimePlayerState.walletBalances as Array<{
@@ -518,7 +513,11 @@ async function main(): Promise<void> {
       frozenBalance: number;
       version: number;
     }>;
-    if (runtimeWalletBalances.length !== 0) {
+    if (
+      runtimeWalletBalances.length !== 1
+      || runtimeWalletBalances[0]?.walletType !== 'spirit_stone'
+      || Number(runtimeWalletBalances[0]?.balance ?? 0) !== 1
+    ) {
       throw new Error(`unexpected runtime wallet after durable claim: ${JSON.stringify(runtimePlayerState.walletBalances)}`);
     }
 

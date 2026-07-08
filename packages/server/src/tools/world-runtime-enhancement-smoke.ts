@@ -18,9 +18,15 @@ type PersistedActiveJob = {
   interruptWaitRemainingTicks?: number;
 };
 
+type DurableEnhancementCall = {
+  kind: 'start' | 'update' | 'complete';
+  args: any;
+};
+
 async function main(): Promise<void> {
   testEnhancementCancelUsesPipelineLifecycle();
   await testStartInterruptAndCompleteEnhancement();
+  await testDurableEnhancementPersistsAssetsAtomically();
   await testTickUsesJobSuccessRateForFailure();
   await testProtectionFailureConsumesProtectionAndContinues();
   await testProtectionMissingStopsAndReturnsCurrentLevel();
@@ -136,6 +142,62 @@ async function testStartInterruptAndCompleteEnhancement(): Promise<void> {
   assert.equal(player.wallet.balances[0].balance, 19);
   assert.equal(player.enhancementRecords[0]?.status, 'completed');
   assert.equal(persistedEnhancementRecords.length > 0, true);
+}
+
+async function testDurableEnhancementPersistsAssetsAtomically(): Promise<void> {
+  const durableCalls: DurableEnhancementCall[] = [];
+  const player = createPlayer('player:enhancement:durable', [
+    createEquipmentItem('iron_sword', '铁剑', 8, 1),
+  ]);
+  const { craftService } = createCraftHarness(player, [], [], { durableCalls });
+  const target = player.inventory.items[0];
+  if (!target?.itemInstanceId) {
+    throw new Error('missing enhancement target instance id');
+  }
+
+  const start = await craftService.startEnhancementDurably(player, {
+    target: buildInventoryRef(target),
+  });
+  assert.equal(start.ok, true);
+  assert.equal(durableCalls.length, 1);
+  assert.equal(durableCalls[0]?.kind, 'start');
+  assert.equal(durableCalls[0]?.args.nextActiveJob?.jobType, 'enhancement');
+  assert.equal(
+    durableCalls[0]?.args.nextInventoryItems.some(
+      (item: any) => item.itemInstanceId === target.itemInstanceId && item.lockedBy === `enhancement:${player.enhancementJob?.jobRunId}`,
+    ),
+    true,
+  );
+
+  player.enhancementJob!.remainingTicks = 2;
+  player.enhancementJob!.workRemainingTicks = 2;
+  const tick = await craftService.tickEnhancementDurably(player);
+  assert.equal(tick.ok, true);
+  assert.equal(durableCalls.at(-1)?.kind, 'update');
+  assert.equal(durableCalls.at(-1)?.args.nextActiveJob?.jobType, 'enhancement');
+
+  player.enhancementJob!.remainingTicks = 1;
+  player.enhancementJob!.workRemainingTicks = 1;
+  const originalRandom = Math.random;
+  Math.random = () => 0;
+  try {
+    const completed = await craftService.tickEnhancementDurably(player);
+    assert.equal(completed.ok, true);
+  } finally {
+    Math.random = originalRandom;
+  }
+
+  const completeCall = durableCalls.at(-1);
+  assert.equal(completeCall?.kind, 'complete');
+  assert.equal(completeCall?.args.nextActiveJob, null);
+  assert.equal(
+    completeCall?.args.nextInventoryItems.some(
+      (item: any) => item.itemInstanceId === target.itemInstanceId && item.lockedBy == null && item.enhanceLevel === 2,
+    ),
+    true,
+  );
+  assert.equal(player.enhancementJob, null);
+  assert.equal(player.inventory.lockedItems?.length ?? 0, 0);
 }
 
 async function testTickUsesJobSuccessRateForFailure(): Promise<void> {
@@ -337,7 +399,7 @@ async function testCancelReturnsLockedTarget(): Promise<void> {
   assert.equal(player.inventory.items.some((item) => item.itemId === 'iron_sword' && item.enhanceLevel === 1), true);
   assert.equal(player.enhancementRecords[0]?.status, 'cancelled');
   await settleAsync();
-  assert.equal(persistedActiveJobs.at(-1)?.phase, 'enhancing');
+  assert.deepEqual(persistedActiveJobs.at(-1), {});
   assert.equal(persistedEnhancementRecords.length > 0, true);
 }
 
@@ -432,6 +494,7 @@ function createCraftHarness(
   player: ReturnType<typeof createPlayer>,
   persistedActiveJobs: PersistedActiveJob[],
   persistedEnhancementRecords: unknown[],
+  options: { durableCalls?: DurableEnhancementCall[] } = {},
 ): {
   craftService: CraftPanelRuntimeService;
 } {
@@ -450,6 +513,9 @@ function createCraftHarness(
       persistedEnhancementRecords.push(true);
     },
   };
+  const durableOperationService = options.durableCalls
+    ? createDurableOperationService(options.durableCalls)
+    : null;
   const craftService = new CraftPanelRuntimeService(
     createContentTemplateRepository() as never,
     playerRuntimeService as never,
@@ -470,6 +536,7 @@ function createCraftHarness(
         return {};
       },
     } as never,
+    durableOperationService as never,
   );
   craftService.enhancementConfigs.set('iron_sword', { steps: [] });
   return { craftService };
@@ -574,6 +641,36 @@ function createPlayerRuntimeService(player: any): any {
         targetPlayer.dirtyDomains.add(domain);
       }
     },
+    describePersistencePresence(playerId: string): any | null {
+      if (playerId !== player.playerId) {
+        return null;
+      }
+      return {
+        online: true,
+        inWorld: true,
+        runtimeOwnerId: 'runtime:enhancement-smoke',
+        sessionEpoch: 1,
+      };
+    },
+    buildPersistenceSnapshot(playerId: string): any | null {
+      if (playerId !== player.playerId) {
+        return null;
+      }
+      return {
+        inventory: player.inventory,
+        equipment: player.equipment,
+      };
+    },
+    markPersisted(_playerId: string, persistedDomains?: Iterable<string> | null, persistedRevision?: number | null): void {
+      if (persistedDomains) {
+        for (const domain of persistedDomains) {
+          player.dirtyDomains.delete(domain);
+        }
+      }
+      if (typeof persistedRevision === 'number') {
+        player.persistedRevision = Math.min(persistedRevision, player.persistentRevision);
+      }
+    },
     bumpPersistentRevision(targetPlayer: any): void {
       targetPlayer.persistentRevision += 1;
     },
@@ -587,6 +684,23 @@ function createPlayerRuntimeService(player: any): any {
       recalculate(): void {},
     },
     rebuildActionState(): void {},
+  };
+}
+
+function createDurableOperationService(durableCalls: DurableEnhancementCall[]): any {
+  return {
+    isEnabled(): boolean {
+      return true;
+    },
+    async startActiveJobWithAssets(args: any): Promise<void> {
+      durableCalls.push({ kind: 'start', args });
+    },
+    async updateActiveJobState(args: any): Promise<void> {
+      durableCalls.push({ kind: 'update', args });
+    },
+    async completeActiveJobWithAssets(args: any): Promise<void> {
+      durableCalls.push({ kind: 'complete', args });
+    },
   };
 }
 
