@@ -15,10 +15,7 @@ import {
   type TechniqueActivityQueueMode,
   type RuntimeTechniqueActivityKind,
 } from '@mud/shared';
-import {
-  getStrategyActiveJob,
-  type PipelineContext,
-} from './technique-activity-strategy';
+import type { PipelineContext } from './technique-activity-strategy';
 import type { TechniqueActivityPipelineService, CraftMutationResult } from './technique-activity-pipeline.service';
 
 /** 玩家队列字段名。 */
@@ -115,10 +112,8 @@ export class TechniqueActivityQueueService {
       return queueMutationResult();
     }
 
-    // 当前槽是否空闲
-    const currentJob = getStrategyActiveJob(strategy, player);
-    if (currentJob && Number(currentJob.remainingTicks) > 0) {
-      // 槽占用，不启动
+    // 任一技艺正在运行时，不启动队列头，确保统一互斥。
+    if (hasAnyActiveTechniqueActivity(player)) {
       return null;
     }
 
@@ -199,6 +194,19 @@ function queueMutationResult(): CraftMutationResult {
     messages: [],
     groundDrops: [],
   };
+}
+
+function hasAnyActiveTechniqueActivity(player: any): boolean {
+  return [
+    player?.alchemyJob,
+    player?.forgingJob,
+    player?.enhancementJob,
+    player?.transmissionJob,
+    player?.gatherJob,
+    player?.buildingJob,
+    player?.miningJob,
+    player?.formationJob,
+  ].some((job) => Boolean(job) && Number(job?.remainingTicks) > 0);
 }
 
 function markQueueDirty(player: any, ctx: PipelineContext | null): void {

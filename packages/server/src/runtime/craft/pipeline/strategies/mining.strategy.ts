@@ -4,6 +4,7 @@
  * 挖矿 job 负责持续恢复矿脉强制攻击意图，实际地块伤害/掉落/经验仍走战斗地块链路。
  */
 import {
+  TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH,
   isOreMinableTileType,
   parseTileTargetRef,
   uiLabels,
@@ -92,6 +93,38 @@ export class MiningStrategy implements TechniqueActivityStrategy<PlayerMiningJob
         baseDamagePerTick: resolveMiningBaseDamage(player),
       },
     };
+  }
+
+  queueStart(player: unknown, validated: MiningValidatedPayload, payload: unknown, ctx: PipelineContext): unknown | null {
+    if (!hasAnyActiveTechniqueActivity(player)) {
+      return null;
+    }
+    const queue = ensureTechniqueActivityQueue(player);
+    const mode = normalizeQueueMode((payload as { queueMode?: unknown } | null)?.queueMode);
+    if (mode !== 'replace' && queue.length >= TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH) {
+      return { ok: false, error: '技艺任务队列已满。', panelChanged: true, messages: [], groundDrops: [] };
+    }
+    const nextPayload = buildMiningQueuePayload(validated, payload);
+    const item = {
+      queueId: createMiningQueueId(validated),
+      kind: 'mining',
+      payload: nextPayload,
+      label: validated.tileName || '挖矿任务',
+      state: 'pending',
+      createdAt: Date.now(),
+      cancelRef: { kind: 'mining', queueId: '' },
+    };
+    item.cancelRef.queueId = item.queueId;
+    if (mode === 'replace') {
+      queue.length = 0;
+    } else if (mode === 'preserve') {
+      queue.unshift(item);
+      markMiningQueueDirty(player, ctx);
+      return buildMiningQueuedResult(item.label);
+    }
+    queue.push(item);
+    markMiningQueueDirty(player, ctx);
+    return buildMiningQueuedResult(item.label);
   }
 
   consumeResources(_player: unknown, _validated: MiningValidatedPayload, _ctx: PipelineContext): void {}
@@ -195,6 +228,10 @@ export class MiningStrategy implements TechniqueActivityStrategy<PlayerMiningJob
     return { items: [], spiritStones: 0 };
   }
 
+  startDirtyDomains(): PersistenceDomain[] {
+    return ['active_job'];
+  }
+
   dirtyDomains(): PersistenceDomain[] {
     return ['active_job', 'profession', 'inventory'];
   }
@@ -293,6 +330,77 @@ function resolveInstance(instanceId: string, deps: MiningDepsPort | null, ctx: P
   return deps?.getInstanceRuntime?.(instanceId)
     ?? deps?.getInstanceRuntimeOrThrow?.(instanceId)
     ?? ctx.getInstanceRuntime(instanceId);
+}
+
+function ensureTechniqueActivityQueue(player: unknown): any[] {
+  const target = player as { techniqueActivityQueue?: unknown } | null | undefined;
+  if (!target || typeof target !== 'object') {
+    return [];
+  }
+  if (!Array.isArray(target.techniqueActivityQueue)) {
+    target.techniqueActivityQueue = [];
+  }
+  return target.techniqueActivityQueue as any[];
+}
+
+function hasAnyActiveTechniqueActivity(player: unknown): boolean {
+  const record = player as Record<string, any> | null | undefined;
+  if (!record) {
+    return false;
+  }
+  return [
+    record.alchemyJob,
+    record.forgingJob,
+    record.enhancementJob,
+    record.transmissionJob,
+    record.gatherJob,
+    record.buildingJob,
+    record.miningJob,
+    record.formationJob,
+  ].some((job) => Boolean(job) && Number((job as { remainingTicks?: unknown }).remainingTicks) > 0);
+}
+
+function buildMiningQueuePayload(validated: MiningValidatedPayload, payload: unknown): Record<string, unknown> {
+  return {
+    ...(payload && typeof payload === 'object' ? payload as Record<string, unknown> : {}),
+    instanceId: validated.instanceId,
+    targetRef: `tile:${validated.targetX}:${validated.targetY}`,
+    targetX: validated.targetX,
+    targetY: validated.targetY,
+  };
+}
+
+function createMiningQueueId(validated: MiningValidatedPayload): string {
+  return `mining:${validated.instanceId}:${validated.targetX}:${validated.targetY}:${Date.now().toString(36)}`;
+}
+
+function normalizeQueueMode(value: unknown): 'append' | 'preserve' | 'replace' {
+  if (value === 'preserve' || value === 'append') {
+    return value;
+  }
+  return 'replace';
+}
+
+function buildMiningQueuedResult(label: string): Record<string, unknown> {
+  return {
+    ok: true,
+    panelChanged: true,
+    messages: [{
+      kind: 'system',
+      key: 'notice.craft.queue.appended',
+      vars: { label },
+      pills: [{ key: 'label', style: 'target' }],
+    }],
+    groundDrops: [],
+  };
+}
+
+function markMiningQueueDirty(player: unknown, ctx: PipelineContext): void {
+  const deps = resolveMiningDeps(ctx);
+  const target = player as { dirtyDomains?: Set<string> } | null;
+  target?.dirtyDomains?.add?.('active_job');
+  deps?.playerRuntimeService?.markPersistenceDirtyDomains?.(player, ['active_job']);
+  deps?.playerRuntimeService?.bumpPersistentRevision?.(player);
 }
 
 function resolveMiningTargetRef(job: PlayerMiningJob): string {

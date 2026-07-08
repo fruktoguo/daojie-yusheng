@@ -2239,39 +2239,49 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
             persistedJobRunId !== normalizedExpectedJobRunId
             || persistedJobVersion !== normalizedExpectedJobVersion
           ) {
-            if (
-              normalizedNextActiveJob
-              && persistedJobRunId === normalizedNextActiveJob.jobRunId
-              && persistedJobVersion === normalizedNextActiveJob.jobVersion
-            ) {
+            if (isActiveJobAlreadyAtOrAheadOfNext(persistedJobRunId, persistedJobVersion, normalizedNextActiveJob)) {
               return {
                 ok: true,
                 alreadyCommitted: true,
                 action,
-                jobRunId: normalizedNextActiveJob.jobRunId,
-                jobVersion: normalizedNextActiveJob.jobVersion,
+                jobRunId: normalizedNextActiveJob?.jobRunId ?? null,
+                jobVersion: normalizedNextActiveJob?.jobVersion ?? null,
               };
             }
+            if (!isActiveJobCatchUpAllowed(
+              persistedJobRunId,
+              persistedJobVersion,
+              normalizedExpectedJobRunId,
+              normalizedExpectedJobVersion,
+              normalizedNextActiveJob,
+            ) && !isActiveJobBehindNext(persistedJobRunId, persistedJobVersion, normalizedNextActiveJob)) {
+              throw new Error(
+                [
+                  'player_active_job_cas_conflict',
+                  `expectedJobRunId=${normalizedExpectedJobRunId}`,
+                  `expectedJobVersion=${normalizedExpectedJobVersion}`,
+                  `persistedJobRunId=${persistedJobRunId || 'null'}`,
+                  `persistedJobVersion=${persistedJobVersion || 0}`,
+                ].join(':'),
+              );
+            }
+          }
+        } else if (currentRow.rowCount > 0) {
+          if (
+            !normalizedNextActiveJob
+            || persistedJobRunId !== normalizedNextActiveJob.jobRunId
+            || persistedJobVersion > normalizedNextActiveJob.jobVersion
+          ) {
             throw new Error(
               [
                 'player_active_job_cas_conflict',
-                `expectedJobRunId=${normalizedExpectedJobRunId}`,
-                `expectedJobVersion=${normalizedExpectedJobVersion}`,
+                'expectedJobRunId=null',
+                'expectedJobVersion=null',
                 `persistedJobRunId=${persistedJobRunId || 'null'}`,
                 `persistedJobVersion=${persistedJobVersion || 0}`,
               ].join(':'),
             );
           }
-        } else if (currentRow.rowCount > 0) {
-          throw new Error(
-            [
-              'player_active_job_cas_conflict',
-              'expectedJobRunId=null',
-              'expectedJobVersion=null',
-              `persistedJobRunId=${persistedJobRunId || 'null'}`,
-              `persistedJobVersion=${persistedJobVersion || 0}`,
-            ].join(':'),
-          );
         }
 
         await replacePlayerActiveJob(client, normalizedPlayerId, normalizedNextActiveJob);
@@ -2426,15 +2436,20 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
         if (currentRow.rowCount > 0) {
           const persistedJobRunId = normalizeRequiredString(currentRow.rows[0]?.job_run_id);
           const persistedJobVersion = normalizeOptionalInteger(currentRow.rows[0]?.job_version) ?? 0;
-          throw new Error(
-            [
-              'player_active_job_cas_conflict',
-              'expectedJobRunId=null',
-              'expectedJobVersion=null',
-              `persistedJobRunId=${persistedJobRunId || 'null'}`,
-              `persistedJobVersion=${persistedJobVersion || 0}`,
-            ].join(':'),
-          );
+          if (
+            persistedJobRunId !== normalizedNextActiveJob.jobRunId
+            || persistedJobVersion > normalizedNextActiveJob.jobVersion
+          ) {
+            throw new Error(
+              [
+                'player_active_job_cas_conflict',
+                'expectedJobRunId=null',
+                'expectedJobVersion=null',
+                `persistedJobRunId=${persistedJobRunId || 'null'}`,
+                `persistedJobVersion=${persistedJobVersion || 0}`,
+              ].join(':'),
+            );
+          }
         }
 
         await replacePlayerInventoryItems(client, normalizedPlayerId, normalizedNextInventoryItems, {
@@ -2648,15 +2663,22 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
           persistedJobRunId !== normalizedExpectedJobRunId
           || persistedJobVersion !== normalizedExpectedJobVersion
         ) {
-          throw new Error(
-            [
-              'player_active_job_cas_conflict',
-              `expectedJobRunId=${normalizedExpectedJobRunId}`,
-              `expectedJobVersion=${normalizedExpectedJobVersion}`,
-              `persistedJobRunId=${persistedJobRunId || 'null'}`,
-              `persistedJobVersion=${persistedJobVersion || 0}`,
-            ].join(':'),
-          );
+          if (!isSameActiveJobBehindExpected(
+            persistedJobRunId,
+            persistedJobVersion,
+            normalizedExpectedJobRunId,
+            normalizedExpectedJobVersion,
+          )) {
+            throw new Error(
+              [
+                'player_active_job_cas_conflict',
+                `expectedJobRunId=${normalizedExpectedJobRunId}`,
+                `expectedJobVersion=${normalizedExpectedJobVersion}`,
+                `persistedJobRunId=${persistedJobRunId || 'null'}`,
+                `persistedJobVersion=${persistedJobVersion || 0}`,
+              ].join(':'),
+            );
+          }
         }
 
         await replacePlayerInventoryItems(client, normalizedPlayerId, normalizedNextInventoryItems, {
@@ -2850,15 +2872,25 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
           persistedJobRunId !== normalizedExpectedJobRunId
           || persistedJobVersion !== normalizedExpectedJobVersion
         ) {
-          throw new Error(
-            [
-              'player_active_job_cas_conflict',
-              `expectedJobRunId=${normalizedExpectedJobRunId}`,
-              `expectedJobVersion=${normalizedExpectedJobVersion}`,
-              `persistedJobRunId=${persistedJobRunId || 'null'}`,
-              `persistedJobVersion=${persistedJobVersion || 0}`,
-            ].join(':'),
-          );
+          if (
+            !isSameActiveJobBehindExpected(
+              persistedJobRunId,
+              persistedJobVersion,
+              normalizedExpectedJobRunId,
+              normalizedExpectedJobVersion,
+            )
+            && !isActiveJobSameOrBehindNext(persistedJobRunId, persistedJobVersion, normalizedNextActiveJob)
+          ) {
+            throw new Error(
+              [
+                'player_active_job_cas_conflict',
+                `expectedJobRunId=${normalizedExpectedJobRunId}`,
+                `expectedJobVersion=${normalizedExpectedJobVersion}`,
+                `persistedJobRunId=${persistedJobRunId || 'null'}`,
+                `persistedJobVersion=${persistedJobVersion || 0}`,
+              ].join(':'),
+            );
+          }
         }
 
         await replacePlayerInventoryItems(client, normalizedPlayerId, normalizedNextInventoryItems, {
@@ -4327,6 +4359,81 @@ async function replacePlayerQuestProgressRows(
         )
     `,
     [playerId, JSON.stringify(normalizedRows.map(({ quest_id }) => ({ quest_id })))],
+  );
+}
+
+function isSameActiveJobBehindExpected(
+  persistedJobRunId: string,
+  persistedJobVersion: number,
+  expectedJobRunId: string,
+  expectedJobVersion: number | null,
+): boolean {
+  return Boolean(
+    persistedJobRunId
+    && expectedJobRunId
+    && persistedJobRunId === expectedJobRunId
+    && expectedJobVersion != null
+    && persistedJobVersion > 0
+    && persistedJobVersion < expectedJobVersion,
+  );
+}
+
+function isActiveJobCatchUpAllowed(
+  persistedJobRunId: string,
+  persistedJobVersion: number,
+  expectedJobRunId: string,
+  expectedJobVersion: number | null,
+  nextActiveJob: DurableActiveJobSnapshot | null,
+): boolean {
+  if (!isSameActiveJobBehindExpected(persistedJobRunId, persistedJobVersion, expectedJobRunId, expectedJobVersion)) {
+    return false;
+  }
+  if (!nextActiveJob) {
+    return true;
+  }
+  return nextActiveJob.jobRunId === expectedJobRunId
+    && expectedJobVersion != null
+    && nextActiveJob.jobVersion >= expectedJobVersion;
+}
+
+function isActiveJobBehindNext(
+  persistedJobRunId: string,
+  persistedJobVersion: number,
+  nextActiveJob: DurableActiveJobSnapshot | null,
+): boolean {
+  return Boolean(
+    nextActiveJob
+    && persistedJobRunId
+    && persistedJobRunId === nextActiveJob.jobRunId
+    && persistedJobVersion > 0
+    && persistedJobVersion < nextActiveJob.jobVersion,
+  );
+}
+
+function isActiveJobAlreadyAtOrAheadOfNext(
+  persistedJobRunId: string,
+  persistedJobVersion: number,
+  nextActiveJob: DurableActiveJobSnapshot | null,
+): boolean {
+  return Boolean(
+    nextActiveJob
+    && persistedJobRunId
+    && persistedJobRunId === nextActiveJob.jobRunId
+    && persistedJobVersion >= nextActiveJob.jobVersion,
+  );
+}
+
+function isActiveJobSameOrBehindNext(
+  persistedJobRunId: string,
+  persistedJobVersion: number,
+  nextActiveJob: DurableActiveJobSnapshot | null,
+): boolean {
+  return Boolean(
+    nextActiveJob
+    && persistedJobRunId
+    && persistedJobRunId === nextActiveJob.jobRunId
+    && persistedJobVersion > 0
+    && persistedJobVersion <= nextActiveJob.jobVersion,
   );
 }
 
