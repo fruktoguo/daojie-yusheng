@@ -265,10 +265,14 @@ export class CraftPanelRuntimeService {
     }
     /** 线上强化启动入口：运行态变更成功后必须同步提交强事务，失败则回滚本次运行态变更。 */
     async startEnhancementDurably(player, payload, deps = null) {
+        if (player?.enhancementDurableCommitInFlight === true || player?.suppressImmediateDomainPersistence === true) {
+            return buildCraftMutationResult('强化状态正在同步，请稍后重试。');
+        }
         const before = captureEnhancementAssetRuntimeState(player);
         const durableEnabled = this.shouldUseDurableEnhancementPersistence(player);
         const previousSuppress = player?.suppressImmediateDomainPersistence;
         if (durableEnabled) {
+            player.enhancementDurableCommitInFlight = true;
             player.suppressImmediateDomainPersistence = true;
         }
         try {
@@ -277,7 +281,7 @@ export class CraftPanelRuntimeService {
                 return result;
             }
             try {
-                await this.commitEnhancementActiveJobWithAssets(player, 'start', null, { allowSuppressed: true });
+                await this.commitEnhancementActiveJobWithAssets(player, 'start', null, { allowSuppressed: durableEnabled });
             }
             catch (error) {
                 restoreEnhancementAssetRuntimeState(player, before);
@@ -288,6 +292,7 @@ export class CraftPanelRuntimeService {
         finally {
             if (durableEnabled) {
                 player.suppressImmediateDomainPersistence = previousSuppress;
+                player.enhancementDurableCommitInFlight = false;
             }
         }
     }
@@ -305,11 +310,15 @@ export class CraftPanelRuntimeService {
     }
     /** 线上强化取消入口：释放锁定装备和清理 active_job 必须同批强事务提交。 */
     async cancelEnhancementDurably(player, deps = null) {
+        if (player?.enhancementDurableCommitInFlight === true || player?.suppressImmediateDomainPersistence === true) {
+            return buildCraftMutationResult('强化状态正在同步，请稍后重试。');
+        }
         const before = captureEnhancementAssetRuntimeState(player);
         const expectedJob = player?.enhancementJob ? { ...player.enhancementJob } : null;
         const durableEnabled = this.shouldUseDurableEnhancementPersistence(player);
         const previousSuppress = player?.suppressImmediateDomainPersistence;
         if (durableEnabled) {
+            player.enhancementDurableCommitInFlight = true;
             player.suppressImmediateDomainPersistence = true;
         }
         try {
@@ -318,7 +327,7 @@ export class CraftPanelRuntimeService {
                 return result;
             }
             try {
-                await this.commitEnhancementActiveJobWithAssets(player, 'cancelled', expectedJob, { allowSuppressed: true });
+                await this.commitEnhancementActiveJobWithAssets(player, 'cancelled', expectedJob, { allowSuppressed: durableEnabled });
             }
             catch (error) {
                 restoreEnhancementAssetRuntimeState(player, before);
@@ -329,6 +338,7 @@ export class CraftPanelRuntimeService {
         finally {
             if (durableEnabled) {
                 player.suppressImmediateDomainPersistence = previousSuppress;
+                player.enhancementDurableCommitInFlight = false;
             }
         }
     }
@@ -358,11 +368,15 @@ export class CraftPanelRuntimeService {
     }
     /** 线上强化 tick 入口：清理 job 或回写资产时同步提交强事务。 */
     async tickEnhancementDurably(player, deps = null) {
+        if (player?.enhancementDurableCommitInFlight === true || player?.suppressImmediateDomainPersistence === true) {
+            return buildCraftTickResult();
+        }
         const before = captureEnhancementAssetRuntimeState(player);
         const expectedJob = player?.enhancementJob ? { ...player.enhancementJob } : null;
         const durableEnabled = this.shouldUseDurableEnhancementPersistence(player);
         const previousSuppress = player?.suppressImmediateDomainPersistence;
         if (durableEnabled) {
+            player.enhancementDurableCommitInFlight = true;
             player.suppressImmediateDomainPersistence = true;
         }
         try {
@@ -378,7 +392,7 @@ export class CraftPanelRuntimeService {
             );
             if (expectedJob && hasAssetBoundary) {
                 try {
-                    await this.commitEnhancementActiveJobWithAssets(player, !player?.enhancementJob ? 'completed' : 'tick', expectedJob, { allowSuppressed: true });
+                    await this.commitEnhancementActiveJobWithAssets(player, !player?.enhancementJob ? 'completed' : 'tick', expectedJob, { allowSuppressed: durableEnabled });
                 }
                 catch (error) {
                     restoreEnhancementAssetRuntimeState(player, before);
@@ -386,7 +400,7 @@ export class CraftPanelRuntimeService {
                 }
             } else if (expectedJob && player?.enhancementJob) {
                 try {
-                    await this.commitEnhancementActiveJobState(player, expectedJob, { allowSuppressed: true });
+                    await this.commitEnhancementActiveJobState(player, expectedJob, { allowSuppressed: durableEnabled });
                 }
                 catch (error) {
                     restoreEnhancementAssetRuntimeState(player, before);
@@ -398,6 +412,7 @@ export class CraftPanelRuntimeService {
         finally {
             if (durableEnabled) {
                 player.suppressImmediateDomainPersistence = previousSuppress;
+                player.enhancementDurableCommitInFlight = false;
             }
         }
     }
