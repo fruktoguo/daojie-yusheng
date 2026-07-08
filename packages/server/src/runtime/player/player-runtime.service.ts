@@ -4705,7 +4705,7 @@ export class PlayerRuntimeService {
     listDirtyPlayerDomains() {
         const dirtyPlayers = new Map();
         for (const player of this.players.values()) {
-            if (isNativeGmBotPlayerId(player.playerId)) {
+            if (isNativeGmBotPlayerId(player.playerId) || isImmediateDomainPersistenceSuppressed(player)) {
                 continue;
             }
             const dirtyDomains = readPlayerDirtyDomains(player);
@@ -5962,6 +5962,9 @@ function isImmediateDomainPersistenceSuppressed(player) {
     return Boolean(player?.suppressImmediateDomainPersistence);
 }
 function isPlayerRuntimeDirty(player) {
+    if (isImmediateDomainPersistenceSuppressed(player)) {
+        return false;
+    }
     return (player?.dirtyDomains instanceof Set && player.dirtyDomains.size > 0)
         || player.persistentRevision > player.persistedRevision;
 }

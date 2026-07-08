@@ -22,6 +22,7 @@ import { BuildingStrategy } from '../craft/pipeline/strategies/building.strategy
 import { FormationStrategy } from '../craft/pipeline/strategies/formation.strategy';
 import { MiningStrategy } from '../craft/pipeline/strategies/mining.strategy';
 import { buildTechniqueActivityTaskListView } from '../craft/technique-activity-task-view.helpers';
+import { buildStructuredNotice } from './structured-notice.helpers';
 
 /** world-runtime craft tick orchestration：承接 craft job tick 推进编排。 */
 @Injectable()
@@ -105,14 +106,29 @@ export class WorldRuntimeCraftTickService {
             // 队列推进：如果当前没有活跃任务，尝试启动队列中的下一个
             if (!this.craftPanelRuntimeService.hasAnyActiveTechniqueActivity(player)) {
                 const ctx = this.craftPanelRuntimeService.buildPipelineContext(deps);
-                const queueResult = this.queueService.tickQueue(player, ctx);
-                if (queueResult?.ok) {
-                    const kind = this.resolveQueueResultKind(player);
-                    if (kind) {
-                        if (kind === 'enhancement') {
-                            await this.commitQueuedEnhancementStart(player);
+                const queueHead = typeof this.queueService.getQueue === 'function'
+                    ? this.queueService.getQueue(player)[0]
+                    : null;
+                const suppressQueuedEnhancement = queueHead?.kind === 'enhancement'
+                    && isDurableEnhancementPersistenceEnabled(deps);
+                const previousSuppress = player?.suppressImmediateDomainPersistence;
+                if (suppressQueuedEnhancement) {
+                    player.suppressImmediateDomainPersistence = true;
+                }
+                try {
+                    const queueResult = this.queueService.tickQueue(player, ctx);
+                    if (queueResult?.ok) {
+                        const kind = this.resolveQueueResultKind(player);
+                        if (kind) {
+                            if (kind === 'enhancement') {
+                                await this.commitQueuedEnhancementStart(player, { allowSuppressed: suppressQueuedEnhancement });
+                            }
+                            this.worldRuntimeCraftMutationService.flushCraftMutation(playerId, queueResult, kind, deps);
                         }
-                        this.worldRuntimeCraftMutationService.flushCraftMutation(playerId, queueResult, kind, deps);
+                    }
+                } finally {
+                    if (suppressQueuedEnhancement) {
+                        player.suppressImmediateDomainPersistence = previousSuppress;
                     }
                 }
             }
@@ -120,8 +136,8 @@ export class WorldRuntimeCraftTickService {
             // EventBus: 发射活跃 job 进度
             this.emitActiveJobProgress(playerId, player);
           } catch (error) {
-            const message = error instanceof Error ? error.message : String(error);
-            deps?.queuePlayerNotice?.(playerId, message, 'warn');
+            const notice = buildCraftTickErrorNotice(error);
+            deps?.queuePlayerNotice?.(playerId, notice.text, notice.kind, undefined, undefined, notice.structured);
           }
         }
     }
@@ -135,11 +151,11 @@ export class WorldRuntimeCraftTickService {
     }
 
     /** 队列自动启动强化时补交强事务，确保锁定装备和 active_job 同批落库。 */
-    private async commitQueuedEnhancementStart(player: any): Promise<void> {
+    private async commitQueuedEnhancementStart(player: any, options: any = {}): Promise<void> {
         if (!player?.enhancementJob || typeof this.craftPanelRuntimeService.commitEnhancementActiveJobWithAssets !== 'function') {
             return;
         }
-        await this.craftPanelRuntimeService.commitEnhancementActiveJobWithAssets(player, 'start');
+        await this.craftPanelRuntimeService.commitEnhancementActiveJobWithAssets(player, 'start', null, options);
     }
 
     /** 向 EventBus 发射当前玩家所有活跃 job 的进度快照。 */
@@ -204,3 +220,27 @@ export class WorldRuntimeCraftTickService {
         );
     }
 };
+
+function isDurableEnhancementPersistenceEnabled(deps: any): boolean {
+    const service = deps?.durableOperationService;
+    if (!service || typeof service.isEnabled !== 'function') {
+        return false;
+    }
+    try {
+        return service.isEnabled() === true;
+    } catch {
+        return false;
+    }
+}
+
+function buildCraftTickErrorNotice(error: unknown): { text: string; kind: string; structured?: unknown } {
+    const message = error instanceof Error ? error.message : String(error);
+    if (message.includes('player_active_job_cas_conflict')) {
+        return buildStructuredNotice(
+            'warn',
+            'notice.craft.enhancement.sync-conflict',
+            '强化状态正在同步，请稍后重试。',
+        );
+    }
+    return { text: message || '技艺任务处理失败', kind: 'warn' };
+}

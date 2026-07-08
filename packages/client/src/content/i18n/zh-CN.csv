@@ -2396,6 +2396,7 @@ notice.craft.enhancement.start,通知,开始强化 {itemName}，目标 +{targetL
 notice.craft.enhancement.start-chain,通知,开始强化 {itemName}，先冲击 +{targetLevel}，最终目标 +{desiredTargetLevel},
 notice.craft.enhancement.start-chain-protected,通知,开始强化 {itemName}，先冲击 +{targetLevel}，最终目标 +{desiredTargetLevel}，保护从 +{protectionStartLevel} 开始生效,
 notice.craft.enhancement.success,通知,{itemName} 强化成功，已提升至 +{level},
+notice.craft.enhancement.sync-conflict,通知,强化状态正在同步，请稍后重试。,
 notice.craft.enhancement.target-missing,通知,{itemName} 当前强化目标数据缺失，本阶已终止,
 notice.craft.enhancement.wallet-insufficient,通知,{itemName} 强化中断，结算时灵石不足，本阶未能继续,
 notice.craft.forging.batch-resources-missing,通知,当前批次材料或灵石不足，炼器任务已停止,

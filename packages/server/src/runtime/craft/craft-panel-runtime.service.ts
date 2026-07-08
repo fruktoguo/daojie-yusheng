@@ -268,32 +268,28 @@ export class CraftPanelRuntimeService {
         const before = captureEnhancementAssetRuntimeState(player);
         const durableEnabled = this.shouldUseDurableEnhancementPersistence(player);
         const previousSuppress = player?.suppressImmediateDomainPersistence;
-        let result;
+        if (durableEnabled) {
+            player.suppressImmediateDomainPersistence = true;
+        }
         try {
-            if (durableEnabled) {
-                player.suppressImmediateDomainPersistence = true;
+            const result = this.startTechniqueActivity(player, 'enhancement', payload, deps);
+            if (!result.ok || !player?.enhancementJob) {
+                return result;
             }
-            result = this.startTechniqueActivity(player, 'enhancement', payload, deps);
+            try {
+                await this.commitEnhancementActiveJobWithAssets(player, 'start', null, { allowSuppressed: true });
+            }
+            catch (error) {
+                restoreEnhancementAssetRuntimeState(player, before);
+                throw error;
+            }
+            return result;
         }
         finally {
             if (durableEnabled) {
                 player.suppressImmediateDomainPersistence = previousSuppress;
             }
         }
-        if (!result.ok) {
-            return result;
-        }
-        if (!player?.enhancementJob) {
-            return result;
-        }
-        try {
-            await this.commitEnhancementActiveJobWithAssets(player, 'start');
-        }
-        catch (error) {
-            restoreEnhancementAssetRuntimeState(player, before);
-            throw error;
-        }
-        return result;
     }
     /** 统一派发技艺活动的取消写路径。 */
     cancelTechniqueActivity(player, kind, deps = null) {
@@ -313,29 +309,28 @@ export class CraftPanelRuntimeService {
         const expectedJob = player?.enhancementJob ? { ...player.enhancementJob } : null;
         const durableEnabled = this.shouldUseDurableEnhancementPersistence(player);
         const previousSuppress = player?.suppressImmediateDomainPersistence;
-        let result;
+        if (durableEnabled) {
+            player.suppressImmediateDomainPersistence = true;
+        }
         try {
-            if (durableEnabled) {
-                player.suppressImmediateDomainPersistence = true;
+            const result = this.cancelTechniqueActivity(player, 'enhancement', deps);
+            if (!result?.ok || !expectedJob) {
+                return result;
             }
-            result = this.cancelTechniqueActivity(player, 'enhancement', deps);
+            try {
+                await this.commitEnhancementActiveJobWithAssets(player, 'cancelled', expectedJob, { allowSuppressed: true });
+            }
+            catch (error) {
+                restoreEnhancementAssetRuntimeState(player, before);
+                throw error;
+            }
+            return result;
         }
         finally {
             if (durableEnabled) {
                 player.suppressImmediateDomainPersistence = previousSuppress;
             }
         }
-        if (!result?.ok || !expectedJob) {
-            return result;
-        }
-        try {
-            await this.commitEnhancementActiveJobWithAssets(player, 'cancelled', expectedJob);
-        }
-        catch (error) {
-            restoreEnhancementAssetRuntimeState(player, before);
-            throw error;
-        }
-        return result;
     }
     /** 统一派发技艺活动的中断。 */
     interruptTechniqueActivity(player, kind, reason, deps = null) {
@@ -367,49 +362,48 @@ export class CraftPanelRuntimeService {
         const expectedJob = player?.enhancementJob ? { ...player.enhancementJob } : null;
         const durableEnabled = this.shouldUseDurableEnhancementPersistence(player);
         const previousSuppress = player?.suppressImmediateDomainPersistence;
-        let result;
+        if (durableEnabled) {
+            player.suppressImmediateDomainPersistence = true;
+        }
         try {
-            if (durableEnabled) {
-                player.suppressImmediateDomainPersistence = true;
+            const result = this.tickTechniqueActivity(player, 'enhancement', deps);
+            if (!result?.ok) {
+                return result;
             }
-            result = this.tickTechniqueActivity(player, 'enhancement', deps);
+            const hasAssetBoundary = Boolean(
+                result.inventoryChanged
+                || result.equipmentChanged
+                || !player?.enhancementJob
+                || player.enhancementJob?.jobRunId !== expectedJob?.jobRunId,
+            );
+            if (expectedJob && hasAssetBoundary) {
+                try {
+                    await this.commitEnhancementActiveJobWithAssets(player, !player?.enhancementJob ? 'completed' : 'tick', expectedJob, { allowSuppressed: true });
+                }
+                catch (error) {
+                    restoreEnhancementAssetRuntimeState(player, before);
+                    throw error;
+                }
+            } else if (expectedJob && player?.enhancementJob) {
+                try {
+                    await this.commitEnhancementActiveJobState(player, expectedJob, { allowSuppressed: true });
+                }
+                catch (error) {
+                    restoreEnhancementAssetRuntimeState(player, before);
+                    throw error;
+                }
+            }
+            return result;
         }
         finally {
             if (durableEnabled) {
                 player.suppressImmediateDomainPersistence = previousSuppress;
             }
         }
-        if (!result?.ok) {
-            return result;
-        }
-        const hasAssetBoundary = Boolean(
-            result.inventoryChanged
-            || result.equipmentChanged
-            || !player?.enhancementJob
-            || player.enhancementJob?.jobRunId !== expectedJob?.jobRunId,
-        );
-        if (expectedJob && hasAssetBoundary) {
-            try {
-                await this.commitEnhancementActiveJobWithAssets(player, !player?.enhancementJob ? 'completed' : 'tick', expectedJob);
-            }
-            catch (error) {
-                restoreEnhancementAssetRuntimeState(player, before);
-                throw error;
-            }
-        } else if (expectedJob && player?.enhancementJob) {
-            try {
-                await this.commitEnhancementActiveJobState(player, expectedJob);
-            }
-            catch (error) {
-                restoreEnhancementAssetRuntimeState(player, before);
-                throw error;
-            }
-        }
-        return result;
     }
     /** 强化普通进度 tick 只提交 active_job，避免完成时 CAS 版本落后。 */
-    async commitEnhancementActiveJobState(player, expectedJob) {
-        if (!this.shouldUseDurableEnhancementPersistence(player)) {
+    async commitEnhancementActiveJobState(player, expectedJob, options: { allowSuppressed?: boolean } = {}) {
+        if (!this.shouldUseDurableEnhancementPersistence(player, options)) {
             return;
         }
         const playerId = typeof player?.playerId === 'string' ? player.playerId.trim() : '';
@@ -434,8 +428,8 @@ export class CraftPanelRuntimeService {
         this.playerRuntimeService.markPersisted?.(playerId, new Set(['active_job']), player.persistentRevision);
     }
     /** 对强化 tick 后的资产变更做强事务提交；仅在强化任务 start/finish/stop/cancel 这类资产边界调用。 */
-    async commitEnhancementActiveJobWithAssets(player, action, expectedJob = null) {
-        if (!this.shouldUseDurableEnhancementPersistence(player)) {
+    async commitEnhancementActiveJobWithAssets(player, action, expectedJob = null, options: { allowSuppressed?: boolean } = {}) {
+        if (!this.shouldUseDurableEnhancementPersistence(player, options)) {
             return;
         }
         const playerId = typeof player?.playerId === 'string' ? player.playerId.trim() : '';
@@ -503,9 +497,9 @@ export class CraftPanelRuntimeService {
             player.persistentRevision,
         );
     }
-    shouldUseDurableEnhancementPersistence(player) {
+    shouldUseDurableEnhancementPersistence(player, options: { allowSuppressed?: boolean } = {}) {
         return Boolean(
-            player?.suppressImmediateDomainPersistence !== true
+            (options?.allowSuppressed === true || player?.suppressImmediateDomainPersistence !== true)
             && this.durableOperationService
             && typeof this.durableOperationService.isEnabled === 'function'
             && this.durableOperationService.isEnabled(),
