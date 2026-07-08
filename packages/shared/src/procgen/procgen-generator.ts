@@ -1,0 +1,208 @@
+/**
+ * 本文件定义前后端共享类型或纯规则函数，用于统一协议、配置和玩法计算口径。
+ *
+ * 维护时应保持无副作用、可在浏览器与 Node 环境同时使用，不引入单端专属依赖。
+ */
+/**
+ * 秘境随机地形生成器：主管线编排。
+ *
+ * 管线：噪声场 → 地形规则映射 → CA 平滑 → 封闭边界 → 结构放置 →
+ *       连通性保证 → 出生点/传送阵选址 → 道路网络 → format:2 编码与统计校验。
+ * 同一 seed + preset + 地块目录恒等输出；生成发生在实例创建期，不进 tick 热路径。
+ */
+import { ProcgenRng } from './procgen-random';
+import { buildProcgenTileCatalog, validateProcgenTileCatalog, findUnregisteredTileChars, requireProcgenTile, type ProcgenTileCatalog } from './procgen-catalog';
+import { generateField, assignTerrain, smoothTerrain, applyBorder } from './procgen-fields';
+import { placeStructures, clearStructuresAround } from './procgen-structures';
+import { buildWalkableMask, findRegions, ensureConnectivity } from './procgen-connect';
+import { bfsDistances, pickSpawn, pickExits, pickPois, buildRoadNetwork } from './procgen-routes';
+import type { ProcgenGenerateOptions, ProcgenMapResult, ProcgenBiomePreset, ProcgenPortalPlacement } from './procgen-types';
+import { LAYER_EMPTY_CHAR } from '../constants/gameplay/map-layer-chars';
+
+/** 校验预设引用的地块在目录中全部存在；配置错误必须在生成前暴露。 */
+export function validateProcgenPreset(preset: ProcgenBiomePreset, catalog: ProcgenTileCatalog): string[] {
+  const errors: string[] = [];
+  const checkTile = (layer: 'terrain' | 'surface' | 'structure', id: string, where: string): void => {
+    if (!catalog.byLayerAndId.has(`${layer}:${id}`)) errors.push(`procgen_preset_tile_missing:${where}:${layer}:${id}`);
+  };
+  checkTile('terrain', preset.baseTerrain, 'baseTerrain');
+  checkTile('terrain', preset.border.tile, 'border');
+  if (preset.connectivity.carveTile) checkTile('terrain', preset.connectivity.carveTile, 'carveTile');
+  for (const rule of preset.terrainRules) checkTile('terrain', rule.tile, 'terrainRules');
+  for (const rule of preset.structures) {
+    checkTile('structure', rule.tile, 'structures');
+    for (const on of rule.on) checkTile('terrain', on, `structures:${rule.tile}:on`);
+    for (const near of rule.nearTiles?.tiles ?? []) checkTile('terrain', near, `structures:${rule.tile}:near`);
+    if (rule.density === undefined && rule.clusters === undefined) errors.push(`procgen_structure_rule_empty:${rule.tile}`);
+  }
+  if (preset.paths) checkTile('surface', preset.paths.tile, 'paths');
+  const baseDef = catalog.byLayerAndId.get(`terrain:${preset.baseTerrain}`);
+  if (baseDef && !baseDef.walkable) errors.push(`procgen_base_terrain_not_walkable:${preset.baseTerrain}`);
+  // border.tile 同时用作封闭边界与孤块回填填充；回填分支假设它不可走，
+  // 若可走会让 mask 与 terrain 失同步、复活孤立可走区，破坏单连通块保证。
+  const borderDef = catalog.byLayerAndId.get(`terrain:${preset.border.tile}`);
+  if (borderDef && borderDef.walkable) errors.push(`procgen_border_terrain_walkable:${preset.border.tile}`);
+  // carveTile 用于凿通走廊，必须可走，否则凿出的走廊仍不可通行。
+  const carveDef = preset.connectivity.carveTile
+    ? catalog.byLayerAndId.get(`terrain:${preset.connectivity.carveTile}`)
+    : baseDef;
+  if (carveDef && !carveDef.walkable) errors.push(`procgen_carve_terrain_not_walkable:${preset.connectivity.carveTile ?? preset.baseTerrain}`);
+  if (preset.exitPortalCount < 1) errors.push('procgen_exit_portal_count_invalid');
+  return errors;
+}
+
+function encodeRows(
+  width: number,
+  height: number,
+  ids: readonly (string | null)[],
+  layer: 'terrain' | 'surface' | 'structure',
+  catalog: ProcgenTileCatalog,
+): string[] {
+  const rows: string[] = [];
+  for (let y = 0; y < height; y += 1) {
+    let row = '';
+    for (let x = 0; x < width; x += 1) {
+      const id = ids[y * width + x];
+      row += id === null ? LAYER_EMPTY_CHAR : requireProcgenTile(catalog, layer, id).char;
+    }
+    rows.push(row);
+  }
+  return rows;
+}
+
+/** 生成一张秘境地图。配置或目录非法时抛错；软性越界（可走占比等）进 warnings。 */
+export function generateProcgenMap(options: ProcgenGenerateOptions): ProcgenMapResult {
+  const catalog = buildProcgenTileCatalog(options.tiles);
+  const catalogErrors = validateProcgenTileCatalog(catalog);
+  const presetErrors = validateProcgenPreset(options.preset, catalog);
+  if (catalogErrors.length > 0 || presetErrors.length > 0) {
+    throw new Error(`procgen_config_invalid:${[...catalogErrors, ...presetErrors].join(',')}`);
+  }
+  // 未在 shared 字符表注册的自定义字符导出后会被运行时解码静默回退（terrain→可走 floor、
+  // structure→无），封闭边界与可走性口径失效。默认拒绝，仅显式声明"仅预览"时降级为 warning。
+  const unregisteredChars = findUnregisteredTileChars(catalog);
+  if (unregisteredChars.length > 0 && !options.allowUnregisteredChars) {
+    throw new Error(`procgen_unregistered_tile_chars:${unregisteredChars.join(',')}`);
+  }
+  const preset = options.preset;
+  const seed = options.seed;
+  const warnings: string[] = [];
+  if (unregisteredChars.length > 0) {
+    warnings.push(`procgen_unregistered_tile_chars:${unregisteredChars.join(',')}`);
+  }
+  const rng = new ProcgenRng(`${seed}:${preset.id}`);
+  const width = options.widthOverride ?? rng.intInRange(preset.size.width);
+  const height = options.heightOverride ?? rng.intInRange(preset.size.height);
+  if (!Number.isInteger(width) || !Number.isInteger(height) || width < 16 || height < 16 || width * height > 65536) {
+    throw new Error(`procgen_size_invalid:${width}x${height}`);
+  }
+
+  // 1) 噪声场 → 地形 → 平滑 → 边界
+  const elevation = generateField(width, height, preset.fields.elevation, `${seed}:${preset.id}:elevation`);
+  const moisture = generateField(width, height, preset.fields.moisture, `${seed}:${preset.id}:moisture`);
+  let terrainIds = assignTerrain(width, height, elevation, moisture, preset.terrainRules, preset.baseTerrain);
+  terrainIds = smoothTerrain(width, height, terrainIds, preset.smoothing.iterations);
+  applyBorder(width, height, terrainIds, preset.border.tile, preset.border.thickness, rng.fork('border'));
+
+  // 2) 结构放置
+  const structureIds = placeStructures(width, height, terrainIds, preset.structures, rng.fork('structures'));
+
+  // 3) 连通性保证
+  const mask = buildWalkableMask(width, height, terrainIds, structureIds, catalog);
+  // ensureConnectivity 保证收敛到单连通块，否则抛 procgen_connectivity_failed。
+  const connectivity = ensureConnectivity(
+    width, height, terrainIds, structureIds, mask,
+    preset.connectivity, preset.baseTerrain, preset.border.tile, rng.fork('connect'),
+  );
+
+  // 4) 出生点与净空
+  const regions = findRegions(width, height, mask);
+  const spawnIndex = pickSpawn(width, height, mask, regions.labels, regions.sizes);
+  if (spawnIndex < 0) {
+    throw new Error('procgen_no_walkable_cell');
+  }
+  const spawnX = spawnIndex % width;
+  const spawnY = (spawnIndex - spawnX) / width;
+  clearStructuresAround(width, height, structureIds, preset.structures, spawnX, spawnY);
+  const finalMask = buildWalkableMask(width, height, terrainIds, structureIds, catalog);
+
+  // 5) 可达性收尾：清净空可能把被不可走地形包围的格暴露成新孤岛；
+  //    以"从出生点可达"为最终真源，把不可达的可走格回填为不可走，保证全图从出生点可达。
+  const distances = bfsDistances(width, height, finalMask, spawnIndex);
+  for (let index = 0; index < finalMask.length; index += 1) {
+    if (finalMask[index] === 1 && distances[index] < 0) {
+      terrainIds[index] = preset.border.tile;
+      structureIds[index] = null;
+      finalMask[index] = 0;
+    }
+  }
+
+  // 6) 传送阵选址：入口在出生点，出口按 BFS 距离从远到近、彼此隔开
+  const minSeparation = Math.floor((width + height) / 8) + 4;
+  const exitIndexes = pickExits(width, distances, preset.exitPortalCount, minSeparation);
+  if (exitIndexes.length < preset.exitPortalCount) {
+    warnings.push(`procgen_exit_shortfall:${exitIndexes.length}/${preset.exitPortalCount}`);
+  }
+  for (const exitIndex of exitIndexes) structureIds[exitIndex] = null;
+  const portals: ProcgenPortalPlacement[] = [
+    { x: spawnX, y: spawnY, role: 'entry' },
+    ...exitIndexes.map((index) => ({ x: index % width, y: Math.floor(index / width), role: 'exit' as const })),
+  ];
+
+  // 7) 道路网络
+  const surfaceIds = new Array<string | null>(width * height).fill(null);
+  if (preset.paths) {
+    const pois = pickPois(width, distances, rng.fork('poi').intInRange(preset.paths.extraPoiCount), exitIndexes, rng.fork('poi-pick'));
+    const network = buildRoadNetwork(width, height, finalMask, spawnIndex, [...exitIndexes, ...pois], preset.paths.wobble, `${seed}:${preset.id}`);
+    for (const index of network) {
+      if (finalMask[index] === 1) surfaceIds[index] = preset.paths.tile;
+    }
+  }
+
+  // 8) 统计与软校验
+  let walkableCount = 0;
+  for (let index = 0; index < finalMask.length; index += 1) walkableCount += finalMask[index];
+  const walkableRatio = walkableCount / (width * height);
+  if (walkableRatio < preset.walkableRatioRange[0] || walkableRatio > preset.walkableRatioRange[1]) {
+    warnings.push(`procgen_walkable_ratio_out_of_range:${walkableRatio.toFixed(3)}`);
+  }
+  const tileCounts: Record<string, number> = {};
+  for (let index = 0; index < terrainIds.length; index += 1) {
+    const terrainKey = `terrain:${terrainIds[index]}`;
+    tileCounts[terrainKey] = (tileCounts[terrainKey] ?? 0) + 1;
+    const structureId = structureIds[index];
+    if (structureId !== null) {
+      const structureKey = `structure:${structureId}`;
+      tileCounts[structureKey] = (tileCounts[structureKey] ?? 0) + 1;
+    }
+    const surfaceId = surfaceIds[index];
+    if (surfaceId !== null) {
+      const surfaceKey = `surface:${surfaceId}`;
+      tileCounts[surfaceKey] = (tileCounts[surfaceKey] ?? 0) + 1;
+    }
+  }
+  const finalRegions = findRegions(width, height, finalMask);
+
+  return {
+    seed,
+    presetId: preset.id,
+    width,
+    height,
+    terrainRows: encodeRows(width, height, terrainIds, 'terrain', catalog),
+    surfaceRows: encodeRows(width, height, surfaceIds, 'surface', catalog),
+    structureRows: encodeRows(width, height, structureIds, 'structure', catalog),
+    terrainIds,
+    surfaceIds,
+    structureIds,
+    spawnPoint: { x: spawnX, y: spawnY },
+    portals,
+    stats: {
+      walkableRatio,
+      regionCount: finalRegions.sizes.length,
+      carvedCells: connectivity.carvedCells,
+      filledCells: connectivity.filledCells,
+      tileCounts,
+    },
+    warnings,
+  };
+}

@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>秘境随机地形生成器 Demo</title>
+<style>
+  :root {
+    --bg: #16181d; --panel: #1e2128; --panel-2: #262a33; --border: #333845;
+    --text: #d8dce4; --muted: #8b92a0; --accent: #6fa8dc;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font: 13px/1.6 "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    display: flex; height: 100vh; overflow: hidden;
+  }
+  aside {
+    width: 300px; min-width: 300px; background: var(--panel);
+    border-right: 1px solid var(--border); padding: 14px; overflow-y: auto;
+  }
+  main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  h1 { font-size: 15px; margin-bottom: 10px; color: var(--accent); }
+  h2 { font-size: 12px; margin: 14px 0 6px; color: var(--muted); text-transform: none; }
+  label { display: block; font-size: 12px; color: var(--muted); margin: 8px 0 2px; }
+  select, input[type=text], input[type=number], textarea, button {
+    width: 100%; background: var(--panel-2); color: var(--text);
+    border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; font-size: 13px;
+  }
+  textarea { font: 11px/1.5 ui-monospace, Consolas, monospace; resize: vertical; }
+  button { cursor: pointer; margin-top: 8px; }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: #2b4a68; border-color: #3d6a94; font-weight: 600; }
+  .row { display: flex; gap: 8px; }
+  .row > * { flex: 1; }
+  #canvas-wrap { flex: 1; overflow: auto; padding: 16px; }
+  #map-canvas { image-rendering: pixelated; border: 1px solid var(--border); border-radius: 4px; }
+  #thumbs {
+    display: flex; gap: 8px; padding: 10px 16px; overflow-x: auto;
+    border-top: 1px solid var(--border); background: var(--panel);
+  }
+  #thumbs canvas { border: 1px solid var(--border); border-radius: 4px; cursor: pointer; flex-shrink: 0; }
+  #thumbs canvas:hover { border-color: var(--accent); }
+  #stats { font-size: 12px; color: var(--muted); white-space: pre-line; }
+  #warnings { font-size: 12px; color: #e0a04f; white-space: pre-line; }
+  #legend { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 12px; }
+  #legend .item { display: flex; align-items: center; gap: 4px; }
+  #legend .swatch { width: 11px; height: 11px; border-radius: 3px; border: 1px solid rgba(255,255,255,.25); }
+  #tooltip {
+    position: fixed; pointer-events: none; background: rgba(20,22,28,.95);
+    border: 1px solid var(--border); border-radius: 6px; padding: 6px 9px;
+    font-size: 12px; display: none; z-index: 10; white-space: pre-line;
+  }
+  #config-drawer { border-top: 1px solid var(--border); background: var(--panel); padding: 10px 16px; }
+  #config-drawer.collapsed .drawer-body { display: none; }
+  #config-drawer .drawer-head { cursor: pointer; color: var(--accent); font-size: 12px; user-select: none; }
+  .drawer-body { display: flex; gap: 12px; margin-top: 8px; }
+  .drawer-body > div { flex: 1; }
+  .error { color: #e06c6c; font-size: 12px; white-space: pre-wrap; }
+  .hint { font-size: 11px; color: var(--muted); margin-top: 4px; }
+</style>
+</head>
+<body>
+  <aside>
+    <h1>秘境随机地形生成器</h1>
+    <label>地貌预设</label>
+    <select id="preset-select"></select>
+    <label>种子 seed</label>
+    <div class="row">
+      <input id="seed-input" type="text" value="道劫余生">
+      <button id="seed-random" style="flex:0 0 64px;margin-top:0">随机</button>
+    </div>
+    <div class="row">
+      <div><label>宽（留空按预设）</label><input id="width-input" type="number" min="16" max="256" placeholder="自动"></div>
+      <div><label>高（留空按预设）</label><input id="height-input" type="number" min="16" max="256" placeholder="自动"></div>
+    </div>
+    <label>格子像素 <span id="cell-size-label">10</span></label>
+    <input id="cell-size" type="range" min="3" max="22" value="10">
+    <button id="generate-btn" class="primary">生成地图</button>
+    <button id="export-btn">导出地图 JSON（format:2 草稿）</button>
+    <h2>统计</h2>
+    <div id="stats">尚未生成</div>
+    <div id="warnings"></div>
+    <h2>图例（本图用到的地块）</h2>
+    <div id="legend"></div>
+  </aside>
+  <main>
+    <div id="canvas-wrap"><canvas id="map-canvas"></canvas></div>
+    <div id="thumbs" title="同预设不同种子的缩略图，点击换用该种子"></div>
+    <div id="config-drawer" class="collapsed">
+      <div class="drawer-head" id="drawer-toggle">▸ 配置编辑（地块档案 / 地貌预设 JSON，改完点"应用配置"）</div>
+      <div class="drawer-body">
+        <div>
+          <label>自定义地块档案（追加/覆盖默认地块目录）</label>
+          <textarea id="tiles-json" rows="12" spellcheck="false"></textarea>
+          <div class="hint">同 layer+id 覆盖默认档案，未知 id 追加。全新地块的 char 必须已在 shared 注册，否则生成报错并拒绝导出（导入后会被静默回退）。</div>
+          <button id="tiles-example">插入示例地块（覆盖档案）</button>
+        </div>
+        <div>
+          <label>当前地貌预设（可整体编辑）</label>
+          <textarea id="preset-json" rows="12" spellcheck="false"></textarea>
+          <button id="apply-config" class="primary">应用配置并生成</button>
+        </div>
+      </div>
+      <div class="error" id="config-error"></div>
+    </div>
+  </main>
+  <div id="tooltip"></div>
+  <script>//__BUNDLE__</script>
+</body>
+</html>
