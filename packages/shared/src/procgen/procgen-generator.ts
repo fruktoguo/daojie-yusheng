@@ -14,9 +14,10 @@ import { ProcgenRng } from './procgen-random';
 import { buildProcgenTileCatalog, validateProcgenTileCatalog, findUnregisteredTileChars, requireProcgenTile, type ProcgenTileCatalog } from './procgen-catalog';
 import { generateField, assignTerrain, smoothTerrain, applyBorder } from './procgen-fields';
 import { placeStructures, clearStructuresAround } from './procgen-structures';
+import { placeBuildings } from './procgen-buildings';
 import { buildWalkableMask, findRegions, ensureConnectivity } from './procgen-connect';
 import { bfsDistances, pickSpawn, pickExits, pickPois, buildRoadNetwork } from './procgen-routes';
-import type { ProcgenGenerateOptions, ProcgenMapResult, ProcgenBiomePreset, ProcgenPortalPlacement } from './procgen-types';
+import type { ProcgenGenerateOptions, ProcgenMapResult, ProcgenBiomePreset, ProcgenPortalPlacement, ProcgenContentAnchor } from './procgen-types';
 import { LAYER_EMPTY_CHAR } from '../constants/gameplay/map-layer-chars';
 
 /** 校验预设引用的地块在目录中全部存在；配置错误必须在生成前暴露。 */
@@ -36,6 +37,16 @@ export function validateProcgenPreset(preset: ProcgenBiomePreset, catalog: Procg
     if (rule.density === undefined && rule.clusters === undefined) errors.push(`procgen_structure_rule_empty:${rule.tile}`);
   }
   if (preset.paths) checkTile('surface', preset.paths.tile, 'paths');
+  if (preset.buildings) {
+    const b = preset.buildings;
+    checkTile('structure', b.wallTile ?? 'wall', 'buildings:wall');
+    checkTile('structure', b.doorTile ?? 'door', 'buildings:door');
+    if (b.windowTile) checkTile('structure', b.windowTile, 'buildings:window');
+    if (b.ruinDebrisTile) checkTile('structure', b.ruinDebrisTile, 'buildings:debris');
+    if (b.floorTile) checkTile('surface', b.floorTile, 'buildings:floor');
+    if (b.on.length === 0) errors.push('procgen_buildings_on_empty');
+    for (const on of b.on) checkTile('terrain', on, 'buildings:on');
+  }
   const baseDef = catalog.byLayerAndId.get(`terrain:${preset.baseTerrain}`);
   if (baseDef && !baseDef.walkable) errors.push(`procgen_base_terrain_not_walkable:${preset.baseTerrain}`);
   // border.tile 同时用作封闭边界与孤块回填填充；回填分支假设它不可走，
@@ -104,8 +115,14 @@ export function generateProcgenMap(options: ProcgenGenerateOptions): ProcgenMapR
   terrainIds = smoothTerrain(width, height, terrainIds, preset.smoothing.iterations);
   applyBorder(width, height, terrainIds, preset.border.tile, preset.border.thickness, rng.fork('border'));
 
-  // 2) 结构放置
-  const structureIds = placeStructures(width, height, terrainIds, preset.structures, rng.fork('structures'));
+  // 2) 房屋 + 结构放置：先占地画房（写墙门窗与室内地板），再让散布结构绕开房屋占地
+  const structureIds = new Array<string | null>(width * height).fill(null);
+  const surfaceIds = new Array<string | null>(width * height).fill(null);
+  const buildingResult = preset.buildings
+    ? placeBuildings(width, height, terrainIds, structureIds, surfaceIds, preset.buildings, rng.fork('buildings'))
+    : null;
+  const contentAnchors = buildingResult?.contentAnchors ?? [];
+  placeStructures(width, height, terrainIds, preset.structures, rng.fork('structures'), structureIds, buildingResult?.reserved);
 
   // 3) 连通性保证
   const mask = buildWalkableMask(width, height, terrainIds, structureIds, catalog);
@@ -150,7 +167,6 @@ export function generateProcgenMap(options: ProcgenGenerateOptions): ProcgenMapR
   ];
 
   // 7) 道路网络
-  const surfaceIds = new Array<string | null>(width * height).fill(null);
   if (preset.paths) {
     const pois = pickPois(width, distances, rng.fork('poi').intInRange(preset.paths.extraPoiCount), exitIndexes, rng.fork('poi-pick'));
     const network = buildRoadNetwork(width, height, finalMask, spawnIndex, [...exitIndexes, ...pois], preset.paths.wobble, `${seed}:${preset.id}`);
@@ -182,6 +198,8 @@ export function generateProcgenMap(options: ProcgenGenerateOptions): ProcgenMapR
     }
   }
   const finalRegions = findRegions(width, height, finalMask);
+  // 内容锚点只保留最终可达格（房子内部若被连通性回填则锚点失效）。
+  const reachableAnchors: ProcgenContentAnchor[] = contentAnchors.filter((anchor) => finalMask[anchor.y * width + anchor.x] === 1);
 
   return {
     seed,
@@ -196,6 +214,7 @@ export function generateProcgenMap(options: ProcgenGenerateOptions): ProcgenMapR
     structureIds,
     spawnPoint: { x: spawnX, y: spawnY },
     portals,
+    contentAnchors: reachableAnchors,
     stats: {
       walkableRatio,
       regionCount: finalRegions.sizes.length,

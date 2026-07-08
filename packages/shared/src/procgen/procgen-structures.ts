@@ -14,6 +14,8 @@ interface PlacementContext {
   height: number;
   terrainIds: readonly string[];
   structureIds: (string | null)[];
+  /** 保留占地掩码（如房屋包围盒，1=禁止散布），可选。 */
+  reserved?: Uint8Array;
 }
 
 /** 检查 (x,y) 半径 radius 内是否存在指定 terrain 地块之一。 */
@@ -37,6 +39,7 @@ function hasNearbyTerrain(
 
 function isCandidateCell(context: PlacementContext, rule: ProcgenStructureRule, allowedTerrain: ReadonlySet<string>, nearSet: ReadonlySet<string> | null, x: number, y: number): boolean {
   const index = y * context.width + x;
+  if (context.reserved && context.reserved[index] === 1) return false;
   if (context.structureIds[index] !== null) return false;
   if (!allowedTerrain.has(context.terrainIds[index])) return false;
   if (nearSet && rule.nearTiles && !hasNearbyTerrain(context, x, y, nearSet, rule.nearTiles.radius)) return false;
@@ -122,19 +125,25 @@ function placeClusters(context: PlacementContext, rule: ProcgenStructureRule, al
   }
 }
 
-/** 按规则顺序放置全部结构，返回结构层 id 数组（null=无结构）。 */
+/**
+ * 按规则顺序在 structureIds 上原地散布结构（null=无结构）。
+ * structureIds 可预先含房屋墙门等（会被跳过不覆盖）；reserved 标记禁止散布的占地。
+ */
 export function placeStructures(
   width: number,
   height: number,
   terrainIds: readonly string[],
   rules: readonly ProcgenStructureRule[],
   rng: ProcgenRng,
+  structureIds: (string | null)[] = new Array<string | null>(width * height).fill(null),
+  reserved?: Uint8Array,
 ): (string | null)[] {
   const context: PlacementContext = {
     width,
     height,
     terrainIds,
-    structureIds: new Array<string | null>(width * height).fill(null),
+    structureIds,
+    reserved,
   };
   for (const rule of rules) {
     const allowedTerrain = new Set(rule.on);

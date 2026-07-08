@@ -107,6 +107,59 @@ export interface ProcgenConnectivitySpec {
   fillThreshold?: number;
 }
 
+/**
+ * 房屋风格：
+ * - courtyard 完整院落：闭合外墙 + 门窗 + 可多间，会被 room-detection 识别为房间。
+ * - ruins 荒废遗迹：残缺墙段、可撒断剑堆/碎石，保留至少一个可进的门。
+ * - village 成片村落：一片区域内多栋小房沿空地排布。
+ */
+export type ProcgenBuildingStyle = 'courtyard' | 'ruins' | 'village';
+
+/** 房屋内部内容锚点生成参数（生成器只给位置，具体掉落/怪物 id 由策划在编辑器填）。 */
+export interface ProcgenBuildingContentSpec {
+  /** 每栋房子内部放宝箱锚点的概率 0-1。 */
+  chestChance?: number;
+  /** 每栋房子内部放怪物据点锚点的概率 0-1。 */
+  monsterChance?: number;
+}
+
+/** 房屋生成规则：每个地貌预设自选风格与参数。 */
+export interface ProcgenBuildingSpec {
+  style: ProcgenBuildingStyle;
+  /** 房屋（village 为聚落）数量区间。 */
+  count: readonly [number, number];
+  /** 单栋外墙包围盒尺寸区间（含墙，格）。 */
+  size: { width: readonly [number, number]; height: readonly [number, number] };
+  /** 只在这些 terrain 地块上建房。 */
+  on: readonly string[];
+  /** 墙 structure 地块 id（默认 wall）。 */
+  wallTile?: string;
+  /** 门 structure 地块 id（默认 door）。 */
+  doorTile?: string;
+  /** 窗 structure 地块 id 与开窗概率（0-1，逐段判定）。 */
+  windowTile?: string;
+  windowChance?: number;
+  /** 室内地板 surface 地块 id（可选，铺在房屋内部空地）。 */
+  floorTile?: string;
+  /** ruins：墙段残缺率 0-1（越大越破，但始终保留至少一个门）。 */
+  ruinBreakage?: number;
+  /** ruins：房内可撒的碎物 structure 地块 id（如 broken_sword_heap/stone）。 */
+  ruinDebrisTile?: string;
+  /** village：单个聚落含房屋数区间。 */
+  villageHouses?: readonly [number, number];
+  /** 离出生点/传送阵/其他房屋的净空（格）。 */
+  keepClear?: number;
+  /** 内部内容锚点。 */
+  content?: ProcgenBuildingContentSpec;
+}
+
+/** 房屋内部内容锚点：宝箱或怪物据点位置。 */
+export interface ProcgenContentAnchor {
+  x: number;
+  y: number;
+  kind: 'chest' | 'monster';
+}
+
 /** 秘境地貌预设：一份配置完整描述一种秘境的地貌生成方式。 */
 export interface ProcgenBiomePreset {
   id: string;
@@ -124,6 +177,8 @@ export interface ProcgenBiomePreset {
   /** 元胞自动机平滑迭代次数（去噪点、让地貌成片）。 */
   smoothing: { iterations: number };
   structures: readonly ProcgenStructureRule[];
+  /** 房屋生成（可选）：在结构散布前占地画房，产出 structure 字符与内容锚点。 */
+  buildings?: ProcgenBuildingSpec;
   paths?: ProcgenPathSpec;
   connectivity: ProcgenConnectivitySpec;
   /** 出口传送阵数量（入口固定 1 个，位于出生点）。 */
@@ -164,6 +219,8 @@ export interface ProcgenMapResult {
   structureIds: (string | null)[];
   spawnPoint: { x: number; y: number };
   portals: ProcgenPortalPlacement[];
+  /** 房屋内部内容锚点（宝箱/怪物据点），导出时供策划填具体内容。 */
+  contentAnchors: ProcgenContentAnchor[];
   stats: ProcgenMapStats;
   warnings: string[];
 }

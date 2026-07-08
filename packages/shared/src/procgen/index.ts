@@ -11,6 +11,7 @@ export * from './procgen-random';
 export * from './procgen-catalog';
 export * from './procgen-fields';
 export * from './procgen-structures';
+export * from './procgen-buildings';
 export * from './procgen-connect';
 export * from './procgen-routes';
 export * from './procgen-generator';
