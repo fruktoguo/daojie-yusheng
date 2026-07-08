@@ -313,6 +313,40 @@ function testInvalidEnhancementRecoveryStopsMissingLockedItemJob() {
     assert.ok(player.persistentRevision > player.persistedRevision);
 }
 
+function testOrphanEnhancementLockedItemReturnsToInventory() {
+    const service = createPlayerRuntimeService();
+    const snapshot = createSnapshot(null);
+    snapshot.progression.enhancementJob = null;
+    snapshot.inventory.items = [
+        { itemId: 'spirit_stone', count: 50 },
+    ];
+    snapshot.inventory.lockedItems = [
+        {
+            itemId: 'iron_sword',
+            itemInstanceId: 'orphan-locked-sword-recovery',
+            count: 1,
+            name: '铁剑',
+            type: 'equipment',
+            equipSlot: 'weapon',
+            enhanceLevel: 6,
+            lockedBy: 'enhancement:job-run:enhancement:orphan-locked-recovery',
+            lockedAt: 80,
+        },
+    ];
+
+    const player = service.hydrateFromSnapshot('player:enhancement-orphan-locked-recovery', 'session:enhancement-orphan-locked-recovery', snapshot);
+    assert.equal(player.enhancementJob, null);
+    assert.equal(player.inventory.lockedItems.length, 0);
+    const restored = player.inventory.items.find((entry) => entry.itemInstanceId === 'orphan-locked-sword-recovery');
+    assert.ok(restored);
+    assert.equal(restored.itemId, 'iron_sword');
+    assert.equal(restored.enhanceLevel, 6);
+    assert.equal(restored.lockedBy, undefined);
+    assert.equal(restored.lockedAt, undefined);
+    assert.ok(player.dirtyDomains?.has('inventory'));
+    assert.ok(player.persistentRevision > player.persistedRevision);
+}
+
 function testInvalidGatherJobFallsBackToNull() {
     const service = createPlayerRuntimeService();
     const player = service.hydrateFromSnapshot('player:2', 'session:2', createSnapshot({
@@ -680,6 +714,7 @@ function testPendingStatisticRecordsEmitOnceUntilReconnect() {
     testBuildingJobRoundtrip();
     testLegacyCraftQueuedJobsMigrateToUnifiedQueue();
     testInvalidEnhancementRecoveryStopsMissingLockedItemJob();
+    testOrphanEnhancementLockedItemReturnsToInventory();
     testInvalidGatherJobFallsBackToNull();
 testFreshSnapshotKeepsGatherJobEmpty();
 testMissingRespawnFallsBackToStarterMap();

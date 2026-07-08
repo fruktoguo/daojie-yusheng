@@ -337,7 +337,7 @@ async function testCancelReturnsLockedTarget(): Promise<void> {
   assert.equal(player.inventory.items.some((item) => item.itemId === 'iron_sword' && item.enhanceLevel === 1), true);
   assert.equal(player.enhancementRecords[0]?.status, 'cancelled');
   await settleAsync();
-  assert.equal(persistedActiveJobs.at(-1)?.phase ?? null, null);
+  assert.equal(persistedActiveJobs.at(-1)?.phase, 'enhancing');
   assert.equal(persistedEnhancementRecords.length > 0, true);
 }
 
@@ -442,6 +442,9 @@ function createCraftHarness(
     },
     async savePlayerActiveJob(_playerId: string, activeJob: PersistedActiveJob | null): Promise<void> {
       persistedActiveJobs.push(activeJob ?? {});
+    },
+    async savePlayerTechniqueActivityQueue(): Promise<void> {
+      return undefined;
     },
     async savePlayerEnhancementRecords(): Promise<void> {
       persistedEnhancementRecords.push(true);

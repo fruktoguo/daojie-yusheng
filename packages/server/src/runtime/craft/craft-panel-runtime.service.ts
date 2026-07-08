@@ -2330,7 +2330,12 @@ export class CraftPanelRuntimeService {
         if (options.inventoryChanged || options.equipmentChanged || options.attrChanged || options.persistentOnly || dirtyDomains.length > 0) {
             this.playerRuntimeService.bumpPersistentRevision(player);
         }
-        if (dirtyDomains.includes('active_job') && !player?.suppressImmediateDomainPersistence) {
+        const hasAssetDirtyDomain = dirtyDomains.includes('inventory')
+            || dirtyDomains.includes('equipment')
+            || dirtyDomains.includes('attr');
+        const activeJobSnapshot = buildActiveJobSnapshotFromPlayer(player);
+        const shouldDeferActiveJobPersistence = hasAssetDirtyDomain && !activeJobSnapshot;
+        if (dirtyDomains.includes('active_job') && !shouldDeferActiveJobPersistence && !player?.suppressImmediateDomainPersistence) {
             void this.persistTechniqueActivitySnapshot(player).catch((error) => {
                 console.warn(`活跃任务直写失败，已标记脏数据等待重试：${error instanceof Error ? error.message : String(error)}`);
                 this.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job']);

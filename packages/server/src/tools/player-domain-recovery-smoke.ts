@@ -313,6 +313,31 @@ async function main(): Promise<void> {
     );
     assertMissingLockedEnhancementJobStopped(missingLockedRuntimePlayer);
 
+    const orphanLockedSnapshot = buildEnhancementActiveJobRecoverySnapshot(now + 4);
+    orphanLockedSnapshot.progression.enhancementJob = null;
+    orphanLockedSnapshot.inventory.items = [
+      { itemId: 'spirit_stone', count: 50 },
+    ];
+    orphanLockedSnapshot.inventory.lockedItems = [
+      {
+        itemId: 'iron_sword',
+        itemInstanceId: 'orphan-locked-sword-recovery',
+        count: 1,
+        name: '铁剑',
+        type: 'equipment',
+        equipSlot: 'weapon',
+        enhanceLevel: 6,
+        lockedBy: 'enhancement:job-run:enhancement:orphan-locked-recovery',
+        lockedAt: now - 20,
+      },
+    ];
+    const orphanLockedRuntimePlayer = runtimeService.hydrateFromSnapshot(
+      `${playerId}_enh_orphan_locked`,
+      'session:orphan-locked-recovery',
+      orphanLockedSnapshot,
+    );
+    assertOrphanLockedEnhancementItemRestored(orphanLockedRuntimePlayer);
+
     const presenceOnly = await snapshotService.loadPlayerSnapshotResult(
       presenceOnlyPlayerId,
       'proof:player-domain-presence-only',
@@ -1242,6 +1267,30 @@ function assertMissingLockedEnhancementJobStopped(player: ReturnType<PlayerRunti
     || player.persistentRevision <= player.persistedRevision
   ) {
     throw new Error(`missing locked item hydrate should mark dirty domains: ${JSON.stringify({
+      dirtyDomains: Array.from(player.dirtyDomains ?? []),
+      persistentRevision: player.persistentRevision,
+      persistedRevision: player.persistedRevision,
+    })}`);
+  }
+}
+
+function assertOrphanLockedEnhancementItemRestored(player: ReturnType<PlayerRuntimeService['hydrateFromSnapshot']>): void {
+  if (player.enhancementJob !== null) {
+    throw new Error(`orphan locked item recovery should not create enhancement job: ${JSON.stringify(player.enhancementJob)}`);
+  }
+  const lockedItems = Array.isArray(player.inventory.lockedItems) ? player.inventory.lockedItems : [];
+  if (lockedItems.some((entry) => String((entry as Record<string, unknown>)?.lockedBy ?? '').startsWith('enhancement:'))) {
+    throw new Error(`orphan enhancement locked item should be removed from lockedItems: ${JSON.stringify(lockedItems)}`);
+  }
+  const restored = player.inventory.items.find((entry) => (entry as Record<string, unknown>)?.itemInstanceId === 'orphan-locked-sword-recovery') as Record<string, unknown> | undefined;
+  if (!restored || restored.itemId !== 'iron_sword' || Number(restored.enhanceLevel ?? 0) !== 6 || restored.lockedBy != null || restored.lockedAt != null) {
+    throw new Error(`orphan enhancement locked item should return to normal inventory: ${JSON.stringify(player.inventory.items)}`);
+  }
+  if (
+    !player.dirtyDomains?.has('inventory')
+    || player.persistentRevision <= player.persistedRevision
+  ) {
+    throw new Error(`orphan locked item hydrate should mark inventory dirty: ${JSON.stringify({
       dirtyDomains: Array.from(player.dirtyDomains ?? []),
       persistentRevision: player.persistentRevision,
       persistedRevision: player.persistedRevision,

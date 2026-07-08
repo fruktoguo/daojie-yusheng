@@ -8571,22 +8571,43 @@ function migrateLegacyCraftQueuedJobsToTechniqueActivityQueue(player) {
 
 function repairInvalidEnhancementRecoveryState(player) {
     const job = player?.enhancementJob;
+    const lockedItems = Array.isArray(player?.inventory?.lockedItems) ? player.inventory.lockedItems : [];
+    const activeLockedBy = job && typeof job === 'object' && typeof job.jobRunId === 'string' && job.jobRunId.trim()
+        ? `enhancement:${job.jobRunId.trim()}`
+        : '';
+    const remainingLockedItems = [];
+    let restoredOrphanLockedItems = false;
+    for (const entry of lockedItems) {
+        const lockedBy = typeof entry?.lockedBy === 'string' ? entry.lockedBy.trim() : '';
+        if (!lockedBy.startsWith('enhancement:') || (activeLockedBy && lockedBy === activeLockedBy)) {
+            remainingLockedItems.push(entry);
+            continue;
+        }
+        const { lockedBy: _lockedBy, lockedAt: _lockedAt, ...itemFields } = entry;
+        assignItemInstanceIdIfNeeded(itemFields);
+        mergeItemStackInto(player.inventory.items, itemFields);
+        restoredOrphanLockedItems = true;
+    }
+    if (restoredOrphanLockedItems) {
+        player.inventory.lockedItems = remainingLockedItems;
+        markPlayerDirtyDomains(player, ['inventory']);
+    }
     if (!job || typeof job !== 'object') {
-        return false;
+        return restoredOrphanLockedItems;
     }
     const itemInstanceId = typeof job.itemInstanceId === 'string' && job.itemInstanceId.trim()
         ? job.itemInstanceId.trim()
         : '';
-    const lockedItems = Array.isArray(player?.inventory?.lockedItems) ? player.inventory.lockedItems : [];
+    const currentLockedItems = Array.isArray(player?.inventory?.lockedItems) ? player.inventory.lockedItems : [];
     const hasLockedItem = Boolean(itemInstanceId)
-        && lockedItems.some((entry) => entry?.itemInstanceId === itemInstanceId);
+        && currentLockedItems.some((entry) => entry?.itemInstanceId === itemInstanceId);
     if (hasLockedItem) {
-        return false;
+        return restoredOrphanLockedItems;
     }
     const jobRunId = typeof job.jobRunId === 'string' && job.jobRunId.trim() ? job.jobRunId.trim() : '';
     const orphanLockedBy = jobRunId ? `enhancement:${jobRunId}` : '';
     if (orphanLockedBy) {
-        player.inventory.lockedItems = lockedItems.filter((entry) => entry?.lockedBy !== orphanLockedBy);
+        player.inventory.lockedItems = currentLockedItems.filter((entry) => entry?.lockedBy !== orphanLockedBy);
     }
     const now = Date.now();
     const targetItemId = typeof job.targetItemId === 'string' && job.targetItemId.trim() ? job.targetItemId.trim() : '';
