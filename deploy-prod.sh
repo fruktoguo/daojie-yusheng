@@ -606,6 +606,7 @@ else
     write_env_var "SERVER_PLAYER_TOKEN_SECRET" "$input_jwt"
     write_env_var "SERVER_GM_AUTH_SECRET" "$input_gm_auth_secret"
     write_env_var "SERVER_SECRET_ENCRYPTION_KEY" "$input_secret_encryption_key"
+    write_env_var "SERVER_GM_TOKEN_SCOPES" "gm:disaster_recovery,gm:secret,gm:environment,gm:runtime_operation"
     write_env_var "GM_PASSWORD" "$input_gm_pass"
     write_env_var "SERVER_CORS_ORIGINS" "$input_cors"
     write_env_var "CLIENT_PUBLISHED_PORT" "11921"
