@@ -1192,6 +1192,58 @@ async function main(): Promise<void> {
       throw new Error(`stale projection changed fenced player domains: inventory=${JSON.stringify(fencedInventoryRows)} technique=${JSON.stringify(fencedTechniqueRows)}`);
     }
 
+    // 同 epoch + 不同 owner：真实的同 epoch 竞写方（owner 非空）必须仍被 owner 围栏拦下。
+    let rivalOwnerRejected = false;
+    try {
+      await service.savePlayerSnapshotProjectionDomains(
+        projectionFencePlayerId,
+        buildSnapshot(projectionFenceVersion + 2),
+        ['inventory'],
+        {
+          allowInventoryEmptyOverwrite: true,
+          expectedRuntimeOwnerId: `runtime:${projectionFencePlayerId}:10:rival`,
+          expectedSessionEpoch: 10,
+        },
+      );
+    } catch (error) {
+      rivalOwnerRejected = error instanceof Error
+        && error.message.includes('player_snapshot_projection_stale_owner');
+    }
+    if (!rivalOwnerRejected) {
+      throw new Error('expected same-epoch rival runtime owner to be rejected by owner fence');
+    }
+
+    // 同 epoch + owner 为空：离线挂机恢复（restoreOfflineHangingPlayer 清 owner、保留 DB epoch）
+    // 的 flush 必须放行，否则脏域数据会因确定性围栏失败而被丢进会话死信队列。
+    const offlineRestoredSnapshot = buildSnapshot(projectionFenceVersion + 3);
+    offlineRestoredSnapshot.inventory = {
+      revision: 3,
+      capacity: 20,
+      items: [{
+        itemId: 'offline_restored_marker',
+        count: 1,
+        itemInstanceId: `inv:${projectionFencePlayerId}:offline`,
+      }],
+    };
+    await service.savePlayerSnapshotProjectionDomains(
+      projectionFencePlayerId,
+      offlineRestoredSnapshot,
+      ['inventory'],
+      {
+        allowInventoryEmptyOverwrite: true,
+        expectedRuntimeOwnerId: null,
+        expectedSessionEpoch: 10,
+      },
+    );
+    const offlineRestoredRows = await fetchRows(
+      pool,
+      'SELECT item_id FROM player_inventory_item WHERE player_id = $1 ORDER BY slot_index ASC',
+      [projectionFencePlayerId],
+    );
+    if (offlineRestoredRows.length !== 1 || offlineRestoredRows[0]?.item_id !== 'offline_restored_marker') {
+      throw new Error(`offline-restored projection flush was fenced out: inventory=${JSON.stringify(offlineRestoredRows)}`);
+    }
+
     const directAnchorRow = await fetchSingleRow(
       pool,
       'SELECT respawn_template_id, last_safe_template_id, preferred_line_preset FROM player_world_anchor WHERE player_id = $1',

@@ -8543,9 +8543,12 @@ async function assertPlayerSnapshotProjectionFenceCurrent(
   if (expectedEpoch > persistedEpoch) {
     return;
   }
+  // expectedOwner 为空表示本节点未在该 epoch 上 bind 过会话（离线挂机恢复、系统 flush），
+  // 此时不做 owner 身份比对：所有权变更一律 bump session_epoch，跨节点抢占已被上面的
+  // stale_session 围栏拦下；而真正的同 epoch 竞写方 owner 必非空，仍会命中本校验。
   const persistedOwner = normalizeOptionalString(row.runtime_owner_id);
-  if (persistedOwner && expectedOwner !== persistedOwner) {
-    throw new Error(`player_snapshot_projection_stale_owner:${playerId}:expected=${expectedOwner ?? 'none'}:persisted=${persistedOwner}`);
+  if (persistedOwner && expectedOwner && expectedOwner !== persistedOwner) {
+    throw new Error(`player_snapshot_projection_stale_owner:${playerId}:expected=${expectedOwner}:persisted=${persistedOwner}`);
   }
 }
 
