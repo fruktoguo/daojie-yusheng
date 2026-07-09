@@ -235,7 +235,6 @@ export class TutorialPanel {
       size: 'wide',
       variantClass: 'detail-modal--tutorial',
       title: t('tutorial.panel.title', undefined),
-      subtitle: t('tutorial.panel.subtitle', undefined),
       hint: t('tutorial.panel.close-hint', undefined),
       renderBody: (body) => {
         this.renderBody(body);
@@ -570,12 +569,6 @@ export class TutorialPanel {
       return this.renderEmptyPane();
     }
     return `
-      <div class="tutorial-pane-hero tutorial-pane-hero--flow">
-        <div class="tutorial-pane-kicker">${escapeHtml(t('tutorial.panel.kicker.flow', undefined))}</div>
-        <div class="tutorial-pane-summary">
-          ${renderTutorialRichText(t('tutorial.panel.flow.summary', undefined))}
-        </div>
-      </div>
       <div class="tutorial-flow-shell ui-split-panel-shell">
         <div class="tutorial-flow-tabs ui-split-panel-tabs" role="tablist" aria-label="${escapeHtml(t('tutorial.panel.flow-tabs.aria', undefined))}">
           ${TUTORIAL_FLOW_TOPICS.map((topic) => this.renderFlowTab(topic)).join('')}

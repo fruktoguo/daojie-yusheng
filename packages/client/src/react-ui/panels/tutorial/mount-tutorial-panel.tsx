@@ -17,7 +17,7 @@ export function shouldUseReactTutorialPanel(): boolean {
 
 export function resolveReactTutorialModalMeta(): {
   title: string;
-  subtitle: string;
+  subtitle?: string;
   hint: string;
   size: 'wide';
   variantClass: string;

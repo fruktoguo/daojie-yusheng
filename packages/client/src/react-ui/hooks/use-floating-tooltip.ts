@@ -25,10 +25,12 @@ export function useFloatingTooltip(className = 'floating-tooltip') {
     return tooltipRef.current;
   }, [className]);
 
-  // 组件卸载时隐藏 tooltip
+  // tooltip 挂在 React 根节点之外，组件卸载时必须显式销毁实例与文档监听器。
   useEffect(() => {
     return () => {
-      tooltipRef.current?.hide(true);
+      const tooltip = tooltipRef.current;
+      tooltipRef.current = null;
+      tooltip?.destroy();
     };
   }, []);
 

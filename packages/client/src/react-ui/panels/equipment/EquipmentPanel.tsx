@@ -3,7 +3,7 @@
  *
  * 维护时要保持它只处理前端表现和组件契约，不保存业务真源，也不绕过共享规则或服务端权威运行时。
  */
-import { useCallback, useMemo, useRef, useState, memo, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, memo, type CSSProperties } from 'react';
 import { ArtifactSlot, EquipmentSlots, EquipSlot, PlayerState } from '@mud/shared';
 import { getEquipSlotLabel } from '../../../domain-labels';
 import { buildItemTooltipPayload } from '../../../ui/equipment-tooltip';
@@ -111,6 +111,13 @@ export function EquipmentPanel() {
       tooltipRef.current = new FloatingTooltip('floating-tooltip equipment-tooltip');
     }
     return tooltipRef.current;
+  }, []);
+
+  useEffect(() => () => {
+    tooltipSlotRef.current = null;
+    const tooltip = tooltipRef.current;
+    tooltipRef.current = null;
+    tooltip?.destroy();
   }, []);
 
   const handleUnequip = (slot: EquipmentPanelUnequipSlot, expectedItemInstanceId?: string) => {

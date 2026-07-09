@@ -3,7 +3,7 @@
  *
  * 维护时要保持前端只处理表现和派生状态，避免复制服务端权威真源或让多套 UI 状态互相分叉。
  */
-import { type ReactNode, memo, useCallback, useMemo, useRef, useState } from 'react';
+import { type ReactNode, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   TUTORIAL_MECHANIC_TOPICS,
   type TutorialTopic,
@@ -144,6 +144,12 @@ function TutorialInlineAction({ hint }: { hint: TutorialOperationHint }) {
   }, []);
   const hide = useCallback((immediate = false) => {
     tooltipRef.current?.hide(immediate);
+  }, []);
+
+  useEffect(() => () => {
+    const tooltip = tooltipRef.current;
+    tooltipRef.current = null;
+    tooltip?.destroy();
   }, []);
 
   return (
@@ -318,7 +324,6 @@ export function TutorialPanelContent() {
 export function getTutorialModalMeta() {
   return {
     title: t('tutorial.panel.title'),
-    subtitle: t('tutorial.panel.subtitle'),
     hint: t('tutorial.panel.close-hint'),
     size: 'wide' as const,
     variantClass: 'detail-modal--tutorial',

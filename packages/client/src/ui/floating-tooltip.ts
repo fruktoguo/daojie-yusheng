@@ -144,12 +144,25 @@ export function prefersPinnedTooltipInteraction(win: Window = window): boolean {
 export class FloatingTooltip {
   /** el：el。 */
   private readonly el: HTMLDivElement;
+  /** 当前实例是否已经完成销毁。 */
+  private destroyed = false;
   /** lastPoint：last坐标。 */
   private lastPoint = { x: 0, y: 0 };
   /** pinned：pinned。 */
   private pinned = false;
   /** pinnedAnchor：pinned Anchor。 */
-  private pinnedAnchor: Element | null = null;  
+  private pinnedAnchor: Element | null = null;
+  /** 捕获文档点击，关闭触屏设备上固定展示的 tooltip。 */
+  private readonly handleDocumentPointerDown = (event: PointerEvent): void => {
+    if (this.destroyed || !this.pinned) {
+      return;
+    }
+    const target = event.target;
+    if (target instanceof Node && this.pinnedAnchor?.contains(target)) {
+      return;
+    }
+    this.hide(true);
+  };
   /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param className 参数说明。
@@ -161,23 +174,14 @@ export class FloatingTooltip {
     this.el = document.createElement('div');
     this.el.className = className;
     (getFloatingTooltipRoot(document) ?? getViewportRoot(document) ?? document.body).appendChild(this.el);
-    document.addEventListener('pointerdown', (event) => {
-      if (!this.pinned) {
-        return;
-      }
-      const target = event.target;
-      if (target instanceof Node && this.pinnedAnchor?.contains(target)) {
-        return;
-      }
-      this.hide(true);
-    }, true);
+    document.addEventListener('pointerdown', this.handleDocumentPointerDown, true);
   }
 
   /** 显示提示框并定位到鼠标附近 */
   show(title: string, lines: string[], clientX: number, clientY: number, options?: FloatingTooltipShowOptions): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    if (this.pinned) {
+    if (this.destroyed || this.pinned) {
       return;
     }
     this.render(title, lines, clientX, clientY, options);
@@ -185,6 +189,9 @@ export class FloatingTooltip {
 
   /** showPinned：处理显示Pinned。 */
   showPinned(anchor: Element, title: string, lines: string[], clientX: number, clientY: number, options?: FloatingTooltipShowOptions): void {
+    if (this.destroyed) {
+      return;
+    }
     this.pinned = true;
     this.pinnedAnchor = anchor;
     this.render(title, lines, clientX, clientY, options);
@@ -194,7 +201,7 @@ export class FloatingTooltip {
   updateContent(title: string, lines: string[], options?: FloatingTooltipShowOptions): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    if (!this.el.classList.contains('visible')) {
+    if (this.destroyed || !this.el.classList.contains('visible')) {
       return;
     }
     this.render(title, lines, this.lastPoint.x, this.lastPoint.y, options);
@@ -202,12 +209,12 @@ export class FloatingTooltip {
 
   /** isPinned：判断是否Pinned。 */
   isPinned(): boolean {
-    return this.pinned;
+    return !this.destroyed && this.pinned;
   }
 
   /** isPinnedTo：判断是否Pinned To。 */
   isPinnedTo(anchor: Element | null): boolean {
-    return !!anchor && this.pinned && this.pinnedAnchor === anchor;
+    return !this.destroyed && !!anchor && this.pinned && this.pinnedAnchor === anchor;
   }
 
   /** render：渲染渲染。 */
@@ -240,6 +247,9 @@ export class FloatingTooltip {
 
   /** 跟随鼠标移动重新定位，自动避免溢出视口 */
   move(clientX: number, clientY: number): void {
+    if (this.destroyed) {
+      return;
+    }
     this.lastPoint = { x: clientX, y: clientY };
     const padding = 12;
     const offsetX = 16;
@@ -263,6 +273,9 @@ export class FloatingTooltip {
   hide(force = false): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    if (this.destroyed) {
+      return;
+    }
     if (this.pinned && !force) {
       return;
     }
@@ -275,7 +288,20 @@ export class FloatingTooltip {
   refresh(): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    if (!this.el.classList.contains('visible')) return;
+    if (this.destroyed || !this.el.classList.contains('visible')) return;
     this.move(this.lastPoint.x, this.lastPoint.y);
+  }
+
+  /** 销毁实例，解绑文档监听器并移除挂在 React 根节点之外的 DOM。 */
+  destroy(): void {
+    if (this.destroyed) {
+      return;
+    }
+    this.destroyed = true;
+    this.pinned = false;
+    this.pinnedAnchor = null;
+    this.el.ownerDocument.removeEventListener('pointerdown', this.handleDocumentPointerDown, true);
+    this.el.replaceChildren();
+    this.el.remove();
   }
 }
