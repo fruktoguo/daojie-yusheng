@@ -2295,14 +2295,54 @@ class MapInstanceRuntime {
         }
         return rows;
     }
-    hydrateBuildingRoomFengShuiState(state) {
+    /**
+     * listPrunableVaultBuildings：启动自检前找出会因禁建区被摧毁的宝库。
+     *
+     * hydrate 是同步的，无法在其中 await 邮件返还，因此调用方先用本方法预检、
+     * 返还库存，再把返还失败的建筑 id 作为豁免名单传回 hydrate。
+     * 只扫描宝库，避免为每个墙体重复跑一遍冲突判定。
+     */
+    listPrunableVaultBuildings(state) {
         const buildings = Array.isArray(state?.buildings) ? state.buildings : [];
+        const vaults = [];
+        for (const entry of buildings) {
+            const id = normalizeBuildingId(entry?.id ?? entry?.buildingId);
+            const defId = normalizeBuildingId(entry?.defId);
+            if (!id || !defId) {
+                continue;
+            }
+            const compiled = this.buildingCatalog?.defById?.get?.(defId);
+            if (!isTreasureVaultBuildingForRuntime(compiled, entry)) {
+                continue;
+            }
+            if (this.buildingCatalog?.defById && !compiled) {
+                // 定义已删除的宝库无法恢复运行态，只能摧毁，仍需先返还库存。
+                vaults.push(buildSkippedBuildingRecord(id, defId, entry?.ownerPlayerId, 'unknown_def'));
+                continue;
+            }
+            const location = { x: Math.trunc(Number(entry?.x) || 0), y: Math.trunc(Number(entry?.y) || 0), rotation: normalizeBuildingRotation(entry?.rotation) };
+            const cells = resolvePersistedBuildingCells(this, location, entry?.cells, compiled);
+            const conflict = findBuildingProtectedPlacementConflict(
+                this,
+                iterateBuildingProtectedPlacementPoints(this, cells, location.x, location.y),
+            );
+            if (conflict.ok !== true) {
+                vaults.push(buildSkippedBuildingRecord(id, defId, entry?.ownerPlayerId, conflict.reason));
+            }
+        }
+        return vaults;
+    }
+    hydrateBuildingRoomFengShuiState(state, options: { keepBuildingIds?: Set<string> } = {}) {
+        const buildings = Array.isArray(state?.buildings) ? state.buildings : [];
+        // 宝库库存返还失败时豁免摧毁，避免玩家资产滞留在无法访问的建筑里。
+        const keepBuildingIds = options?.keepBuildingIds instanceof Set ? options.keepBuildingIds : null;
         this.buildingById = new Map();
         this.buildingCellsById = new Map();
         this.buildingPreviousTileTypeById = new Map();
         let skippedUnknownDefCount = 0;
         let skippedProtectedPlacementCount = 0;
         let restoredSkippedBuildingTileCellCount = 0;
+        let keptProtectedPlacementCount = 0;
         // 被丢弃的建筑可能是宝库，调用方需要先把库存邮件返还给 owner 再清理持久化行。
         const skippedBuildings = [];
         for (const entry of buildings) {
@@ -2364,11 +2404,14 @@ class MapInstanceRuntime {
                 this,
                 iterateBuildingProtectedPlacementPoints(this, cells, building.x, building.y),
             );
-            if (placementConflict.ok !== true) {
+            if (placementConflict.ok !== true && keepBuildingIds?.has(id) !== true) {
                 skippedProtectedPlacementCount += 1;
                 skippedBuildings.push(buildSkippedBuildingRecord(id, defId, building.ownerPlayerId, placementConflict.reason));
                 restoredSkippedBuildingTileCellCount += restoreSkippedPersistedBuildingTileCells(this, entry?.cells, cells);
                 continue;
+            }
+            if (placementConflict.ok !== true) {
+                keptProtectedPlacementCount += 1;
             }
             this.buildingById.set(id, building);
             this.buildingCellsById.set(id, cells);
@@ -2396,7 +2439,7 @@ class MapInstanceRuntime {
         }
         if (this.buildingCatalog?.defByHandle) {
             this.rebuildBuildingRoomFengShuiState();
-            return { buildingCount: this.buildingById.size, rebuilt: true, skippedUnknownDefCount, skippedProtectedPlacementCount, restoredSkippedBuildingTileCellCount, skippedBuildings };
+            return { buildingCount: this.buildingById.size, rebuilt: true, skippedUnknownDefCount, skippedProtectedPlacementCount, restoredSkippedBuildingTileCellCount, skippedBuildings, keptProtectedPlacementCount };
         }
         this.roomsById = new Map();
         this.roomIdsByHandle = [];
@@ -2441,7 +2484,7 @@ class MapInstanceRuntime {
                 this.fengShuiByRoomId.set(roomId, snapshot);
             }
         }
-        return { buildingCount: this.buildingById.size, rebuilt: false, skippedUnknownDefCount, skippedProtectedPlacementCount, restoredSkippedBuildingTileCellCount, skippedBuildings };
+        return { buildingCount: this.buildingById.size, rebuilt: false, skippedUnknownDefCount, skippedProtectedPlacementCount, restoredSkippedBuildingTileCellCount, skippedBuildings, keptProtectedPlacementCount };
     }
     /** setPlayerMoveSpeed：设置玩家移动速度。 */
     setPlayerMoveSpeed(playerId, moveSpeed) {

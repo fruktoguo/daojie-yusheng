@@ -138,6 +138,63 @@ function assertBuildingProtectedPlacementRules(catalog, rules) {
   assert.equal(hydrateResult.skippedBuildings[0].id, "building:protected:ring");
   assert.equal(hydrateResult.skippedBuildings[0].ownerPlayerId, "player:ring");
   assert.equal(hydrateResult.skippedBuildings[0].reason, "protected_placement_portal");
+
+  assertPrunedVaultRecoveryGuard(catalog, rules);
+}
+
+/** buildViolatingVaultState：构造一个落在传送点 (2,2) 邻域内的违规宝库持久化快照。 */
+function buildViolatingVaultState(instance) {
+  return {
+    buildings: [{
+      id: "building:vault:ring",
+      defId: "treasure_vault",
+      x: 3,
+      y: 3,
+      state: "active",
+      hp: 100,
+      maxHp: 100,
+      ownerPlayerId: "player:vault",
+      cells: [{ tileIndex: instance.toTileIndex(3, 3), x: 3, y: 3 }],
+    }],
+    rooms: [],
+    roomCells: [],
+    fengShui: [],
+  };
+}
+
+/** assertPrunedVaultRecoveryGuard：宝库库存返还失败时必须豁免摧毁，避免玩家资产滞留在无法访问的建筑里。 */
+function assertPrunedVaultRecoveryGuard(catalog, rules) {
+  // 预检必须先于 hydrate 找出会被摧毁的宝库，并带出 owner 供邮件返还。
+  const scanInstance = createProtectedPlacementInstance(catalog, rules, "real:building_vault_scan_smoke");
+  scanInstance.getPortalAtTile = (x, y) => (x === 2 && y === 2 ? { id: "portal:vault", x, y } : null);
+  const prunable = scanInstance.listPrunableVaultBuildings(buildViolatingVaultState(scanInstance));
+  assert.equal(prunable.length, 1);
+  assert.equal(prunable[0].id, "building:vault:ring");
+  assert.equal(prunable[0].ownerPlayerId, "player:vault");
+  assert.equal(prunable[0].reason, "protected_placement_portal");
+  // 合规宝库不进入预检，避免误返还。
+  const compliantInstance = createProtectedPlacementInstance(catalog, rules, "real:building_vault_compliant_smoke");
+  assert.equal(compliantInstance.listPrunableVaultBuildings(buildViolatingVaultState(compliantInstance)).length, 0);
+
+  // 返还成功：豁免名单为空 → 宝库被摧毁。
+  const destroyInstance = createProtectedPlacementInstance(catalog, rules, "real:building_vault_destroy_smoke");
+  destroyInstance.getPortalAtTile = (x, y) => (x === 2 && y === 2 ? { id: "portal:vault", x, y } : null);
+  const destroyed = destroyInstance.hydrateBuildingRoomFengShuiState(buildViolatingVaultState(destroyInstance), { keepBuildingIds: new Set() });
+  assert.equal(destroyed.skippedProtectedPlacementCount, 1);
+  assert.equal(destroyed.keptProtectedPlacementCount, 0);
+  assert.equal(destroyInstance.buildingById.has("building:vault:ring"), false);
+
+  // 返还失败：进入豁免名单 → 宝库原地保留，等待下次启动或 GM 处理。
+  const keepInstance = createProtectedPlacementInstance(catalog, rules, "real:building_vault_keep_smoke");
+  keepInstance.getPortalAtTile = (x, y) => (x === 2 && y === 2 ? { id: "portal:vault", x, y } : null);
+  const kept = keepInstance.hydrateBuildingRoomFengShuiState(
+    buildViolatingVaultState(keepInstance),
+    { keepBuildingIds: new Set(["building:vault:ring"]) },
+  );
+  assert.equal(kept.skippedProtectedPlacementCount, 0);
+  assert.equal(kept.keptProtectedPlacementCount, 1);
+  assert.equal(kept.skippedBuildings.length, 0);
+  assert.equal(keepInstance.buildingById.has("building:vault:ring"), true);
 }
 
 async function main() {
@@ -232,9 +289,15 @@ async function main() {
         stability: 8,
       },
     },
+    {
+      id: "treasure_vault",
+      name: "宝库",
+      placement: { layer: "furniture", footprint: [{ dx: 0, dy: 0 }] },
+      treasureVault: { capacity: 80 },
+    },
   ]);
 
-  assert.equal(catalog.defs.length, 9);
+  assert.equal(catalog.defs.length, 10);
   assert.ok(catalog.traitIdsByKey.get("facility.alchemy.heat_source") > 0);
   assert.ok(catalog.traitIdsByKey.get("comfort.rest") > 0);
   assert.ok(catalog.traitIdsByKey.get("facility.scripture_platform") > 0);

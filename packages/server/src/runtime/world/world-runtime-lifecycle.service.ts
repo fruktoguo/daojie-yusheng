@@ -9,7 +9,7 @@
  */
 import { Injectable } from '@nestjs/common';
 import * as world_runtime_normalization_helpers_1 from './world-runtime.normalization.helpers';
-import { recoverPrunedBuildingVaults } from './building-placement-prune.helpers';
+import { logPrunedBuildingAudit, recoverVaultsBeforePlacementPrune } from './building-placement-prune.helpers';
 
 const {
     buildPublicInstanceId,
@@ -39,8 +39,6 @@ async function persistBuildingRoomStateAfterUnknownDefPrune(deps, domainPersiste
     if (skippedCount <= 0 && skippedProtectedPlacementCount <= 0 && restoredSkippedBuildingTileCellCount <= 0) {
         return;
     }
-    // 必须先于 saveBuildingRoomFengShuiState：删除建筑行后就取不到宝库 owner 了。
-    await recoverPrunedBuildingVaults(deps, instanceId, hydrateResult, deps?.logger);
     if (typeof domainPersistenceService?.saveBuildingRoomFengShuiState === 'function') {
         const state = typeof instance?.buildBuildingRoomFengShuiPersistenceState === 'function'
             ? instance.buildBuildingRoomFengShuiPersistenceState()
@@ -198,7 +196,10 @@ export class WorldRuntimeLifecycleService {
                         || buildingRoomFengShuiState.rooms?.length > 0
                         || buildingRoomFengShuiState.fengShui?.length > 0)
                     && typeof instance.hydrateBuildingRoomFengShuiState === 'function') {
-                    const hydrateResult = instance.hydrateBuildingRoomFengShuiState(buildingRoomFengShuiState);
+                    // 先返还即将被摧毁的宝库库存：删除建筑行后就取不到 owner 了；返还失败的宝库豁免摧毁。
+                    const keepBuildingIds = await recoverVaultsBeforePlacementPrune(deps, instanceId, instance, buildingRoomFengShuiState, deps?.logger);
+                    const hydrateResult = instance.hydrateBuildingRoomFengShuiState(buildingRoomFengShuiState, { keepBuildingIds });
+                    logPrunedBuildingAudit(instanceId, hydrateResult, deps?.logger);
                     await persistBuildingRoomStateAfterUnknownDefPrune(deps, domainPersistenceService, instanceId, instance, hydrateResult);
                 }
                 const checkpoint = await domainPersistenceService.loadInstanceCheckpoint(instanceId);

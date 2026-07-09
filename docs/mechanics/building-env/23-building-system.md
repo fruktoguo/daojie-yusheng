@@ -95,9 +95,19 @@ TypedArray 索引结构，按 cellIndex 存储:
 
 服务器启动恢复建筑时对每个存量建筑执行同一套禁建区自检；违规建筑会直接从运行态和持久化快照中清理，占用的地块还原为建造前状态。
 
-摧毁前必须先把宝库库存邮件返还给 owner（`recoverPrunedBuildingVaults`），且必须早于删除 `instance_building_state`——建筑行一旦删除，`owner_player_id` 就无法回退取得，`instance_building_storage_item` 会成为活实例期间 orphan 扫描覆盖不到的孤儿。
+宝库是特例，与玩家主动拆除保持同一语义：**先把库存邮件一次性返还给建造者（owner），返还失败就不摧毁**。
 
-自动摧毁**不返还建材**；每个被摧毁建筑会写一条 warn 审计日志（`instance` / `building` / `def` / `owner` / `reason`）。
+`hydrate` 是同步的，无法在其中 await 邮件返还，因此启动恢复分三步：
+
+1. `instance.listPrunableVaultBuildings(state)` 同步预检出会被摧毁的宝库（只扫宝库，不为每个墙体重复跑冲突判定）；
+2. `recoverVaultsBeforePlacementPrune` 逐个调 `recoverVaultItemsToOwnerMail` 返还，收集返还失败的建筑 id；
+3. `hydrate(state, { keepBuildingIds })` 把失败集合作为豁免名单——这些宝库照常载入运行态并保留持久化行，等下次启动重试或 GM 处理。
+
+返还必须早于 `saveBuildingRoomFengShuiState`：建筑行一旦删除，`owner_player_id` 就无法从建筑行回退取得，`instance_building_storage_item` 会成为活实例期间 orphan 扫描覆盖不到的孤儿。
+
+例外：定义已删除（`unknown_def`）的宝库无法恢复运行态，即使返还失败也不能保留，只写 error 日志交由 GM 处理。
+
+自动摧毁**不返还建材**；每个被摧毁建筑写一条 warn 审计日志（`instance` / `building` / `def` / `owner` / `reason`），豁免保留的宝库写 error 日志。
 
 ## 建造材料 tag
 
