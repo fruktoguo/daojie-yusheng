@@ -45,6 +45,23 @@ type InventoryCellRibbon = {
   title?: string;
 };
 
+type SocialMessageInputSnapshot = {
+  peerId: string;
+  focused: boolean;
+  selectionStart: number | null;
+  selectionEnd: number | null;
+  selectionDirection: 'forward' | 'backward' | 'none' | null;
+};
+
+type SocialConversationScrollSnapshot = {
+  container: 'pane' | 'messages';
+  scrollTop: number;
+  scrollLeft: number;
+  stickToBottom: boolean;
+  anchorMessageId: string | null;
+  anchorOffsetTop: number;
+};
+
 export type TreasureVaultModalTab = 'items' | 'permissions';
 
 const RELATION_LABEL: Record<DaoistRelationLevel, string> = {
@@ -68,6 +85,8 @@ const PERMISSION_SCOPE_LABEL: Record<TreasureVaultPermissionScope, string> = {
 
 const PERMISSION_KINDS: TreasureVaultPermissionKind[] = ['view', 'deposit', 'withdraw'];
 const PERMISSION_SCOPES: TreasureVaultPermissionScope[] = ['all', 'party', 'sect', 'dao_friend', 'close_friend'];
+const MAX_SOCIAL_MESSAGES_PER_PEER = 50;
+const SOCIAL_SCROLL_BOTTOM_THRESHOLD_PX = 24;
 
 export class SocialPanel {
   private readonly pane = document.getElementById('pane-social')!;
@@ -75,6 +94,8 @@ export class SocialPanel {
   private view: SocialPanelView = { relations: [], incomingRequests: [], outgoingRequests: [], nearbyCandidates: [] };
   private selectedPlayerId: string | null = null;
   private messagesByPlayerId = new Map<string, DaoistDirectMessageView[]>();
+  private messageDraftsByPlayerId = new Map<string, string>();
+  private conversationScrollByPlayerId = new Map<string, SocialConversationScrollSnapshot>();
 
   constructor() {
     this.bindEvents();
@@ -86,30 +107,50 @@ export class SocialPanel {
   }
 
   update(view: SocialPanelView): void {
+    const inputSnapshot = this.captureConversationState(this.selectedPlayerId);
     this.view = normalizeSocialPanelView(view);
     if (this.selectedPlayerId && !this.view.relations.some((entry) => entry.playerId === this.selectedPlayerId)) {
       this.selectedPlayerId = null;
     }
-    this.render();
+    this.render(inputSnapshot);
   }
 
   appendMessage(message: DaoistDirectMessageView, currentPlayerId: string | null): void {
     const peerId = message.fromPlayerId === currentPlayerId ? message.toPlayerId : message.fromPlayerId;
-    const list = this.messagesByPlayerId.get(peerId) ?? [];
-    list.push(message);
-    this.messagesByPlayerId.set(peerId, list.slice(-50));
-    this.selectedPlayerId = peerId;
-    this.render();
+    const previousMessages = this.messagesByPlayerId.get(peerId) ?? [];
+    const nextMessages = [...previousMessages, message].slice(-MAX_SOCIAL_MESSAGES_PER_PEER);
+    this.messagesByPlayerId.set(peerId, nextMessages);
+    if (peerId !== this.selectedPlayerId) {
+      return;
+    }
+    const retainedMessageIds = new Set(nextMessages.map((entry) => entry.messageId));
+    const inputSnapshot = this.captureConversationState(peerId, retainedMessageIds);
+    if (this.patchCurrentConversation(peerId, message, previousMessages, nextMessages)) {
+      this.restoreConversationScroll(peerId);
+      return;
+    }
+    this.replaceCurrentConversation(peerId, inputSnapshot);
   }
 
   clear(): void {
     this.view = { relations: [], incomingRequests: [], outgoingRequests: [], nearbyCandidates: [] };
     this.selectedPlayerId = null;
     this.messagesByPlayerId.clear();
+    this.messageDraftsByPlayerId.clear();
+    this.conversationScrollByPlayerId.clear();
     this.render();
   }
 
   private bindEvents(): void {
+    this.pane.addEventListener('input', (event) => {
+      const input = event.target instanceof HTMLInputElement
+        ? event.target.closest<HTMLInputElement>('[data-social-message-input]')
+        : null;
+      const peerId = input?.dataset.socialMessagePeer;
+      if (input && peerId) {
+        this.messageDraftsByPlayerId.set(peerId, input.value);
+      }
+    });
     this.pane.addEventListener('click', (event) => {
       const target = event.target instanceof HTMLElement ? event.target.closest<HTMLElement>('[data-social-action]') : null;
       if (!target || !this.callbacks) {
@@ -124,8 +165,13 @@ export class SocialPanel {
       if (action === 'accept' && requestId) this.callbacks.onRespondRequest(requestId, true);
       if (action === 'reject' && requestId) this.callbacks.onRespondRequest(requestId, false);
       if (action === 'select' && playerId) {
+        if (playerId === this.selectedPlayerId) {
+          return;
+        }
+        this.captureConversationState(this.selectedPlayerId);
         this.selectedPlayerId = playerId;
         this.render();
+        return;
       }
       if (action === 'dao_friend' && playerId) this.callbacks.onUpdateRelationLevel(playerId, 'dao_friend');
       if (action === 'close_friend' && playerId) this.callbacks.onUpdateRelationLevel(playerId, 'close_friend');
@@ -135,13 +181,14 @@ export class SocialPanel {
         const message = input?.value.trim() ?? '';
         if (message) {
           this.callbacks.onSendMessage(playerId, message);
+          this.messageDraftsByPlayerId.set(playerId, '');
           if (input) input.value = '';
         }
       }
     });
   }
 
-  private render(): void {
+  private render(inputSnapshot: SocialMessageInputSnapshot | null = null): void {
     const selected = this.selectedPlayerId
       ? this.view.relations.find((entry) => entry.playerId === this.selectedPlayerId) ?? null
       : this.view.relations[0] ?? null;
@@ -163,6 +210,9 @@ export class SocialPanel {
         ${this.renderMessages(selected)}
       </div>
     `;
+    if (selected) {
+      this.restoreConversationState(selected.playerId, inputSnapshot);
+    }
   }
 
   private renderRequests(): string {
@@ -240,22 +290,203 @@ export class SocialPanel {
     }
     const messages = this.messagesByPlayerId.get(selected.playerId) ?? [];
     return `
-      <div class="ui-list social-message-list">
+      <div class="ui-list social-message-list" data-social-conversation-peer="${escapeHtml(selected.playerId)}">
         <div class="ui-list-title">私聊 · ${escapeHtml(selected.name)}</div>
-        ${messages.length === 0 ? '<div class="empty-hint">暂无消息</div>' : messages.map((entry) => `
-          <div class="ui-list-row">
-            <div class="ui-list-main">
-              <div class="ui-list-title">${escapeHtml(entry.fromName)}</div>
-              <div class="ui-list-subtitle">${escapeHtml(entry.text)}</div>
-            </div>
-          </div>
-        `).join('')}
-        <div class="ui-input-row">
-          <input class="ui-input" data-social-message-input type="text" maxlength="200" placeholder="发送消息">
+        ${messages.length === 0
+          ? '<div class="empty-hint" data-social-message-empty="true">暂无消息</div>'
+          : messages.map((entry) => this.renderMessageRow(entry)).join('')}
+        <div class="ui-input-row" data-social-message-compose="true">
+          <input class="ui-input" data-social-message-input data-social-message-peer="${escapeHtml(selected.playerId)}" type="text" maxlength="200" placeholder="发送消息">
           <button class="small-btn" type="button" data-social-action="send" data-player-id="${escapeHtml(selected.playerId)}">发送</button>
         </div>
       </div>
     `;
+  }
+
+  private renderMessageRow(message: DaoistDirectMessageView): string {
+    return `
+      <div class="ui-list-row" data-social-message-id="${escapeHtml(message.messageId)}">
+        <div class="ui-list-main">
+          <div class="ui-list-title">${escapeHtml(message.fromName)}</div>
+          <div class="ui-list-subtitle">${escapeHtml(message.text)}</div>
+        </div>
+      </div>
+    `;
+  }
+
+  private patchCurrentConversation(
+    peerId: string,
+    message: DaoistDirectMessageView,
+    previousMessages: DaoistDirectMessageView[],
+    nextMessages: DaoistDirectMessageView[],
+  ): boolean {
+    const root = this.getConversationRoot(peerId);
+    const compose = root?.querySelector<HTMLElement>('[data-social-message-compose="true"]');
+    if (!root || !compose) {
+      return false;
+    }
+    const renderedRows = this.getRenderedMessageRows(root);
+    if (
+      renderedRows.length !== previousMessages.length
+      || renderedRows.some((row, index) => row.dataset.socialMessageId !== previousMessages[index]?.messageId)
+    ) {
+      return false;
+    }
+    const nextRow = this.createMessageRow(message);
+    if (!nextRow) {
+      return false;
+    }
+    const removeCount = Math.max(0, renderedRows.length + 1 - nextMessages.length);
+    for (let index = 0; index < removeCount; index += 1) {
+      renderedRows[index]?.remove();
+    }
+    root.querySelector<HTMLElement>('[data-social-message-empty="true"]')?.remove();
+    root.insertBefore(nextRow, compose);
+    return true;
+  }
+
+  private createMessageRow(message: DaoistDirectMessageView): HTMLElement | null {
+    const fragment = createFragmentFromHtml(this.renderMessageRow(message));
+    const row = fragment.firstElementChild;
+    return row instanceof HTMLElement ? row : null;
+  }
+
+  private replaceCurrentConversation(peerId: string, inputSnapshot: SocialMessageInputSnapshot | null): void {
+    const selected = this.view.relations.find((entry) => entry.playerId === peerId);
+    if (!selected) {
+      return;
+    }
+    const fragment = createFragmentFromHtml(this.renderMessages(selected));
+    const nextRoot = fragment.firstElementChild;
+    if (!(nextRoot instanceof HTMLElement)) {
+      return;
+    }
+    const currentRoot = this.getConversationRoot(peerId);
+    if (currentRoot) {
+      currentRoot.replaceWith(nextRoot);
+    } else {
+      this.pane.querySelector<HTMLElement>('.social-panel')?.append(nextRoot);
+    }
+    this.restoreConversationState(peerId, inputSnapshot);
+  }
+
+  private getConversationRoot(peerId: string): HTMLElement | null {
+    return Array.from(this.pane.querySelectorAll<HTMLElement>('[data-social-conversation-peer]'))
+      .find((entry) => entry.dataset.socialConversationPeer === peerId) ?? null;
+  }
+
+  private getRenderedMessageRows(root: HTMLElement): HTMLElement[] {
+    return Array.from(root.children).filter((entry): entry is HTMLElement => (
+      entry instanceof HTMLElement && entry.dataset.socialMessageId !== undefined
+    ));
+  }
+
+  private captureConversationState(
+    peerId: string | null,
+    retainedMessageIds?: ReadonlySet<string>,
+  ): SocialMessageInputSnapshot | null {
+    if (!peerId) {
+      return null;
+    }
+    const root = this.getConversationRoot(peerId);
+    if (!root) {
+      return null;
+    }
+    const input = root.querySelector<HTMLInputElement>('[data-social-message-input]');
+    if (input) {
+      this.messageDraftsByPlayerId.set(peerId, input.value);
+    }
+    const scrollSnapshot = this.captureConversationScroll(root, retainedMessageIds);
+    if (scrollSnapshot) {
+      this.conversationScrollByPlayerId.set(peerId, scrollSnapshot);
+    }
+    return {
+      peerId,
+      focused: document.activeElement === input,
+      selectionStart: input?.selectionStart ?? null,
+      selectionEnd: input?.selectionEnd ?? null,
+      selectionDirection: input?.selectionDirection ?? null,
+    };
+  }
+
+  private captureConversationScroll(
+    root: HTMLElement,
+    retainedMessageIds?: ReadonlySet<string>,
+  ): SocialConversationScrollSnapshot {
+    const container = root.scrollHeight > root.clientHeight + 1 ? root : this.pane;
+    const remainingDistance = container.scrollHeight - container.scrollTop - container.clientHeight;
+    const stickToBottom = remainingDistance <= SOCIAL_SCROLL_BOTTOM_THRESHOLD_PX;
+    let anchorMessageId: string | null = null;
+    let anchorOffsetTop = 0;
+    if (!stickToBottom) {
+      const containerRect = container.getBoundingClientRect();
+      const anchor = this.getRenderedMessageRows(root).find((row) => {
+        const messageId = row.dataset.socialMessageId;
+        if (!messageId || (retainedMessageIds && !retainedMessageIds.has(messageId))) {
+          return false;
+        }
+        const rowRect = row.getBoundingClientRect();
+        return rowRect.bottom > containerRect.top && rowRect.top < containerRect.bottom;
+      });
+      if (anchor) {
+        anchorMessageId = anchor.dataset.socialMessageId ?? null;
+        anchorOffsetTop = anchor.getBoundingClientRect().top - containerRect.top;
+      }
+    }
+    return {
+      container: container === root ? 'messages' : 'pane',
+      scrollTop: container.scrollTop,
+      scrollLeft: container.scrollLeft,
+      stickToBottom,
+      anchorMessageId,
+      anchorOffsetTop,
+    };
+  }
+
+  private restoreConversationState(peerId: string, inputSnapshot: SocialMessageInputSnapshot | null): void {
+    const root = this.getConversationRoot(peerId);
+    if (!root) {
+      return;
+    }
+    const input = root.querySelector<HTMLInputElement>('[data-social-message-input]');
+    if (input) {
+      input.value = this.messageDraftsByPlayerId.get(peerId) ?? '';
+    }
+    this.restoreConversationScroll(peerId);
+    if (!input || inputSnapshot?.peerId !== peerId || !inputSnapshot.focused) {
+      return;
+    }
+    input.focus({ preventScroll: true });
+    if (inputSnapshot.selectionStart !== null && inputSnapshot.selectionEnd !== null) {
+      input.setSelectionRange(
+        inputSnapshot.selectionStart,
+        inputSnapshot.selectionEnd,
+        inputSnapshot.selectionDirection ?? 'none',
+      );
+    }
+  }
+
+  private restoreConversationScroll(peerId: string): void {
+    const root = this.getConversationRoot(peerId);
+    const snapshot = this.conversationScrollByPlayerId.get(peerId);
+    if (!root || !snapshot) {
+      return;
+    }
+    const container = snapshot.container === 'messages' ? root : this.pane;
+    container.scrollLeft = snapshot.scrollLeft;
+    if (snapshot.stickToBottom) {
+      container.scrollTop = Math.max(0, container.scrollHeight - container.clientHeight);
+      return;
+    }
+    const anchor = snapshot.anchorMessageId
+      ? this.getRenderedMessageRows(root).find((row) => row.dataset.socialMessageId === snapshot.anchorMessageId)
+      : null;
+    if (!anchor) {
+      container.scrollTop = snapshot.scrollTop;
+      return;
+    }
+    const currentOffsetTop = anchor.getBoundingClientRect().top - container.getBoundingClientRect().top;
+    container.scrollTop += currentOffsetTop - snapshot.anchorOffsetTop;
   }
 }
 
