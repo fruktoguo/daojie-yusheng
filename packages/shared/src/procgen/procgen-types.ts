@@ -153,11 +153,152 @@ export interface ProcgenBuildingSpec {
   content?: ProcgenBuildingContentSpec;
 }
 
-/** 房屋内部内容锚点：宝箱或怪物据点位置。 */
+/** 内容锚点种类。生成器只给位置与语义，具体 itemId/monsterId 由服务端在实例创建期决定。 */
+export type ProcgenAnchorKind = 'chest' | 'monster' | 'boss' | 'herb' | 'scripture' | 'lock' | 'key';
+
+/**
+ * 内容锚点。关键奖励挂拓扑节点（nodeId 非空），普通草药/杂兵按地形撒（nodeId 为空）。
+ * 锁-钥用 gateGroupId/keyGroupId 配对：持有 keyGroupId 才能通过同号的 gateGroupId。
+ */
 export interface ProcgenContentAnchor {
   x: number;
   y: number;
-  kind: 'chest' | 'monster';
+  kind: ProcgenAnchorKind;
+  /** requires：通过此锚点需持有该组钥匙。 */
+  gateGroupId?: number;
+  /** grants：取得此锚点授予该组钥匙。 */
+  keyGroupId?: number;
+  /** 所属拓扑节点的 nodeId；filler 内容不挂节点。 */
+  nodeId?: string;
+}
+
+// ───────────────────────── 分区拼装（可选管线） ─────────────────────────
+// 详见 docs/design/systems/秘境地形生成设计.md
+// preset 不填 partition 时，生成器走原有的全图单一噪声管线，行为完全不变。
+
+/** 区域生成器种类。 */
+export type ProcgenRegionKind = 'open' | 'maze' | 'dungeon' | 'vault' | 'boss' | 'corridor' | 'transition';
+
+/** 关卡拓扑节点角色。 */
+export type ProcgenNodeRole = 'entry' | 'combat' | 'vault' | 'boss' | 'exit' | 'branch' | 'hub';
+
+export interface ProcgenRect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/** BSP 分区参数。区数 N = clamp(round(area(R0) / targetArea), 2, maxRegions)。 */
+export interface ProcgenPartitionSpec {
+  /** 单区目标面积（格）。默认 1600。太大会让区数恒被夹到下界。 */
+  targetArea?: number;
+  /** 区的最小边长（格）。默认 18。 */
+  minSide?: number;
+  /** 区数上限。默认 24。 */
+  maxRegions?: number;
+  /** 长宽比超过该值强制切长轴（防细条）。默认 2.2。 */
+  maxAspect?: number;
+}
+
+/** 迷宫：Recursive Backtracker + dead-end braiding。 */
+export interface ProcgenMazeSpec {
+  /** 拆死胡同成环的比例（0-1）。0 = 完美迷宫。 */
+  braidRate?: number;
+  wallTile: string;
+  floorTile?: string;
+}
+
+/** 地牢：嵌套 BSP 房间 + L 形直角走廊。 */
+export interface ProcgenDungeonSpec {
+  roomTargetArea?: number;
+  minRoom?: number;
+  jitter?: readonly [number, number];
+  wallTile: string;
+  doorTile: string;
+  floorTile?: string;
+}
+
+/** 宝库：封闭房 + 单扇锁门 + 中心宝箱。 */
+export interface ProcgenVaultSpec {
+  wallTile: string;
+  doorTile: string;
+  floorTile?: string;
+  /** 柱阵地块（可选，纯装饰）。 */
+  pillarTile?: string;
+}
+
+/** boss 房：大 chamber + 宽入口。 */
+export interface ProcgenBossSpec {
+  wallTile: string;
+  entranceWidth?: readonly [number, number];
+  floorTile?: string;
+  pillarTile?: string;
+}
+
+/** 走廊区：细条叶的贯穿脊。 */
+export interface ProcgenCorridorSpec {
+  floorTile?: string;
+  width?: number;
+}
+
+export interface ProcgenRegionGenSpec {
+  maze?: ProcgenMazeSpec;
+  dungeon?: ProcgenDungeonSpec;
+  vault?: ProcgenVaultSpec;
+  boss?: ProcgenBossSpec;
+  corridor?: ProcgenCorridorSpec;
+  /** 每种区域可覆盖 terrainRules（否则用 preset.terrainRules）。 */
+  openTerrainRulesByKind?: Record<string, readonly ProcgenTerrainRule[]>;
+}
+
+/** 拓扑骨架参数。 */
+export interface ProcgenTopologySpec {
+  /** 临界路上的战斗房数量区间。 */
+  combatCount?: readonly [number, number];
+  /** 旁支（宝库候选）数量区间。 */
+  branchCount?: readonly [number, number];
+  /** 锁门数量区间。 */
+  lockCount?: readonly [number, number];
+}
+
+/** 区间连接口：门位在生成前预留，作为区域生成器的强制通道。 */
+export interface ProcgenRegionPort {
+  side: 'N' | 'E' | 'S' | 'W';
+  x: number;
+  y: number;
+  toNodeId: string;
+  lockId?: number;
+}
+
+/** 一个几何区域（BSP 叶）及其被回灌的拓扑角色。 */
+export interface ProcgenRegionNode {
+  /** BSP 路径串，如 "R.0.1"。与兄弟遍历顺序解耦，作为该区的种子来源。 */
+  nodeId: string;
+  rect: ProcgenRect;
+  kind: ProcgenRegionKind;
+  role: ProcgenNodeRole;
+  /** 从 entry 区起的 RAG 图距。 */
+  depth: number;
+  ports: ProcgenRegionPort[];
+}
+
+export interface ProcgenLevelEdge {
+  id: number;
+  from: string;
+  to: string;
+  kind: 'corridor' | 'portal';
+  /** 锁门组号；持有同号钥匙才能通过。 */
+  lockId?: number;
+  /** 临界路（entry→boss 最短路）上的边：禁 braid、禁旁路。 */
+  critical: boolean;
+}
+
+export interface ProcgenLevelGraph {
+  nodes: readonly ProcgenRegionNode[];
+  edges: readonly ProcgenLevelEdge[];
+  /** entry→boss 的最短路（nodeId 序列）。 */
+  criticalPath: readonly string[];
 }
 
 /** 秘境地貌预设：一份配置完整描述一种秘境的地貌生成方式。 */
@@ -185,6 +326,12 @@ export interface ProcgenBiomePreset {
   exitPortalCount: number;
   /** 可行走占比合法区间，超出会产生 warning。 */
   walkableRatioRange: readonly [number, number];
+  /** 分区拼装：填了才启用，不填走原全图单一噪声管线。 */
+  partition?: ProcgenPartitionSpec;
+  /** 分区拼装：各区域生成器参数。启用 partition 时必填。 */
+  regionGen?: ProcgenRegionGenSpec;
+  /** 分区拼装：拓扑骨架参数。 */
+  topology?: ProcgenTopologySpec;
 }
 
 /** 生成的传送阵位置。 */
@@ -205,6 +352,12 @@ export interface ProcgenMapStats {
   buildingCount: number;
   /** 各层地块数量统计，key 为 `${layer}:${tileId}`。 */
   tileCounts: Record<string, number>;
+  /** 分区拼装：几何区域数（未启用分区时为 0）。 */
+  spatialRegionCount: number;
+  /** 分区拼装：各区域种类的数量。 */
+  regionKindCounts: Record<string, number>;
+  /** 分区拼装：锁门数。 */
+  lockCount: number;
 }
 
 /** 生成结果：既含 format:2 字符网格，也含扁平 id 数组（idx = y*width+x）。 */
@@ -221,8 +374,18 @@ export interface ProcgenMapResult {
   structureIds: (string | null)[];
   spawnPoint: { x: number; y: number };
   portals: ProcgenPortalPlacement[];
-  /** 房屋内部内容锚点（宝箱/怪物据点），导出时供策划填具体内容。 */
+  /** 内容锚点（宝箱/怪物/草药/藏经台/boss/锁/钥），供服务端在实例创建期翻译成具体内容。 */
   contentAnchors: ProcgenContentAnchor[];
+  /**
+   * 分区拼装：图内成对传送阵（纯冗余 cross-link，绝不是任何区域的唯一通路）。
+   * 走返回字段而非地图 document 顶层——document 是白名单重建，自定义字段会被静默丢弃。
+   * 运行时若不支持图内传送，调用方直接忽略即可，走廊保底连通。
+   */
+  portalPairs?: { a: { x: number; y: number }; b: { x: number; y: number }; lockId?: number }[];
+  /** 分区拼装：几何区域表（未启用分区时缺省）。 */
+  regions?: readonly ProcgenRegionNode[];
+  /** 分区拼装：关卡拓扑图（未启用分区时缺省）。 */
+  levelGraph?: ProcgenLevelGraph;
   stats: ProcgenMapStats;
   warnings: string[];
 }

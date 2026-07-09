@@ -85,38 +85,65 @@ export function assignTerrain(
 /**
  * 元胞自动机多数派平滑：每格取 3x3 邻域内出现最多的地形，消除孤立噪点、让地貌成片。
  * 平票时保留原值，保证确定性。
+ *
+ * 实现用「地形 id → 整数索引」的调色板 + 复用的计数数组，而不是每格新建 Map
+ * （256² 两轮会新建 13 万个 Map，实测占全管线 18%）。候选必须按邻域扫描顺序遍历，
+ * 这与旧实现里 Map 的插入顺序等价——否则平票时的胜者会变，输出不再逐位一致。
  */
 export function smoothTerrain(width: number, height: number, terrainIds: string[], iterations: number): string[] {
-  let current = terrainIds;
+  if (iterations <= 0) return terrainIds;
+  const palette: string[] = [];
+  const indexById = new Map<string, number>();
+  let current = new Int32Array(terrainIds.length);
+  for (let index = 0; index < terrainIds.length; index += 1) {
+    const tile = terrainIds[index];
+    let paletteIndex = indexById.get(tile);
+    if (paletteIndex === undefined) {
+      paletteIndex = palette.length;
+      palette.push(tile);
+      indexById.set(tile, paletteIndex);
+    }
+    current[index] = paletteIndex;
+  }
+  // 平滑只会让邻域已有的地形胜出，不会引入新地形，故调色板此后固定。
+  let next = new Int32Array(current.length);
+  const counts = new Int32Array(palette.length);
+  const order = new Int32Array(9);
   for (let iteration = 0; iteration < iterations; iteration += 1) {
-    const next = new Array<string>(current.length);
     for (let y = 0; y < height; y += 1) {
       for (let x = 0; x < width; x += 1) {
         const index = y * width + x;
-        const counts = new Map<string, number>();
+        let orderLength = 0;
         for (let dy = -1; dy <= 1; dy += 1) {
           for (let dx = -1; dx <= 1; dx += 1) {
             const nx = x + dx;
             const ny = y + dy;
             if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
             const tile = current[ny * width + nx];
-            counts.set(tile, (counts.get(tile) ?? 0) + 1);
+            if (counts[tile] === 0) order[orderLength++] = tile;
+            counts[tile] += 1;
           }
         }
         let best = current[index];
-        let bestCount = counts.get(best) ?? 0;
-        for (const [tile, count] of counts) {
-          if (count > bestCount) {
+        let bestCount = counts[best];
+        for (let k = 0; k < orderLength; k += 1) {
+          const tile = order[k];
+          if (counts[tile] > bestCount) {
             best = tile;
-            bestCount = count;
+            bestCount = counts[tile];
           }
         }
         next[index] = best;
+        for (let k = 0; k < orderLength; k += 1) counts[order[k]] = 0;
       }
     }
+    const swap = current;
     current = next;
+    next = swap;
   }
-  return current;
+  const result = new Array<string>(current.length);
+  for (let index = 0; index < current.length; index += 1) result[index] = palette[current[index]];
+  return result;
 }
 
 /** 写入封闭边界环：厚度沿边缘随噪声起伏，让秘境边界自然但严格封闭。 */

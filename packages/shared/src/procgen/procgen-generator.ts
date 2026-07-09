@@ -11,14 +11,15 @@
  * 同一 seed + preset + 地块目录恒等输出；生成发生在实例创建期，不进 tick 热路径。
  */
 import { ProcgenRng } from './procgen-random';
-import { buildProcgenTileCatalog, validateProcgenTileCatalog, findUnregisteredTileChars, requireProcgenTile, type ProcgenTileCatalog } from './procgen-catalog';
+import { buildProcgenTileCatalog, validateProcgenTileCatalog, findUnregisteredTileChars, type ProcgenTileCatalog } from './procgen-catalog';
+import { encodeRows } from './procgen-encode';
+import { generatePartitionedMap } from './procgen-generator-partitioned';
 import { generateField, assignTerrain, smoothTerrain, applyBorder } from './procgen-fields';
 import { placeStructures, clearStructuresAround } from './procgen-structures';
 import { placeBuildings } from './procgen-buildings';
 import { buildWalkableMask, findRegions, ensureConnectivity } from './procgen-connect';
 import { bfsDistances, pickSpawn, pickExits, pickPois, buildRoadNetwork } from './procgen-routes';
 import type { ProcgenGenerateOptions, ProcgenMapResult, ProcgenBiomePreset, ProcgenPortalPlacement, ProcgenContentAnchor } from './procgen-types';
-import { LAYER_EMPTY_CHAR } from '../constants/gameplay/map-layer-chars';
 
 /** 校验预设引用的地块在目录中全部存在；配置错误必须在生成前暴露。 */
 export function validateProcgenPreset(preset: ProcgenBiomePreset, catalog: ProcgenTileCatalog): string[] {
@@ -47,6 +48,38 @@ export function validateProcgenPreset(preset: ProcgenBiomePreset, catalog: Procg
     if (b.on.length === 0) errors.push('procgen_buildings_on_empty');
     for (const on of b.on) checkTile('terrain', on, 'buildings:on');
   }
+  const region = preset.regionGen;
+  if (region) {
+    const optionalTerrain = (tile: string | undefined, where: string): void => { if (tile) checkTile('terrain', tile, where); };
+    if (region.maze) {
+      checkTile('structure', region.maze.wallTile, 'regionGen:maze:wall');
+      optionalTerrain(region.maze.floorTile, 'regionGen:maze:floor');
+    }
+    if (region.dungeon) {
+      checkTile('structure', region.dungeon.wallTile, 'regionGen:dungeon:wall');
+      checkTile('structure', region.dungeon.doorTile, 'regionGen:dungeon:door');
+      optionalTerrain(region.dungeon.floorTile, 'regionGen:dungeon:floor');
+    }
+    if (region.vault) {
+      checkTile('structure', region.vault.wallTile, 'regionGen:vault:wall');
+      checkTile('structure', region.vault.doorTile, 'regionGen:vault:door');
+      optionalTerrain(region.vault.floorTile, 'regionGen:vault:floor');
+      if (region.vault.pillarTile) checkTile('structure', region.vault.pillarTile, 'regionGen:vault:pillar');
+    }
+    if (region.boss) {
+      checkTile('structure', region.boss.wallTile, 'regionGen:boss:wall');
+      optionalTerrain(region.boss.floorTile, 'regionGen:boss:floor');
+      if (region.boss.pillarTile) checkTile('structure', region.boss.pillarTile, 'regionGen:boss:pillar');
+    }
+    optionalTerrain(region.corridor?.floorTile, 'regionGen:corridor:floor');
+    for (const [kind, rules] of Object.entries(region.openTerrainRulesByKind ?? {})) {
+      for (const rule of rules) checkTile('terrain', rule.tile, `regionGen:openTerrainRules:${kind}`);
+    }
+  }
+  // 分区拼装靠预留门位构造连通性，不需要（也不允许）事后全图 carve 横穿墙体。
+  if (preset.partition && preset.connectivity.mode === 'carve') {
+    errors.push('procgen_partition_requires_fill_connectivity');
+  }
   const baseDef = catalog.byLayerAndId.get(`terrain:${preset.baseTerrain}`);
   if (baseDef && !baseDef.walkable) errors.push(`procgen_base_terrain_not_walkable:${preset.baseTerrain}`);
   // border.tile 同时用作封闭边界与孤块回填填充；回填分支假设它不可走，
@@ -60,25 +93,6 @@ export function validateProcgenPreset(preset: ProcgenBiomePreset, catalog: Procg
   if (carveDef && !carveDef.walkable) errors.push(`procgen_carve_terrain_not_walkable:${preset.connectivity.carveTile ?? preset.baseTerrain}`);
   if (preset.exitPortalCount < 1) errors.push('procgen_exit_portal_count_invalid');
   return errors;
-}
-
-function encodeRows(
-  width: number,
-  height: number,
-  ids: readonly (string | null)[],
-  layer: 'terrain' | 'surface' | 'structure',
-  catalog: ProcgenTileCatalog,
-): string[] {
-  const rows: string[] = [];
-  for (let y = 0; y < height; y += 1) {
-    let row = '';
-    for (let x = 0; x < width; x += 1) {
-      const id = ids[y * width + x];
-      row += id === null ? LAYER_EMPTY_CHAR : requireProcgenTile(catalog, layer, id).char;
-    }
-    rows.push(row);
-  }
-  return rows;
 }
 
 /** 生成一张秘境地图。配置或目录非法时抛错；软性越界（可走占比等）进 warnings。 */
@@ -106,6 +120,11 @@ export function generateProcgenMap(options: ProcgenGenerateOptions): ProcgenMapR
   const height = options.heightOverride ?? rng.intInRange(preset.size.height);
   if (!Number.isInteger(width) || !Number.isInteger(height) || width < 16 || height < 16 || width * height > 65536) {
     throw new Error(`procgen_size_invalid:${width}x${height}`);
+  }
+
+  // 配了 partition 就走分区拼装管线；否则走下面的全图单一噪声管线（行为完全不变）。
+  if (preset.partition) {
+    return generatePartitionedMap(preset, catalog, seed, width, height, warnings);
   }
 
   // 1) 噪声场 → 地形 → 平滑 → 边界
@@ -227,6 +246,9 @@ export function generateProcgenMap(options: ProcgenGenerateOptions): ProcgenMapR
       filledCells: connectivity.filledCells,
       buildingCount: buildingResult?.placed ?? 0,
       tileCounts,
+      spatialRegionCount: 0,
+      regionKindCounts: {},
+      lockCount: 0,
     },
     warnings,
   };

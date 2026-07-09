@@ -9,6 +9,16 @@ import type { Tile } from '../../../packages/shared/src/world-core-types';
 import type { ProcgenMapResult, ProcgenTileDef } from '../../../packages/shared/src/procgen/procgen-types';
 import type { ProcgenTileCatalog } from '../../../packages/shared/src/procgen/procgen-catalog';
 import { drawDualGridEdges, drawTileBase } from './demo-image-pack';
+import {
+  ANCHOR_LEGEND,
+  OVERLAY_LEGEND,
+  describeAnchor,
+  describeRegion,
+  drawAnchors,
+  drawRegions,
+  drawTopology,
+  regionAt,
+} from './demo-overlay';
 
 /** 贴图渲染上下文；pack 为 null 或 enabled 为 false 时整图走纯色。 */
 export interface RenderSpriteContext {
@@ -16,6 +26,15 @@ export interface RenderSpriteContext {
   enabled: boolean;
   tiles: readonly Tile[];
 }
+
+/** 调试图层开关。缩略图一律全关（2px 格子下 overlay 只会糊成一团）。 */
+export interface RenderOverlayOptions {
+  regions: boolean;
+  topology: boolean;
+  anchors: boolean;
+}
+
+const OVERLAY_OFF: RenderOverlayOptions = { regions: false, topology: false, anchors: false };
 
 function tileOf(catalog: ProcgenTileCatalog, layer: string, id: string): ProcgenTileDef | undefined {
   return catalog.byLayerAndId.get(`${layer}:${id}`);
@@ -59,6 +78,7 @@ export function renderMap(
   catalog: ProcgenTileCatalog,
   cellSize: number,
   sprite?: RenderSpriteContext,
+  overlay: RenderOverlayOptions = OVERLAY_OFF,
 ): void {
   canvas.width = result.width * cellSize;
   canvas.height = result.height * cellSize;
@@ -91,6 +111,10 @@ export function renderMap(
 
   if (pack) drawDualGridEdges(pack, ctx, result, sprite!.tiles, cellSize);
 
+  // 分区底色压在地形之上、拓扑与锚点之下：底色是背景，拓扑与锚点要能被看清。
+  if (overlay.regions) drawRegions(ctx, result, cellSize);
+  if (overlay.topology) drawTopology(ctx, result, cellSize);
+
   // 传送阵：入口绿色圆环、出口紫色圆环
   for (const portal of result.portals) {
     const cx = (portal.x + 0.5) * cellSize;
@@ -101,27 +125,7 @@ export function renderMap(
     ctx.arc(cx, cy, Math.max(2.5, cellSize * 0.42), 0, Math.PI * 2);
     ctx.stroke();
   }
-  // 内容锚点：宝箱橙方块、怪物据点红三角
-  for (const anchor of result.contentAnchors) {
-    const cx = (anchor.x + 0.5) * cellSize;
-    const cy = (anchor.y + 0.5) * cellSize;
-    const size = Math.max(3, cellSize * 0.55);
-    if (anchor.kind === 'chest') {
-      ctx.fillStyle = '#f2a740';
-      ctx.fillRect(cx - size / 2, cy - size / 2, size, size);
-      ctx.strokeStyle = '#7a4a10';
-      ctx.lineWidth = 1;
-      ctx.strokeRect(cx - size / 2, cy - size / 2, size, size);
-    } else {
-      ctx.fillStyle = '#e0574f';
-      ctx.beginPath();
-      ctx.moveTo(cx, cy - size / 2);
-      ctx.lineTo(cx + size / 2, cy + size / 2);
-      ctx.lineTo(cx - size / 2, cy + size / 2);
-      ctx.closePath();
-      ctx.fill();
-    }
-  }
+  if (overlay.anchors) drawAnchors(ctx, result, cellSize);
 }
 
 /** 图例：只列出本图实际用到的地块（按层分组，含数量）。 */
@@ -144,8 +148,14 @@ export function renderLegend(container: HTMLElement, result: ProcgenMapResult, c
   }
   const markers = document.createElement('span');
   markers.className = 'item';
-  markers.textContent = '◯绿=入口 ◯紫=出口 ■橙=宝箱锚点 ▲红=怪物据点';
+  markers.textContent = `◯绿=入口 ◯紫=出口 ${ANCHOR_LEGEND}`;
   container.appendChild(markers);
+  if (result.regions && result.regions.length > 0) {
+    const overlay = document.createElement('span');
+    overlay.className = 'item';
+    overlay.textContent = OVERLAY_LEGEND;
+    container.appendChild(overlay);
+  }
 }
 
 /** 悬停检视：返回该格三层与可走信息的文本。 */
@@ -164,7 +174,11 @@ export function describeCell(result: ProcgenMapResult, catalog: ProcgenTileCatal
   }
   const portal = result.portals.find((p) => p.x === x && p.y === y);
   if (portal) lines.push(portal.role === 'entry' ? '★ 入口传送阵（出生点）' : '★ 出口传送阵');
-  const anchor = result.contentAnchors.find((a) => a.x === x && a.y === y);
-  if (anchor) lines.push(anchor.kind === 'chest' ? '★ 宝箱锚点' : '★ 怪物据点锚点');
+  // 同一格可以有多个锚点（例如怪物守着宝箱），逐个列出。
+  for (const anchor of result.contentAnchors.filter((a) => a.x === x && a.y === y)) {
+    lines.push(describeAnchor(anchor));
+  }
+  const region = regionAt(result, x, y);
+  if (region) lines.push(describeRegion(region));
   return lines.join('\n');
 }

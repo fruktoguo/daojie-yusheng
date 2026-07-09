@@ -174,10 +174,54 @@ export const PROCGEN_PRESET_COLD_MARSH: ProcgenBiomePreset = {
   walkableRatioRange: [0.4, 0.9],
 };
 
+/**
+ * 九幽秘境：分区拼装示例预设。
+ *
+ * 外围开放地貌、中层迷宫、深处地牢，尽头是 boss 房，旁支挂上锁的宝库。
+ * 区数随面积增长（N = clamp(round(area/1600), 2, 24)），完整骨架需要约 128² 的地板。
+ * connectivity 必须是 fill —— 分区的连通性由预留门位构造保证，不允许事后全图凿穿墙体。
+ */
+export const PROCGEN_PRESET_ABYSS_REALM: ProcgenBiomePreset = {
+  id: 'abyss_realm',
+  name: '九幽秘境',
+  description: '分区拼装：外围荒原、中层迷宫、深处地牢，尽头 boss 房，旁支藏上锁宝库。',
+  size: { width: [108, 132], height: [108, 132] },
+  baseTerrain: 'floor',
+  border: { tile: 'cliff', thickness: [2, 3] },
+  fields: {
+    elevation: { scale: 14, octaves: 3, persistence: 0.5, warp: 0.3 },
+    moisture: { scale: 20, octaves: 3, persistence: 0.5 },
+  },
+  terrainRules: [
+    { tile: 'mud', when: { elevation: [0, 0.3] } },
+    { tile: 'grass', when: { elevation: [0.3, 0.75] } },
+    { tile: 'hill', when: { elevation: [0.75, 1] } },
+  ],
+  smoothing: { iterations: 2 },
+  structures: [
+    { tile: 'tree', on: ['grass'], density: 0.03, minSpacing: 2 },
+    { tile: 'stone', on: ['grass', 'mud', 'hill'], density: 0.012, minSpacing: 3 },
+  ],
+  connectivity: { mode: 'fill', carveTile: 'floor', fillThreshold: 8 },
+  exitPortalCount: 1,
+  walkableRatioRange: [0.12, 0.8],
+  partition: { targetArea: 1600, minSide: 18, maxRegions: 24, maxAspect: 2.2 },
+  regionGen: {
+    maze: { braidRate: 0.2, wallTile: 'wall', floorTile: 'floor' },
+    dungeon: { roomTargetArea: 180, minRoom: 5, jitter: [1, 2], wallTile: 'wall', doorTile: 'door', floorTile: 'floor' },
+    vault: { wallTile: 'wall', doorTile: 'door', floorTile: 'floor', pillarTile: 'stone' },
+    boss: { wallTile: 'wall', entranceWidth: [2, 3], floorTile: 'floor', pillarTile: 'stone' },
+    corridor: { floorTile: 'floor' },
+  },
+  // branchCount 是死端旁支（宝库）数量，lockCount 是其中上锁的数量（其余宝库敞开）。
+  topology: { combatCount: [2, 3], branchCount: [1, 2], lockCount: [1, 2] },
+};
+
 /** 内置预设清单（demo 与后续秘境模板选择用）。 */
 export const PROCGEN_BUILTIN_PRESETS: readonly ProcgenBiomePreset[] = [
   PROCGEN_PRESET_BAMBOO_VALLEY,
   PROCGEN_PRESET_SPIRIT_RAVINE,
   PROCGEN_PRESET_MOLTEN_CAVERN,
   PROCGEN_PRESET_COLD_MARSH,
+  PROCGEN_PRESET_ABYSS_REALM,
 ];

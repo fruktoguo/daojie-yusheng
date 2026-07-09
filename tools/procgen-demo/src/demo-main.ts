@@ -9,7 +9,8 @@ import { hashStringToUint32 } from '../../../packages/shared/src/procgen/procgen
 import type { ProcgenBiomePreset, ProcgenMapResult, ProcgenTileDef } from '../../../packages/shared/src/procgen/procgen-types';
 import type { Tile } from '../../../packages/shared/src/world-core-types';
 import { getImagePack, buildVisualTiles } from './demo-image-pack';
-import { renderMap, renderLegend, describeCell, type RenderSpriteContext } from './demo-render';
+import { renderMap, renderLegend, describeCell, type RenderOverlayOptions, type RenderSpriteContext } from './demo-render';
+import { REGION_KIND_LABELS } from './demo-overlay';
 
 const el = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
 const presetSelect = el<HTMLSelectElement>('preset-select');
@@ -18,6 +19,9 @@ const widthInput = el<HTMLInputElement>('width-input');
 const heightInput = el<HTMLInputElement>('height-input');
 const cellSizeInput = el<HTMLInputElement>('cell-size');
 const spriteToggle = el<HTMLInputElement>('sprite-toggle');
+const anchorsToggle = el<HTMLInputElement>('anchors-toggle');
+const regionsToggle = el<HTMLInputElement>('regions-toggle');
+const topologyToggle = el<HTMLInputElement>('topology-toggle');
 const canvas = el<HTMLCanvasElement>('map-canvas');
 const tooltip = el<HTMLDivElement>('tooltip');
 const tilesJsonInput = el<HTMLTextAreaElement>('tiles-json');
@@ -34,10 +38,18 @@ function spriteContext(): RenderSpriteContext {
   return { pack: imagePack, enabled: spriteToggle.checked, tiles: lastTiles };
 }
 
+function overlayOptions(): RenderOverlayOptions {
+  return {
+    regions: regionsToggle.checked,
+    topology: topologyToggle.checked,
+    anchors: anchorsToggle.checked,
+  };
+}
+
 /** 主图重绘。图集是异步加载的，首次绘制多半只画出纯色，靠 watchImagePack 补画。 */
 function drawMain(): void {
   if (!lastResult) return;
-  renderMap(canvas, lastResult, lastCatalog, Number(cellSizeInput.value), spriteContext());
+  renderMap(canvas, lastResult, lastCatalog, Number(cellSizeInput.value), spriteContext(), overlayOptions());
 }
 
 /**
@@ -68,7 +80,45 @@ function explainWarning(code: string): string {
   if (ratio) {
     return `${code}　可行走占比 ${(Number(ratio[1]) * 100).toFixed(1)}% 超出预设期望区间（地图越小边界占比越高）。`;
   }
+  const filled = /^procgen_unreachable_cells_filled:(\d+)$/.exec(code);
+  if (filled) {
+    return `${code}　有 ${filled[1]} 格可走地面从出生点走不到，已被回填成边界。`
+      + '正常情况下应为 0：预留门位保证了每个区都接得上主体，出现非零说明某个区域生成器没有从门位凿通到区内通道。';
+  }
+  const collapsed = /^procgen_topology_collapsed:(\d+)$/.exec(code);
+  if (collapsed) {
+    return `${code}　只切出 ${collapsed[1]} 个分区，入口/战斗/宝库/BOSS 的骨架撑不开。`
+      + '把地图调大，或调小 partition.targetArea / partition.minSide。';
+  }
+  if (code === 'procgen_vault_no_dead_end') {
+    return `${code}　拓扑里没有死端旁支，本图不会有宝库、锁门与钥匙。`
+      + '（生成器拒绝把 BOSS 前置节点提升为宝库——那会把"可选奖励"变成"必经之路"。）增大地图或提高 maxRegions 即可。';
+  }
+  if (code === 'procgen_boss_footprint_undersized') {
+    return `${code}　没有分区放得下 BOSS 房，已退而求其次选了最远的最大区（会降级成迷宫或开放地貌）。`
+      + '增大地图，或调大 partition.targetArea 让单区更宽敞。';
+  }
+  if (code === 'procgen_boss_region_unreachable') {
+    return `${code}　BOSS 区内找不到可走格，出口传送阵没能放下。这是生成器缺陷，请附种子上报。`;
+  }
   return code;
+}
+
+const ANCHOR_KIND_LABELS: Record<string, string> = {
+  chest: '宝箱', monster: '怪物据点', boss: 'BOSS', herb: '草药', scripture: '藏经台', lock: '锁门', key: '钥匙',
+};
+
+/** 按种类汇总锚点数量；一个都没有的种类不占位。 */
+function describeAnchorCounts(result: ProcgenMapResult): string {
+  const counts = new Map<string, number>();
+  for (const anchor of result.contentAnchors) {
+    counts.set(anchor.kind, (counts.get(anchor.kind) ?? 0) + 1);
+  }
+  if (counts.size === 0) return '无';
+  return Array.from(counts)
+    .sort((a, b) => b[1] - a[1])
+    .map(([kind, count]) => `${ANCHOR_KIND_LABELS[kind] ?? kind} ${count}`)
+    .join('    ');
 }
 
 function parseCustomTiles(): ProcgenTileDef[] {
@@ -97,17 +147,26 @@ function generate(): void {
     lastTiles = buildVisualTiles(result);
     drawMain();
     renderLegend(el('legend'), result, lastCatalog);
-    const chestCount = result.contentAnchors.filter((a) => a.kind === 'chest').length;
-    const monsterCount = result.contentAnchors.filter((a) => a.kind === 'monster').length;
     const doorCount = result.stats.tileCounts['structure:door'] ?? 0;
-    el('stats').textContent = [
+    const lines = [
       `种子：${result.seed}    尺寸：${result.width}×${result.height}`,
       `可行走占比：${(result.stats.walkableRatio * 100).toFixed(1)}%    连通块：${result.stats.regionCount}`,
       `凿通格数：${result.stats.carvedCells}    回填格数：${result.stats.filledCells}`,
       `传送阵：入口 1 / 出口 ${result.portals.length - 1}    房屋：${result.stats.buildingCount} 栋（门 ${doorCount} 个）`,
-      `宝箱锚点：${chestCount}    怪物据点：${monsterCount}    生成耗时：${elapsedMs.toFixed(1)}ms`,
-      `贴图：${imagePack ? '游戏运行时图包（已内联）' : '未内联，纯色渲染'}`,
-    ].join('\n');
+    ];
+    // 分区管线专属统计；旧的全图噪声管线 spatialRegionCount 恒为 0，整段不显示。
+    if (result.stats.spatialRegionCount > 0) {
+      const kinds = Object.entries(result.stats.regionKindCounts)
+        .sort((a, b) => b[1] - a[1])
+        .map(([kind, count]) => `${REGION_KIND_LABELS[kind as keyof typeof REGION_KIND_LABELS] ?? kind}×${count}`)
+        .join(' ');
+      lines.push(`分区：${result.stats.spatialRegionCount} 个（${kinds}）    锁门：${result.stats.lockCount}`);
+      const path = result.levelGraph?.criticalPath.length ?? 0;
+      lines.push(`主线长度：${path} 区（入口 → BOSS）`);
+    }
+    lines.push(`内容锚点：${describeAnchorCounts(result)}`);
+    lines.push(`生成耗时：${elapsedMs.toFixed(1)}ms    贴图：${imagePack ? '游戏运行时图包（已内联）' : '未内联，纯色渲染'}`);
+    el('stats').textContent = lines.join('\n');
     el('warnings').textContent = result.warnings.map(explainWarning).map((line) => `⚠ ${line}`).join('\n');
     renderThumbnails(preset, width, height);
   } catch (error) {
@@ -186,10 +245,15 @@ function exportMapJson(): void {
     monsterSpawns: [],
     npcs: [],
     landmarks: [],
-    // 下划线前缀为 procgen 溯源与内容锚点，引擎 normalize 会忽略；仅供策划在编辑器
-    // 对应位置摆宝箱（interactable）与怪物据点（monsterSpawns），并追溯生成参数。
+    // 下划线字段只存在于这份导出的 JSON 文件里：normalizeEditableMapDocument 是按白名单
+    // 重建文档的，一旦导入编辑器就会被丢弃。所以它们只能当作「对着文本文件抄坐标」的参考，
+    // 不要指望在编辑器里还能看到。秘境运行时不走本导出，而是由服务端按 levelGraph 直接布点。
     _procgen: { presetId: result.presetId, seed: result.seed },
     _procgenContent: result.contentAnchors,
+    _procgenRegions: result.regions?.map((region) => ({
+      nodeId: region.nodeId, rect: region.rect, kind: region.kind, role: region.role, depth: region.depth,
+    })),
+    _procgenCriticalPath: result.levelGraph?.criticalPath,
   };
   const blob = new Blob([JSON.stringify(doc, null, 2)], { type: 'application/json' });
   const link = document.createElement('a');
@@ -226,6 +290,10 @@ function init(): void {
   spriteToggle.disabled = !imagePack;
   if (!imagePack) spriteToggle.checked = false;
   spriteToggle.addEventListener('change', drawMain);
+  // overlay 纯绘制，不重跑生成器：切开关只需重画。
+  for (const toggle of [anchorsToggle, regionsToggle, topologyToggle]) {
+    toggle.addEventListener('change', drawMain);
+  }
   el('tiles-example').addEventListener('click', () => {
     // 演示"同 layer+id 覆盖默认档案"：用已注册字符改写灵矿的名称/颜色/可走语义。
     // 全新地块需先在 shared 注册枚举与字符，否则生成时会以 procgen_unregistered_tile_chars 报错、并被拒绝导出。
