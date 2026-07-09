@@ -515,7 +515,8 @@ function edgeSignature(edge: DualGridEdgeOptions): string {
   return `${edge.range}/${edge.fade}/${edge.fadeStart}/${edge.fadeCurve}/${edge.noise ? 1 : 0}/${edge.noiseType}/${edge.noiseScale}/${edge.noiseAmount}`;
 }
 
-class RuntimeImagePack {
+/** 导出以便离线工具（如秘境生成器 demo）用内联 manifest 复用同一套贴图与 dual-grid 算法。线上仍用文件末尾单例。 */
+export class RuntimeImagePack {
   private readonly cache = new Map<string, ImageCacheEntry>();
   private readonly dualGridEdgeCache = new Map<string, HTMLCanvasElement>();
   private readonly dualGridSourceFrameCache = new Map<string, DualGridSourceFrame>();

@@ -58,6 +58,8 @@
   .drawer-body > div { flex: 1; }
   .error { color: #e06c6c; font-size: 12px; white-space: pre-wrap; }
   .hint { font-size: 11px; color: var(--muted); margin-top: 4px; }
+  .check { display: flex; align-items: center; gap: 6px; color: var(--text); margin: 10px 0 0; cursor: pointer; }
+  .check input { width: auto; }
 </style>
 </head>
 <body>
@@ -76,6 +78,7 @@
     </div>
     <label>格子像素 <span id="cell-size-label">10</span></label>
     <input id="cell-size" type="range" min="3" max="22" value="10">
+    <label class="check"><input id="sprite-toggle" type="checkbox" checked>使用游戏贴图（dual-grid 自动图块）</label>
     <button id="generate-btn" class="primary">生成地图</button>
     <button id="export-btn">导出地图 JSON（format:2 草稿）</button>
     <h2>统计</h2>
@@ -106,6 +109,8 @@
     </div>
   </main>
   <div id="tooltip"></div>
+  <!-- 游戏运行时图包 manifest（build 时内联，tiles 段 src 已换成 data URI）。空则 demo 回退纯色渲染。 -->
+  <script id="image-pack-manifest" type="application/json">/*__IMAGE_PACK_MANIFEST__*/</script>
   <script>//__BUNDLE__</script>
 </body>
 </html>

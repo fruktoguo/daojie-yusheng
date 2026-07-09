@@ -7,7 +7,9 @@ import { buildProcgenTileCatalog, findUnregisteredTileChars } from '../../../pac
 import { PROCGEN_BUILTIN_PRESETS } from '../../../packages/shared/src/procgen/procgen-presets';
 import { hashStringToUint32 } from '../../../packages/shared/src/procgen/procgen-random';
 import type { ProcgenBiomePreset, ProcgenMapResult, ProcgenTileDef } from '../../../packages/shared/src/procgen/procgen-types';
-import { renderMap, renderLegend, describeCell } from './demo-render';
+import type { Tile } from '../../../packages/shared/src/world-core-types';
+import { getImagePack, buildVisualTiles } from './demo-image-pack';
+import { renderMap, renderLegend, describeCell, type RenderSpriteContext } from './demo-render';
 
 const el = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
 const presetSelect = el<HTMLSelectElement>('preset-select');
@@ -15,15 +17,45 @@ const seedInput = el<HTMLInputElement>('seed-input');
 const widthInput = el<HTMLInputElement>('width-input');
 const heightInput = el<HTMLInputElement>('height-input');
 const cellSizeInput = el<HTMLInputElement>('cell-size');
+const spriteToggle = el<HTMLInputElement>('sprite-toggle');
 const canvas = el<HTMLCanvasElement>('map-canvas');
 const tooltip = el<HTMLDivElement>('tooltip');
 const tilesJsonInput = el<HTMLTextAreaElement>('tiles-json');
 const presetJsonInput = el<HTMLTextAreaElement>('preset-json');
 const configError = el<HTMLDivElement>('config-error');
 
+const imagePack = getImagePack();
 let lastResult: ProcgenMapResult | null = null;
 let lastCatalog = buildProcgenTileCatalog();
 let lastPresetName = '';
+let lastTiles: readonly Tile[] = [];
+
+function spriteContext(): RenderSpriteContext {
+  return { pack: imagePack, enabled: spriteToggle.checked, tiles: lastTiles };
+}
+
+/** 主图重绘。图集是异步加载的，首次绘制多半只画出纯色，靠 watchImagePack 补画。 */
+function drawMain(): void {
+  if (!lastResult) return;
+  renderMap(canvas, lastResult, lastCatalog, Number(cellSizeInput.value), spriteContext());
+}
+
+/**
+ * 图集是惰性加载的：每张图 onload 后图包自增 revision。这里轮询到变化才重绘，避免每帧重画整图。
+ * 用 setInterval 而非 requestAnimationFrame —— 后者在页面不可见时会被浏览器暂停，
+ * 导致后台标签页里图集加载完却永远不补画。
+ */
+function watchImagePack(): void {
+  if (!imagePack) return;
+  let seenRevision = -1;
+  setInterval(() => {
+    const revision = imagePack.getRevision();
+    if (revision !== seenRevision) {
+      seenRevision = revision;
+      drawMain();
+    }
+  }, 120);
+}
 
 function parseCustomTiles(): ProcgenTileDef[] {
   const raw = tilesJsonInput.value.trim();
@@ -48,7 +80,8 @@ function generate(): void {
     lastResult = result;
     lastCatalog = buildProcgenTileCatalog(tiles);
     lastPresetName = preset.name;
-    renderMap(canvas, result, lastCatalog, Number(cellSizeInput.value));
+    lastTiles = buildVisualTiles(result);
+    drawMain();
     renderLegend(el('legend'), result, lastCatalog);
     const chestCount = result.contentAnchors.filter((a) => a.kind === 'chest').length;
     const monsterCount = result.contentAnchors.filter((a) => a.kind === 'monster').length;
@@ -59,6 +92,7 @@ function generate(): void {
       `凿通格数：${result.stats.carvedCells}    回填格数：${result.stats.filledCells}`,
       `传送阵：入口 1 / 出口 ${result.portals.length - 1}    房屋门数：${doorCount}`,
       `宝箱锚点：${chestCount}    怪物据点：${monsterCount}    生成耗时：${elapsedMs.toFixed(1)}ms`,
+      `贴图：${imagePack ? '游戏运行时图包（已内联）' : '未内联，纯色渲染'}`,
     ].join('\n');
     el('warnings').textContent = result.warnings.length ? `⚠ ${result.warnings.join('\n⚠ ')}` : '';
     renderThumbnails(preset, width, height);
@@ -78,6 +112,7 @@ function renderThumbnails(preset: ProcgenBiomePreset, width: number | undefined,
     try {
       const result = generateProcgenMap({ preset, tiles, seed, widthOverride: width, heightOverride: height });
       const thumb = document.createElement('canvas');
+      // 缩略图恒用纯色：2px 格子下 dual-grid 的四象限与边缘羽化既看不出来，又要跑 9 遍全图。
       renderMap(thumb, result, lastCatalog, 2);
       thumb.title = `seed=${seed}（点击使用）`;
       thumb.addEventListener('click', () => {
@@ -172,8 +207,11 @@ function init(): void {
   });
   cellSizeInput.addEventListener('input', () => {
     el('cell-size-label').textContent = cellSizeInput.value;
-    if (lastResult) renderMap(canvas, lastResult, lastCatalog, Number(cellSizeInput.value));
+    drawMain();
   });
+  spriteToggle.disabled = !imagePack;
+  if (!imagePack) spriteToggle.checked = false;
+  spriteToggle.addEventListener('change', drawMain);
   el('tiles-example').addEventListener('click', () => {
     // 演示"同 layer+id 覆盖默认档案"：用已注册字符改写灵矿的名称/颜色/可走语义。
     // 全新地块需先在 shared 注册枚举与字符，否则生成时会以 procgen_unregistered_tile_chars 报错、并被拒绝导出。
@@ -202,6 +240,7 @@ function init(): void {
   });
   canvas.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
   generate();
+  watchImagePack();
 }
 
 init();
