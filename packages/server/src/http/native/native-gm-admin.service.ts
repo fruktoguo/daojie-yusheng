@@ -1598,28 +1598,15 @@ function assertRestoreConfirmationMatchesBackup(
     confirmation: GmHighRiskConfirmationBody | undefined,
     recordedChecksum: string,
 ): void {
+    // 密码登录的 GM 即可发起恢复；不再要求客户端重复提交 backupId/checksum 二次确认。
+    // 仍强制有 backupId，并保留 recordedChecksum 供后续服务端文件完整性校验使用。
     if (!backupId) {
         throw new BadRequestException('数据库恢复请求体缺少 backupId');
     }
-    const confirmedBackupId = typeof confirmation?.backupId === 'string' ? confirmation.backupId.trim() : '';
-    if (confirmedBackupId !== backupId) {
-        throw new BadRequestException('数据库恢复需要在请求体中提交 backupId，并与目标备份精确一致');
+    if (!recordedChecksum) {
+        throw new BadRequestException('目标备份缺少 checksumSha256，无法校验 PostgreSQL 数据库归档完整性');
     }
-    const expectedChecksum = pickRestoreExpectedChecksum(confirmation);
-    if (!expectedChecksum || expectedChecksum !== recordedChecksum) {
-        throw new BadRequestException('数据库恢复需要在请求体中提交 expectedChecksum，并与目标备份 checksumSha256 精确一致');
-    }
-}
-
-function pickRestoreExpectedChecksum(confirmation: GmHighRiskConfirmationBody | undefined): string {
-    const raw = typeof confirmation?.expectedChecksum === 'string'
-        ? confirmation.expectedChecksum
-        : typeof confirmation?.expectedChecksumSha256 === 'string'
-            ? confirmation.expectedChecksumSha256
-            : typeof confirmation?.checksumSha256 === 'string'
-                ? confirmation.checksumSha256
-                : '';
-    return raw.trim();
+    void confirmation;
 }
 
 function buildSystemGmActor(): GmActorContext {

@@ -78,5 +78,6 @@ export const NATIVE_GM_RESTORE_CONTRACT = Object.freeze({
   reloadMarketAfterRestore: true,
   reloadGmAuthAfterRestore: true,
   preImportBackupEnabled: true,
-  requiresMaintenance: true,
+  // 单一 GM + 密码全权限：不再强制维护态门槛；仍建议操作前自行开维护。
+  requiresMaintenance: false,
 });

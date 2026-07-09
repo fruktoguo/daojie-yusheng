@@ -3,11 +3,9 @@
  *
  * 维护时要注意鉴权、审计和后台任务边界，避免把管理操作暴露成无保护公开接口。
  */
-import { BadRequestException, ForbiddenException } from '@nestjs/common';
-
 import type { GmActorContext } from './native-gm-actor-context';
 
-/** 高危 GM 操作二次确认请求体的最小形状。 */
+/** 高危 GM 操作二次确认请求体的最小形状（兼容旧客户端字段，当前不再强制校验）。 */
 export interface GmHighRiskConfirmationBody {
   backupId?: unknown;
   confirmationPhrase?: unknown;
@@ -18,7 +16,7 @@ export interface GmHighRiskConfirmationBody {
   scope?: unknown;
 }
 
-/** 高危 GM 操作确认配置。 */
+/** 高危 GM 操作确认配置（保留结构供调用方声明操作语义，运行期不再强制）。 */
 export interface GmHighRiskConfirmationRequirement {
   scope: string;
   confirmationPhrase: string;
@@ -26,33 +24,16 @@ export interface GmHighRiskConfirmationRequirement {
 }
 
 /**
- * 校验高危 GM 操作的 scope 与人工确认短语。
- * - scope 来自 GM access token payload，用于把旧 token 与高危能力隔离；
- * - confirmationPhrase 必须逐字匹配，防止误触恢复、清库、明文密钥读取等操作。
+ * 高危 GM 操作放行校验。
+ *
+ * 当前产品策略：单一 GM 角色，密码登录签发的 token 即具备全部能力。
+ * 请求到达此处时已通过 NativeGmAuthGuard；不再额外要求 scope 或 confirmationPhrase。
+ * 函数保留调用点是为了兼容既有入口与未来若重新启用分级权限时的挂载位。
  */
 export function assertGmHighRiskOperationAllowed(
-  actor: GmActorContext,
-  body: GmHighRiskConfirmationBody | null | undefined,
-  requirement: GmHighRiskConfirmationRequirement,
+  _actor: GmActorContext,
+  _body: GmHighRiskConfirmationBody | null | undefined,
+  _requirement: GmHighRiskConfirmationRequirement,
 ): void {
-  const scopes = new Set(actor.scopes ?? []);
-  if (!scopes.has(requirement.scope)) {
-    throw new ForbiddenException(`GM token 缺少高危操作 scope：${requirement.scope}`);
-  }
-
-  const phrase = pickConfirmationPhrase(body);
-  if (phrase !== requirement.confirmationPhrase) {
-    throw new BadRequestException(
-      `${requirement.operationName} 需要 confirmationPhrase 精确等于 "${requirement.confirmationPhrase}"`,
-    );
-  }
-}
-
-function pickConfirmationPhrase(body: GmHighRiskConfirmationBody | null | undefined): string {
-  const raw = typeof body?.confirmationPhrase === 'string'
-    ? body.confirmationPhrase
-    : typeof body?.confirmPhrase === 'string'
-      ? body.confirmPhrase
-      : '';
-  return raw.trim();
+  // no-op: 密码鉴权通过即可执行全部 GM 操作
 }

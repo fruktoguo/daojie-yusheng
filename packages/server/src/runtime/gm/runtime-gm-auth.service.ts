@@ -609,12 +609,17 @@ function resolveGmTokenRole(value: unknown): string {
 }
 
 function resolveGmTokenScopes(value: unknown): string[] {
+    // 单一 GM 角色：密码登录默认签发全部高危 scope。
+    // 若显式配置 SERVER_GM_TOKEN_SCOPES / 请求 scopes，则以其为准；未配置时等同“什么都能做”。
+    const allHighRiskScopes = Object.values(GM_HIGH_RISK_CONFIRMATION_CONTRACT.scopes);
     const defaultScopes = normalizeGmTokenTextList(process.env.SERVER_GM_TOKEN_SCOPES ?? process.env.GM_TOKEN_SCOPES ?? '');
     const requestedScopes = normalizeGmTokenTextList(value);
-    const highRiskScopes = new Set(Object.values(GM_HIGH_RISK_CONFIRMATION_CONTRACT.scopes));
+    const highRiskScopes = new Set(allHighRiskScopes);
     const configuredAllowedScopes = normalizeGmTokenTextList(process.env.SERVER_GM_ALLOWED_SCOPES ?? process.env.GM_ALLOWED_SCOPES ?? '');
     const allowedScopes = configuredAllowedScopes.length > 0 ? new Set(configuredAllowedScopes) : highRiskScopes;
-    const desiredScopes = requestedScopes.length > 0 ? requestedScopes : defaultScopes;
+    const desiredScopes = requestedScopes.length > 0
+        ? requestedScopes
+        : (defaultScopes.length > 0 ? defaultScopes : allHighRiskScopes);
     for (const scope of desiredScopes) {
         if (!highRiskScopes.has(scope)) {
             throw new BadRequestException(`GM scope 不属于已知高危权限：${scope}`);
