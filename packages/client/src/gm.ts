@@ -78,6 +78,10 @@ import {
   type GmCompatConversionRunRes,
   type GmRemoveBotsReq,
   type GmRestoreDatabaseReq,
+  type GmRestartServerReq,
+  type GmHighRiskConfirmationReq,
+  GM_ALL_HIGH_RISK_SCOPES,
+  GM_HIGH_RISK_CONFIRMATION_PHRASES,
   type GmServerLogEntry,
   type GmServerLogsRes,
   type GmShortcutRunRes,
@@ -4514,7 +4518,9 @@ async function restartServer(): Promise<void> {
   restartServerBtn.disabled = true;
   await request<BasicOkRes & { restartRequested?: boolean }>(`${GM_API_BASE_PATH}/server/restart`, {
     method: 'POST',
-    body: JSON.stringify({}),
+    body: JSON.stringify({
+      confirmationPhrase: GM_HIGH_RISK_CONFIRMATION_PHRASES.serverRestart,
+    } satisfies GmRestartServerReq),
   });
   if (state) {
     state = {
@@ -5182,9 +5188,12 @@ async function cleanupTable(target: string, mode: GmDatabaseCleanupReq['mode'] =
   cleanupBusy = true;
   renderDatabasePanel();
   try {
-    const requestBody: GmDatabaseCleanupReq = mode === 'all'
-      ? { target, mode }
-      : { target, mode: 'older_than', olderThanDays: 7 };
+    const requestBody: GmDatabaseCleanupReq = {
+      ...(mode === 'all'
+        ? { target, mode }
+        : { target, mode: 'older_than' as const, olderThanDays: 7 }),
+      confirmationPhrase: GM_HIGH_RISK_CONFIRMATION_PHRASES.databaseCleanup,
+    };
     const result = await request<GmDatabaseCleanupRes>(`${GM_API_BASE_PATH}/database/cleanup`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -5701,6 +5710,7 @@ async function uploadDatabaseBackupFile(restoreAfterUpload: boolean): Promise<vo
       await restoreDatabaseBackup(result.backup.id, {
         skipConfirm: true,
         fallbackFileName: result.backup.fileName,
+        expectedChecksum: result.backup.checksumSha256,
       });
     }
   } finally {
@@ -5741,7 +5751,11 @@ async function downloadDatabaseBackup(backupId: string): Promise<void> {
 /** restoreDatabaseBackup：处理restore数据库备份。 */
 async function restoreDatabaseBackup(
   backupId: string,
-  options: { skipConfirm?: boolean; fallbackFileName?: string } = {},
+  options: {
+    skipConfirm?: boolean;
+    fallbackFileName?: string;
+    expectedChecksum?: string;
+  } = {},
 ): Promise<void> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
@@ -5755,13 +5769,28 @@ async function restoreDatabaseBackup(
     return;
   }
   const fileName = backup?.fileName ?? options.fallbackFileName ?? backupId;
+  const expectedChecksum = (
+    typeof options.expectedChecksum === 'string' && options.expectedChecksum.trim()
+      ? options.expectedChecksum.trim()
+      : typeof backup?.checksumSha256 === 'string'
+        ? backup.checksumSha256.trim()
+        : ''
+  );
+  if (!expectedChecksum) {
+    setStatus('目标备份缺少 checksumSha256，无法发起高危恢复确认', true);
+    return;
+  }
   const confirmed = options.skipConfirm === true
     ? true
     : window.confirm(t('gm.database.restore.confirm', { fileName }));
   if (!confirmed) {
     return;
   }
-  const body: GmRestoreDatabaseReq = { backupId };
+  const body: GmRestoreDatabaseReq = {
+    backupId,
+    confirmationPhrase: GM_HIGH_RISK_CONFIRMATION_PHRASES.databaseRestore,
+    expectedChecksum,
+  };
   const result = await request<GmTriggerDatabaseBackupRes>(`${GM_API_BASE_PATH}/database/restore`, {
     method: 'POST',
     body: JSON.stringify(body),
@@ -9325,7 +9354,11 @@ async function login(): Promise<void> {
   try {
     const result = await request<GmLoginRes>(`${GM_AUTH_API_BASE_PATH}/login`, {
       method: 'POST',
-      body: JSON.stringify({ password } satisfies GmLoginReq),
+      body: JSON.stringify({
+        password,
+        // 管理端入口默认申请全部高危 scope；服务端仍会按 ALLOWED_SCOPES 校验。
+        scopes: [...GM_ALL_HIGH_RISK_SCOPES],
+      } satisfies GmLoginReq),
     });
     /** token：令牌。 */
     token = result.accessToken;
@@ -9497,7 +9530,11 @@ async function saveEnvironmentVar(key: string, value: string, persist: boolean):
   }
   await request(`${GM_API_BASE_PATH}/environment/vars/${encodeURIComponent(key)}`, {
     method: 'POST',
-    body: JSON.stringify({ value, persist } satisfies GmSetEnvironmentVarReq),
+    body: JSON.stringify({
+      value,
+      persist,
+      confirmationPhrase: GM_HIGH_RISK_CONFIRMATION_PHRASES.environmentSet,
+    } satisfies GmSetEnvironmentVarReq),
   });
   setStatus(`环境变量 ${key} 已保存${persist ? '并持久化' : ''}`);
   await loadEnvironmentVars();
@@ -9505,7 +9542,12 @@ async function saveEnvironmentVar(key: string, value: string, persist: boolean):
 
 async function deleteEnvironmentVar(key: string): Promise<void> {
   if (!confirm(`确认删除环境变量覆盖 "${key}"？`)) return;
-  await request(`${GM_API_BASE_PATH}/environment/vars/${encodeURIComponent(key)}`, { method: 'DELETE' });
+  await request(`${GM_API_BASE_PATH}/environment/vars/${encodeURIComponent(key)}`, {
+    method: 'DELETE',
+    body: JSON.stringify({
+      confirmationPhrase: GM_HIGH_RISK_CONFIRMATION_PHRASES.environmentDelete,
+    } satisfies GmHighRiskConfirmationReq),
+  });
   setStatus(`环境变量 ${key} 已回滚`);
   await loadEnvironmentVars();
 }
@@ -9513,6 +9555,9 @@ async function deleteEnvironmentVar(key: string): Promise<void> {
 async function reloadEnvironmentVars(): Promise<void> {
   const res = await request<GmReloadEnvironmentVarsRes>(`${GM_API_BASE_PATH}/environment/reload`, {
     method: 'POST',
+    body: JSON.stringify({
+      confirmationPhrase: GM_HIGH_RISK_CONFIRMATION_PHRASES.environmentReload,
+    } satisfies GmHighRiskConfirmationReq),
   });
   setStatus(`本地覆盖已重载：${res.count} 个持久化项`);
   await loadEnvironmentVars();

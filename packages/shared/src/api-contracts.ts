@@ -341,6 +341,32 @@ export interface BasicOkRes {
   ok: true;
 }
 
+/** GM 高危操作 scope（与服务端 GM_HIGH_RISK_CONFIRMATION_CONTRACT 对齐）。 */
+export const GM_HIGH_RISK_SCOPES = Object.freeze({
+  disasterRecovery: 'gm:disaster_recovery',
+  secret: 'gm:secret',
+  environment: 'gm:environment',
+  runtimeOperation: 'gm:runtime_operation',
+});
+
+/** GM 高危操作二次确认短语（须与请求体 confirmationPhrase 精确匹配）。 */
+export const GM_HIGH_RISK_CONFIRMATION_PHRASES = Object.freeze({
+  databaseRestore: 'RESTORE SERVER PERSISTENCE',
+  databaseCleanup: 'CLEAN DATABASE TABLE',
+  secretRead: 'READ GM SECRET',
+  secretWrite: 'WRITE GM SECRET',
+  secretDelete: 'DELETE GM SECRET',
+  environmentSet: 'SET RUNTIME ENV',
+  environmentDelete: 'DELETE RUNTIME ENV',
+  environmentReload: 'RELOAD RUNTIME ENV',
+  serverRestart: 'RESTART SERVER',
+});
+
+/** 管理端默认申请的全部高危 scope 列表。 */
+export const GM_ALL_HIGH_RISK_SCOPES = Object.freeze(
+  Object.values(GM_HIGH_RISK_SCOPES),
+);
+
 /** GM 登录请求 */
 export interface GmLoginReq {
 /**
@@ -348,6 +374,15 @@ export interface GmLoginReq {
  */
 
   password: string;
+  /**
+   * scopes：登录时申请的高危 scope 列表。
+   * 未传时服务端仅签发 SERVER_GM_TOKEN_SCOPES/GM_TOKEN_SCOPES 默认值（可为空）。
+   */
+  scopes?: string[];
+  /** scope：scopes 的单值别名。 */
+  scope?: string | string[];
+  /** role：GM 角色标识（可选）。 */
+  role?: string;
 }
 
 /** GM 登录结果。 */
@@ -1921,6 +1956,9 @@ export interface GmDatabaseCleanupReq {
   target: string;
   mode?: 'older_than' | 'all';
   olderThanDays?: number;
+  /** 高危确认短语，须为 CLEAN DATABASE TABLE。 */
+  confirmationPhrase?: string;
+  confirmPhrase?: string;
 }
 
 /** 数据库表清理响应。 */
@@ -1938,6 +1976,13 @@ export interface GmRestoreDatabaseReq {
  */
 
   backupId: string;
+  /** 高危确认短语，须为 RESTORE SERVER PERSISTENCE。 */
+  confirmationPhrase?: string;
+  confirmPhrase?: string;
+  /** 目标备份 checksumSha256，须与备份元数据精确一致。 */
+  expectedChecksum?: string;
+  expectedChecksumSha256?: string;
+  checksumSha256?: string;
 }
 
 /** GM 玩家详情响应。 */
@@ -4241,6 +4286,21 @@ export interface GmEnvironmentVarListRes {
 export interface GmSetEnvironmentVarReq {
   value: string;
   persist?: boolean;
+  /** 高危确认短语，须为 SET RUNTIME ENV。 */
+  confirmationPhrase?: string;
+  confirmPhrase?: string;
+}
+
+/** GM 环境变量删除/重载等仅需确认短语的请求体。 */
+export interface GmHighRiskConfirmationReq {
+  confirmationPhrase?: string;
+  confirmPhrase?: string;
+}
+
+/** GM 服务端重启请求。 */
+export interface GmRestartServerReq {
+  confirmationPhrase?: string;
+  confirmPhrase?: string;
 }
 
 /** GM 环境变量重载响应。 */

@@ -90,7 +90,15 @@ async function loginGm(baseUrl, password) {
         headers: {
             'content-type': 'application/json',
         },
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({
+            password,
+            scopes: [
+                'gm:disaster_recovery',
+                'gm:secret',
+                'gm:environment',
+                'gm:runtime_operation',
+            ],
+        }),
     });
     if (!response.ok) {
         throw new Error(`gm login failed: ${response.status} ${await response.text()}`);
