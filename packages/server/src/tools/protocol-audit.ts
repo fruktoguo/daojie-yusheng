@@ -166,12 +166,14 @@ var EXPECTED_C2S = [
   C2S.RequestMarket,
   C2S.RequestMarketListings,
   C2S.RequestAuctionListings,
+  C2S.RequestTransmissionListings,
   C2S.RequestMarketItemBook,
   C2S.RequestMarketTradeHistory,
   C2S.CreateMarketSellOrder,
   C2S.CreateMarketBuyOrder,
   C2S.PlaceAuctionBid,
   C2S.BuyoutAuctionLot,
+  C2S.BuyTransmissionLot,
   C2S.BuyMarketItem,
   C2S.SellMarketItem,
   C2S.CancelMarketOrder,
@@ -217,6 +219,7 @@ var EXPECTED_S2C = [
   S2C.MailOpResult,
   S2C.MarketUpdate,
   S2C.AuctionListings,
+  S2C.TransmissionListings,
   S2C.MarketItemBook,
   S2C.MarketTradeHistory,
   S2C.Detail,
@@ -258,6 +261,7 @@ var STATIC_S2C_SURFACE_CHECKS = [
       'MailPage',
       'MailSummary',
       'AuctionListings',
+      'TransmissionListings',
       'MarketItemBook',
       'MarketListings',
       'MarketOrders',
@@ -2730,6 +2734,16 @@ async function marketCase(runtime) {
   }, 10000);
   await emitAndWait(buyer, C2S.BuyoutAuctionLot, { lotId: auctionItemKey, itemKey: auctionItemKey }, S2C.MarketUpdate, function () { return true; }, 10000);
   await lib.waitForState(runtime.api, buyerId, function (player) { return count(player, auctionItemId) >= 1; }, 5000, "auctionBuyout");
+  // 传法台：自创功法残卷需经藏经台抄录产出，协议审计里无法凭空造出带 learnTechniqueId 的残卷，
+  // 因此这里覆盖列表下发与「求取不存在拍品」的拒绝路径；成交链路由 market-transmission-smoke 覆盖。
+  await emitAndWait(buyer, C2S.RequestTransmissionListings, { tab: 'participate', page: 1, pageSize: 10, query: '' }, S2C.TransmissionListings, function (payload) {
+    return payload && Array.isArray(payload.items);
+  }, 10000);
+  buyer.emit(C2S.BuyTransmissionLot, { lotId: '', itemKey: '' });
+  // 再走一次列表往返作为屏障，确保上面的求取意图已被服务端处理完毕。
+  await emitAndWait(buyer, C2S.RequestTransmissionListings, { tab: 'mine', page: 1, pageSize: 10, query: '' }, S2C.TransmissionListings, function (payload) {
+    return payload && payload.tab === 'mine';
+  }, 10000);
   await emitAndWait(buyer, C2S.RequestMarketItemBook, { itemKey: itemKey }, S2C.MarketItemBook, function (payload) {
     return payload && payload.itemKey === itemKey;
   }, 10000);

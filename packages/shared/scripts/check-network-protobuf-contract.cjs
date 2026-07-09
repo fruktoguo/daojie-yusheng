@@ -54,6 +54,7 @@ const EXPECTED_STATIC_S2C_SURFACES = [
       'MailPage',
       'MailSummary',
       'AuctionListings',
+      'TransmissionListings',
       'MarketItemBook',
       'MarketListings',
       'MarketOrders',
