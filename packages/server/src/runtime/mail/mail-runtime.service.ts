@@ -663,6 +663,9 @@ export class MailRuntimeService {
                     tileAuraGainAmount: item.tileAuraGainAmount,
                     tileResourceGains: Array.isArray(item.tileResourceGains) ? item.tileResourceGains.map((entry) => ({ ...entry })) : undefined,
                     allowBatchUse: item.allowBatchUse,
+                    // 与 market toFullItem 同理：残卷的功法身份只在这两个实例字段上，漏列即变空书。
+                    learnTechniqueId: item.learnTechniqueId,
+                    learnTechniqueMaxLevel: item.learnTechniqueMaxLevel,
                 });
             }
         }

@@ -5,7 +5,7 @@
  */
 import { BadRequestException, Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { createHash, randomUUID } from 'crypto';
-import { AUCTION_DEFAULT_DURATION_HOURS, AUCTION_LISTING_FEE_BASE, AUCTION_LISTING_FEE_RATE, AUCTION_MAX_DURATION_HOURS, AUCTION_MIN_DURATION_HOURS, EQUIP_SLOTS, HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID, HEAVENLY_DAO_SHOP_ITEMS, ITEM_TYPES, MARKET_MAX_ENHANCE_LEVEL, MARKET_MAX_UNIT_PRICE, TECHNIQUE_EQUIP_SLOTS, calculateHeavenlyDaoShopDiscountedPrice, calculateMarketTradeTotalCost, canMergeItemStack, createItemStackSignature, getItemDisplayName, getMarketMinimumTradeQuantity, getMarketPriceStep, isValidMarketPrice, isValidMarketTradeQuantity, normalizeMarketPriceUp } from '@mud/shared';
+import { AUCTION_DEFAULT_DURATION_HOURS, AUCTION_LISTING_FEE_BASE, AUCTION_LISTING_FEE_RATE, AUCTION_MAX_DURATION_HOURS, AUCTION_MIN_DURATION_HOURS, CUSTOM_TECHNIQUE_BOOK_ITEM_ID, EQUIP_SLOTS, HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID, HEAVENLY_DAO_SHOP_ITEMS, ITEM_TYPES, MARKET_MAX_ENHANCE_LEVEL, MARKET_MAX_UNIT_PRICE, TECHNIQUE_EQUIP_SLOTS, calculateHeavenlyDaoShopDiscountedPrice, calculateMarketTradeTotalCost, canMergeItemStack, createItemStackSignature, getItemDisplayName, getMarketMinimumTradeQuantity, getMarketPriceStep, isValidMarketPrice, isValidMarketTradeQuantity, normalizeMarketPriceUp } from '@mud/shared';
 import { assignItemInstanceIdIfNeeded } from '../world/item-instance-id.helpers';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { AUCTION_GLOBAL_TRADE_HISTORY_LIMIT, AUCTION_MY_TRADE_HISTORY_VISIBLE_LIMIT, AUCTION_TRADE_HISTORY_PAGE_SIZE, MARKET_CURRENCY_ITEM_ID, MARKET_MAX_ORDER_QUANTITY, MARKET_STORAGE_RUNTIME_CACHE_LIMIT, MARKET_TRADE_HISTORY_PAGE_SIZE, MARKET_TRADE_HISTORY_RUNTIME_CACHE_LIMIT, MARKET_TRADE_HISTORY_VISIBLE_LIMIT } from '../../constants/gameplay/market';
@@ -641,6 +641,10 @@ export class MarketRuntimeService {
             if (!this.canTradeItemOnMarket(item)) {
                 return this.singleMessage(playerId, `${this.getCurrencyItemName()}是坊市货币，不能挂售。`);
             }
+            if (listingMode === 'market' && item.itemId === CUSTOM_TECHNIQUE_BOOK_ITEM_ID) {
+                // 普通坊市按 itemId 聚合盘口，残卷共用 itemId 会导致 A 功法被当 B 功法成交。
+                return this.singleStructuredMessage(playerId, 'warn', 'notice.market.custom-technique-order-book-forbidden', '自创功法残卷不能在普通坊市交易，请前往传法台或拍卖行。', {});
+            }
             if (listingMode !== 'auction' && this.isOrdinaryMarketEnhancementLevelRestricted(item)) {
                 return this.singleMessage(playerId, `普通坊市只支持 +${MARKET_MAX_ENHANCE_LEVEL} 及以下装备，+${MARKET_MAX_ENHANCE_LEVEL + 1} 以上请走拍卖行寄拍。`);
             }
@@ -774,6 +778,10 @@ export class MarketRuntimeService {
             }
             if (!this.canTradeItemOnMarket(item)) {
                 return this.singleMessage(playerId, `${this.getCurrencyItemName()}是坊市货币，不能求购。`);
+            }
+            if (item.itemId === CUSTOM_TECHNIQUE_BOOK_ITEM_ID) {
+                // 求购单的物品由模板重建，不含 learnTechniqueId；一旦撮合成交会把空书交付买家。
+                return this.singleStructuredMessage(playerId, 'warn', 'notice.market.custom-technique-order-book-forbidden', '自创功法残卷不能在普通坊市交易，请前往传法台或拍卖行。', {});
             }
             if (this.isOrdinaryMarketEnhancementLevelRestricted(item)) {
                 return this.singleMessage(playerId, `普通坊市只支持 +${MARKET_MAX_ENHANCE_LEVEL} 及以下装备求购，+${MARKET_MAX_ENHANCE_LEVEL + 1} 以上请走拍卖行。`);
@@ -1548,7 +1556,7 @@ export class MarketRuntimeService {
                 continue;
             }
             const orderItem = this.toOrderItem(item);
-            if (!this.canTradeItemOnMarket(orderItem)) {
+            if (!this.isOrderBookTradableItem(orderItem)) {
                 continue;
             }
             grouped.set(this.buildItemKey(orderItem), {
@@ -1563,7 +1571,8 @@ export class MarketRuntimeService {
             if (order.remainingQuantity <= 0
                 || order.status !== 'open'
                 || this.isAuctionOrder(order)
-                || !this.canTradeItemOnMarket(order.item)) {
+                || this.isTransmissionOrder(order)
+                || !this.isOrderBookTradableItem(order.item)) {
                 continue;
             }
 
@@ -1986,6 +1995,19 @@ export class MarketRuntimeService {
     /** 判断订单是否属于显式拍卖寄拍。 */
     isAuctionOrder(order) {
         return Boolean(order?.auction && typeof order.auction === 'object' && order.auction.mode === 'auction');
+    }
+    /** 判断订单是否属于传法台一口价寄售（自创功法残卷专用子市场，一物一单）。 */
+    isTransmissionOrder(order) {
+        return order?.listingMode === 'transmission';
+    }
+    /** 传法台与拍卖行都是一物一单的专有挂单，不参与普通坊市 order-book 撮合与目录。 */
+    isSpecialListingOrder(order) {
+        return this.isAuctionOrder(order) || this.isTransmissionOrder(order);
+    }
+    /** 单笔传法台寄售的权威拍品 key，避免同 itemId 的不同功法残卷合并成一个盘口。 */
+    buildTransmissionLotKey(order) {
+        const orderId = typeof order?.id === 'string' ? order.id.trim() : '';
+        return orderId ? `transmission:${orderId}` : '';
     }
     /** 读取指定拍品 key 对应的显式拍卖卖单。 */
     getAuctionSellOrders(itemKey) {
@@ -3056,6 +3078,10 @@ export class MarketRuntimeService {
             tileAuraGainAmount: normalized.tileAuraGainAmount,
             tileResourceGains: Array.isArray(normalized.tileResourceGains) ? normalized.tileResourceGains.map((entry) => ({ ...entry })) : undefined,
             allowBatchUse: normalized.allowBatchUse,
+            // 自创功法残卷共用 book.custom_technique 这一个 itemId，功法身份只由这两个实例字段承载。
+            // 一旦此处漏列，经市场/拍卖/托管仓回环的残卷会退化成空书，学习时抛「功法书缺少功法 ID」。
+            learnTechniqueId: normalized.learnTechniqueId,
+            learnTechniqueMaxLevel: normalized.learnTechniqueMaxLevel,
         };
     }
     /**
@@ -3066,6 +3092,15 @@ export class MarketRuntimeService {
 
     canTradeItemOnMarket(item) {
         return item.itemId !== MARKET_CURRENCY_ITEM_ID;
+    }
+    /**
+     * 普通坊市（order-book）是否接受该物品。
+     * 自创功法残卷共用同一个 itemId，盘口 key 只按 itemId 聚合，撮合必然串台；
+     * 且求购单的物品由模板重建，天然不含 learnTechniqueId，成交即交付空书。
+     * 因此残卷只允许走传法台（一口价）与拍卖行（竞价），这两条都是一物一单、携带实例 payload。
+     */
+    isOrderBookTradableItem(item) {
+        return this.canTradeItemOnMarket(item) && item?.itemId !== CUSTOM_TECHNIQUE_BOOK_ITEM_ID;
     }
     /** 普通坊市强化等级上限；拍卖行寄拍允许更高强化。 */
     isOrdinaryMarketEnhancementLevelRestricted(item) {
