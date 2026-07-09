@@ -23,6 +23,7 @@ import type {
 import { ViewportController } from '../viewport/viewport-controller';
 import { DEFAULT_SAFE_AREA } from '../../constants/world/map-runtime';
 import { MAP_TARGET_FPS_RANGE, type MapPerformanceConfig } from '../../constants/ui/performance';
+import { advanceFrameDeadlineAfterRender } from './frame-schedule';
 
 const MAP_FRAME_SCHEDULE_MAX_EARLY_TOLERANCE_MS = 2;
 const MAX_RENDERED_COMBAT_EFFECTS_PER_DELTA = 96;
@@ -449,10 +450,7 @@ export class MapRuntime implements MapRuntimeApi {
       const skippedRafCallbacks = this.skippedRafCallbacksSinceRender;
       this.rafCallbacksSinceRender = 0;
       this.skippedRafCallbacksSinceRender = 0;
-      this.nextFrameAt += minFrameIntervalMs;
-      while (this.nextFrameAt <= now) {
-        this.nextFrameAt += minFrameIntervalMs;
-      }
+      this.nextFrameAt = advanceFrameDeadlineAfterRender(this.nextFrameAt, now, minFrameIntervalMs);
       this.flushPendingSceneSync();
       this.camera.update(dt);
       const timing = this.store.getTickTiming();
