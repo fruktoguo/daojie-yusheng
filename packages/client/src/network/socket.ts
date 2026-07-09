@@ -39,6 +39,12 @@ import type { SocketSocialEconomySender } from './socket-send-social-economy';
 import type { SocketContentSender } from './socket-send-content';
 import type { SocketTechniqueGenerationSender } from './socket-send-technique-generation';
 import type { BoundServerEventName, ServerEventCallback } from './socket-server-events';
+import {
+  emitSocketBusinessEvent,
+  emitSocketLifecycleEvent,
+  type SocketSendResult,
+} from './socket-outbound-gate';
+import type { SocketBusinessEventName, SocketLifecycleEventName } from './socket-send-types';
 
 /** 客户端 Socket.IO 连接管理器，负责连接生命周期、协议编解码和事件分发。 */
 export class SocketManager {
@@ -48,6 +54,8 @@ export class SocketManager {
   private accessToken: string | null = null;
   /** 当前连接使用的目标服务地址，默认为当前 origin。 */
   private serverUrlOverride: string | null = null;
+  /** 已收到本连接 InitSession，业务意图可安全发往当前玩家会话。 */
+  private sessionReady = false;
   /** 导航、战斗和运行时动作发包 owner。 */
   private readonly runtimeSender = createSocketRuntimeSender({
     emitEvent: (event, payload) => this.sendEvent(event, payload),
@@ -98,6 +106,7 @@ export class SocketManager {
     }
     this.disposeSocket({ clearToken: false });
     this.socket = this.createSocketConnection(token);
+    this.bindSessionReadiness(this.socket);
     this.lifecycle.bind(this.socket);
     this.serverEvents.bindSessionEvents();
     this.serverEvents.bindGameplayEvents();
@@ -120,6 +129,25 @@ export class SocketManager {
     });
   }
 
+  /** 仅由当前 Socket 更新会话就绪态，避免旧连接的迟到事件污染新连接。 */
+  private bindSessionReadiness(socket: Socket): void {
+    socket.on('connect', () => {
+      if (this.socket === socket) {
+        this.sessionReady = false;
+      }
+    });
+    socket.on('disconnect', () => {
+      if (this.socket === socket) {
+        this.sessionReady = false;
+      }
+    });
+    socket.on(S2C.InitSession, () => {
+      if (this.socket === socket) {
+        this.sessionReady = true;
+      }
+    });
+  }
+
   /** 泛型注册服务端事件订阅，维持 socket.ts 为唯一消费主入口。 */
   on<TEvent extends BoundServerEventName>(
     event: TEvent,
@@ -129,19 +157,37 @@ export class SocketManager {
   }
 
   /** 向服务端发送事件，自动编码载荷。 */
-  private sendEvent<TEvent extends ClientToServerEventName>(
+  private sendEvent<TEvent extends SocketBusinessEventName>(
     event: TEvent,
     payload: ClientToServerEventPayload<TEvent>,
-  ): void {
-    this.socket?.emit(event, encodeClientEventPayload(event, payload));
+  ): SocketSendResult {
+    const socket = this.socket;
+    return emitSocketBusinessEvent(
+      { connected: socket?.connected ?? false, sessionReady: this.sessionReady },
+      socket ? () => socket.emit(event, encodeClientEventPayload(event, payload)) : null,
+    );
+  }
+
+  /** 连接握手和心跳不经过业务事件出口，且同样禁止断线缓冲。 */
+  private sendLifecycleEvent<TEvent extends SocketLifecycleEventName>(
+    event: TEvent,
+    payload: ClientToServerEventPayload<TEvent>,
+    requiresSessionReady: boolean,
+  ): boolean {
+    const socket = this.socket;
+    return emitSocketLifecycleEvent(
+      { connected: socket?.connected ?? false, sessionReady: this.sessionReady },
+      requiresSessionReady,
+      socket ? () => socket.emit(event, encodeClientEventPayload(event, payload)) : null,
+    );
   }
 
   /** 公开发送接口，用于不适合归入特定 sender 的一次性事件。 */
-  emitEvent<TEvent extends ClientToServerEventName>(
+  emitEvent<TEvent extends SocketBusinessEventName>(
     event: TEvent,
     payload: ClientToServerEventPayload<TEvent>,
-  ): void {
-    this.sendEvent(event, payload);
+  ): SocketSendResult {
+    return this.sendEvent(event, payload);
   }
 
   /** 断开当前连接并清理 token。 */
@@ -188,6 +234,7 @@ export class SocketManager {
     if (options.clearToken) {
       this.accessToken = null;
     }
+    this.sessionReady = false;
     this.lifecycle.dispose();
     this.socket?.disconnect();
     this.socket = null;
@@ -195,12 +242,12 @@ export class SocketManager {
 
   /** 向服务端发送心跳包。 */
   private sendHeartbeat(): void {
-    this.sendEvent(C2S.Heartbeat, { clientAt: Date.now() });
+    this.sendLifecycleEvent(C2S.Heartbeat, { clientAt: Date.now() }, true);
   }
 
   /** 发送握手消息，完成客户端就绪声明。 */
   private sendHello(): void {
-    this.sendEvent(C2S.Hello, {});
+    this.sendLifecycleEvent(C2S.Hello, {}, false);
   }  
   /**
  * onKick：执行onKick相关逻辑。
@@ -234,11 +281,11 @@ export class SocketManager {
   }
 
   /** 透传通用发包接口。 */
-  emit<TEvent extends ClientToServerEventName>(
+  emit<TEvent extends SocketBusinessEventName>(
     event: TEvent,
     payload: ClientToServerEventPayload<TEvent>,
-  ): void {
-    this.sendEvent(event, payload);
+  ): SocketSendResult {
+    return this.sendEvent(event, payload);
   }
 
   /** 当前连接是否处于已连接状态。 */

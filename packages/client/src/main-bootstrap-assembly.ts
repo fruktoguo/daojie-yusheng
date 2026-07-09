@@ -931,7 +931,7 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
 
   // ContentResolver: 注入发包能力
   contentResolver.bindEmitter((payload) => {
-    options.socket.content.sendRequestContentTemplates(payload);
+    return options.socket.content.sendRequestContentTemplates(payload);
   });
 
   options.runtimeMonitorSource.restartPingLoop();

@@ -56,8 +56,8 @@ interface CacheEntry<T> {
   complete: boolean;
 }
 
-/** L3 发包回调类型：发送内容模板批量查询请求。 */
-type SendContentRequestFn = (payload: C2S_RequestContentTemplates) => void;
+/** L3 发包回调类型：发送内容模板批量查询请求，并回传是否已交给活动会话。 */
+type SendContentRequestFn = (payload: C2S_RequestContentTemplates) => { accepted: boolean };
 
 /** 单域的 pending promise 回调。 */
 interface PendingResolve<T> {
@@ -66,12 +66,39 @@ interface PendingResolve<T> {
   requireFull: boolean;
 }
 
+/** 已发出但尚未结算的单域批次。 */
+interface InFlightDomain<T> {
+  callbacksById: Map<string, Array<PendingResolve<T>>>;
+}
+
+type ContentDomainName = 'items' | 'techniques' | 'skills' | 'buffs' | 'quests';
+
+/** 单次内容查询请求 owner；requestId 同时是响应关联与迟到包隔离边界。 */
+interface InFlightContentRequest {
+  requestId: string;
+  timeoutId: ReturnType<typeof setTimeout>;
+  items?: InFlightDomain<GmEditorItemOption>;
+  techniques?: InFlightDomain<GmEditorTechniqueOption>;
+  skills?: InFlightDomain<SkillDef>;
+  buffs?: InFlightDomain<LocalBuffTemplate>;
+  quests?: InFlightDomain<QuestState>;
+}
+
+export interface ContentResolverOptions {
+  /** 仅供专项验证缩短 debounce；生产默认使用固定低频窗口。 */
+  flushDelayMs?: number;
+  /** 仅供专项验证缩短超时；生产默认保证弱网下仍有充足回包时间。 */
+  requestTimeoutMs?: number;
+}
+
 // ─── 常量 ─────────────────────────────────────────────────────────────────────
 
 /** L3 批量请求的 debounce 延迟（ms）。 */
 const FLUSH_DELAY_MS = 50;
 /** L3 单次请求每域最大 ID 数。 */
 const MAX_BATCH_PER_DOMAIN = 50;
+/** L3 请求超时；超时后对应 promise 收敛为 null，迟到包由 requestId 丢弃。 */
+const REQUEST_TIMEOUT_MS = 10_000;
 
 // ─── ContentResolver 类 ──────────────────────────────────────────────────────
 
@@ -98,11 +125,26 @@ export class ContentResolver {
   private readonly pendingBuffs = new Map<string, Array<PendingResolve<LocalBuffTemplate>>>();
   private readonly pendingQuests = new Map<string, Array<PendingResolve<QuestState>>>();
   private flushTimer: ReturnType<typeof setTimeout> | null = null;
+  /** 按 requestId 保存已发送批次，响应只允许结算精确命中的 owner。 */
+  private readonly inFlightRequests = new Map<string, InFlightContentRequest>();
+  /** 单域 ID 到 requestId 的反向索引，用于合并同 ID 的并发调用。 */
+  private readonly inFlightRequestIdByDomain: Record<ContentDomainName, Map<string, string>> = {
+    items: new Map(),
+    techniques: new Map(),
+    skills: new Map(),
+    buffs: new Map(),
+    quests: new Map(),
+  };
+  private requestSequence = 0;
+  private readonly flushDelayMs: number;
+  private readonly requestTimeoutMs: number;
 
   // ═══ 依赖：延迟注入的发包函数 ═══
   private sendContentRequest: SendContentRequestFn | null = null;
 
-  constructor() {
+  constructor(options: ContentResolverOptions = {}) {
+    this.flushDelayMs = normalizeDelay(options.flushDelayMs, FLUSH_DELAY_MS, 0);
+    this.requestTimeoutMs = normalizeDelay(options.requestTimeoutMs, REQUEST_TIMEOUT_MS, 1);
     // 构建 L1 静态索引
     this.staticItems = new Map(
       LOCAL_EDITOR_CATALOG.items.map((item) => [item.itemId, item] as const),
@@ -163,8 +205,13 @@ export class ContentResolver {
     this.dynamicSkills.clear();
     this.dynamicBuffs.clear();
     this.dynamicQuests.clear();
-    // reject 所有 pending
+    if (this.flushTimer !== null) {
+      clearTimeout(this.flushTimer);
+      this.flushTimer = null;
+    }
+    // 所有 pending/in-flight promise 都以 null 收敛；旧 requestId 的迟到包随后会被忽略。
     this.rejectAllPending();
+    this.rejectAllInFlight();
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -220,11 +267,11 @@ export class ContentResolver {
 
   /** 异步获取物品完整模板。L1+L2(full) 命中立即返回，否则触发 L3。 */
   fetchItem(itemId: string): Promise<GmEditorItemOption | null> {
-    const cached = this.getItem(itemId);
+    const cached = this.getCompleteItem(itemId);
     if (cached) {
       return Promise.resolve(cached);
     }
-    return this.enqueue(this.pendingItems, itemId, true);
+    return this.enqueue('items', this.pendingItems, itemId, true);
   }
 
   /** 异步获取功法完整模板。 */
@@ -233,7 +280,7 @@ export class ContentResolver {
     if (cached) {
       return Promise.resolve(cached);
     }
-    return this.enqueue(this.pendingTechniques, techId, true);
+    return this.enqueue('techniques', this.pendingTechniques, techId, true);
   }
 
   /** 异步获取技能完整模板。 */
@@ -242,7 +289,7 @@ export class ContentResolver {
     if (cached) {
       return Promise.resolve(cached);
     }
-    return this.enqueue(this.pendingSkills, skillId, true);
+    return this.enqueue('skills', this.pendingSkills, skillId, true);
   }
 
   /** 异步获取 Buff 完整模板。 */
@@ -251,7 +298,7 @@ export class ContentResolver {
     if (cached) {
       return Promise.resolve(cached);
     }
-    return this.enqueue(this.pendingBuffs, buffId, true);
+    return this.enqueue('buffs', this.pendingBuffs, buffId, true);
   }
 
   /** 异步获取任务完整模板。 */
@@ -260,7 +307,7 @@ export class ContentResolver {
     if (cached) {
       return Promise.resolve(cached);
     }
-    return this.enqueue(this.pendingQuests, questId, true);
+    return this.enqueue('quests', this.pendingQuests, questId, true);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -336,39 +383,62 @@ export class ContentResolver {
     });
   }
 
+  /** 查询可用于详情页的完整物品模板；精简摘要只能供同步展示，不可阻断 L3 补全。 */
+  private getCompleteItem(itemId: string): GmEditorItemOption | null {
+    const staticItem = this.staticItems.get(itemId);
+    if (staticItem) {
+      return staticItem;
+    }
+    const dynamicItem = this.dynamicItems.get(itemId);
+    return dynamicItem?.complete ? dynamicItem.data : null;
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
   // S2C 响应处理
   // ═══════════════════════════════════════════════════════════════════════════
 
   /** 处理服务端返回的内容模板批量响应。 */
   handleContentTemplatesResponse(payload: S2C_ContentTemplates): void {
-    // 注入 L2
-    if (payload.items) {
-      this.injectItems(payload.items);
+    const request = this.inFlightRequests.get(payload.requestId);
+    if (!request) {
+      // 超时、断线清理或未知 requestId 的响应不得回填缓存，更不能结算新批次。
+      return;
     }
-    if (payload.techniques) {
-      this.injectTechniques(payload.techniques);
+    clearTimeout(request.timeoutId);
+    this.inFlightRequests.delete(request.requestId);
+
+    if (request.items) {
+      const results = this.filterRequestedResults(request.items, payload.items ?? [], (item) => item.itemId);
+      this.injectItems(results);
+      this.resolveInFlightDomain(request.requestId, 'items', request.items, results, (item) => item.itemId);
     }
-    if (payload.skills) {
-      this.injectSkills(payload.skills);
+    if (request.techniques) {
+      const results = this.filterRequestedResults(request.techniques, payload.techniques ?? [], (technique) => technique.id);
+      this.injectTechniques(results);
+      this.resolveInFlightDomain(request.requestId, 'techniques', request.techniques, results, (technique) => technique.id);
     }
-    if (payload.buffs) {
-      this.injectBuffs(payload.buffs);
+    if (request.skills) {
+      const results = this.filterRequestedResults(request.skills, payload.skills ?? [], (skill) => skill.id);
+      this.injectSkills(results);
+      this.resolveInFlightDomain(request.requestId, 'skills', request.skills, results, (skill) => skill.id);
     }
-    if (payload.quests) {
-      this.injectQuests(payload.quests);
+    if (request.buffs) {
+      const rawResults = this.filterRequestedResults(request.buffs, payload.buffs ?? [], (buff) => buff.buffId);
+      this.injectBuffs(rawResults);
+      const results = rawResults
+        .map((buff) => this.dynamicBuffs.get(buff.buffId)?.data)
+        .filter((buff): buff is LocalBuffTemplate => Boolean(buff));
+      this.resolveInFlightDomain(request.requestId, 'buffs', request.buffs, results, (buff) => buff.buffId);
+    }
+    if (request.quests) {
+      const results = this.filterRequestedResults(request.quests, payload.quests ?? [], (quest) => quest.id);
+      this.injectQuests(results);
+      this.resolveInFlightDomain(request.requestId, 'quests', request.quests, results, (quest) => quest.id);
     }
 
-    // resolve pending promises
-    this.resolvePendingDomain(this.pendingItems, payload.items ?? [], (t) => t.itemId);
-    this.resolvePendingDomain(this.pendingTechniques, payload.techniques ?? [], (t) => t.id);
-    this.resolvePendingDomain(this.pendingSkills, payload.skills ?? [], (t) => t.id);
-    this.resolvePendingDomain(
-      this.pendingBuffs,
-      (payload.buffs ?? []).map((b) => this.dynamicBuffs.get(b.buffId)?.data).filter(Boolean) as LocalBuffTemplate[],
-      (t) => t.buffId,
-    );
-    this.resolvePendingDomain(this.pendingQuests, payload.quests ?? [], (t) => t.id);
+    if (this.hasPendingRequests()) {
+      this.scheduleFlush();
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -376,11 +446,17 @@ export class ContentResolver {
   // ═══════════════════════════════════════════════════════════════════════════
 
   private enqueue<T>(
+    domainName: ContentDomainName,
     pendingMap: Map<string, Array<PendingResolve<T>>>,
     id: string,
     requireFull: boolean,
   ): Promise<T | null> {
     return new Promise<T | null>((resolve) => {
+      const inFlightCallbacks = this.getInFlightCallbacks<T>(domainName, id);
+      if (inFlightCallbacks) {
+        inFlightCallbacks.push({ resolve, requireFull });
+        return;
+      }
       let list = pendingMap.get(id);
       if (!list) {
         list = [];
@@ -398,7 +474,7 @@ export class ContentResolver {
     this.flushTimer = setTimeout(() => {
       this.flushTimer = null;
       this.flush();
-    }, FLUSH_DELAY_MS);
+    }, this.flushDelayMs);
   }
 
   private flush(): void {
@@ -408,51 +484,157 @@ export class ContentResolver {
       return;
     }
 
-    const batch: C2S_RequestContentTemplates = {};
-
-    if (this.pendingItems.size > 0) {
-      batch.items = this.collectIds(this.pendingItems);
-    }
-    if (this.pendingTechniques.size > 0) {
-      batch.techniques = this.collectIds(this.pendingTechniques);
-    }
-    if (this.pendingSkills.size > 0) {
-      batch.skills = this.collectIds(this.pendingSkills);
-    }
-    if (this.pendingBuffs.size > 0) {
-      batch.buffs = this.collectIds(this.pendingBuffs);
-    }
-    if (this.pendingQuests.size > 0) {
-      batch.quests = this.collectIds(this.pendingQuests);
-    }
-
-    const hasContent = batch.items || batch.techniques || batch.skills || batch.buffs || batch.quests;
-    if (!hasContent) {
+    const requestId = this.createRequestId();
+    const items = this.collectDomainBatch(requestId, 'items', this.pendingItems);
+    const techniques = this.collectDomainBatch(requestId, 'techniques', this.pendingTechniques);
+    const skills = this.collectDomainBatch(requestId, 'skills', this.pendingSkills);
+    const buffs = this.collectDomainBatch(requestId, 'buffs', this.pendingBuffs);
+    const quests = this.collectDomainBatch(requestId, 'quests', this.pendingQuests);
+    if (!items && !techniques && !skills && !buffs && !quests) {
       return;
     }
 
-    this.sendContentRequest(batch);
+    const payload: C2S_RequestContentTemplates = {
+      requestId,
+      ...(items ? { items: [...items.callbacksById.keys()] } : undefined),
+      ...(techniques ? { techniques: [...techniques.callbacksById.keys()] } : undefined),
+      ...(skills ? { skills: [...skills.callbacksById.keys()] } : undefined),
+      ...(buffs ? { buffs: [...buffs.callbacksById.keys()] } : undefined),
+      ...(quests ? { quests: [...quests.callbacksById.keys()] } : undefined),
+    };
+    const request: InFlightContentRequest = {
+      requestId,
+      timeoutId: setTimeout(() => this.handleRequestTimeout(requestId), this.requestTimeoutMs),
+      ...(items ? { items } : undefined),
+      ...(techniques ? { techniques } : undefined),
+      ...(skills ? { skills } : undefined),
+      ...(buffs ? { buffs } : undefined),
+      ...(quests ? { quests } : undefined),
+    };
+    this.inFlightRequests.set(requestId, request);
+    try {
+      const result = this.sendContentRequest(payload);
+      if (!result.accepted) {
+        this.rejectInFlightRequest(requestId);
+      }
+    } catch {
+      this.rejectInFlightRequest(requestId);
+    }
+
+    if (this.hasPendingRequests()) {
+      this.scheduleFlush();
+    }
   }
 
-  private collectIds<T>(pendingMap: Map<string, Array<PendingResolve<T>>>): string[] {
-    const ids = Array.from(pendingMap.keys());
-    return ids.slice(0, MAX_BATCH_PER_DOMAIN);
+  private createRequestId(): string {
+    this.requestSequence += 1;
+    return `ct:${this.requestSequence.toString(36)}`;
   }
 
-  private resolvePendingDomain<T>(
+  private collectDomainBatch<T>(
+    requestId: string,
+    domainName: ContentDomainName,
     pendingMap: Map<string, Array<PendingResolve<T>>>,
+  ): InFlightDomain<T> | undefined {
+    if (pendingMap.size === 0) {
+      return undefined;
+    }
+    const callbacksById = new Map<string, Array<PendingResolve<T>>>();
+    for (const [id, callbacks] of pendingMap) {
+      callbacksById.set(id, callbacks);
+      pendingMap.delete(id);
+      this.inFlightRequestIdByDomain[domainName].set(id, requestId);
+      if (callbacksById.size >= MAX_BATCH_PER_DOMAIN) {
+        break;
+      }
+    }
+    return { callbacksById };
+  }
+
+  private getInFlightCallbacks<T>(domainName: ContentDomainName, id: string): Array<PendingResolve<T>> | null {
+    const requestId = this.inFlightRequestIdByDomain[domainName].get(id);
+    if (!requestId) {
+      return null;
+    }
+    const request = this.inFlightRequests.get(requestId);
+    const domain = request?.[domainName] as InFlightDomain<T> | undefined;
+    return domain?.callbacksById.get(id) ?? null;
+  }
+
+  private filterRequestedResults<T, TResult>(
+    domain: InFlightDomain<T>,
+    results: TResult[],
+    getId: (item: TResult) => string,
+  ): TResult[] {
+    return results.filter((item) => domain.callbacksById.has(getId(item)));
+  }
+
+  private resolveInFlightDomain<T>(
+    requestId: string,
+    domainName: ContentDomainName,
+    domain: InFlightDomain<T>,
     results: T[],
     getId: (item: T) => string,
   ): void {
-    const resultMap = new Map(results.map((r) => [getId(r), r]));
-
-    for (const [id, callbacks] of pendingMap) {
+    const resultMap = new Map(results.map((result) => [getId(result), result]));
+    for (const [id, callbacks] of domain.callbacksById) {
+      if (this.inFlightRequestIdByDomain[domainName].get(id) === requestId) {
+        this.inFlightRequestIdByDomain[domainName].delete(id);
+      }
       const result = resultMap.get(id) ?? null;
-      for (const cb of callbacks) {
-        cb.resolve(result);
+      for (const callback of callbacks) {
+        callback.resolve(result);
       }
     }
-    pendingMap.clear();
+    domain.callbacksById.clear();
+  }
+
+  private rejectInFlightDomain<T>(
+    requestId: string,
+    domainName: ContentDomainName,
+    domain: InFlightDomain<T> | undefined,
+  ): void {
+    if (!domain) {
+      return;
+    }
+    for (const [id, callbacks] of domain.callbacksById) {
+      if (this.inFlightRequestIdByDomain[domainName].get(id) === requestId) {
+        this.inFlightRequestIdByDomain[domainName].delete(id);
+      }
+      for (const callback of callbacks) {
+        callback.resolve(null);
+      }
+    }
+    domain.callbacksById.clear();
+  }
+
+  private rejectInFlightRequest(requestId: string): void {
+    const request = this.inFlightRequests.get(requestId);
+    if (!request) {
+      return;
+    }
+    clearTimeout(request.timeoutId);
+    this.inFlightRequests.delete(requestId);
+    this.rejectInFlightDomain(requestId, 'items', request.items);
+    this.rejectInFlightDomain(requestId, 'techniques', request.techniques);
+    this.rejectInFlightDomain(requestId, 'skills', request.skills);
+    this.rejectInFlightDomain(requestId, 'buffs', request.buffs);
+    this.rejectInFlightDomain(requestId, 'quests', request.quests);
+  }
+
+  private handleRequestTimeout(requestId: string): void {
+    this.rejectInFlightRequest(requestId);
+    if (this.hasPendingRequests()) {
+      this.scheduleFlush();
+    }
+  }
+
+  private hasPendingRequests(): boolean {
+    return this.pendingItems.size > 0
+      || this.pendingTechniques.size > 0
+      || this.pendingSkills.size > 0
+      || this.pendingBuffs.size > 0
+      || this.pendingQuests.size > 0;
   }
 
   private rejectAllPending(): void {
@@ -472,6 +654,19 @@ export class ContentResolver {
       map.clear();
     }
   }
+
+  private rejectAllInFlight(): void {
+    for (const requestId of [...this.inFlightRequests.keys()]) {
+      this.rejectInFlightRequest(requestId);
+    }
+  }
+}
+
+function normalizeDelay(value: number | undefined, fallback: number, minimum: number): number {
+  if (!Number.isFinite(value)) {
+    return fallback;
+  }
+  return Math.max(minimum, Math.trunc(Number(value)));
 }
 
 // ─── 模块级单例 ──────────────────────────────────────────────────────────────

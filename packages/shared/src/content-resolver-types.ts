@@ -20,6 +20,10 @@ import type { SkillDef } from './skill-types';
 
 /** 内容模板批量查询请求（C2S）。每域最多 50 个 ID。 */
 export interface C2S_RequestContentTemplates {
+  /**
+   * 请求生命周期内唯一的短标识。服务端原样回传，客户端据此隔离乱序与迟到响应。
+   */
+  requestId: string;
   /** 物品 ID 列表。 */
   items?: string[];
   /** 功法 ID 列表。 */
@@ -36,6 +40,8 @@ export interface C2S_RequestContentTemplates {
 
 /** 内容模板批量查询响应（S2C）。只包含服务端能查到的条目，查不到的 ID 不出现在响应中。 */
 export interface S2C_ContentTemplates {
+  /** 对应请求的短标识。 */
+  requestId: string;
   /** 物品模板列表。 */
   items?: GmEditorItemOption[];
   /** 功法模板列表。 */

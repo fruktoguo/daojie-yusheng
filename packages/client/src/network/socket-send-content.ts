@@ -11,11 +11,12 @@
 import type { C2S_RequestContentTemplates } from '@mud/shared';
 import { C2S } from '@mud/shared';
 import type { SocketEmitEvent } from './socket-send-types';
+import type { SocketSendResult } from './socket-outbound-gate';
 
 /** 内容模板查询发包接口。 */
 export interface SocketContentSender {
   /** 发送批量内容模板查询请求。 */
-  sendRequestContentTemplates(payload: C2S_RequestContentTemplates): void;
+  sendRequestContentTemplates(payload: C2S_RequestContentTemplates): SocketSendResult;
 }
 
 /** 内容模板查询发包依赖。 */
@@ -26,8 +27,8 @@ export interface SocketContentSenderDeps {
 /** 创建内容模板查询发包实例。 */
 export function createSocketContentSender(deps: SocketContentSenderDeps): SocketContentSender {
   return {
-    sendRequestContentTemplates(payload: C2S_RequestContentTemplates): void {
-      deps.emitEvent(C2S.RequestContentTemplates, payload);
+    sendRequestContentTemplates(payload: C2S_RequestContentTemplates): SocketSendResult {
+      return deps.emitEvent(C2S.RequestContentTemplates, payload);
     },
   };
 }

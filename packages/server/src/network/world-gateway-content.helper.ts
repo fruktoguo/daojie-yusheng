@@ -20,6 +20,8 @@ import { WorldGatewayGuardHelper } from './world-gateway-guard.helper';
 
 /** 单域每次请求最大 ID 数量。 */
 const MAX_IDS_PER_DOMAIN = 50;
+/** requestId 只承担单次低频详情请求关联，限制长度避免反射异常大字段。 */
+const MAX_CONTENT_REQUEST_ID_LENGTH = 64;
 
 @Injectable()
 export class WorldGatewayContentHelper {
@@ -38,7 +40,12 @@ export class WorldGatewayContentHelper {
       return;
     }
 
-    const response: S2C_ContentTemplates = {};
+    const requestId = typeof payload?.requestId === 'string' ? payload.requestId : '';
+    if (!requestId || requestId.length > MAX_CONTENT_REQUEST_ID_LENGTH) {
+      return;
+    }
+
+    const response: S2C_ContentTemplates = { requestId };
 
     // 物品模板查询
     if (Array.isArray(payload.items) && payload.items.length > 0) {
