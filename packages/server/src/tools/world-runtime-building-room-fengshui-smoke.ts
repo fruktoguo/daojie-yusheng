@@ -19,6 +19,127 @@ const {
   inferRoomRole,
 } = require("../runtime/building/fengshui-calculator.service");
 
+/**
+ * isolateSpawnFromBuildArea：把烟测地图的出生点移出地图。
+ *
+ * 建筑禁建区包含出生点周围 3x3，而烟测地图只有 3x3~5x5，
+ * 出生点保护区会覆盖整个建造区。这里把出生点移出地图，
+ * 让既有用例只验证被测规则；出生点禁建由 assertBuildingProtectedPlacementRules 专项覆盖。
+ */
+function isolateSpawnFromBuildArea(repository, templateId) {
+  const template = repository.getOrThrow(templateId);
+  template.spawnX = -1000;
+  template.spawnY = -1000;
+  return template;
+}
+
+/** createProtectedPlacementInstance：9x9 空地，出生点 (8,8)，用于验证建筑禁建区。 */
+function createProtectedPlacementInstance(catalog, rules, instanceId) {
+  const repository = new MapTemplateRepository();
+  repository.registerRuntimeMapTemplate({
+    id: "building_protected_placement_smoke",
+    name: "建筑禁建区烟测",
+    width: 9,
+    height: 9,
+    routeDomain: "system",
+    tiles: Array.from({ length: 9 }, () => "........."),
+    spawnPoint: { x: 8, y: 8 },
+    portals: [],
+    npcs: [],
+    monsters: [],
+    safeZones: [],
+    landmarks: [],
+    containers: [],
+    auras: [],
+  });
+  const instance = new MapInstanceRuntime({
+    instanceId,
+    template: repository.getOrThrow("building_protected_placement_smoke"),
+    monsterSpawns: [],
+    kind: "public",
+    persistent: true,
+    createdAt: Date.now(),
+    displayName: "建筑禁建区烟测",
+    linePreset: "real",
+    lineIndex: 1,
+    instanceOrigin: "smoke",
+    defaultEntry: true,
+    canDamageTile: true,
+  });
+  instance.configureBuildingRuntime(catalog, rules);
+  return instance;
+}
+
+/** assertBuildingProtectedPlacementRules：建筑禁建区必须覆盖保护点位周围 3x3，避免把传送点/NPC/出生点围死。 */
+function assertBuildingProtectedPlacementRules(catalog, rules) {
+  // 出生点 (8,8) 的 3x3 为 (7,7)..(8,8)。
+  const spawnInstance = createProtectedPlacementInstance(catalog, rules, "real:building_protected_spawn_smoke");
+  const spawnBlocked = spawnInstance.placeBuildingInstance({ defId: "stone_wall", x: 7, y: 7 });
+  assert.equal(spawnBlocked.ok, false);
+  assert.equal(spawnBlocked.reason, "protected_placement_spawn");
+  assert.equal(spawnInstance.placeBuildingInstance({ defId: "stone_wall", x: 6, y: 6 }).ok, true);
+
+  // 传送点 (2,2) 的 3x3 邻域禁建，第 2 圈放行。
+  const portalInstance = createProtectedPlacementInstance(catalog, rules, "real:building_protected_portal_ring_smoke");
+  portalInstance.getPortalAtTile = (x, y) => (x === 2 && y === 2 ? { id: "portal:ring", x, y } : null);
+  const portalAdjacent = portalInstance.placeBuildingInstance({ defId: "stone_wall", x: 3, y: 3 });
+  assert.equal(portalAdjacent.ok, false);
+  assert.equal(portalAdjacent.reason, "protected_placement_portal");
+  assert.equal(portalInstance.placeBuildingInstance({ defId: "stone_wall", x: 4, y: 4 }).ok, true);
+
+  // NPC (5,0) 的 3x3 邻域禁建。
+  const npcInstance = createProtectedPlacementInstance(catalog, rules, "real:building_protected_npc_ring_smoke");
+  npcInstance.npcIdByTile.set(npcInstance.toTileIndex(5, 0), "npc:protected");
+  const npcAdjacent = npcInstance.placeBuildingInstance({ defId: "stone_wall", x: 4, y: 1 });
+  assert.equal(npcAdjacent.ok, false);
+  assert.equal(npcAdjacent.reason, "protected_placement_npc");
+  assert.equal(npcInstance.placeBuildingInstance({ defId: "stone_wall", x: 3, y: 2 }).ok, true);
+
+  // 其它传送点落在本图的着陆格 (0,6)，其 3x3 邻域同样禁建。
+  const landingInstance = createProtectedPlacementInstance(catalog, rules, "real:building_protected_landing_smoke");
+  landingInstance.listAllPortals = () => [
+    { id: "portal:landing", x: 0, y: 0, targetMapId: "building_protected_placement_smoke", targetX: 0, targetY: 6 },
+  ];
+  const landingAdjacent = landingInstance.placeBuildingInstance({ defId: "stone_wall", x: 1, y: 7 });
+  assert.equal(landingAdjacent.ok, false);
+  assert.equal(landingAdjacent.reason, "protected_placement_portal");
+  assert.equal(landingInstance.placeBuildingInstance({ defId: "stone_wall", x: 2, y: 6 }).ok, true);
+
+  // 宗门山门（带 sectId）只保护本格，否则宗门无法在自家山门旁营建。
+  const sectInstance = createProtectedPlacementInstance(catalog, rules, "real:building_protected_sect_portal_smoke");
+  sectInstance.getPortalAtTile = (x, y) => (x === 2 && y === 2 ? { id: "portal:sect", x, y, sectId: "sect:alpha" } : null);
+  assert.equal(sectInstance.placeBuildingInstance({ defId: "stone_wall", x: 3, y: 3 }).ok, true);
+  const sectCenter = sectInstance.placeBuildingInstance({ defId: "stone_wall", x: 2, y: 2 });
+  assert.equal(sectCenter.ok, false);
+  assert.equal(sectCenter.reason, "protected_placement_portal");
+
+  // 启动自检：邻域违规的存量建筑必须被摧毁，并带出 owner 供宝库返还。
+  const hydrateInstance = createProtectedPlacementInstance(catalog, rules, "real:building_protected_hydrate_ring_smoke");
+  hydrateInstance.getPortalAtTile = (x, y) => (x === 2 && y === 2 ? { id: "portal:hydrate", x, y } : null);
+  const hydrateResult = hydrateInstance.hydrateBuildingRoomFengShuiState({
+    buildings: [{
+      id: "building:protected:ring",
+      defId: "stone_wall",
+      x: 3,
+      y: 3,
+      state: "active",
+      hp: 100,
+      maxHp: 100,
+      ownerPlayerId: "player:ring",
+      cells: [{ tileIndex: hydrateInstance.toTileIndex(3, 3), x: 3, y: 3 }],
+    }],
+    rooms: [],
+    roomCells: [],
+    fengShui: [],
+  });
+  assert.equal(hydrateResult.skippedProtectedPlacementCount, 1);
+  assert.equal(hydrateInstance.buildingById.has("building:protected:ring"), false);
+  assert.equal(hydrateResult.skippedBuildings.length, 1);
+  assert.equal(hydrateResult.skippedBuildings[0].id, "building:protected:ring");
+  assert.equal(hydrateResult.skippedBuildings[0].ownerPlayerId, "player:ring");
+  assert.equal(hydrateResult.skippedBuildings[0].reason, "protected_placement_portal");
+}
+
 async function main() {
   const catalog = compileBuildingDefinitions([
     {
@@ -276,6 +397,7 @@ async function main() {
     containers: [],
     auras: [],
   });
+  isolateSpawnFromBuildArea(templateRepository, "building_room_runtime_smoke");
   const instance = new MapInstanceRuntime({
     instanceId: "real:building_room_runtime_smoke",
     template: templateRepository.getOrThrow("building_room_runtime_smoke"),
@@ -434,7 +556,8 @@ async function main() {
     canDamageTile: true,
   });
   protectedFootprintPlacementInstance.configureBuildingRuntime(catalog, rules);
-  protectedFootprintPlacementInstance.getPortalAtTile = (x, y) => (x === 2 && y === 1 ? { id: "portal:building:footprint", x, y } : null);
+  // 传送点 (3,1) 落在锚点 (1,1) 的 3x3 之外，只能由 footprint 远端格 (2,1) 的邻域命中。
+  protectedFootprintPlacementInstance.getPortalAtTile = (x, y) => (x === 3 && y === 1 ? { id: "portal:building:footprint", x, y } : null);
   const protectedFootprintPlaceResult = protectedFootprintPlacementInstance.placeBuildingInstance({ defId: "wide_stone_wall", x: 1, y: 1 });
   assert.equal(protectedFootprintPlaceResult.ok, false);
   assert.equal(protectedFootprintPlaceResult.reason, "protected_placement_portal");
@@ -488,6 +611,7 @@ async function main() {
   assert.equal(protectedFootprintHydrateInstance.tilePlane.getTileType(anchorTileIndex), anchorPreviousTileType);
   assert.equal(protectedFootprintHydrateInstance.tilePlane.getTileType(portalTileIndex), portalPreviousTileType);
   assert.equal(protectedFootprintHydrateInstance.buildRuntimeTilePersistenceEntries().length, 0);
+  assertBuildingProtectedPlacementRules(catalog, rules);
   const recoveredDamagedWall = recoveredInstance.buildBuildingPersistenceEntries()
     .find((entry) => entry.defId === "stone_wall" && entry.x === 0 && entry.y === 1);
   assert.ok(recoveredDamagedWall);
@@ -533,6 +657,7 @@ async function main() {
     containers: [],
     auras: [],
   });
+  isolateSpawnFromBuildArea(staticTemplateRepository, "static_room_damage_smoke");
   const staticInstance = new MapInstanceRuntime({
     instanceId: "real:static_room_damage_smoke",
     template: staticTemplateRepository.getOrThrow("static_room_damage_smoke"),
@@ -582,6 +707,7 @@ async function main() {
     containers: [],
     auras: [],
   });
+  isolateSpawnFromBuildArea(staticTemplateRepository, "static_outdoor_wall_ground_smoke");
   const outdoorWallInstance = new MapInstanceRuntime({
     instanceId: "real:static_outdoor_wall_ground_smoke",
     template: staticTemplateRepository.getOrThrow("static_outdoor_wall_ground_smoke"),
@@ -616,6 +742,7 @@ async function main() {
     containers: [],
     auras: [],
   });
+  isolateSpawnFromBuildArea(staticTemplateRepository, "static_stone_build_block_smoke");
   const staticStoneBuildInstance = new MapInstanceRuntime({
     instanceId: "real:static_stone_build_block_smoke",
     template: staticTemplateRepository.getOrThrow("static_stone_build_block_smoke"),
@@ -842,6 +969,7 @@ async function main() {
     containers: [],
     auras: [],
   });
+  isolateSpawnFromBuildArea(commandTemplateRepository, "building_command_runtime_smoke");
   const commandInstance = new MapInstanceRuntime({
     instanceId: "real:building_command_runtime_smoke",
     template: commandTemplateRepository.getOrThrow("building_command_runtime_smoke"),
@@ -1151,6 +1279,7 @@ function assertActiveInteractableBuildingsProjectAfterCompletion(catalog, rules)
     containers: [],
     auras: [],
   });
+  isolateSpawnFromBuildArea(templateRepository, "active_interactable_building_projection_smoke");
   const instance = new MapInstanceRuntime({
     instanceId: "real:active_interactable_building_projection_smoke",
     template: templateRepository.getOrThrow("active_interactable_building_projection_smoke"),

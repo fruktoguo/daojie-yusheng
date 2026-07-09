@@ -66,15 +66,38 @@ TypedArray 索引结构，按 cellIndex 存储:
 ## 建筑放置规则
 
 ```
-检查顺序:
-1. 建造锚点与传送点、场景人物或安全区重叠 → `protected_placement_portal` / `protected_placement_npc` / `protected_placement_safe_zone`
+检查顺序（锚点与 footprint 覆盖的每一格都要过）:
+1. 落入受保护点位禁建区 → `protected_placement_portal` / `protected_placement_npc`
+   / `protected_placement_spawn` / `protected_placement_safe_zone`
 2. occupancy[cellIndex] !== 0 → 'occupied'
 3. structure 层已有建筑 → 'structure_overlap'
 4. 同层已有建筑 → 'building_layer_overlap'
 5. 地块不可行走 → 'tile_not_clear'
 ```
 
-服务器启动恢复建筑时会执行同一保护点位自检；违规建筑会直接从运行态和持久化快照中清理。
+### 受保护点位禁建区
+
+建筑会长期占地并阻挡移动，因此禁建区不止「不能压在保护点位上」，还必须让保护点位**周围一圈保持可通行**，否则玩家可以用墙把传送点、NPC、出生点围死。
+
+| 保护点位 | 禁建范围 |
+| --- | --- |
+| 传送点（地图固有） | 3x3 邻域（切比雪夫距离 ≤ 1，共 9 格） |
+| 同图传送着陆格（本图传送点 `targetMapId` 指回本图时的 `targetX/targetY`） | 3x3 邻域 |
+| 出生点 `spawnX/spawnY` | 3x3 邻域 |
+| NPC | 3x3 邻域 |
+| 安全区 | 整个安全区范围（安全区自带 radius，不再外扩） |
+
+宗门山门（带 `sectId` 的运行时传送点）只保护本格，不做邻域外扩，否则宗门无法在自家山门旁营建。
+
+权威实现：`packages/server/src/runtime/world/building-protected-placement.helpers.ts`。阵法与宗门山门另有各自的放置校验，仍走单格重叠检查（`protected-placement.helpers.ts`），不受本节邻域规则约束。
+
+### 启动自检与自动摧毁
+
+服务器启动恢复建筑时对每个存量建筑执行同一套禁建区自检；违规建筑会直接从运行态和持久化快照中清理，占用的地块还原为建造前状态。
+
+摧毁前必须先把宝库库存邮件返还给 owner（`recoverPrunedBuildingVaults`），且必须早于删除 `instance_building_state`——建筑行一旦删除，`owner_player_id` 就无法回退取得，`instance_building_storage_item` 会成为活实例期间 orphan 扫描覆盖不到的孤儿。
+
+自动摧毁**不返还建材**；每个被摧毁建筑会写一条 warn 审计日志（`instance` / `building` / `def` / `owner` / `reason`）。
 
 ## 建造材料 tag
 

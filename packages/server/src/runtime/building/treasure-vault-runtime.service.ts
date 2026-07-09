@@ -30,6 +30,8 @@ const PLAYER_RECOVERY_WATERMARK_TABLE = 'player_recovery_watermark';
 const INSTANCE_CATALOG_TABLE = 'instance_catalog';
 const INSTANCE_BUILDING_STATE_TABLE = 'instance_building_state';
 const TREASURE_VAULT_DEF_ID = 'treasure_vault';
+/** 启动自检返还宝库时的单实例扫描上限，覆盖单图宝库数量级并留出余量。 */
+const VAULT_RECOVERY_SCAN_LIMIT = 5000;
 const DEFAULT_TREASURE_VAULT_CAPACITY = 80;
 const DEFAULT_PERMISSIONS: TreasureVaultPermissionMap = {
   view: ['all'],
@@ -320,6 +322,29 @@ export class TreasureVaultRuntimeService {
     }
     const groups = await this.listVaultStorageGroupsForInstance(instanceId, input.limit);
     return this.recoverVaultStorageGroups(groups, normalizeString(input.reason) || 'instance_recovery');
+  }
+
+  /**
+   * recoverVaultItemsForBuildings：把指定建筑的宝库库存邮件返还给 owner。
+   *
+   * 启动自检摧毁违规建筑前必须先调用，且必须早于删除 instance_building_state，
+   * 否则 owner_player_id 无法从建筑行回退取得，库存会成为无法自动回收的孤儿。
+   */
+  async recoverVaultItemsForBuildings(input: { instanceId?: string; buildingIds?: readonly string[]; reason?: string }): Promise<{ ok: boolean; recoveredVaults: number; recoveredItems: number; blockedVaults: number; reason?: string }> {
+    const instanceId = normalizeString(input.instanceId);
+    const buildingIds = new Set((input.buildingIds ?? []).map((entry) => normalizeString(entry)).filter(Boolean));
+    if (!instanceId || buildingIds.size === 0) {
+      return { ok: true, recoveredVaults: 0, recoveredItems: 0, blockedVaults: 0 };
+    }
+    if (!this.pool || !this.enabled) {
+      return { ok: false, recoveredVaults: 0, recoveredItems: 0, blockedVaults: 0, reason: 'treasure_vault_persistence_disabled' };
+    }
+    const groups = await this.listVaultStorageGroupsForInstance(instanceId, VAULT_RECOVERY_SCAN_LIMIT);
+    const targeted = groups.filter((group) => buildingIds.has(normalizeString(group.building_id)));
+    if (targeted.length === 0) {
+      return { ok: true, recoveredVaults: 0, recoveredItems: 0, blockedVaults: 0 };
+    }
+    return this.recoverVaultStorageGroups(targeted, normalizeString(input.reason) || 'placement_prune');
   }
 
   async recoverOrphanedVaultItems(input: { limit?: number; reason?: string } = {}): Promise<{ ok: boolean; recoveredVaults: number; recoveredItems: number; blockedVaults: number; reason?: string }> {

@@ -9,6 +9,7 @@
  */
 import { Injectable } from '@nestjs/common';
 import * as world_runtime_normalization_helpers_1 from './world-runtime.normalization.helpers';
+import { recoverPrunedBuildingVaults } from './building-placement-prune.helpers';
 
 const {
     buildPublicInstanceId,
@@ -38,6 +39,8 @@ async function persistBuildingRoomStateAfterUnknownDefPrune(deps, domainPersiste
     if (skippedCount <= 0 && skippedProtectedPlacementCount <= 0 && restoredSkippedBuildingTileCellCount <= 0) {
         return;
     }
+    // 必须先于 saveBuildingRoomFengShuiState：删除建筑行后就取不到宝库 owner 了。
+    await recoverPrunedBuildingVaults(deps, instanceId, hydrateResult, deps?.logger);
     if (typeof domainPersistenceService?.saveBuildingRoomFengShuiState === 'function') {
         const state = typeof instance?.buildBuildingRoomFengShuiPersistenceState === 'function'
             ? instance.buildBuildingRoomFengShuiPersistenceState()

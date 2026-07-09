@@ -20,7 +20,7 @@ import { CombatPendingCastCancelReason, cancelPendingCombatCast, createMonsterPe
 import { createRuntimeTemporaryBuff, refreshRuntimeTemporaryBuffPrototype } from '../player/runtime-buff-instance';
 import { canPlayerIgnoreStaticObstacle as canPlayerIgnoreStaticObstacleFromState } from '../player/player-movement-capability.helpers';
 import { resolveTileDamageDropMultiplier } from '../world/combat/tile-drop.helpers';
-import { findProtectedPlacementConflict } from '../world/protected-placement.helpers';
+import { findBuildingProtectedPlacementConflict } from '../world/building-protected-placement.helpers';
 
 const DEFAULT_TILE_AURA_RESOURCE_KEY = buildQiResourceKey(DEFAULT_QI_RESOURCE_DESCRIPTOR);
 const TILE_AURA_FLOW_RATE_SCALE = TILE_AURA_HALF_LIFE_RATE_SCALE ?? QI_HALF_LIFE_RATE_SCALE ?? 1_000_000_000;
@@ -1408,7 +1408,7 @@ class MapInstanceRuntime {
         if (!Number.isFinite(x) || !Number.isFinite(y)) {
             return { ok: false, reason: 'invalid_coordinate' };
         }
-        const anchorConflict = findProtectedPlacementConflict(this, [{ x, y }]);
+        const anchorConflict = findBuildingProtectedPlacementConflict(this, [{ x, y }]);
         if (anchorConflict.ok !== true) {
             return { ok: false, reason: anchorConflict.reason, x: anchorConflict.x, y: anchorConflict.y };
         }
@@ -1422,7 +1422,7 @@ class MapInstanceRuntime {
             if (cellIndex < 0) {
                 return { ok: false, reason: 'out_of_bounds', x: cellX, y: cellY };
             }
-            const cellProtectedConflict = findProtectedPlacementConflict(this, [{ x: cellX, y: cellY }]);
+            const cellProtectedConflict = findBuildingProtectedPlacementConflict(this, [{ x: cellX, y: cellY }]);
             if (cellProtectedConflict.ok !== true) {
                 return { ok: false, reason: cellProtectedConflict.reason, x: cellProtectedConflict.x, y: cellProtectedConflict.y };
             }
@@ -2303,6 +2303,8 @@ class MapInstanceRuntime {
         let skippedUnknownDefCount = 0;
         let skippedProtectedPlacementCount = 0;
         let restoredSkippedBuildingTileCellCount = 0;
+        // 被丢弃的建筑可能是宝库，调用方需要先把库存邮件返还给 owner 再清理持久化行。
+        const skippedBuildings = [];
         for (const entry of buildings) {
             const id = normalizeBuildingId(entry?.id ?? entry?.buildingId);
             const defId = normalizeBuildingId(entry?.defId);
@@ -2317,6 +2319,7 @@ class MapInstanceRuntime {
             };
             if (this.buildingCatalog?.defById && !compiled) {
                 skippedUnknownDefCount += 1;
+                skippedBuildings.push(buildSkippedBuildingRecord(id, defId, entry?.ownerPlayerId, 'unknown_def'));
                 const skippedCells = resolvePersistedBuildingCells(this, persistedLocation, entry?.cells, null);
                 restoredSkippedBuildingTileCellCount += restoreSkippedPersistedBuildingTileCells(this, entry?.cells, skippedCells);
                 continue;
@@ -2357,12 +2360,13 @@ class MapInstanceRuntime {
                 scriptureUpdatedAtTick: Number.isFinite(Number(entry?.scriptureUpdatedAtTick)) ? Math.max(0, Math.trunc(Number(entry.scriptureUpdatedAtTick))) : undefined,
             };
             const cells = resolvePersistedBuildingCells(this, building, entry?.cells, compiled);
-            const placementConflict = findProtectedPlacementConflict(
+            const placementConflict = findBuildingProtectedPlacementConflict(
                 this,
                 iterateBuildingProtectedPlacementPoints(this, cells, building.x, building.y),
             );
             if (placementConflict.ok !== true) {
                 skippedProtectedPlacementCount += 1;
+                skippedBuildings.push(buildSkippedBuildingRecord(id, defId, building.ownerPlayerId, placementConflict.reason));
                 restoredSkippedBuildingTileCellCount += restoreSkippedPersistedBuildingTileCells(this, entry?.cells, cells);
                 continue;
             }
@@ -2392,7 +2396,7 @@ class MapInstanceRuntime {
         }
         if (this.buildingCatalog?.defByHandle) {
             this.rebuildBuildingRoomFengShuiState();
-            return { buildingCount: this.buildingById.size, rebuilt: true, skippedUnknownDefCount, skippedProtectedPlacementCount, restoredSkippedBuildingTileCellCount };
+            return { buildingCount: this.buildingById.size, rebuilt: true, skippedUnknownDefCount, skippedProtectedPlacementCount, restoredSkippedBuildingTileCellCount, skippedBuildings };
         }
         this.roomsById = new Map();
         this.roomIdsByHandle = [];
@@ -2437,7 +2441,7 @@ class MapInstanceRuntime {
                 this.fengShuiByRoomId.set(roomId, snapshot);
             }
         }
-        return { buildingCount: this.buildingById.size, rebuilt: false, skippedUnknownDefCount, skippedProtectedPlacementCount, restoredSkippedBuildingTileCellCount };
+        return { buildingCount: this.buildingById.size, rebuilt: false, skippedUnknownDefCount, skippedProtectedPlacementCount, restoredSkippedBuildingTileCellCount, skippedBuildings };
     }
     /** setPlayerMoveSpeed：设置玩家移动速度。 */
     setPlayerMoveSpeed(playerId, moveSpeed) {
@@ -8964,6 +8968,15 @@ function resolvePersistedBuildingCells(instance, building, persistedCells, compi
         }
     }
     return Array.from(new Set(cells));
+}
+/** buildSkippedBuildingRecord：记录启动自检丢弃的建筑，供调用方返还宝库库存并写审计。 */
+function buildSkippedBuildingRecord(buildingId, defId, ownerPlayerId, reason) {
+    return {
+        id: buildingId,
+        defId,
+        ownerPlayerId: typeof ownerPlayerId === 'string' && ownerPlayerId.trim() ? ownerPlayerId.trim() : null,
+        reason,
+    };
 }
 function* iterateBuildingProtectedPlacementPoints(instance, cellIndices, anchorX, anchorY) {
     const seen = new Set();
