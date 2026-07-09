@@ -33,6 +33,7 @@ import type {
   BuyHeavenlyDaoShopItemView,
   BuyMarketItemView,
   BuyoutAuctionLotView,
+  BuyTransmissionLotView,
   BuyNpcShopItemView,
   CancelAlchemyView,
   CancelEnhancementView,
@@ -57,6 +58,7 @@ import type {
   RequestAlchemyPanelView,
   RequestAttrDetailView,
   RequestAuctionListingsView,
+  RequestTransmissionListingsView,
   RequestDetailView,
   RequestEnhancementPanelView,
   RequestLeaderboardView,
@@ -170,6 +172,9 @@ export interface C2S_RequestMarket extends RequestMarketView {}
 export interface C2S_RequestMarketListings extends RequestMarketListingsView {}
 /** 请求拍卖行分页列表。 */
 export interface C2S_RequestAuctionListings extends RequestAuctionListingsView {}
+
+/** 请求传法台分页列表。 */
+export interface C2S_RequestTransmissionListings extends RequestTransmissionListingsView {}
 /** 请求邮件摘要。 */
 export interface C2S_RequestMailSummary extends RequestMailSummaryView {}
 /** 请求邮件分页列表。 */
@@ -220,6 +225,9 @@ export interface C2S_CreateMarketBuyOrder extends CreateMarketBuyOrderView {}
 export interface C2S_PlaceAuctionBid extends PlaceAuctionBidView {}
 /** 拍卖行一口价。 */
 export interface C2S_BuyoutAuctionLot extends BuyoutAuctionLotView {}
+
+/** 传法台一口价求取功法残卷。 */
+export interface C2S_BuyTransmissionLot extends BuyTransmissionLotView {}
 /** 直接购买坊市挂单物品。 */
 export interface C2S_BuyMarketItem extends BuyMarketItemView {}
 /** 购买天道商店商品。 */

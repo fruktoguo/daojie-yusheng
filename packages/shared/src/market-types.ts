@@ -114,8 +114,13 @@ export interface MarketOrderBookView {
 
 /** 玩家视角下的坊市成交记录方向 */
 export type MarketTradeHistorySide = 'buy' | 'sell';
-/** 成交记录来源：普通坊市成交或拍卖行成交。 */
-export type MarketTradeSource = 'market' | 'auction';
+/** 成交记录来源：普通坊市成交、拍卖行成交或传法台成交。 */
+export type MarketTradeSource = 'market' | 'auction' | 'transmission';
+
+/** 把任意输入归一化成合法的成交来源，未知值一律退回普通坊市。 */
+export function normalizeMarketTradeSource(value: unknown): MarketTradeSource {
+  return value === 'auction' || value === 'transmission' ? value : 'market';
+}
 /** 成交记录范围：全服共享最近记录或玩家自己的记录。 */
 export type MarketTradeHistoryScope = 'all' | 'mine';
 
@@ -297,6 +302,41 @@ export interface AuctionBidRecordView {
  */
 
   createdAtMs: number;
+}
+
+/** 传法台分栏：可求取的寄售，或自己寄售中的功法残卷。 */
+export type TransmissionTab = 'participate' | 'mine';
+
+/** 传法台分页中的单卷功法残卷摘要，一卷一单、一口价。 */
+export interface TransmissionLotPageEntry {
+  /** 拍品行 ID，等同 itemKey。 */
+  id: string;
+  /** 客户端使用的传法台条目 key。 */
+  itemKey: string;
+  /** 服务端投影的轻量预览物品，带 learnTechniqueId 供悬浮详情展示功法。 */
+  item?: ItemStack;
+  /** 道具 ID，恒为自创功法残卷。 */
+  itemId: string;
+  /** 道具主分类。 */
+  itemType: ItemType;
+  /** 功法子分类。 */
+  itemSubType?: AuctionListingSubType;
+  /** 一口价售价。 */
+  price: number;
+  /** 传法者标签，默认匿名。 */
+  sellerLabel: string;
+  /** 是否是自己的寄售。 */
+  isMine: boolean;
+  /** 剩余数量。 */
+  remainingQuantity: number;
+  /** 寄售时间戳。 */
+  createdAt: number;
+}
+
+/** 传法台分栏计数。 */
+export interface TransmissionListingCountsView {
+  participate: number;
+  mine: number;
 }
 
 /** 拍卖行分页中的单个拍品摘要。 */

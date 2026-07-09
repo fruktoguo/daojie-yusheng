@@ -41,6 +41,7 @@ import type {
   MailPageSyncView,
   MailSummarySyncView,
   AuctionListingsView,
+  TransmissionListingsView,
   MarketItemBookView,
   MarketListingsView,
   MarketOrdersView,
@@ -299,6 +300,9 @@ export interface S2C_MarketUpdate extends MarketUpdateView {}
 export interface S2C_MarketListings extends MarketListingsView {}
 /** 拍卖行分页列表。 */
 export interface S2C_AuctionListings extends AuctionListingsView {}
+
+/** 传法台分页列表下发。 */
+export interface S2C_TransmissionListings extends TransmissionListingsView {}
 /** 玩家自己的坊市订单列表。 */
 export interface S2C_MarketOrders extends MarketOrdersView {}
 /** 坊市寄存仓库同步。 */

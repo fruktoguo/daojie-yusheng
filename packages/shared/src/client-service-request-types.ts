@@ -5,7 +5,7 @@
  */
 import type { ArtifactSlot, EquipSlot, ItemType } from './item-runtime-types';
 import type { TechniqueCategory } from './cultivation-types';
-import type { AuctionFilterCategory, AuctionHouseTab, MarketTradeHistoryScope, MarketTradeSource } from './market-types';
+import type { AuctionFilterCategory, AuctionHouseTab, MarketTradeHistoryScope, MarketTradeSource, TransmissionTab } from './market-types';
 import type { MailFilter } from './mail-types';
 import type { AlchemyIngredientSelection, CraftQueueStartMode, EnhancementTargetRef } from './crafting-types';
 import type { InventoryItemRefView } from './inventory-item-ref';
@@ -70,6 +70,26 @@ export interface RequestAuctionListingsView {
  */
 
   query?: string;
+}
+
+/** 请求传法台分页列表。 */
+export interface RequestTransmissionListingsView {
+  /** 传法台分栏。 */
+  tab: TransmissionTab;
+  /** 页码。 */
+  page: number;
+  /** 每页条数，服务端最多返回 10 条。 */
+  pageSize?: number;
+  /** 搜索关键字。 */
+  query?: string;
+}
+
+/** 传法台一口价求取某卷功法残卷。 */
+export interface BuyTransmissionLotView {
+  /** 拍品 ID。 */
+  lotId: string;
+  /** 客户端传法台条目 key。 */
+  itemKey: string;
 }
 
 /** 请求邮件分页。 */
@@ -285,10 +305,10 @@ export interface CreateMarketSellOrderView {
 
   buyoutPrice?: number;
   /**
- * listingMode：挂单入口，默认普通坊市，auction 表示显式寄拍。
+ * listingMode：挂单入口，默认普通坊市，auction 表示显式寄拍，transmission 表示传法台寄售自创功法残卷。
  */
 
-  listingMode?: 'market' | 'auction';
+  listingMode?: 'market' | 'auction' | 'transmission';
   /**
  * auctionDurationHours：拍卖持续小时数，仅 listingMode 为 auction 时生效。
  * 服务端按 1-48 小时裁剪；缺省为 12 小时。

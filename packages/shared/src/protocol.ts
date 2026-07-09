@@ -97,6 +97,7 @@ export const C2S = {
   RequestMarket: 'n:c:requestMarket',
   RequestMarketListings: 'n:c:requestMarketListings',
   RequestAuctionListings: 'n:c:requestAuctionListings',
+  RequestTransmissionListings: 'n:c:requestTransmissionListings',
   RequestMarketItemBook: 'n:c:requestMarketItemBook',
   RequestMarketTradeHistory: 'n:c:requestMarketTradeHistory',
   RequestAttrDetail: 'n:c:requestAttrDetail',
@@ -107,6 +108,7 @@ export const C2S = {
   CreateMarketBuyOrder: 'n:c:createMarketBuyOrder',
   PlaceAuctionBid: 'n:c:placeAuctionBid',
   BuyoutAuctionLot: 'n:c:buyoutAuctionLot',
+  BuyTransmissionLot: 'n:c:buyTransmissionLot',
   BuyMarketItem: 'n:c:buyMarketItem',
   BuyHeavenlyDaoShopItem: 'n:c:buyHeavenlyDaoShopItem',
   SellMarketItem: 'n:c:sellMarketItem',
@@ -212,6 +214,7 @@ export const S2C = {
   MarketUpdate: 'n:s:marketUpdate',
   MarketListings: 'n:s:marketListings',
   AuctionListings: 'n:s:auctionListings',
+  TransmissionListings: 'n:s:transmissionListings',
   MarketOrders: 'n:s:marketOrders',
   MarketStorage: 'n:s:marketStorage',
   MarketItemBook: 'n:s:marketItemBook',
@@ -287,6 +290,7 @@ export interface C2S_PayloadMap extends Record<C2S_EventName, unknown> {
   [C2S.RequestMarket]: RequestPayloads.C2S_RequestMarket;
   [C2S.RequestMarketListings]: RequestPayloads.C2S_RequestMarketListings;
   [C2S.RequestAuctionListings]: RequestPayloads.C2S_RequestAuctionListings;
+  [C2S.RequestTransmissionListings]: RequestPayloads.C2S_RequestTransmissionListings;
   [C2S.RequestMarketItemBook]: RequestPayloads.C2S_RequestMarketItemBook;
   [C2S.RequestMarketTradeHistory]: RequestPayloads.C2S_RequestMarketTradeHistory;
   [C2S.RequestAttrDetail]: RequestPayloads.C2S_RequestAttrDetail;
@@ -301,6 +305,7 @@ export interface C2S_PayloadMap extends Record<C2S_EventName, unknown> {
   [C2S.CreateMarketBuyOrder]: RequestPayloads.C2S_CreateMarketBuyOrder;
   [C2S.PlaceAuctionBid]: RequestPayloads.C2S_PlaceAuctionBid;
   [C2S.BuyoutAuctionLot]: RequestPayloads.C2S_BuyoutAuctionLot;
+  [C2S.BuyTransmissionLot]: RequestPayloads.C2S_BuyTransmissionLot;
   [C2S.BuyMarketItem]: RequestPayloads.C2S_BuyMarketItem;
   [C2S.BuyHeavenlyDaoShopItem]: RequestPayloads.C2S_BuyHeavenlyDaoShopItem;
   [C2S.SellMarketItem]: RequestPayloads.C2S_SellMarketItem;
@@ -402,6 +407,7 @@ export interface S2C_PayloadMap extends Record<S2C_EventName, unknown> {
   [S2C.MarketUpdate]: ResponsePayloads.S2C_MarketUpdate;
   [S2C.MarketListings]: ResponsePayloads.S2C_MarketListings;
   [S2C.AuctionListings]: ResponsePayloads.S2C_AuctionListings;
+  [S2C.TransmissionListings]: ResponsePayloads.S2C_TransmissionListings;
   [S2C.MarketOrders]: ResponsePayloads.S2C_MarketOrders;
   [S2C.MarketStorage]: ResponsePayloads.S2C_MarketStorage;
   [S2C.MarketItemBook]: ResponsePayloads.S2C_MarketItemBook;

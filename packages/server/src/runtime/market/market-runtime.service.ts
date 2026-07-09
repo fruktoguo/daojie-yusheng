@@ -5,7 +5,7 @@
  */
 import { BadRequestException, Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { createHash, randomUUID } from 'crypto';
-import { AUCTION_DEFAULT_DURATION_HOURS, AUCTION_LISTING_FEE_BASE, AUCTION_LISTING_FEE_RATE, AUCTION_MAX_DURATION_HOURS, AUCTION_MIN_DURATION_HOURS, CUSTOM_TECHNIQUE_BOOK_ITEM_ID, EQUIP_SLOTS, HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID, HEAVENLY_DAO_SHOP_ITEMS, ITEM_TYPES, MARKET_MAX_ENHANCE_LEVEL, MARKET_MAX_UNIT_PRICE, TECHNIQUE_EQUIP_SLOTS, calculateHeavenlyDaoShopDiscountedPrice, calculateMarketTradeTotalCost, canMergeItemStack, createItemStackSignature, getItemDisplayName, getMarketMinimumTradeQuantity, getMarketPriceStep, isValidMarketPrice, isValidMarketTradeQuantity, normalizeMarketPriceUp } from '@mud/shared';
+import { AUCTION_DEFAULT_DURATION_HOURS, AUCTION_LISTING_FEE_BASE, AUCTION_LISTING_FEE_RATE, AUCTION_MAX_DURATION_HOURS, AUCTION_MIN_DURATION_HOURS, CUSTOM_TECHNIQUE_BOOK_ITEM_ID, EQUIP_SLOTS, HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID, HEAVENLY_DAO_SHOP_ITEMS, ITEM_TYPES, MARKET_MAX_ENHANCE_LEVEL, MARKET_MAX_UNIT_PRICE, TECHNIQUE_EQUIP_SLOTS, calculateHeavenlyDaoShopDiscountedPrice, calculateMarketTradeTotalCost, canMergeItemStack, createItemStackSignature, getItemDisplayName, getMarketMinimumTradeQuantity, getMarketPriceStep, isValidMarketPrice, isValidMarketTradeQuantity, normalizeMarketPriceUp, normalizeMarketTradeSource } from '@mud/shared';
 import { assignItemInstanceIdIfNeeded } from '../world/item-instance-id.helpers';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { AUCTION_GLOBAL_TRADE_HISTORY_LIMIT, AUCTION_MY_TRADE_HISTORY_VISIBLE_LIMIT, AUCTION_TRADE_HISTORY_PAGE_SIZE, MARKET_CURRENCY_ITEM_ID, MARKET_MAX_ORDER_QUANTITY, MARKET_STORAGE_RUNTIME_CACHE_LIMIT, MARKET_TRADE_HISTORY_PAGE_SIZE, MARKET_TRADE_HISTORY_RUNTIME_CACHE_LIMIT, MARKET_TRADE_HISTORY_VISIBLE_LIMIT } from '../../constants/gameplay/market';
@@ -86,6 +86,8 @@ export class MarketRuntimeService {
     auctionTimingByItemKey = new Map();
     /** clientAuctionLotKey → auctionLotKey 索引，避免 resolveAuctionLotKey O(n) 扫描。 */
     auctionClientKeyToLotKey = new Map<string, string>();
+    /** clientTransmissionLotKey → transmissionLotKey 索引，避免 resolveTransmissionLotKey O(n) 扫描。 */
+    transmissionClientKeyToLotKey = new Map<string, string>();
     /** 串行化坊市写操作，避免并发修改同一份内存状态。 */
     marketOperationQueue = Promise.resolve();
     /** 注入内容、玩家与坊市持久化服务。 */
@@ -343,6 +345,7 @@ export class MarketRuntimeService {
         this.auctionBidsByItemKey.clear();
         this.auctionTimingByItemKey.clear();
         this.hydrateAuctionStateFromOpenOrders();
+        this.hydrateTransmissionStateFromOpenOrders();
         this.compactOpenOrders();
         // 维持不变量：openOrders 中的所有 owner 与拍卖出价人都已 hydrate，
         // 之后撮合/退款分支无需再为对手方做异步等待，只需 hydrate 当前主动玩家即可。
@@ -607,7 +610,11 @@ export class MarketRuntimeService {
         await this.ensureStorageHydrated(playerId);
         return this.runExclusiveMarketMutation(playerId, async (context) => {
 
-            const listingMode = payload?.listingMode === 'auction' || payload?.auction === true ? 'auction' : 'market';
+            const listingMode = payload?.listingMode === 'auction' || payload?.auction === true
+                ? 'auction'
+                : payload?.listingMode === 'transmission'
+                    ? 'transmission'
+                    : 'market';
             const itemInstanceId = this.resolveMarketInventoryItemInstanceId(playerId, payload, 'createSellOrder');
             const item = this.playerRuntimeService.peekInventoryItemByInstanceId(playerId, itemInstanceId);
             if (!item) {
@@ -623,7 +630,10 @@ export class MarketRuntimeService {
             if (listingMode === 'auction' && (!Number.isInteger(unitPrice) || unitPrice < 1)) {
                 return this.singleMessage(playerId, '拍卖总价必须是正整数。');
             }
-            if (listingMode !== 'auction' && !isValidMarketTradeQuantity(unitPrice, quantity)) {
+            if (listingMode === 'transmission' && (!Number.isInteger(unitPrice) || unitPrice < 1)) {
+                return this.singleStructuredMessage(playerId, 'warn', 'notice.market.transmission-invalid-price', '传法台售价必须是正整数。', {});
+            }
+            if (listingMode === 'market' && !isValidMarketTradeQuantity(unitPrice, quantity)) {
                 return this.singleMessage(playerId, this.buildTradeQuantityError(unitPrice));
             }
             const auctionBuyoutPrice = listingMode === 'auction'
@@ -644,6 +654,13 @@ export class MarketRuntimeService {
             if (listingMode === 'market' && item.itemId === CUSTOM_TECHNIQUE_BOOK_ITEM_ID) {
                 // 普通坊市按 itemId 聚合盘口，残卷共用 itemId 会导致 A 功法被当 B 功法成交。
                 return this.singleStructuredMessage(playerId, 'warn', 'notice.market.custom-technique-order-book-forbidden', '自创功法残卷不能在普通坊市交易，请前往传法台或拍卖行。', {});
+            }
+            if (listingMode === 'transmission' && item.itemId !== CUSTOM_TECHNIQUE_BOOK_ITEM_ID) {
+                return this.singleStructuredMessage(playerId, 'warn', 'notice.market.transmission-only-custom-technique', '传法台只流通自创功法残卷。', {});
+            }
+            if (listingMode === 'transmission' && !item.learnTechniqueId) {
+                // 空书（功法身份已丢失）不得再次流通，避免买家买到无法学习的残卷。
+                return this.singleStructuredMessage(playerId, 'warn', 'notice.market.transmission-empty-book', '这卷残卷已残缺不全，无法寄售。', {});
             }
             if (listingMode !== 'auction' && this.isOrdinaryMarketEnhancementLevelRestricted(item)) {
                 return this.singleMessage(playerId, `普通坊市只支持 +${MARKET_MAX_ENHANCE_LEVEL} 及以下装备，+${MARKET_MAX_ENHANCE_LEVEL + 1} 以上请走拍卖行寄拍。`);
@@ -667,7 +684,8 @@ export class MarketRuntimeService {
 
             const result = this.createEmptyResult(playerId);
 
-            const buyOrders = listingMode === 'auction'
+            // 拍卖与传法台都是一物一单寄售，不与普通坊市求购盘撮合。
+            const buyOrders = listingMode !== 'market'
                 ? []
                 : this.getSortedOrders(itemKey, 'buy').filter((order) => order.ownerId !== playerId && order.unitPrice >= unitPrice);
 
@@ -716,16 +734,19 @@ export class MarketRuntimeService {
                     unitPrice,
                     createdAt: now,
                     updatedAt: now,
+                    // 只有传法台单携带该标记，普通坊市与拍卖单的 raw_payload 保持原样。
+                    ...(listingMode === 'transmission' ? { listingMode: 'transmission' as const } : {}),
                 };
                 this.openOrders.push(order);
                 if (listingMode === 'auction') {
                     this.initializeAuctionOrderState(order, context, auctionBuyoutPrice, auctionDurationSeconds);
                 }
+                else if (listingMode === 'transmission') {
+                    this.registerTransmissionLot(order);
+                }
                 this.markOrderDirty(order.id, context);
-                const listingText = listingMode === 'auction'
-                    ? `已寄拍 ${getItemDisplayName(orderItem)} x${remaining}，整包总价 ${this.formatUnitPrice(unitPrice)} ${this.getCurrencyItemName()}，已收上架费 ${this.formatUnitPrice(auctionListingFee)} ${this.getCurrencyItemName()}。`
-                    : `已挂售 ${getItemDisplayName(orderItem)} x${remaining}，单价 ${this.formatUnitPrice(unitPrice)} ${this.getCurrencyItemName()}。`;
                 if (listingMode === 'auction') {
+                    const listingText = `已寄拍 ${getItemDisplayName(orderItem)} x${remaining}，整包总价 ${this.formatUnitPrice(unitPrice)} ${this.getCurrencyItemName()}，已收上架费 ${this.formatUnitPrice(auctionListingFee)} ${this.getCurrencyItemName()}。`;
                     this.pushStructuredNotice(result, playerId, 'success', 'notice.market.auction.consigned', listingText, {
                         vars: {
                             itemName: getItemDisplayName(orderItem),
@@ -737,7 +758,19 @@ export class MarketRuntimeService {
                         pills: [{ key: 'itemName', style: 'target' }, { key: 'totalPrice', style: 'damage' }],
                     });
                 }
+                else if (listingMode === 'transmission') {
+                    const listingText = `已在传法台寄售 ${getItemDisplayName(orderItem)}，售价 ${this.formatUnitPrice(unitPrice)} ${this.getCurrencyItemName()}。`;
+                    this.pushStructuredNotice(result, playerId, 'success', 'notice.market.transmission.consigned', listingText, {
+                        vars: {
+                            itemName: getItemDisplayName(orderItem),
+                            currencyName: this.getCurrencyItemName(),
+                            totalPrice: this.formatUnitPrice(unitPrice),
+                        },
+                        pills: [{ key: 'itemName', style: 'target' }, { key: 'totalPrice', style: 'damage' }],
+                    });
+                }
                 else {
+                    const listingText = `已挂售 ${getItemDisplayName(orderItem)} x${remaining}，单价 ${this.formatUnitPrice(unitPrice)} ${this.getCurrencyItemName()}。`;
                     this.pushNotice(result, playerId, listingText, 'success');
                 }
             }
@@ -909,7 +942,7 @@ export class MarketRuntimeService {
                 return this.singleMessage(playerId, '该物品已有拍卖出价，请从拍卖行一口价或等待结算。');
             }
             const sells = this.getSortedOrders(itemKey, 'sell').filter((order) => order.ownerId !== playerId
-                && !this.isAuctionOrder(order)
+                && !this.isSpecialListingOrder(order)
                 && this.canTradeItemOnMarket(order.item)
                 && !this.isOrdinaryMarketEnhancementLevelRestricted(order.item));
             if (sells.length === 0) {
@@ -1085,7 +1118,7 @@ export class MarketRuntimeService {
             const orderItem = this.toOrderItem(item);
 
             const buys = this.getSortedOrders(this.buildItemKey(orderItem), 'buy').filter((order) => order.ownerId !== playerId
-                && !this.isAuctionOrder(order)
+                && !this.isSpecialListingOrder(order)
                 && this.canTradeItemOnMarket(order.item)
                 && !this.isOrdinaryMarketEnhancementLevelRestricted(order.item));
             if (buys.length === 0) {
@@ -1570,8 +1603,7 @@ export class MarketRuntimeService {
         for (const order of this.openOrders) {
             if (order.remainingQuantity <= 0
                 || order.status !== 'open'
-                || this.isAuctionOrder(order)
-                || this.isTransmissionOrder(order)
+                || this.isSpecialListingOrder(order)
                 || !this.isOrderBookTradableItem(order.item)) {
                 continue;
             }
@@ -2009,6 +2041,172 @@ export class MarketRuntimeService {
         const orderId = typeof order?.id === 'string' ? order.id.trim() : '';
         return orderId ? `transmission:${orderId}` : '';
     }
+    /** 把传法台内部订单 key 压成客户端可传输的短 key。 */
+    buildClientTransmissionLotKey(itemKey) {
+        return this.buildClientMarketKey(itemKey);
+    }
+    /** 把客户端传法台 key 还原成单个寄售订单 key。 */
+    resolveTransmissionLotKey(itemKey) {
+        const normalizedItemKey = typeof itemKey === 'string' ? itemKey.trim() : '';
+        if (!normalizedItemKey) {
+            return '';
+        }
+        if (normalizedItemKey.startsWith('transmission:')) {
+            return normalizedItemKey;
+        }
+        return this.transmissionClientKeyToLotKey.get(normalizedItemKey) ?? '';
+    }
+    /** 登记传法台寄售的 clientKey → lotKey 映射。 */
+    registerTransmissionLot(order) {
+        const itemKey = this.buildTransmissionLotKey(order);
+        const clientKey = this.buildClientTransmissionLotKey(itemKey);
+        if (itemKey && clientKey) {
+            this.transmissionClientKeyToLotKey.set(clientKey, itemKey);
+        }
+    }
+    /** 重启后从持久化订单重建传法台内存索引。 */
+    hydrateTransmissionStateFromOpenOrders() {
+        this.transmissionClientKeyToLotKey.clear();
+        for (const order of this.openOrders) {
+            if (!this.isTransmissionOrder(order) || order.side !== 'sell' || order.status !== 'open' || order.remainingQuantity <= 0) {
+                continue;
+            }
+            this.registerTransmissionLot(order);
+        }
+    }
+    /** 读取指定传法台寄售单，key 已是内部 lotKey。 */
+    getTransmissionSellOrder(itemKey) {
+        const normalizedItemKey = this.resolveTransmissionLotKey(itemKey);
+        if (!normalizedItemKey) {
+            return null;
+        }
+        return this.openOrders.find((order) => this.isTransmissionOrder(order)
+            && order.side === 'sell'
+            && order.status === 'open'
+            && order.remainingQuantity > 0
+            && this.buildTransmissionLotKey(order) === normalizedItemKey) ?? null;
+    }
+    /** 传法台在架寄售单，一单一卷。 */
+    buildTransmissionListedItems() {
+        const entries = [];
+        for (const order of this.openOrders) {
+            if (!this.isTransmissionOrder(order)
+                || order.side !== 'sell'
+                || order.status !== 'open'
+                || order.remainingQuantity <= 0) {
+                continue;
+            }
+            entries.push({ itemKey: this.buildTransmissionLotKey(order), item: this.toOrderItem(order.item), order });
+        }
+        return entries;
+    }
+    /** 传法台拍品摘要投影；一口价、无竞价、无倒计时。 */
+    buildTransmissionLotEntries(ownerId = '') {
+        return this.buildTransmissionListedItems()
+            .filter((entry) => (ownerId ? entry.order.ownerId === ownerId : true))
+            .map((entry) => ({
+            id: this.buildClientTransmissionLotKey(entry.itemKey),
+            itemKey: this.buildClientTransmissionLotKey(entry.itemKey),
+            item: this.toAuctionPreviewItem(entry.item),
+            itemId: entry.item.itemId,
+            itemType: entry.item.type ?? 'skill_book',
+            itemSubType: this.buildMarketListingSubType(entry.item),
+            price: Math.max(1, Math.trunc(Number(entry.order.unitPrice) || 1)),
+            sellerLabel: '匿名传法',
+            isMine: Boolean(ownerId) && entry.order.ownerId === ownerId,
+            remainingQuantity: entry.order.remainingQuantity,
+            createdAt: Number(entry.order.createdAt) || 0,
+        }))
+            .sort((left, right) => left.price - right.price || right.createdAt - left.createdAt);
+    }
+    /** 构造传法台分页列表，服务端按 tab、搜索与页码裁剪后只返回当前页。 */
+    buildTransmissionListingsPage(playerId, payload) {
+        const request = this.normalizeAuctionListingsRequest(payload);
+        const participateLots = this.buildTransmissionLotEntries('')
+            .map((entry) => ({ ...entry, isMine: entry.itemKey ? this.isMyTransmissionLot(playerId, entry.itemKey) : false }));
+        const mineLots = this.buildTransmissionLotEntries(playerId);
+        const source = request.tab === 'mine' ? mineLots : participateLots;
+        const filtered = this.filterAuctionLotEntriesByQuery(source, request.query);
+        const total = filtered.length;
+        const totalPages = Math.max(1, Math.ceil(total / request.pageSize));
+        const page = Math.max(1, Math.min(totalPages, request.page));
+        const start = (page - 1) * request.pageSize;
+        return {
+            currencyItemId: MARKET_CURRENCY_ITEM_ID,
+            currencyItemName: this.getCurrencyItemName(),
+            tab: request.tab,
+            page,
+            pageSize: request.pageSize,
+            total,
+            query: request.query,
+            counts: { participate: participateLots.length, mine: mineLots.length },
+            items: filtered.slice(start, start + request.pageSize),
+        };
+    }
+    /** 判断某个传法台拍品是否是该玩家自己的寄售。 */
+    isMyTransmissionLot(playerId, clientItemKey) {
+        const order = this.getTransmissionSellOrder(clientItemKey);
+        return Boolean(order && order.ownerId === playerId);
+    }
+    /** 传法台一口价求取：一物一单整卷成交，不撮合、不竞价。 */
+    async buyTransmissionLot(playerId, payload) {
+        await this.ensureStorageHydrated(playerId);
+        return this.runExclusiveMarketMutation(playerId, async (context) => {
+            const requestedKey = String(payload?.itemKey ?? payload?.lotId ?? '').trim();
+            const itemKey = this.resolveTransmissionLotKey(requestedKey);
+            const sellOrder = itemKey ? this.getTransmissionSellOrder(itemKey) : null;
+            if (!sellOrder) {
+                return this.singleStructuredMessage(playerId, 'warn', 'notice.market.transmission-lot-missing', '这卷功法残卷已不在传法台。', {});
+            }
+            if (sellOrder.ownerId === playerId) {
+                return this.singleStructuredMessage(playerId, 'warn', 'notice.market.transmission-own-lot', '不能求取自己寄售的功法残卷。', {});
+            }
+            const tradeQuantity = Math.max(1, Math.trunc(Number(sellOrder.remainingQuantity) || 1));
+            const unitPrice = Math.max(1, Math.trunc(Number(sellOrder.unitPrice) || 1));
+            const totalCost = calculateMarketTradeTotalCost(1, unitPrice);
+            if (totalCost === null) {
+                return this.singleMessage(playerId, this.buildTradeQuantityError(unitPrice));
+            }
+            if (!this.canAffordMarketCurrency(playerId, totalCost)) {
+                return this.singleMessage(playerId, `${this.getCurrencyItemName()}不足，无法求取。`);
+            }
+            this.captureOnlinePlayerState(playerId, context);
+            if (!this.consumeMarketCurrencyFromInventory(playerId, totalCost)) {
+                return this.singleMessage(playerId, `${this.getCurrencyItemName()}不足，无法求取。`);
+            }
+            const result = this.createEmptyResult(playerId);
+            const itemName = getItemDisplayName(sellOrder.item);
+            // 交付完整实例（含 learnTechniqueId），买家才能真正学习这门功法。
+            this.deliverItemToPlayer(playerId, { ...sellOrder.item, count: tradeQuantity }, context);
+            this.deliverMarketCurrencyToPlayer(sellOrder.ownerId, totalCost, context);
+            this.recordTrade({
+                source: 'transmission',
+                buyerId: playerId,
+                sellerId: sellOrder.ownerId,
+                itemId: sellOrder.item.itemId,
+                quantity: tradeQuantity,
+                unitPrice,
+            }, context);
+            sellOrder.remainingQuantity -= tradeQuantity;
+            sellOrder.updatedAt = Date.now();
+            this.markOrderDirty(sellOrder.id, context);
+            this.touchAffectedPlayer(result, sellOrder.ownerId);
+            this.pushStructuredNotice(result, playerId, 'success', 'notice.market.transmission.bought', `你在传法台求得 ${itemName}，付出 ${this.getCurrencyItemName()} x${totalCost}。`, {
+                vars: { itemName, currencyName: this.getCurrencyItemName(), totalPrice: totalCost },
+                pills: [{ key: 'itemName', style: 'target' }, { key: 'totalPrice', style: 'damage' }],
+            });
+            this.pushStructuredNotice(result, sellOrder.ownerId, 'success', 'notice.market.transmission.sold', `你的传法台寄售已成交：${itemName}，入账 ${this.getCurrencyItemName()} x${totalCost}。`, {
+                vars: { itemName, currencyName: this.getCurrencyItemName(), totalPrice: totalCost },
+                pills: [{ key: 'itemName', style: 'target' }, { key: 'totalPrice', style: 'damage' }],
+            });
+            if (sellOrder.remainingQuantity <= 0) {
+                sellOrder.status = 'filled';
+                this.deleteOrder(sellOrder.id, context);
+            }
+            this.compactOpenOrders();
+            return result;
+        });
+    }
     /** 读取指定拍品 key 对应的显式拍卖卖单。 */
     getAuctionSellOrders(itemKey) {
         const normalizedItemKey = this.resolveAuctionLotKey(itemKey) || String(itemKey ?? '');
@@ -2386,6 +2584,9 @@ export class MarketRuntimeService {
             enhanceLevel: Number.isFinite(Number(item.enhanceLevel))
                 ? Math.max(0, Math.trunc(Number(item.enhanceLevel)))
                 : undefined,
+            // 残卷预览必须带上功法身份，客户端才能在悬浮详情里展示这卷记载的究竟是哪门功法。
+            learnTechniqueId: item.learnTechniqueId,
+            learnTechniqueMaxLevel: item.learnTechniqueMaxLevel,
         };
     }
     /** 规范化玩家自定义拍卖时长，单位为秒。 */
@@ -2508,7 +2709,7 @@ export class MarketRuntimeService {
             .filter((order) => order.ownerId === playerId
             && order.status === 'open'
             && order.remainingQuantity > 0
-            && !this.isAuctionOrder(order)
+            && !this.isSpecialListingOrder(order)
             && this.canTradeItemOnMarket(order.item))
             .sort((left, right) => right.createdAt - left.createdAt || left.id.localeCompare(right.id))
             .map((order) => ({
@@ -2538,7 +2739,7 @@ export class MarketRuntimeService {
 
         const orders = this.openOrders.filter((order) => order.status === 'open'
             && order.remainingQuantity > 0
-            && !this.isAuctionOrder(order)
+            && !this.isSpecialListingOrder(order)
             && this.getOrderItemKey(order) === normalizedItemKey);
         if (orders.length === 0) {
             return null;
@@ -2564,7 +2765,7 @@ export class MarketRuntimeService {
             if (order.status !== 'open'
                 || order.remainingQuantity <= 0
                 || order.side !== side
-                || this.isAuctionOrder(order)
+                || this.isSpecialListingOrder(order)
                 || this.getOrderItemKey(order) !== itemKey) {
                 continue;
             }
@@ -2595,7 +2796,7 @@ export class MarketRuntimeService {
             .filter((order) => order.status === 'open'
             && order.remainingQuantity > 0
             && order.side === side
-            && !this.isAuctionOrder(order)
+            && !this.isSpecialListingOrder(order)
             && this.getOrderItemKey(order) === itemKey)
             .sort((left, right) => {
             if (side === 'sell' && left.unitPrice !== right.unitPrice) {
@@ -2626,7 +2827,7 @@ export class MarketRuntimeService {
             && this.getOrderItemKey(order) === itemKey
             && order.side === side
             && order.status === 'open'
-            && !this.isAuctionOrder(order)
+            && !this.isSpecialListingOrder(order)
             && order.remainingQuantity > 0);
     }
     /**
@@ -3424,7 +3625,7 @@ export class MarketRuntimeService {
     }
     /** 规范化成交来源，兼容旧历史记录缺少 source 的情况。 */
     normalizeTradeSource(source) {
-        return source === 'auction' ? 'auction' : 'market';
+        return normalizeMarketTradeSource(source);
     }
     normalizeTradeHistoryScope(source, scope) {
         return source === 'auction' && scope === 'all' ? 'all' : 'mine';
@@ -3557,6 +3758,8 @@ export class MarketRuntimeService {
             }
         }
         this.rebuildAuctionClientKeyIndex();
+        // 传法台索引与订单表同源重建，撤单/成交后不会残留 stale 的 clientKey。
+        this.hydrateTransmissionStateFromOpenOrders();
     }
     /** 重建 clientKey → lotKey 索引。 */
     rebuildAuctionClientKeyIndex() {

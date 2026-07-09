@@ -10,7 +10,7 @@
  */
 import { Injectable, Logger, Inject } from '@nestjs/common';
 import { Pool } from 'pg';
-import { isValidMarketPrice } from '@mud/shared';
+import { isValidMarketPrice, normalizeMarketTradeSource } from '@mud/shared';
 import { resolveServerDatabaseUrl } from '../config/env-alias';
 import { DatabasePoolProvider } from './database-pool.provider';
 import { ensureBigintColumnType } from './schema-bigint-migration';
@@ -141,7 +141,7 @@ export class MarketPersistenceService {
     /** 按玩家与来源读取最近成交历史，避免把全表成交记录常驻在运行时内存。 */
     async loadTradeHistoryForPlayer(playerId, source, limit) {
         const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
-        const normalizedSource = source === 'auction' ? 'auction' : 'market';
+        const normalizedSource = normalizeMarketTradeSource(source);
         const normalizedLimit = Number.isFinite(Number(limit)) ? Math.max(1, Math.min(500, Math.trunc(Number(limit)))) : 100;
         if (!this.pool || !this.enabled || !normalizedPlayerId) {
             return [];
@@ -162,7 +162,7 @@ export class MarketPersistenceService {
     }
     /** 按来源读取全服最近成交历史，供拍卖行全服成交榜这类低频面板使用。 */
     async loadTradeHistoryBySource(source, limit) {
-        const normalizedSource = source === 'auction' ? 'auction' : 'market';
+        const normalizedSource = normalizeMarketTradeSource(source);
         const normalizedLimit = Number.isFinite(Number(limit)) ? Math.max(1, Math.min(500, Math.trunc(Number(limit)))) : 20;
         if (!this.pool || !this.enabled) {
             return [];
@@ -760,7 +760,7 @@ function normalizeTradeRecord(raw) {
     return {
         version: 1,
         id: candidate.id,
-        source: candidate.source === 'auction' ? 'auction' : 'market',
+        source: normalizeMarketTradeSource(candidate.source),
         buyerId: candidate.buyerId,
         sellerId: candidate.sellerId,
         buyerName: normalizePlayerLabelText(candidate.buyerName),
@@ -856,7 +856,7 @@ function normalizeGmTradeRow(row) {
         return null;
     }
     const rawPayload = row.raw_payload && typeof row.raw_payload === 'object' ? row.raw_payload : null;
-    const source = rawPayload && rawPayload.source === 'auction' ? 'auction' : 'market';
+    const source = normalizeMarketTradeSource(rawPayload?.source);
     const quantity = Math.max(1, Math.trunc(Number(row.quantity ?? rawPayload?.quantity ?? 1)));
     const unitPrice = normalizeUnitPrice(row.unit_price ?? rawPayload?.unitPrice);
     const createdAt = Math.max(0, Math.trunc(Number(row.created_at_ms ?? rawPayload?.createdAt ?? 0)));

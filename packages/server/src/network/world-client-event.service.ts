@@ -385,6 +385,10 @@ export class WorldClientEventService {
     emitAuctionListings(client, payload) {
         this.emit(client, S2C.AuctionListings, payload);
     }
+    /** 推送传法台分页列表。 */
+    emitTransmissionListings(client, payload) {
+        this.emit(client, S2C.TransmissionListings, payload);
+    }
     /** 推送坊市订单。 */
     emitMarketOrders(client, payload) {
         this.emit(client, S2C.MarketOrders, payload);

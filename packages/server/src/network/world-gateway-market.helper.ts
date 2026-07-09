@@ -280,6 +280,38 @@ class WorldGatewayMarketHelper {
             this.gateway.worldClientEventService.emitGatewayError(client, 'PLACE_AUCTION_BID_FAILED', error);
         }
     }
+    /** 读取传法台分页列表并下发。 */
+    async handleRequestTransmissionListings(client, payload) {
+        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
+        if (!playerId) {
+            return;
+        }
+        try {
+            this.gateway.gatewaySessionStateHelper.subscribeMarket(playerId);
+            this.gateway.worldClientEventService.markProtocol(client, 'mainline');
+            this.gateway.worldClientEventService.emitTransmissionListings(client, this.gateway.marketRuntimeService.buildTransmissionListingsPage(playerId, payload));
+        }
+        catch (error) {
+            this.gateway.worldClientEventService.emitGatewayError(client, 'REQUEST_TRANSMISSION_LISTINGS_FAILED', error);
+        }
+    }
+    /** 处理传法台一口价求取功法残卷。 */
+    async handleBuyTransmissionLot(client, payload) {
+        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
+        if (!playerId) {
+            return;
+        }
+        try {
+            const result = await this.gateway.marketRuntimeService.buyTransmissionLot(playerId, {
+                lotId: payload?.lotId ?? '',
+                itemKey: payload?.itemKey ?? '',
+            });
+            await this.gateway.flushMarketResult(result);
+        }
+        catch (error) {
+            this.gateway.worldClientEventService.emitGatewayError(client, 'BUY_TRANSMISSION_LOT_FAILED', error);
+        }
+    }
     /** 处理拍卖行一口价，入口和提示都归属拍卖行。 */
     async handleBuyoutAuctionLot(client, payload) {
         const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);

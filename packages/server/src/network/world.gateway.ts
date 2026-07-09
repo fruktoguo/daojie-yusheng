@@ -428,6 +428,9 @@ class WorldGateway implements WorldGatewayHelperContext {
     }
     @SubscribeMessage(C2S.RequestAuctionListings)
     handleRequestAuctionListings(@ConnectedSocket() client: Socket, @MessageBody() payload: any) { return this.gatewayMarketHelper.handleRequestAuctionListings(client, payload); }
+
+    @SubscribeMessage(C2S.RequestTransmissionListings)
+    handleRequestTransmissionListings(@ConnectedSocket() client: Socket, @MessageBody() payload: any) { return this.gatewayMarketHelper.handleRequestTransmissionListings(client, payload); }
     @SubscribeMessage(C2S.MarkMailRead)
     async handleMarkMailRead(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayMailHelper.handleMarkMailRead(client, payload);
@@ -616,6 +619,9 @@ class WorldGateway implements WorldGatewayHelperContext {
     async handlePlaceAuctionBid(@ConnectedSocket() client: Socket, @MessageBody() payload: any) { return this.gatewayMarketHelper.handlePlaceAuctionBid(client, payload); }
     @SubscribeMessage(C2S.BuyoutAuctionLot)
     async handleBuyoutAuctionLot(@ConnectedSocket() client: Socket, @MessageBody() payload: any) { return this.gatewayMarketHelper.handleBuyoutAuctionLot(client, payload); }
+
+    @SubscribeMessage(C2S.BuyTransmissionLot)
+    async handleBuyTransmissionLot(@ConnectedSocket() client: Socket, @MessageBody() payload: any) { return this.gatewayMarketHelper.handleBuyTransmissionLot(client, payload); }
     @SubscribeMessage(C2S.BuyMarketItem)
     async handleBuyMarketItem(@ConnectedSocket() client: Socket, @MessageBody() payload: any) { return this.gatewayMarketHelper.handleBuyMarketItem(client, payload); }
     @SubscribeMessage(C2S.BuyHeavenlyDaoShopItem)

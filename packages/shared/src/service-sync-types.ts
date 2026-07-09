@@ -7,7 +7,7 @@ import type { AccountRedeemCodesRes } from './api-contracts';
 import type { AlchemyRecipeCatalogEntry, SyncedAlchemyPanelPatch, SyncedAlchemyPanelState, SyncedEnhancementPanelPatch, SyncedEnhancementPanelState } from './crafting-types';
 import type { TechniqueActivityTaskListView, TechniqueActivityTaskPatch } from './technique-activity-types';
 import type { ObservedTileEntityDetail } from './detail-view-types';
-import type { AuctionFilterCategory, AuctionHouseTab, AuctionListingCountsView, AuctionListingSummaryView, AuctionLotPageEntry, MarketListedItemView, MarketOrderBookView, MarketOwnOrderView, MarketStorage, MarketTradeHistoryEntryView, MarketTradeHistoryScope, MarketTradeSource } from './market-types';
+import type { AuctionFilterCategory, AuctionHouseTab, AuctionListingCountsView, AuctionListingSummaryView, AuctionLotPageEntry, MarketListedItemView, MarketOrderBookView, MarketOwnOrderView, MarketStorage, MarketTradeHistoryEntryView, MarketTradeHistoryScope, MarketTradeSource, TransmissionListingCountsView, TransmissionLotPageEntry, TransmissionTab } from './market-types';
 import type { MailDetailView, MailPageView, MailSummaryView } from './mail-types';
 import type { QuestRuntimeStateView } from './quest-types';
 import type { EquipSlot, ItemType } from './item-runtime-types';
@@ -388,6 +388,19 @@ export interface AuctionListingsView {
  */
 
   items: AuctionLotPageEntry[];
+}
+
+/** 传法台分页列表视图：只流通玩家亲手抄录的自创功法残卷，一卷一单、一口价。 */
+export interface TransmissionListingsView {
+  currencyItemId: string;
+  currencyItemName: string;
+  tab: TransmissionTab;
+  page: number;
+  pageSize: number;
+  total: number;
+  query: string;
+  counts: TransmissionListingCountsView;
+  items: TransmissionLotPageEntry[];
 }
 
 /** 坊市订单列表视图。 */
