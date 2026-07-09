@@ -15,6 +15,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { createInterface } from 'node:readline';
 import { pipeline } from 'node:stream/promises';
+import { Worker } from 'node:worker_threads';
 import { createGunzip, createGzip } from 'node:zlib';
 import type { ChildProcessWithoutNullStreams } from 'node:child_process';
 import type { Readable } from 'node:stream';
@@ -558,8 +559,8 @@ function formatDurationLabel(durationMs: number): string {
   return minutes > 0 ? `${totalHours} 小时 ${minutes} 分` : `${totalHours} 小时`;
 }
 
-async function computeFileSha256(filePath: string): Promise<string> {
-  return await new Promise<string>((resolve, reject) => {
+function computeFileSha256InMainThread(filePath: string): Promise<string> {
+  return new Promise<string>((resolve, reject) => {
     const hash = createHash('sha256');
     const stream = createReadStream(filePath);
 
@@ -573,6 +574,46 @@ async function computeFileSha256(filePath: string): Promise<string> {
       resolve(hash.digest('hex'));
     });
   });
+}
+
+/** 在 worker_thread 里流式哈希，避免整点备份把 event loop 顶成世界 tick 慢帧。 */
+function computeFileSha256InWorker(filePath: string): Promise<string> {
+  return new Promise<string>((resolve, reject) => {
+    const workerPath = join(__dirname, '..', '..', 'concurrency', 'workers', 'backup-hash.worker.js');
+    const worker = new Worker(workerPath, { workerData: { filePath } });
+    let settled = false;
+    const settle = (action: () => void): void => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      void worker.terminate().catch(() => undefined);
+      action();
+    };
+
+    worker.on('message', (message: { ok?: boolean; digest?: string; error?: string }) => {
+      if (message?.ok === true && typeof message.digest === 'string' && message.digest) {
+        settle(() => resolve(message.digest as string));
+        return;
+      }
+      settle(() => reject(new Error(message?.error ?? '备份哈希工作线程返回异常')));
+    });
+    worker.on('error', (error: Error) => {
+      settle(() => reject(error));
+    });
+    worker.on('exit', (code) => {
+      settle(() => reject(new Error(`备份哈希工作线程异常退出，退出码 ${code}`)));
+    });
+  });
+}
+
+async function computeFileSha256(filePath: string): Promise<string> {
+  try {
+    return await computeFileSha256InWorker(filePath);
+  } catch {
+    // worker 文件缺失或线程拉起失败时回退主线程，保证备份链路不被哈希环节阻断。
+    return await computeFileSha256InMainThread(filePath);
+  }
 }
 
 function isGzipBackupFileName(filePath: string): boolean {
