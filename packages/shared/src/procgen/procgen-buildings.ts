@@ -17,6 +17,10 @@ export interface ProcgenBuildingResult {
   /** 房屋包围盒占地掩码（1=已占），供后续结构散布绕开。 */
   reserved: Uint8Array;
   contentAnchors: ProcgenContentAnchor[];
+  /** 实际落地的房屋数。 */
+  placed: number;
+  /** 本次期望落地的房屋数；placed 少于它说明地图上找不到足够净空，调用方应告警而非静默。 */
+  requested: number;
 }
 
 interface BuildContext {
@@ -175,14 +179,20 @@ export function placeBuildings(
   };
   const keepClear = Math.max(1, Math.floor(spec.keepClear ?? 3));
   const count = rng.intInRange(spec.count);
+  let placed = 0;
+  let requested = 0;
   for (let i = 0; i < count; i += 1) {
     if (spec.style === 'village') {
       const houses = rng.intInRange(spec.villageHouses ?? [3, 5]);
+      requested += houses;
       // 村落内房屋挨近（净空取半），形成聚落感；道路网会自动把门连起来。
-      for (let h = 0; h < houses; h += 1) tryPlaceOne(ctx, Math.max(1, Math.floor(keepClear / 2)), rng);
+      for (let h = 0; h < houses; h += 1) {
+        if (tryPlaceOne(ctx, Math.max(1, Math.floor(keepClear / 2)), rng)) placed += 1;
+      }
     } else {
-      tryPlaceOne(ctx, keepClear, rng);
+      requested += 1;
+      if (tryPlaceOne(ctx, keepClear, rng)) placed += 1;
     }
   }
-  return { reserved: ctx.reserved, contentAnchors: ctx.anchors };
+  return { reserved: ctx.reserved, contentAnchors: ctx.anchors, placed, requested };
 }

@@ -57,6 +57,20 @@ function watchImagePack(): void {
   }, 120);
 }
 
+/** 把生成器的机器码警告翻译成策划看得懂的话，并指出该动哪个旋钮。 */
+function explainWarning(code: string): string {
+  const shortfall = /^procgen_building_shortfall:(\d+)\/(\d+)$/.exec(code);
+  if (shortfall) {
+    return `${code}　只放下 ${shortfall[1]}/${shortfall[2]} 栋房屋：地图太小或 buildings.on 允许的地形不够成片。`
+      + '把宽高留空（用预设尺寸）、调小 buildings.size / keepClear，或放宽 buildings.on。';
+  }
+  const ratio = /^procgen_walkable_ratio_out_of_range:([\d.]+)$/.exec(code);
+  if (ratio) {
+    return `${code}　可行走占比 ${(Number(ratio[1]) * 100).toFixed(1)}% 超出预设期望区间（地图越小边界占比越高）。`;
+  }
+  return code;
+}
+
 function parseCustomTiles(): ProcgenTileDef[] {
   const raw = tilesJsonInput.value.trim();
   return raw ? (JSON.parse(raw) as ProcgenTileDef[]) : [];
@@ -90,11 +104,11 @@ function generate(): void {
       `种子：${result.seed}    尺寸：${result.width}×${result.height}`,
       `可行走占比：${(result.stats.walkableRatio * 100).toFixed(1)}%    连通块：${result.stats.regionCount}`,
       `凿通格数：${result.stats.carvedCells}    回填格数：${result.stats.filledCells}`,
-      `传送阵：入口 1 / 出口 ${result.portals.length - 1}    房屋门数：${doorCount}`,
+      `传送阵：入口 1 / 出口 ${result.portals.length - 1}    房屋：${result.stats.buildingCount} 栋（门 ${doorCount} 个）`,
       `宝箱锚点：${chestCount}    怪物据点：${monsterCount}    生成耗时：${elapsedMs.toFixed(1)}ms`,
       `贴图：${imagePack ? '游戏运行时图包（已内联）' : '未内联，纯色渲染'}`,
     ].join('\n');
-    el('warnings').textContent = result.warnings.length ? `⚠ ${result.warnings.join('\n⚠ ')}` : '';
+    el('warnings').textContent = result.warnings.map(explainWarning).map((line) => `⚠ ${line}`).join('\n');
     renderThumbnails(preset, width, height);
   } catch (error) {
     configError.textContent = String(error instanceof Error ? error.message : error);

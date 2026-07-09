@@ -122,6 +122,11 @@ export function generateProcgenMap(options: ProcgenGenerateOptions): ProcgenMapR
     ? placeBuildings(width, height, terrainIds, structureIds, surfaceIds, preset.buildings, rng.fork('buildings'))
     : null;
   const contentAnchors = buildingResult?.contentAnchors ?? [];
+  // 地图太小或 buildings.on 允许的地形不成片时，房屋会一栋都放不下。
+  // 这属于软性越界：不阻断生成，但必须显式告警，否则策划只会看到一张没有房子的图。
+  if (buildingResult && buildingResult.placed < buildingResult.requested) {
+    warnings.push(`procgen_building_shortfall:${buildingResult.placed}/${buildingResult.requested}`);
+  }
   placeStructures(width, height, terrainIds, preset.structures, rng.fork('structures'), structureIds, buildingResult?.reserved);
 
   // 3) 连通性保证
@@ -220,6 +225,7 @@ export function generateProcgenMap(options: ProcgenGenerateOptions): ProcgenMapR
       regionCount: finalRegions.sizes.length,
       carvedCells: connectivity.carvedCells,
       filledCells: connectivity.filledCells,
+      buildingCount: buildingResult?.placed ?? 0,
       tileCounts,
     },
     warnings,

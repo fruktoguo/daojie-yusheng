@@ -201,6 +201,8 @@ export interface ProcgenMapStats {
   regionCount: number;
   carvedCells: number;
   filledCells: number;
+  /** 实际落地的房屋数（预设未配置 buildings 时为 0）。门数不等于房屋数：院落含内墙门。 */
+  buildingCount: number;
   /** 各层地块数量统计，key 为 `${layer}:${tileId}`。 */
   tileCounts: Record<string, number>;
 }
