@@ -954,7 +954,7 @@ function testSleepingGatherQueueRestartsThroughPipeline(): void {
   assert.deepEqual(startedPayloads, [{ sourceId: 'container:instance:herb-1', itemKey: 'herb:item' }]);
   assert.equal(player.gatherJob?.sourceId, 'container:instance:herb-1');
   assert.equal(player.techniqueActivityQueue.length, 0);
-  assert.deepEqual(dirtyDomains, [['active_job']]);
+  assert.deepEqual(dirtyDomains, [['active_job'], ['active_job']]);
 }
 
 function testGatherStartCancelUsePipelineLifecycle(): void {
@@ -1082,7 +1082,7 @@ function testSleepingBuildingQueueRestartsThroughPipeline(): void {
   assert.deepEqual(startedBuildingIds, ['building-1']);
   assert.equal(player.buildingJob?.buildingId, 'building-1');
   assert.equal(player.techniqueActivityQueue.length, 0);
-  assert.deepEqual(dirtyDomains, [['active_job']]);
+  assert.deepEqual(dirtyDomains, [['active_job'], ['active_job']]);
 }
 
 function testBuildingStartCancelUsePipelineLifecycle(): void {
@@ -1165,6 +1165,7 @@ function testBuildingStartCancelUsePipelineLifecycle(): void {
   const started = pipeline.start(player, 'building', { buildingId: 'building-1' }, ctx);
   assert.equal(started.ok, true);
   assert.equal(started.panelChanged, true);
+  assert.equal(started.messages?.[0]?.kind, 'building');
   assert.equal(started.messages?.[0]?.key, 'notice.craft.building.start');
   assert.deepEqual(started.messages?.[0]?.vars, { buildingName: '工坊', totalTicks: 4 });
   assert.equal(player.buildingJob?.buildingId, 'building-1');
@@ -1258,6 +1259,7 @@ function testSleepingFormationQueueRestartsThroughPipeline(): void {
   });
 
   assert.equal(result?.ok, true);
+  assert.equal(result?.messages?.[0]?.kind, 'formation');
   assert.equal(result?.messages?.[0]?.key, 'notice.craft.formation.start');
   assert.deepEqual(result?.messages?.[0]?.vars, { formationName: '聚灵阵' });
   assert.equal(player.formationJob?.formationInstanceId, 'formation-1');
@@ -1785,17 +1787,19 @@ function testBuildingConstructionCooperativeTicksAccelerateSharedProgress(): voi
   assert.equal(building.buildRemainingTicks, 1);
   assert.equal(players.get('player:builder-a').buildingJob?.remainingTicks, 1);
 
-  const secondTick = tickBuildingConstruction(runtime, 'player:builder-b') as { ok?: boolean; attrChanged?: boolean; messages?: Array<{ key?: string }> };
+  const secondTick = tickBuildingConstruction(runtime, 'player:builder-b') as { ok?: boolean; attrChanged?: boolean; messages?: Array<{ kind?: string; key?: string }> };
   assert.equal(secondTick.ok, true);
   assert.equal(secondTick.attrChanged, true);
+  assert.equal(secondTick.messages?.[0]?.kind, 'building');
   assert.equal(secondTick.messages?.[0]?.key, 'notice.craft.building.completed');
   assert.equal(building.state, 'active');
   assert.equal(building.activeBuilderPlayerId, null);
   assert.equal(building.buildRemainingTicks, 0);
   assert.equal(players.get('player:builder-b').buildingJob, null);
 
-  const staleParticipantTick = tickBuildingConstruction(runtime, 'player:builder-a') as { ok?: boolean; messages?: Array<{ key?: string }> };
+  const staleParticipantTick = tickBuildingConstruction(runtime, 'player:builder-a') as { ok?: boolean; messages?: Array<{ kind?: string; key?: string }> };
   assert.equal(staleParticipantTick.ok, true);
+  assert.equal(staleParticipantTick.messages?.[0]?.kind, 'building');
   assert.equal(staleParticipantTick.messages?.[0]?.key, 'notice.craft.building.completed');
   assert.equal(players.get('player:builder-a').buildingJob, null);
   assert.deepEqual(instance.dirtyDomains, [['building'], ['building'], ['building', 'room']]);

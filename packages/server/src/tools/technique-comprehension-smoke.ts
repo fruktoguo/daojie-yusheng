@@ -805,6 +805,7 @@ function testTransmissionBlocksCancelsAndContinues() {
   startTransmissionWithPipeline(runtimeService, teacherA.playerId, learner, createdTechnique.techId);
   const pending = learner.pendingTechniqueComprehensions[0]!;
   assert.equal(pending.selfComprehensionAllowed, false);
+  assert.equal(teacherA.notices.queue[0]?.kind, 'transmission');
   assert.equal(teacherA.notices.queue[0]?.structured?.key, 'notice.craft.transmission.teacher-start');
   pending.requiredProgress = 3;
   tickTransmissionWithPipeline(runtimeService, learner);
@@ -1068,6 +1069,7 @@ function testScriptureContemplationStartsJobAndCompletesTechnique() {
   assert.equal(learner.pendingTechniqueComprehensions[0]?.techId, createdTechnique.techId);
   assert.equal(learner.pendingTechniqueComprehensions[0]?.selfComprehensionAllowed, false);
   assert.equal(learner.pendingTechniqueComprehensions[0]?.requiredProgress, contemplationRequired);
+  assert.equal(startResult.messages?.[0]?.kind, 'transmission');
   assert.equal(startResult.messages?.[0]?.key, 'notice.craft.scripture-contemplation.start');
 
   for (let tick = 1; tick <= contemplationRequired && learner.transmissionJob; tick += 1) {

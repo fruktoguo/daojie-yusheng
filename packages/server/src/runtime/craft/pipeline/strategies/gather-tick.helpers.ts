@@ -78,7 +78,7 @@ export async function executeGatherTick(
     if (!nextRow) {
       player.gatherJob = null;
       markPlayerActiveJobDirty(playerRuntimeService, player);
-      return buildGatherTickResult(false, [buildGatherNodeNotice('info', 'notice.craft.gather.depleted', container.name)]);
+      return buildGatherTickResult(false, [buildGatherNodeNotice('gather', 'notice.craft.gather.depleted', container.name)]);
     }
     const totalTicks = computeEffectiveHerbGatherTicks(player, container, nextRow);
     state.activeSearch = {
@@ -182,7 +182,7 @@ export async function executeGatherTick(
   return buildGatherTickResult(
     false,
     [buildGatherNotice(
-      'loot',
+      'gather',
       'notice.craft.gather.obtained',
       { itemLabel: service.formatLootItemStackLabel(harvestedItem) },
       [{ key: 'itemLabel', style: 'target' }],

@@ -20,7 +20,14 @@ export type ToastKind =
   | 'success'
   | 'warn'
   | 'travel'
-  | 'enhancement';
+  | 'alchemy'
+  | 'forging'
+  | 'enhancement'
+  | 'gather'
+  | 'mining'
+  | 'building'
+  | 'formation'
+  | 'transmission';
   /**
  * InitializeMainAppOptions：统一结构类型，保证协议与运行时一致性。
  */

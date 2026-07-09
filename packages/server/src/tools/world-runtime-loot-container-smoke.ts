@@ -945,6 +945,7 @@ async function testStartGatherSupportsColonInstanceId() {
 
   const result = service.dispatchStartGather(player.playerId, { sourceId: prepared?.sourceId, itemKey }, deps as never);
   assert.equal(result.ok, true);
+  assert.equal(result.messages?.[0]?.kind, 'gather');
   assert.equal(result.messages?.[0]?.key, 'notice.craft.gather.start');
   assert.deepEqual(result.messages?.[0]?.vars, { resourceNodeName: '月露草', totalTicks: 5 });
   assert.equal(player.gatherJob?.resourceNodeId, container.id);
@@ -1387,6 +1388,7 @@ async function testGatherCompletionAvoidsDurableGrantInTick() {
   const result = await service.tickGather(player.playerId, deps as never);
   assert.equal(durableCalls.length, 0);
   assert.equal(result.ok, true);
+  assert.equal(result.messages?.[0]?.kind, 'gather');
   assert.equal(result.messages?.[0]?.key, 'notice.craft.gather.obtained');
   assert.deepEqual(result.messages?.[0]?.vars, { itemLabel: '凝露草' });
   assert.equal(result.inventoryChanged, true);

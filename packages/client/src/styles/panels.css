@@ -46,6 +46,34 @@
       background: rgba(46, 109, 70, 0.98); 
       border-color: rgba(110, 212, 141, 0.42);
     }
+    #toast.toast-kind-alchemy {
+      background: rgba(62, 116, 98, 0.98);
+      border-color: rgba(128, 216, 188, 0.42);
+    }
+    #toast.toast-kind-forging {
+      background: rgba(111, 79, 48, 0.98);
+      border-color: rgba(216, 167, 112, 0.42);
+    }
+    #toast.toast-kind-gather {
+      background: rgba(54, 124, 77, 0.98);
+      border-color: rgba(117, 214, 145, 0.42);
+    }
+    #toast.toast-kind-mining {
+      background: rgba(92, 89, 86, 0.98);
+      border-color: rgba(178, 172, 162, 0.42);
+    }
+    #toast.toast-kind-building {
+      background: rgba(104, 82, 56, 0.98);
+      border-color: rgba(202, 165, 112, 0.42);
+    }
+    #toast.toast-kind-formation {
+      background: rgba(62, 78, 129, 0.98);
+      border-color: rgba(129, 155, 226, 0.42);
+    }
+    #toast.toast-kind-transmission {
+      background: rgba(87, 62, 122, 0.98);
+      border-color: rgba(172, 130, 219, 0.42);
+    }
     #toast.toast-kind-combat { 
       background: rgba(146, 46, 46, 0.98); 
       border-color: rgba(234, 140, 121, 0.42);
@@ -128,6 +156,13 @@
     }
     .chat-kind-quest { color: #7b4f00; }
     .chat-kind-loot { color: #1d6e42; }
+    .chat-kind-alchemy { color: #1f7158; }
+    .chat-kind-forging { color: #7b4f20; }
+    .chat-kind-gather { color: #227744; }
+    .chat-kind-mining { color: #5f5b54; }
+    .chat-kind-building { color: #7a5529; }
+    .chat-kind-formation { color: #405d9b; }
+    .chat-kind-transmission { color: #704aa0; }
     .chat-kind-combat { color: #9c2c2c; }
     .chat-kind-grudge { color: #8d2141; }
     .chat-kind-success { color: #2d7a3f; }

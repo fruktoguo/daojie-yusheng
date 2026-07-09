@@ -90,7 +90,7 @@ export class FormationStrategy implements TechniqueActivityStrategy<PlayerFormat
   }
 
   buildStartMessages(_player: unknown, _validated: unknown, job: PlayerFormationJob): TechniqueActivityNoticeMessage[] {
-    return [buildFormationNotice('quest', 'notice.craft.formation.start', job.formationName)];
+    return [buildFormationNotice('formation', 'notice.craft.formation.start', job.formationName)];
   }
 
   startDirtyDomains(): PersistenceDomain[] {

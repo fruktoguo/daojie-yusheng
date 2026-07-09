@@ -841,6 +841,7 @@ async function testWorldAlchemyWritePathFlushesCurrentPipelineResult(): Promise<
   assert.equal(player.alchemyJob?.phase, 'brewing');
   assert.equal(log.some((entry) => entry[0] === 'queuePlayerNotice' && entry[2].includes('炉')), false);
   assert.equal(log.some((entry) => entry[0] === 'queuePlayerNotice' && entry[4] === 'notice.craft.alchemy.start'), true);
+  assert.equal(log.some((entry) => entry[0] === 'queuePlayerNotice' && entry[3] === 'alchemy' && entry[4] === 'notice.craft.alchemy.start'), true);
   assert.equal(log.some((entry) => entry[0] === 'emit' && entry[1] === 'n:s:alchemyPanel' && entry[2] === true), true);
   assert.equal(persistedActiveJobs.at(-1)?.jobType, 'alchemy');
   assert.equal(persistedActiveJobs.at(-1)?.phase, 'brewing');

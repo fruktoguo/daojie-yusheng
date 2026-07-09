@@ -415,7 +415,7 @@ export function notifyBuildingConstructionCompletion(runtime, building) {
     const buildingName = resolveBuildingDisplayNameByRuntime(runtime, building) ?? building?.defId ?? '建筑';
     if (playerId && canQueueBuildingNotice(runtime)) {
         const notice = buildStructuredNotice(
-            'success',
+            'building',
             'notice.craft.building.completed',
             `${buildingName}已完工`,
             { vars: { buildingName }, pills: [{ key: 'buildingName', style: 'target' }] },
@@ -450,7 +450,7 @@ function buildBuildingInterruptNotice(buildingNameInput, reason) {
                     ? '身陨'
                     : '手动取消';
     return buildStructuredNotice(
-        'system',
+        'building',
         'notice.craft.building.interrupted',
         buildBuildingInterruptMessage(buildingName, reason),
         {

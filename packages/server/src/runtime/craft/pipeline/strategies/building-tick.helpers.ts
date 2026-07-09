@@ -204,7 +204,7 @@ function isPlayerNearBuilding(player: Record<string, any>, building: Record<stri
 function buildBuildingCompletionNotice(runtime: BuildingTickRuntimePort, building: Record<string, any>): TechniqueActivityNoticeMessage {
   const buildingName = runtime.resolveBuildingDisplayNameByRuntime?.(runtime, building) ?? building?.defId ?? '建筑';
   return buildBuildingNotice(
-    'success',
+    'building',
     'notice.craft.building.completed',
     { buildingName },
     [{ key: 'buildingName', style: 'target' }],

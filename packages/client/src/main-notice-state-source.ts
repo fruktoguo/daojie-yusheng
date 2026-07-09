@@ -3,7 +3,7 @@
  *
  * 维护时要把用户意图、显示派生和服务端权威数据分清，避免为了展示便利复制业务规则。
  */
-import { S2C_Notice, S2C_NoticeItem, S2C_SystemMsg } from '@mud/shared';
+import { S2C_Notice, S2C_NoticeItem, S2C_SystemMsg, type NoticeKind } from '@mud/shared';
 import { ChatUI } from './ui/chat';
 import { t } from './ui/i18n';
 import { resolveStructuredNoticeText } from './ui/structured-notice-display';
@@ -12,7 +12,104 @@ import { resolveStructuredNoticeText } from './ui/structured-notice-display';
  */
 
 
-type MainToastKind = 'system' | 'chat' | 'quest' | 'combat' | 'loot' | 'grudge' | 'success' | 'warn' | 'travel' | 'enhancement';
+type MainToastKind =
+  | 'system'
+  | 'chat'
+  | 'quest'
+  | 'combat'
+  | 'loot'
+  | 'grudge'
+  | 'success'
+  | 'warn'
+  | 'travel'
+  | 'alchemy'
+  | 'forging'
+  | 'enhancement'
+  | 'gather'
+  | 'mining'
+  | 'building'
+  | 'formation'
+  | 'transmission';
+
+type DisplayNoticeKind = Extract<
+  NoticeKind,
+  | 'quest'
+  | 'combat'
+  | 'loot'
+  | 'alchemy'
+  | 'forging'
+  | 'enhancement'
+  | 'gather'
+  | 'mining'
+  | 'building'
+  | 'formation'
+  | 'transmission'
+>;
+
+type ToastNoticeKind = Exclude<DisplayNoticeKind, 'combat'>;
+
+const DISPLAY_NOTICE_KINDS = new Set<DisplayNoticeKind>([
+  'quest',
+  'combat',
+  'loot',
+  'alchemy',
+  'forging',
+  'enhancement',
+  'gather',
+  'mining',
+  'building',
+  'formation',
+  'transmission',
+]);
+
+const TOAST_NOTICE_KINDS = new Set<ToastNoticeKind>([
+  'quest',
+  'loot',
+  'alchemy',
+  'forging',
+  'enhancement',
+  'gather',
+  'mining',
+  'building',
+  'formation',
+  'transmission',
+]);
+
+function isDisplayNoticeKind(kind: NoticeKind | undefined): kind is DisplayNoticeKind {
+  return Boolean(kind && DISPLAY_NOTICE_KINDS.has(kind as DisplayNoticeKind));
+}
+
+function isToastNoticeKind(kind: DisplayNoticeKind): kind is ToastNoticeKind {
+  return TOAST_NOTICE_KINDS.has(kind as ToastNoticeKind);
+}
+
+function normalizeSystemNoticeKind(kind: NoticeKind | undefined): MainToastKind {
+  switch (kind) {
+    case 'chat':
+    case 'grudge':
+    case 'quest':
+    case 'combat':
+    case 'loot':
+    case 'success':
+    case 'warn':
+    case 'travel':
+    case 'alchemy':
+    case 'forging':
+    case 'enhancement':
+    case 'gather':
+    case 'mining':
+    case 'building':
+    case 'formation':
+    case 'transmission':
+      return kind;
+    default:
+      return 'system';
+  }
+}
+
+function resolveNoticeChannelLabel(kind: NoticeKind): string {
+  return t(`notice.channel.${kind}`, undefined);
+}
 /**
  * MainNoticeStateSourceOptions：统一结构类型，保证协议与运行时一致性。
  */
@@ -65,25 +162,7 @@ function resolveSystemMsgIdFromNotice(item: S2C_NoticeItem): string | undefined 
 
 
 function toSystemMsgFromNotice(item: S2C_NoticeItem): S2C_SystemMsg {
-  const kind = item.kind === 'chat'
-    ? 'chat'
-    : item.kind === 'grudge'
-      ? 'grudge'
-      : item.kind === 'quest'
-        ? 'quest'
-        : item.kind === 'enhancement'
-          ? 'enhancement'
-        : item.kind === 'loot'
-          ? 'loot'
-          : item.kind === 'combat'
-            ? 'combat'
-            : item.kind === 'success'
-              ? 'success'
-              : item.kind === 'warn'
-                ? 'warn'
-                : item.kind === 'travel'
-                  ? 'travel'
-                  : 'system';
+  const kind = normalizeSystemNoticeKind(item.kind);
   return {
     id: resolveSystemMsgIdFromNotice(item),
     text: item.text,
@@ -151,23 +230,15 @@ export function createMainNoticeStateSource(options: MainNoticeStateSourceOption
         options.showToast(text, data.kind);
         return;
       }
-      if (data.kind === 'quest' || data.kind === 'combat' || data.kind === 'loot' || data.kind === 'enhancement') {
-        const label = data.from ?? (
-          data.kind === 'quest'
-            ? t('notice.channel.quest', undefined)
-            : data.kind === 'combat'
-              ? t('notice.channel.combat', undefined)
-              : data.kind === 'enhancement'
-                ? t('notice.channel.enhancement', undefined)
-                : t('notice.channel.loot', undefined)
-        );
+      if (isDisplayNoticeKind(data.kind)) {
+        const label = data.from ?? resolveNoticeChannelLabel(data.kind);
         const structuredGroup = (data as any).structuredGroup as unknown[] | undefined;
         const text = resolveClientNoticeText(rawText, data.structured, structuredGroup);
         void options.chatUI.addMessage(text, label, data.kind, data.structured || structuredGroup ? {
           ...(data.structured ? { structured: data.structured } : undefined),
           ...(structuredGroup ? { structuredGroup } : undefined),
         } : undefined);
-        if (data.kind === 'quest' || data.kind === 'loot' || data.kind === 'enhancement') {
+        if (isToastNoticeKind(data.kind)) {
           options.showToast(text, data.kind);
         }
         return;

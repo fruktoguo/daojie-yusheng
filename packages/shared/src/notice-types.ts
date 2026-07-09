@@ -7,7 +7,25 @@ import type { ElementKey } from './numeric';
 import type { SkillDamageKind } from './skill-types';
 
 /** 通知消息类型。 */
-export type NoticeKind = 'info' | 'success' | 'warn' | 'travel' | 'combat' | 'loot' | 'system' | 'chat' | 'grudge' | 'quest' | 'enhancement';
+export type NoticeKind =
+  | 'info'
+  | 'success'
+  | 'warn'
+  | 'travel'
+  | 'combat'
+  | 'loot'
+  | 'system'
+  | 'chat'
+  | 'grudge'
+  | 'quest'
+  | 'alchemy'
+  | 'forging'
+  | 'enhancement'
+  | 'gather'
+  | 'mining'
+  | 'building'
+  | 'formation'
+  | 'transmission';
 
 /** 聊天消息频道范围。 */
 export type ChatMessageScope = 'nearby' | 'world' | 'sect';

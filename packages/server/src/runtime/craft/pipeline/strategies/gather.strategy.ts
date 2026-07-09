@@ -71,7 +71,7 @@ export class GatherStrategy implements TechniqueActivityStrategy {
     const resourceNodeName = normalizeGatherResourceNodeName(job);
     const totalTicks = Math.max(1, Math.trunc(Number(job?.totalTicks ?? job?.workTotalTicks ?? 1) || 1));
     return [{
-      kind: 'info',
+      kind: 'gather',
       key: 'notice.craft.gather.start',
       vars: { resourceNodeName, totalTicks },
       pills: [{ key: 'resourceNodeName', style: 'target' }],
@@ -123,7 +123,7 @@ export class GatherStrategy implements TechniqueActivityStrategy {
       items: [],
       spiritStones: 0,
       messages: [{
-        kind: 'info',
+        kind: 'gather',
         key: 'notice.craft.gather.cancelled',
         vars: { resourceNodeName },
         pills: [{ key: 'resourceNodeName', style: 'target' }],

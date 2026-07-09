@@ -193,7 +193,7 @@ export class TransmissionStrategy implements TechniqueActivityStrategy<PlayerTra
   buildStartMessages(_player: unknown, _validated: TransmissionValidatedPayload, job: PlayerTransmissionJob): TechniqueActivityNoticeMessage[] {
     if (job.jobType === 'scripture_recording') {
       return [{
-        kind: 'info',
+        kind: 'transmission',
         key: 'notice.craft.scripture-recording.start',
         vars: { techniqueName: job.techniqueName },
         pills: [{ key: 'techniqueName', style: 'skill' }],
@@ -201,14 +201,14 @@ export class TransmissionStrategy implements TechniqueActivityStrategy<PlayerTra
     }
     if (job.jobType === 'scripture_contemplation') {
       return [{
-        kind: 'info',
+        kind: 'transmission',
         key: 'notice.craft.scripture-contemplation.start',
         vars: { techniqueName: job.techniqueName },
         pills: [{ key: 'techniqueName', style: 'skill' }],
       }];
     }
     return [{
-      kind: 'info',
+      kind: 'transmission',
       key: 'notice.craft.transmission.start',
       vars: { techniqueName: job.techniqueName },
       pills: [{ key: 'techniqueName', style: 'skill' }],
@@ -291,7 +291,7 @@ export class TransmissionStrategy implements TechniqueActivityStrategy<PlayerTra
       panelChanged: true,
       attrChanged: true,
       messages: [{
-        kind: 'success',
+        kind: 'transmission',
         key: 'notice.progression.technique-comprehension-complete',
         vars: { techName: pending.name ?? pending.techId },
         pills: [{ key: 'techName', style: 'skill' }],
@@ -670,7 +670,7 @@ function queueTeacherTransmissionStartNotice(validated: TransmissionValidatedPay
     return;
   }
   runtime.queuePlayerStructuredNotice(teacher, {
-    kind: 'info',
+    kind: 'transmission',
     text: 'notice.craft.transmission.teacher-start',
     structured: {
       key: 'notice.craft.transmission.teacher-start',
@@ -790,7 +790,7 @@ function executeScriptureRecordingTick(recorder: any, job: PlayerTransmissionJob
     panelChanged: true,
     attrChanged: professionChanged,
     messages: [{
-      kind: 'success',
+      kind: 'transmission',
       key: 'notice.craft.scripture-recording.complete',
       vars: { techniqueName: job.techniqueName },
       pills: [{ key: 'techniqueName', style: 'skill' }],
@@ -881,7 +881,7 @@ function executeScriptureContemplationTick(learner: any, job: PlayerTransmission
     panelChanged: true,
     attrChanged: true,
     messages: [{
-      kind: 'success',
+      kind: 'transmission',
       key: 'notice.progression.technique-comprehension-complete',
       vars: { techName: pending.name ?? pending.techId },
       pills: [{ key: 'techName', style: 'skill' }],

@@ -86,7 +86,14 @@ type ToastKind =
   | 'success'
   | 'warn'
   | 'travel'
-  | 'enhancement';
+  | 'alchemy'
+  | 'forging'
+  | 'enhancement'
+  | 'gather'
+  | 'mining'
+  | 'building'
+  | 'formation'
+  | 'transmission';
 
 const TECHNIQUE_GENERATION_CATEGORIES = new Set<TechniqueCategory>(['arts', 'internal', 'divine', 'secret']);
 

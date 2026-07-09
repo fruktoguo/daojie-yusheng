@@ -119,7 +119,7 @@ export class BuildingStrategy implements TechniqueActivityStrategy {
       : '建筑';
     const totalTicks = Math.max(1, Math.trunc(Number(job?.totalTicks ?? job?.workTotalTicks ?? 1) || 1));
     return [{
-      kind: 'info',
+      kind: 'building',
       key: 'notice.craft.building.start',
       vars: { buildingName, totalTicks },
       pills: [{ key: 'buildingName', style: 'target' }],

@@ -194,13 +194,30 @@ export function createMainUiStateSource(options: MainUiStateSourceOptions) {
   /**
  * showToast：执行showToast相关逻辑。
  * @param message string 参数说明。
- * @param kind 'system' | 'chat' | 'quest' | 'combat' | 'loot' | 'grudge' | 'success' | 'warn' | 'travel' 参数说明。
+ * @param kind Toast 分类参数。
  * @returns 无返回值，直接更新showToast相关状态。
  */
 
     showToast(
       message: string | null | undefined,
-      kind: 'system' | 'chat' | 'quest' | 'combat' | 'loot' | 'grudge' | 'success' | 'warn' | 'travel' | 'enhancement' = 'system',
+      kind:
+        | 'system'
+        | 'chat'
+        | 'quest'
+        | 'combat'
+        | 'loot'
+        | 'grudge'
+        | 'success'
+        | 'warn'
+        | 'travel'
+        | 'alchemy'
+        | 'forging'
+        | 'enhancement'
+        | 'gather'
+        | 'mining'
+        | 'building'
+        | 'formation'
+        | 'transmission' = 'system',
     ): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
@@ -218,7 +235,18 @@ export function createMainUiStateSource(options: MainUiStateSourceOptions) {
       el.textContent = text;
       el.classList.remove('hidden');
       el.classList.add('show');
-      const durationMs = kind === 'quest' || kind === 'grudge' ? 4200 : 2500;
+      const durationMs = kind === 'quest'
+        || kind === 'grudge'
+        || kind === 'alchemy'
+        || kind === 'forging'
+        || kind === 'enhancement'
+        || kind === 'gather'
+        || kind === 'mining'
+        || kind === 'building'
+        || kind === 'formation'
+        || kind === 'transmission'
+        ? 4200
+        : 2500;
       toastHideTimer = window.setTimeout(() => {
         el.classList.remove('show');
         el.classList.add('hidden');

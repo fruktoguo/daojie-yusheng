@@ -840,7 +840,7 @@ export class CraftPanelRuntimeService {
         const actionLabel = validated.jobKind === 'forging' ? '炼器' : '炼制';
         const successRateText = (validated.successRate * 100).toFixed(validated.successRate === 1 ? 0 : 1);
         return [{
-            kind: 'quest',
+            kind: validated.jobKind === 'forging' ? 'forging' : 'alchemy',
             key: 'notice.craft.alchemy.start',
             vars: {
                 actionLabel,
@@ -1126,7 +1126,7 @@ export class CraftPanelRuntimeService {
         const activityLabel = normalizedJobKind === 'forging' ? '炼器' : '炼制';
         const successNoun = normalizedJobKind === 'forging' ? '成器' : '成丹';
         return {
-            kind: 'quest',
+            kind: normalizedJobKind,
             key: 'notice.craft.alchemy.completed',
             vars: {
                 itemName: this.contentTemplateRepository.getItemName(job.outputItemId) ?? job.outputItemId,
@@ -1140,7 +1140,7 @@ export class CraftPanelRuntimeService {
     buildAlchemyLikeBatchMessage(jobKind, job, successCount) {
         const successNoun = jobKind === 'forging' ? '成器' : '成丹';
         return {
-            kind: successCount > 0 ? 'quest' : 'system',
+            kind: successCount > 0 ? jobKind : 'system',
             key: successCount > 0
                 ? 'notice.craft.alchemy.batch-success'
                 : 'notice.craft.alchemy.batch-failed',

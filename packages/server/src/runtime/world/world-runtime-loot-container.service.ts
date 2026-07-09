@@ -691,7 +691,7 @@ export class WorldRuntimeLootContainerService {
         this.markContainerVisibleStateDirty(location.instanceId, deps);
         return buildContainerTickResult(false, [
             buildGatherTechniqueNotice(
-                'info',
+                'gather',
                 'notice.craft.gather.start',
                 {
                     resourceNodeName: resolved.container.name,
@@ -731,7 +731,7 @@ export class WorldRuntimeLootContainerService {
         this.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job']);
         return buildContainerTickResult(false, [
             buildGatherTechniqueNotice(
-                'info',
+                'gather',
                 'notice.craft.gather.cancelled',
                 { resourceNodeName: normalizeGatherResourceNodeName(job.resourceNodeName) },
                 [{ key: 'resourceNodeName', style: 'target' }],
@@ -976,7 +976,7 @@ export class WorldRuntimeLootContainerService {
         this.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job']);
         return buildContainerTickResult(false, [
             buildGatherTechniqueNotice(
-                'system',
+                'gather',
                 'notice.craft.gather.interrupted',
                 {
                     resourceNodeName: normalizeGatherResourceNodeName(job.resourceNodeName),

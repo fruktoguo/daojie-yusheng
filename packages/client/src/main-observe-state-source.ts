@@ -43,7 +43,24 @@ const UNKNOWN_PORTAL_TARGET_MAP_NAME = t('observe.unknown-map');
  */
 
 
-type MainToastKind = 'system' | 'chat' | 'quest' | 'combat' | 'loot' | 'grudge' | 'success' | 'warn' | 'travel' | 'enhancement';
+type MainToastKind =
+  | 'system'
+  | 'chat'
+  | 'quest'
+  | 'combat'
+  | 'loot'
+  | 'grudge'
+  | 'success'
+  | 'warn'
+  | 'travel'
+  | 'alchemy'
+  | 'forging'
+  | 'enhancement'
+  | 'gather'
+  | 'mining'
+  | 'building'
+  | 'formation'
+  | 'transmission';
 /**
  * ObserveEntity：统一结构类型，保证协议与运行时一致性。
  */
