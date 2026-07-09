@@ -326,6 +326,7 @@ type MainBootstrapAssemblyOptions = {
     | 'handleMarketUpdate'
     | 'handleMarketListings'
     | 'handleAuctionListings'
+    | 'handleTransmissionListings'
     | 'handleMarketOrders'
     | 'handleMarketStorage'
     | 'handleMarketItemBook'
@@ -796,6 +797,7 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
     onMarketUpdate: (data) => options.marketStateSource.handleMarketUpdate(data),
     onMarketListings: (data) => options.marketStateSource.handleMarketListings(data),
     onAuctionListings: (data) => options.marketStateSource.handleAuctionListings(data),
+    onTransmissionListings: (data) => options.marketStateSource.handleTransmissionListings(data),
     onMarketOrders: (data) => options.marketStateSource.handleMarketOrders(data),
     onMarketStorage: (data) => options.marketStateSource.handleMarketStorage(data),
     onMarketItemBook: (data) => options.marketStateSource.handleMarketItemBook(data),

@@ -131,6 +131,8 @@ type MainLowFrequencySocketBindingsOptions = {
  */
 
   onAuctionListings: (data: ServerToClientEventPayload<typeof S2C.AuctionListings>) => void;
+  /** onTransmissionListings：传法台分页列表。 */
+  onTransmissionListings: (data: ServerToClientEventPayload<typeof S2C.TransmissionListings>) => void;
   /**
  * onMarketOrders：on坊市订单相关字段。
  */
@@ -239,6 +241,7 @@ export function bindMainLowFrequencySocketEvents(options: MainLowFrequencySocket
   options.socket.on(S2C.MarketUpdate, options.onMarketUpdate);
   options.socket.on(S2C.MarketListings, options.onMarketListings);
   options.socket.on(S2C.AuctionListings, options.onAuctionListings);
+  options.socket.on(S2C.TransmissionListings, options.onTransmissionListings);
   options.socket.on(S2C.MarketOrders, options.onMarketOrders);
   options.socket.on(S2C.MarketStorage, options.onMarketStorage);
   options.socket.on(S2C.MarketItemBook, options.onMarketItemBook);

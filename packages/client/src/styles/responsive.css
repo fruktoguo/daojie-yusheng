@@ -979,6 +979,15 @@
     gap: 8px;
     overflow: hidden;
   }
+  /* 传法台只有列表与详情两块，手机端上下堆叠即可。 */
+  .auction-house-board--transmission {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) minmax(200px, 0.9fr);
+  }
+  .transmission-consign {
+    flex-direction: column;
+    align-items: stretch;
+  }
   .auction-filter-rail {
     display: grid;
     grid-template-columns: minmax(0, 1fr);

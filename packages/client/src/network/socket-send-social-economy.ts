@@ -183,6 +183,12 @@ export function createSocketSocialEconomySender(deps: SocialEconomySenderDeps) {
     ): void {
       deps.emitEvent(C2S.RequestAuctionListings, payload);
     },
+    /** 请求传法台分页列表。 */
+    sendRequestTransmissionListings(
+      payload: ClientToServerEventPayload<typeof C2S.RequestTransmissionListings>,
+    ): void {
+      deps.emitEvent(C2S.RequestTransmissionListings, payload);
+    },
     /**
  * sendRequestMarketItemBook：处理sendRequest坊市道具Book并更新相关状态。
  * @param itemKey string 参数说明。
@@ -263,6 +269,10 @@ export function createSocketSocialEconomySender(deps: SocialEconomySenderDeps) {
 
     sendBuyoutAuctionLot(lotId: string, itemKey: string): void {
       deps.emitEvent(C2S.BuyoutAuctionLot, { lotId, itemKey });
+    },
+    /** 传法台一口价求取功法残卷。 */
+    sendBuyTransmissionLot(lotId: string, itemKey: string): void {
+      deps.emitEvent(C2S.BuyTransmissionLot, { lotId, itemKey });
     },
     /**
  * sendBuyMarketItem：处理sendBuy坊市道具并更新相关状态。

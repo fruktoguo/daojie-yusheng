@@ -7,6 +7,7 @@ import {
   Inventory,
   PlayerState,
   S2C_AuctionListings,
+  S2C_TransmissionListings,
   S2C_MarketItemBook,
   S2C_MarketListings,
   S2C_MarketOrders,
@@ -33,6 +34,8 @@ type MainMarketStateSourceOptions = {
     | 'sendRequestMarket'
     | 'sendRequestMarketListings'
     | 'sendRequestAuctionListings'
+    | 'sendRequestTransmissionListings'
+    | 'sendBuyTransmissionLot'
     | 'sendRequestMarketItemBook'
     | 'sendRequestMarketTradeHistory'
     | 'sendCreateMarketSellOrder'
@@ -77,6 +80,7 @@ export function createMainMarketStateSource(options: MainMarketStateSourceOption
     onRequestMarket: () => options.socket.sendRequestMarket(),
     onRequestListings: (payload) => options.socket.sendRequestMarketListings(payload),
     onRequestAuctionListings: (payload) => options.socket.sendRequestAuctionListings(payload),
+    onRequestTransmissionListings: (payload) => options.socket.sendRequestTransmissionListings(payload),
     onRequestItemBook: (itemKey) => options.socket.sendRequestMarketItemBook(itemKey),
     onRequestTradeHistory: (page, source, scope) => options.socket.sendRequestMarketTradeHistory(page, source, scope),
     onCreateSellOrder: (itemInstanceId, quantity, unitPrice) => options.socket.sendCreateMarketSellOrder(itemInstanceId, quantity, unitPrice),
@@ -84,6 +88,8 @@ export function createMainMarketStateSource(options: MainMarketStateSourceOption
     onCreateBuyOrder: (itemKey, quantity, unitPrice) => options.socket.sendCreateMarketBuyOrder(itemKey, quantity, unitPrice),
     onPlaceAuctionBid: (lotId, itemKey, unitPrice) => options.socket.sendPlaceAuctionBid(lotId, itemKey, unitPrice),
     onBuyoutAuctionLot: (lotId, itemKey) => options.socket.sendBuyoutAuctionLot(lotId, itemKey),
+    onBuyTransmissionLot: (lotId, itemKey) => options.socket.sendBuyTransmissionLot(lotId, itemKey),
+    onCreateTransmissionSellOrder: (itemInstanceId, unitPrice) => options.socket.sendCreateMarketSellOrder(itemInstanceId, 1, unitPrice, 'transmission'),
     onBuyHeavenlyDaoShopItem: (itemId, quantity) => options.socket.sendBuyHeavenlyDaoShopItem(itemId, quantity),
     onOpenTechniqueGeneration: () => options.openTechniqueGeneration(),
     onCancelOrder: (orderId) => options.socket.sendCancelMarketOrder(orderId),
@@ -166,6 +172,10 @@ export function createMainMarketStateSource(options: MainMarketStateSourceOption
 
     handleAuctionListings(data: S2C_AuctionListings): void {
       marketPanel.updateAuctionListings(data);
+    },
+    /** 下发传法台分页列表。 */
+    handleTransmissionListings(data: S2C_TransmissionListings): void {
+      marketPanel.updateTransmissionListings(data);
     },
     /**
  * handleMarketOrders：处理坊市订单并更新相关状态。

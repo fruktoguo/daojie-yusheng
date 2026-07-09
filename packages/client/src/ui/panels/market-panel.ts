@@ -8,6 +8,7 @@ import {
   AuctionLotStatus,
   AuctionHouseTab,
   C2S_RequestAuctionListings,
+  C2S_RequestTransmissionListings,
   C2S_RequestMarketListings,
   COMBAT_EQUIP_SLOTS,
   computeBestEnhancementExpectedCost,
@@ -35,6 +36,7 @@ import {
   MarketTradeHistoryScope,
   PlayerState,
   S2C_AuctionListings,
+  S2C_TransmissionListings,
   S2C_MarketListings,
   S2C_MarketItemBook,
   S2C_MarketOrders,
@@ -60,10 +62,11 @@ import { formatDisplayCountBadge, formatDisplayInteger, formatDisplayNumber } fr
 import { getEquipSlotLabel, getItemTypeLabel, getTechniqueCategoryLabel } from '../../domain-labels';
 import { t } from '../i18n';
 import { MarketAuctionView } from './market-auction-view';
+import { MarketTransmissionView } from './market-transmission-view';
 import { MarketTradeDialog } from './market-trade-dialog';
 import { renderTradeQuantityControl } from '../trade-control-renderers';
 import { MarketBrowseView } from './market-browse-view';
-import type { MarketPanelInternals } from './market-panel-types';
+import type { MarketPanelInternals, TransmissionPanelTab } from './market-panel-types';
 import {
   mountReactMarketPanel,
   setReactMarketPanelCallbacks,
@@ -123,6 +126,12 @@ interface MarketPanelCallbacks {
  */
 
   onRequestAuctionListings: (payload: C2S_RequestAuctionListings) => void;
+  /** onRequestTransmissionListings：请求传法台分页列表。 */
+  onRequestTransmissionListings: (payload: C2S_RequestTransmissionListings) => void;
+  /** onBuyTransmissionLot：传法台一口价求取功法残卷。 */
+  onBuyTransmissionLot: (lotId: string, itemKey: string) => void;
+  /** onCreateTransmissionSellOrder：把残卷寄售到传法台。 */
+  onCreateTransmissionSellOrder: (itemInstanceId: string, unitPrice: number) => void;
   /**
  * onRequestItemBook：onRequest道具Book相关字段。
  */
@@ -379,6 +388,18 @@ export class MarketPanel {
   private marketListings: S2C_MarketListings | null = null;
   /** 最近一次拍卖行分页数据，服务端已经按筛选和页码裁剪。 */
   private auctionListings: S2C_AuctionListings | null = null;
+  /** 最近一次传法台分页数据。 */
+  private transmissionListings: S2C_TransmissionListings | null = null;
+  /** 传法台当前标签页。 */
+  private transmissionTab: TransmissionPanelTab = 'participate';
+  /** 传法台当前页码。 */
+  private transmissionPage = 1;
+  /** 传法台搜索关键字（当前未开放筛选 UI，保留给服务端契约）。 */
+  private transmissionSearchQuery = '';
+  /** 传法台当前选中的拍品 key。 */
+  private selectedTransmissionItemKey: string | null = null;
+  /** 最近一次传法台列表请求的期望 key（tab|query|page），用于丢弃过期响应。 */
+  private pendingTransmissionKey: string | null = null;
   /** 物品书籍本地缓存，避免重复请求同一份详情。 */
   private readonly itemBookCache = new Map<string, MarketOrderBookView>();
   /** 正在等待服务端回包的物品书籍 key。 */
@@ -458,6 +479,7 @@ export class MarketPanel {
   private auctionCountdownTimer: ReturnType<typeof window.setInterval> | null = null;
   /** @internal 拍卖行子视图。 */
   readonly auctionView = new MarketAuctionView(this as unknown as MarketPanelInternals);
+  readonly transmissionView = new MarketTransmissionView(this as unknown as MarketPanelInternals);
   /** @internal 交易弹窗子视图。 */
   readonly tradeDialogView = new MarketTradeDialog(this as unknown as MarketPanelInternals);
   /** @internal 浏览列表子视图。 */
@@ -546,6 +568,7 @@ export class MarketPanel {
     const marketModalOpen = detailModalHost.isOpenFor(MarketPanel.MODAL_OWNER);
     const auctionModalOpen = detailModalHost.isOpenFor(MarketPanel.AUCTION_MODAL_OWNER);
     const auctionConsignModalOpen = detailModalHost.isOpenFor(MarketPanel.AUCTION_CONSIGN_MODAL_OWNER);
+    const transmissionModalOpen = detailModalHost.isOpenFor(MarketTransmissionView.modalOwner);
     const heavenlyDaoShopOpen = detailModalHost.isOpenFor(MarketPanel.HEAVENLY_DAO_SHOP_MODAL_OWNER);
     const previousMarketUpdate = this.marketUpdate;
     const previousSelectedItemKey = this.selectedItemKey;
@@ -588,6 +611,10 @@ export class MarketPanel {
       this.renderModal();
     } else if (auctionModalOpen) {
       this.patchAuctionModalLiveState({ patchDetail: false });
+    } else if (transmissionModalOpen) {
+      // 寄售/成交后服务端只推 MarketUpdate，传法台分页需要重新拉取才能反映上下架。
+      this.requestTransmissionListings(this.transmissionPage);
+      this.transmissionView.patchTransmissionModal();
     } else if (auctionConsignModalOpen) {
       this.patchAuctionConsignModalState();
     } else if (heavenlyDaoShopOpen) {
@@ -640,6 +667,27 @@ export class MarketPanel {
   }
 
   /** 更新拍卖行分页数据。 */
+  updateTransmissionListings(data: S2C_TransmissionListings): void {
+    // 竞态守卫：快速切 tab / 翻页时旧响应可能晚于新请求到达，过期包直接丢弃。
+    if (this.pendingTransmissionKey !== null) {
+      const expectedKey = [data.tab, data.query ?? '', Math.max(1, Math.floor(Number.isFinite(data.page) ? data.page : 1))].join('|');
+      if (expectedKey !== this.pendingTransmissionKey) {
+        return;
+      }
+    }
+    this.transmissionListings = data;
+    this.transmissionTab = data.tab;
+    this.transmissionSearchQuery = data.query ?? '';
+    this.transmissionPage = Math.max(1, Math.floor(Number.isFinite(data.page) ? data.page : 1));
+    // 选中项若已成交下架，回退到当前页第一条。
+    if (this.selectedTransmissionItemKey && !data.items.some((entry) => entry.itemKey === this.selectedTransmissionItemKey)) {
+      this.selectedTransmissionItemKey = null;
+    }
+    if (detailModalHost.isOpenFor(MarketTransmissionView.modalOwner)) {
+      this.transmissionView.patchTransmissionModal();
+    }
+  }
+
   updateAuctionListings(data: S2C_AuctionListings): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
@@ -825,6 +873,12 @@ export class MarketPanel {
     this.itemBook = null;
     this.marketListings = null;
     this.auctionListings = null;
+    this.transmissionListings = null;
+    this.transmissionTab = 'participate';
+    this.transmissionPage = 1;
+    this.transmissionSearchQuery = '';
+    this.selectedTransmissionItemKey = null;
+    this.pendingTransmissionKey = null;
     this.selectedItemKey = null;
     this.selectedGroupItemId = null;
     this.enhancementBrowseItemId = null;
@@ -884,6 +938,7 @@ export class MarketPanel {
           <div class="market-pane-entry-actions">
             <button class="small-btn" data-market-open type="button">坊市</button>
             <button class="small-btn" data-auction-open="participate" type="button">拍卖行</button>
+            <button class="small-btn" data-transmission-open type="button">${escapeHtml(t('market.tab.transmission', undefined))}</button>
             <button class="small-btn" data-heavenly-dao-shop-open type="button">天道商店</button>
             <button class="small-btn" data-technique-generation-open type="button">悟道</button>
           </div>
@@ -907,6 +962,10 @@ export class MarketPanel {
       if (auctionOpen) {
         const tab = auctionOpen.dataset.auctionOpen === 'mine' ? 'mine' : auctionOpen.dataset.auctionOpen === 'history' ? 'history' : 'participate';
         this.openAuctionFromPane(tab);
+        return;
+      }
+      if (target.closest('[data-transmission-open]')) {
+        this.openTransmissionFromPane();
         return;
       }
       if (target.closest('[data-auction-consign-open]')) {
@@ -952,6 +1011,13 @@ export class MarketPanel {
       this.callbacks?.onRequestMarket();
     }
     this.openAuctionModal(tab);
+  }
+
+  private openTransmissionFromPane(): void {
+    if (!this.requestMarketBootstrap()) {
+      this.callbacks?.onRequestMarket();
+    }
+    this.transmissionView.openTransmissionModal(this.transmissionTab);
   }
 
   private openAuctionConsignFromPane(): void {
@@ -2038,6 +2104,13 @@ export class MarketPanel {
   }
 
   /** 读取当前已打开的拍卖行弹层 body。 */
+  private getOpenTransmissionModalBody(): HTMLElement | null {
+    if (!detailModalHost.isOpenFor(MarketTransmissionView.modalOwner)) {
+      return null;
+    }
+    return document.getElementById('detail-modal-body');
+  }
+
   private getOpenAuctionModalBody(): HTMLElement | null {
     if (!detailModalHost.isOpenFor(MarketPanel.AUCTION_MODAL_OWNER)) {
       return null;
@@ -2892,6 +2965,20 @@ export class MarketPanel {
     });
   }
 
+  /** 向外部请求传法台分页，每页固定最多 10 条。 */
+  private requestTransmissionListings(page: number): void {
+    const nextPage = Math.max(1, Math.floor(Number.isFinite(page) ? page : 1));
+    this.transmissionPage = nextPage;
+    const query = this.transmissionSearchQuery.trim();
+    this.pendingTransmissionKey = [this.transmissionTab, query, nextPage].join('|');
+    this.callbacks?.onRequestTransmissionListings({
+      tab: this.transmissionTab,
+      page: nextPage,
+      pageSize: AUCTION_PAGE_SIZE,
+      query,
+    });
+  }
+
   /** 把列表分页回填进市场主快照。 */
   private mergeListingsIntoMarketUpdate(update: S2C_MarketUpdate | null, data: S2C_MarketListings): S2C_MarketUpdate | null {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -3263,6 +3350,12 @@ export class MarketPanel {
       const entry = this.getHeavenlyDaoShopEntry(key.slice('heavenly-dao-shop:'.length));
       const item = entry ? this.buildHeavenlyDaoShopItemStack(entry.itemId, entry.count) : null;
       return item ? this.buildMarketItemTooltipPayload(item) : null;
+    }
+    if (key.startsWith('transmission:')) {
+      // 传法台拍品不在普通坊市目录里，直接用分页下发的实例（带 learnTechniqueId）构造详情。
+      const itemKey = key.slice('transmission:'.length);
+      const lot = this.transmissionListings?.items.find((entry) => entry.itemKey === itemKey) ?? null;
+      return lot?.item ? this.buildMarketItemTooltipPayload(lot.item) : null;
     }
     if (key.startsWith('auction-consign-item:')) {
       const itemInstanceId = normalizeInventoryItemInstanceId(key.slice('auction-consign-item:'.length));

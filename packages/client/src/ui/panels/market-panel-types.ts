@@ -128,11 +128,29 @@ export interface AuctionLotView {
   remainingQuantity?: number;
 }
 
+/** 传法台 UI 使用的轻量拍品视图；一卷一单、一口价，无竞价与倒计时。 */
+export interface TransmissionLotView {
+  id: string;
+  itemKey: string;
+  item: ItemStack;
+  itemName: string;
+  qualityLabel: string;
+  realmLevelLabel: string | null;
+  price: number;
+  sellerLabel: string;
+  isMine: boolean;
+  remainingQuantity: number;
+}
+
+/** 传法台分栏。 */
+export type TransmissionPanelTab = 'participate' | 'mine';
+
 /** 市场面板对外的请求/提交回调。 */
 export interface MarketPanelCallbacks {
   onRequestMarket: () => void;
   onRequestListings: (payload: import('@mud/shared').C2S_RequestMarketListings) => void;
   onRequestAuctionListings: (payload: import('@mud/shared').C2S_RequestAuctionListings) => void;
+  onRequestTransmissionListings: (payload: import('@mud/shared').C2S_RequestTransmissionListings) => void;
   onRequestItemBook: (itemKey: string) => void;
   onRequestTradeHistory: (page: number, source?: 'market' | 'auction', scope?: MarketTradeHistoryScope) => void;
   onCreateSellOrder: (itemInstanceId: string, quantity: number, unitPrice: number) => void;
@@ -140,6 +158,8 @@ export interface MarketPanelCallbacks {
   onCreateBuyOrder: (itemKey: string, quantity: number, unitPrice: number) => void;
   onPlaceAuctionBid: (lotId: string, itemKey: string, unitPrice: number) => void;
   onBuyoutAuctionLot: (lotId: string, itemKey: string) => void;
+  onBuyTransmissionLot: (lotId: string, itemKey: string) => void;
+  onCreateTransmissionSellOrder: (itemInstanceId: string, unitPrice: number) => void;
   onBuyHeavenlyDaoShopItem: (itemId: string, quantity: number) => void;
   onCancelOrder: (orderId: string) => void;
   onClaimStorage: () => void;
@@ -156,6 +176,7 @@ export interface MarketPanelInternals {
   itemBook: MarketOrderBookView | null;
   marketListings: S2C_MarketListings | null;
   auctionListings: S2C_AuctionListings | null;
+  transmissionListings: import('@mud/shared').S2C_TransmissionListings | null;
   itemBookCache: Map<string, MarketOrderBookView>;
   pendingItemBookKeys: Set<string>;
   selectedItemKey: string | null;
@@ -172,6 +193,11 @@ export interface MarketPanelInternals {
   selectedAuctionItemKey: string | null;
   auctionPage: number;
   auctionConsignPanel: AuctionConsignPanelState;
+  transmissionTab: TransmissionPanelTab;
+  transmissionPage: number;
+  transmissionSearchQuery: string;
+  selectedTransmissionItemKey: string | null;
+  pendingTransmissionKey: string | null;
   currentPage: number;
   tradeHistoryPage: number;
   itemBookLoading: boolean;
@@ -188,6 +214,7 @@ export interface MarketPanelInternals {
   // --- 方法 ---
   getOpenModalBody(): HTMLElement | null;
   getOpenAuctionModalBody(): HTMLElement | null;
+  getOpenTransmissionModalBody(): HTMLElement | null;
   getOpenAuctionConsignModalBody(): HTMLElement | null;
   getSelectedListedItem(update: S2C_MarketUpdate | null): MarketListedItemView | null;
   getVisibleListedItems(update: S2C_MarketUpdate | null): MarketListedItemView[];
@@ -223,6 +250,7 @@ export interface MarketPanelInternals {
   requestItemBook(itemKey: string): void;
   requestListings(page: number): void;
   requestAuctionListings(page: number): void;
+  requestTransmissionListings(page: number): void;
   requestTradeHistory(page: number, source?: 'market' | 'auction', scope?: MarketTradeHistoryScope): void;
   syncTradeDialogOverlay(): void;
   syncPageSelection(): void;

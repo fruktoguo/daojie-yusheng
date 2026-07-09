@@ -7421,6 +7421,37 @@
       min-height: 0;
       height: 100%;
     }
+    /* 传法台只有列表与详情两块，没有拍卖行的筛选侧栏。 */
+    .auction-house-board--transmission {
+      grid-template-columns: minmax(360px, 1.1fr) minmax(320px, 0.9fr);
+    }
+    .transmission-consign {
+      display: flex;
+      align-items: flex-end;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+    }
+    .transmission-consign-field {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      flex: 1 1 120px;
+      min-width: 0;
+      font-size: var(--font-size-12);
+      color: var(--ink-grey);
+    }
+    .transmission-consign-field select,
+    .transmission-consign-field input {
+      width: 100%;
+      min-width: 0;
+      padding: 6px 8px;
+      border-radius: 6px;
+      border: 1px solid var(--wash-ink);
+      background: var(--surface-muted);
+      color: var(--ink-black);
+      font: inherit;
+    }
     .auction-house-board--mine {
       grid-template-columns: 220px minmax(380px, 1fr) minmax(360px, 0.9fr);
     }
