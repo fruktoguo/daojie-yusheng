@@ -263,6 +263,21 @@ export function normalizeMailPageSize(value: unknown): number {
   return Math.min(MAIL_PAGE_SIZE_MAX, Math.max(1, requested || MAIL_PAGE_SIZE_DEFAULT));
 }
 
+/** 将邮件页码归一到从 1 开始的有限整数。 */
+export function normalizeMailPage(value: unknown): number {
+  const requested = Number(value);
+  return Number.isFinite(requested) ? Math.max(1, Math.floor(requested)) : 1;
+}
+
+/** 根据回包总量计算服务端实际返回页码，用于客户端过期响应判定。 */
+export function resolveClampedMailResponsePage(requestedPage: unknown, total: unknown, pageSize: unknown): number {
+  const normalizedPage = normalizeMailPage(requestedPage);
+  const normalizedPageSize = normalizeMailPageSize(pageSize);
+  const normalizedTotal = Math.max(0, Math.floor(Number(total)) || 0);
+  const totalPages = Math.max(1, Math.ceil(normalizedTotal / normalizedPageSize));
+  return Math.min(totalPages, normalizedPage);
+}
+
 /** 清洗邮件批量操作 ID 列表，并限制最大数量。 */
 export function normalizeMailBatchIds(ids: unknown): string[] {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。

@@ -84,6 +84,8 @@ export * from './social-types';
 export * from './age';
 export * from './mail-types';
 export * from './mail';
+export * from './market-request';
+export * from './content-config-validation';
 export * from './build-material';
 export * from './building-types';
 export * from './fengshui-types';

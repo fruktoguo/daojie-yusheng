@@ -309,9 +309,6 @@ export class MailRuntimeService {
                         };
                     }
                     this.playerRuntimeService.replaceInventoryItems(playerId, revalidatedInventory.map((entry) => ({ ...entry.rawPayload })));
-                    for (const credit of resolution.walletCredits) {
-                        this.playerRuntimeService.creditWallet(playerId, credit.walletType, credit.count);
-                    }
                     this.discardMailboxCache(playerId);
                     this.loadingMailboxByPlayerId.delete(playerId);
                     await this.ensurePlayerMailbox(playerId);
@@ -625,7 +622,6 @@ export class MailRuntimeService {
                 }
                 if (isWalletAttachmentItemId(itemId)) {
                     walletCredits.push({ walletType: itemId, count });
-                    continue;
                 }
                 const attachmentPayload = attachment && typeof attachment === 'object'
                     ? attachment

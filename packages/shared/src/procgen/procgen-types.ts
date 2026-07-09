@@ -202,11 +202,30 @@ export interface ProcgenPartitionSpec {
 }
 
 /** 迷宫：Recursive Backtracker + dead-end braiding。 */
+/**
+ * 迷宫区：山崖地形拼出的天然迷宫。
+ *
+ * 墙体是 terrain 层的不可走地形（山体），不是 structure 层的一格厚砖墙 ——
+ * 后者渲染出来是网格纸迷宫，与秘境的山野观感不符。通道宽度由 corridorRadius 与
+ * roughness 共同调制，因此宽窄不一，像山谷间的峡道。
+ */
 export interface ProcgenMazeSpec {
   /** 拆死胡同成环的比例（0-1）。0 = 完美迷宫。 */
   braidRate?: number;
-  wallTile: string;
+  /** 山体地形 id，必须不可走（如 cliff）。 */
+  wallTerrain: string;
+  /** 通道地形 id。 */
   floorTile?: string;
+  /** 通道贴着山体的一圈过渡地形（须可走，如 hill）；省略则不铺山脚。 */
+  slopeTile?: string;
+  /** 迷宫单元间距（格）。越大山体越厚、通道越疏朗。 */
+  cellPitch?: readonly [number, number];
+  /** 通道半径基准（格）。1 ≈ 单格小径，2 ≈ 三格宽峡道。 */
+  corridorRadius?: readonly [number, number];
+  /** 山体边缘起伏强度（0-1）。0 = 等宽通道，1 = 从一线天到开阔谷地。 */
+  roughness?: number;
+  /** 通道蜿蜒度（0-1）。0 = 笔直峡道，越大越曲折。 */
+  wobble?: number;
 }
 
 /** 地牢：嵌套 BSP 房间 + L 形直角走廊。 */

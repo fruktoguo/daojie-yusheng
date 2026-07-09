@@ -959,35 +959,6 @@ export class MarketRuntimeService {
                 return this.singleMessage(playerId, `${this.getCurrencyItemName()}不足，无法完成买入。`);
             }
 
-            const durableOperationService = this.durableOperationService;
-            const canUseDurableBuyNow = Boolean(durableOperationService?.isEnabled?.());
-            let buyerSnapshot = null;
-            const matchedSellerPlans = [];
-            if (canUseDurableBuyNow) {
-                buyerSnapshot = this.playerRuntimeService.snapshot(playerId);
-                for (const match of plan.matches) {
-                    const sellOrder = match.order;
-                    const sellerSnapshot = this.playerRuntimeService.snapshot(sellOrder.ownerId);
-                    if (!sellerSnapshot?.inventory || !sellerSnapshot?.wallet) {
-                        matchedSellerPlans.length = 0;
-                        break;
-                    }
-                    const nextSellerInventoryItems = applyMarketBuyNowToSellerInventory(sellerSnapshot.inventory.items ?? [], sellOrder.item, match.quantity);
-                    const nextSellerWalletBalances = applyMarketSellNowToWalletBalances(sellerSnapshot.wallet.balances ?? [], MARKET_CURRENCY_ITEM_ID, match.totalCost);
-                    if (!nextSellerInventoryItems || !nextSellerWalletBalances) {
-                        matchedSellerPlans.length = 0;
-                        break;
-                    }
-                    matchedSellerPlans.push({
-                        sellerId: sellOrder.ownerId,
-                        tradeQuantity: match.quantity,
-                        totalCost: match.totalCost,
-                        nextSellerInventoryItems,
-                        nextSellerWalletBalances,
-                    });
-                }
-            }
-
             this.captureOnlinePlayerState(playerId, context);
             if (!this.consumeMarketCurrencyFromInventory(playerId, totalCost)) {
                 return this.singleMessage(playerId, `${this.getCurrencyItemName()}不足，无法完成买入。`);
@@ -995,73 +966,6 @@ export class MarketRuntimeService {
 
             const result = this.createEmptyResult(playerId);
             const item = { ...sells[0].item };
-            if (canUseDurableBuyNow && matchedSellerPlans.length === plan.matches.length && buyerSnapshot) {
-                const buyerRuntimeOwnerId = typeof buyerSnapshot.runtimeOwnerId === 'string' && buyerSnapshot.runtimeOwnerId.trim()
-                    ? buyerSnapshot.runtimeOwnerId.trim()
-                    : '';
-                const buyerSessionEpoch = Number.isFinite(buyerSnapshot.sessionEpoch)
-                    ? Math.max(1, Math.trunc(Number(buyerSnapshot.sessionEpoch)))
-                    : 0;
-                if (buyerRuntimeOwnerId && buyerSessionEpoch > 0) {
-                    const instanceLease = await this.resolveInstanceLeaseContext(buyerSnapshot.instanceId ?? null);
-                    const nextBuyerInventoryItems = applyMarketSellNowToInventory(buyerSnapshot.inventory.items ?? [], item, quantity);
-                    const nextBuyerWalletBalances = applyMarketBuyNowToBuyerWalletBalances(buyerSnapshot.wallet?.balances ?? [], MARKET_CURRENCY_ITEM_ID, totalCost);
-                    if (nextBuyerInventoryItems && nextBuyerWalletBalances) {
-                        const operationId = `market-buy-now:${playerId}:${Date.now()}:${randomUUID()}`;
-                        const durableResult = await durableOperationService.settleMarketBuyNow({
-                            operationId,
-                            buyerId: playerId,
-                            expectedRuntimeOwnerId: buyerRuntimeOwnerId,
-                            expectedSessionEpoch: buyerSessionEpoch,
-                            expectedInstanceId: buyerSnapshot.instanceId ?? null,
-                            expectedAssignedNodeId: instanceLease?.assignedNodeId ?? null,
-                            expectedOwnershipEpoch: instanceLease?.ownershipEpoch ?? null,
-                            itemId: item.itemId,
-                            itemName: getItemDisplayName(item),
-                            quantity,
-                            totalCost,
-                            nextBuyerInventoryItems,
-                            nextBuyerWalletBalances,
-                            matches: matchedSellerPlans.map((entry) => ({ ...entry })),
-                        });
-                        if (durableResult?.ok) {
-                            this.playerRuntimeService.replaceInventoryItems(playerId, nextBuyerInventoryItems);
-                            for (let index = 0; index < plan.matches.length; index += 1) {
-                                const match = plan.matches[index];
-                                const sellerPlan = matchedSellerPlans[index];
-                                const sellOrder = match.order;
-                                const tradeQuantity = match.quantity;
-                                if (sellerPlan) {
-                                    this.playerRuntimeService.replaceInventoryItems(sellOrder.ownerId, sellerPlan.nextSellerInventoryItems);
-                                    this.playerRuntimeService.creditWallet(sellOrder.ownerId, MARKET_CURRENCY_ITEM_ID, sellerPlan.totalCost);
-                                }
-                                this.recordTrade({
-                                    source: 'market',
-                                    buyerId: playerId,
-                                    sellerId: sellOrder.ownerId,
-                                    itemId: item.itemId,
-                                    quantity: tradeQuantity,
-                                    unitPrice: sellOrder.unitPrice,
-                                }, context);
-                                sellOrder.remainingQuantity -= tradeQuantity;
-                                sellOrder.updatedAt = Date.now();
-                                this.markOrderDirty(sellOrder.id, context);
-                                this.touchAffectedPlayer(result, sellOrder.ownerId);
-                                this.pushNotice(result, sellOrder.ownerId, `你的挂售已成交：${getItemDisplayName(item)} x${tradeQuantity}。`, 'loot');
-                                if (sellOrder.remainingQuantity <= 0) {
-                                    sellOrder.status = 'filled';
-                                    this.deleteOrder(sellOrder.id, context);
-                                }
-                            }
-                            context.skipPersistence = true;
-                            this.pushNotice(result, playerId, `你买入了 ${getItemDisplayName(item)} x${quantity}，共花费 ${this.getCurrencyItemName()} x${totalCost}。`, 'loot');
-                            this.compactOpenOrders();
-                            return result;
-                        }
-                    }
-                }
-            }
-
             for (const match of plan.matches) {
                 const sellOrder = match.order;
                 const tradeQuantity = match.quantity;
@@ -1087,6 +991,16 @@ export class MarketRuntimeService {
             }
             this.pushNotice(result, playerId, `你买入了 ${getItemDisplayName(item)} x${quantity}，共花费 ${this.getCurrencyItemName()} x${totalCost}。`, 'loot');
             this.compactOpenOrders();
+            const durableCommitted = await this.commitDurableMarketMutationIfAvailable(context, playerId, 'market_buy_now', {
+                operationId: payload?.operationId ?? payload?.requestId,
+                itemKey,
+                itemId: item.itemId,
+                quantity,
+                totalCost,
+            });
+            if (this.durableOperationService?.isEnabled?.() && !durableCommitted) {
+                throw new Error('market_buy_now_durable_commit_failed');
+            }
             return result;
         });
     }
@@ -1130,96 +1044,12 @@ export class MarketRuntimeService {
                 return this.singleMessage(playerId, `当前求购盘最多只能接下 ${plan.fulfilledQuantity} 件。`);
             }
 
-            const durableOperationService = this.durableOperationService;
-            const canUseDurableSellNow = Boolean(durableOperationService?.isEnabled?.());
-            let sellerSnapshot = null;
-            const matchedBuyerPlans = [];
-            if (canUseDurableSellNow) {
-                sellerSnapshot = this.playerRuntimeService.snapshot(playerId);
-                for (const match of plan.matches) {
-                    const buyOrder = match.order;
-                    const buyerSnapshot = this.playerRuntimeService.snapshot(buyOrder.ownerId);
-                    if (!buyerSnapshot?.inventory) {
-                        matchedBuyerPlans.length = 0;
-                        break;
-                    }
-                    matchedBuyerPlans.push({
-                        buyerId: buyOrder.ownerId,
-                        tradeQuantity: match.quantity,
-                        totalCost: match.totalCost,
-                        nextBuyerInventoryItems: applyMarketSellNowToInventory(buyerSnapshot.inventory.items ?? [], orderItem, match.quantity),
-                    });
-                }
-            }
-
             this.captureOnlinePlayerState(playerId, context);
             this.playerRuntimeService.splitInventoryItemByInstanceId(playerId, itemInstanceId, quantity);
 
             const result = this.createEmptyResult(playerId);
 
             const totalIncome = plan.totalCost;
-            if (canUseDurableSellNow && matchedBuyerPlans.length === plan.matches.length && sellerSnapshot) {
-                const sellerRuntimeOwnerId = typeof sellerSnapshot.runtimeOwnerId === 'string' && sellerSnapshot.runtimeOwnerId.trim()
-                    ? sellerSnapshot.runtimeOwnerId.trim()
-                    : '';
-                const sellerSessionEpoch = Number.isFinite(sellerSnapshot.sessionEpoch)
-                    ? Math.max(1, Math.trunc(Number(sellerSnapshot.sessionEpoch)))
-                    : 0;
-                if (sellerRuntimeOwnerId && sellerSessionEpoch > 0) {
-                    const instanceLease = await this.resolveInstanceLeaseContext(sellerSnapshot.instanceId ?? null);
-                    const nextSellerInventoryItems = cloneInventoryItems(this.playerRuntimeService.getPlayerOrThrow(playerId).inventory.items ?? []);
-                    const nextSellerWalletBalances = applyMarketSellNowToWalletBalances(sellerSnapshot.wallet?.balances ?? [], MARKET_CURRENCY_ITEM_ID, totalIncome);
-                    if (nextSellerInventoryItems && nextSellerWalletBalances) {
-                        const operationId = `market-sell-now:${playerId}:${Date.now()}:${randomUUID()}`;
-                        const durableResult = await durableOperationService.settleMarketSellNow({
-                            operationId,
-                            sellerId: playerId,
-                            expectedRuntimeOwnerId: sellerRuntimeOwnerId,
-                            expectedSessionEpoch: sellerSessionEpoch,
-                            expectedInstanceId: sellerSnapshot.instanceId ?? null,
-                            expectedAssignedNodeId: instanceLease?.assignedNodeId ?? null,
-                            expectedOwnershipEpoch: instanceLease?.ownershipEpoch ?? null,
-                            itemId: orderItem.itemId,
-                            itemName: getItemDisplayName(orderItem),
-                            quantity,
-                            totalIncome,
-                            nextSellerInventoryItems,
-                            nextSellerWalletBalances,
-                            matches: matchedBuyerPlans,
-                        });
-                        if (durableResult?.ok) {
-                            this.playerRuntimeService.creditWallet(playerId, MARKET_CURRENCY_ITEM_ID, totalIncome);
-                            for (const match of plan.matches) {
-                                const buyOrder = match.order;
-                                const tradeQuantity = match.quantity;
-                                this.deliverItemToPlayer(buyOrder.ownerId, { ...orderItem, count: tradeQuantity }, context);
-                                this.recordTrade({
-                                    source: 'market',
-                                    buyerId: buyOrder.ownerId,
-                                    sellerId: playerId,
-                                    itemId: orderItem.itemId,
-                                    quantity: tradeQuantity,
-                                    unitPrice: buyOrder.unitPrice,
-                                }, context);
-                                buyOrder.remainingQuantity -= tradeQuantity;
-                                buyOrder.updatedAt = Date.now();
-                                this.markOrderDirty(buyOrder.id, context);
-                                this.touchAffectedPlayer(result, buyOrder.ownerId);
-                                this.pushNotice(result, buyOrder.ownerId, `你的求购已成交：${getItemDisplayName(orderItem)} x${tradeQuantity}。`, 'loot');
-                                if (buyOrder.remainingQuantity <= 0) {
-                                    buyOrder.status = 'filled';
-                                    this.deleteOrder(buyOrder.id, context);
-                                }
-                            }
-                            context.skipPersistence = true;
-                            this.pushNotice(result, playerId, `你卖出了 ${getItemDisplayName(orderItem)} x${quantity}，共入账 ${this.getCurrencyItemName()} x${totalIncome}。`, 'loot');
-                            this.compactOpenOrders();
-                            return result;
-                        }
-                    }
-                }
-            }
-
             for (const match of plan.matches) {
                 const buyOrder = match.order;
                 const tradeQuantity = match.quantity;
@@ -1245,6 +1075,16 @@ export class MarketRuntimeService {
             }
             this.pushNotice(result, playerId, `你卖出了 ${getItemDisplayName(orderItem)} x${quantity}，共入账 ${this.getCurrencyItemName()} x${totalIncome}。`, 'loot');
             this.compactOpenOrders();
+            const durableCommitted = await this.commitDurableMarketMutationIfAvailable(context, playerId, 'market_sell_now', {
+                operationId: payload?.operationId ?? payload?.requestId,
+                itemId: orderItem.itemId,
+                itemInstanceId,
+                quantity,
+                totalIncome,
+            });
+            if (this.durableOperationService?.isEnabled?.() && !durableCommitted) {
+                throw new Error('market_sell_now_durable_commit_failed');
+            }
             return result;
         });
     }
@@ -1255,76 +1095,6 @@ export class MarketRuntimeService {
         const requestedOrder = this.openOrders.find((entry) => entry.id === requestedOrderId && entry.ownerId === playerId);
         if (requestedOrder?.side === 'sell' && this.isAuctionOrder(requestedOrder) && this.getSortedAuctionBids(this.buildAuctionLotKey(requestedOrder)).some((bid) => bid.reservedCost > 0)) {
             return this.singleMessage(playerId, '这件寄拍已有出价，不能直接撤回。');
-        }
-        if (this.durableOperationService?.isEnabled()) {
-            const orderId = requestedOrderId;
-            const order = requestedOrder;
-            if (!order) {
-                return this.singleMessage(playerId, '未找到可取消的订单。');
-            }
-            if (order.status === 'cancelled' || order.remainingQuantity <= 0) {
-                return this.singleMessage(playerId, '该订单已被取消或已完成。');
-            }
-            await this.syncCurrentPresenceFence(playerId);
-            const playerSnapshot = this.playerRuntimeService.snapshot(playerId);
-            if (order.side !== 'buy' && playerSnapshot?.runtimeOwnerId && Number.isFinite(playerSnapshot.sessionEpoch) && playerSnapshot.sessionEpoch > 0) {
-                const operationId = `market-cancel-order:${playerId}:${Date.now()}:${randomUUID()}`;
-                const attempt = async () => {
-                    const snapshot = this.playerRuntimeService.snapshot(playerId);
-                    if (!snapshot?.runtimeOwnerId || !Number.isFinite(snapshot.sessionEpoch) || snapshot.sessionEpoch <= 0) {
-                        throw new Error('market_cancel_session_fence_missing');
-                    }
-                    const nextInventoryItems = order.side === 'sell'
-                        ? applyMarketSellNowToInventory(snapshot.inventory.items ?? [], { ...order.item, count: order.remainingQuantity }, order.remainingQuantity)
-                        : cloneInventoryItems(snapshot.inventory.items ?? []);
-                    const nextWalletBalances = order.side === 'buy'
-                        ? applyMarketSellNowToWalletBalances(snapshot.wallet?.balances ?? [], MARKET_CURRENCY_ITEM_ID, calculateMarketTradeTotalCost(order.remainingQuantity, order.unitPrice))
-                        : cloneWalletBalances(snapshot.wallet?.balances ?? []);
-                    if (!nextInventoryItems || !nextWalletBalances) {
-                        throw new Error('market_cancel_durable_payload_invalid');
-                    }
-                    const instanceLease = await this.resolveInstanceLeaseContext(snapshot.instanceId ?? null);
-                    const durableResult = await this.durableOperationService.settleMarketCancelOrder({
-                        operationId,
-                        playerId,
-                        expectedRuntimeOwnerId: String(snapshot.runtimeOwnerId),
-                        expectedSessionEpoch: Math.max(1, Math.trunc(Number(snapshot.sessionEpoch))),
-                        expectedInstanceId: snapshot.instanceId ?? null,
-                        expectedAssignedNodeId: instanceLease?.assignedNodeId ?? null,
-                        expectedOwnershipEpoch: instanceLease?.ownershipEpoch ?? null,
-                        orderId,
-                        side: order.side,
-                        nextInventoryItems,
-                        nextWalletBalances,
-                    });
-                    return { durableResult, nextInventoryItems };
-                };
-                let durableSettlement;
-                try {
-                    durableSettlement = await attempt();
-                }
-                catch (error) {
-                    if (!shouldRetryMarketSessionFence(error) || !(await this.syncCurrentPresenceFence(playerId))) {
-                        throw error;
-                    }
-                    durableSettlement = await attempt();
-                }
-                if (durableSettlement?.durableResult?.ok) {
-                    if (order.status === 'cancelled' || order.remainingQuantity <= 0) {
-                        return this.singleMessage(playerId, '该订单已被取消或已完成。');
-                    }
-                    this.playerRuntimeService.replaceInventoryItems(playerId, durableSettlement.nextInventoryItems);
-                    if (order.side === 'buy') {
-                        this.playerRuntimeService.creditWallet(playerId, MARKET_CURRENCY_ITEM_ID, calculateMarketTradeTotalCost(order.remainingQuantity, order.unitPrice));
-                    }
-                    order.status = 'cancelled';
-                    order.remainingQuantity = 0;
-                    order.updatedAt = Date.now();
-                    this.openOrders = this.openOrders.filter((entry) => entry.id !== order.id);
-                    this.compactOpenOrders();
-                    return this.singleMessage(playerId, '订单已取消，剩余托管物已退回。', 'success');
-                }
-            }
         }
         return this.runExclusiveMarketMutation(playerId, async (context) => {
 
@@ -1349,6 +1119,14 @@ export class MarketRuntimeService {
             order.updatedAt = Date.now();
             this.deleteOrder(order.id, context);
             this.compactOpenOrders();
+            const durableCommitted = await this.commitDurableMarketMutationIfAvailable(context, playerId, 'market_cancel_order', {
+                operationId: payload?.operationId ?? payload?.requestId,
+                orderId,
+                side: order.side,
+            });
+            if (this.durableOperationService?.isEnabled?.() && !durableCommitted) {
+                throw new Error('market_cancel_order_durable_commit_failed');
+            }
             return this.singleMessage(playerId, '订单已取消，剩余托管物已退回。', 'success');
         });
     }
@@ -4229,55 +4007,6 @@ function normalizeInventoryItemInstanceId(value) {
     return typeof value === 'string' ? value.trim() : '';
 }
 
-function applyMarketSellNowToInventory(existingItems, item, quantity) {
-    const nextItems = cloneInventoryItems(existingItems);
-    const normalizedQuantity = Math.max(1, Math.trunc(Number(quantity ?? 0)));
-    if (!item || normalizedQuantity <= 0) {
-        return nextItems;
-    }
-    const mergeTarget = { ...item, count: normalizedQuantity };
-    assignItemInstanceIdIfNeeded(mergeTarget);
-    const signature = canMergeItemStack(mergeTarget) ? createItemStackSignature(mergeTarget) : null;
-    const existing = signature
-        ? nextItems.find((entry) => canMergeItemStack(entry) && createItemStackSignature(entry) === signature)
-        : null;
-    if (existing) {
-        existing.count += normalizedQuantity;
-        return nextItems;
-    }
-    nextItems.push(mergeTarget);
-    return nextItems;
-}
-
-function applyMarketSellNowToWalletBalances(existingBalances, walletType, amount) {
-    const normalizedWalletType = typeof walletType === 'string' ? walletType.trim() : '';
-    const normalizedAmount = Math.max(0, Math.trunc(Number(amount ?? 0)));
-    if (!normalizedWalletType || normalizedAmount <= 0) {
-        return null;
-    }
-    const balances = Array.isArray(existingBalances)
-        ? existingBalances.map((entry) => ({
-            walletType: typeof entry?.walletType === 'string' ? entry.walletType.trim() : '',
-            balance: Math.max(0, Math.trunc(Number(entry?.balance ?? 0))),
-            frozenBalance: Math.max(0, Math.trunc(Number(entry?.frozenBalance ?? 0))),
-            version: Math.max(0, Math.trunc(Number(entry?.version ?? 0))),
-        })).filter((entry) => entry.walletType)
-        : [];
-    const entry = balances.find((row) => row.walletType === normalizedWalletType);
-    if (!entry) {
-        balances.push({
-            walletType: normalizedWalletType,
-            balance: normalizedAmount,
-            frozenBalance: 0,
-            version: 1,
-        });
-        return balances;
-    }
-    entry.balance += normalizedAmount;
-    entry.version += 1;
-    return balances;
-}
-
 function cloneWalletBalances(existingBalances) {
     return Array.isArray(existingBalances)
         ? existingBalances.map((entry) => ({
@@ -4299,47 +4028,4 @@ function trimTradeHistoryRuntimeCache(records) {
         .slice()
         .sort((left, right) => right.createdAt - left.createdAt || left.id.localeCompare(right.id))
         .slice(0, MARKET_TRADE_HISTORY_RUNTIME_CACHE_LIMIT);
-}
-
-function applyMarketBuyNowToSellerInventory(existingItems, item, quantity) {
-    const nextItems = cloneInventoryItems(existingItems);
-    const normalizedQuantity = Math.max(1, Math.trunc(Number(quantity ?? 0)));
-    if (!item || normalizedQuantity <= 0) {
-        return null;
-    }
-    const itemInstanceId = typeof item?.itemInstanceId === 'string' && item.itemInstanceId.trim()
-        ? item.itemInstanceId.trim()
-        : '';
-    const signature = createItemStackSignature(item);
-    const existing = itemInstanceId
-        ? nextItems.find((entry) => entry?.itemInstanceId === itemInstanceId)
-        : nextItems.find((entry) => canMergeItemStack(entry) && createItemStackSignature(entry) === signature)
-            ?? nextItems.find((entry) => createItemStackSignature(entry) === signature);
-    if (!existing || Number(existing.count ?? 0) < normalizedQuantity) {
-        return null;
-    }
-    existing.count = Number(existing.count ?? 0) - normalizedQuantity;
-    if (existing.count <= 0) {
-        const index = nextItems.indexOf(existing);
-        if (index >= 0) {
-            nextItems.splice(index, 1);
-        }
-    }
-    return nextItems;
-}
-
-function applyMarketBuyNowToBuyerWalletBalances(existingBalances, walletType, amount) {
-    const normalizedWalletType = typeof walletType === 'string' ? walletType.trim() : '';
-    const normalizedAmount = Math.max(0, Math.trunc(Number(amount ?? 0)));
-    if (!normalizedWalletType || normalizedAmount <= 0) {
-        return null;
-    }
-    const balances = cloneWalletBalances(existingBalances);
-    const entry = balances.find((row) => row.walletType === normalizedWalletType);
-    if (!entry || entry.balance < normalizedAmount) {
-        return null;
-    }
-    entry.balance -= normalizedAmount;
-    entry.version += 1;
-    return balances;
 }

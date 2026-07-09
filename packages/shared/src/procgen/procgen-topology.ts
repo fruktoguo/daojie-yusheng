@@ -117,26 +117,14 @@ function resolveKind(leaf: ProcgenBspLeaf, role: ProcgenNodeRole): ProcgenRegion
   return short >= FOOTPRINT.maze ? 'maze' : 'open';
 }
 
-/** 迷宫通道落在奇数局部坐标上；把门位挪到该 pitch 上，避免 stub 多凿一格墙。 */
-function alignPortCoordinate(value: number, originOfMaze: number | null, from: number, to: number): number {
-  if (originOfMaze === null) return value;
-  let aligned = value;
-  if ((aligned - originOfMaze) % 2 === 0) aligned += 1;
-  if (aligned > to - 1) aligned -= 2;
-  return Math.min(Math.max(from + 1, aligned), to - 1);
-}
-
-/** 为一条 RAG 边预留门位：共享边中点，并按两端区的 pitch 对齐（迷宫端优先）。 */
+/**
+ * 为一条 RAG 边预留门位：取共享边的中点。
+ *
+ * 不再按迷宫 pitch 对齐。地形迷宫把门位直接接进通道骨架（见 procgen-maze.ts），
+ * 门位落在哪都能长出一条峡谷通道过去；旧的奇数对齐是砖墙迷宫「少凿一格墙」的补丁。
+ */
 function reservePort(edge: RagEdge, rectA: ProcgenRegionNode, rectB: ProcgenRegionNode): [ProcgenRegionPort, ProcgenRegionPort] {
-  const middle = Math.floor((edge.from + edge.to) / 2);
-  const horizontal = edge.side === 'E' || edge.side === 'W';
-  // 迷宫的通道是奇数局部坐标，故对齐基准取该区在该轴上的原点。
-  const mazeOrigin = rectA.kind === 'maze'
-    ? (horizontal ? rectA.rect.y : rectA.rect.x)
-    : rectB.kind === 'maze'
-      ? (horizontal ? rectB.rect.y : rectB.rect.x)
-      : null;
-  const along = alignPortCoordinate(middle, mazeOrigin, edge.from, edge.to);
+  const along = Math.min(Math.max(edge.from + 1, Math.floor((edge.from + edge.to) / 2)), edge.to - 1);
 
   if (edge.side === 'E') {
     return [

@@ -12,20 +12,27 @@ import { EncodingWorkerPoolService } from '../../concurrency/encoding-worker-poo
 interface PathfindingInstancePort {
   template: { width: number; height: number; id: string };
   meta?: { instanceId?: string };
-  mapRevision?: number;
+  staticTileSyncRevision?: number;
+  getStaticTileSyncRevision?(): number;
   isWalkable?(x: number, y: number): boolean;
   getTileTraversalCost?(x: number, y: number): number;
   toTileIndex?(x: number, y: number): number;
 }
 
+const MAX_STATIC_GRID_CACHE_ENTRIES = 128;
+
 @Injectable()
 export class AsyncPathfindingService {
-  /** 缓存的 staticGrid，按 (instanceId, mapRevision) 复用 */
+  /** 缓存的 staticGrid，按实例对象与静态寻路 revision 复用。 */
   private gridCache = new Map<string, {
-    mapRevision: number;
+    instance: PathfindingInstancePort;
+    staticRevision: number;
+    workerRevision: number;
     walkable: Uint8Array;
     traversalCost: Uint16Array;
   }>();
+  /** worker revision 单调递增，避免同 ID 实例销毁重建后命中 worker 旧网格。 */
+  private nextWorkerRevision = 1;
 
   constructor(
     @Optional() @Inject(EncodingWorkerPoolService)
@@ -59,8 +66,9 @@ export class AsyncPathfindingService {
     }
 
     const input: PathfindingTaskInput = {
-      mapId: instance.template.id,
-      mapRevision: instance.mapRevision ?? 0,
+      // PathfindingTaskInput 的 mapId 是 worker 缓存命名空间；必须使用实例 ID，不能使用模板 ID。
+      mapId: resolvePathfindingInstanceId(instance),
+      mapRevision: grid.workerRevision,
       width,
       height,
       walkable: grid.walkable,
@@ -95,12 +103,24 @@ export class AsyncPathfindingService {
     return this.executeSyncFallback(grid, blocked, startX, startY, goals, limits, width, height);
   }
 
-  private getOrBuildGrid(instance: PathfindingInstancePort): { walkable: Uint8Array; traversalCost: Uint16Array } {
-    const instanceId = instance.meta?.instanceId ?? instance.template.id;
-    const revision = instance.mapRevision ?? 0;
+  /** 清理主线静态网格缓存；运行时 reset 后必须重建，不复用旧实例网格。 */
+  clearCache(): void {
+    this.gridCache.clear();
+  }
+
+  private getOrBuildGrid(instance: PathfindingInstancePort): {
+    workerRevision: number;
+    walkable: Uint8Array;
+    traversalCost: Uint16Array;
+  } {
+    const instanceId = resolvePathfindingInstanceId(instance);
+    const staticRevision = resolveStaticPathfindingRevision(instance);
     const cached = this.gridCache.get(instanceId);
 
-    if (cached && cached.mapRevision === revision) {
+    if (cached && cached.instance === instance && cached.staticRevision === staticRevision) {
+      // Map 删后重插即可保持最近使用顺序，淘汰冷实例而不是活跃实例。
+      this.gridCache.delete(instanceId);
+      this.gridCache.set(instanceId, cached);
       return cached;
     }
 
@@ -118,13 +138,20 @@ export class AsyncPathfindingService {
       }
     }
 
-    const entry = { mapRevision: revision, walkable, traversalCost };
+    const workerRevision = this.allocateWorkerRevision();
+    const entry = { instance, staticRevision, workerRevision, walkable, traversalCost };
     this.gridCache.set(instanceId, entry);
-    if (this.gridCache.size > 100) {
+    if (this.gridCache.size > MAX_STATIC_GRID_CACHE_ENTRIES) {
       const firstKey = this.gridCache.keys().next().value;
       if (firstKey) this.gridCache.delete(firstKey);
     }
     return entry;
+  }
+
+  private allocateWorkerRevision(): number {
+    const revision = this.nextWorkerRevision;
+    this.nextWorkerRevision = revision >= Number.MAX_SAFE_INTEGER - 1 ? 1 : revision + 1;
+    return revision;
   }
 
   private executeSyncFallback(
@@ -151,4 +178,16 @@ export class AsyncPathfindingService {
     }
     return { status: 'failed', path: [], expandedNodes: result.expandedNodes, reason: result.reason };
   }
+}
+
+function resolvePathfindingInstanceId(instance: PathfindingInstancePort): string {
+  const instanceId = typeof instance.meta?.instanceId === 'string' ? instance.meta.instanceId.trim() : '';
+  return instanceId || instance.template.id;
+}
+
+function resolveStaticPathfindingRevision(instance: PathfindingInstancePort): number {
+  const revision = typeof instance.getStaticTileSyncRevision === 'function'
+    ? instance.getStaticTileSyncRevision()
+    : instance.staticTileSyncRevision;
+  return Math.max(0, Math.trunc(Number(revision) || 0));
 }

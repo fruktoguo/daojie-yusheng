@@ -207,7 +207,17 @@ export const PROCGEN_PRESET_ABYSS_REALM: ProcgenBiomePreset = {
   walkableRatioRange: [0.12, 0.8],
   partition: { targetArea: 1600, minSide: 18, maxRegions: 24, maxAspect: 2.2 },
   regionGen: {
-    maze: { braidRate: 0.2, wallTile: 'wall', floorTile: 'floor' },
+    // 山崖迷宫：墙体是峭壁地形而非砖墙，通道贴壁一圈铺山丘作坡脚。
+    maze: {
+      braidRate: 0.2,
+      wallTerrain: 'cliff',
+      floorTile: 'grass',
+      slopeTile: 'hill',
+      cellPitch: [11, 14],
+      corridorRadius: [2, 2],
+      roughness: 0.75,
+      wobble: 0.4,
+    },
     dungeon: { roomTargetArea: 180, minRoom: 5, jitter: [1, 2], wallTile: 'wall', doorTile: 'door', floorTile: 'floor' },
     vault: { wallTile: 'wall', doorTile: 'door', floorTile: 'floor', pillarTile: 'stone' },
     boss: { wallTile: 'wall', entranceWidth: [2, 3], floorTile: 'floor', pillarTile: 'stone' },

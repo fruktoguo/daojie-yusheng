@@ -52,8 +52,15 @@ export function validateProcgenPreset(preset: ProcgenBiomePreset, catalog: Procg
   if (region) {
     const optionalTerrain = (tile: string | undefined, where: string): void => { if (tile) checkTile('terrain', tile, where); };
     if (region.maze) {
-      checkTile('structure', region.maze.wallTile, 'regionGen:maze:wall');
+      checkTile('terrain', region.maze.wallTerrain, 'regionGen:maze:wall');
       optionalTerrain(region.maze.floorTile, 'regionGen:maze:floor');
+      optionalTerrain(region.maze.slopeTile, 'regionGen:maze:slope');
+      // 山体必须不可走，山脚必须可走。配反了迷宫会整片连通或整片堵死，
+      // 而这两种失败都不会抛错，只会静默生成一张废图 —— 必须在生成前拦住。
+      const wall = catalog.byLayerAndId.get(`terrain:${region.maze.wallTerrain}`);
+      if (wall && wall.walkable !== false) errors.push(`procgen_maze_wall_terrain_walkable:${region.maze.wallTerrain}`);
+      const slope = region.maze.slopeTile ? catalog.byLayerAndId.get(`terrain:${region.maze.slopeTile}`) : undefined;
+      if (slope && slope.walkable === false) errors.push(`procgen_maze_slope_terrain_blocked:${region.maze.slopeTile}`);
     }
     if (region.dungeon) {
       checkTile('structure', region.dungeon.wallTile, 'regionGen:dungeon:wall');
