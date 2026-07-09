@@ -27,6 +27,11 @@ import { t } from './i18n';
 /** AuthMode：模式枚举。 */
 type AuthMode = 'login' | 'register';
 
+type RestoreSessionAttempt = {
+  epoch: number;
+  promise: Promise<boolean>;
+};
+
 /** LoginUI：Login界面实现。 */
 export class LoginUI {
   /** overlay：overlay。 */
@@ -73,8 +78,12 @@ export class LoginUI {
   private displayNameAvailable = false;
   /** mode：模式。 */
   private mode: AuthMode | null = null;
-  /** restoreSessionPromise：restore会话异步结果。 */
-  private restoreSessionPromise: Promise<boolean> | null = null;  
+  /** 当前认证代际；显式登录或清理会话后，旧网络回包不得再接管登录态。 */
+  private authEpoch = 0;
+  /** 正在进行的显式认证代际，自动恢复不能与其竞争。 */
+  private manualAuthEpoch: number | null = null;
+  /** 当前自动恢复请求；同一代际内共用，跨代际不得复用旧 promise。 */
+  private restoreSessionAttempt: RestoreSessionAttempt | null = null;
   private activationModal: HTMLElement | null = null;
   private activationCodeInput: HTMLInputElement | null = null;
   private activationStatus: HTMLElement | null = null;
@@ -106,29 +115,46 @@ export class LoginUI {
   async restoreSession(): Promise<boolean> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    if (this.restoreSessionPromise) {
-      return this.restoreSessionPromise;
+    if (this.manualAuthEpoch !== null) {
+      return false;
     }
-    this.restoreSessionPromise = this.performRestoreSession().finally(() => {
-      this.restoreSessionPromise = null;
+    const epoch = this.authEpoch;
+    if (this.restoreSessionAttempt?.epoch === epoch) {
+      return this.restoreSessionAttempt.promise;
+    }
+    const attempt: RestoreSessionAttempt = {
+      epoch,
+      promise: Promise.resolve(false),
+    };
+    attempt.promise = this.performRestoreSession(epoch).finally(() => {
+      if (this.restoreSessionAttempt === attempt) {
+        this.restoreSessionAttempt = null;
+      }
     });
-    return this.restoreSessionPromise;
+    this.restoreSessionAttempt = attempt;
+    return attempt.promise;
   }
 
   /** performRestoreSession：处理perform Restore会话。 */
-  private async performRestoreSession(): Promise<boolean> {
+  private async performRestoreSession(epoch: number): Promise<boolean> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const refreshToken = getRefreshToken();
-    if (!refreshToken) return false;
+    if (!refreshToken || !this.isCurrentAuthAttempt(epoch)) return false;
 
     this.setError(t('login.restore.in-progress', undefined));
     try {
       const data = await restoreTokens(refreshToken);
-      this.onSuccess(data);
+      if (!this.isCurrentAuthAttempt(epoch)) {
+        return false;
+      }
+      this.onSuccess(data, epoch);
       this.setError('');
       return true;
     } catch (error) {
+      if (!this.isCurrentAuthAttempt(epoch)) {
+        return false;
+      }
       if (error instanceof RequestError && error.status === 401) {
         this.clearSession();
       }
@@ -162,6 +188,8 @@ export class LoginUI {
 
   /** clearSession：清理会话。 */
   clearSession(): void {
+    this.invalidateAuthAttempts();
+    this.closeActivationCodeModal(null);
     clearStoredTokens();
   }
 
@@ -174,15 +202,20 @@ export class LoginUI {
   private async handleSubmit(): Promise<void> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    if (this.mode === 'register') {
-      await this.handleRegister();
-      return;
+    const epoch = this.beginManualAuthAttempt();
+    try {
+      if (this.mode === 'register') {
+        await this.handleRegister(epoch);
+        return;
+      }
+      await this.handleLogin(epoch);
+    } finally {
+      this.finishManualAuthAttempt(epoch);
     }
-    await this.handleLogin();
   }
 
   /** handleLogin：处理Login。 */
-  private async handleLogin(): Promise<void> {
+  private async handleLogin(epoch: number): Promise<void> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const body: AuthLoginReq = {
@@ -194,20 +227,23 @@ export class LoginUI {
         method: 'POST',
         body,
       });
-      this.onSuccess(data);
+      this.onSuccess(data, epoch);
     } catch (error) {
+      if (!this.isCurrentAuthAttempt(epoch)) {
+        return;
+      }
       this.setError(error instanceof Error ? error.message : t('login.error.login-failed', undefined));
     }
   }
 
   /** handleRegister：处理Register。 */
-  private async handleRegister(): Promise<void> {
+  private async handleRegister(epoch: number): Promise<void> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    await this.handleRegisterWithActivationCode();
+    await this.handleRegisterWithActivationCode(epoch);
   }
 
-  private async handleRegisterWithActivationCode(activationCode?: string): Promise<void> {
+  private async handleRegisterWithActivationCode(epoch: number, activationCode?: string): Promise<void> {
     const accountName = this.accountNameInput.value.normalize('NFC');
     const password = this.passwordInput.value;
     const roleName = this.roleNameInput.value.normalize('NFC').trim();
@@ -236,6 +272,9 @@ export class LoginUI {
     }
 
     await this.checkDisplayName(displayName, { immediate: true });
+    if (!this.isCurrentAuthAttempt(epoch)) {
+      return;
+    }
     if (!this.displayNameAvailable) {
       this.setError(this.displayNameStatus.textContent || t('login.display-name.taken', undefined));
       return;
@@ -255,12 +294,15 @@ export class LoginUI {
         method: 'POST',
         body,
       });
-      this.onSuccess(data);
+      this.onSuccess(data, epoch);
     } catch (error) {
+      if (!this.isCurrentAuthAttempt(epoch)) {
+        return;
+      }
       if (isRegistrationActivationRequired(error)) {
         const code = await this.openActivationCodeModal(error instanceof Error ? error.message : '');
-        if (code) {
-          await this.handleRegisterWithActivationCode(code);
+        if (code && this.isCurrentAuthAttempt(epoch)) {
+          await this.handleRegisterWithActivationCode(epoch, code);
         }
         return;
       }
@@ -269,12 +311,37 @@ export class LoginUI {
   }
 
   /** onSuccess：处理Success。 */
-  private onSuccess(data: AuthTokenRes): void {
+  private onSuccess(data: AuthTokenRes, epoch: number): void {
+    if (!this.isCurrentAuthAttempt(epoch)) {
+      return;
+    }
     storeTokens(data);
     this.socket.connect(data.accessToken);
     this.hide();
     document.getElementById('hud')?.classList.remove('hidden');
     this.setError('');
+  }
+
+  private beginManualAuthAttempt(): number {
+    const epoch = this.invalidateAuthAttempts();
+    this.manualAuthEpoch = epoch;
+    return epoch;
+  }
+
+  private finishManualAuthAttempt(epoch: number): void {
+    if (this.manualAuthEpoch === epoch) {
+      this.manualAuthEpoch = null;
+    }
+  }
+
+  private invalidateAuthAttempts(): number {
+    this.authEpoch += 1;
+    this.manualAuthEpoch = null;
+    return this.authEpoch;
+  }
+
+  private isCurrentAuthAttempt(epoch: number): boolean {
+    return epoch === this.authEpoch;
   }
 
   /** scheduleDisplayNameCheck：调度显示名称检查。 */
@@ -474,13 +541,7 @@ export class LoginUI {
     this.activationCodeInput = modal.querySelector<HTMLInputElement>('[data-login-activation-code="true"]');
     this.activationStatus = modal.querySelector<HTMLElement>('[data-login-activation-status="true"]');
 
-    const close = (value: string | null) => {
-      modal.classList.add('hidden');
-      modal.setAttribute('aria-hidden', 'true');
-      const resolve = this.activationResolve;
-      this.activationResolve = null;
-      resolve?.(value);
-    };
+    const close = (value: string | null) => this.closeActivationCodeModal(value);
     const confirm = () => {
       const value = this.activationCodeInput?.value.normalize('NFC').trim() ?? '';
       if (!value) {
@@ -510,6 +571,17 @@ export class LoginUI {
       event.preventDefault();
       close(null);
     }, true);
+  }
+
+  private closeActivationCodeModal(value: string | null): void {
+    if (!this.activationModal) {
+      return;
+    }
+    this.activationModal.classList.add('hidden');
+    this.activationModal.setAttribute('aria-hidden', 'true');
+    const resolve = this.activationResolve;
+    this.activationResolve = null;
+    resolve?.(value);
   }
 }
 
