@@ -64,7 +64,11 @@ import {
 } from '../../constants/visuals/time-atmosphere';
 import { buildEntitySpriteLookupPlan, type EntitySpriteTransform } from '../../entity-facing';
 import { getEntityBadgeClassName, getMonsterPresentation } from '../../monster-presentation';
-import { RUNTIME_IMAGE_OVERRIDES_CHANGED_EVENT, resolveRuntimeImageOverrideSrc } from '../../renderer/local-runtime-image-overrides';
+import {
+  getRuntimeImageOverrideSpriteEntries,
+  RUNTIME_IMAGE_OVERRIDES_CHANGED_EVENT,
+  resolveRuntimeImageOverrideSrc,
+} from '../../renderer/local-runtime-image-overrides';
 import { formatDisplayInteger } from '../../utils/number';
 import { t as translateUi } from '../../ui/i18n';
 import type { CameraState } from '../camera/camera-controller';
@@ -588,6 +592,30 @@ function normalizePixiTileSpriteMap(
     if (normalizedKey && ref) result.set(normalizedKey, ref);
   }
   return result;
+}
+
+function addLocalPixiEntityOverrideSpriteRefs(sprites: Map<string, PixiTileSpriteRef>): void {
+  let order = sprites.size;
+  for (const entry of getRuntimeImageOverrideSpriteEntries()) {
+    if (!entry.src.startsWith('data:image/')) continue;
+    sprites.set(entry.key, {
+      key: entry.key,
+      src: entry.src,
+      cols: 1,
+      rows: 1,
+      col: 0,
+      row: 0,
+      colSpan: 1,
+      rowSpan: 1,
+      insetRatio: 0,
+      fit: 'contain',
+      zIndex: 500,
+      order,
+      renderOrder: order,
+      dualGrid: false,
+    });
+    order += 1;
+  }
 }
 
 function normalizeLegacyTileMap(value: unknown): Map<string, string> {
@@ -1195,6 +1223,7 @@ export class PixiMapRendererAdapter {
         DEFAULT_RUNTIME_IMAGE_PACK_MANIFEST_URL,
         version,
       );
+      addLocalPixiEntityOverrideSpriteRefs(this.runtimeEntitySpriteRefs);
       this.runtimeTileManifestState = 'loaded';
       this.runtimeAtlasTextures.clear();
       this.runtimeTileTextures.clear();

@@ -6,7 +6,11 @@
 import type { InteractableKind, RenderEntity, StructureType, SurfaceType, TerrainType, Tile, TileType } from '@mud/shared';
 import { DEFAULT_MAP_PERFORMANCE_CONFIG, type MapPerformanceConfig } from '../constants/ui/performance';
 import { buildEntitySpriteLookupPlan, type EntitySpriteTransform } from '../entity-facing';
-import { RUNTIME_IMAGE_OVERRIDES_CHANGED_EVENT, resolveRuntimeImageOverrideSrc } from './local-runtime-image-overrides';
+import {
+  getRuntimeImageOverrideSpriteEntries,
+  RUNTIME_IMAGE_OVERRIDES_CHANGED_EVENT,
+  resolveRuntimeImageOverrideSrc,
+} from './local-runtime-image-overrides';
 import { normalizeRuntimeImagePackVersion, resolveRuntimeImagePackAssetUrl } from './runtime-image-pack-url';
 
 type SpriteFit = 'cover' | 'contain';
@@ -290,6 +294,27 @@ function normalizeSpriteMap(
     }
   }
   return result;
+}
+
+function addLocalEntityOverrideSpriteRefs(sprites: Map<string, AtlasSpriteRef>): void {
+  let order = sprites.size;
+  for (const entry of getRuntimeImageOverrideSpriteEntries()) {
+    if (!entry.src.startsWith('data:image/')) continue;
+    sprites.set(entry.key, {
+      src: entry.src,
+      cols: 1,
+      rows: 1,
+      col: 0,
+      row: 0,
+      colSpan: 1,
+      rowSpan: 1,
+      insetRatio: 0,
+      fit: 'contain',
+      zIndex: 500,
+      order,
+    });
+    order += 1;
+  }
 }
 
 function normalizeLegacyTileMap(value: unknown): Map<string, string> {
@@ -686,6 +711,7 @@ export class RuntimeImagePack {
         this.tileSprites = normalizeSpriteMap(manifest.tiles, this.manifestUrl, version, manifest.defaults?.tile);
         this.legacyTileKeys = normalizeLegacyTileMap(manifest.legacyTiles);
         this.entitySprites = normalizeSpriteMap(manifest.entities, this.manifestUrl, version);
+        addLocalEntityOverrideSpriteRefs(this.entitySprites);
         this.dualGridTileKeys = [...this.tileSprites.entries()]
           .filter(([, ref]) => ref.dualGrid?.enabled === true)
           .sort(([, left], [, right]) => left.zIndex - right.zIndex || left.order - right.order)

@@ -35,11 +35,13 @@ import { validateDisplayName, validatePassword, validateRoleName } from '../../.
 import { checkDisplayNameAvailability, getAccessToken, updateDisplayName, updatePassword, updateRoleName } from '../../../ui/auth-api';
 import { readOfflineGainReportsFromBrowser, readPlayerStatisticTotalsFromBrowser } from '../../../offline-gain-storage';
 import {
+  createPlayerRuntimeImageResource,
   getRuntimeImageOverride,
   getRuntimeImageOverrides,
   getRuntimeImageReloadListKeys,
   loadRuntimeImageResourceCatalog,
   removeRuntimeImageOverride,
+  saveRuntimeImageOverrideEntryFromFile,
   saveRuntimeImageOverrideFromFile,
   setRuntimeImageReloadListKeys,
   type RuntimeImageOverrideEntry,
@@ -177,6 +179,10 @@ function filterRuntimeImageResources(resources: RuntimeImageResourceEntry[], que
     .slice(0, 30);
 }
 
+function formatRuntimeImageDefaultMeta(entry: RuntimeImageResourceEntry): string {
+  return entry.src.startsWith('data:image/') ? '本地图片' : `默认资源 · ${entry.src}`;
+}
+
 function parseRedeemCodes(raw: string): string[] {
   return raw
     .split(/[\n,;]+/)
@@ -236,7 +242,7 @@ export const SettingsPanel = memo(function SettingsPanel() {
         {activeTab === 'performance' && <PerformanceTab />}
       </div>
       <div className={`settings-modal-pane ui-tabbed-modal-pane${activeTab === 'resourceReload' ? ' active' : ''}`}>
-        {activeTab === 'resourceReload' && <ResourceReloadTab />}
+        {activeTab === 'resourceReload' && <ResourceReloadTab state={state} />}
       </div>
       <div className={`settings-modal-pane ui-tabbed-modal-pane${activeTab === 'offlineGain' ? ' active' : ''}`}>
         {activeTab === 'offlineGain' && <OfflineGainTab playerId={state.playerId || state.accountName || 'anonymous'} />}
@@ -733,7 +739,7 @@ const PerformanceTab = memo(function PerformanceTab() {
 
 // ─── Resource Reload Tab ─────────────────────────────────────────────────────
 
-const ResourceReloadTab = memo(function ResourceReloadTab() {
+const ResourceReloadTab = memo(function ResourceReloadTab({ state }: { state: SettingsPanelState }) {
   const [resources, setResources] = useState<RuntimeImageResourceEntry[]>([]);
   const [addedKeys, setAddedKeys] = useState<string[]>(() => getRuntimeImageReloadListKeys());
   const [overrides, setOverrides] = useState<RuntimeImageOverrideEntry[]>(() => getRuntimeImageOverrides());
@@ -761,6 +767,11 @@ const ResourceReloadTab = memo(function ResourceReloadTab() {
   const addedResources = addedKeys
     .map((key) => resources.find((entry) => entry.key === key))
     .filter((entry): entry is RuntimeImageResourceEntry => entry !== undefined);
+  const playerResource = createPlayerRuntimeImageResource({
+    playerId: state.playerId,
+    displayName: state.displayName,
+    roleName: state.roleName,
+  });
 
   const refreshOverrides = useCallback(() => {
     setOverrides(getRuntimeImageOverrides());
@@ -799,6 +810,22 @@ const ResourceReloadTab = memo(function ResourceReloadTab() {
     }
   }, [refreshOverrides]);
 
+  const handleEntryFileChange = useCallback(async (entry: RuntimeImageResourceEntry, file: File | undefined) => {
+    if (!file) return;
+    try {
+      await saveRuntimeImageOverrideEntryFromFile(entry, file);
+      refreshOverrides();
+      setStatus(entry.key.startsWith('player:')
+        ? '我的形象已保存到本机，并已通知地图渲染刷新。'
+        : '图片已保存到本机，并已通知地图渲染刷新。');
+    } catch (error) {
+      const message = error instanceof Error && error.message === 'local_runtime_image_override_storage_failed'
+        ? '保存失败：浏览器本地存储空间不足。'
+        : '保存失败：请选择有效图片文件。';
+      setStatus(message);
+    }
+  }, [refreshOverrides]);
+
   const handleResetOverride = useCallback((key: string) => {
     removeRuntimeImageOverride(key);
     refreshOverrides();
@@ -813,13 +840,39 @@ const ResourceReloadTab = memo(function ResourceReloadTab() {
         <div className="panel-section-title">本地资源重载</div>
       </div>
       <div className="settings-ui-copy ui-form-copy">仅在当前设备生效。先按名称、资源 key 或图片路径搜索并添加资源，再为列表中的单项选择本地图片。</div>
+      {playerResource && (
+        <div className="settings-resource-reload-list ui-card-list">
+          {(() => {
+            const override = overrideByKey.get(playerResource.key) ?? getRuntimeImageOverride(playerResource.key);
+            return (
+              <div className="settings-resource-reload-row ui-data-table-row">
+                <div className="settings-resource-reload-preview" aria-hidden="true">
+                  {override ? <img src={override.dataUrl} alt="" /> : <span>默认</span>}
+                </div>
+                <div className="settings-performance-meta ui-data-table-meta">
+                  <div className="settings-performance-name ui-data-table-name">{playerResource.label}</div>
+                  <div className="settings-performance-desc ui-data-table-desc">{playerResource.key}</div>
+                  <div className="settings-resource-reload-meta">{override ? `${override.fileName || '本地图片'} · ${formatRuntimeImageOverrideTime(override.updatedAt)}` : '当前玩家专属覆盖，不影响其他玩家显示。'}</div>
+                </div>
+                <div className="settings-resource-reload-actions ui-inline-actions-end-wrap">
+                  <label className="small-btn ghost settings-resource-reload-file">
+                    选择图片
+                    <input type="file" accept="image/*" onChange={(event) => void handleEntryFileChange(playerResource, event.target.files?.[0])} />
+                  </label>
+                  <button className="small-btn ghost" type="button" disabled={!override} onClick={() => handleResetOverride(playerResource.key)}>恢复默认</button>
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      )}
       <div className="settings-resource-reload-search ui-form-field">
         <label className="ui-form-label">搜索资源</label>
         <input
           className="ui-input"
           type="search"
           value={query}
-          placeholder="例如 grass、m_bamboo_mantis、npc_bamboo"
+          placeholder="例如 草地、刃竹螳、竹隐客、npc_bamboo"
           onChange={(event) => setQuery(event.target.value)}
         />
       </div>
@@ -852,7 +905,7 @@ const ResourceReloadTab = memo(function ResourceReloadTab() {
                 <div className="settings-performance-meta ui-data-table-meta">
                   <div className="settings-performance-name ui-data-table-name">{entry.label}</div>
                   <div className="settings-performance-desc ui-data-table-desc">{entry.key}</div>
-                  <div className="settings-resource-reload-meta">{override ? `${override.fileName || '本地图片'} · ${formatRuntimeImageOverrideTime(override.updatedAt)}` : `默认资源 · ${entry.src}`}</div>
+                  <div className="settings-resource-reload-meta">{override ? `${override.fileName || '本地图片'} · ${formatRuntimeImageOverrideTime(override.updatedAt)}` : formatRuntimeImageDefaultMeta(entry)}</div>
                 </div>
                 <div className="settings-resource-reload-actions ui-inline-actions-end-wrap">
                   <label className="small-btn ghost settings-resource-reload-file">
