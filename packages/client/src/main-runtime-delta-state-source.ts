@@ -22,6 +22,7 @@ import { logMovement } from './debug/movement-debug';
 import { endRuntimeProfileMetric, startRuntimeProfileMetric } from './debug/runtime-profiler';
 import { resolveMonsterFacing } from './entity-facing';
 import { getLatestObservedEntitiesSnapshot } from './game-map/store/map-store';
+import { buildChatPersistenceScope } from './main-spatial-context';
 import { getMonsterPresentation } from './monster-presentation';
 import type { MainRuntimeObservedEntity as ObservedEntity } from './main-runtime-view-types';
 /**
@@ -343,6 +344,8 @@ type MainRuntimeDeltaStateSourceOptions = {
  */
 
     cancelTargeting: () => void;
+    /** 清理所有与旧实例坐标绑定的目标选择和 hover。 */
+    clearState: () => void;
   };  
   /**
  * refreshHudChrome：refreshHudChrome相关字段。
@@ -364,6 +367,10 @@ type MainRuntimeDeltaStateSourceOptions = {
  */
 
   clearLootPanel: () => void;  
+  /** 清理建造、房间与风水等实例派生投影。 */
+  clearBuildingFengShuiState: () => void;
+  /** 切换与当前地图实例绑定的聊天本地持久化作用域。 */
+  setChatPersistenceScope: (scope: string) => void;
   /**
  * setPanelRuntimeMapId：面板运行态地图ID标识。
  */
@@ -1062,8 +1069,15 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
         const previousInstanceId = player.instanceId;
         applySelfVitalsMetadata(data);
         const previousMapId = player.mapId;
+        const nextMapId = typeof data.mid === 'string' && data.mid ? data.mid : previousMapId;
+        const nextInstanceId = typeof data.iid === 'string' && data.iid.trim()
+          ? data.iid.trim()
+          : previousInstanceId;
+        const mapChanged = nextMapId !== previousMapId;
+        const instanceChanged = nextInstanceId !== previousInstanceId;
+        const spatialContextChanged = mapChanged || instanceChanged;
         const playerPatch = buildSelfRuntimePlayerPatch(data);
-        const playerSpatialChanged = (typeof data.mid === 'string' && previousMapId !== data.mid)
+        const playerSpatialChanged = spatialContextChanged
           || typeof data.x === 'number'
           || typeof data.y === 'number'
           || data.f !== undefined;
@@ -1089,16 +1103,33 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
         } finally {
           endRuntimeProfileMetric('runtime.delta.applySelfDeltaToRuntime', applyStartedAt);
         }
-        const mapChanged = typeof data.mid === 'string' && previousMapId !== data.mid;
         if (mapChanged) {
-          options.navigation.clearCurrentPath();
-          options.targeting.setHoveredMapTile(null);
-          options.hideObserveModal();
-          options.clearLootPanel();
-          options.targeting.cancelTargeting();
-          player.mapId = data.mid!;
+          player.mapId = nextMapId;
           options.setPanelRuntimeMapId(player.mapId);
           options.syncQuestMapId(player.mapId);
+        }
+        if (instanceChanged) {
+          player.instanceId = nextInstanceId;
+        }
+        if (data.f !== undefined) {
+          player.facing = selfFacing;
+        }
+        if (typeof data.x === 'number') {
+          player.x = data.x;
+        }
+        if (typeof data.y === 'number') {
+          player.y = data.y;
+        }
+        if (spatialContextChanged) {
+          options.setLatestObservedEntities([]);
+          options.setLatestObservedEntityMap(new Map());
+          options.navigation.clearCurrentPath();
+          options.hideObserveModal();
+          options.clearLootPanel();
+          options.clearBuildingFengShuiState();
+          options.targeting.clearState();
+          options.targeting.syncTargetingOverlay();
+          options.setChatPersistenceScope(buildChatPersistenceScope(player));
         }
         if (typeof data.hp === 'number') {
           player.hp = data.hp;
@@ -1123,15 +1154,6 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
           };
           options.syncPlayerContext(player);
         }
-        if (data.f !== undefined) {
-          player.facing = selfFacing;
-        }
-        if (typeof data.x === 'number') {
-          player.x = data.x;
-        }
-        if (typeof data.y === 'number') {
-          player.y = data.y;
-        }
         if (typeof data.mid === 'string' || typeof data.x === 'number' || typeof data.y === 'number' || data.f !== undefined) {
           logMovement('client.recv.selfDelta', {
             playerId: player.id,
@@ -1152,16 +1174,13 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
             pathCells: options.navigation.getPathCells(),
           });
         }
-        if (typeof data.iid === 'string' && data.iid.trim()) {
-          player.instanceId = data.iid.trim();
-        }
-        if (player.instanceId !== previousInstanceId) {
+        if (instanceChanged) {
           options.refreshUiChrome();
         }
         const finalizeStartedAt = startRuntimeProfileMetric();
         try {
           finalizeMovementFrame({
-            observedEntitiesChanged: playerPatch !== null,
+            observedEntitiesChanged: playerPatch !== null || spatialContextChanged,
             playerSpatialChanged,
             hudChanged,
           });

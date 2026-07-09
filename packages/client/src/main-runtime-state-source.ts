@@ -20,6 +20,7 @@ import {
   EQUIP_SLOTS,
   resolveSkillRequiresTarget,
 } from '@mud/shared';
+import { buildChatPersistenceScope } from './main-spatial-context';
 import type { PanelKind, PanelPatch, PlayerStateDelta, PlayerFeedback, ActiveJobProgress } from '@mud/shared';
 import { getLocalSkillTemplate, resolvePreviewItem, resolvePreviewQuests } from './content/local-templates';
 import { getStaticClientActionDef } from './constants/ui/action';
@@ -284,6 +285,10 @@ type MainRuntimeStateSourceOptions = {
  */
 
   hideObserveModal: () => void;
+  /** 清理仅属于旧地图实例的掉落窗口。 */
+  clearLootPanel: () => void;
+  /** 清理仅属于旧地图实例的建造、房间与风水投影。 */
+  clearBuildingFengShuiState: () => void;
   /**
  * applyWorldDelta：世界Delta相关字段。
  */
@@ -480,13 +485,6 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
         ? latestMapEnter.iid
         : undefined,
     };
-  };
-
-  const buildChatPersistenceScope = (player: PlayerState): string => {
-    const playerId = String(player.id || 'anonymous').trim() || 'anonymous';
-    const mapId = String(player.mapId || latestMapEnter?.mid || 'unknown-map').trim() || 'unknown-map';
-    const instanceId = String(player.instanceId || latestMapEnter?.iid || mapId).trim() || mapId;
-    return `${playerId}|${mapId}|${instanceId}`;
   };
 
   const applyMapStaticToCurrentRuntime = (data: S2C_MapStatic): void => {
@@ -829,10 +827,13 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
       const currentPlayer = options.getPlayer();
       const isRuntimeSameMapBootstrap = currentPlayer !== null
         && currentPlayer.id === data.self.id
-        && currentPlayer.mapId === data.self.mapId;
+        && currentPlayer.mapId === data.self.mapId
+        && String(currentPlayer.instanceId || '') === String(data.self.instanceId || '');
       pendingMapStatic = null;
       if (!isRuntimeSameMapBootstrap) {
         options.hideObserveModal();
+        options.clearLootPanel();
+        options.clearBuildingFengShuiState();
         options.clearTargetingState();
       }
       latestInitSession = latestInitSession?.pid === data.self.id ? latestInitSession : null;
@@ -876,7 +877,10 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
         options.setRuntimePathCells();
       }
       options.showSidePanel();
-      options.setChatPersistenceScope(buildChatPersistenceScope(player));
+      options.setChatPersistenceScope(buildChatPersistenceScope(player, {
+        mapId: latestMapEnter?.mid,
+        instanceId: latestMapEnter?.iid,
+      }));
       options.showChat();
       options.showHud();
       options.resizeCanvas();

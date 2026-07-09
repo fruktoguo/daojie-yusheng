@@ -170,6 +170,8 @@ type ActiveObservedTile = {
  */
 
   mapId: string;  
+  /** instanceId：地图实例 ID，防止同模板实例复用观察详情。 */
+  instanceId: string;
   /**
  * x：x相关字段。
  */
@@ -225,6 +227,8 @@ type MainObserveStateSourceOptions = {
  * mapId：地图ID标识。
  */
  mapId: string;  
+ /** instanceId：当前地图实例 ID。 */
+ instanceId?: string;
  /**
  * senseQiActive：senseQi激活相关字段。
  */
@@ -659,6 +663,7 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
       player
       && activeObservedTile
       && activeObservedTile.mapId === player.mapId
+      && activeObservedTile.instanceId === (player.instanceId ?? player.mapId)
       && activeObservedTile.x === targetX
       && activeObservedTile.y === targetY,
     );
@@ -679,6 +684,7 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
       !player
       || !activeObservedTile
       || activeObservedTile.mapId !== player.mapId
+      || activeObservedTile.instanceId !== (player.instanceId ?? player.mapId)
       || activeObservedTile.x !== targetX
       || activeObservedTile.y !== targetY
       || !activeObservedTileDetail
@@ -891,6 +897,7 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
     if (
       activeObservedTile
       && activeObservedTile.mapId === options.getPlayer()?.mapId
+      && activeObservedTile.instanceId === (options.getPlayer()?.instanceId ?? options.getPlayer()?.mapId)
       && activeObservedTile.x === targetX
       && activeObservedTile.y === targetY
       && activeObservedTileDetail?.entities
@@ -933,7 +940,7 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
 
   function rerenderActiveObservedTile(): void {
     const player = options.getPlayer();
-    if (!player || !activeObservedTile || activeObservedTile.mapId !== player.mapId) {
+    if (!player || !activeObservedTile || activeObservedTile.mapId !== player.mapId || activeObservedTile.instanceId !== (player.instanceId ?? player.mapId)) {
       return;
     }
     render(activeObservedTile.x, activeObservedTile.y);
@@ -1415,7 +1422,7 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
       if (!player) {
         return;
       }
-      activeObservedTile = { mapId: player.mapId, x: targetX, y: targetY };
+      activeObservedTile = { mapId: player.mapId, instanceId: player.instanceId ?? player.mapId, x: targetX, y: targetY };
       activeObservedTileDetail = null;
       activeObservedTileError = null;
       render(targetX, targetY);
@@ -1445,6 +1452,7 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
         !player
         || !activeObservedTile
         || activeObservedTile.mapId !== player.mapId
+        || activeObservedTile.instanceId !== (player.instanceId ?? player.mapId)
         || activeObservedTile.x !== data.x
         || activeObservedTile.y !== data.y
       ) {

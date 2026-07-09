@@ -69,6 +69,8 @@ type PendingAutoInteraction =
  */
 
       mapId: string;      
+      /** instanceId：目标所属地图实例。 */
+      instanceId: string;
       /**
  * x：x相关字段。
  */
@@ -96,6 +98,8 @@ type PendingAutoInteraction =
  */
 
       mapId: string;      
+      /** instanceId：目标所属地图实例。 */
+      instanceId: string;
       /**
  * x：x相关字段。
  */
@@ -139,6 +143,8 @@ type MainNavigationStateSourceOptions = {
  * mapId：地图ID标识。
  */
  mapId: string;  
+ /** instanceId：当前地图实例 ID。 */
+ instanceId?: string;
  /**
  * sectId：所属宗门 ID。
  */
@@ -1031,7 +1037,12 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
       const player = options.getPlayer();
-      if (!player || !pendingAutoInteraction || pendingAutoInteraction.mapId !== player.mapId) {
+      if (
+        !player
+        || !pendingAutoInteraction
+        || pendingAutoInteraction.mapId !== player.mapId
+        || pendingAutoInteraction.instanceId !== (player.instanceId ?? player.mapId)
+      ) {
         pendingAutoInteraction = null;
         return false;
       }
@@ -1105,6 +1116,7 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
         pendingAutoInteraction = {
           kind: 'npc',
           mapId: player.mapId,
+          instanceId: player.instanceId ?? player.mapId,
           x: npc.wx,
           y: npc.wy,
           npcId: npc.id,
@@ -1119,6 +1131,7 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
       pendingAutoInteraction = {
         kind: 'npc',
         mapId: player.mapId,
+        instanceId: player.instanceId ?? player.mapId,
         x: npc.wx,
         y: npc.wy,
         npcId: npc.id,
@@ -1155,6 +1168,7 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
         pendingAutoInteraction = {
           kind: 'portal',
           mapId: player.mapId,
+          instanceId: player.instanceId ?? player.mapId,
           x: target.x,
           y: target.y,
           actionId: 'portal:travel',
@@ -1165,6 +1179,7 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
       pendingAutoInteraction = {
         kind: 'portal',
         mapId: player.mapId,
+        instanceId: player.instanceId ?? player.mapId,
         x: target.x,
         y: target.y,
         actionId: 'portal:travel',

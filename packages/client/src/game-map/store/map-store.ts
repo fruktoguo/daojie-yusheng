@@ -718,6 +718,7 @@ export class MapStore {
       this.clearGroundPiles();
       this.entities = [];
       this.entityMap.clear();
+      publishLatestObservedEntitiesSnapshot([]);
       this.threatArrows = [];
       this.pathCells = [];
       this.preloadedEntityMapId = preloadingDifferentMap ? hintedMapId : null;
@@ -827,6 +828,10 @@ export class MapStore {
 
     const nextMapId = typeof data.mapId === 'string' && data.mapId ? data.mapId : undefined;
     const mapChanged = Boolean(nextMapId && nextMapId !== this.player.mapId);
+    const nextInstanceId = typeof data.instanceId === 'string' && data.instanceId.trim()
+      ? data.instanceId.trim()
+      : undefined;
+    const instanceChanged = Boolean(nextInstanceId && nextInstanceId !== this.player.instanceId);
     if (mapChanged && nextMapId) {
       this.mapMeta = null;
       this.tileCache.clear();
@@ -840,6 +845,7 @@ export class MapStore {
         this.clearGroundPiles();
         this.entities = [];
         this.entityMap.clear();
+        publishLatestObservedEntitiesSnapshot([]);
         this.threatArrows = [];
       }
       this.player.mapId = nextMapId;
@@ -850,9 +856,24 @@ export class MapStore {
       this.rebuildRenderTileCache(true);
       this.awaitingFullVisibilityMapId = this.player.mapId;
       this.preloadedEntityMapId = null;
+    } else if (instanceChanged) {
+      // 同模板实例也有独立动态地块、实体、掉落和视野，不能复用旧 instance 的 mapId 级缓存。
+      this.tileCache.clear();
+      this.visibleTiles.clear();
+      this.visibleTileRevision += 1;
+      this.visibleMinimapMarkers = [];
+      this.pathCells = [];
+      this.clearGroundPiles();
+      this.entities = [];
+      this.entityMap.clear();
+      publishLatestObservedEntitiesSnapshot([]);
+      this.threatArrows = [];
+      this.rebuildRenderTileCache(true);
+      this.awaitingFullVisibilityMapId = this.player.mapId;
+      this.preloadedEntityMapId = null;
     }
-    if (typeof data.instanceId === 'string' && data.instanceId.trim()) {
-      this.player.instanceId = data.instanceId.trim();
+    if (nextInstanceId) {
+      this.player.instanceId = nextInstanceId;
     }
 
     if (typeof data.hp === 'number') {
@@ -887,8 +908,8 @@ export class MapStore {
       publishLatestObservedEntitiesSnapshot(this.entities);
     }
 
-    const moved = !mapChanged && (this.player.x !== oldX || this.player.y !== oldY);
-    if (mapChanged) {
+    const moved = !mapChanged && !instanceChanged && (this.player.x !== oldX || this.player.y !== oldY);
+    if (mapChanged || instanceChanged) {
       this.entityTransition = { snapCamera: true };
       this.tickTiming.startedAt = performance.now();
       return;
