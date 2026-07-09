@@ -200,7 +200,7 @@ export function createMainUiStateSource(options: MainUiStateSourceOptions) {
 
     showToast(
       message: string | null | undefined,
-      kind: 'system' | 'chat' | 'quest' | 'combat' | 'loot' | 'grudge' | 'success' | 'warn' | 'travel' = 'system',
+      kind: 'system' | 'chat' | 'quest' | 'combat' | 'loot' | 'grudge' | 'success' | 'warn' | 'travel' | 'enhancement' = 'system',
     ): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 

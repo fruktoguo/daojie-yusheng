@@ -1228,7 +1228,7 @@ export class CraftPanelRuntimeService {
                 validated.protection,
                 payload,
                 validated.desiredTargetLevel,
-                this.resolveEnhancementItemDisplayName(validated.target.item, normalizeEnhanceLevel(validated.target.item.enhanceLevel)),
+                this.resolveEnhancementItemBaseDisplayName(validated.target.item),
             ),
             normalizeCraftQueueStartMode(payload?.queueMode),
         );
@@ -1281,7 +1281,7 @@ export class CraftPanelRuntimeService {
         const protectionItemSignature = validated.protection
             ? createItemStackSignature(validated.protection.item)
             : undefined;
-        const targetItemName = this.resolveEnhancementItemDisplayName(target.item, validated.currentLevel);
+        const targetItemName = this.resolveEnhancementItemBaseDisplayName(target.item);
         player.enhancementJob = {
             jobRunId: validated.jobRunId,
             jobType: 'enhancement',
@@ -1337,7 +1337,7 @@ export class CraftPanelRuntimeService {
     buildEnhancementStartMessages(validated, job) {
         if (validated.desiredTargetLevel > validated.targetLevel && validated.protection) {
             return [{
-                kind: 'quest',
+                kind: 'enhancement',
                 key: 'notice.craft.enhancement.start-chain-protected',
                 vars: {
                     itemName: job.targetItemName,
@@ -1350,7 +1350,7 @@ export class CraftPanelRuntimeService {
         }
         if (validated.desiredTargetLevel > validated.targetLevel) {
             return [{
-                kind: 'quest',
+                kind: 'enhancement',
                 key: 'notice.craft.enhancement.start-chain',
                 vars: {
                     itemName: job.targetItemName,
@@ -1361,7 +1361,7 @@ export class CraftPanelRuntimeService {
             }];
         }
         return [{
-            kind: 'quest',
+            kind: 'enhancement',
             key: 'notice.craft.enhancement.start',
             vars: {
                 itemName: job.targetItemName,
@@ -1372,14 +1372,14 @@ export class CraftPanelRuntimeService {
         }];
     }
     /** 解析强化玩家可见装备名，运行态物品缺少 name 时用内容目录兜底。 */
-    resolveEnhancementItemDisplayName(item, enhanceLevel) {
+    resolveEnhancementItemBaseDisplayName(item) {
         const itemId = typeof item?.itemId === 'string' ? item.itemId.trim() : '';
         const itemName = typeof item?.name === 'string' ? item.name.trim() : '';
         const templateName = itemId ? this.contentTemplateRepository.getItemName(itemId) : null;
         return getItemDisplayName({
             ...(item ?? {}),
             ...(templateName && (!itemName || itemName === itemId) ? { name: templateName } : {}),
-            enhanceLevel,
+            enhanceLevel: 0,
         });
     }
     /**
@@ -2157,7 +2157,7 @@ export class CraftPanelRuntimeService {
             equipmentChanged: false,
             attrChanged: false,
             messages: [{
-                    kind: 'quest',
+                    kind: 'enhancement',
                     key: 'notice.craft.enhancement.advance-continue',
                     vars: {
                         itemName: job.targetItemName,

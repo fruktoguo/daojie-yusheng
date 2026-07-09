@@ -21,7 +21,7 @@ export const CHAT_CHANNELS = ['system', 'combat', 'grudge', 'nearby', 'world', '
 /** ChatChannel：聊天频道标识。 */
 export type ChatChannel = typeof CHAT_CHANNELS[number];
 
-export const CHAT_MESSAGE_KINDS = ['system', 'chat', 'quest', 'combat', 'loot', 'grudge', 'success', 'warn', 'travel'] as const;
+export const CHAT_MESSAGE_KINDS = ['system', 'chat', 'quest', 'combat', 'loot', 'grudge', 'success', 'warn', 'travel', 'enhancement'] as const;
 /** ChatMessageKind：分类枚举。 */
 export type ChatMessageKind = typeof CHAT_MESSAGE_KINDS[number];
 

@@ -10,7 +10,7 @@ import { createExternalStore } from '../stores/create-external-store';
  */
 
 
-export type OverlayToastKind = 'system' | 'quest' | 'combat' | 'loot' | 'grudge' | 'success' | 'warn' | 'travel';
+export type OverlayToastKind = 'system' | 'quest' | 'combat' | 'loot' | 'grudge' | 'success' | 'warn' | 'travel' | 'enhancement';
 /**
  * OverlayToastEntry：定义接口结构约束，明确可交付字段含义。
  */

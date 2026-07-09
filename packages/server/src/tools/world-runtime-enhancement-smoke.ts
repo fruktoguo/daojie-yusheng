@@ -36,6 +36,7 @@ async function main(): Promise<void> {
   await testQueuedEnhancementDoesNotLockOrConsumeResources();
   await testDurableQueuedEnhancementDuringActiveJobDoesNotStartImmediately();
   await testEnhancementUsesTemplateNameWhenRuntimeItemNameMissing();
+  await testHighLevelChainNoticeUsesBaseItemName();
   await testArtifactUsesExistingEnhancementLifecycle();
 
   console.log(JSON.stringify({
@@ -50,7 +51,7 @@ async function main(): Promise<void> {
       '强化中断不再暴露 strategy executeInterrupt，公共 interrupt lifecycle 统一刷新独立等待条和 active job version。',
       '已有技艺活动时，强化入队不会提前锁装备或扣灵石。',
       '强化进行中继续追加强化任务只入队列，不重复提交 active job 强事务。',
-      '强化运行态物品缺少 name 或仅有 itemId 时，任务、通知和队列使用内容目录显示名。',
+      '强化运行态物品缺少 name 或仅有 itemId 时，通知和队列使用内容目录基础显示名，不把起始强化等级写入连续强化文案。',
       '法宝复用现有强化生命周期，成功后按实例写回背包并提升 enhanceLevel。',
     ],
   }, null, 2));
@@ -89,6 +90,8 @@ async function testStartInterruptAndCompleteEnhancement(): Promise<void> {
   });
   assert.equal(start.ok, true);
   assert.equal(start.messages?.[0]?.key, 'notice.craft.enhancement.start');
+  assert.equal(start.messages?.[0]?.kind, 'enhancement');
+  assert.equal(start.messages?.[0]?.vars?.itemName, '铁剑');
   assert.equal(player.enhancementJob?.phase, 'enhancing');
   assert.equal(player.enhancementJob?.remainingTicks, player.enhancementJob?.workRemainingTicks);
   assert.equal(player.enhancementJob?.totalTicks, player.enhancementJob?.workTotalTicks);
@@ -133,6 +136,9 @@ async function testStartInterruptAndCompleteEnhancement(): Promise<void> {
     const completed = craftService.tickEnhancement(player);
     assert.equal(completed.ok, true);
     assert.equal(completed.messages?.[0]?.key, 'notice.craft.enhancement.success');
+    assert.equal(completed.messages?.[0]?.kind, 'enhancement');
+    assert.equal(completed.messages?.[0]?.vars?.itemName, '铁剑');
+    assert.equal(completed.messages?.[0]?.vars?.level, 2);
   } finally {
     Math.random = originalRandom;
   }
@@ -482,8 +488,8 @@ async function testEnhancementUsesTemplateNameWhenRuntimeItemNameMissing(): Prom
   });
 
   assert.equal(start.ok, true);
-  assert.equal(player.enhancementJob?.targetItemName, '+1 铁剑');
-  assert.equal(start.messages?.[0]?.vars?.itemName, '+1 铁剑');
+  assert.equal(player.enhancementJob?.targetItemName, '铁剑');
+  assert.equal(start.messages?.[0]?.vars?.itemName, '铁剑');
 
   const queuedTarget = createEquipmentItem('iron_sword', 'iron_sword', 8, 0);
   player.inventory.items.push({
@@ -495,6 +501,39 @@ async function testEnhancementUsesTemplateNameWhenRuntimeItemNameMissing(): Prom
   });
   assert.equal(queued.ok, true);
   assert.equal(player.techniqueActivityQueue[0]?.label, '铁剑');
+}
+
+async function testHighLevelChainNoticeUsesBaseItemName(): Promise<void> {
+  const player = createPlayer('player:enhancement:high-level-chain', [
+    createEquipmentItem('equip.foundation_mixed_dual_sword', 'equip.foundation_mixed_dual_sword', 40, 20),
+  ]);
+  const { craftService } = createCraftHarness(player, [], []);
+  craftService.enhancementConfigs.set('equip.foundation_mixed_dual_sword', { steps: [] });
+  const target = player.inventory.items[0];
+  const start = craftService.startEnhancement(player, {
+    target: buildInventoryRef(target),
+    targetLevel: 22,
+  });
+  assert.equal(start.ok, true);
+  assert.equal(player.enhancementJob?.targetItemName, '混元双仪剑');
+  assert.equal(start.messages?.[0]?.kind, 'enhancement');
+  assert.equal(start.messages?.[0]?.vars?.itemName, '混元双仪剑');
+
+  player.enhancementJob!.remainingTicks = 1;
+  player.enhancementJob!.workRemainingTicks = 1;
+  const originalRandom = Math.random;
+  Math.random = () => 0;
+  try {
+    const continued = craftService.tickEnhancement(player);
+    assert.equal(continued.ok, true);
+    assert.equal(continued.messages?.[0]?.key, 'notice.craft.enhancement.advance-continue');
+    assert.equal(continued.messages?.[0]?.kind, 'enhancement');
+    assert.equal(continued.messages?.[0]?.vars?.itemName, '混元双仪剑');
+    assert.equal(continued.messages?.[0]?.vars?.currentLevel, 21);
+    assert.equal(continued.messages?.[0]?.vars?.nextTargetLevel, 22);
+  } finally {
+    Math.random = originalRandom;
+  }
 }
 
 async function testArtifactUsesExistingEnhancementLifecycle(): Promise<void> {
@@ -755,6 +794,9 @@ function createContentTemplateRepository(): any {
       }
       if (itemId === 'artifact.flying_sword') {
         return '巡天飞剑';
+      }
+      if (itemId === 'equip.foundation_mixed_dual_sword') {
+        return '混元双仪剑';
       }
       return itemId;
     },

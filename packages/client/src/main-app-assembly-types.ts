@@ -19,7 +19,8 @@ export type ToastKind =
   | 'grudge'
   | 'success'
   | 'warn'
-  | 'travel';  
+  | 'travel'
+  | 'enhancement';
   /**
  * InitializeMainAppOptions：统一结构类型，保证协议与运行时一致性。
  */

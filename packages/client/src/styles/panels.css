@@ -58,6 +58,10 @@
       background: rgba(53, 115, 78, 0.98); 
       border-color: rgba(110, 212, 141, 0.42);
     }
+    #toast.toast-kind-enhancement {
+      background: rgba(78, 74, 135, 0.98);
+      border-color: rgba(153, 148, 232, 0.42);
+    }
     #toast.toast-kind-warn { 
       background: rgba(154, 88, 35, 0.98); 
       border-color: rgba(214, 138, 74, 0.42);

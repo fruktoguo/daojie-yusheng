@@ -140,7 +140,7 @@ export function executeEnhancementTick(craftService: any, player: any, ctx: Pipe
   craftService.migrateLegacyCraftQueueToUnifiedQueue?.(player, job.queuedJobs);
   const finishResult = craftService.finishEnhancementJob(player, resultingLevel, 'completed');
   return buildEnhancementTickResult(true, [{
-    kind: success ? 'quest' : 'system',
+    kind: success ? 'enhancement' : 'system',
     key: success
       ? 'notice.craft.enhancement.success'
       : protectionActiveForStep

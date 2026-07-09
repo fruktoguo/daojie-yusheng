@@ -85,7 +85,8 @@ type ToastKind =
   | 'grudge'
   | 'success'
   | 'warn'
-  | 'travel';
+  | 'travel'
+  | 'enhancement';
 
 const TECHNIQUE_GENERATION_CATEGORIES = new Set<TechniqueCategory>(['arts', 'internal', 'divine', 'secret']);
 

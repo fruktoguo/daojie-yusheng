@@ -2355,6 +2355,7 @@ notice.action.qi-sense-toggled,通知,望气视角已{state},
 notice.activity.month-card-activated,通知,已使用{itemName} x{count}，月卡总池增加 {merit} 功德，领取时间重置为 {days} 天,
 notice.activity.eternal-activated,通知,已使用{itemName} x{count}，月卡总池增加 {merit} 功德，每日签到固定池增加 {dailySignInFixedMerit} 功德，已获得永恒权益,
 notice.channel.combat,通知,战斗,战斗频道兜底名
+notice.channel.enhancement,通知,强化,强化频道兜底名
 notice.channel.grudge,通知,情仇,情仇频道兜底名
 notice.channel.loot,通知,掉落,掉落频道兜底名
 notice.channel.quest,通知,任务,任务频道兜底名
@@ -2395,7 +2396,7 @@ notice.craft.building.sleeping,通知,建筑施工条件暂时不满足，已转
 notice.craft.building.start,通知,开始建造：{buildingName}，预计 {totalTicks} 息,
 notice.craft.building.target-missing,通知,建造目标已经不存在。,
 notice.craft.building.unavailable,通知,建筑当前不可继续施工。,
-notice.craft.enhancement.advance-continue,通知,{itemName} 已调整为 +{currentLevel}，继续冲击 +{nextTargetLevel},
+notice.craft.enhancement.advance-continue,通知,{itemName} 已强化成功 +{currentLevel}，继续冲击 +{nextTargetLevel},
 notice.craft.enhancement.advance-missing-target,通知,{itemName} 当前强化目标数据缺失，队列已停止,
 notice.craft.enhancement.advance-resources-missing,通知,{itemName} 当前已到 +{currentLevel}，后续强化所需灵石、材料或保护物不足，队列已停止,
 notice.craft.enhancement.cancelled,通知,你停止了 {itemName} 的强化，已投入的本阶材料不会退回；保护物仅在失败且保护生效时扣除，灵石将在本阶成功后结算,
@@ -2405,7 +2406,7 @@ notice.craft.enhancement.protection-missing,通知,{itemName} 强化失败，保
 notice.craft.enhancement.start,通知,开始强化 {itemName}，目标 +{targetLevel}，预计耗时 {totalTicks} 息,
 notice.craft.enhancement.start-chain,通知,开始强化 {itemName}，先冲击 +{targetLevel}，最终目标 +{desiredTargetLevel},
 notice.craft.enhancement.start-chain-protected,通知,开始强化 {itemName}，先冲击 +{targetLevel}，最终目标 +{desiredTargetLevel}，保护从 +{protectionStartLevel} 开始生效,
-notice.craft.enhancement.success,通知,{itemName} 强化成功，已提升至 +{level},
+notice.craft.enhancement.success,通知,{itemName} 已强化成功 +{level},
 notice.craft.enhancement.sync-conflict,通知,强化状态正在同步，请稍后重试。,
 notice.craft.enhancement.target-missing,通知,{itemName} 当前强化目标数据缺失，本阶已终止,
 notice.craft.enhancement.wallet-insufficient,通知,{itemName} 强化中断，结算时灵石不足，本阶未能继续,

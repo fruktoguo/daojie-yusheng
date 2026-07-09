@@ -58,6 +58,7 @@ export const NOTICE_KIND_PRIORITY: Record<NoticeKind, number> = {
   info: 2,
   travel: 2,
   quest: 3,
+  enhancement: 3,
   loot: 3,
   system: 4,
   success: 5,

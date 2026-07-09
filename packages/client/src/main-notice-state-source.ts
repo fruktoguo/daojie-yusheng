@@ -12,7 +12,7 @@ import { resolveStructuredNoticeText } from './ui/structured-notice-display';
  */
 
 
-type MainToastKind = 'system' | 'chat' | 'quest' | 'combat' | 'loot' | 'grudge' | 'success' | 'warn' | 'travel';
+type MainToastKind = 'system' | 'chat' | 'quest' | 'combat' | 'loot' | 'grudge' | 'success' | 'warn' | 'travel' | 'enhancement';
 /**
  * MainNoticeStateSourceOptions：统一结构类型，保证协议与运行时一致性。
  */
@@ -71,6 +71,8 @@ function toSystemMsgFromNotice(item: S2C_NoticeItem): S2C_SystemMsg {
       ? 'grudge'
       : item.kind === 'quest'
         ? 'quest'
+        : item.kind === 'enhancement'
+          ? 'enhancement'
         : item.kind === 'loot'
           ? 'loot'
           : item.kind === 'combat'
@@ -149,13 +151,15 @@ export function createMainNoticeStateSource(options: MainNoticeStateSourceOption
         options.showToast(text, data.kind);
         return;
       }
-      if (data.kind === 'quest' || data.kind === 'combat' || data.kind === 'loot') {
+      if (data.kind === 'quest' || data.kind === 'combat' || data.kind === 'loot' || data.kind === 'enhancement') {
         const label = data.from ?? (
           data.kind === 'quest'
             ? t('notice.channel.quest', undefined)
             : data.kind === 'combat'
               ? t('notice.channel.combat', undefined)
-              : t('notice.channel.loot', undefined)
+              : data.kind === 'enhancement'
+                ? t('notice.channel.enhancement', undefined)
+                : t('notice.channel.loot', undefined)
         );
         const structuredGroup = (data as any).structuredGroup as unknown[] | undefined;
         const text = resolveClientNoticeText(rawText, data.structured, structuredGroup);
@@ -163,7 +167,7 @@ export function createMainNoticeStateSource(options: MainNoticeStateSourceOption
           ...(data.structured ? { structured: data.structured } : undefined),
           ...(structuredGroup ? { structuredGroup } : undefined),
         } : undefined);
-        if (data.kind === 'quest' || data.kind === 'loot') {
+        if (data.kind === 'quest' || data.kind === 'loot' || data.kind === 'enhancement') {
           options.showToast(text, data.kind);
         }
         return;
