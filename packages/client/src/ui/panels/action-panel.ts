@@ -454,7 +454,6 @@ interface CombatTargetingCardOption {
   label: string;
   summary: string;
   active?: boolean;
-  disabled?: boolean;
 }
 
 const AUTO_BATTLE_TARGETING_MODE_OPTIONS: Array<{ mode: AutoBattleTargetingMode; label: string; summary: string }> = [
@@ -3665,26 +3664,15 @@ export class ActionPanel {
       { key: 'monster', scope: 'hostile', label: t('action.combat-settings.targeting.hostile.monster.label', undefined), summary: t('action.combat-settings.targeting.hostile.monster.summary', undefined), active: draft.hostile?.includes('monster') === true },
       { key: 'demonized_players', scope: 'hostile', label: t('action.combat-settings.targeting.hostile.demonized-players.label', undefined), summary: t('action.combat-settings.targeting.hostile.demonized-players.summary', undefined), active: draft.hostile?.includes('demonized_players') === true },
       { key: 'retaliators', scope: 'hostile', label: t('action.combat-settings.targeting.hostile.retaliators.label', undefined), summary: t('action.combat-settings.targeting.hostile.retaliators.summary', undefined), active: draft.hostile?.includes('retaliators') === true },
-      { key: 'party', scope: 'hostile', label: t('action.combat-settings.targeting.hostile.party.label', undefined), summary: t('action.combat-settings.targeting.hostile.party.summary', undefined), disabled: true },
-      { key: 'sect', scope: 'hostile', label: t('action.combat-settings.targeting.hostile.sect.label', undefined), summary: t('action.combat-settings.targeting.hostile.sect.summary', undefined), disabled: true },
       { key: 'terrain', scope: 'hostile', label: t('action.combat-settings.targeting.hostile.terrain.label', undefined), summary: t('action.combat-settings.targeting.hostile.terrain.summary', undefined), active: draft.hostile?.includes('terrain') === true },
     ];
     const friendlyOptions: CombatTargetingCardOption[] = [
       { key: 'non_hostile_players', scope: 'friendly', label: t('action.combat-settings.targeting.friendly.non-hostile-players.label', undefined), summary: t('action.combat-settings.targeting.friendly.non-hostile-players.summary', undefined), active: draft.friendly?.includes('non_hostile_players') === true },
       { key: 'all_players', scope: 'friendly', label: t('action.combat-settings.targeting.friendly.all-players.label', undefined), summary: t('action.combat-settings.targeting.friendly.all-players.summary', undefined), active: draft.friendly?.includes('all_players') === true },
       { key: 'retaliators', scope: 'friendly', label: t('action.combat-settings.targeting.friendly.retaliators.label', undefined), summary: t('action.combat-settings.targeting.friendly.retaliators.summary', undefined), active: draft.friendly?.includes('retaliators') === true },
-      { key: 'party', scope: 'friendly', label: t('action.combat-settings.targeting.friendly.party.label', undefined), summary: t('action.combat-settings.targeting.friendly.party.summary', undefined), disabled: true },
-      { key: 'sect', scope: 'friendly', label: t('action.combat-settings.targeting.friendly.sect.label', undefined), summary: t('action.combat-settings.targeting.friendly.sect.summary', undefined), disabled: true },
     ];
     return `
       <div class="combat-settings-targeting-shell">
-        <div class="combat-settings-targeting-head">
-          <div>
-            <div class="skill-preset-card-title">${t('action.combat-settings.targeting.title', undefined)}</div>
-            <div class="skill-preset-list-meta">${t('action.combat-settings.targeting.copy', undefined)}</div>
-          </div>
-          <span class="combat-settings-targeting-badge">${t('action.combat-settings.targeting.badge', undefined)}</span>
-        </div>
         <div class="combat-settings-targeting-grid">
           <div class="combat-settings-targeting-card combat-settings-targeting-card--hostile">
             <div class="skill-preset-section-head">
@@ -3715,13 +3703,12 @@ export class ActionPanel {
       <button
         class="combat-settings-toggle-chip ${option.active ? 'active' : ''}"
         type="button"
-        ${option.disabled ? 'disabled' : `data-combat-targeting-toggle="${escapeHtml(`${option.scope ?? 'hostile'}:${option.key ?? ''}`)}"`}
+        data-combat-targeting-toggle="${escapeHtml(`${option.scope ?? 'hostile'}:${option.key ?? ''}`)}"
       >
         <span class="combat-settings-toggle-chip-box" aria-hidden="true"></span>
         <span class="combat-settings-toggle-chip-content">
           <span class="combat-settings-toggle-chip-title">
           ${escapeHtml(option.label)}
-            ${option.disabled ? `<span class="combat-settings-toggle-chip-disabled-tag">${t('action.combat-settings.targeting.unavailable', undefined)}</span>` : ''}
           </span>
           <span class="combat-settings-toggle-chip-copy">${escapeHtml(option.summary)}</span>
         </span>
@@ -4286,21 +4273,11 @@ export class ActionPanel {
         </div>
       `
       : `<div class="empty-hint">${t('action.combat-settings.auto-pills.condition.no-item', undefined)}</div>`;
-    const autoPillBody = `
-      <div class="skill-preset-card auto-pill-hero-card">
-        <div class="skill-preset-card-title">${t('action.combat-settings.auto-pills.title', undefined)}</div>
-        <div class="skill-preset-card-copy">${t('action.combat-settings.auto-pills.copy', undefined)}</div>
-      </div>
-      <div class="auto-pill-slot-grid">${slotMarkup}</div>
-    `;
+    const autoPillBody = `<div class="auto-pill-slot-grid">${slotMarkup}</div>`;
     const targetingBody = this.renderCombatTargetingSection();
     const overviewBody = `
       <div class="auto-pill-shell">
-        <div class="auto-pill-topbar">
-          <div class="skill-preset-card auto-pill-hero-card combat-settings-hero-card">
-            <div class="skill-preset-card-title">${t('action.combat-settings.hero.title', undefined)}</div>
-            <div class="skill-preset-card-copy">${t('action.combat-settings.hero.copy', undefined)}</div>
-          </div>
+        <div class="auto-pill-topbar auto-pill-topbar--toolbar-only">
           <div class="auto-pill-toolbar">
             <button class="small-btn" data-combat-settings-apply type="button">${t('common.action.execute', undefined)}</button>
             <button class="small-btn ghost" data-combat-settings-cancel type="button">${t('common.action.cancel', undefined)}</button>

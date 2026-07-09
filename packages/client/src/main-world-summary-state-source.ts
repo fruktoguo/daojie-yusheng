@@ -423,7 +423,6 @@ export function createMainWorldSummaryStateSource(options: MainWorldSummaryState
     return `
       <div class="leaderboard-shell">
         <div class="leaderboard-toolbar">
-          <div class="panel-subtext">${t('world-summary.summary.intro', undefined)}</div>
           <div class="leaderboard-toolbar-actions">
             <button class="small-btn ghost" data-open-leaderboard type="button">${t('world-summary.action.open-leaderboard', undefined)}</button>
             <button class="small-btn" data-world-summary-refresh type="button">${worldSummaryLoading ? t('world-summary.generated-at.loading', undefined) : t('world-summary.action.refresh-summary', undefined)}</button>

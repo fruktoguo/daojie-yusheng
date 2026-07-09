@@ -82,7 +82,6 @@ export interface CombatTargetingCardOption {
   label: string;
   summary: string;
   active?: boolean;
-  disabled?: boolean;
 }
 
 export interface SectManagementMember {

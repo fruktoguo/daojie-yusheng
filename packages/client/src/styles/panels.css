@@ -168,20 +168,20 @@
       padding-top: 4px;
       border-top: 1px solid rgba(0, 0, 0, 0.08);
     }
-    .chat-kind-quest { color: #7b4f00; }
-    .chat-kind-loot { color: #1d6e42; }
-    .chat-kind-alchemy { color: #1f7158; }
-    .chat-kind-forging { color: #7b4f20; }
-    .chat-kind-gather { color: #227744; }
-    .chat-kind-mining { color: #5f5b54; }
-    .chat-kind-building { color: #7a5529; }
-    .chat-kind-formation { color: #405d9b; }
-    .chat-kind-transmission { color: #704aa0; }
-    .chat-kind-combat { color: #9c2c2c; }
-    .chat-kind-grudge { color: #8d2141; }
-    .chat-kind-success { color: #2d7a3f; }
-    .chat-kind-warn { color: #a55c12; }
-    .chat-kind-travel { color: #2f5f99; }
+    .chat-kind-quest { color: var(--chat-kind-quest); }
+    .chat-kind-loot { color: var(--chat-kind-loot); }
+    .chat-kind-alchemy { color: var(--chat-kind-alchemy); }
+    .chat-kind-forging { color: var(--chat-kind-forging); }
+    .chat-kind-gather { color: var(--chat-kind-gather); }
+    .chat-kind-mining { color: var(--chat-kind-mining); }
+    .chat-kind-building { color: var(--chat-kind-building); }
+    .chat-kind-formation { color: var(--chat-kind-formation); }
+    .chat-kind-transmission { color: var(--chat-kind-transmission); }
+    .chat-kind-combat { color: var(--chat-kind-combat); }
+    .chat-kind-grudge { color: var(--chat-kind-grudge); }
+    .chat-kind-success { color: var(--chat-kind-success); }
+    .chat-kind-warn { color: var(--chat-kind-warn); }
+    .chat-kind-travel { color: var(--chat-kind-travel); }
     .chat-damage-pill {
       display: inline-flex;
       align-items: center;
@@ -9558,8 +9558,8 @@
       justify-content: space-between;
       gap: 10px;
     }
-    .auto-pill-hero-card {
-      flex: 1 1 auto;
+    .auto-pill-topbar--toolbar-only {
+      justify-content: flex-end;
     }
     .auto-pill-toolbar {
       display: flex;
@@ -9567,9 +9567,6 @@
       align-items: flex-start;
       gap: 6px;
       flex: 0 0 auto;
-    }
-    .combat-settings-hero-card {
-      flex: 1 1 auto;
     }
     .combat-settings-tabs {
       flex: 0 0 auto;
@@ -9592,21 +9589,6 @@
       background: rgba(255, 251, 244, 0.72);
       overflow-y: auto;
       overscroll-behavior: contain;
-    }
-    .combat-settings-targeting-head {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 8px 10px;
-    }
-    .combat-settings-targeting-badge {
-      padding: 3px 8px;
-      border: 1px dashed rgba(34, 26, 19, 0.16);
-      background: rgba(214, 188, 142, 0.12);
-      font-size: var(--font-size-11);
-      color: var(--ink-grey);
-      white-space: nowrap;
     }
     .combat-settings-targeting-grid {
       display: grid;
@@ -9684,14 +9666,6 @@
       gap: 6px;
       font-size: var(--font-size-12);
       color: var(--ink-black);
-    }
-    .combat-settings-toggle-chip-disabled-tag {
-      padding: 1px 6px;
-      border: 1px dashed rgba(34, 26, 19, 0.16);
-      background: rgba(214, 188, 142, 0.12);
-      font-size: var(--font-size-10);
-      color: var(--ink-grey);
-      line-height: 1.3;
     }
     .combat-settings-toggle-chip-copy {
       font-size: var(--font-size-11);
@@ -9972,11 +9946,6 @@
       border-color: rgba(212, 176, 137, 0.16);
       background: rgba(44, 36, 31, 0.66);
     }
-    :root[data-color-mode="dark"] .combat-settings-targeting-badge {
-      border-color: rgba(212, 176, 137, 0.24);
-      background: rgba(212, 176, 137, 0.08);
-      color: var(--ink-light);
-    }
     :root[data-color-mode="dark"] .combat-settings-targeting-card,
     :root[data-color-mode="dark"] .combat-settings-toggle-chip {
       border-color: rgba(212, 176, 137, 0.14);
@@ -10004,11 +9973,6 @@
     }
     :root[data-color-mode="dark"] .combat-settings-toggle-chip-title {
       color: var(--ink-black);
-    }
-    :root[data-color-mode="dark"] .combat-settings-toggle-chip-disabled-tag {
-      border-color: rgba(212, 176, 137, 0.2);
-      background: rgba(212, 176, 137, 0.08);
-      color: var(--ink-light);
     }
     :root[data-color-mode="dark"] .auto-pill-subdialog {
       border-color: rgba(212, 176, 137, 0.2);
