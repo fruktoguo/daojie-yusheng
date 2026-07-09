@@ -870,6 +870,13 @@ export class PixiMapRendererAdapter {
   private runtimeTileManifestState: 'idle' | 'loading' | 'loaded' | 'error' = 'idle';
   private runtimeTileSpriteRevision = 0;
   private runtimeImageOverrideListener: (() => void) | null = null;
+  private runtimeImageGeneration = 0;
+  private runtimeActiveAtlasSources = new Set<string>();
+  private destroyed = false;
+  private mountGeneration = 0;
+  private rendererInitPromise: Promise<void> | null = null;
+  private rendererInitialized = false;
+  private applicationDestroyed = false;
   private profileEnabled = false;
   private profileState: PixiProfileState | null = null;
   private profileWindow: PixiProfilerWindow | null = null;
@@ -882,9 +889,13 @@ export class PixiMapRendererAdapter {
   };
 
   mount(host: HTMLElement): void {
+    if (this.destroyed) throw new Error('地图渲染器已销毁，不能重新挂载');
     const canvas = host.querySelector<HTMLCanvasElement>('#game-canvas') ?? host.querySelector<HTMLCanvasElement>('canvas');
     if (!canvas) throw new Error('地图宿主节点缺少 canvas');
+    const generation = this.mountGeneration + 1;
+    this.mountGeneration = generation;
     this.canvas = canvas;
+    this.ready = false;
     this.refreshProfileState();
     this.pathLayer.addChild(this.interactionOverlayGraphics, this.targetingGraphics, this.senseQiHoverGraphics, this.pathGraphics);
     this.threatArrowGraphics.name = 'threat-arrows';
@@ -905,46 +916,105 @@ export class PixiMapRendererAdapter {
       this.effectLayer,
     );
     this.entityLayer.sortableChildren = true;
-    const initPromise = this.app.init({
-      canvas,
-      width: Math.max(1, canvas.width),
-      height: Math.max(1, canvas.height),
-      background: 0x1a1816,
-      backgroundAlpha: 1,
-      antialias: false,
-      autoDensity: false,
-      autoStart: false,
-      preference: ['webgl'],
-      powerPreference: 'high-performance',
-      preferWebGLVersion: 2,
-    }).then(() => {
-      if (this.app.renderer.type !== RendererType.WEBGL) {
-        throw new Error('主世界 Pixi 渲染器必须使用 WebGL 后端');
+    if (!this.rendererInitPromise) {
+      this.rendererInitPromise = this.app.init({
+        canvas,
+        width: Math.max(1, canvas.width),
+        height: Math.max(1, canvas.height),
+        background: 0x1a1816,
+        backgroundAlpha: 1,
+        antialias: false,
+        autoDensity: false,
+        autoStart: false,
+        preference: ['webgl'],
+        powerPreference: 'high-performance',
+        preferWebGLVersion: 2,
+      }).then(() => {
+        this.rendererInitialized = true;
+      });
+    }
+    if (this.rendererInitialized) {
+      this.activateRendererAfterInit(canvas, generation);
+      return;
+    }
+    void this.rendererInitPromise.then(() => {
+      this.activateRendererAfterInit(canvas, generation);
+    }).catch((error) => {
+      if (!this.destroyed && generation === this.mountGeneration) {
+        console.error('[map] Pixi/WebGL2 renderer init failed', error);
       }
-      const gl = (this.app.renderer as WebGLRenderer<HTMLCanvasElement>).gl;
-      if (!(gl instanceof WebGL2RenderingContext)) throw new Error('主世界 Pixi 渲染器必须使用 WebGL2 上下文');
-      this.ready = true;
-      this.ensureRuntimeImageOverrideListener();
-      this.ensureRuntimeTileSpritesRequested();
-    });
-    initPromise.catch((error) => {
-      console.error('[map] Pixi/WebGL2 renderer init failed', error);
     });
   }
 
   unmount(): void {
+    this.mountGeneration += 1;
+    this.ready = false;
     this.canvas = null;
   }
 
   destroy(): void {
+    if (this.destroyed) return;
+    this.destroyed = true;
+    this.mountGeneration += 1;
+    this.runtimeImageGeneration += 1;
+    this.ready = false;
+    this.canvas = null;
     this.resetScene();
     this.profileWindow?.destroy();
     this.profileWindow = null;
     setRuntimeProfilerEnabled(false);
     this.removeRuntimeImageOverrideListener();
+    this.releaseRuntimeImageResources(new Set());
+    if (this.rendererInitialized) {
+      this.destroyApplicationResources();
+      return;
+    }
+    if (this.rendererInitPromise) {
+      void this.rendererInitPromise.then(() => {
+        this.destroyApplicationResources();
+      }).catch(() => {
+        this.destroyUninitializedStage();
+      });
+      return;
+    }
+    this.destroyUninitializedStage();
+  }
+
+  /** 只允许当前挂载代次接管异步初始化结果，并按最新 backbuffer 尺寸收口。 */
+  private activateRendererAfterInit(canvas: HTMLCanvasElement, generation: number): void {
+    if (this.destroyed) {
+      this.destroyApplicationResources();
+      return;
+    }
+    if (generation !== this.mountGeneration || this.canvas !== canvas) return;
+    if (this.app.renderer.canvas !== canvas) {
+      throw new Error('主世界 Pixi 渲染器不能切换到新的 canvas');
+    }
+    if (this.app.renderer.type !== RendererType.WEBGL) {
+      throw new Error('主世界 Pixi 渲染器必须使用 WebGL 后端');
+    }
+    const gl = (this.app.renderer as WebGLRenderer<HTMLCanvasElement>).gl;
+    if (!(gl instanceof WebGL2RenderingContext)) throw new Error('主世界 Pixi 渲染器必须使用 WebGL2 上下文');
+    this.app.renderer.resize(this.width, this.height, 1);
+    this.ready = true;
+    this.ensureRuntimeImageOverrideListener();
+    this.ensureRuntimeTileSpritesRequested();
+  }
+
+  /** Pixi 完成初始化后统一释放 renderer，避免 init 期间直接 destroy 访问未赋值字段。 */
+  private destroyApplicationResources(): void {
+    if (this.applicationDestroyed) return;
+    this.applicationDestroyed = true;
     this.app.destroy(false, { children: true, texture: true, textureSource: true, context: true });
-    this.ready = false;
-    this.canvas = null;
+  }
+
+  /** 初始化失败或从未开始初始化时，仅销毁已构建的场景树。 */
+  private destroyUninitializedStage(): void {
+    if (this.applicationDestroyed) return;
+    this.applicationDestroyed = true;
+    if (!this.app.stage.destroyed) {
+      this.app.stage.destroy({ children: true, texture: true, textureSource: true, context: true });
+    }
   }
 
   resize(width: number, height: number, backbufferWidth: number, backbufferHeight: number): void {
@@ -1196,14 +1266,16 @@ export class PixiMapRendererAdapter {
       return;
     }
     this.runtimeTileManifestState = 'loading';
-    void this.loadRuntimeTileSpriteManifest();
+    const generation = this.runtimeImageGeneration;
+    void this.loadRuntimeTileSpriteManifest(generation);
   }
 
-  private async loadRuntimeTileSpriteManifest(): Promise<void> {
+  private async loadRuntimeTileSpriteManifest(generation: number): Promise<void> {
     try {
       const response = await fetch(DEFAULT_RUNTIME_IMAGE_PACK_MANIFEST_URL, { cache: 'no-cache' });
       if (!response.ok) throw new Error(`runtime_tile_sprite_manifest_http_${response.status}`);
       const manifest = await response.json() as RuntimeTileSpriteManifest;
+      if (this.destroyed || generation !== this.runtimeImageGeneration) return;
       const version = normalizeRuntimeImagePackVersion(manifest.version);
       const refs = normalizePixiTileSpriteMap(
         manifest.tiles,
@@ -1224,14 +1296,17 @@ export class PixiMapRendererAdapter {
         version,
       );
       addLocalPixiEntityOverrideSpriteRefs(this.runtimeEntitySpriteRefs);
+      const nextAtlasSources = new Set<string>([
+        ...Array.from(this.runtimeTileSpriteRefs.values(), (ref) => ref.src),
+        ...Array.from(this.runtimeEntitySpriteRefs.values(), (ref) => ref.src),
+      ]);
+      this.releaseRuntimeImageResources(nextAtlasSources);
       this.runtimeTileManifestState = 'loaded';
-      this.runtimeAtlasTextures.clear();
-      this.runtimeTileTextures.clear();
-      this.runtimeEntityTextures.clear();
       this.runtimeTileSpriteRevision += 1;
       this.invalidateTerrainChunks();
       this.invalidateEntityStaticViews();
     } catch (error) {
+      if (this.destroyed || generation !== this.runtimeImageGeneration) return;
       this.runtimeTileManifestState = 'error';
       this.runtimeTileSpriteRevision += 1;
       this.invalidateTerrainChunks();
@@ -1255,10 +1330,9 @@ export class PixiMapRendererAdapter {
   }
 
   private reloadRuntimeTileSpriteManifestForLocalOverrides(): void {
+    this.runtimeImageGeneration += 1;
     this.runtimeTileManifestState = 'idle';
-    this.runtimeAtlasTextures.clear();
-    this.runtimeTileTextures.clear();
-    this.runtimeEntityTextures.clear();
+    this.destroyRuntimeDerivedTextures();
     this.runtimeTileTextureRequests.clear();
     this.runtimeEntityTextureRequests.clear();
     this.runtimeTileSpriteRefCache = new WeakMap<Tile, PixiTileSpriteRef | null>();
@@ -1266,6 +1340,35 @@ export class PixiMapRendererAdapter {
     this.invalidateTerrainChunks();
     this.invalidateEntityStaticViews();
     this.ensureRuntimeTileSpritesRequested();
+  }
+
+  /** 销毁依赖旧 atlas frame 的派生纹理，但保留仍被当前 manifest 使用的源纹理。 */
+  private destroyRuntimeDerivedTextures(): void {
+    for (const texture of this.runtimeTileTextures.values()) {
+      if (!texture.destroyed) texture.destroy(false);
+    }
+    for (const texture of this.runtimeEntityTextures.values()) {
+      if (!texture.destroyed) texture.destroy(false);
+    }
+    this.runtimeTileTextures.clear();
+    this.runtimeEntityTextures.clear();
+  }
+
+  /** 释放已被 manifest 替换的本地 data URL，默认图集继续交给 Pixi 全局 Assets 缓存复用。 */
+  private releaseRuntimeImageResources(nextSources: ReadonlySet<string>): void {
+    this.destroyRuntimeDerivedTextures();
+    const previousSources = new Set<string>([
+      ...this.runtimeActiveAtlasSources,
+      ...this.runtimeAtlasTextures.keys(),
+    ]);
+    this.runtimeActiveAtlasSources = new Set(nextSources);
+    for (const src of previousSources) {
+      if (nextSources.has(src)) continue;
+      this.runtimeAtlasTextures.delete(src);
+      if (src.startsWith('data:')) {
+        void Assets.unload(src).catch(() => undefined);
+      }
+    }
   }
 
   private getRuntimeAtlasTexture(src: string): Texture | null {
@@ -1345,12 +1448,20 @@ export class PixiMapRendererAdapter {
   private requestRuntimeTileTexture(ref: PixiTileSpriteRef): void {
     if (this.runtimeTileTextureRequests.has(ref.src)) return;
     this.runtimeTileTextureRequests.add(ref.src);
+    const generation = this.runtimeImageGeneration;
     void Assets.load<Texture>(ref.src).then((texture) => {
+      if (this.destroyed || generation !== this.runtimeImageGeneration) {
+        if (this.destroyed || !this.runtimeActiveAtlasSources.has(ref.src)) {
+          if (ref.src.startsWith('data:')) void Assets.unload(ref.src).catch(() => undefined);
+        }
+        return;
+      }
       this.runtimeTileTextureRequests.delete(ref.src);
       this.rememberRuntimeAtlasTexture(ref.src, texture);
       this.runtimeTileSpriteRevision += 1;
       this.invalidateTerrainChunks();
     }).catch((error) => {
+      if (this.destroyed || generation !== this.runtimeImageGeneration) return;
       this.runtimeTileTextureRequests.delete(ref.src);
       console.warn('[map] failed to load Pixi runtime tile texture', ref.src, error);
     });
@@ -1389,12 +1500,20 @@ export class PixiMapRendererAdapter {
   private requestRuntimeEntityTexture(ref: PixiTileSpriteRef): void {
     if (this.runtimeEntityTextureRequests.has(ref.src)) return;
     this.runtimeEntityTextureRequests.add(ref.src);
+    const generation = this.runtimeImageGeneration;
     void Assets.load<Texture>(ref.src).then((texture) => {
+      if (this.destroyed || generation !== this.runtimeImageGeneration) {
+        if (this.destroyed || !this.runtimeActiveAtlasSources.has(ref.src)) {
+          if (ref.src.startsWith('data:')) void Assets.unload(ref.src).catch(() => undefined);
+        }
+        return;
+      }
       this.runtimeEntityTextureRequests.delete(ref.src);
       this.rememberRuntimeAtlasTexture(ref.src, texture);
       this.runtimeTileSpriteRevision += 1;
       this.invalidateEntityStaticViews();
     }).catch((error) => {
+      if (this.destroyed || generation !== this.runtimeImageGeneration) return;
       this.runtimeEntityTextureRequests.delete(ref.src);
       console.warn('[map] failed to load Pixi runtime entity texture', ref.src, error);
     });
