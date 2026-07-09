@@ -64,6 +64,7 @@ import {
 } from '../../constants/visuals/time-atmosphere';
 import { buildEntitySpriteLookupPlan, type EntitySpriteTransform } from '../../entity-facing';
 import { getEntityBadgeClassName, getMonsterPresentation } from '../../monster-presentation';
+import { RUNTIME_IMAGE_OVERRIDES_CHANGED_EVENT, resolveRuntimeImageOverrideSrc } from '../../renderer/local-runtime-image-overrides';
 import { formatDisplayInteger } from '../../utils/number';
 import { t as translateUi } from '../../ui/i18n';
 import type { CameraState } from '../camera/camera-controller';
@@ -539,7 +540,7 @@ function normalizePixiTileSpriteRef(
   if (!isRecord(value) || typeof value.src !== 'string' || value.src.trim().length === 0) return null;
   return {
     key,
-    src: resolveRuntimeImagePackAssetUrl(manifestUrl, value.src, version),
+    src: resolveRuntimeImageOverrideSrc(key, resolveRuntimeImagePackAssetUrl(manifestUrl, value.src, version)),
     cols: normalizePositiveInteger(readPixiSpriteField(value, defaults, 'cols'), 1),
     rows: normalizePositiveInteger(readPixiSpriteField(value, defaults, 'rows'), 1),
     col: normalizeNonNegativeInteger(readPixiSpriteField(value, defaults, 'col'), 0),
@@ -840,6 +841,7 @@ export class PixiMapRendererAdapter {
   private runtimeEntityTextureRequests = new Set<string>();
   private runtimeTileManifestState: 'idle' | 'loading' | 'loaded' | 'error' = 'idle';
   private runtimeTileSpriteRevision = 0;
+  private runtimeImageOverrideListener: (() => void) | null = null;
   private profileEnabled = false;
   private profileState: PixiProfileState | null = null;
   private profileWindow: PixiProfilerWindow | null = null;
@@ -894,6 +896,7 @@ export class PixiMapRendererAdapter {
       const gl = (this.app.renderer as WebGLRenderer<HTMLCanvasElement>).gl;
       if (!(gl instanceof WebGL2RenderingContext)) throw new Error('主世界 Pixi 渲染器必须使用 WebGL2 上下文');
       this.ready = true;
+      this.ensureRuntimeImageOverrideListener();
       this.ensureRuntimeTileSpritesRequested();
     });
     initPromise.catch((error) => {
@@ -910,6 +913,7 @@ export class PixiMapRendererAdapter {
     this.profileWindow?.destroy();
     this.profileWindow = null;
     setRuntimeProfilerEnabled(false);
+    this.removeRuntimeImageOverrideListener();
     this.app.destroy(false, { children: true, texture: true, textureSource: true, context: true });
     this.ready = false;
     this.canvas = null;
@@ -1157,6 +1161,7 @@ export class PixiMapRendererAdapter {
   }
 
   private ensureRuntimeTileSpritesRequested(): void {
+    this.ensureRuntimeImageOverrideListener();
     if (!this.performanceConfig.renderRuntimeTileSprites || this.runtimeTileManifestState !== 'idle') return;
     if (typeof fetch !== 'function') {
       this.runtimeTileManifestState = 'error';
@@ -1204,6 +1209,34 @@ export class PixiMapRendererAdapter {
       this.invalidateEntityStaticViews();
       console.warn('[map] failed to load Pixi runtime tile sprites', error);
     }
+  }
+
+  private ensureRuntimeImageOverrideListener(): void {
+    if (this.runtimeImageOverrideListener || typeof window === 'undefined') return;
+    this.runtimeImageOverrideListener = () => {
+      this.reloadRuntimeTileSpriteManifestForLocalOverrides();
+    };
+    window.addEventListener(RUNTIME_IMAGE_OVERRIDES_CHANGED_EVENT, this.runtimeImageOverrideListener);
+  }
+
+  private removeRuntimeImageOverrideListener(): void {
+    if (!this.runtimeImageOverrideListener || typeof window === 'undefined') return;
+    window.removeEventListener(RUNTIME_IMAGE_OVERRIDES_CHANGED_EVENT, this.runtimeImageOverrideListener);
+    this.runtimeImageOverrideListener = null;
+  }
+
+  private reloadRuntimeTileSpriteManifestForLocalOverrides(): void {
+    this.runtimeTileManifestState = 'idle';
+    this.runtimeAtlasTextures.clear();
+    this.runtimeTileTextures.clear();
+    this.runtimeEntityTextures.clear();
+    this.runtimeTileTextureRequests.clear();
+    this.runtimeEntityTextureRequests.clear();
+    this.runtimeTileSpriteRefCache = new WeakMap<Tile, PixiTileSpriteRef | null>();
+    this.runtimeTileSpriteRevision += 1;
+    this.invalidateTerrainChunks();
+    this.invalidateEntityStaticViews();
+    this.ensureRuntimeTileSpritesRequested();
   }
 
   private getRuntimeAtlasTexture(src: string): Texture | null {

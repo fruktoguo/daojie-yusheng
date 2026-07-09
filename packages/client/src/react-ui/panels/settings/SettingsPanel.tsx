@@ -34,6 +34,17 @@ import {
 import { validateDisplayName, validatePassword, validateRoleName } from '../../../ui/account-rules';
 import { checkDisplayNameAvailability, getAccessToken, updateDisplayName, updatePassword, updateRoleName } from '../../../ui/auth-api';
 import { readOfflineGainReportsFromBrowser, readPlayerStatisticTotalsFromBrowser } from '../../../offline-gain-storage';
+import {
+  getRuntimeImageOverride,
+  getRuntimeImageOverrides,
+  getRuntimeImageReloadListKeys,
+  loadRuntimeImageResourceCatalog,
+  removeRuntimeImageOverride,
+  saveRuntimeImageOverrideFromFile,
+  setRuntimeImageReloadListKeys,
+  type RuntimeImageOverrideEntry,
+  type RuntimeImageResourceEntry,
+} from '../../../renderer/local-runtime-image-overrides';
 import { formatOfflineGainDuration, formatOfflineGainTime, formatSignedAmount, renderOfflineGainReport } from '../../../ui/offline-gain-render';
 import { MAP_TARGET_FPS_RANGE } from '../../../constants/ui/performance';
 import { t } from '../../../ui/i18n';
@@ -132,13 +143,14 @@ export function setSettingsPanelCallbacks(cbs: Partial<SettingsPanelCallbacks>):
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-type SettingsTab = 'account' | 'redeem' | 'ui' | 'performance' | 'offlineGain';
+type SettingsTab = 'account' | 'redeem' | 'ui' | 'performance' | 'resourceReload' | 'offlineGain';
 
 const TABS: { id: SettingsTab; label: () => string }[] = [
   { id: 'account', label: () => t('settings.tab.account', undefined) },
   { id: 'redeem', label: () => t('settings.tab.redeem', undefined) },
   { id: 'ui', label: () => t('settings.tab.ui', undefined) },
   { id: 'performance', label: () => t('settings.tab.performance', undefined) },
+  { id: 'resourceReload', label: () => '资源重载' },
   { id: 'offlineGain', label: () => t('settings.tab.offline-gain', undefined) },
 ];
 
@@ -146,6 +158,23 @@ const TABS: { id: SettingsTab; label: () => string }[] = [
 
 function formatGlobalFontOffset(offset: number): string {
   return offset >= 0 ? `+${offset}px` : `${offset}px`;
+}
+
+function formatRuntimeImageOverrideTime(value: number): string {
+  if (!Number.isFinite(value) || value <= 0) return '本地覆盖';
+  return new Date(value).toLocaleString('zh-CN', { hour12: false });
+}
+
+function filterRuntimeImageResources(resources: RuntimeImageResourceEntry[], query: string, addedKeys: Set<string>): RuntimeImageResourceEntry[] {
+  const keyword = query.trim().toLowerCase();
+  if (!keyword) return [];
+  return resources
+    .filter((entry) => !addedKeys.has(entry.key))
+    .filter((entry) => {
+      const haystack = `${entry.key} ${entry.label} ${entry.src}`.toLowerCase();
+      return haystack.includes(keyword);
+    })
+    .slice(0, 30);
 }
 
 function parseRedeemCodes(raw: string): string[] {
@@ -205,6 +234,9 @@ export const SettingsPanel = memo(function SettingsPanel() {
       </div>
       <div className={`settings-modal-pane ui-tabbed-modal-pane${activeTab === 'performance' ? ' active' : ''}`}>
         {activeTab === 'performance' && <PerformanceTab />}
+      </div>
+      <div className={`settings-modal-pane ui-tabbed-modal-pane${activeTab === 'resourceReload' ? ' active' : ''}`}>
+        {activeTab === 'resourceReload' && <ResourceReloadTab />}
       </div>
       <div className={`settings-modal-pane ui-tabbed-modal-pane${activeTab === 'offlineGain' ? ' active' : ''}`}>
         {activeTab === 'offlineGain' && <OfflineGainTab playerId={state.playerId || state.accountName || 'anonymous'} />}
@@ -694,6 +726,147 @@ const PerformanceTab = memo(function PerformanceTab() {
           </div>
         ))}
       </div>
+      <div className="account-settings-status ui-status-text">{status}</div>
+    </div>
+  );
+});
+
+// ─── Resource Reload Tab ─────────────────────────────────────────────────────
+
+const ResourceReloadTab = memo(function ResourceReloadTab() {
+  const [resources, setResources] = useState<RuntimeImageResourceEntry[]>([]);
+  const [addedKeys, setAddedKeys] = useState<string[]>(() => getRuntimeImageReloadListKeys());
+  const [overrides, setOverrides] = useState<RuntimeImageOverrideEntry[]>(() => getRuntimeImageOverrides());
+  const [query, setQuery] = useState('');
+  const [status, setStatus] = useState('默认列表为空，请先搜索资源名称并添加到本地重载列表。');
+
+  useEffect(() => {
+    let active = true;
+    loadRuntimeImageResourceCatalog()
+      .then((entries) => {
+        if (!active) return;
+        setResources(entries);
+      })
+      .catch(() => {
+        if (!active) return;
+        setStatus('资源目录加载失败，请稍后重试。');
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const addedKeySet = new Set(addedKeys);
+  const searchResults = filterRuntimeImageResources(resources, query, addedKeySet);
+  const addedResources = addedKeys
+    .map((key) => resources.find((entry) => entry.key === key))
+    .filter((entry): entry is RuntimeImageResourceEntry => entry !== undefined);
+
+  const refreshOverrides = useCallback(() => {
+    setOverrides(getRuntimeImageOverrides());
+  }, []);
+
+  const handleAddResource = useCallback((entry: RuntimeImageResourceEntry) => {
+    setAddedKeys((current) => {
+      const next = current.includes(entry.key) ? current : [...current, entry.key];
+      setRuntimeImageReloadListKeys(next);
+      return next;
+    });
+    setQuery('');
+    setStatus(`已添加 ${entry.label}，可选择本地图片进行重载。`);
+  }, []);
+
+  const handleRemoveResource = useCallback((key: string) => {
+    setAddedKeys((current) => {
+      const next = current.filter((item) => item !== key);
+      setRuntimeImageReloadListKeys(next);
+      return next;
+    });
+    setStatus('已从本地重载列表移除。');
+  }, []);
+
+  const handleFileChange = useCallback(async (key: string, file: File | undefined) => {
+    if (!file) return;
+    try {
+      await saveRuntimeImageOverrideFromFile(key, file);
+      refreshOverrides();
+      setStatus('图片已保存到本机，并已通知地图渲染刷新。');
+    } catch (error) {
+      const message = error instanceof Error && error.message === 'local_runtime_image_override_storage_failed'
+        ? '保存失败：浏览器本地存储空间不足。'
+        : '保存失败：请选择有效图片文件。';
+      setStatus(message);
+    }
+  }, [refreshOverrides]);
+
+  const handleResetOverride = useCallback((key: string) => {
+    removeRuntimeImageOverride(key);
+    refreshOverrides();
+    setStatus('已恢复默认图片。');
+  }, [refreshOverrides]);
+
+  const overrideByKey = new Map(overrides.map((entry) => [entry.key, entry]));
+
+  return (
+    <div className="panel-section account-settings-section ui-surface-pane ui-surface-pane--stack settings-resource-reload-shell">
+      <div className="settings-ui-table-head">
+        <div className="panel-section-title">本地资源重载</div>
+      </div>
+      <div className="settings-ui-copy ui-form-copy">仅在当前设备生效。先按名称、资源 key 或图片路径搜索并添加资源，再为列表中的单项选择本地图片。</div>
+      <div className="settings-resource-reload-search ui-form-field">
+        <label className="ui-form-label">搜索资源</label>
+        <input
+          className="ui-input"
+          type="search"
+          value={query}
+          placeholder="例如 grass、m_bamboo_mantis、npc_bamboo"
+          onChange={(event) => setQuery(event.target.value)}
+        />
+      </div>
+      {searchResults.length > 0 && (
+        <div className="settings-resource-reload-results ui-card-list">
+          {searchResults.map((entry) => (
+            <div key={entry.key} className="settings-resource-reload-result ui-data-table-row">
+              <div className="settings-performance-meta ui-data-table-meta">
+                <div className="settings-performance-name ui-data-table-name">{entry.label}</div>
+                <div className="settings-performance-desc ui-data-table-desc">{entry.key} · {entry.src}</div>
+              </div>
+              <div className="settings-performance-actions ui-inline-actions-end-wrap">
+                <button className="small-btn ghost" type="button" onClick={() => handleAddResource(entry)}>添加</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {addedResources.length === 0 ? (
+        <div className="ui-empty-hint compact settings-resource-reload-empty">列表为空。搜索资源后点击添加。</div>
+      ) : (
+        <div className="settings-resource-reload-list ui-card-list">
+          {addedResources.map((entry) => {
+            const override = overrideByKey.get(entry.key) ?? getRuntimeImageOverride(entry.key);
+            return (
+              <div key={entry.key} className="settings-resource-reload-row ui-data-table-row">
+                <div className="settings-resource-reload-preview" aria-hidden="true">
+                  {override ? <img src={override.dataUrl} alt="" /> : <span>默认</span>}
+                </div>
+                <div className="settings-performance-meta ui-data-table-meta">
+                  <div className="settings-performance-name ui-data-table-name">{entry.label}</div>
+                  <div className="settings-performance-desc ui-data-table-desc">{entry.key}</div>
+                  <div className="settings-resource-reload-meta">{override ? `${override.fileName || '本地图片'} · ${formatRuntimeImageOverrideTime(override.updatedAt)}` : `默认资源 · ${entry.src}`}</div>
+                </div>
+                <div className="settings-resource-reload-actions ui-inline-actions-end-wrap">
+                  <label className="small-btn ghost settings-resource-reload-file">
+                    选择图片
+                    <input type="file" accept="image/*" onChange={(event) => void handleFileChange(entry.key, event.target.files?.[0])} />
+                  </label>
+                  <button className="small-btn ghost" type="button" disabled={!override} onClick={() => handleResetOverride(entry.key)}>恢复默认</button>
+                  <button className="small-btn ghost" type="button" onClick={() => handleRemoveResource(entry.key)}>移除</button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
       <div className="account-settings-status ui-status-text">{status}</div>
     </div>
   );

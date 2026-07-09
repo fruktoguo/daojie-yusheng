@@ -6,6 +6,7 @@
 import type { InteractableKind, RenderEntity, StructureType, SurfaceType, TerrainType, Tile, TileType } from '@mud/shared';
 import { DEFAULT_MAP_PERFORMANCE_CONFIG, type MapPerformanceConfig } from '../constants/ui/performance';
 import { buildEntitySpriteLookupPlan, type EntitySpriteTransform } from '../entity-facing';
+import { RUNTIME_IMAGE_OVERRIDES_CHANGED_EVENT, resolveRuntimeImageOverrideSrc } from './local-runtime-image-overrides';
 import { normalizeRuntimeImagePackVersion, resolveRuntimeImagePackAssetUrl } from './runtime-image-pack-url';
 
 type SpriteFit = 'cover' | 'contain';
@@ -252,7 +253,7 @@ function normalizeSpriteRef(
     return null;
   }
   return {
-    src: resolveRuntimeImagePackAssetUrl(manifestUrl, value.src, version),
+    src: resolveRuntimeImageOverrideSrc(key, resolveRuntimeImagePackAssetUrl(manifestUrl, value.src, version)),
     cols: normalizePositiveInteger(readSpriteField(value, defaults, 'cols'), 1),
     rows: normalizePositiveInteger(readSpriteField(value, defaults, 'rows'), 1),
     col: normalizeNonNegativeInteger(readSpriteField(value, defaults, 'col'), 0),
@@ -525,7 +526,7 @@ class RuntimeImagePack {
   private entitySprites = new Map<string, AtlasSpriteRef>();
   private dualGridTileKeys: string[] = [];
   private dualGridTileRefs: AtlasSpriteRef[] = [];
-  private readonly dualGridTileKeyCache = new WeakMap<RuntimeTileVisualSource, DualGridTileKeyCacheEntry>();
+  private dualGridTileKeyCache = new WeakMap<RuntimeTileVisualSource, DualGridTileKeyCacheEntry>();
   private readonly dualGridTileKeyIndexes = new Map<string, number>();
   private readonly dualGridEdgeAlphaMaskCache = new Map<string, DualGridEdgeAlphaMask>();
   private dualGridScanKeyIndexesByCell = new Uint16Array(0);
@@ -533,6 +534,7 @@ class RuntimeImagePack {
   private readonly dualGridVertexMasksScratch: number[] = [];
   private performanceConfig: MapPerformanceConfig = { ...DEFAULT_MAP_PERFORMANCE_CONFIG };
   private revision = 0;
+  private overrideListenerRegistered = false;
 
   constructor(manifestUrl = DEFAULT_MANIFEST_URL) {
     this.manifestUrl = manifestUrl;
@@ -669,6 +671,7 @@ class RuntimeImagePack {
     if (this.manifestState !== 'idle' || typeof fetch !== 'function') {
       return;
     }
+    this.ensureOverrideListener();
     this.manifestState = 'loading';
     void fetch(this.manifestUrl, { cache: 'no-cache' })
       .then(async (response) => {
@@ -703,6 +706,27 @@ class RuntimeImagePack {
         this.manifestState = 'error';
         this.revision += 1;
       });
+  }
+
+  private ensureOverrideListener(): void {
+    if (this.overrideListenerRegistered || typeof window === 'undefined') {
+      return;
+    }
+    this.overrideListenerRegistered = true;
+    window.addEventListener(RUNTIME_IMAGE_OVERRIDES_CHANGED_EVENT, () => {
+      this.reloadManifestForLocalOverrides();
+    });
+  }
+
+  private reloadManifestForLocalOverrides(): void {
+    this.cache.clear();
+    this.dualGridEdgeCache.clear();
+    this.dualGridEdgeAlphaMaskCache.clear();
+    this.dualGridSourceFrameCache.clear();
+    this.dualGridTileKeyCache = new WeakMap<RuntimeTileVisualSource, DualGridTileKeyCacheEntry>();
+    this.manifestState = 'idle';
+    this.revision += 1;
+    this.ensureManifestRequested();
   }
 
   private drawAtlasSprite(
