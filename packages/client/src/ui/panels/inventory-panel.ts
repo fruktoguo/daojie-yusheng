@@ -1015,6 +1015,10 @@ export class InventoryPanel {
     });
 
     this.pane.addEventListener('contextmenu', (event) => {
+      // React 格子已负责右键主操作，原生委托不得再次处理同一事件。
+      if (this.useReactPanel()) {
+        return;
+      }
       const target = event.target;
       if (!(target instanceof HTMLElement)) {
         return;

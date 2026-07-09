@@ -6,9 +6,12 @@
 import { StrictMode } from 'react';
 import type { ComponentType } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import type { MapMeta, PlayerState } from '@mud/shared';
 import { isReactPanelEnabled } from '../../bridge/panel-flags';
 import { TianjiPanel, WorldPanel, setWorldPanelCallbacks, worldPanelStore } from './WorldPanel';
+import {
+  areWorldPanelSnapshotsEqual,
+  type WorldPanelSnapshot,
+} from '../../../ui/panels/world-panel-projection';
 
 const mountedRoots = new Map<'map-intel' | 'tianji', { root: Root; host: HTMLDivElement }>();
 
@@ -16,11 +19,11 @@ export function shouldUseReactWorldPanel(): boolean {
   return isReactPanelEnabled('world');
 }
 
-export function syncReactWorldPanelState(input: { player: PlayerState | null; mapMeta: MapMeta | null }): void {
-  worldPanelStore.patchState({
-    player: input.player,
-    mapMeta: input.mapMeta,
-  });
+export function syncReactWorldPanelState(snapshot: WorldPanelSnapshot | null): void {
+  if (areWorldPanelSnapshotsEqual(worldPanelStore.getState().snapshot, snapshot)) {
+    return;
+  }
+  worldPanelStore.patchState({ snapshot });
 }
 
 export function setReactWorldPanelCallbacks(callbacks: {

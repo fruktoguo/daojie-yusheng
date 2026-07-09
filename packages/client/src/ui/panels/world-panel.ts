@@ -7,9 +7,8 @@
  * 世界面板
  * 展示当前地图信息与天机阁入口
  */
-import { MapMeta, PlayerState } from '@mud/shared';
+import type { MapMeta, PlayerState } from '@mud/shared';
 import { preserveSelection } from '../selection-preserver';
-import { TECH_REALM_LABELS, WORLD_GUIDE } from '../../constants/world/world-panel';
 import { FloatingTooltip } from '../floating-tooltip';
 import {
   mountReactWorldPanels,
@@ -18,21 +17,11 @@ import {
   syncReactWorldPanelState,
   unmountReactWorldPanels,
 } from '../../react-ui/panels/world/mount-world-panel';
-import { formatMapRecommendedRealmLabel } from '../../utils/map-level-display';
-
-/** 世界面板汇总快照。 */
-interface WorldPanelSnapshot {
-  mapName: string;
-  mapTypeLabel: string;
-  mapMood: string;
-  mapDesc: string;
-  recommendedRealmLabel: string;
-  realmLabel: string;
-  route: string;
-  resourcesLabel: string;
-  threatsLabel: string;
-  cultivatingName: string;
-}
+import {
+  buildMapTypeTooltipLines,
+  buildWorldPanelSnapshot,
+  type WorldPanelSnapshot,
+} from './world-panel-projection';
 
 /** 世界面板外部回调集合。 */
 interface WorldPanelCallbacks {
@@ -56,45 +45,6 @@ function replaceElementHtml(root: HTMLElement, html: string): void {
   root.replaceChildren(template.content.cloneNode(true));
 }
 
-function inferRealm(player: PlayerState): string {
-  if (player.realmName) {
-    return player.realmStage ? `${player.realmName} · ${player.realmStage}` : player.realmName;
-  }
-  let highest = player.techniques[0];
-  for (let index = 1; index < player.techniques.length; index += 1) {
-    const technique = player.techniques[index];
-    if ((technique?.realm ?? -Infinity) > (highest?.realm ?? -Infinity)) {
-      highest = technique;
-    }
-  }
-  if (!highest) return '凡俗武者';
-  return TECH_REALM_LABELS[highest.realm] ?? '修行中';
-}
-
-/** resolveMapTypeLabel：按当前实例解析地图类型。 */
-function resolveMapTypeLabel(player: PlayerState): string {
-  if (isSectMap(player)) {
-    return '宗门';
-  }
-  const instanceId = typeof player.instanceId === 'string' ? player.instanceId.trim() : '';
-  if (instanceId.startsWith('real:') || instanceId.includes(':real:')) {
-    return '现世';
-  }
-  return '虚境';
-}
-
-/** isSectMap：判断当前玩家是否处于宗门动态地图。 */
-function isSectMap(player: PlayerState): boolean {
-  const mapId = typeof player.mapId === 'string' ? player.mapId.trim() : '';
-  const instanceId = typeof player.instanceId === 'string' ? player.instanceId.trim() : '';
-  return mapId.startsWith('sect_domain:') || instanceId.startsWith('sect:');
-}
-
-/** 生成推荐境界展示。 */
-function resolveRecommendedRealmLabel(mapMeta: MapMeta | null): string {
-  return formatMapRecommendedRealmLabel(mapMeta?.mapLv);
-}
-
 /** WorldPanel：世界面板实现。 */
 export class WorldPanel {
   /** mapPane：地图信息面板。 */
@@ -109,8 +59,10 @@ export class WorldPanel {
   private callbacks: WorldPanelCallbacks = {};
 
   constructor() {
-    this.bindMapPaneEvents();
-    this.bindTianjiPaneEvents();
+    if (!this.useReactPanel()) {
+      this.bindMapPaneEvents();
+      this.bindTianjiPaneEvents();
+    }
   }
 
   /** setCallbacks：设置面板回调。 */
@@ -127,12 +79,12 @@ export class WorldPanel {
     player: PlayerState;
     mapMeta: MapMeta | null;
   }): void {
+    const snapshot = buildWorldPanelSnapshot(input.player, input.mapMeta);
     if (this.useReactPanel()) {
-      syncReactWorldPanelState(input);
+      syncReactWorldPanelState(snapshot);
       this.mountReactPanels();
       return;
     }
-    const snapshot = this.buildSnapshot(input);
     this.syncMapPane(snapshot);
     this.syncTianjiPane();
   }
@@ -140,7 +92,7 @@ export class WorldPanel {
   /** clear：清空当前世界面板。 */
   clear(): void {
     if (this.useReactPanel()) {
-      syncReactWorldPanelState({ player: null, mapMeta: null });
+      syncReactWorldPanelState(null);
       this.mountReactPanels();
       return;
     }
@@ -159,46 +111,6 @@ export class WorldPanel {
       return;
     }
     unmountReactWorldPanels();
-  }
-
-  /** buildSnapshot：构建地图信息快照。 */
-  private buildSnapshot(input: {
-    player: PlayerState;
-    mapMeta: MapMeta | null;
-  }): WorldPanelSnapshot {
-    const sectMap = isSectMap(input.player);
-    const guide = WORLD_GUIDE[input.player.mapId] ?? (sectMap ? {
-      title: input.mapMeta?.name ?? '宗门',
-      route: '宗门驻地',
-      mood: '宗门',
-      desc: '宗门驻地。',
-      resources: [],
-      threats: [],
-    } : {
-      title: input.mapMeta?.name ?? '未知地域',
-      route: '继续探索当前区域',
-      mood: '未知地域',
-      desc: '该区域暂无卷宗记载，建议稳步试探。',
-      resources: [],
-      threats: [],
-    });
-
-    const cultivating = input.player.cultivatingTechId
-      ? input.player.techniques.find((entry) => entry.techId === input.player.cultivatingTechId)
-      : null;
-
-    return {
-      mapName: input.mapMeta?.name ?? guide.title,
-      mapTypeLabel: resolveMapTypeLabel(input.player),
-      mapMood: guide.mood,
-      mapDesc: guide.desc,
-      recommendedRealmLabel: resolveRecommendedRealmLabel(input.mapMeta),
-      realmLabel: inferRealm(input.player),
-      route: guide.route,
-      resourcesLabel: guide.resources.join('、') || '暂无',
-      threatsLabel: guide.threats.join('、') || '未知',
-      cultivatingName: cultivating?.name ?? '未设定',
-    };
   }
 
   /** syncMapPane：同步地图信息面板。 */
@@ -253,7 +165,6 @@ export class WorldPanel {
     const html = `
       <div class="panel-section">
         <div class="panel-section-title" data-world-tianji-title="true">天机阁</div>
-        <div class="panel-subtext" data-world-tianji-desc="true">阁藏天下卷宗，专收低频榜册与汇总情报。</div>
       </div>
       <div class="tianji-action-list">
         <button class="tianji-action-card" data-world-tianji-action="world" type="button">
@@ -310,7 +221,6 @@ export class WorldPanel {
   /** patchTianjiPane：确认天机阁基础结构已就位。 */
   private patchTianjiPane(): boolean {
     return this.tianjiPane.querySelector('[data-world-tianji-title="true"]') !== null
-      && this.tianjiPane.querySelector('[data-world-tianji-desc="true"]') !== null
       && this.tianjiPane.querySelector('[data-world-tianji-action="leaderboard"]') !== null
       && this.tianjiPane.querySelector('[data-world-tianji-action="world"]') !== null;
   }
@@ -344,13 +254,7 @@ export class WorldPanel {
 
   /** buildMapTypeTooltipLines：构建地图类型 hover 说明。 */
   private buildMapTypeTooltipLines(mapTypeLabel: string): string[] {
-    if (mapTypeLabel === '宗门') {
-      return ['宗门驻地'];
-    }
-    if (mapTypeLabel === '现世') {
-      return ['可以对其他修士发起攻击', '可以攻击地块'];
-    }
-    return ['不能对其他修士发起攻击', '可以攻击地块'];
+    return buildMapTypeTooltipLines(mapTypeLabel);
   }
 
   /** hideMapTypeTooltip：隐藏地图类型说明。 */
