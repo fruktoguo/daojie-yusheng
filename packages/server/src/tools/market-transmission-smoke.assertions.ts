@@ -5,6 +5,8 @@ import assert from 'node:assert/strict';
 
 import { CUSTOM_TECHNIQUE_BOOK_ITEM_ID } from '@mud/shared';
 
+import { normalizeMarketOrderRow } from '../persistence/market-persistence.service';
+
 type LooseRecord = Record<string, unknown>;
 
 type MarketInternals = {
@@ -116,4 +118,27 @@ export async function runTransmissionAssertions(
   assert.equal(transmissionHistory.records[0]?.source, 'transmission');
   const marketHistory = await service.buildTradeHistoryPage(buyerId, 1, 'market');
   assert.equal(marketHistory.records.length, 0, '传法台成交被错误记成普通坊市成交');
+
+  // 12. 回归：DB 读路径必须保住 listingMode。
+  // normalizeMarketOrderRow 是逐字段重建订单而非展开 raw_payload，一旦漏读 listingMode，
+  // 传法台寄售会在服务器重启后退化成普通坊市卖单，残卷重新泄漏进 order-book 盘口。
+  const persistedOrder = internals.openOrders[0];
+  const reloaded = normalizeMarketOrderRow({
+    order_id: persistedOrder.id,
+    owner_id: persistedOrder.ownerId,
+    side: persistedOrder.side,
+    status: persistedOrder.status,
+    item_key: persistedOrder.itemKey,
+    item_id: (persistedOrder.item as LooseRecord).itemId,
+    remaining_quantity: persistedOrder.remainingQuantity,
+    unit_price: persistedOrder.unitPrice,
+    created_at_ms: persistedOrder.createdAt,
+    updated_at_ms: persistedOrder.updatedAt,
+    // 写入侧是 JSON.stringify(order)，这里等价还原一次 jsonb 往返。
+    raw_payload: JSON.parse(JSON.stringify(persistedOrder)),
+    // 断言的是运行期行为：这里放宽静态类型，避免漏读字段只表现为编译错误而跳过运行期校验。
+  }) as LooseRecord | null;
+  assert.ok(reloaded, '传法台订单在 DB 读路径被整行丢弃');
+  assert.equal(reloaded.listingMode, 'transmission', '重启回读丢失 listingMode：传法台寄售会退化成普通坊市卖单');
+  assert.equal((reloaded.item as LooseRecord).learnTechniqueId, 'gen_bbb', '重启回读丢失 learnTechniqueId');
 }

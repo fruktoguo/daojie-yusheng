@@ -31,6 +31,7 @@ import { NativeGmPlayerService } from './native-gm-player.service';
 import { NativeGmWorldService } from './native-gm-world.service';
 import { NativeManagedAccountService } from './native-managed-account.service';
 import { AiArtsStrengthV1ToV2Conversion } from '../../gm/compat-conversions/conversions/technique/ai-arts-strength-v1-to-v2';
+import { DeleteEmptyCustomTechniqueBooksConversion } from '../../gm/compat-conversions/conversions/technique/delete-empty-custom-technique-books';
 /**
  * UpdatePlayerPasswordBody：定义接口结构约束，明确可交付字段含义。
  */
@@ -271,6 +272,7 @@ export class NativeGmController {
     @Inject(NativeGmGeneratedTechniqueService) private readonly nextGmGeneratedTechniqueService: NativeGmGeneratedTechniqueService,
     @Inject(NativeGmMarketTradeService) private readonly nextGmMarketTradeService: NativeGmMarketTradeService,
     @Inject(AiArtsStrengthV1ToV2Conversion) private readonly aiArtsStrengthV1ToV2Conversion: AiArtsStrengthV1ToV2Conversion,
+    @Inject(DeleteEmptyCustomTechniqueBooksConversion) private readonly deleteEmptyCustomTechniqueBooksConversion: DeleteEmptyCustomTechniqueBooksConversion,
     @Optional()
     @Inject(GmAuditLogPersistenceService)
     private readonly gmAuditLogPersistenceService: GmAuditLogPersistenceService | null = null,
@@ -1126,6 +1128,27 @@ export class NativeGmController {
       targetType: 'compat_conversion',
       targetId: 'ai_arts_strength_v1_to_v2',
     }, (actor) => this.aiArtsStrengthV1ToV2Conversion.run({
+      mode: 'apply',
+      actor,
+    }));
+  }
+
+  @Post('shortcuts/compat/delete-empty-custom-technique-books/dry-run')
+  async dryRunDeleteEmptyCustomTechniqueBooks(@Req() request: unknown) {
+    return this.deleteEmptyCustomTechniqueBooksConversion.run({
+      mode: 'dry-run',
+      actor: extractGmActor(request),
+    });
+  }
+
+  @Post('shortcuts/compat/delete-empty-custom-technique-books/apply')
+  async applyDeleteEmptyCustomTechniqueBooks(@Req() request: unknown) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.shortcuts.compat.delete_empty_custom_technique_books.apply',
+      request,
+      targetType: 'compat_conversion',
+      targetId: 'delete_empty_custom_technique_books',
+    }, (actor) => this.deleteEmptyCustomTechniqueBooksConversion.run({
       mode: 'apply',
       actor,
     }));

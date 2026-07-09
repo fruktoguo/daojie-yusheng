@@ -776,7 +776,7 @@ function normalizeTradeRecord(raw) {
  * normalizeMarketOrderRow：把 server_market_order 的 SQL 行规范化成运行时订单。
  * 结构化列优先，raw_payload 只补充 item/auction 等详情，避免坏 raw_payload 把合法小数价洗成 1。
  */
-function normalizeMarketOrderRow(row) {
+export function normalizeMarketOrderRow(row) {
     if (!row || typeof row !== 'object') {
         return null;
     }
@@ -831,6 +831,9 @@ function normalizeMarketOrderRow(row) {
         updatedAt: Number.isFinite(Number(row.updated_at_ms ?? rawPayload?.updatedAt))
             ? Math.trunc(Number(row.updated_at_ms ?? rawPayload?.updatedAt ?? Date.now()))
             : Date.now(),
+        // listingMode 必须显式回读：本函数逐字段重建订单而非展开 raw_payload，
+        // 漏掉它会让传法台寄售在重启后退化成普通坊市卖单，残卷重新泄漏进 order-book 盘口。
+        ...(rawPayload?.listingMode === 'transmission' ? { listingMode: 'transmission' } : {}),
         auction: normalizeAuctionPayload(rawPayload?.auction),
     };
 }

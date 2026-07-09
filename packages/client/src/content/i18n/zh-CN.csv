@@ -1249,6 +1249,7 @@ gm.shortcut-cleanup-abnormal-temporary-tiles,静态HTML-GM,清理全图异常临
 gm.shortcut-cleanup-invalid-items,静态HTML-GM,清理全部玩家无效物品,静态 HTML：packages/client/gm.html
 gm.shortcut-compensate-combat-exp-2026-04-09,静态HTML-GM,战斗经验补偿-2026-04-09,静态 HTML：packages/client/gm.html
 gm.shortcut-compensate-foundation-2026-04-09,静态HTML-GM,底蕴补偿-2026-04-09,静态 HTML：packages/client/gm.html
+gm.shortcut-delete-empty-custom-technique-books,静态HTML-GM,清理空白功法残卷,静态 HTML：packages/client/gm.html
 gm.shortcut-migrate-ai-arts-strength-v1-to-v2,静态HTML-GM,迁移旧版AI术法草稿,静态 HTML：packages/client/gm.html
 gm.shortcut-migrate-recovery-pills,静态HTML-GM,恢复丹药迁移,静态 HTML：packages/client/gm.html
 gm.shortcut-refresh-online-technique-templates,静态HTML-GM,刷新在线玩家功法模板,静态 HTML：packages/client/gm.html
@@ -3657,6 +3658,11 @@ gm.shortcut.cleanup-invalid.confirm,GM,这会手动清理所有非机器人角�
 gm.shortcut.cleanup-invalid.done,GM,已提交无效物品清理，共 {totalPlayers} 个角色，运行态 {queuedRuntimePlayers} 个，离线 {updatedOfflinePlayers} 个，移除背包堆叠 {removedInventoryStacks} 个、托管仓堆叠 {removedMarketStorageStacks} 个、装备栏 {removedEquipment} 件,
 gm.shortcut.combat-exp.confirm,GM,这会给所有非机器人角色补偿战斗经验。每个角色获得的数值 = 当前境界升级所需经验 + 当前炼体境界升级所需经验。在线角色下一息生效，离线角色会直接改存档。确认继续吗？,
 gm.shortcut.combat-exp.done,GM,已提交战斗经验补偿，共 {totalPlayers} 个角色，在线 {queuedRuntimePlayers} 个，离线 {updatedOfflinePlayers} 个，累计补偿 {combatExp} 点战斗经验,
+gm.shortcut.delete-empty-books.cancelled,GM,已取消空白功法残卷清理。,
+gm.shortcut.delete-empty-books.confirm,GM,将永久删除已丢失功法 ID 的空白残卷（无法学习且不可还原）：命中 {matchedRows} 行，可删除 {convertedRows} 行，跳过 {skippedRows} 行（持有冻结灵石或锁定中，需先撤单/撤拍）。删除不可撤销，确认继续吗？,
+gm.shortcut.delete-empty-books.done,GM,空白功法残卷清理完成：命中 {matchedRows} 行，删除 {convertedRows} 行，跳过 {skippedRows} 行，失败 {failedRows} 行，回读残留 {verifiedRows} 行,
+gm.shortcut.delete-empty-books.dry-run-started,GM,正在预览空白功法残卷清理影响范围...,
+gm.shortcut.delete-empty-books.noop,GM,没有需要清理的空白功法残卷。跳过 {skippedRows} 行。,
 gm.shortcut.foundation.confirm,GM,这会给所有非机器人角色补偿底蕴。每个角色获得的数值 = 当前境界升级所需经验的五倍。在线角色下一息生效，离线和离线挂机角色会直接改存档。确认继续吗？,
 gm.shortcut.foundation.done,GM,已提交底蕴补偿，共 {totalPlayers} 个角色，在线 {queuedRuntimePlayers} 个，离线 {updatedOfflinePlayers} 个，累计补偿 {foundation} 点底蕴,
 gm.shortcut.migrate-ai-arts.cancelled,GM,已取消旧版 AI 术法草稿迁移。,
