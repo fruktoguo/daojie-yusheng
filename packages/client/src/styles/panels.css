@@ -114,6 +114,7 @@
       display: none;
       height: 100%;
       min-height: 0;
+      min-width: 0;
     }
     .chat-log-panel.active {
       display: flex;
@@ -141,13 +142,26 @@
     .chat-log {
       flex: 1;
       height: 100%;
+      min-width: 0;
+      max-width: 100%;
+      box-sizing: border-box;
       overflow-y: auto;
+      overflow-x: hidden;
       padding: 10px 12px;
       background: var(--chat-log-bg);
       border: 1px solid var(--wash-ink);
       color: var(--ink-dark);
       font-size: var(--font-size-14);
       line-height: 1.5;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+    .chat-line {
+      max-width: 100%;
+      min-width: 0;
+      white-space: normal;
+      overflow-wrap: anywhere;
+      word-break: break-word;
     }
     .chat-line + .chat-line {
       margin-top: 4px;
@@ -172,6 +186,8 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
+      max-width: 100%;
+      min-width: 0;
       min-width: 52px;
       margin: 0 4px;
       padding: 1px 10px;
@@ -185,7 +201,8 @@
       line-height: 1.45;
       letter-spacing: 0.02em;
       vertical-align: baseline;
-      white-space: nowrap;
+      white-space: normal;
+      overflow-wrap: anywhere;
       cursor: help;
       transition: transform 0.18s ease, box-shadow 0.18s ease;
     }
@@ -206,6 +223,8 @@
     .chat-target-pill {
       display: inline-flex;
       align-items: center;
+      max-width: 100%;
+      min-width: 0;
       margin: 0 2px;
       padding: 0 6px;
       border: 1px solid rgba(140, 100, 60, 0.35);
@@ -216,11 +235,14 @@
       font-weight: 600;
       line-height: 1.45;
       vertical-align: baseline;
-      white-space: nowrap;
+      white-space: normal;
+      overflow-wrap: anywhere;
     }
     .chat-skill-pill {
       display: inline-flex;
       align-items: center;
+      max-width: 100%;
+      min-width: 0;
       margin: 0 2px;
       padding: 0 6px;
       border: 1px solid rgba(80, 60, 160, 0.3);
@@ -231,7 +253,8 @@
       font-weight: 600;
       line-height: 1.45;
       vertical-align: baseline;
-      white-space: nowrap;
+      white-space: normal;
+      overflow-wrap: anywhere;
     }
     .chat-combat-badge {
       display: inline-flex;
