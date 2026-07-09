@@ -14,7 +14,32 @@ function isOutOfRangeFailure(message) {
         || (typeof message === 'string' && /^Skill .+ out of range$/.test(message));
 }
 
+/** 妖兽已死亡或已被移除：自动战斗锁定目标失效的常态。 */
+function isMissingMonsterFailure(message) {
+    return typeof message === 'string' && /^妖兽不存在：/.test(message);
+}
+
+/** 背包条目已消失：客户端面板尚未收到移除 patch 时的亚秒级陈旧引用。 */
+function isMissingInventoryItemFailure(message) {
+    return typeof message === 'string' && /^背包物品不存在：/.test(message);
+}
+
+/** 目标实例无可占用落点：通常由建筑铺满可通行格导致，属运营事故。 */
+function isNoSpawnPointFailure(message) {
+    return typeof message === 'string' && /^实例 .+ 中没有可用出生点$/.test(message);
+}
+
+/** 消息里内嵌了 uuid / runtimeId / instanceId 等内部标识，禁止推送给玩家。 */
+function exposesInternalIdentifier(message) {
+    return isMissingMonsterFailure(message)
+        || isMissingInventoryItemFailure(message)
+        || isNoSpawnPointFailure(message);
+}
+
 function normalizePendingCommandNoticeMessage(command, message) {
+    if (exposesInternalIdentifier(message)) {
+        return null;
+    }
     if (command?.autoCombat === true && command?.manualEngage !== true) {
         if (message === '该目标无法被攻击' || message === '没有可命中的目标' || message === '当前实例不允许玩家互攻' || isOutOfRangeFailure(message)) {
             return null;
@@ -36,6 +61,7 @@ function isTerminalAutoCombatTargetFailure(message) {
     return message === '该目标无法被攻击'
         || message === '没有可命中的目标'
         || message === '当前实例不允许玩家互攻'
+        || isMissingMonsterFailure(message)
         || isOutOfRangeFailure(message);
 }
 
@@ -45,7 +71,8 @@ function isCooldownFailure(message) {
 
 function shouldDowngradePendingCommandFailure(command, message) {
     if (command?.autoCombat === true || command?.manualEngage === true) {
-        return false;
+        // 自动战斗派生指令的目标失效是常态（怪被他人击杀、已刷新），不代表系统异常。
+        return isTerminalAutoCombatTargetFailure(message);
     }
     return isExpectedPendingCommandReject(command, message);
 }
@@ -70,6 +97,8 @@ function isExpectedCombatReject(message) {
         || message === '目标不在同一地图'
         || message === '目标已经死亡'
         || message === '施法者已死亡'
+        || message === '当前实例不允许玩家互攻'
+        || isMissingMonsterFailure(message)
         || isCooldownFailure(message)
         || isOutOfRangeFailure(message)
         || (typeof message === 'string' && /^技能 .+ 元气不足$/.test(message))
@@ -81,7 +110,18 @@ function isExpectedTechniqueActivityReject(message) {
         || message === '技艺任务队列已满。'
         || message === '当前没有进行中的任务。'
         || message === '没有进行中的传授'
+        || message === '学习者已经掌握该功法。'
         || (typeof message === 'string' && /^当前没有可取消的.+任务。$/.test(message));
+}
+
+/** 背包条目在指令入队与派发之间消失：客户端面板未及刷新，权威态已正确拒绝。 */
+function isExpectedInventoryReject(message) {
+    return isMissingInventoryItemFailure(message);
+}
+
+/** 地块资源道具的位置约束拒绝：确定性业务规则，非系统异常。 */
+function isExpectedUseItemReject(message) {
+    return message === '当前位于安全区、出生点、传送点或 NPC 附近，无法使用地块资源道具。';
 }
 
 function isExpectedPendingCommandReject(command, message) {
@@ -112,6 +152,14 @@ function isExpectedPendingCommandReject(command, message) {
         || command?.kind === 'cancelTechniqueActivity') {
         return isExpectedTechniqueActivityReject(message);
     }
+    if (command?.kind === 'equip' || command?.kind === 'unequip') {
+        return isExpectedInventoryReject(message);
+    }
+    if (command?.kind === 'useItem') {
+        return isExpectedUseItemReject(message);
+    }
+    // portal 的「没有可用出生点」刻意不降级：目标实例被建筑铺满可通行格属运营事故，
+    // 必须保留 WARN 供运维发现；只在 notice 层抑制内部 instanceId 外泄。
     return false;
 }
 
