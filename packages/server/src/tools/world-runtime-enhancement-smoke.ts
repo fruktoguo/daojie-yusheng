@@ -175,8 +175,8 @@ async function testDurableEnhancementPersistsAssetsAtomically(): Promise<void> {
   player.enhancementJob!.workRemainingTicks = 2;
   const tick = await craftService.tickEnhancementDurably(player);
   assert.equal(tick.ok, true);
-  assert.equal(durableCalls.at(-1)?.kind, 'update');
-  assert.equal(durableCalls.at(-1)?.args.nextActiveJob?.jobType, 'enhancement');
+  assert.equal(durableCalls.length, 1);
+  assert.equal(player.dirtyDomains.has('active_job'), true);
 
   player.enhancementJob!.remainingTicks = 1;
   player.enhancementJob!.workRemainingTicks = 1;

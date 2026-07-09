@@ -410,6 +410,10 @@ export interface CompleteActiveJobWithAssetsResult {
   jobVersion: number | null;
 }
 
+export interface DurableOperationRetentionResult {
+  operationLogsDeleted: number;
+}
+
 export interface DurableMarketSellNowMatchSnapshot {
   buyerId: string;
   tradeQuantity: number;
@@ -2601,6 +2605,44 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
     return Array.isArray(result.rows) ? result.rowCount ?? result.rows.length : 0;
   }
 
+  /** 清理过期 committed durable 操作日志；只删除不再被 outbox 引用的终态行 */
+  async retainCommittedOperationLogs(input?: { retentionDays?: number; limit?: number }): Promise<DurableOperationRetentionResult> {
+    if (!this.pool || !this.enabled) {
+      return { operationLogsDeleted: 0 };
+    }
+    const retentionDays = normalizePositiveInteger(input?.retentionDays, 7, 1, 3650);
+    const limit = normalizePositiveInteger(input?.limit, 1000, 1, 10_000);
+    const result = await this.pool.query<{ deleted_count?: string | number }>(
+      `
+        WITH targets AS (
+          SELECT operation_id
+          FROM ${DURABLE_OPERATION_LOG_TABLE} operation_log
+          WHERE status = 'committed'
+            AND COALESCE(committed_at, created_at) < now() - ($1::bigint * interval '1 day')
+            AND NOT EXISTS (
+              SELECT 1
+              FROM ${OUTBOX_EVENT_TABLE} outbox
+              WHERE outbox.operation_id = operation_log.operation_id
+            )
+          ORDER BY COALESCE(committed_at, created_at) ASC, operation_id ASC
+          LIMIT $2
+          FOR UPDATE SKIP LOCKED
+        ),
+        deleted AS (
+          DELETE FROM ${DURABLE_OPERATION_LOG_TABLE} operation_log
+          USING targets
+          WHERE operation_log.operation_id = targets.operation_id
+          RETURNING 1
+        )
+        SELECT COUNT(*)::bigint AS deleted_count FROM deleted
+      `,
+      [retentionDays, limit],
+    );
+    return {
+      operationLogsDeleted: normalizePositiveInteger(result.rows[0]?.deleted_count, 0, 0, Number.MAX_SAFE_INTEGER),
+    };
+  }
+
   /** 事务性取消活跃任务并退还资产：退材料/资金、删除任务记录、记审计 */
   async cancelActiveJobWithAssets(input: CancelActiveJobWithAssetsInput): Promise<CancelActiveJobWithAssetsResult> {
     const normalizedPlayerId = normalizeRequiredString(input.playerId);
@@ -3258,7 +3300,7 @@ export async function ensureDurableOperationTables(pool: Pool): Promise<void> {
     await client.query(`
       CREATE TABLE IF NOT EXISTS ${ASSET_AUDIT_LOG_ARCHIVE_TABLE} (
         log_id varchar(180) PRIMARY KEY,
-        operation_id varchar(120) NOT NULL,
+        operation_id varchar(180) NOT NULL,
         player_id varchar(100) NOT NULL,
         asset_type varchar(64) NOT NULL,
         asset_ref_id varchar(180) NOT NULL,
@@ -3270,6 +3312,7 @@ export async function ensureDurableOperationTables(pool: Pool): Promise<void> {
         archived_at timestamptz NOT NULL DEFAULT now()
       )
     `);
+    await ensureVarcharColumnLength(client, ASSET_AUDIT_LOG_ARCHIVE_TABLE, 'operation_id', 180);
     await client.query(`
       CREATE INDEX IF NOT EXISTS asset_audit_log_archive_created_idx
       ON ${ASSET_AUDIT_LOG_ARCHIVE_TABLE}(created_at DESC, archived_at DESC)
@@ -3561,6 +3604,49 @@ export async function ensureDurableOperationTables(pool: Pool): Promise<void> {
 
 async function ensureDurableOperationBigintColumnsWithClient(client: import('pg').PoolClient): Promise<void> {
   await ensureBigintColumnsWithClient(client, DURABLE_OPERATION_BIGINT_COLUMNS_BY_TABLE);
+}
+
+async function ensureVarcharColumnLength(
+  queryable: { query: (sql: string, params?: unknown[]) => Promise<{ rows?: unknown[] }> },
+  tableName: string,
+  columnName: string,
+  minLength: number,
+): Promise<void> {
+  assertSafeIdentifier(tableName);
+  assertSafeIdentifier(columnName);
+  const result = await queryable.query(
+    `
+      SELECT data_type, character_maximum_length
+      FROM information_schema.columns
+      WHERE table_schema = current_schema()
+        AND table_name = $1
+        AND column_name = $2
+      LIMIT 1
+    `,
+    [tableName, columnName],
+  );
+  const row = Array.isArray(result.rows) ? (result.rows[0] as Record<string, unknown> | undefined) : undefined;
+  if (!row || row.data_type === 'text' || row.data_type !== 'character varying') {
+    return;
+  }
+  const currentLength = Number(row.character_maximum_length ?? 0);
+  if (Number.isFinite(currentLength) && currentLength >= minLength) {
+    return;
+  }
+  await queryable.query(
+    `ALTER TABLE ${quoteIdentifier(tableName)} ALTER COLUMN ${quoteIdentifier(columnName)} TYPE varchar(${minLength})`,
+  );
+}
+
+function assertSafeIdentifier(identifier: string): void {
+  if (!/^[a-z_][a-z0-9_]*$/i.test(identifier)) {
+    throw new Error(`unsafe_sql_identifier:${identifier}`);
+  }
+}
+
+function quoteIdentifier(identifier: string): string {
+  assertSafeIdentifier(identifier);
+  return `"${identifier.replace(/"/g, '""')}"`;
 }
 
 async function ensurePlayerPresenceColumnsWithClient(client: import('pg').PoolClient): Promise<void> {

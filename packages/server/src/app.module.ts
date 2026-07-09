@@ -197,6 +197,7 @@ import { InstanceStatePurgeWorker } from './runtime/world/worker/instance-state-
 import { MailExpirationCleanupWorker } from './runtime/world/worker/mail-expiration-cleanup.worker';
 import { MailSoftDeletePurgeWorker } from './runtime/world/worker/mail-soft-delete-purge.worker';
 import { MarketTradeHistoryRetentionWorker } from './runtime/world/worker/market-trade-history-retention.worker';
+import { OutboxDurableRetentionWorker } from './runtime/world/worker/outbox-durable-retention.worker';
 import { PlayerAnchorCheckpointFlushWorker } from './runtime/world/worker/player-anchor-checkpoint-flush.worker';
 import { PlayerStateFlushWorker } from './runtime/world/worker/player-state-flush.worker';
 import { InstanceResourceFlushWorker } from './runtime/world/worker/instance-resource-flush.worker';
@@ -403,6 +404,7 @@ const WORLD_GATEWAY_PROVIDERS = shouldStartHttpServer()
     MailExpirationCleanupWorker,
     MailSoftDeletePurgeWorker,
     MarketTradeHistoryRetentionWorker,
+    OutboxDurableRetentionWorker,
     MarketRuntimeService,
     PlayerRuntimeService,
     PlayerAnchorCheckpointFlushWorker,

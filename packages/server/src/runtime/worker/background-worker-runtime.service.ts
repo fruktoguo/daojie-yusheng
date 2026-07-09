@@ -16,6 +16,7 @@ import { FlushLedgerRetentionWorker } from '../world/worker/flush-ledger-retenti
 import { InstanceStatePurgeWorker } from '../world/worker/instance-state-purge.worker';
 import { MailExpirationCleanupWorker } from '../world/worker/mail-expiration-cleanup.worker';
 import { MailSoftDeletePurgeWorker } from '../world/worker/mail-soft-delete-purge.worker';
+import { OutboxDurableRetentionWorker } from '../world/worker/outbox-durable-retention.worker';
 import { runDatabaseBackupWorkerOnce } from '../../tools/database-backup-worker';
 import { SchedulerManagerService } from '../../scheduler/scheduler-manager.service';
 import type { SchedulerTaskKind, SchedulerTaskPriority, SchedulerTaskScope } from '../../scheduler/scheduler.types';
@@ -80,6 +81,8 @@ export class BackgroundWorkerRuntimeService implements OnModuleInit, OnModuleDes
     private readonly schedulerManagerService?: SchedulerManagerService,
     @Optional() @Inject(TechniqueGenerationService)
     private readonly techniqueGenerationService?: TechniqueGenerationService,
+    @Optional() @Inject(OutboxDurableRetentionWorker)
+    private readonly outboxDurableRetentionWorker?: OutboxDurableRetentionWorker,
   ) {}
 
   onModuleInit(): void {
@@ -140,6 +143,16 @@ export class BackgroundWorkerRuntimeService implements OnModuleInit, OnModuleDes
         scope: 'global',
         priority: 'high',
         runOnce: async () => this.outboxDispatcherRuntimeService?.dispatchPendingEvents() ?? 0,
+      },
+      {
+        id: 'outbox-durable-retention',
+        label: 'Outbox / durable operation retention',
+        intervalMs: CLEANUP_INTERVAL_MS,
+        enabled: Boolean(this.outboxDurableRetentionWorker),
+        kind: 'maintenance',
+        scope: 'global',
+        priority: 'low',
+        runOnce: async () => this.outboxDurableRetentionWorker?.runOnce() ?? 0,
       },
       {
         id: 'mail-expiration-cleanup',

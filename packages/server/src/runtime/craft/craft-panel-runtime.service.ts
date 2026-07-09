@@ -406,13 +406,7 @@ export class CraftPanelRuntimeService {
                     throw error;
                 }
             } else if (expectedJob && player?.enhancementJob) {
-                try {
-                    await this.commitEnhancementActiveJobState(player, expectedJob, { allowSuppressed: durableEnabled });
-                }
-                catch (error) {
-                    restoreEnhancementAssetRuntimeState(player, before);
-                    throw error;
-                }
+                this.queueEnhancementActiveJobFlush(player, previousSuppress);
             }
             return result;
         }
@@ -423,31 +417,18 @@ export class CraftPanelRuntimeService {
             }
         }
     }
-    /** 强化普通进度 tick 只提交 active_job，避免完成时 CAS 版本落后。 */
-    async commitEnhancementActiveJobState(player, expectedJob, options: { allowSuppressed?: boolean } = {}) {
-        if (!this.shouldUseDurableEnhancementPersistence(player, options)) {
+    /** 强化普通进度 tick 只进入分域刷盘；资产边界仍走强事务，避免每息写 durable/outbox/审计日志。 */
+    queueEnhancementActiveJobFlush(player, previousSuppress = false) {
+        if (!player?.enhancementJob) {
             return;
         }
-        const playerId = typeof player?.playerId === 'string' ? player.playerId.trim() : '';
-        if (!playerId || !expectedJob?.jobRunId) {
-            return;
+        this.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job']);
+        if (previousSuppress !== true) {
+            void this.persistTechniqueActivitySnapshot(player).catch((error) => {
+                console.warn(`强化进度直写失败，已标记脏数据等待重试：${error instanceof Error ? error.message : String(error)}`);
+                this.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job']);
+            });
         }
-        const presence = await this.resolveDurablePresenceFence(playerId);
-        const activeJob = buildActiveJobSnapshotFromPlayer(player);
-        if (!activeJob) {
-            return;
-        }
-        await this.durableOperationService.updateActiveJobState({
-            operationId: `enhancement:update:${playerId}:${expectedJob.jobRunId}:${Math.max(1, Math.trunc(Number(expectedJob.jobVersion ?? 1)))}`,
-            playerId,
-            expectedRuntimeOwnerId: presence.runtimeOwnerId,
-            expectedSessionEpoch: presence.sessionEpoch,
-            action: 'update',
-            expectedJobRunId: expectedJob.jobRunId,
-            expectedJobVersion: Math.max(1, Math.trunc(Number(expectedJob.jobVersion ?? 1))),
-            nextActiveJob: activeJob,
-        });
-        this.playerRuntimeService.markPersisted?.(playerId, new Set(['active_job']), player.persistentRevision);
     }
     /** 对强化 tick 后的资产变更做强事务提交；仅在强化任务 start/finish/stop/cancel 这类资产边界调用。 */
     async commitEnhancementActiveJobWithAssets(player, action, expectedJob = null, options: { allowSuppressed?: boolean } = {}) {

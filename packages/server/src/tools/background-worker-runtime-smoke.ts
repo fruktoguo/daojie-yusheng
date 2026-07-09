@@ -24,6 +24,7 @@ async function main(): Promise<void> {
 
   let flushCalls = 0;
   let outboxCalls = 0;
+  let outboxDurableRetentionCalls = 0;
   let flushLedgerRetentionCalls = 0;
   let mailExpirationCalls = 0;
   const barrier = new StartupBarrierService();
@@ -53,6 +54,8 @@ async function main(): Promise<void> {
     undefined,
     barrier,
     scheduler,
+    undefined,
+    { runOnce: async () => { outboxDurableRetentionCalls += 1; return 4; } } as never,
   );
 
   try {
@@ -61,26 +64,31 @@ async function main(): Promise<void> {
     await sleep(20);
     const states = orchestrator.listWorkerStates();
     const outbox = states.find((state) => state.id === 'outbox-dispatcher');
+    const outboxDurableRetention = states.find((state) => state.id === 'outbox-durable-retention');
     const mailExpiration = states.find((state) => state.id === 'mail-expiration-cleanup');
     const flushLedgerRetention = states.find((state) => state.id === 'flush-ledger-retention');
     const flush = states.find((state) => state.id === 'flush-task-consumer');
     const backup = states.find((state) => state.id === 'database-backup');
     assert.equal(outbox?.enabled, true);
+    assert.equal(outboxDurableRetention?.enabled, true);
     assert.equal(mailExpiration?.enabled, true);
     assert.equal(flushLedgerRetention?.enabled, true);
     assert.equal(flush?.enabled, true);
     assert.equal(backup?.enabled, false);
     assert.ok((flush?.processedCount ?? 0) >= 1);
     assert.ok((outbox?.processedCount ?? 0) >= 2);
+    assert.ok((outboxDurableRetention?.processedCount ?? 0) >= 4);
     assert.ok((mailExpiration?.processedCount ?? 0) >= 1);
     assert.ok((flushLedgerRetention?.processedCount ?? 0) >= 3);
     assert.ok(flushCalls >= 1);
     assert.ok(outboxCalls >= 1);
+    assert.ok(outboxDurableRetentionCalls >= 1);
     assert.ok(mailExpirationCalls >= 1);
     assert.ok(flushLedgerRetentionCalls >= 1);
     const schedulerTasks = scheduler.getSnapshot().tasks;
     assert.ok(schedulerTasks.some((task) => task.id === 'flush-task-consumer' && task.kind === 'flush'));
     assert.ok(schedulerTasks.some((task) => task.id === 'outbox-dispatcher' && task.kind === 'outbox'));
+    assert.ok(schedulerTasks.some((task) => task.id === 'outbox-durable-retention' && task.kind === 'maintenance'));
     assert.ok(schedulerTasks.some((task) => task.id === 'flush-ledger-retention' && task.kind === 'maintenance'));
     assert.ok((schedulerTasks.find((task) => task.id === 'outbox-dispatcher')?.processedCount ?? 0) >= 2);
     const serverRoot = path.resolve(__dirname, '..', '..');

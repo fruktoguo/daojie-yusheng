@@ -15,6 +15,11 @@ const DEAD_LETTER_EVENT_TABLE = 'dead_letter_event';
 const OUTBOX_CONSUMER_DEDUPE_TABLE = 'outbox_consumer_dedupe';
 const OUTBOX_DEDUPE_KEY_MAX_LENGTH = 180;
 
+export interface OutboxRetentionResult {
+  deliveredEventsDeleted: number;
+  consumerDedupeDeleted: number;
+}
+
 /** Outbox 事件分发服务：认领、投递、重试、死信和去重 */
 @Injectable()
 export class OutboxDispatcherService implements OnModuleInit, OnModuleDestroy {
@@ -334,6 +339,17 @@ export class OutboxDispatcherService implements OnModuleInit, OnModuleDestroy {
     return Array.isArray(result.rows) ? (result.rows as Record<string, unknown>[]) : [];
   }
 
+  async retainDeliveredOutbox(input?: { retentionDays?: number; limit?: number }): Promise<OutboxRetentionResult> {
+    if (!this.pool || !this.enabled) {
+      return { deliveredEventsDeleted: 0, consumerDedupeDeleted: 0 };
+    }
+    const retentionDays = normalizePositiveInteger(input?.retentionDays, 7, 1, 3650);
+    const limit = normalizePositiveInteger(input?.limit, 1000, 1, 10_000);
+    const deliveredEventsDeleted = await deleteDeliveredOutboxEvents(this.pool, retentionDays, limit);
+    const consumerDedupeDeleted = await deleteDeliveredConsumerDedupeRows(this.pool, retentionDays, limit);
+    return { deliveredEventsDeleted, consumerDedupeDeleted };
+  }
+
   async listRecentThroughputSummary(input?: { windowSeconds?: number }): Promise<{
     readyCount: number;
     claimedCount: number;
@@ -376,6 +392,62 @@ export class OutboxDispatcherService implements OnModuleInit, OnModuleDestroy {
       latestDeliveredAt: row?.latest_delivered_at ? String(row.latest_delivered_at) : null,
     };
   }
+}
+
+async function deleteDeliveredOutboxEvents(pool: Pool, retentionDays: number, limit: number): Promise<number> {
+  const result = await pool.query<{ deleted_count?: string | number }>(
+    `
+      WITH targets AS (
+        SELECT ctid
+        FROM ${OUTBOX_EVENT_TABLE}
+        WHERE status = 'delivered'
+          AND COALESCE(delivered_at, created_at) < now() - ($1::bigint * interval '1 day')
+        ORDER BY COALESCE(delivered_at, created_at) ASC, event_id ASC
+        LIMIT $2
+        FOR UPDATE SKIP LOCKED
+      ),
+      deleted AS (
+        DELETE FROM ${OUTBOX_EVENT_TABLE} event
+        USING targets
+        WHERE event.ctid = targets.ctid
+        RETURNING 1
+      )
+      SELECT COUNT(*)::bigint AS deleted_count FROM deleted
+    `,
+    [retentionDays, limit],
+  );
+  return normalizePositiveInteger(result.rows[0]?.deleted_count, 0, 0, Number.MAX_SAFE_INTEGER);
+}
+
+async function deleteDeliveredConsumerDedupeRows(pool: Pool, retentionDays: number, limit: number): Promise<number> {
+  const result = await pool.query<{ deleted_count?: string | number }>(
+    `
+      WITH targets AS (
+        SELECT ctid
+        FROM ${OUTBOX_CONSUMER_DEDUPE_TABLE} dedupe
+        WHERE state = 'delivered'
+          AND COALESCE(delivered_at, updated_at) < now() - ($1::bigint * interval '1 day')
+          AND NOT EXISTS (
+            SELECT 1
+            FROM ${OUTBOX_EVENT_TABLE} event
+            WHERE event.event_id = dedupe.event_id
+              AND event.status <> 'delivered'
+          )
+        ORDER BY COALESCE(delivered_at, updated_at) ASC, dedupe_key ASC
+        LIMIT $2
+        FOR UPDATE SKIP LOCKED
+      ),
+      deleted AS (
+        DELETE FROM ${OUTBOX_CONSUMER_DEDUPE_TABLE} dedupe
+        USING targets
+        WHERE dedupe.ctid = targets.ctid
+        RETURNING 1
+      )
+      SELECT COUNT(*)::bigint AS deleted_count FROM deleted
+    `,
+    [retentionDays, limit],
+  );
+  return normalizePositiveInteger(result.rows[0]?.deleted_count, 0, 0, Number.MAX_SAFE_INTEGER);
 }
 
 function normalizeRequiredString(value: unknown): string {
