@@ -12,6 +12,10 @@ const path = require('path');
 const http = require('http');
 const { URL } = require('url');
 const { spawn } = require('child_process');
+const {
+  isAtomicWriteTempFile,
+  writeTextFileAtomically,
+} = require('./lib/atomic-json-file.cjs');
 /**
  * 仓库根目录，所有配置读取、写回和共享构建路径都以此为基准。
  */
@@ -28,6 +32,7 @@ const {
   shouldPersistMonsterExpMultiplier,
   shouldPersistMonsterTier,
   TECHNIQUE_GRADE_ORDER,
+  assertContentConfigDocument,
   validateEditableMapDocument,
   validateEditableMapPortalReciprocity,
 } = require(path.join(ROOT_DIR, 'packages/shared/dist/index.js'));
@@ -550,7 +555,7 @@ function updateMapMonsterReferences(previousId, nextId) {
     if (!changed) {
       continue;
     }
-    fs.writeFileSync(filePath, `${JSON.stringify(raw, null, 2)}\n`, 'utf-8');
+    writeTextFileAtomically(filePath, `${JSON.stringify(raw, null, 2)}\n`);
     updatedFileCount += 1;
   }
   return updatedFileCount;
@@ -572,7 +577,7 @@ function saveMonsterTemplateEntry(key, rawMonster) {
   const monster = resolveMonsterTemplateRecord(rawMonster, itemLookup, baselines);
   validateMonsterTemplate(monster, key);
   entries[index] = serializeMonsterTemplate(entries[index], monster);
-  fs.writeFileSync(absolutePath, `${JSON.stringify(entries, null, 2)}\n`, 'utf-8');
+  writeTextFileAtomically(absolutePath, `${JSON.stringify(entries, null, 2)}\n`);
   const updatedMapCount = updateMapMonsterReferences(previousMonster.id, monster.id);
   return {
     monster,
@@ -717,7 +722,7 @@ function saveTechniqueTemplateEntry(key, technique) {
   }
   validateTechniqueTemplate(technique, key);
   entries[index] = technique;
-  fs.writeFileSync(absolutePath, `${JSON.stringify(entries, null, 2)}\n`, 'utf-8');
+  writeTextFileAtomically(absolutePath, `${JSON.stringify(entries, null, 2)}\n`);
   return {
     technique,
   };
@@ -974,7 +979,7 @@ function saveMapDocument(mapId, rawDocument) {
   }
   const persisted = dehydrateMapDocument(normalized);
   const targetPath = findMapFilePath(mapId) || path.join(MAPS_DIR, `${mapId}.json`);
-  fs.writeFileSync(targetPath, `${JSON.stringify(persisted, null, 2)}\n`, 'utf-8');
+  writeTextFileAtomically(targetPath, `${JSON.stringify(persisted, null, 2)}\n`);
 }
 
 /**
@@ -1067,6 +1072,7 @@ function validateRecipeEntries(parsed, label) {
 
 function validateContentFileBeforeSave(relativePath, parsed) {
   const normalizedPath = String(relativePath || '').replaceAll('\\', '/');
+  assertContentConfigDocument(normalizedPath, parsed);
   if (normalizedPath.startsWith('monsters/')) {
     assertArrayContent(parsed, '怪物');
     for (const entry of parsed) resolveMonsterTemplateRecord(entry, buildEditorItemLookup());
@@ -1140,7 +1146,7 @@ function saveContentFile(relativePath, content) {
   }
   const parsed = JSON.parse(content);
   validateContentFileBeforeSave(relativePath, parsed);
-  fs.writeFileSync(filePath, `${JSON.stringify(parsed, null, 2)}\n`, 'utf-8');
+  writeTextFileAtomically(filePath, `${JSON.stringify(parsed, null, 2)}\n`);
 }
 
 /**
@@ -1278,6 +1284,9 @@ function refreshContentWatchers() {
         return;
       }
       const fullPath = path.join(dir, filename.toString());
+      if (isAtomicWriteTempFile(fullPath)) {
+        return;
+      }
       if (fs.existsSync(fullPath) && fs.statSync(fullPath).isDirectory()) {
         refreshContentWatchers();
       }

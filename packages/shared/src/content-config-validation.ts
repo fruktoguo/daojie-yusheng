@@ -67,6 +67,13 @@ function validateRealmLevels(value: unknown): ContentConfigValidationIssue[] {
       push(issues, `${base}.path`, 'path 必须是 martial、immortal 或 ascended');
     }
   });
+  const orderedLevels = [...levels].sort((left, right) => left - right);
+  for (let index = 0; index < orderedLevels.length; index += 1) {
+    if (orderedLevels[index] !== index + 1) {
+      push(issues, '$.levels', `境界等级必须从 1 连续配置，缺少 realmLv ${index + 1}`);
+      break;
+    }
+  }
   return issues;
 }
 
@@ -92,6 +99,16 @@ function validateBreakthroughRequirement(
   } else if (requirement.type === 'technique') {
     if (requirement.count !== undefined && !isPositiveInteger(requirement.count)) push(issues, `${base}.count`, 'count 必须是正整数');
     if (requirement.minLevel !== undefined && !isNonNegativeInteger(requirement.minLevel)) push(issues, `${base}.minLevel`, 'minLevel 必须是非负整数');
+    if (requirement.minGrade !== undefined && !['mortal', 'yellow', 'mystic', 'earth', 'heaven', 'spirit', 'saint', 'emperor'].includes(String(requirement.minGrade))) {
+      push(issues, `${base}.minGrade`, 'minGrade 不是合法功法品阶');
+    }
+    if (
+      requirement.minRealm !== undefined
+      && !(['Entry', 'entry', 'Minor', 'minor', 'Major', 'major', 'Perfection', 'perfection', 0, 1, 2, 3] as readonly unknown[])
+        .includes(requirement.minRealm)
+    ) {
+      push(issues, `${base}.minRealm`, 'minRealm 不是合法功法境界');
+    }
   } else if (requirement.type === 'attribute_total') {
     if (!isPositiveInteger(requirement.minTotalValue)) push(issues, `${base}.minTotalValue`, 'minTotalValue 必须是正整数');
   } else if (!isPositiveInteger(requirement.minValue)) {

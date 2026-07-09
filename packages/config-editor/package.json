@@ -5,7 +5,8 @@
   "scripts": {
     "prebuild": "pnpm --dir ../shared build",
     "dev": "vite --host 127.0.0.1 --port 5174",
-    "build": "tsc -p tsconfig.json && vite build",
+    "build": "tsc -p tsconfig.json && vite build && pnpm run test:content-contract",
+    "test:content-contract": "node ./scripts/content-contract-smoke.cjs",
     "start:api": "pnpm --dir ../shared build && node --watch local-api.cjs"
   },
   "dependencies": {
