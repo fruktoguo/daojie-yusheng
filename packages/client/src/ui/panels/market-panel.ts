@@ -49,6 +49,11 @@ import {
   getMarketPriceStep,
   normalizeMarketPriceDown,
   normalizeMarketPriceUp,
+  normalizeMarketRequestPage,
+  normalizeMarketListingsPageSize,
+  normalizeMarketAuctionPageSize,
+  normalizeMarketAuctionQuery,
+  resolveClampedMarketResponsePage,
 } from '@mud/shared';
 import { getLocalItemTemplate, getLocalTechniqueCategoryForBookItem, resolvePreviewItem, resolveTechniqueIdFromBookItemId } from '../../content/local-templates';
 import { buildItemTooltipPayload, describeItemEffectDetails } from '../equipment-tooltip';
@@ -361,6 +366,8 @@ const ENHANCEMENT_BASE_JOB_TICKS = 5;
 const ENHANCEMENT_JOB_TICKS_PER_ITEM_LEVEL = 1;
 /** 拍卖行每页最多显示的拍品数量。 */
 const AUCTION_PAGE_SIZE = 10;
+/** 盘口缓存只用于减少重复点击请求，超过此时间必须主动回源。 */
+const ITEM_BOOK_CACHE_MAX_AGE_MS = 10_000;
 
 /** 市场面板实现，负责列表浏览、物品书籍、交易弹窗和强化预估。 */
 export class MarketPanel {
@@ -398,12 +405,16 @@ export class MarketPanel {
   private transmissionSearchQuery = '';
   /** 传法台当前选中的拍品 key。 */
   private selectedTransmissionItemKey: string | null = null;
-  /** 最近一次传法台列表请求的期望 key（tab|query|page），用于丢弃过期响应。 */
-  private pendingTransmissionKey: string | null = null;
-  /** 物品书籍本地缓存，避免重复请求同一份详情。 */
-  private readonly itemBookCache = new Map<string, MarketOrderBookView>();
-  /** 正在等待服务端回包的物品书籍 key。 */
-  private readonly pendingItemBookKeys = new Set<string>();
+  /** 最近一次传法台请求的服务端规范化标识，用于丢弃过期响应。 */
+  private pendingTransmissionRequest: { tab: TransmissionPanelTab; query: string; page: number; pageSize: number } | null = null;
+  /** 物品书籍本地缓存，随市场列表修订显式失效。 */
+  private readonly itemBookCache = new Map<string, { book: MarketOrderBookView; epoch: number; cachedAt: number }>();
+  /** 正在等待服务端回包的物品书籍及其发起时修订。 */
+  private readonly pendingItemBookEpochs = new Map<string, number>();
+  /** 市场列表变化时递增，避免旧异步回包重新写入已失效缓存。 */
+  private itemBookCacheEpoch = 0;
+  /** 最近一次会影响盘口的自有订单签名，稳定的 1Hz 摘要不会重复失效缓存。 */
+  private itemBookRevisionSignature = '';
   /** 当前在市场列表里选中的物品 key。 */
   private selectedItemKey: string | null = null;
   /** 当前高亮的物品组。 */
@@ -450,10 +461,10 @@ export class MarketPanel {
   private currentPage = 1;
   /** 交易历史页码。 */
   private tradeHistoryPage = 1;
-  /** 最近一次坊市列表请求的期望 key（category|equipmentSlot|techniqueCategory|page），用于丢弃过期响应。 */
-  private pendingListingsKey: string | null = null;
-  /** 最近一次拍卖行列表请求的期望 key（tab|category|query|page），用于丢弃过期响应。 */
-  private pendingAuctionKey: string | null = null;
+  /** 最近一次坊市请求的服务端规范化标识，用于丢弃过期响应。 */
+  private pendingListingsRequest: { category: MarketCategoryFilter; equipmentSlot: MarketEquipmentFilter; techniqueCategory: MarketTechniqueFilter; page: number; pageSize: number } | null = null;
+  /** 最近一次拍卖行请求的服务端规范化标识，用于丢弃过期响应。 */
+  private pendingAuctionRequest: { tab: AuctionHouseTab; category: MarketCategoryFilter; query: string; page: number; pageSize: number } | null = null;
   /** 最近一次交易历史请求的期望 key（source|page），用于丢弃过期响应。 */
   private pendingTradeHistoryKey: string | null = null;
   /** 物品书籍是否正在加载。 */
@@ -565,13 +576,17 @@ export class MarketPanel {
   updateMarket(data: S2C_MarketUpdate): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    const itemBookRevisionSignature = this.buildItemBookRevisionSignature(data);
+    if (itemBookRevisionSignature !== this.itemBookRevisionSignature) {
+      this.itemBookRevisionSignature = itemBookRevisionSignature;
+      this.invalidateItemBookCache();
+    }
     const marketModalOpen = detailModalHost.isOpenFor(MarketPanel.MODAL_OWNER);
     const auctionModalOpen = detailModalHost.isOpenFor(MarketPanel.AUCTION_MODAL_OWNER);
     const auctionConsignModalOpen = detailModalHost.isOpenFor(MarketPanel.AUCTION_CONSIGN_MODAL_OWNER);
     const transmissionModalOpen = detailModalHost.isOpenFor(MarketTransmissionView.modalOwner);
     const heavenlyDaoShopOpen = detailModalHost.isOpenFor(MarketPanel.HEAVENLY_DAO_SHOP_MODAL_OWNER);
     const previousMarketUpdate = this.marketUpdate;
-    const previousSelectedItemKey = this.selectedItemKey;
     const knownListedItems = data.listedItems.length > 0 ? data.listedItems : this.getKnownListedItems(this.marketUpdate);
     const nextMarketUpdate = {
       ...data,
@@ -592,13 +607,13 @@ export class MarketPanel {
       this.currentPage = this.clampPage(this.currentPage, this.getVisibleMarketTotalItems(this.marketUpdate));
       this.syncPageSelection();
     }
+    if (this.selectedItemKey && (marketModalOpen || auctionModalOpen || this.tradeDialog !== null)) {
+      this.requestItemBook(this.selectedItemKey);
+    }
     this.renderPane();
     if (marketModalOpen) {
       if (this.modalTab === 'market') {
-        if (this.selectedItemKey) {
-          this.requestItemBook(this.selectedItemKey);
-        }
-        if (this.patchMarketModalLiveState({ patchBook: previousSelectedItemKey !== this.selectedItemKey, requireStableList: canPatchMarketModal })) {
+        if (this.patchMarketModalLiveState({ patchBook: true, requireStableList: canPatchMarketModal })) {
           return;
         }
       } else if (this.modalTab === 'my-orders') {
@@ -610,7 +625,7 @@ export class MarketPanel {
       }
       this.renderModal();
     } else if (auctionModalOpen) {
-      this.patchAuctionModalLiveState({ patchDetail: false });
+      this.patchAuctionModalLiveState();
     } else if (transmissionModalOpen) {
       // 寄售/成交后服务端只推 MarketUpdate，传法台分页需要重新拉取才能反映上下架。
       this.requestTransmissionListings(this.transmissionPage);
@@ -631,16 +646,22 @@ export class MarketPanel {
 
     // 竞态守卫：快速切换品类/翻页时旧响应可能晚于新请求到达，
     // requestListings 发包前已记录最新筛选+页码 key，此处校验回包是否仍是当前期望，过期包直接丢弃。
-    if (this.pendingListingsKey !== null) {
+    if (this.pendingListingsRequest !== null) {
       const equipmentSlot = data.category === 'equipment' ? data.equipmentSlot : 'all';
       const techniqueCategory = data.category === 'skill_book' ? data.techniqueCategory : 'all';
-      const expectedKey = [data.category, equipmentSlot, techniqueCategory, Math.max(1, Math.floor(Number.isFinite(data.page) ? data.page : 1))].join('|');
-      if (expectedKey !== this.pendingListingsKey) {
+      const request = this.pendingListingsRequest;
+      if (
+        data.category !== request.category
+        || equipmentSlot !== request.equipmentSlot
+        || techniqueCategory !== request.techniqueCategory
+        || normalizeMarketRequestPage(data.page) !== request.page
+        || normalizeMarketListingsPageSize(data.pageSize) !== request.pageSize
+      ) {
         return;
       }
     }
+    this.invalidateItemBookCache();
     const marketModalOpen = detailModalHost.isOpenFor(MarketPanel.MODAL_OWNER);
-    const previousSelectedItemKey = this.selectedItemKey;
     this.marketListings = data;
     this.currentPage = Math.max(1, Math.floor(Number.isFinite(data.page) ? data.page : 1));
     this.activeCategory = data.category;
@@ -648,11 +669,14 @@ export class MarketPanel {
     this.activeTechniqueCategory = data.category === 'skill_book' ? data.techniqueCategory : 'all';
     this.marketUpdate = this.mergeListingsIntoMarketUpdate(this.marketUpdate, data);
     this.syncPageSelection();
+    if (marketModalOpen && this.modalTab === 'market' && this.selectedItemKey) {
+      this.requestItemBook(this.selectedItemKey);
+    }
     const canPatchMarketModal = marketModalOpen && this.canPatchCurrentMarketListInPlace();
     this.renderPane();
     if (marketModalOpen) {
       if (this.modalTab === 'market') {
-        if (this.patchMarketModalLiveState({ patchBook: previousSelectedItemKey !== this.selectedItemKey, requireStableList: canPatchMarketModal })) {
+        if (this.patchMarketModalLiveState({ patchBook: true, requireStableList: canPatchMarketModal })) {
           return;
         }
       } else if (this.modalTab === 'my-orders') {
@@ -669,12 +693,18 @@ export class MarketPanel {
   /** 更新拍卖行分页数据。 */
   updateTransmissionListings(data: S2C_TransmissionListings): void {
     // 竞态守卫：快速切 tab / 翻页时旧响应可能晚于新请求到达，过期包直接丢弃。
-    if (this.pendingTransmissionKey !== null) {
-      const expectedKey = [data.tab, data.query ?? '', Math.max(1, Math.floor(Number.isFinite(data.page) ? data.page : 1))].join('|');
-      if (expectedKey !== this.pendingTransmissionKey) {
+    if (this.pendingTransmissionRequest !== null) {
+      const request = this.pendingTransmissionRequest;
+      if (
+        data.tab !== request.tab
+        || normalizeMarketAuctionQuery(data.query) !== request.query
+        || normalizeMarketAuctionPageSize(data.pageSize) !== request.pageSize
+        || normalizeMarketRequestPage(data.page) !== resolveClampedMarketResponsePage(request.page, data.total, data.pageSize)
+      ) {
         return;
       }
     }
+    this.invalidateItemBookCache();
     this.transmissionListings = data;
     this.transmissionTab = data.tab;
     this.transmissionSearchQuery = data.query ?? '';
@@ -693,12 +723,19 @@ export class MarketPanel {
 
     // 竞态守卫：快速切换拍卖行 tab/品类/搜索/翻页时旧响应可能晚于新请求到达，
     // requestAuctionListings 发包前已记录最新筛选+页码 key，此处校验回包是否仍是当前期望，过期包直接丢弃。
-    if (this.pendingAuctionKey !== null) {
-      const expectedKey = [data.tab, data.category, data.query ?? '', Math.max(1, Math.floor(Number.isFinite(data.page) ? data.page : 1))].join('|');
-      if (expectedKey !== this.pendingAuctionKey) {
+    if (this.pendingAuctionRequest !== null) {
+      const request = this.pendingAuctionRequest;
+      if (
+        data.tab !== request.tab
+        || data.category !== request.category
+        || normalizeMarketAuctionQuery(data.query) !== request.query
+        || normalizeMarketAuctionPageSize(data.pageSize) !== request.pageSize
+        || normalizeMarketRequestPage(data.page) !== resolveClampedMarketResponsePage(request.page, data.total, data.pageSize)
+      ) {
         return;
       }
     }
+    this.invalidateItemBookCache();
     const previousListings = this.auctionListings;
     const previousSelectedAuctionItemKey = this.selectedAuctionItemKey;
     const canPatchOpenModal = detailModalHost.isOpenFor(MarketPanel.AUCTION_MODAL_OWNER)
@@ -711,6 +748,13 @@ export class MarketPanel {
     this.auctionSearchQuery = data.query ?? '';
     this.auctionPage = Math.max(1, Math.floor(Number.isFinite(data.page) ? data.page : 1));
     this.syncAuctionSelection();
+    if (detailModalHost.isOpenFor(MarketPanel.AUCTION_MODAL_OWNER)) {
+      const selectedLot = this.resolveAuctionLotByKey(this.selectedAuctionItemKey, this.marketUpdate, this.auctionTab);
+      if (selectedLot) {
+        this.selectedItemKey = selectedLot.itemKey;
+        this.requestItemBook(selectedLot.itemKey);
+      }
+    }
     this.renderPane();
     if (detailModalHost.isOpenFor(MarketPanel.AUCTION_MODAL_OWNER)) {
       if (canPatchOpenModal) {
@@ -807,12 +851,20 @@ export class MarketPanel {
   updateItemBook(data: S2C_MarketItemBook): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    const requestedEpoch = this.pendingItemBookEpochs.get(data.itemKey);
+    this.pendingItemBookEpochs.delete(data.itemKey);
+    if (requestedEpoch === undefined || requestedEpoch !== this.itemBookCacheEpoch) {
+      if (data.itemKey === this.selectedItemKey) {
+        this.itemBookLoading = false;
+        this.requestItemBook(data.itemKey);
+      }
+      return;
+    }
     if (data.book) {
-      this.itemBookCache.set(data.itemKey, data.book);
+      this.itemBookCache.set(data.itemKey, { book: data.book, epoch: requestedEpoch, cachedAt: Date.now() });
     } else {
       this.itemBookCache.delete(data.itemKey);
     }
-    this.pendingItemBookKeys.delete(data.itemKey);
     if (data.itemKey !== this.selectedItemKey) {
       return;
     }
@@ -878,7 +930,7 @@ export class MarketPanel {
     this.transmissionPage = 1;
     this.transmissionSearchQuery = '';
     this.selectedTransmissionItemKey = null;
-    this.pendingTransmissionKey = null;
+    this.pendingTransmissionRequest = null;
     this.selectedItemKey = null;
     this.selectedGroupItemId = null;
     this.enhancementBrowseItemId = null;
@@ -889,8 +941,8 @@ export class MarketPanel {
     this.activeCategory = 'all';
     this.activeEquipmentCategory = 'all';
     this.activeTechniqueCategory = 'all';
-    this.pendingListingsKey = null;
-    this.pendingAuctionKey = null;
+    this.pendingListingsRequest = null;
+    this.pendingAuctionRequest = null;
     this.pendingTradeHistoryKey = null;
     this.auctionTab = 'participate';
     this.auctionHistoryScope = 'all';
@@ -902,6 +954,10 @@ export class MarketPanel {
     this.currentPage = 1;
     this.tradeHistoryPage = 1;
     this.itemBookLoading = false;
+    this.itemBookCache.clear();
+    this.pendingItemBookEpochs.clear();
+    this.itemBookCacheEpoch += 1;
+    this.itemBookRevisionSignature = '';
     this.tradeHistoryLoading = false;
     this.tradeDialog = null;
     this.buyConfirmState = null;
@@ -2908,20 +2964,43 @@ export class MarketPanel {
     }
   }
 
+  /** 市场列表发生修订时显式失效书籍缓存，旧异步响应通过 epoch 被拒绝。 */
+  private invalidateItemBookCache(): void {
+    this.itemBookCacheEpoch += 1;
+    this.itemBookCache.clear();
+    this.itemBook = null;
+    this.itemBookLoading = false;
+  }
+
+  /** 仅跟踪会改变盘口的字段，避免每息相同摘要导致持续请求。 */
+  private buildItemBookRevisionSignature(data: S2C_MarketUpdate): string {
+    return data.myOrders
+      .map((order) => `${order.id}:${order.status}:${order.remainingQuantity}:${order.unitPrice}`)
+      .sort()
+      .join('|');
+  }
+
   /** 向外部请求某个物品的书籍详情。 */
   private requestItemBook(itemKey: string): void {
     const cached = this.itemBookCache.get(itemKey);
-    if (cached) {
-      this.itemBook = cached;
+    if (
+      cached
+      && cached.epoch === this.itemBookCacheEpoch
+      && Date.now() - cached.cachedAt <= ITEM_BOOK_CACHE_MAX_AGE_MS
+    ) {
+      this.itemBook = cached.book;
       this.itemBookLoading = false;
       return;
     }
-    if (this.pendingItemBookKeys.has(itemKey)) {
+    if (cached) {
+      this.invalidateItemBookCache();
+    }
+    if (this.pendingItemBookEpochs.has(itemKey)) {
       this.itemBookLoading = true;
       return;
     }
     this.itemBookLoading = true;
-    this.pendingItemBookKeys.add(itemKey);
+    this.pendingItemBookEpochs.set(itemKey, this.itemBookCacheEpoch);
     this.callbacks?.onRequestItemBook(itemKey);
   }
 
@@ -2937,13 +3016,20 @@ export class MarketPanel {
 
   /** 向外部请求当前筛选条件下的列表分页。 */
   private requestListings(page: number): void {
-    const nextPage = Math.max(1, Math.floor(Number.isFinite(page) ? page : 1));
+    const nextPage = normalizeMarketRequestPage(page);
+    const pageSize = normalizeMarketListingsPageSize(this.getMarketPageSize());
     const equipmentSlot = this.activeCategory === 'equipment' ? this.activeEquipmentCategory : 'all';
     const techniqueCategory = this.activeCategory === 'skill_book' ? this.activeTechniqueCategory : 'all';
-    this.pendingListingsKey = [this.activeCategory, equipmentSlot, techniqueCategory, nextPage].join('|');
+    this.pendingListingsRequest = {
+      category: this.activeCategory,
+      equipmentSlot,
+      techniqueCategory,
+      page: nextPage,
+      pageSize,
+    };
     this.callbacks?.onRequestListings({
       page: nextPage,
-      pageSize: this.getMarketPageSize(),
+      pageSize,
       category: this.activeCategory,
       equipmentSlot,
       techniqueCategory,
@@ -2952,14 +3038,22 @@ export class MarketPanel {
 
   /** 向外部请求当前筛选条件下的拍卖行分页，每页固定最多 10 条。 */
   private requestAuctionListings(page: number): void {
-    const nextPage = Math.max(1, Math.floor(Number.isFinite(page) ? page : 1));
+    const nextPage = normalizeMarketRequestPage(page);
+    const pageSize = normalizeMarketAuctionPageSize(AUCTION_PAGE_SIZE);
     this.auctionPage = nextPage;
-    const query = this.auctionSearchQuery.trim();
-    this.pendingAuctionKey = [this.auctionTab, this.auctionCategory, query, nextPage].join('|');
+    const query = normalizeMarketAuctionQuery(this.auctionSearchQuery);
+    this.auctionSearchQuery = query;
+    this.pendingAuctionRequest = {
+      tab: this.auctionTab,
+      category: this.auctionCategory,
+      query,
+      page: nextPage,
+      pageSize,
+    };
     this.callbacks?.onRequestAuctionListings({
       tab: this.auctionTab,
       page: nextPage,
-      pageSize: AUCTION_PAGE_SIZE,
+      pageSize,
       category: this.auctionCategory,
       query,
     });
@@ -2967,14 +3061,21 @@ export class MarketPanel {
 
   /** 向外部请求传法台分页，每页固定最多 10 条。 */
   private requestTransmissionListings(page: number): void {
-    const nextPage = Math.max(1, Math.floor(Number.isFinite(page) ? page : 1));
+    const nextPage = normalizeMarketRequestPage(page);
+    const pageSize = normalizeMarketAuctionPageSize(AUCTION_PAGE_SIZE);
     this.transmissionPage = nextPage;
-    const query = this.transmissionSearchQuery.trim();
-    this.pendingTransmissionKey = [this.transmissionTab, query, nextPage].join('|');
+    const query = normalizeMarketAuctionQuery(this.transmissionSearchQuery);
+    this.transmissionSearchQuery = query;
+    this.pendingTransmissionRequest = {
+      tab: this.transmissionTab,
+      query,
+      page: nextPage,
+      pageSize,
+    };
     this.callbacks?.onRequestTransmissionListings({
       tab: this.transmissionTab,
       page: nextPage,
-      pageSize: AUCTION_PAGE_SIZE,
+      pageSize,
       query,
     });
   }

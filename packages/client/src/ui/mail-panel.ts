@@ -9,8 +9,11 @@ import {
   MailFilter,
   MailPageView,
   MailSummaryView,
+  normalizeMailPage,
+  normalizeMailPageSize,
   renderMailBodyPlain,
   renderMailTitlePlain,
+  resolveClampedMailResponsePage,
 } from '@mud/shared';
 import type { SocketSocialEconomySender } from '../network/socket-send-social-economy';
 import { getLocalItemTemplate } from '../content/local-templates';
@@ -223,7 +226,7 @@ export class MailPanel {
   /** 当前激活的筛选条件。 */
   private activeFilter: MailFilter = 'all';
   /** 最近一次列表请求的期望（filter + page），用于丢弃过期响应，避免快速翻页/切筛选时旧包覆盖新状态。 */
-  private pendingPageExpectation: { filter: MailFilter; page: number } | null = null;
+  private pendingPageExpectation: { filter: MailFilter; page: number; pageSize: number } | null = null;
   /** 当前选中的邮件 ID。 */
   private selectedMailId: string | null = null;
   /** 列表中已勾选的邮件 ID 集合。 */
@@ -353,7 +356,12 @@ export class MailPanel {
     if (
       !this.pendingPageExpectation
       || page.filter !== this.pendingPageExpectation.filter
-      || page.page !== this.pendingPageExpectation.page
+      || page.pageSize !== this.pendingPageExpectation.pageSize
+      || page.page !== resolveClampedMailResponsePage(
+        this.pendingPageExpectation.page,
+        page.total,
+        page.pageSize,
+      )
     ) {
       return;
     }
@@ -545,9 +553,10 @@ export class MailPanel {
 
   /** 请求当前分页数据。 */
   private requestCurrentPage(): void {
-    const page = Math.max(1, this.pageData.page || 1);
-    this.pendingPageExpectation = { filter: this.activeFilter, page };
-    this.socket.sendRequestMailPage(page, this.pageData.pageSize || MAIL_PAGE_SIZE_DEFAULT, this.activeFilter);
+    const page = normalizeMailPage(this.pageData.page);
+    const pageSize = normalizeMailPageSize(this.pageData.pageSize);
+    this.pendingPageExpectation = { filter: this.activeFilter, page, pageSize };
+    this.socket.sendRequestMailPage(page, pageSize, this.activeFilter);
   }
 
   /** 请求指定筛选和页码的分页数据。 */
@@ -556,15 +565,16 @@ export class MailPanel {
     this.pageData = {
       ...this.pageData,
       filter,
-      page: Math.max(1, page),
+      page: normalizeMailPage(page),
     };
     this.selectedMailId = null;
     this.selectedMailIds.clear();
     this.detail = null;
     this.attachmentPage = 1;
     this.syncReactState();
-    this.pendingPageExpectation = { filter: this.activeFilter, page: this.pageData.page };
-    this.socket.sendRequestMailPage(this.pageData.page, this.pageData.pageSize || MAIL_PAGE_SIZE_DEFAULT, this.activeFilter);
+    const pageSize = normalizeMailPageSize(this.pageData.pageSize);
+    this.pendingPageExpectation = { filter: this.activeFilter, page: this.pageData.page, pageSize };
+    this.socket.sendRequestMailPage(this.pageData.page, pageSize, this.activeFilter);
     this.render();
   }
 
