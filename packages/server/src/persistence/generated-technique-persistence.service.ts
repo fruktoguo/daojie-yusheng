@@ -537,31 +537,6 @@ export async function getTechniqueGenerationJobForGm(
   };
 }
 
-export async function markGenerationJobItemConsumed(pool: Pool, id: string): Promise<void> {
-  await pool.query(
-    `UPDATE ${TECHNIQUE_GENERATION_JOB_TABLE}
-     SET item_consumed = true,
-         consumed_at = COALESCE(consumed_at, NOW()),
-         updated_at = NOW()
-     WHERE id = $1`,
-    [id],
-  );
-}
-
-export async function markGenerationJobRunning(pool: Pool, id: string): Promise<void> {
-  await pool.query(
-    `UPDATE ${TECHNIQUE_GENERATION_JOB_TABLE}
-     SET status = 'running',
-         finished_at = NULL,
-         error_code = NULL,
-         error_message = NULL,
-         updated_at = NOW()
-     WHERE id = $1
-       AND status IN ('pending', 'running')`,
-    [id],
-  );
-}
-
 export interface RecoverableGenerationJob {
   id: string;
   playerId: string;
@@ -614,8 +589,14 @@ export async function loadRecoverableGenerationJobs(pool: Pool, limit = 20): Pro
             item_spend,
             rolled_budget_percent,
             rolled_total_budget
-       FROM ${TECHNIQUE_GENERATION_JOB_TABLE}
-      WHERE status IN ('pending', 'running')
+      FROM ${TECHNIQUE_GENERATION_JOB_TABLE}
+      WHERE (
+          status = 'pending'
+          OR (
+            status = 'running'
+            AND updated_at <= NOW() - INTERVAL '10 minutes'
+          )
+        )
         AND item_consumed = true
         AND draft_technique_id IS NULL
       ORDER BY created_at ASC, id ASC
@@ -1022,20 +1003,6 @@ async function insertTechniqueGenerationRefundOutboxAndAudit(
   );
 }
 
-export async function markGenerationJobItemRefunded(pool: Pool, id: string): Promise<boolean> {
-  const result = await pool.query(
-    `UPDATE ${TECHNIQUE_GENERATION_JOB_TABLE}
-     SET item_refunded = true,
-         refunded_at = COALESCE(refunded_at, NOW()),
-         updated_at = NOW()
-     WHERE id = $1
-       AND item_consumed = true
-       AND item_refunded = false`,
-    [id],
-  );
-  return (result.rowCount ?? 0) > 0;
-}
-
 function toGeneratedTechniqueSummary(row: GeneratedTechniqueGmRow): GmGeneratedTechniqueSummary {
   const templateRecord = isRecord(row.template) ? row.template : null;
   const displayName = row.display_name?.trim()
@@ -1213,61 +1180,28 @@ export interface InsertGenerationJobParams {
   totalBudget: number;
 }
 
-export async function insertGenerationJob(pool: Pool, params: InsertGenerationJobParams): Promise<void> {
-  await pool.query(
-    `INSERT INTO ${TECHNIQUE_GENERATION_JOB_TABLE} (
-      id, player_id, status, requested_category,
-      rolled_grade, rolled_realm_lv, player_context, item_spend,
-      rolled_budget_percent, rolled_total_budget
-    ) VALUES ($1,$2,'pending',$3,$4,$5,$6,$7,$8,$9)`,
-    [
-      params.id, params.playerId, params.requestedCategory,
-      params.rolledGrade, params.rolledRealmLv, params.playerContext, params.itemSpend,
-      params.budgetPercent, params.totalBudget,
-    ],
-  );
-}
-
-export interface UpdateGenerationJobDraftParams {
-  id: string;
-  draftTechniqueId: string;
-  modelName: string;
-  attemptCount: number;
-  draftExpireHours: number;
-}
-
-export async function updateGenerationJobToDraft(pool: Pool, params: UpdateGenerationJobDraftParams): Promise<void> {
-  await pool.query(
-    `UPDATE ${TECHNIQUE_GENERATION_JOB_TABLE}
-     SET status = 'generated_draft',
-         draft_technique_id = $2,
-         model_name = $3,
-         attempt_count = $4,
-         draft_expire_at = NOW() + ($5::int * INTERVAL '1 hour'),
-         finished_at = NOW(),
-         updated_at = NOW()
-     WHERE id = $1`,
-    [params.id, params.draftTechniqueId, params.modelName, params.attemptCount, params.draftExpireHours],
-  );
-}
-
 export async function updateGenerationJobStatus(
   pool: Pool,
   id: string,
   status: string,
   errorCode?: string,
   errorMessage?: string,
-): Promise<void> {
-  await pool.query(
+): Promise<boolean> {
+  const result = await pool.query(
     `UPDATE ${TECHNIQUE_GENERATION_JOB_TABLE}
      SET status = $2,
          error_code = $3,
          error_message = $4,
          finished_at = COALESCE(finished_at, NOW()),
          updated_at = NOW()
-     WHERE id = $1`,
+     WHERE id = $1
+       AND (
+         $2::text <> 'failed'
+         OR (status = 'running' AND draft_technique_id IS NULL)
+       )`,
     [id, status, errorCode ?? null, errorMessage ?? null],
   );
+  return (result.rowCount ?? 0) > 0;
 }
 
 export async function expireStaleGenerationJobs(pool: Pool): Promise<number> {

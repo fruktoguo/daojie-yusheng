@@ -28,6 +28,11 @@ import {
   publishGeneratedTechnique,
   refundFailedTechniqueGenerationItems,
 } from '../persistence/generated-technique-persistence.service';
+import {
+  adoptDurableTechniqueDraft,
+  beginDurableTechniqueGeneration,
+  discardDurableTechniqueDraft,
+} from '../persistence/technique-generation-durable-persistence';
 import { TechniqueTemplateRegistry } from '../content/registries/technique-template.registry';
 import { validateTechniqueCandidate } from '../runtime/technique-generation/technique-candidate-validator';
 import { calcArtsBudgetMax } from '../runtime/technique-generation/technique-budget-normalizer';
@@ -91,21 +96,15 @@ function createFakeTextModelConfig(): AiTextModelConfig {
 
 async function testUninitializedServiceDoesNotConsumeItem(): Promise<void> {
   const service = new TechniqueGenerationService();
-  let consumeCount = 0;
 
   const result = await service.requestGeneration({
     playerId: 'p_uninitialized_smoke',
     playerRealmLv: 31,
     category: 'internal',
-    consumeItem: async () => {
-      consumeCount += 1;
-      return true;
-    },
   });
 
   assert.equal(result.success, false);
   assert.equal(result.errorCode, 'SERVICE_UNAVAILABLE');
-  assert.equal(consumeCount, 0);
 }
 
 async function testNoModelFailsWithoutConsumingItem(): Promise<void> {
@@ -117,33 +116,40 @@ async function testNoModelFailsWithoutConsumingItem(): Promise<void> {
     modelConfigResolver: async () => null,
   });
 
-  let consumeCount = 0;
   const result = await service.requestGeneration({
     playerId: 'p_no_model_smoke',
     playerRealmLv: 31,
     category: 'internal',
     playerContext: '  test context  ',
-    consumeItem: async () => {
-      consumeCount += 1;
-      return true;
-    },
   });
 
   assert.equal(result.success, false);
   assert.equal(result.errorCode, 'NO_MODEL');
-  assert.equal(consumeCount, 0);
-  const insertJobQuery = queries.find((entry) => entry.sql.includes('INSERT INTO technique_generation_job'));
-  assert.ok(insertJobQuery);
-  assert.equal(insertJobQuery.params?.[1], 'p_no_model_smoke');
+  assert.ok(!queries.some((entry) => entry.sql.includes('INSERT INTO technique_generation_job')));
+  assert.ok(!queries.some((entry) => entry.sql.includes('player_inventory_item')));
   assert.ok(!queries.some((entry) => entry.sql.includes('UPDATE technique_generation_job') && entry.sql.includes('item_consumed = true')));
-  assert.ok(queries.some((entry) => entry.sql.includes('UPDATE technique_generation_job') && entry.params?.[2] === 'NO_MODEL'));
 }
 
 async function testInitializedServiceConsumesRequestedItemSpend(): Promise<void> {
   const queries: QueryRecord[] = [];
   const service = new TechniqueGenerationService();
+  const pool = createFakeConnectedPool(queries, (sql) => {
+    if (sql.includes('FROM player_presence')) {
+      return { rows: [{ runtime_owner_id: 'runtime:techgen-smoke', session_epoch: 7 }], rowCount: 1 };
+    }
+    if (sql.includes('FROM player_inventory_item') && sql.includes('item_id = $2') && sql.includes('FOR UPDATE')) {
+      return { rows: [{ item_instance_id: 'item:wudao', count: 10 }], rowCount: 1 };
+    }
+    if (sql.includes('FROM player_inventory_item') && sql.includes('raw_payload') && !sql.includes('FOR UPDATE')) {
+      return {
+        rows: [{ item_instance_id: 'item:wudao', item_id: 'wudao_yujian', count: 6, slot_index: 0, raw_payload: { count: 6, enhanceLevel: 2 } }],
+        rowCount: 1,
+      };
+    }
+    return { rows: [], rowCount: 0 };
+  });
   service.initialize({
-    pool: createFakePool(queries),
+    pool,
     generatedStore: { refreshAfterPublish: async () => undefined } as unknown as GeneratedTechniqueStoreService,
     modelConfigResolver: async () => createFakeTextModelConfig(),
   });
@@ -155,15 +161,19 @@ async function testInitializedServiceConsumesRequestedItemSpend(): Promise<void>
     return { success: true };
   };
 
-  let consumedCount = 0;
+  let appliedItemCount = 0;
+  let appliedEnhanceLevel = 0;
   const result = await service.requestGeneration({
     playerId: 'p_generation_boost_smoke',
     playerRealmLv: 31,
     category: 'arts',
     itemSpend: 4,
-    consumeItem: async (count) => {
-      consumedCount = count;
-      return true;
+    expectedRuntimeOwnerId: 'runtime:techgen-smoke',
+    expectedSessionEpoch: 7,
+    applyInventorySnapshot: async (items) => {
+      const item = items.find((entry) => entry.itemId === 'wudao_yujian');
+      appliedItemCount = item?.count ?? 0;
+      appliedEnhanceLevel = Number((item as { enhanceLevel?: unknown } | undefined)?.enhanceLevel ?? 0);
     },
   });
 
@@ -171,12 +181,14 @@ async function testInitializedServiceConsumesRequestedItemSpend(): Promise<void>
   assert.equal(result.itemSpend, 4);
   assert.ok((result.budgetPercent ?? 0) >= 0.8 && (result.budgetPercent ?? 0) <= 1.2);
   assert.ok((result.totalBudget ?? 0) > 0);
-  assert.equal(consumedCount, 4);
+  assert.equal(appliedItemCount, 6);
+  assert.equal(appliedEnhanceLevel, 2);
   const insertJobQuery = queries.find((entry) => entry.sql.includes('INSERT INTO technique_generation_job'));
   assert.equal(insertJobQuery?.params?.[6], 4);
   assert.equal(insertJobQuery?.params?.[7], result.budgetPercent);
   assert.equal(insertJobQuery?.params?.[8], result.totalBudget);
-  assert.ok(queries.some((entry) => entry.sql.includes('UPDATE technique_generation_job') && entry.sql.includes('item_consumed = true')));
+  assert.ok(insertJobQuery?.sql.includes('item_consumed'));
+  assert.ok(queries.some((entry) => entry.sql.includes('INSERT INTO durable_operation_log')));
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(executedJobId, result.jobId);
   assert.equal(executedModelName, 'smoke-model');
@@ -185,8 +197,14 @@ async function testInitializedServiceConsumesRequestedItemSpend(): Promise<void>
 async function testItemShortageMarksJobFailedAfterAudit(): Promise<void> {
   const queries: QueryRecord[] = [];
   const service = new TechniqueGenerationService();
+  const pool = createFakeConnectedPool(queries, (sql) => {
+    if (sql.includes('FROM player_presence')) {
+      return { rows: [{ runtime_owner_id: 'runtime:shortage', session_epoch: 3 }], rowCount: 1 };
+    }
+    return { rows: [], rowCount: 0 };
+  });
   service.initialize({
-    pool: createFakePool(queries),
+    pool,
     generatedStore: { refreshAfterPublish: async () => undefined } as unknown as GeneratedTechniqueStoreService,
     modelConfigResolver: async () => createFakeTextModelConfig(),
   });
@@ -195,28 +213,40 @@ async function testItemShortageMarksJobFailedAfterAudit(): Promise<void> {
     playerId: 'p_item_shortage_smoke',
     playerRealmLv: 31,
     category: 'internal',
-    consumeItem: async () => false,
+    expectedRuntimeOwnerId: 'runtime:shortage',
+    expectedSessionEpoch: 3,
+    applyInventorySnapshot: async () => undefined,
   });
 
   assert.equal(result.success, false);
   assert.equal(result.errorCode, 'ITEM_NOT_ENOUGH');
-  const insertIndex = queries.findIndex((entry) => entry.sql.includes('INSERT INTO technique_generation_job'));
-  const failedIndex = queries.findIndex((entry) => entry.sql.includes('UPDATE technique_generation_job') && entry.params?.[2] === 'ITEM_NOT_ENOUGH');
-  assert.notEqual(insertIndex, -1);
-  assert.notEqual(failedIndex, -1);
-  assert.ok(insertIndex < failedIndex);
+  assert.ok(!queries.some((entry) => entry.sql.includes('INSERT INTO technique_generation_job')));
+  assert.ok(!queries.some((entry) => entry.sql.includes('INSERT INTO durable_operation_log')));
 }
 
 async function testExecuteGenerationFailureRefundsConsumedItems(): Promise<void> {
   const queries: QueryRecord[] = [];
   const service = new TechniqueGenerationService();
+  const pool = {
+    query: async (sql: unknown, params?: unknown[]) => {
+      const text = String(sql);
+      queries.push({ sql: text, params });
+      if (text.includes('UPDATE technique_generation_job') && text.includes('RETURNING id')) {
+        return { rows: [{ id: 'job_execute_refund_smoke' }], rowCount: 1 };
+      }
+      if (text.includes('SET status = $2') && params?.[1] === 'failed') {
+        return { rows: [], rowCount: 1 };
+      }
+      return { rows: [], rowCount: 0 };
+    },
+  } as unknown as Pool;
   service.initialize({
-    pool: createFakePool(queries),
+    pool,
     generatedStore: { refreshAfterPublish: async () => undefined } as unknown as GeneratedTechniqueStoreService,
     modelConfigResolver: async () => null,
   });
 
-  let refundedCount = 0;
+  let settleCount = 0;
   const result = await service.executeGeneration('job_execute_refund_smoke', {
     playerId: 'p_execute_refund_smoke',
     category: 'internal',
@@ -224,34 +254,251 @@ async function testExecuteGenerationFailureRefundsConsumedItems(): Promise<void>
     realmLv: 31,
     playerContext: '',
     itemSpend: 7,
-    refundItem: async (count) => {
-      refundedCount += count;
+    settleFailedRefund: async () => {
+      settleCount += 1;
       return true;
     },
   });
 
   assert.equal(result.success, false);
-  assert.equal(refundedCount, 7);
+  assert.equal(settleCount, 1);
   assert.ok(queries.some((entry) => entry.sql.includes('UPDATE technique_generation_job') && entry.params?.[2] === 'NO_MODEL'));
-  assert.ok(queries.some((entry) => entry.sql.includes('item_refunded = true') && entry.params?.[0] === 'job_execute_refund_smoke'));
 }
 
 async function testFailedConsumedJobRefundsOnce(): Promise<void> {
   const queries: QueryRecord[] = [];
+  const pool = createFakeConnectedPool(queries, (sql) => {
+    if (sql.includes('FROM player_presence')) {
+      return { rows: [{ runtime_owner_id: 'runtime:refund', session_epoch: 11 }], rowCount: 1 };
+    }
+    if (sql.includes('FROM technique_generation_job') && sql.includes("status = 'failed'")) {
+      return { rows: [{ id: 'job_refund_smoke', item_spend: 10 }], rowCount: 1 };
+    }
+    if (sql.includes('FROM player_inventory_item') && sql.includes('item_id = $2') && sql.includes('LIMIT 1')) {
+      return { rows: [{ item_instance_id: 'item:wudao', count: 3 }], rowCount: 1 };
+    }
+    if (sql.includes('COALESCE(SUM(count)')) {
+      return { rows: [{ total: 3 }], rowCount: 1 };
+    }
+    if (sql.includes('UPDATE technique_generation_job') && sql.includes('item_refunded = true')) {
+      return { rows: [], rowCount: 1 };
+    }
+    if (sql.includes('FROM player_inventory_item') && sql.includes('raw_payload') && !sql.includes('FOR UPDATE')) {
+      return {
+        rows: [{ item_instance_id: 'item:wudao', item_id: 'wudao_yujian', count: 13, slot_index: 0, raw_payload: { count: 13 } }],
+        rowCount: 1,
+      };
+    }
+    return { rows: [], rowCount: 0 };
+  });
+  const service = new TechniqueGenerationService();
+  service.initialize({
+    pool,
+    generatedStore: { refreshAfterPublish: async () => undefined } as unknown as GeneratedTechniqueStoreService,
+    modelConfigResolver: async () => null,
+  });
+
+  let appliedCount = 0;
+  const result = await service.refundFailedConsumedJobsForPlayer({
+    playerId: 'p_refund_smoke',
+    expectedRuntimeOwnerId: 'runtime:refund',
+    expectedSessionEpoch: 11,
+    applyInventorySnapshot: async (items) => {
+      appliedCount = items.find((entry) => entry.itemId === 'wudao_yujian')?.count ?? 0;
+    },
+  });
+
+  assert.equal(result, 10);
+  assert.equal(appliedCount, 13);
+  assert.ok(queries.some((entry) => entry.sql.includes('item_refunded = true') && entry.params?.[0] === 'job_refund_smoke'));
+  assert.ok(queries.some((entry) => entry.sql.includes('INSERT INTO durable_operation_log')));
+}
+
+async function testGenerationConsumeCommitAcknowledgementLossReplaysIdempotently(): Promise<void> {
+  const queries: QueryRecord[] = [];
+  let connectionCount = 0;
+  let committed = false;
+  let inventoryCount = 5;
   const pool = {
-    query: async (sql: unknown, params?: unknown[]) => {
-      const text = String(sql);
-      queries.push({ sql: text, params });
-      if (text.includes('FROM technique_generation_job') && text.includes("status = 'failed'")) {
-        return {
-          rows: [{ id: 'job_refund_smoke', player_id: 'p_refund_smoke', item_spend: 10 }],
-          rowCount: 1,
-        };
-      }
-      if (text.includes('UPDATE technique_generation_job') && text.includes('item_refunded = true')) {
-        return { rows: [], rowCount: 1 };
-      }
-      return { rows: [], rowCount: 0 };
+    connect: async () => {
+      connectionCount += 1;
+      const connectionNumber = connectionCount;
+      return {
+        query: async (sql: unknown, params?: unknown[]) => {
+          const text = String(sql);
+          queries.push({ sql: text, params });
+          if (text.includes('FROM player_presence')) {
+            return { rows: [{ runtime_owner_id: 'runtime:commit-replay', session_epoch: 17 }], rowCount: 1 };
+          }
+          if (text.includes('FROM durable_operation_log')) {
+            return committed
+              ? {
+                  rows: [{
+                    player_id: 'player:commit-replay',
+                    operation_type: 'technique_generation_consume',
+                    aggregate_type: 'technique_generation_job',
+                    payload_jsonb: { jobId: 'job:commit-replay', itemId: 'wudao_yujian', itemSpend: 2 },
+                  }],
+                  rowCount: 1,
+                }
+              : { rows: [], rowCount: 0 };
+          }
+          if (text.includes('FROM technique_generation_job') && text.includes('ORDER BY created_at')) {
+            return { rows: [], rowCount: 0 };
+          }
+          if (text.includes('FROM player_inventory_item') && text.includes('item_id = $2') && text.includes('FOR UPDATE')) {
+            return { rows: [{ item_instance_id: 'item:commit-replay', count: inventoryCount }], rowCount: 1 };
+          }
+          if (text.includes('UPDATE player_inventory_item')) {
+            inventoryCount = Number(params?.[2] ?? inventoryCount);
+            return { rows: [], rowCount: 1 };
+          }
+          if (text.includes('FROM player_inventory_item') && text.includes('raw_payload')) {
+            return {
+              rows: [{
+                item_instance_id: 'item:commit-replay',
+                item_id: 'wudao_yujian',
+                count: inventoryCount,
+                slot_index: 0,
+                raw_payload: { count: inventoryCount },
+              }],
+              rowCount: 1,
+            };
+          }
+          if (text === 'COMMIT' && connectionNumber === 1) {
+            committed = true;
+            throw new Error('simulated_commit_acknowledgement_loss');
+          }
+          return { rows: [], rowCount: 0 };
+        },
+        release: () => undefined,
+      };
+    },
+  } as unknown as Pool;
+
+  const result = await beginDurableTechniqueGeneration(pool, {
+    id: 'job:commit-replay',
+    playerId: 'player:commit-replay',
+    requestedCategory: 'internal',
+    rolledGrade: 'mystic',
+    rolledRealmLv: 31,
+    playerContext: '',
+    itemSpend: 2,
+    budgetPercent: 1,
+    totalBudget: 100,
+    expectedRuntimeOwnerId: 'runtime:commit-replay',
+    expectedSessionEpoch: 17,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.alreadyCommitted, true);
+  assert.equal(result.inventoryItems[0]?.count, 3);
+  assert.equal(connectionCount, 2);
+  assert.equal(queries.filter((entry) => entry.sql.includes('UPDATE player_inventory_item')).length, 1);
+  assert.equal(queries.filter((entry) => entry.sql.includes('INSERT INTO technique_generation_job')).length, 1);
+  assert.equal(queries.filter((entry) => entry.sql.includes('INSERT INTO durable_operation_log')).length, 1);
+  assert.equal(queries.filter((entry) => entry.sql === 'COMMIT').length, 2);
+}
+
+async function testStaleGenerationWorkerFailureCannotRefundCommittedDraft(): Promise<void> {
+  const queries: QueryRecord[] = [];
+  const service = new TechniqueGenerationService();
+  service.initialize({
+    pool: {
+      query: async (sql: unknown, params?: unknown[]) => {
+        const text = String(sql);
+        queries.push({ sql: text, params });
+        if (text.includes("SET status = 'running'") && text.includes('RETURNING id')) {
+          return { rows: [{ id: 'job:stale-worker' }], rowCount: 1 };
+        }
+        if (text.includes('SET status = $2') && params?.[1] === 'failed') {
+          return { rows: [], rowCount: 0 };
+        }
+        return { rows: [], rowCount: 0 };
+      },
+    } as unknown as Pool,
+    generatedStore: { refreshAfterPublish: async () => undefined } as unknown as GeneratedTechniqueStoreService,
+    modelConfigResolver: async () => null,
+  });
+  let settleCount = 0;
+
+  const result = await service.executeGeneration('job:stale-worker', {
+    playerId: 'player:stale-worker',
+    category: 'internal',
+    grade: 'mystic',
+    realmLv: 31,
+    playerContext: '',
+    itemSpend: 4,
+    settleFailedRefund: async () => {
+      settleCount += 1;
+      return true;
+    },
+  });
+
+  assert.equal(result.success, false);
+  assert.equal(settleCount, 0);
+  const failedUpdate = queries.find((entry) => entry.sql.includes('SET status = $2') && entry.params?.[1] === 'failed');
+  assert.ok(failedUpdate?.sql.includes("status = 'running'"));
+  assert.ok(failedUpdate?.sql.includes('draft_technique_id IS NULL'));
+}
+
+async function testRefundCommitReplayAlwaysHydratesRuntimeInventory(): Promise<void> {
+  const queries: QueryRecord[] = [];
+  let connectionCount = 0;
+  let refunded = false;
+  let inventoryCount = 3;
+  const pool = {
+    connect: async () => {
+      connectionCount += 1;
+      const connectionNumber = connectionCount;
+      return {
+        query: async (sql: unknown, params?: unknown[]) => {
+          const text = String(sql);
+          queries.push({ sql: text, params });
+          if (text.includes('FROM player_presence')) {
+            return { rows: [{ runtime_owner_id: 'runtime:refund-replay', session_epoch: 19 }], rowCount: 1 };
+          }
+          if (text.includes('FROM technique_generation_job') && text.includes("status = 'failed'") && text.includes('FOR UPDATE')) {
+            return refunded
+              ? { rows: [], rowCount: 0 }
+              : { rows: [{ id: 'job:refund-replay', item_spend: 10 }], rowCount: 1 };
+          }
+          if (text.includes('FROM durable_operation_log')) {
+            return { rows: [], rowCount: 0 };
+          }
+          if (text.includes('FROM player_inventory_item') && text.includes('item_id = $2') && text.includes('LIMIT 1')) {
+            return { rows: [{ item_instance_id: 'item:refund-replay', count: inventoryCount }], rowCount: 1 };
+          }
+          if (text.includes('COALESCE(SUM(count)')) {
+            return { rows: [{ total: inventoryCount }], rowCount: 1 };
+          }
+          if (text.includes('UPDATE player_inventory_item')) {
+            inventoryCount = Number(params?.[2] ?? inventoryCount);
+            return { rows: [], rowCount: 1 };
+          }
+          if (text.includes('UPDATE technique_generation_job') && text.includes('item_refunded = true')) {
+            refunded = true;
+            return { rows: [], rowCount: 1 };
+          }
+          if (text.includes('FROM player_inventory_item') && text.includes('raw_payload')) {
+            return {
+              rows: [{
+                item_instance_id: 'item:refund-replay',
+                item_id: 'wudao_yujian',
+                count: inventoryCount,
+                slot_index: 0,
+                raw_payload: { count: inventoryCount },
+              }],
+              rowCount: 1,
+            };
+          }
+          if (text === 'COMMIT' && connectionNumber === 1) {
+            throw new Error('simulated_refund_commit_acknowledgement_loss');
+          }
+          return { rows: [], rowCount: 0 };
+        },
+        release: () => undefined,
+      };
     },
   } as unknown as Pool;
   const service = new TechniqueGenerationService();
@@ -260,19 +507,330 @@ async function testFailedConsumedJobRefundsOnce(): Promise<void> {
     generatedStore: { refreshAfterPublish: async () => undefined } as unknown as GeneratedTechniqueStoreService,
     modelConfigResolver: async () => null,
   });
+  let appliedCount = 0;
 
-  let refundedCount = 0;
   const result = await service.refundFailedConsumedJobsForPlayer({
-    playerId: 'p_refund_smoke',
-    refundItem: async (count) => {
-      refundedCount += count;
-      return true;
+    playerId: 'player:refund-replay',
+    expectedRuntimeOwnerId: 'runtime:refund-replay',
+    expectedSessionEpoch: 19,
+    applyInventorySnapshot: async (items) => {
+      appliedCount = items.find((entry) => entry.itemId === 'wudao_yujian')?.count ?? 0;
     },
   });
 
-  assert.equal(result, 10);
-  assert.equal(refundedCount, 10);
-  assert.ok(queries.some((entry) => entry.sql.includes('item_refunded = true') && entry.params?.[0] === 'job_refund_smoke'));
+  assert.equal(result, 0);
+  assert.equal(appliedCount, 13);
+  assert.equal(connectionCount, 2);
+  assert.equal(queries.filter((entry) => entry.sql.includes('UPDATE player_inventory_item')).length, 1);
+  assert.equal(queries.filter((entry) => entry.sql.includes('item_refunded = true')).length, 1);
+  assert.equal(queries.filter((entry) => entry.sql.includes('INSERT INTO durable_operation_log')).length, 1);
+}
+
+async function testDurableGenerationRejectsSecondActiveJobUnderPlayerLock(): Promise<void> {
+  const queries: QueryRecord[] = [];
+  const pool = createFakeConnectedPool(queries, (sql) => {
+    if (sql.includes('FROM player_presence')) {
+      return { rows: [{ runtime_owner_id: 'runtime:active-lock', session_epoch: 9 }], rowCount: 1 };
+    }
+    if (sql.includes('FROM technique_generation_job') && sql.includes('ORDER BY created_at')) {
+      return { rows: [{ id: 'job:already-active' }], rowCount: 1 };
+    }
+    return { rows: [], rowCount: 0 };
+  });
+
+  const result = await beginDurableTechniqueGeneration(pool, {
+    id: 'job:new-active',
+    playerId: 'player:active-lock',
+    requestedCategory: 'internal',
+    rolledGrade: 'mystic',
+    rolledRealmLv: 31,
+    playerContext: '',
+    itemSpend: 1,
+    budgetPercent: 1,
+    totalBudget: 100,
+    expectedRuntimeOwnerId: 'runtime:active-lock',
+    expectedSessionEpoch: 9,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.errorCode, 'ACTIVE_JOB_EXISTS');
+  const lockIndex = queries.findIndex((entry) => entry.sql.includes('pg_advisory_xact_lock'));
+  const activeCheckIndex = queries.findIndex((entry) => entry.sql.includes('FROM technique_generation_job') && entry.sql.includes('ORDER BY created_at'));
+  assert.ok(lockIndex >= 0 && activeCheckIndex > lockIndex);
+  assert.ok(!queries.some((entry) => entry.sql.includes('FROM player_inventory_item')));
+  assert.ok(!queries.some((entry) => entry.sql.includes('INSERT INTO technique_generation_job')));
+}
+
+async function testDurableAdoptCommitsComprehensionBeforeLearnedMarkerAndRetriesIdempotently(): Promise<void> {
+  const queries: QueryRecord[] = [];
+  const pool = createFakeConnectedPool(queries, (sql) => {
+    if (sql.includes('FROM player_presence')) {
+      return { rows: [{ runtime_owner_id: 'runtime:adopt-durable', session_epoch: 12 }], rowCount: 1 };
+    }
+    if (sql.includes('LEFT JOIN generated_technique')) {
+      return {
+        rows: [{
+          status: 'generated_draft',
+          draft_technique_id: 'gen:durable-adopt',
+          draft_expire_at: '2099-01-01T00:00:00.000Z',
+          template: {
+            id: 'gen:durable-adopt',
+            name: '旧名',
+            grade: 'mystic',
+            category: 'internal',
+            realmLv: 31,
+          },
+        }],
+        rowCount: 1,
+      };
+    }
+    if (sql.includes("SET status = 'learned'")) {
+      return { rows: [], rowCount: 1 };
+    }
+    return { rows: [], rowCount: 0 };
+  });
+
+  const result = await adoptDurableTechniqueDraft(pool, {
+    playerId: 'player:adopt-durable',
+    jobId: 'job:adopt-durable',
+    displayName: '烟霞诀',
+    normalizedName: '烟霞诀',
+    learnerRealmLv: 31,
+    currentTick: 77,
+    expectedRuntimeOwnerId: 'runtime:adopt-durable',
+    expectedSessionEpoch: 12,
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.techniqueId, 'gen:durable-adopt');
+  const publishIndex = queries.findIndex((entry) => entry.sql.includes('UPDATE generated_technique'));
+  const comprehensionIndex = queries.findIndex((entry) => entry.sql.includes('INSERT INTO player_technique_comprehension'));
+  const learnedIndex = queries.findIndex((entry) => entry.sql.includes("SET status = 'learned'"));
+  const operationIndex = queries.findIndex((entry) => entry.sql.includes('INSERT INTO durable_operation_log'));
+  assert.ok(publishIndex >= 0 && comprehensionIndex > publishIndex);
+  assert.ok(learnedIndex > comprehensionIndex && operationIndex > learnedIndex);
+  assert.ok(queries.some((entry) => entry.sql === 'COMMIT'));
+
+  const retryQueries: QueryRecord[] = [];
+  const retryPool = createFakeConnectedPool(retryQueries, (sql) => {
+    if (sql.includes('FROM player_presence')) {
+      return { rows: [{ runtime_owner_id: 'runtime:adopt-durable', session_epoch: 12 }], rowCount: 1 };
+    }
+    if (sql.includes('FROM durable_operation_log')) {
+      return {
+        rows: [{
+          player_id: 'player:adopt-durable',
+          operation_type: 'technique_generation_adopt',
+          aggregate_type: 'player_technique_comprehension',
+          payload_jsonb: {
+            jobId: 'job:adopt-durable',
+            techniqueId: 'gen:durable-adopt',
+            techniqueName: '烟霞诀',
+          },
+        }],
+        rowCount: 1,
+      };
+    }
+    return { rows: [], rowCount: 0 };
+  });
+  const retried = await adoptDurableTechniqueDraft(retryPool, {
+    playerId: 'player:adopt-durable',
+    jobId: 'job:adopt-durable',
+    displayName: '另一个名字',
+    normalizedName: '另一个名字',
+    learnerRealmLv: 31,
+    currentTick: 80,
+    expectedRuntimeOwnerId: 'runtime:adopt-durable',
+    expectedSessionEpoch: 12,
+  });
+  assert.equal(retried.ok, true);
+  assert.equal(retried.alreadyCommitted, true);
+  assert.equal(retried.techniqueName, '烟霞诀');
+  assert.ok(!retryQueries.some((entry) => entry.sql.includes('UPDATE generated_technique')));
+  assert.ok(!retryQueries.some((entry) => entry.sql.includes('INSERT INTO player_technique_comprehension')));
+}
+
+async function testDurableDiscardPersistsFirstRefundRollAndDoesNotGrantTwice(): Promise<void> {
+  const queries: QueryRecord[] = [];
+  const pool = createFakeConnectedPool(queries, (sql) => {
+    if (sql.includes('FROM player_presence')) {
+      return { rows: [{ runtime_owner_id: 'runtime:discard-durable', session_epoch: 13 }], rowCount: 1 };
+    }
+    if (sql.includes('FROM technique_generation_job') && sql.includes('item_spend')) {
+      return {
+        rows: [{ status: 'generated_draft', item_spend: 2, item_consumed: true, item_refunded: false }],
+        rowCount: 1,
+      };
+    }
+    if (sql.includes('FROM player_inventory_item') && sql.includes('item_id = $2') && sql.includes('LIMIT 1')) {
+      return { rows: [{ item_instance_id: 'item:merit', count: 5 }], rowCount: 1 };
+    }
+    if (sql.includes('COALESCE(SUM(count)')) {
+      return { rows: [{ total: 5 }], rowCount: 1 };
+    }
+    if (sql.includes('FROM player_inventory_item') && sql.includes('raw_payload') && !sql.includes('FOR UPDATE')) {
+      return {
+        rows: [{ item_instance_id: 'item:merit', item_id: 'merit', count: 1005, slot_index: 0, raw_payload: { count: 1005 } }],
+        rowCount: 1,
+      };
+    }
+    return { rows: [], rowCount: 0 };
+  });
+  const result = await discardDurableTechniqueDraft(pool, {
+    playerId: 'player:discard-durable',
+    jobId: 'job:discard-durable',
+    refundCurrencyItemId: 'merit',
+    refundRatio: 0.5,
+    refundBasePrice: 1000,
+    expectedRuntimeOwnerId: 'runtime:discard-durable',
+    expectedSessionEpoch: 13,
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.refundAmount, 1000);
+  assert.equal(result.inventoryItems[0]?.count, 1005);
+  assert.equal(queries.filter((entry) => entry.sql.includes('UPDATE player_inventory_item')).length, 1);
+  assert.ok(queries.some((entry) => entry.sql.includes("SET status = 'discarded'")));
+  assert.ok(queries.some((entry) => entry.sql.includes('INSERT INTO durable_operation_log')));
+
+  const retryQueries: QueryRecord[] = [];
+  const retryPool = createFakeConnectedPool(retryQueries, (sql) => {
+    if (sql.includes('FROM player_presence')) {
+      return { rows: [{ runtime_owner_id: 'runtime:discard-durable', session_epoch: 13 }], rowCount: 1 };
+    }
+    if (sql.includes('FROM durable_operation_log')) {
+      return {
+        rows: [{
+          player_id: 'player:discard-durable',
+          operation_type: 'technique_generation_discard',
+          aggregate_type: 'technique_generation_job',
+          payload_jsonb: {
+            jobId: 'job:discard-durable',
+            itemSpend: 2,
+            refundRatio: 0.5,
+            refundAmount: 1000,
+            refundCurrencyItemId: 'merit',
+          },
+        }],
+        rowCount: 1,
+      };
+    }
+    if (sql.includes('FROM player_inventory_item') && sql.includes('raw_payload')) {
+      return {
+        rows: [{ item_instance_id: 'item:merit', item_id: 'merit', count: 1005, slot_index: 0, raw_payload: { count: 1005 } }],
+        rowCount: 1,
+      };
+    }
+    return { rows: [], rowCount: 0 };
+  });
+  const retried = await discardDurableTechniqueDraft(retryPool, {
+    playerId: 'player:discard-durable',
+    jobId: 'job:discard-durable',
+    refundCurrencyItemId: 'merit',
+    refundRatio: 0.7,
+    refundBasePrice: 1000,
+    expectedRuntimeOwnerId: 'runtime:discard-durable',
+    expectedSessionEpoch: 13,
+  });
+  assert.equal(retried.ok, true);
+  assert.equal(retried.alreadyCommitted, true);
+  assert.equal(retried.refundRatio, 0.5);
+  assert.equal(retried.refundAmount, 1000);
+  assert.ok(!retryQueries.some((entry) => entry.sql.includes('UPDATE player_inventory_item')));
+}
+
+async function testCommittedTechniqueReplayRejectsCrossPlayerAndWrongOperationType(): Promise<void> {
+  const adoptQueries: QueryRecord[] = [];
+  const adoptPool = createFakeConnectedPool(adoptQueries, (sql) => {
+    if (sql.includes('FROM player_presence')) {
+      return { rows: [{ runtime_owner_id: 'runtime:replay-attacker', session_epoch: 21 }], rowCount: 1 };
+    }
+    if (sql.includes('FROM durable_operation_log')) {
+      return {
+        rows: [{
+          player_id: 'player:replay-owner',
+          operation_type: 'technique_generation_adopt',
+          aggregate_type: 'player_technique_comprehension',
+          payload_jsonb: {
+            jobId: 'job:replay-owner',
+            techniqueId: 'gen:replay-owner',
+            techniqueName: '他人功法',
+          },
+        }],
+        rowCount: 1,
+      };
+    }
+    return { rows: [], rowCount: 0 };
+  });
+  const service = new TechniqueGenerationService();
+  let refreshCount = 0;
+  let pendingApplyCount = 0;
+  service.initialize({
+    pool: adoptPool,
+    generatedStore: {
+      refreshAfterPublish: async () => {
+        refreshCount += 1;
+      },
+    } as unknown as GeneratedTechniqueStoreService,
+    modelConfigResolver: async () => null,
+  });
+
+  await assert.rejects(
+    () => service.adoptDraft({
+      playerId: 'player:replay-attacker',
+      jobId: 'job:replay-owner',
+      customName: '窃取功法',
+      learnerRealmLv: 31,
+      currentTick: 100,
+      expectedRuntimeOwnerId: 'runtime:replay-attacker',
+      expectedSessionEpoch: 21,
+      applyPendingComprehension: async () => {
+        pendingApplyCount += 1;
+        return true;
+      },
+    }),
+    /technique_generation_operation_replay_identity_conflict/,
+  );
+  assert.equal(refreshCount, 0);
+  assert.equal(pendingApplyCount, 0);
+  assert.ok(!adoptQueries.some((entry) => entry.sql.includes('INSERT INTO player_technique_comprehension')));
+
+  const discardQueries: QueryRecord[] = [];
+  const discardPool = createFakeConnectedPool(discardQueries, (sql) => {
+    if (sql.includes('FROM player_presence')) {
+      return { rows: [{ runtime_owner_id: 'runtime:discard-replay', session_epoch: 22 }], rowCount: 1 };
+    }
+    if (sql.includes('FROM durable_operation_log')) {
+      return {
+        rows: [{
+          player_id: 'player:discard-replay',
+          operation_type: 'technique_generation_adopt',
+          aggregate_type: 'technique_generation_job',
+          payload_jsonb: {
+            jobId: 'job:discard-replay',
+            itemSpend: 2,
+            refundRatio: 0.5,
+            refundAmount: 1000,
+            refundCurrencyItemId: 'merit',
+          },
+        }],
+        rowCount: 1,
+      };
+    }
+    return { rows: [], rowCount: 0 };
+  });
+  await assert.rejects(
+    () => discardDurableTechniqueDraft(discardPool, {
+      playerId: 'player:discard-replay',
+      jobId: 'job:discard-replay',
+      refundCurrencyItemId: 'merit',
+      refundRatio: 0.5,
+      refundBasePrice: 1000,
+      expectedRuntimeOwnerId: 'runtime:discard-replay',
+      expectedSessionEpoch: 22,
+    }),
+    /technique_generation_operation_replay_identity_conflict/,
+  );
+  assert.ok(!discardQueries.some((entry) => entry.sql.includes('UPDATE player_inventory_item')));
+  assert.ok(!discardQueries.some((entry) => entry.sql.includes("SET status = 'discarded'")));
 }
 
 async function testPreviewFailedTechniqueGenerationItemRefunds(): Promise<void> {
@@ -509,10 +1067,6 @@ async function testRequestGenerationBlocksActiveDraftWithoutConsumingItem(): Pro
     playerId: 'p_active_draft_smoke',
     playerRealmLv: 31,
     category: 'internal',
-    consumeItem: async () => {
-      consumedCount += 1;
-      return true;
-    },
   });
 
   assert.equal(result.success, false);
@@ -535,8 +1089,8 @@ async function testGatewayStatusEmitsRollRange(): Promise<void> {
     },
     playerRuntimeService: {
       getPlayerRealmLv: () => 31,
-      consumeItemByItemId: () => true,
-      learnTechniqueById: () => true,
+      getSessionFence: () => ({ runtimeOwnerId: 'runtime:gateway-smoke', sessionEpoch: 1 }),
+      replaceInventoryItems: () => undefined,
     },
   });
   helper.setService({
@@ -568,6 +1122,40 @@ async function testGatewayStatusEmitsRollRange(): Promise<void> {
   assert.deepEqual(result, emitted[0]?.payload);
 }
 
+async function testGatewayRequiresDirtyDomainFlushBeforeDurableMutation(): Promise<void> {
+  let flushCalls = 0;
+  const dirtyByPlayerId = new Map<string, Set<string>>([
+    ['player:dirty-technique-generation', new Set(['inventory'])],
+  ]);
+  const helper = new WorldGatewayTechniqueGenerationHelper({
+    gatewayGuardHelper: { requirePlayerId: () => null },
+    worldClientEventService: { emitGatewayError: () => undefined },
+    playerRuntimeService: {
+      getPlayerRealmLv: () => 31,
+      listDirtyPlayerDomains: () => dirtyByPlayerId,
+    },
+    playerPersistenceFlushService: {
+      async flushPlayerDomains() {
+        flushCalls += 1;
+        return false;
+      },
+    },
+  });
+  const privateHelper = helper as unknown as {
+    prepareInventoryForDurableMutation(playerId: string): Promise<void>;
+  };
+
+  await assert.rejects(
+    () => privateHelper.prepareInventoryForDurableMutation('player:dirty-technique-generation'),
+    /technique_generation_dirty_inventory_flush_failed/,
+  );
+  assert.equal(flushCalls, 1);
+
+  dirtyByPlayerId.clear();
+  await privateHelper.prepareInventoryForDurableMutation('player:clean-technique-generation');
+  assert.equal(flushCalls, 1);
+}
+
 async function testGatewayGenerateExceptionEmitsFailureResult(): Promise<void> {
   const emitted: Array<{ event: string; payload: unknown }> = [];
   const helper = new WorldGatewayTechniqueGenerationHelper({
@@ -581,8 +1169,8 @@ async function testGatewayGenerateExceptionEmitsFailureResult(): Promise<void> {
     },
     playerRuntimeService: {
       getPlayerRealmLv: () => 31,
-      consumeItemByItemId: () => true,
-      learnTechniqueById: () => true,
+      getSessionFence: () => ({ runtimeOwnerId: 'runtime:gateway-error', sessionEpoch: 2 }),
+      replaceInventoryItems: () => undefined,
     },
   });
   helper.setService({
@@ -620,8 +1208,10 @@ async function testGatewayAdoptAndDiscardEmitResultEvents(): Promise<void> {
     },
     playerRuntimeService: {
       getPlayerRealmLv: () => 31,
-      consumeItemByItemId: () => true,
-      learnTechniqueById: (_playerId: string, techniqueId: string) => {
+      getPlayer: () => ({ lifeElapsedTicks: 42 }),
+      getSessionFence: () => ({ runtimeOwnerId: 'runtime:gateway-adopt', sessionEpoch: 5 }),
+      replaceInventoryItems: () => undefined,
+      addPendingTechniqueComprehensionById: (_playerId: string, techniqueId: string) => {
         learnedTechniqueId = techniqueId;
         return true;
       },
@@ -633,8 +1223,14 @@ async function testGatewayAdoptAndDiscardEmitResultEvents(): Promise<void> {
     },
   });
   helper.setService({
-    adoptDraft: async () => ({ success: true, techniqueId: 'gen_adopt_smoke', techniqueName: '烟霞诀' }),
-    discardDraft: async () => ({ success: true }),
+    adoptDraft: async (params) => {
+      await params.applyPendingComprehension?.('gen_adopt_smoke');
+      return { success: true, techniqueId: 'gen_adopt_smoke', techniqueName: '烟霞诀' };
+    },
+    discardDraft: async (params) => {
+      await params.applyInventorySnapshot?.([]);
+      return { success: true };
+    },
   } as unknown as TechniqueGenerationService);
 
   const socket = {
@@ -1221,6 +1817,13 @@ async function main(): Promise<void> {
   await testItemShortageMarksJobFailedAfterAudit();
   await testExecuteGenerationFailureRefundsConsumedItems();
   await testFailedConsumedJobRefundsOnce();
+  await testGenerationConsumeCommitAcknowledgementLossReplaysIdempotently();
+  await testStaleGenerationWorkerFailureCannotRefundCommittedDraft();
+  await testRefundCommitReplayAlwaysHydratesRuntimeInventory();
+  await testDurableGenerationRejectsSecondActiveJobUnderPlayerLock();
+  await testDurableAdoptCommitsComprehensionBeforeLearnedMarkerAndRetriesIdempotently();
+  await testDurableDiscardPersistsFirstRefundRollAndDoesNotGrantTwice();
+  await testCommittedTechniqueReplayRejectsCrossPlayerAndWrongOperationType();
   await testPreviewFailedTechniqueGenerationItemRefunds();
   await testRefundFailedTechniqueGenerationItemsWritesInventoryAuditAndMarkers();
   await testRefundFailedTechniqueGenerationItemsBlocksOnlinePlayersByDefault();
@@ -1229,6 +1832,7 @@ async function main(): Promise<void> {
   await testCurrentStatusRestoresGeneratedDraftPreview();
   await testRequestGenerationBlocksActiveDraftWithoutConsumingItem();
   await testGatewayStatusEmitsRollRange();
+  await testGatewayRequiresDirtyDomainFlushBeforeDurableMutation();
   await testGatewayGenerateExceptionEmitsFailureResult();
   await testGatewayAdoptAndDiscardEmitResultEvents();
   await testGeneratedInternalPreviewNormalizesAttrRatioAliases();

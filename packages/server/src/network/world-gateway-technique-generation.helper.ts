@@ -13,7 +13,6 @@ import { S2C } from '@mud/shared';
 import type { Socket } from 'socket.io';
 import type { TechniqueGenerationService } from '../runtime/technique-generation/technique-generation.service';
 import type { TechniqueCategory } from '@mud/shared';
-import { TECHNIQUE_GENERATION_ITEM_ID } from '../runtime/technique-generation/technique-generation-constants';
 import {
   buildTechniqueGenerationRollRange,
   normalizeTechniqueGenerationItemSpend,
@@ -28,10 +27,15 @@ interface TechniqueGenerationHelperDeps {
   };
   playerRuntimeService: {
     getPlayerRealmLv(playerId: string): number | null;
-    consumeItemByItemId(playerId: string, itemId: string, count: number): boolean;
-    grantItem?: (playerId: string, itemId: string, count: number) => unknown;
+    getPlayer?: (playerId: string) => { lifeElapsedTicks?: number | null; dirtyDomains?: Set<string> } | null;
+    listDirtyPlayerDomains?: () => Map<string, Set<string>>;
+    getSessionFence?: (playerId: string) => { runtimeOwnerId?: string | null; sessionEpoch?: number | null } | null;
+    replaceInventoryItems?: (playerId: string, items: unknown[]) => unknown;
+    runExclusiveAssetMutation?: <T>(playerIds: readonly string[], action: () => Promise<T> | T) => Promise<T>;
     addPendingTechniqueComprehensionById?: (playerId: string, techniqueId: string, sourceKind: 'normal' | 'created', creatorPlayerId?: string | null) => boolean;
-    learnTechniqueById?: (playerId: string, techniqueId: string) => boolean;
+  };
+  playerPersistenceFlushService?: {
+    flushPlayerDomains(playerId: string, domains: Iterable<string>): Promise<boolean>;
   };
   worldSyncService?: {
     emitDeltaSync(playerId: string, client?: Socket): void;
@@ -123,23 +127,21 @@ export class WorldGatewayTechniqueGenerationHelper {
 
     let result: Awaited<ReturnType<TechniqueGenerationService['requestGeneration']>>;
     try {
-      result = await this.techniqueGenerationService!.requestGeneration({
-        playerId,
-        playerRealmLv: realmLv,
-        category,
-        playerContext,
-        itemSpend,
-        consumeItem: async (count) => {
-          return this.deps.playerRuntimeService.consumeItemByItemId(playerId, TECHNIQUE_GENERATION_ITEM_ID, count);
-        },
-        refundItem: async (count) => {
-          if (typeof this.deps.playerRuntimeService.grantItem !== 'function') {
-            return false;
-          }
-          this.deps.playerRuntimeService.grantItem(playerId, TECHNIQUE_GENERATION_ITEM_ID, count);
-          this.deps.worldSyncService?.emitDeltaSync(playerId, client);
-          return true;
-        },
+      result = await this.runExclusivePlayerAssetMutation(playerId, async () => {
+        await this.prepareInventoryForDurableMutation(playerId);
+        const fence = this.requireTechniqueGenerationSessionFence(playerId);
+        return this.techniqueGenerationService!.requestGeneration({
+          playerId,
+          playerRealmLv: realmLv,
+          category,
+          playerContext,
+          itemSpend,
+          ...fence,
+          applyInventorySnapshot: async (items) => {
+            this.applyCommittedInventorySnapshot(playerId, items);
+          },
+          settleFailedRefund: async () => (await this.settleFailedConsumedJobs(client, playerId)) > 0,
+        });
       });
     } catch (error: unknown) {
       client.emit(S2C.TechniqueGenerationResult, {
@@ -191,22 +193,11 @@ export class WorldGatewayTechniqueGenerationHelper {
   }
 
   private async refundNoModelFailedJobs(client: Socket, playerId: string): Promise<void> {
-    if (!this.techniqueGenerationService || typeof this.deps.playerRuntimeService.grantItem !== 'function') {
+    if (!this.techniqueGenerationService || typeof this.techniqueGenerationService.refundFailedConsumedJobsForPlayer !== 'function') {
       return;
     }
-    const refunded = await this.techniqueGenerationService.refundFailedConsumedJobsForPlayer({
-      playerId,
-      refundItem: async (count) => {
-        if (typeof this.deps.playerRuntimeService.grantItem !== 'function') {
-          return false;
-        }
-        this.deps.playerRuntimeService.grantItem(playerId, TECHNIQUE_GENERATION_ITEM_ID, count);
-        return true;
-      },
-    });
-    if (refunded > 0) {
-      this.deps.worldSyncService?.emitDeltaSync(playerId, client);
-    }
+    const refunded = await this.settleFailedConsumedJobs(client, playerId);
+    void refunded;
   }
 
   private async handleAdopt(client: Socket, playerId: string, request: Record<string, unknown>): Promise<unknown> {
@@ -215,10 +206,23 @@ export class WorldGatewayTechniqueGenerationHelper {
 
     let result: Awaited<ReturnType<TechniqueGenerationService['adoptDraft']>>;
     try {
-      result = await this.techniqueGenerationService!.adoptDraft({
-        playerId,
-        jobId,
-        customName,
+      result = await this.runExclusivePlayerAssetMutation(playerId, async () => {
+        await this.prepareTechniqueForDurableMutation(playerId);
+        const fence = this.requireTechniqueGenerationSessionFence(playerId);
+        const player = this.deps.playerRuntimeService.getPlayer?.(playerId);
+        return this.techniqueGenerationService!.adoptDraft({
+          playerId,
+          jobId,
+          customName,
+          learnerRealmLv: this.deps.playerRuntimeService.getPlayerRealmLv(playerId) ?? 1,
+          currentTick: Math.max(0, Math.trunc(Number(player?.lifeElapsedTicks) || 0)),
+          ...fence,
+          applyPendingComprehension: async (techniqueId) => (
+            typeof this.deps.playerRuntimeService.addPendingTechniqueComprehensionById === 'function'
+              ? this.deps.playerRuntimeService.addPendingTechniqueComprehensionById(playerId, techniqueId, 'created', playerId)
+              : false
+          ),
+        });
       });
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : '功法采纳失败';
@@ -231,23 +235,6 @@ export class WorldGatewayTechniqueGenerationHelper {
     }
 
     if (result.success && result.techniqueId) {
-      // 采纳自创功法后进入未领悟列表，由修炼推进领悟进度。
-      let learned = false;
-      try {
-        learned = typeof this.deps.playerRuntimeService.addPendingTechniqueComprehensionById === 'function'
-          ? this.deps.playerRuntimeService.addPendingTechniqueComprehensionById(playerId, result.techniqueId, 'created', playerId)
-          : this.deps.playerRuntimeService.learnTechniqueById?.(playerId, result.techniqueId) === true;
-      } catch {
-        learned = false;
-      }
-      if (!learned) {
-        client.emit(S2C.TechniqueGenerationResult, {
-          jobId,
-          result: 'failed',
-          errorMessage: '功法学习失败',
-        });
-        return { success: false, error: '功法学习失败', errorCode: 'LEARN_FAILED' };
-      }
       client.emit(S2C.TechniqueGenerationResult, {
         jobId,
         result: 'learned',
@@ -270,16 +257,17 @@ export class WorldGatewayTechniqueGenerationHelper {
     const jobId = String(request.jobId ?? '');
     let result: Awaited<ReturnType<TechniqueGenerationService['discardDraft']>>;
     try {
-      result = await this.techniqueGenerationService!.discardDraft({
-        playerId,
-        jobId,
-        refundCurrency: async (itemId, count) => {
-          if (typeof this.deps.playerRuntimeService.grantItem !== 'function') {
-            return false;
-          }
-          this.deps.playerRuntimeService.grantItem(playerId, itemId, count);
-          return true;
-        },
+      result = await this.runExclusivePlayerAssetMutation(playerId, async () => {
+        await this.prepareInventoryForDurableMutation(playerId);
+        const fence = this.requireTechniqueGenerationSessionFence(playerId);
+        return this.techniqueGenerationService!.discardDraft({
+          playerId,
+          jobId,
+          ...fence,
+          applyInventorySnapshot: async (items) => {
+            this.applyCommittedInventorySnapshot(playerId, items);
+          },
+        });
       });
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : '功法放弃失败';
@@ -300,5 +288,78 @@ export class WorldGatewayTechniqueGenerationHelper {
       this.deps.worldSyncService?.emitDeltaSync(playerId, client);
     }
     return result;
+  }
+
+  private async settleFailedConsumedJobs(client: Socket, playerId: string): Promise<number> {
+    return this.runExclusivePlayerAssetMutation(playerId, async () => {
+      await this.prepareInventoryForDurableMutation(playerId);
+      const fence = this.requireTechniqueGenerationSessionFence(playerId);
+      const refunded = await this.techniqueGenerationService!.refundFailedConsumedJobsForPlayer({
+        playerId,
+        ...fence,
+        applyInventorySnapshot: async (items) => {
+          this.applyCommittedInventorySnapshot(playerId, items);
+        },
+      });
+      if (refunded > 0) {
+        this.deps.worldSyncService?.emitDeltaSync(playerId, client);
+      }
+      return refunded;
+    });
+  }
+
+  private async runExclusivePlayerAssetMutation<T>(playerId: string, action: () => Promise<T>): Promise<T> {
+    const coordinator = this.deps.playerRuntimeService.runExclusiveAssetMutation;
+    return typeof coordinator === 'function'
+      ? coordinator.call(this.deps.playerRuntimeService, [playerId], action)
+      : action();
+  }
+
+  private async prepareInventoryForDurableMutation(playerId: string): Promise<void> {
+    await this.prepareDomainForDurableMutation(playerId, 'inventory');
+  }
+
+  private async prepareTechniqueForDurableMutation(playerId: string): Promise<void> {
+    await this.prepareDomainForDurableMutation(playerId, 'technique');
+  }
+
+  private async prepareDomainForDurableMutation(playerId: string, domain: string): Promise<void> {
+    const dirtyDomains = this.deps.playerRuntimeService.listDirtyPlayerDomains?.().get(playerId)
+      ?? this.deps.playerRuntimeService.getPlayer?.(playerId)?.dirtyDomains
+      ?? null;
+    const flushDomain = dirtyDomains?.has('snapshot')
+      ? 'snapshot'
+      : dirtyDomains?.has(domain) ? domain : null;
+    if (!flushDomain) {
+      return;
+    }
+    const flush = this.deps.playerPersistenceFlushService?.flushPlayerDomains;
+    if (typeof flush !== 'function') {
+      throw new Error(`technique_generation_dirty_${domain}_flush_unavailable`);
+    }
+    const flushed = await flush.call(this.deps.playerPersistenceFlushService, playerId, [flushDomain]);
+    if (!flushed) {
+      throw new Error(`technique_generation_dirty_${domain}_flush_failed`);
+    }
+  }
+
+  private requireTechniqueGenerationSessionFence(playerId: string): {
+    expectedRuntimeOwnerId: string;
+    expectedSessionEpoch: number;
+  } {
+    const fence = this.deps.playerRuntimeService.getSessionFence?.(playerId);
+    const expectedRuntimeOwnerId = typeof fence?.runtimeOwnerId === 'string' ? fence.runtimeOwnerId.trim() : '';
+    const expectedSessionEpoch = Math.max(0, Math.trunc(Number(fence?.sessionEpoch) || 0));
+    if (!expectedRuntimeOwnerId || expectedSessionEpoch <= 0) {
+      throw new Error('technique_generation_session_fence_unavailable');
+    }
+    return { expectedRuntimeOwnerId, expectedSessionEpoch };
+  }
+
+  private applyCommittedInventorySnapshot(playerId: string, items: unknown[]): void {
+    if (typeof this.deps.playerRuntimeService.replaceInventoryItems !== 'function') {
+      throw new Error('technique_generation_inventory_runtime_sync_unavailable');
+    }
+    this.deps.playerRuntimeService.replaceInventoryItems(playerId, items);
   }
 }

@@ -37,18 +37,20 @@ import { sanitizePlayerContext } from '../../ai/ai-prompt-sanitizer';
 import type { AiTextModelConfig } from '../../ai/ai-model-config';
 
 import {
-  insertGeneratedTechnique,
-  insertGenerationJob,
   loadRecoverableGenerationJobs,
-  loadRefundableFailedGenerationJobsForPlayer,
-  markGenerationJobItemConsumed,
-  markGenerationJobItemRefunded,
-  markGenerationJobRunning,
-  updateGenerationJobToDraft,
   updateGenerationJobStatus,
-  publishGeneratedTechnique,
   expireStaleGenerationJobs,
 } from '../../persistence/generated-technique-persistence.service';
+import {
+  adoptDurableTechniqueDraft,
+  beginDurableTechniqueGeneration,
+  claimTechniqueGenerationExecution,
+  discardDurableTechniqueDraft,
+  persistGeneratedTechniqueDraft,
+  refundDurableFailedTechniqueGenerationJobs,
+  TechniqueGenerationCommitOutcomeUnknownError,
+  type TechniqueGenerationRuntimeInventoryItem,
+} from '../../persistence/technique-generation-durable-persistence';
 
 import { GeneratedTechniqueStoreService } from './generated-technique-store.service';
 import { validateTechniqueCandidate } from './technique-candidate-validator';
@@ -84,7 +86,6 @@ export class TechniqueGenerationService {
   private pool: Pool | null = null;
   private generatedStore: GeneratedTechniqueStoreService | null = null;
   private modelConfigResolver: (() => Promise<AiTextModelConfig | null>) | null = null;
-  private readonly refundingJobIds = new Set<string>();
 
   initialize(params: {
     pool: Pool;
@@ -127,8 +128,10 @@ export class TechniqueGenerationService {
     category: TechniqueCategory;
     playerContext?: string;
     itemSpend?: number;
-    consumeItem: (count: number) => Promise<boolean>;
-    refundItem?: (count: number) => Promise<boolean>;
+    expectedRuntimeOwnerId?: string | null;
+    expectedSessionEpoch?: number | null;
+    applyInventorySnapshot?: (items: TechniqueGenerationRuntimeInventoryItem[]) => Promise<void> | void;
+    settleFailedRefund?: () => Promise<boolean>;
   }): Promise<GenerationJobResult> {
     const pool = this.pool;
     if (!pool) {
@@ -158,11 +161,21 @@ export class TechniqueGenerationService {
     const budgetPercent = rollTechniqueBudgetPercent();
     const totalBudget = calculateGenerationTotalBudget(params.category, rolledGrade, rolledRealmLv, budgetPercent);
 
-    // 4. 先创建 job 审计，再消耗道具；数据库不可写时不能扣玩家资产。
+    // 4. 模型不可用时不创建 job，也不触碰玩家资产。
+    const modelConfig = await this.modelConfigResolver?.();
+    if (!modelConfig) {
+      return { success: false, error: 'AI 模型未配置', errorCode: 'NO_MODEL' };
+    }
+    const expectedRuntimeOwnerId = normalizeTechniqueGenerationOwnerId(params.expectedRuntimeOwnerId);
+    const expectedSessionEpoch = normalizeTechniqueGenerationSessionEpoch(params.expectedSessionEpoch);
+    if (!expectedRuntimeOwnerId || expectedSessionEpoch === null || typeof params.applyInventorySnapshot !== 'function') {
+      return { success: false, error: '玩家资产持久化上下文不可用', errorCode: 'PERSISTENCE_CONTEXT_UNAVAILABLE' };
+    }
+
+    // 5. 玩家锁内原子扣除玉简并创建 pending job；并发请求只能成功一个。
     const jobId = randomUUID();
     const sanitizedContext = sanitizePlayerContext(params.playerContext);
-
-    await insertGenerationJob(pool, {
+    const beginResult = await beginDurableTechniqueGeneration(pool, {
       id: jobId,
       playerId: params.playerId,
       requestedCategory: params.category,
@@ -172,24 +185,25 @@ export class TechniqueGenerationService {
       itemSpend,
       budgetPercent,
       totalBudget,
+      expectedRuntimeOwnerId,
+      expectedSessionEpoch,
     });
-
-    // 5. 模型未配置属于系统不可用，不消耗玩家资产。
-    const modelConfig = await this.modelConfigResolver?.();
-    if (!modelConfig) {
-      await updateGenerationJobStatus(pool, jobId, 'failed', 'NO_MODEL', 'AI 模型未配置');
-      return { success: false, error: 'AI 模型未配置', errorCode: 'NO_MODEL' };
-    }
-
-    // 6. 消耗悟道玉简
-    const consumed = await params.consumeItem(itemSpend);
-    if (!consumed) {
-      await updateGenerationJobStatus(pool, jobId, 'failed', 'ITEM_NOT_ENOUGH', '悟道玉简不足');
+    if (!beginResult.ok) {
+      if (beginResult.errorCode === 'ACTIVE_JOB_EXISTS') {
+        return { success: false, error: '请先处理未完成的功法领悟', errorCode: 'ACTIVE_JOB_EXISTS' };
+      }
       return { success: false, error: '悟道玉简不足', errorCode: 'ITEM_NOT_ENOUGH' };
     }
-    await markGenerationJobItemConsumed(pool, jobId);
+    try {
+      await params.applyInventorySnapshot(beginResult.inventoryItems);
+    } catch (error: unknown) {
+      this.logger.error(
+        `自创功法扣除玉简已提交但运行态同步失败 playerId=${params.playerId} jobId=${jobId}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+    }
 
-    // 6. 异步触发执行
+    // 6. 异步触发执行；失败返还由同一 durable 链完成。
     setImmediate(() => {
       this.executeGeneration(jobId, {
         category: params.category,
@@ -201,7 +215,7 @@ export class TechniqueGenerationService {
         budgetPercent,
         totalBudget,
         modelConfig,
-        refundItem: params.refundItem,
+        settleFailedRefund: params.settleFailedRefund,
       }).catch(() => undefined);
     });
 
@@ -219,14 +233,22 @@ export class TechniqueGenerationService {
     budgetPercent?: number;
     totalBudget?: number;
     modelConfig?: AiTextModelConfig;
-    refundItem?: (count: number) => Promise<boolean>;
+    settleFailedRefund?: () => Promise<boolean>;
   }): Promise<GenerationExecutionResult> {
     const pool = this.pool;
     if (!pool) {
       return { success: false, error: '功法领悟系统未就绪' };
     }
+    let claimed = false;
     try {
-      await markGenerationJobRunning(pool, jobId);
+      claimed = await claimTechniqueGenerationExecution(pool, jobId);
+    } catch (error: unknown) {
+      return { success: false, error: error instanceof Error ? error.message : '功法领悟任务认领失败' };
+    }
+    if (!claimed) {
+      return { success: false, error: '功法领悟任务已由其他执行器处理' };
+    }
+    try {
 
       // 获取模型配置
       const modelConfig = params.modelConfig ?? await this.modelConfigResolver?.();
@@ -369,8 +391,8 @@ export class TechniqueGenerationService {
         skills: params.category === 'arts' ? candidate.skills as any : undefined,
       };
 
-      // 落库
-      await insertGeneratedTechnique(pool, {
+      // 模板与 job 草稿指针必须同事务落库，避免崩溃后留下孤儿模板。
+      const persistedDraft = await persistGeneratedTechniqueDraft(pool, {
         id: techniqueId,
         generationId: jobId,
         template,
@@ -386,19 +408,20 @@ export class TechniqueGenerationService {
         grade: params.grade,
         category: params.category,
         realmLv: params.realmLv,
-      });
-
-      await updateGenerationJobToDraft(pool, {
-        id: jobId,
-        draftTechniqueId: techniqueId,
-        modelName: successfulAiResult.modelName,
         attemptCount: successfulAiResult.attemptCount,
         draftExpireHours: TECHNIQUE_GENERATION_DRAFT_EXPIRE_HOURS,
       });
+      if (!persistedDraft.ok) {
+        throw new Error(`technique_generation_draft_state_conflict:${jobId}`);
+      }
 
-      return { success: true, techniqueId };
+      return { success: true, techniqueId: persistedDraft.techniqueId };
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : '功法领悟失败';
+      if (error instanceof TechniqueGenerationCommitOutcomeUnknownError) {
+        this.logger.warn(`自创功法草稿事务结果待确认，保留 running 状态供幂等恢复 jobId=${jobId}`);
+        return { success: false, error: '功法草稿正在确认中，请稍后查看。' };
+      }
       await this.failGenerationAndRefundItem(jobId, 'GENERATION_FAILED', message, params).catch(() => undefined);
       return { success: false, error: message };
     }
@@ -450,6 +473,11 @@ export class TechniqueGenerationService {
     playerId: string;
     jobId: string;
     customName: string;
+    learnerRealmLv: number;
+    currentTick: number;
+    expectedRuntimeOwnerId?: string | null;
+    expectedSessionEpoch?: number | null;
+    applyPendingComprehension?: (techniqueId: string) => Promise<boolean> | boolean;
   }): Promise<AdoptResult> {
     const pool = this.pool;
     if (!pool) {
@@ -469,95 +497,109 @@ export class TechniqueGenerationService {
 
     // 归一化名称（用于唯一检查）
     const normalizedName = name.toLowerCase().replace(/\s+/g, '');
-
-    // 唯一检查
-    const conflictResult = await pool.query(
-      `SELECT id FROM generated_technique WHERE normalized_name = $1 AND is_published = true LIMIT 1`,
-      [normalizedName],
-    );
-    if ((conflictResult.rowCount ?? 0) > 0) {
-      return { success: false, error: '名称已存在，请更换', errorCode: 'NAME_CONFLICT' };
+    const expectedRuntimeOwnerId = normalizeTechniqueGenerationOwnerId(params.expectedRuntimeOwnerId);
+    const expectedSessionEpoch = normalizeTechniqueGenerationSessionEpoch(params.expectedSessionEpoch);
+    if (!expectedRuntimeOwnerId || expectedSessionEpoch === null || typeof params.applyPendingComprehension !== 'function') {
+      return { success: false, error: '玩家功法持久化上下文不可用', errorCode: 'PERSISTENCE_CONTEXT_UNAVAILABLE' };
     }
 
-    // 读取 job
-    const jobResult = await pool.query(
-      `SELECT status, draft_technique_id, draft_expire_at FROM technique_generation_job WHERE id = $1 AND player_id = $2`,
-      [params.jobId, params.playerId],
-    );
-    const job = jobResult.rows[0] as Record<string, unknown> | undefined;
-    if (!job) {
-      return { success: false, error: '任务不存在', errorCode: 'JOB_NOT_FOUND' };
+    let adopted;
+    try {
+      adopted = await adoptDurableTechniqueDraft(pool, {
+        playerId: params.playerId,
+        jobId: params.jobId,
+        displayName: name,
+        normalizedName,
+        learnerRealmLv: params.learnerRealmLv,
+        currentTick: params.currentTick,
+        expectedRuntimeOwnerId,
+        expectedSessionEpoch,
+      });
+    } catch (error: unknown) {
+      if (isPostgresUniqueViolation(error)) {
+        return { success: false, error: '名称已存在，请更换', errorCode: 'NAME_CONFLICT' };
+      }
+      throw error;
     }
-    if (job.status !== 'generated_draft') {
-      return { success: false, error: '草稿状态异常', errorCode: 'JOB_STATE_INVALID' };
-    }
-    const expireAt = job.draft_expire_at ? new Date(String(job.draft_expire_at)) : null;
-    if (expireAt && expireAt.getTime() <= Date.now()) {
-      return { success: false, error: '草稿已过期', errorCode: 'DRAFT_EXPIRED' };
+    if (!adopted.ok || !adopted.techniqueId) {
+      return mapTechniqueGenerationAdoptError(adopted.errorCode);
     }
 
-    const techniqueId = String(job.draft_technique_id);
-
-    // 发布
-    await publishGeneratedTechnique(pool, {
-      id: techniqueId,
-      displayName: name,
-      normalizedName,
-    });
-
-    // 更新 job
-    await updateGenerationJobStatus(pool, params.jobId, 'learned');
-
-    // 刷新缓存
+    // DB 已经同时写入 pending comprehension；缓存刷新后再应用同一状态到在线运行态。
     await this.generatedStore?.refreshAfterPublish();
+    try {
+      const applied = await params.applyPendingComprehension(adopted.techniqueId);
+      if (!applied) {
+        this.logger.warn(
+          `自创功法采纳已提交但运行态已存在冲突 playerId=${params.playerId} jobId=${params.jobId} techniqueId=${adopted.techniqueId}`,
+        );
+      }
+    } catch (error: unknown) {
+      this.logger.error(
+        `自创功法采纳已提交但运行态同步失败 playerId=${params.playerId} jobId=${params.jobId} techniqueId=${adopted.techniqueId}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+    }
 
-    return { success: true, techniqueId, techniqueName: name };
+    return {
+      success: true,
+      techniqueId: adopted.techniqueId,
+      techniqueName: adopted.techniqueName ?? name,
+    };
   }
 
   /** 取消草稿并按悟道玉简投入折算返还功德。 */
   async discardDraft(params: {
     playerId: string;
     jobId: string;
-    refundCurrency?: (itemId: string, count: number) => Promise<boolean>;
+    expectedRuntimeOwnerId?: string | null;
+    expectedSessionEpoch?: number | null;
+    applyInventorySnapshot?: (items: TechniqueGenerationRuntimeInventoryItem[]) => Promise<void> | void;
   }): Promise<DiscardResult> {
     const pool = this.pool;
     if (!pool) {
       return { success: false, error: '功法领悟系统未就绪', errorCode: 'SERVICE_UNAVAILABLE' };
     }
-    const jobResult = await pool.query(
-      `SELECT status, item_spend, item_consumed, item_refunded
-         FROM technique_generation_job
-        WHERE id = $1 AND player_id = $2`,
-      [params.jobId, params.playerId],
-    );
-    const job = jobResult.rows[0] as Record<string, unknown> | undefined;
-    if (!job || job.status !== 'generated_draft') {
-      return { success: false, error: '无可取消的草稿', errorCode: 'JOB_STATE_INVALID' };
+    const expectedRuntimeOwnerId = normalizeTechniqueGenerationOwnerId(params.expectedRuntimeOwnerId);
+    const expectedSessionEpoch = normalizeTechniqueGenerationSessionEpoch(params.expectedSessionEpoch);
+    if (!expectedRuntimeOwnerId || expectedSessionEpoch === null || typeof params.applyInventorySnapshot !== 'function') {
+      return { success: false, error: '玩家资产持久化上下文不可用', errorCode: 'PERSISTENCE_CONTEXT_UNAVAILABLE' };
     }
-    const itemSpend = normalizeRefundItemSpend(job.item_spend);
     const refundRatio = rollDiscardRefundRatio();
-    const refundAmount = Math.max(1, Math.floor(itemSpend * TECHNIQUE_GENERATION_REFUND_BASE_PRICE * refundRatio));
     const refundCurrencyItemId = HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID;
-
-    if (job.item_consumed === true && job.item_refunded !== true) {
-      const refundOk = await params.refundCurrency?.(refundCurrencyItemId, refundAmount);
-      if (!refundOk) {
-        return { success: false, error: '取消返还失败', errorCode: 'REFUND_FAILED' };
-      }
-      await markGenerationJobItemRefunded(pool, params.jobId);
+    const discarded = await discardDurableTechniqueDraft(pool, {
+      playerId: params.playerId,
+      jobId: params.jobId,
+      refundCurrencyItemId,
+      refundRatio,
+      refundBasePrice: TECHNIQUE_GENERATION_REFUND_BASE_PRICE,
+      expectedRuntimeOwnerId,
+      expectedSessionEpoch,
+    });
+    if (!discarded.ok) {
+      return { success: false, error: '无可取消的草稿', errorCode: discarded.errorCode ?? 'JOB_STATE_INVALID' };
     }
-
-    await updateGenerationJobStatus(pool, params.jobId, 'discarded');
+    try {
+      await params.applyInventorySnapshot(discarded.inventoryItems);
+    } catch (error: unknown) {
+      this.logger.error(
+        `自创功法放弃返还已提交但运行态同步失败 playerId=${params.playerId} jobId=${params.jobId}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+    }
+    const itemSpend = normalizeRefundItemSpend(discarded.itemSpend);
+    const committedRefundRatio = Number(discarded.refundRatio ?? refundRatio);
+    const committedRefundAmount = normalizeRefundItemSpend(discarded.refundAmount);
     this.logger.log(
-      `自创功法取消返还 playerId=${params.playerId} jobId=${params.jobId} itemSpend=${itemSpend} refundRatio=${Math.round(refundRatio * 100)}% refundCurrency=${refundCurrencyItemId} refundAmount=${refundAmount}`,
+      `自创功法取消返还 playerId=${params.playerId} jobId=${params.jobId} itemSpend=${itemSpend} refundRatio=${Math.round(committedRefundRatio * 100)}% refundCurrency=${discarded.refundCurrencyItemId ?? refundCurrencyItemId} refundAmount=${committedRefundAmount}`,
     );
     return {
       success: true,
       refund: {
         itemSpend,
-        refundRatio,
-        refundAmount,
-        refundCurrencyItemId,
+        refundRatio: committedRefundRatio,
+        refundAmount: committedRefundAmount,
+        refundCurrencyItemId: discarded.refundCurrencyItemId ?? refundCurrencyItemId,
       },
     };
   }
@@ -598,39 +640,42 @@ export class TechniqueGenerationService {
 
   async refundFailedConsumedJobsForPlayer(params: {
     playerId: string;
-    refundItem: (count: number) => Promise<boolean>;
+    expectedRuntimeOwnerId?: string | null;
+    expectedSessionEpoch?: number | null;
+    applyInventorySnapshot?: (items: TechniqueGenerationRuntimeInventoryItem[]) => Promise<void> | void;
     limit?: number;
   }): Promise<number> {
     const pool = this.pool;
     if (!pool) {
       return 0;
     }
-    const jobs = await loadRefundableFailedGenerationJobsForPlayer(pool, params.playerId, params.limit ?? 20);
-    let refunded = 0;
-    for (const job of jobs) {
-      if (this.refundingJobIds.has(job.id)) {
-        continue;
-      }
-      this.refundingJobIds.add(job.id);
-      try {
-        const refundOk = await params.refundItem(job.itemSpend);
-        if (!refundOk) {
-          continue;
-        }
-        const marked = await markGenerationJobItemRefunded(pool, job.id);
-        if (marked) {
-          refunded += job.itemSpend;
-        }
-      } finally {
-        this.refundingJobIds.delete(job.id);
-      }
+    const expectedRuntimeOwnerId = normalizeTechniqueGenerationOwnerId(params.expectedRuntimeOwnerId);
+    const expectedSessionEpoch = normalizeTechniqueGenerationSessionEpoch(params.expectedSessionEpoch);
+    if (!expectedRuntimeOwnerId || expectedSessionEpoch === null || typeof params.applyInventorySnapshot !== 'function') {
+      return 0;
     }
-    return refunded;
+    const result = await refundDurableFailedTechniqueGenerationJobs(pool, {
+      playerId: params.playerId,
+      expectedRuntimeOwnerId,
+      expectedSessionEpoch,
+      limit: params.limit,
+    });
+    try {
+      await params.applyInventorySnapshot(result.inventoryItems);
+    } catch (error: unknown) {
+      this.logger.error(
+        `自创功法失败返还状态已回读但运行态同步失败 playerId=${params.playerId}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+    }
+    return result.refundedItems;
   }
 
   async refundNoModelFailedConsumedJobsForPlayer(params: {
     playerId: string;
-    refundItem: (count: number) => Promise<boolean>;
+    expectedRuntimeOwnerId?: string | null;
+    expectedSessionEpoch?: number | null;
+    applyInventorySnapshot?: (items: TechniqueGenerationRuntimeInventoryItem[]) => Promise<void> | void;
     limit?: number;
   }): Promise<number> {
     return this.refundFailedConsumedJobsForPlayer(params);
@@ -640,29 +685,24 @@ export class TechniqueGenerationService {
     jobId: string,
     errorCode: string,
     errorMessage: string,
-    params: { itemSpend?: number; refundItem?: (count: number) => Promise<boolean> },
+    params: { settleFailedRefund?: () => Promise<boolean> },
   ): Promise<void> {
     const pool = this.pool;
     if (!pool) {
       return;
     }
-    await updateGenerationJobStatus(pool, jobId, 'failed', errorCode, errorMessage);
-    if (typeof params.refundItem !== 'function') {
+    const markedFailed = await updateGenerationJobStatus(pool, jobId, 'failed', errorCode, errorMessage);
+    if (!markedFailed) {
       return;
     }
-    if (this.refundingJobIds.has(jobId)) {
-      return;
-    }
-    this.refundingJobIds.add(jobId);
-    try {
-      const itemSpend = normalizeRefundItemSpend(params.itemSpend);
-      const refundOk = await params.refundItem(itemSpend);
-      if (!refundOk) {
-        return;
+    if (typeof params.settleFailedRefund === 'function') {
+      try {
+        await params.settleFailedRefund();
+      } catch (error: unknown) {
+        this.logger.warn(
+          `自创功法失败返还暂未完成，保留 item_refunded=false 供幂等重试 jobId=${jobId} error=${error instanceof Error ? error.message : String(error)}`,
+        );
       }
-      await markGenerationJobItemRefunded(pool, jobId);
-    } finally {
-      this.refundingJobIds.delete(jobId);
     }
   }
 
@@ -828,6 +868,42 @@ function normalizeRefundItemSpend(value: unknown): number {
     return 1;
   }
   return Math.max(1, Math.trunc(numeric));
+}
+
+function normalizeTechniqueGenerationOwnerId(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+function normalizeTechniqueGenerationSessionEpoch(value: unknown): number | null {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric < 1) {
+    return null;
+  }
+  return Math.trunc(numeric);
+}
+
+function mapTechniqueGenerationAdoptError(errorCode: string | undefined): AdoptResult {
+  switch (errorCode) {
+    case 'JOB_NOT_FOUND':
+      return { success: false, error: '任务不存在', errorCode };
+    case 'DRAFT_EXPIRED':
+      return { success: false, error: '草稿已过期', errorCode };
+    case 'NAME_CONFLICT':
+      return { success: false, error: '名称已存在，请更换', errorCode };
+    case 'TECHNIQUE_ALREADY_LEARNED':
+      return { success: false, error: '功法已经掌握', errorCode };
+    default:
+      return { success: false, error: '草稿状态异常', errorCode: errorCode ?? 'JOB_STATE_INVALID' };
+  }
+}
+
+function isPostgresUniqueViolation(error: unknown): boolean {
+  return Boolean(
+    error
+    && typeof error === 'object'
+    && 'code' in error
+    && String((error as { code?: unknown }).code ?? '') === '23505'
+  );
 }
 
 export function normalizeGeneratedTechniqueCandidateForServer(
