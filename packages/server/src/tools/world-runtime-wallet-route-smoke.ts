@@ -22,8 +22,16 @@ async function main(): Promise<void> {
         },
       ],
     },
+    inventory: {
+      items: [] as Array<Record<string, unknown>>,
+      capacity: 16,
+      revision: 0,
+    },
   };
   const durableCalls: Array<Record<string, unknown>> = [];
+  const inventoryGrantCalls: Array<Record<string, unknown>> = [];
+  const assetMutationCalls: Array<readonly string[]> = [];
+  let assetMutationDepth = 0;
   const controller = new WorldRuntimeController(
     {
       worldRuntimePlayerLocationService: {
@@ -49,6 +57,22 @@ async function main(): Promise<void> {
     {} as never,
     {} as never,
     {
+      contentTemplateRepository: {
+        createItem(itemId: string, count: number) {
+          return itemId === 'rat_tail'
+            ? { itemId, count, name: '鼠尾', type: 'material' }
+            : null;
+        },
+      },
+      async runExclusiveAssetMutation<T>(playerIds: readonly string[], action: () => Promise<T> | T): Promise<T> {
+        assetMutationCalls.push([...playerIds]);
+        assetMutationDepth += 1;
+        try {
+          return await action();
+        } finally {
+          assetMutationDepth -= 1;
+        }
+      },
       getPlayerOrThrow(requestedPlayerId: string) {
         if (requestedPlayerId !== playerId) {
           throw new Error(`unexpected player ${requestedPlayerId}`);
@@ -56,6 +80,7 @@ async function main(): Promise<void> {
         return runtimePlayer;
       },
       creditWallet(requestedPlayerId: string, walletType: string, amount = 1) {
+        assert.equal(assetMutationDepth, 1, '钱包运行态应用必须位于资产串行区');
         if (requestedPlayerId !== playerId || walletType !== 'spirit_stone') {
           throw new Error(`unexpected creditWallet args: ${JSON.stringify({ requestedPlayerId, walletType, amount })}`);
         }
@@ -63,18 +88,36 @@ async function main(): Promise<void> {
         return runtimePlayer;
       },
       debitWallet(requestedPlayerId: string, walletType: string, amount = 1) {
+        assert.equal(assetMutationDepth, 1, '钱包运行态应用必须位于资产串行区');
         if (requestedPlayerId !== playerId || walletType !== 'spirit_stone') {
           throw new Error(`unexpected debitWallet args: ${JSON.stringify({ requestedPlayerId, walletType, amount })}`);
         }
         runtimePlayer.wallet.balances[0].balance -= amount;
         return runtimePlayer;
       },
+      replaceInventoryItems(requestedPlayerId: string, items: Array<Record<string, unknown>>) {
+        assert.equal(requestedPlayerId, playerId);
+        assert.equal(assetMutationDepth, 1, '背包运行态应用必须位于资产串行区');
+        assert.equal(inventoryGrantCalls.length, 1, '必须先完成 durable 提交再应用运行态');
+        runtimePlayer.inventory.items = items.map((entry) => ({ ...entry }));
+        runtimePlayer.inventory.revision += 1;
+        return runtimePlayer;
+      },
     } as never,
     {} as never,
     {} as never,
     {
+      isEnabled() {
+        return true;
+      },
       mutatePlayerWallet(input: Record<string, unknown>) {
+        assert.equal(assetMutationDepth, 1, 'durable 钱包提交必须位于资产串行区');
         durableCalls.push(input);
+      },
+      grantInventoryItems(input: Record<string, unknown>) {
+        assert.equal(assetMutationDepth, 1, 'durable 背包提交必须位于资产串行区');
+        assert.equal(runtimePlayer.inventory.items.length, 0, 'durable 提交前不得暴露 next runtime snapshot');
+        inventoryGrantCalls.push(input);
       },
     } as never,
     { getMetrics: () => ({}) } as never,
@@ -102,14 +145,25 @@ async function main(): Promise<void> {
   assert.equal(durableCalls[1]?.expectedOwnershipEpoch, 9);
   assert.equal(durableCalls[1]?.nextWalletBalances && Array.isArray(durableCalls[1]?.nextWalletBalances), true);
 
+  const grantResult = await controller.grantItem(playerId, { itemId: 'rat_tail', count: 2 });
+  assert.equal(grantResult.player.inventory.items.length, 1);
+  assert.equal(grantResult.player.inventory.items[0]?.itemId, 'rat_tail');
+  assert.equal(grantResult.player.inventory.items[0]?.count, 2);
+  assert.equal(inventoryGrantCalls.length, 1);
+  assert.equal(inventoryGrantCalls[0]?.sourceType, 'gm_grant');
+  assert.equal(inventoryGrantCalls[0]?.expectedAssignedNodeId, 'node:wallet-route');
+  assert.equal(inventoryGrantCalls[0]?.expectedOwnershipEpoch, 9);
+  assert.deepEqual(assetMutationCalls, [[playerId], [playerId], [playerId]]);
+
   console.log(
     JSON.stringify(
       {
         ok: true,
         durableCallCount: durableCalls.length,
+        inventoryGrantCallCount: inventoryGrantCalls.length,
         creditBalance: creditResult.player.wallet.balances[0].balance,
         debitBalance: debitResult.player.wallet.balances[0].balance,
-        answers: 'WorldRuntimeController 的 wallet HTTP 路由已接入 DurableOperationService，并会带上 runtimeOwnerId/sessionEpoch/instanceId/assignedNodeId/ownershipEpoch 进行 durable 记账后再同步回写运行态钱包',
+        answers: 'WorldRuntimeController 的 wallet HTTP 路由已接入 DurableOperationService，并在同一玩家资产串行区内带上 runtimeOwnerId/sessionEpoch/instanceId/assignedNodeId/ownershipEpoch 完成 durable 记账后再回写运行态钱包',
         excludes: '不证明真实 HTTP server、数据库提交或 outbox worker 集群',
         completionMapping: 'release:proof:wallet-route',
       },

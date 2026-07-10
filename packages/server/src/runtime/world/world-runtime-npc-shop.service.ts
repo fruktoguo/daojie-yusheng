@@ -91,6 +91,13 @@ export class WorldRuntimeNpcShopService {
  */
 
     async dispatchBuyNpcShopItem(playerId, npcId, itemId, quantity, deps) {
+        return this.runExclusivePlayerAssetMutation(
+            playerId,
+            () => this.dispatchBuyNpcShopItemLocked(playerId, npcId, itemId, quantity, deps),
+        );
+    }
+
+    async dispatchBuyNpcShopItemLocked(playerId, npcId, itemId, quantity, deps) {
         const validated = deps.validateNpcShopPurchase(playerId, npcId, itemId, quantity);
         const durableOperationService = this.durableOperationService ?? deps?.durableOperationService ?? null;
         const durableEnabled = durableOperationService?.isEnabled?.() === true;
@@ -150,6 +157,15 @@ export class WorldRuntimeNpcShopService {
         const n = buildStructuredNotice('success', 'notice.shop.purchased', `购买 ${formatItemStackLabel(validated.item)}，消耗 ${this.worldRuntimeNpcShopQueryService.getCurrencyItemName()} x${validated.totalCost}`, { vars: { itemLabel: formatItemStackLabel(validated.item), currency: this.worldRuntimeNpcShopQueryService.getCurrencyItemName(), cost: validated.totalCost }, pills: [{ key: 'itemLabel', style: 'target' }, { key: 'currency', style: 'target' }] });
         deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);
         return deps.getPlayerViewOrThrow(playerId);
+    }
+
+    /** NPC 商店结算从校验到运行态应用始终占用同一玩家资产串行区。 */
+    async runExclusivePlayerAssetMutation(playerId, action) {
+        const coordinator = this.playerRuntimeService?.runExclusiveAssetMutation;
+        if (typeof coordinator !== 'function') {
+            return await action();
+        }
+        return coordinator.call(this.playerRuntimeService, [playerId], action);
     }
 
     async syncCurrentPresenceFence(playerId) {

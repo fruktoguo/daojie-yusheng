@@ -59,6 +59,8 @@ function buildHarness(code: string, options: { persistentClaim?: boolean; persis
   const claimCalls: Array<Record<string, unknown>> = [];
   const finalizeCalls: Array<Record<string, unknown>> = [];
   const savedPresences: Array<Record<string, unknown>> = [];
+  const assetMutationCalls: Array<readonly string[]> = [];
+  let assetMutationDepth = 0;
   const persistedPresence = options.persistedPresenceAhead === true
     ? {
         playerId,
@@ -143,12 +145,22 @@ function buildHarness(code: string, options: { persistentClaim?: boolean; persis
       },
     } as never,
     {
+      async runExclusiveAssetMutation<T>(playerIds: readonly string[], action: () => Promise<T> | T): Promise<T> {
+        assetMutationCalls.push([...playerIds]);
+        assetMutationDepth += 1;
+        try {
+          return await action();
+        } finally {
+          assetMutationDepth -= 1;
+        }
+      },
       getPlayerOrThrow(requestedPlayerId: string) {
         assert.equal(requestedPlayerId, playerId);
         return player;
       },
       creditWallet(requestedPlayerId: string, walletType: string, amount: number) {
         assert.equal(requestedPlayerId, playerId);
+        assert.equal(assetMutationDepth, 1, '运行态钱包应用必须位于资产串行区');
         walletCredits.push({ walletType, amount });
         const existing = player.wallet.balances.find((entry) => entry.walletType === walletType);
         if (existing) {
@@ -164,6 +176,7 @@ function buildHarness(code: string, options: { persistentClaim?: boolean; persis
       },
       replaceInventoryItems(requestedPlayerId: string, items: Array<Record<string, unknown>>) {
         assert.equal(requestedPlayerId, playerId);
+        assert.equal(assetMutationDepth, 1, '运行态背包应用必须位于资产串行区');
         const cloned = items.map((entry) => ({ ...entry }));
         replacedInventories.push(cloned);
         player.inventory.items = cloned;
@@ -215,10 +228,12 @@ function buildHarness(code: string, options: { persistentClaim?: boolean; persis
         return true;
       },
       async grantInventoryItems(input: Record<string, unknown>) {
+        assert.equal(assetMutationDepth, 1, 'durable 背包提交必须位于资产串行区');
         durableCalls.push(input);
         return deferred.promise;
       },
       async mutatePlayerWallet(input: Record<string, unknown>) {
+        assert.equal(assetMutationDepth, 1, 'durable 钱包提交必须位于资产串行区');
         walletMutations.push(input);
         return { ok: true, alreadyCommitted: false };
       },
@@ -289,6 +304,7 @@ function buildHarness(code: string, options: { persistentClaim?: boolean; persis
     claimCalls,
     finalizeCalls,
     savedPresences,
+    assetMutationCalls,
     deferred,
   };
 }
@@ -299,6 +315,7 @@ async function main(): Promise<void> {
   await nextTick();
 
   assert.equal(success.durableCalls.length, 1);
+  assert.deepEqual(success.assetMutationCalls, [[success.player.playerId]]);
   assert.equal(success.durableCalls[0]?.playerId, success.player.playerId);
   assert.equal(success.durableCalls[0]?.expectedRuntimeOwnerId, success.player.runtimeOwnerId);
   assert.equal(success.durableCalls[0]?.expectedSessionEpoch, success.player.sessionEpoch);

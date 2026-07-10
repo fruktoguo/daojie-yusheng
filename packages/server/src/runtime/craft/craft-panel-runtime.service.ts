@@ -265,6 +265,12 @@ export class CraftPanelRuntimeService {
     }
     /** 线上强化启动入口：运行态变更成功后必须同步提交强事务，失败则回滚本次运行态变更。 */
     async startEnhancementDurably(player, payload, deps = null) {
+        return this.runExclusivePlayerAssetMutation(
+            player,
+            () => this.startEnhancementDurablyLocked(player, payload, deps),
+        );
+    }
+    async startEnhancementDurablyLocked(player, payload, deps = null) {
         if (player?.enhancementDurableCommitInFlight === true || player?.suppressImmediateDomainPersistence === true) {
             return buildCraftMutationResult('强化状态正在同步，请稍后重试。');
         }
@@ -317,6 +323,12 @@ export class CraftPanelRuntimeService {
     }
     /** 线上强化取消入口：释放锁定装备和清理 active_job 必须同批强事务提交。 */
     async cancelEnhancementDurably(player, deps = null) {
+        return this.runExclusivePlayerAssetMutation(
+            player,
+            () => this.cancelEnhancementDurablyLocked(player, deps),
+        );
+    }
+    async cancelEnhancementDurablyLocked(player, deps = null) {
         if (player?.enhancementDurableCommitInFlight === true || player?.suppressImmediateDomainPersistence === true) {
             return buildCraftMutationResult('强化状态正在同步，请稍后重试。');
         }
@@ -375,6 +387,12 @@ export class CraftPanelRuntimeService {
     }
     /** 线上强化 tick 入口：清理 job 或回写资产时同步提交强事务。 */
     async tickEnhancementDurably(player, deps = null) {
+        return this.runExclusivePlayerAssetMutation(
+            player,
+            () => this.tickEnhancementDurablyLocked(player, deps),
+        );
+    }
+    async tickEnhancementDurablyLocked(player, deps = null) {
         if (player?.enhancementDurableCommitInFlight === true || player?.suppressImmediateDomainPersistence === true) {
             return buildCraftTickResult();
         }
@@ -507,6 +525,15 @@ export class CraftPanelRuntimeService {
             && typeof this.durableOperationService.isEnabled === 'function'
             && this.durableOperationService.isEnabled(),
         );
+    }
+    /** 强化资产边界从运行态计算到 durable 提交结束均占用玩家资产串行区。 */
+    async runExclusivePlayerAssetMutation(player, action) {
+        const playerId = typeof player?.playerId === 'string' ? player.playerId.trim() : '';
+        const coordinator = this.playerRuntimeService?.runExclusiveAssetMutation;
+        if (!playerId || typeof coordinator !== 'function') {
+            return await action();
+        }
+        return coordinator.call(this.playerRuntimeService, [playerId], action);
     }
     async resolveDurablePresenceFence(playerId) {
         const presence = this.playerRuntimeService.describePersistencePresence?.(playerId) ?? null;

@@ -292,7 +292,7 @@ export class RedeemCodeRuntimeService {
             throw new BadRequestException('操作过于频繁，请稍后再试');
         }
         this._redeemRateMap.set(playerId, now);
-        return this.runExclusive(async () => {
+        return this.runExclusivePlayerAssetMutation(playerId, () => this.runExclusive(async () => {
 
             const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
 
@@ -435,7 +435,7 @@ export class RedeemCodeRuntimeService {
                 await this.persist();
             }
             return { results };
-        });
+        }));
     }    
     /**
  * requireGroup：执行requireGroup相关逻辑。
@@ -596,40 +596,42 @@ export class RedeemCodeRuntimeService {
         await this.syncCurrentPresenceFence(player.playerId);
         const nextInventoryItems = buildNextInventorySnapshots(player.inventory?.items ?? [], normalizedItems);
         let finalError = null;
-        for (let attempt = 0; attempt < 2; attempt += 1) {
-            const durableContext = await this.resolveDurableInventoryGrantContext(player);
-            if (!durableContext) {
-                throw new ServiceUnavailableException('redeem_code_inventory_durable_context_required');
-            }
-            const rollbackState = captureInventoryGrantRollbackState(player);
-            player.suppressImmediateDomainPersistence = true;
-            try {
-                await this.durableOperationService.grantInventoryItems({
-                    operationId: `op:${player.playerId}:redeem-code:${submittedCode}`,
-                    playerId: player.playerId,
-                    expectedRuntimeOwnerId: durableContext.runtimeOwnerId,
-                    expectedSessionEpoch: durableContext.sessionEpoch,
-                    expectedInstanceId: durableContext.expectedInstanceId,
-                    expectedAssignedNodeId: durableContext.expectedAssignedNodeId,
-                    expectedOwnershipEpoch: durableContext.expectedOwnershipEpoch,
-                    sourceType: 'redeem_code',
-                    sourceRefId: submittedCode,
-                    grantedItems: buildGrantedInventorySnapshots(normalizedItems),
-                    nextInventoryItems,
-                });
-                finalError = null;
-                player.suppressImmediateDomainPersistence = rollbackState.suppressImmediateDomainPersistence === true;
-                break;
-            }
-            catch (error) {
-                finalError = error;
-                restoreInventoryGrantRollbackState(player, rollbackState, this.playerRuntimeService);
-                player.suppressImmediateDomainPersistence = rollbackState.suppressImmediateDomainPersistence === true;
-                if (attempt === 0 && shouldRetryRedeemSessionFence(error) && await this.syncCurrentPresenceFence(player.playerId)) {
-                    continue;
+        const previousSuppress = player.suppressImmediateDomainPersistence === true;
+        player.suppressImmediateDomainPersistence = true;
+        try {
+            for (let attempt = 0; attempt < 2; attempt += 1) {
+                const durableContext = await this.resolveDurableInventoryGrantContext(player);
+                if (!durableContext) {
+                    throw new ServiceUnavailableException('redeem_code_inventory_durable_context_required');
                 }
-                break;
+                try {
+                    await this.durableOperationService.grantInventoryItems({
+                        operationId: `op:${player.playerId}:redeem-code:${submittedCode}`,
+                        playerId: player.playerId,
+                        expectedRuntimeOwnerId: durableContext.runtimeOwnerId,
+                        expectedSessionEpoch: durableContext.sessionEpoch,
+                        expectedInstanceId: durableContext.expectedInstanceId,
+                        expectedAssignedNodeId: durableContext.expectedAssignedNodeId,
+                        expectedOwnershipEpoch: durableContext.expectedOwnershipEpoch,
+                        sourceType: 'redeem_code',
+                        sourceRefId: submittedCode,
+                        grantedItems: buildGrantedInventorySnapshots(normalizedItems),
+                        nextInventoryItems,
+                    });
+                    finalError = null;
+                    break;
+                }
+                catch (error) {
+                    finalError = error;
+                    if (attempt === 0 && shouldRetryRedeemSessionFence(error) && await this.syncCurrentPresenceFence(player.playerId)) {
+                        continue;
+                    }
+                    break;
+                }
             }
+        }
+        finally {
+            player.suppressImmediateDomainPersistence = previousSuppress;
         }
         if (finalError) {
             throw finalError;
@@ -840,6 +842,14 @@ export class RedeemCodeRuntimeService {
         finally {
             release();
         }
+    }
+    /** 兑换的奖励规划、强事务提交和运行态应用必须串行，避免旧快照互相覆盖。 */
+    async runExclusivePlayerAssetMutation(playerId, action) {
+        const coordinator = this.playerRuntimeService?.runExclusiveAssetMutation;
+        if (typeof coordinator !== 'function') {
+            return await action();
+        }
+        return coordinator.call(this.playerRuntimeService, [playerId], action);
     }
     /** GM 分组/码表变更必须先成功落库；失败时撤回本次内存态，避免重启后“成功但丢失”。 */
     async runExclusiveWithRedeemCatalogRollback(action) {
@@ -1068,27 +1078,6 @@ function buildGrantedInventorySnapshots(items) {
             rawPayload: item ? { ...item } : {},
         })).filter((entry) => entry.itemId)
         : [];
-}
-function captureInventoryGrantRollbackState(player) {
-    return {
-        suppressImmediateDomainPersistence: player?.suppressImmediateDomainPersistence === true,
-        inventoryItems: buildNextInventorySnapshots(player?.inventory?.items ?? [], []),
-        inventoryRevision: Math.max(0, Math.trunc(Number(player?.inventory?.revision ?? 0))),
-        persistentRevision: Math.max(0, Math.trunc(Number(player?.persistentRevision ?? 0))),
-        selfRevision: Math.max(0, Math.trunc(Number(player?.selfRevision ?? 0))),
-        dirtyDomains: player?.dirtyDomains instanceof Set ? Array.from(player.dirtyDomains) : [],
-    };
-}
-function restoreInventoryGrantRollbackState(player, rollbackState, playerRuntimeService) {
-    player.inventory.items = Array.isArray(rollbackState.inventoryItems)
-        ? rollbackState.inventoryItems.map((entry) => ({ ...(entry.rawPayload ?? entry), itemId: entry.itemId, count: entry.count }))
-        : [];
-    player.inventory.revision = rollbackState.inventoryRevision;
-    player.persistentRevision = rollbackState.persistentRevision;
-    player.selfRevision = rollbackState.selfRevision;
-    player.suppressImmediateDomainPersistence = rollbackState.suppressImmediateDomainPersistence === true;
-    player.dirtyDomains = new Set(Array.isArray(rollbackState.dirtyDomains) ? rollbackState.dirtyDomains : []);
-    playerRuntimeService.playerProgressionService.refreshPreview(player);
 }
 async function resolveInstanceLeaseContext(instanceId, instanceCatalogService) {
     const normalizedInstanceId = typeof instanceId === 'string' ? instanceId.trim() : '';

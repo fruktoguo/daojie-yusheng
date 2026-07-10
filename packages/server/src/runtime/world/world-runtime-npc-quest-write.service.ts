@@ -154,6 +154,13 @@ export class WorldRuntimeNpcQuestWriteService {
     async dispatchSubmitNpcQuest(playerId, npcId, questId, deps) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+        return this.runExclusivePlayerAssetMutation(
+            playerId,
+            () => this.dispatchSubmitNpcQuestLocked(playerId, npcId, questId, deps),
+        );
+    }
+
+    async dispatchSubmitNpcQuestLocked(playerId, npcId, questId, deps) {
         const npc = deps.resolveAdjacentNpc(playerId, npcId);
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
         deps.refreshQuestStates(playerId);
@@ -401,6 +408,15 @@ export class WorldRuntimeNpcQuestWriteService {
         }
         const nDialogue = buildStructuredNotice('info', 'notice.quest.npc-dialogue', `${npc.name}：${npc.dialogue}`, { vars: { npcName: npc.name, dialogue: npc.dialogue }, pills: [{ key: 'npcName', style: 'target' }] });
         deps.queuePlayerNotice(playerId, nDialogue.text, nDialogue.kind, undefined, undefined, nDialogue.structured);
+    }
+
+    /** NPC 任务提交的扣料、发奖和任务态提交共用同一玩家资产串行区。 */
+    async runExclusivePlayerAssetMutation(playerId, action) {
+        const coordinator = this.playerRuntimeService?.runExclusiveAssetMutation;
+        if (typeof coordinator !== 'function') {
+            return await action();
+        }
+        return coordinator.call(this.playerRuntimeService, [playerId], action);
     }
 
     async syncCurrentPresenceFence(playerId) {

@@ -85,12 +85,39 @@ export function restoreInventoryGrantRollbackState(player, rollbackState, player
     playerRuntimeService.playerProgressionService.refreshPreview(player);
 }
 
-/** 执行持久化背包授予：乐观变更 → 持久化提交 → 失败回滚 */
+/**
+ * 执行持久化背包授予：串行规划 next snapshot → durable 提交 → 应用运行态。
+ * buildNextInventoryItems 只能修改传入的背包副本，不得提前改写玩家运行态。
+ */
 export async function applyDurableInventoryGrant(input) {
-    const rollbackState = captureInventoryGrantRollbackState(input.player);
+    const playerId = typeof input?.playerId === 'string' ? input.playerId.trim() : '';
+    const coordinator = input?.playerRuntimeService?.runExclusiveAssetMutation;
+    if (playerId && typeof coordinator === 'function') {
+        return coordinator.call(
+            input.playerRuntimeService,
+            [playerId],
+            () => applyDurableInventoryGrantLocked(input),
+        );
+    }
+    return applyDurableInventoryGrantLocked(input);
+}
+
+async function applyDurableInventoryGrantLocked(input) {
+    let durableCommitted = false;
+    const previousSuppress = input.player?.suppressImmediateDomainPersistence === true;
     input.player.suppressImmediateDomainPersistence = true;
     try {
-        await input.mutateRuntime();
+        const currentRuntimeItems = Array.isArray(input.player?.inventory?.items)
+            ? input.player.inventory.items.map((entry) => ({ ...entry }))
+            : [];
+        const plannedRuntimeItems = typeof input.buildNextInventoryItems === 'function'
+            ? await input.buildNextInventoryItems(currentRuntimeItems)
+            : input.nextInventoryItems;
+        if (!Array.isArray(plannedRuntimeItems)) {
+            throw new Error('inventory_grant_next_snapshot_required');
+        }
+        const nextRuntimeItems = plannedRuntimeItems.map((entry) => ({ ...entry }));
+        const nextInventoryItems = buildNextInventorySnapshots(nextRuntimeItems);
         const leaseContext = await resolveInventoryGrantLeaseContext(input.player.instanceId, input.instanceCatalogService);
         if (typeof input.player?.instanceId === 'string' && input.player.instanceId.trim() && !leaseContext) {
             throw new Error(`inventory_grant_lease_context_required:${input.player.instanceId}`);
@@ -106,21 +133,22 @@ export async function applyDurableInventoryGrant(input) {
             sourceType: input.sourceType,
             sourceRefId: input.sourceRefId ?? null,
             grantedItems: buildGrantedInventorySnapshots(input.grantedItems),
-            nextInventoryItems: buildNextInventorySnapshots(input.player.inventory?.items ?? []),
+            nextInventoryItems,
         });
+        durableCommitted = true;
+        input.playerRuntimeService.replaceInventoryItems(input.playerId, nextRuntimeItems);
     }
     catch (error) {
-        restoreInventoryGrantRollbackState(input.player, rollbackState, input.playerRuntimeService);
-        if (typeof input.onFailure === 'function') {
+        if (!durableCommitted && typeof input.onFailure === 'function') {
             await input.onFailure(error);
         }
-        if (input.swallowFailure === true) {
+        if (!durableCommitted && input.swallowFailure === true) {
             return false;
         }
         throw error;
     }
     finally {
-        input.player.suppressImmediateDomainPersistence = rollbackState.suppressImmediateDomainPersistence === true;
+        input.player.suppressImmediateDomainPersistence = previousSuppress;
     }
     if (typeof input.afterCommit === 'function') {
         await input.afterCommit();
