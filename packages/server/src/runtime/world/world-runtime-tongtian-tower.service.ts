@@ -466,6 +466,16 @@ export class WorldRuntimeTongtianTowerService {
   private ensureLayerState(instance: any, layer: number, worldTick: number): TongtianTowerLayerState {
     const existing = instance.tongtianTowerState as TongtianTowerLayerState | undefined;
     if (existing) {
+      const normalizedWorldTick = Math.max(0, Math.trunc(Number(worldTick) || 0));
+      const persistedAnchor = Math.max(
+        Math.max(0, Math.trunc(Number(existing.lastActiveTick) || 0)),
+        existing.lastEmptyTick === null ? 0 : Math.max(0, Math.trunc(Number(existing.lastEmptyTick) || 0)),
+      );
+      if (normalizedWorldTick < persistedAnchor) {
+        // world tick 是进程内时钟；重启后从 0 重计，不能沿用上一进程的空闲锚点。
+        existing.lastActiveTick = normalizedWorldTick;
+        existing.lastEmptyTick = null;
+      }
       return existing;
     }
     const state: TongtianTowerLayerState = {

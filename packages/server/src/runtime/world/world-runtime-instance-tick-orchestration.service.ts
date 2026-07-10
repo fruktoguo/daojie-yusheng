@@ -23,6 +23,8 @@ export class WorldRuntimeInstanceTickOrchestrationService {
   private readonly logger = new Logger(WorldRuntimeInstanceTickOrchestrationService.name);
   /** T-17: 增量死亡玩家集合，避免每帧全量扫描。 */
   private readonly defeatedPlayerIds = new Set<string>();
+  /** 以运行时实例为键保存 1Hz 世界时钟余数，避免状态泄漏到总 facade。 */
+  private readonly worldTickElapsedRemainderMsByRuntime = new WeakMap<object, number>();
 
   constructor(
     @Optional() @Inject(InstanceWorkerPoolService)
@@ -85,6 +87,18 @@ export class WorldRuntimeInstanceTickOrchestrationService {
       this.recordIsolatedOperationFailure(deps, phase, error, resolvedDetails);
       return false;
     }
+  }
+
+  private advanceWorldClock(deps: object & { tick: number }, frameDurationMs: number): number {
+    const elapsedMs = Math.max(0, Number(frameDurationMs) || 0);
+    const previousRemainderMs = this.worldTickElapsedRemainderMsByRuntime.get(deps) ?? 0;
+    const accumulatedMs = previousRemainderMs + elapsedMs;
+    const elapsedWorldTicks = Math.floor(accumulatedMs / 1000);
+    this.worldTickElapsedRemainderMsByRuntime.set(deps, accumulatedMs - elapsedWorldTicks * 1000);
+    if (elapsedWorldTicks > 0) {
+      deps.tick = Math.max(0, Math.trunc(Number(deps.tick) || 0)) + elapsedWorldTicks;
+    }
+    return elapsedWorldTicks;
   }
 
   /**
@@ -248,6 +262,9 @@ export class WorldRuntimeInstanceTickOrchestrationService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const startedAt = performance.now();
+        // 世界时钟只由真实经过时间推进，与本帧实例数和实例逻辑 step 数无关。
+        // 加速实例会让调度帧频高于 1Hz，因此必须保留毫秒余数，不能简单每帧 +1。
+        this.advanceWorldClock(deps, frameDurationMs);
         const sectionDurations = createTickSectionDurations();
         const resetFrameEffectsStartedAt = performance.now();
         this.runIsolatedSyncOperation(deps, 'reset_frame_effects', { worldTick: deps.tick }, () => deps.worldRuntimeCombatEffectsService.resetFrameEffects());
@@ -399,7 +416,6 @@ export class WorldRuntimeInstanceTickOrchestrationService {
                     blockedPlayerIds = deps.worldRuntimeNavigationService.getBlockedPlayerIds();
                 });
                 addMeasuredTickSection(sectionDurations, 'instance.blockedPlayerLookupMs', blockedPlayerLookupStartedAt);
-                deps.tick += 1;
                 totalLogicalTicks += 1;
                 if (typeof deps.isInstanceLeaseWritable === 'function' && !deps.isInstanceLeaseWritable(instance)) {
                     if (typeof deps.fenceInstanceRuntime === 'function') {
@@ -467,7 +483,7 @@ export class WorldRuntimeInstanceTickOrchestrationService {
                         instanceId: instance.meta.instanceId,
                         instanceTick: instance.tick,
                         worldTick: deps.tick,
-                    }, () => deps.worldRuntimeFormationService.advanceInstanceFormations(instance, deps.tick, deps));
+                    }, () => deps.worldRuntimeFormationService.advanceInstanceFormations(instance, instance.tick, deps));
                     addMeasuredTickSection(sectionDurations, 'instance.formationAdvanceMs', formationAdvanceStartedAt);
                 }
                 if (typeof instance.advanceTemporaryTiles === 'function') {
