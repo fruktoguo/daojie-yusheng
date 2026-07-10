@@ -3,7 +3,7 @@
  *
  * 维护时要保持状态变更受控，所有影响资产或位置的结果都应能被持久化与恢复链覆盖。
  */
-import { Injectable } from '@nestjs/common';
+import { ConflictException, HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { findPlayerSkill, resolveRuntimeSkillRange } from '../world-runtime.normalization.helpers';
 import { chebyshevDistance } from '../world-runtime.path-planning.helpers';
 
@@ -407,21 +407,97 @@ function recordPendingCommandPerf(recordTickSectionDuration, key, startedAt, cou
     }
 }
 
-function isSameTickDerivedMovementCommand(command) {
+const MAX_PENDING_COMMANDS_PER_PLAYER = 16;
+
+type PendingCommandPolicy = {
+    domain: string;
+    replaceable: boolean;
+};
+
+type PendingCommandEntry = {
+    command: any;
+    policy: PendingCommandPolicy;
+    dispatching: boolean;
+    enqueuedDuring: PendingCommandEntry | null;
+};
+
+function isSameTickDerivedMovementCommand(command): boolean {
     if (!command || (command.kind !== 'move' && command.kind !== 'portal')) {
         return false;
     }
     return command.autoCombat === true || typeof command.miningTargetRef === 'string';
 }
 
-function shouldRetainReplacedPendingCommand(previousCommand, nextCommand) {
-    if (!nextCommand) {
+/**
+ * 只有明确的意图型命令可以在同领域以最后一次为准。
+ * 手动战斗、资产、任务、成长和传送均是一次性命令，必须进有界队列。
+ */
+function resolvePendingCommandPolicy(command): PendingCommandPolicy {
+    if (command?.kind === 'move' || command?.kind === 'moveTo') {
+        return { domain: 'movement', replaceable: true };
+    }
+    if (command?.autoCombat === true
+        && (command?.kind === 'basicAttack' || command?.kind === 'engageBattle' || command?.kind === 'castSkill')) {
+        return { domain: 'auto_combat', replaceable: true };
+    }
+    switch (resolvePendingCommandPerfKey(command)) {
+        case 'pendingCommands.itemMs':
+            return { domain: 'asset', replaceable: false };
+        case 'pendingCommands.formationMs':
+            return { domain: 'formation', replaceable: false };
+        case 'pendingCommands.techniqueActivityMs':
+            return { domain: 'technique_activity', replaceable: false };
+        case 'pendingCommands.progressionMs':
+            return { domain: 'progression', replaceable: false };
+        case 'pendingCommands.npcQuestMs':
+            return { domain: 'npc_quest', replaceable: false };
+        case 'pendingCommands.redeemCodesMs':
+            return { domain: 'redeem_code', replaceable: false };
+        case 'pendingCommands.basicAttackMs':
+        case 'pendingCommands.engageBattleMs':
+        case 'pendingCommands.castSkillMs':
+            return { domain: 'combat_action', replaceable: false };
+        case 'pendingCommands.instanceMoveMs':
+            return { domain: 'instance_action', replaceable: false };
+        default:
+            return { domain: 'other', replaceable: false };
+    }
+}
+
+/** 有界深比较用于拒绝队列中完全相同的一次性命令，不构造 JSON 或字符串签名。 */
+function areEquivalentPendingCommands(left, right, depth = 0): boolean {
+    if (left === right) {
+        return true;
+    }
+    if (left === null || right === null || left === undefined || right === undefined) {
         return false;
     }
-    if (isSameTickDerivedMovementCommand(nextCommand)) {
+    if (typeof left !== 'object' || typeof right !== 'object' || depth >= 4) {
         return false;
     }
-    return previousCommand !== nextCommand;
+    if (Array.isArray(left) || Array.isArray(right)) {
+        if (!Array.isArray(left) || !Array.isArray(right) || left.length !== right.length || left.length > 64) {
+            return false;
+        }
+        for (let index = 0; index < left.length; index += 1) {
+            if (!areEquivalentPendingCommands(left[index], right[index], depth + 1)) {
+                return false;
+            }
+        }
+        return true;
+    }
+    const leftKeys = Object.keys(left);
+    const rightKeys = Object.keys(right);
+    if (leftKeys.length !== rightKeys.length || leftKeys.length > 64) {
+        return false;
+    }
+    for (const key of leftKeys) {
+        if (!Object.prototype.hasOwnProperty.call(right, key)
+            || !areEquivalentPendingCommands(left[key], right[key], depth + 1)) {
+            return false;
+        }
+    }
+    return true;
 }
 
 /** world-runtime pending command state：承接玩家待执行命令队列所有权与消费。 */
@@ -431,9 +507,8 @@ export class WorldRuntimePendingCommandService {
  * pendingCommands：pendingCommand相关字段。
  */
 
-    pendingCommands = new Map();
-    pendingCommandGenerations = new Map();
-    nextPendingCommandGeneration = 1;
+    /** 每玩家一条有界 FIFO；可覆盖意图只替换同领域尚未执行的条目。 */
+    pendingCommands = new Map<string, PendingCommandEntry[]>();
     /**
  * isAutoCombatCommand：判断是否是自动战斗派生指令。
  * @param command 输入指令。
@@ -553,12 +628,38 @@ export class WorldRuntimePendingCommandService {
  */
 
     enqueuePendingCommand(playerId, command) {
-        const generation = this.nextPendingCommandGeneration++;
-        if (this.nextPendingCommandGeneration > Number.MAX_SAFE_INTEGER - 1) {
-            this.nextPendingCommandGeneration = 1;
+        const policy = resolvePendingCommandPolicy(command);
+        let queue = this.pendingCommands.get(playerId);
+        if (!queue) {
+            queue = [];
+            this.pendingCommands.set(playerId, queue);
         }
-        this.pendingCommands.set(playerId, command);
-        this.pendingCommandGenerations.set(playerId, generation);
+        const dispatchingParent = queue.find((entry) => entry.dispatching) ?? null;
+        if (policy.replaceable) {
+            const replaceIndex = queue.findIndex((entry) => !entry.dispatching
+                && entry.policy.replaceable
+                && entry.policy.domain === policy.domain);
+            if (replaceIndex >= 0) {
+                queue[replaceIndex] = this.createPendingCommandEntry(command, policy, dispatchingParent);
+                return;
+            }
+        }
+        else if (queue.some((entry) => !entry.policy.replaceable
+            && entry.policy.domain === policy.domain
+            && areEquivalentPendingCommands(entry.command, command))) {
+            throw new ConflictException('相同指令已在等待执行');
+        }
+        if (queue.length >= MAX_PENDING_COMMANDS_PER_PLAYER) {
+            if (queue.length === 0) {
+                this.pendingCommands.delete(playerId);
+            }
+            throw new HttpException('待执行指令过多，请稍后再试', HttpStatus.TOO_MANY_REQUESTS);
+        }
+        queue.push(this.createPendingCommandEntry(command, policy, dispatchingParent));
+    }
+
+    createPendingCommandEntry(command, policy: PendingCommandPolicy, enqueuedDuring: PendingCommandEntry | null): PendingCommandEntry {
+        return { command, policy, dispatching: false, enqueuedDuring };
     }
     /**
  * getPendingCommand：读取待处理Command。
@@ -567,7 +668,7 @@ export class WorldRuntimePendingCommandService {
  */
 
     getPendingCommand(playerId) {
-        return this.pendingCommands.get(playerId);
+        return this.pendingCommands.get(playerId)?.[0]?.command;
     }
     /**
  * hasPendingCommand：判断待处理Command是否满足条件。
@@ -586,7 +687,6 @@ export class WorldRuntimePendingCommandService {
 
     clearPendingCommand(playerId) {
         this.pendingCommands.delete(playerId);
-        this.pendingCommandGenerations.delete(playerId);
     }
     /**
  * getPendingCommandCount：读取待处理Command数量。
@@ -594,7 +694,11 @@ export class WorldRuntimePendingCommandService {
  */
 
     getPendingCommandCount() {
-        return this.pendingCommands.size;
+        let count = 0;
+        for (const queue of this.pendingCommands.values()) {
+            count += queue.length;
+        }
+        return count;
     }
     /**
  * dispatchPendingCommands：判断待处理Command是否满足条件。
@@ -605,13 +709,15 @@ export class WorldRuntimePendingCommandService {
     async dispatchPendingCommands(deps, recordTickSectionDuration = null) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        const pendingEntries = Array.from(this.pendingCommands.entries())
-            .map(([playerId, command]) => [playerId, command, this.pendingCommandGenerations.get(playerId) ?? 0]);
-        for (const [playerId, command, generation] of pendingEntries) {
-            if (this.pendingCommands.get(playerId) !== command
-                || this.pendingCommandGenerations.get(playerId) !== generation) {
+        const pendingEntries = Array.from(this.pendingCommands.entries(), ([playerId, queue]) => [playerId, queue[0]] as const)
+            .filter((entry): entry is readonly [string, PendingCommandEntry] => Boolean(entry[1]));
+        for (const [playerId, pendingEntry] of pendingEntries) {
+            const queueBeforeDispatch = this.pendingCommands.get(playerId);
+            if (!queueBeforeDispatch || queueBeforeDispatch[0] !== pendingEntry) {
                 continue;
             }
+            pendingEntry.dispatching = true;
+            const command = pendingEntry.command;
             const commandDispatchStartedAt = performance.now();
             let commandDispatchRecorded = false;
             const previousRecorder = deps?.recordPendingCommandSectionDuration;
@@ -678,14 +784,25 @@ export class WorldRuntimePendingCommandService {
                         delete deps.recordPendingCommandSectionDuration;
                     }
                 }
-                const currentCommand = this.pendingCommands.get(playerId);
-                const currentGeneration = this.pendingCommandGenerations.get(playerId);
-                if (currentCommand === command && currentGeneration === generation) {
+                const currentQueue = this.pendingCommands.get(playerId);
+                const entryIndex = currentQueue?.indexOf(pendingEntry) ?? -1;
+                if (currentQueue && entryIndex >= 0) {
+                    currentQueue.splice(entryIndex, 1);
+                }
+                if (currentQueue) {
+                    for (let index = currentQueue.length - 1; index >= 0; index -= 1) {
+                        const queuedEntry = currentQueue[index];
+                        if (queuedEntry.enqueuedDuring !== pendingEntry) {
+                            continue;
+                        }
+                        queuedEntry.enqueuedDuring = null;
+                        if (isSameTickDerivedMovementCommand(queuedEntry.command)) {
+                            currentQueue.splice(index, 1);
+                        }
+                    }
+                }
+                if (!currentQueue || currentQueue.length === 0) {
                     this.pendingCommands.delete(playerId);
-                    this.pendingCommandGenerations.delete(playerId);
-                } else if (!shouldRetainReplacedPendingCommand(command, currentCommand)) {
-                    this.pendingCommands.delete(playerId);
-                    this.pendingCommandGenerations.delete(playerId);
                 }
             }
         }
@@ -697,6 +814,5 @@ export class WorldRuntimePendingCommandService {
 
     resetState() {
         this.pendingCommands.clear();
-        this.pendingCommandGenerations.clear();
     }
 };
