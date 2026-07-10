@@ -4,8 +4,8 @@
  * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
 import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
-import { createItemStackSignature, EQUIP_SLOTS, isLegacyItemInstanceId } from '@mud/shared';
-import { randomUUID } from 'node:crypto';
+import { createItemStackSignature, EQUIP_SLOTS, isLegacyItemInstanceId, MAIL_BATCH_OPERATION_MAX } from '@mud/shared';
+import { createHash, randomUUID } from 'node:crypto';
 import { hostname } from 'node:os';
 import {
   assignStableItemInstanceId,
@@ -40,11 +40,16 @@ const PLAYER_ENHANCEMENT_RECORD_TABLE = 'player_enhancement_record';
 const PLAYER_MAIL_TABLE = 'player_mail';
 const PLAYER_MAIL_ATTACHMENT_TABLE = 'player_mail_attachment';
 const PLAYER_MAIL_COUNTER_TABLE = 'player_mail_counter';
+const INSTANCE_GROUND_ITEM_TABLE = 'instance_ground_item';
+const INSTANCE_CONTAINER_STATE_TABLE = 'instance_container_state';
+const INSTANCE_CONTAINER_ENTRY_TABLE = 'instance_container_entry';
+const INSTANCE_CONTAINER_TIMER_TABLE = 'instance_container_timer';
 const PLAYER_RECOVERY_WATERMARK_TABLE = 'player_recovery_watermark';
 const DURABLE_OPERATION_LOG_TABLE = 'durable_operation_log';
 const OUTBOX_EVENT_TABLE = 'outbox_event';
 const ASSET_AUDIT_LOG_TABLE = 'asset_audit_log';
 const ASSET_AUDIT_LOG_ARCHIVE_TABLE = 'asset_audit_log_archive';
+const DURABLE_OPERATION_ID_SAFE_LENGTH = 173;
 const DURABLE_OPERATION_BIGINT_COLUMNS_BY_TABLE = {
   [OUTBOX_EVENT_TABLE]: ['attempt_count'],
   [PLAYER_MAIL_ATTACHMENT_TABLE]: ['count'],
@@ -116,9 +121,19 @@ export interface DurableMarketStorageItemSnapshot {
 
 export interface DurableMarketPlayerMutationSnapshot {
   playerId: string;
+  expectedRuntimeOwnerId?: string | null;
+  expectedSessionEpoch?: number | null;
   nextInventoryItems?: DurableInventoryItemSnapshot[] | null;
   nextWalletBalances?: DurableWalletBalanceSnapshot[] | null;
   nextMarketStorageItems?: DurableMarketStorageItemSnapshot[] | null;
+}
+
+export interface DurableMarketExpectedOrderSnapshot {
+  orderId: string;
+  exists: boolean;
+  status?: string | null;
+  remainingQuantity?: number | null;
+  updatedAtMs?: number | null;
 }
 
 export interface DurableMarketBanUserSnapshot {
@@ -139,6 +154,7 @@ export interface DurableMarketMutationInput {
   operationType: string;
   payload?: unknown;
   playerMutations?: DurableMarketPlayerMutationSnapshot[] | null;
+  expectedOrders?: DurableMarketExpectedOrderSnapshot[] | null;
   upsertOrders?: readonly unknown[] | null;
   deleteOrderIds?: readonly unknown[] | null;
   tradeRecords?: readonly unknown[] | null;
@@ -228,15 +244,63 @@ export interface GrantInventoryItemsInput {
   expectedOwnershipEpoch?: number | null;
   sourceType: string;
   sourceRefId?: string | null;
+  inventoryAction?: 'grant' | 'remove' | 'transfer';
   grantedItems: DurableInventoryItemSnapshot[];
   nextInventoryItems: DurableInventoryItemSnapshot[];
+  sourceMutation?: DurableInventoryGrantSourceMutation | null;
 }
+
+export type DurableInventoryGrantSourceMutation =
+  | {
+      kind: 'ground_tile';
+      instanceId: string;
+      tileIndex: number;
+      remainingItems: unknown[];
+    }
+  | {
+      kind: 'container_state';
+      instanceId: string;
+      containerId: string;
+      sourceId: string;
+      statePayload: Record<string, unknown>;
+    };
 
 export interface GrantInventoryItemsResult {
   ok: boolean;
   alreadyCommitted: boolean;
   grantedCount: number;
   sourceType: string;
+}
+
+/**
+ * PostgreSQL 已收到 COMMIT 后连接报错时，调用方不能把事务按普通失败回滚运行态。
+ * operationId 用于在新连接上查询 durable_operation_log 并完成幂等回读。
+ */
+export class DurableOperationCommitOutcomeUnknownError extends Error {
+  readonly operationId: string;
+
+  constructor(operationId: string, cause: unknown) {
+    super(
+      `durable_operation_commit_outcome_unknown:${operationId}`,
+      cause === undefined ? undefined : { cause },
+    );
+    this.name = 'DurableOperationCommitOutcomeUnknownError';
+    this.operationId = operationId;
+  }
+}
+
+class DurableOperationShutdownError extends Error {
+  constructor() {
+    super('durable_operation_shutdown');
+  }
+}
+
+function createDurableShutdownSignal(): { promise: Promise<void>; resolve: () => void } {
+  let resolve!: () => void;
+  const promise = new Promise<void>((next) => {
+    resolve = next;
+  });
+  return { promise, resolve };
 }
 
 export interface DurableQuestProgressSnapshot {
@@ -435,6 +499,10 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(DurableOperationService.name);
   private pool: Pool | null = null;
   private enabled = false;
+  private closing = false;
+  private shutdownSignal = createDurableShutdownSignal();
+  private readonly unresolvedCommitPlayerIds = new Set<string>();
+  private readonly unresolvedCommitInstanceIds = new Set<string>();
 
   constructor(
     @Inject(NodeRegistryService) private readonly nodeRegistryService: NodeRegistryService | null = null,
@@ -442,6 +510,10 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
   ) {}
 
   async onModuleInit(): Promise<void> {
+    this.closing = false;
+    this.shutdownSignal = createDurableShutdownSignal();
+    this.unresolvedCommitPlayerIds.clear();
+    this.unresolvedCommitInstanceIds.clear();
     const databaseUrl = resolveServerDatabaseUrl();
     if (!databaseUrl.trim()) {
       this.logger.log('强持久化事务服务已禁用：未提供 SERVER_DATABASE_URL/DATABASE_URL');
@@ -469,7 +541,26 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleDestroy(): Promise<void> {
+    this.beginShutdown();
     this.releasePoolReference();
+  }
+
+  /** 在 drain 等待业务队列前先终止未决 COMMIT 收敛循环。 */
+  beginShutdown(): void {
+    this.closing = true;
+    this.shutdownSignal.resolve();
+  }
+
+  isPlayerCommitOutcomeUnresolved(playerId: string): boolean {
+    return this.unresolvedCommitPlayerIds.has(normalizeRequiredString(playerId));
+  }
+
+  isInstanceCommitOutcomeUnresolved(instanceId: string): boolean {
+    return this.unresolvedCommitInstanceIds.has(normalizeRequiredString(instanceId));
+  }
+
+  hasUnresolvedCommitOutcomes(): boolean {
+    return this.unresolvedCommitPlayerIds.size > 0 || this.unresolvedCommitInstanceIds.size > 0;
   }
 
   isEnabled(): boolean {
@@ -485,7 +576,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
     if (!this.pool || !this.enabled) {
       throw new Error('durable_operation_service_disabled');
     }
-    const normalizedOperationId = normalizeRequiredString(operationId);
+    const normalizedOperationId = normalizeDurableOperationId(operationId);
     if (!normalizedOperationId) {
       throw new Error('invalid_operation_id');
     }
@@ -527,41 +618,73 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
 
   /** 事务性领取邮件附件：校验 presence 归属、扣邮件附件、写背包/钱包、记审计日志 */
   async claimMailAttachments(input: ClaimMailAttachmentsInput): Promise<ClaimMailAttachmentsResult> {
+    return this.claimMailAttachmentsAttempt(input, 1);
+  }
+
+  private async claimMailAttachmentsAttempt(
+    input: ClaimMailAttachmentsInput,
+    commitOutcomeRetryRemaining: number,
+  ): Promise<ClaimMailAttachmentsResult> {
     if (!this.pool || !this.enabled) {
       throw new Error('durable_operation_service_disabled');
     }
 
     const normalizedPlayerId = normalizeRequiredString(input.playerId);
-    const normalizedOperationId = normalizeRequiredString(input.operationId);
+    const normalizedOperationId = normalizeDurableOperationId(input.operationId);
     const normalizedMailIds = Array.from(
       new Set(
         Array.isArray(input.mailIds)
           ? input.mailIds.map((mailId) => normalizeRequiredString(mailId)).filter(Boolean)
           : [],
       ),
-    );
-    if (!normalizedPlayerId || !normalizedOperationId || normalizedMailIds.length === 0) {
+    ).sort((left, right) => left < right ? -1 : left > right ? 1 : 0);
+    if (
+      !normalizedPlayerId
+      || !normalizedOperationId
+      || normalizedOperationId.length > 173
+      || normalizedMailIds.length === 0
+      || normalizedMailIds.length > MAIL_BATCH_OPERATION_MAX
+    ) {
       throw new Error('invalid_claim_mail_attachments_input');
     }
 
     const now = Date.now();
     const client = await this.pool.connect();
+    let clientReleased = false;
+    let commitAttempted = false;
+    let commitOutcomeUnknown = false;
+    let commitOutcomeCause: unknown = null;
+    let mutationResult: ClaimMailAttachmentsResult | null = null;
     try {
       await client.query('BEGIN');
       await acquirePlayerAssetLock(client, normalizedPlayerId);
 
-      const existingOperation = await client.query<{ status?: string }>(
+      const existingOperation = await client.query<{
+        status?: string;
+        operation_type?: string;
+        aggregate_type?: string;
+        player_id?: string;
+        payload_jsonb?: unknown;
+      }>(
         `
-          SELECT status
+          SELECT status, operation_type, aggregate_type, player_id, payload_jsonb
           FROM ${DURABLE_OPERATION_LOG_TABLE}
           WHERE operation_id = $1
           FOR UPDATE
         `,
         [normalizedOperationId],
       );
+      if (existingOperation.rowCount) {
+        assertDurableOperationReplayIdentity(existingOperation.rows[0], {
+          operationType: 'mail_claim',
+          aggregateType: 'player_mail',
+          playerId: normalizedPlayerId,
+          payload: { mailIds: normalizedMailIds },
+        });
+      }
       if (existingOperation.rowCount && existingOperation.rows[0]?.status === 'committed') {
         const existingCounters = await readMailCounters(client, normalizedPlayerId, now);
-        await client.query('ROLLBACK');
+        clientReleased = await rollbackTransactionOrDestroyClient(client);
         return {
           ok: true,
           alreadyCommitted: true,
@@ -673,19 +796,28 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
         `
           SELECT mail_id
           FROM ${PLAYER_MAIL_ATTACHMENT_TABLE}
-          WHERE mail_id = ANY($1::varchar[])
+          WHERE player_id = $1
+            AND mail_id = ANY($2::varchar[])
             AND claimed_at IS NULL
           FOR UPDATE
         `,
-        [normalizedMailIds],
+        [normalizedPlayerId, normalizedMailIds],
       );
-      if ((attachmentsResult.rowCount ?? 0) === 0) {
+      const claimableMailIds = new Set(
+        attachmentsResult.rows
+          .map((row) => normalizeRequiredString(row.mail_id))
+          .filter(Boolean),
+      );
+      if (claimableMailIds.size !== normalizedMailIds.length) {
         throw new Error('mail_claim_attachments_missing');
       }
 
-      const counterBefore = await client.query<{ welcome_mail_delivered_at?: string | number | null }>(
+      const counterBefore = await client.query<{
+        counter_version?: string | number | null;
+        welcome_mail_delivered_at?: string | number | null;
+      }>(
         `
-          SELECT welcome_mail_delivered_at
+          SELECT counter_version, welcome_mail_delivered_at
           FROM ${PLAYER_MAIL_COUNTER_TABLE}
           WHERE player_id = $1
           FOR UPDATE
@@ -694,6 +826,10 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
       );
       const welcomeMailDeliveredAt = normalizeOptionalInteger(
         counterBefore.rows[0]?.welcome_mail_delivered_at,
+      );
+      const previousCounterVersion = Math.max(
+        0,
+        Math.trunc(Number(counterBefore.rows[0]?.counter_version ?? 0) || 0),
       );
 
       await replacePlayerInventoryItems(client, normalizedPlayerId, input.nextInventoryItems);
@@ -708,10 +844,11 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
           SET
             claim_operation_id = $1,
             claimed_at = $2
-          WHERE mail_id = ANY($3::varchar[])
+          WHERE player_id = $3
+            AND mail_id = ANY($4::varchar[])
             AND claimed_at IS NULL
         `,
-        [normalizedOperationId, now, normalizedMailIds],
+        [normalizedOperationId, now, normalizedPlayerId, normalizedMailIds],
       );
 
       await client.query(
@@ -732,6 +869,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
       const unreadCount = counters.unreadCount;
       const unclaimedCount = counters.unclaimedCount;
       const latestMailAt = counters.latestMailAt;
+      const counterVersion = Math.max(now, previousCounterVersion + 1);
 
       await client.query(
         `
@@ -750,11 +888,11 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
             unread_count = EXCLUDED.unread_count,
             unclaimed_count = EXCLUDED.unclaimed_count,
             latest_mail_at = EXCLUDED.latest_mail_at,
-            counter_version = EXCLUDED.counter_version,
+            counter_version = GREATEST(${PLAYER_MAIL_COUNTER_TABLE}.counter_version, EXCLUDED.counter_version),
             welcome_mail_delivered_at = COALESCE(EXCLUDED.welcome_mail_delivered_at, ${PLAYER_MAIL_COUNTER_TABLE}.welcome_mail_delivered_at),
             updated_at = now()
         `,
-        [normalizedPlayerId, unreadCount, unclaimedCount, latestMailAt, now, welcomeMailDeliveredAt],
+        [normalizedPlayerId, unreadCount, unclaimedCount, latestMailAt, counterVersion, welcomeMailDeliveredAt],
       );
 
       await client.query(
@@ -776,7 +914,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
             mail_counter_version = GREATEST(${PLAYER_RECOVERY_WATERMARK_TABLE}.mail_counter_version, EXCLUDED.mail_counter_version),
             updated_at = now()
         `,
-        [normalizedPlayerId, nextWalletBalances ? now : 0, now, now, now],
+        [normalizedPlayerId, nextWalletBalances ? now : 0, now, now, counterVersion],
       );
 
       await client.query(
@@ -845,25 +983,51 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
         [normalizedOperationId],
       );
 
-      await client.query('COMMIT');
-      return {
+      mutationResult = {
         ok: true,
         alreadyCommitted: false,
         unreadCount,
         unclaimedCount,
       };
+      commitAttempted = true;
+      await client.query('COMMIT');
+      commitAttempted = false;
+      return mutationResult;
     } catch (error: unknown) {
-      await client.query('ROLLBACK').catch(() => undefined);
-      throw error;
+      clientReleased = await rollbackTransactionOrDestroyClient(client) || clientReleased;
+      if (commitAttempted) {
+        commitOutcomeUnknown = true;
+        commitOutcomeCause = error;
+      } else {
+        throw error;
+      }
     } finally {
-      client.release();
+      if (!clientReleased) {
+        client.release();
+      }
     }
+
+    if (commitOutcomeUnknown) {
+      if (commitOutcomeRetryRemaining < 0) {
+        throw new DurableOperationCommitOutcomeUnknownError(normalizedOperationId, commitOutcomeCause);
+      }
+      return this.settleUnknownCommitOutcome({
+        operationId: normalizedOperationId,
+        cause: commitOutcomeCause,
+        affectedPlayerIds: [normalizedPlayerId],
+        affectedInstanceIds: [normalizeRequiredString(input.expectedInstanceId)].filter(Boolean),
+        onSettled: (retryResult) => ({ ...retryResult, alreadyCommitted: false }),
+        retry: () => this.claimMailAttachmentsAttempt(input, -1),
+      });
+    }
+
+    throw new Error(`mail_claim_unreachable_state:${normalizedOperationId}`);
   }
 
   /** 事务性领取市场托管仓物品：校验 presence、转移仓物品到背包、记审计日志 */
   async claimMarketStorage(input: ClaimMarketStorageInput): Promise<ClaimMarketStorageResult> {
     const normalizedPlayerId = normalizeRequiredString(input.playerId);
-    const normalizedOperationId = normalizeRequiredString(input.operationId);
+    const normalizedOperationId = normalizeDurableOperationId(input.operationId);
     const normalizedInventoryItems = Array.isArray(input.nextInventoryItems) ? input.nextInventoryItems : [];
     const normalizedStorageItems = Array.isArray(input.nextMarketStorageItems) ? input.nextMarketStorageItems : [];
     const movedCount = Math.max(0, Math.trunc(Number(input.movedCount ?? 0)));
@@ -987,7 +1151,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
   /** 事务性 NPC 商店购买：扣钱包、写背包、记审计日志和 outbox 事件 */
   async purchaseNpcShopItem(input: PurchaseNpcShopItemInput): Promise<PurchaseNpcShopItemResult> {
     const normalizedPlayerId = normalizeRequiredString(input.playerId);
-    const normalizedOperationId = normalizeRequiredString(input.operationId);
+    const normalizedOperationId = normalizeDurableOperationId(input.operationId);
     const normalizedItemId = normalizeRequiredString(input.itemId);
     const normalizedInventoryItems = Array.isArray(input.nextInventoryItems) ? input.nextInventoryItems : [];
     const normalizedWalletBalances = Array.isArray(input.nextWalletBalances) ? input.nextWalletBalances : [];
@@ -1118,7 +1282,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
   /** 事务性钱包变更：增减余额/冻结、记审计日志和 outbox 事件 */
   async mutatePlayerWallet(input: MutatePlayerWalletInput): Promise<MutatePlayerWalletResult> {
     const normalizedPlayerId = normalizeRequiredString(input.playerId);
-    const normalizedOperationId = normalizeRequiredString(input.operationId);
+    const normalizedOperationId = normalizeDurableOperationId(input.operationId);
     const normalizedWalletType = normalizeRequiredString(input.walletType);
     const normalizedWalletBalances = Array.isArray(input.nextWalletBalances) ? input.nextWalletBalances : [];
     const action = input.action === 'credit' ? 'credit' : 'debit';
@@ -1244,11 +1408,31 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
   /** 事务性发放背包物品：写背包快照、记审计日志和 outbox 事件 */
   async grantInventoryItems(input: GrantInventoryItemsInput): Promise<GrantInventoryItemsResult> {
     const normalizedPlayerId = normalizeRequiredString(input.playerId);
-    const normalizedOperationId = normalizeRequiredString(input.operationId);
+    const normalizedOperationId = normalizeDurableOperationId(input.operationId);
     const normalizedSourceType = normalizeRequiredString(input.sourceType) || 'inventory_grant';
     const normalizedSourceRefId = normalizeOptionalString(input.sourceRefId);
+    const inventoryAction = input.inventoryAction === 'remove' || input.inventoryAction === 'transfer'
+      ? input.inventoryAction
+      : 'grant';
     const normalizedGrantedItems = Array.isArray(input.grantedItems) ? input.grantedItems : [];
     const normalizedNextInventoryItems = Array.isArray(input.nextInventoryItems) ? input.nextInventoryItems : [];
+    const normalizedSourceMutation = normalizeInventoryGrantSourceMutation(input.sourceMutation);
+    if (
+      (normalizedSourceType === 'ground_take'
+        || normalizedSourceType === 'ground_take_all'
+        || normalizedSourceType === 'container_take'
+        || normalizedSourceType === 'container_take_all'
+        || normalizedSourceType === 'ground_drop')
+      && !normalizedSourceMutation
+    ) {
+      throw new Error('inventory_grant_source_mutation_required');
+    }
+    if (
+      normalizedSourceMutation
+      && normalizeOptionalString(input.expectedInstanceId) !== normalizedSourceMutation.instanceId
+    ) {
+      throw new Error('inventory_grant_source_instance_mismatch');
+    }
 
     return this.executeAssetMutation<GrantInventoryItemsResult>({
       operationId: normalizedOperationId,
@@ -1258,13 +1442,18 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
       expectedInstanceId: input.expectedInstanceId,
       expectedAssignedNodeId: input.expectedAssignedNodeId,
       expectedOwnershipEpoch: input.expectedOwnershipEpoch,
-      operationType: 'player_inventory_grant',
+      operationType: `player_inventory_${inventoryAction}`,
       aggregateType: 'player_inventory_item',
       payload: {
         sourceType: normalizedSourceType,
         sourceRefId: normalizedSourceRefId,
+        inventoryAction,
         grantedCount: normalizedGrantedItems.length,
         nextInventoryItemCount: normalizedNextInventoryItems.length,
+        sourceMutationKind: normalizedSourceMutation?.kind ?? null,
+        grantedItems: normalizedGrantedItems,
+        nextInventoryItems: normalizedNextInventoryItems,
+        sourceMutation: normalizedSourceMutation,
       },
       onAlreadyCommitted: async () => ({
         ok: true,
@@ -1273,6 +1462,9 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
         sourceType: normalizedSourceType,
       }),
       onMutate: async (client, now) => {
+        if (normalizedSourceMutation) {
+          await persistInventoryGrantSourceMutation(client, normalizedSourceMutation);
+        }
         await replacePlayerInventoryItems(client, normalizedPlayerId, normalizedNextInventoryItems);
 
         await client.query(
@@ -1309,12 +1501,14 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
           [
             `outbox:${normalizedOperationId}`,
             normalizedOperationId,
-            'player.inventory.granted',
+            `player.inventory.${inventoryAction === 'remove' ? 'removed' : inventoryAction === 'transfer' ? 'transferred' : 'granted'}`,
             normalizedPlayerId,
             JSON.stringify({
               playerId: normalizedPlayerId,
               sourceType: normalizedSourceType,
               sourceRefId: normalizedSourceRefId,
+              inventoryAction,
+              items: normalizedGrantedItems,
               grantedItems: normalizedGrantedItems,
             }),
             'ready',
@@ -1344,7 +1538,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
             normalizedPlayerId,
             'inventory',
             normalizedSourceRefId ?? normalizedSourceType,
-            'grant',
+            inventoryAction,
             JSON.stringify({
               sourceType: normalizedSourceType,
               grantedItems: normalizedGrantedItems,
@@ -1371,7 +1565,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
   /** 事务性提交 NPC 任务奖励：写背包/钱包、更新任务进度、记审计日志 */
   async submitNpcQuestRewards(input: SubmitNpcQuestRewardsInput): Promise<SubmitNpcQuestRewardsResult> {
     const normalizedPlayerId = normalizeRequiredString(input.playerId);
-    const normalizedOperationId = normalizeRequiredString(input.operationId);
+    const normalizedOperationId = normalizeDurableOperationId(input.operationId);
     const normalizedQuestId = normalizeRequiredString(input.questId);
     const normalizedInventoryItems = Array.isArray(input.nextInventoryItems) ? input.nextInventoryItems : [];
     const normalizedWalletBalances = Array.isArray(input.nextWalletBalances) ? input.nextWalletBalances : [];
@@ -1509,7 +1703,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
   /** 事务性更新装备栏：写装备槽位快照、记审计日志和 outbox 事件 */
   async updateEquipmentLoadout(input: UpdateEquipmentLoadoutInput): Promise<UpdateEquipmentLoadoutResult> {
     const normalizedPlayerId = normalizeRequiredString(input.playerId);
-    const normalizedOperationId = normalizeRequiredString(input.operationId);
+    const normalizedOperationId = normalizeDurableOperationId(input.operationId);
     const normalizedSlot = normalizeRequiredString(input.slot);
     const normalizedInventoryItems = Array.isArray(input.nextInventoryItems) ? input.nextInventoryItems : [];
     const normalizedEquipmentSlots = Array.isArray(input.nextEquipmentSlots) ? input.nextEquipmentSlots : [];
@@ -1659,7 +1853,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
     }>;
   }): Promise<{ ok: boolean; alreadyCommitted: boolean }> {
     const normalizedSellerId = normalizeRequiredString(input.sellerId);
-    const normalizedOperationId = normalizeRequiredString(input.operationId);
+    const normalizedOperationId = normalizeDurableOperationId(input.operationId);
     const normalizedItemId = normalizeRequiredString(input.itemId);
     const normalizedItemName = normalizeRequiredString(input.itemName);
     const normalizedSellerInventoryItems = (Array.isArray(input.nextSellerInventoryItems) ? input.nextSellerInventoryItems : []) as DurableInventoryItemSnapshot[];
@@ -1862,7 +2056,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
     matches: DurableMarketBuyNowMatchSnapshot[];
   }): Promise<{ ok: boolean; alreadyCommitted: boolean }> {
     const normalizedBuyerId = normalizeRequiredString(input.buyerId);
-    const normalizedOperationId = normalizeRequiredString(input.operationId);
+    const normalizedOperationId = normalizeDurableOperationId(input.operationId);
     const normalizedItemId = normalizeRequiredString(input.itemId);
     const normalizedItemName = normalizeRequiredString(input.itemName);
     const normalizedBuyerInventoryItems = (Array.isArray(input.nextBuyerInventoryItems) ? input.nextBuyerInventoryItems : []) as DurableInventoryItemSnapshot[];
@@ -2000,7 +2194,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
     nextWalletBalances: unknown[];
   }): Promise<{ ok: boolean; alreadyCommitted: boolean }> {
     const normalizedPlayerId = normalizeRequiredString(input.playerId);
-    const normalizedOperationId = normalizeRequiredString(input.operationId);
+    const normalizedOperationId = normalizeDurableOperationId(input.operationId);
     const normalizedOrderId = normalizeRequiredString(input.orderId);
     const normalizedInventoryItems = (Array.isArray(input.nextInventoryItems) ? input.nextInventoryItems : []) as DurableInventoryItemSnapshot[];
     const normalizedWalletBalances = (Array.isArray(input.nextWalletBalances) ? input.nextWalletBalances : []) as DurableWalletBalanceSnapshot[];
@@ -2058,13 +2252,21 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
 
   /** 通用市场强事务：收敛订单、成交、托管仓、玩家资产与 GM 封禁态。 */
   async settleMarketMutation(input: DurableMarketMutationInput): Promise<{ ok: boolean; alreadyCommitted: boolean }> {
+    return this.settleMarketMutationAttempt(input, 1);
+  }
+
+  private async settleMarketMutationAttempt(
+    input: DurableMarketMutationInput,
+    commitOutcomeRetryRemaining: number,
+  ): Promise<{ ok: boolean; alreadyCommitted: boolean }> {
     if (!this.pool || !this.enabled) {
       throw new Error('durable_operation_service_disabled');
     }
     const normalizedPlayerId = normalizeRequiredString(input.playerId);
-    const normalizedOperationId = normalizeRequiredString(input.operationId);
+    const normalizedOperationId = normalizeDurableOperationId(input.operationId);
     const operationType = (normalizeRequiredString(input.operationType) || 'market_mutation').slice(0, 64);
     const playerMutations = normalizeMarketPlayerMutations(input.playerMutations ?? []);
+    const expectedOrders = normalizeMarketExpectedOrders(input.expectedOrders ?? []);
     const upsertOrders = Array.isArray(input.upsertOrders) ? input.upsertOrders : [];
     const deleteOrderIds = normalizeStringList(input.deleteOrderIds ?? []);
     const tradeRecords = Array.isArray(input.tradeRecords) ? input.tradeRecords : [];
@@ -2072,6 +2274,25 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
     if (!normalizedPlayerId || !normalizedOperationId || (playerMutations.length === 0 && upsertOrders.length === 0 && deleteOrderIds.length === 0 && tradeRecords.length === 0 && !banUser)) {
       throw new Error('invalid_settle_market_mutation_input');
     }
+    const expectedOrderIds = new Set(expectedOrders.map((entry) => entry.orderId));
+    const mutatedOrderIds = new Set([
+      ...upsertOrders.map((entry) => normalizeRequiredString((entry as Record<string, unknown>)?.id ?? (entry as Record<string, unknown>)?.orderId)),
+      ...deleteOrderIds,
+    ].filter(Boolean));
+    for (const orderId of mutatedOrderIds) {
+      if (!expectedOrderIds.has(orderId)) {
+        throw new Error(`market_mutation_expected_order_missing:${orderId}`);
+      }
+    }
+    const operationLogPayload = {
+      request: input.payload ?? {},
+      expectedOrders,
+      playerMutations,
+      upsertOrders,
+      deleteOrderIds,
+      tradeRecords,
+      banUser,
+    };
     const expectedRuntimeOwnerId = normalizeRequiredString(input.expectedRuntimeOwnerId);
     const expectedSessionEpoch = Math.max(0, Math.trunc(Number(input.expectedSessionEpoch ?? 0)));
     const requirePresenceFence = input.requirePresenceFence !== false;
@@ -2080,6 +2301,10 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
     }
     const now = Date.now();
     const client = await this.pool.connect();
+    let clientReleased = false;
+    let commitAttempted = false;
+    let commitOutcomeUnknown = false;
+    let commitOutcomeCause: unknown = null;
     try {
       await client.query('BEGIN');
       const lockPlayerIds = new Set<string>([normalizedPlayerId]);
@@ -2092,9 +2317,25 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
       for (const lockPlayerId of Array.from(lockPlayerIds).filter(Boolean).sort()) {
         await acquirePlayerAssetLock(client, lockPlayerId);
       }
-      const existingOperation = await client.query<{ status?: string }>(`SELECT status FROM ${DURABLE_OPERATION_LOG_TABLE} WHERE operation_id = $1 FOR UPDATE`, [normalizedOperationId]);
+      const existingOperation = await client.query<{
+        status?: string;
+        operation_type?: string;
+        aggregate_type?: string;
+        player_id?: string;
+        payload_jsonb?: unknown;
+      }>(
+        `SELECT status, operation_type, aggregate_type, player_id, payload_jsonb FROM ${DURABLE_OPERATION_LOG_TABLE} WHERE operation_id = $1 FOR UPDATE`,
+        [normalizedOperationId],
+      );
+      if (existingOperation.rowCount) {
+        assertDurableMarketOperationReplayIdentity(existingOperation.rows[0], {
+          operationType,
+          playerId: normalizedPlayerId,
+          request: input.payload ?? {},
+        });
+      }
       if (existingOperation.rowCount && existingOperation.rows[0]?.status === 'committed') {
-        await client.query('ROLLBACK');
+        clientReleased = await rollbackTransactionOrDestroyClient(client);
         return { ok: true, alreadyCommitted: true };
       }
       let persistedRuntimeOwnerId = expectedRuntimeOwnerId;
@@ -2143,8 +2384,10 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
           persistedSessionEpoch = expectedSessionEpoch;
         }
       }
+      await assertMarketParticipantPresenceFences(client, playerMutations, normalizedPlayerId);
+      await assertMarketExpectedOrders(client, expectedOrders);
       if (existingOperation.rowCount === 0) {
-        await insertDurableOperationLog(client, normalizedOperationId, operationType, 'market_mutation', normalizedPlayerId, persistedRuntimeOwnerId, persistedSessionEpoch, input.payload ?? {});
+        await insertDurableOperationLog(client, normalizedOperationId, operationType, 'market_mutation', normalizedPlayerId, persistedRuntimeOwnerId, persistedSessionEpoch, operationLogPayload);
       }
       await upsertMarketOrders(client, upsertOrders);
       if (deleteOrderIds.length > 0) {
@@ -2174,20 +2417,45 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
         banCommitted: Boolean(banUser),
       }, {}, {});
       await client.query(`UPDATE ${DURABLE_OPERATION_LOG_TABLE} SET status = 'committed', committed_at = now() WHERE operation_id = $1`, [normalizedOperationId]);
+      commitAttempted = true;
       await client.query('COMMIT');
+      commitAttempted = false;
       return { ok: true, alreadyCommitted: false };
     } catch (error: unknown) {
-      await client.query('ROLLBACK').catch(() => undefined);
-      throw error;
+      clientReleased = await rollbackTransactionOrDestroyClient(client) || clientReleased;
+      if (commitAttempted) {
+        commitOutcomeUnknown = true;
+        commitOutcomeCause = error;
+      } else {
+        throw error;
+      }
     } finally {
-      client.release();
+      if (!clientReleased) {
+        client.release();
+      }
     }
+
+    if (commitOutcomeUnknown) {
+      if (commitOutcomeRetryRemaining < 0) {
+        throw new DurableOperationCommitOutcomeUnknownError(normalizedOperationId, commitOutcomeCause);
+      }
+      return this.settleUnknownCommitOutcome({
+        operationId: normalizedOperationId,
+        cause: commitOutcomeCause,
+        affectedPlayerIds: Array.from(new Set([normalizedPlayerId, ...playerMutations.map((entry) => entry.playerId)])),
+        affectedInstanceIds: [normalizeRequiredString(input.expectedInstanceId)].filter(Boolean),
+        onSettled: (retryResult) => ({ ...retryResult, alreadyCommitted: false }),
+        retry: () => this.settleMarketMutationAttempt(input, -1),
+      });
+    }
+
+    throw new Error(`market_mutation_unreachable_state:${normalizedOperationId}`);
   }
 
   /** 事务性更新活跃任务状态：写任务进度快照、记审计日志和 outbox 事件 */
   async updateActiveJobState(input: UpdateActiveJobStateInput): Promise<UpdateActiveJobStateResult> {
     const normalizedPlayerId = normalizeRequiredString(input.playerId);
-    const normalizedOperationId = normalizeRequiredString(input.operationId);
+    const normalizedOperationId = normalizeDurableOperationId(input.operationId);
     const action = input.action === 'start' || input.action === 'cancel' || input.action === 'complete'
       ? input.action
       : 'update';
@@ -2258,7 +2526,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
               normalizedExpectedJobRunId,
               normalizedExpectedJobVersion,
               normalizedNextActiveJob,
-            ) && !isActiveJobBehindNext(persistedJobRunId, persistedJobVersion, normalizedNextActiveJob)) {
+            )) {
               throw new Error(
                 [
                   'player_active_job_cas_conflict',
@@ -2391,7 +2659,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
   /** 事务性开始活跃任务并扣除资产：扣材料/资金、创建任务记录、记审计 */
   async startActiveJobWithAssets(input: StartActiveJobWithAssetsInput): Promise<StartActiveJobWithAssetsResult> {
     const normalizedPlayerId = normalizeRequiredString(input.playerId);
-    const normalizedOperationId = normalizeRequiredString(input.operationId);
+    const normalizedOperationId = normalizeDurableOperationId(input.operationId);
     const normalizedNextInventoryItems = Array.isArray(input.nextInventoryItems) ? input.nextInventoryItems : [];
     const normalizedNextWalletBalances = Array.isArray(input.nextWalletBalances) ? input.nextWalletBalances : [];
     const normalizedNextActiveJob = normalizeActiveJobSnapshot(input.nextActiveJob);
@@ -2646,7 +2914,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
   /** 事务性取消活跃任务并退还资产：退材料/资金、删除任务记录、记审计 */
   async cancelActiveJobWithAssets(input: CancelActiveJobWithAssetsInput): Promise<CancelActiveJobWithAssetsResult> {
     const normalizedPlayerId = normalizeRequiredString(input.playerId);
-    const normalizedOperationId = normalizeRequiredString(input.operationId);
+    const normalizedOperationId = normalizeDurableOperationId(input.operationId);
     const normalizedExpectedJobRunId = normalizeRequiredString(input.expectedJobRunId);
     const normalizedExpectedJobVersion = Math.max(1, Math.trunc(Number(input.expectedJobVersion ?? 1)));
     const normalizedNextInventoryItems = Array.isArray(input.nextInventoryItems) ? input.nextInventoryItems : [];
@@ -2850,7 +3118,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
   /** 事务性完成活跃任务并发放产出：写产出物品/资金、删除任务记录、记审计 */
   async completeActiveJobWithAssets(input: CompleteActiveJobWithAssetsInput): Promise<CompleteActiveJobWithAssetsResult> {
     const normalizedPlayerId = normalizeRequiredString(input.playerId);
-    const normalizedOperationId = normalizeRequiredString(input.operationId);
+    const normalizedOperationId = normalizeDurableOperationId(input.operationId);
     const normalizedExpectedJobRunId = normalizeRequiredString(input.expectedJobRunId);
     const normalizedExpectedJobVersion = Math.max(1, Math.trunc(Number(input.expectedJobVersion ?? 1)));
     const normalizedNextInventoryItems = Array.isArray(input.nextInventoryItems) ? input.nextInventoryItems : [];
@@ -3061,6 +3329,104 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
+  /** 查询 durable operation 的已提交状态，用于处理 COMMIT 回包不确定后的运行态回读。 */
+  async getOperationStatus(operationId: string): Promise<'pending' | 'committed' | null> {
+    if (!this.pool || !this.enabled) {
+      throw new Error('durable_operation_service_disabled');
+    }
+    const normalizedOperationId = normalizeDurableOperationId(operationId);
+    if (!normalizedOperationId) {
+      return null;
+    }
+    const result = await this.pool.query<{ status?: string }>(
+      `SELECT status FROM ${DURABLE_OPERATION_LOG_TABLE} WHERE operation_id = $1 LIMIT 1`,
+      [normalizedOperationId],
+    );
+    const status = normalizeRequiredString(result.rows[0]?.status);
+    return status === 'committed' ? 'committed' : status === 'pending' ? 'pending' : null;
+  }
+
+  async isOperationCommitted(operationId: string): Promise<boolean> {
+    return (await this.getOperationStatus(operationId)) === 'committed';
+  }
+
+  /**
+   * COMMIT 回包丢失且首次查询也失败时，调用方仍持有运行态资产锁；这里持续收敛到确定结果，
+   * 禁止把 unknown 降级成普通失败后回滚内存，或让周期 flush 越过未决事务。
+   */
+  private async settleUnknownCommitOutcome<TResult>(input: {
+    operationId: string;
+    cause: unknown;
+    affectedPlayerIds?: readonly string[];
+    affectedInstanceIds?: readonly string[];
+    onSettled: (retryResult: TResult) => TResult;
+    retry: () => Promise<TResult>;
+  }): Promise<TResult> {
+    const initialCause = input.cause;
+    let latestCause = input.cause;
+    let reconciliationFailureCount = 0;
+    let attempt = 0;
+    while (!this.closing && this.pool && this.enabled) {
+      attempt += 1;
+      try {
+        await this.awaitStatusReadOrShutdown(this.getOperationStatus(input.operationId));
+      } catch (error: unknown) {
+        if (error instanceof DurableOperationShutdownError) {
+          break;
+        }
+        latestCause = error;
+        reconciliationFailureCount += 1;
+        if (attempt === 1 || attempt % 20 === 0) {
+          this.logger.error(
+            `强事务 COMMIT 结果查询失败，继续持锁重试 operationId=${input.operationId} attempt=${attempt}`,
+            error instanceof Error ? error.stack : String(error),
+          );
+        }
+        await waitForDurableOperationReconciliation(250);
+        continue;
+      }
+      try {
+        // 无论 status 为 committed/pending/null，都重新进入带行锁与 replay identity 校验的幂等入口。
+        // status 只用于确认数据库已恢复可读，不能单独作为本次 operation 身份证明。
+        const retryResult = await input.retry();
+        // 本收敛器只服务已经执行到 COMMIT 的当前调用；身份验证或幂等重试成功后，
+        // 仍返回本次 mutation 结果，避免上层误按历史 replay 撤销已提交的乐观运行态。
+        return input.onSettled(retryResult);
+      } catch (error: unknown) {
+        if (!(error instanceof DurableOperationCommitOutcomeUnknownError)) {
+          throw error;
+        }
+        latestCause = error;
+        reconciliationFailureCount += 1;
+        await waitForDurableOperationReconciliation(250);
+      }
+    }
+    for (const playerId of input.affectedPlayerIds ?? []) {
+      const normalizedPlayerId = normalizeRequiredString(playerId);
+      if (normalizedPlayerId) this.unresolvedCommitPlayerIds.add(normalizedPlayerId);
+    }
+    for (const instanceId of input.affectedInstanceIds ?? []) {
+      const normalizedInstanceId = normalizeRequiredString(instanceId);
+      if (normalizedInstanceId) this.unresolvedCommitInstanceIds.add(normalizedInstanceId);
+    }
+    throw new DurableOperationCommitOutcomeUnknownError(
+      input.operationId,
+      new AggregateError(
+        latestCause === initialCause ? [initialCause] : [initialCause, latestCause],
+        `durable_operation_reconciliation_stopped:failures=${reconciliationFailureCount}`,
+      ),
+    );
+  }
+
+  private async awaitStatusReadOrShutdown<TResult>(operation: Promise<TResult>): Promise<TResult> {
+    return Promise.race([
+      operation,
+      this.shutdownSignal.promise.then(() => {
+        throw new DurableOperationShutdownError();
+      }),
+    ]);
+  }
+
   private releasePoolReference(): void {
     this.pool = null;
     this.enabled = false;
@@ -3079,35 +3445,54 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
     payload: unknown;
     onAlreadyCommitted: (client: import('pg').PoolClient, now: number) => Promise<TResult>;
     onMutate: (client: import('pg').PoolClient, now: number, runtimeOwnerId: string, sessionEpoch: number) => Promise<TResult>;
-  }): Promise<TResult> {
+  }, commitOutcomeRetryRemaining = 1): Promise<TResult> {
     if (!this.pool || !this.enabled) {
       throw new Error('durable_operation_service_disabled');
     }
 
     const normalizedPlayerId = normalizeRequiredString(input.playerId);
-    const normalizedOperationId = normalizeRequiredString(input.operationId);
+    const normalizedOperationId = normalizeDurableOperationId(input.operationId);
     if (!normalizedPlayerId || !normalizedOperationId) {
       throw new Error('invalid_execute_asset_mutation_input');
     }
 
     const now = Date.now();
     const client = await this.pool.connect();
+    let clientReleased = false;
+    let commitAttempted = false;
+    let commitOutcomeUnknown = false;
+    let commitOutcomeCause: unknown = null;
+    let mutationResult: TResult | undefined;
     try {
       await client.query('BEGIN');
       await acquirePlayerAssetLock(client, normalizedPlayerId);
 
-      const existingOperation = await client.query<{ status?: string }>(
+      const existingOperation = await client.query<{
+        status?: string;
+        operation_type?: string;
+        aggregate_type?: string;
+        player_id?: string;
+        payload_jsonb?: unknown;
+      }>(
         `
-          SELECT status
+          SELECT status, operation_type, aggregate_type, player_id, payload_jsonb
           FROM ${DURABLE_OPERATION_LOG_TABLE}
           WHERE operation_id = $1
           FOR UPDATE
         `,
         [normalizedOperationId],
       );
+      if (existingOperation.rowCount) {
+        assertDurableOperationReplayIdentity(existingOperation.rows[0], {
+          operationType: input.operationType,
+          aggregateType: input.aggregateType,
+          playerId: normalizedPlayerId,
+          payload: input.payload,
+        });
+      }
       if (existingOperation.rowCount && existingOperation.rows[0]?.status === 'committed') {
         const committedResult = await input.onAlreadyCommitted(client, now);
-        await client.query('ROLLBACK');
+        clientReleased = await rollbackTransactionOrDestroyClient(client);
         return committedResult;
       }
 
@@ -3182,7 +3567,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
         );
       }
 
-      const result = await input.onMutate(client, now, persistedRuntimeOwnerId, Math.trunc(persistedSessionEpoch));
+      mutationResult = await input.onMutate(client, now, persistedRuntimeOwnerId, Math.trunc(persistedSessionEpoch));
 
       await client.query(
         `
@@ -3195,18 +3580,55 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
         [normalizedOperationId],
       );
 
+      commitAttempted = true;
       await client.query('COMMIT');
-      return result;
+      commitAttempted = false;
+      return mutationResult as TResult;
     } catch (error: unknown) {
-      await client.query('ROLLBACK').catch(() => undefined);
-      throw error;
+      clientReleased = await rollbackTransactionOrDestroyClient(client) || clientReleased;
+      if (commitAttempted) {
+        commitOutcomeUnknown = true;
+        commitOutcomeCause = error;
+      } else {
+        throw error;
+      }
     } finally {
-      client.release();
+      if (!clientReleased) {
+        client.release();
+      }
     }
+
+    if (commitOutcomeUnknown) {
+      if (commitOutcomeRetryRemaining < 0) {
+        throw new DurableOperationCommitOutcomeUnknownError(normalizedOperationId, commitOutcomeCause);
+      }
+      return this.settleUnknownCommitOutcome({
+        operationId: normalizedOperationId,
+        cause: commitOutcomeCause,
+        affectedPlayerIds: [normalizedPlayerId],
+        affectedInstanceIds: [normalizeRequiredString(input.expectedInstanceId)].filter(Boolean),
+        onSettled: (retryResult) => normalizeCurrentDurableInvocationResult(retryResult),
+        retry: () => this.executeAssetMutation(input, -1),
+      });
+    }
+
+    throw new Error(`durable_operation_unreachable_state:${normalizedOperationId}`);
   }
 
   private getCurrentNodeId(): string {
     return this.nodeRegistryService?.getNodeId?.() ?? resolveCurrentNodeId();
+  }
+}
+
+async function rollbackTransactionOrDestroyClient(
+  client: import('pg').PoolClient,
+): Promise<boolean> {
+  try {
+    await client.query('ROLLBACK');
+    return false;
+  } catch {
+    client.release(true);
+    return true;
   }
 }
 
@@ -4482,20 +4904,6 @@ function isActiveJobCatchUpAllowed(
     && nextActiveJob.jobVersion >= expectedJobVersion;
 }
 
-function isActiveJobBehindNext(
-  persistedJobRunId: string,
-  persistedJobVersion: number,
-  nextActiveJob: DurableActiveJobSnapshot | null,
-): boolean {
-  return Boolean(
-    nextActiveJob
-    && persistedJobRunId
-    && persistedJobRunId === nextActiveJob.jobRunId
-    && persistedJobVersion > 0
-    && persistedJobVersion < nextActiveJob.jobVersion,
-  );
-}
-
 function isActiveJobAlreadyAtOrAheadOfNext(
   persistedJobRunId: string,
   persistedJobVersion: number,
@@ -4680,7 +5088,7 @@ async function readMailCounters(
   }>(
     `
       WITH visible_mail AS (
-        SELECT mail_id, created_at, read_at
+        SELECT mail_id, created_at, read_at, claimed_at
         FROM ${PLAYER_MAIL_TABLE}
         WHERE player_id = $1
           AND deleted_at IS NULL
@@ -4690,7 +5098,9 @@ async function readMailCounters(
         SELECT DISTINCT attachment.mail_id
         FROM ${PLAYER_MAIL_ATTACHMENT_TABLE} attachment
         JOIN visible_mail mail ON mail.mail_id = attachment.mail_id
-        WHERE attachment.claimed_at IS NULL
+        WHERE attachment.player_id = $1
+          AND mail.claimed_at IS NULL
+          AND attachment.claimed_at IS NULL
       )
       SELECT
         COALESCE(SUM(CASE WHEN visible_mail.read_at IS NULL THEN 1 ELSE 0 END), 0) AS unread_count,
@@ -4701,17 +5111,358 @@ async function readMailCounters(
     [playerId, now],
   );
   const counterRow = counters.rows[0] ?? {};
+  const latestMailAt = Number(counterRow.latest_mail_at);
   return {
     unreadCount: Math.max(0, Math.trunc(Number(counterRow.unread_count ?? 0))),
     unclaimedCount: Math.max(0, Math.trunc(Number(counterRow.unclaimed_count ?? 0))),
-    latestMailAt: Number.isFinite(counterRow.latest_mail_at)
-      ? Math.trunc(Number(counterRow.latest_mail_at))
+    latestMailAt: Number.isFinite(latestMailAt)
+      ? Math.trunc(latestMailAt)
       : null,
   };
 }
 
+function normalizeInventoryGrantSourceMutation(
+  value: DurableInventoryGrantSourceMutation | null | undefined,
+): DurableInventoryGrantSourceMutation | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+  const instanceId = normalizeRequiredString(value.instanceId);
+  if (!instanceId) {
+    return null;
+  }
+  if (value.kind === 'ground_tile') {
+    const tileIndex = Number(value.tileIndex);
+    if (!Number.isInteger(tileIndex) || tileIndex < 0) {
+      return null;
+    }
+    return {
+      kind: 'ground_tile',
+      instanceId,
+      tileIndex,
+      remainingItems: Array.isArray(value.remainingItems)
+        ? value.remainingItems.map(normalizeDurableJsonObject)
+        : [],
+    };
+  }
+  if (value.kind === 'container_state') {
+    const containerId = normalizeRequiredString(value.containerId);
+    const sourceId = normalizeRequiredString(value.sourceId);
+    if (!containerId || !sourceId) {
+      return null;
+    }
+    return {
+      kind: 'container_state',
+      instanceId,
+      containerId,
+      sourceId,
+      statePayload: normalizeDurableJsonObject(value.statePayload),
+    };
+  }
+  return null;
+}
+
+async function persistInventoryGrantSourceMutation(
+  client: import('pg').PoolClient,
+  mutation: DurableInventoryGrantSourceMutation,
+): Promise<void> {
+  await client.query('SELECT pg_advisory_xact_lock($1::integer, hashtext($2))', [7102, mutation.instanceId]);
+  if (mutation.kind === 'ground_tile') {
+    await replaceDurableGroundTile(client, mutation);
+    return;
+  }
+  await replaceDurableContainerState(client, mutation);
+}
+
+async function replaceDurableGroundTile(
+  client: import('pg').PoolClient,
+  mutation: Extract<DurableInventoryGrantSourceMutation, { kind: 'ground_tile' }>,
+): Promise<void> {
+  await client.query(
+    `DELETE FROM ${INSTANCE_GROUND_ITEM_TABLE} WHERE instance_id = $1 AND tile_index = $2`,
+    [mutation.instanceId, mutation.tileIndex],
+  );
+  if (mutation.remainingItems.length === 0) {
+    return;
+  }
+  const rows = mutation.remainingItems.map((itemPayload, index) => ({
+    ground_item_id: buildDurableInstanceRowId('ground', mutation.instanceId, `${mutation.tileIndex}:${index}`),
+    tile_index: mutation.tileIndex,
+    item_instance_payload: normalizeDurableJsonObject(itemPayload),
+    expire_at: resolveDurableGroundExpireAt(itemPayload),
+  }));
+  await client.query(
+    `
+      WITH incoming AS (
+        SELECT *
+        FROM jsonb_to_recordset($2::jsonb) AS entry(
+          ground_item_id varchar(100),
+          tile_index bigint,
+          item_instance_payload jsonb,
+          expire_at timestamptz
+        )
+      )
+      INSERT INTO ${INSTANCE_GROUND_ITEM_TABLE}(
+        ground_item_id, instance_id, tile_index, item_instance_payload, expire_at, updated_at
+      )
+      SELECT ground_item_id, $1, tile_index, COALESCE(item_instance_payload, '{}'::jsonb), expire_at, now()
+      FROM incoming
+      ON CONFLICT (ground_item_id)
+      DO UPDATE SET
+        instance_id = EXCLUDED.instance_id,
+        tile_index = EXCLUDED.tile_index,
+        item_instance_payload = EXCLUDED.item_instance_payload,
+        expire_at = EXCLUDED.expire_at,
+        updated_at = now()
+    `,
+    [mutation.instanceId, JSON.stringify(rows)],
+  );
+}
+
+async function replaceDurableContainerState(
+  client: import('pg').PoolClient,
+  mutation: Extract<DurableInventoryGrantSourceMutation, { kind: 'container_state' }>,
+): Promise<void> {
+  const source = normalizeDurableJsonObject(mutation.statePayload);
+  const entries = Array.isArray(source.entries) ? source.entries : [];
+  const metadata: Record<string, unknown> = {};
+  for (const [key, entry] of Object.entries(source)) {
+    if (key !== 'entries' && key !== 'generatedAtTick' && key !== 'refreshAtTick' && key !== 'activeSearch') {
+      metadata[key] = entry;
+    }
+  }
+  await client.query(
+    `DELETE FROM ${INSTANCE_CONTAINER_ENTRY_TABLE} WHERE instance_id = $1 AND container_id = $2`,
+    [mutation.instanceId, mutation.containerId],
+  );
+  await client.query(
+    `DELETE FROM ${INSTANCE_CONTAINER_TIMER_TABLE} WHERE instance_id = $1 AND container_id = $2`,
+    [mutation.instanceId, mutation.containerId],
+  );
+  await client.query(
+    `
+      INSERT INTO ${INSTANCE_CONTAINER_STATE_TABLE}(
+        instance_id, container_id, source_id, state_payload, updated_at
+      )
+      VALUES ($1, $2, $3, $4::jsonb, now())
+      ON CONFLICT (instance_id, container_id)
+      DO UPDATE SET
+        source_id = EXCLUDED.source_id,
+        state_payload = EXCLUDED.state_payload,
+        updated_at = now()
+    `,
+    [mutation.instanceId, mutation.containerId, mutation.sourceId, JSON.stringify(metadata)],
+  );
+  await client.query(
+    `
+      INSERT INTO ${INSTANCE_CONTAINER_TIMER_TABLE}(
+        instance_id, container_id, generated_at_tick, refresh_at_tick,
+        active_search_payload, updated_at
+      )
+      VALUES ($1, $2, $3, $4, $5::jsonb, now())
+    `,
+    [
+      mutation.instanceId,
+      mutation.containerId,
+      normalizeOptionalInteger(source.generatedAtTick),
+      normalizeOptionalInteger(source.refreshAtTick),
+      JSON.stringify(normalizeDurableJsonObject(source.activeSearch)),
+    ],
+  );
+  if (entries.length === 0) {
+    return;
+  }
+  const entryRows = entries.map((value, entryIndex) => {
+    const entry = normalizeDurableJsonObject(value);
+    return {
+      container_id: mutation.containerId,
+      entry_index: entryIndex,
+      item_payload: normalizeDurableJsonObject(entry.item),
+      created_tick: normalizeOptionalInteger(entry.createdTick),
+      visible: entry.visible === true,
+    };
+  });
+  await client.query(
+    `
+      WITH incoming AS (
+        SELECT *
+        FROM jsonb_to_recordset($2::jsonb) AS entry(
+          container_id varchar(100),
+          entry_index bigint,
+          item_payload jsonb,
+          created_tick bigint,
+          visible boolean
+        )
+      )
+      INSERT INTO ${INSTANCE_CONTAINER_ENTRY_TABLE}(
+        instance_id, container_id, entry_index, item_payload, created_tick, visible, updated_at
+      )
+      SELECT $1, container_id, entry_index, COALESCE(item_payload, '{}'::jsonb), created_tick,
+        COALESCE(visible, false), now()
+      FROM incoming
+    `,
+    [mutation.instanceId, JSON.stringify(entryRows)],
+  );
+}
+
+function normalizeDurableJsonObject(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {};
+  }
+  try {
+    const parsed = JSON.parse(JSON.stringify(value));
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? parsed as Record<string, unknown>
+      : {};
+  }
+  catch {
+    return {};
+  }
+}
+
+function resolveDurableGroundExpireAt(itemPayload: unknown): string | null {
+  const payload = normalizeDurableJsonObject(itemPayload);
+  const expiresAtMs = Number(payload.groundExpiresAtMs);
+  if (!Number.isFinite(expiresAtMs) || expiresAtMs <= 0) {
+    return null;
+  }
+  const expireAt = new Date(Math.trunc(expiresAtMs));
+  return Number.isFinite(expireAt.getTime()) ? expireAt.toISOString() : null;
+}
+
+function buildDurableInstanceRowId(prefix: string, instanceId: string, suffix: string): string {
+  return `${prefix}:${hashDurableString(`${instanceId}:${suffix}`)}:${suffix}`.slice(0, 100);
+}
+
+function hashDurableString(value: string): string {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36);
+}
+
+function normalizeDurableOperationId(value: unknown): string {
+  const normalized = normalizeRequiredString(value);
+  if (!normalized || normalized.length <= DURABLE_OPERATION_ID_SAFE_LENGTH) {
+    return normalized;
+  }
+  const digest = createHash('sha256').update(normalized).digest('hex').slice(0, 32);
+  const suffix = `:h:${digest}`;
+  return `${normalized.slice(0, DURABLE_OPERATION_ID_SAFE_LENGTH - suffix.length)}${suffix}`;
+}
+
+function assertDurableOperationReplayIdentity(
+  row: {
+    operation_type?: unknown;
+    aggregate_type?: unknown;
+    player_id?: unknown;
+    payload_jsonb?: unknown;
+  },
+  expected: {
+    operationType: unknown;
+    aggregateType: unknown;
+    playerId: unknown;
+    payload: unknown;
+  },
+): void {
+  const currentOperationType = normalizeRequiredString(row.operation_type);
+  const currentAggregateType = normalizeRequiredString(row.aggregate_type);
+  const currentPlayerId = normalizeRequiredString(row.player_id);
+  const expectedOperationType = normalizeRequiredString(expected.operationType);
+  const expectedAggregateType = normalizeRequiredString(expected.aggregateType);
+  const expectedPlayerId = normalizeRequiredString(expected.playerId);
+  if (
+    currentOperationType !== expectedOperationType
+    || currentAggregateType !== expectedAggregateType
+    || currentPlayerId !== expectedPlayerId
+    || stableDurableJson(row.payload_jsonb) !== stableDurableJson(expected.payload)
+  ) {
+    throw new Error('durable_operation_replay_identity_conflict');
+  }
+}
+
+/**
+ * 市场幂等键只绑定玩家、动作类型与客户端请求本身。
+ * 订单版本和结算后快照属于服务端派生结果；重复请求到达时运行态可能已经推进，
+ * 不能拿这些派生字段判断是否为同一请求，否则会把正常重放误判成 operationId 冲突。
+ */
+function assertDurableMarketOperationReplayIdentity(
+  row: {
+    operation_type?: unknown;
+    aggregate_type?: unknown;
+    player_id?: unknown;
+    payload_jsonb?: unknown;
+  },
+  expected: {
+    operationType: unknown;
+    playerId: unknown;
+    request: unknown;
+  },
+): void {
+  const payload = normalizeDurableJsonObject(row.payload_jsonb);
+  assertDurableOperationReplayIdentity(
+    {
+      ...row,
+      payload_jsonb: payload.request,
+    },
+    {
+      operationType: expected.operationType,
+      aggregateType: 'market_mutation',
+      playerId: expected.playerId,
+      payload: expected.request,
+    },
+  );
+}
+
+function stableDurableJson(value: unknown): string {
+  let decoded = value;
+  if (typeof decoded === 'string') {
+    try {
+      decoded = JSON.parse(decoded);
+    } catch {
+      return JSON.stringify(decoded);
+    }
+  }
+  try {
+    const serialized = JSON.stringify(decoded ?? {});
+    return JSON.stringify(sortDurableJsonValue(JSON.parse(serialized)));
+  } catch {
+    throw new Error('durable_operation_payload_not_serializable');
+  }
+}
+
+function sortDurableJsonValue(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(sortDurableJsonValue);
+  }
+  if (!value || typeof value !== 'object') {
+    return value;
+  }
+  const sorted: Record<string, unknown> = {};
+  for (const key of Object.keys(value).sort()) {
+    sorted[key] = sortDurableJsonValue((value as Record<string, unknown>)[key]);
+  }
+  return sorted;
+}
+
 function normalizeRequiredString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
+}
+
+function waitForDurableOperationReconciliation(delayMs: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, delayMs));
+}
+
+function normalizeCurrentDurableInvocationResult<TResult>(result: TResult): TResult {
+  if (!result || typeof result !== 'object' || Array.isArray(result) || !('alreadyCommitted' in result)) {
+    return result;
+  }
+  return {
+    ...(result as Record<string, unknown>),
+    alreadyCommitted: false,
+  } as TResult;
 }
 
 function normalizeOptionalInteger(value: unknown): number | null {
@@ -4794,6 +5545,12 @@ function normalizeMarketPlayerMutations(values: readonly DurableMarketPlayerMuta
       continue;
     }
     const current = byPlayerId.get(playerId) ?? { playerId };
+    const expectedRuntimeOwnerId = normalizeRequiredString(value.expectedRuntimeOwnerId);
+    const expectedSessionEpoch = Math.max(0, Math.trunc(Number(value.expectedSessionEpoch ?? 0)));
+    if (expectedRuntimeOwnerId && expectedSessionEpoch > 0) {
+      current.expectedRuntimeOwnerId = expectedRuntimeOwnerId;
+      current.expectedSessionEpoch = expectedSessionEpoch;
+    }
     if (Array.isArray(value.nextInventoryItems)) {
       current.nextInventoryItems = value.nextInventoryItems as DurableInventoryItemSnapshot[];
     }
@@ -4805,7 +5562,104 @@ function normalizeMarketPlayerMutations(values: readonly DurableMarketPlayerMuta
     }
     byPlayerId.set(playerId, current);
   }
-  return Array.from(byPlayerId.values());
+  return Array.from(byPlayerId.values()).sort((left, right) => left.playerId.localeCompare(right.playerId));
+}
+
+function normalizeMarketExpectedOrders(
+  values: readonly DurableMarketExpectedOrderSnapshot[],
+): DurableMarketExpectedOrderSnapshot[] {
+  const byOrderId = new Map<string, DurableMarketExpectedOrderSnapshot>();
+  for (const value of Array.isArray(values) ? values : []) {
+    const orderId = normalizeRequiredString(value?.orderId);
+    if (!orderId) {
+      continue;
+    }
+    byOrderId.set(orderId, {
+      orderId,
+      exists: value.exists === true,
+      status: normalizeOptionalString(value.status),
+      remainingQuantity: normalizeOptionalInteger(value.remainingQuantity),
+      updatedAtMs: normalizeOptionalInteger(value.updatedAtMs),
+    });
+  }
+  return Array.from(byOrderId.values()).sort((left, right) => left.orderId.localeCompare(right.orderId));
+}
+
+async function assertMarketParticipantPresenceFences(
+  client: import('pg').PoolClient,
+  mutations: readonly DurableMarketPlayerMutationSnapshot[],
+  primaryPlayerId: string,
+): Promise<void> {
+  for (const mutation of mutations) {
+    if (mutation.playerId === primaryPlayerId) {
+      continue;
+    }
+    const expectedRuntimeOwnerId = normalizeRequiredString(mutation.expectedRuntimeOwnerId);
+    const expectedSessionEpoch = Math.max(0, Math.trunc(Number(mutation.expectedSessionEpoch ?? 0)));
+    if (!expectedRuntimeOwnerId || expectedSessionEpoch <= 0) {
+      continue;
+    }
+    const result = await client.query<{ runtime_owner_id?: unknown; session_epoch?: unknown }>(
+      `SELECT runtime_owner_id, session_epoch FROM ${PLAYER_PRESENCE_TABLE} WHERE player_id = $1 FOR UPDATE`,
+      [mutation.playerId],
+    );
+    const persistedRuntimeOwnerId = normalizeRequiredString(result.rows[0]?.runtime_owner_id);
+    const persistedSessionEpoch = Math.max(0, Math.trunc(Number(result.rows[0]?.session_epoch ?? 0)));
+    if (
+      persistedRuntimeOwnerId !== expectedRuntimeOwnerId
+      || persistedSessionEpoch !== expectedSessionEpoch
+    ) {
+      throw new Error(`market_participant_session_fence_conflict:${mutation.playerId}`);
+    }
+  }
+}
+
+async function assertMarketExpectedOrders(
+  client: import('pg').PoolClient,
+  expectedOrders: readonly DurableMarketExpectedOrderSnapshot[],
+): Promise<void> {
+  if (expectedOrders.length === 0) {
+    return;
+  }
+  const orderIds = expectedOrders.map((entry) => entry.orderId);
+  const result = await client.query<{
+    order_id?: unknown;
+    status?: unknown;
+    remaining_quantity?: unknown;
+    updated_at_ms?: unknown;
+  }>(
+    `
+      SELECT order_id, status, remaining_quantity, updated_at_ms
+      FROM ${MARKET_ORDER_TABLE}
+      WHERE order_id = ANY($1::varchar[])
+      ORDER BY order_id ASC
+      FOR UPDATE
+    `,
+    [orderIds],
+  );
+  const rowsByOrderId = new Map(
+    result.rows.map((row) => [normalizeRequiredString(row.order_id), row]),
+  );
+  for (const expected of expectedOrders) {
+    const row = rowsByOrderId.get(expected.orderId);
+    if (!expected.exists) {
+      if (row) {
+        throw new Error(`market_order_cas_conflict:${expected.orderId}:expected_absent`);
+      }
+      continue;
+    }
+    const persistedStatus = normalizeRequiredString(row?.status);
+    const persistedRemainingQuantity = normalizeOptionalInteger(row?.remaining_quantity);
+    const persistedUpdatedAtMs = normalizeOptionalInteger(row?.updated_at_ms);
+    if (
+      !row
+      || (expected.status != null && persistedStatus !== expected.status)
+      || (expected.remainingQuantity != null && persistedRemainingQuantity !== expected.remainingQuantity)
+      || (expected.updatedAtMs != null && persistedUpdatedAtMs !== expected.updatedAtMs)
+    ) {
+      throw new Error(`market_order_cas_conflict:${expected.orderId}:stale_state`);
+    }
+  }
 }
 
 async function insertDurableOperationLog(
