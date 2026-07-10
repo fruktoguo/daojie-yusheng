@@ -20,6 +20,7 @@ import {
   resolveTileLayerSeedFromTileType,
   parseQiResourceKey,
   resolveGameTimeState,
+  type VisibleBuffState,
 } from '@mud/shared';
 
 import { getTileIndex, MapTemplateRepository } from '../runtime/map/map-template.repository';
@@ -74,6 +75,7 @@ const containerRenderEntityCache = new WeakMap<object, any>();
 const formationRenderEntityCache = new WeakMap<object, any>();
 const monsterBuffProjectionCache = new WeakMap<any[], { visible: any[]; projected: any[] }>();
 const instanceStaticTileDiffPlanCache = new WeakMap<object, any>();
+const EMPTY_VISIBLE_MONSTER_BUFFS: VisibleBuffState[] = [];
 
 /** map/static snapshot 构造服务：承接 world-sync 的可见区域与静态展示构造。 */
 @Injectable()
@@ -948,7 +950,7 @@ function projectMonsterBuffs(buffs) {
   }
   const visibleBuffs = buffs.filter((buff) => buff?.visibility === 'public' && (buff?.remainingTicks ?? 0) > 0 && (buff?.stacks ?? 0) > 0);
   if (visibleBuffs.length === 0) {
-    return [];
+    return EMPTY_VISIBLE_MONSTER_BUFFS;
   }
   visibleBuffs.sort((left, right) => left.buffId.localeCompare(right.buffId, 'zh-Hans-CN'));
   const cached = monsterBuffProjectionCache.get(buffs);
@@ -956,7 +958,10 @@ function projectMonsterBuffs(buffs) {
     return cached.projected;
   }
   const projected = visibleBuffs.map((buff) => cloneVisibleBuffProjection(buff));
-  monsterBuffProjectionCache.set(buffs, { visible: projected, projected });
+  monsterBuffProjectionCache.set(buffs, {
+    visible: visibleBuffs.map((buff) => ({ ...buff })),
+    projected,
+  });
   return projected;
 }
 

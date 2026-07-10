@@ -1212,8 +1212,8 @@ function canReuseAttrPanelSlice(previousAttr: ProjectedAttrPanelState, player: P
 
 function isSameCraftEffectStats(left: CraftEffectStatsPatch | null | undefined, right: CraftEffectStatsPatch | null | undefined): boolean {
     for (const skillKind of CRAFT_EFFECT_SKILL_KINDS) {
-        const leftBlock = left[skillKind];
-        const rightBlock = right[skillKind];
+        const leftBlock = left?.[skillKind];
+        const rightBlock = right?.[skillKind];
         for (const effectKind of CRAFT_EFFECT_KINDS) {
             if ((Number(leftBlock?.[effectKind]) || 0) !== (Number(rightBlock?.[effectKind]) || 0)) {
                 return false;

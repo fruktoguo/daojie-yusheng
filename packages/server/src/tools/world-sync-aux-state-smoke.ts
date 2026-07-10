@@ -207,7 +207,7 @@ function createService(
       },
     },
     {
-      buildPlayerSyncState(_player: unknown, _view: unknown, unlockedMinimapIds: string[]) {
+      buildPlayerSyncState(_player: { realm?: Record<string, unknown> | null }, _view: unknown, unlockedMinimapIds: string[]) {
         return {
           id: 'player:1',
           name: 'player:1',
@@ -307,12 +307,12 @@ function createService(
           enhancementSkillLevel: 0,
           actions: [],
           quests: [],
-          realm: undefined,
-          realmLv: undefined,
-          realmName: undefined,
-          realmStage: undefined,
-          realmReview: undefined,
-          breakthroughReady: undefined,
+          realm: _player.realm ? { ..._player.realm } : undefined,
+          realmLv: _player.realm?.realmLv,
+          realmName: _player.realm?.name,
+          realmStage: _player.realm?.shortName,
+          realmReview: _player.realm?.review,
+          breakthroughReady: _player.realm?.breakthroughReady,
           heavenGate: undefined,
           spiritualRoots: undefined,
           autoBattle: false,

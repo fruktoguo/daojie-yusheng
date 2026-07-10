@@ -186,16 +186,14 @@ export class WorldSyncAuxStateService {
     const mapUnlocked = Array.isArray(player.unlockedMapIds) && player.unlockedMapIds.includes(template.id);
     const timeState = this.worldSyncMapSnapshotService.buildGameTimeState(template, view, player);
     const timeSyncState = this.buildTimeSyncState(template.id, timeState);
-    const realmState = cloneRealmState(player.realm);
     const threatArrows = this.worldSyncThreatService.buildThreatArrows(view);
-    const bootstrapPayload = this.buildBootstrapSyncPayload(
-      this.worldSyncPlayerStateService.buildPlayerSyncState(
-        player,
-        view,
-        unlockedMapIds,
-      ),
-      timeState,
+    const playerSyncState = this.worldSyncPlayerStateService.buildPlayerSyncState(
+      player,
+      view,
+      unlockedMapIds,
     );
+    const bootstrapPayload = this.buildBootstrapSyncPayload(playerSyncState, timeState);
+    const realmState = playerSyncState.realm ?? null;
 
     this.worldSyncProtocolService.sendBootstrap(socket, bootstrapPayload);
     this.worldSyncProtocolService.sendMapStatic(
