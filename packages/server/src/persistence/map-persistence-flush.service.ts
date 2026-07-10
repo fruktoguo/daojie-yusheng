@@ -14,6 +14,7 @@ import { WorldRuntimeService } from '../runtime/world/world-runtime.service';
 import { readTrimmedEnv } from '../config/env-alias';
 import { StartupBarrierService } from '../lifecycle/startup-barrier.service';
 import { DatabasePoolProvider } from './database-pool.provider';
+import { DurableOperationService } from './durable-operation.service';
 import { FlushDiagnosticsService } from './flush-diagnostics.service';
 import { shouldRunLegacyFlushIntervals } from './flush-task-runtime-mode';
 
@@ -135,6 +136,7 @@ export class MapPersistenceFlushService {
     /** 刷盘诊断采集器。 */
     flushDiagnostics: any = null;
     startupBarrierService: StartupBarrierService | null = null;
+    durableOperationService: DurableOperationService | null = null;
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param worldRuntimeService 参数说明。
@@ -147,11 +149,13 @@ export class MapPersistenceFlushService {
         @Optional() @Inject(DatabasePoolProvider) databasePoolProvider?: any,
         @Optional() @Inject(FlushDiagnosticsService) flushDiagnostics?: any,
         @Optional() @Inject(StartupBarrierService) startupBarrierService?: StartupBarrierService,
+        @Optional() @Inject(DurableOperationService) durableOperationService?: DurableOperationService,
     ) {
         this.worldRuntimeService = worldRuntimeService;
         this.databasePoolProvider = databasePoolProvider ?? null;
         this.flushDiagnostics = flushDiagnostics ?? null;
         this.startupBarrierService = startupBarrierService ?? null;
+        this.durableOperationService = durableOperationService ?? null;
     }
     /**
  * onModuleInit：执行on模块Init相关逻辑。
@@ -212,6 +216,9 @@ export class MapPersistenceFlushService {
         if (!this.isDomainPersistenceEnabled()) {
             return;
         }
+        if (this.durableOperationService?.isInstanceCommitOutcomeUnresolved(instanceId)) {
+            throw new Error(`instance_flush_blocked_by_unresolved_durable_commit:${instanceId}`);
+        }
         if (typeof this.worldRuntimeService.flushInstanceDomains === 'function') {
             await this.worldRuntimeService.flushInstanceDomains(instanceId);
             return;
@@ -253,6 +260,7 @@ export class MapPersistenceFlushService {
         let skippedInstanceCount = 0;
         let coalescedDomainCount = 0;
         const persistedDomainCounts = new Map();
+        const cycleFailures: unknown[] = [];
 
         const promise = (async () => {
 
@@ -313,12 +321,32 @@ export class MapPersistenceFlushService {
             const deltaConstructStart = performance.now();
             for (const [domain, instanceIds] of batchDomainInstanceIds) {
                 try {
-                    const deltas = this.worldRuntimeService.buildDomainDeltaBatch(domain, instanceIds);
+                    const blockedInstanceIds = instanceIds.filter((instanceId) => (
+                        this.durableOperationService?.isInstanceCommitOutcomeUnresolved(instanceId)
+                    ));
+                    if (reason === 'shutdown') {
+                        for (const instanceId of blockedInstanceIds) {
+                            cycleFailures.push(new Error(`instance_flush_blocked_by_unresolved_durable_commit:${instanceId}`));
+                        }
+                    }
+                    const blockedInstanceIdSet = new Set(blockedInstanceIds);
+                    const writableInstanceIds = instanceIds.filter((instanceId) => !blockedInstanceIdSet.has(instanceId));
+                    if (writableInstanceIds.length === 0) continue;
+                    const deltas = this.worldRuntimeService.buildDomainDeltaBatch(domain, writableInstanceIds);
                     if (!Array.isArray(deltas) || deltas.length === 0) continue;
                     if (domain === 'tile_damage') {
-                        await persistence.saveTileDamageDeltaBatch(deltas.map((d) => ({
-                            instanceId: d.instanceId, upserts: d.upserts, deletes: d.deletes,
-                        })));
+                        const fullReplaceDeltas = deltas.filter((delta) => delta.fullReplace === true);
+                        for (const delta of fullReplaceDeltas) {
+                            await persistence.saveTileDamageStates(delta.instanceId, delta.entries ?? []);
+                        }
+                        const rowDeltas = deltas.filter((delta) => delta.fullReplace !== true);
+                        if (rowDeltas.length > 0) {
+                            await persistence.saveTileDamageDeltaBatch(rowDeltas.map((delta) => ({
+                                instanceId: delta.instanceId,
+                                upserts: delta.upserts,
+                                deletes: delta.deletes,
+                            })));
+                        }
                     } else if (domain === 'tile_resource') {
                         await persistence.saveTileResourceDeltaBatch(deltas.map((d) => ({
                             instanceId: d.instanceId, upserts: d.upserts, deletes: d.deletes,
@@ -332,10 +360,15 @@ export class MapPersistenceFlushService {
                         await persistence.saveInstanceRecoveryWatermarkBatch(watermarkBatch);
                     }
                     // 标记已持久化
-                    this.worldRuntimeService.markDomainBatchPersisted(domain, deltas.map((d) => d.instanceId));
+                    this.worldRuntimeService.markDomainBatchPersisted(
+                        domain,
+                        deltas.map((delta) => delta.instanceId),
+                        deltas,
+                    );
                     recordPersistedDomains(persistedDomainCounts, deltas.map(() => domain));
                     persistedInstanceCount += deltas.length;
                 } catch (error) {
+                    cycleFailures.push(error);
                     this.logger.error(`地图批量持久化失败（${reason}） domain=${domain}`, error instanceof Error ? error.stack : String(error));
                 }
             }
@@ -348,6 +381,9 @@ export class MapPersistenceFlushService {
                 const batches = chunkValues(prioritizedInstanceIds, MAP_PERSISTENCE_FLUSH_BATCH_SIZE);
                 for (const batch of batches) {
                     await runConcurrent(batch, MAP_PERSISTENCE_FLUSH_PARALLELISM, async (instanceId) => {
+                        if (this.durableOperationService?.isInstanceCommitOutcomeUnresolved(instanceId)) {
+                            throw new Error(`instance_flush_blocked_by_unresolved_durable_commit:${instanceId}`);
+                        }
                         const domainEntry = remainingEntryByInstanceId.get(instanceId);
                         if (typeof this.worldRuntimeService.flushInstanceDomains === 'function') {
                             const result = await this.worldRuntimeService.flushInstanceDomains(instanceId, domainEntry?.domains ?? null);
@@ -362,6 +398,7 @@ export class MapPersistenceFlushService {
                         }
                         persistedInstanceCount += 1;
                     }, (instanceId, error) => {
+                        cycleFailures.push(error);
                         this.logger.error(`地图持久化刷新失败（${reason}） instanceId=${instanceId}`, error instanceof Error ? error.stack : String(error));
                     });
                 }
@@ -374,6 +411,15 @@ export class MapPersistenceFlushService {
             }
             if (reason === 'interval' && dirtyDomainSelection.includesMonsterRuntime === true) {
                 this.nextMonsterRuntimeFlushAt = Date.now() + MAP_PERSISTENCE_MONSTER_RUNTIME_INTERVAL_MS;
+            }
+            if (reason === 'shutdown' && cycleFailures.length > 0) {
+                const failureSummary = cycleFailures
+                    .map((error) => error instanceof Error ? error.message : String(error))
+                    .join(',');
+                throw new AggregateError(
+                    cycleFailures,
+                    `map_shutdown_flush_failed:count=${cycleFailures.length}:${failureSummary}`,
+                );
             }
         })();
         this.flushPromise = promise;

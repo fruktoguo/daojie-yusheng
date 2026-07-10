@@ -13,6 +13,8 @@ async function main(): Promise<void> {
   await testIntervalBatchesDueTimeCheckpoints();
   await testIntervalSkipsDeferredMonsterRuntime();
   await testDomainOnlyShutdownFlush();
+  await testShutdownReportsNestedWorkerFailure();
+  await testShutdownReportsUnresolvedFence();
 
   console.log(
     JSON.stringify(
@@ -237,6 +239,56 @@ async function testDomainOnlyShutdownFlush(): Promise<void> {
   assert.deepEqual(flushCalls, [
     { instanceId: 'sect:stabilized:main', domains: ['tile_damage'] },
   ]);
+}
+
+async function testShutdownReportsNestedWorkerFailure(): Promise<void> {
+  const service = new MapPersistenceFlushService(
+    {
+      instanceDomainPersistenceService: { isEnabled: () => true },
+      listDirtyPersistentInstanceDomains() {
+        return [{ instanceId: 'public:shutdown-failure', domains: ['ground_item'] }];
+      },
+      async flushInstanceDomains(): Promise<never> {
+        throw new Error('simulated_nested_map_flush_failure');
+      },
+    } as never,
+  );
+
+  await assert.rejects(
+    service.flushAllNow(),
+    /map_shutdown_flush_failed/,
+  );
+}
+
+async function testShutdownReportsUnresolvedFence(): Promise<void> {
+  const instanceId = 'public:shutdown-durable-unknown';
+  let flushCalls = 0;
+  const service = new MapPersistenceFlushService(
+    {
+      instanceDomainPersistenceService: { isEnabled: () => true },
+      listDirtyPersistentInstanceDomains() {
+        return [{ instanceId, domains: ['ground_item'] }];
+      },
+      async flushInstanceDomains(): Promise<{ skipped: false }> {
+        flushCalls += 1;
+        return { skipped: false };
+      },
+    } as never,
+    undefined,
+    undefined,
+    undefined,
+    {
+      isInstanceCommitOutcomeUnresolved(targetInstanceId: string) {
+        return targetInstanceId === instanceId;
+      },
+    } as never,
+  );
+
+  await assert.rejects(
+    service.flushAllNow(),
+    /map_shutdown_flush_failed/,
+  );
+  assert.equal(flushCalls, 0);
 }
 
 function sleep(ms: number): Promise<void> {

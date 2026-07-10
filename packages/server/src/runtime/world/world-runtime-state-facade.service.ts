@@ -205,8 +205,8 @@ export class WorldRuntimeStateFacadeService {
     }
 
     /** 批量标记多个实例的指定 domain 为已持久化。 */
-    markDomainBatchPersisted(domain, instanceIds, deps) {
-        deps.worldRuntimePersistenceStateService.markDomainBatchPersisted(domain, instanceIds, deps);
+    markDomainBatchPersisted(domain, instanceIds, snapshots, deps) {
+        deps.worldRuntimePersistenceStateService.markDomainBatchPersisted(domain, instanceIds, snapshots, deps);
     }
 
     /**

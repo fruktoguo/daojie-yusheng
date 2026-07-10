@@ -136,8 +136,13 @@ interface WorldRuntimeFlushTaskPort {
     deletes?: unknown[];
     entries?: unknown[];
     watermarkPayload?: unknown;
+    flushSnapshot?: unknown;
   }>;
-  markDomainBatchPersisted?(domain: string, instanceIds: string[]): void;
+  markDomainBatchPersisted?(
+    domain: string,
+    instanceIds: string[],
+    snapshots?: Array<{ instanceId: string; flushSnapshot?: unknown }>,
+  ): void;
 }
 
 @Injectable()
@@ -877,7 +882,7 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
         const watermarks = deltas.filter((delta) => delta.watermarkPayload).map((delta) => ({ instanceId: delta.instanceId, payload: delta.watermarkPayload }));
         if (watermarks.length > 0) await persistence.saveInstanceRecoveryWatermarkBatch?.(watermarks);
         const persistedIds = deltas.map((delta) => delta.instanceId);
-        this.worldRuntimeService.markDomainBatchPersisted?.(domain, persistedIds);
+        this.worldRuntimeService.markDomainBatchPersisted?.(domain, persistedIds, deltas);
         for (const task of domainTasks.filter((task) => persistedIds.includes(task.id))) {
           await this.flushLedgerService.markFlushTaskFlushed(task);
           this.failureAttempts.delete(instanceTaskKey(task));

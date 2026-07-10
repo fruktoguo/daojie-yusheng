@@ -138,16 +138,21 @@ export class WorldRuntimePersistenceStateService {
     }
 
     /** markMapDomainsPersisted：只回标指定实例域，避免一个域落库清空所有 dirty。 */
-    markMapDomainsPersisted(instanceId, domains, deps) {
+    markMapDomainsPersisted(instanceId, domains, deps, flushSnapshot = null, containerSnapshotRevision = null) {
         const normalizedDomains = Array.isArray(domains) ? domains.filter((domain) => typeof domain === 'string' && domain.trim()) : [];
-        deps.getInstanceRuntime(instanceId)?.markPersistenceDomainsPersisted?.(normalizedDomains);
+        deps.getInstanceRuntime(instanceId)?.markPersistenceDomainsPersisted?.(normalizedDomains, flushSnapshot);
         if (normalizedDomains.includes('container_state')) {
-            deps.worldRuntimeLootContainerService.clearPersisted(instanceId);
+            deps.worldRuntimeLootContainerService.clearPersisted(instanceId, containerSnapshotRevision);
         }
     }
 
     /** flushInstanceDomains：按实例分域写入结构化真源。 */
-    async flushInstanceDomains(instanceId, domains, deps) {
+    async flushInstanceDomains(instanceId, domains, deps, domainLockHeld = false) {
+        // 首次检查用于快速拒绝；等待实例分域锁后递归进入本方法时还会再次检查，
+        // 防止 durable 来源事务在排队期间才进入 COMMIT unknown，随后被旧 delta 覆盖。
+        if (deps.durableOperationService?.isInstanceCommitOutcomeUnresolved?.(instanceId)) {
+            throw new Error(`instance_flush_blocked_by_unresolved_durable_commit:${instanceId}`);
+        }
         const instance = deps.getInstanceRuntime(instanceId);
         if (!instance || !instance.meta.persistent) {
             return { persistedDomains: [], skipped: true };
@@ -168,6 +173,30 @@ export class WorldRuntimePersistenceStateService {
         const currentDomains = new Set(Array.isArray(domains) && domains.length > 0
             ? domains
             : (this.listDirtyPersistentInstanceDomains(deps).find((entry) => entry.instanceId === instanceId)?.domains ?? []));
+        if (typeof instance.isPersistenceDomainHeld === 'function') {
+            for (const domain of Array.from(currentDomains)) {
+                if (instance.isPersistenceDomainHeld(domain)) {
+                    currentDomains.delete(domain);
+                }
+            }
+        }
+        if (currentDomains.size === 0) {
+            return { persistedDomains: [], skipped: true };
+        }
+        const normalizedCurrentDomains = Array.from(currentDomains).sort(resolveStableStringComparer(deps));
+        if (!domainLockHeld && typeof instance.runExclusivePersistenceDomainMutation === 'function') {
+            return instance.runExclusivePersistenceDomainMutation(
+                normalizedCurrentDomains,
+                () => this.flushInstanceDomains(instanceId, normalizedCurrentDomains, deps, true),
+            );
+        }
+        const flushSnapshot = typeof instance.capturePersistenceDomainFlushSnapshot === 'function'
+            ? instance.capturePersistenceDomainFlushSnapshot(normalizedCurrentDomains)
+            : null;
+        const containerSnapshotRevision = currentDomains.has('container_state')
+            && typeof deps.worldRuntimeLootContainerService.getContainerPersistenceRevision === 'function'
+            ? deps.worldRuntimeLootContainerService.getContainerPersistenceRevision(instanceId)
+            : null;
         const persistedDomains = [];
         if (currentDomains.has('tile_cell')) {
             await persistence.replaceRuntimeTileCells(instanceId, typeof instance.buildRuntimeTilePersistenceEntries === 'function'
@@ -177,7 +206,7 @@ export class WorldRuntimePersistenceStateService {
         }
         if (currentDomains.has('tile_resource')) {
             const delta = typeof instance.buildTileResourcePersistenceDelta === 'function'
-                ? instance.buildTileResourcePersistenceDelta()
+                ? instance.buildTileResourcePersistenceDelta(flushSnapshot)
                 : null;
             if (delta && delta.fullReplace !== true && typeof persistence.saveTileResourceDelta === 'function') {
                 await persistence.saveTileResourceDelta(instanceId, delta.upserts ?? [], delta.deletes ?? []);
@@ -189,7 +218,7 @@ export class WorldRuntimePersistenceStateService {
         }
         if (currentDomains.has('tile_damage')) {
             const delta = typeof instance.buildTileDamagePersistenceDelta === 'function'
-                ? instance.buildTileDamagePersistenceDelta()
+                ? instance.buildTileDamagePersistenceDelta(flushSnapshot)
                 : null;
             if (delta && delta.fullReplace !== true && typeof persistence.saveTileDamageDelta === 'function') {
                 await persistence.saveTileDamageDelta(instanceId, delta.upserts ?? [], delta.deletes ?? []);
@@ -212,7 +241,7 @@ export class WorldRuntimePersistenceStateService {
         }
         if (currentDomains.has('ground_item')) {
             const delta = typeof instance.buildGroundPersistenceDelta === 'function'
-                ? instance.buildGroundPersistenceDelta()
+                ? instance.buildGroundPersistenceDelta(flushSnapshot)
                 : null;
             if (delta && delta.fullReplace !== true && typeof persistence.replaceGroundItemTiles === 'function') {
                 await persistence.replaceGroundItemTiles(instanceId, delta.tileIndices ?? [], delta.entries ?? []);
@@ -261,7 +290,7 @@ export class WorldRuntimePersistenceStateService {
         }
         if (currentDomains.has('monster_runtime')) {
             const delta = typeof instance.buildMonsterRuntimePersistenceDelta === 'function'
-                ? instance.buildMonsterRuntimePersistenceDelta()
+                ? instance.buildMonsterRuntimePersistenceDelta(flushSnapshot)
                 : null;
             if (delta && delta.fullReplace !== true && typeof persistence.saveMonsterRuntimeDelta === 'function') {
                 await persistence.saveMonsterRuntimeDelta(instanceId, delta.upserts ?? [], delta.deletes ?? []);
@@ -312,9 +341,18 @@ export class WorldRuntimePersistenceStateService {
             return { persistedDomains, skipped: true };
         }
         if (persistedDomains.length > 0 && typeof persistence.saveInstanceRecoveryWatermark === 'function') {
-            await persistence.saveInstanceRecoveryWatermark(instanceId, buildInstanceDomainRecoveryWatermark(instance, persistedDomains));
+            await persistence.saveInstanceRecoveryWatermark(
+                instanceId,
+                buildInstanceDomainRecoveryWatermark(instance, persistedDomains, flushSnapshot),
+            );
         }
-        this.markMapDomainsPersisted(instanceId, persistedDomains, deps);
+        this.markMapDomainsPersisted(
+            instanceId,
+            persistedDomains,
+            deps,
+            flushSnapshot,
+            containerSnapshotRevision,
+        );
         return { persistedDomains, skipped: false };
     }
 
@@ -330,9 +368,12 @@ export class WorldRuntimePersistenceStateService {
             if (typeof deps.isInstanceLeaseWritable === 'function' && !deps.isInstanceLeaseWritable(instance)) continue;
             const persistence = deps.instanceDomainPersistenceService;
             if (!persistence?.isEnabled?.()) continue;
+            const flushSnapshot = typeof instance.capturePersistenceDomainFlushSnapshot === 'function'
+                ? instance.capturePersistenceDomainFlushSnapshot([domain])
+                : null;
             if (domain === 'tile_damage') {
                 const delta = typeof instance.buildTileDamagePersistenceDelta === 'function'
-                    ? instance.buildTileDamagePersistenceDelta() : null;
+                    ? instance.buildTileDamagePersistenceDelta(flushSnapshot) : null;
                 if (delta) {
                     results.push({
                         instanceId,
@@ -343,19 +384,21 @@ export class WorldRuntimePersistenceStateService {
                         entries: delta.fullReplace === true && typeof instance.buildTileDamagePersistenceEntries === 'function'
                             ? instance.buildTileDamagePersistenceEntries()
                             : undefined,
-                        watermarkPayload: buildInstanceDomainRecoveryWatermark(instance, ['tile_damage']),
+                        watermarkPayload: buildInstanceDomainRecoveryWatermark(instance, ['tile_damage'], flushSnapshot),
+                        flushSnapshot,
                     });
                 }
             } else if (domain === 'tile_resource') {
                 const delta = typeof instance.buildTileResourcePersistenceDelta === 'function'
-                    ? instance.buildTileResourcePersistenceDelta() : null;
+                    ? instance.buildTileResourcePersistenceDelta(flushSnapshot) : null;
                 if (delta && delta.fullReplace !== true) {
                     results.push({
                         instanceId,
                         domain: 'tile_resource',
                         upserts: delta.upserts ?? [],
                         deletes: delta.deletes ?? [],
-                        watermarkPayload: buildInstanceDomainRecoveryWatermark(instance, ['tile_resource']),
+                        watermarkPayload: buildInstanceDomainRecoveryWatermark(instance, ['tile_resource'], flushSnapshot),
+                        flushSnapshot,
                     });
                 }
             }
@@ -366,9 +409,19 @@ export class WorldRuntimePersistenceStateService {
     /**
      * 批量标记多个实例的指定 domain 为已持久化。
      */
-    markDomainBatchPersisted(domain, instanceIds, deps) {
-        for (const instanceId of instanceIds) {
-            this.markMapDomainsPersisted(instanceId, [domain], deps);
+    markDomainBatchPersisted(domain, instanceIds, snapshots, deps) {
+        const snapshotByInstanceId = new Map((Array.isArray(snapshots) ? snapshots : [])
+            .filter((entry) => typeof entry?.instanceId === 'string' && entry.instanceId.trim())
+            .map((entry) => [entry.instanceId, entry.flushSnapshot ?? null]));
+        const entries = Array.isArray(instanceIds) ? instanceIds : [];
+        for (const entry of Array.isArray(entries) ? entries : []) {
+            const instanceId = typeof entry === 'string' ? entry : entry?.instanceId;
+            if (typeof instanceId !== 'string' || !instanceId.trim()) {
+                continue;
+            }
+            const flushSnapshot = snapshotByInstanceId.get(instanceId)
+                ?? (typeof entry === 'object' && entry !== null ? entry.flushSnapshot ?? null : null);
+            this.markMapDomainsPersisted(instanceId, [domain], deps, flushSnapshot);
         }
     }
 };
@@ -452,10 +505,12 @@ export function buildTimeCheckpointSnapshot(instance) {
     };
 }
 
-function buildInstanceDomainRecoveryWatermark(instance, persistedDomains) {
-    const persistenceRevision = typeof instance?.getPersistenceRevision === 'function'
-        ? instance.getPersistenceRevision()
-        : undefined;
+function buildInstanceDomainRecoveryWatermark(instance, persistedDomains, flushSnapshot = null) {
+    const persistenceRevision = Number.isFinite(Number(flushSnapshot?.persistenceRevision))
+        ? Math.max(0, Math.trunc(Number(flushSnapshot.persistenceRevision)))
+        : (typeof instance?.getPersistenceRevision === 'function'
+            ? instance.getPersistenceRevision()
+            : undefined);
     return {
         kind: 'domain_flush',
         domains: Array.from(new Set((Array.isArray(persistedDomains) ? persistedDomains : [])

@@ -885,8 +885,8 @@ export class WorldRuntimeService {
         return this.worldRuntimeStateFacadeService.buildDomainDeltaBatch(domain, instanceIds, this);
     }
         /** 批量标记多个实例的指定 domain 为已持久化。 */
-        markDomainBatchPersisted(domain, instanceIds) {
-        this.worldRuntimeStateFacadeService.markDomainBatchPersisted(domain, instanceIds, this);
+        markDomainBatchPersisted(domain, instanceIds, snapshots = null) {
+        this.worldRuntimeStateFacadeService.markDomainBatchPersisted(domain, instanceIds, snapshots, this);
     }
         async tickAll() {
         return this.worldRuntimeStateFacadeService.tickAll(this);
