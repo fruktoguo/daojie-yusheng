@@ -10,6 +10,7 @@
  */
 import { Inject, BadRequestException, Injectable, Logger, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { ARTIFACT_SLOTS, ARTIFACT_UNLOCK_REALM_LV, ATTR_KEYS, AUTO_IDLE_CULTIVATION_DELAY_TICKS, BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER, DEFAULT_BASE_ATTRS, DEFAULT_BONE_AGE_YEARS, DEFAULT_COMBAT_ATTACK_INTENSITY, DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS, DEFAULT_INVENTORY_CAPACITY, DEFAULT_PLAYER_REALM_STAGE, Direction, EQUIP_SLOTS, ITEM_TYPE_SORT_ORDER, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, RETURN_TO_SPAWN_ACTION_ID, RETURN_TO_SPAWN_COOLDOWN_TICKS, TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH, TECHNIQUE_GRADE_ORDER, TechniqueRealm, calculateTechniqueComprehensionProgressGain, calculateTechniqueComprehensionRequiredProgress, canMergeItemStack, cloneCraftEffectStats, coalesceItemStackList, compileValueStatsToActualStats, computeCraftSkillExpGain, createItemStackSignature, enforceSkillEnabledLimit, getBodyTrainingExpToNext, getTechniqueMaxLevel, isCreatedTechniqueId, mergeItemStackInto, normalizeBodyTrainingState, normalizeCombatAttackIntensity, normalizeHorizontalFacing, percentModifierToMultiplier, resolveArtifactMaxQi, resolvePlayerSkillSlotLimit, resolveSkillRequiresTarget, resolveTechniqueStandardMaxHpRecoveryAmount, resolveTechniqueStandardMaxQiRecoveryAmount, signedRatioValue } from '@mud/shared';
 import { assignItemInstanceIdIfNeeded, compareItemInstanceId, isItemInstanceIdHardCheckEnabled } from '../world/item-instance-id.helpers';
 import { isNativeGmBotPlayerId } from '../../http/native/native-gm.constants';
@@ -91,6 +92,16 @@ export class PlayerRuntimeService {
     runtimeState = createPlayerRuntimeStateStore<any>();
     /** 在线玩家运行时实例，按 playerId 直接索引。 */
     players = this.runtimeState.players;
+    /**
+     * 跨领域玩家资产写队列。市场、邮件、地面拾取等异步强事务在拿数据库锁前，
+     * 先通过这里按 playerId 排序串行，避免各自的局部队列拿旧快照整体覆盖其他领域刚提交的资产。
+     */
+    private readonly assetMutationQueueByPlayerId = new Map<string, Promise<void>>();
+    /** 同一异步调用链内允许重入已持有的玩家资产锁，例如事务前主动 flush 当前玩家。 */
+    private readonly assetMutationContext = new AsyncLocalStorage<{
+        playerIds: ReadonlySet<string>;
+        active: boolean;
+    }>();
     /** 数据库禁用时的离线收益基线缓存。 */
     offlineGainSessionsByPlayerId = new Map();
     /** 玩家统计持续快照，用于把 tick 外即时资产变化纳入下一次低频统计。 */
@@ -982,6 +993,74 @@ export class PlayerRuntimeService {
 
     getPlayer(playerId) {
         return this.players.get(playerId) ?? null;
+    }
+    /**
+     * 串行执行会跨 await 的玩家资产变更。一次涉及多名玩家时先同步登记全部有序 ticket，
+     * 因而不同调用即使传入相反顺序也不会形成交叉等待。
+     */
+    async runExclusiveAssetMutation<TResult>(
+        playerIds: readonly string[],
+        action: () => Promise<TResult> | TResult,
+    ): Promise<TResult> {
+        const normalizedPlayerIds = Array.from(new Set(
+            (Array.isArray(playerIds) ? playerIds : [])
+                .map((playerId) => typeof playerId === 'string' ? playerId.trim() : '')
+                .filter(Boolean),
+        )).sort();
+        if (normalizedPlayerIds.length === 0) {
+            return await action();
+        }
+        const activeContext = this.assetMutationContext.getStore();
+        if (activeContext?.active && normalizedPlayerIds.every((playerId) => activeContext.playerIds.has(playerId))) {
+            return await action();
+        }
+        if (activeContext?.active && activeContext.playerIds.size > 0) {
+            throw new Error('player_asset_mutation_nested_lock_expansion_forbidden');
+        }
+
+        const tickets = normalizedPlayerIds.map((playerId) => {
+            const previous = this.assetMutationQueueByPlayerId.get(playerId) ?? Promise.resolve();
+            let release!: () => void;
+            const gate = new Promise<void>((resolve) => {
+                release = resolve;
+            });
+            const tail = previous.catch(() => undefined).then(() => gate);
+            this.assetMutationQueueByPlayerId.set(playerId, tail);
+            return { playerId, previous, release, tail };
+        });
+
+        await Promise.all(tickets.map((ticket) => ticket.previous.catch(() => undefined)));
+        const lockContext = {
+            playerIds: new Set(normalizedPlayerIds),
+            active: true,
+        };
+        try {
+            return await this.assetMutationContext.run(lockContext, action);
+        }
+        finally {
+            lockContext.active = false;
+            for (const ticket of tickets) {
+                ticket.release();
+            }
+            for (const ticket of tickets) {
+                void ticket.tail.finally(() => {
+                    if (this.assetMutationQueueByPlayerId.get(ticket.playerId) === ticket.tail) {
+                        this.assetMutationQueueByPlayerId.delete(ticket.playerId);
+                    }
+                });
+            }
+        }
+    }
+    /** 供跨领域强事务在提交前确认当前异步链确实持有全部参与玩家资产锁。 */
+    hasActiveAssetMutationLocks(playerIds: readonly string[]): boolean {
+        const activeContext = this.assetMutationContext.getStore();
+        if (!activeContext?.active) {
+            return false;
+        }
+        return (Array.isArray(playerIds) ? playerIds : [])
+            .map((playerId) => typeof playerId === 'string' ? playerId.trim() : '')
+            .filter(Boolean)
+            .every((playerId) => activeContext.playerIds.has(playerId));
     }
     /**
  * getPlayerOrThrow：读取玩家OrThrow。
@@ -4848,13 +4927,19 @@ export class PlayerRuntimeService {
             return;
         }
 
-        // 只清除本轮真正落库的 domains，保留 flush 期间新增的 dirty
-        if (persistedDomains) {
+        // 同一 domain 在 IO 期间可能再次变脏。当前 dirtyDomains 是集合而不是版本化队列，
+        // 因此只要全局 revision 已越过快照版本，就保守保留本轮所有 domain，交给下一轮重刷。
+        const hasMutationAfterSnapshot = persistedRevision != null
+            && Number.isFinite(persistedRevision)
+            && player.persistentRevision > persistedRevision;
+        if (persistedDomains && !hasMutationAfterSnapshot) {
             for (const domain of persistedDomains) {
                 player.dirtyDomains?.delete(domain);
             }
         } else {
-            clearPlayerDirtyDomains(player);
+            if (!persistedDomains && !hasMutationAfterSnapshot) {
+                clearPlayerDirtyDomains(player);
+            }
         }
 
         // 只推进到快照时的 revision，不跳过 flush 期间的新变更

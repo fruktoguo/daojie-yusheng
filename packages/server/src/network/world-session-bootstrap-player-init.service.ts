@@ -183,50 +183,6 @@ export class WorldSessionBootstrapPlayerInitService {
                 });
             }
         }
-        if (
-            loadedSnapshot
-            && typeof this.playerDomainPersistenceService?.isEnabled === 'function'
-            && this.playerDomainPersistenceService.isEnabled()
-        ) {
-            await this.playerDomainPersistenceService.savePlayerSnapshotProjectionDomains(
-                input.playerId,
-                loadedSnapshot,
-                [
-                    'world_anchor',
-                    'position_checkpoint',
-                    'vitals',
-                    'progression',
-                    'attr',
-                    'wallet',
-                    'sect_membership',
-                    'market_storage',
-                    'inventory',
-                    'map_unlock',
-                    'equipment',
-                    'artifact',
-                    'technique',
-                    'body_training',
-                    'buff',
-                    'quest',
-                    'combat_pref',
-                    'auto_battle_skill',
-                    'auto_use_item_rule',
-                    'profession',
-                    'alchemy_preset',
-                    'active_job',
-                    'enhancement_record',
-                    'logbook',
-                ],
-                {
-                    allowInventoryEmptyOverwrite: true,
-                    allowEquipmentEmptyOverwrite: true,
-                    allowArtifactEmptyOverwrite: true,
-                    allowBuffEmptyOverwrite: true,
-                    expectedRuntimeOwnerId: presence?.runtimeOwnerId ?? null,
-                    expectedSessionEpoch: presence?.sessionEpoch ?? null,
-                },
-            );
-        }
         await this.mailRuntimeService?.ensurePlayerMailbox(input.playerId);
         await this.mailRuntimeService?.ensureWelcomeMail(input.playerId);
         return player;

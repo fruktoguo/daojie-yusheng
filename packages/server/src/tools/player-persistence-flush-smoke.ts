@@ -92,7 +92,7 @@ function buildSnapshot(savedAt: number): PersistedPlayerSnapshot {
   };
 }
 
-function createHarness() {
+function createHarness(durableOperationService: Record<string, unknown> | null = null) {
   const fullProjectionCalls: string[] = [];
   const selectiveProjectionCalls: Array<{
     playerId: string;
@@ -106,6 +106,9 @@ function createHarness() {
   const markedPersisted: string[] = [];
   const workerSubmitCalls: string[] = [];
   const offlineGainCalls: Array<{ playerId: string; payload: unknown; durationMs: number }> = [];
+  const assetCoordinatorCalls: string[][] = [];
+  const hydrationByPlayerId = new Map<string, boolean>();
+  const recoveryWatermarkByPlayerId = new Map<string, boolean>();
   let offlineGainShouldFail = false;
   let leaseWritable = true;
 
@@ -113,6 +116,10 @@ function createHarness() {
     dirtyDomains: new Map<string, Set<string>>(),
     snapshots: new Map<string, PersistedPlayerSnapshot>(),
     offlineGainSessionsByPlayerId: new Map<string, { accumulatedPayload: unknown; accumulatedDurationMs?: number }>(),
+    async runExclusiveAssetMutation<T>(playerIds: readonly string[], action: () => Promise<T> | T): Promise<T> {
+      assetCoordinatorCalls.push([...playerIds]);
+      return action();
+    },
     listDirtyPlayers() {
       return Array.from(this.dirtyDomains.keys());
     },
@@ -123,6 +130,9 @@ function createHarness() {
     },
     buildPersistenceSnapshot(playerId: string) {
       return this.snapshots.get(playerId) ?? null;
+    },
+    isPlayerHydratedFromPersistence(playerId: string) {
+      return hydrationByPlayerId.get(playerId) ?? true;
     },
     markPersisted(playerId: string) {
       markedPersisted.push(playerId);
@@ -178,6 +188,9 @@ function createHarness() {
       }
       offlineGainCalls.push({ playerId, payload, durationMs });
     },
+    async hasRecoveryWatermark(playerId: string) {
+      return recoveryWatermarkByPlayerId.get(playerId) ?? false;
+    },
   };
 
   const persistenceWorkerPool = {
@@ -194,6 +207,11 @@ function createHarness() {
     playerRuntimeService as never,
     playerDomainPersistenceService as never,
     persistenceWorkerPool as never,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    durableOperationService as never,
   );
   service.setLeaseGuard({
     isPlayerPersistenceWritable() {
@@ -210,13 +228,47 @@ function createHarness() {
     markedPersisted,
     workerSubmitCalls,
     offlineGainCalls,
+    assetCoordinatorCalls,
     setOfflineGainFailure(value: boolean) {
       offlineGainShouldFail = value;
     },
     setLeaseWritable(value: boolean) {
       leaseWritable = value;
     },
+    setHydrationState(playerId: string, hydrated: boolean, hasRecoveryWatermark: boolean) {
+      hydrationByPlayerId.set(playerId, hydrated);
+      recoveryWatermarkByPlayerId.set(playerId, hasRecoveryWatermark);
+    },
   };
+}
+
+async function testUnresolvedDurableCommitBlocksFlush(): Promise<void> {
+  const blockedPlayerId = 'player:durable-unknown';
+  const harness = createHarness({
+    isPlayerCommitOutcomeUnresolved(playerId: string) {
+      return playerId === blockedPlayerId;
+    },
+  });
+  harness.playerRuntimeService.dirtyDomains.set(blockedPlayerId, new Set(['inventory']));
+  harness.playerRuntimeService.snapshots.set(blockedPlayerId, buildSnapshot(120_000));
+
+  await assert.rejects(
+    harness.service.flushPlayer(blockedPlayerId),
+    /player_flush_blocked_by_unresolved_durable_commit/,
+  );
+  assert.deepEqual(harness.selectiveProjectionCalls, []);
+}
+
+async function testFlushUsesAssetCoordinator(): Promise<void> {
+  const harness = createHarness();
+  const playerId = 'player:asset-coordinator';
+  harness.playerRuntimeService.snapshots.set(playerId, buildSnapshot(902));
+  harness.playerRuntimeService.dirtyDomains.set(playerId, new Set(['inventory']));
+
+  await harness.service.flushPlayer(playerId);
+
+  assert.deepEqual(harness.assetCoordinatorCalls, [[playerId]]);
+  assert.equal(harness.selectiveProjectionCalls.length, 1);
 }
 
 async function testPresenceOnlyFlush(): Promise<void> {
@@ -229,6 +281,33 @@ async function testPresenceOnlyFlush(): Promise<void> {
   assert.deepEqual(harness.selectiveProjectionCalls, []);
   assert.deepEqual(harness.presenceCalls, ['player:presence']);
   assert.deepEqual(harness.markedPersisted, ['player:presence']);
+  assert.deepEqual(harness.assetCoordinatorCalls, [['player:presence']]);
+}
+
+async function testShutdownFlushUsesAssetCoordinator(): Promise<void> {
+  const harness = createHarness();
+  const playerId = 'player:shutdown-coordinator';
+  harness.playerRuntimeService.dirtyDomains.set(playerId, new Set(['inventory']));
+  harness.playerRuntimeService.snapshots.set(playerId, buildSnapshot(110_000));
+
+  await harness.service.flushAllNow();
+
+  assert.deepEqual(harness.assetCoordinatorCalls, [[playerId]]);
+  assert.equal(harness.selectiveProjectionCalls.length, 1);
+}
+
+async function testManualFlushRejectsNonHydratedExistingPlayer(): Promise<void> {
+  const harness = createHarness();
+  const playerId = 'player:manual-non-hydrated';
+  harness.playerRuntimeService.dirtyDomains.set(playerId, new Set(['inventory']));
+  harness.playerRuntimeService.snapshots.set(playerId, buildSnapshot(115_000));
+  harness.setHydrationState(playerId, false, true);
+
+  await harness.service.flushPlayer(playerId);
+
+  assert.deepEqual(harness.assetCoordinatorCalls, [[playerId]]);
+  assert.deepEqual(harness.selectiveProjectionCalls, []);
+  assert.deepEqual(harness.markedPersisted, []);
 }
 
 async function testSelectiveProjectionFlush(): Promise<void> {
@@ -407,7 +486,10 @@ async function testWorkerPoolSubmitIsNotUsed(): Promise<void> {
 }
 
 async function main(): Promise<void> {
+  await testFlushUsesAssetCoordinator();
   await testPresenceOnlyFlush();
+  await testShutdownFlushUsesAssetCoordinator();
+  await testManualFlushRejectsNonHydratedExistingPlayer();
   await testSelectiveProjectionFlush();
   await testWalletSelectiveProjectionFlush();
   await testBuffSelectiveProjectionAllowsEmptyOverwrite();
@@ -417,12 +499,13 @@ async function main(): Promise<void> {
   await testOfflineGainFlushRunsWithoutDirtyPlayers();
   await testOfflineGainShutdownFlushFailureBubbles();
   await testWorkerPoolSubmitIsNotUsed();
+  await testUnresolvedDurableCommitBlocksFlush();
 
   console.log(
     JSON.stringify(
       {
         ok: true,
-        answers: 'PlayerPersistenceFlushService 现已只写玩家分域表：presence-only 直写、受支持脏域 selective projection、wallet 分域投影；运行时 inventory/equipment/buff dirty flush 显式允许最后一行正常清空，snapshot fallback 脏域会硬失败，lease 失效时不会继续提交；离线收益累积即使没有普通 dirty player 也会刷新，shutdown 失败会冒泡。',
+        answers: 'PlayerPersistenceFlushService 现已先进入玩家资产串行器再拍快照，并只写玩家分域表：presence-only 直写、受支持脏域 selective projection、wallet 分域投影；运行时 inventory/equipment/buff dirty flush 显式允许最后一行正常清空，snapshot fallback 脏域会硬失败，lease 失效时不会继续提交；离线收益累积即使没有普通 dirty player 也会刷新，shutdown 失败会冒泡。',
         completionMapping: 'release:proof:with-db.player-persistence-flush-strategy',
       },
       null,
