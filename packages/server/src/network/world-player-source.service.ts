@@ -8,6 +8,7 @@ import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import * as shared_1 from '@mud/shared';
 
 import { NativePlayerAuthStoreService } from '../http/native/native-player-auth-store.service';
+import { nextPlayerPersistenceVersion } from '../persistence/player-domain-persistence.service';
 import { PlayerIdentityPersistenceService } from '../persistence/player-identity-persistence.service';
 
 interface PlayerIdentityPersistencePort {
@@ -234,7 +235,7 @@ function toPlayerSnapshotFromMigrationRow(row) {
     const unlockedMapIds = normalizeUnlockedMapIds(row.unlockedMinimapIds);
     return {
         version: 1,
-        savedAt: Date.now(),
+        savedAt: nextPlayerPersistenceVersion(),
         placement: {
             instanceId: buildPublicPlayerInstanceId(currentMapId),
             templateId: currentMapId,

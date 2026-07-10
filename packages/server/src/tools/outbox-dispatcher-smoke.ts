@@ -69,6 +69,7 @@ async function main(): Promise<void> {
   const runtimeRetryEventId = `${eventId}:runtime-retry`;
   const runtimeDeadLetterEventId = `${eventId}:runtime-dead-letter`;
   const registryEventId = `${eventId}:registry`;
+  const processingEventId = `${eventId}:processing`;
   const longActiveJobEventId = [
     'outbox',
     'op',
@@ -85,7 +86,19 @@ async function main(): Promise<void> {
   const topicPrefix = `smoke.outbox.dispatcher.${Date.now().toString(36)}`;
 
   try {
-    await cleanupOutboxRows(pool, [eventId, retryEventId, deadLetterEventId]);
+    await cleanupOutboxRows(pool, [
+      eventId,
+      retryEventId,
+      deadLetterEventId,
+      runtimeRetryEventId,
+      runtimeDeadLetterEventId,
+      registryEventId,
+      `${eventId}:reclaim`,
+      `${eventId}:dedupe`,
+      `${eventId}:dedupe-op`,
+      processingEventId,
+      longActiveJobEventId,
+    ]);
     await seedOutboxRow({
       pool,
       eventId,
@@ -105,7 +118,9 @@ async function main(): Promise<void> {
     assert.equal(claimed[0]?.event_id, eventId);
     assert.equal(claimed[0]?.status, 'claimed');
 
-    const delivered = await dispatcher.markDelivered(eventId);
+    const firstClaimOwner = String(claimed[0]?.claimed_by ?? '');
+    assert.ok(firstClaimOwner);
+    const delivered = await dispatcher.markDelivered({ eventId, claimOwner: firstClaimOwner });
     assert.equal(delivered, true);
     const deliveredRow = await fetchOutboxRow(pool, eventId);
     assert.equal(deliveredRow?.status, 'delivered');
@@ -119,6 +134,7 @@ async function main(): Promise<void> {
       topic: `${topicPrefix}.mail.deliver`,
       partitionKey: 'player:outbox:1',
       status: 'claimed',
+      claimedBy: 'outbox-dispatcher-smoke:stale',
       claimUntil: new Date(Date.now() - 5_000).toISOString(),
     });
     const reclaimed = await dispatcher.claimReadyEvents({
@@ -129,7 +145,36 @@ async function main(): Promise<void> {
     });
     assert.equal(reclaimed.length, 1);
     assert.equal(reclaimed[0]?.event_id, reclaimEventId);
-    assert.equal(reclaimed[0]?.claimed_by, 'outbox-dispatcher-smoke:reclaim');
+    const reclaimedOwner = String(reclaimed[0]?.claimed_by ?? '');
+    assert.match(reclaimedOwner, /^outbox-dispatcher-smoke:reclaim:/u);
+    assert.equal(await dispatcher.markDelivered({
+      eventId: reclaimEventId,
+      claimOwner: 'outbox-dispatcher-smoke:stale',
+    }), false);
+    assert.equal(await dispatcher.markFailed({
+      eventId: reclaimEventId,
+      claimOwner: 'outbox-dispatcher-smoke:stale',
+      retryDelayMs: 10_000,
+      maxAttempts: 1,
+    }), false);
+    const stillReclaimed = await fetchOutboxRow(pool, reclaimEventId);
+    assert.equal(stillReclaimed?.status, 'claimed');
+    assert.equal(stillReclaimed?.claimed_by, reclaimedOwner);
+    assert.equal(Number(stillReclaimed?.attempt_count ?? 0), 0);
+    const staleConsumerCalls: string[] = [];
+    assert.equal(await new OutboxDispatcherRuntimeService(dispatcher).consumeEvent({
+      event_id: reclaimEventId,
+      operation_id: `op:${reclaimEventId}`,
+      topic: `${topicPrefix}.mail.deliver`,
+      claimed_by: 'outbox-dispatcher-smoke:stale',
+    }, async (event) => {
+      staleConsumerCalls.push(String(event.event_id ?? ''));
+    }), false);
+    assert.deepEqual(staleConsumerCalls, []);
+    assert.equal(await dispatcher.markDelivered({
+      eventId: reclaimEventId,
+      claimOwner: reclaimedOwner,
+    }), true);
 
     await seedOutboxRow({
       pool,
@@ -138,11 +183,17 @@ async function main(): Promise<void> {
       topic: `${topicPrefix}.mail.deliver`,
       partitionKey: 'player:outbox:1',
       status: 'claimed',
-      claimUntil: new Date(Date.now() - 5_000).toISOString(),
+      claimedBy: 'outbox-dispatcher-smoke:retry',
+      claimUntil: new Date(Date.now() + 30_000).toISOString(),
       attemptCount: 0,
     });
 
-    const failed = await dispatcher.markFailed(retryEventId, 10_000, 2);
+    const failed = await dispatcher.markFailed({
+      eventId: retryEventId,
+      claimOwner: 'outbox-dispatcher-smoke:retry',
+      retryDelayMs: 10_000,
+      maxAttempts: 2,
+    });
     assert.equal(failed, true);
     const retryRow = await fetchOutboxRow(pool, retryEventId);
     assert.equal(retryRow?.status, 'ready');
@@ -156,14 +207,21 @@ async function main(): Promise<void> {
       topic: `${topicPrefix}.mail.deliver`,
       partitionKey: 'player:outbox:1',
       status: 'claimed',
-      claimUntil: new Date(Date.now() - 5_000).toISOString(),
+      claimedBy: 'outbox-dispatcher-smoke:dead-letter',
+      claimUntil: new Date(Date.now() + 30_000).toISOString(),
       attemptCount: 0,
     });
-    const deadLettered = await dispatcher.markFailed(deadLetterEventId, 10_000, 1);
+    const deadLettered = await dispatcher.markFailed({
+      eventId: deadLetterEventId,
+      claimOwner: 'outbox-dispatcher-smoke:dead-letter',
+      retryDelayMs: 10_000,
+      maxAttempts: 1,
+    });
     assert.equal(deadLettered, true);
     const deadLetterRow = await fetchDeadLetterRow(pool, deadLetterEventId);
     assert.equal(deadLetterRow?.event_id, deadLetterEventId);
     assert.equal(deadLetterRow?.status, 'dead_letter');
+    assert.equal(await fetchOutboxRow(pool, deadLetterEventId), null);
 
     const dedupeEventId = `${eventId}:dedupe`;
     const dedupeOperationId = `op:${dedupeEventId}`;
@@ -174,7 +232,8 @@ async function main(): Promise<void> {
       topic: `${topicPrefix}.mail.deliver`,
       partitionKey: 'player:outbox:1',
       status: 'claimed',
-      claimUntil: new Date(Date.now() - 5_000).toISOString(),
+      claimedBy: 'outbox-dispatcher-smoke:dedupe-a',
+      claimUntil: new Date(Date.now() + 30_000).toISOString(),
     });
     const runtimeA = new OutboxDispatcherRuntimeService(dispatcher);
     const runtimeB = new OutboxDispatcherRuntimeService(dispatcher);
@@ -185,16 +244,28 @@ async function main(): Promise<void> {
         event_id: dedupeEventId,
         operation_id: dedupeOperationId,
         topic: `${topicPrefix}.mail.deliver`,
+        claimed_by: 'outbox-dispatcher-smoke:dedupe-a',
       },
       async (event) => {
         consumedByA.push(String(event.event_id ?? ''));
       },
     );
+    await seedOutboxRow({
+      pool,
+      eventId: dedupeEventId,
+      operationId: dedupeOperationId,
+      topic: `${topicPrefix}.mail.deliver`,
+      partitionKey: 'player:outbox:1',
+      status: 'claimed',
+      claimedBy: 'outbox-dispatcher-smoke:dedupe-b',
+      claimUntil: new Date(Date.now() + 30_000).toISOString(),
+    });
     await runtimeB.consumeEvent(
       {
         event_id: dedupeEventId,
         operation_id: dedupeOperationId,
         topic: `${topicPrefix}.mail.deliver`,
+        claimed_by: 'outbox-dispatcher-smoke:dedupe-b',
       },
       async (event) => {
         consumedByB.push(String(event.event_id ?? ''));
@@ -211,7 +282,8 @@ async function main(): Promise<void> {
       topic: `${topicPrefix}.mail.deliver`,
       partitionKey: 'player:outbox:1',
       status: 'claimed',
-      claimUntil: new Date(Date.now() - 5_000).toISOString(),
+      claimedBy: 'outbox-dispatcher-smoke:sibling',
+      claimUntil: new Date(Date.now() + 30_000).toISOString(),
     });
     const consumedByOperationDuplicate: string[] = [];
     await runtimeB.consumeEvent(
@@ -219,15 +291,94 @@ async function main(): Promise<void> {
         event_id: duplicateOperationEventId,
         operation_id: dedupeOperationId,
         topic: `${topicPrefix}.mail.deliver`,
+        claimed_by: 'outbox-dispatcher-smoke:sibling',
       },
       async (event) => {
         consumedByOperationDuplicate.push(String(event.event_id ?? ''));
       },
     );
-    assert.deepEqual(consumedByOperationDuplicate, []);
+    assert.deepEqual(consumedByOperationDuplicate, [duplicateOperationEventId]);
     const dedupeRows = await fetchConsumerDedupeRows(pool, [dedupeEventId, duplicateOperationEventId], [dedupeOperationId]);
     assert.ok(dedupeRows.some((row) => row.dedupe_key === `event:${dedupeEventId}` && row.state === 'delivered'));
-    assert.ok(dedupeRows.some((row) => row.dedupe_key === `op:${dedupeOperationId}` && row.state === 'delivered'));
+    assert.ok(dedupeRows.some((row) => row.dedupe_key === `event:${duplicateOperationEventId}` && row.state === 'delivered'));
+    assert.equal(dedupeRows.some((row) => String(row.dedupe_key ?? '').startsWith('op:')), false);
+
+    const processingOwner = 'outbox-dispatcher-smoke:processing-original';
+    const processingReclaimOwner = 'outbox-dispatcher-smoke:processing-reclaimed';
+    await seedOutboxRow({
+      pool,
+      eventId: processingEventId,
+      operationId: `op:${processingEventId}`,
+      topic: `${topicPrefix}.mail.deliver`,
+      partitionKey: 'player:outbox:1',
+      status: 'claimed',
+      claimedBy: processingOwner,
+      claimUntil: new Date(Date.now() + 30_000).toISOString(),
+    });
+    assert.deepEqual(await dispatcher.claimConsumerDedupe({
+      eventId: processingEventId,
+      operationId: `op:${processingEventId}`,
+      topic: `${topicPrefix}.mail.deliver`,
+      claimOwner: processingOwner,
+      claimTtlMs: 30_000,
+    }), { status: 'claimed' });
+    assert.equal(await dispatcher.renewConsumerClaims({
+      eventId: processingEventId,
+      claimOwner: processingOwner,
+      claimTtlMs: 30_000,
+    }), true);
+    assert.equal(await dispatcher.renewConsumerClaims({
+      eventId: processingEventId,
+      claimOwner: `${processingOwner}:stale`,
+      claimTtlMs: 30_000,
+    }), false);
+    await seedOutboxRow({
+      pool,
+      eventId: processingEventId,
+      operationId: `op:${processingEventId}`,
+      topic: `${topicPrefix}.mail.deliver`,
+      partitionKey: 'player:outbox:1',
+      status: 'claimed',
+      claimedBy: processingReclaimOwner,
+      claimUntil: new Date(Date.now() + 30_000).toISOString(),
+    });
+    const processingConsumerCalls: string[] = [];
+    assert.equal(await runtimeB.consumeEvent({
+      event_id: processingEventId,
+      operation_id: `op:${processingEventId}`,
+      topic: `${topicPrefix}.mail.deliver`,
+      claimed_by: processingReclaimOwner,
+    }, async (event) => {
+      processingConsumerCalls.push(String(event.event_id ?? ''));
+    }), false);
+    assert.deepEqual(processingConsumerCalls, []);
+    const processingDeferredRow = await fetchOutboxRow(pool, processingEventId);
+    assert.equal(processingDeferredRow?.status, 'ready');
+    assert.equal(Number(processingDeferredRow?.attempt_count ?? 0), 0);
+    assert.equal((await fetchConsumerDedupeRows(pool, [processingEventId], []))[0]?.state, 'processing');
+    assert.equal(await dispatcher.markConsumerDedupeDelivered({
+      eventId: processingEventId,
+      claimOwner: processingOwner,
+    }), 'delivered');
+    await seedOutboxRow({
+      pool,
+      eventId: processingEventId,
+      operationId: `op:${processingEventId}`,
+      topic: `${topicPrefix}.mail.deliver`,
+      partitionKey: 'player:outbox:1',
+      status: 'claimed',
+      claimedBy: `${processingReclaimOwner}:final`,
+      claimUntil: new Date(Date.now() + 30_000).toISOString(),
+    });
+    assert.equal(await runtimeB.consumeEvent({
+      event_id: processingEventId,
+      operation_id: `op:${processingEventId}`,
+      topic: `${topicPrefix}.mail.deliver`,
+      claimed_by: `${processingReclaimOwner}:final`,
+    }, async (event) => {
+      processingConsumerCalls.push(String(event.event_id ?? ''));
+    }), true);
+    assert.deepEqual(processingConsumerCalls, []);
 
     await seedOutboxRow({
       pool,
@@ -236,7 +387,8 @@ async function main(): Promise<void> {
       topic: 'player.active_job.updated',
       partitionKey: `player:${Date.now().toString(36)}:active-job`,
       status: 'claimed',
-      claimUntil: new Date(Date.now() - 5_000).toISOString(),
+      claimedBy: 'outbox-dispatcher-smoke:long-dedupe',
+      claimUntil: new Date(Date.now() + 30_000).toISOString(),
     });
     const longDedupeRuntime = new OutboxDispatcherRuntimeService(dispatcher);
     await longDedupeRuntime.consumeEvent(
@@ -244,12 +396,13 @@ async function main(): Promise<void> {
         event_id: longActiveJobEventId,
         operation_id: longActiveJobOperationId,
         topic: 'player.active_job.updated',
+        claimed_by: 'outbox-dispatcher-smoke:long-dedupe',
       },
       async () => undefined,
     );
     const longDedupeRows = await fetchConsumerDedupeRows(pool, [longActiveJobEventId], [longActiveJobOperationId]);
-    assert.ok(longDedupeRows.some((row) => row.dedupe_key === buildExpectedDedupeKey('event', longActiveJobEventId) && row.state === 'delivered'));
-    assert.ok(longDedupeRows.some((row) => row.dedupe_key === buildExpectedDedupeKey('op', longActiveJobOperationId) && row.state === 'delivered'));
+    assert.ok(longDedupeRows.some((row) => row.dedupe_key === buildExpectedDedupeKey(longActiveJobEventId) && row.state === 'delivered'));
+    assert.equal(longDedupeRows.some((row) => String(row.dedupe_key ?? '').startsWith('op:')), false);
     const longDeliveredRow = await fetchOutboxRow(pool, longActiveJobEventId);
     assert.equal(longDeliveredRow?.status, 'delivered');
     await seedOutboxRow({
@@ -259,15 +412,52 @@ async function main(): Promise<void> {
       topic: 'player.active_job.updated',
       partitionKey: `player:${Date.now().toString(36)}:active-job`,
       status: 'claimed',
-      claimUntil: new Date(Date.now() - 5_000).toISOString(),
+      claimedBy: 'outbox-dispatcher-smoke:long-dead-letter',
+      claimUntil: new Date(Date.now() + 30_000).toISOString(),
       attemptCount: 0,
     });
-    const longDeadLettered = await dispatcher.markFailed(longActiveJobEventId, 10_000, 1);
+    const longDeadLettered = await dispatcher.markFailed({
+      eventId: longActiveJobEventId,
+      claimOwner: 'outbox-dispatcher-smoke:long-dead-letter',
+      retryDelayMs: 10_000,
+      maxAttempts: 1,
+    });
     assert.equal(longDeadLettered, true);
     const longDeadLetterSourceRow = await fetchOutboxRow(pool, longActiveJobEventId);
     assert.equal(longDeadLetterSourceRow, null);
     const longDeadLetterArchive = await fetchDeadLetterRow(pool, longActiveJobEventId);
     assert.equal(longDeadLetterArchive?.event_id, longActiveJobEventId);
+    await seedOutboxRow({
+      pool,
+      eventId: longActiveJobEventId,
+      operationId: longActiveJobOperationId,
+      topic: 'player.active_job.updated',
+      partitionKey: `player:${Date.now().toString(36)}:active-job`,
+      status: 'claimed',
+      claimedBy: 'outbox-dispatcher-smoke:long-dead-letter-retry',
+      claimUntil: new Date(Date.now() + 30_000).toISOString(),
+      attemptCount: 0,
+    });
+    assert.equal(await dispatcher.markFailed({
+      eventId: longActiveJobEventId,
+      claimOwner: 'outbox-dispatcher-smoke:long-dead-letter-retry',
+      retryDelayMs: 10_000,
+      maxAttempts: 1,
+    }), true);
+    assert.equal(await fetchDeadLetterCount(pool, longActiveJobEventId), 1);
+    await pool.query(
+      `UPDATE ${OUTBOX_EVENT_TABLE} SET created_at = now() - interval '30 days' WHERE event_id = $1`,
+      [longActiveJobEventId],
+    );
+    await pool.query(
+      `UPDATE ${OUTBOX_CONSUMER_DEDUPE_TABLE} SET delivered_at = now() - interval '30 days', updated_at = now() - interval '30 days' WHERE event_id = $1`,
+      [longActiveJobEventId],
+    );
+    await dispatcher.retainDeliveredOutbox({ retentionDays: 1, limit: 1_000 });
+    assert.equal(await fetchOutboxRow(pool, longActiveJobEventId), null);
+    assert.ok((await fetchConsumerDedupeRows(pool, [longActiveJobEventId], [])).some(
+      (row) => row.dedupe_key === buildExpectedDedupeKey(longActiveJobEventId),
+    ));
 
     await seedOutboxRow({
       pool,
@@ -361,8 +551,8 @@ async function main(): Promise<void> {
           reclaimedCount: reclaimed.length,
           retryRowStatus: retryRow?.status,
           deadLetterRowStatus: deadLetterRow?.status,
-          answers: '当前已直接证明默认未开启 SERVER_OUTBOX_RUNTIME_ENABLED 时游戏节点不会自消费 outbox，显式开启后才会启动轮询；with-db 下还已验证 outbox dispatcher 可独立认领 ready 事件、过期 claimed 事件可被新 dispatcher 接管、应用内 runtime 可通过 topic consumer registry 执行默认 handler、失败后会回到 ready 并推进 attempt_count，runtime consumer 抛错时也会通过 markFailed 进入 retry/dead_letter；同时 runtime 消费层现已通过共享数据库 dedupe 表按 event_id / operation_id 做跨实例幂等 claim，重复事件不会再次进入业务回调',
-          excludes: '不证明真实发布链路完整投递或跨集群网络分区，只证明共享数据库前提下的 dispatcher 幂等消费',
+          answers: '当前已直接证明默认未开启 SERVER_OUTBOX_RUNTIME_ENABLED 时游戏节点不会自消费 outbox，显式开启后才会启动轮询；with-db 下还验证了 claim token CAS、event 与 eventId 去重 claim 原子续租、过期 claim 接管、processing dedupe 延后而不误确认、event_id 级跨实例幂等、同 operation 兄弟事件独立消费、失败重试，以及 dead-letter 状态与唯一归档原子落库并保留 retention 边界。',
+          excludes: '不证明真实发布链路完整投递、跨集群网络分区或下游副作用天然幂等；consumer 仍必须以 eventId 实现幂等。',
           completionMapping: 'release:proof:with-db.outbox-dispatcher',
         },
         null,
@@ -382,6 +572,7 @@ async function main(): Promise<void> {
         `${eventId}:reclaim`,
         `${eventId}:dedupe`,
         `${eventId}:dedupe-op`,
+        processingEventId,
         longActiveJobEventId,
       ],
     ).catch(() => undefined);
@@ -468,6 +659,7 @@ async function seedOutboxRow(input: {
   topic: string;
   partitionKey: string;
   status: string;
+  claimedBy?: string | null;
   claimUntil?: string | null;
   attemptCount?: number;
 }): Promise<void> {
@@ -477,7 +669,7 @@ async function seedOutboxRow(input: {
         event_id, operation_id, topic, partition_key, payload_jsonb,
         status, attempt_count, next_retry_at, claimed_by, claim_until, created_at, delivered_at
       )
-      VALUES ($1, $2, $3, $4, '{}'::jsonb, $5, $6, NULL, NULL, $7, now(), NULL)
+      VALUES ($1, $2, $3, $4, '{}'::jsonb, $5, $6, NULL, $7, $8, now(), NULL)
       ON CONFLICT (event_id)
       DO UPDATE SET
         operation_id = EXCLUDED.operation_id,
@@ -486,9 +678,21 @@ async function seedOutboxRow(input: {
         payload_jsonb = EXCLUDED.payload_jsonb,
         status = EXCLUDED.status,
         attempt_count = EXCLUDED.attempt_count,
-        claim_until = EXCLUDED.claim_until
+        next_retry_at = NULL,
+        claimed_by = EXCLUDED.claimed_by,
+        claim_until = EXCLUDED.claim_until,
+        delivered_at = NULL
     `,
-    [input.eventId, input.operationId, input.topic, input.partitionKey, input.status, Math.trunc(input.attemptCount ?? 0), input.claimUntil ?? null],
+    [
+      input.eventId,
+      input.operationId,
+      input.topic,
+      input.partitionKey,
+      input.status,
+      Math.trunc(input.attemptCount ?? 0),
+      input.claimedBy ?? null,
+      input.claimUntil ?? null,
+    ],
   );
 }
 
@@ -500,6 +704,14 @@ async function fetchOutboxRow(pool: Pool, eventId: string): Promise<Record<strin
 async function fetchDeadLetterRow(pool: Pool, eventId: string): Promise<Record<string, unknown> | null> {
   const result = await pool.query(`SELECT * FROM ${DEAD_LETTER_EVENT_TABLE} WHERE event_id = $1 LIMIT 1`, [eventId]);
   return (result.rowCount ?? 0) > 0 ? (result.rows[0] as Record<string, unknown>) : null;
+}
+
+async function fetchDeadLetterCount(pool: Pool, eventId: string): Promise<number> {
+  const result = await pool.query(
+    `SELECT COUNT(*)::bigint AS row_count FROM ${DEAD_LETTER_EVENT_TABLE} WHERE event_id = $1`,
+    [eventId],
+  );
+  return Number(result.rows[0]?.row_count ?? 0);
 }
 
 async function cleanupOutboxRows(pool: Pool, eventIds: string[]): Promise<void> {
@@ -530,12 +742,12 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function buildExpectedDedupeKey(prefix: 'event' | 'op', value: string): string {
-  const rawKey = `${prefix}:${value}`;
+function buildExpectedDedupeKey(eventId: string): string {
+  const rawKey = `event:${eventId}`;
   if (rawKey.length <= OUTBOX_DEDUPE_KEY_MAX_LENGTH) {
     return rawKey;
   }
-  return `${prefix}:sha256:${createHash('sha256').update(value).digest('hex')}`;
+  return `event:sha256:${createHash('sha256').update(eventId).digest('hex')}`;
 }
 
 main().catch((error) => {

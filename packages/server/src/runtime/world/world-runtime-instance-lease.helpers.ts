@@ -122,6 +122,9 @@ export function isInstanceLeaseWritable(runtime, instance) {
   if (instance?.meta?.runtimeStatus === 'lease_degraded') {
     return false;
   }
+  if (instance?.meta?.runtimeStatus === 'stopped' || instance?.meta?.status === 'destroyed') {
+    return false;
+  }
   if (!runtime.instanceCatalogService?.isEnabled?.()) {
     return true;
   }
@@ -363,11 +366,13 @@ export async function syncInstanceLease(runtime, instanceId, { allowForceReclaim
     })
     : null;
   const claimResult = !assignedNodeId || !currentLeaseToken
-    ? await runtime.instanceCatalogService.claimInstanceLease({
+    ? await claimInstanceOwnershipAfterReplay(runtime, instance, {
       instanceId,
       nodeId,
       leaseToken,
       leaseExpireAt,
+      expectedOwnershipEpoch,
+      force: false,
     })
     : null;
   const ok = renewResult === true || claimResult?.ok === true;
@@ -391,18 +396,22 @@ export async function syncInstanceLease(runtime, instanceId, { allowForceReclaim
     // dev/test 环境下启动恢复阶段尝试 force-reclaim，避免旧 lease 未过期导致 fencing
     if (allowForceReclaim && shouldForceReclaimStaleLease()
       && typeof runtime.instanceCatalogService.forceClaimInstanceLease === 'function') {
-      const forceClaim = await runtime.instanceCatalogService.forceClaimInstanceLease({
-        instanceId, nodeId, leaseToken, leaseExpireAt,
+      const forceClaim = await claimInstanceOwnershipAfterReplay(runtime, instance, {
+        instanceId,
+        nodeId,
+        leaseToken,
+        leaseExpireAt,
+        expectedOwnershipEpoch,
+        force: true,
       });
       if (forceClaim?.ok) {
-        instance.meta.assignedNodeId = nodeId;
-        instance.meta.leaseToken = leaseToken;
-        instance.meta.leaseExpireAt = leaseExpireAt.toISOString();
-        instance.meta.ownershipEpoch = Number.isFinite(Number(forceClaim.ownershipEpoch))
-          ? Math.trunc(Number(forceClaim.ownershipEpoch))
-          : (expectedOwnershipEpoch + 1);
-        instance.meta.runtimeStatus = 'leased';
-        instance.meta.status = 'active';
+        await restoreInstanceAfterOwnershipClaim(runtime, instanceId, instance, {
+          nodeId,
+          leaseToken,
+          leaseExpireAt,
+          ownershipEpoch: forceClaim.ownershipEpoch,
+          fallbackOwnershipEpoch: expectedOwnershipEpoch + 1,
+        });
         runtime.logger.log(`启动恢复强制回收成功：${instanceId} newLeaseToken=${leaseToken}`);
         return;
       }
@@ -416,6 +425,74 @@ export async function syncInstanceLease(runtime, instanceId, { allowForceReclaim
   instance.meta.ownershipEpoch = assignedNodeId && currentLeaseToken
     ? expectedOwnershipEpoch
     : Number.isFinite(Number(claimResult?.ownershipEpoch)) ? Math.trunc(Number(claimResult.ownershipEpoch)) : expectedOwnershipEpoch + 1;
+  if (claimResult?.ok) {
+    await hydratePersistentInstanceSnapshot(runtime, instanceId, instance);
+  }
+  instance.meta.runtimeStatus = 'leased';
+  instance.meta.status = 'active';
+}
+
+async function claimInstanceOwnershipAfterReplay(runtime, instance, input) {
+  const catalog = await runtime.instanceCatalogService.loadInstanceCatalog(input.instanceId);
+  if (!catalog) {
+    return { ok: false, ownershipEpoch: null };
+  }
+  if (!input.force && !isCatalogLeaseClaimable(catalog)) {
+    return { ok: false, ownershipEpoch: null };
+  }
+  const catalogOwnershipEpoch = normalizeOwnershipEpoch(catalog.ownership_epoch, input.expectedOwnershipEpoch);
+  const runtimeOwnershipEpoch = normalizeOwnershipEpoch(instance?.meta?.ownershipEpoch, catalogOwnershipEpoch);
+  if (runtimeOwnershipEpoch !== catalogOwnershipEpoch) {
+    runtime.logger.warn(
+      `实例 ownership epoch 不一致，拒绝接管：${input.instanceId} runtime=${runtimeOwnershipEpoch} catalog=${catalogOwnershipEpoch}`,
+    );
+    return { ok: false, ownershipEpoch: null };
+  }
+  await freezeAndReplayInstanceOwnershipEpoch(runtime, instance, input.instanceId, catalogOwnershipEpoch);
+  const claimInput = {
+    instanceId: input.instanceId,
+    nodeId: input.nodeId,
+    leaseToken: input.leaseToken,
+    leaseExpireAt: input.leaseExpireAt,
+    expectedOwnershipEpoch: catalogOwnershipEpoch,
+  };
+  return input.force
+    ? runtime.instanceCatalogService.forceClaimInstanceLease(claimInput)
+    : runtime.instanceCatalogService.claimInstanceLease(claimInput);
+}
+
+async function freezeAndReplayInstanceOwnershipEpoch(runtime, instance, instanceId, ownershipEpoch) {
+  if (instance?.meta) {
+    instance.meta.runtimeStatus = 'stopped';
+  }
+  if (typeof runtime.replayInstanceFlushPayloadsBeforeOwnershipChange !== 'function') {
+    throw new Error(`instance_flush_replay_unavailable:${instanceId}:${ownershipEpoch}`);
+  }
+  await runtime.replayInstanceFlushPayloadsBeforeOwnershipChange(instanceId, ownershipEpoch);
+}
+
+function isCatalogLeaseClaimable(catalog) {
+  const assignedNodeId = typeof catalog?.assigned_node_id === 'string' ? catalog.assigned_node_id.trim() : '';
+  const leaseToken = typeof catalog?.lease_token === 'string' ? catalog.lease_token.trim() : '';
+  const leaseExpireAt = catalog?.lease_expire_at ? new Date(catalog.lease_expire_at).getTime() : 0;
+  return !assignedNodeId
+    || !leaseToken
+    || !Number.isFinite(leaseExpireAt)
+    || leaseExpireAt < Date.now();
+}
+
+function normalizeOwnershipEpoch(value, fallback = 0) {
+  return Number.isFinite(Number(value))
+    ? Math.max(0, Math.trunc(Number(value)))
+    : Math.max(0, Math.trunc(Number(fallback) || 0));
+}
+
+async function restoreInstanceAfterOwnershipClaim(runtime, instanceId, instance, input) {
+  instance.meta.assignedNodeId = input.nodeId;
+  instance.meta.leaseToken = input.leaseToken;
+  instance.meta.leaseExpireAt = input.leaseExpireAt.toISOString();
+  instance.meta.ownershipEpoch = normalizeOwnershipEpoch(input.ownershipEpoch, input.fallbackOwnershipEpoch);
+  await hydratePersistentInstanceSnapshot(runtime, instanceId, instance);
   instance.meta.runtimeStatus = 'leased';
   instance.meta.status = 'active';
 }
@@ -444,23 +521,25 @@ async function reclaimMissingCatalogLeaseForLocalRuntime(
   if (catalogAssignedNodeId && catalogLeaseToken && Number.isFinite(catalogLeaseExpireAt) && catalogLeaseExpireAt > Date.now()) {
     return false;
   }
-  const claim = await runtime.instanceCatalogService.claimInstanceLease({
+  const catalogOwnershipEpoch = normalizeOwnershipEpoch(catalog?.ownership_epoch, expectedOwnershipEpoch);
+  const claim = await claimInstanceOwnershipAfterReplay(runtime, instance, {
     instanceId,
     nodeId,
     leaseToken,
     leaseExpireAt,
+    expectedOwnershipEpoch: catalogOwnershipEpoch,
+    force: false,
   });
   if (!claim?.ok) {
     return false;
   }
-  instance.meta.assignedNodeId = nodeId;
-  instance.meta.leaseToken = leaseToken;
-  instance.meta.leaseExpireAt = leaseExpireAt.toISOString();
-  instance.meta.ownershipEpoch = Number.isFinite(Number(claim.ownershipEpoch))
-    ? Math.trunc(Number(claim.ownershipEpoch))
-    : expectedOwnershipEpoch + 1;
-  instance.meta.runtimeStatus = 'leased';
-  instance.meta.status = 'active';
+  await restoreInstanceAfterOwnershipClaim(runtime, instanceId, instance, {
+    nodeId,
+    leaseToken,
+    leaseExpireAt,
+    ownershipEpoch: claim.ownershipEpoch,
+    fallbackOwnershipEpoch: catalogOwnershipEpoch + 1,
+  });
   runtime.logger.warn(`实例 ${instanceId} catalog 租约缺失，已由本地运行态重新接管`);
   return true;
 }
@@ -558,40 +637,42 @@ export async function migrateInstanceToNode(runtime, instanceId, targetNodeId) {
   if (normalizedTargetNodeId === currentNodeId && isInstanceLeaseWritable(runtime, current)) {
     return { ok: true };
   }
-  fenceInstanceRuntime(runtime, instanceId, 'gm_instance_migrate');
+  const sourceAssignedNodeId = typeof current.meta?.assignedNodeId === 'string'
+    ? current.meta.assignedNodeId.trim()
+    : '';
+  const sourceLeaseToken = typeof current.meta?.leaseToken === 'string'
+    ? current.meta.leaseToken.trim()
+    : '';
+  if (runtime.instanceCatalogService?.isEnabled?.()
+    && (sourceAssignedNodeId !== currentNodeId || !sourceLeaseToken || !isInstanceLeaseWritable(runtime, current))) {
+    return { ok: false, reason: 'lease_not_local' };
+  }
   const leaseExpireAt = new Date(Date.now() - 1000);
-  const ownershipEpoch = Number.isFinite(Number(current.meta.ownershipEpoch))
-    ? Math.trunc(Number(current.meta.ownershipEpoch)) + 1
-    : 1;
+  const previousOwnershipEpoch = normalizeOwnershipEpoch(current.meta.ownershipEpoch, 0);
+  await freezeAndReplayInstanceOwnershipEpoch(runtime, current, instanceId, previousOwnershipEpoch);
+  let ownershipEpoch = previousOwnershipEpoch + 1;
   if (runtime.instanceCatalogService?.isEnabled?.()) {
-    await runtime.instanceCatalogService.upsertInstanceCatalog({
+    if (typeof runtime.instanceCatalogService.migrateInstanceLease !== 'function') {
+      throw new Error(`instance_lease_migration_cas_unavailable:${instanceId}`);
+    }
+    const migrated = await runtime.instanceCatalogService.migrateInstanceLease({
       instanceId,
-      templateId: current.template?.id ?? current.templateId ?? '',
-      instanceType: typeof current.kind === 'string' ? current.kind : 'public',
-      persistentPolicy: typeof current.meta?.persistentPolicy === 'string' ? current.meta.persistentPolicy : 'persistent',
-      ownerPlayerId: current.meta?.ownerPlayerId ?? null,
-      ownerSectId: current.meta?.ownerSectId ?? null,
-      partyId: current.meta?.partyId ?? null,
-      lineId: current.meta?.lineId ?? null,
-      status: 'active',
-      runtimeStatus: 'leased',
-      assignedNodeId: normalizedTargetNodeId,
-      leaseToken: null,
-      leaseExpireAt: leaseExpireAt.toISOString(),
-      ownershipEpoch,
-      clusterId: current.meta?.clusterId ?? null,
-      shardKey: current.meta?.shardKey ?? instanceId,
-      routeDomain: current.meta?.routeDomain ?? null,
-      destroyAt: current.meta?.destroyAt ?? null,
-      lastActiveAt: current.meta?.lastActiveAt ?? null,
-      lastPersistedAt: current.meta?.lastPersistedAt ?? null,
+      sourceNodeId: currentNodeId,
+      sourceLeaseToken,
+      targetNodeId: normalizedTargetNodeId,
+      leaseExpireAt,
+      expectedOwnershipEpoch: previousOwnershipEpoch,
     });
+    if (!migrated?.ok) {
+      return { ok: false, reason: 'lease_conflict' };
+    }
+    ownershipEpoch = normalizeOwnershipEpoch(migrated.ownershipEpoch, previousOwnershipEpoch + 1);
   }
   current.meta.assignedNodeId = normalizedTargetNodeId;
   current.meta.leaseToken = null;
   current.meta.leaseExpireAt = leaseExpireAt.toISOString();
   current.meta.ownershipEpoch = ownershipEpoch;
-  current.meta.runtimeStatus = 'leased';
+  current.meta.runtimeStatus = 'stopped';
   current.meta.status = 'active';
   return { ok: true };
 }
@@ -745,14 +826,31 @@ export async function claimRecoverableCatalogInstances(runtime, {
       await markMissingTemplateCatalogEntry(runtime, entry, instanceId, templateId, 'lease 接管');
       continue;
     }
+    const previousOwnershipEpoch = Number.isFinite(Number(entry?.ownership_epoch))
+      ? Math.max(0, Math.trunc(Number(entry.ownership_epoch)))
+      : 0;
+    // 必须在 claimInstanceLease 自增 ownership epoch 与 hydrate 真源之前完成旧 epoch payload replay。
+    await freezeAndReplayInstanceOwnershipEpoch(runtime, null, instanceId, previousOwnershipEpoch);
     const leaseToken = `${nodeId}:${instanceId}:${Date.now()}:${randomBytes(6).toString('base64url')}`;
     const leaseExpireAt = new Date(Date.now() + INSTANCE_LEASE_TTL_MS);
     const useForce = allowForceReclaim
       && shouldForceReclaimStaleLease()
       && typeof runtime.instanceCatalogService.forceClaimInstanceLease === 'function';
     const claim = useForce
-      ? await runtime.instanceCatalogService.forceClaimInstanceLease({ instanceId, nodeId, leaseToken, leaseExpireAt })
-      : await runtime.instanceCatalogService.claimInstanceLease({ instanceId, nodeId, leaseToken, leaseExpireAt });
+      ? await runtime.instanceCatalogService.forceClaimInstanceLease({
+          instanceId,
+          nodeId,
+          leaseToken,
+          leaseExpireAt,
+          expectedOwnershipEpoch: previousOwnershipEpoch,
+        })
+      : await runtime.instanceCatalogService.claimInstanceLease({
+          instanceId,
+          nodeId,
+          leaseToken,
+          leaseExpireAt,
+          expectedOwnershipEpoch: previousOwnershipEpoch,
+        });
     if (!claim.ok) {
       continue;
     }

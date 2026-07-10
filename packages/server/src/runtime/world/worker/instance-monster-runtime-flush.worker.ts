@@ -79,6 +79,8 @@ export class InstanceMonsterRuntimeFlushWorker {
           domain: INSTANCE_MONSTER_RUNTIME_WORKER_DOMAIN,
           ownershipEpoch,
           flushedVersion: Number(entry.latest_version ?? 0),
+          claimOwnerId: normalizeRequiredString(entry.claimed_by),
+          fencingToken: normalizeOptionalString(entry.fencing_token),
         });
         continue;
       }
@@ -90,6 +92,8 @@ export class InstanceMonsterRuntimeFlushWorker {
             domain: INSTANCE_MONSTER_RUNTIME_WORKER_DOMAIN,
             ownershipEpoch,
             flushedVersion: Number(entry.latest_version ?? 0),
+            claimOwnerId: normalizeRequiredString(entry.claimed_by),
+            fencingToken: normalizeOptionalString(entry.fencing_token),
           });
           continue;
         }
@@ -98,6 +102,8 @@ export class InstanceMonsterRuntimeFlushWorker {
           domain: INSTANCE_MONSTER_RUNTIME_WORKER_DOMAIN,
           ownershipEpoch,
           flushedVersion: Number(entry.latest_version ?? 0),
+          claimOwnerId: normalizeRequiredString(entry.claimed_by),
+          fencingToken: normalizeOptionalString(entry.fencing_token),
         });
         processed += 1;
       } catch (error: unknown) {
@@ -142,6 +148,11 @@ export class InstanceMonsterRuntimeFlushWorker {
 
 function normalizeRequiredString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
+}
+
+function normalizeOptionalString(value: unknown): string | null {
+  const normalized = normalizeRequiredString(value);
+  return normalized || null;
 }
 
 function normalizePositiveInteger(value: unknown, defaultValue: number, min: number, max: number): number {

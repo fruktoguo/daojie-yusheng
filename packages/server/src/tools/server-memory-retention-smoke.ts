@@ -157,7 +157,7 @@ async function proveRecoveryQueueBoundaries(): Promise<{ queued: number; maxQueu
   return { queued: snapshot.queued, maxQueued: snapshot.maxQueued, firstRejected: true };
 }
 
-async function proveOutboxDedupeBound(): Promise<{ eventIds: number; operationIds: number }> {
+async function proveOutboxDedupeBound(): Promise<{ eventIds: number }> {
   process.env.SERVER_OUTBOX_LOCAL_DEDUPE_LIMIT = '1000';
   const service = new OutboxDispatcherRuntimeService({ isEnabled: () => false } as never, null);
   for (let index = 0; index < 1005; index += 1) {
@@ -165,13 +165,11 @@ async function proveOutboxDedupeBound(): Promise<{ eventIds: number; operationId
   }
   const state = service as unknown as {
     processedEventIds: Set<string>;
-    processedOperationIds: Set<string>;
   };
   assert.equal(state.processedEventIds.size, 1000);
-  assert.equal(state.processedOperationIds.size, 1000);
   assert.equal(state.processedEventIds.has('event_0'), false);
   assert.equal(state.processedEventIds.has('event_1004'), true);
-  return { eventIds: state.processedEventIds.size, operationIds: state.processedOperationIds.size };
+  return { eventIds: state.processedEventIds.size };
 }
 
 async function proveAuthRateLimitPrune(): Promise<{ before: number; after: number }> {

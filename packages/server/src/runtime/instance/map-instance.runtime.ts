@@ -435,6 +435,10 @@ class MapInstanceRuntime {
     persistenceDomainMutationQueueByDomain = new Map();
     /** 每次 domain 重新标脏都会推进，供在途 flush 精确判断快照是否已经过期。 */
     persistenceDomainRevisionByDomain = new Map();
+    /** 当前 ledger generation 已可靠接管的单域修订；不代表数据库真源已经落盘。 */
+    stagedPersistenceDomainRevisionByDomain = new Map();
+    /** staged 修订所属的进程级 ledger generation。 */
+    persistenceStagingGenerationByDomain = new Map();
     /**
  * dirtyMonsterRuntimeIds：需要行级落盘的妖兽运行态 ID。
  */
@@ -5583,6 +5587,22 @@ class MapInstanceRuntime {
             ? Math.max(0, Math.trunc(Number(this.persistenceDomainRevisionByDomain.get(normalizedDomain) ?? 0)))
             : 0;
     }
+    /** 读取当前 generation 已写入 flush ledger 的单域修订。 */
+    getStagedPersistenceDomainRevision(domain, stagingGenerationId) {
+        const normalizedDomain = typeof domain === 'string' ? domain.trim() : '';
+        const normalizedGenerationId = typeof stagingGenerationId === 'string' ? stagingGenerationId.trim() : '';
+        if (!normalizedDomain || !normalizedGenerationId) {
+            return 0;
+        }
+        if (!(this.persistenceStagingGenerationByDomain instanceof Map)
+            || this.persistenceStagingGenerationByDomain.get(normalizedDomain) !== normalizedGenerationId) {
+            return 0;
+        }
+        return Math.max(
+            0,
+            Math.trunc(Number(this.stagedPersistenceDomainRevisionByDomain?.get?.(normalizedDomain) ?? 0)),
+        );
+    }
     /** 捕获一次实例分域 flush 使用的 revision 与增量脏键，后续 IO 只消费该快照。 */
     capturePersistenceDomainFlushSnapshot(domains) {
         const normalizedDomains = new Set((Array.isArray(domains) ? domains : [])
@@ -5617,6 +5637,47 @@ class MapInstanceRuntime {
                 ? new Set(this.dirtyMonsterRuntimeIds instanceof Set ? this.dirtyMonsterRuntimeIds : [])
                 : new Set(),
         };
+    }
+    /** ledger 批次提交成功后按捕获快照转移持久化义务，但不推进 persistedRevision。 */
+    markPersistenceDomainsStaged(domains, flushSnapshot = null, stagingGenerationId = '') {
+        const normalizedGenerationId = typeof stagingGenerationId === 'string' ? stagingGenerationId.trim() : '';
+        if (!normalizedGenerationId) {
+            return;
+        }
+        if (!(this.stagedPersistenceDomainRevisionByDomain instanceof Map)) {
+            this.stagedPersistenceDomainRevisionByDomain = new Map();
+        }
+        if (!(this.persistenceStagingGenerationByDomain instanceof Map)) {
+            this.persistenceStagingGenerationByDomain = new Map();
+        }
+        for (const domain of Array.isArray(domains) ? domains : []) {
+            const normalizedDomain = typeof domain === 'string' ? domain.trim() : '';
+            if (!normalizedDomain) {
+                continue;
+            }
+            const capturedRevision = flushSnapshot?.domainRevisions instanceof Map
+                ? Math.max(0, Math.trunc(Number(flushSnapshot.domainRevisions.get(normalizedDomain) ?? 0)))
+                : this.getPersistenceDomainRevision(normalizedDomain);
+            if (capturedRevision <= 0) {
+                continue;
+            }
+            const currentRevision = this.getPersistenceDomainRevision(normalizedDomain);
+            if (currentRevision === capturedRevision) {
+                // durable ledger 已接管该修订。若 staging IO 期间同域再变更，修订不同并保守保留全部 delta。
+                this.getDirtyDomains().delete(normalizedDomain);
+                clearMapInstancePersistenceDeltaDomain(this, normalizedDomain);
+                this.dirtyDomainFirstMarkedAt?.delete?.(normalizedDomain);
+                this.dirtyDomainHighPriority?.delete?.(normalizedDomain);
+            }
+            const previousRevision = this.persistenceStagingGenerationByDomain.get(normalizedDomain) === normalizedGenerationId
+                ? Math.max(0, Math.trunc(Number(this.stagedPersistenceDomainRevisionByDomain.get(normalizedDomain) ?? 0)))
+                : 0;
+            this.stagedPersistenceDomainRevisionByDomain.set(
+                normalizedDomain,
+                Math.max(previousRevision, capturedRevision),
+            );
+            this.persistenceStagingGenerationByDomain.set(normalizedDomain, normalizedGenerationId);
+        }
     }
     /** getDirtyDomains：读取实例脏域集合。 */
     getDirtyDomains() {
@@ -8076,10 +8137,14 @@ function markMapInstanceDirtyDomains(instance, domains) {
                 0,
                 Math.trunc(Number(instance.persistenceDomainRevisionByDomain.get(normalizedDomain) ?? 0)),
             );
-            instance.persistenceDomainRevisionByDomain.set(
-                normalizedDomain,
-                currentRevision >= Number.MAX_SAFE_INTEGER - 1 ? 1 : currentRevision + 1,
-            );
+            if (currentRevision >= Number.MAX_SAFE_INTEGER - 1) {
+                instance.persistenceDomainRevisionByDomain.set(normalizedDomain, 1);
+                instance.stagedPersistenceDomainRevisionByDomain?.delete?.(normalizedDomain);
+                instance.persistenceStagingGenerationByDomain?.delete?.(normalizedDomain);
+            }
+            else {
+                instance.persistenceDomainRevisionByDomain.set(normalizedDomain, currentRevision + 1);
+            }
             // 仅在首次标脏时记录时间戳
             if (!instance.dirtyDomainFirstMarkedAt.has(normalizedDomain)) {
                 instance.dirtyDomainFirstMarkedAt.set(normalizedDomain, now);

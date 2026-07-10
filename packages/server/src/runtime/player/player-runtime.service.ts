@@ -16,7 +16,11 @@ import { assignItemInstanceIdIfNeeded, compareItemInstanceId, isItemInstanceIdHa
 import { isNativeGmBotPlayerId } from '../../http/native/native-gm.constants';
 import { PVP_SHA_BACKLASH_BUFF_ID, PVP_SHA_BACKLASH_DECAY_TICKS, PVP_SHA_BACKLASH_PERCENT_PER_STACK, PVP_SHA_BACKLASH_SOURCE_ID, PVP_SHA_BACKLASH_STACK_DIVISOR, PVP_SHA_INFUSION_ATTACK_CAP_PERCENT, PVP_SHA_INFUSION_BUFF_ID, PVP_SHA_INFUSION_DECAY_TICKS, PVP_SHA_INFUSION_SOURCE_ID, PVP_SOUL_INJURY_BUFF_ID, PVP_SOUL_INJURY_DURATION_TICKS, PVP_SOUL_INJURY_SOURCE_ID } from '../../constants/gameplay/pvp';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
-import { PlayerDomainPersistenceService } from '../../persistence/player-domain-persistence.service';
+import {
+    PlayerDomainPersistenceService,
+    nextPlayerPersistenceVersion,
+} from '../../persistence/player-domain-persistence.service';
+import { isFlushTaskConsumerMode } from '../../persistence/flush-task-runtime-mode';
 import { RuntimeEventBusService } from '../event-bus/runtime-event-bus.service';
 import { MAX_NOTICES_PER_PLAYER, NOTICE_KIND_PRIORITY, findLowestPriorityNoticeIndex } from '../event-bus/runtime-event-bus.types';
 import { MapTemplateRepository } from '../map/map-template.repository';
@@ -1491,7 +1495,7 @@ export class PlayerRuntimeService {
                     offlineSinceAt: presence?.offlineSinceAt ?? Date.now(),
                     transferState: presence?.transferState ?? null,
                     transferTargetNodeId: presence?.transferTargetNodeId ?? null,
-                    versionSeed: presence?.versionSeed ?? Date.now(),
+                    versionSeed: presence?.versionSeed ?? nextPlayerPersistenceVersion(),
                 },
             );
             if (!claimed) {
@@ -1573,7 +1577,7 @@ export class PlayerRuntimeService {
             transferDeadlineAt: Number.isFinite(player.transferDeadlineAt)
                 ? Math.trunc(Number(player.transferDeadlineAt))
                 : null,
-            versionSeed: Date.now(),
+            versionSeed: nextPlayerPersistenceVersion(),
         };
     }
     /**
@@ -3131,6 +3135,9 @@ export class PlayerRuntimeService {
     async persistMapUnlocks(player) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+        if (isFlushTaskConsumerMode()) {
+            return;
+        }
         if (!this.playerDomainPersistenceService?.isEnabled?.()) {
             return;
         }
@@ -3139,10 +3146,13 @@ export class PlayerRuntimeService {
             return;
         }
         await this.playerDomainPersistenceService.savePlayerMapUnlocks(playerId, [...(player.unlockedMapIds ?? [])], {
-            versionSeed: player.persistentRevision,
+            versionSeed: nextPlayerPersistenceVersion(),
         });
     }
     async persistWallet(player) {
+        if (isFlushTaskConsumerMode()) {
+            return;
+        }
         if (!this.playerDomainPersistenceService?.isEnabled?.()) {
             return;
         }
@@ -3151,7 +3161,7 @@ export class PlayerRuntimeService {
             return;
         }
         await this.playerDomainPersistenceService.savePlayerWallet(playerId, Array.isArray(player.wallet?.balances) ? player.wallet.balances : [], {
-            versionSeed: player.persistentRevision,
+            versionSeed: nextPlayerPersistenceVersion(),
         });
     }
     /**
@@ -3163,6 +3173,9 @@ export class PlayerRuntimeService {
     async persistLogbookMessages(player) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+        if (isFlushTaskConsumerMode()) {
+            return;
+        }
         if (!this.playerDomainPersistenceService?.isEnabled?.()) {
             return;
         }
@@ -3171,7 +3184,7 @@ export class PlayerRuntimeService {
             return;
         }
         await this.playerDomainPersistenceService.savePlayerLogbookMessages(playerId, [...(player.pendingLogbookMessages ?? [])], {
-            versionSeed: player.persistentRevision,
+            versionSeed: nextPlayerPersistenceVersion(),
         });
     }
     /**
@@ -4920,6 +4933,128 @@ export class PlayerRuntimeService {
             ? Math.trunc(Number(player.persistentRevision))
             : null;
     }
+    /** 读取玩家单个持久化域的运行态修订。 */
+    getPersistenceDomainRevision(playerId, domain) {
+        const player = this.players.get(playerId);
+        const normalizedDomain = typeof domain === 'string' ? domain.trim() : '';
+        if (!player || !normalizedDomain) {
+            return null;
+        }
+        return getPlayerPersistenceDomainRevision(player, normalizedDomain);
+    }
+    /**
+     * 列出尚未由当前 ledger generation 接管的脏域。
+     * staged 只表示 payload 已经可靠写入 flush ledger，不代表数据库真源已经落盘。
+     */
+    listUnstagedPlayerDomainRevisions(stagingGenerationId) {
+        const normalizedGenerationId = normalizePlayerStagingGenerationId(stagingGenerationId);
+        const dirtyPlayers = new Map();
+        for (const player of this.players.values()) {
+            if (isNativeGmBotPlayerId(player.playerId) || isImmediateDomainPersistenceSuppressed(player)) {
+                continue;
+            }
+            const currentDomains = readPlayerDirtyDomains(player);
+            const domains = currentDomains && currentDomains.size > 0
+                ? Array.from(currentDomains)
+                : (player.persistentRevision > Math.max(
+                    Math.max(0, Math.trunc(Number(player.persistedRevision) || 0)),
+                    Math.max(0, Math.trunc(Number(player.stagedRevision) || 0)),
+                )
+                    ? [PLAYER_PERSISTENCE_DIRTY_FALLBACK_DOMAIN]
+                    : []);
+            const unstagedDomains = new Map();
+            for (const domain of domains) {
+                const normalizedDomain = typeof domain === 'string' ? domain.trim() : '';
+                if (!normalizedDomain) {
+                    continue;
+                }
+                const domainRevision = normalizedDomain === PLAYER_PERSISTENCE_DIRTY_FALLBACK_DOMAIN
+                    ? Math.max(0, Math.trunc(Number(player.persistentRevision) || 0))
+                    : getPlayerPersistenceDomainRevision(player, normalizedDomain);
+                const stagedRevision = getPlayerStagedDomainRevision(
+                    player,
+                    normalizedDomain,
+                    normalizedGenerationId,
+                );
+                if (domainRevision > stagedRevision) {
+                    unstagedDomains.set(normalizedDomain, domainRevision);
+                }
+            }
+            if (unstagedDomains.size > 0) {
+                dirtyPlayers.set(player.playerId, unstagedDomains);
+            }
+        }
+        return dirtyPlayers;
+    }
+    /** flush ledger 批次提交成功后，按捕获修订转移 dirty 持久化义务，但不冒充 DB persisted。 */
+    markPersistenceDomainsStaged(playerId, domainRevisions, runtimeRevision, stagingGenerationId) {
+        const player = this.players.get(playerId);
+        const normalizedGenerationId = normalizePlayerStagingGenerationId(stagingGenerationId);
+        if (!player || !normalizedGenerationId) {
+            return;
+        }
+        const normalizedDomainRevisions = normalizePlayerDomainRevisionEntries(domainRevisions);
+        ensurePlayerPersistenceStagingMaps(player);
+        for (const [domain, capturedRevision] of normalizedDomainRevisions) {
+            if (domain !== PLAYER_PERSISTENCE_DIRTY_FALLBACK_DOMAIN
+                && getPlayerPersistenceDomainRevision(player, domain) === capturedRevision) {
+                // durable ledger 已接管本修订的持久化义务；不推进 persistedRevision。
+                // 同域在 staging IO 期间再次变更时修订不同，新的 dirty 会保留下来。
+                player.dirtyDomains?.delete(domain);
+            }
+            const previousGenerationId = player.persistenceStagingGenerationByDomain.get(domain);
+            const previousRevision = previousGenerationId === normalizedGenerationId
+                ? Math.max(0, Math.trunc(Number(player.stagedPersistenceDomainRevisionByDomain.get(domain) ?? 0)))
+                : 0;
+            player.stagedPersistenceDomainRevisionByDomain.set(domain, Math.max(previousRevision, capturedRevision));
+            player.persistenceStagingGenerationByDomain.set(domain, normalizedGenerationId);
+        }
+        const capturedRuntimeRevision = Math.max(0, Math.trunc(Number(runtimeRevision) || 0));
+        if (player.persistenceStagingGenerationId !== normalizedGenerationId) {
+            player.persistenceStagingGenerationId = normalizedGenerationId;
+            player.stagedRevision = capturedRuntimeRevision;
+        }
+        else {
+            player.stagedRevision = Math.max(
+                Math.max(0, Math.trunc(Number(player.stagedRevision) || 0)),
+                capturedRuntimeRevision,
+            );
+        }
+    }
+    /** payload 真源写与 ledger 完成均成功后，按单域捕获修订精确清理 dirty。 */
+    markPersistenceDomainsPersistedByRevision(playerId, domainRevisions, runtimeRevision, stagingGenerationId) {
+        const player = this.players.get(playerId);
+        if (!player) {
+            return;
+        }
+        const normalizedDomainRevisions = normalizePlayerDomainRevisionEntries(domainRevisions);
+        const normalizedGenerationId = normalizePlayerStagingGenerationId(stagingGenerationId);
+        for (const [domain, capturedRevision] of normalizedDomainRevisions) {
+            if (domain === PLAYER_PERSISTENCE_DIRTY_FALLBACK_DOMAIN) {
+                continue;
+            }
+            const currentRevision = getPlayerPersistenceDomainRevision(player, domain);
+            if (currentRevision !== capturedRevision) {
+                continue;
+            }
+            player.dirtyDomains?.delete(domain);
+            ensurePlayerPersistencePersistedMap(player).set(domain, capturedRevision);
+        }
+        const capturedRuntimeRevision = Math.max(0, Math.trunc(Number(runtimeRevision) || 0));
+        const noDirtyDomains = !(player.dirtyDomains instanceof Set) || player.dirtyDomains.size === 0;
+        if (noDirtyDomains && player.persistentRevision <= capturedRuntimeRevision) {
+            player.persistedRevision = Math.max(
+                Math.max(0, Math.trunc(Number(player.persistedRevision) || 0)),
+                Math.min(capturedRuntimeRevision, player.persistentRevision),
+            );
+        }
+        this.markPersistenceDomainsStaged(
+            playerId,
+            normalizedDomainRevisions,
+            capturedRuntimeRevision,
+            normalizedGenerationId,
+        );
+    }
     /**
  * listDirtyPlayerDomains：读取Dirty玩家并返回对应域集合。
  * @returns 无返回值，完成Dirty玩家域集合的读取/组装。
@@ -4936,7 +5071,10 @@ export class PlayerRuntimeService {
                 dirtyPlayers.set(player.playerId, new Set(dirtyDomains));
                 continue;
             }
-            if (player.persistentRevision > player.persistedRevision) {
+            if (player.persistentRevision > Math.max(
+                Math.max(0, Math.trunc(Number(player.persistedRevision) || 0)),
+                Math.max(0, Math.trunc(Number(player.stagedRevision) || 0)),
+            )) {
                 dirtyPlayers.set(player.playerId, new Set([PLAYER_PERSISTENCE_DIRTY_FALLBACK_DOMAIN]));
             }
         }
@@ -5078,10 +5216,25 @@ export class PlayerRuntimeService {
             && player.persistentRevision > persistedRevision;
         if (persistedDomains && !hasMutationAfterSnapshot) {
             for (const domain of persistedDomains) {
-                player.dirtyDomains?.delete(domain);
+                const normalizedDomain = typeof domain === 'string' ? domain.trim() : '';
+                if (normalizedDomain) {
+                    const domainRevision = getPlayerPersistenceDomainRevision(player, normalizedDomain);
+                    player.dirtyDomains?.delete(domain);
+                    ensurePlayerPersistencePersistedMap(player).set(
+                        normalizedDomain,
+                        domainRevision,
+                    );
+                }
             }
         } else {
             if (!persistedDomains && !hasMutationAfterSnapshot) {
+                const dirtyDomains = player.dirtyDomains instanceof Set ? Array.from(player.dirtyDomains) : [];
+                for (const domain of dirtyDomains) {
+                    ensurePlayerPersistencePersistedMap(player).set(
+                        domain,
+                        getPlayerPersistenceDomainRevision(player, domain),
+                    );
+                }
                 clearPlayerDirtyDomains(player);
             }
         }
@@ -5615,6 +5768,9 @@ export class PlayerRuntimeService {
         markPlayerDirtyDomains(player, domains);
     }
     async persistAutoBattleSkills(player) {
+        if (isFlushTaskConsumerMode()) {
+            return;
+        }
         if (!this.playerDomainPersistenceService?.isEnabled?.()) {
             return;
         }
@@ -5625,10 +5781,13 @@ export class PlayerRuntimeService {
         await this.playerDomainPersistenceService.savePlayerAutoBattleSkills(
             playerId,
             Array.isArray(player.combat?.autoBattleSkills) ? player.combat.autoBattleSkills : [],
-            { versionSeed: player.persistentRevision },
+            { versionSeed: nextPlayerPersistenceVersion() },
         );
     }
     async persistAutoUseItemRules(player) {
+        if (isFlushTaskConsumerMode()) {
+            return;
+        }
         if (!this.playerDomainPersistenceService?.isEnabled?.()) {
             return;
         }
@@ -5639,7 +5798,7 @@ export class PlayerRuntimeService {
         await this.playerDomainPersistenceService.savePlayerAutoUseItemRules(
             playerId,
             Array.isArray(player.combat?.autoUsePills) ? player.combat.autoUsePills : [],
-            { versionSeed: player.persistentRevision },
+            { versionSeed: nextPlayerPersistenceVersion() },
         );
     }
     /**
@@ -6006,9 +6165,98 @@ function markPlayerDirtyDomains(player, domains) {
     }
     for (const domain of Array.isArray(domains) ? domains : []) {
         if (typeof domain === 'string' && domain.trim()) {
-            player.dirtyDomains.add(domain.trim());
+            const normalizedDomain = domain.trim();
+            player.dirtyDomains.add(normalizedDomain);
+            const revisionByDomain = ensurePlayerPersistenceDomainRevisionMap(player);
+            const currentRevision = Math.max(
+                0,
+                Math.trunc(Number(revisionByDomain.get(normalizedDomain) ?? 0)),
+            );
+            if (currentRevision >= Number.MAX_SAFE_INTEGER - 1) {
+                revisionByDomain.set(normalizedDomain, 1);
+                player.stagedPersistenceDomainRevisionByDomain?.delete(normalizedDomain);
+                player.persistenceStagingGenerationByDomain?.delete(normalizedDomain);
+            }
+            else {
+                revisionByDomain.set(normalizedDomain, currentRevision + 1);
+            }
         }
     }
+}
+
+function ensurePlayerPersistenceDomainRevisionMap(player) {
+    if (!(player.persistenceDomainRevisionByDomain instanceof Map)) {
+        player.persistenceDomainRevisionByDomain = new Map();
+    }
+    return player.persistenceDomainRevisionByDomain;
+}
+
+function ensurePlayerPersistenceStagingMaps(player) {
+    if (!(player.stagedPersistenceDomainRevisionByDomain instanceof Map)) {
+        player.stagedPersistenceDomainRevisionByDomain = new Map();
+    }
+    if (!(player.persistenceStagingGenerationByDomain instanceof Map)) {
+        player.persistenceStagingGenerationByDomain = new Map();
+    }
+}
+
+function ensurePlayerPersistencePersistedMap(player) {
+    if (!(player.persistedDomainRevisionByDomain instanceof Map)) {
+        player.persistedDomainRevisionByDomain = new Map();
+    }
+    return player.persistedDomainRevisionByDomain;
+}
+
+function getPlayerPersistenceDomainRevision(player, domain) {
+    const normalizedDomain = typeof domain === 'string' ? domain.trim() : '';
+    if (!player || !normalizedDomain) {
+        return 0;
+    }
+    const revisionByDomain = ensurePlayerPersistenceDomainRevisionMap(player);
+    const existingRevision = Math.max(0, Math.trunc(Number(revisionByDomain.get(normalizedDomain) ?? 0)));
+    if (existingRevision > 0) {
+        return existingRevision;
+    }
+    const initialRevision = player.dirtyDomains?.has?.(normalizedDomain) ? 1 : 0;
+    if (initialRevision > 0) {
+        revisionByDomain.set(normalizedDomain, initialRevision);
+    }
+    return initialRevision;
+}
+
+function getPlayerStagedDomainRevision(player, domain, stagingGenerationId) {
+    if (!player || !stagingGenerationId) {
+        return 0;
+    }
+    ensurePlayerPersistenceStagingMaps(player);
+    if (player.persistenceStagingGenerationByDomain.get(domain) !== stagingGenerationId) {
+        return 0;
+    }
+    return Math.max(
+        0,
+        Math.trunc(Number(player.stagedPersistenceDomainRevisionByDomain.get(domain) ?? 0)),
+    );
+}
+
+function normalizePlayerDomainRevisionEntries(domainRevisions) {
+    const normalized = new Map();
+    const entries = domainRevisions instanceof Map
+        ? domainRevisions.entries()
+        : (domainRevisions && typeof domainRevisions === 'object'
+            ? Object.entries(domainRevisions)
+            : []);
+    for (const [domain, revision] of entries) {
+        const normalizedDomain = typeof domain === 'string' ? domain.trim() : '';
+        const normalizedRevision = Math.max(0, Math.trunc(Number(revision) || 0));
+        if (normalizedDomain && normalizedRevision > 0) {
+            normalized.set(normalizedDomain, normalizedRevision);
+        }
+    }
+    return normalized;
+}
+
+function normalizePlayerStagingGenerationId(value) {
+    return typeof value === 'string' ? value.trim() : '';
 }
 
 function hasTechniqueTemplateProjectionChanged(current, hydrated) {
@@ -6195,7 +6443,10 @@ function isPlayerRuntimeDirty(player) {
         return false;
     }
     return (player?.dirtyDomains instanceof Set && player.dirtyDomains.size > 0)
-        || player.persistentRevision > player.persistedRevision;
+        || player.persistentRevision > Math.max(
+            Math.max(0, Math.trunc(Number(player.persistedRevision) || 0)),
+            Math.max(0, Math.trunc(Number(player.stagedRevision) || 0)),
+        );
 }
 /**
  * buildEquipmentSnapshot：构建并返回目标对象。
@@ -8003,7 +8254,7 @@ function buildRuntimePlayerPersistenceSnapshot(player, mapTemplateRepository = n
     );
     return {
         version: 1,
-        savedAt: Date.now(),
+        savedAt: nextPlayerPersistenceVersion(),
         placement: {
             instanceId: normalizePlayerPlacementInstanceId(player.instanceId)
                 ?? (templateId ? buildPublicPlayerInstanceId(templateId) : ''),

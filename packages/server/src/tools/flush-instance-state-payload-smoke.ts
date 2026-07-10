@@ -15,6 +15,15 @@ async function main(): Promise<void> {
 
   const flushed: string[] = [];
   const persistence = {
+    replaceRuntimeTileCells: async (instanceId: string, entries: unknown[]) => {
+      flushed.push(`tile_cell:${instanceId}:${entries.length}`);
+    },
+    replaceTemporaryTileStates: async (instanceId: string, entries: unknown[]) => {
+      flushed.push(`temporary_tile:${instanceId}:${entries.length}`);
+    },
+    replaceGroundItems: async (instanceId: string, entries: unknown[]) => {
+      flushed.push(`ground_item_full:${instanceId}:${entries.length}`);
+    },
     replaceGroundItemTiles: async (instanceId: string, tileIndices: unknown[], entries: unknown[]) => {
       flushed.push(`ground_item:${instanceId}:${tileIndices.length}:${entries.length}`);
     },
@@ -54,6 +63,9 @@ async function main(): Promise<void> {
     payloadJson: unknown;
     expected: string;
   }> = [
+    { id: 'instance-tile-cell', domain: 'tile_cell', payloadJson: { kind: 'instance_domain_state', domain: 'tile_cell', revision: 1, payload: [{ tileIndex: 1 }] }, expected: 'tile_cell:instance-tile-cell:1' },
+    { id: 'instance-temporary-tile', domain: 'temporary_tile', payloadJson: { kind: 'instance_domain_state', domain: 'temporary_tile', revision: 1, payload: [{ tileIndex: 2 }] }, expected: 'temporary_tile:instance-temporary-tile:1' },
+    { id: 'instance-ground-full', domain: 'ground_item', payloadJson: { kind: 'instance_domain_state', domain: 'ground_item', revision: 1, payload: { fullReplace: true, entries: [{ tileIndex: 3 }] } }, expected: 'ground_item_full:instance-ground-full:1' },
     { id: 'instance-ground', domain: 'ground_item', payloadJson: { kind: 'instance_domain_state', domain: 'ground_item', revision: 1, payload: { tileIndices: [1], entries: [{ id: 'g1' }] } }, expected: 'ground_item:instance-ground:1:1' },
     { id: 'instance-overlay', domain: 'overlay', payloadJson: { kind: 'instance_domain_state', domain: 'overlay', revision: 1, payload: [{ chunkKey: 'overlay-1', patchKind: 'replace', patchVersion: 1, patchPayload: { x: 1 } }] }, expected: 'overlay:instance-overlay:overlay-1' },
     { id: 'instance-monster', domain: 'monster_runtime', payloadJson: { kind: 'instance_domain_state', domain: 'monster_runtime', revision: 1, payload: { fullReplace: false, upserts: [{ monsterId: 'm1' }], deletes: [] } }, expected: 'monster_runtime:instance-monster:1:0' },
@@ -67,6 +79,7 @@ async function main(): Promise<void> {
       let claimed = false;
       const ledger = {
         isEnabled: () => true,
+        renewFlushTaskClaim: async () => true,
         claimReadyFlushTasks: async (input: { scope: string }) => {
           if (input.scope !== 'instance' || claimed) return [];
           claimed = true;
@@ -108,6 +121,7 @@ async function main(): Promise<void> {
     const mixedFlushedDomains: string[] = [];
     const mixedLedger = {
       isEnabled: () => true,
+      renewFlushTaskClaim: async () => true,
       claimReadyFlushTasks: async (input: { scope: string }) => {
         if (input.scope !== 'instance' || mixedClaimed) return [];
         mixedClaimed = true;
@@ -175,6 +189,7 @@ async function main(): Promise<void> {
     let staleStateClaimed = false;
     const staleStateLedger = {
       isEnabled: () => true,
+      renewFlushTaskClaim: async () => true,
       claimReadyFlushTasks: async (input: { scope: string }) => {
         if (input.scope !== 'instance' || staleStateClaimed) return [];
         staleStateClaimed = true;
@@ -189,6 +204,8 @@ async function main(): Promise<void> {
             payloadJson: {
               kind: 'instance_domain_state',
               domain: 'ground_item',
+              revision: 8,
+              stagingGenerationId: 'new-generation-mismatch',
               payload: { tileIndices: [2195], entries: [] },
             },
           },
@@ -236,8 +253,8 @@ async function main(): Promise<void> {
     assert.equal(staleStateProcessed, 2);
     assert.deepEqual(staleStateRetriedDomains, []);
     assert.deepEqual(staleStateFlushedDomains.sort(), ['ground_item', 'time']);
-    assert.equal(flushed.includes('ground_item:instance-stale-ground:1:0'), false);
-    assert.equal(flushed.includes('time:instance-stale-time'), false);
+    assert.equal(flushed.includes('ground_item:instance-stale-ground:1:0'), false, '新 generation revision mismatch 必须拒绝写入并收敛');
+    assert.equal(flushed.includes('time:instance-stale-time'), true, 'legacy payload revision 低于 ledger latest 仍必须按当前 ownership epoch replay');
 
     const dedupeTasks = [
       {
@@ -303,6 +320,7 @@ async function main(): Promise<void> {
       let claimed = false;
       const dedupeLedger = {
         isEnabled: () => true,
+        renewFlushTaskClaim: async () => true,
         claimReadyFlushTasks: async (input: { scope: string }) => {
           if (input.scope !== 'instance' || claimed) return [];
           claimed = true;
@@ -344,8 +362,9 @@ async function main(): Promise<void> {
     const staged: unknown[] = [];
     const stagingLedger = {
       isEnabled: () => true,
-      upsertFlushTask: async (task: unknown) => {
-        staged.push(task);
+      upsertFlushTasks: async (tasks: unknown[]) => {
+        staged.push(...tasks);
+        return tasks.length;
       },
     };
     const stagingRuntime = new FlushTaskRuntimeService(
@@ -372,10 +391,10 @@ async function main(): Promise<void> {
     assert.equal(staged.length, 1);
     const stagedTask = staged[0] as { domain?: string; latestRevision?: number; payloadJson?: { kind?: string; domain?: string; revision?: number; payload?: { tick?: number; templateId?: string } } | null };
     assert.equal(stagedTask.domain, 'time');
-    assert.equal(stagedTask.latestRevision, 11);
+    assert.ok((stagedTask.latestRevision ?? 0) > 11);
     assert.equal(stagedTask.payloadJson?.kind, 'instance_domain_state');
     assert.equal(stagedTask.payloadJson?.domain, 'time');
-    assert.equal(stagedTask.payloadJson?.revision, 11);
+    assert.equal(stagedTask.payloadJson?.revision, stagedTask.latestRevision);
     assert.equal(stagedTask.payloadJson?.payload?.tick, 42);
     assert.equal(stagedTask.payloadJson?.payload?.templateId, 'stage-template');
 
@@ -401,10 +420,10 @@ async function main(): Promise<void> {
     assert.equal(staged.length, 1);
     const stagedGroundTask = staged[0] as { domain?: string; latestRevision?: number; payloadJson?: { kind?: string; domain?: string; revision?: number; payload?: { tileIndices?: number[] } } | null };
     assert.equal(stagedGroundTask.domain, 'ground_item');
-    assert.equal(stagedGroundTask.latestRevision, 12);
+    assert.ok((stagedGroundTask.latestRevision ?? 0) > 12);
     assert.equal(stagedGroundTask.payloadJson?.kind, 'instance_domain_state');
     assert.equal(stagedGroundTask.payloadJson?.domain, 'ground_item');
-    assert.equal(stagedGroundTask.payloadJson?.revision, 12);
+    assert.equal(stagedGroundTask.payloadJson?.revision, stagedGroundTask.latestRevision);
     assert.deepEqual(stagedGroundTask.payloadJson?.payload?.tileIndices, [7]);
 
     process.env.SERVER_RUNTIME_ROLE = 'worker';
@@ -426,6 +445,7 @@ async function main(): Promise<void> {
     let deltaClaimed = false;
     const deltaLedger = {
       isEnabled: () => true,
+      renewFlushTaskClaim: async () => true,
       claimReadyFlushTasks: async (input: { scope: string }) => {
         if (input.scope !== 'instance' || deltaClaimed) return [];
         deltaClaimed = true;
@@ -472,6 +492,8 @@ async function main(): Promise<void> {
             payloadJson: {
               kind: 'instance_domain_delta',
               domain: 'tile_damage',
+              revision: 8,
+              stagingGenerationId: 'new-generation-mismatch',
               upserts: [],
               deletes: [2195],
             },
@@ -519,7 +541,7 @@ async function main(): Promise<void> {
 
   console.log(JSON.stringify({
     ok: true,
-    answers: '实例 ground_item/overlay/monster_runtime/container_state/building-room-fengshui/time 可从 staging state payload 写入持久化 API，并 mark flushed；混合分组中缺 payload 的 domain 会单独 retry，不阻塞有效 payload 刷盘。',
+      answers: '实例 tile_cell/temporary_tile/ground_item fullReplace 与增量、overlay/monster_runtime/container_state/building-room-fengshui/time 均可从 durable state payload 写入持久化 API，并 mark flushed；混合分组中缺 payload 的 domain 会单独 retry。',
     excludes: '不证明真实 DB with-db 竞争。',
     completionMapping: 'flush-instance-state-payload',
   }, null, 2));

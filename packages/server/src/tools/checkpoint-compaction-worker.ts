@@ -13,10 +13,12 @@ import { NestFactory } from '@nestjs/core';
 
 import { AppModule } from '../app.module';
 import { CheckpointCompactionWorker } from '../runtime/world/worker/checkpoint-compaction.worker';
+import { assertFullAppFlushWorkerAllowed } from './runtime-flush-worker-guard';
 
 const DEFAULT_IDLE_MS = 30_000;
 
 async function main(): Promise<void> {
+  assertFullAppFlushWorkerAllowed('checkpoint-compaction-worker');
   const { once, idleMs } = parseArgs(process.argv.slice(2));
   const app = await NestFactory.createApplicationContext(AppModule, { logger: false });
   const worker = app.get(CheckpointCompactionWorker);

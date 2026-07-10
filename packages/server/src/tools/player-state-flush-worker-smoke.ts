@@ -15,6 +15,7 @@ import { resolveServerDatabaseUrl } from '../config/env-alias';
 import { FlushWakeupService } from '../persistence/flush-wakeup.service';
 import { PlayerFlushLedgerService } from '../persistence/player-flush-ledger.service';
 import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
+import { BackgroundWorkerRuntimeService } from '../runtime/worker/background-worker-runtime.service';
 import { PlayerStateFlushWorker } from '../runtime/world/worker/player-state-flush.worker';
 
 const databaseUrl = resolveServerDatabaseUrl();
@@ -37,6 +38,13 @@ async function main(): Promise<void> {
     );
     return;
   }
+
+  const previousRole = process.env.SERVER_RUNTIME_ROLE;
+  const previousMode = process.env.SERVER_FLUSH_TASK_RUNTIME_MODE;
+  const originalWorkerStart = BackgroundWorkerRuntimeService.prototype.startForLifecycleCoordinator;
+  process.env.SERVER_RUNTIME_ROLE = 'worker';
+  process.env.SERVER_FLUSH_TASK_RUNTIME_MODE = 'off';
+  BackgroundWorkerRuntimeService.prototype.startForLifecycleCoordinator = () => undefined;
 
   const pool = new Pool({ connectionString: databaseUrl });
   const app = await NestFactory.createApplicationContext(AppModule, { logger: false, abortOnError: false });
@@ -79,10 +87,11 @@ async function main(): Promise<void> {
     const ledgerRows = await ledger.listLedgerRows();
     const targetLedgerRow = ledgerRows.find((row) => row.player_id === playerId && row.domain === 'snapshot');
     assert(targetLedgerRow);
-    assert.equal(Number(targetLedgerRow.latest_version ?? 0), grantedRevision);
+    assert.equal(Number(targetLedgerRow.latest_version ?? 0) >= grantedRevision, true);
     assert.equal(String(targetLedgerRow.claimed_by ?? ''), '');
     assert.equal(String(targetLedgerRow.claim_until ?? ''), '');
     assert.equal(Number(targetLedgerRow.flushed_version ?? 0) >= Number(targetLedgerRow.latest_version ?? 0), true);
+    await verifyLegacyClaimCas(pool, ledger, playerId);
 
     const inventoryRows = await pool.query(
       'SELECT item_id, count FROM player_inventory_item WHERE player_id = $1 ORDER BY item_id ASC',
@@ -125,6 +134,59 @@ async function main(): Promise<void> {
     await cleanupRows(pool, [playerId]).catch(() => undefined);
     await app.close().catch(() => undefined);
     await pool.end().catch(() => undefined);
+    restoreEnv('SERVER_RUNTIME_ROLE', previousRole);
+    restoreEnv('SERVER_FLUSH_TASK_RUNTIME_MODE', previousMode);
+    BackgroundWorkerRuntimeService.prototype.startForLifecycleCoordinator = originalWorkerStart;
+  }
+}
+
+async function verifyLegacyClaimCas(pool: Pool, ledger: PlayerFlushLedgerService, playerId: string): Promise<void> {
+  const domain = `snapshot_claim_cas_${Date.now().toString(36)}`;
+  await ledger.seedDirtyPlayers({ playerIds: [playerId], domain, latestVersion: Date.now() });
+  const [oldClaim] = await ledger.claimReadyPlayers({
+    workerId: 'player-state-worker-smoke:old-claim',
+    domain,
+    limit: 1,
+    claimTtlMs: 1_000,
+  });
+  assert(oldClaim?.claimOwnerId);
+  await pool.query(
+    "UPDATE player_flush_ledger SET claim_until = now() - interval '1 second' WHERE player_id = $1 AND domain = $2",
+    [playerId, domain],
+  );
+  const [currentClaim] = await ledger.claimReadyPlayers({
+    workerId: 'player-state-worker-smoke:current-claim',
+    domain,
+    limit: 1,
+    claimTtlMs: 1_000,
+  });
+  assert(currentClaim?.claimOwnerId);
+  assert.notEqual(currentClaim.claimOwnerId, oldClaim.claimOwnerId);
+  assert.equal(await ledger.markRetry({
+    playerId,
+    domain,
+    retryDelayMs: 250,
+    claimOwnerId: oldClaim.claimOwnerId,
+  }), false);
+  assert.equal(await ledger.markFlushed({
+    playerId,
+    domain,
+    flushedVersion: oldClaim.latestVersion,
+    claimOwnerId: oldClaim.claimOwnerId,
+  }), false);
+  assert.equal(await ledger.markFlushed({
+    playerId,
+    domain,
+    flushedVersion: currentClaim.latestVersion,
+    claimOwnerId: currentClaim.claimOwnerId,
+  }), true);
+}
+
+function restoreEnv(name: string, value: string | undefined): void {
+  if (value === undefined) {
+    delete process.env[name];
+  } else {
+    process.env[name] = value;
   }
 }
 

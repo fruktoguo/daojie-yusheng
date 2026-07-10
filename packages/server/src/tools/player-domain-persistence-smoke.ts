@@ -657,6 +657,25 @@ async function main(): Promise<void> {
       ],
       { versionSeed: directBaseVersion + 5 },
     );
+    const directMapWatermarkBeforeVersionFence = await fetchSingleRow(
+      pool,
+      'SELECT map_unlock_version FROM player_recovery_watermark WHERE player_id = $1',
+      [directPlayerId],
+    );
+    const latestDirectMapVersion = Math.max(
+      directBaseVersion + 7,
+      Number(directMapWatermarkBeforeVersionFence?.map_unlock_version ?? 0) + 2,
+    );
+    await service.savePlayerMapUnlocks(
+      directPlayerId,
+      [{ mapId: 'direct_version_current', unlockedAt: latestDirectMapVersion }],
+      { versionSeed: latestDirectMapVersion },
+    );
+    await service.savePlayerMapUnlocks(
+      directPlayerId,
+      [{ mapId: 'direct_version_stale', unlockedAt: latestDirectMapVersion - 1 }],
+      { versionSeed: latestDirectMapVersion - 1 },
+    );
     await service.savePlayerEquipmentSlots(
       directPlayerId,
       [
@@ -1255,7 +1274,10 @@ async function main(): Promise<void> {
       );
     } catch (error) {
       incompleteFenceRejected = error instanceof Error
-        && error.message.includes('player_snapshot_projection_incomplete_fence');
+        && (
+          error.message.includes('player_snapshot_projection_incomplete_fence')
+          || error.message.includes('player_snapshot_projection_stale_owner')
+        );
     }
     if (!incompleteFenceRejected) {
       throw new Error('expected ownerless runtime projection to be rejected as incomplete fence');
@@ -1293,6 +1315,49 @@ async function main(): Promise<void> {
     ) {
       throw new Error(`runtime ownership claim did not persist exact fence: claims=${JSON.stringify(claims)} presence=${JSON.stringify(claimedPresence)}`);
     }
+
+    const presenceWatermarkBeforeVersionFence = await fetchSingleRow(
+      pool,
+      'SELECT presence_version FROM player_recovery_watermark WHERE player_id = $1',
+      [projectionFencePlayerId],
+    );
+    const latestPresenceVersion = Math.max(
+      projectionFenceVersion + 500,
+      Number(presenceWatermarkBeforeVersionFence?.presence_version ?? 0) + 1,
+    );
+    await service.savePlayerPresence(projectionFencePlayerId, {
+      online: false,
+      inWorld: true,
+      lastHeartbeatAt: null,
+      offlineSinceAt: latestPresenceVersion,
+      runtimeOwnerId: finalClaim.runtimeOwnerId,
+      sessionEpoch: finalClaim.sessionEpoch,
+      versionSeed: latestPresenceVersion,
+    });
+    await service.savePlayerPresence(projectionFencePlayerId, {
+      online: true,
+      inWorld: true,
+      lastHeartbeatAt: latestPresenceVersion - 1,
+      offlineSinceAt: null,
+      runtimeOwnerId: finalClaim.runtimeOwnerId,
+      sessionEpoch: finalClaim.sessionEpoch,
+      versionSeed: latestPresenceVersion - 1,
+    });
+    const versionFencedPresence = await service.loadPlayerPresence(projectionFencePlayerId);
+    const presenceWatermark = await fetchSingleRow(
+      pool,
+      'SELECT presence_version FROM player_recovery_watermark WHERE player_id = $1',
+      [projectionFencePlayerId],
+    );
+    if (
+      versionFencedPresence?.online !== false
+      || versionFencedPresence.offlineSinceAt !== latestPresenceVersion
+      || Number(presenceWatermark?.presence_version) !== latestPresenceVersion
+    ) {
+      throw new Error(
+        `旧版同 fence presence 覆盖了较新真源：presence=${JSON.stringify(versionFencedPresence)} watermark=${JSON.stringify(presenceWatermark)}`,
+      );
+    }
     await service.savePlayerSnapshotProjectionDomains(
       projectionFencePlayerId,
       offlineRestoredSnapshot,
@@ -1310,6 +1375,168 @@ async function main(): Promise<void> {
     );
     if (offlineRestoredRows.length !== 1 || offlineRestoredRows[0]?.item_id !== 'offline_restored_marker') {
       throw new Error(`claimed offline projection flush was fenced out: inventory=${JSON.stringify(offlineRestoredRows)}`);
+    }
+
+    const latestProjectionVersion = projectionFenceVersion + 1_000;
+    const latestProjectionSnapshot = buildSnapshot(latestProjectionVersion);
+    latestProjectionSnapshot.inventory = {
+      revision: 4,
+      capacity: 20,
+      items: [{
+        itemId: 'latest_projection_marker',
+        count: 1,
+        itemInstanceId: `inv:${projectionFencePlayerId}:latest`,
+      }],
+    };
+    await service.savePlayerSnapshotProjectionDomains(
+      projectionFencePlayerId,
+      latestProjectionSnapshot,
+      ['inventory'],
+      {
+        allowInventoryEmptyOverwrite: true,
+        expectedRuntimeOwnerId: finalClaim.runtimeOwnerId,
+        expectedSessionEpoch: finalClaim.sessionEpoch,
+        expectedProjectionVersion: latestProjectionVersion,
+      },
+    );
+
+    const staleSameFenceSnapshot = buildSnapshot(latestProjectionVersion - 1);
+    staleSameFenceSnapshot.inventory = {
+      revision: 5,
+      capacity: 20,
+      items: [{
+        itemId: 'stale_same_fence_marker',
+        count: 1,
+        itemInstanceId: `inv:${projectionFencePlayerId}:stale-same-fence`,
+      }],
+    };
+    await service.savePlayerSnapshotProjectionDomains(
+      projectionFencePlayerId,
+      staleSameFenceSnapshot,
+      ['inventory'],
+      {
+        allowInventoryEmptyOverwrite: true,
+        expectedRuntimeOwnerId: finalClaim.runtimeOwnerId,
+        expectedSessionEpoch: finalClaim.sessionEpoch,
+        expectedProjectionVersion: latestProjectionVersion - 1,
+      },
+    );
+
+    const equalVersionSnapshot = buildSnapshot(latestProjectionVersion);
+    equalVersionSnapshot.inventory = {
+      revision: 6,
+      capacity: 20,
+      items: [{
+        itemId: 'equal_version_replay_marker',
+        count: 1,
+        itemInstanceId: `inv:${projectionFencePlayerId}:equal-replay`,
+      }],
+    };
+    await service.savePlayerSnapshotProjectionDomains(
+      projectionFencePlayerId,
+      equalVersionSnapshot,
+      ['inventory'],
+      {
+        allowInventoryEmptyOverwrite: true,
+        expectedRuntimeOwnerId: finalClaim.runtimeOwnerId,
+        expectedSessionEpoch: finalClaim.sessionEpoch,
+        expectedProjectionVersion: latestProjectionVersion,
+      },
+    );
+    const versionFencedInventoryRows = await fetchRows(
+      pool,
+      'SELECT item_id FROM player_inventory_item WHERE player_id = $1 ORDER BY slot_index ASC',
+      [projectionFencePlayerId],
+    );
+    const versionFencedWatermark = await fetchSingleRow(
+      pool,
+      'SELECT inventory_version FROM player_recovery_watermark WHERE player_id = $1',
+      [projectionFencePlayerId],
+    );
+    if (
+      versionFencedInventoryRows.length !== 1
+      || versionFencedInventoryRows[0]?.item_id !== 'latest_projection_marker'
+      || Number(versionFencedWatermark?.inventory_version) !== latestProjectionVersion
+    ) {
+      throw new Error(
+        `旧版或同版 projection 覆盖了较新真源：inventory=${JSON.stringify(versionFencedInventoryRows)} watermark=${JSON.stringify(versionFencedWatermark)}`,
+      );
+    }
+
+    // equipment/artifact 是独立真源域，必须拥有独立 watermark；较新的装备写不能吞掉稍早但尚未应用的法宝 payload。
+    const artifactProjectionVersion = latestProjectionVersion + 10;
+    const equipmentProjectionVersion = artifactProjectionVersion + 1;
+    const independentEquipmentSnapshot = buildSnapshot(equipmentProjectionVersion);
+    independentEquipmentSnapshot.equipment = {
+      revision: 20,
+      slots: [{
+        slot: 'weapon',
+        item: {
+          itemId: 'equipment_watermark_marker',
+          itemInstanceId: `equip:${projectionFencePlayerId}:watermark`,
+        },
+      }],
+    };
+    await service.savePlayerSnapshotProjectionDomains(
+      projectionFencePlayerId,
+      independentEquipmentSnapshot,
+      ['equipment'],
+      {
+        expectedRuntimeOwnerId: finalClaim.runtimeOwnerId,
+        expectedSessionEpoch: finalClaim.sessionEpoch,
+        expectedProjectionVersion: equipmentProjectionVersion,
+      },
+    );
+    const independentArtifactSnapshot = buildSnapshot(artifactProjectionVersion);
+    independentArtifactSnapshot.artifacts = {
+      revision: 21,
+      slots: [{
+        slot: 'artifact_1',
+        unlocked: true,
+        enabled: true,
+        qi: 9,
+        maxQi: 12,
+        item: {
+          itemId: 'artifact_watermark_marker',
+          itemInstanceId: `artifact:${projectionFencePlayerId}:watermark`,
+        },
+      }],
+    };
+    await service.savePlayerSnapshotProjectionDomains(
+      projectionFencePlayerId,
+      independentArtifactSnapshot,
+      ['artifact'],
+      {
+        expectedRuntimeOwnerId: finalClaim.runtimeOwnerId,
+        expectedSessionEpoch: finalClaim.sessionEpoch,
+        expectedProjectionVersion: artifactProjectionVersion,
+      },
+    );
+    const independentEquipmentRow = await fetchSingleRow(
+      pool,
+      'SELECT item_id FROM player_equipment_slot WHERE player_id = $1 AND slot_type = $2',
+      [projectionFencePlayerId, 'weapon'],
+    );
+    const independentArtifactRow = await fetchSingleRow(
+      pool,
+      'SELECT item_id FROM player_artifact_slot WHERE player_id = $1 AND slot_type = $2',
+      [projectionFencePlayerId, 'artifact_1'],
+    );
+    const independentWatermark = await fetchSingleRow(
+      pool,
+      'SELECT equipment_version, artifact_version FROM player_recovery_watermark WHERE player_id = $1',
+      [projectionFencePlayerId],
+    );
+    if (
+      independentEquipmentRow?.item_id !== 'equipment_watermark_marker'
+      || independentArtifactRow?.item_id !== 'artifact_watermark_marker'
+      || Number(independentWatermark?.equipment_version) !== equipmentProjectionVersion
+      || Number(independentWatermark?.artifact_version) !== artifactProjectionVersion
+    ) {
+      throw new Error(
+        `equipment/artifact watermark 串扰：equipment=${JSON.stringify(independentEquipmentRow)}`
+        + ` artifact=${JSON.stringify(independentArtifactRow)} watermark=${JSON.stringify(independentWatermark)}`,
+      );
     }
 
     const directAnchorRow = await fetchSingleRow(
@@ -1429,8 +1656,9 @@ async function main(): Promise<void> {
       throw new Error(`unexpected direct player_inventory_item rows: ${JSON.stringify(directInventoryRows)}`);
     }
     if (
-      directMapUnlockRows.map((entry) => String(entry.map_id ?? '')).join(',') !== 'direct_valley,direct_cave'
-      || Number(directMapUnlockRows[0]?.unlocked_at ?? 0) !== directBaseVersion + 40
+      directMapUnlockRows.length !== 1
+      || directMapUnlockRows[0]?.map_id !== 'direct_version_current'
+      || Number(directMapUnlockRows[0]?.unlocked_at ?? 0) !== latestDirectMapVersion
     ) {
       throw new Error(`unexpected direct player_map_unlock rows: ${JSON.stringify(directMapUnlockRows)}`);
     }
@@ -1496,7 +1724,7 @@ async function main(): Promise<void> {
       || Number(directWatermarkRow.progression_version) !== directBaseVersion + 3
       || Number(directWatermarkRow.inventory_version) !== directBaseVersion + 4
       || Number(directWatermarkRow.market_storage_version) !== directBaseVersion + 19
-      || Number(directWatermarkRow.map_unlock_version) !== directBaseVersion + 5
+      || Number(directWatermarkRow.map_unlock_version) !== latestDirectMapVersion
       || Number(directWatermarkRow.equipment_version) !== directBaseVersion + 6
       || Number(directWatermarkRow.combat_pref_version) !== directBaseVersion + 15
       || Number(directWatermarkRow.profession_version) !== directBaseVersion + 8

@@ -225,6 +225,7 @@ function createHarness(durableOperationService: Record<string, unknown> | null =
   return {
     service,
     playerRuntimeService,
+    playerDomainPersistenceService,
     fullProjectionCalls,
     selectiveProjectionCalls,
     presenceCalls,
@@ -275,6 +276,77 @@ async function testOwnershipPresenceFlushPrecedesProjection(): Promise<void> {
     `presence:${playerId}`,
     `projection:${playerId}`,
   ]);
+}
+
+async function testQueuedCycleRechecksUnresolvedDurableCommitAfterAssetLock(): Promise<void> {
+  const blockedPlayerId = 'player:queued-durable-unknown';
+  let unresolved = false;
+  const harness = createHarness({
+    isPlayerCommitOutcomeUnresolved(playerId: string) {
+      return playerId === blockedPlayerId && unresolved;
+    },
+  });
+  harness.playerRuntimeService.dirtyDomains.set(blockedPlayerId, new Set(['inventory']));
+  harness.playerRuntimeService.snapshots.set(blockedPlayerId, buildSnapshot(125_000));
+
+  let notifyQueued!: () => void;
+  const queued = new Promise<void>((resolve) => {
+    notifyQueued = resolve;
+  });
+  let releaseAssetLock!: () => void;
+  const assetLock = new Promise<void>((resolve) => {
+    releaseAssetLock = resolve;
+  });
+  harness.playerRuntimeService.runExclusiveAssetMutation = async <T>(
+    _playerIds: readonly string[],
+    action: () => Promise<T> | T,
+  ): Promise<T> => {
+    notifyQueued();
+    await assetLock;
+    return action();
+  };
+
+  const flush = harness.service.flushDirtyPlayers();
+  await queued;
+  unresolved = true;
+  releaseAssetLock();
+  await flush;
+
+  assert.deepEqual(harness.selectiveProjectionCalls, []);
+  assert.deepEqual(harness.markedPersisted, []);
+}
+
+async function testShutdownCycleReportsNestedWorkerFailure(): Promise<void> {
+  const harness = createHarness();
+  const playerId = 'player:shutdown-worker-failure';
+  harness.playerRuntimeService.dirtyDomains.set(playerId, new Set(['inventory']));
+  harness.playerRuntimeService.snapshots.set(playerId, buildSnapshot(126_000));
+  harness.playerDomainPersistenceService.savePlayerSnapshotProjectionDomains = async () => {
+    throw new Error('simulated_nested_player_flush_failure');
+  };
+
+  await assert.rejects(
+    harness.service.flushAllNow(),
+    /player_shutdown_flush_failed/,
+  );
+  assert.deepEqual(harness.markedPersisted, []);
+}
+
+async function testShutdownCycleReportsUnresolvedFence(): Promise<void> {
+  const playerId = 'player:shutdown-durable-unknown';
+  const harness = createHarness({
+    isPlayerCommitOutcomeUnresolved(targetPlayerId: string) {
+      return targetPlayerId === playerId;
+    },
+  });
+  harness.playerRuntimeService.dirtyDomains.set(playerId, new Set(['inventory']));
+  harness.playerRuntimeService.snapshots.set(playerId, buildSnapshot(127_000));
+
+  await assert.rejects(
+    harness.service.flushAllNow(),
+    /player_shutdown_flush_failed/,
+  );
+  assert.deepEqual(harness.selectiveProjectionCalls, []);
 }
 
 async function testFlushUsesAssetCoordinator(): Promise<void> {
@@ -386,7 +458,15 @@ async function testBuffSelectiveProjectionAllowsEmptyOverwrite(): Promise<void> 
   assert.deepEqual(harness.selectiveProjectionCalls, [
     {
       playerId,
-      domains: ['attr', 'buff'],
+      domains: ['attr'],
+      allowInventoryEmptyOverwrite: false,
+      allowEquipmentEmptyOverwrite: false,
+      allowArtifactEmptyOverwrite: false,
+      allowBuffEmptyOverwrite: false,
+    },
+    {
+      playerId,
+      domains: ['buff'],
       allowInventoryEmptyOverwrite: false,
       allowEquipmentEmptyOverwrite: false,
       allowArtifactEmptyOverwrite: false,
@@ -409,7 +489,15 @@ async function testEquipmentSelectiveProjectionAllowsEmptyOverwrite(): Promise<v
   assert.deepEqual(harness.selectiveProjectionCalls, [
     {
       playerId,
-      domains: ['attr', 'equipment'],
+      domains: ['attr'],
+      allowInventoryEmptyOverwrite: false,
+      allowEquipmentEmptyOverwrite: false,
+      allowArtifactEmptyOverwrite: false,
+      allowBuffEmptyOverwrite: false,
+    },
+    {
+      playerId,
+      domains: ['equipment'],
       allowInventoryEmptyOverwrite: false,
       allowEquipmentEmptyOverwrite: true,
       allowArtifactEmptyOverwrite: false,
@@ -519,6 +607,9 @@ async function main(): Promise<void> {
   await testWorkerPoolSubmitIsNotUsed();
   await testUnresolvedDurableCommitBlocksFlush();
   await testOwnershipPresenceFlushPrecedesProjection();
+  await testQueuedCycleRechecksUnresolvedDurableCommitAfterAssetLock();
+  await testShutdownCycleReportsNestedWorkerFailure();
+  await testShutdownCycleReportsUnresolvedFence();
 
   console.log(
     JSON.stringify(

@@ -221,6 +221,7 @@ async function verifyStartupRecoveryStillCanForceReclaim(): Promise<{
   claimedCount: number;
   forceClaimCalls: number;
   createdInstanceId: string;
+  replayedOwnershipEpoch: number;
 }> {
   const instanceId = 'line:yunlai_town:peaceful:77';
   const catalogRow = {
@@ -239,6 +240,8 @@ async function verifyStartupRecoveryStillCanForceReclaim(): Promise<{
   };
   let forceClaimCalls = 0;
   let createdInstanceId = '';
+  let replayedOwnershipEpoch = -1;
+  const order: string[] = [];
   const runtime = {
     logger: {
       log() {},
@@ -262,6 +265,7 @@ async function verifyStartupRecoveryStillCanForceReclaim(): Promise<{
         return [catalogRow];
       },
       async forceClaimInstanceLease() {
+        order.push('claim');
         forceClaimCalls += 1;
         return { ok: true, ownershipEpoch: 5 };
       },
@@ -271,6 +275,11 @@ async function verifyStartupRecoveryStillCanForceReclaim(): Promise<{
     },
     getInstanceRuntime() {
       return null;
+    },
+    async replayInstanceFlushPayloadsBeforeOwnershipChange(targetInstanceId: string, ownershipEpoch: number) {
+      assert.equal(targetInstanceId, instanceId);
+      replayedOwnershipEpoch = ownershipEpoch;
+      order.push('replay');
     },
     createInstance(input: { instanceId: string }) {
       createdInstanceId = input.instanceId;
@@ -291,11 +300,14 @@ async function verifyStartupRecoveryStillCanForceReclaim(): Promise<{
   assert.equal(claimedCount, 1);
   assert.equal(forceClaimCalls, 1);
   assert.equal(createdInstanceId, instanceId);
+  assert.equal(replayedOwnershipEpoch, 4);
+  assert.deepEqual(order, ['replay', 'claim'], '旧 ownership epoch payload 必须先于 lease epoch 自增完成 replay');
 
   return {
     claimedCount,
     forceClaimCalls,
     createdInstanceId,
+    replayedOwnershipEpoch,
   };
 }
 

@@ -7,6 +7,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { getItemStackDisplayLabel } from '@mud/shared';
 import { WorldSessionService } from '../../network/world-session.service';
 import { WorldClientEventService } from '../../network/world-client-event.service';
+import { isFlushTaskConsumerMode } from '../../persistence/flush-task-runtime-mode';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { CraftPanelRuntimeService } from '../craft/craft-panel-runtime.service';
 import { emitTechniqueActivityPanel, emitTechniqueActivityTasks, getTechniqueActivityMetadata, listTechniqueActivityRefreshKinds } from '../craft/technique-activity-registry.helpers';
@@ -139,7 +140,11 @@ export class WorldRuntimeCraftMutationService {
         if (!result?.ok) {
             return;
         }
-        if (!options.skipActiveJobPersistence && !isDurableActiveJobPersistenceEnabled(deps)) {
+        if (
+            !options.skipActiveJobPersistence
+            && !isDurableActiveJobPersistenceEnabled(deps)
+            && !isFlushTaskConsumerMode()
+        ) {
             void this.persistActiveJobIfNeeded(playerId, deps).catch((error) => {
                 this.logger.warn(`活跃任务持久化记账失败：${error instanceof Error ? error.message : String(error)}`);
             });

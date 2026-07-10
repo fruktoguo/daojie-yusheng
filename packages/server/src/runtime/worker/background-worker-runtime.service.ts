@@ -50,12 +50,17 @@ const OUTBOX_INTERVAL_MS = 2_000;
 const CLEANUP_INTERVAL_MS = 30_000;
 const MAIL_EXPIRATION_INTERVAL_MS = 5_000;
 const MARKET_RETENTION_INTERVAL_MS = 5 * 60 * 1000;
+const BACKGROUND_WORKER_DRAIN_BUDGET_MS = 8_000;
 
 @Injectable()
 export class BackgroundWorkerRuntimeService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(BackgroundWorkerRuntimeService.name);
   private readonly timers = new Map<string, NodeJS.Timeout>();
   private readonly states = new Map<string, BackgroundWorkerRuntimeStatus>();
+  private readonly taskExecutors = new Map<string, () => Promise<number>>();
+  private readonly activeExecutionsByTask = new Map<string, Promise<number>>();
+  private readonly inFlightRuns = new Set<Promise<unknown>>();
+  private drainPromise: Promise<void> | null = null;
   private stopping = false;
 
   constructor(
@@ -102,20 +107,36 @@ export class BackgroundWorkerRuntimeService implements OnModuleInit, OnModuleDes
       if (!task.enabled) {
         continue;
       }
-      const timer = setInterval(() => void this.runTask(task), task.intervalMs);
+      const timer = setInterval(() => this.scheduleTask(task), task.intervalMs);
       timer.unref();
       this.timers.set(task.id, timer);
-      void this.runTask(task);
+      this.scheduleTask(task);
     }
     this.logger.log(`后台任务编排器已启动：${this.timers.size} 个定时任务`);
   }
 
-  onModuleDestroy(): void {
+  async onModuleDestroy(): Promise<void> {
+    await this.drainForShutdown().catch((error: unknown) => {
+      this.logger.error('后台任务编排器销毁 drain 失败', error instanceof Error ? error.stack : String(error));
+    });
+  }
+
+  /**
+   * 先拒绝新任务并清理 timer，再等待所有已进入 executor 的任务真正结束。
+   * 本地预算只用于把关机标记为降级，不能提前放行连接池销毁；真正的硬上限由进程 28 秒优雅关机预算负责。
+   */
+  drainForShutdown(input?: { budgetMs?: number }): Promise<void> {
+    if (this.drainPromise) {
+      return this.drainPromise;
+    }
     this.stopping = true;
     for (const timer of this.timers.values()) {
       clearInterval(timer);
     }
     this.timers.clear();
+    const budgetMs = normalizeDrainBudgetMs(input?.budgetMs);
+    this.drainPromise = this.waitForInFlightRuns(budgetMs);
+    return this.drainPromise;
   }
 
   listWorkerStates(): BackgroundWorkerRuntimeStatus[] {
@@ -238,6 +259,8 @@ export class BackgroundWorkerRuntimeService implements OnModuleInit, OnModuleDes
   }
 
   private registerTask(task: BackgroundWorkerTask): void {
+    const trackedExecutor = () => this.executeTaskOnce(task);
+    this.taskExecutors.set(task.id, trackedExecutor);
     this.schedulerManagerService?.registerTask({
       id: task.id,
       kind: task.kind,
@@ -248,7 +271,7 @@ export class BackgroundWorkerRuntimeService implements OnModuleInit, OnModuleDes
       maxConcurrency: 1,
       leaderMode: task.id === 'flush-task-consumer' || task.id === 'outbox-dispatcher' ? 'claim' : 'single',
       description: task.label,
-    }, task.runOnce);
+    }, trackedExecutor);
     this.states.set(task.id, {
       id: task.id,
       label: task.label,
@@ -262,6 +285,11 @@ export class BackgroundWorkerRuntimeService implements OnModuleInit, OnModuleDes
     });
   }
 
+  private scheduleTask(task: BackgroundWorkerTask): void {
+    const run = this.runTask(task);
+    this.trackInFlight(run);
+  }
+
   private async runTask(task: BackgroundWorkerTask): Promise<void> {
     const state = this.states.get(task.id);
     if (!state || state.running || this.stopping || !task.enabled) {
@@ -273,9 +301,10 @@ export class BackgroundWorkerRuntimeService implements OnModuleInit, OnModuleDes
     state.running = true;
     state.lastHeartbeatAt = new Date().toISOString();
     try {
+      const executor = this.taskExecutors.get(task.id) ?? (() => this.executeTaskOnce(task));
       const processed = this.schedulerManagerService
-        ? await this.schedulerManagerService.runTask(task.id, task.runOnce)
-        : await task.runOnce();
+        ? await this.schedulerManagerService.runTask(task.id, executor)
+        : await executor();
       state.processedCount += Math.max(0, Math.trunc(Number(processed) || 0));
       state.lastSuccessAt = new Date().toISOString();
       state.lastFailure = null;
@@ -288,4 +317,65 @@ export class BackgroundWorkerRuntimeService implements OnModuleInit, OnModuleDes
       state.lastHeartbeatAt = new Date().toISOString();
     }
   }
+
+  private executeTaskOnce(task: BackgroundWorkerTask): Promise<number> {
+    if (this.stopping) {
+      return Promise.resolve(0);
+    }
+    if (this.activeExecutionsByTask.has(task.id)) {
+      return Promise.resolve(0);
+    }
+    const execution = Promise.resolve().then(() => task.runOnce());
+    this.activeExecutionsByTask.set(task.id, execution);
+    this.trackInFlight(execution);
+    void execution.then(
+      () => {
+        if (this.activeExecutionsByTask.get(task.id) === execution) {
+          this.activeExecutionsByTask.delete(task.id);
+        }
+      },
+      () => {
+        if (this.activeExecutionsByTask.get(task.id) === execution) {
+          this.activeExecutionsByTask.delete(task.id);
+        }
+      },
+    );
+    return execution;
+  }
+
+  private trackInFlight(run: Promise<unknown>): void {
+    this.inFlightRuns.add(run);
+    void run.then(
+      () => this.inFlightRuns.delete(run),
+      () => this.inFlightRuns.delete(run),
+    );
+  }
+
+  private async waitForInFlightRuns(budgetMs: number): Promise<void> {
+    let budgetExceeded = false;
+    let inFlightAtBudget = 0;
+    const budgetTimer = setTimeout(() => {
+      budgetExceeded = true;
+      inFlightAtBudget = this.inFlightRuns.size;
+      this.logger.error(`后台任务关机 drain 超过预算 ${budgetMs}ms，继续等待 ${inFlightAtBudget} 个在途任务，避免连接池提前关闭`);
+    }, budgetMs);
+    try {
+      while (this.inFlightRuns.size > 0) {
+        await Promise.allSettled(Array.from(this.inFlightRuns));
+      }
+    } finally {
+      clearTimeout(budgetTimer);
+    }
+    if (budgetExceeded) {
+      throw new Error(`background_worker_drain_budget_exceeded:${budgetMs}:inFlight=${inFlightAtBudget}`);
+    }
+  }
+}
+
+function normalizeDrainBudgetMs(value: unknown): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return BACKGROUND_WORKER_DRAIN_BUDGET_MS;
+  }
+  return Math.min(25_000, Math.max(1, Math.trunc(parsed)));
 }

@@ -15,6 +15,7 @@ import { resolveServerDatabaseUrl } from '../config/env-alias';
 import { FlushWakeupService } from '../persistence/flush-wakeup.service';
 import { PlayerFlushLedgerService } from '../persistence/player-flush-ledger.service';
 import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
+import { BackgroundWorkerRuntimeService } from '../runtime/worker/background-worker-runtime.service';
 import { CheckpointCompactionWorker } from '../runtime/world/worker/checkpoint-compaction.worker';
 
 const databaseUrl = resolveServerDatabaseUrl();
@@ -37,6 +38,13 @@ async function main(): Promise<void> {
     );
     return;
   }
+
+  const previousRole = process.env.SERVER_RUNTIME_ROLE;
+  const previousMode = process.env.SERVER_FLUSH_TASK_RUNTIME_MODE;
+  const originalWorkerStart = BackgroundWorkerRuntimeService.prototype.startForLifecycleCoordinator;
+  process.env.SERVER_RUNTIME_ROLE = 'worker';
+  process.env.SERVER_FLUSH_TASK_RUNTIME_MODE = 'off';
+  BackgroundWorkerRuntimeService.prototype.startForLifecycleCoordinator = () => undefined;
 
   const pool = new Pool({ connectionString: databaseUrl });
   const app = await NestFactory.createApplicationContext(AppModule, { logger: false, abortOnError: false });
@@ -74,13 +82,15 @@ async function main(): Promise<void> {
     const ledgerRows = await ledger.listLedgerRows();
     const targetLedgerRow = ledgerRows.find((row) => row.player_id === playerId && row.domain === 'snapshot_checkpoint');
     assert(targetLedgerRow);
-    assert.equal(Number(targetLedgerRow.latest_version ?? 0), revisionBeforeFlush);
+    assert.equal(Number(targetLedgerRow.latest_version ?? 0) >= revisionBeforeFlush, true);
     assert.equal(String(targetLedgerRow.claimed_by ?? ''), '');
     assert.equal(String(targetLedgerRow.claim_until ?? ''), '');
     assert.equal(Number(targetLedgerRow.flushed_version ?? 0) >= Number(targetLedgerRow.latest_version ?? 0), true);
 
-    const snapshotRow = await fetchSingleRow(pool, 'server_player_snapshot', playerId);
-    assert.equal(Boolean(snapshotRow), true);
+    const inventoryRow = await fetchSingleRow(pool, 'player_inventory_item', playerId);
+    const recoveryWatermarkRow = await fetchSingleRow(pool, 'player_recovery_watermark', playerId);
+    assert.equal(Boolean(inventoryRow), true);
+    assert.equal(Boolean(recoveryWatermarkRow), true);
 
     console.log(
       JSON.stringify(
@@ -89,7 +99,7 @@ async function main(): Promise<void> {
           processedCount,
           playerId,
           revisionBeforeFlush,
-          answers: 'checkpoint compaction worker 已认领 snapshot_checkpoint ledger，并驱动现有 flush 服务完成一次 checkpoint 刷盘',
+          answers: 'checkpoint compaction worker 已认领 snapshot_checkpoint ledger，并驱动现有分域真源与恢复 watermark 完成一次 checkpoint 刷盘',
           excludes: '不证明多节点 worker 竞争、Redis 唤醒或 dead-letter',
           completionMapping: 'release:proof:with-db.checkpoint-compaction-worker',
         },
@@ -101,6 +111,17 @@ async function main(): Promise<void> {
     await cleanupRows(pool, [playerId]).catch(() => undefined);
     await app.close().catch(() => undefined);
     await pool.end().catch(() => undefined);
+    restoreEnv('SERVER_RUNTIME_ROLE', previousRole);
+    restoreEnv('SERVER_FLUSH_TASK_RUNTIME_MODE', previousMode);
+    BackgroundWorkerRuntimeService.prototype.startForLifecycleCoordinator = originalWorkerStart;
+  }
+}
+
+function restoreEnv(name: string, value: string | undefined): void {
+  if (value === undefined) {
+    delete process.env[name];
+  } else {
+    process.env[name] = value;
   }
 }
 

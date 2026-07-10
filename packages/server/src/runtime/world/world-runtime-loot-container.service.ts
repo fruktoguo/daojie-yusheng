@@ -7,7 +7,10 @@ import { Inject, Injectable, BadRequestException, Logger, NotFoundException, Opt
 import { createHash } from 'node:crypto';
 import { computeAdjustedCraftTicks, createItemStackSignature, mergeItemStackEntryInto, mergeItemStackInto, resolveAlchemyGradeValue } from '@mud/shared';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
-import { PlayerDomainPersistenceService } from '../../persistence/player-domain-persistence.service';
+import {
+    PlayerDomainPersistenceService,
+    nextPlayerPersistenceVersion,
+} from '../../persistence/player-domain-persistence.service';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { resolveCraftSkillExpToNextByLevel } from '../craft/craft-skill-exp.helpers';
 import { resolvePlayerCraftEffectStat } from '../craft/craft-effect-runtime.helpers';
@@ -1707,7 +1710,7 @@ export class WorldRuntimeLootContainerService {
         }
         await this.playerDomainPersistenceService.savePlayerPresence(playerId, {
             ...presence,
-            versionSeed: Date.now(),
+            versionSeed: nextPlayerPersistenceVersion(),
         });
         return true;
     }

@@ -4,7 +4,7 @@
  * 维护时要优先考虑幂等、崩溃恢复和数据库真源，避免在 tick 内直接引入阻塞 IO。
  */
 import { Inject, Injectable, Logger, Optional, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 
 import { readTrimmedEnv } from '../config/env-alias';
 import { shouldStartAuthoritativeRuntime, shouldStartInlineFlushConsumer } from '../config/runtime-role';
@@ -22,11 +22,15 @@ import { InstanceCatalogService } from './instance-catalog.service';
 import {
   PlayerDomainPersistenceService,
   PLAYER_SNAPSHOT_PROJECTABLE_DIRTY_DOMAINS,
+  nextPlayerPersistenceVersion,
   type PlayerPresenceUpsertInput,
 } from './player-domain-persistence.service';
 import { PlayerPersistenceFlushService } from './player-persistence-flush.service';
 import type { PersistedPlayerSnapshot } from './player-persistence.service';
-import { buildTimeCheckpointSnapshot } from '../runtime/world/world-runtime-persistence-state.service';
+import {
+  buildInstanceDomainRecoveryWatermark,
+  buildTimeCheckpointSnapshot,
+} from '../runtime/world/world-runtime-persistence-state.service';
 
 const INTERVAL_MS = readInt('SERVER_FLUSH_TASK_RUNTIME_INTERVAL_MS', 'FLUSH_TASK_RUNTIME_INTERVAL_MS', 1_500, 250, 60_000);
 const CLAIM_LIMIT = readInt('SERVER_FLUSH_TASK_RUNTIME_CLAIM_LIMIT', 'FLUSH_TASK_RUNTIME_CLAIM_LIMIT', 64, 1, 256);
@@ -46,23 +50,51 @@ const TIME_CHECKPOINT_MS = readInt('SERVER_MAP_TIME_CHECKPOINT_INTERVAL_MS', 'MA
 const MONSTER_RUNTIME_MS = readInt('SERVER_MAP_MONSTER_RUNTIME_FLUSH_INTERVAL_MS', 'MAP_MONSTER_RUNTIME_FLUSH_INTERVAL_MS', 60_000, 10_000, 600_000);
 const FLUSH_WAITING_LIMIT = readInt('SERVER_FLUSH_TASK_RUNTIME_POOL_WAITING_THRESHOLD', 'FLUSH_TASK_RUNTIME_POOL_WAITING_THRESHOLD', 8, 0, 100);
 const STALE_PAYLOAD_ABANDON_THRESHOLD = readInt('SERVER_FLUSH_TASK_STALE_PAYLOAD_ABANDON_THRESHOLD', 'FLUSH_TASK_STALE_PAYLOAD_ABANDON_THRESHOLD', 10, 2, 100);
+const STAGING_BATCH_SIZE = readInt('SERVER_FLUSH_TASK_STAGING_BATCH_SIZE', 'FLUSH_TASK_STAGING_BATCH_SIZE', 64, 1, 512);
+const PAYLOAD_CLAIM_RENEW_TTL_MS = readInt('SERVER_FLUSH_TASK_PAYLOAD_CLAIM_TTL_MS', 'FLUSH_TASK_PAYLOAD_CLAIM_TTL_MS', 30_000, 5_000, 300_000);
+const STARTUP_PAYLOAD_REPLAY_TIMEOUT_MS = readInt('SERVER_STARTUP_PAYLOAD_REPLAY_TIMEOUT_MS', 'STARTUP_PAYLOAD_REPLAY_TIMEOUT_MS', 60_000, 5_000, 300_000);
+const STARTUP_PAYLOAD_REPLAY_POLL_MS = readInt('SERVER_STARTUP_PAYLOAD_REPLAY_POLL_MS', 'STARTUP_PAYLOAD_REPLAY_POLL_MS', 100, 25, 2_000);
+// 关服总预算为 28 秒；为后台 worker drain 和各领域 final flush 保留足够余量。
+const SHUTDOWN_PAYLOAD_REPLAY_TIMEOUT_MS = 10_000;
 const INSTANCE_COALESCE_DOMAINS = new Set(['tile_damage', 'tile_resource', 'fengshui']);
 const PLAYER_HIGH_PRIORITY_DOMAINS = new Set(['presence', 'position_checkpoint', 'world_anchor', 'inventory', 'equipment', 'artifact', 'market', 'mail', 'gm_edit', 'gm']);
 const INSTANCE_LOW_PRIORITY_DOMAINS = new Set(['time', 'monster_runtime', 'tile_resource', 'tile_damage', 'fengshui']);
 const INSTANCE_NORMAL_PRIORITY_DOMAINS = new Set(['container_state', 'ground_item', 'overlay', 'room', 'building', 'temporary_tile', 'tile_cell']);
 const PLAYER_PROJECTABLE_DOMAIN_SET = new Set<string>(PLAYER_SNAPSHOT_PROJECTABLE_DIRTY_DOMAINS);
+const PLAYER_FALLBACK_SNAPSHOT_DOMAIN = 'snapshot';
+const PLAYER_PRESENCE_PAYLOAD_KIND = 'player_presence';
 const PLAYER_SNAPSHOT_PROJECTION_PAYLOAD_KIND = 'player_snapshot_projection';
 const INSTANCE_DOMAIN_DELTA_PAYLOAD_KIND = 'instance_domain_delta';
 const INSTANCE_DOMAIN_STATE_PAYLOAD_KIND = 'instance_domain_state';
 const INSTANCE_PAYLOAD_BATCH_DOMAINS = new Set(['tile_damage', 'tile_resource']);
-const INSTANCE_PAYLOAD_STATE_DOMAINS = new Set(['ground_item', 'overlay', 'monster_runtime', 'container_state', 'building', 'room', 'fengshui', 'time']);
+const INSTANCE_PAYLOAD_STATE_DOMAINS = new Set(['tile_cell', 'temporary_tile', 'ground_item', 'overlay', 'monster_runtime', 'container_state', 'building', 'room', 'fengshui', 'time']);
+const INSTANCE_BUILDING_COMPOSITE_DOMAINS = new Set(['building', 'room', 'fengshui']);
 
-interface PlayerSnapshotProjectionPayload {
-  kind: typeof PLAYER_SNAPSHOT_PROJECTION_PAYLOAD_KIND;
-  snapshot: PersistedPlayerSnapshot;
+interface PlayerPayloadMetadata {
+  domainRevision: number;
+  runtimeRevision: number;
+  projectionVersion: number;
+  stagingGenerationId: string;
+  stagingDomain?: string;
+  hasExplicitProjectionVersion?: boolean;
+}
+
+interface PlayerPresenceFlushPayload extends PlayerPayloadMetadata {
+  kind: typeof PLAYER_PRESENCE_PAYLOAD_KIND;
+  presence: PlayerPresenceUpsertInput;
   runtimeOwnerId?: string | null;
   sessionEpoch?: number | null;
 }
+
+interface PlayerSnapshotProjectionPayload extends PlayerPayloadMetadata {
+  kind: typeof PLAYER_SNAPSHOT_PROJECTION_PAYLOAD_KIND;
+  snapshot: PersistedPlayerSnapshot;
+  projectedDomains: string[];
+  runtimeOwnerId?: string | null;
+  sessionEpoch?: number | null;
+}
+
+type PlayerProjectionFenceDecision = 'current' | 'stale' | 'indeterminate';
 
 interface InstanceDomainDeltaPayload {
   kind: typeof INSTANCE_DOMAIN_DELTA_PAYLOAD_KIND;
@@ -72,6 +104,10 @@ interface InstanceDomainDeltaPayload {
   deletes: unknown[];
   entries?: unknown[];
   revision?: number;
+  domainRevisions?: Record<string, number>;
+  stagedDomains?: string[];
+  stagingGenerationId?: string;
+  containerRevision?: number;
   watermarkPayload?: unknown;
 }
 
@@ -80,15 +116,51 @@ interface InstanceDomainStatePayload {
   domain: string;
   payload: unknown;
   revision?: number;
+  domainRevisions?: Record<string, number>;
+  stagedDomains?: string[];
+  stagingGenerationId?: string;
+  containerRevision?: number;
   watermarkPayload?: unknown;
+}
+
+interface InstanceFlushSnapshotView {
+  [key: string]: unknown;
+  persistenceRevision?: number;
+  domainRevisions?: Map<string, number>;
+}
+
+interface PreparedInstancePayload {
+  payload: InstanceDomainDeltaPayload | InstanceDomainStatePayload;
+  latestRevision: number;
+  flushSnapshot: InstanceFlushSnapshotView | null;
+  stagedDomains: string[];
+  containerRevision: number | null;
 }
 
 interface PlayerRuntimeFlushTaskPort {
   listDirtyPlayerDomains?(): Map<string, Set<string>>;
+  listUnstagedPlayerDomainRevisions?(stagingGenerationId: string): Map<string, Map<string, number>>;
   listDirtyPlayers?(): string[];
   getPersistenceRevision?(playerId: string): number | null;
+  getPersistenceDomainRevision?(playerId: string, domain: string): number | null;
+  ensureRuntimeOwnershipClaimed?(playerId: string): Promise<{
+    runtimeOwnerId?: string | null;
+    sessionEpoch?: number | null;
+  } | null>;
   describePersistencePresence?(playerId: string): PlayerPresenceUpsertInput | null;
   buildPersistenceSnapshot?(playerId: string, dirtyDomains?: ReadonlySet<string>): PersistedPlayerSnapshot | null;
+  markPersistenceDomainsStaged?(
+    playerId: string,
+    domainRevisions: ReadonlyMap<string, number>,
+    runtimeRevision: number,
+    stagingGenerationId: string,
+  ): void;
+  markPersistenceDomainsPersistedByRevision?(
+    playerId: string,
+    domainRevisions: ReadonlyMap<string, number>,
+    runtimeRevision: number,
+    stagingGenerationId: string,
+  ): void;
 }
 
 interface PlayerPersistenceFlushPort {
@@ -98,12 +170,19 @@ interface PlayerPersistenceFlushPort {
 interface InstanceRuntimeView {
   meta?: { persistent?: boolean | null; ownershipEpoch?: number | null } | null;
   getPersistenceRevision?: () => number | null;
-  buildGroundPersistenceDelta?: () => { fullReplace?: boolean; tileIndices?: unknown[]; entries?: unknown[] } | null;
+  getPersistenceDomainRevision?: (domain: string) => number | null;
+  getStagedPersistenceDomainRevision?: (domain: string, stagingGenerationId: string) => number | null;
+  capturePersistenceDomainFlushSnapshot?: (domains: string[]) => unknown;
+  markPersistenceDomainsStaged?: (domains: string[], flushSnapshot: unknown, stagingGenerationId: string) => void;
+  markPersistenceDomainsPersisted?: (domains: string[], flushSnapshot?: unknown) => void;
+  buildRuntimeTilePersistenceEntries?: () => unknown[];
+  buildTemporaryTilePersistenceEntries?: () => unknown[];
+  buildGroundPersistenceDelta?: (flushSnapshot?: unknown) => { fullReplace?: boolean; tileIndices?: unknown[]; entries?: unknown[] } | null;
+  buildGroundPersistenceEntries?: () => unknown[];
   buildOverlayPersistenceChunks?: () => unknown[];
-  buildMonsterRuntimePersistenceDelta?: () => { fullReplace?: boolean; upserts?: unknown[]; deletes?: unknown[] } | null;
+  buildMonsterRuntimePersistenceDelta?: (flushSnapshot?: unknown) => { fullReplace?: boolean; upserts?: unknown[]; deletes?: unknown[] } | null;
   buildMonsterRuntimePersistenceEntries?: () => unknown[];
   buildBuildingRoomFengShuiPersistenceState?: () => unknown;
-  worldRuntimeLootContainerService?: { buildContainerPersistenceStates(instanceId: string): unknown[] } | null;
 }
 
 interface BatchPersistencePort {
@@ -113,6 +192,9 @@ interface BatchPersistencePort {
   saveInstanceRecoveryWatermarkBatch?(rows: Array<{ instanceId: string; payload: unknown }>): Promise<void>;
   saveInstanceRecoveryWatermark?(instanceId: string, payload: unknown): Promise<void>;
   saveInstanceCheckpoint?(instanceId: string, payload: unknown): Promise<void>;
+  replaceRuntimeTileCells?(instanceId: string, entries: unknown[]): Promise<void>;
+  replaceTemporaryTileStates?(instanceId: string, entries: unknown[]): Promise<void>;
+  replaceGroundItems?(instanceId: string, entries: unknown[]): Promise<void>;
   replaceGroundItemTiles?(instanceId: string, tileIndices: unknown[], entries: unknown[]): Promise<void>;
   saveContainerState?(input: { instanceId: string; containerId?: unknown; sourceId?: unknown; statePayload: unknown }): Promise<void>;
   replaceContainerStates?(instanceId: string, states: Array<{ containerId: string; sourceId: string; [key: string]: unknown }>): Promise<void>;
@@ -124,7 +206,11 @@ interface BatchPersistencePort {
 
 interface WorldRuntimeFlushTaskPort {
   instanceDomainPersistenceService?: BatchPersistencePort | null;
-  worldRuntimeLootContainerService?: { buildContainerPersistenceStates(instanceId: string): unknown[] } | null;
+  worldRuntimeLootContainerService?: {
+    buildContainerPersistenceStates(instanceId: string): unknown[];
+    getContainerPersistenceRevision?(instanceId: string): number;
+    clearPersisted?(instanceId: string, expectedRevision?: number | null): boolean;
+  } | null;
   listDirtyPersistentInstanceDomains?(): Array<{ instanceId: string; domains: string[] }>;
   listDirtyPersistentInstances?(): string[];
   getInstanceRuntime?(instanceId: string): InstanceRuntimeView | null;
@@ -149,9 +235,16 @@ interface WorldRuntimeFlushTaskPort {
 export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(FlushTaskRuntimeService.name);
   private readonly workerId = `flush-task-runtime:${process.pid}:${randomUUID()}`;
+  private readonly stagingGenerationId = randomUUID();
   private timer: NodeJS.Timeout | null = null;
   private stagingTimer: NodeJS.Timeout | null = null;
   private running: Promise<number> | null = null;
+  private staging: Promise<void> | null = null;
+  private replayTail: Promise<void> = Promise.resolve();
+  private readonly replayInFlight = new Set<Promise<number>>();
+  private shutdownDrainPromise: Promise<void> | null = null;
+  private shutdownDrainStarted = false;
+  private readonly stagedContainerRevisionByInstanceId = new Map<string, number>();
   private globalBackoffUntilAt = 0;
   private readonly failureAttempts = new Map<string, number>();
 
@@ -177,7 +270,11 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
       if (this.timer) {
         return;
       }
-      this.timer = setInterval(() => void this.runOnce(), INTERVAL_MS);
+      this.timer = setInterval(() => {
+        void this.runOnce().catch((error) => {
+          this.logger.error('统一刷盘任务周期失败', formatError(error));
+        });
+      }, INTERVAL_MS);
       this.timer.unref();
       this.logger.log(
         `统一刷盘任务运行时已启动，间隔 ${INTERVAL_MS}ms playerLimit=${PLAYER_CLAIM_LIMIT}(high=${PLAYER_HIGH_CLAIM_LIMIT},normal=${PLAYER_NORMAL_CLAIM_LIMIT},low=${PLAYER_LOW_CLAIM_LIMIT}) instanceLimit=${INSTANCE_CLAIM_LIMIT}(high=${INSTANCE_HIGH_CLAIM_LIMIT},normal=${INSTANCE_NORMAL_CLAIM_LIMIT},low=${INSTANCE_LOW_CLAIM_LIMIT}) playerParallelism=${PLAYER_PARALLELISM} instanceParallelism=${INSTANCE_PARALLELISM}`,
@@ -188,7 +285,9 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
       if (this.stagingTimer) {
         return;
       }
-      this.stagingTimer = setInterval(() => void this.stageDirtyTasksOnce(), INTERVAL_MS);
+      this.stagingTimer = setInterval(() => {
+        void this.stageDirtyTasksOnce().catch(() => undefined);
+      }, INTERVAL_MS);
       this.stagingTimer.unref();
       this.logger.log(`统一刷盘暂存收集器已启动，间隔 ${INTERVAL_MS}ms，不在当前 role 消费刷盘任务`);
       return;
@@ -197,6 +296,75 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
   }
 
   onModuleDestroy(): void {
+    this.stopTimers();
+  }
+
+  /**
+   * runtime freeze 后执行最后一次 dirty 转存与 durable payload 清空。
+   * 任一在途任务、staging、replay 或 pending 校验失败都会向上抛出，交由关机协调器保留 lease。
+   */
+  async drainForShutdown(): Promise<void> {
+    if (this.shutdownDrainPromise) {
+      return this.shutdownDrainPromise;
+    }
+    this.shutdownDrainStarted = true;
+    this.stopTimers();
+    this.shutdownDrainPromise = this.runShutdownDrain();
+    return this.shutdownDrainPromise;
+  }
+
+  private async runShutdownDrain(): Promise<void> {
+    const failures: unknown[] = [];
+    const inFlight = Array.from(new Set<Promise<unknown>>([
+      ...(this.staging ? [this.staging] : []),
+      ...(this.running ? [this.running] : []),
+      this.replayTail,
+      ...this.replayInFlight,
+    ]));
+    const results = await Promise.allSettled(inFlight);
+    for (const result of results) {
+      if (result.status === 'rejected') {
+        failures.push(result.reason);
+        this.logger.error('统一刷盘关机 drain 等待中的任务失败', formatError(result.reason));
+      }
+    }
+
+    if (this.flushLedgerService.isEnabled()) {
+      if (shouldStartAuthoritativeRuntime()) {
+        try {
+          await this.runStagingCycle({ bypassFlushBarrier: true });
+        } catch (error) {
+          failures.push(error);
+          this.logger.error('统一刷盘关机最终 staging 失败', formatError(error));
+        }
+      }
+      try {
+        await this.enqueueDurablePayloadReplay({
+          timeoutMs: SHUTDOWN_PAYLOAD_REPLAY_TIMEOUT_MS,
+        });
+      } catch (error) {
+        failures.push(error);
+        this.logger.error('统一刷盘关机 durable payload replay 失败', formatError(error));
+      }
+      try {
+        const pending = await this.flushLedgerService.countPendingPayloadTasks();
+        if (pending > 0) {
+          const error = new Error(`shutdown_durable_payload_pending:${pending}`);
+          failures.push(error);
+          this.logger.error('统一刷盘关机后仍有 durable payload 未完成', formatError(error));
+        }
+      } catch (error) {
+        failures.push(error);
+        this.logger.error('统一刷盘关机 pending 复核失败', formatError(error));
+      }
+    }
+
+    if (failures.length > 0) {
+      throw new AggregateError(failures, `flush_task_shutdown_drain_failed:count=${failures.length}`);
+    }
+  }
+
+  private stopTimers(): void {
     if (this.timer) {
       clearInterval(this.timer);
       this.timer = null;
@@ -207,18 +375,226 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  async stageDirtyTasksOnce(): Promise<void> {
-    if (this.startupBarrierService && !this.startupBarrierService.isFlushOpen()) {
+  stageDirtyTasksOnce(): Promise<void> {
+    if (this.shutdownDrainStarted) {
+      return Promise.resolve();
+    }
+    if (this.staging) {
+      return this.staging;
+    }
+    const staging = this.runStagingCycle()
+      .catch((error) => {
+        const failure = classifyFlushFailure(error);
+        this.recordFlushFailure('instance', 'staging', 'batch', failure, 1, 0);
+        this.logger.error(`统一刷盘 staging 失败 category=${failure.category}`, formatError(error));
+        throw error;
+      })
+      .finally(() => {
+        if (this.staging === staging) {
+          this.staging = null;
+        }
+      });
+    this.staging = staging;
+    return staging;
+  }
+
+  /**
+   * 在权威运行态恢复/实例 ownership epoch 自增前 drain durable payload。
+   * 该入口刻意绕过 startup barrier 与普通 consumer mode，但绝不允许 runtime fallback。
+   */
+  replayDurablePayloadsBeforeRecovery(input?: {
+    instanceId?: string | null;
+    ownershipEpoch?: number | null;
+    timeoutMs?: number;
+  }): Promise<number> {
+    if (this.shutdownDrainStarted) {
+      return Promise.reject(new Error('flush_task_runtime_shutting_down'));
+    }
+    return this.enqueueDurablePayloadReplay(input);
+  }
+
+  private enqueueDurablePayloadReplay(input?: {
+    instanceId?: string | null;
+    ownershipEpoch?: number | null;
+    timeoutMs?: number;
+  }): Promise<number> {
+    const run = async (): Promise<number> => this.runDurablePayloadReplay(input);
+    const replay = this.replayTail.then(run, run);
+    this.replayInFlight.add(replay);
+    void replay.then(
+      () => { this.replayInFlight.delete(replay); },
+      () => { this.replayInFlight.delete(replay); },
+    );
+    this.replayTail = replay.then(() => undefined, () => undefined);
+    return replay;
+  }
+
+  private async runDurablePayloadReplay(input?: {
+    instanceId?: string | null;
+    ownershipEpoch?: number | null;
+    timeoutMs?: number;
+  }): Promise<number> {
+    if (!this.flushLedgerService.isEnabled()) {
+      return 0;
+    }
+    const instanceId = normalizeNullableString(input?.instanceId);
+    const ownershipEpoch = input?.ownershipEpoch === null || input?.ownershipEpoch === undefined
+      ? null
+      : normalizeInt(input.ownershipEpoch, 0, 0, Number.MAX_SAFE_INTEGER);
+    const timeoutMs = normalizeInt(
+      input?.timeoutMs,
+      STARTUP_PAYLOAD_REPLAY_TIMEOUT_MS,
+      5_000,
+      300_000,
+    );
+    const deadline = Date.now() + timeoutMs;
+    const countFilter = instanceId
+      ? { scope: 'instance' as const, id: instanceId, ownershipEpoch }
+      : undefined;
+    const workerId = `${this.workerId}:pre-recovery`;
+    let processedTotal = instanceId
+      ? 0
+      : await this.replayPlayerPresencePayloadsBeforeProjection(workerId, deadline);
+    let stalledRounds = 0;
+    while (true) {
+      const pendingBefore = await this.flushLedgerService.countPendingPayloadTasks(countFilter);
+      if (pendingBefore <= 0) {
+        return processedTotal;
+      }
+      if (Date.now() >= deadline) {
+        throw new Error(`durable_payload_replay_timeout:pending=${pendingBefore}:instanceId=${instanceId ?? 'all'}:epoch=${ownershipEpoch ?? 'all'}`);
+      }
+      const playerTasks = instanceId
+        ? []
+        : await this.flushLedgerService.claimReadyFlushTasks({
+            workerId,
+            scope: 'player',
+            limit: STAGING_BATCH_SIZE,
+            claimTtlMs: PAYLOAD_CLAIM_RENEW_TTL_MS,
+            payloadRequired: true,
+            includeDelayed: true,
+          });
+      const instanceTasks = await this.flushLedgerService.claimReadyFlushTasks({
+        workerId,
+        scope: 'instance',
+        id: instanceId,
+        ...(ownershipEpoch !== null ? { ownershipEpoch } : {}),
+        limit: STAGING_BATCH_SIZE,
+        claimTtlMs: PAYLOAD_CLAIM_RENEW_TTL_MS,
+        payloadRequired: true,
+        includeDelayed: true,
+      });
+      assertReplayablePlayerPayloads(playerTasks);
+      assertReplayableInstancePayloads(instanceTasks);
+      const claimedCount = playerTasks.length + instanceTasks.length;
+      if (playerTasks.length > 0) {
+        processedTotal += await this.processPlayerTasks(playerTasks, { failFastDeterministicPayload: true });
+      }
+      if (instanceTasks.length > 0) {
+        processedTotal += await this.processInstanceTasks(instanceTasks);
+      }
+      const pendingAfter = await this.flushLedgerService.countPendingPayloadTasks(countFilter);
+      if (pendingAfter <= 0) {
+        return processedTotal;
+      }
+      if (pendingAfter < pendingBefore) {
+        stalledRounds = 0;
+      } else if (claimedCount > 0) {
+        stalledRounds += 1;
+        if (stalledRounds >= 3) {
+          throw new Error(
+            `durable_payload_replay_stalled:pending=${pendingAfter}:instanceId=${instanceId ?? 'all'}:epoch=${ownershipEpoch ?? 'all'}:rounds=${stalledRounds}`,
+          );
+        }
+      }
+      if (claimedCount === 0 || pendingAfter >= pendingBefore) {
+        await waitForReplayPoll(STARTUP_PAYLOAD_REPLAY_POLL_MS);
+      }
+    }
+  }
+
+  private async replayPlayerPresencePayloadsBeforeProjection(
+    workerId: string,
+    deadline: number,
+  ): Promise<number> {
+    const countFilter = { scope: 'player' as const, domain: 'presence' };
+    let processedTotal = 0;
+    let stalledRounds = 0;
+    while (true) {
+      const pendingBefore = await this.flushLedgerService.countPendingPayloadTasks(countFilter);
+      if (pendingBefore <= 0) {
+        return processedTotal;
+      }
+      if (Date.now() >= deadline) {
+        throw new Error(`durable_payload_replay_timeout:phase=player_presence:pending=${pendingBefore}`);
+      }
+      const tasks = await this.flushLedgerService.claimReadyFlushTasks({
+        workerId,
+        scope: 'player',
+        domain: 'presence',
+        limit: STAGING_BATCH_SIZE,
+        claimTtlMs: PAYLOAD_CLAIM_RENEW_TTL_MS,
+        payloadRequired: true,
+        includeDelayed: true,
+      });
+      assertReplayablePlayerPayloads(tasks);
+      if (tasks.length > 0) {
+        processedTotal += await this.processPlayerTasks(tasks, { failFastDeterministicPayload: true });
+      }
+      const pendingAfter = await this.flushLedgerService.countPendingPayloadTasks(countFilter);
+      if (pendingAfter <= 0) {
+        return processedTotal;
+      }
+      if (pendingAfter < pendingBefore) {
+        stalledRounds = 0;
+      } else if (tasks.length > 0) {
+        stalledRounds += 1;
+        if (stalledRounds >= 3) {
+          throw new Error(`durable_payload_replay_stalled:phase=player_presence:pending=${pendingAfter}:rounds=${stalledRounds}`);
+        }
+      }
+      await waitForReplayPoll(STARTUP_PAYLOAD_REPLAY_POLL_MS);
+    }
+  }
+
+  private async runStagingCycle(options?: { bypassFlushBarrier?: boolean }): Promise<void> {
+    if (!options?.bypassFlushBarrier && this.startupBarrierService && !this.startupBarrierService.isFlushOpen()) {
       return;
     }
     if (!this.flushLedgerService.isEnabled() || !shouldStartAuthoritativeRuntime()) {
       return;
     }
-    await this.collectPlayerTasks();
-    await this.collectInstanceTasks();
+    const pending: Array<{ task: FlushTask; markStaged: () => void }> = [];
+    const commitPending = async (): Promise<void> => {
+      if (pending.length === 0) {
+        return;
+      }
+      const current = pending.splice(0, pending.length);
+      const tasks = current.map((entry) => entry.task);
+      const expectedChanged = new Set(tasks.map(stagingFlushTaskKey)).size;
+      const changed = await this.flushLedgerService.upsertFlushTasks(tasks);
+      if (changed !== expectedChanged) {
+        throw new Error(`flush_task_staging_generation_rejected:changed=${changed}:expected=${expectedChanged}`);
+      }
+      for (const entry of current) {
+        entry.markStaged();
+      }
+    };
+    const enqueue = async (entry: { task: FlushTask; markStaged: () => void }): Promise<void> => {
+      pending.push(entry);
+      if (pending.length >= STAGING_BATCH_SIZE) {
+        await commitPending();
+      }
+    };
+    await this.stagePlayerTasks(enqueue);
+    await this.stageInstanceTasks(enqueue);
+    await commitPending();
   }
 
   async runOnce(workerId = this.workerId, filter?: { playerDomain?: string; instanceDomain?: string }): Promise<number> {
+    if (this.shutdownDrainStarted) {
+      return 0;
+    }
     if (this.startupBarrierService && !this.startupBarrierService.isFlushOpen() && !this.startupBarrierService.isWorkerOpen()) {
       return 0;
     }
@@ -239,8 +615,7 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
       return 0;
     }
     if (shouldStartAuthoritativeRuntime()) {
-      await this.collectPlayerTasks();
-      await this.collectInstanceTasks();
+      await this.stageDirtyTasksOnce();
     }
     if (this.isFlushPoolBackpressureActive()) {
       this.logger.warn(`统一刷盘任务因刷盘池等待排队而暂停认领：waiting>=${FLUSH_WAITING_LIMIT}`);
@@ -279,14 +654,30 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
   private buildPlayerTaskPayload(
     playerId: string,
     domain: string,
-  ): PlayerPresenceUpsertInput | PlayerSnapshotProjectionPayload | null {
+    metadata: PlayerPayloadMetadata,
+  ): PlayerPresenceFlushPayload | PlayerSnapshotProjectionPayload | null {
     if (domain === 'presence') {
-      return this.playerRuntimeService.describePersistencePresence?.(playerId) ?? null;
+      const presence = this.playerRuntimeService.describePersistencePresence?.(playerId) ?? null;
+      if (!presence) {
+        return null;
+      }
+      return {
+        kind: PLAYER_PRESENCE_PAYLOAD_KIND,
+        presence: {
+          ...presence,
+          // presence 与业务投影共用暂存时生成的单调版本，崩溃重放不能在消费时重新取当前时间。
+          versionSeed: metadata.projectionVersion,
+        },
+        ...metadata,
+        runtimeOwnerId: presence.runtimeOwnerId ?? null,
+        sessionEpoch: presence.sessionEpoch ?? null,
+      };
     }
-    if (!PLAYER_PROJECTABLE_DOMAIN_SET.has(domain)) {
+    const projectedDomains = [domain];
+    if (projectedDomains.some((projectedDomain) => !PLAYER_PROJECTABLE_DOMAIN_SET.has(projectedDomain))) {
       return null;
     }
-    const snapshot = this.playerRuntimeService.buildPersistenceSnapshot?.(playerId, new Set([domain])) ?? null;
+    const snapshot = this.playerRuntimeService.buildPersistenceSnapshot?.(playerId, new Set(projectedDomains)) ?? null;
     if (!snapshot) {
       return null;
     }
@@ -294,118 +685,281 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
     return {
       kind: PLAYER_SNAPSHOT_PROJECTION_PAYLOAD_KIND,
       snapshot,
+      projectedDomains,
+      ...metadata,
       runtimeOwnerId: presence?.runtimeOwnerId ?? null,
       sessionEpoch: presence?.sessionEpoch ?? null,
     };
   }
 
-  private async collectPlayerTasks(): Promise<void> {
-    const dirty = this.playerRuntimeService.listDirtyPlayerDomains?.() ?? new Map();
-    const entries = dirty.size > 0
-      ? Array.from(dirty.entries())
-      : (this.playerRuntimeService.listDirtyPlayers?.() ?? []).map((id) => [id, new Set(['snapshot'])] as [string, Set<string>]);
-    for (const [playerId, domains] of entries) {
-      const normalized = normalizeDomains(domains);
-      const taskDomains = resolvePlayerTaskDomains(normalized);
-      for (const domain of taskDomains) {
-        const payload = this.buildPlayerTaskPayload(playerId, domain);
-        await this.flushLedgerService.upsertFlushTask({
-          scope: 'player', id: playerId, domain,
-          priority: resolveFlushTaskPriority('player', domain),
-          latestRevision: resolveRevision(this.playerRuntimeService.getPersistenceRevision?.(playerId)),
-          nextAttemptAt: new Date().toISOString(),
-          runtimeOwnerId: resolvePlayerPayloadRuntimeOwnerId(payload),
-          fencingToken: buildPlayerPayloadFencingToken(payload),
-          payloadJson: payload,
+  private async stagePlayerTasks(
+    enqueue: (entry: { task: FlushTask; markStaged: () => void }) => Promise<void>,
+  ): Promise<void> {
+    const revisionEntries = this.playerRuntimeService.listUnstagedPlayerDomainRevisions?.(this.stagingGenerationId);
+    const entries: Array<[string, Map<string, number>]> = revisionEntries
+      ? Array.from(revisionEntries.entries())
+      : Array.from(this.playerRuntimeService.listDirtyPlayerDomains?.() ?? new Map()).map(([playerId, domains]) => {
+          const fallbackRevision = resolveRevision(this.playerRuntimeService.getPersistenceRevision?.(playerId));
+          return [playerId, new Map(Array.from(normalizeDomains(domains), (domain) => [domain, fallbackRevision]))];
         });
+    entries.sort(([left], [right]) => left.localeCompare(right));
+    for (const [playerId, domainRevisions] of entries) {
+      await this.ensurePlayerProjectionFenceForStaging(playerId, domainRevisions.keys());
+      const runtimeRevision = resolveRevision(this.playerRuntimeService.getPersistenceRevision?.(playerId));
+      for (const domain of Array.from(domainRevisions.keys()).sort()) {
+        const domainRevision = Math.max(0, Math.trunc(Number(domainRevisions.get(domain) ?? 0)));
+        if (domainRevision <= 0) {
+          continue;
+        }
+        const taskDomains = domain === PLAYER_FALLBACK_SNAPSHOT_DOMAIN
+          ? Array.from(PLAYER_PROJECTABLE_DOMAIN_SET).sort()
+          : [domain];
+        const transferTracker = { remaining: taskDomains.length };
+        const capturedDomainRevisions = new Map([[domain, domainRevision]]);
+        for (const taskDomain of taskDomains) {
+          const projectionVersion = this.nextProjectionVersion();
+          const metadata: PlayerPayloadMetadata = {
+            domainRevision,
+            runtimeRevision,
+            projectionVersion,
+            stagingGenerationId: this.stagingGenerationId,
+            stagingDomain: domain,
+          };
+          const payload = this.buildPlayerTaskPayload(playerId, taskDomain, metadata);
+          if (!payload) {
+            throw new Error(`player_flush_staging_payload_missing:${playerId}:${taskDomain}:${domainRevision}`);
+          }
+          await enqueue({
+            task: {
+              scope: 'player', id: playerId, domain: taskDomain,
+              priority: resolveFlushTaskPriority('player', taskDomain),
+              latestRevision: projectionVersion,
+              nextAttemptAt: new Date().toISOString(),
+              runtimeOwnerId: resolvePlayerPayloadRuntimeOwnerId(payload),
+              fencingToken: buildPlayerPayloadFencingToken(payload),
+              payloadJson: payload,
+            },
+            markStaged: () => {
+              transferTracker.remaining -= 1;
+              if (transferTracker.remaining > 0) {
+                return;
+              }
+              this.playerRuntimeService.markPersistenceDomainsStaged?.(
+                playerId,
+                capturedDomainRevisions,
+                runtimeRevision,
+                this.stagingGenerationId,
+              );
+              this.flushWakeupService.signalPlayerFlush(playerId);
+            },
+          });
+        }
       }
-      if (taskDomains.length > 0) this.flushWakeupService.signalPlayerFlush(playerId);
     }
   }
 
-  private buildInstanceTaskPayload(instanceId: string, domain: string): InstanceDomainDeltaPayload | InstanceDomainStatePayload | null {
-    const runtime = this.worldRuntimeService.getInstanceRuntime?.(instanceId);
+  private async ensurePlayerProjectionFenceForStaging(
+    playerId: string,
+    domains: Iterable<string>,
+  ): Promise<void> {
+    const requiresProjectionFence = Array.from(domains).some((domain) =>
+      domain === PLAYER_FALLBACK_SNAPSHOT_DOMAIN || PLAYER_PROJECTABLE_DOMAIN_SET.has(domain),
+    );
+    if (!requiresProjectionFence) {
+      return;
+    }
+    let presence = this.playerRuntimeService.describePersistencePresence?.(playerId) ?? null;
+    if (hasCompletePlayerRuntimeFence(presence)) {
+      return;
+    }
+    const ensureClaimed = this.playerRuntimeService.ensureRuntimeOwnershipClaimed;
+    if (typeof ensureClaimed !== 'function') {
+      throw new Error(`player_flush_staging_runtime_ownership_claim_unavailable:${playerId}`);
+    }
+    await ensureClaimed.call(this.playerRuntimeService, playerId);
+    presence = this.playerRuntimeService.describePersistencePresence?.(playerId) ?? null;
+    if (!hasCompletePlayerRuntimeFence(presence)) {
+      throw new Error(`player_flush_staging_runtime_ownership_claim_failed:${playerId}`);
+    }
+  }
+
+  private buildInstanceTaskPayload(
+    instanceId: string,
+    domain: string,
+    stagedDomains: string[],
+    runtime: InstanceRuntimeView,
+  ): PreparedInstancePayload | null {
     if (INSTANCE_PAYLOAD_BATCH_DOMAINS.has(domain) && typeof this.worldRuntimeService.buildDomainDeltaBatch === 'function') {
       const [delta] = this.worldRuntimeService.buildDomainDeltaBatch(domain, [instanceId]);
-      if (!delta || delta.instanceId !== instanceId || !runtime) {
+      if (!delta || delta.instanceId !== instanceId) {
         return null;
       }
-      return {
+      const flushSnapshot = normalizeInstanceFlushSnapshot(delta.flushSnapshot);
+      const latestRevision = this.nextProjectionVersion();
+      const payload: InstanceDomainDeltaPayload = {
         kind: INSTANCE_DOMAIN_DELTA_PAYLOAD_KIND,
         domain,
         fullReplace: delta.fullReplace === true,
         upserts: delta.fullReplace === true ? [] : (delta.upserts ?? []),
         deletes: delta.fullReplace === true ? [] : (delta.deletes ?? []),
         entries: delta.fullReplace === true ? (delta.entries ?? []) : undefined,
-        revision: resolveRevision(runtime.getPersistenceRevision?.()),
+        revision: latestRevision,
+        domainRevisions: serializeDomainRevisions(flushSnapshot, stagedDomains),
+        stagedDomains,
+        stagingGenerationId: this.stagingGenerationId,
         watermarkPayload: delta.watermarkPayload,
       };
+      return { payload, latestRevision, flushSnapshot, stagedDomains, containerRevision: null };
     }
     if (!INSTANCE_PAYLOAD_STATE_DOMAINS.has(domain)) {
       return null;
     }
-    if (!runtime) {
-      return null;
+    const flushSnapshot = normalizeInstanceFlushSnapshot(runtime.capturePersistenceDomainFlushSnapshot?.(stagedDomains));
+    const containerRevision = domain === 'container_state'
+      ? normalizeOptionalRevision(this.worldRuntimeService.worldRuntimeLootContainerService?.getContainerPersistenceRevision?.(instanceId)) ?? 0
+      : null;
+    const revision = this.nextProjectionVersion();
+    const basePayload = {
+      kind: INSTANCE_DOMAIN_STATE_PAYLOAD_KIND,
+      domain,
+      revision,
+      domainRevisions: serializeDomainRevisions(flushSnapshot, stagedDomains),
+      stagedDomains,
+      stagingGenerationId: this.stagingGenerationId,
+      containerRevision: containerRevision ?? undefined,
+      watermarkPayload: buildInstanceDomainRecoveryWatermark(runtime, stagedDomains, flushSnapshot),
+    } as const;
+    let payload: InstanceDomainStatePayload | null = null;
+    if (domain === 'tile_cell') {
+      payload = { ...basePayload, payload: runtime.buildRuntimeTilePersistenceEntries?.() ?? [] };
     }
-    const revision = resolveRevision(runtime.getPersistenceRevision?.());
+    else if (domain === 'temporary_tile') {
+      payload = { ...basePayload, payload: runtime.buildTemporaryTilePersistenceEntries?.() ?? [] };
+    }
     if (domain === 'ground_item') {
-      const delta = runtime.buildGroundPersistenceDelta?.();
-      return delta && delta.fullReplace !== true
-        ? {
-            kind: INSTANCE_DOMAIN_STATE_PAYLOAD_KIND,
-            domain,
-            revision,
-            payload: { tileIndices: delta.tileIndices ?? [], entries: delta.entries ?? [] },
-          }
-        : null;
+      const delta = runtime.buildGroundPersistenceDelta?.(flushSnapshot);
+      if (delta) {
+        payload = delta.fullReplace === true
+          ? { ...basePayload, payload: { fullReplace: true, entries: runtime.buildGroundPersistenceEntries?.() ?? [] } }
+          : { ...basePayload, payload: { fullReplace: false, tileIndices: delta.tileIndices ?? [], entries: delta.entries ?? [] } };
+      }
     }
-    if (domain === 'overlay') {
-      return { kind: INSTANCE_DOMAIN_STATE_PAYLOAD_KIND, domain, revision, payload: runtime.buildOverlayPersistenceChunks?.() ?? [] };
+    else if (domain === 'overlay') {
+      payload = { ...basePayload, payload: runtime.buildOverlayPersistenceChunks?.() ?? [] };
     }
-    if (domain === 'monster_runtime') {
-      const delta = runtime.buildMonsterRuntimePersistenceDelta?.();
-      if (!delta) return null;
-      return { kind: INSTANCE_DOMAIN_STATE_PAYLOAD_KIND, domain, revision, payload: delta.fullReplace === true
-        ? { fullReplace: true, entries: runtime.buildMonsterRuntimePersistenceEntries?.() ?? [] }
-        : { fullReplace: false, upserts: delta.upserts ?? [], deletes: delta.deletes ?? [] } };
+    else if (domain === 'monster_runtime') {
+      const delta = runtime.buildMonsterRuntimePersistenceDelta?.(flushSnapshot);
+      if (delta) {
+        payload = { ...basePayload, payload: delta.fullReplace === true
+          ? { fullReplace: true, entries: runtime.buildMonsterRuntimePersistenceEntries?.() ?? [] }
+          : { fullReplace: false, upserts: delta.upserts ?? [], deletes: delta.deletes ?? [] } };
+      }
     }
-    if (domain === 'container_state') {
+    else if (domain === 'container_state') {
       const states = this.worldRuntimeService.worldRuntimeLootContainerService?.buildContainerPersistenceStates?.(instanceId) ?? [];
-      return { kind: INSTANCE_DOMAIN_STATE_PAYLOAD_KIND, domain, revision, payload: states };
+      payload = { ...basePayload, payload: states };
     }
-    if (domain === 'time') {
-      return { kind: INSTANCE_DOMAIN_STATE_PAYLOAD_KIND, domain, revision, payload: buildTimeCheckpointSnapshot(runtime) };
+    else if (domain === 'time') {
+      payload = { ...basePayload, payload: buildTimeCheckpointSnapshot(runtime) };
     }
-    const state = runtime.buildBuildingRoomFengShuiPersistenceState?.();
-    return state ? { kind: INSTANCE_DOMAIN_STATE_PAYLOAD_KIND, domain, revision, payload: state } : null;
+    else if (domain === 'building') {
+      const state = runtime.buildBuildingRoomFengShuiPersistenceState?.();
+      payload = state ? { ...basePayload, payload: state } : null;
+    }
+    return payload
+      ? { payload, latestRevision: revision, flushSnapshot, stagedDomains, containerRevision }
+      : null;
   }
 
-  private async collectInstanceTasks(): Promise<void> {
+  private async stageInstanceTasks(
+    enqueue: (entry: { task: FlushTask; markStaged: () => void }) => Promise<void>,
+  ): Promise<void> {
     const entries = this.worldRuntimeService.listDirtyPersistentInstanceDomains?.()
       ?? (this.worldRuntimeService.listDirtyPersistentInstances?.() ?? []).map((instanceId) => ({ instanceId, domains: ['domain'] }));
-    const now = Date.now();
-    for (const entry of entries) {
+    const stableEntries = [...entries].sort((left, right) => normalizeString(left.instanceId).localeCompare(normalizeString(right.instanceId)));
+    for (const entry of stableEntries) {
       const instanceId = normalizeString(entry.instanceId);
       const runtime = instanceId ? this.worldRuntimeService.getInstanceRuntime?.(instanceId) : null;
       if (!instanceId || !runtime?.meta?.persistent) continue;
       const ownershipEpoch = normalizeInt(runtime.meta.ownershipEpoch, 0, 0, Number.MAX_SAFE_INTEGER);
-      for (const domain of normalizeDomains(entry.domains)) {
-        const payload = this.buildInstanceTaskPayload(instanceId, domain);
-        await this.flushLedgerService.upsertFlushTask({
-          scope: 'instance', id: instanceId, domain,
-          priority: resolveFlushTaskPriority('instance', domain),
-          ownershipEpoch,
-          latestRevision: resolveRevision(runtime.getPersistenceRevision?.()),
-          nextAttemptAt: new Date(now + resolveInstanceDelayMs(domain)).toISOString(),
-          payloadJson: payload,
-          fencingToken: payload ? `${payload.kind}:${domain}:${ownershipEpoch}:${runtime.getPersistenceRevision?.() ?? 0}` : null,
+      const domains = Array.from(normalizeDomains(entry.domains)).sort();
+      const buildingDomains = domains.filter((domain) => INSTANCE_BUILDING_COMPOSITE_DOMAINS.has(domain));
+      const stageDomains: Array<{ taskDomain: string; stagedDomains: string[] }> = [];
+      if (buildingDomains.some((domain) => this.isInstanceDomainUnstaged(runtime, domain))) {
+        stageDomains.push({ taskDomain: 'building', stagedDomains: buildingDomains });
+      }
+      for (const domain of domains) {
+        if (INSTANCE_BUILDING_COMPOSITE_DOMAINS.has(domain) || !this.isInstanceDomainUnstaged(runtime, domain, instanceId)) {
+          continue;
+        }
+        stageDomains.push({ taskDomain: domain, stagedDomains: [domain] });
+      }
+      stageDomains.sort((left, right) => left.taskDomain.localeCompare(right.taskDomain));
+      for (const candidate of stageDomains) {
+        const prepared = this.buildInstanceTaskPayload(instanceId, candidate.taskDomain, candidate.stagedDomains, runtime);
+        if (!prepared) {
+          throw new Error(`instance_flush_staging_payload_missing:${instanceId}:${candidate.taskDomain}:${ownershipEpoch}`);
+        }
+        const now = Date.now();
+        await enqueue({
+          task: {
+            scope: 'instance', id: instanceId, domain: candidate.taskDomain,
+            priority: resolveFlushTaskPriority('instance', candidate.taskDomain),
+            ownershipEpoch,
+            latestRevision: prepared.latestRevision,
+            nextAttemptAt: new Date(now + resolveInstanceDelayMs(candidate.taskDomain)).toISOString(),
+            payloadJson: prepared.payload,
+            fencingToken: buildInstancePayloadFencingToken(
+              this.stagingGenerationId,
+              candidate.taskDomain,
+              ownershipEpoch,
+            ),
+          },
+          markStaged: () => {
+            if (prepared.containerRevision !== null) {
+              const transferred = this.worldRuntimeService.worldRuntimeLootContainerService?.clearPersisted?.(
+                instanceId,
+                prepared.containerRevision,
+              ) === true;
+              if (transferred) {
+                this.stagedContainerRevisionByInstanceId.delete(instanceId);
+              }
+              else {
+                const previousRevision = this.stagedContainerRevisionByInstanceId.get(instanceId) ?? 0;
+                this.stagedContainerRevisionByInstanceId.set(instanceId, Math.max(previousRevision, prepared.containerRevision));
+              }
+            }
+            runtime.markPersistenceDomainsStaged?.(
+              prepared.stagedDomains,
+              prepared.flushSnapshot,
+              this.stagingGenerationId,
+            );
+            this.flushWakeupService.signalInstanceFlush(instanceId);
+          },
         });
       }
-      this.flushWakeupService.signalInstanceFlush(instanceId);
     }
   }
 
-  private async processPlayerTasks(tasks: FlushTask[]): Promise<number> {
+  private isInstanceDomainUnstaged(runtime: InstanceRuntimeView, domain: string, instanceId = ''): boolean {
+    if (domain === 'container_state') {
+      const currentRevision = normalizeOptionalRevision(
+        this.worldRuntimeService.worldRuntimeLootContainerService?.getContainerPersistenceRevision?.(instanceId),
+      ) ?? 0;
+      return currentRevision > (this.stagedContainerRevisionByInstanceId.get(instanceId) ?? 0);
+    }
+    const currentRevision = normalizeOptionalRevision(runtime.getPersistenceDomainRevision?.(domain))
+      ?? resolveRevision(runtime.getPersistenceRevision?.());
+    const stagedRevision = normalizeOptionalRevision(
+      runtime.getStagedPersistenceDomainRevision?.(domain, this.stagingGenerationId),
+    ) ?? 0;
+    return currentRevision > stagedRevision;
+  }
+
+  private async processPlayerTasks(
+    tasks: FlushTask[],
+    options: { failFastDeterministicPayload?: boolean } = {},
+  ): Promise<number> {
     const groups = Array.from(groupTasksById(tasks).values());
     const results = new Array(groups.length).fill(0);
     const indexedGroups = groups.map((group, index) => ({ group, index }));
@@ -450,6 +1004,9 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
           this.failureAttempts.delete(attemptKey);
           results[index] = group.length;
         } catch (error) {
+          if (options.failFastDeterministicPayload === true && isDeterministicReplayPlayerPayloadError(error)) {
+            throw error;
+          }
           results[index] = await this.retryPlayerTasksIndividually(group, error);
         }
       },
@@ -466,7 +1023,7 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
       return 0;
     }
     const presenceTasks = group.filter((task) => task.domain === 'presence');
-    const projectionTasks = group.filter((task) => PLAYER_PROJECTABLE_DOMAIN_SET.has(task.domain));
+    const projectionTasks = group.filter((task) => PLAYER_PROJECTABLE_DOMAIN_SET.has(task.domain) || task.domain === PLAYER_FALLBACK_SNAPSHOT_DOMAIN);
     if (presenceTasks.length + projectionTasks.length !== group.length) {
       return null;
     }
@@ -487,8 +1044,43 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
         }
         continue;
       }
-      await this.playerDomainPersistenceService.savePlayerPresence(playerId, payload);
-      if (await this.flushLedgerService.markFlushTaskFlushed(task)) processed += 1;
+      if (!isPlayerPayloadVersionCurrent(payload, task.latestRevision)) {
+        this.logger.warn(`玩家刷盘放弃 stale presence payload：playerId=${playerId} latestRevision=${task.latestRevision} payloadRevision=${payload.projectionVersion ?? 'legacy'}`);
+        if (await this.flushLedgerService.markFlushTaskFlushed(task)) processed += 1;
+        continue;
+      }
+      const fenceDecision = await this.resolvePlayerPresencePayloadFence(playerId, payload);
+      if (fenceDecision === 'stale') {
+        this.logger.warn(
+          `玩家刷盘丢弃 stale presence fence：playerId=${playerId} payloadEpoch=${payload.sessionEpoch ?? 'none'} payloadOwner=${payload.runtimeOwnerId ?? 'none'}`,
+        );
+        if (await this.flushLedgerService.markFlushTaskFlushed(task)) processed += 1;
+        continue;
+      }
+      if (fenceDecision === 'indeterminate') {
+        throw new Error(
+          `player_presence_incomplete_fence:${playerId}:expectedOwner=${payload.runtimeOwnerId ?? 'none'}:expectedEpoch=${payload.sessionEpoch ?? 'none'}`,
+        );
+      }
+      if (!await this.renewPayloadClaim(task)) {
+        continue;
+      }
+      try {
+        await this.playerDomainPersistenceService.savePlayerPresence(playerId, payload.presence);
+      } catch (error) {
+        if (!isConvergedPlayerPresenceFenceError(error)) {
+          throw error;
+        }
+        this.logger.warn(
+          `玩家 presence 事务内 fence 已过期，按 stale-safe 收敛：playerId=${playerId} error=${formatError(error)}`,
+        );
+        if (await this.flushLedgerService.markFlushTaskFlushed(task)) processed += 1;
+        continue;
+      }
+      if (await this.flushLedgerService.markFlushTaskFlushed(task)) {
+        processed += 1;
+        this.markPlayerPayloadPersisted(playerId, task, payload);
+      }
     }
     if (projectionTasks.length > 0) {
       const payloadRows = projectionTasks.map((task) => ({
@@ -515,51 +1107,153 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
         if (!payload) {
           continue;
         }
-        if (!await this.isPlayerProjectionPayloadFenceCurrent(playerId, payload)) {
-          this.logger.warn(`玩家刷盘丢弃 stale projection：playerId=${playerId} domain=${task.domain} payloadEpoch=${payload.sessionEpoch ?? 'none'} payloadOwner=${payload.runtimeOwnerId ?? 'none'}`);
+        if (!isPlayerPayloadVersionCurrent(payload, task.latestRevision)) {
+          this.logger.warn(`玩家刷盘丢弃 stale projection version：playerId=${playerId} domain=${task.domain} latestRevision=${task.latestRevision} payloadRevision=${payload.projectionVersion ?? 'legacy'}`);
           if (await this.flushLedgerService.markFlushTaskFlushed(task)) processed += 1;
           continue;
         }
-        const domains = new Set([task.domain]);
-        await this.playerDomainPersistenceService.savePlayerSnapshotProjectionDomains(
+        // 历史 ledger 的 runtime_owner_id 可能由旧 UPSERT COALESCE 残留，不能替 payload 补 fence。
+        const effectiveRuntimeOwnerId = normalizeNullableString(payload.runtimeOwnerId);
+        const fenceDecision = await this.resolvePlayerProjectionPayloadFence(
           playerId,
-          payload.snapshot,
-          domains,
-          {
-            allowInventoryEmptyOverwrite: task.domain === 'inventory',
-            allowEquipmentEmptyOverwrite: task.domain === 'equipment',
-            allowArtifactEmptyOverwrite: task.domain === 'artifact',
-            allowBuffEmptyOverwrite: task.domain === 'buff',
-            expectedRuntimeOwnerId: payload.runtimeOwnerId ?? null,
-            expectedSessionEpoch: payload.sessionEpoch ?? null,
-          },
+          payload.sessionEpoch,
+          effectiveRuntimeOwnerId,
         );
-        if (await this.flushLedgerService.markFlushTaskFlushed(task)) processed += 1;
+        if (fenceDecision === 'stale') {
+          this.logger.warn(`玩家刷盘丢弃 stale projection：playerId=${playerId} domain=${task.domain} payloadEpoch=${payload.sessionEpoch ?? 'none'} effectiveOwner=${effectiveRuntimeOwnerId ?? 'none'}`);
+          if (await this.flushLedgerService.markFlushTaskFlushed(task)) processed += 1;
+          continue;
+        }
+        if (fenceDecision === 'indeterminate') {
+          throw new Error(
+            `player_snapshot_projection_incomplete_fence:${playerId}:expectedOwner=${effectiveRuntimeOwnerId ?? 'none'}:expectedEpoch=${payload.sessionEpoch ?? 'none'}`,
+          );
+        }
+        const domains = new Set(payload.projectedDomains.length > 0
+          ? payload.projectedDomains
+          : (task.domain === PLAYER_FALLBACK_SNAPSHOT_DOMAIN
+              ? Array.from(PLAYER_PROJECTABLE_DOMAIN_SET)
+              : [task.domain]));
+        let allProjectedDomainsWritten = true;
+        let staleFenceDuringWrite = false;
+        for (const projectedDomain of Array.from(domains).sort()) {
+          if (!await this.renewPayloadClaim(task)) {
+            allProjectedDomainsWritten = false;
+            break;
+          }
+          try {
+            await this.playerDomainPersistenceService.savePlayerSnapshotProjectionDomains(
+              playerId,
+              payload.snapshot,
+              new Set([projectedDomain]),
+              {
+                allowInventoryEmptyOverwrite: projectedDomain === 'inventory',
+                allowEquipmentEmptyOverwrite: projectedDomain === 'equipment',
+                allowArtifactEmptyOverwrite: projectedDomain === 'artifact',
+                allowBuffEmptyOverwrite: projectedDomain === 'buff',
+                expectedRuntimeOwnerId: effectiveRuntimeOwnerId,
+                expectedSessionEpoch: payload.sessionEpoch ?? null,
+                expectedProjectionVersion: payload.projectionVersion,
+              },
+            );
+          } catch (error) {
+            if (!isConvergedPlayerProjectionFenceError(error)) {
+              throw error;
+            }
+            staleFenceDuringWrite = true;
+            this.logger.warn(
+              `玩家刷盘事务内 fence 已过期，按 stale-safe 收敛：playerId=${playerId} domain=${task.domain} error=${formatError(error)}`,
+            );
+            break;
+          }
+        }
+        if (staleFenceDuringWrite) {
+          if (await this.flushLedgerService.markFlushTaskFlushed(task)) processed += 1;
+          continue;
+        }
+        if (!allProjectedDomainsWritten || (domains.size > 0 && !await this.renewPayloadClaim(task))) {
+          continue;
+        }
+        if (await this.flushLedgerService.markFlushTaskFlushed(task)) {
+          processed += 1;
+          this.markPlayerPayloadPersisted(playerId, task, payload);
+        }
       }
     }
     return processed;
   }
 
-  private async isPlayerProjectionPayloadFenceCurrent(
+  private async renewPayloadClaim(task: FlushTask): Promise<boolean> {
+    const renewed = await this.flushLedgerService.renewFlushTaskClaim(task, PAYLOAD_CLAIM_RENEW_TTL_MS);
+    if (!renewed) {
+      this.logger.warn(`刷盘 payload claim 已失效，放弃写真源 scope=${task.scope} id=${task.id} domain=${task.domain}`);
+    }
+    return renewed;
+  }
+
+  private markPlayerPayloadPersisted(
     playerId: string,
-    payload: PlayerSnapshotProjectionPayload,
-  ): Promise<boolean> {
+    task: FlushTask,
+    payload: PlayerPresenceFlushPayload | PlayerSnapshotProjectionPayload,
+  ): void {
+    if (payload.stagingGenerationId !== this.stagingGenerationId) {
+      return;
+    }
+    const stagingDomain = normalizeString(payload.stagingDomain) || task.domain;
+    if (stagingDomain === PLAYER_FALLBACK_SNAPSHOT_DOMAIN) {
+      // fallback 会展开为多个独立 ledger task；单个 task 完成不能冒充整组已最终落库。
+      return;
+    }
+    this.playerRuntimeService.markPersistenceDomainsPersistedByRevision?.(
+      playerId,
+      new Map([[stagingDomain, payload.domainRevision]]),
+      payload.runtimeRevision,
+      payload.stagingGenerationId,
+    );
+  }
+
+  private async resolvePlayerProjectionPayloadFence(
+    playerId: string,
+    sessionEpoch: number | null | undefined,
+    runtimeOwnerId: string | null,
+  ): Promise<PlayerProjectionFenceDecision> {
+    const payloadEpoch = normalizeInt(sessionEpoch, 0, 0, Number.MAX_SAFE_INTEGER);
+    const payloadOwner = normalizeNullableString(runtimeOwnerId);
+    // owner 与 epoch 均缺失是既有无围栏导入契约；不能为了兼容历史 ledger 改变它。
+    if (payloadEpoch <= 0 && !payloadOwner) return 'current';
+    if (payloadEpoch <= 0) return 'indeterminate';
+    const persistedPresence = await this.loadPersistedPlayerPresence(playerId);
+    // presence 已不存在说明玩家已删除或该会话不再具备权威落点，旧 payload 可安全收敛。
+    if (!persistedPresence) return 'stale';
+    const persistedEpoch = normalizeInt(persistedPresence.sessionEpoch, 0, 0, Number.MAX_SAFE_INTEGER);
+    if (persistedEpoch > payloadEpoch) return 'stale';
+    if (persistedEpoch < payloadEpoch) return 'indeterminate';
+    const persistedOwner = normalizeNullableString(persistedPresence?.runtimeOwnerId);
+    if (payloadOwner) return payloadOwner === persistedOwner ? 'current' : 'stale';
+    // 历史 payload/payload_jsonb 可能缺 owner；仅在 ledger 也缺 owner 且 DB 已离线释放 owner 时兼容。
+    return persistedOwner ? 'stale' : 'current';
+  }
+
+  private async resolvePlayerPresencePayloadFence(
+    playerId: string,
+    payload: PlayerPresenceFlushPayload,
+  ): Promise<PlayerProjectionFenceDecision> {
     const payloadEpoch = normalizeInt(payload.sessionEpoch, 0, 0, Number.MAX_SAFE_INTEGER);
-    const payloadOwner = normalizeNullableString(payload.runtimeOwnerId);
     if (payloadEpoch <= 0) {
-      const persistedPresence = await this.loadPersistedPlayerPresence(playerId);
-      return !persistedPresence?.sessionEpoch;
+      return 'indeterminate';
     }
     const persistedPresence = await this.loadPersistedPlayerPresence(playerId);
-    const persistedEpoch = normalizeInt(persistedPresence?.sessionEpoch, 0, 0, Number.MAX_SAFE_INTEGER);
-    if (persistedEpoch <= 0) {
-      return true;
+    // presence payload 本身就是崩溃前已 durable 化的 ownership 真源；全局 replay 会先处理它，
+    // 因而缺行或 DB epoch 更低时应由 savePlayerPresence 的 epoch CAS 创建/推进，而不是阻断启动。
+    if (!persistedPresence) {
+      return 'current';
     }
-    if (persistedEpoch !== payloadEpoch) {
-      return payloadEpoch > persistedEpoch;
-    }
-    const persistedOwner = normalizeNullableString(persistedPresence?.runtimeOwnerId);
-    return !payloadOwner || !persistedOwner || payloadOwner === persistedOwner;
+    const persistedEpoch = normalizeInt(persistedPresence.sessionEpoch, 0, 0, Number.MAX_SAFE_INTEGER);
+    if (persistedEpoch > payloadEpoch) return 'stale';
+    if (persistedEpoch < payloadEpoch) return 'current';
+    const payloadOwner = normalizeNullableString(payload.runtimeOwnerId);
+    const persistedOwner = normalizeNullableString(persistedPresence.runtimeOwnerId);
+    return payloadOwner === persistedOwner ? 'current' : 'stale';
   }
 
   private async loadPersistedPlayerPresence(playerId: string): Promise<{
@@ -572,7 +1266,10 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
         sessionEpoch?: number | null;
       } | null>;
     }).loadPlayerPresence;
-    return typeof loader === 'function' ? await loader.call(this.playerDomainPersistenceService, playerId) : null;
+    if (typeof loader !== 'function') {
+      throw new Error(`player_snapshot_projection_presence_loader_unavailable:${playerId}`);
+    }
+    return await loader.call(this.playerDomainPersistenceService, playerId);
   }
 
   private async processInstanceTasks(tasks: FlushTask[]): Promise<number> {
@@ -651,10 +1348,21 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
         this.failureAttempts.delete(instanceTaskKey(task));
         continue;
       }
+      if (!await this.isInstancePayloadFenceCurrent(task)) {
+        this.logger.warn(`实例刷盘丢弃旧 ownership epoch payload：instanceId=${task.id} domain=${task.domain} epoch=${task.ownershipEpoch ?? 0}`);
+        if (await this.flushLedgerService.markFlushTaskFlushed(task)) {
+          processed += 1;
+        }
+        continue;
+      }
       try {
+        if (!await this.renewPayloadClaim(task)) {
+          continue;
+        }
         await this.applyInstanceDomainStatePayload(task, payload);
         if (await this.flushLedgerService.markFlushTaskFlushed(task)) {
           processed += 1;
+          this.markInstancePayloadPersisted(task, payload);
         }
         this.failureAttempts.delete(instanceTaskKey(task));
       } catch (error) {
@@ -662,6 +1370,55 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
       }
     }
     return processed;
+  }
+
+  private async isInstancePayloadFenceCurrent(task: FlushTask): Promise<boolean> {
+    const taskEpoch = normalizeInt(task.ownershipEpoch, 0, 0, Number.MAX_SAFE_INTEGER);
+    const runtime = this.worldRuntimeService.getInstanceRuntime?.(task.id);
+    if (runtime) {
+      return runtime.meta?.persistent === true
+        && normalizeInt(runtime.meta?.ownershipEpoch, 0, 0, Number.MAX_SAFE_INTEGER) === taskEpoch;
+    }
+    if (!this.instanceCatalogService?.isEnabled()) {
+      return true;
+    }
+    const catalog = await this.instanceCatalogService.loadInstanceCatalog(task.id);
+    if (!catalog) {
+      return false;
+    }
+    const status = normalizeString(catalog.status);
+    if (status === 'destroyed') {
+      return false;
+    }
+    // shutdown 后 catalog 会标 stopped；同 ownership epoch 的 staged payload 必须先 replay，
+    // 不能因运行态尚未 hydrate 就当成过期数据丢弃。
+    return normalizeInt(catalog.ownership_epoch, 0, 0, Number.MAX_SAFE_INTEGER) === taskEpoch;
+  }
+
+  private markInstancePayloadPersisted(
+    task: FlushTask,
+    payload: InstanceDomainStatePayload | InstanceDomainDeltaPayload,
+  ): void {
+    if (payload.stagingGenerationId !== this.stagingGenerationId) {
+      return;
+    }
+    const runtime = this.worldRuntimeService.getInstanceRuntime?.(task.id);
+    if (!runtime?.meta?.persistent
+      || normalizeInt(runtime.meta.ownershipEpoch, 0, 0, Number.MAX_SAFE_INTEGER)
+        !== normalizeInt(task.ownershipEpoch, 0, 0, Number.MAX_SAFE_INTEGER)) {
+      return;
+    }
+    const stagedDomains = normalizePayloadStagedDomains(payload, task.domain);
+    runtime.markPersistenceDomainsPersisted?.(
+      stagedDomains,
+      buildInstanceFlushSnapshotFromPayload(payload),
+    );
+    if (payload.containerRevision !== undefined && stagedDomains.includes('container_state')) {
+      this.worldRuntimeService.worldRuntimeLootContainerService?.clearPersisted?.(
+        task.id,
+        payload.containerRevision,
+      );
+    }
   }
 
   private async processInstanceTaskGroup(group: FlushTask[]): Promise<number> {
@@ -719,30 +1476,70 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
       throw new Error(`instance_domain_persistence_missing:${instanceId}:${payload.domain}`);
     }
     switch (payload.domain) {
+      case 'tile_cell': {
+        if (typeof persistence.replaceRuntimeTileCells !== 'function') {
+          throw new Error(`instance_domain_persistence_missing:${instanceId}:tile_cell`);
+        }
+        await persistence.replaceRuntimeTileCells(
+          instanceId,
+          Array.isArray(payload.payload) ? payload.payload : [],
+        );
+        break;
+      }
+      case 'temporary_tile': {
+        if (typeof persistence.replaceTemporaryTileStates !== 'function') {
+          throw new Error(`instance_domain_persistence_missing:${instanceId}:temporary_tile`);
+        }
+        await persistence.replaceTemporaryTileStates(
+          instanceId,
+          Array.isArray(payload.payload) ? payload.payload : [],
+        );
+        break;
+      }
       case 'ground_item': {
-        const data = payload.payload as { tileIndices?: unknown[]; entries?: unknown[] } | null;
-        await persistence.replaceGroundItemTiles?.(instanceId, data?.tileIndices ?? [], data?.entries ?? []);
-        return;
+        const data = payload.payload as { fullReplace?: boolean; tileIndices?: unknown[]; entries?: unknown[] } | null;
+        if (data?.fullReplace === true) {
+          if (typeof persistence.replaceGroundItems !== 'function') {
+            throw new Error(`instance_domain_persistence_missing:${instanceId}:ground_item_full_replace`);
+          }
+          await persistence.replaceGroundItems(instanceId, data.entries ?? []);
+        }
+        else {
+          if (typeof persistence.replaceGroundItemTiles !== 'function') {
+            throw new Error(`instance_domain_persistence_missing:${instanceId}:ground_item_delta`);
+          }
+          await persistence.replaceGroundItemTiles(instanceId, data?.tileIndices ?? [], data?.entries ?? []);
+        }
+        break;
       }
       case 'overlay': {
+        if (typeof persistence.saveOverlayChunk !== 'function') {
+          throw new Error(`instance_domain_persistence_missing:${instanceId}:overlay`);
+        }
         const chunks = dedupeByLast(Array.isArray(payload.payload) ? payload.payload : [], (chunk) => {
           const record = chunk as { patchKind?: unknown; chunkKey?: unknown };
           return keyedString(record.patchKind, record.chunkKey);
         });
         for (const chunk of chunks) {
           const record = chunk as { patchKind?: unknown; chunkKey?: unknown; patchVersion?: unknown; patchPayload?: unknown };
-          await persistence.saveOverlayChunk?.({ instanceId, patchKind: record.patchKind, chunkKey: record.chunkKey, patchVersion: record.patchVersion, patchPayload: record.patchPayload });
+          await persistence.saveOverlayChunk({ instanceId, patchKind: record.patchKind, chunkKey: record.chunkKey, patchVersion: record.patchVersion, patchPayload: record.patchPayload });
         }
-        return;
+        break;
       }
       case 'monster_runtime': {
         const data = payload.payload as { fullReplace?: boolean; upserts?: unknown[]; deletes?: unknown[]; entries?: unknown[] } | null;
         if (data?.fullReplace === true) {
-          await persistence.replaceMonsterRuntimeStates?.(instanceId, data.entries ?? []);
+          if (typeof persistence.replaceMonsterRuntimeStates !== 'function') {
+            throw new Error(`instance_domain_persistence_missing:${instanceId}:monster_runtime_full_replace`);
+          }
+          await persistence.replaceMonsterRuntimeStates(instanceId, data.entries ?? []);
         } else {
-          await persistence.saveMonsterRuntimeDelta?.(instanceId, data?.upserts ?? [], data?.deletes ?? []);
+          if (typeof persistence.saveMonsterRuntimeDelta !== 'function') {
+            throw new Error(`instance_domain_persistence_missing:${instanceId}:monster_runtime_delta`);
+          }
+          await persistence.saveMonsterRuntimeDelta(instanceId, data?.upserts ?? [], data?.deletes ?? []);
         }
-        return;
+        break;
       }
       case 'container_state': {
         const states = dedupeByLast(Array.isArray(payload.payload) ? payload.payload : [], (state) => {
@@ -751,29 +1548,44 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
         });
         if (typeof persistence.replaceContainerStates === 'function') {
           await persistence.replaceContainerStates(instanceId, states as Array<{ containerId: string; sourceId: string; [key: string]: unknown }>);
-        } else {
+        } else if (typeof persistence.saveContainerState === 'function') {
           for (const state of states) {
             const record = state as { containerId?: unknown; sourceId?: unknown };
-            await persistence.saveContainerState?.({ instanceId, containerId: record.containerId, sourceId: record.sourceId, statePayload: state });
+            await persistence.saveContainerState({ instanceId, containerId: record.containerId, sourceId: record.sourceId, statePayload: state });
           }
         }
-        return;
+        else {
+          throw new Error(`instance_domain_persistence_missing:${instanceId}:container_state`);
+        }
+        break;
       }
       case 'building':
       case 'room':
       case 'fengshui': {
-        await persistence.saveBuildingRoomFengShuiState?.(
+        if (typeof persistence.saveBuildingRoomFengShuiState !== 'function') {
+          throw new Error(`instance_domain_persistence_missing:${instanceId}:building_room_fengshui`);
+        }
+        await persistence.saveBuildingRoomFengShuiState(
           instanceId,
           normalizeBuildingRoomFengShuiPayload(payload.payload),
         );
-        return;
+        break;
       }
       case 'time': {
-        await persistence.saveInstanceCheckpoint?.(instanceId, payload.payload);
-        return;
+        if (typeof persistence.saveInstanceCheckpoint !== 'function') {
+          throw new Error(`instance_domain_persistence_missing:${instanceId}:time`);
+        }
+        await persistence.saveInstanceCheckpoint(instanceId, payload.payload);
+        break;
       }
       default:
         throw new Error(`unsupported_instance_state_payload:${instanceId}:${payload.domain}`);
+    }
+    if (payload.watermarkPayload !== undefined && payload.watermarkPayload !== null) {
+      if (typeof persistence.saveInstanceRecoveryWatermark !== 'function') {
+        throw new Error(`instance_domain_persistence_missing:${instanceId}:recovery_watermark`);
+      }
+      await persistence.saveInstanceRecoveryWatermark(instanceId, payload.watermarkPayload);
     }
   }
 
@@ -937,6 +1749,18 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
         this.failureAttempts.delete(instanceTaskKey(row.task));
         continue;
       }
+      if (!await this.isInstancePayloadFenceCurrent(row.task)) {
+        this.logger.warn(`实例刷盘丢弃旧 ownership epoch delta：instanceId=${row.task.id} domain=${row.task.domain} epoch=${row.task.ownershipEpoch ?? 0}`);
+        if (await this.flushLedgerService.markFlushTaskFlushed(row.task)) {
+          remaining.delete(instanceTaskKey(row.task));
+          processed += 1;
+        }
+        continue;
+      }
+      if (!await this.renewPayloadClaim(row.task)) {
+        remaining.delete(instanceTaskKey(row.task));
+        continue;
+      }
       currentRows.push(row);
     }
     if (currentRows.length === 0) {
@@ -944,19 +1768,22 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
     }
     if (domain === 'tile_damage') {
       const fullReplaceRows = currentRows.filter((row) => row.payload.fullReplace === true);
+      if (fullReplaceRows.length > 0 && typeof persistence?.saveTileDamageStates !== 'function') {
+        throw new Error('instance_domain_persistence_missing:tile_damage_full_replace');
+      }
       for (const row of fullReplaceRows) {
-        await persistence?.saveTileDamageStates?.(row.task.id, row.payload.entries ?? []);
+        await persistence.saveTileDamageStates!(row.task.id, row.payload.entries ?? []);
       }
       const deltaRows = currentRows.filter((row) => row.payload.fullReplace !== true);
       if (deltaRows.length > 0) {
-        await persistence?.saveTileDamageDeltaBatch?.(deltaRows.map((row) => ({
+        await persistence!.saveTileDamageDeltaBatch!(deltaRows.map((row) => ({
           instanceId: row.task.id,
           upserts: row.payload.upserts,
           deletes: row.payload.deletes,
         })));
       }
     } else if (domain === 'tile_resource') {
-      await persistence?.saveTileResourceDeltaBatch?.(currentRows.map((row) => ({
+      await persistence!.saveTileResourceDeltaBatch!(currentRows.map((row) => ({
         instanceId: row.task.id,
         upserts: row.payload.upserts,
         deletes: row.payload.deletes,
@@ -965,9 +1792,12 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
     const watermarks = currentRows
       .filter((row) => row.payload.watermarkPayload)
       .map((row) => ({ instanceId: row.task.id, payload: row.payload.watermarkPayload }));
-    if (watermarks.length > 0) await persistence?.saveInstanceRecoveryWatermarkBatch?.(watermarks);
-    for (const { task } of currentRows) {
-      if (await this.flushLedgerService.markFlushTaskFlushed(task)) processed += 1;
+    if (watermarks.length > 0) await persistence!.saveInstanceRecoveryWatermarkBatch!(watermarks);
+    for (const { task, payload } of currentRows) {
+      if (await this.flushLedgerService.markFlushTaskFlushed(task)) {
+        processed += 1;
+        this.markInstancePayloadPersisted(task, payload);
+      }
       this.failureAttempts.delete(instanceTaskKey(task));
       remaining.delete(instanceTaskKey(task));
     }
@@ -977,6 +1807,10 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
   private isFlushPoolBackpressureActive(): boolean {
     const stats = this.databasePoolProvider?.getPoolStats('flush');
     return Boolean(stats && stats.waitingCount >= FLUSH_WAITING_LIMIT);
+  }
+
+  private nextProjectionVersion(): number {
+    return nextPlayerPersistenceVersion();
   }
 
   private async markTaskRetryWithDiagnostics(task: FlushTask, error: unknown): Promise<void> {
@@ -1050,11 +1884,23 @@ function normalizeInstanceDomainStatePayload(value: unknown): InstanceDomainStat
     domain: record.domain,
     payload: record.payload,
     revision: normalizeOptionalRevision(record.revision),
+    domainRevisions: normalizeDomainRevisionRecord(record.domainRevisions),
+    stagedDomains: normalizeStringArray(record.stagedDomains),
+    stagingGenerationId: normalizeNullableString(record.stagingGenerationId) ?? undefined,
+    containerRevision: normalizeOptionalRevision(record.containerRevision),
     watermarkPayload: record.watermarkPayload,
   };
 }
 
-function isPayloadRevisionCurrent(payload: { revision?: number }, latestRevision: unknown): boolean {
+function isPayloadRevisionCurrent(
+  payload: { revision?: number; stagingGenerationId?: string },
+  latestRevision: unknown,
+): boolean {
+  // 旧 ledger 的 latest_version 可能来自进程重启前的高水位，而 payload 已被历史 UPSERT
+  // 以较低 runtime revision 覆盖；没有 generation 证据时只能依赖 ownership epoch replay。
+  if (!normalizeNullableString(payload.stagingGenerationId)) {
+    return true;
+  }
   const payloadRevision = payload.revision;
   const taskRevision = normalizeOptionalRevision(latestRevision);
   return payloadRevision !== undefined && taskRevision !== undefined && payloadRevision === taskRevision;
@@ -1064,12 +1910,164 @@ function isStaleGroundItemStatePayloadError(error: unknown): boolean {
   return error instanceof Error && error.message.startsWith('stale_ground_item_state_payload:');
 }
 
+function isConvergedPlayerProjectionFenceError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+  return error.message.startsWith('player_snapshot_projection_stale_session:')
+    || error.message.startsWith('player_snapshot_projection_stale_owner:')
+    || error.message.startsWith('player_snapshot_projection_missing_presence:');
+}
+
+function isConvergedPlayerPresenceFenceError(error: unknown): boolean {
+  return error instanceof Error && error.message.startsWith('player_presence_stale_fence:');
+}
+
+function isDeterministicReplayPlayerPayloadError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+  return error.message.startsWith('player_snapshot_projection_incomplete_fence:')
+    || error.message.startsWith('player_snapshot_projection_presence_loader_unavailable:')
+    || error.message.startsWith('player_presence_incomplete_fence:');
+}
+
 function normalizeOptionalRevision(value: unknown): number | undefined {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) {
     return undefined;
   }
   return Math.max(0, Math.trunc(parsed));
+}
+
+function normalizeInstanceFlushSnapshot(value: unknown): InstanceFlushSnapshotView | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+  const record = value as { persistenceRevision?: unknown; domainRevisions?: unknown };
+  const domainRevisions = record.domainRevisions instanceof Map
+    ? new Map(Array.from(record.domainRevisions.entries(), ([domain, revision]) => [String(domain), Math.max(0, Math.trunc(Number(revision) || 0))]))
+    : new Map(Object.entries(normalizeDomainRevisionRecord(record.domainRevisions)));
+  return {
+    ...(value as Record<string, unknown>),
+    persistenceRevision: normalizeOptionalRevision(record.persistenceRevision),
+    domainRevisions,
+  };
+}
+
+function serializeDomainRevisions(
+  flushSnapshot: InstanceFlushSnapshotView | null,
+  domains: string[],
+): Record<string, number> {
+  const revisions: Record<string, number> = {};
+  for (const domain of domains) {
+    const normalizedDomain = normalizeString(domain);
+    const revision = normalizeOptionalRevision(flushSnapshot?.domainRevisions?.get(normalizedDomain)) ?? 0;
+    if (normalizedDomain && revision > 0) {
+      revisions[normalizedDomain] = revision;
+    }
+  }
+  return revisions;
+}
+
+function normalizeDomainRevisionRecord(value: unknown): Record<string, number> {
+  const revisions: Record<string, number> = {};
+  const entries = value instanceof Map
+    ? Array.from(value.entries())
+    : (value && typeof value === 'object' ? Object.entries(value as Record<string, unknown>) : []);
+  for (const [domain, revision] of entries) {
+    const normalizedDomain = normalizeString(domain);
+    const normalizedRevision = normalizeOptionalRevision(revision) ?? 0;
+    if (normalizedDomain && normalizedRevision > 0) {
+      revisions[normalizedDomain] = normalizedRevision;
+    }
+  }
+  return revisions;
+}
+
+function normalizeStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return Array.from(new Set(value.map(normalizeString).filter(Boolean))).sort();
+}
+
+function normalizePayloadStagedDomains(
+  payload: InstanceDomainStatePayload | InstanceDomainDeltaPayload,
+  fallbackDomain: string,
+): string[] {
+  const domains = normalizeStringArray(payload.stagedDomains);
+  return domains.length > 0 ? domains : [fallbackDomain];
+}
+
+function buildInstanceFlushSnapshotFromPayload(
+  payload: InstanceDomainStatePayload | InstanceDomainDeltaPayload,
+): InstanceFlushSnapshotView {
+  return {
+    persistenceRevision: payload.revision,
+    domainRevisions: new Map(Object.entries(normalizeDomainRevisionRecord(payload.domainRevisions))),
+  };
+}
+
+function buildInstancePayloadFencingToken(
+  stagingGenerationId: string,
+  domain: string,
+  ownershipEpoch: number,
+): string {
+  const source = `${stagingGenerationId}:${domain}:${ownershipEpoch}`;
+  return `instance:${createHash('sha256').update(source).digest('hex')}`;
+}
+
+function isPlayerPayloadVersionCurrent(
+  payload: PlayerPresenceFlushPayload | PlayerSnapshotProjectionPayload,
+  latestRevision: unknown,
+): boolean {
+  if (payload.hasExplicitProjectionVersion !== true) {
+    return true;
+  }
+  return normalizeOptionalRevision(payload.projectionVersion) === normalizeOptionalRevision(latestRevision);
+}
+
+function hasCompletePlayerRuntimeFence(value: PlayerPresenceUpsertInput | null | undefined): boolean {
+  return Boolean(
+    normalizeNullableString(value?.runtimeOwnerId)
+    && normalizeInt(value?.sessionEpoch, 0, 0, Number.MAX_SAFE_INTEGER) > 0,
+  );
+}
+
+function assertReplayablePlayerPayloads(tasks: FlushTask[]): void {
+  for (const task of tasks) {
+    if (task.domain === 'presence') {
+      if (!normalizePlayerPresencePayload(task.payloadJson)) {
+        throw new Error(`startup_player_payload_unparseable:${task.id}:${task.domain}`);
+      }
+      continue;
+    }
+    if ((!PLAYER_PROJECTABLE_DOMAIN_SET.has(task.domain) && task.domain !== PLAYER_FALLBACK_SNAPSHOT_DOMAIN)
+      || !normalizePlayerSnapshotProjectionPayload(task.payloadJson)) {
+      throw new Error(`startup_player_payload_unsupported:${task.id}:${task.domain}`);
+    }
+  }
+}
+
+function assertReplayableInstancePayloads(tasks: FlushTask[]): void {
+  for (const task of tasks) {
+    const statePayload = normalizeInstanceDomainStatePayload(task.payloadJson);
+    const deltaPayload = normalizeInstanceDomainDeltaPayload(task.payloadJson);
+    if (!statePayload && !deltaPayload) {
+      throw new Error(`startup_instance_payload_unparseable:${task.id}:${task.domain}:${task.ownershipEpoch ?? 0}`);
+    }
+    const payloadDomain = statePayload?.domain ?? deltaPayload?.domain ?? '';
+    if (payloadDomain !== task.domain) {
+      throw new Error(`startup_instance_payload_domain_mismatch:${task.id}:${task.domain}:${payloadDomain}`);
+    }
+  }
+}
+
+function waitForReplayPoll(delayMs: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, Math.max(25, Math.trunc(Number(delayMs) || STARTUP_PAYLOAD_REPLAY_POLL_MS)));
+  });
 }
 
 function normalizeInstanceDomainDeltaPayload(value: unknown): InstanceDomainDeltaPayload | null {
@@ -1088,25 +2086,55 @@ function normalizeInstanceDomainDeltaPayload(value: unknown): InstanceDomainDelt
     deletes: Array.isArray(record.deletes) ? record.deletes : [],
     entries: Array.isArray(record.entries) ? record.entries : [],
     revision: normalizeOptionalRevision(record.revision),
+    domainRevisions: normalizeDomainRevisionRecord(record.domainRevisions),
+    stagedDomains: normalizeStringArray(record.stagedDomains),
+    stagingGenerationId: normalizeNullableString(record.stagingGenerationId) ?? undefined,
     watermarkPayload: record.watermarkPayload,
   };
 }
 
-function normalizePlayerPresencePayload(value: unknown): PlayerPresenceUpsertInput | null {
+function normalizePlayerPresencePayload(value: unknown): PlayerPresenceFlushPayload | null {
   if (!value || typeof value !== 'object') {
     return null;
   }
   const record = value as Record<string, unknown>;
+  const presenceRecord = record.kind === PLAYER_PRESENCE_PAYLOAD_KIND
+    && record.presence
+    && typeof record.presence === 'object'
+    ? record.presence as Record<string, unknown>
+    : record;
+  if (typeof presenceRecord.online !== 'boolean' || typeof presenceRecord.inWorld !== 'boolean') {
+    return null;
+  }
+  const runtimeOwnerId = normalizeNullableString(record.runtimeOwnerId ?? presenceRecord.runtimeOwnerId);
+  const sessionEpoch = normalizeNullableNumber(record.sessionEpoch ?? presenceRecord.sessionEpoch);
+  const versionSeed = normalizeNullableNumber(presenceRecord.versionSeed);
+  if ((sessionEpoch === null || sessionEpoch < 0) && versionSeed === null) {
+    return null;
+  }
   return {
-    online: record.online === true,
-    inWorld: record.inWorld === true,
-    lastHeartbeatAt: normalizeNullableNumber(record.lastHeartbeatAt),
-    offlineSinceAt: normalizeNullableNumber(record.offlineSinceAt),
-    runtimeOwnerId: normalizeNullableString(record.runtimeOwnerId),
-    sessionEpoch: normalizeNullableNumber(record.sessionEpoch),
-    transferState: normalizeNullableString(record.transferState),
-    transferTargetNodeId: normalizeNullableString(record.transferTargetNodeId),
-    versionSeed: normalizeNullableNumber(record.versionSeed),
+    kind: PLAYER_PRESENCE_PAYLOAD_KIND,
+    presence: {
+      online: presenceRecord.online === true,
+      inWorld: presenceRecord.inWorld === true,
+      lastHeartbeatAt: normalizeNullableNumber(presenceRecord.lastHeartbeatAt),
+      offlineSinceAt: normalizeNullableNumber(presenceRecord.offlineSinceAt),
+      runtimeOwnerId,
+      sessionEpoch,
+      transferState: normalizeNullableString(presenceRecord.transferState),
+      transferTargetNodeId: normalizeNullableString(presenceRecord.transferTargetNodeId),
+      versionSeed,
+    },
+    domainRevision: normalizeOptionalRevision(record.domainRevision) ?? 0,
+    runtimeRevision: normalizeOptionalRevision(record.runtimeRevision) ?? 0,
+    projectionVersion: normalizeOptionalRevision(record.projectionVersion)
+      ?? normalizeOptionalRevision(presenceRecord.versionSeed)
+      ?? 0,
+    stagingGenerationId: normalizeNullableString(record.stagingGenerationId) ?? '',
+    stagingDomain: normalizeNullableString(record.stagingDomain) ?? undefined,
+    hasExplicitProjectionVersion: record.projectionVersion !== undefined,
+    runtimeOwnerId,
+    sessionEpoch,
   };
 }
 
@@ -1121,12 +2149,21 @@ function normalizePlayerSnapshotProjectionPayload(value: unknown): PlayerSnapsho
   return {
     kind: PLAYER_SNAPSHOT_PROJECTION_PAYLOAD_KIND,
     snapshot: record.snapshot as PersistedPlayerSnapshot,
+    projectedDomains: normalizeStringArray(record.projectedDomains),
+    domainRevision: normalizeOptionalRevision(record.domainRevision) ?? 0,
+    runtimeRevision: normalizeOptionalRevision(record.runtimeRevision) ?? 0,
+    projectionVersion: normalizeOptionalRevision(record.projectionVersion)
+      ?? normalizeOptionalRevision((record.snapshot as Record<string, unknown>).savedAt)
+      ?? 0,
+    stagingGenerationId: normalizeNullableString(record.stagingGenerationId) ?? '',
+    stagingDomain: normalizeNullableString(record.stagingDomain) ?? undefined,
+    hasExplicitProjectionVersion: record.projectionVersion !== undefined,
     runtimeOwnerId: normalizeNullableString(record.runtimeOwnerId),
     sessionEpoch: normalizeNullableNumber(record.sessionEpoch),
   };
 }
 
-function resolvePlayerPayloadRuntimeOwnerId(payload: PlayerPresenceUpsertInput | PlayerSnapshotProjectionPayload | null): string | null {
+function resolvePlayerPayloadRuntimeOwnerId(payload: PlayerPresenceFlushPayload | PlayerSnapshotProjectionPayload | null): string | null {
   if (!payload) {
     return null;
   }
@@ -1136,14 +2173,12 @@ function resolvePlayerPayloadRuntimeOwnerId(payload: PlayerPresenceUpsertInput |
   return payload.runtimeOwnerId ?? null;
 }
 
-function buildPlayerPayloadFencingToken(payload: PlayerPresenceUpsertInput | PlayerSnapshotProjectionPayload | null): string | null {
+function buildPlayerPayloadFencingToken(payload: PlayerPresenceFlushPayload | PlayerSnapshotProjectionPayload | null): string | null {
   if (!payload) {
     return null;
   }
-  if ('snapshot' in payload) {
-    return `${payload.kind}:${Math.max(0, Math.trunc(Number(payload.snapshot.savedAt ?? 0)))}:${payload.runtimeOwnerId ?? 'none'}:${Math.max(0, Math.trunc(Number(payload.sessionEpoch ?? 0)))}`;
-  }
-  return `${payload.runtimeOwnerId ?? 'none'}:${Math.max(0, Math.trunc(Number(payload.sessionEpoch ?? 0)))}`;
+  const source = `${payload.stagingGenerationId}:${payload.runtimeOwnerId ?? 'none'}:${Math.max(0, Math.trunc(Number(payload.sessionEpoch ?? 0)))}`;
+  return `player:${createHash('sha256').update(source).digest('hex')}`;
 }
 
 function resolvePlayerTaskDomains(domains: Set<string>): string[] {
@@ -1172,6 +2207,12 @@ function resolveFlushTaskPriority(scope: FlushTaskScope, domain: string): FlushT
 
 function playerTaskKey(task: FlushTask): string {
   return `${task.id}\u0000${task.domain}`;
+}
+
+function stagingFlushTaskKey(task: FlushTask): string {
+  return task.scope === 'player'
+    ? `player\u0000${task.id}\u0000${task.domain}`
+    : `instance\u0000${task.id}\u0000${task.domain}\u0000${Math.max(0, Math.trunc(Number(task.ownershipEpoch ?? 0)))}`;
 }
 
 function playerGroupKey(tasks: FlushTask[]): string {

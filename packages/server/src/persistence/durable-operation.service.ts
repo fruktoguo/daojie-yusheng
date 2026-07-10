@@ -40,6 +40,7 @@ const durableModuleLogger = new Logger('DurableOperation:LegacyCompat');
 const PLAYER_ACTIVE_JOB_TABLE = 'player_active_job';
 const PLAYER_TECHNIQUE_ACTIVITY_QUEUE_TABLE = 'player_technique_activity_queue';
 const PLAYER_ENHANCEMENT_RECORD_TABLE = 'player_enhancement_record';
+const PLAYER_PROFESSION_STATE_TABLE = 'player_profession_state';
 const PLAYER_MAIL_TABLE = 'player_mail';
 const PLAYER_MAIL_ATTACHMENT_TABLE = 'player_mail_attachment';
 const PLAYER_MAIL_COUNTER_TABLE = 'player_mail_counter';
@@ -50,6 +51,7 @@ const INSTANCE_CONTAINER_TIMER_TABLE = 'instance_container_timer';
 const PLAYER_RECOVERY_WATERMARK_TABLE = 'player_recovery_watermark';
 const DURABLE_OPERATION_LOG_TABLE = 'durable_operation_log';
 const OUTBOX_EVENT_TABLE = 'outbox_event';
+const DEAD_LETTER_EVENT_TABLE = 'dead_letter_event';
 const ASSET_AUDIT_LOG_TABLE = 'asset_audit_log';
 const ASSET_AUDIT_LOG_ARCHIVE_TABLE = 'asset_audit_log_archive';
 const DURABLE_OPERATION_ID_SAFE_LENGTH = 173;
@@ -60,6 +62,7 @@ const DURABLE_OPERATION_BIGINT_COLUMNS_BY_TABLE = {
   [PLAYER_INVENTORY_ITEM_TABLE]: ['slot_index', 'count'],
   [PLAYER_MARKET_STORAGE_ITEM_TABLE]: ['slot_index', 'count', 'enhance_level'],
   [PLAYER_ACTIVE_JOB_TABLE]: ['paused_ticks', 'total_ticks', 'remaining_ticks'],
+  [PLAYER_PROFESSION_STATE_TABLE]: ['level'],
   [PLAYER_ENHANCEMENT_RECORD_TABLE]: [
     'highest_level',
     'start_level',
@@ -384,6 +387,13 @@ export interface DurableEnhancementRecordSnapshot {
   status?: string | null;
 }
 
+export interface DurableProfessionStateSnapshot {
+  professionType: 'alchemy' | 'building' | 'gather' | 'enhancement' | 'forging' | 'mining' | 'formation' | 'transmission';
+  level: number;
+  exp?: number | null;
+  expToNext?: number | null;
+}
+
 export interface UpdateActiveJobStateInput {
   operationId: string;
   playerId: string;
@@ -470,6 +480,8 @@ export interface CompleteActiveJobWithAssetsInput {
   nextWalletBalances: DurableWalletBalanceSnapshot[];
   nextEquipmentSlots?: DurableEquipmentSlotSnapshot[] | null;
   nextEnhancementRecords?: DurableEnhancementRecordSnapshot[] | null;
+  /** 每阶资产结算实际变更的职业 patch；未提供的职业保持不变。 */
+  nextProfessionStates?: DurableProfessionStateSnapshot[] | null;
   nextActiveJob?: DurableActiveJobSnapshot | null;
   completionKind?: ActiveJobCompletionKind;
 }
@@ -2980,6 +2992,48 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
     return Array.isArray(result.rows) ? result.rowCount ?? result.rows.length : 0;
   }
 
+  /**
+   * 清理超过总保留期的归档审计日志。
+   * retentionDays 与 combatRetentionDays 均从事件 created_at 起算，避免历史积压在归档后重新获得一轮保留期。
+   */
+  async purgeArchivedAssetAuditLogs(input?: {
+    retentionDays?: number;
+    combatRetentionDays?: number;
+    limit?: number;
+  }): Promise<number> {
+    if (!this.pool || !this.enabled) {
+      return 0;
+    }
+    const retentionDays = normalizePositiveInteger(input?.retentionDays, 365, 1, 3650);
+    const combatRetentionDays = Math.min(
+      retentionDays,
+      normalizePositiveInteger(input?.combatRetentionDays, 90, 1, 3650),
+    );
+    const limit = normalizePositiveInteger(input?.limit, 500, 1, 10_000);
+    const result = await this.pool.query(
+      `
+        WITH targets AS (
+          SELECT log_id
+          FROM ${ASSET_AUDIT_LOG_ARCHIVE_TABLE}
+          WHERE created_at < now() - ($1::bigint * interval '1 day')
+            OR (
+              asset_type = 'combat'
+              AND created_at < now() - ($2::bigint * interval '1 day')
+            )
+          ORDER BY created_at ASC, log_id ASC
+          LIMIT $3
+          FOR UPDATE SKIP LOCKED
+        )
+        DELETE FROM ${ASSET_AUDIT_LOG_ARCHIVE_TABLE} archived
+        USING targets
+        WHERE archived.log_id = targets.log_id
+        RETURNING archived.log_id
+      `,
+      [retentionDays, combatRetentionDays, limit],
+    );
+    return Array.isArray(result.rows) ? result.rowCount ?? result.rows.length : 0;
+  }
+
   /** 清理过期 committed durable 操作日志；只删除不再被 outbox 引用的终态行 */
   async retainCommittedOperationLogs(input?: { retentionDays?: number; limit?: number }): Promise<DurableOperationRetentionResult> {
     if (!this.pool || !this.enabled) {
@@ -2998,6 +3052,11 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
               SELECT 1
               FROM ${OUTBOX_EVENT_TABLE} outbox
               WHERE outbox.operation_id = operation_log.operation_id
+            )
+            AND NOT EXISTS (
+              SELECT 1
+              FROM ${DEAD_LETTER_EVENT_TABLE} dead_letter
+              WHERE dead_letter.operation_id = operation_log.operation_id
             )
           ORDER BY COALESCE(committed_at, created_at) ASC, operation_id ASC
           LIMIT $2
@@ -3245,6 +3304,9 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
     const normalizedNextEnhancementRecords = Array.isArray(input.nextEnhancementRecords)
       ? normalizeEnhancementRecordSnapshots(normalizedPlayerId, input.nextEnhancementRecords)
       : null;
+    const normalizedNextProfessionStates = Array.isArray(input.nextProfessionStates)
+      ? normalizeProfessionStateSnapshots(input.nextProfessionStates)
+      : null;
     const normalizedNextActiveJob = input.nextActiveJob
       ? normalizeActiveJobSnapshot(input.nextActiveJob)
       : null;
@@ -3261,6 +3323,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
       walletBalances: normalizedNextWalletBalances,
       equipmentSlots: normalizedNextEquipmentSlots ?? undefined,
       enhancementRecords: normalizedNextEnhancementRecords,
+      professionStates: normalizedNextProfessionStates,
       activeJob: normalizedNextActiveJob,
       techniqueActivityQueue: undefined,
     });
@@ -3284,6 +3347,9 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
         walletBalanceCount: normalizedNextWalletBalances.length,
         equipmentSlotCount: Array.isArray(normalizedNextEquipmentSlots) ? normalizedNextEquipmentSlots.length : 0,
         enhancementRecordCount: Array.isArray(normalizedNextEnhancementRecords) ? normalizedNextEnhancementRecords.length : 0,
+        ...(Array.isArray(normalizedNextProfessionStates)
+          ? { professionStateCount: normalizedNextProfessionStates.length }
+          : {}),
         nextJobRunId: normalizedNextActiveJob?.jobRunId ?? null,
         nextJobVersion: normalizedNextActiveJob?.jobVersion ?? null,
         assetSnapshotDigest,
@@ -3345,7 +3411,17 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
         if (Array.isArray(normalizedNextEnhancementRecords)) {
           await replacePlayerEnhancementRecords(client, normalizedPlayerId, normalizedNextEnhancementRecords);
         }
+        if (Array.isArray(normalizedNextProfessionStates)) {
+          await replacePlayerProfessionStates(client, normalizedPlayerId, normalizedNextProfessionStates);
+        }
         await replacePlayerActiveJob(client, normalizedPlayerId, normalizedNextActiveJob);
+        const professionVersion = Array.isArray(normalizedNextProfessionStates) ? now + 3 : 0;
+        // 各分域 watermark 独立比较，profession 与 active_job 可共用同一事务版本；
+        // 保持 active_job 既有 now+3 口径，避免部署后平白抬高旧链路版本。
+        const activeJobVersion = now + 3;
+        const enhancementRecordVersion = Array.isArray(normalizedNextEnhancementRecords)
+          ? activeJobVersion + 1
+          : 0;
 
         await client.query(
           `
@@ -3354,16 +3430,18 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
               inventory_version,
               wallet_version,
               equipment_version,
+              profession_version,
               active_job_version,
               enhancement_record_version,
               updated_at
             )
-            VALUES ($1, $2, $3, $4, $5, $6, now())
+            VALUES ($1, $2, $3, $4, $5, $6, $7, now())
             ON CONFLICT (player_id)
             DO UPDATE SET
               inventory_version = GREATEST(${PLAYER_RECOVERY_WATERMARK_TABLE}.inventory_version, EXCLUDED.inventory_version),
               wallet_version = GREATEST(${PLAYER_RECOVERY_WATERMARK_TABLE}.wallet_version, EXCLUDED.wallet_version),
               equipment_version = GREATEST(${PLAYER_RECOVERY_WATERMARK_TABLE}.equipment_version, EXCLUDED.equipment_version),
+              profession_version = GREATEST(${PLAYER_RECOVERY_WATERMARK_TABLE}.profession_version, EXCLUDED.profession_version),
               active_job_version = GREATEST(${PLAYER_RECOVERY_WATERMARK_TABLE}.active_job_version, EXCLUDED.active_job_version),
               enhancement_record_version = GREATEST(${PLAYER_RECOVERY_WATERMARK_TABLE}.enhancement_record_version, EXCLUDED.enhancement_record_version),
               updated_at = now()
@@ -3373,8 +3451,9 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
             now,
             now + 1,
             Array.isArray(normalizedNextEquipmentSlots) ? now + 2 : 0,
-            now + 3,
-            Array.isArray(normalizedNextEnhancementRecords) ? now + 4 : 0,
+            professionVersion,
+            activeJobVersion,
+            enhancementRecordVersion,
           ],
         );
 
@@ -3440,6 +3519,9 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
               inventoryItemCount: normalizedNextInventoryItems.length,
               walletBalanceCount: normalizedNextWalletBalances.length,
               enhancementRecordCount: Array.isArray(normalizedNextEnhancementRecords) ? normalizedNextEnhancementRecords.length : 0,
+              ...(Array.isArray(normalizedNextProfessionStates)
+                ? { professionStateCount: normalizedNextProfessionStates.length }
+                : {}),
             }),
             JSON.stringify({
               jobRunId: persistedJobRunId || null,
@@ -3846,10 +3928,6 @@ export async function ensureDurableOperationTables(pool: Pool): Promise<void> {
       ON ${OUTBOX_EVENT_TABLE}(operation_id)
     `);
     await client.query(`
-      CREATE INDEX IF NOT EXISTS outbox_event_partition_claim_idx
-      ON ${OUTBOX_EVENT_TABLE}(partition_key, status, claim_until, created_at DESC)
-    `);
-    await client.query(`
       CREATE INDEX IF NOT EXISTS outbox_event_status_retry_idx
       ON ${OUTBOX_EVENT_TABLE}(status, next_retry_at, created_at)
     `);
@@ -4122,6 +4200,17 @@ export async function ensureDurableOperationTables(pool: Pool): Promise<void> {
       ON ${PLAYER_ENHANCEMENT_RECORD_TABLE}(player_id, item_id ASC)
     `);
     await client.query(`
+      CREATE TABLE IF NOT EXISTS ${PLAYER_PROFESSION_STATE_TABLE} (
+        player_id varchar(100) NOT NULL,
+        profession_type varchar(32) NOT NULL,
+        level bigint NOT NULL DEFAULT 1,
+        exp double precision,
+        exp_to_next double precision,
+        updated_at timestamptz NOT NULL DEFAULT now(),
+        PRIMARY KEY(player_id, profession_type)
+      )
+    `);
+    await client.query(`
       CREATE TABLE IF NOT EXISTS ${PLAYER_PRESENCE_TABLE} (
         player_id varchar(100) PRIMARY KEY,
         online boolean NOT NULL DEFAULT false,
@@ -4143,6 +4232,8 @@ export async function ensureDurableOperationTables(pool: Pool): Promise<void> {
         inventory_version bigint NOT NULL DEFAULT 0,
         market_storage_version bigint NOT NULL DEFAULT 0,
         equipment_version bigint NOT NULL DEFAULT 0,
+        artifact_version bigint NOT NULL DEFAULT 0,
+        profession_version bigint NOT NULL DEFAULT 0,
         active_job_version bigint NOT NULL DEFAULT 0,
         enhancement_record_version bigint NOT NULL DEFAULT 0,
         mail_version bigint NOT NULL DEFAULT 0,
@@ -4161,6 +4252,14 @@ export async function ensureDurableOperationTables(pool: Pool): Promise<void> {
     await client.query(`
       ALTER TABLE ${PLAYER_RECOVERY_WATERMARK_TABLE}
       ADD COLUMN IF NOT EXISTS equipment_version bigint NOT NULL DEFAULT 0
+    `);
+    await client.query(`
+      ALTER TABLE ${PLAYER_RECOVERY_WATERMARK_TABLE}
+      ADD COLUMN IF NOT EXISTS artifact_version bigint NOT NULL DEFAULT 0
+    `);
+    await client.query(`
+      ALTER TABLE ${PLAYER_RECOVERY_WATERMARK_TABLE}
+      ADD COLUMN IF NOT EXISTS profession_version bigint NOT NULL DEFAULT 0
     `);
     await client.query(`
       ALTER TABLE ${PLAYER_RECOVERY_WATERMARK_TABLE}
@@ -4341,6 +4440,39 @@ async function refuseEmptyOverwriteIfRowsExist(
   }
 }
 
+async function assertNoForeignPlayerOwnedIds(
+  client: import('pg').PoolClient,
+  tableName: string,
+  idColumnName: string,
+  playerId: string,
+  ids: readonly string[],
+  domainTag: string,
+): Promise<void> {
+  if (ids.length === 0) {
+    return;
+  }
+  assertSafeIdentifier(tableName);
+  assertSafeIdentifier(idColumnName);
+  const result = await client.query<{ conflicting_id?: unknown; owner_id?: unknown }>(
+    `
+      SELECT ${quoteIdentifier(idColumnName)} AS conflicting_id, player_id AS owner_id
+      FROM ${quoteIdentifier(tableName)}
+      WHERE ${quoteIdentifier(idColumnName)} = ANY($2::varchar[])
+        AND player_id <> $1
+      LIMIT 1
+      FOR UPDATE
+    `,
+    [playerId, ids],
+  );
+  if ((result.rowCount ?? 0) > 0) {
+    throw new Error(
+      `replace_${domainTag}_ownership_conflict:playerId=${playerId}`
+      + ` id=${normalizeRequiredString(result.rows[0]?.conflicting_id) || 'unknown'}`
+      + ` owner=${normalizeRequiredString(result.rows[0]?.owner_id) || 'unknown'}`,
+    );
+  }
+}
+
 async function replacePlayerInventoryItems(
   client: import('pg').PoolClient,
   playerId: string,
@@ -4433,6 +4565,15 @@ async function replacePlayerInventoryItems(
   const rowsJson = JSON.stringify(rows);
 
   if (rows.length > 0) {
+    const itemInstanceIds = rows.map(({ item_instance_id }) => item_instance_id);
+    await assertNoForeignPlayerOwnedIds(
+      client,
+      PLAYER_INVENTORY_ITEM_TABLE,
+      'item_instance_id',
+      playerId,
+      itemInstanceIds,
+      'inventory',
+    );
     await client.query(
       `
         WITH incoming AS (
@@ -4450,7 +4591,7 @@ async function replacePlayerInventoryItems(
       `,
       [playerId, rowsJson],
     );
-    const result = await client.query(
+    await client.query(
       `
         WITH incoming AS (
           SELECT *
@@ -4485,12 +4626,31 @@ async function replacePlayerInventoryItems(
           locked_by = EXCLUDED.locked_by,
           updated_at = now()
         WHERE ${PLAYER_INVENTORY_ITEM_TABLE}.player_id = EXCLUDED.player_id
+          AND ROW(
+            ${PLAYER_INVENTORY_ITEM_TABLE}.slot_index,
+            ${PLAYER_INVENTORY_ITEM_TABLE}.item_id,
+            ${PLAYER_INVENTORY_ITEM_TABLE}.count,
+            ${PLAYER_INVENTORY_ITEM_TABLE}.raw_payload,
+            ${PLAYER_INVENTORY_ITEM_TABLE}.locked_by
+          ) IS DISTINCT FROM ROW(
+            EXCLUDED.slot_index,
+            EXCLUDED.item_id,
+            EXCLUDED.count,
+            EXCLUDED.raw_payload,
+            EXCLUDED.locked_by
+          )
       `,
       [playerId, rowsJson],
     );
-    if (((result as { rowCount?: number }).rowCount ?? 0) !== rows.length) {
-      throw new Error(`replacePlayerInventoryItems: item_instance_id conflict outside player scope playerId=${playerId}`);
-    }
+    // ON CONFLICT 的 owner guard 会拒绝跨玩家更新；提交前再次读取可覆盖并发插入竞态。
+    await assertNoForeignPlayerOwnedIds(
+      client,
+      PLAYER_INVENTORY_ITEM_TABLE,
+      'item_instance_id',
+      playerId,
+      itemInstanceIds,
+      'inventory',
+    );
   }
   await refuseEmptyOverwriteIfRowsExist(client, PLAYER_INVENTORY_ITEM_TABLE, playerId, rows.length, 'inventory', options);
   await client.query(
@@ -4739,7 +4899,43 @@ async function replacePlayerEquipmentSlots(
     return;
   }
 
-  await upsertEquipmentSlotRowsWithItemInstanceIdRepair(client, playerId, rows, rowSources);
+  const persistedRows = await client.query<{
+    slot_type?: unknown;
+    item_instance_id?: unknown;
+    item_id?: unknown;
+    raw_payload?: unknown;
+  }>(
+    `
+      SELECT slot_type, item_instance_id, item_id, raw_payload
+      FROM ${PLAYER_EQUIPMENT_SLOT_TABLE}
+      WHERE player_id = $1
+      FOR UPDATE
+    `,
+    [playerId],
+  );
+  const persistedBySlot = new Map(
+    persistedRows.rows.map((persisted) => [normalizeRequiredString(persisted.slot_type), persisted]),
+  );
+  const changedRows = rows.filter((row) => {
+    const persisted = persistedBySlot.get(row.slot_type);
+    const persistedPayload = persisted?.raw_payload && typeof persisted.raw_payload === 'object'
+      ? persisted.raw_payload as Record<string, unknown>
+      : {};
+    return !persisted
+      || normalizeRequiredString(persisted.item_instance_id) !== row.item_instance_id
+      || normalizeRequiredString(persisted.item_id) !== row.item_id
+      || !isSameDurablePayload(persistedPayload, row.raw_payload);
+  });
+  if (changedRows.length > 0) {
+    const changedRowSources = new Map<EquipmentSlotPersistenceRow, ItemInstanceIdPersistenceRowSource>();
+    for (const row of changedRows) {
+      const source = rowSources.get(row);
+      if (source) {
+        changedRowSources.set(row, source);
+      }
+    }
+    await upsertEquipmentSlotRowsWithItemInstanceIdRepair(client, playerId, changedRows, changedRowSources);
+  }
   await refuseEmptyOverwriteIfRowsExist(client, PLAYER_EQUIPMENT_SLOT_TABLE, playerId, rows.length, 'equipment', options);
   await client.query(
     `
@@ -5011,7 +5207,16 @@ async function replacePlayerEnhancementRecords(
   }
 
   if (normalizedRows.length > 0) {
-    const result = await client.query(
+    const recordIds = normalizedRows.map(({ record_id }) => record_id);
+    await assertNoForeignPlayerOwnedIds(
+      client,
+      PLAYER_ENHANCEMENT_RECORD_TABLE,
+      'record_id',
+      playerId,
+      recordIds,
+      'enhancement_record',
+    );
+    await client.query(
       `
         WITH incoming AS (
           SELECT *
@@ -5063,12 +5268,40 @@ async function replacePlayerEnhancementRecords(
           status = EXCLUDED.status,
           updated_at = now()
         WHERE ${PLAYER_ENHANCEMENT_RECORD_TABLE}.player_id = EXCLUDED.player_id
+          AND ROW(
+            ${PLAYER_ENHANCEMENT_RECORD_TABLE}.item_id,
+            ${PLAYER_ENHANCEMENT_RECORD_TABLE}.highest_level,
+            ${PLAYER_ENHANCEMENT_RECORD_TABLE}.levels_payload,
+            ${PLAYER_ENHANCEMENT_RECORD_TABLE}.action_started_at,
+            ${PLAYER_ENHANCEMENT_RECORD_TABLE}.action_ended_at,
+            ${PLAYER_ENHANCEMENT_RECORD_TABLE}.start_level,
+            ${PLAYER_ENHANCEMENT_RECORD_TABLE}.initial_target_level,
+            ${PLAYER_ENHANCEMENT_RECORD_TABLE}.desired_target_level,
+            ${PLAYER_ENHANCEMENT_RECORD_TABLE}.protection_start_level,
+            ${PLAYER_ENHANCEMENT_RECORD_TABLE}.status
+          ) IS DISTINCT FROM ROW(
+            EXCLUDED.item_id,
+            EXCLUDED.highest_level,
+            EXCLUDED.levels_payload,
+            EXCLUDED.action_started_at,
+            EXCLUDED.action_ended_at,
+            EXCLUDED.start_level,
+            EXCLUDED.initial_target_level,
+            EXCLUDED.desired_target_level,
+            EXCLUDED.protection_start_level,
+            EXCLUDED.status
+          )
       `,
       [playerId, JSON.stringify(normalizedRows)],
     );
-    if (((result as { rowCount?: number }).rowCount ?? 0) !== normalizedRows.length) {
-      throw new Error(`replacePlayerEnhancementRecords: record_id conflict outside player scope playerId=${playerId}`);
-    }
+    await assertNoForeignPlayerOwnedIds(
+      client,
+      PLAYER_ENHANCEMENT_RECORD_TABLE,
+      'record_id',
+      playerId,
+      recordIds,
+      'enhancement_record',
+    );
   }
   await client.query(
     `
@@ -5086,6 +5319,61 @@ async function replacePlayerEnhancementRecords(
     `,
     [playerId, JSON.stringify(normalizedRows.map(({ record_id }) => ({ record_id })))],
   );
+}
+
+async function replacePlayerProfessionStates(
+  client: import('pg').PoolClient,
+  playerId: string,
+  rows: readonly DurableProfessionStateSnapshot[],
+): Promise<void> {
+  const normalizedRows = normalizeProfessionStateSnapshots(rows).map((row) => ({
+    profession_type: row.professionType,
+    level: row.level,
+    exp: row.exp,
+    exp_to_next: row.expToNext,
+  }));
+  const rowsJson = JSON.stringify(normalizedRows);
+  if (normalizedRows.length > 0) {
+    await client.query(
+      `
+        WITH incoming AS (
+          SELECT *
+          FROM jsonb_to_recordset($2::jsonb) AS entry(
+            profession_type varchar(32),
+            level bigint,
+            exp double precision,
+            exp_to_next double precision
+          )
+        )
+        INSERT INTO ${PLAYER_PROFESSION_STATE_TABLE}(
+          player_id,
+          profession_type,
+          level,
+          exp,
+          exp_to_next,
+          updated_at
+        )
+        SELECT $1, profession_type, level, exp, exp_to_next, now()
+        FROM incoming
+        ON CONFLICT (player_id, profession_type)
+        DO UPDATE SET
+          level = EXCLUDED.level,
+          exp = EXCLUDED.exp,
+          exp_to_next = EXCLUDED.exp_to_next,
+          updated_at = now()
+        WHERE ROW(
+          ${PLAYER_PROFESSION_STATE_TABLE}.level,
+          ${PLAYER_PROFESSION_STATE_TABLE}.exp,
+          ${PLAYER_PROFESSION_STATE_TABLE}.exp_to_next
+        ) IS DISTINCT FROM ROW(
+          EXCLUDED.level,
+          EXCLUDED.exp,
+          EXCLUDED.exp_to_next
+        )
+      `,
+      [playerId, rowsJson],
+    );
+  }
 }
 
 async function replacePlayerQuestProgressRows(
@@ -5297,6 +5585,7 @@ function buildActiveJobAssetSnapshotDigest(input: {
   walletBalances: readonly DurableWalletBalanceSnapshot[];
   equipmentSlots?: readonly DurableEquipmentSlotSnapshot[];
   enhancementRecords?: readonly DurableEnhancementRecordSnapshot[] | null;
+  professionStates?: readonly DurableProfessionStateSnapshot[] | null;
   activeJob: DurableActiveJobSnapshot | null;
   techniqueActivityQueue?: readonly PlayerTechniqueActivityQueueUpsertInput[];
 }): string {
@@ -5309,6 +5598,9 @@ function buildActiveJobAssetSnapshotDigest(input: {
     enhancementRecords: input.enhancementRecords == null
       ? { mutation: 'unchanged' }
       : input.enhancementRecords,
+    ...(input.professionStates == null
+      ? {}
+      : { professionStates: normalizeProfessionStateSnapshots(input.professionStates) }),
     activeJob: input.activeJob,
     techniqueActivityQueue: input.techniqueActivityQueue === undefined
       ? { mutation: 'unchanged' }
@@ -5495,6 +5787,45 @@ function normalizeEnhancementRecordSnapshots(
     });
   }
   return rows;
+}
+
+function normalizeProfessionStateSnapshots(
+  snapshots: readonly DurableProfessionStateSnapshot[],
+): DurableProfessionStateSnapshot[] {
+  const allowedTypes = new Set<DurableProfessionStateSnapshot['professionType']>([
+    'alchemy',
+    'building',
+    'gather',
+    'enhancement',
+    'forging',
+    'mining',
+    'formation',
+    'transmission',
+  ]);
+  const rows = new Map<DurableProfessionStateSnapshot['professionType'], DurableProfessionStateSnapshot>();
+  for (let index = 0; index < snapshots.length; index += 1) {
+    const snapshot = snapshots[index];
+    const professionType = normalizeRequiredString(snapshot?.professionType) as DurableProfessionStateSnapshot['professionType'];
+    if (!allowedTypes.has(professionType)) {
+      throw new Error(`invalid_profession_state_snapshot:index=${index}`);
+    }
+    if (rows.has(professionType)) {
+      throw new Error(`duplicate_profession_state_snapshot:${professionType}`);
+    }
+    const numericLevel = Number(snapshot?.level);
+    rows.set(professionType, {
+      professionType,
+      level: Number.isFinite(numericLevel) ? Math.max(1, Math.trunc(numericLevel)) : 1,
+      exp: normalizeNonNegativeOptionalNumber(snapshot?.exp),
+      expToNext: normalizeNonNegativeOptionalNumber(snapshot?.expToNext),
+    });
+  }
+  return [...rows.values()].sort((left, right) => left.professionType.localeCompare(right.professionType));
+}
+
+function normalizeNonNegativeOptionalNumber(value: unknown): number | null {
+  const numeric = Number(value);
+  return value == null || !Number.isFinite(numeric) ? null : Math.max(0, numeric);
 }
 
 function normalizeQuestProgressSnapshots(
@@ -6447,6 +6778,15 @@ async function replacePlayerWalletRows(
           frozen_balance = EXCLUDED.frozen_balance,
           version = EXCLUDED.version,
           updated_at = now()
+        WHERE ROW(
+          ${PLAYER_WALLET_TABLE}.balance,
+          ${PLAYER_WALLET_TABLE}.frozen_balance,
+          ${PLAYER_WALLET_TABLE}.version
+        ) IS DISTINCT FROM ROW(
+          EXCLUDED.balance,
+          EXCLUDED.frozen_balance,
+          EXCLUDED.version
+        )
       `,
       [playerId, rowsJson],
     );

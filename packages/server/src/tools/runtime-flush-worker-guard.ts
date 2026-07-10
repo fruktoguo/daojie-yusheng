@@ -3,10 +3,10 @@
  *
  * 维护时要关注批量大小、重试幂等和中断恢复，不能让后台任务破坏服务端权威状态。
  */
-import { isInlineFlushTaskRuntimeMode } from '../persistence/flush-task-runtime-mode';
+import { resolveFlushTaskRuntimeMode } from '../persistence/flush-task-runtime-mode';
 
 export function assertFullAppFlushWorkerAllowed(workerName: string): void {
-  if (!isInlineFlushTaskRuntimeMode()) {
+  if (resolveFlushTaskRuntimeMode() === 'direct') {
     return;
   }
   const raw = process.env.SERVER_ALLOW_FULL_APP_FLUSH_WORKER ?? process.env.ALLOW_FULL_APP_FLUSH_WORKER;
@@ -15,6 +15,7 @@ export function assertFullAppFlushWorkerAllowed(workerName: string): void {
   }
   throw new Error(
     `${workerName} 会启动完整 AppModule，不能作为生产独立 flush worker 使用；` +
-    '当前生产模式为 SERVER_FLUSH_TASK_RUNTIME_MODE=inline。若仅用于诊断，请显式设置 SERVER_ALLOW_FULL_APP_FLUSH_WORKER=1。',
+    '它只允许在 SERVER_FLUSH_TASK_RUNTIME_MODE=direct 的旧直刷模式运行，避免与统一 durable staging 争用同一 ledger 行。' +
+    '若仅用于诊断，请显式设置 SERVER_ALLOW_FULL_APP_FLUSH_WORKER=1。',
   );
 }

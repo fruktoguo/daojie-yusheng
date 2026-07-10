@@ -97,8 +97,9 @@ async function main(): Promise<void> {
     assert.ok(backupTool.includes('export async function runDatabaseBackupWorkerOnce'));
     assert.ok(backupTool.includes('if (require.main === module)'));
     assert.ok(orchestratorSource.includes('runDatabaseBackupWorkerOnce'));
+    await proveShutdownDrainTracksActualExecutors();
   } finally {
-    orchestrator.onModuleDestroy();
+    await orchestrator.onModuleDestroy();
     restoreEnv('SERVER_RUNTIME_ROLE', previousRole);
     restoreEnv('SERVER_OUTBOX_RUNTIME_ENABLED', previousOutbox);
     restoreEnv('SERVER_DATABASE_URL', previousServerDatabaseUrl);
@@ -107,10 +108,61 @@ async function main(): Promise<void> {
 
   console.log(JSON.stringify({
     ok: true,
-    answers: '后台 worker orchestrator 能在 worker role 下调度 flush/outbox/cleanup 等已启用任务，记录 heartbeat/status/processedCount；database backup 已抽出 runOnce 端口并由 orchestrator 引用。',
+    answers: '后台 worker orchestrator 能在 worker role 下调度 flush/outbox/cleanup 等已启用任务，记录 heartbeat/status/processedCount；关机时会先拒绝新任务、清理 timer，并等待真实 executor 结束后才允许连接池销毁，预算超限会作为降级失败上报。',
     excludes: '不证明所有 flush domain 已 payload 化、真实数据库备份可生成或 with-db 多副本竞争。',
     completionMapping: 'background-worker-orchestrator',
   }, null, 2));
+}
+
+async function proveShutdownDrainTracksActualExecutors(): Promise<void> {
+  let resolveEntered: (() => void) | null = null;
+  let releaseExecution: (() => void) | null = null;
+  const entered = new Promise<void>((resolve) => {
+    resolveEntered = resolve;
+  });
+  const executionGate = new Promise<void>((resolve) => {
+    releaseExecution = resolve;
+  });
+  let executionCalls = 0;
+  const barrier = new StartupBarrierService();
+  barrier.openWorker();
+  const orchestrator = new BackgroundWorkerRuntimeService(
+    undefined,
+    {
+      isRuntimeEnabled: () => true,
+      async dispatchPendingEvents() {
+        executionCalls += 1;
+        resolveEntered?.();
+        await executionGate;
+        return 1;
+      },
+    } as never,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    barrier,
+  );
+  orchestrator.onModuleInit();
+  orchestrator.startForLifecycleCoordinator();
+  await entered;
+
+  let drainSettled = false;
+  const drainResult = orchestrator.drainForShutdown({ budgetMs: 10 })
+    .then(() => null, (error: unknown) => error)
+    .finally(() => {
+      drainSettled = true;
+    });
+  await sleep(25);
+  assert.equal(drainSettled, false, '超过本地预算后仍必须等待真实 executor 结束，不能提前关闭连接池');
+  assert.equal(executionCalls, 1);
+  releaseExecution?.();
+  const drainError = await drainResult;
+  assert.ok(drainError instanceof Error);
+  assert.match(drainError.message, /^background_worker_drain_budget_exceeded:/u);
+  assert.equal(executionCalls, 1, '进入 stopping 后不得再接收新的 timer 任务');
 }
 
 function restoreEnv(name: string, value: string | undefined): void {

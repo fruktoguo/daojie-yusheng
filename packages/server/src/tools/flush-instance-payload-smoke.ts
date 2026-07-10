@@ -29,6 +29,7 @@ async function main(): Promise<void> {
       domain: 'tile_damage',
       upserts: [{ tileId: '1,2', hp: 5 }],
       deletes: [],
+      revision: 11,
       watermarkPayload: { revision: 11 },
     },
   };
@@ -53,6 +54,7 @@ async function main(): Promise<void> {
         flushed.push(flushedTask);
         return true;
       },
+      renewFlushTaskClaim: async () => true,
       markFlushTaskRetry: async () => true,
       markFlushTasksRetry: async () => 0,
     } as never,

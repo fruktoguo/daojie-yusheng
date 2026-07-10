@@ -196,6 +196,7 @@ async function collectPortConflictDiagnostics(port: number): Promise<string> {
 }
 
 let bootstrapApp: INestApplicationContext | null = null;
+let bootstrapClosePromise: Promise<void> | null = null;
 
 /** 启动 Nest 应用：创建服务、启用钩子/跨域，并在端口冲突时补充诊断日志。 */
 async function bootstrap(): Promise<void> {
@@ -213,13 +214,15 @@ async function bootstrap(): Promise<void> {
   logger.log(`服务端运行角色：${describeServerRuntimeRole(role)}`);
 
   if (!shouldStartHttpServer(role)) {
-    const app = await NestFactory.createApplicationContext(AppModule, { logger });
+    // 使用可显式 init/close 的 NestApplication，但不调用 listen；这样启动钩子失败时仍能先 drain 再销毁上下文。
+    const app = await NestFactory.create(AppModule, { logger, abortOnError: false });
     bootstrapApp = app;
-    logger.log('worker 角色已启动 Nest 应用上下文；不监听 HTTP/Socket.IO 端口');
+    await app.init();
+    logger.log('worker 角色已初始化 Nest 应用；不监听 HTTP/Socket.IO 端口');
     return;
   }
 
-  const app = await NestFactory.create(AppModule, { logger });
+  const app = await NestFactory.create(AppModule, { logger, abortOnError: false });
   bootstrapApp = app;
 
 
@@ -249,7 +252,6 @@ async function bootstrap(): Promise<void> {
       logger.error(`服务端绑定 ${host}:${port} 时发生端口冲突${excludedPortHint ? `\n${excludedPortHint}` : ''}\n${diagnostics}`);
     }
 
-    await app.close().catch(() => undefined);
     throw error;
   }
 
@@ -259,6 +261,42 @@ async function bootstrap(): Promise<void> {
 /** 类型守卫：判断 error 是否包含指定 code 字段。 */
 function hasErrorCode(error: unknown, code: string): error is { code: string } {
   return typeof error === 'object' && error !== null && 'code' in error && error.code === code;
+}
+
+/** 始终先走服务端 drain，再关闭 Nest 上下文，避免数据库池早于最终落盘销毁。 */
+async function drainAndCloseBootstrapApplication(reason: string): Promise<void> {
+  if (bootstrapClosePromise) {
+    return bootstrapClosePromise;
+  }
+  const app = bootstrapApp;
+  if (!app) {
+    return;
+  }
+  bootstrapClosePromise = (async () => {
+    const failures: unknown[] = [];
+    try {
+      const lifecycleCoordinator = app.get(ServerLifecycleCoordinatorService, { strict: false });
+      if (!lifecycleCoordinator) {
+        throw new Error('server_lifecycle_coordinator_unavailable');
+      }
+      await lifecycleCoordinator.drain(reason);
+    } catch (error) {
+      failures.push(error);
+    }
+    try {
+      await app.close();
+    } catch (error) {
+      failures.push(error);
+    } finally {
+      if (bootstrapApp === app) {
+        bootstrapApp = null;
+      }
+    }
+    if (failures.length > 0) {
+      throw new AggregateError(failures, `bootstrap_application_close_failed:${reason}`);
+    }
+  })();
+  return bootstrapClosePromise;
 }
 
 // ─── 全局未捕获异常兜底 ───
@@ -282,15 +320,10 @@ for (const signal of ['SIGTERM', 'SIGINT'] as const) {
     shutdownTimerSet = true;
     void (async () => {
       try {
-        const lifecycleCoordinator = bootstrapApp?.get(ServerLifecycleCoordinatorService, { strict: false });
-        await lifecycleCoordinator?.drain(signal);
+        await drainAndCloseBootstrapApplication(signal);
       } catch (error) {
-        console.error('[关闭] 预先执行关闭排空失败：', error instanceof Error ? error.stack : String(error));
+        console.error('[关闭] 排空或 app.close 失败：', error instanceof Error ? error.stack : String(error));
       }
-      await bootstrapApp?.close().catch((error) => {
-        console.error('[关闭] app.close 失败：', error instanceof Error ? error.stack : String(error));
-      });
-      bootstrapApp = null;
     })();
     const timer = setTimeout(() => {
       console.error(`[关闭] 优雅关闭超时 ${GRACEFUL_SHUTDOWN_TIMEOUT_MS}ms，强制退出`);
@@ -300,4 +333,12 @@ for (const signal of ['SIGTERM', 'SIGINT'] as const) {
   });
 }
 
-void bootstrap();
+void bootstrap().catch(async (error) => {
+  console.error('[启动] 服务端启动失败：', error instanceof Error ? error.stack : String(error));
+  try {
+    await drainAndCloseBootstrapApplication('startup_failed');
+  } catch (closeError) {
+    console.error('[启动] 启动失败后的排空或 app.close 失败：', closeError instanceof Error ? closeError.stack : String(closeError));
+  }
+  process.exitCode = 1;
+});

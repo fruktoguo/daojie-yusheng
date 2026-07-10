@@ -188,6 +188,7 @@ const smokeCases = [
   { name: 'instance-lease-runtime', scriptFile: 'instance-lease-runtime-smoke.js', standalone: true },
   { name: 'instance-lease-sync-error', scriptFile: 'instance-lease-sync-error-smoke.js', standalone: true },
   { name: 'instance-lease-periodic-force-reclaim', scriptFile: 'instance-lease-periodic-force-reclaim-smoke.js', standalone: true },
+  { name: 'instance-ownership-epoch-replay', scriptFile: 'instance-ownership-epoch-replay-smoke.js', standalone: true },
   { name: 'gm-world-instance-lease', scriptFile: 'gm-world-instance-lease-smoke.js', standalone: true },
   { name: 'gm-world-instance-flush', scriptFile: 'gm-world-instance-flush-smoke.js', standalone: true },
   { name: 'gm-world-instance-freeze', scriptFile: 'gm-world-instance-freeze-smoke.js', standalone: true },
@@ -284,6 +285,7 @@ const SMOKE_CASE_GROUPS = Object.freeze({
     'instance-lease-runtime',
     'instance-lease-sync-error',
     'instance-lease-periodic-force-reclaim',
+    'instance-ownership-epoch-replay',
   ],
   'gm-world-ops': [
     'gm-world-instance',

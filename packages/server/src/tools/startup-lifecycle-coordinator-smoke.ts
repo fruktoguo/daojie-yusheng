@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 import { ServerLifecycleCoordinatorService } from '../lifecycle/server-lifecycle-coordinator.service';
 import { StartupBarrierService } from '../lifecycle/startup-barrier.service';
@@ -10,7 +12,64 @@ installSmokeTimeout(__filename);
 async function main(): Promise<void> {
   await assertAllRoleStartupOrder();
   await assertWorkerRoleStartsFlushConsumer();
+  await assertStartupFailureDrainsBeforeNestDestroy();
+  assertBootstrapEntryHandlesRejectedStartup();
   console.log('[startup-lifecycle-coordinator-smoke] ok');
+}
+
+function assertBootstrapEntryHandlesRejectedStartup(): void {
+  const source = readFileSync(resolve(process.cwd(), 'packages/server/src/main.ts'), 'utf8');
+  const helperStart = source.indexOf('async function drainAndCloseBootstrapApplication');
+  const helperEnd = source.indexOf('// ─── 全局未捕获异常兜底', helperStart);
+  const helperSource = source.slice(helperStart, helperEnd);
+  assert.ok(helperStart >= 0 && helperEnd > helperStart);
+  assert.ok(
+    helperSource.indexOf('lifecycleCoordinator.drain(reason)') < helperSource.indexOf('app.close()'),
+    'Nest 上下文关闭前必须完成 lifecycle drain',
+  );
+  assert.match(source, /void bootstrap\(\)\.catch\(async \(error\) =>/);
+  assert.match(source, /abortOnError: false/);
+}
+
+async function assertStartupFailureDrainsBeforeNestDestroy(): Promise<void> {
+  const previousRole = process.env.SERVER_RUNTIME_ROLE;
+  process.env.SERVER_RUNTIME_ROLE = 'api';
+  try {
+    const status = new StartupStatusService();
+    const barrier = new StartupBarrierService();
+    const order: string[] = [];
+    const coordinator = new ServerLifecycleCoordinatorService(
+      status,
+      barrier,
+      {} as never,
+      undefined,
+      {
+        async replayDurablePayloadsBeforeRecovery() {
+          order.push('startup-replay');
+          throw new Error('startup_replay_failed');
+        },
+      } as never,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      {
+        async drain(reason: string) {
+          order.push(`drain:${reason}`);
+          assert.equal(barrier.isTrafficOpen(), false);
+          return {};
+        },
+      } as never,
+    );
+
+    await assert.rejects(
+      () => coordinator.onApplicationBootstrap(),
+      /startup_replay_failed/,
+    );
+    assert.deepEqual(order, ['startup-replay', 'drain:startup_failed']);
+  } finally {
+    restoreEnv('SERVER_RUNTIME_ROLE', previousRole);
+  }
 }
 
 async function assertAllRoleStartupOrder(): Promise<void> {
@@ -29,6 +88,10 @@ async function assertAllRoleStartupOrder(): Promise<void> {
       rewriteCatalogRuntimeStatus?: boolean;
     }) {
       order.push('world');
+      assert.equal(
+        typeof (worldRuntimeService as { replayInstanceFlushPayloadsBeforeOwnershipChange?: unknown }).replayInstanceFlushPayloadsBeforeOwnershipChange,
+        'function',
+      );
       assert.equal(options.restoreOfflinePlayers, false);
       assert.equal(options.restoreInstanceDomains, true);
       assert.equal(options.restoreCatalogInstances, true);
@@ -77,6 +140,12 @@ async function assertAllRoleStartupOrder(): Promise<void> {
   };
 
   const flushTaskRuntimeService = {
+    async replayDurablePayloadsBeforeRecovery() {
+      order.push('payload-replay');
+      assert.equal(barrier.isTickOpen(), false);
+      assert.equal(barrier.isFlushOpen(), false);
+      return 2;
+    },
     startForLifecycleCoordinator() {
       order.push('flush-task');
       assert.equal(barrier.isFlushOpen(), true);
@@ -123,10 +192,21 @@ async function assertAllRoleStartupOrder(): Promise<void> {
     backgroundWorkerRuntimeService as never,
     marketRuntimeService as never,
   );
+  (coordinator as unknown as {
+    playerDomainPersistenceService?: { runPostReplayStartupMaintenance(): Promise<void> };
+  }).playerDomainPersistenceService = {
+    async runPostReplayStartupMaintenance() {
+      order.push('post-replay-maintenance');
+      assert.equal(barrier.isTickOpen(), false);
+      assert.equal(barrier.isFlushOpen(), false);
+    },
+  };
 
   await coordinator.start();
 
   assert.deepEqual(order, [
+    'payload-replay',
+    'post-replay-maintenance',
     'world',
     'players',
     'market',
@@ -198,3 +278,8 @@ main().catch((error) => {
   console.error(error);
   process.exit(1);
 });
+
+function restoreEnv(name: string, value: string | undefined): void {
+  if (typeof value === 'string') process.env[name] = value;
+  else delete process.env[name];
+}

@@ -3,7 +3,7 @@
  *
  * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import { Pool } from 'pg';
 
@@ -14,11 +14,20 @@ const OUTBOX_EVENT_TABLE = 'outbox_event';
 const DEAD_LETTER_EVENT_TABLE = 'dead_letter_event';
 const OUTBOX_CONSUMER_DEDUPE_TABLE = 'outbox_consumer_dedupe';
 const OUTBOX_DEDUPE_KEY_MAX_LENGTH = 180;
+const OUTBOX_CLAIM_BATCH_OWNER_MAX_LENGTH = 86;
 
 export interface OutboxRetentionResult {
   deliveredEventsDeleted: number;
   consumerDedupeDeleted: number;
 }
+
+export type OutboxConsumerDedupeClaimStatus = 'claimed' | 'processing' | 'delivered' | 'stale';
+
+export interface OutboxConsumerDedupeClaimResult {
+  status: OutboxConsumerDedupeClaimStatus;
+}
+
+export type OutboxConsumerDedupeCompletionStatus = 'delivered' | 'processing' | 'missing';
 
 /** Outbox 事件分发服务：认领、投递、重试、死信和去重 */
 @Injectable()
@@ -66,16 +75,17 @@ export class OutboxDispatcherService implements OnModuleInit, OnModuleDestroy {
     const claimTtlMs = normalizePositiveInteger(input.claimTtlMs, 30_000, 1_000, 300_000);
     const limit = normalizePositiveInteger(input.limit, 128, 1, 1024);
     const topicPrefixLikePatterns = buildTopicPrefixLikePatterns(input.topicPrefixes);
+    const claimBatchOwner = buildOutboxClaimBatchOwner(dispatcherId);
     const topicFilterClause = topicPrefixLikePatterns.length > 0 ? 'AND topic LIKE ANY($4::text[])' : '';
     const queryParams = topicPrefixLikePatterns.length > 0
-      ? [dispatcherId, claimTtlMs, limit, topicPrefixLikePatterns]
-      : [dispatcherId, claimTtlMs, limit];
+      ? [claimBatchOwner, claimTtlMs, limit, topicPrefixLikePatterns]
+      : [claimBatchOwner, claimTtlMs, limit];
     const result = await this.pool.query(
       `
         WITH claimed AS (
           UPDATE ${OUTBOX_EVENT_TABLE}
           SET status = 'claimed',
-              claimed_by = $1,
+              claimed_by = $1 || ':' || md5(event_id),
               claim_until = now() + ($2::bigint * interval '1 millisecond')
           WHERE event_id IN (
             SELECT event_id
@@ -98,12 +108,13 @@ export class OutboxDispatcherService implements OnModuleInit, OnModuleDestroy {
     return Array.isArray(result.rows) ? (result.rows as Record<string, unknown>[]) : [];
   }
 
-  async markDelivered(eventId: string): Promise<boolean> {
+  async markDelivered(input: { eventId: string; claimOwner: string }): Promise<boolean> {
     if (!this.pool || !this.enabled) {
       return false;
     }
-    const normalizedEventId = normalizeRequiredString(eventId);
-    if (!normalizedEventId) {
+    const normalizedEventId = normalizeRequiredString(input.eventId);
+    const claimOwner = normalizeRequiredString(input.claimOwner);
+    if (!normalizedEventId || !claimOwner) {
       return false;
     }
     const result = await this.pool.query(
@@ -111,120 +122,244 @@ export class OutboxDispatcherService implements OnModuleInit, OnModuleDestroy {
         UPDATE ${OUTBOX_EVENT_TABLE}
         SET status = 'delivered',
             delivered_at = now(),
+            next_retry_at = NULL,
+            claimed_by = NULL,
             claim_until = NULL
         WHERE event_id = $1
+          AND status = 'claimed'
+          AND claimed_by = $2
       `,
-      [normalizedEventId],
+      [normalizedEventId, claimOwner],
     );
     return (result.rowCount ?? 0) > 0;
   }
 
-  async markFailed(eventId: string, retryDelayMs: number, maxAttempts = 8): Promise<boolean> {
+  async deferClaim(input: { eventId: string; claimOwner: string; retryDelayMs?: number }): Promise<boolean> {
     if (!this.pool || !this.enabled) {
       return false;
     }
-    const normalizedEventId = normalizeRequiredString(eventId);
-    if (!normalizedEventId) {
+    const normalizedEventId = normalizeRequiredString(input.eventId);
+    const claimOwner = normalizeRequiredString(input.claimOwner);
+    if (!normalizedEventId || !claimOwner) {
       return false;
     }
-    const normalizedRetryDelayMs = normalizePositiveInteger(retryDelayMs, 5_000, 250, 86_400_000);
-    const normalizedMaxAttempts = normalizePositiveInteger(maxAttempts, 8, 1, 100);
+    const retryDelayMs = normalizePositiveInteger(input.retryDelayMs, 1_000, 250, 300_000);
     const result = await this.pool.query(
       `
         UPDATE ${OUTBOX_EVENT_TABLE}
-        SET attempt_count = attempt_count + 1,
-            status = CASE
-              WHEN attempt_count + 1 >= $3 THEN 'dead_letter'
-              ELSE 'ready'
-            END,
-            next_retry_at = CASE
-              WHEN attempt_count + 1 >= $3 THEN NULL
-              ELSE now() + ($2::bigint * interval '1 millisecond')
-            END,
+        SET status = 'ready',
+            next_retry_at = now() + ($3::bigint * interval '1 millisecond'),
             claimed_by = NULL,
             claim_until = NULL
         WHERE event_id = $1
+          AND status = 'claimed'
+          AND claimed_by = $2
       `,
-      [normalizedEventId, normalizedRetryDelayMs, normalizedMaxAttempts],
+      [normalizedEventId, claimOwner, retryDelayMs],
     );
-    if ((result.rowCount ?? 0) > 0) {
-      const deadLettered = await this.pool.query(
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  async markFailed(input: {
+    eventId: string;
+    claimOwner: string;
+    retryDelayMs: number;
+    maxAttempts?: number;
+  }): Promise<boolean> {
+    if (!this.pool || !this.enabled) {
+      return false;
+    }
+    const normalizedEventId = normalizeRequiredString(input.eventId);
+    const claimOwner = normalizeRequiredString(input.claimOwner);
+    if (!normalizedEventId || !claimOwner) {
+      return false;
+    }
+    const normalizedRetryDelayMs = normalizePositiveInteger(input.retryDelayMs, 5_000, 250, 86_400_000);
+    const normalizedMaxAttempts = normalizePositiveInteger(input.maxAttempts, 8, 1, 100);
+    const dedupeKey = buildConsumerEventDedupeKey(normalizedEventId);
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const result = await client.query(
         `
-          SELECT event_id, operation_id, topic, partition_key, payload_jsonb, status, attempt_count, created_at
-          FROM ${OUTBOX_EVENT_TABLE}
-          WHERE event_id = $1 AND status = 'dead_letter'
+          UPDATE ${OUTBOX_EVENT_TABLE}
+          SET attempt_count = attempt_count + 1,
+              status = CASE
+                WHEN attempt_count + 1 >= $4 THEN 'dead_letter'
+                ELSE 'ready'
+              END,
+              next_retry_at = CASE
+                WHEN attempt_count + 1 >= $4 THEN NULL
+                ELSE now() + ($3::bigint * interval '1 millisecond')
+              END,
+              claimed_by = NULL,
+              claim_until = NULL
+          WHERE event_id = $1
+            AND status = 'claimed'
+            AND claimed_by = $2
+          RETURNING event_id, operation_id, topic, partition_key, payload_jsonb, status, attempt_count, created_at
         `,
-        [normalizedEventId],
+        [normalizedEventId, claimOwner, normalizedRetryDelayMs, normalizedMaxAttempts],
       );
-      if (Array.isArray(deadLettered.rows) && deadLettered.rows.length > 0) {
-        const client = await this.pool.connect();
-        try {
-          await client.query('BEGIN');
-          await insertDeadLetterEventWithClient(client, deadLettered.rows[0] as Record<string, unknown>);
-          await client.query(
-            `DELETE FROM ${OUTBOX_EVENT_TABLE} WHERE event_id = $1 AND status = 'dead_letter'`,
-            [normalizedEventId],
-          );
-          await client.query('COMMIT');
-        } catch (e) {
-          await client.query('ROLLBACK');
-          throw e;
-        } finally {
-          client.release();
+      await client.query(
+        `
+          DELETE FROM ${OUTBOX_CONSUMER_DEDUPE_TABLE}
+          WHERE dedupe_key = $1
+            AND state = 'processing'
+            AND claimed_by = $2
+        `,
+        [dedupeKey, claimOwner],
+      );
+      const transitioned = Array.isArray(result.rows)
+        ? (result.rows[0] as Record<string, unknown> | undefined)
+        : undefined;
+      if (transitioned && normalizeRequiredString(transitioned.status) === 'dead_letter') {
+        await insertDeadLetterEventWithClient(client, transitioned);
+        const deletedSource = await client.query(
+          `DELETE FROM ${OUTBOX_EVENT_TABLE} WHERE event_id = $1 AND status = 'dead_letter'`,
+          [normalizedEventId],
+        );
+        if ((deletedSource.rowCount ?? 0) !== 1) {
+          throw new Error(`outbox_dead_letter_source_delete_failed:${normalizedEventId}`);
         }
       }
+      await client.query('COMMIT');
+      return (result.rowCount ?? 0) > 0;
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      throw error;
+    } finally {
+      client.release();
     }
-    return (result.rowCount ?? 0) > 0;
   }
 
   async claimConsumerDedupe(input: {
     eventId: string;
     operationId?: string | null;
     topic?: string | null;
-    consumerId: string;
+    claimOwner: string;
+    claimTtlMs?: number;
+  }): Promise<OutboxConsumerDedupeClaimResult> {
+    if (!this.pool || !this.enabled) {
+      return { status: 'claimed' };
+    }
+    const eventId = normalizeRequiredString(input.eventId);
+    const operationId = normalizeRequiredString(input.operationId);
+    const claimOwner = normalizeRequiredString(input.claimOwner);
+    const topic = normalizeRequiredString(input.topic);
+    if (!eventId || !claimOwner) {
+      return { status: 'processing' };
+    }
+    const claimTtlMs = normalizePositiveInteger(input.claimTtlMs, 30_000, 1_000, 300_000);
+    const dedupeKey = buildConsumerEventDedupeKey(eventId);
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const ownedClaim = await client.query(
+        `
+          SELECT event_id
+          FROM ${OUTBOX_EVENT_TABLE}
+          WHERE event_id = $1
+            AND status = 'claimed'
+            AND claimed_by = $2
+          FOR UPDATE
+        `,
+        [eventId, claimOwner],
+      );
+      if ((ownedClaim.rowCount ?? 0) <= 0) {
+        await client.query('COMMIT');
+        return { status: 'stale' };
+      }
+      const claimed = await client.query(
+        `
+          INSERT INTO ${OUTBOX_CONSUMER_DEDUPE_TABLE}(
+            dedupe_key, event_id, operation_id, topic, state, claimed_by, claim_until, delivered_at, updated_at
+          )
+          VALUES ($1, $2, $3, $4, 'processing', $5, now() + ($6::bigint * interval '1 millisecond'), NULL, now())
+          ON CONFLICT (dedupe_key)
+          DO UPDATE
+            SET event_id = EXCLUDED.event_id,
+                operation_id = EXCLUDED.operation_id,
+                topic = EXCLUDED.topic,
+                state = 'processing',
+                claimed_by = EXCLUDED.claimed_by,
+                claim_until = EXCLUDED.claim_until,
+                delivered_at = NULL,
+                updated_at = now()
+          WHERE ${OUTBOX_CONSUMER_DEDUPE_TABLE}.state = 'processing'
+            AND (${OUTBOX_CONSUMER_DEDUPE_TABLE}.claim_until IS NULL OR ${OUTBOX_CONSUMER_DEDUPE_TABLE}.claim_until < now())
+          RETURNING dedupe_key
+        `,
+        [dedupeKey, eventId, operationId || null, topic || null, claimOwner, claimTtlMs],
+      );
+      if ((claimed.rowCount ?? 0) > 0) {
+        await client.query('COMMIT');
+        return { status: 'claimed' };
+      }
+      const existing = await client.query(
+        `SELECT state FROM ${OUTBOX_CONSUMER_DEDUPE_TABLE} WHERE dedupe_key = $1 LIMIT 1`,
+        [dedupeKey],
+      );
+      const state = normalizeRequiredString(existing.rows[0]?.state);
+      await client.query('COMMIT');
+      return { status: state === 'delivered' ? 'delivered' : 'processing' };
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * 同时续租 outbox 事件与 consumer 去重 claim。
+   * 两个 claim 必须仍由同一 owner 持有；任一侧丢失都会整体回滚，调用方不得再确认或重试该事件。
+   */
+  async renewConsumerClaims(input: {
+    eventId: string;
+    claimOwner: string;
     claimTtlMs?: number;
   }): Promise<boolean> {
     if (!this.pool || !this.enabled) {
       return true;
     }
     const eventId = normalizeRequiredString(input.eventId);
-    const operationId = normalizeRequiredString(input.operationId);
-    const consumerId = normalizeRequiredString(input.consumerId);
-    const topic = normalizeRequiredString(input.topic);
-    if (!eventId || !consumerId) {
+    const claimOwner = normalizeRequiredString(input.claimOwner);
+    if (!eventId || !claimOwner) {
       return false;
     }
     const claimTtlMs = normalizePositiveInteger(input.claimTtlMs, 30_000, 1_000, 300_000);
-    const keys = buildConsumerDedupeKeys(eventId, operationId);
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
-      for (const dedupeKey of keys) {
-        const claimed = await client.query(
-          `
-            INSERT INTO ${OUTBOX_CONSUMER_DEDUPE_TABLE}(
-              dedupe_key, event_id, operation_id, topic, state, claimed_by, claim_until, delivered_at, updated_at
-            )
-            VALUES ($1, $2, $3, $4, 'processing', $5, now() + ($6::bigint * interval '1 millisecond'), NULL, now())
-            ON CONFLICT (dedupe_key)
-            DO UPDATE
-              SET event_id = EXCLUDED.event_id,
-                  operation_id = EXCLUDED.operation_id,
-                  topic = EXCLUDED.topic,
-                  state = 'processing',
-                  claimed_by = EXCLUDED.claimed_by,
-                  claim_until = EXCLUDED.claim_until,
-                  updated_at = now()
-            WHERE ${OUTBOX_CONSUMER_DEDUPE_TABLE}.state <> 'delivered'
-              AND (${OUTBOX_CONSUMER_DEDUPE_TABLE}.claim_until IS NULL OR ${OUTBOX_CONSUMER_DEDUPE_TABLE}.claim_until < now())
-            RETURNING dedupe_key
-          `,
-          [dedupeKey, eventId, operationId || null, topic || null, consumerId, claimTtlMs],
-        );
-        if ((claimed.rowCount ?? 0) <= 0) {
-          await client.query('ROLLBACK');
-          return false;
-        }
+      const eventClaim = await client.query(
+        `
+          UPDATE ${OUTBOX_EVENT_TABLE}
+          SET claim_until = now() + ($3::bigint * interval '1 millisecond')
+          WHERE event_id = $1
+            AND status = 'claimed'
+            AND claimed_by = $2
+        `,
+        [eventId, claimOwner, claimTtlMs],
+      );
+      if ((eventClaim.rowCount ?? 0) !== 1) {
+        await client.query('ROLLBACK');
+        return false;
+      }
+      const dedupeClaim = await client.query(
+        `
+          UPDATE ${OUTBOX_CONSUMER_DEDUPE_TABLE}
+          SET claim_until = now() + ($3::bigint * interval '1 millisecond'),
+              updated_at = now()
+          WHERE dedupe_key = $1
+            AND state = 'processing'
+            AND claimed_by = $2
+        `,
+        [buildConsumerEventDedupeKey(eventId), claimOwner, claimTtlMs],
+      );
+      if ((dedupeClaim.rowCount ?? 0) !== 1) {
+        await client.query('ROLLBACK');
+        return false;
       }
       await client.query('COMMIT');
       return true;
@@ -238,65 +373,69 @@ export class OutboxDispatcherService implements OnModuleInit, OnModuleDestroy {
 
   async markConsumerDedupeDelivered(input: {
     eventId: string;
-    operationId?: string | null;
-  }): Promise<void> {
+    claimOwner: string;
+  }): Promise<OutboxConsumerDedupeCompletionStatus> {
     if (!this.pool || !this.enabled) {
-      return;
+      return 'delivered';
     }
     const eventId = normalizeRequiredString(input.eventId);
-    const operationId = normalizeRequiredString(input.operationId);
-    if (!eventId) {
-      return;
+    const claimOwner = normalizeRequiredString(input.claimOwner);
+    if (!eventId || !claimOwner) {
+      return 'missing';
     }
-    const keys = buildConsumerDedupeKeys(eventId, operationId);
-    await this.pool.query(
+    const dedupeKey = buildConsumerEventDedupeKey(eventId);
+    const result = await this.pool.query(
       `
-        UPDATE ${OUTBOX_CONSUMER_DEDUPE_TABLE}
-        SET state = 'delivered',
-            claim_until = NULL,
-            delivered_at = now(),
-            updated_at = now()
-        WHERE dedupe_key = ANY($1::varchar[])
+        WITH updated AS (
+          UPDATE ${OUTBOX_CONSUMER_DEDUPE_TABLE}
+          SET state = 'delivered',
+              claim_until = NULL,
+              delivered_at = now(),
+              updated_at = now()
+          WHERE dedupe_key = $1
+            AND state = 'processing'
+            AND claimed_by = $2
+          RETURNING state
+        )
+        SELECT state FROM updated
+        UNION ALL
+        SELECT state
+        FROM ${OUTBOX_CONSUMER_DEDUPE_TABLE}
+        WHERE dedupe_key = $1
+          AND NOT EXISTS (SELECT 1 FROM updated)
+        LIMIT 1
       `,
-      [keys],
+      [dedupeKey, claimOwner],
     );
+    const state = normalizeRequiredString(result.rows[0]?.state);
+    if (state === 'delivered') {
+      return 'delivered';
+    }
+    return state === 'processing' ? 'processing' : 'missing';
   }
 
   async releaseConsumerDedupe(input: {
     eventId: string;
-    operationId?: string | null;
-    consumerId?: string | null;
-  }): Promise<void> {
+    claimOwner: string;
+  }): Promise<boolean> {
     if (!this.pool || !this.enabled) {
-      return;
+      return false;
     }
     const eventId = normalizeRequiredString(input.eventId);
-    const operationId = normalizeRequiredString(input.operationId);
-    const consumerId = normalizeRequiredString(input.consumerId);
-    if (!eventId) {
-      return;
+    const claimOwner = normalizeRequiredString(input.claimOwner);
+    if (!eventId || !claimOwner) {
+      return false;
     }
-    const keys = buildConsumerDedupeKeys(eventId, operationId);
-    if (consumerId) {
-      await this.pool.query(
-        `
-          DELETE FROM ${OUTBOX_CONSUMER_DEDUPE_TABLE}
-          WHERE dedupe_key = ANY($1::varchar[])
-            AND state = 'processing'
-            AND claimed_by = $2
-        `,
-        [keys, consumerId],
-      );
-      return;
-    }
-    await this.pool.query(
+    const result = await this.pool.query(
       `
         DELETE FROM ${OUTBOX_CONSUMER_DEDUPE_TABLE}
-        WHERE dedupe_key = ANY($1::varchar[])
+        WHERE dedupe_key = $1
           AND state = 'processing'
+          AND claimed_by = $2
       `,
-      [keys],
+      [buildConsumerEventDedupeKey(eventId), claimOwner],
     );
+    return (result.rowCount ?? 0) > 0;
   }
 
   async listRetryQueue(input?: {
@@ -433,6 +572,11 @@ async function deleteDeliveredConsumerDedupeRows(pool: Pool, retentionDays: numb
             WHERE event.event_id = dedupe.event_id
               AND event.status <> 'delivered'
           )
+          AND NOT EXISTS (
+            SELECT 1
+            FROM ${DEAD_LETTER_EVENT_TABLE} dead_letter
+            WHERE dead_letter.event_id = dedupe.event_id
+          )
         ORDER BY COALESCE(delivered_at, updated_at) ASC, dedupe_key ASC
         LIMIT $2
         FOR UPDATE SKIP LOCKED
@@ -485,6 +629,15 @@ async function ensureDeadLetterEventTable(pool: Pool): Promise<void> {
     )
   `);
   await pool.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS dead_letter_event_event_id_idx
+    ON ${DEAD_LETTER_EVENT_TABLE}(event_id)
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS dead_letter_event_operation_idx
+    ON ${DEAD_LETTER_EVENT_TABLE}(operation_id)
+    WHERE operation_id IS NOT NULL
+  `);
+  await pool.query(`
     CREATE INDEX IF NOT EXISTS dead_letter_event_topic_idx
     ON ${DEAD_LETTER_EVENT_TABLE}(topic, failed_at DESC)
   `);
@@ -512,32 +665,28 @@ async function ensureOutboxConsumerDedupeTable(pool: Pool): Promise<void> {
     CREATE INDEX IF NOT EXISTS outbox_consumer_dedupe_event_idx
     ON ${OUTBOX_CONSUMER_DEDUPE_TABLE}(event_id, updated_at DESC)
   `);
-  await pool.query(`
-    CREATE INDEX IF NOT EXISTS outbox_consumer_dedupe_operation_idx
-    ON ${OUTBOX_CONSUMER_DEDUPE_TABLE}(operation_id, updated_at DESC)
-    WHERE operation_id IS NOT NULL
-  `);
   await ensureVarcharColumnLength(pool, OUTBOX_CONSUMER_DEDUPE_TABLE, 'dedupe_key', 180);
   await ensureVarcharColumnLength(pool, OUTBOX_CONSUMER_DEDUPE_TABLE, 'event_id', 180);
   await ensureVarcharColumnLength(pool, OUTBOX_CONSUMER_DEDUPE_TABLE, 'operation_id', 180);
 }
 
-function buildConsumerDedupeKeys(eventId: string, operationId: string): string[] {
-  const keys = [buildConsumerDedupeKey('event', eventId)];
-  if (operationId) {
-    keys.push(buildConsumerDedupeKey('op', operationId));
-  }
-  return keys;
-}
-
-function buildConsumerDedupeKey(prefix: string, value: string): string {
-  const normalizedPrefix = prefix === 'op' ? 'op' : 'event';
-  const normalizedValue = normalizeRequiredString(value);
-  const rawKey = `${normalizedPrefix}:${normalizedValue}`;
+function buildConsumerEventDedupeKey(eventId: string): string {
+  const normalizedEventId = normalizeRequiredString(eventId);
+  const rawKey = `event:${normalizedEventId}`;
   if (rawKey.length <= OUTBOX_DEDUPE_KEY_MAX_LENGTH) {
     return rawKey;
   }
-  return `${normalizedPrefix}:sha256:${createHash('sha256').update(normalizedValue).digest('hex')}`;
+  return `event:sha256:${createHash('sha256').update(normalizedEventId).digest('hex')}`;
+}
+
+function buildOutboxClaimBatchOwner(dispatcherId: string): string {
+  const token = randomUUID().replace(/-/gu, '');
+  const rawOwner = `${dispatcherId}:${token}`;
+  if (rawOwner.length <= OUTBOX_CLAIM_BATCH_OWNER_MAX_LENGTH) {
+    return rawOwner;
+  }
+  const dispatcherDigest = createHash('sha256').update(dispatcherId).digest('hex').slice(0, 16);
+  return `outbox-dispatcher:sha256:${dispatcherDigest}:${token}`;
 }
 
 function buildTopicPrefixLikePatterns(topicPrefixes?: readonly string[]): string[] {
@@ -559,7 +708,7 @@ async function insertDeadLetterEventWithClient(queryable: { query: Pool['query']
   const topic = normalizeRequiredString(row.topic);
   const partitionKey = normalizeRequiredString(row.partition_key);
   if (!eventId || !topic || !partitionKey) {
-    return;
+    throw new Error('outbox_dead_letter_payload_invalid');
   }
   await queryable.query(
     `
@@ -567,7 +716,16 @@ async function insertDeadLetterEventWithClient(queryable: { query: Pool['query']
         event_id, operation_id, topic, partition_key, payload_jsonb, status, attempt_count, failed_at, created_at
       )
       VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, now(), COALESCE($8::timestamptz, now()))
-      ON CONFLICT DO NOTHING
+      ON CONFLICT (event_id)
+      DO UPDATE SET
+        operation_id = EXCLUDED.operation_id,
+        topic = EXCLUDED.topic,
+        partition_key = EXCLUDED.partition_key,
+        payload_jsonb = EXCLUDED.payload_jsonb,
+        status = EXCLUDED.status,
+        attempt_count = GREATEST(${DEAD_LETTER_EVENT_TABLE}.attempt_count, EXCLUDED.attempt_count),
+        failed_at = EXCLUDED.failed_at,
+        created_at = LEAST(${DEAD_LETTER_EVENT_TABLE}.created_at, EXCLUDED.created_at)
     `,
     [
       eventId,

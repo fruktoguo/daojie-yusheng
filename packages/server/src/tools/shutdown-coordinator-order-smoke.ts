@@ -72,6 +72,14 @@ async function main(): Promise<void> {
         order.push('flushFormations');
       },
     },
+    worldRuntimeSectService: {
+      beginShutdown() {
+        order.push('beginSectShutdown');
+      },
+      async flushAllNow() {
+        order.push('flushSects');
+      },
+    },
     async closeForShutdown() {
       order.push('closeRuntime');
     },
@@ -84,10 +92,24 @@ async function main(): Promise<void> {
       order.push('deregisterNode');
     },
   };
+  const durableOperationService = {
+    beginShutdown() {
+      order.push('beginDurableShutdown');
+    },
+    hasUnresolvedCommitOutcomes() {
+      return false;
+    },
+  };
+  const flushTaskRuntimeService = {
+    async drainForShutdown() {
+      order.push('drainFlushTaskRuntime');
+    },
+  };
   const service = new WorldShutdownDrainService(
     worldGateway as never,
     playerPersistenceFlushService as never,
     mapPersistenceFlushService as never,
+    durableOperationService as never,
     marketRuntimeService as never,
     tongtianTowerPersistenceService as never,
     worldTickService as never,
@@ -95,6 +117,12 @@ async function main(): Promise<void> {
     nodeRegistryService as never,
     shutdownStatusService as never,
     barrier as never,
+    flushTaskRuntimeService as never,
+    {
+      async drainForShutdown() {
+        order.push('drainBackgroundWorkers');
+      },
+    } as never,
   );
 
   const first = await service.drain('SIGTERM');
@@ -106,6 +134,12 @@ async function main(): Promise<void> {
   assert.deepEqual(first.instances.leaseReleaseSkipped, []);
   assert.equal(first.node.deregistered, true);
   assert.ok(order.indexOf('flushTower') < order.indexOf('releaseLeases'));
+  assert.ok(order.indexOf('beginDurableShutdown') < order.indexOf('drainMarket'));
+  assert.ok(order.indexOf('stopTick') < order.indexOf('drainFlushTaskRuntime'));
+  assert.ok(order.indexOf('stopTick') < order.indexOf('drainBackgroundWorkers'));
+  assert.ok(order.indexOf('drainBackgroundWorkers') < order.indexOf('drainFlushTaskRuntime'));
+  assert.ok(order.indexOf('drainFlushTaskRuntime') < order.indexOf('flushPlayers'));
+  assert.ok(order.indexOf('beginSectShutdown') < order.indexOf('disconnectAll:server_shutdown'));
   assert.ok(order.indexOf('flushFormations') < order.indexOf('releaseLeases'));
   assert.ok(order.indexOf('releaseLeases') < order.indexOf('deregisterNode'));
   assert.ok(order.indexOf('deregisterNode') < order.indexOf('closeRuntime'));

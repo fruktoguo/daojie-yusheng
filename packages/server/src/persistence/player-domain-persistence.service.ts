@@ -199,6 +199,7 @@ const WATERMARK_COLUMNS = [
   'inventory_version',
   'market_storage_version',
   'equipment_version',
+  'artifact_version',
   'technique_version',
   'body_training_version',
   'buff_version',
@@ -218,6 +219,48 @@ const WATERMARK_COLUMNS = [
 
 type RecoveryWatermarkColumn = (typeof WATERMARK_COLUMNS)[number];
 type RecoveryWatermarkPatch = Partial<Record<RecoveryWatermarkColumn, number>>;
+
+const PLAYER_PROJECTION_WATERMARK_COLUMN_BY_DOMAIN: Readonly<Record<string, RecoveryWatermarkColumn>> = {
+  world_anchor: 'anchor_version',
+  position_checkpoint: 'position_checkpoint_version',
+  vitals: 'vitals_version',
+  progression: 'progression_version',
+  attr: 'attr_version',
+  wallet: 'wallet_version',
+  sect_membership: 'sect_membership_version',
+  market_storage: 'market_storage_version',
+  body_training: 'body_training_version',
+  inventory: 'inventory_version',
+  map_unlock: 'map_unlock_version',
+  equipment: 'equipment_version',
+  artifact: 'artifact_version',
+  technique: 'technique_version',
+  buff: 'buff_version',
+  quest: 'quest_version',
+  combat_pref: 'combat_pref_version',
+  auto_battle_skill: 'auto_battle_skill_version',
+  auto_use_item_rule: 'auto_use_item_rule_version',
+  profession: 'profession_version',
+  alchemy_preset: 'alchemy_preset_version',
+  active_job: 'active_job_version',
+  enhancement_record: 'enhancement_record_version',
+  logbook: 'logbook_version',
+};
+
+let lastPlayerPersistenceVersion = 0;
+
+/**
+ * 生成进程内单调递增的玩家持久化版本。
+ *
+ * 同一毫秒内可能连续发生上线、离线或多次业务变更，不能直接把 `Date.now()` 当作唯一顺序；
+ * durable replay 会继续使用载荷中已经固化的版本，不应在消费时重新生成。
+ */
+export function nextPlayerPersistenceVersion(nowInput: number = Date.now()): number {
+  const now = Math.max(1, Math.trunc(Number.isFinite(nowInput) ? nowInput : Date.now()));
+  const next = Math.max(now, lastPlayerPersistenceVersion + 1);
+  lastPlayerPersistenceVersion = next;
+  return next;
+}
 
 export interface PlayerPresenceUpsertInput {
   online: boolean;
@@ -267,6 +310,11 @@ export interface PlayerSnapshotProjectionDomainWriteOptions {
   allowBuffEmptyOverwrite?: boolean;
   expectedRuntimeOwnerId?: string | null;
   expectedSessionEpoch?: number | null;
+  /**
+   * durable staging 为本次单域投影分配的单调版本。
+   * worker 必须在玩家事务锁内先比较 recovery watermark，旧版本不得覆盖较新的分域真源。
+   */
+  expectedProjectionVersion?: number | null;
 }
 
 interface PlayerDomainPruneOptions {
@@ -852,6 +900,7 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
   private readonly logger = new Logger(PlayerDomainPersistenceService.name);
   private pool: Pool | null = null;
   private enabled = false;
+  private startupMaintenancePromise: Promise<void> | null = null;
 
   constructor(
     @Optional()
@@ -881,9 +930,6 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
     try {
       await ensurePlayerDomainTables(this.pool);
       this.enabled = true;
-      await this.expireStaleOnlinePresenceOnStartup();
-      await this.repairOrphanEnhancementLockedItemsOnStartup();
-      await this.cleanupDerivedRuntimeBonusEntriesOnStartup();
       this.logger.log('玩家分域持久化已启用');
     } catch (error: unknown) {
       this.logger.error(
@@ -900,6 +946,26 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
 
   isEnabled(): boolean {
     return this.enabled && this.pool !== null;
+  }
+
+  /**
+   * durable ledger 恢复完成后再执行启动修复。
+   * 旧 session 的 owner/epoch 是历史 payload 的恢复围栏，不能在 replay 前提前清空。
+   */
+  runPostReplayStartupMaintenance(): Promise<void> {
+    if (!this.pool || !this.enabled) {
+      return Promise.resolve();
+    }
+    if (this.startupMaintenancePromise) {
+      return this.startupMaintenancePromise;
+    }
+    const maintenance = (async () => {
+      await this.expireStaleOnlinePresenceOnStartup();
+      await this.repairOrphanEnhancementLockedItemsOnStartup();
+      await this.cleanupDerivedRuntimeBonusEntriesOnStartup();
+    })();
+    this.startupMaintenancePromise = maintenance;
+    return maintenance;
   }
 
   private async expireStaleOnlinePresenceOnStartup(): Promise<void> {
@@ -1093,6 +1159,39 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
     const versionSeed = normalizeVersionSeed(input.versionSeed);
     await this.withTransaction(async (client) => {
       await acquirePlayerPersistenceLock(client, normalizedPlayerId);
+      const runtimeOwnerId = normalizeOptionalString(input.runtimeOwnerId);
+      const sessionEpoch = normalizeMinimumInteger(input.sessionEpoch, 1, 1);
+      const currentResult = await client.query<{
+        session_epoch?: unknown;
+        runtime_owner_id?: unknown;
+        presence_version?: unknown;
+      }>(
+        `
+          SELECT
+            presence.session_epoch,
+            presence.runtime_owner_id,
+            COALESCE(watermark.presence_version, 0) AS presence_version
+          FROM ${PLAYER_PRESENCE_TABLE} presence
+          LEFT JOIN ${PLAYER_RECOVERY_WATERMARK_TABLE} watermark
+            ON watermark.player_id = presence.player_id
+          WHERE presence.player_id = $1
+          FOR UPDATE OF presence
+        `,
+        [normalizedPlayerId],
+      );
+      const current = currentResult.rows[0];
+      if (current) {
+        const currentEpoch = normalizeMinimumInteger(current.session_epoch, 1, 1);
+        const currentOwnerId = normalizeOptionalString(current.runtime_owner_id);
+        if (sessionEpoch < currentEpoch
+          || (sessionEpoch === currentEpoch && runtimeOwnerId !== currentOwnerId)) {
+          throw new Error(`player_presence_stale_fence:${normalizedPlayerId}`);
+        }
+        const currentVersion = Math.max(0, normalizeOptionalInteger(current.presence_version) ?? 0);
+        if (sessionEpoch === currentEpoch && versionSeed <= currentVersion) {
+          return;
+        }
+      }
       const presenceWrite = await client.query(
         `
           INSERT INTO ${PLAYER_PRESENCE_TABLE}(
@@ -1132,8 +1231,8 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
           input.inWorld === true,
           normalizeOptionalInteger(input.lastHeartbeatAt),
           normalizeOptionalInteger(input.offlineSinceAt),
-          normalizeOptionalString(input.runtimeOwnerId),
-          normalizeMinimumInteger(input.sessionEpoch, 1, 1),
+          runtimeOwnerId,
+          sessionEpoch,
           normalizeOptionalString(input.transferState),
           normalizeOptionalString(input.transferTargetNodeId),
         ],
@@ -1961,7 +2060,7 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
     slots: readonly PlayerArtifactSlotUpsertInput[],
     options: PlayerDomainWriteOptions = {},
   ): Promise<void> {
-    await this.saveProjectedDomain(playerId, options.versionSeed, ['equipment_version'], (client, normalizedPlayerId) =>
+    await this.saveProjectedDomain(playerId, options.versionSeed, ['artifact_version'], (client, normalizedPlayerId) =>
       replacePlayerArtifactSlots(client, normalizedPlayerId, [...slots]),
     );
   }
@@ -2145,6 +2244,14 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
     await this.withTransaction(async (client) => {
       await acquirePlayerPersistenceLock(client, normalizedPlayerId);
       await assertPlayerSnapshotProjectionFenceCurrent(client, normalizedPlayerId, options);
+      if (!await shouldApplyPlayerSnapshotProjectionVersion(
+        client,
+        normalizedPlayerId,
+        normalizedDomains,
+        options.expectedProjectionVersion,
+      )) {
+        return;
+      }
       if (requiresLiveDbStateWrite) {
         await savePlayerSnapshotProjectionDomainsWithClient(
           client,
@@ -3046,6 +3153,15 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
     const versionSeed = normalizeVersionSeed(versionSeedInput);
     await this.withTransaction(async (client) => {
       await acquirePlayerPersistenceLock(client, normalizedPlayerId);
+      if (!await shouldApplyPlayerRecoveryWatermarkVersion(
+        client,
+        normalizedPlayerId,
+        watermarkColumns,
+        versionSeed,
+        true,
+      )) {
+        return;
+      }
       await write(client, normalizedPlayerId, versionSeed);
       if (watermarkColumns.length > 0) {
         const patch: RecoveryWatermarkPatch = {};
@@ -3311,6 +3427,7 @@ export async function savePlayerSnapshotProjectionWithClient(
     sect_membership_version: versionSeed,
     map_unlock_version: versionSeed,
     equipment_version: versionSeed,
+    artifact_version: versionSeed,
     technique_version: versionSeed,
     buff_version: versionSeed,
     quest_version: versionSeed,
@@ -3384,7 +3501,7 @@ export async function savePlayerSnapshotProjectionDomainsWithClient(
     throw new Error(`player_domain_projection_delta_required:${normalizedPlayerId}:${normalizedDomains}`);
   }
 
-  const versionSeed = normalizeVersionSeed(snapshot.savedAt);
+  const versionSeed = normalizeVersionSeed(options.expectedProjectionVersion ?? snapshot.savedAt);
   const placement = snapshot.placement;
   const respawn = snapshot.respawn ?? placement;
   const progression = asRecord(snapshot.progression);
@@ -3532,7 +3649,7 @@ export async function savePlayerSnapshotProjectionDomainsWithClient(
           && Array.isArray(snapshot.artifacts?.slots),
       },
     );
-    watermarkPatch.equipment_version = versionSeed;
+    watermarkPatch.artifact_version = versionSeed;
   }
 
   if (rawDomains.has('technique')) {
@@ -3614,6 +3731,73 @@ export async function savePlayerSnapshotProjectionDomainsWithClient(
   if (Object.keys(watermarkPatch).length > 0) {
     await upsertRecoveryWatermark(client, normalizedPlayerId, watermarkPatch);
   }
+}
+
+async function shouldApplyPlayerSnapshotProjectionVersion(
+  client: PoolClient,
+  playerId: string,
+  domains: ReadonlySet<string>,
+  expectedVersionInput: unknown,
+): Promise<boolean> {
+  const expectedVersion = Number(expectedVersionInput);
+  if (!Number.isFinite(expectedVersion) || expectedVersion <= 0) {
+    return true;
+  }
+
+  const watermarkColumns = Array.from(new Set(Array.from(domains, (domain) => {
+    const column = PLAYER_PROJECTION_WATERMARK_COLUMN_BY_DOMAIN[domain];
+    if (!column) {
+      throw new Error(`player_projection_watermark_column_missing:${playerId}:${domain}`);
+    }
+    return column;
+  }))).sort();
+  if (watermarkColumns.length === 0) {
+    return true;
+  }
+
+  return shouldApplyPlayerRecoveryWatermarkVersion(
+    client,
+    playerId,
+    watermarkColumns,
+    expectedVersion,
+    false,
+  );
+}
+
+async function shouldApplyPlayerRecoveryWatermarkVersion(
+  client: PoolClient,
+  playerId: string,
+  watermarkColumns: readonly RecoveryWatermarkColumn[],
+  expectedVersionInput: unknown,
+  allowEqual: boolean,
+): Promise<boolean> {
+  const normalizedExpectedVersion = Math.max(0, Math.trunc(Number(expectedVersionInput)));
+  if (!Number.isFinite(normalizedExpectedVersion) || normalizedExpectedVersion <= 0 || watermarkColumns.length === 0) {
+    return true;
+  }
+  const result = await client.query<Record<string, unknown>>(
+    `
+      SELECT ${watermarkColumns.join(', ')}
+      FROM ${PLAYER_RECOVERY_WATERMARK_TABLE}
+      WHERE player_id = $1
+      FOR UPDATE
+    `,
+    [playerId],
+  );
+  const watermark = result.rows[0];
+  if (!watermark) {
+    return true;
+  }
+  return watermarkColumns.every((column) => {
+    const currentVersion = Number(watermark[column]);
+    if (!Number.isFinite(currentVersion)) {
+      return true;
+    }
+    const normalizedCurrentVersion = Math.max(0, Math.trunc(currentVersion));
+    return allowEqual
+      ? normalizedCurrentVersion <= normalizedExpectedVersion
+      : normalizedCurrentVersion < normalizedExpectedVersion;
+  });
 }
 
 function normalizeProjectedDirtyDomains(domains: Iterable<string>): Set<string> {
@@ -4413,6 +4597,7 @@ export async function ensurePlayerDomainTablesWithClient(client: PoolClient): Pr
       inventory_version bigint NOT NULL DEFAULT 0,
       market_storage_version bigint NOT NULL DEFAULT 0,
       equipment_version bigint NOT NULL DEFAULT 0,
+      artifact_version bigint NOT NULL DEFAULT 0,
       technique_version bigint NOT NULL DEFAULT 0,
       body_training_version bigint NOT NULL DEFAULT 0,
       buff_version bigint NOT NULL DEFAULT 0,
@@ -7399,6 +7584,7 @@ function hasProjectedPlayerDomainState(domains: Omit<LoadedPlayerDomains, 'hasPr
     'inventory_version',
     'map_unlock_version',
     'equipment_version',
+    'artifact_version',
     'technique_version',
     'buff_version',
     'quest_version',
@@ -8382,6 +8568,7 @@ function resolveProjectedSnapshotSavedAt(
     normalizeOptionalInteger(watermark?.inventory_version),
     normalizeOptionalInteger(watermark?.map_unlock_version),
     normalizeOptionalInteger(watermark?.equipment_version),
+    normalizeOptionalInteger(watermark?.artifact_version),
     normalizeOptionalInteger(watermark?.technique_version),
     normalizeOptionalInteger(watermark?.buff_version),
     normalizeOptionalInteger(watermark?.quest_version),
@@ -8581,11 +8768,11 @@ async function assertPlayerSnapshotProjectionFenceCurrent(
   const expectedEpoch = normalizeOptionalInteger(options.expectedSessionEpoch) ?? 0;
   const expectedOwner = normalizeOptionalString(options.expectedRuntimeOwnerId);
   // owner 与 epoch 都未提供是管理后台、初始化和一次性导入的明确无围栏契约。
-  // 一旦提供任一字段，即视为运行态写入，必须携带完整且精确匹配的 ownership fence。
+  // 历史 durable payload 可能只有 epoch；此时只允许精确匹配 DB 中同样已释放 owner 的 fence。
   if (expectedEpoch <= 0 && !expectedOwner) {
     return;
   }
-  if (expectedEpoch <= 0 || !expectedOwner) {
+  if (expectedEpoch <= 0) {
     throw new Error(`player_snapshot_projection_incomplete_fence:${playerId}:expectedOwner=${expectedOwner ?? 'none'}:expectedEpoch=${expectedEpoch || 'none'}`);
   }
   const result = await client.query<{
@@ -8610,8 +8797,8 @@ async function assertPlayerSnapshotProjectionFenceCurrent(
     throw new Error(`player_snapshot_projection_stale_session:${playerId}:expected=${expectedEpoch}:persisted=${persistedEpoch}`);
   }
   const persistedOwner = normalizeOptionalString(row.runtime_owner_id);
-  if (!persistedOwner || expectedOwner !== persistedOwner) {
-    throw new Error(`player_snapshot_projection_stale_owner:${playerId}:expected=${expectedOwner}:persisted=${persistedOwner ?? 'none'}`);
+  if (expectedOwner ? expectedOwner !== persistedOwner : persistedOwner !== null) {
+    throw new Error(`player_snapshot_projection_stale_owner:${playerId}:expected=${expectedOwner ?? 'none'}:persisted=${persistedOwner ?? 'none'}`);
   }
 }
 
@@ -8667,10 +8854,10 @@ function normalizeMinimumNumber(value: unknown, fallback: unknown, minimum: numb
 
 function normalizeVersionSeed(value: unknown): number {
   if (value == null || value === '') {
-    return Math.max(1, Math.trunc(Date.now()));
+    return nextPlayerPersistenceVersion();
   }
   const numeric = Number(value);
-  return Math.max(1, Math.trunc(Number.isFinite(numeric) ? numeric : Date.now()));
+  return Math.max(1, Math.trunc(Number.isFinite(numeric) ? numeric : nextPlayerPersistenceVersion()));
 }
 
 function normalizeOfflineGainReportPayload(

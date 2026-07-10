@@ -12,8 +12,14 @@ import type { ItemStack } from '@mud/shared';
 import { assignItemInstanceIdIfNeeded, compareItemInstanceId, isItemInstanceIdHardCheckEnabled } from '../world/item-instance-id.helpers';
 import { lockItem, unlockItem, getLockedItem, lockedItemToItemStack } from '../player/inventory-lock.helpers';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
-import { PlayerDomainPersistenceService, buildEnhancementRecordRowsFromEntries, type PlayerTechniqueActivityQueueUpsertInput } from '../../persistence/player-domain-persistence.service';
-import { DurableOperationService } from '../../persistence/durable-operation.service';
+import {
+    PlayerDomainPersistenceService,
+    buildEnhancementRecordRowsFromEntries,
+    nextPlayerPersistenceVersion,
+    type PlayerTechniqueActivityQueueUpsertInput,
+} from '../../persistence/player-domain-persistence.service';
+import { isFlushTaskConsumerMode } from '../../persistence/flush-task-runtime-mode';
+import { DurableOperationService, type DurableProfessionStateSnapshot } from '../../persistence/durable-operation.service';
 import { resolveProjectPath } from '../../common/project-path';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { CraftPanelAlchemyQueryService, buildForgingAlchemyPanelState } from './craft-panel-alchemy-query.service';
@@ -524,7 +530,7 @@ export class CraftPanelRuntimeService {
         const presence = options.presence ?? await this.resolveDurablePresenceFence(playerId);
         const snapshot = this.playerRuntimeService.buildPersistenceSnapshot?.(
             playerId,
-            new Set(['inventory', 'wallet', 'equipment', 'active_job', 'enhancement_record']),
+            new Set(['inventory', 'wallet', 'equipment', 'profession', 'active_job', 'enhancement_record']),
         );
         if (!snapshot) {
             throw new Error(`强化强事务提交失败：无法构建玩家快照 playerId=${playerId}`);
@@ -533,6 +539,7 @@ export class CraftPanelRuntimeService {
         const walletBalances = buildDurableWalletBalancesFromSnapshot(snapshot);
         const equipmentSlots = buildDurableEquipmentSlotsFromSnapshot(snapshot);
         const enhancementRecords = buildDurableEnhancementRecordsFromEntries(playerId, player.enhancementRecords ?? []);
+        const professionStates = buildDurableProfessionStatesFromSnapshot(snapshot);
         const activeJob = buildActiveJobSnapshotFromPlayer(player);
         const jobRunId = typeof expectedJob?.jobRunId === 'string'
             ? expectedJob.jobRunId
@@ -598,13 +605,18 @@ export class CraftPanelRuntimeService {
                 nextWalletBalances: walletBalances,
                 nextEquipmentSlots: equipmentSlots,
                 nextEnhancementRecords: enhancementRecords,
+                nextProfessionStates: professionStates,
                 nextActiveJob: activeJob,
                 completionKind: resolveEnhancementDurableCompletionKind(action, player, jobRunId, expectedJob),
             });
         }
+        const persistedDomains = new Set(['inventory', 'wallet', 'equipment', 'active_job', 'enhancement_record']);
+        if (action !== 'start' && action !== 'cancelled') {
+            persistedDomains.add('profession');
+        }
         this.playerRuntimeService.markPersisted?.(
             playerId,
-            new Set(['inventory', 'wallet', 'equipment', 'active_job', 'enhancement_record']),
+            persistedDomains,
             snapshotRevision,
         );
     }
@@ -645,7 +657,7 @@ export class CraftPanelRuntimeService {
         ) {
             await this.playerDomainPersistenceService.savePlayerPresence(playerId, {
                 ...presence,
-                versionSeed: Date.now(),
+                versionSeed: nextPlayerPersistenceVersion(),
             });
         }
         return {
@@ -2575,6 +2587,9 @@ export class CraftPanelRuntimeService {
     async persistEnhancementRecords(player) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+        if (isFlushTaskConsumerMode()) {
+            return;
+        }
         if (!this.playerDomainPersistenceService?.isEnabled?.()) {
             return;
         }
@@ -2586,7 +2601,7 @@ export class CraftPanelRuntimeService {
         // 必须先归一为 EnhancementRecordRow 形态，否则 levels_payload undefined 会触发非空约束违反。
         const rows = buildEnhancementRecordRowsFromEntries(playerId, player.enhancementRecords ?? []);
         await this.playerDomainPersistenceService.savePlayerEnhancementRecords(playerId, rows, {
-            versionSeed: player.persistentRevision,
+            versionSeed: nextPlayerPersistenceVersion(),
         });
     }
     /**
@@ -2598,6 +2613,9 @@ export class CraftPanelRuntimeService {
     async persistAlchemyPresets(player) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+        if (isFlushTaskConsumerMode()) {
+            return;
+        }
         if (!this.playerDomainPersistenceService?.isEnabled?.()) {
             return;
         }
@@ -2606,7 +2624,7 @@ export class CraftPanelRuntimeService {
             return;
         }
         await this.playerDomainPersistenceService.savePlayerAlchemyPresets(playerId, [...(player.alchemyPresets ?? [])], {
-            versionSeed: player.persistentRevision,
+            versionSeed: nextPlayerPersistenceVersion(),
         });
     }
     /**
@@ -2618,6 +2636,9 @@ export class CraftPanelRuntimeService {
     async persistActiveJob(player) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+        if (isFlushTaskConsumerMode()) {
+            return;
+        }
         if (!this.playerDomainPersistenceService?.isEnabled?.()) {
             return;
         }
@@ -2626,11 +2647,12 @@ export class CraftPanelRuntimeService {
             return;
         }
         const activeJob = buildActiveJobSnapshotFromPlayer(player);
+        const versionSeed = nextPlayerPersistenceVersion();
         await this.playerDomainPersistenceService.savePlayerActiveJob(playerId, activeJob, {
-            versionSeed: player.persistentRevision,
+            versionSeed,
         });
         await this.playerDomainPersistenceService.savePlayerTechniqueActivityQueue(playerId, buildTechniqueActivityQueueSnapshotFromPlayer(player), {
-            versionSeed: player.persistentRevision,
+            versionSeed,
         });
     }
     /**
@@ -2642,6 +2664,9 @@ export class CraftPanelRuntimeService {
     async persistTechniqueActivitySnapshot(player) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+        if (isFlushTaskConsumerMode()) {
+            return;
+        }
         if (!this.playerDomainPersistenceService?.isEnabled?.()) {
             return;
         }
@@ -2650,11 +2675,12 @@ export class CraftPanelRuntimeService {
             return;
         }
         const activeJob = buildActiveJobSnapshotFromPlayer(player);
+        const versionSeed = nextPlayerPersistenceVersion();
         await this.playerDomainPersistenceService.savePlayerActiveJob(playerId, activeJob, {
-            versionSeed: player.persistentRevision,
+            versionSeed,
         });
         await this.playerDomainPersistenceService.savePlayerTechniqueActivityQueue(playerId, buildTechniqueActivityQueueSnapshotFromPlayer(player), {
-            versionSeed: player.persistentRevision,
+            versionSeed,
         });
     }
     /**
@@ -2706,6 +2732,7 @@ export class CraftPanelRuntimeService {
             dirtyDomains.includes('active_job')
             && !player?.suppressImmediateDomainPersistence
             && !durableEnhancementActiveJob
+            && !isFlushTaskConsumerMode()
         ) {
             void this.persistTechniqueActivitySnapshot(player).catch((error) => {
                 console.warn(`活跃任务直写失败，已标记脏数据等待重试：${error instanceof Error ? error.message : String(error)}`);
@@ -3589,6 +3616,40 @@ function buildDurableEnhancementRecordsFromEntries(playerId, entries) {
         protectionStartLevel: row.protectionStartLevel,
         status: row.status,
     }));
+}
+
+function buildDurableProfessionStatesFromSnapshot(snapshot): DurableProfessionStateSnapshot[] {
+    const progression = snapshot?.progression && typeof snapshot.progression === 'object'
+        ? snapshot.progression
+        : {};
+    const rows: DurableProfessionStateSnapshot[] = [];
+    const append = (
+        professionType: DurableProfessionStateSnapshot['professionType'],
+        skill: unknown,
+        fallbackLevel: unknown = null,
+    ) => {
+        const state = skill && typeof skill === 'object' ? skill as Record<string, unknown> : null;
+        if (!state && fallbackLevel == null) {
+            return;
+        }
+        const exp = state?.exp == null ? Number.NaN : Number(state.exp);
+        const expToNext = state?.expToNext == null ? Number.NaN : Number(state.expToNext);
+        rows.push({
+            professionType,
+            level: Math.max(1, Math.trunc(Number(state?.level ?? fallbackLevel ?? 1) || 1)),
+            exp: Number.isFinite(exp) ? Math.max(0, exp) : null,
+            expToNext: Number.isFinite(expToNext) ? Math.max(0, expToNext) : null,
+        });
+    };
+    append('alchemy', progression.alchemySkill);
+    append('building', progression.buildingSkill);
+    append('gather', progression.gatherSkill);
+    append('forging', progression.forgingSkill);
+    append('mining', progression.miningSkill);
+    append('formation', progression.formationSkill);
+    append('transmission', progression.transmissionSkill);
+    append('enhancement', progression.enhancementSkill, progression.enhancementSkillLevel ?? 1);
+    return rows;
 }
 
 function buildTechniqueActivityQueueSnapshotFromPlayer(player): PlayerTechniqueActivityQueueUpsertInput[] {

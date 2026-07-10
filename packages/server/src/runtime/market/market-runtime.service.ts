@@ -13,7 +13,10 @@ import { MarketPersistenceService } from '../../persistence/market-persistence.s
 import { DurableOperationService } from '../../persistence/durable-operation.service';
 import { PlayerPersistenceFlushService } from '../../persistence/player-persistence-flush.service';
 import { PlayerIdentityPersistenceService } from '../../persistence/player-identity-persistence.service';
-import { PlayerDomainPersistenceService } from '../../persistence/player-domain-persistence.service';
+import {
+    PlayerDomainPersistenceService,
+    nextPlayerPersistenceVersion,
+} from '../../persistence/player-domain-persistence.service';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { InstanceCatalogService } from '../../persistence/instance-catalog.service';
 import { buildStructuredNotice } from '../world/structured-notice.helpers';
@@ -1349,7 +1352,7 @@ export class MarketRuntimeService {
         }
         await this.playerDomainPersistenceService.savePlayerPresence(playerId, {
             ...presence,
-            versionSeed: Date.now(),
+            versionSeed: nextPlayerPersistenceVersion(),
         });
         return true;
     }

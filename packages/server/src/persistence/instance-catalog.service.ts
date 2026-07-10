@@ -322,6 +322,7 @@ export class InstanceCatalogService implements OnModuleInit {
     nodeId: string;
     leaseToken: string;
     leaseExpireAt: Date;
+    expectedOwnershipEpoch: number;
   }): Promise<{ ok: boolean; ownershipEpoch: number | null }> {
     if (!this.pool || !this.enabled) {
       return { ok: false, ownershipEpoch: null };
@@ -333,10 +334,12 @@ export class InstanceCatalogService implements OnModuleInit {
             lease_token = $3,
             lease_expire_at = $4,
             ownership_epoch = ownership_epoch + 1,
+            metadata_version = GREATEST(metadata_version, ownership_epoch + 1),
             status = 'active',
             runtime_status = 'leased',
             last_active_at = now()
         WHERE instance_id = $1
+          AND ownership_epoch = $5
           AND (
             assigned_node_id IS NULL
             OR lease_token IS NULL
@@ -345,7 +348,13 @@ export class InstanceCatalogService implements OnModuleInit {
           )
         RETURNING ownership_epoch
       `,
-      [input.instanceId.trim(), input.nodeId.trim(), input.leaseToken.trim(), input.leaseExpireAt],
+      [
+        input.instanceId.trim(),
+        input.nodeId.trim(),
+        input.leaseToken.trim(),
+        input.leaseExpireAt,
+        Math.max(0, Math.trunc(input.expectedOwnershipEpoch)),
+      ],
     );
     if ((result.rowCount ?? 0) === 0) {
       return { ok: false, ownershipEpoch: null };
@@ -392,6 +401,7 @@ export class InstanceCatalogService implements OnModuleInit {
     nodeId: string;
     leaseToken: string;
     leaseExpireAt: Date;
+    expectedOwnershipEpoch: number;
   }): Promise<{ ok: boolean; ownershipEpoch: number | null }> {
     if (!this.pool || !this.enabled) {
       return { ok: false, ownershipEpoch: null };
@@ -403,13 +413,64 @@ export class InstanceCatalogService implements OnModuleInit {
             lease_token = $3,
             lease_expire_at = $4,
             ownership_epoch = ownership_epoch + 1,
+            metadata_version = GREATEST(metadata_version, ownership_epoch + 1),
             status = 'active',
             runtime_status = 'leased',
             last_active_at = now()
         WHERE instance_id = $1
+          AND ownership_epoch = $5
         RETURNING ownership_epoch
       `,
-      [input.instanceId.trim(), input.nodeId.trim(), input.leaseToken.trim(), input.leaseExpireAt],
+      [
+        input.instanceId.trim(),
+        input.nodeId.trim(),
+        input.leaseToken.trim(),
+        input.leaseExpireAt,
+        Math.max(0, Math.trunc(input.expectedOwnershipEpoch)),
+      ],
+    );
+    if ((result.rowCount ?? 0) === 0) {
+      return { ok: false, ownershipEpoch: null };
+    }
+    return { ok: true, ownershipEpoch: Number(result.rows[0]?.ownership_epoch ?? null) || null };
+  }
+
+  async migrateInstanceLease(input: {
+    instanceId: string;
+    sourceNodeId: string;
+    sourceLeaseToken: string;
+    targetNodeId: string;
+    leaseExpireAt: Date;
+    expectedOwnershipEpoch: number;
+  }): Promise<{ ok: boolean; ownershipEpoch: number | null }> {
+    if (!this.pool || !this.enabled) {
+      return { ok: false, ownershipEpoch: null };
+    }
+    const result = await this.pool.query(
+      `
+        UPDATE ${INSTANCE_CATALOG_TABLE}
+        SET assigned_node_id = $5,
+            lease_token = NULL,
+            lease_expire_at = $6,
+            ownership_epoch = ownership_epoch + 1,
+            metadata_version = GREATEST(metadata_version, ownership_epoch + 1),
+            status = 'active',
+            runtime_status = 'leased',
+            last_active_at = now()
+        WHERE instance_id = $1
+          AND assigned_node_id = $2
+          AND lease_token = $3
+          AND ownership_epoch = $4
+        RETURNING ownership_epoch
+      `,
+      [
+        input.instanceId.trim(),
+        input.sourceNodeId.trim(),
+        input.sourceLeaseToken.trim(),
+        Math.max(0, Math.trunc(input.expectedOwnershipEpoch)),
+        input.targetNodeId.trim(),
+        input.leaseExpireAt,
+      ],
     );
     if ((result.rowCount ?? 0) === 0) {
       return { ok: false, ownershipEpoch: null };

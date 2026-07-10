@@ -27,6 +27,7 @@ async function main(): Promise<void> {
   testEnhancementCancelUsesPipelineLifecycle();
   await testStartInterruptAndCompleteEnhancement();
   await testDurableEnhancementPersistsAssetsAtomically();
+  await testDurableEnhancementAdvanceCommitsProfessionAtomically();
   await testDurableEnhancementFailureRestoresFullRuntimeState();
   await testDurableEnhancementCancelUsesCancelOperation();
   await testDurableEnhancementStopUsesStoppedCompletionKind();
@@ -58,6 +59,7 @@ async function main(): Promise<void> {
       '强化运行态物品缺少 name 或仅有 itemId 时，通知和队列使用内容目录基础显示名，不把起始强化等级写入连续强化文案。',
       '法宝复用现有强化生命周期，成功后按实例写回背包并提升 enhanceLevel。',
       '强化强事务提交真实钱包投影，提交失败会恢复钱包、队列、任务、装备与 revision 派生态。',
+      '强化普通进度 tick 不新增 durable 操作；连续强化每阶只提交一条 advanced 强事务，并把强化技艺经验放入同一职业 patch。',
       '强化取消使用专用 cancel 强事务；队列自动启动失败时不会丢队首或遗留已扣材料。',
       'sessionId 为空但持有离线运行态 owner/epoch 时，强化资产边界仍可提交强事务。',
     ],
@@ -219,6 +221,49 @@ async function testDurableEnhancementPersistsAssetsAtomically(): Promise<void> {
   assert.equal(player.inventory.lockedItems?.length ?? 0, 0);
   assert.equal(completeCall?.args.nextWalletBalances?.[0]?.balance, 19);
   assert.equal(player.inventory.items.find((item: any) => item.itemId === 'spirit_stone')?.count, 19);
+}
+
+async function testDurableEnhancementAdvanceCommitsProfessionAtomically(): Promise<void> {
+  const durableCalls: DurableEnhancementCall[] = [];
+  const player = createPlayer('player:enhancement:durable-advance', [
+    createEquipmentItem('iron_sword', '铁剑', 8, 1),
+  ]);
+  const { craftService } = createCraftHarness(player, [], [], { durableCalls });
+  const target = player.inventory.items[0];
+  const started = await craftService.startEnhancementDurably(player, {
+    target: buildInventoryRef(target),
+    targetLevel: 3,
+  });
+  assert.equal(started.ok, true);
+
+  player.enhancementJob!.remainingTicks = 1;
+  player.enhancementJob!.workRemainingTicks = 1;
+  const beforeExp = player.enhancementSkill.exp;
+  const originalRandom = Math.random;
+  Math.random = () => 0;
+  try {
+    const advanced = await craftService.tickEnhancementDurably(player);
+    assert.equal(advanced.ok, true);
+  } finally {
+    Math.random = originalRandom;
+  }
+
+  assert.deepEqual(durableCalls.map((call) => call.kind), ['start', 'complete']);
+  const advanceCall = durableCalls[1]?.args;
+  assert.equal(advanceCall?.completionKind, 'advanced');
+  assert.equal(advanceCall?.nextActiveJob?.jobRunId, player.enhancementJob?.jobRunId);
+  assert.equal(player.enhancementJob?.targetLevel, 3);
+  assert.equal(player.enhancementSkill.exp > beforeExp, true);
+  const enhancementProfession = advanceCall?.nextProfessionStates?.find(
+    (entry: { professionType?: string }) => entry.professionType === 'enhancement',
+  );
+  assert.deepEqual(enhancementProfession, {
+    professionType: 'enhancement',
+    level: player.enhancementSkill.level,
+    exp: player.enhancementSkill.exp,
+    expToNext: player.enhancementSkill.expToNext,
+  });
+  assert.equal(player.dirtyDomains.has('profession'), false);
 }
 
 async function testDurableEnhancementFailureRestoresFullRuntimeState(): Promise<void> {
@@ -881,6 +926,17 @@ function createPlayerRuntimeService(player: any): any {
         inventory: player.inventory,
         wallet: player.wallet,
         equipment: player.equipment,
+        progression: {
+          alchemySkill: player.alchemySkill,
+          forgingSkill: player.forgingSkill,
+          gatherSkill: player.gatherSkill,
+          buildingSkill: player.buildingSkill,
+          miningSkill: player.miningSkill,
+          formationSkill: player.formationSkill,
+          transmissionSkill: player.transmissionSkill,
+          enhancementSkill: player.enhancementSkill,
+          enhancementSkillLevel: player.enhancementSkillLevel,
+        },
       };
     },
     markPersisted(_playerId: string, persistedDomains?: Iterable<string> | null, persistedRevision?: number | null): void {

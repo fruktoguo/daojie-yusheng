@@ -26,6 +26,7 @@ import { TechniqueTemplateRegistry } from '../content/registries/technique-templ
 import { GeneratedTechniqueStoreService } from '../runtime/technique-generation/generated-technique-store.service';
 import { TechniqueGenerationService } from '../runtime/technique-generation/technique-generation.service';
 import { ensureGeneratedTechniqueTables } from '../persistence/generated-technique-persistence.service';
+import { PlayerDomainPersistenceService } from '../persistence/player-domain-persistence.service';
 
 @Injectable()
 export class ServerLifecycleCoordinatorService implements OnApplicationBootstrap, OnModuleDestroy {
@@ -51,10 +52,23 @@ export class ServerLifecycleCoordinatorService implements OnApplicationBootstrap
     @Optional() @Inject(TechniqueTemplateRegistry) private readonly techniqueTemplateRegistry?: TechniqueTemplateRegistry,
     @Optional() @Inject(GeneratedTechniqueStoreService) private readonly generatedTechniqueStoreService?: GeneratedTechniqueStoreService,
     @Optional() @Inject(TechniqueGenerationService) private readonly techniqueGenerationService?: TechniqueGenerationService,
+    @Optional() @Inject(PlayerDomainPersistenceService) private readonly playerDomainPersistenceService?: PlayerDomainPersistenceService,
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
-    await this.start();
+    try {
+      await this.start();
+    } catch (startupError) {
+      try {
+        await this.drain('startup_failed');
+      } catch (drainError) {
+        this.logger.error(
+          '启动失败后的关闭排空也失败；仍保留原始启动异常',
+          drainError instanceof Error ? drainError.stack : String(drainError),
+        );
+      }
+      throw startupError;
+    }
   }
 
   async onModuleDestroy(): Promise<void> {
@@ -117,6 +131,18 @@ export class ServerLifecycleCoordinatorService implements OnApplicationBootstrap
     await this.initializeTechniqueGenerationDomain();
 
     if (shouldStartAuthoritativeRuntime()) {
+      if (!this.flushTaskRuntimeService || !this.worldRuntimeService) {
+        throw new Error('durable_payload_replay_runtime_unavailable');
+      }
+      const replayRuntime = this.flushTaskRuntimeService;
+      (this.worldRuntimeService as unknown as {
+        replayInstanceFlushPayloadsBeforeOwnershipChange?: (instanceId: string, ownershipEpoch: number) => Promise<void>;
+      }).replayInstanceFlushPayloadsBeforeOwnershipChange = async (instanceId, ownershipEpoch) => {
+        await replayRuntime.replayDurablePayloadsBeforeRecovery({ instanceId, ownershipEpoch });
+      };
+      const replayedPayloads = await replayRuntime.replayDurablePayloadsBeforeRecovery();
+      this.logger.log(`权威恢复前 durable flush payload 已清空：processed=${replayedPayloads}`);
+      await this.playerDomainPersistenceService?.runPostReplayStartupMaintenance();
       await this.recoverWorld();
       await this.recoverPlayers();
     }

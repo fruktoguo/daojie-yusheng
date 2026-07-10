@@ -5,7 +5,10 @@
  */
 import { Inject, Injectable, Logger, Optional, ServiceUnavailableException } from '@nestjs/common';
 
-import { PlayerDomainPersistenceService } from '../persistence/player-domain-persistence.service';
+import {
+    PlayerDomainPersistenceService,
+    nextPlayerPersistenceVersion,
+} from '../persistence/player-domain-persistence.service';
 import { PlayerSessionRouteService } from '../persistence/player-session-route.service';
 import { type PersistedPlayerSnapshot } from '../persistence/player-persistence.service';
 import { MailRuntimeService } from '../runtime/mail/mail-runtime.service';
@@ -173,7 +176,7 @@ export class WorldSessionBootstrapPlayerInitService {
                         : (Number.isFinite(Number(presence.offlineSinceAt))
                             ? Math.max(0, Math.trunc(Number(presence.offlineSinceAt)))
                             : Date.now()),
-                    versionSeed: Date.now(),
+                    versionSeed: nextPlayerPersistenceVersion(),
                 });
             }
             this.playerRuntimeService.markPersisted?.(input.playerId, new Set(['presence']), null);

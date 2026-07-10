@@ -8,6 +8,7 @@
  * 定时轮询 outbox_event 表，认领待处理事件并通过消费者注册表分发，
  * 支持本地去重、共享去重和失败重试。
  */
+import { createHash, randomUUID } from 'node:crypto';
 import { Inject, Injectable, Logger, Optional, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 
 import { shouldStartOutboxDispatcher } from '../config/runtime-role';
@@ -21,6 +22,7 @@ const DEFAULT_OUTBOX_CONSUMER_CLAIM_TTL_MS = 30_000;
 const DEFAULT_OUTBOX_RETRY_DELAY_MS = 5_000;
 const DEFAULT_OUTBOX_MAX_ATTEMPTS = 8;
 const DEFAULT_OUTBOX_LOCAL_DEDUPE_LIMIT = 10_000;
+const OUTBOX_CLAIM_OWNER_MAX_LENGTH = 120;
 
 /** Outbox 分发运行时：定时轮询 + 本地/共享去重 + 消费者分发 */
 @Injectable()
@@ -28,9 +30,7 @@ export class OutboxDispatcherRuntimeService implements OnModuleInit, OnModuleDes
   private readonly logger = new Logger(OutboxDispatcherRuntimeService.name);
   private running = false;
   private readonly processedEventIds = new Set<string>();
-  private readonly processedOperationIds = new Set<string>();
   private readonly processedEventIdOrder: string[] = [];
-  private readonly processedOperationIdOrder: string[] = [];
   private eventConsumer: ((event: Record<string, unknown>) => Promise<void> | void) | null = null;
 
   constructor(
@@ -88,10 +88,18 @@ export class OutboxDispatcherRuntimeService implements OnModuleInit, OnModuleDes
       });
       for (const event of events) {
         try {
-          await this.consumeEvent(event);
-          processedCount += 1;
+          if (await this.consumeEvent(event)) {
+            processedCount += 1;
+          }
         } catch (error: unknown) {
-          await this.handleConsumeFailure(event, error);
+          if (error instanceof OutboxDeliveryFinalizationError) {
+            this.logger.error(
+              `发件箱事件消费结果收敛失败，保留 claim 等待恢复 topic=${resolveEventTopic(event)} eventId=${resolveEventId(event) || '未知'}`,
+              error.originalError instanceof Error ? error.originalError.stack : String(error.originalError),
+            );
+          } else {
+            await this.handleConsumeFailure(event, error);
+          }
         }
       }
     } catch (error: unknown) {
@@ -109,76 +117,141 @@ export class OutboxDispatcherRuntimeService implements OnModuleInit, OnModuleDes
   async consumeEvent(
     event: Record<string, unknown>,
     onConsume?: (event: Record<string, unknown>) => Promise<void> | void,
-  ): Promise<void> {
-    const eventId = typeof event.event_id === 'string' ? event.event_id : '';
+  ): Promise<boolean> {
+    const eventId = resolveEventId(event);
     const operationId = typeof event.operation_id === 'string' ? event.operation_id : '';
-    const topic = typeof event.topic === 'string' ? event.topic : 'unknown';
-    if (!eventId) {
-      return;
+    const topic = resolveEventTopic(event);
+    const claimOwner = typeof event.claimed_by === 'string' ? event.claimed_by.trim() : '';
+    if (!eventId || !claimOwner) {
+      this.logger.warn(`发件箱事件缺少 event_id 或 claim owner，拒绝消费 topic=${topic} eventId=${eventId || '未知'}`);
+      return false;
     }
-    if (this.isDuplicateEvent(eventId, operationId)) {
-      this.logger.debug(`发件箱事件已去重跳过 topic=${topic} eventId=${eventId}`);
-      await this.outboxDispatcherService.markDelivered(eventId);
-      return;
+    const claimTtlMs = resolveOutboxConsumerClaimTtlMs();
+    let dedupeClaim: Awaited<ReturnType<OutboxDispatcherService['claimConsumerDedupe']>>;
+    try {
+      dedupeClaim = await this.outboxDispatcherService.claimConsumerDedupe({
+        eventId,
+        operationId,
+        topic,
+        claimOwner,
+        claimTtlMs,
+      });
+    } catch (error) {
+      throw new OutboxDeliveryFinalizationError(error);
     }
-    const consumerId = resolveConsumerId();
-    const claimed = await this.outboxDispatcherService.claimConsumerDedupe({
-      eventId,
-      operationId,
-      topic,
-      consumerId,
-      claimTtlMs: DEFAULT_OUTBOX_CONSUMER_CLAIM_TTL_MS,
-    });
-    if (!claimed) {
-      this.logger.debug(`发件箱事件已被共享去重跳过 topic=${topic} eventId=${eventId}`);
-      this.markProcessedEvent(eventId, operationId);
-      await this.outboxDispatcherService.markDelivered(eventId);
-      return;
+    if (dedupeClaim.status === 'delivered') {
+      try {
+        const delivered = await this.outboxDispatcherService.markDelivered({ eventId, claimOwner });
+        if (delivered) {
+          this.markProcessedEvent(eventId, operationId);
+        }
+        return delivered;
+      } catch (error) {
+        throw new OutboxDeliveryFinalizationError(error);
+      }
+    }
+    if (dedupeClaim.status === 'processing') {
+      this.logger.debug(`发件箱事件仍由其他 consumer 处理，延后而不确认 topic=${topic} eventId=${eventId}`);
+      try {
+        await this.outboxDispatcherService.deferClaim({ eventId, claimOwner, retryDelayMs: 1_000 });
+        return false;
+      } catch (error) {
+        throw new OutboxDeliveryFinalizationError(error);
+      }
+    }
+    if (dedupeClaim.status === 'stale') {
+      this.logger.debug(`发件箱 claim 已被接管，拒绝进入 consumer topic=${topic} eventId=${eventId}`);
+      return false;
     }
 
-    // 当前阶段只做最小可验证 wiring：认领 -> 处理 -> 标记 delivered。
     const consumer = onConsume ?? this.eventConsumer;
+    let claimRenewed = false;
+    try {
+      claimRenewed = await this.outboxDispatcherService.renewConsumerClaims({
+        eventId,
+        claimOwner,
+        claimTtlMs,
+      });
+    } catch (error) {
+      throw new OutboxDeliveryFinalizationError(error);
+    }
+    if (!claimRenewed) {
+      this.logger.warn(`发件箱消费开始前 claim 已丢失，拒绝进入 consumer topic=${topic} eventId=${eventId}`);
+      return false;
+    }
+
+    const heartbeat = startConsumerClaimHeartbeat({
+      eventId,
+      claimOwner,
+      claimTtlMs,
+      renew: () => this.outboxDispatcherService.renewConsumerClaims({ eventId, claimOwner, claimTtlMs }),
+      onFailure: (error) => {
+        this.logger.warn(
+          `发件箱消费 claim 续租失败，消费结束后将拒绝确认或重试 topic=${topic} eventId=${eventId}: ${formatError(error)}`,
+        );
+      },
+    });
     try {
       if (typeof consumer === 'function') {
         await consumer(event);
       }
-      this.logger.debug(`发件箱事件已投递 topic=${topic} eventId=${eventId}`);
-      this.markProcessedEvent(eventId, operationId);
-      await this.outboxDispatcherService.markConsumerDedupeDelivered({
-        eventId,
-        operationId,
-      });
-      await this.outboxDispatcherService.markDelivered(eventId);
     } catch (error) {
-      await this.outboxDispatcherService.releaseConsumerDedupe({
-        eventId,
-        operationId,
-        consumerId,
-      }).catch(() => undefined);
+      const claimCurrent = await heartbeat.stop();
+      if (!claimCurrent) {
+        this.logger.warn(`发件箱消费失败时 claim 已丢失，拒绝重试 topic=${topic} eventId=${eventId}`);
+        return false;
+      }
       throw error;
+    }
+    const claimCurrent = await heartbeat.stop();
+    if (!claimCurrent) {
+      this.logger.warn(`发件箱消费完成时 claim 已丢失，拒绝确认 topic=${topic} eventId=${eventId}`);
+      return false;
+    }
+    this.logger.debug(`发件箱事件已投递 topic=${topic} eventId=${eventId}`);
+    try {
+      const dedupeCompletion = await this.outboxDispatcherService.markConsumerDedupeDelivered({
+        eventId,
+        claimOwner,
+      });
+      if (dedupeCompletion !== 'delivered') {
+        this.logger.warn(
+          `发件箱 consumer claim 已丢失，拒绝确认 outbox topic=${topic} eventId=${eventId} dedupeState=${dedupeCompletion}`,
+        );
+        return false;
+      }
+      const delivered = await this.outboxDispatcherService.markDelivered({ eventId, claimOwner });
+      if (!delivered) {
+        this.logger.debug(`发件箱 outbox claim 已被接管，消费结果由后续 claim 收敛 topic=${topic} eventId=${eventId}`);
+        return false;
+      }
+      this.markProcessedEvent(eventId, operationId);
+      return true;
+    } catch (error) {
+      throw new OutboxDeliveryFinalizationError(error);
     }
   }
 
   setEventConsumer(
     consumer: ((event: Record<string, unknown>) => Promise<void> | void) | null,
   ): void {
+    // claim 续租只能阻止旧 owner 错误确认，无法撤销已经发生的下游副作用；consumer 必须按 event_id 幂等。
     this.eventConsumer = consumer;
   }
 
   isDuplicateEvent(eventId: string, operationId: string): boolean {
-    return this.processedEventIds.has(eventId) || (operationId ? this.processedOperationIds.has(operationId) : false);
+    void operationId;
+    return this.processedEventIds.has(eventId);
   }
 
   markProcessedEvent(eventId: string, operationId: string): void {
+    void operationId;
     addBoundedDedupeKey(this.processedEventIds, this.processedEventIdOrder, eventId, resolveOutboxLocalDedupeLimit());
-    addBoundedDedupeKey(this.processedOperationIds, this.processedOperationIdOrder, operationId, resolveOutboxLocalDedupeLimit());
   }
 
   clearProcessedEvents(): void {
     this.processedEventIds.clear();
-    this.processedOperationIds.clear();
     this.processedEventIdOrder.length = 0;
-    this.processedOperationIdOrder.length = 0;
   }
 
   private async handleConsumeFailure(
@@ -186,20 +259,25 @@ export class OutboxDispatcherRuntimeService implements OnModuleInit, OnModuleDes
     error: unknown,
   ): Promise<void> {
     const eventId = typeof event.event_id === 'string' ? event.event_id : '';
+    const claimOwner = typeof event.claimed_by === 'string' ? event.claimed_by.trim() : '';
     const topic = typeof event.topic === 'string' ? event.topic : 'unknown';
     this.logger.error(
       `发件箱事件消费失败 topic=${topic} eventId=${eventId || '未知'}`,
       error instanceof Error ? error.stack : String(error),
     );
-    if (!eventId) {
+    if (!eventId || !claimOwner) {
       return;
     }
     try {
-      await this.outboxDispatcherService.markFailed(
+      const transitioned = await this.outboxDispatcherService.markFailed({
         eventId,
-        resolveOutboxRetryDelayMs(),
-        resolveOutboxMaxAttempts(),
-      );
+        claimOwner,
+        retryDelayMs: resolveOutboxRetryDelayMs(),
+        maxAttempts: resolveOutboxMaxAttempts(),
+      });
+      if (!transitioned) {
+        this.logger.debug(`发件箱失败结果因 claim 已被接管而忽略 topic=${topic} eventId=${eventId}`);
+      }
     } catch (markFailedError: unknown) {
       this.logger.error(
         `发件箱事件标记失败异常 topic=${topic} eventId=${eventId}`,
@@ -211,10 +289,16 @@ export class OutboxDispatcherRuntimeService implements OnModuleInit, OnModuleDes
 
 function resolveDispatcherId(): string {
   const explicit = process.env.SERVER_OUTBOX_DISPATCHER_ID?.trim();
-  if (explicit) {
-    return explicit.includes(':') ? explicit : `outbox-dispatcher:${explicit}`;
+  const label = explicit
+    ? (explicit.includes(':') ? explicit : `outbox-dispatcher:${explicit}`)
+    : `outbox-dispatcher:${process.pid.toString(36)}`;
+  const token = randomUUID().replace(/-/gu, '');
+  const claimOwner = `${label}:${process.pid.toString(36)}:${token}`;
+  if (claimOwner.length <= OUTBOX_CLAIM_OWNER_MAX_LENGTH) {
+    return claimOwner;
   }
-  return `outbox-dispatcher:${process.pid.toString(36)}`;
+  const labelDigest = createHash('sha256').update(label).digest('hex').slice(0, 24);
+  return `outbox-dispatcher:sha256:${labelDigest}:${process.pid.toString(36)}:${token}`;
 }
 
 function resolveOutboxDispatchIntervalMs(): number {
@@ -229,14 +313,6 @@ function resolveOutboxDispatchBatchSize(): number {
     : DEFAULT_OUTBOX_DISPATCH_BATCH_SIZE;
 }
 
-function resolveConsumerId(): string {
-  const explicit = process.env.SERVER_OUTBOX_CONSUMER_ID?.trim();
-  if (explicit) {
-    return explicit;
-  }
-  return `outbox-consumer:${process.pid.toString(36)}`;
-}
-
 function resolveOutboxRetryDelayMs(): number {
   const parsed = Number(process.env.SERVER_OUTBOX_RETRY_DELAY_MS ?? process.env.DATABASE_OUTBOX_RETRY_DELAY_MS);
   return Number.isFinite(parsed) ? Math.max(250, Math.trunc(parsed)) : DEFAULT_OUTBOX_RETRY_DELAY_MS;
@@ -245,6 +321,14 @@ function resolveOutboxRetryDelayMs(): number {
 function resolveOutboxMaxAttempts(): number {
   const parsed = Number(process.env.SERVER_OUTBOX_MAX_ATTEMPTS ?? process.env.DATABASE_OUTBOX_MAX_ATTEMPTS);
   return Number.isFinite(parsed) ? Math.max(1, Math.trunc(parsed)) : DEFAULT_OUTBOX_MAX_ATTEMPTS;
+}
+
+function resolveOutboxConsumerClaimTtlMs(): number {
+  const parsed = Number(process.env.SERVER_OUTBOX_CONSUMER_CLAIM_TTL_MS);
+  if (!Number.isFinite(parsed)) {
+    return DEFAULT_OUTBOX_CONSUMER_CLAIM_TTL_MS;
+  }
+  return Math.min(300_000, Math.max(1_000, Math.trunc(parsed)));
 }
 
 function resolveOutboxLocalDedupeLimit(): number {
@@ -277,4 +361,68 @@ function isOutboxRuntimeEnabled(): boolean {
     return true;
   }
   return !/^(0|false|no|off)$/iu.test(explicit.trim());
+}
+
+function resolveEventId(event: Record<string, unknown>): string {
+  return typeof event.event_id === 'string' ? event.event_id.trim() : '';
+}
+
+function resolveEventTopic(event: Record<string, unknown>): string {
+  return typeof event.topic === 'string' && event.topic.trim() ? event.topic.trim() : 'unknown';
+}
+
+class OutboxDeliveryFinalizationError extends Error {
+  constructor(readonly originalError: unknown) {
+    super('outbox_delivery_finalization_failed');
+    this.name = 'OutboxDeliveryFinalizationError';
+  }
+}
+
+function startConsumerClaimHeartbeat(input: {
+  eventId: string;
+  claimOwner: string;
+  claimTtlMs: number;
+  renew: () => Promise<boolean>;
+  onFailure: (error: unknown) => void;
+}): { stop: () => Promise<boolean> } {
+  const intervalMs = Math.min(10_000, Math.max(250, Math.trunc(input.claimTtlMs / 3)));
+  let stopped = false;
+  let claimCurrent = true;
+  let renewal: Promise<void> | null = null;
+
+  const timer = setInterval(() => {
+    if (stopped || renewal || !claimCurrent) {
+      return;
+    }
+    renewal = input.renew()
+      .then((renewed) => {
+        if (!renewed) {
+          claimCurrent = false;
+          input.onFailure(new Error(`outbox_consumer_claim_lost:${input.eventId}:${input.claimOwner}`));
+        }
+      })
+      .catch((error: unknown) => {
+        claimCurrent = false;
+        input.onFailure(error);
+      })
+      .finally(() => {
+        renewal = null;
+      });
+  }, intervalMs);
+  timer.unref();
+
+  return {
+    async stop(): Promise<boolean> {
+      stopped = true;
+      clearInterval(timer);
+      if (renewal) {
+        await renewal;
+      }
+      return claimCurrent;
+    },
+  };
+}
+
+function formatError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }

@@ -505,7 +505,7 @@ export function buildTimeCheckpointSnapshot(instance) {
     };
 }
 
-function buildInstanceDomainRecoveryWatermark(instance, persistedDomains, flushSnapshot = null) {
+export function buildInstanceDomainRecoveryWatermark(instance, persistedDomains, flushSnapshot = null) {
     const persistenceRevision = Number.isFinite(Number(flushSnapshot?.persistenceRevision))
         ? Math.max(0, Math.trunc(Number(flushSnapshot.persistenceRevision)))
         : (typeof instance?.getPersistenceRevision === 'function'

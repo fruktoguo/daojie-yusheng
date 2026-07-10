@@ -7,7 +7,10 @@ import { Inject, Injectable } from '@nestjs/common';
 import { buildMailPreviewSnippet, canMergeItemStack, createItemStackSignature, normalizeMailBatchIds, normalizeMailFilter, normalizeMailPageSize, renderMailBodyPlain, renderMailTitlePlain, resolveClampedMailResponsePage } from '@mud/shared';
 import { createHash } from 'node:crypto';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
-import { PlayerDomainPersistenceService } from '../../persistence/player-domain-persistence.service';
+import {
+    PlayerDomainPersistenceService,
+    nextPlayerPersistenceVersion,
+} from '../../persistence/player-domain-persistence.service';
 import { DurableOperationService } from '../../persistence/durable-operation.service';
 import { MailPersistenceService } from '../../persistence/mail-persistence.service';
 import { InstanceCatalogService } from '../../persistence/instance-catalog.service';
@@ -350,7 +353,7 @@ export class MailRuntimeService {
             const nextSnapshot = currentSnapshot
                 ? {
                     ...currentSnapshot,
-                    savedAt: Date.now(),
+                    savedAt: nextPlayerPersistenceVersion(),
                     inventory: {
                         ...currentSnapshot.inventory,
                         revision: Math.max(1, Math.trunc(Number(currentSnapshot.inventory?.revision ?? 1)) + 1),
@@ -425,7 +428,7 @@ export class MailRuntimeService {
         }
         await this.playerDomainPersistenceService.savePlayerPresence(playerId, {
             ...presence,
-            versionSeed: Date.now(),
+            versionSeed: nextPlayerPersistenceVersion(),
         });
         return true;
     }

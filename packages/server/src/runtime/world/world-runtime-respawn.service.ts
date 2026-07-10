@@ -8,6 +8,7 @@
  * 消费待复生队列，执行复生点解析、实例迁移、状态重置和通知
  */
 import { Inject, Injectable } from '@nestjs/common';
+import { nextPlayerPersistenceVersion } from '../../persistence/player-domain-persistence.service';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { buildStructuredNotice } from './structured-notice.helpers';
 import { buildPublicInstanceId } from './world-runtime.normalization.helpers';
@@ -90,7 +91,7 @@ export class WorldRuntimeRespawnService {
                     online: false,
                     inWorld: false,
                     offlineSinceAt: presence.offlineSinceAt ?? Date.now(),
-                    versionSeed: Date.now(),
+                    versionSeed: nextPlayerPersistenceVersion(),
                 });
             }
         }

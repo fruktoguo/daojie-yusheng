@@ -13,7 +13,10 @@ import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { WorldRuntimeNpcShopQueryService } from './query/world-runtime-npc-shop-query.service';
 import * as world_runtime_normalization_helpers_1 from './world-runtime.normalization.helpers';
 import { DurableOperationService } from '../../persistence/durable-operation.service';
-import { PlayerDomainPersistenceService } from '../../persistence/player-domain-persistence.service';
+import {
+    PlayerDomainPersistenceService,
+    nextPlayerPersistenceVersion,
+} from '../../persistence/player-domain-persistence.service';
 import { buildStructuredNotice } from './structured-notice.helpers';
 import { assignItemInstanceIdIfNeeded } from './item-instance-id.helpers';
 
@@ -207,7 +210,7 @@ export class WorldRuntimeNpcShopService {
         }
         await this.playerDomainPersistenceService.savePlayerPresence(playerId, {
             ...presence,
-            versionSeed: Date.now(),
+            versionSeed: nextPlayerPersistenceVersion(),
         });
         return true;
     }

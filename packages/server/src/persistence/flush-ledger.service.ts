@@ -9,15 +9,21 @@
  * 为分布式刷盘调度提供持久化协调。
  */
 import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import { Pool } from 'pg';
 
 import { DatabasePoolProvider } from './database-pool.provider';
-import type { ClaimFlushTaskInput, FlushTask, FlushTaskPriority } from './flush-task.types';
+import type { ClaimFlushTaskInput, FlushTask, FlushTaskPriority, FlushTaskScope } from './flush-task.types';
 
 const PLAYER_FLUSH_LEDGER_TABLE = 'player_flush_ledger';
 const INSTANCE_FLUSH_LEDGER_TABLE = 'instance_flush_ledger';
 const FLUSH_LEDGER_LOCK_NAMESPACE = 42871;
 const FLUSH_LEDGER_LOCK_KEY = 4001;
+const DEFAULT_FLUSH_LEDGER_BATCH_SIZE = 250;
+const MAX_FLUSH_LEDGER_BATCH_SIZE = 1_000;
+const DEFAULT_FLUSH_TASK_CLAIM_TTL_MS = 30_000;
+const MIN_FLUSH_TASK_CLAIM_TTL_MS = 5_000;
+const MAX_FLUSH_TASK_CLAIM_TTL_MS = 5 * 60_000;
 const PLAYER_ACTIVE_BACKLOG_FILTER_SQL = `
   latest_version > flushed_version
   OR (claimed_by IS NOT NULL AND claim_until >= now())
@@ -34,6 +40,41 @@ export interface FlushLedgerRetentionResult {
   instancePayloadCleared: number;
   playerDeleted: number;
   instanceDeleted: number;
+}
+
+export interface PlayerFlushLedgerUpsertInput {
+  playerId: string;
+  domain: string;
+  latestVersion: number;
+  priority?: FlushTaskPriority | null;
+  flushedVersion?: number;
+  dirtySinceAt?: string | null;
+  nextAttemptAt?: string | null;
+  claimedBy?: string | null;
+  claimUntil?: string | null;
+  runtimeOwnerId?: string | null;
+  fencingToken?: string | null;
+  idempotencyKey?: string | null;
+  payloadJson?: unknown;
+  failureCategory?: string | null;
+}
+
+export interface InstanceFlushLedgerUpsertInput {
+  instanceId: string;
+  domain: string;
+  ownershipEpoch: number;
+  latestVersion: number;
+  priority?: FlushTaskPriority | null;
+  flushedVersion?: number;
+  dirtySinceAt?: string | null;
+  nextAttemptAt?: string | null;
+  claimedBy?: string | null;
+  claimUntil?: string | null;
+  runtimeOwnerId?: string | null;
+  fencingToken?: string | null;
+  idempotencyKey?: string | null;
+  payloadJson?: unknown;
+  failureCategory?: string | null;
 }
 
 /** 统一刷盘账本服务：管理玩家和实例的脏版本跟踪与分布式认领 */
@@ -71,36 +112,54 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
   }
 
   async upsertFlushTask(task: FlushTask): Promise<void> {
-    if (task.scope === 'player') {
-      await this.upsertPlayerFlushLedger({
-        playerId: task.id,
-        domain: task.domain,
-        priority: task.priority,
-        latestVersion: task.latestRevision,
-        dirtySinceAt: task.dirtySinceAt ?? new Date().toISOString(),
-        nextAttemptAt: task.nextAttemptAt ?? new Date().toISOString(),
-        runtimeOwnerId: task.runtimeOwnerId ?? null,
-        fencingToken: task.fencingToken ?? null,
-        idempotencyKey: task.idempotencyKey ?? buildFlushTaskIdempotencyKey(task),
-        payloadJson: task.payloadJson ?? null,
-        failureCategory: task.failureCategory ?? null,
-      });
-      return;
+    await this.upsertFlushTasks([task]);
+  }
+
+  /**
+   * 批量写入统一刷盘账本。输入会先按主键归并，再以有限批次执行单条 SQL，
+   * 避免同一批中重复主键触发 PostgreSQL ON CONFLICT 二次更新错误。
+   */
+  async upsertFlushTasks(tasks: FlushTask[], batchSize = DEFAULT_FLUSH_LEDGER_BATCH_SIZE): Promise<number> {
+    if (!this.pool || !this.enabled || tasks.length === 0) {
+      return 0;
     }
-    await this.upsertInstanceFlushLedger({
-      instanceId: task.id,
-      domain: task.domain,
-      priority: task.priority,
-      ownershipEpoch: normalizePositiveInteger(task.ownershipEpoch, 0, 0, Number.MAX_SAFE_INTEGER),
-      latestVersion: task.latestRevision,
-      dirtySinceAt: task.dirtySinceAt ?? new Date().toISOString(),
-      nextAttemptAt: task.nextAttemptAt ?? new Date().toISOString(),
-      runtimeOwnerId: task.runtimeOwnerId ?? null,
-      fencingToken: task.fencingToken ?? null,
-      idempotencyKey: task.idempotencyKey ?? buildFlushTaskIdempotencyKey(task),
-      payloadJson: task.payloadJson ?? null,
-      failureCategory: task.failureCategory ?? null,
-    });
+    const stagedAt = new Date().toISOString();
+    const playerInputs: PlayerFlushLedgerUpsertInput[] = [];
+    const instanceInputs: InstanceFlushLedgerUpsertInput[] = [];
+    for (const task of tasks) {
+      if (task.scope === 'player') {
+        playerInputs.push({
+          playerId: task.id,
+          domain: task.domain,
+          priority: task.priority,
+          latestVersion: task.latestRevision,
+          dirtySinceAt: task.dirtySinceAt ?? stagedAt,
+          nextAttemptAt: task.nextAttemptAt ?? stagedAt,
+          runtimeOwnerId: task.runtimeOwnerId ?? null,
+          fencingToken: task.fencingToken ?? null,
+          idempotencyKey: task.idempotencyKey ?? buildFlushTaskIdempotencyKey(task),
+          payloadJson: task.payloadJson ?? null,
+          failureCategory: task.failureCategory ?? null,
+        });
+      } else {
+        instanceInputs.push({
+          instanceId: task.id,
+          domain: task.domain,
+          priority: task.priority,
+          ownershipEpoch: normalizePositiveInteger(task.ownershipEpoch, 0, 0, Number.MAX_SAFE_INTEGER),
+          latestVersion: task.latestRevision,
+          dirtySinceAt: task.dirtySinceAt ?? stagedAt,
+          nextAttemptAt: task.nextAttemptAt ?? stagedAt,
+          runtimeOwnerId: task.runtimeOwnerId ?? null,
+          fencingToken: task.fencingToken ?? null,
+          idempotencyKey: task.idempotencyKey ?? buildFlushTaskIdempotencyKey(task),
+          payloadJson: task.payloadJson ?? null,
+          failureCategory: task.failureCategory ?? null,
+        });
+      }
+    }
+    return (await this.upsertPlayerFlushLedgers(playerInputs, batchSize))
+      + (await this.upsertInstanceFlushLedgers(instanceInputs, batchSize));
   }
 
   async claimReadyFlushTasks(input: ClaimFlushTaskInput): Promise<FlushTask[]> {
@@ -127,6 +186,7 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
             : null,
           runtimeOwnerId: normalizeOptionalString(row.runtime_owner_id),
           fencingToken: normalizeOptionalString(row.fencing_token),
+          claimOwnerId: normalizeOptionalString(row.claimed_by),
           idempotencyKey: normalizeOptionalString(row.idempotency_key),
           payloadJson: row.payload_jsonb ?? null,
           failureCategory: normalizeOptionalString(row.failure_category),
@@ -140,14 +200,26 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
   }
 
   async markFlushTaskFlushed(task: FlushTask, flushedRevision = task.latestRevision): Promise<boolean> {
+    const claimOwnerId = normalizeOptionalString(task.claimOwnerId);
+    if (!claimOwnerId) {
+      return false;
+    }
     if (task.scope === 'player') {
-      return this.markPlayerFlushLedgerFlushed({ playerId: task.id, domain: task.domain, flushedVersion: flushedRevision });
+      return this.markPlayerFlushLedgerFlushed({
+        playerId: task.id,
+        domain: task.domain,
+        flushedVersion: flushedRevision,
+        claimOwnerId,
+        fencingToken: task.fencingToken ?? null,
+      });
     }
     return this.markInstanceFlushLedgerFlushed({
       instanceId: task.id,
       domain: task.domain,
       ownershipEpoch: normalizePositiveInteger(task.ownershipEpoch, 0, 0, Number.MAX_SAFE_INTEGER),
       flushedVersion: flushedRevision,
+      claimOwnerId,
+      fencingToken: task.fencingToken ?? null,
     });
   }
 
@@ -155,22 +227,28 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
     if (!this.pool || !this.enabled || tasks.length === 0) {
       return 0;
     }
-    const playerTasks = tasks.filter((task) => task.scope === 'player');
-    const instanceTasks = tasks.filter((task) => task.scope === 'instance');
+    const claimedTasks = dedupeClaimedFlushTasks(tasks);
+    const playerTasks = claimedTasks.filter((task) => task.scope === 'player');
+    const instanceTasks = claimedTasks.filter((task) => task.scope === 'instance');
     let updated = 0;
     if (playerTasks.length > 0) {
       const result = await this.pool.query(
         `
           WITH input AS (
-            SELECT *
-            FROM unnest($1::varchar[], $2::varchar[], $3::bigint[])
-              AS t(player_id, domain, flushed_version)
+            SELECT * FROM jsonb_to_recordset($1::jsonb) AS claimed(
+              player_id varchar(100), domain varchar(64), flushed_version bigint,
+              claim_owner_id varchar(120), fencing_token varchar(120)
+            )
           )
           UPDATE ${PLAYER_FLUSH_LEDGER_TABLE} ledger
-          SET flushed_version = GREATEST(ledger.flushed_version, input.flushed_version),
+          SET flushed_version = LEAST(GREATEST(ledger.flushed_version, input.flushed_version), ledger.latest_version),
               dirty_since_at = CASE
-                WHEN GREATEST(ledger.flushed_version, input.flushed_version) >= ledger.latest_version THEN NULL
+                WHEN LEAST(GREATEST(ledger.flushed_version, input.flushed_version), ledger.latest_version) >= ledger.latest_version THEN NULL
                 ELSE ledger.dirty_since_at
+              END,
+              payload_jsonb = CASE
+                WHEN LEAST(GREATEST(ledger.flushed_version, input.flushed_version), ledger.latest_version) >= ledger.latest_version THEN NULL
+                ELSE ledger.payload_jsonb
               END,
               claimed_by = NULL,
               claim_until = NULL,
@@ -181,11 +259,17 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
           FROM input
           WHERE ledger.player_id = input.player_id
             AND ledger.domain = input.domain
+            AND ledger.claimed_by = input.claim_owner_id
+            AND ledger.fencing_token IS NOT DISTINCT FROM input.fencing_token
         `,
         [
-          playerTasks.map((task) => task.id),
-          playerTasks.map((task) => task.domain),
-          playerTasks.map((task) => Math.max(0, Math.trunc(Number(task.latestRevision ?? 0)))),
+          JSON.stringify(playerTasks.map((task) => ({
+            player_id: task.id,
+            domain: task.domain,
+            flushed_version: normalizeRevision(task.latestRevision),
+            claim_owner_id: task.claimOwnerId,
+            fencing_token: task.fencingToken ?? null,
+          }))),
         ],
       );
       updated += result.rowCount ?? 0;
@@ -194,15 +278,20 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
       const result = await this.pool.query(
         `
           WITH input AS (
-            SELECT *
-            FROM unnest($1::varchar[], $2::varchar[], $3::bigint[], $4::bigint[])
-              AS t(instance_id, domain, ownership_epoch, flushed_version)
+            SELECT * FROM jsonb_to_recordset($1::jsonb) AS claimed(
+              instance_id varchar(100), domain varchar(64), ownership_epoch bigint,
+              flushed_version bigint, claim_owner_id varchar(120), fencing_token varchar(120)
+            )
           )
           UPDATE ${INSTANCE_FLUSH_LEDGER_TABLE} ledger
-          SET flushed_version = GREATEST(ledger.flushed_version, input.flushed_version),
+          SET flushed_version = LEAST(GREATEST(ledger.flushed_version, input.flushed_version), ledger.latest_version),
               dirty_since_at = CASE
-                WHEN GREATEST(ledger.flushed_version, input.flushed_version) >= ledger.latest_version THEN NULL
+                WHEN LEAST(GREATEST(ledger.flushed_version, input.flushed_version), ledger.latest_version) >= ledger.latest_version THEN NULL
                 ELSE ledger.dirty_since_at
+              END,
+              payload_jsonb = CASE
+                WHEN LEAST(GREATEST(ledger.flushed_version, input.flushed_version), ledger.latest_version) >= ledger.latest_version THEN NULL
+                ELSE ledger.payload_jsonb
               END,
               claimed_by = NULL,
               claim_until = NULL,
@@ -214,12 +303,18 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
           WHERE ledger.instance_id = input.instance_id
             AND ledger.domain = input.domain
             AND ledger.ownership_epoch = input.ownership_epoch
+            AND ledger.claimed_by = input.claim_owner_id
+            AND ledger.fencing_token IS NOT DISTINCT FROM input.fencing_token
         `,
         [
-          instanceTasks.map((task) => task.id),
-          instanceTasks.map((task) => task.domain),
-          instanceTasks.map((task) => normalizePositiveInteger(task.ownershipEpoch, 0, 0, Number.MAX_SAFE_INTEGER)),
-          instanceTasks.map((task) => Math.max(0, Math.trunc(Number(task.latestRevision ?? 0)))),
+          JSON.stringify(instanceTasks.map((task) => ({
+            instance_id: task.id,
+            domain: task.domain,
+            ownership_epoch: normalizePositiveInteger(task.ownershipEpoch, 0, 0, Number.MAX_SAFE_INTEGER),
+            flushed_version: normalizeRevision(task.latestRevision),
+            claim_owner_id: task.claimOwnerId,
+            fencing_token: task.fencingToken ?? null,
+          }))),
         ],
       );
       updated += result.rowCount ?? 0;
@@ -228,17 +323,25 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
   }
 
   async markFlushTaskRetry(task: FlushTask, retryDelayMs = 5_000): Promise<boolean> {
-    const ledger = this as FlushLedgerService & {
-      markPlayerFlushLedgerRetry(input: { playerId: string; domain: string; retryDelayMs?: number }): Promise<boolean>;
-      markInstanceFlushLedgerRetry(input: { instanceId: string; domain: string; ownershipEpoch: number; retryDelayMs?: number }): Promise<boolean>;
-    };
+    const claimOwnerId = normalizeOptionalString(task.claimOwnerId);
+    if (!claimOwnerId) {
+      return false;
+    }
     return task.scope === 'player'
-      ? ledger.markPlayerFlushLedgerRetry({ playerId: task.id, domain: task.domain, retryDelayMs })
-      : ledger.markInstanceFlushLedgerRetry({
+      ? this.markPlayerFlushLedgerRetry({
+          playerId: task.id,
+          domain: task.domain,
+          retryDelayMs,
+          claimOwnerId,
+          fencingToken: task.fencingToken ?? null,
+        })
+      : this.markInstanceFlushLedgerRetry({
           instanceId: task.id,
           domain: task.domain,
           ownershipEpoch: normalizePositiveInteger(task.ownershipEpoch, 0, 0, Number.MAX_SAFE_INTEGER),
           retryDelayMs,
+          claimOwnerId,
+          fencingToken: task.fencingToken ?? null,
         });
   }
 
@@ -247,30 +350,37 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
       return 0;
     }
     const normalizedRetryDelayMs = normalizePositiveInteger(retryDelayMs, 5_000, 250, 300_000);
-    const playerTasks = tasks.filter((task) => task.scope === 'player');
-    const instanceTasks = tasks.filter((task) => task.scope === 'instance');
+    const claimedTasks = dedupeClaimedFlushTasks(tasks);
+    const playerTasks = claimedTasks.filter((task) => task.scope === 'player');
+    const instanceTasks = claimedTasks.filter((task) => task.scope === 'instance');
     let updated = 0;
     if (playerTasks.length > 0) {
       const result = await this.pool.query(
         `
           WITH input AS (
-            SELECT *
-            FROM unnest($1::varchar[], $2::varchar[])
-              AS t(player_id, domain)
+            SELECT * FROM jsonb_to_recordset($1::jsonb) AS claimed(
+              player_id varchar(100), domain varchar(64), claim_owner_id varchar(120), fencing_token varchar(120)
+            )
           )
           UPDATE ${PLAYER_FLUSH_LEDGER_TABLE} ledger
-          SET next_attempt_at = now() + ($3::bigint * interval '1 millisecond'),
-              retry_after = now() + ($3::bigint * interval '1 millisecond'),
+          SET next_attempt_at = now() + ($2::bigint * interval '1 millisecond'),
+              retry_after = now() + ($2::bigint * interval '1 millisecond'),
               claimed_by = NULL,
               claim_until = NULL,
               updated_at = now()
           FROM input
           WHERE ledger.player_id = input.player_id
             AND ledger.domain = input.domain
+            AND ledger.claimed_by = input.claim_owner_id
+            AND ledger.fencing_token IS NOT DISTINCT FROM input.fencing_token
         `,
         [
-          playerTasks.map((task) => task.id),
-          playerTasks.map((task) => task.domain),
+          JSON.stringify(playerTasks.map((task) => ({
+            player_id: task.id,
+            domain: task.domain,
+            claim_owner_id: task.claimOwnerId,
+            fencing_token: task.fencingToken ?? null,
+          }))),
           normalizedRetryDelayMs,
         ],
       );
@@ -280,13 +390,14 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
       const result = await this.pool.query(
         `
           WITH input AS (
-            SELECT *
-            FROM unnest($1::varchar[], $2::varchar[], $3::bigint[])
-              AS t(instance_id, domain, ownership_epoch)
+            SELECT * FROM jsonb_to_recordset($1::jsonb) AS claimed(
+              instance_id varchar(100), domain varchar(64), ownership_epoch bigint,
+              claim_owner_id varchar(120), fencing_token varchar(120)
+            )
           )
           UPDATE ${INSTANCE_FLUSH_LEDGER_TABLE} ledger
-          SET next_attempt_at = now() + ($4::bigint * interval '1 millisecond'),
-              retry_after = now() + ($4::bigint * interval '1 millisecond'),
+          SET next_attempt_at = now() + ($2::bigint * interval '1 millisecond'),
+              retry_after = now() + ($2::bigint * interval '1 millisecond'),
               claimed_by = NULL,
               claim_until = NULL,
               updated_at = now()
@@ -294,11 +405,17 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
           WHERE ledger.instance_id = input.instance_id
             AND ledger.domain = input.domain
             AND ledger.ownership_epoch = input.ownership_epoch
+            AND ledger.claimed_by = input.claim_owner_id
+            AND ledger.fencing_token IS NOT DISTINCT FROM input.fencing_token
         `,
         [
-          instanceTasks.map((task) => task.id),
-          instanceTasks.map((task) => task.domain),
-          instanceTasks.map((task) => normalizePositiveInteger(task.ownershipEpoch, 0, 0, Number.MAX_SAFE_INTEGER)),
+          JSON.stringify(instanceTasks.map((task) => ({
+            instance_id: task.id,
+            domain: task.domain,
+            ownership_epoch: normalizePositiveInteger(task.ownershipEpoch, 0, 0, Number.MAX_SAFE_INTEGER),
+            claim_owner_id: task.claimOwnerId,
+            fencing_token: task.fencingToken ?? null,
+          }))),
           normalizedRetryDelayMs,
         ],
       );
@@ -307,167 +424,349 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
     return updated;
   }
 
-  async upsertPlayerFlushLedger(input: {
-    playerId: string;
-    domain: string;
-    latestVersion: number;
-    priority?: FlushTaskPriority | null;
-    flushedVersion?: number;
-    dirtySinceAt?: string | null;
-    nextAttemptAt?: string | null;
-    claimedBy?: string | null;
-    claimUntil?: string | null;
-    runtimeOwnerId?: string | null;
-    fencingToken?: string | null;
-    idempotencyKey?: string | null;
-    payloadJson?: unknown;
-    failureCategory?: string | null;
-  }): Promise<void> {
+  /** 延长统一任务认领租约；旧 claim 或 generation 已变化时 CAS 必然失败。 */
+  async renewFlushTaskClaim(task: FlushTask, ttlMs?: number): Promise<boolean> {
     if (!this.pool || !this.enabled) {
-      return;
+      return false;
     }
-    const playerId = normalizeRequiredString(input.playerId);
-    const domain = normalizeRequiredString(input.domain);
-    if (!playerId || !domain) {
-      return;
+    const id = normalizeRequiredString(task.id);
+    const domain = normalizeRequiredString(task.domain);
+    const claimOwnerId = normalizeOptionalString(task.claimOwnerId);
+    if (!id || !domain || !claimOwnerId) {
+      return false;
     }
-    await this.pool.query(
+    const claimTtlMs = resolveFlushTaskClaimTtlMs(ttlMs);
+    if (task.scope === 'player') {
+      const result = await this.pool.query(
+        `
+          UPDATE ${PLAYER_FLUSH_LEDGER_TABLE}
+          SET claim_until = now() + ($5::bigint * interval '1 millisecond')
+          WHERE player_id = $1
+            AND domain = $2
+            AND claimed_by = $3
+            AND fencing_token IS NOT DISTINCT FROM $4
+            AND latest_version > flushed_version
+        `,
+        [id, domain, claimOwnerId, task.fencingToken ?? null, claimTtlMs],
+      );
+      return (result.rowCount ?? 0) > 0;
+    }
+    const result = await this.pool.query(
       `
-        INSERT INTO ${PLAYER_FLUSH_LEDGER_TABLE}(
-          player_id, domain, priority, latest_version, flushed_version, dirty_since_at, next_attempt_at,
-          claimed_by, claim_until, runtime_owner_id, fencing_token, idempotency_key, payload_jsonb,
-          failure_category, retry_after, updated_at
-        )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13::jsonb, $14, $7, now())
-        ON CONFLICT (player_id, domain)
-        DO UPDATE SET
-          priority = EXCLUDED.priority,
-          latest_version = GREATEST(${PLAYER_FLUSH_LEDGER_TABLE}.latest_version, EXCLUDED.latest_version),
-          flushed_version = GREATEST(${PLAYER_FLUSH_LEDGER_TABLE}.flushed_version, EXCLUDED.flushed_version),
-          dirty_since_at = COALESCE(${PLAYER_FLUSH_LEDGER_TABLE}.dirty_since_at, EXCLUDED.dirty_since_at),
-          next_attempt_at = LEAST(
-            COALESCE(${PLAYER_FLUSH_LEDGER_TABLE}.next_attempt_at, EXCLUDED.next_attempt_at),
-            COALESCE(EXCLUDED.next_attempt_at, ${PLAYER_FLUSH_LEDGER_TABLE}.next_attempt_at)
-          ),
-          claimed_by = COALESCE(EXCLUDED.claimed_by, ${PLAYER_FLUSH_LEDGER_TABLE}.claimed_by),
-          claim_until = COALESCE(EXCLUDED.claim_until, ${PLAYER_FLUSH_LEDGER_TABLE}.claim_until),
-          runtime_owner_id = COALESCE(EXCLUDED.runtime_owner_id, ${PLAYER_FLUSH_LEDGER_TABLE}.runtime_owner_id),
-          fencing_token = COALESCE(EXCLUDED.fencing_token, ${PLAYER_FLUSH_LEDGER_TABLE}.fencing_token),
-          idempotency_key = COALESCE(EXCLUDED.idempotency_key, ${PLAYER_FLUSH_LEDGER_TABLE}.idempotency_key),
-          payload_jsonb = CASE
-            WHEN EXCLUDED.latest_version > ${PLAYER_FLUSH_LEDGER_TABLE}.latest_version THEN EXCLUDED.payload_jsonb
-            ELSE COALESCE(EXCLUDED.payload_jsonb, ${PLAYER_FLUSH_LEDGER_TABLE}.payload_jsonb)
-          END,
-          failure_category = COALESCE(EXCLUDED.failure_category, ${PLAYER_FLUSH_LEDGER_TABLE}.failure_category),
-          retry_after = LEAST(
-            COALESCE(${PLAYER_FLUSH_LEDGER_TABLE}.retry_after, EXCLUDED.retry_after),
-            COALESCE(EXCLUDED.retry_after, ${PLAYER_FLUSH_LEDGER_TABLE}.retry_after)
-          ),
-          updated_at = now()
+        UPDATE ${INSTANCE_FLUSH_LEDGER_TABLE}
+        SET claim_until = now() + ($6::bigint * interval '1 millisecond')
+        WHERE instance_id = $1
+          AND domain = $2
+          AND ownership_epoch = $3
+          AND claimed_by = $4
+          AND fencing_token IS NOT DISTINCT FROM $5
+          AND latest_version > flushed_version
       `,
       [
-        playerId,
+        id,
         domain,
-        normalizePriority(input.priority),
-        Math.max(0, Math.trunc(Number(input.latestVersion ?? 0))),
-        Math.max(0, Math.trunc(Number(input.flushedVersion ?? 0))),
-        input.dirtySinceAt ?? null,
-        input.nextAttemptAt ?? null,
-        input.claimedBy ?? null,
-        input.claimUntil ?? null,
-        input.runtimeOwnerId ?? null,
-        input.fencingToken ?? null,
-        input.idempotencyKey ?? null,
-        serializePayloadJson(input.payloadJson),
-        input.failureCategory ?? null,
+        normalizePositiveInteger(task.ownershipEpoch, 0, 0, Number.MAX_SAFE_INTEGER),
+        claimOwnerId,
+        task.fencingToken ?? null,
+        claimTtlMs,
       ],
     );
+    return (result.rowCount ?? 0) > 0;
   }
 
-  async upsertInstanceFlushLedger(input: {
-    instanceId: string;
-    domain: string;
-    ownershipEpoch: number;
-    latestVersion: number;
-    priority?: FlushTaskPriority | null;
-    flushedVersion?: number;
-    dirtySinceAt?: string | null;
-    nextAttemptAt?: string | null;
-    claimedBy?: string | null;
-    claimUntil?: string | null;
-    runtimeOwnerId?: string | null;
-    fencingToken?: string | null;
-    idempotencyKey?: string | null;
-    payloadJson?: unknown;
-    failureCategory?: string | null;
-  }): Promise<void> {
+  /**
+   * 统计仍可 durable replay 的 payload；故意包含 delayed 与有效 claim，
+   * 供启动恢复区分“已经清空”和“暂被其他 worker 占用”。
+   */
+  async countPendingPayloadTasks(input?: {
+    scope?: FlushTaskScope | null;
+    id?: string | null;
+    domain?: string | null;
+    ownershipEpoch?: number | null;
+  }): Promise<number> {
     if (!this.pool || !this.enabled) {
-      return;
+      return 0;
     }
-    const instanceId = normalizeRequiredString(input.instanceId);
-    const domain = normalizeRequiredString(input.domain);
-    if (!instanceId || !domain) {
-      return;
+    const scope = input?.scope === 'player' || input?.scope === 'instance' ? input.scope : null;
+    const id = normalizeRequiredString(input?.id);
+    const domain = normalizeRequiredString(input?.domain);
+    const params: Array<string | number> = [];
+    const countQueries: string[] = [];
+    if (scope !== 'instance') {
+      const filters = ['latest_version > flushed_version', 'payload_jsonb IS NOT NULL'];
+      if (id) {
+        params.push(id);
+        filters.push(`player_id = $${params.length}`);
+      }
+      if (domain) {
+        params.push(domain);
+        filters.push(`domain = $${params.length}`);
+      }
+      countQueries.push(`
+        SELECT COUNT(*)::bigint AS pending_count
+        FROM ${PLAYER_FLUSH_LEDGER_TABLE}
+        WHERE ${filters.join(' AND ')}
+      `);
     }
-    await this.pool.query(
+    if (scope !== 'player') {
+      const filters = ['latest_version > flushed_version', 'payload_jsonb IS NOT NULL'];
+      if (id) {
+        params.push(id);
+        filters.push(`instance_id = $${params.length}`);
+      }
+      if (domain) {
+        params.push(domain);
+        filters.push(`domain = $${params.length}`);
+      }
+      const parsedOwnershipEpoch = Number(input?.ownershipEpoch);
+      if (input?.ownershipEpoch !== null && input?.ownershipEpoch !== undefined
+        && Number.isFinite(parsedOwnershipEpoch) && parsedOwnershipEpoch >= 0) {
+        params.push(Math.trunc(parsedOwnershipEpoch));
+        filters.push(`ownership_epoch = $${params.length}`);
+      }
+      countQueries.push(`
+        SELECT COUNT(*)::bigint AS pending_count
+        FROM ${INSTANCE_FLUSH_LEDGER_TABLE}
+        WHERE ${filters.join(' AND ')}
+      `);
+    }
+    const result = await this.pool.query<{ pending_count?: unknown }>(
       `
-        INSERT INTO ${INSTANCE_FLUSH_LEDGER_TABLE}(
-          instance_id, domain, ownership_epoch, priority, latest_version, flushed_version, dirty_since_at,
-          next_attempt_at, claimed_by, claim_until, runtime_owner_id, fencing_token, idempotency_key,
-          payload_jsonb, failure_category, retry_after, updated_at
-        )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14::jsonb, $15, $8, now())
-        ON CONFLICT (instance_id, domain, ownership_epoch)
-        DO UPDATE SET
-          priority = EXCLUDED.priority,
-          latest_version = GREATEST(${INSTANCE_FLUSH_LEDGER_TABLE}.latest_version, EXCLUDED.latest_version),
-          flushed_version = GREATEST(${INSTANCE_FLUSH_LEDGER_TABLE}.flushed_version, EXCLUDED.flushed_version),
-          dirty_since_at = COALESCE(${INSTANCE_FLUSH_LEDGER_TABLE}.dirty_since_at, EXCLUDED.dirty_since_at),
-          next_attempt_at = LEAST(
-            COALESCE(${INSTANCE_FLUSH_LEDGER_TABLE}.next_attempt_at, EXCLUDED.next_attempt_at),
-            COALESCE(EXCLUDED.next_attempt_at, ${INSTANCE_FLUSH_LEDGER_TABLE}.next_attempt_at)
-          ),
-          claimed_by = COALESCE(EXCLUDED.claimed_by, ${INSTANCE_FLUSH_LEDGER_TABLE}.claimed_by),
-          claim_until = COALESCE(EXCLUDED.claim_until, ${INSTANCE_FLUSH_LEDGER_TABLE}.claim_until),
-          runtime_owner_id = COALESCE(EXCLUDED.runtime_owner_id, ${INSTANCE_FLUSH_LEDGER_TABLE}.runtime_owner_id),
-          fencing_token = COALESCE(EXCLUDED.fencing_token, ${INSTANCE_FLUSH_LEDGER_TABLE}.fencing_token),
-          idempotency_key = COALESCE(EXCLUDED.idempotency_key, ${INSTANCE_FLUSH_LEDGER_TABLE}.idempotency_key),
-          payload_jsonb = CASE
-            WHEN EXCLUDED.latest_version > ${INSTANCE_FLUSH_LEDGER_TABLE}.latest_version THEN EXCLUDED.payload_jsonb
-            ELSE COALESCE(EXCLUDED.payload_jsonb, ${INSTANCE_FLUSH_LEDGER_TABLE}.payload_jsonb)
-          END,
-          failure_category = COALESCE(EXCLUDED.failure_category, ${INSTANCE_FLUSH_LEDGER_TABLE}.failure_category),
-          retry_after = LEAST(
-            COALESCE(${INSTANCE_FLUSH_LEDGER_TABLE}.retry_after, EXCLUDED.retry_after),
-            COALESCE(EXCLUDED.retry_after, ${INSTANCE_FLUSH_LEDGER_TABLE}.retry_after)
-          ),
-          updated_at = now()
+        SELECT COALESCE(SUM(pending_count), 0)::bigint AS pending_count
+        FROM (${countQueries.join(' UNION ALL ')}) pending
       `,
-      [
-        instanceId,
-        domain,
-        Math.max(0, Math.trunc(Number(input.ownershipEpoch ?? 0))),
-        normalizePriority(input.priority),
-        Math.max(0, Math.trunc(Number(input.latestVersion ?? 0))),
-        Math.max(0, Math.trunc(Number(input.flushedVersion ?? 0))),
-        input.dirtySinceAt ?? null,
-        input.nextAttemptAt ?? null,
-        input.claimedBy ?? null,
-        input.claimUntil ?? null,
-        input.runtimeOwnerId ?? null,
-        input.fencingToken ?? null,
-        input.idempotencyKey ?? null,
-        serializePayloadJson(input.payloadJson),
-        input.failureCategory ?? null,
-      ],
+      params,
     );
+    return normalizePositiveInteger(result.rows[0]?.pending_count, 0, 0, Number.MAX_SAFE_INTEGER);
+  }
+
+  async upsertPlayerFlushLedger(input: PlayerFlushLedgerUpsertInput): Promise<void> {
+    await this.upsertPlayerFlushLedgers([input], 1);
+  }
+
+  async upsertPlayerFlushLedgers(
+    inputs: PlayerFlushLedgerUpsertInput[],
+    batchSize = DEFAULT_FLUSH_LEDGER_BATCH_SIZE,
+  ): Promise<number> {
+    if (!this.pool || !this.enabled || inputs.length === 0) {
+      return 0;
+    }
+    const rows = dedupePlayerFlushLedgerInputs(inputs);
+    const normalizedBatchSize = normalizePositiveInteger(
+      batchSize,
+      DEFAULT_FLUSH_LEDGER_BATCH_SIZE,
+      1,
+      MAX_FLUSH_LEDGER_BATCH_SIZE,
+    );
+    let changed = 0;
+    for (const batch of chunkRows(rows, normalizedBatchSize)) {
+      const result = await this.pool.query(
+        `
+          WITH input AS (
+            SELECT *
+            FROM jsonb_to_recordset($1::jsonb) AS staged(
+              player_id varchar(100), domain varchar(64), priority varchar(16), latest_version bigint,
+              flushed_version bigint, dirty_since_at timestamptz, next_attempt_at timestamptz,
+              claimed_by varchar(120), claim_until timestamptz, runtime_owner_id varchar(120),
+              fencing_token varchar(120), idempotency_key varchar(180), payload_jsonb jsonb,
+              failure_category varchar(64), retry_after timestamptz
+            )
+          )
+          INSERT INTO ${PLAYER_FLUSH_LEDGER_TABLE}(
+            player_id, domain, priority, latest_version, flushed_version, dirty_since_at, next_attempt_at,
+            claimed_by, claim_until, runtime_owner_id, fencing_token, idempotency_key, payload_jsonb,
+            failure_category, retry_after, updated_at
+          )
+          SELECT player_id, domain, priority, latest_version, flushed_version, dirty_since_at, next_attempt_at,
+            claimed_by, claim_until, runtime_owner_id, fencing_token, idempotency_key,
+            CASE WHEN flushed_version >= latest_version THEN NULL ELSE payload_jsonb END,
+            failure_category, retry_after, now()
+          FROM input
+          ON CONFLICT (player_id, domain)
+          DO UPDATE SET
+            priority = ${PLAYER_FLUSH_LEDGER_TABLE}.priority,
+            latest_version = GREATEST(${PLAYER_FLUSH_LEDGER_TABLE}.latest_version, EXCLUDED.latest_version),
+            flushed_version = CASE WHEN EXCLUDED.latest_version > ${PLAYER_FLUSH_LEDGER_TABLE}.latest_version
+              THEN LEAST(
+                GREATEST(${PLAYER_FLUSH_LEDGER_TABLE}.flushed_version, EXCLUDED.flushed_version),
+                EXCLUDED.latest_version
+              ) ELSE ${PLAYER_FLUSH_LEDGER_TABLE}.flushed_version END,
+            dirty_since_at = CASE WHEN EXCLUDED.latest_version > ${PLAYER_FLUSH_LEDGER_TABLE}.latest_version
+              THEN COALESCE(${PLAYER_FLUSH_LEDGER_TABLE}.dirty_since_at, EXCLUDED.dirty_since_at)
+              ELSE ${PLAYER_FLUSH_LEDGER_TABLE}.dirty_since_at END,
+            next_attempt_at = CASE WHEN EXCLUDED.latest_version > ${PLAYER_FLUSH_LEDGER_TABLE}.latest_version
+              THEN LEAST(
+                COALESCE(${PLAYER_FLUSH_LEDGER_TABLE}.next_attempt_at, EXCLUDED.next_attempt_at),
+                COALESCE(EXCLUDED.next_attempt_at, ${PLAYER_FLUSH_LEDGER_TABLE}.next_attempt_at)
+              )
+              ELSE ${PLAYER_FLUSH_LEDGER_TABLE}.next_attempt_at END,
+            claimed_by = CASE WHEN EXCLUDED.latest_version > ${PLAYER_FLUSH_LEDGER_TABLE}.latest_version
+              THEN CASE WHEN EXCLUDED.fencing_token IS DISTINCT FROM ${PLAYER_FLUSH_LEDGER_TABLE}.fencing_token
+                THEN EXCLUDED.claimed_by
+                ELSE COALESCE(EXCLUDED.claimed_by, ${PLAYER_FLUSH_LEDGER_TABLE}.claimed_by) END
+              ELSE ${PLAYER_FLUSH_LEDGER_TABLE}.claimed_by END,
+            claim_until = CASE WHEN EXCLUDED.latest_version > ${PLAYER_FLUSH_LEDGER_TABLE}.latest_version
+              THEN CASE WHEN EXCLUDED.fencing_token IS DISTINCT FROM ${PLAYER_FLUSH_LEDGER_TABLE}.fencing_token
+                THEN EXCLUDED.claim_until
+                ELSE COALESCE(EXCLUDED.claim_until, ${PLAYER_FLUSH_LEDGER_TABLE}.claim_until) END
+              ELSE ${PLAYER_FLUSH_LEDGER_TABLE}.claim_until END,
+            runtime_owner_id = CASE WHEN EXCLUDED.latest_version > ${PLAYER_FLUSH_LEDGER_TABLE}.latest_version
+              THEN EXCLUDED.runtime_owner_id
+              ELSE ${PLAYER_FLUSH_LEDGER_TABLE}.runtime_owner_id END,
+            fencing_token = CASE WHEN EXCLUDED.latest_version > ${PLAYER_FLUSH_LEDGER_TABLE}.latest_version
+              THEN EXCLUDED.fencing_token
+              ELSE ${PLAYER_FLUSH_LEDGER_TABLE}.fencing_token END,
+            idempotency_key = CASE WHEN EXCLUDED.latest_version > ${PLAYER_FLUSH_LEDGER_TABLE}.latest_version
+              THEN EXCLUDED.idempotency_key
+              ELSE ${PLAYER_FLUSH_LEDGER_TABLE}.idempotency_key END,
+            payload_jsonb = CASE
+              WHEN EXCLUDED.latest_version > ${PLAYER_FLUSH_LEDGER_TABLE}.latest_version
+              THEN CASE
+                WHEN GREATEST(${PLAYER_FLUSH_LEDGER_TABLE}.flushed_version, EXCLUDED.flushed_version) >= EXCLUDED.latest_version
+                THEN NULL ELSE EXCLUDED.payload_jsonb END
+              ELSE EXCLUDED.payload_jsonb END,
+            failure_category = CASE WHEN EXCLUDED.latest_version > ${PLAYER_FLUSH_LEDGER_TABLE}.latest_version
+              THEN EXCLUDED.failure_category ELSE ${PLAYER_FLUSH_LEDGER_TABLE}.failure_category END,
+            retry_after = CASE WHEN EXCLUDED.latest_version > ${PLAYER_FLUSH_LEDGER_TABLE}.latest_version
+              THEN LEAST(
+                COALESCE(${PLAYER_FLUSH_LEDGER_TABLE}.retry_after, EXCLUDED.retry_after),
+                COALESCE(EXCLUDED.retry_after, ${PLAYER_FLUSH_LEDGER_TABLE}.retry_after)
+              )
+              ELSE ${PLAYER_FLUSH_LEDGER_TABLE}.retry_after END,
+            updated_at = now()
+          WHERE EXCLUDED.latest_version > ${PLAYER_FLUSH_LEDGER_TABLE}.latest_version
+            OR (
+              EXCLUDED.fencing_token IS NOT DISTINCT FROM ${PLAYER_FLUSH_LEDGER_TABLE}.fencing_token
+              AND EXCLUDED.latest_version = ${PLAYER_FLUSH_LEDGER_TABLE}.latest_version
+              AND ${PLAYER_FLUSH_LEDGER_TABLE}.latest_version > ${PLAYER_FLUSH_LEDGER_TABLE}.flushed_version
+              AND ${PLAYER_FLUSH_LEDGER_TABLE}.payload_jsonb IS NULL
+              AND EXCLUDED.payload_jsonb IS NOT NULL
+            )
+        `,
+        [JSON.stringify(batch)],
+      );
+      changed += result.rowCount ?? 0;
+    }
+    return changed;
+  }
+
+  async upsertInstanceFlushLedger(input: InstanceFlushLedgerUpsertInput): Promise<void> {
+    await this.upsertInstanceFlushLedgers([input], 1);
+  }
+
+  async upsertInstanceFlushLedgers(
+    inputs: InstanceFlushLedgerUpsertInput[],
+    batchSize = DEFAULT_FLUSH_LEDGER_BATCH_SIZE,
+  ): Promise<number> {
+    if (!this.pool || !this.enabled || inputs.length === 0) {
+      return 0;
+    }
+    const rows = dedupeInstanceFlushLedgerInputs(inputs);
+    const normalizedBatchSize = normalizePositiveInteger(
+      batchSize,
+      DEFAULT_FLUSH_LEDGER_BATCH_SIZE,
+      1,
+      MAX_FLUSH_LEDGER_BATCH_SIZE,
+    );
+    let changed = 0;
+    for (const batch of chunkRows(rows, normalizedBatchSize)) {
+      const result = await this.pool.query(
+        `
+          WITH input AS (
+            SELECT *
+            FROM jsonb_to_recordset($1::jsonb) AS staged(
+              instance_id varchar(100), domain varchar(64), ownership_epoch bigint, priority varchar(16),
+              latest_version bigint, flushed_version bigint, dirty_since_at timestamptz,
+              next_attempt_at timestamptz, claimed_by varchar(120), claim_until timestamptz,
+              runtime_owner_id varchar(120), fencing_token varchar(120), idempotency_key varchar(180),
+              payload_jsonb jsonb, failure_category varchar(64), retry_after timestamptz
+            )
+          )
+          INSERT INTO ${INSTANCE_FLUSH_LEDGER_TABLE}(
+            instance_id, domain, ownership_epoch, priority, latest_version, flushed_version, dirty_since_at,
+            next_attempt_at, claimed_by, claim_until, runtime_owner_id, fencing_token, idempotency_key,
+            payload_jsonb, failure_category, retry_after, updated_at
+          )
+          SELECT instance_id, domain, ownership_epoch, priority, latest_version, flushed_version, dirty_since_at,
+            next_attempt_at, claimed_by, claim_until, runtime_owner_id, fencing_token, idempotency_key,
+            CASE WHEN flushed_version >= latest_version THEN NULL ELSE payload_jsonb END,
+            failure_category, retry_after, now()
+          FROM input
+          ON CONFLICT (instance_id, domain, ownership_epoch)
+          DO UPDATE SET
+            priority = ${INSTANCE_FLUSH_LEDGER_TABLE}.priority,
+            latest_version = GREATEST(${INSTANCE_FLUSH_LEDGER_TABLE}.latest_version, EXCLUDED.latest_version),
+            flushed_version = CASE WHEN EXCLUDED.latest_version > ${INSTANCE_FLUSH_LEDGER_TABLE}.latest_version
+              THEN LEAST(
+                GREATEST(${INSTANCE_FLUSH_LEDGER_TABLE}.flushed_version, EXCLUDED.flushed_version),
+                EXCLUDED.latest_version
+              ) ELSE ${INSTANCE_FLUSH_LEDGER_TABLE}.flushed_version END,
+            dirty_since_at = CASE WHEN EXCLUDED.latest_version > ${INSTANCE_FLUSH_LEDGER_TABLE}.latest_version
+              THEN COALESCE(${INSTANCE_FLUSH_LEDGER_TABLE}.dirty_since_at, EXCLUDED.dirty_since_at)
+              ELSE ${INSTANCE_FLUSH_LEDGER_TABLE}.dirty_since_at END,
+            next_attempt_at = CASE WHEN EXCLUDED.latest_version > ${INSTANCE_FLUSH_LEDGER_TABLE}.latest_version
+              THEN LEAST(
+                COALESCE(${INSTANCE_FLUSH_LEDGER_TABLE}.next_attempt_at, EXCLUDED.next_attempt_at),
+                COALESCE(EXCLUDED.next_attempt_at, ${INSTANCE_FLUSH_LEDGER_TABLE}.next_attempt_at)
+              ) ELSE ${INSTANCE_FLUSH_LEDGER_TABLE}.next_attempt_at END,
+            claimed_by = CASE WHEN EXCLUDED.latest_version > ${INSTANCE_FLUSH_LEDGER_TABLE}.latest_version
+              THEN CASE WHEN EXCLUDED.fencing_token IS DISTINCT FROM ${INSTANCE_FLUSH_LEDGER_TABLE}.fencing_token
+                THEN EXCLUDED.claimed_by
+                ELSE COALESCE(EXCLUDED.claimed_by, ${INSTANCE_FLUSH_LEDGER_TABLE}.claimed_by) END
+              ELSE ${INSTANCE_FLUSH_LEDGER_TABLE}.claimed_by END,
+            claim_until = CASE WHEN EXCLUDED.latest_version > ${INSTANCE_FLUSH_LEDGER_TABLE}.latest_version
+              THEN CASE WHEN EXCLUDED.fencing_token IS DISTINCT FROM ${INSTANCE_FLUSH_LEDGER_TABLE}.fencing_token
+                THEN EXCLUDED.claim_until
+                ELSE COALESCE(EXCLUDED.claim_until, ${INSTANCE_FLUSH_LEDGER_TABLE}.claim_until) END
+              ELSE ${INSTANCE_FLUSH_LEDGER_TABLE}.claim_until END,
+            runtime_owner_id = CASE WHEN EXCLUDED.latest_version > ${INSTANCE_FLUSH_LEDGER_TABLE}.latest_version
+              THEN EXCLUDED.runtime_owner_id
+              ELSE ${INSTANCE_FLUSH_LEDGER_TABLE}.runtime_owner_id END,
+            fencing_token = CASE WHEN EXCLUDED.latest_version > ${INSTANCE_FLUSH_LEDGER_TABLE}.latest_version
+              THEN EXCLUDED.fencing_token
+              ELSE ${INSTANCE_FLUSH_LEDGER_TABLE}.fencing_token END,
+            idempotency_key = CASE WHEN EXCLUDED.latest_version > ${INSTANCE_FLUSH_LEDGER_TABLE}.latest_version
+              THEN EXCLUDED.idempotency_key
+              ELSE ${INSTANCE_FLUSH_LEDGER_TABLE}.idempotency_key END,
+            payload_jsonb = CASE
+              WHEN EXCLUDED.latest_version > ${INSTANCE_FLUSH_LEDGER_TABLE}.latest_version
+              THEN CASE
+                WHEN GREATEST(${INSTANCE_FLUSH_LEDGER_TABLE}.flushed_version, EXCLUDED.flushed_version) >= EXCLUDED.latest_version
+                THEN NULL ELSE EXCLUDED.payload_jsonb END
+              ELSE EXCLUDED.payload_jsonb END,
+            failure_category = CASE WHEN EXCLUDED.latest_version > ${INSTANCE_FLUSH_LEDGER_TABLE}.latest_version
+              THEN EXCLUDED.failure_category ELSE ${INSTANCE_FLUSH_LEDGER_TABLE}.failure_category END,
+            retry_after = CASE WHEN EXCLUDED.latest_version > ${INSTANCE_FLUSH_LEDGER_TABLE}.latest_version
+              THEN LEAST(
+                COALESCE(${INSTANCE_FLUSH_LEDGER_TABLE}.retry_after, EXCLUDED.retry_after),
+                COALESCE(EXCLUDED.retry_after, ${INSTANCE_FLUSH_LEDGER_TABLE}.retry_after)
+              ) ELSE ${INSTANCE_FLUSH_LEDGER_TABLE}.retry_after END,
+            updated_at = now()
+          WHERE EXCLUDED.latest_version > ${INSTANCE_FLUSH_LEDGER_TABLE}.latest_version
+            OR (
+              EXCLUDED.fencing_token IS NOT DISTINCT FROM ${INSTANCE_FLUSH_LEDGER_TABLE}.fencing_token
+              AND EXCLUDED.latest_version = ${INSTANCE_FLUSH_LEDGER_TABLE}.latest_version
+              AND ${INSTANCE_FLUSH_LEDGER_TABLE}.latest_version > ${INSTANCE_FLUSH_LEDGER_TABLE}.flushed_version
+              AND ${INSTANCE_FLUSH_LEDGER_TABLE}.payload_jsonb IS NULL
+              AND EXCLUDED.payload_jsonb IS NOT NULL
+            )
+        `,
+        [JSON.stringify(batch)],
+      );
+      changed += result.rowCount ?? 0;
+    }
+    return changed;
   }
 
   async claimPlayerFlushLedger(input: {
     workerId: string;
+    id?: string | null;
     domain?: string | null;
     priority?: FlushTaskPriority | null;
     limit?: number;
+    claimTtlMs?: number;
+    payloadRequired?: boolean;
+    includeDelayed?: boolean;
   }): Promise<Array<Record<string, unknown>>> {
     if (!this.pool || !this.enabled) {
       return [];
@@ -476,14 +775,23 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
     if (!workerId) {
       return [];
     }
+    const claimOwnerId = buildClaimOwnerId(workerId);
+    const claimTtlMs = resolveFlushTaskClaimTtlMs(input.claimTtlMs);
     const domain = normalizeRequiredString(input.domain);
     const limit = normalizePositiveInteger(input.limit, 32, 1, 5_000);
-    const queryParams: Array<string | number> = [workerId];
-    const filters = [
-      'latest_version > flushed_version',
-      '(COALESCE(next_attempt_at, retry_after) IS NULL OR COALESCE(next_attempt_at, retry_after) <= now())',
-      '(claim_until IS NULL OR claim_until < now())',
-    ];
+    const queryParams: Array<string | number> = [claimOwnerId, claimTtlMs];
+    const filters = ['latest_version > flushed_version', '(claim_until IS NULL OR claim_until < now())'];
+    if (input.includeDelayed !== true) {
+      filters.push('(COALESCE(next_attempt_at, retry_after) IS NULL OR COALESCE(next_attempt_at, retry_after) <= now())');
+    }
+    if (input.payloadRequired === true) {
+      filters.push('payload_jsonb IS NOT NULL');
+    }
+    const playerId = normalizeRequiredString(input.id);
+    if (playerId) {
+      queryParams.push(playerId);
+      filters.push(`player_id = $${queryParams.length}`);
+    }
     if (domain) {
       queryParams.push(domain);
       filters.push(`domain = $${queryParams.length}`);
@@ -500,7 +808,7 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
         WITH claimed AS (
           UPDATE ${PLAYER_FLUSH_LEDGER_TABLE}
           SET claimed_by = $1,
-              claim_until = now() + interval '5 second'
+              claim_until = now() + ($2::bigint * interval '1 millisecond')
           WHERE (player_id, domain) IN (
             SELECT player_id, domain
             FROM ${PLAYER_FLUSH_LEDGER_TABLE}
@@ -525,10 +833,14 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
 
   async claimInstanceFlushLedger(input: {
     workerId: string;
+    id?: string | null;
     domain?: string | null;
     priority?: FlushTaskPriority | null;
     ownershipEpoch?: number | null;
     limit?: number;
+    claimTtlMs?: number;
+    payloadRequired?: boolean;
+    includeDelayed?: boolean;
   }): Promise<Array<Record<string, unknown>>> {
     if (!this.pool || !this.enabled) {
       return [];
@@ -537,13 +849,22 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
     if (!workerId) {
       return [];
     }
+    const claimOwnerId = buildClaimOwnerId(workerId);
+    const claimTtlMs = resolveFlushTaskClaimTtlMs(input.claimTtlMs);
     const limit = normalizePositiveInteger(input.limit, 32, 1, 5_000);
-    const queryParams: Array<string | number> = [workerId];
-    const filters = [
-      'latest_version > flushed_version',
-      '(COALESCE(next_attempt_at, retry_after) IS NULL OR COALESCE(next_attempt_at, retry_after) <= now())',
-      '(claim_until IS NULL OR claim_until < now())',
-    ];
+    const queryParams: Array<string | number> = [claimOwnerId, claimTtlMs];
+    const filters = ['latest_version > flushed_version', '(claim_until IS NULL OR claim_until < now())'];
+    if (input.includeDelayed !== true) {
+      filters.push('(COALESCE(next_attempt_at, retry_after) IS NULL OR COALESCE(next_attempt_at, retry_after) <= now())');
+    }
+    if (input.payloadRequired === true) {
+      filters.push('payload_jsonb IS NOT NULL');
+    }
+    const instanceId = normalizeRequiredString(input.id);
+    if (instanceId) {
+      queryParams.push(instanceId);
+      filters.push(`instance_id = $${queryParams.length}`);
+    }
     const domain = normalizeRequiredString(input.domain);
     if (domain) {
       queryParams.push(domain);
@@ -555,7 +876,8 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
       filters.push(`priority = $${queryParams.length}`);
     }
     const parsedOwnershipEpoch = Number(input.ownershipEpoch);
-    if (Number.isFinite(parsedOwnershipEpoch) && parsedOwnershipEpoch >= 0) {
+    if (input.ownershipEpoch !== null && input.ownershipEpoch !== undefined
+      && Number.isFinite(parsedOwnershipEpoch) && parsedOwnershipEpoch >= 0) {
       queryParams.push(Math.trunc(parsedOwnershipEpoch));
       filters.push(`ownership_epoch = $${queryParams.length}`);
     }
@@ -566,7 +888,7 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
         WITH claimed AS (
           UPDATE ${INSTANCE_FLUSH_LEDGER_TABLE}
           SET claimed_by = $1,
-              claim_until = now() + interval '5 second'
+              claim_until = now() + ($2::bigint * interval '1 millisecond')
           WHERE (instance_id, domain, ownership_epoch) IN (
             SELECT instance_id, domain, ownership_epoch
             FROM ${INSTANCE_FLUSH_LEDGER_TABLE}
@@ -589,20 +911,28 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
     return Array.isArray(result.rows) ? (result.rows as Record<string, unknown>[]) : [];
   }
 
-  async markPlayerFlushLedgerFlushed(input: { playerId: string; domain: string; flushedVersion: number }): Promise<boolean> {
+  async markPlayerFlushLedgerFlushed(input: {
+    playerId: string;
+    domain: string;
+    flushedVersion: number;
+    claimOwnerId: string;
+    fencingToken: string | null;
+  }): Promise<boolean> {
     if (!this.pool || !this.enabled) {
       return false;
     }
     const playerId = normalizeRequiredString(input.playerId);
     const domain = normalizeRequiredString(input.domain);
-    if (!playerId || !domain) {
+    const claimOwnerId = normalizeOptionalString(input.claimOwnerId);
+    if (!playerId || !domain || !claimOwnerId) {
       return false;
     }
     const result = await this.pool.query(
       `
         UPDATE ${PLAYER_FLUSH_LEDGER_TABLE}
-        SET flushed_version = GREATEST(flushed_version, $3),
-            dirty_since_at = CASE WHEN GREATEST(flushed_version, $3) >= latest_version THEN NULL ELSE dirty_since_at END,
+        SET flushed_version = LEAST(GREATEST(flushed_version, $3), latest_version),
+            dirty_since_at = CASE WHEN LEAST(GREATEST(flushed_version, $3), latest_version) >= latest_version THEN NULL ELSE dirty_since_at END,
+            payload_jsonb = CASE WHEN LEAST(GREATEST(flushed_version, $3), latest_version) >= latest_version THEN NULL ELSE payload_jsonb END,
             claimed_by = NULL,
             claim_until = NULL,
             next_attempt_at = NULL,
@@ -610,26 +940,37 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
             failure_category = NULL,
             updated_at = now()
         WHERE player_id = $1 AND domain = $2
+          AND claimed_by = $4
+          AND fencing_token IS NOT DISTINCT FROM $5::varchar
       `,
-      [playerId, domain, Math.max(0, Math.trunc(Number(input.flushedVersion ?? 0)))],
+      [playerId, domain, normalizeRevision(input.flushedVersion), claimOwnerId, input.fencingToken ?? null],
     );
     return (result.rowCount ?? 0) > 0;
   }
 
-  async markInstanceFlushLedgerFlushed(input: { instanceId: string; domain: string; ownershipEpoch: number; flushedVersion: number }): Promise<boolean> {
+  async markInstanceFlushLedgerFlushed(input: {
+    instanceId: string;
+    domain: string;
+    ownershipEpoch: number;
+    flushedVersion: number;
+    claimOwnerId: string;
+    fencingToken: string | null;
+  }): Promise<boolean> {
     if (!this.pool || !this.enabled) {
       return false;
     }
     const instanceId = normalizeRequiredString(input.instanceId);
     const domain = normalizeRequiredString(input.domain);
-    if (!instanceId || !domain) {
+    const claimOwnerId = normalizeOptionalString(input.claimOwnerId);
+    if (!instanceId || !domain || !claimOwnerId) {
       return false;
     }
     const result = await this.pool.query(
       `
         UPDATE ${INSTANCE_FLUSH_LEDGER_TABLE}
-        SET flushed_version = GREATEST(flushed_version, $4),
-            dirty_since_at = CASE WHEN GREATEST(flushed_version, $4) >= latest_version THEN NULL ELSE dirty_since_at END,
+        SET flushed_version = LEAST(GREATEST(flushed_version, $4), latest_version),
+            dirty_since_at = CASE WHEN LEAST(GREATEST(flushed_version, $4), latest_version) >= latest_version THEN NULL ELSE dirty_since_at END,
+            payload_jsonb = CASE WHEN LEAST(GREATEST(flushed_version, $4), latest_version) >= latest_version THEN NULL ELSE payload_jsonb END,
             claimed_by = NULL,
             claim_until = NULL,
             next_attempt_at = NULL,
@@ -637,19 +978,35 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
             failure_category = NULL,
             updated_at = now()
         WHERE instance_id = $1 AND domain = $2 AND ownership_epoch = $3
+          AND claimed_by = $5
+          AND fencing_token IS NOT DISTINCT FROM $6::varchar
       `,
-      [instanceId, domain, Math.max(0, Math.trunc(Number(input.ownershipEpoch ?? 0))), Math.max(0, Math.trunc(Number(input.flushedVersion ?? 0)))],
+      [
+        instanceId,
+        domain,
+        normalizePositiveInteger(input.ownershipEpoch, 0, 0, Number.MAX_SAFE_INTEGER),
+        normalizeRevision(input.flushedVersion),
+        claimOwnerId,
+        input.fencingToken ?? null,
+      ],
     );
     return (result.rowCount ?? 0) > 0;
   }
 
-  async markPlayerFlushLedgerRetry(input: { playerId: string; domain: string; retryDelayMs?: number }): Promise<boolean> {
+  async markPlayerFlushLedgerRetry(input: {
+    playerId: string;
+    domain: string;
+    retryDelayMs?: number;
+    claimOwnerId: string;
+    fencingToken: string | null;
+  }): Promise<boolean> {
     if (!this.pool || !this.enabled) {
       return false;
     }
     const playerId = normalizeRequiredString(input.playerId);
     const domain = normalizeRequiredString(input.domain);
-    if (!playerId || !domain) {
+    const claimOwnerId = normalizeOptionalString(input.claimOwnerId);
+    if (!playerId || !domain || !claimOwnerId) {
       return false;
     }
     const retryDelayMs = normalizePositiveInteger(input.retryDelayMs, 5_000, 250, 300_000);
@@ -657,23 +1014,34 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
       `
         UPDATE ${PLAYER_FLUSH_LEDGER_TABLE}
         SET next_attempt_at = now() + ($3::bigint * interval '1 millisecond'),
+            retry_after = now() + ($3::bigint * interval '1 millisecond'),
             claimed_by = NULL,
             claim_until = NULL,
             updated_at = now()
         WHERE player_id = $1 AND domain = $2
+          AND claimed_by = $4
+          AND fencing_token IS NOT DISTINCT FROM $5::varchar
       `,
-      [playerId, domain, retryDelayMs],
+      [playerId, domain, retryDelayMs, claimOwnerId, input.fencingToken ?? null],
     );
     return (result.rowCount ?? 0) > 0;
   }
 
-  async markInstanceFlushLedgerRetry(input: { instanceId: string; domain: string; ownershipEpoch: number; retryDelayMs?: number }): Promise<boolean> {
+  async markInstanceFlushLedgerRetry(input: {
+    instanceId: string;
+    domain: string;
+    ownershipEpoch: number;
+    retryDelayMs?: number;
+    claimOwnerId: string;
+    fencingToken: string | null;
+  }): Promise<boolean> {
     if (!this.pool || !this.enabled) {
       return false;
     }
     const instanceId = normalizeRequiredString(input.instanceId);
     const domain = normalizeRequiredString(input.domain);
-    if (!instanceId || !domain) {
+    const claimOwnerId = normalizeOptionalString(input.claimOwnerId);
+    if (!instanceId || !domain || !claimOwnerId) {
       return false;
     }
     const retryDelayMs = normalizePositiveInteger(input.retryDelayMs, 5_000, 250, 300_000);
@@ -681,12 +1049,22 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
       `
         UPDATE ${INSTANCE_FLUSH_LEDGER_TABLE}
         SET next_attempt_at = now() + ($4::bigint * interval '1 millisecond'),
+            retry_after = now() + ($4::bigint * interval '1 millisecond'),
             claimed_by = NULL,
             claim_until = NULL,
             updated_at = now()
         WHERE instance_id = $1 AND domain = $2 AND ownership_epoch = $3
+          AND claimed_by = $5
+          AND fencing_token IS NOT DISTINCT FROM $6::varchar
       `,
-      [instanceId, domain, normalizePositiveInteger(input.ownershipEpoch, 0, 0, Number.MAX_SAFE_INTEGER), retryDelayMs],
+      [
+        instanceId,
+        domain,
+        normalizePositiveInteger(input.ownershipEpoch, 0, 0, Number.MAX_SAFE_INTEGER),
+        retryDelayMs,
+        claimOwnerId,
+        input.fencingToken ?? null,
+      ],
     );
     return (result.rowCount ?? 0) > 0;
   }
@@ -999,20 +1377,7 @@ async function ensurePlayerFlushLedgerTable(pool: Pool): Promise<void> {
     `);
     await client.query(`
       CREATE INDEX IF NOT EXISTS player_flush_ledger_priority_pending_idx
-      ON ${PLAYER_FLUSH_LEDGER_TABLE}(priority, domain, latest_version, flushed_version, claim_until, dirty_since_at, updated_at DESC)
-    `);
-    await client.query(`
-      CREATE INDEX IF NOT EXISTS player_flush_ledger_domain_pending_idx
-      ON ${PLAYER_FLUSH_LEDGER_TABLE}(priority, domain, latest_version, flushed_version, claim_until, dirty_since_at, updated_at DESC)
-    `);
-    await client.query(`
-      CREATE INDEX IF NOT EXISTS player_flush_ledger_claim_idx
-      ON ${PLAYER_FLUSH_LEDGER_TABLE}(claimed_by, claim_until)
-    `);
-    await client.query(`
-      CREATE INDEX IF NOT EXISTS player_flush_ledger_idempotency_idx
-      ON ${PLAYER_FLUSH_LEDGER_TABLE}(idempotency_key)
-      WHERE idempotency_key IS NOT NULL
+      ON ${PLAYER_FLUSH_LEDGER_TABLE}(priority, domain, dirty_since_at, player_id)
     `);
     await client.query('COMMIT');
   } catch (error: unknown) {
@@ -1065,20 +1430,7 @@ async function ensureInstanceFlushLedgerTable(pool: Pool): Promise<void> {
     `);
     await client.query(`
       CREATE INDEX IF NOT EXISTS instance_flush_ledger_priority_pending_idx
-      ON ${INSTANCE_FLUSH_LEDGER_TABLE}(priority, domain, ownership_epoch, latest_version, flushed_version, claim_until, dirty_since_at, updated_at DESC)
-    `);
-    await client.query(`
-      CREATE INDEX IF NOT EXISTS instance_flush_ledger_domain_pending_idx
-      ON ${INSTANCE_FLUSH_LEDGER_TABLE}(priority, domain, ownership_epoch, latest_version, flushed_version, claim_until, dirty_since_at, updated_at DESC)
-    `);
-    await client.query(`
-      CREATE INDEX IF NOT EXISTS instance_flush_ledger_claim_idx
-      ON ${INSTANCE_FLUSH_LEDGER_TABLE}(claimed_by, claim_until)
-    `);
-    await client.query(`
-      CREATE INDEX IF NOT EXISTS instance_flush_ledger_idempotency_idx
-      ON ${INSTANCE_FLUSH_LEDGER_TABLE}(idempotency_key)
-      WHERE idempotency_key IS NOT NULL
+      ON ${INSTANCE_FLUSH_LEDGER_TABLE}(priority, domain, ownership_epoch, dirty_since_at, instance_id)
     `);
     await client.query('COMMIT');
   } catch (error: unknown) {
@@ -1110,11 +1462,175 @@ function normalizeOptionalString(value: unknown): string | null {
   return normalized.length > 0 ? normalized : null;
 }
 
-function serializePayloadJson(value: unknown): string | null {
-  if (value === null || value === undefined) {
-    return null;
+interface PlayerFlushLedgerJsonRow {
+  player_id: string;
+  domain: string;
+  priority: FlushTaskPriority;
+  latest_version: number;
+  flushed_version: number;
+  dirty_since_at: string | null;
+  next_attempt_at: string | null;
+  claimed_by: string | null;
+  claim_until: string | null;
+  runtime_owner_id: string | null;
+  fencing_token: string | null;
+  idempotency_key: string | null;
+  payload_jsonb: unknown;
+  failure_category: string | null;
+  retry_after: string | null;
+}
+
+interface InstanceFlushLedgerJsonRow extends Omit<PlayerFlushLedgerJsonRow, 'player_id'> {
+  instance_id: string;
+  ownership_epoch: number;
+}
+
+function dedupePlayerFlushLedgerInputs(inputs: PlayerFlushLedgerUpsertInput[]): PlayerFlushLedgerJsonRow[] {
+  const rows = new Map<string, PlayerFlushLedgerJsonRow>();
+  for (const input of inputs) {
+    const playerId = normalizeRequiredString(input.playerId);
+    const domain = normalizeRequiredString(input.domain);
+    if (!playerId || !domain) {
+      continue;
+    }
+    const latestVersion = normalizeRevision(input.latestVersion);
+    const row: PlayerFlushLedgerJsonRow = {
+      player_id: playerId,
+      domain,
+      priority: normalizePriority(input.priority),
+      latest_version: latestVersion,
+      flushed_version: Math.min(normalizeRevision(input.flushedVersion), latestVersion),
+      dirty_since_at: normalizeOptionalTimestamp(input.dirtySinceAt),
+      next_attempt_at: normalizeOptionalTimestamp(input.nextAttemptAt),
+      claimed_by: normalizeOptionalString(input.claimedBy),
+      claim_until: normalizeOptionalTimestamp(input.claimUntil),
+      runtime_owner_id: normalizeOptionalString(input.runtimeOwnerId),
+      fencing_token: normalizeOptionalString(input.fencingToken),
+      idempotency_key: normalizeOptionalString(input.idempotencyKey),
+      payload_jsonb: input.payloadJson ?? null,
+      failure_category: normalizeOptionalString(input.failureCategory),
+      retry_after: normalizeOptionalTimestamp(input.nextAttemptAt),
+    };
+    const key = `${playerId}\u0000${domain}`;
+    const current = rows.get(key);
+    if (!current || shouldReplacePlayerBatchRow(current, row)) {
+      rows.set(key, row);
+    }
   }
-  return JSON.stringify(value);
+  return Array.from(rows.values());
+}
+
+function shouldReplacePlayerBatchRow(current: PlayerFlushLedgerJsonRow, incoming: PlayerFlushLedgerJsonRow): boolean {
+  if (incoming.latest_version !== current.latest_version) {
+    return incoming.latest_version > current.latest_version;
+  }
+  return incoming.fencing_token === current.fencing_token
+    && current.payload_jsonb === null
+    && incoming.payload_jsonb !== null;
+}
+
+function dedupeInstanceFlushLedgerInputs(inputs: InstanceFlushLedgerUpsertInput[]): InstanceFlushLedgerJsonRow[] {
+  const rows = new Map<string, InstanceFlushLedgerJsonRow>();
+  for (const input of inputs) {
+    const instanceId = normalizeRequiredString(input.instanceId);
+    const domain = normalizeRequiredString(input.domain);
+    if (!instanceId || !domain) {
+      continue;
+    }
+    const ownershipEpoch = normalizePositiveInteger(input.ownershipEpoch, 0, 0, Number.MAX_SAFE_INTEGER);
+    const latestVersion = normalizeRevision(input.latestVersion);
+    const row: InstanceFlushLedgerJsonRow = {
+      instance_id: instanceId,
+      domain,
+      ownership_epoch: ownershipEpoch,
+      priority: normalizePriority(input.priority),
+      latest_version: latestVersion,
+      flushed_version: Math.min(normalizeRevision(input.flushedVersion), latestVersion),
+      dirty_since_at: normalizeOptionalTimestamp(input.dirtySinceAt),
+      next_attempt_at: normalizeOptionalTimestamp(input.nextAttemptAt),
+      claimed_by: normalizeOptionalString(input.claimedBy),
+      claim_until: normalizeOptionalTimestamp(input.claimUntil),
+      runtime_owner_id: normalizeOptionalString(input.runtimeOwnerId),
+      fencing_token: normalizeOptionalString(input.fencingToken),
+      idempotency_key: normalizeOptionalString(input.idempotencyKey),
+      payload_jsonb: input.payloadJson ?? null,
+      failure_category: normalizeOptionalString(input.failureCategory),
+      retry_after: normalizeOptionalTimestamp(input.nextAttemptAt),
+    };
+    const key = `${instanceId}\u0000${domain}\u0000${ownershipEpoch}`;
+    const current = rows.get(key);
+    if (
+      !current
+      || row.latest_version > current.latest_version
+      || (
+        row.latest_version === current.latest_version
+        && row.fencing_token === current.fencing_token
+        && current.payload_jsonb === null
+        && row.payload_jsonb !== null
+      )
+    ) {
+      rows.set(key, row);
+    }
+  }
+  return Array.from(rows.values());
+}
+
+function dedupeClaimedFlushTasks(tasks: FlushTask[]): FlushTask[] {
+  const result = new Map<string, FlushTask>();
+  for (const task of tasks) {
+    const id = normalizeRequiredString(task.id);
+    const domain = normalizeRequiredString(task.domain);
+    const claimOwnerId = normalizeOptionalString(task.claimOwnerId);
+    if (!id || !domain || !claimOwnerId) {
+      continue;
+    }
+    const ownershipEpoch = task.scope === 'instance'
+      ? normalizePositiveInteger(task.ownershipEpoch, 0, 0, Number.MAX_SAFE_INTEGER)
+      : 0;
+    const normalizedTask: FlushTask = {
+      ...task,
+      id,
+      domain,
+      ownershipEpoch: task.scope === 'instance' ? ownershipEpoch : null,
+      latestRevision: normalizeRevision(task.latestRevision),
+      fencingToken: normalizeOptionalString(task.fencingToken),
+      claimOwnerId,
+    };
+    const key = `${task.scope}\u0000${id}\u0000${domain}\u0000${ownershipEpoch}`
+      + `\u0000${claimOwnerId}\u0000${normalizedTask.fencingToken ?? ''}`;
+    const current = result.get(key);
+    if (!current || normalizedTask.latestRevision >= current.latestRevision) {
+      result.set(key, normalizedTask);
+    }
+  }
+  return Array.from(result.values());
+}
+
+function chunkRows<T>(rows: T[], batchSize: number): T[][] {
+  const chunks: T[][] = [];
+  for (let offset = 0; offset < rows.length; offset += batchSize) {
+    chunks.push(rows.slice(offset, offset + batchSize));
+  }
+  return chunks;
+}
+
+function normalizeRevision(value: unknown): number {
+  return normalizePositiveInteger(value, 0, 0, Number.MAX_SAFE_INTEGER);
+}
+
+function buildClaimOwnerId(workerId: string): string {
+  const prefix = normalizeRequiredString(workerId).slice(0, 80) || 'flush-worker';
+  return `${prefix}:${randomUUID()}`;
+}
+
+function resolveFlushTaskClaimTtlMs(value?: number): number {
+  const configured = value ?? Number(process.env.SERVER_FLUSH_TASK_CLAIM_TTL_MS);
+  return normalizePositiveInteger(
+    configured,
+    DEFAULT_FLUSH_TASK_CLAIM_TTL_MS,
+    MIN_FLUSH_TASK_CLAIM_TTL_MS,
+    MAX_FLUSH_TASK_CLAIM_TTL_MS,
+  );
 }
 
 function buildFlushTaskIdempotencyKey(task: FlushTask): string {

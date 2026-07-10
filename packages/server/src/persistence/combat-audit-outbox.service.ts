@@ -309,10 +309,6 @@ async function ensureCombatAuditOutboxTables(pool: Pool): Promise<void> {
     ON ${OUTBOX_EVENT_TABLE}(operation_id)
   `);
   await pool.query(`
-    CREATE INDEX IF NOT EXISTS outbox_event_partition_claim_idx
-    ON ${OUTBOX_EVENT_TABLE}(partition_key, status, claim_until, created_at DESC)
-  `);
-  await pool.query(`
     CREATE INDEX IF NOT EXISTS outbox_event_status_retry_idx
     ON ${OUTBOX_EVENT_TABLE}(status, next_retry_at, created_at)
   `);

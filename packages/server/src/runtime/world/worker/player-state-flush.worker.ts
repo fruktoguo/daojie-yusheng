@@ -42,7 +42,7 @@ export class PlayerStateFlushWorker {
       await this.playerFlushLedgerService.seedDirtyPlayers({
         playerIds: dirtyPlayers,
         domain: PLAYER_STATE_WORKER_DOMAIN,
-        latestVersion: this.resolveLatestVersion(dirtyPlayers),
+        latestVersion: Date.now(),
       });
       for (const playerId of dirtyPlayers) {
         this.flushWakeupService.signalPlayerFlush(playerId);
@@ -62,6 +62,7 @@ export class PlayerStateFlushWorker {
           playerId: entry.playerId,
           domain: entry.domain,
           flushedVersion: entry.latestVersion,
+          claimOwnerId: entry.claimOwnerId,
         });
         processed += 1;
       } catch (error: unknown) {
@@ -74,6 +75,7 @@ export class PlayerStateFlushWorker {
           playerId: entry.playerId,
           domain: entry.domain,
           retryDelayMs: 5_000,
+          claimOwnerId: entry.claimOwnerId,
         });
       }
     }
@@ -111,16 +113,6 @@ export class PlayerStateFlushWorker {
     return players;
   }
 
-  private resolveLatestVersion(playerIds: string[]): number {
-    let latestVersion = 0;
-    for (const playerId of playerIds) {
-      const revision = this.playerRuntimeService.getPersistenceRevision?.(playerId);
-      if (Number.isFinite(Number(revision))) {
-        latestVersion = Math.max(latestVersion, Math.trunc(Number(revision)));
-      }
-    }
-    return latestVersion > 0 ? latestVersion : Date.now();
-  }
 }
 
 function normalizeDomainSet(domains: ReadonlySet<string> | Iterable<string>): Set<string> {

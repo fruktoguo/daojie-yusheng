@@ -10,7 +10,10 @@
  */
 
 import { Injectable, Logger } from '@nestjs/common';
-import { PlayerDomainPersistenceService } from '../persistence/player-domain-persistence.service';
+import {
+    PlayerDomainPersistenceService,
+    nextPlayerPersistenceVersion,
+} from '../persistence/player-domain-persistence.service';
 import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
 
 const PLAYER_PRESENCE_HEARTBEAT_FLUSH_INTERVAL_MS = 5_000;
@@ -41,7 +44,7 @@ class WorldGatewayPresenceHelper {
             offlineSinceAt: Number.isFinite(Number(disconnectPresence.offlineSinceAt))
                 ? Math.max(0, Math.trunc(Number(disconnectPresence.offlineSinceAt)))
                 : Date.now(),
-            versionSeed: Date.now(),
+            versionSeed: nextPlayerPersistenceVersion(),
         }).catch((error) => {
             this.logger.error(`刷新脱机在线状态失败：${binding.playerId}`, error instanceof Error ? error.stack : String(error));
         });
@@ -69,7 +72,7 @@ class WorldGatewayPresenceHelper {
                 : (Number.isFinite(Number(heartbeatPresence.offlineSinceAt))
                     ? Math.max(0, Math.trunc(Number(heartbeatPresence.offlineSinceAt)))
                     : now),
-            versionSeed: now,
+            versionSeed: nextPlayerPersistenceVersion(now),
         }).catch((error) => {
             this.logger.error(`刷新心跳在线状态失败：${playerId}`, error instanceof Error ? error.stack : String(error));
         });

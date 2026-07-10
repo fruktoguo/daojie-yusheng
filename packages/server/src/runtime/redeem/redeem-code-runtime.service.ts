@@ -9,7 +9,10 @@ import { canMergeItemStack, createItemStackSignature } from '@mud/shared';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { DurableOperationService } from '../../persistence/durable-operation.service';
 import { InstanceCatalogService } from '../../persistence/instance-catalog.service';
-import { PlayerDomainPersistenceService } from '../../persistence/player-domain-persistence.service';
+import {
+    PlayerDomainPersistenceService,
+    nextPlayerPersistenceVersion,
+} from '../../persistence/player-domain-persistence.service';
 import { RedeemCodePersistenceService } from '../../persistence/redeem-code-persistence.service';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { assignItemInstanceIdIfNeeded } from '../world/item-instance-id.helpers';
@@ -782,7 +785,7 @@ export class RedeemCodeRuntimeService {
         }
         await this.playerDomainPersistenceService.savePlayerPresence(playerId, {
             ...presence,
-            versionSeed: Date.now(),
+            versionSeed: nextPlayerPersistenceVersion(),
         });
         return true;
     }

@@ -13,6 +13,7 @@ import { resolveServerDatabaseUrl } from '../config/env-alias';
 import { FlushWakeupService } from '../persistence/flush-wakeup.service';
 import { PlayerFlushLedgerService } from '../persistence/player-flush-ledger.service';
 import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
+import { BackgroundWorkerRuntimeService } from '../runtime/worker/background-worker-runtime.service';
 import { PlayerAnchorCheckpointFlushWorker } from '../runtime/world/worker/player-anchor-checkpoint-flush.worker';
 import { Direction } from '@mud/shared';
 
@@ -36,6 +37,13 @@ async function main(): Promise<void> {
     );
     return;
   }
+
+  const previousRole = process.env.SERVER_RUNTIME_ROLE;
+  const previousMode = process.env.SERVER_FLUSH_TASK_RUNTIME_MODE;
+  const originalWorkerStart = BackgroundWorkerRuntimeService.prototype.startForLifecycleCoordinator;
+  process.env.SERVER_RUNTIME_ROLE = 'worker';
+  process.env.SERVER_FLUSH_TASK_RUNTIME_MODE = 'off';
+  BackgroundWorkerRuntimeService.prototype.startForLifecycleCoordinator = () => undefined;
 
   const pool = new Pool({ connectionString: databaseUrl });
   const app = await NestFactory.createApplicationContext(AppModule, { logger: false });
@@ -76,7 +84,7 @@ async function main(): Promise<void> {
 
     const ledgerRows = await ledger.listLedgerRows();
     const targetLedgerRow = ledgerRows.find((row) => row.player_id === playerId && row.domain === 'position_checkpoint');
-    assert.equal(Number(targetLedgerRow?.latest_version ?? 0), playerRevision);
+    assert.equal(Number(targetLedgerRow?.latest_version ?? 0) >= playerRevision, true);
     assert.equal(String(targetLedgerRow?.claimed_by ?? ''), '');
     assert.equal(String(targetLedgerRow?.claim_until ?? ''), '');
     assert.equal(Number(targetLedgerRow?.flushed_version ?? 0) >= Number(targetLedgerRow?.latest_version ?? 0), true);
@@ -106,6 +114,17 @@ async function main(): Promise<void> {
     await cleanupRows(pool, [playerId]).catch(() => undefined);
     await app.close().catch(() => undefined);
     await pool.end().catch(() => undefined);
+    restoreEnv('SERVER_RUNTIME_ROLE', previousRole);
+    restoreEnv('SERVER_FLUSH_TASK_RUNTIME_MODE', previousMode);
+    BackgroundWorkerRuntimeService.prototype.startForLifecycleCoordinator = originalWorkerStart;
+  }
+}
+
+function restoreEnv(name: string, value: string | undefined): void {
+  if (value === undefined) {
+    delete process.env[name];
+  } else {
+    process.env[name] = value;
   }
 }
 

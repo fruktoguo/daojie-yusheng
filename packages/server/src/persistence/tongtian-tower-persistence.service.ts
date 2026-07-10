@@ -22,6 +22,7 @@ export interface TongtianTowerProgress {
 }
 
 const TONGTIAN_TOWER_PROGRESS_TABLE = 'player_tongtian_tower_progress';
+const ASYNC_FAILURE_WARNING_INTERVAL_MS = 30_000;
 
 /** 通天塔持久化服务：内存缓存 + 异步落库 */
 @Injectable()
@@ -32,6 +33,9 @@ export class TongtianTowerPersistenceService implements OnModuleInit {
   private pool: Pool | null = null;
   private enabled = false;
   private recreating = false;
+  private initializationFailure: unknown = null;
+  private lastAsyncFailureWarningKey = '';
+  private lastAsyncFailureWarningAt = 0;
 
   constructor(private readonly databasePoolProvider: DatabasePoolProvider) {}
 
@@ -46,9 +50,11 @@ export class TongtianTowerPersistenceService implements OnModuleInit {
       await ensureTongtianTowerProgressTable(pool);
       await this.loadAllProgress();
       this.enabled = true;
+      this.initializationFailure = null;
       this.logger.log(`通天塔持久化已启用，已加载 ${this.progressByPlayerId.size} 条进度`);
     } catch (error) {
       this.enabled = false;
+      this.initializationFailure = error;
       this.logger.error('通天塔持久化初始化失败，已回退为内存模式', error instanceof Error ? error.stack : String(error));
     }
   }
@@ -97,9 +103,7 @@ export class TongtianTowerPersistenceService implements OnModuleInit {
     }
     const pending = this.pendingWritesByPlayerId.get(playerId);
     if (pending) {
-      await pending.catch((error: unknown) => {
-        this.logger.warn(`通天塔进度待写入失败，将重试最新进度：${error instanceof Error ? error.message : String(error)}`);
-      });
+      await pending.catch(() => undefined);
     }
     await this.persistProgress(progress);
   }
@@ -109,7 +113,19 @@ export class TongtianTowerPersistenceService implements OnModuleInit {
     if (pending.length > 0) {
       await Promise.allSettled(pending);
     }
-    await Promise.all(Array.from(this.progressByPlayerId.values(), (progress) => this.persistProgress(progress)));
+    const progressEntries = Array.from(this.progressByPlayerId.values());
+    if (progressEntries.length === 0 || !this.pool) {
+      return;
+    }
+    if (!this.enabled) {
+      throw buildTongtianPersistenceUnavailableError(this.initializationFailure);
+    }
+    const [first, ...remaining] = progressEntries;
+    if (first) {
+      // 先写一条作为可用性探针；连接池已关闭时不会同时制造逐玩家拒绝风暴。
+      await this.persistProgress(first);
+    }
+    await Promise.all(remaining.map((progress) => this.persistProgress(progress)));
   }
 
   clearCacheForTest(): void {
@@ -154,7 +170,7 @@ export class TongtianTowerPersistenceService implements OnModuleInit {
       .then(() => this.persistProgress(snapshot));
     this.pendingWritesByPlayerId.set(snapshot.playerId, next);
     void next.catch((error: unknown) => {
-      this.logger.warn(`通天塔进度落库失败：${error instanceof Error ? error.message : String(error)}`);
+      this.warnAsyncPersistFailure(error);
     }).finally(() => {
       if (this.pendingWritesByPlayerId.get(snapshot.playerId) === next) {
         this.pendingWritesByPlayerId.delete(snapshot.playerId);
@@ -163,8 +179,11 @@ export class TongtianTowerPersistenceService implements OnModuleInit {
   }
 
   private async persistProgress(progress: TongtianTowerProgress): Promise<void> {
-    if (!this.pool || !this.enabled) {
+    if (!this.pool) {
       return;
+    }
+    if (!this.enabled) {
+      throw buildTongtianPersistenceUnavailableError(this.initializationFailure);
     }
     try {
       await this.pool.query(
@@ -179,29 +198,39 @@ export class TongtianTowerPersistenceService implements OnModuleInit {
         [progress.playerId, progress.currentLayer, progress.highestLayer],
       );
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      if (message.includes('Cannot use a pool after calling end on the pool')) {
-        this.logger.warn('通天塔进度落库跳过：连接池已关闭（进程关闭中）');
-        this.enabled = false;
-        return;
-      }
       if (isRelationMissingError(error)) {
         await this.tryRecreateTable();
-        await this.pool.query(
-          `
-            INSERT INTO ${TONGTIAN_TOWER_PROGRESS_TABLE}(player_id, current_layer, highest_layer, updated_at)
-            VALUES ($1, $2, $3, now())
-            ON CONFLICT (player_id) DO UPDATE SET
-              current_layer = EXCLUDED.current_layer,
-              highest_layer = GREATEST(${TONGTIAN_TOWER_PROGRESS_TABLE}.highest_layer, EXCLUDED.highest_layer),
-              updated_at = now()
-          `,
-          [progress.playerId, progress.currentLayer, progress.highestLayer],
-        );
+        try {
+          await this.pool.query(
+            `
+              INSERT INTO ${TONGTIAN_TOWER_PROGRESS_TABLE}(player_id, current_layer, highest_layer, updated_at)
+              VALUES ($1, $2, $3, now())
+              ON CONFLICT (player_id) DO UPDATE SET
+                current_layer = EXCLUDED.current_layer,
+                highest_layer = GREATEST(${TONGTIAN_TOWER_PROGRESS_TABLE}.highest_layer, EXCLUDED.highest_layer),
+                updated_at = now()
+            `,
+            [progress.playerId, progress.currentLayer, progress.highestLayer],
+          );
+        } catch (retryError) {
+          throw normalizeTongtianPersistenceError(retryError);
+        }
         return;
       }
-      throw error;
+      throw normalizeTongtianPersistenceError(error);
     }
+  }
+
+  private warnAsyncPersistFailure(error: unknown): void {
+    const key = error instanceof Error ? `${error.name}:${error.message}` : String(error);
+    const now = Date.now();
+    if (key === this.lastAsyncFailureWarningKey
+      && now - this.lastAsyncFailureWarningAt < ASYNC_FAILURE_WARNING_INTERVAL_MS) {
+      return;
+    }
+    this.lastAsyncFailureWarningKey = key;
+    this.lastAsyncFailureWarningAt = now;
+    this.logger.warn(`通天塔进度异步落库失败：${error instanceof Error ? error.message : String(error)}`);
   }
 
   private async tryRecreateTable(): Promise<void> {
@@ -216,6 +245,23 @@ export class TongtianTowerPersistenceService implements OnModuleInit {
       this.recreating = false;
     }
   }
+}
+
+function buildTongtianPersistenceUnavailableError(cause: unknown): Error {
+  const error = new Error('tongtian_tower_persistence_unavailable');
+  (error as Error & { cause?: unknown }).cause = cause;
+  return error;
+}
+
+function normalizeTongtianPersistenceError(error: unknown): Error {
+  const message = error instanceof Error ? error.message : String(error);
+  if (message.includes('Cannot use a pool after calling end on the pool')
+    || message.toLowerCase().includes('pool is closed')) {
+    const normalized = new Error('tongtian_tower_persistence_pool_closed');
+    (normalized as Error & { cause?: unknown }).cause = error;
+    return normalized;
+  }
+  return error instanceof Error ? error : new Error(message);
 }
 
 async function ensureTongtianTowerProgressTable(pool: Pool): Promise<void> {

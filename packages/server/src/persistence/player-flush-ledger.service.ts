@@ -4,6 +4,7 @@
  * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
 import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import { Pool } from 'pg';
 
 import { DatabasePoolProvider } from './database-pool.provider';
@@ -26,16 +27,6 @@ const CREATE_PLAYER_FLUSH_LEDGER_TABLE_SQL = `
     updated_at timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (player_id, domain)
   )
-`;
-
-const CREATE_PLAYER_FLUSH_LEDGER_DOMAIN_INDEX_SQL = `
-  CREATE INDEX IF NOT EXISTS player_flush_ledger_domain_idx
-  ON ${PLAYER_FLUSH_LEDGER_TABLE}(domain, next_attempt_at, claim_until)
-`;
-
-const CREATE_PLAYER_FLUSH_LEDGER_DIRTY_INDEX_SQL = `
-  CREATE INDEX IF NOT EXISTS player_flush_ledger_dirty_idx
-  ON ${PLAYER_FLUSH_LEDGER_TABLE}(dirty_since_at, next_attempt_at)
 `;
 
 const ACTIVE_BACKLOG_FILTER_SQL = `
@@ -106,13 +97,14 @@ export class PlayerFlushLedgerService implements OnModuleInit, OnModuleDestroy {
         FROM unnest($1::varchar[]) AS player_id
         ON CONFLICT (player_id, domain) DO UPDATE
         SET
-          latest_version = GREATEST(${PLAYER_FLUSH_LEDGER_TABLE}.latest_version, EXCLUDED.latest_version),
+          latest_version = EXCLUDED.latest_version,
           dirty_since_at = COALESCE(${PLAYER_FLUSH_LEDGER_TABLE}.dirty_since_at, EXCLUDED.dirty_since_at),
           next_attempt_at = LEAST(
             COALESCE(${PLAYER_FLUSH_LEDGER_TABLE}.next_attempt_at, now()),
             COALESCE(EXCLUDED.next_attempt_at, now())
           ),
           updated_at = now()
+        WHERE EXCLUDED.latest_version > ${PLAYER_FLUSH_LEDGER_TABLE}.latest_version
         RETURNING player_id
       `,
       [playerIds, domain, latestVersion],
@@ -125,7 +117,7 @@ export class PlayerFlushLedgerService implements OnModuleInit, OnModuleDestroy {
     domain?: string;
     limit?: number;
     claimTtlMs?: number;
-  }): Promise<Array<{ playerId: string; domain: string; latestVersion: number }>> {
+  }): Promise<Array<{ playerId: string; domain: string; latestVersion: number; claimOwnerId: string }>> {
     if (!this.pool || !this.enabled) {
       return [];
     }
@@ -133,11 +125,12 @@ export class PlayerFlushLedgerService implements OnModuleInit, OnModuleDestroy {
     if (!workerId) {
       return [];
     }
+    const claimOwnerId = buildClaimOwnerId(workerId);
     const domain = normalizeRequiredString(input.domain);
     const limit = normalizePositiveInteger(input.limit, 32, 1, 256);
     const claimTtlMs = normalizePositiveInteger(input.claimTtlMs, 15_000, 1_000, 300_000);
     const domainFilter = domain ? 'AND domain = $4' : '';
-    const queryParams = domain ? [workerId, claimTtlMs, limit, domain] : [workerId, claimTtlMs, limit];
+    const queryParams = domain ? [claimOwnerId, claimTtlMs, limit, domain] : [claimOwnerId, claimTtlMs, limit];
     const result = await this.pool.query(
       `
         WITH claimed AS (
@@ -155,20 +148,21 @@ export class PlayerFlushLedgerService implements OnModuleInit, OnModuleDestroy {
             LIMIT $3
             FOR UPDATE SKIP LOCKED
           )
-          RETURNING player_id, domain, latest_version
+          RETURNING player_id, domain, latest_version, claimed_by
         )
-        SELECT player_id, domain, latest_version
+        SELECT player_id, domain, latest_version, claimed_by
         FROM claimed
         ORDER BY domain ASC, player_id ASC
       `,
       queryParams,
     );
     return Array.isArray(result.rows)
-      ? (result.rows as Array<{ player_id?: unknown; domain?: unknown; latest_version?: unknown }>).map((row) => ({
+      ? (result.rows as Array<{ player_id?: unknown; domain?: unknown; latest_version?: unknown; claimed_by?: unknown }>).map((row) => ({
           playerId: normalizeRequiredString(row.player_id),
           domain: normalizeRequiredString(row.domain),
           latestVersion: normalizePositiveInteger(row.latest_version, 0, 0, Number.MAX_SAFE_INTEGER),
-        })).filter((row) => Boolean(row.playerId) && Boolean(row.domain))
+          claimOwnerId: normalizeRequiredString(row.claimed_by),
+        })).filter((row) => Boolean(row.playerId) && Boolean(row.domain) && Boolean(row.claimOwnerId))
       : [];
   }
 
@@ -176,13 +170,15 @@ export class PlayerFlushLedgerService implements OnModuleInit, OnModuleDestroy {
     playerId: string;
     domain: string;
     flushedVersion?: number;
+    claimOwnerId: string;
   }): Promise<boolean> {
     if (!this.pool || !this.enabled) {
       return false;
     }
     const playerId = normalizeRequiredString(input.playerId);
     const domain = normalizeRequiredString(input.domain);
-    if (!playerId || !domain) {
+    const claimOwnerId = normalizeRequiredString(input.claimOwnerId);
+    if (!playerId || !domain || !claimOwnerId) {
       return false;
     }
     const flushedVersion = normalizePositiveInteger(input.flushedVersion, Date.now(), 0, Number.MAX_SAFE_INTEGER);
@@ -190,13 +186,13 @@ export class PlayerFlushLedgerService implements OnModuleInit, OnModuleDestroy {
       `
         UPDATE ${PLAYER_FLUSH_LEDGER_TABLE}
         SET
-          flushed_version = GREATEST(flushed_version, $3),
+          flushed_version = LEAST(GREATEST(flushed_version, $3), latest_version),
           dirty_since_at = CASE
-            WHEN GREATEST(flushed_version, $3) >= latest_version THEN NULL
+            WHEN LEAST(GREATEST(flushed_version, $3), latest_version) >= latest_version THEN NULL
             ELSE dirty_since_at
           END,
           next_attempt_at = CASE
-            WHEN GREATEST(flushed_version, $3) >= latest_version THEN NULL
+            WHEN LEAST(GREATEST(flushed_version, $3), latest_version) >= latest_version THEN NULL
             ELSE now()
           END,
           claimed_by = NULL,
@@ -204,8 +200,9 @@ export class PlayerFlushLedgerService implements OnModuleInit, OnModuleDestroy {
           updated_at = now()
         WHERE player_id = $1
           AND domain = $2
+          AND claimed_by = $4
       `,
-      [playerId, domain, flushedVersion],
+      [playerId, domain, flushedVersion, claimOwnerId],
     );
     return (result.rowCount ?? 0) > 0;
   }
@@ -214,13 +211,15 @@ export class PlayerFlushLedgerService implements OnModuleInit, OnModuleDestroy {
     playerId: string;
     domain: string;
     retryDelayMs?: number;
+    claimOwnerId: string;
   }): Promise<boolean> {
     if (!this.pool || !this.enabled) {
       return false;
     }
     const playerId = normalizeRequiredString(input.playerId);
     const domain = normalizeRequiredString(input.domain);
-    if (!playerId || !domain) {
+    const claimOwnerId = normalizeRequiredString(input.claimOwnerId);
+    if (!playerId || !domain || !claimOwnerId) {
       return false;
     }
     const retryDelayMs = normalizePositiveInteger(input.retryDelayMs, 5_000, 250, 300_000);
@@ -234,8 +233,9 @@ export class PlayerFlushLedgerService implements OnModuleInit, OnModuleDestroy {
           updated_at = now()
         WHERE player_id = $1
           AND domain = $2
+          AND claimed_by = $4
       `,
-      [playerId, domain, retryDelayMs],
+      [playerId, domain, retryDelayMs, claimOwnerId],
     );
     return (result.rowCount ?? 0) > 0;
   }
@@ -343,8 +343,7 @@ async function ensurePlayerFlushLedgerTable(pool: Pool): Promise<void> {
         END IF;
       END $$;
     `);
-    await client.query(CREATE_PLAYER_FLUSH_LEDGER_DOMAIN_INDEX_SQL);
-    await client.query(CREATE_PLAYER_FLUSH_LEDGER_DIRTY_INDEX_SQL);
+    // 索引契约由 FlushLedgerService 单点维护，避免两个 provider 在启动期重复创建宽索引。
     await client.query('COMMIT');
   } catch (error: unknown) {
     await client.query('ROLLBACK').catch(() => undefined);
@@ -357,6 +356,11 @@ async function ensurePlayerFlushLedgerTable(pool: Pool): Promise<void> {
 
 function normalizeRequiredString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
+}
+
+function buildClaimOwnerId(workerId: string): string {
+  const prefix = normalizeRequiredString(workerId).slice(0, 80) || 'player-flush-worker';
+  return `${prefix}:${randomUUID()}`;
 }
 
 function normalizePositiveInteger(value: unknown, defaultValue: number, min: number, max: number): number {

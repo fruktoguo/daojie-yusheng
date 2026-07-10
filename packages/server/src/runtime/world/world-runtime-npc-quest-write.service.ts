@@ -10,7 +10,10 @@
 import { Inject, Injectable, BadRequestException, NotFoundException, Optional } from '@nestjs/common';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { DurableOperationService } from '../../persistence/durable-operation.service';
-import { PlayerDomainPersistenceService } from '../../persistence/player-domain-persistence.service';
+import {
+    PlayerDomainPersistenceService,
+    nextPlayerPersistenceVersion,
+} from '../../persistence/player-domain-persistence.service';
 import { buildStructuredNotice } from './structured-notice.helpers';
 import * as world_runtime_normalization_helpers_1 from './world-runtime.normalization.helpers';
 
@@ -461,7 +464,7 @@ export class WorldRuntimeNpcQuestWriteService {
         }
         await this.playerDomainPersistenceService.savePlayerPresence(playerId, {
             ...presence,
-            versionSeed: Date.now(),
+            versionSeed: nextPlayerPersistenceVersion(),
         });
         return true;
     }

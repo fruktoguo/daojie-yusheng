@@ -19,6 +19,7 @@ import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
 import {
   PLAYER_SNAPSHOT_PROJECTABLE_DIRTY_DOMAINS,
   PlayerDomainPersistenceService,
+  nextPlayerPersistenceVersion,
 } from './player-domain-persistence.service';
 import { type PersistedPlayerSnapshot } from './player-persistence.service';
 import { PersistenceWorkerPoolService } from '../concurrency/persistence-worker-pool.service';
@@ -277,7 +278,10 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
       }
       // 在 await IO 之前先拍 revision 快照，避免下面 markPersisted 误推到 IO 期间的新版本。
       const snapshotRevision = this.playerRuntimeService.getPersistenceRevision?.(playerId) ?? null;
-      await this.playerDomainPersistenceService.savePlayerPresence(playerId, presence);
+      await this.playerDomainPersistenceService.savePlayerPresence(playerId, {
+        ...presence,
+        versionSeed: nextPlayerPersistenceVersion(),
+      });
       this.playerRuntimeService.markPersisted(
         playerId,
         new Set([PLAYER_PERSISTENCE_DIRTY_PRESENCE_DOMAIN]),
@@ -353,6 +357,7 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
     let diagWorkerMs = 0;
     let diagDbWriteMs = 0;
     let diagMarkMs = 0;
+    const cycleFailures: unknown[] = [];
 
     const promise = (async () => {
       const dirtyPlayerDomains = this.resolveDirtyPlayerDomains();
@@ -373,6 +378,15 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
             PLAYER_PERSISTENCE_FLUSH_PARALLELISM,
             async (playerId) => {
               await this.runExclusivePlayerPersistenceMutation(playerId, async () => {
+                // 强事务可能在本轮排队等待玩家资产锁期间才进入 unknown。
+                // 必须在真正拿到同一把锁后复查，避免把调用方回滚后的旧运行态覆盖到已提交事务之上。
+                if (this.durableOperationService?.isPlayerCommitOutcomeUnresolved(playerId)) {
+                  if (reason === 'shutdown') {
+                    throw new Error(`player_flush_blocked_by_unresolved_durable_commit:${playerId}`);
+                  }
+                  this.logger.warn(`跳过玩家刷盘：存在结果未确认的强事务 playerId=${playerId}`);
+                  return;
+                }
                 const dirtyDomains = dirtyPlayerDomains.get(playerId) ?? new Set<string>();
                 if (domainEnabled && dirtyDomains.size === 1 && dirtyDomains.has(PLAYER_PERSISTENCE_DIRTY_PRESENCE_DOMAIN)) {
                   const presence = this.playerRuntimeService.describePersistencePresence(playerId);
@@ -384,8 +398,12 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
                     return;
                   }
                   const presenceSnapshotRevision = this.playerRuntimeService.getPersistenceRevision?.(playerId) ?? null;
+                  const presenceVersion = nextPlayerPersistenceVersion();
                   await retryFlush(PLAYER_PERSISTENCE_FLUSH_RETRY_COUNT, async () => {
-                    await this.playerDomainPersistenceService.savePlayerPresence(playerId, presence);
+                    await this.playerDomainPersistenceService.savePlayerPresence(playerId, {
+                      ...presence,
+                      versionSeed: presenceVersion,
+                    });
                   });
                   this.playerRuntimeService.markPersisted(
                     playerId,
@@ -427,6 +445,7 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
               });
             },
             (playerId, error) => {
+              cycleFailures.push(error);
               this.logger.error(
                 `玩家持久化刷新失败（${reason}） playerId=${playerId}`,
                 error instanceof Error ? error.stack : String(error),
@@ -435,8 +454,19 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
           );
         }
       }
-      // 同步刷新离线收益累积数据；shutdown 强刷必须让失败冒泡，避免误释放 lease。
-      await this.flushOfflineGainAccumulated({ throwOnFailure: reason === 'shutdown' });
+      const failedOfflineGainPlayerIds = await this.flushOfflineGainAccumulated();
+      if (reason === 'shutdown' && failedOfflineGainPlayerIds.length > 0) {
+        cycleFailures.push(new Error(`offline_gain_flush_failed:${failedOfflineGainPlayerIds.join(',')}`));
+      }
+      if (reason === 'shutdown' && cycleFailures.length > 0) {
+        const failureSummary = cycleFailures
+          .map((error) => error instanceof Error ? error.message : String(error))
+          .join(',');
+        throw new AggregateError(
+          cycleFailures,
+          `player_shutdown_flush_failed:count=${cycleFailures.length}:${failureSummary}`,
+        );
+      }
     })();
 
     this.flushPromise = promise;
@@ -504,7 +534,10 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
           this.logger.warn(`跳过玩家在线状态提交：租约已失效 playerId=${playerId}`);
           return { persistedDomains, leaseInvalidated: true };
         }
-        await this.playerDomainPersistenceService.savePlayerPresence(playerId, presence);
+        await this.playerDomainPersistenceService.savePlayerPresence(playerId, {
+          ...presence,
+          versionSeed: snapshot.savedAt,
+        });
         persistedDomains.add(PLAYER_PERSISTENCE_DIRTY_PRESENCE_DOMAIN);
       }
     }
@@ -518,20 +551,23 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
       // Phase 9：分域服务内部会优先通过 PersistenceWorkerPool 构建 write plan，
       // 主线程在通过 lease 校验后只负责执行计划内 SQL 并据结果 markPersisted。
       const projectionPresence = this.playerRuntimeService.describePersistencePresence(playerId);
-      await this.playerDomainPersistenceService.savePlayerSnapshotProjectionDomains(
-        playerId,
-        snapshot,
-        projectedDomains,
-        {
-          allowInventoryEmptyOverwrite: projectedDomains.has('inventory'),
-          allowEquipmentEmptyOverwrite: projectedDomains.has('equipment'),
-          allowArtifactEmptyOverwrite: projectedDomains.has('artifact'),
-          allowBuffEmptyOverwrite: projectedDomains.has('buff'),
-          expectedRuntimeOwnerId: projectionPresence?.runtimeOwnerId ?? null,
-          expectedSessionEpoch: projectionPresence?.sessionEpoch ?? null,
-        },
-      );
-      for (const domain of projectedDomains) {
+      // 每个 domain 独立比较 watermark。若批量写入中只有一个 domain 已被更高版本推进，
+      // 不能因此跳过同批其他仍待提交的 domain。
+      for (const domain of Array.from(projectedDomains).sort()) {
+        await this.playerDomainPersistenceService.savePlayerSnapshotProjectionDomains(
+          playerId,
+          snapshot,
+          new Set([domain]),
+          {
+            allowInventoryEmptyOverwrite: domain === 'inventory',
+            allowEquipmentEmptyOverwrite: domain === 'equipment',
+            allowArtifactEmptyOverwrite: domain === 'artifact',
+            allowBuffEmptyOverwrite: domain === 'buff',
+            expectedRuntimeOwnerId: projectionPresence?.runtimeOwnerId ?? null,
+            expectedSessionEpoch: projectionPresence?.sessionEpoch ?? null,
+            expectedProjectionVersion: snapshot.savedAt,
+          },
+        );
         persistedDomains.add(domain);
       }
     }
@@ -687,7 +723,7 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
               online: false,
               inWorld: false,
               offlineSinceAt: presence.offlineSinceAt ?? now,
-              versionSeed: now,
+              versionSeed: nextPlayerPersistenceVersion(now),
             });
           }
         }

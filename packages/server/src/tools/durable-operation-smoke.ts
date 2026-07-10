@@ -2,6 +2,7 @@ import { installSmokeTimeout } from './smoke-timeout';
 
 installSmokeTimeout(__filename);
 
+import { randomUUID } from 'node:crypto';
 import { Pool } from 'pg';
 
 import { ContentTemplateRepository } from '../content/content-template.repository';
@@ -25,6 +26,7 @@ const PLAYER_SCOPED_TABLES = [
   'player_inventory_item',
   'player_market_storage_item',
   'player_equipment_slot',
+  'player_profession_state',
   'player_active_job',
   'player_presence',
   'player_recovery_watermark',
@@ -80,6 +82,8 @@ async function main(): Promise<void> {
   const activeJobCancelOperationId = `op:${activeJobCancelPlayerId}:active-job:cancel:1`;
   const activeJobCompletePlayerId = `player:durable-active-job-complete:${Date.now().toString(36)}`;
   const activeJobCompleteOperationId = `op:${activeJobCompletePlayerId}:active-job:complete:1`;
+  const activeJobAdvancePlayerId = `player:durable-active-job-advance:${Date.now().toString(36)}`;
+  const activeJobAdvanceRuntimeOwnerId = `runtime:${activeJobAdvancePlayerId}:19`;
   const mailId = `mail:${playerId}:1`;
   const attachmentId = `attachment:${playerId}:1`;
   const runtimeOwnerRuntimeId = `runtime:${runtimePlayerId}:7`;
@@ -293,6 +297,7 @@ async function main(): Promise<void> {
     await cleanupPlayer(pool, activeJobCancelPlayerId);
     await cleanupPlayer(pool, activeJobPlayerId);
     await cleanupPlayer(pool, activeJobCompletePlayerId);
+    await cleanupPlayer(pool, activeJobAdvancePlayerId);
     await seedClaimFixture(pool, {
       playerId,
       runtimeOwnerId,
@@ -2999,6 +3004,14 @@ async function main(): Promise<void> {
       throw new Error(`unexpected active-job complete watermark row: ${JSON.stringify(activeJobCompleteWatermarkRow)}`);
     }
 
+    const activeJobAdvanceResult = await verifyActiveJobAdvanceProfessionAndNoopWrites(
+      service,
+      pool,
+      activeJobAdvancePlayerId,
+      activeJobAdvanceRuntimeOwnerId,
+      now + 80,
+    );
+
     await seedActiveJobFixture(pool, {
       playerId: activeJobPlayerId,
       runtimeOwnerId: activeJobRuntimeOwnerId,
@@ -3320,7 +3333,7 @@ async function main(): Promise<void> {
           ok: true,
           playerId,
           runtimePlayerId,
-          answers: 'with-db 下已验证 DurableOperationService 的 runtime_owner_id + session_epoch fencing，以及 mail/market-storage/market-sell-now/market-buy-now/market-cancel/npc-shop/wallet/equipment/active-job-start/active-job-cancel/active-job-complete/active-job-update 十二条强事务链的幂等回放与拒绝回滚；其中 mail 与 market buy/sell/claim/cancel、npc-shop、active-job-start/cancel/complete/update 均已覆盖 instance lease 二次校验，MailRuntimeService 真实领取入口也会走 durable claim 主链并刷新结构化邮箱真源',
+          answers: 'with-db 下已验证 DurableOperationService 的 runtime_owner_id + session_epoch fencing，以及 mail/market-storage/market-sell-now/market-buy-now/market-cancel/npc-shop/wallet/equipment/active-job-start/active-job-cancel/active-job-complete/active-job-advance/active-job-update 十三条强事务链的幂等回放与拒绝回滚；active-job-advance 额外覆盖 profession 同事务回读、重放身份、失败回滚、跨 owner 拒绝和资产 no-op 不改写，MailRuntimeService 真实领取入口也会走 durable claim 主链并刷新结构化邮箱真源',
           excludes: '不证明真实客户端并发窗口、tick 编排内 mutation intent、GM restore、批量投递或 outbox dispatcher 消费',
           completionMapping: 'release:proof:with-db.durable-operation',
           firstResult,
@@ -3336,6 +3349,7 @@ async function main(): Promise<void> {
           activeJobStartResult,
           activeJobCancelResult,
           activeJobCompleteResult,
+          activeJobAdvanceResult,
           activeJobUpdateResult,
           activeJobReplaceResult,
           outboxCount: outboxRows.length,
@@ -3371,6 +3385,7 @@ async function main(): Promise<void> {
     await cleanupPlayer(pool, activeJobCancelPlayerId).catch(() => undefined);
     await cleanupPlayer(pool, activeJobPlayerId).catch(() => undefined);
     await cleanupPlayer(pool, activeJobCompletePlayerId).catch(() => undefined);
+    await cleanupPlayer(pool, activeJobAdvancePlayerId).catch(() => undefined);
     await pool.end().catch(() => undefined);
     await mailPersistence.onModuleDestroy().catch(() => undefined);
     await leaseAwareService.onModuleDestroy().catch(() => undefined);
@@ -4317,6 +4332,376 @@ function buildUnequippedEnhancedInventoryItems(playerId: string) {
       },
     },
   ];
+}
+
+async function verifyActiveJobAdvanceProfessionAndNoopWrites(
+  service: DurableOperationService,
+  pool: Pool,
+  playerId: string,
+  runtimeOwnerId: string,
+  now: number,
+): Promise<Record<string, unknown>> {
+  const jobRunId = `job:${playerId}:enhancement:advance:1`;
+  await seedActiveJobAdvanceFixture(pool, { playerId, runtimeOwnerId, sessionEpoch: 19, now, jobRunId });
+  const itemInstanceId = randomUUID();
+  const spiritStoneInstanceId = randomUUID();
+  const hammerInstanceId = randomUUID();
+  const inventoryItems = [
+    {
+      itemId: 'iron_sword',
+      itemInstanceId,
+      count: 1,
+      lockedBy: `enhancement:${jobRunId}`,
+      lockedAt: now - 100,
+      enhanceLevel: 2,
+      rawPayload: { itemId: 'iron_sword', itemInstanceId, count: 1, enhanceLevel: 2 },
+    },
+    {
+      itemId: 'spirit_stone',
+      itemInstanceId: spiritStoneInstanceId,
+      count: 18,
+      rawPayload: { itemId: 'spirit_stone', count: 18 },
+    },
+  ];
+  const walletBalances = [{ walletType: 'spirit_stone', balance: 18, frozenBalance: 0, version: 2 }];
+  const equipmentSlots = [{
+    slot: 'technique_enhancement',
+    itemInstanceId: hammerInstanceId,
+    item: {
+      itemId: 'equip.copper_enhancement_hammer',
+      itemInstanceId: hammerInstanceId,
+      enhanceLevel: 0,
+    },
+  }];
+  const enhancementRecords = [{
+    recordId: `enhancement_record:${playerId}:iron_sword:0`,
+    itemId: 'iron_sword',
+    highestLevel: 2,
+    levels: [{ targetLevel: 2, successCount: 1, failureCount: 0 }],
+    actionStartedAt: now - 500,
+    startLevel: 1,
+    initialTargetLevel: 2,
+    desiredTargetLevel: 3,
+    status: 'in_progress',
+  }];
+  const professionStates = [
+    { professionType: 'enhancement' as const, level: 5, exp: 12, expToNext: 60 },
+  ];
+  const nextJob = buildActiveJobSnapshot(playerId, {
+    jobRunId,
+    jobType: 'enhancement',
+    jobVersion: 11,
+    phase: 'enhancing',
+    remainingTicks: 8,
+  });
+  const foreignOwnerId = `${playerId}_foreign`;
+  try {
+    await pool.query(
+      `
+        INSERT INTO player_inventory_item(
+          item_instance_id, player_id, slot_index, item_id, count, raw_payload, updated_at
+        )
+        VALUES ($1, $2, 0, 'iron_sword', 1, '{}'::jsonb, now())
+      `,
+      [itemInstanceId, foreignOwnerId],
+    );
+    let ownershipRejected = false;
+    try {
+      await service.completeActiveJobWithAssets({
+        operationId: `op:${playerId}:active-job:advance:foreign-owner`,
+        playerId,
+        expectedRuntimeOwnerId: runtimeOwnerId,
+        expectedSessionEpoch: 19,
+        expectedJobRunId: jobRunId,
+        expectedJobVersion: 10,
+        nextInventoryItems: inventoryItems,
+        nextWalletBalances: walletBalances,
+        nextEquipmentSlots: equipmentSlots,
+        nextEnhancementRecords: enhancementRecords,
+        nextProfessionStates: professionStates,
+        nextActiveJob: nextJob,
+        completionKind: 'advanced',
+      });
+    } catch (error) {
+      ownershipRejected = String(error instanceof Error ? error.message : error)
+        .includes('replace_inventory_ownership_conflict');
+    }
+    const foreignRow = await fetchSingleRow(
+      pool,
+      'SELECT player_id FROM player_inventory_item WHERE item_instance_id = $1',
+      [itemInstanceId],
+    );
+    if (!ownershipRejected || foreignRow?.player_id !== foreignOwnerId) {
+      throw new Error(
+        `inventory cross-owner guard failed: rejected=${ownershipRejected} row=${JSON.stringify(foreignRow)}`,
+      );
+    }
+  } finally {
+    await pool.query('DELETE FROM player_inventory_item WHERE player_id = $1', [foreignOwnerId]);
+  }
+  const firstOperationId = `op:${playerId}:active-job:advance:1`;
+  const firstResult = await service.completeActiveJobWithAssets({
+    operationId: firstOperationId,
+    playerId,
+    expectedRuntimeOwnerId: runtimeOwnerId,
+    expectedSessionEpoch: 19,
+    expectedJobRunId: jobRunId,
+    expectedJobVersion: 10,
+    nextInventoryItems: inventoryItems,
+    nextWalletBalances: walletBalances,
+    nextEquipmentSlots: equipmentSlots,
+    nextEnhancementRecords: enhancementRecords,
+    nextProfessionStates: professionStates,
+    nextActiveJob: nextJob,
+    completionKind: 'advanced',
+  });
+  if (!firstResult.ok || firstResult.alreadyCommitted || firstResult.jobVersion !== 11) {
+    throw new Error(`unexpected first active-job advance result: ${JSON.stringify(firstResult)}`);
+  }
+  let professionReplayRejected = false;
+  try {
+    await service.completeActiveJobWithAssets({
+      operationId: firstOperationId,
+      playerId,
+      expectedRuntimeOwnerId: runtimeOwnerId,
+      expectedSessionEpoch: 19,
+      expectedJobRunId: jobRunId,
+      expectedJobVersion: 10,
+      nextInventoryItems: inventoryItems,
+      nextWalletBalances: walletBalances,
+      nextEquipmentSlots: equipmentSlots,
+      nextEnhancementRecords: enhancementRecords,
+      nextProfessionStates: [{ ...professionStates[0], exp: 13 }],
+      nextActiveJob: nextJob,
+      completionKind: 'advanced',
+    });
+  } catch (error) {
+    professionReplayRejected = String(error instanceof Error ? error.message : error)
+      .includes('durable_operation_replay_identity_conflict');
+  }
+  if (!professionReplayRejected) {
+    throw new Error('expected profession payload change to reject durable operation replay');
+  }
+
+  const beforeNoop = await readDurableAssetRowVersions(pool, playerId);
+  const secondOperationId = `op:${playerId}:active-job:advance:2`;
+  const secondJob = {
+    ...nextJob,
+    jobVersion: 12,
+    remainingTicks: 7,
+    detailJson: {
+      ...(nextJob.detailJson as Record<string, unknown>),
+      jobVersion: 12,
+      remainingTicks: 7,
+    },
+  };
+  const secondResult = await service.completeActiveJobWithAssets({
+    operationId: secondOperationId,
+    playerId,
+    expectedRuntimeOwnerId: runtimeOwnerId,
+    expectedSessionEpoch: 19,
+    expectedJobRunId: jobRunId,
+    expectedJobVersion: 11,
+    nextInventoryItems: inventoryItems,
+    nextWalletBalances: walletBalances,
+    nextEquipmentSlots: equipmentSlots,
+    nextEnhancementRecords: enhancementRecords,
+    nextProfessionStates: professionStates,
+    nextActiveJob: secondJob,
+    completionKind: 'advanced',
+  });
+  if (!secondResult.ok || secondResult.alreadyCommitted || secondResult.jobVersion !== 12) {
+    throw new Error(`unexpected second active-job advance result: ${JSON.stringify(secondResult)}`);
+  }
+  const afterNoop = await readDurableAssetRowVersions(pool, playerId);
+  if (JSON.stringify(afterNoop) !== JSON.stringify(beforeNoop)) {
+    throw new Error(`durable no-op asset rows were rewritten: before=${JSON.stringify(beforeNoop)} after=${JSON.stringify(afterNoop)}`);
+  }
+
+  const operationRow = await fetchSingleRow(
+    pool,
+    `SELECT operation_type, payload_jsonb FROM durable_operation_log WHERE operation_id = $1`,
+    [secondOperationId],
+  );
+  const outboxRow = await fetchSingleRow(pool, 'SELECT topic FROM outbox_event WHERE operation_id = $1', [secondOperationId]);
+  const auditRow = await fetchSingleRow(pool, 'SELECT action FROM asset_audit_log WHERE operation_id = $1', [secondOperationId]);
+  const professionRow = await fetchSingleRow(
+    pool,
+    `SELECT level, exp, exp_to_next FROM player_profession_state WHERE player_id = $1 AND profession_type = 'enhancement'`,
+    [playerId],
+  );
+  const watermarkRow = await fetchSingleRow(
+    pool,
+    'SELECT profession_version, active_job_version FROM player_recovery_watermark WHERE player_id = $1',
+    [playerId],
+  );
+  if (
+    operationRow?.operation_type !== 'active_job_advance_with_assets'
+    || Number((operationRow?.payload_jsonb as { professionStateCount?: unknown } | null)?.professionStateCount) !== 1
+    || outboxRow?.topic !== 'player.active_job.advanced'
+    || auditRow?.action !== 'advance'
+    || Number(professionRow?.level) !== 5
+    || Number(professionRow?.exp) !== 12
+    || Number(professionRow?.exp_to_next) !== 60
+    || Number(watermarkRow?.profession_version) <= 0
+    || Number(watermarkRow?.active_job_version) <= 0
+  ) {
+    throw new Error(
+      `unexpected active-job advance profession projection: operation=${JSON.stringify(operationRow)}`
+      + ` outbox=${JSON.stringify(outboxRow)} audit=${JSON.stringify(auditRow)}`
+      + ` profession=${JSON.stringify(professionRow)} watermark=${JSON.stringify(watermarkRow)}`,
+    );
+  }
+
+  const rollbackOperationId = `op:${playerId}:active-job:advance:rollback`;
+  let rollbackRejected = false;
+  try {
+    await service.completeActiveJobWithAssets({
+      operationId: rollbackOperationId,
+      playerId,
+      expectedRuntimeOwnerId: runtimeOwnerId,
+      expectedSessionEpoch: 19,
+      expectedJobRunId: jobRunId,
+      expectedJobVersion: 12,
+      nextInventoryItems: inventoryItems,
+      nextWalletBalances: walletBalances,
+      nextEquipmentSlots: equipmentSlots,
+      nextEnhancementRecords: enhancementRecords,
+      nextProfessionStates: professionStates.map((row) => (
+        row.professionType === 'enhancement' ? { ...row, exp: 99 } : row
+      )),
+      nextActiveJob: {
+        ...secondJob,
+        jobRunId: `invalid:${'x'.repeat(220)}`,
+        jobVersion: 13,
+      },
+      completionKind: 'advanced',
+    });
+  } catch {
+    rollbackRejected = true;
+  }
+  const afterRollbackJob = await fetchSingleRow(
+    pool,
+    'SELECT job_run_id, job_version FROM player_active_job WHERE player_id = $1',
+    [playerId],
+  );
+  const afterRollbackProfession = await fetchSingleRow(
+    pool,
+    `SELECT exp FROM player_profession_state WHERE player_id = $1 AND profession_type = 'enhancement'`,
+    [playerId],
+  );
+  const rollbackOperation = await fetchSingleRow(
+    pool,
+    'SELECT status FROM durable_operation_log WHERE operation_id = $1',
+    [rollbackOperationId],
+  );
+  if (
+    !rollbackRejected
+    || afterRollbackJob?.job_run_id !== jobRunId
+    || Number(afterRollbackJob?.job_version) !== 12
+    || Number(afterRollbackProfession?.exp) !== 12
+    || rollbackOperation
+  ) {
+    throw new Error(
+      `active-job advance transaction rollback was not atomic: rejected=${rollbackRejected}`
+      + ` job=${JSON.stringify(afterRollbackJob)} profession=${JSON.stringify(afterRollbackProfession)}`
+      + ` operation=${JSON.stringify(rollbackOperation)}`,
+    );
+  }
+
+  return {
+    firstResult,
+    secondResult,
+    crossOwnerInventoryRejected: true,
+    professionReplayIdentityProtected: true,
+    noOpRowsPreserved: true,
+    professionRollbackAtomic: true,
+  };
+}
+
+async function readDurableAssetRowVersions(pool: Pool, playerId: string): Promise<Record<string, unknown>> {
+  return {
+    inventory: await fetchRows(
+      pool,
+      'SELECT item_instance_id AS row_key, xmin::text AS row_version FROM player_inventory_item WHERE player_id = $1 ORDER BY item_instance_id',
+      [playerId],
+    ),
+    wallet: await fetchRows(
+      pool,
+      'SELECT wallet_type AS row_key, xmin::text AS row_version FROM player_wallet WHERE player_id = $1 ORDER BY wallet_type',
+      [playerId],
+    ),
+    equipment: await fetchRows(
+      pool,
+      'SELECT slot_type AS row_key, xmin::text AS row_version FROM player_equipment_slot WHERE player_id = $1 ORDER BY slot_type',
+      [playerId],
+    ),
+    enhancement: await fetchRows(
+      pool,
+      'SELECT record_id AS row_key, xmin::text AS row_version FROM player_enhancement_record WHERE player_id = $1 ORDER BY record_id',
+      [playerId],
+    ),
+    profession: await fetchRows(
+      pool,
+      'SELECT profession_type AS row_key, xmin::text AS row_version FROM player_profession_state WHERE player_id = $1 ORDER BY profession_type',
+      [playerId],
+    ),
+  };
+}
+
+async function seedActiveJobAdvanceFixture(
+  pool: Pool,
+  input: {
+    playerId: string;
+    runtimeOwnerId: string;
+    sessionEpoch: number;
+    now: number;
+    jobRunId: string;
+  },
+): Promise<void> {
+  await pool.query(
+    `
+      INSERT INTO player_presence(
+        player_id, online, in_world, last_heartbeat_at,
+        runtime_owner_id, session_epoch, updated_at
+      )
+      VALUES ($1, true, true, $2, $3, $4, now())
+    `,
+    [input.playerId, input.now, input.runtimeOwnerId, input.sessionEpoch],
+  );
+  const job = buildActiveJobSnapshot(input.playerId, {
+    jobRunId: input.jobRunId,
+    jobType: 'enhancement',
+    jobVersion: 10,
+    phase: 'enhancing',
+    remainingTicks: 1,
+  });
+  await pool.query(
+    `
+      INSERT INTO player_active_job(
+        player_id, job_run_id, job_type, status, phase, started_at,
+        finished_at, paused_ticks, total_ticks, remaining_ticks,
+        success_rate, speed_rate, job_version, detail_jsonb, updated_at
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14::jsonb, now())
+    `,
+    [
+      input.playerId,
+      job.jobRunId,
+      job.jobType,
+      job.status,
+      job.phase,
+      job.startedAt,
+      job.finishedAt ?? null,
+      job.pausedTicks,
+      job.totalTicks,
+      job.remainingTicks,
+      job.successRate,
+      job.speedRate,
+      job.jobVersion,
+      JSON.stringify(job.detailJson),
+    ],
+  );
 }
 
 async function seedActiveJobFixture(

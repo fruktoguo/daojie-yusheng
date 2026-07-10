@@ -204,6 +204,11 @@ async function verifyMissingCatalogLeaseIsReclaimed() {
         };
       },
     },
+    async replayInstanceFlushPayloadsBeforeOwnershipChange(targetInstanceId, ownershipEpoch) {
+      assert.equal(targetInstanceId, 'tower:tongtian:layer:31');
+      assert.equal(ownershipEpoch, 20);
+      assert.equal(instance.meta.runtimeStatus, 'stopped');
+    },
     getInstanceRuntime(instanceId) {
       return instanceId === 'tower:tongtian:layer:31' ? instance : null;
     },
@@ -274,6 +279,11 @@ async function verifyLocalLeaseSyncFailureDegrades() {
           ownership_epoch: 7,
         };
       },
+    },
+    async replayInstanceFlushPayloadsBeforeOwnershipChange(targetInstanceId, ownershipEpoch) {
+      assert.equal(targetInstanceId, 'tower:tongtian:layer:30');
+      assert.equal(ownershipEpoch, 7);
+      assert.equal(instance.meta.runtimeStatus, 'stopped');
     },
     worldRuntimeInstanceStateService: {
       deleteInstanceRuntime() {
@@ -424,6 +434,10 @@ async function verifyTowerCatalogTemplateIsRestoredBeforeQuarantine() {
         marked.push(input);
         return true;
       },
+    },
+    async replayInstanceFlushPayloadsBeforeOwnershipChange(targetInstanceId, ownershipEpoch) {
+      assert.equal(targetInstanceId, 'tower:tongtian:layer:41');
+      assert.equal(ownershipEpoch, 11);
     },
     listInstanceEntries() {
       return [];

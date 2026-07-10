@@ -21,6 +21,8 @@ export interface FlushTask {
   ownershipEpoch?: number | null;
   runtimeOwnerId?: string | null;
   fencingToken?: string | null;
+  /** 单次认领生成的唯一所有权令牌；完成、重试和续租必须原样回传。 */
+  claimOwnerId?: string | null;
   idempotencyKey?: string | null;
   payloadJson?: unknown;
   failureCategory?: string | null;
@@ -32,8 +34,14 @@ export interface FlushTask {
 export interface ClaimFlushTaskInput {
   workerId: string;
   scope: FlushTaskScope;
+  id?: string | null;
   domain?: string | null;
   ownershipEpoch?: number | null;
   priority?: FlushTaskPriority | null;
   limit?: number;
+  claimTtlMs?: number;
+  /** 仅认领仍保有 durable payload、可在启动期直接 replay 的任务。 */
+  payloadRequired?: boolean;
+  /** 启动 drain 使用：忽略 retry 时间，但仍尊重尚未过期的 claim。 */
+  includeDelayed?: boolean;
 }

@@ -7,11 +7,13 @@
  * 世界关机 drain 协调器。
  * 固定顺序：停接入 -> 断开现有 socket -> 停 tick / worker -> final flush -> 释放 lease -> 注销节点。
  */
-import { Inject, Injectable, Logger, type BeforeApplicationShutdown } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional, type BeforeApplicationShutdown } from '@nestjs/common';
 
 import { MapPersistenceFlushService } from '../persistence/map-persistence-flush.service';
 import { NodeRegistryService } from '../persistence/node-registry.service';
 import { PlayerPersistenceFlushService } from '../persistence/player-persistence-flush.service';
+import { DurableOperationService } from '../persistence/durable-operation.service';
+import { FlushTaskRuntimeService } from '../persistence/flush-task-runtime.service';
 import { TongtianTowerPersistenceService } from '../persistence/tongtian-tower-persistence.service';
 import { MarketRuntimeService } from '../runtime/market/market-runtime.service';
 import { WorldTickService } from '../runtime/tick/world-tick.service';
@@ -19,8 +21,10 @@ import { WorldRuntimeService } from '../runtime/world/world-runtime.service';
 import { WorldGateway } from './world.gateway';
 import { ShutdownStatusService, type ShutdownResultSnapshot } from '../lifecycle/shutdown-status.service';
 import { StartupBarrierService } from '../lifecycle/startup-barrier.service';
+import { BackgroundWorkerRuntimeService } from '../runtime/worker/background-worker-runtime.service';
 
 const SHUTDOWN_SESSION_DRAIN_PARALLELISM = 32;
+const BACKGROUND_WORKER_SHUTDOWN_DRAIN_BUDGET_MS = 8_000;
 
 @Injectable()
 export class WorldShutdownDrainService implements BeforeApplicationShutdown {
@@ -31,6 +35,7 @@ export class WorldShutdownDrainService implements BeforeApplicationShutdown {
     @Inject(WorldGateway) private readonly worldGateway: WorldGateway,
     @Inject(PlayerPersistenceFlushService) private readonly playerPersistenceFlushService: PlayerPersistenceFlushService,
     @Inject(MapPersistenceFlushService) private readonly mapPersistenceFlushService: MapPersistenceFlushService,
+    @Inject(DurableOperationService) private readonly durableOperationService: DurableOperationService,
     @Inject(MarketRuntimeService) private readonly marketRuntimeService: MarketRuntimeService,
     @Inject(TongtianTowerPersistenceService) private readonly tongtianTowerPersistenceService: TongtianTowerPersistenceService,
     @Inject(WorldTickService) private readonly worldTickService: WorldTickService,
@@ -38,6 +43,9 @@ export class WorldShutdownDrainService implements BeforeApplicationShutdown {
     @Inject(NodeRegistryService) private readonly nodeRegistryService: NodeRegistryService,
     @Inject(ShutdownStatusService) private readonly shutdownStatusService: ShutdownStatusService,
     @Inject(StartupBarrierService) private readonly startupBarrierService: StartupBarrierService,
+    @Inject(FlushTaskRuntimeService) private readonly flushTaskRuntimeService: FlushTaskRuntimeService,
+    @Optional() @Inject(BackgroundWorkerRuntimeService)
+    private readonly backgroundWorkerRuntimeService?: BackgroundWorkerRuntimeService,
   ) {}
 
   async beforeApplicationShutdown(signal?: string): Promise<void> {
@@ -64,6 +72,7 @@ export class WorldShutdownDrainService implements BeforeApplicationShutdown {
 
     this.startupBarrierService.closeInstanceAttach();
     this.startupBarrierService.closeInstanceWrites();
+    this.durableOperationService.beginShutdown();
     this.shutdownStatusService.beginPhase('sessions_draining', reason);
     const detachedBindings = this.worldGateway.disconnectAllForShutdown('server_shutdown');
     await runConcurrent(detachedBindings, SHUTDOWN_SESSION_DRAIN_PARALLELISM, async (binding) => {
@@ -93,59 +102,57 @@ export class WorldShutdownDrainService implements BeforeApplicationShutdown {
     this.startupBarrierService.closeOutbox();
     this.startupBarrierService.closeWorker();
     this.shutdownStatusService.beginPhase('workers_stopping', reason);
+    let backgroundWorkerDrainFailed = false;
+    try {
+      await this.backgroundWorkerRuntimeService?.drainForShutdown({
+        budgetMs: BACKGROUND_WORKER_SHUTDOWN_DRAIN_BUDGET_MS,
+      });
+    } catch (error) {
+      backgroundWorkerDrainFailed = true;
+      this.shutdownStatusService.recordInstanceFlushFailed('background_worker_drain');
+      this.logger.error('后台任务关机 drain 超出预算或执行失败；最终刷盘后将保留实例租约', error instanceof Error ? error.stack : String(error));
+    }
+    let durablePayloadDrainFailed = false;
+    try {
+      await this.flushTaskRuntimeService.drainForShutdown();
+    } catch (error) {
+      durablePayloadDrainFailed = true;
+      this.shutdownStatusService.recordInstanceFlushFailed('durable_payload_drain');
+      this.logger.error('统一刷盘 durable payload 关机排空失败；继续刷新其他领域并保留实例租约', error instanceof Error ? error.stack : String(error));
+    }
     await this.marketRuntimeService.drainForShutdown();
     this.shutdownStatusService.completePhase('workers_stopping', {
       flushOpen: this.startupBarrierService.isFlushOpen(),
       outboxOpen: this.startupBarrierService.isOutboxOpen(),
       workerOpen: this.startupBarrierService.isWorkerOpen(),
+      backgroundWorkerDrainFailed,
+      durablePayloadDrainFailed,
     });
 
     this.shutdownStatusService.beginPhase('final_flushing', reason);
-    let finalFlushFailed = false;
-    try {
-      await this.playerPersistenceFlushService.flushAllNow();
-      this.shutdownStatusService.recordInstanceFlushed();
-    } catch (error) {
-      finalFlushFailed = true;
-      this.shutdownStatusService.recordInstanceFlushFailed('player_flush');
-      this.logger.error('最终落盘玩家数据失败', error instanceof Error ? error.stack : String(error));
+    const unresolvedDurableCommit = this.durableOperationService.hasUnresolvedCommitOutcomes();
+    let finalFlushFailed = backgroundWorkerDrainFailed || durablePayloadDrainFailed || unresolvedDurableCommit;
+    if (unresolvedDurableCommit) {
+      this.shutdownStatusService.recordInstanceFlushFailed('durable_commit_outcome_unknown');
+      this.logger.error('存在结果未确认的跨域强事务；继续刷新无关对象，并保留实例租约');
     }
-    try {
-      await this.mapPersistenceFlushService.flushAllNow();
-      this.shutdownStatusService.recordInstanceFlushed();
-    } catch (error) {
-      finalFlushFailed = true;
-      this.shutdownStatusService.recordInstanceFlushFailed('map_flush');
-      this.logger.error('最终落盘地图数据失败', error instanceof Error ? error.stack : String(error));
-    }
-    try {
-      await this.tongtianTowerPersistenceService.flushAllProgress();
-      this.shutdownStatusService.recordInstanceFlushed();
-    } catch (error) {
-      finalFlushFailed = true;
-      this.shutdownStatusService.recordInstanceFlushFailed('tongtian_tower_flush');
-      this.logger.error('最终落盘通天塔数据失败', error instanceof Error ? error.stack : String(error));
-    }
-    try {
+    const finalFlushTasks = [
+      this.runFinalFlush('player_flush', '玩家数据', () => this.playerPersistenceFlushService.flushAllNow()),
+      this.runFinalFlush('map_flush', '地图数据', () => this.mapPersistenceFlushService.flushAllNow()),
+      this.runFinalFlush('tongtian_tower_flush', '通天塔数据', () => this.tongtianTowerPersistenceService.flushAllProgress()),
+    ];
+    finalFlushTasks.push(this.runFinalFlush('sect_flush', '宗门数据', async () => {
       if (typeof this.worldRuntimeService.worldRuntimeSectService?.flushAllNow === 'function') {
         await this.worldRuntimeService.worldRuntimeSectService.flushAllNow();
-        this.shutdownStatusService.recordInstanceFlushed();
       }
-    } catch (error) {
-      finalFlushFailed = true;
-      this.shutdownStatusService.recordInstanceFlushFailed('sect_flush');
-      this.logger.error('最终落盘宗门数据失败', error instanceof Error ? error.stack : String(error));
-    }
-    try {
+    }));
+    finalFlushTasks.push(this.runFinalFlush('formation_flush', '阵法数据', async () => {
       if (typeof this.worldRuntimeService.worldRuntimeFormationService?.flushAllNow === 'function') {
         await this.worldRuntimeService.worldRuntimeFormationService.flushAllNow();
-        this.shutdownStatusService.recordInstanceFlushed();
       }
-    } catch (error) {
-      finalFlushFailed = true;
-      this.shutdownStatusService.recordInstanceFlushFailed('formation_flush');
-      this.logger.error('最终落盘阵法数据失败', error instanceof Error ? error.stack : String(error));
-    }
+    }));
+    const finalFlushResults = await Promise.all(finalFlushTasks);
+    finalFlushFailed ||= finalFlushResults.some((succeeded) => !succeeded);
     this.shutdownStatusService.completePhase('final_flushing');
 
     this.shutdownStatusService.beginPhase('leases_releasing', reason);
@@ -222,6 +229,22 @@ export class WorldShutdownDrainService implements BeforeApplicationShutdown {
     const finalSnapshot = this.shutdownStatusService.getSnapshot();
     this.logger.log(`关闭 drain 完成：${JSON.stringify({ phase: finalSnapshot.phase, players: finalSnapshot.players, instances: finalSnapshot.instances, node: finalSnapshot.node })}`);
     return finalSnapshot;
+  }
+
+  private async runFinalFlush(
+    failureKey: string,
+    label: string,
+    action: () => Promise<void>,
+  ): Promise<boolean> {
+    try {
+      await action();
+      this.shutdownStatusService.recordInstanceFlushed();
+      return true;
+    } catch (error) {
+      this.shutdownStatusService.recordInstanceFlushFailed(failureKey);
+      this.logger.error(`最终落盘${label}失败`, error instanceof Error ? error.stack : String(error));
+      return false;
+    }
   }
 }
 

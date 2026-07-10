@@ -45,7 +45,7 @@ export class CheckpointCompactionWorker {
         await this.playerFlushLedgerService.seedDirtyPlayers({
           playerIds: [playerId],
           domain: PLAYER_CHECKPOINT_WORKER_DOMAIN,
-          latestVersion: normalizePositiveInteger(player.persistentRevision, Date.now(), 0, Number.MAX_SAFE_INTEGER),
+          latestVersion: Date.now(),
         });
         this.flushWakeupService.signalPlayerFlush(playerId);
       }
@@ -69,6 +69,7 @@ export class CheckpointCompactionWorker {
           playerId,
           domain: PLAYER_CHECKPOINT_WORKER_DOMAIN,
           flushedVersion: entry.latestVersion,
+          claimOwnerId: entry.claimOwnerId,
         });
         continue;
       }
@@ -80,6 +81,7 @@ export class CheckpointCompactionWorker {
           playerId,
           domain: PLAYER_CHECKPOINT_WORKER_DOMAIN,
           flushedVersion: entry.latestVersion,
+          claimOwnerId: entry.claimOwnerId,
         });
         continue;
       }
@@ -89,6 +91,7 @@ export class CheckpointCompactionWorker {
           playerId,
           domain: PLAYER_CHECKPOINT_WORKER_DOMAIN,
           flushedVersion: entry.latestVersion,
+          claimOwnerId: entry.claimOwnerId,
         });
         processed += 1;
       } catch (error: unknown) {
@@ -101,6 +104,7 @@ export class CheckpointCompactionWorker {
           playerId,
           domain: PLAYER_CHECKPOINT_WORKER_DOMAIN,
           retryDelayMs: 10_000,
+          claimOwnerId: entry.claimOwnerId,
         });
       }
     }
