@@ -31,7 +31,9 @@
 1. 遍历所有已绑定 session 的玩家
 2. getPlayerView(playerId) → buildPlayerView(playerId, radius=10)
    - 使用 shadowcasting 收集视野内可见地块
-   - 缓存机制: worldRevision + playerRevision 未变则复用
+   - 缓存机制: 视野覆盖的 AOI chunk revision + playerRevision 未变则复用
+   - 玩家/怪物移动同时标记移动前后 chunk；远处 chunk 变化不会让全实例玩家重算视野
+   - 地形、建筑和临时地块按所在 chunk 失效 FOV，只有整张实例重建才全局失效
 3. 生成 envelope（增量 delta）
 4. 支持 Worker 编码路径: flushPendingEmitsViaWorker()
 5. 辅助同步: 任务/战利品/运行时事件/统计记录

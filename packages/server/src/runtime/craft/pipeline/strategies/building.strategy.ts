@@ -337,6 +337,7 @@ function releaseBuildingActiveBuilder(player: unknown, job: unknown, ctx: Pipeli
   building.buildCompleteTick = undefined;
   building.updatedAtTick = instance.tick;
   building.revision = Math.max(1, Math.trunc(Number(building.revision) || 1)) + 1;
+  instance.markAoiViewChangedAt?.(building.x, building.y);
   instance.worldRevision = Math.max(0, Math.trunc(Number(instance.worldRevision) || 0)) + 1;
   instance.persistentRevision = Math.max(0, Math.trunc(Number(instance.persistentRevision) || 0)) + 1;
   instance.markPersistenceDirtyDomainsHighPriority?.(['building']);

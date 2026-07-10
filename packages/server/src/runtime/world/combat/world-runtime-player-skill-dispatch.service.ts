@@ -334,6 +334,7 @@ function applyPlayerHorizontalFacingToward(playerRuntimeService, instance, attac
     attacker.facing = nextFacing;
     attacker.selfRevision += 1;
     if (instance) {
+        instance.markAoiViewChangedAt?.(attacker.x, attacker.y);
         instance.worldRevision += 1;
     }
     playerRuntimeService.markPersistenceDirtyDomains?.(attacker, ['world_anchor', 'position_checkpoint']);

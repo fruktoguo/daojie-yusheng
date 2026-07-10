@@ -60,6 +60,7 @@ export function executeBuildingTick(
   building.buildCompleteTick = nextRemainingProgress > 0 ? Number(instance.tick) + nextRemainingTicks : Number(instance.tick);
   building.updatedAtTick = instance.tick;
   building.revision = Math.max(1, Math.trunc(Number(building.revision) || 1)) + 1;
+  instance.markAoiViewChangedAt?.(building.x, building.y);
   instance.worldRevision = Math.max(0, Math.trunc(Number(instance.worldRevision) || 0)) + 1;
   instance.persistentRevision = Math.max(0, Math.trunc(Number(instance.persistentRevision) || 0)) + 1;
   instance.markPersistenceDirtyDomainsHighPriority?.(['building']);
@@ -290,6 +291,7 @@ function releaseStaleBuildingActiveBuilder(instance: Record<string, any>, buildi
   building.buildCompleteTick = undefined;
   building.updatedAtTick = instance.tick;
   building.revision = Math.max(1, Math.trunc(Number(building.revision) || 1)) + 1;
+  instance.markAoiViewChangedAt?.(building.x, building.y);
   instance.worldRevision = Math.max(0, Math.trunc(Number(instance.worldRevision) || 0)) + 1;
   instance.persistentRevision = Math.max(0, Math.trunc(Number(instance.persistentRevision) || 0)) + 1;
   instance.markPersistenceDirtyDomainsHighPriority?.(['building']);
@@ -326,6 +328,7 @@ type BuildingTickRuntimePort = {
     worldRevision?: number;
     persistentRevision?: number;
     buildingById?: Map<string, Record<string, any>>;
+    markAoiViewChangedAt?(x: number, y: number): boolean;
     activatePlacedBuildingTopologyAndVisual?(building: Record<string, any>): string[];
     markPersistenceDirtyDomainsHighPriority?(domains: string[]): void;
   } | null;

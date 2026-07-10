@@ -183,6 +183,7 @@ export class TreasureVaultRuntimeService {
     resolved.building.treasureVaultPermissions = normalizePermissionMap(payload.permissions, getBuildingPermissions(resolved.building));
     resolved.building.updatedAtTick = Math.max(0, Math.trunc(Number(resolved.instance.tick) || 0));
     resolved.building.revision = Math.max(1, Math.trunc(Number(resolved.building.revision) || 1)) + 1;
+    resolved.instance.markAoiViewChangedAt?.(resolved.building.x, resolved.building.y);
     resolved.instance.worldRevision = Math.max(0, Math.trunc(Number(resolved.instance.worldRevision) || 0)) + 1;
     resolved.instance.persistentRevision = Math.max(0, Math.trunc(Number(resolved.instance.persistentRevision) || 0)) + 1;
     if (typeof resolved.instance.markPersistenceDirtyDomainsHighPriority === 'function') {
