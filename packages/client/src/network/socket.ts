@@ -44,7 +44,11 @@ import {
   emitSocketLifecycleEvent,
   type SocketSendResult,
 } from './socket-outbound-gate';
-import type { SocketBusinessEventName, SocketLifecycleEventName } from './socket-send-types';
+import {
+  isSocketSessionBootstrapEvent,
+  type SocketBusinessEventName,
+  type SocketLifecycleEventName,
+} from './socket-send-types';
 
 /** 客户端 Socket.IO 连接管理器，负责连接生命周期、协议编解码和事件分发。 */
 export class SocketManager {
@@ -165,6 +169,7 @@ export class SocketManager {
     return emitSocketBusinessEvent(
       { connected: socket?.connected ?? false, sessionReady: this.sessionReady },
       socket ? () => socket.emit(event, encodeClientEventPayload(event, payload)) : null,
+      { requiresSessionReady: !isSocketSessionBootstrapEvent(event) },
     );
   }
 

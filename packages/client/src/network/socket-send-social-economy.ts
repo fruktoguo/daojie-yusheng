@@ -347,16 +347,16 @@ export function createSocketSocialEconomySender(deps: SocialEconomySenderDeps) {
       }
       deps.emitEvent(C2S.AckSystemMessages, { ids });
     },
-    ackOfflineGainReports(reportIds: string[]): void {
+    ackOfflineGainReports(reportIds: string[]): boolean {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
       if (reportIds.length === 0) {
-        return;
+        return false;
       }
-      deps.emitEvent(C2S.AckOfflineGainReports, { reportIds });
+      return deps.emitEvent(C2S.AckOfflineGainReports, { reportIds }).accepted;
     },
-    requestOfflineGainReports(): void {
-      deps.emitEvent(C2S.RequestOfflineGainReports, {});
+    requestOfflineGainReports(): boolean {
+      return deps.emitEvent(C2S.RequestOfflineGainReports, {}).accepted;
     },
   };
 }

@@ -3,6 +3,7 @@
  *
  * 维护时要把用户意图、显示派生和服务端权威数据分清，避免为了展示便利复制业务规则。
  */
+import { resetOfflineGainBlockingConfirmation } from './ui/offline-gain-modal';
 /**
  * MainResetStateSourceOptions：统一结构类型，保证协议与运行时一致性。
  */
@@ -216,6 +217,7 @@ export function createMainResetStateSource(options: MainResetStateSourceOptions)
       options.clearActivityState();
       options.clearSocialState();
       options.clearBuildingFengShuiState();
+      resetOfflineGainBlockingConfirmation();
       options.resetMapRuntime();
       options.resetReactUiBridge();
       options.resetPanelRuntime();

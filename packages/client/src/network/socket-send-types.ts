@@ -13,8 +13,20 @@ import type { SocketSendResult } from './socket-outbound-gate';
 /** 连接和握手事件只允许由 SocketManager 生命周期发送。 */
 export type SocketLifecycleEventName = typeof C2S.Hello | typeof C2S.Heartbeat;
 
-/** 需要已完成 InitSession 的玩家或 GM 业务意图。 */
+/** 排除连接生命周期事件后的玩家或 GM 业务事件。 */
 export type SocketBusinessEventName = Exclude<ClientToServerEventName, SocketLifecycleEventName>;
+
+/** 离线收益确认阻塞首包时，建立底层连接后即可发送的会话引导事件。 */
+export type SocketSessionBootstrapEventName =
+  | typeof C2S.AckOfflineGainReports
+  | typeof C2S.RequestOfflineGainReports;
+
+/** 仅放行解除离线收益阻塞所必需的两个事件，其他业务仍等待 InitSession。 */
+export function isSocketSessionBootstrapEvent(
+  event: SocketBusinessEventName,
+): event is SocketSessionBootstrapEventName {
+  return event === C2S.AckOfflineGainReports || event === C2S.RequestOfflineGainReports;
+}
 
 /** 统一业务发包出口，返回结果让调用方按需停止本地后续操作。 */
 export type SocketEmitEvent = <TEvent extends SocketBusinessEventName>(

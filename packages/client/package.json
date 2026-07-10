@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "proof:production-boundaries": "node ./scripts/check-client-production-boundaries.js",
+    "proof:socket-outbound-gate": "node ./scripts/check-socket-outbound-gate.mjs",
     "proof:spatial-cache-contracts": "node ./scripts/check-spatial-cache-contracts.js",
     "proof:map-render-lifecycle": "node ./scripts/check-map-render-lifecycle.mjs",
     "generate:editor-catalog": "node ../../scripts/generate-editor-catalog.mjs --client=client --shared=shared",
@@ -14,7 +15,7 @@
     "prebuild": "pnpm --dir ../shared build && pnpm run generate:editor-catalog && pnpm run generate:item-sources && pnpm run generate:building-catalog && pnpm run generate:i18n",
     "dev": "vite",
     "dev:react-ui-prototype": "vite --open /react-ui-prototype.html",
-    "build": "tsc --noEmit && vite build && pnpm run proof:production-boundaries && pnpm run proof:spatial-cache-contracts && pnpm run proof:map-render-lifecycle",
+    "build": "tsc --noEmit && vite build && pnpm run proof:production-boundaries && pnpm run proof:socket-outbound-gate && pnpm run proof:spatial-cache-contracts && pnpm run proof:map-render-lifecycle",
     "verify:react-equipment": "node ./scripts/verify-react-equipment-panel.mjs",
     "preview": "vite preview"
   },

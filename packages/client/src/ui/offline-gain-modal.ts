@@ -14,13 +14,14 @@ import {
 import { formatOfflineGainDuration, renderOfflineGainReports } from './offline-gain-render';
 import { t } from './i18n';
 import { formatDisplayInteger } from '../utils/number';
+import { OfflineGainConfirmationState } from './offline-gain-confirmation-state';
 
 type OfflineGainToastKind = 'success' | 'warn' | 'system';
 
 interface OfflineGainReportHandlerOptions {
   getPlayerId: () => string | null | undefined;
-  ackOfflineGainReports: (reportIds: string[]) => void;
-  requestOfflineGainReports: () => void;
+  ackOfflineGainReports: (reportIds: string[]) => boolean;
+  requestOfflineGainReports: () => boolean;
   showToast: (message: string, kind?: OfflineGainToastKind) => void;
   windowRef?: Window;
 }
@@ -33,9 +34,17 @@ interface OfflineGainConfirmResult {
 
 const OFFLINE_GAIN_MODAL_OWNER = 'offline-gain-reports';
 const OFFLINE_GAIN_REFRESH_INTERVAL_MS = 3_000;
+const OFFLINE_GAIN_CONFIRM_TIMEOUT_MS = 12_000;
 let blockingRefreshTimer: number | null = null;
+let blockingRefreshWindowRef: Window | null = null;
 let blockingPlayerId = '';
 let blockingReports: OfflineGainReportView[] = [];
+const blockingConfirmationState = new OfflineGainConfirmationState();
+let blockingConfirmationContext: {
+  options: OfflineGainReportHandlerOptions;
+  result: OfflineGainConfirmResult;
+  timeoutId: number | null;
+} | null = null;
 
 export function handleOfflineGainReports(
   payload: ServerToClientEventPayload<typeof S2C.OfflineGainReports>,
@@ -49,6 +58,13 @@ export function handleOfflineGainReports(
     storePlayerStatisticTotalsPatchInBrowser(playerId, payload.totalsPatch, options.windowRef ?? window);
   }
   const blockingPreview = payload?.preview === true || payload?.blocking === true;
+  if (
+    blockingPreview
+    && reports.length > 0
+    && blockingConfirmationState.shouldSuppressBlockingPreview(reports.map((report) => report.id))
+  ) {
+    return;
+  }
   if (reports.length === 0) {
     if (blockingPreview) {
       keepOfflineGainBlockingPreviewAlive(playerId, options);
@@ -126,25 +142,27 @@ function patchOrOpenOfflineGainModal(
     if (!confirmBtn) {
       return;
     }
+    syncBlockingConfirmationButton(confirmBtn, blocking && blockingConfirmationState.isPending());
     confirmBtn.addEventListener('click', () => {
+      if (blocking && blockingConfirmationState.isPending()) {
+        return;
+      }
       const confirmResult = blocking
         ? confirmBlockingOfflineGainReports(options)
         : { reportIds: allReportIds, reportCount: reports.length, storageOk: localStorageOk };
       if (confirmResult.reportIds.length === 0) {
         return;
       }
-      options.ackOfflineGainReports(confirmResult.reportIds);
-      stopBlockingRefresh(options);
-      detailModalHost.patch({
-        ownerId: OFFLINE_GAIN_MODAL_OWNER,
-        onRequestClose: null,
-      });
-      detailModalHost.close(OFFLINE_GAIN_MODAL_OWNER);
-      if (confirmResult.storageOk) {
-        options.showToast(t('offline-gain.toast.saved', { count: formatDisplayInteger(confirmResult.reportCount) }), 'success');
-      } else {
-        options.showToast(t('offline-gain.toast.local-save-failed'), 'warn');
+      if (!options.ackOfflineGainReports(confirmResult.reportIds)) {
+        options.showToast(t('offline-gain.toast.confirm-send-failed'), 'warn');
+        return;
       }
+      if (blocking) {
+        beginBlockingOfflineGainConfirmation(confirmResult, options, confirmBtn);
+        return;
+      }
+      closeOfflineGainModal();
+      showOfflineGainConfirmationToast(confirmResult, options);
     });
   };
 
@@ -154,7 +172,7 @@ function patchOrOpenOfflineGainModal(
     size: 'lg',
     title: t('offline-gain.modal.title'),
     subtitle,
-    hint: localStorageOk ? t('offline-gain.modal.hint.confirm') : t('offline-gain.modal.hint.save-failed'),
+    hint: resolveOfflineGainModalHint(blocking, localStorageOk),
     bodyHtml,
     onRequestClose: () => false,
     onAfterRender: bindConfirm,
@@ -169,7 +187,7 @@ function patchOrOpenOfflineGainModal(
     size: 'lg',
     title: t('offline-gain.modal.title'),
     subtitle,
-    hint: localStorageOk ? t('offline-gain.modal.hint.confirm') : t('offline-gain.modal.hint.save-failed'),
+    hint: resolveOfflineGainModalHint(blocking, localStorageOk),
     bodyHtml,
     onRequestClose: () => false,
     onAfterRender: bindConfirm,
@@ -197,7 +215,7 @@ function patchOpenOfflineGainBlockingReports(
     size: 'lg',
     title: t('offline-gain.modal.title'),
     subtitle,
-    hint: t('offline-gain.modal.hint.confirm'),
+    hint: resolveOfflineGainModalHint(true, true),
     onRequestClose: () => false,
   });
   return true;
@@ -229,24 +247,143 @@ function confirmBlockingOfflineGainReports(options: OfflineGainReportHandlerOpti
 }
 
 function startBlockingRefresh(options: OfflineGainReportHandlerOptions): void {
-  if (blockingRefreshTimer !== null) {
+  if (blockingRefreshTimer !== null || blockingConfirmationState.isPending()) {
     return;
   }
   const windowRef = options.windowRef ?? window;
   blockingRefreshTimer = windowRef.setInterval(() => {
     options.requestOfflineGainReports();
   }, OFFLINE_GAIN_REFRESH_INTERVAL_MS);
+  blockingRefreshWindowRef = windowRef;
 }
 
-function stopBlockingRefresh(options: OfflineGainReportHandlerOptions): void {
+function clearBlockingRefreshTimer(): void {
   if (blockingRefreshTimer === null) {
     return;
   }
-  const windowRef = options.windowRef ?? window;
-  windowRef.clearInterval(blockingRefreshTimer);
+  (blockingRefreshWindowRef ?? window).clearInterval(blockingRefreshTimer);
   blockingRefreshTimer = null;
+  blockingRefreshWindowRef = null;
+}
+
+function beginBlockingOfflineGainConfirmation(
+  result: OfflineGainConfirmResult,
+  options: OfflineGainReportHandlerOptions,
+  confirmBtn: HTMLButtonElement,
+): void {
+  if (!blockingConfirmationState.begin(result.reportIds)) {
+    return;
+  }
+  const windowRef = options.windowRef ?? window;
+  if (blockingConfirmationContext?.timeoutId !== null && blockingConfirmationContext?.timeoutId !== undefined) {
+    const previousWindowRef = blockingConfirmationContext.options.windowRef ?? window;
+    previousWindowRef.clearTimeout(blockingConfirmationContext.timeoutId);
+  }
+  clearBlockingRefreshTimer();
+  const context = { options, result, timeoutId: null as number | null };
+  blockingConfirmationContext = context;
+  syncBlockingConfirmationButton(confirmBtn, true);
+  detailModalHost.patch({
+    ownerId: OFFLINE_GAIN_MODAL_OWNER,
+    hint: t('offline-gain.modal.hint.confirming'),
+  });
+  context.timeoutId = windowRef.setTimeout(() => {
+    makeBlockingOfflineGainConfirmationRetryable(context, true);
+  }, OFFLINE_GAIN_CONFIRM_TIMEOUT_MS);
+}
+
+/** 成功处理服务端 Bootstrap 后，才撤销阻塞层并标记旧预览为已结算。 */
+export function completeOfflineGainBlockingConfirmation(): void {
+  const context = blockingConfirmationContext;
+  if (!context || !blockingConfirmationState.hasActiveAttempt()) {
+    return;
+  }
+  blockingConfirmationState.settle();
+  const windowRef = context.options.windowRef ?? window;
+  if (context.timeoutId !== null) {
+    windowRef.clearTimeout(context.timeoutId);
+  }
+  clearBlockingRefreshTimer();
+  blockingConfirmationContext = null;
   blockingPlayerId = '';
   blockingReports = [];
+  closeOfflineGainModal();
+  showOfflineGainConfirmationToast(context.result, context.options);
+}
+
+/** 终止登录或切换账号时清理 timer、弹层和所有会话级确认状态。 */
+export function resetOfflineGainBlockingConfirmation(): void {
+  const context = blockingConfirmationContext;
+  if (context?.timeoutId !== null && context?.timeoutId !== undefined) {
+    (context.options.windowRef ?? window).clearTimeout(context.timeoutId);
+  }
+  clearBlockingRefreshTimer();
+  blockingConfirmationContext = null;
+  blockingConfirmationState.reset();
+  blockingPlayerId = '';
+  blockingReports = [];
+  if (detailModalHost.isOpenFor(OFFLINE_GAIN_MODAL_OWNER)) {
+    closeOfflineGainModal();
+  }
+}
+
+function makeBlockingOfflineGainConfirmationRetryable(
+  context: NonNullable<typeof blockingConfirmationContext>,
+  showTimeoutToast: boolean,
+): void {
+  if (blockingConfirmationContext !== context || !blockingConfirmationState.markRetryable()) {
+    return;
+  }
+  const windowRef = context.options.windowRef ?? window;
+  if (context.timeoutId !== null) {
+    windowRef.clearTimeout(context.timeoutId);
+  }
+  context.timeoutId = null;
+  const currentConfirmBtn = document.querySelector<HTMLButtonElement>('.offline-gain-confirm-btn');
+  if (currentConfirmBtn) {
+    syncBlockingConfirmationButton(currentConfirmBtn, false);
+  }
+  detailModalHost.patch({
+    ownerId: OFFLINE_GAIN_MODAL_OWNER,
+    hint: t('offline-gain.modal.hint.confirm'),
+  });
+  startBlockingRefresh(context.options);
+  if (showTimeoutToast) {
+    context.options.showToast(t('offline-gain.toast.confirm-timeout'), 'warn');
+  }
+}
+
+function resolveOfflineGainModalHint(blocking: boolean, localStorageOk: boolean): string {
+  if (blocking && blockingConfirmationState.isPending()) {
+    return t('offline-gain.modal.hint.confirming');
+  }
+  return localStorageOk ? t('offline-gain.modal.hint.confirm') : t('offline-gain.modal.hint.save-failed');
+}
+
+function syncBlockingConfirmationButton(confirmBtn: HTMLButtonElement, pending: boolean): void {
+  confirmBtn.disabled = pending;
+  confirmBtn.textContent = pending
+    ? t('offline-gain.modal.confirming-btn')
+    : t('offline-gain.modal.confirm-btn');
+}
+
+function closeOfflineGainModal(): void {
+  detailModalHost.patch({
+    ownerId: OFFLINE_GAIN_MODAL_OWNER,
+    onRequestClose: null,
+  });
+  detailModalHost.close(OFFLINE_GAIN_MODAL_OWNER);
+}
+
+function showOfflineGainConfirmationToast(
+  result: OfflineGainConfirmResult,
+  options: OfflineGainReportHandlerOptions,
+): void {
+  if (result.storageOk) {
+    options.showToast(t('offline-gain.toast.saved', { count: formatDisplayInteger(result.reportCount) }), 'success');
+  } else {
+    options.showToast(t('offline-gain.toast.local-save-failed'), 'warn');
+  }
 }
 
 function renderOfflineGainReportsWithConfirm(reports: readonly OfflineGainReportView[], blocking = false): string {

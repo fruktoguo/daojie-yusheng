@@ -55,7 +55,10 @@ import { cacheUnlockedMinimapLibrary, getCachedMinimapVersions } from './map-sta
 import { bindMainMapInteractions } from './main-map-interaction-bindings';
 import { bindMainShellInteractions } from './main-shell-bindings';
 import { bindMainStartup } from './main-startup-bindings';
-import { handleOfflineGainReports } from './ui/offline-gain-modal';
+import {
+  completeOfflineGainBlockingConfirmation,
+  handleOfflineGainReports,
+} from './ui/offline-gain-modal';
 import {
   MAP_PERFORMANCE_CONFIG_CHANGE_EVENT,
   type MapPerformanceConfig,
@@ -747,6 +750,7 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
     onBootstrap: (data) => {
       options.loginUI.hide();
       options.runtimeStateSource.handleBootstrap(data);
+      completeOfflineGainBlockingConfirmation();
     },
     onInitSession: (data) => options.runtimeStateSource.handleInitSession(data),
     onMapEnter: (data) => options.runtimeStateSource.handleMapEnter(data),
