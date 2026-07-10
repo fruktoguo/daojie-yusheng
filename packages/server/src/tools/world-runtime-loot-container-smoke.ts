@@ -8,6 +8,7 @@ const TEST_REALM_EXP_TO_NEXT = 10000;
 
 async function main(): Promise<void> {
   await testLootSourceMutationSerialization();
+  await testGroundTakeFailsClosedWithoutRuntimeOwner();
   await testGroundTakeDurableGrant();
   await testGroundTakeDurableGrantSyncsPresenceFence();
   await testGroundTakeFormatsTemplateName();
@@ -40,6 +41,56 @@ async function main(): Promise<void> {
     answers: '地面 pile 与容器 source 的单个拿取/全部拿取仍走 grantInventoryItems durable 主链，成功提交后才刷新任务状态并补发 loot notice，同时透传 runtimeOwnerId/sessionEpoch/instanceId/assignedNodeId/ownershipEpoch；草药采集完成不再在 tick 内调用 durable grant 或 presence fence，而是只更新运行态背包、标记 inventory/active_job/profession 脏域并交由 flush 链路落盘；草药会按生长时间持续补库存，库存未耗尽也会增长并写入 container_state，采集和地块攻击只扣 1 朵，下一次生长倒计时持续保留',
     excludes: '本 smoke 只覆盖 loot container facade 行为；采集 tick 迁出旧 service 的结构性 proof 在 world-runtime-craft-smoke，也不证明更泛化的 tick 资产 intent 编排',
   }, null, 2));
+}
+
+async function testGroundTakeFailsClosedWithoutRuntimeOwner(): Promise<void> {
+  const player = buildPlayer('player:ground:ownerless', 'instance:ground:ownerless', null, 4);
+  player.x = 1;
+  player.y = 2;
+  const service = new WorldRuntimeLootContainerService({} as never, buildPlayerRuntimeService(player) as never);
+  let instanceReadCount = 0;
+  let sourceTakeCount = 0;
+  let durableGrantCount = 0;
+  const sourceItems = [
+    { itemKey: 'pile:item:ownerless', item: { itemId: 'rat_tail', name: '鼠尾', count: 1, type: 'material' } },
+  ];
+
+  await assert.rejects(
+    () => service.dispatchTakeGround(player.playerId, 'g:ownerless', 'pile:item:ownerless', {
+      getPlayerLocationOrThrow() {
+        return { instanceId: player.instanceId };
+      },
+      getInstanceRuntimeOrThrow() {
+        instanceReadCount += 1;
+        return {
+          getGroundPileBySourceId() {
+            return { x: player.x, y: player.y, items: sourceItems };
+          },
+          takeGroundItem() {
+            sourceTakeCount += 1;
+            return sourceItems.shift()?.item ?? null;
+          },
+        };
+      },
+      durableOperationService: {
+        isEnabled() {
+          return true;
+        },
+        async grantInventoryItems() {
+          durableGrantCount += 1;
+        },
+      },
+      refreshQuestStates() {},
+      queuePlayerNotice() {},
+    } as never),
+    /事务围栏暂不可用/,
+  );
+
+  assert.equal(instanceReadCount, 0);
+  assert.equal(sourceTakeCount, 0);
+  assert.equal(durableGrantCount, 0);
+  assert.deepEqual(player.inventory.items, []);
+  assert.equal(sourceItems.length, 1);
 }
 
 async function testLootSourceMutationSerialization(): Promise<void> {
@@ -2075,7 +2126,7 @@ async function testGatherCompletionDirtyDomains() {
   assert.equal(player.gatherSkill?.exp, 42);
 }
 
-function buildPlayer(playerId: string, instanceId: string, runtimeOwnerId: string, sessionEpoch: number) {
+function buildPlayer(playerId: string, instanceId: string, runtimeOwnerId: string | null, sessionEpoch: number) {
   return {
     playerId,
     instanceId,

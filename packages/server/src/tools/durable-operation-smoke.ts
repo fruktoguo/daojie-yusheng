@@ -2271,6 +2271,61 @@ async function main(): Promise<void> {
     if (activeJobStartRejectedEnhancementRows.length !== 0) {
       throw new Error(`unexpected active-job start enhancement rows after rejection: ${JSON.stringify(activeJobStartRejectedEnhancementRows)}`);
     }
+    const activeJobStartSnapshot = buildActiveJobSnapshot(activeJobStartPlayerId, {
+      jobRunId: `job:${activeJobStartPlayerId}:alchemy:start:1`,
+      jobType: 'alchemy',
+      jobVersion: 2,
+      phase: 'brewing',
+      remainingTicks: 8,
+    });
+    const activeJobQueueHeadId = `queue:${activeJobStartPlayerId}:head`;
+    const activeJobQueueTailId = `queue:${activeJobStartPlayerId}:tail`;
+    await pool.query(
+      `INSERT INTO player_technique_activity_queue(
+         player_id, queue_id, kind, state, label, created_at, queue_order,
+         payload_jsonb, cancel_ref_jsonb, detail_jsonb
+       ) VALUES
+         ($1, $2, 'alchemy', 'pending', 'head', $4, 0, '{}'::jsonb, '{}'::jsonb, '{}'::jsonb),
+         ($1, $3, 'enhancement', 'pending', 'tail', $4, 1, '{}'::jsonb, '{}'::jsonb, '{}'::jsonb)`,
+      [activeJobStartPlayerId, activeJobQueueHeadId, activeJobQueueTailId, now + 49],
+    );
+    const activeJobRemainingQueue = [{
+      queueId: activeJobQueueTailId,
+      kind: 'enhancement',
+      state: 'pending',
+      label: 'tail',
+      targetLabel: null,
+      sleepReason: null,
+      retryAfterTicks: null,
+      createdAt: now + 49,
+      payloadJson: {},
+      cancelRefJson: {},
+      detailJson: {},
+    }];
+    let activeJobQueueCasRejected = false;
+    try {
+      await leaseAwareService.startActiveJobWithAssets({
+        operationId: `${activeJobStartOperationId}:wrong-queue-head`,
+        playerId: activeJobStartPlayerId,
+        expectedRuntimeOwnerId: activeJobStartRuntimeOwnerId,
+        expectedSessionEpoch: 16,
+        expectedInstanceId: leasedActiveJobStartInstanceId,
+        expectedAssignedNodeId: 'node:durable-operation-smoke',
+        expectedOwnershipEpoch: 6,
+        nextInventoryItems: buildActiveJobStartInventoryItems(),
+        nextWalletBalances: buildActiveJobStartWalletBalances(),
+        nextActiveJob: activeJobStartSnapshot,
+        nextEnhancementRecords: buildActiveJobStartEnhancementRecords(),
+        expectedQueueHeadId: `${activeJobQueueHeadId}:stale`,
+        nextTechniqueActivityQueue: activeJobRemainingQueue,
+      });
+    } catch (error) {
+      activeJobQueueCasRejected = String(error instanceof Error ? error.message : error)
+        .includes('player_technique_activity_queue_cas_conflict');
+    }
+    if (!activeJobQueueCasRejected) {
+      throw new Error('expected stale technique activity queue head to reject active-job start');
+    }
     const activeJobStartResult = await leaseAwareService.startActiveJobWithAssets({
       operationId: activeJobStartOperationId,
       playerId: activeJobStartPlayerId,
@@ -2281,14 +2336,10 @@ async function main(): Promise<void> {
       expectedOwnershipEpoch: 6,
       nextInventoryItems: buildActiveJobStartInventoryItems(),
       nextWalletBalances: buildActiveJobStartWalletBalances(),
-      nextActiveJob: buildActiveJobSnapshot(activeJobStartPlayerId, {
-        jobRunId: `job:${activeJobStartPlayerId}:alchemy:start:1`,
-        jobType: 'alchemy',
-        jobVersion: 2,
-        phase: 'brewing',
-        remainingTicks: 8,
-      }),
+      nextActiveJob: activeJobStartSnapshot,
       nextEnhancementRecords: buildActiveJobStartEnhancementRecords(),
+      expectedQueueHeadId: activeJobQueueHeadId,
+      nextTechniqueActivityQueue: activeJobRemainingQueue,
     });
     if (
       !activeJobStartResult.ok
@@ -2308,14 +2359,10 @@ async function main(): Promise<void> {
       expectedOwnershipEpoch: 6,
       nextInventoryItems: buildActiveJobStartInventoryItems(),
       nextWalletBalances: buildActiveJobStartWalletBalances(),
-      nextActiveJob: buildActiveJobSnapshot(activeJobStartPlayerId, {
-        jobRunId: `job:${activeJobStartPlayerId}:alchemy:start:1`,
-        jobType: 'alchemy',
-        jobVersion: 2,
-        phase: 'brewing',
-        remainingTicks: 8,
-      }),
+      nextActiveJob: activeJobStartSnapshot,
       nextEnhancementRecords: buildActiveJobStartEnhancementRecords(),
+      expectedQueueHeadId: activeJobQueueHeadId,
+      nextTechniqueActivityQueue: activeJobRemainingQueue,
     });
     if (!activeJobStartReplayResult.ok || !activeJobStartReplayResult.alreadyCommitted) {
       throw new Error(`unexpected active-job start replay result: ${JSON.stringify(activeJobStartReplayResult)}`);
@@ -2340,6 +2387,18 @@ async function main(): Promise<void> {
       'SELECT item_id, highest_level, status FROM player_enhancement_record WHERE player_id = $1 ORDER BY item_id ASC',
       [activeJobStartPlayerId],
     );
+    const activeJobStartQueueRows = await fetchRows(
+      pool,
+      'SELECT queue_id, queue_order FROM player_technique_activity_queue WHERE player_id = $1 ORDER BY queue_order ASC',
+      [activeJobStartPlayerId],
+    );
+    if (
+      activeJobStartQueueRows.length !== 1
+      || activeJobStartQueueRows[0]?.queue_id !== activeJobQueueTailId
+      || Number(activeJobStartQueueRows[0]?.queue_order) !== 0
+    ) {
+      throw new Error(`unexpected active-job queue rows after atomic start: ${JSON.stringify(activeJobStartQueueRows)}`);
+    }
     const activeJobStartOperationRow = await fetchSingleRow(
       pool,
       'SELECT status, committed_at FROM durable_operation_log WHERE operation_id = $1',

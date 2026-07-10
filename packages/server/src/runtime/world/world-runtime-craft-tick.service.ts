@@ -109,26 +109,18 @@ export class WorldRuntimeCraftTickService {
                 const queueHead = typeof this.queueService.getQueue === 'function'
                     ? this.queueService.getQueue(player)[0]
                     : null;
-                const suppressQueuedEnhancement = queueHead?.kind === 'enhancement'
-                    && isDurableEnhancementPersistenceEnabled(deps);
-                const previousSuppress = player?.suppressImmediateDomainPersistence;
-                if (suppressQueuedEnhancement) {
-                    player.suppressImmediateDomainPersistence = true;
-                }
-                try {
-                    const queueResult = this.queueService.tickQueue(player, ctx);
-                    if (queueResult?.ok) {
-                        const kind = this.resolveQueueResultKind(player);
-                        if (kind) {
-                            if (kind === 'enhancement') {
-                                await this.commitQueuedEnhancementStart(player, { allowSuppressed: suppressQueuedEnhancement });
-                            }
-                            this.worldRuntimeCraftMutationService.flushCraftMutation(playerId, queueResult, kind, deps);
-                        }
-                    }
-                } finally {
-                    if (suppressQueuedEnhancement) {
-                        player.suppressImmediateDomainPersistence = previousSuppress;
+                const queueResult = queueHead?.kind === 'enhancement'
+                    && typeof this.craftPanelRuntimeService.startQueuedEnhancementDurably === 'function'
+                    ? await this.craftPanelRuntimeService.startQueuedEnhancementDurably(
+                        player,
+                        () => this.queueService.tickQueue(player, ctx),
+                        deps,
+                    )
+                    : this.queueService.tickQueue(player, ctx);
+                if (queueResult?.ok) {
+                    const kind = this.resolveQueueResultKind(player);
+                    if (kind) {
+                        this.worldRuntimeCraftMutationService.flushCraftMutation(playerId, queueResult, kind, deps);
                     }
                 }
             }
@@ -148,14 +140,6 @@ export class WorldRuntimeCraftTickService {
             return this.craftPanelRuntimeService.tickEnhancementDurably(player, deps);
         }
         return Promise.resolve(this.craftPanelRuntimeService.tickTechniqueActivity(player, kind, deps));
-    }
-
-    /** 队列自动启动强化时补交强事务，确保锁定装备和 active_job 同批落库。 */
-    private async commitQueuedEnhancementStart(player: any, options: any = {}): Promise<void> {
-        if (!player?.enhancementJob || typeof this.craftPanelRuntimeService.commitEnhancementActiveJobWithAssets !== 'function') {
-            return;
-        }
-        await this.craftPanelRuntimeService.commitEnhancementActiveJobWithAssets(player, 'start', null, options);
     }
 
     /** 向 EventBus 发射当前玩家所有活跃 job 的进度快照。 */
@@ -220,18 +204,6 @@ export class WorldRuntimeCraftTickService {
         );
     }
 };
-
-function isDurableEnhancementPersistenceEnabled(deps: any): boolean {
-    const service = deps?.durableOperationService;
-    if (!service || typeof service.isEnabled !== 'function') {
-        return false;
-    }
-    try {
-        return service.isEnabled() === true;
-    } catch {
-        return false;
-    }
-}
 
 function buildCraftTickErrorNotice(error: unknown): { text: string; kind: string; structured?: unknown } {
     const message = error instanceof Error ? error.message : String(error);

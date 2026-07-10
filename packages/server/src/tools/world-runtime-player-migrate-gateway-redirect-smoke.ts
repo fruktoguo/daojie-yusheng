@@ -154,11 +154,11 @@ async function main(): Promise<void> {
   const provider = new DatabasePoolProvider();
   const playerRuntimeService = createPlayerRuntimeService();
   const flushCalls: string[] = [];
+  process.env.SERVER_NODE_ID = localNodeId;
+  const nodeRegistryService = new NodeRegistryService(provider);
+  const playerSessionRouteService = new PlayerSessionRouteService(nodeRegistryService, provider);
 
   try {
-    process.env.SERVER_NODE_ID = localNodeId;
-    const nodeRegistryService = new NodeRegistryService(provider);
-    const playerSessionRouteService = new PlayerSessionRouteService(nodeRegistryService, provider);
     await nodeRegistryService.onModuleInit();
     await playerSessionRouteService.onModuleInit();
 
@@ -197,7 +197,7 @@ async function main(): Promise<void> {
 
     const migrateResult = await worldRuntime.migratePlayerToNode(playerId, remoteNodeId);
     assert.deepEqual(migrateResult, { ok: true });
-    assert.deepEqual(flushCalls, [playerId]);
+    assert.deepEqual(flushCalls, [playerId, playerId]);
     assert.equal(runtimePlayer.sessionEpoch, 2);
 
     const client = createBootstrapClient('socket:migrate-redirect');
@@ -300,6 +300,9 @@ async function main(): Promise<void> {
   } finally {
     await cleanupRoute(pool, playerId).catch(() => undefined);
     await cleanupNodeRows(pool, [localNodeId, remoteNodeId]).catch(() => undefined);
+    await playerSessionRouteService.onModuleDestroy().catch(() => undefined);
+    await nodeRegistryService.onModuleDestroy?.().catch(() => undefined);
+    await provider.onModuleDestroy().catch(() => undefined);
     await pool.end().catch(() => undefined);
     if (typeof previousNodeId === 'string') {
       process.env.SERVER_NODE_ID = previousNodeId;

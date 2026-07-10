@@ -365,6 +365,38 @@ async function testDispatch() {
         ['queuePlayerNotice', 'player:2', '购买 聚气丹，消耗 灵石 x5', 'success'],
     ]);
 
+    const ownerlessMutationLog = [];
+    const ownerlessPlayer = {
+        playerId: 'player:ownerless',
+        runtimeOwnerId: null,
+        sessionEpoch: 7,
+        inventory: { items: [{ itemId: 'spirit_stone', count: 20 }] },
+        wallet: { balances: [{ walletType: 'spirit_stone', balance: 20, frozenBalance: 0, version: 1 }] },
+    };
+    const ownerlessService = new WorldRuntimeNpcShopService({
+        getPlayerOrThrow() { return ownerlessPlayer; },
+        debitWallet(...args) { ownerlessMutationLog.push(['debitWallet', ...args]); },
+        receiveInventoryItem(...args) { ownerlessMutationLog.push(['receiveInventoryItem', ...args]); },
+        replaceInventoryItems(...args) { ownerlessMutationLog.push(['replaceInventoryItems', ...args]); },
+    }, {
+        getCurrencyItemId() { return 'spirit_stone'; },
+        getCurrencyItemName() { return '灵石'; },
+    }, {
+        isEnabled() { return true; },
+        async purchaseNpcShopItem(...args) { ownerlessMutationLog.push(['purchaseNpcShopItem', ...args]); },
+    });
+    await assert.rejects(
+        () => ownerlessService.dispatchBuyNpcShopItem('player:ownerless', 'npc_a', 'qi_pill', 1, {
+            validateNpcShopPurchase() { return { totalCost: 5, item: { itemId: 'qi_pill', name: '聚气丹', count: 1 } }; },
+            refreshQuestStates(...args) { ownerlessMutationLog.push(['refreshQuestStates', ...args]); },
+            queuePlayerNotice(...args) { ownerlessMutationLog.push(['queuePlayerNotice', ...args]); },
+            getPlayerViewOrThrow() { return { tick: 3, playerId: 'player:ownerless' }; },
+            getPlayerOrThrow() { return ownerlessPlayer; },
+        }),
+        /事务围栏暂不可用/,
+    );
+    assert.deepEqual(ownerlessMutationLog, []);
+
     const fencedLog = [];
     const fencedPlayer = {
         playerId: 'player:fenced',

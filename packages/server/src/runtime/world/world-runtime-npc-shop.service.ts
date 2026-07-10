@@ -111,45 +111,49 @@ export class WorldRuntimeNpcShopService {
             ? player.runtimeOwnerId.trim()
             : '';
         const sessionEpoch = Number.isFinite(player.sessionEpoch)
-            ? Math.max(1, Math.trunc(Number(player.sessionEpoch)))
+            ? Math.max(0, Math.trunc(Number(player.sessionEpoch)))
             : 0;
-        if (durableEnabled && runtimeOwnerId && sessionEpoch > 0) {
+        if (durableEnabled) {
+            if (!runtimeOwnerId || sessionEpoch <= 0) {
+                throw new BadRequestException('玩家资产事务围栏暂不可用，请稍后重试');
+            }
             const currencyItemId = this.worldRuntimeNpcShopQueryService.getCurrencyItemId();
             const nextInventoryItems = applyNpcShopPurchaseToInventory(player.inventory?.items ?? [], validated.item, currencyItemId, validated.totalCost);
             const nextWalletBalances = applyNpcShopPurchaseToWallet(player.wallet?.balances ?? [], currencyItemId, nextInventoryItems);
-            if (nextInventoryItems && nextWalletBalances) {
-                const location = typeof deps?.getPlayerLocation === 'function' ? deps.getPlayerLocation(playerId) : null;
-                const leaseContext = await resolveInstanceLeaseContext(location?.instanceId ?? null, deps);
-                const operationId = `op:${playerId}:npc-shop:${Date.now().toString(36)}`;
-                const runPurchase = async () => durableOperationService.purchaseNpcShopItem({
-                    operationId,
-                    playerId,
-                    expectedRuntimeOwnerId: this.getCurrentRuntimeOwnerId(playerId, deps) ?? runtimeOwnerId,
-                    expectedSessionEpoch: this.getCurrentSessionEpoch(playerId, deps) ?? sessionEpoch,
-                    expectedInstanceId: location?.instanceId ?? null,
-                    expectedAssignedNodeId: leaseContext?.assignedNodeId ?? null,
-                    expectedOwnershipEpoch: leaseContext?.ownershipEpoch ?? null,
-                    itemId: validated.item.itemId,
-                    quantity,
-                    totalCost: validated.totalCost,
-                    nextInventoryItems,
-                    nextWalletBalances,
-                });
-                try {
-                    await runPurchase();
-                }
-                catch (error) {
-                    if (!shouldRetryNpcShopFence(error) || !(await this.syncCurrentPresenceFence(playerId))) {
-                        throw error;
-                    }
-                    await runPurchase();
-                }
-                this.playerRuntimeService.replaceInventoryItems(playerId, nextInventoryItems);
-                deps.refreshQuestStates(playerId);
-                const n = buildStructuredNotice('success', 'notice.shop.purchased', `购买 ${formatItemStackLabel(validated.item)}，消耗 ${this.worldRuntimeNpcShopQueryService.getCurrencyItemName()} x${validated.totalCost}`, { vars: { itemLabel: formatItemStackLabel(validated.item), currency: this.worldRuntimeNpcShopQueryService.getCurrencyItemName(), cost: validated.totalCost }, pills: [{ key: 'itemLabel', style: 'target' }, { key: 'currency', style: 'target' }] });
-                deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);
-                return deps.getPlayerViewOrThrow(playerId);
+            if (!nextInventoryItems || !nextWalletBalances) {
+                throw new BadRequestException('NPC 商店资产事务预演失败，请稍后重试');
             }
+            const location = typeof deps?.getPlayerLocation === 'function' ? deps.getPlayerLocation(playerId) : null;
+            const leaseContext = await resolveInstanceLeaseContext(location?.instanceId ?? null, deps);
+            const operationId = `op:${playerId}:npc-shop:${Date.now().toString(36)}`;
+            const runPurchase = async () => durableOperationService.purchaseNpcShopItem({
+                operationId,
+                playerId,
+                expectedRuntimeOwnerId: this.getCurrentRuntimeOwnerId(playerId, deps) ?? runtimeOwnerId,
+                expectedSessionEpoch: this.getCurrentSessionEpoch(playerId, deps) ?? sessionEpoch,
+                expectedInstanceId: location?.instanceId ?? null,
+                expectedAssignedNodeId: leaseContext?.assignedNodeId ?? null,
+                expectedOwnershipEpoch: leaseContext?.ownershipEpoch ?? null,
+                itemId: validated.item.itemId,
+                quantity,
+                totalCost: validated.totalCost,
+                nextInventoryItems,
+                nextWalletBalances,
+            });
+            try {
+                await runPurchase();
+            }
+            catch (error) {
+                if (!shouldRetryNpcShopFence(error) || !(await this.syncCurrentPresenceFence(playerId))) {
+                    throw error;
+                }
+                await runPurchase();
+            }
+            this.playerRuntimeService.replaceInventoryItems(playerId, nextInventoryItems);
+            deps.refreshQuestStates(playerId);
+            const n = buildStructuredNotice('success', 'notice.shop.purchased', `购买 ${formatItemStackLabel(validated.item)}，消耗 ${this.worldRuntimeNpcShopQueryService.getCurrencyItemName()} x${validated.totalCost}`, { vars: { itemLabel: formatItemStackLabel(validated.item), currency: this.worldRuntimeNpcShopQueryService.getCurrencyItemName(), cost: validated.totalCost }, pills: [{ key: 'itemLabel', style: 'target' }, { key: 'currency', style: 'target' }] });
+            deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);
+            return deps.getPlayerViewOrThrow(playerId);
         }
         this.playerRuntimeService.debitWallet(playerId, this.worldRuntimeNpcShopQueryService.getCurrencyItemId(), validated.totalCost);
         this.playerRuntimeService.receiveInventoryItem(playerId, validated.item);
@@ -222,7 +226,7 @@ export class WorldRuntimeNpcShopService {
             ? deps.getPlayerOrThrow(playerId)
             : this.playerRuntimeService.getPlayerOrThrow(playerId);
         return Number.isFinite(player?.sessionEpoch)
-            ? Math.max(1, Math.trunc(Number(player.sessionEpoch)))
+            ? Math.max(0, Math.trunc(Number(player.sessionEpoch)))
             : null;
     }
 };

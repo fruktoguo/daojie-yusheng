@@ -619,6 +619,11 @@ export async function migratePlayerToNode(runtime, playerId, targetNodeId) {
     return { ok: true };
   }
   runtime.playerRuntimeService.beginTransfer(player, normalizedTargetNodeId);
+  // beginTransfer 已旋转 owner/epoch；route handoff 前必须先把新 fence 落到 presence，
+  // 否则目标节点可能从旧 DB epoch 生成同 epoch rival owner，或源节点投影被精确围栏自锁。
+  if (typeof runtime.playerPersistenceFlushService?.flushPlayer === 'function') {
+    await runtime.playerPersistenceFlushService.flushPlayer(normalizedPlayerId);
+  }
   const routeSessionEpoch = Number.isFinite(player.sessionEpoch)
     ? Math.max(1, Math.trunc(Number(player.sessionEpoch)))
     : 0;

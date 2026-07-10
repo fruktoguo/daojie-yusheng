@@ -43,7 +43,7 @@ async function main() {
   const result = await service.migratePlayerToNode(player.playerId, 'node:remote');
 
   assert.deepEqual(result, { ok: true });
-  assert.deepEqual(flushCalls, ['player:route-handoff']);
+  assert.deepEqual(flushCalls, ['player:route-handoff', 'player:route-handoff']);
   assert.equal(player.sessionEpoch, 8);
   assert.equal(player.transferState, 'in_transfer');
   assert.equal(player.transferTargetNodeId, 'node:remote');
@@ -60,7 +60,7 @@ async function main() {
     ok: true,
     case: 'world-runtime-player-migrate',
     flushCalls,
-    answers: 'WorldRuntimeService.migratePlayerToNode 现已直接证明：会先 flushPlayer，再执行 beginTransfer() 递增 session_epoch，并把目标 node_id + 新 session_epoch 以 assigned 路由写入 player_session_route handoff 主链。',
+    answers: 'WorldRuntimeService.migratePlayerToNode 现已直接证明：先 flush 旧状态，beginTransfer() 递增 session_epoch 后再 flush 新 owner/epoch，最后才写 assigned 路由。',
     excludes: '不证明目标节点按新 session_epoch 完成 bootstrap 接管、真实跨节点 socket redirect 或 transfer 完成后的路由清理',
     completionMapping: 'release:proof:world-runtime.player-migrate-route',
   }, null, 2));

@@ -24,6 +24,7 @@ import {
 import { NodeRegistryService } from './node-registry.service';
 import type { PersistedPlayerSnapshot } from './player-persistence.service';
 import { isTransientPostgresError } from './pg-error-utils';
+import type { PlayerTechniqueActivityQueueUpsertInput } from './player-domain-persistence.service';
 import { ensureBigintColumnsWithClient } from './schema-bigint-migration';
 
 const PLAYER_PRESENCE_TABLE = 'player_presence';
@@ -37,6 +38,7 @@ const PLAYER_EQUIPMENT_SLOT_TABLE = 'player_equipment_slot';
 const PLAYER_QUEST_PROGRESS_TABLE = 'player_quest_progress';
 const durableModuleLogger = new Logger('DurableOperation:LegacyCompat');
 const PLAYER_ACTIVE_JOB_TABLE = 'player_active_job';
+const PLAYER_TECHNIQUE_ACTIVITY_QUEUE_TABLE = 'player_technique_activity_queue';
 const PLAYER_ENHANCEMENT_RECORD_TABLE = 'player_enhancement_record';
 const PLAYER_MAIL_TABLE = 'player_mail';
 const PLAYER_MAIL_ATTACHMENT_TABLE = 'player_mail_attachment';
@@ -416,6 +418,10 @@ export interface StartActiveJobWithAssetsInput {
   nextWalletBalances: DurableWalletBalanceSnapshot[];
   nextActiveJob: DurableActiveJobSnapshot;
   nextEnhancementRecords?: DurableEnhancementRecordSnapshot[] | null;
+  /** 从统一技艺队列启动时，必须与 nextTechniqueActivityQueue 成对提供。 */
+  expectedQueueHeadId?: string;
+  /** 队首任务启动成功后应保留的剩余队列；与任务及资产在同一事务内替换。 */
+  nextTechniqueActivityQueue?: PlayerTechniqueActivityQueueUpsertInput[];
 }
 
 export interface StartActiveJobWithAssetsResult {
@@ -465,7 +471,10 @@ export interface CompleteActiveJobWithAssetsInput {
   nextEquipmentSlots?: DurableEquipmentSlotSnapshot[] | null;
   nextEnhancementRecords?: DurableEnhancementRecordSnapshot[] | null;
   nextActiveJob?: DurableActiveJobSnapshot | null;
+  completionKind?: ActiveJobCompletionKind;
 }
+
+export type ActiveJobCompletionKind = 'completed' | 'advanced' | 'stopped';
 
 export interface CompleteActiveJobWithAssetsResult {
   ok: boolean;
@@ -2695,6 +2704,44 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
     const normalizedNextEnhancementRecords = Array.isArray(input.nextEnhancementRecords)
       ? normalizeEnhancementRecordSnapshots(normalizedPlayerId, input.nextEnhancementRecords)
       : null;
+    const queueMutationRequested = input.expectedQueueHeadId !== undefined
+      || input.nextTechniqueActivityQueue !== undefined;
+    const normalizedExpectedQueueHeadId = queueMutationRequested
+      ? normalizeRequiredString(input.expectedQueueHeadId)
+      : null;
+    const normalizedNextTechniqueActivityQueue = queueMutationRequested
+      && Array.isArray(input.nextTechniqueActivityQueue)
+      ? normalizeTechniqueActivityQueueSnapshots(input.nextTechniqueActivityQueue)
+      : null;
+
+    if (
+      queueMutationRequested
+      && (!normalizedExpectedQueueHeadId || !Array.isArray(input.nextTechniqueActivityQueue))
+    ) {
+      throw new Error('invalid_start_active_job_queue_mutation_input');
+    }
+    if (
+      normalizedExpectedQueueHeadId
+      && normalizedNextTechniqueActivityQueue?.some((entry) => entry.queueId === normalizedExpectedQueueHeadId)
+    ) {
+      throw new Error('invalid_start_active_job_queue_head_not_consumed');
+    }
+    if (
+      normalizedExpectedQueueHeadId
+      && normalizedNextTechniqueActivityQueue?.some(({ queueId }) => queueId === normalizedExpectedQueueHeadId)
+    ) {
+      throw new Error('start_active_job_queue_head_not_consumed');
+    }
+
+    const assetSnapshotDigest = buildActiveJobAssetSnapshotDigest({
+      playerId: normalizedPlayerId,
+      inventoryItems: normalizedNextInventoryItems,
+      walletBalances: normalizedNextWalletBalances,
+      equipmentSlots: undefined,
+      enhancementRecords: normalizedNextEnhancementRecords,
+      activeJob: normalizedNextActiveJob,
+      techniqueActivityQueue: normalizedNextTechniqueActivityQueue ?? undefined,
+    });
 
     return this.executeAssetMutation<StartActiveJobWithAssetsResult>({
       operationId: normalizedOperationId,
@@ -2713,6 +2760,11 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
         inventoryItemCount: normalizedNextInventoryItems.length,
         walletBalanceCount: normalizedNextWalletBalances.length,
         enhancementRecordCount: Array.isArray(normalizedNextEnhancementRecords) ? normalizedNextEnhancementRecords.length : 0,
+        expectedQueueHeadId: normalizedExpectedQueueHeadId,
+        techniqueActivityQueueCount: Array.isArray(normalizedNextTechniqueActivityQueue)
+          ? normalizedNextTechniqueActivityQueue.length
+          : null,
+        assetSnapshotDigest,
       },
       onAlreadyCommitted: async () => ({
         ok: true,
@@ -2722,6 +2774,13 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
         jobVersion: normalizedNextActiveJob.jobVersion,
       }),
       onMutate: async (client, now) => {
+        if (normalizedExpectedQueueHeadId && Array.isArray(normalizedNextTechniqueActivityQueue)) {
+          await assertPlayerTechniqueActivityQueueHead(
+            client,
+            normalizedPlayerId,
+            normalizedExpectedQueueHeadId,
+          );
+        }
         const currentRow = await client.query<{
           job_run_id?: string | null;
           job_version?: string | number | null;
@@ -2761,7 +2820,15 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
         if (Array.isArray(normalizedNextEnhancementRecords)) {
           await replacePlayerEnhancementRecords(client, normalizedPlayerId, normalizedNextEnhancementRecords);
         }
+        if (normalizedExpectedQueueHeadId && Array.isArray(normalizedNextTechniqueActivityQueue)) {
+          await replacePlayerTechniqueActivityQueue(
+            client,
+            normalizedPlayerId,
+            normalizedNextTechniqueActivityQueue,
+          );
+        }
 
+        const activeJobVersion = Array.isArray(normalizedNextTechniqueActivityQueue) ? now + 3 : now + 2;
         await client.query(
           `
             INSERT INTO ${PLAYER_RECOVERY_WATERMARK_TABLE}(
@@ -2781,7 +2848,13 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
               enhancement_record_version = GREATEST(${PLAYER_RECOVERY_WATERMARK_TABLE}.enhancement_record_version, EXCLUDED.enhancement_record_version),
               updated_at = now()
           `,
-          [normalizedPlayerId, now, now + 1, now + 2, Array.isArray(normalizedNextEnhancementRecords) ? now + 3 : 0],
+          [
+            normalizedPlayerId,
+            now,
+            now + 1,
+            activeJobVersion,
+            Array.isArray(normalizedNextEnhancementRecords) ? activeJobVersion + 1 : 0,
+          ],
         );
 
         await client.query(
@@ -2809,6 +2882,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
               action: 'start',
               jobRunId: normalizedNextActiveJob.jobRunId,
               jobVersion: normalizedNextActiveJob.jobVersion,
+              consumedQueueHeadId: normalizedExpectedQueueHeadId,
             }),
             'ready',
             0,
@@ -2842,6 +2916,10 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
               inventoryItemCount: normalizedNextInventoryItems.length,
               walletBalanceCount: normalizedNextWalletBalances.length,
               enhancementRecordCount: Array.isArray(normalizedNextEnhancementRecords) ? normalizedNextEnhancementRecords.length : 0,
+              consumedQueueHeadId: normalizedExpectedQueueHeadId,
+              techniqueActivityQueueCount: Array.isArray(normalizedNextTechniqueActivityQueue)
+                ? normalizedNextTechniqueActivityQueue.length
+                : null,
             }),
             JSON.stringify({
               jobRunId: null,
@@ -2957,6 +3035,16 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
       throw new Error('invalid_cancel_active_job_with_assets_input');
     }
 
+    const assetSnapshotDigest = buildActiveJobAssetSnapshotDigest({
+      playerId: normalizedPlayerId,
+      inventoryItems: normalizedNextInventoryItems,
+      walletBalances: normalizedNextWalletBalances,
+      equipmentSlots: normalizedNextEquipmentSlots ?? undefined,
+      enhancementRecords: normalizedNextEnhancementRecords,
+      activeJob: null,
+      techniqueActivityQueue: undefined,
+    });
+
     return this.executeAssetMutation<CancelActiveJobWithAssetsResult>({
       operationId: normalizedOperationId,
       playerId: normalizedPlayerId,
@@ -2975,6 +3063,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
         walletBalanceCount: normalizedNextWalletBalances.length,
         equipmentSlotCount: Array.isArray(normalizedNextEquipmentSlots) ? normalizedNextEquipmentSlots.length : 0,
         enhancementRecordCount: Array.isArray(normalizedNextEnhancementRecords) ? normalizedNextEnhancementRecords.length : 0,
+        assetSnapshotDigest,
       },
       onAlreadyCommitted: async () => ({
         ok: true,
@@ -3159,10 +3248,22 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
     const normalizedNextActiveJob = input.nextActiveJob
       ? normalizeActiveJobSnapshot(input.nextActiveJob)
       : null;
+    const completionKind = normalizeActiveJobCompletionKind(input.completionKind);
+    const completionSemantics = resolveActiveJobCompletionSemantics(completionKind);
 
     if (!normalizedExpectedJobRunId) {
       throw new Error('invalid_complete_active_job_with_assets_input');
     }
+
+    const assetSnapshotDigest = buildActiveJobAssetSnapshotDigest({
+      playerId: normalizedPlayerId,
+      inventoryItems: normalizedNextInventoryItems,
+      walletBalances: normalizedNextWalletBalances,
+      equipmentSlots: normalizedNextEquipmentSlots ?? undefined,
+      enhancementRecords: normalizedNextEnhancementRecords,
+      activeJob: normalizedNextActiveJob,
+      techniqueActivityQueue: undefined,
+    });
 
     return this.executeAssetMutation<CompleteActiveJobWithAssetsResult>({
       operationId: normalizedOperationId,
@@ -3172,10 +3273,11 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
       expectedInstanceId: input.expectedInstanceId,
       expectedAssignedNodeId: input.expectedAssignedNodeId,
       expectedOwnershipEpoch: input.expectedOwnershipEpoch,
-      operationType: 'active_job_complete_with_assets',
+      operationType: completionSemantics.operationType,
       aggregateType: 'player_active_job',
       payload: {
-        action: 'complete',
+        action: completionSemantics.action,
+        completionKind,
         expectedJobRunId: normalizedExpectedJobRunId,
         expectedJobVersion: normalizedExpectedJobVersion,
         inventoryItemCount: normalizedNextInventoryItems.length,
@@ -3184,6 +3286,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
         enhancementRecordCount: Array.isArray(normalizedNextEnhancementRecords) ? normalizedNextEnhancementRecords.length : 0,
         nextJobRunId: normalizedNextActiveJob?.jobRunId ?? null,
         nextJobVersion: normalizedNextActiveJob?.jobVersion ?? null,
+        assetSnapshotDigest,
       },
       onAlreadyCommitted: async () => ({
         ok: true,
@@ -3293,11 +3396,12 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
           [
             `outbox:${normalizedOperationId}`,
             normalizedOperationId,
-            'player.active_job.completed',
+            completionSemantics.outboxTopic,
             normalizedPlayerId,
             JSON.stringify({
               playerId: normalizedPlayerId,
-              action: 'complete',
+              action: completionSemantics.action,
+              completionKind,
               expectedJobRunId: normalizedExpectedJobRunId,
               expectedJobVersion: normalizedExpectedJobVersion,
               nextJobRunId: normalizedNextActiveJob?.jobRunId ?? null,
@@ -3330,8 +3434,9 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
             normalizedPlayerId,
             'active_job',
             normalizedExpectedJobRunId,
-            'complete',
+            completionSemantics.action,
             JSON.stringify({
+              completionKind,
               inventoryItemCount: normalizedNextInventoryItems.length,
               walletBalanceCount: normalizedNextWalletBalances.length,
               enhancementRecordCount: Array.isArray(normalizedNextEnhancementRecords) ? normalizedNextEnhancementRecords.length : 0,
@@ -3973,7 +4078,7 @@ export async function ensureDurableOperationTables(pool: Pool): Promise<void> {
       ON ${PLAYER_ACTIVE_JOB_TABLE}(job_type, status ASC, player_id ASC)
     `);
     await client.query(`
-      CREATE TABLE IF NOT EXISTS player_technique_activity_queue (
+      CREATE TABLE IF NOT EXISTS ${PLAYER_TECHNIQUE_ACTIVITY_QUEUE_TABLE} (
         player_id varchar(100) NOT NULL,
         queue_id varchar(180) NOT NULL,
         kind varchar(32) NOT NULL,
@@ -3993,7 +4098,7 @@ export async function ensureDurableOperationTables(pool: Pool): Promise<void> {
     `);
     await client.query(`
       CREATE INDEX IF NOT EXISTS player_technique_activity_queue_player_idx
-      ON player_technique_activity_queue(player_id, queue_order ASC, created_at ASC)
+      ON ${PLAYER_TECHNIQUE_ACTIVITY_QUEUE_TABLE}(player_id, queue_order ASC, created_at ASC)
     `);
     await client.query(`
       CREATE TABLE IF NOT EXISTS ${PLAYER_ENHANCEMENT_RECORD_TABLE} (
@@ -4654,6 +4759,143 @@ async function replacePlayerEquipmentSlots(
   );
 }
 
+async function assertPlayerTechniqueActivityQueueHead(
+  client: import('pg').PoolClient,
+  playerId: string,
+  expectedQueueHeadId: string,
+): Promise<void> {
+  const result = await client.query<{ queue_id?: unknown }>(
+    `
+      SELECT queue_id
+      FROM ${PLAYER_TECHNIQUE_ACTIVITY_QUEUE_TABLE}
+      WHERE player_id = $1
+      ORDER BY queue_order ASC, created_at ASC, queue_id ASC
+      LIMIT 1
+      FOR UPDATE
+    `,
+    [playerId],
+  );
+  const persistedQueueHeadId = normalizeRequiredString(result.rows[0]?.queue_id);
+  if (persistedQueueHeadId !== expectedQueueHeadId) {
+    throw new Error(
+      [
+        'player_technique_activity_queue_cas_conflict',
+        `expectedQueueHeadId=${expectedQueueHeadId}`,
+        `persistedQueueHeadId=${persistedQueueHeadId || 'null'}`,
+      ].join(':'),
+    );
+  }
+}
+
+async function replacePlayerTechniqueActivityQueue(
+  client: import('pg').PoolClient,
+  playerId: string,
+  rows: readonly PlayerTechniqueActivityQueueUpsertInput[],
+): Promise<void> {
+  const normalizedRows = normalizeTechniqueActivityQueueSnapshots(rows).map((row, index) => ({
+    queue_id: row.queueId,
+    kind: row.kind,
+    state: row.state,
+    label: row.label,
+    target_label: row.targetLabel,
+    sleep_reason: row.sleepReason,
+    retry_after_ticks: row.retryAfterTicks,
+    created_at: row.createdAt,
+    queue_order: index,
+    payload_jsonb: row.payloadJson,
+    cancel_ref_jsonb: row.cancelRefJson,
+    detail_jsonb: row.detailJson,
+  }));
+
+  if (normalizedRows.length > 0) {
+    await client.query(
+      `
+        WITH incoming AS (
+          SELECT *
+          FROM jsonb_to_recordset($2::jsonb) AS entry(
+            queue_id varchar(180),
+            kind varchar(32),
+            state varchar(32),
+            label varchar(160),
+            target_label varchar(160),
+            sleep_reason varchar(240),
+            retry_after_ticks bigint,
+            created_at bigint,
+            queue_order bigint,
+            payload_jsonb jsonb,
+            cancel_ref_jsonb jsonb,
+            detail_jsonb jsonb
+          )
+        )
+        INSERT INTO ${PLAYER_TECHNIQUE_ACTIVITY_QUEUE_TABLE}(
+          player_id,
+          queue_id,
+          kind,
+          state,
+          label,
+          target_label,
+          sleep_reason,
+          retry_after_ticks,
+          created_at,
+          queue_order,
+          payload_jsonb,
+          cancel_ref_jsonb,
+          detail_jsonb,
+          updated_at
+        )
+        SELECT
+          $1,
+          queue_id,
+          kind,
+          state,
+          label,
+          target_label,
+          sleep_reason,
+          retry_after_ticks,
+          created_at,
+          queue_order,
+          COALESCE(payload_jsonb, '{}'::jsonb),
+          COALESCE(cancel_ref_jsonb, '{}'::jsonb),
+          COALESCE(detail_jsonb, '{}'::jsonb),
+          now()
+        FROM incoming
+        ON CONFLICT (player_id, queue_id)
+        DO UPDATE SET
+          kind = EXCLUDED.kind,
+          state = EXCLUDED.state,
+          label = EXCLUDED.label,
+          target_label = EXCLUDED.target_label,
+          sleep_reason = EXCLUDED.sleep_reason,
+          retry_after_ticks = EXCLUDED.retry_after_ticks,
+          created_at = EXCLUDED.created_at,
+          queue_order = EXCLUDED.queue_order,
+          payload_jsonb = EXCLUDED.payload_jsonb,
+          cancel_ref_jsonb = EXCLUDED.cancel_ref_jsonb,
+          detail_jsonb = EXCLUDED.detail_jsonb,
+          updated_at = now()
+      `,
+      [playerId, JSON.stringify(normalizedRows)],
+    );
+  }
+
+  await client.query(
+    `
+      WITH incoming AS (
+        SELECT queue_id
+        FROM jsonb_to_recordset($2::jsonb) AS entry(queue_id varchar(180))
+      )
+      DELETE FROM ${PLAYER_TECHNIQUE_ACTIVITY_QUEUE_TABLE} target
+      WHERE target.player_id = $1
+        AND NOT EXISTS (
+          SELECT 1
+          FROM incoming
+          WHERE incoming.queue_id = target.queue_id
+        )
+    `,
+    [playerId, JSON.stringify(normalizedRows.map(({ queue_id }) => ({ queue_id })))],
+  );
+}
+
 async function replacePlayerActiveJob(
   client: import('pg').PoolClient,
   playerId: string,
@@ -4980,6 +5222,199 @@ function isActiveJobSameOrBehindNext(
     && persistedJobVersion > 0
     && persistedJobVersion <= nextActiveJob.jobVersion,
   );
+}
+
+function normalizeActiveJobCompletionKind(value: unknown): ActiveJobCompletionKind {
+  const normalized = normalizeRequiredString(value) || 'completed';
+  if (normalized === 'completed' || normalized === 'advanced' || normalized === 'stopped') {
+    return normalized;
+  }
+  throw new Error(`invalid_active_job_completion_kind:${normalized}`);
+}
+
+function resolveActiveJobCompletionSemantics(completionKind: ActiveJobCompletionKind): {
+  operationType: string;
+  outboxTopic: string;
+  action: 'complete' | 'advance' | 'stop';
+} {
+  if (completionKind === 'advanced') {
+    return {
+      operationType: 'active_job_advance_with_assets',
+      outboxTopic: 'player.active_job.advanced',
+      action: 'advance',
+    };
+  }
+  if (completionKind === 'stopped') {
+    return {
+      operationType: 'active_job_stop_with_assets',
+      outboxTopic: 'player.active_job.stopped',
+      action: 'stop',
+    };
+  }
+  return {
+    operationType: 'active_job_complete_with_assets',
+    outboxTopic: 'player.active_job.completed',
+    action: 'complete',
+  };
+}
+
+function normalizeTechniqueActivityQueueSnapshots(
+  snapshots: readonly PlayerTechniqueActivityQueueUpsertInput[],
+): PlayerTechniqueActivityQueueUpsertInput[] {
+  const normalizedRows: PlayerTechniqueActivityQueueUpsertInput[] = [];
+  const queueIds = new Set<string>();
+  for (let index = 0; index < snapshots.length; index += 1) {
+    const snapshot = snapshots[index];
+    const queueId = normalizeRequiredString(snapshot?.queueId);
+    const kind = normalizeRequiredString(snapshot?.kind);
+    if (!queueId || !kind) {
+      throw new Error(`invalid_technique_activity_queue_snapshot:index=${index}`);
+    }
+    if (queueIds.has(queueId)) {
+      throw new Error(`duplicate_technique_activity_queue_id:${queueId}`);
+    }
+    queueIds.add(queueId);
+    normalizedRows.push({
+      queueId,
+      kind,
+      state: normalizeRequiredString(snapshot?.state) || 'pending',
+      label: normalizeOptionalString(snapshot?.label),
+      targetLabel: normalizeOptionalString(snapshot?.targetLabel),
+      sleepReason: normalizeOptionalString(snapshot?.sleepReason),
+      retryAfterTicks: normalizeOptionalInteger(snapshot?.retryAfterTicks),
+      createdAt: Math.max(1, normalizeOptionalInteger(snapshot?.createdAt) ?? 1),
+      payloadJson: normalizeDurableJsonValue(snapshot?.payloadJson ?? {}),
+      cancelRefJson: normalizeDurableJsonValue(snapshot?.cancelRefJson ?? {}),
+      detailJson: normalizeDurableJsonObject(snapshot?.detailJson),
+    });
+  }
+  return normalizedRows;
+}
+
+function buildActiveJobAssetSnapshotDigest(input: {
+  playerId: string;
+  inventoryItems: readonly DurableInventoryItemSnapshot[];
+  walletBalances: readonly DurableWalletBalanceSnapshot[];
+  equipmentSlots?: readonly DurableEquipmentSlotSnapshot[];
+  enhancementRecords?: readonly DurableEnhancementRecordSnapshot[] | null;
+  activeJob: DurableActiveJobSnapshot | null;
+  techniqueActivityQueue?: readonly PlayerTechniqueActivityQueueUpsertInput[];
+}): string {
+  const canonicalSnapshot = {
+    inventory: normalizeInventorySnapshotsForReplay(input.playerId, input.inventoryItems),
+    wallet: normalizeWalletSnapshotsForReplay(input.walletBalances),
+    equipment: input.equipmentSlots === undefined
+      ? { mutation: 'unchanged' }
+      : normalizeEquipmentSnapshotsForReplay(input.equipmentSlots),
+    enhancementRecords: input.enhancementRecords == null
+      ? { mutation: 'unchanged' }
+      : input.enhancementRecords,
+    activeJob: input.activeJob,
+    techniqueActivityQueue: input.techniqueActivityQueue === undefined
+      ? { mutation: 'unchanged' }
+      : normalizeTechniqueActivityQueueSnapshots(input.techniqueActivityQueue),
+  };
+  return createHash('sha256').update(stableDurableJson(canonicalSnapshot)).digest('hex');
+}
+
+function normalizeInventorySnapshotsForReplay(
+  playerId: string,
+  items: readonly DurableInventoryItemSnapshot[],
+): unknown[] {
+  let lockedSlotCounter = -1;
+  return items.map((item, index) => {
+    const itemId = normalizeRequiredString(item?.itemId);
+    if (!itemId) {
+      throw new Error(`invalid_inventory_snapshot_for_replay:index=${index}`);
+    }
+    const count = Math.max(1, Math.trunc(Number(item?.count ?? 1)));
+    const lockedBy = normalizeOptionalString(item?.lockedBy);
+    const rawPayload = buildPersistedInventoryItemRawPayload({
+      itemId,
+      count,
+      name: item?.name,
+      desc: item?.desc,
+      enhanceLevel: item?.enhanceLevel,
+      learnTechniqueId: item?.learnTechniqueId,
+      learnTechniqueMaxLevel: item?.learnTechniqueMaxLevel,
+      grade: item?.grade,
+      level: item?.level,
+      rawPayload: item?.rawPayload,
+    });
+    if (lockedBy != null) {
+      const lockedAt = normalizeOptionalInteger(item?.lockedAt)
+        ?? normalizeOptionalInteger((item?.rawPayload as { lockedAt?: unknown } | null | undefined)?.lockedAt);
+      if (lockedAt != null) {
+        rawPayload.lockedAt = lockedAt;
+      }
+    }
+    const sourceItemInstanceId = normalizeRequiredString(item?.itemInstanceId)
+      || normalizeRequiredString((item?.rawPayload as { itemInstanceId?: unknown } | null | undefined)?.itemInstanceId);
+    const itemInstanceId = sourceItemInstanceId && !isLegacyItemInstanceId(sourceItemInstanceId)
+      ? sourceItemInstanceId
+      : `inv:${playerId}:${index}`;
+    return {
+      itemInstanceId,
+      slotIndex: lockedBy != null ? lockedSlotCounter-- : index,
+      itemId,
+      count,
+      lockedBy,
+      rawPayload,
+    };
+  });
+}
+
+function normalizeWalletSnapshotsForReplay(
+  balances: readonly DurableWalletBalanceSnapshot[],
+): unknown[] {
+  return balances
+    .map((balance) => ({
+      walletType: normalizeRequiredString(balance?.walletType),
+      balance: Math.max(0, Math.trunc(Number(balance?.balance ?? 0))),
+      frozenBalance: Math.max(0, Math.trunc(Number(balance?.frozenBalance ?? 0))),
+      version: Math.max(1, Math.trunc(Number(balance?.version ?? 1))),
+    }))
+    .filter(({ walletType }) => walletType.length > 0)
+    .sort((left, right) => left.walletType.localeCompare(right.walletType));
+}
+
+function normalizeEquipmentSnapshotsForReplay(
+  slots: readonly DurableEquipmentSlotSnapshot[],
+): unknown[] {
+  return slots
+    .map((slotEntry) => {
+      const slot = normalizeRequiredString(slotEntry?.slot);
+      if (!EQUIP_SLOTS.includes(slot as (typeof EQUIP_SLOTS)[number])) {
+        throw new Error(`invalid_equipment_snapshot_for_replay:slot=${slot || 'null'}`);
+      }
+      const item = slotEntry?.item && typeof slotEntry.item === 'object'
+        ? slotEntry.item as Record<string, unknown>
+        : null;
+      if (!item) {
+        return null;
+      }
+      const itemId = normalizeRequiredString(item.itemId);
+      if (!itemId) {
+        throw new Error(`invalid_equipment_snapshot_for_replay:slot=${slot}`);
+      }
+      const sourceItemInstanceId = normalizeRequiredString(slotEntry?.itemInstanceId)
+        || normalizeRequiredString(item.itemInstanceId);
+      return {
+        slot,
+        itemInstanceId: sourceItemInstanceId && !isLegacyItemInstanceId(sourceItemInstanceId)
+          ? sourceItemInstanceId
+          : null,
+        itemId,
+        rawPayload: buildPersistedEquipmentItemRawPayload({
+          itemId,
+          slot,
+          enhanceLevel: item.enhanceLevel,
+          rawPayload: item,
+        }),
+      };
+    })
+    .filter((entry): entry is NonNullable<typeof entry> => entry != null)
+    .sort((left, right) => left.slot.localeCompare(right.slot));
 }
 
 function normalizeActiveJobSnapshot(snapshot: DurableActiveJobSnapshot): DurableActiveJobSnapshot {
@@ -5354,6 +5789,14 @@ async function replaceDurableContainerState(
     `,
     [mutation.instanceId, JSON.stringify(entryRows)],
   );
+}
+
+function normalizeDurableJsonValue(value: unknown): unknown {
+  try {
+    return JSON.parse(stableDurableJson(value ?? {}));
+  } catch {
+    throw new Error('durable_operation_payload_not_serializable');
+  }
 }
 
 function normalizeDurableJsonObject(value: unknown): Record<string, unknown> {

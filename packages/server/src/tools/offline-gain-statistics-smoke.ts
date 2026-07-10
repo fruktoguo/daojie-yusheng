@@ -409,6 +409,41 @@ async function testOnlineAssetMutationsCreateIndependentStatisticReports() {
   assert.equal(records[1].spiritStones.lost, 5);
 }
 
+async function testLockedInventoryTransferDoesNotFabricateAssetLoss() {
+  const service = createService();
+  const player = createPlayer({
+    inventory: {
+      revision: 1,
+      items: [{ itemId: 'iron_sword', count: 1, itemInstanceId: 'item:locked-stat' }],
+      lockedItems: [],
+    },
+  });
+  service.players.set(player.playerId, player);
+  const before = service.captureOfflineGainBeforeTick(player);
+  const [target] = player.inventory.items.splice(0, 1);
+  player.inventory.lockedItems.push({ ...target, lockedBy: 'enhancement:job:stat' });
+  service.recordAssetStatisticMutation(player, before);
+  assert.deepEqual(service.getPendingPlayerStatisticRecords(player.playerId), []);
+}
+
+async function testFailedDeferredAssetMutationDoesNotCommitStatistics() {
+  const service = createService();
+  const player = createPlayer();
+  service.players.set(player.playerId, player);
+  const inventoryBefore = structuredClone(player.inventory);
+
+  await assert.rejects(
+    service.runExclusiveAssetMutation([player.playerId], async () => {
+      service.creditWallet(player.playerId, 'spirit_stone', 5);
+      player.inventory = structuredClone(inventoryBefore);
+      throw new Error('simulated_durable_failure');
+    }, { deferAssetStatisticsUntilSuccess: true }),
+    /simulated_durable_failure/,
+  );
+
+  assert.deepEqual(service.getPendingPlayerStatisticRecords(player.playerId), []);
+}
+
 async function main() {
   await testOfflineAccumulatedGainWinsOverSnapshotLoss();
   await testOfflineGlobalStatisticsKeepGainAndLossSeparated();
@@ -420,6 +455,8 @@ async function main() {
   await testBlockingOfflineGainReconnectDoesNotResetSession();
   await testShortOfflineGainDoesNotBlockReconnect();
   await testOnlineAssetMutationsCreateIndependentStatisticReports();
+  await testLockedInventoryTransferDoesNotFabricateAssetLoss();
+  await testFailedDeferredAssetMutationDoesNotCommitStatistics();
   console.log("offline-gain-statistics-smoke passed");
 }
 

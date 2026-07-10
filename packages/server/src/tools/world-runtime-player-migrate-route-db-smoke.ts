@@ -155,7 +155,7 @@ async function main(): Promise<void> {
 
     const result = await service.migratePlayerToNode(playerId, remoteNodeId);
     assert.deepEqual(result, { ok: true });
-    assert.deepEqual(flushCalls, [playerId]);
+    assert.deepEqual(flushCalls, [playerId, playerId]);
 
     const updatedPlayer = playerRuntimeService.getPlayer(playerId);
     assert.ok(updatedPlayer);
@@ -178,7 +178,7 @@ async function main(): Promise<void> {
           beforeSessionEpoch,
           afterSessionEpoch: updatedPlayer?.sessionEpoch ?? null,
           answers:
-            'with-db 下已直接证明：WorldRuntimeService.migratePlayerToNode 会先 flushPlayer，再用真实 PlayerRuntimeService.beginTransfer bump session_epoch，并把同一新 epoch 以 assigned route 写入 player_session_route',
+            'with-db 下已直接证明：WorldRuntimeService.migratePlayerToNode 会先 flush 旧状态，再持久化 beginTransfer 生成的新 owner/epoch，最后把同一新 epoch 以 assigned route 写入 player_session_route',
           excludes:
             '不证明目标节点 bootstrap 接管、真实 socket redirect 或 transfer 完成后的最终 route 清理',
           completionMapping: 'release:proof:with-db.world-runtime.player-migrate-route',

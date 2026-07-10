@@ -101,7 +101,17 @@ export class PlayerRuntimeService {
     private readonly assetMutationContext = new AsyncLocalStorage<{
         playerIds: ReadonlySet<string>;
         active: boolean;
+        deferredAssetStatistics: Map<string, {
+            player: any;
+            beforeSnapshot: any;
+            endedAt: number;
+        }> | null;
     }>();
+    /** 同进程内合并同一玩家的数据库 ownership claim，避免并发 bootstrap 重复递增 epoch。 */
+    private readonly runtimeOwnershipClaimPromiseByPlayerId = new Map<string, Promise<{
+        runtimeOwnerId: string | null;
+        sessionEpoch: number | null;
+    } | null>>();
     /** 数据库禁用时的离线收益基线缓存。 */
     offlineGainSessionsByPlayerId = new Map();
     /** 玩家统计持续快照，用于把 tick 外即时资产变化纳入下一次低频统计。 */
@@ -158,6 +168,7 @@ export class PlayerRuntimeService {
                         ? Math.max(0, Math.trunc(Number(session.startedAt)))
                         : Date.now();
                 }
+                await this.ensureRuntimeOwnershipClaimed(playerId);
                 return existing;
             }
             await this.finalizeOfflineGainSessionForPlayer(existing, Date.now());
@@ -203,9 +214,8 @@ export class PlayerRuntimeService {
                         ? Math.max(0, Math.trunc(Number(session.startedAt)))
                         : Date.now();
                 }
-                // 防御：离线挂机玩家被 restoreOfflineHangingPlayer 以 sessionEpoch=0 恢复入内存，
-                // offlineGain 阻塞期间不 bind 但断线 flush 仍读 sessionEpoch（getSessionFence 返回 max(1,0)=1），
-                // 必须对齐 DB floor，否则每次断线都触发 expected=1 < persisted 围栏错误。
+                // 兼容旧持久化入口缺少原子 claim 时仍先对齐 DB floor；正式链路随后会原子认领
+                // 新 owner/epoch，避免离线收益阻塞期间产生无 ownership 的运行态写入。
                 const blockedEpochFloor = Number.isFinite(options?.sessionEpochFloor)
                     ? Math.max(0, Math.trunc(Number(options.sessionEpochFloor)))
                     : 0;
@@ -215,6 +225,7 @@ export class PlayerRuntimeService {
                         blockedEpochFloor,
                     );
                 }
+                await this.ensureRuntimeOwnershipClaimed(playerId);
                 return lateExisting;
             }
             await this.finalizeOfflineGainSessionForPlayer(lateExisting, Date.now());
@@ -271,7 +282,7 @@ export class PlayerRuntimeService {
                     ? Math.max(0, Math.trunc(Number(session.startedAt)))
                     : Date.now();
             }
-            // 防御：offlineGain 阻塞 session 期间玩家未 bind，但断线 flush 仍需正确围栏值
+            // 兼容旧持久化入口缺少原子 claim 时仍保留 DB epoch 下界。
             const pathCEpochFloor = Number.isFinite(options?.sessionEpochFloor)
                 ? Math.max(0, Math.trunc(Number(options.sessionEpochFloor)))
                 : 0;
@@ -282,6 +293,7 @@ export class PlayerRuntimeService {
                 );
             }
             this.players.set(playerId, player);
+            await this.ensureRuntimeOwnershipClaimed(playerId);
             return player;
         }
         await this.finalizeOfflineGainSessionForPlayer(player, Date.now());
@@ -337,9 +349,9 @@ export class PlayerRuntimeService {
         (player as any)._hydratedFromPersistence = true;
         player.sessionId = null;
         player.runtimeOwnerId = null;
-        // 从 DB presence 读取真实 session_epoch 作为底线，禁止重置为 0。
-        // 否则离线挂机玩家恢复后内存 epoch=0，重连/断线 flush 时 getSessionFence 返回 max(1,0)=1，
-        // 与 DB 持久 epoch 不一致触发 player_snapshot_projection_stale_session 围栏错误。
+        // 从 DB presence 读取真实 session_epoch 作为恢复上下文，但不沿用旧进程 owner。
+        // 启动编排必须在实例 lease/attach gate 通过后调用 ensureRuntimeOwnershipClaimed，
+        // 避免多个节点在批量扫描阶段互相抢占同一玩家。
         let restoredSessionEpoch = 0;
         if (typeof persistenceService?.loadPlayerPresence === 'function') {
             const persistedPresence = await persistenceService.loadPlayerPresence(normalizedPlayerId);
@@ -1001,6 +1013,7 @@ export class PlayerRuntimeService {
     async runExclusiveAssetMutation<TResult>(
         playerIds: readonly string[],
         action: () => Promise<TResult> | TResult,
+        options: { deferAssetStatisticsUntilSuccess?: boolean } = {},
     ): Promise<TResult> {
         const normalizedPlayerIds = Array.from(new Set(
             (Array.isArray(playerIds) ? playerIds : [])
@@ -1012,6 +1025,9 @@ export class PlayerRuntimeService {
         }
         const activeContext = this.assetMutationContext.getStore();
         if (activeContext?.active && normalizedPlayerIds.every((playerId) => activeContext.playerIds.has(playerId))) {
+            if (options.deferAssetStatisticsUntilSuccess === true && !activeContext.deferredAssetStatistics) {
+                throw new Error('player_asset_statistic_deferred_scope_required');
+            }
             return await action();
         }
         if (activeContext?.active && activeContext.playerIds.size > 0) {
@@ -1033,9 +1049,34 @@ export class PlayerRuntimeService {
         const lockContext = {
             playerIds: new Set(normalizedPlayerIds),
             active: true,
+            deferredAssetStatistics: options.deferAssetStatisticsUntilSuccess === true
+                ? new Map(normalizedPlayerIds.flatMap((playerId) => {
+                    const player = this.getPlayer(playerId);
+                    const beforeSnapshot = player ? this.captureOfflineGainBeforeTick(player) : null;
+                    return player && beforeSnapshot
+                        ? [[playerId, { player, beforeSnapshot, endedAt: Date.now() }] as const]
+                        : [];
+                }))
+                : null,
         };
         try {
-            return await this.assetMutationContext.run(lockContext, action);
+            const result = await this.assetMutationContext.run(lockContext, action);
+            if (lockContext.deferredAssetStatistics) {
+                const deferredAssetStatistics = lockContext.deferredAssetStatistics;
+                lockContext.deferredAssetStatistics = null;
+                for (const entry of deferredAssetStatistics.values()) {
+                    try {
+                        this.recordAssetStatisticMutation(entry.player, entry.beforeSnapshot, entry.endedAt);
+                    }
+                    catch (error) {
+                        // 资产事务已经成功，统计派生失败不能把已提交结果伪装成事务失败。
+                        this.logger.warn(
+                            `提交后资产统计结算失败：${entry.player?.playerId ?? 'unknown'} ${error instanceof Error ? error.message : String(error)}`,
+                        );
+                    }
+                }
+            }
+            return result;
         }
         finally {
             lockContext.active = false;
@@ -1393,14 +1434,107 @@ export class PlayerRuntimeService {
         if (!player) {
             return null;
         }
+        const sessionEpoch = Number.isFinite(player.sessionEpoch)
+            ? Math.max(0, Math.trunc(Number(player.sessionEpoch)))
+            : 0;
         return {
             runtimeOwnerId: typeof player.runtimeOwnerId === 'string' && player.runtimeOwnerId.trim()
                 ? player.runtimeOwnerId.trim()
                 : null,
-            sessionEpoch: Number.isFinite(player.sessionEpoch)
-                ? Math.max(1, Math.trunc(Number(player.sessionEpoch)))
-                : null,
+            sessionEpoch: sessionEpoch > 0 ? sessionEpoch : null,
         };
+    }
+    /**
+     * 为已经由本节点安全接管的玩家补齐数据库 ownership fence。
+     * 启动批量 restore 不在加载阶段调用；调用方必须先通过实例 lease/attach gate。
+     */
+    async ensureRuntimeOwnershipClaimed(playerId) {
+        const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
+        if (!normalizedPlayerId) {
+            return null;
+        }
+        const player = this.getPlayer(normalizedPlayerId);
+        if (!player) {
+            return null;
+        }
+        const currentFence = this.getSessionFence(normalizedPlayerId);
+        if (currentFence?.runtimeOwnerId && currentFence.sessionEpoch) {
+            return currentFence;
+        }
+        if (
+            !this.playerDomainPersistenceService?.isEnabled?.()
+            || typeof this.playerDomainPersistenceService?.claimPlayerRuntimeOwnership !== 'function'
+        ) {
+            return currentFence;
+        }
+
+        const pendingClaim = this.runtimeOwnershipClaimPromiseByPlayerId.get(normalizedPlayerId);
+        if (pendingClaim) {
+            return pendingClaim;
+        }
+        const claimPromise = (async () => {
+            const claimTarget = this.getPlayer(normalizedPlayerId);
+            if (!claimTarget) {
+                return null;
+            }
+            const fenceBeforeClaim = this.getSessionFence(normalizedPlayerId);
+            if (fenceBeforeClaim?.runtimeOwnerId && fenceBeforeClaim.sessionEpoch) {
+                return fenceBeforeClaim;
+            }
+            const presence = this.describePersistencePresence(normalizedPlayerId);
+            const claimed = await this.playerDomainPersistenceService.claimPlayerRuntimeOwnership(
+                normalizedPlayerId,
+                {
+                    online: presence?.online === true,
+                    inWorld: presence?.inWorld === true,
+                    lastHeartbeatAt: presence?.lastHeartbeatAt ?? null,
+                    offlineSinceAt: presence?.offlineSinceAt ?? Date.now(),
+                    transferState: presence?.transferState ?? null,
+                    transferTargetNodeId: presence?.transferTargetNodeId ?? null,
+                    versionSeed: presence?.versionSeed ?? Date.now(),
+                },
+            );
+            if (!claimed) {
+                return this.getSessionFence(normalizedPlayerId);
+            }
+            const currentPlayer = this.getPlayer(normalizedPlayerId);
+            if (!currentPlayer) {
+                return null;
+            }
+            const ownerAfterClaim = typeof currentPlayer.runtimeOwnerId === 'string'
+                ? currentPlayer.runtimeOwnerId.trim()
+                : '';
+            if (ownerAfterClaim) {
+                // claim 等待 DB 时可能恰逢离线确认/顶号生成了新的本地 owner。DB claim 已占用 E+1，
+                // 本地执行权必须再前进一代，后续 presence-first flush 才能以 E+2 安全胜出。
+                currentPlayer.sessionEpoch = Math.max(
+                    Math.max(0, Math.trunc(Number(currentPlayer.sessionEpoch ?? 0))),
+                    claimed.sessionEpoch,
+                ) + 1;
+                const ownerSessionId = typeof currentPlayer.sessionId === 'string' && currentPlayer.sessionId.trim()
+                    ? currentPlayer.sessionId.trim()
+                    : 'offline-runtime';
+                currentPlayer.runtimeOwnerId = buildRuntimeOwnerId(
+                    currentPlayer.playerId,
+                    ownerSessionId,
+                    currentPlayer.sessionEpoch,
+                );
+                markPlayerDirtyDomains(currentPlayer, [PLAYER_PERSISTENCE_DIRTY_PRESENCE_DOMAIN]);
+                return this.getSessionFence(normalizedPlayerId);
+            }
+            currentPlayer.runtimeOwnerId = claimed.runtimeOwnerId;
+            currentPlayer.sessionEpoch = claimed.sessionEpoch;
+            markPlayerDirtyDomains(currentPlayer, [PLAYER_PERSISTENCE_DIRTY_PRESENCE_DOMAIN]);
+            return this.getSessionFence(normalizedPlayerId);
+        })();
+        this.runtimeOwnershipClaimPromiseByPlayerId.set(normalizedPlayerId, claimPromise);
+        try {
+            return await claimPromise;
+        } finally {
+            if (this.runtimeOwnershipClaimPromiseByPlayerId.get(normalizedPlayerId) === claimPromise) {
+                this.runtimeOwnershipClaimPromiseByPlayerId.delete(normalizedPlayerId);
+            }
+        }
     }
     /**
  * describePersistencePresence：导出 presence 域所需的运行态投影。
@@ -1780,14 +1914,13 @@ export class PlayerRuntimeService {
         return player;
     }
 
-    /** 离线挂机恢复后从世界视图同步位置/上下文，不创建网络会话 fencing。 */
+    /** 离线挂机恢复后从世界视图同步位置/上下文，保留已认领的运行态 ownership。 */
     syncOfflineFromWorldView(playerId, view) {
         const player = this.getPlayer(playerId);
         if (!player) {
             return null;
         }
         player.sessionId = null;
-        player.runtimeOwnerId = null;
         player.lastHeartbeatAt = null;
         let anchorChanged = false;
         let selfChanged = false;
@@ -4591,6 +4724,17 @@ export class PlayerRuntimeService {
         if (!normalizedPlayerId || !beforeSnapshot) {
             return;
         }
+        const assetMutationContext = this.assetMutationContext.getStore();
+        const deferredAssetStatistic = assetMutationContext?.active
+            ? assetMutationContext.deferredAssetStatistics?.get(normalizedPlayerId)
+            : null;
+        if (deferredAssetStatistic) {
+            deferredAssetStatistic.endedAt = Math.max(
+                deferredAssetStatistic.endedAt,
+                Math.max(0, Math.trunc(Number(endedAt) || Date.now())),
+            );
+            return;
+        }
         const context = this.playerStatisticTickContextsByPlayerId.get(normalizedPlayerId);
         if (context && context.beforeSnapshot) {
             context.changed = true;
@@ -7167,7 +7311,11 @@ function buildOfflineGainSnapshot(player, contentTemplateRepository = null, play
     return {
         snapshotAt: Date.now(),
         playerId: normalizeOfflineGainString(player?.playerId),
-        inventoryItems: buildOfflineGainInventorySnapshot(player?.inventory?.items, contentTemplateRepository),
+        // 锁定中的装备/材料仍属于玩家资产；items 与 lockedItems 迁移不能产生虚假收支。
+        inventoryItems: buildOfflineGainInventorySnapshot([
+            ...(Array.isArray(player?.inventory?.items) ? player.inventory.items : []),
+            ...(Array.isArray(player?.inventory?.lockedItems) ? player.inventory.lockedItems : []),
+        ], contentTemplateRepository),
         realm: {
             realmLv: normalizeOfflineGainCount(player?.realm?.realmLv),
             level: normalizeOfflineGainCount(player?.realm?.realmLv),

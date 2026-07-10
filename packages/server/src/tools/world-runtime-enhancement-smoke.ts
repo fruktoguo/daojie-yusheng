@@ -19,7 +19,7 @@ type PersistedActiveJob = {
 };
 
 type DurableEnhancementCall = {
-  kind: 'start' | 'update' | 'complete';
+  kind: 'start' | 'update' | 'cancel' | 'complete';
   args: any;
 };
 
@@ -27,6 +27,10 @@ async function main(): Promise<void> {
   testEnhancementCancelUsesPipelineLifecycle();
   await testStartInterruptAndCompleteEnhancement();
   await testDurableEnhancementPersistsAssetsAtomically();
+  await testDurableEnhancementFailureRestoresFullRuntimeState();
+  await testDurableEnhancementCancelUsesCancelOperation();
+  await testDurableEnhancementStopUsesStoppedCompletionKind();
+  await testQueuedEnhancementDurableFailureRestoresQueueAndAssets();
   await testTickUsesJobSuccessRateForFailure();
   await testProtectionFailureConsumesProtectionAndContinues();
   await testProtectionMissingStopsAndReturnsCurrentLevel();
@@ -53,6 +57,9 @@ async function main(): Promise<void> {
       '强化进行中继续追加强化任务只入队列，不重复提交 active job 强事务。',
       '强化运行态物品缺少 name 或仅有 itemId 时，通知和队列使用内容目录基础显示名，不把起始强化等级写入连续强化文案。',
       '法宝复用现有强化生命周期，成功后按实例写回背包并提升 enhanceLevel。',
+      '强化强事务提交真实钱包投影，提交失败会恢复钱包、队列、任务、装备与 revision 派生态。',
+      '强化取消使用专用 cancel 强事务；队列自动启动失败时不会丢队首或遗留已扣材料。',
+      'sessionId 为空但持有离线运行态 owner/epoch 时，强化资产边界仍可提交强事务。',
     ],
   }, null, 2));
 }
@@ -176,6 +183,9 @@ async function testDurableEnhancementPersistsAssetsAtomically(): Promise<void> {
     ),
     true,
   );
+  assert.deepEqual(durableCalls[0]?.args.nextWalletBalances, [
+    { walletType: 'spirit_stone', balance: 20, frozenBalance: 0, version: 1 },
+  ]);
 
   player.enhancementJob!.remainingTicks = 2;
   player.enhancementJob!.workRemainingTicks = 2;
@@ -197,6 +207,7 @@ async function testDurableEnhancementPersistsAssetsAtomically(): Promise<void> {
 
   const completeCall = durableCalls.at(-1);
   assert.equal(completeCall?.kind, 'complete');
+  assert.equal(completeCall?.args.completionKind, 'completed');
   assert.equal(completeCall?.args.nextActiveJob, null);
   assert.equal(
     completeCall?.args.nextInventoryItems.some(
@@ -206,6 +217,113 @@ async function testDurableEnhancementPersistsAssetsAtomically(): Promise<void> {
   );
   assert.equal(player.enhancementJob, null);
   assert.equal(player.inventory.lockedItems?.length ?? 0, 0);
+  assert.equal(completeCall?.args.nextWalletBalances?.[0]?.balance, 19);
+  assert.equal(player.inventory.items.find((item: any) => item.itemId === 'spirit_stone')?.count, 19);
+}
+
+async function testDurableEnhancementFailureRestoresFullRuntimeState(): Promise<void> {
+  const durableCalls: DurableEnhancementCall[] = [];
+  const player = createPlayer('player:enhancement:durable-rollback', [
+    createEquipmentItem('iron_sword', '铁剑', 8, 1),
+  ]);
+  const { craftService } = createCraftHarness(player, [], [], {
+    durableCalls,
+    failDurableKinds: new Set(['complete']),
+  });
+  const target = player.inventory.items[0];
+  await craftService.startEnhancementDurably(player, { target: buildInventoryRef(target) });
+  player.enhancementJob!.remainingTicks = 1;
+  player.enhancementJob!.workRemainingTicks = 1;
+  const before = snapshotEnhancementRuntime(player);
+  const originalRandom = Math.random;
+  Math.random = () => 0;
+  try {
+    await assert.rejects(
+      () => craftService.tickEnhancementDurably(player),
+      /durable_complete_failed/,
+    );
+  } finally {
+    Math.random = originalRandom;
+  }
+  assert.deepEqual(snapshotEnhancementRuntime(player), before);
+  assert.equal(player.dirtyDomains.has('inventory'), true);
+  assert.equal(player.dirtyDomains.has('wallet'), true);
+  assert.equal(durableCalls.at(-1)?.args.nextWalletBalances?.[0]?.balance, 19);
+}
+
+async function testDurableEnhancementCancelUsesCancelOperation(): Promise<void> {
+  const durableCalls: DurableEnhancementCall[] = [];
+  const player = createPlayer('player:enhancement:durable-cancel', [
+    createEquipmentItem('iron_sword', '铁剑', 8, 1),
+  ]);
+  const { craftService } = createCraftHarness(player, [], [], { durableCalls });
+  const target = player.inventory.items[0];
+  await craftService.startEnhancementDurably(player, { target: buildInventoryRef(target) });
+  const cancelled = await craftService.cancelEnhancementDurably(player);
+  assert.equal(cancelled.ok, true);
+  assert.equal(durableCalls.at(-1)?.kind, 'cancel');
+  assert.equal(durableCalls.some((call) => call.kind === 'complete'), false);
+  assert.equal(player.enhancementJob, null);
+  assert.equal(player.inventory.lockedItems.length, 0);
+  assert.equal(player.inventory.items.some((item: any) => item.itemInstanceId === target.itemInstanceId), true);
+}
+
+async function testDurableEnhancementStopUsesStoppedCompletionKind(): Promise<void> {
+  const durableCalls: DurableEnhancementCall[] = [];
+  const player = createPlayer('player:enhancement:durable-stop', [
+    createEquipmentItem('iron_sword', '铁剑', 8, 1),
+  ]);
+  const { craftService } = createCraftHarness(player, [], [], { durableCalls });
+  const target = player.inventory.items[0];
+  await craftService.startEnhancementDurably(player, { target: buildInventoryRef(target) });
+  player.inventory.items = player.inventory.items.filter((item: { itemId?: string }) => item.itemId !== 'spirit_stone');
+  player.wallet.balances[0].balance = 0;
+  player.enhancementJob!.remainingTicks = 1;
+  player.enhancementJob!.workRemainingTicks = 1;
+  const originalRandom = Math.random;
+  Math.random = () => 0;
+  try {
+    const stopped = await craftService.tickEnhancementDurably(player);
+    assert.equal(stopped.ok, true);
+    assert.equal(stopped.messages?.[0]?.key, 'notice.craft.enhancement.wallet-insufficient');
+  } finally {
+    Math.random = originalRandom;
+  }
+  assert.equal(durableCalls.at(-1)?.kind, 'complete');
+  assert.equal(durableCalls.at(-1)?.args.completionKind, 'stopped');
+}
+
+async function testQueuedEnhancementDurableFailureRestoresQueueAndAssets(): Promise<void> {
+  const durableCalls: DurableEnhancementCall[] = [];
+  const player = createPlayer('player:enhancement:durable-queue-rollback', [
+    createEquipmentItem('iron_sword', '铁剑', 8, 1),
+  ]);
+  const target = player.inventory.items[0];
+  const queueId = 'queue:enhancement:durable-rollback';
+  const payload = { target: buildInventoryRef(target) };
+  player.techniqueActivityQueue.push({
+    queueId,
+    kind: 'enhancement',
+    payload,
+    label: '铁剑',
+    state: 'pending',
+    createdAt: 1,
+  });
+  const before = snapshotEnhancementRuntime(player);
+  const { craftService } = createCraftHarness(player, [], [], {
+    durableCalls,
+    failDurableKinds: new Set(['start']),
+  });
+  await assert.rejects(
+    () => craftService.startQueuedEnhancementDurably(player, () => {
+      player.techniqueActivityQueue.shift();
+      return craftService.startTechniqueActivity(player, 'enhancement', payload);
+    }),
+    /durable_start_failed/,
+  );
+  assert.deepEqual(snapshotEnhancementRuntime(player), before);
+  assert.equal(durableCalls.at(-1)?.args.expectedQueueHeadId, queueId);
+  assert.deepEqual(durableCalls.at(-1)?.args.nextTechniqueActivityQueue, []);
 }
 
 async function testTickUsesJobSuccessRateForFailure(): Promise<void> {
@@ -328,6 +446,7 @@ async function testSpiritStoneMissingStopsOnSuccessSettlement(): Promise<void> {
   const target = player.inventory.items[0];
   const start = craftService.startEnhancement(player, { target: buildInventoryRef(target), targetLevel: 2 });
   assert.equal(start.ok, true);
+  player.inventory.items = player.inventory.items.filter((item: { itemId?: string }) => item.itemId !== 'spirit_stone');
   player.wallet.balances[0].balance = 0;
   player.enhancementJob!.remainingTicks = 1;
   player.enhancementJob!.workRemainingTicks = 1;
@@ -472,7 +591,8 @@ async function testDurableQueuedEnhancementDuringActiveJobDoesNotStartImmediatel
   assert.equal(player.inventory.lockedItems?.length ?? 0, lockedCountAfterStart);
   assert.equal(player.inventory.items.some((item: { itemInstanceId?: string }) => item.itemInstanceId === secondTargetInstanceId), true);
   assert.deepEqual(durableCalls.map((call) => call.kind), ['start']);
-  assert.equal(persistedActiveJobs.at(-1)?.jobType, 'enhancement');
+  assert.equal(persistedActiveJobs.length, 0);
+  assert.equal(player.dirtyDomains.has('active_job'), true);
 }
 
 async function testEnhancementUsesTemplateNameWhenRuntimeItemNameMissing(): Promise<void> {
@@ -570,7 +690,10 @@ function createCraftHarness(
   player: ReturnType<typeof createPlayer>,
   persistedActiveJobs: PersistedActiveJob[],
   persistedEnhancementRecords: unknown[],
-  options: { durableCalls?: DurableEnhancementCall[] } = {},
+  options: {
+    durableCalls?: DurableEnhancementCall[];
+    failDurableKinds?: ReadonlySet<DurableEnhancementCall['kind']>;
+  } = {},
 ): {
   craftService: CraftPanelRuntimeService;
 } {
@@ -590,7 +713,7 @@ function createCraftHarness(
     },
   };
   const durableOperationService = options.durableCalls
-    ? createDurableOperationService(options.durableCalls)
+    ? createDurableOperationService(options.durableCalls, options.failDurableKinds)
     : null;
   const craftService = new CraftPanelRuntimeService(
     createContentTemplateRepository() as never,
@@ -619,15 +742,28 @@ function createCraftHarness(
 }
 
 function createPlayer(playerId: string, items: Array<Record<string, unknown>>): any {
+  const inventoryItems: Array<Record<string, unknown>> = items.map((item) => ({
+    ...item,
+    count: Math.max(1, Math.floor(Number(item.count) || 1)),
+    itemInstanceId: typeof item.itemInstanceId === 'string' ? item.itemInstanceId : randomUUID(),
+  }));
+  inventoryItems.push({
+    itemId: 'spirit_stone',
+    name: '灵石',
+    type: 'material',
+    count: 20,
+    level: 1,
+    enhanceLevel: 0,
+    itemInstanceId: randomUUID(),
+  });
   return {
     playerId,
+    sessionId: null,
+    runtimeOwnerId: `runtime:${playerId}:offline`,
+    sessionEpoch: 1,
     instanceId: 'instance:enhancement-smoke',
     inventory: {
-      items: items.map((item) => ({
-        ...item,
-        count: Math.max(1, Math.floor(Number(item.count) || 1)),
-        itemInstanceId: typeof item.itemInstanceId === 'string' ? item.itemInstanceId : randomUUID(),
-      })),
+      items: inventoryItems,
       lockedItems: [],
       capacity: 40,
       revision: 1,
@@ -695,10 +831,19 @@ function createPlayerRuntimeService(player: any): any {
       if (itemId !== 'spirit_stone') {
         return;
       }
-      if (Number(player.wallet.balances[0].balance ?? 0) < amount) {
+      const spiritStone = player.inventory.items.find((item: any) => item.itemId === 'spirit_stone');
+      if (Number(spiritStone?.count ?? 0) < amount) {
         throw new Error('spirit stone insufficient');
       }
-      player.wallet.balances[0].balance = Math.max(0, Number(player.wallet.balances[0].balance ?? 0) - amount);
+      spiritStone.count = Math.max(0, Number(spiritStone.count ?? 0) - amount);
+      if (spiritStone.count <= 0) {
+        player.inventory.items = player.inventory.items.filter((item: any) => item !== spiritStone);
+      }
+      player.wallet.balances[0].balance = Math.max(0, Number(spiritStone.count ?? 0));
+      player.wallet.balances[0].version += 1;
+      player.inventory.revision += 1;
+      player.selfRevision += 1;
+      player.persistentRevision += 1;
     },
     creditWallet(): void {},
     receiveInventoryItem(_playerId: string, item: { itemId: string; count: number }): void {
@@ -722,10 +867,10 @@ function createPlayerRuntimeService(player: any): any {
         return null;
       }
       return {
-        online: true,
+        online: typeof player.sessionId === 'string' && player.sessionId.length > 0,
         inWorld: true,
-        runtimeOwnerId: 'runtime:enhancement-smoke',
-        sessionEpoch: 1,
+        runtimeOwnerId: player.runtimeOwnerId,
+        sessionEpoch: player.sessionEpoch,
       };
     },
     buildPersistenceSnapshot(playerId: string): any | null {
@@ -734,6 +879,7 @@ function createPlayerRuntimeService(player: any): any {
       }
       return {
         inventory: player.inventory,
+        wallet: player.wallet,
         equipment: player.equipment,
       };
     },
@@ -750,6 +896,9 @@ function createPlayerRuntimeService(player: any): any {
     bumpPersistentRevision(targetPlayer: any): void {
       targetPlayer.persistentRevision += 1;
     },
+    async runExclusiveAssetMutation(_playerIds: string[], action: () => unknown): Promise<unknown> {
+      return action();
+    },
     playerProgressionService: {
       refreshPreview(): void {},
       grantCraftRealmExp(): null {
@@ -763,21 +912,47 @@ function createPlayerRuntimeService(player: any): any {
   };
 }
 
-function createDurableOperationService(durableCalls: DurableEnhancementCall[]): any {
+function createDurableOperationService(
+  durableCalls: DurableEnhancementCall[],
+  failKinds: ReadonlySet<DurableEnhancementCall['kind']> = new Set(),
+): any {
+  const record = (kind: DurableEnhancementCall['kind'], args: any): void => {
+    durableCalls.push({ kind, args });
+    if (failKinds.has(kind)) {
+      throw new Error(`durable_${kind}_failed`);
+    }
+  };
   return {
     isEnabled(): boolean {
       return true;
     },
     async startActiveJobWithAssets(args: any): Promise<void> {
-      durableCalls.push({ kind: 'start', args });
+      record('start', args);
     },
     async updateActiveJobState(args: any): Promise<void> {
-      durableCalls.push({ kind: 'update', args });
+      record('update', args);
+    },
+    async cancelActiveJobWithAssets(args: any): Promise<void> {
+      record('cancel', args);
     },
     async completeActiveJobWithAssets(args: any): Promise<void> {
-      durableCalls.push({ kind: 'complete', args });
+      record('complete', args);
     },
   };
+}
+
+function snapshotEnhancementRuntime(player: any): unknown {
+  return JSON.parse(JSON.stringify({
+    inventory: structuredClone(player.inventory),
+    equipment: structuredClone(player.equipment),
+    wallet: structuredClone(player.wallet),
+    enhancementJob: player.enhancementJob ? structuredClone(player.enhancementJob) : null,
+    enhancementRecords: structuredClone(player.enhancementRecords),
+    enhancementSkill: structuredClone(player.enhancementSkill),
+    enhancementSkillLevel: player.enhancementSkillLevel,
+    techniqueActivityQueue: structuredClone(player.techniqueActivityQueue),
+    selfRevision: player.selfRevision,
+  }));
 }
 
 function createContentTemplateRepository(): any {

@@ -18,7 +18,10 @@ type ConnectInput = {
 
 function createBootstrapService(
   log: unknown[],
-  playerFactory: (input: { onSnapshotContextResolved?: (context: { source: string | null; persistedSource: string | null }) => void }) => {
+  playerFactory: (input: {
+    forceRuntimeSessionRebind?: boolean;
+    onSnapshotContextResolved?: (context: { source: string | null; persistedSource: string | null }) => void;
+  }) => {
     instanceId?: string | null;
     templateId?: string | null;
     x: number;
@@ -70,12 +73,16 @@ function createBootstrapService(
         return {
           binding: { playerId: input.playerId, sessionId },
           requestedSessionId: sessionId,
-          forceRuntimeSessionRebind: false,
+          forceRuntimeSessionRebind: true,
         };
       },
     } as never,
     {
-      async initializeBootstrapPlayer(input: { onSnapshotContextResolved?: (context: { source: string | null; persistedSource: string | null }) => void }) {
+      async initializeBootstrapPlayer(input: {
+        forceRuntimeSessionRebind?: boolean;
+        onSnapshotContextResolved?: (context: { source: string | null; persistedSource: string | null }) => void;
+      }) {
+        log.push(['initializeForceRebind', input.forceRuntimeSessionRebind]);
         return playerFactory(input);
       },
     } as never,
@@ -107,6 +114,10 @@ async function runCase(
       ...input,
       loadSnapshot: async () => null,
     },
+  );
+  assert.ok(
+    log.some((entry) => Array.isArray(entry) && entry[0] === 'initializeForceRebind' && entry[1] === true),
+    `expected takeover forceRuntimeSessionRebind to reach player initialization: ${JSON.stringify(log)}`,
   );
   return lastConnectInput(log);
 }

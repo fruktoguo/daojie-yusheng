@@ -163,6 +163,16 @@ export class WorldRuntimeNpcQuestWriteService {
     async dispatchSubmitNpcQuestLocked(playerId, npcId, questId, deps) {
         const npc = deps.resolveAdjacentNpc(playerId, npcId);
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
+        const durableOperationService = typeof this.durableOperationService?.isEnabled === 'function'
+            ? this.durableOperationService
+            : (typeof deps?.durableOperationService?.isEnabled === 'function' ? deps.durableOperationService : null);
+        const durableEnabled = durableOperationService?.isEnabled?.() === true;
+        if (durableEnabled) {
+            await this.syncCurrentPresenceFence(playerId);
+            if (!this.getCurrentRuntimeOwnerId(playerId, deps) || !this.getCurrentSessionEpoch(playerId, deps)) {
+                throw new BadRequestException('玩家资产事务围栏暂不可用，请稍后重试');
+            }
+        }
         deps.refreshQuestStates(playerId);
         const quest = player.quests.quests.find((entry) => entry.id === questId);
         if (!quest || quest.status !== 'ready') {
@@ -181,50 +191,47 @@ export class WorldRuntimeNpcQuestWriteService {
         if (nextInventoryItems == null) {
             throw new BadRequestException('背包空间不足，无法领取奖励');
         }
-        const durableOperationService = typeof this.durableOperationService?.isEnabled === 'function'
-            ? this.durableOperationService
-            : (typeof deps?.durableOperationService?.isEnabled === 'function' ? deps.durableOperationService : null);
-        if (durableOperationService?.isEnabled?.() === true) {
-            await this.syncCurrentPresenceFence(playerId);
+        if (durableEnabled) {
             const runtimeOwnerId = this.getCurrentRuntimeOwnerId(playerId, deps);
             const sessionEpoch = this.getCurrentSessionEpoch(playerId, deps);
-            if (runtimeOwnerId && sessionEpoch) {
-                const plannedNextQuest = buildNextQuestState(playerId, player, quest, questView, deps);
-                const nextQuestEntries = buildQuestProgressSnapshots(plannedNextQuest.nextQuests);
-                const nextWalletBalances = applyQuestWalletRewards(player.wallet?.balances ?? [], walletRewards);
-                const location = typeof deps?.getPlayerLocation === 'function' ? deps.getPlayerLocation(playerId) : null;
-                const leaseContext = await resolveInstanceLeaseContext(location?.instanceId ?? null, deps);
-                const operationId = `op:${playerId}:npc-quest:${quest.id}:${Date.now().toString(36)}`;
-                const runSubmit = async () => durableOperationService.submitNpcQuestRewards({
-                    operationId,
-                    playerId,
-                    expectedRuntimeOwnerId: this.getCurrentRuntimeOwnerId(playerId, deps) ?? runtimeOwnerId,
-                    expectedSessionEpoch: this.getCurrentSessionEpoch(playerId, deps) ?? sessionEpoch,
-                    expectedInstanceId: location?.instanceId ?? null,
-                    expectedAssignedNodeId: leaseContext?.assignedNodeId ?? null,
-                    expectedOwnershipEpoch: leaseContext?.ownershipEpoch ?? null,
-                    questId: quest.id,
-                    nextInventoryItems,
-                    nextWalletBalances,
-                    nextQuestEntries,
-                });
-                try {
-                    await runSubmit();
-                }
-                catch (error) {
-                    if (!shouldRetryQuestSubmitFence(error) || !(await this.syncCurrentPresenceFence(playerId))) {
-                        throw error;
-                    }
-                    await runSubmit();
-                }
-                this.playerRuntimeService.replaceInventoryItems(playerId, nextInventoryItems.map((entry) => ({ ...(entry.rawPayload ?? entry), itemId: entry.itemId, count: entry.count })));
-                this.playerRuntimeService.replaceWalletBalances(playerId, nextWalletBalances);
-                player.quests.quests = plannedNextQuest.nextQuests.map((entry) => cloneQuestState(entry, entry.status));
-                this.playerRuntimeService.markQuestStateDirty(playerId);
-                deps.refreshQuestStates(playerId, true);
-                notifyQuestSubmitted(deps, playerId, npc, questView, plannedNextQuest.nextQuest);
-                return;
+            if (!runtimeOwnerId || !sessionEpoch) {
+                throw new BadRequestException('玩家资产事务围栏暂不可用，请稍后重试');
             }
+            const plannedNextQuest = buildNextQuestState(playerId, player, quest, questView, deps);
+            const nextQuestEntries = buildQuestProgressSnapshots(plannedNextQuest.nextQuests);
+            const nextWalletBalances = applyQuestWalletRewards(player.wallet?.balances ?? [], walletRewards);
+            const location = typeof deps?.getPlayerLocation === 'function' ? deps.getPlayerLocation(playerId) : null;
+            const leaseContext = await resolveInstanceLeaseContext(location?.instanceId ?? null, deps);
+            const operationId = `op:${playerId}:npc-quest:${quest.id}:${Date.now().toString(36)}`;
+            const runSubmit = async () => durableOperationService.submitNpcQuestRewards({
+                operationId,
+                playerId,
+                expectedRuntimeOwnerId: this.getCurrentRuntimeOwnerId(playerId, deps) ?? runtimeOwnerId,
+                expectedSessionEpoch: this.getCurrentSessionEpoch(playerId, deps) ?? sessionEpoch,
+                expectedInstanceId: location?.instanceId ?? null,
+                expectedAssignedNodeId: leaseContext?.assignedNodeId ?? null,
+                expectedOwnershipEpoch: leaseContext?.ownershipEpoch ?? null,
+                questId: quest.id,
+                nextInventoryItems,
+                nextWalletBalances,
+                nextQuestEntries,
+            });
+            try {
+                await runSubmit();
+            }
+            catch (error) {
+                if (!shouldRetryQuestSubmitFence(error) || !(await this.syncCurrentPresenceFence(playerId))) {
+                    throw error;
+                }
+                await runSubmit();
+            }
+            this.playerRuntimeService.replaceInventoryItems(playerId, nextInventoryItems.map((entry) => ({ ...(entry.rawPayload ?? entry), itemId: entry.itemId, count: entry.count })));
+            this.playerRuntimeService.replaceWalletBalances(playerId, nextWalletBalances);
+            player.quests.quests = plannedNextQuest.nextQuests.map((entry) => cloneQuestState(entry, entry.status));
+            this.playerRuntimeService.markQuestStateDirty(playerId);
+            deps.refreshQuestStates(playerId, true);
+            notifyQuestSubmitted(deps, playerId, npc, questView, plannedNextQuest.nextQuest);
+            return;
         }
         if (requiredItemId && requiredItemCount > 0) {
             this.playerRuntimeService.consumeInventoryItemByItemId(playerId, requiredItemId, requiredItemCount);
@@ -473,7 +480,7 @@ export class WorldRuntimeNpcQuestWriteService {
             ? deps.getPlayerOrThrow(playerId)
             : this.playerRuntimeService.getPlayerOrThrow(playerId);
         return Number.isFinite(player?.sessionEpoch)
-            ? Math.max(1, Math.trunc(Number(player.sessionEpoch)))
+            ? Math.max(0, Math.trunc(Number(player.sessionEpoch)))
             : null;
     }
 };

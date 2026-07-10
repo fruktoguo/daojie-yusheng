@@ -175,7 +175,7 @@ async function main(): Promise<void> {
 
     const migrateResult = await worldRuntime.migratePlayerToNode(playerId, remoteNodeId);
     assert.deepEqual(migrateResult, { ok: true });
-    assert.deepEqual(flushCalls, [playerId]);
+    assert.deepEqual(flushCalls, [playerId, playerId]);
 
     const transferredPlayer = playerRuntimeService.getPlayer(playerId);
     assert.ok(transferredPlayer);

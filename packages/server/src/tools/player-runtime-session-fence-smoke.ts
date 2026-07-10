@@ -9,7 +9,7 @@ import {
 
 import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
 
-function createPlayerRuntimeService() {
+function createPlayerRuntimeService(playerDomainPersistenceService: unknown = undefined) {
   return new PlayerRuntimeService(
     {
       createStarterInventory() {
@@ -71,7 +71,7 @@ function createPlayerRuntimeService() {
         return undefined;
       },
     } as never,
-    undefined,
+    playerDomainPersistenceService as never,
   );
 }
 
@@ -112,6 +112,84 @@ async function main() {
   assert.equal(seeded.sessionId, 'sid:seeded');
   assert.equal(seededFence?.sessionEpoch, 8);
   assertRuntimeOwnerId(seededFence?.runtimeOwnerId);
+
+  const zeroEpochPlayer = service.ensurePlayer('session:fence:zero-epoch', 'sid:zero-epoch');
+  zeroEpochPlayer.runtimeOwnerId = null;
+  zeroEpochPlayer.sessionEpoch = 0;
+  assert.deepEqual(service.getSessionFence(zeroEpochPlayer.playerId), {
+    runtimeOwnerId: null,
+    sessionEpoch: null,
+  });
+
+  const ownershipClaims: Array<{ playerId: string; input: Record<string, unknown> }> = [];
+  const claimedService = createPlayerRuntimeService({
+    isEnabled() {
+      return true;
+    },
+    async loadPlayerOfflineGainSession() {
+      return {
+        sessionId: 'offline-gain:claim',
+        startedAt: Date.now() - 120_000,
+        baselinePayload: {},
+        accumulatedPayload: {},
+        accumulatedDurationMs: 120_000,
+      };
+    },
+    async claimPlayerRuntimeOwnership(claimedPlayerId: string, input: Record<string, unknown>) {
+      ownershipClaims.push({ playerId: claimedPlayerId, input });
+      await new Promise((resolve) => setImmediate(resolve));
+      return {
+        runtimeOwnerId: 'rt:claim:offline-gain-smoke',
+        sessionEpoch: 41,
+      };
+    },
+  });
+  const ownerlessPlayerId = 'session:fence:offline-gain-ownerless';
+  const ownerlessPlayer = claimedService.ensurePlayer(ownerlessPlayerId, 'sid:before-offline-gain');
+  ownerlessPlayer.runtimeOwnerId = null;
+  ownerlessPlayer.sessionEpoch = 0;
+  const blockedPlayer = await claimedService.loadOrCreatePlayer(
+    ownerlessPlayerId,
+    'sid:blocked-offline-gain',
+    async () => {
+      throw new Error('existing offline-gain player should not reload snapshot');
+    },
+    { deferOfflineGainSettlement: true },
+  );
+  assert.equal(blockedPlayer, ownerlessPlayer);
+  assert.equal(blockedPlayer.sessionId, null);
+  assert.deepEqual(claimedService.getSessionFence(ownerlessPlayerId), {
+    runtimeOwnerId: 'rt:claim:offline-gain-smoke',
+    sessionEpoch: 41,
+  });
+  assert.equal(ownershipClaims.length, 1);
+  assert.equal(ownershipClaims[0]?.playerId, ownerlessPlayerId);
+  assert.equal(ownershipClaims[0]?.input.online, false);
+  claimedService.syncOfflineFromWorldView(ownerlessPlayerId, {
+    instance: { instanceId: 'public:yunlai_town', templateId: 'yunlai_town' },
+    self: { x: 32, y: 5, facing: 2, fengShuiLuck: 0 },
+  });
+  assert.equal(claimedService.getSessionFence(ownerlessPlayerId)?.runtimeOwnerId, 'rt:claim:offline-gain-smoke');
+
+  const racedService = createPlayerRuntimeService({
+    isEnabled() {
+      return true;
+    },
+    async claimPlayerRuntimeOwnership() {
+      await new Promise((resolve) => setImmediate(resolve));
+      return { runtimeOwnerId: 'rt:claim:raced', sessionEpoch: 51 };
+    },
+  });
+  const racedPlayer = racedService.ensurePlayer('session:fence:claim-race', 'sid:before-race');
+  racedPlayer.runtimeOwnerId = null;
+  racedPlayer.sessionEpoch = 50;
+  racedPlayer.sessionId = null;
+  const pendingClaim = racedService.ensureRuntimeOwnershipClaimed(racedPlayer.playerId);
+  racedService.activatePlayerRuntimeSession(racedPlayer.playerId, 'sid:online-during-claim');
+  const racedFence = await pendingClaim;
+  assert.equal(racedPlayer.sessionId, 'sid:online-during-claim');
+  assert.equal(racedFence?.sessionEpoch, 52);
+  assert.notEqual(racedFence?.runtimeOwnerId, 'rt:claim:raced');
 
   const healedFence = service.ensureRuntimeSessionFenceAtLeast(seededPlayerId, 9);
   const healedPresence = service.describePersistencePresence(seededPlayerId);

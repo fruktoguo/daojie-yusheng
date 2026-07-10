@@ -274,8 +274,11 @@ export class CraftPanelRuntimeService {
         if (player?.enhancementDurableCommitInFlight === true || player?.suppressImmediateDomainPersistence === true) {
             return buildCraftMutationResult('强化状态正在同步，请稍后重试。');
         }
-        const before = captureEnhancementAssetRuntimeState(player);
         const durableEnabled = this.shouldUseDurableEnhancementPersistence(player);
+        const durablePresence = durableEnabled
+            ? await this.resolveDurablePresenceFence(player.playerId)
+            : null;
+        const before = captureEnhancementAssetRuntimeState(player);
         const previousSuppress = player?.suppressImmediateDomainPersistence;
         if (durableEnabled) {
             player.enhancementDurableCommitInFlight = true;
@@ -287,20 +290,74 @@ export class CraftPanelRuntimeService {
                 return result;
             }
             if ('queued' in result && result.queued === true) {
-                await this.persistTechniqueActivitySnapshot(player);
+                this.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job']);
                 return result;
             }
             if (!player?.enhancementJob) {
                 return result;
             }
-            try {
-                await this.commitEnhancementActiveJobWithAssets(player, 'start', null, { allowSuppressed: durableEnabled });
-            }
-            catch (error) {
-                restoreEnhancementAssetRuntimeState(player, before);
-                throw error;
-            }
+            await this.commitEnhancementActiveJobWithAssets(player, 'start', null, {
+                allowSuppressed: durableEnabled,
+                presence: durablePresence,
+            });
             return result;
+        }
+        catch (error) {
+            this.restoreEnhancementAssetRuntimeState(player, before);
+            throw error;
+        }
+        finally {
+            if (durableEnabled) {
+                player.suppressImmediateDomainPersistence = previousSuppress;
+                player.enhancementDurableCommitInFlight = false;
+            }
+        }
+    }
+    /** 队列头强化的出队、扣料、锁定与 durable start 必须处于同一个玩家资产串行区。 */
+    async startQueuedEnhancementDurably(player, startQueuedActivity, deps = null) {
+        return this.runExclusivePlayerAssetMutation(
+            player,
+            () => this.startQueuedEnhancementDurablyLocked(player, startQueuedActivity, deps),
+        );
+    }
+    async startQueuedEnhancementDurablyLocked(player, startQueuedActivity, deps = null) {
+        if (typeof startQueuedActivity !== 'function') {
+            return null;
+        }
+        if (player?.enhancementDurableCommitInFlight === true || player?.suppressImmediateDomainPersistence === true) {
+            return null;
+        }
+        const queueHead = Array.isArray(player?.techniqueActivityQueue)
+            ? player.techniqueActivityQueue[0]
+            : null;
+        if (queueHead?.kind !== 'enhancement') {
+            return startQueuedActivity();
+        }
+        const durableEnabled = this.shouldUseDurableEnhancementPersistence(player);
+        const durablePresence = durableEnabled
+            ? await this.resolveDurablePresenceFence(player.playerId)
+            : null;
+        const before = captureEnhancementAssetRuntimeState(player);
+        const previousSuppress = player?.suppressImmediateDomainPersistence;
+        if (durableEnabled) {
+            player.enhancementDurableCommitInFlight = true;
+            player.suppressImmediateDomainPersistence = true;
+        }
+        try {
+            const result = startQueuedActivity();
+            if (!result?.ok || !player?.enhancementJob) {
+                return result;
+            }
+            await this.commitEnhancementActiveJobWithAssets(player, 'start', null, {
+                allowSuppressed: durableEnabled,
+                presence: durablePresence,
+                expectedQueueHeadId: normalizeText(queueHead.queueId) || null,
+            });
+            return result;
+        }
+        catch (error) {
+            this.restoreEnhancementAssetRuntimeState(player, before);
+            throw error;
         }
         finally {
             if (durableEnabled) {
@@ -332,9 +389,12 @@ export class CraftPanelRuntimeService {
         if (player?.enhancementDurableCommitInFlight === true || player?.suppressImmediateDomainPersistence === true) {
             return buildCraftMutationResult('强化状态正在同步，请稍后重试。');
         }
+        const durableEnabled = this.shouldUseDurableEnhancementPersistence(player);
+        const durablePresence = durableEnabled
+            ? await this.resolveDurablePresenceFence(player.playerId)
+            : null;
         const before = captureEnhancementAssetRuntimeState(player);
         const expectedJob = player?.enhancementJob ? { ...player.enhancementJob } : null;
-        const durableEnabled = this.shouldUseDurableEnhancementPersistence(player);
         const previousSuppress = player?.suppressImmediateDomainPersistence;
         if (durableEnabled) {
             player.enhancementDurableCommitInFlight = true;
@@ -345,14 +405,15 @@ export class CraftPanelRuntimeService {
             if (!result?.ok || !expectedJob) {
                 return result;
             }
-            try {
-                await this.commitEnhancementActiveJobWithAssets(player, 'cancelled', expectedJob, { allowSuppressed: durableEnabled });
-            }
-            catch (error) {
-                restoreEnhancementAssetRuntimeState(player, before);
-                throw error;
-            }
+            await this.commitEnhancementActiveJobWithAssets(player, 'cancelled', expectedJob, {
+                allowSuppressed: durableEnabled,
+                presence: durablePresence,
+            });
             return result;
+        }
+        catch (error) {
+            this.restoreEnhancementAssetRuntimeState(player, before);
+            throw error;
         }
         finally {
             if (durableEnabled) {
@@ -396,9 +457,12 @@ export class CraftPanelRuntimeService {
         if (player?.enhancementDurableCommitInFlight === true || player?.suppressImmediateDomainPersistence === true) {
             return buildCraftTickResult();
         }
+        const durableEnabled = this.shouldUseDurableEnhancementPersistence(player);
+        const durablePresence = durableEnabled
+            ? await this.resolveDurablePresenceFence(player.playerId)
+            : null;
         const before = captureEnhancementAssetRuntimeState(player);
         const expectedJob = player?.enhancementJob ? { ...player.enhancementJob } : null;
-        const durableEnabled = this.shouldUseDurableEnhancementPersistence(player);
         const previousSuppress = player?.suppressImmediateDomainPersistence;
         if (durableEnabled) {
             player.enhancementDurableCommitInFlight = true;
@@ -416,17 +480,18 @@ export class CraftPanelRuntimeService {
                 || player.enhancementJob?.jobRunId !== expectedJob?.jobRunId,
             );
             if (expectedJob && hasAssetBoundary) {
-                try {
-                    await this.commitEnhancementActiveJobWithAssets(player, !player?.enhancementJob ? 'completed' : 'tick', expectedJob, { allowSuppressed: durableEnabled });
-                }
-                catch (error) {
-                    restoreEnhancementAssetRuntimeState(player, before);
-                    throw error;
-                }
+                await this.commitEnhancementActiveJobWithAssets(player, !player?.enhancementJob ? 'completed' : 'tick', expectedJob, {
+                    allowSuppressed: durableEnabled,
+                    presence: durablePresence,
+                });
             } else if (expectedJob && player?.enhancementJob) {
                 this.queueEnhancementActiveJobFlush(player, previousSuppress);
             }
             return result;
+        }
+        catch (error) {
+            this.restoreEnhancementAssetRuntimeState(player, before);
+            throw error;
         }
         finally {
             if (durableEnabled) {
@@ -441,15 +506,14 @@ export class CraftPanelRuntimeService {
             return;
         }
         this.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job']);
-        if (previousSuppress !== true) {
-            void this.persistTechniqueActivitySnapshot(player).catch((error) => {
-                console.warn(`强化进度直写失败，已标记脏数据等待重试：${error instanceof Error ? error.message : String(error)}`);
-                this.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job']);
-            });
-        }
+        void previousSuppress;
     }
     /** 对强化 tick 后的资产变更做强事务提交；仅在强化任务 start/finish/stop/cancel 这类资产边界调用。 */
-    async commitEnhancementActiveJobWithAssets(player, action, expectedJob = null, options: { allowSuppressed?: boolean } = {}) {
+    async commitEnhancementActiveJobWithAssets(player, action, expectedJob = null, options: {
+        allowSuppressed?: boolean;
+        presence?: { runtimeOwnerId: string; sessionEpoch: number } | null;
+        expectedQueueHeadId?: string | null;
+    } = {}) {
         if (!this.shouldUseDurableEnhancementPersistence(player, options)) {
             return;
         }
@@ -457,15 +521,16 @@ export class CraftPanelRuntimeService {
         if (!playerId) {
             throw new Error('强化强事务提交失败：缺少玩家 ID');
         }
-        const presence = await this.resolveDurablePresenceFence(playerId);
+        const presence = options.presence ?? await this.resolveDurablePresenceFence(playerId);
         const snapshot = this.playerRuntimeService.buildPersistenceSnapshot?.(
             playerId,
-            new Set(['inventory', 'equipment', 'active_job', 'enhancement_record']),
+            new Set(['inventory', 'wallet', 'equipment', 'active_job', 'enhancement_record']),
         );
         if (!snapshot) {
             throw new Error(`强化强事务提交失败：无法构建玩家快照 playerId=${playerId}`);
         }
         const inventoryItems = buildDurableInventoryItemsFromSnapshot(snapshot);
+        const walletBalances = buildDurableWalletBalancesFromSnapshot(snapshot);
         const equipmentSlots = buildDurableEquipmentSlotsFromSnapshot(snapshot);
         const enhancementRecords = buildDurableEnhancementRecordsFromEntries(playerId, player.enhancementRecords ?? []);
         const activeJob = buildActiveJobSnapshotFromPlayer(player);
@@ -479,6 +544,9 @@ export class CraftPanelRuntimeService {
                 ?? player?.enhancementJob?.jobVersion
                 ?? 1,
         )));
+        const snapshotRevision = Number.isFinite(Number(player?.persistentRevision))
+            ? Math.trunc(Number(player.persistentRevision))
+            : null;
         if (action === 'start') {
             if (!activeJob) {
                 throw new Error(`强化强事务启动失败：缺少 active job playerId=${playerId}`);
@@ -489,8 +557,29 @@ export class CraftPanelRuntimeService {
                 expectedRuntimeOwnerId: presence.runtimeOwnerId,
                 expectedSessionEpoch: presence.sessionEpoch,
                 nextInventoryItems: inventoryItems,
-                nextWalletBalances: [],
+                nextWalletBalances: walletBalances,
                 nextActiveJob: activeJob,
+                nextEnhancementRecords: enhancementRecords,
+                ...(options.expectedQueueHeadId ? {
+                    expectedQueueHeadId: options.expectedQueueHeadId,
+                    nextTechniqueActivityQueue: buildTechniqueActivityQueueSnapshotFromPlayer(player),
+                } : {}),
+            });
+        }
+        else if (action === 'cancelled') {
+            if (!jobRunId) {
+                throw new Error(`强化强事务取消失败：缺少 jobRunId playerId=${playerId}`);
+            }
+            await this.durableOperationService.cancelActiveJobWithAssets({
+                operationId: `enhancement:cancelled:${playerId}:${jobRunId}:${jobVersion}`,
+                playerId,
+                expectedRuntimeOwnerId: presence.runtimeOwnerId,
+                expectedSessionEpoch: presence.sessionEpoch,
+                expectedJobRunId: jobRunId,
+                expectedJobVersion: jobVersion,
+                nextInventoryItems: inventoryItems,
+                nextWalletBalances: walletBalances,
+                nextEquipmentSlots: equipmentSlots,
                 nextEnhancementRecords: enhancementRecords,
             });
         }
@@ -506,16 +595,17 @@ export class CraftPanelRuntimeService {
                 expectedJobRunId: jobRunId,
                 expectedJobVersion: jobVersion,
                 nextInventoryItems: inventoryItems,
-                nextWalletBalances: [],
+                nextWalletBalances: walletBalances,
                 nextEquipmentSlots: equipmentSlots,
                 nextEnhancementRecords: enhancementRecords,
                 nextActiveJob: activeJob,
+                completionKind: resolveEnhancementDurableCompletionKind(action, player, jobRunId, expectedJob),
             });
         }
         this.playerRuntimeService.markPersisted?.(
             playerId,
-            new Set(['inventory', 'equipment', 'active_job', 'enhancement_record']),
-            player.persistentRevision,
+            new Set(['inventory', 'wallet', 'equipment', 'active_job', 'enhancement_record']),
+            snapshotRevision,
         );
     }
     shouldUseDurableEnhancementPersistence(player, options: { allowSuppressed?: boolean } = {}) {
@@ -533,12 +623,21 @@ export class CraftPanelRuntimeService {
         if (!playerId || typeof coordinator !== 'function') {
             return await action();
         }
-        return coordinator.call(this.playerRuntimeService, [playerId], action);
+        return coordinator.call(this.playerRuntimeService, [playerId], action, {
+            deferAssetStatisticsUntilSuccess: true,
+        });
     }
     async resolveDurablePresenceFence(playerId) {
-        const presence = this.playerRuntimeService.describePersistencePresence?.(playerId) ?? null;
+        let presence = this.playerRuntimeService.describePersistencePresence?.(playerId) ?? null;
+        if (
+            (!presence?.runtimeOwnerId || !presence?.sessionEpoch)
+            && typeof this.playerRuntimeService.ensureRuntimeOwnershipClaimed === 'function'
+        ) {
+            await this.playerRuntimeService.ensureRuntimeOwnershipClaimed(playerId);
+            presence = this.playerRuntimeService.describePersistencePresence?.(playerId) ?? null;
+        }
         if (!presence?.runtimeOwnerId || !presence?.sessionEpoch) {
-            throw new Error(`强化强事务提交失败：缺少在线会话围栏 playerId=${playerId}`);
+            throw new Error(`强化强事务提交失败：缺少运行态所有权围栏 playerId=${playerId}`);
         }
         if (
             this.playerDomainPersistenceService?.isEnabled?.()
@@ -553,6 +652,13 @@ export class CraftPanelRuntimeService {
             runtimeOwnerId: String(presence.runtimeOwnerId),
             sessionEpoch: Math.max(1, Math.trunc(Number(presence.sessionEpoch))),
         };
+    }
+    /** 强事务失败后恢复完整强化运行态，并重建由装备/背包派生的显示与行动状态。 */
+    restoreEnhancementAssetRuntimeState(player, snapshot) {
+        restoreEnhancementAssetRuntimeState(player, snapshot);
+        this.playerRuntimeService.playerProgressionService?.refreshPreview?.(player);
+        this.playerRuntimeService.playerAttributesService?.recalculate?.(player);
+        this.playerRuntimeService.rebuildActionState?.(player, 0);
     }
     /** 技艺 pipeline 入口补记直接改背包/技艺经验的收支；已由玩家运行时入口记录的部分会被当前快照过滤。 */
     recordTechniqueActivityStatisticMutation(player, result) {
@@ -2593,7 +2699,14 @@ export class CraftPanelRuntimeService {
         if (options.inventoryChanged || options.equipmentChanged || options.attrChanged || options.persistentOnly || dirtyDomains.length > 0) {
             this.playerRuntimeService.bumpPersistentRevision(player);
         }
-        if (dirtyDomains.includes('active_job') && !player?.suppressImmediateDomainPersistence) {
+        const durableEnhancementActiveJob = dirtyDomains.includes('active_job')
+            && (Boolean(player?.enhancementJob) || dirtyDomains.includes('enhancement_record'))
+            && this.durableOperationService?.isEnabled?.() === true;
+        if (
+            dirtyDomains.includes('active_job')
+            && !player?.suppressImmediateDomainPersistence
+            && !durableEnhancementActiveJob
+        ) {
             void this.persistTechniqueActivitySnapshot(player).catch((error) => {
                 console.warn(`活跃任务直写失败，已标记脏数据等待重试：${error instanceof Error ? error.message : String(error)}`);
                 this.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job']);
@@ -3343,14 +3456,21 @@ function captureEnhancementAssetRuntimeState(player) {
                 }))
                 : [],
         },
+        wallet: {
+            balances: Array.isArray(player?.wallet?.balances)
+                ? player.wallet.balances.map((entry) => ({ ...entry }))
+                : [],
+        },
         enhancementJob: player?.enhancementJob ? cloneEnhancementJob(player.enhancementJob) : null,
         enhancementRecords: Array.isArray(player?.enhancementRecords)
             ? player.enhancementRecords.map((entry) => structuredClone(entry))
             : [],
         enhancementSkill: player?.enhancementSkill ? { ...player.enhancementSkill } : null,
         enhancementSkillLevel: player?.enhancementSkillLevel,
-        persistentRevision: player?.persistentRevision,
-        persistedRevision: player?.persistedRevision,
+        techniqueActivityQueue: Array.isArray(player?.techniqueActivityQueue)
+            ? player.techniqueActivityQueue.map((entry) => structuredClone(entry))
+            : [],
+        selfRevision: player?.selfRevision,
         dirtyDomains: player?.dirtyDomains instanceof Set ? new Set(player.dirtyDomains) : null,
     };
 }
@@ -3371,15 +3491,23 @@ function restoreEnhancementAssetRuntimeState(player, snapshot) {
             item: entry?.item ? cloneItem(entry.item) : null,
         }));
     }
+    player.wallet = {
+        balances: snapshot.wallet.balances.map((entry) => ({ ...entry })),
+    };
     player.enhancementJob = snapshot.enhancementJob ? cloneEnhancementJob(snapshot.enhancementJob) : null;
     player.enhancementRecords = snapshot.enhancementRecords.map((entry) => structuredClone(entry));
     player.enhancementSkill = snapshot.enhancementSkill ? { ...snapshot.enhancementSkill } : null;
     player.enhancementSkillLevel = snapshot.enhancementSkillLevel;
-    player.persistentRevision = snapshot.persistentRevision;
-    player.persistedRevision = snapshot.persistedRevision;
-    if (snapshot.dirtyDomains instanceof Set) {
-        player.dirtyDomains = new Set(snapshot.dirtyDomains);
+    player.techniqueActivityQueue = snapshot.techniqueActivityQueue.map((entry) => structuredClone(entry));
+    player.selfRevision = snapshot.selfRevision;
+    const currentDirtyDomains = player.dirtyDomains instanceof Set ? new Set(player.dirtyDomains) : new Set();
+    for (const domain of snapshot.dirtyDomains instanceof Set ? snapshot.dirtyDomains : []) {
+        currentDirtyDomains.add(domain);
     }
+    for (const domain of ['inventory', 'wallet', 'equipment', 'attr', 'active_job', 'enhancement_record']) {
+        currentDirtyDomains.add(domain);
+    }
+    player.dirtyDomains = currentDirtyDomains;
 }
 
 function buildDurableInventoryItemsFromSnapshot(snapshot) {
@@ -3389,6 +3517,30 @@ function buildDurableInventoryItemsFromSnapshot(snapshot) {
         ...normalItems.map((entry) => buildDurableInventoryItemSnapshot(entry, null)),
         ...lockedItems.map((entry) => buildDurableInventoryItemSnapshot(entry, normalizeText(entry?.lockedBy))),
     ];
+}
+
+function buildDurableWalletBalancesFromSnapshot(snapshot) {
+    const balances = Array.isArray(snapshot?.wallet?.balances) ? snapshot.wallet.balances : [];
+    return balances
+        .map((entry) => ({
+            walletType: normalizeText(entry?.walletType),
+            balance: Math.max(0, Math.trunc(Number(entry?.balance ?? 0))),
+            frozenBalance: Math.max(0, Math.trunc(Number(entry?.frozenBalance ?? 0))),
+            version: Math.max(0, Math.trunc(Number(entry?.version ?? 0))),
+        }))
+        .filter((entry) => Boolean(entry.walletType));
+}
+
+function resolveEnhancementDurableCompletionKind(action, player, jobRunId, expectedJob = null) {
+    if (action === 'tick') {
+        return 'advanced';
+    }
+    const records = Array.isArray(player?.enhancementRecords) ? player.enhancementRecords : [];
+    const record = records.find((entry) => entry?.jobRunId === jobRunId)
+        ?? records.find((entry) => Number(entry?.actionStartedAt) === Number(expectedJob?.startedAt))
+        ?? [...records].reverse().find((entry) => entry?.itemId === expectedJob?.targetItemId)
+        ?? null;
+    return record?.status === 'stopped' ? 'stopped' : 'completed';
 }
 
 function buildDurableInventoryItemSnapshot(entry, lockedBy) {

@@ -495,6 +495,20 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
       throw new Error(`player_domain_delta_required:${playerId}:${domains}`);
     }
 
+    // ownership 轮换会同时把 presence 与业务域标脏；必须先推进 DB fence，随后业务投影才能精确匹配。
+    // savePlayerPresence 对同 epoch rival owner 已 fail closed，旧运行态不能借此覆盖当前 owner。
+    if (normalizedDirtyDomains.has(PLAYER_PERSISTENCE_DIRTY_PRESENCE_DOMAIN)) {
+      const presence = this.playerRuntimeService.describePersistencePresence(playerId);
+      if (presence) {
+        if (!this.isPlayerPersistenceWritable(playerId)) {
+          this.logger.warn(`跳过玩家在线状态提交：租约已失效 playerId=${playerId}`);
+          return { persistedDomains, leaseInvalidated: true };
+        }
+        await this.playerDomainPersistenceService.savePlayerPresence(playerId, presence);
+        persistedDomains.add(PLAYER_PERSISTENCE_DIRTY_PRESENCE_DOMAIN);
+      }
+    }
+
     if (projectedDomains.size > 0) {
       if (!this.isPlayerPersistenceWritable(playerId)) {
         this.logger.warn(`跳过玩家分域增量提交：租约已失效 playerId=${playerId}`);
@@ -522,19 +536,6 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
       }
     }
 
-    if (normalizedDirtyDomains.has(PLAYER_PERSISTENCE_DIRTY_PRESENCE_DOMAIN)) {
-      const presence = this.playerRuntimeService.describePersistencePresence(playerId);
-      if (presence) {
-        if (!this.isPlayerPersistenceWritable(playerId)) {
-          this.logger.warn(`跳过玩家在线状态提交：租约已失效 playerId=${playerId}`);
-          // presence 部分 lease 失效。projectedDomains 已写完的部分允许 markPersisted，
-          // 但 presence 留作 dirty 等下一轮；通过 leaseInvalidated 让外层放弃 markPersisted 整体。
-          return { persistedDomains, leaseInvalidated: true };
-        }
-        await this.playerDomainPersistenceService.savePlayerPresence(playerId, presence);
-        persistedDomains.add(PLAYER_PERSISTENCE_DIRTY_PRESENCE_DOMAIN);
-      }
-    }
     return { persistedDomains, leaseInvalidated: false };
   }
 

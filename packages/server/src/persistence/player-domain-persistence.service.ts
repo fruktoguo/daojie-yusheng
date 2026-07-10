@@ -243,6 +243,11 @@ export interface PersistedPlayerPresence {
   transferTargetNodeId: string | null;
 }
 
+export interface PlayerRuntimeOwnershipClaim {
+  runtimeOwnerId: string;
+  sessionEpoch: number;
+}
+
 export interface PlayerWalletUpsertInput {
   walletType: string;
   balance: number;
@@ -1088,6 +1093,92 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
     const versionSeed = normalizeVersionSeed(input.versionSeed);
     await this.withTransaction(async (client) => {
       await acquirePlayerPersistenceLock(client, normalizedPlayerId);
+      const presenceWrite = await client.query(
+        `
+          INSERT INTO ${PLAYER_PRESENCE_TABLE}(
+            player_id,
+            online,
+            in_world,
+            last_heartbeat_at,
+            offline_since_at,
+            runtime_owner_id,
+            session_epoch,
+            transfer_state,
+            transfer_target_node_id,
+            updated_at
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, now())
+          ON CONFLICT (player_id)
+          DO UPDATE SET
+            online = EXCLUDED.online,
+            in_world = EXCLUDED.in_world,
+            last_heartbeat_at = EXCLUDED.last_heartbeat_at,
+            offline_since_at = EXCLUDED.offline_since_at,
+            runtime_owner_id = EXCLUDED.runtime_owner_id,
+            session_epoch = EXCLUDED.session_epoch,
+            transfer_state = EXCLUDED.transfer_state,
+            transfer_target_node_id = EXCLUDED.transfer_target_node_id,
+            updated_at = now()
+          WHERE EXCLUDED.session_epoch > ${PLAYER_PRESENCE_TABLE}.session_epoch
+             OR (
+               EXCLUDED.session_epoch = ${PLAYER_PRESENCE_TABLE}.session_epoch
+               AND EXCLUDED.runtime_owner_id IS NOT DISTINCT FROM ${PLAYER_PRESENCE_TABLE}.runtime_owner_id
+             )
+          RETURNING player_id
+        `,
+        [
+          normalizedPlayerId,
+          input.online === true,
+          input.inWorld === true,
+          normalizeOptionalInteger(input.lastHeartbeatAt),
+          normalizeOptionalInteger(input.offlineSinceAt),
+          normalizeOptionalString(input.runtimeOwnerId),
+          normalizeMinimumInteger(input.sessionEpoch, 1, 1),
+          normalizeOptionalString(input.transferState),
+          normalizeOptionalString(input.transferTargetNodeId),
+        ],
+      );
+      if ((presenceWrite.rowCount ?? 0) === 0) {
+        throw new Error(`player_presence_stale_fence:${normalizedPlayerId}`);
+      }
+      await upsertRecoveryWatermark(client, normalizedPlayerId, {
+        presence_version: versionSeed,
+      });
+    });
+  }
+
+  /**
+   * 原子认领玩家运行态所有权。
+   *
+   * claim 与普通 presence 写入共用玩家 advisory lock，并始终从数据库当前 epoch 递增，
+   * 因而调用方不得用内存 epoch 推算或预生成 owner。启动批量恢复应先完成实例 lease 裁定，
+   * 仅由最终接管该玩家的节点调用本方法。
+   */
+  async claimPlayerRuntimeOwnership(
+    playerId: string,
+    input: Omit<PlayerPresenceUpsertInput, 'runtimeOwnerId' | 'sessionEpoch'>,
+  ): Promise<PlayerRuntimeOwnershipClaim | null> {
+    const normalizedPlayerId = normalizeRequiredString(playerId);
+    if (!this.pool || !this.enabled || !normalizedPlayerId) {
+      return null;
+    }
+
+    const runtimeOwnerId = `rt:claim:${randomUUID()}`;
+    const versionSeed = normalizeVersionSeed(input.versionSeed);
+    return this.withTransaction(async (client) => {
+      await acquirePlayerPersistenceLock(client, normalizedPlayerId);
+      const currentResult = await client.query<{ session_epoch?: unknown }>(
+        `SELECT session_epoch
+           FROM ${PLAYER_PRESENCE_TABLE}
+          WHERE player_id = $1
+          FOR UPDATE`,
+        [normalizedPlayerId],
+      );
+      const currentSessionEpoch = Math.max(
+        0,
+        normalizeOptionalInteger(currentResult.rows[0]?.session_epoch) ?? 0,
+      );
+      const sessionEpoch = currentSessionEpoch + 1;
       await client.query(
         `
           INSERT INTO ${PLAYER_PRESENCE_TABLE}(
@@ -1105,42 +1196,14 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, now())
           ON CONFLICT (player_id)
           DO UPDATE SET
-            online = CASE
-              WHEN EXCLUDED.session_epoch >= ${PLAYER_PRESENCE_TABLE}.session_epoch
-                THEN EXCLUDED.online
-              ELSE ${PLAYER_PRESENCE_TABLE}.online
-            END,
-            in_world = CASE
-              WHEN EXCLUDED.session_epoch >= ${PLAYER_PRESENCE_TABLE}.session_epoch
-                THEN EXCLUDED.in_world
-              ELSE ${PLAYER_PRESENCE_TABLE}.in_world
-            END,
-            last_heartbeat_at = CASE
-              WHEN EXCLUDED.session_epoch >= ${PLAYER_PRESENCE_TABLE}.session_epoch
-                THEN EXCLUDED.last_heartbeat_at
-              ELSE ${PLAYER_PRESENCE_TABLE}.last_heartbeat_at
-            END,
-            offline_since_at = CASE
-              WHEN EXCLUDED.session_epoch >= ${PLAYER_PRESENCE_TABLE}.session_epoch
-                THEN EXCLUDED.offline_since_at
-              ELSE ${PLAYER_PRESENCE_TABLE}.offline_since_at
-            END,
-            runtime_owner_id = CASE
-              WHEN EXCLUDED.session_epoch >= ${PLAYER_PRESENCE_TABLE}.session_epoch
-                THEN EXCLUDED.runtime_owner_id
-              ELSE ${PLAYER_PRESENCE_TABLE}.runtime_owner_id
-            END,
-            session_epoch = GREATEST(${PLAYER_PRESENCE_TABLE}.session_epoch, EXCLUDED.session_epoch),
-            transfer_state = CASE
-              WHEN EXCLUDED.session_epoch >= ${PLAYER_PRESENCE_TABLE}.session_epoch
-                THEN EXCLUDED.transfer_state
-              ELSE ${PLAYER_PRESENCE_TABLE}.transfer_state
-            END,
-            transfer_target_node_id = CASE
-              WHEN EXCLUDED.session_epoch >= ${PLAYER_PRESENCE_TABLE}.session_epoch
-                THEN EXCLUDED.transfer_target_node_id
-              ELSE ${PLAYER_PRESENCE_TABLE}.transfer_target_node_id
-            END,
+            online = EXCLUDED.online,
+            in_world = EXCLUDED.in_world,
+            last_heartbeat_at = EXCLUDED.last_heartbeat_at,
+            offline_since_at = EXCLUDED.offline_since_at,
+            runtime_owner_id = EXCLUDED.runtime_owner_id,
+            session_epoch = EXCLUDED.session_epoch,
+            transfer_state = EXCLUDED.transfer_state,
+            transfer_target_node_id = EXCLUDED.transfer_target_node_id,
             updated_at = now()
         `,
         [
@@ -1149,16 +1212,16 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
           input.inWorld === true,
           normalizeOptionalInteger(input.lastHeartbeatAt),
           normalizeOptionalInteger(input.offlineSinceAt),
-          normalizeOptionalString(input.runtimeOwnerId),
-          normalizeMinimumInteger(input.sessionEpoch, 1, 1),
+          runtimeOwnerId,
+          sessionEpoch,
           normalizeOptionalString(input.transferState),
           normalizeOptionalString(input.transferTargetNodeId),
         ],
       );
-
       await upsertRecoveryWatermark(client, normalizedPlayerId, {
         presence_version: versionSeed,
       });
+      return { runtimeOwnerId, sessionEpoch };
     });
   }
 
@@ -6659,6 +6722,7 @@ function buildTechniqueComprehensionRows(snapshot: PersistedPlayerSnapshot): Tec
     if (!techId) {
       continue;
     }
+    const maxLevel = normalizeOptionalInteger(normalized?.maxLevel);
     rows.push({
       techId,
       sourceKind: normalizeOptionalString(normalized?.sourceKind) === 'created' ? 'created' : 'normal',
@@ -6674,7 +6738,7 @@ function buildTechniqueComprehensionRows(snapshot: PersistedPlayerSnapshot): Tec
       activeTransferJobId: null,
       activeTransferTeacherId: null,
       rawPayload: {
-        ...(normalizeOptionalInteger(normalized?.maxLevel) === undefined ? {} : { maxLevel: normalizeOptionalInteger(normalized?.maxLevel) }),
+        ...(maxLevel === null ? {} : { maxLevel }),
       },
     });
   }
@@ -8516,8 +8580,13 @@ async function assertPlayerSnapshotProjectionFenceCurrent(
 ): Promise<void> {
   const expectedEpoch = normalizeOptionalInteger(options.expectedSessionEpoch) ?? 0;
   const expectedOwner = normalizeOptionalString(options.expectedRuntimeOwnerId);
+  // owner 与 epoch 都未提供是管理后台、初始化和一次性导入的明确无围栏契约。
+  // 一旦提供任一字段，即视为运行态写入，必须携带完整且精确匹配的 ownership fence。
   if (expectedEpoch <= 0 && !expectedOwner) {
     return;
+  }
+  if (expectedEpoch <= 0 || !expectedOwner) {
+    throw new Error(`player_snapshot_projection_incomplete_fence:${playerId}:expectedOwner=${expectedOwner ?? 'none'}:expectedEpoch=${expectedEpoch || 'none'}`);
   }
   const result = await client.query<{
     runtime_owner_id?: unknown;
@@ -8531,24 +8600,18 @@ async function assertPlayerSnapshotProjectionFenceCurrent(
   );
   const row = result.rows[0];
   if (!row) {
-    return;
+    throw new Error(`player_snapshot_projection_missing_presence:${playerId}`);
   }
   const persistedEpoch = normalizeOptionalInteger(row.session_epoch) ?? 0;
   if (persistedEpoch <= 0) {
-    return;
+    throw new Error(`player_snapshot_projection_invalid_persisted_fence:${playerId}:persistedEpoch=${persistedEpoch}`);
   }
-  if (expectedEpoch <= 0 || expectedEpoch < persistedEpoch) {
-    throw new Error(`player_snapshot_projection_stale_session:${playerId}:expected=${expectedEpoch || 'none'}:persisted=${persistedEpoch}`);
+  if (expectedEpoch !== persistedEpoch) {
+    throw new Error(`player_snapshot_projection_stale_session:${playerId}:expected=${expectedEpoch}:persisted=${persistedEpoch}`);
   }
-  if (expectedEpoch > persistedEpoch) {
-    return;
-  }
-  // expectedOwner 为空表示本节点未在该 epoch 上 bind 过会话（离线挂机恢复、系统 flush），
-  // 此时不做 owner 身份比对：所有权变更一律 bump session_epoch，跨节点抢占已被上面的
-  // stale_session 围栏拦下；而真正的同 epoch 竞写方 owner 必非空，仍会命中本校验。
   const persistedOwner = normalizeOptionalString(row.runtime_owner_id);
-  if (persistedOwner && expectedOwner && expectedOwner !== persistedOwner) {
-    throw new Error(`player_snapshot_projection_stale_owner:${playerId}:expected=${expectedOwner}:persisted=${persistedOwner}`);
+  if (!persistedOwner || expectedOwner !== persistedOwner) {
+    throw new Error(`player_snapshot_projection_stale_owner:${playerId}:expected=${expectedOwner}:persisted=${persistedOwner ?? 'none'}`);
   }
 }
 

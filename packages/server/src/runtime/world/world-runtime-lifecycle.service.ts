@@ -450,14 +450,6 @@ export class WorldRuntimeLifecycleService {
             const batch = positions.slice(i, i + BATCH_SIZE);
             await Promise.all(batch.map(async (entry) => {
                 try {
-                    const player = await deps.playerRuntimeService.restoreOfflineHangingPlayer(
-                        entry.playerId,
-                        persistenceService,
-                    );
-                    if (!player) {
-                        markSkipped('player_snapshot_missing', entry);
-                        return;
-                    }
                     const attachReady = typeof deps.instanceReadyForPlayerAttach === 'function'
                         ? deps.instanceReadyForPlayerAttach(entry.instanceId)
                         : { ok: true, reason: 'ready' };
@@ -486,6 +478,24 @@ export class WorldRuntimeLifecycleService {
                         deps.logger?.warn?.(`offline_restore_skipped_session_service_missing instance=${entry.instanceId} player=${entry.playerId}`);
                         return;
                     }
+                    // 先裁定实例 lease，再加载并认领玩家；多节点启动扫描不能在 lease 判定前互抢 owner。
+                    const player = await deps.playerRuntimeService.restoreOfflineHangingPlayer(
+                        entry.playerId,
+                        persistenceService,
+                    );
+                    if (!player) {
+                        markSkipped('player_snapshot_missing', entry);
+                        return;
+                    }
+                    const runtimeFence = typeof deps.playerRuntimeService.ensureRuntimeOwnershipClaimed === 'function'
+                        ? await deps.playerRuntimeService.ensureRuntimeOwnershipClaimed(entry.playerId)
+                        : deps.playerRuntimeService.getSessionFence?.(entry.playerId);
+                    if (!runtimeFence?.runtimeOwnerId || !runtimeFence?.sessionEpoch) {
+                        markSkipped('runtime_ownership_claim_failed', entry);
+                        deps.logger?.warn?.(`offline_restore_skipped_runtime_ownership_claim_failed instance=${entry.instanceId} player=${entry.playerId}`);
+                        deps.playerRuntimeService.removePlayerRuntime?.(entry.playerId);
+                        return;
+                    }
                     const requestedMapId = typeof player?.templateId === 'string' && player.templateId.trim()
                         ? player.templateId.trim()
                         : undefined;
@@ -498,6 +508,19 @@ export class WorldRuntimeLifecycleService {
                         preferredY: entry.y,
                         allowCreateFallback: false,
                     }, deps);
+                    const localNodeId = deps.nodeRegistryService?.getNodeId?.();
+                    if (
+                        typeof localNodeId === 'string'
+                        && localNodeId.trim()
+                        && typeof deps.worldRuntimePlayerSessionService.assignPlayerRoute === 'function'
+                    ) {
+                        await deps.worldRuntimePlayerSessionService.assignPlayerRoute({
+                            playerId: entry.playerId,
+                            nodeId: localNodeId.trim(),
+                            sessionEpoch: runtimeFence.sessionEpoch,
+                            routeStatus: 'offline',
+                        });
+                    }
                     restored++;
                 } catch (error) {
                     markSkipped('restore_error', entry, error);

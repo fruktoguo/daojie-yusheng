@@ -107,6 +107,7 @@ function createHarness(durableOperationService: Record<string, unknown> | null =
   const workerSubmitCalls: string[] = [];
   const offlineGainCalls: Array<{ playerId: string; payload: unknown; durationMs: number }> = [];
   const assetCoordinatorCalls: string[][] = [];
+  const persistenceCallOrder: string[] = [];
   const hydrationByPlayerId = new Map<string, boolean>();
   const recoveryWatermarkByPlayerId = new Map<string, boolean>();
   let offlineGainShouldFail = false;
@@ -157,6 +158,7 @@ function createHarness(durableOperationService: Record<string, unknown> | null =
       return true;
     },
     async savePlayerPresence(playerId: string) {
+      persistenceCallOrder.push(`presence:${playerId}`);
       presenceCalls.push(playerId);
     },
     async savePlayerSnapshotProjection(playerId: string) {
@@ -173,6 +175,7 @@ function createHarness(durableOperationService: Record<string, unknown> | null =
         allowBuffEmptyOverwrite?: boolean;
       },
     ) {
+      persistenceCallOrder.push(`projection:${playerId}`);
       selectiveProjectionCalls.push({
         playerId,
         domains: Array.from(domains).sort(),
@@ -229,6 +232,7 @@ function createHarness(durableOperationService: Record<string, unknown> | null =
     workerSubmitCalls,
     offlineGainCalls,
     assetCoordinatorCalls,
+    persistenceCallOrder,
     setOfflineGainFailure(value: boolean) {
       offlineGainShouldFail = value;
     },
@@ -257,6 +261,20 @@ async function testUnresolvedDurableCommitBlocksFlush(): Promise<void> {
     /player_flush_blocked_by_unresolved_durable_commit/,
   );
   assert.deepEqual(harness.selectiveProjectionCalls, []);
+}
+
+async function testOwnershipPresenceFlushPrecedesProjection(): Promise<void> {
+  const harness = createHarness();
+  const playerId = 'player:ownership-rotation-order';
+  harness.playerRuntimeService.dirtyDomains.set(playerId, new Set(['presence', 'inventory']));
+  harness.playerRuntimeService.snapshots.set(playerId, buildSnapshot(120_500));
+
+  await harness.service.flushPlayer(playerId);
+
+  assert.deepEqual(harness.persistenceCallOrder, [
+    `presence:${playerId}`,
+    `projection:${playerId}`,
+  ]);
 }
 
 async function testFlushUsesAssetCoordinator(): Promise<void> {
@@ -500,6 +518,7 @@ async function main(): Promise<void> {
   await testOfflineGainShutdownFlushFailureBubbles();
   await testWorkerPoolSubmitIsNotUsed();
   await testUnresolvedDurableCommitBlocksFlush();
+  await testOwnershipPresenceFlushPrecedesProjection();
 
   console.log(
     JSON.stringify(

@@ -1061,6 +1061,7 @@ export class WorldRuntimeLootContainerService {
 
         const location = deps.getPlayerLocationOrThrow(playerId);
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
+        const durableGrantEnabled = this.canUseDurableInventoryGrant(player, deps);
         if (!buildIsContainerSourceId(sourceId)) {
             const instance = deps.getInstanceRuntimeOrThrow(location.instanceId);
             const pile = instance.getGroundPileBySourceId(sourceId);
@@ -1072,7 +1073,7 @@ export class WorldRuntimeLootContainerService {
             }
         }
         if (buildIsContainerSourceId(sourceId)) {
-            if (this.canUseDurableInventoryGrant(player, deps)) {
+            if (durableGrantEnabled) {
                 const resolved = this.resolveContainerStateForPlayer(location.instanceId, playerId, player, sourceId, deps);
                 const sourceStateBefore = cloneContainerStateForRollback(resolved.state);
                 const visibleEntriesBeforeTake = resolved.state.entries.filter((entry) => entry.visible);
@@ -1115,7 +1116,7 @@ export class WorldRuntimeLootContainerService {
         }
         const instance = deps.getInstanceRuntimeOrThrow(location.instanceId);
         const pile = instance.getGroundPileBySourceId(sourceId);
-        if (this.canUseDurableInventoryGrant(player, deps) && pile) {
+        if (durableGrantEnabled && pile) {
             const targetEntry = Array.isArray(pile.items) ? pile.items.find((entry) => entry?.itemKey === itemKey) : null;
             const originalPosition = {
                 x: Number.isFinite(Number(pile.x)) ? Math.trunc(Number(pile.x)) : player.x,
@@ -1196,6 +1197,7 @@ export class WorldRuntimeLootContainerService {
 
         const location = deps.getPlayerLocationOrThrow(playerId);
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
+        const durableGrantEnabled = this.canUseDurableInventoryGrant(player, deps);
         if (buildIsContainerSourceId(sourceId)) {
             const resolved = this.resolveContainerStateForPlayer(location.instanceId, playerId, player, sourceId, deps);
             const sourceStateBefore = cloneContainerStateForRollback(resolved.state);
@@ -1205,7 +1207,7 @@ export class WorldRuntimeLootContainerService {
             if (takenItems.length === 0) {
                 throw new BadRequestException('当前没有可拿取的物品');
             }
-            if (this.canUseDurableInventoryGrant(player, deps)) {
+            if (durableGrantEnabled) {
                 const removedEntries = visibleEntriesBeforeTake
                     .filter((entry) => !resolved.state.entries.includes(entry))
                     .map(cloneContainerEntryForRestore);
@@ -1284,7 +1286,7 @@ export class WorldRuntimeLootContainerService {
             throw new BadRequestException('当前没有可拿取的物品');
         }
         const sourceRevisionAfterMutation = readInstancePersistenceDomainRevision(instance, 'ground_item');
-        if (this.canUseDurableInventoryGrant(player, deps)) {
+        if (durableGrantEnabled) {
             await this.grantLootItemsDurably({
                 playerId,
                 player,
@@ -1405,9 +1407,18 @@ export class WorldRuntimeLootContainerService {
 
     canUseDurableInventoryGrant(player, deps) {
         const durableOperationService = deps?.durableOperationService ?? null;
+        if (durableOperationService?.isEnabled?.() !== true) {
+            return false;
+        }
+        if (typeof durableOperationService?.grantInventoryItems !== 'function') {
+            throw new BadRequestException('地面物品资产事务暂不可用，请稍后重试');
+        }
         const runtimeOwnerId = typeof player?.runtimeOwnerId === 'string' ? player.runtimeOwnerId.trim() : '';
-        const sessionEpoch = Number.isFinite(player?.sessionEpoch) ? Math.max(1, Math.trunc(Number(player.sessionEpoch))) : 0;
-        return Boolean(durableOperationService?.isEnabled?.() && typeof durableOperationService?.grantInventoryItems === 'function' && runtimeOwnerId && sessionEpoch > 0);
+        const sessionEpoch = Number.isFinite(player?.sessionEpoch) ? Math.max(0, Math.trunc(Number(player.sessionEpoch))) : 0;
+        if (!runtimeOwnerId || sessionEpoch <= 0) {
+            throw new BadRequestException('玩家资产事务围栏暂不可用，请稍后重试');
+        }
+        return true;
     }
 
     async runExclusivePlayerLootAssetMutation(playerId, action) {
@@ -1422,6 +1433,9 @@ export class WorldRuntimeLootContainerService {
         const location = deps.getPlayerLocationOrThrow(playerId);
         return this.runExclusiveLootSourceMutation(location.instanceId, sourceId, async () => {
             const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
+            if (deps?.durableOperationService?.isEnabled?.() === true) {
+                await this.syncCurrentPresenceFence(playerId);
+            }
             if (!this.canUseDurableInventoryGrant(player, deps)) {
                 return action();
             }
@@ -1533,7 +1547,6 @@ export class WorldRuntimeLootContainerService {
 
     async grantLootItemsDurably(input) {
         prepareLootGrantItemsForReceiver(input.sourceType, input.items);
-        await this.syncCurrentPresenceFence(input.playerId);
         const operationId = buildLootInventoryGrantOperationId(
             input.playerId,
             input.sourceType,

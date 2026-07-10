@@ -1212,9 +1212,25 @@ async function main(): Promise<void> {
     if (!rivalOwnerRejected) {
       throw new Error('expected same-epoch rival runtime owner to be rejected by owner fence');
     }
+    let rivalPresenceRejected = false;
+    try {
+      await service.savePlayerPresence(projectionFencePlayerId, {
+        online: false,
+        inWorld: true,
+        lastHeartbeatAt: null,
+        offlineSinceAt: projectionFenceVersion + 2,
+        runtimeOwnerId: `runtime:${projectionFencePlayerId}:10:rival`,
+        sessionEpoch: 10,
+      });
+    } catch (error) {
+      rivalPresenceRejected = error instanceof Error
+        && error.message.includes('player_presence_stale_fence');
+    }
+    if (!rivalPresenceRejected) {
+      throw new Error('expected same-epoch rival presence owner to be rejected before owner replacement');
+    }
 
-    // 同 epoch + owner 为空：离线挂机恢复（restoreOfflineHangingPlayer 清 owner、保留 DB epoch）
-    // 的 flush 必须放行，否则脏域数据会因确定性围栏失败而被丢进会话死信队列。
+    // 运行态只提供 epoch、缺少 owner 时必须拒绝，不能伪装成管理/导入的无围栏写入。
     const offlineRestoredSnapshot = buildSnapshot(projectionFenceVersion + 3);
     offlineRestoredSnapshot.inventory = {
       revision: 3,
@@ -1225,14 +1241,66 @@ async function main(): Promise<void> {
         itemInstanceId: `inv:${projectionFencePlayerId}:offline`,
       }],
     };
+    let incompleteFenceRejected = false;
+    try {
+      await service.savePlayerSnapshotProjectionDomains(
+        projectionFencePlayerId,
+        offlineRestoredSnapshot,
+        ['inventory'],
+        {
+          allowInventoryEmptyOverwrite: true,
+          expectedRuntimeOwnerId: null,
+          expectedSessionEpoch: 10,
+        },
+      );
+    } catch (error) {
+      incompleteFenceRejected = error instanceof Error
+        && error.message.includes('player_snapshot_projection_incomplete_fence');
+    }
+    if (!incompleteFenceRejected) {
+      throw new Error('expected ownerless runtime projection to be rejected as incomplete fence');
+    }
+
+    // 两次并发 claim 必须在同一玩家 advisory lock 下串行递增 DB epoch，且最终返回值与持久态完全一致。
+    const claims = await Promise.all([
+      service.claimPlayerRuntimeOwnership(projectionFencePlayerId, {
+        online: false,
+        inWorld: true,
+        lastHeartbeatAt: null,
+        offlineSinceAt: projectionFenceVersion + 3,
+      }),
+      service.claimPlayerRuntimeOwnership(projectionFencePlayerId, {
+        online: false,
+        inWorld: true,
+        lastHeartbeatAt: null,
+        offlineSinceAt: projectionFenceVersion + 3,
+      }),
+    ]);
+    const claimedEpochs = claims
+      .map((claim) => claim?.sessionEpoch ?? 0)
+      .sort((left, right) => left - right);
+    if (claimedEpochs[0] !== 11 || claimedEpochs[1] !== 12) {
+      throw new Error(`runtime ownership claims did not increment atomically: ${JSON.stringify(claims)}`);
+    }
+    const finalClaim = claims.find((claim) => claim?.sessionEpoch === 12);
+    const claimedPresence = await service.loadPlayerPresence(projectionFencePlayerId);
+    if (
+      !finalClaim
+      || claimedPresence?.sessionEpoch !== finalClaim.sessionEpoch
+      || claimedPresence.runtimeOwnerId !== finalClaim.runtimeOwnerId
+      || claimedPresence.online !== false
+      || claimedPresence.inWorld !== true
+    ) {
+      throw new Error(`runtime ownership claim did not persist exact fence: claims=${JSON.stringify(claims)} presence=${JSON.stringify(claimedPresence)}`);
+    }
     await service.savePlayerSnapshotProjectionDomains(
       projectionFencePlayerId,
       offlineRestoredSnapshot,
       ['inventory'],
       {
         allowInventoryEmptyOverwrite: true,
-        expectedRuntimeOwnerId: null,
-        expectedSessionEpoch: 10,
+        expectedRuntimeOwnerId: finalClaim.runtimeOwnerId,
+        expectedSessionEpoch: finalClaim.sessionEpoch,
       },
     );
     const offlineRestoredRows = await fetchRows(
@@ -1241,7 +1309,7 @@ async function main(): Promise<void> {
       [projectionFencePlayerId],
     );
     if (offlineRestoredRows.length !== 1 || offlineRestoredRows[0]?.item_id !== 'offline_restored_marker') {
-      throw new Error(`offline-restored projection flush was fenced out: inventory=${JSON.stringify(offlineRestoredRows)}`);
+      throw new Error(`claimed offline projection flush was fenced out: inventory=${JSON.stringify(offlineRestoredRows)}`);
     }
 
     const directAnchorRow = await fetchSingleRow(

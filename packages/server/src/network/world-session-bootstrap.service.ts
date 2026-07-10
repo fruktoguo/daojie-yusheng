@@ -427,7 +427,7 @@ export class WorldSessionBootstrapService {
 
         this.prepareAuthenticatedBootstrap(client, input);
         this.prepareBootstrapRuntime(client, input.playerId);
-        const { binding, requestedSessionId } = this.registerBootstrapSession(client, input);
+        const { binding, requestedSessionId, forceRuntimeSessionRebind } = this.registerBootstrapSession(client, input);
 
         const player = await this.initializeBootstrapPlayer({
             playerId: binding.playerId,
@@ -435,6 +435,7 @@ export class WorldSessionBootstrapService {
             name: input.name,
             displayName: input.displayName,
             loadSnapshot: input.loadSnapshot,
+            forceRuntimeSessionRebind,
             deferOfflineGainSettlement: true,
             onSnapshotContextResolved: (context) => {
                 this.rememberBootstrapSnapshotContext(client, context.source, context.persistedSource);

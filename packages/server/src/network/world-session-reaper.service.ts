@@ -12,16 +12,24 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { PlayerPersistenceFlushService } from '../persistence/player-persistence-flush.service';
 import { PlayerSessionRouteService } from '../persistence/player-session-route.service';
 import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
-import { WorldSessionService } from './world-session.service';
+import { WorldSessionService, type WorldSessionBinding } from './world-session.service';
 import { WorldSyncService } from './world-sync.service';
 
 const SESSION_REAPER_INTERVAL_MS = 1000;
+const RETAINED_RUNTIME_RECHECK_DELAY_MS = 60_000;
+type DetachedRuntimeUnloadDisposition = 'unloaded' | 'retained' | 'absent';
+interface RetainedRuntimeBinding {
+    binding: WorldSessionBinding;
+    nextCheckAt: number;
+}
 const WORLD_SESSION_REAPER_CONTRACT = Object.freeze({
     intervalMs: SESSION_REAPER_INTERVAL_MS,
     retryOnFlushFailure: true,
     clearLocalRouteAfterFlush: true,
     clearDetachedCachesAfterFlush: true,
     unloadIdleDetachedRuntimeAfterFlush: true,
+    retainedRuntimeRecheckDelayMs: RETAINED_RUNTIME_RECHECK_DELAY_MS,
+    preserveAssignedRouteDuringTransfer: true,
 });
 
 @Injectable()
@@ -66,6 +74,10 @@ export class WorldSessionReaperService {
  */
 
     running = false;
+    /** 仍有离线任务的 detached runtime；任务结束后由 reaper 再次刷盘并卸载。 */
+    private readonly retainedRuntimeBindings = new Map<string, RetainedRuntimeBinding>();
+    /** 测试可收窄该间隔；生产默认一分钟，避免活跃离线任务每秒触发刷盘。 */
+    private retainedRuntimeRecheckDelayMs = RETAINED_RUNTIME_RECHECK_DELAY_MS;
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param worldSessionService 参数说明。
@@ -111,6 +123,7 @@ export class WorldSessionReaperService {
             clearInterval(this.timer);
             this.timer = null;
         }
+        this.retainedRuntimeBindings.clear();
     }
     /**
  * reapExpiredSessions：执行reapExpiredSession相关逻辑。
@@ -126,18 +139,48 @@ export class WorldSessionReaperService {
         this.running = true;
         try {
 
-            const expiredBindings = this.worldSessionService.consumeExpiredBindings();
-            for (const binding of expiredBindings) {
+            const expiredBindings = this.consumeBindingsReadyForReap();
+            for (const { binding, retainedRuntimeRecheck } of expiredBindings) {
                 try {
-                    await this.playerPersistenceFlushService.flushPlayer(binding.playerId);
-                    const routeSessionEpoch = resolveRouteSessionEpoch(binding, this.playerRuntimeService.getPlayer?.(binding.playerId));
-                    await this.playerSessionRouteService.clearLocalRoute(binding.playerId, routeSessionEpoch);
-                    this.worldSyncService.clearDetachedPlayerCaches(binding.playerId);
-                    this.unloadIdleDetachedRuntime(binding.playerId);
-                    // 这一轮 flush 整链路完成，重置该玩家的 requeue 计数；下次失败从 1 重新累计。
-                    if (typeof this.worldSessionService.resetExpiredBindingRetryCounter === 'function') {
-                        this.worldSessionService.resetExpiredBindingRetryCounter(binding.playerId);
+                    if (this.hasSupersedingBinding(binding)) {
+                        this.discardRetainedBinding(binding.playerId);
+                        continue;
                     }
+                    if (retainedRuntimeRecheck && this.shouldKeepRetainedRuntime(binding.playerId)) {
+                        this.deferRetainedRuntimeBinding(binding);
+                        continue;
+                    }
+                    await this.playerPersistenceFlushService.flushPlayer(binding.playerId);
+                    if (this.hasSupersedingBinding(binding)) {
+                        // flush 会让出事件循环；重连可能在此期间完成，旧 binding 不得再清缓存、runtime 或 route。
+                        this.discardRetainedBinding(binding.playerId);
+                        continue;
+                    }
+                    const runtimePlayer = this.playerRuntimeService.getPlayer?.(binding.playerId) ?? null;
+                    const routeSessionEpoch = resolveRouteSessionEpoch(binding, runtimePlayer);
+                    this.worldSyncService.clearDetachedPlayerCaches(binding.playerId);
+                    const unloadDisposition = this.unloadIdleDetachedRuntime(binding.playerId);
+                    if (unloadDisposition === 'unloaded' || unloadDisposition === 'absent') {
+                        this.retainedRuntimeBindings.delete(binding.playerId);
+                        await this.playerSessionRouteService.clearLocalRoute(binding.playerId, routeSessionEpoch);
+                    }
+                    else {
+                        this.deferRetainedRuntimeBinding(binding);
+                    }
+                    if (
+                        unloadDisposition === 'retained'
+                        && routeSessionEpoch
+                        && !isRuntimeTransferInProgress(runtimePlayer)
+                    ) {
+                        // 仍有离线任务的运行态继续由本节点权威推进，route 与 owner 必须一起保留。
+                        await this.playerSessionRouteService.registerLocalRoute({
+                            playerId: binding.playerId,
+                            sessionEpoch: routeSessionEpoch,
+                            routeStatus: 'offline',
+                        });
+                    }
+                    // 这一轮 flush 整链路完成，重置该玩家的 requeue 计数；下次失败从 1 重新累计。
+                    this.resetBindingRetryCounter(binding.playerId);
                 }
                 catch (error) {
                     const requeued = this.worldSessionService.requeueExpiredBinding(binding, { lastError: error });
@@ -158,18 +201,95 @@ export class WorldSessionReaperService {
         }
     }
 
-    private unloadIdleDetachedRuntime(playerId: string): void {
-        if (typeof this.worldSyncService?.unloadDetachedPlayerRuntime !== 'function') {
-            return;
+    private consumeBindingsReadyForReap(): Array<{
+        binding: WorldSessionBinding;
+        retainedRuntimeRecheck: boolean;
+    }> {
+        const readyByPlayerId = new Map<string, {
+            binding: WorldSessionBinding;
+            retainedRuntimeRecheck: boolean;
+        }>();
+        for (const binding of this.worldSessionService.consumeExpiredBindings()) {
+            readyByPlayerId.set(binding.playerId, { binding, retainedRuntimeRecheck: false });
+            this.retainedRuntimeBindings.delete(binding.playerId);
         }
-        try {
-            this.worldSyncService.unloadDetachedPlayerRuntime(playerId, {
-                allowOfflineHangingDemotion: true,
-                reason: 'session_reaped',
+        const now = Date.now();
+        for (const [playerId, retained] of this.retainedRuntimeBindings) {
+            if (retained.nextCheckAt > now || readyByPlayerId.has(playerId)) {
+                continue;
+            }
+            const currentBinding = this.worldSessionService.getBinding?.(playerId) ?? null;
+            if (currentBinding) {
+                // 玩家已重新连接或进入新的 detach 窗口，旧 binding 不得再参与路由清理。
+                this.retainedRuntimeBindings.delete(playerId);
+                continue;
+            }
+            this.retainedRuntimeBindings.delete(playerId);
+            readyByPlayerId.set(playerId, {
+                binding: retained.binding,
+                retainedRuntimeRecheck: true,
             });
         }
+        return Array.from(readyByPlayerId.values());
+    }
+
+    private shouldKeepRetainedRuntime(playerId: string): boolean {
+        const player = this.playerRuntimeService.getPlayer?.(playerId) ?? null;
+        if (!player) {
+            return false;
+        }
+        if (typeof this.playerRuntimeService.canUnloadDetachedPlayerRuntime !== 'function') {
+            return false;
+        }
+        return this.playerRuntimeService.canUnloadDetachedPlayerRuntime(playerId) !== true;
+    }
+
+    private hasSupersedingBinding(binding: WorldSessionBinding): boolean {
+        // expired binding 入队时已从 active map 移除；此处任何当前 binding 都代表更新的连接代次。
+        return (this.worldSessionService.getBinding?.(binding.playerId) ?? null) !== null;
+    }
+
+    private discardRetainedBinding(playerId: string): void {
+        this.retainedRuntimeBindings.delete(playerId);
+        this.resetBindingRetryCounter(playerId);
+    }
+
+    private resetBindingRetryCounter(playerId: string): void {
+        if (typeof this.worldSessionService.resetExpiredBindingRetryCounter === 'function') {
+            this.worldSessionService.resetExpiredBindingRetryCounter(playerId);
+        }
+    }
+
+    private deferRetainedRuntimeBinding(binding: WorldSessionBinding): void {
+        this.retainedRuntimeBindings.set(binding.playerId, {
+            binding,
+            nextCheckAt: Date.now() + this.retainedRuntimeRecheckDelayMs,
+        });
+    }
+
+    private unloadIdleDetachedRuntime(playerId: string): DetachedRuntimeUnloadDisposition {
+        const playerBeforeUnload = this.playerRuntimeService.getPlayer?.(playerId) ?? null;
+        if (!playerBeforeUnload) {
+            return 'absent';
+        }
+        if (typeof this.worldSyncService?.unloadDetachedPlayerRuntime !== 'function') {
+            throw new Error(`detached_runtime_unload_capability_missing:${playerId}`);
+        }
+        try {
+            const unloaded = this.worldSyncService.unloadDetachedPlayerRuntime(playerId, {
+                allowOfflineHangingDemotion: true,
+                reason: 'session_reaped',
+            }) === true;
+            if (unloaded) {
+                return 'unloaded';
+            }
+            return this.playerRuntimeService.getPlayer?.(playerId) ? 'retained' : 'absent';
+        }
         catch (error) {
-            this.logger.warn(`卸载已脱离玩家运行态失败：${playerId}`, error instanceof Error ? error.stack : String(error));
+            throw new Error(
+                `detached_runtime_unload_failed:${playerId}`,
+                { cause: error },
+            );
         }
     }
 }
@@ -181,4 +301,13 @@ function resolveRouteSessionEpoch(binding, player) {
         return undefined;
     }
     return Math.max(1, Math.trunc(sessionEpoch));
+}
+
+function isRuntimeTransferInProgress(player: unknown): boolean {
+    if (!player || typeof player !== 'object') {
+        return false;
+    }
+    const runtimePlayer = player as { transferState?: unknown; transferTargetNodeId?: unknown };
+    return runtimePlayer.transferState === 'in_transfer'
+        || (typeof runtimePlayer.transferTargetNodeId === 'string' && runtimePlayer.transferTargetNodeId.trim().length > 0);
 }

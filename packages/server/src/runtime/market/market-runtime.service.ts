@@ -1302,7 +1302,7 @@ export class MarketRuntimeService {
             }
             return { ...mutationResult, banCommitted: Boolean(banUser && banCommitted) };
             });
-        });
+        }, { requirePrimaryPresenceFence: false });
         const stillOpen = this.openOrders.some((order) => order?.ownerId === normalizedPlayerId
             && order.status === 'open'
             && order.remainingQuantity > 0);
@@ -1376,7 +1376,7 @@ export class MarketRuntimeService {
                         const expectedRuntimeOwnerId = typeof playerSnapshot.runtimeOwnerId === 'string' && playerSnapshot.runtimeOwnerId.trim()
                             ? playerSnapshot.runtimeOwnerId.trim()
                             : '';
-                        const expectedSessionEpoch = Number.isFinite(playerSnapshot.sessionEpoch) ? Math.max(1, Math.trunc(Number(playerSnapshot.sessionEpoch))) : 0;
+                        const expectedSessionEpoch = Number.isFinite(playerSnapshot.sessionEpoch) ? Math.max(0, Math.trunc(Number(playerSnapshot.sessionEpoch))) : 0;
                         if (!expectedRuntimeOwnerId || expectedSessionEpoch <= 0) {
                             throw new Error('market_storage_claim_session_fence_missing');
                         }
@@ -3366,7 +3366,7 @@ export class MarketRuntimeService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const player = this.playerRuntimeService.getPlayer(playerId);
-        if (player && this.hasActiveProjectionFence(playerId)) {
+        if (player && this.isPlayerNetworkOnline(playerId) && this.hasActiveProjectionFence(playerId)) {
             this.captureOnlinePlayerState(playerId, context);
             if (this.playerRuntimeService.canReceiveInventoryItem(playerId, item.itemId)) {
                 this.playerRuntimeService.receiveInventoryItem(playerId, item);
@@ -3377,6 +3377,17 @@ export class MarketRuntimeService {
             return;
         }
         this.mergeStorageItem(playerId, item, context);
+    }
+    /** runtime ownership 与网络在线态解耦；离线挂机 owner 不能让市场误投递到随身背包。 */
+    isPlayerNetworkOnline(playerId) {
+        const presence = typeof this.playerRuntimeService?.describePersistencePresence === 'function'
+            ? this.playerRuntimeService.describePersistencePresence(playerId)
+            : null;
+        if (presence) {
+            return presence.online === true;
+        }
+        const player = this.playerRuntimeService.getPlayer?.(playerId);
+        return typeof player?.sessionId === 'string' && player.sessionId.trim().length > 0;
     }
     /**
  * hasActiveProjectionFence：判断玩家当前是否拥有可用于分域投影的 session fence。
@@ -3715,10 +3726,6 @@ export class MarketRuntimeService {
             return;
         }
 
-        if (!this.hasActiveProjectionFence(playerId)) {
-            return;
-        }
-
         const snapshot = this.playerRuntimeService.snapshot(playerId);
         if (!snapshot) {
             return;
@@ -4005,10 +4012,32 @@ export class MarketRuntimeService {
  * @returns 无返回值，直接更新runExclusive坊市Mutation相关状态。
  */
 
-    async runExclusiveMarketMutation(playerId, action) {
+    async runExclusiveMarketMutation(playerId, action, options = {}) {
         return this.runExclusive(async () => {
 
             const context = this.createMutationContext();
+            const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
+            const mutationOptions = options as { requirePrimaryPresenceFence?: boolean };
+            const requirePrimaryPresenceFence = mutationOptions.requirePrimaryPresenceFence !== false;
+            if (normalizedPlayerId) {
+                this.captureOnlinePlayerState(normalizedPlayerId, context);
+            }
+            if (
+                requirePrimaryPresenceFence
+                && normalizedPlayerId
+                && this.durableOperationService?.isEnabled?.() === true
+            ) {
+                const primarySnapshot = context.onlinePlayerSnapshots.get(normalizedPlayerId) ?? null;
+                const runtimeOwnerId = typeof primarySnapshot?.runtimeOwnerId === 'string'
+                    ? primarySnapshot.runtimeOwnerId.trim()
+                    : '';
+                const sessionEpoch = Number.isFinite(primarySnapshot?.sessionEpoch)
+                    ? Math.max(0, Math.trunc(Number(primarySnapshot.sessionEpoch)))
+                    : 0;
+                if (!primarySnapshot || !runtimeOwnerId || sessionEpoch <= 0) {
+                    return this.singleMessage(playerId, '玩家资产事务围栏暂不可用，请稍后重试。', 'warn');
+                }
+            }
             try {
 
                 const result = await action(context);

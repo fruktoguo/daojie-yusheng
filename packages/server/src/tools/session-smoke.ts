@@ -533,7 +533,7 @@ async function runWorldSessionReaperSuccessProof() {
         },
     }, {
         getPlayer() {
-            return null;
+            return { sessionId: null, sessionEpoch: 7 };
         },
     });
     await reaper.reapExpiredSessions();
@@ -548,9 +548,9 @@ async function runWorldSessionReaperSuccessProof() {
     }
     assertStepOrder(steps, [
         ['flushPlayer', playerId],
-        ['clearLocalRoute', playerId, 7],
         ['clearDetachedPlayerCaches', playerId],
         ['unloadDetachedPlayerRuntime', playerId],
+        ['clearLocalRoute', playerId, 7],
     ], 'reaper success proof');
     return {
         playerId,
@@ -652,7 +652,7 @@ async function runWorldSessionReaperRetryProof() {
         },
     }, {
         getPlayer() {
-            return null;
+            return { sessionId: null, sessionEpoch: 11 };
         },
     });
     await reaper.reapExpiredSessions();
@@ -678,9 +678,9 @@ async function runWorldSessionReaperRetryProof() {
     assertStepOrder(steps, [
         ['flushPlayer', playerId],
         ['flushPlayer', playerId],
-        ['clearLocalRoute', playerId, 11],
         ['clearDetachedPlayerCaches', playerId],
         ['unloadDetachedPlayerRuntime', playerId],
+        ['clearLocalRoute', playerId, 11],
     ], 'reaper retry proof');
     if (world_session_reaper_service_1.WORLD_SESSION_REAPER_CONTRACT.retryOnFlushFailure !== true) {
         throw new Error(`unexpected reaper retry contract: ${JSON.stringify(world_session_reaper_service_1.WORLD_SESSION_REAPER_CONTRACT)}`);

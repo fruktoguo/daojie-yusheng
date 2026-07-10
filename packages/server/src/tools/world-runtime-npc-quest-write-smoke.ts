@@ -709,6 +709,47 @@ async function testDispatchSubmitNpcQuestUsesDurableInventoryGrant() {
     assert.equal(player.wallet.balances[0].balance, 3);
 }
 
+async function testDispatchSubmitNpcQuestFailsClosedWithoutRuntimeOwner() {
+    const log = [];
+    const player = {
+        playerId: 'player:ownerless',
+        runtimeOwnerId: null,
+        sessionEpoch: 8,
+        inventory: {
+            items: [{ itemId: 'quest_token', count: 1, name: '信物' }],
+            capacity: 8,
+        },
+        wallet: { balances: [] },
+        quests: {
+            quests: [{
+                id: 'quest:ownerless',
+                status: 'ready',
+                submitNpcId: 'npc_a',
+                requiredItemId: 'quest_token',
+                requiredItemCount: 1,
+            }],
+        },
+    };
+    const service = createService(player, log);
+    await assert.rejects(
+        () => service.dispatchSubmitNpcQuest('player:ownerless', 'npc_a', 'quest:ownerless', {
+            resolveAdjacentNpc() { return { npcId: 'npc_a', name: '阿青' }; },
+            buildQuestRewardItems() { return [{ itemId: 'rat_tail', count: 1 }]; },
+            durableOperationService: {
+                isEnabled() { return true; },
+                async submitNpcQuestRewards(...args) { log.push(['submitNpcQuestRewards', ...args]); },
+            },
+            refreshQuestStates(...args) { log.push(['refreshQuestStates', ...args]); },
+            tryAcceptNextQuest(...args) { log.push(['tryAcceptNextQuest', ...args]); return null; },
+            queuePlayerNotice(...args) { log.push(['queuePlayerNotice', ...args]); },
+        }),
+        /事务围栏暂不可用/,
+    );
+    assert.deepEqual(log, []);
+    assert.equal(player.quests.quests[0].status, 'ready');
+    assert.deepEqual(player.inventory.items, [{ itemId: 'quest_token', count: 1, name: '信物' }]);
+}
+
 async function main() {
     testEnqueueNpcInteraction();
     testEnqueueAcceptAndSubmitNpcQuest();
@@ -721,6 +762,7 @@ async function main() {
     await testDispatchSubmitNpcQuestRefreshesStateBeforeReadyCheck();
     await testDispatchSubmitNpcQuestFallsBackWhenDurableUnavailable();
     await testDispatchSubmitNpcQuestUsesDurableInventoryGrant();
+    await testDispatchSubmitNpcQuestFailsClosedWithoutRuntimeOwner();
     console.log(JSON.stringify({ ok: true, case: 'world-runtime-npc-quest-write' }, null, 2));
 }
 

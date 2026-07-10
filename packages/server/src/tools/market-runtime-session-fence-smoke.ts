@@ -90,18 +90,90 @@ async function main(): Promise<void> {
   await assertDurableMarketMutationRejectsStaleRuntimeEpoch();
   await assertDurableMarketMutationRejectsSameEpochOwnerMismatch();
   await assertMarketRuntimeCommitSyncsPresenceBeforeDurableMutation();
+  await assertMarketRuntimeRejectsOwnerlessPrimaryBeforeMutation();
 
   console.log(
     JSON.stringify(
       {
         ok: true,
-        answers: 'MarketRuntimeService 只把拥有 runtimeOwnerId/sessionEpoch 的运行态玩家纳入在线快照和成交后即时 flush；无 session fence 的离线运行态收货方会进入坊市托管仓，不再被当作在线玩家改背包或触发 stale-owner flush。',
+        answers: 'MarketRuntimeService 对主操作玩家始终先捕获回滚快照，并在 durable 启用且缺少 runtimeOwnerId/sessionEpoch 时于 mutation action 前拒绝；即使离线挂机拥有 runtime owner，网络离线收货方仍进入坊市托管仓。',
         completionMapping: 'release:proof:market-runtime-session-fence',
       },
       null,
       2,
     ),
   );
+}
+
+async function assertMarketRuntimeRejectsOwnerlessPrimaryBeforeMutation(): Promise<void> {
+  const playerId = 'player:market-ownerless-primary';
+  const player: SmokePlayer = {
+    playerId,
+    sessionId: null,
+    runtimeOwnerId: null,
+    sessionEpoch: 9,
+    inventory: { items: [{ itemId: 'spirit_stone', count: 10 }] },
+    wallet: { balances: [{ walletType: 'spirit_stone', balance: 10 }] },
+  };
+  let actionCount = 0;
+  let runtimeApplyCount = 0;
+  const service = new MarketRuntimeService(
+    {} as never,
+    {
+      getPlayer(targetPlayerId: string) {
+        return targetPlayerId === playerId ? player : null;
+      },
+      describePersistencePresence(targetPlayerId: string) {
+        return targetPlayerId === playerId ? {
+          online: false,
+          runtimeOwnerId: player.runtimeOwnerId,
+          sessionEpoch: player.sessionEpoch,
+        } : null;
+      },
+      snapshot(targetPlayerId: string) {
+        return targetPlayerId === playerId ? structuredClone(player) : null;
+      },
+      canReceiveInventoryItem() {
+        throw new Error('offline runtime delivery must use market storage');
+      },
+      receiveInventoryItem() {
+        runtimeApplyCount += 1;
+      },
+      replaceInventoryItems() {
+        runtimeApplyCount += 1;
+      },
+      replaceWalletBalances() {
+        runtimeApplyCount += 1;
+      },
+    } as never,
+    {} as never,
+    {
+      isEnabled() {
+        return true;
+      },
+    } as never,
+    {} as never,
+  );
+
+  const capturedContext = service.createMutationContext();
+  service.captureOnlinePlayerState(playerId, capturedContext);
+  assert.equal(capturedContext.onlinePlayerSnapshots.has(playerId), true);
+
+  const result = await service.runExclusiveMarketMutation(playerId, async () => {
+    actionCount += 1;
+    return { affectedPlayerIds: [playerId], notices: [] };
+  });
+
+  assert.equal(actionCount, 0);
+  assert.equal(runtimeApplyCount, 0);
+  assert.match(JSON.stringify(result), /事务围栏暂不可用/);
+  assert.deepEqual(player.inventory?.items, [{ itemId: 'spirit_stone', count: 10 }]);
+  assert.deepEqual(player.wallet?.balances, [{ walletType: 'spirit_stone', balance: 10 }]);
+
+  player.runtimeOwnerId = 'runtime:offline-owner';
+  service.deliverItemToPlayer(playerId, { itemId: 'offline_reward', count: 1 }, service.createMutationContext());
+  assert.equal(runtimeApplyCount, 0);
+  assert.equal(service.getStorage(playerId).items.some((item: { itemId?: string }) => item.itemId === 'offline_reward'), true);
 }
 
 async function assertDurableMarketMutationAllowsRuntimeEpochAhead(): Promise<void> {
@@ -115,6 +187,7 @@ async function assertDurableMarketMutationAllowsRuntimeEpochAhead(): Promise<voi
     expectedRuntimeOwnerId: 'runtime:online:2',
     expectedSessionEpoch: 2,
     operationType: 'market_create_sell_order',
+    expectedOrders: [{ orderId: 'order:runtime-ahead', exists: false }],
     upsertOrders: [buildSmokeOrder('order:runtime-ahead')],
   });
   assert.equal(result.ok, true);
@@ -138,6 +211,7 @@ async function assertDurableMarketMutationRejectsStaleRuntimeEpoch(): Promise<vo
       expectedRuntimeOwnerId: 'runtime:online:2',
       expectedSessionEpoch: 2,
       operationType: 'market_create_sell_order',
+      expectedOrders: [{ orderId: 'order:runtime-stale', exists: false }],
       upsertOrders: [buildSmokeOrder('order:runtime-stale')],
     }),
     /player_session_fencing_conflict:market_mutation/,
@@ -156,6 +230,7 @@ async function assertDurableMarketMutationRejectsSameEpochOwnerMismatch(): Promi
       expectedRuntimeOwnerId: 'runtime:online:new',
       expectedSessionEpoch: 2,
       operationType: 'market_create_sell_order',
+      expectedOrders: [{ orderId: 'order:owner-mismatch', exists: false }],
       upsertOrders: [buildSmokeOrder('order:owner-mismatch')],
     }),
     /player_session_fencing_conflict:market_mutation/,
