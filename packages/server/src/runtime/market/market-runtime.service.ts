@@ -5,7 +5,7 @@
  */
 import { BadRequestException, Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { createHash, randomUUID } from 'crypto';
-import { AUCTION_DEFAULT_DURATION_HOURS, AUCTION_LISTING_FEE_BASE, AUCTION_LISTING_FEE_RATE, AUCTION_MAX_DURATION_HOURS, AUCTION_MIN_DURATION_HOURS, CUSTOM_TECHNIQUE_BOOK_ITEM_ID, EQUIP_SLOTS, HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID, HEAVENLY_DAO_SHOP_ITEMS, ITEM_TYPES, MARKET_MAX_ENHANCE_LEVEL, MARKET_MAX_UNIT_PRICE, TECHNIQUE_EQUIP_SLOTS, calculateHeavenlyDaoShopDiscountedPrice, calculateMarketTradeTotalCost, canMergeItemStack, createItemStackSignature, getItemDisplayName, getMarketMinimumTradeQuantity, getMarketPriceStep, isValidMarketPrice, isValidMarketTradeQuantity, normalizeMarketPriceUp, normalizeMarketTradeSource } from '@mud/shared';
+import { AUCTION_DEFAULT_DURATION_HOURS, AUCTION_LISTING_FEE_BASE, AUCTION_LISTING_FEE_RATE, AUCTION_MAX_DURATION_HOURS, AUCTION_MIN_DURATION_HOURS, CUSTOM_TECHNIQUE_BOOK_ITEM_ID, EQUIP_SLOTS, HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID, HEAVENLY_DAO_SHOP_ITEMS, ITEM_TYPES, MARKET_MAX_ENHANCE_LEVEL, MARKET_MAX_UNIT_PRICE, TECHNIQUE_EQUIP_SLOTS, calculateHeavenlyDaoShopDiscountedPrice, calculateMarketTradeTotalCost, canMergeItemStack, createItemStackSignature, getItemDisplayName, getMarketMinimumTradeQuantity, getMarketPriceStep, isValidMarketPrice, isValidMarketTradeQuantity, normalizeMarketAuctionPageSize, normalizeMarketAuctionQuery, normalizeMarketListingsPageSize, normalizeMarketPriceUp, normalizeMarketRequestPage, normalizeMarketTradeSource, resolveClampedMarketResponsePage } from '@mud/shared';
 import { assignItemInstanceIdIfNeeded } from '../world/item-instance-id.helpers';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { AUCTION_GLOBAL_TRADE_HISTORY_LIMIT, AUCTION_MY_TRADE_HISTORY_VISIBLE_LIMIT, AUCTION_TRADE_HISTORY_PAGE_SIZE, MARKET_CURRENCY_ITEM_ID, MARKET_MAX_ORDER_QUANTITY, MARKET_STORAGE_RUNTIME_CACHE_LIMIT, MARKET_TRADE_HISTORY_PAGE_SIZE, MARKET_TRADE_HISTORY_RUNTIME_CACHE_LIMIT, MARKET_TRADE_HISTORY_VISIBLE_LIMIT } from '../../constants/gameplay/market';
@@ -21,6 +21,13 @@ import { ActivityRuntimeService } from '../activity/activity-runtime.service';
 
 const AUCTION_EXTENSION_WINDOW_MS = 30 * 1000;
 const AUCTION_MAX_EXTENSION_MS = 60 * 60 * 1000;
+const MARKET_DURABLE_OPERATION_ALREADY_COMMITTED = 'market_durable_operation_already_committed';
+
+class MarketDurableOperationCommittedError extends Error {
+    constructor(readonly operationId: string) {
+        super(MARKET_DURABLE_OPERATION_ALREADY_COMMITTED);
+    }
+}
 
 /** 坊市运行时：维护挂单、成交、仓库与交易历史。 */
 @Injectable()
@@ -131,6 +138,7 @@ export class MarketRuntimeService {
     async buyHeavenlyDaoShopItem(playerId, payload) {
         await this.ensureStorageHydrated(playerId);
         return this.runExclusiveMarketMutation(playerId, async (context) => {
+            return this.runExclusivePlayerAssetMutation([playerId], async () => {
             const itemId = typeof payload?.itemId === 'string' ? payload.itemId.trim() : '';
             const quantity = this.normalizeHeavenlyDaoShopQuantity(payload?.quantity);
             const shopItem = HEAVENLY_DAO_SHOP_ITEMS.find((entry) => entry.itemId === itemId);
@@ -178,6 +186,7 @@ export class MarketRuntimeService {
                 vars: { itemLabel, currency: currencyName, cost: totalCost },
                 pills: [{ key: 'itemLabel', style: 'target' }, { key: 'currency', style: 'target' }],
             });
+            });
         });
     }
     /** 可用时通过强事务服务提交玩家侧坊市 mutation，当前未启用或缺少通用接口时回退常规 flush。 */
@@ -214,6 +223,8 @@ export class MarketRuntimeService {
         }
         const playerMutations: Array<{
             playerId: string;
+            expectedRuntimeOwnerId?: string;
+            expectedSessionEpoch?: number;
             nextInventoryItems?: unknown[];
             nextWalletBalances?: unknown[];
             nextMarketStorageItems?: unknown[];
@@ -225,10 +236,20 @@ export class MarketRuntimeService {
                 : null;
             const mutation: {
                 playerId: string;
+                expectedRuntimeOwnerId?: string;
+                expectedSessionEpoch?: number;
                 nextInventoryItems?: unknown[];
                 nextWalletBalances?: unknown[];
                 nextMarketStorageItems?: unknown[];
             } = { playerId: affectedPlayerId };
+            const affectedRuntimeOwnerId = typeof snapshot?.runtimeOwnerId === 'string' ? snapshot.runtimeOwnerId.trim() : '';
+            const affectedSessionEpoch = Number.isFinite(Number(snapshot?.sessionEpoch))
+                ? Math.max(0, Math.trunc(Number(snapshot.sessionEpoch)))
+                : 0;
+            if (affectedRuntimeOwnerId && affectedSessionEpoch > 0) {
+                mutation.expectedRuntimeOwnerId = affectedRuntimeOwnerId;
+                mutation.expectedSessionEpoch = affectedSessionEpoch;
+            }
             if (snapshot?.inventory) {
                 mutation.nextInventoryItems = cloneInventoryItems(snapshot.inventory.items ?? []);
             }
@@ -242,9 +263,13 @@ export class MarketRuntimeService {
                 playerMutations.push(mutation);
             }
         }
+        if (typeof this.playerRuntimeService?.hasActiveAssetMutationLocks === 'function'
+            && !this.playerRuntimeService.hasActiveAssetMutationLocks(Array.from(affectedPlayerIds))) {
+            throw new Error('market_player_asset_lock_set_incomplete');
+        }
         const rawOperationId = this.resolveClientMarketOperationId(payload);
         const operationId = rawOperationId
-            ? `market-${normalizedOperationType}:${normalizedPlayerId}:${rawOperationId}`.slice(0, 180)
+            ? `market-${normalizedOperationType}:${normalizedPlayerId}:${rawOperationId}`
             : `market-${normalizedOperationType}:${normalizedPlayerId}:${Date.now()}:${randomUUID()}`;
         const buildInput = async () => {
             const snapshot = this.playerRuntimeService.snapshot(normalizedPlayerId);
@@ -255,6 +280,22 @@ export class MarketRuntimeService {
                 ? Math.max(1, Math.trunc(Number(snapshot.sessionEpoch)))
                 : sessionEpoch;
             const lease = requirePresenceFence ? await this.resolveInstanceLeaseContext(snapshot?.instanceId ?? primarySnapshot?.instanceId ?? null) : null;
+            const mutatedOrderIds = new Set([
+                ...Array.from(context?.dirtyOrderIds ?? []),
+                ...Array.from(context?.deletedOrderIds ?? []),
+            ]);
+            const expectedOrders = Array.from(mutatedOrderIds, (orderId) => {
+                const before = context?.openOrdersSnapshot?.find?.((order) => order?.id === orderId) ?? null;
+                return before
+                    ? {
+                        orderId,
+                        exists: true,
+                        status: before.status,
+                        remainingQuantity: before.remainingQuantity,
+                        updatedAtMs: before.updatedAt,
+                    }
+                    : { orderId, exists: false };
+            });
             return {
                 operationId,
                 playerId: normalizedPlayerId,
@@ -267,6 +308,7 @@ export class MarketRuntimeService {
                 payload,
                 requirePresenceFence,
                 playerMutations,
+                expectedOrders,
                 upsertOrders: this.openOrders
                     .filter((order) => context?.dirtyOrderIds?.has?.(order.id))
                     .map((order) => ({ ...order, item: { ...order.item } })),
@@ -283,10 +325,26 @@ export class MarketRuntimeService {
             result = await durableOperationService.settleMarketMutation(await buildInput());
         }
         catch (error) {
-            if (!requirePresenceFence || !shouldRetryMarketSessionFence(error) || !(await this.syncCurrentPresenceFence(normalizedPlayerId))) {
-                throw error;
+            let settlementError = error;
+            if (requirePresenceFence && shouldRetryMarketSessionFence(error) && await this.syncCurrentPresenceFence(normalizedPlayerId)) {
+                try {
+                    result = await durableOperationService.settleMarketMutation(await buildInput());
+                    settlementError = null;
+                }
+                catch (retryError) {
+                    settlementError = retryError;
+                }
             }
-            result = await durableOperationService.settleMarketMutation(await buildInput());
+            if (settlementError) {
+                throw settlementError;
+            }
+        }
+        if (result?.ok && result?.alreadyCommitted) {
+            // 历史 replay 的 operation 后态可能早于其后的正常资产变更，绝不能回灌旧 payload。
+            // 当前参与玩家锁仍在：只撤销本次重复请求的乐观变更，保留请求开始前的最新运行态。
+            this.restoreMutationContext(context);
+            context.skipPersistence = true;
+            throw new MarketDurableOperationCommittedError(operationId);
         }
         if (result?.ok) {
             context.skipPersistence = true;
@@ -387,9 +445,9 @@ export class MarketRuntimeService {
     /** 构造分页坊市列表，支持品类、部位和功法书分类过滤。 */
     buildMarketListingsPage(payload) {
 
-        const page = Number.isFinite(payload?.page) ? Math.max(1, Math.trunc(payload.page)) : 1;
+        const requestedPage = normalizeMarketRequestPage(payload?.page);
 
-        const pageSize = Number.isFinite(payload?.pageSize) ? Math.min(100, Math.max(1, Math.trunc(payload.pageSize))) : 20;
+        const pageSize = normalizeMarketListingsPageSize(payload?.pageSize);
 
         const category = typeof payload?.category === 'string' ? payload.category : 'all';
 
@@ -404,6 +462,8 @@ export class MarketRuntimeService {
         const groups = this.groupMarketListingEntriesForPage(filtered);
 
         const total = groups.length;
+
+        const page = resolveClampedMarketResponsePage(requestedPage, total, pageSize);
 
         const start = (page - 1) * pageSize;
         return {
@@ -675,21 +735,28 @@ export class MarketRuntimeService {
             if (this.hasConflictingOpenOrder(playerId, itemKey, 'sell')) {
                 return this.singleMessage(playerId, '同一种物品已在求购中，不能同时挂售。');
             }
+            const buyOrders = listingMode !== 'market'
+                ? []
+                : this.getSortedOrders(itemKey, 'buy').filter((order) => order.ownerId !== playerId && order.unitPrice >= unitPrice);
+            const matchPlan = this.planOrderMatches(buyOrders, quantity, unitPrice);
+            return this.runExclusivePlayerAssetMutation(
+                [playerId, ...matchPlan.matches.map((match) => match.order.ownerId)],
+                async () => {
+                    const currentItem = this.playerRuntimeService.peekInventoryItemByInstanceId(playerId, itemInstanceId);
+                    if (!currentItem || Number(currentItem.count ?? 0) < quantity) {
+                        return this.singleMessage(playerId, '挂售物品已发生变化，请重新操作。');
+                    }
+                    if (auctionListingFee > 0 && !this.canAffordMarketCurrency(playerId, auctionListingFee)) {
+                        return this.singleMessage(playerId, `${this.getCurrencyItemName()}不足，发起拍卖需要上架费 ${this.formatUnitPrice(auctionListingFee)}。`);
+                    }
             this.captureOnlinePlayerState(playerId, context);
             if (auctionListingFee > 0 && !this.consumeMarketCurrencyFromInventory(playerId, auctionListingFee)) {
                 return this.singleMessage(playerId, `${this.getCurrencyItemName()}不足，发起拍卖需要上架费 ${this.formatUnitPrice(auctionListingFee)}。`);
             }
 
-            const removed = this.playerRuntimeService.splitInventoryItemByInstanceId(playerId, itemInstanceId, quantity);
+            this.playerRuntimeService.splitInventoryItemByInstanceId(playerId, itemInstanceId, quantity);
 
             const result = this.createEmptyResult(playerId);
-
-            // 拍卖与传法台都是一物一单寄售，不与普通坊市求购盘撮合。
-            const buyOrders = listingMode !== 'market'
-                ? []
-                : this.getSortedOrders(itemKey, 'buy').filter((order) => order.ownerId !== playerId && order.unitPrice >= unitPrice);
-
-            const matchPlan = this.planOrderMatches(buyOrders, removed.count, unitPrice);
 
             let remaining = matchPlan.remainingQuantity;
             for (const match of matchPlan.matches) {
@@ -787,7 +854,9 @@ export class MarketRuntimeService {
             if (this.durableOperationService?.isEnabled?.() && !durableCommitted) {
                 throw new Error('market_create_sell_order_durable_commit_failed');
             }
-            return result;
+                    return result;
+                },
+            );
         });
     }
     resolveMarketInventoryItemInstanceId(playerId, payload, _eventName) {
@@ -844,19 +913,20 @@ export class MarketRuntimeService {
             if (totalCost === null) {
                 return this.singleMessage(playerId, this.buildTradeQuantityError(unitPrice));
             }
-            if (!this.canAffordMarketCurrency(playerId, totalCost)) {
-                return this.singleMessage(playerId, `${this.getCurrencyItemName()}不足，无法挂出求购。`);
-            }
+            const sellOrders = this.getSortedOrders(itemKey, 'sell').filter((order) => order.ownerId !== playerId && order.unitPrice <= unitPrice);
+            const matchPlan = this.planOrderMatches(sellOrders, quantity, unitPrice);
+            return this.runExclusivePlayerAssetMutation(
+                [playerId, ...matchPlan.matches.map((match) => match.order.ownerId)],
+                async () => {
+                    if (!this.canAffordMarketCurrency(playerId, totalCost)) {
+                        return this.singleMessage(playerId, `${this.getCurrencyItemName()}不足，无法挂出求购。`);
+                    }
             this.captureOnlinePlayerState(playerId, context);
             if (!this.consumeMarketCurrencyFromInventory(playerId, totalCost)) {
                 return this.singleMessage(playerId, `${this.getCurrencyItemName()}不足，无法挂出求购。`);
             }
 
             const result = this.createEmptyResult(playerId);
-
-            const sellOrders = this.getSortedOrders(itemKey, 'sell').filter((order) => order.ownerId !== playerId && order.unitPrice <= unitPrice);
-
-            const matchPlan = this.planOrderMatches(sellOrders, quantity, unitPrice);
 
             let remaining = matchPlan.remainingQuantity;
             for (const match of matchPlan.matches) {
@@ -925,7 +995,9 @@ export class MarketRuntimeService {
             if (this.durableOperationService?.isEnabled?.() && !durableCommitted) {
                 throw new Error('market_create_buy_order_durable_commit_failed');
             }
-            return result;
+                    return result;
+                },
+            );
         });
     }
     /** 立即按当前市场挂单买入指定物品。 */
@@ -955,14 +1027,17 @@ export class MarketRuntimeService {
             }
 
             const totalCost = plan.totalCost;
-            if (!this.canAffordMarketCurrency(playerId, totalCost)) {
-                return this.singleMessage(playerId, `${this.getCurrencyItemName()}不足，无法完成买入。`);
-            }
+            return this.runExclusivePlayerAssetMutation(
+                [playerId, ...plan.matches.map((match) => match.order.ownerId)],
+                async () => {
+                    if (!this.canAffordMarketCurrency(playerId, totalCost)) {
+                        return this.singleMessage(playerId, `${this.getCurrencyItemName()}不足，无法完成买入。`);
+                    }
 
-            this.captureOnlinePlayerState(playerId, context);
-            if (!this.consumeMarketCurrencyFromInventory(playerId, totalCost)) {
-                return this.singleMessage(playerId, `${this.getCurrencyItemName()}不足，无法完成买入。`);
-            }
+                    this.captureOnlinePlayerState(playerId, context);
+                    if (!this.consumeMarketCurrencyFromInventory(playerId, totalCost)) {
+                        return this.singleMessage(playerId, `${this.getCurrencyItemName()}不足，无法完成买入。`);
+                    }
 
             const result = this.createEmptyResult(playerId);
             const item = { ...sells[0].item };
@@ -1001,7 +1076,9 @@ export class MarketRuntimeService {
             if (this.durableOperationService?.isEnabled?.() && !durableCommitted) {
                 throw new Error('market_buy_now_durable_commit_failed');
             }
-            return result;
+                    return result;
+                },
+            );
         });
     }
     /** 立即按当前市场挂单卖出指定物品。 */
@@ -1043,6 +1120,13 @@ export class MarketRuntimeService {
             if (plan.fulfilledQuantity < quantity) {
                 return this.singleMessage(playerId, `当前求购盘最多只能接下 ${plan.fulfilledQuantity} 件。`);
             }
+            return this.runExclusivePlayerAssetMutation(
+                [playerId, ...plan.matches.map((match) => match.order.ownerId)],
+                async () => {
+                    const currentItem = this.playerRuntimeService.peekInventoryItemByInstanceId(playerId, itemInstanceId);
+                    if (!currentItem || Number(currentItem.count ?? 0) < quantity) {
+                        return this.singleMessage(playerId, '出售物品已发生变化，请重新操作。');
+                    }
 
             this.captureOnlinePlayerState(playerId, context);
             this.playerRuntimeService.splitInventoryItemByInstanceId(playerId, itemInstanceId, quantity);
@@ -1085,7 +1169,9 @@ export class MarketRuntimeService {
             if (this.durableOperationService?.isEnabled?.() && !durableCommitted) {
                 throw new Error('market_sell_now_durable_commit_failed');
             }
-            return result;
+                    return result;
+                },
+            );
         });
     }
     /** 取消玩家自己的挂单。 */
@@ -1104,6 +1190,7 @@ export class MarketRuntimeService {
             if (!order) {
                 return this.singleMessage(playerId, '未找到可取消的订单。');
             }
+            return this.runExclusivePlayerAssetMutation([playerId], async () => {
             if (order.side === 'sell') {
                 this.deliverItemToPlayer(playerId, { ...order.item, count: order.remainingQuantity }, context);
             }
@@ -1127,7 +1214,8 @@ export class MarketRuntimeService {
             if (this.durableOperationService?.isEnabled?.() && !durableCommitted) {
                 throw new Error('market_cancel_order_durable_commit_failed');
             }
-            return this.singleMessage(playerId, '订单已取消，剩余托管物已退回。', 'success');
+                return this.singleMessage(playerId, '订单已取消，剩余托管物已退回。', 'success');
+            });
         });
     }
     /** GM 封禁联动：取消目标玩家全部开放求购/挂售/寄拍订单，并返还仍冻结的资产。 */
@@ -1148,6 +1236,18 @@ export class MarketRuntimeService {
             const targetOrders = this.openOrders.filter((order) => order?.ownerId === normalizedPlayerId
                 && order.status === 'open'
                 && order.remainingQuantity > 0);
+            const affectedPlayerIds = new Set([normalizedPlayerId]);
+            for (const order of targetOrders) {
+                if (order.side !== 'sell' || !this.isAuctionOrder(order)) {
+                    continue;
+                }
+                for (const bid of this.getSortedAuctionBids(this.buildAuctionLotKey(order))) {
+                    if (bid.reservedCost > 0) {
+                        affectedPlayerIds.add(bid.bidderId);
+                    }
+                }
+            }
+            return this.runExclusivePlayerAssetMutation(Array.from(affectedPlayerIds), async () => {
             if (targetOrders.length === 0) {
                 const banCommitted = banUser
                     ? await this.commitDurableMarketMutationIfAvailable(context, normalizedPlayerId, 'market_ban_cancel_orders', {
@@ -1159,17 +1259,6 @@ export class MarketRuntimeService {
                     context.skipPersistence = true;
                 }
                 return { affectedPlayerIds: [], notices: [], cancelledOrderIds: [], banCommitted };
-            }
-            const affectedPlayerIds = new Set([normalizedPlayerId]);
-            for (const order of targetOrders) {
-                if (order.side !== 'sell' || !this.isAuctionOrder(order)) {
-                    continue;
-                }
-                for (const bid of this.getSortedAuctionBids(this.buildAuctionLotKey(order))) {
-                    if (bid.reservedCost > 0) {
-                        affectedPlayerIds.add(bid.bidderId);
-                    }
-                }
             }
             await this.ensureStoragesHydrated(affectedPlayerIds);
             const mutationResult = {
@@ -1212,6 +1301,7 @@ export class MarketRuntimeService {
                 throw new Error('banned_player_market_ban_commit_failed');
             }
             return { ...mutationResult, banCommitted: Boolean(banUser && banCommitted) };
+            });
         });
         const stillOpen = this.openOrders.some((order) => order?.ownerId === normalizedPlayerId
             && order.status === 'open'
@@ -1268,88 +1358,92 @@ export class MarketRuntimeService {
         await this.ensureStorageHydrated(playerId);
         if (this.durableOperationService?.isEnabled()) {
             return this.runExclusive(async () => {
-                const context = this.createMutationContext();
-                try {
-                    const storage = this.storageByPlayerId.get(playerId);
-                    if (!storage || storage.items.length === 0) {
-                        return this.singleMessage(playerId, '坊市托管仓里暂时没有可领取的物品。');
+                return this.runExclusivePlayerAssetMutation([playerId], async () => {
+                    const context = this.createMutationContext();
+                    try {
+                        const storage = this.storageByPlayerId.get(playerId);
+                        if (!storage || storage.items.length === 0) {
+                            return this.singleMessage(playerId, '坊市托管仓里暂时没有可领取的物品。');
+                        }
+                        const playerSnapshot = this.playerRuntimeService.snapshot(playerId);
+                        if (!playerSnapshot) {
+                            return this.singleMessage(playerId, '玩家当前不在运行态，暂时无法领取坊市托管仓物品。', 'warn');
+                        }
+                        const plan = this.buildClaimStoragePlan(playerSnapshot.inventory, storage.items);
+                        if (plan.movedCount <= 0) {
+                            return this.singleMessage(playerId, '背包空间不足，托管仓物品暂时无法领取。');
+                        }
+                        const expectedRuntimeOwnerId = typeof playerSnapshot.runtimeOwnerId === 'string' && playerSnapshot.runtimeOwnerId.trim()
+                            ? playerSnapshot.runtimeOwnerId.trim()
+                            : '';
+                        const expectedSessionEpoch = Number.isFinite(playerSnapshot.sessionEpoch) ? Math.max(1, Math.trunc(Number(playerSnapshot.sessionEpoch))) : 0;
+                        if (!expectedRuntimeOwnerId || expectedSessionEpoch <= 0) {
+                            throw new Error('market_storage_claim_session_fence_missing');
+                        }
+                        const instanceLease = await this.resolveInstanceLeaseContext(playerSnapshot.instanceId ?? null);
+                        this.captureOnlinePlayerState(playerId, context);
+                        const operationId = `market-storage-claim:${playerId}:${Date.now()}:${randomUUID()}`;
+                        const result = await this.durableOperationService.claimMarketStorage({
+                            operationId,
+                            playerId,
+                            expectedRuntimeOwnerId,
+                            expectedSessionEpoch,
+                            expectedInstanceId: playerSnapshot.instanceId ?? null,
+                            expectedAssignedNodeId: instanceLease?.assignedNodeId ?? null,
+                            expectedOwnershipEpoch: instanceLease?.ownershipEpoch ?? null,
+                            movedCount: plan.movedCount,
+                            remainingCount: plan.remainingItems.length,
+                            nextInventoryItems: plan.nextInventoryItems,
+                            nextMarketStorageItems: plan.remainingItems,
+                        });
+                        if (!result.ok) {
+                            throw new Error('market_storage_claim_failed');
+                        }
+                        this.playerRuntimeService.replaceInventoryItems(playerId, plan.nextInventoryItems);
+                        this.setStorage(playerId, { items: plan.remainingItems }, context);
+                        context.skipPersistence = true;
+                        this.evictStorageCacheIfOverLimit();
+                        if (plan.remainingItems.length > 0) {
+                            return this.singleMessage(playerId, `已领取部分托管物，共 ${plan.movedCount} 件，其余仍保留在坊市托管仓。`, 'loot');
+                        }
+                        return this.singleMessage(playerId, `已领取坊市托管仓中的全部物品，共 ${plan.movedCount} 件。`, 'loot');
                     }
-                    const playerSnapshot = this.playerRuntimeService.snapshot(playerId);
-                    if (!playerSnapshot) {
-                        return this.singleMessage(playerId, '玩家当前不在运行态，暂时无法领取坊市托管仓物品。', 'warn');
+                    catch (error) {
+                        this.restoreMutationContext(context);
+                        throw error;
                     }
-                    const plan = this.buildClaimStoragePlan(playerSnapshot.inventory, storage.items);
-                    if (plan.movedCount <= 0) {
-                        return this.singleMessage(playerId, '背包空间不足，托管仓物品暂时无法领取。');
-                    }
-                    const expectedRuntimeOwnerId = typeof playerSnapshot.runtimeOwnerId === 'string' && playerSnapshot.runtimeOwnerId.trim()
-                        ? playerSnapshot.runtimeOwnerId.trim()
-                        : '';
-                    const expectedSessionEpoch = Number.isFinite(playerSnapshot.sessionEpoch) ? Math.max(1, Math.trunc(Number(playerSnapshot.sessionEpoch))) : 0;
-                    if (!expectedRuntimeOwnerId || expectedSessionEpoch <= 0) {
-                        throw new Error('market_storage_claim_session_fence_missing');
-                    }
-                    const instanceLease = await this.resolveInstanceLeaseContext(playerSnapshot.instanceId ?? null);
-                    this.captureOnlinePlayerState(playerId, context);
-                    const operationId = `market-storage-claim:${playerId}:${Date.now()}:${randomUUID()}`;
-                    const result = await this.durableOperationService.claimMarketStorage({
-                        operationId,
-                        playerId,
-                        expectedRuntimeOwnerId,
-                        expectedSessionEpoch,
-                        expectedInstanceId: playerSnapshot.instanceId ?? null,
-                        expectedAssignedNodeId: instanceLease?.assignedNodeId ?? null,
-                        expectedOwnershipEpoch: instanceLease?.ownershipEpoch ?? null,
-                        movedCount: plan.movedCount,
-                        remainingCount: plan.remainingItems.length,
-                        nextInventoryItems: plan.nextInventoryItems,
-                        nextMarketStorageItems: plan.remainingItems,
-                    });
-                    if (!result.ok) {
-                        throw new Error('market_storage_claim_failed');
-                    }
-                    this.playerRuntimeService.replaceInventoryItems(playerId, plan.nextInventoryItems);
-                    this.setStorage(playerId, { items: plan.remainingItems }, context);
-                    context.skipPersistence = true;
-                    this.evictStorageCacheIfOverLimit();
-                    if (plan.remainingItems.length > 0) {
-                        return this.singleMessage(playerId, `已领取部分托管物，共 ${plan.movedCount} 件，其余仍保留在坊市托管仓。`, 'loot');
-                    }
-                    return this.singleMessage(playerId, `已领取坊市托管仓中的全部物品，共 ${plan.movedCount} 件。`, 'loot');
-                }
-                catch (error) {
-                    this.restoreMutationContext(context);
-                    throw error;
-                }
+                });
             }).catch((error) => {
                 this.logger.error(`坊市托管仓领取失败，已回滚: ${error instanceof Error ? error.message : String(error)}`);
                 return this.singleMessage(playerId, '坊市结算失败，已回滚本次操作。', 'warn');
             });
         }
         return this.runExclusiveMarketMutation(playerId, async (context) => {
-            const storage = this.storageByPlayerId.get(playerId);
-            if (!storage || storage.items.length === 0) {
-                return this.singleMessage(playerId, '坊市托管仓里暂时没有可领取的物品。');
-            }
-            const playerSnapshot = this.playerRuntimeService.snapshot(playerId);
-            if (!playerSnapshot) {
-                return this.singleMessage(playerId, '玩家当前不在运行态，暂时无法领取坊市托管仓物品。', 'warn');
-            }
-            const plan = this.buildClaimStoragePlan(playerSnapshot.inventory, storage.items);
-            if (plan.movedCount <= 0) {
-                return this.singleMessage(playerId, '背包空间不足，托管仓物品暂时无法领取。');
-            }
-            this.captureOnlinePlayerState(playerId, context);
-            for (const item of storage.items) {
-                if (this.playerRuntimeService.canReceiveInventoryItem(playerId, item.itemId)) {
-                    this.playerRuntimeService.receiveInventoryItem(playerId, item);
+            return this.runExclusivePlayerAssetMutation([playerId], async () => {
+                const storage = this.storageByPlayerId.get(playerId);
+                if (!storage || storage.items.length === 0) {
+                    return this.singleMessage(playerId, '坊市托管仓里暂时没有可领取的物品。');
                 }
-            }
-            this.setStorage(playerId, { items: plan.remainingItems }, context);
-            if (plan.remainingItems.length > 0) {
-                return this.singleMessage(playerId, `已领取部分托管物，共 ${plan.movedCount} 件，其余仍保留在坊市托管仓。`, 'loot');
-            }
-            return this.singleMessage(playerId, `已领取坊市托管仓中的全部物品，共 ${plan.movedCount} 件。`, 'loot');
+                const playerSnapshot = this.playerRuntimeService.snapshot(playerId);
+                if (!playerSnapshot) {
+                    return this.singleMessage(playerId, '玩家当前不在运行态，暂时无法领取坊市托管仓物品。', 'warn');
+                }
+                const plan = this.buildClaimStoragePlan(playerSnapshot.inventory, storage.items);
+                if (plan.movedCount <= 0) {
+                    return this.singleMessage(playerId, '背包空间不足，托管仓物品暂时无法领取。');
+                }
+                this.captureOnlinePlayerState(playerId, context);
+                for (const item of storage.items) {
+                    if (this.playerRuntimeService.canReceiveInventoryItem(playerId, item.itemId)) {
+                        this.playerRuntimeService.receiveInventoryItem(playerId, item);
+                    }
+                }
+                this.setStorage(playerId, { items: plan.remainingItems }, context);
+                if (plan.remainingItems.length > 0) {
+                    return this.singleMessage(playerId, `已领取部分托管物，共 ${plan.movedCount} 件，其余仍保留在坊市托管仓。`, 'loot');
+                }
+                return this.singleMessage(playerId, `已领取坊市托管仓中的全部物品，共 ${plan.movedCount} 件。`, 'loot');
+            });
         });
     }
     /**
@@ -1637,6 +1731,9 @@ export class MarketRuntimeService {
             const existingBids = this.getSortedAuctionBids(itemKey);
             const previousHighest = existingBids[0] ?? null;
             const previousBid = existingBids.find((entry) => entry.bidderId === playerId) ?? null;
+            return this.runExclusivePlayerAssetMutation(
+                [playerId, previousHighest?.bidderId].filter(Boolean),
+                async () => {
             if (previousBid && unitPrice <= previousBid.unitPrice) {
                 return this.singleMessage(playerId, '新的出价必须高于你当前的拍卖出价。');
             }
@@ -1685,7 +1782,18 @@ export class MarketRuntimeService {
                 },
                 pills: [{ key: 'itemName', style: 'target' }, { key: 'totalPrice', style: 'damage' }],
             });
-            return result;
+                    const durableCommitted = await this.commitDurableMarketMutationIfAvailable(context, playerId, 'market_auction_bid', {
+                        operationId: payload?.operationId ?? payload?.requestId,
+                        itemKey,
+                        unitPrice,
+                        totalCost,
+                    });
+                    if (this.durableOperationService?.isEnabled?.() && !durableCommitted) {
+                        throw new Error('market_auction_bid_durable_commit_failed');
+                    }
+                    return result;
+                },
+            );
         });
     }
     /** 拍卖行一口价入口，避免客户端误走坊市买入事件。 */
@@ -1706,6 +1814,9 @@ export class MarketRuntimeService {
                 return this.singleMessage(playerId, '拍品不存在、已结束，或不能一口价自己的寄拍。');
             }
             const bids = this.getSortedAuctionBids(itemKey);
+            return this.runExclusivePlayerAssetMutation(
+                [playerId, sellOrder.ownerId, ...bids.map((bid) => bid.bidderId)],
+                async () => {
             const configuredBuyoutPrice = this.getAuctionOrderBuyoutPrice(sellOrder, Math.max(1, Math.floor(sellOrder.unitPrice)));
             const currentPrice = Math.max(1, Math.floor(bids[0]?.unitPrice ?? sellOrder.unitPrice));
             if (configuredBuyoutPrice === null || configuredBuyoutPrice < currentPrice) {
@@ -1772,7 +1883,18 @@ export class MarketRuntimeService {
             this.clearAuctionStateForItemKey(itemKey, context);
             this.compactOpenOrders();
             this.reopenAuctionStateIfActive(itemKey, context);
-            return result;
+                    const durableCommitted = await this.commitDurableMarketMutationIfAvailable(context, playerId, 'market_auction_buyout', {
+                        operationId: payload?.operationId ?? payload?.requestId,
+                        itemKey,
+                        orderId: sellOrder.id,
+                        totalCost,
+                    });
+                    if (this.durableOperationService?.isEnabled?.() && !durableCommitted) {
+                        throw new Error('market_auction_buyout_durable_commit_failed');
+                    }
+                    return result;
+                },
+            );
         });
     }
     /** 读取拍卖出价记录，按当前观看者做轻量匿名标签。 */
@@ -1939,6 +2061,7 @@ export class MarketRuntimeService {
             if (sellOrder.ownerId === playerId) {
                 return this.singleStructuredMessage(playerId, 'warn', 'notice.market.transmission-own-lot', '不能求取自己寄售的功法残卷。', {});
             }
+            return this.runExclusivePlayerAssetMutation([playerId, sellOrder.ownerId], async () => {
             const tradeQuantity = Math.max(1, Math.trunc(Number(sellOrder.remainingQuantity) || 1));
             const unitPrice = Math.max(1, Math.trunc(Number(sellOrder.unitPrice) || 1));
             const totalCost = calculateMarketTradeTotalCost(1, unitPrice);
@@ -1982,7 +2105,17 @@ export class MarketRuntimeService {
                 this.deleteOrder(sellOrder.id, context);
             }
             this.compactOpenOrders();
-            return result;
+                const durableCommitted = await this.commitDurableMarketMutationIfAvailable(context, playerId, 'market_transmission_buyout', {
+                    operationId: payload?.operationId ?? payload?.requestId,
+                    itemKey,
+                    orderId: sellOrder.id,
+                    totalCost,
+                });
+                if (this.durableOperationService?.isEnabled?.() && !durableCommitted) {
+                    throw new Error('market_transmission_buyout_durable_commit_failed');
+                }
+                return result;
+            });
         });
     }
     /** 读取指定拍品 key 对应的显式拍卖卖单。 */
@@ -2165,10 +2298,16 @@ export class MarketRuntimeService {
     /** 惰性结算已经到期且存在有效最高出价的拍品。 */
     async settleExpiredAuctionLots() {
         return this.runExclusiveMarketMutation('', async (context) => {
+            const itemKeys = Array.from(this.auctionTimingByItemKey.keys());
+            const participantPlayerIds = Array.from(new Set(itemKeys.flatMap((itemKey) => [
+                ...this.getAuctionSellOrders(itemKey).map((order) => order.ownerId),
+                ...this.getSortedAuctionBids(itemKey).map((bid) => bid.bidderId),
+            ]).filter(Boolean)));
+            return this.runExclusivePlayerAssetMutation(participantPlayerIds, async () => {
             const result = { affectedPlayerIds: [], notices: [] };
             const now = Date.now();
             let changed = false;
-            for (const itemKey of Array.from(this.auctionTimingByItemKey.keys())) {
+            for (const itemKey of itemKeys) {
                 changed = this.settleExpiredAuctionLot(itemKey, now, context, result) || changed;
             }
             if (!changed) {
@@ -2176,7 +2315,18 @@ export class MarketRuntimeService {
                 return null;
             }
             this.compactOpenOrders();
-            return result;
+                const primaryPlayerId = participantPlayerIds[0] ?? result.affectedPlayerIds[0] ?? '';
+                const durableCommitted = primaryPlayerId
+                    ? await this.commitDurableMarketMutationIfAvailable(context, primaryPlayerId, 'market_auction_expiry', {
+                        settledAt: now,
+                        itemKeys,
+                    }, { requirePresenceFence: false })
+                    : false;
+                if (this.durableOperationService?.isEnabled?.() && !durableCommitted) {
+                    throw new Error('market_auction_expiry_durable_commit_failed');
+                }
+                return result;
+            });
         });
     }
     /** 结算单个到期拍品。 */
@@ -2293,17 +2443,15 @@ export class MarketRuntimeService {
     }
     /** 规范化拍卖行分页请求，服务端硬限制每页最多 10 条。 */
     normalizeAuctionListingsRequest(payload) {
-        const page = Number.isFinite(payload?.page) ? Math.max(1, Math.trunc(payload.page)) : 1;
-        const requestedPageSize = Number.isFinite(payload?.pageSize) ? Math.max(1, Math.trunc(payload.pageSize)) : 10;
         const category = typeof payload?.category === 'string' && (payload.category === 'all' || ITEM_TYPES.includes(payload.category))
             ? payload.category
             : 'all';
         return {
             tab: payload?.tab === 'mine' ? 'mine' : 'participate',
-            page,
-            pageSize: Math.min(10, requestedPageSize),
+            page: normalizeMarketRequestPage(payload?.page),
+            pageSize: normalizeMarketAuctionPageSize(payload?.pageSize),
             category,
-            query: typeof payload?.query === 'string' ? payload.query.trim().slice(0, 32) : '',
+            query: normalizeMarketAuctionQuery(payload?.query),
         };
     }
     /** 按拍卖行主分类筛选。 */
@@ -3828,6 +3976,8 @@ export class MarketRuntimeService {
         }));
         this.auctionBidsByItemKey = cloneAuctionBidsMap(context.auctionBidsSnapshotByItemKey);
         this.auctionTimingByItemKey = cloneAuctionTimingMap(context.auctionTimingSnapshotByItemKey);
+        this.rebuildAuctionClientKeyIndex();
+        this.hydrateTransmissionStateFromOpenOrders();
         for (const [playerId, storage] of context.storageSnapshotByPlayerId.entries()) {
             if (storage.items.length > 0) {
                 this.storageByPlayerId.set(playerId, cloneStorage(storage));
@@ -3890,21 +4040,40 @@ export class MarketRuntimeService {
                     this.tradeHistory.sort((left, right) => right.createdAt - left.createdAt || left.id.localeCompare(right.id));
                     this.tradeHistory = trimTradeHistoryRuntimeCache(this.tradeHistory);
                 }
-                // 坊市订单/仓库/历史是即时事务落库，但买卖双方的 inventory/wallet 仅标 dirty
-                // 等周期 flush（默认 5 秒）。这里在 mutation 返回前对所有受影响的在线玩家依次
-                // 立即 flush，关闭"成交即时落库 vs 玩家延迟刷盘"的窗口。
+                // 非 durable 降级链中，坊市订单/仓库/历史先即时落库，玩家资产仍需立即 flush。
+                // durable 主链已经在同一事务写入订单与玩家资产，禁止再次并发投影旧快照。
                 // 任意单玩家 flush 失败不回滚整笔交易：dirty 标记不会被 markPersisted 清掉，
                 // 下一次周期 flush / 玩家断线 / 关停 flush 仍会重试。
-                await this.flushAffectedPlayersAfterMutation(context);
+                if (!context.skipPersistence) {
+                    await this.flushAffectedPlayersAfterMutation(context);
+                }
                 // 落库完成且无回滚后再尝试 LRU 驱逐：此时缓存与持久化已经一致，
                 // 移除最久未使用且未被 pin 的玩家不会丢任何脏数据。
                 this.evictStorageCacheIfOverLimit();
                 return result;
             }
             catch (error) {
-                this.restoreMutationContext(context);
-
                 const message = error instanceof Error ? error.message : String(error);
+                if (error instanceof MarketDurableOperationCommittedError) {
+                    return {
+                        ...this.singleMessage(playerId, '该请求已经处理，无需重复操作。', 'success'),
+                        alreadyCommitted: true,
+                        banCommitted: true,
+                        cancelledOrderIds: [],
+                    };
+                }
+                this.restoreMutationContext(context);
+                if (message.startsWith('market_order_cas_conflict:')) {
+                    try {
+                        await this.reloadFromPersistence();
+                    }
+                    catch (reloadError) {
+                        this.logger.error(
+                            `坊市订单冲突后刷新失败: ${reloadError instanceof Error ? reloadError.stack : String(reloadError)}`,
+                        );
+                    }
+                    return this.singleMessage(playerId, '坊市订单已发生变化，已刷新最新状态，请重试。', 'warn');
+                }
                 this.logger.error(`坊市结算失败，已回滚: ${message}`);
                 return this.singleMessage(playerId, '坊市结算失败，已回滚本次操作。', 'warn');
             }
@@ -3945,6 +4114,14 @@ export class MarketRuntimeService {
             }
         }
     }
+    /** 复用玩家运行时的跨领域资产串行器；精简 smoke 未提供该端口时直接执行。 */
+    async runExclusivePlayerAssetMutation(playerIds, action) {
+        const coordinator = this.playerRuntimeService?.runExclusiveAssetMutation;
+        if (typeof coordinator !== 'function') {
+            return action();
+        }
+        return coordinator.call(this.playerRuntimeService, playerIds, action);
+    }
     /**
  * runExclusive：执行runExclusive相关逻辑。
  * @param action 参数说明。
@@ -3969,6 +4146,7 @@ export class MarketRuntimeService {
         }
     }
 }
+
 /**
  * cloneStorage：构建Storage。
  * @param storage 参数说明。
