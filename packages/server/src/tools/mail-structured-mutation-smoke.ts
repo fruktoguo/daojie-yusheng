@@ -45,6 +45,7 @@ async function main(): Promise<void> {
 
   const now = Date.now();
   const playerId = `mail_mut_${now.toString(36)}`;
+  const stalePlayerId = `${playerId}_stale`;
   const pool = new Pool({ connectionString: databaseUrl });
   const contentTemplateRepository = new ContentTemplateRepository();
   const databasePoolProvider = new DatabasePoolProvider();
@@ -159,31 +160,39 @@ async function main(): Promise<void> {
         },
       ],
     });
-    const prunedMailRows = await fetchRows(
+    const mergedMailRows = await fetchRows(
       pool,
       'SELECT mail_id, mail_version, title FROM player_mail WHERE player_id = $1 ORDER BY mail_id ASC',
       [playerId],
     );
-    const prunedAttachmentRows = await fetchRows(
+    const mergedAttachmentRows = await fetchRows(
       pool,
       'SELECT attachment_id, mail_id, item_id, count FROM player_mail_attachment WHERE player_id = $1 ORDER BY attachment_id ASC',
       [playerId],
     );
     if (
-      prunedMailRows.length !== 1
-      || prunedMailRows[0]?.mail_id !== `${playerId}:mail:old`
-      || Number(prunedMailRows[0]?.mail_version ?? 0) !== 2
-      || prunedMailRows[0]?.title !== 'old-updated'
+      mergedMailRows.length !== 2
+      || mergedMailRows[0]?.mail_id !== `${playerId}:mail:old`
+      || Number(mergedMailRows[0]?.mail_version ?? 0) !== 2
+      || mergedMailRows[0]?.title !== 'old-updated'
+      || mergedMailRows[1]?.mail_id !== `${playerId}:mail:stale`
+      || Number(mergedMailRows[1]?.mail_version ?? 0) !== 1
     ) {
-      throw new Error(`unexpected saveMailbox pruned mail rows: ${JSON.stringify(prunedMailRows)}`);
+      throw new Error(`unexpected saveMailbox merged mail rows: ${JSON.stringify(mergedMailRows)}`);
     }
     if (
-      prunedAttachmentRows.length !== 1
-      || prunedAttachmentRows[0]?.attachment_id !== `mail_attachment:${playerId}:mail:old:0`
-      || prunedAttachmentRows[0]?.item_id !== 'rat_tail'
-      || Number(prunedAttachmentRows[0]?.count ?? 0) !== 3
+      mergedAttachmentRows.length !== 3
+      || mergedAttachmentRows[0]?.attachment_id !== `mail_attachment:${playerId}:mail:old:0`
+      || mergedAttachmentRows[0]?.item_id !== 'rat_tail'
+      || Number(mergedAttachmentRows[0]?.count ?? 0) !== 1
+      || mergedAttachmentRows[1]?.attachment_id !== `mail_attachment:${playerId}:mail:old:1`
+      || mergedAttachmentRows[1]?.item_id !== 'spirit_stone'
+      || Number(mergedAttachmentRows[1]?.count ?? 0) !== 2
+      || mergedAttachmentRows[2]?.attachment_id !== `mail_attachment:${playerId}:mail:stale:0`
+      || mergedAttachmentRows[2]?.item_id !== 'old_leaf'
+      || Number(mergedAttachmentRows[2]?.count ?? 0) !== 1
     ) {
-      throw new Error(`unexpected saveMailbox pruned attachment rows: ${JSON.stringify(prunedAttachmentRows)}`);
+      throw new Error(`unexpected saveMailbox merged attachment rows: ${JSON.stringify(mergedAttachmentRows)}`);
     }
 
     const mailId = await runtime.createDirectMail(playerId, {
@@ -219,8 +228,8 @@ async function main(): Promise<void> {
     }
     if (
       !createdCounterRow
-      || Number(createdCounterRow.unread_count) !== 2
-      || Number(createdCounterRow.unclaimed_count) !== 1
+      || Number(createdCounterRow.unread_count) !== 3
+      || Number(createdCounterRow.unclaimed_count) !== 2
       || Number(createdCounterRow.counter_version) <= 0
     ) {
       throw new Error(`unexpected created player_mail_counter row: ${JSON.stringify(createdCounterRow)}`);
@@ -266,8 +275,8 @@ async function main(): Promise<void> {
     }
     if (
       !readCounterRow
-      || Number(readCounterRow.unread_count) !== 1
-      || Number(readCounterRow.unclaimed_count) !== 1
+      || Number(readCounterRow.unread_count) !== 2
+      || Number(readCounterRow.unclaimed_count) !== 2
       || Number(readCounterRow.counter_version) <= Number(createdCounterRow.counter_version ?? 0)
     ) {
       throw new Error(`unexpected read player_mail_counter row: ${JSON.stringify(readCounterRow)}`);
@@ -312,8 +321,8 @@ async function main(): Promise<void> {
     }
     if (
       !deletedCounterRow
-      || Number(deletedCounterRow.unread_count) !== 1
-      || Number(deletedCounterRow.unclaimed_count) !== 1
+      || Number(deletedCounterRow.unread_count) !== 2
+      || Number(deletedCounterRow.unclaimed_count) !== 2
       || Number(deletedCounterRow.counter_version) <= Number(readCounterRow.counter_version ?? 0)
     ) {
       throw new Error(`unexpected deleted player_mail_counter row: ${JSON.stringify(deletedCounterRow)}`);
@@ -328,9 +337,11 @@ async function main(): Promise<void> {
     if (deletedLegacyRow != null) {
       throw new Error(`unexpected legacy persistent_documents row after delete: ${JSON.stringify(deletedLegacyRow)}`);
     }
-    if (summary.unreadCount !== 1 || summary.claimableCount !== 1) {
+    if (summary.unreadCount !== 2 || summary.claimableCount !== 2) {
       throw new Error(`unexpected runtime summary after delete: ${JSON.stringify(summary)}`);
     }
+
+    await verifyCrossNodeStaleWritePreservesClaim(pool, mailPersistence, stalePlayerId, now + 100);
 
     console.log(
       JSON.stringify(
@@ -338,8 +349,8 @@ async function main(): Promise<void> {
           ok: true,
           playerId,
           mailId,
-          answers: 'with-db 下已验证 MailPersistenceService.saveMailbox 会对 player_mail/player_mail_attachment 做 upsert + stale key 清理，不再先整玩家清空；同时 MailRuntimeService 的 markRead/delete 会推进 player_mail.mail_version、player_mail_counter.counter_version，并同步推进 player_recovery_watermark.mail_version/mail_counter_version，且 deleted_at 会写入结构化真源',
-          excludes: '不证明邮件附件 durable claim、GM restore、真实客户端分页交互或跨节点并发写',
+          answers: 'with-db 下已验证邮箱快照仅做单调 upsert，旧节点同版本写不会回滚 durable claim、清掉附件 claim_operation_id 或删除更新邮件；markRead/delete 后计数和恢复水位在事务锁内单调推进',
+          excludes: '不证明 GM restore 或真实客户端分页交互',
           completionMapping: 'release:proof:with-db.mail-structured-mutation',
         },
         null,
@@ -348,10 +359,146 @@ async function main(): Promise<void> {
     );
   } finally {
     await cleanupPlayer(pool, playerId).catch(() => undefined);
+    await cleanupPlayer(pool, stalePlayerId).catch(() => undefined);
     await mailPersistence.onModuleDestroy().catch(() => undefined);
     await durableOperation.onModuleDestroy().catch(() => undefined);
     await databasePoolProvider.onModuleDestroy().catch(() => undefined);
     await pool.end().catch(() => undefined);
+  }
+}
+
+async function verifyCrossNodeStaleWritePreservesClaim(
+  pool: Pool,
+  mailPersistence: MailPersistenceService,
+  playerId: string,
+  now: number,
+): Promise<void> {
+  const mailId = `${playerId}:mail:claim`;
+  const newerMailId = `${playerId}:mail:newer`;
+  const claimOperationId = `mail-claim-smoke:${playerId}`;
+  const staleEntry = {
+    version: 1,
+    mailVersion: 2,
+    mailId,
+    senderLabel: '系统',
+    templateId: null,
+    args: [],
+    fallbackTitle: 'stale claim',
+    fallbackBody: 'stale claim',
+    attachments: [{ itemId: 'spirit_stone', count: 8 }],
+    createdAt: now,
+    updatedAt: now + 1,
+    expireAt: null,
+    firstSeenAt: null,
+    readAt: null,
+    claimedAt: null,
+    deletedAt: null,
+  };
+
+  await cleanupPlayer(pool, playerId);
+  await mailPersistence.saveMailbox(playerId, {
+    version: 1,
+    revision: 1,
+    welcomeMailDeliveredAt: null,
+    mails: [{ ...staleEntry, mailVersion: 1, updatedAt: now }],
+  });
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('SELECT pg_advisory_xact_lock($1::integer, hashtext($2))', [7101, playerId]);
+    await client.query(
+      `
+        UPDATE player_mail_attachment
+        SET claim_operation_id = $1, claimed_at = $2
+        WHERE player_id = $3 AND mail_id = $4
+      `,
+      [claimOperationId, now + 1, playerId, mailId],
+    );
+    await client.query(
+      `
+        UPDATE player_mail
+        SET read_at = $1, claimed_at = $1, mail_version = 2, updated_at = now()
+        WHERE player_id = $2 AND mail_id = $3
+      `,
+      [now + 1, playerId, mailId],
+    );
+    await client.query(
+      `
+        INSERT INTO player_mail(
+          mail_id, player_id, sender_type, sender_label, mail_type, title, body,
+          metadata_jsonb, mail_version, created_at, updated_at
+        )
+        VALUES ($1, $2, 'system', '系统', 'system', '新节点邮件', '新节点邮件', '{}'::jsonb, 1, $3, now())
+      `,
+      [newerMailId, playerId, now + 2],
+    );
+    await client.query(
+      `
+        UPDATE player_mail_counter
+        SET unread_count = 1, unclaimed_count = 0, latest_mail_at = $2,
+            counter_version = 200, updated_at = now()
+        WHERE player_id = $1
+      `,
+      [playerId, now + 2],
+    );
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
+
+  // 模拟另一节点保留的旧快照：邮件版本与 durable claim 相同，但完全不知道已领取状态和新邮件。
+  await mailPersistence.saveMailbox(playerId, {
+    version: 1,
+    revision: 2,
+    welcomeMailDeliveredAt: null,
+    mails: [staleEntry],
+  });
+  await mailPersistence.saveMailboxMutation(
+    playerId,
+    {
+      version: 1,
+      revision: 3,
+      welcomeMailDeliveredAt: null,
+      mails: [],
+    },
+    [{ ...staleEntry, mailVersion: 3, updatedAt: now + 3, deletedAt: now + 3 }],
+  );
+
+  const mailRows = await fetchRows(
+    pool,
+    'SELECT mail_id, mail_version, read_at, claimed_at, deleted_at FROM player_mail WHERE player_id = $1 ORDER BY mail_id ASC',
+    [playerId],
+  );
+  const attachmentRow = await fetchSingleRow(
+    pool,
+    'SELECT claim_operation_id, claimed_at FROM player_mail_attachment WHERE player_id = $1 AND mail_id = $2',
+    [playerId, mailId],
+  );
+  const counterRow = await fetchSingleRow(
+    pool,
+    'SELECT unread_count, unclaimed_count, counter_version FROM player_mail_counter WHERE player_id = $1',
+    [playerId],
+  );
+  const claimedMail = mailRows.find((row) => row.mail_id === mailId) ?? null;
+  if (
+    mailRows.length !== 2
+    || !claimedMail
+    || claimedMail.read_at == null
+    || claimedMail.claimed_at == null
+    || claimedMail.deleted_at == null
+    || !attachmentRow
+    || attachmentRow.claim_operation_id !== claimOperationId
+    || attachmentRow.claimed_at == null
+    || !counterRow
+    || Number(counterRow.unread_count) !== 1
+    || Number(counterRow.unclaimed_count) !== 0
+    || Number(counterRow.counter_version) <= 200
+  ) {
+    throw new Error(`cross-node stale mail write regressed durable state: ${JSON.stringify({ mailRows, attachmentRow, counterRow })}`);
   }
 }
 

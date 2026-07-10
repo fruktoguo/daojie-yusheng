@@ -228,8 +228,6 @@ export class MailPersistenceService implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
-    const summary = summarizeMailbox(normalizedMailbox);
-
     for (let attempt = 1; attempt <= SAVE_MAILBOX_RETRY_LIMIT; attempt += 1) {
       const client = await this.pool.connect();
       try {
@@ -240,28 +238,25 @@ export class MailPersistenceService implements OnModuleInit, OnModuleDestroy {
         const currentFence = await loadMailboxWriteFence(client, normalizedPlayerId);
         if (currentFence.counterVersion > normalizedMailbox.revision) {
           this.logger.warn(
-            `跳过旧邮箱全量快照：playerId=${normalizedPlayerId} currentRevision=${currentFence.counterVersion} incomingRevision=${normalizedMailbox.revision}`,
-          );
-          await client.query('COMMIT');
-          return;
-        }
-        if (stableMailboxMails.length === 0 && currentFence.mailCount > 0 && normalizedMailbox.revision <= currentFence.counterVersion) {
-          throw new Error(
-            `mailbox_full_snapshot_empty_overwrite_refused:${normalizedPlayerId}:current=${currentFence.counterVersion}:incoming=${normalizedMailbox.revision}`,
+            `收到旧邮箱快照，仅合并单调状态：playerId=${normalizedPlayerId} currentRevision=${currentFence.counterVersion} incomingRevision=${normalizedMailbox.revision}`,
           );
         }
         if (stableMailboxMails.length > 0) {
           await upsertStructuredMails(client, normalizedPlayerId, stableMailboxMails);
           await upsertStructuredAttachments(client, normalizedPlayerId, stableMailboxMails);
         }
-        await pruneStructuredMailboxSnapshot(client, normalizedPlayerId, stableMailboxMails);
-
-        await upsertStructuredMailCounter(client, normalizedPlayerId, normalizedMailbox.revision, summary);
+        // 邮件删除是单调软删除；普通快照不能以“未出现”判定删除，否则跨节点旧缓存会裁掉新邮件。
+        const persistedCounter = await refreshStructuredMailCounter(
+          client,
+          normalizedPlayerId,
+          normalizedMailbox.revision,
+          normalizedMailbox.welcomeMailDeliveredAt,
+        );
         await upsertMailRecoveryWatermark(
           client,
           normalizedPlayerId,
           computeMailboxMailVersion(normalizedMailbox.mails),
-          normalizedMailbox.revision,
+          persistedCounter.counterVersion,
         );
         await client.query('COMMIT');
         return;
@@ -294,7 +289,6 @@ export class MailPersistenceService implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
-    const summary = summarizeMailbox(normalizedMailbox);
     const affectedMailIds = Array.from(new Set(normalizedAffectedEntries.map((entry) => entry.mailId))).sort((left, right) =>
       left.localeCompare(right, 'zh-Hans-CN'),
     );
@@ -316,12 +310,17 @@ export class MailPersistenceService implements OnModuleInit, OnModuleDestroy {
           );
         }
 
-        await upsertStructuredMailCounter(client, normalizedPlayerId, normalizedMailbox.revision, summary);
+        const persistedCounter = await refreshStructuredMailCounter(
+          client,
+          normalizedPlayerId,
+          normalizedMailbox.revision,
+          normalizedMailbox.welcomeMailDeliveredAt,
+        );
         await upsertMailRecoveryWatermark(
           client,
           normalizedPlayerId,
           computeMailboxMailVersion(normalizedMailbox.mails, normalizedAffectedEntries),
-          normalizedMailbox.revision,
+          persistedCounter.counterVersion,
         );
         await client.query('COMMIT');
         return;
@@ -444,18 +443,17 @@ export class MailPersistenceService implements OnModuleInit, OnModuleDestroy {
           `,
           [playerId, stableExpiredMailIds],
         );
-        const summary = summarizeMailbox(mailbox);
-        await upsertStructuredMailCounter(client, playerId, Math.max(1, maxMailVersion), {
-          unreadCount: summary.unreadCount,
-          unclaimedCount: summary.unclaimedCount,
-          latestMailAt: summary.latestMailAt,
-          welcomeMailDeliveredAt: summary.welcomeMailDeliveredAt,
-        });
+        const persistedCounter = await refreshStructuredMailCounter(
+          client,
+          playerId,
+          Math.max(1, mailbox.revision),
+          mailbox.welcomeMailDeliveredAt,
+        );
         await upsertMailRecoveryWatermark(
           client,
           playerId,
           Math.max(1, maxMailVersion),
-          Math.max(1, mailbox.revision),
+          persistedCounter.counterVersion,
         );
         await client.query('COMMIT');
         processed += 1;
@@ -560,18 +558,13 @@ async function acquirePlayerMailLock(
 async function loadMailboxWriteFence(
   client: import('pg').PoolClient,
   playerId: string,
-): Promise<{ counterVersion: number; mailCount: number }> {
+): Promise<{ counterVersion: number }> {
   const counterResult = await client.query<{ counter_version?: unknown }>(
     `SELECT counter_version FROM ${PLAYER_MAIL_COUNTER_TABLE} WHERE player_id = $1 LIMIT 1`,
     [playerId],
   );
-  const mailCountResult = await client.query<{ mail_count?: unknown }>(
-    `SELECT count(*)::int AS mail_count FROM ${PLAYER_MAIL_TABLE} WHERE player_id = $1`,
-    [playerId],
-  );
   return {
     counterVersion: Math.max(0, Math.trunc(Number(counterResult.rows[0]?.counter_version ?? 0) || 0)),
-    mailCount: Math.max(0, Math.trunc(Number(mailCountResult.rows[0]?.mail_count ?? 0) || 0)),
   };
 }
 
@@ -772,51 +765,6 @@ async function archiveExpiredMailRows(
   );
 }
 
-function summarizeMailbox(mailbox: MailboxPayload): {
-  unreadCount: number;
-  unclaimedCount: number;
-  latestMailAt: number | null;
-  welcomeMailDeliveredAt: number | null;
-} {
-  const visibleMails = mailbox.mails.filter((entry) => {
-    const expired = Number.isFinite(entry.expireAt) && Number(entry.expireAt) <= Date.now();
-    return entry.deletedAt == null && !expired;
-  });
-  const unreadCount = visibleMails.reduce((count, entry) => count + (entry.readAt == null ? 1 : 0), 0);
-  const unclaimedCount = visibleMails.reduce((count, entry) => {
-    return count + (entry.attachments.length > 0 && entry.claimedAt == null ? 1 : 0);
-  }, 0);
-  const latestMailAt = visibleMails.reduce<number | null>((latest, entry) => {
-    if (!Number.isFinite(entry.createdAt)) {
-      return latest;
-    }
-    const createdAt = Math.trunc(Number(entry.createdAt));
-    return latest == null ? createdAt : Math.max(latest, createdAt);
-  }, null);
-  const welcomeMailDeliveredAt =
-    normalizeOptionalInteger(mailbox.welcomeMailDeliveredAt)
-    ?? resolveWelcomeMailDeliveredAt(mailbox.mails);
-  return {
-    unreadCount,
-    unclaimedCount,
-    latestMailAt,
-    welcomeMailDeliveredAt,
-  };
-}
-
-function compactMailbox(mailbox: MailboxPayload): void {
-  const normalized = normalizeMailbox(mailbox);
-  if (!normalized) {
-    mailbox.revision = Math.max(1, Math.trunc(Number(mailbox.revision ?? 1)));
-    mailbox.welcomeMailDeliveredAt = normalizeOptionalInteger(mailbox.welcomeMailDeliveredAt);
-    mailbox.mails = [];
-    return;
-  }
-  mailbox.revision = normalized.revision;
-  mailbox.welcomeMailDeliveredAt = normalized.welcomeMailDeliveredAt;
-  mailbox.mails = normalized.mails;
-}
-
 function computeMailboxMailVersion(
   mails: MailEntryPayload[],
   extraEntries: MailEntryPayload[] = [],
@@ -825,6 +773,90 @@ function computeMailboxMailVersion(
   return combined.reduce((maxVersion, entry) => {
     return Math.max(maxVersion, Math.max(1, Math.trunc(Number(entry?.mailVersion ?? 1))));
   }, 1);
+}
+
+/**
+ * 在同一玩家邮箱事务锁内从结构化真源回算计数。
+ * 不接受运行时缓存统计，避免跨节点旧快照把 durable claim 后的计数写回旧值。
+ */
+async function refreshStructuredMailCounter(
+  client: import('pg').PoolClient,
+  playerId: string,
+  requestedRevision: number,
+  incomingWelcomeMailDeliveredAt: number | null,
+): Promise<{
+  unreadCount: number;
+  unclaimedCount: number;
+  latestMailAt: number | null;
+  counterVersion: number;
+  welcomeMailDeliveredAt: number | null;
+}> {
+  const now = Date.now();
+  const currentCounter = await client.query<{
+    counter_version?: unknown;
+    welcome_mail_delivered_at?: unknown;
+  }>(
+    `
+      SELECT counter_version, welcome_mail_delivered_at
+      FROM ${PLAYER_MAIL_COUNTER_TABLE}
+      WHERE player_id = $1
+      FOR UPDATE
+    `,
+    [playerId],
+  );
+  const aggregate = await client.query<{
+    unread_count?: unknown;
+    unclaimed_count?: unknown;
+    latest_mail_at?: unknown;
+  }>(
+    `
+      WITH visible_mail AS (
+        SELECT mail_id, created_at, read_at, claimed_at
+        FROM ${PLAYER_MAIL_TABLE}
+        WHERE player_id = $1
+          AND deleted_at IS NULL
+          AND (expire_at IS NULL OR expire_at > $2)
+      )
+      SELECT
+        COALESCE(COUNT(*) FILTER (WHERE visible_mail.read_at IS NULL), 0) AS unread_count,
+        COALESCE(COUNT(*) FILTER (
+          WHERE visible_mail.claimed_at IS NULL
+            AND EXISTS (
+              SELECT 1
+              FROM ${PLAYER_MAIL_ATTACHMENT_TABLE} attachment
+              WHERE attachment.player_id = $1
+                AND attachment.mail_id = visible_mail.mail_id
+                AND attachment.claimed_at IS NULL
+            )
+        ), 0) AS unclaimed_count,
+        MAX(visible_mail.created_at) AS latest_mail_at
+      FROM visible_mail
+    `,
+    [playerId, now],
+  );
+  const currentCounterVersion = Math.max(
+    0,
+    Math.trunc(Number(currentCounter.rows[0]?.counter_version ?? 0) || 0),
+  );
+  const counterVersion = Math.max(
+    currentCounterVersion + 1,
+    Math.max(1, Math.trunc(Number(requestedRevision ?? 1) || 1)),
+  );
+  const row = aggregate.rows[0] ?? {};
+  const welcomeMailDeliveredAt =
+    normalizeOptionalInteger(currentCounter.rows[0]?.welcome_mail_delivered_at)
+    ?? normalizeOptionalInteger(incomingWelcomeMailDeliveredAt);
+  const summary = {
+    unreadCount: Math.max(0, Math.trunc(Number(row.unread_count ?? 0) || 0)),
+    unclaimedCount: Math.max(0, Math.trunc(Number(row.unclaimed_count ?? 0) || 0)),
+    latestMailAt: normalizeOptionalInteger(row.latest_mail_at),
+    welcomeMailDeliveredAt,
+  };
+  await upsertStructuredMailCounter(client, playerId, counterVersion, summary);
+  return {
+    ...summary,
+    counterVersion,
+  };
 }
 
 async function upsertStructuredMailCounter(
@@ -900,72 +932,6 @@ async function upsertMailRecoveryWatermark(
   );
 }
 
-async function insertStructuredMails(
-  client: import('pg').PoolClient,
-  playerId: string,
-  mails: MailEntryPayload[],
-): Promise<void> {
-  const values: unknown[] = [];
-  const placeholders: string[] = [];
-  let parameterIndex = 1;
-
-  for (const entry of mails) {
-    placeholders.push(
-      `($${parameterIndex}, $${parameterIndex + 1}, 'system', $${parameterIndex + 2}, $${parameterIndex + 3}, 'system', $${parameterIndex + 4}, $${parameterIndex + 5}, NULL, NULL, $${parameterIndex + 6}::jsonb, $${parameterIndex + 7}, $${parameterIndex + 8}, $${parameterIndex + 9}, $${parameterIndex + 10}, $${parameterIndex + 11}, $${parameterIndex + 12}, $${parameterIndex + 13}, to_timestamp($${parameterIndex + 14}::double precision / 1000.0))`,
-    );
-    values.push(
-      entry.mailId,
-      playerId,
-      entry.senderLabel,
-      entry.templateId,
-      entry.fallbackTitle,
-      entry.fallbackBody,
-      JSON.stringify({ args: entry.args }),
-      Math.max(1, Math.trunc(Number(entry.mailVersion ?? 1))),
-      Math.trunc(Number(entry.createdAt)),
-      normalizeOptionalInteger(entry.expireAt),
-      normalizeOptionalInteger(entry.firstSeenAt),
-      normalizeOptionalInteger(entry.readAt),
-      normalizeOptionalInteger(entry.claimedAt),
-      normalizeOptionalInteger(entry.deletedAt),
-      normalizeRequiredInteger(entry.updatedAt, Math.trunc(Number(entry.createdAt))),
-    );
-    parameterIndex += 15;
-  }
-
-  if (parameterIndex - 1 !== values.length) {
-    throw new Error(`structured_mail_placeholder_mismatch:${parameterIndex - 1}:${values.length}`);
-  }
-
-  await client.query(
-    `
-      INSERT INTO ${PLAYER_MAIL_TABLE}(
-        mail_id,
-        player_id,
-        sender_type,
-        sender_label,
-        template_id,
-        mail_type,
-        title,
-        body,
-        source_type,
-        source_ref_id,
-        metadata_jsonb,
-        mail_version,
-        created_at,
-        expire_at,
-        first_seen_at,
-        read_at,
-        claimed_at,
-        deleted_at,
-        updated_at
-      )
-      VALUES ${placeholders.join(',\n')}
-    `,
-    values,
-  );
-}
-
 async function upsertStructuredMails(
   client: import('pg').PoolClient,
   playerId: string,
@@ -1033,87 +999,60 @@ async function upsertStructuredMails(
       VALUES ${placeholders.join(',\n')}
       ON CONFLICT (mail_id)
       DO UPDATE SET
-        player_id = EXCLUDED.player_id,
-        sender_type = EXCLUDED.sender_type,
-        sender_label = EXCLUDED.sender_label,
-        template_id = EXCLUDED.template_id,
-        mail_type = EXCLUDED.mail_type,
-        title = EXCLUDED.title,
-        body = EXCLUDED.body,
-        source_type = EXCLUDED.source_type,
-        source_ref_id = EXCLUDED.source_ref_id,
-        metadata_jsonb = EXCLUDED.metadata_jsonb,
-        mail_version = EXCLUDED.mail_version,
-        created_at = EXCLUDED.created_at,
-        expire_at = EXCLUDED.expire_at,
-        first_seen_at = EXCLUDED.first_seen_at,
-        read_at = EXCLUDED.read_at,
-        claimed_at = EXCLUDED.claimed_at,
-        deleted_at = EXCLUDED.deleted_at,
-        updated_at = EXCLUDED.updated_at
-      WHERE ${PLAYER_MAIL_TABLE}.mail_version <= EXCLUDED.mail_version
-    `,
-    values,
-  );
-}
-
-async function insertStructuredAttachments(
-  client: import('pg').PoolClient,
-  playerId: string,
-  mails: MailEntryPayload[],
-): Promise<void> {
-  const values: unknown[] = [];
-  const placeholders: string[] = [];
-  let parameterIndex = 1;
-
-  for (const mail of mails) {
-    for (let index = 0; index < mail.attachments.length; index += 1) {
-      const attachment = mail.attachments[index];
-      const itemId = normalizeRequiredString(attachment.itemId);
-      if (!itemId) {
-        continue;
-      }
-      placeholders.push(
-        `($${parameterIndex}, $${parameterIndex + 1}, $${parameterIndex + 2}, 'item', $${parameterIndex + 3}, $${parameterIndex + 4}, NULL, NULL, $${parameterIndex + 5}::jsonb, NULL, $${parameterIndex + 6}, now())`,
-      );
-      values.push(
-        `mail_attachment:${mail.mailId}:${index}`,
-        mail.mailId,
-        playerId,
-        itemId,
-        Math.max(1, Math.trunc(Number(attachment.count ?? 1))),
-        JSON.stringify(attachment),
-        normalizeOptionalInteger(mail.claimedAt),
-      );
-      parameterIndex += 7;
-    }
-  }
-
-  if (placeholders.length === 0) {
-    return;
-  }
-
-  if (parameterIndex - 1 !== values.length) {
-    throw new Error(`structured_mail_attachment_placeholder_mismatch:${parameterIndex - 1}:${values.length}`);
-  }
-
-  await client.query(
-    `
-      INSERT INTO ${PLAYER_MAIL_ATTACHMENT_TABLE}(
-        attachment_id,
-        mail_id,
-        player_id,
-        attachment_kind,
-        item_id,
-        count,
-        currency_type,
-        amount,
-        item_payload_jsonb,
-        claim_operation_id,
-        claimed_at,
-        created_at
-      )
-      VALUES ${placeholders.join(',\n')}
+        sender_type = CASE
+          WHEN ${PLAYER_MAIL_TABLE}.mail_version < EXCLUDED.mail_version THEN EXCLUDED.sender_type
+          ELSE ${PLAYER_MAIL_TABLE}.sender_type
+        END,
+        sender_label = CASE
+          WHEN ${PLAYER_MAIL_TABLE}.mail_version < EXCLUDED.mail_version THEN EXCLUDED.sender_label
+          ELSE ${PLAYER_MAIL_TABLE}.sender_label
+        END,
+        template_id = CASE
+          WHEN ${PLAYER_MAIL_TABLE}.mail_version < EXCLUDED.mail_version THEN EXCLUDED.template_id
+          ELSE ${PLAYER_MAIL_TABLE}.template_id
+        END,
+        mail_type = CASE
+          WHEN ${PLAYER_MAIL_TABLE}.mail_version < EXCLUDED.mail_version THEN EXCLUDED.mail_type
+          ELSE ${PLAYER_MAIL_TABLE}.mail_type
+        END,
+        title = CASE
+          WHEN ${PLAYER_MAIL_TABLE}.mail_version < EXCLUDED.mail_version THEN EXCLUDED.title
+          ELSE ${PLAYER_MAIL_TABLE}.title
+        END,
+        body = CASE
+          WHEN ${PLAYER_MAIL_TABLE}.mail_version < EXCLUDED.mail_version THEN EXCLUDED.body
+          ELSE ${PLAYER_MAIL_TABLE}.body
+        END,
+        source_type = CASE
+          WHEN ${PLAYER_MAIL_TABLE}.mail_version < EXCLUDED.mail_version THEN EXCLUDED.source_type
+          ELSE ${PLAYER_MAIL_TABLE}.source_type
+        END,
+        source_ref_id = CASE
+          WHEN ${PLAYER_MAIL_TABLE}.mail_version < EXCLUDED.mail_version THEN EXCLUDED.source_ref_id
+          ELSE ${PLAYER_MAIL_TABLE}.source_ref_id
+        END,
+        metadata_jsonb = CASE
+          WHEN ${PLAYER_MAIL_TABLE}.mail_version < EXCLUDED.mail_version THEN EXCLUDED.metadata_jsonb
+          ELSE ${PLAYER_MAIL_TABLE}.metadata_jsonb
+        END,
+        mail_version = GREATEST(${PLAYER_MAIL_TABLE}.mail_version, EXCLUDED.mail_version),
+        expire_at = CASE
+          WHEN ${PLAYER_MAIL_TABLE}.mail_version < EXCLUDED.mail_version THEN EXCLUDED.expire_at
+          ELSE ${PLAYER_MAIL_TABLE}.expire_at
+        END,
+        first_seen_at = COALESCE(${PLAYER_MAIL_TABLE}.first_seen_at, EXCLUDED.first_seen_at),
+        read_at = COALESCE(${PLAYER_MAIL_TABLE}.read_at, EXCLUDED.read_at),
+        claimed_at = COALESCE(${PLAYER_MAIL_TABLE}.claimed_at, EXCLUDED.claimed_at),
+        deleted_at = COALESCE(${PLAYER_MAIL_TABLE}.deleted_at, EXCLUDED.deleted_at),
+        updated_at = GREATEST(${PLAYER_MAIL_TABLE}.updated_at, EXCLUDED.updated_at)
+      WHERE ${PLAYER_MAIL_TABLE}.player_id = EXCLUDED.player_id
+        AND (
+          ${PLAYER_MAIL_TABLE}.mail_version < EXCLUDED.mail_version
+          OR (${PLAYER_MAIL_TABLE}.first_seen_at IS NULL AND EXCLUDED.first_seen_at IS NOT NULL)
+          OR (${PLAYER_MAIL_TABLE}.read_at IS NULL AND EXCLUDED.read_at IS NOT NULL)
+          OR (${PLAYER_MAIL_TABLE}.claimed_at IS NULL AND EXCLUDED.claimed_at IS NOT NULL)
+          OR (${PLAYER_MAIL_TABLE}.deleted_at IS NULL AND EXCLUDED.deleted_at IS NOT NULL)
+        )
     `,
     values,
   );
@@ -1178,82 +1117,15 @@ async function upsertStructuredAttachments(
       VALUES ${placeholders.join(',\n')}
       ON CONFLICT (attachment_id)
       DO UPDATE SET
-        mail_id = EXCLUDED.mail_id,
-        player_id = EXCLUDED.player_id,
-        attachment_kind = EXCLUDED.attachment_kind,
-        item_id = EXCLUDED.item_id,
-        count = EXCLUDED.count,
-        currency_type = EXCLUDED.currency_type,
-        amount = EXCLUDED.amount,
-        item_payload_jsonb = EXCLUDED.item_payload_jsonb,
-        claim_operation_id = EXCLUDED.claim_operation_id,
-        claimed_at = EXCLUDED.claimed_at
+        claim_operation_id = COALESCE(
+          ${PLAYER_MAIL_ATTACHMENT_TABLE}.claim_operation_id,
+          EXCLUDED.claim_operation_id
+        ),
+        claimed_at = COALESCE(${PLAYER_MAIL_ATTACHMENT_TABLE}.claimed_at, EXCLUDED.claimed_at)
+      WHERE ${PLAYER_MAIL_ATTACHMENT_TABLE}.player_id = EXCLUDED.player_id
+        AND ${PLAYER_MAIL_ATTACHMENT_TABLE}.mail_id = EXCLUDED.mail_id
     `,
     values,
-  );
-}
-
-async function pruneStructuredMailboxSnapshot(
-  client: import('pg').PoolClient,
-  playerId: string,
-  mails: MailEntryPayload[],
-): Promise<void> {
-  const mailIds = mails.map((mail) => mail.mailId);
-  const attachmentIds = mails.flatMap((mail) => mail.attachments
-    .map((attachment, index) => (normalizeRequiredString(attachment.itemId) ? buildMailAttachmentId(mail.mailId, index) : ''))
-    .filter(Boolean));
-  const mailIdsJson = JSON.stringify(mailIds.map((mailId) => ({ mail_id: mailId })));
-  const attachmentIdsJson = JSON.stringify(attachmentIds.map((attachmentId) => ({ attachment_id: attachmentId })));
-
-  await client.query(
-    `
-      WITH incoming AS (
-        SELECT mail_id
-        FROM jsonb_to_recordset($2::jsonb) AS entry(mail_id varchar(180))
-      )
-      DELETE FROM ${PLAYER_MAIL_ATTACHMENT_TABLE} target
-      WHERE target.player_id = $1
-        AND NOT EXISTS (
-          SELECT 1
-          FROM incoming
-          WHERE incoming.mail_id = target.mail_id
-        )
-    `,
-    [playerId, mailIdsJson],
-  );
-
-  await client.query(
-    `
-      WITH incoming AS (
-        SELECT attachment_id
-        FROM jsonb_to_recordset($2::jsonb) AS entry(attachment_id varchar(180))
-      )
-      DELETE FROM ${PLAYER_MAIL_ATTACHMENT_TABLE} target
-      WHERE target.player_id = $1
-        AND NOT EXISTS (
-          SELECT 1
-          FROM incoming
-          WHERE incoming.attachment_id = target.attachment_id
-        )
-    `,
-    [playerId, attachmentIdsJson],
-  );
-
-  await client.query(
-    `
-      WITH incoming AS (
-        SELECT mail_id
-        FROM jsonb_to_recordset($2::jsonb) AS entry(mail_id varchar(180))
-      )
-      DELETE FROM ${PLAYER_MAIL_TABLE} target
-      WHERE target.player_id = $1
-        AND NOT EXISTS (
-          SELECT 1
-          FROM incoming
-          WHERE incoming.mail_id = target.mail_id
-        )
-    `,
-    [playerId, mailIdsJson],
   );
 }
 
@@ -1268,20 +1140,13 @@ async function replaceStructuredAttachmentsForMailIds(
     return;
   }
 
-  await client.query(
-    `
-      DELETE FROM ${PLAYER_MAIL_ATTACHMENT_TABLE}
-      WHERE player_id = $1
-        AND mail_id = ANY($2::varchar[])
-    `,
-    [playerId, normalizedMailIds],
-  );
-
   const affectedMails = mails.filter((entry) => normalizedMailIds.includes(entry.mailId));
   if (affectedMails.length === 0) {
     return;
   }
-  await insertStructuredAttachments(client, playerId, affectedMails);
+  // 附件是邮件创建时的不可变资产载荷。局部邮件状态写只做单调 upsert，
+  // 禁止删除后重建，否则会清掉 durable claim 写入的 operationId 与 claimedAt。
+  await upsertStructuredAttachments(client, playerId, affectedMails);
 }
 
 function buildMailAttachmentId(mailId: string, index: number): string {

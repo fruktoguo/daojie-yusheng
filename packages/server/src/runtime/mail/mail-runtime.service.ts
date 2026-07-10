@@ -4,7 +4,8 @@
  * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
 import { Inject, Injectable } from '@nestjs/common';
-import { buildMailPreviewSnippet, canMergeItemStack, createItemStackSignature, normalizeMailBatchIds, normalizeMailFilter, normalizeMailPageSize, renderMailBodyPlain, renderMailTitlePlain } from '@mud/shared';
+import { buildMailPreviewSnippet, canMergeItemStack, createItemStackSignature, normalizeMailBatchIds, normalizeMailFilter, normalizeMailPageSize, renderMailBodyPlain, renderMailTitlePlain, resolveClampedMailResponsePage } from '@mud/shared';
+import { createHash } from 'node:crypto';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { PlayerDomainPersistenceService } from '../../persistence/player-domain-persistence.service';
 import { DurableOperationService } from '../../persistence/durable-operation.service';
@@ -109,7 +110,9 @@ export class MailRuntimeService {
                 return mailbox;
             }
             finally {
-                this.loadingMailboxByPlayerId.delete(normalizedPlayerId);
+                if (this.loadingMailboxByPlayerId.get(normalizedPlayerId) === loading) {
+                    this.loadingMailboxByPlayerId.delete(normalizedPlayerId);
+                }
             }
         })();
         this.loadingMailboxByPlayerId.set(normalizedPlayerId, loading);
@@ -181,7 +184,7 @@ export class MailRuntimeService {
 
         const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
-        const page = Math.min(totalPages, Math.max(1, Math.floor(requestedPage || 1)));
+        const page = resolveClampedMailResponsePage(requestedPage, total, pageSize);
 
         const start = (page - 1) * pageSize;
         return {
@@ -257,7 +260,7 @@ export class MailRuntimeService {
     /** 批量领取邮件附件。 */
     async claimAttachments(playerId, mailIds) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-        return this.runSerializedMailboxWrite(playerId, async () => {
+        const claim = () => this.runSerializedMailboxWrite(playerId, async () => {
             const mailbox = await this.ensurePlayerMailbox(playerId);
             const normalizedIds = normalizeMailBatchIds(mailIds);
             if (normalizedIds.length === 0) {
@@ -309,9 +312,7 @@ export class MailRuntimeService {
                         };
                     }
                     this.playerRuntimeService.replaceInventoryItems(playerId, revalidatedInventory.map((entry) => ({ ...entry.rawPayload })));
-                    this.discardMailboxCache(playerId);
-                    this.loadingMailboxByPlayerId.delete(playerId);
-                    await this.ensurePlayerMailbox(playerId);
+                    await this.reloadMailboxFromPersistence(playerId);
                     return {
                         operation: 'claim',
                         ok: true,
@@ -335,6 +336,11 @@ export class MailRuntimeService {
                 message: '邮件附件领取事务暂不可用，请稍后再试。',
             };
         });
+        const coordinator = this.playerRuntimeService?.runExclusiveAssetMutation;
+        if (typeof coordinator !== 'function') {
+            return claim();
+        }
+        return coordinator.call(this.playerRuntimeService, [playerId], claim);
     }
     async claimAttachmentsDurably(playerId, normalizedIds, visible, nextInventoryItems, walletCredits) {
         await this.syncCurrentPresenceFence(playerId);
@@ -781,6 +787,24 @@ export class MailRuntimeService {
             serializeMailboxPayload(mailbox),
             serializeMailboxEntries(affectedEntries),
         );
+        await this.reloadMailboxFromPersistence(playerId);
+    }
+    /** 丢弃当前节点快照并从结构化真源回读，用于收敛跨节点邮件状态。 */
+    async reloadMailboxFromPersistence(playerId) {
+        if (!this.mailPersistenceService?.isEnabled?.()) {
+            return;
+        }
+        const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
+        if (!normalizedPlayerId) {
+            return;
+        }
+        const existingLoad = this.loadingMailboxByPlayerId.get(normalizedPlayerId);
+        if (existingLoad) {
+            await existingLoad.catch(() => undefined);
+        }
+        this.discardMailboxCache(normalizedPlayerId);
+        this.loadingMailboxByPlayerId.delete(normalizedPlayerId);
+        await this.ensurePlayerMailbox(normalizedPlayerId);
     }
     mergeWalletCredits(existingBalances, walletCredits) {
         const nextBalances = Array.isArray(existingBalances)
@@ -818,7 +842,11 @@ export class MailRuntimeService {
             return task();
         }
         const previous = this.mailboxWriteByPlayerId.get(normalizedPlayerId) ?? Promise.resolve();
-        const next = previous.catch(() => undefined).then(async () => task());
+        const next = previous.catch(() => undefined).then(async () => {
+            // 邮件操作是低频强持久化命令；写前回读真源，不使用可能跨节点过期的本地缓存做删除/领取决策。
+            await this.reloadMailboxFromPersistence(normalizedPlayerId);
+            return task();
+        });
         const tracked = next.finally(() => {
             if (this.mailboxWriteByPlayerId.get(normalizedPlayerId) === tracked) {
                 this.mailboxWriteByPlayerId.delete(normalizedPlayerId);
@@ -894,11 +922,25 @@ function nextMailVersion(entry) {
     return Math.max(1, Math.trunc(Number(entry?.mailVersion ?? 1)) + 1);
 }
 
-function buildMailClaimOperationId(playerId, sessionEpoch, mailIds) {
-    const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : 'player';
+export function buildMailClaimOperationId(playerId, sessionEpoch, mailIds) {
+    const normalizedPlayerId = typeof playerId === 'string' && playerId.trim() ? playerId.trim() : 'player';
     const normalizedEpoch = Number.isFinite(sessionEpoch) ? Math.max(1, Math.trunc(Number(sessionEpoch))) : 1;
-    const normalizedIds = Array.isArray(mailIds) ? mailIds.map((entry) => String(entry ?? '').trim()).filter(Boolean).sort() : [];
-    return `mail-claim:${normalizedPlayerId}:${normalizedEpoch}:${normalizedIds.join(',')}`;
+    const normalizedIds = normalizeMailBatchIds(mailIds).slice().sort(compareMailIdStable);
+    const playerHash = hashMailOperationComponent(normalizedPlayerId);
+    const mailSetHash = hashMailOperationComponent(JSON.stringify(normalizedIds));
+    const operationId = `mail-claim:p:${playerHash}:e:${normalizedEpoch}:m:${mailSetHash}`;
+    if (operationId.length > 173) {
+        throw new Error(`mail_claim_operation_id_too_long:${operationId.length}`);
+    }
+    return operationId;
+}
+
+function hashMailOperationComponent(value) {
+    return createHash('sha256').update(String(value ?? ''), 'utf8').digest('hex');
+}
+
+function compareMailIdStable(left, right) {
+    return left < right ? -1 : left > right ? 1 : 0;
 }
 
 function resolveClaimErrorMessage(error) {

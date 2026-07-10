@@ -38,6 +38,7 @@ function main(): void {
 
   assert.deepEqual(resolution?.inventoryItems.map((entry) => ({ itemId: entry.itemId, count: entry.count })), [
     { itemId: 'rat_tail', count: 2 },
+    { itemId: 'spirit_stone', count: 10 },
   ]);
   assert.deepEqual(resolution?.walletCredits, [
     { walletType: 'spirit_stone', count: 10 },
@@ -47,7 +48,7 @@ function main(): void {
     JSON.stringify(
       {
         ok: true,
-        answers: '邮件附件中的 spirit_stone 会按钱包入账解析，不占背包格；普通附件仍进入背包预演。',
+        answers: '邮件附件中的 spirit_stone 同时进入背包物品真源与钱包镜像计划，崩溃恢复不会只剩钱包孤立余额。',
         excludes: '不证明 PostgreSQL durable claim 事务或客户端领取入口。',
         completionMapping: 'release:proof:mail-wallet-attachment',
       },

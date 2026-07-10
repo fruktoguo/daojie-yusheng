@@ -179,6 +179,14 @@ async function main(): Promise<void> {
               .filter((entry): entry is Record<string, unknown> => Boolean(entry) && typeof entry === 'object')
               .map((entry) => ({ ...entry }))
           : [];
+        const spiritStoneBalance = runtimePlayerState.inventoryItems.reduce((total, entry) => {
+          return entry.itemId === 'spirit_stone'
+            ? total + Math.max(0, Math.trunc(Number(entry.count ?? 0)))
+            : total;
+        }, 0);
+        runtimePlayerState.walletBalances = spiritStoneBalance > 0
+          ? [{ walletType: 'spirit_stone', balance: spiritStoneBalance, frozenBalance: 0, version: 1 }]
+          : [];
       },
       creditWallet(targetPlayerId: string, walletType: string, amount = 1) {
         if (targetPlayerId !== runtimePlayerId) {
@@ -504,7 +512,11 @@ async function main(): Promise<void> {
     if (runtimeSummary.unreadCount !== 0 || runtimeSummary.claimableCount !== 0) {
       throw new Error(`unexpected runtime mail summary after claim: ${JSON.stringify(runtimeSummary)}`);
     }
-    if (runtimePlayerState.inventoryItems.length !== 0) {
+    if (
+      runtimePlayerState.inventoryItems.length !== 1
+      || runtimePlayerState.inventoryItems[0]?.itemId !== 'spirit_stone'
+      || Number(runtimePlayerState.inventoryItems[0]?.count ?? 0) !== 1
+    ) {
       throw new Error(`unexpected runtime inventory after durable claim: ${JSON.stringify(runtimePlayerState.inventoryItems)}`);
     }
     const runtimeWalletBalances = runtimePlayerState.walletBalances as Array<{
@@ -531,10 +543,10 @@ async function main(): Promise<void> {
         SELECT operation_id, status, committed_at
         FROM durable_operation_log
         WHERE player_id = $1
-          AND operation_id LIKE $2
+          AND operation_type = 'mail_claim'
         ORDER BY created_at ASC, operation_id ASC
       `,
-      [runtimePlayerId, `mail-claim:${runtimePlayerId}:%:${runtimeMailId}`],
+      [runtimePlayerId],
     );
     const runtimeAttachmentRows = await pool.query(
       `
