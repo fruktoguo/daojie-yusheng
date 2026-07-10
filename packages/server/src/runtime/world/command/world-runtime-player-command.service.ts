@@ -656,7 +656,7 @@ export class WorldRuntimePlayerCommandService {
             case 'setArtifactSlotEnabled':
                 return this.worldRuntimeEquipmentService.dispatchSetArtifactSlotEnabled(playerId, command.slot, command.enabled, deps);
             case 'dropItem':
-                this.worldRuntimeItemGroundService.dispatchDropItem(playerId, command.itemInstanceId, command.count, deps);
+                await this.worldRuntimeItemGroundService.dispatchDropItem(playerId, command.itemInstanceId, command.count, deps);
                 requestPlayerDeltaSync(deps, playerId);
                 return;
             case 'moveTo':

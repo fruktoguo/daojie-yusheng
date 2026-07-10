@@ -1032,8 +1032,8 @@ export class WorldRuntimeService {
         async dispatchBasicAttack(playerId, targetPlayerId, targetMonsterId, targetX, targetY) {
         return this.worldRuntimeGameplayWriteFacadeService.dispatchBasicAttack(playerId, targetPlayerId, targetMonsterId, targetX, targetY, this);
     }
-        dispatchDropItem(playerId, itemInstanceId, count) {
-        this.worldRuntimeGameplayWriteFacadeService.dispatchDropItem(playerId, itemInstanceId, count, this);
+        async dispatchDropItem(playerId, itemInstanceId, count) {
+        return this.worldRuntimeGameplayWriteFacadeService.dispatchDropItem(playerId, itemInstanceId, count, this);
     }
         async dispatchTakeGround(playerId, sourceId, itemKey) {
         return this.worldRuntimeGameplayWriteFacadeService.dispatchTakeGround(playerId, sourceId, itemKey, this);

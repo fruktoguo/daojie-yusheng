@@ -7,6 +7,7 @@ import { canReceiveItemStack } from '../runtime/world/world-runtime.normalizatio
 const TEST_REALM_EXP_TO_NEXT = 10000;
 
 async function main(): Promise<void> {
+  await testLootSourceMutationSerialization();
   await testGroundTakeDurableGrant();
   await testGroundTakeDurableGrantSyncsPresenceFence();
   await testGroundTakeFormatsTemplateName();
@@ -39,6 +40,34 @@ async function main(): Promise<void> {
     answers: '地面 pile 与容器 source 的单个拿取/全部拿取仍走 grantInventoryItems durable 主链，成功提交后才刷新任务状态并补发 loot notice，同时透传 runtimeOwnerId/sessionEpoch/instanceId/assignedNodeId/ownershipEpoch；草药采集完成不再在 tick 内调用 durable grant 或 presence fence，而是只更新运行态背包、标记 inventory/active_job/profession 脏域并交由 flush 链路落盘；草药会按生长时间持续补库存，库存未耗尽也会增长并写入 container_state，采集和地块攻击只扣 1 朵，下一次生长倒计时持续保留',
     excludes: '本 smoke 只覆盖 loot container facade 行为；采集 tick 迁出旧 service 的结构性 proof 在 world-runtime-craft-smoke，也不证明更泛化的 tick 资产 intent 编排',
   }, null, 2));
+}
+
+async function testLootSourceMutationSerialization(): Promise<void> {
+  const service = new WorldRuntimeLootContainerService({} as never, {} as never);
+  const log: string[] = [];
+  let releaseFirst = () => {};
+  const first = service.runExclusiveLootSourceMutation('instance:shared', 'g:7', async () => {
+    log.push('first:start');
+    await new Promise<void>((resolve) => {
+      releaseFirst = resolve;
+    });
+    log.push('first:end');
+  });
+  await nextTick();
+  const second = service.runExclusiveLootSourceMutation('instance:shared', 'g:7', async () => {
+    log.push('second:start');
+    log.push('second:end');
+  });
+  const independent = service.runExclusiveLootSourceMutation('instance:shared', 'g:8', async () => {
+    log.push('independent');
+  });
+  await nextTick();
+  assert.deepEqual(log, ['first:start', 'independent']);
+  releaseFirst();
+  await Promise.all([first, second, independent]);
+  await nextTick();
+  assert.deepEqual(log, ['first:start', 'independent', 'first:end', 'second:start', 'second:end']);
+  assert.equal(service.lootSourceMutationQueueByKey.size, 0);
 }
 
 async function testGroundTakeFormatsTemplateName() {
@@ -116,21 +145,27 @@ async function testGroundTakeDurableGrantSyncsPresenceFence() {
       log.push(['savePlayerPresence', playerId, presence.runtimeOwnerId, presence.sessionEpoch]);
     },
   } as never);
+  const pileItems = [
+    { itemKey: 'pile:item:fenced', item: { itemId: 'rat_tail', name: '鼠尾', count: 1, type: 'material' } },
+  ];
   const instance = {
     getGroundPileBySourceId(sourceId: string) {
-      assert.equal(sourceId, 'ground:fenced');
+      assert.equal(sourceId, 'g:259');
       return {
         x: 3,
         y: 4,
-        items: [
-          { itemKey: 'pile:item:fenced', item: { itemId: 'rat_tail', name: '鼠尾', count: 1, type: 'material' } },
-        ],
+        items: pileItems,
       };
     },
     takeGroundItem(sourceId: string, itemKey: string) {
-      assert.equal(sourceId, 'ground:fenced');
+      assert.equal(sourceId, 'g:259');
       assert.equal(itemKey, 'pile:item:fenced');
-      return { itemId: 'rat_tail', name: '鼠尾', count: 1, type: 'material' };
+      const [entry] = pileItems.splice(0, 1);
+      return { ...entry!.item };
+    },
+    captureGroundTileItemsForAssetMutation(tileIndex: number) {
+      assert.equal(tileIndex, 259);
+      return pileItems.map((entry) => ({ ...entry.item }));
     },
     dropGroundItem() {
       throw new Error('ground item should not be restored after synced durable success');
@@ -172,10 +207,16 @@ async function testGroundTakeDurableGrantSyncsPresenceFence() {
     },
   };
 
-  await service.dispatchTakeGround(player.playerId, 'ground:fenced', 'pile:item:fenced', deps as never);
+  await service.dispatchTakeGround(player.playerId, 'g:259', 'pile:item:fenced', deps as never);
   assert.equal(durableCalls.length, 1);
   assert.equal(durableCalls[0]?.expectedRuntimeOwnerId, 'runtime:player:ground:fenced:447');
   assert.equal(durableCalls[0]?.expectedSessionEpoch, 447);
+  assert.deepEqual(durableCalls[0]?.sourceMutation, {
+    kind: 'ground_tile',
+    instanceId: 'instance:ground:fenced',
+    tileIndex: 259,
+    remainingItems: [],
+  });
   assert.deepEqual(log, [
     ['loadPlayerPresence', 'player:ground:fenced'],
     ['ensureRuntimeSessionFenceAtLeast', 'player:ground:fenced', 446],
@@ -195,22 +236,28 @@ async function testGroundTakeDurableGrant() {
   player.x = 3;
   player.y = 4;
   const service = new WorldRuntimeLootContainerService({} as never, buildPlayerRuntimeService(player) as never);
+  const pileItems = [
+    { itemKey: 'pile:item:1', item: { itemId: 'rat_tail', name: '鼠尾', count: 2, type: 'material' } },
+  ];
   const instance = {
     getGroundPileBySourceId(sourceId: string) {
-      assert.equal(sourceId, 'ground:1');
+      assert.equal(sourceId, 'g:291');
       return {
         x: 3,
         y: 4,
-        items: [
-          { itemKey: 'pile:item:1', item: { itemId: 'rat_tail', name: '鼠尾', count: 2, type: 'material' } },
-        ],
+        items: pileItems,
       };
     },
     takeGroundItem(sourceId: string, itemKey: string) {
-      assert.equal(sourceId, 'ground:1');
+      assert.equal(sourceId, 'g:291');
       assert.equal(itemKey, 'pile:item:1');
       takenItems.push(itemKey);
-      return { itemId: 'rat_tail', name: '鼠尾', count: 2, type: 'material' };
+      const [entry] = pileItems.splice(0, 1);
+      return { ...entry!.item };
+    },
+    captureGroundTileItemsForAssetMutation(tileIndex: number) {
+      assert.equal(tileIndex, 291);
+      return pileItems.map((entry) => ({ ...entry.item }));
     },
     dropGroundItem(x: number, y: number, item: { itemId: string; count: number }) {
       restoredItems.push(`${x}:${y}:${item.itemId}:x${item.count}`);
@@ -261,7 +308,7 @@ async function testGroundTakeDurableGrant() {
     },
   };
 
-  const pendingTakeGround = service.dispatchTakeGround(player.playerId, 'ground:1', 'pile:item:1', deps as never);
+  const pendingTakeGround = service.dispatchTakeGround(player.playerId, 'g:291', 'pile:item:1', deps as never);
   await nextTick();
   assert.deepEqual(takenItems, ['pile:item:1']);
   assert.equal(log.length, 0);
@@ -272,7 +319,13 @@ async function testGroundTakeDurableGrant() {
   assert.equal(durableCalls[0]?.expectedAssignedNodeId, 'node:ground');
   assert.equal(durableCalls[0]?.expectedOwnershipEpoch, 31);
   assert.equal(durableCalls[0]?.sourceType, 'ground_take');
-  assert.equal(durableCalls[0]?.sourceRefId, 'ground:1:pile:item:1');
+  assert.equal(durableCalls[0]?.sourceRefId, 'g:291:pile:item:1');
+  assert.deepEqual(durableCalls[0]?.sourceMutation, {
+    kind: 'ground_tile',
+    instanceId: 'instance:ground:1',
+    tileIndex: 291,
+    remainingItems: [],
+  });
   assert.equal((durableCalls[0]?.grantedItems as Array<Record<string, unknown>>)?.[0]?.itemId, 'rat_tail');
   const grantedPayload = (durableCalls[0]?.grantedItems as Array<Record<string, unknown>>)?.[0]?.rawPayload as Record<string, unknown> | undefined;
   assert.equal(typeof grantedPayload?.itemInstanceId, 'string');
@@ -352,7 +405,7 @@ async function testGroundTakeAllDurableGrant() {
   ];
   const instance = {
     getGroundPileBySourceId(sourceId: string) {
-      assert.equal(sourceId, 'ground:2');
+      assert.equal(sourceId, 'g:454');
       return {
         x: 6,
         y: 7,
@@ -360,9 +413,14 @@ async function testGroundTakeAllDurableGrant() {
       };
     },
     takeGroundItem(_sourceId: string, itemKey: string) {
-      const entry = pileItems.find((item) => item.itemKey === itemKey);
-      assert.ok(entry);
+      const index = pileItems.findIndex((item) => item.itemKey === itemKey);
+      assert.ok(index >= 0);
+      const [entry] = pileItems.splice(index, 1);
       return { ...entry!.item };
+    },
+    captureGroundTileItemsForAssetMutation(tileIndex: number) {
+      assert.equal(tileIndex, 454);
+      return pileItems.map((entry) => ({ ...entry.item }));
     },
     dropGroundItem() {
       return { sourceId: 'ground:restored:2' };
@@ -412,7 +470,7 @@ async function testGroundTakeAllDurableGrant() {
     },
   };
 
-  const pendingTakeGroundAll = service.dispatchTakeGroundAll(player.playerId, 'ground:2', deps as never);
+  const pendingTakeGroundAll = service.dispatchTakeGroundAll(player.playerId, 'g:454', deps as never);
   await nextTick();
   assert.equal(log.length, 0);
   assert.equal(durableCalls.length, 1);
@@ -422,8 +480,14 @@ async function testGroundTakeAllDurableGrant() {
   assert.equal(durableCalls[0]?.expectedAssignedNodeId, 'node:ground');
   assert.equal(durableCalls[0]?.expectedOwnershipEpoch, 32);
   assert.equal(durableCalls[0]?.sourceType, 'ground_take_all');
-  assert.equal(durableCalls[0]?.sourceRefId, 'ground:2');
+  assert.equal(durableCalls[0]?.sourceRefId, 'g:454');
   assert.equal((durableCalls[0]?.grantedItems as Array<Record<string, unknown>>)?.length, 2);
+  assert.deepEqual(durableCalls[0]?.sourceMutation, {
+    kind: 'ground_tile',
+    instanceId: 'instance:ground:2',
+    tileIndex: 454,
+    remainingItems: [],
+  });
   resolveDurable();
   await pendingTakeGroundAll;
   assert.deepEqual(log, [
@@ -511,7 +575,7 @@ async function testGroundTakeAllIteratesStableEntrySnapshot() {
   const durableCalls: Array<Record<string, unknown>> = [];
   const instance = {
     getGroundPileBySourceId(sourceId: string) {
-      assert.equal(sourceId, 'ground:snapshot');
+      assert.equal(sourceId, 'g:521');
       return pile;
     },
     takeGroundItem(_sourceId: string, itemKey: string) {
@@ -524,8 +588,12 @@ async function testGroundTakeAllIteratesStableEntrySnapshot() {
     dropGroundItem() {
       throw new Error('ground item should not be restored after durable success');
     },
+    captureGroundTileItemsForAssetMutation(tileIndex: number) {
+      assert.equal(tileIndex, 521);
+      return pile.items.map((entry) => ({ ...entry.item }));
+    },
   };
-  await service.dispatchTakeGroundAll(player.playerId, 'ground:snapshot', {
+  await service.dispatchTakeGroundAll(player.playerId, 'g:521', {
     getPlayerLocationOrThrow() {
       return { instanceId: 'instance:ground:snapshot' };
     },
@@ -612,6 +680,10 @@ async function testGroundTakeLongHammerOperationIdFitsOutboxLimit() {
     dropGroundItem() {
       throw new Error('ground item should not be restored after durable success');
     },
+    captureGroundTileItemsForAssetMutation(tileIndex: number) {
+      assert.equal(tileIndex, 2256);
+      return pileItems.map((entry) => ({ ...entry.item }));
+    },
   };
   await service.dispatchTakeGround(player.playerId, 'g:2256', 'equip.copper_enhancement_hammer#0', {
     getPlayerLocationOrThrow() {
@@ -632,6 +704,19 @@ async function testGroundTakeLongHammerOperationIdFitsOutboxLimit() {
     },
   } as never);
   const operationId = String(durableCalls[0]?.operationId ?? '');
+  assert.deepEqual(durableCalls[0]?.sourceMutation, {
+    kind: 'ground_tile',
+    instanceId: 'public:qizhen_crossing',
+    tileIndex: 2256,
+    remainingItems: [{
+      itemId: 'equip.copper_enhancement_hammer',
+      name: '铜强化锤',
+      type: 'equipment',
+      count: 1,
+      enhanceLevel: 10,
+      itemInstanceId: '019b1d8c949df27ce0a98673e4c9484d',
+    }],
+  });
   assert.ok(operationId.startsWith(`${`op:${playerId}:ground_take:g:2256:equip.copper_enhancement_hammer#0`}`));
   assert.ok(operationId.includes(':h:'));
   assert.ok(operationId.length <= 173, `operationId length=${operationId.length}`);

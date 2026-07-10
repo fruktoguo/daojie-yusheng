@@ -174,9 +174,9 @@ export class WorldRuntimeGameplayWriteFacadeService {
  * @returns 无返回值，直接更新Drop道具相关状态。
  */
 
-    dispatchDropItem(playerId, itemInstanceId, count, deps) {
+    async dispatchDropItem(playerId, itemInstanceId, count, deps) {
         this.assertPlayerInstanceLeaseWritable(playerId, deps);
-        deps.worldRuntimeItemGroundService.dispatchDropItem(playerId, itemInstanceId, count, deps);
+        return deps.worldRuntimeItemGroundService.dispatchDropItem(playerId, itemInstanceId, count, deps);
     }
     /**
  * dispatchTakeGround：判断Take地面是否满足条件。

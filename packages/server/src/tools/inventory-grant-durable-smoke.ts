@@ -14,8 +14,8 @@ async function main(): Promise<void> {
       ok: true,
       skipped: true,
       reason: 'SERVER_DATABASE_URL/DATABASE_URL missing',
-      answers: 'with-db 下 grantInventoryItems 会在同一事务内提交 player_inventory_item/watermark/outbox/audit，并执行 runtime_owner_id + session_epoch + instance lease fencing',
-      excludes: '不证明真实战斗 tick 编排、地面/容器状态一致性或更泛化的世界资产 intent 编排',
+      answers: 'with-db 下 grantInventoryItems 会在同一事务内提交地面来源、player_inventory_item、watermark、outbox、audit，并执行 runtime_owner_id + session_epoch + instance lease fencing',
+      excludes: '不证明真实战斗 tick 编排或容器 source 的完整运行态交互',
     }, null, 2));
     return;
   }
@@ -48,6 +48,7 @@ async function main(): Promise<void> {
       leaseExpireAt: new Date(Date.now() + 60_000).toISOString(),
       ownershipEpoch: 4,
     });
+    await seedGroundItemFixture(pool, leasedInstanceId);
 
     let rejected = false;
     try {
@@ -59,8 +60,10 @@ async function main(): Promise<void> {
         expectedInstanceId: leasedInstanceId,
         expectedAssignedNodeId: 'node:inventory-grant-smoke',
         expectedOwnershipEpoch: 4,
-        sourceType: 'monster_loot',
-        sourceRefId: 'monster:rat:1',
+        sourceType: 'ground_take',
+        sourceRefId: 'g:12:rat_tail',
+        inventoryAction: 'transfer',
+        sourceMutation: buildGroundSourceMutation(leasedInstanceId),
         grantedItems: buildGrantedInventoryItems(),
         nextInventoryItems: buildNextInventoryItems(),
       });
@@ -81,8 +84,10 @@ async function main(): Promise<void> {
         expectedInstanceId: leasedInstanceId,
         expectedAssignedNodeId: 'node:inventory-grant-smoke',
         expectedOwnershipEpoch: 4,
-        sourceType: 'monster_loot',
-        sourceRefId: 'monster:rat:1',
+        sourceType: 'ground_take',
+        sourceRefId: 'g:12:rat_tail',
+        inventoryAction: 'transfer',
+        sourceMutation: buildGroundSourceMutation(leasedInstanceId),
         grantedItems: buildGrantedInventoryItems(),
         nextInventoryItems: buildNextInventoryItems(),
       });
@@ -103,8 +108,10 @@ async function main(): Promise<void> {
         expectedInstanceId: leasedInstanceId,
         expectedAssignedNodeId: 'node:inventory-grant-smoke',
         expectedOwnershipEpoch: 5,
-        sourceType: 'monster_loot',
-        sourceRefId: 'monster:rat:1',
+        sourceType: 'ground_take',
+        sourceRefId: 'g:12:rat_tail',
+        inventoryAction: 'transfer',
+        sourceMutation: buildGroundSourceMutation(leasedInstanceId),
         grantedItems: buildGrantedInventoryItems(),
         nextInventoryItems: buildNextInventoryItems(),
       });
@@ -127,6 +134,14 @@ async function main(): Promise<void> {
     ) {
       throw new Error(`unexpected inventory rows after rejection: ${JSON.stringify(rejectedInventoryRows)}`);
     }
+    const rejectedGroundRows = await fetchRows(
+      pool,
+      'SELECT item_instance_payload FROM instance_ground_item WHERE instance_id = $1 AND tile_index = 12 ORDER BY ground_item_id ASC',
+      [leasedInstanceId],
+    );
+    if (rejectedGroundRows.length !== 2) {
+      throw new Error(`ground source changed after rejected grant: ${JSON.stringify(rejectedGroundRows)}`);
+    }
 
     const firstResult = await service.grantInventoryItems({
       operationId,
@@ -136,8 +151,10 @@ async function main(): Promise<void> {
       expectedInstanceId: leasedInstanceId,
       expectedAssignedNodeId: 'node:inventory-grant-smoke',
       expectedOwnershipEpoch: 4,
-      sourceType: 'monster_loot',
-      sourceRefId: 'monster:rat:1',
+      sourceType: 'ground_take',
+      sourceRefId: 'g:12:rat_tail',
+      inventoryAction: 'transfer',
+      sourceMutation: buildGroundSourceMutation(leasedInstanceId),
       grantedItems: buildGrantedInventoryItems(),
       nextInventoryItems: buildNextInventoryItems(),
     });
@@ -153,8 +170,10 @@ async function main(): Promise<void> {
       expectedInstanceId: leasedInstanceId,
       expectedAssignedNodeId: 'node:inventory-grant-smoke',
       expectedOwnershipEpoch: 4,
-      sourceType: 'monster_loot',
-      sourceRefId: 'monster:rat:1',
+      sourceType: 'ground_take',
+      sourceRefId: 'g:12:rat_tail',
+      inventoryAction: 'transfer',
+      sourceMutation: buildGroundSourceMutation(leasedInstanceId),
       grantedItems: buildGrantedInventoryItems(),
       nextInventoryItems: buildNextInventoryItems(),
     });
@@ -187,6 +206,11 @@ async function main(): Promise<void> {
       'SELECT inventory_version FROM player_recovery_watermark WHERE player_id = $1',
       [playerId],
     );
+    const groundRows = await fetchRows(
+      pool,
+      'SELECT item_instance_payload FROM instance_ground_item WHERE instance_id = $1 AND tile_index = 12 ORDER BY ground_item_id ASC',
+      [leasedInstanceId],
+    );
 
     if (
       inventoryRows.length !== 2
@@ -199,12 +223,19 @@ async function main(): Promise<void> {
     ) {
       throw new Error(`unexpected granted inventory rows: ${JSON.stringify(inventoryRows)}`);
     }
+    if (
+      groundRows.length !== 1
+      || groundRows[0]?.item_instance_payload?.itemId !== 'wolf_fang'
+      || Number(groundRows[0]?.item_instance_payload?.count) !== 1
+    ) {
+      throw new Error(`unexpected ground source rows after transfer: ${JSON.stringify(groundRows)}`);
+    }
     if (!operationRow || operationRow.status !== 'committed' || !operationRow.committed_at) {
       throw new Error(`unexpected durable operation row: ${JSON.stringify(operationRow)}`);
     }
     if (
       outboxRows.length !== 1
-      || outboxRows[0]?.topic !== 'player.inventory.granted'
+      || outboxRows[0]?.topic !== 'player.inventory.transferred'
       || outboxRows[0]?.status !== 'ready'
     ) {
       throw new Error(`unexpected outbox rows: ${JSON.stringify(outboxRows)}`);
@@ -212,7 +243,7 @@ async function main(): Promise<void> {
     if (
       auditRows.length !== 1
       || auditRows[0]?.asset_type !== 'inventory'
-      || auditRows[0]?.action !== 'grant'
+      || auditRows[0]?.action !== 'transfer'
     ) {
       throw new Error(`unexpected audit rows: ${JSON.stringify(auditRows)}`);
     }
@@ -223,8 +254,8 @@ async function main(): Promise<void> {
     console.log(JSON.stringify({
       ok: true,
       case: 'inventory-grant-durable',
-      answers: 'with-db 下 grantInventoryItems 现已验证 runtime_owner_id + session_epoch + instance lease fencing、幂等回放、拒绝不污染真源，以及 player_inventory_item/watermark/outbox/audit 的同事务提交',
-      excludes: '不证明真实战斗 tick 编排、地面/容器状态一致性或更泛化的世界资产 intent 编排',
+      answers: 'with-db 下 grantInventoryItems 现已验证 runtime_owner_id + session_epoch + instance lease fencing、幂等回放、拒绝不污染真源，以及地面来源、player_inventory_item、watermark、outbox、audit 的同事务转移',
+      excludes: '不证明真实战斗 tick 编排或容器 source 的完整运行态交互',
       completionMapping: 'release:proof:with-db.inventory-grant-durable',
       firstResult,
       replayResult,
@@ -268,6 +299,19 @@ function buildNextInventoryItems() {
       },
     },
   ];
+}
+
+function buildGroundSourceMutation(instanceId: string) {
+  return {
+    kind: 'ground_tile' as const,
+    instanceId,
+    tileIndex: 12,
+    remainingItems: [{
+      itemId: 'wolf_fang',
+      count: 1,
+      itemInstanceId: `ground:${instanceId}:wolf_fang`,
+    }],
+  };
 }
 
 async function seedInventoryGrantFixture(
@@ -384,14 +428,42 @@ async function seedInstanceCatalogFixture(
   );
 }
 
+async function seedGroundItemFixture(pool: Pool, instanceId: string): Promise<void> {
+  await pool.query('DELETE FROM instance_ground_item WHERE instance_id = $1', [instanceId]);
+  await pool.query(
+    `
+      INSERT INTO instance_ground_item(
+        ground_item_id,
+        instance_id,
+        tile_index,
+        item_instance_payload,
+        expire_at,
+        updated_at
+      )
+      VALUES
+        ($1, $3, 12, $4::jsonb, NULL, now()),
+        ($2, $3, 12, $5::jsonb, NULL, now())
+    `,
+    [
+      `ground:${instanceId}:rat_tail`,
+      `ground:${instanceId}:wolf_fang`,
+      instanceId,
+      JSON.stringify({ itemId: 'rat_tail', count: 2, itemInstanceId: `ground:${instanceId}:rat_tail` }),
+      JSON.stringify({ itemId: 'wolf_fang', count: 1, itemInstanceId: `ground:${instanceId}:wolf_fang` }),
+    ],
+  );
+}
+
 async function cleanupPlayer(pool: Pool, playerId: string): Promise<void> {
+  const instanceId = `instance:${playerId}:lease`;
   await pool.query('DELETE FROM durable_operation_log WHERE player_id = $1', [playerId]).catch(() => undefined);
   await pool.query('DELETE FROM outbox_event WHERE partition_key = $1', [playerId]).catch(() => undefined);
   await pool.query('DELETE FROM asset_audit_log WHERE player_id = $1', [playerId]).catch(() => undefined);
   await pool.query('DELETE FROM player_inventory_item WHERE player_id = $1', [playerId]).catch(() => undefined);
   await pool.query('DELETE FROM player_presence WHERE player_id = $1', [playerId]).catch(() => undefined);
   await pool.query('DELETE FROM player_recovery_watermark WHERE player_id = $1', [playerId]).catch(() => undefined);
-  await pool.query('DELETE FROM instance_catalog WHERE shard_key = $1', [`instance:${playerId}:lease`]).catch(() => undefined);
+  await pool.query('DELETE FROM instance_ground_item WHERE instance_id = $1', [instanceId]).catch(() => undefined);
+  await pool.query('DELETE FROM instance_catalog WHERE shard_key = $1', [instanceId]).catch(() => undefined);
 }
 
 async function fetchRows(pool: Pool, sql: string, params: readonly unknown[]) {

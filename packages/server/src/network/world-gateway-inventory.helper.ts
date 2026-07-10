@@ -250,14 +250,14 @@ class WorldGatewayInventoryHelper {
     handleDropItem(client, payload) {
         this.executeDropItem(client, payload);
     }    
-    handleBulkDropItems(client, payload) {
+    async handleBulkDropItems(client, payload) {
         const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
         try {
             const itemInstanceIds = normalizeBulkDropItemInstanceIds(payload);
-            this.gateway.worldRuntimeService.worldRuntimeItemGroundService.dispatchBulkDropItems(playerId, itemInstanceIds, this.gateway.worldRuntimeService);
+            await this.gateway.worldRuntimeService.worldRuntimeItemGroundService.dispatchBulkDropItems(playerId, itemInstanceIds, this.gateway.worldRuntimeService);
             (this.gateway.worldRuntimeService as { requestPlayerDeltaSync?: (targetPlayerId: string) => void }).requestPlayerDeltaSync?.(playerId);
         }
         catch (error) {
