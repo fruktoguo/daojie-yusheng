@@ -8,6 +8,7 @@ import {
   type DurableMarketMutationInput,
   type PurchaseNpcShopItemInput,
 } from '../persistence/durable-operation.service';
+import { isTransientPostgresError } from '../persistence/pg-error-utils';
 
 type CommitMode = 'success' | 'applied_ack_loss' | 'not_applied_ack_loss' | 'replay_rollback_ack_loss';
 
@@ -29,10 +30,16 @@ class CommitReconciliationPool {
   readonly counters: CommittedCounters = { commits: 0, outboxEvents: 0, auditLogs: 0 };
   connectCount = 0;
   destroyedReleaseCount = 0;
+  readonly rollbackAttempts: number[] = [];
+  readonly destroyedReleaseAttempts: number[] = [];
   committed: boolean;
   failStatusRead = false;
   statusReadFailuresRemaining = 0;
+  statusNullReadsRemaining = 0;
+  retryLockFailuresRemaining = 0;
   failConnectAfterFirst = false;
+  failBeforeCommitAttempt = 0;
+  beforePreCommitFailure: (() => void) | null = null;
 
   constructor(
     readonly identity: OperationIdentity,
@@ -48,6 +55,10 @@ class CommitReconciliationPool {
       throw new Error('simulated_status_read_failure');
     }
     if (sql.includes('SELECT status FROM durable_operation_log')) {
+      if (this.statusNullReadsRemaining > 0) {
+        this.statusNullReadsRemaining -= 1;
+        return result([]);
+      }
       return result(this.committed ? [{ status: 'committed' }] : []);
     }
     return result([]);
@@ -62,10 +73,22 @@ class CommitReconciliationPool {
     const pending = { outboxEvents: 0, auditLogs: 0 };
     const query = async (sqlInput: string): Promise<QueryResult<Record<string, unknown>>> => {
       const sql = String(sqlInput);
+      if (
+        attempt > 1
+        && this.retryLockFailuresRemaining > 0
+        && sql.includes('pg_advisory_xact_lock')
+      ) {
+        this.retryLockFailuresRemaining -= 1;
+        throw Object.assign(new Error('canceling statement due to lock timeout'), { code: '55P03' });
+      }
       if (sql.includes('FROM durable_operation_log') && sql.includes('FOR UPDATE')) {
         return result(this.committed ? [this.buildCommittedOperationRow()] : []);
       }
       if (sql.includes('FROM player_presence')) {
+        if (attempt === this.failBeforeCommitAttempt) {
+          this.beforePreCommitFailure?.();
+          throw new Error('simulated_pre_commit_query_failure');
+        }
         return result([{
           runtime_owner_id: 'runtime:commit-smoke',
           session_epoch: 7,
@@ -100,8 +123,11 @@ class CommitReconciliationPool {
         this.applyCommit(pending);
         return result([]);
       }
-      if (sql.trim() === 'ROLLBACK' && this.mode === 'replay_rollback_ack_loss') {
-        throw new Error('simulated_replay_rollback_ack_loss');
+      if (sql.trim() === 'ROLLBACK') {
+        this.rollbackAttempts.push(attempt);
+        if (this.mode === 'replay_rollback_ack_loss') {
+          throw new Error('simulated_replay_rollback_ack_loss');
+        }
       }
       return result([], 1);
     };
@@ -110,6 +136,7 @@ class CommitReconciliationPool {
       release: (destroy?: boolean) => {
         if (destroy === true) {
           this.destroyedReleaseCount += 1;
+          this.destroyedReleaseAttempts.push(attempt);
         }
       },
     } as unknown as PoolClient;
@@ -137,10 +164,13 @@ class CommitReconciliationPool {
 }
 
 async function main(): Promise<void> {
+  proveTransientPostgresClassificationKeepsDeterministicConflictsDistinct();
   await proveAppliedCommitAckLossIsConfirmedWithoutDuplicate();
   await proveUnappliedCommitAckLossIsRetriedOnce();
   await proveUnknownOutcomeWaitsForStatusRecovery();
+  await proveNullStatusAndTransientRetryEventuallyConfirmCommitted();
   await proveStatusConfirmationStillValidatesReplayIdentity();
+  await proveShutdownBeforeCommitDestroysClientWithoutRollback();
   await proveShutdownInterruptsPendingStatusRead();
   await proveCommittedReplayIgnoresRollbackAckLoss();
   await proveMailCommitAckLossIsConfirmed();
@@ -149,8 +179,45 @@ async function main(): Promise<void> {
   console.log(JSON.stringify({
     ok: true,
     case: 'durable-operation-commit-reconciliation',
-    answers: '通用资产、邮件与市场事务在 COMMIT 回包丢失后持续持锁到数据库恢复可读，再通过带身份校验的幂等入口收敛；当前调用确认成功后仍返回本次语义，显式历史重放才返回 alreadyCommitted。',
+    answers: '通用资产、邮件与市场事务在 COMMIT 回包丢失后持续持锁收敛；状态可读后遇到锁、查询或连接瞬态错误会继续幂等重放，身份冲突仍立即失败，shutdown 会为受影响玩家和实例登记 fence。',
   }));
+}
+
+function proveTransientPostgresClassificationKeepsDeterministicConflictsDistinct(): void {
+  assert.equal(isTransientPostgresError(Object.assign(new Error('lock timeout'), { code: '55P03' })), true);
+  assert.equal(isTransientPostgresError(Object.assign(new Error('statement timeout'), { code: '57014' })), true);
+  assert.equal(isTransientPostgresError(Object.assign(new Error('read ECONNRESET'), { code: 'ECONNRESET' })), true);
+  assert.equal(isTransientPostgresError({ cause: { code: '08006' } }), true);
+  assert.equal(isTransientPostgresError(new Error('durable_operation_replay_identity_conflict')), false);
+}
+
+async function proveNullStatusAndTransientRetryEventuallyConfirmCommitted(): Promise<void> {
+  const input = buildPurchaseInput('op:commit-smoke:transient-retry');
+  const pool = buildPoolForPurchase(input, 'applied_ack_loss');
+  pool.statusNullReadsRemaining = 1;
+  pool.retryLockFailuresRemaining = 1;
+  const service = buildService(pool);
+
+  const resultValue = await service.purchaseNpcShopItem(input);
+  assert.equal(resultValue.ok, true);
+  assert.equal(resultValue.alreadyCommitted, false);
+  assert.equal(pool.statusNullReadsRemaining, 0);
+  assert.equal(pool.retryLockFailuresRemaining, 0);
+  assert.equal(pool.connectCount, 3);
+  assert.deepEqual(pool.counters, { commits: 1, outboxEvents: 1, auditLogs: 1 });
+}
+
+async function proveShutdownBeforeCommitDestroysClientWithoutRollback(): Promise<void> {
+  const input = buildPurchaseInput('op:commit-smoke:shutdown-pre-commit');
+  const pool = buildPoolForPurchase(input, 'success');
+  const service = buildService(pool);
+  pool.failBeforeCommitAttempt = 1;
+  pool.beforePreCommitFailure = () => service.beginShutdown();
+
+  await assert.rejects(service.purchaseNpcShopItem(input), /simulated_pre_commit_query_failure/);
+  assert.equal(service.isShuttingDown(), true);
+  assert.deepEqual(pool.rollbackAttempts, []);
+  assert.deepEqual(pool.destroyedReleaseAttempts, [1]);
 }
 
 async function proveShutdownInterruptsPendingStatusRead(): Promise<void> {
@@ -162,6 +229,7 @@ async function proveShutdownInterruptsPendingStatusRead(): Promise<void> {
       operationId: string;
       cause: unknown;
       affectedPlayerIds?: string[];
+      affectedInstanceIds?: string[];
       onSettled: (result: T) => T;
       retry: () => Promise<T>;
     }): Promise<T>;
@@ -174,6 +242,7 @@ async function proveShutdownInterruptsPendingStatusRead(): Promise<void> {
     operationId: 'op:commit-smoke:shutdown',
     cause: new Error('simulated_commit_ack_loss'),
     affectedPlayerIds: ['player:commit-smoke'],
+    affectedInstanceIds: ['instance:commit-smoke'],
     onSettled: (result) => result,
     retry: async () => ({ ok: true }),
   });
@@ -184,6 +253,7 @@ async function proveShutdownInterruptsPendingStatusRead(): Promise<void> {
     (error: unknown) => error instanceof DurableOperationCommitOutcomeUnknownError,
   );
   assert.equal(service.isPlayerCommitOutcomeUnresolved('player:commit-smoke'), true);
+  assert.equal(service.isInstanceCommitOutcomeUnresolved('instance:commit-smoke'), true);
 }
 
 async function proveStatusConfirmationStillValidatesReplayIdentity(): Promise<void> {
@@ -217,6 +287,8 @@ async function proveAppliedCommitAckLossIsConfirmedWithoutDuplicate(): Promise<v
   assert.equal(resultValue.ok, true);
   assert.equal(resultValue.alreadyCommitted, false);
   assert.equal(pool.connectCount, 2);
+  assert.equal(pool.rollbackAttempts.includes(1), false);
+  assert.equal(pool.destroyedReleaseAttempts.includes(1), true);
   assert.deepEqual(pool.counters, { commits: 1, outboxEvents: 1, auditLogs: 1 });
 }
 
@@ -229,6 +301,8 @@ async function proveUnappliedCommitAckLossIsRetriedOnce(): Promise<void> {
   assert.equal(resultValue.ok, true);
   assert.equal(resultValue.alreadyCommitted, false);
   assert.equal(pool.connectCount, 2);
+  assert.equal(pool.rollbackAttempts.includes(1), false);
+  assert.equal(pool.destroyedReleaseAttempts.includes(1), true);
   assert.deepEqual(pool.counters, { commits: 1, outboxEvents: 1, auditLogs: 1 });
 }
 
@@ -274,6 +348,8 @@ async function proveMailCommitAckLossIsConfirmed(): Promise<void> {
   assert.equal(resultValue.ok, true);
   assert.equal(resultValue.alreadyCommitted, false);
   assert.equal(pool.connectCount, 2);
+  assert.equal(pool.rollbackAttempts.includes(1), false);
+  assert.equal(pool.destroyedReleaseAttempts.includes(1), true);
   assert.deepEqual(pool.counters, { commits: 1, outboxEvents: 1, auditLogs: 1 });
 }
 
@@ -306,6 +382,8 @@ async function proveMarketCommitAckLossReturnsReplaySemantics(): Promise<void> {
   assert.equal(resultValue.ok, true);
   assert.equal(resultValue.alreadyCommitted, false);
   assert.deepEqual(pool.counters, { commits: 1, outboxEvents: 1, auditLogs: 1 });
+  assert.equal(pool.rollbackAttempts.includes(1), false);
+  assert.equal(pool.destroyedReleaseAttempts.includes(1), true);
 }
 
 function buildPurchaseInput(operationId: string): PurchaseNpcShopItemInput {

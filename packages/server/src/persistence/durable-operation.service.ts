@@ -23,6 +23,7 @@ import {
 } from './inventory-item-persistence';
 import { NodeRegistryService } from './node-registry.service';
 import type { PersistedPlayerSnapshot } from './player-persistence.service';
+import { isTransientPostgresError } from './pg-error-utils';
 import { ensureBigintColumnsWithClient } from './schema-bigint-migration';
 
 const PLAYER_PRESENCE_TABLE = 'player_presence';
@@ -551,6 +552,10 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
     this.shutdownSignal.resolve();
   }
 
+  isShuttingDown(): boolean {
+    return this.closing;
+  }
+
   isPlayerCommitOutcomeUnresolved(playerId: string): boolean {
     return this.unresolvedCommitPlayerIds.has(normalizeRequiredString(playerId));
   }
@@ -561,6 +566,24 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
 
   hasUnresolvedCommitOutcomes(): boolean {
     return this.unresolvedCommitPlayerIds.size > 0 || this.unresolvedCommitInstanceIds.size > 0;
+  }
+
+  /**
+   * 登记 COMMIT 结果未决的资产边界，阻止 shutdown/flush 越过尚未收敛的数据库事务。
+   * 非 DurableOperationService 直接执行的跨域强事务也必须复用同一 fence 真源。
+   */
+  registerUnresolvedCommitOutcome(input: {
+    affectedPlayerIds?: readonly string[];
+    affectedInstanceIds?: readonly string[];
+  }): void {
+    for (const playerId of input.affectedPlayerIds ?? []) {
+      const normalizedPlayerId = normalizeRequiredString(playerId);
+      if (normalizedPlayerId) this.unresolvedCommitPlayerIds.add(normalizedPlayerId);
+    }
+    for (const instanceId of input.affectedInstanceIds ?? []) {
+      const normalizedInstanceId = normalizeRequiredString(instanceId);
+      if (normalizedInstanceId) this.unresolvedCommitInstanceIds.add(normalizedInstanceId);
+    }
   }
 
   isEnabled(): boolean {
@@ -994,7 +1017,10 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
       commitAttempted = false;
       return mutationResult;
     } catch (error: unknown) {
-      clientReleased = await rollbackTransactionOrDestroyClient(client) || clientReleased;
+      clientReleased = await disposeFailedDurableTransactionClient(client, {
+        commitAttempted,
+        shuttingDown: this.closing,
+      }) || clientReleased;
       if (commitAttempted) {
         commitOutcomeUnknown = true;
         commitOutcomeCause = error;
@@ -2422,7 +2448,10 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
       commitAttempted = false;
       return { ok: true, alreadyCommitted: false };
     } catch (error: unknown) {
-      clientReleased = await rollbackTransactionOrDestroyClient(client) || clientReleased;
+      clientReleased = await disposeFailedDurableTransactionClient(client, {
+        commitAttempted,
+        shuttingDown: this.closing,
+      }) || clientReleased;
       if (commitAttempted) {
         commitOutcomeUnknown = true;
         commitOutcomeCause = error;
@@ -3382,6 +3411,9 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
             error instanceof Error ? error.stack : String(error),
           );
         }
+        if (this.closing) {
+          break;
+        }
         await waitForDurableOperationReconciliation(250);
         continue;
       }
@@ -3393,22 +3425,26 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
         // 仍返回本次 mutation 结果，避免上层误按历史 replay 撤销已提交的乐观运行态。
         return input.onSettled(retryResult);
       } catch (error: unknown) {
-        if (!(error instanceof DurableOperationCommitOutcomeUnknownError)) {
+        if (
+          !(error instanceof DurableOperationCommitOutcomeUnknownError)
+          && !isTransientPostgresError(error)
+        ) {
           throw error;
         }
         latestCause = error;
         reconciliationFailureCount += 1;
+        if (attempt === 1 || attempt % 20 === 0) {
+          this.logger.warn(
+            `强事务 COMMIT 幂等重放遇到瞬态数据库失败，继续持锁收敛 operationId=${input.operationId} attempt=${attempt}`,
+          );
+        }
+        if (this.closing) {
+          break;
+        }
         await waitForDurableOperationReconciliation(250);
       }
     }
-    for (const playerId of input.affectedPlayerIds ?? []) {
-      const normalizedPlayerId = normalizeRequiredString(playerId);
-      if (normalizedPlayerId) this.unresolvedCommitPlayerIds.add(normalizedPlayerId);
-    }
-    for (const instanceId of input.affectedInstanceIds ?? []) {
-      const normalizedInstanceId = normalizeRequiredString(instanceId);
-      if (normalizedInstanceId) this.unresolvedCommitInstanceIds.add(normalizedInstanceId);
-    }
+    this.registerUnresolvedCommitOutcome(input);
     throw new DurableOperationCommitOutcomeUnknownError(
       input.operationId,
       new AggregateError(
@@ -3585,7 +3621,10 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
       commitAttempted = false;
       return mutationResult as TResult;
     } catch (error: unknown) {
-      clientReleased = await rollbackTransactionOrDestroyClient(client) || clientReleased;
+      clientReleased = await disposeFailedDurableTransactionClient(client, {
+        commitAttempted,
+        shuttingDown: this.closing,
+      }) || clientReleased;
       if (commitAttempted) {
         commitOutcomeUnknown = true;
         commitOutcomeCause = error;
@@ -3630,6 +3669,18 @@ async function rollbackTransactionOrDestroyClient(
     client.release(true);
     return true;
   }
+}
+
+/** COMMIT 已发送或服务正在关停时，不再向未决连接追加 ROLLBACK。 */
+async function disposeFailedDurableTransactionClient(
+  client: import('pg').PoolClient,
+  input: { commitAttempted: boolean; shuttingDown: boolean },
+): Promise<boolean> {
+  if (input.commitAttempted || input.shuttingDown) {
+    client.release(true);
+    return true;
+  }
+  return rollbackTransactionOrDestroyClient(client);
 }
 
 async function acquirePlayerAssetLock(
