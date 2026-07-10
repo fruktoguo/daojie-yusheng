@@ -94,6 +94,106 @@ async function verifyBootstrapPresenceImmediateWrite(): Promise<{
   return { loginWrites, persisted };
 }
 
+async function verifyOfflineGainBlockingPresenceStaysOfflineHanging(): Promise<{
+  writes: Array<{ playerId: string; online: boolean; inWorld: boolean; offlineSinceAt: number | null }>;
+}> {
+  const offlineSinceAt = 1_750_000_000_000;
+  const writes: Array<{ playerId: string; online: boolean; inWorld: boolean; offlineSinceAt: number | null }> = [];
+  const persistence = {
+    isEnabled() {
+      return true;
+    },
+    async loadPlayerPresence() {
+      return { sessionEpoch: 17 };
+    },
+    async savePlayerPresence(playerId: string, input: { online: boolean; inWorld: boolean; offlineSinceAt?: number | null }) {
+      writes.push({
+        playerId,
+        online: input.online,
+        inWorld: input.inWorld,
+        offlineSinceAt: input.offlineSinceAt ?? null,
+      });
+    },
+  };
+  const runtime = {
+    buildStarterPersistenceSnapshot() {
+      return null;
+    },
+    async loadOrCreatePlayer() {
+      return {
+        instanceId: 'public:yunlai_town',
+        templateId: 'yunlai_town',
+        x: 32,
+        y: 5,
+      };
+    },
+    setIdentity() {
+      return undefined;
+    },
+    describePersistencePresence() {
+      return {
+        online: false,
+        inWorld: true,
+        offlineSinceAt,
+        runtimeOwnerId: null,
+        sessionEpoch: 17,
+        transferState: null,
+        transferTargetNodeId: null,
+        versionSeed: 1,
+      };
+    },
+    markPersisted() {
+      return undefined;
+    },
+    markHeartbeat() {
+      return undefined;
+    },
+  };
+  const bootstrap = new WorldSessionBootstrapPlayerInitService(
+    runtime as never,
+    persistence as never,
+    { async registerLocalRoute() { return undefined; } } as never,
+    {
+      async ensurePlayerMailbox() { return undefined; },
+      async ensureWelcomeMail() { return undefined; },
+    } as never,
+    null,
+  );
+  await bootstrap.initializeBootstrapPlayer({
+    playerId: 'presence:offline-gain-blocking',
+    sessionId: 'sid:offline-gain-blocking',
+    deferOfflineGainSettlement: true,
+    loadSnapshot: async () => null,
+  });
+
+  const presenceHelper = new WorldGatewayPresenceHelper(persistence as never, runtime as never);
+  presenceHelper.handleHeartbeat({ data: { playerId: 'presence:offline-gain-blocking' } });
+  await new Promise((resolve) => setImmediate(resolve));
+  await presenceHelper.persistOfflinePresence({ playerId: 'presence:offline-gain-blocking' });
+
+  assert.deepEqual(writes, [
+    {
+      playerId: 'presence:offline-gain-blocking',
+      online: false,
+      inWorld: true,
+      offlineSinceAt,
+    },
+    {
+      playerId: 'presence:offline-gain-blocking',
+      online: false,
+      inWorld: true,
+      offlineSinceAt,
+    },
+    {
+      playerId: 'presence:offline-gain-blocking',
+      online: false,
+      inWorld: true,
+      offlineSinceAt,
+    },
+  ]);
+  return { writes };
+}
+
 async function verifyGatewayHeartbeatAndDisconnectWrites(): Promise<{
   heartbeatWrites: number;
   disconnectWrites: number;
@@ -259,6 +359,7 @@ async function verifyGatewayHeartbeatAndDisconnectWrites(): Promise<{
 
 async function main(): Promise<void> {
   const bootstrap = await verifyBootstrapPresenceImmediateWrite();
+  const offlineGainBlocking = await verifyOfflineGainBlockingPresenceStaysOfflineHanging();
   const gateway = await verifyGatewayHeartbeatAndDisconnectWrites();
 
   console.log(
@@ -266,8 +367,9 @@ async function main(): Promise<void> {
       {
         ok: true,
         bootstrap,
+        offlineGainBlocking,
         gateway,
-        answers: 'player_presence 现已由登录 bootstrap、掉线和心跳节流小事务直接写入，不走普通 flush worker；重复 heartbeat 在节流窗口内不会重复直写；掉线只改 online/offlineSinceAt，不把仍在世界中的挂机玩家降级为普通离线',
+        answers: 'player_presence 现已由登录 bootstrap、掉线和心跳节流小事务直接写入；离线收益 blocking 阶段始终保持 online=false/inWorld=true 并保留原 offlineSinceAt，因此重启恢复仍按离线挂机玩家处理',
         excludes: '不证明真实 socket 心跳频率、数据库写入耗时分布或多节点下的 heartbeat 协调',
         completionMapping: 'release:proof:player-presence-immediate-write',
       },

@@ -166,9 +166,13 @@ export class WorldSessionBootstrapPlayerInitService {
             if (typeof this.playerDomainPersistenceService?.savePlayerPresence === 'function') {
                 await this.playerDomainPersistenceService.savePlayerPresence(input.playerId, {
                     ...presence,
-                    online: true,
                     inWorld: Boolean(player.templateId),
-                    offlineSinceAt: null,
+                    online: presence.online === true,
+                    offlineSinceAt: presence.online === true
+                        ? null
+                        : (Number.isFinite(Number(presence.offlineSinceAt))
+                            ? Math.max(0, Math.trunc(Number(presence.offlineSinceAt)))
+                            : Date.now()),
                     versionSeed: Date.now(),
                 });
             }

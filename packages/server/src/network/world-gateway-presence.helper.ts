@@ -38,7 +38,9 @@ class WorldGatewayPresenceHelper {
             ...disconnectPresence,
             online: false,
             inWorld: Boolean(disconnectPresence.inWorld),
-            offlineSinceAt: Date.now(),
+            offlineSinceAt: Number.isFinite(Number(disconnectPresence.offlineSinceAt))
+                ? Math.max(0, Math.trunc(Number(disconnectPresence.offlineSinceAt)))
+                : Date.now(),
             versionSeed: Date.now(),
         }).catch((error) => {
             this.logger.error(`刷新脱机在线状态失败：${binding.playerId}`, error instanceof Error ? error.stack : String(error));
@@ -60,9 +62,13 @@ class WorldGatewayPresenceHelper {
         }
         void this.playerDomainPersistenceService.savePlayerPresence(playerId, {
             ...heartbeatPresence,
-            online: true,
+            online: heartbeatPresence.online === true,
             inWorld: Boolean(heartbeatPresence.inWorld),
-            offlineSinceAt: null,
+            offlineSinceAt: heartbeatPresence.online === true
+                ? null
+                : (Number.isFinite(Number(heartbeatPresence.offlineSinceAt))
+                    ? Math.max(0, Math.trunc(Number(heartbeatPresence.offlineSinceAt)))
+                    : now),
             versionSeed: now,
         }).catch((error) => {
             this.logger.error(`刷新心跳在线状态失败：${playerId}`, error instanceof Error ? error.stack : String(error));
