@@ -10,6 +10,7 @@
  */
 import { BUILDING_TOPOLOGY_BLOCKS_MOVE, BUILDING_TOPOLOGY_BLOCKS_SIGHT, DEFAULT_AGGRO_THRESHOLD, DEFAULT_PASSIVE_THREAT_PER_TICK, DEFAULT_QI_RESOURCE_DESCRIPTOR, DEFAULT_QI_RUNTIME_FLOW_CONFIGS, DISPERSED_AURA_RESOURCE_KEY, Direction, GROUND_ITEM_EXPIRE_TICKS, LOST_TARGET_THREAT_DECAY_RATIO, LOST_TARGET_THREAT_FLAT_DECAY_HP_RATIO, MAX_THREAT_VALUE, MOVE_POINT_UNIT, QI_HALF_LIFE_RATE_SCALE, StructureType, TERRAIN_DESTROYED_RESTORE_TICKS, TERRAIN_REGEN_RATE_PER_TICK, TERRAIN_RESTORE_RETRY_DELAY_TICKS, THREAT_DISTANCE_FALLOFF_PER_TILE, TILE_AURA_HALF_LIFE_RATE_SCALE, TILE_AURA_HALF_LIFE_RATE_SCALED, TerrainType, TileType, buildEffectiveTargetingGeometry, buildQiResourceKey, calcQiCostWithOutputLimit, calculateDispersedAuraGainPerTile, calculateTerrainDurability, composeTileTypeFromLayers, computeAffectedCellsFromAnchor, createItemStackSignature, createNumericStats, doesTileTypeBlockSight, getEffectiveMoveSpeed, getLayeredTileTraversalCost, getMaxStoredMovePoints, getMovePointsPerTick, getStructureDurabilityProfile, getTileTraversalCost, getTileTypeFromMapChar, horizontalFacingFromDelta, horizontalFacingFromTo, isGroundInteractableCellLayerTarget, isOffsetInRange, isTileTypeWalkable, mergeItemStackEntryInto, normalizeHorizontalFacing, normalizeStructureType, normalizeSurfaceType, normalizeTerrainType, parseQiResourceKey, percentModifierToMultiplier, resolveDefaultTileLayerFallback, resolveMonsterTemplateRecord, resolveSkillRequiresTarget, resolveTileLayerSeedFromTemplateContext, resolveTileLayerSeedFromTileType } from '@mud/shared';
 import { readTrimmedEnv } from '../../config/env-alias';
+import { AsyncLocalStorage } from 'node:async_hooks';
 import '../map/map-template.repository';
 import { RuntimeTilePlane } from '../map/runtime-tile-plane';
 import { BuildingTopologyIndex } from '../building/building-topology-index.service';
@@ -41,6 +42,14 @@ const INVALID_OCCUPANCY = 0;
 type TileDropRollOptions = {
     dropRateBonus?: number;
 };
+
+type InstancePersistenceDomainMutationContext = {
+    instance: object;
+    domains: ReadonlySet<string>;
+    active: boolean;
+};
+
+const INSTANCE_PERSISTENCE_DOMAIN_MUTATION_CONTEXT = new AsyncLocalStorage<InstancePersistenceDomainMutationContext>();
 
 /** DEFAULT_VIEW_RADIUS：默认视野半径。 */
 const DEFAULT_VIEW_RADIUS = 10;
@@ -344,8 +353,18 @@ class MapInstanceRuntime {
     tileProjectionByCoord = new Map();
     /** 地块静态同步 revision；只跟地块/结构/资源投影变化有关，不跟玩家/怪物移动混用。 */
     staticTileSyncRevision = 0;
+    /** 静态寻路 revision；只在可行走性或移动代价改变时推进，不被灵气等纯展示投影污染。 */
+    staticPathingRevision = 0;
     /** 视线遮挡 revision；只在地形、建筑、临时地块或毁坏状态可能改变 LOS 时推进。 */
     sightBlockingRevision = 0;
+    /** AOI 局部 revision 单调序列，chunk 只保留最后一次变化序号。 */
+    aoiRevisionSequence = 0;
+    /** 无法定位到单个区域的罕见结构变化 revision。 */
+    aoiGlobalRevision = 0;
+    /** 按 chunkY -> chunkX 保存视野内容 revision，避免 tick 热路拼接字符串键。 */
+    aoiRevisionByChunkRow = new Map<number, Map<number, number>>();
+    /** 仅跟踪会改变 FOV 的 chunk revision。 */
+    aoiSightRevisionByChunkRow = new Map<number, Map<number, number>>();
     /** 尚未被网络层消费的实例级地块静态脏坐标。 */
     staticTileSyncDirtyTileKeys = new Set();
     /** 当前脏坐标批次开始前的地块静态同步 revision。 */
@@ -410,6 +429,12 @@ class MapInstanceRuntime {
  */
 
     dirtyGroundItemTileIndices = new Set();
+    /** 跨域强事务持有期间禁止普通 flush 抢先提交对应实例域。 */
+    persistenceDomainHoldCounts = new Map();
+    /** 实例分域异步写队列；普通 flush 与 durable 来源事务必须共用这一顺序边界。 */
+    persistenceDomainMutationQueueByDomain = new Map();
+    /** 每次 domain 重新标脏都会推进，供在途 flush 精确判断快照是否已经过期。 */
+    persistenceDomainRevisionByDomain = new Map();
     /**
  * dirtyMonsterRuntimeIds：需要行级落盘的妖兽运行态 ID。
  */
@@ -708,6 +733,7 @@ class MapInstanceRuntime {
         if (this._throttledSinceMs != null) {
             this.performThrottleCatchUp();
         }
+        this.markAoiViewChangedAt(player.x, player.y);
         this.worldRevision += 1;
         return player;
     }
@@ -767,6 +793,7 @@ class MapInstanceRuntime {
         this.localPlayerViewCacheByPlayerId.delete(playerId);
         this.setOccupied(player.x, player.y, INVALID_OCCUPANCY);
         this.freeHandles.push(player.handle);
+        this.markAoiViewChangedAt(player.x, player.y);
         this.worldRevision += 1;
         return true;
     }
@@ -806,6 +833,76 @@ class MapInstanceRuntime {
         const chunkX = Math.floor(Math.trunc(Number(x) || 0) / PLAYER_SPATIAL_CHUNK_SIZE);
         const chunkY = Math.floor(Math.trunc(Number(y) || 0) / PLAYER_SPATIAL_CHUNK_SIZE);
         return `${chunkX},${chunkY}`;
+    }
+
+    /** 标记单个坐标所在 AOI chunk 变化；不改变用于协议排序的 worldRevision。 */
+    markAoiViewChangedAt(xInput, yInput, options = undefined) {
+        if (!Number.isFinite(Number(xInput)) || !Number.isFinite(Number(yInput))) {
+            return false;
+        }
+        const chunkX = Math.floor(Math.trunc(Number(xInput)) / PLAYER_SPATIAL_CHUNK_SIZE);
+        const chunkY = Math.floor(Math.trunc(Number(yInput)) / PLAYER_SPATIAL_CHUNK_SIZE);
+        const revision = this.nextAoiRevision();
+        setChunkRevision(this.aoiRevisionByChunkRow, chunkX, chunkY, revision);
+        if (options?.sightBlockingChanged === true) {
+            setChunkRevision(this.aoiSightRevisionByChunkRow, chunkX, chunkY, revision);
+        }
+        return true;
+    }
+
+    /** 同时标记移动前后两个位置，让离开视野和进入视野都能失效。 */
+    markAoiViewMoved(fromX, fromY, toX, toY) {
+        this.markAoiViewChangedAt(fromX, fromY);
+        this.markAoiViewChangedAt(toX, toY);
+    }
+
+    /** 只有整张实例重建等无法局部归因的变化才走全局失效。 */
+    markAoiViewChangedGlobally(options = undefined) {
+        const revision = this.nextAoiRevision();
+        this.aoiGlobalRevision = revision;
+        if (options?.sightBlockingChanged === true) {
+            this.sightBlockingRevision = Math.max(0, Math.trunc(Number(this.sightBlockingRevision) || 0)) + 1;
+        }
+        return revision;
+    }
+
+    nextAoiRevision() {
+        const current = Math.max(0, Math.trunc(Number(this.aoiRevisionSequence) || 0));
+        const next = current >= Number.MAX_SAFE_INTEGER - 1 ? 1 : current + 1;
+        if (next === 1 && current > 0) {
+            // 极端长运行溢出时清空 revision 与视野缓存，避免回绕后的低 revision 误命中旧快照。
+            this.aoiRevisionByChunkRow.clear();
+            this.aoiSightRevisionByChunkRow.clear();
+            this.aoiGlobalRevision = 0;
+            this.playerViewCacheByPlayerId.clear();
+            this.autoCombatViewCacheByPlayerId.clear();
+            this.autoCombatTileVisibilityCacheByPlayerId.clear();
+        }
+        this.aoiRevisionSequence = next;
+        return next;
+    }
+
+    /** 读取覆盖视野窗口的最新局部 revision；默认半径只需检查少量 chunk。 */
+    resolveAoiViewRevision(centerX, centerY, radius, sightOnly = false) {
+        const normalizedX = Math.trunc(Number(centerX) || 0);
+        const normalizedY = Math.trunc(Number(centerY) || 0);
+        const normalizedRadius = Math.max(0, Math.trunc(Number(radius) || 0));
+        const minChunkX = Math.floor((normalizedX - normalizedRadius) / PLAYER_SPATIAL_CHUNK_SIZE);
+        const maxChunkX = Math.floor((normalizedX + normalizedRadius) / PLAYER_SPATIAL_CHUNK_SIZE);
+        const minChunkY = Math.floor((normalizedY - normalizedRadius) / PLAYER_SPATIAL_CHUNK_SIZE);
+        const maxChunkY = Math.floor((normalizedY + normalizedRadius) / PLAYER_SPATIAL_CHUNK_SIZE);
+        const rows = sightOnly ? this.aoiSightRevisionByChunkRow : this.aoiRevisionByChunkRow;
+        let revision = 0;
+        for (let chunkY = minChunkY; chunkY <= maxChunkY; chunkY += 1) {
+            const row = rows.get(chunkY);
+            if (!row) {
+                continue;
+            }
+            for (let chunkX = minChunkX; chunkX <= maxChunkX; chunkX += 1) {
+                revision = Math.max(revision, row.get(chunkX) ?? 0);
+            }
+        }
+        return revision;
     }
     addPlayerToChunkIndex(player) {
         if (!player?.playerId || !this.isInBounds(player.x, player.y)) {
@@ -957,13 +1054,16 @@ class MapInstanceRuntime {
                 y: player.y,
             };
         }
-        this.setOccupied(player.x, player.y, INVALID_OCCUPANCY);
-        this.removePlayerFromTileIndex(player.playerId, player.x, player.y);
+        const previousX = player.x;
+        const previousY = player.y;
+        this.setOccupied(previousX, previousY, INVALID_OCCUPANCY);
+        this.removePlayerFromTileIndex(player.playerId, previousX, previousY);
         player.x = target.x;
         player.y = target.y;
         player.selfRevision += 1;
         this.addPlayerToTileIndex(player);
         this.setOccupied(player.x, player.y, player.handle);
+        this.markAoiViewMoved(previousX, previousY, player.x, player.y);
         this.worldRevision += 1;
         return {
             x: player.x,
@@ -1046,6 +1146,7 @@ class MapInstanceRuntime {
             this.runtimePortals.push(normalized);
             this.runtimePortals.sort((left, right) => left.y - right.y || left.x - right.x);
         }
+        this.markAoiViewChangedAt(x, y);
         this.worldRevision += 1;
         this.markPersistenceDirtyDomainsHighPriority(['overlay']);
         this.persistentRevision += 1;
@@ -1136,6 +1237,8 @@ class MapInstanceRuntime {
         this.rebuildTileResourceFlowIndices();
         this.markPersistenceDirtyDomains(previousDirtyDomains);
         markMapInstanceDirtyDomainHighPriority(this, previousHighPriorityDirtyDomains);
+        this.staticPathingRevision = Math.max(0, Math.trunc(Number(this.staticPathingRevision) || 0)) + 1;
+        this.markAoiViewChangedGlobally({ sightBlockingChanged: true });
         this.worldRevision += 1;
         this.persistentRevision += 1;
         this.markPersistenceDirtyDomainsHighPriority(['overlay', 'tile_damage', 'tile_cell']);
@@ -1227,6 +1330,8 @@ class MapInstanceRuntime {
         this.rebuildTileResourceFlowIndices();
         this.markPersistenceDirtyDomains(previousDirtyDomains);
         markMapInstanceDirtyDomainHighPriority(this, previousHighPriorityDirtyDomains);
+        this.staticPathingRevision = Math.max(0, Math.trunc(Number(this.staticPathingRevision) || 0)) + 1;
+        this.markAoiViewChangedGlobally({ sightBlockingChanged: true });
         this.worldRevision += 1;
         this.persistentRevision += 1;
         this.markPersistenceDirtyDomainsHighPriority(['overlay', 'tile_damage', 'tile_cell']);
@@ -1252,6 +1357,7 @@ class MapInstanceRuntime {
                 baseAura[tileIndex] = this.auraByTile[tileIndex];
             }
         }
+        this.markStaticTileSyncDirtyByIndex(tileIndex, { sightBlockingChanged: true, pathingChanged: true });
         this.worldRevision += 1;
         this.persistentRevision += 1;
         this.markPersistenceDirtyDomainsHighPriority(['tile_cell']);
@@ -1460,7 +1566,7 @@ class MapInstanceRuntime {
             clearedTileDamage = this.clearTileDamageForBuildingVisualCells(cells);
             for (const cellIndex of cells) {
                 this.applyBuildingVisualTileType(cellIndex, compiled);
-                this.markStaticTileSyncDirtyByIndex(cellIndex, { sightBlockingChanged: true });
+                this.markStaticTileSyncDirtyByIndex(cellIndex, { sightBlockingChanged: true, pathingChanged: true });
             }
         }
         const building = {
@@ -1500,6 +1606,14 @@ class MapInstanceRuntime {
         let dirtyDomains = ['building'];
         if (usesActiveTopology) {
             this.applyBuildingTopologyForBuilding(building.id);
+            if (!compiled.visualTileType && (compiled.topologyMask & (BUILDING_TOPOLOGY_BLOCKS_MOVE | BUILDING_TOPOLOGY_BLOCKS_SIGHT)) !== 0) {
+                for (const cellIndex of cells) {
+                    this.markStaticTileSyncDirtyByIndex(cellIndex, {
+                        sightBlockingChanged: Boolean(compiled.topologyMask & BUILDING_TOPOLOGY_BLOCKS_SIGHT),
+                        pathingChanged: Boolean(compiled.topologyMask & BUILDING_TOPOLOGY_BLOCKS_MOVE),
+                    });
+                }
+            }
             const affectsBoundaryTopology = compiledBuildingAffectsRoomBoundaryTopology(compiled);
             const affectsRoofTopology = compiled.roofCoverage > 0;
             const shouldRecalculateRooms = affectsBoundaryTopology
@@ -1524,6 +1638,7 @@ class MapInstanceRuntime {
                 dirtyDomains.push('tile_damage');
             }
         }
+        this.markAoiViewChangedAt(building.x, building.y);
         this.worldRevision += 1;
         this.persistentRevision += 1;
         this.markPersistenceDirtyDomainsHighPriority(Array.from(new Set(dirtyDomains)));
@@ -1557,6 +1672,7 @@ class MapInstanceRuntime {
                 entry.buildCompleteTick = undefined;
                 entry.updatedAtTick = this.tick;
                 entry.revision = Math.max(1, Math.trunc(Number(entry.revision) || 1)) + 1;
+                this.markAoiViewChangedAt(entry.x, entry.y);
                 changed = true;
             }
         }
@@ -1569,6 +1685,7 @@ class MapInstanceRuntime {
         building.revision = Math.max(1, Math.trunc(Number(building.revision) || 1)) + 1;
         changed = true;
         if (changed) {
+            this.markAoiViewChangedAt(building.x, building.y);
             this.worldRevision += 1;
             this.persistentRevision += 1;
             this.markPersistenceDirtyDomainsHighPriority(['building']);
@@ -1593,6 +1710,7 @@ class MapInstanceRuntime {
         building.buildCompleteTick = undefined;
         building.updatedAtTick = this.tick;
         building.revision = Math.max(1, Math.trunc(Number(building.revision) || 1)) + 1;
+        this.markAoiViewChangedAt(building.x, building.y);
         this.worldRevision += 1;
         this.persistentRevision += 1;
         this.markPersistenceDirtyDomainsHighPriority(['building']);
@@ -1620,7 +1738,10 @@ class MapInstanceRuntime {
             this.restoreBuildingPreviousTileState(cellIndex, previousState);
         }
         for (const cellIndex of changedCells) {
-            this.markStaticTileSyncDirtyByIndex(cellIndex, { sightBlockingChanged });
+            this.markStaticTileSyncDirtyByIndex(cellIndex, {
+                sightBlockingChanged,
+                pathingChanged: Boolean(compiled?.topologyMask & BUILDING_TOPOLOGY_BLOCKS_MOVE) || previousTileTypes.length > 0,
+            });
         }
         this.buildingPreviousTileTypeById.delete(buildingId);
         this.buildingById.delete(buildingId);
@@ -1639,6 +1760,7 @@ class MapInstanceRuntime {
                 this.recalculateFengShuiAfterRoomInfluenceChange(cellIndex, 'building_deconstruct_fengshui');
             }
         }
+        this.markAoiViewChangedAt(building.x, building.y);
         this.worldRevision += 1;
         this.persistentRevision += 1;
         this.markPersistenceDirtyDomainsHighPriority([
@@ -2234,6 +2356,7 @@ class MapInstanceRuntime {
             });
             this.fengShuiByRoomId.set(room.id, snapshot);
         }
+        this.markAoiViewChangedGlobally();
         this.worldRevision += 1;
         this.persistentRevision += 1;
         this.markPersistenceDirtyDomainsHighPriority(['room', 'fengshui']);
@@ -2428,6 +2551,7 @@ class MapInstanceRuntime {
             }
         }
         if (skippedUnknownDefCount > 0 || skippedProtectedPlacementCount > 0) {
+            this.markAoiViewChangedGlobally({ sightBlockingChanged: restoredSkippedBuildingTileCellCount > 0 });
             this.worldRevision += 1;
             this.persistentRevision += 1;
             this.markPersistenceDirtyDomains([
@@ -2570,6 +2694,11 @@ class MapInstanceRuntime {
         if (!changed) {
             return [];
         }
+        for (const building of this.buildingById.values()) {
+            if (building?.state === 'building') {
+                this.markAoiViewChangedAt(building.x, building.y);
+            }
+        }
         this.worldRevision += 1;
         this.persistentRevision += 1;
         this.markPersistenceDirtyDomainsHighPriority(['building']);
@@ -2593,13 +2722,21 @@ class MapInstanceRuntime {
             clearedTileDamage = this.clearTileDamageForBuildingVisualCells(cells);
             for (const cellIndex of cells) {
                 this.applyBuildingVisualTileType(cellIndex, compiled);
-                this.markStaticTileSyncDirtyByIndex(cellIndex, { sightBlockingChanged: true });
+                this.markStaticTileSyncDirtyByIndex(cellIndex, { sightBlockingChanged: true, pathingChanged: true });
             }
         }
         if (previousTileTypes.length > 0) {
             this.buildingPreviousTileTypeById.set(building.id, previousTileTypes);
         }
         this.applyBuildingTopologyForBuilding(building.id);
+        if (!compiled.visualTileType && (compiled.topologyMask & (BUILDING_TOPOLOGY_BLOCKS_MOVE | BUILDING_TOPOLOGY_BLOCKS_SIGHT)) !== 0) {
+            for (const cellIndex of cells) {
+                this.markStaticTileSyncDirtyByIndex(cellIndex, {
+                    sightBlockingChanged: Boolean(compiled.topologyMask & BUILDING_TOPOLOGY_BLOCKS_SIGHT),
+                    pathingChanged: Boolean(compiled.topologyMask & BUILDING_TOPOLOGY_BLOCKS_MOVE),
+                });
+            }
+        }
         const affectsBoundaryTopology = compiledBuildingAffectsRoomBoundaryTopology(compiled);
         const affectsRoofTopology = compiled.roofCoverage > 0;
         const shouldRecalculateRooms = affectsBoundaryTopology
@@ -2675,8 +2812,10 @@ class MapInstanceRuntime {
         }
         const cached = this.playerViewCacheByPlayerId.get(playerId);
         const normalizedRadius = Math.max(1, Math.trunc(Number(radius) || DEFAULT_VIEW_RADIUS));
+        const aoiLocalRevision = this.resolveAoiViewRevision(player.x, player.y, normalizedRadius);
         if (cached
-            && cached.worldRevision === this.worldRevision
+            && cached.aoiGlobalRevision === this.aoiGlobalRevision
+            && cached.aoiLocalRevision === aoiLocalRevision
             && cached.selfRevision === player.selfRevision
             && cached.x === player.x
             && cached.y === player.y
@@ -2746,7 +2885,8 @@ class MapInstanceRuntime {
             localBuildings,
         };
         this.playerViewCacheByPlayerId.set(playerId, {
-            worldRevision: this.worldRevision,
+            aoiGlobalRevision: this.aoiGlobalRevision,
+            aoiLocalRevision,
             selfRevision: player.selfRevision,
             x: player.x,
             y: player.y,
@@ -2764,8 +2904,10 @@ class MapInstanceRuntime {
         }
         const normalizedRadius = Math.max(1, Math.trunc(Number(radius) || DEFAULT_VIEW_RADIUS));
         const cached = this.autoCombatViewCacheByPlayerId.get(playerId);
+        const aoiLocalRevision = this.resolveAoiViewRevision(player.x, player.y, normalizedRadius);
         if (cached
-            && cached.worldRevision === this.worldRevision
+            && cached.aoiGlobalRevision === this.aoiGlobalRevision
+            && cached.aoiLocalRevision === aoiLocalRevision
             && cached.selfRevision === player.selfRevision
             && cached.x === player.x
             && cached.y === player.y
@@ -2782,7 +2924,8 @@ class MapInstanceRuntime {
             localMonsters: this.collectAutoCombatMonsters(player.x, player.y, normalizedRadius, visibleTileVisibility),
         };
         this.autoCombatViewCacheByPlayerId.set(playerId, {
-            worldRevision: this.worldRevision,
+            aoiGlobalRevision: this.aoiGlobalRevision,
+            aoiLocalRevision,
             selfRevision: player.selfRevision,
             x: player.x,
             y: player.y,
@@ -2802,9 +2945,10 @@ class MapInstanceRuntime {
             || normalizedY + normalizedRadius >= this.template.height) {
             return this.collectVisibleTileVisibility(normalizedX, normalizedY, normalizedRadius, { includeKeys: false });
         }
-        const sightRevision = Math.max(0, Math.trunc(Number(this.sightBlockingRevision) || 0));
+        const sightRevision = this.resolveAoiViewRevision(normalizedX, normalizedY, normalizedRadius, true);
         const cached = this.autoCombatTileVisibilityCacheByPlayerId.get(playerId);
         if (cached
+            && cached.aoiGlobalRevision === this.aoiGlobalRevision
             && cached.sightRevision === sightRevision
             && cached.x === normalizedX
             && cached.y === normalizedY
@@ -2813,6 +2957,7 @@ class MapInstanceRuntime {
         }
         const visibility = this.collectVisibleTileVisibility(normalizedX, normalizedY, normalizedRadius, { includeKeys: false });
         this.autoCombatTileVisibilityCacheByPlayerId.set(playerId, {
+            aoiGlobalRevision: this.aoiGlobalRevision,
             sightRevision,
             x: normalizedX,
             y: normalizedY,
@@ -2872,6 +3017,9 @@ class MapInstanceRuntime {
     forEachPathingBlocker(excludePlayerId, visitor) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+        if (typeof this.dynamicTileBlocker?.forEachBlockedTile === 'function') {
+            this.dynamicTileBlocker.forEachBlockedTile(excludePlayerId, visitor);
+        }
         for (const npc of this.npcsById.values()) {
             /** visitor：visitor。 */
             visitor(npc.x, npc.y);
@@ -3153,7 +3301,7 @@ class MapInstanceRuntime {
                 this.applyDefaultTileLayerFallback(tileIndex);
                 this.tileDamageByTile.delete(tileIndex);
                 this.markTileDamagePersistenceDirtyHighPriority(tileIndex);
-                this.markStaticTileSyncDirtyByIndex(tileIndex, { sightBlockingChanged: true });
+                this.markStaticTileSyncDirtyByIndex(tileIndex, { sightBlockingChanged: true, pathingChanged: true });
             }
             this.worldRevision += 1;
             this.persistentRevision += 1;
@@ -3183,6 +3331,10 @@ class MapInstanceRuntime {
                     modifiedAt: Date.now(),
                 });
             }
+            this.markStaticTileSyncDirtyByIndex(tileIndex, {
+                sightBlockingChanged: destroyed,
+                pathingChanged: destroyed,
+            });
             this.worldRevision += 1;
             this.markPersistenceDirtyDomainsHighPriority(['temporary_tile']);
             if (affectsRoomTopology) {
@@ -3275,7 +3427,7 @@ class MapInstanceRuntime {
             this.applyDefaultTileLayerFallback(tileIndex);
             this.tileDamageByTile.delete(tileIndex);
             this.worldRevision += 1;
-            this.markStaticTileSyncDirtyByIndex(tileIndex, { sightBlockingChanged: true });
+            this.markStaticTileSyncDirtyByIndex(tileIndex, { sightBlockingChanged: true, pathingChanged: true });
             this.markTileDamagePersistenceDirtyHighPriority(tileIndex);
             if (this.shouldRecalculateRoomsForTileMutation(tileIndex, current.tileType, this.resolveDefaultTileLayerFallbackForCell(tileIndex).legacyTileType)) {
                 this.recalculateRoomsAndFengShuiAfterTopologyChange({ reason: 'sect_boundary_opened', dirtyCellCount: 1 });
@@ -3300,7 +3452,10 @@ class MapInstanceRuntime {
             respawnLeft: destroyed ? calculateTileRestoreTicks(current.tileType) : 0,
             modifiedAt: Date.now(),
         });
-        this.markStaticTileSyncDirtyByIndex(tileIndex, { sightBlockingChanged: destroyed === true });
+        this.markStaticTileSyncDirtyByIndex(tileIndex, {
+            sightBlockingChanged: destroyed === true,
+            pathingChanged: destroyed === true,
+        });
         this.worldRevision += 1;
         this.markTileDamagePersistenceDirtyHighPriority(tileIndex);
         if (affectsRoomTopology) {
@@ -3350,7 +3505,7 @@ class MapInstanceRuntime {
             createdAt: existingTemporary?.createdAt ?? now,
             modifiedAt: now,
         });
-        this.markStaticTileSyncDirtyByIndex(tileIndex);
+        this.markStaticTileSyncDirtyByIndex(tileIndex, { sightBlockingChanged: true, pathingChanged: true });
         this.worldRevision += 1;
         this.markPersistenceDirtyDomainsHighPriority(['temporary_tile']);
         if (this.shouldRecalculateRoomsForTileMutation(tileIndex, previousEffectiveTileType, this.getEffectiveTileTypeByCellIndex(tileIndex))) {
@@ -3398,7 +3553,7 @@ class MapInstanceRuntime {
         for (const [tileIndex, state] of this.temporaryTileByTile) {
             if (!state || !Number.isFinite(Number(tileIndex))) {
                 toDelete.push(tileIndex);
-                this.markStaticTileSyncDirtyByIndex(tileIndex, { sightBlockingChanged: true });
+                this.markStaticTileSyncDirtyByIndex(tileIndex, { sightBlockingChanged: true, pathingChanged: true });
                 changed = true;
                 continue;
             }
@@ -3413,7 +3568,7 @@ class MapInstanceRuntime {
                     topologyChangedCellCount += 1;
                 }
                 toDelete.push(tileIndex);
-                this.markStaticTileSyncDirtyByIndex(tileIndex, { sightBlockingChanged: true });
+                this.markStaticTileSyncDirtyByIndex(tileIndex, { sightBlockingChanged: true, pathingChanged: true });
                 changed = true;
             }
         }
@@ -3456,7 +3611,7 @@ class MapInstanceRuntime {
                 topologyChangedCellCount += 1;
             }
             toDelete.push(normalizedTileIndex);
-            this.markStaticTileSyncDirtyByIndex(normalizedTileIndex, { sightBlockingChanged: true });
+            this.markStaticTileSyncDirtyByIndex(normalizedTileIndex, { sightBlockingChanged: true, pathingChanged: true });
         }
         for (const key of toDelete) {
             this.temporaryTileByTile.delete(key);
@@ -3551,7 +3706,7 @@ class MapInstanceRuntime {
                     });
                 }
                 if (respawnLeft <= 1 && !this.hasBlockingEntityAt(x, y)) {
-                    this.markStaticTileSyncDirtyByIndex(normalizedTileIndex, { sightBlockingChanged: true });
+                    this.markStaticTileSyncDirtyByIndex(normalizedTileIndex, { sightBlockingChanged: true, pathingChanged: true });
                 }
                 this.markTileDamagePersistenceDirty(tileIndex);
                 changed = true;
@@ -3561,7 +3716,7 @@ class MapInstanceRuntime {
             const hp = Math.max(0, Math.min(maxHp, Math.trunc(Number(current?.hp) || maxHp)));
             if (hp >= maxHp) {
                 this.tileDamageByTile.delete(tileIndex);
-                this.markStaticTileSyncDirtyByIndex(normalizedTileIndex, { sightBlockingChanged: true });
+                this.markStaticTileSyncDirtyByIndex(normalizedTileIndex, { sightBlockingChanged: true, pathingChanged: true });
                 this.markTileDamagePersistenceDirty(tileIndex);
                 changed = true;
                 continue;
@@ -3593,7 +3748,10 @@ class MapInstanceRuntime {
                 });
             }
             if (nextHp >= maxHp) {
-                this.markStaticTileSyncDirtyByIndex(normalizedTileIndex, { sightBlockingChanged: current?.destroyed === true });
+                this.markStaticTileSyncDirtyByIndex(normalizedTileIndex, {
+                    sightBlockingChanged: current?.destroyed === true,
+                    pathingChanged: current?.destroyed === true,
+                });
             }
             this.markTileDamagePersistenceDirty(tileIndex);
             changed = true;
@@ -4006,6 +4164,7 @@ class MapInstanceRuntime {
         if (state.alive) {
             this.monsterRuntimeIdByTile.set(this.toTileIndex(state.x, state.y), runtimeId);
         }
+        this.markAoiViewChangedAt(state.x, state.y);
         this.worldRevision += 1;
         return snapshotMonster(state);
     }
@@ -4019,6 +4178,7 @@ class MapInstanceRuntime {
         if (!monster) {
             return false;
         }
+        this.markAoiViewChangedAt(monster.x, monster.y);
         this.monsterRuntimeIdByTile.delete(this.toTileIndex(monster.x, monster.y));
         this.monstersByRuntimeId.delete(runtimeId);
         this.monsterThreatByRuntimeId.delete(runtimeId);
@@ -4179,6 +4339,7 @@ class MapInstanceRuntime {
             this.markMonsterDefeated(monster);
         }
         else {
+            this.markAoiViewChangedAt(monster.x, monster.y);
             this.worldRevision += 1;
         }
         return {
@@ -4226,9 +4387,11 @@ class MapInstanceRuntime {
             attrRelevantChanged = doesTemporaryBuffAffectAttributes(buff);
             monster.buffs.sort((left, right) => String(left.buffId ?? '').localeCompare(String(right.buffId ?? ''), 'zh-Hans-CN'));
         }
-        if (attrRelevantChanged && recalculateMonsterDerivedState(monster)) {
-            this.worldRevision += 1;
+        if (attrRelevantChanged) {
+            recalculateMonsterDerivedState(monster);
         }
+        this.markMonsterRuntimePersistenceDirty(monster.runtimeId);
+        this.worldRevision += 1;
         return options?.skipSnapshot === true ? monster : snapshotMonster(monster);
     }
     /** defeatMonster：直接结算一只妖兽被击败后的占用释放。 */
@@ -4839,6 +5002,10 @@ class MapInstanceRuntime {
                 if (!portal || !Number.isFinite(Number(portal.x)) || !Number.isFinite(Number(portal.y))) {
                     continue;
                 }
+                // 宗门山门由 server_sect 真源在恢复期重建；忽略历史 overlay，避免迁宗后旧山门复活。
+                if (typeof portal.sectId === 'string' && portal.sectId.trim()) {
+                    continue;
+                }
                 const x = Math.trunc(Number(portal.x));
                 const y = Math.trunc(Number(portal.y));
                 if (!this.isInBounds(x, y)) {
@@ -4867,6 +5034,7 @@ class MapInstanceRuntime {
         if (sawPortalChunk) {
             portals.sort((left, right) => left.y - right.y || left.x - right.x);
             this.runtimePortals = portals;
+            this.markAoiViewChangedGlobally();
             this.worldRevision += 1;
         }
     }
@@ -4914,10 +5082,13 @@ class MapInstanceRuntime {
         return entries;
     }
     /** buildTileResourcePersistenceDelta：导出地块资源行级增量。 */
-    buildTileResourcePersistenceDelta() {
+    buildTileResourcePersistenceDelta(flushSnapshot = null) {
         const dirtyPairs = [];
-        if (this.dirtyTileResourceByKey instanceof Map) {
-            for (const [resourceKey, tileIndices] of this.dirtyTileResourceByKey.entries()) {
+        const dirtyTileResourceByKey = flushSnapshot?.dirtyTileResourceByKey instanceof Map
+            ? flushSnapshot.dirtyTileResourceByKey
+            : this.dirtyTileResourceByKey;
+        if (dirtyTileResourceByKey instanceof Map) {
+            for (const [resourceKey, tileIndices] of dirtyTileResourceByKey.entries()) {
                 if (typeof resourceKey !== 'string' || !resourceKey.trim() || !(tileIndices instanceof Set)) {
                     continue;
                 }
@@ -4928,7 +5099,10 @@ class MapInstanceRuntime {
                 }
             }
         }
-        const fullReplace = this.persistenceFullReplaceDomains?.has?.('tile_resource') === true
+        const fullReplaceDomains = flushSnapshot?.fullReplaceDomains instanceof Set
+            ? flushSnapshot.fullReplaceDomains
+            : this.persistenceFullReplaceDomains;
+        const fullReplace = fullReplaceDomains?.has?.('tile_resource') === true
             || (dirtyPairs.length === 0 && this.getDirtyDomains().has('tile_resource'));
         if (fullReplace) {
             return { fullReplace: true, upserts: [], deletes: [] };
@@ -4971,13 +5145,19 @@ class MapInstanceRuntime {
         return entries;
     }
     /** buildGroundPersistenceDelta：导出地面物品按 tile 替换增量。 */
-    buildGroundPersistenceDelta() {
-        const dirtyTileIndices = this.dirtyGroundItemTileIndices instanceof Set
-            ? Array.from(this.dirtyGroundItemTileIndices.values())
+    buildGroundPersistenceDelta(flushSnapshot = null) {
+        const dirtyGroundItemTileIndices = flushSnapshot?.dirtyGroundItemTileIndices instanceof Set
+            ? flushSnapshot.dirtyGroundItemTileIndices
+            : this.dirtyGroundItemTileIndices;
+        const dirtyTileIndices = dirtyGroundItemTileIndices instanceof Set
+            ? Array.from(dirtyGroundItemTileIndices.values())
                 .filter((tileIndex) => Number.isFinite(Number(tileIndex)))
                 .map((tileIndex) => Math.max(0, Math.trunc(Number(tileIndex))))
             : [];
-        const fullReplace = this.persistenceFullReplaceDomains?.has?.('ground_item') === true
+        const fullReplaceDomains = flushSnapshot?.fullReplaceDomains instanceof Set
+            ? flushSnapshot.fullReplaceDomains
+            : this.persistenceFullReplaceDomains;
+        const fullReplace = fullReplaceDomains?.has?.('ground_item') === true
             || (dirtyTileIndices.length === 0 && this.getDirtyDomains().has('ground_item'));
         if (fullReplace) {
             return { fullReplace: true, tileIndices: [], entries: [] };
@@ -4996,6 +5176,130 @@ class MapInstanceRuntime {
         }
         entries.sort((left, right) => left.tileIndex - right.tileIndex);
         return { fullReplace: false, tileIndices: Array.from(tileIndexSet.values()).sort((left, right) => left - right), entries };
+    }
+    /** 记录单个地块的完整地面物品，供跨域资产事务失败时精确恢复运行态。 */
+    captureGroundTileItemsForAssetMutation(tileIndex) {
+        const normalizedTileIndex = Math.trunc(Number(tileIndex));
+        const pile = this.groundPilesByTile.get(normalizedTileIndex);
+        return pile?.items?.map((entry) => ({ ...entry.item })) ?? [];
+    }
+    /**
+     * durable 拾取失败时只补回本次拿走的条目；等待数据库期间新增的战斗掉落不会被旧快照覆盖。
+     * 已在等待期间自然过期的条目不再复活。
+     */
+    restoreGroundItemsAfterFailedAssetTake(tileIndex, items) {
+        const normalizedTileIndex = Math.trunc(Number(tileIndex));
+        if (normalizedTileIndex < 0 || normalizedTileIndex >= this.auraByTile.length) {
+            return false;
+        }
+        const normalizedItems = (Array.isArray(items) ? items : [])
+            .map((item) => normalizePersistedGroundItem({ ...item }))
+            .filter((item) => Boolean(item))
+            .filter((item) => {
+                const expiresAtTick = getGroundItemExpiresAtTick(item);
+                return expiresAtTick <= 0 || this.tick < expiresAtTick;
+            });
+        if (normalizedItems.length === 0) {
+            return false;
+        }
+        let pile = this.groundPilesByTile.get(normalizedTileIndex);
+        if (!pile) {
+            pile = {
+                sourceId: buildGroundSourceId(normalizedTileIndex),
+                x: this.tilePlane.getX(normalizedTileIndex),
+                y: this.tilePlane.getY(normalizedTileIndex),
+                tileIndex: normalizedTileIndex,
+                items: [],
+            };
+            this.groundPilesByTile.set(normalizedTileIndex, pile);
+        }
+        for (const item of normalizedItems) {
+            mergeGroundItemEntry(pile.items, item);
+        }
+        pile.items.sort(compareGroundEntries);
+        this.markGroundItemPersistenceDirty(normalizedTileIndex);
+        this.recalculateFengShuiAfterRoomInfluenceChange(normalizedTileIndex, 'ground_item_transaction_reverted');
+        this.persistentRevision += 1;
+        this.worldRevision += 1;
+        return true;
+    }
+    /** durable 丢弃失败时只扣回本次新增数量，保留等待期间落到同一地块或同一堆叠的物品。 */
+    removeGroundItemsAfterFailedAssetDrop(tileIndex, items) {
+        const normalizedTileIndex = Math.trunc(Number(tileIndex));
+        const pile = this.groundPilesByTile.get(normalizedTileIndex);
+        if (!pile || !Array.isArray(pile.items)) {
+            return false;
+        }
+        let changed = false;
+        for (const item of Array.isArray(items) ? items : []) {
+            const expiresAtTick = getGroundItemExpiresAtTick(item);
+            if (expiresAtTick > 0 && this.tick >= expiresAtTick) {
+                // 本次新增份额已经在等待窗口内自然过期，不能再扣减之后落下的同签名物品。
+                continue;
+            }
+            const itemKey = buildGroundItemKey(item);
+            const entryIndex = pile.items.findIndex((entry) => entry?.itemKey === itemKey);
+            if (entryIndex < 0) {
+                continue;
+            }
+            const entry = pile.items[entryIndex];
+            const removeCount = Math.max(1, Math.trunc(Number(item?.count ?? 1)));
+            const remainingCount = Math.max(0, Math.trunc(Number(entry?.item?.count ?? 0)) - removeCount);
+            if (remainingCount <= 0) {
+                pile.items.splice(entryIndex, 1);
+            }
+            else {
+                entry.item.count = remainingCount;
+            }
+            changed = true;
+        }
+        if (!changed) {
+            return false;
+        }
+        if (pile.items.length === 0) {
+            this.groundPilesByTile.delete(normalizedTileIndex);
+            this.localGroundPileViewCacheBySourceId.delete(buildGroundSourceId(normalizedTileIndex));
+        }
+        else {
+            pile.items.sort(compareGroundEntries);
+        }
+        this.markGroundItemPersistenceDirty(normalizedTileIndex);
+        this.recalculateFengShuiAfterRoomInfluenceChange(normalizedTileIndex, 'ground_item_transaction_reverted');
+        this.persistentRevision += 1;
+        this.worldRevision += 1;
+        return true;
+    }
+    /** 恢复单个地块的完整地面物品，不触碰其他地块或实例状态。 */
+    restoreGroundTileItemsForAssetMutation(tileIndex, items) {
+        const normalizedTileIndex = Math.trunc(Number(tileIndex));
+        if (normalizedTileIndex < 0 || normalizedTileIndex >= this.auraByTile.length) {
+            return;
+        }
+        const normalizedItems = (Array.isArray(items) ? items : [])
+            .map((item) => normalizePersistedGroundItem(item))
+            .filter((item) => Boolean(item));
+        if (normalizedItems.length === 0) {
+            this.groundPilesByTile.delete(normalizedTileIndex);
+            this.localGroundPileViewCacheBySourceId.delete(buildGroundSourceId(normalizedTileIndex));
+        }
+        else {
+            const mergedItems = [];
+            for (const item of normalizedItems) {
+                mergeGroundItemEntry(mergedItems, item);
+            }
+            mergedItems.sort(compareGroundEntries);
+            this.groundPilesByTile.set(normalizedTileIndex, {
+                sourceId: buildGroundSourceId(normalizedTileIndex),
+                x: this.tilePlane.getX(normalizedTileIndex),
+                y: this.tilePlane.getY(normalizedTileIndex),
+                tileIndex: normalizedTileIndex,
+                items: mergedItems,
+            });
+        }
+        this.markGroundItemPersistenceDirty(normalizedTileIndex);
+        this.recalculateFengShuiAfterRoomInfluenceChange(normalizedTileIndex, 'ground_item_transaction_restored');
+        this.persistentRevision += 1;
+        this.worldRevision += 1;
     }
     /** buildTileDamagePersistenceEntries：导出可破坏地块持久化条目。 */
     buildTileDamagePersistenceEntries() {
@@ -5025,13 +5329,19 @@ class MapInstanceRuntime {
         return entries;
     }
     /** buildTileDamagePersistenceDelta：导出可破坏地块行级增量。 */
-    buildTileDamagePersistenceDelta() {
-        const dirtyTileIndices = this.dirtyTileDamageIndices instanceof Set
-            ? Array.from(this.dirtyTileDamageIndices.values())
+    buildTileDamagePersistenceDelta(flushSnapshot = null) {
+        const dirtyTileDamageIndices = flushSnapshot?.dirtyTileDamageIndices instanceof Set
+            ? flushSnapshot.dirtyTileDamageIndices
+            : this.dirtyTileDamageIndices;
+        const dirtyTileIndices = dirtyTileDamageIndices instanceof Set
+            ? Array.from(dirtyTileDamageIndices.values())
                 .filter((tileIndex) => Number.isFinite(Number(tileIndex)))
                 .map((tileIndex) => Math.max(0, Math.trunc(Number(tileIndex))))
             : [];
-        const fullReplace = this.persistenceFullReplaceDomains?.has?.('tile_damage') === true
+        const fullReplaceDomains = flushSnapshot?.fullReplaceDomains instanceof Set
+            ? flushSnapshot.fullReplaceDomains
+            : this.persistenceFullReplaceDomains;
+        const fullReplace = fullReplaceDomains?.has?.('tile_damage') === true
             || (dirtyTileIndices.length === 0 && this.getDirtyDomains().has('tile_damage'));
         if (fullReplace) {
             return { fullReplace: true, upserts: [], deletes: [] };
@@ -5131,6 +5441,8 @@ class MapInstanceRuntime {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const portals = this.runtimePortals
+            // 宗门传送门是 server_sect 的派生投影，不重复写入实例 overlay 真源。
+            .filter((portal) => !(typeof portal.sectId === 'string' && portal.sectId.trim()))
             .map((portal) => ({
                 id: portal.id,
                 x: portal.x,
@@ -5200,13 +5512,19 @@ class MapInstanceRuntime {
         return entries;
     }
     /** buildMonsterRuntimePersistenceDelta：导出妖兽运行态行级增量。 */
-    buildMonsterRuntimePersistenceDelta() {
-        const dirtyIds = this.dirtyMonsterRuntimeIds instanceof Set
-            ? Array.from(this.dirtyMonsterRuntimeIds.values())
+    buildMonsterRuntimePersistenceDelta(flushSnapshot = null) {
+        const dirtyMonsterRuntimeIds = flushSnapshot?.dirtyMonsterRuntimeIds instanceof Set
+            ? flushSnapshot.dirtyMonsterRuntimeIds
+            : this.dirtyMonsterRuntimeIds;
+        const dirtyIds = dirtyMonsterRuntimeIds instanceof Set
+            ? Array.from(dirtyMonsterRuntimeIds.values())
                 .filter((runtimeId): runtimeId is string => typeof runtimeId === 'string' && runtimeId.trim().length > 0)
                 .map((runtimeId) => runtimeId.trim())
             : [];
-        const fullReplace = this.persistenceFullReplaceDomains?.has?.('monster_runtime') === true
+        const fullReplaceDomains = flushSnapshot?.fullReplaceDomains instanceof Set
+            ? flushSnapshot.fullReplaceDomains
+            : this.persistenceFullReplaceDomains;
+        const fullReplace = fullReplaceDomains?.has?.('monster_runtime') === true
             || (dirtyIds.length === 0 && this.getDirtyDomains().has('monster_runtime'));
         if (fullReplace) {
             return { fullReplace: true, upserts: [], deletes: [] };
@@ -5257,6 +5575,48 @@ class MapInstanceRuntime {
     /** getPersistenceRevision：读取实例持久化版本。 */
     getPersistenceRevision() {
         return this.persistentRevision;
+    }
+    /** 读取单个持久化域的运行态修订，用于判断 durable 等待期间是否出现并发源变更。 */
+    getPersistenceDomainRevision(domain) {
+        const normalizedDomain = typeof domain === 'string' ? domain.trim() : '';
+        return normalizedDomain
+            ? Math.max(0, Math.trunc(Number(this.persistenceDomainRevisionByDomain.get(normalizedDomain) ?? 0)))
+            : 0;
+    }
+    /** 捕获一次实例分域 flush 使用的 revision 与增量脏键，后续 IO 只消费该快照。 */
+    capturePersistenceDomainFlushSnapshot(domains) {
+        const normalizedDomains = new Set((Array.isArray(domains) ? domains : [])
+            .map((domain) => typeof domain === 'string' ? domain.trim() : '')
+            .filter(Boolean));
+        const domainRevisions = new Map();
+        for (const domain of normalizedDomains) {
+            domainRevisions.set(
+                domain,
+                Math.max(0, Math.trunc(Number(this.persistenceDomainRevisionByDomain.get(domain) ?? 0))),
+            );
+        }
+        const dirtyTileResourceByKey = new Map();
+        if (normalizedDomains.has('tile_resource') && this.dirtyTileResourceByKey instanceof Map) {
+            for (const [resourceKey, tileIndices] of this.dirtyTileResourceByKey.entries()) {
+                dirtyTileResourceByKey.set(resourceKey, new Set(tileIndices instanceof Set ? tileIndices : []));
+            }
+        }
+        return {
+            persistenceRevision: Math.max(0, Math.trunc(Number(this.persistentRevision) || 0)),
+            domainRevisions,
+            fullReplaceDomains: new Set(Array.from(normalizedDomains)
+                .filter((domain) => this.persistenceFullReplaceDomains?.has?.(domain) === true)),
+            dirtyTileResourceByKey,
+            dirtyTileDamageIndices: normalizedDomains.has('tile_damage')
+                ? new Set(this.dirtyTileDamageIndices instanceof Set ? this.dirtyTileDamageIndices : [])
+                : new Set(),
+            dirtyGroundItemTileIndices: normalizedDomains.has('ground_item')
+                ? new Set(this.dirtyGroundItemTileIndices instanceof Set ? this.dirtyGroundItemTileIndices : [])
+                : new Set(),
+            dirtyMonsterRuntimeIds: normalizedDomains.has('monster_runtime')
+                ? new Set(this.dirtyMonsterRuntimeIds instanceof Set ? this.dirtyMonsterRuntimeIds : [])
+                : new Set(),
+        };
     }
     /** getDirtyDomains：读取实例脏域集合。 */
     getDirtyDomains() {
@@ -5317,7 +5677,13 @@ class MapInstanceRuntime {
         if (this.staticTileSyncDirtyTileKeys.size === 0) {
             this.staticTileSyncDirtyFromRevision = Math.max(0, Math.trunc(Number(this.staticTileSyncRevision) || 0));
         }
-        const key = `${this.tilePlane.getX(tileIndex)},${this.tilePlane.getY(tileIndex)}`;
+        const tileX = this.tilePlane.getX(tileIndex);
+        const tileY = this.tilePlane.getY(tileIndex);
+        const key = `${tileX},${tileY}`;
+        this.markAoiViewChangedAt(tileX, tileY, options);
+        if (options?.pathingChanged === true) {
+            this.staticPathingRevision = Math.max(0, Math.trunc(Number(this.staticPathingRevision) || 0)) + 1;
+        }
         if (this.staticTileSyncDirtyTileKeys.has(key)) {
             this.staticTileSyncRevision = Math.max(0, Math.trunc(Number(this.staticTileSyncRevision) || 0)) + 1;
             if (options?.sightBlockingChanged === true) {
@@ -5335,6 +5701,95 @@ class MapInstanceRuntime {
     /** getStaticTileSyncRevision：读取地块静态同步 revision。 */
     getStaticTileSyncRevision() {
         return Math.max(0, Math.trunc(Number(this.staticTileSyncRevision) || 0));
+    }
+    /** getStaticPathingRevision：读取只影响静态寻路网格的 revision。 */
+    getStaticPathingRevision() {
+        return Math.max(0, Math.trunc(Number(this.staticPathingRevision) || 0));
+    }
+    /**
+     * 串行执行跨 await 的实例分域变更。普通 flush 与 durable 来源事务必须走同一队列，
+     * 避免旧 delta 在 durable 提交后重新覆盖数据库来源状态。
+     */
+    async runExclusivePersistenceDomainMutation<TResult>(
+        domains: readonly string[],
+        action: () => Promise<TResult> | TResult,
+    ): Promise<TResult> {
+        const normalizedDomains = Array.from(new Set((Array.isArray(domains) ? domains : [])
+            .map((domain) => typeof domain === 'string' ? domain.trim() : '')
+            .filter(Boolean))).sort();
+        if (normalizedDomains.length === 0) {
+            return await action();
+        }
+        const activeContext = INSTANCE_PERSISTENCE_DOMAIN_MUTATION_CONTEXT.getStore();
+        if (activeContext?.active
+            && activeContext.instance === this
+            && normalizedDomains.every((domain) => activeContext.domains.has(domain))) {
+            return await action();
+        }
+        if (activeContext?.active && activeContext.domains.size > 0) {
+            throw new Error('instance_persistence_domain_nested_lock_expansion_forbidden');
+        }
+        const tickets = normalizedDomains.map((domain) => {
+            const previous = this.persistenceDomainMutationQueueByDomain.get(domain) ?? Promise.resolve();
+            let release!: () => void;
+            const gate = new Promise<void>((resolve) => {
+                release = resolve;
+            });
+            const tail = previous.catch(() => undefined).then(() => gate);
+            this.persistenceDomainMutationQueueByDomain.set(domain, tail);
+            return { domain, previous, release, tail };
+        });
+        await Promise.all(tickets.map((ticket) => ticket.previous.catch(() => undefined)));
+        const lockContext = {
+            instance: this,
+            domains: new Set(normalizedDomains),
+            active: true,
+        };
+        try {
+            return await INSTANCE_PERSISTENCE_DOMAIN_MUTATION_CONTEXT.run(lockContext, action);
+        }
+        finally {
+            lockContext.active = false;
+            for (const ticket of tickets) {
+                ticket.release();
+            }
+            for (const ticket of tickets) {
+                void ticket.tail.finally(() => {
+                    if (this.persistenceDomainMutationQueueByDomain.get(ticket.domain) === ticket.tail) {
+                        this.persistenceDomainMutationQueueByDomain.delete(ticket.domain);
+                    }
+                });
+            }
+        }
+    }
+    /** 持有一个实例持久化域；返回的 release 必须在事务完成或回滚后调用。 */
+    acquirePersistenceDomainHold(domain) {
+        const normalizedDomain = typeof domain === 'string' ? domain.trim() : '';
+        if (!normalizedDomain) {
+            return () => undefined;
+        }
+        const current = Math.max(0, Math.trunc(Number(this.persistenceDomainHoldCounts.get(normalizedDomain) ?? 0)));
+        this.persistenceDomainHoldCounts.set(normalizedDomain, current + 1);
+        let released = false;
+        return () => {
+            if (released) {
+                return;
+            }
+            released = true;
+            const next = Math.max(0, Math.trunc(Number(this.persistenceDomainHoldCounts.get(normalizedDomain) ?? 0)) - 1);
+            if (next <= 0) {
+                this.persistenceDomainHoldCounts.delete(normalizedDomain);
+            }
+            else {
+                this.persistenceDomainHoldCounts.set(normalizedDomain, next);
+            }
+        };
+    }
+    isPersistenceDomainHeld(domain) {
+        const normalizedDomain = typeof domain === 'string' ? domain.trim() : '';
+        return normalizedDomain
+            ? Math.max(0, Math.trunc(Number(this.persistenceDomainHoldCounts.get(normalizedDomain) ?? 0))) > 0
+            : false;
     }
     /** consumeStaticTileSyncDirtyTiles：消费当前实例级地块静态脏坐标，由网络层缓存本轮 plan。 */
     consumeStaticTileSyncDirtyTiles() {
@@ -5355,6 +5810,10 @@ class MapInstanceRuntime {
             this.dirtyGroundItemTileIndices = new Set();
         }
         addNumericDirtyKey(this.dirtyGroundItemTileIndices, tileIndex);
+        if (Number.isFinite(Number(tileIndex)) && Number(tileIndex) >= 0 && Number(tileIndex) < this.tilePlane.getCellCount()) {
+            const normalizedIndex = Math.trunc(Number(tileIndex));
+            this.markAoiViewChangedAt(this.tilePlane.getX(normalizedIndex), this.tilePlane.getY(normalizedIndex));
+        }
     }
     /** ensureGroundItemExpiryDefaults：给旧版无过期元数据的地面物品补默认 TTL。 */
     ensureGroundItemExpiryDefaults(currentTick = this.tick) {
@@ -5435,15 +5894,31 @@ class MapInstanceRuntime {
             this.dirtyMonsterRuntimeIds = new Set();
         }
         if (typeof runtimeId === 'string' && runtimeId.trim()) {
-            this.dirtyMonsterRuntimeIds.add(runtimeId.trim());
+            const normalizedRuntimeId = runtimeId.trim();
+            this.dirtyMonsterRuntimeIds.add(normalizedRuntimeId);
+            const monster = this.monstersByRuntimeId.get(normalizedRuntimeId);
+            if (monster) {
+                this.markAoiViewChangedAt(monster.x, monster.y);
+            }
         }
     }
     /** markPersistenceDomainsPersisted：标记指定实例域已完成持久化。 */
-    markPersistenceDomainsPersisted(domains) {
+    markPersistenceDomainsPersisted(domains, flushSnapshot = null) {
         const dirtyDomains = this.getDirtyDomains();
         for (const domain of Array.isArray(domains) ? domains : []) {
             if (typeof domain === 'string' && domain.trim()) {
                 const normalizedDomain = domain.trim();
+                const expectedDomainRevision = flushSnapshot?.domainRevisions instanceof Map
+                    ? flushSnapshot.domainRevisions.get(normalizedDomain)
+                    : undefined;
+                const currentDomainRevision = Math.max(
+                    0,
+                    Math.trunc(Number(this.persistenceDomainRevisionByDomain.get(normalizedDomain) ?? 0)),
+                );
+                if (Number.isFinite(Number(expectedDomainRevision))
+                    && currentDomainRevision !== Math.max(0, Math.trunc(Number(expectedDomainRevision)))) {
+                    continue;
+                }
                 dirtyDomains.delete(normalizedDomain);
                 clearMapInstancePersistenceDeltaDomain(this, normalizedDomain);
                 // 清除合并窗口追踪状态
@@ -5614,6 +6089,7 @@ class MapInstanceRuntime {
         let movePoints = player.movePoints;
 
         let moved = false;
+        let facingChanged = false;
 
         let remainingSteps = Number.isFinite(maxSteps) ? Math.max(1, Math.min(20, Math.trunc(maxSteps))) : 20;
 
@@ -5623,6 +6099,7 @@ class MapInstanceRuntime {
         if (!remainingPath && player.facing !== horizontalFacingFromDelta(offset.x, player.facing)) {
             player.facing = horizontalFacingFromDelta(offset.x, player.facing);
             player.selfRevision += 1;
+            facingChanged = true;
         }
         while (true) {
             if (remainingSteps <= 0) {
@@ -5688,9 +6165,12 @@ class MapInstanceRuntime {
             if (player.facing !== stepDirection) {
                 player.facing = stepDirection;
                 player.selfRevision += 1;
+                facingChanged = true;
             }
-            this.setOccupied(player.x, player.y, INVALID_OCCUPANCY);
-            this.removePlayerFromTileIndex(player.playerId, player.x, player.y);
+            const previousX = player.x;
+            const previousY = player.y;
+            this.setOccupied(previousX, previousY, INVALID_OCCUPANCY);
+            this.removePlayerFromTileIndex(player.playerId, previousX, previousY);
             player.x = nextX;
             player.y = nextY;
             movePoints -= stepCost;
@@ -5701,6 +6181,7 @@ class MapInstanceRuntime {
             }
             this.addPlayerToTileIndex(player);
             this.setOccupied(player.x, player.y, player.handle);
+            this.markAoiViewMoved(previousX, previousY, player.x, player.y);
             this.worldRevision += 1;
 
             const portal = this.getPortalAt(player.x, player.y);
@@ -5717,6 +6198,10 @@ class MapInstanceRuntime {
         }
         if (moved) {
             player.selfRevision += 1;
+        }
+        else if (facingChanged) {
+            this.markAoiViewChangedAt(player.x, player.y);
+            this.worldRevision += 1;
         }
         player.movePoints = Math.min(getMaxStoredMovePoints(player.moveSpeed, requiredMovePoints), Math.max(0, Math.round(movePoints)));
     }
@@ -5759,8 +6244,14 @@ class MapInstanceRuntime {
         if (!this.isInBounds(x, y)) {
             return Number.POSITIVE_INFINITY;
         }
-
         if (this.isDynamicallyBlockedTile(x, y, playerId)) {
+            return Number.POSITIVE_INFINITY;
+        }
+        return this.getStaticTileTraversalCost(x, y);
+    }
+    /** getStaticTileTraversalCost：读取不含玩家/阵法等动态占位的静态地块代价。 */
+    getStaticTileTraversalCost(x, y) {
+        if (!this.isInBounds(x, y)) {
             return Number.POSITIVE_INFINITY;
         }
         const tileIndex = this.toTileIndex(x, y);
@@ -6325,10 +6816,17 @@ class MapInstanceRuntime {
             }
 
             const buffChanged = tickTemporaryBuffs(monster.buffs);
-            if (buffChanged && recalculateMonsterDerivedState(monster)) {
+            if (buffChanged) {
+                recalculateMonsterDerivedState(monster);
+                this.markMonsterRuntimePersistenceDirty(monster.runtimeId);
                 changed = true;
             }
-            changed = recoverMonsterHp(monster) || recoverMonsterQi(monster) || changed;
+            const hpRecovered = recoverMonsterHp(monster);
+            const qiRecovered = recoverMonsterQi(monster);
+            if (hpRecovered || qiRecovered) {
+                this.markMonsterRuntimePersistenceDirty(monster.runtimeId);
+                changed = true;
+            }
 
             if (monster.pendingCast) {
                 const pendingSkill = monster.skills.find((entry) => entry.id === (monster.pendingCast.actionId ?? monster.pendingCast.skillId));
@@ -7390,11 +7888,14 @@ class MapInstanceRuntime {
             if (!this.isOpenTile(nextX, nextY)) {
                 continue;
             }
-            this.monsterRuntimeIdByTile.delete(this.toTileIndex(monster.x, monster.y));
+            const previousX = monster.x;
+            const previousY = monster.y;
+            this.monsterRuntimeIdByTile.delete(this.toTileIndex(previousX, previousY));
             monster.x = nextX;
             monster.y = nextY;
             monster.facing = horizontalFacingFromDelta(direction.dx, monster.facing);
             this.monsterRuntimeIdByTile.set(this.toTileIndex(monster.x, monster.y), monster.runtimeId);
+            this.markAoiViewMoved(previousX, previousY, monster.x, monster.y);
             this.markMonsterRuntimePersistenceDirty(monster.runtimeId);
             return true;
         }
@@ -7410,11 +7911,14 @@ class MapInstanceRuntime {
                 continue;
             }
             const nextFacing = horizontalFacingFromTo(monster.x, monster.y, candidate.x, candidate.y, monster.facing);
-            this.monsterRuntimeIdByTile.delete(this.toTileIndex(monster.x, monster.y));
+            const previousX = monster.x;
+            const previousY = monster.y;
+            this.monsterRuntimeIdByTile.delete(this.toTileIndex(previousX, previousY));
             monster.x = candidate.x;
             monster.y = candidate.y;
             monster.facing = nextFacing;
             this.monsterRuntimeIdByTile.set(this.toTileIndex(monster.x, monster.y), monster.runtimeId);
+            this.markAoiViewMoved(previousX, previousY, monster.x, monster.y);
             this.markMonsterRuntimePersistenceDirty(monster.runtimeId);
             return true;
         }
@@ -7422,6 +7926,16 @@ class MapInstanceRuntime {
     }
 }
 export { MapInstanceRuntime };
+
+function setChunkRevision(rows: Map<number, Map<number, number>>, chunkX: number, chunkY: number, revision: number): void {
+    let row = rows.get(chunkY);
+    if (!row) {
+        row = new Map<number, number>();
+        rows.set(chunkY, row);
+    }
+    row.set(chunkX, revision);
+}
+
 /** getTileRestoreSpeedMultiplier：读取地形恢复速度倍率。 */
 function getTileRestoreSpeedMultiplier(tileType) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -7555,6 +8069,17 @@ function markMapInstanceDirtyDomains(instance, domains) {
         if (typeof domain === 'string' && domain.trim()) {
             const normalizedDomain = domain.trim();
             instance.dirtyDomains.add(normalizedDomain);
+            if (!(instance.persistenceDomainRevisionByDomain instanceof Map)) {
+                instance.persistenceDomainRevisionByDomain = new Map();
+            }
+            const currentRevision = Math.max(
+                0,
+                Math.trunc(Number(instance.persistenceDomainRevisionByDomain.get(normalizedDomain) ?? 0)),
+            );
+            instance.persistenceDomainRevisionByDomain.set(
+                normalizedDomain,
+                currentRevision >= Number.MAX_SAFE_INTEGER - 1 ? 1 : currentRevision + 1,
+            );
             // 仅在首次标脏时记录时间戳
             if (!instance.dirtyDomainFirstMarkedAt.has(normalizedDomain)) {
                 instance.dirtyDomainFirstMarkedAt.set(normalizedDomain, now);
@@ -9060,7 +9585,7 @@ function restoreSkippedPersistedBuildingTileCells(instance, persistedCells, cell
             : instance.applyDefaultTileLayerFallback(cellIndex);
         if (changed) {
             restoredCount += 1;
-            instance.markStaticTileSyncDirtyByIndex?.(cellIndex, { sightBlockingChanged: true });
+            instance.markStaticTileSyncDirtyByIndex?.(cellIndex, { sightBlockingChanged: true, pathingChanged: true });
         }
     }
     return restoredCount;
