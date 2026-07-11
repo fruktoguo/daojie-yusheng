@@ -68,6 +68,7 @@ export const SURFACE_CHAR_TO_TYPE: ReadonlyMap<string, SurfaceType> = new Map([
   ['廊', SurfaceType.Veranda],
   ['阶', SurfaceType.StoneStairs],
   ['板', SurfaceType.Floor],
+  ['阵', SurfaceType.FormationGlyph],
 ]);
 
 /** surface 层：SurfaceType → 中文字符 */

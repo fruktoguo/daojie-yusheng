@@ -14,6 +14,7 @@ import { HOUSE_DECOR_TILE_MINIMAP_COLORS } from '../gameplay/house-terrain';
 /** 小地图地形颜色映射。 */
 export const TILE_MINIMAP_COLORS: Record<TileType, string> = {
   [TileType.Floor]: '#bdb6aa',
+  [TileType.FormationGlyph]: '#b5533a',
   [TileType.Road]: '#b58f63',
   [TileType.Trail]: '#97714a',
   [TileType.Wall]: '#2d2a28',

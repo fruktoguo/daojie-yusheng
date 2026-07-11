@@ -170,6 +170,11 @@ export enum TileType {
  */
 
   BrokenSwordHeap = 'broken_sword_heap',
+  /**
+ * FormationGlyph：地板法阵纹（八卦/六芒星等格子像素图案），铺装层、不阻挡移动。
+ */
+
+  FormationGlyph = 'formation_glyph',
 }
 
 /** 方向。 */

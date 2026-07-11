@@ -37,6 +37,7 @@ export const MOVE_SPEED_SOFT_CAP_LOG_GAIN = MOVE_POINT_UNIT * 3;
 /** 各地形类型的移动消耗 */
 export const TILE_TRAVERSAL_COST: Record<TileType, number> = {
   floor: 100,
+  formation_glyph: 100,
   road: 30,
   trail: 50,
   wall: 400,
@@ -68,6 +69,7 @@ export const TILE_TRAVERSAL_COST: Record<TileType, number> = {
 /** 地形类型到地图字符的映射 */
 export const TILE_TYPE_TO_MAP_CHAR: Record<TileType, string> = {
   floor: '.',
+  formation_glyph: '阵',
   road: '=',
   trail: ':',
   wall: '#',

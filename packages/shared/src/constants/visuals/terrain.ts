@@ -17,6 +17,7 @@ import {
 /** 地形底色映射。 */
 export const TILE_VISUAL_BG_COLORS: Record<TileType, string> = {
   [TileType.Floor]: '#ddd8cf',
+  [TileType.FormationGlyph]: '#c0392b',
   [TileType.Road]: '#cdb89c',
   [TileType.Trail]: '#b4946f',
   [TileType.Wall]: '#3e3a35',
@@ -48,6 +49,7 @@ export const TILE_VISUAL_BG_COLORS: Record<TileType, string> = {
 /** 地形字符映射。 */
 export const TILE_VISUAL_GLYPHS: Record<TileType, string> = {
   [TileType.Floor]: '·',
+  [TileType.FormationGlyph]: '阵',
   [TileType.Road]: '路',
   [TileType.Trail]: '径',
   [TileType.Wall]: '▓',
@@ -79,6 +81,7 @@ export const TILE_VISUAL_GLYPHS: Record<TileType, string> = {
 /** 地形字符颜色映射。 */
 export const TILE_VISUAL_GLYPH_COLORS: Record<TileType, string> = {
   [TileType.Floor]: 'rgba(0,0,0,0.15)',
+  [TileType.FormationGlyph]: 'rgba(90,15,10,0.55)',
   [TileType.Road]: 'rgba(90,55,24,0.35)',
   [TileType.Trail]: 'rgba(84,52,28,0.42)',
   [TileType.Wall]: 'rgba(255,255,255,0.2)',

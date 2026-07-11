@@ -41,6 +41,7 @@ const SURFACE_NAME_AND_COLOR: Record<SurfaceType, [string, string]> = {
   [SurfaceType.Trail]: ['小径', '#b39b6f'],
   [SurfaceType.Veranda]: ['回廊', '#a58a66'],
   [SurfaceType.StoneStairs]: ['石阶', '#9b968c'],
+  [SurfaceType.FormationGlyph]: ['法阵纹', '#c0392b'],
 };
 
 const STRUCTURE_NAME_AND_COLOR: Record<StructureType, [string, string]> = {

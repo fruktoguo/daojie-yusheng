@@ -14,6 +14,8 @@ import { ProcgenRng } from './procgen-random';
 import { RegionCanvas } from './procgen-canvas';
 import { type LocalPort } from './procgen-maze';
 import { buildRoomShape, BOSS_SHAPE_KINDS, VAULT_SHAPE_KINDS, type RoomShape, type RoomShapeKind } from './procgen-room-shape';
+import { stampFloorPattern, BOSS_PATTERN_KINDS, VAULT_PATTERN_KINDS, type FloorPatternKind } from './procgen-floor-pattern';
+import { SurfaceType } from '../map-layer-types';
 import type { ProcgenAnchorKind, ProcgenBossSpec, ProcgenDungeonSpec, ProcgenRect, ProcgenVaultSpec } from './procgen-types';
 
 const NEIGHBORS4 = [[0, -1], [1, 0], [0, 1], [-1, 0]] as const;
@@ -321,6 +323,19 @@ function placePillar(canvas: RegionCanvas, shape: RoomShape, x: number, y: numbe
   if (canvas.inBounds(x, y) && shape.cells[y * shape.width + x] === 1) canvas.setStructure(x, y, tile);
 }
 
+/**
+ * 在房间地板上以格子为像素光栅化一个法阵图案（八卦/六芒星等），落在 surface 层。
+ * 半径取房形内切半径留 1 格边，图案经 shape.cells 裁剪，纯装饰不影响可走性。
+ */
+function stampRoomPattern(canvas: RegionCanvas, shape: RoomShape, kinds: readonly FloorPatternKind[], rng: ProcgenRng): void {
+  const radius = Math.min(shape.rx, shape.ry) - 1;
+  if (radius < 3) return; // 太小画不出可辨图案，宁可不画
+  stampFloorPattern(
+    canvas.surfaceIds, shape.cells, canvas.width, canvas.height,
+    shape.cx, shape.cy, radius, rng.pick(kinds), SurfaceType.FormationGlyph, rng,
+  );
+}
+
 /** 生成宝库区：单封闭异形房 + 朝前驱的一扇门 + 对称柱阵 + 中心宝箱。读起来像设计而非随机。 */
 export function generateVault(
   canvas: RegionCanvas,
@@ -348,6 +363,7 @@ export function generateVault(
   if (spec.pillarTile) {
     for (const dx of [-2, 2]) for (const dy of [-2, 2]) placePillar(canvas, shape, cx + dx, cy + dy, spec.pillarTile);
   }
+  stampRoomPattern(canvas, shape, VAULT_PATTERN_KINDS, rng);
   return [{ x: cx, y: cy, kind: 'chest' }];
 }
 
@@ -383,5 +399,6 @@ export function generateBossRoom(
   if (spec.pillarTile) {
     for (const dx of [-3, 3]) for (const dy of [-3, 3]) placePillar(canvas, shape, cx + dx, cy + dy, spec.pillarTile);
   }
+  stampRoomPattern(canvas, shape, BOSS_PATTERN_KINDS, rng);
   return [{ x: cx, y: cy, kind: 'boss' }];
 }

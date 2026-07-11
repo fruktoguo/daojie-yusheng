@@ -29,6 +29,8 @@ export enum SurfaceType {
   Trail = 'trail',
   Veranda = 'veranda',
   StoneStairs = 'stone_stairs',
+  /** 法阵纹：地板上的法阵/卦象线条像素，纯装饰、不阻挡移动。 */
+  FormationGlyph = 'formation_glyph',
 }
 
 /** 地上结构：墙、门、窗、树、矿等占据结构层的对象。 */
@@ -143,6 +145,7 @@ const TILE_LAYER_SEED_BY_TILE_TYPE: Record<TileType, TileLayerSeed> = {
   [TileType.Portal]: defaultGroundSeed(TileType.Portal, null, [InteractableKind.Portal]),
   [TileType.Stairs]: defaultGroundSeed(TileType.Stairs, null, [InteractableKind.Stairs]),
   [TileType.StoneStairs]: defaultGroundSeed(TileType.StoneStairs, null, EMPTY_INTERACTABLES, SurfaceType.StoneStairs),
+  [TileType.FormationGlyph]: defaultGroundSeed(TileType.FormationGlyph, null, EMPTY_INTERACTABLES, SurfaceType.FormationGlyph),
   [TileType.Grass]: seed(TerrainType.Grass, null, null, TileType.Grass),
   [TileType.Hill]: seed(TerrainType.Hill, null, null, TileType.Hill),
   [TileType.Cliff]: seed(TerrainType.Cliff, null, null, TileType.Cliff),
@@ -513,6 +516,7 @@ function tileTypeFromSurfaceType(surface: SurfaceType): TileType {
     case SurfaceType.Trail: return TileType.Trail;
     case SurfaceType.Veranda: return TileType.Veranda;
     case SurfaceType.StoneStairs: return TileType.StoneStairs;
+    case SurfaceType.FormationGlyph: return TileType.FormationGlyph;
     case SurfaceType.Floor:
     default:
       return TileType.Floor;

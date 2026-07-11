@@ -24,6 +24,7 @@ import type { SkillFormulaVar } from '../../skill-types';
 /** 地形类型中文标签 */
 export const TILE_TYPE_LABELS: Record<TileType, string> = {
   [TileType.Floor]: '地面',
+  [TileType.FormationGlyph]: '法阵纹',
   [TileType.Road]: '大路',
   [TileType.Trail]: '小路',
   [TileType.Wall]: '墙体',
@@ -75,6 +76,7 @@ export const SURFACE_TYPE_LABELS: Record<SurfaceType, string> = {
   [SurfaceType.Trail]: '小路',
   [SurfaceType.Veranda]: '回廊',
   [SurfaceType.StoneStairs]: '石梯',
+  [SurfaceType.FormationGlyph]: '法阵纹',
 };
 
 /** 地上结构中文标签。 */

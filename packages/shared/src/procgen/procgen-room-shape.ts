@@ -28,6 +28,9 @@ export interface RoomShape {
   /** 房心（保证 cells 内为 1）。 */
   readonly cx: number;
   readonly cy: number;
+  /** 半轴（格）。地板图案据此定尺寸内切。 */
+  readonly rx: number;
+  readonly ry: number;
   readonly kind: RoomShapeKind;
 }
 
@@ -105,5 +108,5 @@ export function buildRoomShape(
   // 不变量兜底：房心必须可走。心形/blob 极端参数下若房心恰好落空，强制置 1，
   // 保证门位通道终点与锚点始终有立足之地。
   cells[cy * width + cx] = 1;
-  return { cells, width, height, cx, cy, kind };
+  return { cells, width, height, cx, cy, rx, ry, kind };
 }

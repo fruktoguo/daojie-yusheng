@@ -347,6 +347,7 @@ const SURFACE_TYPE_LABELS: Record<SurfaceType, string> = {
   [SurfaceType.Trail]: '小径',
   [SurfaceType.Veranda]: '回廊',
   [SurfaceType.StoneStairs]: '石阶',
+  [SurfaceType.FormationGlyph]: '法阵纹',
 };
 const STRUCTURE_TYPE_LABELS: Record<StructureType, string> = {
   [StructureType.Wall]: '墙',
