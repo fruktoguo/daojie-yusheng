@@ -10,8 +10,13 @@
 |------|------|------|------|
 | `SERVER_DATABASE_URL` | `DATABASE_URL` | 是 | PostgreSQL 连接字符串 |
 | `SERVER_DATABASE_POOLER_URL` | `DATABASE_POOLER_URL` | 否 | 连接池 URL（高并发场景） |
+| `SERVER_DATABASE_POOL_<GROUP>_STATEMENT_TIMEOUT_MS` | `DATABASE_POOL_<GROUP>_STATEMENT_TIMEOUT_MS` | 否 | 各连接池 PostgreSQL 单条语句超时 |
+| `SERVER_DATABASE_POOL_<GROUP>_QUERY_TIMEOUT_MS` | `DATABASE_POOL_<GROUP>_QUERY_TIMEOUT_MS` | 否 | 各连接池 Node 客户端查询超时 |
+| `SERVER_DATABASE_POOL_<GROUP>_LOCK_TIMEOUT_MS` | `DATABASE_POOL_<GROUP>_LOCK_TIMEOUT_MS` | 否 | 各连接池 PostgreSQL 锁等待超时 |
 
 格式：`postgresql://user:password@host:5432/database?sslmode=require`
+
+`<GROUP>` 可取 `RUNTIME_CRITICAL`、`FLUSH`、`OUTBOX`、`GM_DIAGNOSTICS`。生产默认值已按运行时/刷盘 `10s` 语句、`12s` 客户端查询、`5s` 锁等待配置；GM 诊断池放宽为 `30s`、`35s`、`10s`。
 
 ## Redis
 

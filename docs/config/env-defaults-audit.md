@@ -60,8 +60,11 @@
 | `SERVER_DATABASE_POOL_FLUSH_MAX` | `16` | flush / 持久化连接池上限 |
 | `SERVER_DATABASE_POOL_OUTBOX_MAX` | `4` | outbox 连接池上限 |
 | `SERVER_DATABASE_POOL_GM_DIAGNOSTICS_MAX` | `2` | GM 诊断连接池上限 |
+| `SERVER_DATABASE_POOL_<GROUP>_STATEMENT_TIMEOUT_MS` | 核心/flush/outbox `10000`，GM `30000` | PostgreSQL 单条语句服务端超时 |
+| `SERVER_DATABASE_POOL_<GROUP>_QUERY_TIMEOUT_MS` | 核心/flush/outbox `12000`，GM `35000` | Node `pg` 客户端查询超时，略高于 statement timeout |
+| `SERVER_DATABASE_POOL_<GROUP>_LOCK_TIMEOUT_MS` | 核心/flush/outbox `5000`，GM `10000` | PostgreSQL 锁等待上限，防止连接池被无限占满 |
 
-默认总上限为 38 个连接，面向单服 8C/16GB 的 PostgreSQL 部署保留可控余量；如果使用外部 pooler，可通过 `SERVER_DATABASE_POOLER_URL` 接管。
+`<GROUP>` 为 `RUNTIME_CRITICAL`、`FLUSH`、`OUTBOX` 或 `GM_DIAGNOSTICS`，同时支持去掉 `SERVER_` 的兼容别名。默认总上限为 38 个连接，面向单服 8C/16GB 的 PostgreSQL 部署保留可控余量；所有共享池默认同时限制连接获取、单条 SQL、客户端查询和锁等待，避免优雅关停或锁竞争永久卡住。如果使用外部 pooler，可通过 `SERVER_DATABASE_POOLER_URL` 接管。
 
 ## 持久化与刷盘
 

@@ -8,6 +8,24 @@ import { DatabasePoolProvider, resolveDatabasePoolGroup } from '../persistence/d
 
 async function main(): Promise<void> {
   const originalDatabaseUrl = process.env.DATABASE_URL;
+  const timeoutEnvKeys = [
+    'SERVER_DATABASE_POOL_FLUSH_STATEMENT_TIMEOUT_MS',
+    'DATABASE_POOL_FLUSH_STATEMENT_TIMEOUT_MS',
+    'SERVER_DATABASE_POOL_FLUSH_QUERY_TIMEOUT_MS',
+    'DATABASE_POOL_FLUSH_QUERY_TIMEOUT_MS',
+    'SERVER_DATABASE_POOL_FLUSH_LOCK_TIMEOUT_MS',
+    'DATABASE_POOL_FLUSH_LOCK_TIMEOUT_MS',
+    'SERVER_DATABASE_POOL_GM_DIAGNOSTICS_STATEMENT_TIMEOUT_MS',
+    'DATABASE_POOL_GM_DIAGNOSTICS_STATEMENT_TIMEOUT_MS',
+    'SERVER_DATABASE_POOL_GM_DIAGNOSTICS_QUERY_TIMEOUT_MS',
+    'DATABASE_POOL_GM_DIAGNOSTICS_QUERY_TIMEOUT_MS',
+    'SERVER_DATABASE_POOL_GM_DIAGNOSTICS_LOCK_TIMEOUT_MS',
+    'DATABASE_POOL_GM_DIAGNOSTICS_LOCK_TIMEOUT_MS',
+  ];
+  const originalTimeoutEnv = new Map(timeoutEnvKeys.map((key) => [key, process.env[key]]));
+  for (const key of timeoutEnvKeys) {
+    delete process.env[key];
+  }
   if (!process.env.DATABASE_URL?.trim()) {
     process.env.DATABASE_URL = 'postgres://127.0.0.1:5432/postgres';
   }
@@ -27,6 +45,22 @@ async function main(): Promise<void> {
   assert.notStrictEqual(criticalPool, flushPoolFromPlayer, 'critical pool should differ from flush pool');
   assert.notStrictEqual(outboxPool, flushPoolFromPlayer, 'outbox pool should differ from flush pool');
   assert.notStrictEqual(gmPool, flushPoolFromPlayer, 'gm pool should differ from flush pool');
+  assert.deepEqual(
+    {
+      statementTimeout: (flushPoolFromPlayer as unknown as { options: Record<string, unknown> }).options.statement_timeout,
+      queryTimeout: (flushPoolFromPlayer as unknown as { options: Record<string, unknown> }).options.query_timeout,
+      lockTimeout: (flushPoolFromPlayer as unknown as { options: Record<string, unknown> }).options.lock_timeout,
+    },
+    { statementTimeout: 10_000, queryTimeout: 12_000, lockTimeout: 5_000 },
+  );
+  assert.deepEqual(
+    {
+      statementTimeout: (gmPool as unknown as { options: Record<string, unknown> }).options.statement_timeout,
+      queryTimeout: (gmPool as unknown as { options: Record<string, unknown> }).options.query_timeout,
+      lockTimeout: (gmPool as unknown as { options: Record<string, unknown> }).options.lock_timeout,
+    },
+    { statementTimeout: 30_000, queryTimeout: 35_000, lockTimeout: 10_000 },
+  );
 
   assert.equal(resolveDatabasePoolGroup('player-session-route'), 'runtimeCritical');
   assert.equal(resolveDatabasePoolGroup('player-domain'), 'flush');
@@ -45,13 +79,20 @@ async function main(): Promise<void> {
   } else {
     process.env.DATABASE_URL = originalDatabaseUrl;
   }
+  for (const [key, value] of originalTimeoutEnv) {
+    if (value === undefined) {
+      delete process.env[key];
+    } else {
+      process.env[key] = value;
+    }
+  }
 
   console.log(
     JSON.stringify(
       {
         ok: true,
         case: 'database-pool-isolation',
-        answers: 'DatabasePoolProvider 已按 runtimeCritical / flush / outbox / gmDiagnostics 分组创建物理池，同组 scope 共享同一 pool，不同组池彼此独立。',
+        answers: 'DatabasePoolProvider 已按四类负载隔离物理池，并为连接、SQL、客户端查询和锁等待配置有界生产默认值。',
         excludes: '不证明真实 PG 压力下的上限边界，只证明分组、统计和独立实例化。',
         completionMapping: 'persistence-root-fix.phase5.pool-isolation',
       },

@@ -32,6 +32,24 @@ const DEFAULT_POOL_MAX: Record<DatabasePoolGroup, number> = {
 
 const DEFAULT_POOL_IDLE_TIMEOUT_MS = 30_000;
 const DEFAULT_POOL_CONNECTION_TIMEOUT_MS = 5_000;
+const DEFAULT_POOL_STATEMENT_TIMEOUT_MS: Record<DatabasePoolGroup, number> = {
+  runtimeCritical: 10_000,
+  flush: 10_000,
+  outbox: 10_000,
+  gmDiagnostics: 30_000,
+};
+const DEFAULT_POOL_QUERY_TIMEOUT_MS: Record<DatabasePoolGroup, number> = {
+  runtimeCritical: 12_000,
+  flush: 12_000,
+  outbox: 12_000,
+  gmDiagnostics: 35_000,
+};
+const DEFAULT_POOL_LOCK_TIMEOUT_MS: Record<DatabasePoolGroup, number> = {
+  runtimeCritical: 5_000,
+  flush: 5_000,
+  outbox: 5_000,
+  gmDiagnostics: 10_000,
+};
 
 @Injectable()
 export class DatabasePoolProvider implements OnModuleDestroy {
@@ -59,10 +77,13 @@ export class DatabasePoolProvider implements OnModuleDestroy {
       max: resolveDatabasePoolMax(group),
       idleTimeoutMillis: resolveDatabasePoolIdleTimeoutMillis(group),
       connectionTimeoutMillis: resolveDatabasePoolConnectionTimeoutMillis(group),
+      statement_timeout: resolveDatabasePoolStatementTimeoutMillis(group),
+      query_timeout: resolveDatabasePoolQueryTimeoutMillis(group),
+      lock_timeout: resolveDatabasePoolLockTimeoutMillis(group),
     });
     this.pools.set(group, pool);
     this.logger.log(
-      `数据库连接池 ${group} 已创建：最大连接=${resolveDatabasePoolMax(group)} 空闲超时=${resolveDatabasePoolIdleTimeoutMillis(group)}ms 连接超时=${resolveDatabasePoolConnectionTimeoutMillis(group)}ms`,
+      `数据库连接池 ${group} 已创建：最大连接=${resolveDatabasePoolMax(group)} 空闲超时=${resolveDatabasePoolIdleTimeoutMillis(group)}ms 连接超时=${resolveDatabasePoolConnectionTimeoutMillis(group)}ms SQL超时=${resolveDatabasePoolStatementTimeoutMillis(group)}ms 锁超时=${resolveDatabasePoolLockTimeoutMillis(group)}ms`,
     );
     return pool;
   }
@@ -197,6 +218,36 @@ function resolveDatabasePoolConnectionTimeoutMillis(group: DatabasePoolGroup): n
     `DATABASE_POOL_${groupToEnvSuffix(group)}_CONNECTION_TIMEOUT_MS`,
     DEFAULT_POOL_CONNECTION_TIMEOUT_MS,
     250,
+    60_000,
+  );
+}
+
+function resolveDatabasePoolStatementTimeoutMillis(group: DatabasePoolGroup): number {
+  return normalizePositiveIntegerEnv(
+    `SERVER_DATABASE_POOL_${groupToEnvSuffix(group)}_STATEMENT_TIMEOUT_MS`,
+    `DATABASE_POOL_${groupToEnvSuffix(group)}_STATEMENT_TIMEOUT_MS`,
+    DEFAULT_POOL_STATEMENT_TIMEOUT_MS[group],
+    250,
+    120_000,
+  );
+}
+
+function resolveDatabasePoolQueryTimeoutMillis(group: DatabasePoolGroup): number {
+  return normalizePositiveIntegerEnv(
+    `SERVER_DATABASE_POOL_${groupToEnvSuffix(group)}_QUERY_TIMEOUT_MS`,
+    `DATABASE_POOL_${groupToEnvSuffix(group)}_QUERY_TIMEOUT_MS`,
+    DEFAULT_POOL_QUERY_TIMEOUT_MS[group],
+    250,
+    120_000,
+  );
+}
+
+function resolveDatabasePoolLockTimeoutMillis(group: DatabasePoolGroup): number {
+  return normalizePositiveIntegerEnv(
+    `SERVER_DATABASE_POOL_${groupToEnvSuffix(group)}_LOCK_TIMEOUT_MS`,
+    `DATABASE_POOL_${groupToEnvSuffix(group)}_LOCK_TIMEOUT_MS`,
+    DEFAULT_POOL_LOCK_TIMEOUT_MS[group],
+    100,
     60_000,
   );
 }
