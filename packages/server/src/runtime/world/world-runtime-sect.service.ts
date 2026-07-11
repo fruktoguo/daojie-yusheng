@@ -7,6 +7,11 @@ import { BadRequestException, ForbiddenException, Logger, NotFoundException } fr
 import { FORMATION_AURA_PER_SPIRIT_STONE, SECT_ENTRANCE_RELOCATION_COOLDOWN_MS, TileType, formatDisplayInteger, getFirstGrapheme, getGraphemeCount } from '@mud/shared';
 import { Pool } from 'pg';
 import { resolveServerDatabaseUrl } from '../../config/env-alias';
+import {
+    persistDurableSectMutationUntilSettled,
+    persistSectSnapshotsWithClient,
+    SectDurableCommitOutcomeUnknownError,
+} from '../../persistence/sect-durable-persistence';
 import { buildStructuredNotice } from './structured-notice.helpers';
 import * as world_runtime_normalization_helpers_1 from './world-runtime.normalization.helpers';
 import { resolveSectMemberDisplayName } from '../player/player-display-name';
@@ -72,97 +77,371 @@ class WorldRuntimeSectService {
     persistenceReady = false;
     persistenceInitPromise = null;
     databasePoolProvider = null;
+    durableOperationService = null;
+    worldRuntimeFormationService = null;
+    sectMutationQueueBySectId = new Map<string, Promise<void>>();
+    sectDurableCommitQueue = Promise.resolve();
+    persistenceClosing = false;
+    sectShutdownSignal = createSectShutdownSignal();
+    unresolvedDurableCommitOutcome = false;
 
-    constructor(contentTemplateRepository, templateRepository, playerRuntimeService, mailRuntimeService = null, databasePoolProvider = null) {
+    constructor(contentTemplateRepository, templateRepository, playerRuntimeService, mailRuntimeService = null, databasePoolProvider = null, durableOperationService = null, worldRuntimeFormationService = null) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.templateRepository = templateRepository;
         this.playerRuntimeService = playerRuntimeService;
         this._mailRuntimeService = mailRuntimeService;
         this.databasePoolProvider = databasePoolProvider;
+        this.durableOperationService = durableOperationService;
+        this.worldRuntimeFormationService = worldRuntimeFormationService;
+    }
+
+    async runExclusiveSectPlayerMutation(sectIds, playerIds, action) {
+        const normalizedSectIds = Array.from(new Set((Array.isArray(sectIds) ? sectIds : [])
+            .map((sectId) => normalizeOptionalString(sectId))
+            .filter(Boolean))).sort();
+        const tickets = normalizedSectIds.map((sectId) => {
+            const previous = this.sectMutationQueueBySectId.get(sectId) ?? Promise.resolve();
+            let release;
+            const gate = new Promise<void>((resolve) => {
+                release = resolve;
+            });
+            const tail = previous.catch(() => undefined).then(() => gate);
+            this.sectMutationQueueBySectId.set(sectId, tail);
+            return { sectId, previous, release, tail };
+        });
+        await Promise.all(tickets.map((ticket) => ticket.previous.catch(() => undefined)));
+        try {
+            const coordinator = this.playerRuntimeService?.runExclusiveAssetMutation;
+            if (typeof coordinator === 'function') {
+                return await coordinator.call(this.playerRuntimeService, playerIds, action);
+            }
+            return await action();
+        } finally {
+            for (const ticket of tickets) {
+                ticket.release?.();
+            }
+            for (const ticket of tickets) {
+                void ticket.tail.finally(() => {
+                    if (this.sectMutationQueueBySectId.get(ticket.sectId) === ticket.tail) {
+                        this.sectMutationQueueBySectId.delete(ticket.sectId);
+                    }
+                });
+            }
+        }
+    }
+
+    async runExclusiveStableSectMembershipMutation(sectIds, playerIds, membershipPlayerId, action) {
+        const normalizedMembershipPlayerId = normalizeOptionalString(membershipPlayerId);
+        let hintedMembershipSectId = normalizedMembershipPlayerId
+            ? this.resolvePlayerSectId(normalizedMembershipPlayerId)
+            : null;
+        for (let attempt = 0; attempt < 3; attempt += 1) {
+            const lockedSectIds = Array.from(new Set([
+                ...(Array.isArray(sectIds) ? sectIds : []),
+                hintedMembershipSectId,
+            ].map((entry) => normalizeOptionalString(entry)).filter(Boolean)));
+            const result = await this.runExclusiveSectPlayerMutation(lockedSectIds, playerIds, async () => {
+                const currentMembershipSectId = normalizedMembershipPlayerId
+                    ? this.resolvePlayerSectId(normalizedMembershipPlayerId)
+                    : null;
+                if (currentMembershipSectId && !lockedSectIds.includes(currentMembershipSectId)) {
+                    return { retryMembershipSectId: currentMembershipSectId };
+                }
+                return { value: await action() };
+            });
+            if (!result?.retryMembershipSectId) {
+                return result?.value;
+            }
+            hintedMembershipSectId = result.retryMembershipSectId;
+        }
+        throw new BadRequestException('成员宗门归属正在变化，请稍后重试');
+    }
+
+    /** 先锁定宗门再读取当前成员集合，随后一次性持有所有成员资产锁。 */
+    async runExclusiveSectCurrentMembersMutation(sectId, playerIds, action) {
+        return this.runExclusiveSectPlayerMutation([sectId], [], async () => {
+            const currentSect = this.findSectById(sectId);
+            const currentMemberIds = Array.isArray(currentSect?.members)
+                ? currentSect.members.map((entry) => normalizeOptionalString(entry?.playerId)).filter(Boolean)
+                : [];
+            const lockedPlayerIds = Array.from(new Set([
+                ...(Array.isArray(playerIds) ? playerIds : []),
+                ...currentMemberIds,
+            ].map((entry) => normalizeOptionalString(entry)).filter(Boolean)));
+            const coordinator = this.playerRuntimeService?.runExclusiveAssetMutation;
+            if (typeof coordinator === 'function') {
+                return coordinator.call(this.playerRuntimeService, lockedPlayerIds, () => action(currentSect, currentMemberIds));
+            }
+            return action(currentSect, currentMemberIds);
+        });
+    }
+
+    buildDurablePlayerProjectionWrite(playerId, domains) {
+        const normalizedPlayerId = normalizeOptionalString(playerId);
+        if (!normalizedPlayerId) {
+            return null;
+        }
+        const normalizedDomains = Array.from(new Set((Array.isArray(domains) ? domains : [])
+            .map((domain) => normalizeOptionalString(domain))
+            .filter(Boolean))).sort();
+        const snapshot = this.playerRuntimeService.buildPersistenceSnapshot?.(
+            normalizedPlayerId,
+            new Set(normalizedDomains),
+        );
+        if (!snapshot) {
+            return null;
+        }
+        const player = this.playerRuntimeService.getPlayer?.(normalizedPlayerId) ?? null;
+        return {
+            playerId: normalizedPlayerId,
+            snapshot,
+            domains: normalizedDomains,
+            options: {
+                allowInventoryEmptyOverwrite: normalizedDomains.includes('inventory'),
+            },
+            expectedRuntimeOwnerId: normalizeOptionalString(player?.runtimeOwnerId),
+            expectedSessionEpoch: normalizeIntegerWithDefault(player?.sessionEpoch, 0),
+            persistentRevision: this.playerRuntimeService.getPersistenceRevision?.(normalizedPlayerId) ?? null,
+        };
+    }
+
+    commitDurableSectMutation(input) {
+        const formationIds = (input?.formationWrites ?? [])
+            .map((write) => normalizeOptionalString(write?.formationInstanceId))
+            .filter(Boolean);
+        const commit = () => this.runExclusiveDurableSectCommit(() => this.commitDurableSectMutationLocked(input));
+        if (formationIds.length > 0 && typeof this.worldRuntimeFormationService?.runExclusiveFormationPersistence === 'function') {
+            // runExclusiveFormationPersistence 在首次 await 前同步安装 ticket，禁止普通阵法 writer 抢到宗门后态前面。
+            return this.worldRuntimeFormationService.runExclusiveFormationPersistence(formationIds, commit);
+        }
+        return commit();
+    }
+
+    async commitDurableSectMutationLocked(input) {
+        const pool = await this.ensurePersistencePool();
+        if (!pool) {
+            return false;
+        }
+        const playerProjectionWrites = (Array.isArray(input?.playerProjectionWrites)
+            ? input.playerProjectionWrites
+            : []).filter(Boolean);
+        const projectionPlayerIds = new Set(playerProjectionWrites.map((write) => write.playerId));
+        for (const requiredPlayerId of input?.requirePlayerProjectionIds ?? []) {
+            if (!projectionPlayerIds.has(requiredPlayerId)) {
+                throw new Error(`sect_mutation_player_snapshot_missing:${requiredPlayerId}`);
+            }
+        }
+        const durableInput = {
+            sectWrites: input?.sectWrites ?? [],
+            playerProjectionWrites,
+            membershipWrites: input?.membershipWrites ?? [],
+            formationWrites: input?.formationWrites ?? [],
+        };
+        const affectedPlayerIds = Array.from(new Set([
+            ...playerProjectionWrites.map((write) => normalizeOptionalString(write?.playerId)),
+            ...durableInput.membershipWrites.map((write) => normalizeOptionalString(write?.playerId)),
+        ].filter(Boolean))).sort();
+        const affectedInstanceIds = collectDurableSectAffectedInstanceIds(durableInput, input?.affectedInstanceIds);
+        const persist = async () => {
+            try {
+                await persistDurableSectMutationUntilSettled(pool, durableInput, {
+                shouldContinue: () => !this.persistenceClosing,
+                stopSignal: this.sectShutdownSignal.promise,
+                onReadbackError: (error, attempt) => {
+                    if (attempt === 1 || attempt % 20 === 0) {
+                        this.logger.error(
+                            `宗门事务 COMMIT 结果回读失败，继续持锁重试 attempt=${attempt}：${error instanceof Error ? error.stack : String(error)}`,
+                        );
+                    }
+                },
+                });
+            } catch (error) {
+                if (error instanceof SectDurableCommitOutcomeUnknownError) {
+                    this.unresolvedDurableCommitOutcome = true;
+                    this.durableOperationService?.registerUnresolvedCommitOutcome?.({
+                        affectedPlayerIds,
+                        affectedInstanceIds,
+                    });
+                }
+                throw error;
+            }
+        };
+        await persist();
+        for (const write of playerProjectionWrites) {
+            this.playerRuntimeService.markPersisted?.(
+                write.playerId,
+                new Set(write.domains),
+                write.persistentRevision,
+            );
+        }
+        return true;
+    }
+
+    runExclusiveDurableSectCommit(action) {
+        const run = this.sectDurableCommitQueue.catch(() => undefined).then(action);
+        this.sectDurableCommitQueue = run.then(() => undefined, () => undefined);
+        return run;
+    }
+
+    async commitDurableSectMembershipMutation(beforeSectSnapshots, membershipByPlayerId, formationWrites = []) {
+        const sectWrites = [];
+        for (const before of beforeSectSnapshots ?? []) {
+            const sectId = normalizeOptionalString(before?.sectId);
+            if (!sectId) {
+                continue;
+            }
+            const current = this.sectsById.get(sectId) ?? null;
+            sectWrites.push({
+                sectId,
+                expectedUpdatedAtMs: normalizeIntegerWithDefault(before.updatedAt, 0),
+                snapshot: current ? normalizeSectEntry(current) : null,
+            });
+        }
+        const playerProjectionWrites = [];
+        const membershipWrites = [];
+        for (const [playerId, sectId] of membershipByPlayerId ?? []) {
+            const playerWrite = this.buildDurablePlayerProjectionWrite(playerId, ['sect_membership']);
+            if (playerWrite) {
+                playerProjectionWrites.push(playerWrite);
+            }
+            membershipWrites.push({
+                playerId,
+                sectId: normalizeOptionalString(sectId),
+                updatedAtMs: Date.now(),
+            });
+        }
+        const committed = await this.commitDurableSectMutation({
+            sectWrites,
+            playerProjectionWrites,
+            membershipWrites,
+            formationWrites,
+            affectedInstanceIds: (beforeSectSnapshots ?? []).flatMap((sect) => [
+                sect?.entranceInstanceId,
+                sect?.sectInstanceId,
+            ]),
+        });
+        if (!committed) {
+            this.persistSectsSoon();
+        }
+        return committed;
     }
 
     dispatchCreateSect(playerId, itemInstanceId, item, deps, payload = null) {
-        const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
-        if (normalizeOptionalString(player.sectId)) {
-            throw new BadRequestException('你已经有所属宗门');
-        }
         const sectId = buildSectId(playerId);
-        const sectName = normalizeSectName(payload?.sectName, player);
-        const sectMark = normalizeSectMark(payload?.sectMark, sectName);
-        assertSectMarkAvailable(this.sectsById.values(), sectMark);
-        const location = deps.getPlayerLocationOrThrow(playerId);
-        const entranceInstance = deps.getInstanceRuntimeOrThrow(location.instanceId);
-        const descriptor = parseRuntimeInstanceDescriptor(location.instanceId);
-        assertCanCreateSectAtInstance(entranceInstance, descriptor);
-        if (entranceInstance.meta.kind !== 'public' && descriptor?.instanceOrigin !== 'public') {
-            throw new BadRequestException('当前地点无法开辟宗门入口');
-        }
-        assertSectFoundingAreaClear(Array.from(this.sectsById.values()), entranceInstance, location.instanceId, player.x, player.y);
-        const bounds = buildInitialSectBounds();
-        const templateId = buildSectTemplateId(sectId);
-        const instanceId = buildSectInstanceId(sectId);
-        const coreX = SECT_CORE_X;
-        const coreY = SECT_CORE_Y;
-        const now = Date.now();
-        const sect = {
-            sectId,
-            name: sectName,
-            mark: sectMark,
-            founderPlayerId: playerId,
-            leaderPlayerId: playerId,
-            status: 'active',
-            entranceInstanceId: location.instanceId,
-            entranceTemplateId: entranceInstance.template.id,
-            entranceX: player.x,
-            entranceY: player.y,
-            sectInstanceId: instanceId,
-            sectTemplateId: templateId,
-            coreX,
-            coreY,
-            expansionRadius: Math.max(
-                Math.abs(bounds.minX),
-                Math.abs(bounds.maxX),
-                Math.abs(bounds.minY),
-                Math.abs(bounds.maxY),
-            ),
-            mapMinX: bounds.minX,
-            mapMaxX: bounds.maxX,
-            mapMinY: bounds.minY,
-            mapMaxY: bounds.maxY,
-            members: [buildSectMemberEntry(player, 'leader', now)],
-            rolePermissions: buildDefaultSectRolePermissions(),
-            createdAt: now,
-            updatedAt: now,
-        };
-        this.registerSectTemplate(sect);
-        const sectInstance = this.ensureSectRuntimeInstance(sect, deps);
-        this.attachSectPortals(sect, entranceInstance, sectInstance);
-        this.sectsById.set(sectId, sect);
-        this.playerSectId.set(playerId, sectId);
-        this.playerRuntimeService.consumeInventoryItemByInstanceId(playerId, itemInstanceId, 1);
-        if (typeof this.playerRuntimeService.setPlayerSectId === 'function') {
-            this.playerRuntimeService.setPlayerSectId(playerId, sectId);
-        } else {
-            player.sectId = sectId;
-        }
-        this.ensureGuardianFormation(sect, deps);
-        touchRuntimeInstanceRevision(deps, entranceInstance.meta.instanceId);
-        touchRuntimeInstanceRevision(deps, sectInstance.meta.instanceId);
-        this.persistSectsSoon();
-        const nFounded = buildStructuredNotice('success', 'notice.sect.founded', `建宗令化作山门，你开辟了${sect.name}。`, {
-            vars: { sectName: sect.name },
-            pills: [{ key: 'sectName', style: 'target' }],
+        return this.runExclusiveSectPlayerMutation([sectId], [playerId], async () => {
+            const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
+            if (normalizeOptionalString(player.sectId)) {
+                throw new BadRequestException('你已经有所属宗门');
+            }
+            const sectName = normalizeSectName(payload?.sectName, player);
+            const sectMark = normalizeSectMark(payload?.sectMark, sectName);
+            assertSectMarkAvailable(this.sectsById.values(), sectMark);
+            const location = deps.getPlayerLocationOrThrow(playerId);
+            const entranceInstance = deps.getInstanceRuntimeOrThrow(location.instanceId);
+            const descriptor = parseRuntimeInstanceDescriptor(location.instanceId);
+            assertCanCreateSectAtInstance(entranceInstance, descriptor);
+            if (entranceInstance.meta.kind !== 'public' && descriptor?.instanceOrigin !== 'public') {
+                throw new BadRequestException('当前地点无法开辟宗门入口');
+            }
+            assertSectFoundingAreaClear(Array.from(this.sectsById.values()), entranceInstance, location.instanceId, player.x, player.y);
+            const bounds = buildInitialSectBounds();
+            const templateId = buildSectTemplateId(sectId);
+            const instanceId = buildSectInstanceId(sectId);
+            const coreX = SECT_CORE_X;
+            const coreY = SECT_CORE_Y;
+            const now = Date.now();
+            const sect = {
+                sectId,
+                name: sectName,
+                mark: sectMark,
+                founderPlayerId: playerId,
+                leaderPlayerId: playerId,
+                status: 'active',
+                entranceInstanceId: location.instanceId,
+                entranceTemplateId: entranceInstance.template.id,
+                entranceX: player.x,
+                entranceY: player.y,
+                sectInstanceId: instanceId,
+                sectTemplateId: templateId,
+                coreX,
+                coreY,
+                expansionRadius: Math.max(
+                    Math.abs(bounds.minX),
+                    Math.abs(bounds.maxX),
+                    Math.abs(bounds.minY),
+                    Math.abs(bounds.maxY),
+                ),
+                mapMinX: bounds.minX,
+                mapMaxX: bounds.maxX,
+                mapMinY: bounds.minY,
+                mapMaxY: bounds.maxY,
+                members: [buildSectMemberEntry(player, 'leader', now)],
+                rolePermissions: buildDefaultSectRolePermissions(),
+                createdAt: now,
+                updatedAt: now,
+            };
+            const rollback = captureSectCreationRollback(this, playerId, player, entranceInstance, instanceId, deps);
+            try {
+                this.registerSectTemplate(sect);
+                const sectInstance = this.ensureSectRuntimeInstance(sect, deps);
+                this.attachSectPortals(sect, entranceInstance, sectInstance);
+                this.sectsById.set(sectId, sect);
+                this.playerSectId.set(playerId, sectId);
+                this.playerRuntimeService.consumeInventoryItemByInstanceId(playerId, itemInstanceId, 1);
+                if (typeof this.playerRuntimeService.setPlayerSectId === 'function') {
+                    this.playerRuntimeService.setPlayerSectId(playerId, sectId);
+                } else {
+                    player.sectId = sectId;
+                }
+                const guardian = this.ensureGuardianFormation(sect, deps, null, { deferPersistence: true });
+                touchRuntimeInstanceRevision(deps, entranceInstance.meta.instanceId);
+                touchRuntimeInstanceRevision(deps, sectInstance.meta.instanceId);
+                const normalizedSect = normalizeSectEntry(sect);
+                const playerWrite = this.buildDurablePlayerProjectionWrite(playerId, ['inventory', 'sect_membership']);
+                const committed = await this.commitDurableSectMutation({
+                    sectWrites: [{ sectId, expectedUpdatedAtMs: null, snapshot: normalizedSect }],
+                    playerProjectionWrites: [playerWrite],
+                    formationWrites: [this.buildDurableGuardianFormationWrite(guardian, deps)].filter(Boolean),
+                    requirePlayerProjectionIds: [playerId],
+                });
+                if (!committed) {
+                    this.persistSectsSoon();
+                    deps.worldRuntimeFormationService?.persistFormationSnapshotSoon?.(guardian);
+                }
+                const nFounded = buildStructuredNotice('success', 'notice.sect.founded', `建宗令化作山门，你开辟了${sect.name}。`, {
+                    vars: { sectName: sect.name },
+                    pills: [{ key: 'sectName', style: 'target' }],
+                });
+                deps.queuePlayerNotice(playerId, nFounded.text, nFounded.kind, undefined, undefined, nFounded.structured);
+                deps.refreshQuestStates?.(playerId);
+                return sect;
+            } catch (error) {
+                restoreSectCreationRollback({
+                    service: this,
+                    playerId,
+                    player,
+                    sectId,
+                    instanceId,
+                    entranceInstance,
+                    rollback,
+                    deps,
+                });
+                throw error;
+            }
         });
-        deps.queuePlayerNotice(playerId, nFounded.text, nFounded.kind, undefined, undefined, nFounded.structured);
-        deps.refreshQuestStates?.(playerId);
-        return sect;
     }
 
     dispatchRelocateSectEntrance(playerId, itemInstanceId, item, deps) {
+        const initialPlayer = this.playerRuntimeService.getPlayerOrThrow(playerId);
+        const initialSectId = this.reconcilePlayerSectId(playerId) || normalizeOptionalString(initialPlayer.sectId);
+        if (!initialSectId) {
+            throw new BadRequestException('你当前没有宗门');
+        }
+        return this.runExclusiveSectPlayerMutation([initialSectId], [playerId], async () => {
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
         const sectId = this.reconcilePlayerSectId(playerId) || normalizeOptionalString(player.sectId);
-        if (!sectId) {
-            throw new BadRequestException('你当前没有宗门');
+        if (!sectId || sectId !== initialSectId) {
+            throw new BadRequestException('你当前没有有效宗门');
         }
         const sect = this.findSectById(sectId);
         if (!sect || sect.status === 'dissolved') {
@@ -200,12 +479,27 @@ class WorldRuntimeSectService {
         const sectInstance = this.ensureSectRuntimeInstance(sect, deps);
         const guardianId = `formation:sect_guardian:${sect.sectId}`;
         const previousGuardian = deps.worldRuntimeFormationService?.findFormationInInstance?.(previousEntranceInstanceId, guardianId) ?? null;
+        const expectedUpdatedAtMs = normalizeIntegerWithDefault(sect.updatedAt, 0);
+        const rollback = captureSectRelocationRollback({
+            player,
+            sect,
+            previousEntranceInstance,
+            entranceInstance,
+            sectInstance,
+            previousGuardian,
+        });
+        try {
         if (previousEntranceInstance && previousEntranceInstance !== entranceInstance) {
             removeSectRuntimePortals(previousEntranceInstance, sect.sectId);
             touchRuntimeInstanceRevision(deps, previousEntranceInstanceId);
         }
         if (previousGuardian && previousEntranceInstanceId !== location.instanceId) {
-            deps.worldRuntimeFormationService?.removeFormationFromInstance?.(previousEntranceInstanceId, guardianId, deps);
+            deps.worldRuntimeFormationService?.removeFormationFromInstance?.(
+                previousEntranceInstanceId,
+                guardianId,
+                deps,
+                { deferPersistence: true },
+            );
         }
         sect.entranceInstanceId = location.instanceId;
         sect.entranceTemplateId = entranceInstance.template.id;
@@ -213,13 +507,33 @@ class WorldRuntimeSectService {
         sect.entranceY = targetY;
         sect.lastEntranceRelocatedAt = now;
         sect.entranceRelocationCooldownUntil = now + SECT_ENTRANCE_RELOCATION_COOLDOWN_MS;
-        sect.updatedAt = now;
+        advanceSectUpdatedAt(sect, now);
         this.attachSectPortals(sect, entranceInstance, sectInstance);
-        this.ensureGuardianFormation(sect, deps, previousGuardian);
+        const relocatedGuardian = this.ensureGuardianFormation(
+            sect,
+            deps,
+            previousGuardian,
+            { deferPersistence: true },
+        );
         this.playerRuntimeService.consumeInventoryItemByInstanceId(playerId, itemInstanceId, 1);
         touchRuntimeInstanceRevision(deps, entranceInstance.meta.instanceId);
         touchRuntimeInstanceRevision(deps, sectInstance.meta.instanceId);
-        this.persistSectsSoon();
+        const normalizedSect = normalizeSectEntry(sect);
+        const playerWrite = this.buildDurablePlayerProjectionWrite(playerId, ['inventory']);
+        const committed = await this.commitDurableSectMutation({
+            sectWrites: [{ sectId, expectedUpdatedAtMs, snapshot: normalizedSect }],
+            playerProjectionWrites: [playerWrite],
+            formationWrites: [this.buildDurableGuardianFormationWrite(relocatedGuardian, deps)].filter(Boolean),
+            requirePlayerProjectionIds: [playerId],
+            affectedInstanceIds: [previousEntranceInstanceId],
+        });
+        if (!committed) {
+            this.persistSectsSoon();
+            if (previousGuardian && previousEntranceInstanceId !== location.instanceId) {
+                deps.worldRuntimeFormationService?.persistFormationRemovalSoon?.(previousGuardian);
+            }
+            deps.worldRuntimeFormationService?.persistFormationSnapshotSoon?.(relocatedGuardian);
+        }
         deps.refreshQuestStates?.(playerId);
         deps.refreshPlayerContextActions?.(playerId);
         const itemName = normalizeOptionalString(item?.name) || '迁宗令';
@@ -232,6 +546,18 @@ class WorldRuntimeSectService {
         });
         deps.queuePlayerNotice(playerId, nRelocated.text, nRelocated.kind, undefined, undefined, nRelocated.structured);
         return sect;
+        } catch (error) {
+            restoreSectRelocationRollback({
+                service: this,
+                playerId,
+                player,
+                sect,
+                rollback,
+                deps,
+            });
+            throw error;
+        }
+        });
     }
 
     ensureSectRuntimeInstanceById(instanceId, deps) {
@@ -357,7 +683,7 @@ class WorldRuntimeSectService {
         });
     }
 
-    ensureGuardianFormation(sect, deps, previousGuardian = null) {
+    ensureGuardianFormation(sect, deps, previousGuardian = null, options = {}) {
         if (typeof deps.worldRuntimeFormationService?.upsertSectGuardianFormation !== 'function') {
             return null;
         }
@@ -388,7 +714,22 @@ class WorldRuntimeSectService {
                 ? Math.max(0, Number(existingGuardian.remainingSpiritStoneBudget))
                 : fallbackSpiritStoneCount,
             active: existingGuardian ? existingGuardian.active !== false : true,
-        }, deps);
+        }, deps, options);
+    }
+
+    buildDurableGuardianFormationWrite(formation, deps) {
+        if (!formation?.id || !formation?.instanceId) {
+            return null;
+        }
+        const snapshot = deps.worldRuntimeFormationService?.serializeFormationForDurableMutation?.(formation) ?? null;
+        if (!snapshot) {
+            return null;
+        }
+        return {
+            instanceId: formation.instanceId,
+            formationInstanceId: formation.id,
+            snapshot,
+        };
     }
 
     buildSectCoreActions(view, deps = null) {
@@ -429,7 +770,7 @@ class WorldRuntimeSectService {
         return actions;
     }
 
-    executeSectAction(playerId, actionId, deps) {
+    async executeSectAction(playerId, actionId, deps) {
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
         if (actionId.startsWith('sect:apply:')) {
             return this.applyJoinSect(playerId, actionId.slice('sect:apply:'.length), deps);
@@ -449,7 +790,7 @@ class WorldRuntimeSectService {
             return { kind: 'queued', view: deps.getPlayerViewOrThrow(playerId) };
         }
         if (actionId === 'sect:leave') {
-            this.leaveSect(sect, playerId, deps);
+            await this.leaveSect(sect, playerId, deps);
             return { kind: 'queued', view: deps.getPlayerViewOrThrow(playerId) };
         }
         const guardianId = `formation:sect_guardian:${sect.sectId}`;
@@ -537,19 +878,19 @@ class WorldRuntimeSectService {
         if (actionId.startsWith('sect:member:remove:')) {
             assertSectPermission(sect, playerId, 'member_remove');
             const targetPlayerId = decodeActionPart(actionId.slice('sect:member:remove:'.length));
-            this.removeSectMember(sect, targetPlayerId, playerId, deps);
+            await this.removeSectMember(sect, targetPlayerId, playerId, deps);
             return { kind: 'queued', view: deps.getPlayerViewOrThrow(playerId) };
         }
         if (actionId.startsWith('sect:application:approve:')) {
             assertSectPermission(sect, playerId, 'member_role');
             const targetPlayerId = decodeActionPart(actionId.slice('sect:application:approve:'.length));
-            this.approveSectApplication(sect, targetPlayerId, playerId, deps);
+            await this.approveSectApplication(sect, targetPlayerId, playerId, deps);
             return { kind: 'queued', view: deps.getPlayerViewOrThrow(playerId) };
         }
         if (actionId.startsWith('sect:application:reject:')) {
             assertSectPermission(sect, playerId, 'member_role');
             const targetPlayerId = decodeActionPart(actionId.slice('sect:application:reject:'.length));
-            this.rejectSectApplication(sect, targetPlayerId, playerId, deps);
+            await this.rejectSectApplication(sect, targetPlayerId, playerId, deps);
             return { kind: 'queued', view: deps.getPlayerViewOrThrow(playerId) };
         }
         if (actionId.startsWith('sect:member:role:')) {
@@ -557,18 +898,18 @@ class WorldRuntimeSectService {
             const parts = actionId.split(':');
             const targetPlayerId = decodeActionPart(parts[3] ?? '');
             const roleId = normalizeSectRoleId(parts[4], { requireAssignable: true });
-            this.changeSectMemberRole(sect, targetPlayerId, roleId, playerId, deps);
+            await this.changeSectMemberRole(sect, targetPlayerId, roleId, playerId, deps);
             return { kind: 'queued', view: deps.getPlayerViewOrThrow(playerId) };
         }
         if (actionId.startsWith('sect:transfer:')) {
             assertSectLeader(sect, playerId);
             const targetPlayerId = decodeActionPart(actionId.slice('sect:transfer:'.length));
-            this.transferSectLeadership(sect, targetPlayerId, playerId, deps);
+            await this.transferSectLeadership(sect, targetPlayerId, playerId, deps);
             return { kind: 'queued', view: deps.getPlayerViewOrThrow(playerId) };
         }
         if (actionId === 'sect:dissolve') {
             assertSectLeader(sect, playerId);
-            this.dissolveSect(sect, playerId, deps);
+            await this.dissolveSect(sect, playerId, deps);
             return { kind: 'queued', view: deps.getPlayerViewOrThrow(playerId) };
         }
         if (actionId.startsWith('sect:permission:toggle:')) {
@@ -576,7 +917,7 @@ class WorldRuntimeSectService {
             const parts = actionId.split(':');
             const roleId = normalizeSectRoleId(parts[3], { allowSupreme: true });
             const permissionId = normalizeSectPermissionId(parts[4]);
-            this.toggleSectRolePermission(sect, roleId, permissionId, playerId, deps);
+            await this.toggleSectRolePermission(sect, roleId, permissionId, playerId, deps);
             return { kind: 'queued', view: deps.getPlayerViewOrThrow(playerId) };
         }
         throw new BadRequestException(`不支持的宗门动作：${actionId}`);
@@ -683,8 +1024,9 @@ class WorldRuntimeSectService {
     }
 
     applyJoinSect(playerId, encodedSectId, deps) {
-        const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
         const sectId = decodeActionPart(encodedSectId);
+        return this.runExclusiveSectPlayerMutation([sectId], [playerId], async () => {
+        const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
         const sect = this.findSectById(sectId);
         if (!sect || sect.status === 'dissolved') {
             throw new NotFoundException('山门气机已散，无法递交拜帖');
@@ -709,9 +1051,12 @@ class WorldRuntimeSectService {
         if (chebyshevDistance(player.x, player.y, sect.entranceX, sect.entranceY) > SECT_ENTRANCE_INTERACTION_RADIUS) {
             throw new BadRequestException('需要靠近护宗大阵前的山门传送点');
         }
+        const rollback = captureSectMembershipRollback(this, [sect.sectId], []);
+        const beforeSnapshots = rollback.sects.map((entry) => entry.snapshot);
+        try {
         const application = upsertSectApplication(sect, player, Date.now());
-        sect.updatedAt = Date.now();
-        this.persistSectsSoon();
+        advanceSectUpdatedAt(sect);
+        await this.commitDurableSectMembershipMutation(beforeSnapshots, new Map());
         this.deliverSectMail(playerId, {
             senderLabel: sect.name,
             fallbackTitle: `已向${sect.name}递交拜帖`,
@@ -737,86 +1082,140 @@ class WorldRuntimeSectService {
         });
         deps.refreshPlayerContextActions?.(playerId);
         return { kind: 'queued', view: deps.getPlayerViewOrThrow(playerId) };
+        } catch (error) {
+            restoreSectMembershipRollback(this, rollback);
+            throw error;
+        }
+        });
     }
 
     approveSectApplication(sect, targetPlayerId, operatorPlayerId, deps) {
         const targetId = normalizeOptionalString(targetPlayerId);
-        const application = targetId ? findPendingSectApplication(sect, targetId) : null;
+        return this.runExclusiveStableSectMembershipMutation(
+            [sect?.sectId],
+            [operatorPlayerId, targetId].filter(Boolean),
+            targetId,
+            async () => {
+        const currentSect = this.findSectById(sect?.sectId);
+        if (!currentSect || currentSect.status === 'dissolved') {
+            throw new NotFoundException('宗门已不存在');
+        }
+        assertSectPermission(currentSect, operatorPlayerId, 'member_role');
+        const application = targetId ? findPendingSectApplication(currentSect, targetId) : null;
         if (!application) {
             throw new NotFoundException('未找到待审批拜帖');
         }
         const ledSect = this.findSectLedByPlayer(targetId);
-        if (ledSect && ledSect.sectId !== sect.sectId) {
+        if (ledSect && ledSect.sectId !== currentSect.sectId) {
             throw new BadRequestException(`${application.name}是${ledSect.name}宗主，无法直接入宗，请其先转让宗主之位或解散原宗门`);
         }
         const applicant = this.playerRuntimeService.getPlayer?.(targetId) ?? null;
-        if (applicant) {
-            this.leaveCurrentSectBeforeJoin(targetId, sect.sectId, deps);
-        }
-        if (!isSectMember(sect, targetId)) {
-            sect.members.push(buildSectMemberEntry(applicant ?? { playerId: targetId, name: application.name }, 'outer', Date.now()));
-            sect.members = normalizeSectMembers(sect.members, {
-                sectId: sect.sectId,
-                leaderPlayerId: sect.leaderPlayerId,
-                leaderName: sect.leaderPlayerId,
-                createdAt: sect.createdAt,
+        const currentMembershipSectId = this.resolvePlayerSectId(targetId);
+        const affectedSectIds = [currentSect.sectId, currentMembershipSectId].filter(Boolean);
+        const rollback = captureSectMembershipRollback(this, affectedSectIds, [targetId]);
+        const beforeSnapshots = rollback.sects.map((entry) => entry.snapshot);
+        try {
+        this.leaveCurrentSectBeforeJoin(targetId, currentSect.sectId, deps);
+        if (!isSectMember(currentSect, targetId)) {
+            currentSect.members.push(buildSectMemberEntry(applicant ?? { playerId: targetId, name: application.name }, 'outer', Date.now()));
+            currentSect.members = normalizeSectMembers(currentSect.members, {
+                sectId: currentSect.sectId,
+                leaderPlayerId: currentSect.leaderPlayerId,
+                leaderName: currentSect.leaderPlayerId,
+                createdAt: currentSect.createdAt,
             });
         }
         application.status = 'approved';
         application.reviewedAt = Date.now();
         application.reviewerPlayerId = operatorPlayerId;
-        sect.updatedAt = Date.now();
-        this.playerSectId.set(targetId, sect.sectId);
+        advanceSectUpdatedAt(currentSect);
+        this.playerSectId.set(targetId, currentSect.sectId);
         if (applicant && typeof this.playerRuntimeService.setPlayerSectId === 'function') {
-            this.playerRuntimeService.setPlayerSectId(targetId, sect.sectId);
+            this.playerRuntimeService.setPlayerSectId(targetId, currentSect.sectId);
+        }
+        await this.commitDurableSectMembershipMutation(
+            beforeSnapshots,
+            new Map([[targetId, currentSect.sectId]]),
+        );
+        if (applicant) {
             deps.refreshQuestStates?.(targetId);
             deps.refreshPlayerContextActions?.(targetId);
-            queueStructuredSectNotice(deps, targetId, 'success', 'notice.sect.application-approved', `${sect.name}已准你入山，护宗大阵会放行同门。`, {
-                vars: { sectName: sect.name },
+            queueStructuredSectNotice(deps, targetId, 'success', 'notice.sect.application-approved', `${currentSect.name}已准你入山，护宗大阵会放行同门。`, {
+                vars: { sectName: currentSect.name },
                 pills: [{ key: 'sectName', style: 'target' }],
             });
         }
-        this.persistSectsSoon();
         this.deliverSectMail(targetId, {
-            senderLabel: sect.name,
-            fallbackTitle: `${sect.name}已准你入山`,
-            fallbackBody: `你的拜帖已通过审批，现列为${sect.name}外门弟子。前往山门附近即可返回宗门核心，护宗大阵会识别你的同门身份。`,
+            senderLabel: currentSect.name,
+            fallbackTitle: `${currentSect.name}已准你入山`,
+            fallbackBody: `你的拜帖已通过审批，现列为${currentSect.name}外门弟子。前往山门附近即可返回宗门核心，护宗大阵会识别你的同门身份。`,
         }, deps);
         queueStructuredSectNotice(deps, operatorPlayerId, 'success', 'notice.sect.application-approved-operator', `已准 ${application.name} 入宗。`, {
             vars: { applicantName: application.name },
             pills: [{ key: 'applicantName', style: 'target' }],
         });
+        } catch (error) {
+            restoreSectMembershipRollback(this, rollback);
+            throw error;
+        }
+            },
+        );
     }
 
     rejectSectApplication(sect, targetPlayerId, operatorPlayerId, deps) {
         const targetId = normalizeOptionalString(targetPlayerId);
-        const application = targetId ? findPendingSectApplication(sect, targetId) : null;
+        return this.runExclusiveSectPlayerMutation([sect?.sectId], [operatorPlayerId], async () => {
+        const currentSect = this.findSectById(sect?.sectId);
+        if (!currentSect || currentSect.status === 'dissolved') {
+            throw new NotFoundException('宗门已不存在');
+        }
+        assertSectPermission(currentSect, operatorPlayerId, 'member_role');
+        const application = targetId ? findPendingSectApplication(currentSect, targetId) : null;
         if (!application) {
             throw new NotFoundException('未找到待审批拜帖');
         }
+        const rollback = captureSectMembershipRollback(this, [currentSect.sectId], []);
+        const beforeSnapshots = rollback.sects.map((entry) => entry.snapshot);
+        try {
         application.status = 'rejected';
         application.reviewedAt = Date.now();
         application.reviewerPlayerId = operatorPlayerId;
-        sect.updatedAt = Date.now();
-        this.persistSectsSoon();
+        advanceSectUpdatedAt(currentSect);
+        await this.commitDurableSectMembershipMutation(beforeSnapshots, new Map());
         this.deliverSectMail(targetId, {
-            senderLabel: sect.name,
-            fallbackTitle: `${sect.name}退回了你的拜帖`,
+            senderLabel: currentSect.name,
+            fallbackTitle: `${currentSect.name}退回了你的拜帖`,
             fallbackBody: `你的入宗申请未通过审批，可稍后重新递交拜帖。`,
         }, deps);
         queueStructuredSectNotice(deps, operatorPlayerId, 'success', 'notice.sect.application-rejected-operator', `已退回 ${application.name} 的拜帖。`, {
             vars: { applicantName: application.name },
             pills: [{ key: 'applicantName', style: 'target' }],
         });
+        } catch (error) {
+            restoreSectMembershipRollback(this, rollback);
+            throw error;
+        }
+        });
     }
 
     leaveSect(sect, playerId, deps) {
-        if (sect.leaderPlayerId === playerId) {
+        return this.runExclusiveStableSectMembershipMutation([sect?.sectId], [playerId], playerId, async () => {
+        const currentSect = this.findSectById(sect?.sectId);
+        if (!currentSect || currentSect.status === 'dissolved') {
+            throw new NotFoundException('宗门已不存在');
+        }
+        if (this.resolvePlayerSectId(playerId) !== currentSect.sectId) {
+            throw new BadRequestException('你的宗门归属已经变化，请刷新后重试');
+        }
+        if (currentSect.leaderPlayerId === playerId) {
             throw new BadRequestException('宗主不能直接离开宗门，请先转让宗主之位或解散宗门');
         }
-        const before = sect.members.length;
-        sect.members = sect.members.filter((entry) => entry.playerId !== playerId);
-        if (sect.members.length === before) {
+        const rollback = captureSectMembershipRollback(this, [currentSect.sectId], [playerId]);
+        const beforeSnapshots = rollback.sects.map((entry) => entry.snapshot);
+        try {
+        const before = currentSect.members.length;
+        currentSect.members = currentSect.members.filter((entry) => entry.playerId !== playerId);
+        if (currentSect.members.length === before) {
             throw new NotFoundException('你不在该宗门成员名册中');
         }
         const player = this.playerRuntimeService.getPlayer?.(playerId);
@@ -826,24 +1225,32 @@ class WorldRuntimeSectService {
             player.sectId = null;
         }
         this.playerSectId.delete(playerId);
-        sect.updatedAt = Date.now();
-        this.persistSectsSoon();
+        advanceSectUpdatedAt(currentSect);
+        await this.commitDurableSectMembershipMutation(
+            beforeSnapshots,
+            new Map([[playerId, null]]),
+        );
         deps.refreshQuestStates?.(playerId);
         deps.refreshPlayerContextActions?.(playerId);
-        queueStructuredSectNotice(deps, playerId, 'success', 'notice.sect.left', `你已离开${sect.name}。`, {
-            vars: { sectName: sect.name },
+        queueStructuredSectNotice(deps, playerId, 'success', 'notice.sect.left', `你已离开${currentSect.name}。`, {
+            vars: { sectName: currentSect.name },
             pills: [{ key: 'sectName', style: 'target' }],
         });
-        if (sect.leaderPlayerId && this.playerRuntimeService.getPlayer?.(sect.leaderPlayerId)) {
+        if (currentSect.leaderPlayerId && this.playerRuntimeService.getPlayer?.(currentSect.leaderPlayerId)) {
             const memberName = resolvePlayerDisplayName(player, playerId);
-            queueStructuredSectNotice(deps, sect.leaderPlayerId, 'info', 'notice.sect.member-left', `${memberName}已离开${sect.name}。`, {
-                vars: { memberName, sectName: sect.name },
+            queueStructuredSectNotice(deps, currentSect.leaderPlayerId, 'info', 'notice.sect.member-left', `${memberName}已离开${currentSect.name}。`, {
+                vars: { memberName, sectName: currentSect.name },
                 pills: [
                     { key: 'memberName', style: 'target' },
                     { key: 'sectName', style: 'target' },
                 ],
             });
         }
+        } catch (error) {
+            restoreSectMembershipRollback(this, rollback);
+            throw error;
+        }
+        });
     }
 
     deliverSectMail(playerId, input, deps = null) {
@@ -866,7 +1273,7 @@ class WorldRuntimeSectService {
     }
 
     leaveCurrentSectBeforeJoin(playerId, targetSectId, deps) {
-        const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
+        const player = this.playerRuntimeService.getPlayer?.(playerId) ?? null;
         const currentSectId = normalizeOptionalString(player?.sectId) || normalizeOptionalString(this.playerSectId.get(playerId));
         if (!currentSectId || currentSectId === targetSectId) {
             return null;
@@ -883,7 +1290,7 @@ class WorldRuntimeSectService {
         const before = currentSect.members.length;
         currentSect.members = currentSect.members.filter((entry) => entry.playerId !== playerId);
         if (currentSect.members.length !== before) {
-            currentSect.updatedAt = Date.now();
+            advanceSectUpdatedAt(currentSect);
             if (this.playerRuntimeService.getPlayer?.(currentSect.leaderPlayerId)) {
                 const memberName = resolvePlayerDisplayName(player, playerId);
                 queueStructuredSectNotice(deps, currentSect.leaderPlayerId, 'info', 'notice.sect.member-left', `${memberName}已离开${currentSect.name}。`, {
@@ -901,129 +1308,256 @@ class WorldRuntimeSectService {
 
     removeSectMember(sect, targetPlayerId, operatorPlayerId, deps) {
         const targetId = normalizeOptionalString(targetPlayerId);
-        if (!targetId || targetId === sect.leaderPlayerId) {
+        return this.runExclusiveStableSectMembershipMutation(
+            [sect?.sectId],
+            [operatorPlayerId, targetId].filter(Boolean),
+            targetId,
+            async () => {
+        const currentSect = this.findSectById(sect?.sectId);
+        if (!currentSect || currentSect.status === 'dissolved') {
+            throw new NotFoundException('宗门已不存在');
+        }
+        assertSectPermission(currentSect, operatorPlayerId, 'member_remove');
+        if (!targetId || targetId === currentSect.leaderPlayerId) {
             throw new BadRequestException('不能移除宗主');
         }
         if (targetId === operatorPlayerId) {
             throw new BadRequestException('不能移除自己');
         }
-        const before = sect.members.length;
-        sect.members = sect.members.filter((entry) => entry.playerId !== targetId);
-        if (sect.members.length === before) {
+        if (this.resolvePlayerSectId(targetId) !== currentSect.sectId) {
+            throw new BadRequestException('该成员宗门归属已经变化，请刷新后重试');
+        }
+        const rollback = captureSectMembershipRollback(this, [currentSect.sectId], [targetId]);
+        const beforeSnapshots = rollback.sects.map((entry) => entry.snapshot);
+        try {
+        const before = currentSect.members.length;
+        currentSect.members = currentSect.members.filter((entry) => entry.playerId !== targetId);
+        if (currentSect.members.length === before) {
             throw new NotFoundException('该成员不在宗门名册中');
         }
         this.playerSectId.delete(targetId);
-        this.clearPlayerSectIdIfLoaded(targetId, sect.sectId);
-        sect.updatedAt = Date.now();
-        this.persistSectsSoon();
+        this.clearPlayerSectIdIfLoaded(targetId, currentSect.sectId);
+        advanceSectUpdatedAt(currentSect);
+        await this.commitDurableSectMembershipMutation(
+            beforeSnapshots,
+            new Map([[targetId, null]]),
+        );
         queueStructuredSectNotice(deps, operatorPlayerId, 'success', 'notice.sect.member-removed-operator', '已移除宗门成员。');
         deps.refreshQuestStates?.(targetId);
+        } catch (error) {
+            restoreSectMembershipRollback(this, rollback);
+            throw error;
+        }
+        },
+        );
     }
 
     changeSectMemberRole(sect, targetPlayerId, roleId, operatorPlayerId, deps) {
         const targetId = normalizeOptionalString(targetPlayerId);
-        const member = targetId ? sect.members.find((entry) => entry.playerId === targetId) : null;
+        return this.runExclusiveSectPlayerMutation([sect?.sectId], [operatorPlayerId], async () => {
+        const currentSect = this.findSectById(sect?.sectId);
+        if (!currentSect || currentSect.status === 'dissolved') {
+            throw new NotFoundException('宗门已不存在');
+        }
+        assertSectPermission(currentSect, operatorPlayerId, 'member_role');
+        const member = targetId ? currentSect.members.find((entry) => entry.playerId === targetId) : null;
         if (!member) {
             throw new NotFoundException('该成员不在宗门名册中');
         }
-        if (targetId === sect.leaderPlayerId || member.roleId === 'leader') {
+        if (targetId === currentSect.leaderPlayerId || member.roleId === 'leader') {
             throw new BadRequestException('宗主职位只能通过转让改变');
         }
+        const rollback = captureSectMembershipRollback(this, [currentSect.sectId], []);
+        const beforeSnapshots = rollback.sects.map((entry) => entry.snapshot);
+        try {
         member.roleId = roleId;
         member.name = resolvePlayerDisplayName(this.playerRuntimeService.getPlayer?.(targetId), member.name || targetId);
-        sect.updatedAt = Date.now();
-        this.persistSectsSoon();
+        advanceSectUpdatedAt(currentSect);
+        await this.commitDurableSectMembershipMutation(beforeSnapshots, new Map());
         const roleName = getSectRoleLabel(roleId);
         queueStructuredSectNotice(deps, operatorPlayerId, 'success', 'notice.sect.role-changed-operator', `已将 ${member.name} 调整为 ${roleName}。`, {
             vars: { memberName: member.name, roleName },
             pills: [{ key: 'memberName', style: 'target' }],
         });
+        } catch (error) {
+            restoreSectMembershipRollback(this, rollback);
+            throw error;
+        }
+        });
     }
 
     transferSectLeadership(sect, targetPlayerId, operatorPlayerId, deps) {
         const targetId = normalizeOptionalString(targetPlayerId);
+        return this.runExclusiveSectPlayerMutation(
+            [sect?.sectId],
+            [operatorPlayerId, targetId].filter(Boolean),
+            async () => {
+        const currentSect = this.findSectById(sect?.sectId);
+        if (!currentSect || currentSect.status === 'dissolved') {
+            throw new NotFoundException('宗门已不存在');
+        }
+        assertSectLeader(currentSect, operatorPlayerId);
         if (!targetId || targetId === operatorPlayerId) {
             throw new BadRequestException('请选择其他成员接任宗主');
         }
-        const target = sect.members.find((entry) => entry.playerId === targetId);
+        const target = currentSect.members.find((entry) => entry.playerId === targetId);
         if (!target) {
             throw new NotFoundException('接任者不在宗门名册中');
         }
-        const previousLeader = sect.members.find((entry) => entry.playerId === operatorPlayerId);
+        const rollback = captureSectMembershipRollback(this, [currentSect.sectId], []);
+        const beforeSnapshots = rollback.sects.map((entry) => entry.snapshot);
+        const previousGuardian = cloneSectGuardian(resolveSectGuardianFormation(currentSect, deps));
+        try {
+        const previousLeader = currentSect.members.find((entry) => entry.playerId === operatorPlayerId);
         if (previousLeader) {
             previousLeader.roleId = 'deputy';
         }
         target.roleId = 'leader';
         target.name = resolvePlayerDisplayName(this.playerRuntimeService.getPlayer?.(targetId), target.name || targetId);
-        sect.leaderPlayerId = targetId;
-        sect.updatedAt = Date.now();
-        this.ensureGuardianFormation(sect, deps);
-        this.persistSectsSoon();
+        currentSect.leaderPlayerId = targetId;
+        advanceSectUpdatedAt(currentSect);
+        const guardian = this.ensureGuardianFormation(currentSect, deps, null, { deferPersistence: true });
+        await this.commitDurableSectMembershipMutation(
+            beforeSnapshots,
+            new Map(),
+            [this.buildDurableGuardianFormationWrite(guardian, deps)].filter(Boolean),
+        );
         queueStructuredSectNotice(deps, operatorPlayerId, 'success', 'notice.sect.leadership-transferred-operator', `已将宗主之位转让给 ${target.name}。`, {
             vars: { memberName: target.name },
             pills: [{ key: 'memberName', style: 'target' }],
         });
-        queueStructuredSectNotice(deps, targetId, 'success', 'notice.sect.leadership-received', `你已接任 ${sect.name} 宗主。`, {
-            vars: { sectName: sect.name },
+        queueStructuredSectNotice(deps, targetId, 'success', 'notice.sect.leadership-received', `你已接任 ${currentSect.name} 宗主。`, {
+            vars: { sectName: currentSect.name },
             pills: [{ key: 'sectName', style: 'target' }],
         });
+        } catch (error) {
+            restoreSectMembershipRollback(this, rollback);
+            if (previousGuardian) {
+                const restoredSect = this.findSectById(currentSect.sectId) ?? currentSect;
+                this.ensureGuardianFormation(restoredSect, deps, previousGuardian, { deferPersistence: true });
+            }
+            throw error;
+        }
+        },
+        );
     }
 
     dissolveSect(sect, operatorPlayerId, deps) {
-        const memberIds = sect.members.map((entry) => entry.playerId);
+        return this.runExclusiveSectCurrentMembersMutation(
+            sect?.sectId,
+            [operatorPlayerId],
+            async (lockedSect, lockedMemberIds) => {
+        const currentSect = lockedSect;
+        if (!currentSect || currentSect.status === 'dissolved') {
+            throw new NotFoundException('宗门已不存在');
+        }
+        assertSectLeader(currentSect, operatorPlayerId);
+        const memberIds = currentSect.members.map((entry) => entry.playerId);
+        if (memberIds.length !== lockedMemberIds.length
+            || memberIds.some((memberId) => !lockedMemberIds.includes(memberId))) {
+            throw new BadRequestException('宗门成员正在变化，请稍后重试解散');
+        }
+        const membershipRollback = captureSectMembershipRollback(this, [currentSect.sectId], memberIds);
+        const beforeSnapshots = membershipRollback.sects.map((entry) => entry.snapshot);
+        const entranceInstance = deps.getInstanceRuntime?.(currentSect.entranceInstanceId);
+        const sectInstance = deps.getInstanceRuntime?.(currentSect.sectInstanceId);
+        const guardianId = `formation:sect_guardian:${currentSect.sectId}`;
+        const guardian = deps.worldRuntimeFormationService?.findFormationInInstance?.(
+            currentSect.entranceInstanceId,
+            guardianId,
+        ) ?? null;
+        const runtimeRollback = {
+            entranceInstance: captureSectPortalInstanceRollback(entranceInstance),
+            sectInstance: captureSectPortalInstanceRollback(sectInstance),
+            guardian: cloneSectGuardian(guardian),
+        };
+        try {
         for (const memberId of memberIds) {
             this.playerSectId.delete(memberId);
-            this.clearPlayerSectIdIfLoaded(memberId, sect.sectId);
-            deps.refreshQuestStates?.(memberId);
+            this.clearPlayerSectIdIfLoaded(memberId, currentSect.sectId);
         }
-        const entranceInstance = deps.getInstanceRuntime?.(sect.entranceInstanceId);
-        const sectInstance = deps.getInstanceRuntime?.(sect.sectInstanceId);
-        removeSectRuntimePortals(entranceInstance, sect.sectId);
-        removeSectRuntimePortals(sectInstance, sect.sectId);
-        const guardianId = `formation:sect_guardian:${sect.sectId}`;
-        try {
-            deps.worldRuntimeFormationService?.dispatchSetPersistentFormationActive?.(operatorPlayerId, {
-                instanceId: sect.entranceInstanceId,
-                formationInstanceId: guardianId,
-                active: false,
-            }, deps);
-        }
-        catch (_error) {
-            // 解散宗门时大阵已缺失不阻断宗门真源删除，但记录警告便于排查。
-            this.logger.warn(`解散宗门 ${sect.sectId} 时大阵操作异常：${_error instanceof Error ? _error.message : String(_error)}`);
-        }
+        removeSectRuntimePortals(entranceInstance, currentSect.sectId);
+        removeSectRuntimePortals(sectInstance, currentSect.sectId);
+        const removedGuardian = deps.worldRuntimeFormationService?.removeFormationFromInstance?.(
+            currentSect.entranceInstanceId,
+            guardianId,
+            deps,
+            { deferPersistence: true },
+        ) ?? guardian;
         const tombstone = normalizeSectEntry({
-            ...sect,
+            ...currentSect,
             status: 'dissolved',
             members: [],
             applications: [],
-            updatedAt: Date.now(),
+            updatedAt: resolveNextSectUpdatedAt(currentSect),
         });
         if (tombstone) {
             this.deletedSectSnapshotsById.set(tombstone.sectId, tombstone);
         }
-        this.sectsById.delete(sect.sectId);
-        this.persistSectsSoon();
-        queueStructuredSectNotice(deps, operatorPlayerId, 'warning', 'notice.sect.dissolved', `${sect.name}已解散。`, {
-            vars: { sectName: sect.name },
+        this.sectsById.delete(currentSect.sectId);
+        const committed = await this.commitDurableSectMembershipMutation(
+            beforeSnapshots,
+            new Map(memberIds.map((memberId) => [memberId, null])),
+            [{
+                instanceId: currentSect.entranceInstanceId,
+                formationInstanceId: guardianId,
+                removedAtMs: normalizeIntegerWithDefault(removedGuardian?.updatedAt, Date.now()),
+                snapshot: null,
+            }],
+        );
+        if (!committed) {
+            deps.worldRuntimeFormationService?.persistFormationRemovalSoon?.(removedGuardian);
+        }
+        for (const memberId of memberIds) {
+            deps.refreshQuestStates?.(memberId);
+            deps.refreshPlayerContextActions?.(memberId);
+        }
+        queueStructuredSectNotice(deps, operatorPlayerId, 'warning', 'notice.sect.dissolved', `${currentSect.name}已解散。`, {
+            vars: { sectName: currentSect.name },
             pills: [{ key: 'sectName', style: 'target' }],
         });
+        } catch (error) {
+            restoreSectMembershipRollback(this, membershipRollback);
+            restoreSectPortalInstanceRollback(entranceInstance, runtimeRollback.entranceInstance);
+            restoreSectPortalInstanceRollback(sectInstance, runtimeRollback.sectInstance);
+            if (runtimeRollback.guardian) {
+                this.ensureGuardianFormation(currentSect, deps, runtimeRollback.guardian, { deferPersistence: true });
+            }
+            throw error;
+        }
+        },
+        );
     }
 
     toggleSectRolePermission(sect, roleId, permissionId, playerId, deps) {
-        if (roleId === 'leader') {
-            throw new BadRequestException('宗主权限固定拥有全部管理权');
-        }
-        const rolePermissions = normalizeSectRolePermissions(sect.rolePermissions);
-        const nextRolePermissions = rolePermissions[roleId] ?? {};
-        nextRolePermissions[permissionId] = !nextRolePermissions[permissionId];
-        rolePermissions[roleId] = nextRolePermissions;
-        sect.rolePermissions = rolePermissions;
-        sect.updatedAt = Date.now();
-        this.persistSectsSoon();
-        const roleName = getSectRoleLabel(roleId);
-        queueStructuredSectNotice(deps, playerId, 'success', 'notice.sect.permission-updated', `${roleName}权限已更新。`, {
-            vars: { roleName },
+        return this.runExclusiveSectPlayerMutation([sect?.sectId], [playerId], async () => {
+            const currentSect = this.findSectById(sect?.sectId);
+            if (!currentSect || currentSect.status === 'dissolved') {
+                throw new NotFoundException('宗门已不存在');
+            }
+            assertSectLeader(currentSect, playerId);
+            if (roleId === 'leader') {
+                throw new BadRequestException('宗主权限固定拥有全部管理权');
+            }
+            const rollback = captureSectMembershipRollback(this, [currentSect.sectId], []);
+            const beforeSnapshots = rollback.sects.map((entry) => entry.snapshot);
+            try {
+                const rolePermissions = normalizeSectRolePermissions(currentSect.rolePermissions);
+                const nextRolePermissions = rolePermissions[roleId] ?? {};
+                nextRolePermissions[permissionId] = !nextRolePermissions[permissionId];
+                rolePermissions[roleId] = nextRolePermissions;
+                currentSect.rolePermissions = rolePermissions;
+                advanceSectUpdatedAt(currentSect);
+                await this.commitDurableSectMembershipMutation(beforeSnapshots, new Map());
+                const roleName = getSectRoleLabel(roleId);
+                queueStructuredSectNotice(deps, playerId, 'success', 'notice.sect.permission-updated', `${roleName}权限已更新。`, {
+                    vars: { roleName },
+                });
+            }
+            catch (error) {
+                restoreSectMembershipRollback(this, rollback);
+                throw error;
+            }
         });
     }
 
@@ -1040,7 +1574,32 @@ class WorldRuntimeSectService {
     }
 
     expandSectBounds(sect, dirs, deps) {
+        if (this.isSectMutationBlocked()) {
+            return false;
+        }
         if (!sect || !dirs || typeof dirs !== 'object') {
+            return false;
+        }
+        const sectId = normalizeOptionalString(sect.sectId);
+        const hasRequestedExpansion = ['left', 'right', 'up', 'down']
+            .some((key) => Math.max(0, Math.trunc(Number(dirs[key]) || 0)) > 0);
+        if (!sectId || !hasRequestedExpansion) {
+            return false;
+        }
+        if (!this.sectMutationQueueBySectId.has(sectId)) {
+            return this.expandSectBoundsLocked(sect, dirs, deps);
+        }
+        void this.runExclusiveSectPlayerMutation([sectId], [], () => {
+            const currentSect = this.findSectById(sectId);
+            return currentSect ? this.expandSectBoundsLocked(currentSect, dirs, deps) : false;
+        }).catch((error) => {
+            this.logger.warn(`宗门边界扩张排队失败 sectId=${sectId}：${error instanceof Error ? error.message : String(error)}`);
+        });
+        return true;
+    }
+
+    expandSectBoundsLocked(sect, dirs, deps) {
+        if (this.isSectMutationBlocked()) {
             return false;
         }
         const previousBounds = normalizeSectBounds(sect);
@@ -1066,7 +1625,7 @@ class WorldRuntimeSectService {
             Math.abs(nextBounds.minY),
             Math.abs(nextBounds.maxY),
         );
-        sect.updatedAt = Date.now();
+        advanceSectUpdatedAt(sect);
         this.refreshSectTemplateForBounds(sect, deps);
         const sectInstance = deps.getInstanceRuntime(sect.sectInstanceId);
         if (sectInstance) {
@@ -1080,18 +1639,37 @@ class WorldRuntimeSectService {
     }
 
     expandSectForDestroyedTile(instanceId, x, y, deps) {
+        if (this.isSectMutationBlocked()) {
+            return false;
+        }
+        const target = this.resolveDestroyedTileSectExpansionTarget(instanceId, x, y, deps);
+        if (!target) {
+            return false;
+        }
+        if (!this.sectMutationQueueBySectId.has(target.sect.sectId)) {
+            return this.expandSectForDestroyedTileLocked(instanceId, x, y, deps);
+        }
+        void this.runExclusiveSectPlayerMutation([target.sect.sectId], [], () => (
+            this.expandSectForDestroyedTileLocked(instanceId, x, y, deps)
+        )).catch((error) => {
+            this.logger.warn(`宗门地块扩张排队失败 sectId=${target.sect.sectId}：${error instanceof Error ? error.message : String(error)}`);
+        });
+        return true;
+    }
+
+    resolveDestroyedTileSectExpansionTarget(instanceId, x, y, deps) {
         const sect = this.findSectByInstanceId(instanceId);
         if (!sect) {
-            return false;
+            return null;
         }
         const instance = deps.getInstanceRuntime?.(sect.sectInstanceId);
         if (!instance || instance.meta?.instanceId !== instanceId) {
-            return false;
+            return null;
         }
         const tx = Math.trunc(Number(x));
         const ty = Math.trunc(Number(y));
         if (!Number.isFinite(tx) || !Number.isFinite(ty)) {
-            return false;
+            return null;
         }
         const tileState = typeof instance.getTileCombatState === 'function'
             ? instance.getTileCombatState(tx, ty)
@@ -1103,11 +1681,23 @@ class WorldRuntimeSectService {
             && (instance.getTileLayerState(tx, ty)?.structure ?? null) === null;
         const destroyedBoundaryStone = tileState?.destroyed === true && tileState?.tileType === TileType.Stone;
         if (!destroyedBoundaryStone && !openedBoundaryFloor) {
-            return false;
+            return null;
         }
         if (!isRuntimeBoundaryTile(instance, tx, ty)) {
+            return null;
+        }
+        return { sect, instance, tx, ty };
+    }
+
+    expandSectForDestroyedTileLocked(instanceId, x, y, deps) {
+        if (this.isSectMutationBlocked()) {
             return false;
         }
+        const target = this.resolveDestroyedTileSectExpansionTarget(instanceId, x, y, deps);
+        if (!target) {
+            return false;
+        }
+        const { sect, instance, tx, ty } = target;
         const previousBounds = normalizeSectBounds(sect);
         forEachRuntimeBoundaryGap(instance, tx, ty, (gapX, gapY) => {
             updateSectRuntimeBoundsForTile(sect, gapX, gapY);
@@ -1116,7 +1706,7 @@ class WorldRuntimeSectService {
         if (areSectBoundsEqual(previousBounds, nextBounds)) {
             return false;
         }
-        sect.updatedAt = Date.now();
+        advanceSectUpdatedAt(sect);
         this.refreshSectTemplateForBounds(sect, deps);
         markSectExpansionTilesForSync(instance, previousBounds, nextBounds, tx, ty);
         const entranceInstance = deps.getInstanceRuntime?.(sect.entranceInstanceId);
@@ -1397,94 +1987,64 @@ class WorldRuntimeSectService {
     private _sectPersistTimer: ReturnType<typeof setTimeout> | null = null;
 
     persistSectsSoon() {
+        if (this.isSectMutationBlocked()) return;
         if (this._sectPersistTimer) return;
         this._sectPersistTimer = setTimeout(() => {
             this._sectPersistTimer = null;
+            if (this.isSectMutationBlocked()) return;
             void this.saveSectDocument().catch((error) => {
                 this.logger.warn(`宗门持久化失败：${error instanceof Error ? error.message : String(error)}`);
             });
         }, 5000);
     }
 
-    async flushAllNow() {
+    async flushAllNow(_options: { deadlineAt?: number; signal?: AbortSignal } = {}) {
         if (this._sectPersistTimer) {
             clearTimeout(this._sectPersistTimer);
             this._sectPersistTimer = null;
         }
-        await this.saveSectDocument();
+        await this.saveSectDocument({ allowDuringShutdown: true });
     }
 
-    async saveSectDocument() {
+    async saveSectDocument(options: { allowDuringShutdown?: boolean } = {}) {
+        if (this.unresolvedDurableCommitOutcome) {
+            throw new Error('sect_persistence_blocked_by_unresolved_commit');
+        }
+        if (this.persistenceClosing && options?.allowDuringShutdown !== true) {
+            return;
+        }
+        const lockedSectIds = Array.from(new Set([
+            ...this.sectsById.keys(),
+            ...this.deletedSectSnapshotsById.keys(),
+        ])).sort();
+        return this.runExclusiveSectPlayerMutation(lockedSectIds, [], () => (
+            this.runExclusiveDurableSectCommit(() => this.saveSectDocumentLocked(lockedSectIds, options))
+        ));
+    }
+
+    async saveSectDocumentLocked(lockedSectIds, options: { allowDuringShutdown?: boolean } = {}) {
+        if (this.unresolvedDurableCommitOutcome) {
+            throw new Error('sect_persistence_blocked_by_unresolved_commit');
+        }
+        if (this.persistenceClosing && options?.allowDuringShutdown !== true) {
+            return;
+        }
         const pool = await this.ensurePersistencePool();
         if (!pool) {
             return;
         }
-        const sects = Array.from(this.sectsById.values(), (sect) => normalizeSectEntry(sect))
+        const sects = lockedSectIds.map((sectId) => normalizeSectEntry(this.sectsById.get(sectId)))
             .filter((sect) => sect !== null)
             .sort((left, right) => left.sectId.localeCompare(right.sectId, 'zh-Hans-CN'));
-        const deletedSects = Array.from(this.deletedSectSnapshotsById.values(), (sect) => normalizeSectEntry(sect))
+        const deletedSects = lockedSectIds.map((sectId) => normalizeSectEntry(this.deletedSectSnapshotsById.get(sectId)))
             .filter((sect) => sect !== null)
             .sort((left, right) => left.sectId.localeCompare(right.sectId, 'zh-Hans-CN'));
         const client = await pool.connect();
+        let commitAttempted = false;
+        let clientReleased = false;
         try {
             await client.query('BEGIN');
-            for (const sect of sects) {
-                await client.query(`
-                    INSERT INTO ${SECT_TABLE}(
-                        sect_id,
-                        name,
-                        mark,
-                        founder_player_id,
-                        leader_player_id,
-                        status,
-                        entrance_instance_id,
-                        entrance_template_id,
-                        entrance_x,
-                        entrance_y,
-                        sect_instance_id,
-                        sect_template_id,
-                        created_at_ms,
-                        updated_at_ms,
-                        raw_payload,
-                        updated_at
-                    )
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15::jsonb, now())
-                    ON CONFLICT (sect_id)
-                    DO UPDATE SET
-                        name = EXCLUDED.name,
-                        mark = EXCLUDED.mark,
-                        founder_player_id = EXCLUDED.founder_player_id,
-                        leader_player_id = EXCLUDED.leader_player_id,
-                        status = EXCLUDED.status,
-                        entrance_instance_id = EXCLUDED.entrance_instance_id,
-                        entrance_template_id = EXCLUDED.entrance_template_id,
-                        entrance_x = EXCLUDED.entrance_x,
-                        entrance_y = EXCLUDED.entrance_y,
-                        sect_instance_id = EXCLUDED.sect_instance_id,
-                        sect_template_id = EXCLUDED.sect_template_id,
-                        created_at_ms = LEAST(${SECT_TABLE}.created_at_ms, EXCLUDED.created_at_ms),
-                        updated_at_ms = EXCLUDED.updated_at_ms,
-                        raw_payload = EXCLUDED.raw_payload,
-                        updated_at = now()
-                    WHERE ${SECT_TABLE}.updated_at_ms <= EXCLUDED.updated_at_ms
-                `, [
-                    sect.sectId,
-                    normalizeOptionalString(sect.name) || '',
-                    normalizeOptionalString(sect.mark) || SECT_CORE_CHAR,
-                    normalizeOptionalString(sect.founderPlayerId) || '',
-                    normalizeOptionalString(sect.leaderPlayerId) || '',
-                    normalizeOptionalString(sect.status) || 'active',
-                    normalizeOptionalString(sect.entranceInstanceId) || '',
-                    normalizeOptionalString(sect.entranceTemplateId) || '',
-                    normalizeIntegerWithDefault(sect.entranceX, 0),
-                    normalizeIntegerWithDefault(sect.entranceY, 0),
-                    normalizeOptionalString(sect.sectInstanceId) || '',
-                    normalizeOptionalString(sect.sectTemplateId) || '',
-                    normalizeIntegerWithDefault(sect.createdAt, Date.now()),
-                    normalizeIntegerWithDefault(sect.updatedAt, Date.now()),
-                    JSON.stringify(sect),
-                ]);
-            }
+            await persistSectSnapshotsWithClient(client, sects);
             for (const sect of deletedSects) {
                 await client.query(`
                     DELETE FROM ${SECT_TABLE}
@@ -1495,15 +2055,29 @@ class WorldRuntimeSectService {
                     normalizeIntegerWithDefault(sect.updatedAt, Date.now()),
                 ]);
             }
+            commitAttempted = true;
             await client.query('COMMIT');
+            commitAttempted = false;
             for (const sect of deletedSects) {
                 this.deletedSectSnapshotsById.delete(sect.sectId);
             }
         } catch (error) {
-            await client.query('ROLLBACK').catch(() => undefined);
+            if (commitAttempted) {
+                client.release(true);
+                clientReleased = true;
+            } else {
+                try {
+                    await client.query('ROLLBACK');
+                } catch {
+                    client.release(true);
+                    clientReleased = true;
+                }
+            }
             throw error;
         } finally {
-            client.release();
+            if (!clientReleased) {
+                client.release();
+            }
         }
     }
 
@@ -1555,12 +2129,16 @@ class WorldRuntimeSectService {
             }
             this.persistencePool = sharedPool;
             this.persistenceReady = true;
+            this.persistenceClosing = false;
+            this.sectShutdownSignal = createSectShutdownSignal();
+            this.unresolvedDurableCommitOutcome = false;
         } catch (error) {
             this.logger.warn(`宗门持久化初始化失败：${error instanceof Error ? error.message : String(error)}`);
         }
     }
 
     async closePersistencePool() {
+        this.beginShutdown();
         // 清理 pending persist timer，避免 pool 释放后回调执行报错
         if (this._sectPersistTimer) {
             clearTimeout(this._sectPersistTimer);
@@ -1569,6 +2147,24 @@ class WorldRuntimeSectService {
         // 共享连接池由 DatabasePoolProvider 统一关闭，此处只释放引用。
         this.persistencePool = null;
         this.persistenceReady = false;
+    }
+
+    /** 在关停 drain 等待宗门队列前先让未决 COMMIT 收敛退出。 */
+    beginShutdown() {
+        this.persistenceClosing = true;
+        if (this._sectPersistTimer) {
+            clearTimeout(this._sectPersistTimer);
+            this._sectPersistTimer = null;
+        }
+        this.sectShutdownSignal.resolve();
+    }
+
+    isSectMutationBlocked() {
+        return this.persistenceClosing || this.unresolvedDurableCommitOutcome;
+    }
+
+    hasUnresolvedCommitOutcomes() {
+        return this.unresolvedDurableCommitOutcome;
     }
 
     canPlayerMaintainGuardianFormation(playerId, formation) {
@@ -2255,14 +2851,219 @@ function decodeActionPart(value) {
     }
 }
 
+function collectDurableSectAffectedInstanceIds(input, additionalInstanceIds = []) {
+    const instanceIds = [...(Array.isArray(additionalInstanceIds) ? additionalInstanceIds : [])];
+    for (const write of input?.sectWrites ?? []) {
+        if (write?.snapshot) {
+            instanceIds.push(write.snapshot.entranceInstanceId, write.snapshot.sectInstanceId);
+        }
+    }
+    for (const write of input?.formationWrites ?? []) {
+        instanceIds.push(write?.instanceId, write?.snapshot?.eyeInstanceId);
+    }
+    return Array.from(new Set(instanceIds.map(normalizeOptionalString).filter(Boolean))).sort();
+}
+
+function captureSectCreationRollback(service, playerId, player, entranceInstance, sectInstanceId, deps) {
+    return {
+        player: captureSectPlayerRollback(player),
+        mappedSectId: normalizeOptionalString(service.playerSectId.get(playerId)),
+        entranceInstance: captureSectPortalInstanceRollback(entranceInstance),
+        sectInstanceExisted: Boolean(deps.getInstanceRuntime?.(sectInstanceId)),
+    };
+}
+
+function captureSectMembershipRollback(service, sectIds, playerIds) {
+    const sects = [];
+    for (const sectId of Array.from(new Set(sectIds ?? []))) {
+        const sect = service.findSectById(sectId);
+        const snapshot = normalizeSectEntry(sect);
+        if (snapshot) {
+            sects.push({ sect, snapshot });
+        }
+    }
+    const players = [];
+    for (const playerId of Array.from(new Set(playerIds ?? []))) {
+        const player = service.playerRuntimeService.getPlayer?.(playerId) ?? null;
+        players.push({
+            playerId,
+            player,
+            rollback: player ? captureSectPlayerRollback(player) : null,
+            mappedSectId: normalizeOptionalString(service.playerSectId.get(playerId)),
+        });
+    }
+    return { sects, players };
+}
+
+function restoreSectMembershipRollback(service, rollback) {
+    for (const entry of rollback.sects) {
+        for (const key of Object.keys(entry.sect)) {
+            delete entry.sect[key];
+        }
+        Object.assign(entry.sect, entry.snapshot);
+        service.sectsById.set(entry.snapshot.sectId, entry.sect);
+        service.deletedSectSnapshotsById.delete(entry.snapshot.sectId);
+    }
+    for (const entry of rollback.players) {
+        if (entry.player && entry.rollback) {
+            restoreSectPlayerRollback(
+                entry.playerId,
+                entry.player,
+                entry.rollback,
+                service.playerRuntimeService,
+            );
+        }
+        if (entry.mappedSectId) {
+            service.playerSectId.set(entry.playerId, entry.mappedSectId);
+        } else {
+            service.playerSectId.delete(entry.playerId);
+        }
+    }
+}
+
+function restoreSectCreationRollback(input) {
+    const formationId = `formation:sect_guardian:${input.sectId}`;
+    input.deps.worldRuntimeFormationService?.removeFormationFromInstance?.(
+        input.entranceInstance?.meta?.instanceId,
+        formationId,
+        input.deps,
+        { deferPersistence: true },
+    );
+    restoreSectPortalInstanceRollback(input.entranceInstance, input.rollback.entranceInstance);
+    if (!input.rollback.sectInstanceExisted) {
+        input.deps.worldRuntimeInstanceStateService?.deleteInstanceRuntime?.(input.instanceId);
+        input.deps.worldRuntimeLootContainerService?.removeInstanceState?.(input.instanceId);
+    }
+    input.service.sectsById.delete(input.sectId);
+    restoreSectPlayerRollback(input.playerId, input.player, input.rollback.player, input.service.playerRuntimeService);
+    if (input.rollback.mappedSectId) {
+        input.service.playerSectId.set(input.playerId, input.rollback.mappedSectId);
+    } else {
+        input.service.playerSectId.delete(input.playerId);
+    }
+}
+
+function captureSectRelocationRollback(input) {
+    const instances = [];
+    const seen = new Set();
+    for (const instance of [input.previousEntranceInstance, input.entranceInstance, input.sectInstance]) {
+        const instanceId = normalizeOptionalString(instance?.meta?.instanceId);
+        if (!instanceId || seen.has(instanceId)) {
+            continue;
+        }
+        seen.add(instanceId);
+        instances.push({ instance, rollback: captureSectPortalInstanceRollback(instance) });
+    }
+    return {
+        player: captureSectPlayerRollback(input.player),
+        sect: normalizeSectEntry(input.sect),
+        instances,
+        previousGuardian: cloneSectGuardian(input.previousGuardian),
+    };
+}
+
+function restoreSectRelocationRollback(input) {
+    const snapshot = input.rollback.sect;
+    if (snapshot) {
+        for (const key of Object.keys(input.sect)) {
+            delete input.sect[key];
+        }
+        Object.assign(input.sect, snapshot);
+        input.service.sectsById.set(snapshot.sectId, input.sect);
+    }
+    restoreSectPlayerRollback(input.playerId, input.player, input.rollback.player, input.service.playerRuntimeService);
+    for (const entry of input.rollback.instances) {
+        restoreSectPortalInstanceRollback(entry.instance, entry.rollback);
+    }
+    const formationId = `formation:sect_guardian:${input.sect.sectId}`;
+    for (const entry of input.rollback.instances) {
+        input.deps.worldRuntimeFormationService?.removeFormationFromInstance?.(
+            entry.instance?.meta?.instanceId,
+            formationId,
+            input.deps,
+            { deferPersistence: true },
+        );
+    }
+    if (input.rollback.previousGuardian && snapshot) {
+        input.service.ensureGuardianFormation(snapshot, input.deps, input.rollback.previousGuardian, { deferPersistence: true });
+    }
+}
+
+function captureSectPlayerRollback(player) {
+    return {
+        sectId: normalizeOptionalString(player?.sectId),
+        inventoryItems: Array.isArray(player?.inventory?.items)
+            ? player.inventory.items.map((item) => ({ ...item }))
+            : [],
+        inventoryRevision: Math.max(0, Math.trunc(Number(player?.inventory?.revision ?? 0))),
+        persistentRevision: Math.max(0, Math.trunc(Number(player?.persistentRevision ?? 0))),
+        persistedRevision: Math.max(0, Math.trunc(Number(player?.persistedRevision ?? 0))),
+        selfRevision: Math.max(0, Math.trunc(Number(player?.selfRevision ?? 0))),
+        dirtyDomains: player?.dirtyDomains instanceof Set ? Array.from(player.dirtyDomains) : [],
+    };
+}
+
+function restoreSectPlayerRollback(playerId, player, rollback, playerRuntimeService) {
+    playerRuntimeService.replaceInventoryItems?.(playerId, rollback.inventoryItems);
+    player.inventory.revision = rollback.inventoryRevision;
+    player.sectId = rollback.sectId;
+    player.persistentRevision = rollback.persistentRevision;
+    player.persistedRevision = rollback.persistedRevision;
+    player.selfRevision = rollback.selfRevision;
+    player.dirtyDomains = new Set(rollback.dirtyDomains);
+}
+
+function captureSectPortalInstanceRollback(instance) {
+    if (!instance) {
+        return null;
+    }
+    return {
+        runtimePortals: Array.isArray(instance.runtimePortals)
+            ? instance.runtimePortals.map((portal) => ({ ...portal }))
+            : [],
+        worldRevision: Math.max(0, Math.trunc(Number(instance.worldRevision ?? 0))),
+        persistentRevision: Math.max(0, Math.trunc(Number(instance.persistentRevision ?? 0))),
+        dirtyDomains: instance.dirtyDomains instanceof Set ? Array.from(instance.dirtyDomains) : [],
+    };
+}
+
+function restoreSectPortalInstanceRollback(instance, rollback) {
+    if (!instance || !rollback) {
+        return;
+    }
+    instance.runtimePortals = rollback.runtimePortals.map((portal) => ({ ...portal }));
+    instance.worldRevision = rollback.worldRevision;
+    instance.persistentRevision = rollback.persistentRevision;
+    instance.dirtyDomains = new Set(rollback.dirtyDomains);
+    instance.markAoiViewChangedGlobally?.();
+}
+
+function cloneSectGuardian(formation) {
+    if (!formation || typeof formation !== 'object') {
+        return null;
+    }
+    return {
+        ...formation,
+        allocation: formation.allocation && typeof formation.allocation === 'object'
+            ? { ...formation.allocation }
+            : formation.allocation,
+        stats: formation.stats && typeof formation.stats === 'object'
+            ? { ...formation.stats }
+            : formation.stats,
+    };
+}
+
 function removeSectRuntimePortals(instance, sectId) {
     if (!instance || !Array.isArray(instance.runtimePortals)) {
         return false;
     }
-    const before = instance.runtimePortals.length;
-    instance.runtimePortals = instance.runtimePortals.filter((portal) => portal?.sectId !== sectId);
-    if (instance.runtimePortals.length === before) {
+    const removedPortals = instance.runtimePortals.filter((portal) => portal?.sectId === sectId);
+    if (removedPortals.length === 0) {
         return false;
+    }
+    instance.runtimePortals = instance.runtimePortals.filter((portal) => portal?.sectId !== sectId);
+    for (const portal of removedPortals) {
+        instance.markAoiViewChangedAt?.(portal.x, portal.y);
     }
     instance.worldRevision += 1;
     instance.persistentRevision += 1;
@@ -2544,6 +3345,29 @@ function normalizeOptionalString(value) {
     }
     const normalized = value.trim();
     return normalized ? normalized : null;
+}
+
+function createSectShutdownSignal(): { promise: Promise<void>; resolve: () => void } {
+    let resolve!: () => void;
+    const promise = new Promise<void>((next) => {
+        resolve = next;
+    });
+    return { promise, resolve };
+}
+
+function resolveNextSectUpdatedAt(sect, now = Date.now()) {
+    const previous = normalizeIntegerWithDefault(sect?.updatedAt, 0);
+    const wallClock = normalizeIntegerWithDefault(now, Date.now());
+    return Math.max(previous + 1, wallClock);
+}
+
+function advanceSectUpdatedAt(sect, now = Date.now()) {
+    if (!sect || typeof sect !== 'object') {
+        return 0;
+    }
+    const next = resolveNextSectUpdatedAt(sect, now);
+    sect.updatedAt = next;
+    return next;
 }
 
 function chebyshevDistance(ax, ay, bx, by) {

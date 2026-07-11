@@ -63,7 +63,12 @@ interface WorldGatewayActionDeps {
         deps: unknown,
       ): void;
       enqueueNpcInteraction(playerId: string, actionId: string, deps: unknown): void;
-      executeAction(playerId: string, actionId: string, target: string | undefined, deps: unknown): ProtocolActionResult;
+      executeAction(
+        playerId: string,
+        actionId: string,
+        target: string | undefined,
+        deps: unknown,
+      ): ProtocolActionResult | Promise<ProtocolActionResult>;
       enqueueRedeemCodes(playerId: string, codes: string[], deps: unknown): void;
       usePortal(playerId: string, deps: unknown): void;
       enqueueCultivate(playerId: string, techId: string | null, deps: unknown): void;
@@ -201,7 +206,12 @@ export class WorldGatewayActionHelper {
       this.emitProtocolActionResult(
         client,
         playerId,
-        this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.executeAction(playerId, actionId, target, this.gateway.worldRuntimeService),
+        await this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.executeAction(
+          playerId,
+          actionId,
+          target,
+          this.gateway.worldRuntimeService,
+        ),
       );
       this.gateway.worldSyncService?.emitDeltaSync(playerId, client);
       if (actionId === 'realm:auto_refine_root_foundation' || actionId.startsWith('realm:auto_refine_root_foundation:')) {
@@ -216,7 +226,7 @@ export class WorldGatewayActionHelper {
       return;
     }
 
-    const result = this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.executeAction(
+    const result = await this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.executeAction(
       playerId,
       actionId,
       undefined,

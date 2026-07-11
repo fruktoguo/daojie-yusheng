@@ -28,7 +28,7 @@ const instanceId = "real:formation_smoke";
 
 async function main() {
   await testFormationDeferredPersistenceDoesNotLazyInitialize();
-  await testFormationShutdownFlushesUnrestoredRuntimeInstances();
+  await testFormationShutdownDoesNotRepeatFinalFlush();
   await testFormationFlushAllNowFlushesPendingInstances();
   await testFormationPersistFailureKeepsDirtyForFlushAll();
   await testFormationSaveInstanceFormationsReplaysRemovalDirty();
@@ -1031,7 +1031,7 @@ async function testFormationDeferredPersistenceDoesNotLazyInitialize() {
   assert.equal(service.dirtyFormationInstanceIds.has("inst:formation:deferred"), true);
 }
 
-async function testFormationShutdownFlushesUnrestoredRuntimeInstances() {
+async function testFormationShutdownDoesNotRepeatFinalFlush() {
   const service = new WorldRuntimeFormationService(
     { getFormationTemplate: () => null },
     {},
@@ -1045,7 +1045,7 @@ async function testFormationShutdownFlushesUnrestoredRuntimeInstances() {
     savedInstanceIds.push(targetInstanceId);
   };
   await service.closePersistencePool();
-  assert.deepEqual(savedInstanceIds, [instanceId]);
+  assert.deepEqual(savedInstanceIds, []);
   assert.equal(service.persistenceReady, false);
   assert.equal(service.persistencePool, null);
 }
@@ -1120,7 +1120,8 @@ async function testFormationSaveInstanceFormationsReplaysRemovalDirty() {
 
   await service.saveInstanceFormations(instanceId);
 
-  assert.ok(poolQueries.length > 0);
+  assert.equal(poolQueries.some((entry) => /CREATE|ALTER|CREATE INDEX/i.test(entry[0])), false);
+  assert.equal(clientQueries.some((entry) => /CREATE|ALTER|CREATE INDEX/i.test(entry[0])), false);
   assert.ok(clientQueries.some((entry) => entry[0].includes("formation_instance_id = $2")
     && entry[1]?.[0] === instanceId
     && entry[1]?.[1] === formationId));

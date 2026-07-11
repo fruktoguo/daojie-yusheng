@@ -546,11 +546,15 @@ export class WorldRuntimeTongtianTowerService {
       routeDomain: 'system',
     });
     if (typeof instance.setDynamicTileBlocker === 'function') {
-      instance.setDynamicTileBlocker((x, y, context = null) => (
+      const blocker: any = (x, y, context = null) => (
         typeof deps.worldRuntimeFormationService?.isBoundaryBarrierBlocked === 'function'
           ? deps.worldRuntimeFormationService.isBoundaryBarrierBlocked(instanceId, x, y, context?.playerId) === true
           : false
-      ));
+      );
+      blocker.forEachBlockedTile = (playerId, visitor) => {
+        deps.worldRuntimeFormationService?.forEachBoundaryBarrierBlockedTile?.(instanceId, playerId, visitor);
+      };
+      instance.setDynamicTileBlocker(blocker);
     }
     return instance;
   }

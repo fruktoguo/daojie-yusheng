@@ -18,6 +18,8 @@ const MONSTER_SUPPRESSION_EFFECT_KIND = 'monster_suppression';
 const VISION_SUPPRESSION_EFFECT_KIND = 'vision_suppression';
 const DEFAULT_FORMATION_VISION_REDUCTION_PERCENT_PER_STRENGTH = 10;
 const INSTANCE_FORMATION_STATE_TABLE = 'instance_formation_state';
+// 必须与 sect-durable-persistence.ts 一致，确保宗门跨域事务与普通阵法写盘互斥。
+const FORMATION_LOCK_NAMESPACE = 7105;
 const INSTANCE_FORMATION_STATE_BIGINT_COLUMNS = [
     'spirit_stone_count',
     'x',
@@ -50,11 +52,52 @@ class WorldRuntimeFormationService {
     persistenceReady = false;
     persistenceInitPromise = null;
     databasePoolProvider = null;
+    durableOperationService = null;
+    formationPersistenceQueueById = new Map<string, Promise<void>>();
 
-    constructor(contentTemplateRepository, playerRuntimeService, databasePoolProvider = null) {
+    constructor(contentTemplateRepository, playerRuntimeService, databasePoolProvider = null, durableOperationService = null) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.playerRuntimeService = playerRuntimeService;
         this.databasePoolProvider = databasePoolProvider;
+        this.durableOperationService = durableOperationService;
+    }
+
+    async runExclusiveFormationPersistence(formationInstanceIds, action) {
+        const normalizedIds = Array.from(new Set((Array.isArray(formationInstanceIds) ? formationInstanceIds : [])
+            .map((formationId) => normalizeOptionalString(formationId))
+            .filter(Boolean))).sort();
+        const tickets = normalizedIds.map((formationId) => {
+            const previous = this.formationPersistenceQueueById.get(formationId) ?? Promise.resolve();
+            let release;
+            const gate = new Promise<void>((resolve) => {
+                release = resolve;
+            });
+            const tail = previous.catch(() => undefined).then(() => gate);
+            this.formationPersistenceQueueById.set(formationId, tail);
+            return { formationId, previous, release, tail };
+        });
+        await Promise.all(tickets.map((ticket) => ticket.previous.catch(() => undefined)));
+        try {
+            return await action();
+        } finally {
+            for (const ticket of tickets) {
+                ticket.release?.();
+            }
+            for (const ticket of tickets) {
+                void ticket.tail.finally(() => {
+                    if (this.formationPersistenceQueueById.get(ticket.formationId) === ticket.tail) {
+                        this.formationPersistenceQueueById.delete(ticket.formationId);
+                    }
+                });
+            }
+        }
+    }
+
+    isFormationPersistenceBlocked(instanceIds) {
+        return (Array.isArray(instanceIds) ? instanceIds : [])
+            .map((instanceId) => normalizeInstanceId(instanceId))
+            .filter(Boolean)
+            .some((instanceId) => this.durableOperationService?.isInstanceCommitOutcomeUnresolved?.(instanceId) === true);
     }
 
     enqueueFormationNotice(playerId, kind, key, fallbackText, vars = {}) {
@@ -172,7 +215,7 @@ class WorldRuntimeFormationService {
         return formation;
     }
 
-    upsertSectGuardianFormation(input, deps = null) {
+    upsertSectGuardianFormation(input, deps = null, options: { deferPersistence?: boolean } = {}) {
         const template = this.resolveFormationTemplate(input?.formationId ?? 'sect_guardian_barrier');
         if (template.effect?.kind !== BOUNDARY_BARRIER_EFFECT_KIND) {
             throw new BadRequestException('护宗大阵模板必须是边界防护阵法');
@@ -224,7 +267,7 @@ class WorldRuntimeFormationService {
         if (Number.isFinite(Number(input?.radius))) {
             stats.radius = Math.max(1, Math.trunc(Number(input.radius)));
         }
-        const now = Date.now();
+        const now = resolveNextFormationUpdatedAt(existing);
         const remainingQiBudget = existing
             ? resolveFormationRemainingQiBudget(existing)
             : explicitRemainingQiBudget !== null ? explicitRemainingQiBudget : stats.totalQiBudget ?? stats.totalAuraBudget;
@@ -268,8 +311,15 @@ class WorldRuntimeFormationService {
         }
         const formation = existing ?? patch;
         touchRuntimeInstanceRevision(deps, instanceId);
-        this.persistFormationSnapshotSoon(formation);
+        if (options.deferPersistence !== true) {
+            this.persistFormationSnapshotSoon(formation);
+        }
         return formation;
+    }
+
+    /** 为宗门跨域事务导出护宗大阵持久化快照，不在调用处复制 formation 表结构。 */
+    serializeFormationForDurableMutation(formation) {
+        return formation ? serializeFormation(formation) : null;
     }
 
     dispatchSetFormationActive(playerId, payload, deps = null) {
@@ -280,7 +330,7 @@ class WorldRuntimeFormationService {
         formation.active = payload?.active !== false
             && resolveFormationRemainingQiBudget(formation) > 0
             && resolveFormationRemainingSpiritStoneBudget(formation) > 0;
-        formation.updatedAt = Date.now();
+        formation.updatedAt = resolveNextFormationUpdatedAt(formation);
         touchRuntimeInstanceRevision(deps, formation.instanceId);
         this.persistFormationSnapshotSoon(formation);
         this.enqueueFormationNotice(
@@ -325,7 +375,7 @@ class WorldRuntimeFormationService {
         if (resolveFormationRemainingQiBudget(formation) > 0 && resolveFormationRemainingSpiritStoneBudget(formation) > 0) {
             formation.active = true;
         }
-        formation.updatedAt = Date.now();
+        formation.updatedAt = resolveNextFormationUpdatedAt(formation);
         touchRuntimeInstanceRevision(deps, formation.instanceId);
         this.persistFormationSnapshotSoon(formation);
         this.enqueueFormationNotice(
@@ -463,7 +513,7 @@ class WorldRuntimeFormationService {
         if (Number.isFinite(Number(setup.radius))) {
             formation.stats.radius = Math.max(1, Math.trunc(Number(setup.radius)));
         }
-        formation.updatedAt = Date.now();
+        formation.updatedAt = resolveNextFormationUpdatedAt(formation);
         touchRuntimeInstanceRevision(deps, formation.instanceId);
         if (normalizeInstanceId(formation.eyeInstanceId) && normalizeInstanceId(formation.eyeInstanceId) !== formation.instanceId) {
             touchRuntimeInstanceRevision(deps, formation.eyeInstanceId);
@@ -490,7 +540,7 @@ class WorldRuntimeFormationService {
         formation.active = payload?.active !== false
             && resolveFormationRemainingQiBudget(formation) > 0
             && resolveFormationRemainingSpiritStoneBudget(formation) > 0;
-        formation.updatedAt = Date.now();
+        formation.updatedAt = resolveNextFormationUpdatedAt(formation);
         touchRuntimeInstanceRevision(deps, formation.instanceId);
         this.persistFormationSnapshotSoon(formation);
         this.enqueueFormationNotice(
@@ -531,7 +581,7 @@ class WorldRuntimeFormationService {
         if (resolveFormationRemainingQiBudget(formation) > 0 && resolveFormationRemainingSpiritStoneBudget(formation) > 0) {
             formation.active = true;
         }
-        formation.updatedAt = Date.now();
+        formation.updatedAt = resolveNextFormationUpdatedAt(formation);
         touchRuntimeInstanceRevision(deps, formation.instanceId);
         this.persistFormationSnapshotSoon(formation);
         this.enqueueFormationNotice(
@@ -579,12 +629,12 @@ class WorldRuntimeFormationService {
             const lacksQi = tickCost.qiCost > 0 && qiBefore < tickCost.qiCost;
             setFormationRemainingQiBudget(formation, Math.max(0, qiBefore - tickCost.qiCost));
             if (tickCost.spiritStoneCost > 0 || tickCost.qiCost > 0) {
-                formation.updatedAt = Date.now();
+                formation.updatedAt = resolveNextFormationUpdatedAt(formation);
             }
             if (lacksQi || resolveFormationRemainingQiBudget(formation) <= 0) {
                 if (formation.active !== false) {
                     formation.active = false;
-                    formation.updatedAt = Date.now();
+                    formation.updatedAt = resolveNextFormationUpdatedAt(formation);
                     touchInstanceRevision(instance);
                     persistenceDirty = true;
                     this.enqueueFormationNotice(
@@ -907,7 +957,7 @@ class WorldRuntimeFormationService {
         const appliedAuraDamage = Math.min(resolveFormationRemainingQiBudget(formation), auraDamage);
         const appliedDamage = appliedAuraDamage * damagePerAura;
         setFormationRemainingQiBudget(formation, Math.max(0, resolveFormationRemainingQiBudget(formation) - appliedAuraDamage));
-        formation.updatedAt = Date.now();
+        formation.updatedAt = resolveNextFormationUpdatedAt(formation);
         const destroyed = resolveFormationRemainingQiBudget(formation) <= 0;
         if (destroyed) {
             setFormationRemainingQiBudget(formation, 0);
@@ -1218,7 +1268,7 @@ class WorldRuntimeFormationService {
 
     private _formationPersistTimers = new Map<string, ReturnType<typeof setTimeout>>();
     private dirtyFormationInstanceIds = new Set<string>();
-    private removedFormationKeysByInstanceId = new Map<string, Set<string>>();
+    private removedFormationKeysByInstanceId = new Map<string, Map<string, number>>();
 
     persistInstanceFormationsSoon(instanceId) {
         const normalizedInstanceId = this.markFormationInstanceDirty(instanceId);
@@ -1284,10 +1334,11 @@ class WorldRuntimeFormationService {
         }
         let removedKeys = this.removedFormationKeysByInstanceId.get(normalizedInstanceId);
         if (!removedKeys) {
-            removedKeys = new Set();
+            removedKeys = new Map();
             this.removedFormationKeysByInstanceId.set(normalizedInstanceId, removedKeys);
         }
-        removedKeys.add(formationInstanceId);
+        const removedAt = Math.max(0, Math.trunc(Number(formation?.updatedAt) || Date.now()));
+        removedKeys.set(formationInstanceId, Math.max(removedKeys.get(formationInstanceId) ?? 0, removedAt));
     }
 
     clearFormationRemovalDirty(instanceId, formationInstanceId) {
@@ -1313,6 +1364,17 @@ class WorldRuntimeFormationService {
         }
         this.dirtyFormationInstanceIds.delete(normalizedInstanceId);
         this.removedFormationKeysByInstanceId.delete(normalizedInstanceId);
+    }
+
+    isFormationSnapshotCurrent(snapshot) {
+        const instanceId = normalizeInstanceId(snapshot?.instanceId);
+        const formationId = normalizeOptionalString(snapshot?.id);
+        if (!instanceId || !formationId) {
+            return false;
+        }
+        const current = this.findFormationInInstance(instanceId, formationId);
+        return current !== null
+            && Math.trunc(Number(current.updatedAt) || 0) === Math.trunc(Number(snapshot.updatedAt) || 0);
     }
 
     /**
@@ -1348,94 +1410,123 @@ class WorldRuntimeFormationService {
         if (!formation) {
             return;
         }
-        const pool = await this.ensurePersistencePool();
-        if (!pool) {
-            return;
-        }
-        await ensureInstanceFormationStateTable(pool);
         const serialized = serializeFormation(formation);
         const normalizedInstanceId = normalizeInstanceId(serialized.instanceId);
-        if (!normalizedInstanceId || !serialized.id) {
+        const formationInstanceId = normalizeOptionalString(serialized.id);
+        if (!normalizedInstanceId || !formationInstanceId) {
             return;
         }
-        const client = await pool.connect();
-        try {
-            await client.query('BEGIN');
-            await upsertFormationStateRow(client, normalizedInstanceId, serialized);
-            await client.query('COMMIT');
-            this.clearFormationRemovalDirty(normalizedInstanceId, serialized.id);
-        } catch (error) {
-            await client.query('ROLLBACK').catch(() => undefined);
-            throw error;
-        } finally {
-            client.release();
-        }
+        await this.runExclusiveFormationPersistence([formationInstanceId], async () => {
+            if (this.isFormationPersistenceBlocked([serialized.instanceId, serialized.eyeInstanceId])) {
+                return;
+            }
+            const pool = await this.ensurePersistencePool();
+            if (!pool) {
+                return;
+            }
+            if (!this.isFormationSnapshotCurrent(serialized)) {
+                return;
+            }
+            const client = await pool.connect();
+            try {
+                await client.query('BEGIN');
+                await lockFormationStateRow(client, serialized.id);
+                await upsertFormationStateRow(client, normalizedInstanceId, serialized);
+                await client.query('COMMIT');
+                this.clearFormationRemovalDirty(normalizedInstanceId, serialized.id);
+            } catch (error) {
+                await client.query('ROLLBACK').catch(() => undefined);
+                throw error;
+            } finally {
+                client.release();
+            }
+        });
     }
 
     async deleteFormationSnapshot(formation) {
         if (!formation) {
             return;
         }
-        const pool = await this.ensurePersistencePool();
-        if (!pool) {
-            return;
-        }
-        await ensureInstanceFormationStateTable(pool);
         const normalizedInstanceId = normalizeInstanceId(formation.instanceId);
         const formationInstanceId = normalizeOptionalString(formation.id);
         if (!normalizedInstanceId || !formationInstanceId) {
             return;
         }
-        await pool.query(
-            `DELETE FROM ${INSTANCE_FORMATION_STATE_TABLE} WHERE instance_id = $1 AND formation_instance_id = $2`,
-            [normalizedInstanceId, formationInstanceId],
-        );
-        this.clearFormationRemovalDirty(normalizedInstanceId, formationInstanceId);
+        const removedAt = Math.max(0, Math.trunc(Number(formation.updatedAt) || Date.now()));
+        await this.runExclusiveFormationPersistence([formationInstanceId], async () => {
+            if (this.isFormationPersistenceBlocked([formation?.instanceId, formation?.eyeInstanceId])) {
+                return;
+            }
+            const pool = await this.ensurePersistencePool();
+            if (!pool) {
+                return;
+            }
+            const client = await pool.connect();
+            try {
+                await client.query('BEGIN');
+                await lockFormationStateRow(client, formationInstanceId);
+                await deleteFormationStateRow(client, normalizedInstanceId, formationInstanceId, removedAt);
+                await client.query('COMMIT');
+                this.clearFormationRemovalDirty(normalizedInstanceId, formationInstanceId);
+            } catch (error) {
+                await client.query('ROLLBACK').catch(() => undefined);
+                throw error;
+            } finally {
+                client.release();
+            }
+        });
     }
 
     async saveInstanceFormations(instanceId) {
-        const pool = await this.ensurePersistencePool();
-        if (!pool) {
-            return;
-        }
-        await ensureInstanceFormationStateTable(pool);
         const normalizedInstanceId = normalizeInstanceId(instanceId);
         if (!normalizedInstanceId) {
             return;
         }
-        const canReplaceInstanceRows = this.restoredFormationInstanceIds.has(normalizedInstanceId);
-        const formations = (this.formationsByInstanceId.get(normalizedInstanceId) ?? []).map((formation) => serializeFormation(formation));
-        const client = await pool.connect();
-        try {
-            await client.query('BEGIN');
-            if (canReplaceInstanceRows) {
-                await client.query(`DELETE FROM ${INSTANCE_FORMATION_STATE_TABLE} WHERE instance_id = $1`, [normalizedInstanceId]);
+        const formations = (this.formationsByInstanceId.get(normalizedInstanceId) ?? [])
+            .map((formation) => serializeFormation(formation));
+        const removedKeys = new Map(this.removedFormationKeysByInstanceId.get(normalizedInstanceId) ?? []);
+        const queuedFormationIds = Array.from(new Set([
+            ...formations.map((formation) => normalizeOptionalString(formation.id)),
+            ...removedKeys.keys(),
+        ].filter(Boolean))).sort();
+        await this.runExclusiveFormationPersistence(queuedFormationIds, async () => {
+            if (this.isFormationPersistenceBlocked([normalizedInstanceId])) {
+                return;
             }
-            else {
-                const removedKeys = this.removedFormationKeysByInstanceId.get(normalizedInstanceId);
-                if (removedKeys) {
-                    for (const formationInstanceId of removedKeys) {
-                        await client.query(
-                            `DELETE FROM ${INSTANCE_FORMATION_STATE_TABLE} WHERE instance_id = $1 AND formation_instance_id = $2`,
-                            [normalizedInstanceId, formationInstanceId],
-                        );
-                    }
+            const pool = await this.ensurePersistencePool();
+            if (!pool) {
+                return;
+            }
+            const currentFormations = formations.filter((formation) => this.isFormationSnapshotCurrent(formation));
+            const currentRemovedKeys = new Map(Array.from(removedKeys).filter(([formationInstanceId, removedAt]) => {
+                const current = this.findFormationInInstance(normalizedInstanceId, formationInstanceId);
+                return !current || Math.trunc(Number(current.updatedAt) || 0) <= removedAt;
+            }));
+            const formationIds = Array.from(new Set([
+                ...currentFormations.map((formation) => formation.id),
+                ...currentRemovedKeys.keys(),
+            ])).sort();
+            const client = await pool.connect();
+            try {
+                await client.query('BEGIN');
+                for (const formationInstanceId of formationIds) {
+                    await lockFormationStateRow(client, formationInstanceId);
                 }
+                for (const [formationInstanceId, removedAt] of currentRemovedKeys) {
+                    await deleteFormationStateRow(client, normalizedInstanceId, formationInstanceId, removedAt);
+                }
+                for (const formation of currentFormations) {
+                    await upsertFormationStateRow(client, normalizedInstanceId, formation);
+                }
+                await client.query('COMMIT');
+                this.clearFormationInstanceDirty(normalizedInstanceId);
+            } catch (error) {
+                await client.query('ROLLBACK').catch(() => undefined);
+                throw error;
+            } finally {
+                client.release();
             }
-            for (const formation of formations) {
-                await upsertFormationStateRow(client, normalizedInstanceId, formation);
-            }
-            await client.query('COMMIT');
-            this.clearFormationInstanceDirty(normalizedInstanceId);
-        } catch (error) {
-            await client.query('ROLLBACK').catch(() => undefined);
-            throw error;
-        } finally {
-            client.release();
-        }
-        if (formations.length === 0) {
-            return;
-        }
+        });
     }
 
     async loadInstanceFormationDocument(instanceId) {
@@ -1443,7 +1534,6 @@ class WorldRuntimeFormationService {
         if (!pool) {
             return null;
         }
-        await ensureInstanceFormationStateTable(pool);
         const result = await pool.query(`
             SELECT
                 formation_instance_id,
@@ -1477,6 +1567,8 @@ class WorldRuntimeFormationService {
                   SELECT 1
                   FROM server_sect
                   WHERE server_sect.sect_id = btrim(${INSTANCE_FORMATION_STATE_TABLE}.owner_sect_id)
+                    AND server_sect.status = 'active'
+                    AND server_sect.entrance_instance_id = $1
                 )
               )
             ORDER BY formation_instance_id ASC
@@ -1490,6 +1582,8 @@ class WorldRuntimeFormationService {
                 SELECT 1
                 FROM server_sect
                 WHERE server_sect.sect_id = btrim(${INSTANCE_FORMATION_STATE_TABLE}.owner_sect_id)
+                  AND server_sect.status = 'active'
+                  AND server_sect.entrance_instance_id = $1
               )
         `, [instanceId]);
         return {
@@ -1564,14 +1658,6 @@ class WorldRuntimeFormationService {
         }
         this._formationPersistTimers.clear();
 
-        if (this.persistenceReady && this.persistencePool) {
-            const instanceIds = Array.from(this.formationsByInstanceId.keys());
-            for (const instanceId of instanceIds) {
-                await this.saveInstanceFormations(instanceId).catch((error) => {
-                    this.logger.warn(`关闭前阵法刷盘失败：${instanceId} ${error instanceof Error ? error.message : String(error)}`);
-                });
-            }
-        }
         // 共享连接池由 DatabasePoolProvider 统一关闭，此处只释放引用。
         this.persistencePool = null;
         this.persistenceReady = false;
@@ -1616,7 +1702,7 @@ class WorldRuntimeFormationService {
         return null;
     }
 
-    removeFormationFromInstance(instanceId, formationInstanceId, deps = null) {
+    removeFormationFromInstance(instanceId, formationInstanceId, deps = null, options: { deferPersistence?: boolean } = {}) {
         const normalizedInstanceId = normalizeInstanceId(instanceId);
         const normalizedId = typeof formationInstanceId === 'string' ? formationInstanceId.trim() : '';
         if (!normalizedInstanceId || !normalizedId) {
@@ -1635,7 +1721,9 @@ class WorldRuntimeFormationService {
             this.formationsByInstanceId.delete(normalizedInstanceId);
         }
         touchRuntimeInstanceRevision(deps, normalizedInstanceId);
-        this.persistFormationRemovalSoon(formation);
+        if (options.deferPersistence !== true) {
+            this.persistFormationRemovalSoon(formation);
+        }
         return formation ?? null;
     }
 
@@ -2199,6 +2287,11 @@ function serializeFormation(formation) {
     };
 }
 
+function resolveNextFormationUpdatedAt(formation) {
+    const previous = Math.max(0, Math.trunc(Number(formation?.updatedAt) || 0));
+    return Math.max(Date.now(), previous + 1);
+}
+
 async function upsertFormationStateRow(client, instanceId, formation) {
     await client.query(`
         INSERT INTO ${INSTANCE_FORMATION_STATE_TABLE}(
@@ -2257,6 +2350,7 @@ async function upsertFormationStateRow(client, instanceId, formation) {
             created_at_ms = EXCLUDED.created_at_ms,
             updated_at_ms = EXCLUDED.updated_at_ms,
             updated_at = now()
+        WHERE ${INSTANCE_FORMATION_STATE_TABLE}.updated_at_ms <= EXCLUDED.updated_at_ms
     `, [
         instanceId,
         formation.id,
@@ -2282,6 +2376,23 @@ async function upsertFormationStateRow(client, instanceId, formation) {
         formation.createdAt,
         formation.updatedAt,
     ]);
+}
+
+async function lockFormationStateRow(client, formationInstanceId) {
+    await client.query(
+        'SELECT pg_advisory_xact_lock($1::integer, hashtext($2))',
+        [FORMATION_LOCK_NAMESPACE, formationInstanceId],
+    );
+}
+
+async function deleteFormationStateRow(client, instanceId, formationInstanceId, removedAt) {
+    await client.query(
+        `DELETE FROM ${INSTANCE_FORMATION_STATE_TABLE}
+         WHERE instance_id = $1
+           AND formation_instance_id = $2
+           AND updated_at_ms <= $3`,
+        [instanceId, formationInstanceId, Math.max(0, Math.trunc(Number(removedAt) || 0))],
+    );
 }
 
 function extractFormationSerial(formationId) {

@@ -510,8 +510,8 @@ export class WorldRuntimeService {
         this.worldRuntimeThreatService = worldRuntimeThreatService;
         this.worldRuntimeCombatCommandService = worldRuntimeCombatCommandService;
         this.worldRuntimeActionExecutionService = worldRuntimeActionExecutionService;
-        this.worldRuntimeFormationService = new WorldRuntimeFormationService(contentTemplateRepository, playerRuntimeService, databasePoolProvider);
-        this.worldRuntimeSectService = new WorldRuntimeSectService(contentTemplateRepository, templateRepository, playerRuntimeService, mailRuntimeService, databasePoolProvider);
+        this.worldRuntimeFormationService = new WorldRuntimeFormationService(contentTemplateRepository, playerRuntimeService, databasePoolProvider, durableOperationService);
+        this.worldRuntimeSectService = new WorldRuntimeSectService(contentTemplateRepository, templateRepository, playerRuntimeService, mailRuntimeService, databasePoolProvider, durableOperationService, this.worldRuntimeFormationService);
         this.worldRuntimeSystemCommandEnqueueService = worldRuntimeSystemCommandEnqueueService;
         this.worldRuntimeTongtianTowerService = worldRuntimeTongtianTowerService;
         this.nodeRegistryService = nodeRegistryService;

@@ -103,11 +103,11 @@ export class WorldRuntimeUseItemService {
             return;
         }
         if (item.useBehavior === 'create_sect') {
-            deps.worldRuntimeSectService.dispatchCreateSect(playerId, itemInstanceId, item, deps, payload);
+            await deps.worldRuntimeSectService.dispatchCreateSect(playerId, itemInstanceId, item, deps, payload);
             return;
         }
         if (item.useBehavior === SECT_ENTRANCE_RELOCATION_USE_BEHAVIOR) {
-            deps.worldRuntimeSectService.dispatchRelocateSectEntrance(playerId, itemInstanceId, item, deps);
+            await deps.worldRuntimeSectService.dispatchRelocateSectEntrance(playerId, itemInstanceId, item, deps);
             return;
         }
         if (item.useBehavior === CURRENT_RESPAWN_BIND_USE_BEHAVIOR) {
