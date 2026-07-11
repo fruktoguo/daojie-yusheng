@@ -859,7 +859,9 @@ function proveAuxStateReusesStableProjectionRefs(): {
     } as never,
     { buildMinimapSnapshotSync: () => ({ markers: [] }) } as never,
     {
-      sendBootstrap: (_socket: any, payload: any) => log.push(['bootstrapTime', payload.time]),
+      sendBootstrap: (_socket: any, payload: any) => {
+        log.push(['bootstrapTime', payload.time], ['bootstrapRealm', payload.self.realm]);
+      },
       sendMapStatic: () => undefined,
       sendWorldDelta: (_socket: any, payload: any) => log.push(['deltaTime', payload.time]),
       sendRealm: (_socket: any, payload: any) => log.push(['realm', payload.realm]),
@@ -872,7 +874,10 @@ function proveAuxStateReusesStableProjectionRefs(): {
       emitDeltaThreatSync: (_socket: any, _view: any, previous: any) => previous,
     } as never,
     {
-      buildPlayerSyncState: (_player: any, _view: any, unlockedMinimapIds: string[]) => ({ unlockedMinimapIds }),
+      buildPlayerSyncState: (_player: any, _view: any, unlockedMinimapIds: string[]) => ({
+        unlockedMinimapIds,
+        realm: _player.realm ? { ..._player.realm } : undefined,
+      }),
     } as never,
   );
   service.emitAuxInitialSync('aux_player', { emit: () => undefined }, createAuxView(10), player as never);
@@ -881,14 +886,16 @@ function proveAuxStateReusesStableProjectionRefs(): {
   service.emitAuxDeltaSync('aux_player', { emit: () => undefined }, createAuxView(11), player as never);
   const second = cache.protocolAuxStateByPlayerId.get('aux_player');
   const bootstrapTimeRefShared = log.find((entry) => entry[0] === 'bootstrapTime')?.[1] === first.time.time;
-  const initialRealmRefShared = log.find((entry) => entry[0] === 'realm')?.[1] === first.realm;
+  const initialRealmRefShared = log.find((entry) => entry[0] === 'bootstrapRealm')?.[1] === first.realm;
   const stableTimeCacheRefReused = second.time === first.time;
   const stableRealmCacheRefReused = second.realm === first.realm;
   const stableLootCacheRefReused = second.lootWindow === first.lootWindow;
   const stableLootSourceRefStored = second.lootWindowSource === lootWindow;
+  const duplicateRealmPacketCount = log.filter((entry) => entry[0] === 'realm').length;
 
   assert.equal(bootstrapTimeRefShared, true);
   assert.equal(initialRealmRefShared, true);
+  assert.equal(duplicateRealmPacketCount, 0);
   assert.equal(stableTimeCacheRefReused, true);
   assert.equal(stableRealmCacheRefReused, true);
   assert.equal(stableLootCacheRefReused, true);
@@ -1030,7 +1037,15 @@ function proveRenderEntitiesReuseStableRefs(): {
     displayName: '目标',
   };
   const npc = { npcId: 'npc_ref', x: 1, y: 1, char: '商', color: '#fff', name: '商人', questMarker: null };
-  const monsterBuffs = [{ id: 'burning', remainingTicks: 3, stacks: 1, presentationScale: 1.2 }];
+  const monsterBuffs = [{
+    buffId: 'burning',
+    name: '灼烧',
+    category: 'debuff',
+    visibility: 'public',
+    remainingTicks: 3,
+    stacks: 1,
+    presentationScale: 1.2,
+  }];
   const monster = {
     runtimeId: 'monster_ref',
     x: 2,
@@ -1620,7 +1635,8 @@ function proveViewHotpathOptimizationsPresent(): {
     readFileSync(resolve(process.cwd(), 'packages/server/src/content/registries/monster-template.registry.ts'), 'utf8'),
   ].join('\n');
   const playerViewCache = mapInstanceSource.includes('playerViewCacheByPlayerId')
-    && mapInstanceSource.includes('cached.worldRevision === this.worldRevision')
+    && mapInstanceSource.includes('cached.aoiGlobalRevision === this.aoiGlobalRevision')
+    && mapInstanceSource.includes('cached.aoiLocalRevision === aoiLocalRevision')
     && mapInstanceSource.includes('this.playerViewCacheByPlayerId.delete(playerId)');
   const localMonsterEntryCache = mapInstanceSource.includes('localMonsterViewCacheByRuntimeId')
     && mapInstanceSource.includes('getLocalMonsterViewEntry(monster)')
@@ -1694,7 +1710,7 @@ function proveEntryCachesFollowLifecycle(): {
   playerProjectedSnapshotHydratesStarterInPlace: boolean;
   playerSnapshotNormalizeAndProjectionHydrateHaveSingleOwner: boolean;
   playerItemDomainRawPayloadsAreMinimal: boolean;
-  marketBuySellSnapshotsLazyDurableOnly: boolean;
+  marketSnapshotsDeferredUntilDurableEnabled: boolean;
   gmPlayerListUsesLightSummaries: boolean;
   leaderboardUsesLightRuntimeProjections: boolean;
   authRuntimeSyncUsesIdentityProjection: boolean;
@@ -1922,18 +1938,21 @@ function proveEntryCachesFollowLifecycle(): {
     && playerDomainPersistenceSource.includes('function applyProjectedTechniques(')
     && playerDomainPersistenceSource.includes('function applyProjectedInventory(\n  snapshot: PersistedPlayerSnapshot,\n  rows: PlayerInventoryItemLoadRow[],\n  contentTemplateRepository?: InventoryItemTemplateRepository | null,\n): void {\n  if (rows.length === 0) {\n    return;\n  }')
     && playerDomainPersistenceSource.includes('function applyProjectedEquipment(\n  snapshot: PersistedPlayerSnapshot,\n  rows: PlayerEquipmentSlotLoadRow[],\n  contentTemplateRepository?: InventoryItemTemplateRepository | null,\n): void {\n  if (rows.length === 0) {\n    return;\n  }')
-    && playerDomainPersistenceSource.includes('function applyProjectedTechniques(\n  snapshot: PersistedPlayerSnapshot,\n  rows: PlayerTechniqueStateLoadRow[],\n): void {\n  if (rows.length === 0) {\n    return;\n  }');
+    && playerDomainPersistenceSource.includes('function applyProjectedTechniques(\n  snapshot: PersistedPlayerSnapshot,\n  rows: PlayerTechniqueStateLoadRow[],\n  contentTemplateRepository?: TechniqueTemplateRepositoryPort | null,\n): void {\n  if (rows.length === 0) {\n    return;\n  }');
 
-  const playerItemDomainRawPayloadsAreMinimal = playerDomainPersistenceSource.includes('buildPersistedInventoryItemRawPayload({\n      itemId,\n      count,\n      enhanceLevel: entry?.enhanceLevel,\n      rawPayload,\n    })')
-    && playerDomainPersistenceSource.includes('buildPersistedInventoryItemRawPayload({\n      itemId,\n      count,\n      enhanceLevel,\n      rawPayload,\n    })')
+  const playerItemDomainRawPayloadsAreMinimal = playerDomainPersistenceSource.includes('buildPersistedInventoryItemRawPayload({\n      itemId,\n      count,\n      name: entry?.name,\n      desc: entry?.desc,\n      enhanceLevel: entry?.enhanceLevel,\n      learnTechniqueId: entry?.learnTechniqueId,\n      learnTechniqueMaxLevel: entry?.learnTechniqueMaxLevel,\n      grade: entry?.grade,\n      level: entry?.level,\n      rawPayload,\n    })')
+    && playerDomainPersistenceSource.includes('buildPersistedInventoryItemRawPayload({\n      itemId,\n      count,\n      name: entry?.name,\n      desc: entry?.desc,\n      enhanceLevel,\n      learnTechniqueId: entry?.learnTechniqueId,\n      learnTechniqueMaxLevel: entry?.learnTechniqueMaxLevel,\n      grade: entry?.grade,\n      level: entry?.level,\n      rawPayload,\n    })')
     && playerDomainPersistenceSource.includes('buildPersistedEquipmentItemRawPayload({\n      itemId,\n      slot: slotType,\n      enhanceLevel: item?.enhanceLevel,\n      rawPayload: item,\n    })')
     && !playerDomainPersistenceSource.includes('...(rawPayload ?? entry ?? {})')
     && !playerDomainPersistenceSource.includes('JSON.stringify(row.rawPayload),\n    );\n    parameterIndex += 7;');
 
-  const marketBuySellSnapshotsLazyDurableOnly = marketRuntimeSource.includes('const canUseDurableBuyNow = false;\n            let buyerSnapshot = null;\n            const matchedSellerPlans = [];\n            if (canUseDurableBuyNow) {\n                buyerSnapshot = this.playerRuntimeService.snapshot(playerId);')
-    && marketRuntimeSource.includes('const canUseDurableSellNow = false;\n            let sellerSnapshot = null;\n            const matchedBuyerPlans = [];\n            if (canUseDurableSellNow) {\n                sellerSnapshot = this.playerRuntimeService.snapshot(playerId);')
-    && !marketRuntimeSource.includes('const buyerSnapshot = this.playerRuntimeService.snapshot(playerId);\n            const durableOperationService = this.durableOperationService;\n            const canUseDurableBuyNow = false;')
-    && !marketRuntimeSource.includes('const sellerSnapshot = this.playerRuntimeService.snapshot(playerId);\n            const durableOperationService = this.durableOperationService;\n            const canUseDurableSellNow = false;');
+  const durableMarketGuardIndex = marketRuntimeSource.indexOf("if (!durableOperationService?.isEnabled?.() || typeof durableOperationService.settleMarketMutation !== 'function')");
+  const durableMarketSnapshotIndex = marketRuntimeSource.indexOf('const primarySnapshot = this.playerRuntimeService.snapshot(normalizedPlayerId);');
+  const marketSnapshotsDeferredUntilDurableEnabled = durableMarketGuardIndex >= 0
+    && durableMarketSnapshotIndex > durableMarketGuardIndex
+    && marketRuntimeSource.includes('return this.runExclusivePlayerAssetMutation(')
+    && !marketRuntimeSource.includes('const canUseDurableBuyNow = false')
+    && !marketRuntimeSource.includes('const canUseDurableSellNow = false');
 
   const gmPlayerListUsesLightSummaries = playerRuntimeSource.includes('listGmPlayerSummaries()')
     && playerRuntimeSource.includes('displayName: player.displayName,')
@@ -2054,7 +2073,7 @@ function proveEntryCachesFollowLifecycle(): {
   assert.equal(playerProjectedSnapshotHydratesStarterInPlace, true);
   assert.equal(playerSnapshotNormalizeAndProjectionHydrateHaveSingleOwner, true);
   assert.equal(playerItemDomainRawPayloadsAreMinimal, true);
-  assert.equal(marketBuySellSnapshotsLazyDurableOnly, true);
+  assert.equal(marketSnapshotsDeferredUntilDurableEnabled, true);
   assert.equal(gmPlayerListUsesLightSummaries, true);
   assert.equal(leaderboardUsesLightRuntimeProjections, true);
   assert.equal(authRuntimeSyncUsesIdentityProjection, true);
@@ -2092,7 +2111,7 @@ function proveEntryCachesFollowLifecycle(): {
     playerProjectedSnapshotHydratesStarterInPlace,
     playerSnapshotNormalizeAndProjectionHydrateHaveSingleOwner,
     playerItemDomainRawPayloadsAreMinimal,
-    marketBuySellSnapshotsLazyDurableOnly,
+    marketSnapshotsDeferredUntilDurableEnabled,
     gmPlayerListUsesLightSummaries,
     leaderboardUsesLightRuntimeProjections,
     authRuntimeSyncUsesIdentityProjection,
