@@ -78,6 +78,7 @@ import { bindInlineItemTooltips, renderInlineItemChip } from './item-inline-tool
 import { getItemAffixTypeLabel, getItemDecorClassName, getItemDisplayMeta } from './item-display';
 import { CraftAlchemyView } from './craft-alchemy-view';
 import type { CraftAlchemyParent } from './craft-alchemy-view';
+import { CraftCatalogCache, type CraftCatalogKind } from './craft-catalog-cache';
 import { resolveClientDisplayToken } from './structured-notice-display';
 import { CraftEnhancementView } from './craft-enhancement-view';
 import type { CraftEnhancementParent } from './craft-enhancement-view';
@@ -592,6 +593,7 @@ export class CraftWorkbenchModal {
   private enhancementPanel: S2C_EnhancementPanel | null = null;
   private techniqueActivityTasksSynced = false;
   private techniqueActivityTasks: TechniqueActivityTaskView[] = [];
+  private readonly craftCatalogCache = new CraftCatalogCache();
   private alchemyCatalogVersion = 0;
   private alchemyCatalog: AlchemyRecipeCatalogEntry[] = [];
   private alchemySkillLevel = 1;
@@ -747,18 +749,18 @@ export class CraftWorkbenchModal {
     this.ensureLocalCraftFormulaPresetsLoaded();
     this.activeMode = 'alchemy';
     this.loading = true;
-    this.alchemyCatalogVersion = 0;
+    this.activateCraftCatalog('alchemy');
     this.selectedAlchemyPresetId = null;
     this.confirmStartRequest = null;
     this.render();
-    this.callbacks?.onRequestAlchemy(this.alchemyCatalogVersion || undefined);
+    this.callbacks?.onRequestAlchemy(this.craftCatalogCache.getKnownVersion('alchemy'));
   }
 
   openForging(): void {
     this.ensureLocalCraftFormulaPresetsLoaded();
     this.activeMode = 'forging';
     this.loading = true;
-    this.alchemyCatalogVersion = 0;
+    this.activateCraftCatalog('forging');
     this.activeAlchemyCategory = 'weapon';
     this.activeAlchemyTab = 'full';
     this.selectedAlchemyPresetId = null;
@@ -766,7 +768,7 @@ export class CraftWorkbenchModal {
     confirmModalHost.close(CraftWorkbenchModal.ALCHEMY_CONFIRM_OWNER);
     confirmModalHost.close(CraftWorkbenchModal.ALCHEMY_PRESET_PICKER_OWNER);
     this.render();
-    this.callbacks?.onRequestForging(this.alchemyCatalogVersion || undefined);
+    this.callbacks?.onRequestForging(this.craftCatalogCache.getKnownVersion('forging'));
   }
 
   openEnhancement(): void {
@@ -806,15 +808,7 @@ export class CraftWorkbenchModal {
     }
     const isPatch = Boolean(data.statePatch);
     this.alchemyPanel = this.mergeAlchemyPanel(data, 'alchemy');
-    this.alchemyCatalogVersion = Math.max(0, Math.floor(data.catalogVersion ?? this.alchemyCatalogVersion));
-    if (Array.isArray(data.catalog)) {
-      this.alchemyCatalog = data.catalog.map((entry) => ({
-        ...entry,
-        mainIngredients: (entry.mainIngredients ?? []).map((ingredient) => ({ ...ingredient })),
-        requiredAuxElements: entry.requiredAuxElements ? { ...entry.requiredAuxElements } : undefined,
-        ingredients: entry.ingredients.map((ingredient) => ({ ...ingredient })),
-      }));
-    }
+    this.applyCraftCatalog('alchemy', data);
     this.ensureAlchemySelection();
     this.ensureAlchemyDraft();
     if (this.activeMode === 'alchemy') {
@@ -834,15 +828,7 @@ export class CraftWorkbenchModal {
     }
     const isPatch = Boolean(data.statePatch);
     this.alchemyPanel = this.mergeAlchemyPanel(data, 'forging');
-    this.alchemyCatalogVersion = Math.max(0, Math.floor(data.catalogVersion ?? this.alchemyCatalogVersion));
-    if (Array.isArray(data.catalog)) {
-      this.alchemyCatalog = data.catalog.map((entry) => ({
-        ...entry,
-        mainIngredients: (entry.mainIngredients ?? []).map((ingredient) => ({ ...ingredient })),
-        requiredAuxElements: entry.requiredAuxElements ? { ...entry.requiredAuxElements } : undefined,
-        ingredients: entry.ingredients.map((ingredient) => ({ ...ingredient })),
-      }));
-    }
+    this.applyCraftCatalog('forging', data);
     this.ensureAlchemySelection();
     this.ensureAlchemyDraft();
     if (this.activeMode === 'forging') {
@@ -878,6 +864,18 @@ export class CraftWorkbenchModal {
       catalogVersion: Math.max(0, Math.floor(data.catalogVersion ?? this.alchemyCatalogVersion)),
       statePatch: undefined,
     };
+  }
+
+  private activateCraftCatalog(kind: CraftCatalogKind): void {
+    const snapshot = this.craftCatalogCache.read(kind);
+    this.alchemyCatalogVersion = snapshot.catalogVersion;
+    this.alchemyCatalog = snapshot.catalog;
+  }
+
+  private applyCraftCatalog(kind: CraftCatalogKind, data: S2C_AlchemyPanel): void {
+    const snapshot = this.craftCatalogCache.apply(kind, data.catalogVersion, data.catalog);
+    this.alchemyCatalogVersion = snapshot.catalogVersion;
+    this.alchemyCatalog = snapshot.catalog;
   }
 
   updateEnhancement(data: S2C_EnhancementPanel): void {
@@ -974,6 +972,7 @@ export class CraftWorkbenchModal {
     this.queueFloatingPanel?.setTransientHidden(true);
     this.queueFloatingEvents?.abort();
     this.queueFloatingEvents = null;
+    this.craftCatalogCache.clear();
     this.alchemyCatalog = [];
     this.alchemyCatalogVersion = 0;
     this.selectedAlchemyRecipeId = null;
@@ -1010,9 +1009,9 @@ export class CraftWorkbenchModal {
       return;
     }
     if (this.activeMode === 'alchemy') {
-      this.callbacks?.onRequestAlchemy(this.alchemyCatalogVersion || undefined);
+      this.callbacks?.onRequestAlchemy(this.craftCatalogCache.getKnownVersion('alchemy'));
     } else if (this.activeMode === 'forging') {
-      this.callbacks?.onRequestForging(this.alchemyCatalogVersion || undefined);
+      this.callbacks?.onRequestForging(this.craftCatalogCache.getKnownVersion('forging'));
     } else if (this.activeMode === 'enhancement') {
       this.callbacks?.onRequestEnhancement();
     }

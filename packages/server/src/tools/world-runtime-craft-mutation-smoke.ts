@@ -1,6 +1,7 @@
 // @ts-nocheck
 
 const assert = require('node:assert/strict');
+const { S2C } = require('@mud/shared');
 
 const { WorldRuntimeCraftMutationService } = require('../runtime/world/world-runtime-craft-mutation.service');
 
@@ -273,14 +274,65 @@ async function testStructuredTechniqueNoticePassesThroughFlush() {
     ]);
 }
 
+async function testUnsolicitedPanelRefreshDoesNotUseCatalogPayload() {
+    const refreshKinds = [];
+    const emitted = [];
+    const player = { playerId: 'player:catalog-refresh', instanceId: 'instance:catalog-refresh' };
+    const service = new WorldRuntimeCraftMutationService(
+        {
+            getPlayer(playerId) {
+                return playerId === player.playerId ? player : null;
+            },
+        },
+        {
+            hasActiveTechniqueActivity() {
+                return false;
+            },
+            buildTechniqueActivityPanelPayload() {
+                throw new Error('服务端主动刷新不得调用会夹带目录的请求响应构造器');
+            },
+            buildTechniqueActivityPanelRefreshPayload(_player, kind) {
+                refreshKinds.push(kind);
+                return { kind, state: { job: null }, catalogVersion: 4 };
+            },
+            buildTechniqueActivityTaskListPayload() {
+                return { tasks: [] };
+            },
+        },
+        {
+            getSocketByPlayerId(playerId) {
+                return playerId === player.playerId
+                    ? { emit(event, payload) { emitted.push({ event, payload }); } }
+                    : null;
+            },
+        },
+        {
+            prefersMainline() {
+                return true;
+            },
+        },
+    );
+
+    service.emitAllTechniqueActivityPanelUpdates(player.playerId, {});
+
+    assert.deepEqual(refreshKinds, ['alchemy', 'forging', 'enhancement']);
+    assert.equal(emitted.filter((entry) => entry.event === S2C.AlchemyPanel).length, 2);
+    assert.equal(emitted.filter((entry) => entry.event === S2C.EnhancementPanel).length, 1);
+    assert.equal(emitted.filter((entry) => entry.event === S2C.TechniqueActivityTasks).length, 1);
+    for (const entry of emitted) {
+        assert.equal(entry.payload?.catalog, undefined, '装备等主动刷新不得携带静态目录');
+    }
+}
+
 async function main() {
     await testDurableRuntimeSkipsFallbackActiveJobSnapshot();
     await testFallbackActiveJobSnapshotStillWorksWithoutDurableSession();
     await testStructuredTechniqueNoticePassesThroughFlush();
+    await testUnsolicitedPanelRefreshDoesNotUseCatalogPayload();
     console.log(JSON.stringify({
         ok: true,
         case: 'world-runtime-craft-mutation',
-        answers: 'WorldRuntimeCraftMutationService 在 durable 会话启用时不再通过非 CAS 后备直写 active_job，durable 不可用时仍保留后备快照持久化，并且技艺 result 的结构化 notice 会透传到通知队列。',
+        answers: 'WorldRuntimeCraftMutationService 在 durable 会话启用时不再通过非 CAS 后备直写 active_job，durable 不可用时仍保留后备快照持久化；技艺 result 的结构化 notice 会透传到通知队列；装备等服务端主动面板刷新只发送状态，不复用会夹带静态目录的请求响应载荷。',
     }, null, 2));
 }
 

@@ -81,7 +81,7 @@ export class WorldRuntimeCraftMutationService {
             : Boolean(panel === 'enhancement' ? player.enhancementJob : player.alchemyJob);
         const payload = hasActivePanelJob && typeof this.craftPanelRuntimeService.buildTechniqueActivityPanelPatchPayload === 'function'
             ? this.craftPanelRuntimeService.buildTechniqueActivityPanelPatchPayload(player, panel)
-            : this.craftPanelRuntimeService.buildTechniqueActivityPanelPayload(player, panel);
+            : this.craftPanelRuntimeService.buildTechniqueActivityPanelRefreshPayload(player, panel);
         emitTechniqueActivityPanel(socket, panel, payload);
 
         // EventBus: 同步发射 panelPatch 供统一消费侧使用

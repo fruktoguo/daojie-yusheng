@@ -23,7 +23,7 @@ import { DurableOperationService, type DurableProfessionStateSnapshot } from '..
 import { resolveProjectPath } from '../../common/project-path';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { CraftPanelAlchemyQueryService, buildForgingAlchemyPanelState } from './craft-panel-alchemy-query.service';
-import { ALCHEMY_FURNACE_TAG, cloneAlchemyJob } from './craft-panel-alchemy-query.helpers';
+import { ALCHEMY_CATALOG_VERSION, ALCHEMY_FURNACE_TAG, cloneAlchemyJob } from './craft-panel-alchemy-query.helpers';
 import { CraftPanelEnhancementQueryService } from './craft-panel-enhancement-query.service';
 import { advanceTechniqueActivityPause, bumpTechniqueActivityJobVersion, hasTechniqueActivityJob, listRuntimeTechniqueActivityKinds } from './technique-activity-runtime.helpers';
 import { DEFAULT_CRAFT_EXP_TO_NEXT, resolveCraftSkillExpToNextByLevel, resolveInitialCraftSkillExpToNext } from './craft-skill-exp.helpers';
@@ -185,6 +185,16 @@ export class CraftPanelRuntimeService {
             return this.buildEnhancementPanelPayload(player);
         }
         return null;
+    }
+    /**
+     * 构建服务端主动触发的面板状态刷新。
+     * 静态目录只响应客户端显式请求；装备和运行时变更不得重复夹带目录。
+     */
+    buildTechniqueActivityPanelRefreshPayload(player, kind) {
+        if (kind === 'alchemy' || kind === 'forging') {
+            return this.buildTechniqueActivityPanelPayload(player, kind, ALCHEMY_CATALOG_VERSION);
+        }
+        return this.buildTechniqueActivityPanelPayload(player, kind, undefined);
     }
     /** 按 activity kind 统一返回技艺面板运行态增量。 */
     buildTechniqueActivityPanelPatchPayload(player, kind) {
