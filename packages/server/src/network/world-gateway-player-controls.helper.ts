@@ -423,6 +423,13 @@ export class WorldGatewayPlayerControlsHelper {
     await this.handleTreasureVaultOperation(client, 'TREASURE_VAULT_WITHDRAW_FAILED', () => this.gateway.treasureVaultRuntimeService.withdraw(this.gateway.gatewayGuardHelper.requirePlayerId(client), payload, this.gateway.worldRuntimeService), true);
   }
 
+  async handleOrganizeTreasureVault(
+    client: Socket,
+    payload: ClientToServerEventPayload<typeof C2S.OrganizeTreasureVault>,
+  ): Promise<void> {
+    await this.handleTreasureVaultOperation(client, 'TREASURE_VAULT_ORGANIZE_FAILED', () => this.gateway.treasureVaultRuntimeService.organize(this.gateway.gatewayGuardHelper.requirePlayerId(client), payload, this.gateway.worldRuntimeService));
+  }
+
   async handleUpdateTreasureVaultPermissions(
     client: Socket,
     payload: ClientToServerEventPayload<typeof C2S.UpdateTreasureVaultPermissions>,

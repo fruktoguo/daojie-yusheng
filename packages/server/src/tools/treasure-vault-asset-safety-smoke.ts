@@ -90,13 +90,30 @@ async function main(): Promise<void> {
     const renamedRows = await fetchRows(pool, 'SELECT building_name FROM instance_building_storage_item WHERE instance_id = $1 AND building_id = $2', [instanceId, buildingId]);
     assert.ok(renamedRows.every((row) => row?.building_name === '宝库·新名'));
 
+    await insertVaultRow(pool, instanceId, buildingId, ownerId, '宝库·新名', 'gem.organize-duplicate', 4, 5, 2);
+    const unauthorizedOrganize = await service.organize('vault_other_player', { instanceId, buildingId }, activeRuntime.runtime);
+    assert.equal(unauthorizedOrganize.ok, false);
+    assert.equal(unauthorizedOrganize.reason, 'treasure_vault_owner_required');
+    const organizeResult = await service.organize(ownerId, { instanceId, buildingId }, activeRuntime.runtime);
+    assert.equal(organizeResult.ok, true, `organize failed: ${JSON.stringify(organizeResult)}`);
+    const organizedRows = await fetchRows(
+      pool,
+      'SELECT slot_index, count, enhance_level, raw_payload FROM instance_building_storage_item WHERE instance_id = $1 AND building_id = $2 ORDER BY slot_index ASC',
+      [instanceId, buildingId],
+    );
+    assert.deepEqual(organizedRows.map((row) => Number(row.slot_index)), [0, 1]);
+    assert.deepEqual(organizedRows.map((row) => Number(row.enhance_level)), [5, 7]);
+    assert.deepEqual(organizedRows.map((row) => Number(row.count)), [6, 3]);
+    assert.deepEqual(organizeResult.detail?.items.map((item) => item.slotIndex), [0, 1]);
+    assert.equal(organizeResult.detail?.items[0]?.count, 6);
+
     const directRecovery = await service.recoverVaultItemsToOwnerMail({ instanceId, buildingId, ownerPlayerId: ownerId, buildingName: '宝库·新名', reason: 'smoke_direct' });
     assert.equal(directRecovery.ok, true);
     assert.equal(directRecovery.itemCount, 2);
     await assertVaultEmpty(pool, instanceId, buildingId);
     await assertRecoveryMail(pool, ownerId, directRecovery.mailId, [
       { itemInstanceId: 'gem.active', count: 3 },
-      { itemInstanceId: 'gem.batch', count: 2 },
+      { itemInstanceId: 'gem.batch', count: 6 },
     ], '宝库·新名');
     const repeatRecovery = await service.recoverVaultItemsToOwnerMail({ instanceId, buildingId, ownerPlayerId: ownerId, buildingName: '宝库·新名', reason: 'smoke_retry' });
     assert.equal(repeatRecovery.ok, true);
@@ -150,13 +167,14 @@ async function main(): Promise<void> {
         'batch_deposit_writes_all_items_in_one_transaction',
         'batch_deposit_failure_rolls_back_storage_and_inventory',
         'owner_only_rename_updates_runtime_and_recovery_metadata',
+        'owner_only_organize_merges_stacks_and_persists_inventory_order',
         'direct_recovery_writes_one_mail_then_deletes_storage',
         'retry_is_idempotent_without_duplicate_storage_loss',
         'stopped_instance_recovery_before_purge',
         'missing_instance_orphan_recovery',
         'missing_owner_blocks_and_keeps_storage',
       ],
-      answers: '宝库批量存入会在同一事务写入全部物品，库存独立表保存 owner/buildingName/full item payload；主动/停止实例/地图丢失回收都会一封邮件返还全部物品；缺 owner 的异常库存不会被删除。',
+      answers: '宝库批量存入会在同一事务写入全部物品；仅建造者可在单个事务内合并同签名堆叠并持久重排库位；库存独立表保存 owner/buildingName/full item payload；主动/停止实例/地图丢失回收都会一封邮件返还全部物品；缺 owner 的异常库存不会被删除。',
       excludes: '不启动真实 socket 客户端，不证明玩家实际点击领取附件 UI。',
       completionMapping: 'release:proof:with-db.treasure-vault-asset-safety',
     }, null, 2));
@@ -274,13 +292,13 @@ async function seedBuildingState(pool: Pool, instanceId: string, buildingId: str
   );
 }
 
-async function insertVaultRow(pool: Pool, instanceId: string, buildingId: string, ownerId: string | null, buildingName: string, itemInstanceId: string, count: number, enhanceLevel: number): Promise<void> {
+async function insertVaultRow(pool: Pool, instanceId: string, buildingId: string, ownerId: string | null, buildingName: string, itemInstanceId: string, count: number, enhanceLevel: number, slotIndex = 0): Promise<void> {
   const item = createGem(itemInstanceId, count, enhanceLevel);
   await pool.query(
     `INSERT INTO instance_building_storage_item(storage_item_id, instance_id, building_id, slot_index, item_id, count, enhance_level, raw_payload, owner_player_id, building_name)
-     VALUES ($1, $2, $3, 0, $4, $5, $6, $7::jsonb, $8, $9)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10)
      ON CONFLICT (storage_item_id) DO NOTHING`,
-    [`storage:${itemInstanceId}`, instanceId, buildingId, item.itemId, count, enhanceLevel, JSON.stringify(item), ownerId, buildingName],
+    [`storage:${itemInstanceId}`, instanceId, buildingId, slotIndex, item.itemId, count, enhanceLevel, JSON.stringify(item), ownerId, buildingName],
   );
 }
 

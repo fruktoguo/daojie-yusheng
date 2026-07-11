@@ -184,6 +184,41 @@
   min-height: 280px;
 }
 
+.treasure-vault-items-toolbar,
+.treasure-vault-items-tools,
+.treasure-vault-item-sort {
+  display: flex;
+  align-items: center;
+}
+
+.treasure-vault-items-toolbar {
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-bottom: 10px;
+}
+
+.treasure-vault-items-toolbar .panel-section-title {
+  margin-bottom: 0;
+}
+
+.treasure-vault-items-tools {
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.treasure-vault-item-sort {
+  gap: 6px;
+  color: var(--ink-grey);
+  font-size: var(--font-size-12);
+  white-space: nowrap;
+}
+
+.treasure-vault-item-sort .ui-input {
+  width: auto;
+  min-width: 112px;
+}
+
 .treasure-vault-inventory-grid {
   grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
 }
@@ -357,6 +392,24 @@
 
   .treasure-vault-layout {
     grid-template-columns: 1fr;
+  }
+
+  .treasure-vault-items-tools {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .treasure-vault-item-sort {
+    flex: 1 1 auto;
+  }
+
+  .treasure-vault-item-sort .ui-input {
+    flex: 1 1 auto;
+    min-height: 38px;
+  }
+
+  .treasure-vault-items-tools .small-btn {
+    min-height: 38px;
   }
 
   .treasure-vault-tabs {

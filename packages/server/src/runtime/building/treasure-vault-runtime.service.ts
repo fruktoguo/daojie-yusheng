@@ -6,7 +6,9 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import {
+  canMergeItemStack,
   createItemStackSignature,
+  type C2S_OrganizeTreasureVaultView,
   type C2S_RenameTreasureVaultView,
   type C2S_TreasureVaultDepositView,
   type TreasureVaultDetailView,
@@ -23,6 +25,7 @@ import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { SocialRuntimeService } from '../social/social-runtime.service';
 import { MailRuntimeService } from '../mail/mail-runtime.service';
 import { resolvePlayerDisplayName } from '../player/player-display-name';
+import { compareInventoryItems } from '../player/inventory-sort.helpers';
 
 const TREASURE_VAULT_STORAGE_TABLE = 'instance_building_storage_item';
 const PLAYER_MAIL_TABLE = 'player_mail';
@@ -202,6 +205,26 @@ export class TreasureVaultRuntimeService {
         this.logger.error('宝库取出失败后回滚库内物品失败', rollbackError instanceof Error ? rollbackError.stack : String(rollbackError));
       }
       return { ok: false, operation: 'withdraw', reason: error instanceof Error ? error.message : 'withdraw_failed' };
+    }
+  }
+
+  async organize(playerId: string, payload: C2S_OrganizeTreasureVaultView, runtime: any): Promise<TreasureVaultOperationResultView> {
+    if (!this.pool || !this.enabled) {
+      return { ok: false, operation: 'organize', reason: 'treasure_vault_persistence_disabled' };
+    }
+    const resolved = this.resolveVault(runtime, playerId, payload);
+    if (resolved.ok !== true) {
+      return { ok: false, operation: 'organize', reason: resolved.reason };
+    }
+    if (normalizeString(resolved.building.ownerPlayerId) !== normalizeString(playerId)) {
+      return { ok: false, operation: 'organize', reason: 'treasure_vault_owner_required' };
+    }
+    try {
+      await this.organizeStorageRows(resolved.instance.meta.instanceId, resolved.building.id);
+      return { ok: true, operation: 'organize', detail: await this.buildDetailView(playerId, resolved.instance, resolved.building) };
+    } catch (error) {
+      this.logger.error('宝库整理失败，事务已回滚', error instanceof Error ? error.stack : String(error));
+      return { ok: false, operation: 'organize', reason: 'treasure_vault_organize_failed' };
     }
   }
 
@@ -639,6 +662,106 @@ export class TreasureVaultRuntimeService {
     }
   }
 
+  private async organizeStorageRows(instanceId: string, buildingId: string): Promise<void> {
+    if (!this.pool || !this.enabled) {
+      throw new Error('treasure_vault_persistence_disabled');
+    }
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const rowsResult = await client.query(
+        `SELECT storage_item_id, instance_id, building_id, slot_index, item_id, count, enhance_level, raw_payload, owner_player_id, building_name
+           FROM ${TREASURE_VAULT_STORAGE_TABLE}
+          WHERE instance_id = $1 AND building_id = $2
+          ORDER BY slot_index ASC, storage_item_id ASC
+          FOR UPDATE`,
+        [instanceId, buildingId],
+      );
+      const rows = rowsResult.rows ?? [];
+      if (rows.length === 0) {
+        await client.query('COMMIT');
+        return;
+      }
+
+      const mergedRows: Array<{ row: any; item: any; count: number }> = [];
+      const mergeTargetBySignature = new Map<string, { row: any; item: any; count: number }>();
+      const duplicateStorageItemIds: string[] = [];
+      for (const row of rows) {
+        const item = buildItemFromStorageRow(row, Math.max(1, Math.trunc(Number(row.count) || 1)));
+        if (canMergeItemStack(item)) {
+          const signature = createItemStackSignature(item);
+          const target = mergeTargetBySignature.get(signature);
+          if (target) {
+            target.count += Math.max(1, Math.trunc(Number(row.count) || 1));
+            target.item.count = target.count;
+            duplicateStorageItemIds.push(normalizeString(row.storage_item_id));
+            continue;
+          }
+          const entry = { row, item, count: Math.max(1, Math.trunc(Number(row.count) || 1)) };
+          mergeTargetBySignature.set(signature, entry);
+          mergedRows.push(entry);
+          continue;
+        }
+        mergedRows.push({ row, item, count: Math.max(1, Math.trunc(Number(row.count) || 1)) });
+      }
+
+      mergedRows.sort((left, right) => compareInventoryItems(left.item, right.item, this.contentTemplateRepository));
+      const needsReorder = duplicateStorageItemIds.length > 0 || mergedRows.some((entry, index) => (
+        normalizeStorageSlotIndex(entry.row.slot_index) !== BigInt(index)
+      ));
+      if (!needsReorder) {
+        await client.query('COMMIT');
+        return;
+      }
+
+      if (duplicateStorageItemIds.length > 0) {
+        await client.query(
+          `DELETE FROM ${TREASURE_VAULT_STORAGE_TABLE}
+            WHERE instance_id = $1 AND building_id = $2
+              AND storage_item_id = ANY($3::varchar[])`,
+          [instanceId, buildingId, duplicateStorageItemIds],
+        );
+      }
+
+      const storageItemIds = mergedRows.map((entry) => normalizeString(entry.row.storage_item_id));
+      const mergedCounts = mergedRows.map((entry) => String(entry.count));
+      await client.query(
+        `UPDATE ${TREASURE_VAULT_STORAGE_TABLE} AS storage
+            SET count = mapping.count,
+                updated_at = now()
+           FROM unnest($3::varchar[], $4::bigint[]) AS mapping(storage_item_id, count)
+          WHERE storage.instance_id = $1
+            AND storage.building_id = $2
+            AND storage.storage_item_id = mapping.storage_item_id`,
+        [instanceId, buildingId, storageItemIds, mergedCounts],
+      );
+
+      const minimumSlot = rows.reduce(
+        (minimum, row) => {
+          const slot = normalizeStorageSlotIndex(row.slot_index);
+          return slot < minimum ? slot : minimum;
+        },
+        0n,
+      );
+      const temporaryBase = minimumSlot - BigInt(rows.length + mergedRows.length + 1);
+      const temporarySlots = mergedRows.map((_, index) => String(temporaryBase - BigInt(index)));
+      await updateStorageSlotIndices(client, instanceId, buildingId, storageItemIds, temporarySlots);
+      await updateStorageSlotIndices(
+        client,
+        instanceId,
+        buildingId,
+        storageItemIds,
+        mergedRows.map((_, index) => String(index)),
+      );
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   private async removeStorageCount(instanceId: string, buildingId: string, storageItemId: string, count: number): Promise<void> {
     if (!this.pool || !this.enabled) {
       throw new Error('treasure_vault_persistence_disabled');
@@ -872,6 +995,36 @@ async function refreshMailCounters(client: any, playerId: string, latestMailAt: 
        updated_at = now()`,
     [playerId, version, version],
   );
+}
+
+async function updateStorageSlotIndices(
+  client: PoolClientLike,
+  instanceId: string,
+  buildingId: string,
+  storageItemIds: string[],
+  slotIndices: string[],
+): Promise<void> {
+  if (storageItemIds.length === 0) {
+    return;
+  }
+  await client.query(
+    `UPDATE ${TREASURE_VAULT_STORAGE_TABLE} AS storage
+        SET slot_index = mapping.slot_index,
+            updated_at = now()
+       FROM unnest($3::varchar[], $4::bigint[]) AS mapping(storage_item_id, slot_index)
+      WHERE storage.instance_id = $1
+        AND storage.building_id = $2
+        AND storage.storage_item_id = mapping.storage_item_id`,
+    [instanceId, buildingId, storageItemIds, slotIndices],
+  );
+}
+
+function normalizeStorageSlotIndex(value: unknown): bigint {
+  try {
+    return BigInt(String(value ?? '0'));
+  } catch {
+    return 0n;
+  }
 }
 
 function resolveNextSlotIndex(rows: any[]): number {

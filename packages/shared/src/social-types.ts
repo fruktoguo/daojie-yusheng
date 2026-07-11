@@ -106,7 +106,7 @@ export interface TreasureVaultDetailView {
 
 export interface TreasureVaultOperationResultView {
   ok: boolean;
-  operation: 'detail' | 'deposit' | 'withdraw' | 'permissions' | 'rename';
+  operation: 'detail' | 'deposit' | 'withdraw' | 'organize' | 'permissions' | 'rename';
   reason?: string;
   detail?: TreasureVaultDetailView;
 }
@@ -163,6 +163,11 @@ export interface C2S_TreasureVaultWithdrawView {
   buildingId: string;
   storageItemId: string;
   count: number;
+}
+
+export interface C2S_OrganizeTreasureVaultView {
+  instanceId?: string;
+  buildingId: string;
 }
 
 export interface C2S_UpdateTreasureVaultPermissionsView {

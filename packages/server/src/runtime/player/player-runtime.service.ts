@@ -11,7 +11,7 @@
 import { Inject, BadRequestException, Injectable, Logger, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { AsyncLocalStorage } from 'node:async_hooks';
-import { ARTIFACT_SLOTS, ARTIFACT_UNLOCK_REALM_LV, ATTR_KEYS, AUTO_IDLE_CULTIVATION_DELAY_TICKS, BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER, DEFAULT_BASE_ATTRS, DEFAULT_BONE_AGE_YEARS, DEFAULT_COMBAT_ATTACK_INTENSITY, DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS, DEFAULT_INVENTORY_CAPACITY, DEFAULT_PLAYER_REALM_STAGE, Direction, EQUIP_SLOTS, ITEM_TYPE_SORT_ORDER, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, RETURN_TO_SPAWN_ACTION_ID, RETURN_TO_SPAWN_COOLDOWN_TICKS, TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH, TECHNIQUE_GRADE_ORDER, TechniqueRealm, calculateTechniqueComprehensionProgressGain, calculateTechniqueComprehensionRequiredProgress, canMergeItemStack, cloneCraftEffectStats, coalesceItemStackList, compileValueStatsToActualStats, computeCraftSkillExpGain, createItemStackSignature, enforceSkillEnabledLimit, findMergeableItemStackIndex, getBodyTrainingExpToNext, getTechniqueMaxLevel, isCreatedTechniqueId, mergeItemStackInto, normalizeBodyTrainingState, normalizeCombatAttackIntensity, normalizeHorizontalFacing, percentModifierToMultiplier, resolveArtifactMaxQi, resolvePlayerSkillSlotLimit, resolveSkillRequiresTarget, resolveTechniqueStandardMaxHpRecoveryAmount, resolveTechniqueStandardMaxQiRecoveryAmount, signedRatioValue } from '@mud/shared';
+import { ARTIFACT_SLOTS, ARTIFACT_UNLOCK_REALM_LV, ATTR_KEYS, AUTO_IDLE_CULTIVATION_DELAY_TICKS, BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER, DEFAULT_BASE_ATTRS, DEFAULT_BONE_AGE_YEARS, DEFAULT_COMBAT_ATTACK_INTENSITY, DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS, DEFAULT_INVENTORY_CAPACITY, DEFAULT_PLAYER_REALM_STAGE, Direction, EQUIP_SLOTS, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, RETURN_TO_SPAWN_ACTION_ID, RETURN_TO_SPAWN_COOLDOWN_TICKS, TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH, TechniqueRealm, calculateTechniqueComprehensionProgressGain, calculateTechniqueComprehensionRequiredProgress, canMergeItemStack, cloneCraftEffectStats, coalesceItemStackList, compileValueStatsToActualStats, computeCraftSkillExpGain, createItemStackSignature, enforceSkillEnabledLimit, findMergeableItemStackIndex, getBodyTrainingExpToNext, getTechniqueMaxLevel, isCreatedTechniqueId, mergeItemStackInto, normalizeBodyTrainingState, normalizeCombatAttackIntensity, normalizeHorizontalFacing, percentModifierToMultiplier, resolveArtifactMaxQi, resolvePlayerSkillSlotLimit, resolveSkillRequiresTarget, resolveTechniqueStandardMaxHpRecoveryAmount, resolveTechniqueStandardMaxQiRecoveryAmount, signedRatioValue } from '@mud/shared';
 import { assignItemInstanceIdIfNeeded, compareItemInstanceId, isItemInstanceIdHardCheckEnabled } from '../world/item-instance-id.helpers';
 import { isNativeGmBotPlayerId } from '../../http/native/native-gm.constants';
 import { PVP_SHA_BACKLASH_BUFF_ID, PVP_SHA_BACKLASH_DECAY_TICKS, PVP_SHA_BACKLASH_PERCENT_PER_STACK, PVP_SHA_BACKLASH_SOURCE_ID, PVP_SHA_BACKLASH_STACK_DIVISOR, PVP_SHA_INFUSION_ATTACK_CAP_PERCENT, PVP_SHA_INFUSION_BUFF_ID, PVP_SHA_INFUSION_DECAY_TICKS, PVP_SHA_INFUSION_SOURCE_ID, PVP_SOUL_INJURY_BUFF_ID, PVP_SOUL_INJURY_DURATION_TICKS, PVP_SOUL_INJURY_SOURCE_ID } from '../../constants/gameplay/pvp';
@@ -31,6 +31,7 @@ import { cloneAutoUsePillList, cloneCombatTargetingRules, isSameAutoUsePillList,
 import { projectHeavenGateState, projectRealmState } from './player-realm-projection.helpers';
 import { createPlayerRuntimeStateStore } from './player-runtime.state';
 import { createRuntimeTemporaryBuff, materializeRuntimeTemporaryBuff, refreshRuntimeTemporaryBuffPrototype } from './runtime-buff-instance';
+import { compareInventoryItems } from './inventory-sort.helpers';
 import { DEFAULT_CRAFT_EXP_TO_NEXT, resolveCraftSkillExpToNextByLevel, resolveInitialCraftSkillExpToNext } from '../craft/craft-skill-exp.helpers';
 import { TechniqueActivityPipelineService } from '../craft/pipeline/technique-activity-pipeline.service';
 import { TransmissionStrategy } from '../craft/pipeline/strategies/transmission.strategy';
@@ -9662,43 +9663,6 @@ function clamp(value, min, max) {
  * @returns 无返回值，直接更新compare背包道具相关状态。
  */
 
-function compareInventoryItems(left, right, contentTemplateRepository = null) {
-    return resolveInventoryGradeOrder(right, contentTemplateRepository) - resolveInventoryGradeOrder(left, contentTemplateRepository)
-        || resolveInventoryLevelOrder(right, contentTemplateRepository) - resolveInventoryLevelOrder(left, contentTemplateRepository)
-        || resolveInventoryTypeOrder(left) - resolveInventoryTypeOrder(right)
-        || String(left.itemId ?? '').localeCompare(String(right.itemId ?? ''), 'zh-Hans-CN')
-        || String(left.name ?? '').localeCompare(String(right.name ?? ''), 'zh-Hans-CN')
-        || resolveInventoryEnhanceLevelOrder(left) - resolveInventoryEnhanceLevelOrder(right);
-}
-
-function resolveInventoryGradeOrder(item, contentTemplateRepository = null) {
-    const grade = item?.type === 'skill_book'
-        ? (contentTemplateRepository?.getTechniqueGradeForBookItem?.(String(item?.itemId ?? '')) ?? item?.grade)
-        : item?.grade;
-    const index = TECHNIQUE_GRADE_ORDER.indexOf(grade);
-    return index >= 0 ? index : -1;
-}
-
-function resolveInventoryLevelOrder(item, contentTemplateRepository = null) {
-    if (item?.type === 'skill_book') {
-        const sortLevel = contentTemplateRepository?.getItemSortLevel?.(item);
-        if (Number.isFinite(sortLevel)) {
-            return Math.max(1, Math.trunc(sortLevel));
-        }
-    }
-    const value = Number(item?.level);
-    return Number.isFinite(value) ? Math.trunc(value) : 0;
-}
-
-function resolveInventoryTypeOrder(item) {
-    const order = ITEM_TYPE_SORT_ORDER[item?.type];
-    return Number.isFinite(order) ? order : Object.keys(ITEM_TYPE_SORT_ORDER).length;
-}
-
-function resolveInventoryEnhanceLevelOrder(item) {
-    const value = Number(item?.enhanceLevel);
-    return Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : 0;
-}
 /**
  * consumeInventoryItemAt：执行consume背包道具At相关逻辑。
  * @param items 道具列表。

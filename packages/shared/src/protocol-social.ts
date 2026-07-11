@@ -9,6 +9,7 @@
  */
 import type { MailDetailSyncView } from './service-sync-types';
 export type {
+  C2S_OrganizeTreasureVaultView,
   C2S_RemoveDaoistRelationView,
   C2S_RenameTreasureVaultView,
   C2S_RequestNearbyDaoistCandidatesView,

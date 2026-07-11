@@ -38,6 +38,7 @@ type SocialPanelCallbacks = {
 type TreasureVaultCallbacks = {
   onDeposit(items: Array<{ itemInstanceId: string; count: number }>): void;
   onWithdraw(storageItemId: string, count: number): void;
+  onOrganize(): void;
   onUpdatePermissions(permissions: TreasureVaultPermissionMap): void;
   onRename(name: string): void;
 };
@@ -66,6 +67,7 @@ type SocialConversationScrollSnapshot = {
 
 export type TreasureVaultModalTab = 'items' | 'permissions';
 type TreasureVaultDepositSort = 'inventory' | 'quality' | 'name' | 'count';
+type TreasureVaultItemSort = 'slot' | 'quality' | 'name' | 'count';
 
 const RELATION_LABEL: Record<DaoistRelationLevel, string> = {
   dao_friend: '道友',
@@ -95,6 +97,13 @@ const MAX_TREASURE_VAULT_DEPOSIT_SELECTION = 100;
 
 const TREASURE_VAULT_DEPOSIT_SORT_OPTIONS: Array<{ id: TreasureVaultDepositSort; label: string }> = [
   { id: 'inventory', label: '背包顺序' },
+  { id: 'quality', label: '品质优先' },
+  { id: 'name', label: '名称排序' },
+  { id: 'count', label: '数量优先' },
+];
+
+const TREASURE_VAULT_ITEM_SORT_OPTIONS: Array<{ id: TreasureVaultItemSort; label: string }> = [
+  { id: 'slot', label: '库位顺序' },
   { id: 'quality', label: '品质优先' },
   { id: 'name', label: '名称排序' },
   { id: 'count', label: '数量优先' },
@@ -517,6 +526,8 @@ export class TreasureVaultModal {
   private depositSort: TreasureVaultDepositSort = 'inventory';
   private depositPage = 0;
   private depositSubmitting = false;
+  private itemSort: TreasureVaultItemSort = 'slot';
+  private organizeSubmitting = false;
   private renaming = false;
   private readonly selectedDepositItemIds = new Set<string>();
 
@@ -549,6 +560,10 @@ export class TreasureVaultModal {
   }
 
   showDetail(detail: TreasureVaultDetailView): void {
+    if (this.detail && (this.detail.instanceId !== detail.instanceId || this.detail.buildingId !== detail.buildingId)) {
+      this.itemSort = 'slot';
+      this.organizeSubmitting = false;
+    }
     this.detail = detail;
     this.activeTab = this.resolveVisibleTab(this.preferredTab, detail);
     this.root.classList.remove('hidden');
@@ -567,6 +582,14 @@ export class TreasureVaultModal {
     if (result.operation === 'rename' && result.ok) {
       this.renaming = false;
     }
+    if (result.operation === 'organize') {
+      this.organizeSubmitting = false;
+      if (result.ok) {
+        this.itemSort = 'slot';
+      } else {
+        this.patchOrganizeButton();
+      }
+    }
     if (result.detail) {
       this.showDetail(result.detail);
     }
@@ -576,6 +599,8 @@ export class TreasureVaultModal {
     this.detail = null;
     this.activeTab = 'items';
     this.preferredTab = 'items';
+    this.itemSort = 'slot';
+    this.organizeSubmitting = false;
     this.renaming = false;
     this.closeDepositPicker(true);
     detailModalHost.close(TreasureVaultModal.ITEM_DETAIL_MODAL_OWNER);
@@ -584,6 +609,17 @@ export class TreasureVaultModal {
   }
 
   private bindEvents(): void {
+    this.root.addEventListener('change', (event) => {
+      const select = event.target instanceof HTMLSelectElement
+        ? event.target.closest<HTMLSelectElement>('[data-vault-item-sort]')
+        : null;
+      if (!select) return;
+      const sort = select.value as TreasureVaultItemSort;
+      if (TREASURE_VAULT_ITEM_SORT_OPTIONS.some((option) => option.id === sort) && sort !== this.itemSort) {
+        this.itemSort = sort;
+        this.patchVaultItemOrder();
+      }
+    });
     this.root.addEventListener('keydown', (event) => {
       if (event.key !== 'Enter' || !(event.target instanceof HTMLInputElement) || !event.target.matches('[data-vault-name-input]')) {
         return;
@@ -640,6 +676,13 @@ export class TreasureVaultModal {
       }
       if (action === 'open-deposit-picker') {
         this.openDepositPicker();
+        return;
+      }
+      if (action === 'organize') {
+        if (this.organizeSubmitting || this.detail.ownerPlayerId !== this.currentPlayerId) return;
+        this.organizeSubmitting = true;
+        this.patchOrganizeButton();
+        this.callbacks.onOrganize();
         return;
       }
       if (action === 'withdraw') {
@@ -1003,7 +1046,22 @@ export class TreasureVaultModal {
     return `
       <div class="treasure-vault-layout">
         <section class="treasure-vault-section treasure-vault-section--items">
-          <div class="panel-section-title">宝库物品</div>
+          <div class="treasure-vault-items-toolbar">
+            <div class="panel-section-title">宝库物品</div>
+            ${detail.effectivePermissions.view ? `
+              <div class="treasure-vault-items-tools">
+                <label class="treasure-vault-item-sort">
+                  <span>排序</span>
+                  <select class="ui-input" data-vault-item-sort aria-label="宝库物品排序">
+                    ${TREASURE_VAULT_ITEM_SORT_OPTIONS.map((option) => `<option value="${option.id}" ${this.itemSort === option.id ? 'selected' : ''}>${escapeHtml(option.label)}</option>`).join('')}
+                  </select>
+                </label>
+                ${canEditPermissions
+                  ? `<button class="small-btn ghost" type="button" data-vault-action="organize" ${detail.items.length === 0 || this.organizeSubmitting ? 'disabled' : ''}>${this.organizeSubmitting ? '整理中…' : '一键整理'}</button>`
+                  : ''}
+              </div>
+            ` : ''}
+          </div>
           ${this.renderItems(detail)}
         </section>
         <aside class="treasure-vault-section treasure-vault-section--actions">
@@ -1024,11 +1082,62 @@ export class TreasureVaultModal {
     }
     return `
       <div class="inventory-grid treasure-vault-inventory-grid">
-        ${detail.items.map((item) => `
+        ${this.getSortedVaultItems(detail.items).map((item) => `
           ${this.renderInventoryCell(item)}
         `).join('')}
       </div>
     `;
+  }
+
+  private getSortedVaultItems(items: TreasureVaultDetailView['items']): TreasureVaultDetailView['items'] {
+    return [...items].sort((left, right) => this.compareVaultItems(left, right));
+  }
+
+  private compareVaultItems(
+    left: TreasureVaultDetailView['items'][number],
+    right: TreasureVaultDetailView['items'][number],
+  ): number {
+    if (this.itemSort === 'quality') {
+      const leftGrade = getItemDisplayMeta(left as ItemStack).grade;
+      const rightGrade = getItemDisplayMeta(right as ItemStack).grade;
+      const gradeOrder = resolveTechniqueGradeOrder(rightGrade) - resolveTechniqueGradeOrder(leftGrade);
+      if (gradeOrder !== 0) return gradeOrder;
+    } else if (this.itemSort === 'name') {
+      const nameOrder = getItemDisplayMeta(left as ItemStack).displayItem.name.localeCompare(
+        getItemDisplayMeta(right as ItemStack).displayItem.name,
+        'zh-Hans-CN',
+      );
+      if (nameOrder !== 0) return nameOrder;
+    } else if (this.itemSort === 'count') {
+      const countOrder = Math.max(0, Math.trunc(Number(right.count) || 0)) - Math.max(0, Math.trunc(Number(left.count) || 0));
+      if (countOrder !== 0) return countOrder;
+    }
+    return left.slotIndex - right.slotIndex || left.storageItemId.localeCompare(right.storageItemId, 'zh-Hans-CN');
+  }
+
+  /** 仅移动现有物品节点，保持网格滚动、详情弹层和点击状态连续。 */
+  private patchVaultItemOrder(): void {
+    const detail = this.detail;
+    const grid = this.root.querySelector<HTMLElement>('.treasure-vault-inventory-grid');
+    if (!detail || !grid) return;
+    const rowByStorageItemId = new Map<string, HTMLElement>();
+    for (const row of grid.querySelectorAll<HTMLElement>('[data-vault-row="true"]')) {
+      const storageItemId = row.dataset.storageItemId;
+      if (storageItemId) rowByStorageItemId.set(storageItemId, row);
+    }
+    const fragment = document.createDocumentFragment();
+    for (const item of this.getSortedVaultItems(detail.items)) {
+      const row = rowByStorageItemId.get(item.storageItemId);
+      if (row) fragment.appendChild(row);
+    }
+    grid.appendChild(fragment);
+  }
+
+  private patchOrganizeButton(): void {
+    const button = this.root.querySelector<HTMLButtonElement>('[data-vault-action="organize"]');
+    if (!button) return;
+    button.disabled = this.organizeSubmitting || (this.detail?.items.length ?? 0) === 0;
+    button.textContent = this.organizeSubmitting ? '整理中…' : '一键整理';
   }
 
   private renderInventoryCell(item: TreasureVaultDetailView['items'][number]): string {

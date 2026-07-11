@@ -72,6 +72,9 @@ export function createSocketSocialEconomySender(deps: SocialEconomySenderDeps) {
     sendTreasureVaultWithdraw(payload: ClientToServerEventPayload<typeof C2S.TreasureVaultWithdraw>): void {
       deps.emitEvent(C2S.TreasureVaultWithdraw, payload);
     },
+    sendOrganizeTreasureVault(payload: ClientToServerEventPayload<typeof C2S.OrganizeTreasureVault>): void {
+      deps.emitEvent(C2S.OrganizeTreasureVault, payload);
+    },
     sendUpdateTreasureVaultPermissions(payload: ClientToServerEventPayload<typeof C2S.UpdateTreasureVaultPermissions>): void {
       deps.emitEvent(C2S.UpdateTreasureVaultPermissions, payload);
     },
