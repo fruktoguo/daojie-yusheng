@@ -678,7 +678,8 @@ export class PlayerRuntimeService {
         if (!normalizedPlayerId) {
             return [];
         }
-        const pendingReports = await this.loadPendingOfflineGainReports(normalizedPlayerId);
+        const pendingReports = (await this.loadPendingOfflineGainReports(normalizedPlayerId))
+            .filter((report) => report?.scope !== 'online');
         const hasSession = await this.shouldBlockOfflineGainSession(normalizedPlayerId);
         const player = this.players.get(normalizedPlayerId);
         if (!hasSession || !player) {
@@ -707,7 +708,7 @@ export class PlayerRuntimeService {
             const persistedReports = await this.playerDomainPersistenceService.loadPlayerOfflineGainReports(normalizedPlayerId);
             const mergedReports = mergePendingOfflineGainReportList(normalizedPlayerId, [...persistedReports, ...memoryReports]);
             if (mergedReports.length === 1 && persistedReports.length + memoryReports.length > 1) {
-                await this.playerDomainPersistenceService.replacePlayerOfflineGainReports(normalizedPlayerId, mergedReports[0]);
+                await this.playerDomainPersistenceService.replacePlayerOfflineGainReports(normalizedPlayerId, mergedReports);
                 this.pendingOfflineGainReportsByPlayerId.delete(normalizedPlayerId);
             }
             return mergedReports;
@@ -909,12 +910,14 @@ export class PlayerRuntimeService {
         if (shouldSaveOfflineHistory) {
             if (this.playerDomainPersistenceService?.isEnabled?.()) {
                 const existing = await this.playerDomainPersistenceService.loadPlayerOfflineGainReports(normalizedPlayerId);
-                const mergedReport = mergePendingOfflineGainReport(normalizedPlayerId, existing, report);
-                await this.playerDomainPersistenceService.replacePlayerOfflineGainReports(normalizedPlayerId, mergedReport);
+                const mergedReports = mergePendingOfflineGainReportList(normalizedPlayerId, [...existing, report]);
+                await this.playerDomainPersistenceService.replacePlayerOfflineGainReports(normalizedPlayerId, mergedReports);
             } else {
                 const existing = this.pendingOfflineGainReportsByPlayerId.get(normalizedPlayerId) ?? [];
-                const mergedReport = mergePendingOfflineGainReport(normalizedPlayerId, existing, report);
-                this.pendingOfflineGainReportsByPlayerId.set(normalizedPlayerId, [mergedReport]);
+                this.pendingOfflineGainReportsByPlayerId.set(
+                    normalizedPlayerId,
+                    mergePendingOfflineGainReportList(normalizedPlayerId, [...existing, report]),
+                );
             }
         }
         if (this.playerDomainPersistenceService?.isEnabled?.()) {
@@ -951,8 +954,10 @@ export class PlayerRuntimeService {
         if (online) {
             return false;
         }
-        if (this.offlineGainSessionsByPlayerId.has(playerId) && !this.playerDomainPersistenceService?.isEnabled?.()) {
-            return false;
+        if (this.offlineGainSessionsByPlayerId.has(playerId)) {
+            if (!this.playerDomainPersistenceService?.isEnabled?.() || hasPendingDetachedAutomation(player)) {
+                return false;
+            }
         }
         return !hasDetachedRuntimeActivity(player);
     }
@@ -10652,6 +10657,24 @@ function hasDetachedRuntimeActivity(player) {
         || hasRemainingRuntimeJob(player.buildingJob)
         || hasRemainingRuntimeJob(player.miningJob)
         || hasRemainingRuntimeJob(player.formationJob);
+}
+
+function hasPendingDetachedAutomation(player) {
+    const combat = player?.combat ?? {};
+    if (!(Number(player?.hp) > 0)) {
+        return false;
+    }
+    if (combat.autoIdleCultivation !== false) {
+        return true;
+    }
+    if (combat.manualEngagePending === true) {
+        return true;
+    }
+    if (combat.autoRetaliate !== true) {
+        return false;
+    }
+    return normalizeOfflineGainString(combat.retaliatePlayerTargetId).length > 0
+        || normalizeOfflineGainString(combat.combatTargetId).length > 0;
 }
 
 function hasAnyRemainingTechniqueJob(player) {

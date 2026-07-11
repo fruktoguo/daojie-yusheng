@@ -47,7 +47,13 @@ import {
   type RuntimeImageOverrideEntry,
   type RuntimeImageResourceEntry,
 } from '../../../renderer/local-runtime-image-overrides';
-import { formatOfflineGainDuration, formatOfflineGainTime, formatSignedAmount, renderOfflineGainReport } from '../../../ui/offline-gain-render';
+import {
+  formatOfflineGainDuration,
+  formatOfflineGainTime,
+  formatPlayerStatisticScope,
+  formatSignedAmount,
+  renderOfflineGainReport,
+} from '../../../ui/offline-gain-render';
 import { MAP_TARGET_FPS_RANGE } from '../../../constants/ui/performance';
 import { t } from '../../../ui/i18n';
 
@@ -961,14 +967,19 @@ const OfflineGainTab = memo(function OfflineGainTab({ playerId }: { playerId: st
             {reports.map((report) => (
               <button
                 key={report.id}
-                className={`settings-offline-gain-record${report.id === (selected?.id ?? '') ? ' active' : ''}`}
+                className={`settings-offline-gain-record-button${report.id === (selected?.id ?? '') ? ' active' : ''}`}
                 type="button"
                 role="option"
                 aria-selected={report.id === (selected?.id ?? '') ? 'true' : 'false'}
                 onClick={() => setSelectedId(report.id)}
               >
-                <span className="settings-offline-gain-record-time">{formatOfflineGainTime(report.endedAt)}</span>
-                <span className="settings-offline-gain-record-duration">{formatOfflineGainDuration(report.durationMs)}</span>
+                <span className="settings-offline-gain-record-date">{formatOfflineGainTime(report.endedAt)}</span>
+                <span className="settings-offline-gain-record-meta">
+                  {t('settings.offline-gain.record.duration', {
+                    scope: formatPlayerStatisticScope(report.scope),
+                    duration: formatOfflineGainDuration(report.durationMs),
+                  })}
+                </span>
               </button>
             ))}
           </div>

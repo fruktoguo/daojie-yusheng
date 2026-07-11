@@ -30,7 +30,7 @@ export function renderOfflineGainReport(report: OfflineGainReportView): string {
       <div class="offline-gain-summary">
         <div>
           <span class="offline-gain-label">范围</span>
-          <strong>${report.scope === 'offline' ? '离线挂机' : '在线'}</strong>
+          <strong>${formatPlayerStatisticScope(report.scope)}</strong>
         </div>
         <div>
           <span class="offline-gain-label">统计时长</span>
@@ -99,6 +99,10 @@ export function formatOfflineGainTime(timestamp: number): string {
   } catch {
     return '未知';
   }
+}
+
+export function formatPlayerStatisticScope(scope: OfflineGainReportView['scope']): string {
+  return scope === 'offline' ? '离线挂机' : '在线';
 }
 
 function renderSpiritStoneSection(report: OfflineGainReportView): string {

@@ -16,6 +16,7 @@ const status = runVerificationSteps({
     { label: 'proof:gm-login-autofill', args: ['proof:gm-login-autofill'] },
     { label: 'build:client', args: ['build:client'] },
     { label: 'proof:technique-preview', args: ['proof:technique-preview'] },
+    { label: 'proof:player-statistic-history', args: ['--filter', '@mud/client', 'proof:player-statistic-history'] },
   ],
 });
 

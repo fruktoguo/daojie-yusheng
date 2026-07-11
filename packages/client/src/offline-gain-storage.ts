@@ -22,6 +22,7 @@ const OFFLINE_GAIN_HISTORY_TARGET_BYTES = 512 * 1024;
 const volatileOfflineGainReportsByPlayerId = new Map<string, OfflineGainReportView[]>();
 
 export interface OfflineGainStoreResult {
+  /** 需要弹出确认层的离线挂机记录；在线记录只静默归档到收支历史。 */
   reports: OfflineGainReportView[];
   /** 可安全发送 ACK 的报告。localStorage 失败时至少已进入本页内存缓存。 */
   storedReportIds: string[];
@@ -41,8 +42,8 @@ export function storeOfflineGainReportsInBrowser(
   if (normalizedReports.length === 0) {
     return { reports: [], storedReportIds: [], storageOk: true };
   }
-  const historyReports = filterOfflineGainHistoryReports(normalizedReports, now);
-  const displayReports = historyReports;
+  const historyReports = filterPlayerStatisticHistoryReports(normalizedReports, now);
+  const displayReports = historyReports.filter(isOfflineGainDisplayReport);
   const normalizedReportIds = normalizedReports.map((report) => report.id);
   if (historyReports.length === 0) {
     return {
@@ -54,7 +55,7 @@ export function storeOfflineGainReportsInBrowser(
 
   const storage = getLocalStorage(windowRef);
   if (!storage) {
-    rememberVolatileOfflineGainReports(normalizedPlayerId, displayReports, now);
+    rememberVolatileOfflineGainReports(normalizedPlayerId, historyReports, now);
     return {
       reports: displayReports,
       storedReportIds: normalizedReportIds,
@@ -65,13 +66,7 @@ export function storeOfflineGainReportsInBrowser(
 
   try {
     const existing = readOfflineGainReportsFromBrowser(normalizedPlayerId, windowRef);
-    const byId = new Map<string, OfflineGainReportView>();
-    for (const report of [...existing, ...historyReports]) {
-      if (isOfflineGainHistoryReport(report, now)) {
-        byId.set(report.id, report);
-      }
-    }
-    const nextReports = pruneOfflineGainHistoryReports(sortOfflineGainHistoryReports(Array.from(byId.values())));
+    const nextReports = mergePlayerStatisticHistoryReports([...existing, ...historyReports], now);
     rememberVolatileOfflineGainReports(normalizedPlayerId, nextReports, now);
     writeOfflineGainReportsToStorage(storage, normalizedPlayerId, nextReports);
     return {
@@ -80,7 +75,7 @@ export function storeOfflineGainReportsInBrowser(
       storageOk: true,
     };
   } catch (error) {
-    rememberVolatileOfflineGainReports(normalizedPlayerId, displayReports, now);
+    rememberVolatileOfflineGainReports(normalizedPlayerId, historyReports, now);
     return {
       reports: displayReports,
       storedReportIds: normalizedReportIds,
@@ -104,9 +99,7 @@ export function readOfflineGainReportsFromBrowser(
     const raw = storage.getItem(buildStorageKey(normalizedPlayerId));
     const parsed = raw ? JSON.parse(raw) : [];
     const currentReports = normalizeOfflineGainReports(Array.isArray(parsed) ? parsed : []);
-    const nextReports = pruneOfflineGainHistoryReports(
-      sortOfflineGainHistoryReports(filterOfflineGainHistoryReports([...currentReports, ...volatileReports], Date.now())),
-    );
+    const nextReports = mergePlayerStatisticHistoryReports([...currentReports, ...volatileReports], Date.now());
     rememberVolatileOfflineGainReports(normalizedPlayerId, nextReports);
     if (shouldRewriteOfflineGainHistoryStorage(currentReports, nextReports)) {
       tryWriteOfflineGainReportsToStorage(storage, normalizedPlayerId, nextReports);
@@ -203,12 +196,37 @@ function isOfflineGainDisplayReport(report: OfflineGainReportView): boolean {
   return report.scope === 'offline' && report.durationMs >= OFFLINE_GAIN_HISTORY_MIN_DURATION_MS;
 }
 
-function isOfflineGainHistoryReport(report: OfflineGainReportView, now = Date.now()): boolean {
-  return isOfflineGainDisplayReport(report) && resolveOfflineGainHistoryTimestamp(report) >= now - OFFLINE_GAIN_HISTORY_MAX_AGE_MS;
+function isPlayerStatisticHistoryReport(report: OfflineGainReportView, now = Date.now()): boolean {
+  const scopeEligible = report.scope === 'online' || isOfflineGainDisplayReport(report);
+  return scopeEligible
+    && hasPlayerStatisticReportParts(report)
+    && resolveOfflineGainHistoryTimestamp(report) >= now - OFFLINE_GAIN_HISTORY_MAX_AGE_MS;
 }
 
-function filterOfflineGainHistoryReports(reports: readonly OfflineGainReportView[], now = Date.now()): OfflineGainReportView[] {
-  return reports.filter((report) => isOfflineGainHistoryReport(report, now));
+function filterPlayerStatisticHistoryReports(reports: readonly OfflineGainReportView[], now = Date.now()): OfflineGainReportView[] {
+  return reports.filter((report) => isPlayerStatisticHistoryReport(report, now));
+}
+
+function mergePlayerStatisticHistoryReports(
+  reports: readonly OfflineGainReportView[],
+  now = Date.now(),
+): OfflineGainReportView[] {
+  const byId = new Map<string, OfflineGainReportView>();
+  for (const report of reports) {
+    if (isPlayerStatisticHistoryReport(report, now)) {
+      byId.set(report.id, report);
+    }
+  }
+  return pruneOfflineGainHistoryReports(Array.from(byId.values()));
+}
+
+function hasPlayerStatisticReportParts(report: OfflineGainReportView): boolean {
+  return (report.spiritStones?.gained ?? 0) > 0
+    || (report.spiritStones?.lost ?? 0) > 0
+    || report.items.length > 0
+    || report.progress.length > 0
+    || report.techniques.length > 0
+    || report.professions.length > 0;
 }
 
 function sortOfflineGainHistoryReports(reports: readonly OfflineGainReportView[]): OfflineGainReportView[] {
@@ -229,13 +247,10 @@ function rememberVolatileOfflineGainReports(
   now = Date.now(),
 ): void {
   const normalizedPlayerId = normalizeStorageKeySegment(playerId);
-  const merged = new Map<string, OfflineGainReportView>();
-  for (const report of [...readVolatileOfflineGainReports(normalizedPlayerId), ...reports]) {
-    if (isOfflineGainHistoryReport(report, now)) {
-      merged.set(report.id, report);
-    }
-  }
-  const nextReports = pruneOfflineGainHistoryReports(Array.from(merged.values()));
+  const nextReports = mergePlayerStatisticHistoryReports(
+    [...readVolatileOfflineGainReports(normalizedPlayerId), ...reports],
+    now,
+  );
   if (nextReports.length === 0) {
     volatileOfflineGainReportsByPlayerId.delete(normalizedPlayerId);
     return;

@@ -18,6 +18,7 @@
     "build": "tsc --noEmit && vite build && pnpm run proof:production-boundaries && pnpm run proof:socket-outbound-gate && pnpm run proof:spatial-cache-contracts && pnpm run proof:map-render-lifecycle",
     "verify:technique-preview": "node ./scripts/verify-technique-preview.mjs",
     "verify:react-equipment": "node ./scripts/verify-react-equipment-panel.mjs",
+    "proof:player-statistic-history": "node ./scripts/verify-player-statistic-history.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

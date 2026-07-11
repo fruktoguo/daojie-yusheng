@@ -82,7 +82,7 @@ export function handleOfflineGainReports(
   if (storeResult.reports.length > 0) {
     openOfflineGainReportsModal(storeResult, options);
   } else if (storeResult.storedReportIds.length > 0) {
-    // 没有需要展示的历史报告（时长过短），直接 ack
+    // 在线明细已静默归档，或离线时长过短无需展示；均直接 ack。
     options.ackOfflineGainReports(storeResult.storedReportIds);
   }
 }

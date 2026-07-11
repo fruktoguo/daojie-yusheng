@@ -5,7 +5,7 @@ const assert = require("node:assert/strict");
 
 const { PlayerRuntimeService } = require("../runtime/player/player-runtime.service");
 
-function createService() {
+function createService(playerDomainPersistenceService = undefined) {
   const contentTemplateRepository = {
     getItemName(itemId) {
       return itemId;
@@ -62,7 +62,7 @@ function createService() {
     {},
     playerAttributesService,
     playerProgressionService,
-    undefined,
+    playerDomainPersistenceService,
   );
 }
 
@@ -302,7 +302,7 @@ async function testBlockingOfflineGainPreviewKeepsAccumulatingUntilAck() {
   assert.equal(service.getPendingPlayerStatisticRecords(player.playerId).length, 0);
 }
 
-async function testBlockingOfflineGainPreviewMergesOnlineStatisticRecords() {
+async function testBlockingOfflineGainPreviewKeepsOnlineStatisticRecordsSeparate() {
   const service = createService();
   const player = createPlayer();
   service.players.set(player.playerId, player);
@@ -326,8 +326,8 @@ async function testBlockingOfflineGainPreviewMergesOnlineStatisticRecords() {
   assert.equal(previewReports[0].id.startsWith("offline:"), true);
   assert.notEqual(previewReports[0].id, onlineRecords[0].id);
   assert.equal(previewReports[0].durationMs, 60_000);
-  assert.equal(previewReports[0].spiritStones.gained, 25);
-  assert.equal(previewReports[0].spiritStones.lost, 5);
+  assert.equal(previewReports[0].spiritStones.gained, 0);
+  assert.equal(previewReports[0].spiritStones.lost, 0);
 
   const pendingRecords = service.getPendingPlayerStatisticRecords(player.playerId);
   assert.equal(pendingRecords.length, 2);
@@ -336,7 +336,92 @@ async function testBlockingOfflineGainPreviewMergesOnlineStatisticRecords() {
   await service.acknowledgeOfflineGainReports(player.playerId, [previewReports[0].id], { sessionId: "sid:confirmed-merged" });
   assert.equal(await service.hasActiveOfflineGainSession(player.playerId), false);
   assert.equal(player.sessionId, "sid:confirmed-merged");
+  const remainingOnlineRecords = service.getPendingPlayerStatisticRecords(player.playerId);
+  assert.deepEqual(remainingOnlineRecords.map((entry) => entry.id), onlineRecords.map((entry) => entry.id));
+  assert.equal(remainingOnlineRecords.every((entry) => entry.scope === "online"), true);
+
+  await service.acknowledgeOfflineGainReports(player.playerId, onlineRecords.map((entry) => entry.id));
   assert.equal(service.getPendingPlayerStatisticRecords(player.playerId).length, 0);
+}
+
+async function testPersistedOnlineStatisticRecordsStaySeparateFromOfflineSettlement() {
+  const persistedOnlineReport = {
+    id: "online:player:offline-gain-smoke:500",
+    playerId: "player:offline-gain-smoke",
+    scope: "online",
+    source: "system",
+    startedAt: 500,
+    endedAt: 500,
+    durationMs: 0,
+    generatedAt: 500,
+    spiritStones: { gained: 25, lost: 0, net: 25 },
+    items: [],
+    progress: [],
+    techniques: [],
+    professions: [],
+  };
+  let replacedReports = [];
+  const persistence = {
+    isEnabled() {
+      return true;
+    },
+    async loadPlayerOfflineGainSession() {
+      return null;
+    },
+    async savePlayerOfflineGainSession() {},
+    async deletePlayerOfflineGainSession() {},
+    async loadPlayerOfflineGainReports() {
+      return [persistedOnlineReport];
+    },
+    async replacePlayerOfflineGainReports(_playerId, reports) {
+      replacedReports = Array.isArray(reports) ? reports : [reports];
+    },
+    async incrementPlayerStatisticDayTotal() {},
+  };
+  const service = createService(persistence);
+  const player = createPlayer();
+  service.players.set(player.playerId, player);
+
+  service.detachSession(player.playerId);
+  player.offlineSinceAt = 1_000;
+  await service.beginOfflineGainSession(player.playerId, 1_000);
+  for (let tick = 1; tick <= 60; tick += 1) {
+    service.advanceSinglePlayerTick(player, tick);
+  }
+  await service.finalizeOfflineGainSessionForPlayer(player, 61_000);
+
+  assert.equal(replacedReports.length, 2);
+  assert.deepEqual(replacedReports.map((entry) => entry.scope).sort(), ["offline", "online"]);
+  const onlineReport = replacedReports.find((entry) => entry.scope === "online");
+  const offlineReport = replacedReports.find((entry) => entry.scope === "offline");
+  assert.equal(onlineReport.id, persistedOnlineReport.id);
+  assert.equal(onlineReport.spiritStones.gained, 25);
+  assert.ok(offlineReport.progress.some((entry) => entry.kind === "realmExp"));
+}
+
+async function testCloudTotalsIncludeOnlineAndOfflineStatistics() {
+  const service = createService();
+  const player = createPlayer();
+  service.players.set(player.playerId, player);
+
+  service.creditWallet(player.playerId, "spirit_stone", 25);
+  service.debitWallet(player.playerId, "spirit_stone", 5);
+  const startedAt = Date.now();
+  service.detachSession(player.playerId);
+  player.offlineSinceAt = startedAt;
+  await service.beginOfflineGainSession(player.playerId, startedAt);
+  for (let tick = 1; tick <= 60; tick += 1) {
+    service.advanceSinglePlayerTick(player, tick);
+  }
+  const endedAt = startedAt + 60_000;
+  await service.finalizeOfflineGainSessionForPlayer(player, endedAt);
+
+  const totals = service.getPlayerStatisticTotalsSync(player.playerId, endedAt);
+  assert.ok(totals, "expected authoritative player statistic totals");
+  assert.equal(totals.today.spiritStones.gained, 25);
+  assert.equal(totals.today.spiritStones.lost, 5);
+  assert.equal(totals.today.spiritStones.net, 20);
+  assert.equal(totals.today.progress.gained, 7_200);
 }
 
 async function testBlockingOfflineGainReconnectDoesNotResetSession() {
@@ -451,7 +536,9 @@ async function main() {
   await testOfflineDurationIncludesNoGainTicks();
   await testUnconfirmedOfflineReportsMergeIntoOnePendingRecord();
   await testBlockingOfflineGainPreviewKeepsAccumulatingUntilAck();
-  await testBlockingOfflineGainPreviewMergesOnlineStatisticRecords();
+  await testBlockingOfflineGainPreviewKeepsOnlineStatisticRecordsSeparate();
+  await testPersistedOnlineStatisticRecordsStaySeparateFromOfflineSettlement();
+  await testCloudTotalsIncludeOnlineAndOfflineStatistics();
   await testBlockingOfflineGainReconnectDoesNotResetSession();
   await testShortOfflineGainDoesNotBlockReconnect();
   await testOnlineAssetMutationsCreateIndependentStatisticReports();

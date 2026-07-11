@@ -1691,11 +1691,16 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
     });
   }
 
-  /** 替换玩家当前未确认离线收益报告；确认前云端只保留累计后的一条。 */
-  async replacePlayerOfflineGainReports(playerId: string, report: OfflineGainReportView): Promise<void> {
+  /** 替换玩家当前未确认的收支报告；离线报告合并，在线报告保持独立范围。 */
+  async replacePlayerOfflineGainReports(
+    playerId: string,
+    reports: OfflineGainReportView | readonly OfflineGainReportView[],
+  ): Promise<void> {
     const normalizedPlayerId = normalizeRequiredString(playerId);
-    const payload = this.normalizeOfflineGainReportForStorage(normalizedPlayerId, report);
-    if (!this.pool || !this.enabled || !normalizedPlayerId || !payload) {
+    const payloads = (Array.isArray(reports) ? reports : [reports])
+      .map((report) => this.normalizeOfflineGainReportForStorage(normalizedPlayerId, report))
+      .filter((report): report is OfflineGainReportView => Boolean(report));
+    if (!this.pool || !this.enabled || !normalizedPlayerId || payloads.length === 0) {
       return;
     }
 
@@ -1705,7 +1710,9 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
         `DELETE FROM ${PLAYER_OFFLINE_GAIN_REPORT_TABLE} WHERE player_id = $1`,
         [normalizedPlayerId],
       );
-      await this.upsertPlayerOfflineGainReportWithClient(client, normalizedPlayerId, payload);
+      for (const payload of payloads) {
+        await this.upsertPlayerOfflineGainReportWithClient(client, normalizedPlayerId, payload);
+      }
     });
   }
 

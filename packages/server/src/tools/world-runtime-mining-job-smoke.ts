@@ -12,6 +12,7 @@ import { buildTechniqueActivityTaskListView } from '../runtime/craft/technique-a
 
 type SmokePlayer = {
   playerId: string;
+  sessionId: null;
   instanceId: string;
   x: number;
   y: number;
@@ -72,6 +73,7 @@ class SmokeMiningInstance {
 function createPlayer(): SmokePlayer {
   return {
     playerId: 'player:mining-job-smoke',
+    sessionId: null,
     instanceId: 'instance:mining-job-smoke',
     x: 0,
     y: 0,
@@ -344,7 +346,7 @@ function main(): void {
 
   console.log(JSON.stringify({
     ok: true,
-    answers: '挖矿已能作为统一技艺 job 启动、显示、打断等待独立展示、取消，并在 tick 中持续发起地块战斗攻击；地块伤害/掉落/挖矿经验仍由战斗链路结算。',
+    answers: '挖矿已能作为统一技艺 job 启动、显示、打断等待独立展示、取消，并且不依赖在线 session，在 tick 中持续发起地块战斗攻击；地块伤害/掉落/挖矿经验仍由战斗链路结算。',
   }, null, 2));
 }
 
