@@ -253,8 +253,18 @@
 - 为什么错误：同一状态不能因为存在“未来可能统一”的协议脚手架就在两条生产通道发送。更严重的是工坊载荷并不符合 `PanelPatch` 声明的 `added/updated/removed` 结构；当前只因调用链大量使用 `any` 而逃过类型检查，即使日后接通通用消费器也不能正确合并。
 - 触发条件：装备/卸装刷新三个工坊面板；炼丹、炼器或强化任务每息推进；任务开始、取消和完成。
 - 后果：服务端多做对象构建、Map 合并、drain 和序列化，客户端多做包解码与延迟队列调度，却没有任何界面效果。修复前协议审计中，首次装备后的聚合包约 `4.81KB`；活跃炼丹/强化多个每息聚合包为 `1.90–2.14KB`，该成本会按同时在线制作玩家线性增长。
-- 修复方式：工坊面板继续使用已有完整生产消费链的专用事件，删除之后的 `queuePlayerPanelPatch` 复制入队；统一任务列表仍作为 job 进度真实展示源，删除 tick 中第二份 `jobProgress` 计算和入队。保留 EventBus 的通知、玩家状态增量和 AOI 表现通道，也不删除通用 API 的独立能力测试。
+- 修复方式：工坊面板继续使用已有完整生产消费链的专用事件，删除之后的 `queuePlayerPanelPatch` 复制入队；统一任务列表仍作为 job 进度真实展示源，删除 tick 中第二份 `jobProgress` 计算和入队。保留 EventBus 的通知和 AOI 表现等真实生产通道，也不删除通用 API 的独立能力测试；玩家状态增量另经 FS-024 完整复核。
 - 验证：server compile、compiled `world-runtime-craft-mutation-smoke` 和纳入 `verify:quick` 的 `technique-activity-completion` proof 均通过；proof 锁定生产工坊链不得再调用两个无效入队 API。无库协议审计全部通过，`SyncEnvelope` 总量从 `110 / 185.57KB` 降至 `107 / 162.14KB`；首次装备后的聚合包从 `4.81KB` 降至 `1.83KB`，炼丹/强化每息样本由 `1.90–2.14KB` 降至 `443–665B`，专用面板和任务事件次数、包体保持不变。
+
+### FS-024 `[x]` 无版本 EventBus 状态增量与 SelfDelta 双重写入且字段契约失真
+
+- 严重级别：高。
+- 根本原因：玩家 tick 每息都快照 `player.hp/mp/exp/level`，但当前权威玩家字段是 `hp/qi/combatExp/foundation`，后三个别名在运行时对象上不存在，因此从不会产生增量。Buff tick 结果只返回 `changed/listChanged/vitalsChanged` 等标记，原发射器却读取不存在的 `added/removed`。唯一真实会入队的 `hp` 又已由带 `selfRevision` 的 `SelfDelta` 同步。
+- 为什么错误：`SelfDelta` 是高频自身状态权威层，`PanelDelta.attr/buff` 分别承载特殊数值与 Buff patch；再用无 revision 的 EventBus 对同一客户端 `PlayerState` 就地赋值，会制造第二个时序真源。而且 EventBus 被故意延后到 `requestAnimationFrame` 批处理，不具备 SelfDelta 的缓存版本比较。
+- 触发条件：玩家每息恢复气血，Buff 持续伤害或持续消耗修改气血；在旧 EventBus 副作用尚未刷新时，下一息战斗或其他权威逻辑又通过 SelfDelta 更新气血。
+- 后果：旧副作用可在新 SelfDelta 之后把 HUD 和 React bridge 的气血回滚到上息值，直到下一次气血变化才自愈；灵力、战斗经验、根基和 Buff 增量则看似已设计，实际从未工作。即使玩家没有数值变化，5000 玩家每息也都承担四次无效字段快照、计时和分支调用。
+- 修复方式：删除玩家 tick 的无效快照、`emitPlayerStateDeltaIfChanged` 与对应 GM 性能指标；客户端不再向 EventBus consumer 提供 `applyStateDelta`，并删除会就地覆盖玩家对象的 handler 及其无效依赖。气血/灵力继续只由 `SelfDelta`落地，根基/战斗经验和 Buff 继续只由 `PanelDelta` 合并。
+- 验证：已完整对照 tick、AOI、属性、灵力和 Buff mechanics 文档；完整 `pnpm verify:quick` 与 `pnpm verify:client` 均通过。前后端 production-boundaries 新门禁同时锁定生产 player runtime 无 `queuePlayerStateDelta`、`SelfDelta` 继续比较 `hp/qi`、`PanelDelta` 继续发 Buff 增删，以及 EventBus 不得回写玩家真源。协议审计通过，在包数从 107 波动到 109 的情况下，`SyncEnvelope` 总量仍从 `162.14KB` 降至 `158.45KB`；两组装备刷新后的聚合包由 `2.63/2.99KB` 降至 `675/569B`。
 
 ## 待进一步验证或用户决定
 
@@ -282,13 +292,13 @@
 - 可选方案：① 推荐：以内容 hash 发布 immutable HTTP 目录产物，由版本清单驱动浏览器/CDN 缓存，Socket.IO 只同步版本和运行态；② 保持服务端响应，但将已验证目录持久化到 IndexedDB，并以 hash 握手失效；③ 保持当前会话级缓存，接受每次新会话首次打开的单次冷包。
 - 2026-07-13 需要决定：工坊目录是否要求独立热更新，以及可接受的首次打开包体/延迟目标。
 
-### D-004 `[?]` EventBus 仍保留四组尚未完成端到端接线的协议脚手架
+### D-004 `[?]` EventBus 仍保留五组尚未完成端到端接线的协议脚手架
 
-- 当前证据：FS-023 清理后，`panelPatches` 和 `jobProgress` 仅剩 EventBus 通用 API、bench 与 smoke，没有生产入队方；`techniqueDirty` 同样没有生产调用方，`feedbacks` 只有未被业务调用的 world facade。客户端对应的面板、任务进度和即时反馈 handler 仍是空实现，`techniqueDirty` 也被显式忽略；通知、玩家状态增量和 AOI 表现则已有真实生产消费链。
+- 当前证据：FS-023/FS-024 清理后，`panelPatches`、`jobProgress` 和 `stateDelta` 仅剩 EventBus 通用 API、分发器、bench 与 smoke，没有生产入队或真正客户端落地方；`techniqueDirty` 同样没有生产调用方，`feedbacks` 只有未被业务调用的 world facade。客户端对应的面板、任务进度和即时反馈 handler 仍是空实现，`techniqueDirty` 也被显式忽略；通知和 AOI 表现则已有真实生产消费链。
 - 潜在后果：目前不产生网络流量，但共享类型、服务端队列、客户端分发器、指标、bench 和 smoke 都需持续维护；新业务可能看到 API 就直接入队，再次形成“发了但没人用”的假接线。
-- 无法直接确定的原因：这四组能力可能是已排期的 UI 基础设施；直接删除会改变共享协议，直接接通又会新增用户可见交互，都超出纯技术修复。
-- 可选方案：① 推荐：没有明确产品计划时删除四组休眠协议及其 bench/smoke，真正开发功能时再按实际 UI 契约设计；② 确认功能后逐组完成生产端到端接线和用户可见验证；③ 暂时保留，但以边界 proof 禁止在没有真实客户端消费者时新增生产入队方。
-- 2026-07-13 需要决定：这四组 EventBus 能力是明确保留的近期规划，还是应当删除的历史脚手架。
+- 无法直接确定的原因：这五组能力可能是已排期的 UI 基础设施；直接删除会改变共享协议，直接接通又会新增用户可见交互，都超出纯技术修复。
+- 可选方案：① 推荐：没有明确产品计划时删除五组休眠协议及其 bench/smoke，真正开发功能时再按实际 UI 契约设计；② 确认功能后逐组完成生产端到端接线和用户可见验证；③ 暂时保留，但以边界 proof 禁止在没有真实客户端消费者时新增生产入队方。
+- 2026-07-13 需要决定：这五组 EventBus 能力是明确保留的近期规划，还是应当删除的历史脚手架。
 
 以下候选仍属于本轮可以继续用代码和运行证据判定的技术项，不提前作为产品决策：
 
@@ -313,5 +323,6 @@
 | 玩家运行时 dirty-domain compiled smoke | 通过 | 直写 fencing 版本存在，核心玩家域精确标脏且不会退回全 snapshot | 不证明真实数据库 recovery watermark 的并发拒绝 |
 | 工坊目录缓存动态 proof 与 compiled mutation smoke | 通过 | 按类型缓存、版本失效、会话清理；主动面板刷新不再使用目录载荷 | 不证明跨发布持久缓存或真实弱网冷开体验 |
 | compiled `technique-activity-completion-proof` | 修复并接入 `verify:quick` 后通过 | 八类 strategy 注册、四段 pipeline 生命周期顺序、统一队列、任务视图、world facade 和面板 patch 边界 | 不替代各技艺玩法结果与 DB active job CAS smoke |
-| 工坊 EventBus 生产边界与 compiled mutation smoke | 通过 | 专用面板/任务状态不再进入客户端空消费通道，且真实面板刷新仍正常发送 | 不决定四组休眠 EventBus 协议的最终去留 |
+| 工坊 EventBus 生产边界与 compiled mutation smoke | 通过 | 专用面板/任务状态不再进入客户端空消费通道，且真实面板刷新仍正常发送 | 不决定五组休眠 EventBus 协议的最终去留 |
+| 玩家状态同步前后端 production-boundaries | 通过 | player runtime 不再入队无版本状态，`hp/qi` 只由 SelfDelta、特殊数值/Buff 只由 PanelDelta 落地 | 不代替真实弱网与多息拥塞下的长时间测试 |
 | `pnpm audit:protocol` | 通过 | 无库主线服务实际启动、18 类场景的 C2S/S2C 事件覆盖与逐包字节统计；工坊重复目录、67KB envelope 和空消费 EventBus 载荷已消失；关闭 drain 完成 | 无数据库，因此未运行兑换码 DB 用例；也不直接证明 5000 并发带宽和压测结果 |

@@ -4473,14 +4473,6 @@ export class PlayerRuntimeService {
                     delete options.__attributeRecalculationDeferred;
                 }
             }
-            // stateDelta 快照：记录 tick 前的关键数值
-            const stateSnapshotStartedAt = performance.now();
-            const _prevHp = player.hp;
-            const _prevMp = player.mp;
-            const _prevExp = player.exp;
-            const _prevLevel = player.level;
-            recordPlayerTickPerf(options, 'playerTick.stateSnapshotMs', stateSnapshotStartedAt);
-
             const offlineGainSnapshotStartedAt = performance.now();
             const offlineGainBefore = this.captureOfflineGainBeforeTick(player);
             const statisticTickContext = {
@@ -4593,10 +4585,6 @@ export class PlayerRuntimeService {
             });
             recordPlayerTickPerf(options, 'playerTick.offlineGainAccumulateMs', offlineGainAccumulateStartedAt);
 
-            // stateDelta 发射：仅在数值实际变化时入队
-            const stateDeltaEmitStartedAt = performance.now();
-            this.emitPlayerStateDeltaIfChanged(player, _prevHp, _prevMp, _prevExp, _prevLevel, buffTickResult);
-            recordPlayerTickPerf(options, 'playerTick.stateDeltaEmitMs', stateDeltaEmitStartedAt);
             } finally {
                 this.playerStatisticTickContextsByPlayerId.delete(player.playerId);
             }
@@ -4613,29 +4601,6 @@ export class PlayerRuntimeService {
         const result = pipeline.tick(player, 'transmission', ctx);
         this.recordAssetStatisticMutation(player, this.captureOfflineGainBeforeTick(player));
         return result;
-    }
-
-    /** 比较 tick 前后关键数值，有变化时向 EventBus 发射 stateDelta。 */
-    private emitPlayerStateDeltaIfChanged(player, prevHp, prevMp, prevExp, prevLevel, buffTickResult) {
-        if (!this.runtimeEventBusService) return;
-        const hpChanged = player.hp !== prevHp;
-        const mpChanged = player.mp !== prevMp;
-        const expChanged = player.exp !== prevExp;
-        const levelChanged = player.level !== prevLevel;
-        const buffsChanged = buffTickResult?.changed && (buffTickResult.added?.length || buffTickResult?.removed?.length);
-        if (!hpChanged && !mpChanged && !expChanged && !levelChanged && !buffsChanged) return;
-        const delta: Record<string, unknown> = {};
-        if (hpChanged) delta.hp = player.hp;
-        if (mpChanged) delta.mp = player.mp;
-        if (expChanged) delta.exp = player.exp;
-        if (levelChanged) delta.level = player.level;
-        if (buffsChanged) {
-            delta.buffs = {
-                added: buffTickResult.added ?? [],
-                removed: buffTickResult.removed ?? [],
-            };
-        }
-        this.runtimeEventBusService.queuePlayerStateDelta(player.playerId, delta);
     }
 
     /** captureOfflineGainBeforeTick：捕获离线收益tick前快照。 */

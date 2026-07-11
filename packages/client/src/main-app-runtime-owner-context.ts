@@ -354,11 +354,7 @@ export function createMainRuntimeOwnerContext(options: CreateMainRuntimeOwnerCon
     applySelfDelta: (data) => runtimeDeltaStateSource.handleSelfDelta(data),
     applyPanelDelta: (data) => runtimeDeltaStateSource.handlePanelDelta(data),
     appendNotices: (items) => panelContext.noticeStateSource.handleNotice({ items }),
-    ...createMainRuntimeOwnerPatchHandlers({
-      getPlayer: () => rootRuntimeSource.getPlayer(),
-      setPlayer: (player) => rootRuntimeSource.setPlayer(player),
-      syncPlayerBridgeState: (player) => reactUiBridge.syncPlayer(player),
-    }),
+    ...createMainRuntimeOwnerPatchHandlers(),
     inventorySyncPlayerContext: (player) => panelContext.inventoryStateSource.syncPlayerContext(player),
     equipmentSyncPlayerContext: (player) => equipmentPanel.syncPlayerContext(player),
     refreshHeavenGateModal: (player) => refreshHeavenGateModal(player, {

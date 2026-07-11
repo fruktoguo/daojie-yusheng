@@ -117,6 +117,9 @@ function main() {
   const runtimeContextTs = read('src/main-app-runtime-context.ts');
   const panelContextTs = read('src/main-app-panel-context.ts');
   const runtimeOwnerContextTs = read('src/main-app-runtime-owner-context.ts');
+  const runtimeStateSourceTs = read('src/main-runtime-state-source.ts');
+  const runtimeDeltaStateSourceTs = read('src/main-runtime-delta-state-source.ts');
+  const runtimeOwnerPatchHandlersTs = read('src/main-runtime-owner-patch-handlers.ts');
   const socketTs = read('src/network/socket.ts');
   const socketServerEventsTs = read('src/network/socket-server-events.ts');
   const lowFrequencySocketBindingsTs = read('src/main-low-frequency-socket-bindings.ts');
@@ -198,6 +201,11 @@ function main() {
   assertMissing(runtimeOwnerContextTs, /legacy\//, 'main-app-runtime-owner-context.ts 不应继续依赖 legacy 入口');
   assertMissing(panelContextTs, /\bcompat\b/i, 'main-app-panel-context.ts 不应继续依赖 compat 逻辑');
   assertMissing(runtimeOwnerContextTs, /\bcompat\b/i, 'main-app-runtime-owner-context.ts 不应继续依赖 compat 逻辑');
+  assertMissing(runtimeStateSourceTs, /applyStateDelta/, 'EventBus 延迟副作用不得回写权威玩家状态');
+  assertMissing(runtimeOwnerPatchHandlersTs, /applyStateDelta/, '客户端不得保留会覆盖 SelfDelta 的无版本状态写入口');
+  assertIncludes(runtimeDeltaStateSourceTs, /handleSelfDelta\(data:[\s\S]*?player\.hp = data\.hp/, 'HP 必须继续由 SelfDelta 落地');
+  assertIncludes(runtimeDeltaStateSourceTs, /handleSelfDelta\(data:[\s\S]*?player\.qi = data\.qi/, '灵力必须继续由 SelfDelta 落地');
+  assertIncludes(runtimeDeltaStateSourceTs, /player\.temporaryBuffs = mergeVisibleBuffStates\(player\.temporaryBuffs, data\.buff\)/, 'Buff 必须继续由 PanelDelta 合并');
 
   assertIncludes(socketTs, /createSocketRuntimeSender/, 'socket.ts 必须继续通过 runtime sender owner 收口发送面');
   assertIncludes(socketTs, /createSocketPanelSender/, 'socket.ts 必须继续通过 panel sender owner 收口发送面');

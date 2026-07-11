@@ -125,11 +125,17 @@ function checkWorldGateway() {
 
 function checkWorldSync() {
     const { source } = readSource("network/world-sync.service.ts");
+    const { source: playerRuntimeSource } = readSource("runtime/player/player-runtime.service.ts");
+    const { source: projectorHelpersSource } = readSource("network/world-projector.helpers.ts");
     const lines = expectLineCap("world-sync.service.ts", source, 250);
     expectAbsent("world-sync.service.ts", source, /nextAuxStateByPlayerId/, "raw aux cache");
     expectAbsent("world-sync.service.ts", source, /function isSame|function shallowEqual|function isPlainEqual/, "遗留 diff helper");
     expectPresent("world-sync.service.ts", source, /worldSyncEnvelopeService\.createInitialEnvelope/, "主 envelope seam");
     expectPresent("world-sync.service.ts", source, /worldSyncAuxStateService\.emitAuxInitialSync/, "aux-state seam");
+    expectAbsent("player-runtime.service.ts", playerRuntimeSource, /queuePlayerStateDelta\(|emitPlayerStateDeltaIfChanged|player\.(?:mp|exp|level)\b/, "玩家高频状态不得经错误别名复制进 EventBus");
+    expectPresent("world-projector.helpers.ts", projectorHelpersSource, /if \(previous\.self\.hp !== player\.hp\) \{ delta\.hp = player\.hp; \}/, "HP 必须由 selfRevision SelfDelta 同步");
+    expectPresent("world-projector.helpers.ts", projectorHelpersSource, /if \(previous\.self\.qi !== player\.qi\) \{ delta\.qi = player\.qi; \}/, "灵力必须由 selfRevision SelfDelta 同步");
+    expectPresent("world-projector.helpers.ts", projectorHelpersSource, /delta\.buff = \{[\s\S]*?removeBuffIds:/, "Buff 必须由 PanelDelta patch 同步");
     return lines;
 }
 /**

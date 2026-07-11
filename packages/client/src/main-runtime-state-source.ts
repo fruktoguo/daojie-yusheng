@@ -21,7 +21,7 @@ import {
   resolveSkillRequiresTarget,
 } from '@mud/shared';
 import { buildChatPersistenceScope } from './main-spatial-context';
-import type { PanelKind, PanelPatch, PlayerStateDelta, PlayerFeedback, ActiveJobProgress } from '@mud/shared';
+import type { PanelKind, PanelPatch, PlayerFeedback, ActiveJobProgress } from '@mud/shared';
 import { getLocalSkillTemplate, resolvePreviewItem, resolvePreviewQuests } from './content/local-templates';
 import { getStaticClientActionDef } from './constants/ui/action';
 import { endRuntimeProfileMetric, startRuntimeProfileMetric } from './debug/runtime-profiler';
@@ -305,7 +305,6 @@ type MainRuntimeStateSourceOptions = {
 
   applyPanelDelta: (data: S2C_PanelDelta) => void;
   applyPanelPatch?: (patches: Record<PanelKind, PanelPatch>) => void;
-  applyStateDelta?: (delta: PlayerStateDelta) => void;
   applyPlayerFeedback?: (items: PlayerFeedback[]) => void;
   applyJobProgress?: (jobs: ActiveJobProgress[]) => void;
   appendNotices?: (items: NonNullable<NonNullable<S2C_WorldDelta['eventBus']>['notices']>) => void;
@@ -635,7 +634,6 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
       applyPanelPatches: (patches) => options.applyPanelPatch?.(patches),
       updateJobProgress: (jobs) => options.applyJobProgress?.(jobs),
       markTechniqueDirty: () => undefined,
-      applyStateDelta: (delta) => options.applyStateDelta?.(delta),
       showFeedback: (items) => options.applyPlayerFeedback?.(items),
     });
   };
