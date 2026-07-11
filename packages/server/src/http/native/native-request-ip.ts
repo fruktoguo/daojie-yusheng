@@ -16,6 +16,12 @@ interface NormalizedCidr {
   mask: number;
 }
 
+interface TrustedProxyPolicy {
+  trustAll: boolean;
+  exact: Set<string>;
+  cidrs: NormalizedCidr[];
+}
+
 const DEFAULT_TRUSTED_PROXY_ENTRIES = Object.freeze([
   '127.0.0.0/8',
   '10.0.0.0/8',
@@ -37,9 +43,10 @@ export function resolveNativeRequestIp(
       || pickString(request?.socket?.remoteAddress)
       || pickString(request?.connection?.remoteAddress),
   );
-  if (shouldTrustProxyHeaders(directIp)) {
+  const trustedProxyPolicy = resolveTrustedProxyPolicy();
+  if (isTrustedProxyIp(directIp, trustedProxyPolicy)) {
     const headers = (request?.headers ?? {}) as Record<string, unknown>;
-    const forwardedIp = normalizeIp(firstForwardedIp(readHeader(headers, 'x-forwarded-for')));
+    const forwardedIp = resolveForwardedClientIp(readHeader(headers, 'x-forwarded-for'), trustedProxyPolicy);
     if (forwardedIp) return forwardedIp;
     const realIp = normalizeIp(readHeader(headers, 'x-real-ip'));
     if (realIp) return realIp;
@@ -47,11 +54,20 @@ export function resolveNativeRequestIp(
   return directIp || fallback;
 }
 
-function shouldTrustProxyHeaders(directIp: string): boolean {
-  if (process.env.SERVER_TRUST_PROXY === '1' || process.env.SERVER_TRUST_PROXY === 'true') {
-    return true;
-  }
+function resolveTrustedProxyPolicy(): TrustedProxyPolicy {
+  const trustProxy = typeof process.env.SERVER_TRUST_PROXY === 'string'
+    ? process.env.SERVER_TRUST_PROXY.trim().toLowerCase()
+    : '';
   const trustedProxies = parseTrustedProxies();
+  return {
+    trustAll: trustProxy === '1' || trustProxy === 'true',
+    ...trustedProxies,
+  };
+}
+
+function isTrustedProxyIp(directIp: string, policy: TrustedProxyPolicy): boolean {
+  if (policy.trustAll) return true;
+  const trustedProxies = policy;
   if (trustedProxies.exact.size === 0 && trustedProxies.cidrs.length === 0) {
     return false;
   }
@@ -60,6 +76,22 @@ function shouldTrustProxyHeaders(directIp: string): boolean {
   const directIpNumber = ipv4ToNumber(directIp);
   if (directIpNumber === null) return false;
   return trustedProxies.cidrs.some((cidr) => (directIpNumber & cidr.mask) === (cidr.base & cidr.mask));
+}
+
+/** 从右向左剥离可信代理，返回离服务端最近的非可信来源，避免客户端伪造链首地址。 */
+function resolveForwardedClientIp(value: string, policy: TrustedProxyPolicy): string {
+  const forwardedIps = value
+    .split(',')
+    .map((entry) => normalizeIp(entry))
+    .filter(Boolean);
+  if (forwardedIps.length === 0) return '';
+  if (policy.trustAll) return forwardedIps[0];
+  for (let index = forwardedIps.length - 1; index >= 0; index -= 1) {
+    if (!isTrustedProxyIp(forwardedIps[index], policy)) {
+      return forwardedIps[index];
+    }
+  }
+  return forwardedIps[0];
 }
 
 function parseTrustedProxies(): { exact: Set<string>; cidrs: NormalizedCidr[] } {
@@ -98,10 +130,6 @@ function readHeader(headers: Record<string, unknown>, name: string): string {
   const value = headers[lower] ?? headers[upper] ?? headers[name];
   if (Array.isArray(value)) return value.map((entry) => pickString(entry)).find(Boolean) ?? '';
   return pickString(value);
-}
-
-function firstForwardedIp(value: string): string {
-  return value.split(',').map((entry) => entry.trim()).find(Boolean) ?? '';
 }
 
 function normalizeIp(value: string): string {

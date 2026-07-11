@@ -54,6 +54,20 @@ async function main(): Promise<void> {
       },
       ip: '172.18.0.9',
     }), '198.51.100.40');
+
+    assert.equal(resolveNativeRequestIp({
+      headers: {
+        'x-forwarded-for': '198.51.100.99, 203.0.113.55',
+      },
+      ip: '172.18.0.9',
+    }), '203.0.113.55');
+
+    assert.equal(resolveNativeRequestIp({
+      headers: {
+        'x-forwarded-for': '198.51.100.60, 10.0.0.8',
+      },
+      ip: '172.18.0.9',
+    }), '198.51.100.60');
   });
 
   await withEnv({ SERVER_TRUST_PROXY: '1', SERVER_TRUSTED_PROXIES: undefined }, async () => {
@@ -67,7 +81,7 @@ async function main(): Promise<void> {
 
   console.log(JSON.stringify({
     ok: true,
-    answers: '真实 IP 解析默认信任 loopback 与 RFC1918 私网反向代理，可用 SERVER_TRUSTED_PROXIES=off 显式关闭；直连公网请求仍不会被 X-Forwarded-For 覆盖。',
+    answers: '真实 IP 解析会从右向左剥离可信代理，客户端自带的伪造链首不会覆盖真实公网来源；默认信任 loopback 与 RFC1918 私网代理，可用 SERVER_TRUSTED_PROXIES=off 显式关闭。',
   }, null, 2));
 }
 

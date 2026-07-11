@@ -44,6 +44,8 @@ const status = runVerificationSteps({
         '--case',
         'gm-auth-token-revocation',
         '--case',
+        'native-request-ip',
+        '--case',
         'world-gateway-offline-gain-refresh',
         '--case',
         'player-statistic-ledger-io',
