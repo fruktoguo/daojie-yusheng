@@ -73,6 +73,7 @@ export class WorldShutdownDrainService implements BeforeApplicationShutdown {
     this.startupBarrierService.closeInstanceAttach();
     this.startupBarrierService.closeInstanceWrites();
     this.durableOperationService.beginShutdown();
+    this.worldRuntimeService.worldRuntimeSectService?.beginShutdown?.();
     this.shutdownStatusService.beginPhase('sessions_draining', reason);
     const detachedBindings = this.worldGateway.disconnectAllForShutdown('server_shutdown');
     await runConcurrent(detachedBindings, SHUTDOWN_SESSION_DRAIN_PARALLELISM, async (binding) => {
@@ -130,7 +131,9 @@ export class WorldShutdownDrainService implements BeforeApplicationShutdown {
     });
 
     this.shutdownStatusService.beginPhase('final_flushing', reason);
-    const unresolvedDurableCommit = this.durableOperationService.hasUnresolvedCommitOutcomes();
+    const unresolvedAssetCommit = this.durableOperationService.hasUnresolvedCommitOutcomes();
+    const unresolvedSectCommit = this.worldRuntimeService.worldRuntimeSectService?.hasUnresolvedCommitOutcomes?.() === true;
+    const unresolvedDurableCommit = unresolvedAssetCommit || unresolvedSectCommit;
     let finalFlushFailed = backgroundWorkerDrainFailed || durablePayloadDrainFailed || unresolvedDurableCommit;
     if (unresolvedDurableCommit) {
       this.shutdownStatusService.recordInstanceFlushFailed('durable_commit_outcome_unknown');
@@ -141,16 +144,20 @@ export class WorldShutdownDrainService implements BeforeApplicationShutdown {
       this.runFinalFlush('map_flush', '地图数据', () => this.mapPersistenceFlushService.flushAllNow()),
       this.runFinalFlush('tongtian_tower_flush', '通天塔数据', () => this.tongtianTowerPersistenceService.flushAllProgress()),
     ];
-    finalFlushTasks.push(this.runFinalFlush('sect_flush', '宗门数据', async () => {
-      if (typeof this.worldRuntimeService.worldRuntimeSectService?.flushAllNow === 'function') {
-        await this.worldRuntimeService.worldRuntimeSectService.flushAllNow();
-      }
-    }));
-    finalFlushTasks.push(this.runFinalFlush('formation_flush', '阵法数据', async () => {
-      if (typeof this.worldRuntimeService.worldRuntimeFormationService?.flushAllNow === 'function') {
-        await this.worldRuntimeService.worldRuntimeFormationService.flushAllNow();
-      }
-    }));
+    if (unresolvedSectCommit) {
+      this.logger.error('宗门事务结果未确认，跳过宗门与关联阵法最终刷盘');
+    } else {
+      finalFlushTasks.push(this.runFinalFlush('sect_flush', '宗门数据', async () => {
+        if (typeof this.worldRuntimeService.worldRuntimeSectService?.flushAllNow === 'function') {
+          await this.worldRuntimeService.worldRuntimeSectService.flushAllNow();
+        }
+      }));
+      finalFlushTasks.push(this.runFinalFlush('formation_flush', '阵法数据', async () => {
+        if (typeof this.worldRuntimeService.worldRuntimeFormationService?.flushAllNow === 'function') {
+          await this.worldRuntimeService.worldRuntimeFormationService.flushAllNow();
+        }
+      }));
+    }
     const finalFlushResults = await Promise.all(finalFlushTasks);
     finalFlushFailed ||= finalFlushResults.some((succeeded) => !succeeded);
     this.shutdownStatusService.completePhase('final_flushing');
