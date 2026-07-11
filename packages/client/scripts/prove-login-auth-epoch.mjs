@@ -257,7 +257,7 @@ async function verifyManualLoginSupersedesRestore(LoginUI, authApi) {
   assert.deepEqual(harness.connections, ['manual-access'], '只有最新手动登录可以建立连接');
 }
 
-async function verifyLatestLoginWins(LoginUI, authApi) {
+async function verifyDuplicateLoginIsSuppressed(LoginUI, authApi) {
   resetHarness(authApi.clearStoredTokens);
   const harness = createLoginHarness(LoginUI);
   harness.elements['input-login-name'].value = 'auth-proof';
@@ -265,15 +265,33 @@ async function verifyLatestLoginWins(LoginUI, authApi) {
 
   harness.elements['btn-auth-submit'].dispatch('click');
   harness.elements['btn-auth-submit'].dispatch('click');
-  await waitForRequests(2, '连续登录请求未全部发出');
-
-  respond(pendingRequests[1], authToken('latest-login'));
-  await waitFor(() => authApi.getAccessToken() === 'latest-login-access', '最新登录未生效');
-  respond(pendingRequests[0], authToken('stale-login'));
   await settleAsyncWork();
+  assert.equal(pendingRequests.length, 1, '连续点击只能发出一条登录请求');
+  assert.equal(harness.elements['btn-auth-submit'].disabled, true, '认证期间提交按钮必须禁用');
+  assert.equal(harness.elements['tab-login'].disabled, true, '认证期间不得切换登录模式');
+  assert.equal(harness.elements['tab-register'].disabled, true, '认证期间不得切换注册模式');
 
-  assert.equal(authApi.getAccessToken(), 'latest-login-access', '旧登录不得覆盖最新登录 token');
-  assert.deepEqual(harness.connections, ['latest-login-access'], '旧登录不得重复建立连接');
+  respond(pendingRequests[0], authToken('single-login'));
+  await waitFor(() => authApi.getAccessToken() === 'single-login-access', '唯一登录请求未生效');
+  assert.deepEqual(harness.connections, ['single-login-access'], '唯一登录请求应建立一次连接');
+  assert.equal(harness.elements['btn-auth-submit'].disabled, false, '认证完成后应恢复提交按钮');
+}
+
+async function verifyFailedLoginRestoresControls(LoginUI, authApi) {
+  resetHarness(authApi.clearStoredTokens);
+  const harness = createLoginHarness(LoginUI);
+  harness.elements['input-login-name'].value = 'auth-proof';
+  harness.elements['input-password'].value = 'wrong-password';
+
+  harness.elements['btn-auth-submit'].dispatch('click');
+  await waitForRequests(1, '失败登录请求未发出');
+  respond(pendingRequests[0], { message: '登录失败' }, 401);
+  await waitFor(() => harness.elements['btn-auth-submit'].disabled === false, '失败登录后提交按钮未恢复');
+
+  assert.equal(authApi.getAccessToken(), null, '失败登录不得写入 token');
+  assert.deepEqual(harness.connections, [], '失败登录不得建立连接');
+  assert.equal(harness.elements['tab-login'].disabled, false, '失败登录后应恢复模式页签');
+  assert.equal(harness.elements['tab-register'].disabled, false, '失败登录后应恢复模式页签');
 }
 
 async function verifyLogoutRejectsLateRegister(LoginUI, authApi) {
@@ -285,7 +303,10 @@ async function verifyLogoutRejectsLateRegister(LoginUI, authApi) {
   harness.elements['input-role-name'].value = '认证演练';
   harness.elements['input-display-name'].value = '甲';
   harness.elements['btn-auth-submit'].dispatch('click');
+  harness.elements['btn-auth-submit'].dispatch('click');
   await waitForRequests(1, '注册前的显示名称检查未发出');
+  await settleAsyncWork();
+  assert.equal(pendingRequests.length, 1, '连续点击只能发出一条显示名称检查');
   assert.match(pendingRequests[0].url, /\/display-name\/check\?/, '注册必须先检查显示名称');
 
   respond(pendingRequests[0], { available: true });
@@ -300,6 +321,7 @@ async function verifyLogoutRejectsLateRegister(LoginUI, authApi) {
   assert.equal(authApi.getRefreshToken(), null, '迟到注册不得写入 refresh token');
   assert.deepEqual(harness.connections, [], '迟到注册不得建立 socket 连接');
   assert.equal(harness.elements['login-overlay'].classList.contains('hidden'), false, '迟到注册不得隐藏登录层');
+  assert.equal(harness.elements['btn-auth-submit'].disabled, false, '登出终止注册后应恢复提交按钮');
 }
 
 const vite = await createServer({
@@ -314,7 +336,8 @@ try {
   const authApi = await vite.ssrLoadModule('/src/ui/auth-api.ts');
   await verifyLogoutRejectsLateRestore(LoginUI, authApi);
   await verifyManualLoginSupersedesRestore(LoginUI, authApi);
-  await verifyLatestLoginWins(LoginUI, authApi);
+  await verifyDuplicateLoginIsSuppressed(LoginUI, authApi);
+  await verifyFailedLoginRestoresControls(LoginUI, authApi);
   await verifyLogoutRejectsLateRegister(LoginUI, authApi);
   console.log('LoginUI 认证代际与迟到回包隔离验证通过');
 } finally {

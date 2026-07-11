@@ -202,6 +202,9 @@ export class LoginUI {
   private async handleSubmit(): Promise<void> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    if (this.manualAuthEpoch !== null) {
+      return;
+    }
     const epoch = this.beginManualAuthAttempt();
     try {
       if (this.mode === 'register') {
@@ -325,19 +328,30 @@ export class LoginUI {
   private beginManualAuthAttempt(): number {
     const epoch = this.invalidateAuthAttempts();
     this.manualAuthEpoch = epoch;
+    this.syncManualAuthPending(true);
     return epoch;
   }
 
   private finishManualAuthAttempt(epoch: number): void {
     if (this.manualAuthEpoch === epoch) {
       this.manualAuthEpoch = null;
+      this.syncManualAuthPending(false);
     }
   }
 
   private invalidateAuthAttempts(): number {
     this.authEpoch += 1;
     this.manualAuthEpoch = null;
+    this.syncManualAuthPending(false);
     return this.authEpoch;
+  }
+
+  /** 认证写请求必须 single-flight，避免双击把重复注册送到服务端。 */
+  private syncManualAuthPending(pending: boolean): void {
+    this.submitBtn.disabled = pending;
+    this.loginTab.disabled = pending;
+    this.registerTab.disabled = pending;
+    this.submitBtn.setAttribute('aria-busy', String(pending));
   }
 
   private isCurrentAuthAttempt(epoch: number): boolean {
