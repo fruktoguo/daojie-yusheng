@@ -2494,6 +2494,7 @@ class MapInstanceRuntime {
             const defHandle = Math.max(0, Math.trunc(Number(entry?.defHandle) || compiled?.handle || 0));
             const building = {
                 id,
+                name: typeof entry?.name === 'string' && entry.name.trim() ? entry.name.trim() : undefined,
                 defId,
                 defHandle,
                 instanceId: this.meta.instanceId,
@@ -6641,7 +6642,9 @@ class MapInstanceRuntime {
         const color = typeof compiled?.color === 'string' && compiled.color.trim()
             ? compiled.color.trim()
             : '#cbd5e1';
-        const name = compiled?.name ?? building.defId;
+        const name = typeof building?.name === 'string' && building.name.trim()
+            ? building.name.trim()
+            : (compiled?.name ?? building.defId);
         const cached = this.localBuildingViewCacheById.get(building.id);
         if (cached
             && cached.x === building.x
@@ -9429,6 +9432,9 @@ function resolveBuildingCombatTileType(building, compiled) {
     return 'building';
 }
 function resolveBuildingCombatTargetName(building, compiled) {
+    if (typeof building?.name === 'string' && building.name.trim()) {
+        return building.name.trim();
+    }
     if (typeof compiled?.name === 'string' && compiled.name.trim()) {
         return compiled.name.trim();
     }

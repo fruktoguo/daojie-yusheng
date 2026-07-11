@@ -29,6 +29,7 @@ type MainSocialStateSourceOptions = {
     | 'sendTreasureVaultDeposit'
     | 'sendTreasureVaultWithdraw'
     | 'sendUpdateTreasureVaultPermissions'
+    | 'sendRenameTreasureVault'
   >;
   showToast(message: string, kind?: ToastKind): void;
   getPlayer(): PlayerState | null;
@@ -53,7 +54,8 @@ const VAULT_REASON_LABELS: Record<string, string> = {
   instance_not_found: '地图实例不存在',
   not_treasure_vault: '目标不是宝库',
   treasure_vault_permission_denied: '没有宝库权限',
-  treasure_vault_owner_required: '只有创建者可修改权限',
+  treasure_vault_owner_required: '只有建造者可修改宝库设置',
+  invalid_treasure_vault_name: '宝库名称需为 1 至 20 个字符',
   treasure_vault_full: '宝库已满',
   storage_item_not_found: '宝库物品不存在',
   inventory_full: '背包已满',
@@ -85,6 +87,11 @@ export function createMainSocialStateSource(options: MainSocialStateSourceOption
       const detail = currentTreasureVaultDetail;
       if (!detail) return;
       options.socket.sendUpdateTreasureVaultPermissions({ buildingId: detail.buildingId, instanceId: detail.instanceId, permissions });
+    },
+    onRename: (name) => {
+      const detail = currentTreasureVaultDetail;
+      if (!detail) return;
+      options.socket.sendRenameTreasureVault({ buildingId: detail.buildingId, instanceId: detail.instanceId, name });
     },
   });
 
@@ -141,6 +148,8 @@ export function createMainSocialStateSource(options: MainSocialStateSourceOption
       options.treasureVaultModal.handleOperationResult(result);
       if (result.ok === true && result.operation === 'permissions') {
         options.showToast('宝库权限更新成功', 'success');
+      } else if (result.ok === true && result.operation === 'rename') {
+        options.showToast('宝库重命名成功', 'success');
       } else if (result.ok !== true && result.reason) {
         options.showToast(VAULT_REASON_LABELS[result.reason] ?? result.reason, 'warn');
       }

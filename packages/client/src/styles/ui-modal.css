@@ -132,6 +132,36 @@
   align-items: center;
 }
 
+.treasure-vault-title-block {
+  min-width: 0;
+}
+
+.treasure-vault-title-row,
+.treasure-vault-rename-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.treasure-vault-title-row .ui-modal-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.treasure-vault-rename-row input {
+  width: min(280px, 46vw);
+  min-height: 36px;
+  border: 1px solid var(--wash-ink);
+  border-radius: 8px;
+  background: var(--surface-base);
+  color: var(--ink-black);
+  font: inherit;
+  font-size: 16px;
+  padding: 6px 10px;
+}
+
 .treasure-vault-body {
   min-height: 0;
 }

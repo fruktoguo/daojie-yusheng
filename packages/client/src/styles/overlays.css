@@ -698,9 +698,9 @@
 
     .building-mode-actions {
       display: grid;
-      grid-template-columns: repeat(3, minmax(74px, 1fr));
+      grid-template-columns: repeat(2, minmax(96px, 1fr));
       gap: 8px;
-      width: min(280px, 100%);
+      width: min(320px, 100%);
     }
 
     .building-mode-action,
@@ -720,6 +720,13 @@
     .building-mode-action.primary {
       border-color: rgba(46, 109, 70, 0.34);
       background: rgba(46, 109, 70, 0.12);
+      color: var(--success-ink);
+      font-weight: var(--font-weight-semibold);
+    }
+
+    .building-mode-action.active {
+      border-color: rgba(46, 109, 70, 0.5);
+      background: rgba(46, 109, 70, 0.16);
       color: var(--success-ink);
       font-weight: var(--font-weight-semibold);
     }

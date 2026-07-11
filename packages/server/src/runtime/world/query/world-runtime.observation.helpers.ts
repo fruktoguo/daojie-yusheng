@@ -486,7 +486,9 @@ export function buildContainerTileEntityDetail(container) {
 }
 /** 生成建筑实体详情与基础状态。 */
 export function buildBuildingTileEntityDetail(building, compiled) {
-    const name = compiled?.name ?? building?.defId ?? '建筑';
+    const name = typeof building?.name === 'string' && building.name.trim()
+        ? building.name.trim()
+        : (compiled?.name ?? building?.defId ?? '建筑');
     const maxHp = Math.max(1, Math.trunc(Number(building?.maxHp ?? compiled?.maxHp ?? 1) || 1));
     const hp = Math.max(0, Math.min(maxHp, Math.trunc(Number(building?.hp ?? maxHp) || maxHp)));
     const lines = [

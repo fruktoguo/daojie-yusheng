@@ -214,7 +214,7 @@ export async function handleBuildDeconstructIntent(runtime, playerId, payload) {
     if (!building) {
         return recordBuildingOperation(runtime, operationKey, { requestId, ok: false, reason: 'building_not_found' }, { action: 'deconstruct', playerId, instanceId: context.instance.meta.instanceId, buildingId });
     }
-    if (building.ownerPlayerId && building.ownerPlayerId !== playerId) {
+    if (building.ownerPlayerId !== playerId) {
         return recordBuildingOperation(runtime, operationKey, { requestId, ok: false, reason: 'building_owner_mismatch' }, { action: 'deconstruct', playerId, instanceId: context.instance.meta.instanceId, buildingId });
     }
     const recovery = await recoverTreasureVaultItemsBeforeDeconstruct(runtime, context.instance, building, 'deconstruct');
@@ -523,6 +523,9 @@ function toBuildingInstanceView(building) {
     };
 }
 function resolveBuildingDisplayName(instance, building) {
+    if (typeof building?.name === 'string' && building.name.trim()) {
+        return building.name.trim();
+    }
     const compiled = instance?.buildingCatalog?.defByHandle?.[building?.defHandle]
         ?? instance?.buildingCatalog?.defById?.get?.(building?.defId);
     return typeof compiled?.name === 'string' && compiled.name.trim()

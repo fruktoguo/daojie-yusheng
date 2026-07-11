@@ -293,6 +293,7 @@ type MainBootstrapAssemblyOptions = {
     | 'hasPendingPlacementTargeting'
     | 'setPendingPlacementHover'
     | 'confirmBuildPlacementTarget'
+    | 'confirmBuildDeconstructTarget'
     | 'cancelPendingPlacementTargeting'
     | 'handleBuildResult'
     | 'handleRoomSummaryPatch'
@@ -721,6 +722,7 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
     hasPendingBuildPlacementTargeting: () => options.buildingFengShuiStateSource.hasPendingPlacementTargeting(),
     setPendingBuildPlacementHover: (target) => options.buildingFengShuiStateSource.setPendingPlacementHover(target),
     confirmBuildPlacementTarget: (x, y) => options.buildingFengShuiStateSource.confirmBuildPlacementTarget(x, y),
+    confirmBuildDeconstructTarget: (buildingId) => options.buildingFengShuiStateSource.confirmBuildDeconstructTarget(buildingId),
     cancelPendingBuildPlacementTargeting: (clearTargeting) => options.buildingFengShuiStateSource.cancelPendingPlacementTargeting(clearTargeting),
     cancelTargeting: () => {
       options.buildingFengShuiStateSource.cancelPendingPlacementTargeting(false);

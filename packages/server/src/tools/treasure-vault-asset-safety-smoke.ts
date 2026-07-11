@@ -66,10 +66,12 @@ async function main(): Promise<void> {
 
     await seedInstanceCatalog(pool, instanceId, 'active', 'running', ownerId);
     await seedBuildingState(pool, instanceId, buildingId, ownerId, '宝库·主动');
-    await depositGems(service, ownerId, instanceId, buildingId, '宝库·主动', [
+    const activeRuntime = createRuntime(instanceId, buildingId, ownerId, '宝库·主动');
+    const depositResult = await service.deposit(ownerId, { instanceId, buildingId, items: [
       { itemInstanceId: 'gem.active', count: 3 },
       { itemInstanceId: 'gem.batch', count: 2 },
-    ]);
+    ] }, activeRuntime.runtime);
+    assert.equal(depositResult.ok, true, `deposit failed: ${JSON.stringify(depositResult)}`);
 
     const activeRows = await fetchRows(pool, 'SELECT owner_player_id, building_name, raw_payload FROM instance_building_storage_item WHERE instance_id = $1 AND building_id = $2', [instanceId, buildingId]);
     assert.equal(activeRows.length, 2);
@@ -78,15 +80,25 @@ async function main(): Promise<void> {
     assert.equal(activeRows.find((row) => row?.raw_payload?.itemInstanceId === 'gem.active')?.raw_payload?.enhanceLevel, 7);
     assert.equal(activeRows.find((row) => row?.raw_payload?.itemInstanceId === 'gem.batch')?.raw_payload?.enhanceLevel, 5);
 
-    const directRecovery = await service.recoverVaultItemsToOwnerMail({ instanceId, buildingId, ownerPlayerId: ownerId, buildingName: '宝库·主动', reason: 'smoke_direct' });
+    const unauthorizedRename = await service.rename('vault_other_player', { instanceId, buildingId, name: '不可改名' }, activeRuntime.runtime);
+    assert.equal(unauthorizedRename.ok, false);
+    assert.equal(unauthorizedRename.reason, 'treasure_vault_owner_required');
+    const renameResult = await service.rename(ownerId, { instanceId, buildingId, name: '宝库·新名' }, activeRuntime.runtime);
+    assert.equal(renameResult.ok, true);
+    assert.equal(renameResult.detail?.buildingName, '宝库·新名');
+    assert.equal(activeRuntime.building.name, '宝库·新名');
+    const renamedRows = await fetchRows(pool, 'SELECT building_name FROM instance_building_storage_item WHERE instance_id = $1 AND building_id = $2', [instanceId, buildingId]);
+    assert.ok(renamedRows.every((row) => row?.building_name === '宝库·新名'));
+
+    const directRecovery = await service.recoverVaultItemsToOwnerMail({ instanceId, buildingId, ownerPlayerId: ownerId, buildingName: '宝库·新名', reason: 'smoke_direct' });
     assert.equal(directRecovery.ok, true);
     assert.equal(directRecovery.itemCount, 2);
     await assertVaultEmpty(pool, instanceId, buildingId);
     await assertRecoveryMail(pool, ownerId, directRecovery.mailId, [
       { itemInstanceId: 'gem.active', count: 3 },
       { itemInstanceId: 'gem.batch', count: 2 },
-    ], '宝库·主动');
-    const repeatRecovery = await service.recoverVaultItemsToOwnerMail({ instanceId, buildingId, ownerPlayerId: ownerId, buildingName: '宝库·主动', reason: 'smoke_retry' });
+    ], '宝库·新名');
+    const repeatRecovery = await service.recoverVaultItemsToOwnerMail({ instanceId, buildingId, ownerPlayerId: ownerId, buildingName: '宝库·新名', reason: 'smoke_retry' });
     assert.equal(repeatRecovery.ok, true);
     assert.equal(repeatRecovery.itemCount, 0);
 
@@ -137,6 +149,7 @@ async function main(): Promise<void> {
       cases: [
         'batch_deposit_writes_all_items_in_one_transaction',
         'batch_deposit_failure_rolls_back_storage_and_inventory',
+        'owner_only_rename_updates_runtime_and_recovery_metadata',
         'direct_recovery_writes_one_mail_then_deletes_storage',
         'retry_is_idempotent_without_duplicate_storage_loss',
         'stopped_instance_recovery_before_purge',
@@ -240,19 +253,6 @@ function createRuntime(instanceId: string, buildingId: string, ownerId: string, 
       },
     },
   };
-}
-
-async function depositGems(
-  service: TreasureVaultRuntimeService,
-  ownerId: string,
-  instanceId: string,
-  buildingId: string,
-  buildingName: string,
-  items: Array<{ itemInstanceId: string; count: number }>,
-) {
-  const { runtime } = createRuntime(instanceId, buildingId, ownerId, buildingName);
-  const result = await service.deposit(ownerId, { instanceId, buildingId, items }, runtime);
-  assert.equal(result.ok, true, `deposit failed: ${JSON.stringify(result)}`);
 }
 
 async function seedInstanceCatalog(pool: Pool, instanceId: string, status: string, runtimeStatus: string, ownerPlayerId: string | null): Promise<void> {

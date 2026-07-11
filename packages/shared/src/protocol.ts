@@ -32,6 +32,7 @@ import type { S2C_Bootstrap, S2C_MapStatic, S2C_PanelDelta, S2C_Detail, S2C_Attr
 import type { S2C_AlchemyPanel, S2C_EnhancementPanel, S2C_TechniqueActivityTasks } from './protocol-craft';
 import type {
   C2S_RemoveDaoistRelationView,
+  C2S_RenameTreasureVaultView,
   C2S_RequestNearbyDaoistCandidatesView,
   C2S_RequestSocialPanelView,
   C2S_RequestTreasureVaultView,
@@ -171,6 +172,7 @@ export const C2S = {
   TreasureVaultDeposit: 'n:c:treasureVaultDeposit',
   TreasureVaultWithdraw: 'n:c:treasureVaultWithdraw',
   UpdateTreasureVaultPermissions: 'n:c:updateTreasureVaultPermissions',
+  RenameTreasureVault: 'n:c:renameTreasureVault',
   AckSystemMessages: 'n:c:ackSystemMessages',
   AckOfflineGainReports: 'n:c:ackOfflineGainReports',
   RequestOfflineGainReports: 'n:c:requestOfflineGainReports',
@@ -364,6 +366,7 @@ export interface C2S_PayloadMap extends Record<C2S_EventName, unknown> {
   [C2S.TreasureVaultDeposit]: C2S_TreasureVaultDepositView;
   [C2S.TreasureVaultWithdraw]: C2S_TreasureVaultWithdrawView;
   [C2S.UpdateTreasureVaultPermissions]: C2S_UpdateTreasureVaultPermissionsView;
+  [C2S.RenameTreasureVault]: C2S_RenameTreasureVaultView;
   [C2S.AckSystemMessages]: RequestPayloads.C2S_AckSystemMessages;
   [C2S.AckOfflineGainReports]: RequestPayloads.C2S_AckOfflineGainReports;
   [C2S.RequestOfflineGainReports]: RequestPayloads.C2S_RequestOfflineGainReports;

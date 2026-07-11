@@ -510,6 +510,9 @@ async function main() {
   assert.ok(runtimeFengShui);
   assert.equal(runtimeFengShui.reasons.some((reason) => reason.code === "trait.alchemy_heat_source"), true);
   assert.ok(instance.buildBuildingPersistenceEntries().length >= 1);
+  const namedBuilding = instance.buildingById.values().next().value;
+  assert.ok(namedBuilding);
+  namedBuilding.name = "自定义建筑名";
   const persistenceState = instance.buildBuildingRoomFengShuiPersistenceState();
   assert.ok(persistenceState.buildings.some((entry) => entry.cells?.some((cell) => cell.previousTileType === TileType.Floor)));
   const recoveredInstance = new MapInstanceRuntime({
@@ -530,6 +533,7 @@ async function main() {
   const hydrateResult = recoveredInstance.hydrateBuildingRoomFengShuiState(persistenceState);
   assert.equal(hydrateResult.rebuilt, true);
   assert.equal(recoveredInstance.buildingById.size, instance.buildingById.size);
+  assert.equal(recoveredInstance.buildingById.get(namedBuilding.id)?.name, "自定义建筑名");
   assert.equal(recoveredInstance.listRoomSummaries().length, 1);
   assert.ok(recoveredInstance.getFengShuiSnapshotAt(2, 2));
   const staleBuildingState = {
@@ -1192,6 +1196,21 @@ async function main() {
   });
   assert.ok(observe.overlay);
   assertWangQiObserveRespectsPlayerView();
+  commandBuilding.ownerPlayerId = "player:other-builder";
+  const foreignDeconstructResult = await WorldRuntimeService.prototype.handleBuildDeconstructIntent.call(commandRuntime, commandPlayer.playerId, {
+    requestId: "deconstruct:req:foreign",
+    buildingId: placeResult.building.id,
+  });
+  assert.equal(foreignDeconstructResult.ok, false);
+  assert.equal(foreignDeconstructResult.reason, "building_owner_mismatch");
+  commandBuilding.ownerPlayerId = null;
+  const ownerlessDeconstructResult = await WorldRuntimeService.prototype.handleBuildDeconstructIntent.call(commandRuntime, commandPlayer.playerId, {
+    requestId: "deconstruct:req:ownerless",
+    buildingId: placeResult.building.id,
+  });
+  assert.equal(ownerlessDeconstructResult.ok, false);
+  assert.equal(ownerlessDeconstructResult.reason, "building_owner_mismatch");
+  commandBuilding.ownerPlayerId = commandPlayer.playerId;
   const deconstructResult = await WorldRuntimeService.prototype.handleBuildDeconstructIntent.call(commandRuntime, commandPlayer.playerId, {
     requestId: "deconstruct:req:1",
     buildingId: placeResult.building.id,

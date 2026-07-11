@@ -1,12 +1,13 @@
 /**
  * 本文件属于服务端权威运行时，负责宝库建筑的权限裁定和低频库存转移。
  *
- * 宝库物品资产写入独立数据库表；建筑 payload 只保存权限配置。
+ * 宝库物品资产写入独立数据库表；建筑 payload 保存权限配置和自定义名称。
  */
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import {
   createItemStackSignature,
+  type C2S_RenameTreasureVaultView,
   type C2S_TreasureVaultDepositView,
   type TreasureVaultDetailView,
   type TreasureVaultItemView,
@@ -33,6 +34,7 @@ const INSTANCE_BUILDING_STATE_TABLE = 'instance_building_state';
 const TREASURE_VAULT_DEF_ID = 'treasure_vault';
 const DEFAULT_TREASURE_VAULT_CAPACITY = 80;
 const MAX_TREASURE_VAULT_DEPOSIT_BATCH_SIZE = 100;
+const MAX_TREASURE_VAULT_NAME_LENGTH = 20;
 const DEFAULT_PERMISSIONS: TreasureVaultPermissionMap = {
   view: ['all'],
   deposit: ['all'],
@@ -223,6 +225,45 @@ export class TreasureVaultRuntimeService {
       resolved.instance.markPersistenceDirtyDomains?.(['building']);
     }
     return { ok: true, operation: 'permissions', detail: await this.buildDetailView(playerId, resolved.instance, resolved.building) };
+  }
+
+  async rename(playerId: string, payload: C2S_RenameTreasureVaultView, runtime: any): Promise<TreasureVaultOperationResultView> {
+    if (!this.pool || !this.enabled) {
+      return { ok: false, operation: 'rename', reason: 'treasure_vault_persistence_disabled' };
+    }
+    const resolved = this.resolveVault(runtime, playerId, payload);
+    if (resolved.ok !== true) {
+      return { ok: false, operation: 'rename', reason: resolved.reason };
+    }
+    if (normalizeString(resolved.building.ownerPlayerId) !== normalizeString(playerId)) {
+      return { ok: false, operation: 'rename', reason: 'treasure_vault_owner_required' };
+    }
+    const name = normalizeTreasureVaultName(payload.name);
+    if (!name) {
+      return { ok: false, operation: 'rename', reason: 'invalid_treasure_vault_name' };
+    }
+    if (normalizeString(resolved.building.name) === name) {
+      return { ok: true, operation: 'rename', detail: await this.buildDetailView(playerId, resolved.instance, resolved.building) };
+    }
+    await this.pool.query(
+      `UPDATE ${TREASURE_VAULT_STORAGE_TABLE}
+          SET building_name = $3, updated_at = now()
+        WHERE instance_id = $1 AND building_id = $2`,
+      [resolved.instance.meta.instanceId, resolved.building.id, name],
+    );
+    resolved.building.name = name;
+    resolved.building.updatedAtTick = Math.max(0, Math.trunc(Number(resolved.instance.tick) || 0));
+    resolved.building.revision = Math.max(1, Math.trunc(Number(resolved.building.revision) || 1)) + 1;
+    resolved.instance.localBuildingViewCacheById?.delete?.(resolved.building.id);
+    resolved.instance.markAoiViewChangedAt?.(resolved.building.x, resolved.building.y);
+    resolved.instance.worldRevision = Math.max(0, Math.trunc(Number(resolved.instance.worldRevision) || 0)) + 1;
+    resolved.instance.persistentRevision = Math.max(0, Math.trunc(Number(resolved.instance.persistentRevision) || 0)) + 1;
+    if (typeof resolved.instance.markPersistenceDirtyDomainsHighPriority === 'function') {
+      resolved.instance.markPersistenceDirtyDomainsHighPriority(['building']);
+    } else {
+      resolved.instance.markPersistenceDirtyDomains?.(['building']);
+    }
+    return { ok: true, operation: 'rename', detail: await this.buildDetailView(playerId, resolved.instance, resolved.building) };
   }
 
   async hasStoredItems(instanceId: string, buildingId: string): Promise<boolean> {
@@ -731,7 +772,15 @@ function resolveVaultCapacity(instance: any, building: any): number {
 
 function resolveBuildingName(instance: any, building: any): string {
   const compiled = instance?.buildingCatalog?.defByHandle?.[building?.defHandle] ?? instance?.buildingCatalog?.defById?.get?.(building?.defId);
-  return normalizeString(compiled?.name) || normalizeString(building?.name) || normalizeString(building?.defId) || '宝库';
+  return normalizeString(building?.name) || normalizeString(compiled?.name) || normalizeString(building?.defId) || '宝库';
+}
+
+function normalizeTreasureVaultName(input: unknown): string | null {
+  const name = normalizeString(input).replace(/\s+/g, ' ');
+  if (!name || Array.from(name).length > MAX_TREASURE_VAULT_NAME_LENGTH || /[\u0000-\u001f\u007f]/.test(name)) {
+    return null;
+  }
+  return name;
 }
 
 function resolveOwnerName(player: any): string | undefined {

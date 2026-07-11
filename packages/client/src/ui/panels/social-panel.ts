@@ -39,6 +39,7 @@ type TreasureVaultCallbacks = {
   onDeposit(items: Array<{ itemInstanceId: string; count: number }>): void;
   onWithdraw(storageItemId: string, count: number): void;
   onUpdatePermissions(permissions: TreasureVaultPermissionMap): void;
+  onRename(name: string): void;
 };
 
 type InventoryCellRibbon = {
@@ -516,6 +517,7 @@ export class TreasureVaultModal {
   private depositSort: TreasureVaultDepositSort = 'inventory';
   private depositPage = 0;
   private depositSubmitting = false;
+  private renaming = false;
   private readonly selectedDepositItemIds = new Set<string>();
 
   constructor() {
@@ -562,6 +564,9 @@ export class TreasureVaultModal {
         this.patchDepositPickerSelection();
       }
     }
+    if (result.operation === 'rename' && result.ok) {
+      this.renaming = false;
+    }
     if (result.detail) {
       this.showDetail(result.detail);
     }
@@ -571,6 +576,7 @@ export class TreasureVaultModal {
     this.detail = null;
     this.activeTab = 'items';
     this.preferredTab = 'items';
+    this.renaming = false;
     this.closeDepositPicker(true);
     detailModalHost.close(TreasureVaultModal.ITEM_DETAIL_MODAL_OWNER);
     this.root.classList.add('hidden');
@@ -578,6 +584,13 @@ export class TreasureVaultModal {
   }
 
   private bindEvents(): void {
+    this.root.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' || !(event.target instanceof HTMLInputElement) || !event.target.matches('[data-vault-name-input]')) {
+        return;
+      }
+      event.preventDefault();
+      this.callbacks?.onRename(event.target.value);
+    });
     this.root.addEventListener('click', (event) => {
       if (event.target === this.root) {
         this.clear();
@@ -593,6 +606,22 @@ export class TreasureVaultModal {
         return;
       }
       if (!this.callbacks || !this.detail) {
+        return;
+      }
+      if (action === 'begin-rename') {
+        this.renaming = true;
+        this.render();
+        this.root.querySelector<HTMLInputElement>('[data-vault-name-input]')?.focus();
+        return;
+      }
+      if (action === 'cancel-rename') {
+        this.renaming = false;
+        this.render();
+        return;
+      }
+      if (action === 'rename') {
+        const input = this.root.querySelector<HTMLInputElement>('[data-vault-name-input]');
+        this.callbacks.onRename(input?.value ?? '');
         return;
       }
       if (action === 'tab') {
@@ -929,8 +958,17 @@ export class TreasureVaultModal {
     this.root.innerHTML = `
       <div class="ui-modal-card ui-modal-card--wide treasure-vault-modal-card" role="dialog" aria-modal="true" aria-label="${escapeHtml(detail.buildingName)}">
         <div class="ui-modal-head treasure-vault-modal-head">
-          <div>
-            <div class="ui-modal-title">${escapeHtml(detail.buildingName)}仓库</div>
+          <div class="treasure-vault-title-block">
+            ${canEditPermissions && this.renaming
+              ? `<div class="treasure-vault-rename-row">
+                  <input type="text" maxlength="20" value="${escapeHtml(detail.buildingName)}" data-vault-name-input aria-label="宝库名称" />
+                  <button class="small-btn" type="button" data-vault-action="rename">保存</button>
+                  <button class="small-btn ghost" type="button" data-vault-action="cancel-rename">取消</button>
+                </div>`
+              : `<div class="treasure-vault-title-row">
+                  <div class="ui-modal-title">${escapeHtml(detail.buildingName)}仓库</div>
+                  ${canEditPermissions ? '<button class="small-btn ghost" type="button" data-vault-action="begin-rename">重命名</button>' : ''}
+                </div>`}
             <div class="ui-modal-subtitle">${this.renderVaultSubtitle(detail)}</div>
           </div>
         </div>

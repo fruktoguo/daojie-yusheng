@@ -140,6 +140,8 @@ export interface CompiledBuildingCatalog {
 
 export interface BuildingInstance {
   id: string;
+  /** 玩家自定义名称；为空时使用建筑定义名称。 */
+  name?: string;
   defId: string;
   defHandle: number;
   instanceId: string;

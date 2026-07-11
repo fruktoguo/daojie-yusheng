@@ -430,6 +430,13 @@ export class WorldGatewayPlayerControlsHelper {
     await this.handleTreasureVaultOperation(client, 'TREASURE_VAULT_PERMISSIONS_FAILED', () => this.gateway.treasureVaultRuntimeService.updatePermissions(this.gateway.gatewayGuardHelper.requirePlayerId(client), payload, this.gateway.worldRuntimeService));
   }
 
+  async handleRenameTreasureVault(
+    client: Socket,
+    payload: ClientToServerEventPayload<typeof C2S.RenameTreasureVault>,
+  ): Promise<void> {
+    await this.handleTreasureVaultOperation(client, 'TREASURE_VAULT_RENAME_FAILED', () => this.gateway.treasureVaultRuntimeService.rename(this.gateway.gatewayGuardHelper.requirePlayerId(client), payload, this.gateway.worldRuntimeService));
+  }
+
   private emitSocialOperationResult(client: Socket, operation: 'request' | 'respond' | 'level' | 'remove' | 'message', result: any): void {
     client.emit(S2C.SocialOperationResult, {
       ok: result?.ok === true,

@@ -259,7 +259,8 @@ type MainMapInteractionBindingsOptions = {
   showObserveModal: (x: number, y: number) => void;
   hasPendingBuildPlacementTargeting: () => boolean;
   setPendingBuildPlacementHover: (target: { x?: number; y?: number } | null) => void;
-  confirmBuildPlacementTarget: (x: number, y: number) => void;
+  confirmBuildPlacementTarget: (x: number, y: number) => boolean;
+  confirmBuildDeconstructTarget: (buildingId: string) => boolean;
   cancelPendingBuildPlacementTargeting: (clearTargeting?: boolean) => void;
   /**
  * cancelTargeting：cancelTargeting相关字段。
@@ -387,6 +388,9 @@ export function bindMainMapInteractions(options: MainMapInteractionBindingsOptio
     onTarget: (target) => {
       const clickedMonster = options.findObservedEntityAt(target.x, target.y, 'monster');
       const clickedNpc = options.findObservedEntityAt(target.x, target.y, 'npc');
+      const clickedBuilding = target.entityKind === 'building' && target.entityId
+        ? { id: target.entityId }
+        : options.findObservedEntityAt(target.x, target.y, 'building');
       const player = options.getPlayer();
       const clickedFormation = player?.senseQiActive === true
         ? options.findObservedEntityAt(target.x, target.y, 'formation')
@@ -427,8 +431,25 @@ export function bindMainMapInteractions(options: MainMapInteractionBindingsOptio
             options.showToast(t('map-interaction.toast.select-visible-tile'));
             return;
           }
-          options.confirmBuildPlacementTarget(target.x, target.y);
-          options.cancelTargeting();
+          const keepTargeting = options.confirmBuildPlacementTarget(target.x, target.y);
+          if (!keepTargeting) {
+            options.cancelTargeting();
+          }
+          return;
+        }
+        if (pendingTargetedAction.actionId === 'building:deconstruct') {
+          if (!player || !isPointInRange({ x: player.x, y: player.y }, { x: target.x, y: target.y }, pendingTargetedAction.range)) {
+            options.showToast(t('map-interaction.toast.build-out-of-range', { range: formatDisplayNumber(pendingTargetedAction.range) }));
+            return;
+          }
+          if (!clickedBuilding?.id) {
+            options.showToast('请选择一个建筑');
+            return;
+          }
+          const keepTargeting = options.confirmBuildDeconstructTarget(clickedBuilding.id);
+          if (!keepTargeting) {
+            options.cancelTargeting();
+          }
           return;
         }
         if (pendingTargetedAction.actionId === 'mining:start' && !options.getVisibleTileAt(target.x, target.y)) {

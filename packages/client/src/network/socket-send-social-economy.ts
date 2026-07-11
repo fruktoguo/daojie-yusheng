@@ -75,6 +75,9 @@ export function createSocketSocialEconomySender(deps: SocialEconomySenderDeps) {
     sendUpdateTreasureVaultPermissions(payload: ClientToServerEventPayload<typeof C2S.UpdateTreasureVaultPermissions>): void {
       deps.emitEvent(C2S.UpdateTreasureVaultPermissions, payload);
     },
+    sendRenameTreasureVault(payload: ClientToServerEventPayload<typeof C2S.RenameTreasureVault>): void {
+      deps.emitEvent(C2S.RenameTreasureVault, payload);
+    },
     /**
  * sendRequestMailSummary：执行sendRequest邮件摘要相关逻辑。
  * @returns 无返回值，直接更新sendRequest邮件摘要相关状态。

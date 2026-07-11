@@ -354,6 +354,10 @@ class WorldGateway implements WorldGatewayHelperContext {
     handleUpdateTreasureVaultPermissions(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayPlayerControlsHelper.handleUpdateTreasureVaultPermissions(client, payload);
     }
+    @SubscribeMessage(C2S.RenameTreasureVault)
+    handleRenameTreasureVault(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
+        return this.gatewayPlayerControlsHelper.handleRenameTreasureVault(client, payload);
+    }
     @SubscribeMessage(C2S.AckSystemMessages)
     handleAckSystemMessages(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayPlayerControlsHelper.handleAckSystemMessages(client, payload);
