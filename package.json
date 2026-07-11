@@ -47,6 +47,7 @@
     "proof:craft-success-level-penalty": "node scripts/prove-craft-success-level-penalty.js",
     "proof:craft-default-fivephase-recipes": "node scripts/prove-craft-default-fivephase-recipes.js",
     "proof:gm-login-autofill": "node scripts/prove-gm-login-autofill.js",
+    "proof:technique-preview": "pnpm --filter @mud/client verify:technique-preview",
     "proof:shared-types-source": "node scripts/prove-shared-types-source.js",
     "proof:protobuf-drift": "node scripts/prove-protobuf-drift.js",
     "proof:protocol-source": "node scripts/prove-protocol-source.js",

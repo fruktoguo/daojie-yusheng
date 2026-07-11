@@ -60,9 +60,11 @@ import {
   renderItemSourceListHtml,
 } from '../../content/item-sources';
 import {
+  getPreviewTechniqueMaxLevel,
   getLocalRealmLevelEntry,
   getLocalTechniqueTemplate,
   resolvePreviewItem,
+  resolvePreviewTechniqueTemplateLayers,
   resolveTechniqueIdFromBookItemId,
 } from '../../content/local-templates';
 import { detailModalHost } from '../detail-modal-host';
@@ -3439,12 +3441,14 @@ export class InventoryPanel {
   }
 
   /** formatTechniqueAttrSummary：格式化功法属性摘要。 */
-  private formatTechniqueAttrSummary(item: NonNullable<ReturnType<typeof getLocalTechniqueTemplate>>): string {
-    const maxLevel = Math.max(
-      1,
-      ...((item.layers ?? []).map((layer) => Math.max(1, Math.floor(layer.level)))),
+  private formatTechniqueAttrSummary(
+    technique: NonNullable<ReturnType<typeof getLocalTechniqueTemplate>>,
+    level: number,
+  ): string {
+    return formatTechniqueCumulativeBonusSummary(
+      level,
+      resolvePreviewTechniqueTemplateLayers(technique),
     );
-    return formatTechniqueCumulativeBonusSummary(maxLevel, item.layers);
   }
 
   /** buildTechniqueBookSummaryFields：构建功法书概要。 */
@@ -3463,11 +3467,18 @@ export class InventoryPanel {
     const skillNames = (technique.skills ?? [])
       .map((skill) => skill.name.trim())
       .filter((name) => name.length > 0);
+    const maxLevel = getPreviewTechniqueMaxLevel(technique);
+    const learnMaxLevel = Number.isFinite(Number(item.learnTechniqueMaxLevel))
+      ? Math.max(1, Math.min(maxLevel, Math.floor(Number(item.learnTechniqueMaxLevel))))
+      : maxLevel;
     return [
       { label: '功法', value: technique.name },
       { label: '境界', value: realmLabel },
       { label: '品阶', value: getTechniqueGradeLabel(technique.grade) },
-      { label: '满层属性', value: this.formatTechniqueAttrSummary(technique) },
+      {
+        label: learnMaxLevel >= maxLevel ? '满层属性' : '可修上限属性',
+        value: this.formatTechniqueAttrSummary(technique, learnMaxLevel),
+      },
       {
         label: `附带技能${skillNames.length > 0 ? `（${formatDisplayInteger(skillNames.length)}）` : ''}`,
         value: skillNames.length > 0 ? skillNames.join('、') : '无',

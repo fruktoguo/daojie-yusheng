@@ -33,9 +33,11 @@ import {
 import { renderItemSourceListHtml } from '../content/item-sources';
 import { getCachedMapMeta } from '../map-static-cache';
 import {
+  getPreviewTechniqueMaxLevel,
   getLocalRealmLevelEntry,
   getLocalTechniqueTemplate,
   resolvePreviewItem,
+  resolvePreviewTechniqueTemplateLayers,
   resolveTechniqueIdFromBookItemId,
 } from '../content/local-templates';
 import { SkillTooltipAsideCard, SkillTooltipContent } from './skill-tooltip';
@@ -798,10 +800,8 @@ function buildTechniqueBookTooltipLines(item: ItemStack): string[] {
   const realmLabel = technique.realmLv
     ? (getLocalRealmLevelEntry(technique.realmLv)?.displayName ?? `Lv.${formatDisplayInteger(technique.realmLv)}`)
     : t('equipment-tooltip.value.unknown', undefined);
-  const maxLevel = Math.max(
-    1,
-    ...((technique.layers ?? []).map((layer) => Math.max(1, Math.floor(layer.level)))),
-  );
+  const maxLevel = getPreviewTechniqueMaxLevel(technique);
+  const previewLayers = resolvePreviewTechniqueTemplateLayers(technique);
   const learnMaxLevel = Number.isFinite(Number(item.learnTechniqueMaxLevel))
     ? Math.max(1, Math.min(maxLevel, Math.floor(Number(item.learnTechniqueMaxLevel))))
     : maxLevel;
@@ -814,7 +814,10 @@ function buildTechniqueBookTooltipLines(item: ItemStack): string[] {
     renderPlainLine(t('equipment-tooltip.technique-book.realm', undefined), realmLabel),
     renderPlainLine(t('equipment-tooltip.technique-book.grade', undefined), getTechniqueGradeLabel(technique.grade)),
     renderPlainLine('可修至', learnMaxLevel >= maxLevel ? `满层（${formatDisplayInteger(maxLevel)} 层）` : `${formatDisplayInteger(learnMaxLevel)} / ${formatDisplayInteger(maxLevel)} 层`),
-    renderPlainLine(t('equipment-tooltip.technique-book.max-attrs', undefined), formatTechniqueCumulativeBonusSummary(learnMaxLevel, technique.layers)),
+    renderPlainLine(
+      learnMaxLevel >= maxLevel ? t('equipment-tooltip.technique-book.max-attrs', undefined) : '可修上限属性',
+      formatTechniqueCumulativeBonusSummary(learnMaxLevel, previewLayers),
+    ),
     renderPlainLine(
       t('equipment-tooltip.technique-book.skills-label', { count: skillNames.length > 0 ? `（${formatDisplayInteger(skillNames.length)}）` : '' }),
       skillNames.length > 0 ? skillNames.join('、') : t('equipment-tooltip.value.none', undefined),

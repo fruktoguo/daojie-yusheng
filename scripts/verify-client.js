@@ -15,6 +15,7 @@ const status = runVerificationSteps({
   steps: [
     { label: 'proof:gm-login-autofill', args: ['proof:gm-login-autofill'] },
     { label: 'build:client', args: ['build:client'] },
+    { label: 'proof:technique-preview', args: ['proof:technique-preview'] },
   ],
 });
 

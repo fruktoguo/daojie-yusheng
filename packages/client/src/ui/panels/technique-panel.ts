@@ -13,6 +13,7 @@ import {
   calcTechniqueFinalAttrBonus,
   calcTechniqueNextLevelGains,
   calcTechniqueNextLevelSpecialStatGains,
+  calcTechniqueQiProjectionModifiers,
   deriveTechniqueRealm,
   getTechniqueExpLevelAdjustment,
   getTechniqueMaxLevel,
@@ -41,6 +42,7 @@ import {
   formatTechniqueBonusSummary,
   formatTechniqueCumulativeBonusSummary,
   formatTechniqueLayerBonusSummary,
+  formatTechniqueQiProjectionSummary,
 } from '../technique-bonus-summary';
 import { TechniqueConstellationCanvas, TechniqueConstellationCanvasData, TechniqueConstellationHoverPayload } from './technique-constellation-canvas';
 import { formatDisplayInteger, formatDisplayNumber } from '../../utils/number';
@@ -185,11 +187,14 @@ function formatTechniqueContributionSummary(
   rawAttrs: Partial<Attributes>,
   totalSpecialStats?: ReturnType<typeof calcTechniqueSpecialStatContribution>,
   rawSpecialStats?: ReturnType<typeof calcTechniqueSpecialStatContribution>,
+  qiProjection?: ReturnType<typeof calcTechniqueQiProjectionModifiers>,
 ): string {
-  return t('technique.contribution.with-raw', {
+  const attrSummary = t('technique.contribution.with-raw', {
     total: formatTechniqueBonusSummary(totalAttrs, totalSpecialStats),
     raw: formatTechniqueBonusSummary(rawAttrs, rawSpecialStats),
   });
+  const qiProjectionSummary = formatTechniqueQiProjectionSummary(qiProjection);
+  return qiProjectionSummary ? `${attrSummary} / ${qiProjectionSummary}` : attrSummary;
 }
 
 /** resolveTechniqueCategory：解析Technique Category。 */
@@ -1325,6 +1330,7 @@ export class TechniquePanel {
     const currentAttrs = calcTechniqueAttrValues(tech.level, tech.layers);
     const effectiveAttrs = calcTechniqueEffectiveContribution(previewTechniques, tech.techId);
     const currentSpecialStats = calcTechniqueSpecialStatContribution(tech.level, tech.layers);
+    const currentQiProjection = calcTechniqueQiProjectionModifiers(tech.level, tech.layers);
     const skillsByLevel = new Map<number, TechniqueState['skills']>();
     const milestones = buildTechniqueMilestones(tech, maxLevel);
     for (const skill of tech.skills) {
@@ -1367,7 +1373,7 @@ export class TechniquePanel {
           </div>
           <div class="tech-modal-stat">
             <span class="tech-modal-label">${t('technique.modal.label.current-bonus', undefined)}</span>
-            <span data-tech-modal-current-attrs="true">${escapeHtml(formatTechniqueContributionSummary(effectiveAttrs, currentAttrs, currentSpecialStats, currentSpecialStats))}</span>
+            <span data-tech-modal-current-attrs="true">${escapeHtml(formatTechniqueContributionSummary(effectiveAttrs, currentAttrs, currentSpecialStats, currentSpecialStats, currentQiProjection))}</span>
           </div>
         </section>
         <section class="tech-modal-pane tech-modal-pane--constellation">
@@ -2105,6 +2111,7 @@ export class TechniquePanel {
     const currentAttrs = calcTechniqueAttrValues(tech.level, tech.layers);
     const effectiveAttrs = calcTechniqueEffectiveContribution(previewTechniques, tech.techId);
     const currentSpecialStats = calcTechniqueSpecialStatContribution(tech.level, tech.layers);
+    const currentQiProjection = calcTechniqueQiProjectionModifiers(tech.level, tech.layers);
     const skillsByLevel = new Map<number, TechniqueState['skills']>();
     for (const skill of tech.skills) {
       const unlockLevel = resolveSkillUnlockLevel(skill);
@@ -2128,7 +2135,13 @@ export class TechniquePanel {
     });
     expNode.textContent = formatTechniqueProgressText(tech);
     totalExpNode.textContent = formatDisplayInteger(calcTechniqueTotalExp(tech));
-    currentAttrsNode.textContent = formatTechniqueContributionSummary(effectiveAttrs, currentAttrs, currentSpecialStats, currentSpecialStats);
+    currentAttrsNode.textContent = formatTechniqueContributionSummary(
+      effectiveAttrs,
+      currentAttrs,
+      currentSpecialStats,
+      currentSpecialStats,
+      currentQiProjection,
+    );
 
     if (!focusShell.querySelector('[data-tech-focus-card="true"]')) {
       replaceElementHtml(focusShell, this.renderLayerFocus(tech, layers, selectedLevel, skillsByLevel, milestones));

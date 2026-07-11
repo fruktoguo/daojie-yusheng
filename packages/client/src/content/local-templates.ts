@@ -258,11 +258,23 @@ function resolvePreviewItemDesc(item: ItemStack, templateDesc: string | undefine
     : `记载${technique.name}前 ${learnMaxLevel} 层的残卷。`;
 }
 
-function getPreviewTechniqueMaxLevel(technique: GmEditorTechniqueOption): number {
+/** 读取紧凑或逐层功法模板的真实最大层数。 */
+export function getPreviewTechniqueMaxLevel(technique: GmEditorTechniqueOption): number {
+  const configuredMaxLevel = Number.isFinite(Number(technique.maxLayer))
+    ? Math.max(1, Math.floor(Number(technique.maxLayer)))
+    : 1;
   return Math.max(
     1,
+    configuredMaxLevel,
     ...((technique.layers ?? []).map((layer) => Math.max(1, Math.floor(Number(layer.level) || 1)))),
   );
+}
+
+/** 启动期目录中的紧凑功法模板展开为可直接用于客户端预览的逐层结构。 */
+export function resolvePreviewTechniqueTemplateLayers(
+  technique: GmEditorTechniqueOption,
+): TechniqueLayerDef[] {
+  return resolvePreviewTechniqueLayers(undefined, technique);
 }
 
 function stripInvalidPreviewInstanceId(item: ItemStack): ItemStack {
