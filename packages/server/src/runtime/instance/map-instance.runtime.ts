@@ -4998,6 +4998,11 @@ class MapInstanceRuntime {
             return;
         }
         const portals = [];
+        // server_sect 已在 overlay 回填前重建当前山门与宗门核心；这些派生 portal 不属于 overlay 真源，
+        // 因此回填普通 portal 时必须保留，否则启动/实例接管会把刚重建的宗门出入口清空。
+        const derivedSectPortals = this.runtimePortals.filter((portal) => (
+            typeof portal?.sectId === 'string' && portal.sectId.trim()
+        ));
         let sawPortalChunk = false;
         for (const entry of entries) {
             if (!entry || entry.patchKind !== 'portal') {
@@ -5040,6 +5045,15 @@ class MapInstanceRuntime {
             }
         }
         if (sawPortalChunk) {
+            for (const portal of derivedSectPortals) {
+                const existingIndex = portals.findIndex((entry) => entry.x === portal.x && entry.y === portal.y);
+                if (existingIndex >= 0) {
+                    portals[existingIndex] = portal;
+                }
+                else {
+                    portals.push(portal);
+                }
+            }
             portals.sort((left, right) => left.y - right.y || left.x - right.x);
             this.runtimePortals = portals;
             this.markAoiViewChangedGlobally();

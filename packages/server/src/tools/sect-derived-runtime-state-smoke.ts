@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 
+import { buildFullWorldDelta } from '../network/world-projector.helpers';
 import { MapInstanceRuntime } from '../runtime/instance/map-instance.runtime';
 import { MapTemplateRepository } from '../runtime/map/map-template.repository';
 
@@ -36,6 +37,17 @@ function main(): void {
     canDamageTile: true,
   });
 
+  instance.addRuntimePortal({
+    id: 'portal:current-sect',
+    x: 2,
+    y: 2,
+    targetMapId: 'sect_derived_state_smoke',
+    targetX: 1,
+    targetY: 1,
+    kind: 'sect_entrance',
+    sectId: 'sect:current',
+  });
+
   instance.hydrateOverlayChunks([{
     patchKind: 'portal',
     patchPayload: {
@@ -60,17 +72,19 @@ function main(): void {
       ],
     },
   }]);
-  assert.deepEqual(instance.runtimePortals.map((portal) => portal.id), ['portal:ordinary']);
-
-  instance.addRuntimePortal({
-    id: 'portal:current-sect',
-    x: 2,
-    y: 2,
-    targetMapId: 'sect_derived_state_smoke',
-    targetX: 1,
-    targetY: 1,
-    sectId: 'sect:current',
+  assert.deepEqual(instance.runtimePortals.map((portal) => portal.id), ['portal:ordinary', 'portal:current-sect']);
+  assert.equal(instance.getPortalAtTile(2, 2)?.kind, 'sect_entrance');
+  assert.equal(instance.getPortalAtTile(2, 2)?.sectId, 'sect:current');
+  instance.connectPlayer({
+    playerId: 'player:sect-portal-observer',
+    sessionId: 'session:sect-portal-observer',
+    preferredX: 1,
+    preferredY: 1,
   });
+  const projected = buildFullWorldDelta(instance.buildPlayerView('player:sect-portal-observer', 10));
+  const projectedSectPortal = projected.o.find((portal) => portal.sid === 'sect:current');
+  assert.equal(projectedSectPortal?.k, 'sect_entrance');
+
   const chunks = instance.buildOverlayPersistenceChunks();
   const persistedPortals = chunks[0]?.patchPayload?.portals ?? [];
   assert.deepEqual(persistedPortals.map((portal: { id?: string }) => portal.id), ['portal:ordinary']);
