@@ -14,6 +14,7 @@ import type { Socket } from 'socket.io';
 interface WorldGatewayPlayerControlsDeps {
   gatewayGuardHelper: {
     requirePlayerId(client: Socket): string | null | undefined;
+    requireActivePlayerId(client: Socket): string | null | undefined;
   };
   worldClientEventService: {
     broadcastChat(playerId: string, payload: ClientToServerEventPayload<typeof C2S.Chat>): void;
@@ -52,6 +53,12 @@ interface WorldGatewayPlayerControlsDeps {
     emitInitialSync(playerId: string, socketOverride?: Socket): void;
     emitDeltaSync(playerId: string, socketOverride?: Socket): void;
   };
+  playerDomainPersistenceService: {
+    isEnabled(): boolean;
+  };
+  playerPersistenceFlushService: {
+    flushPlayerDomains(playerId: string, domains: Iterable<string>): Promise<boolean>;
+  };
   playerRuntimeService: {
     getPlayer(playerId: string): {
       instanceId?: string | null;
@@ -73,6 +80,10 @@ interface WorldGatewayPlayerControlsDeps {
     ): void;
     updateTechniqueSkillAvailability(playerId: string, techId: string, enabled: boolean): void;
     acknowledgeOfflineGainReports(playerId: string, reportIds: string[], options?: { sessionId?: string | null }): Promise<void>;
+    runExclusiveAssetMutation<T>(
+      playerIds: readonly string[],
+      action: () => Promise<T> | T,
+    ): Promise<T>;
   };
   gatewayClientEmitHelper: {
     emitQuests(client: Socket, payload: unknown): void;
@@ -109,13 +120,32 @@ export class WorldGatewayPlayerControlsHelper {
     client: Socket,
     payload: ClientToServerEventPayload<typeof C2S.AckOfflineGainReports>,
   ): Promise<void> {
-    const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
+    const playerId = this.gateway.gatewayGuardHelper.requireActivePlayerId(client);
     if (!playerId) {
       return;
     }
     try {
       const sessionId = typeof client.data?.sessionId === 'string' ? client.data.sessionId : null;
-      await this.gateway.playerRuntimeService.acknowledgeOfflineGainReports(playerId, payload?.reportIds ?? [], { sessionId });
+      await this.gateway.playerRuntimeService.runExclusiveAssetMutation([playerId], async () => {
+        await this.gateway.playerRuntimeService.acknowledgeOfflineGainReports(
+          playerId,
+          payload?.reportIds ?? [],
+          { sessionId },
+        );
+        if (!sessionId || this.gateway.playerDomainPersistenceService.isEnabled() !== true) {
+          return;
+        }
+        const presencePersisted = await this.gateway.playerPersistenceFlushService.flushPlayerDomains(
+          playerId,
+          ['presence'],
+        );
+        if (!presencePersisted) {
+          throw new Error(`offline_gain_session_presence_flush_failed:${playerId}`);
+        }
+      });
+      if (this.gateway.gatewayGuardHelper.requireActivePlayerId(client) !== playerId) {
+        return;
+      }
       const player = this.gateway.playerRuntimeService.getPlayer(playerId);
       if (sessionId && player) {
         this.gateway.sessionBootstrapService.connectBootstrapRuntimePlayer({

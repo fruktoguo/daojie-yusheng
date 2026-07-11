@@ -882,7 +882,8 @@ export class PlayerRuntimeService {
         if (!player || !normalizedSessionId) {
             return null;
         }
-        return this.bindRuntimeSession(player, normalizedSessionId);
+        // 离线收益确认可能因重试重复到达；同一 session 的重复确认只刷新心跳，不能反复轮换 fence。
+        return this.refreshRuntimeSession(player, normalizedSessionId);
     }
     /** 上线前把离线基线与当前权威态做差，生成待下发报告。 */
     async finalizeOfflineGainSessionForPlayer(player, endedAt = Date.now()) {

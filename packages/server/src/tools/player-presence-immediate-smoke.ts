@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 
 import { WorldGatewayPresenceHelper } from '../network/world-gateway-presence.helper';
+import { WorldGatewayPlayerControlsHelper } from '../network/world-gateway-player-controls.helper';
 import { WorldGateway } from '../network/world.gateway';
 import { WorldSessionBootstrapPlayerInitService } from '../network/world-session-bootstrap-player-init.service';
 
@@ -194,6 +195,143 @@ async function verifyOfflineGainBlockingPresenceStaysOfflineHanging(): Promise<{
   return { writes };
 }
 
+async function verifyOfflineGainAckPersistsFenceBeforeInitialSync(): Promise<{
+  successOrder: string[];
+  failedFlushErrorCode: string;
+}> {
+  const playerId = 'presence:offline-gain-ack';
+  const sessionId = 'sid:offline-gain-ack';
+  const order: string[] = [];
+  const errors: Array<{ code: string; error: unknown }> = [];
+  let lockActive = false;
+  let shouldPersistPresence = true;
+  let sessionActive = true;
+  let supersedeAfterFlush = false;
+
+  const helper = new WorldGatewayPlayerControlsHelper({
+    gatewayGuardHelper: {
+      requirePlayerId() {
+        return playerId;
+      },
+      requireActivePlayerId() {
+        return sessionActive ? playerId : null;
+      },
+    },
+    worldClientEventService: {
+      emitGatewayError(_client: unknown, code: string, error: unknown) {
+        errors.push({ code, error });
+      },
+    },
+    playerDomainPersistenceService: {
+      isEnabled() {
+        return true;
+      },
+    },
+    playerPersistenceFlushService: {
+      async flushPlayerDomains(flushPlayerId: string, domains: Iterable<string>) {
+        assert.equal(lockActive, true);
+        assert.equal(flushPlayerId, playerId);
+        assert.deepEqual(Array.from(domains), ['presence']);
+        order.push('flush:presence');
+        if (supersedeAfterFlush) {
+          sessionActive = false;
+        }
+        return shouldPersistPresence;
+      },
+    },
+    playerRuntimeService: {
+      async runExclusiveAssetMutation<T>(playerIds: readonly string[], action: () => Promise<T> | T): Promise<T> {
+        assert.deepEqual(playerIds, [playerId]);
+        assert.equal(lockActive, false);
+        lockActive = true;
+        order.push('lock:start');
+        try {
+          return await action();
+        } finally {
+          order.push('lock:end');
+          lockActive = false;
+        }
+      },
+      async acknowledgeOfflineGainReports(ackPlayerId: string, reportIds: string[], options: { sessionId?: string | null }) {
+        assert.equal(lockActive, true);
+        assert.equal(ackPlayerId, playerId);
+        assert.deepEqual(reportIds, ['report:offline-gain']);
+        assert.equal(options.sessionId, sessionId);
+        order.push('ack');
+      },
+      getPlayer() {
+        return {
+          instanceId: 'public:yunlai_town',
+          templateId: 'yunlai_town',
+          x: 32,
+          y: 5,
+        };
+      },
+    },
+    sessionBootstrapService: {
+      connectBootstrapRuntimePlayer() {
+        assert.equal(lockActive, false);
+        order.push('runtime:connect');
+      },
+    },
+    worldSyncService: {
+      emitInitialSync() {
+        assert.equal(lockActive, false);
+        order.push('sync:initial');
+      },
+    },
+  } as never);
+  const client = {
+    data: {
+      playerId,
+      sessionId,
+    },
+  } as never;
+
+  await helper.handleAckOfflineGainReports(client, { reportIds: ['report:offline-gain'] });
+  assert.deepEqual(order, [
+    'lock:start',
+    'ack',
+    'flush:presence',
+    'lock:end',
+    'runtime:connect',
+    'sync:initial',
+  ]);
+  assert.equal(errors.length, 0);
+  const successOrder = [...order];
+
+  order.length = 0;
+  shouldPersistPresence = false;
+  await helper.handleAckOfflineGainReports(client, { reportIds: ['report:offline-gain'] });
+  assert.deepEqual(order, [
+    'lock:start',
+    'ack',
+    'flush:presence',
+    'lock:end',
+  ]);
+  assert.equal(errors.length, 1);
+  assert.equal(errors[0]?.code, 'ACK_OFFLINE_GAIN_REPORTS_FAILED');
+  assert.match(String(errors[0]?.error), /offline_gain_session_presence_flush_failed/u);
+
+  order.length = 0;
+  shouldPersistPresence = true;
+  sessionActive = true;
+  supersedeAfterFlush = true;
+  await helper.handleAckOfflineGainReports(client, { reportIds: ['report:offline-gain'] });
+  assert.deepEqual(order, [
+    'lock:start',
+    'ack',
+    'flush:presence',
+    'lock:end',
+  ]);
+  assert.equal(errors.length, 1);
+
+  return {
+    successOrder,
+    failedFlushErrorCode: errors[0]?.code ?? '',
+  };
+}
+
 async function verifyGatewayHeartbeatAndDisconnectWrites(): Promise<{
   heartbeatWrites: number;
   disconnectWrites: number;
@@ -360,6 +498,7 @@ async function verifyGatewayHeartbeatAndDisconnectWrites(): Promise<{
 async function main(): Promise<void> {
   const bootstrap = await verifyBootstrapPresenceImmediateWrite();
   const offlineGainBlocking = await verifyOfflineGainBlockingPresenceStaysOfflineHanging();
+  const offlineGainAck = await verifyOfflineGainAckPersistsFenceBeforeInitialSync();
   const gateway = await verifyGatewayHeartbeatAndDisconnectWrites();
 
   console.log(
@@ -368,8 +507,9 @@ async function main(): Promise<void> {
         ok: true,
         bootstrap,
         offlineGainBlocking,
+        offlineGainAck,
         gateway,
-        answers: 'player_presence 现已由登录 bootstrap、掉线和心跳节流小事务直接写入；离线收益 blocking 阶段始终保持 online=false/inWorld=true 并保留原 offlineSinceAt，因此重启恢复仍按离线挂机玩家处理',
+        answers: 'player_presence 现已由登录 bootstrap、掉线和心跳节流小事务直接写入；离线收益 blocking 阶段始终保持 online=false/inWorld=true 并保留原 offlineSinceAt，因此重启恢复仍按离线挂机玩家处理；确认离线收益时会在玩家资产互斥区内先激活 session 并同步提交新 presence fence，成功后才连接 runtime 和下发 InitSession，提交失败则保持 fail closed',
         excludes: '不证明真实 socket 心跳频率、数据库写入耗时分布或多节点下的 heartbeat 协调',
         completionMapping: 'release:proof:player-presence-immediate-write',
       },
