@@ -766,6 +766,11 @@ async function main(): Promise<void> {
           createdAtTick: 10,
           updatedAtTick: 12,
           revision: 3,
+          treasureVaultPermissions: {
+            view: ['all', 'sect'],
+            deposit: ['party'],
+            withdraw: ['close_friend'],
+          },
           cells: [{ tileIndex: 88, x: 6, y: 8 }],
         },
       ],
@@ -822,6 +827,11 @@ async function main(): Promise<void> {
     assert.equal(loadedBuildingRoomFengShuiState.buildings[0]?.id, 'building:stone_wall:1');
     assert.equal(loadedBuildingRoomFengShuiState.buildings[0]?.defId, 'stone_wall');
     assert.equal(loadedBuildingRoomFengShuiState.buildings[0]?.defHandle, 7);
+    assert.deepEqual(loadedBuildingRoomFengShuiState.buildings[0]?.treasureVaultPermissions, {
+      view: ['all', 'sect'],
+      deposit: ['party'],
+      withdraw: ['close_friend'],
+    });
     assert.deepEqual(loadedBuildingRoomFengShuiState.buildings[0]?.cells, [{
       buildingId: 'building:stone_wall:1',
       tileIndex: 88,

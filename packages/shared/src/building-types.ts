@@ -6,6 +6,7 @@
 import type { CellLayerTarget } from './map-layer-types';
 import type { TechniqueCategory, TechniqueGrade } from './cultivation-types';
 import type { CraftEffectStatsPatch } from './craft-effect-stats';
+import type { TreasureVaultPermissionMap } from './social-types';
 import type { TileType } from './world-core-types';
 
 export type FiveElement = 'metal' | 'wood' | 'water' | 'fire' | 'earth' | 'neutral';
@@ -142,6 +143,8 @@ export interface BuildingInstance {
   id: string;
   /** 玩家自定义名称；为空时使用建筑定义名称。 */
   name?: string;
+  /** 宝库使用权限；缺失的权限项由宝库运行时按默认规则补齐。 */
+  treasureVaultPermissions?: Partial<TreasureVaultPermissionMap>;
   defId: string;
   defHandle: number;
   instanceId: string;

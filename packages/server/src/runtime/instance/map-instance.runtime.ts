@@ -35,6 +35,8 @@ const DISPERSED_AURA_MIN_DECAY_PER_TICK = Math.max(0, Math.trunc(Number(DISPERSE
 const TILE_RESOURCE_EPSILON = 1e-9;
 const DEFAULT_TILE_LAYER_FALLBACK_SEED = resolveDefaultTileLayerFallback();
 const BASE_CHANT_TICK_DURATION_MS = 1000;
+const TREASURE_VAULT_PERMISSION_KINDS = ['view', 'deposit', 'withdraw'];
+const TREASURE_VAULT_PERMISSION_SCOPES = new Set(['all', 'party', 'sect', 'dao_friend', 'close_friend']);
 
 /** INVALID_OCCUPANCY：空占位值，表示该地块当前未被占用。 */
 const INVALID_OCCUPANCY = 0;
@@ -2495,6 +2497,7 @@ class MapInstanceRuntime {
             const building = {
                 id,
                 name: typeof entry?.name === 'string' && entry.name.trim() ? entry.name.trim() : undefined,
+                treasureVaultPermissions: normalizePersistedTreasureVaultPermissions(entry?.treasureVaultPermissions),
                 defId,
                 defHandle,
                 instanceId: this.meta.instanceId,
@@ -9747,6 +9750,22 @@ function normalizeInteractableKindList(value) {
     return Array.isArray(value)
         ? value.filter((kind) => typeof kind === 'string' && kind.trim()).map((kind) => kind.trim())
         : [];
+}
+function normalizePersistedTreasureVaultPermissions(value) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+        return undefined;
+    }
+    const result = {};
+    let hasPermissionKind = false;
+    for (const kind of TREASURE_VAULT_PERMISSION_KINDS) {
+        const scopes = value[kind];
+        if (!Array.isArray(scopes)) {
+            continue;
+        }
+        hasPermissionKind = true;
+        result[kind] = Array.from(new Set(scopes.filter((scope) => TREASURE_VAULT_PERMISSION_SCOPES.has(scope))));
+    }
+    return hasPermissionKind ? result : undefined;
 }
 function areInteractableKindListsEqual(left, right) {
     const leftList = normalizeInteractableKindList(left);
