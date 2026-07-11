@@ -110,6 +110,8 @@ function getTechniqueInitial(value: string): string {
 export class MarketTransmissionView {
   private inlineConsignEvents: AbortController | null = null;
   private searchTimer: ReturnType<typeof window.setTimeout> | null = null;
+  /** 上架选择器当前已投影的残卷语义；玩家每息同步但背包未变时保持零 DOM 写入。 */
+  private transmissionConsignProjectionSignature: string | null = null;
 
   constructor(private readonly panel: MarketPanelInternals) {}
 
@@ -157,7 +159,7 @@ export class MarketTransmissionView {
     this.preloadTechniqueTemplates();
   }
 
-  /** 背包或钱包变化只更新相关节点，不重建传法台主界面。 */
+  /** 玩家上下文或钱包变化只更新主界面的资产节点，不触碰上架选择器。 */
   patchTransmissionInventoryState(): void {
     const body = this.panel.getOpenTransmissionModalBody();
     if (!body) return;
@@ -176,9 +178,16 @@ export class MarketTransmissionView {
     if (buyButton) {
       buyButton.disabled = !selected || selected.isMine || ownedCurrency < selected.price;
     }
-    if (this.panel.transmissionConsignPanel.open) {
-      this.patchTransmissionConsignItems();
-    }
+  }
+
+  /** 背包真实变化时才局部同步上架选择器；重复快照保持零 DOM 写入。 */
+  patchTransmissionConsignInventoryState(): void {
+    if (!this.panel.transmissionConsignPanel.open) return;
+    const allItems = this.getTransmissionConsignItems();
+    const nextSignature = this.buildTransmissionConsignProjectionSignature(allItems);
+    if (nextSignature === this.transmissionConsignProjectionSignature) return;
+    this.transmissionConsignProjectionSignature = nextSignature;
+    this.patchTransmissionConsignItems(allItems);
   }
 
   private buildTransmissionModalOptions() {
@@ -198,6 +207,7 @@ export class MarketTransmissionView {
         }
         this.inlineConsignEvents?.abort();
         this.inlineConsignEvents = null;
+        this.transmissionConsignProjectionSignature = null;
         this.panel.transmissionConsignPanel = {
           ...this.panel.transmissionConsignPanel,
           open: false,
@@ -211,7 +221,10 @@ export class MarketTransmissionView {
         this.preloadTechniqueTemplates();
         if (this.panel.transmissionConsignPanel.open) {
           const layer = body.querySelector<HTMLElement>('[data-transmission-consign-inline-layer]');
-          if (layer) this.bindInlineTransmissionConsignLayer(layer);
+          if (layer) {
+            this.bindInlineTransmissionConsignLayer(layer);
+            this.captureTransmissionConsignProjectionSignature();
+          }
         }
       },
     };
@@ -238,6 +251,7 @@ export class MarketTransmissionView {
       if (!detailModalHost.isOpenFor(TRANSMISSION_MODAL_OWNER)) return;
       if (this.getTransmissionRequestKey() !== requestKey) return;
       this.patchTransmissionListingsState();
+      this.patchTransmissionConsignInventoryState();
     });
   }
 
@@ -830,10 +844,12 @@ export class MarketTransmissionView {
       });
   }
 
-  private getFilteredTransmissionConsignItems(): TransmissionConsignItemView[] {
+  private getFilteredTransmissionConsignItems(
+    allItems = this.getTransmissionConsignItems(),
+  ): TransmissionConsignItemView[] {
     const state = this.panel.transmissionConsignPanel;
     const query = state.query.trim().toLocaleLowerCase();
-    const entries = this.getTransmissionConsignItems().filter((entry) => {
+    const entries = allItems.filter((entry) => {
       if (state.category !== 'all' && entry.category !== state.category) return false;
       if (!query) return true;
       return entry.name.toLocaleLowerCase().includes(query)
@@ -875,6 +891,7 @@ export class MarketTransmissionView {
     replaceElementHtml(layer, this.renderTransmissionConsignCard());
     body.appendChild(layer);
     this.bindInlineTransmissionConsignLayer(layer);
+    this.captureTransmissionConsignProjectionSignature();
   }
 
   private renderTransmissionConsignLayer(): string {
@@ -909,8 +926,8 @@ export class MarketTransmissionView {
 
   private renderTransmissionConsignPanel(): string {
     const state = this.panel.transmissionConsignPanel;
-    const items = this.getFilteredTransmissionConsignItems();
     const allItems = this.getTransmissionConsignItems();
+    const items = this.getFilteredTransmissionConsignItems(allItems);
     const selected = allItems.find((entry) => entry.itemInstanceId === state.itemInstanceId) ?? null;
     return `
       <div class="transmission-consign-panel" data-transmission-consign-panel>
@@ -941,7 +958,7 @@ export class MarketTransmissionView {
           </label>
         </div>
         <div class="transmission-consign-items ui-scroll-panel" data-transmission-consign-items>
-          ${this.renderTransmissionConsignItems(items)}
+          ${this.renderTransmissionConsignItems(items, allItems.length)}
         </div>
         <div data-transmission-consign-fields>
           ${this.renderTransmissionConsignFields(selected)}
@@ -950,12 +967,15 @@ export class MarketTransmissionView {
     `;
   }
 
-  private renderTransmissionConsignItems(items = this.getFilteredTransmissionConsignItems()): string {
+  private renderTransmissionConsignItems(
+    items = this.getFilteredTransmissionConsignItems(),
+    totalCount = this.getTransmissionConsignItems().length,
+  ): string {
     if (items.length === 0) {
-      const key = this.getTransmissionConsignItems().length === 0
+      const key = totalCount === 0
         ? 'market.transmission.consign.empty'
         : 'market.transmission.consign.search-empty';
-      return `<div class="empty-hint">${escapeHtml(t(key, undefined))}</div>`;
+      return `<div class="empty-hint" data-transmission-consign-empty>${escapeHtml(t(key, undefined))}</div>`;
     }
     return items.map((entry) => this.renderTransmissionConsignItem(entry)).join('');
   }
@@ -971,18 +991,19 @@ export class MarketTransmissionView {
       <button
         class="${className}"
         data-transmission-consign-item="${escapeHtmlAttr(entry.itemInstanceId)}"
+        data-ui-key="transmission-consign:${escapeHtmlAttr(entry.itemInstanceId)}"
         data-market-item-tooltip="transmission-consign-item:${escapeHtmlAttr(entry.itemInstanceId)}"
         data-item-grade-line-visible="${gradeLineVisible ? 'true' : 'false'}"
         aria-pressed="${active ? 'true' : 'false'}"
         type="button"
       >
         <div class="inventory-cell-head">
-          <span class="inventory-cell-type">${escapeHtml(entry.categoryLabel)}</span>
-          <span class="inventory-cell-count">${formatDisplayInteger(entry.item.count)}</span>
+          <span class="inventory-cell-type" data-transmission-consign-item-category>${escapeHtml(entry.categoryLabel)}</span>
+          <span class="inventory-cell-count" data-transmission-consign-item-count>${formatDisplayInteger(entry.item.count)}</span>
         </div>
-        <div class="inventory-cell-grade-line" ${gradeLineVisible ? '' : 'hidden'}>${escapeHtml(entry.gradeLabel)}</div>
-        <div class="inventory-cell-name" aria-label="${escapeHtmlAttr(entry.name)}">${escapeHtml(entry.name)}</div>
-        <span class="item-card-chip item-card-chip--level">${escapeHtml(entry.realmLabel)}</span>
+        <div class="inventory-cell-grade-line" data-transmission-consign-item-grade ${gradeLineVisible ? '' : 'hidden'}>${escapeHtml(entry.gradeLabel)}</div>
+        <div class="inventory-cell-name" data-transmission-consign-item-name aria-label="${escapeHtmlAttr(entry.name)}">${escapeHtml(entry.name)}</div>
+        <span class="item-card-chip item-card-chip--level" data-transmission-consign-item-realm>${escapeHtml(entry.realmLabel)}</span>
       </button>
     `;
   }
@@ -994,8 +1015,8 @@ export class MarketTransmissionView {
       <div class="transmission-consign-fields">
         <div class="transmission-consign-selection ui-surface-card ui-surface-card--compact">
           <span>${escapeHtml(t('market.transmission.consign.selected', undefined))}</span>
-          <strong>${escapeHtml(selected?.name ?? t('market.transmission.consign.no-selection', undefined))}</strong>
-          <small>${selected ? escapeHtml([selected.realmLabel, selected.gradeLabel, selected.categoryLabel].filter(Boolean).join(' · ')) : ''}</small>
+          <strong data-transmission-consign-selected-name>${escapeHtml(selected?.name ?? t('market.transmission.consign.no-selection', undefined))}</strong>
+          <small data-transmission-consign-selected-meta>${selected ? escapeHtml([selected.realmLabel, selected.gradeLabel, selected.categoryLabel].filter(Boolean).join(' · ')) : ''}</small>
         </div>
         <label class="market-trade-dialog-field transmission-consign-price-field">
           <span>${escapeHtml(t('market.transmission.head.price', undefined))}</span>
@@ -1098,11 +1119,12 @@ export class MarketTransmissionView {
     this.closeInlineTransmissionConsignModal();
   }
 
-  private patchTransmissionConsignItems(): void {
+  private patchTransmissionConsignItems(
+    allItems = this.getTransmissionConsignItems(),
+  ): void {
     const body = this.getOpenTransmissionConsignBody();
     if (!body) return;
-    const allItems = this.getTransmissionConsignItems();
-    const filtered = this.getFilteredTransmissionConsignItems();
+    const filtered = this.getFilteredTransmissionConsignItems(allItems);
     const selectedVisible = filtered.some((entry) => entry.itemInstanceId === this.panel.transmissionConsignPanel.itemInstanceId);
     const selectedExists = allItems.some((entry) => entry.itemInstanceId === this.panel.transmissionConsignPanel.itemInstanceId);
     if ((!selectedVisible && filtered.length > 0) || !selectedExists) {
@@ -1113,8 +1135,7 @@ export class MarketTransmissionView {
     }
     const list = body.querySelector<HTMLElement>('[data-transmission-consign-items]');
     if (list) {
-      replaceElementHtml(list, this.renderTransmissionConsignItems(filtered));
-      this.panel.bindItemTooltipEvents(list);
+      this.patchTransmissionConsignItemList(list, filtered, allItems.length);
     }
     const count = body.querySelector<HTMLElement>('[data-transmission-consign-count]');
     if (count) {
@@ -1123,10 +1144,85 @@ export class MarketTransmissionView {
         total: formatDisplayInteger(allItems.length),
       });
     }
-    this.patchTransmissionConsignSelection();
+    this.patchTransmissionConsignSelection(allItems);
   }
 
-  private patchTransmissionConsignSelection(): void {
+  /** 上架残卷列表按 itemInstanceId 复用节点，背包变化不销毁卡片或滚动容器。 */
+  private patchTransmissionConsignItemList(
+    list: HTMLElement,
+    items: TransmissionConsignItemView[],
+    totalCount: number,
+  ): void {
+    const scrollTop = list.scrollTop;
+    if (items.length === 0) {
+      const key = totalCount === 0
+        ? 'market.transmission.consign.empty'
+        : 'market.transmission.consign.search-empty';
+      const currentEmpty = list.querySelector<HTMLElement>('[data-transmission-consign-empty]');
+      if (!currentEmpty || list.children.length !== 1) {
+        replaceElementHtml(list, `<div class="empty-hint" data-transmission-consign-empty>${escapeHtml(t(key, undefined))}</div>`);
+      } else {
+        currentEmpty.textContent = t(key, undefined);
+      }
+      list.scrollTop = scrollTop;
+      return;
+    }
+
+    const existing = new Map<string, HTMLButtonElement>();
+    list.querySelectorAll<HTMLButtonElement>('[data-transmission-consign-item]').forEach((row) => {
+      const itemInstanceId = normalizeInventoryItemInstanceId(row.dataset.transmissionConsignItem);
+      if (itemInstanceId) existing.set(itemInstanceId, row);
+    });
+    const ordered: HTMLButtonElement[] = [];
+    for (const entry of items) {
+      let row = existing.get(entry.itemInstanceId) ?? null;
+      if (!row || !this.patchTransmissionConsignItem(row, entry)) {
+        row = createButtonFromHtml(this.renderTransmissionConsignItem(entry));
+        if (row) this.panel.bindItemTooltipEvents(row, this.inlineConsignEvents?.signal);
+      }
+      if (!row) continue;
+      existing.delete(entry.itemInstanceId);
+      ordered.push(row);
+    }
+    existing.forEach((row) => row.remove());
+    this.syncTransmissionListChildren(list, ordered);
+    list.scrollTop = scrollTop;
+  }
+
+  private patchTransmissionConsignItem(
+    row: HTMLButtonElement,
+    entry: TransmissionConsignItemView,
+  ): boolean {
+    const category = row.querySelector<HTMLElement>('[data-transmission-consign-item-category]');
+    const count = row.querySelector<HTMLElement>('[data-transmission-consign-item-count]');
+    const grade = row.querySelector<HTMLElement>('[data-transmission-consign-item-grade]');
+    const name = row.querySelector<HTMLElement>('[data-transmission-consign-item-name]');
+    const realm = row.querySelector<HTMLElement>('[data-transmission-consign-item-realm]');
+    if (!category || !count || !grade || !name || !realm) return false;
+    const active = this.panel.transmissionConsignPanel.itemInstanceId === entry.itemInstanceId;
+    const gradeLineVisible = Boolean(entry.gradeLabel);
+    row.className = getItemDecorClassName(
+      `inventory-cell inventory-cell--actionable transmission-consign-item ${active ? 'active' : ''}`,
+      entry.item,
+    );
+    row.dataset.transmissionConsignItem = entry.itemInstanceId;
+    row.dataset.uiKey = `transmission-consign:${entry.itemInstanceId}`;
+    row.dataset.marketItemTooltip = `transmission-consign-item:${entry.itemInstanceId}`;
+    row.dataset.itemGradeLineVisible = gradeLineVisible ? 'true' : 'false';
+    row.setAttribute('aria-pressed', active ? 'true' : 'false');
+    category.textContent = entry.categoryLabel;
+    count.textContent = formatDisplayInteger(entry.item.count);
+    grade.textContent = entry.gradeLabel;
+    grade.hidden = !gradeLineVisible;
+    name.textContent = entry.name;
+    name.setAttribute('aria-label', entry.name);
+    realm.textContent = entry.realmLabel;
+    return true;
+  }
+
+  private patchTransmissionConsignSelection(
+    allItems = this.getTransmissionConsignItems(),
+  ): void {
     const body = this.getOpenTransmissionConsignBody();
     if (!body) return;
     const selectedId = this.panel.transmissionConsignPanel.itemInstanceId;
@@ -1135,15 +1231,75 @@ export class MarketTransmissionView {
       node.classList.toggle('active', active);
       node.setAttribute('aria-pressed', active ? 'true' : 'false');
     });
-    this.patchTransmissionConsignFields();
+    this.patchTransmissionConsignFields(allItems);
   }
 
-  private patchTransmissionConsignFields(): void {
+  /** 选中项和价格变化只修改文字、class 与按钮状态，价格控件节点保持不变。 */
+  private patchTransmissionConsignFields(
+    allItems = this.getTransmissionConsignItems(),
+  ): void {
     const body = this.getOpenTransmissionConsignBody();
     if (!body) return;
-    const selected = this.getTransmissionConsignItems().find((entry) => entry.itemInstanceId === this.panel.transmissionConsignPanel.itemInstanceId) ?? null;
-    const fields = body.querySelector<HTMLElement>('[data-transmission-consign-fields]');
-    if (fields) replaceElementHtml(fields, this.renderTransmissionConsignFields(selected));
+    const selected = allItems.find((entry) => entry.itemInstanceId === this.panel.transmissionConsignPanel.itemInstanceId) ?? null;
+    const price = this.normalizeTransmissionConsignPrice(this.panel.transmissionConsignPanel.unitPrice);
+    const currencyName = this.panel.transmissionListings?.currencyItemName ?? '灵石';
+    const selectedName = body.querySelector<HTMLElement>('[data-transmission-consign-selected-name]');
+    const selectedMeta = body.querySelector<HTMLElement>('[data-transmission-consign-selected-meta]');
+    if (selectedName) selectedName.textContent = selected?.name ?? t('market.transmission.consign.no-selection', undefined);
+    if (selectedMeta) {
+      selectedMeta.textContent = selected
+        ? [selected.realmLabel, selected.gradeLabel, selected.categoryLabel].filter(Boolean).join(' · ')
+        : '';
+    }
+    body.querySelectorAll<HTMLButtonElement>('[data-transmission-consign-price-action]').forEach((button) => {
+      const action = button.dataset.transmissionConsignPriceAction as MarketPriceAction | undefined;
+      if (!action) return;
+      const preset = this.panel.readDatasetNumber(button.dataset.transmissionConsignPricePreset);
+      button.classList.toggle('active', action === 'preset' && preset === price);
+      if (!selected) {
+        button.disabled = true;
+      } else if (action === 'half' || action === 'decrease') {
+        button.disabled = this.getNextTransmissionConsignPrice(action, preset) >= price;
+      } else if (action === 'increase' || action === 'double') {
+        button.disabled = this.getNextTransmissionConsignPrice(action, preset) <= price;
+      } else {
+        button.disabled = false;
+      }
+    });
+    const priceDisplay = body.querySelector<HTMLElement>('[data-transmission-consign-price-display]');
+    const priceValue = priceDisplay?.querySelector<HTMLElement>('strong');
+    const currency = priceDisplay?.querySelector<HTMLElement>('span');
+    if (priceValue) priceValue.textContent = this.panel.formatMarketUnitPrice(price);
+    if (currency) currency.textContent = currencyName;
+    const submit = body.querySelector<HTMLButtonElement>('[data-transmission-consign-submit]');
+    if (submit) submit.disabled = !selected;
+  }
+
+  private captureTransmissionConsignProjectionSignature(): void {
+    this.transmissionConsignProjectionSignature = this.buildTransmissionConsignProjectionSignature(
+      this.getTransmissionConsignItems(),
+    );
+  }
+
+  private buildTransmissionConsignProjectionSignature(items: TransmissionConsignItemView[]): string {
+    const encode = (value: unknown): string => {
+      const text = String(value ?? '');
+      return `${text.length}:${text}`;
+    };
+    return items.map((entry, index) => [
+      index,
+      entry.itemInstanceId,
+      entry.techniqueId,
+      entry.name,
+      entry.category,
+      entry.categoryLabel,
+      entry.grade,
+      entry.gradeLabel,
+      entry.realmLevel,
+      entry.realmLabel,
+      entry.item.count,
+      entry.item.learnTechniqueMaxLevel,
+    ].map(encode).join('')).join('|');
   }
 
   private getOpenTransmissionConsignBody(): HTMLElement | null {
@@ -1154,6 +1310,7 @@ export class MarketTransmissionView {
     const layer = this.panel.getOpenTransmissionModalBody()?.querySelector<HTMLElement>('[data-transmission-consign-inline-layer]');
     this.inlineConsignEvents?.abort();
     this.inlineConsignEvents = null;
+    this.transmissionConsignProjectionSignature = null;
     this.panel.transmissionConsignPanel = {
       ...this.panel.transmissionConsignPanel,
       open: false,

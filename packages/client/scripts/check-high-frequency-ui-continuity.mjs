@@ -93,7 +93,7 @@ assertIncludes(marketPanel, /this\.transmissionListingsSnapshot = null;/, '传�
 const transmissionPatch = section(
   transmissionView,
   'patchTransmissionListingsState(): void {',
-  '/** 背包或钱包变化只更新相关节点，不重建传法台主界面。 */',
+  '/** 玩家上下文或钱包变化只更新主界面的资产节点，不触碰上架选择器。 */',
   'MarketTransmissionView.patchTransmissionListingsState',
 );
 assertIncludes(
@@ -113,16 +113,54 @@ const transmissionPreload = section(
   'MarketTransmissionView.preloadTechniqueTemplates',
 );
 assertIncludes(transmissionPreload, /patchTransmissionListingsState\(\)/, '异步功法模板回包必须走局部 patch');
+assertIncludes(transmissionPreload, /patchTransmissionConsignInventoryState\(\)/, '异步功法模板回包必须局部更新上架残卷投影');
 assertMissing(transmissionPreload, /detailModalHost\.(?:open|patch)\(/, '异步模板回包不得重建传法台弹层');
 
 const transmissionSubmit = section(
   transmissionView,
   'private submitTransmissionConsign(): void {',
-  'private patchTransmissionConsignItems(): void {',
+  '  private patchTransmissionConsignItems(',
   'MarketTransmissionView.submitTransmissionConsign',
 );
 assertMissing(transmissionSubmit, /requestTransmissionListings\(/, '传法台上架提交后不得抢跑拉取旧分页');
 assertMissing(transmissionSubmit, /transmissionTab\s*=/, '传法台上架提交后不得强制切换标签打断浏览上下文');
+
+const consignProjectionSync = section(
+  transmissionView,
+  'patchTransmissionConsignInventoryState(): void {',
+  '  private buildTransmissionModalOptions()',
+  'MarketTransmissionView.patchTransmissionConsignInventoryState',
+);
+assertIncludes(consignProjectionSync, /nextSignature === this\.transmissionConsignProjectionSignature/, '上架残卷重复背包投影必须零 DOM 写入');
+assertIncludes(consignProjectionSync, /patchTransmissionConsignItems\(allItems\)/, '上架残卷真实变化必须进入局部列表 patch');
+
+const consignListPatch = section(
+  transmissionView,
+  '  private patchTransmissionConsignItemList(',
+  '  private patchTransmissionConsignItem(',
+  'MarketTransmissionView.patchTransmissionConsignItemList',
+);
+assertIncludes(consignListPatch, /new Map<string, HTMLButtonElement>\(\)/, '上架残卷列表必须按 itemInstanceId 复用卡片节点');
+assertIncludes(consignListPatch, /syncTransmissionListChildren\(list, ordered\)/, '上架残卷排序和筛选只能重排稳定节点');
+assertMissing(consignListPatch, /renderTransmissionConsignItems\(/, '上架残卷非空列表不得整容器重建');
+
+const consignFieldsPatch = section(
+  transmissionView,
+  '  private patchTransmissionConsignFields(',
+  '  private captureTransmissionConsignProjectionSignature()',
+  'MarketTransmissionView.patchTransmissionConsignFields',
+);
+assertIncludes(consignFieldsPatch, /data-transmission-consign-price-display/, '上架价格必须原位更新现有显示节点');
+assertMissing(consignFieldsPatch, /replaceElementHtml\(/, '上架选中项与价格变化不得替换字段子树');
+assertIncludes(transmissionView, /data-ui-key="transmission-consign:/, '上架残卷卡片必须声明稳定 UI key');
+
+const playerContextSync = section(
+  marketPanel,
+  'syncPlayerContext(player?: PlayerState): void {',
+  '/** 同步背包快照，并刷新依赖弹窗。 */',
+  'MarketPanel.syncPlayerContext',
+);
+assertMissing(playerContextSync, /patchTransmissionConsignInventoryState\(\)/, '每息玩家上下文不得触碰上架残卷选择器');
 
 const inventorySync = section(
   marketPanel,
@@ -131,7 +169,8 @@ const inventorySync = section(
   'MarketPanel.syncInventory',
 );
 assertIncludes(inventorySync, /MarketTransmissionView\.modalOwner/, '背包同步必须识别打开中的传法台');
-assertIncludes(inventorySync, /patchTransmissionInventoryState\(\)/, '背包同步只能局部更新传法台钱包与上架选择器');
+assertIncludes(inventorySync, /patchTransmissionInventoryState\(\)/, '背包同步必须局部更新传法台钱包');
+assertIncludes(inventorySync, /patchTransmissionConsignInventoryState\(\)/, '背包同步必须通过语义门控局部更新上架选择器');
 
 const actionDynamic = section(actionPanel, '/** 只同步会变的动作状态，优先走局部 patch，避免整块重绘。 */', '/** 从玩家快照初始化面板状态。 */', 'ActionPanel.syncDynamic');
 assertIncludes(actionDynamic, /buildActionPanelContentKey/, '行动面板高频同步必须保留结构签名');

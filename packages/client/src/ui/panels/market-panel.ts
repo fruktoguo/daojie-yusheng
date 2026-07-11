@@ -593,6 +593,7 @@ export class MarketPanel {
       this.syncTradeDialogOverlay();
     } else if (detailModalHost.isOpenFor(MarketTransmissionView.modalOwner)) {
       this.transmissionView.patchTransmissionInventoryState();
+      this.transmissionView.patchTransmissionConsignInventoryState();
     } else if (detailModalHost.isOpenFor(MarketPanel.AUCTION_CONSIGN_MODAL_OWNER)) {
       this.patchAuctionConsignModalState();
     } else if (shouldPatchHeavenlyDaoShop) {
