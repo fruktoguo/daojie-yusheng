@@ -22,6 +22,7 @@ import {
   shouldReplaceEditorDraftAfterSave,
 } from '../../lib/request-generation';
 import { useLatestRequestGuard } from '../../lib/use-request-generation';
+import { useNavigationBlocker } from '../../app/router/HashRouter';
 
 export default function TechniquesPage() {
   const [entries, setEntries] = useState<LocalTechniqueEntry[]>([]);
@@ -40,6 +41,10 @@ export default function TechniquesPage() {
   selectedKeyRef.current = selectedKey;
   draftRef.current = draft;
   const dirty = draft != null && JSON.stringify(draft) !== savedJson;
+  useNavigationBlocker(
+    () => dirty,
+    '当前功法有未保存修改，离开后会丢失这些修改。继续吗？',
+  );
 
   const loadList = useCallback(async () => {
     const request = listRequestGuard.begin();

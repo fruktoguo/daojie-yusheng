@@ -9,6 +9,7 @@ import { request } from '../../lib/api';
 import { toast } from '../../ui/Toast';
 import { GmMapEditor } from '../../../../client/src/gm-map-editor';
 import { useLatestRequestGuard } from '../../lib/use-request-generation';
+import { useNavigationBlocker } from '../../app/router/HashRouter';
 
 type SideTab = 'overview' | 'inspector' | 'json';
 type CatalogMode = 'main' | 'piece';
@@ -28,6 +29,10 @@ export default function MapsPage() {
   const [dualGridRenderingEnabled, setDualGridRenderingEnabled] = useState(loadDualGridRenderingPreference);
   const catalogMapRef = useRef<Map<string, CatalogMode>>(new Map());
   const catalogRequestGuard = useLatestRequestGuard();
+  useNavigationBlocker(
+    () => editorRef.current?.hasUnsavedChanges() ?? false,
+    '当前地图有未保存修改，离开后会丢失这些修改。继续吗？',
+  );
 
   const setAppStatus = useCallback((message: string, isError?: boolean) => {
     const el = document.getElementById('map-status-bar');

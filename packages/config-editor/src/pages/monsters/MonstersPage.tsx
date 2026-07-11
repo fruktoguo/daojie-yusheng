@@ -31,6 +31,7 @@ import {
   shouldReplaceEditorDraftAfterSave,
 } from '../../lib/request-generation';
 import { useLatestRequestGuard } from '../../lib/use-request-generation';
+import { useNavigationBlocker } from '../../app/router/HashRouter';
 
 const AGGRO_MODES: Array<{ value: MonsterAggroMode; label: string }> = [
   { value: 'always', label: '主动 (always)' },
@@ -95,6 +96,10 @@ export default function MonstersPage() {
   const dirty = draft != null && (
     JSON.stringify(draft) !== savedJson
     || initialBuffsText !== savedInitialBuffsText
+  );
+  useNavigationBlocker(
+    () => dirty,
+    '当前怪物有未保存修改，离开后会丢失这些修改。继续吗？',
   );
 
   const catalogMap = useMemo(() => new Map(catalog.map(i => [i.itemId, i])), [catalog]);

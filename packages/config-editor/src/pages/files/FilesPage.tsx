@@ -10,6 +10,7 @@ import { cn } from '../../lib/cn';
 import { toast } from '../../ui/Toast';
 import type { LocalConfigFileSummary } from '../../types/api';
 import { useLatestRequestGuard } from '../../lib/use-request-generation';
+import { useNavigationBlocker } from '../../app/router/HashRouter';
 
 export default function FilesPage() {
   const [files, setFiles] = useState<LocalConfigFileSummary[]>([]);
@@ -27,6 +28,10 @@ export default function FilesPage() {
   const saveRequestGuard = useLatestRequestGuard();
   selectedRef.current = selected;
   const dirty = content !== savedContent;
+  useNavigationBlocker(
+    () => dirty,
+    '当前文件有未保存的修改，离开后会丢失这些修改。继续吗？',
+  );
 
   const loadList = useCallback(async () => {
     const request = listRequestGuard.begin();

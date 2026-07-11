@@ -804,6 +804,11 @@ export class GmMapEditor {
     await this.loadMapList();
   }
 
+  /** 返回当前地图草稿是否包含尚未保存的修改，供宿主统一保护离页行为。 */
+  hasUnsavedChanges(): boolean {
+    return this.dirty;
+  }
+
   /** 重置编辑器状态（登出时调用） */
   reset(): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。

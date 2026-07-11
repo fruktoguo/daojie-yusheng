@@ -5,7 +5,7 @@
  */
 import { Map, Skull, Sparkles, FileJson2, ServerCog } from 'lucide-react';
 import { cn } from '../../lib/cn';
-import { navigate, useRoute, type RouteId } from '../router/HashRouter';
+import { useNavigate, useRoute, type RouteId } from '../router/HashRouter';
 
 const navItems: { id: RouteId; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: 'maps', label: '地图', icon: Map },
@@ -17,6 +17,7 @@ const navItems: { id: RouteId; label: string; icon: React.ComponentType<{ classN
 
 export function AppSidebar({ collapsed, onClose }: { collapsed?: boolean; onClose?: () => void }) {
   const route = useRoute();
+  const navigate = useNavigate();
 
   return (
     <aside
@@ -35,7 +36,9 @@ export function AppSidebar({ collapsed, onClose }: { collapsed?: boolean; onClos
             <button
               key={id}
               type="button"
-              onClick={() => { navigate(id); onClose?.(); }}
+              onClick={() => {
+                if (navigate(id)) onClose?.();
+              }}
               className={cn(
                 'btn-premium-physics flex items-center gap-2.5 w-full h-9 text-sm px-3 rounded-md transition-all duration-200 relative group',
                 isActive
