@@ -177,7 +177,7 @@ export interface ProcgenContentAnchor {
 // preset 不填 partition 时，生成器走原有的全图单一噪声管线，行为完全不变。
 
 /** 区域生成器种类。 */
-export type ProcgenRegionKind = 'open' | 'maze' | 'dungeon' | 'vault' | 'boss' | 'corridor' | 'transition';
+export type ProcgenRegionKind = 'open' | 'maze' | 'dungeon' | 'vault' | 'boss' | 'corridor' | 'transition' | 'town';
 
 /** 关卡拓扑节点角色。 */
 export type ProcgenNodeRole = 'entry' | 'combat' | 'vault' | 'boss' | 'exit' | 'branch' | 'hub';
@@ -271,12 +271,42 @@ export interface ProcgenCorridorSpec {
   width?: number;
 }
 
+/**
+ * 城镇区：一片可走地面上稀疏排布的房群 + 街道，边界像自然地貌一样被侵蚀融入。
+ *
+ * 与 dungeon 相反：地牢整区填墙再挖房间，城镇整区可走再点缀房子——房子是 structure 层
+ * 障碍（有门可进），房间之间的开放空地即街道。街道引道从每个预留门位通到镇心广场，
+ * 保证「门 → 镇内」构造连通，且不被房屋阻断。边界走 erode（town 深度>0），融进周围自然。
+ */
+export interface ProcgenTownSpec {
+  /** 镇内地面 terrain（必须可走，如 floor/grass）；省略则沿用 preset.baseTerrain。 */
+  groundTile?: string;
+  /** 街道/广场铺装 surface（可选装饰，纯表现不影响可走）。 */
+  streetTile?: string;
+  /** 房墙 structure 地块 id。 */
+  wallTile: string;
+  /** 房门 structure 地块 id。 */
+  doorTile: string;
+  /** 窗 structure 地块 id 与开窗概率（0-1，逐段判定）。 */
+  windowTile?: string;
+  windowChance?: number;
+  /** 室内地板 surface 地块 id（可选）。 */
+  houseFloorTile?: string;
+  /** 房屋数量区间（按镇子面积上限夹取）。 */
+  houseCount?: readonly [number, number];
+  /** 单栋外墙包围盒尺寸区间（含墙，格）。 */
+  houseSize?: { width: readonly [number, number]; height: readonly [number, number] };
+  /** 房内内容锚点概率（宝箱/怪物据点）。 */
+  content?: ProcgenBuildingContentSpec;
+}
+
 export interface ProcgenRegionGenSpec {
   maze?: ProcgenMazeSpec;
   dungeon?: ProcgenDungeonSpec;
   vault?: ProcgenVaultSpec;
   boss?: ProcgenBossSpec;
   corridor?: ProcgenCorridorSpec;
+  town?: ProcgenTownSpec;
   /** 每种区域可覆盖 terrainRules（否则用 preset.terrainRules）。 */
   openTerrainRulesByKind?: Record<string, readonly ProcgenTerrainRule[]>;
 }

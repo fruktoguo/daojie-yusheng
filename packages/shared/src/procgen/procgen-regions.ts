@@ -20,6 +20,7 @@ import { generateField, assignTerrain, smoothTerrain } from './procgen-fields';
 import { placeStructures } from './procgen-structures';
 import { carvePortStub, generateCorridor, generateMaze, type LocalPort } from './procgen-maze';
 import { generateBossRoom, generateDungeon, generateVault, type LocalAnchor } from './procgen-dungeon';
+import { generateTown } from './procgen-town';
 import type {
   ProcgenBiomePreset,
   ProcgenContentAnchor,
@@ -88,6 +89,10 @@ export function generateRegion(
       break;
     case 'boss':
       if (spec.boss) local = generateBossRoom(canvas, ports, spec.boss, regionSeed);
+      else generateOpenRegion(canvas, ports, preset, region, regionSeed);
+      break;
+    case 'town':
+      if (spec.town) local = generateTown(canvas, ports, spec.town, regionSeed);
       else generateOpenRegion(canvas, ports, preset, region, regionSeed);
       break;
     case 'corridor':

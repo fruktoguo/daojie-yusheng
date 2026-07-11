@@ -30,6 +30,9 @@ const ERODE_DEPTH: Record<ProcgenRegionKind, number> = {
   open: 3,
   corridor: 2,
   transition: 3,
+  // 城镇是开放聚落：地面整片可走、房子稀疏点缀，外圈啃成起伏地界更像自然村落而非方盒。
+  // 门位引线受 PORT_GUARD_RADIUS 保护，街道引道在核心内，侵蚀不会切断连通。
+  town: 3,
   // 迷宫不能事后啃：它的可走面是通道网络而非实心。骨架的最外圈本在 margin = baseRadius + 1，
   // 但 wobble 的偏移上限是 pitch/5（2~3 格），会把骨架推进侵蚀带里，通道就被拦腰啃断。
   // 侵蚀迷宫边界得在生成器内部做、且骨架豁免，见 procgen-maze.ts 的 borderErosion。

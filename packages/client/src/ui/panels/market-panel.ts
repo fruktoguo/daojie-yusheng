@@ -1,7 +1,7 @@
 /**
- * 本文件是客户端 DOM UI 的 market panel 模块，负责具体面板、弹层或渲染片段。
+ * 本文件是客户端市场面板控制器，负责共享状态、玩家意图和仍在使用的 DOM 弹层。
  *
- * 维护时优先保持局部更新和原有交互状态，不在 UI 层裁定资产、战斗或移动合法性。
+ * 坊市首屏只由 React 渲染；维护时优先保持局部更新和原有交互状态，不在 UI 层裁定资产合法性。
  */
 import {
   AuctionLotPageEntry,
@@ -60,7 +60,6 @@ import { buildItemTooltipPayload, describeItemEffectDetails } from '../equipment
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../floating-tooltip';
 import { detailModalHost } from '../detail-modal-host';
 import { confirmModalHost } from '../confirm-modal-host';
-import { preserveSelection } from '../selection-preserver';
 import { MARKET_MODAL_TABS, MarketModalTab } from '../../constants/ui/market';
 import { getPlayerOwnedItemCount } from '../../utils/player-wallet';
 import { formatDisplayCountBadge, formatDisplayInteger, formatDisplayNumber } from '../../utils/number';
@@ -75,9 +74,6 @@ import type { MarketPanelInternals, TransmissionPanelTab } from './market-panel-
 import {
   mountReactMarketPanel,
   setReactMarketPanelCallbacks,
-  shouldUseReactMarketPanel,
-  syncReactMarketPanelState,
-  unmountReactMarketPanel,
 } from '../../react-ui/panels/market/mount-market-panel';
 
 function normalizeInventoryItemInstanceId(value: unknown): string {
@@ -384,7 +380,6 @@ export class MarketPanel {
   /** 买入确认弹层的归属标识。 */
   private static readonly CONFIRM_MODAL_OWNER = 'market-buy-confirm';
   /** 面板根节点，只负责首屏摘要和打开入口。 */
-  private readonly pane = document.getElementById('pane-market')!;
   /** 市场面板对外回调，实际请求都交给外部处理。 */
   private callbacks: MarketPanelCallbacks | null = null;
   /** 当前市场主快照，列表、挂单和托管仓都从这里读。 */
@@ -498,19 +493,12 @@ export class MarketPanel {
 
   constructor() {
     setReactMarketPanelCallbacks({
-      onRequestMarket: () => {
-        if (!this.requestMarketBootstrap()) {
-          this.callbacks?.onRequestMarket();
-        }
-      },
-      onOpenModal: () => this.openMarketFromPane(),
+      onOpenMarket: () => this.openMarketFromPane(),
       onOpenAuction: (tab) => this.openAuctionFromPane(tab),
-      onOpenAuctionConsign: () => this.openAuctionConsignFromPane(),
+      onOpenTransmission: () => this.openTransmissionFromPane(),
       onOpenHeavenlyDaoShop: () => this.openHeavenlyDaoShopFromPane(),
       onOpenTechniqueGeneration: () => this.callbacks?.onOpenTechniqueGeneration?.(),
-      onBuyHeavenlyDaoShopItem: (itemId, quantity) => this.callbacks?.onBuyHeavenlyDaoShopItem(itemId, quantity),
     });
-    this.bindPaneEvents();
     this.renderPane();
   }
 
@@ -968,10 +956,6 @@ export class MarketPanel {
     this.tooltip.hide(true);
     this.stopAuctionCountdownTicker();
     this.syncTradeDialogOverlay();
-    if (this.useReactPanel()) {
-      this.syncReactState();
-      mountReactMarketPanel();
-    }
     this.renderPane();
     confirmModalHost.close(MarketPanel.CONFIRM_MODAL_OWNER);
     detailModalHost.close(MarketPanel.MODAL_OWNER);
@@ -980,79 +964,9 @@ export class MarketPanel {
     detailModalHost.close(MarketPanel.HEAVENLY_DAO_SHOP_MODAL_OWNER);
   }
 
-  /** 渲染坊市 tab 首屏入口，只保留独立界面按钮。 */
+  /** 确保坊市唯一的 React 首屏已挂载；重复调用不会重建根节点。 */
   private renderPane(): void {
-    if (this.useReactPanel()) {
-      this.syncReactState();
-      mountReactMarketPanel();
-      return;
-    }
-    preserveSelection(this.pane, () => {
-      replaceElementHtml(this.pane, `
-        <div class="panel-section market-pane ui-surface-pane ui-surface-pane--stack">
-          <div class="panel-section-title">${escapeHtml(t('market.pane.title', undefined))}</div>
-          <div class="market-pane-entry-actions">
-            <button class="small-btn" data-market-open type="button">坊市</button>
-            <button class="small-btn" data-auction-open="participate" type="button">拍卖行</button>
-            <button class="small-btn" data-transmission-open type="button">${escapeHtml(t('market.tab.transmission', undefined))}</button>
-            <button class="small-btn" data-heavenly-dao-shop-open type="button">天道商店</button>
-            <button class="small-btn" data-technique-generation-open type="button">悟道</button>
-          </div>
-        </div>
-      `);
-    });
-  }
-
-  /** 只给首屏入口绑事件，避免重复监听整个面板。 */
-  private bindPaneEvents(): void {
-    this.pane.addEventListener('click', (event) => {
-      const target = event.target;
-      if (!(target instanceof HTMLElement)) {
-        return;
-      }
-      if (target.closest('[data-market-open]')) {
-        this.openMarketFromPane();
-        return;
-      }
-      const auctionOpen = target.closest<HTMLElement>('[data-auction-open]');
-      if (auctionOpen) {
-        const tab = auctionOpen.dataset.auctionOpen === 'mine' ? 'mine' : auctionOpen.dataset.auctionOpen === 'history' ? 'history' : 'participate';
-        this.openAuctionFromPane(tab);
-        return;
-      }
-      if (target.closest('[data-transmission-open]')) {
-        this.openTransmissionFromPane();
-        return;
-      }
-      if (target.closest('[data-auction-consign-open]')) {
-        this.openAuctionConsignFromPane();
-        return;
-      }
-      if (target.closest('[data-heavenly-dao-shop-open]')) {
-        this.openHeavenlyDaoShopFromPane();
-        return;
-      }
-      if (target.closest('[data-technique-generation-open]')) {
-        this.callbacks?.onOpenTechniqueGeneration?.();
-        return;
-      }
-    });
-  }
-
-  private useReactPanel(): boolean {
-    return shouldUseReactMarketPanel();
-  }
-
-  private syncReactState(): void {
-    syncReactMarketPanelState({
-      marketUpdate: this.marketUpdate,
-      inventory: this.inventory,
-      player: this.player,
-      auctionStats: this.getAuctionPaneStats(this.marketUpdate),
-      totalListings: this.marketListings?.total ?? this.marketUpdate?.listedItems.length ?? 0,
-      currentPage: this.currentPage,
-      totalPages: this.getMarketTotalPagesForSummary(),
-    });
+    mountReactMarketPanel();
   }
 
   private openMarketFromPane(): void {
@@ -1074,13 +988,6 @@ export class MarketPanel {
       this.callbacks?.onRequestMarket();
     }
     this.transmissionView.openTransmissionModal(this.transmissionTab);
-  }
-
-  private openAuctionConsignFromPane(): void {
-    if (!this.requestMarketBootstrap()) {
-      this.callbacks?.onRequestMarket();
-    }
-    this.openAuctionConsignModal();
   }
 
   openHeavenlyDaoShopFromInventory(): void {
@@ -1521,12 +1428,6 @@ export class MarketPanel {
       ? `请输入 1 至 ${formatDisplayInteger(HEAVENLY_DAO_SHOP_MAX_QUANTITY)} 之间的购买数量。`
       : `${currencyName}不足，需要 ${displayTotal} ${currencyName}。`;
     buttonNode.disabled = invalidTotal || insufficientCurrency;
-  }
-
-  private getMarketTotalPagesForSummary(): number {
-    const totalItems = this.marketListings?.total ?? this.marketUpdate?.listedItems.length ?? 0;
-    const pageSize = this.marketListings?.pageSize ?? this.getMarketPageSize();
-    return Math.max(1, Math.ceil(totalItems / Math.max(1, pageSize)));
   }
 
   /** 打开市场详情弹层，并按当前标签请求需要的数据。 */
@@ -2183,40 +2084,6 @@ export class MarketPanel {
       return null;
     }
     return document.getElementById('detail-modal-body');
-  }
-
-  /** 读取坊市页内拍卖简报数据。 */
-  private getAuctionPaneStats(update: S2C_MarketUpdate | null): {
-    activeLots: number;
-    myBids: number;
-    myConsignments: number;
-    storageCount: number;
-    feed: Array<{ status: string; name: string; meta: string }>;
-  } {
-    if (!update) {
-      return {
-        activeLots: 0,
-        myBids: 0,
-        myConsignments: 0,
-        storageCount: 0,
-        feed: [],
-      };
-    }
-    const lots = this.auctionListings?.tab === 'participate' ? this.getCurrentAuctionLots() : [];
-    const summary = this.getAuctionSummary(update);
-    return {
-      activeLots: summary.activeLots,
-      myBids: summary.myBidCount,
-      myConsignments: summary.myConsignments,
-      storageCount: summary.storageCount,
-      feed: lots.slice(0, 3).map((lot) => ({
-        status: lot.buyoutPrice === null
-          ? t('market.auction.feed.status.bid', undefined)
-          : t('market.auction.feed.status.buyout', undefined),
-        name: lot.itemName,
-        meta: `${this.formatMarketUnitPrice(lot.currentPrice)} ${update.currencyItemName}`,
-      })),
-    };
   }
 
   /** 同步拍卖行当前选中项。 */

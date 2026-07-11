@@ -118,6 +118,10 @@ function main() {
   const panelContextTs = read('src/main-app-panel-context.ts');
   const runtimeOwnerContextTs = read('src/main-app-runtime-owner-context.ts');
   const socketTs = read('src/network/socket.ts');
+  const marketControllerTs = read('src/ui/panels/market-panel.ts');
+  const marketReactTsx = read('src/react-ui/panels/market/MarketPanel.tsx');
+  const marketMountTsx = read('src/react-ui/panels/market/mount-market-panel.tsx');
+  const panelFlagsTs = read('src/react-ui/bridge/panel-flags.ts');
 
   const mainLineCount = lineCount('src/main.ts');
   const compositionLineCount = lineCount('src/main-app-composition.ts');
@@ -196,6 +200,28 @@ function main() {
   assertIncludes(socketTs, /createSocketAdminSender/, 'socket.ts 必须继续通过 admin sender owner 收口发送面');
   assertIncludes(socketTs, /on<TEvent extends BoundServerEventName>/, 'socket.ts 必须保留泛型 on(...) 事件消费入口');
 
+  assertIncludes(marketReactTsx, /callbacks\.onOpenTransmission\?\.\(\)/, 'React 坊市首屏必须保留传法台入口回调');
+  assertIncludes(marketReactTsx, /t\('market\.tab\.transmission'/, 'React 坊市首屏必须展示传法台入口');
+  assertMissing(marketReactTsx, /createPanelStore/, 'React 坊市静态首屏不应复制市场业务状态');
+  assertIncludes(
+    marketControllerTs,
+    /onOpenTransmission:\s*\(\)\s*=>\s*this\.openTransmissionFromPane\(\)/,
+    '市场控制器必须把 React 传法台入口桥接到现有权威交互链',
+  );
+  assertIncludes(
+    marketControllerTs,
+    /private renderPane\(\): void \{\s*mountReactMarketPanel\(\);\s*\}/s,
+    '坊市首屏必须只挂载 React 实现',
+  );
+  assertMissing(marketControllerTs, /private bindPaneEvents\(/, '市场控制器不应保留第二套 Native 首屏事件入口');
+  assertMissing(marketControllerTs, /data-transmission-open/, '市场控制器不应保留第二套 Native 传法台按钮');
+  assertMissing(
+    marketMountTsx,
+    /isReactPanelEnabled|shouldUseReactMarketPanel|syncReactMarketPanelState/,
+    '坊市 React 首屏不应再受双实现开关控制或维护重复状态',
+  );
+  assertMissing(panelFlagsTs, /['"]market['"]/, '坊市已完成单入口收敛，不应继续暴露 React/Native 切换开关');
+
   const gmFiles = [
     'src/gm.ts',
     'src/gm-map-editor.ts',
@@ -216,6 +242,7 @@ function main() {
       `main.ts=${mainLineCount}`,
       `socket.ts=${socketLineCount}`,
       'gm toolchain retained as isolated tooling',
+      'market panel retained as a single React entry',
     ].join('\n'),
   );
 }

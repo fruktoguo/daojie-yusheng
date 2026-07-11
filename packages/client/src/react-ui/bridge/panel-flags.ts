@@ -25,7 +25,6 @@ export type ReactPanelId =
   | 'chat'
   | 'technique'
   | 'attr'
-  | 'market'
   | 'inventory'
   | 'craft'
   | 'action';
@@ -43,7 +42,6 @@ const DEFAULT_ENABLED: Set<ReactPanelId> = new Set([
   'inventory',
   'loot',
   'mail',
-  'market',
   'quest',
   'settings',
   'technique',
@@ -79,7 +77,7 @@ function loadFlags(): Map<ReactPanelId, boolean> {
       const allPanels: ReactPanelId[] = [
         'changelog', 'world', 'loot', 'equipment', 'tutorial',
         'body-training', 'quest', 'gm', 'settings',
-        'mail', 'chat', 'technique', 'attr', 'market', 'inventory',
+        'mail', 'chat', 'technique', 'attr', 'inventory',
         'craft', 'action',
       ];
       for (const id of allPanels) {
@@ -140,7 +138,7 @@ export function registerPanelFlagApi(win: Window): void {
       const allPanels: ReactPanelId[] = [
         'changelog', 'world', 'loot', 'equipment', 'tutorial',
         'body-training', 'quest', 'gm', 'settings',
-        'mail', 'chat', 'technique', 'attr', 'market', 'inventory',
+        'mail', 'chat', 'technique', 'attr', 'inventory',
         'craft', 'action',
       ];
       const result: Record<string, string> = {};
