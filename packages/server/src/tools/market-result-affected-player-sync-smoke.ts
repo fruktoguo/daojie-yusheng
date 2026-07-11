@@ -29,6 +29,9 @@ async function main(): Promise<void> {
       buildAuctionListingsPage(playerId: string, request: unknown) {
         return { playerId, request, kind: 'auctionListings' };
       },
+      buildTransmissionListingsPage(playerId: string, request: unknown) {
+        return { playerId, request, kind: 'transmissionListings' };
+      },
       buildMarketUpdate(playerId: string) {
         return { playerId, kind: 'update' };
       },
@@ -55,10 +58,12 @@ async function main(): Promise<void> {
     {
       affectedPlayerIds: ['player:affected'],
       notices: [],
+      transmissionListingsChanged: true,
     },
     {
       marketListingRequests: new Map([['player:subscriber', { page: 3 }]]),
       auctionListingRequests: new Map([['player:subscriber', { tab: 'mine', page: 2 }]]),
+      transmissionListingRequests: new Map([['player:subscriber', { tab: 'participate', page: 4, sort: 'newest' }]]),
       marketTradeHistoryRequests: new Map(),
     },
   );
@@ -77,7 +82,29 @@ async function main(): Promise<void> {
   const affectedListing = emitted.find((entry) => entry.playerId === 'player:affected' && entry.event === S2C.MarketListings);
   assert.deepEqual((affectedListing?.payload as { request?: unknown } | undefined)?.request, { page: 1 });
   const subscriberEvents = emitted.filter((entry) => entry.playerId === 'player:subscriber').map((entry) => entry.event);
-  assert.deepEqual(subscriberEvents, [S2C.MarketListings, S2C.AuctionListings, S2C.MarketUpdate]);
+  assert.deepEqual(subscriberEvents, [S2C.MarketListings, S2C.AuctionListings, S2C.TransmissionListings, S2C.MarketUpdate]);
+  const subscriberTransmission = emitted.find((entry) => entry.playerId === 'player:subscriber' && entry.event === S2C.TransmissionListings);
+  assert.deepEqual(
+    (subscriberTransmission?.payload as { request?: unknown } | undefined)?.request,
+    { tab: 'participate', page: 4, sort: 'newest' },
+  );
+
+  emitted.length = 0;
+  await service.flushMarketResult(
+    new Set(['player:subscriber']),
+    { affectedPlayerIds: [], notices: [] },
+    {
+      marketListingRequests: new Map(),
+      auctionListingRequests: new Map(),
+      transmissionListingRequests: new Map([['player:subscriber', { page: 4 }]]),
+      marketTradeHistoryRequests: new Map(),
+    },
+  );
+  assert.equal(
+    emitted.some((entry) => entry.event === S2C.TransmissionListings),
+    false,
+    '普通坊市变更不应连带推送传法台分页',
+  );
 
   console.log(JSON.stringify({ ok: true, case: 'market-result-affected-player-sync' }, null, 2));
 }

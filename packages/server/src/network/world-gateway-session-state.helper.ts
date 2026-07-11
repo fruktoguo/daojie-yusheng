@@ -30,6 +30,8 @@ class WorldGatewaySessionStateHelper {
  */
 
     auctionListingRequestsByPlayerId = new Map();
+    /** 传法台分页请求；仅记录实际打开过传法台的玩家，避免普通坊市变更扩散详情包。 */
+    transmissionListingRequestsByPlayerId = new Map();
     /**
  * marketTradeHistoryRequestsByPlayerId：坊市TradeHistoryRequestBy玩家ID标识。
  */
@@ -59,6 +61,7 @@ class WorldGatewaySessionStateHelper {
         this.marketSubscriberPlayerIds.delete(binding.playerId);
         this.marketListingRequestsByPlayerId.delete(binding.playerId);
         this.auctionListingRequestsByPlayerId.delete(binding.playerId);
+        this.transmissionListingRequestsByPlayerId.delete(binding.playerId);
         this.marketTradeHistoryRequestsByPlayerId.delete(binding.playerId);
         this.playerRuntimeService.detachSession(binding.playerId);
         if (typeof this.playerRuntimeService.beginOfflineGainSession === 'function') {
@@ -116,6 +119,14 @@ class WorldGatewaySessionStateHelper {
     getAuctionListingsRequest(playerId) {
         return this.auctionListingRequestsByPlayerId.get(playerId);
     }
+    /** 记录玩家最后一次传法台分页条件，供真实订单变更后的定向刷新复用。 */
+    setTransmissionListingsRequest(playerId, request) {
+        this.transmissionListingRequestsByPlayerId.set(playerId, { ...(request ?? {}) });
+    }
+    /** 读取玩家最后一次传法台分页条件。 */
+    getTransmissionListingsRequest(playerId) {
+        return this.transmissionListingRequestsByPlayerId.get(playerId);
+    }
     /**
  * setMarketTradeHistoryRequest：写入坊市Trade历史Request。
  * @param playerId 玩家 ID。
@@ -152,6 +163,10 @@ class WorldGatewaySessionStateHelper {
 
     getAuctionListingRequests() {
         return this.auctionListingRequestsByPlayerId;
+    }
+    /** 读取已打开传法台玩家的分页请求映射。 */
+    getTransmissionListingRequests() {
+        return this.transmissionListingRequestsByPlayerId;
     }
     /**
  * getMarketTradeHistoryRequests：读取坊市Trade历史Request。

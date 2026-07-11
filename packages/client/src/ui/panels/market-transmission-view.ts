@@ -85,6 +85,13 @@ function replaceElementHtml(root: HTMLElement, html: string): void {
   root.replaceChildren(template.content.cloneNode(true));
 }
 
+function createButtonFromHtml(html: string): HTMLButtonElement | null {
+  const template = document.createElement('template');
+  template.innerHTML = html.trim();
+  const element = template.content.firstElementChild;
+  return element instanceof HTMLButtonElement ? element : null;
+}
+
 function normalizeInventoryItemInstanceId(value: unknown): string {
   return typeof value === 'string' && value.trim() ? value.trim() : '';
 }
@@ -122,9 +129,32 @@ export class MarketTransmissionView {
     detailModalHost.open(this.buildTransmissionModalOptions());
   }
 
-  /** 服务端下发新分页后通过宿主 patch，保留搜索焦点和各滚动容器位置。 */
-  patchTransmissionModal(): void {
-    detailModalHost.patch(this.buildTransmissionModalOptions());
+  /**
+   * 服务端分页回包只更新稳定壳体内的列表、计数和详情。
+   * 只有加载态首次切到完整壳体时才允许宿主重建 body。
+   */
+  patchTransmissionListingsState(): void {
+    const body = this.panel.getOpenTransmissionModalBody();
+    const listings = this.panel.transmissionListings;
+    if (!body || !listings) return;
+    const shell = body.querySelector<HTMLElement>('[data-transmission-shell]');
+    if (!shell) {
+      detailModalHost.patch(this.buildTransmissionModalOptions());
+      return;
+    }
+    const lots = this.getLots();
+    const currentKey = this.panel.selectedTransmissionItemKey;
+    const activeKey = currentKey && lots.some((lot) => lot.itemKey === currentKey)
+      ? currentKey
+      : lots[0]?.itemKey ?? '';
+    this.panel.selectedTransmissionItemKey = activeKey || null;
+    this.patchTransmissionTabs(body, listings);
+    this.patchTransmissionSummary(body, listings);
+    this.patchTransmissionFilters(body, listings);
+    this.patchTransmissionList(body, listings, lots, activeKey);
+    this.patchTransmissionDetail(body, listings, lots, activeKey);
+    this.patchTransmissionInventoryState();
+    this.preloadTechniqueTemplates();
   }
 
   /** 背包或钱包变化只更新相关节点，不重建传法台主界面。 */
@@ -138,6 +168,14 @@ export class MarketTransmissionView {
     body.querySelectorAll<HTMLElement>('[data-transmission-owned-currency]').forEach((node) => {
       node.textContent = formatDisplayInteger(ownedCurrency);
     });
+    const lots = this.getLots();
+    const selected = lots.find((lot) => lot.itemKey === this.panel.selectedTransmissionItemKey)
+      ?? lots[0]
+      ?? null;
+    const buyButton = body.querySelector<HTMLButtonElement>('[data-transmission-action="buy"]');
+    if (buyButton) {
+      buyButton.disabled = !selected || selected.isMine || ownedCurrency < selected.price;
+    }
     if (this.panel.transmissionConsignPanel.open) {
       this.patchTransmissionConsignItems();
     }
@@ -180,7 +218,7 @@ export class MarketTransmissionView {
   }
 
   /**
-   * 自创功法模板按当前可见拍品和可上架残卷去重补齐；模板回来后仍只 patch 当前弹层。
+   * 自创功法模板按当前可见拍品和可上架残卷去重补齐；模板回来后只更新受影响区域。
    */
   private preloadTechniqueTemplates(): void {
     const missing = new Set<string>();
@@ -199,7 +237,7 @@ export class MarketTransmissionView {
     void Promise.all([...missing].map((techniqueId) => contentResolver.fetchTechnique(techniqueId))).then(() => {
       if (!detailModalHost.isOpenFor(TRANSMISSION_MODAL_OWNER)) return;
       if (this.getTransmissionRequestKey() !== requestKey) return;
-      this.patchTransmissionModal();
+      this.patchTransmissionListingsState();
     });
   }
 
@@ -259,13 +297,18 @@ export class MarketTransmissionView {
     const activeKey = this.panel.selectedTransmissionItemKey ?? lots[0]?.itemKey ?? '';
     const selected = lots.find((lot) => lot.itemKey === activeKey) ?? null;
     return `
-      <div class="auction-house-shell transmission-house-shell">
+      <div class="auction-house-shell transmission-house-shell" data-transmission-shell>
         ${this.renderTabs(listings)}
         ${this.renderSummary(listings)}
         <div class="auction-house-board auction-house-board--transmission">
           ${this.renderFilterRail(listings)}
           ${this.renderListPanel(listings, lots, activeKey)}
-          <div class="auction-detail-panel transmission-detail-panel ui-surface-pane ui-surface-pane--stack" data-transmission-detail-panel>
+          <div
+            class="auction-detail-panel transmission-detail-panel ui-surface-pane ui-surface-pane--stack"
+            data-transmission-detail-panel
+            data-transmission-detail-item-key="${escapeHtmlAttr(selected?.itemKey ?? '')}"
+            data-transmission-detail-revision="${escapeHtmlAttr(this.buildTransmissionDetailRevision(selected, listings))}"
+          >
             ${this.renderDetail(selected, listings)}
           </div>
         </div>
@@ -282,8 +325,8 @@ export class MarketTransmissionView {
     return `
       <div class="auction-house-tabs" role="tablist" aria-label="${escapeHtmlAttr(t('market.tab.transmission', undefined))}">
         ${tabs.map((tab) => `
-          <button class="auction-house-tab ${this.panel.transmissionTab === tab.id ? 'active' : ''}" data-transmission-tab="${tab.id}" type="button">
-            ${escapeHtml(tab.label)} <small>${formatDisplayInteger(tab.count)}</small>
+          <button class="auction-house-tab ${this.panel.transmissionTab === tab.id ? 'active' : ''}" data-transmission-tab="${tab.id}" type="button" aria-selected="${this.panel.transmissionTab === tab.id ? 'true' : 'false'}">
+            ${escapeHtml(tab.label)} <small data-transmission-tab-count>${formatDisplayInteger(tab.count)}</small>
           </button>
         `).join('')}
       </div>
@@ -296,17 +339,17 @@ export class MarketTransmissionView {
       <div class="auction-house-summary transmission-house-summary">
         <div class="auction-summary-card ui-surface-card ui-surface-card--compact">
           <span>${escapeHtml(t('market.transmission.summary.active', undefined))}</span>
-          <strong>${formatDisplayInteger(listings.counts?.participate ?? 0)}</strong>
+          <strong data-transmission-summary="participate">${formatDisplayInteger(listings.counts?.participate ?? 0)}</strong>
           <small>${escapeHtml(t('market.transmission.summary.scroll-unit', undefined))}</small>
         </div>
         <div class="auction-summary-card ui-surface-card ui-surface-card--compact">
           <span>${escapeHtml(t('market.transmission.summary.mine', undefined))}</span>
-          <strong>${formatDisplayInteger(listings.counts?.mine ?? 0)}</strong>
+          <strong data-transmission-summary="mine">${formatDisplayInteger(listings.counts?.mine ?? 0)}</strong>
           <small>${escapeHtml(t('market.transmission.summary.listing', undefined))}</small>
         </div>
         <div class="auction-summary-card ui-surface-card ui-surface-card--compact">
           <span>${escapeHtml(t('market.transmission.summary.filtered', undefined))}</span>
-          <strong>${formatDisplayInteger(listings.total ?? 0)}</strong>
+          <strong data-transmission-summary="filtered">${formatDisplayInteger(listings.total ?? 0)}</strong>
           <small>${escapeHtml(t('market.transmission.summary.result', undefined))}</small>
         </div>
         <div class="auction-summary-card ui-surface-card ui-surface-card--compact">
@@ -347,9 +390,9 @@ export class MarketTransmissionView {
           <div class="market-list-toolbar-meta">${escapeHtml(t('market.transmission.category.label', undefined))}</div>
           <div class="auction-filter-buttons">
             ${categories.map((category) => `
-              <button class="auction-filter-button ${this.panel.transmissionCategory === category.id ? 'active' : ''}" data-transmission-category="${category.id}" type="button">
+              <button class="auction-filter-button ${this.panel.transmissionCategory === category.id ? 'active' : ''}" data-transmission-category="${category.id}" type="button" aria-pressed="${this.panel.transmissionCategory === category.id ? 'true' : 'false'}">
                 <span>${escapeHtml(category.label)}</span>
-                <strong>${formatDisplayInteger(category.count)}</strong>
+                <strong data-transmission-category-count>${formatDisplayInteger(category.count)}</strong>
               </button>
             `).join('')}
           </div>
@@ -366,16 +409,16 @@ export class MarketTransmissionView {
       ? 'market.transmission.empty.mine'
       : 'market.transmission.empty.participate';
     return `
-      <div class="auction-list-panel ui-surface-pane ui-surface-pane--stack">
+      <div class="auction-list-panel ui-surface-pane ui-surface-pane--stack" data-transmission-list-panel>
         <div class="auction-list-toolbar ui-action-row">
-          <div class="market-list-toolbar-meta">${escapeHtml(t('market.transmission.page-status', {
+          <div class="market-list-toolbar-meta" data-transmission-page-status>${escapeHtml(t('market.transmission.page-status', {
             total: formatDisplayInteger(listings.total ?? 0),
             page: formatDisplayInteger(page),
             totalPages: formatDisplayInteger(totalPages),
           }))}</div>
           <div class="market-list-toolbar-actions">
-            <button class="small-btn ghost" data-transmission-page="${page - 1}" type="button" ${page <= 1 ? 'disabled' : ''}>${escapeHtml(t('market.transmission.page.prev', undefined))}</button>
-            <button class="small-btn ghost" data-transmission-page="${page + 1}" type="button" ${page >= totalPages ? 'disabled' : ''}>${escapeHtml(t('market.transmission.page.next', undefined))}</button>
+            <button class="small-btn ghost" data-transmission-page="${page - 1}" data-transmission-page-direction="prev" type="button" ${page <= 1 ? 'disabled' : ''}>${escapeHtml(t('market.transmission.page.prev', undefined))}</button>
+            <button class="small-btn ghost" data-transmission-page="${page + 1}" data-transmission-page-direction="next" type="button" ${page >= totalPages ? 'disabled' : ''}>${escapeHtml(t('market.transmission.page.next', undefined))}</button>
             <button class="small-btn ghost" data-transmission-refresh type="button">${escapeHtml(t('market.auction.refresh', undefined))}</button>
           </div>
         </div>
@@ -385,10 +428,10 @@ export class MarketTransmissionView {
           <span>${escapeHtml(t('market.transmission.head.quality', undefined))}</span>
           <span>${escapeHtml(t('market.transmission.head.price', undefined))}</span>
         </div>
-        <div class="auction-list ui-scroll-panel">
+        <div class="auction-list ui-scroll-panel" data-transmission-list>
           ${lots.length > 0
             ? lots.map((lot) => this.renderLotRow(lot, activeKey)).join('')
-            : `<div class="empty-hint">${escapeHtml(t(emptyKey, undefined))}</div>`}
+            : `<div class="empty-hint" data-transmission-list-empty>${escapeHtml(t(emptyKey, undefined))}</div>`}
         </div>
       </div>
     `;
@@ -400,16 +443,17 @@ export class MarketTransmissionView {
         class="auction-lot-row transmission-lot-row ${lot.isMine ? 'auction-lot-row--mine' : ''} ${lot.itemKey === activeKey ? 'active' : ''}"
         data-transmission-select-item="${escapeHtmlAttr(lot.itemKey)}"
         data-ui-key="transmission:${escapeHtmlAttr(lot.itemKey)}"
+        aria-pressed="${lot.itemKey === activeKey ? 'true' : 'false'}"
         type="button"
       >
-        ${lot.isMine ? `<span class="auction-lot-ribbon" aria-hidden="true"><span>${escapeHtml(t('market.transmission.ribbon.mine', undefined))}</span></span>` : ''}
+        <span class="auction-lot-ribbon ${lot.isMine ? '' : 'hidden'}" data-transmission-lot-ribbon aria-hidden="true"><span>${escapeHtml(t('market.transmission.ribbon.mine', undefined))}</span></span>
         <span class="auction-lot-item">
-          <strong>${escapeHtml(lot.itemName)}</strong>
-          <small>${escapeHtml(lot.realmLevelLabel ?? lot.sellerLabel)}</small>
+          <strong data-transmission-lot-name>${escapeHtml(lot.itemName)}</strong>
+          <small data-transmission-lot-realm>${escapeHtml(lot.realmLevelLabel ?? lot.sellerLabel)}</small>
         </span>
-        <span>${escapeHtml(lot.categoryLabel)}</span>
-        <span class="auction-quality-tag">${escapeHtml(lot.qualityLabel)}</span>
-        <span class="transmission-lot-price">${this.panel.formatMarketUnitPrice(lot.price)}</span>
+        <span data-transmission-lot-category>${escapeHtml(lot.categoryLabel)}</span>
+        <span class="auction-quality-tag" data-transmission-lot-quality>${escapeHtml(lot.qualityLabel)}</span>
+        <span class="transmission-lot-price" data-transmission-lot-price>${this.panel.formatMarketUnitPrice(lot.price)}</span>
       </button>
     `;
   }
@@ -451,6 +495,196 @@ export class MarketTransmissionView {
           : `<button class="small-btn" data-transmission-action="buy" data-transmission-action-item="${escapeHtmlAttr(lot.itemKey)}" type="button" ${canBuy ? '' : 'disabled'}>${escapeHtml(t('market.transmission.action.buy', undefined))}</button>`}
       </div>
     `;
+  }
+
+  /** 标签、计数只改现有节点，绝不重建标签栏。 */
+  private patchTransmissionTabs(body: HTMLElement, listings: S2C_TransmissionListings): void {
+    const counts: Record<TransmissionPanelTab, number> = {
+      participate: listings.counts?.participate ?? 0,
+      mine: listings.counts?.mine ?? 0,
+    };
+    body.querySelectorAll<HTMLButtonElement>('[data-transmission-tab]').forEach((button) => {
+      const tab: TransmissionPanelTab = button.dataset.transmissionTab === 'mine' ? 'mine' : 'participate';
+      const active = tab === this.panel.transmissionTab;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-selected', active ? 'true' : 'false');
+      const count = button.querySelector<HTMLElement>('[data-transmission-tab-count]');
+      if (count) count.textContent = formatDisplayInteger(counts[tab]);
+    });
+  }
+
+  /** 汇总卡片只更新数值；上架按钮和钱包节点保持原引用。 */
+  private patchTransmissionSummary(body: HTMLElement, listings: S2C_TransmissionListings): void {
+    const values = new Map<string, number>([
+      ['participate', listings.counts?.participate ?? 0],
+      ['mine', listings.counts?.mine ?? 0],
+      ['filtered', listings.total ?? 0],
+    ]);
+    body.querySelectorAll<HTMLElement>('[data-transmission-summary]').forEach((node) => {
+      const value = values.get(node.dataset.transmissionSummary ?? '');
+      if (value !== undefined) node.textContent = formatDisplayInteger(value);
+    });
+  }
+
+  /** 筛选回包不得覆盖仍在输入中的搜索框，也不得重建筛选栏。 */
+  private patchTransmissionFilters(body: HTMLElement, listings: S2C_TransmissionListings): void {
+    const search = body.querySelector<HTMLInputElement>('[data-transmission-search]');
+    if (search && document.activeElement !== search && search.value !== this.panel.transmissionSearchQuery) {
+      search.value = this.panel.transmissionSearchQuery;
+    }
+    const sort = body.querySelector<HTMLSelectElement>('[data-transmission-sort]');
+    if (sort && sort.value !== this.panel.transmissionSort) {
+      sort.value = this.panel.transmissionSort;
+    }
+    const categoryCounts = listings.counts?.categoryCounts;
+    body.querySelectorAll<HTMLButtonElement>('[data-transmission-category]').forEach((button) => {
+      const raw = button.dataset.transmissionCategory;
+      const category: TransmissionCategoryFilter = TRANSMISSION_CATEGORIES.includes(raw as TechniqueCategory)
+        ? raw as TechniqueCategory
+        : 'all';
+      const active = category === this.panel.transmissionCategory;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-pressed', active ? 'true' : 'false');
+      const count = button.querySelector<HTMLElement>('[data-transmission-category-count]');
+      if (count) count.textContent = formatDisplayInteger(categoryCounts?.[category] ?? 0);
+    });
+  }
+
+  /** 当前页列表按 itemKey 复用行节点；新增、下架和换序只影响对应行。 */
+  private patchTransmissionList(
+    body: HTMLElement,
+    listings: S2C_TransmissionListings,
+    lots: TransmissionLotView[],
+    activeKey: string,
+  ): void {
+    const pageSize = Math.max(1, listings.pageSize || TRANSMISSION_PAGE_SIZE);
+    const totalPages = Math.max(1, Math.ceil((listings.total ?? 0) / pageSize));
+    const page = Math.max(1, listings.page ?? 1);
+    const status = body.querySelector<HTMLElement>('[data-transmission-page-status]');
+    if (status) {
+      status.textContent = t('market.transmission.page-status', {
+        total: formatDisplayInteger(listings.total ?? 0),
+        page: formatDisplayInteger(page),
+        totalPages: formatDisplayInteger(totalPages),
+      });
+    }
+    const previous = body.querySelector<HTMLButtonElement>('[data-transmission-page-direction="prev"]');
+    if (previous) {
+      previous.dataset.transmissionPage = String(page - 1);
+      previous.disabled = page <= 1;
+    }
+    const next = body.querySelector<HTMLButtonElement>('[data-transmission-page-direction="next"]');
+    if (next) {
+      next.dataset.transmissionPage = String(page + 1);
+      next.disabled = page >= totalPages;
+    }
+    const list = body.querySelector<HTMLElement>('[data-transmission-list]');
+    if (!list) return;
+    const scrollTop = list.scrollTop;
+    if (lots.length === 0) {
+      const emptyKey = this.panel.transmissionTab === 'mine'
+        ? 'market.transmission.empty.mine'
+        : 'market.transmission.empty.participate';
+      const currentEmpty = list.querySelector<HTMLElement>('[data-transmission-list-empty]');
+      if (!currentEmpty || list.children.length !== 1) {
+        replaceElementHtml(list, `<div class="empty-hint" data-transmission-list-empty>${escapeHtml(t(emptyKey, undefined))}</div>`);
+      } else {
+        currentEmpty.textContent = t(emptyKey, undefined);
+      }
+      list.scrollTop = scrollTop;
+      return;
+    }
+    const existing = new Map<string, HTMLButtonElement>();
+    list.querySelectorAll<HTMLButtonElement>('[data-transmission-select-item]').forEach((row) => {
+      const itemKey = row.dataset.transmissionSelectItem;
+      if (itemKey) existing.set(itemKey, row);
+    });
+    const ordered: HTMLButtonElement[] = [];
+    for (const lot of lots) {
+      let row = existing.get(lot.itemKey) ?? null;
+      if (!row || !this.patchTransmissionLotRow(row, lot, activeKey)) {
+        row = createButtonFromHtml(this.renderLotRow(lot, activeKey));
+      }
+      if (!row) continue;
+      existing.delete(lot.itemKey);
+      ordered.push(row);
+    }
+    existing.forEach((row) => row.remove());
+    this.syncTransmissionListChildren(list, ordered);
+    list.scrollTop = scrollTop;
+  }
+
+  private patchTransmissionLotRow(row: HTMLButtonElement, lot: TransmissionLotView, activeKey: string): boolean {
+    const ribbon = row.querySelector<HTMLElement>('[data-transmission-lot-ribbon]');
+    const name = row.querySelector<HTMLElement>('[data-transmission-lot-name]');
+    const realm = row.querySelector<HTMLElement>('[data-transmission-lot-realm]');
+    const category = row.querySelector<HTMLElement>('[data-transmission-lot-category]');
+    const quality = row.querySelector<HTMLElement>('[data-transmission-lot-quality]');
+    const price = row.querySelector<HTMLElement>('[data-transmission-lot-price]');
+    if (!ribbon || !name || !realm || !category || !quality || !price) return false;
+    const active = lot.itemKey === activeKey;
+    row.dataset.transmissionSelectItem = lot.itemKey;
+    row.dataset.uiKey = `transmission:${lot.itemKey}`;
+    row.classList.toggle('auction-lot-row--mine', lot.isMine);
+    row.classList.toggle('active', active);
+    row.setAttribute('aria-pressed', active ? 'true' : 'false');
+    ribbon.classList.toggle('hidden', !lot.isMine);
+    name.textContent = lot.itemName;
+    realm.textContent = lot.realmLevelLabel ?? lot.sellerLabel;
+    category.textContent = lot.categoryLabel;
+    quality.textContent = lot.qualityLabel;
+    price.textContent = this.panel.formatMarketUnitPrice(lot.price);
+    return true;
+  }
+
+  private syncTransmissionListChildren(container: HTMLElement, ordered: HTMLButtonElement[]): void {
+    const allowed = new Set<HTMLElement>(ordered);
+    for (const child of Array.from(container.children)) {
+      if (!(child instanceof HTMLElement) || !allowed.has(child)) child.remove();
+    }
+    let reference: ChildNode | null = container.firstChild;
+    for (const row of ordered) {
+      if (reference !== row) container.insertBefore(row, reference);
+      reference = row.nextSibling;
+    }
+  }
+
+  /** 只有选中拍品的可见语义变化时才替换右侧详情，不受无关计数推送影响。 */
+  private patchTransmissionDetail(
+    body: HTMLElement,
+    listings: S2C_TransmissionListings,
+    lots: TransmissionLotView[],
+    activeKey: string,
+  ): void {
+    const detail = body.querySelector<HTMLElement>('[data-transmission-detail-panel]');
+    if (!detail) return;
+    const selected = lots.find((lot) => lot.itemKey === activeKey) ?? null;
+    const revision = this.buildTransmissionDetailRevision(selected, listings);
+    if (
+      detail.dataset.transmissionDetailItemKey !== (selected?.itemKey ?? '')
+      || detail.dataset.transmissionDetailRevision !== revision
+    ) {
+      replaceElementHtml(detail, this.renderDetail(selected, listings));
+      detail.dataset.transmissionDetailItemKey = selected?.itemKey ?? '';
+      detail.dataset.transmissionDetailRevision = revision;
+      this.panel.bindItemTooltipEvents(detail);
+    }
+  }
+
+  private buildTransmissionDetailRevision(lot: TransmissionLotView | null, listings: S2C_TransmissionListings): string {
+    if (!lot) return `empty␟${listings.currencyItemName}`;
+    return [
+      lot.itemKey,
+      lot.itemName,
+      lot.realmLevelLabel ?? '',
+      lot.qualityLabel,
+      lot.categoryLabel,
+      lot.price,
+      lot.sellerLabel,
+      lot.isMine ? 1 : 0,
+      lot.orderId,
+      listings.currencyItemName,
+    ].join('␟');
   }
 
   private bindTransmissionEvents(body: HTMLElement, signal: AbortSignal): void {
@@ -549,12 +783,16 @@ export class MarketTransmissionView {
     if (!lot) return;
     this.panel.selectedTransmissionItemKey = itemKey;
     body.querySelectorAll<HTMLElement>('[data-transmission-select-item]').forEach((node) => {
-      node.classList.toggle('active', node.dataset.transmissionSelectItem === itemKey);
+      const active = node.dataset.transmissionSelectItem === itemKey;
+      node.classList.toggle('active', active);
+      node.setAttribute('aria-pressed', active ? 'true' : 'false');
     });
     const detail = body.querySelector<HTMLElement>('[data-transmission-detail-panel]');
     const listings = this.panel.transmissionListings;
     if (!detail || !listings) return;
     replaceElementHtml(detail, this.renderDetail(lot, listings));
+    detail.dataset.transmissionDetailItemKey = lot.itemKey;
+    detail.dataset.transmissionDetailRevision = this.buildTransmissionDetailRevision(lot, listings);
     this.panel.bindItemTooltipEvents(detail);
   }
 
@@ -857,10 +1095,6 @@ export class MarketTransmissionView {
       itemInstanceId: null,
       unitPrice,
     };
-    this.panel.transmissionTab = 'mine';
-    this.panel.transmissionPage = 1;
-    this.panel.selectedTransmissionItemKey = null;
-    this.panel.requestTransmissionListings(1);
     this.closeInlineTransmissionConsignModal();
   }
 

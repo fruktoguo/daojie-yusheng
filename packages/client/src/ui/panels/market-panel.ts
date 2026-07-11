@@ -14,6 +14,7 @@ import {
   computeBestEnhancementExpectedCost,
   calculateHeavenlyDaoShopDiscountedPrice,
   calculateMarketTradeTotalCost,
+  clonePlainValue,
   createItemStackSignature,
   EnhancementExpectedCostStrategy,
   AUCTION_DEFAULT_DURATION_HOURS,
@@ -48,6 +49,7 @@ import {
   TransmissionListingSort,
   getItemDisplayName,
   getMarketPriceStep,
+  isPlainEqual,
   normalizeMarketPriceDown,
   normalizeMarketPriceUp,
   normalizeMarketRequestPage,
@@ -396,10 +398,16 @@ export class MarketPanel {
   private itemBook: MarketOrderBookView | null = null;
   /** 最近一次列表分页数据，供筛选和翻页回填。 */
   private marketListings: S2C_MarketListings | null = null;
+  /** 普通坊市独立语义快照，过滤其他交易分区带来的重复分页包。 */
+  private marketListingsSnapshot: S2C_MarketListings | null = null;
   /** 最近一次拍卖行分页数据，服务端已经按筛选和页码裁剪。 */
   private auctionListings: S2C_AuctionListings | null = null;
+  /** 拍卖行独立语义快照，重复行情包不触碰搜索、列表和详情 DOM。 */
+  private auctionListingsSnapshot: S2C_AuctionListings | null = null;
   /** 最近一次传法台分页数据。 */
   private transmissionListings: S2C_TransmissionListings | null = null;
+  /** 独立保存的传法台语义快照，避免上游复用并原地修改对象时漏掉真实变化。 */
+  private transmissionListingsSnapshot: S2C_TransmissionListings | null = null;
   /** 传法台当前标签页。 */
   private transmissionTab: TransmissionPanelTab = 'participate';
   /** 传法台当前页码。 */
@@ -583,6 +591,8 @@ export class MarketPanel {
       }
       this.patchAuctionConsignModalState();
       this.syncTradeDialogOverlay();
+    } else if (detailModalHost.isOpenFor(MarketTransmissionView.modalOwner)) {
+      this.transmissionView.patchTransmissionInventoryState();
     } else if (detailModalHost.isOpenFor(MarketPanel.AUCTION_CONSIGN_MODAL_OWNER)) {
       this.patchAuctionConsignModalState();
     } else if (shouldPatchHeavenlyDaoShop) {
@@ -645,8 +655,7 @@ export class MarketPanel {
     } else if (auctionModalOpen) {
       this.patchAuctionModalLiveState();
     } else if (transmissionModalOpen) {
-      // 寄售/成交后服务端只推 MarketUpdate，传法台分页需要重新拉取才能反映上下架。
-      this.requestTransmissionListings(this.transmissionPage);
+      // 普通坊市与拍卖变化不再牵动传法台；真实传法台订单变化由服务端定向推送分页。
       this.transmissionView.patchTransmissionInventoryState();
     } else if (auctionConsignModalOpen) {
       this.patchAuctionConsignModalState();
@@ -678,9 +687,12 @@ export class MarketPanel {
         return;
       }
     }
+    const listingsChanged = !isPlainEqual(this.marketListingsSnapshot, data);
+    if (listingsChanged) this.marketListingsSnapshot = clonePlainValue(data);
+    this.marketListings = data;
+    if (!listingsChanged) return;
     this.invalidateItemBookCache();
     const marketModalOpen = detailModalHost.isOpenFor(MarketPanel.MODAL_OWNER);
-    this.marketListings = data;
     this.currentPage = Math.max(1, Math.floor(Number.isFinite(data.page) ? data.page : 1));
     this.activeCategory = data.category;
     this.activeEquipmentCategory = data.category === 'equipment' ? data.equipmentSlot : 'all';
@@ -708,7 +720,7 @@ export class MarketPanel {
     }
   }
 
-  /** 更新拍卖行分页数据。 */
+  /** 更新传法台分页数据。 */
   updateTransmissionListings(data: S2C_TransmissionListings): void {
     // 竞态守卫：快速切 tab / 翻页时旧响应可能晚于新请求到达，过期包直接丢弃。
     if (this.pendingTransmissionRequest !== null) {
@@ -724,8 +736,21 @@ export class MarketPanel {
         return;
       }
     }
-    this.invalidateItemBookCache();
+    // 当前输入草稿可能已经变化，但防抖请求尚未发出；此时任何旧条件回包都不能覆盖输入。
+    if (
+      data.tab !== this.transmissionTab
+      || normalizeMarketAuctionQuery(data.query) !== normalizeMarketAuctionQuery(this.transmissionSearchQuery)
+      || normalizeTransmissionCategory(data.category) !== normalizeTransmissionCategory(this.transmissionCategory)
+      || normalizeTransmissionListingSort(data.sort) !== normalizeTransmissionListingSort(this.transmissionSort)
+      || normalizeMarketRequestPage(data.page) !== resolveClampedMarketResponsePage(this.transmissionPage, data.total, data.pageSize)
+    ) {
+      return;
+    }
+    const listingsChanged = !isPlainEqual(this.transmissionListingsSnapshot, data);
+    if (listingsChanged) this.transmissionListingsSnapshot = clonePlainValue(data);
     this.transmissionListings = data;
+    if (!listingsChanged) return;
+    this.invalidateItemBookCache();
     this.transmissionTab = data.tab;
     this.transmissionSearchQuery = data.query ?? '';
     this.transmissionCategory = normalizeTransmissionCategory(data.category);
@@ -736,7 +761,8 @@ export class MarketPanel {
       this.selectedTransmissionItemKey = null;
     }
     if (detailModalHost.isOpenFor(MarketTransmissionView.modalOwner)) {
-      this.transmissionView.patchTransmissionModal();
+      this.transmissionView.patchTransmissionInventoryState();
+      this.transmissionView.patchTransmissionListingsState();
     }
   }
 
@@ -757,12 +783,15 @@ export class MarketPanel {
         return;
       }
     }
-    this.invalidateItemBookCache();
     const previousListings = this.auctionListings;
+    const listingsChanged = !isPlainEqual(this.auctionListingsSnapshot, data);
+    if (listingsChanged) this.auctionListingsSnapshot = clonePlainValue(data);
+    this.auctionListings = data;
+    if (!listingsChanged) return;
+    this.invalidateItemBookCache();
     const previousSelectedAuctionItemKey = this.selectedAuctionItemKey;
     const canPatchOpenModal = detailModalHost.isOpenFor(MarketPanel.AUCTION_MODAL_OWNER)
       && this.canPatchAuctionListingsInPlace(previousListings, data);
-    this.auctionListings = data;
     if (this.auctionTab !== 'history') {
       this.auctionTab = data.tab;
     }
@@ -946,8 +975,11 @@ export class MarketPanel {
     this.marketUpdate = null;
     this.itemBook = null;
     this.marketListings = null;
+    this.marketListingsSnapshot = null;
     this.auctionListings = null;
+    this.auctionListingsSnapshot = null;
     this.transmissionListings = null;
+    this.transmissionListingsSnapshot = null;
     this.transmissionTab = 'participate';
     this.transmissionPage = 1;
     this.transmissionSearchQuery = '';

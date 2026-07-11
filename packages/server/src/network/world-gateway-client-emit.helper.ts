@@ -15,6 +15,7 @@ import { WorldClientEventService } from './world-client-event.service';
 interface MarketFlushRequestSnapshot {
     marketListingRequests: Map<string, unknown>;
     auctionListingRequests: Map<string, unknown>;
+    transmissionListingRequests: Map<string, unknown>;
     marketTradeHistoryRequests: Map<string, unknown>;
 }
 

@@ -814,7 +814,7 @@ export class MarketRuntimeService {
                 else if (listingMode === 'transmission') {
                     this.registerTransmissionLot(order);
                 }
-                this.markOrderDirty(order.id, context);
+                this.markOrderDirty(order.id, context, order);
                 if (listingMode === 'auction') {
                     const listingText = `已寄拍 ${getItemDisplayName(orderItem)} x${remaining}，整包总价 ${this.formatUnitPrice(unitPrice)} ${this.getCurrencyItemName()}，已收上架费 ${this.formatUnitPrice(auctionListingFee)} ${this.getCurrencyItemName()}。`;
                     this.pushStructuredNotice(result, playerId, 'success', 'notice.market.auction.consigned', listingText, {
@@ -1207,7 +1207,7 @@ export class MarketRuntimeService {
             order.status = 'cancelled';
             order.remainingQuantity = 0;
             order.updatedAt = Date.now();
-            this.deleteOrder(order.id, context);
+            this.deleteOrder(order.id, context, order);
             this.compactOpenOrders();
             const durableCommitted = await this.commitDurableMarketMutationIfAvailable(context, playerId, 'market_cancel_order', {
                 operationId: payload?.operationId ?? payload?.requestId,
@@ -1291,7 +1291,7 @@ export class MarketRuntimeService {
                 order.status = 'cancelled';
                 order.remainingQuantity = 0;
                 order.updatedAt = now;
-                this.deleteOrder(order.id, context);
+                this.deleteOrder(order.id, context, order);
                 mutationResult.cancelledOrderIds.push(order.id);
                 this.touchAffectedPlayer(mutationResult, normalizedPlayerId);
             }
@@ -1869,7 +1869,7 @@ export class MarketRuntimeService {
             }, context);
             sellOrder.remainingQuantity -= tradeQuantity;
             sellOrder.updatedAt = Date.now();
-            this.markOrderDirty(sellOrder.id, context);
+            this.markOrderDirty(sellOrder.id, context, sellOrder);
             this.touchAffectedPlayer(result, sellOrder.ownerId);
             this.pushStructuredNotice(result, playerId, 'success', 'notice.market.auction.buyout-buyer', `你在拍卖行一口价竞得了 ${getItemDisplayName(sellOrder.item)} x${tradeQuantity}，一口价支付 ${this.getCurrencyItemName()} x${totalCost}。`, {
                 vars: { itemName: getItemDisplayName(sellOrder.item), quantity: tradeQuantity, currencyName: this.getCurrencyItemName(), totalPrice: totalCost },
@@ -1881,7 +1881,7 @@ export class MarketRuntimeService {
             });
             if (sellOrder.remainingQuantity <= 0) {
                 sellOrder.status = 'filled';
-                this.deleteOrder(sellOrder.id, context);
+                this.deleteOrder(sellOrder.id, context, sellOrder);
             }
             this.clearAuctionStateForItemKey(itemKey, context);
             this.compactOpenOrders();
@@ -2203,7 +2203,7 @@ export class MarketRuntimeService {
             }, context);
             sellOrder.remainingQuantity -= tradeQuantity;
             sellOrder.updatedAt = Date.now();
-            this.markOrderDirty(sellOrder.id, context);
+            this.markOrderDirty(sellOrder.id, context, sellOrder);
             this.touchAffectedPlayer(result, sellOrder.ownerId);
             this.pushStructuredNotice(result, playerId, 'success', 'notice.market.transmission.bought', `你在传法台求得 ${itemName}，付出 ${this.getCurrencyItemName()} x${totalCost}。`, {
                 vars: { itemName, currencyName: this.getCurrencyItemName(), totalPrice: totalCost },
@@ -2215,7 +2215,7 @@ export class MarketRuntimeService {
             });
             if (sellOrder.remainingQuantity <= 0) {
                 sellOrder.status = 'filled';
-                this.deleteOrder(sellOrder.id, context);
+                this.deleteOrder(sellOrder.id, context, sellOrder);
             }
             this.compactOpenOrders();
                 const durableCommitted = await this.commitDurableMarketMutationIfAvailable(context, playerId, 'market_transmission_buyout', {
@@ -3772,9 +3772,12 @@ export class MarketRuntimeService {
  * @returns 无返回值，直接更新订单Dirty相关状态。
  */
 
-    markOrderDirty(orderId, context) {
+    markOrderDirty(orderId, context, order = null) {
         context.dirtyOrderIds.add(orderId);
         context.deletedOrderIds.delete(orderId);
+        if (this.isTransmissionOrder(order)) {
+            context.transmissionListingsChanged = true;
+        }
     }
     /**
  * deleteOrder：处理订单并更新相关状态。
@@ -3783,9 +3786,12 @@ export class MarketRuntimeService {
  * @returns 无返回值，直接更新订单相关状态。
  */
 
-    deleteOrder(orderId, context) {
+    deleteOrder(orderId, context, order = null) {
         context.deletedOrderIds.add(orderId);
         context.dirtyOrderIds.delete(orderId);
+        if (this.isTransmissionOrder(order)) {
+            context.transmissionListingsChanged = true;
+        }
     }
     /**
  * compactOpenOrders：执行compactOpen订单相关逻辑。
@@ -4077,6 +4083,7 @@ export class MarketRuntimeService {
             deletedOrderIds: new Set(),
             dirtyStoragePlayerIds: new Set(),
             newTradeRecords: [],
+            transmissionListingsChanged: false,
             skipPersistence: false,
         };
     }
@@ -4157,6 +4164,9 @@ export class MarketRuntimeService {
                 if (context.newTradeRecords.length > 0 && result && typeof result === 'object') {
                     result.tradeHistoryPlayerIds = Array.from(new Set(context.newTradeRecords.flatMap((entry) => [entry.buyerId, entry.sellerId])));
                 }
+                if (context.transmissionListingsChanged && result && typeof result === 'object') {
+                    result.transmissionListingsChanged = true;
+                }
                 if (!context.skipPersistence) {
                     await this.marketPersistenceService.persistMutation({
                         upsertOrders: this.openOrders
@@ -4202,6 +4212,7 @@ export class MarketRuntimeService {
                         alreadyCommitted: true,
                         banCommitted: true,
                         cancelledOrderIds: [],
+                        ...(context.transmissionListingsChanged ? { transmissionListingsChanged: true } : {}),
                     };
                 }
                 this.restoreMutationContext(context);
@@ -4214,7 +4225,10 @@ export class MarketRuntimeService {
                             `坊市订单冲突后刷新失败: ${reloadError instanceof Error ? reloadError.stack : String(reloadError)}`,
                         );
                     }
-                    return this.singleMessage(playerId, '坊市订单已发生变化，已刷新最新状态，请重试。', 'warn');
+                    return {
+                        ...this.singleMessage(playerId, '坊市订单已发生变化，已刷新最新状态，请重试。', 'warn'),
+                        ...(context.transmissionListingsChanged ? { transmissionListingsChanged: true } : {}),
+                    };
                 }
                 this.logger.error(`坊市结算失败，已回滚: ${message}`);
                 return this.singleMessage(playerId, '坊市结算失败，已回滚本次操作。', 'warn');

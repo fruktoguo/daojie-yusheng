@@ -24,7 +24,7 @@ type MarketInternals = {
     sort: string;
     total: number;
   };
-  buyTransmissionLot(playerId: string, payload: LooseRecord): Promise<{ notices: LooseRecord[] }>;
+  buyTransmissionLot(playerId: string, payload: LooseRecord): Promise<{ notices: LooseRecord[]; transmissionListingsChanged?: boolean }>;
 };
 
 function scroll(instanceId: string, techniqueId: string, name: string): LooseRecord {

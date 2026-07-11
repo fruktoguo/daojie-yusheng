@@ -288,6 +288,7 @@ class WorldGatewayMarketHelper {
         }
         try {
             this.gateway.gatewaySessionStateHelper.subscribeMarket(playerId);
+            this.gateway.gatewaySessionStateHelper.setTransmissionListingsRequest(playerId, payload ?? {});
             this.gateway.worldClientEventService.markProtocol(client, 'mainline');
             this.gateway.worldClientEventService.emitTransmissionListings(client, this.gateway.marketRuntimeService.buildTransmissionListingsPage(playerId, payload));
         }

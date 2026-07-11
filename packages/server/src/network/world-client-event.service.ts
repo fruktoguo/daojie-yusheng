@@ -473,6 +473,16 @@ export class WorldClientEventService {
         return { tab: 'participate', page: 1, pageSize: 10, category: 'all', query: '' };
     }
     /**
+     * 读取传法台最后一次分页请求。未打开过传法台的玩家返回 null，避免发送无用详情包。
+     */
+    resolveTransmissionListingsRequest(playerId, listingRequests) {
+        if (!(listingRequests instanceof Map)) {
+            return null;
+        }
+        const request = listingRequests.get(playerId);
+        return request && typeof request === 'object' ? request : null;
+    }
+    /**
  * resolveMarketTradeHistoryPage：判断坊市Trade历史Page是否满足条件。
  * @param playerId 玩家 ID。
  * @param tradeHistoryRequests 参数说明。
@@ -544,12 +554,21 @@ export class WorldClientEventService {
                 if (options?.auctionListingRequests instanceof Map) {
                     options.auctionListingRequests.delete(subscriberPlayerId);
                 }
+                if (options?.transmissionListingRequests instanceof Map) {
+                    options.transmissionListingRequests.delete(subscriberPlayerId);
+                }
                 continue;
             }
             const listingRequest = this.resolveMarketListingsRequest(subscriberPlayerId, options?.marketListingRequests);
             this.emitMarketListings(socket, this.marketRuntimeService.buildMarketListingsPage(listingRequest));
             const auctionListingRequest = this.resolveAuctionListingsRequest(subscriberPlayerId, options?.auctionListingRequests);
             this.emitAuctionListings(socket, this.marketRuntimeService.buildAuctionListingsPage(subscriberPlayerId, auctionListingRequest));
+            if (result?.transmissionListingsChanged === true) {
+                const transmissionRequest = this.resolveTransmissionListingsRequest(subscriberPlayerId, options?.transmissionListingRequests);
+                if (transmissionRequest) {
+                    this.emitTransmissionListings(socket, this.marketRuntimeService.buildTransmissionListingsPage(subscriberPlayerId, transmissionRequest));
+                }
+            }
             this.emitMarketUpdate(socket, this.marketRuntimeService.buildMarketUpdate(subscriberPlayerId));
         }
         for (const tradeHistoryPlayerId of tradeHistoryPlayerIds) {

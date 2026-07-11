@@ -254,6 +254,7 @@ class WorldGateway implements WorldGatewayHelperContext {
             {
                 marketListingRequests: this.gatewaySessionStateHelper.getMarketListingRequests(),
                 auctionListingRequests: this.gatewaySessionStateHelper.getAuctionListingRequests(),
+                transmissionListingRequests: this.gatewaySessionStateHelper.getTransmissionListingRequests(),
                 marketTradeHistoryRequests: this.gatewaySessionStateHelper.getMarketTradeHistoryRequests(),
             },
         );

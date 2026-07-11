@@ -19,11 +19,11 @@ type MarketInternals = {
     sort: string;
     total: number;
   };
-  buyTransmissionLot(playerId: string, payload: LooseRecord): Promise<{ notices: LooseRecord[] }>;
+  buyTransmissionLot(playerId: string, payload: LooseRecord): Promise<{ notices: LooseRecord[]; transmissionListingsChanged?: boolean }>;
 };
 
 type MarketFacade = {
-  createSellOrder(playerId: string, payload: LooseRecord): Promise<{ notices: LooseRecord[] }>;
+  createSellOrder(playerId: string, payload: LooseRecord): Promise<{ notices: LooseRecord[]; transmissionListingsChanged?: boolean }>;
   createBuyOrder(playerId: string, payload: LooseRecord): Promise<{ notices: LooseRecord[] }>;
   buildMarketListingsPage(payload: LooseRecord): { items: LooseRecord[] };
   buildMarketOrders(playerId: string): { orders: LooseRecord[] };
@@ -77,6 +77,7 @@ export async function runTransmissionAssertions(
   // 5. 两卷不同功法的残卷各自寄售，必须是两条独立的单。
   const consignA = await service.createSellOrder(sellerId, { itemRef: { itemInstanceId: 'seller-scroll-a' }, quantity: 1, unitPrice: 12, listingMode: 'transmission' });
   assert.ok(noticeText(consignA).includes('传法台寄售'), noticeText(consignA));
+  assert.equal(consignA.transmissionListingsChanged, true, '传法台上架没有标记分页刷新');
   await service.createSellOrder(sellerId, { itemRef: { itemInstanceId: 'seller-scroll-b' }, quantity: 1, unitPrice: 20, listingMode: 'transmission' });
   assert.equal(internals.openOrders.length, 2, '同 itemId 的两卷残卷被合并成了一条挂单');
   assert.equal(internals.openOrders.every((order) => order.listingMode === 'transmission'), true);
@@ -131,6 +132,7 @@ export async function runTransmissionAssertions(
   const buyerBalanceBefore = buyerPlayer.wallet.balances[0].balance;
   const bought = await internals.buyTransmissionLot(buyerId, { itemKey: lotA.itemKey });
   assert.ok(noticeText(bought).includes('传法台求得'), noticeText(bought));
+  assert.equal(bought.transmissionListingsChanged, true, '传法台成交没有标记分页刷新');
   const received = buyerPlayer.inventory.items.find((item) => item.itemId === CUSTOM_TECHNIQUE_BOOK_ITEM_ID);
   assert.ok(received, '买家没有收到功法残卷');
   assert.equal(received.learnTechniqueId, 'gen_aaa', '买家收到的是空书：learnTechniqueId 在成交链路被剥离');

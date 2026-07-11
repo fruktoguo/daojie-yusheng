@@ -3,7 +3,7 @@
  *
  * 维护时优先保持局部更新和原有交互状态，不在 UI 层裁定资产、战斗或移动合法性。
  */
-import { Inventory, S2C_NpcQuests, PlayerState, QuestState } from '@mud/shared';
+import { clonePlainValue, Inventory, isPlainEqual, S2C_NpcQuests, PlayerState, QuestState } from '@mud/shared';
 import { getLocalItemTemplate } from '../content/local-templates';
 import { getQuestLineLabel, getQuestStatusLabel } from '../domain-labels';
 import { detailModalHost } from './detail-modal-host';
@@ -115,6 +115,10 @@ export class NpcQuestModal {
   private state: HydratedNpcQuests | null = null;
   /** selectedQuestId：selected任务ID。 */
   private selectedQuestId: string | null = null;
+  /** 当前详情已渲染的独立任务快照，重复回包不触碰 DOM。 */
+  private renderedDetailQuestSnapshot: QuestState | null = null;
+  /** 当前详情依赖背包的语义签名；无关背包变化不触碰详情子节点。 */
+  private renderedInventoryDetailSignature = 'none';
 
   /** setCallbacks：处理set Callbacks。 */
   setCallbacks(callbacks: NpcQuestModalCallbacks): void {
@@ -132,9 +136,6 @@ export class NpcQuestModal {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     this.currentMapId = mapId;
-    if (detailModalHost.isOpenFor(NpcQuestModal.MODAL_OWNER)) {
-      this.render();
-    }
   }
 
   /** syncInventory：同步背包。 */
@@ -142,9 +143,7 @@ export class NpcQuestModal {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     this.inventory = inventory;
-    if (detailModalHost.isOpenFor(NpcQuestModal.MODAL_OWNER)) {
-      this.render();
-    }
+    this.patchInventoryDependentDetail();
   }
 
   /** openPending：打开待处理。 */
@@ -204,6 +203,8 @@ export class NpcQuestModal {
     this.loading = false;
     this.state = null;
     this.selectedQuestId = null;
+    this.renderedDetailQuestSnapshot = null;
+    this.renderedInventoryDetailSignature = 'none';
     this.inventory = { items: [], capacity: 0 };
     detailModalHost.close(NpcQuestModal.MODAL_OWNER);
   }
@@ -395,7 +396,43 @@ export class NpcQuestModal {
 
   /** syncQuestDetail：刷新详情区内容。 */
   private syncQuestDetail(detailRoot: HTMLElement, selected: QuestState): void {
+    if (detailRoot.childElementCount > 0 && isPlainEqual(this.renderedDetailQuestSnapshot, selected)) {
+      this.patchInventoryDependentDetail(detailRoot, selected);
+      return;
+    }
     replaceElementHtml(detailRoot, this.renderQuestDetail(selected));
+    this.renderedDetailQuestSnapshot = clonePlainValue(selected);
+    this.renderedInventoryDetailSignature = this.buildInventoryDependentDetailSignature(selected);
+  }
+
+  /** 背包变化只影响任务进度、下一步与提交物数量，不重建任务详情或操作按钮。 */
+  private patchInventoryDependentDetail(
+    detailRoot?: HTMLElement,
+    selected?: QuestState,
+  ): void {
+    if (!detailModalHost.isOpenFor(NpcQuestModal.MODAL_OWNER)) return;
+    const body = document.getElementById('detail-modal-body');
+    const resolvedDetail = detailRoot
+      ?? body?.querySelector<HTMLElement>('[data-npc-quest-detail="true"]')
+      ?? null;
+    const resolvedQuest = selected ?? this.resolveSelectedQuest();
+    if (!resolvedDetail || !resolvedQuest) return;
+    const nextSignature = this.buildInventoryDependentDetailSignature(resolvedQuest);
+    if (nextSignature === this.renderedInventoryDetailSignature) return;
+    this.renderedInventoryDetailSignature = nextSignature;
+    const progress = resolvedDetail.querySelector<HTMLElement>('[data-npc-quest-progress]');
+    const nextStep = resolvedDetail.querySelector<HTMLElement>('[data-npc-quest-next-step]');
+    const requirement = resolvedDetail.querySelector<HTMLElement>('[data-npc-quest-requirement]');
+    if (progress) replaceElementHtml(progress, this.renderQuestText(this.resolveProgressText(resolvedQuest), resolvedQuest));
+    if (nextStep) replaceElementHtml(nextStep, this.renderQuestText(this.resolveNextStep(resolvedQuest), resolvedQuest));
+    if (requirement) replaceElementHtml(requirement, this.renderRequiredItemContent(resolvedQuest));
+  }
+
+  private buildInventoryDependentDetailSignature(quest: QuestState): string {
+    const progress = this.resolveRequiredItemProgress(quest);
+    return progress
+      ? `${quest.id}␟${progress.current}␟${progress.required}`
+      : `${quest.id}␟none`;
   }
 
   /** syncContainerChildren：按目标顺序复用并重排子节点。 */
@@ -438,10 +475,10 @@ export class NpcQuestModal {
         <div class="ui-detail-field ui-detail-field--section"><strong>${escapeHtml(t('quest.detail.status', undefined))}</strong><span>${escapeHtml(getQuestStatusLabel(selected.status))}</span></div>
         <div class="ui-detail-field ui-detail-field--section"><strong>${escapeHtml(t('quest.detail.target-location', undefined))}</strong><span>${escapeHtml(this.formatQuestLocation(selected.targetMapName ?? (selected.objectiveType === 'kill' ? selected.giverMapName : undefined), selected.targetX, selected.targetY))}</span></div>
         <div class="ui-detail-field ui-detail-field--section"><strong>${escapeHtml(t('quest.detail.submit-location', undefined))}</strong><span>${escapeHtml(this.formatQuestLocation(selected.submitMapName ?? selected.giverMapName, selected.submitX ?? selected.giverX, selected.submitY ?? selected.giverY))}</span></div>
-        <div class="ui-detail-field ui-detail-field--section"><strong>${escapeHtml(t('quest.detail.progress', undefined))}</strong><div>${this.renderQuestText(this.resolveProgressText(selected), selected)}</div></div>
-        <div class="ui-detail-field ui-detail-field--section"><strong>${escapeHtml(t('quest.detail.next-step', undefined))}</strong><div>${this.renderQuestText(this.resolveNextStep(selected), selected)}</div></div>
+        <div class="ui-detail-field ui-detail-field--section"><strong>${escapeHtml(t('quest.detail.progress', undefined))}</strong><div data-npc-quest-progress>${this.renderQuestText(this.resolveProgressText(selected), selected)}</div></div>
+        <div class="ui-detail-field ui-detail-field--section"><strong>${escapeHtml(t('quest.detail.next-step', undefined))}</strong><div data-npc-quest-next-step>${this.renderQuestText(this.resolveNextStep(selected), selected)}</div></div>
         <div class="ui-detail-field ui-detail-field--section"><strong>${escapeHtml(t('quest.detail.reward', undefined))}</strong><div>${this.renderRewardContent(selected)}</div></div>
-        <div class="ui-detail-field ui-detail-field--section ${selected.requiredItemId ? '' : 'hidden'}"><strong>${escapeHtml(t('quest.detail.requirement', undefined))}</strong><div>${this.renderRequiredItemContent(selected)}</div></div>
+        <div class="ui-detail-field ui-detail-field--section ${selected.requiredItemId ? '' : 'hidden'}"><strong>${escapeHtml(t('quest.detail.requirement', undefined))}</strong><div data-npc-quest-requirement>${this.renderRequiredItemContent(selected)}</div></div>
       </div>
       <div class="ui-detail-field ui-detail-field--section ${selected.story ? '' : 'hidden'}"><strong>${escapeHtml(t('quest.detail.story', undefined))}</strong><div>${escapeHtml(selected.story ?? '')}</div></div>
       <div class="ui-detail-field ui-detail-field--section ${selected.objectiveText ? '' : 'hidden'}"><strong>${escapeHtml(t('quest.detail.objective-note', undefined))}</strong><div>${this.renderQuestText(selected.objectiveText ?? '', selected)}</div></div>

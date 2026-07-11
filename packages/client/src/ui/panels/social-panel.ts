@@ -15,7 +15,7 @@ import type {
   TreasureVaultPermissionScope,
   TreasureVaultOperationResultView,
 } from '@mud/shared';
-import { getTechniqueMaxLevel, TECHNIQUE_GRADE_ORDER } from '@mud/shared';
+import { createItemStackSignature, getTechniqueMaxLevel, TECHNIQUE_GRADE_ORDER } from '@mud/shared';
 import { getItemTypeLabel } from '../../domain-labels';
 import { INVENTORY_FILTER_TABS, type InventoryFilter } from '../../constants/ui/inventory';
 import { getItemDecorClassName, getItemDisplayMeta, type ItemDisplayMeta } from '../item-display';
@@ -518,6 +518,8 @@ export class TreasureVaultModal {
   private callbacks: TreasureVaultCallbacks | null = null;
   private detail: TreasureVaultDetailView | null = null;
   private inventoryItems: SyncedItemStack[] = [];
+  /** 背包展示语义签名；属性每息同步但背包未变时，宝库保持零 DOM 写入。 */
+  private inventoryItemsSignature = '';
   private currentPlayerId: string | null = null;
   private activeTab: TreasureVaultModalTab = 'items';
   private preferredTab: TreasureVaultModalTab = 'items';
@@ -547,11 +549,20 @@ export class TreasureVaultModal {
   }
 
   setCurrentPlayer(playerId: string | null, inventoryItems: SyncedItemStack[]): void {
+    const nextInventorySignature = this.buildInventoryItemsSignature(inventoryItems);
+    const playerChanged = this.currentPlayerId !== playerId;
+    const inventoryChanged = this.inventoryItemsSignature !== nextInventorySignature;
+    if (!playerChanged && !inventoryChanged) return;
     this.currentPlayerId = playerId;
     this.inventoryItems = inventoryItems;
+    this.inventoryItemsSignature = nextInventorySignature;
     this.pruneDepositSelection();
-    if (this.detail && !this.depositPickerOpen) this.render();
-    if (this.depositPickerOpen) this.renderDepositPicker(true);
+    if (playerChanged && this.detail) {
+      this.render();
+    } else if (inventoryChanged && this.detail && !this.depositPickerOpen) {
+      this.patchVaultDepositState();
+    }
+    if (inventoryChanged && this.depositPickerOpen) this.renderDepositPicker(true);
   }
 
   setPreferredTab(tab: TreasureVaultModalTab): void {
@@ -597,6 +608,9 @@ export class TreasureVaultModal {
 
   clear(): void {
     this.detail = null;
+    this.currentPlayerId = null;
+    this.inventoryItems = [];
+    this.inventoryItemsSignature = '';
     this.activeTab = 'items';
     this.preferredTab = 'items';
     this.itemSort = 'slot';
@@ -1066,7 +1080,7 @@ export class TreasureVaultModal {
         </section>
         <aside class="treasure-vault-section treasure-vault-section--actions">
           <div class="panel-section-title">存取</div>
-          ${this.renderDeposit(detail)}
+          <div data-vault-deposit-state="${this.resolveVaultDepositState(detail)}">${this.renderDeposit(detail)}</div>
           ${this.renderPermissionSummary(detail, canEditPermissions)}
         </aside>
       </div>
@@ -1323,6 +1337,37 @@ export class TreasureVaultModal {
         <button class="small-btn" type="button" data-vault-action="open-deposit-picker">批量放入</button>
       </div>
     `;
+  }
+
+  /** 背包真实变化只在「不可存 / 无物品 / 可存」状态切换时更新主弹层的小区域。 */
+  private patchVaultDepositState(): void {
+    const detail = this.detail;
+    const root = this.root.querySelector<HTMLElement>('[data-vault-deposit-state]');
+    if (!detail || !root) return;
+    const nextState = this.resolveVaultDepositState(detail);
+    if (root.dataset.vaultDepositState === nextState) return;
+    root.dataset.vaultDepositState = nextState;
+    root.replaceChildren(createFragmentFromHtml(this.renderDeposit(detail)));
+  }
+
+  private resolveVaultDepositState(detail: TreasureVaultDetailView): 'forbidden' | 'empty' | 'available' {
+    if (!detail.effectivePermissions.deposit) return 'forbidden';
+    return this.getDepositableInventoryEntries().length > 0 ? 'available' : 'empty';
+  }
+
+  private buildInventoryItemsSignature(items: SyncedItemStack[]): string {
+    const encode = (value: unknown): string => {
+      const text = String(value ?? '');
+      return `${text.length}:${text}`;
+    };
+    return items.map((item, index) => [
+      index,
+      item.itemInstanceId,
+      item.count,
+      item.type,
+      item.name,
+      createItemStackSignature(item as ItemStack),
+    ].map(encode).join('')).join('|');
   }
 
   private renderPermissionSummary(detail: TreasureVaultDetailView, canEditPermissions: boolean): string {
