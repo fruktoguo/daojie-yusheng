@@ -38,6 +38,9 @@ function createRuntimeHarness(playerStore: Map<string, ReturnType<typeof createP
     bumpPersistentRevision(player: { persistentRevision?: number }) {
       player.persistentRevision = Math.max(0, Math.trunc(Number(player.persistentRevision ?? 0))) + 1;
     },
+    refreshWalletCacheFromInventory() {
+      return false;
+    },
     canAffordWallet(playerId: string, walletType: string, amount: number) {
       return getWalletBalance(playerStore.get(playerId), walletType) >= Math.max(0, Math.trunc(Number(amount ?? 0)));
     },
@@ -218,6 +221,10 @@ function assertDomains(player: { dirtyDomains: Set<string> }, expected: string[]
   }
 }
 
+function assertPersistenceVersionSeed(value: number | null | undefined): asserts value is number {
+  assert.ok(Number.isSafeInteger(value) && Number(value) > 0, `expected positive safe version seed, got ${String(value)}`);
+}
+
 function testSaveAlchemyPresetDirtyDomain() {
   const { service, playerStore, alchemyPresetWrites, activeJobWrites } = createService();
   const player = createPlayer();
@@ -233,6 +240,7 @@ function testSaveAlchemyPresetDirtyDomain() {
   assertDomains(player, ['alchemy_preset'], ['snapshot']);
   assert.equal(alchemyPresetWrites.length, 1);
   assert.equal(alchemyPresetWrites[0].playerId, player.playerId);
+  assertPersistenceVersionSeed(alchemyPresetWrites[0].versionSeed);
   assert.equal(activeJobWrites.length, 0);
 }
 
@@ -257,7 +265,7 @@ function testTickAlchemyMarksActiveJob() {
   assert.equal(player.alchemyJob?.jobVersion, 3);
   assert.equal(activeJobWrites.length, 1);
   assert.equal(activeJobWrites[0].playerId, player.playerId);
-  assert.equal(activeJobWrites[0].versionSeed, player.persistentRevision);
+  assertPersistenceVersionSeed(activeJobWrites[0].versionSeed);
   assert.equal((activeJobWrites[0].row as Record<string, unknown> | null)?.jobVersion, 3);
 }
 
@@ -341,10 +349,10 @@ function testTickEnhancementMarksDomains() {
   assert.deepEqual(runtimeHarness.walletDebits, [[player.playerId, 'spirit_stone', spiritStoneCost]]);
   assert.equal(enhancementRecordWrites.length, 1);
   assert.equal(enhancementRecordWrites[0].playerId, player.playerId);
-  assert.equal(enhancementRecordWrites[0].versionSeed, player.persistentRevision);
+  assertPersistenceVersionSeed(enhancementRecordWrites[0].versionSeed);
   assert.equal(activeJobWrites.length, 1);
   assert.equal(activeJobWrites[0].playerId, player.playerId);
-  assert.equal(activeJobWrites[0].versionSeed, player.persistentRevision);
+  assertPersistenceVersionSeed(activeJobWrites[0].versionSeed);
   assert.equal(activeJobWrites[0].row, null);
 }
 

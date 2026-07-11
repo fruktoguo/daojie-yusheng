@@ -276,6 +276,16 @@
 - 修复方式：新增统一 `refreshWalletCacheFromInventory` 边界，由底层同步函数精确返回变化、合并重复镜像并清理灵石的旧冻结值；只有 wallet 真变化才递增 `selfRevision`。全部通用背包入口改走该边界，新玩家初始背包、水合、成长结果的 inventory 脏域及技艺 `finalizeMutation` 也统一刷新；删除 `creditWallet/debitWallet` 的重复手工 bump，普通物品变化不产生额外 SelfDelta。
 - 验证：对照背包与存储 mechanics 文档；完整 `pnpm verify:quick` 通过。compiled `player-runtime-dirty-domain-smoke` 直接调用 `buildSelfDelta`，证明通用灵石发放会携带最新 wallet，并覆盖通用收取、专用增减、成长直接扣包以及普通物品不 bump 的反例；production-boundaries 锁定成长与技艺直接改背包后的刷新边界。受接口扩展影响的 `technique-equipment-effectiveness`、`enhancement-equipped-target-guard`、`world-runtime-alchemy`、`world-runtime-enhancement` 四个 compiled smoke 补齐 mock 后均通过。
 
+### FS-026 `[x]` 制作持久化 smoke 混淆全局 fencing 版本且未接入门禁
+
+- 严重级别：中。
+- 根本原因：`craft-persistence-dirty-domain-smoke` 把 `nextPlayerPersistenceVersion()` 生成的进程内单调 fencing seed 错当成玩家对象的局部 `persistentRevision`，硬断言二者相等；脚本又未注册到 stable smoke suite 或任何常用验证入口。
+- 为什么错误：`versionSeed` 必须跨同毫秒、多业务写保持全局单调，数值通常接近当前毫秒时间，不可能等于测试里重置为 `1/2` 的本地 revision。测试在炼丹 tick 的首个持久化断言就退出，后续逐批扣料、强化 wallet、`enhancement_record`、active job 清理和唯一 job version 实现检查都没有执行；未接入门禁又让这种失效长期不可见。
+- 触发条件：单独运行该 compiled smoke；或者未来代码变更依赖它证明制作 dirty-domain 与直写 fencing 契约。
+- 后果：手动运行稳定假红，但日常门禁仍假绿；关键制作资产/任务持久化回归失去有效证明，开发者可能误以为脚本后半段已覆盖。
+- 修复方式：统一校验每个 `versionSeed` 是正的安全整数，不再绑定玩家局部 revision，也不固化不同持久化域的调用顺序；补齐 FS-025 新增的 wallet 刷新 mock。将脚本注册为 `craft-persistence-dirty-domain` stable standalone case，加入持久化分组和 `verify:quick`。
+- 验证：完整 `pnpm verify:quick` 通过，门禁输出明确选中并通过 `craft-persistence-dirty-domain`；脚本完整运行到最终输出，证明修正后的版本断言与后半段制作持久化检查均实际执行。
+
 ## 待进一步验证或用户决定
 
 ### D-001 `[?]` 客户端初始包同时装载 React 面板与 legacy 回退实现
@@ -336,4 +346,5 @@
 | 工坊 EventBus 生产边界与 compiled mutation smoke | 通过 | 专用面板/任务状态不再进入客户端空消费通道，且真实面板刷新仍正常发送 | 不决定五组休眠 EventBus 协议的最终去留 |
 | 玩家状态同步前后端 production-boundaries | 通过 | player runtime 不再入队无版本状态，`hp/qi` 只由 SelfDelta、特殊数值/Buff 只由 PanelDelta 落地 | 不代替真实弱网与多息拥塞下的长时间测试 |
 | 玩家 wallet 投影 compiled smoke 与 production-boundaries | 通过 | 通用/专用/成长背包变更只在灵石投影实际变化时推进 SelfDelta，普通物品不产生额外自身包；技艺结算刷新边界已锁定 | 不替代真实 DB durable 提交后的前端交互回归 |
+| compiled `craft-persistence-dirty-domain-smoke` | 修复并注册后通过 | 炼丹预设/active job/强化记录/职业脏域、逐批扣料、wallet 扣费与 fencing seed 均执行到脚本末尾 | 无 DB，不证明真实表的 stale fencing 拒绝与崩溃恢复 |
 | `pnpm audit:protocol` | 通过 | 无库主线服务实际启动、18 类场景的 C2S/S2C 事件覆盖与逐包字节统计；工坊重复目录、67KB envelope 和空消费 EventBus 载荷已消失；关闭 drain 完成 | 无数据库，因此未运行兑换码 DB 用例；也不直接证明 5000 并发带宽和压测结果 |
