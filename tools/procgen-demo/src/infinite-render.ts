@@ -1,15 +1,14 @@
 /**
- * 无限世界 demo：世界坐标相机 + 视口裁剪渲染。
+ * 无限世界 demo：世界坐标相机 + chunk 离屏缓存合成。
  *
- * 只画相机可见范围内的格（外扩 1 圈防边缘缺角），格子经 world.tileAt 懒生成。
- * 贴图走游戏运行时图包（drawTile 基底 + dual-grid 过渡边缘，与线上一致），
- * 缺图集时回退游戏同款底色。相机以世界坐标定位，支持平移与缩放。
+ * 每帧不再逐格 drawTile + 整屏重扫 dual-grid，而是把可见的每个 chunk 的离屏 canvas
+ * （见 infinite-chunk-canvas.ts，首次可见时渲染一次）blit 到主画布对应位置——移动时
+ * 只做十几次 drawImage，开销与视口格数解耦。相机以世界坐标定位，支持平移与缩放。
  */
-import type { RuntimeImagePack, RuntimeTileVisualSource } from '../../../packages/client/src/renderer/runtime-image-pack';
-import { TILE_VISUAL_BG_COLORS } from '../../../packages/shared/src/constants/visuals/terrain';
+import type { ChunkCanvasCache } from './infinite-chunk-canvas';
 import type { InfiniteWorld } from './infinite-world';
 
-/** 相机：世界坐标 (x,y) 落在画布正中，cellSize 为每格像素。 */
+/** 相机：世界坐标 (x,y) 落在画布正中，cellSize 为每格像素（整数，缩放已量化）。 */
 export interface Camera {
   x: number;
   y: number;
@@ -27,61 +26,45 @@ function drawPlayer(ctx: CanvasRenderingContext2D, px: number, py: number, cellS
   ctx.stroke();
 }
 
-/** 渲染一帧。返回可见格范围（供调试/HUD）。 */
+/** 渲染一帧。返回可见 chunk 数与格范围（供 HUD）。 */
 export function renderInfinite(
   canvas: HTMLCanvasElement,
   world: InfiniteWorld,
+  cache: ChunkCanvasCache,
   cam: Camera,
-  pack: RuntimeImagePack | null,
   useSprites: boolean,
-): { cols: number; rows: number } {
+): { chunks: number; cols: number; rows: number } {
   const ctx = canvas.getContext('2d');
-  if (!ctx) return { cols: 0, rows: 0 };
+  if (!ctx) return { chunks: 0, cols: 0, rows: 0 };
   const W = canvas.width;
   const H = canvas.height;
   const cs = cam.cellSize;
+  ctx.imageSmoothingEnabled = false;
   ctx.clearRect(0, 0, W, H);
 
-  const halfCols = W / 2 / cs;
-  const halfRows = H / 2 / cs;
-  const wx0 = Math.floor(cam.x - halfCols) - 1;
-  const wy0 = Math.floor(cam.y - halfRows) - 1;
-  const wx1 = Math.ceil(cam.x + halfCols) + 1;
-  const wy1 = Math.ceil(cam.y + halfRows) + 1;
+  const S = world.chunkSize;
+  // 世界像素 → 画布像素：世界格中心对齐相机、相机落在画布中心。
   const offsetX = -cam.x * cs + W / 2;
   const offsetY = -cam.y * cs + H / 2;
 
-  const activePack = useSprites ? pack : null;
-  let drewSprite = false;
-  for (let wy = wy0; wy <= wy1; wy += 1) {
-    for (let wx = wx0; wx <= wx1; wx += 1) {
-      const tile = world.tileAt(wx, wy);
-      if (!tile) continue;
-      const px = Math.floor(wx * cs + offsetX);
-      const py = Math.floor(wy * cs + offsetY);
-      const drawn = activePack ? activePack.drawTile(ctx, tile, px, py, cs) : false;
-      if (drawn) {
-        drewSprite = true;
-      } else {
-        ctx.fillStyle = TILE_VISUAL_BG_COLORS[tile.type] ?? '#111';
-        ctx.fillRect(px, py, Math.ceil(cs) + 1, Math.ceil(cs) + 1);
-      }
+  // 可见世界格范围 → 可见 chunk 范围（外扩由 chunk 粒度天然覆盖，无需逐格 +1）。
+  const cx0 = Math.floor((cam.x - W / 2 / cs) / S);
+  const cx1 = Math.floor((cam.x + W / 2 / cs) / S);
+  const cy0 = Math.floor((cam.y - H / 2 / cs) / S);
+  const cy1 = Math.floor((cam.y + H / 2 / cs) / S);
+
+  let chunks = 0;
+  for (let cy = cy0; cy <= cy1; cy += 1) {
+    for (let cx = cx0; cx <= cx1; cx += 1) {
+      const cv = cache.get(cx, cy, cs, useSprites);
+      // S*cs 为整数、相邻块 destX 差恰为 S*cs，round 后精确相接、无缝无重叠。
+      const dx = Math.round(cx * S * cs + offsetX);
+      const dy = Math.round(cy * S * cs + offsetY);
+      ctx.drawImage(cv, dx, dy);
+      chunks += 1;
     }
   }
 
-  if (activePack && drewSprite) {
-    activePack.drawDualGridTiles(ctx, {
-      startGX: wx0,
-      startGY: wy0,
-      endGX: wx1,
-      endGY: wy1,
-      cellSize: cs,
-      offsetX,
-      offsetY,
-      tileAt: (x, y): RuntimeTileVisualSource | null => world.tileAt(x, y),
-    });
-  }
-
   drawPlayer(ctx, W / 2, H / 2, cs);
-  return { cols: wx1 - wx0 + 1, rows: wy1 - wy0 + 1 };
+  return { chunks, cols: (cx1 - cx0 + 1) * S, rows: (cy1 - cy0 + 1) * S };
 }
