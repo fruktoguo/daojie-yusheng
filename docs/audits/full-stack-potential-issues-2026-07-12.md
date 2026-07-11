@@ -266,6 +266,16 @@
 - 修复方式：删除玩家 tick 的无效快照、`emitPlayerStateDeltaIfChanged` 与对应 GM 性能指标；客户端不再向 EventBus consumer 提供 `applyStateDelta`，并删除会就地覆盖玩家对象的 handler 及其无效依赖。气血/灵力继续只由 `SelfDelta`落地，根基/战斗经验和 Buff 继续只由 `PanelDelta` 合并。
 - 验证：已完整对照 tick、AOI、属性、灵力和 Buff mechanics 文档；完整 `pnpm verify:quick` 与 `pnpm verify:client` 均通过。前后端 production-boundaries 新门禁同时锁定生产 player runtime 无 `queuePlayerStateDelta`、`SelfDelta` 继续比较 `hp/qi`、`PanelDelta` 继续发 Buff 增删，以及 EventBus 不得回写玩家真源。协议审计通过，在包数从 107 波动到 109 的情况下，`SyncEnvelope` 总量仍从 `162.14KB` 降至 `158.45KB`；两组装备刷新后的聚合包由 `2.63/2.99KB` 降至 `675/569B`。
 
+### FS-025 `[x]` 背包货币投影变化未稳定推进 SelfDelta 修订
+
+- 严重级别：中。
+- 根本原因：灵石的资产真源已经收敛到 `inventory.items`，`player.wallet.balances` 只是兼容投影；但原 `syncWalletCacheFromInventory` 只改投影且不返回变化结果。`creditWallet/debitWallet` 两个专用入口在调用后手工递增 `selfRevision`，`grantItem/receiveInventoryItem/consumeInventoryItem/replaceInventoryItems` 等通用背包入口没有递增；境界突破等成长逻辑和统一技艺结算还会直接改背包，连 wallet 投影本身都没有刷新。
+- 为什么错误：wallet 位于 `SelfDelta`，而 `buildSelfDelta` 首先以 `selfRevision` 作发送闸门。客户端又按 inventory 与 wallet 两个同源投影的较大值展示持有量；当扣减后的 inventory 小于旧 wallet 时，旧投影会反过来遮住已经正确下发的背包数量。
+- 触发条件：任务、邮件、掉落、兑换或 GM 等链路通过通用入包/扣包方法增减灵石；突破材料直接消耗灵石；统一技艺直接产生或消耗被登记为钱包资源的背包物品。
+- 后果：灵石资产真源和持久化结果仍正确，但客户端可能长期显示旧余额、错误放开制作或购买按钮，随后又被服务端以余额不足拒绝。通用入口已刷新缓存但漏 revision 时，要等下一次无关自身状态变化才补发；成长/技艺入口连缓存都未刷新时，其他 SelfDelta 也会继续携带旧 wallet。
+- 修复方式：新增统一 `refreshWalletCacheFromInventory` 边界，由底层同步函数精确返回变化、合并重复镜像并清理灵石的旧冻结值；只有 wallet 真变化才递增 `selfRevision`。全部通用背包入口改走该边界，新玩家初始背包、水合、成长结果的 inventory 脏域及技艺 `finalizeMutation` 也统一刷新；删除 `creditWallet/debitWallet` 的重复手工 bump，普通物品变化不产生额外 SelfDelta。
+- 验证：对照背包与存储 mechanics 文档；完整 `pnpm verify:quick` 通过。compiled `player-runtime-dirty-domain-smoke` 直接调用 `buildSelfDelta`，证明通用灵石发放会携带最新 wallet，并覆盖通用收取、专用增减、成长直接扣包以及普通物品不 bump 的反例；production-boundaries 锁定成长与技艺直接改背包后的刷新边界。受接口扩展影响的 `technique-equipment-effectiveness`、`enhancement-equipped-target-guard`、`world-runtime-alchemy`、`world-runtime-enhancement` 四个 compiled smoke 补齐 mock 后均通过。
+
 ## 待进一步验证或用户决定
 
 ### D-001 `[?]` 客户端初始包同时装载 React 面板与 legacy 回退实现
@@ -325,4 +335,5 @@
 | compiled `technique-activity-completion-proof` | 修复并接入 `verify:quick` 后通过 | 八类 strategy 注册、四段 pipeline 生命周期顺序、统一队列、任务视图、world facade 和面板 patch 边界 | 不替代各技艺玩法结果与 DB active job CAS smoke |
 | 工坊 EventBus 生产边界与 compiled mutation smoke | 通过 | 专用面板/任务状态不再进入客户端空消费通道，且真实面板刷新仍正常发送 | 不决定五组休眠 EventBus 协议的最终去留 |
 | 玩家状态同步前后端 production-boundaries | 通过 | player runtime 不再入队无版本状态，`hp/qi` 只由 SelfDelta、特殊数值/Buff 只由 PanelDelta 落地 | 不代替真实弱网与多息拥塞下的长时间测试 |
+| 玩家 wallet 投影 compiled smoke 与 production-boundaries | 通过 | 通用/专用/成长背包变更只在灵石投影实际变化时推进 SelfDelta，普通物品不产生额外自身包；技艺结算刷新边界已锁定 | 不替代真实 DB durable 提交后的前端交互回归 |
 | `pnpm audit:protocol` | 通过 | 无库主线服务实际启动、18 类场景的 C2S/S2C 事件覆盖与逐包字节统计；工坊重复目录、67KB envelope 和空消费 EventBus 载荷已消失；关闭 drain 完成 | 无数据库，因此未运行兑换码 DB 用例；也不直接证明 5000 并发带宽和压测结果 |

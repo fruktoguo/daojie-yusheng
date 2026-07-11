@@ -76,6 +76,9 @@ function createRuntime(): { service: CraftPanelRuntimeService; player: any } {
     debitWallet() {
       return true;
     },
+    refreshWalletCacheFromInventory() {
+      return false;
+    },
     markPersistenceDirtyDomains(targetPlayer: any, domains: string[]) {
       if (!targetPlayer.dirtyDomains) {
         targetPlayer.dirtyDomains = new Set<string>();

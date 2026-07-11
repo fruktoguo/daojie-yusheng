@@ -962,6 +962,9 @@ function createPlayerRuntimeService(player: any): any {
       balance.balance = Number(balance.balance ?? 0) + amount;
       receivePlayerItem(player, createItemStack(itemId, amount));
     },
+    refreshWalletCacheFromInventory(): boolean {
+      return false;
+    },
     markPersistenceDirtyDomains(targetPlayer: any, domains: string[]): void {
       if (!(targetPlayer.dirtyDomains instanceof Set)) {
         targetPlayer.dirtyDomains = new Set<string>();

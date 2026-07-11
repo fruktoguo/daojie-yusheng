@@ -2703,6 +2703,7 @@ export class CraftPanelRuntimeService {
         const dirtyDomains = [];
         if (options.inventoryChanged) {
             player.inventory.revision += 1;
+            this.playerRuntimeService.refreshWalletCacheFromInventory(player);
             this.playerRuntimeService.playerProgressionService.refreshPreview(player);
             dirtyDomains.push('inventory');
         }

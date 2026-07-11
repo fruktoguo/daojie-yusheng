@@ -15,6 +15,7 @@ import {
 import { PlayerProgressionService } from '../runtime/player/player-progression.service';
 import { PlayerAttributesService } from '../runtime/player/player-attributes.service';
 import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
+import { buildSelfDelta, captureSelfState } from '../network/world-projector.helpers';
 
 function createPlayerRuntimeService() {
   const mapUnlockWrites: Array<{ playerId: string; mapIds: string[]; versionSeed?: number | null }> = [];
@@ -460,17 +461,27 @@ function testWorldPreferenceDirtyDomain(): void {
 function testGrantWalletItemDirtyDomain(): void {
   const playerId = 'player:grant-wallet';
   const service = createHydratedService(playerId);
+  const player = service.getPlayerOrThrow(playerId);
+  const previousSelfRevision = player.selfRevision;
+  const previousSelf = captureSelfState(player as never);
 
   service.grantItem(playerId, 'spirit_stone', 3);
 
   assertDirtyDomains(service, playerId, ['inventory'], ['snapshot', 'wallet']);
   assert.equal(service.getInventoryCountByItemId(playerId, 'spirit_stone'), 3);
   assert.equal(service.getWalletBalanceByType(playerId, 'spirit_stone'), 3);
+  assert.equal(player.selfRevision, previousSelfRevision + 1);
+  assert.deepEqual(
+    buildSelfDelta({ selfRevision: previousSelfRevision, self: previousSelf } as never, player as never)?.wallet?.balances,
+    [{ walletType: 'spirit_stone', balance: 3, frozenBalance: 0, version: 1 }],
+  );
 }
 
 function testCreditWalletUsesInventoryCache(): void {
   const playerId = 'player:wallet-credit';
   const service = createHydratedService(playerId);
+  const player = service.getPlayerOrThrow(playerId);
+  const previousSelfRevision = player.selfRevision;
 
   service.creditWallet(playerId, 'spirit_stone', 3);
 
@@ -479,21 +490,27 @@ function testCreditWalletUsesInventoryCache(): void {
   assertDirtyDomains(service, playerId, ['inventory'], ['snapshot', 'wallet']);
   assert.equal(service.getInventoryCountByItemId(playerId, 'spirit_stone'), 3);
   assert.equal(service.getWalletBalanceByType(playerId, 'spirit_stone'), 3);
+  assert.equal(player.selfRevision, previousSelfRevision + 1);
 }
 
 function testReceiveInventoryItemDirtyDomain(): void {
   const playerId = 'player:receive-item';
   const service = createHydratedService(playerId);
+  const player = service.getPlayerOrThrow(playerId);
+  const previousSelfRevision = player.selfRevision;
   service.receiveInventoryItem(playerId, {
     itemId: 'rat_tail',
     count: 3,
   });
   assertDirtyDomains(service, playerId, ['inventory'], ['snapshot', 'wallet']);
+  assert.equal(player.selfRevision, previousSelfRevision);
 }
 
 function testReceiveWalletItemDirtyDomain(): void {
   const playerId = 'player:receive-wallet';
   const service = createHydratedService(playerId);
+  const player = service.getPlayerOrThrow(playerId);
+  const previousSelfRevision = player.selfRevision;
   service.receiveInventoryItem(playerId, {
     itemId: 'spirit_stone',
     count: 3,
@@ -501,6 +518,7 @@ function testReceiveWalletItemDirtyDomain(): void {
   assertDirtyDomains(service, playerId, ['inventory'], ['snapshot', 'wallet']);
   assert.equal(service.getInventoryCountByItemId(playerId, 'spirit_stone'), 3);
   assert.equal(service.getWalletBalanceByType(playerId, 'spirit_stone'), 3);
+  assert.equal(player.selfRevision, previousSelfRevision + 1);
 }
 
 function testDebitWalletFallsBackToInventory(): void {
@@ -511,12 +529,37 @@ function testDebitWalletFallsBackToInventory(): void {
     count: 5,
   });
   service.markPersisted(playerId);
+  const player = service.getPlayerOrThrow(playerId);
+  const previousSelfRevision = player.selfRevision;
 
   service.debitWallet(playerId, 'spirit_stone', 3);
 
   assertDirtyDomains(service, playerId, ['inventory'], ['snapshot']);
   assert.equal(service.getInventoryCountByItemId(playerId, 'spirit_stone'), 2);
   assert.equal(service.getWalletBalanceByType(playerId, 'spirit_stone'), 2);
+  assert.equal(player.selfRevision, previousSelfRevision + 1);
+}
+
+function testProgressionInventoryMutationRefreshesWalletProjection(): void {
+  const playerId = 'player:progression-wallet';
+  const service = createHydratedService(playerId);
+  const player = service.getPlayerOrThrow(playerId);
+  service.receiveInventoryItem(playerId, { itemId: 'spirit_stone', count: 5 });
+  service.markPersisted(playerId);
+  const previousSelfRevision = player.selfRevision;
+  player.inventory.items[0].count = 2;
+  player.inventory.revision += 1;
+
+  service.applyProgressionResult(player, {
+    changed: true,
+    notices: [],
+    actionsDirty: false,
+    dirtyDomains: ['inventory', 'progression'],
+  });
+
+  assert.equal(service.getWalletBalanceByType(playerId, 'spirit_stone'), 2);
+  assert.equal(player.selfRevision, previousSelfRevision + 1);
+  assertDirtyDomains(service, playerId, ['inventory', 'progression'], ['snapshot', 'wallet']);
 }
 
 function testWalletAndMarketStorageDirtySnapshotIncludesDomains(): void {
@@ -1887,6 +1930,7 @@ testLogbookDirtyDomain();
   testReceiveWalletItemDirtyDomain();
   testCreditWalletUsesInventoryCache();
   testDebitWalletFallsBackToInventory();
+  testProgressionInventoryMutationRefreshesWalletProjection();
   testWalletAndMarketStorageDirtySnapshotIncludesDomains();
   testOnlineItemStatisticRecordIsQueued();
   testOnlineSpiritStoneStatisticTotalsAndRecords();
@@ -1927,7 +1971,7 @@ testLogbookDirtyDomain();
     JSON.stringify(
       {
         ok: true,
-        answers: 'PlayerRuntimeService 的显式脏域标记现已不会再被 bumpPersistentRevision 强制打回 snapshot；灵石 wallet 入口只读写背包真源并同步运行态 wallet 缓存，不再触发 wallet 小事务写入；auto_battle_skill/auto_use_item_rule/map_unlock/logbook/world_anchor/inventory/vitals/technique/combat_pref/position_checkpoint/buff 仍按入口打对应 dirty domain',
+        answers: 'PlayerRuntimeService 的显式脏域标记现已不会再被 bumpPersistentRevision 强制打回 snapshot；灵石 wallet 只镜像背包真源，投影实际变化会推进 selfRevision，普通物品变化不会制造额外 SelfDelta，也不触发 wallet 小事务写入；auto_battle_skill/auto_use_item_rule/map_unlock/logbook/world_anchor/inventory/vitals/technique/combat_pref/position_checkpoint/buff 仍按入口打对应 dirty domain',
         completionMapping: 'release:proof:with-db.player-runtime-dirty-domains',
       },
       null,

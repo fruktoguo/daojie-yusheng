@@ -894,6 +894,9 @@ function createPlayerRuntimeService(player: any): any {
       player.persistentRevision += 1;
     },
     creditWallet(): void {},
+    refreshWalletCacheFromInventory(): boolean {
+      return false;
+    },
     receiveInventoryItem(_playerId: string, item: { itemId: string; count: number }): void {
       player.inventory.items.push({
         itemId: item.itemId,

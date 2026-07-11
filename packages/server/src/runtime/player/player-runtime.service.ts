@@ -553,6 +553,7 @@ export class PlayerRuntimeService {
             // 玩家维度 NPC quest marker 投影缓存；挂在 player 对象上跟随 removePlayerRuntime/runtime GC 释放，避免 service-level Map 泄漏。
             npcQuestMarkerCache: new Map(),
         };
+        this.refreshWalletCacheFromInventory(player);
         this.playerProgressionService.initializePlayer(player);
         this.ensureArtifactUnlockState(player, { emitMovementCapabilityDelta: false });
         this.rebuildActionState(player, resolvePlayerRuntimeTick(player, 0));
@@ -1182,7 +1183,7 @@ export class PlayerRuntimeService {
         if (slotIndex < 0) return false;
         consumeInventoryItemAt(player.inventory.items, slotIndex, count);
         player.inventory.revision += 1;
-        syncWalletCacheFromInventory(player, itemId);
+        this.refreshWalletCacheFromInventory(player, itemId);
         markPlayerDirtyDomains(player, ['inventory']);
         this.bumpPersistentRevision(player);
         return true;
@@ -1622,7 +1623,7 @@ export class PlayerRuntimeService {
             : [];
         player.inventory.items = nextItems;
         player.inventory.revision += 1;
-        syncWalletCacheFromInventory(player);
+        this.refreshWalletCacheFromInventory(player);
         this.playerProgressionService.refreshPreview(player);
         markPlayerDirtyDomains(player, ['inventory']);
         this.bumpPersistentRevision(player);
@@ -1656,6 +1657,18 @@ export class PlayerRuntimeService {
         this.bumpPersistentRevision(player);
         this.recordAssetStatisticMutation(player, statisticBefore);
         return player;
+    }
+
+    /**
+     * 以背包货币真源刷新 wallet 投影，并在投影实际变化时推进 SelfDelta 修订。
+     * 普通物品变化不会触发 selfRevision，避免为每次背包 patch 额外发送自身状态。
+     */
+    refreshWalletCacheFromInventory(player, changedItemId = null) {
+        const changed = syncWalletCacheFromInventory(player, changedItemId);
+        if (changed) {
+            player.selfRevision += 1;
+        }
+        return changed;
     }
     /**
  * replaceEquipmentSlots：用已提交的新装备快照替换运行态。
@@ -2072,7 +2085,7 @@ export class PlayerRuntimeService {
 
         mergeItemStackInto(player.inventory.items, item);
         player.inventory.revision += 1;
-        syncWalletCacheFromInventory(player, item.itemId);
+        this.refreshWalletCacheFromInventory(player, item.itemId);
         this.playerProgressionService.refreshPreview(player);
         markPlayerDirtyDomains(player, ['inventory']);
         this.bumpPersistentRevision(player);
@@ -2175,9 +2188,8 @@ export class PlayerRuntimeService {
             player.inventory.items.push(item);
         }
         player.inventory.revision += 1;
-        syncWalletCacheFromInventory(player, item.itemId);
+        this.refreshWalletCacheFromInventory(player, item.itemId);
         this.playerProgressionService.refreshPreview(player);
-        player.selfRevision += 1;
         markPlayerDirtyDomains(player, ['inventory']);
         this.bumpPersistentRevision(player);
         this.recordAssetStatisticMutation(player, statisticBefore);
@@ -2207,9 +2219,8 @@ export class PlayerRuntimeService {
         }
         consumeInventoryItemCount(player.inventory.items, normalizedWalletType, normalizedAmount);
         player.inventory.revision += 1;
-        syncWalletCacheFromInventory(player, normalizedWalletType);
+        this.refreshWalletCacheFromInventory(player, normalizedWalletType);
         this.playerProgressionService.refreshPreview(player);
-        player.selfRevision += 1;
         markPlayerDirtyDomains(player, ['inventory']);
         this.bumpPersistentRevision(player);
         this.recordAssetStatisticMutation(player, statisticBefore);
@@ -2673,7 +2684,7 @@ export class PlayerRuntimeService {
         }
         consumeInventoryItemAt(player.inventory.items, slotIndex, nextCount);
         player.inventory.revision += 1;
-        syncWalletCacheFromInventory(player, item.itemId);
+        this.refreshWalletCacheFromInventory(player, item.itemId);
         markPlayerDirtyDomains(player, ['inventory']);
         this.bumpPersistentRevision(player);
         this.recordAssetStatisticMutation(player, statisticBefore);
@@ -2719,7 +2730,7 @@ export class PlayerRuntimeService {
             mergeResult.entry.count = MAX_ITEM_COUNT;
         }
         player.inventory.revision += 1;
-        syncWalletCacheFromInventory(player, normalized.itemId);
+        this.refreshWalletCacheFromInventory(player, normalized.itemId);
         this.playerProgressionService.refreshPreview(player);
         markPlayerDirtyDomains(player, ['inventory']);
         this.bumpPersistentRevision(player);
@@ -2818,7 +2829,7 @@ export class PlayerRuntimeService {
             markConsumableItemCooldown(player, item, currentTick);
         }
         player.inventory.revision += 1;
-        syncWalletCacheFromInventory(player, item.itemId);
+        this.refreshWalletCacheFromInventory(player, item.itemId);
         this.playerProgressionService.refreshPreview(player);
         markPlayerDirtyDomains(player, learnTechniqueId
             ? (autoBattleSkillsChanged ? ['inventory', 'technique', 'auto_battle_skill'] : ['inventory', 'technique'])
@@ -2862,7 +2873,7 @@ export class PlayerRuntimeService {
         }
         consumeInventoryItemAt(player.inventory.items, slotIndex, Math.max(1, Math.trunc(count)));
         player.inventory.revision += 1;
-        syncWalletCacheFromInventory(player, item.itemId);
+        this.refreshWalletCacheFromInventory(player, item.itemId);
         this.playerProgressionService.refreshPreview(player);
         markPlayerDirtyDomains(player, ['inventory']);
         this.bumpPersistentRevision(player);
@@ -2919,7 +2930,7 @@ export class PlayerRuntimeService {
             remaining -= consumed;
         }
         player.inventory.revision += 1;
-        syncWalletCacheFromInventory(player, itemId);
+        this.refreshWalletCacheFromInventory(player, itemId);
         this.playerProgressionService.refreshPreview(player);
         markPlayerDirtyDomains(player, ['inventory']);
         this.bumpPersistentRevision(player);
@@ -2953,7 +2964,7 @@ export class PlayerRuntimeService {
         };
         consumeInventoryItemAt(player.inventory.items, slotIndex, destroyed.count);
         player.inventory.revision += 1;
-        syncWalletCacheFromInventory(player, item.itemId);
+        this.refreshWalletCacheFromInventory(player, item.itemId);
         this.playerProgressionService.refreshPreview(player);
         markPlayerDirtyDomains(player, ['inventory']);
         this.bumpPersistentRevision(player);
@@ -5642,7 +5653,7 @@ export class PlayerRuntimeService {
             markPlayerDirtyDomains(player, ['technique', 'active_job']);
             this.bumpPersistentRevision(player);
         }
-        syncWalletCacheFromInventory(player);
+        this.refreshWalletCacheFromInventory(player);
         if (ensureVitalBaselineBonus(player, snapshot.vitals)) {
             this.playerAttributesService.recalculate(player);
             markPlayerDirtyDomains(player, ['attr']);
@@ -5959,6 +5970,9 @@ export class PlayerRuntimeService {
             const dirtyDomains = Array.isArray(result.dirtyDomains) && result.dirtyDomains.length > 0
                 ? result.dirtyDomains
                 : ['progression'];
+            if (dirtyDomains.includes('inventory')) {
+                this.refreshWalletCacheFromInventory(player);
+            }
             markPlayerDirtyDomains(player, dirtyDomains);
         }
         return player;
@@ -8039,25 +8053,38 @@ function syncWalletCacheFromInventory(player, changedItemId = null) {
     const walletItemIds = normalizedChangedItemId
         ? [normalizedChangedItemId]
         : ['spirit_stone'];
+    let changed = !player.wallet || !Array.isArray(player.wallet.balances);
     const balances = ensureWalletBalances(player);
     for (const itemId of walletItemIds) {
         if (!isWalletCacheItemId(itemId)) {
             continue;
         }
         const nextBalance = readInventoryItemCount(player, itemId);
-        const index = balances.findIndex((entry) => entry?.walletType === itemId);
+        const matchingIndices = [];
+        for (let index = 0; index < balances.length; index += 1) {
+            if (balances[index]?.walletType === itemId) {
+                matchingIndices.push(index);
+            }
+        }
         if (nextBalance <= 0) {
-            if (index >= 0) {
-                balances.splice(index, 1);
+            for (let index = matchingIndices.length - 1; index >= 0; index -= 1) {
+                balances.splice(matchingIndices[index], 1);
+                changed = true;
             }
             continue;
         }
-        if (index >= 0) {
-            const entry = balances[index];
-            if (Math.max(0, Math.trunc(Number(entry.balance ?? 0))) !== nextBalance) {
+        if (matchingIndices.length > 0) {
+            const entry = balances[matchingIndices[0]];
+            for (let index = matchingIndices.length - 1; index >= 1; index -= 1) {
+                balances.splice(matchingIndices[index], 1);
+                changed = true;
+            }
+            if (Math.max(0, Math.trunc(Number(entry.balance ?? 0))) !== nextBalance
+                || Math.max(0, Math.trunc(Number(entry.frozenBalance ?? 0))) !== 0) {
                 entry.balance = nextBalance;
                 entry.frozenBalance = 0;
                 entry.version = Math.max(0, Math.trunc(Number(entry.version ?? 0))) + 1;
+                changed = true;
             }
             continue;
         }
@@ -8067,7 +8094,9 @@ function syncWalletCacheFromInventory(player, changedItemId = null) {
             frozenBalance: 0,
             version: 1,
         });
+        changed = true;
     }
+    return changed;
 }
 function consumeInventoryItemCount(items, itemId, count) {
     let remaining = Math.max(0, Math.trunc(Number(count ?? 0)));

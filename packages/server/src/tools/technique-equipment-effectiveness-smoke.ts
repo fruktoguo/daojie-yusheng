@@ -77,6 +77,9 @@ function createPlayerRuntimeService() {
       return true;
     },
     debitWallet() {},
+    refreshWalletCacheFromInventory() {
+      return false;
+    },
     rebuildActionState() {},
     markPersistenceDirtyDomains() {},
     bumpPersistentRevision(player: { persistentRevision?: number }) {
