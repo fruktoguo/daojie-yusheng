@@ -128,6 +128,26 @@
 - 修复方式：把 route 真源和导航动作统一收敛到 `HashRouter` context，页面注册实时 blocker；站内导航与外部 hash 变化使用同一确认逻辑，拒绝时恢复当前 hash，`beforeunload` 对所有活跃 blocker 统一拦截。移动端侧栏只在导航真正接受后关闭。地图编辑器新增只读 `hasUnsavedChanges()`，不暴露或复制草稿真源。
 - 验证：`pnpm build:config-editor`、`pnpm verify:client` 均通过；Chrome 147 通过 CDP 验证文件草稿拒绝站内导航后 hash 和正文不变，拒绝直接 hash 导航后自动恢复，合成 `beforeunload` 被取消，确认后页面才卸载；另用真实 `GmMapEditor` 挂载最小地图并应用 JSON，地图 dirty 状态同样拒绝离页，确认后才进入服务页。
 
+### FS-011 `[x]` 拍卖成交记录竞态标识漏掉查询范围
+
+- 严重级别：中。
+- 根本原因：客户端请求拍卖成交记录时允许 `scope=all|mine`，服务端又异步查询持久化历史；但 `pendingTradeHistoryKey` 只记录 `source|page`，回包校验也只比较这两个字段，遗漏 `scope`。
+- 为什么错误：同一来源和页码下，“全服成交”和“我的成交”是两份不同数据。筛选范围没有进入请求身份，旧范围回包会被误认成当前请求；而回包处理还会把 `auctionHistoryScope` 改回旧值。
+- 触发条件：在网络或数据库响应较慢时快速切换“全服/我的”，尤其两次请求都位于第 1 页。
+- 后果：选中标签和列表一起回退到旧范围，玩家看到的不是最后一次选择；重复切换时会表现为列表闪回，破坏筛选与分页的可预测性。
+- 修复方式：请求与回包统一使用 `source|scope|page` 三元 key；任何范围不匹配的迟到响应在写入状态前直接丢弃。
+- 验证：`pnpm verify:client` 通过；高频 UI continuity proof 新增双向断言，锁定请求 key 和响应 key 都必须包含 `scope`。
+
+### FS-012 `[x]` 会话清理漏关传法台弹层与异步任务
+
+- 严重级别：高。
+- 根本原因：`MarketPanel.clear()` 显式关闭普通坊市、拍卖、拍卖上架和天道商店，却遗漏 `MarketTransmissionView.modalOwner`。传法台的搜索防抖 timer、独立上架监听器和投影签名只在弹层用户关闭的 `onClose` 中释放；`detailModalHost.close()` 的程序化关闭语义又不会调用该回调。
+- 为什么错误：登出/踢下线属于强制会话边界，所有带玩家身份的 UI、计时器和监听都必须同步失效，不能依赖用户随后手动关窗。
+- 触发条件：传法台或残卷上架层打开时登出、被踢下线、认证过期或重置游戏状态；搜索防抖尚未触发时风险更明显。
+- 后果：登录页或新账号会话上仍可能显示上一玩家的传法台列表、`isMine` 标识和残卷信息；旧防抖回调还会在清理后发起请求，造成跨会话 UI 污染与无效网络流量。
+- 修复方式：为传法台子视图增加统一 `clear()`，显式取消搜索 timer、abort 内联监听、清空投影和上架 open 状态、隐藏 tooltip，并强制关闭所属弹层；`MarketPanel.clear()` 在重置玩家数据前调用该入口。用户关闭与会话清理复用同一释放函数。
+- 验证：`pnpm verify:client` 通过；高频 UI continuity proof 锁定市场会话清理必须调用传法台 `clear()`，且该入口必须释放临时状态并关闭正确 owner。
+
 ## 待进一步验证或用户决定
 
 ### D-001 `[?]` 客户端初始包同时装载 React 面板与 legacy 回退实现

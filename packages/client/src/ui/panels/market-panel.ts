@@ -940,10 +940,14 @@ export class MarketPanel {
   updateTradeHistory(data: S2C_MarketTradeHistory): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    // 竞态守卫：快速切换交易历史来源/翻页时旧响应可能晚于新请求到达，
-    // requestTradeHistory 发包前已记录最新 source+page key，此处校验回包是否仍是当前期望，过期包直接丢弃。
+    // 竞态守卫：快速切换交易历史来源、范围或页码时旧响应可能晚于新请求到达，
+    // requestTradeHistory 发包前已记录完整查询 key，此处校验回包是否仍是当前期望，过期包直接丢弃。
     if (this.pendingTradeHistoryKey !== null) {
-      const expectedKey = [data.source, Math.max(1, Math.floor(Number.isFinite(data.page) ? data.page : 1))].join('|');
+      const expectedKey = [
+        data.source,
+        data.scope,
+        Math.max(1, Math.floor(Number.isFinite(data.page) ? data.page : 1)),
+      ].join('|');
       if (expectedKey !== this.pendingTradeHistoryKey) {
         return;
       }
@@ -972,6 +976,7 @@ export class MarketPanel {
 
   /** 清空市场面板状态、缓存和临时弹窗。 */
   clear(): void {
+    this.transmissionView.clear();
     this.player = null;
     this.marketUpdate = null;
     this.itemBook = null;
@@ -2968,7 +2973,7 @@ export class MarketPanel {
     this.tradeHistoryPage = Math.max(1, Math.floor(Number.isFinite(page) ? page : 1));
     const requestSource = source ?? (detailModalHost.isOpenFor(MarketPanel.AUCTION_MODAL_OWNER) ? 'auction' : 'market');
     const requestScope = requestSource === 'auction' ? (scope ?? this.auctionHistoryScope) : 'mine';
-    this.pendingTradeHistoryKey = [requestSource, this.tradeHistoryPage].join('|');
+    this.pendingTradeHistoryKey = [requestSource, requestScope, this.tradeHistoryPage].join('|');
     this.callbacks?.onRequestTradeHistory(this.tradeHistoryPage, requestSource, requestScope);
   }
 

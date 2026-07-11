@@ -90,6 +90,22 @@ assertIncludes(marketPanel, /this\.marketListingsSnapshot = null;/, '普通坊�
 assertIncludes(marketPanel, /this\.auctionListingsSnapshot = null;/, '拍卖行语义快照必须随会话清理');
 assertIncludes(marketPanel, /this\.transmissionListingsSnapshot = null;/, '传法台语义快照必须随会话清理');
 
+const tradeHistoryUpdate = section(
+  marketPanel,
+  'updateTradeHistory(data: S2C_MarketTradeHistory): void {',
+  '/** 清空市场面板状态、缓存和临时弹窗。 */',
+  'MarketPanel.updateTradeHistory',
+);
+assertIncludes(tradeHistoryUpdate, /data\.source,\s*data\.scope,/s, '成交记录迟到回包校验必须包含全服/我的范围');
+
+const marketClear = section(
+  marketPanel,
+  'clear(): void {',
+  '/** 确保坊市唯一的 React 首屏已挂载；重复调用不会重建根节点。 */',
+  'MarketPanel.clear',
+);
+assertIncludes(marketClear, /this\.transmissionView\.clear\(\)/, '会话清理必须关闭传法台并取消其异步生命周期');
+
 const transmissionPatch = section(
   transmissionView,
   'patchTransmissionListingsState(): void {',
@@ -115,6 +131,15 @@ const transmissionPreload = section(
 assertIncludes(transmissionPreload, /patchTransmissionListingsState\(\)/, '异步功法模板回包必须走局部 patch');
 assertIncludes(transmissionPreload, /patchTransmissionConsignInventoryState\(\)/, '异步功法模板回包必须局部更新上架残卷投影');
 assertMissing(transmissionPreload, /detailModalHost\.(?:open|patch)\(/, '异步模板回包不得重建传法台弹层');
+
+const transmissionClear = section(
+  transmissionView,
+  'clear(): void {',
+  'openTransmissionModal(',
+  'MarketTransmissionView.clear',
+);
+assertIncludes(transmissionClear, /releaseTransientState\(\)/, '传法台会话清理必须释放防抖与内联监听状态');
+assertIncludes(transmissionClear, /detailModalHost\.close\(TRANSMISSION_MODAL_OWNER\)/, '传法台会话清理必须关闭仍显示旧玩家数据的弹层');
 
 const transmissionSubmit = section(
   transmissionView,
@@ -171,6 +196,14 @@ const inventorySync = section(
 assertIncludes(inventorySync, /MarketTransmissionView\.modalOwner/, '背包同步必须识别打开中的传法台');
 assertIncludes(inventorySync, /patchTransmissionInventoryState\(\)/, '背包同步必须局部更新传法台钱包');
 assertIncludes(inventorySync, /patchTransmissionConsignInventoryState\(\)/, '背包同步必须通过语义门控局部更新上架选择器');
+
+const tradeHistoryRequest = section(
+  marketPanel,
+  'private requestTradeHistory(',
+  '/** 向外部请求当前筛选条件下的列表分页。 */',
+  'MarketPanel.requestTradeHistory',
+);
+assertIncludes(tradeHistoryRequest, /requestSource, requestScope, this\.tradeHistoryPage/, '成交记录请求标识必须包含 source、scope 与 page');
 
 const actionDynamic = section(actionPanel, '/** 只同步会变的动作状态，优先走局部 patch，避免整块重绘。 */', '/** 从玩家快照初始化面板状态。 */', 'ActionPanel.syncDynamic');
 assertIncludes(actionDynamic, /buildActionPanelContentKey/, '行动面板高频同步必须保留结构签名');

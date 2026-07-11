@@ -119,6 +119,12 @@ export class MarketTransmissionView {
     return TRANSMISSION_MODAL_OWNER;
   }
 
+  /** 会话清理时强制结束传法台全部异步与弹层生命周期。 */
+  clear(): void {
+    this.releaseTransientState();
+    detailModalHost.close(TRANSMISSION_MODAL_OWNER);
+  }
+
   openTransmissionModal(tab: TransmissionPanelTab = this.panel.transmissionTab): void {
     const p = this.panel;
     p.transmissionTab = tab;
@@ -200,21 +206,7 @@ export class MarketTransmissionView {
       renderBody: (body: HTMLElement) => {
         replaceElementHtml(body, this.renderTransmissionBody());
       },
-      onClose: () => {
-        if (this.searchTimer !== null) {
-          window.clearTimeout(this.searchTimer);
-          this.searchTimer = null;
-        }
-        this.inlineConsignEvents?.abort();
-        this.inlineConsignEvents = null;
-        this.transmissionConsignProjectionSignature = null;
-        this.panel.transmissionConsignPanel = {
-          ...this.panel.transmissionConsignPanel,
-          open: false,
-        };
-        this.panel.tooltipNode = null;
-        this.panel.tooltip.hide(true);
-      },
+      onClose: () => this.releaseTransientState(),
       onAfterRender: (body: HTMLElement, signal: AbortSignal) => {
         this.bindTransmissionEvents(body, signal);
         this.panel.bindMarketModalDelegatedEvents(body, signal);
@@ -1316,6 +1308,22 @@ export class MarketTransmissionView {
       open: false,
     };
     layer?.remove();
+  }
+
+  private releaseTransientState(): void {
+    if (this.searchTimer !== null) {
+      window.clearTimeout(this.searchTimer);
+      this.searchTimer = null;
+    }
+    this.inlineConsignEvents?.abort();
+    this.inlineConsignEvents = null;
+    this.transmissionConsignProjectionSignature = null;
+    this.panel.transmissionConsignPanel = {
+      ...this.panel.transmissionConsignPanel,
+      open: false,
+    };
+    this.panel.tooltipNode = null;
+    this.panel.tooltip.hide(true);
   }
 
   private normalizeTransmissionConsignPrice(value: number): number {
