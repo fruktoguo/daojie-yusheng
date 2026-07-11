@@ -267,6 +267,14 @@ async function main(): Promise<void> {
   const failures: string[] = [];
   let completedComprehensionPrune: CompletedComprehensionPruneResult | null = null;
   let blockedComprehensionPrune: BlockedComprehensionPruneResult | null = null;
+  let successPayload: Record<string, unknown> | null = null;
+  const testPlayerIds = [
+    ...DOMAIN_CASES.map((domainCase) => `${playerIdBase}_${domainCase.tag}`),
+    `${playerIdBase}_technique_comprehension_completed`,
+    `${playerIdBase}_technique_comprehension_blocked`,
+  ];
+  let runError: unknown = null;
+  const cleanupErrors: unknown[] = [];
 
   try {
     for (const domainCase of DOMAIN_CASES) {
@@ -342,29 +350,59 @@ async function main(): Promise<void> {
       throw new Error(`empty-overwrite guard failures:\n  - ${failures.join('\n  - ')}`);
     }
 
-    console.log(
-      JSON.stringify(
-        {
-          ok: true,
-          case: 'player-domain-empty-overwrite-guard',
-          domainResults: results,
-          completedComprehensionPrune,
-          blockedComprehensionPrune,
-          answers:
-            '玩家分域 cleanup DELETE 在 incoming=[] + PG 已有 row 时，已被 refuseEmptyOverwriteIfRowsExist 守卫拒绝；withTransaction rollback 后 PG 中 row 数与 seed 一致。未领悟功法完成后 pendingComprehensions 合法归零时允许删除旧 pending 行；tech_id 未匹配已学功法时仍拒绝清空 pending。',
-          excludes:
-            '不证明 ensureNativeStarterSnapshot 入口的 load 失败拒绝写 starter / hasRecoveryWatermark guard，这两层由 world-player-snapshot.service 自身的逻辑路径覆盖。',
-          completionMapping: 'release:proof:with-db.player-domain-empty-overwrite-guard',
-        },
-        null,
-        2,
-      ),
-    );
+    successPayload = {
+      ok: true,
+      case: 'player-domain-empty-overwrite-guard',
+      domainResults: results,
+      completedComprehensionPrune,
+      blockedComprehensionPrune,
+      answers:
+        '玩家分域 cleanup DELETE 在 incoming=[] + PG 已有 row 时，已被 refuseEmptyOverwriteIfRowsExist 守卫拒绝；withTransaction rollback 后 PG 中 row 数与 seed 一致。未领悟功法完成后 pendingComprehensions 合法归零时允许删除旧 pending 行；tech_id 未匹配已学功法时仍拒绝清空 pending。',
+      excludes:
+        '不证明 ensureNativeStarterSnapshot 入口的 load 失败拒绝写 starter / hasRecoveryWatermark guard，这两层由 world-player-snapshot.service 自身的逻辑路径覆盖。',
+      completionMapping: 'release:proof:with-db.player-domain-empty-overwrite-guard',
+    };
+  } catch (error) {
+    runError = error;
   } finally {
-    await pool.end().catch(() => undefined);
-    await service.onModuleDestroy().catch(() => undefined);
-    await databasePoolProvider.onModuleDestroy().catch(() => undefined);
+    for (const playerId of testPlayerIds) {
+      try {
+        await cleanupPlayer(pool, playerId);
+      } catch (error) {
+        cleanupErrors.push(new Error(
+          `测试玩家清理失败：playerId=${playerId} error=${error instanceof Error ? error.message : String(error)}`,
+        ));
+      }
+    }
+    try {
+      await pool.end();
+    } catch (error) {
+      cleanupErrors.push(error);
+    }
+    try {
+      await service.onModuleDestroy();
+    } catch (error) {
+      cleanupErrors.push(error);
+    }
+    try {
+      await databasePoolProvider.onModuleDestroy();
+    } catch (error) {
+      cleanupErrors.push(error);
+    }
   }
+
+  if (runError !== null || cleanupErrors.length > 0) {
+    throw new AggregateError(
+      runError === null ? cleanupErrors : [runError, ...cleanupErrors],
+      runError === null
+        ? 'player-domain-empty-overwrite-guard smoke 清理失败'
+        : 'player-domain-empty-overwrite-guard smoke 执行失败',
+    );
+  }
+  if (successPayload === null) {
+    throw new Error('player-domain-empty-overwrite-guard smoke 未生成成功结果');
+  }
+  console.log(JSON.stringify(successPayload, null, 2));
 }
 
 async function assertUnmatchedTechniqueComprehensionStillBlocked(

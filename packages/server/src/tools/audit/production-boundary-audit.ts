@@ -401,6 +401,9 @@ const CHECKS = [
     exclude: [
       " AND ",
     ],
+    allowedFunctions: [
+      "deletePlayerInventoryForExplicitEmptySnapshot",
+    ],
   },
   {
     id: "persistence.snapshot_rewrite.player_domain_wallet",
@@ -693,6 +696,9 @@ const CHECKS = [
     exclude: [
       " AND ",
     ],
+    allowedFunctions: [
+      "purgeInstanceState",
+    ],
   },
   {
     id: "persistence.snapshot_rewrite.instance_buildings",
@@ -703,6 +709,9 @@ const CHECKS = [
     forbidden: true,
     exclude: [
       " AND ",
+    ],
+    allowedFunctions: [
+      "purgeInstanceState",
     ],
   },
   {
@@ -715,6 +724,9 @@ const CHECKS = [
     exclude: [
       " AND ",
     ],
+    allowedFunctions: [
+      "purgeInstanceState",
+    ],
   },
   {
     id: "persistence.snapshot_rewrite.instance_room_cells",
@@ -726,6 +738,9 @@ const CHECKS = [
     exclude: [
       " AND ",
     ],
+    allowedFunctions: [
+      "purgeInstanceState",
+    ],
   },
   {
     id: "persistence.snapshot_rewrite.instance_feng_shui",
@@ -736,6 +751,9 @@ const CHECKS = [
     forbidden: true,
     exclude: [
       " AND ",
+    ],
+    allowedFunctions: [
+      "purgeInstanceState",
     ],
   },
   {

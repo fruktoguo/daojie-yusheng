@@ -4816,6 +4816,19 @@ async function refuseEmptyOverwriteIfRowsExist(
   }
 }
 
+/**
+ * 仅处理调用方已经显式允许的“空背包即清空持久化背包”语义。
+ *
+ * 单独收敛这个终止分支，避免边界审计把合法清空与“先整域 DELETE、再全量重插”的
+ * 快照重写混为一谈；普通非空快照仍必须走下面的行级差量删除和 upsert。
+ */
+async function deletePlayerInventoryForExplicitEmptySnapshot(
+  client: PoolClient,
+  playerId: string,
+): Promise<void> {
+  await client.query(`DELETE FROM ${PLAYER_INVENTORY_ITEM_TABLE} WHERE player_id = $1`, [playerId]);
+}
+
 async function replacePlayerInventoryItems(
   client: PoolClient,
   playerId: string,
@@ -4938,7 +4951,7 @@ async function replacePlayerInventoryItems(
       await refuseEmptyOverwriteIfRowsExist(client, PLAYER_INVENTORY_ITEM_TABLE, playerId, 0, 'inventory');
       return;
     }
-    await client.query(`DELETE FROM ${PLAYER_INVENTORY_ITEM_TABLE} WHERE player_id = $1`, [playerId]);
+    await deletePlayerInventoryForExplicitEmptySnapshot(client, playerId);
     return;
   }
 
