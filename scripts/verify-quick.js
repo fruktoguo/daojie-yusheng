@@ -47,6 +47,8 @@ const status = runVerificationSteps({
         'player-statistic-ledger-io',
         '--case',
         'player-runtime-dirty-domain',
+        '--case',
+        'technique-activity-completion',
       ],
       shell: false,
     },

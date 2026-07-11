@@ -161,6 +161,7 @@ const smokeCases = [
   { name: 'player-state-flush-worker', scriptFile: 'player-state-flush-worker-smoke.js', standalone: true },
   { name: 'durable-operation', scriptFile: 'durable-operation-smoke.js', standalone: true },
   { name: 'world-runtime-lifecycle', scriptFile: 'world-runtime-lifecycle-smoke.js', standalone: true },
+  { name: 'technique-activity-completion', scriptFile: 'technique-activity-completion-proof.js', standalone: true },
   { name: 'snapshot-retirement', scriptFile: 'snapshot-retirement-report-smoke.js', standalone: true },
   { name: 'map-snapshot-retirement', scriptFile: 'map-snapshot-retirement-report-smoke.js', standalone: true },
   { name: 'multi-worker-flush-stability', scriptFile: 'multi-worker-flush-stability-report-smoke.js', standalone: true },

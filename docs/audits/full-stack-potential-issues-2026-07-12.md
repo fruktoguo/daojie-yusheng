@@ -236,6 +236,16 @@
 - 修复方式：新增按 `alchemy` / `forging` 隔离的会话目录缓存；只有实际收到目录数组才记录可上报版本，同版本状态 patch 保留缓存，新版本无目录 patch 则使旧缓存失效，会话清理统一释放。打开和外部状态重查都只读取对应类型的真实缓存版本。服务端新增主动刷新专用构造入口：炼丹/炼器用当前目录版本生成完整状态但省略静态目录，活跃 job 继续走原有小 patch；用户显式请求仍在首次缺少目录时正常返回目录，断线重连和首包恢复语义不变。
 - 验证：`pnpm verify:client`、server compile、compiled `world-runtime-craft-mutation-smoke` 与 `pnpm audit:protocol` 均通过。客户端动态 proof 覆盖两类目录同版本隔离、仅版本 patch 不建立假缓存、新版本失效、深克隆和会话清理。新协议报告中装备后的两条面板降为 `692B + 665B`，对应 `SyncEnvelope` 降为 `4.72KB`；17 个 `AlchemyPanel` 总量降至 `28.83KB`（减少约 91%）。首次显式炼丹目录请求仍为 `15.35KB`，同版本后续请求为 `692B`，证明按需首包与运行态小包已正确分层。
 
+### FS-022 `[x]` 统一技艺完成度 proof 绑定旧实现且未进入默认门禁
+
+- 严重级别：中。
+- 根本原因：`technique-activity-completion-proof` 用源码正则要求四个权威入口直接 `return this.pipeline.*(...)`，但生产入口已在 pipeline 返回后补记玩家技艺/资产统计，再返回同一结果；队列写入也已从 facade 内直接赋值收敛到 `enqueuePlayerTechniqueActivityQueueItem → setPlayerTechniqueActivityQueue`。proof 仍锁定旧代码形状，并且没有注册到 stable smoke suite 或 `verify:quick`。
+- 为什么错误：架构门禁应证明生命周期和职责边界，不能要求删除正确的统计副作用或把队列写入重新卷回 facade。未接入默认门禁又使该脚本失效后长期无人感知；只有本轮手动独立运行才在第一个旧正则处退出，后续 strategy、world tick、取消入口、队列、任务视图和 panel patch 断言都没有执行。
+- 触发条件：任何维护者独立运行该 proof；或后续真实回归发生但日常只执行 `verify:quick`。
+- 后果：正确代码会被误报，维护者可能为“修测试”而删掉统计记账；同时统一技艺 job 可能绕过 pipeline、回写 legacy `queuedJobs`、丢失公共取消入口或退回大面板载荷，而默认快速门禁仍然为绿。
+- 修复方式：按方法边界提取 `start/cancel/interrupt/tick` 源码段，逐项锁定“初始化 → 建立统计基线 → 调用对应 pipeline → 统计结算 → 返回”的有序链和未注册 kind fallback；队列断言改为同时验证 facade 委托、统一 helper 和唯一 `techniqueActivityQueue` setter。将 proof 注册为 `technique-activity-completion` stable case，并加入 `verify:quick`。
+- 验证：修复前 compiled proof 先失败于旧的直接 return 断言，更新后又真实暴露第二处旧的 facade 赋值断言；两处按当前权威链修正后 compiled proof 完整跑到底并通过。注册后的 `pnpm verify:quick` 实际执行该 case 并通过，同时 server compile、生产边界和原有快速 smoke 均保持通过。
+
 ## 待进一步验证或用户决定
 
 ### D-001 `[?]` 客户端初始包同时装载 React 面板与 legacy 回退实现
@@ -264,7 +274,7 @@
 
 以下候选仍属于本轮可以继续用代码和运行证据判定的技术项，不提前作为产品决策：
 
-- `technique-activity-completion-proof` 当前用旧源码正则锁定 pipeline 委托形态，独立运行失败；需先对照当前 pipeline 实现确认是纯门禁漂移还是生产调用链回退，再决定修 proof 或修 runtime。
+- 当前无已发现但尚未完成技术判定的候选；后续覆盖扫描发现的新候选会继续追加。
 
 ## 已执行验证
 
@@ -284,5 +294,5 @@
 | 玩家统计总账 I/O 竞态 smoke | 通过 | 同玩家 load/flush 双向串行，持久基线与运行时增量只合并一次 | 不证明跨节点迁移或真实数据库长事务下的吞吐 |
 | 玩家运行时 dirty-domain compiled smoke | 通过 | 直写 fencing 版本存在，核心玩家域精确标脏且不会退回全 snapshot | 不证明真实数据库 recovery watermark 的并发拒绝 |
 | 工坊目录缓存动态 proof 与 compiled mutation smoke | 通过 | 按类型缓存、版本失效、会话清理；主动面板刷新不再使用目录载荷 | 不证明跨发布持久缓存或真实弱网冷开体验 |
+| compiled `technique-activity-completion-proof` | 修复并接入 `verify:quick` 后通过 | 八类 strategy 注册、四段 pipeline 生命周期顺序、统一队列、任务视图、world facade 和面板 patch 边界 | 不替代各技艺玩法结果与 DB active job CAS smoke |
 | `pnpm audit:protocol` | 通过 | 无库主线服务实际启动、18 类场景的 C2S/S2C 事件覆盖与逐包字节统计；工坊重复目录与 67KB envelope 已消失；关闭 drain 完成 | 无数据库，因此未运行兑换码 DB 用例；也不直接证明 5000 并发带宽和压测结果 |
-| compiled `technique-activity-completion-proof` | 失败（待独立审查） | 证明旧源码正则已不匹配当前 runtime | 尚不能判断是门禁漂移还是 pipeline 调用链回退，未纳入 FS-021 修复结论 |

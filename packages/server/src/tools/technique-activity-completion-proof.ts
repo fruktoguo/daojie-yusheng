@@ -16,6 +16,23 @@ function assertNoMatch(source: string, pattern: RegExp, message: string): void {
   assert.doesNotMatch(source, pattern, message);
 }
 
+function readSection(source: string, startMarker: string, endMarker: string, label: string): string {
+  const start = source.indexOf(startMarker);
+  const end = source.indexOf(endMarker, start + startMarker.length);
+  assert.ok(start >= 0, `${label} missing start marker: ${startMarker}`);
+  assert.ok(end > start, `${label} missing end marker: ${endMarker}`);
+  return source.slice(start, end);
+}
+
+function assertOrdered(source: string, fragments: readonly string[], label: string): void {
+  let cursor = 0;
+  for (const fragment of fragments) {
+    const index = source.indexOf(fragment, cursor);
+    assert.ok(index >= cursor, `${label} missing ordered fragment: ${fragment}`);
+    cursor = index + fragment.length;
+  }
+}
+
 function assertRegistersAllStrategies(source: string, label: string): void {
   for (const strategyName of ['Alchemy', 'Forging', 'Enhancement', 'Gather', 'Mining', 'Building', 'Formation']) {
     assertMatch(source, new RegExp(`\\.register\\(new ${strategyName}Strategy\\(`), `${label} must register ${strategyName}Strategy`);
@@ -43,10 +60,62 @@ function main(): void {
   assertRegistersAllStrategies(worldTickSource, 'WorldRuntimeCraftTickService');
   assertRegistersAllStrategies(worldInterruptSource, 'WorldRuntimeCraftInterruptService');
 
-  assertMatch(craftRuntimeSource, /startTechniqueActivity\(player, kind[\s\S]*?return this\.pipeline\.start\(player, kind, payload, ctx\);/, 'startTechniqueActivity must delegate to pipeline.start');
-  assertMatch(craftRuntimeSource, /cancelTechniqueActivity\(player, kind[\s\S]*?return this\.pipeline\.cancel\(player, kind, ctx\);/, 'cancelTechniqueActivity must delegate to pipeline.cancel');
-  assertMatch(craftRuntimeSource, /interruptTechniqueActivity\(player, kind[\s\S]*?return this\.pipeline\.interrupt\(player, kind, reason, ctx\);/, 'interruptTechniqueActivity must delegate to pipeline.interrupt');
-  assertMatch(craftRuntimeSource, /tickTechniqueActivity\(player, kind[\s\S]*?return this\.pipeline\.tick\(player, kind, ctx\);/, 'tickTechniqueActivity must delegate to pipeline.tick');
+  const startEntry = readSection(
+    craftRuntimeSource,
+    'startTechniqueActivity(player, kind, payload, deps = null) {',
+    '/** 线上强化启动入口',
+    'startTechniqueActivity',
+  );
+  const cancelEntry = readSection(
+    craftRuntimeSource,
+    'cancelTechniqueActivity(player, kind, deps = null) {',
+    '/** 线上强化取消入口',
+    'cancelTechniqueActivity',
+  );
+  const interruptEntry = readSection(
+    craftRuntimeSource,
+    'interruptTechniqueActivity(player, kind, reason, deps = null) {',
+    '/** 统一派发技艺活动的 tick 推进',
+    'interruptTechniqueActivity',
+  );
+  const tickEntry = readSection(
+    craftRuntimeSource,
+    'tickTechniqueActivity(player, kind, deps = null) {',
+    '/** 线上强化 tick 入口',
+    'tickTechniqueActivity',
+  );
+  assertOrdered(startEntry, [
+    'this.ensurePipelineInitialized();',
+    'this.playerRuntimeService.captureOfflineGainBeforeTick?.(player);',
+    'const result = this.pipeline.start(player, kind, payload, ctx);',
+    'this.recordTechniqueActivityStatisticMutation(player, result);',
+    'return result;',
+  ], 'startTechniqueActivity must preserve baseline -> pipeline -> statistic ordering');
+  assertOrdered(cancelEntry, [
+    'this.ensurePipelineInitialized();',
+    'this.playerRuntimeService.captureOfflineGainBeforeTick?.(player);',
+    'const result = this.pipeline.cancel(player, kind, ctx);',
+    'this.recordTechniqueActivityStatisticMutation(player, result);',
+    'return result;',
+  ], 'cancelTechniqueActivity must preserve baseline -> pipeline -> statistic ordering');
+  assertOrdered(interruptEntry, [
+    'this.ensurePipelineInitialized();',
+    'this.playerRuntimeService.captureOfflineGainBeforeTick?.(player);',
+    'const result = this.pipeline.interrupt(player, kind, reason, ctx);',
+    'this.recordTechniqueActivityStatisticMutation(player, result);',
+    'return result;',
+  ], 'interruptTechniqueActivity must preserve baseline -> pipeline -> statistic ordering');
+  assertOrdered(tickEntry, [
+    'this.ensurePipelineInitialized();',
+    'this.playerRuntimeService.captureOfflineGainBeforeTick?.(player);',
+    'const result = this.pipeline.tick(player, kind, ctx);',
+    'this.recordTechniqueActivityStatisticMutation(player, result);',
+    'return result;',
+  ], 'tickTechniqueActivity must preserve baseline -> pipeline -> statistic ordering');
+  assertMatch(startEntry, /return buildCraftMutationResult\(`unsupported technique activity kind: \$\{kind\}`\);/, 'startTechniqueActivity must reject unregistered kinds');
+  assertMatch(cancelEntry, /return buildCraftMutationResult\(`unsupported technique activity kind: \$\{kind\}`\);/, 'cancelTechniqueActivity must reject unregistered kinds');
+  assertMatch(interruptEntry, /return buildCraftTickResult\(\);/, 'interruptTechniqueActivity must return an empty result for unregistered kinds');
+  assertMatch(tickEntry, /return buildCraftTickResult\(\);/, 'tickTechniqueActivity must return an empty result for unregistered kinds');
 
   assertMatch(worldTickSource, /for \(const kind of this\.craftPanelRuntimeService\.listActiveTechniqueActivityKinds\(player\)\) \{[\s\S]*?this\.craftPanelRuntimeService\.tickTechniqueActivity\(player, kind, deps\)/, 'world craft tick must enumerate active kinds and tick through the craft pipeline entry');
   assertNoMatch(worldTickSource, /\btickAlchemy\s*\(|\btickEnhancement\s*\(|\btickGather\s*\(|\btickBuildingConstruction\s*\(/, 'world craft tick must not directly dispatch per-technique tick services');
@@ -69,7 +138,9 @@ function main(): void {
   }
 
   assertMatch(queueSource, /const QUEUE_SLOT = 'techniqueActivityQueue';/, 'unified queue service must use techniqueActivityQueue as runtime queue slot');
-  assertMatch(craftRuntimeSource, /enqueueCraftQueueItem\(player[\s\S]*?player\.techniqueActivityQueue = queue/, 'craft runtime queue writes must target techniqueActivityQueue');
+  assertMatch(craftRuntimeSource, /enqueueCraftQueueItem\(player, item, mode\) \{[\s\S]*?enqueuePlayerTechniqueActivityQueueItem\(player, item, mode\)/, 'craft runtime queue facade must delegate to the unified queue helper');
+  assertMatch(craftRuntimeSource, /function enqueuePlayerTechniqueActivityQueueItem\(player, item, mode\) \{[\s\S]*?setPlayerTechniqueActivityQueue\(player, nextQueue\)/, 'craft runtime queue helper must commit through the unified queue setter');
+  assertMatch(craftRuntimeSource, /function setPlayerTechniqueActivityQueue\(player, queue\) \{[\s\S]*?player\.techniqueActivityQueue = Array\.isArray\(queue\)/, 'craft runtime queue setter must target techniqueActivityQueue');
   assertNoMatch(craftRuntimeSource, /\.queuedJobs\s*=/, 'craft runtime must not write new legacy queuedJobs');
   assertMatch(craftRuntimeSource, /migrateLegacyCraftQueueToUnifiedQueue\(player, job\.queuedJobs\)/, 'legacy queuedJobs may only be migrated into unified queue during compatibility recovery');
   assertMatch(commandSource, /holder\.queuedJobs = nextQueue/, 'legacy queuedJobs direct mutation is limited to cancel compatibility for old buttons');
@@ -90,7 +161,7 @@ function main(): void {
     ok: true,
     answers: [
       '所有 runtime kind 都注册到 CraftPanelRuntimeService、WorldRuntimeCraftTickService 和 WorldRuntimeCraftInterruptService 的 TechniqueActivityPipelineService。',
-      'start/cancel/interrupt/tick 的权威入口均委托 pipeline，world tick 不再直接分发单技艺 tick service。',
+      'start/cancel/interrupt/tick 的权威入口均按“统计基线 → pipeline → 统计结算 → 返回”顺序执行，world tick 不再直接分发单技艺 tick service。',
       '炼丹/炼器/强化 world service 只保留 facade，内部调用统一技艺活动入口。',
       'strategy 不再实现 executeStart/executeCancel/executeInterrupt，旧 start/cancel/interrupt 完整委托已移除。',
       '运行时队列写入只进入 techniqueActivityQueue，legacy queuedJobs 只作为兼容迁移/旧按钮取消来源。',
