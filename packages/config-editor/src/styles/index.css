@@ -1,5 +1,4 @@
 @import 'tailwindcss';
-@import '@fontsource-variable/public-sans';
 @import './tokens.css';
 @import './gm-editor-compat.css';
 

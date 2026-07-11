@@ -70,11 +70,28 @@
 - 修复方式：预先枚举本次所有测试玩家 ID，在最外层 `finally` 中逐个兜底清理后再关闭连接；主体错误与清理错误使用 `AggregateError` 一并显式抛出，不静默吞掉失败。
 - 验证：server compile 通过；`node packages/server/dist/tools/player-domain-empty-overwrite-guard-smoke.js` 在当前数据库环境实际运行通过，7 个域均保持 seed 行不变，两个领悟清理分支符合预期，并执行最终兜底清理。
 
+### FS-005 `[x]` config-editor 构建成功但字体资源不会进入产物
+
+- 严重级别：中。
+- 根本原因：Public Sans 通过 Tailwind 处理的 CSS `@import` 引入，Vite 没有接管依赖 CSS 中的相对字体 URL。最终 CSS 保留 `./files/public-sans-*.woff2`，但 `dist` 没有 `assets/files` 或任何字体文件。
+- 为什么错误：构建只给 warning 并返回成功，CSS 中的相对 URL 会在部署时解析为 `/assets/files/*.woff2`，这些请求必然 404；开发机依赖目录里存在字体文件不能证明生产产物可用。
+- 后果：配置编辑器在所有主题和设备上回退系统字体，排版宽度、表格密度和按钮文本可能变化；更严重的是构建门禁无法发现其他 CSS 静态资源丢失。
+- 修复方式：由 `main.tsx` 直接导入 `@fontsource-variable/public-sans`，让 Vite 解析并发射哈希字体资源；新增构建后 CSS URL 完整性检查，任何缺失的本地资源都会让 build 失败。
+- 验证：`pnpm build:config-editor` 通过，构建发射 3 个哈希命名的 `woff2`，新增门禁确认 CSS 的 3 个本地 URL 均有对应产物；Chrome 147 通过 CDP 实测页面完成挂载，`document.fonts.check('16px "Public Sans Variable"')` 为 `true`，实际使用的 latin 字体返回 `200 font/woff2`，无字体失败请求。
+
+### FS-006 `[x]` config-editor 未声明站点图标导致每次加载产生 404
+
+- 严重级别：低。
+- 根本原因：配置编辑器 `index.html` 未声明 favicon，浏览器按默认约定请求 `/favicon.ico`；编辑器复用了 client 的 public 目录，但该目录没有根级 favicon。
+- 为什么错误：这是确定不存在的 URL，不是可选资源延迟加载；每次新会话都会制造一次无意义请求和错误日志，干扰真实静态资源故障排查。
+- 后果：浏览器标签缺少项目标识，预览/部署访问产生 `404` 噪音；监控若按 4xx 统计会被无效请求污染。
+- 修复方式：在 HTML 中显式引用项目已有的 `packages/client/favicon.ico`，交由 Vite 解析、发射和重写，避免复制第二份品牌资源。
+- 验证：`pnpm build:config-editor` 发射 `dist/assets/favicon-BDKqQ5Up.ico` 并把 HTML 链接重写为该哈希 URL；Chrome 147 在 `390×844`、DPR 2、深色模式下通过 CDP 实测链接存在，主动请求返回 `200 image/x-icon`，且页面重载不再请求默认 `/favicon.ico`。
+
 ## 待进一步验证或用户决定
 
 当前尚无需要产品选择的确定项。以下候选会继续由本轮审计自行收集证据，不提前交给用户决策：
 
-- config-editor 构建报告 Public Sans 字体文件无法在构建期解析；需检查最终部署 URL 是否真实 404。
 - client/config-editor 构建存在大 chunk 警告；需先确认首屏依赖和动态加载边界，再决定拆包方式。
 - 当前协议报告出现约 58KB 的面板/离线报告载荷；需确认事件层级、触发频率和分页上限后再判断是否违反同步红线。
 
