@@ -2,7 +2,7 @@
 
 const assert = require("node:assert/strict");
 
-const { WorldRuntimePlayerCommandService } = require("../runtime/world/world-runtime-player-command.service");
+const { WorldRuntimePlayerCommandService } = require("../runtime/world/command/world-runtime-player-command.service");
 
 function createDeferred() {
     let resolve;
@@ -232,8 +232,8 @@ function createService(log = [], player = { hp: 10 }) {
  * @returns 无返回值，直接更新RedeemCode相关状态。
  */
 
-        dispatchRedeemCodes(playerId, codes) {
-            log.push(['dispatchRedeemCodes', playerId, codes]);
+        dispatchRedeemCodes(playerId, codes, requestId) {
+            log.push(['dispatchRedeemCodes', playerId, codes, requestId]);
         },
     }, {    
     /**
@@ -323,10 +323,10 @@ function createService(log = [], player = { hp: 10 }) {
 async function testUseItemDelegates() {
     const log = [];
     const service = createService(log);
-    await service.dispatchPlayerCommand('player:1', { kind: 'useItem', slotIndex: 2 }, {});
+    await service.dispatchPlayerCommand('player:1', { kind: 'useItem', itemInstanceId: 'inventory:2' }, {});
     assert.deepEqual(log, [
         ['getPlayer', 'player:1'],
-        ['dispatchUseItem', 'player:1', 2],
+        ['dispatchUseItem', 'player:1', 'inventory:2'],
     ]);
 }
 /**
@@ -359,12 +359,12 @@ async function testCastSkillDelegates() {
 async function testDeadPlayerOnlyAllowsRedeemCodes() {
     const deadLog = [];
     const deadService = createService(deadLog, { hp: 0 });
-    await deadService.dispatchPlayerCommand('player:1', { kind: 'useItem', slotIndex: 1 }, {});
-    await deadService.dispatchPlayerCommand('player:1', { kind: 'redeemCodes', codes: ['A'] }, {});
+    await deadService.dispatchPlayerCommand('player:1', { kind: 'useItem', itemInstanceId: 'inventory:1' }, {});
+    await deadService.dispatchPlayerCommand('player:1', { kind: 'redeemCodes', requestId: 'redeem:req:1', codes: ['A'] }, {});
     assert.deepEqual(deadLog, [
         ['getPlayer', 'player:1'],
         ['getPlayer', 'player:1'],
-        ['dispatchRedeemCodes', 'player:1', ['A']],
+        ['dispatchRedeemCodes', 'player:1', ['A'], 'redeem:req:1'],
     ]);
 }
 /**
@@ -604,7 +604,7 @@ async function testShopAndEquipmentRoutesAwaitAsyncHandlers() {
     shopDeferred.resolve();
     await pendingShop;
 
-    const pendingEquip = service.dispatchPlayerCommand('player:1', { kind: 'equip', slotIndex: 3 }, {});
+    const pendingEquip = service.dispatchPlayerCommand('player:1', { kind: 'equip', itemInstanceId: 'inventory:3' }, {});
     await new Promise((resolve) => setImmediate(resolve));
     assert.deepEqual(log, [
         ['getPlayer', 'player:1'],
@@ -626,7 +626,7 @@ async function testShopAndEquipmentRoutesAwaitAsyncHandlers() {
         ['dispatchBuyNpcShopItem', 'player:1', 'npc.shop', 'item.a', 2],
         ['dispatchBuyNpcShopItem:resolved', 'player:1'],
         ['getPlayer', 'player:1'],
-        ['dispatchEquipItem', 'player:1', 3],
+        ['dispatchEquipItem', 'player:1', 'inventory:3'],
     ]);
     equipDeferred.resolve();
     await pendingEquip;
@@ -653,8 +653,8 @@ async function testShopAndEquipmentRoutesAwaitAsyncHandlers() {
         ['dispatchBuyNpcShopItem', 'player:1', 'npc.shop', 'item.a', 2],
         ['dispatchBuyNpcShopItem:resolved', 'player:1'],
         ['getPlayer', 'player:1'],
-        ['dispatchEquipItem', 'player:1', 3],
-        ['dispatchEquipItem:resolved', 'player:1', 3],
+        ['dispatchEquipItem', 'player:1', 'inventory:3'],
+        ['dispatchEquipItem:resolved', 'player:1', 'inventory:3'],
         ['getPlayer', 'player:1'],
         ['dispatchUnequipItem', 'player:1', 'weapon'],
     ]);
@@ -680,8 +680,8 @@ async function testShopAndEquipmentRoutesAwaitAsyncHandlers() {
         ['dispatchBuyNpcShopItem', 'player:1', 'npc.shop', 'item.a', 2],
         ['dispatchBuyNpcShopItem:resolved', 'player:1'],
         ['getPlayer', 'player:1'],
-        ['dispatchEquipItem', 'player:1', 3],
-        ['dispatchEquipItem:resolved', 'player:1', 3],
+        ['dispatchEquipItem', 'player:1', 'inventory:3'],
+        ['dispatchEquipItem:resolved', 'player:1', 'inventory:3'],
         ['getPlayer', 'player:1'],
         ['dispatchUnequipItem', 'player:1', 'weapon'],
         ['dispatchUnequipItem:resolved', 'player:1', 'weapon'],

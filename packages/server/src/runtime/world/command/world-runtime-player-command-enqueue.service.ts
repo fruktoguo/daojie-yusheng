@@ -372,14 +372,20 @@ export class WorldRuntimePlayerCommandEnqueueService {
     /**
  * enqueueRedeemCodes：处理RedeemCode并更新相关状态。
  * @param playerId 玩家 ID。
+ * @param requestIdInput 客户端请求 ID。
  * @param codesInput 参数说明。
  * @param deps 运行时依赖。
  * @returns 无返回值，直接更新RedeemCode相关状态。
  */
 
-    enqueueRedeemCodes(playerId, codesInput, deps) {
+    enqueueRedeemCodes(playerId, requestIdInput, codesInput, deps) {
+        const requestId = typeof requestIdInput === 'string' ? requestIdInput.trim() : '';
+        if (!requestId || requestId.length > 128) {
+            throw new BadRequestException('兑换请求 ID 无效');
+        }
         return this.enqueueNormalizedPlayerCommand(playerId, {
             kind: 'redeemCodes',
+            requestId,
             codes: Array.isArray(codesInput) ? codesInput.filter((entry) => typeof entry === 'string') : [],
         }, deps);
     }

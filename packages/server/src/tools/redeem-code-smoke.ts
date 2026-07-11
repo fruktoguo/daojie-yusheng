@@ -136,7 +136,8 @@ async function main() {
  * 记录before数量。
  */
         const beforeCount = rewardCount(before, REWARD_ITEM_ID);
-        socket.emit(shared_1.C2S.RedeemCodes, { codes: [code] });
+        const firstRequestId = `redeem-smoke:first:${Date.now().toString(36)}`;
+        socket.emit(shared_1.C2S.RedeemCodes, { requestId: firstRequestId, codes: [code] });
         await waitFor(async () => {
 /**
  * 记录latest。
@@ -146,7 +147,8 @@ async function main() {
  * 记录状态。
  */
             const state = await fetchState();
-                return latest?.result?.results?.some((entry) => entry.code === code && entry.ok === true)
+                return latest?.requestId === firstRequestId
+                && latest?.result?.results?.some((entry) => entry.code === code && entry.ok === true)
                 && rewardCount(state, REWARD_ITEM_ID) === beforeCount + REWARD_COUNT;
         }, 5000);
 /**
@@ -219,7 +221,8 @@ async function main() {
             throw new Error(`destroyed code state mismatch: ${JSON.stringify(destroyedEntry)}`);
         }
         await delay(3100);
-        socket.emit(shared_1.C2S.RedeemCodes, { codes: [code] });
+        const secondRequestId = `redeem-smoke:second:${Date.now().toString(36)}`;
+        socket.emit(shared_1.C2S.RedeemCodes, { requestId: secondRequestId, codes: [code] });
         await waitFor(async () => {
 /**
  * 记录latest。
@@ -229,7 +232,8 @@ async function main() {
  * 记录状态。
  */
             const state = await fetchState();
-                return latest?.result?.results?.some((entry) => entry.code === code && entry.ok === false && entry.message === '兑换码无效或已过期')
+                return latest?.requestId === secondRequestId
+                && latest?.result?.results?.some((entry) => entry.code === code && entry.ok === false && entry.message === '兑换码无效或已过期')
                 && rewardCount(state, REWARD_ITEM_ID) === afterFirstCount;
         }, 5000);
         console.log(JSON.stringify({

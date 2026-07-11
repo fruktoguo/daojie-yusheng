@@ -142,6 +142,8 @@ type MainResetStateSourceOptions = {
   clearSocialState: () => void;
   /** 清理建造、房间和风水低频投影。 */
   clearBuildingFengShuiState: () => void;
+  /** 清理与设置面板相关的跨 tick 请求。 */
+  clearSettingsState: () => void;
   /**
  * resetMapRuntime：reset地图运行态引用。
  */
@@ -217,6 +219,7 @@ export function createMainResetStateSource(options: MainResetStateSourceOptions)
       options.clearActivityState();
       options.clearSocialState();
       options.clearBuildingFengShuiState();
+      options.clearSettingsState();
       resetOfflineGainBlockingConfirmation();
       options.resetMapRuntime();
       options.resetReactUiBridge();

@@ -259,7 +259,7 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
     refreshHudChrome: () => uiStateSource.refreshHudChrome(),
     showToast: (message) => uiStateSource.showToast(message),
     isSocketConnected: () => socket.connected,
-    sendRedeemCodes: (codes) => socialEconomySender.sendRedeemCodes(codes),
+    sendRedeemCodes: (requestId, codes) => socialEconomySender.sendRedeemCodes(requestId, codes),
     closeSettingsPanel: callbacks.closeSettingsPanel,
     disconnectSocket: () => socket.disconnect(),
     resetGameState: callbacks.resetGameState,

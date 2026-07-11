@@ -5,6 +5,7 @@
  */
 import {
   AccountRedeemCodesRes,
+  RedeemCodesResultErrorCode,
   S2C_RedeemCodesResult,
   PlayerState,
 } from '@mud/shared';
@@ -16,6 +17,8 @@ import { t } from './ui/i18n';
 
 
 type PendingRedeemCodesRequest = {
+/** 当前唯一允许结算的请求 ID。 */
+  requestId: string;
 /**
  * resolve：resolve相关字段。
  */
@@ -94,7 +97,7 @@ type MainSettingsStateSourceOptions = {
  * sendRedeemCodes：sendRedeemCode相关字段。
  */
 
-  sendRedeemCodes: (codes: string[]) => void;  
+  sendRedeemCodes: (requestId: string, codes: string[]) => boolean;
   /**
  * closeSettingsPanel：closeSetting面板相关字段。
  */
@@ -118,6 +121,25 @@ type MainSettingsStateSourceOptions = {
 };
 
 const REDEEM_RESULT_TIMEOUT_MS = 12000;
+let redeemCodesRequestSequence = 0;
+
+function createRedeemCodesRequestId(): string {
+  redeemCodesRequestSequence += 1;
+  const randomPart = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  return `redeem:${redeemCodesRequestSequence.toString(36)}:${randomPart}`;
+}
+
+function resolveRedeemCodesErrorMessage(errorCode?: RedeemCodesResultErrorCode): string {
+  if (errorCode === 'request_rejected') {
+    return t('settings.error.redeem-request-rejected');
+  }
+  if (errorCode === 'execution_failed') {
+    return t('settings.error.redeem-execution-failed');
+  }
+  return t('settings.redeem.error.failed');
+}
 /**
  * MainSettingsStateSource：统一结构类型，保证协议与运行时一致性。
  */
@@ -164,15 +186,27 @@ export function createMainSettingsStateSource(options: MainSettingsStateSourceOp
       return Promise.reject(new Error(t('settings.error.redeem-busy')));
     }
     return new Promise<AccountRedeemCodesRes>((resolve, reject) => {
+      const requestId = createRedeemCodesRequestId();
       const timeoutId = window.setTimeout(() => {
-        if (pendingRedeemCodesRequest?.timeoutId !== timeoutId) {
+        if (pendingRedeemCodesRequest?.requestId !== requestId) {
           return;
         }
         pendingRedeemCodesRequest = null;
         reject(new Error(t('settings.error.redeem-timeout')));
       }, REDEEM_RESULT_TIMEOUT_MS);
-      pendingRedeemCodesRequest = { resolve, reject, timeoutId };
-      options.sendRedeemCodes(codes);
+      pendingRedeemCodesRequest = { requestId, resolve, reject, timeoutId };
+      try {
+        if (options.sendRedeemCodes(requestId, codes)) {
+          return;
+        }
+      } catch {
+        // 发包出口异常与会话门控拒绝都必须立即结束本地等待。
+      }
+      if (pendingRedeemCodesRequest?.requestId === requestId) {
+        pendingRedeemCodesRequest = null;
+      }
+      window.clearTimeout(timeoutId);
+      reject(new Error(t('settings.error.not-connected')));
     });
   };
 
@@ -209,13 +243,17 @@ export function createMainSettingsStateSource(options: MainSettingsStateSourceOp
     handleRedeemCodesResult(data: S2C_RedeemCodesResult): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-      if (!pendingRedeemCodesRequest) {
+      if (!pendingRedeemCodesRequest || data.requestId !== pendingRedeemCodesRequest.requestId) {
         return;
       }
       const pending = pendingRedeemCodesRequest;
       pendingRedeemCodesRequest = null;
       window.clearTimeout(pending.timeoutId);
-      pending.resolve(data.result);
+      if (data.result) {
+        pending.resolve(data.result);
+        return;
+      }
+      pending.reject(new Error(resolveRedeemCodesErrorMessage(data.errorCode)));
     },    
     /**
  * rejectPendingRedeemCodes：执行reject待处理RedeemCode相关逻辑。
@@ -234,6 +272,17 @@ export function createMainSettingsStateSource(options: MainSettingsStateSourceOp
       pendingRedeemCodesRequest = null;
       window.clearTimeout(pending.timeoutId);
       pending.reject(new Error(message));
+    },
+
+    /** 终止会话时立即清理兑换码等待态。 */
+    clear(): void {
+      if (!pendingRedeemCodesRequest) {
+        return;
+      }
+      const pending = pendingRedeemCodesRequest;
+      pendingRedeemCodesRequest = null;
+      window.clearTimeout(pending.timeoutId);
+      pending.reject(new Error(t('connection.redeem.disconnected')));
     },
   };
 }

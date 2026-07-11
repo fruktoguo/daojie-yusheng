@@ -16,6 +16,9 @@ import type { ArtifactSlotUpdateEntry, InventorySlotUpdateEntry, EquipmentSlotUp
 import type { InventoryPageFilterView, TechniquePageCategoryFilterView, TechniquePageStatusFilterView } from './client-service-request-types';
 import type { TechniqueUpdateEntryView } from './panel-update-types';
 
+/** 兑换码请求的可机读失败类型，由客户端负责拼接展示文本。 */
+export type RedeemCodesResultErrorCode = 'request_rejected' | 'execution_failed';
+
 /** 战利品窗口更新视图。 */
 export interface LootWindowUpdateView {
 /**
@@ -34,10 +37,20 @@ export interface TechniqueActivityTasksPatchView extends TechniqueActivityTaskPa
 /** 兑换码结果视图。 */
 export interface RedeemCodesResultView {
 /**
+ * requestId：回显客户端请求 ID，防止迟到结果串入新请求。
+ */
+
+  requestId: string;
+/**
  * result：结果相关字段。
  */
 
-  result: AccountRedeemCodesRes;
+  result: AccountRedeemCodesRes | null;
+/**
+ * errorCode：服务端失败分类，仅在 result 为 null 时存在。
+ */
+
+  errorCode?: RedeemCodesResultErrorCode;
 }
 
 /** 背包面板更新视图。 */

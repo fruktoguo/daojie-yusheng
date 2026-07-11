@@ -36,13 +36,14 @@ export class WorldRuntimeGameplayWriteFacadeService {
  * dispatchRedeemCodes：判断RedeemCode是否满足条件。
  * @param playerId 玩家 ID。
  * @param codes 参数说明。
+ * @param requestId 客户端请求 ID。
  * @param deps 运行时依赖。
  * @returns 无返回值，直接更新RedeemCode相关状态。
  */
 
-    async dispatchRedeemCodes(playerId, codes, deps) {
+    async dispatchRedeemCodes(playerId, codes, requestId, deps) {
         this.assertPlayerInstanceLeaseWritable(playerId, deps);
-        return deps.worldRuntimeRedeemCodeService.dispatchRedeemCodes(playerId, codes, deps);
+        return deps.worldRuntimeRedeemCodeService.dispatchRedeemCodes(playerId, codes, requestId, deps);
     }
     /**
  * dispatchCastSkill：判断Cast技能是否满足条件。

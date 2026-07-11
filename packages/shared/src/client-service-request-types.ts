@@ -815,6 +815,11 @@ export interface CastSkillView {
 /** 兑换码提交。 */
 export interface RedeemCodesView {
 /**
+ * requestId：客户端请求 ID，用于关联跨 tick 的兑换结果。
+ */
+
+  requestId: string;
+/**
  * codes：code相关字段。
  */
 

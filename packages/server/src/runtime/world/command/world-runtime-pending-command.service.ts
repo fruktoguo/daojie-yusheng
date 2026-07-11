@@ -500,6 +500,14 @@ function areEquivalentPendingCommands(left, right, depth = 0): boolean {
     return true;
 }
 
+/** 识别同一兑换请求 ID，便于区分传输重试与 ID 误复用。 */
+function hasSameRedeemCodesRequestId(left, right): boolean {
+    return left?.kind === 'redeemCodes'
+        && right?.kind === 'redeemCodes'
+        && typeof left.requestId === 'string'
+        && left.requestId === right.requestId;
+}
+
 /** world-runtime pending command state：承接玩家待执行命令队列所有权与消费。 */
 @Injectable()
 export class WorldRuntimePendingCommandService {
@@ -644,10 +652,22 @@ export class WorldRuntimePendingCommandService {
                 return;
             }
         }
-        else if (queue.some((entry) => !entry.policy.replaceable
-            && entry.policy.domain === policy.domain
-            && areEquivalentPendingCommands(entry.command, command))) {
-            throw new ConflictException('相同指令已在等待执行');
+        else {
+            const sameRequestEntry = queue.find((entry) => !entry.policy.replaceable
+                && entry.policy.domain === policy.domain
+                && hasSameRedeemCodesRequestId(entry.command, command));
+            if (sameRequestEntry) {
+                if (areEquivalentPendingCommands(sameRequestEntry.command, command)) {
+                    return;
+                }
+                throw new ConflictException('兑换请求 ID 已被占用');
+            }
+            const equivalentEntry = queue.find((entry) => !entry.policy.replaceable
+                && entry.policy.domain === policy.domain
+                && areEquivalentPendingCommands(entry.command, command));
+            if (equivalentEntry) {
+                throw new ConflictException('相同指令已在等待执行');
+            }
         }
         if (queue.length >= MAX_PENDING_COMMANDS_PER_PLAYER) {
             if (queue.length === 0) {

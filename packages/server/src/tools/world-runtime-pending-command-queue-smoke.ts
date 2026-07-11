@@ -78,6 +78,18 @@ function verifyDuplicateAndCapacityRejectsAreExplicit(): void {
   assert.equal(service.getPendingCommandCount(), 16);
 }
 
+function verifyRedeemRequestRetriesAreIdempotentInQueue(): void {
+  const service = new WorldRuntimePendingCommandService();
+  const command = { kind: 'redeemCodes', requestId: 'redeem:req:1', codes: ['CODE-1'] };
+  service.enqueuePendingCommand('player:1', command);
+  service.enqueuePendingCommand('player:1', { ...command, codes: [...command.codes] });
+  assert.equal(service.getPendingCommandCount(), 1, '同一兑换请求的传输重试不得重复入队');
+  assert.throws(
+    () => service.enqueuePendingCommand('player:1', { ...command, codes: ['CODE-2'] }),
+    (error: unknown) => error instanceof ConflictException && error.message === '兑换请求 ID 已被占用',
+  );
+}
+
 async function verifyEnqueueDuringDispatchIsRetained(): Promise<void> {
   const service = new WorldRuntimePendingCommandService();
   let releaseDispatch: (() => void) | null = null;
@@ -111,6 +123,7 @@ async function main(): Promise<void> {
   await verifyNonReplaceableCommandsUseFifo();
   verifyReplaceableMovementUsesLastIntent();
   verifyDuplicateAndCapacityRejectsAreExplicit();
+  verifyRedeemRequestRetriesAreIdempotentInQueue();
   await verifyEnqueueDuringDispatchIsRetained();
   console.log(JSON.stringify({ ok: true, case: 'world-runtime-pending-command-queue' }));
 }

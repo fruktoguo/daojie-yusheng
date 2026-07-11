@@ -35,6 +35,11 @@ interface WorldGatewayActionDeps {
   worldClientEventService: {
     markProtocol(client: Socket, protocol: 'mainline'): void;
     emitGatewayError(client: Socket, code: string, error: unknown): void;
+    emitRedeemCodesResult(client: Socket, payload: {
+      requestId: string;
+      result: null;
+      errorCode: 'request_rejected';
+    }): void;
     getExplicitProtocol(client: Socket): 'mainline' | string;
   };
   gatewayClientEmitHelper: {
@@ -69,7 +74,7 @@ interface WorldGatewayActionDeps {
         target: string | undefined,
         deps: unknown,
       ): ProtocolActionResult | Promise<ProtocolActionResult>;
-      enqueueRedeemCodes(playerId: string, codes: string[], deps: unknown): void;
+      enqueueRedeemCodes(playerId: string, requestId: string, codes: string[], deps: unknown): void;
       usePortal(playerId: string, deps: unknown): void;
       enqueueCultivate(playerId: string, techId: string | null, deps: unknown): void;
       enqueueForgetTechnique(playerId: string, techId: string | null, deps: unknown): void;
@@ -213,11 +218,10 @@ export class WorldGatewayActionHelper {
           this.gateway.worldRuntimeService,
         ),
       );
-      this.gateway.worldSyncService?.emitDeltaSync(playerId, client);
       if (actionId === 'realm:auto_refine_root_foundation' || actionId.startsWith('realm:auto_refine_root_foundation:')) {
         await this.gateway.playerPersistenceFlushService?.flushPlayer(playerId);
-        this.gateway.worldSyncService?.emitDeltaSync(playerId, client);
       }
+      this.gateway.worldSyncService?.emitDeltaSync(playerId, client);
       return;
     }
 
@@ -233,15 +237,10 @@ export class WorldGatewayActionHelper {
       this.gateway.worldRuntimeService,
     );
     this.emitProtocolActionResult(client, playerId, result);
-    this.gateway.worldSyncService?.emitDeltaSync(playerId, client);
     if (actionId.startsWith('tower:tongtian:')) {
       await this.gateway.worldRuntimeService.worldRuntimeTongtianTowerService?.flushPlayerProgress(playerId);
-      this.gateway.worldSyncService?.emitDeltaSync(playerId, client);
-      return;
     }
-    if (actionId === 'portal:travel') {
-      this.gateway.worldSyncService?.emitDeltaSync(playerId, client);
-    }
+    this.gateway.worldSyncService?.emitDeltaSync(playerId, client);
   }
 
   private resolveActionId(payload: ClientToServerEventPayload<typeof C2S.UseAction>): string {
@@ -286,10 +285,21 @@ export class WorldGatewayActionHelper {
       return;
     }
 
+    const rawRequestId = typeof payload?.requestId === 'string' ? payload.requestId.trim() : '';
+    const requestId = rawRequestId.length <= 128 ? rawRequestId : '';
     try {
-      this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueRedeemCodes(playerId, payload?.codes ?? [], this.gateway.worldRuntimeService);
-    } catch (error) {
-      this.gateway.worldClientEventService.emitGatewayError(client, 'REDEEM_CODES_FAILED', error);
+      this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueRedeemCodes(
+        playerId,
+        requestId,
+        payload?.codes ?? [],
+        this.gateway.worldRuntimeService,
+      );
+    } catch {
+      this.gateway.worldClientEventService.emitRedeemCodesResult(client, {
+        requestId,
+        result: null,
+        errorCode: 'request_rejected',
+      });
     }
   }
 

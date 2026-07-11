@@ -996,8 +996,8 @@ export class WorldRuntimeService {
         async dispatchPlayerCommand(playerId, command) {
         return this.worldRuntimeTickDispatchService.dispatchPlayerCommand(playerId, command, this);
     }
-        async dispatchRedeemCodes(playerId, codes) {
-        return this.worldRuntimeGameplayWriteFacadeService.dispatchRedeemCodes(playerId, codes, this);
+        async dispatchRedeemCodes(playerId, codes, requestId) {
+        return this.worldRuntimeGameplayWriteFacadeService.dispatchRedeemCodes(playerId, codes, requestId, this);
     }
         async dispatchCastSkill(playerId, skillId, targetPlayerId, targetMonsterId, targetRef = null) {
         return this.worldRuntimeGameplayWriteFacadeService.dispatchCastSkill(playerId, skillId, targetPlayerId, targetMonsterId, targetRef, this);

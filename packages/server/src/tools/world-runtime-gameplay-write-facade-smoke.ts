@@ -30,7 +30,7 @@ function testGameplayWriteFacade() {
  * @param codes 参数说明。
  * @returns 无返回值，直接更新RedeemCode相关状态。
  */
- dispatchRedeemCodes(playerId, codes) { log.push(['dispatchRedeemCodes', playerId, codes]); } },
+ dispatchRedeemCodes(playerId, codes, requestId) { log.push(['dispatchRedeemCodes', playerId, codes, requestId]); } },
         worldRuntimeCombatCommandService: {        
         /**
  * dispatchCastSkill：判断Cast技能是否满足条件。
@@ -339,7 +339,7 @@ function testGameplayWriteFacade() {
         },
     };
 
-    service.dispatchRedeemCodes('player:1', ['A'], deps);
+    service.dispatchRedeemCodes('player:1', ['A'], 'redeem:req:1', deps);
     service.dispatchCastSkill('player:1', 'skill:1', null, 'monster:1', null, deps);
     assert.deepEqual(service.resolveLegacySkillTargetRef({ playerId: 'player:1' }, { id: 'skill:1' }, { kind: 'tile' }, deps), {
         attacker: 'player:1',
@@ -392,7 +392,7 @@ function testGameplayWriteFacade() {
     assert.ok(log.length >= 32);
 }
 
-function testLeaseFenceRejection() {
+async function testLeaseFenceRejection() {
     const service = new WorldRuntimeGameplayWriteFacadeService();
     const deps = {
         getPlayerLocation(playerId) {
@@ -413,7 +413,7 @@ function testLeaseFenceRejection() {
         },
     };
 
-    assert.throws(() => service.dispatchUseItem('player:1', 1, deps), /lease is not writable/);
+    await assert.rejects(service.dispatchUseItem('player:1', 1, deps), /租约不可写/);
     assert.deepEqual(deps.fenceInstanceRuntimeCalls, [['instance:lease-fenced', 'player_write_lease_check_failed']]);
 }
 

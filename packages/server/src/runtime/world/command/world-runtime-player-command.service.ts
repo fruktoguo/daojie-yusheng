@@ -779,7 +779,7 @@ export class WorldRuntimePlayerCommandService {
             case 'cancelTechniqueActivity':
                 return this.dispatchCancelTechniqueActivityByRef(playerId, command.cancelRef, deps);
             case 'redeemCodes':
-                return this.worldRuntimeRedeemCodeService.dispatchRedeemCodes(playerId, command.codes, deps);
+                return this.worldRuntimeRedeemCodeService.dispatchRedeemCodes(playerId, command.codes, command.requestId, deps);
             case 'breakthrough':
                 this.worldRuntimeProgressionService.dispatchBreakthrough(playerId, deps);
                 return;

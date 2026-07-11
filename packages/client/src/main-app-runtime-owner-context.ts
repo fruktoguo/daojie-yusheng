@@ -417,7 +417,7 @@ export function createMainRuntimeOwnerContext(options: CreateMainRuntimeOwnerCon
     clearWorldSummaryState: () => panelContext.worldSummaryStateSource.clear(),
     clearLootPanel: () => panelContext.panelDeps.lootPanel.clear(),
     clearWorldPanel: () => panelContext.panelDeps.worldPanel.clear(),
-    clearMailState: () => panelContext.mailStateSource.clear(), clearActivityState: () => panelContext.activityStateSource.clear(), clearSocialState: () => panelContext.socialStateSource.clear(), clearBuildingFengShuiState: () => panelContext.buildingFengShuiStateSource.clear(),
+    clearMailState: () => panelContext.mailStateSource.clear(), clearActivityState: () => panelContext.activityStateSource.clear(), clearSocialState: () => panelContext.socialStateSource.clear(), clearBuildingFengShuiState: () => panelContext.buildingFengShuiStateSource.clear(), clearSettingsState: () => panelContext.settingsStateSource.clear(),
     resetMapRuntime: () => mapRuntime.reset(),
     resetReactUiBridge: () => {
       reactUiBridge.reset();

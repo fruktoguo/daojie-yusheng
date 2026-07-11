@@ -309,13 +309,14 @@ export class WorldRuntimeCommandIntakeFacadeService {
     /**
  * enqueueRedeemCodes：处理RedeemCode并更新相关状态。
  * @param playerId 玩家 ID。
+ * @param requestIdInput 客户端请求 ID。
  * @param codesInput 参数说明。
  * @param deps 运行时依赖。
  * @returns 无返回值，直接更新RedeemCode相关状态。
  */
 
-    enqueueRedeemCodes(playerId, codesInput, deps) {
-        return deps.worldRuntimePlayerCommandEnqueueService.enqueueRedeemCodes(playerId, codesInput, deps);
+    enqueueRedeemCodes(playerId, requestIdInput, codesInput, deps) {
+        return deps.worldRuntimePlayerCommandEnqueueService.enqueueRedeemCodes(playerId, requestIdInput, codesInput, deps);
     }
     /**
  * enqueueHeavenGateAction：处理HeavenGateAction并更新相关状态。

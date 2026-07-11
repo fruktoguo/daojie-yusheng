@@ -57,7 +57,7 @@ async function main() {
                 await castSkillDeferred.promise;
                 log.push(['dispatchCastSkill:resolved', playerId, skillId, targetPlayerId, targetMonsterId, targetRef]);
             },
-            async dispatchRedeemCodes(playerId, codes) {
+            async dispatchRedeemCodes(playerId, codes, _requestId) {
                 log.push(['dispatchRedeemCodes', playerId, codes]);
                 await redeemCodesDeferred.promise;
                 log.push(['dispatchRedeemCodes:resolved', playerId, codes]);
@@ -144,6 +144,7 @@ async function main() {
         runtime,
         'player:1',
         ['code:alpha'],
+        'redeem:req:1',
     );
     await nextTick();
     assert.deepEqual(log, [

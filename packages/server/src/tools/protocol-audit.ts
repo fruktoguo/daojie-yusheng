@@ -2233,9 +2233,11 @@ async function redeemCodesCase(runtime) {
  * 记录before。
  */
   var before = walletBalance((await runtime.api.fetchState(playerId)).player, 'spirit_stone');
-  socket.emit(C2S.RedeemCodes, { codes: [code] });
+  const requestId = `audit-redeem:${Date.now().toString(36)}`;
+  socket.emit(C2S.RedeemCodes, { requestId, codes: [code] });
   await socket.waitForEvent(S2C.RedeemCodesResult, function (payload) {
-    return Array.isArray(payload?.result?.results) && payload.result.results.some(function (entry) {
+    return payload?.requestId === requestId
+      && Array.isArray(payload?.result?.results) && payload.result.results.some(function (entry) {
       return entry.code === code && entry.ok === true;
     });
   }, 10000);

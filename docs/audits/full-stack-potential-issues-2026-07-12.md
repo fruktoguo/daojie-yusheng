@@ -19,11 +19,11 @@
 
 | 领域 | 当前状态 | 已有证据 | 仍需完成 |
 | --- | --- | --- | --- |
-| 客户端应用状态与断线/跨图生命周期 | 进行中 | `pnpm verify:client` 通过 | 逐条复核网络派生状态、迟到回包和重置边界 |
+| 客户端应用状态与断线/跨图生命周期 | 进行中 | `pnpm verify:client` 通过；兑换码请求关联与会话清理 proof 通过 | 逐条复核其余网络派生状态、迟到回包和重置边界 |
 | UI 局部更新、焦点、滚动、选区 | 进行中 | 高频 UI continuity proof 通过 | 继续审查未被 proof 覆盖的面板和弹层 |
 | 地图渲染、相机、命中与资源释放 | 进行中 | map render lifecycle、spatial cache proof 通过 | 动态检查移动端触控与大视口性能 |
-| shared 类型、协议与 protobuf | 进行中 | shared build 全部契约检查通过 | 完成当前协议审计退出码与大包体复核 |
-| 服务端网络同步、AOI、首包/增量 | 待检查 | `pnpm verify:quick` 的 runtime smoke 通过 | 逐字段检查频率、范围、恢复语义 |
+| shared 类型、协议与 protobuf | 进行中 | shared build 全部契约检查通过；兑换码 C2S/S2C 已强制关联 `requestId` | 完成当前协议审计退出码与大包体复核 |
+| 服务端网络同步、AOI、首包/增量 | 进行中 | `pnpm verify:quick` runtime smoke 通过；网关 action 已验证单次 delta 和兑换终态关联 | 逐字段检查其余频率、范围、恢复语义 |
 | 服务端 runtime、tick、移动、战斗、交互 | 待检查 | server compile、quick runtime smoke 通过 | 按 mechanics 文档审查真实调用链和热路径 |
 | 持久化、恢复、强事务与关闭 | 进行中 | server compile 通过；边界审计 forbidden 已清零 | 复核玩家/实例分域、flush、outbox、恢复围栏 |
 | 配置编辑器、schema、导入发布 | 进行中 | 构建、content-contract、异步代际 smoke 与浏览器乱序回包验证通过 | 继续复核地图保存、schema 与发布入口 |
@@ -168,6 +168,34 @@
 - 修复方式：先完成 `localStorage` 写入，成功后才原子发布内存快照和渲染刷新事件；存储不可用与配额失败统一显式报错。每个资源 key 增加写入代际，新选图或恢复默认会使旧 `FileReader` 结果失效；被取代的 Promise 静默收口，不覆盖新状态文案。
 - 验证：地图渲染生命周期 proof 新增可控 `FileReader` 与失败存储，实际验证配额失败不改内存/不发事件、后选图胜出且旧回包被丢弃、恢复默认后旧读图不得复活。
 
+### FS-015 `[x]` 兑换码跨 tick 结果没有请求身份，可结算到错误操作
+
+- 严重级别：高。
+- 根本原因：C2S 只发 `codes`，S2C 只发 `result`；客户端只保留一个无身份的 `pendingRedeemCodesRequest`。旧请求超时后可以启动新请求，但旧结果迟到时会直接取出当前 pending 并结算。手动退出的 `io client disconnect` 分支又提前返回，通用 reset 没有清理该 pending；发包层还忽略会话门控的 `accepted=false`。服务端入队或执行失败也不发这次请求的终态。
+- 为什么错误：兑换码会改变玩家资产，且必须入队到下一息执行。客户端的 Promise 结果必须与服务端实际执行的同一条意图一一对应，不能用“当前恰好有一个等待者”代替请求关联。
+- 触发条件：服务端执行超过 12 秒后重试；旧结果在新请求等待期到达；手动退出/被踢时正在兑换；或已连接检查与真正 emit 之间的会话状态发生变化。
+- 后果：A 兑换的成功/失败明细可被 B 操作展示，玩家因此误判资产是否入账并重复提交；发包被拒绝或服务端明确失败后仍锁住按钮 12 秒；旧账号等待态还会跨越会话边界。
+- 修复方式：协议强制客户端生成的唯一 `requestId`，并从网关、命令入队、tick 消费一直传到成功或失败 S2C；客户端只结算 ID 严格相等的结果。同一 ID 且同一内容的传输重试只保留一个队列条目，同 ID 异内容显式拒绝。发包门控拒绝立即 reject，所有 reset 统一撤销 timer 并终止 pending。
+- 验证：`pnpm build:shared`、`pnpm verify:client`、server compile 通过；新增客户端可控超时 proof，证明旧 A 结果不能结算 B、会话清理立即 reject、门控拒绝不留假 pending；compiled `world-runtime-redeem-code`、`world-runtime-pending-command-queue`、`world-gateway-action-helper`、`world-runtime-player-command` 等七个相关 smoke 通过。
+
+### FS-016 `[x]` 网关低频动作的特殊分支重复发送 delta
+
+- 严重级别：中。
+- 根本原因：`handleProtocolAction` 在通用 `executeAction` 后已经发送一次 `emitDeltaSync`，自动凝练根基和通天塔分支在持久化后又发一次，`portal:travel` 也在末尾再发一次。新增通用同步时没有删除历史特判。
+- 为什么错误：这些都是单次低频意图，同一动作只需要一个面向当前 socket 的最终增量。需要强制落盘的分支还应先完成 flush，再发唯一结果，不应先暴露一个未落盘的中间时序。
+- 后果：传送、通天塔和自动凝练开关每次操作都会增加一个重复包和一轮无效客户端 patch；持久化较慢时，客户端还可先看到未完成 flush 的状态。在多玩家同时低频操作时会放大不必要的组包和带宽开销。
+- 修复方式：将分支统一为“执行动作 → 如有必要先 flush → 单播一次 delta”；删除传送与特殊分支的第二次同步。
+- 验证：compiled `world-gateway-action-helper-smoke` 通过，分别锁定世界迁移、炼体、传送、自动凝练与通天塔的单次 delta，且需要落盘的动作保持 flush 在 sync 之前。
+
+### FS-017 `[x]` 写侧 compiled smoke 已与生产路径和稳定物品引用契约脱节
+
+- 严重级别：中。
+- 根本原因：`world-runtime-player-command-smoke.ts` 仍 `require` 已迁入 `command/` 的旧模块路径，使用/装备命令仍构造旧 `slotIndex`，而生产调度已读取 `itemInstanceId`。`world-runtime-gameplay-write-facade-smoke.ts` 又用同步 `assert.throws` 验证 async 拒绝。这些文件的 `@ts-nocheck` 让 server compile 无法发现漂移。
+- 为什么错误：smoke 是重构后验证命令路由和资产引用的证据；模块在启动前就找不到，或用已废弃字段得到 `undefined`，都意味着它没有在证明当前生产链。
+- 后果：玩家命令调度和 lease 围栏的回归无法实际运行；默认 compile 仍绿，给出虚假安全感，也进一步印证 FS-003 中工具层绕过 TypeScript 的系统性风险。
+- 修复方式：指向当前 `command/world-runtime-player-command.service`，用稳定 `itemInstanceId` 构造使用/装备命令并更新断言；对 async lease 拒绝改用 `await assert.rejects`。同步让兑换码 smoke 传递当前 `requestId` 契约。
+- 验证：compiled `world-runtime-player-command-smoke`、`world-runtime-gameplay-write-facade-smoke`、`world-runtime-write-entry-smoke`、`world-runtime-command-intake-facade-smoke` 均实际运行通过。
+
 ## 待进一步验证或用户决定
 
 ### D-001 `[?]` 客户端初始包同时装载 React 面板与 legacy 回退实现
@@ -188,7 +216,7 @@
 
 以下候选仍属于本轮可以继续用代码和运行证据判定的技术项，不提前作为产品决策：
 
-- 当前协议报告出现约 58KB 的面板/离线报告载荷；需确认事件层级、触发频率和分页上限后再判断是否违反同步红线。
+- 当前无库协议审计实测到工坊首次投影中单个 `SyncEnvelope` 为 `67.22KB`，单个 `AlchemyPanel` 为 `48.38KB`；需完整追踪字段产生、包体分层、触发频率、客户端消费和断线恢复后，再判断是否应分页或拆包。
 
 ## 已执行验证
 
@@ -202,3 +230,6 @@
 | `pnpm proof:file-size-gate` | 失败 | 已确认模块体积门禁失守 | 不直接证明功能错误 |
 | `pnpm audit:boundaries` | 修复后通过 | forbidden 命中为 0，runtime template spread 与 registry freeze 检查通过 | 不替代 runtime、DB 恢复和性能压测 |
 | `node packages/server/dist/tools/player-domain-empty-overwrite-guard-smoke.js` | 通过 | 真实 DB 中 7 个玩家分域空覆盖守卫、领悟清理边界和本次最终清理链 | 不证明 starter snapshot 入口与 recovery watermark 全链 |
+| `pnpm build:shared` | 通过 | 兑换码协议请求/响应映射、payload shape、protobuf 契约与 shared 边界 | 不证明真实 tick 排队和 DB 发奖 |
+| 兑换码与网关 compiled 专项 smoke | 通过 | `requestId` 端到端传递、成功/失败终态、队列重试幂等、单次 delta 和当前命令路由 | 不证明真实 DB 兑换码领取与全量协议审计 |
+| `pnpm audit:protocol` | 通过 | 无库主线服务实际启动、18 类场景的 C2S/S2C 事件覆盖与逐包字节统计；关闭 drain 完成 | 无数据库，因此未运行兑换码 DB 用例；也不直接证明 5000 并发带宽和压测结果 |

@@ -118,13 +118,14 @@ export function createSocketSocialEconomySender(deps: SocialEconomySenderDeps) {
     },
     /**
  * sendRedeemCodes：执行sendRedeemCode相关逻辑。
+ * @param requestId 客户端请求 ID。
  * @param codes string[] 参数说明。
- * @returns 无返回值，直接更新sendRedeemCode相关状态。
+ * @returns 返回是否真正通过会话门控发出。
  */
 
 
-    sendRedeemCodes(codes: string[]): void {
-      deps.emitEvent(C2S.RedeemCodes, { codes });
+    sendRedeemCodes(requestId: string, codes: string[]): boolean {
+      return deps.emitEvent(C2S.RedeemCodes, { requestId, codes }).accepted;
     },
     /**
  * sendMarkMailRead：读取sendMark邮件Read并返回结果。

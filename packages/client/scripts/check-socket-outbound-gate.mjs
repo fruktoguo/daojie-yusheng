@@ -177,6 +177,11 @@ assert.match(
   /resetOfflineGainBlockingConfirmation\(\)/,
   '终止会话必须清理离线收益确认状态',
 );
+assert.match(
+  resetStateSource,
+  /options\.clearSettingsState\(\)/,
+  '终止会话必须清理兑换码等设置面板异步状态',
+);
 
 const confirmationState = new OfflineGainConfirmationState();
 assert.equal(confirmationState.begin([]), false, '空报告不得进入确认态');

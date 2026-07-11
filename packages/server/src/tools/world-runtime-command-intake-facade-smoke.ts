@@ -179,7 +179,7 @@ function testCommandIntakeFacade() {
  * @returns 无返回值，直接更新RedeemCode相关状态。
  */
 
-            enqueueRedeemCodes(playerId, codesInput) { log.push(['enqueueRedeemCodes', playerId, codesInput.length]); return 'redeem'; },
+            enqueueRedeemCodes(playerId, requestIdInput, codesInput) { log.push(['enqueueRedeemCodes', playerId, requestIdInput, codesInput.length]); return 'redeem'; },
             /**
  * enqueueHeavenGateAction：处理HeavenGateAction并更新相关状态。
  * @param playerId 玩家 ID。
@@ -370,7 +370,7 @@ function testCommandIntakeFacade() {
     assert.equal(service.enqueueCancelEnhancement('player:1', deps), 'cancelEnhancement');
     assert.equal(service.enqueueStartTechniqueActivity('player:1', 'enhancement', { itemId: 'item:2' }, deps), 'startEnhancement');
     assert.equal(service.enqueueCancelTechniqueActivity('player:1', 'enhancement', deps), 'cancelEnhancement');
-    assert.equal(service.enqueueRedeemCodes('player:1', ['A'], deps), 'redeem');
+    assert.equal(service.enqueueRedeemCodes('player:1', 'redeem:req:1', ['A'], deps), 'redeem');
     assert.equal(service.enqueueHeavenGateAction('player:1', 'open', 'metal', deps), 'heavenGate');
     assert.equal(service.enqueueCastSkill('player:1', 'skill:1', null, 'monster:1', null, deps), 'cast');
     assert.equal(service.enqueueCastSkillTargetRef('player:1', 'skill:1', { kind: 'tile' }, deps), 'castRef');

@@ -28,7 +28,13 @@ async function testAwaitsRedeemBeforeEmit() {
         },
     }, {
         emitRedeemCodesResult(socket, payload) {
-            log.push(['emitRedeemCodesResult', socket.id, payload.result.results.length]);
+            log.push([
+                'emitRedeemCodesResult',
+                socket.id,
+                payload.requestId,
+                payload.result?.results?.length ?? null,
+                payload.errorCode ?? null,
+            ]);
         },
     });
     const deps = {
@@ -41,7 +47,7 @@ async function testAwaitsRedeemBeforeEmit() {
             log.push(['queuePlayerNotice', playerId, message, tone]);
         },
     };
-    const pendingDispatch = service.dispatchRedeemCodes('player:1', ['CODE-1'], deps);
+    const pendingDispatch = service.dispatchRedeemCodes('player:1', ['CODE-1'], 'redeem:req:1', deps);
     await nextTick();
     assert.deepEqual(log, [
         ['redeemCodes', 'player:1', ['CODE-1']],
@@ -52,7 +58,7 @@ async function testAwaitsRedeemBeforeEmit() {
         ['redeemCodes', 'player:1', ['CODE-1']],
         ['redeemCodes:resolved', 'player:1'],
         ['getSocketByPlayerId', 'player:1'],
-        ['emitRedeemCodesResult', 'socket:redeem', 1],
+        ['emitRedeemCodesResult', 'socket:redeem', 'redeem:req:1', 1, null],
     ]);
 }
 
@@ -68,8 +74,8 @@ async function testWarnsOnRedeemFailure() {
             return { id: 'socket:redeem' };
         },
     }, {
-        emitRedeemCodesResult() {
-            log.push(['emitRedeemCodesResult']);
+        emitRedeemCodesResult(socket, payload) {
+            log.push(['emitRedeemCodesResult', socket.id, payload.requestId, payload.result, payload.errorCode]);
         },
     });
     const deps = {
@@ -82,10 +88,12 @@ async function testWarnsOnRedeemFailure() {
             log.push(['queuePlayerNotice', playerId, message, tone]);
         },
     };
-    await service.dispatchRedeemCodes('player:2', ['CODE-2'], deps);
+    await service.dispatchRedeemCodes('player:2', ['CODE-2'], 'redeem:req:2', deps);
     assert.deepEqual(log, [
         ['warn', '处理玩家 player:2 的兑换码失败：redeem durable failed'],
         ['queuePlayerNotice', 'player:2', 'redeem durable failed', 'warn'],
+        ['getSocketByPlayerId'],
+        ['emitRedeemCodesResult', 'socket:redeem', 'redeem:req:2', null, 'execution_failed'],
     ]);
 }
 
@@ -96,7 +104,7 @@ Promise.resolve()
     console.log(JSON.stringify({
         ok: true,
         case: 'world-runtime-redeem-code',
-        answers: 'WorldRuntimeRedeemCodeService 现在会等待 redeemCodes durable 结果后再发 socket result，失败时走 warn notice，不再从玩家命令入口 fire-and-forget',
+        answers: 'WorldRuntimeRedeemCodeService 会等待 durable 结果，并对成功与失败终态回显同一 requestId',
         excludes: '不证明 quest submit 奖励已统一走同一条组合事务链',
     }, null, 2));
 });

@@ -40,8 +40,11 @@ function createGateway(log = [], playerId = 'player:1') {
                 log.push(['executeAction', inputPlayerId, actionId, target ?? null, deps === runtime]);
                 return { kind: 'queued' };
             },
-            enqueueRedeemCodes(inputPlayerId, codes) {
-                log.push(['enqueueRedeemCodes', inputPlayerId, codes]);
+            enqueueRedeemCodes(inputPlayerId, requestId, codes) {
+                if (!requestId) {
+                    throw new Error('request id required');
+                }
+                log.push(['enqueueRedeemCodes', inputPlayerId, requestId, codes]);
             },
             usePortal(inputPlayerId) {
                 log.push(['usePortal', inputPlayerId]);
@@ -54,6 +57,11 @@ function createGateway(log = [], playerId = 'player:1') {
             },
             enqueueCastSkillTargetRef(inputPlayerId, actionId, target) {
                 log.push(['enqueueCastSkillTargetRef', inputPlayerId, actionId, target]);
+            },
+        },
+        worldRuntimeTongtianTowerService: {
+            async flushPlayerProgress(inputPlayerId) {
+                log.push(['flushPlayerProgress', inputPlayerId]);
             },
         },
     };
@@ -72,6 +80,9 @@ function createGateway(log = [], playerId = 'player:1') {
             },
             emitGatewayError(client, code, error) {
                 log.push(['emitGatewayError', client.id, code, error instanceof Error ? error.message : String(error)]);
+            },
+            emitRedeemCodesResult(client, payload) {
+                log.push(['emitRedeemCodesResult', client.id, payload]);
             },
             getExplicitProtocol() {
                 return 'mainline';
@@ -120,6 +131,7 @@ async function testWorldMigrateDelegatesToExecuteAction() {
     assert.deepEqual(log, [
         ['markProtocol', 'socket:1', 'mainline'],
         ['executeAction', 'player:1', 'world:migrate', 'real', true],
+        ['emitDeltaSync', 'player:1', 'socket:1'],
     ]);
 }
 
@@ -146,6 +158,7 @@ async function testBodyTrainingStillUsesExecuteAction() {
     assert.deepEqual(log, [
         ['markProtocol', 'socket:1', 'mainline'],
         ['executeAction', 'player:1', 'body_training:infuse', '12', true],
+        ['emitDeltaSync', 'player:1', 'socket:1'],
     ]);
 }
 
@@ -221,6 +234,21 @@ async function testPortalTravelFlushesCurrentSocketSync() {
     ]);
 }
 
+async function testTongtianActionFlushesBeforeSingleSync() {
+    const log = [];
+    const helper = new WorldGatewayActionHelper(createGateway(log));
+    const client = createClient(log);
+
+    await helper.handleUseAction(client, { actionId: 'tower:tongtian:next' });
+
+    assert.deepEqual(log, [
+        ['markProtocol', 'socket:1', 'mainline'],
+        ['executeAction', 'player:1', 'tower:tongtian:next', null, true],
+        ['flushPlayerProgress', 'player:1'],
+        ['emitDeltaSync', 'player:1', 'socket:1'],
+    ]);
+}
+
 function testDedicatedPortalEventFlushesCurrentSocketSync() {
     const log = [];
     const helper = new WorldGatewayActionHelper(createGateway(log));
@@ -234,6 +262,32 @@ function testDedicatedPortalEventFlushesCurrentSocketSync() {
     ]);
 }
 
+function testRedeemCodesCarriesRequestIdentity(): void {
+    const log = [];
+    const helper = new WorldGatewayActionHelper(createGateway(log));
+    const client = createClient(log);
+
+    helper.handleRedeemCodes(client, { requestId: 'redeem:req:1', codes: ['CODE-1'] });
+
+    assert.deepEqual(log, [
+        ['enqueueRedeemCodes', 'player:1', 'redeem:req:1', ['CODE-1']],
+    ]);
+}
+
+function testRejectedRedeemCodesSettlesCorrelatedRequest(): void {
+    const log = [];
+    const helper = new WorldGatewayActionHelper(createGateway(log));
+    const client = createClient(log);
+
+    helper.handleRedeemCodes(client, { requestId: '', codes: ['CODE-1'] });
+
+    assert.deepEqual(log, [[
+        'emitRedeemCodesResult',
+        'socket:1',
+        { requestId: '', result: null, errorCode: 'request_rejected' },
+    ]]);
+}
+
 async function run() {
     await testWorldMigrateDelegatesToExecuteAction();
     await testTargetedSkillStillUsesCastSkillPath();
@@ -243,7 +297,10 @@ async function run() {
     await testAutoRootFoundationOffActionFlushesCurrentSocketSync();
     await testReturnToSpawnUsesDedicatedCommand();
     await testPortalTravelFlushesCurrentSocketSync();
+    await testTongtianActionFlushesBeforeSingleSync();
     testDedicatedPortalEventFlushesCurrentSocketSync();
+    testRedeemCodesCarriesRequestIdentity();
+    testRejectedRedeemCodesSettlesCorrelatedRequest();
     console.log(JSON.stringify({ ok: true, case: 'world-gateway-action-helper' }, null, 2));
 }
 
