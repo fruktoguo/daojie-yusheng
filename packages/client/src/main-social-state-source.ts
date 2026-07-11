@@ -71,10 +71,10 @@ export function createMainSocialStateSource(options: MainSocialStateSourceOption
     onSendMessage: (targetPlayerId, message) => options.socket.sendDaoistDirectMessage(targetPlayerId, message),
   });
   options.treasureVaultModal.setCallbacks({
-    onDeposit: (itemInstanceId, count) => {
+    onDeposit: (items) => {
       const detail = currentTreasureVaultDetail;
       if (!detail) return;
-      options.socket.sendTreasureVaultDeposit({ buildingId: detail.buildingId, instanceId: detail.instanceId, itemInstanceId, count });
+      options.socket.sendTreasureVaultDeposit({ buildingId: detail.buildingId, instanceId: detail.instanceId, items });
     },
     onWithdraw: (storageItemId, count) => {
       const detail = currentTreasureVaultDetail;
@@ -139,7 +139,9 @@ export function createMainSocialStateSource(options: MainSocialStateSourceOption
         currentTreasureVaultDetail = result.detail;
       }
       options.treasureVaultModal.handleOperationResult(result);
-      if (result.ok !== true && result.reason) {
+      if (result.ok === true && result.operation === 'permissions') {
+        options.showToast('宝库权限更新成功', 'success');
+      } else if (result.ok !== true && result.reason) {
         options.showToast(VAULT_REASON_LABELS[result.reason] ?? result.reason, 'warn');
       }
     },

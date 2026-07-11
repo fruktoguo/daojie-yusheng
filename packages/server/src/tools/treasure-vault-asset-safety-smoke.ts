@@ -34,10 +34,12 @@ async function main(): Promise<void> {
   const stoppedInstanceId = `vault:stopped:${stamp}`;
   const missingInstanceId = `vault:missing:${stamp}`;
   const blockedInstanceId = `vault:blocked:${stamp}`;
+  const rollbackInstanceId = `vault:rollback:${stamp}`;
   const buildingId = `vault_building_${stamp}`;
   const stoppedBuildingId = `vault_stopped_${stamp}`;
   const missingBuildingId = `vault_missing_${stamp}`;
   const blockedBuildingId = `vault_blocked_${stamp}`;
+  const rollbackBuildingId = `vault_rollback_${stamp}`;
   const pool = new Pool({ connectionString: databaseUrl });
   const databasePoolProvider = new DatabasePoolProvider();
   const contentTemplateRepository = new ContentTemplateRepository();
@@ -60,27 +62,50 @@ async function main(): Promise<void> {
   await service.onModuleInit();
 
   try {
-    await cleanup(pool, ownerId, [instanceId, stoppedInstanceId, missingInstanceId, blockedInstanceId]);
+    await cleanup(pool, ownerId, [instanceId, stoppedInstanceId, missingInstanceId, blockedInstanceId, rollbackInstanceId]);
 
     await seedInstanceCatalog(pool, instanceId, 'active', 'running', ownerId);
     await seedBuildingState(pool, instanceId, buildingId, ownerId, '宝库·主动');
-    await depositGem(service, ownerId, instanceId, buildingId, 'gem.active', '宝库·主动', 3);
+    await depositGems(service, ownerId, instanceId, buildingId, '宝库·主动', [
+      { itemInstanceId: 'gem.active', count: 3 },
+      { itemInstanceId: 'gem.batch', count: 2 },
+    ]);
 
     const activeRows = await fetchRows(pool, 'SELECT owner_player_id, building_name, raw_payload FROM instance_building_storage_item WHERE instance_id = $1 AND building_id = $2', [instanceId, buildingId]);
-    assert.equal(activeRows.length, 1);
-    assert.equal(activeRows[0]?.owner_player_id, ownerId);
-    assert.equal(activeRows[0]?.building_name, '宝库·主动');
-    assert.equal(activeRows[0]?.raw_payload?.enhanceLevel, 7);
-    assert.equal(activeRows[0]?.raw_payload?.itemInstanceId, 'gem.active');
+    assert.equal(activeRows.length, 2);
+    assert.ok(activeRows.every((row) => row?.owner_player_id === ownerId));
+    assert.ok(activeRows.every((row) => row?.building_name === '宝库·主动'));
+    assert.equal(activeRows.find((row) => row?.raw_payload?.itemInstanceId === 'gem.active')?.raw_payload?.enhanceLevel, 7);
+    assert.equal(activeRows.find((row) => row?.raw_payload?.itemInstanceId === 'gem.batch')?.raw_payload?.enhanceLevel, 5);
 
     const directRecovery = await service.recoverVaultItemsToOwnerMail({ instanceId, buildingId, ownerPlayerId: ownerId, buildingName: '宝库·主动', reason: 'smoke_direct' });
     assert.equal(directRecovery.ok, true);
-    assert.equal(directRecovery.itemCount, 1);
+    assert.equal(directRecovery.itemCount, 2);
     await assertVaultEmpty(pool, instanceId, buildingId);
-    await assertRecoveryMail(pool, ownerId, directRecovery.mailId, 'gem.active', 3, '宝库·主动');
+    await assertRecoveryMail(pool, ownerId, directRecovery.mailId, [
+      { itemInstanceId: 'gem.active', count: 3 },
+      { itemInstanceId: 'gem.batch', count: 2 },
+    ], '宝库·主动');
     const repeatRecovery = await service.recoverVaultItemsToOwnerMail({ instanceId, buildingId, ownerPlayerId: ownerId, buildingName: '宝库·主动', reason: 'smoke_retry' });
     assert.equal(repeatRecovery.ok, true);
     assert.equal(repeatRecovery.itemCount, 0);
+
+    await seedInstanceCatalog(pool, rollbackInstanceId, 'active', 'running', ownerId);
+    await seedBuildingState(pool, rollbackInstanceId, rollbackBuildingId, ownerId, '宝库·批量回滚');
+    const rollbackRuntime = createRuntime(rollbackInstanceId, rollbackBuildingId, ownerId, '宝库·批量回滚', 1).runtime;
+    const rollbackResult = await service.deposit(ownerId, {
+      instanceId: rollbackInstanceId,
+      buildingId: rollbackBuildingId,
+      items: [
+        { itemInstanceId: 'gem.rollback.a', count: 1 },
+        { itemInstanceId: 'gem.rollback.b', count: 1 },
+      ],
+    }, rollbackRuntime);
+    assert.equal(rollbackResult.ok, false);
+    assert.equal(rollbackResult.reason, 'treasure_vault_full');
+    await assertVaultEmpty(pool, rollbackInstanceId, rollbackBuildingId);
+    assert.ok(playerRuntime.peekInventoryItemByInstanceId(ownerId, 'gem.rollback.a'));
+    assert.ok(playerRuntime.peekInventoryItemByInstanceId(ownerId, 'gem.rollback.b'));
 
     await seedInstanceCatalog(pool, stoppedInstanceId, 'active', 'stopped', ownerId);
     await seedBuildingState(pool, stoppedInstanceId, stoppedBuildingId, ownerId, '宝库·停止实例');
@@ -90,14 +115,14 @@ async function main(): Promise<void> {
     assert.equal(stoppedRecovery.recoveredVaults, 1);
     assert.equal(stoppedRecovery.recoveredItems, 1);
     await assertVaultEmpty(pool, stoppedInstanceId, stoppedBuildingId);
-    await assertRecoveryMail(pool, ownerId, buildExpectedMailId(ownerId, stoppedInstanceId, stoppedBuildingId), 'gem.stopped', 4, '宝库·停止实例');
+    await assertRecoveryMail(pool, ownerId, buildExpectedMailId(ownerId, stoppedInstanceId, stoppedBuildingId), [{ itemInstanceId: 'gem.stopped', count: 4 }], '宝库·停止实例');
 
     await insertVaultRow(pool, missingInstanceId, missingBuildingId, ownerId, '宝库·地图丢失', 'gem.missing', 5, 9);
     const orphanRecovery = await service.recoverOrphanedVaultItems({ reason: 'smoke_missing', limit: 20 });
     assert.equal(orphanRecovery.ok, true);
     assert.ok(orphanRecovery.recoveredVaults >= 1);
     await assertVaultEmpty(pool, missingInstanceId, missingBuildingId);
-    await assertRecoveryMail(pool, ownerId, buildExpectedMailId(ownerId, missingInstanceId, missingBuildingId), 'gem.missing', 5, '宝库·地图丢失');
+    await assertRecoveryMail(pool, ownerId, buildExpectedMailId(ownerId, missingInstanceId, missingBuildingId), [{ itemInstanceId: 'gem.missing', count: 5 }], '宝库·地图丢失');
 
     await seedInstanceCatalog(pool, blockedInstanceId, 'destroyed', 'stopped', null);
     await insertVaultRow(pool, blockedInstanceId, blockedBuildingId, null, '宝库·缺少建造者', 'gem.blocked', 6, 10);
@@ -110,19 +135,20 @@ async function main(): Promise<void> {
     console.log(JSON.stringify({
       ok: true,
       cases: [
-        'deposit_writes_independent_owner_and_payload',
+        'batch_deposit_writes_all_items_in_one_transaction',
+        'batch_deposit_failure_rolls_back_storage_and_inventory',
         'direct_recovery_writes_one_mail_then_deletes_storage',
         'retry_is_idempotent_without_duplicate_storage_loss',
         'stopped_instance_recovery_before_purge',
         'missing_instance_orphan_recovery',
         'missing_owner_blocks_and_keeps_storage',
       ],
-      answers: '宝库库存独立表保存 owner/buildingName/full item payload；主动/停止实例/地图丢失回收都会一封邮件返还全部物品；缺 owner 的异常库存不会被删除。',
+      answers: '宝库批量存入会在同一事务写入全部物品，库存独立表保存 owner/buildingName/full item payload；主动/停止实例/地图丢失回收都会一封邮件返还全部物品；缺 owner 的异常库存不会被删除。',
       excludes: '不启动真实 socket 客户端，不证明玩家实际点击领取附件 UI。',
       completionMapping: 'release:proof:with-db.treasure-vault-asset-safety',
     }, null, 2));
   } finally {
-    await cleanup(pool, ownerId, [instanceId, stoppedInstanceId, missingInstanceId, blockedInstanceId]);
+    await cleanup(pool, ownerId, [instanceId, stoppedInstanceId, missingInstanceId, blockedInstanceId, rollbackInstanceId]);
     await pool.end();
     await databasePoolProvider.onModuleDestroy();
   }
@@ -135,12 +161,21 @@ function createPlayerRuntime(ownerId: string) {
     instanceId: '',
     inventory: {
       capacity: 20,
-      items: [createGem('gem.active', 3, 7)],
+      items: [
+        createGem('gem.active', 3, 7),
+        createGem('gem.batch', 2, 5),
+        createGem('gem.rollback.a', 1, 11),
+        createGem('gem.rollback.b', 1, 12),
+      ],
     },
   };
   return {
     getPlayer(playerId: string) {
       return playerId === ownerId ? player : null;
+    },
+    peekInventoryItemByInstanceId(playerId: string, itemInstanceId: string) {
+      assert.equal(playerId, ownerId);
+      return player.inventory.items.find((item) => item.itemInstanceId === itemInstanceId) ?? null;
     },
     splitInventoryItemByInstanceId(playerId: string, itemInstanceId: string, count: number) {
       assert.equal(playerId, ownerId);
@@ -175,7 +210,7 @@ function createGem(itemInstanceId: string, count: number, enhanceLevel: number) 
   };
 }
 
-function createRuntime(instanceId: string, buildingId: string, ownerId: string, buildingName: string) {
+function createRuntime(instanceId: string, buildingId: string, ownerId: string, buildingName: string, capacity = 80) {
   const building = {
     id: buildingId,
     defId: 'treasure_vault',
@@ -191,9 +226,9 @@ function createRuntime(instanceId: string, buildingId: string, ownerId: string, 
     buildingById: new Map([[buildingId, building]]),
     buildingCatalog: {
       defByHandle: {
-        treasure_vault: { id: 'treasure_vault', name: buildingName, treasureVaultCapacity: 80 },
+        treasure_vault: { id: 'treasure_vault', name: buildingName, treasureVaultCapacity: capacity },
       },
-      defById: new Map([['treasure_vault', { id: 'treasure_vault', name: buildingName, treasureVaultCapacity: 80 }]]),
+      defById: new Map([['treasure_vault', { id: 'treasure_vault', name: buildingName, treasureVaultCapacity: capacity }]]),
     },
   };
   return {
@@ -207,9 +242,16 @@ function createRuntime(instanceId: string, buildingId: string, ownerId: string, 
   };
 }
 
-async function depositGem(service: TreasureVaultRuntimeService, ownerId: string, instanceId: string, buildingId: string, itemInstanceId: string, buildingName: string, count: number) {
+async function depositGems(
+  service: TreasureVaultRuntimeService,
+  ownerId: string,
+  instanceId: string,
+  buildingId: string,
+  buildingName: string,
+  items: Array<{ itemInstanceId: string; count: number }>,
+) {
   const { runtime } = createRuntime(instanceId, buildingId, ownerId, buildingName);
-  const result = await service.deposit(ownerId, { instanceId, buildingId, itemInstanceId, count }, runtime);
+  const result = await service.deposit(ownerId, { instanceId, buildingId, items }, runtime);
   assert.equal(result.ok, true, `deposit failed: ${JSON.stringify(result)}`);
 }
 
@@ -247,7 +289,13 @@ async function assertVaultEmpty(pool: Pool, instanceId: string, buildingId: stri
   assert.equal(rows.length, 0, `vault storage must be empty: ${JSON.stringify(rows)}`);
 }
 
-async function assertRecoveryMail(pool: Pool, ownerId: string, mailId: string | undefined, itemInstanceId: string, count: number, buildingName: string): Promise<void> {
+async function assertRecoveryMail(
+  pool: Pool,
+  ownerId: string,
+  mailId: string | undefined,
+  expectedItems: Array<{ itemInstanceId: string; count: number }>,
+  buildingName: string,
+): Promise<void> {
   assert.ok(mailId, 'recovery mail id required');
   const mail = await fetchSingleRow(pool, 'SELECT mail_id, player_id, title, body, source_type, source_ref_id FROM player_mail WHERE mail_id = $1', [mailId]);
   assert.equal(mail?.player_id, ownerId);
@@ -255,11 +303,13 @@ async function assertRecoveryMail(pool: Pool, ownerId: string, mailId: string | 
   assert.match(String(mail?.title ?? ''), /宝库物品返还/);
   assert.match(String(mail?.body ?? ''), new RegExp(buildingName));
   const attachments = await fetchRows(pool, 'SELECT item_id, count, item_payload_jsonb FROM player_mail_attachment WHERE mail_id = $1 ORDER BY attachment_id ASC', [mailId]);
-  assert.equal(attachments.length, 1);
-  assert.equal(attachments[0]?.item_id, 'rat_tail');
-  assert.equal(Number(attachments[0]?.count), count);
-  assert.equal(attachments[0]?.item_payload_jsonb?.itemInstanceId, itemInstanceId);
-  assert.equal(attachments[0]?.item_payload_jsonb?.customMarker, `marker:${itemInstanceId}`);
+  assert.equal(attachments.length, expectedItems.length);
+  for (const expected of expectedItems) {
+    const attachment = attachments.find((entry) => entry?.item_payload_jsonb?.itemInstanceId === expected.itemInstanceId);
+    assert.equal(attachment?.item_id, 'rat_tail');
+    assert.equal(Number(attachment?.count), expected.count);
+    assert.equal(attachment?.item_payload_jsonb?.customMarker, `marker:${expected.itemInstanceId}`);
+  }
 }
 
 function buildExpectedMailId(ownerId: string, instanceId: string, buildingId: string): string {

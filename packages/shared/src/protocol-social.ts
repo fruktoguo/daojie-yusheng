@@ -23,6 +23,7 @@ export type {
   DaoistDirectMessageView,
   SocialOperationResultView,
   SocialPanelView,
+  TreasureVaultDepositEntryView,
   TreasureVaultDetailView,
   TreasureVaultOperationResultView,
 } from './social-types';

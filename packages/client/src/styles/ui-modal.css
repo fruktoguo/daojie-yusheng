@@ -112,6 +112,16 @@
   display: none;
 }
 
+.treasure-vault-deposit-picker-layer {
+  z-index: 320;
+  background: color-mix(in srgb, var(--overlay-backdrop) 88%, transparent);
+  backdrop-filter: blur(7px);
+}
+
+.treasure-vault-deposit-picker-layer.hidden {
+  display: none;
+}
+
 .treasure-vault-modal-card {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
@@ -154,6 +164,122 @@
   gap: 12px;
 }
 
+.treasure-vault-deposit-entry {
+  display: grid;
+  gap: 8px;
+}
+
+.treasure-vault-deposit-entry .small-btn {
+  justify-self: start;
+}
+
+.treasure-vault-deposit-picker-card {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.treasure-vault-deposit-picker-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.treasure-vault-deposit-filter-tabs {
+  flex: 0 0 auto;
+}
+
+.treasure-vault-deposit-toolbar {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.treasure-vault-deposit-sort {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink-grey);
+  font-size: var(--font-size-12);
+  white-space: nowrap;
+}
+
+.treasure-vault-deposit-sort .ui-input {
+  width: auto;
+  min-width: 112px;
+}
+
+.treasure-vault-deposit-page-summary {
+  min-width: 0;
+  color: var(--ink-grey);
+  font-size: var(--font-size-12);
+}
+
+.treasure-vault-deposit-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.treasure-vault-deposit-grid {
+  flex: 1 1 auto;
+  min-height: 180px;
+  max-height: min(48dvh, 470px);
+  overflow: auto;
+  align-content: start;
+  padding: 2px;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+}
+
+.treasure-vault-deposit-cell.selected {
+  border-color: var(--stamp-red);
+  box-shadow:
+    inset 0 0 0 2px color-mix(in srgb, var(--stamp-red) 34%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--stamp-red) 24%, transparent);
+}
+
+.treasure-vault-deposit-cell:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
+.treasure-vault-deposit-check {
+  position: absolute !important;
+  top: 5px;
+  right: 5px;
+  z-index: 6 !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: 1px solid color-mix(in srgb, var(--ink-black) 24%, transparent);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--surface-card) 90%, transparent);
+  color: transparent;
+  font-size: var(--font-size-12);
+  font-weight: var(--font-weight-strong);
+  line-height: 1;
+  pointer-events: none;
+}
+
+.treasure-vault-deposit-cell.selected .treasure-vault-deposit-check {
+  border-color: var(--stamp-red);
+  background: var(--stamp-red);
+  color: var(--paper-light);
+}
+
+.treasure-vault-deposit-pagination {
+  flex: 0 0 auto;
+}
+
+.treasure-vault-deposit-actions {
+  flex: 0 0 auto;
+}
+
 .treasure-vault-permission-summary,
 .treasure-vault-permission-editor {
   display: grid;
@@ -188,12 +314,14 @@
 }
 
 @media (max-width: 760px) {
-  .treasure-vault-modal-layer {
+  .treasure-vault-modal-layer,
+  .treasure-vault-deposit-picker-layer {
     --ui-modal-padding: 12px;
     align-items: stretch;
   }
 
-  .treasure-vault-modal-card {
+  .treasure-vault-modal-card,
+  .treasure-vault-deposit-picker-card {
     max-height: calc(100dvh - var(--ui-modal-padding-top, 12px) - var(--ui-modal-padding-bottom, 12px));
   }
 
@@ -207,5 +335,26 @@
 
   .treasure-vault-section .ui-input-row {
     grid-template-columns: 1fr;
+  }
+
+  .treasure-vault-deposit-toolbar {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .treasure-vault-deposit-tools {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .treasure-vault-deposit-tools .small-btn {
+    flex: 1 1 132px;
+    min-height: 38px;
+  }
+
+  .treasure-vault-deposit-grid {
+    min-height: 0;
+    max-height: none;
+    grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
   }
 }

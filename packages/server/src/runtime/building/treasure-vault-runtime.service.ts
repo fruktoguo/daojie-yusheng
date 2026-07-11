@@ -7,6 +7,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import {
   createItemStackSignature,
+  type C2S_TreasureVaultDepositView,
   type TreasureVaultDetailView,
   type TreasureVaultItemView,
   type TreasureVaultOperationResultView,
@@ -31,6 +32,7 @@ const INSTANCE_CATALOG_TABLE = 'instance_catalog';
 const INSTANCE_BUILDING_STATE_TABLE = 'instance_building_state';
 const TREASURE_VAULT_DEF_ID = 'treasure_vault';
 const DEFAULT_TREASURE_VAULT_CAPACITY = 80;
+const MAX_TREASURE_VAULT_DEPOSIT_BATCH_SIZE = 100;
 const DEFAULT_PERMISSIONS: TreasureVaultPermissionMap = {
   view: ['all'],
   deposit: ['all'],
@@ -39,9 +41,14 @@ const DEFAULT_PERMISSIONS: TreasureVaultPermissionMap = {
 const PERMISSION_KINDS: TreasureVaultPermissionKind[] = ['view', 'deposit', 'withdraw'];
 const PERMISSION_SCOPES = new Set<TreasureVaultPermissionScope>(['all', 'party', 'sect', 'dao_friend', 'close_friend']);
 
+type QueryResultLike = { rows: any[]; rowCount?: number };
+type PoolClientLike = {
+  query(sql: string, params?: unknown[]): Promise<QueryResultLike>;
+  release(): void;
+};
 type PoolLike = {
-  connect(): Promise<{ query(sql: string, params?: unknown[]): Promise<{ rows: any[]; rowCount?: number }>; release(): void }>;
-  query(sql: string, params?: unknown[]): Promise<{ rows: any[]; rowCount?: number }>;
+  connect(): Promise<PoolClientLike>;
+  query(sql: string, params?: unknown[]): Promise<QueryResultLike>;
 };
 
 @Injectable()
@@ -99,7 +106,7 @@ export class TreasureVaultRuntimeService {
     return { ok: true, operation: 'detail', detail: await this.buildDetailView(playerId, resolved.instance, resolved.building) };
   }
 
-  async deposit(playerId: string, payload: { instanceId?: string; buildingId?: string; itemInstanceId?: string; count?: number }, runtime: any): Promise<TreasureVaultOperationResultView> {
+  async deposit(playerId: string, payload: C2S_TreasureVaultDepositView, runtime: any): Promise<TreasureVaultOperationResultView> {
     if (!this.pool || !this.enabled) {
       return { ok: false, operation: 'deposit', reason: 'treasure_vault_persistence_disabled' };
     }
@@ -110,25 +117,49 @@ export class TreasureVaultRuntimeService {
     if (!await this.canUsePermission(playerId, resolved.instance, resolved.building, 'deposit')) {
       return { ok: false, operation: 'deposit', reason: 'treasure_vault_permission_denied' };
     }
-    const itemInstanceId = normalizeString(payload.itemInstanceId);
-    const count = normalizePositiveCount(payload.count);
-    if (!itemInstanceId || count <= 0) {
+    const requests = normalizeDepositRequests(
+      Array.isArray(payload.items)
+        ? payload.items
+        : [{ itemInstanceId: payload.itemInstanceId, count: payload.count }],
+    );
+    if (!requests) {
       return { ok: false, operation: 'deposit', reason: 'invalid_item' };
     }
-    let extracted: any = null;
+    const extractedItems: any[] = [];
     try {
-      extracted = this.playerRuntimeService.splitInventoryItemByInstanceId(playerId, itemInstanceId, count);
-      await this.storeItem(resolved.instance.meta.instanceId, resolved.building.id, extracted, resolved.capacity, resolved.building, resolved.instance);
-      return { ok: true, operation: 'deposit', detail: await this.buildDetailView(playerId, resolved.instance, resolved.building) };
+      for (const request of requests) {
+        const item = this.playerRuntimeService.peekInventoryItemByInstanceId(playerId, request.itemInstanceId);
+        const availableCount = Math.max(0, Math.trunc(Number(item?.count) || 0));
+        if (!item || availableCount < request.count) {
+          throw new Error('invalid_item');
+        }
+      }
+      for (const request of requests) {
+        extractedItems.push(this.playerRuntimeService.splitInventoryItemByInstanceId(playerId, request.itemInstanceId, request.count));
+      }
+      await this.storeItems(
+        resolved.instance.meta.instanceId,
+        resolved.building.id,
+        extractedItems,
+        resolved.capacity,
+        resolved.building,
+        resolved.instance,
+      );
     } catch (error) {
-      if (extracted) {
+      for (let index = extractedItems.length - 1; index >= 0; index -= 1) {
         try {
-          this.playerRuntimeService.receiveInventoryItem(playerId, extracted);
+          this.playerRuntimeService.receiveInventoryItem(playerId, extractedItems[index]);
         } catch (rollbackError) {
           this.logger.error('宝库存入失败后回滚背包失败', rollbackError instanceof Error ? rollbackError.stack : String(rollbackError));
         }
       }
       return { ok: false, operation: 'deposit', reason: error instanceof Error ? error.message : 'deposit_failed' };
+    }
+    try {
+      return { ok: true, operation: 'deposit', detail: await this.buildDetailView(playerId, resolved.instance, resolved.building) };
+    } catch (error) {
+      this.logger.warn(`宝库批量存入已提交，但详情回读失败：${error instanceof Error ? error.message : String(error)}`);
+      return { ok: true, operation: 'deposit' };
     }
   }
 
@@ -481,48 +512,90 @@ export class TreasureVaultRuntimeService {
   }
 
   private async storeItem(instanceId: string, buildingId: string, item: any, capacity: number, building?: any, instance?: any): Promise<void> {
+    await this.storeItems(instanceId, buildingId, [item], capacity, building, instance);
+  }
+
+  private async storeItems(instanceId: string, buildingId: string, items: any[], capacity: number, building?: any, instance?: any): Promise<void> {
     if (!this.pool || !this.enabled) {
       throw new Error('treasure_vault_persistence_disabled');
     }
-    const rows = await this.loadStorageRows(instanceId, buildingId);
-    const signature = createItemStackSignature(item);
     const ownerPlayerId = normalizeString(building?.ownerPlayerId);
     const buildingName = resolveBuildingName(instance, building);
-    const existing = rows.find((row) => createItemStackSignature(buildItemFromStorageRow(row, Math.max(1, Math.trunc(Number(row.count) || 1)))) === signature);
-    if (existing) {
-      await this.pool.query(
-        `UPDATE ${TREASURE_VAULT_STORAGE_TABLE}
-            SET count = count + $4,
-                updated_at = now(),
-                raw_payload = raw_payload || $5::jsonb,
-                owner_player_id = COALESCE(NULLIF($6, ''), owner_player_id),
-                building_name = COALESCE(NULLIF($7, ''), building_name)
-          WHERE instance_id = $1 AND building_id = $2 AND storage_item_id = $3`,
-        [instanceId, buildingId, existing.storage_item_id, normalizePositiveCount(item.count), JSON.stringify(buildRawPayload(item)), ownerPlayerId, buildingName],
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const rowsResult = await client.query(
+        `SELECT storage_item_id, instance_id, building_id, slot_index, item_id, count, enhance_level, raw_payload, owner_player_id, building_name
+           FROM ${TREASURE_VAULT_STORAGE_TABLE}
+          WHERE instance_id = $1 AND building_id = $2
+          ORDER BY slot_index ASC, storage_item_id ASC
+          FOR UPDATE`,
+        [instanceId, buildingId],
       );
-      return;
+      const rows = rowsResult.rows ?? [];
+      for (const item of items) {
+        const signature = createItemStackSignature(item);
+        const existing = rows.find((row) => createItemStackSignature(buildItemFromStorageRow(row, Math.max(1, Math.trunc(Number(row.count) || 1)))) === signature);
+        const rawPayload = buildRawPayload(item);
+        if (existing) {
+          const addedCount = normalizePositiveCount(item.count);
+          await client.query(
+            `UPDATE ${TREASURE_VAULT_STORAGE_TABLE}
+                SET count = count + $4,
+                    updated_at = now(),
+                    raw_payload = raw_payload || $5::jsonb,
+                    owner_player_id = COALESCE(NULLIF($6, ''), owner_player_id),
+                    building_name = COALESCE(NULLIF($7, ''), building_name)
+              WHERE instance_id = $1 AND building_id = $2 AND storage_item_id = $3`,
+            [instanceId, buildingId, existing.storage_item_id, addedCount, JSON.stringify(rawPayload), ownerPlayerId, buildingName],
+          );
+          existing.count = Math.max(1, Math.trunc(Number(existing.count) || 1)) + addedCount;
+          existing.raw_payload = { ...(existing.raw_payload ?? {}), ...rawPayload };
+          continue;
+        }
+        if (rows.length >= capacity) {
+          throw new Error('treasure_vault_full');
+        }
+        const storageItemId = randomUUID();
+        const slotIndex = resolveNextSlotIndex(rows);
+        const enhanceLevel = Number.isFinite(Number(item.enhanceLevel)) ? Math.max(0, Math.trunc(Number(item.enhanceLevel))) : null;
+        await client.query(
+          `INSERT INTO ${TREASURE_VAULT_STORAGE_TABLE}
+            (storage_item_id, instance_id, building_id, slot_index, item_id, count, enhance_level, raw_payload, owner_player_id, building_name)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, NULLIF($9, ''), NULLIF($10, ''))`,
+          [
+            storageItemId,
+            instanceId,
+            buildingId,
+            slotIndex,
+            normalizeString(item.itemId),
+            normalizePositiveCount(item.count),
+            enhanceLevel,
+            JSON.stringify(rawPayload),
+            ownerPlayerId,
+            buildingName,
+          ],
+        );
+        rows.push({
+          storage_item_id: storageItemId,
+          instance_id: instanceId,
+          building_id: buildingId,
+          slot_index: slotIndex,
+          item_id: normalizeString(item.itemId),
+          count: normalizePositiveCount(item.count),
+          enhance_level: enhanceLevel,
+          raw_payload: rawPayload,
+          owner_player_id: ownerPlayerId,
+          building_name: buildingName,
+        });
+      }
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      throw error;
+    } finally {
+      client.release();
     }
-    if (rows.length >= capacity) {
-      throw new Error('treasure_vault_full');
-    }
-    const slotIndex = resolveNextSlotIndex(rows);
-    await this.pool.query(
-      `INSERT INTO ${TREASURE_VAULT_STORAGE_TABLE}
-        (storage_item_id, instance_id, building_id, slot_index, item_id, count, enhance_level, raw_payload, owner_player_id, building_name)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, NULLIF($9, ''), NULLIF($10, ''))`,
-      [
-        randomUUID(),
-        instanceId,
-        buildingId,
-        slotIndex,
-        normalizeString(item.itemId),
-        normalizePositiveCount(item.count),
-        Number.isFinite(Number(item.enhanceLevel)) ? Math.max(0, Math.trunc(Number(item.enhanceLevel))) : null,
-        JSON.stringify(buildRawPayload(item)),
-        ownerPlayerId,
-        buildingName,
-      ],
-    );
   }
 
   private async removeStorageCount(instanceId: string, buildingId: string, storageItemId: string, count: number): Promise<void> {
@@ -764,6 +837,25 @@ function resolveNextSlotIndex(rows: any[]): number {
 function normalizePositiveCount(value: unknown): number {
   const numeric = Number(value);
   return Number.isFinite(numeric) ? Math.max(1, Math.trunc(numeric)) : 1;
+}
+
+function normalizeDepositRequests(input: unknown): Array<{ itemInstanceId: string; count: number }> | null {
+  if (!Array.isArray(input) || input.length === 0 || input.length > MAX_TREASURE_VAULT_DEPOSIT_BATCH_SIZE) {
+    return null;
+  }
+  const seenItemInstanceIds = new Set<string>();
+  const requests: Array<{ itemInstanceId: string; count: number }> = [];
+  for (const entry of input) {
+    const itemInstanceId = normalizeString(entry?.itemInstanceId);
+    const numericCount = Number(entry?.count);
+    const count = Number.isSafeInteger(numericCount) ? Math.trunc(numericCount) : 0;
+    if (!itemInstanceId || count <= 0 || seenItemInstanceIds.has(itemInstanceId)) {
+      return null;
+    }
+    seenItemInstanceIds.add(itemInstanceId);
+    requests.push({ itemInstanceId, count });
+  }
+  return requests;
 }
 
 function normalizePositiveLimit(value: unknown, fallback: number): number {

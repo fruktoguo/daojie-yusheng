@@ -15,8 +15,9 @@ import type {
   TreasureVaultPermissionScope,
   TreasureVaultOperationResultView,
 } from '@mud/shared';
-import { getItemStackDisplayLabel, getTechniqueMaxLevel } from '@mud/shared';
+import { getTechniqueMaxLevel, TECHNIQUE_GRADE_ORDER } from '@mud/shared';
 import { getItemTypeLabel } from '../../domain-labels';
+import { INVENTORY_FILTER_TABS, type InventoryFilter } from '../../constants/ui/inventory';
 import { getItemDecorClassName, getItemDisplayMeta, type ItemDisplayMeta } from '../item-display';
 import { formatDisplayCountBadge } from '../../utils/number';
 import { detailModalHost } from '../detail-modal-host';
@@ -35,7 +36,7 @@ type SocialPanelCallbacks = {
 };
 
 type TreasureVaultCallbacks = {
-  onDeposit(itemInstanceId: string, count: number): void;
+  onDeposit(items: Array<{ itemInstanceId: string; count: number }>): void;
   onWithdraw(storageItemId: string, count: number): void;
   onUpdatePermissions(permissions: TreasureVaultPermissionMap): void;
 };
@@ -63,6 +64,7 @@ type SocialConversationScrollSnapshot = {
 };
 
 export type TreasureVaultModalTab = 'items' | 'permissions';
+type TreasureVaultDepositSort = 'inventory' | 'quality' | 'name' | 'count';
 
 const RELATION_LABEL: Record<DaoistRelationLevel, string> = {
   dao_friend: '道友',
@@ -87,6 +89,15 @@ const PERMISSION_KINDS: TreasureVaultPermissionKind[] = ['view', 'deposit', 'wit
 const PERMISSION_SCOPES: TreasureVaultPermissionScope[] = ['all', 'party', 'sect', 'dao_friend', 'close_friend'];
 const MAX_SOCIAL_MESSAGES_PER_PEER = 50;
 const SOCIAL_SCROLL_BOTTOM_THRESHOLD_PX = 24;
+const TREASURE_VAULT_DEPOSIT_PAGE_SIZE = 30;
+const MAX_TREASURE_VAULT_DEPOSIT_SELECTION = 100;
+
+const TREASURE_VAULT_DEPOSIT_SORT_OPTIONS: Array<{ id: TreasureVaultDepositSort; label: string }> = [
+  { id: 'inventory', label: '背包顺序' },
+  { id: 'quality', label: '品质优先' },
+  { id: 'name', label: '名称排序' },
+  { id: 'count', label: '数量优先' },
+];
 
 export class SocialPanel {
   private readonly pane = document.getElementById('pane-social')!;
@@ -493,18 +504,29 @@ export class SocialPanel {
 export class TreasureVaultModal {
   private static readonly ITEM_DETAIL_MODAL_OWNER = 'treasure-vault-item-detail';
   private readonly root: HTMLDivElement;
+  private readonly depositPickerRoot: HTMLDivElement;
   private callbacks: TreasureVaultCallbacks | null = null;
   private detail: TreasureVaultDetailView | null = null;
   private inventoryItems: SyncedItemStack[] = [];
   private currentPlayerId: string | null = null;
   private activeTab: TreasureVaultModalTab = 'items';
   private preferredTab: TreasureVaultModalTab = 'items';
+  private depositPickerOpen = false;
+  private depositFilter: InventoryFilter = 'all';
+  private depositSort: TreasureVaultDepositSort = 'inventory';
+  private depositPage = 0;
+  private depositSubmitting = false;
+  private readonly selectedDepositItemIds = new Set<string>();
 
   constructor() {
     this.root = document.createElement('div');
     this.root.className = 'ui-modal-layer treasure-vault-modal-layer hidden';
     document.body.appendChild(this.root);
+    this.depositPickerRoot = document.createElement('div');
+    this.depositPickerRoot.className = 'ui-modal-layer treasure-vault-deposit-picker-layer hidden';
+    document.body.appendChild(this.depositPickerRoot);
     this.bindEvents();
+    this.bindDepositPickerEvents();
   }
 
   setCallbacks(callbacks: TreasureVaultCallbacks): void {
@@ -514,7 +536,9 @@ export class TreasureVaultModal {
   setCurrentPlayer(playerId: string | null, inventoryItems: SyncedItemStack[]): void {
     this.currentPlayerId = playerId;
     this.inventoryItems = inventoryItems;
-    if (this.detail) this.render();
+    this.pruneDepositSelection();
+    if (this.detail && !this.depositPickerOpen) this.render();
+    if (this.depositPickerOpen) this.renderDepositPicker(true);
   }
 
   setPreferredTab(tab: TreasureVaultModalTab): void {
@@ -530,6 +554,14 @@ export class TreasureVaultModal {
   }
 
   handleOperationResult(result: TreasureVaultOperationResultView): void {
+    if (result.operation === 'deposit') {
+      this.depositSubmitting = false;
+      if (result.ok) {
+        this.closeDepositPicker(true);
+      } else if (this.depositPickerOpen) {
+        this.patchDepositPickerSelection();
+      }
+    }
     if (result.detail) {
       this.showDetail(result.detail);
     }
@@ -539,6 +571,7 @@ export class TreasureVaultModal {
     this.detail = null;
     this.activeTab = 'items';
     this.preferredTab = 'items';
+    this.closeDepositPicker(true);
     detailModalHost.close(TreasureVaultModal.ITEM_DETAIL_MODAL_OWNER);
     this.root.classList.add('hidden');
     this.root.innerHTML = '';
@@ -576,10 +609,9 @@ export class TreasureVaultModal {
         this.openItemDetail(target.dataset.storageItemId ?? '');
         return;
       }
-      if (action === 'deposit') {
-        const itemInstanceId = this.root.querySelector<HTMLSelectElement>('[data-vault-deposit-item]')?.value ?? '';
-        const count = normalizePositiveCount(this.root.querySelector<HTMLInputElement>('[data-vault-deposit-count]')?.value);
-        if (itemInstanceId) this.callbacks.onDeposit(itemInstanceId, count);
+      if (action === 'open-deposit-picker') {
+        this.openDepositPicker();
+        return;
       }
       if (action === 'withdraw') {
         const storageItemId = target.dataset.storageItemId ?? '';
@@ -591,6 +623,298 @@ export class TreasureVaultModal {
         this.callbacks.onUpdatePermissions(this.readPermissions());
       }
     });
+  }
+
+  private bindDepositPickerEvents(): void {
+    this.depositPickerRoot.addEventListener('change', (event) => {
+      const select = event.target instanceof HTMLSelectElement
+        ? event.target.closest<HTMLSelectElement>('[data-vault-deposit-sort]')
+        : null;
+      if (!select) return;
+      const sort = select.value as TreasureVaultDepositSort;
+      if (TREASURE_VAULT_DEPOSIT_SORT_OPTIONS.some((option) => option.id === sort) && sort !== this.depositSort) {
+        this.depositSort = sort;
+        this.depositPage = 0;
+        this.renderDepositPicker();
+      }
+    });
+    this.depositPickerRoot.addEventListener('click', (event) => {
+      if (event.target === this.depositPickerRoot) {
+        this.closeDepositPicker();
+        return;
+      }
+      const target = event.target instanceof HTMLElement
+        ? event.target.closest<HTMLElement>('[data-vault-deposit-action]')
+        : null;
+      if (!target || !this.depositPickerOpen) return;
+      const action = target.dataset.vaultDepositAction;
+      if (action === 'close') {
+        this.closeDepositPicker();
+        return;
+      }
+      if (this.depositSubmitting) return;
+      if (action === 'filter') {
+        const filter = target.dataset.vaultDepositFilter as InventoryFilter | undefined;
+        if (filter && INVENTORY_FILTER_TABS.some((tab) => tab.id === filter) && filter !== this.depositFilter) {
+          this.depositFilter = filter;
+          this.depositPage = 0;
+          this.renderDepositPicker();
+        }
+        return;
+      }
+      if (action === 'toggle') {
+        this.toggleDepositSelection(target.dataset.itemInstanceId ?? '');
+        return;
+      }
+      if (action === 'select-page') {
+        this.toggleCurrentDepositPageSelection();
+        return;
+      }
+      if (action === 'clear') {
+        this.selectedDepositItemIds.clear();
+        this.patchDepositPickerSelection();
+        return;
+      }
+      if (action === 'page') {
+        const direction = target.dataset.vaultDepositPage;
+        const snapshot = this.getDepositPickerSnapshot();
+        this.depositPage = direction === 'prev'
+          ? Math.max(0, snapshot.page - 1)
+          : Math.min(snapshot.pageCount - 1, snapshot.page + 1);
+        this.renderDepositPicker();
+        return;
+      }
+      if (action === 'confirm' && !this.depositSubmitting && this.callbacks) {
+        const items = this.getSelectedDepositItems();
+        if (items.length === 0) return;
+        this.depositSubmitting = true;
+        this.patchDepositPickerSelection();
+        this.callbacks.onDeposit(items);
+      }
+    });
+  }
+
+  private openDepositPicker(): void {
+    if (!this.detail?.effectivePermissions.deposit || this.depositSubmitting) return;
+    this.depositPickerOpen = true;
+    this.depositFilter = 'all';
+    this.depositPage = 0;
+    this.selectedDepositItemIds.clear();
+    this.depositPickerRoot.classList.remove('hidden');
+    this.renderDepositPicker();
+  }
+
+  private closeDepositPicker(force = false): void {
+    if (this.depositSubmitting && !force) return;
+    this.depositPickerOpen = false;
+    this.depositSubmitting = false;
+    this.depositPage = 0;
+    this.selectedDepositItemIds.clear();
+    this.depositPickerRoot.classList.add('hidden');
+    this.depositPickerRoot.innerHTML = '';
+  }
+
+  private renderDepositPicker(preserveScroll = false): void {
+    if (!this.depositPickerOpen || !this.detail?.effectivePermissions.deposit) {
+      this.closeDepositPicker(true);
+      return;
+    }
+    const previousGridScrollTop = preserveScroll
+      ? this.depositPickerRoot.querySelector<HTMLElement>('.treasure-vault-deposit-grid')?.scrollTop ?? 0
+      : 0;
+    this.pruneDepositSelection();
+    const snapshot = this.getDepositPickerSnapshot();
+    this.depositPage = snapshot.page;
+    const selectedCount = this.selectedDepositItemIds.size;
+    this.depositPickerRoot.innerHTML = `
+      <div class="ui-modal-card ui-modal-card--wide treasure-vault-deposit-picker-card" role="dialog" aria-modal="true" aria-label="批量放入宝库物品">
+        <div class="ui-modal-head treasure-vault-modal-head">
+          <div>
+            <div class="ui-modal-title">批量放入</div>
+            <div class="ui-modal-subtitle">从背包选择物品 · 已选 <span data-vault-deposit-selected-count>${formatDisplayCountBadge(selectedCount)}</span> 组</div>
+          </div>
+          <button class="small-btn ghost" type="button" data-vault-deposit-action="close" ${this.depositSubmitting ? 'disabled' : ''}>关闭</button>
+        </div>
+        <div class="treasure-vault-deposit-picker-body">
+          <div class="inventory-filter-tabs treasure-vault-deposit-filter-tabs">
+            ${INVENTORY_FILTER_TABS.map((tab) => `
+              <button class="inventory-filter-tab${this.depositFilter === tab.id ? ' active' : ''}" type="button" data-vault-deposit-action="filter" data-vault-deposit-filter="${escapeHtml(tab.id)}" ${this.depositSubmitting ? 'disabled' : ''}>
+                ${escapeHtml(tab.label)}
+              </button>
+            `).join('')}
+          </div>
+          <div class="treasure-vault-deposit-toolbar">
+            <label class="treasure-vault-deposit-sort">
+              <span>排序</span>
+              <select class="ui-input" data-vault-deposit-sort ${this.depositSubmitting ? 'disabled' : ''}>
+                ${TREASURE_VAULT_DEPOSIT_SORT_OPTIONS.map((option) => `<option value="${option.id}" ${this.depositSort === option.id ? 'selected' : ''}>${escapeHtml(option.label)}</option>`).join('')}
+              </select>
+            </label>
+            <span class="treasure-vault-deposit-page-summary">当前页 ${formatDisplayCountBadge(snapshot.pageItems.length)} 组 · 共 ${formatDisplayCountBadge(snapshot.totalItems)} 组</span>
+            <div class="treasure-vault-deposit-tools">
+              <button class="small-btn ghost" type="button" data-vault-deposit-action="select-page" ${snapshot.pageItems.length === 0 || this.depositSubmitting ? 'disabled' : ''}>${snapshot.allPageSelected ? '取消当前页' : '选中当前页'}</button>
+              <button class="small-btn ghost" type="button" data-vault-deposit-action="clear" ${selectedCount === 0 || this.depositSubmitting ? 'disabled' : ''}>清空</button>
+            </div>
+          </div>
+          ${snapshot.pageItems.length > 0
+            ? `<div class="inventory-grid treasure-vault-deposit-grid">${snapshot.pageItems.map((entry) => this.renderDepositInventoryCell(entry.item, entry.itemInstanceId)).join('')}</div>`
+            : '<div class="empty-hint">当前类型下没有可存入物品</div>'}
+          <div class="inventory-pagination treasure-vault-deposit-pagination">
+            <button class="small-btn ghost" type="button" data-vault-deposit-action="page" data-vault-deposit-page="prev" ${snapshot.page <= 0 || this.depositSubmitting ? 'disabled' : ''}>上一页</button>
+            <span class="inventory-pagination-status">第 ${snapshot.page + 1}/${snapshot.pageCount} 页</span>
+            <button class="small-btn ghost" type="button" data-vault-deposit-action="page" data-vault-deposit-page="next" ${snapshot.page >= snapshot.pageCount - 1 || this.depositSubmitting ? 'disabled' : ''}>下一页</button>
+          </div>
+          <div class="ui-modal-actions treasure-vault-deposit-actions">
+            <button class="small-btn ghost" type="button" data-vault-deposit-action="close" ${this.depositSubmitting ? 'disabled' : ''}>取消</button>
+            <button class="small-btn" type="button" data-vault-deposit-action="confirm" ${selectedCount === 0 || this.depositSubmitting ? 'disabled' : ''}>${this.depositSubmitting ? '存入中…' : `存入已选（${formatDisplayCountBadge(selectedCount)}）`}</button>
+          </div>
+        </div>
+      </div>
+    `;
+    const grid = this.depositPickerRoot.querySelector<HTMLElement>('.treasure-vault-deposit-grid');
+    if (grid && preserveScroll) grid.scrollTop = previousGridScrollTop;
+  }
+
+  private getDepositPickerSnapshot(): {
+    page: number;
+    pageCount: number;
+    totalItems: number;
+    pageItems: Array<{ item: SyncedItemStack; itemInstanceId: string; inventoryIndex: number }>;
+    allPageSelected: boolean;
+  } {
+    const entries = this.getDepositableInventoryEntries()
+      .filter((entry) => this.depositFilter === 'all' || entry.item.type === this.depositFilter)
+      .sort((left, right) => this.compareDepositEntries(left, right));
+    const pageCount = Math.max(1, Math.ceil(entries.length / TREASURE_VAULT_DEPOSIT_PAGE_SIZE));
+    const page = Math.min(Math.max(0, this.depositPage), pageCount - 1);
+    const pageItems = entries.slice(page * TREASURE_VAULT_DEPOSIT_PAGE_SIZE, (page + 1) * TREASURE_VAULT_DEPOSIT_PAGE_SIZE);
+    return {
+      page,
+      pageCount,
+      totalItems: entries.length,
+      pageItems,
+      allPageSelected: pageItems.length > 0 && pageItems.every((entry) => this.selectedDepositItemIds.has(entry.itemInstanceId)),
+    };
+  }
+
+  private getDepositableInventoryEntries(): Array<{ item: SyncedItemStack; itemInstanceId: string; inventoryIndex: number }> {
+    const entries: Array<{ item: SyncedItemStack; itemInstanceId: string; inventoryIndex: number }> = [];
+    for (let inventoryIndex = 0; inventoryIndex < this.inventoryItems.length; inventoryIndex += 1) {
+      const item = this.inventoryItems[inventoryIndex];
+      const itemInstanceId = typeof item?.itemInstanceId === 'string' ? item.itemInstanceId.trim() : '';
+      if (!item || !itemInstanceId || Math.max(0, Math.trunc(Number(item.count) || 0)) <= 0) continue;
+      entries.push({ item, itemInstanceId, inventoryIndex });
+    }
+    return entries;
+  }
+
+  private compareDepositEntries(
+    left: { item: SyncedItemStack; inventoryIndex: number },
+    right: { item: SyncedItemStack; inventoryIndex: number },
+  ): number {
+    if (this.depositSort === 'quality') {
+      const leftGrade = getItemDisplayMeta(left.item as ItemStack).grade;
+      const rightGrade = getItemDisplayMeta(right.item as ItemStack).grade;
+      const gradeOrder = resolveTechniqueGradeOrder(rightGrade) - resolveTechniqueGradeOrder(leftGrade);
+      if (gradeOrder !== 0) return gradeOrder;
+    } else if (this.depositSort === 'name') {
+      const nameOrder = getItemDisplayMeta(left.item as ItemStack).displayItem.name.localeCompare(
+        getItemDisplayMeta(right.item as ItemStack).displayItem.name,
+        'zh-Hans-CN',
+      );
+      if (nameOrder !== 0) return nameOrder;
+    } else if (this.depositSort === 'count') {
+      const countOrder = Math.max(0, Math.trunc(Number(right.item.count) || 0)) - Math.max(0, Math.trunc(Number(left.item.count) || 0));
+      if (countOrder !== 0) return countOrder;
+    }
+    return left.inventoryIndex - right.inventoryIndex;
+  }
+
+  private renderDepositInventoryCell(item: SyncedItemStack, itemInstanceId: string): string {
+    const selected = this.selectedDepositItemIds.has(itemInstanceId);
+    const itemMeta = getItemDisplayMeta(item as ItemStack);
+    const displayName = itemMeta.displayItem.name;
+    return `
+      <button class="${getItemDecorClassName('inventory-cell', item as ItemStack)} treasure-vault-deposit-cell${selected ? ' selected' : ''}" type="button" data-vault-deposit-action="toggle" data-item-instance-id="${escapeHtml(itemInstanceId)}" aria-pressed="${selected ? 'true' : 'false'}" aria-label="${selected ? '取消选择' : '选择'}${escapeHtml(displayName)}" ${this.depositSubmitting ? 'disabled' : ''}>
+        <span class="treasure-vault-deposit-check" aria-hidden="true">${selected ? '✓' : ''}</span>
+        ${this.renderInventoryCellContent(item as ItemStack)}
+      </button>
+    `;
+  }
+
+  private toggleDepositSelection(itemInstanceId: string): void {
+    if (!itemInstanceId || this.depositSubmitting) return;
+    if (this.selectedDepositItemIds.has(itemInstanceId)) {
+      this.selectedDepositItemIds.delete(itemInstanceId);
+    } else if (this.selectedDepositItemIds.size < MAX_TREASURE_VAULT_DEPOSIT_SELECTION) {
+      this.selectedDepositItemIds.add(itemInstanceId);
+    }
+    this.patchDepositPickerSelection();
+  }
+
+  private toggleCurrentDepositPageSelection(): void {
+    if (this.depositSubmitting) return;
+    const snapshot = this.getDepositPickerSnapshot();
+    if (snapshot.allPageSelected) {
+      for (const entry of snapshot.pageItems) this.selectedDepositItemIds.delete(entry.itemInstanceId);
+    } else {
+      for (const entry of snapshot.pageItems) {
+        if (this.selectedDepositItemIds.size >= MAX_TREASURE_VAULT_DEPOSIT_SELECTION) break;
+        this.selectedDepositItemIds.add(entry.itemInstanceId);
+      }
+    }
+    this.patchDepositPickerSelection();
+  }
+
+  private patchDepositPickerSelection(): void {
+    if (!this.depositPickerOpen) return;
+    const snapshot = this.getDepositPickerSnapshot();
+    const selectedCount = this.selectedDepositItemIds.size;
+    const selectedCountEl = this.depositPickerRoot.querySelector<HTMLElement>('[data-vault-deposit-selected-count]');
+    if (selectedCountEl) selectedCountEl.textContent = formatDisplayCountBadge(selectedCount);
+    for (const cell of this.depositPickerRoot.querySelectorAll<HTMLButtonElement>('[data-vault-deposit-action="toggle"]')) {
+      const selected = this.selectedDepositItemIds.has(cell.dataset.itemInstanceId ?? '');
+      cell.classList.toggle('selected', selected);
+      cell.setAttribute('aria-pressed', selected ? 'true' : 'false');
+      const itemName = cell.querySelector<HTMLElement>('.inventory-cell-name')?.textContent?.trim() ?? '物品';
+      cell.setAttribute('aria-label', `${selected ? '取消选择' : '选择'}${itemName}`);
+      cell.disabled = this.depositSubmitting;
+      const check = cell.querySelector<HTMLElement>('.treasure-vault-deposit-check');
+      if (check) check.textContent = selected ? '✓' : '';
+    }
+    const selectPageButton = this.depositPickerRoot.querySelector<HTMLButtonElement>('[data-vault-deposit-action="select-page"]');
+    if (selectPageButton) {
+      selectPageButton.textContent = snapshot.allPageSelected ? '取消当前页' : '选中当前页';
+      selectPageButton.disabled = snapshot.pageItems.length === 0 || this.depositSubmitting;
+    }
+    const clearButton = this.depositPickerRoot.querySelector<HTMLButtonElement>('[data-vault-deposit-action="clear"]');
+    if (clearButton) clearButton.disabled = selectedCount === 0 || this.depositSubmitting;
+    const confirmButton = this.depositPickerRoot.querySelector<HTMLButtonElement>('[data-vault-deposit-action="confirm"]');
+    if (confirmButton) {
+      confirmButton.disabled = selectedCount === 0 || this.depositSubmitting;
+      confirmButton.textContent = this.depositSubmitting ? '存入中…' : `存入已选（${formatDisplayCountBadge(selectedCount)}）`;
+    }
+    this.depositPickerRoot.querySelectorAll<HTMLButtonElement>('[data-vault-deposit-action="close"]').forEach((button) => {
+      button.disabled = this.depositSubmitting;
+    });
+    const sort = this.depositPickerRoot.querySelector<HTMLSelectElement>('[data-vault-deposit-sort]');
+    if (sort) sort.disabled = this.depositSubmitting;
+  }
+
+  private pruneDepositSelection(): void {
+    const currentIds = new Set(this.getDepositableInventoryEntries().map((entry) => entry.itemInstanceId));
+    for (const itemInstanceId of this.selectedDepositItemIds) {
+      if (!currentIds.has(itemInstanceId)) this.selectedDepositItemIds.delete(itemInstanceId);
+    }
+  }
+
+  private getSelectedDepositItems(): Array<{ itemInstanceId: string; count: number }> {
+    return this.getDepositableInventoryEntries()
+      .filter((entry) => this.selectedDepositItemIds.has(entry.itemInstanceId))
+      .map((entry) => ({
+        itemInstanceId: entry.itemInstanceId,
+        count: Math.max(1, Math.trunc(Number(entry.item.count) || 1)),
+      }));
   }
 
   private render(): void {
@@ -672,6 +996,17 @@ export class TreasureVaultModal {
   private renderInventoryCell(item: TreasureVaultDetailView['items'][number]): string {
     const itemMeta = getItemDisplayMeta(item as ItemStack);
     const displayName = itemMeta.displayItem.name;
+    const gradeLineLabel = this.getInventoryGradeLineLabel(item as ItemStack);
+    return `
+      <button class="${getItemDecorClassName('inventory-cell', item as ItemStack)}" type="button" data-vault-action="item-detail" data-storage-item-id="${escapeHtml(item.storageItemId)}" data-vault-row="true" data-item-type="${escapeHtml(item.type)}" ${itemMeta.grade ? `data-item-grade="${escapeHtml(itemMeta.grade)}"` : ''} ${gradeLineLabel ? 'data-item-grade-line-visible="true"' : ''} aria-label="查看${escapeHtml(displayName)}详情">
+        ${this.renderInventoryCellContent(item as ItemStack)}
+      </button>
+    `;
+  }
+
+  private renderInventoryCellContent(item: ItemStack): string {
+    const itemMeta = getItemDisplayMeta(item);
+    const displayName = itemMeta.displayItem.name;
     const ribbon = this.getInventoryCellRibbon(item as ItemStack, itemMeta);
     const learnedRibbon = this.getInventoryLearnedRibbon(item as ItemStack);
     const gradeLineLabel = this.getInventoryGradeLineLabel(item as ItemStack);
@@ -682,17 +1017,15 @@ export class TreasureVaultModal {
       ? `<span class="item-card-chip item-card-chip--enhance" data-item-enhance="true">${escapeHtml(itemMeta.enhanceLabel)}</span>`
       : '';
     return `
-      <button class="${getItemDecorClassName('inventory-cell', item as ItemStack)}" type="button" data-vault-action="item-detail" data-storage-item-id="${escapeHtml(item.storageItemId)}" data-vault-row="true" data-item-type="${escapeHtml(item.type)}" ${itemMeta.grade ? `data-item-grade="${escapeHtml(itemMeta.grade)}"` : ''} ${gradeLineLabel ? 'data-item-grade-line-visible="true"' : ''} aria-label="查看${escapeHtml(displayName)}详情">
-        <div class="inventory-cell-head">
-          <span class="inventory-cell-type" ${ribbon ? '' : 'hidden'}>${escapeHtml(ribbon?.label ?? '')}</span>
-          <span class="inventory-cell-count">${escapeHtml(formatDisplayCountBadge(item.count))}</span>
-        </div>
-        <span class="inventory-cell-learned-ribbon" ${learnedRibbon ? '' : 'hidden'}>${escapeHtml(learnedRibbon?.label ?? '')}</span>
-        <div class="inventory-cell-grade-line" ${gradeLineLabel ? '' : 'hidden'}>${escapeHtml(gradeLineLabel ?? '')}</div>
-        <div class="inventory-cell-name" aria-label="${escapeHtml(displayName)}">${escapeHtml(displayName)}</div>
-        ${levelChip}
-        ${enhanceChip}
-      </button>
+      <div class="inventory-cell-head">
+        <span class="inventory-cell-type" ${ribbon ? '' : 'hidden'}>${escapeHtml(ribbon?.label ?? '')}</span>
+        <span class="inventory-cell-count">${escapeHtml(formatDisplayCountBadge(item.count))}</span>
+      </div>
+      <span class="inventory-cell-learned-ribbon" ${learnedRibbon ? '' : 'hidden'}>${escapeHtml(learnedRibbon?.label ?? '')}</span>
+      <div class="inventory-cell-grade-line" ${gradeLineLabel ? '' : 'hidden'}>${escapeHtml(gradeLineLabel ?? '')}</div>
+      <div class="inventory-cell-name" aria-label="${escapeHtml(displayName)}">${escapeHtml(displayName)}</div>
+      ${levelChip}
+      ${enhanceChip}
     `;
   }
 
@@ -834,18 +1167,13 @@ export class TreasureVaultModal {
     if (!detail.effectivePermissions.deposit) {
       return '<div class="empty-hint compact">无权向宝库存入物品</div>';
     }
-    const options = this.inventoryItems
-      .filter((item) => typeof item.itemInstanceId === 'string' && item.itemInstanceId.length > 0)
-      .map((item) => `<option value="${escapeHtml(item.itemInstanceId as string)}">${escapeHtml(getItemStackDisplayLabel(item))}</option>`)
-      .join('');
-    if (!options) {
+    if (this.getDepositableInventoryEntries().length === 0) {
       return '<div class="empty-hint compact">背包里暂无可存入物品</div>';
     }
     return `
-      <div class="ui-input-row">
-        <select class="ui-input" data-vault-deposit-item>${options}</select>
-        <input class="ui-input compact" data-vault-deposit-count type="number" min="1" value="1">
-        <button class="small-btn" type="button" data-vault-action="deposit">存入</button>
+      <div class="treasure-vault-deposit-entry">
+        <div class="panel-subtext">从背包按类型筛选并多选物品，可一次存入多组完整堆叠。</div>
+        <button class="small-btn" type="button" data-vault-action="open-deposit-picker">批量放入</button>
       </div>
     `;
   }
@@ -949,7 +1277,7 @@ function resolveItemTypeLabel(item: ItemStack): string {
     : '物品';
 }
 
-function normalizePositiveCount(value: unknown): number {
-  const count = Math.trunc(Number(value));
-  return Number.isFinite(count) && count > 0 ? count : 1;
+function resolveTechniqueGradeOrder(grade: unknown): number {
+  const index = TECHNIQUE_GRADE_ORDER.indexOf(grade as never);
+  return index >= 0 ? index : -1;
 }
