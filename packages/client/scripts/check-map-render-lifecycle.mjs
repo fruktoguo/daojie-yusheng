@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { advanceFrameDeadlineAfterRender } from '../src/game-map/runtime/frame-schedule.ts';
+import ts from 'typescript';
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const clientRoot = path.resolve(scriptDirectory, '..');
@@ -12,6 +12,24 @@ const clientRoot = path.resolve(scriptDirectory, '..');
 function read(relativePath) {
   return fs.readFileSync(path.join(clientRoot, relativePath), 'utf8');
 }
+
+function loadTypeScriptModule(relativePath) {
+  const modulePath = path.join(clientRoot, relativePath);
+  const compiled = ts.transpileModule(read(relativePath), {
+    compilerOptions: {
+      module: ts.ModuleKind.CommonJS,
+      target: ts.ScriptTarget.ES2022,
+    },
+    fileName: modulePath,
+  }).outputText;
+  const module = { exports: {} };
+  new Function('exports', 'module', compiled)(module.exports, module);
+  return module.exports;
+}
+
+const { advanceFrameDeadlineAfterRender } = loadTypeScriptModule(
+  'src/game-map/runtime/frame-schedule.ts',
+);
 
 const frameIntervalMs = 1000 / 60;
 const assertNextDeadline = (deadline, now, interval = frameIntervalMs) => {
