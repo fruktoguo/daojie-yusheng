@@ -279,7 +279,7 @@ class DetailModalHost {
     this.title.textContent = options.title;
     this.subtitle.textContent = options.subtitle ?? '';
     this.subtitle.classList.toggle('hidden', !options.subtitle);
-    this.hint.textContent = options.hint ?? t('modal.detail.close-hint', undefined);
+    this.setHint(options.hint);
     const renderSignal = this.prepareBodyRenderSignal();
     preserveDetailModalInteraction(this.body, () => {
       if (typeof options.renderBody === 'function') {
@@ -330,7 +330,7 @@ class DetailModalHost {
       this.subtitle.classList.toggle('hidden', !options.subtitle);
     }
     if (options.hint !== undefined) {
-      this.hint.textContent = options.hint || t('modal.detail.close-hint', undefined);
+      this.setHint(options.hint);
     }
     if (typeof options.renderBody === 'function' || options.bodyHtml !== undefined) {
       const renderSignal = this.prepareBodyRenderSignal();
@@ -344,6 +344,13 @@ class DetailModalHost {
       options.onAfterRender?.(this.body, renderSignal);
     }
     return true;
+  }
+
+  /** 省略 hint 时沿用默认关闭提示，显式传空字符串时隐藏提示。 */
+  private setHint(hint: string | undefined): void {
+    const hintText = hint ?? t('modal.detail.close-hint', undefined);
+    this.hint.textContent = hintText;
+    this.hint.classList.toggle('hidden', hintText.length === 0);
   }
 
   /** ensureInitialized：确保Initialized。 */

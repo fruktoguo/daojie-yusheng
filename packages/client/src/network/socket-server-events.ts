@@ -63,6 +63,7 @@ export const GAMEPLAY_SERVER_EVENTS = [
   S2C.MarketUpdate,
   S2C.MarketListings,
   S2C.AuctionListings,
+  S2C.TransmissionListings,
   S2C.MarketOrders,
   S2C.MarketStorage,
   S2C.MarketItemBook,

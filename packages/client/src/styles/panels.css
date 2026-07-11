@@ -7566,6 +7566,29 @@
     .auction-house-board--transmission {
       grid-template-columns: minmax(360px, 1.1fr) minmax(320px, 0.9fr);
     }
+    .transmission-loading {
+      display: grid;
+      min-height: min(58dvh, 520px);
+      place-items: center;
+    }
+    .transmission-loading-indicator {
+      width: 32px;
+      height: 32px;
+      border: 3px solid color-mix(in srgb, var(--wash-ink) 72%, transparent);
+      border-top-color: var(--stamp-red);
+      border-radius: 50%;
+      animation: transmission-loading-spin 0.8s linear infinite;
+    }
+    @keyframes transmission-loading-spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .transmission-loading-indicator {
+        animation: none;
+      }
+    }
     .transmission-consign {
       display: flex;
       align-items: flex-end;

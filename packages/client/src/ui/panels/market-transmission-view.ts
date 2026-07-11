@@ -54,7 +54,7 @@ export class MarketTransmissionView {
       size: 'full',
       variantClass: 'detail-modal--market detail-modal--auction-house',
       title: t('market.tab.transmission', undefined),
-      subtitle: t('market.transmission.hint', undefined),
+      hint: '',
       renderBody: (body: HTMLElement) => {
         replaceElementHtml(body, this.renderTransmissionBody());
       },
@@ -139,7 +139,15 @@ export class MarketTransmissionView {
   private renderTransmissionBody(): string {
     const listings = this.panel.transmissionListings;
     if (!listings) {
-      return `<div class="empty-hint">${escapeHtml(t('auction.loading', undefined))}</div>`;
+      return `
+        <div
+          class="transmission-loading"
+          role="status"
+          aria-label="${escapeHtml(t('market.transmission.loading', undefined))}"
+        >
+          <span class="transmission-loading-indicator" aria-hidden="true"></span>
+        </div>
+      `;
     }
     const lots = this.getLots();
     const activeKey = this.panel.selectedTransmissionItemKey ?? lots[0]?.itemKey ?? '';
@@ -232,7 +240,6 @@ export class MarketTransmissionView {
       <div class="auction-bid-actions">
         <button class="small-btn" data-transmission-action="buy" data-transmission-action-item="${escapeHtml(lot.itemKey)}" type="button" ${canBuy ? '' : 'disabled'}>${escapeHtml(t('market.transmission.action.buy', undefined))}</button>
       </div>
-      <div class="market-action-hint">${escapeHtml(t('market.transmission.hint', undefined))}</div>
     `;
   }
 

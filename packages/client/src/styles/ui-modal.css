@@ -59,6 +59,11 @@
   font-size: var(--font-size-11);
 }
 
+.ui-modal-subtitle.hidden,
+.ui-modal-hint.hidden {
+  display: none;
+}
+
 .ui-modal-body {
   min-height: 0;
 }

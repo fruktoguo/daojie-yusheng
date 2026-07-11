@@ -118,7 +118,12 @@ function main() {
   const panelContextTs = read('src/main-app-panel-context.ts');
   const runtimeOwnerContextTs = read('src/main-app-runtime-owner-context.ts');
   const socketTs = read('src/network/socket.ts');
+  const socketServerEventsTs = read('src/network/socket-server-events.ts');
+  const lowFrequencySocketBindingsTs = read('src/main-low-frequency-socket-bindings.ts');
   const marketControllerTs = read('src/ui/panels/market-panel.ts');
+  const marketTransmissionViewTs = read('src/ui/panels/market-transmission-view.ts');
+  const detailModalHostTs = read('src/ui/detail-modal-host.ts');
+  const uiModalCss = read('src/styles/ui-modal.css');
   const marketReactTsx = read('src/react-ui/panels/market/MarketPanel.tsx');
   const marketMountTsx = read('src/react-ui/panels/market/mount-market-panel.tsx');
   const panelFlagsTs = read('src/react-ui/bridge/panel-flags.ts');
@@ -200,6 +205,23 @@ function main() {
   assertIncludes(socketTs, /createSocketAdminSender/, 'socket.ts 必须继续通过 admin sender owner 收口发送面');
   assertIncludes(socketTs, /on<TEvent extends BoundServerEventName>/, 'socket.ts 必须保留泛型 on(...) 事件消费入口');
 
+  const registeredServerEvents = new Set(
+    [...socketServerEventsTs.matchAll(/\bS2C\.([A-Za-z0-9_]+),/g)].map((match) => match[1]),
+  );
+  const lowFrequencyBoundEvents = new Set(
+    [...lowFrequencySocketBindingsTs.matchAll(/options\.socket\.on\(S2C\.([A-Za-z0-9_]+)/g)].map((match) => match[1]),
+  );
+  for (const eventName of lowFrequencyBoundEvents) {
+    assert(
+      registeredServerEvents.has(eventName),
+      `低频事件 S2C.${eventName} 已声明消费，但未进入底层 Socket 注册表`,
+    );
+  }
+  assert(
+    registeredServerEvents.has('TransmissionListings'),
+    '传法台分页回包必须进入底层 Socket 注册表',
+  );
+
   assertIncludes(marketReactTsx, /callbacks\.onOpenTransmission\?\.\(\)/, 'React 坊市首屏必须保留传法台入口回调');
   assertIncludes(marketReactTsx, /t\('market\.tab\.transmission'/, 'React 坊市首屏必须展示传法台入口');
   assertMissing(marketReactTsx, /createPanelStore/, 'React 坊市静态首屏不应复制市场业务状态');
@@ -221,6 +243,22 @@ function main() {
     '坊市 React 首屏不应再受双实现开关控制或维护重复状态',
   );
   assertMissing(panelFlagsTs, /['"]market['"]/, '坊市已完成单入口收敛，不应继续暴露 React/Native 切换开关');
+  assertMissing(
+    marketTransmissionViewTs,
+    /market\.transmission\.hint|auction\.loading/,
+    '传法台弹层不应恢复说明性副标题或复用拍卖行加载文案',
+  );
+  assertIncludes(marketTransmissionViewTs, /hint:\s*''/, '传法台弹层必须显式隐藏通用关闭提示');
+  assertIncludes(
+    detailModalHostTs,
+    /this\.hint\.classList\.toggle\('hidden', hintText\.length === 0\)/,
+    '详情弹层宿主必须允许调用方显式隐藏提示',
+  );
+  assertIncludes(
+    uiModalCss,
+    /\.ui-modal-hint\.hidden\s*\{\s*display:\s*none;/s,
+    '详情弹层空提示必须真正退出布局',
+  );
 
   const gmFiles = [
     'src/gm.ts',
