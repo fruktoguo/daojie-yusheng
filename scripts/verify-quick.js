@@ -43,6 +43,8 @@ const status = runVerificationSteps({
         'session',
         '--case',
         'world-gateway-offline-gain-refresh',
+        '--case',
+        'player-statistic-ledger-io',
       ],
       shell: false,
     },

@@ -41,6 +41,7 @@ import {
     resolvePlayerArtifactOverchargeStacks,
 } from './player-artifact-runtime.helpers';
 import { refreshPlayerMovementCapabilities } from './player-movement-capability.helpers';
+import { PlayerStatisticLedgerIoQueue } from './player-statistic-ledger-io-queue';
 
 /** 新角色默认出生地图。 */
 const DEFAULT_PLAYER_STARTER_MAP_ID = 'yunlai_town';
@@ -131,6 +132,8 @@ export class PlayerRuntimeService {
     scheduledPlayerStatisticLedgerFlushes = new Set();
     /** 统计总账落盘重试计数，防止无限重试。 */
     private playerStatisticLedgerRetryCount = new Map<string, number>();
+    /** 同一玩家的总账回读与增量落盘必须串行，避免旧 SELECT 覆盖刚完成的 flush。 */
+    private readonly playerStatisticLedgerIoQueue = new PlayerStatisticLedgerIoQueue();
     /** 待单播给客户端刷新显示的总账玩家。 */
     pendingPlayerStatisticTotalsEmitPlayerIds = new Set();
     /** 最近一次已发给客户端的统计总账，用于构建低频 totalsPatch。 */
@@ -774,13 +777,15 @@ export class PlayerRuntimeService {
             return buildEmptyPlayerStatisticTotals(now);
         }
         if (this.playerDomainPersistenceService?.isEnabled?.()) {
-            const dayKeys = buildPlayerStatisticRelevantDayKeys(now);
-            const rows = await this.playerDomainPersistenceService.loadPlayerStatisticDayTotals(normalizedPlayerId, dayKeys);
-            const byDay = this.playerStatisticPersistedDayTotalsByPlayerId.get(normalizedPlayerId) ?? new Map();
-            for (const row of rows) {
-                byDay.set(row.dayKey, normalizePlayerStatisticPeriodTotal(row.total));
-            }
-            this.playerStatisticPersistedDayTotalsByPlayerId.set(normalizedPlayerId, byDay);
+            await this.playerStatisticLedgerIoQueue.run(normalizedPlayerId, async () => {
+                const dayKeys = buildPlayerStatisticRelevantDayKeys(now);
+                const rows = await this.playerDomainPersistenceService.loadPlayerStatisticDayTotals(normalizedPlayerId, dayKeys);
+                const byDay = this.playerStatisticPersistedDayTotalsByPlayerId.get(normalizedPlayerId) ?? new Map();
+                for (const row of rows) {
+                    byDay.set(row.dayKey, normalizePlayerStatisticPeriodTotal(row.total));
+                }
+                this.playerStatisticPersistedDayTotalsByPlayerId.set(normalizedPlayerId, byDay);
+            });
         }
         const totals = this.getPlayerStatisticTotalsSync(normalizedPlayerId, now);
         return totals && hasPlayerStatisticTotalsView(totals) ? totals : null;
@@ -4804,38 +4809,40 @@ export class PlayerRuntimeService {
         if (!normalizedPlayerId) {
             return;
         }
-        this.scheduledPlayerStatisticLedgerFlushes.delete(normalizedPlayerId);
-        const pendingByDay = this.pendingPlayerStatisticDayTotalsByPlayerId.get(normalizedPlayerId);
-        if (!pendingByDay || pendingByDay.size === 0 || !this.playerDomainPersistenceService?.isEnabled?.()) {
-            return;
-        }
-        this.pendingPlayerStatisticDayTotalsByPlayerId.delete(normalizedPlayerId);
-        let shouldRetry = false;
-        for (const [dayKey, delta] of pendingByDay.entries()) {
-            try {
-                await this.playerDomainPersistenceService.incrementPlayerStatisticDayTotal(normalizedPlayerId, dayKey, delta);
-                mergePlayerStatisticDayTotalMap(this.playerStatisticPersistedDayTotalsByPlayerId, normalizedPlayerId, dayKey, delta);
-                subtractPlayerStatisticDayTotalMap(this.playerStatisticDayTotalsByPlayerId, normalizedPlayerId, dayKey, delta);
-            } catch (error) {
-                mergePlayerStatisticDayTotalMap(this.pendingPlayerStatisticDayTotalsByPlayerId, normalizedPlayerId, dayKey, delta);
-                shouldRetry = true;
-                if (error instanceof TypeError || error instanceof ReferenceError) {
-                    this.logger.error(`统计总账落盘编程错误 playerId=${normalizedPlayerId} dayKey=${dayKey}`, error.stack);
+        await this.playerStatisticLedgerIoQueue.run(normalizedPlayerId, async () => {
+            this.scheduledPlayerStatisticLedgerFlushes.delete(normalizedPlayerId);
+            const pendingByDay = this.pendingPlayerStatisticDayTotalsByPlayerId.get(normalizedPlayerId);
+            if (!pendingByDay || pendingByDay.size === 0 || !this.playerDomainPersistenceService?.isEnabled?.()) {
+                return;
+            }
+            this.pendingPlayerStatisticDayTotalsByPlayerId.delete(normalizedPlayerId);
+            let shouldRetry = false;
+            for (const [dayKey, delta] of pendingByDay.entries()) {
+                try {
+                    await this.playerDomainPersistenceService.incrementPlayerStatisticDayTotal(normalizedPlayerId, dayKey, delta);
+                    mergePlayerStatisticDayTotalMap(this.playerStatisticPersistedDayTotalsByPlayerId, normalizedPlayerId, dayKey, delta);
+                    subtractPlayerStatisticDayTotalMap(this.playerStatisticDayTotalsByPlayerId, normalizedPlayerId, dayKey, delta);
+                } catch (error) {
+                    mergePlayerStatisticDayTotalMap(this.pendingPlayerStatisticDayTotalsByPlayerId, normalizedPlayerId, dayKey, delta);
+                    shouldRetry = true;
+                    if (error instanceof TypeError || error instanceof ReferenceError) {
+                        this.logger.error(`统计总账落盘编程错误 playerId=${normalizedPlayerId} dayKey=${dayKey}`, error.stack);
+                    }
                 }
             }
-        }
-        if (shouldRetry) {
-            const retries = (this.playerStatisticLedgerRetryCount.get(normalizedPlayerId) ?? 0) + 1;
-            if (retries <= 5) {
-                this.playerStatisticLedgerRetryCount.set(normalizedPlayerId, retries);
-                this.schedulePlayerStatisticLedgerFlush(normalizedPlayerId);
+            if (shouldRetry) {
+                const retries = (this.playerStatisticLedgerRetryCount.get(normalizedPlayerId) ?? 0) + 1;
+                if (retries <= 5) {
+                    this.playerStatisticLedgerRetryCount.set(normalizedPlayerId, retries);
+                    this.schedulePlayerStatisticLedgerFlush(normalizedPlayerId);
+                } else {
+                    this.playerStatisticLedgerRetryCount.delete(normalizedPlayerId);
+                    this.logger.warn(`统计总账落盘重试超限 playerId=${normalizedPlayerId}，放弃本轮重试`);
+                }
             } else {
                 this.playerStatisticLedgerRetryCount.delete(normalizedPlayerId);
-                this.logger.warn(`统计总账落盘重试超限 playerId=${normalizedPlayerId}，放弃本轮重试`);
             }
-        } else {
-            this.playerStatisticLedgerRetryCount.delete(normalizedPlayerId);
-        }
+        });
     }
     /**
  * respawnPlayer：执行重生玩家相关逻辑。
