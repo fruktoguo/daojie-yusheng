@@ -228,9 +228,18 @@ async function main(): Promise<void> {
   );
   persistence.updateCurrentLayer('player:cache', 7);
   persistence.promoteHighestLayer('player:cache', 7);
-  connectToPublicMap(deps, 'player:cache', 31, 15);
-  const cachedLayerView = tower.executeAction('player:cache', 'tower:tongtian:enter', deps);
+  const cachedLayerView = restoreSession.connectPlayer({
+    playerId: 'player:cache',
+    sessionId: 'session:player:cache:restore',
+    instanceId: 'tower:tongtian:layer:7',
+    mapId: 'tongtian_tower_layer_7',
+    preferredX: 7,
+    preferredY: 8,
+    allowCreateFallback: false,
+  }, deps) as any;
   assert.equal(cachedLayerView.instance.instanceId, 'tower:tongtian:layer:7');
+  assert.equal(cachedLayerView.self.x, 7, '持久化重连应保留通天塔内横坐标');
+  assert.equal(cachedLayerView.self.y, 8, '持久化重连应保留通天塔内纵坐标');
   const cachedLayer = deps.getInstanceRuntimeOrThrow('tower:tongtian:layer:7');
   assert.equal(cachedLayer.meta.supportsPvp, false, '通天塔恢复缓存路径必须保持禁 PVP');
   assert.equal(cachedLayer.meta.canDamageTile, false, '通天塔恢复缓存路径必须保持禁地块攻击');

@@ -259,6 +259,45 @@ export class WorldRuntimeTongtianTowerService {
     return `${TOWER_INSTANCE_PREFIX}${normalizeLayer(layerInput)}`;
   }
 
+  /**
+   * 仅激活启动阶段已经从实例目录和分域快照回填好的塔层缓存。
+   *
+   * 持久化快照恢复会禁用“新建 fallback”，但缓存激活不是新建实例；它必须仍可用于
+   * 重启后的在线重连与离线挂机恢复，且不能在缓存缺失时凭玩家位置制造第二份实例真源。
+   */
+  activateCachedLayerInstanceForRestore(
+    input: { instanceId?: string | null; templateId?: string | null },
+    deps: any,
+  ): any | null {
+    const instanceId = typeof input?.instanceId === 'string' ? input.instanceId.trim() : '';
+    const templateId = typeof input?.templateId === 'string' ? input.templateId.trim() : '';
+    const layer = parseTowerLayerFromInstanceId(instanceId) || parseTowerLayerFromTemplateId(templateId);
+    if (layer <= 0) {
+      return null;
+    }
+    const expectedTemplateId = `${TOWER_TEMPLATE_PREFIX}${layer}`;
+    if (templateId && templateId !== expectedTemplateId) {
+      return null;
+    }
+    const resolvedInstanceId = this.getTowerInstanceId(layer);
+    const existing = deps.getInstanceRuntime?.(resolvedInstanceId);
+    if (existing) {
+      return existing;
+    }
+    const cached = this.takeCachedLayerInstance(layer);
+    if (!cached) {
+      return null;
+    }
+    this.prepareRestoredLayerInstance(cached, layer, deps.tick);
+    if (typeof deps.setInstanceRuntime === 'function') {
+      deps.setInstanceRuntime(resolvedInstanceId, cached);
+    } else if (typeof deps.worldRuntimeInstanceStateService?.setInstanceRuntime === 'function') {
+      deps.worldRuntimeInstanceStateService.setInstanceRuntime(resolvedInstanceId, cached);
+    }
+    deps.worldRuntimeTickProgressService?.initializeInstance?.(resolvedInstanceId);
+    return cached;
+  }
+
   ensureLayerInstanceForRestore(
     input: { instanceId?: string | null; templateId?: string | null },
     deps: any,
@@ -274,23 +313,12 @@ export class WorldRuntimeTongtianTowerService {
     if (templateId && templateId !== expectedTemplateId) {
       return null;
     }
-    const existing = deps.getInstanceRuntime?.(this.getTowerInstanceId(layer));
-    if (existing) {
-      return existing;
+    const restored = this.activateCachedLayerInstanceForRestore(input, deps);
+    if (restored) {
+      return restored;
     }
     if (options.allowCreate === false) {
       return null;
-    }
-    const cached = this.takeCachedLayerInstance(layer);
-    if (cached) {
-      this.prepareRestoredLayerInstance(cached, layer, deps.tick);
-      if (typeof deps.setInstanceRuntime === 'function') {
-        deps.setInstanceRuntime(this.getTowerInstanceId(layer), cached);
-      } else if (typeof deps.worldRuntimeInstanceStateService?.setInstanceRuntime === 'function') {
-        deps.worldRuntimeInstanceStateService.setInstanceRuntime(this.getTowerInstanceId(layer), cached);
-      }
-      deps.worldRuntimeTickProgressService?.initializeInstance?.(this.getTowerInstanceId(layer));
-      return cached;
     }
     return this.ensureLayerInstance(layer, deps);
   }

@@ -32,6 +32,57 @@ function logOfflineRestoreMissingInstance(deps, instanceId, playerId) {
     deps.logger?.warn?.(message);
 }
 
+/**
+ * 激活仍有离线挂机玩家驻留的通天塔层。
+ *
+ * 通天塔启动时先以 detached cache 形态回填，避免把所有历史层都注册进 tick；这里只对
+ * 玩家位置真源实际引用的层做物化，并在加载玩家前完成实例 lease 裁定。普通缺失实例
+ * 不走这条路径，缓存缺失时也不创建空白塔层。
+ */
+async function activateOfflinePlayerTowerInstances(deps, positions) {
+    const towerService = deps.worldRuntimeTongtianTowerService;
+    if (typeof towerService?.activateCachedLayerInstanceForRestore !== 'function') {
+        return;
+    }
+    const instanceIds = Array.from(new Set((Array.isArray(positions) ? positions : [])
+        .map((entry) => typeof entry?.instanceId === 'string' ? entry.instanceId.trim() : '')
+        .filter((instanceId) => isExpectedMissingOfflineRuntimeInstance(instanceId))))
+        .filter((instanceId) => !deps.getInstanceRuntime(instanceId));
+    const batchSize = 16;
+    for (let index = 0; index < instanceIds.length; index += batchSize) {
+        const batch = instanceIds.slice(index, index + batchSize);
+        await Promise.all(batch.map(async (instanceId) => {
+            const instance = towerService.activateCachedLayerInstanceForRestore({ instanceId }, deps);
+            if (!instance) {
+                return;
+            }
+            try {
+                if (typeof deps.syncInstanceLease === 'function') {
+                    await deps.syncInstanceLease(instance.meta.instanceId, { allowForceReclaim: true });
+                }
+            } catch (error) {
+                deps.logger?.warn?.(
+                    `离线挂机通天塔实例租约同步失败：${instanceId} ${error instanceof Error ? error.message : String(error)}`,
+                );
+                return;
+            }
+            const attachReady = typeof deps.instanceReadyForPlayerAttach === 'function'
+                ? deps.instanceReadyForPlayerAttach(instance.meta.instanceId)
+                : { ok: true, reason: 'ready', instance };
+            if (!attachReady.ok && attachReady.reason !== 'attach_gate_closed') {
+                return;
+            }
+            const barrierSnapshot = deps.startupBarrierService?.getSnapshot?.();
+            if (!barrierSnapshot || barrierSnapshot.instanceWriteOpen === true) {
+                deps.startupBarrierService?.openInstanceWrites?.([instance.meta.instanceId]);
+            }
+            if (!barrierSnapshot || barrierSnapshot.instanceAttachOpen === true) {
+                deps.startupBarrierService?.openInstanceAttach?.([instance.meta.instanceId]);
+            }
+        }));
+    }
+}
+
 async function persistBuildingRoomStateAfterUnknownDefPrune(deps, domainPersistenceService, instanceId, instance, hydrateResult) {
     const skippedCount = Math.max(0, Math.trunc(Number(hydrateResult?.skippedUnknownDefCount) || 0));
     const skippedProtectedPlacementCount = Math.max(0, Math.trunc(Number(hydrateResult?.skippedProtectedPlacementCount) || 0));
@@ -444,6 +495,7 @@ export class WorldRuntimeLifecycleService {
         if (!positions || positions.length === 0) {
             return result;
         }
+        await activateOfflinePlayerTowerInstances(deps, positions);
         let restored = 0;
         const BATCH_SIZE = 50;
         for (let i = 0; i < positions.length; i += BATCH_SIZE) {
