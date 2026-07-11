@@ -17,3 +17,6 @@ export * from './procgen-routes';
 export * from './procgen-generator';
 export * from './procgen-realm-skeleton';
 export * from './procgen-presets';
+export * from './procgen-chunk';
+export * from './procgen-chunk-structures';
+export * from './procgen-infinite-themes';

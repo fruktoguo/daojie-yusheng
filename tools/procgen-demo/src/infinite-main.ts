@@ -2,7 +2,8 @@
  * 无限世界 demo 入口：玩家在中心，方向键/WASD 走动或拖拽平移，滚轮缩放。
  * 玩家周围的块按需流式生成、远处淘汰——演示「大地图、玩家周围才生成、不穿帮」。
  */
-import { INFINITE_WORLD_DEFAULT, type InfiniteWorldSpec } from '../../../packages/shared/src/procgen/procgen-chunk';
+import type { InfiniteWorldSpec } from '../../../packages/shared/src/procgen/procgen-chunk';
+import { INFINITE_THEMES, infiniteThemeById } from '../../../packages/shared/src/procgen/procgen-infinite-themes';
 import { getImagePack } from './demo-image-pack';
 import { InfiniteWorld } from './infinite-world';
 import { ChunkCanvasCache } from './infinite-chunk-canvas';
@@ -12,10 +13,19 @@ const el = <T extends HTMLElement>(id: string): T => document.getElementById(id)
 const canvas = el<HTMLCanvasElement>('view');
 const seedInput = el<HTMLInputElement>('seed');
 const spriteToggle = el<HTMLInputElement>('sprites');
+const themeSelect = el<HTMLSelectElement>('theme');
 const hud = el<HTMLDivElement>('hud');
 
+// 主题下拉：从注册表填充选项，选中即换整套 biome + scatter + 结构镶嵌。
+for (const theme of INFINITE_THEMES) {
+  const option = document.createElement('option');
+  option.value = theme.id;
+  option.textContent = theme.name;
+  themeSelect.appendChild(option);
+}
+
 const pack = getImagePack();
-const specFor = (seed: string): InfiniteWorldSpec => ({ ...INFINITE_WORLD_DEFAULT, seed });
+const specFor = (seed: string): InfiniteWorldSpec => ({ ...infiniteThemeById(themeSelect.value), seed });
 const world = new InfiniteWorld(specFor(seedInput.value || 'infinite'));
 // 离屏 chunk 缓存：移动时只 blit 已渲染的块，是流畅的关键（见 infinite-chunk-canvas.ts）。
 const chunkCache = new ChunkCanvasCache(world, pack);
@@ -54,10 +64,13 @@ canvas.addEventListener('wheel', (e) => {
   cam.cellSize = next === cam.cellSize ? Math.min(40, Math.max(6, cam.cellSize + (e.deltaY < 0 ? 1 : -1))) : next;
 }, { passive: false });
 
-seedInput.addEventListener('change', () => {
+// 换种子或换主题：重建世界、清离屏缓存，从头按新规则流式生成。
+const reload = (): void => {
   world.reset(specFor(seedInput.value || 'infinite'));
-  chunkCache.clear(); // 地形变了，离屏缓存全部失效。
-});
+  chunkCache.clear();
+};
+seedInput.addEventListener('change', reload);
+themeSelect.addEventListener('change', reload);
 el<HTMLButtonElement>('recenter').addEventListener('click', () => { cam.x = 0.5; cam.y = 0.5; });
 
 // 图集惰性加载：每张图 onload 后 revision 自增。加载完成时清缓存重渲染，

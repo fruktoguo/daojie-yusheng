@@ -26,6 +26,10 @@
     background: var(--panel-2); color: var(--text);
     border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px; width: 160px;
   }
+  #bar select {
+    background: var(--panel-2); color: var(--text);
+    border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px; cursor: pointer;
+  }
   #bar button {
     background: var(--panel-2); color: var(--text); border: 1px solid var(--border);
     border-radius: 6px; padding: 5px 10px; cursor: pointer;
@@ -45,6 +49,7 @@
   <div id="bar">
     <h1>无限世界流式生成</h1>
     <label>种子 <input id="seed" type="text" value="道劫余生"></label>
+    <label>主题 <select id="theme"></select></label>
     <button id="recenter">回到原点</button>
     <label class="check"><input id="sprites" type="checkbox" checked>游戏贴图</label>
     <span class="hint">WASD/方向键走动 · 拖拽平移 · 滚轮缩放 —— 玩家周围才生成、走到哪生成到哪</span>

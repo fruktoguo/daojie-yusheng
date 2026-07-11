@@ -17,6 +17,7 @@
  */
 import { fbmNoise2D, hashStringToUint32, ProcgenRng } from './procgen-random';
 import { smoothTerrain } from './procgen-fields';
+import { stampStructures, type InfiniteStructureSpec } from './procgen-chunk-structures';
 import type { ProcgenFieldSpec } from './procgen-types';
 
 /** biome 判定规则：在对比拉伸后的 [0,1] 高程/湿度上取区间，首条命中优先。 */
@@ -44,6 +45,8 @@ export interface InfiniteWorldSpec {
   biomes: readonly InfiniteBiomeRule[];
   smoothIterations: number;
   scatter: readonly InfiniteScatterRule[];
+  /** 结构镶嵌（可选）：在连续自然地貌上点阵撒下城镇/地牢/小屋，不切矩形、不包裹山墙。 */
+  structures?: InfiniteStructureSpec;
 }
 
 export interface WorldChunk {
@@ -119,6 +122,11 @@ export function generateChunk(spec: InfiniteWorldSpec, cx: number, cy: number): 
       if (!rule.onTerrain.includes(terrain)) continue;
       if (rng.chance(rule.density)) { structureIds[i] = rule.tile; break; }
     }
+  }
+  // 结构镶嵌：自然地貌与散点铺完后，点阵撒下与本块相交的城镇/地牢/小屋。
+  // 只写结构自身 footprint，故周围保持自然；跨块结构由相邻块各自 stamp 出一致结果。
+  if (spec.structures) {
+    stampStructures(spec.seed, size, spec.structures, cx, cy, terrainIds, surfaceIds, structureIds);
   }
   return { cx, cy, size, terrainIds, surfaceIds, structureIds };
 }
