@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>无限世界流式生成 Demo</title>
+<style>
+  :root {
+    --bg: #16181d; --panel: #1e2128; --panel-2: #262a33; --border: #333845;
+    --text: #d8dce4; --muted: #8b92a0; --accent: #6fa8dc;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg); color: var(--text);
+    font: 13px/1.6 "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    display: flex; flex-direction: column; height: 100vh; overflow: hidden;
+  }
+  #bar {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    padding: 8px 14px; background: var(--panel); border-bottom: 1px solid var(--border);
+  }
+  #bar h1 { font-size: 14px; color: var(--accent); margin-right: 6px; }
+  #bar label { color: var(--muted); }
+  #bar input[type=text] {
+    background: var(--panel-2); color: var(--text);
+    border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px; width: 160px;
+  }
+  #bar button {
+    background: var(--panel-2); color: var(--text); border: 1px solid var(--border);
+    border-radius: 6px; padding: 5px 10px; cursor: pointer;
+  }
+  #bar button:hover { border-color: var(--accent); }
+  .check { display: flex; align-items: center; gap: 5px; cursor: pointer; }
+  #view { flex: 1; width: 100%; display: block; image-rendering: pixelated; cursor: grab; touch-action: none; }
+  #view:active { cursor: grabbing; }
+  #hud {
+    padding: 6px 14px; background: var(--panel); border-top: 1px solid var(--border);
+    color: var(--muted); font: 12px ui-monospace, Consolas, monospace; white-space: nowrap; overflow: hidden;
+  }
+  .hint { color: var(--muted); font-size: 12px; }
+</style>
+</head>
+<body>
+  <div id="bar">
+    <h1>无限世界流式生成</h1>
+    <label>种子 <input id="seed" type="text" value="道劫余生"></label>
+    <button id="recenter">回到原点</button>
+    <label class="check"><input id="sprites" type="checkbox" checked>游戏贴图</label>
+    <span class="hint">WASD/方向键走动 · 拖拽平移 · 滚轮缩放 —— 玩家周围才生成、走到哪生成到哪</span>
+  </div>
+  <canvas id="view"></canvas>
+  <div id="hud"></div>
+  <!-- 游戏运行时图包 manifest（build 时内联，tiles 段 src 已换成 data URI）。空则回退纯色渲染。 -->
+  <script id="image-pack-manifest" type="application/json">/*__IMAGE_PACK_MANIFEST__*/</script>
+  <script>//__BUNDLE__</script>
+</body>
+</html>

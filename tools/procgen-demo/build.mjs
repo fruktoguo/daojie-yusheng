@@ -56,36 +56,40 @@ const vitePackageJson = editorRequire.resolve('vite/package.json');
 const viteRequire = createRequire(vitePackageJson);
 const esbuild = viteRequire('esbuild');
 
-const result = await esbuild.build({
-  entryPoints: [path.join(here, 'src/demo-main.ts')],
-  bundle: true,
-  format: 'iife',
-  target: 'es2020',
-  minify: true,
-  write: false,
-  charset: 'utf8',
-  // demo 直接吃源码：把 client 内部的 '@mud/shared' 也解析到 shared/src，
-  // 与 tsconfig paths 保持一致，避免 dist 与 src 的同名 enum 变成两个 declaration。
-  alias: { '@mud/shared': path.join(repoRoot, 'packages/shared/src/index.ts') },
-});
-
-const bundle = result.outputFiles[0].text;
-const template = readFileSync(path.join(here, 'template.html'), 'utf8');
-
 const withSprites = process.env.PROCGEN_DEMO_NO_SPRITES !== '1';
 // data URI 的 base64 与前缀均不含 '<'，直接嵌入 <script type="application/json"> 不会截断标签。
 const manifest = withSprites ? buildInlineManifest() : null;
 
-const html = template
-  .replace('/*__IMAGE_PACK_MANIFEST__*/', () => (manifest ? manifest.json : ''))
-  .replace('//__BUNDLE__', () => bundle);
+// 两个页面：有界秘境预览 + 无限世界流式生成，共用同一份内联图集与打包配置。
+const PAGES = [
+  { entry: 'src/demo-main.ts', template: 'template.html', out: 'mijing-procgen-demo.html' },
+  { entry: 'src/infinite-main.ts', template: 'infinite.html', out: 'mijing-infinite-demo.html' },
+];
 
 mkdirSync(path.join(here, 'dist'), { recursive: true });
-const outFile = path.join(here, 'dist/mijing-procgen-demo.html');
-writeFileSync(outFile, html);
-
-const sizeKb = (html.length / 1024).toFixed(1);
-const note = manifest
-  ? `内联图集 ${manifest.count} 张 / 原始 ${(manifest.bytes / 1024 / 1024).toFixed(1)} MB`
-  : '纯色轻量版（未内联贴图）';
-console.log(`已生成：${path.relative(repoRoot, outFile)}（${sizeKb} KB，${note}）`);
+for (const page of PAGES) {
+  const result = await esbuild.build({
+    entryPoints: [path.join(here, page.entry)],
+    bundle: true,
+    format: 'iife',
+    target: 'es2020',
+    minify: true,
+    write: false,
+    charset: 'utf8',
+    // demo 直接吃源码：把 client 内部的 '@mud/shared' 也解析到 shared/src，
+    // 与 tsconfig paths 保持一致，避免 dist 与 src 的同名 enum 变成两个 declaration。
+    alias: { '@mud/shared': path.join(repoRoot, 'packages/shared/src/index.ts') },
+  });
+  const bundle = result.outputFiles[0].text;
+  const template = readFileSync(path.join(here, page.template), 'utf8');
+  const html = template
+    .replace('/*__IMAGE_PACK_MANIFEST__*/', () => (manifest ? manifest.json : ''))
+    .replace('//__BUNDLE__', () => bundle);
+  const outFile = path.join(here, 'dist', page.out);
+  writeFileSync(outFile, html);
+  const sizeKb = (html.length / 1024).toFixed(1);
+  const note = manifest
+    ? `内联图集 ${manifest.count} 张 / 原始 ${(manifest.bytes / 1024 / 1024).toFixed(1)} MB`
+    : '纯色轻量版（未内联贴图）';
+  console.log(`已生成：${path.relative(repoRoot, outFile)}（${sizeKb} KB，${note}）`);
+}
