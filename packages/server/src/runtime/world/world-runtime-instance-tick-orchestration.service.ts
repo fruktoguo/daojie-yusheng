@@ -390,7 +390,7 @@ export class WorldRuntimeInstanceTickOrchestrationService {
                 // 加速 tick 补偿：对于后续逻辑 tick，为当前实例的玩家重新物化命令
                 if (index > 0) {
                     const instanceStepMaterializationStartedAt = performance.now();
-                    this.runIsolatedSyncOperation(deps, 'materialize_navigation_commands_for_instance', {
+                    await this.runIsolatedOperation(deps, 'materialize_navigation_commands_for_instance', {
                         instanceId: instance.meta.instanceId,
                         worldTick: deps.tick,
                     }, () => deps.worldRuntimeNavigationService.materializeNavigationCommandsForInstance(instance.meta.instanceId, deps));

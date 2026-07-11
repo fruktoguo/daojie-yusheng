@@ -160,11 +160,15 @@ export class WorldRuntimeInstanceReadFacadeService {
             instance.setCompositeSightResolver((x, y) => resolveOverlayParentSightBlocked(instance, x, y, deps));
         }
         if (typeof instance.setDynamicTileBlocker === 'function') {
-            instance.setDynamicTileBlocker((x, y, context = null) => (
+            const blocker: any = (x, y, context = null) => (
                 typeof deps.worldRuntimeFormationService?.isBoundaryBarrierBlocked === 'function'
                     ? deps.worldRuntimeFormationService.isBoundaryBarrierBlocked(input.instanceId, x, y, context?.playerId) === true
                     : false
-            ));
+            );
+            blocker.forEachBlockedTile = (playerId, visitor) => {
+                deps.worldRuntimeFormationService?.forEachBoundaryBarrierBlockedTile?.(input.instanceId, playerId, visitor);
+            };
+            instance.setDynamicTileBlocker(blocker);
         }
         deps.setInstanceRuntime(input.instanceId, instance);
         deps.worldRuntimeTickProgressService.initializeInstance(input.instanceId);

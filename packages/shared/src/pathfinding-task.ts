@@ -54,3 +54,39 @@ export interface PathfindingTaskResult {
   /** 失败原因 */
   reason?: string;
 }
+
+/** 同一地图实例中的单个寻路请求；静态网格由外层批任务共享。 */
+export interface PathfindingBatchRequest {
+  /** 动态阻挡的稀疏 cell index，避免为每个玩家复制整张 Uint8Array。 */
+  blockedIndices: Uint32Array;
+  /** 起点 X */
+  startX: number;
+  /** 起点 Y */
+  startY: number;
+  /** 目标点列表 */
+  goals: PathPoint[];
+  /** 搜索限制 */
+  maxExpandedNodes: number;
+  maxPathLength: number;
+  maxGoalDistance?: number;
+  allowPartialPath?: boolean;
+}
+
+/**
+ * 实例级寻路批任务。
+ * 一批请求只携带一份静态网格；主线程优先使用 SharedArrayBuffer，跨 Worker 共享只读内存。
+ */
+export interface PathfindingBatchTaskInput {
+  mapId: string;
+  mapRevision: number;
+  width: number;
+  height: number;
+  walkable: Uint8Array;
+  traversalCost: Uint16Array;
+  requests: PathfindingBatchRequest[];
+}
+
+/** 批任务结果与 requests 下标严格一一对应。 */
+export interface PathfindingBatchTaskResult {
+  results: PathfindingTaskResult[];
+}

@@ -10,7 +10,13 @@
  */
 import { parentPort } from 'node:worker_threads';
 import { findBoundedPath, type PathfindingStaticGrid } from '@mud/shared';
-import type { PathfindingTaskInput, PathfindingTaskResult } from '@mud/shared';
+import type {
+  PathfindingBatchRequest,
+  PathfindingBatchTaskInput,
+  PathfindingBatchTaskResult,
+  PathfindingTaskInput,
+  PathfindingTaskResult,
+} from '@mud/shared';
 
 import type { WorkerTaskEnvelope, WorkerTaskResult } from '../worker-task.types';
 
@@ -46,6 +52,8 @@ function handleTask(envelope: WorkerTaskEnvelope): unknown {
       return handleEnvelopeEncode(envelope.payload);
     case 'pathfind':
       return handlePathfind(envelope.payload);
+    case 'pathfind-batch':
+      return handlePathfindBatch(envelope.payload);
     case 'fov':
       return handleFov(envelope.payload);
     default:
@@ -63,39 +71,99 @@ let cachedGrid: PathfindingStaticGrid | null = null;
 
 function handlePathfind(payload: unknown): PathfindingTaskResult {
   const input = payload as PathfindingTaskInput;
+  const grid = resolvePathfindingGrid(input);
+  if (!grid) {
+    return { status: 'failed', path: [], expandedNodes: 0, reason: 'missing_grid_data' };
+  }
+  return executePathfindingRequest(
+    grid,
+    input.blocked,
+    input,
+  );
+}
 
-  // 更新或复用缓存
-  if (
-    !cachedGrid
-    || cachedGrid.mapId !== input.mapId
-    || cachedGrid.mapRevision !== input.mapRevision
-    || cachedGrid.width !== input.width
-    || cachedGrid.height !== input.height
-  ) {
-    if (!input.walkable || !input.traversalCost) {
-      return { status: 'failed', path: [], expandedNodes: 0, reason: 'missing_grid_data' };
-    }
-    cachedGrid = {
-      mapId: input.mapId,
-      mapRevision: input.mapRevision,
-      width: input.width,
-      height: input.height,
-      walkable: input.walkable,
-      traversalCost: input.traversalCost,
+/** 同实例的一批请求只解析一份静态网格，并复用一张动态阻挡 scratch。 */
+function handlePathfindBatch(payload: unknown): PathfindingBatchTaskResult {
+  const input = payload as PathfindingBatchTaskInput;
+  const requests = Array.isArray(input?.requests) ? input.requests : [];
+  const grid = resolvePathfindingGrid(input);
+  if (!grid) {
+    return {
+      results: requests.map(() => ({
+        status: 'failed',
+        path: [],
+        expandedNodes: 0,
+        reason: 'missing_grid_data',
+      })),
     };
   }
+  const blocked = new Uint8Array(Math.max(0, input.width * input.height));
+  const results: PathfindingTaskResult[] = [];
+  for (const request of requests) {
+    try {
+      applySparseBlockedIndices(blocked, request.blockedIndices, 1);
+      results.push(executePathfindingRequest(grid, blocked, request));
+    }
+    catch {
+      results.push({ status: 'failed', path: [], expandedNodes: 0, reason: 'batch_request_failed' });
+    }
+    finally {
+      applySparseBlockedIndices(blocked, request.blockedIndices, 0);
+    }
+  }
+  return { results };
+}
 
+function resolvePathfindingGrid(input: {
+  mapId: string;
+  mapRevision: number;
+  width: number;
+  height: number;
+  walkable?: Uint8Array;
+  traversalCost?: Uint16Array;
+}): PathfindingStaticGrid | null {
+  if (
+    cachedGrid
+    && cachedGrid.mapId === input.mapId
+    && cachedGrid.mapRevision === input.mapRevision
+    && cachedGrid.width === input.width
+    && cachedGrid.height === input.height
+  ) {
+    return cachedGrid;
+  }
+  if (!input.walkable || !input.traversalCost) {
+    return null;
+  }
+  cachedGrid = {
+    mapId: input.mapId,
+    mapRevision: input.mapRevision,
+    width: input.width,
+    height: input.height,
+    walkable: input.walkable,
+    traversalCost: input.traversalCost,
+  };
+  return cachedGrid;
+}
+
+function executePathfindingRequest(
+  grid: PathfindingStaticGrid,
+  blocked: Uint8Array,
+  request: Pick<
+    PathfindingBatchRequest,
+    'startX' | 'startY' | 'goals' | 'maxExpandedNodes' | 'maxPathLength' | 'maxGoalDistance' | 'allowPartialPath'
+  >,
+): PathfindingTaskResult {
   const result = findBoundedPath(
-    cachedGrid,
-    input.blocked,
-    input.startX,
-    input.startY,
-    input.goals,
+    grid,
+    blocked,
+    request.startX,
+    request.startY,
+    request.goals,
     {
-      maxExpandedNodes: input.maxExpandedNodes,
-      maxPathLength: input.maxPathLength,
-      maxGoalDistance: input.maxGoalDistance,
-      allowPartialPath: input.allowPartialPath,
+      maxExpandedNodes: request.maxExpandedNodes,
+      maxPathLength: request.maxPathLength,
+      maxGoalDistance: request.maxGoalDistance,
+      allowPartialPath: request.allowPartialPath,
     },
   );
 
@@ -115,6 +183,17 @@ function handlePathfind(payload: unknown): PathfindingTaskResult {
     expandedNodes: result.expandedNodes,
     reason: result.reason,
   };
+}
+
+function applySparseBlockedIndices(target: Uint8Array, indices: Uint32Array, value: 0 | 1): void {
+  if (!(indices instanceof Uint32Array)) {
+    return;
+  }
+  for (const index of indices) {
+    if (index < target.length) {
+      target[index] = value;
+    }
+  }
 }
 
 function handleFov(payload: unknown): { visibleIndices: number[] } {

@@ -84,6 +84,11 @@ getMaxStoredMovePoints(moveSpeed, requiredMovePoints):
 - 代价函数 = TILE_TRAVERSAL_COST（地形代价）
 - 最小步进代价 = 1（用于启发函数归一化）
 - 路径重算：当路径被阻挡时触发 repath，参数与首次寻路相同
+- 同一调度帧的多玩家寻路按地图实例聚合为有界批任务后提交到 Encoding Worker Pool；每批只共享一份只读静态网格，动态阻挡按玩家传稀疏 cell index，并限制寻路批次的 Worker 并发数，为 AOI/FOV 编码保留容量。
+- 静态网格优先放入 `SharedArrayBuffer`，同实例多批和多个 Worker 共享只读字节，不按玩家结构化克隆整张地图；回收后仍按稳定玩家顺序物化命令。
+- 单次调度只物化固定上限的导航意图，超出部分保留到后续帧并按全局/实例作用域轮转，不能因玩家分散在大量实例而形成无界 Worker 队列，也不能长期只服务 Map 前部玩家。
+- Worker 静态网格缓存以 `instanceId` 隔离，并使用只在可行走性/移动代价变化时推进的 static pathing revision 失效；同模板不同实例不共用网格。
+- 玩家、妖兽、NPC 与阵法边界等动态阻挡进入每次任务独立的 `blocked` 掩码，不得固化进共享静态网格；宗门成员等通行权限按玩家计算。
 
 ## 占位规则
 

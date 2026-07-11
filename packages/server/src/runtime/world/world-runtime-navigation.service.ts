@@ -26,10 +26,13 @@ const {
     buildAdjacentGoalPoints,
     decodeClientPathHint,
     findOptimalPathOnMap,
-    buildPathingBlockArray,
+    buildPathingBlockIndices,
     resolvePreferredClientPathHint,
     directionFromStep,
 } = world_runtime_path_planning_helpers_1;
+
+/** 单次物化最多接纳的导航意图；剩余意图用轮转游标留到后续调度帧，避免 tick 被大量跨实例路径拖住。 */
+export const NAVIGATION_MAX_CANDIDATES_PER_MATERIALIZATION = 128;
 
 function resolvePlayerMapId(player, instance = null) {
     const playerMapId = typeof player?.templateId === 'string' && player.templateId.trim()
@@ -82,6 +85,8 @@ export class WorldRuntimeNavigationService {
  */
 
     navigationIntents = new Map();
+    /** 全局与实例补偿物化各自维护公平轮转位置，不能让 Map 前部的持续导航玩家饿死后续玩家。 */
+    navigationMaterializationCursorByScope = new Map();
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param templateRepository 参数说明。
@@ -106,6 +111,9 @@ export class WorldRuntimeNavigationService {
 
     clearNavigationIntent(playerId) {
         this.navigationIntents.delete(playerId);
+        if (this.navigationIntents.size === 0) {
+            this.navigationMaterializationCursorByScope.clear();
+        }
     }
     /**
  * hasNavigationIntent：判断导航Intent是否满足条件。
@@ -131,6 +139,8 @@ export class WorldRuntimeNavigationService {
 
     reset() {
         this.navigationIntents.clear();
+        this.navigationMaterializationCursorByScope.clear();
+        this.asyncPathfindingService?.clearCache?.();
     }
     /**
  * enqueueMove：处理Move并更新相关状态。
@@ -404,10 +414,33 @@ export class WorldRuntimeNavigationService {
     async materializeNavigationCommands(deps) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+        await this.materializeNavigationCommandBatch(null, deps);
+    }
+    /** materializeNavigationCommandsForInstance：只为指定实例的玩家物化导航命令（加速 tick 补偿用）。 */
+    async materializeNavigationCommandsForInstance(instanceId, deps) {
+        await this.materializeNavigationCommandBatch(instanceId, deps);
+    }
+
+    /**
+     * 同一帧先快照候选玩家，再并发提交寻路任务，最后按稳定候选顺序物化命令。
+     * 结果回收时会复核 intent 对象与 pending 状态，避免 worker 等待期间的新输入被旧结果覆盖。
+     */
+    async materializeNavigationCommandBatch(instanceId, deps) {
         if (this.navigationIntents.size === 0) {
             return;
         }
-        for (const [playerId, intent] of this.navigationIntents) {
+        const candidates = [];
+        const intentEntries = Array.from(this.navigationIntents.entries());
+        const scopeKey = typeof instanceId === 'string' && instanceId.trim() ? instanceId.trim() : '*';
+        const startIndex = intentEntries.length > 0
+            ? Math.max(0, Math.trunc(Number(this.navigationMaterializationCursorByScope.get(scopeKey) ?? 0))) % intentEntries.length
+            : 0;
+        let nextCursor = startIndex;
+        let sawScopeIntent = false;
+        for (let offset = 0; offset < intentEntries.length; offset += 1) {
+            const entryIndex = (startIndex + offset) % intentEntries.length;
+            nextCursor = (entryIndex + 1) % intentEntries.length;
+            const [playerId, intent] = intentEntries[entryIndex];
             if (deps.hasPendingCommand(playerId)) {
                 continue;
             }
@@ -416,53 +449,66 @@ export class WorldRuntimeNavigationService {
                 this.navigationIntents.delete(playerId);
                 continue;
             }
+            if (instanceId && player.instanceId !== instanceId) {
+                continue;
+            }
+            sawScopeIntent = true;
+            candidates.push({
+                playerId,
+                intent,
+                startInstanceId: player.instanceId,
+                startX: player.x,
+                startY: player.y,
+            });
+            if (candidates.length >= NAVIGATION_MAX_CANDIDATES_PER_MATERIALIZATION) {
+                break;
+            }
+        }
+        if (sawScopeIntent) {
+            this.navigationMaterializationCursorByScope.set(scopeKey, nextCursor);
+        }
+        else {
+            this.navigationMaterializationCursorByScope.delete(scopeKey);
+        }
+        const results = await Promise.all(candidates.map(async ({ playerId, intent, startInstanceId, startX, startY }) => {
             try {
-                const step = await this.resolveNavigationStepAsync(playerId, intent, deps);
-                logServerNextMovement(deps.logger ?? this.logger, 'runtime.navigation.step', { playerId, intent, step });
-                if (step.kind === 'done') {
-                    this.navigationIntents.delete(playerId);
-                    continue;
-                }
-                if (step.kind === 'portal') {
-                    deps.enqueuePendingCommand(playerId, { kind: 'portal' });
-                    continue;
-                }
-                deps.enqueuePendingCommand(playerId, {
-                    kind: 'move',
-                    direction: step.direction,
-                    continuous: true,
-                    maxSteps: step.maxSteps,
-                    path: step.path ?? undefined,
-                    resetBudget: false,
-                });
+                return {
+                    playerId,
+                    intent,
+                    startInstanceId,
+                    startX,
+                    startY,
+                    step: await this.resolveNavigationStepAsync(playerId, intent, deps),
+                    error: null,
+                };
             }
             catch (error) {
+                return { playerId, intent, startInstanceId, startX, startY, step: null, error };
+            }
+        }));
+        for (const { playerId, intent, startInstanceId, startX, startY, step, error } of results) {
+            if (this.navigationIntents.get(playerId) !== intent) {
+                continue;
+            }
+            if (error) {
                 const message = error instanceof Error ? error.message : String(error);
                 logServerNextMovement(deps.logger ?? this.logger, 'runtime.navigation.error', { playerId, intent, message });
                 this.navigationIntents.delete(playerId);
                 deps.queuePlayerNotice(playerId, message, 'warn');
-            }
-        }
-    }
-    /** materializeNavigationCommandsForInstance：只为指定实例的玩家物化导航命令（加速 tick 补偿用）。 */
-    materializeNavigationCommandsForInstance(instanceId, deps) {
-        if (this.navigationIntents.size === 0) {
-            return;
-        }
-        for (const [playerId, intent] of this.navigationIntents) {
-            if (deps.hasPendingCommand(playerId)) {
                 continue;
             }
-            const player = this.playerRuntimeService.getPlayer(playerId);
-            if (!player || !player.instanceId || player.hp <= 0) {
-                this.navigationIntents.delete(playerId);
+            if (!step || deps.hasPendingCommand(playerId)) {
                 continue;
             }
-            if (player.instanceId !== instanceId) {
+            const currentPlayer = this.playerRuntimeService.getPlayer(playerId);
+            if (!currentPlayer
+                || currentPlayer.hp <= 0
+                || currentPlayer.instanceId !== startInstanceId
+                || currentPlayer.x !== startX
+                || currentPlayer.y !== startY) {
                 continue;
             }
             try {
-                const step = this.resolveNavigationStep(playerId, intent, deps);
                 logServerNextMovement(deps.logger ?? this.logger, 'runtime.navigation.step', { playerId, intent, step });
                 if (step.kind === 'done') {
                     this.navigationIntents.delete(playerId);
@@ -645,10 +691,10 @@ export class WorldRuntimeNavigationService {
             }
             return { kind: 'move', direction, maxSteps: preferredPath.points.length, path: preferredPath.points.map((entry) => ({ x: entry.x, y: entry.y })) };
         }
-        const blocked = buildPathingBlockArray(instance, player.playerId, destination.goals, true);
-        const pathResult = await this.asyncPathfindingService.findPathAsync(
+        const blockedIndices = buildPathingBlockIndices(instance, player.playerId, destination.goals, true);
+        const pathResult = await this.asyncPathfindingService.findPathByBlockedIndicesAsync(
             instance,
-            blocked,
+            blockedIndices,
             player.x,
             player.y,
             destination.goals,

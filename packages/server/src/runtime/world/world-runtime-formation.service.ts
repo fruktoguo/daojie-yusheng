@@ -39,6 +39,7 @@ const FORMATION_LIFECYCLE_PERSISTENT = 'persistent';
 const FORMATION_MAINTENANCE_CONTROL_RADIUS = 1;
 const FORMATION_QI_DECAY_RATE_SCALED = buildQiHalfLifeRateScaled(FORMATION_QI_HALF_LIFE_TICKS);
 const runtimeFormationProjectionCache = new WeakMap();
+const formationBoundaryTileCache = new WeakMap();
 
 /** world-runtime formation：阵法权威运行时，承接布阵、开关、补充与 tick 效果。 */
 class WorldRuntimeFormationService {
@@ -814,6 +815,47 @@ class WorldRuntimeFormationService {
 
     isBoundaryBarrierBlocked(instanceId, x, y, playerId = null) {
         return Boolean(this.findBoundaryBarrierFormation(instanceId, x, y, playerId));
+    }
+
+    /** 只枚举对指定玩家生效的阵法边界，供寻路任务构造逐请求动态阻挡掩码。 */
+    forEachBoundaryBarrierBlockedTile(instanceId, playerId, visitor) {
+        if (typeof visitor !== 'function') {
+            return;
+        }
+        const formations = this.formationsByInstanceId.get(instanceId);
+        if (!formations || formations.length <= 0) {
+            return;
+        }
+        for (const formation of formations) {
+            if (formation.active !== true
+                || formation.template?.effect?.kind !== BOUNDARY_BARRIER_EFFECT_KIND
+                || resolveFormationRemainingQiBudget(formation) <= 0
+                || this.canPlayerPassFormationBoundary(formation, playerId)) {
+                continue;
+            }
+            const radius = Math.max(1, Math.trunc(Number(formation.stats?.radius) || 1));
+            const shape = formation.template?.range?.shape ?? 'square';
+            let cached = formationBoundaryTileCache.get(formation);
+            if (!cached
+                || cached.x !== formation.x
+                || cached.y !== formation.y
+                || cached.radius !== radius
+                || cached.shape !== shape) {
+                const tiles = [];
+                for (let y = formation.y - radius; y <= formation.y + radius; y += 1) {
+                    for (let x = formation.x - radius; x <= formation.x + radius; x += 1) {
+                        if (this.containsBoundaryTile(formation, x, y)) {
+                            tiles.push({ x, y });
+                        }
+                    }
+                }
+                cached = { x: formation.x, y: formation.y, radius, shape, tiles };
+                formationBoundaryTileCache.set(formation, cached);
+            }
+            for (const tile of cached.tiles) {
+                visitor(tile.x, tile.y);
+            }
+        }
     }
 
     getBoundaryBarrierCombatState(instanceId, x, y) {

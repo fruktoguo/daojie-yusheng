@@ -42,6 +42,7 @@ export interface WorkerTaskResult<TResult = unknown> {
 export type WorkerTaskKind =
   | 'envelope-encode'
   | 'pathfind'
+  | 'pathfind-batch'
   | 'fov'
   | 'instance-advance'
   | 'persistence-build'
