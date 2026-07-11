@@ -21,7 +21,6 @@ import { GatherStrategy } from '../craft/pipeline/strategies/gather.strategy';
 import { BuildingStrategy } from '../craft/pipeline/strategies/building.strategy';
 import { FormationStrategy } from '../craft/pipeline/strategies/formation.strategy';
 import { MiningStrategy } from '../craft/pipeline/strategies/mining.strategy';
-import { buildTechniqueActivityTaskListView } from '../craft/technique-activity-task-view.helpers';
 import { buildStructuredNotice } from './structured-notice.helpers';
 
 /** world-runtime craft tick orchestration：承接 craft job tick 推进编排。 */
@@ -124,9 +123,6 @@ export class WorldRuntimeCraftTickService {
                     }
                 }
             }
-
-            // EventBus: 发射活跃 job 进度
-            this.emitActiveJobProgress(playerId, player);
           } catch (error) {
             const notice = buildCraftTickErrorNotice(error);
             deps?.queuePlayerNotice?.(playerId, notice.text, notice.kind, undefined, undefined, notice.structured);
@@ -140,27 +136,6 @@ export class WorldRuntimeCraftTickService {
             return this.craftPanelRuntimeService.tickEnhancementDurably(player, deps);
         }
         return Promise.resolve(this.craftPanelRuntimeService.tickTechniqueActivity(player, kind, deps));
-    }
-
-    /** 向 EventBus 发射当前玩家所有活跃 job 的进度快照。 */
-    private emitActiveJobProgress(playerId: string, player: any): void {
-        const eventBus = this.playerRuntimeService.runtimeEventBusService;
-        if (!eventBus) return;
-
-        const tasks = buildTechniqueActivityTaskListView(player).tasks;
-        for (const task of tasks) {
-            if (task.state !== 'running' && task.state !== 'interrupt_wait') continue;
-            const total = Number(task.workTotalTicks ?? 1);
-            const remaining = Number(task.workRemainingTicks ?? 0);
-            const progress = total > 0 ? Math.max(0, Math.min(1, 1 - remaining / total)) : 0;
-            eventBus.queueActiveJobProgress(playerId, {
-                jobId: task.cancelRef.jobRunId || task.id,
-                jobType: task.kind,
-                progress,
-                remainingMs: remaining * 1000,
-                label: task.targetLabel || task.label,
-            });
-        }
     }
 
     /** 玩家从持久化恢复后，首轮 craft tick 先迁移旧预扣炼丹/炼器 job。 */

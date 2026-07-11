@@ -83,12 +83,6 @@ export class WorldRuntimeCraftMutationService {
             ? this.craftPanelRuntimeService.buildTechniqueActivityPanelPatchPayload(player, panel)
             : this.craftPanelRuntimeService.buildTechniqueActivityPanelRefreshPayload(player, panel);
         emitTechniqueActivityPanel(socket, panel, payload);
-
-        // EventBus: 同步发射 panelPatch 供统一消费侧使用
-        const eventBus = this.playerRuntimeService.runtimeEventBusService;
-        if (eventBus && payload) {
-            eventBus.queuePlayerPanelPatch(playerId, panel, payload);
-        }
     }    
     /** 下发统一技艺任务列表，覆盖所有 runtime kind 的当前 job、等待和队列项。 */
     emitTechniqueActivityTaskUpdate(playerId) {

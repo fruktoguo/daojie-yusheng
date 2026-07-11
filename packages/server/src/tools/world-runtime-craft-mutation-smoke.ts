@@ -280,6 +280,11 @@ async function testUnsolicitedPanelRefreshDoesNotUseCatalogPayload() {
     const player = { playerId: 'player:catalog-refresh', instanceId: 'instance:catalog-refresh' };
     const service = new WorldRuntimeCraftMutationService(
         {
+            runtimeEventBusService: {
+                queuePlayerPanelPatch() {
+                    throw new Error('专用面板事件已完成同步，不得再复制进 EventBus');
+                },
+            },
             getPlayer(playerId) {
                 return playerId === player.playerId ? player : null;
             },
@@ -332,7 +337,7 @@ async function main() {
     console.log(JSON.stringify({
         ok: true,
         case: 'world-runtime-craft-mutation',
-        answers: 'WorldRuntimeCraftMutationService 在 durable 会话启用时不再通过非 CAS 后备直写 active_job，durable 不可用时仍保留后备快照持久化；技艺 result 的结构化 notice 会透传到通知队列；装备等服务端主动面板刷新只发送状态，不复用会夹带静态目录的请求响应载荷。',
+        answers: 'WorldRuntimeCraftMutationService 在 durable 会话启用时不再通过非 CAS 后备直写 active_job，durable 不可用时仍保留后备快照持久化；技艺 result 的结构化 notice 会透传到通知队列；装备等服务端主动面板刷新只发送状态，不复用会夹带静态目录的请求响应载荷，也不再把专用面板事件复制进 EventBus。',
     }, null, 2));
 }
 

@@ -156,6 +156,8 @@ function main(): void {
   assertMatch(mutationSource, /emitTechniqueActivityTaskUpdate\(playerId\) \{[\s\S]*?emitTechniqueActivityTasks\(socket, this\.craftPanelRuntimeService\.buildTechniqueActivityTaskListPayload\(player\)\)/, 'craft mutation task update must emit unified task list payload');
   assertMatch(mutationSource, /flushCraftMutation\([\s\S]*?this\.emitTechniqueActivityTaskUpdate\(playerId\)/, 'craft mutation flush must refresh the unified task list when activity state changes');
   assertMatch(mutationSource, /emitCraftPanelUpdate\(playerId, panel[\s\S]*?buildTechniqueActivityPanelPatchPayload\(player, panel\)/, 'craft mutation flush must keep active panel updates on patch payload paths');
+  assertNoMatch(mutationSource, /queuePlayerPanelPatch\(/, 'craft panel payload must not be duplicated into the event bus after its dedicated panel event');
+  assertNoMatch(worldTickSource, /queueActiveJobProgress\(/, 'craft tick must not duplicate task progress into an event-bus channel without a client consumer');
 
   console.log(JSON.stringify({
     ok: true,
@@ -167,7 +169,7 @@ function main(): void {
       '运行时队列写入只进入 techniqueActivityQueue，legacy queuedJobs 只作为兼容迁移/旧按钮取消来源。',
       '统一任务视图覆盖所有 active job、队列和独立 interrupt wait。',
       '采集/建造旧 tick service 已降级为 helper facade，真实推进由统一技艺 tick 调用链驱动。',
-      '技艺 mutation flush 发统一任务列表，并保留面板 patch payload。',
+      '技艺 mutation flush 发统一任务列表，并保留面板 patch payload，不再把同一状态复制进客户端未消费的 EventBus 通道。',
     ],
   }, null, 2));
 }

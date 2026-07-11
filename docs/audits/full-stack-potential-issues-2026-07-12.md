@@ -22,8 +22,8 @@
 | 客户端应用状态与断线/跨图生命周期 | 进行中 | `pnpm verify:client` 通过；兑换码和离线收益刷新均有请求关联、会话清理及乱序 proof | 逐条复核其余网络派生状态、迟到回包和重置边界 |
 | UI 局部更新、焦点、滚动、选区 | 进行中 | 高频 UI continuity proof 通过 | 继续审查未被 proof 覆盖的面板和弹层 |
 | 地图渲染、相机、命中与资源释放 | 进行中 | map render lifecycle、spatial cache proof 通过 | 动态检查移动端触控与大视口性能 |
-| shared 类型、协议与 protobuf | 进行中 | shared build 与协议审计通过；兑换码和离线收益主动刷新 C2S/S2C 已关联 `requestId` | 完成当前大包体的数据流与消费复核 |
-| 服务端网络同步、AOI、首包/增量 | 进行中 | `pnpm verify:quick` runtime smoke 通过；网关 action 已验证单次 delta 和兑换终态关联 | 逐字段检查其余频率、范围、恢复语义 |
+| shared 类型、协议与 protobuf | 进行中 | shared build 与协议审计通过；兑换码和离线收益主动刷新 C2S/S2C 已关联 `requestId`；工坊专用面板/任务事件不再复制到空消费 EventBus 字段 | 完成其余大包体的数据流与消费复核 |
+| 服务端网络同步、AOI、首包/增量 | 进行中 | `pnpm verify:quick` runtime smoke 通过；网关 action 已验证单次 delta 和兑换终态关联；工坊无效 EventBus 载荷清理后协议总量实测下降 | 逐字段检查其余频率、范围、恢复语义 |
 | 服务端 runtime、tick、移动、战斗、交互 | 待检查 | server compile、quick runtime smoke 通过 | 按 mechanics 文档审查真实调用链和热路径 |
 | 持久化、恢复、强事务与关闭 | 进行中 | server compile 通过；边界审计 forbidden 已清零；玩家统计总账回读/flush 已按玩家串行并接入 quick smoke | 复核其余玩家/实例分域、outbox、恢复围栏 |
 | 配置编辑器、schema、导入发布 | 进行中 | 构建、content-contract、异步代际 smoke 与浏览器乱序回包验证通过 | 继续复核地图保存、schema 与发布入口 |
@@ -246,6 +246,16 @@
 - 修复方式：按方法边界提取 `start/cancel/interrupt/tick` 源码段，逐项锁定“初始化 → 建立统计基线 → 调用对应 pipeline → 统计结算 → 返回”的有序链和未注册 kind fallback；队列断言改为同时验证 facade 委托、统一 helper 和唯一 `techniqueActivityQueue` setter。将 proof 注册为 `technique-activity-completion` stable case，并加入 `verify:quick`。
 - 验证：修复前 compiled proof 先失败于旧的直接 return 断言，更新后又真实暴露第二处旧的 facade 赋值断言；两处按当前权威链修正后 compiled proof 完整跑到底并通过。注册后的 `pnpm verify:quick` 实际执行该 case 并通过，同时 server compile、生产边界和原有快速 smoke 均保持通过。
 
+### FS-023 `[x]` 工坊已下发状态又进入客户端空消费的 EventBus 通道
+
+- 严重级别：高。
+- 根本原因：`emitCraftPanelUpdate()` 先通过专用 `AlchemyPanel` / `EnhancementPanel` 事件发出完整面板载荷，随后又把同一对象作为通用 `PanelPatch` 写入 `eventBus.panelPatches`。每息技艺 tick 也在已发 `TechniqueActivityTasks` 和专用面板 patch 后，再计算一份 `jobProgress`。客户端两个分支最终分别进入空的 `applyPanelPatch()` / `applyJobProgress()`，真实 UI 只消费专用事件。
+- 为什么错误：同一状态不能因为存在“未来可能统一”的协议脚手架就在两条生产通道发送。更严重的是工坊载荷并不符合 `PanelPatch` 声明的 `added/updated/removed` 结构；当前只因调用链大量使用 `any` 而逃过类型检查，即使日后接通通用消费器也不能正确合并。
+- 触发条件：装备/卸装刷新三个工坊面板；炼丹、炼器或强化任务每息推进；任务开始、取消和完成。
+- 后果：服务端多做对象构建、Map 合并、drain 和序列化，客户端多做包解码与延迟队列调度，却没有任何界面效果。修复前协议审计中，首次装备后的聚合包约 `4.81KB`；活跃炼丹/强化多个每息聚合包为 `1.90–2.14KB`，该成本会按同时在线制作玩家线性增长。
+- 修复方式：工坊面板继续使用已有完整生产消费链的专用事件，删除之后的 `queuePlayerPanelPatch` 复制入队；统一任务列表仍作为 job 进度真实展示源，删除 tick 中第二份 `jobProgress` 计算和入队。保留 EventBus 的通知、玩家状态增量和 AOI 表现通道，也不删除通用 API 的独立能力测试。
+- 验证：server compile、compiled `world-runtime-craft-mutation-smoke` 和纳入 `verify:quick` 的 `technique-activity-completion` proof 均通过；proof 锁定生产工坊链不得再调用两个无效入队 API。无库协议审计全部通过，`SyncEnvelope` 总量从 `110 / 185.57KB` 降至 `107 / 162.14KB`；首次装备后的聚合包从 `4.81KB` 降至 `1.83KB`，炼丹/强化每息样本由 `1.90–2.14KB` 降至 `443–665B`，专用面板和任务事件次数、包体保持不变。
+
 ## 待进一步验证或用户决定
 
 ### D-001 `[?]` 客户端初始包同时装载 React 面板与 legacy 回退实现
@@ -272,6 +282,14 @@
 - 可选方案：① 推荐：以内容 hash 发布 immutable HTTP 目录产物，由版本清单驱动浏览器/CDN 缓存，Socket.IO 只同步版本和运行态；② 保持服务端响应，但将已验证目录持久化到 IndexedDB，并以 hash 握手失效；③ 保持当前会话级缓存，接受每次新会话首次打开的单次冷包。
 - 2026-07-13 需要决定：工坊目录是否要求独立热更新，以及可接受的首次打开包体/延迟目标。
 
+### D-004 `[?]` EventBus 仍保留四组尚未完成端到端接线的协议脚手架
+
+- 当前证据：FS-023 清理后，`panelPatches` 和 `jobProgress` 仅剩 EventBus 通用 API、bench 与 smoke，没有生产入队方；`techniqueDirty` 同样没有生产调用方，`feedbacks` 只有未被业务调用的 world facade。客户端对应的面板、任务进度和即时反馈 handler 仍是空实现，`techniqueDirty` 也被显式忽略；通知、玩家状态增量和 AOI 表现则已有真实生产消费链。
+- 潜在后果：目前不产生网络流量，但共享类型、服务端队列、客户端分发器、指标、bench 和 smoke 都需持续维护；新业务可能看到 API 就直接入队，再次形成“发了但没人用”的假接线。
+- 无法直接确定的原因：这四组能力可能是已排期的 UI 基础设施；直接删除会改变共享协议，直接接通又会新增用户可见交互，都超出纯技术修复。
+- 可选方案：① 推荐：没有明确产品计划时删除四组休眠协议及其 bench/smoke，真正开发功能时再按实际 UI 契约设计；② 确认功能后逐组完成生产端到端接线和用户可见验证；③ 暂时保留，但以边界 proof 禁止在没有真实客户端消费者时新增生产入队方。
+- 2026-07-13 需要决定：这四组 EventBus 能力是明确保留的近期规划，还是应当删除的历史脚手架。
+
 以下候选仍属于本轮可以继续用代码和运行证据判定的技术项，不提前作为产品决策：
 
 - 当前无已发现但尚未完成技术判定的候选；后续覆盖扫描发现的新候选会继续追加。
@@ -295,4 +313,5 @@
 | 玩家运行时 dirty-domain compiled smoke | 通过 | 直写 fencing 版本存在，核心玩家域精确标脏且不会退回全 snapshot | 不证明真实数据库 recovery watermark 的并发拒绝 |
 | 工坊目录缓存动态 proof 与 compiled mutation smoke | 通过 | 按类型缓存、版本失效、会话清理；主动面板刷新不再使用目录载荷 | 不证明跨发布持久缓存或真实弱网冷开体验 |
 | compiled `technique-activity-completion-proof` | 修复并接入 `verify:quick` 后通过 | 八类 strategy 注册、四段 pipeline 生命周期顺序、统一队列、任务视图、world facade 和面板 patch 边界 | 不替代各技艺玩法结果与 DB active job CAS smoke |
-| `pnpm audit:protocol` | 通过 | 无库主线服务实际启动、18 类场景的 C2S/S2C 事件覆盖与逐包字节统计；工坊重复目录与 67KB envelope 已消失；关闭 drain 完成 | 无数据库，因此未运行兑换码 DB 用例；也不直接证明 5000 并发带宽和压测结果 |
+| 工坊 EventBus 生产边界与 compiled mutation smoke | 通过 | 专用面板/任务状态不再进入客户端空消费通道，且真实面板刷新仍正常发送 | 不决定四组休眠 EventBus 协议的最终去留 |
+| `pnpm audit:protocol` | 通过 | 无库主线服务实际启动、18 类场景的 C2S/S2C 事件覆盖与逐包字节统计；工坊重复目录、67KB envelope 和空消费 EventBus 载荷已消失；关闭 drain 完成 | 无数据库，因此未运行兑换码 DB 用例；也不直接证明 5000 并发带宽和压测结果 |
