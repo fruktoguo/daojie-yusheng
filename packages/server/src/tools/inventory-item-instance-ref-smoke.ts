@@ -236,7 +236,7 @@ function testUseItemAfterReorder(repository: ContentTemplateRepository): void {
   assert.equal(player.hp, 72);
 }
 
-function testDropItemAfterReorder(repository: ContentTemplateRepository): void {
+async function testDropItemAfterReorder(repository: ContentTemplateRepository): Promise<void> {
   const service = createPlayerRuntimeService(repository);
   const player = createPlayer(repository);
   installPlayer(service, player);
@@ -244,7 +244,7 @@ function testDropItemAfterReorder(repository: ContentTemplateRepository): void {
   reorderInventory(player);
   const dropped: ItemStack[] = [];
 
-  new WorldRuntimeItemGroundService(service).dispatchDropItem(playerId, targetId, 1, createGroundDeps(dropped));
+  await new WorldRuntimeItemGroundService(service).dispatchDropItem(playerId, targetId, 1, createGroundDeps(dropped));
 
   assert.equal(dropped.length, 1);
   assert.equal(dropped[0]?.itemInstanceId, targetId);
@@ -253,13 +253,13 @@ function testDropItemAfterReorder(repository: ContentTemplateRepository): void {
   assert.equal(player.inventory.items.some((item) => item.itemInstanceId === 'inst-minor-heal'), true);
 }
 
-function testBulkDropItems(repository: ContentTemplateRepository): void {
+async function testBulkDropItems(repository: ContentTemplateRepository): Promise<void> {
   const service = createPlayerRuntimeService(repository);
   const player = createPlayer(repository);
   installPlayer(service, player);
   const dropped: ItemStack[] = [];
 
-  new WorldRuntimeItemGroundService(service).dispatchBulkDropItems(
+  await new WorldRuntimeItemGroundService(service).dispatchBulkDropItems(
     playerId,
     ['inst-minor-heal', 'inst-minor-qi'],
     createGroundDeps(dropped),
@@ -512,8 +512,8 @@ function testSortInventoryTechniqueBookOrder(repository: ContentTemplateReposito
 async function main(): Promise<void> {
   const repository = createRepository();
   testUseItemAfterReorder(repository);
-  testDropItemAfterReorder(repository);
-  testBulkDropItems(repository);
+  await testDropItemAfterReorder(repository);
+  await testBulkDropItems(repository);
   await testEquipItemAfterReorder(repository);
   testEnhancementStartAfterReorder(repository);
   testEnhancementFinishAfterQueuedReorder(repository);

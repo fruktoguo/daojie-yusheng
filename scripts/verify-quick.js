@@ -48,6 +48,8 @@ const status = runVerificationSteps({
         '--case',
         'player-runtime-dirty-domain',
         '--case',
+        'inventory-item-instance-ref',
+        '--case',
         'craft-persistence-dirty-domain',
         '--case',
         'technique-activity-completion',

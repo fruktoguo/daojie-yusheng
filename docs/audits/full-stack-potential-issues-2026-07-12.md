@@ -286,6 +286,16 @@
 - 修复方式：统一校验每个 `versionSeed` 是正的安全整数，不再绑定玩家局部 revision，也不固化不同持久化域的调用顺序；补齐 FS-025 新增的 wallet 刷新 mock。将脚本注册为 `craft-persistence-dirty-domain` stable standalone case，加入持久化分组和 `verify:quick`。
 - 验证：完整 `pnpm verify:quick` 通过，门禁输出明确选中并通过 `craft-persistence-dirty-domain`；脚本完整运行到最终输出，证明修正后的版本断言与后半段制作持久化检查均实际执行。
 
+### FS-027 `[x]` 背包实例引用 smoke 未等待异步资产互斥且脱离门禁
+
+- 严重级别：中。
+- 根本原因：地面单件/批量丢弃在引入玩家资产互斥和地面来源互斥后改为异步 `Promise` 链，`inventory-item-instance-ref-smoke` 仍按旧同步契约调用并立即断言；该脚本只有独立 package 命令，没有注册到 stable smoke suite 或常用门禁。
+- 为什么错误：资产互斥回调在微任务中执行，未 `await` 时 `dropped` 仍为空，测试会在生产逻辑真正运行前固定失败。首个失败又会让后续批量丢弃、装备、强化、市场出售、阵法和排序引用检查全部跳过，不能据此判断 `itemInstanceId` 链路是否正确。
+- 触发条件：单独运行 `inventory-item-instance-ref-smoke`；或者资产互斥实现让回调不再同步开始。
+- 后果：手动 smoke 假红，而日常快速门禁对此完全无感；背包重排后按实例 ID 操作错误物品、强化错件或市场错卖等高价值资产回归缺少持续证明。
+- 修复方式：把单件与批量丢弃用例改为异步函数，逐层 `await` 权威操作后再断言，并由 `main` 等待完成。注册 `inventory-item-instance-ref` stable standalone case，并纳入 `verify:quick`。
+- 验证：完整 `pnpm verify:quick` 通过，stable runner 明确选中并通过 `inventory-item-instance-ref`；整支脚本运行到末尾，证明重排后的使用、单件/批量丢弃、装备、强化、市场出售、阵法及排序均按稳定实例 ID 命中。
+
 ## 待进一步验证或用户决定
 
 ### D-001 `[?]` 客户端初始包同时装载 React 面板与 legacy 回退实现
@@ -347,4 +357,5 @@
 | 玩家状态同步前后端 production-boundaries | 通过 | player runtime 不再入队无版本状态，`hp/qi` 只由 SelfDelta、特殊数值/Buff 只由 PanelDelta 落地 | 不代替真实弱网与多息拥塞下的长时间测试 |
 | 玩家 wallet 投影 compiled smoke 与 production-boundaries | 通过 | 通用/专用/成长背包变更只在灵石投影实际变化时推进 SelfDelta，普通物品不产生额外自身包；技艺结算刷新边界已锁定 | 不替代真实 DB durable 提交后的前端交互回归 |
 | compiled `craft-persistence-dirty-domain-smoke` | 修复并注册后通过 | 炼丹预设/active job/强化记录/职业脏域、逐批扣料、wallet 扣费与 fencing seed 均执行到脚本末尾 | 无 DB，不证明真实表的 stale fencing 拒绝与崩溃恢复 |
+| compiled `inventory-item-instance-ref-smoke` | 修复并注册后通过 | 背包重排后的使用、单件/批量丢弃、装备、强化、市场、阵法与排序均按稳定实例 ID 命中 | 无 DB，不证明 durable commit、断电恢复和真实客户端弱网重放 |
 | `pnpm audit:protocol` | 通过 | 无库主线服务实际启动、18 类场景的 C2S/S2C 事件覆盖与逐包字节统计；工坊重复目录、67KB envelope 和空消费 EventBus 载荷已消失；关闭 drain 完成 | 无数据库，因此未运行兑换码 DB 用例；也不直接证明 5000 并发带宽和压测结果 |
