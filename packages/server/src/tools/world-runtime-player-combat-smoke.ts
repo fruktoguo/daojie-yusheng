@@ -236,9 +236,9 @@ async function testCombatSemanticAuditEvents() {
     getPlayer(playerId: string) {
       return players.get(playerId) ?? null;
     },
-    canReceiveInventoryItem(playerId: string, itemId: string) {
+    canReceiveInventoryItem(playerId: string, incomingItem: { itemId: string }) {
       assert.equal(playerId, killer.playerId);
-      assert.equal(itemId, item.itemId);
+      assert.equal(incomingItem.itemId, item.itemId);
       return false;
     },
     grantMonsterKillProgress(playerId: string) {
@@ -419,9 +419,9 @@ async function testMonsterLootDurableGrant() {
       assert.equal(playerId, player.playerId);
       return player;
     },
-    canReceiveInventoryItem(playerId: string, itemId: string) {
+    canReceiveInventoryItem(playerId: string, incomingItem: { itemId: string }) {
       assert.equal(playerId, player.playerId);
-      assert.equal(itemId, item.itemId);
+      assert.equal(incomingItem.itemId, item.itemId);
       return true;
     },
     receiveInventoryItem(playerId: string, grantedItem: { itemId: string; count: number }) {
@@ -515,9 +515,9 @@ async function testMonsterLootRequiresDurableContext() {
       assert.equal(playerId, player.playerId);
       return player;
     },
-    canReceiveInventoryItem(playerId: string, itemId: string) {
+    canReceiveInventoryItem(playerId: string, incomingItem: { itemId: string }) {
       assert.equal(playerId, player.playerId);
-      assert.equal(itemId, item.itemId);
+      assert.equal(incomingItem.itemId, item.itemId);
       return true;
     },
     receiveInventoryItem(playerId: string, grantedItem: { itemId: string; count: number }) {
@@ -572,9 +572,9 @@ async function testMonsterLootFallsBackToGroundWhenDurableGrantFails() {
       assert.equal(playerId, player.playerId);
       return player;
     },
-    canReceiveInventoryItem(playerId: string, itemId: string) {
+    canReceiveInventoryItem(playerId: string, incomingItem: { itemId: string }) {
       assert.equal(playerId, player.playerId);
-      assert.equal(itemId, item.itemId);
+      assert.equal(incomingItem.itemId, item.itemId);
       return true;
     },
     receiveInventoryItem(playerId: string, grantedItem: { itemId: string; count: number }) {
@@ -682,9 +682,9 @@ async function testPvPLootDurableGrant() {
     getPlayer(playerId: string) {
       return playerId === killer.playerId ? killer : null;
     },
-    canReceiveInventoryItem(playerId: string, itemId: string) {
+    canReceiveInventoryItem(playerId: string, incomingItem: { itemId: string }) {
       assert.equal(playerId, killer.playerId);
-      assert.equal(itemId, reward.itemId);
+      assert.equal(incomingItem.itemId, reward.itemId);
       return true;
     },
     receiveInventoryItem(playerId: string, grantedItem: { itemId: string; count: number }) {
@@ -801,9 +801,9 @@ async function testPvPLootRequiresDurableContext() {
     },
   };
   const playerRuntimeService = {
-    canReceiveInventoryItem(playerId: string, itemId: string) {
+    canReceiveInventoryItem(playerId: string, incomingItem: { itemId: string }) {
       assert.equal(playerId, killer.playerId);
-      assert.equal(itemId, reward.itemId);
+      assert.equal(incomingItem.itemId, reward.itemId);
       return true;
     },
     receiveInventoryItem() {

@@ -2381,7 +2381,6 @@ export class CraftPanelRuntimeService {
         let inventoryChanged = true;
         let equipmentChanged = false;
         let attrChanged = false;
-        const groundDrops = [];
         const targetSlot = job.target?.source === 'equipment' ? job.target.slot : null;
         const slotEntry = targetSlot
             ? player.equipment?.slots?.find((current) => current.slot === targetSlot)
@@ -2396,13 +2395,11 @@ export class CraftPanelRuntimeService {
             equipmentChanged = true;
             attrChanged = true;
         }
-        else if (canReceiveCraftItem(player, resolvedItem)) {
-            // 装备槽已被替换，或来源是背包 → 走入手链路
+        else {
+            // 持续任务结算与取消返还属于玩家既有资产边界，即使普通背包已满也必须强制入包。
+            // receiveInventoryItem 会优先按完整堆叠签名合并；无法合并时允许暂时超过容量。
             receiveInventoryItem(player, this.contentTemplateRepository, resolvedItem);
             inventoryChanged = true;
-        }
-        else {
-            groundDrops.push(resolvedItem);
         }
         this.completeEnhancementRecord(player, job, resultingLevel, status);
         player.enhancementJob = null;
@@ -2426,7 +2423,7 @@ export class CraftPanelRuntimeService {
             inventoryChanged,
             equipmentChanged,
             attrChanged,
-            groundDrops,
+            groundDrops: [],
         };
     }
     /**
@@ -3779,18 +3776,6 @@ function receiveInventoryItem(player, contentTemplateRepository, item) {
     // 极端兜底：canMergeItemStack 对合法物品恒为 true，理论不会到这里
     player.inventory.items.push(normalized);
     return normalized;
-}
-/**
- * canReceiveCraftItem：判断Receive炼制道具是否满足条件。
- * @param player 玩家对象。
- * @param item 道具。
- * @returns 无返回值，完成Receive炼制道具的条件判断。
- */
-
-function canReceiveCraftItem(player, item) {
-    const signature = createItemStackSignature(item);
-    return player.inventory.items.some((entry) => createItemStackSignature(entry) === signature)
-        || player.inventory.items.length < player.inventory.capacity;
 }
 /**
  * consumeInventoryItemByItemId：执行consume背包道具By道具ID相关逻辑。

@@ -83,19 +83,38 @@ function main(): void {
   assert.equal(granted.inventoryDelta?.granted?.[0]?.itemId, 'pill.granted');
 
   const fullPlayer: SmokePlayer = { inventory: { capacity: 0, items: [] } };
-  const dropped = createResolved({
+  const forced = createResolved({
     inventoryDelta: {
       granted: [{ itemId: 'pill.full', count: 1 }],
     },
   });
-  const droppedResult = applyTechniqueActivityResolveInventory(fullPlayer, dropped, ctx);
-  assert.equal(droppedResult.inventoryChanged, false);
-  assert.deepEqual(fullPlayer.inventory.items, []);
-  assert.deepEqual(dropped.inventoryDelta?.dropped, [{ itemId: 'pill.full', count: 1, name: 'normalized:pill.full' }]);
+  const forcedResult = applyTechniqueActivityResolveInventory(fullPlayer, forced, ctx);
+  assert.equal(forcedResult.inventoryChanged, true);
+  assert.equal(fullPlayer.inventory.items.length, 1);
+  assert.equal(fullPlayer.inventory.items[0]?.itemId, 'pill.full');
+  assert.deepEqual(forced.inventoryDelta?.dropped, []);
+  assert.deepEqual(forcedResult.groundDrops, []);
+
+  const mergePlayer: SmokePlayer = {
+    inventory: {
+      capacity: 1,
+      items: [{ itemId: 'pill.merge', count: 2, name: 'normalized:pill.merge' }],
+    },
+  };
+  const merge = createResolved({
+    inventoryDelta: {
+      granted: [{ itemId: 'pill.merge', count: 3 }],
+    },
+  });
+  const mergeResult = applyTechniqueActivityResolveInventory(mergePlayer, merge, ctx);
+  assert.equal(mergeResult.inventoryChanged, true);
+  assert.equal(mergePlayer.inventory.items.length, 1);
+  assert.equal(mergePlayer.inventory.items[0]?.count, 5);
+  assert.deepEqual(mergeResult.groundDrops, []);
 
   console.log(JSON.stringify({
     ok: true,
-    answers: '公共 pipeline 只根据 inventoryDelta.granted 执行入包或掉地，outputs 仅作为结算摘要。',
+    answers: '公共 pipeline 只根据 inventoryDelta.granted 执行任务结算入包；满包时可合并项直接合并，不可合并项强制超过容量入包，outputs 仅作为结算摘要。',
   }, null, 2));
 }
 

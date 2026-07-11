@@ -25,13 +25,13 @@ function main(): void {
   );
   assertContains(
     alchemySource,
-    /testAlchemyOutputDropsWhenInventoryFull[\s\S]*?countPlayerItem\(player, 'pill\.qi'\), 0[\s\S]*?result\.groundDrops\?\.\[0\]\?\.itemId, 'pill\.qi'/,
-    'alchemy full-inventory completion must prove output drops instead of disappearing or duplicating into inventory',
+    /testAlchemyOutputForcedIntoInventoryWhenFull[\s\S]*?countPlayerItem\(player, 'pill\.qi'\), 6[\s\S]*?result\.groundDrops, \[\]/,
+    'alchemy full-inventory completion must force output into inventory without creating a ground drop',
   );
   assertContains(
     alchemySource,
-    /testForgingResolveEdges[\s\S]*?countPlayerItem\(successPlayer, 'equip\.copper_sword'\), 1[\s\S]*?countPlayerItem\(failurePlayer, 'equip\.copper_sword'\), 0[\s\S]*?dropResult\.groundDrops\?\.\[0\]\?\.itemId, 'equip\.copper_sword'/,
-    'forging completion, failure and full-inventory drop edges must be covered',
+    /testForgingResolveEdges[\s\S]*?countPlayerItem\(successPlayer, 'equip\.copper_sword'\), 1[\s\S]*?countPlayerItem\(failurePlayer, 'equip\.copper_sword'\), 0[\s\S]*?countPlayerItem\(fullPlayer, 'equip\.copper_sword'\), 1[\s\S]*?fullResult\.groundDrops, \[\]/,
+    'forging completion, failure and full-inventory forced-return edges must be covered',
   );
   assertContains(
     alchemySource,
@@ -61,8 +61,8 @@ function main(): void {
   );
   assertContains(
     enhancementSource,
-    /testCancelReturnsLockedTarget[\s\S]*?inventory\.lockedItems\?\.length \?\? 0, 0[\s\S]*?enhanceLevel === 1[\s\S]*?status, 'cancelled'/,
-    'enhancement cancel must return locked target and record cancelled status',
+    /testCancelReturnsLockedTargetWhenInventoryFull[\s\S]*?inventory\.lockedItems\?\.length \?\? 0, 0[\s\S]*?inventory\.items\.length > player\.inventory\.capacity[\s\S]*?enhanceLevel === 1[\s\S]*?groundDrops, \[\][\s\S]*?status, 'cancelled'/,
+    'enhancement cancel must force the locked target back into a full inventory and record cancelled status',
   );
   assertContains(
     enhancementSource,
@@ -137,7 +137,7 @@ function main(): void {
   console.log(JSON.stringify({
     ok: true,
     answers: [
-      '炼丹/炼器覆盖取消不预消耗队列、成功、失败、背包满掉地和旧 active job 完成资产边界。',
+      '炼丹/炼器覆盖取消不预消耗队列、成功、失败、背包满强制入包和旧 active job 完成资产边界。',
       '强化覆盖成功、失败、保护失败、灵石不足、锁定物缺失、取消、队列不预锁定和分域恢复资产边界。',
       '采集覆盖完成入包 dirty domain、永久失效恢复释放 activeSearch。',
       '建造覆盖取消/完成/异常恢复释放 activeBuilder。',

@@ -1437,7 +1437,7 @@ export class MarketRuntimeService {
                 }
                 this.captureOnlinePlayerState(playerId, context);
                 for (const item of storage.items) {
-                    if (this.playerRuntimeService.canReceiveInventoryItem(playerId, item.itemId)) {
+                    if (this.playerRuntimeService.canReceiveInventoryItem(playerId, item)) {
                         this.playerRuntimeService.receiveInventoryItem(playerId, item);
                     }
                 }
@@ -3371,7 +3371,7 @@ export class MarketRuntimeService {
         const player = this.playerRuntimeService.getPlayer(playerId);
         if (player && this.isPlayerNetworkOnline(playerId) && this.hasActiveProjectionFence(playerId)) {
             this.captureOnlinePlayerState(playerId, context);
-            if (this.playerRuntimeService.canReceiveInventoryItem(playerId, item.itemId)) {
+            if (this.playerRuntimeService.canReceiveInventoryItem(playerId, item)) {
                 this.playerRuntimeService.receiveInventoryItem(playerId, item);
             }
             else {

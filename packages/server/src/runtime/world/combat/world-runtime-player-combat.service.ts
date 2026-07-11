@@ -267,7 +267,7 @@ export class WorldRuntimePlayerCombatService {
     async deliverMonsterLoot(playerId: string, instance: any, x: number, y: number, item: any, deps: any, sourceRefId = '') {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        if (this.playerRuntimeService.canReceiveInventoryItem(playerId, item.itemId)) {
+        if (this.playerRuntimeService.canReceiveInventoryItem(playerId, item)) {
             const player = this.playerRuntimeService.getPlayer(playerId);
             if (!player) {
                 throw new Error(`inventory_grant_player_missing:${playerId}`);
@@ -442,7 +442,7 @@ export class WorldRuntimePlayerCombatService {
         const bloodEssenceCount = Math.max(1, Math.floor((victim.realm?.realmLv ?? 1) ** 2));
         const reward = this.contentTemplateRepository.createItem(BLOOD_ESSENCE_ITEM_ID, bloodEssenceCount);
         if (reward && deathSite.instance) {
-            if (this.playerRuntimeService.canReceiveInventoryItem(killer.playerId, reward.itemId)) {
+            if (this.playerRuntimeService.canReceiveInventoryItem(killer.playerId, reward)) {
                 this.playerRuntimeService.receiveInventoryItem(killer.playerId, reward);
                 const rewardLabel = `${reward.name} x${bloodEssenceCount}`;
                 const rewardNotice = buildStructuredNotice('loot', 'notice.loot.obtained', `获得 ${rewardLabel}`, {

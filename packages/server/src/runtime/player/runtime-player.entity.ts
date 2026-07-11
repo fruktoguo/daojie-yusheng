@@ -8,7 +8,7 @@
  * 封装 PlayerState 的高频操作（钱包、背包、伤害、灵气、buff），
  * 作为非 @Injectable 的纯领域对象供运行时服务调用。
  */
-import type { PlayerState } from '@mud/shared';
+import { canMergeItemStack, createItemStackSignature, type ItemStack, type PlayerState } from '@mud/shared';
 
 /**
  * 玩家运行时实体，封装 PlayerState 的高频操作。
@@ -22,11 +22,15 @@ export class RuntimePlayer {
     return this._state;
   }
 
-  /** 背包是否还能容纳物品（有空位或已有同 id 可堆叠栈）。 */
-  canReceiveItem(itemId: string): boolean {
+  /** 背包是否还能容纳物品（有空位或已有同签名可堆叠栈）。 */
+  canReceiveItem(item: ItemStack): boolean {
     const inv = this._state.inventory;
     if (inv.items.length < inv.capacity) return true;
-    return inv.items.some((s) => s.itemId === itemId);
+    if (!canMergeItemStack(item)) return false;
+    const signature = createItemStackSignature(item);
+    return inv.items.some((entry) => (
+      canMergeItemStack(entry) && createItemStackSignature(entry) === signature
+    ));
   }
 
   /** 扣减钱包，余额不足返回 false。 */

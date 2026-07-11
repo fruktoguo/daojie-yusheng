@@ -154,35 +154,32 @@ export function applyTechniqueActivityResolveInventory(
   ctx: PipelineContext,
 ): TechniqueActivityResolveInventoryResult {
   const requestedItems = normalizeResolveOutputItems(
-    resolved.inventoryDelta?.granted ?? [],
+    [
+      ...(resolved.inventoryDelta?.granted ?? []),
+      ...(resolved.inventoryDelta?.dropped ?? []),
+    ],
     ctx,
   );
-  const existingDropped = normalizeResolveOutputItems(resolved.inventoryDelta?.dropped ?? [], ctx);
   const grantedItems: TechniqueActivityOutputItem[] = [];
-  const groundDrops: TechniqueActivityOutputItem[] = [];
   let inventoryChanged = false;
 
   for (const item of requestedItems) {
-    if (canReceiveTechniqueActivityItem(player, item)) {
-      const received = receiveTechniqueActivityInventoryItem(player, item, ctx);
-      grantedItems.push(toTechniqueActivityOutputItem(received));
-      inventoryChanged = true;
-    } else {
-      groundDrops.push(item);
-    }
+    const received = receiveTechniqueActivityInventoryItem(player, item, ctx);
+    grantedItems.push(toTechniqueActivityOutputItem(received));
+    inventoryChanged = true;
   }
 
   resolved.inventoryDelta = {
     ...(resolved.inventoryDelta ?? {}),
     granted: grantedItems,
-    dropped: [...existingDropped, ...groundDrops],
+    dropped: [],
     changed: Boolean(resolved.inventoryDelta?.changed) || inventoryChanged,
   };
 
   return {
     inventoryChanged,
     grantedItems,
-    groundDrops,
+    groundDrops: [],
   };
 }
 
@@ -443,6 +440,22 @@ export class TechniqueActivityPipelineService {
       markPipelineDirty(player, ['active_job'], ctx);
     }
 
+    const inventoryRefundItems = [
+      ...(refund.inventoryDelta?.granted ?? []),
+      ...(refund.inventoryDelta?.dropped ?? []),
+    ];
+    const refundItems = refund.items.length > 0
+      ? refund.items
+      : inventoryRefundItems.length > 0
+        ? inventoryRefundItems
+        : refund.groundDrops ?? [];
+    const grantedRefundItems = normalizeResolveOutputItems(refundItems, ctx).map((item) => (
+      receiveTechniqueActivityInventoryItem(player, item, ctx)
+    ));
+    if (grantedRefundItems.length > 0) {
+      markPipelineDirty(player, ['inventory'], ctx);
+    }
+
     return {
       lifecycle: 'cancel',
       ok: true,
@@ -452,13 +465,14 @@ export class TechniqueActivityPipelineService {
       messages: refund.messages ?? [],
       inventoryDelta: {
         ...(refund.inventoryDelta ?? {}),
-        dropped: refund.items.length > 0 ? refund.items : refund.inventoryDelta?.dropped,
-        changed: Boolean(refund.inventoryDelta?.changed),
+        granted: grantedRefundItems.map(toTechniqueActivityOutputItem),
+        dropped: [],
+        changed: Boolean(refund.inventoryDelta?.changed) || grantedRefundItems.length > 0,
       },
       walletDelta: refund.walletDelta,
       equipmentDelta: refund.equipmentDelta,
       recordDelta: refund.recordDelta,
-      groundDrops: refund.groundDrops ?? (refund.items.length > 0 ? refund.items : undefined),
+      groundDrops: [],
       attrChanged: refund.attrChanged,
     };
   }
@@ -730,6 +744,7 @@ function normalizeResolveOutputItems(
   const normalizedItems: TechniqueActivityOutputItem[] = [];
   for (const item of items) {
     const normalized = ctx.contentTemplateRepository.normalizeItem({
+      ...item,
       itemId: item.itemId,
       count: Math.max(1, Math.floor(Number(item.count) || 1)),
     }) as Record<string, unknown>;
@@ -760,13 +775,6 @@ function receiveTechniqueActivityInventoryItem(
   }
   player.inventory.items.push(normalized);
   return toTechniqueActivityOutputItem(normalized);
-}
-
-function canReceiveTechniqueActivityItem(player: any, item: TechniqueActivityOutputItem): boolean {
-  if (!Array.isArray(player?.inventory?.items)) return false;
-  const signature = createItemStackSignature(item as any);
-  return player.inventory.items.some((entry: unknown) => createItemStackSignature(entry as any) === signature)
-    || player.inventory.items.length < Math.max(0, Math.floor(Number(player.inventory.capacity) || 0));
 }
 
 function toTechniqueActivityOutputItem(item: unknown): TechniqueActivityOutputItem {

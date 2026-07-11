@@ -37,7 +37,7 @@ async function main(): Promise<void> {
   await testProtectionMissingStopsAndReturnsCurrentLevel();
   await testSpiritStoneMissingStopsOnSuccessSettlement();
   await testMissingLockedItemClearsJobWithoutSnapshotFallback();
-  await testCancelReturnsLockedTarget();
+  await testCancelReturnsLockedTargetWhenInventoryFull();
   await testQueuedEnhancementDoesNotLockOrConsumeResources();
   await testDurableQueuedEnhancementDuringActiveJobDoesNotStartImmediately();
   await testEnhancementUsesTemplateNameWhenRuntimeItemNameMissing();
@@ -541,7 +541,7 @@ async function testMissingLockedItemClearsJobWithoutSnapshotFallback(): Promise<
   assert.equal(player.enhancementRecords[0]?.status, 'stopped');
 }
 
-async function testCancelReturnsLockedTarget(): Promise<void> {
+async function testCancelReturnsLockedTargetWhenInventoryFull(): Promise<void> {
   const persistedActiveJobs: PersistedActiveJob[] = [];
   const persistedEnhancementRecords: unknown[] = [];
   const player = createPlayer('player:enhancement:cancel', [
@@ -562,13 +562,16 @@ async function testCancelReturnsLockedTarget(): Promise<void> {
   });
   assert.equal(start.ok, true);
   assert.equal(player.enhancementJob?.phase, 'enhancing');
+  player.inventory.capacity = player.inventory.items.length;
 
   const cancelled = craftService.cancelTechniqueActivity(player, 'enhancement');
   assert.equal(cancelled.ok, true);
   assert.equal(cancelled.messages?.[0]?.key, 'notice.craft.enhancement.cancelled');
   assert.equal(player.enhancementJob, null);
   assert.equal(player.inventory.lockedItems?.length ?? 0, 0);
+  assert.equal(player.inventory.items.length > player.inventory.capacity, true);
   assert.equal(player.inventory.items.some((item) => item.itemId === 'iron_sword' && item.enhanceLevel === 1), true);
+  assert.deepEqual((cancelled as { groundDrops?: unknown[] }).groundDrops, []);
   assert.equal(player.enhancementRecords[0]?.status, 'cancelled');
   await settleAsync();
   assert.deepEqual(persistedActiveJobs.at(-1), {});

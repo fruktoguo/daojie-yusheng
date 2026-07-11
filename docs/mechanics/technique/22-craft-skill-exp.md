@@ -91,6 +91,8 @@ cancel → [computeRefundOrCleanup → 清理job]
 
 “表现为 job”必须表示服务端权威生命周期由 job 管线控制，而不是只在客户端任务列表中投影一条记录。凡是跨 tick 推进、可以被打断或取消、会授予技艺经验、会占用外部对象、会延迟产出或持续消耗资源的技艺动作，都必须通过技艺 job 的 start、tick、interrupt、cancel、resolve 流程，并由同一条 lifecycle 产出经验、产出/消耗、外部占用释放、持久化 dirty 和面板 patch。
 
+持续技艺 job 的完成产出、取消返还和异常停止返还统一走强制入包语义：优先按完整堆叠签名合并；无法合并时即使背包已满也必须写入背包并允许暂时超出容量，不能生成地面掉落。只有玩家在线进行普通战斗、击杀等即时获物且背包无法容纳时，才允许落地并发送明确的结构化系统通知。
+
 技艺 job 框架按抽象类/模板方法口径维护：通用骨架统一负责 job 注册、活跃槽位、任务列表排序、`jobRunId/cancelRef`、打断等待、取消入口、持久化和 patch；具体技艺只在 strategy 钩子中实现自己的 `validateStart/createJob/onTick/checkContinue/onCancel/onComplete` 等领域差异。新增技艺不得在玩家对象或 pending 数据中私挂“类 job”状态来绕过通用 lifecycle。
 
 任务列表必须展示当前 job、排队任务、条件休眠任务和打断等待状态，并为可取消项提供取消按钮。取消只提交服务端意图，资源退还、外部占用释放、资产结算和拒绝条件都由服务端权威裁定。

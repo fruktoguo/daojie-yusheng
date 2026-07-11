@@ -125,8 +125,8 @@ function testQueryValidateNpcShopPurchase() {
  * @returns 无返回值，完成Receive背包道具的条件判断。
  */
 
-        canReceiveInventoryItem(playerId, itemId) {
-            log.push(['canReceiveInventoryItem', playerId, itemId]);
+        canReceiveInventoryItem(playerId, item) {
+            log.push(['canReceiveInventoryItem', playerId, item.itemId]);
             return true;
         },        
         /**

@@ -72,7 +72,7 @@ async function main(): Promise<void> {
   await testAlchemyQueueStartsNextJobFromUnifiedQueue();
   await testAlchemyFailureDoesNotCreateOutput();
   await testAlchemyBatchUsesCurrentLuckSuccessRate();
-  await testAlchemyOutputDropsWhenInventoryFull();
+  await testAlchemyOutputForcedIntoInventoryWhenFull();
   await testLegacyActiveAlchemyAndForgingJobsContinueToCompletion();
   await testLegacyPrepaidAlchemyLikeJobsRefundUnfinishedBatchesOnce();
   await testForgingUsesIndependentJobSlot();
@@ -91,12 +91,12 @@ async function main(): Promise<void> {
       '炼丹/炼器入队不会提前消耗材料或灵石。',
       '炼丹/炼器取消不再暴露 strategy executeCancel，公共 cancelLifecycle 只清理未完成任务，不退还未扣除批次。',
       '炼丹/炼器中断不再暴露 strategy executeInterrupt，公共 interrupt lifecycle 统一刷新独立等待条和 active job version。',
-      '炼丹失败不产出，背包满时产出掉地。',
+      '炼丹失败不产出，背包满时任务产出仍强制入包。',
       '炼丹/炼器每批结算前会按当前有效幸运重算成功率。',
       '旧 active alchemy/forging job 能继续 tick 到完成。',
       '旧版本已预扣资源的炼丹/炼器 active job 会自动返还未完成批次并标记为逐批扣料。',
       '炼器使用独立 forgingJob 槽位。',
-      '炼器成功、失败、背包满掉地、打断、取消和队列都有独立 proof。',
+      '炼器成功、失败、背包满强制入包、打断、取消和队列都有独立 proof。',
       'WorldRuntimeAlchemyService 通过统一 technique activity 入口启动并刷新面板。',
     ],
   }, null, 2));
@@ -497,8 +497,8 @@ async function testAlchemyBatchUsesCurrentLuckSuccessRate(): Promise<void> {
   assert.equal(countPlayerItem(player, 'pill.qi'), 1);
 }
 
-async function testAlchemyOutputDropsWhenInventoryFull(): Promise<void> {
-  const player = createPlayer('player:alchemy:drop-full', [
+async function testAlchemyOutputForcedIntoInventoryWhenFull(): Promise<void> {
+  const player = createPlayer('player:alchemy:force-full', [
     { itemId: 'herb.qi', count: 2 },
   ]);
   const { craftService } = createCraftHarness(player);
@@ -516,9 +516,8 @@ async function testAlchemyOutputDropsWhenInventoryFull(): Promise<void> {
   const result = craftService.tickTechniqueActivity(player, 'alchemy', ctx.deps);
   assert.equal(result.ok, true);
   assert.equal(player.alchemyJob, null);
-  assert.equal(countPlayerItem(player, 'pill.qi'), 0);
-  assert.equal(result.groundDrops?.[0]?.itemId, 'pill.qi');
-  assert.equal(result.groundDrops?.[0]?.count, 6);
+  assert.equal(countPlayerItem(player, 'pill.qi'), 6);
+  assert.deepEqual(result.groundDrops, []);
 }
 
 async function testLegacyActiveAlchemyAndForgingJobsContinueToCompletion(): Promise<void> {
@@ -656,21 +655,20 @@ async function testForgingResolveEdges(): Promise<void> {
   assert.equal(countPlayerItem(failurePlayer, 'equip.copper_sword'), 0);
   assert.deepEqual(failureResult.groundDrops, []);
 
-  const dropPlayer = createPlayer('player:forging:drop-full', [
+  const fullPlayer = createPlayer('player:forging:force-full', [
     { itemId: 'ore.copper', count: 2 },
   ]);
-  const { craftService: dropCraftService } = createCraftHarness(dropPlayer);
-  const dropCtx = dropCraftService.buildPipelineContext(createDeps([]));
-  const dropStart = startForgingJob(dropCraftService, dropPlayer, dropCtx.deps);
-  assert.equal(dropStart.ok, true);
-  dropPlayer.inventory.capacity = 0;
-  forceAlchemyLikeJobReadyToResolve(dropPlayer.forgingJob, 1);
-  const dropResult = dropCraftService.tickTechniqueActivity(dropPlayer, 'forging', dropCtx.deps);
-  assert.equal(dropResult.ok, true);
-  assert.equal(dropPlayer.forgingJob, null);
-  assert.equal(countPlayerItem(dropPlayer, 'equip.copper_sword'), 0);
-  assert.equal(dropResult.groundDrops?.[0]?.itemId, 'equip.copper_sword');
-  assert.equal(dropResult.groundDrops?.[0]?.count, 1);
+  const { craftService: fullCraftService } = createCraftHarness(fullPlayer);
+  const fullCtx = fullCraftService.buildPipelineContext(createDeps([]));
+  const fullStart = startForgingJob(fullCraftService, fullPlayer, fullCtx.deps);
+  assert.equal(fullStart.ok, true);
+  fullPlayer.inventory.capacity = 0;
+  forceAlchemyLikeJobReadyToResolve(fullPlayer.forgingJob, 1);
+  const fullResult = fullCraftService.tickTechniqueActivity(fullPlayer, 'forging', fullCtx.deps);
+  assert.equal(fullResult.ok, true);
+  assert.equal(fullPlayer.forgingJob, null);
+  assert.equal(countPlayerItem(fullPlayer, 'equip.copper_sword'), 1);
+  assert.deepEqual(fullResult.groundDrops, []);
 }
 
 async function testForgingInterruptCancelAndQueue(): Promise<void> {
