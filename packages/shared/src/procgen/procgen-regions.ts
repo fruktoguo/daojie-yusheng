@@ -83,7 +83,7 @@ export function generateRegion(
       else generateOpenRegion(canvas, ports, preset, region, regionSeed);
       break;
     case 'vault':
-      if (spec.vault) local = generateVault(canvas, ports, spec.vault);
+      if (spec.vault) local = generateVault(canvas, ports, spec.vault, regionSeed);
       else generateOpenRegion(canvas, ports, preset, region, regionSeed);
       break;
     case 'boss':

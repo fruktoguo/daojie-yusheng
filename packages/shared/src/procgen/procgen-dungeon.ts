@@ -13,7 +13,11 @@
 import { ProcgenRng } from './procgen-random';
 import { RegionCanvas } from './procgen-canvas';
 import { type LocalPort } from './procgen-maze';
+import { buildRoomShape, BOSS_SHAPE_KINDS, VAULT_SHAPE_KINDS, type RoomShape, type RoomShapeKind } from './procgen-room-shape';
 import type { ProcgenAnchorKind, ProcgenBossSpec, ProcgenDungeonSpec, ProcgenRect, ProcgenVaultSpec } from './procgen-types';
+
+const NEIGHBORS4 = [[0, -1], [1, 0], [0, 1], [-1, 0]] as const;
+const NEIGHBORS8 = [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]] as const;
 
 /** 区内局部坐标的内容锚点，由调用方转成全局坐标。 */
 export interface LocalAnchor {
@@ -133,27 +137,68 @@ function markPerimeter(keep: Uint8Array, canvas: RegionCanvas, room: ProcgenRect
 }
 
 /**
- * 把房间周界之外那些「多余的墙」溶解成山体地形。
+ * 把 `keep` 之外那些「多余的墙」溶解成山体地形。
  *
  * 生成算法是「先用墙填满整个区，再挖出房间和走廊」，于是未被挖到的地方全是砖墙 ——
  * 整个区就成了一大块实心矩形，区边界一览无余、拼接痕迹刺眼。溶解之后，房间是凿在
  * 山里的石室，走廊是山中隧道，区边界化进周围连绵的山里。
  *
- * 只动 `structure === wallTile` 的格：门位 stub、走廊、房门在此前都已把 structure 置空
+ * `keep` 由调用方标出房间周界（矩形房用 markPerimeter，异形房用 markShapePerimeter）。
+ * 只动 `structure === wallTile` 的格：门位通道、走廊、房门在此前都已把 structure 置空
  * 或改成 door，terrain 仍是可走的 floorTile，因此一格都不会被误伤。
  */
 function dissolveSpareWalls(
   canvas: RegionCanvas,
-  rooms: readonly ProcgenRect[],
+  keep: Uint8Array,
   wallTile: string,
   wallTerrain: string,
 ): void {
-  const keep = new Uint8Array(canvas.width * canvas.height);
-  for (const room of rooms) markPerimeter(keep, canvas, room);
   for (let index = 0; index < canvas.structureIds.length; index += 1) {
     if (canvas.structureIds[index] !== wallTile || keep[index] === 1) continue;
     canvas.structureIds[index] = null;
     canvas.terrainIds[index] = wallTerrain;
+  }
+}
+
+/** 把形状 mask 标记的房间内部挖空（terrain 已是 floor，此处只置空 structure）。 */
+function carveShapeInterior(canvas: RegionCanvas, shape: RoomShape): void {
+  for (let index = 0; index < shape.cells.length; index += 1) {
+    if (shape.cells[index] === 1) canvas.structureIds[index] = null;
+  }
+}
+
+/** 标记异形房的周界墙（内部格的 8 邻中非内部者），供 dissolveSpareWalls 保留。 */
+function markShapePerimeter(keep: Uint8Array, canvas: RegionCanvas, shape: RoomShape): void {
+  const { width, height, cells } = shape;
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      if (cells[y * width + x] !== 1) continue;
+      for (const [dx, dy] of NEIGHBORS8) {
+        const nx = x + dx;
+        const ny = y + dy;
+        if (!canvas.inBounds(nx, ny)) continue;
+        const ni = ny * width + nx;
+        if (cells[ni] !== 1) keep[ni] = 1;
+      }
+    }
+  }
+}
+
+/** 通道穿过异形房墙的地方开门：周界墙（4 邻接内部）上凡被凿通（structure=null）者改 door。 */
+function punchShapeDoors(canvas: RegionCanvas, shape: RoomShape, doorTile: string): void {
+  const { width, height, cells } = shape;
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const i = y * width + x;
+      if (cells[i] === 1) continue;
+      let touchesInterior = false;
+      for (const [dx, dy] of NEIGHBORS4) {
+        const nx = x + dx;
+        const ny = y + dy;
+        if (canvas.inBounds(nx, ny) && cells[ny * width + nx] === 1) { touchesInterior = true; break; }
+      }
+      if (touchesInterior && canvas.structureIds[i] === null) canvas.structureIds[i] = doorTile;
+    }
   }
 }
 
@@ -232,7 +277,9 @@ export function generateDungeon(
     carvePortElbow(canvas, port, cx, cy);
   }
   punchDoors(canvas, rooms, spec.doorTile);
-  dissolveSpareWalls(canvas, rooms, spec.wallTile, spec.wallTerrain);
+  const keep = new Uint8Array(canvas.width * canvas.height);
+  for (const room of rooms) markPerimeter(keep, canvas, room);
+  dissolveSpareWalls(canvas, keep, spec.wallTile, spec.wallTerrain);
 
   const anchorRng = new ProcgenRng(`${seed}:anchors`);
   const anchors: LocalAnchor[] = [];
@@ -250,42 +297,61 @@ const VAULT_MAX_SIDE = 15;
 const BOSS_MAX_SIDE = 23;
 
 /**
- * 区中央的房间矩形，边长封顶。
+ * 在区中央按种子挑一种形状造房，边长封顶。
  *
- * 房间若铺满整个区（只内缩 ROOM_INSET），房墙就把 BSP 叶的矩形轮廓原样描了出来，
- * 一张图看着就是几个方盒子拼的。封顶之后，房间外剩下的大片区域全被 dissolveSpareWalls
- * 溶成山体，区界埋进连绵的山里，门位通道也随之变成一条穿山隧道。
+ * 房间若铺满整个区，房墙就把 BSP 叶的矩形轮廓原样描了出来，一张图看着就是几个方盒子拼的。
+ * 封顶后房外大片区域被 dissolveSpareWalls 溶成山体，区界埋进连绵的山里；再随机换用
+ * 椭圆 / 菱形 / 八边形 / 心形 / blob 等非矩形轮廓，房间本身也不再是刻板的方盒。
  */
-function centeredRoom(canvas: RegionCanvas, maxSide: number): ProcgenRect {
+function pickCenteredShape(
+  canvas: RegionCanvas,
+  maxSide: number,
+  kinds: readonly RoomShapeKind[],
+  rng: ProcgenRng,
+): RoomShape {
   const w = Math.min(canvas.width - ROOM_INSET * 2, maxSide);
   const h = Math.min(canvas.height - ROOM_INSET * 2, maxSide);
-  return { x: Math.floor((canvas.width - w) / 2), y: Math.floor((canvas.height - h) / 2), w, h };
+  const cx = Math.floor(canvas.width / 2);
+  const cy = Math.floor(canvas.height / 2);
+  return buildRoomShape(canvas.width, canvas.height, cx, cy, (w - 1) / 2, (h - 1) / 2, rng.pick(kinds), rng);
 }
 
-/** 生成宝库区：单封闭房 + 朝前驱的一扇门 + 对称柱阵 + 中心宝箱。读起来像设计而非随机。 */
-export function generateVault(canvas: RegionCanvas, ports: readonly LocalPort[], spec: ProcgenVaultSpec): LocalAnchor[] {
+/** 柱子只落在房间内部（异形房的中心区恒为实心，柱阵不会飘到山体里）。 */
+function placePillar(canvas: RegionCanvas, shape: RoomShape, x: number, y: number, tile: string): void {
+  if (canvas.inBounds(x, y) && shape.cells[y * shape.width + x] === 1) canvas.setStructure(x, y, tile);
+}
+
+/** 生成宝库区：单封闭异形房 + 朝前驱的一扇门 + 对称柱阵 + 中心宝箱。读起来像设计而非随机。 */
+export function generateVault(
+  canvas: RegionCanvas,
+  ports: readonly LocalPort[],
+  spec: ProcgenVaultSpec,
+  seed: string,
+): LocalAnchor[] {
+  const rng = new ProcgenRng(`${seed}:shape`);
   fillTerrain(canvas, spec.floorTile);
   fillStructure(canvas, spec.wallTile);
-  const room = centeredRoom(canvas, VAULT_MAX_SIDE);
-  carveInterior(canvas, room);
+  const shape = pickCenteredShape(canvas, VAULT_MAX_SIDE, VAULT_SHAPE_KINDS, rng);
+  carveShapeInterior(canvas, shape);
+  const { cx, cy } = shape;
   // 只开一扇门：多个 port 时取第一个（拓扑保证宝库是度为 1 的死端旁支）。
-  // 通道从区边凿到房心，途中穿过宝库墙；punchDoors 把那个洞变成门 ——
-  // 门长在宝库墙上，而不是悬在区边的山体里。
-  const [cx, cy] = centerOf(room);
+  // 通道从区边凿到房心，途中穿过宝库墙；punchShapeDoors 把那个洞变成门。
   for (const port of ports) {
     carvePortElbow(canvas, port, cx, cy);
     break;
   }
-  punchDoors(canvas, [room], spec.doorTile);
-  dissolveSpareWalls(canvas, [room], spec.wallTile, spec.wallTerrain);
+  punchShapeDoors(canvas, shape, spec.doorTile);
+  const keep = new Uint8Array(canvas.width * canvas.height);
+  markShapePerimeter(keep, canvas, shape);
+  dissolveSpareWalls(canvas, keep, spec.wallTile, spec.wallTerrain);
 
   if (spec.pillarTile) {
-    for (const dx of [-2, 2]) for (const dy of [-2, 2]) canvas.setStructure(cx + dx, cy + dy, spec.pillarTile);
+    for (const dx of [-2, 2]) for (const dy of [-2, 2]) placePillar(canvas, shape, cx + dx, cy + dy, spec.pillarTile);
   }
   return [{ x: cx, y: cy, kind: 'chest' }];
 }
 
-/** 生成 boss 房：大 chamber + 宽入口 + 中心 boss 锚点。 */
+/** 生成 boss 房：大异形 chamber + 宽入口 + 中心 boss 锚点。 */
 export function generateBossRoom(
   canvas: RegionCanvas,
   ports: readonly LocalPort[],
@@ -295,10 +361,10 @@ export function generateBossRoom(
   const rng = new ProcgenRng(seed);
   fillTerrain(canvas, spec.floorTile);
   fillStructure(canvas, spec.wallTile);
-  const room = centeredRoom(canvas, BOSS_MAX_SIDE);
-  carveInterior(canvas, room);
+  const shape = pickCenteredShape(canvas, BOSS_MAX_SIDE, BOSS_SHAPE_KINDS, rng);
+  carveShapeInterior(canvas, shape);
+  const { cx, cy } = shape;
   const entranceWidth = Math.max(1, rng.intInRange(spec.entranceWidth ?? [2, 3]));
-  const [cx, cy] = centerOf(room);
   for (const port of ports) {
     // 入口加宽：沿边界向两侧平移出多条并行通道，最终汇于房心。
     const horizontal = port.side === 'N' || port.side === 'S';
@@ -310,10 +376,12 @@ export function generateBossRoom(
     }
   }
   // boss 房不装门：通道在房墙上凿出的豁口保持敞开（structure 已是 null，溶解不会碰它）。
-  dissolveSpareWalls(canvas, [room], spec.wallTile, spec.wallTerrain);
+  const keep = new Uint8Array(canvas.width * canvas.height);
+  markShapePerimeter(keep, canvas, shape);
+  dissolveSpareWalls(canvas, keep, spec.wallTile, spec.wallTerrain);
 
   if (spec.pillarTile) {
-    for (const dx of [-3, 3]) for (const dy of [-3, 3]) canvas.setStructure(cx + dx, cy + dy, spec.pillarTile);
+    for (const dx of [-3, 3]) for (const dy of [-3, 3]) placePillar(canvas, shape, cx + dx, cy + dy, spec.pillarTile);
   }
   return [{ x: cx, y: cy, kind: 'boss' }];
 }
