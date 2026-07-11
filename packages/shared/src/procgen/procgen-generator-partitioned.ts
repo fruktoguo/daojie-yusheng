@@ -19,6 +19,7 @@ import { applyBorder } from './procgen-fields';
 import { partitionRect } from './procgen-partition';
 import { buildTopology } from './procgen-topology';
 import { connectRegions, generateRegion, placeKeyAnchors } from './procgen-regions';
+import { erodeRegionBorders } from './procgen-erode';
 import { buildWalkableMask, findRegions } from './procgen-connect';
 import { bfsDistances } from './procgen-routes';
 import { encodeRows } from './procgen-encode';
@@ -79,14 +80,19 @@ export function generatePartitionedMap(
     contentAnchors.push(...generateRegion(region, preset, terrainIds, surfaceIds, structureIds, width, scope));
   }
 
-  // 5) 区间门廊：只凿 gutter，绝不进入任何区的内部矩形。
+  // 5) 边界侵蚀：把矩形区边推成蜿蜒山脊，消除「一格直缝切出的矩形网格」。
+  // 只减不增（可走 → 山体），故区间屏障仍然滴水不漏；门位与人造建筑区豁免。
+  // 必须先于 connectRegions —— 否则刚凿好的门廊会被啃回山体。
+  const erodedCells = erodeRegionBorders(regions, width, height, terrainIds, structureIds, preset.border.tile, scope, catalog);
+
+  // 6) 区间门廊：只凿 gutter，绝不进入任何区的内部矩形。
   const lockAnchors = connectRegions(regions, topology.graph.edges, terrainIds, structureIds, width, carveTile, doorTile);
   contentAnchors.push(...lockAnchors);
 
-  // 6) 封边环
+  // 7) 封边环
   applyBorder(width, height, terrainIds, preset.border.tile, preset.border.thickness, new ProcgenRng(`${scope}:border`));
 
-  // 7) 出生点：entry 区内离中心最近的可走格。
+  // 8) 出生点：entry 区内离中心最近的可走格。
   const mask = buildWalkableMask(width, height, terrainIds, structureIds, catalog);
   const entry = regions.find((region) => region.role === 'entry') ?? regions[0];
   const spawnIndex = findOpenCellNear(entry.rect, mask, width);
@@ -94,7 +100,7 @@ export function generatePartitionedMap(
   const spawnX = spawnIndex % width;
   const spawnY = (spawnIndex - spawnX) / width;
 
-  // 8) 可达性收尾（backstop）：以「从出生点可达」为唯一真源。
+  // 9) 可达性收尾（backstop）：以「从出生点可达」为唯一真源。
   // 预留门位若正确，这里应该一格都删不掉；删得多说明某个区没接上，必须显式告警。
   const distances = bfsDistances(width, height, mask, spawnIndex);
   let filledCells = 0;
@@ -108,7 +114,7 @@ export function generatePartitionedMap(
   }
   if (filledCells > 0) warnings.push(`procgen_unreachable_cells_filled:${filledCells}`);
 
-  // 9) 传送阵：入口在出生点，出口在 boss 区（或图距最远区）内。
+  // 10) 传送阵：入口在出生点，出口在 boss 区（或图距最远区）内。
   const boss = regions.find((region) => region.role === 'boss');
   const portals: ProcgenPortalPlacement[] = [{ x: spawnX, y: spawnY, role: 'entry' }];
   if (boss) {
@@ -128,7 +134,7 @@ export function generatePartitionedMap(
   const lockIds = lockAnchors.map((anchor) => anchor.gateGroupId ?? 0).filter((id) => id > 0);
   contentAnchors.push(...placeKeyAnchors(regions, lockIds, mask, width));
 
-  // 10) 统计与编码
+  // 11) 统计与编码
   let walkableCount = 0;
   for (let index = 0; index < mask.length; index += 1) walkableCount += mask[index];
   const walkableRatio = walkableCount / (width * height);
@@ -172,6 +178,7 @@ export function generatePartitionedMap(
       buildingCount: 0,
       tileCounts,
       spatialRegionCount: regions.length,
+      erodedCells,
       regionKindCounts,
       lockCount: lockIds.length,
     },

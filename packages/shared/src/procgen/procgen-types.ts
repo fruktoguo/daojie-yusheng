@@ -201,7 +201,6 @@ export interface ProcgenPartitionSpec {
   maxAspect?: number;
 }
 
-/** 迷宫：Recursive Backtracker + dead-end braiding。 */
 /**
  * 迷宫区：山崖地形拼出的天然迷宫。
  *
@@ -228,7 +227,12 @@ export interface ProcgenMazeSpec {
   wobble?: number;
 }
 
-/** 地牢：嵌套 BSP 房间 + L 形直角走廊。 */
+/**
+ * 地牢：嵌套 BSP 房间 + L 形直角走廊，整体凿在山体里。
+ *
+ * wallTerrain 是房间之外那些「多余的墙」溶解后的山体地形。不溶解的话，整个区就是一大块
+ * 实心砖墙矩形，rect 边界一览无余；溶解之后房间像凿进山里的石室，区边界化进周围的山。
+ */
 export interface ProcgenDungeonSpec {
   roomTargetArea?: number;
   minRoom?: number;
@@ -236,23 +240,29 @@ export interface ProcgenDungeonSpec {
   wallTile: string;
   doorTile: string;
   floorTile?: string;
+  /** 房间之外的山体地形 id，必须不可走（如 cliff）。 */
+  wallTerrain: string;
 }
 
-/** 宝库：封闭房 + 单扇锁门 + 中心宝箱。 */
+/** 宝库：封闭房 + 单扇锁门 + 中心宝箱，凿在山体里。 */
 export interface ProcgenVaultSpec {
   wallTile: string;
   doorTile: string;
   floorTile?: string;
   /** 柱阵地块（可选，纯装饰）。 */
   pillarTile?: string;
+  /** 房间之外的山体地形 id，必须不可走。 */
+  wallTerrain: string;
 }
 
-/** boss 房：大 chamber + 宽入口。 */
+/** boss 房：大 chamber + 宽入口，凿在山体里。 */
 export interface ProcgenBossSpec {
   wallTile: string;
   entranceWidth?: readonly [number, number];
   floorTile?: string;
   pillarTile?: string;
+  /** 房间之外的山体地形 id，必须不可走。 */
+  wallTerrain: string;
 }
 
 /** 走廊区：细条叶的贯穿脊。 */
@@ -373,6 +383,8 @@ export interface ProcgenMapStats {
   tileCounts: Record<string, number>;
   /** 分区拼装：几何区域数（未启用分区时为 0）。 */
   spatialRegionCount: number;
+  /** 边界侵蚀啃掉的格数（矩形区边推成蜿蜒山脊）。旧管线恒为 0。 */
+  erodedCells: number;
   /** 分区拼装：各区域种类的数量。 */
   regionKindCounts: Record<string, number>;
   /** 分区拼装：锁门数。 */

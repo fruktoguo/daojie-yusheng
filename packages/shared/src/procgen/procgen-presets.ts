@@ -218,9 +218,10 @@ export const PROCGEN_PRESET_ABYSS_REALM: ProcgenBiomePreset = {
       roughness: 0.75,
       wobble: 0.4,
     },
-    dungeon: { roomTargetArea: 180, minRoom: 5, jitter: [1, 2], wallTile: 'wall', doorTile: 'door', floorTile: 'floor' },
-    vault: { wallTile: 'wall', doorTile: 'door', floorTile: 'floor', pillarTile: 'stone' },
-    boss: { wallTile: 'wall', entranceWidth: [2, 3], floorTile: 'floor', pillarTile: 'stone' },
+    // 三类人造区都凿在山体里：房间之外的多余墙体溶解成 cliff，区界因而化进周围的山。
+    dungeon: { roomTargetArea: 180, minRoom: 5, jitter: [1, 2], wallTile: 'wall', doorTile: 'door', floorTile: 'floor', wallTerrain: 'cliff' },
+    vault: { wallTile: 'wall', doorTile: 'door', floorTile: 'floor', pillarTile: 'stone', wallTerrain: 'cliff' },
+    boss: { wallTile: 'wall', entranceWidth: [2, 3], floorTile: 'floor', pillarTile: 'stone', wallTerrain: 'cliff' },
     corridor: { floorTile: 'floor' },
   },
   // branchCount 是死端旁支（宝库）数量，lockCount 是其中上锁的数量（其余宝库敞开）。

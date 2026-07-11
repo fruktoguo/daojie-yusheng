@@ -62,21 +62,31 @@ export function validateProcgenPreset(preset: ProcgenBiomePreset, catalog: Procg
       const slope = region.maze.slopeTile ? catalog.byLayerAndId.get(`terrain:${region.maze.slopeTile}`) : undefined;
       if (slope && slope.walkable === false) errors.push(`procgen_maze_slope_terrain_blocked:${region.maze.slopeTile}`);
     }
+    // 三类人造区把房间外的多余墙体溶解成山体地形，故 wallTerrain 必须不可走 ——
+    // 配成可走地形会让整个区变成一片敞开的空地，且不会抛错。
+    const blockingTerrain = (tile: string, where: string): void => {
+      checkTile('terrain', tile, where);
+      const def = catalog.byLayerAndId.get(`terrain:${tile}`);
+      if (def && def.walkable !== false) errors.push(`procgen_wall_terrain_walkable:${where}:${tile}`);
+    };
     if (region.dungeon) {
       checkTile('structure', region.dungeon.wallTile, 'regionGen:dungeon:wall');
       checkTile('structure', region.dungeon.doorTile, 'regionGen:dungeon:door');
       optionalTerrain(region.dungeon.floorTile, 'regionGen:dungeon:floor');
+      blockingTerrain(region.dungeon.wallTerrain, 'regionGen:dungeon:wallTerrain');
     }
     if (region.vault) {
       checkTile('structure', region.vault.wallTile, 'regionGen:vault:wall');
       checkTile('structure', region.vault.doorTile, 'regionGen:vault:door');
       optionalTerrain(region.vault.floorTile, 'regionGen:vault:floor');
       if (region.vault.pillarTile) checkTile('structure', region.vault.pillarTile, 'regionGen:vault:pillar');
+      blockingTerrain(region.vault.wallTerrain, 'regionGen:vault:wallTerrain');
     }
     if (region.boss) {
       checkTile('structure', region.boss.wallTile, 'regionGen:boss:wall');
       optionalTerrain(region.boss.floorTile, 'regionGen:boss:floor');
       if (region.boss.pillarTile) checkTile('structure', region.boss.pillarTile, 'regionGen:boss:pillar');
+      blockingTerrain(region.boss.wallTerrain, 'regionGen:boss:wallTerrain');
     }
     optionalTerrain(region.corridor?.floorTile, 'regionGen:corridor:floor');
     for (const [kind, rules] of Object.entries(region.openTerrainRulesByKind ?? {})) {
@@ -254,6 +264,7 @@ export function generateProcgenMap(options: ProcgenGenerateOptions): ProcgenMapR
       buildingCount: buildingResult?.placed ?? 0,
       tileCounts,
       spatialRegionCount: 0,
+      erodedCells: 0,
       regionKindCounts: {},
       lockCount: 0,
     },
