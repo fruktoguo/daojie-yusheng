@@ -18,7 +18,7 @@ import { ProcgenRng } from './procgen-random';
 import { RegionCanvas } from './procgen-canvas';
 import { generateField, assignTerrain, smoothTerrain } from './procgen-fields';
 import { placeStructures } from './procgen-structures';
-import { carvePortStub, generateCorridor, generateMaze, type LocalPort } from './procgen-maze';
+import { generateCorridor, generateMaze, type LocalPort } from './procgen-maze';
 import { generateBossRoom, generateDungeon, generateVault, type LocalAnchor } from './procgen-dungeon';
 import { generateTown } from './procgen-town';
 import type {
@@ -35,6 +35,36 @@ function toLocalPorts(region: ProcgenRegionNode, canvas: RegionCanvas): LocalPor
     y: canvas.toLocalY(port.y),
     side: port.side,
   }));
+}
+
+/**
+ * open 区可走脊：从每个门位「先直入核心、再折向区心」凿一条可走引道
+ *（terrain 覆盖为可走底色 + 清 structure）。
+ *
+ * open 区按 terrainRules 铺自然地貌，主题若含大量不可走地形（峭壁/水域/熔岩），
+ * 会把区内可走面切碎、门位落到不可走地形上，导致分区 fill 管线下整区断连、
+ * 出生点孤立、大规模回填。脊保证「门 → 区心」构造连通（同 town/dungeon 的接驳思路）：
+ * 直入段垂直区边、快速进核心，受 erode 的 PORT_GUARD 保护不被啃断。
+ */
+function carveOpenSpine(canvas: RegionCanvas, ports: readonly LocalPort[], walkableTile: string): void {
+  const cx = Math.floor(canvas.width / 2);
+  const cy = Math.floor(canvas.height / 2);
+  const paint = (x: number, y: number): void => {
+    if (!canvas.inBounds(x, y)) return;
+    canvas.setTerrain(x, y, walkableTile);
+    canvas.setStructure(x, y, null);
+  };
+  const runX = (y: number, a: number, b: number): void => {
+    for (let x = Math.min(a, b); x <= Math.max(a, b); x += 1) paint(x, y);
+  };
+  const runY = (x: number, a: number, b: number): void => {
+    for (let y = Math.min(a, b); y <= Math.max(a, b); y += 1) paint(x, y);
+  };
+  paint(cx, cy);
+  for (const port of ports) {
+    if (port.side === 'N' || port.side === 'S') { runY(port.x, port.y, cy); runX(cy, port.x, cx); }
+    else { runX(port.y, port.x, cx); runY(cx, port.y, cy); }
+  }
 }
 
 /** 开放地貌区：在小数组上跑原班噪声管线，规则集可按区域种类覆盖。 */
@@ -55,7 +85,7 @@ function generateOpenRegion(
     canvas.width, canvas.height, canvas.terrainIds, preset.structures,
     new ProcgenRng(`${seed}:structures`), canvas.structureIds,
   );
-  for (const port of ports) carvePortStub(canvas, port);
+  carveOpenSpine(canvas, ports, preset.baseTerrain);
 }
 
 /** 生成单个区并 blit 回全局，返回该区产出的全局坐标锚点。 */

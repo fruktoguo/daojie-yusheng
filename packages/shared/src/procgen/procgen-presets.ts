@@ -9,14 +9,58 @@
  * 这些预设既是可直接使用的秘境地貌，也是配置格式的示例真源；
  * 新地貌 = 新增一份 ProcgenBiomePreset 配置，不需要改生成器代码。
  */
-import type { ProcgenBiomePreset } from './procgen-types';
+import type { ProcgenBiomePreset, ProcgenRealmPalette } from './procgen-types';
+import { buildRealmSkeleton } from './procgen-realm-skeleton';
+
+/**
+ * 五主题秘境调色板：每个主题只需一份地块映射，buildRealmSkeleton 即可展开成
+ * 全套分区骨架（迷宫/地牢/宝库/boss/城镇/走廊）。主题差异只在此调色板 + 可选 tuning，
+ * 不再逐主题手写 regionGen。所有 id 均已在默认地块目录注册且落在正确的层。
+ */
+const PALETTES = {
+  // 幽篁竹海：山崖竹林——竹丛作柱、青草通道、崖壁成墙。
+  bamboo_valley: {
+    wallTile: 'wall', doorTile: 'door', roomFloorTile: 'floor', pillarTile: 'bamboo',
+    mountainTerrain: 'cliff', mazeWallTerrain: 'cliff', mazeFloorTile: 'grass', mazeSlopeTile: 'hill',
+    townGroundTile: 'grass', townStreetTile: 'trail', townFloorTile: 'floor', windowTile: 'window',
+    corridorFloorTile: 'grass',
+  },
+  // 灵矿裂谷：峭壁矿脉——石柱、石板通道、崖壁成墙。
+  spirit_ravine: {
+    wallTile: 'wall', doorTile: 'door', roomFloorTile: 'floor', pillarTile: 'stone',
+    mountainTerrain: 'cliff', mazeWallTerrain: 'cliff', mazeFloorTile: 'floor', mazeSlopeTile: 'hill',
+    townGroundTile: 'floor', townStreetTile: 'trail', townFloorTile: 'floor', windowTile: 'window',
+    corridorFloorTile: 'floor',
+  },
+  // 熔岩地窟：地下岩道——石柱、石板通道、崖壁成墙。
+  molten_cavern: {
+    wallTile: 'wall', doorTile: 'door', roomFloorTile: 'floor', pillarTile: 'stone',
+    mountainTerrain: 'cliff', mazeWallTerrain: 'cliff', mazeFloorTile: 'floor', mazeSlopeTile: 'hill',
+    townGroundTile: 'floor', townStreetTile: 'trail', townFloorTile: 'floor', windowTile: 'window',
+    corridorFloorTile: 'floor',
+  },
+  // 寒泽迷沼：水泽湿地——迷宫墙用水道（water），通道走青草，走廊踏泥地。
+  cold_marsh: {
+    wallTile: 'wall', doorTile: 'door', roomFloorTile: 'floor', pillarTile: 'stone',
+    mountainTerrain: 'cliff', mazeWallTerrain: 'water', mazeFloorTile: 'grass', mazeSlopeTile: 'hill',
+    townGroundTile: 'grass', townStreetTile: 'trail', townFloorTile: 'floor', windowTile: 'window',
+    corridorFloorTile: 'mud',
+  },
+  // 九幽秘境：连绵山体——照搬原九幽 cliff 山体系，逐字等价替换手写 regionGen。
+  abyss: {
+    wallTile: 'wall', doorTile: 'door', roomFloorTile: 'floor', pillarTile: 'stone',
+    mountainTerrain: 'cliff', mazeWallTerrain: 'cliff', mazeFloorTile: 'grass', mazeSlopeTile: 'hill',
+    townGroundTile: 'grass', townStreetTile: 'trail', townFloorTile: 'floor', windowTile: 'window',
+    corridorFloorTile: 'floor',
+  },
+} satisfies Record<string, ProcgenRealmPalette>;
 
 /** 幽篁竹海：溪流切割的竹林谷地，竹丛成片、林间有小径。 */
 export const PROCGEN_PRESET_BAMBOO_VALLEY: ProcgenBiomePreset = {
   id: 'bamboo_valley',
   name: '幽篁竹海',
-  description: '溪流蜿蜒的竹林谷地，竹丛与乔木成片，小径连接各处。',
-  size: { width: [56, 72], height: [44, 60] },
+  description: '溪流蜿蜒的竹林谷地，竹丛与乔木成片，小径连接各处；分区拼装出竹楼村镇、崖壁迷宫与石室地牢。',
+  size: { width: [104, 128], height: [104, 128] },
   baseTerrain: 'grass',
   border: { tile: 'cliff', thickness: [2, 4] },
   fields: {
@@ -36,29 +80,19 @@ export const PROCGEN_PRESET_BAMBOO_VALLEY: ProcgenBiomePreset = {
     { tile: 'tree', on: ['grass', 'mud'], density: 0.02, minSpacing: 3, keepClearOfSpawn: 2 },
     { tile: 'stone', on: ['grass', 'mud'], density: 0.008, minSpacing: 5 },
   ],
-  buildings: {
-    style: 'courtyard',
-    count: [1, 2],
-    size: { width: [7, 11], height: [7, 10] },
-    on: ['grass'],
-    windowTile: 'window',
-    windowChance: 0.3,
-    floorTile: 'floor',
-    keepClear: 3,
-    content: { chestChance: 0.6, monsterChance: 0.4 },
-  },
-  paths: { tile: 'trail', extraPoiCount: [2, 4], wobble: 0.5 },
-  connectivity: { mode: 'carve', carveTile: 'grass' },
-  exitPortalCount: 2,
-  walkableRatioRange: [0.45, 0.92],
+  connectivity: { mode: 'fill', carveTile: 'grass', fillThreshold: 8 },
+  exitPortalCount: 1,
+  walkableRatioRange: [0.12, 0.92],
+  // 分区拼装骨架：open 区继续用上面的竹林噪声地貌，结构区按调色板换成竹海皮肤。
+  ...buildRealmSkeleton(PALETTES.bamboo_valley),
 };
 
 /** 灵矿裂谷：峭壁纵横的矿脉裂谷，灵矿与玄铁沿崖壁生长。 */
 export const PROCGEN_PRESET_SPIRIT_RAVINE: ProcgenBiomePreset = {
   id: 'spirit_ravine',
   name: '灵矿裂谷',
-  description: '峭壁切割的裂谷，矿脉沿崖壁分布，谷底通道曲折。',
-  size: { width: [52, 68], height: [44, 60] },
+  description: '峭壁切割的裂谷，矿脉沿崖壁分布，谷底通道曲折；分区拼装出矿工聚落、崖壁迷宫与藏宝石室。',
+  size: { width: [104, 128], height: [104, 128] },
   baseTerrain: 'floor',
   border: { tile: 'cliff', thickness: [2, 5] },
   fields: {
@@ -77,28 +111,19 @@ export const PROCGEN_PRESET_SPIRIT_RAVINE: ProcgenBiomePreset = {
     { tile: 'black_iron_ore', on: ['floor', 'hill'], clusters: { count: [4, 8], size: [3, 6] }, nearTiles: { tiles: ['cliff'], radius: 2 }, keepClearOfSpawn: 3 },
     { tile: 'stone', on: ['floor', 'hill'], density: 0.012, minSpacing: 4 },
   ],
-  buildings: {
-    style: 'ruins',
-    count: [2, 4],
-    size: { width: [5, 8], height: [5, 8] },
-    on: ['floor'],
-    ruinBreakage: 0.4,
-    ruinDebrisTile: 'stone',
-    keepClear: 2,
-    content: { chestChance: 0.5, monsterChance: 0.5 },
-  },
-  paths: { tile: 'trail', extraPoiCount: [2, 3], wobble: 0.35 },
-  connectivity: { mode: 'carve', carveTile: 'floor' },
-  exitPortalCount: 2,
-  walkableRatioRange: [0.3, 0.8],
+  connectivity: { mode: 'fill', carveTile: 'floor', fillThreshold: 8 },
+  exitPortalCount: 1,
+  walkableRatioRange: [0.12, 0.8],
+  // 分区拼装骨架：open 区继续用上面的裂谷矿脉地貌，结构区按调色板换成裂谷皮肤。
+  ...buildRealmSkeleton(PALETTES.spirit_ravine),
 };
 
 /** 熔岩地窟：熔池遍布的地下洞窟，玄铁与断剑残骸散落其间。 */
 export const PROCGEN_PRESET_MOLTEN_CAVERN: ProcgenBiomePreset = {
   id: 'molten_cavern',
   name: '熔岩地窟',
-  description: '熔池与岩壁交错的地窟，热流之间只留下曲折可行的岩道。',
-  size: { width: [48, 64], height: [40, 56] },
+  description: '熔池与岩壁交错的地窟，热流之间只留下曲折可行的岩道；分区拼装出稀疏据点、岩道迷宫与密布地牢。',
+  size: { width: [104, 128], height: [104, 128] },
   baseTerrain: 'floor',
   border: { tile: 'cliff', thickness: [2, 4] },
   fields: {
@@ -117,28 +142,19 @@ export const PROCGEN_PRESET_MOLTEN_CAVERN: ProcgenBiomePreset = {
     { tile: 'black_iron_ore', on: ['floor', 'hill'], clusters: { count: [5, 9], size: [3, 6] }, nearTiles: { tiles: ['cliff'], radius: 2 }, keepClearOfSpawn: 3 },
     { tile: 'broken_sword_heap', on: ['floor'], density: 0.004, minSpacing: 8 },
   ],
-  buildings: {
-    style: 'ruins',
-    count: [1, 3],
-    size: { width: [5, 8], height: [5, 7] },
-    on: ['floor'],
-    ruinBreakage: 0.45,
-    ruinDebrisTile: 'broken_sword_heap',
-    keepClear: 2,
-    content: { chestChance: 0.4, monsterChance: 0.6 },
-  },
-  paths: { tile: 'trail', extraPoiCount: [1, 3], wobble: 0.4 },
-  connectivity: { mode: 'carve', carveTile: 'floor' },
+  connectivity: { mode: 'fill', carveTile: 'floor', fillThreshold: 8 },
   exitPortalCount: 1,
-  walkableRatioRange: [0.32, 0.85],
+  walkableRatioRange: [0.12, 0.85],
+  // 地窟聚落偏少、地牢偏多：town 保持点缀、dungeon 权重提高（自由池加权配额）。
+  ...buildRealmSkeleton(PALETTES.molten_cavern, { kindMix: { open: 3, town: 1, maze: 2, dungeon: 3 } }),
 };
 
 /** 寒泽迷沼：寒潭与泥沼交错的湿地，可走地带被水域撕成迷宫。 */
 export const PROCGEN_PRESET_COLD_MARSH: ProcgenBiomePreset = {
   id: 'cold_marsh',
   name: '寒泽迷沼',
-  description: '寒潭、泥沼与水域交错的湿地迷宫，出口藏在沼泽深处。',
-  size: { width: [56, 72], height: [48, 64] },
+  description: '寒潭、泥沼与水域交错的湿地迷宫，出口藏在沼泽深处；分区拼装出沼畔村落、水道迷宫与泥泞地牢。',
+  size: { width: [104, 128], height: [104, 128] },
   baseTerrain: 'swamp',
   border: { tile: 'water', thickness: [2, 5] },
   fields: {
@@ -157,27 +173,17 @@ export const PROCGEN_PRESET_COLD_MARSH: ProcgenBiomePreset = {
     { tile: 'tree', on: ['grass', 'swamp'], density: 0.02, minSpacing: 2, keepClearOfSpawn: 2 },
     { tile: 'stone', on: ['grass', 'mud'], density: 0.006, minSpacing: 6 },
   ],
-  buildings: {
-    style: 'village',
-    count: [1, 2],
-    villageHouses: [3, 5],
-    size: { width: [4, 6], height: [4, 6] },
-    on: ['grass', 'swamp'],
-    windowTile: 'window',
-    windowChance: 0.2,
-    keepClear: 2,
-    content: { chestChance: 0.3, monsterChance: 0.5 },
-  },
-  paths: { tile: 'trail', extraPoiCount: [1, 3], wobble: 0.7 },
-  connectivity: { mode: 'carve', carveTile: 'mud', fillThreshold: 10 },
-  exitPortalCount: 2,
-  walkableRatioRange: [0.4, 0.9],
+  connectivity: { mode: 'fill', carveTile: 'swamp', fillThreshold: 8 },
+  exitPortalCount: 1,
+  walkableRatioRange: [0.12, 0.9],
+  // 分区拼装骨架：open 区继续用上面的湿地地貌，迷宫墙用水道（water）贴合水泽主题。
+  ...buildRealmSkeleton(PALETTES.cold_marsh),
 };
 
 /**
  * 九幽秘境：分区拼装示例预设。
  *
- * 外围开放地貌、中层迷宫、深处地牢，尽头是 boss 房，旁支挂上锁的宝库。
+ * 外围开放地貌、中层迷宫、深处地牢，尽头是 boss 房，旁支挂上锁的宝库，间或点缀城镇聚落。
  * 区数随面积增长（N = clamp(round(area/1600), 2, 24)），完整骨架需要约 128² 的地板。
  * connectivity 必须是 fill —— 分区的连通性由预留门位构造保证，不允许事后全图凿穿墙体。
  */
@@ -205,27 +211,11 @@ export const PROCGEN_PRESET_ABYSS_REALM: ProcgenBiomePreset = {
   connectivity: { mode: 'fill', carveTile: 'floor', fillThreshold: 8 },
   exitPortalCount: 1,
   walkableRatioRange: [0.12, 0.8],
-  partition: { targetArea: 1600, minSide: 18, maxRegions: 24, maxAspect: 2.2 },
-  regionGen: {
-    // 山崖迷宫：墙体是峭壁地形而非砖墙，通道贴壁一圈铺山丘作坡脚。
-    maze: {
-      braidRate: 0.2,
-      wallTerrain: 'cliff',
-      floorTile: 'grass',
-      slopeTile: 'hill',
-      cellPitch: [11, 14],
-      corridorRadius: [2, 2],
-      roughness: 0.75,
-      wobble: 0.4,
-    },
-    // 三类人造区都凿在山体里：房间之外的多余墙体溶解成 cliff，区界因而化进周围的山。
-    dungeon: { roomTargetArea: 180, minRoom: 5, jitter: [1, 2], wallTile: 'wall', doorTile: 'door', floorTile: 'floor', wallTerrain: 'cliff' },
-    vault: { wallTile: 'wall', doorTile: 'door', floorTile: 'floor', pillarTile: 'stone', wallTerrain: 'cliff' },
-    boss: { wallTile: 'wall', entranceWidth: [2, 3], floorTile: 'floor', pillarTile: 'stone', wallTerrain: 'cliff' },
-    corridor: { floorTile: 'floor' },
-  },
-  // branchCount 是死端旁支（宝库）数量，lockCount 是其中上锁的数量（其余宝库敞开）。
-  topology: { combatCount: [2, 3], branchCount: [1, 2], lockCount: [1, 2] },
+  // 分区骨架照搬 cliff 山体系：迷宫/地牢/宝库/boss/走廊与原手写值逐字等价，
+  // 额外新增主题化城镇与 kind 配额（默认 open:3/town:1/maze:2/dungeon:2）——
+  // 九幽此后也长出城镇，且 maze/dungeon/vault/boss 骨架不回归。
+  // combat/branch/lock 数量默认即 [2,3]/[1,2]/[1,2]，与原 topology 一致，无需再传。
+  ...buildRealmSkeleton(PALETTES.abyss),
 };
 
 /** 内置预设清单（demo 与后续秘境模板选择用）。 */

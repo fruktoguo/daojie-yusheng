@@ -38,6 +38,7 @@ const REGION_KIND_COLORS: Record<ProcgenRegionKind, string> = {
   dungeon: '#0ea5e9',
   vault: '#f59e0b',
   boss: '#ef4444',
+  town: '#92400e',
   corridor: '#94a3b8',
   transition: '#14b8a6',
 };
@@ -58,6 +59,7 @@ const KIND_LABELS: Record<ProcgenRegionKind, string> = {
   dungeon: '地牢',
   vault: '宝库',
   boss: 'BOSS房',
+  town: '城镇',
   corridor: '走廊',
   transition: '过渡',
 };

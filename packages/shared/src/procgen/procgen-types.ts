@@ -319,6 +319,59 @@ export interface ProcgenTopologySpec {
   branchCount?: readonly [number, number];
   /** 锁门数量区间。 */
   lockCount?: readonly [number, number];
+  /**
+   * 各地貌相对权重；分配器在固定 entry/boss/vault 后，把可自由分配的 combat/branch 区
+   * 按此权重分成各 kind，并对权重>0 的结构类型尽量保证≥1 个（footprint 允许时）。
+   */
+  kindMix?: Partial<Record<ProcgenRegionKind, number>>;
+}
+
+/**
+ * 秘境调色板：把一套地块 id 映射到全套区域生成器需要的各个地块槽位。
+ * 主题只需填这份调色板（+可选 tuning），buildRealmSkeleton 即可展开成完整 regionGen，
+ * 不必逐主题手写 maze/dungeon/vault/boss/town/corridor 参数。
+ * 用到的地块 id 必须已在地块目录注册且落在正确的层（terrain/surface/structure）。
+ */
+export interface ProcgenRealmPalette {
+  /** 人造墙（地牢/宝库/boss/城镇房）structure。 */
+  wallTile: string;
+  /** 门 structure。 */
+  doorTile: string;
+  /** 人造房间地板 terrain（须可走，如 floor）。 */
+  roomFloorTile: string;
+  /** 柱（装饰 structure，可选）。 */
+  pillarTile?: string;
+  /** 房外多余墙溶解成的山体 terrain（须不可走，如 cliff）。 */
+  mountainTerrain: string;
+  /** 迷宫墙体 terrain（须不可走）。 */
+  mazeWallTerrain: string;
+  /** 迷宫通道 terrain（须可走）。 */
+  mazeFloorTile: string;
+  /** 迷宫坡脚 terrain（须可走，如 hill，可选）。 */
+  mazeSlopeTile?: string;
+  /** 城镇地面 terrain（须可走）。 */
+  townGroundTile: string;
+  /** 城镇街道铺装 surface（可选）。 */
+  townStreetTile?: string;
+  /** 城镇室内地板 surface（可选）。 */
+  townFloorTile?: string;
+  /** 房窗 structure（可选）。 */
+  windowTile?: string;
+  /** 走廊地板 terrain（须可走）。 */
+  corridorFloorTile: string;
+}
+
+/**
+ * 骨架调参：主题在调色板之外可选覆盖 kind 配额与分区/拓扑默认值。
+ * 全部可选，缺省则由 buildRealmSkeleton 使用一套通用默认。
+ */
+export interface ProcgenRealmTuning {
+  /** 覆盖 kind 配额权重（透传给 topology.kindMix）。 */
+  kindMix?: Partial<Record<ProcgenRegionKind, number>>;
+  /** 覆盖 BSP 分区默认参数。 */
+  partition?: ProcgenPartitionSpec;
+  /** 覆盖拓扑骨架默认参数。 */
+  topology?: ProcgenTopologySpec;
 }
 
 /** 区间连接口：门位在生成前预留，作为区域生成器的强制通道。 */

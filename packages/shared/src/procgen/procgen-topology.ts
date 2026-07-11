@@ -35,6 +35,27 @@ const FOOTPRINT: Record<'dungeon' | 'boss' | 'maze' | 'vault', number> = {
   vault: 12,
 };
 
+/**
+ * 自由池各结构 kind 的最小 footprint 门槛：对齐 FOOTPRINT，town 单列为 16，open 恒可放。
+ * assignKinds 保底与加权分配都以短边（min(w,h)）与此门槛比较，放不下则回退 open。
+ */
+const KIND_FOOTPRINT: Record<'open' | 'town' | 'maze' | 'dungeon', number> = {
+  open: 0,
+  town: 16,
+  maze: FOOTPRINT.maze,
+  dungeon: FOOTPRINT.dungeon,
+};
+
+/** 自由池默认配额：open 压倒性主导，结构类仅少量。仅在 preset 未给 kindMix 时兜底。
+ * 每类结构≥1 由保底无条件保证（与此权重解耦），故此处结构权重低不会导致缺类；
+ * 配合「保底挑小区、大区留 open」，令自然地貌与人造结构面积大致均衡（约各半）。 */
+const DEFAULT_KIND_MIX: Partial<Record<ProcgenRegionKind, number>> = {
+  open: 6,
+  town: 1,
+  maze: 1,
+  dungeon: 1,
+};
+
 interface RagEdge {
   a: string;
   b: string;
@@ -115,6 +136,88 @@ function resolveKind(leaf: ProcgenBspLeaf, role: ProcgenNodeRole): ProcgenRegion
     return 'open';
   }
   return short >= FOOTPRINT.maze ? 'maze' : 'open';
+}
+
+/**
+ * 按配额确定性地为每个区决定 kind。只决定「区是什么地貌」，绝不触碰 role/门位/边集，
+ * 因此对连通性构造完全透明（reservePort/connectRegions 只看 ports 不看 kind）。
+ *
+ * 固定项：细条→corridor；entry→open；boss/vault 按 footprint 就位或降级。
+ * 自由池（combat/branch 的非细条区）先保底、再按 kindMix 加权铺满：
+ *  ① 对 [dungeon,maze,town] 中权重>0 的类，各挑一个放得下的最大区，尽量保证每类≥1。
+ *  ② 其余自由区按 kindMix 权重加权取 kind，结构类放不下则回退 open。
+ * 全程确定性：freePool 沿 leaves 的 nodeId 序枚举，平局用 nodeId 破，rng 顺序固定。
+ */
+function assignKinds(
+  leaves: readonly ProcgenBspLeaf[],
+  roles: ReadonlyMap<string, ProcgenNodeRole>,
+  depthMap: ReadonlyMap<string, number>,
+  opts: { maxAspect: number; kindMix?: Partial<Record<ProcgenRegionKind, number>> },
+  seed: string,
+): Map<string, ProcgenRegionKind> {
+  // 深度暂不参与 kind 决策；保留入参以对齐 buildTopology 调用口径并预留扩展（同 bfs 的 nodeIds）。
+  void depthMap;
+  const rng = new ProcgenRng(seed);
+  const kinds = new Map<string, ProcgenRegionKind>();
+  const kindMix = opts.kindMix ?? DEFAULT_KIND_MIX;
+  const shortOf = (leaf: ProcgenBspLeaf): number => Math.min(leaf.rect.w, leaf.rect.h);
+
+  // 第一遍：固定角色与细条走廊直接定 kind；combat/branch 等非细条区进自由池。
+  const freePool: ProcgenBspLeaf[] = [];
+  for (const leaf of leaves) {
+    const { w, h } = leaf.rect;
+    const short = Math.min(w, h);
+    const aspect = Math.max(w, h) / Math.max(1, short);
+    const role = roles.get(leaf.nodeId) ?? 'branch';
+    if (aspect > opts.maxAspect) kinds.set(leaf.nodeId, 'corridor');
+    else if (role === 'entry') kinds.set(leaf.nodeId, 'open');
+    else if (role === 'boss') kinds.set(leaf.nodeId, short >= FOOTPRINT.boss ? 'boss' : short >= FOOTPRINT.maze ? 'maze' : 'open');
+    else if (role === 'vault') kinds.set(leaf.nodeId, short >= FOOTPRINT.vault ? 'vault' : 'open');
+    else freePool.push(leaf);
+  }
+
+  // 自由池候选 kind：kindMix 中权重>0 且属于 {open,town,maze,dungeon} 的类（固定枚举序，保证确定性）。
+  const structural: readonly ('open' | 'town' | 'maze' | 'dungeon')[] = ['open', 'town', 'maze', 'dungeon'];
+  const eligible = structural.filter((kind) => (kindMix[kind] ?? 0) > 0);
+  const assigned = new Set<string>();
+
+  // ① 保底：dungeon→maze→town 各挑一个「刚好放得下的较小区」（平局取 nodeId 小者），
+  // 无条件保证每类结构≥1（全套地貌需求，与 kindMix 权重解耦）。挑小区而非大区——把大区
+  // 留给 open 自然地貌；再配合自由池 open 权重压倒性，令自然:结构面积大致均衡。
+  for (const kind of ['dungeon', 'maze', 'town'] as const) {
+    const threshold = KIND_FOOTPRINT[kind];
+    let best: ProcgenBspLeaf | undefined;
+    for (const leaf of freePool) {
+      if (assigned.has(leaf.nodeId) || shortOf(leaf) < threshold) continue;
+      if (best === undefined || shortOf(leaf) < shortOf(best)
+        || (shortOf(leaf) === shortOf(best) && leaf.nodeId < best.nodeId)) best = leaf;
+    }
+    if (best !== undefined) {
+      kinds.set(best.nodeId, kind);
+      assigned.add(best.nodeId);
+    }
+  }
+
+  // ② 其余自由区：按 kindMix 权重加权取 kind；结构类放不下（短边<门槛）则回退 open。eligible 为空则全 open。
+  const totalWeight = eligible.reduce((sum, kind) => sum + (kindMix[kind] ?? 0), 0);
+  for (const leaf of freePool) {
+    if (assigned.has(leaf.nodeId)) continue;
+    let picked: 'open' | 'town' | 'maze' | 'dungeon' = 'open';
+    if (eligible.length > 0 && totalWeight > 0) {
+      let roll = rng.next() * totalWeight;
+      let chosen: 'open' | 'town' | 'maze' | 'dungeon' = 'open';
+      for (const kind of eligible) {
+        chosen = kind;
+        roll -= kindMix[kind] ?? 0;
+        if (roll < 0) break;
+      }
+      picked = shortOf(leaf) >= KIND_FOOTPRINT[chosen] ? chosen : 'open';
+    }
+    kinds.set(leaf.nodeId, picked);
+    assigned.add(leaf.nodeId);
+  }
+
+  return kinds;
 }
 
 /**
@@ -230,12 +333,15 @@ export function buildTopology(
     if (!roles.has(leaf.nodeId)) roles.set(leaf.nodeId, 'branch');
   }
 
+  // kind 按配额确定性分配（保证 maze/dungeon/town 等结构类尽量各出现）；放不下或 kindMix 未覆盖时用 resolveKind 兜底。
+  // 只决定「区是什么地貌」，不动 role/门位/边集——上面已算完的连通性构造不受影响。
+  const kinds = assignKinds(leaves, roles, depth, { maxAspect: DEFAULT_REGION_MAX_ASPECT, kindMix: spec.kindMix }, `${seed}:kinds`);
   const regions: ProcgenRegionNode[] = leaves.map((leaf) => {
     const role = roles.get(leaf.nodeId) ?? 'branch';
     return {
       nodeId: leaf.nodeId,
       rect: leaf.rect,
-      kind: resolveKind(leaf, role),
+      kind: kinds.get(leaf.nodeId) ?? resolveKind(leaf, role),
       role,
       depth: depth.get(leaf.nodeId) ?? -1,
       ports: [],

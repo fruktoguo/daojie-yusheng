@@ -15,4 +15,5 @@ export * from './procgen-buildings';
 export * from './procgen-connect';
 export * from './procgen-routes';
 export * from './procgen-generator';
+export * from './procgen-realm-skeleton';
 export * from './procgen-presets';
