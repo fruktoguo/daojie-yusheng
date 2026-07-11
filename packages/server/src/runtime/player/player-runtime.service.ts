@@ -5217,7 +5217,11 @@ export class PlayerRuntimeService {
      *   避免把 buildSnapshot 之后产生的新变更误标为已落库。
      * - 不传参数：兼容旧链路的"全清"语义。
      */
-    markPersisted(playerId, persistedDomains, persistedRevision) {
+    markPersisted(
+        playerId: string,
+        persistedDomains?: Iterable<string> | null,
+        persistedRevision?: number | null,
+    ) {
         const player = this.players.get(playerId);
         if (!player) {
             return;

@@ -60,6 +60,7 @@
 - 为什么错误：这些验证脚本本应用来证明生产契约，却绕过类型检查；接口漂移可能直到运行 smoke 才暴露，未进入默认 suite 的脚本甚至会长期失真，同时违反项目 TypeScript 红线。
 - 后果：门禁产生假阳性，重构调用签名后旧 smoke 可能静默失效，关键恢复/资产测试的可信度下降。
 - 修复方向：按稳定 suite 与高风险资产/恢复脚本优先，逐组迁移为规范 TypeScript import/export 并移除抑制；每组运行实际 compiled smoke 后原子提交。
+- 本轮进展：`player-runtime-dirty-domain-smoke.ts` 已移除 `@ts-nocheck` 并重新进入 server compile；当前剩余 168 个 `@ts-nocheck`，CommonJS 数量仍为 144 个。
 
 ### FS-004 `[x]` 玩家分域空覆盖 smoke 的异常路径缺少兜底清理
 
@@ -216,6 +217,15 @@
 - 修复方式：新增按 `playerId` 分片的 `PlayerStatisticLedgerIoQueue`，只串行同一玩家的数据库总账回读与增量落盘；不同玩家仍可并行，tick 内同步累计也不等待数据库。flush 的失败回填、重试调度和 runtime→persisted 转移保持在同一串行区间内。
 - 验证：修复前新增 compiled smoke 稳定失败于“回读未完成时已启动增量落盘（1 !== 0）”；修复后 `player-statistic-ledger-io-smoke` 的 load-first 与 flush-first 两种交错均通过，确认数据库 100 基线与运行时 10 增量最终始终为 110，且同一增量只合并一次；另证明不同玩家可并行、单次失败会释放队列。该 smoke 已接入稳定套件、玩家持久化恢复组，`pnpm verify:quick` 已实际通过。
 
+### FS-020 `[x]` 玩家脏域 smoke 仍断言废弃的局部 revision 并脱离默认门禁
+
+- 严重级别：中。
+- 根本原因：自动用药、自动战斗技能和日志本直写 smoke 仍假设 `versionSeed === player.persistentRevision === 2`；生产持久化已改为 `nextPlayerPersistenceVersion()` 生成进程内单调的时间版本，以便 recovery watermark 拒绝迟到写。`@ts-nocheck` 又掩盖了 `markPersisted` 兼容无参数全清语义与推断签名不一致，且该 smoke 没有注册到稳定套件。
+- 为什么错误：`versionSeed` 是跨异步写的持久化围栏，不是玩家对象的局部修改次数；把实现锁死为 `2` 会在正确的防旧写升级后必然失败。更严重的是脚本在第一个断言就退出，后面几十个 dirty domain、wallet 真源和快照回退断言从未执行。
+- 后果：维护者可能误判当前脏域实现错误，或因脚本不在默认门禁而长期不知道它已经失真；真正的域遗漏、全快照回退和直写版本缺失也失去回归保护。
+- 修复方式：三处断言改为校验正的安全整数版本，保留“必须传 fencing 版本”的契约而不绑定具体时间值；为 `markPersisted` 补齐与现有无参数兼容语义一致的可选参数类型，移除 smoke 的 `@ts-nocheck`。将用例注册到稳定套件、玩家持久化恢复组及 `verify:quick`。
+- 验证：移除抑制后 server compile 首次真实暴露 32 个 `markPersisted` 参数错误；修正公共签名后 compile 通过，compiled `player-runtime-dirty-domain-smoke` 完整跑到底并通过，证明列出的脏域和钱包真源契约仍成立；注册后的 `pnpm verify:quick` 已实际运行该 case 并通过。
+
 ## 待进一步验证或用户决定
 
 ### D-001 `[?]` 客户端初始包同时装载 React 面板与 legacy 回退实现
@@ -254,4 +264,5 @@
 | 兑换码与网关 compiled 专项 smoke | 通过 | `requestId` 端到端传递、成功/失败终态、队列重试幂等、单次 delta 和当前命令路由 | 不证明真实 DB 兑换码领取与全量协议审计 |
 | 离线收益刷新 compiled smoke 与客户端状态 proof | 通过 | 乱序回包逐条关联、客户端只接收最新代际、换绑后拒绝旧玩家结果、主动首包兼容 | 不证明真实 DB 在长时间抖动下的响应分布与本机存储配额 |
 | 玩家统计总账 I/O 竞态 smoke | 通过 | 同玩家 load/flush 双向串行，持久基线与运行时增量只合并一次 | 不证明跨节点迁移或真实数据库长事务下的吞吐 |
+| 玩家运行时 dirty-domain compiled smoke | 通过 | 直写 fencing 版本存在，核心玩家域精确标脏且不会退回全 snapshot | 不证明真实数据库 recovery watermark 的并发拒绝 |
 | `pnpm audit:protocol` | 通过 | 无库主线服务实际启动、18 类场景的 C2S/S2C 事件覆盖与逐包字节统计；关闭 drain 完成 | 无数据库，因此未运行兑换码 DB 用例；也不直接证明 5000 并发带宽和压测结果 |

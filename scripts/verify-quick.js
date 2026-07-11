@@ -45,6 +45,8 @@ const status = runVerificationSteps({
         'world-gateway-offline-gain-refresh',
         '--case',
         'player-statistic-ledger-io',
+        '--case',
+        'player-runtime-dirty-domain',
       ],
       shell: false,
     },
