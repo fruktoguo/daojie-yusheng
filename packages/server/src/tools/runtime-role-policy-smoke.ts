@@ -18,6 +18,7 @@ import {
   resolveFlushTaskRuntimeMode,
   shouldRunLegacyFlushIntervals,
 } from '../persistence/flush-task-runtime-mode';
+import { applyLocalDevelopmentRuntimeDefaults } from '../config/local-development-runtime-defaults';
 
 const RUNTIME_ENV_KEYS = [
   'SERVER_RUNTIME_ROLE',
@@ -34,6 +35,23 @@ const RUNTIME_ENV_KEYS = [
 ];
 
 function main(): void {
+  const localDevEnv: NodeJS.ProcessEnv = {};
+  const localDefaults = applyLocalDevelopmentRuntimeDefaults(localDevEnv);
+  assert.equal(localDefaults.runtimeRole, 'all');
+  assert.equal(localDefaults.flushTaskRuntimeMode, 'inline');
+  assert.equal(localDevEnv.SERVER_RUNTIME_ROLE, 'all');
+  assert.equal(localDevEnv.SERVER_FLUSH_TASK_RUNTIME_MODE, 'inline');
+
+  const explicitProductionEnv: NodeJS.ProcessEnv = {
+    SERVER_RUNTIME_ROLE: 'api',
+    SERVER_FLUSH_TASK_RUNTIME_MODE: 'off',
+  };
+  const explicitDefaults = applyLocalDevelopmentRuntimeDefaults(explicitProductionEnv);
+  assert.equal(explicitDefaults.roleDefaulted, false);
+  assert.equal(explicitDefaults.flushModeDefaulted, false);
+  assert.equal(explicitProductionEnv.SERVER_RUNTIME_ROLE, 'api');
+  assert.equal(explicitProductionEnv.SERVER_FLUSH_TASK_RUNTIME_MODE, 'off');
+
   withRuntimeEnv({}, () => {
     assert.equal(resolveServerRuntimeRole(), 'api');
     assert.equal(resolveFlushTaskRuntimeMode(), 'off');

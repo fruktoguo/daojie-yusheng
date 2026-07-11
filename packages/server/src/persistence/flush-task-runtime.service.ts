@@ -45,9 +45,12 @@ const INSTANCE_LOW_CLAIM_LIMIT = readInt('SERVER_FLUSH_TASK_RUNTIME_INSTANCE_LOW
 const PLAYER_PARALLELISM = readInt('SERVER_FLUSH_TASK_RUNTIME_PLAYER_PARALLELISM', 'FLUSH_TASK_RUNTIME_PLAYER_PARALLELISM', 4, 1, 64);
 const INSTANCE_PARALLELISM = readInt('SERVER_FLUSH_TASK_RUNTIME_INSTANCE_PARALLELISM', 'FLUSH_TASK_RUNTIME_INSTANCE_PARALLELISM', 4, 1, 64);
 const RETRY_DELAY_MS = readInt('SERVER_FLUSH_TASK_RUNTIME_RETRY_DELAY_MS', 'FLUSH_TASK_RUNTIME_RETRY_DELAY_MS', 5_000, 250, 300_000);
-const COALESCE_MS = readInt('SERVER_MAP_PERSISTENCE_COALESCE_WINDOW_MS', 'MAP_PERSISTENCE_COALESCE_WINDOW_MS', 3_000, 0, 30_000);
+const COALESCE_MS = readInt('SERVER_MAP_PERSISTENCE_COALESCE_WINDOW_MS', 'MAP_PERSISTENCE_COALESCE_WINDOW_MS', 60_000, 0, 300_000);
 const TIME_CHECKPOINT_MS = readInt('SERVER_MAP_TIME_CHECKPOINT_INTERVAL_MS', 'MAP_TIME_CHECKPOINT_INTERVAL_MS', 300_000, 60_000, 3_600_000);
 const MONSTER_RUNTIME_MS = readInt('SERVER_MAP_MONSTER_RUNTIME_FLUSH_INTERVAL_MS', 'MAP_MONSTER_RUNTIME_FLUSH_INTERVAL_MS', 60_000, 10_000, 600_000);
+const PLAYER_BACKGROUND_COALESCE_MS = readInt('SERVER_PLAYER_FLUSH_TASK_COALESCE_MS', 'PLAYER_FLUSH_TASK_COALESCE_MS', 60_000, 5_000, 300_000);
+const PLAYER_PRESENCE_COALESCE_MS = readInt('SERVER_PLAYER_PRESENCE_FLUSH_TASK_COALESCE_MS', 'PLAYER_PRESENCE_FLUSH_TASK_COALESCE_MS', 30_000, 1_000, 300_000);
+const PLAYER_LOCATION_COALESCE_MS = readInt('SERVER_PLAYER_LOCATION_FLUSH_TASK_COALESCE_MS', 'PLAYER_LOCATION_FLUSH_TASK_COALESCE_MS', 5_000, 1_000, 60_000);
 const FLUSH_WAITING_LIMIT = readInt('SERVER_FLUSH_TASK_RUNTIME_POOL_WAITING_THRESHOLD', 'FLUSH_TASK_RUNTIME_POOL_WAITING_THRESHOLD', 8, 0, 100);
 const STALE_PAYLOAD_ABANDON_THRESHOLD = readInt('SERVER_FLUSH_TASK_STALE_PAYLOAD_ABANDON_THRESHOLD', 'FLUSH_TASK_STALE_PAYLOAD_ABANDON_THRESHOLD', 10, 2, 100);
 const STAGING_BATCH_SIZE = readInt('SERVER_FLUSH_TASK_STAGING_BATCH_SIZE', 'FLUSH_TASK_STAGING_BATCH_SIZE', 64, 1, 512);
@@ -172,6 +175,7 @@ interface InstanceRuntimeView {
   getPersistenceRevision?: () => number | null;
   getPersistenceDomainRevision?: (domain: string) => number | null;
   getStagedPersistenceDomainRevision?: (domain: string, stagingGenerationId: string) => number | null;
+  isDirtyDomainHighPriority?: (domain: string) => boolean;
   capturePersistenceDomainFlushSnapshot?: (domains: string[]) => unknown;
   markPersistenceDomainsStaged?: (domains: string[], flushSnapshot: unknown, stagingGenerationId: string) => void;
   markPersistenceDomainsPersisted?: (domains: string[], flushSnapshot?: unknown) => void;
@@ -245,6 +249,8 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
   private shutdownDrainPromise: Promise<void> | null = null;
   private shutdownDrainStarted = false;
   private readonly stagedContainerRevisionByInstanceId = new Map<string, number>();
+  private readonly nextPlayerStageAtByKey = new Map<string, number>();
+  private readonly nextInstanceStageAtByKey = new Map<string, number>();
   private globalBackoffUntilAt = 0;
   private readonly failureAttempts = new Map<string, number>();
 
@@ -586,8 +592,10 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
         await commitPending();
       }
     };
-    await this.stagePlayerTasks(enqueue);
-    await this.stageInstanceTasks(enqueue);
+    const force = options?.bypassFlushBarrier === true;
+    this.pruneStageThrottleMaps();
+    await this.stagePlayerTasks(enqueue, force);
+    await this.stageInstanceTasks(enqueue, force);
     await commitPending();
   }
 
@@ -694,6 +702,7 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
 
   private async stagePlayerTasks(
     enqueue: (entry: { task: FlushTask; markStaged: () => void }) => Promise<void>,
+    force = false,
   ): Promise<void> {
     const revisionEntries = this.playerRuntimeService.listUnstagedPlayerDomainRevisions?.(this.stagingGenerationId);
     const entries: Array<[string, Map<string, number>]> = revisionEntries
@@ -707,6 +716,9 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
       await this.ensurePlayerProjectionFenceForStaging(playerId, domainRevisions.keys());
       const runtimeRevision = resolveRevision(this.playerRuntimeService.getPersistenceRevision?.(playerId));
       for (const domain of Array.from(domainRevisions.keys()).sort()) {
+        if (!force && !this.shouldStagePlayerDomainNow(playerId, domain)) {
+          continue;
+        }
         const domainRevision = Math.max(0, Math.trunc(Number(domainRevisions.get(domain) ?? 0)));
         if (domainRevision <= 0) {
           continue;
@@ -716,6 +728,7 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
           : [domain];
         const transferTracker = { remaining: taskDomains.length };
         const capturedDomainRevisions = new Map([[domain, domainRevision]]);
+        const stageDelayMs = force ? 0 : resolvePlayerStageDelayMs(domain);
         for (const taskDomain of taskDomains) {
           const projectionVersion = this.nextProjectionVersion();
           const metadata: PlayerPayloadMetadata = {
@@ -734,7 +747,7 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
               scope: 'player', id: playerId, domain: taskDomain,
               priority: resolveFlushTaskPriority('player', taskDomain),
               latestRevision: projectionVersion,
-              nextAttemptAt: new Date().toISOString(),
+              nextAttemptAt: new Date(Date.now() + stageDelayMs).toISOString(),
               runtimeOwnerId: resolvePlayerPayloadRuntimeOwnerId(payload),
               fencingToken: buildPlayerPayloadFencingToken(payload),
               payloadJson: payload,
@@ -750,6 +763,7 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
                 runtimeRevision,
                 this.stagingGenerationId,
               );
+              this.markPlayerDomainStagedAt(playerId, domain, stageDelayMs);
               this.flushWakeupService.signalPlayerFlush(playerId);
             },
           });
@@ -873,6 +887,7 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
 
   private async stageInstanceTasks(
     enqueue: (entry: { task: FlushTask; markStaged: () => void }) => Promise<void>,
+    force = false,
   ): Promise<void> {
     const entries = this.worldRuntimeService.listDirtyPersistentInstanceDomains?.()
       ?? (this.worldRuntimeService.listDirtyPersistentInstances?.() ?? []).map((instanceId) => ({ instanceId, domains: ['domain'] }));
@@ -896,6 +911,17 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
       }
       stageDomains.sort((left, right) => left.taskDomain.localeCompare(right.taskDomain));
       for (const candidate of stageDomains) {
+        const stageDelayMs = force
+          ? 0
+          : resolveInstanceStageDelayMs(candidate.taskDomain, candidate.stagedDomains);
+        const highPriority = candidate.stagedDomains.some((domain) => runtime.isDirtyDomainHighPriority?.(domain) === true);
+        if (!force && !highPriority && !this.shouldStageInstanceDomainNow(
+          instanceId,
+          candidate.taskDomain,
+          ownershipEpoch,
+        )) {
+          continue;
+        }
         const prepared = this.buildInstanceTaskPayload(instanceId, candidate.taskDomain, candidate.stagedDomains, runtime);
         if (!prepared) {
           throw new Error(`instance_flush_staging_payload_missing:${instanceId}:${candidate.taskDomain}:${ownershipEpoch}`);
@@ -907,7 +933,7 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
             priority: resolveFlushTaskPriority('instance', candidate.taskDomain),
             ownershipEpoch,
             latestRevision: prepared.latestRevision,
-            nextAttemptAt: new Date(now + resolveInstanceDelayMs(candidate.taskDomain)).toISOString(),
+            nextAttemptAt: new Date(now + (highPriority ? 0 : stageDelayMs)).toISOString(),
             payloadJson: prepared.payload,
             fencingToken: buildInstancePayloadFencingToken(
               this.stagingGenerationId,
@@ -934,6 +960,12 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
               prepared.flushSnapshot,
               this.stagingGenerationId,
             );
+            this.markInstanceDomainStagedAt(
+              instanceId,
+              candidate.taskDomain,
+              ownershipEpoch,
+              highPriority ? 0 : stageDelayMs,
+            );
             this.flushWakeupService.signalInstanceFlush(instanceId);
           },
         });
@@ -954,6 +986,41 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
       runtime.getStagedPersistenceDomainRevision?.(domain, this.stagingGenerationId),
     ) ?? 0;
     return currentRevision > stagedRevision;
+  }
+
+  private shouldStagePlayerDomainNow(playerId: string, domain: string): boolean {
+    return Date.now() >= (this.nextPlayerStageAtByKey.get(playerStageThrottleKey(playerId, domain)) ?? 0);
+  }
+
+  private markPlayerDomainStagedAt(playerId: string, domain: string, delayMs: number): void {
+    this.nextPlayerStageAtByKey.set(
+      playerStageThrottleKey(playerId, domain),
+      Date.now() + Math.max(0, delayMs),
+    );
+  }
+
+  private shouldStageInstanceDomainNow(instanceId: string, domain: string, ownershipEpoch: number): boolean {
+    return Date.now() >= (
+      this.nextInstanceStageAtByKey.get(instanceStageThrottleKey(instanceId, domain, ownershipEpoch)) ?? 0
+    );
+  }
+
+  private markInstanceDomainStagedAt(
+    instanceId: string,
+    domain: string,
+    ownershipEpoch: number,
+    delayMs: number,
+  ): void {
+    this.nextInstanceStageAtByKey.set(
+      instanceStageThrottleKey(instanceId, domain, ownershipEpoch),
+      Date.now() + Math.max(0, delayMs),
+    );
+  }
+
+  private pruneStageThrottleMaps(): void {
+    const expiredBefore = Date.now() - 60 * 60 * 1000;
+    pruneExpiredStageThrottleEntries(this.nextPlayerStageAtByKey, expiredBefore);
+    pruneExpiredStageThrottleEntries(this.nextInstanceStageAtByKey, expiredBefore);
   }
 
   private async processPlayerTasks(
@@ -2185,11 +2252,36 @@ function resolvePlayerTaskDomains(domains: Set<string>): string[] {
   return Array.from(domains).sort();
 }
 
-function resolveInstanceDelayMs(domain: string): number {
-  if (INSTANCE_COALESCE_DOMAINS.has(domain)) return COALESCE_MS;
-  if (domain === 'time') return TIME_CHECKPOINT_MS;
-  if (domain === 'monster_runtime') return MONSTER_RUNTIME_MS;
+function resolvePlayerStageDelayMs(domain: string): number {
+  if (domain === 'presence') return PLAYER_PRESENCE_COALESCE_MS;
+  if (domain === 'position_checkpoint' || domain === 'world_anchor') return PLAYER_LOCATION_COALESCE_MS;
+  if (PLAYER_HIGH_PRIORITY_DOMAINS.has(domain)) return 0;
+  return PLAYER_BACKGROUND_COALESCE_MS;
+}
+
+function resolveInstanceStageDelayMs(domain: string, stagedDomains: string[]): number {
+  if (domain === 'time' || stagedDomains.includes('time')) return TIME_CHECKPOINT_MS;
+  if (domain === 'monster_runtime' || stagedDomains.includes('monster_runtime')) return MONSTER_RUNTIME_MS;
+  if (INSTANCE_COALESCE_DOMAINS.has(domain) || stagedDomains.some((entry) => INSTANCE_COALESCE_DOMAINS.has(entry))) {
+    return COALESCE_MS;
+  }
   return 0;
+}
+
+function playerStageThrottleKey(playerId: string, domain: string): string {
+  return `${playerId}\u0000${domain}`;
+}
+
+function instanceStageThrottleKey(instanceId: string, domain: string, ownershipEpoch: number): string {
+  return `${instanceId}\u0000${domain}\u0000${ownershipEpoch}`;
+}
+
+function pruneExpiredStageThrottleEntries(entries: Map<string, number>, expiredBefore: number): void {
+  for (const [key, nextStageAt] of entries) {
+    if (nextStageAt < expiredBefore) {
+      entries.delete(key);
+    }
+  }
 }
 
 function resolveFlushTaskPriority(scope: FlushTaskScope, domain: string): FlushTaskPriority {

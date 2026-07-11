@@ -7,6 +7,8 @@
  * 服务端启动入口：创建 NestJS 应用实例，配置 CORS、安全头和端口监听。
  * 端口冲突时自动采集诊断信息（lsof/ss/fuser），辅助运维定位。
  */
+import './config/bootstrap-local-development-runtime-defaults';
+
 import { NestFactory } from '@nestjs/core';
 import type { INestApplicationContext } from '@nestjs/common';
 import { spawnSync } from 'node:child_process';

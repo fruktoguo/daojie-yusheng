@@ -15,6 +15,7 @@ async function main(): Promise<void> {
   process.env.SERVER_FLUSH_TASK_RUNTIME_MODE = 'off';
   try {
     await verifyPlayerSingleFlightAndStagedTransfer();
+    await verifyStagingCoalescesHighFrequencyRevisions();
     await verifyShutdownDrainWaitsForStaging();
     await verifyShutdownDrainPropagatesInFlightFailure();
     await verifyFallbackSnapshotExpandsToSingleDomainTasks();
@@ -28,10 +29,99 @@ async function main(): Promise<void> {
   }
   console.log(JSON.stringify({
     ok: true,
-    answers: '统一 staging 已按 generation single-flight；玩家投影在 fence 不完整时会先 claim ownership 并重读完整 fence，ledger 成功后只转移捕获修订的 dirty 义务；实例覆盖 tile_cell/temporary_tile/ground fullReplace/建筑组合 payload，同 epoch stopped 实例可在恢复前 replay。',
+    answers: '统一 staging 已按 generation single-flight，高频修订在内存合并窗口内不重复覆盖 ledger，高优先级与关机最终 staging 可绕过窗口；玩家投影在 fence 不完整时会先 claim ownership 并重读完整 fence；实例覆盖完整 payload 与恢复前 replay。',
     excludes: '不证明真实 PostgreSQL 多进程 claim 竞争；该部分由 flush-ledger DB smoke 覆盖。',
     completionMapping: 'flush-task-staged-transfer',
   }, null, 2));
+}
+
+async function verifyStagingCoalescesHighFrequencyRevisions(): Promise<void> {
+  const playerId = 'staging-coalesce-player';
+  let playerRevision = 1;
+  const playerWrites: FlushTask[][] = [];
+  const runtime = new FlushTaskRuntimeService(
+    {
+      listUnstagedPlayerDomainRevisions: () => new Map([[playerId, new Map([['technique', playerRevision]])]]),
+      getPersistenceRevision: () => playerRevision,
+      describePersistencePresence: () => ({
+        online: true,
+        inWorld: true,
+        runtimeOwnerId: 'runtime-owner-coalesce',
+        sessionEpoch: 1,
+      }),
+      buildPersistenceSnapshot: () => ({
+        version: 1,
+        savedAt: playerRevision,
+        placement: { templateId: 'map-1', x: 1, y: 1 },
+        techniques: [],
+      }),
+      markPersistenceDomainsStaged: () => undefined,
+    } as never,
+    { listDirtyPersistentInstanceDomains: () => [] } as never,
+    { flushPlayerDomains: async () => true } as never,
+    {
+      isEnabled: () => true,
+      upsertFlushTasks: async (tasks: FlushTask[]) => {
+        playerWrites.push(tasks);
+        return tasks.length;
+      },
+      countPendingPayloadTasks: async () => 0,
+    } as never,
+    { signalPlayerFlush() {}, signalInstanceFlush() {} } as never,
+  );
+  await runtime.stageDirtyTasksOnce();
+  playerRevision = 2;
+  await runtime.stageDirtyTasksOnce();
+  assert.equal(playerWrites.length, 1, '普通玩家域在合并窗口内不得重复覆盖 ledger');
+  await runtime.drainForShutdown();
+  assert.equal(playerWrites.length, 2, '关机最终 staging 必须绕过合并窗口');
+  assert.equal((playerWrites.at(-1)?.[0]?.payloadJson as { domainRevision?: number }).domainRevision, 2);
+
+  let instanceRevision = 1;
+  let instanceHighPriority = false;
+  const instanceWrites: FlushTask[][] = [];
+  const instanceRuntime = {
+    meta: { persistent: true, ownershipEpoch: 3 },
+    getPersistenceRevision: () => instanceRevision,
+    getPersistenceDomainRevision: () => instanceRevision,
+    getStagedPersistenceDomainRevision: () => 0,
+    isDirtyDomainHighPriority: () => instanceHighPriority,
+    capturePersistenceDomainFlushSnapshot: () => ({
+      persistenceRevision: instanceRevision,
+      domainRevisions: new Map([['tile_resource', instanceRevision]]),
+      dirtyTileResourceByKey: new Map(),
+    }),
+    markPersistenceDomainsStaged: () => undefined,
+  };
+  const instanceService = new FlushTaskRuntimeService(
+    { listUnstagedPlayerDomainRevisions: () => new Map() } as never,
+    {
+      listDirtyPersistentInstanceDomains: () => [{ instanceId: 'instance-coalesce', domains: ['tile_resource'] }],
+      getInstanceRuntime: () => instanceRuntime,
+      buildDomainDeltaBatch: () => [{
+        instanceId: 'instance-coalesce',
+        upserts: [],
+        deletes: [],
+        flushSnapshot: instanceRuntime.capturePersistenceDomainFlushSnapshot(),
+      }],
+    } as never,
+    { flushPlayerDomains: async () => true } as never,
+    {
+      isEnabled: () => true,
+      upsertFlushTasks: async (tasks: FlushTask[]) => {
+        instanceWrites.push(tasks);
+        return tasks.length;
+      },
+    } as never,
+    { signalPlayerFlush() {}, signalInstanceFlush() {} } as never,
+  );
+  await instanceService.stageDirtyTasksOnce();
+  instanceRevision = 2;
+  await instanceService.stageDirtyTasksOnce();
+  assert.equal(instanceWrites.length, 1, '自动地图变化在合并窗口内不得重复覆盖 ledger');
+  instanceHighPriority = true;
+  await instanceService.stageDirtyTasksOnce();
+  assert.equal(instanceWrites.length, 2, '玩家主动高优先级变更必须绕过合并窗口');
 }
 
 async function verifyShutdownDrainPropagatesInFlightFailure(): Promise<void> {

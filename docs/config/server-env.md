@@ -52,6 +52,10 @@
 | `SERVER_RUNTIME_ENV` | `APP_ENV`, `NODE_ENV` | - | 环境标识 |
 | `SERVER_RUNTIME_ROLE` | `DAOJIE_RUNTIME_ROLE` | `api` | 运行角色：`api` / `worker` / `all`；生产默认只启 HTTP 与权威 runtime |
 | `SERVER_FLUSH_TASK_RUNTIME_MODE` | `FLUSH_TASK_RUNTIME_MODE` | `api` 下为 `off`，`worker` 下为 `worker`，显式 `all` 下为 `inline` | 统一刷盘任务消费模式 |
+| `SERVER_PLAYER_FLUSH_TASK_COALESCE_MS` | `PLAYER_FLUSH_TASK_COALESCE_MS` | `60000` | 玩家普通高频域的内存 staging 合并窗口 |
+| `SERVER_PLAYER_PRESENCE_FLUSH_TASK_COALESCE_MS` | `PLAYER_PRESENCE_FLUSH_TASK_COALESCE_MS` | `30000` | 玩家 presence staging 合并窗口 |
+| `SERVER_PLAYER_LOCATION_FLUSH_TASK_COALESCE_MS` | `PLAYER_LOCATION_FLUSH_TASK_COALESCE_MS` | `5000` | 玩家位置与世界锚点 staging 合并窗口 |
+| `SERVER_MAP_PERSISTENCE_COALESCE_WINDOW_MS` | `MAP_PERSISTENCE_COALESCE_WINDOW_MS` | `60000` | 自动地图域合并窗口；玩家主动高优先级变更绕过 |
 | `SERVER_PACKAGE_ROOT` | - | 自动检测 | 包根目录 |
 | `SERVER_SKIP_LOCAL_ENV_AUTOLOAD` | - | `false` | 跳过 .env 自动加载 |
 
@@ -70,6 +74,8 @@ SERVER_FLUSH_TASK_RUNTIME_MODE=worker
 ```
 
 `SERVER_RUNTIME_ROLE=all` 与 `SERVER_FLUSH_TASK_RUNTIME_MODE=inline` 仅用于本地单进程调试或应急回滚，不能作为真实服务器缺省值。
+
+`pnpm --filter @mud/server start:dev` 在本地开发环境且未显式设置上述两项时，会仅为开发进程自动使用 `all/inline`，避免只生产 flush ledger 而没有 worker 消费。
 
 ## 本地开发示例
 

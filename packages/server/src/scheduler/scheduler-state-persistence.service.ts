@@ -78,7 +78,11 @@ export class SchedulerStatePersistenceService implements OnModuleInit, OnModuleD
          updated_at = now(),
          node_id = EXCLUDED.node_id,
          runtime_role = EXCLUDED.runtime_role,
-         process_id = EXCLUDED.process_id`,
+         process_id = EXCLUDED.process_id
+       WHERE ${SCHEDULER_STATE_TABLE}.payload IS DISTINCT FROM EXCLUDED.payload
+          OR ${SCHEDULER_STATE_TABLE}.node_id IS DISTINCT FROM EXCLUDED.node_id
+          OR ${SCHEDULER_STATE_TABLE}.runtime_role IS DISTINCT FROM EXCLUDED.runtime_role
+          OR ${SCHEDULER_STATE_TABLE}.process_id IS DISTINCT FROM EXCLUDED.process_id`,
       [
         this.identity.stateKey,
         JSON.stringify(snapshot),

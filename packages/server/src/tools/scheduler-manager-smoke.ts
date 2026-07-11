@@ -132,6 +132,45 @@ async function main(): Promise<void> {
   assert.equal(recoveredTaskState.processedCount, 117, '历史 processedCount 应保留');
   assert.equal(recoveredTaskState.failureCount, 231, '历史 failureCount 应保留');
 
+  // 回归测试：高频任务完成只能排队一个最新快照，销毁时单飞刷新。
+  let concurrentWrites = 0;
+  let maxConcurrentWrites = 0;
+  let saveCalls = 0;
+  const persistedRunCounts: number[] = [];
+  const coalescedPersistence = {
+    loadSnapshot: async () => null,
+    saveSnapshot: async (snapshot: { tasks?: Array<{ runCount?: number }> }) => {
+      saveCalls += 1;
+      concurrentWrites += 1;
+      maxConcurrentWrites = Math.max(maxConcurrentWrites, concurrentWrites);
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      persistedRunCounts.push(snapshot.tasks?.[0]?.runCount ?? 0);
+      concurrentWrites -= 1;
+    },
+  } as never;
+  const coalescedManager = new SchedulerManagerService(
+    new SchedulerRegistryService(),
+    new SchedulerStateService(),
+    undefined,
+    coalescedPersistence,
+    new StartupBarrierService(),
+  );
+  await coalescedManager.initialize();
+  coalescedManager.registerTask({
+    id: 'coalesced-task',
+    kind: 'maintenance',
+    scope: 'global',
+    enabled: true,
+    priority: 'normal',
+  });
+  for (let index = 0; index < 20; index += 1) {
+    assert.equal(await coalescedManager.runTask('coalesced-task', async () => 1), 1);
+  }
+  await coalescedManager.onModuleDestroy();
+  assert.equal(maxConcurrentWrites, 1, '调度器快照写入必须保持单飞');
+  assert.ok(saveCalls <= 3, `高频状态变化应合并写入，实际 saveCalls=${saveCalls}`);
+  assert.equal(persistedRunCounts.at(-1), 20, '销毁前必须持久化最新状态');
+
   console.log(JSON.stringify({
     ok: true,
     taskCount: stopping.tasks.length,

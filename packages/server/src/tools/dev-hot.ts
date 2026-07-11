@@ -10,6 +10,9 @@
 import { spawn } from "node:child_process";
 import path from "node:path";
 import "../config/load-local-runtime-env";
+import { applyLocalDevelopmentRuntimeDefaults } from "../config/local-development-runtime-defaults";
+
+const localRuntimeDefaults = applyLocalDevelopmentRuntimeDefaults();
 
 const projectRoot = path.resolve(__dirname, "..", "..");
 const distEntry = path.join(projectRoot, "dist/main.js");
@@ -235,7 +238,10 @@ function startServer() {
   const generation = ++serverGeneration;
   clearConsoleForRestart();
   printServerSessionBanner(generation);
-  log(`启动 server 进程 #${generation}`);
+  log(
+    `启动 server 进程 #${generation} role=${localRuntimeDefaults.runtimeRole}`
+      + ` flushMode=${localRuntimeDefaults.flushTaskRuntimeMode || 'role-default'}`,
+  );
 
   const serverArgs = serverDevMaxOldSpaceMb > 0
     ? [`--max-old-space-size=${serverDevMaxOldSpaceMb}`, distEntry]

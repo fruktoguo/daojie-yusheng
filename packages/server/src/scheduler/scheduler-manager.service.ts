@@ -14,11 +14,16 @@ import type { SchedulerBarrierSnapshot, SchedulerSnapshot, SchedulerTaskDefiniti
 
 /** executor 默认超时：防止 runOnce hang 住导致 running=true 永久卡死 */
 const SCHEDULER_TASK_DEFAULT_TIMEOUT_MS = 30_000;
+/** 跨进程快照用于观测和恢复，不需要随每次任务完成同步写库。 */
+const SCHEDULER_STATE_PERSIST_DEBOUNCE_MS = 15_000;
 
 @Injectable()
 export class SchedulerManagerService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(SchedulerManagerService.name);
   private readonly executors = new Map<string, SchedulerTaskExecutor>();
+  private persistTimer: NodeJS.Timeout | null = null;
+  private persistInFlight: Promise<void> | null = null;
+  private persistRequested = false;
 
   constructor(
     private readonly registry: SchedulerRegistryService,
@@ -35,8 +40,9 @@ export class SchedulerManagerService implements OnModuleInit, OnModuleDestroy {
     this.logger.log('调度管理器已注册，等待启动链路编排器初始化');
   }
 
-  onModuleDestroy(): void {
+  async onModuleDestroy(): Promise<void> {
     this.stop('module_destroy');
+    await this.persistSnapshotNow();
   }
 
   async initialize(input?: { barrier?: SchedulerBarrierSnapshot | null }): Promise<SchedulerSnapshot> {
@@ -46,14 +52,14 @@ export class SchedulerManagerService implements OnModuleInit, OnModuleDestroy {
     }
     this.state.markInitialized();
     this.refreshBarrierSnapshot(input?.barrier);
-    void this.persistSnapshot();
+    await this.persistSnapshotNow();
     return this.getSnapshot();
   }
 
   stop(reason = 'stop'): SchedulerSnapshot {
     this.state.markStopping();
     this.refreshBarrierSnapshot();
-    void this.persistSnapshot();
+    this.schedulePersistSnapshot();
     this.logger.log(`调度管理器已进入停止状态：${reason}`);
     return this.getSnapshot();
   }
@@ -64,7 +70,7 @@ export class SchedulerManagerService implements OnModuleInit, OnModuleDestroy {
     if (executor) {
       this.executors.set(registered.id, executor);
     }
-    void this.persistSnapshot();
+    this.schedulePersistSnapshot();
     return registered;
   }
 
@@ -75,7 +81,7 @@ export class SchedulerManagerService implements OnModuleInit, OnModuleDestroy {
   setPaused(taskId: string, paused: boolean): boolean {
     const updated = this.state.setPaused(taskId, paused);
     if (updated) {
-      void this.persistSnapshot();
+      void this.persistSnapshotNow();
     }
     return Boolean(updated);
   }
@@ -83,7 +89,7 @@ export class SchedulerManagerService implements OnModuleInit, OnModuleDestroy {
   setEnabled(taskId: string, enabled: boolean): boolean {
     const updated = this.state.setEnabled(taskId, enabled);
     if (updated) {
-      void this.persistSnapshot();
+      void this.persistSnapshotNow();
     }
     return Boolean(updated);
   }
@@ -112,7 +118,7 @@ export class SchedulerManagerService implements OnModuleInit, OnModuleDestroy {
     const governorDecision = this.governorService?.evaluate(task) ?? { allow: true, reason: null, snapshot: null };
     if (!governorDecision.allow) {
       this.state.setBacklogCount(task.id, governorDecision.snapshot.backlogCount);
-      void this.persistSnapshot();
+      this.schedulePersistSnapshot();
       return 0;
     }
     const started = this.state.beginRun(task.id);
@@ -127,11 +133,11 @@ export class SchedulerManagerService implements OnModuleInit, OnModuleDestroy {
         durationMs: performance.now() - startedAt,
         nextRunAt: normalized.nextRunAt,
       });
-      void this.persistSnapshot();
+      this.schedulePersistSnapshot();
       return normalized.processedCount;
     } catch (error) {
       this.state.failRun(task.id, { error, durationMs: performance.now() - startedAt });
-      void this.persistSnapshot();
+      this.schedulePersistSnapshot();
       throw error;
     }
   }
@@ -144,11 +150,56 @@ export class SchedulerManagerService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
-  private async persistSnapshot(): Promise<void> {
+  private schedulePersistSnapshot(): void {
     if (!this.statePersistenceService) return;
-    await this.statePersistenceService.saveSnapshot(this.getSnapshot()).catch((error: unknown) => {
-      this.logger.warn(`调度器状态持久化失败：${error instanceof Error ? error.message : String(error)}`);
-    });
+    this.persistRequested = true;
+    if (this.persistTimer || this.persistInFlight) return;
+    this.persistTimer = setTimeout(() => {
+      this.persistTimer = null;
+      void this.persistSnapshotNow();
+    }, SCHEDULER_STATE_PERSIST_DEBOUNCE_MS);
+    this.persistTimer.unref();
+  }
+
+  /**
+   * 同一进程只允许一个 scheduler snapshot UPSERT 在途；并发请求只保留最新快照。
+   * 失败后延迟重试，避免数据库锁竞争时形成每秒告警和连接池请求风暴。
+   */
+  private async persistSnapshotNow(): Promise<void> {
+    if (!this.statePersistenceService) return;
+    this.persistRequested = true;
+    if (this.persistTimer) {
+      clearTimeout(this.persistTimer);
+      this.persistTimer = null;
+    }
+    if (this.persistInFlight) {
+      await this.persistInFlight;
+      if (!this.persistRequested) return;
+    }
+    const persistence = this.statePersistenceService;
+    const run = (async () => {
+      while (this.persistRequested) {
+        this.persistRequested = false;
+        try {
+          await persistence.saveSnapshot(this.getSnapshot());
+        } catch (error: unknown) {
+          this.logger.warn(`调度器状态持久化失败：${error instanceof Error ? error.message : String(error)}`);
+          this.persistRequested = true;
+          break;
+        }
+      }
+    })();
+    this.persistInFlight = run;
+    try {
+      await run;
+    } finally {
+      if (this.persistInFlight === run) {
+        this.persistInFlight = null;
+      }
+      if (this.persistRequested && !this.persistTimer) {
+        this.schedulePersistSnapshot();
+      }
+    }
   }
 }
 
