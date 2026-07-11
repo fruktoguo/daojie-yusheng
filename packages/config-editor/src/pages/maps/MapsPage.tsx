@@ -8,6 +8,7 @@ import { SectionPageLayout, Switch } from '../../ui';
 import { request } from '../../lib/api';
 import { toast } from '../../ui/Toast';
 import { GmMapEditor } from '../../../../client/src/gm-map-editor';
+import { useLatestRequestGuard } from '../../lib/use-request-generation';
 
 type SideTab = 'overview' | 'inspector' | 'json';
 type CatalogMode = 'main' | 'piece';
@@ -26,6 +27,7 @@ export default function MapsPage() {
   const [catalogMode, setCatalogMode] = useState<CatalogMode>('main');
   const [dualGridRenderingEnabled, setDualGridRenderingEnabled] = useState(loadDualGridRenderingPreference);
   const catalogMapRef = useRef<Map<string, CatalogMode>>(new Map());
+  const catalogRequestGuard = useLatestRequestGuard();
 
   const setAppStatus = useCallback((message: string, isError?: boolean) => {
     const el = document.getElementById('map-status-bar');
@@ -38,20 +40,27 @@ export default function MapsPage() {
 
   // Fetch catalog mode mapping
   const loadCatalogModes = useCallback(async () => {
+    const requestGeneration = catalogRequestGuard.begin();
     try {
-      const data = await request<{ maps: Array<{ id: string; catalogMode?: string }> }>('/api/maps');
+      const data = await request<{ maps: Array<{ id: string; catalogMode?: string }> }>('/api/maps', {
+        signal: requestGeneration.signal,
+      });
+      if (!catalogRequestGuard.isCurrent(requestGeneration)) return false;
       const map = new Map<string, CatalogMode>();
       for (const m of data.maps) {
         map.set(m.id, (m.catalogMode as CatalogMode) ?? 'main');
       }
       catalogMapRef.current = map;
-    } catch { /* ignore */ }
-  }, []);
+      return true;
+    } catch {
+      return false;
+    }
+  }, [catalogRequestGuard]);
 
   useEffect(() => {
     if (mountedRef.current) return;
     mountedRef.current = true;
-    loadCatalogModes();
+    void loadCatalogModes();
     const editor = new GmMapEditor(
       request,
       setAppStatus,
@@ -78,6 +87,8 @@ export default function MapsPage() {
   useEffect(() => {
     const listEl = document.getElementById('map-list');
     if (!listEl) return;
+    let active = true;
+    let catalogRefreshPending = false;
 
     const applyFilter = () => {
       const rows = listEl.querySelectorAll<HTMLElement>('[data-map-id]');
@@ -88,13 +99,17 @@ export default function MapsPage() {
         if (mode === undefined) hasUnknown = true;
         row.style.display = (mode ?? 'main') === catalogMode ? '' : 'none';
       });
-      if (hasUnknown && rows.length > 0) {
-        loadCatalogModes().then(() => {
-          rows.forEach(row => {
+      if (hasUnknown && rows.length > 0 && !catalogRefreshPending) {
+        catalogRefreshPending = true;
+        void loadCatalogModes().then((loaded) => {
+          if (!active || !loaded) return;
+          listEl.querySelectorAll<HTMLElement>('[data-map-id]').forEach(row => {
             const mapId = row.dataset.mapId ?? '';
             const mode = catalogMapRef.current.get(mapId) ?? 'main';
             row.style.display = mode === catalogMode ? '' : 'none';
           });
+        }).finally(() => {
+          catalogRefreshPending = false;
         });
       }
     };
@@ -102,7 +117,10 @@ export default function MapsPage() {
     applyFilter();
     const observer = new MutationObserver(applyFilter);
     observer.observe(listEl, { childList: true, subtree: true });
-    return () => observer.disconnect();
+    return () => {
+      active = false;
+      observer.disconnect();
+    };
   }, [catalogMode, loadCatalogModes]);
 
   // Wire side tab switching + forceTool

@@ -3,37 +3,63 @@
  *
  * 维护时要保持草稿、接口返回和发布数据的边界一致，避免把服务端导入校验提前写死在普通 UI 组件里。
  */
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { SectionPageLayout, StatCard, Card, Button } from '../../ui';
-import { api } from '../../lib/api';
+import { api, isAbortError } from '../../lib/api';
 import { toast } from '../../ui/Toast';
 import type { LocalServerStatusRes } from '../../types/api';
+import { useLatestRequestGuard } from '../../lib/use-request-generation';
 
 export default function ServicePage() {
   const [status, setStatus] = useState<LocalServerStatusRes | null>(null);
+  const [statusError, setStatusError] = useState('');
+  const [restarting, setRestarting] = useState(false);
+  const restartingRef = useRef(false);
+  const statusRequestGuard = useLatestRequestGuard();
+  const restartRequestGuard = useLatestRequestGuard();
 
-  const fetchStatus = useCallback(async () => {
+  const fetchStatus = useCallback(async (notifyError = false) => {
+    const request = statusRequestGuard.begin();
     try {
-      setStatus(await api.server.status());
+      const nextStatus = await api.server.status(request.signal);
+      if (!statusRequestGuard.isCurrent(request)) return;
+      setStatus(nextStatus);
+      setStatusError('');
     } catch (e) {
-      toast.error(`获取状态失败: ${(e as Error).message}`);
+      if (!statusRequestGuard.isCurrent(request) || isAbortError(e)) return;
+      const message = `获取状态失败: ${(e as Error).message}`;
+      setStatus(null);
+      setStatusError(message);
+      if (notifyError) {
+        toast.error(message);
+      }
     }
-  }, []);
+  }, [statusRequestGuard]);
 
   useEffect(() => {
-    fetchStatus();
-    const timer = setInterval(fetchStatus, 3000);
+    void fetchStatus();
+    const timer = setInterval(() => void fetchStatus(), 3000);
     return () => clearInterval(timer);
   }, [fetchStatus]);
 
   const handleRestart = async () => {
-    if (!confirm('确认重启服务端？')) return;
+    if (restartingRef.current || !confirm('确认重启服务端？')) return;
+    const request = restartRequestGuard.begin();
+    restartingRef.current = true;
+    setRestarting(true);
     try {
       await api.server.restart();
+      if (!restartRequestGuard.isCurrent(request)) return;
       toast.success('重启指令已发送');
-      fetchStatus();
+      void fetchStatus();
     } catch (e) {
+      if (!restartRequestGuard.isCurrent(request)) return;
       toast.error(`重启失败: ${(e as Error).message}`);
+    } finally {
+      restartingRef.current = false;
+      if (restartRequestGuard.isCurrent(request)) {
+        setRestarting(false);
+      }
     }
   };
 
@@ -42,8 +68,8 @@ export default function ServicePage() {
       title="服务控制"
       actions={
         <>
-          <Button variant="outline" size="sm" onClick={fetchStatus}>刷新</Button>
-          <Button variant="destructive" size="sm" onClick={handleRestart}>重启</Button>
+          <Button variant="outline" size="sm" onClick={() => void fetchStatus(true)}>刷新</Button>
+          <Button variant="destructive" size="sm" onClick={handleRestart} disabled={restarting}>{restarting ? '重启中...' : '重启'}</Button>
         </>
       }
     >
@@ -51,13 +77,17 @@ export default function ServicePage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <StatCard
             label="运行状态"
-            value={status ? (status.running ? '运行中' : '已停止') : '加载中...'}
+            value={status ? (status.running ? '运行中' : '已停止') : statusError ? '状态不可用' : '加载中...'}
             variant={status?.running ? 'success' : 'destructive'}
           />
           <StatCard label="启动命令" value={status?.mode ?? '-'} />
           <StatCard label="当前PID" value={status?.pid != null ? String(status.pid) : '-'} />
           <StatCard label="最近重启时间" value={status?.lastRestartAt ?? '-'} />
         </div>
+
+        {statusError ? (
+          <div className="text-sm text-destructive" role="status">{statusError}</div>
+        ) : null}
 
         <Card>
           <h3 className="font-medium mb-2">行为说明</h3>

@@ -3,9 +3,9 @@
  *
  * 维护时要保持草稿、接口返回和发布数据的边界一致，避免把服务端导入校验提前写死在普通 UI 组件里。
  */
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { SectionPageLayout, Card, Button, Input, Tabs, TabsList, TabsTrigger, TabsContent } from '../../ui';
-import { api } from '../../lib/api';
+import { api, isAbortError } from '../../lib/api';
 import { cn } from '../../lib/cn';
 import { formatDisplayNumber } from '../../lib/format';
 import { toast } from '../../ui/Toast';
@@ -27,6 +27,10 @@ import {
 } from '@mud/shared';
 import type { MonsterAggroMode, MonsterInitialBuffDef } from '@mud/shared';
 import monsterRealmBaselines from '../../../../server/data/content/realm-attr-baselines.json';
+import {
+  shouldReplaceEditorDraftAfterSave,
+} from '../../lib/request-generation';
+import { useLatestRequestGuard } from '../../lib/use-request-generation';
 
 const AGGRO_MODES: Array<{ value: MonsterAggroMode; label: string }> = [
   { value: 'always', label: '主动 (always)' },
@@ -64,6 +68,10 @@ function parseFloatOrUndef(value: string): number | undefined {
   return num;
 }
 
+function formatInitialBuffs(initialBuffs: MonsterInitialBuffDef[] | undefined): string {
+  return initialBuffs ? JSON.stringify(initialBuffs, null, 2) : '';
+}
+
 export default function MonstersPage() {
   const [entries, setEntries] = useState<LocalMonsterTemplateEntry[]>([]);
   const [catalog, setCatalog] = useState<LocalEditorItemOption[]>([]);
@@ -72,29 +80,52 @@ export default function MonstersPage() {
   const [draft, setDraft] = useState<MonsterTemplateRecord | null>(null);
   const [savedJson, setSavedJson] = useState('');
   const [initialBuffsText, setInitialBuffsText] = useState('');
+  const [savedInitialBuffsText, setSavedInitialBuffsText] = useState('');
   const [initialBuffsError, setInitialBuffsError] = useState<string | null>(null);
-  const dirty = draft != null && JSON.stringify(draft) !== savedJson;
+  const [saving, setSaving] = useState(false);
+  const selectedKeyRef = useRef<string | null>(null);
+  const draftRef = useRef<MonsterTemplateRecord | null>(null);
+  const initialBuffsTextRef = useRef('');
+  const savingRef = useRef(false);
+  const listRequestGuard = useLatestRequestGuard();
+  const saveRequestGuard = useLatestRequestGuard();
+  selectedKeyRef.current = selectedKey;
+  draftRef.current = draft;
+  initialBuffsTextRef.current = initialBuffsText;
+  const dirty = draft != null && (
+    JSON.stringify(draft) !== savedJson
+    || initialBuffsText !== savedInitialBuffsText
+  );
 
   const catalogMap = useMemo(() => new Map(catalog.map(i => [i.itemId, i])), [catalog]);
 
   const loadList = useCallback(async () => {
+    const request = listRequestGuard.begin();
     try {
-      const [mRes, cRes] = await Promise.all([api.monsters.list(), api.editorCatalog.get()]);
+      const [mRes, cRes] = await Promise.all([
+        api.monsters.list(request.signal),
+        api.editorCatalog.get(request.signal),
+      ]);
+      if (!listRequestGuard.isCurrent(request)) return;
       setEntries(mRes.monsters);
       setCatalog(cRes.items);
     } catch (e) {
+      if (!listRequestGuard.isCurrent(request) || isAbortError(e)) return;
       toast.error(`加载失败: ${(e as Error).message}`);
     }
-  }, []);
+  }, [listRequestGuard]);
 
-  useEffect(() => { loadList(); }, [loadList]);
+  useEffect(() => { void loadList(); }, [loadList]);
 
   const selectMonster = (entry: LocalMonsterTemplateEntry) => {
+    if (savingRef.current) return;
     if (dirty && !confirm('当前有未保存修改，确认切换？')) return;
     setSelectedKey(entry.key);
     setDraft({ ...entry.monster });
     setSavedJson(JSON.stringify(entry.monster));
-    setInitialBuffsText(entry.monster.initialBuffs ? JSON.stringify(entry.monster.initialBuffs, null, 2) : '');
+    const nextInitialBuffsText = formatInitialBuffs(entry.monster.initialBuffs);
+    setInitialBuffsText(nextInitialBuffsText);
+    setSavedInitialBuffsText(nextInitialBuffsText);
     setInitialBuffsError(null);
   };
 
@@ -111,7 +142,7 @@ export default function MonstersPage() {
   }, [draft, catalogMap]);
 
   const handleSave = async () => {
-    if (!selectedKey || !draft) return;
+    if (!selectedKey || !draft || savingRef.current) return;
 
     // 把 initialBuffs JSON 文本同步进 draft（容错：空字符串视作清空）
     let initialBuffs: MonsterInitialBuffDef[] | undefined;
@@ -130,26 +161,57 @@ export default function MonstersPage() {
       }
     }
     const payload: MonsterTemplateRecord = { ...draft, initialBuffs };
+    const requestKey = selectedKey;
+    const requestDraftSnapshot = JSON.stringify(draft);
+    const requestInitialBuffsText = initialBuffsText;
+    const request = saveRequestGuard.begin();
+    savingRef.current = true;
+    setSaving(true);
 
     try {
-      const res = await api.monsters.save(selectedKey, payload);
-      setSavedJson(JSON.stringify(res.monster));
-      setDraft(res.monster);
-      setInitialBuffsText(res.monster.initialBuffs ? JSON.stringify(res.monster.initialBuffs, null, 2) : '');
-      setInitialBuffsError(null);
+      const res = await api.monsters.save(requestKey, payload);
+      if (!saveRequestGuard.isCurrent(request)) return;
+      if (selectedKeyRef.current === requestKey) {
+        const savedSnapshot = JSON.stringify(res.monster);
+        const savedBuffsText = formatInitialBuffs(res.monster.initialBuffs);
+        setSavedJson(savedSnapshot);
+        setSavedInitialBuffsText(savedBuffsText);
+        const currentDraftSnapshot = draftRef.current ? JSON.stringify(draftRef.current) : null;
+        const shouldReplaceDraft = shouldReplaceEditorDraftAfterSave(
+          requestKey,
+          requestDraftSnapshot,
+          selectedKeyRef.current,
+          currentDraftSnapshot,
+        ) && initialBuffsTextRef.current === requestInitialBuffsText;
+        if (shouldReplaceDraft) {
+          setDraft(res.monster);
+          setInitialBuffsText(savedBuffsText);
+          setInitialBuffsError(null);
+        }
+      }
       toast.success(`保存成功，更新了 ${res.updatedMapCount} 张地图`);
-      loadList();
+      void loadList();
     } catch (e) {
+      if (!saveRequestGuard.isCurrent(request)) return;
       toast.error(`保存失败: ${(e as Error).message}`);
+    } finally {
+      savingRef.current = false;
+      if (saveRequestGuard.isCurrent(request)) {
+        setSaving(false);
+      }
     }
   };
 
   const handleReload = () => {
+    if (savingRef.current) return;
     const entry = entries.find(e => e.key === selectedKey);
     if (!entry) return;
+    if (dirty && !confirm('当前有未保存修改，确认重新加载？')) return;
     setDraft({ ...entry.monster });
     setSavedJson(JSON.stringify(entry.monster));
-    setInitialBuffsText(entry.monster.initialBuffs ? JSON.stringify(entry.monster.initialBuffs, null, 2) : '');
+    const nextInitialBuffsText = formatInitialBuffs(entry.monster.initialBuffs);
+    setInitialBuffsText(nextInitialBuffsText);
+    setSavedInitialBuffsText(nextInitialBuffsText);
     setInitialBuffsError(null);
     toast.info('已重载');
   };
@@ -186,6 +248,7 @@ export default function MonstersPage() {
                   'w-full text-left px-2 py-1.5 rounded text-sm truncate',
                   selectedKey === e.key ? 'bg-primary text-primary-foreground' : 'hover:bg-accent',
                 )}
+                disabled={saving}
                 onClick={() => selectMonster(e)}
               >
                 <span className="font-medium">{e.monster.name || e.key}</span>
@@ -205,8 +268,8 @@ export default function MonstersPage() {
                   <span className="ml-2 text-xs text-muted-foreground">持久化口径：tendency 模式（attrTendency + statTendency）</span>
                 </span>
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={handleReload}>重载</Button>
-                  <Button size="sm" onClick={handleSave} disabled={!dirty}>保存</Button>
+                  <Button variant="outline" size="sm" onClick={handleReload} disabled={saving}>重载</Button>
+                  <Button size="sm" onClick={handleSave} disabled={!dirty || saving}>{saving ? '保存中...' : '保存'}</Button>
                 </div>
               </div>
               <div className="flex-1 overflow-auto p-4 space-y-4">

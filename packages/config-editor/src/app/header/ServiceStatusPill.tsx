@@ -6,31 +6,34 @@
 import { useEffect, useState } from 'react';
 import { Badge } from '../../ui/Badge';
 import { cn } from '../../lib/cn';
+import { useLatestRequestGuard } from '../../lib/use-request-generation';
 
 type Status = 'running' | 'stopped' | 'unmanaged';
 
 export function ServiceStatusPill() {
   const [status, setStatus] = useState<Status>('stopped');
+  const requestGuard = useLatestRequestGuard();
 
   useEffect(() => {
-    let active = true;
     const poll = async () => {
+      const request = requestGuard.begin();
       try {
-        const res = await fetch('/api/server/status');
-        if (!active) return;
+        const res = await fetch('/api/server/status', { signal: request.signal });
+        if (!requestGuard.isCurrent(request)) return;
         if (!res.ok) { setStatus('stopped'); return; }
         const data = await res.json() as { managed: boolean; running: boolean };
+        if (!requestGuard.isCurrent(request)) return;
         if (!data.managed) setStatus('unmanaged');
         else if (data.running) setStatus('running');
         else setStatus('stopped');
       } catch {
-        if (active) setStatus('stopped');
+        if (requestGuard.isCurrent(request)) setStatus('stopped');
       }
     };
-    poll();
-    const id = setInterval(poll, 3000);
-    return () => { active = false; clearInterval(id); };
-  }, []);
+    void poll();
+    const id = setInterval(() => void poll(), 3000);
+    return () => clearInterval(id);
+  }, [requestGuard]);
 
   const label = status === 'running' ? '运行中' : status === 'unmanaged' ? '未托管' : '未运行';
 

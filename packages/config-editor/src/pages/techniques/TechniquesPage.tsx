@@ -3,9 +3,9 @@
  *
  * 维护时要保持草稿、接口返回和发布数据的边界一致，避免把服务端导入校验提前写死在普通 UI 组件里。
  */
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { SectionPageLayout, Card, Button, Input, Tabs, TabsList, TabsTrigger, TabsContent } from '../../ui';
-import { api } from '../../lib/api';
+import { api, isAbortError } from '../../lib/api';
 import { cn } from '../../lib/cn';
 import { toast } from '../../ui/Toast';
 import type { LocalTechniqueEntry, LocalTechniqueTemplateRecord, LocalTechniqueSkill, LocalTechniqueEffect, LocalBuffModifierMode } from '../../types/api';
@@ -18,6 +18,10 @@ import {
   NUMERIC_SCALAR_STAT_KEYS,
   NUMERIC_SCALAR_STAT_LABELS,
 } from '@mud/shared';
+import {
+  shouldReplaceEditorDraftAfterSave,
+} from '../../lib/request-generation';
+import { useLatestRequestGuard } from '../../lib/use-request-generation';
 
 export default function TechniquesPage() {
   const [entries, setEntries] = useState<LocalTechniqueEntry[]>([]);
@@ -27,20 +31,32 @@ export default function TechniquesPage() {
   const [savedJson, setSavedJson] = useState('');
   const [selectedSkillIdx, setSelectedSkillIdx] = useState(0);
   const [selectedEffectIdx, setSelectedEffectIdx] = useState(0);
+  const [saving, setSaving] = useState(false);
+  const selectedKeyRef = useRef<string | null>(null);
+  const draftRef = useRef<LocalTechniqueTemplateRecord | null>(null);
+  const savingRef = useRef(false);
+  const listRequestGuard = useLatestRequestGuard();
+  const saveRequestGuard = useLatestRequestGuard();
+  selectedKeyRef.current = selectedKey;
+  draftRef.current = draft;
   const dirty = draft != null && JSON.stringify(draft) !== savedJson;
 
   const loadList = useCallback(async () => {
+    const request = listRequestGuard.begin();
     try {
-      const res = await api.techniques.list();
+      const res = await api.techniques.list(request.signal);
+      if (!listRequestGuard.isCurrent(request)) return;
       setEntries(res.techniques);
     } catch (e) {
+      if (!listRequestGuard.isCurrent(request) || isAbortError(e)) return;
       toast.error(`加载失败: ${(e as Error).message}`);
     }
-  }, []);
+  }, [listRequestGuard]);
 
-  useEffect(() => { loadList(); }, [loadList]);
+  useEffect(() => { void loadList(); }, [loadList]);
 
   const selectTechnique = (entry: LocalTechniqueEntry) => {
+    if (savingRef.current) return;
     if (dirty && !confirm('当前有未保存修改，确认切换？')) return;
     setSelectedKey(entry.key);
     setDraft({ ...entry.technique });
@@ -55,21 +71,47 @@ export default function TechniquesPage() {
   };
 
   const handleSave = async () => {
-    if (!selectedKey || !draft) return;
+    if (!selectedKey || !draft || savingRef.current) return;
+    const requestKey = selectedKey;
+    const requestDraft = draft;
+    const requestDraftSnapshot = JSON.stringify(requestDraft);
+    const request = saveRequestGuard.begin();
+    savingRef.current = true;
+    setSaving(true);
     try {
-      const res = await api.techniques.save(selectedKey, draft);
-      setSavedJson(JSON.stringify(res.technique));
-      setDraft(res.technique);
+      const res = await api.techniques.save(requestKey, requestDraft);
+      if (!saveRequestGuard.isCurrent(request)) return;
+      const savedSnapshot = JSON.stringify(res.technique);
+      if (selectedKeyRef.current === requestKey) {
+        setSavedJson(savedSnapshot);
+        const currentDraftSnapshot = draftRef.current ? JSON.stringify(draftRef.current) : null;
+        if (shouldReplaceEditorDraftAfterSave(
+          requestKey,
+          requestDraftSnapshot,
+          selectedKeyRef.current,
+          currentDraftSnapshot,
+        )) {
+          setDraft(res.technique);
+        }
+      }
       toast.success('保存成功');
-      loadList();
+      void loadList();
     } catch (e) {
+      if (!saveRequestGuard.isCurrent(request)) return;
       toast.error(`保存失败: ${(e as Error).message}`);
+    } finally {
+      savingRef.current = false;
+      if (saveRequestGuard.isCurrent(request)) {
+        setSaving(false);
+      }
     }
   };
 
   const handleReload = () => {
+    if (savingRef.current) return;
     const entry = entries.find(e => e.key === selectedKey);
     if (!entry) return;
+    if (dirty && !confirm('当前有未保存修改，确认重新加载？')) return;
     setDraft({ ...entry.technique });
     setSavedJson(JSON.stringify(entry.technique));
     toast.info('已重载');
@@ -181,6 +223,7 @@ export default function TechniquesPage() {
                   'w-full text-left px-2 py-1.5 rounded text-sm truncate',
                   selectedKey === e.key ? 'bg-primary text-primary-foreground' : 'hover:bg-accent',
                 )}
+                disabled={saving}
                 onClick={() => selectTechnique(e)}
               >
                 <span className="font-medium">{e.technique.name || e.key}</span>
@@ -199,8 +242,8 @@ export default function TechniquesPage() {
               <div className="flex items-center justify-between px-4 py-2 border-b border-border shrink-0">
                 <span className="text-sm font-medium">{draft.name || selectedKey}</span>
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={handleReload}>重载</Button>
-                  <Button size="sm" onClick={handleSave} disabled={!dirty}>保存</Button>
+                  <Button variant="outline" size="sm" onClick={handleReload} disabled={saving}>重载</Button>
+                  <Button size="sm" onClick={handleSave} disabled={!dirty || saving}>{saving ? '保存中...' : '保存'}</Button>
                 </div>
               </div>
               <div className="flex-1 overflow-auto p-4 space-y-4">

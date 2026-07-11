@@ -40,30 +40,34 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
   return response.json() as Promise<T>;
 }
 
+export function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === 'AbortError';
+}
+
 export const api = {
   maps: {
-    list: () => request<{ maps: Array<{ id: string; name: string; category: string; width: number; height: number; mapLv?: number }> }>('/api/maps'),
-    get: (id: string) => request<{ id: string; data: unknown }>(`/api/maps/${encodeURIComponent(id)}`),
+    list: (signal?: AbortSignal) => request<{ maps: Array<{ id: string; name: string; category: string; width: number; height: number; mapLv?: number }> }>('/api/maps', { signal }),
+    get: (id: string, signal?: AbortSignal) => request<{ id: string; data: unknown }>(`/api/maps/${encodeURIComponent(id)}`, { signal }),
     put: (id: string, data: unknown) => request<BasicOkRes>(`/api/maps/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(data) }),
   },
   monsters: {
-    list: () => request<LocalMonsterTemplateListRes>('/api/monsters'),
+    list: (signal?: AbortSignal) => request<LocalMonsterTemplateListRes>('/api/monsters', { signal }),
     save: (key: string, monster: MonsterTemplateRecord) => request<LocalMonsterSaveRes>('/api/monsters', { method: 'PUT', body: JSON.stringify({ key, monster }) }),
   },
   techniques: {
-    list: () => request<LocalTechniqueListRes>('/api/techniques'),
+    list: (signal?: AbortSignal) => request<LocalTechniqueListRes>('/api/techniques', { signal }),
     save: (key: string, technique: LocalTechniqueTemplateRecord) => request<LocalTechniqueSaveRes>('/api/techniques', { method: 'PUT', body: JSON.stringify({ key, technique }) }),
   },
   editorCatalog: {
-    get: () => request<LocalEditorCatalogRes>('/api/editor-catalog'),
+    get: (signal?: AbortSignal) => request<LocalEditorCatalogRes>('/api/editor-catalog', { signal }),
   },
   configFiles: {
-    list: () => request<LocalConfigFileListRes>('/api/config-files'),
-    get: (path: string) => request<LocalConfigFileRes>(`/api/config-file?path=${encodeURIComponent(path)}`),
+    list: (signal?: AbortSignal) => request<LocalConfigFileListRes>('/api/config-files', { signal }),
+    get: (path: string, signal?: AbortSignal) => request<LocalConfigFileRes>(`/api/config-file?path=${encodeURIComponent(path)}`, { signal }),
     save: (path: string, content: string) => request<BasicOkRes>('/api/config-file', { method: 'PUT', body: JSON.stringify({ path, content }) }),
   },
   server: {
-    status: () => request<LocalServerStatusRes>('/api/server/status'),
+    status: (signal?: AbortSignal) => request<LocalServerStatusRes>('/api/server/status', { signal }),
     restart: () => request<BasicOkRes>('/api/server/restart', { method: 'POST', body: '{}' }),
   },
 };
