@@ -17,7 +17,8 @@
  */
 import { fbmNoise2D, hashStringToUint32, ProcgenRng } from './procgen-random';
 import { smoothTerrain } from './procgen-fields';
-import { stampStructures, type InfiniteStructureSpec } from './procgen-chunk-structures';
+import { stampStructures } from './procgen-chunk-assemble';
+import type { FurnitureAnchor, InfiniteStructureSpec } from './procgen-chunk-structures';
 import type { ProcgenFieldSpec } from './procgen-types';
 
 /** biome 判定规则：在对比拉伸后的 [0,1] 高程/湿度上取区间，首条命中优先。 */
@@ -56,6 +57,8 @@ export interface WorldChunk {
   terrainIds: string[];
   surfaceIds: (string | null)[];
   structureIds: (string | null)[];
+  /** 家具锚点（局部格坐标 + 汉字字形）：demo 直接画字，不进结构层、不参与 walkable。 */
+  furniture: FurnitureAnchor[];
 }
 
 function clamp01(v: number): number {
@@ -113,6 +116,7 @@ export function generateChunk(spec: InfiniteWorldSpec, cx: number, cy: number): 
   }
   const surfaceIds = new Array<string | null>(size * size).fill(null);
   const structureIds = new Array<string | null>(size * size).fill(null);
+  const furniture: FurnitureAnchor[] = [];
 
   // 结构散布：逐块独立确定性种子；边界结构不需要邻块信息，故无跨块冲突。
   const rng = new ProcgenRng(`${spec.seed}:chunk:${cx}:${cy}:scatter`);
@@ -126,9 +130,9 @@ export function generateChunk(spec: InfiniteWorldSpec, cx: number, cy: number): 
   // 结构镶嵌：自然地貌与散点铺完后，点阵撒下与本块相交的城镇/地牢/小屋。
   // 只写结构自身 footprint，故周围保持自然；跨块结构由相邻块各自 stamp 出一致结果。
   if (spec.structures) {
-    stampStructures(spec.seed, size, spec.structures, cx, cy, terrainIds, surfaceIds, structureIds);
+    stampStructures(spec.seed, size, spec.structures, cx, cy, terrainIds, surfaceIds, structureIds, furniture);
   }
-  return { cx, cy, size, terrainIds, surfaceIds, structureIds };
+  return { cx, cy, size, terrainIds, surfaceIds, structureIds, furniture };
 }
 
 /** 默认无限世界：温带自然地貌（深水—浅滩—草原—丘陵—峭壁，湿地散生竹林）。 */

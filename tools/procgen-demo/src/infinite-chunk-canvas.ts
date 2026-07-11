@@ -126,5 +126,17 @@ export class ChunkCanvasCache {
         tileAt: (x, y): RuntimeTileVisualSource | null => world.tileAt(x, y),
       });
     }
+
+    // 家具：最上层把汉字陈设画在格中央（床/柜/案/炉…）。缩得太小时略过，避免糊成一团。
+    if (cs >= 8) {
+      const furniture = world.chunkFurnitureAt(cx, cy);
+      if (furniture.length > 0) {
+        ctx.fillStyle = '#3a281a';
+        ctx.font = `${Math.floor(cs * 0.72)}px "PingFang SC", "Microsoft YaHei", system-ui, sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        for (const f of furniture) ctx.fillText(f.glyph, f.x * cs + cs / 2, f.y * cs + cs / 2);
+      }
+    }
   }
 }

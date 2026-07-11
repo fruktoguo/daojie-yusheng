@@ -19,4 +19,7 @@ export * from './procgen-realm-skeleton';
 export * from './procgen-presets';
 export * from './procgen-chunk';
 export * from './procgen-chunk-structures';
+export * from './procgen-chunk-town';
+export * from './procgen-chunk-dungeon';
+export * from './procgen-chunk-assemble';
 export * from './procgen-infinite-themes';

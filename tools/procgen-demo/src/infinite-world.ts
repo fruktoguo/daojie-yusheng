@@ -6,6 +6,7 @@
  * 渲染与 dual-grid 融合都走它，故跨块读邻格天然自洽、无缝。
  */
 import { generateChunk, type InfiniteWorldSpec, type WorldChunk } from '../../../packages/shared/src/procgen/procgen-chunk';
+import type { FurnitureAnchor } from '../../../packages/shared/src/procgen/procgen-chunk-structures';
 import { composeTileTypeFromLayers } from '../../../packages/shared/src/map-layer-types';
 import type { StructureType, SurfaceType, TerrainType } from '../../../packages/shared/src/map-layer-types';
 import { doesTileTypeBlockSight, isTileTypeWalkable } from '../../../packages/shared/src/terrain';
@@ -88,6 +89,11 @@ export class InfiniteWorld {
     const lx = worldX - cx * size;
     const ly = worldY - cy * size;
     return entry.tiles[ly * size + lx] ?? null;
+  }
+
+  /** 某块的家具锚点（局部格坐标 + 汉字），供渲染层画字。缺块即生成并缓存。 */
+  chunkFurnitureAt(cx: number, cy: number): readonly FurnitureAnchor[] {
+    return this.chunkAt(cx, cy).chunk.furniture;
   }
 
   /** 预取以 (centerCx,centerCy) 为中心、半径 radius 的块（避免走到边缘穿帮）。 */
