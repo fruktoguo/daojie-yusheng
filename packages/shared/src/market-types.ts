@@ -6,7 +6,7 @@
 /**
  * 坊市共享类型：承接订单、盘口、成交记录与托管仓视图。
  */
-import type { TechniqueCategory } from './cultivation-types';
+import type { TechniqueCategory, TechniqueGrade } from './cultivation-types';
 import type { EquipSlot, ItemStack, ItemType } from './item-runtime-types';
 
 /** 坊市订单方向 */
@@ -306,6 +306,8 @@ export interface AuctionBidRecordView {
 
 /** 传法台分栏：可求取的寄售，或自己寄售中的功法残卷。 */
 export type TransmissionTab = 'participate' | 'mine';
+/** 传法台服务端分页排序。 */
+export type TransmissionListingSort = 'price_asc' | 'price_desc' | 'realm_desc' | 'grade_desc' | 'newest';
 
 /** 传法台分页中的单卷功法残卷摘要，一卷一单、一口价。 */
 export interface TransmissionLotPageEntry {
@@ -321,6 +323,14 @@ export interface TransmissionLotPageEntry {
   itemType: ItemType;
   /** 功法子分类。 */
   itemSubType?: AuctionListingSubType;
+  /** 功法名称；服务端从自创功法模板投影，避免客户端先取详情才能展示。 */
+  techniqueName: string;
+  /** 功法类别；模板缺失时不伪造分类。 */
+  techniqueCategory?: TechniqueCategory;
+  /** 功法品阶；模板缺失时回退到残卷实例字段。 */
+  techniqueGrade?: TechniqueGrade;
+  /** 功法要求境界等级。 */
+  techniqueRealmLv?: number;
   /** 一口价售价。 */
   price: number;
   /** 传法者标签，默认匿名。 */
@@ -331,12 +341,16 @@ export interface TransmissionLotPageEntry {
   remainingQuantity: number;
   /** 寄售时间戳。 */
   createdAt: number;
+  /** 订单 ID；仅自己的寄售会在客户端显示撤回入口。 */
+  orderId: string;
 }
 
 /** 传法台分栏计数。 */
 export interface TransmissionListingCountsView {
   participate: number;
   mine: number;
+  /** 当前分栏在搜索条件下的功法分类计数。 */
+  categoryCounts: Partial<Record<TechniqueCategory | 'all', number>>;
 }
 
 /** 拍卖行分页中的单个拍品摘要。 */

@@ -979,14 +979,10 @@
     gap: 8px;
     overflow: hidden;
   }
-  /* 传法台只有列表与详情两块，手机端上下堆叠即可。 */
+  /* 传法台在手机端依次排列筛选、列表和详情。 */
   .auction-house-board--transmission {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: minmax(0, 1fr) minmax(200px, 0.9fr);
-  }
-  .transmission-consign {
-    flex-direction: column;
-    align-items: stretch;
+    grid-template-rows: auto minmax(240px, 1fr) minmax(220px, 0.9fr);
   }
   .auction-filter-rail {
     display: grid;
@@ -1050,6 +1046,20 @@
   .auction-consign-inline-head {
     flex-direction: column;
   }
+  .transmission-consign-toolbar,
+  .transmission-consign-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .transmission-consign-items {
+    grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+    max-height: min(30dvh, 240px);
+  }
+  .transmission-consign-price-field .market-price-control-row {
+    justify-content: flex-start;
+  }
+  .transmission-consign-submit {
+    width: 100%;
+  }
   .auction-list-head {
     display: none;
   }
@@ -1063,6 +1073,16 @@
   .auction-lot-row:not(.auction-lot-row--mine) > span:nth-child(4),
   .auction-lot-row--mine > span:nth-of-type(4) {
     display: none;
+  }
+  .auction-house-board--transmission .transmission-lot-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .transmission-lot-row > span:not(.auction-lot-item):not(.auction-lot-ribbon):not(.transmission-lot-price) {
+    display: none !important;
+  }
+  .transmission-lot-row > .auction-lot-item,
+  .transmission-lot-row > .transmission-lot-price {
+    display: grid !important;
   }
   .auction-detail-head {
     grid-template-columns: 48px minmax(0, 1fr);

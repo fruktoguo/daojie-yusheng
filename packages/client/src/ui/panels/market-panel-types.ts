@@ -27,6 +27,8 @@ import type {
   S2C_MarketTradeHistory,
   S2C_MarketUpdate,
   TechniqueCategory,
+  TechniqueGrade,
+  TransmissionListingSort,
 } from '@mud/shared';
 import type { MarketModalTab } from '../../constants/ui/market';
 
@@ -133,17 +135,38 @@ export interface TransmissionLotView {
   id: string;
   itemKey: string;
   item: ItemStack;
+  techniqueId: string;
   itemName: string;
+  category: TechniqueCategory | null;
+  categoryLabel: string;
+  grade: TechniqueGrade | null;
   qualityLabel: string;
   realmLevelLabel: string | null;
+  realmLevel: number;
   price: number;
   sellerLabel: string;
   isMine: boolean;
   remainingQuantity: number;
+  createdAt: number;
+  orderId: string;
 }
 
 /** 传法台分栏。 */
 export type TransmissionPanelTab = 'participate' | 'mine';
+/** 传法台功法分类筛选。 */
+export type TransmissionCategoryFilter = TechniqueCategory | 'all';
+/** 背包残卷选择器的本地排序。 */
+export type TransmissionConsignSort = 'realm_desc' | 'grade_desc' | 'name_asc';
+
+/** 传法台独立上架界面的可编辑状态。 */
+export interface TransmissionConsignPanelState {
+  open: boolean;
+  itemInstanceId: string | null;
+  query: string;
+  category: TransmissionCategoryFilter;
+  sort: TransmissionConsignSort;
+  unitPrice: number;
+}
 
 /** 市场面板对外的请求/提交回调。 */
 export interface MarketPanelCallbacks {
@@ -196,6 +219,9 @@ export interface MarketPanelInternals {
   transmissionTab: TransmissionPanelTab;
   transmissionPage: number;
   transmissionSearchQuery: string;
+  transmissionCategory: TransmissionCategoryFilter;
+  transmissionSort: TransmissionListingSort;
+  transmissionConsignPanel: TransmissionConsignPanelState;
   selectedTransmissionItemKey: string | null;
   pendingTransmissionKey: string | null;
   currentPage: number;
@@ -272,5 +298,6 @@ export interface MarketPanelInternals {
   openAuctionBidDialog(entry: MarketListedItemView, lot: AuctionLotView): void;
   openAuctionBuyoutConfirm(entry: MarketListedItemView, lot: AuctionLotView): void;
   openAuctionConsignModal(): void;
+  openTransmissionConsignModal(): void;
   resolveAuctionLotByKey(lotId: string | null | undefined, update: S2C_MarketUpdate | null, tab?: AuctionHouseTab): AuctionLotView | null;
 }

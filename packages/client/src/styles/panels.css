@@ -7562,9 +7562,9 @@
       min-height: 0;
       height: 100%;
     }
-    /* 传法台只有列表与详情两块，没有拍卖行的筛选侧栏。 */
+    /* 传法台与拍卖行共享筛选、列表、详情三栏骨架。 */
     .auction-house-board--transmission {
-      grid-template-columns: minmax(360px, 1.1fr) minmax(320px, 0.9fr);
+      grid-template-columns: 200px minmax(330px, 1.08fr) minmax(290px, 0.92fr);
     }
     .transmission-loading {
       display: grid;
@@ -7588,33 +7588,6 @@
       .transmission-loading-indicator {
         animation: none;
       }
-    }
-    .transmission-consign {
-      display: flex;
-      align-items: flex-end;
-      gap: 8px;
-      flex-wrap: wrap;
-      margin-top: 10px;
-    }
-    .transmission-consign-field {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      flex: 1 1 120px;
-      min-width: 0;
-      font-size: var(--font-size-12);
-      color: var(--ink-grey);
-    }
-    .transmission-consign-field select,
-    .transmission-consign-field input {
-      width: 100%;
-      min-width: 0;
-      padding: 6px 8px;
-      border-radius: 6px;
-      border: 1px solid var(--wash-ink);
-      background: var(--surface-muted);
-      color: var(--ink-black);
-      font: inherit;
     }
     .auction-house-board--mine {
       grid-template-columns: 220px minmax(380px, 1fr) minmax(360px, 0.9fr);
@@ -8130,6 +8103,131 @@
       border-color: rgba(138, 76, 45, 0.26);
       background: rgba(138, 76, 45, 0.08);
       color: #8a4c2d;
+    }
+    .transmission-filter-rail {
+      align-content: start;
+    }
+    .transmission-sort-field {
+      display: grid;
+      gap: 6px;
+      min-width: 0;
+      color: var(--ink-grey);
+      font-size: var(--font-size-12);
+    }
+    .transmission-sort-field select {
+      width: 100%;
+      min-width: 0;
+      cursor: pointer;
+    }
+    .auction-house-board--transmission .auction-list-panel {
+      grid-template-rows: auto auto minmax(0, 1fr);
+    }
+    .transmission-list-head,
+    .auction-house-board--transmission .transmission-lot-row {
+      grid-template-columns: minmax(160px, 1.35fr) minmax(64px, 0.54fr) minmax(72px, 0.55fr) minmax(86px, 0.62fr);
+    }
+    .transmission-lot-row > span:not(.auction-lot-item):not(.auction-lot-ribbon) {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .transmission-lot-price {
+      color: var(--ink-black);
+      font-variant-numeric: tabular-nums;
+      text-align: right;
+    }
+    .transmission-detail-panel {
+      grid-template-rows: auto auto auto minmax(0, 1fr);
+    }
+    .transmission-detail-head {
+      grid-template-columns: 60px minmax(0, 1fr);
+    }
+    .transmission-consign-inline-card {
+      width: min(920px, 100%);
+    }
+    .transmission-consign-panel {
+      display: grid;
+      gap: 10px;
+      min-height: 0;
+    }
+    .transmission-consign-toolbar {
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) minmax(140px, 0.54fr) minmax(160px, 0.62fr);
+      gap: 8px;
+      align-items: end;
+    }
+    .transmission-consign-items {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+      align-content: start;
+      gap: 7px;
+      min-height: 88px;
+      max-height: min(34dvh, 310px);
+      padding: 2px 3px 2px 1px;
+    }
+    .transmission-consign-item {
+      min-height: 92px;
+    }
+    .transmission-consign-item.active {
+      border-color: color-mix(in srgb, var(--inventory-grade-border, var(--stamp-red)) 62%, var(--stamp-red));
+      background: color-mix(in srgb, var(--surface-hover) 84%, rgba(139, 48, 35, 0.1));
+      box-shadow:
+        inset 0 0 0 1px rgba(255, 255, 255, 0.62),
+        0 0 0 2px rgba(139, 48, 35, 0.12),
+        0 8px 20px rgba(0, 0, 0, 0.1);
+    }
+    .transmission-consign-item .inventory-cell-type {
+      max-width: calc(100% - 36px);
+    }
+    .transmission-consign-fields {
+      display: grid;
+      grid-template-columns: minmax(180px, 0.6fr) minmax(360px, 1fr) auto;
+      gap: 10px;
+      align-items: end;
+      min-width: 0;
+    }
+    .transmission-consign-selection {
+      display: grid;
+      gap: 4px;
+      min-width: 0;
+    }
+    .transmission-consign-selection > span,
+    .transmission-consign-selection > small {
+      color: var(--ink-grey);
+      font-size: var(--font-size-11);
+    }
+    .transmission-consign-selection > strong {
+      min-width: 0;
+      overflow: hidden;
+      color: var(--ink-black);
+      font-size: var(--font-size-14);
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .transmission-consign-price-field {
+      gap: 7px;
+      min-width: 0;
+    }
+    .transmission-consign-price-field .market-price-control-row {
+      justify-content: flex-start;
+      gap: 4px;
+    }
+    .transmission-consign-price-field .market-price-control-side {
+      gap: 4px;
+    }
+    .transmission-consign-price-field .market-price-display {
+      min-width: 138px;
+      flex: 1 1 150px;
+      max-width: 190px;
+    }
+    .transmission-consign-price-field .small-btn {
+      min-width: 40px;
+      padding: 2px 8px;
+    }
+    .transmission-consign-submit {
+      min-width: 112px;
+      justify-content: center;
     }
     :root[data-color-mode="dark"] .auction-quality-tag {
       border-color: rgba(214, 188, 142, 0.24);

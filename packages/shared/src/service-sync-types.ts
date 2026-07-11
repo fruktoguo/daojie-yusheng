@@ -7,7 +7,7 @@ import type { AccountRedeemCodesRes } from './api-contracts';
 import type { AlchemyRecipeCatalogEntry, SyncedAlchemyPanelPatch, SyncedAlchemyPanelState, SyncedEnhancementPanelPatch, SyncedEnhancementPanelState } from './crafting-types';
 import type { TechniqueActivityTaskListView, TechniqueActivityTaskPatch } from './technique-activity-types';
 import type { ObservedTileEntityDetail } from './detail-view-types';
-import type { AuctionFilterCategory, AuctionHouseTab, AuctionListingCountsView, AuctionListingSummaryView, AuctionLotPageEntry, MarketListedItemView, MarketOrderBookView, MarketOwnOrderView, MarketStorage, MarketTradeHistoryEntryView, MarketTradeHistoryScope, MarketTradeSource, TransmissionListingCountsView, TransmissionLotPageEntry, TransmissionTab } from './market-types';
+import type { AuctionFilterCategory, AuctionHouseTab, AuctionListingCountsView, AuctionListingSummaryView, AuctionLotPageEntry, MarketListedItemView, MarketOrderBookView, MarketOwnOrderView, MarketStorage, MarketTradeHistoryEntryView, MarketTradeHistoryScope, MarketTradeSource, TransmissionListingCountsView, TransmissionListingSort, TransmissionLotPageEntry, TransmissionTab } from './market-types';
 import type { MailDetailView, MailPageView, MailSummaryView } from './mail-types';
 import type { QuestRuntimeStateView } from './quest-types';
 import type { EquipSlot, ItemType } from './item-runtime-types';
@@ -399,6 +399,8 @@ export interface TransmissionListingsView {
   pageSize: number;
   total: number;
   query: string;
+  category: TechniqueCategory | 'all';
+  sort: TransmissionListingSort;
   counts: TransmissionListingCountsView;
   items: TransmissionLotPageEntry[];
 }

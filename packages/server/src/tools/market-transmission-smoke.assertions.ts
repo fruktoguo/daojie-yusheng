@@ -12,7 +12,13 @@ type LooseRecord = Record<string, unknown>;
 type MarketInternals = {
   openOrders: LooseRecord[];
   toFullItem(item: LooseRecord): LooseRecord;
-  buildTransmissionListingsPage(playerId: string, payload: LooseRecord): { items: LooseRecord[]; counts: { participate: number; mine: number } };
+  buildTransmissionListingsPage(playerId: string, payload: LooseRecord): {
+    items: LooseRecord[];
+    counts: { participate: number; mine: number; categoryCounts: LooseRecord };
+    category: string;
+    sort: string;
+    total: number;
+  };
   buyTransmissionLot(playerId: string, payload: LooseRecord): Promise<{ notices: LooseRecord[] }>;
 };
 
@@ -84,18 +90,44 @@ export async function runTransmissionAssertions(
   const page = internals.buildTransmissionListingsPage(buyerId, { tab: 'participate', page: 1, pageSize: 10, query: '' });
   assert.equal(page.items.length, 2);
   assert.equal(page.counts.participate, 2);
+  assert.equal(page.category, 'all');
+  assert.equal(page.sort, 'price_asc');
+  assert.deepEqual(page.counts.categoryCounts, { all: 2, arts: 1, internal: 1, divine: 0, secret: 0 });
   const minePage = internals.buildTransmissionListingsPage(sellerId, { tab: 'mine', page: 1, pageSize: 10, query: '' });
   assert.equal(minePage.items.length, 2);
   // 预览物品必须带功法身份，客户端悬浮详情才能展示这卷记载的是哪门功法。
   assert.equal(page.items.every((entry) => Boolean((entry.item as LooseRecord | undefined)?.learnTechniqueId)), true, '传法台预览物品缺少 learnTechniqueId');
+  assert.equal(page.items.every((entry) => entry.orderId === ''), true, '他人传法台列表不应泄露内部订单 ID');
+  assert.equal(minePage.items.every((entry) => typeof entry.orderId === 'string' && entry.orderId.length > 0), true, '我的传法台列表缺少撤回寄售所需的订单 ID');
+  assert.deepEqual(page.items.map((entry) => entry.techniqueName), ['驭火诀', '寒江引']);
 
-  // 8. 不能求取自己的寄售。
+  // 8. 分类、名称搜索和排序必须在服务端分页前完成，不能只重排当前页。
+  const artsPage = internals.buildTransmissionListingsPage(buyerId, {
+    tab: 'participate', page: 1, pageSize: 10, query: '', category: 'arts', sort: 'price_desc',
+  });
+  assert.equal(artsPage.total, 1);
+  assert.equal(artsPage.items[0]?.techniqueName, '驭火诀');
+  const queryPage = internals.buildTransmissionListingsPage(buyerId, {
+    tab: 'participate', page: 1, pageSize: 10, query: '寒江', category: 'all', sort: 'price_asc',
+  });
+  assert.equal(queryPage.total, 1);
+  assert.equal(queryPage.items[0]?.techniqueName, '寒江引');
+  const priceDescPage = internals.buildTransmissionListingsPage(buyerId, {
+    tab: 'participate', page: 1, pageSize: 10, query: '', category: 'all', sort: 'price_desc',
+  });
+  assert.deepEqual(priceDescPage.items.map((entry) => entry.techniqueName), ['寒江引', '驭火诀']);
+  const realmDescPage = internals.buildTransmissionListingsPage(buyerId, {
+    tab: 'participate', page: 1, pageSize: 10, query: '', category: 'all', sort: 'realm_desc',
+  });
+  assert.deepEqual(realmDescPage.items.map((entry) => entry.techniqueName), ['驭火诀', '寒江引']);
+
+  // 9. 不能求取自己的寄售。
   const lotA = page.items.find((entry) => Number(entry.price) === 12);
   assert.ok(lotA, '未找到售价 12 的传法台拍品');
   const selfBuy = await internals.buyTransmissionLot(sellerId, { itemKey: lotA.itemKey });
   assert.ok(noticeText(selfBuy).includes('不能求取自己'), noticeText(selfBuy));
 
-  // 9. 核心：一口价买入后，买家拿到的残卷仍带 learnTechniqueId（可正常学习）。
+  // 10. 核心：一口价买入后，买家拿到的残卷仍带 learnTechniqueId（可正常学习）。
   const buyerBalanceBefore = buyerPlayer.wallet.balances[0].balance;
   const bought = await internals.buyTransmissionLot(buyerId, { itemKey: lotA.itemKey });
   assert.ok(noticeText(bought).includes('传法台求得'), noticeText(bought));
@@ -108,18 +140,18 @@ export async function runTransmissionAssertions(
   const sellerIncome = sellerPlayer.inventory.items.find((item) => item.itemId === 'spirit_stone');
   assert.equal(Number(sellerIncome?.count ?? 0), 12, '卖家未收到传法台成交灵石');
 
-  // 10. 成交后该 lot 下架，另一卷不受影响。
+  // 11. 成交后该 lot 下架，另一卷不受影响。
   assert.equal(internals.openOrders.length, 1, '成交后传法台单未下架，或误伤了另一卷');
   assert.equal((internals.openOrders[0].item as LooseRecord).learnTechniqueId, 'gen_bbb');
 
-  // 11. 成交记录归属传法台，不混入普通坊市。
+  // 12. 成交记录归属传法台，不混入普通坊市。
   const transmissionHistory = await service.buildTradeHistoryPage(buyerId, 1, 'transmission');
   assert.equal(transmissionHistory.records.length, 1);
   assert.equal(transmissionHistory.records[0]?.source, 'transmission');
   const marketHistory = await service.buildTradeHistoryPage(buyerId, 1, 'market');
   assert.equal(marketHistory.records.length, 0, '传法台成交被错误记成普通坊市成交');
 
-  // 12. 回归：DB 读路径必须保住 listingMode。
+  // 13. 回归：DB 读路径必须保住 listingMode。
   // normalizeMarketOrderRow 是逐字段重建订单而非展开 raw_payload，一旦漏读 listingMode，
   // 传法台寄售会在服务器重启后退化成普通坊市卖单，残卷重新泄漏进 order-book 盘口。
   const persistedOrder = internals.openOrders[0];

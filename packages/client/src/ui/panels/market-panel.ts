@@ -45,6 +45,7 @@ import {
   S2C_MarketUpdate,
   TECHNIQUE_EQUIP_SLOTS,
   TechniqueCategory,
+  TransmissionListingSort,
   getItemDisplayName,
   getMarketPriceStep,
   normalizeMarketPriceDown,
@@ -53,6 +54,8 @@ import {
   normalizeMarketListingsPageSize,
   normalizeMarketAuctionPageSize,
   normalizeMarketAuctionQuery,
+  normalizeTransmissionCategory,
+  normalizeTransmissionListingSort,
   resolveClampedMarketResponsePage,
 } from '@mud/shared';
 import { getLocalItemTemplate, getLocalTechniqueCategoryForBookItem, resolvePreviewItem, resolveTechniqueIdFromBookItemId } from '../../content/local-templates';
@@ -70,7 +73,12 @@ import { MarketTransmissionView } from './market-transmission-view';
 import { MarketTradeDialog } from './market-trade-dialog';
 import { renderTradeQuantityControl } from '../trade-control-renderers';
 import { MarketBrowseView } from './market-browse-view';
-import type { MarketPanelInternals, TransmissionPanelTab } from './market-panel-types';
+import type {
+  MarketPanelInternals,
+  TransmissionCategoryFilter,
+  TransmissionConsignPanelState,
+  TransmissionPanelTab,
+} from './market-panel-types';
 import {
   mountReactMarketPanel,
   setReactMarketPanelCallbacks,
@@ -396,12 +404,32 @@ export class MarketPanel {
   private transmissionTab: TransmissionPanelTab = 'participate';
   /** 传法台当前页码。 */
   private transmissionPage = 1;
-  /** 传法台搜索关键字（当前未开放筛选 UI，保留给服务端契约）。 */
+  /** 传法台搜索关键字。 */
   private transmissionSearchQuery = '';
+  /** 传法台当前功法分类。 */
+  private transmissionCategory: TransmissionCategoryFilter = 'all';
+  /** 传法台当前服务端分页排序。 */
+  private transmissionSort: TransmissionListingSort = 'price_asc';
+  /** 传法台独立上架界面状态。 */
+  private transmissionConsignPanel: TransmissionConsignPanelState = {
+    open: false,
+    itemInstanceId: null,
+    query: '',
+    category: 'all',
+    sort: 'realm_desc',
+    unitPrice: 1,
+  };
   /** 传法台当前选中的拍品 key。 */
   private selectedTransmissionItemKey: string | null = null;
   /** 最近一次传法台请求的服务端规范化标识，用于丢弃过期响应。 */
-  private pendingTransmissionRequest: { tab: TransmissionPanelTab; query: string; page: number; pageSize: number } | null = null;
+  private pendingTransmissionRequest: {
+    tab: TransmissionPanelTab;
+    query: string;
+    category: TransmissionCategoryFilter;
+    sort: TransmissionListingSort;
+    page: number;
+    pageSize: number;
+  } | null = null;
   /** 物品书籍本地缓存，随市场列表修订显式失效。 */
   private readonly itemBookCache = new Map<string, { book: MarketOrderBookView; epoch: number; cachedAt: number }>();
   /** 正在等待服务端回包的物品书籍及其发起时修订。 */
@@ -530,6 +558,8 @@ export class MarketPanel {
       }
       this.patchAuctionConsignModalState();
       this.syncTradeDialogOverlay();
+    } else if (detailModalHost.isOpenFor(MarketTransmissionView.modalOwner)) {
+      this.transmissionView.patchTransmissionInventoryState();
     } else if (detailModalHost.isOpenFor(MarketPanel.AUCTION_CONSIGN_MODAL_OWNER)) {
       this.patchAuctionConsignModalState();
     } else if (shouldPatchHeavenlyDaoShop) {
@@ -617,7 +647,7 @@ export class MarketPanel {
     } else if (transmissionModalOpen) {
       // 寄售/成交后服务端只推 MarketUpdate，传法台分页需要重新拉取才能反映上下架。
       this.requestTransmissionListings(this.transmissionPage);
-      this.transmissionView.patchTransmissionModal();
+      this.transmissionView.patchTransmissionInventoryState();
     } else if (auctionConsignModalOpen) {
       this.patchAuctionConsignModalState();
     } else if (heavenlyDaoShopOpen) {
@@ -686,6 +716,8 @@ export class MarketPanel {
       if (
         data.tab !== request.tab
         || normalizeMarketAuctionQuery(data.query) !== request.query
+        || normalizeTransmissionCategory(data.category) !== request.category
+        || normalizeTransmissionListingSort(data.sort) !== request.sort
         || normalizeMarketAuctionPageSize(data.pageSize) !== request.pageSize
         || normalizeMarketRequestPage(data.page) !== resolveClampedMarketResponsePage(request.page, data.total, data.pageSize)
       ) {
@@ -696,6 +728,8 @@ export class MarketPanel {
     this.transmissionListings = data;
     this.transmissionTab = data.tab;
     this.transmissionSearchQuery = data.query ?? '';
+    this.transmissionCategory = normalizeTransmissionCategory(data.category);
+    this.transmissionSort = normalizeTransmissionListingSort(data.sort);
     this.transmissionPage = Math.max(1, Math.floor(Number.isFinite(data.page) ? data.page : 1));
     // 选中项若已成交下架，回退到当前页第一条。
     if (this.selectedTransmissionItemKey && !data.items.some((entry) => entry.itemKey === this.selectedTransmissionItemKey)) {
@@ -917,6 +951,16 @@ export class MarketPanel {
     this.transmissionTab = 'participate';
     this.transmissionPage = 1;
     this.transmissionSearchQuery = '';
+    this.transmissionCategory = 'all';
+    this.transmissionSort = 'price_asc';
+    this.transmissionConsignPanel = {
+      open: false,
+      itemInstanceId: null,
+      query: '',
+      category: 'all',
+      sort: 'realm_desc',
+      unitPrice: 1,
+    };
     this.selectedTransmissionItemKey = null;
     this.pendingTransmissionRequest = null;
     this.selectedItemKey = null;
@@ -1647,6 +1691,20 @@ export class MarketPanel {
       return;
     }
     this.renderAuctionConsignModal();
+  }
+
+  /** 打开传法台独立上架界面。 */
+  openTransmissionConsignModal(): void {
+    const preferredItemInstanceId = this.transmissionView.getPreferredTransmissionConsignItemInstanceId(
+      this.transmissionConsignPanel.itemInstanceId,
+    );
+    this.transmissionConsignPanel = {
+      ...this.transmissionConsignPanel,
+      open: true,
+      itemInstanceId: preferredItemInstanceId,
+      unitPrice: this.normalizeTradeDialogPrice(this.transmissionConsignPanel.unitPrice, 'up'),
+    };
+    this.transmissionView.renderInlineTransmissionConsignModal();
   }
 
   /** 渲染发起拍卖独立弹层。 */
@@ -2933,9 +2991,15 @@ export class MarketPanel {
     this.transmissionPage = nextPage;
     const query = normalizeMarketAuctionQuery(this.transmissionSearchQuery);
     this.transmissionSearchQuery = query;
+    const category = normalizeTransmissionCategory(this.transmissionCategory);
+    const sort = normalizeTransmissionListingSort(this.transmissionSort);
+    this.transmissionCategory = category;
+    this.transmissionSort = sort;
     this.pendingTransmissionRequest = {
       tab: this.transmissionTab,
       query,
+      category,
+      sort,
       page: nextPage,
       pageSize,
     };
@@ -2944,6 +3008,8 @@ export class MarketPanel {
       page: nextPage,
       pageSize,
       query,
+      category,
+      sort,
     });
   }
 
@@ -3324,6 +3390,13 @@ export class MarketPanel {
       const itemKey = key.slice('transmission:'.length);
       const lot = this.transmissionListings?.items.find((entry) => entry.itemKey === itemKey) ?? null;
       return lot?.item ? this.buildMarketItemTooltipPayload(lot.item) : null;
+    }
+    if (key.startsWith('transmission-consign-item:')) {
+      const itemInstanceId = normalizeInventoryItemInstanceId(key.slice('transmission-consign-item:'.length));
+      const item = itemInstanceId
+        ? this.inventory.items.find((entry) => normalizeInventoryItemInstanceId(entry.itemInstanceId) === itemInstanceId) ?? null
+        : null;
+      return item ? this.buildMarketItemTooltipPayload(item) : null;
     }
     if (key.startsWith('auction-consign-item:')) {
       const itemInstanceId = normalizeInventoryItemInstanceId(key.slice('auction-consign-item:'.length));

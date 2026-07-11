@@ -5,7 +5,7 @@
  */
 import { BadRequestException, Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { createHash, randomUUID } from 'crypto';
-import { AUCTION_DEFAULT_DURATION_HOURS, AUCTION_LISTING_FEE_BASE, AUCTION_LISTING_FEE_RATE, AUCTION_MAX_DURATION_HOURS, AUCTION_MIN_DURATION_HOURS, CUSTOM_TECHNIQUE_BOOK_ITEM_ID, EQUIP_SLOTS, HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID, HEAVENLY_DAO_SHOP_ITEMS, ITEM_TYPES, MARKET_MAX_ENHANCE_LEVEL, MARKET_MAX_UNIT_PRICE, TECHNIQUE_EQUIP_SLOTS, calculateHeavenlyDaoShopDiscountedPrice, calculateMarketTradeTotalCost, canMergeItemStack, createItemStackSignature, getItemDisplayName, getMarketMinimumTradeQuantity, getMarketPriceStep, isValidMarketPrice, isValidMarketTradeQuantity, normalizeMarketAuctionPageSize, normalizeMarketAuctionQuery, normalizeMarketListingsPageSize, normalizeMarketPriceUp, normalizeMarketRequestPage, normalizeMarketTradeSource, resolveClampedMarketResponsePage } from '@mud/shared';
+import { AUCTION_DEFAULT_DURATION_HOURS, AUCTION_LISTING_FEE_BASE, AUCTION_LISTING_FEE_RATE, AUCTION_MAX_DURATION_HOURS, AUCTION_MIN_DURATION_HOURS, CUSTOM_TECHNIQUE_BOOK_ITEM_ID, EQUIP_SLOTS, HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID, HEAVENLY_DAO_SHOP_ITEMS, ITEM_TYPES, MARKET_MAX_ENHANCE_LEVEL, MARKET_MAX_UNIT_PRICE, TECHNIQUE_EQUIP_SLOTS, TECHNIQUE_GRADE_ORDER, calculateHeavenlyDaoShopDiscountedPrice, calculateMarketTradeTotalCost, canMergeItemStack, createItemStackSignature, getItemDisplayName, getMarketMinimumTradeQuantity, getMarketPriceStep, isValidMarketPrice, isValidMarketTradeQuantity, normalizeMarketAuctionPageSize, normalizeMarketAuctionQuery, normalizeMarketListingsPageSize, normalizeMarketPriceUp, normalizeMarketRequestPage, normalizeMarketTradeSource, normalizeTransmissionCategory, normalizeTransmissionListingSort, resolveClampedMarketResponsePage } from '@mud/shared';
 import { assignItemInstanceIdIfNeeded } from '../world/item-instance-id.helpers';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { AUCTION_GLOBAL_TRADE_HISTORY_LIMIT, AUCTION_MY_TRADE_HISTORY_VISIBLE_LIMIT, AUCTION_TRADE_HISTORY_PAGE_SIZE, MARKET_CURRENCY_ITEM_ID, MARKET_MAX_ORDER_QUANTITY, MARKET_STORAGE_RUNTIME_CACHE_LIMIT, MARKET_TRADE_HISTORY_PAGE_SIZE, MARKET_TRADE_HISTORY_RUNTIME_CACHE_LIMIT, MARKET_TRADE_HISTORY_VISIBLE_LIMIT } from '../../constants/gameplay/market';
@@ -2005,31 +2005,74 @@ export class MarketRuntimeService {
     }
     /** 传法台拍品摘要投影；一口价、无竞价、无倒计时。 */
     buildTransmissionLotEntries(ownerId = '') {
+        const summariesByTechniqueId = new Map();
         return this.buildTransmissionListedItems()
             .filter((entry) => (ownerId ? entry.order.ownerId === ownerId : true))
-            .map((entry) => ({
-            id: this.buildClientTransmissionLotKey(entry.itemKey),
-            itemKey: this.buildClientTransmissionLotKey(entry.itemKey),
-            item: this.toAuctionPreviewItem(entry.item),
-            itemId: entry.item.itemId,
-            itemType: entry.item.type ?? 'skill_book',
-            itemSubType: this.buildMarketListingSubType(entry.item),
-            price: Math.max(1, Math.trunc(Number(entry.order.unitPrice) || 1)),
-            sellerLabel: '匿名传法',
-            isMine: Boolean(ownerId) && entry.order.ownerId === ownerId,
-            remainingQuantity: entry.order.remainingQuantity,
-            createdAt: Number(entry.order.createdAt) || 0,
-        }))
-            .sort((left, right) => left.price - right.price || right.createdAt - left.createdAt);
+            .map((entry) => {
+            const techniqueId = typeof entry.item?.learnTechniqueId === 'string' ? entry.item.learnTechniqueId.trim() : '';
+            let summary = summariesByTechniqueId.get(techniqueId);
+            if (!summary) {
+                summary = this.resolveTransmissionTechniqueSummary(entry.item);
+                summariesByTechniqueId.set(techniqueId, summary);
+            }
+            return {
+                id: this.buildClientTransmissionLotKey(entry.itemKey),
+                itemKey: this.buildClientTransmissionLotKey(entry.itemKey),
+                item: this.toAuctionPreviewItem(entry.item),
+                itemId: entry.item.itemId,
+                itemType: entry.item.type ?? 'skill_book',
+                itemSubType: summary.techniqueCategory ?? 'other',
+                techniqueName: summary.techniqueName,
+                techniqueCategory: summary.techniqueCategory,
+                techniqueGrade: summary.techniqueGrade,
+                techniqueRealmLv: summary.techniqueRealmLv,
+                price: Math.max(1, Math.trunc(Number(entry.order.unitPrice) || 1)),
+                sellerLabel: '匿名传法',
+                isMine: Boolean(ownerId) && entry.order.ownerId === ownerId,
+                remainingQuantity: entry.order.remainingQuantity,
+                createdAt: Number(entry.order.createdAt) || 0,
+                orderId: entry.order.id,
+            };
+        });
+    }
+    /** 从只读功法模板投影传法台列表所需的最小元数据。 */
+    resolveTransmissionTechniqueSummary(item) {
+        const techniqueId = typeof item?.learnTechniqueId === 'string' ? item.learnTechniqueId.trim() : '';
+        const template = techniqueId
+            ? this.contentTemplateRepository.techniqueRegistry?.tryGetRef?.(techniqueId)
+            : undefined;
+        const normalizedCategory = normalizeTransmissionCategory(template?.category);
+        const rawGrade = typeof template?.grade === 'string' ? template.grade : item?.grade;
+        const techniqueGrade = TECHNIQUE_GRADE_ORDER.includes(rawGrade) ? rawGrade : undefined;
+        const rawRealmLv = Number(template?.realmLv ?? item?.level);
+        const techniqueRealmLv = Number.isFinite(rawRealmLv) && rawRealmLv > 0
+            ? Math.max(1, Math.trunc(rawRealmLv))
+            : undefined;
+        const techniqueName = typeof template?.name === 'string' && template.name.trim()
+            ? template.name.trim()
+            : String(item?.name ?? techniqueId ?? item?.itemId ?? '').trim();
+        return {
+            techniqueName,
+            techniqueCategory: normalizedCategory === 'all' ? undefined : normalizedCategory,
+            techniqueGrade,
+            techniqueRealmLv,
+        };
     }
     /** 构造传法台分页列表，服务端按 tab、搜索与页码裁剪后只返回当前页。 */
     buildTransmissionListingsPage(playerId, payload) {
-        const request = this.normalizeAuctionListingsRequest(payload);
+        const request = this.normalizeTransmissionListingsRequest(payload);
         const participateLots = this.buildTransmissionLotEntries('')
-            .map((entry) => ({ ...entry, isMine: entry.itemKey ? this.isMyTransmissionLot(playerId, entry.itemKey) : false }));
+            .map((entry) => {
+            const isMine = entry.itemKey ? this.isMyTransmissionLot(playerId, entry.itemKey) : false;
+            return { ...entry, isMine, orderId: isMine ? entry.orderId : '' };
+        });
         const mineLots = this.buildTransmissionLotEntries(playerId);
         const source = request.tab === 'mine' ? mineLots : participateLots;
-        const filtered = this.filterAuctionLotEntriesByQuery(source, request.query);
+        const queryFiltered = this.filterTransmissionLotEntriesByQuery(source, request.query);
+        const categoryFiltered = request.category === 'all'
+            ? queryFiltered
+            : queryFiltered.filter((entry) => entry.techniqueCategory === request.category);
+        const filtered = this.sortTransmissionLotEntries(categoryFiltered, request.sort);
         const total = filtered.length;
         const totalPages = Math.max(1, Math.ceil(total / request.pageSize));
         const page = Math.max(1, Math.min(totalPages, request.page));
@@ -2042,9 +2085,76 @@ export class MarketRuntimeService {
             pageSize: request.pageSize,
             total,
             query: request.query,
-            counts: { participate: participateLots.length, mine: mineLots.length },
+            category: request.category,
+            sort: request.sort,
+            counts: {
+                participate: participateLots.length,
+                mine: mineLots.length,
+                categoryCounts: this.buildTransmissionCategoryCounts(queryFiltered),
+            },
             items: filtered.slice(start, start + request.pageSize),
         };
+    }
+    /** 规范化传法台分页筛选与排序。 */
+    normalizeTransmissionListingsRequest(payload) {
+        return {
+            tab: payload?.tab === 'mine' ? 'mine' : 'participate',
+            page: normalizeMarketRequestPage(payload?.page),
+            pageSize: normalizeMarketAuctionPageSize(payload?.pageSize),
+            query: normalizeMarketAuctionQuery(payload?.query),
+            category: normalizeTransmissionCategory(payload?.category),
+            sort: normalizeTransmissionListingSort(payload?.sort),
+        };
+    }
+    /** 传法台只搜索功法名称、功法 ID 与残卷名称。 */
+    filterTransmissionLotEntriesByQuery(entries, query) {
+        const keyword = normalizeMarketAuctionQuery(query).toLocaleLowerCase();
+        if (!keyword) {
+            return entries;
+        }
+        return entries.filter((entry) => {
+            const techniqueName = String(entry.techniqueName ?? '').toLocaleLowerCase();
+            const techniqueId = String(entry.item?.learnTechniqueId ?? '').toLocaleLowerCase();
+            const itemName = String(entry.item?.name ?? '').toLocaleLowerCase();
+            return techniqueName.includes(keyword) || techniqueId.includes(keyword) || itemName.includes(keyword);
+        });
+    }
+    /** 按当前搜索结果生成分类数量，避免分类按钮显示与搜索结果脱节。 */
+    buildTransmissionCategoryCounts(entries) {
+        const categoryCounts = { all: entries.length, arts: 0, internal: 0, divine: 0, secret: 0 };
+        for (const entry of entries) {
+            if (entry.techniqueCategory && Object.hasOwn(categoryCounts, entry.techniqueCategory)) {
+                categoryCounts[entry.techniqueCategory] += 1;
+            }
+        }
+        return categoryCounts;
+    }
+    /** 服务端先排序再分页，保证跨页顺序稳定。 */
+    sortTransmissionLotEntries(entries, sort) {
+        const gradeIndex = (entry) => Math.max(-1, TECHNIQUE_GRADE_ORDER.indexOf(entry.techniqueGrade));
+        return [...entries].sort((left, right) => {
+            let compared = 0;
+            if (sort === 'price_desc') {
+                compared = right.price - left.price;
+            }
+            else if (sort === 'realm_desc') {
+                compared = (right.techniqueRealmLv ?? 0) - (left.techniqueRealmLv ?? 0)
+                    || gradeIndex(right) - gradeIndex(left);
+            }
+            else if (sort === 'grade_desc') {
+                compared = gradeIndex(right) - gradeIndex(left)
+                    || (right.techniqueRealmLv ?? 0) - (left.techniqueRealmLv ?? 0);
+            }
+            else if (sort === 'newest') {
+                compared = right.createdAt - left.createdAt;
+            }
+            else {
+                compared = left.price - right.price;
+            }
+            return compared
+                || right.createdAt - left.createdAt
+                || String(left.itemKey).localeCompare(String(right.itemKey), 'zh-Hans-CN');
+        });
     }
     /** 判断某个传法台拍品是否是该玩家自己的寄售。 */
     isMyTransmissionLot(playerId, clientItemKey) {

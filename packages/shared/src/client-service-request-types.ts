@@ -5,7 +5,7 @@
  */
 import type { ArtifactSlot, EquipSlot, ItemType } from './item-runtime-types';
 import type { TechniqueCategory } from './cultivation-types';
-import type { AuctionFilterCategory, AuctionHouseTab, MarketTradeHistoryScope, MarketTradeSource, TransmissionTab } from './market-types';
+import type { AuctionFilterCategory, AuctionHouseTab, MarketTradeHistoryScope, MarketTradeSource, TransmissionListingSort, TransmissionTab } from './market-types';
 import type { MailFilter } from './mail-types';
 import type { AlchemyIngredientSelection, CraftQueueStartMode, EnhancementTargetRef } from './crafting-types';
 import type { InventoryItemRefView } from './inventory-item-ref';
@@ -82,6 +82,10 @@ export interface RequestTransmissionListingsView {
   pageSize?: number;
   /** 搜索关键字。 */
   query?: string;
+  /** 功法分类。 */
+  category?: TechniqueCategory | 'all';
+  /** 服务端分页前排序。 */
+  sort?: TransmissionListingSort;
 }
 
 /** 传法台一口价求取某卷功法残卷。 */

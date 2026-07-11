@@ -17,7 +17,13 @@ type LooseRecord = Record<string, unknown>;
 type MarketInternals = {
   openOrders: LooseRecord[];
   toFullItem(item: LooseRecord): LooseRecord;
-  buildTransmissionListingsPage(playerId: string, payload: LooseRecord): { items: LooseRecord[]; counts: { participate: number; mine: number } };
+  buildTransmissionListingsPage(playerId: string, payload: LooseRecord): {
+    items: LooseRecord[];
+    counts: { participate: number; mine: number; categoryCounts: LooseRecord };
+    category: string;
+    sort: string;
+    total: number;
+  };
   buyTransmissionLot(playerId: string, payload: LooseRecord): Promise<{ notices: LooseRecord[] }>;
 };
 
@@ -40,6 +46,7 @@ async function main(): Promise<void> {
   const buyerId = 'player:transmission-buyer';
   const sellerPlayer = {
     playerId: sellerId,
+    sessionId: 'session:transmission-seller',
     runtimeOwnerId: 'runtime:seller',
     sessionEpoch: 3,
     instanceId: 'instance:transmission',
@@ -55,6 +62,7 @@ async function main(): Promise<void> {
   };
   const buyerPlayer = {
     playerId: buyerId,
+    sessionId: 'session:transmission-buyer',
     runtimeOwnerId: 'runtime:buyer',
     sessionEpoch: 4,
     instanceId: 'instance:transmission',
@@ -84,6 +92,17 @@ async function main(): Promise<void> {
       // 与生产一致：残卷模板本身不绑定功法，子分类落到 other。
       getTechniqueCategoryForBookItem() {
         return null;
+      },
+      techniqueRegistry: {
+        tryGetRef(techniqueId: string) {
+          if (techniqueId === 'gen_aaa') {
+            return { id: techniqueId, name: '驭火诀', category: 'arts', grade: 'earth', realmLv: 4 };
+          }
+          if (techniqueId === 'gen_bbb') {
+            return { id: techniqueId, name: '寒江引', category: 'internal', grade: 'yellow', realmLv: 2 };
+          }
+          return undefined;
+        },
       },
     } as never,
     {

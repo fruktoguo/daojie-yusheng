@@ -250,6 +250,31 @@ function main() {
   );
   assertIncludes(marketTransmissionViewTs, /hint:\s*''/, '传法台弹层必须显式隐藏通用关闭提示');
   assertIncludes(
+    marketTransmissionViewTs,
+    /data-transmission-consign-open/,
+    '传法台必须保留独立的残卷上架入口',
+  );
+  assertIncludes(
+    marketTransmissionViewTs,
+    /data-transmission-category/,
+    '传法台浏览列表必须提供功法分类筛选',
+  );
+  assertIncludes(
+    marketTransmissionViewTs,
+    /data-transmission-sort/,
+    '传法台浏览列表必须提供服务端分页排序入口',
+  );
+  assertIncludes(
+    marketTransmissionViewTs,
+    /data-transmission-consign-item/,
+    '传法台独立上架界面必须使用背包残卷卡片',
+  );
+  assertMissing(
+    marketTransmissionViewTs,
+    /<select data-transmission-consign-item/,
+    '传法台不得恢复列表底部的内嵌残卷下拉上架表单',
+  );
+  assertIncludes(
     detailModalHostTs,
     /this\.hint\.classList\.toggle\('hidden', hintText\.length === 0\)/,
     '详情弹层宿主必须允许调用方显式隐藏提示',
