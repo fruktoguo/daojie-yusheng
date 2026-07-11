@@ -85,6 +85,8 @@ export class RuntimeGmAuthService {
     persistenceEnabled = false;
     /** 当前驻留在内存里的密码记录。 */
     memoryRecord = null;
+    /** 串行化登录、改密和恢复回读，防止异步旧记录覆盖新密码版本。 */
+    private authStateOperationTail: Promise<void> = Promise.resolve();
 
     databasePoolProvider;
 
@@ -113,6 +115,7 @@ export class RuntimeGmAuthService {
         try {
             await ensureGmAuthTable(this.pool);
             this.persistenceEnabled = true;
+            this.memoryRecord = await this.loadPasswordRecordFromDb();
         }
         catch (error) {
             this.logger.error('运行时 GM 鉴权持久化初始化失败', error instanceof Error ? error.stack : String(error));
@@ -148,52 +151,55 @@ export class RuntimeGmAuthService {
         }
     }
     /** 校验 GM 密码并签发访问 token。 */
-    async login(password, options: GmLoginOptions = {}) {
+    async login(password: unknown, options: GmLoginOptions = {}) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+        return this.runExclusiveAuthStateOperation(async () => {
+            const normalizedPassword = typeof password === 'string' ? password : '';
 
-        const normalizedPassword = typeof password === 'string' ? password : '';
+            const record = await this.getOrCreatePasswordRecord();
+            if (!(await verifyPassword(normalizedPassword, record))) {
+                throw new UnauthorizedException('GM 密码错误');
+            }
 
-        const record = await this.getOrCreatePasswordRecord();
-        if (!(await verifyPassword(normalizedPassword, record))) {
-            throw new UnauthorizedException('GM 密码错误');
-        }
-
-        // N48：登录成功且当前记录是旧 bcrypt 哨兵格式时，自动迁移到 scrypt；
-        // 失败不阻断登录主路径，下次登录还会再尝试一次。
-        const effectiveRecord = await this.maybeMigrateLegacyRecord(normalizedPassword, record);
-        this.memoryRecord = effectiveRecord;
-        return {
-            accessToken: this.issueToken(effectiveRecord, options),
-            expiresInSec: this.getTokenTtlSec(),
-        };
+            // N48：登录成功且当前记录是旧 bcrypt 哨兵格式时，自动迁移到 scrypt；
+            // 失败不阻断登录主路径，下次登录还会再尝试一次。
+            const effectiveRecord = await this.maybeMigrateLegacyRecord(normalizedPassword, record);
+            this.memoryRecord = effectiveRecord;
+            return {
+                accessToken: this.issueToken(effectiveRecord, options),
+                expiresInSec: this.getTokenTtlSec(),
+            };
+        });
     }
     /** 修改 GM 密码，同时兼容旧记录回退校验。 */
-    async changePassword(currentPassword, newPassword) {
+    async changePassword(currentPassword: unknown, newPassword: unknown) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+        return this.runExclusiveAuthStateOperation(async () => {
+            const normalizedCurrentPassword = typeof currentPassword === 'string' ? currentPassword : '';
 
-        const normalizedCurrentPassword = typeof currentPassword === 'string' ? currentPassword : '';
+            const record = await this.getOrCreatePasswordRecord();
 
-        const record = await this.getOrCreatePasswordRecord();
+            const currentVerified = await verifyPassword(normalizedCurrentPassword, record);
 
-        const currentVerified = await verifyPassword(normalizedCurrentPassword, record);
+            if (!currentVerified) {
+                throw new UnauthorizedException('当前 GM 密码错误');
+            }
 
-        if (!currentVerified) {
-            throw new UnauthorizedException('当前 GM 密码错误');
-        }
+            const normalizedPassword = typeof newPassword === 'string' ? newPassword.trim() : '';
+            if (normalizedPassword.length < 12) {
+                throw new BadRequestException('GM 密码至少需要 12 位');
+            }
+            if (normalizedPassword === DEFAULT_GM_PASSWORD && !canUseInsecureLocalGmPassword()) {
+                throw new BadRequestException('禁止把 GM 密码设置为默认值 admin123；如需本地临时降级，必须在开发环境显式开启 SERVER_ALLOW_INSECURE_LOCAL_GM_PASSWORD=1。');
+            }
+            if (!this.persistenceEnabled || !this.pool) {
+                throw new BadRequestException('未启用数据库持久化，当前不支持修改 GM 密码');
+            }
 
-        const normalizedPassword = typeof newPassword === 'string' ? newPassword.trim() : '';
-        if (normalizedPassword.length < 12) {
-            throw new BadRequestException('GM 密码至少需要 12 位');
-        }
-        if (normalizedPassword === DEFAULT_GM_PASSWORD && !canUseInsecureLocalGmPassword()) {
-            throw new BadRequestException('禁止把 GM 密码设置为默认值 admin123；如需本地临时降级，必须在开发环境显式开启 SERVER_ALLOW_INSECURE_LOCAL_GM_PASSWORD=1。');
-        }
-        if (!this.persistenceEnabled || !this.pool) {
-            throw new BadRequestException('未启用数据库持久化，当前不支持修改 GM 密码');
-        }
-
-        const nextRecord = await buildPasswordRecord(normalizedPassword);
-        await this.savePasswordRecordToDb(nextRecord);
+            const nextRecord = await buildPasswordRecord(normalizedPassword);
+            await this.savePasswordRecordToDb(nextRecord);
+            this.memoryRecord = nextRecord;
+        });
     }
     /** 校验签名 token 是否仍然有效。 */
     validateAccessToken(token) {
@@ -253,12 +259,13 @@ export class RuntimeGmAuthService {
     /** 从持久化层重新载入密码记录。 */
     async reloadPasswordRecordFromPersistence() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        if (!this.persistenceEnabled || !this.pool) {
-            this.memoryRecord = null;
-            return;
-        }
-        this.memoryRecord = await this.loadPasswordRecordFromDb();
+        return this.runExclusiveAuthStateOperation(async () => {
+            if (!this.persistenceEnabled || !this.pool) {
+                this.memoryRecord = null;
+                return;
+            }
+            this.memoryRecord = await this.loadPasswordRecordFromDb();
+        });
     }
     /** 生成当前记录对应的访问 token。 */
     issueToken(record, options: GmLoginOptions = {}) {
@@ -413,6 +420,15 @@ export class RuntimeGmAuthService {
             return;
         }
         this.logger.warn(`未配置 SERVER_GM_AUTH_SECRET，已复用 ${source} 作为 GM Token 签名密钥`);
+    }
+    /** 串行执行会读取并替换密码版本的操作，失败后仍释放队列。 */
+    private runExclusiveAuthStateOperation<T>(operation: () => Promise<T>): Promise<T> {
+        const result = this.authStateOperationTail.then(operation);
+        this.authStateOperationTail = result.then(
+            () => undefined,
+            () => undefined,
+        );
+        return result;
     }
     /**
  * releasePoolReference：释放对共享连接池的引用，由 DatabasePoolProvider 统一关闭真正的连接池。

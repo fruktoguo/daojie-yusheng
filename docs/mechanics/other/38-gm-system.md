@@ -18,6 +18,8 @@
 - Token 格式: `v1.{base64url_payload}.{hmac_sha256_signature}`
 - Payload: `{ role: 'gm', exp: timestamp, rev: updatedAt }`
 - 签名密钥: `SERVER_GM_AUTH_SECRET` 或回退到 `hash:salt:updatedAt`
+- 服务启动时回读当前密码记录的 `updatedAt`；登录、改密和恢复回读串行执行
+- 修改密码提交成功后立即替换内存 `rev`，此前签发的 Token 会以版本不匹配失效，重启不会恢复旧 Token
 
 ## GM 命令列表
 

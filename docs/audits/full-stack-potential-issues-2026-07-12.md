@@ -27,7 +27,7 @@
 | 服务端 runtime、tick、移动、战斗、交互 | 待检查 | server compile、quick runtime smoke 通过 | 按 mechanics 文档审查真实调用链和热路径 |
 | 持久化、恢复、强事务与关闭 | 进行中 | server compile 通过；边界审计 forbidden 已清零；玩家统计总账回读/flush 已按玩家串行并接入 quick smoke | 复核其余玩家/实例分域、outbox、恢复围栏 |
 | 配置编辑器、schema、导入发布 | 进行中 | 构建、content-contract、异步代际 smoke 与浏览器乱序回包验证通过 | 继续复核地图保存、schema 与发布入口 |
-| 鉴权、权限、GM 高危操作 | 待检查 | release gate contract 通过 | 复核 scope、审计、二次确认和默认回退值 |
+| 鉴权、权限、GM 高危操作 | 进行中 | 全部 GM controller 已确认受 Guard 保护；改密 token 撤销与启动回读已有 compiled smoke | 继续复核审计失败语义；高危 scope、二次确认与维护态策略等待产品决定 |
 | 错误处理、日志与可观测性 | 待检查 | 尚无全域结论 | 检查吞异常、敏感信息、告警与失败水位 |
 | 性能、内存、网络包体 | 进行中 | 文件体积门禁失败；构建产物存在大 chunk 警告 | 区分真实热路径问题、门禁误报和冷路径债务 |
 | 浅色、深色、手机与触控 | 待检查 | 构建门禁不证明视觉结果 | 需要浏览器级检查 |
@@ -296,6 +296,16 @@
 - 修复方式：把单件与批量丢弃用例改为异步函数，逐层 `await` 权威操作后再断言，并由 `main` 等待完成。注册 `inventory-item-instance-ref` stable standalone case，并纳入 `verify:quick`。
 - 验证：完整 `pnpm verify:quick` 通过，stable runner 明确选中并通过 `inventory-item-instance-ref`；整支脚本运行到末尾，证明重排后的使用、单件/批量丢弃、装备、强化、市场出售、阵法及排序均按稳定实例 ID 命中。
 
+### FS-028 `[x]` GM 改密后旧 token 不会立即撤销且重启后可重新生效
+
+- 严重级别：高。
+- 根本原因：`changePassword` 只把新密码记录写入数据库，没有替换 `RuntimeGmAuthService.memoryRecord`；`onModuleInit` 只建表并标记持久化可用，没有回读当前记录。token 校验又只在 `memoryRecord` 存在时比较 payload 的 `rev`。此外登录、改密与数据库恢复后的回读可以并发，较晚完成的旧登录会把旧记录重新写回内存。
+- 为什么错误：`rev` 是改密撤销已签发 GM token 的唯一版本围栏。数据库已经提交新密码时，内存仍保留旧 `rev` 会继续接受旧 token；进程重启后内存为空，比较被完全跳过。异步 scrypt 和数据库查询未串行时，即使单次改密更新了内存，旧登录也可能随后覆盖它。
+- 触发条件：GM 修改密码后未再用新密码登录；改密后重启服务；登录与改密并发；数据库恢复回读与登录/改密重叠。
+- 后果：本应撤销的旧 GM 凭据可继续拥有数据库恢复/清理、密钥、环境变量和服务重启等全部能力，最长持续到 12 小时 token TTL；重启还可能让已经失效的 token 再次通过，扩大泄露凭据的利用窗口。
+- 修复方式：GM 持久化初始化时回读当前密码记录；改密数据库提交成功后立即原子替换内存记录；用服务内串行队列统一登录、改密和恢复回读，失败也释放队列，杜绝异步旧记录回写。
+- 验证：完整 `pnpm verify:quick` 通过，stable runner 明确选中并通过 `gm-auth-token-revocation`；compiled smoke 覆盖改密即时 `rev_mismatch`、旧密码拒绝、登录/改密互斥及重启回读。既有 compiled `registration-activation-smoke` 也通过，GM 密码验证兼容入口未回归。
+
 ## 待进一步验证或用户决定
 
 ### D-001 `[?]` 客户端初始包同时装载 React 面板与 legacy 回退实现
@@ -330,6 +340,14 @@
 - 可选方案：① 推荐：没有明确产品计划时删除五组休眠协议及其 bench/smoke，真正开发功能时再按实际 UI 契约设计；② 确认功能后逐组完成生产端到端接线和用户可见验证；③ 暂时保留，但以边界 proof 禁止在没有真实客户端消费者时新增生产入队方。
 - 2026-07-13 需要决定：这五组 EventBus 能力是明确保留的近期规划，还是应当删除的历史脚手架。
 
+### D-005 `[?]` GM 高危 scope、确认短语与数据库维护态门槛全部处于声明但不执行状态
+
+- 当前证据：数据库恢复/清理、密钥读写删除、运行时环境变量变更与服务重启都调用了统一 `assertGmHighRiskOperationAllowed`，但该函数明确是 no-op；登录默认签发全部四类高危 scope，请求还能自行选择已允许 scope；`NATIVE_GM_RESTORE_CONTRACT.requiresMaintenance` 固定为 `false`。因此当前真实安全边界只有同一个 GM 密码 token，scope 与确认短语不会拒绝任何已鉴权请求。
+- 潜在后果：浏览器 token 被盗、误粘贴请求或单次操作失误即可直接读取密钥、覆盖环境、清库、恢复数据库或终止服务；审计日志只能事后追踪，不能降低操作发生概率。反过来，强制维护态或短语也可能拖慢单人紧急恢复并与现有 GM UI/自动化不兼容。
+- 无法直接确定的原因：mechanics 明确写着“单一 GM 角色、密码 token 具备全部能力”，说明当前 no-op 可能是有意的运营策略；改为分级 scope、二次确认或维护态会改变线上运维流程与灾难恢复 SLA，不能作为纯代码 bug 擅自启用。
+- 可选方案：① 推荐：至少对数据库恢复/清理、密钥明文读取和服务重启强制服务端确认短语，并让 token scope 成为真实授权；数据库恢复要求维护态，提供审计可见的紧急豁免；② 保持单角色，但只启用确认短语和维护态，不做多角色；③ 保持现状，明确接受“持 token 即全权”的风险并加强 token 隔离、短 TTL 与外层网络访问控制。
+- 2026-07-13 需要决定：是否保留单 token 全权策略；若不保留，需要确认首批强制保护的操作、维护态豁免流程和 GM UI 兼容窗口。
+
 以下候选仍属于本轮可以继续用代码和运行证据判定的技术项，不提前作为产品决策：
 
 - 当前无已发现但尚未完成技术判定的候选；后续覆盖扫描发现的新候选会继续追加。
@@ -358,4 +376,5 @@
 | 玩家 wallet 投影 compiled smoke 与 production-boundaries | 通过 | 通用/专用/成长背包变更只在灵石投影实际变化时推进 SelfDelta，普通物品不产生额外自身包；技艺结算刷新边界已锁定 | 不替代真实 DB durable 提交后的前端交互回归 |
 | compiled `craft-persistence-dirty-domain-smoke` | 修复并注册后通过 | 炼丹预设/active job/强化记录/职业脏域、逐批扣料、wallet 扣费与 fencing seed 均执行到脚本末尾 | 无 DB，不证明真实表的 stale fencing 拒绝与崩溃恢复 |
 | compiled `inventory-item-instance-ref-smoke` | 修复并注册后通过 | 背包重排后的使用、单件/批量丢弃、装备、强化、市场、阵法与排序均按稳定实例 ID 命中 | 无 DB，不证明 durable commit、断电恢复和真实客户端弱网重放 |
+| compiled `gm-auth-token-revocation-smoke` | 新增并通过 | 改密即时撤销、登录/改密串行以及进程重启回读当前 `rev` | 内存假池，不证明多 HTTP 节点间的撤销传播与真实 DB 故障 |
 | `pnpm audit:protocol` | 通过 | 无库主线服务实际启动、18 类场景的 C2S/S2C 事件覆盖与逐包字节统计；工坊重复目录、67KB envelope 和空消费 EventBus 载荷已消失；关闭 drain 完成 | 无数据库，因此未运行兑换码 DB 用例；也不直接证明 5000 并发带宽和压测结果 |
