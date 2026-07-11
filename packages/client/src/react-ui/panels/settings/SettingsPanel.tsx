@@ -809,6 +809,7 @@ const ResourceReloadTab = memo(function ResourceReloadTab({ state }: { state: Se
       refreshOverrides();
       setStatus('图片已保存到本机，并已通知地图渲染刷新。');
     } catch (error) {
+      if (error instanceof Error && error.message === 'local_runtime_image_override_superseded') return;
       const message = error instanceof Error && error.message === 'local_runtime_image_override_storage_failed'
         ? '保存失败：浏览器本地存储空间不足。'
         : '保存失败：请选择有效图片文件。';
@@ -825,6 +826,7 @@ const ResourceReloadTab = memo(function ResourceReloadTab({ state }: { state: Se
         ? '我的形象已保存到本机，并已通知地图渲染刷新。'
         : '图片已保存到本机，并已通知地图渲染刷新。');
     } catch (error) {
+      if (error instanceof Error && error.message === 'local_runtime_image_override_superseded') return;
       const message = error instanceof Error && error.message === 'local_runtime_image_override_storage_failed'
         ? '保存失败：浏览器本地存储空间不足。'
         : '保存失败：请选择有效图片文件。';
@@ -833,9 +835,13 @@ const ResourceReloadTab = memo(function ResourceReloadTab({ state }: { state: Se
   }, [refreshOverrides]);
 
   const handleResetOverride = useCallback((key: string) => {
-    removeRuntimeImageOverride(key);
-    refreshOverrides();
-    setStatus('已恢复默认图片。');
+    try {
+      removeRuntimeImageOverride(key);
+      refreshOverrides();
+      setStatus('已恢复默认图片。');
+    } catch {
+      setStatus('恢复失败：浏览器本地存储不可用。');
+    }
   }, [refreshOverrides]);
 
   const overrideByKey = new Map(overrides.map((entry) => [entry.key, entry]));

@@ -79,6 +79,8 @@ type ResourceLabelMaps = {
 let resources: RuntimeImageResourceEntry[] = [];
 let resourceLoadPromise: Promise<RuntimeImageResourceEntry[]> | null = null;
 let overrides: RuntimeImageOverridesSnapshot | null = null;
+let overrideMutationSequence = 0;
+const pendingOverrideMutationByKey = new Map<string, number>();
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -202,20 +204,44 @@ function getMutableOverrides(): RuntimeImageOverridesSnapshot {
 }
 
 function persistOverrides(next: RuntimeImageOverridesSnapshot): void {
-  overrides = next;
   const storage = readStorage();
-  if (storage) {
-    try {
-      storage.setItem(STORAGE_KEY, JSON.stringify(next));
-    } catch {
-      // 图片覆盖较大时 localStorage 可能被浏览器拒绝，调用方会通过返回状态提示玩家。
-      throw new Error('local_runtime_image_override_storage_failed');
-    }
+  if (!storage) {
+    throw new Error('local_runtime_image_override_storage_failed');
   }
+  try {
+    storage.setItem(STORAGE_KEY, JSON.stringify(next));
+  } catch {
+    // 图片覆盖较大时 localStorage 可能被浏览器拒绝，调用方会通过返回状态提示玩家。
+    throw new Error('local_runtime_image_override_storage_failed');
+  }
+  // 持久化是正式真源；只有写入成功后才发布新内存快照和刷新事件。
+  overrides = next;
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent(RUNTIME_IMAGE_OVERRIDES_CHANGED_EVENT, {
       detail: getRuntimeImageOverrides(),
     }));
+  }
+}
+
+function beginOverrideMutation(key: string): number {
+  overrideMutationSequence += 1;
+  pendingOverrideMutationByKey.set(key, overrideMutationSequence);
+  return overrideMutationSequence;
+}
+
+function invalidateOverrideMutation(key: string): void {
+  pendingOverrideMutationByKey.delete(key);
+}
+
+function assertCurrentOverrideMutation(key: string, mutation: number): void {
+  if (pendingOverrideMutationByKey.get(key) !== mutation) {
+    throw new Error('local_runtime_image_override_superseded');
+  }
+}
+
+function finishOverrideMutation(key: string, mutation: number): void {
+  if (pendingOverrideMutationByKey.get(key) === mutation) {
+    pendingOverrideMutationByKey.delete(key);
   }
 }
 
@@ -338,6 +364,9 @@ export function setRuntimeImageReloadListKeys(keys: readonly string[]): void {
 
 export function removeRuntimeImageOverride(key: string): void {
   const normalizedKey = normalizeKey(key);
+  if (!normalizedKey) return;
+  // “恢复默认”也是该 key 的最新意图，必须让仍在读取的旧文件失效。
+  invalidateOverrideMutation(normalizedKey);
   const current = getMutableOverrides();
   if (!current[normalizedKey]) return;
   const next = { ...current };
@@ -372,30 +401,36 @@ export async function saveRuntimeImageOverrideEntryFromFile(entry: RuntimeImageR
   const normalizedKey = normalizeKey(entry.key);
   if (!normalizedKey) throw new Error('local_runtime_image_override_empty_key');
   if (!file.type.startsWith('image/')) throw new Error('local_runtime_image_override_not_image');
-  const dataUrl = await new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error('local_runtime_image_override_read_failed'));
-    reader.onload = () => {
-      const result = typeof reader.result === 'string' ? reader.result : '';
-      if (!result.startsWith('data:image/')) {
-        reject(new Error('local_runtime_image_override_read_failed'));
-        return;
-      }
-      resolve(result);
+  const mutation = beginOverrideMutation(normalizedKey);
+  try {
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error('local_runtime_image_override_read_failed'));
+      reader.onload = () => {
+        const result = typeof reader.result === 'string' ? reader.result : '';
+        if (!result.startsWith('data:image/')) {
+          reject(new Error('local_runtime_image_override_read_failed'));
+          return;
+        }
+        resolve(result);
+      };
+      reader.readAsDataURL(file);
+    });
+    assertCurrentOverrideMutation(normalizedKey, mutation);
+    const nextEntry: RuntimeImageOverrideEntry = {
+      key: normalizedKey,
+      dataUrl,
+      fileName: file.name,
+      updatedAt: Date.now(),
     };
-    reader.readAsDataURL(file);
-  });
-  const nextEntry: RuntimeImageOverrideEntry = {
-    key: normalizedKey,
-    dataUrl,
-    fileName: file.name,
-    updatedAt: Date.now(),
-  };
-  persistOverrides({
-    ...getMutableOverrides(),
-    [normalizedKey]: nextEntry,
-  });
-  return nextEntry;
+    persistOverrides({
+      ...getMutableOverrides(),
+      [normalizedKey]: nextEntry,
+    });
+    return nextEntry;
+  } finally {
+    finishOverrideMutation(normalizedKey, mutation);
+  }
 }
 
 export async function saveRuntimeImageOverrideFromFile(key: string, file: File): Promise<RuntimeImageOverrideEntry> {

@@ -27,6 +27,42 @@ function loadTypeScriptModule(relativePath) {
   return module.exports;
 }
 
+class MemoryStorage {
+  values = new Map();
+  failWrites = false;
+
+  getItem(key) {
+    return this.values.get(String(key)) ?? null;
+  }
+
+  setItem(key, value) {
+    if (this.failWrites) throw new Error('quota');
+    this.values.set(String(key), String(value));
+  }
+}
+
+class ControlledFileReader {
+  static pending = [];
+  result = null;
+  onerror = null;
+  onload = null;
+
+  readAsDataURL(file) {
+    ControlledFileReader.pending.push({ reader: this, file });
+  }
+}
+
+async function settlePromise() {
+  await Promise.resolve();
+  await Promise.resolve();
+}
+
+function completeReader(job, dataUrl) {
+  assert.ok(job, '必须存在待完成的 FileReader');
+  job.reader.result = dataUrl;
+  job.reader.onload?.();
+}
+
 const { advanceFrameDeadlineAfterRender } = loadTypeScriptModule(
   'src/game-map/runtime/frame-schedule.ts',
 );
@@ -56,5 +92,62 @@ assert.match(pixiRenderer, /generation !== this\.mountGeneration \|\| this\.canv
 assert.match(pixiRenderer, /this\.app\.renderer\.resize\(this\.width, this\.height, 1\);\s*this\.ready = true/);
 assert.match(pixiRenderer, /unmount\(\): void \{\s*this\.mountGeneration \+= 1;\s*this\.ready = false/);
 assert.match(pixiRenderer, /this\.rendererInitPromise\.then\(\(\) => \{\s*this\.destroyApplicationResources\(\)/);
+
+const storage = new MemoryStorage();
+const dispatchedEvents = [];
+globalThis.window = {
+  localStorage: storage,
+  dispatchEvent(event) {
+    dispatchedEvents.push(event);
+  },
+};
+globalThis.CustomEvent = class CustomEvent {
+  constructor(type, init) {
+    this.type = type;
+    this.detail = init?.detail;
+  }
+};
+globalThis.FileReader = ControlledFileReader;
+const imageOverrides = loadTypeScriptModule('src/renderer/local-runtime-image-overrides.ts');
+const resource = { key: 'terrain:floor', kind: 'tile', label: '平地', src: '/floor.png' };
+
+storage.failWrites = true;
+const failedSave = imageOverrides.saveRuntimeImageOverrideEntryFromFile(
+  resource,
+  { type: 'image/png', name: 'quota.png' },
+);
+completeReader(ControlledFileReader.pending.shift(), 'data:image/png;base64,quota');
+await assert.rejects(failedSave, /local_runtime_image_override_storage_failed/);
+assert.deepEqual(imageOverrides.getRuntimeImageOverrides(), [], '持久化失败不得污染内存覆盖快照');
+assert.equal(dispatchedEvents.length, 0, '持久化失败不得通知渲染器刷新');
+
+storage.failWrites = false;
+const slowSave = imageOverrides.saveRuntimeImageOverrideEntryFromFile(
+  resource,
+  { type: 'image/png', name: 'slow-old.png' },
+);
+const fastSave = imageOverrides.saveRuntimeImageOverrideEntryFromFile(
+  resource,
+  { type: 'image/png', name: 'fast-new.png' },
+);
+const [slowReader, fastReader] = ControlledFileReader.pending.splice(0);
+completeReader(fastReader, 'data:image/png;base64,new');
+await fastSave;
+completeReader(slowReader, 'data:image/png;base64,old');
+await assert.rejects(slowSave, /local_runtime_image_override_superseded/);
+assert.equal(imageOverrides.getRuntimeImageOverride(resource.key)?.fileName, 'fast-new.png', '较慢的旧选图不得覆盖最后一次选择');
+assert.equal(dispatchedEvents.length, 1, '只有最新选图可发布刷新事件');
+
+const saveBeforeReset = imageOverrides.saveRuntimeImageOverrideEntryFromFile(
+  resource,
+  { type: 'image/png', name: 'late-after-reset.png' },
+);
+const readerBeforeReset = ControlledFileReader.pending.shift();
+imageOverrides.removeRuntimeImageOverride(resource.key);
+completeReader(readerBeforeReset, 'data:image/png;base64,late');
+await assert.rejects(saveBeforeReset, /local_runtime_image_override_superseded/);
+assert.equal(imageOverrides.getRuntimeImageOverride(resource.key), null, '恢复默认后旧读图不得重新写回覆盖');
+assert.equal(dispatchedEvents.length, 2, '恢复默认应只发布一次新快照');
+await settlePromise();
 
 console.log('地图渲染调度与异步生命周期证明通过');
