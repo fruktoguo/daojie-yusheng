@@ -792,7 +792,7 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
     onOfflineGainReports: (data) => handleOfflineGainReports(data, {
       getPlayerId: () => options.getPlayer()?.id,
       ackOfflineGainReports: (reportIds) => options.socialEconomySender.ackOfflineGainReports(reportIds),
-      requestOfflineGainReports: () => options.socialEconomySender.requestOfflineGainReports(),
+      requestOfflineGainReports: (requestId) => options.socialEconomySender.requestOfflineGainReports(requestId),
       showToast: (message, kind) => options.showToast(message, kind),
       windowRef: options.windowRef,
     }),

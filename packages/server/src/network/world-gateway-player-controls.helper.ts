@@ -11,6 +11,8 @@
 import { C2S, S2C, type ClientToServerEventPayload } from '@mud/shared';
 import type { Socket } from 'socket.io';
 
+const MAX_OFFLINE_GAIN_REFRESH_REQUEST_ID_LENGTH = 96;
+
 interface WorldGatewayPlayerControlsDeps {
   gatewayGuardHelper: {
     requirePlayerId(client: Socket): string | null | undefined;
@@ -166,16 +168,24 @@ export class WorldGatewayPlayerControlsHelper {
 
   async handleRequestOfflineGainReports(
     client: Socket,
-    _payload: ClientToServerEventPayload<typeof C2S.RequestOfflineGainReports>,
+    payload: ClientToServerEventPayload<typeof C2S.RequestOfflineGainReports>,
   ): Promise<void> {
     const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
     if (!playerId) {
       return;
     }
+    const requestId = normalizeOfflineGainRefreshRequestId(payload?.requestId);
+    if (!requestId) {
+      return;
+    }
     try {
       const blocking = await this.gateway.playerRuntimeService.hasActiveOfflineGainSession?.(playerId) === true;
       const reports = await this.gateway.playerRuntimeService.loadOfflineGainPreviewReports(playerId);
+      if (this.gateway.gatewayGuardHelper.requirePlayerId(client) !== playerId) {
+        return;
+      }
       client.emit(S2C.OfflineGainReports, {
+        requestId,
         reports,
         ...(blocking ? { preview: true, blocking: true } : {}),
       });
@@ -517,4 +527,9 @@ export class WorldGatewayPlayerControlsHelper {
       this.gateway.worldClientEventService.emitGatewayError(client, errorCode, error);
     }
   }
+}
+
+function normalizeOfflineGainRefreshRequestId(value: unknown): string {
+  const requestId = typeof value === 'string' ? value.trim() : '';
+  return requestId.length <= MAX_OFFLINE_GAIN_REFRESH_REQUEST_ID_LENGTH ? requestId : '';
 }

@@ -255,7 +255,10 @@ export interface AckOfflineGainReportsRequestView {
 }
 
 /** 请求刷新当前离线收益预览，不确认、不停止离线挂机。 */
-export interface RequestOfflineGainReportsView {}
+export interface RequestOfflineGainReportsView {
+  /** 客户端请求 ID，用于拒绝乱序返回的旧预览。 */
+  requestId: string;
+}
 
 /** 请求触发当前位置传送点。 */
 export interface UsePortalRequestView {}

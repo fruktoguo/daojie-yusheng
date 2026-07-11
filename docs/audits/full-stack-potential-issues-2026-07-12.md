@@ -19,10 +19,10 @@
 
 | 领域 | 当前状态 | 已有证据 | 仍需完成 |
 | --- | --- | --- | --- |
-| 客户端应用状态与断线/跨图生命周期 | 进行中 | `pnpm verify:client` 通过；兑换码请求关联与会话清理 proof 通过 | 逐条复核其余网络派生状态、迟到回包和重置边界 |
+| 客户端应用状态与断线/跨图生命周期 | 进行中 | `pnpm verify:client` 通过；兑换码和离线收益刷新均有请求关联、会话清理及乱序 proof | 逐条复核其余网络派生状态、迟到回包和重置边界 |
 | UI 局部更新、焦点、滚动、选区 | 进行中 | 高频 UI continuity proof 通过 | 继续审查未被 proof 覆盖的面板和弹层 |
 | 地图渲染、相机、命中与资源释放 | 进行中 | map render lifecycle、spatial cache proof 通过 | 动态检查移动端触控与大视口性能 |
-| shared 类型、协议与 protobuf | 进行中 | shared build 全部契约检查通过；兑换码 C2S/S2C 已强制关联 `requestId` | 完成当前协议审计退出码与大包体复核 |
+| shared 类型、协议与 protobuf | 进行中 | shared build 与协议审计通过；兑换码和离线收益主动刷新 C2S/S2C 已关联 `requestId` | 完成当前大包体的数据流与消费复核 |
 | 服务端网络同步、AOI、首包/增量 | 进行中 | `pnpm verify:quick` runtime smoke 通过；网关 action 已验证单次 delta 和兑换终态关联 | 逐字段检查其余频率、范围、恢复语义 |
 | 服务端 runtime、tick、移动、战斗、交互 | 待检查 | server compile、quick runtime smoke 通过 | 按 mechanics 文档审查真实调用链和热路径 |
 | 持久化、恢复、强事务与关闭 | 进行中 | server compile 通过；边界审计 forbidden 已清零 | 复核玩家/实例分域、flush、outbox、恢复围栏 |
@@ -196,6 +196,16 @@
 - 修复方式：指向当前 `command/world-runtime-player-command.service`，用稳定 `itemInstanceId` 构造使用/装备命令并更新断言；对 async lease 拒绝改用 `await assert.rejects`。同步让兑换码 smoke 传递当前 `requestId` 契约。
 - 验证：compiled `world-runtime-player-command-smoke`、`world-runtime-gameplay-write-facade-smoke`、`world-runtime-write-entry-smoke`、`world-runtime-command-intake-facade-smoke` 均实际运行通过。
 
+### FS-018 `[x]` 离线收益轮询旧回包可让预览和本机历史倒退
+
+- 严重级别：高。
+- 根本原因：阻塞确认层每 3 秒启动一次异步预览查询，但 C2S/S2C 都没有请求身份，客户端也不记录最新代际；上一轮数据库/运行时查询可以晚于下一轮完成，并直接覆盖模块级 `blockingReports`。服务端在两段异步查询结束后也没有复核 socket 是否仍绑定原玩家。
+- 为什么错误：离线挂机仍按 1Hz tick 累积，后发请求天然应包含不早于先发请求的时长和收益；网络完成顺序不等于业务新旧顺序。确认按钮又会先把当前 `blockingReports` 写入浏览器历史，再向服务端发送结算回执，因此旧视图不仅会闪回，还会成为错误的本机历史快照。
+- 触发条件：任一预览查询超过 3 秒、数据库或网络抖动导致相邻请求乱序，或查询期间同一 socket 被重新绑定到其他玩家。
+- 后果：确认层显示的时长、修为和物品可能倒退；玩家在旧回包落地后确认，会把少记的收益报告保存到本机历史，而服务端最终资产和权威总账仍按最新 session 结算，造成展示历史与正式真源不一致。换绑后若旧查询继续回包，还可能向新会话投递旧玩家预览。
+- 修复方式：主动刷新请求强制携带唯一 `requestId`，服务端限制长度并逐条回显校验后的 ID；客户端只消费当前最新代际一次，旧代际、重复回包、发包门控拒绝、确认开始及会话重置后的在途结果全部失效。服务端异步读取结束后再次校验 socket 玩家绑定；Bootstrap、tick 等没有 `requestId` 的服务端主动下发保持原语义。
+- 验证：`pnpm build:shared`、server compile、`pnpm verify:client`、`pnpm audit:protocol` 均通过；新增 compiled `world-gateway-offline-gain-refresh-smoke` 实际制造“新请求先返回、旧请求后返回”和“查询中换绑玩家”，确认回显身份准确且旧玩家结果不再投递；socket gate 动态证明客户端拒绝旧代际、重复回包、门控失败和 reset 后回包，同时仍接受无 ID 的主动首包。
+
 ## 待进一步验证或用户决定
 
 ### D-001 `[?]` 客户端初始包同时装载 React 面板与 legacy 回退实现
@@ -232,4 +242,5 @@
 | `node packages/server/dist/tools/player-domain-empty-overwrite-guard-smoke.js` | 通过 | 真实 DB 中 7 个玩家分域空覆盖守卫、领悟清理边界和本次最终清理链 | 不证明 starter snapshot 入口与 recovery watermark 全链 |
 | `pnpm build:shared` | 通过 | 兑换码协议请求/响应映射、payload shape、protobuf 契约与 shared 边界 | 不证明真实 tick 排队和 DB 发奖 |
 | 兑换码与网关 compiled 专项 smoke | 通过 | `requestId` 端到端传递、成功/失败终态、队列重试幂等、单次 delta 和当前命令路由 | 不证明真实 DB 兑换码领取与全量协议审计 |
+| 离线收益刷新 compiled smoke 与客户端状态 proof | 通过 | 乱序回包逐条关联、客户端只接收最新代际、换绑后拒绝旧玩家结果、主动首包兼容 | 不证明真实 DB 在长时间抖动下的响应分布与本机存储配额 |
 | `pnpm audit:protocol` | 通过 | 无库主线服务实际启动、18 类场景的 C2S/S2C 事件覆盖与逐包字节统计；关闭 drain 完成 | 无数据库，因此未运行兑换码 DB 用例；也不直接证明 5000 并发带宽和压测结果 |

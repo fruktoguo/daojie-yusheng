@@ -11,6 +11,7 @@ const socketSendTypesPath = resolve(scriptDir, '../src/network/socket-send-types
 const socialEconomySenderPath = resolve(scriptDir, '../src/network/socket-send-social-economy.ts');
 const offlineGainModalPath = resolve(scriptDir, '../src/ui/offline-gain-modal.ts');
 const offlineGainConfirmationStatePath = resolve(scriptDir, '../src/ui/offline-gain-confirmation-state.ts');
+const offlineGainRefreshStatePath = resolve(scriptDir, '../src/ui/offline-gain-refresh-state.ts');
 const bootstrapAssemblyPath = resolve(scriptDir, '../src/main-bootstrap-assembly.ts');
 const resetStateSourcePath = resolve(scriptDir, '../src/main-reset-state-source.ts');
 
@@ -33,6 +34,7 @@ const {
   emitSocketLifecycleEvent,
 } = loadTypeScriptModule(gatePath);
 const { OfflineGainConfirmationState } = loadTypeScriptModule(offlineGainConfirmationStatePath);
+const { OfflineGainRefreshState } = loadTypeScriptModule(offlineGainRefreshStatePath);
 
 let emitted = 0;
 const emit = () => {
@@ -151,7 +153,11 @@ assert.equal(
 const socialEconomySenderSource = readFileSync(socialEconomySenderPath, 'utf8');
 assert.match(socialEconomySenderSource, /ackOfflineGainReports\(reportIds: string\[\]\): boolean/);
 assert.match(socialEconomySenderSource, /return deps\.emitEvent\(C2S\.AckOfflineGainReports, \{ reportIds \}\)\.accepted/);
-assert.match(socialEconomySenderSource, /requestOfflineGainReports\(\): boolean/);
+assert.match(socialEconomySenderSource, /requestOfflineGainReports\(requestId: string\): boolean/);
+assert.match(
+  socialEconomySenderSource,
+  /return deps\.emitEvent\(C2S\.RequestOfflineGainReports, \{ requestId \}\)\.accepted/,
+);
 
 const offlineGainModalSource = readFileSync(offlineGainModalPath, 'utf8');
 assert.match(
@@ -163,6 +169,8 @@ assert.match(offlineGainModalSource, /export function completeOfflineGainBlockin
 assert.match(offlineGainModalSource, /export function resetOfflineGainBlockingConfirmation\(\): void/);
 assert.match(offlineGainModalSource, /blockingConfirmationState\.settle\(\)/);
 assert.match(offlineGainModalSource, /OFFLINE_GAIN_CONFIRM_TIMEOUT_MS/);
+assert.match(offlineGainModalSource, /blockingRefreshState\.acceptResponse\(payload\?\.requestId\)/);
+assert.match(offlineGainModalSource, /blockingRefreshState\.cancel\(requestId\)/);
 
 const bootstrapAssemblySource = readFileSync(bootstrapAssemblyPath, 'utf8');
 assert.match(
@@ -201,5 +209,20 @@ confirmationState.begin(['report-3']);
 confirmationState.reset();
 assert.equal(confirmationState.hasActiveAttempt(), false, '终止登录时必须清理旧账号确认状态');
 assert.equal(confirmationState.shouldSuppressBlockingPreview(['report-1'], 40_000), false, '终止登录时必须清理迟到预览抑制状态');
+
+const refreshState = new OfflineGainRefreshState();
+assert.equal(refreshState.acceptResponse(undefined), true, '服务端主动首包不带请求 ID，必须继续接收');
+const oldRefreshId = refreshState.begin(1_000);
+const latestRefreshId = refreshState.begin(2_000);
+assert.notEqual(oldRefreshId, latestRefreshId);
+assert.equal(refreshState.acceptResponse(oldRefreshId), false, '旧刷新回包不得覆盖较新的离线收益预览');
+assert.equal(refreshState.acceptResponse(latestRefreshId), true, '当前刷新回包必须正常接收');
+assert.equal(refreshState.acceptResponse(latestRefreshId), false, '同一刷新回包只能消费一次');
+const rejectedRefreshId = refreshState.begin(3_000);
+refreshState.cancel(rejectedRefreshId);
+assert.equal(refreshState.acceptResponse(rejectedRefreshId), false, '发包被门控拒绝后不得保留假等待态');
+const resetRefreshId = refreshState.begin(4_000);
+refreshState.reset();
+assert.equal(refreshState.acceptResponse(resetRefreshId), false, '会话结束后不得接收旧账号刷新回包');
 
 console.log('socket outbound gate proof passed');

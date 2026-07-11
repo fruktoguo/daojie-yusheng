@@ -41,6 +41,8 @@ const status = runVerificationSteps({
         'runtime',
         '--case',
         'session',
+        '--case',
+        'world-gateway-offline-gain-refresh',
       ],
       shell: false,
     },

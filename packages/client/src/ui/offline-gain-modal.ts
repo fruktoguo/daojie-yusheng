@@ -15,13 +15,14 @@ import { formatOfflineGainDuration, renderOfflineGainReports } from './offline-g
 import { t } from './i18n';
 import { formatDisplayInteger } from '../utils/number';
 import { OfflineGainConfirmationState } from './offline-gain-confirmation-state';
+import { OfflineGainRefreshState } from './offline-gain-refresh-state';
 
 type OfflineGainToastKind = 'success' | 'warn' | 'system';
 
 interface OfflineGainReportHandlerOptions {
   getPlayerId: () => string | null | undefined;
   ackOfflineGainReports: (reportIds: string[]) => boolean;
-  requestOfflineGainReports: () => boolean;
+  requestOfflineGainReports: (requestId: string) => boolean;
   showToast: (message: string, kind?: OfflineGainToastKind) => void;
   windowRef?: Window;
 }
@@ -40,6 +41,7 @@ let blockingRefreshWindowRef: Window | null = null;
 let blockingPlayerId = '';
 let blockingReports: OfflineGainReportView[] = [];
 const blockingConfirmationState = new OfflineGainConfirmationState();
+const blockingRefreshState = new OfflineGainRefreshState();
 let blockingConfirmationContext: {
   options: OfflineGainReportHandlerOptions;
   result: OfflineGainConfirmResult;
@@ -50,6 +52,9 @@ export function handleOfflineGainReports(
   payload: ServerToClientEventPayload<typeof S2C.OfflineGainReports>,
   options: OfflineGainReportHandlerOptions,
 ): void {
+  if (!blockingRefreshState.acceptResponse(payload?.requestId)) {
+    return;
+  }
   const reports = Array.isArray(payload?.reports) ? payload.reports : [];
   const playerId = options.getPlayerId() ?? reports[0]?.playerId ?? 'anonymous';
   if (payload?.totals) {
@@ -252,12 +257,16 @@ function startBlockingRefresh(options: OfflineGainReportHandlerOptions): void {
   }
   const windowRef = options.windowRef ?? window;
   blockingRefreshTimer = windowRef.setInterval(() => {
-    options.requestOfflineGainReports();
+    const requestId = blockingRefreshState.begin();
+    if (!options.requestOfflineGainReports(requestId)) {
+      blockingRefreshState.cancel(requestId);
+    }
   }, OFFLINE_GAIN_REFRESH_INTERVAL_MS);
   blockingRefreshWindowRef = windowRef;
 }
 
 function clearBlockingRefreshTimer(): void {
+  blockingRefreshState.reset();
   if (blockingRefreshTimer === null) {
     return;
   }

@@ -362,8 +362,8 @@ export function createSocketSocialEconomySender(deps: SocialEconomySenderDeps) {
       }
       return deps.emitEvent(C2S.AckOfflineGainReports, { reportIds }).accepted;
     },
-    requestOfflineGainReports(): boolean {
-      return deps.emitEvent(C2S.RequestOfflineGainReports, {}).accepted;
+    requestOfflineGainReports(requestId: string): boolean {
+      return deps.emitEvent(C2S.RequestOfflineGainReports, { requestId }).accepted;
     },
   };
 }

@@ -116,6 +116,8 @@ export interface OfflineGainReportView {
 /** 玩家收支统计记录批次。 */
 export interface OfflineGainReportsView {
   reports: OfflineGainReportView[];
+  /** 主动刷新时回显客户端请求 ID；服务端主动下发时不存在。 */
+  requestId?: string;
   preview?: boolean;
   blocking?: boolean;
   totals?: PlayerStatisticTotalsView;
