@@ -71,3 +71,5 @@ eliteCount = playerCount × eliteMonstersPerPlayer    // = 1 × 玩家数
 - 实例标记 `persistent: true`, `persistentPolicy: 'persistent'`
 - 玩家进度通过 `TongtianTowerPersistenceService` 持久化
 - 空闲超过 `idleDestroyTicks`(3600息) 后销毁实例并落盘
+- 空闲销毁必须先完成实例 dirty domain 落盘；落盘异常或落盘后仍有 dirty 状态时保留运行态并在后续维护周期重试
+- 实际销毁统一进入托管实例生命周期入口，以本节点当前 `assignedNodeId + leaseToken + ownershipEpoch` 对 `instance_catalog` 做 CAS；冲突时不清理内存，成功时先递增 `ownership_epoch` 再卸载实例、tick progress、掉落容器、事件与阵法缓存

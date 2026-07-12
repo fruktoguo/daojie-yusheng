@@ -3,7 +3,7 @@
 ## 审计口径
 
 - 生产主线：`packages/client`、`packages/shared`、`packages/server`、`packages/config-editor`。
-- 当前基线：`main` 分支 `267b1349`；相对 `origin/main` ahead 5。
+- 当前基线：`main` 分支 `8424735c`；相对 `origin/main` ahead 6。
 - package manager：`pnpm@10.29.1`。
 - 每项结论必须来自机制文档、完整调用链、测试、编译产物或运行数据；仅凭搜索未发现异常不能标记为“确认无问题”。
 - `[x]` 只表示该行列出的具体证据范围已完成，不代表相邻系统或整个项目已完成。
@@ -26,6 +26,7 @@
 - [ ] P-05 retention、archive、cleanup、备份恢复和所有会落库验证的自动清理。
 - [x] P-06 密室拆除的活跃 lease/ownership epoch fence 已完成静态审计并修复；验证与提交信息见 FS-001。
 - [x] P-07 通用托管实例到期销毁的 catalog lease/epoch CAS、失败保留运行态和旧 writer 隔离已修复；见 FS-002。
+- [x] P-08 通天塔空闲实例的 dirty 落盘、统一销毁入口与 catalog CAS 顺序已修复；见 FS-004。
 
 ### 服务端权威运行时
 
@@ -34,6 +35,7 @@
 - [ ] R-03 战斗、仇恨、技能、buff、怪物 AI、刷新掉落和 PvP 权限。
 - [ ] R-04 建筑、房间、风水、灵气场、技艺 job、NPC、任务、自动化和 Actor。
 - [ ] R-05 5000 玩家/10000 实例口径下的索引、队列、定时器、Worker、缓存和热路径分配。
+- [x] R-06 通天塔空闲生命周期的失败重试、资源卸载与重启恢复相邻链路已完成专项验证；见 FS-004。
 
 ### shared、协议与内容链路
 
@@ -79,7 +81,7 @@
 
 ### FS-002 通用托管实例到期销毁先删运行态再无围栏覆盖 catalog
 
-- **状态**：已修复并完成专项验证，待本功能组原子提交。
+- **状态**：已修复、验证并提交。
 - **严重级别**：P0。
 - **所属功能组**：地图实例 / 生命周期 / catalog / lease 与 ownership epoch。
 - **影响链路**：实例 `destroyAt` 到期 → `syncAllInstanceLeases()` → `destroyExpiredManagedInstances()` → `destroyManagedInstance()` → 内存运行态与实例各领域缓存 → `instance_catalog`。
@@ -91,11 +93,11 @@
 - **修复方式**：在 `InstanceCatalogService` 增加单条 `UPDATE ... WHERE instance_id + ownership_epoch + lease pair` 的销毁 CAS；只允许运行态与数据库均无 lease，或精确匹配当前本地 lease。成功时原子设置 destroyed/stopped、清空 lease、递增 `ownership_epoch`、推进 `metadata_version`；运行时只有拿到新 epoch 后才卸载全部本地状态。CAS 冲突、租约不完整、非本地 lease 或能力缺失均失败关闭并保留运行态；周期清理记录明确拒绝原因。
 - **实际修改**：`instance-catalog.service.ts` 新增 `destroyInstanceCatalogWithFence()`；`world-runtime-instance-lease.helpers.ts` 调整通用销毁顺序、租约校验、epoch 回填与拒绝日志；`instance-lease-runtime-smoke.ts` 增加真实 PostgreSQL 的远端冲突保留运行态、本地精确 lease 销毁和 epoch `4 → 5` 证明；schema 文档同步 catalog 约束。
 - **验证结果**：`git diff --check` 通过；`pnpm --filter @mud/server compile` 通过；compiled `instance-lease-runtime-smoke` 使用真实 PostgreSQL 完整以 0 退出，证明冲突时 catalog/运行态均不变、成功时先递增 epoch 再卸载，且清理后 4 个实例的 catalog/formation 行计数均为 0；compiled `instance-lease-sync-error-smoke`、`instance-lease-periodic-force-reclaim-smoke` 与 `instance-ownership-epoch-replay-smoke` 通过；`pnpm verify:quick` 通过。`verify:quick` 不证明完整 persistence/shadow/acceptance/full 或真实多节点 split-brain。
-- **中文原子提交 hash**：待本功能组提交后回填。
+- **中文原子提交 hash**：`8424735c`（`fix(persistence): 加固通用实例销毁租约围栏`）。
 
 ### FS-003 实例 lease 核心 smoke 因夹具与运行环境漂移无法完成证明
 
-- **状态**：已修复并完成专项验证，待随实例生命周期功能组原子提交。
+- **状态**：已修复、验证并提交。
 - **严重级别**：P1（验证门禁失效，不直接改变玩家运行态）。
 - **所属功能组**：实例 lease / 接管恢复 / 阵法持久化 / smoke 生命周期。
 - **影响链路**：compiled smoke 启动 → 阵法持久化夹具 → 实例接管恢复 → ownership replay 断言 → Nest 全应用关闭 → 退出码。
@@ -106,6 +108,22 @@
 - **修复方式**：夹具同时写入与机制一致的灵力池和灵石池，并在冲突更新时同步两者；将 `smoke-timeout.ts` 收敛为规范 TypeScript，为该全应用 DB smoke 设置 60 秒条目级预算；生产默认用例同时保存、清除并恢复 `SERVER_RUNTIME_ENV` 与 `NODE_ENV`，不依赖调用者环境。
 - **实际修改**：更新 `instance-lease-runtime-smoke.ts` 的阵法 seed、销毁 fence proof 与清理列表；规范化 `smoke-timeout.ts` 并增加 `instance-lease-runtime-smoke.js = 60_000`；修正 `instance-lease-periodic-force-reclaim-smoke.ts` 的环境隔离。
 - **验证结果**：默认命令下 `instance-lease-runtime-smoke` 约 46 秒以 0 退出；阵法在接管阶段成功恢复，旧 ownership epoch 写入仍被阻断，新增销毁 CAS 证明通过；修正环境隔离后的默认 `instance-lease-periodic-force-reclaim-smoke` 通过，证明生产默认拒绝未到期远端 lease、周期同步不泄漏 force reclaim、显式开发启动恢复仍按 replay → CAS 顺序强制接管；`pnpm verify:quick` 通过。
+- **中文原子提交 hash**：`8424735c`（`fix(persistence): 加固通用实例销毁租约围栏`）。
+
+### FS-004 通天塔空闲清理吞掉落盘失败并绕过统一销毁围栏
+
+- **状态**：已修复并完成专项验证，待本功能组原子提交。
+- **严重级别**：P0。
+- **所属功能组**：通天塔 / 空闲生命周期 / 实例分域 / catalog lease。
+- **影响链路**：世界维护 tick 或玩家退出 → `WorldRuntimeTongtianTowerService.cleanupIdleInstances()` → `flushInstanceDomains()` → 本地实例/tick/loot/event/formation 清理 → `instance_catalog`。
+- **证据**：修复前空闲满 3600 息后即使 `flushInstanceDomains()` 抛错也只记录 warning 并继续；随后先把内存实例设为 destroyed/stopped、清掉全部本地索引，最后用普通 `upsertInstanceCatalog()` 无条件写 destroyed。该路径既没有确认落盘后是否仍有 dirty domain，也没有匹配当前 lease/token/epoch 或递增 epoch。
+- **根本原因**：通天塔把空闲销毁实现成了独立生命周期，复制了通用实例卸载步骤，却没有复用实例 catalog 的权威销毁事务；“尽力落盘”的异常处理错误地被用于要求“销毁并落盘”的持久实例。
+- **为什么错误**：机制明确要求空闲实例“销毁并落盘”，因此落盘失败不能被视为可继续条件；通天塔层又是可被接管、重启恢复的持久实例，销毁必须遵守与其他托管实例相同的 lease/epoch 所有权围栏。本地空层不等于本节点仍拥有 catalog 写权。
+- **触发条件**：空闲塔层达到 3600 息时 PostgreSQL/分域写入失败、durable COMMIT 结果未决、落盘后并发产生新 dirty、lease 已迁移或 catalog epoch/token 与内存不一致。
+- **可能后果**：最新塔层状态未落盘就被永久卸载；重启后从旧 checkpoint 恢复出过期怪物/地块/容器状态；旧节点可把远端已接管塔层标记 destroyed；旧 epoch flush 在销毁后回写；失败只留下 warning，下一维护周期已没有运行态可重试。
+- **修复方式**：空闲清理先要求 `flushInstanceDomains` 能力并完成落盘，异常时保留实例；落盘后通过全局 dirty 清单复查，仍 dirty 时继续保留。只有两道检查都通过才调用同层 `world-runtime-instance-lease.helpers.ts` 的 `destroyManagedInstance()` 权威入口，由其执行在线玩家复查、当前节点 lease 校验、catalog lease/epoch CAS、epoch 递增和提交后的内存卸载；能力缺失、CAS 拒绝或数据库异常均按实例记录原因并等待下轮重试。
+- **实际修改**：`world-runtime-tongtian-tower.service.ts` 删除重复的本地卸载与普通 catalog upsert，改为“flush → dirty 复查 → 统一销毁”，并直接复用实例生命周期 helper，未向已经到达生产边界阈值的 `WorldRuntimeService` facade 增加新职责；`tongtian-tower-smoke.ts` 增加落盘异常、落盘后仍 dirty、catalog 冲突和精确 lease/epoch 成功四段证明；机制文档同步失败关闭与 CAS 顺序。
+- **验证结果**：`git diff --check` 与 `pnpm --filter @mud/server compile` 通过；compiled `tongtian-tower-smoke` 通过，证明前三种失败均保留原运行态且不提前清理 tick/loot，成功时携带本地 lease 与 epoch `4`、采用 catalog 新 epoch `5` 后卸载；真实 PostgreSQL `tongtian-tower-persistence-smoke` 通过且自清理玩家进度夹具；compiled `world-runtime-tower-restart-recovery-smoke` 通过，证明重启恢复仍先裁定塔层 lease 再恢复离线挂机玩家；`pnpm verify:quick` 完整通过，生产边界检查确认 `world-runtime.service.ts` 仍为阈值内的 1200 行。`verify:quick` 不证明完整 persistence/shadow/acceptance/full 或真实多节点 split-brain。
 - **中文原子提交 hash**：待本功能组提交后回填。
 
 ## 2026-07-14 待用户决定

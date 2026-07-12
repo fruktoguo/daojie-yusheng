@@ -11,6 +11,7 @@ import { resolveProjectPath } from '../../common/project-path';
 import { MapInstanceRuntime } from '../instance/map-instance.runtime';
 import { TongtianTowerPersistenceService } from '../../persistence/tongtian-tower-persistence.service';
 import { MapTemplateRepository } from '../map/map-template.repository';
+import { destroyManagedInstance } from './world-runtime-instance-lease.helpers';
 
 interface TongtianTowerConfig {
   id: string;
@@ -221,28 +222,34 @@ export class WorldRuntimeTongtianTowerService {
       if (deps.tick - state.lastEmptyTick < this.config.idleDestroyTicks) {
         continue;
       }
-      if (typeof deps.flushInstanceDomains === 'function') {
-        try {
-          await deps.flushInstanceDomains(instanceId);
-        } catch (error) {
-          this.logger.warn(`通天塔空闲实例落盘失败：${instanceId} ${error instanceof Error ? error.message : String(error)}`);
-        }
+      if (typeof deps.flushInstanceDomains !== 'function') {
+        this.logger.warn(`通天塔空闲实例缺少落盘能力，保留运行态：${instanceId}`);
+        continue;
       }
-      instance.meta.runtimeStatus = 'stopped';
-      instance.meta.status = 'destroyed';
-      instance.meta.destroyAt = instance.meta.destroyAt ?? new Date().toISOString();
-      deps.worldRuntimeInstanceStateService?.deleteInstanceRuntime?.(instanceId);
-      deps.worldRuntimeTickProgressService?.clearInstance?.(instanceId);
-      deps.instanceTickProgressById?.delete?.(instanceId);
-      deps.worldRuntimeLootContainerService?.removeInstanceState?.(instanceId);
-      if (typeof (deps as { runtimeEventBusService?: { discardInstance?: (id: string) => void } }).runtimeEventBusService?.discardInstance === 'function') {
-        (deps as { runtimeEventBusService: { discardInstance: (id: string) => void } }).runtimeEventBusService.discardInstance(instanceId);
+      try {
+        await deps.flushInstanceDomains(instanceId);
+      } catch (error) {
+        this.logger.warn(`通天塔空闲实例落盘失败，保留运行态：${instanceId} ${error instanceof Error ? error.message : String(error)}`);
+        continue;
       }
-      const formationService = (deps as { worldRuntimeFormationService?: { releaseInstance?: (id: string) => void } }).worldRuntimeFormationService;
-      if (typeof formationService?.releaseInstance === 'function') {
-        formationService.releaseInstance(instanceId);
+      const remainingDirtyInstanceIds = typeof deps.listDirtyPersistentInstances === 'function'
+        ? deps.listDirtyPersistentInstances()
+        : [];
+      if (Array.isArray(remainingDirtyInstanceIds) && remainingDirtyInstanceIds.includes(instanceId)) {
+        this.logger.warn(`通天塔空闲实例落盘后仍有未持久化状态，保留运行态：${instanceId}`);
+        continue;
       }
-      await this.markCatalogDestroyed(deps, instanceId, instance);
+      let destroyResult: { ok?: boolean; reason?: string } | null = null;
+      try {
+        destroyResult = await destroyManagedInstance(deps, instanceId, 'tongtian_idle_timeout');
+      } catch (error) {
+        this.logger.warn(`通天塔空闲实例销毁失败，保留运行态：${instanceId} ${error instanceof Error ? error.message : String(error)}`);
+        continue;
+      }
+      if (destroyResult?.ok !== true) {
+        this.logger.warn(`通天塔空闲实例销毁被拒绝，保留运行态：${instanceId} reason=${destroyResult?.reason ?? 'unknown'}`);
+        continue;
+      }
       this.logger.log(`通天塔空闲实例已销毁：${instanceId}`);
     }
   }
@@ -735,38 +742,6 @@ export class WorldRuntimeTongtianTowerService {
       });
     }
     return landmarks;
-  }
-
-  private async markCatalogDestroyed(deps: any, instanceId: string, instance: any): Promise<void> {
-    if (typeof deps.instanceCatalogService?.isEnabled !== 'function' || deps.instanceCatalogService.isEnabled() !== true) {
-      return;
-    }
-    try {
-      await deps.instanceCatalogService.upsertInstanceCatalog({
-        instanceId,
-        templateId: instance?.template?.id ?? '',
-        instanceType: typeof instance?.meta?.kind === 'string' ? instance.meta.kind : 'tower',
-        persistentPolicy: typeof instance?.meta?.persistentPolicy === 'string' ? instance.meta.persistentPolicy : 'persistent',
-        ownerPlayerId: null,
-        ownerSectId: null,
-        partyId: null,
-        lineId: instance?.meta?.lineId ?? null,
-        status: 'destroyed',
-        runtimeStatus: 'stopped',
-        assignedNodeId: null,
-        leaseToken: null,
-        leaseExpireAt: null,
-        ownershipEpoch: instance?.meta?.ownershipEpoch ?? 0,
-        clusterId: instance?.meta?.clusterId ?? null,
-        shardKey: instance?.meta?.shardKey ?? instanceId,
-        routeDomain: instance?.meta?.routeDomain ?? null,
-        destroyAt: instance?.meta?.destroyAt ?? new Date().toISOString(),
-        lastActiveAt: instance?.meta?.lastActiveAt ?? null,
-        lastPersistedAt: instance?.meta?.lastPersistedAt ?? null,
-      });
-    } catch (error) {
-      this.logger.warn(`通天塔实例目录销毁标记失败：${instanceId} ${error instanceof Error ? error.message : String(error)}`);
-    }
   }
 
   private resolveSpawnOrigin(index: number): { x: number; y: number } {

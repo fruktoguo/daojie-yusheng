@@ -310,20 +310,55 @@ async function main(): Promise<void> {
   layer1BeforeDestroy.disconnectPlayer('player:1');
   deps.playerLocations.delete('player:1');
   tower.advanceInstance(layer1BeforeDestroy, deps);
+  layer1BeforeDestroy.meta.assignedNodeId = 'node:tongtian-smoke';
+  layer1BeforeDestroy.meta.leaseToken = 'lease:tongtian-smoke:layer:1';
+  layer1BeforeDestroy.meta.leaseExpireAt = new Date(Date.now() + 60_000).toISOString();
+  layer1BeforeDestroy.meta.ownershipEpoch = 4;
+  layer1BeforeDestroy.meta.runtimeStatus = 'leased';
   deps.instanceTickProgressById.set('tower:tongtian:layer:1', 0.5);
   deps.tick += 3599;
   await tower.cleanupIdleInstances(deps);
   assert.equal(deps.getInstanceRuntime('tower:tongtian:layer:1'), layer1BeforeDestroy, '不足一小时不能销毁通天塔');
   deps.tick += 1;
+  deps.failFlushForInstance('tower:tongtian:layer:1');
+  await tower.cleanupIdleInstances(deps);
+  assert.equal(deps.getInstanceRuntime('tower:tongtian:layer:1'), layer1BeforeDestroy, '空闲落盘失败时必须保留通天塔运行态');
+  assert.equal(
+    deps.catalogDestroyCalls.filter((entry: any) => entry.instanceId === 'tower:tongtian:layer:1').length,
+    0,
+    '空闲落盘失败时不能尝试 catalog 销毁',
+  );
+  deps.restoreFlushForInstance('tower:tongtian:layer:1');
+  deps.markDirtyAfterFlush('tower:tongtian:layer:1');
+  await tower.cleanupIdleInstances(deps);
+  assert.equal(deps.getInstanceRuntime('tower:tongtian:layer:1'), layer1BeforeDestroy, '落盘后仍有 dirty domain 时必须保留通天塔运行态');
+  assert.equal(
+    deps.catalogDestroyCalls.filter((entry: any) => entry.instanceId === 'tower:tongtian:layer:1').length,
+    0,
+    '仍有 dirty domain 时不能尝试 catalog 销毁',
+  );
+  deps.clearDirtyAfterFlush('tower:tongtian:layer:1');
+  await tower.cleanupIdleInstances(deps);
+  assert.equal(deps.getInstanceRuntime('tower:tongtian:layer:1'), layer1BeforeDestroy, 'catalog lease/epoch 冲突时必须保留通天塔运行态');
+  assert.equal(layer1BeforeDestroy.meta.status, 'active', 'catalog 销毁冲突不能先污染内存状态');
+  assert.equal(deps.tickProgressClears.includes('tower:tongtian:layer:1'), false, 'catalog 销毁冲突不能清理 tick progress');
+  deps.allowCatalogDestroy('tower:tongtian:layer:1');
   await tower.cleanupIdleInstances(deps);
   assert.equal(deps.getInstanceRuntime('tower:tongtian:layer:1'), null);
   assert.equal(deps.tickProgressClears.includes('tower:tongtian:layer:1'), true, '空闲销毁要清理 tick progress');
   assert.equal(deps.lootStateClears.includes('tower:tongtian:layer:1'), true, '空闲销毁要清理 loot container 内存态');
   assert.equal(deps.flushCalls.includes('tower:tongtian:layer:1'), true, '销毁前应先落盘通天塔地图状态');
-  assert.equal(
-    deps.catalogWrites.some((entry: any) => entry.instanceId === 'tower:tongtian:layer:1' && entry.status === 'destroyed' && entry.runtimeStatus === 'stopped'),
-    true,
-    '空闲销毁要标记实例目录 destroyed/stopped',
+  assert.equal(layer1BeforeDestroy.meta.ownershipEpoch, 5, '空闲销毁成功后要采用 catalog 返回的新 ownership epoch');
+  assert.deepEqual(
+    deps.catalogDestroyCalls.filter((entry: any) => entry.instanceId === 'tower:tongtian:layer:1').at(-1),
+    {
+      instanceId: 'tower:tongtian:layer:1',
+      assignedNodeId: 'node:tongtian-smoke',
+      leaseToken: 'lease:tongtian-smoke:layer:1',
+      expectedOwnershipEpoch: 4,
+      destroyAt: layer1BeforeDestroy.meta.destroyAt,
+    },
+    '空闲销毁必须携带当前 lease/epoch 进入统一 catalog CAS',
   );
 
   console.log('tongtian-tower-smoke ok');
@@ -343,7 +378,10 @@ function createDeps(
   const pendingRespawnPlayerIds = new Set<string>();
   const tickProgressClears: string[] = [];
   const lootStateClears: string[] = [];
-  const catalogWrites: any[] = [];
+  const catalogDestroyCalls: any[] = [];
+  const catalogDestroyAllowedInstanceIds = new Set<string>();
+  const flushFailureInstanceIds = new Set<string>();
+  const dirtyAfterFlushInstanceIds = new Set<string>();
   const flushCalls: string[] = [];
   const hydrationCalls: string[] = [];
   const createInstanceCalls: any[] = [];
@@ -352,6 +390,12 @@ function createDeps(
     logger: {
       debug() {},
       warn() {},
+      log() {},
+    },
+    nodeRegistryService: {
+      getNodeId() {
+        return 'node:tongtian-smoke';
+      },
     },
     contentTemplateRepository: content,
     templateRepository: templates,
@@ -382,8 +426,12 @@ function createDeps(
       isEnabled() {
         return true;
       },
-      async upsertInstanceCatalog(input: any) {
-        catalogWrites.push(input);
+      async destroyInstanceCatalogWithFence(input: any) {
+        catalogDestroyCalls.push(input);
+        if (!catalogDestroyAllowedInstanceIds.has(input.instanceId)) {
+          return { ok: false, ownershipEpoch: null };
+        }
+        return { ok: true, ownershipEpoch: Number(input.expectedOwnershipEpoch) + 1 };
       },
     },
     async hydratePersistentInstanceSnapshot(instanceId: string, instance: any) {
@@ -400,12 +448,33 @@ function createDeps(
     },
     async flushInstanceDomains(instanceId: string) {
       flushCalls.push(instanceId);
+      if (flushFailureInstanceIds.has(instanceId)) {
+        throw new Error(`simulated_tower_flush_failure:${instanceId}`);
+      }
       return { skipped: false, persistedDomains: [] };
+    },
+    listDirtyPersistentInstances() {
+      return Array.from(dirtyAfterFlushInstanceIds);
+    },
+    failFlushForInstance(instanceId: string) {
+      flushFailureInstanceIds.add(instanceId);
+    },
+    restoreFlushForInstance(instanceId: string) {
+      flushFailureInstanceIds.delete(instanceId);
+    },
+    markDirtyAfterFlush(instanceId: string) {
+      dirtyAfterFlushInstanceIds.add(instanceId);
+    },
+    clearDirtyAfterFlush(instanceId: string) {
+      dirtyAfterFlushInstanceIds.delete(instanceId);
+    },
+    allowCatalogDestroy(instanceId: string) {
+      catalogDestroyAllowedInstanceIds.add(instanceId);
     },
     instanceTickProgressById,
     tickProgressClears,
     lootStateClears,
-    catalogWrites,
+    catalogDestroyCalls,
     flushCalls,
     hydrationCalls,
     createInstanceCalls,
