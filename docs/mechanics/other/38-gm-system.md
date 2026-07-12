@@ -67,6 +67,14 @@
 - 所有 GM 端点统一通过 Token 鉴权
 - 开发环境可通过 `SERVER_ALLOW_INSECURE_LOCAL_GM_PASSWORD=1` 降级
 
+## Runtime 调试控制面
+
+- `/runtime/*` 是独立于原生 GM API 的内部调试控制面，默认关闭；它包含玩家资产、位置、市场、邮件和 flush 等高权限操作。
+- 非 `test / verify / smoke` 环境只有同时显式设置 `SERVER_RUNTIME_HTTP=1` 和非空 `SERVER_RUNTIME_ADMIN_TOKEN`（兼容 `SERVER_RUNTIME_HTTP_TOKEN`）时才会启用。
+- 生产或预发布环境请求启用但缺少 token 时失败关闭；即使继承了 `smoke:*` lifecycle 变量，也不能绕过声明为 `production / prod / staging` 的运行环境。
+- 请求通过 `x-runtime-admin-token` 或 `Authorization: Bearer <token>` 携带凭据；token 使用恒定时间比较。
+- 仅明确的测试、验证和 smoke 运行环境允许无 token 启用，便于本地门禁启动临时服务；该豁免不适用于生产或预发布环境。
+
 ## GM 玩家修改持久化边界
 
 - 玩家修改请求只允许已注册的 `section`；未知分区直接拒绝，不执行无意义或扩大范围的存档写入。

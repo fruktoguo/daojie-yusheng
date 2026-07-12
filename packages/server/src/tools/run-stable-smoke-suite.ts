@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 /**
  * 用途：复制独立 dist 快照后执行 smoke-suite，避免被后台 watcher/compile 清空共享 dist。
  */
@@ -68,7 +66,8 @@ async function main() {
       ...process.env,
       SERVER_PACKAGE_ROOT: packageRoot,
       SERVER_TOOL_DIST_ROOT: snapshot.distRoot,
-      SERVER_RUNTIME_ENV: process.env.SERVER_RUNTIME_ENV || process.env.APP_ENV || process.env.NODE_ENV || 'test',
+      // Smoke 必须与宿主机生产配置隔离；需要验证其他环境时使用专用显式覆盖。
+      SERVER_RUNTIME_ENV: process.env.SERVER_SMOKE_RUNTIME_ENV?.trim() || 'test',
       SERVER_ALLOW_INSECURE_LOCAL_GM_PASSWORD:
         process.env.SERVER_ALLOW_INSECURE_LOCAL_GM_PASSWORD
         || process.env.GM_ALLOW_INSECURE_LOCAL_GM_PASSWORD

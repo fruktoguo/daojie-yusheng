@@ -3,7 +3,7 @@
 ## 审计口径
 
 - 生产主线：`packages/client`、`packages/shared`、`packages/server`、`packages/config-editor`。
-- 当前基线：`main` 分支 `7a50115d`；相对 `origin/main` ahead 13。
+- 当前基线：`main` 分支 `428bdbb9`；相对 `origin/main` ahead 14。
 - package manager：`pnpm@10.29.1`。
 - 每项结论必须来自机制文档、完整调用链、测试、编译产物或运行数据；仅凭搜索未发现异常不能标记为“确认无问题”。
 - `[x]` 只表示该行列出的具体证据范围已完成，不代表相邻系统或整个项目已完成。
@@ -75,6 +75,7 @@
 - [x] X-05 实例接管 smoke 的阵法双资源夹具、生产默认环境隔离和全应用关闭超时已修复；见 FS-003。
 - [x] X-06 动态实例/动作/宗门相关 smoke 的类型绕过、陈旧断言、未定义变量和本地数据库环境串扰已修复；见 FS-013。
 - [x] X-07 inventory durable with-db smoke 未注入共享连接池、实际禁用被测服务的问题已修复；见 FS-018。
+- [x] X-08 生产显式开启 `/runtime` 控制面但缺少管理 token 时无鉴权放行的问题已修复；见 FS-019。
 
 ## 已确认问题
 
@@ -335,7 +336,7 @@
 
 ### FS-017 兑换码灵石奖励写错真源且 pending 重试会重复规划资产
 
-- **状态**：已修复并完成专项验证，等待本组原子提交。
+- **状态**：已修复、完成专项验证并原子提交。
 - **严重级别**：P0。
 - **所属功能组**：兑换码 / 背包与灵石 / durable operation / 重启补偿。
 - **影响链路**：玩家提交兑换码 → `RedeemCodeRuntimeService.redeemCodes()` → `claimCodeForUse()` 抢占 `pending` → `grantInventoryItems()` / `mutatePlayerWallet()` → 运行态 `replaceInventoryItems()` / `creditWallet()` → `finalizeCodeUse()` → 重启恢复。
@@ -347,11 +348,11 @@
 - **修复方式**：所有奖励（含灵石）统一进入一次 `grantInventoryItems`，背包容量按全部奖励计算，wallet 只随真实运行态背包刷新；数据库 claim 从同事务锁定的分组行读取奖励，并在首次 active→pending 时保存 `pendingRewards`，同 operationId 重放始终保留原快照。奖励 operation 已 committed 时，重试跳过容量重规划、durable grant 和运行态应用，只继续 finalize；成功核销后不再用全量文档重复覆盖专用持久化结果。全量保存路径禁止 `pending` 回退 `active`，并把 `used / destroyed` 作为不可覆盖终态，同时保留 GM 显式 `pending → destroyed` 的处置能力；全局 revision 按 `GREATEST(current + 1, incoming)` 单调前进。GM 奖励条目合并重复 itemId，并拒绝非有限、非正数或超过 `2_147_483_647` 的数量。
 - **实际修改**：更新 `redeem-code-runtime.service.ts`、`redeem-code-persistence.service.ts` 和兑换码 mechanics；扩展 runtime durable、启动持久化与真实 PostgreSQL claim smoke；新增真实 PostgreSQL 灵石背包真源 smoke。
 - **验证结果**：`pnpm --filter @mud/server compile` 与 `pnpm verify:quick` 通过；compiled `redeem-code-runtime-durable-smoke` 证明普通物品与灵石只形成一次 inventory durable call，finalize 首次失败后第二次只补核销，durable 调用、运行态背包替换和成功 notice 均不重复，且 GM 修改分组后结果仍使用首次 pending 奖励；compiled `redeem-code-persistence-startup-smoke`、`world-runtime-redeem-code-smoke` 通过；真实 PostgreSQL compiled `redeem-code-persistence-claim-db-smoke` 证明 active→pending 冻结奖励，分组从灵石 1 改为 99 后同 operationId 仍回读 1，随后 finalize used，陈旧 active 全量保存不能回退终态，而 GM 显式 pending→destroyed 仍可完成；真实 PostgreSQL compiled `redeem-code-inventory-source-db-smoke` 证明灵石只写 `player_inventory_item` 和 inventory watermark、精确重放不重复，`player_wallet` 与 wallet watermark 均为零；真实 PostgreSQL compiled `inventory-grant-durable-smoke` 证明修复后的共享连接池注入下，既有库存 durable 验证仍完整执行。
-- **中文原子提交 hash**：待提交。
+- **中文原子提交 hash**：`428bdbb9`（`fix(redeem): 加固兑换码资产补偿链`）。
 
 ### FS-018 inventory durable 数据库 smoke 实际禁用了被测服务
 
-- **状态**：已修复并完成真实数据库复跑，等待本组原子提交。
+- **状态**：已修复、完成真实数据库复跑并随兑换码资产补偿组原子提交。
 - **严重级别**：P1（验证门禁失效，不直接修改玩家数据）。
 - **所属功能组**：durable operation / 共享数据库连接池 / with-db 验证。
 - **影响链路**：`inventory-grant-durable-smoke` 构造 `DurableOperationService` → `onModuleInit()` → `DatabasePoolProvider.getPool('durable-operation')` → 资产事务证明。
@@ -363,6 +364,22 @@
 - **修复方式**：独立工具显式创建共享 `DatabasePoolProvider`，作为第二构造参数注入 durable 服务，并在 finally 中由 provider 统一关闭；业务查询用的独立 pool 仍单独清理。
 - **实际修改**：修正 `inventory-grant-durable-smoke.ts`，新 `redeem-code-inventory-source-db-smoke.ts` 使用同一装配约定。
 - **验证结果**：两条 compiled 工具均连接真实 PostgreSQL 并通过；原 inventory 工具重新证明 session/instance fence、地面来源、背包、水位、outbox、audit 和幂等重放，新工具证明兑换码灵石背包真源，所有夹具均在 finally 清理。
+- **中文原子提交 hash**：`428bdbb9`（`fix(redeem): 加固兑换码资产补偿链`）。
+
+### FS-019 生产 Runtime 调试控制面缺少 token 时反而无鉴权放行
+
+- **状态**：已修复并完成专项验证，等待本组原子提交。
+- **严重级别**：P0。
+- **所属功能组**：Runtime HTTP / 管理鉴权 / 玩家资产与世界运维安全。
+- **影响链路**：部署环境设置 `SERVER_RUNTIME_HTTP=1` → `RuntimeHttpAccessGuard.resolveRuntimeHttpAccessPolicy()` → `/runtime/*` 全部路由 → 玩家连接、位置、背包、钱包、市场、邮件、实例和 flush 操作。
+- **证据**：修复前策略只记录 `enabled` 与可空 `token`；显式开启后 `canActivate()` 遇到 `token === null` 直接返回 `true`。`WorldRuntimeController` 整体使用该守卫，且其中存在 `wallet/credit`、`wallet/debit`、`grant-item`、市场下单/成交、邮件发送及持久化 flush 等高权限写入口。代码与文档中均没有第二层玩家鉴权或 GM token 守卫。
+- **根本原因**：控制面设计把“没有配置 token”当成“无需鉴权”，未区分本地 smoke 的临时便利与生产显式启用；环境判定只看 `NODE_ENV` / npm lifecycle，且没有让明确的 `production / staging` 声明优先失败关闭。相邻 smoke 编排还会从本机 `.runtime/server.local.env` 继承生产运行环境，旧守卫无条件放行掩盖了测试环境污染。
+- **为什么错误**：高权限管理控制面必须默认关闭，并在生产启用时强制拥有独立凭据；缺少安全配置不能退化成匿名访问。一次错误环境变量或端口暴露不应直接授予任意玩家资产和世界状态修改权限。
+- **触发条件**：生产或预发布进程配置任一 `SERVER_RUNTIME_HTTP*` 启用开关，但遗漏或传入空的 `SERVER_RUNTIME_ADMIN_TOKEN / SERVER_RUNTIME_HTTP_TOKEN`；随后该端口能被非可信网络访问。继承 `smoke:*` lifecycle 变量还可能扩大误判风险。
+- **可能后果**：未授权调用者可查询世界运行态，给任意玩家增减资产、移动或删除玩家运行态、操纵市场/邮件，触发 flush 等运维动作；造成资产增发或销毁、状态破坏、隐私泄露和拒绝服务，且操作可能进入 durable/audit 主链而长期固化。
+- **修复方式**：策略显式区分 `misconfigured` 与正常关闭；`production / prod / staging` 声明优先于 npm lifecycle，生产显式开启但无 token 时保持关闭并返回明确 503。只有 `test / verify / smoke` 环境允许无 token；配置 token 后才允许生产访问，并用 `timingSafeEqual` 比较凭据。独立 smoke 覆盖生产缺 token、生产带 token、production 不受 smoke lifecycle 绕过、测试豁免、正确/错误 Bearer token。稳定 smoke 编排和各 case 子进程默认强制 `SERVER_RUNTIME_ENV=test`，只接受专用 `SERVER_SMOKE_RUNTIME_ENV` 或单用例显式覆盖，不再继承宿主机生产值。
+- **实际修改**：更新 `runtime-http-access.guard.ts` 与稳定 smoke 编排入口 `run-stable-smoke-suite.ts`，并在修改编排入口时移除其遗留 `@ts-nocheck`；新增 `runtime-http-access-guard-smoke.ts`；同步 GM mechanics 的独立 Runtime 调试控制面边界。
+- **验证结果**：`git diff --check`、`pnpm --filter @mud/server compile` 与最终 `pnpm verify:quick` 通过；compiled `runtime-http-access-guard-smoke` 证明生产/预发布缺 token 失败关闭、生产带 token 正常启用、production 声明不受 `smoke:*` lifecycle 绕过、测试无 token 豁免，以及正确/错误 Bearer token 分支；无数据库 compiled stable `runtime` smoke 通过，证明临时 HTTP 服务在隔离后的 test 环境仍可完成真实路由调用。首次 `verify:quick` 在修复 smoke 环境隔离前按预期失败于 runtime 503，证明新守卫没有被旧测试配置绕过；隔离修复后全门禁复跑通过。
 - **中文原子提交 hash**：待提交。
 
 ## 2026-07-14 待用户决定

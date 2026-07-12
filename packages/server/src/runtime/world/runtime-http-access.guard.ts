@@ -8,6 +8,7 @@
  * 根据环境变量控制 runtime HTTP 的启用状态和 token 鉴权
  */
 import { Injectable, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
+import { timingSafeEqual } from 'node:crypto';
 
 const RUNTIME_HTTP_ENABLE_ENV_KEYS = [
     'SERVER_RUNTIME_HTTP',
@@ -33,16 +34,22 @@ class RuntimeHttpAccessGuard {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         if (!this.policy.enabled) {
+            if (this.policy.misconfigured === true) {
+                throw new ServiceUnavailableException('运行时调试 HTTP 已请求启用，但生产环境未配置 SERVER_RUNTIME_ADMIN_TOKEN 或 SERVER_RUNTIME_HTTP_TOKEN');
+            }
             throw new ServiceUnavailableException('运行时调试 HTTP 未启用；如需使用，请显式设置 SERVER_RUNTIME_HTTP=1');
         }
         if (this.policy.token === null) {
+            if (this.policy.allowUnauthenticatedTestAccess !== true) {
+                throw new ServiceUnavailableException('运行时调试 HTTP 缺少管理 token');
+            }
             return true;
         }
 
         const request = context.switchToHttp().getRequest();
 
         const token = readRuntimeAdminToken(request.headers);
-        if (token !== this.policy.token) {
+        if (!hasEqualToken(token, this.policy.token)) {
             throw new UnauthorizedException('运行时调试 HTTP 需要有效的 x-runtime-admin-token 请求头或 Authorization: Bearer <token>');
         }
         return true;
@@ -54,21 +61,38 @@ function resolveRuntimeHttpAccessPolicy(env) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const explicitEnabled = readFirstBooleanFlag(env, RUNTIME_HTTP_ENABLE_ENV_KEYS);
+    const token = readFirstToken(env, RUNTIME_HTTP_TOKEN_ENV_KEYS);
+    const allowUnauthenticatedTestAccess = isRuntimeHttpAutoEnabledForTest(env);
     if (explicitEnabled !== undefined) {
+        const misconfigured = explicitEnabled && token === null && !allowUnauthenticatedTestAccess;
         return {
-            enabled: explicitEnabled,
-            token: readFirstToken(env, RUNTIME_HTTP_TOKEN_ENV_KEYS),
+            enabled: explicitEnabled && !misconfigured,
+            token,
+            allowUnauthenticatedTestAccess: explicitEnabled && token === null && allowUnauthenticatedTestAccess,
+            misconfigured,
         };
     }
     return {
-        enabled: isRuntimeHttpAutoEnabledForTest(env),
-        token: readFirstToken(env, RUNTIME_HTTP_TOKEN_ENV_KEYS),
+        enabled: allowUnauthenticatedTestAccess,
+        token,
+        allowUnauthenticatedTestAccess: allowUnauthenticatedTestAccess && token === null,
+        misconfigured: false,
     };
 }
 /** 在 test / verify / smoke 场景自动开启 runtime HTTP，便于验证链路。 */
 function isRuntimeHttpAutoEnabledForTest(env) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    const declaredRuntimeEnv = [env.SERVER_RUNTIME_ENV, env.APP_ENV, env.NODE_ENV]
+        .find((entry) => typeof entry === 'string' && entry.trim().length > 0)
+        ?.trim()
+        .toLowerCase();
+    if (declaredRuntimeEnv === 'production' || declaredRuntimeEnv === 'prod' || declaredRuntimeEnv === 'staging') {
+        return false;
+    }
+    if (declaredRuntimeEnv === 'test' || declaredRuntimeEnv === 'verify' || declaredRuntimeEnv === 'smoke') {
+        return true;
+    }
     const nodeEnv = env.NODE_ENV?.trim().toLowerCase();
     if (nodeEnv === 'test') {
         return true;
@@ -80,6 +104,15 @@ function isRuntimeHttpAutoEnabledForTest(env) {
         || lifecycleEvent === 'smoke:all'
         || lifecycleEvent === 'smoke:all:with-db'
         || lifecycleEvent.startsWith('smoke:');
+}
+/** 使用恒定时间比较已规范化 token，避免直接字符串比较泄露前缀匹配时序。 */
+function hasEqualToken(actual, expected) {
+    if (typeof actual !== 'string' || typeof expected !== 'string') {
+        return false;
+    }
+    const actualBytes = Buffer.from(actual);
+    const expectedBytes = Buffer.from(expected);
+    return actualBytes.length === expectedBytes.length && timingSafeEqual(actualBytes, expectedBytes);
 }
 /** 从请求头读取管理 token（x-runtime-admin-token 或 Authorization）。 */
 function readRuntimeAdminToken(headers) {
