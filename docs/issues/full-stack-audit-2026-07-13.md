@@ -3,7 +3,7 @@
 ## 审计口径
 
 - 生产主线：`packages/client`、`packages/shared`、`packages/server`、`packages/config-editor`。
-- 当前基线：`main` 分支 `09e7dbf5`；相对 `origin/main` ahead 10。
+- 当前基线：`main` 分支 `2d25b98d`；相对 `origin/main` ahead 11。
 - package manager：`pnpm@10.29.1`。
 - 每项结论必须来自机制文档、完整调用链、测试、编译产物或运行数据；仅凭搜索未发现异常不能标记为“确认无问题”。
 - `[x]` 只表示该行列出的具体证据范围已完成，不代表相邻系统或整个项目已完成。
@@ -34,6 +34,7 @@
 - [x] P-13 lease 到期后的 5 秒旧节点写入宽限已移除；见 FS-010。
 - [x] P-14 宗门实例 shell、入口、地块和护宗阵在 lease 就绪前被应用的问题已修复；见 FS-011。
 - [x] P-15 玩家心跳与断线 presence 的提交确认、单域修订清理和关机失败上报已修复；见 FS-014。
+- [x] P-16 玩家集合分域已提交但零行时复活 starter 资产与状态的问题已修复；见 FS-015。
 
 ### 服务端权威运行时
 
@@ -283,7 +284,7 @@
 
 ### FS-014 心跳与断线 presence 在落库失败时仍被误判为成功
 
-- **状态**：已修复并完成专项验证，待本组原子提交。
+- **状态**：已修复、验证并提交。
 - **严重级别**：P0。
 - **所属功能组**：玩家会话 / presence 三态 / 断线恢复 / 关闭链路。
 - **影响链路**：socket 心跳或断线 → `WorldGatewayPresenceHelper` → `PlayerDomainPersistenceService.savePlayerPresence()` → `player_presence` / `player_recovery_watermark` → dirty 清理与 `WorldShutdownDrainService` 结果。
@@ -295,7 +296,23 @@
 - **修复方式**：心跳按玩家合并 in-flight 写入，只在数据库事务成功后更新节流时间；提交前捕获 `presence` 单域修订和 runtime revision，成功回调再次比较同一单域修订，完全一致时才精确 `markPersisted`，失败则保留 dirty 并允许下一次心跳立即重试。bootstrap 首次 presence 写也采用相同修订比较。断线 helper 仅把更新会话已推进 fence 视为良性收敛，其他错误重新抛给 gateway，由 drain 结果记录 `presencePersisted=false`。
 - **实际修改**：更新 `world-gateway-presence.helper.ts` 的心跳提交确认、in-flight 去重、修订清理和断线错误传播；更新 `world-session-bootstrap-player-init.service.ts` 的 revision-aware dirty 清理；扩展 `player-presence-immediate-smoke.ts`，覆盖心跳失败不清 dirty、失败后立即重试、断线失败进入结构化结果，并保留 `在线 / 离线挂机 / 离线` 原语义。
 - **验证结果**：`git diff --check` 与 `pnpm --filter @mud/server compile` 通过；compiled `player-presence-immediate-smoke` 通过，故障注入时出现预期错误日志且最终 `ok=true`，证明心跳首次失败未标记 persisted、第二次立即重试成功、心跳 IO 期间的新断线修订未被旧成功回调清除、断线写失败返回 `presencePersisted=false`，原离线收益 blocking 状态仍为 `online=false / inWorld=true`；compiled `player-runtime-session-fence-smoke`、`player-session-route-smoke`、`shutdown-coordinator-order-smoke` 与 `shutdown-failed-flush-keeps-lease-smoke` 通过；`pnpm verify:quick` 完整通过，生产边界仍为 `world-runtime.service.ts = 1200` 行。上述验证不证明真实多节点同时登录、网络分区、完整 with-db/shadow/acceptance/full 或数据库故障恢复耗时。
-- **中文原子提交 hash**：待本组提交生成。
+- **中文原子提交 hash**：`2d25b98d`（`fix(persistence): 加固玩家在线态提交确认`）。
+
+### FS-015 玩家空集合分域恢复会复活 starter 资产与状态
+
+- **状态**：已修复、验证，等待本组原子提交。
+- **严重级别**：P0。
+- **所属功能组**：玩家分域持久化 / 背包装备 / 功法任务 / 自动化配置 / 重启恢复。
+- **影响链路**：玩家消耗、转移、出售、卸下或清空集合状态 → 对应 `player_*` 分域事务提交并推进 `player_recovery_watermark` → 重启、重连或 snapshot miss → `loadProjectedSnapshot()` → starter snapshot 与分域数据合成。
+- **证据**：`buildProjectedSnapshotFromDomains()` 以 starter snapshot 作为结构基底，但 `applyProjectedInventory()`、`applyProjectedEquipment()`、`applyProjectedArtifacts()`、`applyProjectedTechniques()`、`applyProjectedQuestProgress()`、自动技能、自动用药、炼丹预设和日志恢复函数均在查询结果为零行时直接返回。数据库中“对应 watermark 版本大于 0、行为零行”已经明确表示该集合成功提交为空，恢复链却把它与“该域从未投影”混为一谈并保留 starter 内容。真实 PostgreSQL 夹具已复现并覆盖这一路径。
+- **根本原因**：集合恢复只用行数判断领域是否存在，没有消费已经加载的 recovery watermark；starter 初始化默认值承担了结构基底与新玩家初始资产两种职责，而已有玩家恢复没有明确禁止后者回填。
+- **为什么错误**：数据库分域及 watermark 是已有玩家重启恢复的持久化真源。版本已推进后，即使没有行为也是有意义的权威状态；starter 只允许初始化新玩家，不能在恢复时补齐已经被合法消费或清空的资产和玩法状态。
+- **触发条件**：玩家将背包最后一项物品消耗、出售或转移；卸下全部装备/神器；清空功法、任务、自动技能、自动用药、炼丹预设或待投递日志；随后发生进程重启、断线重连或 snapshot 主记录缺失并走分域重建。
+- **可能后果**：starter 背包物品和锁定物重复生成，形成玩家资产复制；已卸下装备或神器重新出现；已清空的功法、任务与自动化规则复活；客户端首包、运行态和数据库真源互相矛盾，并可能在下一次 flush 把复活状态再次固化。
+- **修复方式**：新增统一的集合权威判定：行为非空，或对应 recovery watermark 版本大于 0，均表示该分域可覆盖 starter；权威零行时显式写入空背包/锁定物、空装备与神器槽状态、空功法任务和空自动化/预设/日志集合。watermark 为 0 且无行时仍保留 starter，以维持真正未投影的新玩家兼容语义，不新增旧格式运行时转换分支。
+- **实际修改**：`player-domain-persistence.service.ts` 将九类集合恢复接入 watermark-aware 覆盖；`player-domain-recovery-smoke.ts` 增加带 sentinel starter 的真实 PostgreSQL 权威空集合回读与自动清理，并把陈旧的任务对象进度夹具校正为当前 mechanics/shared 定义的数值 `progress` 与 `active` 状态；`server-memory-retention-smoke.ts` 同步验证恢复单一所有者约束，并修正成长规则拆分后 source assertion 应读取 helper 的验证漂移。
+- **验证结果**：`git diff --check` 与 `pnpm --filter @mud/server compile` 通过；真实 PostgreSQL compiled `player-domain-recovery-smoke` 通过并自动清理，明确证明背包、锁定物、装备、神器、功法、任务、自动技能、自动用药、炼丹预设和日志十类 starter sentinel 均未复活；真实 PostgreSQL compiled `player-domain-persistence-smoke` 通过；compiled `player-runtime-projection-entry-smoke` 证明运行态只接受分域投影恢复；compiled `server-memory-retention-smoke` 证明当前恢复单一所有者约束与成长规则 helper 引用复用断言均成立；`pnpm verify:quick` 完整通过，生产边界仍为 `world-runtime.service.ts = 1200` 行。未模拟生产快照损坏或数据库人工删行；watermark 已推进但数据被异常删除时仍会按权威空集合恢复，这是以数据库提交真源为准的失败关闭语义。
+- **中文原子提交 hash**：待提交。
 
 ## 2026-07-14 待用户决定
 

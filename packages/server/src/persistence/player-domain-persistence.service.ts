@@ -7680,6 +7680,15 @@ function hasAnyLoadedPlayerDomainState(domains: Omit<LoadedPlayerDomains, 'hasPr
   return false;
 }
 
+/** 用 watermark 区分“集合真源已合法清空”和“该域从未投影”。 */
+function isProjectedCollectionAuthoritative(
+  watermark: PlayerRecoveryWatermarkLoadRow | null,
+  column: RecoveryWatermarkColumn,
+  rows: readonly unknown[],
+): boolean {
+  return rows.length > 0 || (normalizeOptionalInteger(watermark?.[column]) ?? 0) > 0;
+}
+
 function buildProjectedSnapshotFromDomains(
   starterSnapshot: PersistedPlayerSnapshot,
   domains: LoadedPlayerDomains,
@@ -7738,23 +7747,63 @@ function buildProjectedSnapshotFromDomains(
   applyProjectedProgressionCore(snapshot, domains.progressionCore);
   applyProjectedAttrState(snapshot, domains.attrState);
   applyProjectedBodyTraining(snapshot, domains.bodyTraining);
-  applyProjectedInventory(snapshot, domains.inventoryItems, contentTemplateRepository);
+  applyProjectedInventory(
+    snapshot,
+    domains.inventoryItems,
+    contentTemplateRepository,
+    isProjectedCollectionAuthoritative(domains.recoveryWatermark, 'inventory_version', domains.inventoryItems),
+  );
   applyProjectedMapUnlocks(snapshot, domains.mapUnlocks);
-  applyProjectedEquipment(snapshot, domains.equipmentSlots, contentTemplateRepository);
-  applyProjectedArtifacts(snapshot, domains.artifactSlots, contentTemplateRepository);
-  applyProjectedTechniques(snapshot, domains.techniqueStates, contentTemplateRepository);
+  applyProjectedEquipment(
+    snapshot,
+    domains.equipmentSlots,
+    contentTemplateRepository,
+    isProjectedCollectionAuthoritative(domains.recoveryWatermark, 'equipment_version', domains.equipmentSlots),
+  );
+  applyProjectedArtifacts(
+    snapshot,
+    domains.artifactSlots,
+    contentTemplateRepository,
+    isProjectedCollectionAuthoritative(domains.recoveryWatermark, 'artifact_version', domains.artifactSlots),
+  );
+  applyProjectedTechniques(
+    snapshot,
+    domains.techniqueStates,
+    contentTemplateRepository,
+    isProjectedCollectionAuthoritative(domains.recoveryWatermark, 'technique_version', domains.techniqueStates),
+  );
   applyProjectedTechniqueComprehensions(snapshot, domains.techniqueComprehensions, contentTemplateRepository);
   applyProjectedPersistentBuffs(snapshot, domains.persistentBuffStates);
-  applyProjectedQuestProgress(snapshot, domains.questProgressRows);
+  applyProjectedQuestProgress(
+    snapshot,
+    domains.questProgressRows,
+    isProjectedCollectionAuthoritative(domains.recoveryWatermark, 'quest_version', domains.questProgressRows),
+  );
   applyProjectedCombatPreferences(snapshot, domains.combatPreferences);
-  applyProjectedAutoBattleSkills(snapshot, domains.autoBattleSkills);
-  applyProjectedAutoUseItemRules(snapshot, domains.autoUseItemRules);
+  applyProjectedAutoBattleSkills(
+    snapshot,
+    domains.autoBattleSkills,
+    isProjectedCollectionAuthoritative(domains.recoveryWatermark, 'auto_battle_skill_version', domains.autoBattleSkills),
+  );
+  applyProjectedAutoUseItemRules(
+    snapshot,
+    domains.autoUseItemRules,
+    isProjectedCollectionAuthoritative(domains.recoveryWatermark, 'auto_use_item_rule_version', domains.autoUseItemRules),
+  );
   applyProjectedProfessions(snapshot, domains.professionStates);
-  applyProjectedAlchemyPresets(snapshot, domains.alchemyPresets);
+  applyProjectedAlchemyPresets(
+    snapshot,
+    domains.alchemyPresets,
+    isProjectedCollectionAuthoritative(domains.recoveryWatermark, 'alchemy_preset_version', domains.alchemyPresets),
+  );
   applyProjectedActiveJob(snapshot, domains.activeJob);
   applyProjectedTechniqueActivityQueue(snapshot, domains.techniqueActivityQueue);
   applyProjectedEnhancementRecords(snapshot, domains.enhancementRecords);
-  applyProjectedLogbook(snapshot, domains.logbookMessages);
+  applyProjectedLogbook(
+    snapshot,
+    domains.logbookMessages,
+    isProjectedCollectionAuthoritative(domains.recoveryWatermark, 'logbook_version', domains.logbookMessages),
+  );
   snapshot.savedAt = resolveProjectedSnapshotSavedAt(snapshot, domains.recoveryWatermark);
 
   if (snapshot.placement.templateId) {
@@ -7871,8 +7920,9 @@ function applyProjectedInventory(
   snapshot: PersistedPlayerSnapshot,
   rows: PlayerInventoryItemLoadRow[],
   contentTemplateRepository?: InventoryItemTemplateRepository | null,
+  authoritative = rows.length > 0,
 ): void {
-  if (rows.length === 0) {
+  if (rows.length === 0 && !authoritative) {
     return;
   }
   const items: unknown[] = [];
@@ -7937,13 +7987,14 @@ function applyProjectedEquipment(
   snapshot: PersistedPlayerSnapshot,
   rows: PlayerEquipmentSlotLoadRow[],
   contentTemplateRepository?: InventoryItemTemplateRepository | null,
+  authoritative = rows.length > 0,
 ): void {
-  if (rows.length === 0) {
+  if (rows.length === 0 && !authoritative) {
     return;
   }
   const slotMap = new Map(
     EQUIP_SLOTS.map((slotType) => {
-      const existing = Array.isArray(snapshot.equipment?.slots)
+      const existing = !authoritative && Array.isArray(snapshot.equipment?.slots)
         ? snapshot.equipment.slots.find((entry) => normalizeOptionalString(asRecord(entry)?.slot) === slotType)
         : null;
       const existingRecord = asRecord(existing);
@@ -7987,13 +8038,14 @@ function applyProjectedArtifacts(
   snapshot: PersistedPlayerSnapshot,
   rows: PlayerArtifactSlotLoadRow[],
   contentTemplateRepository?: InventoryItemTemplateRepository | null,
+  authoritative = rows.length > 0,
 ): void {
-  if (rows.length === 0) {
+  if (rows.length === 0 && !authoritative) {
     return;
   }
   const slotMap = new Map(
     ARTIFACT_SLOTS.map((slotType) => {
-      const existing = Array.isArray(snapshot.artifacts?.slots)
+      const existing = !authoritative && Array.isArray(snapshot.artifacts?.slots)
         ? snapshot.artifacts.slots.find((entry) => normalizeOptionalString(asRecord(entry)?.slot) === slotType)
         : null;
       const existingRecord = asRecord(existing);
@@ -8054,8 +8106,9 @@ function applyProjectedTechniques(
   snapshot: PersistedPlayerSnapshot,
   rows: PlayerTechniqueStateLoadRow[],
   contentTemplateRepository?: TechniqueTemplateRepositoryPort | null,
+  authoritative = rows.length > 0,
 ): void {
-  if (rows.length === 0) {
+  if (rows.length === 0 && !authoritative) {
     return;
   }
   snapshot.techniques = {
@@ -8193,8 +8246,9 @@ function applyProjectedPersistentBuffs(
 function applyProjectedQuestProgress(
   snapshot: PersistedPlayerSnapshot,
   rows: PlayerQuestProgressLoadRow[],
+  authoritative = rows.length > 0,
 ): void {
-  if (rows.length === 0) {
+  if (rows.length === 0 && !authoritative) {
     return;
   }
   snapshot.quests = {
@@ -8260,8 +8314,9 @@ function applyProjectedCombatPreferences(
 function applyProjectedAutoBattleSkills(
   snapshot: PersistedPlayerSnapshot,
   rows: PlayerAutoBattleSkillLoadRow[],
+  authoritative = rows.length > 0,
 ): void {
-  if (rows.length === 0) {
+  if (rows.length === 0 && !authoritative) {
     return;
   }
   snapshot.combat = {
@@ -8278,8 +8333,9 @@ function applyProjectedAutoBattleSkills(
 function applyProjectedAutoUseItemRules(
   snapshot: PersistedPlayerSnapshot,
   rows: PlayerAutoUseItemRuleLoadRow[],
+  authoritative = rows.length > 0,
 ): void {
-  if (rows.length === 0) {
+  if (rows.length === 0 && !authoritative) {
     return;
   }
   snapshot.combat = {
@@ -8420,8 +8476,9 @@ function applyProjectedProfessions(
 function applyProjectedAlchemyPresets(
   snapshot: PersistedPlayerSnapshot,
   rows: PlayerAlchemyPresetLoadRow[],
+  authoritative = rows.length > 0,
 ): void {
-  if (rows.length === 0) {
+  if (rows.length === 0 && !authoritative) {
     return;
   }
   snapshot.progression.alchemyPresets = rows.map((row) => ({
@@ -8615,8 +8672,9 @@ function applyProjectedEnhancementRecords(
 function applyProjectedLogbook(
   snapshot: PersistedPlayerSnapshot,
   rows: PlayerLogbookMessageLoadRow[],
+  authoritative = rows.length > 0,
 ): void {
-  if (rows.length === 0) {
+  if (rows.length === 0 && !authoritative) {
     return;
   }
   snapshot.pendingLogbookMessages = rows.map((row) => ({

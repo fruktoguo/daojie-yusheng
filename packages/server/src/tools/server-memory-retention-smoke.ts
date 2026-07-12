@@ -1727,6 +1727,7 @@ function proveEntryCachesFollowLifecycle(): {
   const playerAttributesSource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/player/player-attributes.service.ts'), 'utf8');
   const playerRealmProjectionSource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/player/player-realm-projection.helpers.ts'), 'utf8');
   const playerProgressionSource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/player/player-progression.service.ts'), 'utf8');
+  const playerProgressionRuleHelpersSource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/player/player-progression-rule.helpers.ts'), 'utf8');
   const playerDomainPersistenceSource = readFileSync(resolve(process.cwd(), 'packages/server/src/persistence/player-domain-persistence.service.ts'), 'utf8');
   const playerPersistenceSource = readFileSync(resolve(process.cwd(), 'packages/server/src/persistence/player-persistence.service.ts'), 'utf8');
   const marketRuntimeSource = readFileSync(resolve(process.cwd(), 'packages/server/src/runtime/market/market-runtime.service.ts'), 'utf8');
@@ -1876,7 +1877,7 @@ function proveEntryCachesFollowLifecycle(): {
   const playerProgressionConfigViewsReuseRefs = playerProgressionSource.includes('return entry;')
     && playerProgressionSource.includes('                    : config.breakthroughItems)')
     && playerProgressionSource.includes(': (realm.breakthroughItems ?? []);')
-    && playerProgressionSource.includes('return transition.rootFoundationItems ?? [];')
+    && playerProgressionRuleHelpersSource.includes('return transition.rootFoundationItems ?? [];')
     && !playerProgressionSource.includes('return entry ? { ...entry } : undefined;')
     && !playerProgressionSource.includes('config.breakthroughItems.map((item) => ({ ...item }))')
     && !playerProgressionSource.includes('(realm.breakthroughItems ?? []).map((item) => ({ ...item }))')
@@ -1936,9 +1937,9 @@ function proveEntryCachesFollowLifecycle(): {
     && playerDomainPersistenceSource.includes('function applyProjectedInventory(')
     && playerDomainPersistenceSource.includes('function applyProjectedEquipment(')
     && playerDomainPersistenceSource.includes('function applyProjectedTechniques(')
-    && playerDomainPersistenceSource.includes('function applyProjectedInventory(\n  snapshot: PersistedPlayerSnapshot,\n  rows: PlayerInventoryItemLoadRow[],\n  contentTemplateRepository?: InventoryItemTemplateRepository | null,\n): void {\n  if (rows.length === 0) {\n    return;\n  }')
-    && playerDomainPersistenceSource.includes('function applyProjectedEquipment(\n  snapshot: PersistedPlayerSnapshot,\n  rows: PlayerEquipmentSlotLoadRow[],\n  contentTemplateRepository?: InventoryItemTemplateRepository | null,\n): void {\n  if (rows.length === 0) {\n    return;\n  }')
-    && playerDomainPersistenceSource.includes('function applyProjectedTechniques(\n  snapshot: PersistedPlayerSnapshot,\n  rows: PlayerTechniqueStateLoadRow[],\n  contentTemplateRepository?: TechniqueTemplateRepositoryPort | null,\n): void {\n  if (rows.length === 0) {\n    return;\n  }');
+    && playerDomainPersistenceSource.includes('function isProjectedCollectionAuthoritative(')
+    && playerDomainPersistenceSource.includes('authoritative = rows.length > 0,')
+    && playerDomainPersistenceSource.includes('if (rows.length === 0 && !authoritative) {\n    return;\n  }');
 
   const playerItemDomainRawPayloadsAreMinimal = playerDomainPersistenceSource.includes('buildPersistedInventoryItemRawPayload({\n      itemId,\n      count,\n      name: entry?.name,\n      desc: entry?.desc,\n      enhanceLevel: entry?.enhanceLevel,\n      learnTechniqueId: entry?.learnTechniqueId,\n      learnTechniqueMaxLevel: entry?.learnTechniqueMaxLevel,\n      grade: entry?.grade,\n      level: entry?.level,\n      rawPayload,\n    })')
     && playerDomainPersistenceSource.includes('buildPersistedInventoryItemRawPayload({\n      itemId,\n      count,\n      name: entry?.name,\n      desc: entry?.desc,\n      enhanceLevel,\n      learnTechniqueId: entry?.learnTechniqueId,\n      learnTechniqueMaxLevel: entry?.learnTechniqueMaxLevel,\n      grade: entry?.grade,\n      level: entry?.level,\n      rawPayload,\n    })')

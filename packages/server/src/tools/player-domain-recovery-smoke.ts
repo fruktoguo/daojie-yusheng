@@ -43,6 +43,7 @@ async function main(): Promise<void> {
   const now = Date.now();
   const playerId = `pdr_${now.toString(36)}`;
   const presenceOnlyPlayerId = `${playerId}_presence`;
+  const emptyCollectionPlayerId = `${playerId}_empty_collections`;
   const pool = new Pool({ connectionString: databaseUrl });
   const databasePoolProvider = new DatabasePoolProvider();
   const snapshotPersistence = new PlayerPersistenceService(databasePoolProvider);
@@ -57,6 +58,7 @@ async function main(): Promise<void> {
   try {
     await cleanupPlayer(pool, playerId);
     await cleanupPlayer(pool, presenceOnlyPlayerId);
+    await cleanupPlayer(pool, emptyCollectionPlayerId);
 
     const originalSnapshot = buildSnapshot(now, playerId);
     await snapshotPersistence.savePlayerSnapshot(playerId, originalSnapshot, {
@@ -216,7 +218,7 @@ async function main(): Promise<void> {
     if (
       snapshot.quests.entries.length !== 1
       || String((snapshot.quests.entries[0] as Record<string, unknown>)?.id ?? '') !== 'quest.intro.begin'
-      || String((snapshot.quests.entries[0] as Record<string, unknown>)?.status ?? '') !== 'in_progress'
+      || String((snapshot.quests.entries[0] as Record<string, unknown>)?.status ?? '') !== 'active'
     ) {
       throw new Error(`unexpected recovered quests: ${JSON.stringify(snapshot.quests)}`);
     }
@@ -273,6 +275,35 @@ async function main(): Promise<void> {
     if (snapshot.pendingLogbookMessages.length !== 1 || snapshot.pendingLogbookMessages[0]?.id !== 'log:1') {
       throw new Error(`unexpected recovered logbook messages: ${JSON.stringify(snapshot.pendingLogbookMessages)}`);
     }
+
+    const emptyCollectionSnapshot = buildStarterSnapshot(emptyCollectionPlayerId);
+    emptyCollectionSnapshot.savedAt = now + 2;
+    await domainPersistence.savePlayerSnapshotProjectionDomains(
+      emptyCollectionPlayerId,
+      emptyCollectionSnapshot,
+      [
+        'inventory',
+        'equipment',
+        'artifact',
+        'technique',
+        'quest',
+        'auto_battle_skill',
+        'auto_use_item_rule',
+        'alchemy_preset',
+        'logbook',
+      ],
+      {
+        allowInventoryEmptyOverwrite: true,
+        allowEquipmentEmptyOverwrite: true,
+        allowArtifactEmptyOverwrite: true,
+        expectedProjectionVersion: emptyCollectionSnapshot.savedAt,
+      },
+    );
+    const emptyCollectionRecovered = await domainPersistence.loadProjectedSnapshot(
+      emptyCollectionPlayerId,
+      buildCollectionSentinelStarterSnapshot,
+    );
+    assertProjectedEmptyCollections(emptyCollectionRecovered);
 
     const enhancementRecoveryPlayerId = `${playerId}_enh`;
     await cleanupPlayer(pool, enhancementRecoveryPlayerId);
@@ -351,9 +382,10 @@ async function main(): Promise<void> {
         {
           ok: true,
           playerId,
+          emptyCollectionPlayerId,
           enhancementRecoveryPlayerId,
           missingLockedPlayerId,
-          answers: 'with-db 下 snapshot miss 已能从 player-domain 当前已落地的 anchor/checkpoint/vitals/progression core/attr/body training/inventory/map unlock/equipment/technique/persistent buff/quest/combat config/profession/preset/job/technique queue/enhancement record/logbook 子域回读重建；强化 active job、lockedItems 与统一技艺队列可一起恢复；active job 存在但锁定物缺失时水合期会停止 job 并标记 active_job/enhancement_record/inventory 脏域',
+          answers: 'with-db 下 snapshot miss 已能从 player-domain 当前已落地的 anchor/checkpoint/vitals/progression core/attr/body training/inventory/map unlock/equipment/artifact/technique/persistent buff/quest/combat config/profession/preset/job/technique queue/enhancement record/logbook 子域回读重建；watermark 已提交且集合行为零行时会按权威空集合覆盖 starter，不再复活背包、锁定物、装备、神器、功法、任务、自动技能、自动用药、炼丹预设和日志；任务夹具按当前数值 progress 与 active 状态验证；强化 active job、lockedItems 与统一技艺队列可一起恢复；active job 存在但锁定物缺失时水合期会停止 job 并标记 active_job/enhancement_record/inventory 脏域',
           excludes: '不证明未投影子域已迁出旧快照，也不证明玩家全域已经不再依赖 server_player_snapshot',
           completionMapping: 'release:proof:with-db.player-domain-recovery',
           source: recovered.source,
@@ -368,6 +400,7 @@ async function main(): Promise<void> {
   } finally {
     await cleanupPlayer(pool, playerId).catch(() => undefined);
     await cleanupPlayer(pool, presenceOnlyPlayerId).catch(() => undefined);
+    await cleanupPlayer(pool, emptyCollectionPlayerId).catch(() => undefined);
     await cleanupPlayer(pool, `${playerId}_enh`).catch(() => undefined);
     await cleanupPlayer(pool, `${playerId}_enh_missing`).catch(() => undefined);
     await pool.end().catch(() => undefined);
@@ -480,6 +513,82 @@ function buildStarterSnapshot(playerId: string): ProjectedRecoverySnapshot {
     pendingLogbookMessages: [],
     runtimeBonuses: [],
   };
+}
+
+function buildCollectionSentinelStarterSnapshot(playerId: string): ProjectedRecoverySnapshot {
+  const snapshot = buildStarterSnapshot(playerId);
+  snapshot.inventory.items = [{ itemId: 'starter_inventory_must_not_return', count: 1 }] as never;
+  snapshot.inventory.lockedItems = [{
+    itemId: 'starter_locked_item_must_not_return',
+    itemInstanceId: 'starter:locked:sentinel',
+    count: 1,
+    lockedBy: 'starter:sentinel',
+  }] as never;
+  snapshot.equipment.slots = [{
+    slot: 'weapon',
+    item: { itemId: 'starter_equipment_must_not_return', itemInstanceId: 'starter:equipment:sentinel' },
+  }] as never;
+  snapshot.artifacts.slots = [{
+    slot: 'starter:artifact:sentinel',
+    unlocked: true,
+    enabled: true,
+    qi: 10,
+    maxQi: 10,
+    item: { itemId: 'starter_artifact_must_not_return', itemInstanceId: 'starter:artifact:item:sentinel' },
+  }] as never;
+  snapshot.techniques.techniques = [{ techId: 'starter_technique_must_not_return', level: 1 }] as never;
+  snapshot.quests.entries = [{ id: 'starter_quest_must_not_return', status: 'active' }] as never;
+  snapshot.combat.autoBattleSkills = [{ skillId: 'starter_skill_must_not_return', enabled: true }] as never;
+  snapshot.combat.autoUsePills = [{ itemId: 'starter_pill_must_not_return', conditions: [] }] as never;
+  snapshot.progression.alchemyPresets = [{
+    presetId: 'starter_preset_must_not_return',
+    recipeId: null,
+    name: 'starter preset sentinel',
+    ingredients: [],
+  }];
+  snapshot.pendingLogbookMessages = [{
+    id: 'starter_logbook_must_not_return',
+    kind: 'system',
+    text: 'starter logbook sentinel',
+    at: snapshot.savedAt,
+  }];
+  return snapshot;
+}
+
+function assertProjectedEmptyCollections(snapshot: PersistedPlayerSnapshot | null): void {
+  if (!snapshot) {
+    throw new Error('expected authoritative empty collection projection to recover');
+  }
+  const equipmentHasItem = snapshot.equipment.slots.some((entry) =>
+    Boolean((entry as Record<string, unknown> | null | undefined)?.item));
+  const artifactHasState = snapshot.artifacts.slots.some((entry) => {
+    const record = entry as Record<string, unknown> | null | undefined;
+    return record?.unlocked === true || Boolean(record?.item);
+  });
+  if (
+    snapshot.inventory.items.length !== 0
+    || (snapshot.inventory.lockedItems?.length ?? 0) !== 0
+    || equipmentHasItem
+    || artifactHasState
+    || snapshot.techniques.techniques.length !== 0
+    || snapshot.quests.entries.length !== 0
+    || snapshot.combat.autoBattleSkills.length !== 0
+    || (snapshot.combat.autoUsePills?.length ?? 0) !== 0
+    || snapshot.progression.alchemyPresets.length !== 0
+    || snapshot.pendingLogbookMessages.length !== 0
+  ) {
+    throw new Error(`authoritative empty collections resurrected starter values: ${JSON.stringify({
+      inventory: snapshot.inventory,
+      equipment: snapshot.equipment,
+      artifacts: snapshot.artifacts,
+      techniques: snapshot.techniques,
+      quests: snapshot.quests,
+      autoBattleSkills: snapshot.combat.autoBattleSkills,
+      autoUsePills: snapshot.combat.autoUsePills,
+      alchemyPresets: snapshot.progression.alchemyPresets,
+      logbook: snapshot.pendingLogbookMessages,
+    })}`);
+  }
 }
 
 function buildSnapshot(now: number, playerId: string): ProjectedRecoverySnapshot {
@@ -735,11 +844,8 @@ function buildSnapshot(now: number, playerId: string): ProjectedRecoverySnapshot
       entries: [
         {
           id: 'quest.intro.begin',
-          status: 'in_progress',
-          progress: {
-            kills: 2,
-            target: 5,
-          },
+          status: 'active',
+          progress: 2,
           rewardItemIds: ['pill.minor_heal'],
           rewards: [{ type: 'item', itemId: 'pill.minor_heal', count: 1 }],
         },
@@ -1028,11 +1134,10 @@ function normalizeComparableQuests(entries: unknown[]): Array<Record<string, unk
   return (Array.isArray(entries) ? entries : [])
     .map((entry) => {
       const record = entry as Record<string, unknown> | null | undefined;
-      const progress = record?.progress as Record<string, unknown> | null | undefined;
       return {
         id: String(record?.id ?? record?.questId ?? ''),
         status: String(record?.status ?? ''),
-        progress: progress ? { ...progress } : {},
+        progress: Math.max(0, Math.trunc(Number(record?.progress ?? 0) || 0)),
       };
     })
     .sort((left, right) => left.id.localeCompare(right.id, 'zh-Hans-CN'));
