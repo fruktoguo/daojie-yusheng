@@ -20,6 +20,7 @@ import type {
   VisibleBuffState,
   AttrBonus,
 } from '@mud/shared';
+import { cloneSyncedItemStackView } from '@mud/shared';
 import { cloneVisibleBuffProjection } from '../runtime/player/player-buff-projection.helpers';
 import {
   ATTRIBUTE_KEYS,
@@ -29,19 +30,7 @@ import {
 } from './projector-types';
 
 export function cloneSyncedItemStack(source: SyncedItemStack): SyncedItemStack {
-    return {
-        ...source,
-        equipAttrs: source.equipAttrs ? clonePartialAttributes(source.equipAttrs) : undefined,
-        equipStats: clonePartialNumericStats(source.equipStats),
-        equipValueStats: clonePartialNumericStats(source.equipValueStats),
-        equipSpecialStats: source.equipSpecialStats ? { ...source.equipSpecialStats } : undefined,
-        materialValues: cloneMaterialValues(source.materialValues),
-        effects: source.effects?.map((entry) => cloneEquipmentEffectDef(entry)),
-        consumeBuffs: source.consumeBuffs?.map((entry) => cloneConsumableBuffDef(entry)),
-        tags: source.tags?.slice(),
-        mapUnlockIds: source.mapUnlockIds?.slice(),
-        tileResourceGains: source.tileResourceGains?.map((entry) => ({ ...entry })),
-    };
+    return cloneSyncedItemStackView(source);
 }
 
 export function cloneMaterialValues(source: SyncedItemStack['materialValues']): SyncedItemStack['materialValues'] {

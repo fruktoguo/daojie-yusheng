@@ -56,6 +56,14 @@ signature = itemId + '#' + enhanceLevel
 - 市场挂单脱壳后买家成交会重新分配 ID
 - 历史 fallback 值（含":"）视为"未稳定"，水合时 lazy 升级为新 UUID
 
+## 分页与客户端水合
+
+- 背包分页先在服务端按分类和搜索词过滤，再按 `offset/limit` 截取；单页上限为 30，响应回显 `requestId`、筛选条件和背包 `revision`。
+- 分页条目必须携带完整的实例投影。`equipAttrs`、`equipStats`、`equipSpecialStats`、`consumeBuffs`、`contextActions`、`craftEffectStats` 等实例字段以服务端为准，本地内容模板只补齐未随实例保存的静态字段。
+- 每个分页或增量物品对象都是该实例的完整视图；可选实例字段缺失表示该实例没有对应覆盖值，客户端不得从原槽位旧物品继承。这样即使同一槽位换成相同 `itemId/enhanceLevel` 的另一实例，也不会串用旧词条。
+- 允许进入客户端的物品字段统一由 shared 投影白名单维护，并在编译期校验 `SyncedItemStack` 新字段是否完成投影决策；服务端不得直接展开运行时对象，以免泄露内部字段。
+- 背包、装备和法宝的 PanelDelta 快照必须深克隆实例投影。上一帧网络基线不得与权威运行时共享词条、Buff 或动作数组，否则原地变化会同时污染前后帧并让 diff 漏发。
+
 ## 来源资产事务
 
 - 地面拾取和容器领取会把来源剩余状态与玩家背包写入同一 durable transaction；失败回滚使用来源 revision/精确逆操作，不覆盖等待数据库期间发生的其他掉落或容器变化。

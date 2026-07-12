@@ -47,7 +47,7 @@
 ### FS-002 `[ ]` 文件体积门禁已失守，生产巨型模块继续膨胀
 
 - 严重级别：高。
-- 根本原因：多个运行时、持久化、GM 和客户端面板持续把新职责并回巨型文件；体积门禁当前仍报告 14 个已超限文件继续增长，另有 3 个文件首次超过 3000 行。生成文件和大型 smoke 又与生产模块混在同一口径，增加了噪音。
+- 根本原因：多个运行时、持久化、GM 和客户端面板持续把新职责并回巨型文件；体积门禁当前仍报告 14 个已超限文件继续增长，另有 2 个文件首次超过 3000 行。生成文件和大型 smoke 又与生产模块混在同一口径，增加了噪音。
 - 为什么错误：巨型模块扩大冲突面和隐式副作用，难以证明单一职责、事务边界及局部 UI 更新；门禁红灯失去阻止继续膨胀的能力。
 - 后果：运行时/持久化改动更容易产生竞态、旧态覆盖、全量刷新或回归遗漏；review 和验证成本持续增加。
 - 修复方向：先修正生成物、工具与生产代码的分类口径，再按真实职责拆分当前生产超限模块；不得简单更新 baseline 掩盖增长。
@@ -68,7 +68,7 @@
 - 为什么错误：这些验证脚本本应用来证明生产契约，却绕过类型检查；接口漂移可能直到运行 smoke 才暴露，未进入默认 suite 的脚本甚至会长期失真，同时违反项目 TypeScript 红线。
 - 后果：门禁产生假阳性，重构调用签名后旧 smoke 可能静默失效，关键恢复/资产测试的可信度下降。
 - 修复方向：按稳定 suite 与高风险资产/恢复脚本优先，逐组迁移为规范 TypeScript import/export 并移除抑制；每组运行实际 compiled smoke 后原子提交。
-- 本轮进展：`player-runtime-dirty-domain-smoke.ts`、`protocol-audit.ts`、`auth-bootstrap-smoke.ts` 及后者三个 support 模块已移除 `@ts-nocheck` 并重新进入 server compile；协议审计、鉴权启动和宗门虚拟边界 smoke 的 CommonJS 入口已迁移为标准 import/export。当前剩余 162 个 `@ts-nocheck`，含 CommonJS 的 `.ts` 文件降为 138 个。
+- 本轮进展：`player-runtime-dirty-domain-smoke.ts`、`protocol-audit.ts`、`auth-bootstrap-smoke.ts` 及后者三个 support 模块、`world-gateway-inventory-helper-smoke.ts` 已移除 `@ts-nocheck` 并重新进入 server compile；协议审计、鉴权启动、宗门虚拟边界和背包网关 smoke 的 CommonJS 入口已迁移为标准 import/export。当前剩余 161 个 `@ts-nocheck`，含 CommonJS 的 `.ts` 文件降为 137 个。
 
 ### FS-004 `[x]` 玩家分域空覆盖 smoke 的异常路径缺少兜底清理
 
@@ -552,6 +552,15 @@
 - 修复方式：物品编辑期望对齐 `inventory/equipment/artifact`；恢复丹替身在每次运行态/持久化/托管仓回读时通过 `ContentTemplateRepository.normalizeItem` 恢复模板属性，再验证堆叠与 domain；独立持久化 proof 改为要求分域方法并显式禁止 `savePlayerSnapshotProjection`。
 - 验证：compiled `native-gm-player-technique-refresh`、`native-gm-cleanup-invalid-items`、`recovery-pill-migration` 和 `flush-independent-persistence` 均执行通过；前两项分别证明物品实例 ID/domain 映射与无效物品清理，恢复丹用例证明在线/离线背包、装备和托管仓迁移合并，边界 proof 锁定 GM 分域直写。
 
+### FS-054 `[x]` 背包分页与增量水合会丢失或串用实例字段
+
+- 严重级别：高。
+- 根本原因：服务端分页投影只复制身份、名称、类型、品阶和功法书等少数字段，遗漏共享协议已经声明的 `equipSpecialStats`、`consumeBuffs`、`contextActions`、`craftEffectStats` 等实例态；高频 PanelDelta 对背包、装备和法宝又只做对象浅展开，嵌套词条仍与权威运行时共享引用。客户端水合同时维护另一份手写字段表，同样漏接三类字段，并按 `itemId + enhanceLevel` 从原槽位继承缺失值。`resolvePreviewItem` 还让模板 `equipSpecialStats` 反向覆盖实例值。
+- 为什么错误：同模板、同强化等级的两件物品仍是不同资产实例，制作词条、特殊属性、Buff 和上下文动作都可能不同。槽位只是展示顺序，不能成为实例字段真源；本地模板也只能提供静态默认值，不能覆盖服务端实例投影。
+- 后果：登录、翻页或增量换位后，详情可能不显示真实悟性/幸运、消耗 Buff、技艺加成和操作入口；相同模板的新物品还可能继承旧物品词条。嵌套对象若在 revision 推进前后原地变化，上一帧基线也会被改掉，diff 可能误判“无变化”而漏发。资产操作虽然仍由 `itemInstanceId` 防止命中错误实例，但玩家会依据错误详情作出装备、分解或交易判断。
+- 修复方式：在 shared 建立覆盖全部 `SyncedItemStack` key 的显式投影白名单，新增字段漏登记会在编译期失败，投影时深克隆并拒绝运行时内部字段；背包分页和背包/装备/法宝 PanelDelta 切片统一复用该投影。客户端把每个回包视为完整实例视图，只用本地模板补静态字段，不再从旧槽位继承；实例特殊属性改为服务端值优先。背包网关 smoke 同步迁移为规范 TypeScript，并把分页字段完整性和引用隔离接入 `verify:quick`；生产边界门禁禁止物品浅展开回归。
+- 验证：`pnpm build:shared`、`pnpm verify:client`、完整 `pnpm verify:quick` 均通过；新增客户端水合 proof 动态覆盖旧槽位不继承、特殊属性/Buff/上下文动作保留和深克隆，compiled 网关 smoke 覆盖过滤、搜索、30 条上限、请求回显、revision、完整实例投影及内部字段拒绝。`pnpm proof:file-size-gate` 已运行，仍因 FS-002 记录的 14 个 baseline regression 与 2 个新超限文件退出 1，本组没有新增超限。未连接真实弱网，不能替代长延迟翻页和实际包体压测。
+
 ## 待进一步验证或用户决定
 
 ### D-001 `[?]` 客户端初始包同时装载 React 面板与 legacy 回退实现
@@ -670,3 +679,4 @@
 | 玩家成长权威边界拆分 | server compile、完整 `pnpm verify:quick` 和显式无 DB/Redis 的 compiled `progression` stable case 通过；文件体积门禁确认主服务退出错误清单 | 突破、功法、灵根、传法与输入归一化纯规则已离开有副作用的服务；完整成长主链与 quick 回归仍执行；主服务为门禁口径 2815 行 | 无数据库，不证明成长状态持久化、断电恢复、多玩家并发或长期数值演化 |
 | 宗门持久化与运行时边界 | server compile、完整 `pnpm verify:quick`、`pnpm audit:boundaries` 和 10 项宗门相关 compiled smoke 通过；文件体积门禁确认主服务退出错误清单 | fake pool/provider 下的数据库配置 fail-closed、初始化重试、回滚错误聚合、主异步流程、核心归一化、虚拟边界、阵法/道具/房间风水联动和 2926 行职责边界 | 未连接真实数据库，不证明建表/核心修复/启动回读的实表语义、多节点一致性、长时间 tick 或连接中断恢复 |
 | GM 玩家分域写入与服务边界 | server compile、完整 `pnpm verify:quick`、边界审计、4 项 GM 玩家 compiled smoke 和文件体积门禁已运行 | 7 条 GM 写入均为精确 domain、未知 section 拒绝、在线炼体 revision 确认、物品/恢复丹模板水合与 2944 行服务边界；新超限项降为 2 个 | 无真实 DB/HTTP 并发，不证明跨节点 GM、tick/flush 竞争和数据库故障时的实表最终值；高危审计 fail-open 仍待用户决定 |
+| 背包实例投影与客户端水合 | `build:shared`、完整 `verify:client`、完整 `verify:quick` 及两端专项 proof/smoke 通过 | shared 字段覆盖、服务端分页完整投影、内部字段隔离、客户端不继承旧槽位及实例值优先均有确定性保护 | 不证明正式服历史异常物品、弱网长延迟翻页、实际包体分布和移动端视觉 |

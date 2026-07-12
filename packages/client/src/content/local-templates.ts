@@ -187,7 +187,7 @@ export function resolvePreviewItem(item: ItemStack): ItemStack {
     equipAttrs: sourceItem.equipAttrs ?? template.equipAttrs,
     equipStats: sourceItem.equipStats ?? template.equipStats,
     equipValueStats: sourceItem.equipValueStats ?? template.equipValueStats,
-    equipSpecialStats: template.equipSpecialStats ?? sourceItem.equipSpecialStats,
+    equipSpecialStats: sourceItem.equipSpecialStats ?? template.equipSpecialStats,
     effects: sourceItem.effects ?? template.effects,
     artifactMaxQiFactor: sourceItem.artifactMaxQiFactor ?? template.artifactMaxQiFactor,
     artifactEffects: sourceItem.artifactEffects ?? template.artifactEffects,

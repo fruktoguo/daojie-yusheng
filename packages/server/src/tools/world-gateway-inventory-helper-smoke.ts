@@ -1,23 +1,26 @@
-// @ts-nocheck
+/**
+ * 背包网关路由与分页投影 smoke。
+ */
+import assert from 'node:assert/strict';
+import { S2C, type S2C_InventoryPage } from '@mud/shared';
+import { WorldGatewayInventoryHelper } from '../network/world-gateway-inventory.helper';
+import type { WorldGatewayHelperContext } from '../network/world-gateway-context.types';
 
-const assert = require('node:assert/strict');
+type SmokeLogEntry = unknown[];
 
-const { S2C } = require('@mud/shared');
-const { WorldGatewayInventoryHelper } = require('../network/world-gateway-inventory.helper');
-
-function createGateway(log = [], playerId = 'player:1') {
+function createGateway(log: SmokeLogEntry[] = [], playerId = 'player:1'): WorldGatewayHelperContext {
   const runtime = {
     worldRuntimeCommandIntakeFacadeService: {
-      enqueueTakeGround(inputPlayerId, sourceId, itemKey, deps) {
+      enqueueTakeGround(inputPlayerId: string, sourceId: string, itemKey: string, deps: unknown) {
         log.push(['enqueueTakeGround', inputPlayerId, sourceId, itemKey, deps === runtime]);
       },
-      enqueueTakeGroundAll(inputPlayerId, sourceId, deps) {
+      enqueueTakeGroundAll(inputPlayerId: string, sourceId: string, deps: unknown) {
         log.push(['enqueueTakeGroundAll', inputPlayerId, sourceId, deps === runtime]);
       },
-      enqueueStartTechniqueActivity(inputPlayerId, kind, payload, deps) {
+      enqueueStartTechniqueActivity(inputPlayerId: string, kind: string, payload: unknown, deps: unknown) {
         log.push(['enqueueStartTechniqueActivity', inputPlayerId, kind, payload, deps === runtime]);
       },
-      enqueueCancelTechniqueActivity(inputPlayerId, kind, deps) {
+      enqueueCancelTechniqueActivity(inputPlayerId: string, kind: string, deps: unknown) {
         log.push(['enqueueCancelTechniqueActivity', inputPlayerId, kind, deps === runtime]);
       },
     },
@@ -29,33 +32,33 @@ function createGateway(log = [], playerId = 'player:1') {
       },
     },
     playerRuntimeService: {
-      clearLootWindow(inputPlayerId) {
+      clearLootWindow(inputPlayerId: string) {
         log.push(['clearLootWindow', inputPlayerId]);
       },
     },
     worldClientEventService: {
-      markProtocol(client, protocol) {
+      markProtocol(client: { id: string }, protocol: string) {
         log.push(['markProtocol', client.id, protocol]);
       },
-      emitGatewayError(client, code, error) {
+      emitGatewayError(client: { id: string }, code: string, error: unknown) {
         log.push(['emitGatewayError', client.id, code, error instanceof Error ? error.message : String(error)]);
       },
     },
     worldRuntimeService: runtime,
-  };
+  } as unknown as WorldGatewayHelperContext;
 }
 
-function createClient(log = [], id = 'socket:1') {
+function createClient(log: SmokeLogEntry[] = [], id = 'socket:1') {
   return {
     id,
-    emit(event, payload) {
+    emit(event: string, payload: unknown) {
       log.push(['emit', event, payload]);
     },
   };
 }
 
-function testInventoryGatherRouting() {
-  const log = [];
+function testInventoryGatherRouting(): void {
+  const log: SmokeLogEntry[] = [];
   const gateway = createGateway(log);
   const helper = new WorldGatewayInventoryHelper(gateway);
   const client = createClient(log);
@@ -78,13 +81,17 @@ function testInventoryGatherRouting() {
   ]);
 }
 
-function testInventoryGatewayErrors() {
-  const log = [];
+function testInventoryGatewayErrors(): void {
+  const log: SmokeLogEntry[] = [];
   const gateway = createGateway(log);
-  gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueStartTechniqueActivity = () => {
+  const commandIntake = gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService as unknown as {
+    enqueueStartTechniqueActivity(): void;
+    enqueueCancelTechniqueActivity(): void;
+  };
+  commandIntake.enqueueStartTechniqueActivity = () => {
     throw new Error('start gather failed');
   };
-  gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueCancelTechniqueActivity = () => {
+  commandIntake.enqueueCancelTechniqueActivity = () => {
     throw new Error('cancel gather failed');
   };
   const helper = new WorldGatewayInventoryHelper(gateway);
@@ -101,7 +108,79 @@ function testInventoryGatewayErrors() {
   ]);
 }
 
+function testInventoryPagePreservesInstanceProjection(): void {
+  const log: SmokeLogEntry[] = [];
+  const gateway = createGateway(log);
+  const sourceItem = {
+    itemId: 'equip.copper_luopan',
+    itemInstanceId: ' instance:luopan ',
+    count: 1,
+    name: '铜罗盘',
+    type: 'equipment',
+    desc: '实例描述',
+    grade: 'yellow',
+    level: 1,
+    equipSpecialStats: { luck: 7 },
+    consumeBuffs: [{ buffId: 'buff.instance', name: '实例增益', durationTicks: 12 }],
+    contextActions: [{ id: 'fengshui:inspect', name: '望气', type: 'interact', desc: '', cooldownLeft: 0 }],
+    craftEffectStats: { formation: { speedRate: 0.2 } },
+    internalSecret: '不得进入协议',
+  };
+  (gateway.playerRuntimeService as unknown as { getPlayer(playerId: string): unknown }).getPlayer = () => ({
+    inventory: {
+      capacity: 200,
+      revision: 9,
+      serverTick: 123,
+      cooldowns: [{ itemId: 'pill.test', cooldown: 60, startedAtTick: 120 }],
+      items: [
+        { itemId: 'material.wood', itemInstanceId: 'instance:wood', count: 2, name: '木材', type: 'material', desc: '' },
+        sourceItem,
+        { itemId: 'pill.test', itemInstanceId: 'instance:pill', count: 3, name: '回气丹', type: 'consumable', desc: '' },
+      ],
+    },
+  });
+  const helper = new WorldGatewayInventoryHelper(gateway);
+  const client = createClient(log);
+
+  helper.handleRequestInventoryPage(client, {
+    filter: 'equipment',
+    search: ' 铜  罗盘 ',
+    offset: 0,
+    limit: 999,
+    requestId: ' request:inventory:1 ',
+  });
+
+  assert.equal(log.length, 1);
+  const [kind, event, rawPage] = log[0];
+  assert.equal(kind, 'emit');
+  assert.equal(event, S2C.InventoryPage);
+  const page = rawPage as S2C_InventoryPage;
+  assert.equal(page.requestId, 'request:inventory:1');
+  assert.equal(page.filter, 'equipment');
+  assert.equal(page.search, '铜 罗盘');
+  assert.equal(page.limit, 30);
+  assert.equal(page.total, 1);
+  assert.equal(page.totalItems, 3);
+  assert.equal(page.capacity, 200);
+  assert.equal(page.revision, 9);
+  assert.equal(page.serverTick, 123);
+  assert.equal(page.items[0]?.slotIndex, 1);
+  const projectedItem = page.items[0]?.item;
+  assert.equal(projectedItem?.itemInstanceId, 'instance:luopan');
+  assert.deepEqual(projectedItem?.equipSpecialStats, { luck: 7 });
+  assert.deepEqual(projectedItem?.consumeBuffs, sourceItem.consumeBuffs);
+  assert.deepEqual(projectedItem?.contextActions, sourceItem.contextActions);
+  assert.deepEqual(projectedItem?.craftEffectStats, sourceItem.craftEffectStats);
+  assert.equal('internalSecret' in (projectedItem as object), false, '运行时内部字段不得泄露到分页协议');
+
+  sourceItem.equipSpecialStats.luck = 99;
+  sourceItem.consumeBuffs[0].name = '已污染';
+  assert.equal(projectedItem?.equipSpecialStats?.luck, 7, '分页回包不得共享运行时物品引用');
+  assert.equal(projectedItem?.consumeBuffs?.[0]?.name, '实例增益', '分页回包嵌套数组必须独立克隆');
+}
+
 testInventoryGatherRouting();
 testInventoryGatewayErrors();
+testInventoryPagePreservesInstanceProjection();
 
 console.log(JSON.stringify({ ok: true, case: 'world-gateway-inventory-helper' }, null, 2));

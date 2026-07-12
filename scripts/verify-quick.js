@@ -52,6 +52,8 @@ const status = runVerificationSteps({
         '--case',
         'native-gm-player-domain-write',
         '--case',
+        'world-gateway-inventory-helper',
+        '--case',
         'world-gateway-offline-gain-refresh',
         '--case',
         'player-statistic-ledger-io',

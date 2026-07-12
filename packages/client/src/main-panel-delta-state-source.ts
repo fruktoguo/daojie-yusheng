@@ -36,13 +36,13 @@ import {
   cloneCraftEffectStats,
 } from '@mud/shared';
 import {
-  getLocalItemTemplate,
   getLocalSkillTemplate,
   getLocalTechniqueTemplate,
+  resolvePreviewItem,
   resolvePreviewTechnique,
 } from './content/local-templates';
 import { hasActiveArtifactSlot } from './artifact-presentation';
-import { resolveClientItemBaseName } from './content/item-display-name';
+import { hydrateSyncedInventoryItem } from './content/inventory-item-hydration';
 import { getStaticClientActionDef } from './constants/ui/action';
 import { getEstimatedPlayerTick, getEstimatedServerTick, markPlayerLifeTickSynced } from './runtime/server-tick';
 
@@ -296,10 +296,6 @@ function applyNullablePatch<T>(value: T | null | undefined, fallback: T | undefi
 
 function cloneJson<T>(value: T): T {
   return clonePlainValue(value);
-}
-
-function resolveSyncedItemName(itemId: string, ...candidates: Array<string | undefined>): string {
-  return resolveClientItemBaseName(itemId, ...candidates);
 }
 
 function resolveSyncedTechniqueName(techId: string, ...candidates: Array<string | undefined>): string {
@@ -643,99 +639,11 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
  */
 
 
-  function hydrateSyncedItemStack(item: SyncedItemStack, previous?: Inventory['items'][number]): Inventory['items'][number] {
-    const nextEnhanceLevel = item.enhanceLevel ?? 0;
-    const previousSameItem = previous?.itemId === item.itemId && (previous.enhanceLevel ?? 0) === nextEnhanceLevel
-      ? previous
-      : undefined;
-    const template = getLocalItemTemplate(item.itemId);
-    return {
-      itemId: item.itemId,
-      itemInstanceId: item.itemInstanceId ?? previousSameItem?.itemInstanceId,
-      count: item.count,
-      name: resolveSyncedItemName(item.itemId, item.name, previousSameItem?.name, template?.name),
-      type: item.type ?? previousSameItem?.type ?? template?.type ?? 'material',
-      desc: item.desc ?? previousSameItem?.desc ?? template?.desc ?? '',
-      groundLabel: item.groundLabel ?? previousSameItem?.groundLabel ?? template?.groundLabel,
-      grade: item.grade ?? previousSameItem?.grade ?? template?.grade,
-      level: item.level ?? previousSameItem?.level ?? template?.level,
-      learnTechniqueId: item.learnTechniqueId ?? previousSameItem?.learnTechniqueId ?? template?.learnTechniqueId,
-      learnTechniqueMaxLevel: item.learnTechniqueMaxLevel ?? previousSameItem?.learnTechniqueMaxLevel ?? template?.learnTechniqueMaxLevel,
-      materialCategory: item.materialCategory ?? previousSameItem?.materialCategory ?? template?.materialCategory,
-      materialValues: item.materialValues
-        ? cloneJson(item.materialValues)
-        : previousSameItem?.materialValues
-          ? cloneJson(previousSameItem.materialValues)
-          : template?.materialValues
-            ? cloneJson(template.materialValues)
-            : undefined,
-      equipSlot: item.equipSlot ?? previousSameItem?.equipSlot ?? template?.equipSlot,
-      equipAttrs: item.equipAttrs
-        ? cloneJson(item.equipAttrs)
-        : previousSameItem?.equipAttrs
-          ? cloneJson(previousSameItem.equipAttrs)
-          : template?.equipAttrs
-            ? cloneJson(template.equipAttrs)
-            : undefined,
-      equipStats: item.equipStats
-        ? cloneJson(item.equipStats)
-        : previousSameItem?.equipStats
-          ? cloneJson(previousSameItem.equipStats)
-          : template?.equipStats
-            ? cloneJson(template.equipStats)
-            : undefined,
-      equipValueStats: item.equipValueStats
-        ? cloneJson(item.equipValueStats)
-        : previousSameItem?.equipValueStats
-          ? cloneJson(previousSameItem.equipValueStats)
-          : template?.equipValueStats
-            ? cloneJson(template.equipValueStats)
-            : undefined,
-      effects: item.effects
-        ? cloneJson(item.effects)
-        : previousSameItem?.effects
-          ? cloneJson(previousSameItem.effects)
-          : template?.effects
-            ? cloneJson(template.effects)
-            : undefined,
-      artifactMaxQiFactor: item.artifactMaxQiFactor ?? previousSameItem?.artifactMaxQiFactor ?? template?.artifactMaxQiFactor,
-      artifactEffects: item.artifactEffects
-        ? cloneJson(item.artifactEffects)
-        : previousSameItem?.artifactEffects
-          ? cloneJson(previousSameItem.artifactEffects)
-          : template?.artifactEffects
-            ? cloneJson(template.artifactEffects)
-            : undefined,
-      tags: item.tags
-        ? [...item.tags]
-        : previousSameItem?.tags
-          ? [...previousSameItem.tags]
-          : template?.tags
-            ? [...template.tags]
-            : undefined,
-      cooldown: item.cooldown ?? previousSameItem?.cooldown ?? template?.cooldown,
-      healAmount: item.healAmount ?? previousSameItem?.healAmount ?? template?.healAmount,
-      healPercent: item.healPercent ?? previousSameItem?.healPercent ?? template?.healPercent,
-      baselineHealPercent: item.baselineHealPercent ?? previousSameItem?.baselineHealPercent ?? template?.baselineHealPercent,
-      baselineQiPercent: item.baselineQiPercent ?? previousSameItem?.baselineQiPercent ?? template?.baselineQiPercent,
-      qiPercent: item.qiPercent ?? previousSameItem?.qiPercent ?? template?.qiPercent,
-      enhanceLevel: item.enhanceLevel ?? previousSameItem?.enhanceLevel ?? template?.enhanceLevel,
-      craftEffectStats: item.craftEffectStats ?? previousSameItem?.craftEffectStats ?? template?.craftEffectStats,
-      mapUnlockId: item.mapUnlockId ?? previousSameItem?.mapUnlockId,
-      mapUnlockIds: item.mapUnlockIds ?? previousSameItem?.mapUnlockIds ?? template?.mapUnlockIds,
-      respawnBindMapId: item.respawnBindMapId ?? previousSameItem?.respawnBindMapId ?? template?.respawnBindMapId,
-      useBehavior: item.useBehavior ?? previousSameItem?.useBehavior ?? template?.useBehavior,
-      tileAuraGainAmount: item.tileAuraGainAmount ?? previousSameItem?.tileAuraGainAmount,
-      tileResourceGains: item.tileResourceGains
-        ? cloneJson(item.tileResourceGains)
-        : previousSameItem?.tileResourceGains
-          ? cloneJson(previousSameItem.tileResourceGains)
-          : template?.tileResourceGains
-            ? cloneJson(template.tileResourceGains)
-            : undefined,
-      spiritualRootSeedTier: item.spiritualRootSeedTier ?? previousSameItem?.spiritualRootSeedTier ?? template?.spiritualRootSeedTier,
-      allowBatchUse: item.allowBatchUse ?? previousSameItem?.allowBatchUse,
-    };
+  function hydrateSyncedItemStack(item: SyncedItemStack, _previous?: Inventory['items'][number]): Inventory['items'][number] {
+    return hydrateSyncedInventoryItem(item, {
+      cloneValue: cloneJson,
+      resolvePreviewItem,
+    });
   }
   /**
  * mergeInventoryUpdate：处理背包Update并更新相关状态。

@@ -11,7 +11,14 @@
 import type { WorldGatewayHelperContext } from './world-gateway-context.types';
 
 import { BadRequestException } from '@nestjs/common';
-import { ITEM_TYPES, S2C, matchesInventoryTypeFilter, type ItemType } from '@mud/shared';
+import {
+    ITEM_TYPES,
+    S2C,
+    cloneSyncedItemStackView,
+    matchesInventoryTypeFilter,
+    type ItemType,
+    type SyncedItemStack,
+} from '@mud/shared';
 import { buildStructuredNotice } from '../runtime/world/structured-notice.helpers';
 
 const INVENTORY_PAGE_DEFAULT_LIMIT = 30;
@@ -565,7 +572,8 @@ function matchesInventoryPageSearch(item: any, search: string): boolean {
     return search.split(' ').every((term) => term.length === 0 || searchable.includes(term));
 }
 
-function projectInventoryPageItem(item: any) {
+function projectInventoryPageItem(item: SyncedItemStack): SyncedItemStack {
+    const projected = cloneSyncedItemStackView(item);
     const itemInstanceId = normalizeInventoryItemInstanceId(item?.itemInstanceId);
     const enhanceLevel = Math.max(0, Math.trunc(Number(item?.enhanceLevel ?? 0) || 0));
     const learnTechniqueId = typeof item?.learnTechniqueId === 'string' && item.learnTechniqueId.trim()
@@ -574,18 +582,31 @@ function projectInventoryPageItem(item: any) {
     const learnTechniqueMaxLevel = Number.isFinite(Number(item?.learnTechniqueMaxLevel))
         ? Math.max(1, Math.trunc(Number(item.learnTechniqueMaxLevel)))
         : undefined;
-    return {
-        itemId: String(item?.itemId ?? ''),
-        name: typeof item?.name === 'string' ? item.name : undefined,
-        type: typeof item?.type === 'string' ? item.type : undefined,
-        desc: typeof item?.desc === 'string' ? item.desc : undefined,
-        groundLabel: typeof item?.groundLabel === 'string' ? item.groundLabel : undefined,
-        grade: typeof item?.grade === 'string' ? item.grade : undefined,
-        level: Number.isFinite(Number(item?.level)) ? Math.max(1, Math.trunc(Number(item.level))) : undefined,
-        ...(itemInstanceId ? { itemInstanceId } : {}),
-        count: Math.max(0, Math.trunc(Number(item?.count ?? 0) || 0)),
-        ...(enhanceLevel > 0 ? { enhanceLevel } : {}),
-        ...(learnTechniqueId ? { learnTechniqueId } : {}),
-        ...(learnTechniqueMaxLevel === undefined ? {} : { learnTechniqueMaxLevel }),
-    };
+    projected.itemId = String(item?.itemId ?? '');
+    projected.count = Math.max(0, Math.trunc(Number(item?.count ?? 0) || 0));
+    if (itemInstanceId) {
+        projected.itemInstanceId = itemInstanceId;
+    }
+    else {
+        delete projected.itemInstanceId;
+    }
+    if (enhanceLevel > 0) {
+        projected.enhanceLevel = enhanceLevel;
+    }
+    else {
+        delete projected.enhanceLevel;
+    }
+    if (learnTechniqueId) {
+        projected.learnTechniqueId = learnTechniqueId;
+    }
+    else {
+        delete projected.learnTechniqueId;
+    }
+    if (learnTechniqueMaxLevel === undefined) {
+        delete projected.learnTechniqueMaxLevel;
+    }
+    else {
+        projected.learnTechniqueMaxLevel = learnTechniqueMaxLevel;
+    }
+    return projected;
 }

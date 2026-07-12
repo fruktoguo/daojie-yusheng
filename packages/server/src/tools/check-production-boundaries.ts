@@ -196,6 +196,18 @@ function checkWorldSync() {
     expectPresent("world-projector.helpers.ts", projectorHelpersSource, /if \(previous\.self\.hp !== player\.hp\) \{ delta\.hp = player\.hp; \}/, "HP 必须由 selfRevision SelfDelta 同步");
     expectPresent("world-projector.helpers.ts", projectorHelpersSource, /if \(previous\.self\.qi !== player\.qi\) \{ delta\.qi = player\.qi; \}/, "灵力必须由 selfRevision SelfDelta 同步");
     expectPresent("world-projector.helpers.ts", projectorHelpersSource, /delta\.buff = \{[\s\S]*?removeBuffIds:/, "Buff 必须由 PanelDelta patch 同步");
+    expectPresent(
+        "world-projector.helpers.ts",
+        projectorHelpersSource,
+        /items:\s*player\.inventory\.items\.map\(\(entry\)\s*=>\s*cloneSyncedItemStack\(entry\)\)/,
+        "背包投影必须深克隆协议字段，不能与权威运行时共享嵌套引用",
+    );
+    expectAbsent(
+        "world-projector.helpers.ts",
+        projectorHelpersSource,
+        /item:\s*entry\.item\s*\?\s*\{\s*\.\.\.entry\.item\s*\}\s*:\s*null/,
+        "装备与法宝投影不得用浅展开复制物品实例",
+    );
     expectPresent("player-runtime.service.ts", playerRuntimeSource, /refreshWalletCacheFromInventory\(player,[\s\S]*?if \(changed\) \{[\s\S]*?player\.selfRevision \+= 1;/, "钱包投影变化必须推进 SelfDelta 修订");
     expectPresent("player-runtime.service.ts", playerRuntimeSource, /if \(dirtyDomains\.includes\('inventory'\)\) \{[\s\S]*?this\.refreshWalletCacheFromInventory\(player\);/, "成长系统直接变更背包后必须刷新钱包投影");
     expectPresent("craft-panel-runtime.service.ts", craftRuntimeSource, /if \(options\.inventoryChanged\) \{[\s\S]*?this\.playerRuntimeService\.refreshWalletCacheFromInventory\(player\);/, "技艺系统直接变更背包后必须刷新钱包投影");

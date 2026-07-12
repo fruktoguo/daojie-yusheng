@@ -78,6 +78,7 @@ import {
   cloneWalletState,
   cloneTechniqueEntry,
   cloneAttrBonus,
+  cloneSyncedItemStack,
   clonePartialNumericStats,
   clonePartialAttributes,
 } from './projector-clone';
@@ -1253,7 +1254,7 @@ function captureInventoryPanelSlice(player: ProjectorPlayerLike): ProjectedPanel
     return {
         revision: player.inventory.revision,
         capacity: player.inventory.capacity,
-        items: player.inventory.items.map((entry) => ({ ...entry })),
+        items: player.inventory.items.map((entry) => cloneSyncedItemStack(entry)),
         cooldowns: Array.isArray(player.inventory.cooldowns)
             ? player.inventory.cooldowns.map((entry) => ({ ...entry }))
             : undefined,
@@ -1264,7 +1265,13 @@ function captureInventoryPanelSlice(player: ProjectorPlayerLike): ProjectedPanel
 }
 
 function captureEquipmentPanelSlice(player: ProjectorPlayerLike): ProjectedPanelState['equipment'] {
-    return { revision: player.equipment.revision, slots: player.equipment.slots.map((entry) => ({ slot: entry.slot, item: entry.item ? { ...entry.item } : null })) };
+    return {
+        revision: player.equipment.revision,
+        slots: player.equipment.slots.map((entry) => ({
+            slot: entry.slot,
+            item: entry.item ? cloneSyncedItemStack(entry.item) : null,
+        })),
+    };
 }
 
 function captureArtifactPanelSlice(player: ProjectorPlayerLike): ProjectedPanelState['artifact'] {
@@ -1276,7 +1283,7 @@ function captureArtifactPanelSlice(player: ProjectorPlayerLike): ProjectedPanelS
             enabled: entry.enabled !== false,
             qi: Math.max(0, Number(entry.qi) || 0),
             maxQi: Math.max(0, Number(entry.maxQi) || 0),
-            item: entry.item ? { ...entry.item } : null,
+            item: entry.item ? cloneSyncedItemStack(entry.item) : null,
         })),
     };
 }

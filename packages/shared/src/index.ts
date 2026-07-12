@@ -107,6 +107,7 @@ export * from './world-space-layers';
 export * from './leaderboard-types';
 export * from './panel-update-types';
 export * from './synced-panel-types';
+export * from './synced-item-stack';
 export * from './world-patch-types';
 export * from './world-view-types';
 export * from './market-price';
