@@ -1,13 +1,11 @@
-// @ts-nocheck
+import assert from 'node:assert/strict';
 
-const assert = require('node:assert/strict');
-
-const {
+import {
   fenceInstanceRuntime,
   syncAllInstanceLeases,
   syncInstanceLease,
   syncManagedInstanceRegistration,
-} = require('../runtime/world/world-runtime-instance-lease.helpers');
+} from '../runtime/world/world-runtime-instance-lease.helpers';
 
 async function main() {
   const contained = await verifyLeaseSyncErrorContained();
@@ -15,7 +13,7 @@ async function main() {
   const reclaimed = await verifyMissingCatalogLeaseIsReclaimed();
   const periodicFailed = await verifyLocalLeaseSyncFailureDegrades();
   const startupDeferred = await verifyManagedLeaseSyncIsDeferredWhileStartupGateClosed();
-  const towerTemplate = await verifyTowerCatalogTemplateIsRestoredBeforeQuarantine();
+  const towerTemplate = await verifyTowerCatalogClaimIsDeferredToStartupCache();
   const missingTemplate = await verifyMissingTemplateCatalogIsQuarantined();
 
   console.log(JSON.stringify({
@@ -23,9 +21,10 @@ async function main() {
     containedLeaseSyncError: contained.containedLeaseSyncError,
     degradedLeaseRecovered: degraded.degradedLeaseRecovered,
     missingCatalogLeaseReclaimed: reclaimed.missingCatalogLeaseReclaimed,
+    deferredHydrationSkipped: reclaimed.deferredHydrationSkipped,
     localLeaseSyncFailureDegraded: periodicFailed.localLeaseSyncFailureDegraded,
     managedLeaseSyncDeferredDuringStartup: startupDeferred.managedLeaseSyncDeferredDuringStartup,
-    towerTemplateRestored: towerTemplate.towerTemplateRestored,
+    towerCatalogClaimDeferredToCache: towerTemplate.towerCatalogClaimDeferredToCache,
     missingTemplateQuarantined: missingTemplate.missingTemplateQuarantined,
     answers: '实例 lease 周期同步遇到 PostgreSQL 续约异常时会记录并继续；本节点 lease 过期时真实写路径进入 lease_degraded 保活，不卸载实例，catalog 续约恢复后重新变为 leased；启动写门关闭时托管实例注册不会抢先续租；实例目录引用已退役地图模板时会隔离为 template_missing 并清掉 lease，不反复接管',
     excludes: '不证明真实 PostgreSQL 网络质量、跨节点 failover、Swarm 调度或生产数据库锁等待来源',
@@ -161,6 +160,7 @@ async function verifyLocalLeaseDegradeAndRecover() {
 
 async function verifyMissingCatalogLeaseIsReclaimed() {
   const warnings = [];
+  let hydrationTouched = false;
   const instance = {
     meta: {
       assignedNodeId: 'instance-lease-sync-error-smoke:local',
@@ -212,19 +212,27 @@ async function verifyMissingCatalogLeaseIsReclaimed() {
     getInstanceRuntime(instanceId) {
       return instanceId === 'tower:tongtian:layer:31' ? instance : null;
     },
+    worldRuntimeFormationService: {
+      async restoreInstanceFormations() {
+        hydrationTouched = true;
+        throw new Error('deferred startup lease sync must not hydrate');
+      },
+    },
   };
 
-  await syncInstanceLease(runtime, 'tower:tongtian:layer:31');
+  await syncInstanceLease(runtime, 'tower:tongtian:layer:31', { hydratePersistentSnapshot: false });
 
   assert.equal(instance.meta.runtimeStatus, 'leased');
   assert.equal(instance.meta.status, 'active');
   assert.equal(instance.meta.assignedNodeId, 'instance-lease-sync-error-smoke:local');
   assert.notEqual(instance.meta.leaseToken, 'lease:smoke:runtime-local');
   assert.equal(instance.meta.ownershipEpoch, 21);
+  assert.equal(hydrationTouched, false);
   assert.ok(warnings.some((message) => message.includes('重新接管')));
 
   return {
     missingCatalogLeaseReclaimed: true,
+    deferredHydrationSkipped: true,
     runtimeStatus: instance.meta.runtimeStatus,
   };
 }
@@ -381,7 +389,7 @@ async function verifyManagedLeaseSyncIsDeferredWhileStartupGateClosed() {
   };
 }
 
-async function verifyTowerCatalogTemplateIsRestoredBeforeQuarantine() {
+async function verifyTowerCatalogClaimIsDeferredToStartupCache() {
   const marked = [];
   const restored = [];
   const created = [];
@@ -428,7 +436,7 @@ async function verifyTowerCatalogTemplateIsRestoredBeforeQuarantine() {
         return [catalogEntry];
       },
       async claimInstanceLease() {
-        return { ok: true, ownershipEpoch: 12 };
+        throw new Error('tower catalog claim must be handled by startup cache');
       },
       async markInstanceTemplateMissing(input) {
         marked.push(input);
@@ -436,8 +444,7 @@ async function verifyTowerCatalogTemplateIsRestoredBeforeQuarantine() {
       },
     },
     async replayInstanceFlushPayloadsBeforeOwnershipChange(targetInstanceId, ownershipEpoch) {
-      assert.equal(targetInstanceId, 'tower:tongtian:layer:41');
-      assert.equal(ownershipEpoch, 11);
+      throw new Error(`tower catalog replay must be handled by startup cache: ${targetInstanceId}:${ownershipEpoch}`);
     },
     listInstanceEntries() {
       return [];
@@ -469,10 +476,10 @@ async function verifyTowerCatalogTemplateIsRestoredBeforeQuarantine() {
   assert.equal(claimed, undefined);
   assert.deepEqual(marked, []);
   assert.deepEqual(restored, ['tower:tongtian:layer:41']);
-  assert.equal(created[0]?.instanceId, 'tower:tongtian:layer:41');
+  assert.deepEqual(created, []);
 
   return {
-    towerTemplateRestored: true,
+    towerCatalogClaimDeferredToCache: true,
   };
 }
 

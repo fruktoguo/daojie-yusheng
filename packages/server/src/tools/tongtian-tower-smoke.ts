@@ -226,6 +226,19 @@ async function main(): Promise<void> {
     true,
     '缓存恢复要从磁盘回填通天塔实例状态',
   );
+  assert.equal(
+    deps.restoreOrder.findIndex((entry: string) => entry === 'lease:tower:tongtian:layer:7')
+      < deps.restoreOrder.findIndex((entry: string) => entry === 'hydrate:tower:tongtian:layer:7'),
+    true,
+    '通天塔缓存必须先取得 catalog lease，再水合持久化状态',
+  );
+  deps.rejectLeaseSyncForInstance('tower:tongtian:layer:8');
+  assert.equal(await tower.primeLayerInstanceCache(
+    { instance_id: 'tower:tongtian:layer:8', template_id: 'tongtian_tower_layer_8' },
+    deps,
+  ), false, '通天塔缓存未取得 lease 时必须拒绝水合');
+  assert.equal(deps.hydrationCalls.includes('tower:tongtian:layer:8'), false);
+  assert.equal(deps.getInstanceRuntime('tower:tongtian:layer:8'), null);
   persistence.updateCurrentLayer('player:cache', 7);
   persistence.promoteHighestLayer('player:cache', 7);
   const cachedLayerView = restoreSession.connectPlayer({
@@ -384,6 +397,9 @@ function createDeps(
   const dirtyAfterFlushInstanceIds = new Set<string>();
   const flushCalls: string[] = [];
   const hydrationCalls: string[] = [];
+  const leaseSyncCalls: string[] = [];
+  const restoreOrder: string[] = [];
+  const rejectedLeaseSyncInstanceIds = new Set<string>();
   const createInstanceCalls: any[] = [];
   const deps: any = {
     tick: 0,
@@ -436,6 +452,7 @@ function createDeps(
     },
     async hydratePersistentInstanceSnapshot(instanceId: string, instance: any) {
       hydrationCalls.push(instanceId);
+      restoreOrder.push(`hydrate:${instanceId}`);
       instance.__towerRestoreMarker = `hydrated:${instanceId}`;
       instance.tongtianTowerState = instance.tongtianTowerState ?? {
         layer: Number(instanceId.split(':').pop() ?? 0),
@@ -445,6 +462,24 @@ function createDeps(
         lastActiveTick: 0,
         activeWave: null,
       };
+    },
+    async syncInstanceLease(instanceId: string, options: { hydratePersistentSnapshot?: boolean }) {
+      leaseSyncCalls.push(instanceId);
+      restoreOrder.push(`lease:${instanceId}`);
+      assert.equal(options.hydratePersistentSnapshot, false, '缓存恢复的 lease 同步不能隐式重复水合');
+      const instance = instances.get(instanceId);
+      assert.ok(instance, `lease 同步前必须临时挂载实例：${instanceId}`);
+      if (rejectedLeaseSyncInstanceIds.has(instanceId)) {
+        throw new Error(`simulated_tower_lease_rejection:${instanceId}`);
+      }
+      instance.meta.assignedNodeId = 'node:tongtian-smoke';
+      instance.meta.leaseToken = `lease:${instanceId}`;
+      instance.meta.leaseExpireAt = new Date(Date.now() + 60_000).toISOString();
+      instance.meta.ownershipEpoch = 8;
+      instance.meta.runtimeStatus = 'leased';
+    },
+    rejectLeaseSyncForInstance(instanceId: string) {
+      rejectedLeaseSyncInstanceIds.add(instanceId);
     },
     async flushInstanceDomains(instanceId: string) {
       flushCalls.push(instanceId);
@@ -477,6 +512,8 @@ function createDeps(
     catalogDestroyCalls,
     flushCalls,
     hydrationCalls,
+    leaseSyncCalls,
+    restoreOrder,
     createInstanceCalls,
     playerLocations,
     notices,

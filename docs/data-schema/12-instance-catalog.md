@@ -38,8 +38,10 @@
 - 所有地图实例的"户口本"，启动时扫描此表恢复实例
 - 租约机制防止多节点同时加载同一实例
 - `ownership_epoch` 递增防止旧节点的过期写入
+- `ownership_epoch` 只允许单调递增；普通目录 upsert 即使面对已过期或已释放 lease，也必须取现有值与新值的最大值，不能用新建 runtime shell 的默认 `0` 回退历史 fence
 - 实例销毁必须用运行态持有的 `assigned_node_id + lease_token + ownership_epoch` 做原子 CAS；销毁成功时先递增 `ownership_epoch` 和 `metadata_version`、清空 lease，再卸载本地运行态。CAS 冲突或数据库失败时保留运行态，等待租约同步收敛，不能先删内存再补写 catalog
 - 普通启动和 GM 数据库恢复只重建本节点内存运行态，不得把 catalog 真源批量改写为 `destroyed/stopped`；实例终态只能由显式销毁流程按上述 lease/epoch CAS 产生
+- 启动恢复必须先把 catalog 的 lease/epoch 元数据承接到新建 runtime shell，再注册 catalog、完成旧 epoch durable payload replay，并成功 claim/renew 本节点 lease，之后才允许水合实例分域；水合可能触发建筑清理、宝库返还或阵法修正，不能被当作无副作用只读步骤。大量实例排队恢复时，每个实例还必须在实际水合前即时续租，不能依赖队首取得的短租约覆盖整条恢复队列
 
 ---
 

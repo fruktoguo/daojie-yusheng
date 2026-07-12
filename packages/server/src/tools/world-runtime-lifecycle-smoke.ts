@@ -1,8 +1,6 @@
-// @ts-nocheck
+import assert from 'node:assert/strict';
 
-const assert = require("node:assert/strict");
-
-const { WorldRuntimeLifecycleService } = require("../runtime/world/world-runtime-lifecycle.service");
+import { WorldRuntimeLifecycleService } from '../runtime/world/world-runtime-lifecycle.service';
 /**
  * testBootstrapPublicInstances：执行test引导PublicInstance相关逻辑。
  * @returns 无返回值，直接更新testBootstrapPublicInstance相关状态。
@@ -424,6 +422,7 @@ async function testRestoreAndRebuild() {
         claimRecoverableCatalogInstances() {
             resetLog.push('claimRecoverableCatalogInstances');
         },
+        async syncInstanceLease() {},
         instanceCatalogService: {
             isEnabled() {
                 return true;
@@ -592,6 +591,140 @@ async function testRestoreOfflineHangingPlayersSkipsMissingTowerInstance() {
     });
 }
 
+async function testStartupEagerRebuildClaimsLeaseBeforeHydration() {
+    const service = new WorldRuntimeLifecycleService();
+    const log = [];
+    const runtimeInstances = new Map();
+    const leaseCalls = new Map();
+    const createInstance = (input) => {
+        const instance = {
+            meta: {
+                instanceId: input.instanceId,
+                persistent: true,
+                persistentPolicy: 'persistent',
+                status: 'active',
+                runtimeStatus: 'running',
+            },
+            template: { id: input.templateId },
+            patchTileResources() {},
+            hydrateGroundPiles() {},
+            hydrateMonsterRuntimeStates() {},
+        };
+        runtimeInstances.set(input.instanceId, instance);
+        return instance;
+    };
+    await service.rebuildPersistentRuntimeAfterRestore({
+        worldRuntimeInstanceStateService: {
+            resetState() { runtimeInstances.clear(); },
+        },
+        worldRuntimePlayerLocationService: { resetState() {} },
+        worldRuntimePendingCommandService: { resetState() {} },
+        worldRuntimeGmQueueService: { resetState() {} },
+        worldRuntimeNavigationService: { reset() {} },
+        worldRuntimeTickProgressService: { resetState() {} },
+        worldRuntimeLootContainerService: {
+            reset() {},
+            hydrateContainerStates() {},
+        },
+        worldRuntimeCombatEffectsService: { resetAll() {} },
+        instanceCatalogService: {
+            isEnabled() { return true; },
+            async listInstanceCatalogEntries() {
+                return [
+                    {
+                        instance_id: 'public:startup_order_map',
+                        template_id: 'startup_order_map',
+                        persistent_policy: 'persistent',
+                        status: 'active',
+                        runtime_status: 'leased',
+                        assigned_node_id: 'node:old',
+                        lease_token: 'lease:old:public',
+                        lease_expire_at: new Date(Date.now() - 60_000).toISOString(),
+                        ownership_epoch: 9,
+                    },
+                    {
+                        instance_id: 'real:startup_order_map',
+                        template_id: 'startup_order_map',
+                        persistent_policy: 'persistent',
+                        status: 'active',
+                        runtime_status: 'leased',
+                        assigned_node_id: 'node:remote',
+                        lease_token: 'lease:remote:real',
+                        lease_expire_at: new Date(Date.now() + 60_000).toISOString(),
+                        ownership_epoch: 11,
+                    },
+                ];
+            },
+            async upsertInstanceCatalog(input) {
+                const expectedEpoch = input.instanceId.startsWith('real:') ? 11 : 9;
+                assert.equal(input.ownershipEpoch, expectedEpoch);
+                log.push(`register:${input.instanceId}`);
+            },
+        },
+        instanceDomainPersistenceService: {
+            isEnabled() { return true; },
+            async loadInstanceRecoveryWatermark(instanceId) {
+                log.push(`hydrate:${instanceId}`);
+                return null;
+            },
+            async loadTileResourceDiffs() { return []; },
+            async loadGroundItems() { return []; },
+            async loadContainerStates() { return []; },
+            async loadMonsterRuntimeStates() { return []; },
+            async loadEventStates() { return []; },
+            async loadOverlayChunks() { return []; },
+            async loadInstanceCheckpoint() { return null; },
+        },
+        templateRepository: {
+            list() { return [{ id: 'startup_order_map' }]; },
+        },
+        createInstance,
+        getInstanceCount() { return runtimeInstances.size; },
+        getInstanceRuntime(instanceId) { return runtimeInstances.get(instanceId) ?? null; },
+        listInstanceEntries() { return runtimeInstances.entries(); },
+        async claimRecoverableCatalogInstances(input) {
+            assert.equal(input.hydratePersistentSnapshot, false);
+            log.push('claim');
+        },
+        async syncInstanceLease(instanceId, input) {
+            assert.equal(input.hydratePersistentSnapshot, false);
+            const callCount = (leaseCalls.get(instanceId) ?? 0) + 1;
+            leaseCalls.set(instanceId, callCount);
+            log.push(`lease:${instanceId}:${callCount}`);
+            const instance = runtimeInstances.get(instanceId);
+            if (callCount === 1) {
+                assert.equal(instance.meta.ownershipEpoch, instanceId.startsWith('real:') ? 11 : 9);
+            }
+            instance.meta.assignedNodeId = 'node:startup-order';
+            instance.meta.leaseToken = `lease:${instanceId}`;
+            instance.meta.leaseExpireAt = new Date(Date.now() + 60_000).toISOString();
+            instance.meta.ownershipEpoch = instanceId.startsWith('real:') ? 12 : 10;
+            instance.meta.runtimeStatus = instanceId.startsWith('real:') ? 'lease_degraded' : 'leased';
+        },
+        nodeRegistryService: {
+            getNodeId() { return 'node:startup-order'; },
+        },
+        logger: { log() {}, warn() {} },
+    }, {
+        restoreOfflinePlayers: false,
+        restoreInstanceDomains: true,
+        restoreCatalogInstances: true,
+    });
+
+    const claimIndex = log.indexOf('claim');
+    const publicInitialLeaseIndex = log.indexOf('lease:public:startup_order_map:1');
+    const realInitialLeaseIndex = log.indexOf('lease:real:startup_order_map:1');
+    const publicHydrationLeaseIndex = log.indexOf('lease:public:startup_order_map:2');
+    const firstHydrateIndex = log.findIndex((entry) => entry.startsWith('hydrate:'));
+    assert.equal(log.some((entry) => entry.startsWith('register:')), true);
+    assert.equal(claimIndex >= 0 && claimIndex < publicInitialLeaseIndex && claimIndex < realInitialLeaseIndex, true);
+    assert.equal(publicInitialLeaseIndex < publicHydrationLeaseIndex && publicHydrationLeaseIndex < firstHydrateIndex, true);
+    assert.equal(leaseCalls.get('public:startup_order_map'), 2);
+    assert.equal(leaseCalls.get('real:startup_order_map'), 2);
+    assert.equal(log.includes('hydrate:public:startup_order_map'), true);
+    assert.equal(log.includes('hydrate:real:startup_order_map'), false);
+}
+
 async function testStartupLazyRebuildPreservesCatalogAndSkipsHeavyDomainRestore() {
     const service = new WorldRuntimeLifecycleService();
     const log = [];
@@ -646,6 +779,9 @@ async function testStartupLazyRebuildPreservesCatalogAndSkipsHeavyDomainRestore(
                 log.push('rewriteCatalogRuntimeStatus');
                 throw new Error('runtime_rebuild_must_not_rewrite_catalog_status');
             },
+            async upsertInstanceCatalog(input) {
+                log.push(['registerCatalog', input.instanceId]);
+            },
         },
         instanceDomainPersistenceService: {
             isEnabled() {
@@ -685,6 +821,9 @@ async function testStartupLazyRebuildPreservesCatalogAndSkipsHeavyDomainRestore(
         claimRecoverableCatalogInstances(input) {
             log.push(['claimRecoverableCatalogInstances', input]);
         },
+        async syncInstanceLease(instanceId, input) {
+            log.push(['syncInstanceLease', instanceId, input]);
+        },
     }, {
         restoreOfflinePlayers: false,
         restoreInstanceDomains: false,
@@ -701,12 +840,21 @@ async function testStartupLazyRebuildPreservesCatalogAndSkipsHeavyDomainRestore(
         && entry[0] === 'claimRecoverableCatalogInstances'
         && entry[1]?.allowForceReclaim === true
         && entry[1]?.hydratePersistentSnapshot === false));
+    assert.equal(log.some((entry) => Array.isArray(entry)
+        && entry[0] === 'syncInstanceLease'
+        && entry[2]?.allowForceReclaim === true
+        && entry[2]?.hydratePersistentSnapshot === false), true);
+    const registrationIndex = log.findIndex((entry) => Array.isArray(entry) && entry[0] === 'registerCatalog');
+    const claimIndex = log.findIndex((entry) => Array.isArray(entry) && entry[0] === 'claimRecoverableCatalogInstances');
+    const leaseSyncIndex = log.findIndex((entry) => Array.isArray(entry) && entry[0] === 'syncInstanceLease');
+    assert.equal(registrationIndex >= 0 && registrationIndex < claimIndex && claimIndex < leaseSyncIndex, true);
 }
 
 async function main() {
     testBootstrapPublicInstances();
     await testRestoreAndRebuild();
     await testRestoreOfflineHangingPlayersSkipsMissingTowerInstance();
+    await testStartupEagerRebuildClaimsLeaseBeforeHydration();
     await testStartupLazyRebuildPreservesCatalogAndSkipsHeavyDomainRestore();
     console.log(JSON.stringify({ ok: true, case: 'world-runtime-lifecycle' }, null, 2));
 }

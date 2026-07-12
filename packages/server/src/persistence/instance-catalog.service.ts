@@ -201,15 +201,10 @@ export class InstanceCatalogService implements OnModuleInit {
             THEN ${INSTANCE_CATALOG_TABLE}.lease_expire_at
             ELSE EXCLUDED.lease_expire_at
           END,
-          ownership_epoch = CASE
-            WHEN $22
-              AND ${INSTANCE_CATALOG_TABLE}.assigned_node_id IS NOT NULL
-              AND ${INSTANCE_CATALOG_TABLE}.lease_token IS NOT NULL
-              AND ${INSTANCE_CATALOG_TABLE}.lease_expire_at IS NOT NULL
-              AND ${INSTANCE_CATALOG_TABLE}.lease_expire_at > now()
-            THEN ${INSTANCE_CATALOG_TABLE}.ownership_epoch
-            ELSE EXCLUDED.ownership_epoch
-          END,
+          ownership_epoch = GREATEST(
+            ${INSTANCE_CATALOG_TABLE}.ownership_epoch,
+            EXCLUDED.ownership_epoch
+          ),
           metadata_version = GREATEST(${INSTANCE_CATALOG_TABLE}.metadata_version, EXCLUDED.metadata_version),
           cluster_id = CASE WHEN ${INSTANCE_CATALOG_TABLE}.metadata_version <= EXCLUDED.metadata_version THEN EXCLUDED.cluster_id ELSE ${INSTANCE_CATALOG_TABLE}.cluster_id END,
           shard_key = CASE WHEN ${INSTANCE_CATALOG_TABLE}.metadata_version <= EXCLUDED.metadata_version THEN EXCLUDED.shard_key ELSE ${INSTANCE_CATALOG_TABLE}.shard_key END,

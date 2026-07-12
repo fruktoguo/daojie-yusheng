@@ -14,6 +14,7 @@ import {
     recoverVaultsBeforePlacementPrune,
     releaseTimeChambersBeforePlacementPrune,
 } from './building-placement-prune.helpers';
+import { registerManagedInstanceCatalog } from './world-runtime-instance-lease.helpers';
 
 const {
     buildPublicInstanceId,
@@ -22,6 +23,7 @@ const {
 
 const LONG_LIVED_INSTANCE_TTL_MS = 24 * 60 * 60 * 1000;
 const TONGTIAN_TOWER_INSTANCE_PREFIX = 'tower:tongtian:layer:';
+const STARTUP_CATALOG_REGISTRATION_BATCH_SIZE = 16;
 
 function isExpectedMissingOfflineRuntimeInstance(instanceId) {
     return typeof instanceId === 'string' && instanceId.trim().startsWith(TONGTIAN_TOWER_INSTANCE_PREFIX);
@@ -187,6 +189,10 @@ export class WorldRuntimeLifecycleService {
                 if (!instance.meta.persistent) {
                     continue;
                 }
+                if (!(await preparePersistentInstanceHydration(deps, instanceId, instance))) {
+                    deps.logger?.warn?.(`实例未取得本地 lease，跳过持久化水合：${instanceId}`);
+                    continue;
+                }
                 if (typeof deps.worldRuntimeFormationService?.restoreInstanceFormations === 'function') {
                     const restoredFormations = await deps.worldRuntimeFormationService.restoreInstanceFormations(instanceId, instance);
                     if (restoredFormations > 0) {
@@ -204,6 +210,10 @@ export class WorldRuntimeLifecycleService {
         }
         for (const [instanceId, instance] of deps.listInstanceEntries()) {
             if (!instance.meta.persistent) {
+                continue;
+            }
+            if (!(await preparePersistentInstanceHydration(deps, instanceId, instance))) {
+                deps.logger?.warn?.(`实例未取得本地 lease，跳过持久化水合：${instanceId}`);
                 continue;
             }
             if (domainPersistenceEnabled) {
@@ -299,6 +309,11 @@ export class WorldRuntimeLifecycleService {
     } = {}) {
         const restoreCatalogInstances = options.restoreCatalogInstances !== false;
         const restoreInstanceDomains = options.restoreInstanceDomains !== false;
+        if (deps.instanceCatalogService?.isEnabled?.()
+            && restoreCatalogInstances
+            && typeof deps.worldRuntimeTongtianTowerService?.resetLayerInstanceCache === 'function') {
+            await deps.worldRuntimeTongtianTowerService.resetLayerInstanceCache(deps);
+        }
         const catalogEntries = deps.instanceCatalogService?.isEnabled?.() && restoreCatalogInstances
             ? await deps.instanceCatalogService.listInstanceCatalogEntries?.()
             : [];
@@ -309,6 +324,9 @@ export class WorldRuntimeLifecycleService {
             for (const entry of Array.isArray(catalogEntries) ? catalogEntries : []) {
                 const instanceId = typeof entry.instance_id === 'string' ? entry.instance_id.trim() : '';
                 const templateId = typeof entry.template_id === 'string' ? entry.template_id.trim() : '';
+                if (!shouldRestoreCatalogEntry(entry)) {
+                    continue;
+                }
                 const towerRestored = typeof deps.worldRuntimeTongtianTowerService?.restoreCatalogTowerTemplate === 'function'
                     && deps.worldRuntimeTongtianTowerService.restoreCatalogTowerTemplate(entry, deps);
                 if (towerRestored) {
@@ -317,14 +335,7 @@ export class WorldRuntimeLifecycleService {
                     }
                     continue;
                 }
-                if (!shouldRestoreCatalogEntry(entry)) {
-
-                    continue;
-                }
                 if (!instanceId || !templateId) {
-                    continue;
-                }
-                if (deps.getInstanceRuntime(instanceId)) {
                     continue;
                 }
                 if (typeof deps.templateRepository?.has === 'function'
@@ -336,33 +347,6 @@ export class WorldRuntimeLifecycleService {
                     await markMissingTemplateCatalogEntry(deps, entry, instanceId, templateId, '恢复');
                     continue;
                 }
-                deps.createInstance({
-                    instanceId,
-                    templateId,
-                    kind: typeof entry.instance_type === 'string' && entry.instance_type.trim() ? entry.instance_type.trim() : 'public',
-                    persistent: true,
-                    linePreset: entry.route_domain === 'real' ? 'real' : 'peaceful',
-                    lineIndex: 1,
-                    instanceOrigin: 'catalog',
-                    defaultEntry: false,
-                    ownerPlayerId: typeof entry.owner_player_id === 'string' ? entry.owner_player_id : null,
-                    ownerSectId: typeof entry.owner_sect_id === 'string' ? entry.owner_sect_id : null,
-                    partyId: typeof entry.party_id === 'string' ? entry.party_id : null,
-                    status: typeof entry.status === 'string' ? entry.status : 'active',
-                    runtimeStatus: entry.runtime_status === 'template_missing'
-                        ? 'running'
-                        : (typeof entry.runtime_status === 'string' ? entry.runtime_status : 'running'),
-                    assignedNodeId: typeof entry.assigned_node_id === 'string' ? entry.assigned_node_id : null,
-                    leaseToken: typeof entry.lease_token === 'string' ? entry.lease_token : null,
-                    leaseExpireAt: entry.lease_expire_at ? new Date(entry.lease_expire_at).toISOString() : null,
-                    ownershipEpoch: Number.isFinite(Number(entry.ownership_epoch)) ? Math.trunc(Number(entry.ownership_epoch)) : 0,
-                    clusterId: typeof entry.cluster_id === 'string' ? entry.cluster_id : null,
-                    shardKey: typeof entry.shard_key === 'string' && entry.shard_key.trim() ? entry.shard_key.trim() : instanceId,
-                    routeDomain: typeof entry.route_domain === 'string' ? entry.route_domain : null,
-                    destroyAt: entry.destroy_at ? new Date(entry.destroy_at).toISOString() : null,
-                    lastActiveAt: entry.last_active_at ? new Date(entry.last_active_at).toISOString() : null,
-                    lastPersistedAt: entry.last_persisted_at ? new Date(entry.last_persisted_at).toISOString() : null,
-                });
             }
         }
         deps.worldRuntimeInstanceStateService.resetState();
@@ -380,19 +364,28 @@ export class WorldRuntimeLifecycleService {
         if (typeof deps.worldRuntimeSectService?.restoreSects === 'function') {
             await deps.worldRuntimeSectService.restoreSects(deps, { ensureGuardianFormations: false });
         }
-        if (restoreInstanceDomains) {
-            await this.restorePublicInstancePersistence(deps);
-        }
+        applyStartupCatalogMetadata(deps, catalogEntries);
+        await registerStartupRuntimeCatalogEntries(deps);
         if (typeof deps.claimRecoverableCatalogInstances === 'function') {
             await deps.claimRecoverableCatalogInstances({
                 allowForceReclaim: true,
-                hydratePersistentSnapshot: restoreInstanceDomains,
+                hydratePersistentSnapshot: false,
             });
+        } else if (deps.instanceCatalogService?.isEnabled?.()) {
+            throw new Error('startup_instance_catalog_claim_unavailable');
         }
         if (deps.instanceCatalogService?.isEnabled?.() && typeof deps.syncInstanceLease === 'function') {
             for (const [instanceId] of deps.listInstanceEntries()) {
-                await deps.syncInstanceLease(instanceId, { allowForceReclaim: true });
+                await deps.syncInstanceLease(instanceId, {
+                    allowForceReclaim: true,
+                    hydratePersistentSnapshot: false,
+                });
             }
+        } else if (deps.instanceCatalogService?.isEnabled?.()) {
+            throw new Error('startup_instance_lease_sync_unavailable');
+        }
+        if (restoreInstanceDomains) {
+            await this.restorePublicInstancePersistence(deps);
         }
         if (options.restoreOfflinePlayers !== false) {
             await this.restoreOfflineHangingPlayers(deps);
@@ -611,6 +604,121 @@ async function restoreSectGuardiansAfterFormationRestore(deps) {
         return;
     }
     await deps.worldRuntimeSectService.restoreSects(deps, { ensureGuardianFormations: true });
+}
+
+function canHydratePersistentInstance(deps, instance) {
+    if (!deps.instanceCatalogService?.isEnabled?.()) {
+        return true;
+    }
+    const nodeId = typeof deps.nodeRegistryService?.getNodeId === 'function'
+        ? String(deps.nodeRegistryService.getNodeId()).trim()
+        : '';
+    const assignedNodeId = typeof instance?.meta?.assignedNodeId === 'string'
+        ? instance.meta.assignedNodeId.trim()
+        : '';
+    const leaseToken = typeof instance?.meta?.leaseToken === 'string'
+        ? instance.meta.leaseToken.trim()
+        : '';
+    const leaseExpireAt = instance?.meta?.leaseExpireAt
+        ? new Date(instance.meta.leaseExpireAt).getTime()
+        : 0;
+    const ownershipEpoch = Number(instance?.meta?.ownershipEpoch);
+    return instance?.meta?.runtimeStatus === 'leased'
+        && Boolean(nodeId)
+        && assignedNodeId === nodeId
+        && Boolean(leaseToken)
+        && Number.isFinite(leaseExpireAt)
+        && leaseExpireAt > Date.now()
+        && Number.isSafeInteger(ownershipEpoch)
+        && ownershipEpoch >= 0;
+}
+
+async function preparePersistentInstanceHydration(deps, instanceId, instance) {
+    if (!deps.instanceCatalogService?.isEnabled?.()) {
+        return true;
+    }
+    if (typeof deps.syncInstanceLease !== 'function') {
+        return false;
+    }
+    try {
+        // 启动可能恢复上万实例；首轮统一 claim 后，逐实例在真正水合前续租，避免前排 lease
+        // 在长队列中先过期，导致后续清理/回写落在无所有权窗口。
+        await deps.syncInstanceLease(instanceId, {
+            allowForceReclaim: true,
+            hydratePersistentSnapshot: false,
+        });
+    } catch (error) {
+        deps.logger?.warn?.(
+            `实例水合前续租失败：${instanceId} ${error instanceof Error ? error.message : String(error)}`,
+        );
+        return false;
+    }
+    return canHydratePersistentInstance(deps, instance);
+}
+
+function applyStartupCatalogMetadata(deps, catalogEntries) {
+    if (!deps.instanceCatalogService?.isEnabled?.()) {
+        return;
+    }
+    const entriesByInstanceId = new Map();
+    for (const entry of Array.isArray(catalogEntries) ? catalogEntries : []) {
+        const instanceId = typeof entry?.instance_id === 'string' ? entry.instance_id.trim() : '';
+        if (instanceId) {
+            entriesByInstanceId.set(instanceId, entry);
+        }
+    }
+    for (const [instanceId, instance] of deps.listInstanceEntries?.() ?? []) {
+        const entry = entriesByInstanceId.get(instanceId);
+        if (!entry || !instance?.meta) {
+            continue;
+        }
+        instance.meta.assignedNodeId = typeof entry.assigned_node_id === 'string'
+            ? entry.assigned_node_id
+            : null;
+        instance.meta.leaseToken = typeof entry.lease_token === 'string'
+            ? entry.lease_token
+            : null;
+        instance.meta.leaseExpireAt = normalizeCatalogTimestamp(entry.lease_expire_at);
+        instance.meta.ownershipEpoch = Math.max(
+            normalizeCatalogOwnershipEpoch(instance.meta.ownershipEpoch),
+            normalizeCatalogOwnershipEpoch(entry.ownership_epoch),
+        );
+        instance.meta.runtimeStatus = entry.runtime_status === 'template_missing'
+            ? 'running'
+            : (typeof entry.runtime_status === 'string' ? entry.runtime_status : instance.meta.runtimeStatus);
+        if (typeof entry.cluster_id === 'string') instance.meta.clusterId = entry.cluster_id;
+        if (typeof entry.shard_key === 'string' && entry.shard_key.trim()) instance.meta.shardKey = entry.shard_key;
+        if (typeof entry.route_domain === 'string') instance.meta.routeDomain = entry.route_domain;
+        instance.meta.destroyAt = normalizeCatalogTimestamp(entry.destroy_at);
+        instance.meta.lastActiveAt = normalizeCatalogTimestamp(entry.last_active_at);
+        instance.meta.lastPersistedAt = normalizeCatalogTimestamp(entry.last_persisted_at);
+    }
+}
+
+function normalizeCatalogOwnershipEpoch(value) {
+    const epoch = Number(value);
+    return Number.isSafeInteger(epoch) && epoch >= 0 ? epoch : 0;
+}
+
+function normalizeCatalogTimestamp(value) {
+    if (!value) {
+        return null;
+    }
+    const timestamp = new Date(value).getTime();
+    return Number.isFinite(timestamp) ? new Date(timestamp).toISOString() : null;
+}
+
+async function registerStartupRuntimeCatalogEntries(deps) {
+    if (!deps.instanceCatalogService?.isEnabled?.()) {
+        return;
+    }
+    const entries = Array.from(deps.listInstanceEntries?.() ?? []) as Array<[string, any]>;
+    for (let index = 0; index < entries.length; index += STARTUP_CATALOG_REGISTRATION_BATCH_SIZE) {
+        const batch = entries.slice(index, index + STARTUP_CATALOG_REGISTRATION_BATCH_SIZE);
+        await Promise.all(batch.map(([instanceId, instance]) => (
+            registerManagedInstanceCatalog(deps, instanceId, instance)
+        )));
+    }
 }
 
 async function restoreCatalogInstanceShellsAfterReset(deps, catalogEntries) {

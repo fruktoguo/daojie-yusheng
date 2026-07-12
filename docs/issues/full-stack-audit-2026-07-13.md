@@ -3,7 +3,7 @@
 ## 审计口径
 
 - 生产主线：`packages/client`、`packages/shared`、`packages/server`、`packages/config-editor`。
-- 当前基线：`main` 分支 `77c0cced`；相对 `origin/main` ahead 7。
+- 当前基线：`main` 分支 `aee54006`；相对 `origin/main` ahead 8。
 - package manager：`pnpm@10.29.1`。
 - 每项结论必须来自机制文档、完整调用链、测试、编译产物或运行数据；仅凭搜索未发现异常不能标记为“确认无问题”。
 - `[x]` 只表示该行列出的具体证据范围已完成，不代表相邻系统或整个项目已完成。
@@ -28,6 +28,8 @@
 - [x] P-07 通用托管实例到期销毁的 catalog lease/epoch CAS、失败保留运行态和旧 writer 隔离已修复；见 FS-002。
 - [x] P-08 通天塔空闲实例的 dirty 落盘、统一销毁入口与 catalog CAS 顺序已修复；见 FS-004。
 - [x] P-09 普通启动与 GM 恢复错误批量销毁实例 catalog 真源的问题已修复；见 FS-005。
+- [x] P-10 普通实例与通天塔恢复先水合后取得 lease 的顺序错误已修复；见 FS-006。
+- [x] P-11 启动 catalog 注册可能回退 ownership epoch、长队列水合前 lease 过期的问题已修复；见 FS-007。
 
 ### 服务端权威运行时
 
@@ -37,6 +39,7 @@
 - [ ] R-04 建筑、房间、风水、灵气场、技艺 job、NPC、任务、自动化和 Actor。
 - [ ] R-05 5000 玩家/10000 实例口径下的索引、队列、定时器、Worker、缓存和热路径分配。
 - [x] R-06 通天塔空闲生命周期的失败重试、资源卸载与重启恢复相邻链路已完成专项验证；见 FS-004。
+- [x] R-07 启动期 catalog 注册、claim/sync、实例分域水合和塔层 detached cache 顺序已完成专项修复；见 FS-006。
 
 ### shared、协议与内容链路
 
@@ -129,7 +132,7 @@
 
 ### FS-005 世界运行态重建把 catalog 真源批量改成 destroyed/stopped
 
-- **状态**：已修复并完成专项验证，待本功能组原子提交。
+- **状态**：已修复、验证并提交。
 - **严重级别**：P0。
 - **所属功能组**：服务启动 / GM 数据库恢复 / 实例 catalog / 生命周期终态。
 - **影响链路**：`ServerLifecycleCoordinatorService.recoverWorld()` 或 `NativeDatabaseRestoreCoordinatorService.reloadAfterRestore()` → `WorldRuntimeLifecycleService.rebuildPersistentRuntimeAfterRestore()` → `instance_catalog.updateInstanceStatus()` / `upsertInstanceCatalog()` → catalog 接管与玩家恢复。
@@ -141,6 +144,38 @@
 - **修复方式**：彻底删除 `rewriteCatalogRuntimeStatus` 选项及批量 `updateInstanceStatus + upsertInstanceCatalog` 循环；普通启动和 GM 恢复只 reset 本节点内存结构，catalog 继续作为恢复真源。实例的 `destroyed/stopped` 转换只允许走已有的显式 lease/epoch CAS 销毁入口。
 - **实际修改**：`world-runtime-lifecycle.service.ts` 删除恢复期 catalog 终态重写；启动协调器、GM 恢复协调器和接口同步移除该选项；`startup-lifecycle-coordinator-smoke.ts` 证明调用载荷不再携带销毁开关；`world-runtime-lifecycle-smoke.ts` 在 catalog 条目已物化的场景中设置终态写入陷阱，证明轻量重建仍保留 catalog 且不触发该写入；schema 文档补充恢复与销毁边界。
 - **验证结果**：`git diff --check` 与 `pnpm --filter @mud/server compile` 通过；compiled `world-runtime-lifecycle-smoke` 通过，catalog 终态写入陷阱未触发且轻量恢复仍保留 catalog shell；compiled `startup-lifecycle-coordinator-smoke` 通过，证明默认 eager 启动仍在 traffic/tick/flush 闸门关闭期间恢复，但调用载荷已不存在销毁开关；compiled `native-database-restore-route-cleanup-smoke` 通过，证明 GM 恢复后的 world/market/mail/GM auth/player auth 重载顺序未变；`pnpm verify:quick` 完整通过，生产边界仍为 `world-runtime.service.ts = 1200` 行。该验证不证明真实多节点滚动启动、完整数据库导入/恢复或 release/shadow/acceptance/full。
+- **中文原子提交 hash**：`aee54006`（`fix(persistence): 禁止恢复流程销毁实例目录`）。
+
+### FS-006 启动恢复在取得实例 lease 前水合并可能回写分域
+
+- **状态**：已修复并完成专项验证，待本功能组原子提交。
+- **严重级别**：P0。
+- **所属功能组**：服务启动 / 实例接管 / 分域水合 / 通天塔 detached cache。
+- **影响链路**：catalog 扫描与公共实例 bootstrap → `restorePublicInstancePersistence()` / `primeLayerInstanceCache()` → 建筑、宝库、密室、阵法等恢复副作用 → `claimRecoverableCatalogInstances()` / `syncInstanceLease()`。
+- **证据**：修复前普通 eager 启动在 bootstrap/reset 后先调用 `restorePublicInstancePersistence()`，之后才 claim 可恢复 catalog 并逐实例同步 lease；通天塔 `primeLayerInstanceCache()` 则直接构造 detached runtime 并调用 `hydratePersistentInstanceSnapshot()`，全程没有 lease 裁定。两套水合都会进入建筑保护点清理、宝库物品返还、密室释放、持久态修正和阵法恢复，并非纯只读查询。
+- **根本原因**：启动编排把“读数据库构造内存”视为可以发生在所有权裁定之前，却没有追踪水合函数包含的业务清理与回写副作用；同时 `syncInstanceLease()` 在新 claim 成功时隐式水合，导致调用方难以按“先全部 lease、再统一水合”重排而不重复执行。
+- **为什么错误**：实例 catalog lease/ownership epoch 是所有实例写入的前置权威。未取得本节点 lease 时，恢复代码既不能删除违规建筑、返还宝库资产，也不能保存阵法/地块修正；否则两个节点可同时基于不同快照执行非幂等副作用。启动链路规范也明确要求 lease 成功后才能 hydrate。
+- **触发条件**：默认 eager 启动或 GM 恢复时存在持久实例分域；通天塔 catalog 中存在历史塔层；目标实例仍被远端有效 lease 持有、旧 epoch payload 尚未 replay，或本节点只是续租而非新 claim。
+- **可能后果**：旧节点在远端实例上清理建筑或密室；宝库库存被重复/错误返还；旧 epoch 的分域修正覆盖新节点状态；阵法或容器恢复发生两次；catalog 注册异步尚未落地时提前 claim 导致实例被错误隔离；远端塔层被本节点无权水合并缓存。
+- **修复方式**：拆出可等待的 `registerManagedInstanceCatalog()`，启动期按 16 并发先完成当前 runtime shell 注册；随后 claim 可恢复实例和逐实例 sync lease，二者都显式传 `hydratePersistentSnapshot: false`，所有成功实例最后统一水合一次，并在每个实例真正水合前即时续租。catalog 启用但 claim/sync 能力缺失时启动失败关闭。通天塔缓存改为临时挂载 catalog 元数据，先 replay/claim/renew lease，再显式水合并摘回 detached cache；冲突或失败时清掉临时状态，通用周期 claim 识别塔层后让路给该缓存流程，GM 重载前先清旧缓存。
+- **实际修改**：`world-runtime-instance-lease.helpers.ts` 拆出可等待 catalog 注册并为 lease sync 增加可关闭隐式水合的选项；`world-runtime-lifecycle.service.ts` 删除 reset 前无效实例物化，改为“承接 catalog 元数据 → 注册 → claim → sync → 水合前续租 → hydrate”并增加能力门禁；`world-runtime-tongtian-tower.service.ts` 增加 lease-first 缓存装载、失败清理和重载缓存清理；三类 smoke 分别证明普通 eager 顺序、通天塔成功/冲突分支及 deferred hydration 选项。
+- **验证结果**：`git diff --check` 与 `pnpm --filter @mud/server compile` 通过；移除两份本组旧 smoke 的 `@ts-nocheck`/CommonJS 后仍由 TypeScript 正常编译；compiled `world-runtime-lifecycle-smoke` 通过，证明所有实例完成首轮 lease sync 后才开始水合、每个实例水合前再续租、`lease_degraded` 实例不水合，且 epoch `9/11` 在注册前已承接；compiled `tongtian-tower-smoke` 通过，证明塔层按 lease → hydrate 成功，模拟 lease 冲突时不水合且无临时 runtime 残留；compiled `instance-lease-sync-error-smoke`、`startup-lifecycle-coordinator-smoke`、`instance-ownership-epoch-replay-smoke` 通过；真实 PostgreSQL `instance-lease-runtime-smoke` 完整以 `0` 退出并清理夹具；`pnpm verify:quick` 完整通过，生产边界仍为 `world-runtime.service.ts = 1200` 行。上述验证不证明真实双节点同时滚动启动、网络分区下 split-brain，亦不替代完整 shadow/acceptance/full 门禁。
+- **中文原子提交 hash**：待本功能组提交后回填。
+
+### FS-007 启动目录注册可把 ownership epoch 回退为零
+
+- **状态**：已修复并完成专项验证，待随实例启动接管功能组原子提交。
+- **严重级别**：P0。
+- **所属功能组**：实例 catalog / ownership fence / 启动接管。
+- **影响链路**：默认公共实例 bootstrap → `registerManagedInstanceCatalog()` → `InstanceCatalogService.upsertInstanceCatalog()` → `syncInstanceLease()` → 旧 epoch payload replay 与新 lease claim。
+- **证据**：公共实例每次启动都以默认 `ownershipEpoch = 0` 创建 shell。修复前 catalog upsert 只在现有 lease 仍有效时保留旧 epoch；lease 已过期或已释放时直接写 `EXCLUDED.ownership_epoch`，而 `metadata_version` 的大小比较没有保护这一列。随后 `syncInstanceLease()` 读取到 catalog 的历史 epoch 与 runtime 的 `0` 不同，会拒绝接管；若 upsert 已先落库，则数据库 fence 本身也被回退。
+- **根本原因**：实现把“lease 已失效、允许新节点接管”误解成“ownership 历史可以重置”。启动 shell 只表达本进程尚未取得所有权，它的默认值不是比数据库更权威的新纪元；`ownership_epoch` 与可续租性被错误绑定在同一个 CASE 分支。
+- **为什么错误**：ownership epoch 是隔离所有旧 flush writer 的单调 fencing token，任何普通 upsert 都无权降低它。回退会重新放行早期 epoch 的延迟 payload，也会使合法新节点无法用 catalog 当前 epoch 执行 replay + CAS claim，违反持久化真源与旧态覆盖红线。
+- **触发条件**：同一实例历史上至少完成过一次接管或销毁，catalog epoch 大于 `0`；服务重启后创建同 ID 默认 shell；旧 lease 已过期、被释放或字段不完整，随后执行目录注册。
+- **可能后果**：实例启动后长期处于 fenced/`lease_degraded` 而无法水合；离线挂机玩家无法回到原实例；旧 epoch 的延迟写重新满足数据库 fence，覆盖新资产、建筑、容器或阵法状态；多节点恢复可能围绕错误 epoch 重复争抢。
+- **修复方式**：catalog upsert 对 `ownership_epoch` 无条件使用数据库现值与新值的最大值；启动注册前按 `instance_id` 把 catalog 的 lease、epoch 与路由元数据承接到新建 runtime shell，再以正确 epoch 注册和执行 replay/claim。该规则不依赖 lease 是否仍有效。
+- **实际修改**：`instance-catalog.service.ts` 将 epoch 更新改为单调 `GREATEST`；`world-runtime-lifecycle.service.ts` 在注册前应用 catalog 元数据；`world-runtime-lifecycle-smoke.ts` 以 epoch `9/11` 的公共/真实线路证明注册与首次 sync 都未看到默认 `0`；`instance-lease-runtime-smoke.ts` 增加真实 PostgreSQL 夹具，证明过期 lease 上用 epoch `0` upsert 后数据库仍保持 epoch `17` 并自动清理夹具。
+- **验证结果**：compiled `world-runtime-lifecycle-smoke` 证明 epoch `9/11` 的 catalog 元数据在 upsert 与首次 sync 前已进入 runtime shell；真实 PostgreSQL `instance-lease-runtime-smoke` 证明过期远端 lease 的目录以 epoch `0` upsert 后，`ownership_epoch` 与 `metadata_version` 均保持 `17`，测试完整以 `0` 退出并自动清理；`pnpm --filter @mud/server compile`、`git diff --check` 和 `pnpm verify:quick` 均通过。未验证真实多节点并发 upsert/claim 的锁等待与吞吐上限。
 - **中文原子提交 hash**：待本功能组提交后回填。
 
 ## 2026-07-14 待用户决定

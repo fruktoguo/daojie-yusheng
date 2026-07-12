@@ -63,7 +63,7 @@ async function persistBuildingRoomStateAfterUnknownDefPrune(runtime, domainPersi
   }
 }
 
-export function syncManagedInstanceRegistration(runtime, instanceId, instance) {
+export async function registerManagedInstanceCatalog(runtime, instanceId, instance) {
   if (!runtime.instanceCatalogService?.isEnabled?.()) {
     return;
   }
@@ -73,41 +73,43 @@ export function syncManagedInstanceRegistration(runtime, instanceId, instance) {
     instance?.meta?.persistentPolicy
     ?? (instance?.meta?.persistent === true || instance?.persistent === true ? 'persistent' : 'ephemeral'),
   );
+  await runtime.instanceCatalogService.upsertInstanceCatalog({
+    instanceId,
+    templateId,
+    instanceType: kind,
+    persistentPolicy,
+    ownerPlayerId: instance?.meta?.ownerPlayerId ?? null,
+    ownerSectId: instance?.meta?.ownerSectId ?? null,
+    partyId: instance?.meta?.partyId ?? null,
+    lineId: instance?.meta?.lineId ?? null,
+    status: instance?.meta?.status ?? 'active',
+    runtimeStatus: instance?.meta?.runtimeStatus ?? 'running',
+    assignedNodeId: instance?.meta?.assignedNodeId ?? null,
+    leaseToken: instance?.meta?.leaseToken ?? null,
+    leaseExpireAt: instance?.meta?.leaseExpireAt ?? null,
+    ownershipEpoch: instance?.meta?.ownershipEpoch ?? 0,
+    clusterId: instance?.meta?.clusterId ?? null,
+    shardKey: instance?.meta?.shardKey ?? instanceId,
+    routeDomain: instance?.meta?.routeDomain ?? null,
+    destroyAt: instance?.meta?.destroyAt ?? null,
+    lastActiveAt: instance?.meta?.lastActiveAt ?? null,
+    lastPersistedAt: instance?.meta?.lastPersistedAt ?? null,
+    preserveExistingLease: persistentPolicy === 'persistent' || persistentPolicy === 'long_lived',
+  });
+}
+
+export function syncManagedInstanceRegistration(runtime, instanceId, instance) {
+  if (!runtime.instanceCatalogService?.isEnabled?.()) {
+    return;
+  }
   void (async () => {
-    try {
-      await runtime.instanceCatalogService.upsertInstanceCatalog({
-        instanceId,
-        templateId,
-        instanceType: kind,
-        persistentPolicy,
-        ownerPlayerId: instance?.meta?.ownerPlayerId ?? null,
-        ownerSectId: instance?.meta?.ownerSectId ?? null,
-        partyId: instance?.meta?.partyId ?? null,
-        lineId: instance?.meta?.lineId ?? null,
-        status: instance?.meta?.status ?? 'active',
-        runtimeStatus: instance?.meta?.runtimeStatus ?? 'running',
-        assignedNodeId: instance?.meta?.assignedNodeId ?? null,
-        leaseToken: instance?.meta?.leaseToken ?? null,
-        leaseExpireAt: instance?.meta?.leaseExpireAt ?? null,
-        ownershipEpoch: instance?.meta?.ownershipEpoch ?? 0,
-        clusterId: instance?.meta?.clusterId ?? null,
-        shardKey: instance?.meta?.shardKey ?? instanceId,
-        routeDomain: instance?.meta?.routeDomain ?? null,
-        destroyAt: instance?.meta?.destroyAt ?? null,
-        lastActiveAt: instance?.meta?.lastActiveAt ?? null,
-        lastPersistedAt: instance?.meta?.lastPersistedAt ?? null,
-        preserveExistingLease: persistentPolicy === 'persistent' || persistentPolicy === 'long_lived',
-      });
-    } catch (error) {
-      runtime.logger.warn(`实例目录同步失败：${instanceId} ${error instanceof Error ? error.message : String(error)}`);
-      return;
-    }
+    await registerManagedInstanceCatalog(runtime, instanceId, instance);
     if (shouldDeferManagedLeaseSyncUntilStartupGateOpen(runtime, instanceId)) {
       return;
     }
     await syncInstanceLease(runtime, instanceId);
   })().catch((error) => {
-    runtime.logger.warn(`实例租约同步失败：${instanceId} ${error instanceof Error ? error.message : String(error)}`);
+    runtime.logger.warn(`实例目录或租约同步失败：${instanceId} ${error instanceof Error ? error.message : String(error)}`);
   });
 }
 
@@ -323,7 +325,10 @@ export async function releaseLocalInstanceLeasesForShutdown(runtime) {
   return { released, skipped, releasedInstanceIds, skippedInstanceIds, failedInstanceIds };
 }
 
-export async function syncInstanceLease(runtime, instanceId, { allowForceReclaim = false } = {}) {
+export async function syncInstanceLease(runtime, instanceId, {
+  allowForceReclaim = false,
+  hydratePersistentSnapshot = true,
+} = {}) {
   if (!runtime.instanceCatalogService?.isEnabled?.()) {
     return;
   }
@@ -398,6 +403,7 @@ export async function syncInstanceLease(runtime, instanceId, { allowForceReclaim
       leaseToken,
       leaseExpireAt,
       expectedOwnershipEpoch,
+      hydratePersistentSnapshot,
     );
     if (reclaimed) {
       return;
@@ -424,6 +430,7 @@ export async function syncInstanceLease(runtime, instanceId, { allowForceReclaim
           leaseExpireAt,
           ownershipEpoch: forceClaim.ownershipEpoch,
           fallbackOwnershipEpoch: expectedOwnershipEpoch + 1,
+          hydratePersistentSnapshot,
         });
         runtime.logger.log(`启动恢复强制回收成功：${instanceId} newLeaseToken=${leaseToken}`);
         return;
@@ -438,7 +445,7 @@ export async function syncInstanceLease(runtime, instanceId, { allowForceReclaim
   instance.meta.ownershipEpoch = assignedNodeId && currentLeaseToken
     ? expectedOwnershipEpoch
     : Number.isFinite(Number(claimResult?.ownershipEpoch)) ? Math.trunc(Number(claimResult.ownershipEpoch)) : expectedOwnershipEpoch + 1;
-  if (claimResult?.ok) {
+  if (claimResult?.ok && hydratePersistentSnapshot !== false) {
     await hydratePersistentInstanceSnapshot(runtime, instanceId, instance);
   }
   instance.meta.runtimeStatus = 'leased';
@@ -505,7 +512,9 @@ async function restoreInstanceAfterOwnershipClaim(runtime, instanceId, instance,
   instance.meta.leaseToken = input.leaseToken;
   instance.meta.leaseExpireAt = input.leaseExpireAt.toISOString();
   instance.meta.ownershipEpoch = normalizeOwnershipEpoch(input.ownershipEpoch, input.fallbackOwnershipEpoch);
-  await hydratePersistentInstanceSnapshot(runtime, instanceId, instance);
+  if (input.hydratePersistentSnapshot !== false) {
+    await hydratePersistentInstanceSnapshot(runtime, instanceId, instance);
+  }
   instance.meta.runtimeStatus = 'leased';
   instance.meta.status = 'active';
 }
@@ -518,6 +527,7 @@ async function reclaimMissingCatalogLeaseForLocalRuntime(
   leaseToken,
   leaseExpireAt,
   expectedOwnershipEpoch,
+  hydratePersistentSnapshot = true,
 ) {
   if (!runtime.instanceCatalogService?.isEnabled?.()) {
     return false;
@@ -552,6 +562,7 @@ async function reclaimMissingCatalogLeaseForLocalRuntime(
     leaseExpireAt,
     ownershipEpoch: claim.ownershipEpoch,
     fallbackOwnershipEpoch: catalogOwnershipEpoch + 1,
+    hydratePersistentSnapshot,
   });
   runtime.logger.warn(`实例 ${instanceId} catalog 租约缺失，已由本地运行态重新接管`);
   return true;
@@ -831,7 +842,8 @@ export async function claimRecoverableCatalogInstances(runtime, {
     }
     if (typeof runtime.worldRuntimeTongtianTowerService?.restoreCatalogTowerTemplate === 'function'
       && runtime.worldRuntimeTongtianTowerService.restoreCatalogTowerTemplate(entry, runtime)) {
-      // Dynamic tower templates are runtime-registered, not static content files.
+      // 历史塔层由启动缓存按 lease → hydrate 顺序恢复；不注册进常驻 tick。
+      continue;
     }
     if (typeof runtime.templateRepository?.has === 'function'
       && !runtime.templateRepository.has(templateId)

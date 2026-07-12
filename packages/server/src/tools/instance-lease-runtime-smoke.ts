@@ -46,12 +46,25 @@ async function main(): Promise<void> {
   const adoptInstanceId = 'line:yunlai_town:peaceful:93';
   const takeoverInstanceId = 'line:yunlai_town:peaceful:92';
   const destroyInstanceId = 'line:yunlai_town:peaceful:94';
+  const upsertEpochInstanceId = 'line:yunlai_town:peaceful:95';
   try {
     const worldRuntimeService = app.get(WorldRuntimeService);
     const nodeRegistryService = app.get(NodeRegistryService);
     const localNodeId = nodeRegistryService.getNodeId();
 
-    await cleanupInstanceRows(pool, [fenceInstanceId, takeoverInstanceId, adoptInstanceId, destroyInstanceId]);
+    await cleanupInstanceRows(pool, [
+      fenceInstanceId,
+      takeoverInstanceId,
+      adoptInstanceId,
+      destroyInstanceId,
+      upsertEpochInstanceId,
+    ]);
+
+    const catalogUpsertEpochProof = await verifyCatalogUpsertKeepsOwnershipEpochMonotonic({
+      pool,
+      worldRuntimeService,
+      instanceId: upsertEpochInstanceId,
+    });
 
     const renewalDegradeProof = await verifyRenewFailureFence({
       pool,
@@ -85,7 +98,8 @@ async function main(): Promise<void> {
           localAdoptionProof,
           takeoverProof,
           destroyFenceProof,
-          answers: 'with-db 下已验证实例 runtime 会认领 persistent instance lease、接管过期 lease、在本节点重启导致内存 lease token 落后时采用 catalog 本地 lease 并续约，并在 lease 续约失败时进入 lease_degraded、在 lease 不再属于本节点时阻断 dirty map 写链；实例销毁会先 CAS 持久化 lease/epoch fence，冲突时保留运行态，成功时递增 epoch 后才卸载。',
+          catalogUpsertEpochProof,
+          answers: 'with-db 下已验证实例 runtime 会认领 persistent instance lease、接管过期 lease、在本节点重启导致内存 lease token 落后时采用 catalog 本地 lease 并续约，并在 lease 续约失败时进入 lease_degraded、在 lease 不再属于本节点时阻断 dirty map 写链；实例销毁会先 CAS 持久化 lease/epoch fence，冲突时保留运行态，成功时递增 epoch 后才卸载；目录 upsert 不会把 ownership epoch 回退。',
           excludes: '不证明真实多节点 socket 导流、跨节点 transfer、过期 lease 自动接管、split-brain 双活或玩家迁移缓冲',
           completionMapping: 'release:proof:with-db.instance-lease-runtime',
         },
@@ -94,11 +108,63 @@ async function main(): Promise<void> {
       ),
     );
   } finally {
-    await cleanupInstanceRows(pool, [fenceInstanceId, takeoverInstanceId, adoptInstanceId, destroyInstanceId]).catch(() => undefined);
+    await cleanupInstanceRows(pool, [
+      fenceInstanceId,
+      takeoverInstanceId,
+      adoptInstanceId,
+      destroyInstanceId,
+      upsertEpochInstanceId,
+    ]).catch(() => undefined);
     await app.close().catch(() => undefined);
     await pool.end().catch(() => undefined);
     restoreEnv('SERVER_NODE_ID', previousNodeId);
   }
+}
+
+async function verifyCatalogUpsertKeepsOwnershipEpochMonotonic(input: {
+  pool: Pool;
+  worldRuntimeService: any;
+  instanceId: string;
+}): Promise<{
+  ownershipEpoch: number;
+  metadataVersion: number;
+}> {
+  await input.pool.query(
+    `INSERT INTO ${INSTANCE_CATALOG_TABLE}(
+       instance_id, template_id, instance_type, persistent_policy,
+       status, runtime_status, assigned_node_id, lease_token, lease_expire_at,
+       ownership_epoch, metadata_version, shard_key, route_domain, created_at, last_active_at
+     ) VALUES (
+       $1, 'yunlai_town', 'public', 'persistent',
+       'active', 'leased', 'node:expired', 'lease:expired', now() - interval '60 second',
+       17, 17, $1, 'peaceful', now(), now()
+     )`,
+    [input.instanceId],
+  );
+
+  await input.worldRuntimeService.instanceCatalogService.upsertInstanceCatalog({
+    instanceId: input.instanceId,
+    templateId: 'yunlai_town',
+    instanceType: 'public',
+    persistentPolicy: 'persistent',
+    status: 'active',
+    runtimeStatus: 'running',
+    assignedNodeId: null,
+    leaseToken: null,
+    leaseExpireAt: null,
+    ownershipEpoch: 0,
+    shardKey: input.instanceId,
+    routeDomain: 'peaceful',
+    preserveExistingLease: true,
+  });
+
+  const row = await fetchInstanceRow(input.pool, input.instanceId);
+  assert.equal(Number(row?.ownership_epoch), 17);
+  assert.ok(Number(row?.metadata_version) >= 17);
+  return {
+    ownershipEpoch: Number(row?.ownership_epoch),
+    metadataVersion: Number(row?.metadata_version),
+  };
 }
 
 async function verifyDestroyFenceBeforeRuntimeCleanup(input: {

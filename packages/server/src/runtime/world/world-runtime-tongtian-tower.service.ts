@@ -89,18 +89,51 @@ export class WorldRuntimeTongtianTowerService {
     if (templateId && templateId !== resolvedTemplateId) {
       return false;
     }
-    const instance = this.createDetachedLayerInstance(layer, this.getTowerInstanceId(layer), deps);
-    try {
-      if (typeof deps.hydratePersistentInstanceSnapshot === 'function') {
-        await deps.hydratePersistentInstanceSnapshot(instance.meta.instanceId, instance);
-      }
-    } catch (error) {
-      this.logger.warn(`通天塔实例恢复缓存失败：${instance.meta.instanceId} ${error instanceof Error ? error.message : String(error)}`);
+    if (typeof deps.worldRuntimeInstanceStateService?.setInstanceRuntime !== 'function'
+      || typeof deps.worldRuntimeInstanceStateService?.deleteInstanceRuntime !== 'function'
+      || typeof deps.syncInstanceLease !== 'function'
+      || typeof deps.hydratePersistentInstanceSnapshot !== 'function') {
+      this.logger.warn(`通天塔实例恢复缓存缺少 lease/hydrate 能力：${instanceId}`);
       return false;
     }
+    const resolvedInstanceId = this.getTowerInstanceId(layer);
+    const instance = this.createDetachedLayerInstance(layer, resolvedInstanceId, deps, entry);
+    deps.worldRuntimeInstanceStateService.setInstanceRuntime(resolvedInstanceId, instance);
+    try {
+      await deps.syncInstanceLease(resolvedInstanceId, {
+        allowForceReclaim: true,
+        hydratePersistentSnapshot: false,
+      });
+      if (deps.getInstanceRuntime?.(resolvedInstanceId) !== instance || !hasLocalCatalogLease(instance, deps)) {
+        await this.releaseDetachedLayerLease(resolvedInstanceId, instance, deps);
+        this.discardDetachedLayerRuntime(resolvedInstanceId, deps);
+        this.logger.warn(`通天塔实例恢复缓存未取得本地 lease：${resolvedInstanceId}`);
+        return false;
+      }
+      await deps.hydratePersistentInstanceSnapshot(resolvedInstanceId, instance);
+    } catch (error) {
+      await this.releaseDetachedLayerLease(resolvedInstanceId, instance, deps);
+      this.discardDetachedLayerRuntime(resolvedInstanceId, deps);
+      this.logger.warn(`通天塔实例恢复缓存失败：${resolvedInstanceId} ${error instanceof Error ? error.message : String(error)}`);
+      return false;
+    }
+    deps.worldRuntimeInstanceStateService.deleteInstanceRuntime(resolvedInstanceId);
     this.ensureLayerState(instance, layer, deps.tick ?? instance.tick ?? 0);
     this.cachedLayerInstances.set(layer, instance);
     return true;
+  }
+
+  async resetLayerInstanceCache(deps: any): Promise<void> {
+    for (const instance of this.cachedLayerInstances.values()) {
+      const instanceId = typeof instance?.meta?.instanceId === 'string' ? instance.meta.instanceId : '';
+      if (instanceId) {
+        await this.releaseDetachedLayerLease(instanceId, instance, deps);
+        deps.worldRuntimeLootContainerService?.removeInstanceState?.(instanceId);
+        deps.runtimeEventBusService?.discardInstance?.(instanceId);
+        deps.worldRuntimeFormationService?.releaseInstance?.(instanceId);
+      }
+    }
+    this.cachedLayerInstances.clear();
   }
 
   buildContextActions(view: any, deps: any): any[] {
@@ -557,7 +590,54 @@ export class WorldRuntimeTongtianTowerService {
     this.markLayerActive(state, worldTick);
   }
 
-  private createDetachedLayerInstance(layer: number, instanceId: string, deps: any): any {
+  private discardDetachedLayerRuntime(instanceId: string, deps: any): void {
+    deps.worldRuntimeInstanceStateService?.deleteInstanceRuntime?.(instanceId);
+    deps.worldRuntimeTickProgressService?.clearInstance?.(instanceId);
+    deps.worldRuntimeLootContainerService?.removeInstanceState?.(instanceId);
+    deps.runtimeEventBusService?.discardInstance?.(instanceId);
+    deps.worldRuntimeFormationService?.releaseInstance?.(instanceId);
+  }
+
+  private async releaseDetachedLayerLease(instanceId: string, instance: any, deps: any): Promise<void> {
+    if (!deps.instanceCatalogService?.isEnabled?.()
+      || typeof deps.instanceCatalogService.releaseInstanceLease !== 'function') {
+      return;
+    }
+    const nodeId = typeof deps.nodeRegistryService?.getNodeId === 'function'
+      ? String(deps.nodeRegistryService.getNodeId()).trim()
+      : '';
+    const assignedNodeId = typeof instance?.meta?.assignedNodeId === 'string'
+      ? instance.meta.assignedNodeId.trim()
+      : '';
+    const leaseToken = typeof instance?.meta?.leaseToken === 'string'
+      ? instance.meta.leaseToken.trim()
+      : '';
+    if (!nodeId || assignedNodeId !== nodeId || !leaseToken) {
+      return;
+    }
+    try {
+      const released = await deps.instanceCatalogService.releaseInstanceLease({
+        instanceId,
+        nodeId,
+        leaseToken,
+      });
+      if (released === true) {
+        instance.meta.assignedNodeId = null;
+        instance.meta.leaseToken = null;
+        instance.meta.leaseExpireAt = null;
+        instance.meta.runtimeStatus = 'running';
+      }
+    } catch (error) {
+      this.logger.warn(`通天塔缓存 lease 释放失败：${instanceId} ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  private createDetachedLayerInstance(
+    layer: number,
+    instanceId: string,
+    deps: any,
+    entry: Record<string, unknown> = {},
+  ): any {
     const templateId = this.ensureLayerTemplate(layer);
     const template = this.templateRepository.getOrThrow(templateId);
     const instance = new MapInstanceRuntime({
@@ -577,8 +657,17 @@ export class WorldRuntimeTongtianTowerService {
       supportsPvp: false,
       canDamageTile: false,
       status: 'active',
-      runtimeStatus: 'running',
-      routeDomain: 'system',
+      runtimeStatus: typeof entry.runtime_status === 'string' ? entry.runtime_status : 'running',
+      assignedNodeId: typeof entry.assigned_node_id === 'string' ? entry.assigned_node_id : null,
+      leaseToken: typeof entry.lease_token === 'string' ? entry.lease_token : null,
+      leaseExpireAt: entry.lease_expire_at ? new Date(entry.lease_expire_at as string | number | Date).toISOString() : null,
+      ownershipEpoch: Number.isFinite(Number(entry.ownership_epoch)) ? Math.trunc(Number(entry.ownership_epoch)) : 0,
+      clusterId: typeof entry.cluster_id === 'string' ? entry.cluster_id : null,
+      shardKey: typeof entry.shard_key === 'string' && entry.shard_key.trim() ? entry.shard_key : instanceId,
+      routeDomain: typeof entry.route_domain === 'string' ? entry.route_domain : 'system',
+      destroyAt: entry.destroy_at ? new Date(entry.destroy_at as string | number | Date).toISOString() : null,
+      lastActiveAt: entry.last_active_at ? new Date(entry.last_active_at as string | number | Date).toISOString() : null,
+      lastPersistedAt: entry.last_persisted_at ? new Date(entry.last_persisted_at as string | number | Date).toISOString() : null,
     });
     if (typeof instance.setDynamicTileBlocker === 'function') {
       const blocker: any = (x, y, context = null) => (
@@ -850,6 +939,29 @@ function listPlayerIds(instance: any): string[] {
   return typeof instance?.listPlayerIds === 'function'
     ? instance.listPlayerIds().filter((entry: unknown): entry is string => typeof entry === 'string' && entry.trim().length > 0)
     : [];
+}
+
+function hasLocalCatalogLease(instance: any, deps: any): boolean {
+  if (!deps.instanceCatalogService?.isEnabled?.()) {
+    return true;
+  }
+  const nodeId = typeof deps.nodeRegistryService?.getNodeId === 'function'
+    ? String(deps.nodeRegistryService.getNodeId()).trim()
+    : '';
+  const assignedNodeId = typeof instance?.meta?.assignedNodeId === 'string'
+    ? instance.meta.assignedNodeId.trim()
+    : '';
+  const leaseToken = typeof instance?.meta?.leaseToken === 'string'
+    ? instance.meta.leaseToken.trim()
+    : '';
+  const leaseExpireAt = instance?.meta?.leaseExpireAt
+    ? new Date(instance.meta.leaseExpireAt).getTime()
+    : 0;
+  return Boolean(nodeId)
+    && assignedNodeId === nodeId
+    && Boolean(leaseToken)
+    && Number.isFinite(leaseExpireAt)
+    && leaseExpireAt > Date.now();
 }
 
 function isNear(xInput: unknown, yInput: unknown, targetX: number, targetY: number): boolean {
