@@ -170,11 +170,16 @@ export class WorldRuntimeNpcShopQueryService {
         if (!item) {
             throw new NotFoundException('商品配置异常，暂时无法购买');
         }
-        if (!this.playerRuntimeService.canReceiveInventoryItem(playerId, item)) {
-            throw new BadRequestException('背包空间不足，无法购买');
-        }
         if (!this.playerRuntimeService.canAffordWallet(playerId, NPC_SHOP_CURRENCY_ITEM_ID, totalCost)) {
             throw new BadRequestException(`${this.getCurrencyItemName()}不足`);
+        }
+        if (!this.playerRuntimeService.canReceiveInventoryItem(playerId, item)) {
+            const currentCurrencyBalance = typeof this.playerRuntimeService.getWalletBalanceByType === 'function'
+                ? this.playerRuntimeService.getWalletBalanceByType(playerId, NPC_SHOP_CURRENCY_ITEM_ID)
+                : null;
+            if (!Number.isSafeInteger(currentCurrencyBalance) || currentCurrencyBalance !== totalCost) {
+                throw new BadRequestException('背包空间不足，无法购买');
+            }
         }
         return {
             item,

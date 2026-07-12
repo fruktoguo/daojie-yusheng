@@ -3,7 +3,7 @@
 ## 审计口径
 
 - 生产主线：`packages/client`、`packages/shared`、`packages/server`、`packages/config-editor`。
-- 当前基线：`main` 分支 `d511cd0a`；相对 `origin/main` ahead 16。
+- 当前基线：`main` 分支 `45fff28d`；相对 `origin/main` ahead 17。
 - package manager：`pnpm@10.29.1`。
 - 每项结论必须来自机制文档、完整调用链、测试、编译产物或运行数据；仅凭搜索未发现异常不能标记为“确认无问题”。
 - `[x]` 只表示该行列出的具体证据范围已完成，不代表相邻系统或整个项目已完成。
@@ -17,6 +17,7 @@
 - [ ] A-02 `packages/*` 生产模块、入口、后台 worker、smoke/proof/audit 与文档的完整对应关系。
 - [ ] A-03 公共 API、依赖方向、文件职责和运行时/网络/持久化/UI 边界审计。
 - [x] A-04 NPC 任务写路径 smoke 的 TypeScript 绕过、构造器漂移和错误资产模型已修复；见 FS-022。
+- [x] A-05 NPC 商店 smoke 的 TypeScript 绕过、提前成功输出和旧分步资产模型已修复；见 FS-024。
 
 ### 资产、持久化与恢复
 
@@ -40,6 +41,7 @@
 - [x] P-18 兑换码灵石写错真源、拆分资产事务及 pending 重试重复规划问题已修复；见 FS-017。
 - [x] P-19 Runtime 钱包/背包管理入口写错资产真源、缺少稳定重放身份且生产降级为易失写的问题已修复；见 FS-020。
 - [x] P-20 NPC 任务灵石奖励未进入背包真源、钱包投影按旧模型增量覆盖的问题已修复；见 FS-021。
+- [x] P-21 NPC 商店扣款释放格子仍被拒绝、堆叠可溢出且 fallback 分步改资产的问题已修复；见 FS-023。
 
 ### 服务端权威运行时
 
@@ -403,7 +405,7 @@
 
 ### FS-021 NPC 任务灵石奖励未进入背包真源
 
-- **状态**：已修复并完成专项/真实数据库验证，等待本组原子提交。
+- **状态**：已修复、完成专项/真实数据库验证并原子提交。
 - **严重级别**：P0。
 - **所属功能组**：NPC 任务 / 奖励结算 / 背包与灵石 / durable operation。
 - **影响链路**：玩家提交 ready 任务 → `WorldRuntimeNpcQuestWriteService.dispatchSubmitNpcQuestLocked()` → 奖励分类 → `DurableOperationService.submitNpcQuestRewards()` → `player_inventory_item / player_wallet / player_quest_progress` → 运行态背包与钱包投影 → 重启恢复。
@@ -415,11 +417,11 @@
 - **修复方式**：不再区分普通奖励和钱包奖励；先在玩家资产串行区内克隆当前背包，按提交物品扣除，再用共享物品堆叠签名合入全部奖励并分配必要的 `itemInstanceId`，校验容量和数量上限。由最终背包快照精确派生 `spirit_stone` 钱包投影，连同任务状态在一次 durable 事务内提交；提交成功后只 `replaceInventoryItems()`，由运行态背包刷新钱包缓存，禁止 `replaceWalletBalances()` 反向覆盖。无 durable 测试路径也复用同一快照规划，避免两套结算语义。
 - **实际修改**：更新 `world-runtime-npc-quest-write.service.ts`、任务 mechanics、任务写路径 smoke、真实数据库 `npc-quest-reward-durable-smoke.ts` 与玩家资产串行静态审计。
 - **验证结果**：`git diff --check`、`pnpm --filter @mud/server compile` 与最终 `pnpm verify:quick` 通过；compiled `world-runtime-npc-quest-write-smoke` 证明提交物品扣除、普通奖励和灵石奖励形成同一 next inventory，钱包投影精确为背包灵石数量，durable 返回前不修改运行态，提交后不再调用 `replaceWalletBalances`；compiled `player-asset-entry-serialization-audit` 证明顺序为 inventory plan → wallet projection → durable → runtime apply；真实 PostgreSQL compiled `npc-quest-reward-durable-smoke` 证明拒绝不污染真源、session/instance lease fence、精确重放，以及包含 `rat_tail x2 + spirit_stone x3` 的背包真源、钱包投影、任务行、水位、outbox、audit 同事务提交并自动清理夹具。
-- **中文原子提交 hash**：待提交。
+- **中文原子提交 hash**：`45fff28d`（`fix(quest): 加固任务奖励背包真源`）。
 
 ### FS-022 NPC 任务写路径 smoke 通过 TypeScript 绕过隐藏构造器漂移
 
-- **状态**：已修复并完成编译/专项验证，等待随 FS-021 原子提交。
+- **状态**：已修复、完成编译/专项验证并随 FS-021 原子提交。
 - **严重级别**：P1（验证盲区，不直接修改玩家数据）。
 - **所属功能组**：NPC 任务 / TypeScript 门禁 / smoke 可信度。
 - **影响链路**：`world-runtime-npc-quest-write-smoke.ts` → server compile → `WorldRuntimeNpcQuestWriteService` 构造器与任务资产结算断言。
@@ -431,7 +433,39 @@
 - **修复方式**：移除 `@ts-nocheck` 与 CommonJS，改为规范 TypeScript import；删除错位的第二构造参数；补齐真实 wallet 派生夹具，把期望改为灵石进入背包、durable 前不应用、提交后仅替换背包。首次恢复类型检查即准确发现错位 `createQuestStateFromSource` 和缺失 wallet 字段，修正后 server compile 与 compiled smoke 均通过。
 - **实际修改**：更新 `world-runtime-npc-quest-write-smoke.ts`，并由静态资产审计补充生产源代码顺序断言。
 - **验证结果**：移除 TypeScript 绕过后的 `pnpm --filter @mud/server compile` 通过；compiled `world-runtime-npc-quest-write-smoke` 与 `player-asset-entry-serialization-audit` 通过。
-- **中文原子提交 hash**：待提交（随 FS-021）。
+- **中文原子提交 hash**：`45fff28d`（随 FS-021）。
+
+### FS-023 NPC 商店容量判定时序错误且商品堆叠无数量上限
+
+- **状态**：已修复并完成专项/真实数据库回归，等待本组原子提交。
+- **严重级别**：P0（资产部分提交与数量越界）/ P1（错误拒绝正常购买）。
+- **所属功能组**：NPC 商店 / 背包与灵石 / durable operation / 容量与数量边界。
+- **影响链路**：购买请求 → `WorldRuntimeNpcShopQueryService.validatePurchaseForNpc()` → 玩家有界命令队列 → `WorldRuntimeNpcShopService.dispatchBuyNpcShopItemLocked()` → 背包预演 → `DurableOperationService.purchaseNpcShopItem()` 或无库 fallback → 运行态背包。
+- **证据**：修复前查询层先在原背包上调用 `canReceiveInventoryItem()`，未考虑本次扣款可能耗尽唯一灵石堆并释放一个格子；因此满背包玩家即使付款后恰好有空位也会被拒绝。写路径虽先从克隆背包扣灵石再放商品，但合堆时直接执行 `existing.count += incoming.count`，既不校验 `2_147_483_647` 上限，也不在最终 after snapshot 上重新校验容量。durable disabled 路径则完全绕过预演，依次调用 `debitWallet()` 和 `receiveInventoryItem()`；后者遇到堆叠溢出会截断到上限，玩家却已支付完整价格，两个调用之间失败还会只扣款不发物。
+- **根本原因**：容量校验停留在“发物前的当前背包”而不是“扣款后的最终背包”；durable 与 fallback 各自维护不同结算步骤；商品堆叠逻辑没有复用玩家背包的数量上限约束。旧查询验证只回答“现在能不能放”，没有表达本次事务会先释放货币格子的事实。
+- **为什么错误**：NPC 购买是单一资产命令，扣款、释放货币格、商品入包和钱包投影必须基于同一个 after snapshot。容量只能在事务顺序确定后判定；任何分支都不能让付款成功而商品被截断、漏发或未发。运行态与数据库还必须接受相同的单堆整数边界。
+- **触发条件**：背包已满且购买价格恰好等于全部灵石余额；购买可与现有堆叠合并的商品且合并后超过 `2_147_483_647`；durable service 未启用时购买；分步 fallback 在扣款后、发物前抛错或进程终止。
+- **可能后果**：玩家明明能用付款释放的格子却无法购买；超大购买生成超过运行时约束的数据库数量；无库路径扣除完整灵石但只得到截断数量，甚至完全没得到商品；任务刷新与通知可能基于半完成资产；后续同步、序列化或数值运算出现越界与账实差异。
+- **修复方式**：查询层先确认余额；当前背包无法直接收取时，仅当本次会耗尽灵石余额、确定释放货币格才放行进入权威预演。写路径无论 durable 是否启用都先在玩家资产串行区克隆背包，扣除灵石后按共享堆叠签名合入商品，校验最终容量和 `2_147_483_647` 上限，再派生钱包投影。durable 路径提交同一 after snapshot；无库测试路径也只执行一次 `replaceInventoryItems()`，删除先扣款后发物的分步逻辑。
+- **实际修改**：更新 NPC 商店查询/写服务、mechanics、`world-runtime-npc-shop-smoke.ts` 与玩家资产串行静态审计。
+- **验证结果**：`git diff --check`、`pnpm --filter @mud/server compile` 与最终 `pnpm verify:quick` 通过；compiled `world-runtime-npc-shop-smoke` 证明付款耗尽灵石时满背包请求可进入结算并以商品替换释放的格子、durable 使用 `spirit_stone:15 + qi_pill:1` after snapshot、无库 fallback 只替换一次 `qi_pill:1`，以及 `qi_pill` 已达 `2_147_483_647` 时购买被拒绝且运行态调用为 0；compiled `player-asset-entry-serialization-audit` 证明 inventory plan → wallet projection → durable → runtime apply 顺序且源代码不再调用分步 `debitWallet`；compiled `strong-persistence-lease-report` 通过；真实 PostgreSQL compiled `durable-operation-smoke` 完整通过，复证 NPC shop 的 session/instance lease fence、拒绝回滚、幂等重放、背包/钱包/水位/outbox/audit 同事务，并自动清理夹具。
+- **中文原子提交 hash**：待提交。
+
+### FS-024 NPC 商店 smoke 在异步断言完成前输出成功且关闭类型检查
+
+- **状态**：已修复并完成编译/专项验证，等待随 FS-023 原子提交。
+- **严重级别**：P1（验证盲区，不直接修改玩家数据）。
+- **所属功能组**：NPC 商店 / TypeScript 门禁 / smoke 可信度。
+- **影响链路**：`world-runtime-npc-shop-smoke.ts` → server compile → 查询/入队/结算专项证明。
+- **证据**：旧文件使用 `// @ts-nocheck` 与 CommonJS，多个构造器传入不完整依赖而不受类型校验；主流程调用 `testDispatch().then(() => undefined)` 后立即打印 `{ ok: true }`，没有等待异步结算完成，也没有显式 catch 设置失败退出码。夹具还把无库购买建模为 `debitWallet + receiveInventoryItem`，把 FS-023 的分步资产风险写成期望，并缺失真实 inventory capacity。
+- **根本原因**：早期脚本式 smoke 未迁移到规范 TypeScript 和受控 async main；服务构造器/资产真源演进后，测试依赖和断言没有同步，`@ts-nocheck` 继续掩盖所有错位。
+- **为什么错误**：成功输出必须发生在所有异步断言完成之后；否则日志消费者可能先记录绿灯，而真正错误随后以 unhandled rejection 出现或被编排器误读。资产 smoke 也必须使用当前 after-snapshot 模型，不能把已删除的风险路径固定为正确行为。
+- **触发条件**：异步 dispatch 在首个 await 后失败；服务构造器或依赖接口变化；结算从分步 mutation 迁移为快照应用。
+- **可能后果**：CI/人工日志错误判断 NPC 商店通过；类型漂移直到运行时才暴露；容量、围栏、资产应用顺序回归无法由专项门禁可靠阻止。
+- **修复方式**：移除 `@ts-nocheck` 与 CommonJS，使用局部 test-double 工厂显式收口 `as never`；补齐容量、钱包和背包真源夹具；把主流程改为 `async main()` 串行等待并在 catch 中设置非零退出码；断言同步更新为一次 after-snapshot 应用、付款释放格和数量上限拒绝。
+- **实际修改**：更新 `world-runtime-npc-shop-smoke.ts`。
+- **验证结果**：首次恢复类型检查即发现九处不完整构造依赖，收口 test-double 工厂后 `pnpm --filter @mud/server compile` 通过；compiled smoke 等待全部异步断言后以 0 退出并只输出一次成功结果。
+- **中文原子提交 hash**：待提交（随 FS-023）。
 
 ## 2026-07-14 待用户决定
 

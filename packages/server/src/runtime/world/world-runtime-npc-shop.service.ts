@@ -21,6 +21,7 @@ import { buildStructuredNotice } from './structured-notice.helpers';
 import { assignItemInstanceIdIfNeeded } from './item-instance-id.helpers';
 
 const { normalizeShopQuantity, formatItemStackLabel } = world_runtime_normalization_helpers_1;
+const NPC_SHOP_INVENTORY_ITEM_COUNT_MAX = 2_147_483_647;
 
 /** NPC 商店写路径服务：承接购买入队与结算。 */
 @Injectable()
@@ -116,15 +117,21 @@ export class WorldRuntimeNpcShopService {
         const sessionEpoch = Number.isFinite(player.sessionEpoch)
             ? Math.max(0, Math.trunc(Number(player.sessionEpoch)))
             : 0;
+        const currencyItemId = this.worldRuntimeNpcShopQueryService.getCurrencyItemId();
+        const nextInventoryItems = applyNpcShopPurchaseToInventory(
+            player.inventory?.items ?? [],
+            player.inventory?.capacity,
+            validated.item,
+            currencyItemId,
+            validated.totalCost,
+        );
+        const nextWalletBalances = applyNpcShopPurchaseToWallet(player.wallet?.balances ?? [], currencyItemId, nextInventoryItems);
+        if (!nextInventoryItems || !nextWalletBalances) {
+            throw new BadRequestException('NPC 商店资产事务预演失败，请稍后重试');
+        }
         if (durableEnabled) {
             if (!runtimeOwnerId || sessionEpoch <= 0) {
                 throw new BadRequestException('玩家资产事务围栏暂不可用，请稍后重试');
-            }
-            const currencyItemId = this.worldRuntimeNpcShopQueryService.getCurrencyItemId();
-            const nextInventoryItems = applyNpcShopPurchaseToInventory(player.inventory?.items ?? [], validated.item, currencyItemId, validated.totalCost);
-            const nextWalletBalances = applyNpcShopPurchaseToWallet(player.wallet?.balances ?? [], currencyItemId, nextInventoryItems);
-            if (!nextInventoryItems || !nextWalletBalances) {
-                throw new BadRequestException('NPC 商店资产事务预演失败，请稍后重试');
             }
             const location = typeof deps?.getPlayerLocation === 'function' ? deps.getPlayerLocation(playerId) : null;
             const leaseContext = await resolveInstanceLeaseContext(location?.instanceId ?? null, deps);
@@ -158,8 +165,7 @@ export class WorldRuntimeNpcShopService {
             deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);
             return deps.getPlayerViewOrThrow(playerId);
         }
-        this.playerRuntimeService.debitWallet(playerId, this.worldRuntimeNpcShopQueryService.getCurrencyItemId(), validated.totalCost);
-        this.playerRuntimeService.receiveInventoryItem(playerId, validated.item);
+        this.playerRuntimeService.replaceInventoryItems(playerId, nextInventoryItems);
         deps.refreshQuestStates(playerId);
         const n = buildStructuredNotice('success', 'notice.shop.purchased', `购买 ${formatItemStackLabel(validated.item)}，消耗 ${this.worldRuntimeNpcShopQueryService.getCurrencyItemName()} x${validated.totalCost}`, { vars: { itemLabel: formatItemStackLabel(validated.item), currency: this.worldRuntimeNpcShopQueryService.getCurrencyItemName(), cost: validated.totalCost }, pills: [{ key: 'itemLabel', style: 'target' }, { key: 'currency', style: 'target' }] });
         deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);
@@ -234,7 +240,7 @@ export class WorldRuntimeNpcShopService {
     }
 };
 
-function applyNpcShopPurchaseToInventory(existingItems, item, currencyItemId, totalCost) {
+function applyNpcShopPurchaseToInventory(existingItems, capacity, item, currencyItemId, totalCost) {
     const nextItems = Array.isArray(existingItems)
         ? existingItems.map((entry) => ({ ...entry }))
         : [];
@@ -247,8 +253,23 @@ function applyNpcShopPurchaseToInventory(existingItems, item, currencyItemId, to
         ? nextItems.find((entry) => canMergeItemStack(entry) && createItemStackSignature(entry) === createItemStackSignature(incoming))
         : null;
     if (existing) {
-        existing.count += incoming.count;
+        const nextCount = Math.max(0, Math.trunc(Number(existing.count ?? 0)))
+            + Math.max(0, Math.trunc(Number(incoming.count ?? 0)));
+        if (nextCount > NPC_SHOP_INVENTORY_ITEM_COUNT_MAX) {
+            throw new BadRequestException(`${incoming.itemId} 数量超过上限，无法购买`);
+        }
+        existing.count = nextCount;
         return nextItems;
+    }
+    const incomingCount = Math.max(0, Math.trunc(Number(incoming.count ?? 0)));
+    if (incomingCount <= 0 || incomingCount > NPC_SHOP_INVENTORY_ITEM_COUNT_MAX) {
+        throw new BadRequestException(`${incoming.itemId} 数量超过上限，无法购买`);
+    }
+    const normalizedCapacity = Number.isFinite(Number(capacity))
+        ? Math.max(0, Math.trunc(Number(capacity)))
+        : Number.MAX_SAFE_INTEGER;
+    if (nextItems.length >= normalizedCapacity) {
+        return null;
     }
     nextItems.push(incoming);
     return nextItems;

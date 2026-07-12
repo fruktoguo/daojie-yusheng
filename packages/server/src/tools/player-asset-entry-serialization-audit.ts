@@ -106,6 +106,27 @@ assertOrdered(npcQuestSubmitSource, [
   'this.playerRuntimeService.replaceInventoryItems',
 ]);
 
+const npcShopSource = readFileSync(
+  resolveProjectPath('packages/server/src/runtime/world/world-runtime-npc-shop.service.ts'),
+  'utf8',
+);
+const npcShopDispatchStart = npcShopSource.indexOf('async dispatchBuyNpcShopItemLocked');
+const npcShopDispatchSource = npcShopSource.slice(
+  npcShopDispatchStart,
+  npcShopSource.indexOf('async runExclusivePlayerAssetMutation', npcShopDispatchStart),
+);
+assert.equal(
+  npcShopDispatchSource.includes('this.playerRuntimeService.debitWallet'),
+  false,
+  'NPC 商店 fallback 不得先扣钱包再单独发物',
+);
+assertOrdered(npcShopDispatchSource, [
+  'const nextInventoryItems = applyNpcShopPurchaseToInventory',
+  'const nextWalletBalances = applyNpcShopPurchaseToWallet',
+  'await runPurchase()',
+  'this.playerRuntimeService.replaceInventoryItems',
+]);
+
 const gmSource = readFileSync(
   resolveProjectPath('packages/server/src/runtime/world/world-runtime.controller.ts'),
   'utf8',
@@ -137,6 +158,7 @@ console.log(JSON.stringify({
     'P0 玩家资产入口统一经过 runExclusiveAssetMutation',
     '通用背包发放在 durable 成功前不暴露 next runtime snapshot',
     'NPC 任务奖励把灵石纳入背包真源，并按 inventory plan -> wallet projection -> durable -> runtime apply 执行',
+    'NPC 商店先预演扣款与发物，再执行 durable 和一次性运行态背包替换',
     'Runtime wallet 管理入口只写背包真源，并按 replay -> durable -> runtime apply 执行',
     'GM 背包发放按 next snapshot -> durable -> runtime apply 执行',
   ],

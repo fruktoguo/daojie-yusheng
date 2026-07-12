@@ -1,8 +1,23 @@
-// @ts-nocheck
+import assert from 'node:assert/strict';
 
-const assert = require("node:assert/strict");
-const { WorldRuntimeNpcShopQueryService } = require("../runtime/world/query/world-runtime-npc-shop-query.service");
-const { WorldRuntimeNpcShopService } = require("../runtime/world/world-runtime-npc-shop.service");
+import { WorldRuntimeNpcShopQueryService } from '../runtime/world/query/world-runtime-npc-shop-query.service';
+import { WorldRuntimeNpcShopService } from '../runtime/world/world-runtime-npc-shop.service';
+
+function createNpcShopQueryService(contentTemplateRepository, playerRuntimeService) {
+    return new WorldRuntimeNpcShopQueryService(
+        contentTemplateRepository as never,
+        playerRuntimeService as never,
+    );
+}
+
+function createNpcShopService(playerRuntimeService, queryService, durableOperationService = undefined, playerDomainPersistenceService = undefined) {
+    return new WorldRuntimeNpcShopService(
+        playerRuntimeService as never,
+        queryService as never,
+        durableOperationService as never,
+        playerDomainPersistenceService as never,
+    );
+}
 /**
  * testQueryBuildNpcShopView：读取testQueryBuildNPCShop视图并返回结果。
  * @returns 无返回值，直接更新testQueryBuildNPCShop视图相关状态。
@@ -11,7 +26,7 @@ const { WorldRuntimeNpcShopService } = require("../runtime/world/world-runtime-n
 
 function testQueryBuildNpcShopView() {
     const log = [];
-    const service = new WorldRuntimeNpcShopQueryService({    
+    const service = createNpcShopQueryService({
     /**
  * createItem：构建并返回目标对象。
  * @param itemId 道具 ID。
@@ -98,7 +113,7 @@ function testQueryBuildNpcShopView() {
 
 function testQueryValidateNpcShopPurchase() {
     const log = [];
-    const service = new WorldRuntimeNpcShopQueryService({    
+    const service = createNpcShopQueryService({
     /**
  * createItem：构建并返回目标对象。
  * @param itemId 道具 ID。
@@ -166,9 +181,38 @@ function testQueryValidateNpcShopPurchase() {
     });
     assert.deepEqual(log, [
         ['resolveAdjacentNpc', 'player:1', 'npc_a'],
-        ['canReceiveInventoryItem', 'player:1', 'qi_pill'],
         ['canAffordWallet', 'player:1', 'spirit_stone', 10],
+        ['canReceiveInventoryItem', 'player:1', 'qi_pill'],
     ]);
+}
+
+function testQueryAllowsPurchaseWhenPaymentFreesInventorySlot() {
+    const service = createNpcShopQueryService({
+        createItem(itemId, count) {
+            return itemId === 'qi_pill' ? { itemId, count, name: '聚气丹' } : null;
+        },
+    }, {
+        canAffordWallet() {
+            return true;
+        },
+        canReceiveInventoryItem() {
+            return false;
+        },
+        getWalletBalanceByType() {
+            return 5;
+        },
+    });
+    const result = service.validateNpcShopPurchase('player:slot-release', 'npc_a', 'qi_pill', 1, {
+        resolveAdjacentNpc() {
+            return {
+                npcId: 'npc_a',
+                hasShop: true,
+                shopItems: [{ itemId: 'qi_pill', price: 5 }],
+            };
+        },
+    });
+    assert.equal(result.totalCost, 5);
+    assert.equal(result.item.itemId, 'qi_pill');
 }
 /**
  * testWorldRuntimeFacadeValidateNpcShopPurchase：判断test世界运行态FacadeValidateNPCShopPurchase是否满足条件。
@@ -184,7 +228,7 @@ function testQueryValidateNpcShopPurchase() {
 
 function testEnqueue() {
     const log = [];
-    const service = new WorldRuntimeNpcShopService({}, {    
+    const service = createNpcShopService({}, {
     /**
  * getCurrencyItemName：读取Currency道具名称。
  * @returns 无返回值，完成Currency道具名称的读取/组装。
@@ -242,12 +286,12 @@ function testEnqueue() {
 async function testDispatch() {
     const durableLog = [];
     const fallbackLog = [];
-    const service = new WorldRuntimeNpcShopService({
+    const service = createNpcShopService({
         getPlayerOrThrow() {
             return {
                 runtimeOwnerId: 'runtime:player:1',
                 sessionEpoch: 7,
-                inventory: { items: [{ itemId: 'spirit_stone', count: 20 }] },
+                inventory: { items: [{ itemId: 'spirit_stone', count: 20 }], capacity: 2 },
                 wallet: { balances: [{ walletType: 'spirit_stone', balance: 20, frozenBalance: 0, version: 1 }] },
             };
         },
@@ -334,7 +378,7 @@ async function testDispatch() {
                 };
             },
         },
-        getPlayerOrThrow() { return { runtimeOwnerId: 'runtime:player:1', sessionEpoch: 7, inventory: { items: [{ itemId: 'spirit_stone', count: 20 }] }, wallet: { balances: [{ walletType: 'spirit_stone', balance: 20, frozenBalance: 0, version: 1 }] } }; },
+        getPlayerOrThrow() { return { runtimeOwnerId: 'runtime:player:1', sessionEpoch: 7, inventory: { items: [{ itemId: 'spirit_stone', count: 20 }], capacity: 2 }, wallet: { balances: [{ walletType: 'spirit_stone', balance: 20, frozenBalance: 0, version: 1 }] } }; },
     };
     await service.dispatchBuyNpcShopItem('player:1', 'npc_a', 'qi_pill', 1, deps);
     assert.deepEqual(durableLog, [
@@ -344,9 +388,10 @@ async function testDispatch() {
         ['queuePlayerNotice', 'player:1', '购买 聚气丹，消耗 灵石 x5', 'success'],
     ]);
 
-    const fallbackService = new WorldRuntimeNpcShopService({
-        debitWallet(playerId, walletType, count) { fallbackLog.push(['debitWallet', playerId, walletType, count]); },
-        receiveInventoryItem(playerId, item) { fallbackLog.push(['receiveInventoryItem', playerId, item.itemId, item.count]); },
+    const fallbackService = createNpcShopService({
+        replaceInventoryItems(playerId, items) {
+            fallbackLog.push(['replaceInventoryItems', playerId, items.map((item) => `${item.itemId}:${item.count}`).join(',')]);
+        },
     }, {
         getCurrencyItemId() { return 'spirit_stone'; },
         getCurrencyItemName() { return '灵石'; },
@@ -356,11 +401,15 @@ async function testDispatch() {
         refreshQuestStates(playerId) { fallbackLog.push(['refreshQuestStates', playerId]); },
         queuePlayerNotice(playerId, message, tone) { fallbackLog.push(['queuePlayerNotice', playerId, message, tone]); },
         getPlayerViewOrThrow() { return { tick: 2, playerId: 'player:2' }; },
-        getPlayerOrThrow() { return { inventory: { items: [] }, wallet: { balances: [] } }; },
+        getPlayerOrThrow() {
+            return {
+                inventory: { items: [{ itemId: 'spirit_stone', count: 5 }], capacity: 1 },
+                wallet: { balances: [{ walletType: 'spirit_stone', balance: 5, frozenBalance: 0, version: 1 }] },
+            };
+        },
     });
     assert.deepEqual(fallbackLog, [
-        ['debitWallet', 'player:2', 'spirit_stone', 5],
-        ['receiveInventoryItem', 'player:2', 'qi_pill', 1],
+        ['replaceInventoryItems', 'player:2', 'qi_pill:1'],
         ['refreshQuestStates', 'player:2'],
         ['queuePlayerNotice', 'player:2', '购买 聚气丹，消耗 灵石 x5', 'success'],
     ]);
@@ -373,7 +422,7 @@ async function testDispatch() {
         inventory: { items: [{ itemId: 'spirit_stone', count: 20 }] },
         wallet: { balances: [{ walletType: 'spirit_stone', balance: 20, frozenBalance: 0, version: 1 }] },
     };
-    const ownerlessService = new WorldRuntimeNpcShopService({
+    const ownerlessService = createNpcShopService({
         getPlayerOrThrow() { return ownerlessPlayer; },
         debitWallet(...args) { ownerlessMutationLog.push(['debitWallet', ...args]); },
         receiveInventoryItem(...args) { ownerlessMutationLog.push(['receiveInventoryItem', ...args]); },
@@ -429,7 +478,7 @@ async function testDispatch() {
         },
         replaceInventoryItems(playerId, items) { fencedLog.push(['replaceInventoryItems', playerId, items.length]); },
     };
-    const fencedService = new WorldRuntimeNpcShopService(fencedPlayerRuntimeService, {
+    const fencedService = createNpcShopService(fencedPlayerRuntimeService, {
         getCurrencyItemId() { return 'spirit_stone'; },
         getCurrencyItemName() { return '灵石'; },
     }, {
@@ -466,11 +515,52 @@ async function testDispatch() {
         ['refreshQuestStates', 'player:fenced'],
         ['queuePlayerNotice', 'player:fenced', '购买 聚气丹，消耗 灵石 x5', 'success'],
     ]);
+
+    const overflowMutationLog = [];
+    const overflowPlayer = {
+        inventory: {
+            items: [
+                { itemId: 'spirit_stone', count: 10 },
+                { itemId: 'qi_pill', count: 2_147_483_647, name: '聚气丹' },
+            ],
+            capacity: 2,
+        },
+        wallet: { balances: [{ walletType: 'spirit_stone', balance: 10, frozenBalance: 0, version: 1 }] },
+    };
+    const overflowService = createNpcShopService({
+        getPlayerOrThrow() {
+            return overflowPlayer;
+        },
+        replaceInventoryItems(...args) {
+            overflowMutationLog.push(args);
+        },
+    }, {
+        getCurrencyItemId() { return 'spirit_stone'; },
+        getCurrencyItemName() { return '灵石'; },
+    });
+    await assert.rejects(
+        () => overflowService.dispatchBuyNpcShopItem('player:overflow', 'npc_a', 'qi_pill', 1, {
+            validateNpcShopPurchase() { return { totalCost: 1, item: { itemId: 'qi_pill', name: '聚气丹', count: 1 } }; },
+            getPlayerOrThrow() { return overflowPlayer; },
+            refreshQuestStates() {},
+            queuePlayerNotice() {},
+            getPlayerViewOrThrow() { return {}; },
+        }),
+        /数量超过上限/,
+    );
+    assert.equal(overflowMutationLog.length, 0);
 }
 
-testQueryBuildNpcShopView();
-testQueryValidateNpcShopPurchase();
-testEnqueue();
-testDispatch().then(() => undefined);
+async function main() {
+    testQueryBuildNpcShopView();
+    testQueryValidateNpcShopPurchase();
+    testQueryAllowsPurchaseWhenPaymentFreesInventorySlot();
+    testEnqueue();
+    await testDispatch();
+    console.log(JSON.stringify({ ok: true, case: 'world-runtime-npc-shop' }, null, 2));
+}
 
-console.log(JSON.stringify({ ok: true, case: 'world-runtime-npc-shop' }, null, 2));
+main().catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+});
