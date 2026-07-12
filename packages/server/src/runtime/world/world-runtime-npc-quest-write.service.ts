@@ -10,6 +10,7 @@
 import { Inject, Injectable, BadRequestException, NotFoundException, Optional } from '@nestjs/common';
 import { mergeItemStackInto } from '@mud/shared';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
+import { buildWalletBalancesFromInventory } from '../player/wallet-inventory-projection.helpers';
 import { DurableOperationService } from '../../persistence/durable-operation.service';
 import {
     PlayerDomainPersistenceService,
@@ -211,7 +212,10 @@ export class WorldRuntimeNpcQuestWriteService {
             }
             const plannedNextQuest = buildNextQuestState(playerId, player, quest, questView, deps);
             const nextQuestEntries = buildQuestProgressSnapshots(plannedNextQuest.nextQuests);
-            const nextWalletBalances = buildQuestWalletProjection(player.wallet?.balances ?? [], nextInventoryItems);
+            const nextWalletBalances = buildWalletBalancesFromInventory(
+                player.wallet?.balances,
+                nextInventoryItems,
+            );
             const location = typeof deps?.getPlayerLocation === 'function' ? deps.getPlayerLocation(playerId) : null;
             const leaseContext = await resolveInstanceLeaseContext(location?.instanceId ?? null, deps);
             const operationId = `op:${playerId}:npc-quest:${quest.id}:${Date.now().toString(36)}`;
@@ -552,52 +556,6 @@ function omitProgressForCompletedQuest(quest) {
     return { ...rest, status: 'completed' };
 }
 
-function buildQuestWalletProjection(existingBalances, nextInventoryItems) {
-    const balances = collapseWalletBalances(existingBalances);
-    const walletType = 'spirit_stone';
-    const nextBalance = countQuestInventoryItem(nextInventoryItems, walletType);
-    const entryIndex = balances.findIndex((row) => row.walletType === walletType);
-    if (nextBalance <= 0) {
-        if (entryIndex >= 0) {
-            balances.splice(entryIndex, 1);
-        }
-        return balances;
-    }
-    if (entryIndex >= 0) {
-        const entry = balances[entryIndex];
-        if (entry.balance !== nextBalance || entry.frozenBalance !== 0) {
-            entry.balance = nextBalance;
-            entry.frozenBalance = 0;
-            entry.version += 1;
-        }
-        return balances;
-    }
-    balances.push({ walletType, balance: nextBalance, frozenBalance: 0, version: 1 });
-    return balances;
-}
-
-function collapseWalletBalances(existingBalances) {
-    const byType = new Map();
-    for (const entry of Array.isArray(existingBalances) ? existingBalances : []) {
-        const walletType = typeof entry?.walletType === 'string' ? entry.walletType.trim() : '';
-        if (!walletType) {
-            continue;
-        }
-        const existing = byType.get(walletType);
-        const balance = Math.max(0, Math.trunc(Number(entry?.balance ?? 0)));
-        const frozenBalance = Math.max(0, Math.trunc(Number(entry?.frozenBalance ?? 0)));
-        const version = Math.max(0, Math.trunc(Number(entry?.version ?? 0)));
-        if (existing) {
-            existing.balance += balance;
-            existing.frozenBalance += frozenBalance;
-            existing.version = Math.max(existing.version, version);
-            continue;
-        }
-        byType.set(walletType, { walletType, balance, frozenBalance, version });
-    }
-    return Array.from(byType.values());
-}
-
 function buildNextQuestInventorySnapshots(currentItems, capacity, requiredItemId, requiredItemCount, grantedItems) {
     const nextItems = Array.isArray(currentItems)
         ? currentItems.map((entry) => ({ ...entry })).filter((entry) => (
@@ -657,15 +615,6 @@ function buildNextQuestInventorySnapshots(currentItems, capacity, requiredItemId
             count: Math.max(1, Math.trunc(Number(entry.count ?? 1))),
         },
     }));
-}
-
-function countQuestInventoryItem(items, itemId) {
-    const normalizedItemId = typeof itemId === 'string' ? itemId.trim() : '';
-    return (Array.isArray(items) ? items : []).reduce((total, entry) => (
-        total + (entry?.itemId === normalizedItemId
-            ? Math.max(0, Math.trunc(Number(entry.count ?? 0)))
-            : 0)
-    ), 0);
 }
 
 function shouldRetryQuestSubmitFence(error) {

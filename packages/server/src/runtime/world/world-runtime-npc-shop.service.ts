@@ -10,6 +10,7 @@
 import { BadRequestException, Inject, Injectable, Optional } from '@nestjs/common';
 import { canMergeItemStack, createItemStackSignature } from '@mud/shared';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
+import { buildWalletBalancesFromInventory } from '../player/wallet-inventory-projection.helpers';
 import { WorldRuntimeNpcShopQueryService } from './query/world-runtime-npc-shop-query.service';
 import * as world_runtime_normalization_helpers_1 from './world-runtime.normalization.helpers';
 import { DurableOperationService } from '../../persistence/durable-operation.service';
@@ -280,22 +281,11 @@ function applyNpcShopPurchaseToWallet(existingBalances, walletType, nextInventor
     if (!normalizedWalletType || !Array.isArray(nextInventoryItems)) {
         return null;
     }
-    const balances = collapseWalletBalances(existingBalances);
-    const nextBalance = countInventoryItem(nextInventoryItems, normalizedWalletType);
-    const entry = balances.find((row) => row.walletType === normalizedWalletType);
-    if (entry) {
-        entry.balance = nextBalance;
-        entry.frozenBalance = 0;
-        entry.version += 1;
-    } else {
-        balances.push({
-            walletType: normalizedWalletType,
-            balance: nextBalance,
-            frozenBalance: 0,
-            version: 1,
-        });
-    }
-    return balances;
+    return buildWalletBalancesFromInventory(
+        existingBalances,
+        nextInventoryItems,
+        [normalizedWalletType],
+    );
 }
 
 function debitInventoryItemCount(items, itemId, count) {
@@ -322,39 +312,9 @@ function debitInventoryItemCount(items, itemId, count) {
     return remaining <= 0;
 }
 
-function countInventoryItem(items, itemId) {
-    const normalizedItemId = typeof itemId === 'string' ? itemId.trim() : '';
-    if (!normalizedItemId || !Array.isArray(items)) {
-        return 0;
-    }
-    return items.reduce((total, entry) => total + (entry?.itemId === normalizedItemId ? Math.max(0, Math.trunc(Number(entry.count ?? 0))) : 0), 0);
-}
-
 function shouldRetryNpcShopFence(error) {
     const message = String(error instanceof Error ? error.message : error);
     return message.startsWith('player_session_fencing_conflict');
-}
-
-function collapseWalletBalances(existingBalances) {
-    const byType = new Map();
-    for (const entry of Array.isArray(existingBalances) ? existingBalances : []) {
-        const walletType = typeof entry?.walletType === 'string' ? entry.walletType.trim() : '';
-        if (!walletType) {
-            continue;
-        }
-        const balance = Math.max(0, Math.trunc(Number(entry?.balance ?? 0)));
-        const frozenBalance = Math.max(0, Math.trunc(Number(entry?.frozenBalance ?? 0)));
-        const version = Math.max(0, Math.trunc(Number(entry?.version ?? 0)));
-        const existing = byType.get(walletType);
-        if (existing) {
-            existing.balance += balance;
-            existing.frozenBalance += frozenBalance;
-            existing.version = Math.max(existing.version, version);
-            continue;
-        }
-        byType.set(walletType, { walletType, balance, frozenBalance, version });
-    }
-    return Array.from(byType.values());
 }
 
 async function resolveInstanceLeaseContext(instanceId, deps) {

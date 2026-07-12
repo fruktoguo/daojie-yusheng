@@ -158,8 +158,12 @@ async function main(): Promise<void> {
   const runtimePlayerState = {
     sessionEpoch: 7,
     runtimeOwnerId: runtimeOwnerRuntimeId,
-    inventoryItems: [] as Array<Record<string, unknown>>,
-    walletBalances: [] as Array<{ walletType: string; balance: number; frozenBalance: number; version: number }>,
+    inventoryItems: [
+      { itemId: 'spirit_stone', count: 10, name: '灵石', type: 'currency' },
+    ] as Array<Record<string, unknown>>,
+    walletBalances: [
+      { walletType: 'spirit_stone', balance: 1, frozenBalance: 0, version: 4 },
+    ] as Array<{ walletType: string; balance: number; frozenBalance: number; version: number }>,
   };
   const mailRuntime = new MailRuntimeService(
     contentTemplateRepository,
@@ -502,7 +506,11 @@ async function main(): Promise<void> {
     if (auditRows.length !== 1 || auditRows[0]?.asset_type !== 'mail_claim' || auditRows[0]?.action !== 'claim') {
       throw new Error(`unexpected asset_audit_log rows: ${JSON.stringify(auditRows)}`);
     }
-    if (inventoryRows.length !== 0) {
+    if (
+      inventoryRows.length !== 1
+      || inventoryRows[0]?.item_id !== 'spirit_stone'
+      || Number(inventoryRows[0]?.count ?? 0) !== 1
+    ) {
       throw new Error(`unexpected player_inventory_item rows: ${JSON.stringify(inventoryRows)}`);
     }
     if (
@@ -545,7 +553,9 @@ async function main(): Promise<void> {
     if (
       !snapshotRow
       || snapshotRow.persisted_source !== 'native'
-      || inventoryItems.length !== 0
+      || inventoryItems.length !== 1
+      || (inventoryItems[0] as Record<string, unknown>)?.itemId !== 'spirit_stone'
+      || Number((inventoryItems[0] as Record<string, unknown>)?.count ?? 0) !== 1
       || walletBalances.length !== 1
       || walletBalances[0]?.walletType !== 'spirit_stone'
       || Number(walletBalances[0]?.balance ?? 0) !== 1
@@ -591,7 +601,7 @@ async function main(): Promise<void> {
     if (
       runtimePlayerState.inventoryItems.length !== 1
       || runtimePlayerState.inventoryItems[0]?.itemId !== 'spirit_stone'
-      || Number(runtimePlayerState.inventoryItems[0]?.count ?? 0) !== 1
+      || Number(runtimePlayerState.inventoryItems[0]?.count ?? 0) !== 11
     ) {
       throw new Error(`unexpected runtime inventory after durable claim: ${JSON.stringify(runtimePlayerState.inventoryItems)}`);
     }
@@ -604,7 +614,7 @@ async function main(): Promise<void> {
     if (
       runtimeWalletBalances.length !== 1
       || runtimeWalletBalances[0]?.walletType !== 'spirit_stone'
-      || Number(runtimeWalletBalances[0]?.balance ?? 0) !== 1
+      || Number(runtimeWalletBalances[0]?.balance ?? 0) !== 11
     ) {
       throw new Error(`unexpected runtime wallet after durable claim: ${JSON.stringify(runtimePlayerState.walletBalances)}`);
     }
@@ -638,6 +648,16 @@ async function main(): Promise<void> {
       'SELECT unread_count, unclaimed_count, counter_version FROM player_mail_counter WHERE player_id = $1',
       [runtimePlayerId],
     );
+    const runtimeInventoryRows = await fetchRows(
+      pool,
+      'SELECT item_id, count FROM player_inventory_item WHERE player_id = $1 ORDER BY slot_index ASC',
+      [runtimePlayerId],
+    );
+    const runtimeWalletRows = await fetchRows(
+      pool,
+      'SELECT wallet_type, balance FROM player_wallet WHERE player_id = $1 ORDER BY wallet_type ASC',
+      [runtimePlayerId],
+    );
     if (!runtimeMailRow || !runtimeMailRow.read_at || !runtimeMailRow.claimed_at || Number(runtimeMailRow.mail_version) < 2) {
       throw new Error(`unexpected runtime player_mail row: ${JSON.stringify(runtimeMailRow)}`);
     }
@@ -660,6 +680,20 @@ async function main(): Promise<void> {
       || Number(runtimeCounterRow.counter_version) <= 0
     ) {
       throw new Error(`unexpected runtime player_mail_counter row: ${JSON.stringify(runtimeCounterRow)}`);
+    }
+    if (
+      runtimeInventoryRows.length !== 1
+      || runtimeInventoryRows[0]?.item_id !== 'spirit_stone'
+      || Number(runtimeInventoryRows[0]?.count ?? 0) !== 11
+    ) {
+      throw new Error(`unexpected runtime mail inventory rows: ${JSON.stringify(runtimeInventoryRows)}`);
+    }
+    if (
+      runtimeWalletRows.length !== 1
+      || runtimeWalletRows[0]?.wallet_type !== 'spirit_stone'
+      || Number(runtimeWalletRows[0]?.balance ?? 0) !== 11
+    ) {
+      throw new Error(`unexpected runtime mail wallet rows: ${JSON.stringify(runtimeWalletRows)}`);
     }
 
     await seedMarketClaimFixture(pool, {

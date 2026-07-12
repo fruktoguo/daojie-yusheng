@@ -3,7 +3,7 @@
 ## 审计口径
 
 - 生产主线：`packages/client`、`packages/shared`、`packages/server`、`packages/config-editor`。
-- 当前基线：`main` 分支 `45fff28d`；相对 `origin/main` ahead 17。
+- 当前基线：`main` 分支 `d4d1e0a6`；相对 `origin/main` ahead 18。
 - package manager：`pnpm@10.29.1`。
 - 每项结论必须来自机制文档、完整调用链、测试、编译产物或运行数据；仅凭搜索未发现异常不能标记为“确认无问题”。
 - `[x]` 只表示该行列出的具体证据范围已完成，不代表相邻系统或整个项目已完成。
@@ -42,6 +42,7 @@
 - [x] P-19 Runtime 钱包/背包管理入口写错资产真源、缺少稳定重放身份且生产降级为易失写的问题已修复；见 FS-020。
 - [x] P-20 NPC 任务灵石奖励未进入背包真源、钱包投影按旧模型增量覆盖的问题已修复；见 FS-021。
 - [x] P-21 NPC 商店扣款释放格子仍被拒绝、堆叠可溢出且 fallback 分步改资产的问题已修复；见 FS-023。
+- [x] P-22 邮件灵石附件按旧钱包增量投影、堆叠可越过数量上限的问题已修复；见 FS-025。
 
 ### 服务端权威运行时
 
@@ -437,7 +438,7 @@
 
 ### FS-023 NPC 商店容量判定时序错误且商品堆叠无数量上限
 
-- **状态**：已修复并完成专项/真实数据库回归，等待本组原子提交。
+- **状态**：已修复、完成专项/真实数据库回归并原子提交。
 - **严重级别**：P0（资产部分提交与数量越界）/ P1（错误拒绝正常购买）。
 - **所属功能组**：NPC 商店 / 背包与灵石 / durable operation / 容量与数量边界。
 - **影响链路**：购买请求 → `WorldRuntimeNpcShopQueryService.validatePurchaseForNpc()` → 玩家有界命令队列 → `WorldRuntimeNpcShopService.dispatchBuyNpcShopItemLocked()` → 背包预演 → `DurableOperationService.purchaseNpcShopItem()` 或无库 fallback → 运行态背包。
@@ -449,11 +450,11 @@
 - **修复方式**：查询层先确认余额；当前背包无法直接收取时，仅当本次会耗尽灵石余额、确定释放货币格才放行进入权威预演。写路径无论 durable 是否启用都先在玩家资产串行区克隆背包，扣除灵石后按共享堆叠签名合入商品，校验最终容量和 `2_147_483_647` 上限，再派生钱包投影。durable 路径提交同一 after snapshot；无库测试路径也只执行一次 `replaceInventoryItems()`，删除先扣款后发物的分步逻辑。
 - **实际修改**：更新 NPC 商店查询/写服务、mechanics、`world-runtime-npc-shop-smoke.ts` 与玩家资产串行静态审计。
 - **验证结果**：`git diff --check`、`pnpm --filter @mud/server compile` 与最终 `pnpm verify:quick` 通过；compiled `world-runtime-npc-shop-smoke` 证明付款耗尽灵石时满背包请求可进入结算并以商品替换释放的格子、durable 使用 `spirit_stone:15 + qi_pill:1` after snapshot、无库 fallback 只替换一次 `qi_pill:1`，以及 `qi_pill` 已达 `2_147_483_647` 时购买被拒绝且运行态调用为 0；compiled `player-asset-entry-serialization-audit` 证明 inventory plan → wallet projection → durable → runtime apply 顺序且源代码不再调用分步 `debitWallet`；compiled `strong-persistence-lease-report` 通过；真实 PostgreSQL compiled `durable-operation-smoke` 完整通过，复证 NPC shop 的 session/instance lease fence、拒绝回滚、幂等重放、背包/钱包/水位/outbox/audit 同事务，并自动清理夹具。
-- **中文原子提交 hash**：待提交。
+- **中文原子提交 hash**：`d4d1e0a6`（`fix(shop): 加固商店购买资产预演`）。
 
 ### FS-024 NPC 商店 smoke 在异步断言完成前输出成功且关闭类型检查
 
-- **状态**：已修复并完成编译/专项验证，等待随 FS-023 原子提交。
+- **状态**：已修复、完成编译/专项验证并随 FS-023 原子提交。
 - **严重级别**：P1（验证盲区，不直接修改玩家数据）。
 - **所属功能组**：NPC 商店 / TypeScript 门禁 / smoke 可信度。
 - **影响链路**：`world-runtime-npc-shop-smoke.ts` → server compile → 查询/入队/结算专项证明。
@@ -465,7 +466,23 @@
 - **修复方式**：移除 `@ts-nocheck` 与 CommonJS，使用局部 test-double 工厂显式收口 `as never`；补齐容量、钱包和背包真源夹具；把主流程改为 `async main()` 串行等待并在 catch 中设置非零退出码；断言同步更新为一次 after-snapshot 应用、付款释放格和数量上限拒绝。
 - **实际修改**：更新 `world-runtime-npc-shop-smoke.ts`。
 - **验证结果**：首次恢复类型检查即发现九处不完整构造依赖，收口 test-double 工厂后 `pnpm --filter @mud/server compile` 通过；compiled smoke 等待全部异步断言后以 0 退出并只输出一次成功结果。
-- **中文原子提交 hash**：待提交（随 FS-023）。
+- **中文原子提交 hash**：`d4d1e0a6`（随 FS-023）。
+
+### FS-025 邮件灵石附件用旧钱包增量覆盖背包真源且堆叠可越界
+
+- **状态**：已修复并完成编译、专项与真实数据库验证，等待本组原子提交。
+- **严重级别**：P0（资产投影账实不符）/ P1（附件数量越界）。
+- **所属功能组**：邮件 / 附件领取 / 背包与灵石 / durable operation / 资产投影。
+- **影响链路**：玩家批量领取附件 → `MailRuntimeService.resolveAttachmentItems()` → `buildNextInventoryItems()` → `claimAttachmentsDurably()` → `DurableOperationService.claimMailAttachments()` → `player_inventory_item / player_wallet / player_mail_attachment / player_mail_counter` → 运行态背包与重启恢复。
+- **证据**：邮件附件解析原本已经把 `spirit_stone` 放入 `nextInventoryItems`，但 durable 领取同时调用 `mergeWalletCredits(currentSnapshot.wallet.balances, walletCredits)`，以可能陈旧的旧钱包投影再加本次附件数量。若背包真源已有 10、旧钱包只有 1、附件为 10，事务会把背包写成 20、钱包写成 11；运行态随后又从背包显示 20，数据库两张表在同一次成功事务内就产生矛盾。背包预演合并已有堆时还直接执行数量相加，没有检查单堆 `2_147_483_647` 上限；`canReceiveAllAttachments()` 只区分容量不足，无法拒绝数量越界。
+- **根本原因**：灵石收敛为背包物品真源后，邮件仍保留旧的“钱包余额 + 附件增量”模型；任务、商店和邮件各自复制钱包折叠/投影代码，导致同一资产迁移只修到部分入口。附件预演也只实现格子容量约束，遗漏与玩家背包、任务和商店一致的整数上限。
+- **为什么错误**：`player_wallet` 只能是最终背包的单向精确投影，不能把可能陈旧的投影当作资产真源继续累加。邮件领取又是完整批次资产事务，任一附件超出可表示数量时必须整批拒绝，不能写入运行时无法稳定处理的计数，也不能只领取其他附件后把邮件标记已领取。
+- **触发条件**：`player_wallet` 与背包灵石已经因历史写路径或恢复时序产生差异后领取灵石附件；同一灵石堆或普通物品堆接近 `2_147_483_647` 后再领取附件；批量邮件同时包含普通物品和越界堆叠。
+- **可能后果**：当前进程显示的灵石与数据库钱包余额不同；依赖 `player_wallet` 的回读、审计或相邻运营链得到错误余额；重启/恢复后不同入口观察到不一致资产；超大附件生成越界堆叠，后续序列化、加减、持久化或客户端数值显示发生截断；批次领取若缺少统一拒绝语义会形成部分发放和不可重领邮件。
+- **修复方式**：新增玩家域共享 `buildWalletBalancesFromInventory()`，折叠旧钱包行但只从最终背包精确重建指定货币条目；任务、商店和邮件统一复用，删除邮件 `mergeWalletCredits()`。邮件 resolver 只标记批次是否含钱包物品，durable 计划从 `nextInventoryItems` 派生 `nextWalletBalances`，与背包、邮件领取态、计数、水位、outbox 和 audit 同事务提交。附件预演在已有堆合并和新堆加入时都校验正整数及 `2_147_483_647` 上限，越界与容量不足分别失败关闭，整批保持未领取。
+- **实际修改**：新增 `wallet-inventory-projection.helpers.ts` 并让 NPC 任务、NPC 商店、邮件三条资产链共用；更新邮件运行时、邮件 mechanics、邮件附件专项 smoke、真实数据库 durable smoke 夹具/断言与玩家资产串行静态审计。
+- **验证结果**：`git diff --check`、`pnpm --filter @mud/server compile` 与最终 `pnpm verify:quick` 通过；compiled `mail-wallet-attachment-smoke` 证明“背包 10、旧钱包 1、附件 10”时 durable 钱包计划精确为 20 而不是 11，并证明单堆已达上限时拒绝；compiled `mail-runtime-durable-required-smoke`、`world-runtime-npc-quest-write-smoke`、`world-runtime-npc-shop-smoke` 与 `player-asset-entry-serialization-audit` 通过，证明共享投影未改变相邻任务/商店语义且邮件不再保留旧增量函数；真实 PostgreSQL compiled `durable-operation-smoke` 以 0 退出，证明运行态初始背包 10、陈旧钱包 1、附件 +1 后，数据库和运行态背包/钱包均精确为 11，邮件领取态、计数、幂等重放及清理链同时通过。
+- **中文原子提交 hash**：待提交。
 
 ## 2026-07-14 待用户决定
 

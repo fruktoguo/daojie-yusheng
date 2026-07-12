@@ -661,7 +661,16 @@ export async function seedNpcShopFixtureImpl(
 }
 
 export function buildNextInventoryItems() {
-  return [];
+  return [
+    {
+      itemId: 'spirit_stone',
+      count: 1,
+      rawPayload: {
+        itemId: 'spirit_stone',
+        count: 1,
+      },
+    },
+  ];
 }
 
 export function buildNextWalletBalances() {
@@ -1029,7 +1038,7 @@ export function buildNextSnapshot(now: number, instanceId = 'public:yunlai_town'
     inventory: {
       revision: 2,
       capacity: 24,
-      items: [],
+      items: buildNextInventoryItems().map((entry) => ({ ...entry.rawPayload })),
     },
     wallet: {
       balances: buildNextWalletBalances(),

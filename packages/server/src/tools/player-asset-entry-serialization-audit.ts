@@ -101,7 +101,7 @@ assert.equal(
 );
 assertOrdered(npcQuestSubmitSource, [
   'const nextInventoryItems = buildNextQuestInventorySnapshots',
-  'const nextWalletBalances = buildQuestWalletProjection',
+  'const nextWalletBalances = buildWalletBalancesFromInventory',
   'await runSubmit()',
   'this.playerRuntimeService.replaceInventoryItems',
 ]);
@@ -125,6 +125,26 @@ assertOrdered(npcShopDispatchSource, [
   'const nextWalletBalances = applyNpcShopPurchaseToWallet',
   'await runPurchase()',
   'this.playerRuntimeService.replaceInventoryItems',
+]);
+
+const mailSource = readFileSync(
+  resolveProjectPath('packages/server/src/runtime/mail/mail-runtime.service.ts'),
+  'utf8',
+);
+assert.equal(
+  mailSource.includes('mergeWalletCredits'),
+  false,
+  '邮件灵石附件不得以旧钱包投影为基线做增量累加',
+);
+const mailDurableStart = mailSource.indexOf('async claimAttachmentsDurably');
+const mailDurableSource = mailSource.slice(
+  mailDurableStart,
+  mailSource.indexOf('async syncCurrentPresenceFence', mailDurableStart),
+);
+assertOrdered(mailDurableSource, [
+  'const nextWalletBalances = currentSnapshot && hasWalletAttachments',
+  'buildWalletBalancesFromInventory',
+  'await this.durableOperationService.claimMailAttachments',
 ]);
 
 const gmSource = readFileSync(
@@ -159,6 +179,7 @@ console.log(JSON.stringify({
     '通用背包发放在 durable 成功前不暴露 next runtime snapshot',
     'NPC 任务奖励把灵石纳入背包真源，并按 inventory plan -> wallet projection -> durable -> runtime apply 执行',
     'NPC 商店先预演扣款与发物，再执行 durable 和一次性运行态背包替换',
+    '邮件灵石附件的钱包投影从最终背包重建，不使用旧钱包增量',
     'Runtime wallet 管理入口只写背包真源，并按 replay -> durable -> runtime apply 执行',
     'GM 背包发放按 next snapshot -> durable -> runtime apply 执行',
   ],

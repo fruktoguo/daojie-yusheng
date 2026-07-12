@@ -15,6 +15,7 @@ import { DurableOperationService } from '../../persistence/durable-operation.ser
 import { MailPersistenceService } from '../../persistence/mail-persistence.service';
 import { InstanceCatalogService } from '../../persistence/instance-catalog.service';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
+import { buildWalletBalancesFromInventory } from '../player/wallet-inventory-projection.helpers';
 import { assignItemInstanceIdIfNeeded } from '../world/item-instance-id.helpers';
 
 /** 邮件运行时：负责系统信件、附件领取和直接邮件的持久化读写。 */
@@ -23,6 +24,7 @@ const MAIL_WELCOME_TEMPLATE_ID = 'mail.welcome.v1';
 /** 默认系统发件人名称。 */
 const MAIL_DEFAULT_SENDER_LABEL = '司命台';
 const MAILBOX_CACHE_MAX_PLAYERS = normalizePositiveInteger(process.env.SERVER_MAILBOX_CACHE_MAX_PLAYERS, 5_000, 100, 50_000);
+const MAIL_ATTACHMENT_ITEM_COUNT_MAX = 2_147_483_647;
 
 @Injectable()
 export class MailRuntimeService {
@@ -294,6 +296,14 @@ export class MailRuntimeService {
                 };
             }
             const nextInventoryItems = this.buildNextInventoryItems(playerId, resolution.inventoryItems);
+            if (nextInventoryItems === undefined) {
+                return {
+                    operation: 'claim',
+                    ok: false,
+                    mailIds: visible.map((entry) => entry.mailId),
+                    message: '邮件附件数量超过背包单堆上限，暂时无法领取。',
+                };
+            }
             if (!nextInventoryItems) {
                 return {
                     operation: 'claim',
@@ -304,8 +314,22 @@ export class MailRuntimeService {
             }
             if (this.durableOperationService?.isEnabled?.()) {
                 try {
-                    await this.claimAttachmentsDurably(playerId, normalizedIds, visible, nextInventoryItems, resolution.walletCredits);
+                    await this.claimAttachmentsDurably(
+                        playerId,
+                        normalizedIds,
+                        visible,
+                        nextInventoryItems,
+                        resolution.hasWalletAttachments,
+                    );
                     const revalidatedInventory = this.buildNextInventoryItems(playerId, resolution.inventoryItems);
+                    if (revalidatedInventory === undefined) {
+                        return {
+                            operation: 'claim',
+                            ok: false,
+                            mailIds: visible.map((entry) => entry.mailId),
+                            message: '邮件附件数量超过背包单堆上限，暂时无法领取。',
+                        };
+                    }
                     if (!revalidatedInventory) {
                         return {
                             operation: 'claim',
@@ -345,11 +369,14 @@ export class MailRuntimeService {
         }
         return coordinator.call(this.playerRuntimeService, [playerId], claim);
     }
-    async claimAttachmentsDurably(playerId, normalizedIds, visible, nextInventoryItems, walletCredits) {
+    async claimAttachmentsDurably(playerId, normalizedIds, visible, nextInventoryItems, hasWalletAttachments) {
         await this.syncCurrentPresenceFence(playerId);
         const attempt = async () => {
             const sessionFence = this.playerRuntimeService.getSessionFence?.(playerId) ?? null;
             const currentSnapshot = this.playerRuntimeService.buildPersistenceSnapshot?.(playerId) ?? null;
+            const nextWalletBalances = currentSnapshot && hasWalletAttachments
+                ? buildWalletBalancesFromInventory(currentSnapshot.wallet?.balances, nextInventoryItems)
+                : undefined;
             const nextSnapshot = currentSnapshot
                 ? {
                     ...currentSnapshot,
@@ -361,7 +388,7 @@ export class MailRuntimeService {
                     },
                     wallet: {
                         ...currentSnapshot.wallet,
-                        balances: this.mergeWalletCredits(currentSnapshot.wallet?.balances, walletCredits),
+                        balances: nextWalletBalances ?? currentSnapshot.wallet?.balances ?? [],
                     },
                 }
                 : null;
@@ -379,7 +406,7 @@ export class MailRuntimeService {
                 expectedOwnershipEpoch: instanceLease?.ownershipEpoch ?? null,
                 mailIds: visible.map((entry) => entry.mailId),
                 nextInventoryItems,
-                nextWalletBalances: walletCredits.length > 0 ? this.mergeWalletCredits(currentSnapshot.wallet?.balances, walletCredits) : undefined,
+                nextWalletBalances,
                 nextPlayerSnapshot: nextSnapshot,
             });
         };
@@ -624,7 +651,7 @@ export class MailRuntimeService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const inventoryItems = [];
-        const walletCredits = [];
+        let hasWalletAttachments = false;
         for (const mail of mails) {
             for (const attachment of mail.attachments) {
                 const count = Math.max(0, Math.trunc(Number(attachment?.count ?? 0)));
@@ -633,7 +660,7 @@ export class MailRuntimeService {
                     return null;
                 }
                 if (isWalletAttachmentItemId(itemId)) {
-                    walletCredits.push({ walletType: itemId, count });
+                    hasWalletAttachments = true;
                 }
                 const attachmentPayload = attachment && typeof attachment === 'object'
                     ? attachment
@@ -679,13 +706,13 @@ export class MailRuntimeService {
         }
         return {
             inventoryItems,
-            walletCredits,
+            hasWalletAttachments,
         };
     }
     /** 检查玩家背包是否能一次性容纳全部附件。 */
     canReceiveAllAttachments(playerId, items) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-        return this.buildNextInventoryItems(playerId, items) !== null;
+        return Array.isArray(this.buildNextInventoryItems(playerId, items));
     }
     /** 预演附件领取后的背包形态；容量不足时返回 null。 */
     buildNextInventoryItems(playerId, items) {
@@ -713,8 +740,17 @@ export class MailRuntimeService {
             const signature = canMergeItemStack(normalized) ? createItemStackSignature(normalized) : null;
             const existingIndex = signature ? signatureIndex.get(signature) : undefined;
             if (signature && existingIndex !== undefined) {
-                simulated[existingIndex].count += normalized.count;
+                const nextCount = Math.max(0, Math.trunc(Number(simulated[existingIndex].count ?? 0)))
+                    + Math.max(0, Math.trunc(Number(normalized.count ?? 0)));
+                if (nextCount > MAIL_ATTACHMENT_ITEM_COUNT_MAX) {
+                    return undefined;
+                }
+                simulated[existingIndex].count = nextCount;
                 continue;
+            }
+            const incomingCount = Math.max(0, Math.trunc(Number(normalized.count ?? 0)));
+            if (incomingCount <= 0 || incomingCount > MAIL_ATTACHMENT_ITEM_COUNT_MAX) {
+                return undefined;
             }
             if (nextSize >= player.inventory.capacity) {
                 return null;
@@ -811,35 +847,6 @@ export class MailRuntimeService {
         this.discardMailboxCache(normalizedPlayerId);
         this.loadingMailboxByPlayerId.delete(normalizedPlayerId);
         await this.ensurePlayerMailbox(normalizedPlayerId);
-    }
-    mergeWalletCredits(existingBalances, walletCredits) {
-        const nextBalances = Array.isArray(existingBalances)
-            ? existingBalances.map((entry) => ({ ...entry }))
-            : [];
-        for (const credit of walletCredits ?? []) {
-            if (!credit || typeof credit.walletType !== 'string') {
-                continue;
-            }
-            const walletType = credit.walletType.trim();
-            const amount = Math.max(0, Math.trunc(Number(credit.count ?? 0)));
-            if (!walletType || amount <= 0) {
-                continue;
-            }
-            const entry = nextBalances.find((row) => row.walletType === walletType);
-            if (entry) {
-                entry.balance = Math.max(0, Math.trunc(Number(entry.balance ?? 0))) + amount;
-                entry.version = Math.max(1, Math.trunc(Number(entry.version ?? 1)) + 1);
-            }
-            else {
-                nextBalances.push({
-                    walletType,
-                    balance: amount,
-                    frozenBalance: 0,
-                    version: 1,
-                });
-            }
-        }
-        return nextBalances;
     }
     /** 同一玩家的邮箱写链按序执行，避免并发写把缓存和持久化状态交叉覆盖。 */
     async runSerializedMailboxWrite(playerId, task) {
