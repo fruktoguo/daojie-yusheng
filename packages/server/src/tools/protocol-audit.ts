@@ -1,28 +1,27 @@
-// @ts-nocheck
-
 /**
  * 用途：执行 server 协议审计。
  */
 
-var fs = require("node:fs");
-var path = require("node:path");
-var pg = require("pg");
-var shared = require("@mud/shared");
-var envAlias = require("../config/env-alias");
-var lib = require("./protocol-audit-lib");
-var smokePlayerAuth = require("./smoke-player-auth");
-/**
- * 协议上行事件枚举快捷引用。
- */
-var C2S = shared.C2S;
-/**
- * 协议下行事件枚举快捷引用。
- */
-var S2C = shared.S2C;
-/**
- * 记录direction。
- */
-var Direction = shared.Direction;
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { Pool } from 'pg';
+import { C2S, Direction, S2C } from '@mud/shared';
+import * as envAlias from '../config/env-alias';
+import * as lib from './protocol-audit-lib';
+import * as smokePlayerAuth from './smoke-player-auth';
+import {
+  buildAuditToken,
+  buildFallbackPlayerId,
+  buildUniqueAuditAccountName,
+  buildUniqueAuditRoleName,
+  buildUniqueDisplayName,
+  isRegisterConflictError,
+  parseJwtPayload,
+} from './protocol-audit-auth.helpers';
+import {
+  renderProtocolAuditReport,
+  resolveAuditPlayerDisplayName,
+} from './protocol-audit-presentation.helpers';
 /**
  * 用于快速校验事件名是否合法的上行事件集合。
  */
@@ -79,28 +78,6 @@ var DOC_OUTPUT = path.resolve(__dirname, "../../../../docs/protocol-audit.md");
 var SERVER_DATABASE_URL = envAlias.resolveServerDatabaseUrl();
 var HAS_DATABASE = Boolean(SERVER_DATABASE_URL);
 
-function normalizeAuditDisplayNameText(value) {
-  return typeof value === 'string' ? value.trim().normalize('NFC') : '';
-}
-
-function isAuditPlayerIdLikeDisplayText(value) {
-  var normalized = normalizeAuditDisplayNameText(value);
-  return /^p_[0-9a-f-]+(?:_\d+)?$/i.test(normalized) || /^player[:_-]/i.test(normalized);
-}
-
-function resolveAuditPlayerDisplayName(source, playerId) {
-  var normalizedPlayerId = normalizeAuditDisplayNameText(playerId)
-    || normalizeAuditDisplayNameText(source?.playerId)
-    || normalizeAuditDisplayNameText(source?.id);
-  var candidates = [source?.playerName, source?.roleName, source?.pendingRoleName, source?.name, source?.displayName, source?.username];
-  for (var i = 0; i < candidates.length; i += 1) {
-    var normalized = normalizeAuditDisplayNameText(candidates[i]);
-    if (normalized && normalized !== normalizedPlayerId && !isAuditPlayerIdLikeDisplayText(normalized)) {
-      return normalized;
-    }
-  }
-  return '未知玩家';
-}
 
 function resolveRequestedAuditCases() {
   var raw = typeof process.env.SERVER_PROTOCOL_AUDIT_CASES === 'string'
@@ -118,7 +95,7 @@ function resolveRequestedAuditCases() {
 /**
  * 本次审计预期应该覆盖到的上行事件清单。
  */
-var EXPECTED_C2S = [
+var EXPECTED_C2S: string[] = [
   C2S.Hello,
   C2S.Ping,
   C2S.Move,
@@ -193,7 +170,7 @@ var EXPECTED_C2S = [
 /**
  * 本次审计预期应该覆盖到的下行事件清单。
  */
-var EXPECTED_S2C = [
+var EXPECTED_S2C: string[] = [
   S2C.Bootstrap,
   S2C.InitSession,
   S2C.MapEnter,
@@ -671,8 +648,7 @@ async function requestJson(baseUrl, pathname, init) {
 /**
  * 带重试的 JSON 请求，主要兜住审计隔离服刚起服时的瞬断。
  */
-async function requestJsonWithRetry(baseUrl, pathname, init, retryCount) {
-  if (retryCount === void 0) { retryCount = 3; }
+async function requestJsonWithRetry(baseUrl, pathname, init, retryCount = 3) {
   var lastError = null;
   for (var attempt = 0; attempt < retryCount; attempt += 1) {
     try {
@@ -693,99 +669,6 @@ async function requestJsonWithRetry(baseUrl, pathname, init, retryCount) {
     }
   }
   throw lastError instanceof Error ? lastError : new Error(String(lastError ?? "request failed"));
-}
-/**
- * 解析 JWT 的 payload 以提取审计所需身份字段。
- */
-function parseJwtPayload(token) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-  if (typeof token !== 'string') {
-    return null;
-  }
-/**
- * 记录parts。
- */
-  var parts = token.split('.');
-  if (parts.length < 2) {
-    return null;
-  }
-  try {
-    return JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
-  }
-  catch (_error) {
-    return null;
-  }
-}
-/**
- * 在令牌缺少玩家编号时推导兜底玩家 ID。
- */
-function buildFallbackPlayerId(userId) {
-/**
- * 记录normalized。
- */
-  var normalized = typeof userId === 'string' ? userId.trim() : '';
-  return normalized ? 'p_' + normalized : '';
-}
-/**
- * 根据种子稳定生成唯一显示名，避免注册冲突。
- */
-function buildUniqueDisplayName(seed) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-/**
- * 记录hash。
- */
-  var hash = 0;
-  for (var index = 0; index < seed.length; index += 1) {
-    hash = (hash * 33 + seed.charCodeAt(index)) >>> 0;
-  }
-  return String.fromCodePoint(0x4E00 + (hash % (0x9FFF - 0x4E00 + 1)));
-}
-/**
- * 计算审计命名辅助的稳定 hash 文本。
- */
-function buildAuditHash(seed) {
-  var hash = 2166136261;
-  for (var index = 0; index < seed.length; index += 1) {
-    hash ^= seed.charCodeAt(index);
-    hash = Math.imul(hash, 16777619) >>> 0;
-  }
-  return hash.toString(36);
-}
-/**
- * 把审计 seed 规整成 ASCII token，供账号名和角色名复用。
- */
-function buildAuditToken(seed, maxLength, attempt) {
-  var normalized = typeof seed === 'string' ? seed.toLowerCase().replace(/[^a-z0-9]+/g, '') : '';
-  var suffix = attempt > 0 ? attempt.toString(36) : '';
-  var token = normalized + buildAuditHash(seed + ":" + attempt) + suffix;
-  if (!token) {
-    token = "audit" + buildAuditHash(String(seed));
-  }
-  return token.slice(-maxLength);
-}
-/**
- * 为审计注册生成稳定唯一的账号名。
- */
-function buildUniqueAuditAccountName(seed, attempt) {
-  return "acct_" + buildAuditToken(seed, 15, attempt);
-}
-/**
- * 为审计注册生成稳定唯一的角色名。
- */
-function buildUniqueAuditRoleName(seed, attempt) {
-  var suffix = buildAuditToken(seed + ":role:" + process.pid + ":" + Date.now(), 6, attempt);
-  return ("审" + suffix).slice(0, 7);
-}
-/**
- * 判断注册失败是否属于可重试的命名冲突。
- */
-function isRegisterConflictError(error) {
-  var message = error instanceof Error ? error.message : String(error ?? "");
-  return message.includes("称号已存在")
-    || message.includes("显示名称已存在")
-    || message.includes("账号已存在");
 }
 
 /**
@@ -920,7 +803,7 @@ async function ensureNativeDocsForAccessToken(token) {
   if (!tokenUserId) {
     return;
   }
-  var pool = new pg.Pool({
+  var pool = new Pool({
     connectionString: SERVER_DATABASE_URL,
   });
   try {
@@ -1051,7 +934,7 @@ async function waitForPresenceSessionFence(playerId, input, timeoutMs) {
   if (!normalizedPlayerId || !normalizedRuntimeOwnerId || !normalizedSessionEpoch) {
     return null;
   }
-  var pool = new pg.Pool({
+  var pool = new Pool({
     connectionString: SERVER_DATABASE_URL,
   });
   try {
@@ -1369,7 +1252,7 @@ function assertInitialPanelDeltaIsRevisionOnly(payload) {
 /**
  * 断言单个 panel section 只带允许的轻量字段。
  */
-function assertPanelSectionRevisionOnly(label, payload, allowedKeys, validateOptional) {
+function assertPanelSectionRevisionOnly(label, payload, allowedKeys, validateOptional = undefined) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   if (!payload || typeof payload !== 'object' || typeof payload.r !== 'number') {
@@ -2900,70 +2783,6 @@ async function marketCase(runtime) {
   await lib.waitForState(runtime.api, storageBuyerId, function (player) { return count(player, storageItemId) >= 1; }, 5000, "claimStorage");
 }
 /**
- * 格式化bytes。
- */
-function formatBytes(bytes) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-  if (!Number.isFinite(bytes) || bytes <= 0) {
-    return "0 B";
-  }
-  if (bytes < 1024) {
-    return bytes + " B";
-  }
-  return (bytes / 1024).toFixed(2) + " KB";
-}
-/**
- * 处理render。
- */
-function render(report) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-/**
- * 汇总输出行。
- */
-  var lines = [
-    "# 协议审计报告",
-    "",
-    "- 生成时间: " + report.generatedAt,
-    "- 目标服务: " + report.baseUrl,
-    "- 运行模式: " + report.serverMode,
-    "- 统计口径: 应用层 payload bytes；对象载荷按 `JSON.stringify(payload)` 的 UTF-8 字节数计算，二进制载荷按 `byteLength` 计算；流量明细按单个包体逐条记录，不做事件级合并。",
-    "- 覆盖基线: 以 `server` 当前已声明并实际接线的主线 socket 事件面为准；仍依赖 legacy 的归档兼容流量不计入这份审计。",
-    "",
-    "## 用例结果",
-    "",
-    "| 用例 | 时长(ms) | C2S 观测 | S2C 观测 |",
-    "| --- | ---: | --- | --- |"
-  ];
-  report.caseResults.forEach(function (entry) {
-    lines.push("| " + entry.name + " | " + entry.durationMs + " | " + (entry.c2s.join("<br>") || "-") + " | " + (entry.s2c.join("<br>") || "-") + " |");
-  });
-  lines.push("", "## 客户端到服务端覆盖", "", "| 事件名 | Wire Event | 已覆盖 | 次数 | 总流量 | 平均流量 | 用例 |", "| --- | --- | --- | ---: | ---: | ---: | --- |");
-  report.c2sRows.forEach(function (row) {
-    lines.push("| " + row.eventName + " | `" + row.event + "` | " + (row.covered ? "是" : "否") + " | " + row.count + " | " + formatBytes(row.totalBytes) + " | " + formatBytes(row.averageBytes) + " | " + (row.caseNames.join("<br>") || "-") + " |");
-  });
-  lines.push("", "## 服务端到客户端覆盖", "", "| 事件名 | Wire Event | 已覆盖 | 次数 | 总流量 | 平均流量 | 用例 |", "| --- | --- | --- | ---: | ---: | ---: | --- |");
-  report.s2cRows.forEach(function (row) {
-    lines.push("| " + row.eventName + " | `" + row.event + "` | " + (row.covered ? "是" : "否") + " | " + row.count + " | " + formatBytes(row.totalBytes) + " | " + formatBytes(row.averageBytes) + " | " + (row.caseNames.join("<br>") || "-") + " |");
-  });
-  lines.push("", "## 流量明细", "", "| 序号 | 方向 | 事件名 | Wire Event | 包体大小 | 用例 | Socket |", "| ---: | --- | --- | --- | ---: | --- | --- |");
-  report.trafficRows.forEach(function (row) {
-    lines.push("| " + row.index + " | " + row.direction + " | " + row.eventName + " | `" + row.event + "` | " + formatBytes(row.bytes) + " | " + (row.caseName || "-") + " | " + (row.socketLabel || "-") + " |");
-  });
-  lines.push("", "## 未覆盖项", "");
-  if (report.missing.length === 0) {
-    lines.push("- 无。");
-  }
-  else {
-    report.missing.forEach(function (entry) {
-      lines.push("- " + entry.direction + "." + entry.eventName + ": `" + entry.event + "`");
-    });
-  }
-  lines.push("", "## 备注", "", "- 报告由 `packages/server/src/tools/protocol-audit.ts` 自动生成。", "- 本次审计主要是黑盒协议回归，不覆盖浏览器 UI、深色模式、手机布局。", "");
-  return lines.join("\n");
-}
-/**
  * main：执行main相关逻辑。
  * @returns 无返回值，直接更新main相关状态。
  */
@@ -3109,7 +2928,7 @@ async function main() {
 /**
  * 记录markdown。
  */
-  var markdown = render({
+  var markdown = renderProtocolAuditReport({
     generatedAt: new Date().toISOString(),
     baseUrl: baseUrl,
     serverMode: externalBaseUrl ? "external-server" : "isolated-server",

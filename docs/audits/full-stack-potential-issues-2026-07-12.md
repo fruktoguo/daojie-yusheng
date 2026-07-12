@@ -47,12 +47,13 @@
 ### FS-002 `[ ]` 文件体积门禁已失守，生产巨型模块继续膨胀
 
 - 严重级别：高。
-- 根本原因：多个运行时、持久化、GM 和客户端面板持续把新职责并回巨型文件；体积门禁当前仍报告 17 个已超限文件继续增长，另有 6 个文件首次超过 3000 行。生成文件和大型 smoke 又与生产模块混在同一口径，增加了噪音。
+- 根本原因：多个运行时、持久化、GM 和客户端面板持续把新职责并回巨型文件；体积门禁当前仍报告 16 个已超限文件继续增长，另有 6 个文件首次超过 3000 行。生成文件和大型 smoke 又与生产模块混在同一口径，增加了噪音。
 - 为什么错误：巨型模块扩大冲突面和隐式副作用，难以证明单一职责、事务边界及局部 UI 更新；门禁红灯失去阻止继续膨胀的能力。
 - 后果：运行时/持久化改动更容易产生竞态、旧态覆盖、全量刷新或回归遗漏；review 和验证成本持续增加。
 - 修复方向：先修正生成物、工具与生产代码的分类口径，再按真实职责拆分当前生产超限模块；不得简单更新 baseline 掩盖增长。
-- 当前证据：`pnpm proof:file-size-gate` 退出 1，报告 17 个 baseline regression、6 个新超 3000 行文件。
+- 当前证据：`pnpm proof:file-size-gate` 退出 1；战斗 action 和协议审计工具拆分后，剩余 16 个 baseline regression、6 个新超 3000 行文件。
 - 本轮进展：`world-runtime-combat-action.service.ts` 原先在 3415 行类中同时承载动作编排和约 500 行无状态规范化、目标索引、结果投影及诊断计时辅助；这些逻辑没有服务实例状态或外部调用契约，却扩大了权威编排层的修改面。现已提取为 546 行 `world-runtime-combat-action.helpers.ts`，主服务降到 2955 行并退出 3000 行错误清单；新 helper 同步纳入禁止网络、数据库、文件和 JSON 序列化的战斗热路径边界检查。剩余超限文件仍保持未完成状态，不更新 baseline 掩盖问题。
+- 本轮进展：`protocol-audit.ts` 把账号/JWT 辅助和 Markdown 报告投影混在 3135 行主流程中，现提取为 68/87 行两个窄 helper，主文件降到 2953 行并删除旧 baseline；完整 18 类协议审计通过。其余超限文件仍保持未完成状态。
 
 ### FS-003 `[ ]` server tools 大量绕过 TypeScript 检查并保留 CommonJS 写法
 
@@ -61,7 +62,7 @@
 - 为什么错误：这些验证脚本本应用来证明生产契约，却绕过类型检查；接口漂移可能直到运行 smoke 才暴露，未进入默认 suite 的脚本甚至会长期失真，同时违反项目 TypeScript 红线。
 - 后果：门禁产生假阳性，重构调用签名后旧 smoke 可能静默失效，关键恢复/资产测试的可信度下降。
 - 修复方向：按稳定 suite 与高风险资产/恢复脚本优先，逐组迁移为规范 TypeScript import/export 并移除抑制；每组运行实际 compiled smoke 后原子提交。
-- 本轮进展：`player-runtime-dirty-domain-smoke.ts` 已移除 `@ts-nocheck` 并重新进入 server compile；当前剩余 168 个 `@ts-nocheck`，CommonJS 数量仍为 144 个。
+- 本轮进展：`player-runtime-dirty-domain-smoke.ts` 与 `protocol-audit.ts` 已移除 `@ts-nocheck` 并重新进入 server compile；协议审计顶层 7 个 CommonJS `require` 已迁移为标准 import，并把账号命名/JWT 解析及 Markdown 投影拆为两个有类型的窄 helper。当前剩余 167 个 `@ts-nocheck`，含 CommonJS 的 `.ts` 文件降为 143 个。
 
 ### FS-004 `[x]` 玩家分域空覆盖 smoke 的异常路径缺少兜底清理
 
@@ -444,7 +445,16 @@
 - 为什么错误：CI 的颜色与报告语义相反；“error”不阻断合并，且已偿还的技术债仍保留隐形增长额度。只要历史 regression 恰好清零，新巨型文件或旧文件重新越线都可能在门禁绿灯下进入主线。
 - 后果：体积门禁无法阻止职责重新聚合，维护者会误以为新增超限已受保护；巨型模块的冲突面、隐式副作用与验证成本继续增长。
 - 修复方式：把无 baseline 的新超限文件和不再对应超限文件的陈旧 baseline 一并纳入阻断条件；增加 `--contract-proof` 自验证，明确证明新超限与陈旧豁免都会失败。移除已降到 3000 行内的战斗 action、GM admin 和 world projector 三个陈旧 baseline，使其未来再次越线时立即按新文件阻断。
-- 验证：`pnpm proof:file-size-gate:contract` 通过；真实 `pnpm proof:file-size-gate` 仍按预期退出 1，并分别列出 17 个 baseline regression 与 6 个无 baseline 新超限文件，未再出现陈旧 baseline。
+- 验证：`pnpm proof:file-size-gate:contract` 通过；真实 `pnpm proof:file-size-gate` 仍按预期退出 1，并在后续拆分后分别列出 16 个 baseline regression 与 6 个无 baseline 新超限文件，未再出现陈旧 baseline。
+
+### FS-043 `[x]` 主协议审计绕过类型检查且把冷路径投影混入用例编排
+
+- 严重级别：高。
+- 根本原因：`protocol-audit.ts` 是历史 JavaScript 编译形态回填文件，保留 `@ts-nocheck`、7 个 CommonJS `require`、手写默认参数兼容和宽泛推断数组；账号命名、JWT 解析、玩家显示名与 Markdown 渲染又和 18 类 Socket 用例共处一个 3135 行文件。
+- 为什么错误：发布门禁本应用来发现协议签名漂移，却主动跳过 TypeScript。实际移除抑制后立即暴露 13 处错误：有库事件无法加入被窄化的无库数组，3 个带旧式缺省参数的调用和 2 个可选验证器调用也不符合推断签名。冷路径报告和身份辅助继续堆在编排文件中，还让体积门禁长期失败。
+- 后果：协议事件新增、审计 helper 签名变化或有库分支调整可能只在运行到特定 case 时才失败；未执行的分支无法得到编译保护，发布审计本身成为假安全感来源。巨型文件也提高修改冲突与报告投影误改业务用例的风险。
+- 修复方式：改为标准 ES import，删除 `@ts-nocheck`；给预期 C2S/S2C 集合显式声明可扩展字符串数组，并用 TypeScript 默认参数表达原有运行语义。把账号/JWT 无状态规则和显示名/Markdown 投影分别提取到有类型 helper，主文件降到 2953 行并删除陈旧体积 baseline。
+- 验证：`pnpm --filter @mud/server compile` 通过；先用 stable runner 聚焦运行 `bootstrap-runtime`，再运行完整 `pnpm audit:protocol`，无库隔离服务的 18 类用例、逐包覆盖报告和关闭 drain 全部通过；`pnpm proof:file-size-gate` 已不再把协议审计列入 3000 行错误或 regression。
 
 ## 待进一步验证或用户决定
 
@@ -556,4 +566,5 @@
 | 聚焦 compiled `progression` stable case | 收紧断言后通过 | Socket 生命周期、envelope 解码及同 tick 灵气流转下仍完整注入接近 100 点；最终值 `99.9991977` | 不证明真实数据库持久化与长期多 tick 灵气演化 |
 | `pnpm verify:quick`（加入 `registration-activation` 后） | 通过 | server/shared 编译、production-boundaries、release contract 及 12 个 quick case；证明成功请求不再清空 IP 失败预算，GM 密码跨入口共享主体预算 | 无 DB，不证明多节点间内存限流共享、真实代理/CDN 地址聚合及长期攻击流量 |
 | `pnpm verify:quick`（加入 `native-auth-persistence-failure` 后） | 通过 | server/shared 编译、production-boundaries、release contract 及 13 个 quick case；证明账号库配置后连接失败会 503、readiness 降级、重载真实重连并冒泡失败 | 无真实 DB，不证明成功重连后的实表全量回读、数据库恢复事务或多节点镜像失效传播 |
-| 战斗 action 边界拆分专项验证 | server compile 与 `combat-e2e-outcome-matrix`、`world-runtime-combat-action-service`、`world-runtime-combat-boundary` 三项 compiled smoke 通过 | 无状态 helper 拆分后动作定义、目标选择、结果应用、脏域、事件与热路径禁用项保持原契约；主服务为 2955 行 | `proof:file-size-gate` 仍因其他 17 个历史增幅文件失败，不证明其余巨型模块已完成拆分 |
+| 战斗 action 边界拆分专项验证 | server compile 与 `combat-e2e-outcome-matrix`、`world-runtime-combat-action-service`、`world-runtime-combat-boundary` 三项 compiled smoke 通过 | 无状态 helper 拆分后动作定义、目标选择、结果应用、脏域、事件与热路径禁用项保持原契约；主服务为 2955 行 | `proof:file-size-gate` 仍因其他历史增幅文件失败，不证明其余巨型模块已完成拆分 |
+| 协议审计 TypeScript 与职责拆分验证 | server compile、聚焦 `bootstrap-runtime` stable audit、完整 `pnpm audit:protocol` 均通过 | 主审计已受类型检查；18 类用例、账号/JWT 辅助、显示名、Markdown 投影、逐包统计和关闭 drain 保持可执行；主文件为 2953 行 | 无数据库，因此未执行 GM/兑换与持久化 seed 的 with-db 分支 |

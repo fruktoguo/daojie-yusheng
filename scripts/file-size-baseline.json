@@ -15,6 +15,5 @@
   "packages/shared/src/api-contracts.ts": 3562,
   "packages/client/src/renderer/text.ts": 3556,
   "packages/server/src/runtime/market/market-runtime.service.ts": 3150,
-  "packages/server/src/runtime/craft/craft-panel-runtime.service.ts": 3052,
-  "packages/server/src/tools/protocol-audit.ts": 3010
+  "packages/server/src/runtime/craft/craft-panel-runtime.service.ts": 3052
 }
