@@ -1,18 +1,16 @@
-// @ts-nocheck
-"use strict";
+import assert from 'node:assert/strict';
 
-const assert = require("node:assert/strict");
-const { MapTemplateRepository } = require("../runtime/map/map-template.repository");
-const { MapInstanceRuntime } = require("../runtime/instance/map-instance.runtime");
-const { WorldRuntimeSectService } = require("../runtime/world/world-runtime-sect.service");
-const { WorldRuntimePlayerSessionService } = require("../runtime/world/world-runtime-player-session.service");
-const { WorldRuntimeUseItemService } = require("../runtime/world/world-runtime-use-item.service");
-const { Direction, TERRAIN_REGEN_RATE_PER_TICK } = require("@mud/shared");
-const { WorldSyncMapSnapshotService } = require("../network/world-sync-map-snapshot.service");
-const { buildFullWorldDelta } = require("../network/world-projector.helpers");
-const { WorldRuntimeDetailQueryService } = require("../runtime/world/query/world-runtime-detail-query.service");
-const { buildTechniqueActivityTaskListView } = require("../runtime/craft/technique-activity-task-view.helpers");
-const { findOptimalPathOnMap } = require("../runtime/world/world-runtime.path-planning.helpers");
+import { Direction, TERRAIN_REGEN_RATE_PER_TICK } from '@mud/shared';
+import { buildFullWorldDelta } from '../network/world-projector.helpers';
+import { WorldSyncMapSnapshotService } from '../network/world-sync-map-snapshot.service';
+import { buildTechniqueActivityTaskListView } from '../runtime/craft/technique-activity-task-view.helpers';
+import { MapInstanceRuntime } from '../runtime/instance/map-instance.runtime';
+import { MapTemplateRepository } from '../runtime/map/map-template.repository';
+import { WorldRuntimeDetailQueryService } from '../runtime/world/query/world-runtime-detail-query.service';
+import { WorldRuntimePlayerSessionService } from '../runtime/world/world-runtime-player-session.service';
+import { WorldRuntimeSectService } from '../runtime/world/world-runtime-sect.service';
+import { WorldRuntimeUseItemService } from '../runtime/world/world-runtime-use-item.service';
+import { findOptimalPathOnMap } from '../runtime/world/world-runtime.path-planning.helpers';
 
 const playerId = "player:sect-smoke";
 const deputyPlayerId = "player:sect-deputy";
@@ -88,6 +86,7 @@ async function main() {
     displayName: "副",
     realm: { realmLv: 6, displayName: "不用于宗门成员显示" },
     sectId: null,
+    formationJob: null,
     x: 2,
     y: 2,
   };
@@ -106,6 +105,7 @@ async function main() {
     displayName: "杂",
     realm: { realmLv: 1, displayName: "不用于宗门成员显示" },
     sectId: null,
+    formationJob: null,
     x: 2,
     y: 2,
   };
@@ -122,6 +122,7 @@ async function main() {
   const guardians = [];
   const pendingCommands = [];
   const craftMutationFlushes = [];
+  const leaseReadyWaits = [];
   const playerRuntimeService = {
     getPlayerOrThrow(targetPlayerId) {
       const target = players.get(targetPlayerId);
@@ -162,8 +163,14 @@ async function main() {
   sectService.ensurePersistencePool = async () => null;
   const useItemService = new WorldRuntimeUseItemService(contentTemplateRepository, templateRepository, playerRuntimeService);
   const deps = {
+    logger: { log() {}, warn() {} },
     playerRuntimeService,
     worldRuntimeSectService: sectService,
+    worldRuntimeInstanceStateService: {
+      deleteInstanceRuntime(instanceId) { return instances.delete(instanceId); },
+    },
+    worldRuntimeTickProgressService: { clearInstance() {} },
+    worldRuntimeLootContainerService: { removeInstanceState() {} },
     worldRuntimeFormationService: {
       upsertSectGuardianFormation(input) {
         const existing = guardians.find((entry) => entry.id === input.id);
@@ -294,6 +301,9 @@ async function main() {
     },
     refreshQuestStates() {},
     refreshPlayerContextActions() {},
+    async waitForInstanceLeaseReady(instanceId) {
+      leaseReadyWaits.push(instanceId);
+    },
   };
 
   const virtualInstanceId = "public:sect_smoke_world";
@@ -345,8 +355,22 @@ async function main() {
   assert.equal(player.inventory.items[0].count, 1);
   assert.equal(player.sectId, null);
 
+  const instancesBeforeLeaseRejection = Array.from(instances.keys()).sort();
+  await assert.rejects(() => useItemService.dispatchUseItem(playerId, 0, {
+    ...deps,
+    isInstanceLeaseWritable(instance) {
+      return instance === publicInstance;
+    },
+  }, { sectName: "拒租宗", sectMark: "拒" }), /宗门实例租约尚未就绪/);
+  assert.deepEqual(Array.from(instances.keys()).sort(), instancesBeforeLeaseRejection);
+  assert.equal(player.inventory.items[0].count, 1);
+  assert.equal(player.sectId, null);
+  assert.equal(publicInstance.runtimePortals.some((portal) => portal.kind === "sect_entrance"), false);
+  leaseReadyWaits.length = 0;
+
   await useItemService.dispatchUseItem(playerId, 0, deps, { sectName: "青玄宗", sectMark: "玄" });
   assert.ok(player.sectId?.startsWith("sect:"));
+  assert.deepEqual(leaseReadyWaits, [publicInstanceId, `sect:${player.sectId}:main`]);
   assert.equal(player.inventory.items[0].count, 0);
   assert.equal(guardians.length, 1);
   assert.equal(guardians[0].ownerSectId, player.sectId);
@@ -498,6 +522,9 @@ async function main() {
   player.y = 0;
   await useItemService.dispatchUseItem(playerId, 1, deps);
   const relocatedSect = sectService.findSectById(player.sectId);
+  assert.equal(leaseReadyWaits.filter((instanceId) => instanceId === relocatedSect.sectInstanceId).length, 4);
+  assert.equal(leaseReadyWaits.filter((instanceId) => instanceId === publicInstanceId).length, 4);
+  assert.equal(leaseReadyWaits.at(-1), relocatedSect.sectInstanceId);
   assert.equal(player.inventory.items[1].count, 0);
   assert.equal(relocatedSect.entranceInstanceId, publicInstanceId);
   assert.equal(relocatedSect.entranceX, 4);
@@ -548,7 +575,7 @@ async function main() {
   assert.equal(innerSectStone.sectBoundaryOpened, true);
   assert.equal(sectInstance.getTileCombatState(-2, 0), null);
   assert.equal(sectInstance.getEffectiveTileType(-2, 0), "floor");
-  assert.equal(sectInstance.advanceTileRecovery((x, y) => sectService.isSectInnateStabilized(sectInstance.meta.instanceId, x, y)), false);
+  assert.equal(sectInstance.advanceTileRecovery((x, y) => sectService.isSectInnateStabilized(sectInstance.meta.instanceId, x, y), null), false);
   assert.equal(sectInstance.getTileCombatState(-2, 0), null);
   const sectRuntimePlayer = sectInstance.connectPlayer({ playerId, sessionId: "session:sect-smoke", preferredX: 0, preferredY: 0 });
   assert.equal(sectRuntimePlayer.x, 0);
@@ -576,7 +603,7 @@ async function main() {
   assert.match(manageAction.desc, /地域\s+25格/);
   assert.doesNotMatch(manageAction.desc, /地域\s+\d+x\d+/);
   const manageData = JSON.parse(decodeURIComponent(/@@sect:(.*)@@/.exec(manageAction.desc)?.[1] ?? ""));
-  assert.equal(manageData.sectId, sect.sectId, "宗门管理摘要必须携带申请分页的权威宗门 ID");
+  assert.equal(manageData.sectId, relocatedSect.sectId, "宗门管理摘要必须携带申请分页的权威宗门 ID");
   assert.ok(!coreActions.some((action) => action.id === "sect:guardian:refill"));
 
   const badRealSectInstanceId = `real:${entrance.targetMapId}`;
@@ -595,6 +622,9 @@ async function main() {
     canDamageTile: true,
   }));
   const sessionService = new WorldRuntimePlayerSessionService({
+    resolveDefaultRespawnMapId() { return 'sect_smoke_world'; },
+    getOrCreatePublicInstance() { return publicInstance; },
+    getOrCreateDefaultLineInstance() { return publicInstance; },
     getPlayerViewOrThrow() {
       return {};
     },
@@ -714,7 +744,7 @@ async function main() {
   assert.equal(sectInstance.getTileLayerState(edgeX + 1, edgeY).structure, null);
   assert.equal(sectInstance.isWalkable(edgeX + 1, edgeY, playerId), true);
   assert.equal(sectInstance.isTileSightBlocked(edgeX + 1, edgeY), false);
-  const sectDetailService = new WorldRuntimeDetailQueryService(contentTemplateRepository, templateRepository, playerRuntimeService);
+  const sectDetailService = new WorldRuntimeDetailQueryService(contentTemplateRepository as any, templateRepository, playerRuntimeService as any, null);
   const openedBoundaryDetail = sectDetailService.buildTileDetail({
     view: {
       self: { x: 1, y: 0 },
@@ -961,7 +991,29 @@ async function main() {
   console.log("world-runtime-sect-smoke passed");
 }
 
+const restoreDatabaseEnv = isolateSectSmokeFromLocalDatabaseEnv();
+
 main().catch((error) => {
   console.error(error);
   process.exitCode = 1;
+}).finally(() => {
+  restoreDatabaseEnv();
 });
+
+function isolateSectSmokeFromLocalDatabaseEnv(): () => void {
+  const keys = ['SERVER_DATABASE_URL', 'DATABASE_URL'] as const;
+  const previous = new Map(keys.map((key) => [key, process.env[key]]));
+  for (const key of keys) {
+    delete process.env[key];
+  }
+  return () => {
+    for (const key of keys) {
+      const value = previous.get(key);
+      if (typeof value === 'string') {
+        process.env[key] = value;
+      } else {
+        delete process.env[key];
+      }
+    }
+  };
+}

@@ -82,17 +82,22 @@ export class WorldRuntimeActionExecutionService {
             };
         }
         if (actionId.startsWith('tower:tongtian:')) {
-            const view = deps.worldRuntimeTongtianTowerService?.executeAction?.(playerId, actionId, deps);
-            if (!view) {
-                throw new BadRequestException('未知的通天塔动作');
-            }
-            if (typeof deps.refreshPlayerContextActions === 'function') {
-                deps.refreshPlayerContextActions(playerId, view);
-            }
-            return {
-                kind: 'queued',
-                view,
+            const finalizeTowerAction = (view) => {
+                if (!view) {
+                    throw new BadRequestException('未知的通天塔动作');
+                }
+                if (typeof deps.refreshPlayerContextActions === 'function') {
+                    deps.refreshPlayerContextActions(playerId, view);
+                }
+                return {
+                    kind: 'queued',
+                    view,
+                };
             };
+            const view = deps.worldRuntimeTongtianTowerService?.executeAction?.(playerId, actionId, deps);
+            return view && typeof view.then === 'function'
+                ? view.then(finalizeTowerAction)
+                : finalizeTowerAction(view);
         }
         if (actionId === 'world:migrate') {
             return this.executeWorldMigration(playerId, targetInput, deps);
@@ -411,9 +416,9 @@ export class WorldRuntimeActionExecutionService {
             throw new BadRequestException('煞气入体或煞气反噬期间无法迁回虚境');
         }
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
-        this.playerRuntimeService.updateWorldPreference?.(playerId, linePreset);
         const currentLinePreset = resolveLinePresetFromInstanceId(currentView?.instance?.instanceId ?? player.instanceId);
         if (currentLinePreset === linePreset) {
+            this.playerRuntimeService.updateWorldPreference?.(playerId, linePreset);
             deps.queuePlayerNotice(playerId, buildWorldMigrationNotice(linePreset, true), 'success');
             return {
                 kind: 'queued',
@@ -431,19 +436,28 @@ export class WorldRuntimeActionExecutionService {
         const targetInstance = typeof deps.getOrCreateDefaultLineInstance === 'function'
             ? deps.getOrCreateDefaultLineInstance(targetMapId, linePreset)
             : deps.getOrCreatePublicInstance(targetMapId);
-        const nextView = deps.worldRuntimePlayerSessionService.connectPlayer({
+        const connectInput = {
             playerId,
             sessionId: player.sessionId ?? currentView?.sessionId ?? `session:${playerId}`,
             instanceId: targetInstance.meta.instanceId,
             preferredX: Number.isFinite(player.x) ? Math.trunc(player.x) : undefined,
             preferredY: Number.isFinite(player.y) ? Math.trunc(player.y) : undefined,
             relocateExisting: true,
-        }, deps);
-        deps.queuePlayerNotice(playerId, buildWorldMigrationNotice(linePreset, false), 'success');
-        return {
-            kind: 'queued',
-            view: nextView,
         };
+        const finalizeMigration = (nextView) => {
+            this.playerRuntimeService.updateWorldPreference?.(playerId, linePreset);
+            deps.queuePlayerNotice(playerId, buildWorldMigrationNotice(linePreset, false), 'success');
+            return {
+                kind: 'queued',
+                view: nextView,
+            };
+        };
+        if (typeof deps.worldRuntimePlayerSessionService.connectPlayerWhenReady === 'function') {
+            return deps.worldRuntimePlayerSessionService
+                .connectPlayerWhenReady(connectInput, deps)
+                .then(finalizeMigration);
+        }
+        return finalizeMigration(deps.worldRuntimePlayerSessionService.connectPlayer(connectInput, deps));
     }    
     /**
  * toggleCombatSetting：执行toggle战斗Setting相关逻辑。

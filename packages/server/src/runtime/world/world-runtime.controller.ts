@@ -170,7 +170,7 @@ export class WorldRuntimeController {
     /** connectPlayer：将玩家接入当前实例，并同步初始移动速度与位置。 */
     @Post('players/connect')
     async connectPlayer(@Body() body) {
-        const view = this.worldRuntimeService.worldRuntimePlayerSessionService.connectPlayer({
+        const view = await this.worldRuntimeService.worldRuntimePlayerSessionService.connectPlayerWhenReady({
             playerId: body.playerId ?? '',
             sessionId: body.sessionId,
             instanceId: body.instanceId,

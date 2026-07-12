@@ -3,8 +3,6 @@
  *
  * 维护时要保持状态变更受控，所有影响资产或位置的结果都应能被持久化与恢复链覆盖。
  */
-"use strict";
-
 import { randomBytes } from 'node:crypto';
 import { normalizeRuntimeInstancePersistentPolicy, parseRuntimeInstanceDescriptor } from "./world-runtime.normalization.helpers";
 import {
@@ -98,19 +96,42 @@ export async function registerManagedInstanceCatalog(runtime, instanceId, instan
   });
 }
 
-export function syncManagedInstanceRegistration(runtime, instanceId, instance) {
+export async function syncManagedInstanceRegistration(
+  runtime,
+  instanceId,
+  instance,
+  options: { isCurrent?: () => boolean } = {},
+) {
   if (!runtime.instanceCatalogService?.isEnabled?.()) {
-    return;
+    return { ok: true, reason: 'catalog_disabled' };
   }
-  void (async () => {
+  const isCurrent = () => (
+    (typeof options.isCurrent !== 'function' || options.isCurrent() !== false)
+    && (typeof runtime.getInstanceRuntime !== 'function' || runtime.getInstanceRuntime(instanceId) === instance)
+  );
+  try {
+    if (!isCurrent()) {
+      return { ok: false, reason: 'instance_replaced' };
+    }
     await registerManagedInstanceCatalog(runtime, instanceId, instance);
+    if (!isCurrent()) {
+      return { ok: false, reason: 'instance_replaced' };
+    }
     if (shouldDeferManagedLeaseSyncUntilStartupGateOpen(runtime, instanceId)) {
-      return;
+      return { ok: true, reason: 'startup_deferred' };
     }
     await syncInstanceLease(runtime, instanceId);
-  })().catch((error) => {
+    const currentInstance = typeof runtime.getInstanceRuntime === 'function'
+      ? runtime.getInstanceRuntime(instanceId)
+      : instance;
+    return {
+      ok: isCurrent() && isInstanceLeaseWritable(runtime, currentInstance),
+      reason: isCurrent() ? 'lease_sync_completed' : 'instance_replaced',
+    };
+  } catch (error) {
     runtime.logger.warn(`实例目录或租约同步失败：${instanceId} ${error instanceof Error ? error.message : String(error)}`);
-  });
+    return { ok: false, reason: 'registration_or_lease_sync_failed' };
+  }
 }
 
 function shouldDeferManagedLeaseSyncUntilStartupGateOpen(runtime, instanceId) {
@@ -137,13 +158,13 @@ export function isInstanceLeaseWritable(runtime, instance) {
   const assignedNodeId = typeof instance?.meta?.assignedNodeId === 'string' ? instance.meta.assignedNodeId.trim() : '';
   const leaseToken = typeof instance?.meta?.leaseToken === 'string' ? instance.meta.leaseToken.trim() : '';
   if (!assignedNodeId || !leaseToken) {
-    return true;
+    return false;
   }
   if (assignedNodeId !== runtime.nodeRegistryService.getNodeId()) {
     return false;
   }
   const leaseExpireAt = instance?.meta?.leaseExpireAt ? new Date(instance.meta.leaseExpireAt).getTime() : 0;
-  return leaseExpireAt > Date.now() - INSTANCE_LEASE_RENEW_SKEW_MS;
+  return leaseExpireAt > Date.now();
 }
 
 export function fenceInstanceRuntime(runtime, instanceId, reason = 'lease_lost') {
@@ -192,7 +213,7 @@ function shouldMarkLocalLeaseDegraded(runtime, instance, reason) {
     return true;
   }
   const leaseExpireAt = instance?.meta?.leaseExpireAt ? new Date(instance.meta.leaseExpireAt).getTime() : 0;
-  return !Number.isFinite(leaseExpireAt) || leaseExpireAt <= Date.now() - INSTANCE_LEASE_RENEW_SKEW_MS;
+  return !Number.isFinite(leaseExpireAt) || leaseExpireAt <= Date.now();
 }
 
 function markLocalLeaseDegraded(runtime, instanceId, instance, reason) {

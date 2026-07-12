@@ -151,7 +151,7 @@ export class WorldGatewayPlayerControlsHelper {
       }
       const player = this.gateway.playerRuntimeService.getPlayer(playerId);
       if (sessionId && player) {
-        this.gateway.sessionBootstrapService.connectBootstrapRuntimePlayer({
+        await this.gateway.sessionBootstrapService.connectBootstrapRuntimePlayer({
           playerId,
           sessionId,
           instanceId: player.instanceId ?? undefined,

@@ -1,10 +1,8 @@
-// @ts-nocheck
+import assert from 'node:assert/strict';
 
-const assert = require("node:assert/strict");
-
-const { WorldRuntimeActionExecutionService } = require("../runtime/world/command/world-runtime-action-execution.service");
-const { WorldRuntimePendingCommandService } = require("../runtime/world/command/world-runtime-pending-command.service");
-const { PVP_SHA_BACKLASH_BUFF_ID, PVP_SHA_INFUSION_BUFF_ID } = require("../constants/gameplay/pvp");
+import { PVP_SHA_BACKLASH_BUFF_ID, PVP_SHA_INFUSION_BUFF_ID } from '../constants/gameplay/pvp';
+import { WorldRuntimeActionExecutionService } from '../runtime/world/command/world-runtime-action-execution.service';
+import { WorldRuntimePendingCommandService } from '../runtime/world/command/world-runtime-pending-command.service';
 /**
  * createService：构建并返回目标对象。
  * @param player 玩家对象。
@@ -103,7 +101,7 @@ function createService(player, log = []) {
  */
 
 
-function createDeps(log = []) {
+function createDeps(log = []): any {
     return {    
     /**
  * getPlayerLocationOrThrow：读取玩家位置OrThrow。
@@ -455,7 +453,6 @@ function testWorldMigrationSwitchesToRealLine() {
         ['resolveCurrentTickForPlayerId', 'player:1'],
         ['getPlayerViewOrThrow', 'player:1'],
         ['getPlayerOrThrow', 'player:1'],
-        ['updateWorldPreference', 'player:1', 'real'],
         ['clearNavigationIntent', 'player:1'],
         ['clearPendingCommand', 'player:1'],
         ['getOrCreateDefaultLineInstance', 'yunlai_town', 'real'],
@@ -465,9 +462,35 @@ function testWorldMigrationSwitchesToRealLine() {
             instanceId: 'real:yunlai_town',
             preferredX: 10,
             preferredY: 10,
+            relocateExisting: true,
         }],
+        ['updateWorldPreference', 'player:1', 'real'],
         ['queuePlayerNotice', 'player:1', '你已切入现世，后续跨图会默认进入现世线。', 'success'],
     ]);
+}
+
+async function testWorldMigrationFailureKeepsPreviousPreference() {
+    const log = [];
+    const service = createService({
+        sessionId: 'session:1',
+        instanceId: 'public:yunlai_town',
+        templateId: 'yunlai_town',
+        x: 10,
+        y: 10,
+        combat: {},
+        techniques: {},
+    }, log);
+    const deps = createDeps(log);
+    deps.worldRuntimePlayerSessionService.connectPlayerWhenReady = async (input) => {
+        log.push(['connectPlayerWhenReady', input]);
+        throw new Error('lease_not_local');
+    };
+    await assert.rejects(
+        service.executeAction('player:1', 'world:migrate', 'real', deps),
+        /lease_not_local/,
+    );
+    assert.equal(log.some(([kind]) => kind === 'updateWorldPreference'), false);
+    assert.equal(log.some(([kind]) => kind === 'queuePlayerNotice'), false);
 }
 
 function testWorldMigrationRejectsPeacefulWhenShaBuffActive() {
@@ -794,6 +817,7 @@ async function run() {
     testAutoRootFoundationOffKeepsExplicitFalse();
     testAutoRootFoundationOffActionKeepsExplicitFalse();
     testWorldMigrationSwitchesToRealLine();
+    await testWorldMigrationFailureKeepsPreviousPreference();
     testWorldMigrationRejectsPeacefulWhenShaBuffActive();
     testWorldMigrationRejectsBacklashWhenReturningPeaceful();
     testCultivationToggle();

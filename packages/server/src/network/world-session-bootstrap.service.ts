@@ -454,7 +454,7 @@ export class WorldSessionBootstrapService {
             bootstrapInstanceId
             && (bootstrapSnapshotSource || bootstrapSnapshotPersistedSource),
         );
-        this.connectBootstrapRuntimePlayer({
+        await this.connectBootstrapRuntimePlayer({
             playerId: binding.playerId,
             sessionId: offlineGainBlocking ? null : binding.sessionId,
             instanceId: bootstrapInstanceId,

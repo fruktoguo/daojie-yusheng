@@ -177,6 +177,7 @@ export class TimeChamberRuntimeService implements OnModuleInit {
         markBuildingChanged(sourceInstance, building);
       }
       const instance = this.ensureRuntimeInstance(state, runtime);
+      await runtime.waitForInstanceLeaseReady?.(state.chamberInstanceId);
       if (!isRuntimeInstanceWritable(runtime, instance)) {
         this.logger.warn(`密室实例当前不归本节点写入，跳过恢复应用：${state.chamberInstanceId}`);
         continue;
@@ -726,6 +727,7 @@ export class TimeChamberRuntimeService implements OnModuleInit {
       return { ok: false, reason: 'time_chamber_state_create_failed' };
     }
     const chamberInstance = this.ensureRuntimeInstance(state, runtime);
+    await runtime.waitForInstanceLeaseReady?.(state.chamberInstanceId);
     if (!isRuntimeInstanceWritable(runtime, chamberInstance)) {
       return { ok: false, reason: 'time_chamber_unavailable' };
     }

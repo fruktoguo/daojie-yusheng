@@ -91,7 +91,8 @@ import * as world_runtime_normalization_helpers_1 from './world-runtime.normaliz
 import * as world_runtime_observation_helpers_1 from './query/world-runtime.observation.helpers';
 import * as world_runtime_path_planning_helpers_1 from './world-runtime.path-planning.helpers';
 import { buildCurrentRoomSummaryPatch, buildFengShuiObserveView, dispatchStartBuildingConstruction, handleBuildDeconstructIntent, handleBuildPlaceIntent, handleRoomSetRoleIntent, handleStartBuildingConstruction, interruptBuildingConstruction, listBuildingOperationAudit, tickBuildingConstruction } from './world-runtime-building.service';
-import { claimRecoverableCatalogInstances, fenceInstanceRuntime, getInstanceLeaseStatus, hydratePersistentInstanceSnapshot, isInstanceLeaseWritable, migrateInstanceToNode, migratePlayerToNode, rebuildPersistentInstance, releaseLocalInstanceLeasesForShutdown, syncAllInstanceLeases, syncInstanceLease, syncManagedInstanceRegistration, unfreezeInstanceWriting } from './world-runtime-instance-lease.helpers';
+import { claimRecoverableCatalogInstances, fenceInstanceRuntime, getInstanceLeaseStatus, hydratePersistentInstanceSnapshot, isInstanceLeaseWritable, migrateInstanceToNode, migratePlayerToNode, rebuildPersistentInstance, releaseLocalInstanceLeasesForShutdown, syncAllInstanceLeases, syncInstanceLease, unfreezeInstanceWriting } from './world-runtime-instance-lease.helpers';
+import { WorldRuntimeInstanceLeaseReadinessService } from './world-runtime-instance-lease-readiness.service';
 
 const {
     buildPublicInstanceId,
@@ -192,20 +193,14 @@ const TICK_METRIC_WINDOW_SIZE = 60;
 @Injectable()
 export class WorldRuntimeService {
     contentTemplateRepository;
-
     templateRepository;
-
     instanceDomainPersistenceService;
     instanceCatalogService;
     playerRuntimeService;
-
     playerCombatService;
     worldSessionService;
-
     worldClientEventService;
-
     redeemCodeRuntimeService;
-
     craftPanelRuntimeService;
     activityRuntimeService;
     worldRuntimeNpcShopQueryService;
@@ -225,6 +220,7 @@ export class WorldRuntimeService {
     worldRuntimeFrameService;
 
     worldRuntimeLifecycleService;
+    worldRuntimeInstanceLeaseReadinessService;
 
     worldRuntimePersistenceStateService;
 
@@ -377,6 +373,7 @@ export class WorldRuntimeService {
         @Inject(WorldRuntimeMetricsService) worldRuntimeMetricsService: WorldRuntimeMetricsService,
         @Inject(WorldRuntimeFrameService) worldRuntimeFrameService: WorldRuntimeFrameService,
         @Inject(WorldRuntimeLifecycleService) worldRuntimeLifecycleService: WorldRuntimeLifecycleService,
+        @Inject(WorldRuntimeInstanceLeaseReadinessService) worldRuntimeInstanceLeaseReadinessService: WorldRuntimeInstanceLeaseReadinessService,
         @Inject(WorldRuntimePersistenceStateService) worldRuntimePersistenceStateService: WorldRuntimePersistenceStateService,
         @Inject(WorldRuntimePlayerSessionService) worldRuntimePlayerSessionService: WorldRuntimePlayerSessionService,
         @Inject(WorldRuntimeCommandIntakeFacadeService) worldRuntimeCommandIntakeFacadeService: WorldRuntimeCommandIntakeFacadeService,
@@ -460,6 +457,7 @@ export class WorldRuntimeService {
         this.worldRuntimeMetricsService = worldRuntimeMetricsService;
         this.worldRuntimeFrameService = worldRuntimeFrameService;
         this.worldRuntimeLifecycleService = worldRuntimeLifecycleService;
+        this.worldRuntimeInstanceLeaseReadinessService = worldRuntimeInstanceLeaseReadinessService;
         this.worldRuntimePersistenceStateService = worldRuntimePersistenceStateService;
         this.worldRuntimePlayerSessionService = worldRuntimePlayerSessionService;
         this.worldRuntimeCommandIntakeFacadeService = worldRuntimeCommandIntakeFacadeService;
@@ -635,8 +633,10 @@ export class WorldRuntimeService {
     }
     setInstanceRuntime(instanceId, instance) {
         this.worldRuntimeStateFacadeService.setInstanceRuntime(instanceId, instance, this);
-        syncManagedInstanceRegistration(this, instanceId, instance);
+        this.worldRuntimeInstanceLeaseReadinessService.schedule(instanceId, instance, this);
     }
+
+    async waitForInstanceLeaseReady(instanceId) { await this.worldRuntimeInstanceLeaseReadinessService.wait(instanceId); }
 
     isInstanceLeaseWritable(instance) {
         return isInstanceLeaseWritable(this, instance);

@@ -187,7 +187,7 @@ export class WorldRuntimeTongtianTowerService {
     return actions;
   }
 
-  executeAction(playerId: string, actionId: string, deps: any): any {
+  async executeAction(playerId: string, actionId: string, deps: any): Promise<any> {
     const player = deps.playerRuntimeService?.getPlayer?.(playerId);
     if (player && Number.isFinite(player.hp) && Number(player.hp) <= 0) {
       throw new BadRequestException('重伤倒地时不能操作通天塔');
@@ -387,7 +387,7 @@ export class WorldRuntimeTongtianTowerService {
     }
   }
 
-  private enterTower(playerId: string, deps: any): any {
+  private async enterTower(playerId: string, deps: any): Promise<any> {
     const current = deps.getPlayerLocationOrThrow(playerId);
     const instance = deps.getInstanceRuntime(current.instanceId);
     const position = instance?.getPlayerPosition?.(playerId);
@@ -398,7 +398,7 @@ export class WorldRuntimeTongtianTowerService {
     return this.connectPlayerToLayer(playerId, progress.currentLayer, deps);
   }
 
-  private moveLayer(playerId: string, direction: -1 | 1, deps: any): any {
+  private async moveLayer(playerId: string, direction: -1 | 1, deps: any): Promise<any> {
     const layer = this.requireCurrentTowerLayer(playerId, deps);
     const progress = this.persistence.getOrCreateProgress(playerId);
     const nextLayer = layer + direction;
@@ -408,17 +408,18 @@ export class WorldRuntimeTongtianTowerService {
     if (direction > 0 && progress.highestLayer < nextLayer) {
       throw new BadRequestException('尚未通关当前层，不能前往下一层');
     }
+    const view = await this.connectPlayerToLayer(playerId, nextLayer, deps);
     this.persistence.updateCurrentLayer(playerId, nextLayer);
-    return this.connectPlayerToLayer(playerId, nextLayer, deps);
+    return view;
   }
 
-  private exitTower(playerId: string, deps: any): any {
+  private async exitTower(playerId: string, deps: any): Promise<any> {
     this.requireCurrentTowerLayer(playerId, deps);
     deps.worldRuntimeNavigationService?.clearNavigationIntent?.(playerId);
     deps.clearPendingCommand?.(playerId);
     const targetInstance = deps.getOrCreatePublicInstance(this.config.exitMapId);
     const player = deps.playerRuntimeService?.getPlayer?.(playerId);
-    const view = deps.worldRuntimePlayerSessionService.connectPlayer({
+    const view = await this.connectPlayerAfterLeaseReady({
       playerId,
       sessionId: player?.sessionId ?? `session:${playerId}`,
       instanceId: targetInstance.meta.instanceId,
@@ -433,13 +434,13 @@ export class WorldRuntimeTongtianTowerService {
     return view;
   }
 
-  private connectPlayerToLayer(playerId: string, layerInput: number, deps: any): any {
+  private async connectPlayerToLayer(playerId: string, layerInput: number, deps: any): Promise<any> {
     const layer = normalizeLayer(layerInput);
     const instance = this.ensureLayerInstance(layer, deps);
     deps.worldRuntimeNavigationService?.clearNavigationIntent?.(playerId);
     deps.clearPendingCommand?.(playerId);
     const player = deps.playerRuntimeService?.getPlayer?.(playerId);
-    const view = deps.worldRuntimePlayerSessionService.connectPlayer({
+    const view = await this.connectPlayerAfterLeaseReady({
       playerId,
       sessionId: player?.sessionId ?? `session:${playerId}`,
       instanceId: instance.meta.instanceId,
@@ -454,6 +455,14 @@ export class WorldRuntimeTongtianTowerService {
     }
     deps.queuePlayerNotice?.(playerId, `你进入通天塔第 ${layer} 层。`, 'success');
     return view;
+  }
+
+  private async connectPlayerAfterLeaseReady(input: any, deps: any): Promise<any> {
+    const sessionService = deps.worldRuntimePlayerSessionService;
+    if (typeof sessionService?.connectPlayerWhenReady === 'function') {
+      return sessionService.connectPlayerWhenReady(input, deps);
+    }
+    return sessionService.connectPlayer(input, deps);
   }
 
   private ensureLayerInstance(layer: number, deps: any): any {

@@ -18,6 +18,15 @@ import {
 import { WorldSessionBootstrapContractService } from './world-session-bootstrap-contract.service';
 
 interface WorldRuntimeBootstrapSessionPort {
+    connectPlayerWhenReady?(input: {
+        playerId: string;
+        sessionId?: string | null;
+        instanceId?: string | null;
+        mapId?: string | null;
+        preferredX?: number;
+        preferredY?: number;
+        allowCreateFallback?: boolean;
+    }, deps: unknown): Promise<unknown>;
     connectPlayer(input: {
         playerId: string;
         sessionId?: string | null;
@@ -61,7 +70,7 @@ export class WorldSessionBootstrapRuntimeService {
         return runtime.worldRuntimePlayerSessionService;
     }
 
-    connectBootstrapRuntimePlayer(
+    async connectBootstrapRuntimePlayer(
         worldRuntimeService: unknown,
         input: {
             playerId: string;
@@ -76,6 +85,9 @@ export class WorldSessionBootstrapRuntimeService {
         const port = this.resolveWorldRuntimeBootstrapSessionPort(worldRuntimeService);
         if (!port || typeof port.connectPlayer !== 'function') {
             throw new Error('bootstrap_runtime_connect_player_unavailable');
+        }
+        if (typeof port.connectPlayerWhenReady === 'function') {
+            return port.connectPlayerWhenReady(input, worldRuntimeService);
         }
         return port.connectPlayer(input, worldRuntimeService);
     }

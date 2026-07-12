@@ -309,6 +309,7 @@ export class WorldRuntimeLifecycleService {
     } = {}) {
         const restoreCatalogInstances = options.restoreCatalogInstances !== false;
         const restoreInstanceDomains = options.restoreInstanceDomains !== false;
+        deps.worldRuntimeInstanceLeaseReadinessService?.reset?.();
         if (deps.instanceCatalogService?.isEnabled?.()
             && restoreCatalogInstances
             && typeof deps.worldRuntimeTongtianTowerService?.resetLayerInstanceCache === 'function') {
@@ -362,7 +363,10 @@ export class WorldRuntimeLifecycleService {
             await restoreCatalogInstanceShellsAfterReset(deps, catalogEntries);
         }
         if (typeof deps.worldRuntimeSectService?.restoreSects === 'function') {
-            await deps.worldRuntimeSectService.restoreSects(deps, { ensureGuardianFormations: false });
+            await deps.worldRuntimeSectService.restoreSects(deps, {
+                ensureGuardianFormations: false,
+                applyRuntimeState: false,
+            });
         }
         applyStartupCatalogMetadata(deps, catalogEntries);
         await registerStartupRuntimeCatalogEntries(deps);

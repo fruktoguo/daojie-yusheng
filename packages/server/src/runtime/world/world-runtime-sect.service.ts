@@ -37,6 +37,7 @@ import {
     SectDurableCommitOutcomeUnknownError,
 } from '../../persistence/sect-durable-persistence';
 import { buildStructuredNotice } from './structured-notice.helpers';
+import { destroyManagedInstance } from './world-runtime-instance-lease.helpers';
 import * as world_runtime_normalization_helpers_1 from './world-runtime.normalization.helpers';
 import { findProtectedPlacementConflict, formatProtectedPlacementConflictReason, iterateSquareProtectedPlacementPoints } from './protected-placement.helpers';
 import {
@@ -410,6 +411,7 @@ class WorldRuntimeSectService {
             try {
                 this.registerSectTemplate(sect);
                 const sectInstance = this.ensureSectRuntimeInstance(sect, deps);
+                await waitForSectInstancesLeaseReady([entranceInstance, sectInstance], deps);
                 this.attachSectPortals(sect, entranceInstance, sectInstance);
                 this.sectsById.set(sectId, sect);
                 this.playerSectId.set(playerId, sectId);
@@ -442,7 +444,7 @@ class WorldRuntimeSectService {
                 deps.refreshQuestStates?.(playerId);
                 return sect;
             } catch (error) {
-                restoreSectCreationRollback({
+                await restoreSectCreationRollback({
                     service: this,
                     playerId,
                     player,
@@ -502,7 +504,11 @@ class WorldRuntimeSectService {
         );
         const previousEntranceInstanceId = sect.entranceInstanceId;
         const previousEntranceInstance = deps.getInstanceRuntime?.(previousEntranceInstanceId);
+        if (!previousEntranceInstance) {
+            throw new ServiceUnavailableException('原宗门山门实例尚未就绪');
+        }
         const sectInstance = this.ensureSectRuntimeInstance(sect, deps);
+        await waitForSectInstancesLeaseReady([previousEntranceInstance, entranceInstance, sectInstance], deps);
         const guardianId = `formation:sect_guardian:${sect.sectId}`;
         const previousGuardian = deps.worldRuntimeFormationService?.findFormationInInstance?.(previousEntranceInstanceId, guardianId) ?? null;
         const expectedUpdatedAtMs = normalizeIntegerWithDefault(sect.updatedAt, 0);
@@ -2008,19 +2014,23 @@ class WorldRuntimeSectService {
         if (!this.restored) {
             await this.restoreSectTemplates(deps);
         }
-        const restoreOptions = options as { ensureGuardianFormations?: boolean };
+        const restoreOptions = options as { ensureGuardianFormations?: boolean; applyRuntimeState?: boolean };
         const ensureGuardianFormations = restoreOptions.ensureGuardianFormations !== false;
+        const applyRuntimeState = restoreOptions.applyRuntimeState !== false;
         for (const sect of this.sectsById.values()) {
             this.registerSectTemplate(sect);
             const entranceInstance = deps.getInstanceRuntime(sect.entranceInstanceId);
             const sectInstance = this.ensureSectRuntimeInstance(sect, deps);
-            if (entranceInstance) {
+            if (applyRuntimeState && !(await prepareSectRuntimeApply(sect, entranceInstance, sectInstance, deps, this.logger))) {
+                continue;
+            }
+            if (applyRuntimeState && entranceInstance) {
                 logSectEntranceProtectedPlacementConflict(this.logger, sect, entranceInstance);
             }
-            if (sectInstance) {
+            if (applyRuntimeState && sectInstance) {
                 syncSectRuntimeDomainTiles(sect, sectInstance);
             }
-            if (entranceInstance && sectInstance) {
+            if (applyRuntimeState && entranceInstance && sectInstance) {
                 this.attachSectPortals(sect, entranceInstance, sectInstance);
                 if (ensureGuardianFormations) {
                     this.ensureGuardianFormation(sect, deps);
@@ -2451,7 +2461,7 @@ function restoreSectMembershipRollback(service, rollback) {
     }
 }
 
-function restoreSectCreationRollback(input) {
+async function restoreSectCreationRollback(input) {
     const formationId = `formation:sect_guardian:${input.sectId}`;
     input.deps.worldRuntimeFormationService?.removeFormationFromInstance?.(
         input.entranceInstance?.meta?.instanceId,
@@ -2461,8 +2471,14 @@ function restoreSectCreationRollback(input) {
     );
     restoreSectPortalInstanceRollback(input.entranceInstance, input.rollback.entranceInstance);
     if (!input.rollback.sectInstanceExisted) {
-        input.deps.worldRuntimeInstanceStateService?.deleteInstanceRuntime?.(input.instanceId);
-        input.deps.worldRuntimeLootContainerService?.removeInstanceState?.(input.instanceId);
+        try {
+            const destroyed = await destroyManagedInstance(input.deps, input.instanceId, 'sect_creation_rollback');
+            if (destroyed?.ok !== true && destroyed?.reason !== 'instance_not_found') {
+                input.service.logger.warn(`建宗失败后的实例销毁被拒绝：${input.instanceId} reason=${destroyed?.reason ?? 'unknown'}`);
+            }
+        } catch (error) {
+            input.service.logger.warn(`建宗失败后的实例销毁异常：${input.instanceId} ${error instanceof Error ? error.message : String(error)}`);
+        }
     }
     input.service.sectsById.delete(input.sectId);
     restoreSectPlayerRollback(input.playerId, input.player, input.rollback.player, input.service.playerRuntimeService);
@@ -3031,4 +3047,70 @@ function areSectTemplateBoundsEqual(template, bounds) {
     const normalizedBounds = normalizeBoundsObject(bounds);
     const templateBounds = readSectTemplateBounds(template);
     return Boolean(templateBounds && normalizedBounds && areSectBoundsEqual(templateBounds, normalizedBounds));
+}
+
+async function waitForSectInstancesLeaseReady(instances, deps) {
+    const currentInstances: any[] = [];
+    const seenInstanceIds = new Set<string>();
+    for (const instance of Array.isArray(instances) ? instances : []) {
+        const instanceId = normalizeOptionalString(instance?.meta?.instanceId);
+        if (!instanceId || seenInstanceIds.has(instanceId)) {
+            continue;
+        }
+        seenInstanceIds.add(instanceId);
+        currentInstances.push(instance);
+        await deps.waitForInstanceLeaseReady?.(instanceId);
+    }
+    if (currentInstances.length === 0) {
+        throw new ServiceUnavailableException('宗门实例尚未就绪');
+    }
+    const writable = currentInstances.every((instance) => {
+        const instanceId = normalizeOptionalString(instance?.meta?.instanceId);
+        return deps.getInstanceRuntime?.(instanceId) === instance
+            && (typeof deps.isInstanceLeaseWritable !== 'function' || deps.isInstanceLeaseWritable(instance));
+    });
+    if (!writable) {
+        throw new ServiceUnavailableException('宗门实例租约尚未就绪');
+    }
+}
+
+async function prepareSectRuntimeApply(sect, entranceInstance, sectInstance, deps, logger) {
+    if (!entranceInstance || !sectInstance) {
+        logger.warn(`宗门运行态应用跳过：${sect.sectId} 入口或宗门实例不存在`);
+        return false;
+    }
+    const instances: any[] = [];
+    const seenInstanceIds = new Set<string>();
+    for (const instance of [entranceInstance, sectInstance]) {
+        const instanceId = normalizeOptionalString(instance?.meta?.instanceId);
+        if (!instanceId || seenInstanceIds.has(instanceId)) {
+            continue;
+        }
+        seenInstanceIds.add(instanceId);
+        instances.push(instance);
+    }
+    try {
+        for (const instance of instances) {
+            const instanceId = normalizeOptionalString(instance?.meta?.instanceId);
+            await deps.waitForInstanceLeaseReady?.(instanceId);
+            if (deps.instanceCatalogService?.isEnabled?.()) {
+                if (typeof deps.syncInstanceLease !== 'function') {
+                    return false;
+                }
+                await deps.syncInstanceLease(instanceId, { hydratePersistentSnapshot: false });
+            }
+        }
+    } catch (error) {
+        logger.warn(`宗门运行态应用前续租失败：${sect.sectId} ${error instanceof Error ? error.message : String(error)}`);
+        return false;
+    }
+    const writable = instances.every((instance) => {
+        const instanceId = normalizeOptionalString(instance?.meta?.instanceId);
+        return deps.getInstanceRuntime?.(instanceId) === instance
+            && (typeof deps.isInstanceLeaseWritable !== 'function' || deps.isInstanceLeaseWritable(instance));
+    });
+    if (!writable) {
+        logger.warn(`宗门运行态应用跳过：${sect.sectId} 入口或宗门实例租约不可写`);
+    }
+    return writable;
 }

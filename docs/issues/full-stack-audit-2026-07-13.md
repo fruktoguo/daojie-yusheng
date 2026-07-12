@@ -3,7 +3,7 @@
 ## 审计口径
 
 - 生产主线：`packages/client`、`packages/shared`、`packages/server`、`packages/config-editor`。
-- 当前基线：`main` 分支 `aee54006`；相对 `origin/main` ahead 8。
+- 当前基线：`main` 分支 `08eb28b4`；相对 `origin/main` ahead 9。
 - package manager：`pnpm@10.29.1`。
 - 每项结论必须来自机制文档、完整调用链、测试、编译产物或运行数据；仅凭搜索未发现异常不能标记为“确认无问题”。
 - `[x]` 只表示该行列出的具体证据范围已完成，不代表相邻系统或整个项目已完成。
@@ -30,6 +30,9 @@
 - [x] P-09 普通启动与 GM 恢复错误批量销毁实例 catalog 真源的问题已修复；见 FS-005。
 - [x] P-10 普通实例与通天塔恢复先水合后取得 lease 的顺序错误已修复；见 FS-006。
 - [x] P-11 启动 catalog 注册可能回退 ownership epoch、长队列水合前 lease 过期的问题已修复；见 FS-007。
+- [x] P-12 动态实例从创建到 catalog 注册、lease claim 和可写状态之间的异步空窗已修复；见 FS-008。
+- [x] P-13 lease 到期后的 5 秒旧节点写入宽限已移除；见 FS-010。
+- [x] P-14 宗门实例 shell、入口、地块和护宗阵在 lease 就绪前被应用的问题已修复；见 FS-011。
 
 ### 服务端权威运行时
 
@@ -40,6 +43,8 @@
 - [ ] R-05 5000 玩家/10000 实例口径下的索引、队列、定时器、Worker、缓存和热路径分配。
 - [x] R-06 通天塔空闲生命周期的失败重试、资源卸载与重启恢复相邻链路已完成专项验证；见 FS-004。
 - [x] R-07 启动期 catalog 注册、claim/sync、实例分域水合和塔层 detached cache 顺序已完成专项修复；见 FS-006。
+- [x] R-08 在线 bootstrap、控制器、通天塔和跨线迁移的玩家挂接统一等待动态实例 lease，并通过真实运行时 attach gate；见 FS-009。
+- [x] R-09 跨线偏好和通天塔当前层只在目标实例接入成功后推进；见 FS-012。
 
 ### shared、协议与内容链路
 
@@ -64,6 +69,7 @@
 - [ ] X-03 首次进入、跨图、断线重连、滚动重启、恢复接管和配置发布后的端到端一致性。
 - [ ] X-04 最终最小门禁、专项 proof、with-db、协议/边界审计及未覆盖风险汇总。
 - [x] X-05 实例接管 smoke 的阵法双资源夹具、生产默认环境隔离和全应用关闭超时已修复；见 FS-003。
+- [x] X-06 动态实例/动作/宗门相关 smoke 的类型绕过、陈旧断言、未定义变量和本地数据库环境串扰已修复；见 FS-013。
 
 ## 已确认问题
 
@@ -148,7 +154,7 @@
 
 ### FS-006 启动恢复在取得实例 lease 前水合并可能回写分域
 
-- **状态**：已修复并完成专项验证，待本功能组原子提交。
+- **状态**：已修复、验证并提交。
 - **严重级别**：P0。
 - **所属功能组**：服务启动 / 实例接管 / 分域水合 / 通天塔 detached cache。
 - **影响链路**：catalog 扫描与公共实例 bootstrap → `restorePublicInstancePersistence()` / `primeLayerInstanceCache()` → 建筑、宝库、密室、阵法等恢复副作用 → `claimRecoverableCatalogInstances()` / `syncInstanceLease()`。
@@ -160,11 +166,11 @@
 - **修复方式**：拆出可等待的 `registerManagedInstanceCatalog()`，启动期按 16 并发先完成当前 runtime shell 注册；随后 claim 可恢复实例和逐实例 sync lease，二者都显式传 `hydratePersistentSnapshot: false`，所有成功实例最后统一水合一次，并在每个实例真正水合前即时续租。catalog 启用但 claim/sync 能力缺失时启动失败关闭。通天塔缓存改为临时挂载 catalog 元数据，先 replay/claim/renew lease，再显式水合并摘回 detached cache；冲突或失败时清掉临时状态，通用周期 claim 识别塔层后让路给该缓存流程，GM 重载前先清旧缓存。
 - **实际修改**：`world-runtime-instance-lease.helpers.ts` 拆出可等待 catalog 注册并为 lease sync 增加可关闭隐式水合的选项；`world-runtime-lifecycle.service.ts` 删除 reset 前无效实例物化，改为“承接 catalog 元数据 → 注册 → claim → sync → 水合前续租 → hydrate”并增加能力门禁；`world-runtime-tongtian-tower.service.ts` 增加 lease-first 缓存装载、失败清理和重载缓存清理；三类 smoke 分别证明普通 eager 顺序、通天塔成功/冲突分支及 deferred hydration 选项。
 - **验证结果**：`git diff --check` 与 `pnpm --filter @mud/server compile` 通过；移除两份本组旧 smoke 的 `@ts-nocheck`/CommonJS 后仍由 TypeScript 正常编译；compiled `world-runtime-lifecycle-smoke` 通过，证明所有实例完成首轮 lease sync 后才开始水合、每个实例水合前再续租、`lease_degraded` 实例不水合，且 epoch `9/11` 在注册前已承接；compiled `tongtian-tower-smoke` 通过，证明塔层按 lease → hydrate 成功，模拟 lease 冲突时不水合且无临时 runtime 残留；compiled `instance-lease-sync-error-smoke`、`startup-lifecycle-coordinator-smoke`、`instance-ownership-epoch-replay-smoke` 通过；真实 PostgreSQL `instance-lease-runtime-smoke` 完整以 `0` 退出并清理夹具；`pnpm verify:quick` 完整通过，生产边界仍为 `world-runtime.service.ts = 1200` 行。上述验证不证明真实双节点同时滚动启动、网络分区下 split-brain，亦不替代完整 shadow/acceptance/full 门禁。
-- **中文原子提交 hash**：待本功能组提交后回填。
+- **中文原子提交 hash**：`08eb28b4`（`fix(persistence): 加固实例启动接管顺序`）。
 
 ### FS-007 启动目录注册可把 ownership epoch 回退为零
 
-- **状态**：已修复并完成专项验证，待随实例启动接管功能组原子提交。
+- **状态**：已修复、验证并提交。
 - **严重级别**：P0。
 - **所属功能组**：实例 catalog / ownership fence / 启动接管。
 - **影响链路**：默认公共实例 bootstrap → `registerManagedInstanceCatalog()` → `InstanceCatalogService.upsertInstanceCatalog()` → `syncInstanceLease()` → 旧 epoch payload replay 与新 lease claim。
@@ -176,7 +182,103 @@
 - **修复方式**：catalog upsert 对 `ownership_epoch` 无条件使用数据库现值与新值的最大值；启动注册前按 `instance_id` 把 catalog 的 lease、epoch 与路由元数据承接到新建 runtime shell，再以正确 epoch 注册和执行 replay/claim。该规则不依赖 lease 是否仍有效。
 - **实际修改**：`instance-catalog.service.ts` 将 epoch 更新改为单调 `GREATEST`；`world-runtime-lifecycle.service.ts` 在注册前应用 catalog 元数据；`world-runtime-lifecycle-smoke.ts` 以 epoch `9/11` 的公共/真实线路证明注册与首次 sync 都未看到默认 `0`；`instance-lease-runtime-smoke.ts` 增加真实 PostgreSQL 夹具，证明过期 lease 上用 epoch `0` upsert 后数据库仍保持 epoch `17` 并自动清理夹具。
 - **验证结果**：compiled `world-runtime-lifecycle-smoke` 证明 epoch `9/11` 的 catalog 元数据在 upsert 与首次 sync 前已进入 runtime shell；真实 PostgreSQL `instance-lease-runtime-smoke` 证明过期远端 lease 的目录以 epoch `0` upsert 后，`ownership_epoch` 与 `metadata_version` 均保持 `17`，测试完整以 `0` 退出并自动清理；`pnpm --filter @mud/server compile`、`git diff --check` 和 `pnpm verify:quick` 均通过。未验证真实多节点并发 upsert/claim 的锁等待与吞吐上限。
-- **中文原子提交 hash**：待本功能组提交后回填。
+- **中文原子提交 hash**：`08eb28b4`（`fix(persistence): 加固实例启动接管顺序`）。
+
+### FS-008 动态实例在异步 catalog 注册完成前已被视为可写
+
+- **状态**：已修复并验证，待本组中文原子提交后回填 hash。
+- **严重级别**：P0。
+- **所属功能组**：动态实例 / catalog 注册 / lease claim / tick 与持久化写入。
+- **影响链路**：宗门、密室、通天塔或其他按需实例创建 → `setInstanceRuntime()` → 后台 `syncManagedInstanceRegistration()` → tick、实例分域写入和玩家挂接。
+- **证据**：修复前 `setInstanceRuntime()` 先把新实例放入权威运行态表，再以不可等待的 fire-and-forget 任务注册 catalog 和同步 lease；同时 `isInstanceLeaseWritable()` 在 catalog 已启用但 `assignedNodeId` 或 `leaseToken` 为空时直接返回 `true`。相同 `instanceId` 被新 runtime 替换后，旧后台任务也没有 generation/current-instance 守卫。
+- **根本原因**：动态实例创建的同步内存边界与异步数据库所有权边界之间没有显式“未就绪”状态、可等待任务或替换隔离；可写判断又把“尚未分配 lease”误当成单机兼容路径。
+- **为什么错误**：catalog 启用即表示所有持久实例写权由数据库 lease 决定。缺少 node/token 的实例不能证明归本节点所有，更不能参与 tick、落盘或玩家资产副作用；旧实例任务也无权为同 ID 的新对象注册或 claim。
+- **触发条件**：运行期首次创建宗门、密室或塔层；数据库注册/claim 有延迟；同一实例 ID 在注册任务未完成时被 reset、恢复或替换。
+- **可能后果**：无 lease 的实例先推进 tick 或写分域；两个节点同时把同一动态实例当成本地可写；旧任务为已替换 runtime claim lease；玩家进入尚未 hydrate 的实例；宗门入口、密室状态或塔层怪物基于错误所有权被创建。
+- **修复方式**：新增 `WorldRuntimeInstanceLeaseReadinessService`，按 `instanceId` 串行 catalog 注册和 lease 同步，使用 generation 与对象恒等守卫隔离 reset/替换；任务可由挂接和领域服务等待。catalog 启用时缺少 node/token 一律不可写；任务失败保持实例不可写，由 attach/tick/领域写入闸门失败关闭。
+- **实际修改**：`WorldRuntimeService.setInstanceRuntime()` 改为调度就绪服务并暴露 `waitForInstanceLeaseReady()`；`syncManagedInstanceRegistration()` 改为可等待并在 upsert、claim 前后检查当前对象；密室恢复/创建和通天塔/宗门相邻路径等待就绪；新增 `instance-lease-readiness-smoke.ts` 证明同 ID 任务串行、旧对象不 claim、当前对象只 claim 一次。
+- **验证结果**：server compile 通过；compiled `instance-lease-readiness-smoke` 证明缺 lease 初始不可写、旧 runtime 未 claim、当前 runtime claim 一次且等待器直到 claim 后才完成；compiled 通天塔、密室、宗门、启动恢复和 bootstrap smoke 均通过；真实 PostgreSQL `instance-lease-runtime-smoke` 通过；`pnpm verify:quick` 完整通过。未证明 10000 实例同时注册的吞吐和真实跨节点网络分区。
+- **中文原子提交 hash**：待本组提交后回填。
+
+### FS-009 玩家挂接读取了错误依赖形状并绕过真实 attach gate
+
+- **状态**：已修复并验证，待本组中文原子提交后回填 hash。
+- **严重级别**：P0。
+- **所属功能组**：玩家会话 / bootstrap / 动态实例 / 跨图与通天塔。
+- **影响链路**：socket bootstrap、离线收益确认、HTTP connect、世界迁移、通天塔进出/换层 → `WorldRuntimePlayerSessionService.connectPlayer()` → 目标实例 attach gate。
+- **证据**：`connectPlayer()` 只读取 `deps.worldRuntimeService?.instanceReadyForPlayerAttach()`；生产调用实际把 `WorldRuntimeService` 本身作为 `deps` 传入，并不存在嵌套的 `worldRuntimeService` 字段，因此该分支恒不命中，代码回落到只检查字符串状态的 `resolveInstanceAttachReady()`。动态创建路径又同步调用 `connectPlayer()`，不会等待后台 catalog/lease 任务。
+- **根本原因**：会话服务为测试夹具保留的嵌套依赖形状被误当成生产形状；目标实例解析、异步所有权就绪和最终挂接没有形成一个不可拆分的服务入口。
+- **为什么错误**：真实 attach gate 还检查启动屏障、本节点 lease/token、严格过期时间和实例是否被 fence；只看 `runtimeStatus` 会让玩家进入未租约、过期或启动尚未开放的实例。进入后再 fence 会留下位置、会话路由和玩家运行态不一致。
+- **触发条件**：任何生产 `WorldRuntimeService` 直传调用；尤其是按需创建的塔层、默认分线、宗门/密室目标或启动恢复期间的连接。
+- **可能后果**：玩家挂入无所有权实例并参与 tick；首包来自未 hydrate 状态；跨线/塔层操作半成功；后续 lease 同步把仍有玩家的实例隔离为不可写，形成卡图、位置漂移和恢复困难。
+- **修复方式**：会话服务优先调用 `deps.instanceReadyForPlayerAttach()`，仅把嵌套形状保留为兼容夹具；新增 `connectPlayerWhenReady()`，先解析/创建精确目标、等待该实例就绪，再以禁止 fallback 的精确 ID 重新进入同步 `connectPlayer()`，由最终挂接点再次执行权威 guard。bootstrap、离线收益确认、HTTP controller、通天塔和世界迁移统一 await 新入口。
+- **实际修改**：更新 session bootstrap runtime port 与调用链为异步；controller 改为 await；通天塔动作支持异步挂接；动作执行服务兼容同步普通动作与异步塔/迁服动作；专项 smoke 证明生产直传 guard 被调用且顺序为 wait → guard → connect。
+- **验证结果**：compiled `instance-lease-readiness-smoke`、`world-session-bootstrap-instance-fallback-smoke`、`world-runtime-action-execution-smoke`、`tongtian-tower-smoke` 与 `world-runtime-lifecycle-smoke` 通过；`pnpm verify:quick` 的 runtime/socket 主证明链通过。未执行真实双节点 socket 导流或滚动重启验收。
+- **中文原子提交 hash**：待本组提交后回填。
+
+### FS-010 lease 到期后旧节点仍有 5 秒写入宽限
+
+- **状态**：已修复并验证，待本组中文原子提交后回填 hash。
+- **严重级别**：P0。
+- **所属功能组**：实例 lease / split-brain / 写入 fence。
+- **影响链路**：实例 tick、动作、持久化 flush、销毁和玩家挂接 → `isInstanceLeaseWritable()`；远端节点 → `InstanceCatalogService.claimInstanceLease()`。
+- **证据**：修复前本地可写判断使用 `leaseExpireAt > Date.now() - 5_000`，即 lease 真实到期后继续认可 5 秒；数据库 claim SQL 则在 `lease_expire_at < now()` 时立即允许新节点原子接管。持久化层的独立 catalog guard 也使用严格 `leaseExpireAt > Date.now()`，同一实例存在两套互相冲突的过期语义。
+- **根本原因**：用于提前续租和容忍调度抖动的 `INSTANCE_LEASE_RENEW_SKEW_MS` 被反向复用成写权限宽限，没有区分“何时尝试续租”与“所有权何时终止”。
+- **为什么错误**：数据库时间点是跨节点 ownership 的权威边界；到期后新节点可能已获得新 token/epoch，旧节点再写任何一息都构成 split-brain。客户端时钟容忍不能延长数据库已经终止的旧所有权。
+- **触发条件**：旧节点发生事件循环阻塞、长 GC、数据库暂时不可达或续租延迟，lease 刚到期；另一节点在 5 秒窗口内完成 claim。
+- **可能后果**：两个节点同时推进战斗、移动、地块、容器、建筑和玩家状态；旧节点的动作先在内存成功、随后数据库 fence 拒绝，制造客户端已见结果与持久态不一致；销毁和 attach 判断也会接受过期实例。
+- **修复方式**：所有运行态写权限和本地过期降级判断改为严格比较 `leaseExpireAt > Date.now()`；续租/接管探测仍可保留调度偏移，但在成功原子 renew/claim 前绝不恢复写入。
+- **实际修改**：收紧 `isInstanceLeaseWritable()` 与 `shouldMarkLocalLeaseDegraded()`；专项 smoke 构造未来 lease 与已过期 1 毫秒 lease，证明前者可写、后者立即停写。
+- **验证结果**：compiled `instance-lease-readiness-smoke` 的 `beforeExpiryWritable=true / expiredWritable=false`；compiled `instance-lease-sync-error-smoke` 证明到期进入 `lease_degraded` 且续租恢复后才重开写入；真实 PostgreSQL `instance-lease-runtime-smoke` 和 `pnpm verify:quick` 通过。未做真实双节点亚毫秒级 claim/旧写竞态压测。
+- **中文原子提交 hash**：待本组提交后回填。
+
+### FS-011 宗门入口和运行态副作用可发生在实例 lease 就绪前
+
+- **状态**：已修复并验证，待本组中文原子提交后回填 hash。
+- **严重级别**：P0。
+- **所属功能组**：宗门 / 启动恢复 / 动态实例 / 阵法与地图地块。
+- **影响链路**：启动 `restoreSects()`、建宗、迁宗 → 创建/查找宗门实例 → 同步宗门地块、挂入口/核心 portal、创建/迁移护宗阵、写宗门资产。
+- **证据**：启动恢复在统一 claim 前调用 `restoreSects()`，该方法会 `ensureSectRuntimeInstance()` 后立即同步宗门地块、挂入口与核心 portal，并可能确保护宗阵；建宗和迁宗也在同步 `createInstance()` 返回后立刻进入这些副作用，没有等待后台 catalog/lease。迁宗还会删除旧入口实例的 portal/阵法，却不要求旧入口实例仍归本节点。建宗后续失败时，回滚只删新宗门 runtime，不以 lease/epoch CAS 销毁已注册的 catalog。即使完成批量首轮 sync，10000 实例长队列下早期 lease 也可能在宗门运行态应用前过期。
+- **根本原因**：宗门恢复把“注册动态模板/创建实例 shell”和“对权威运行态应用宗门状态”合并在同一方法，没有把 lease-ready 作为入口、地块和阵法副作用的共同前置条件。
+- **为什么错误**：宗门入口会改变公共地图可交互结构，宗门地块和护宗阵会影响战斗、资产与持久化；入口实例和宗门实例可能分别归不同节点，必须两者都在本节点可写时才能组成双向 portal 和阵法位置。
+- **触发条件**：服务启动/GM 恢复、运行期建宗或迁宗；catalog 注册较慢；入口或宗门实例 lease 被其他节点持有；批量恢复时间超过 lease TTL。
+- **可能后果**：旧节点在远端公共图挂/删宗门入口或迁移护宗阵；宗门边界/地块修正从旧快照回写；建宗物品已消耗但实例不可进入；失败建宗留下无人持有但仍占 lease 的 catalog；迁宗一半成功，旧入口、新入口和阵法位置互相不一致。
+- **修复方式**：启动 lease 前的 `restoreSects()` 只注册模板和创建 shell，显式 `applyRuntimeState:false`；真正应用时对入口与宗门实例逐一等待动态注册、即时续租且关闭隐式 hydrate，最后再次检查对象仍是当前 runtime 且严格可写，不满足则记录并跳过。建宗在任何 portal、资产和阵法变更前同时校验当前入口与新宗门实例；迁宗同时校验旧入口、目标入口和宗门实例，旧入口缺失或非本节点写权时失败关闭。建宗失败以统一 `destroyManagedInstance()` 的 catalog lease/epoch CAS 回收新实例，拒绝或异常时保留不可写运行态并记录原因，不再无围栏删内存。
+- **实际修改**：为 `restoreSects()` 增加运行态应用分相；新增 `prepareSectRuntimeApply()` 的双实例就绪/续租/对象恒等/可写检查；建宗与迁宗改用多实例 `waitForSectInstancesLeaseReady()`；建宗 rollback 复用统一实例销毁围栏；综合宗门 smoke 记录并断言建宗、两次恢复和迁宗的等待次数与顺序，并证明 lease 拒绝时物品、入口和实例表全部回滚。
+- **验证结果**：规范 TypeScript 编译通过；默认本地环境下 compiled `world-runtime-sect-smoke` 通过，证明建宗同时等待入口与宗门实例、迁宗校验旧/新入口和宗门实例、恢复同时等待入口与宗门实例，且 lease 拒绝不会消耗物品、挂入口或留下运行态实例；compiled `world-runtime-lifecycle-smoke`、真实 PostgreSQL `instance-lease-runtime-smoke` 与 `pnpm verify:quick` 通过。未做两节点分别持有入口图与宗门图的集群验收。
+- **中文原子提交 hash**：待本组提交后回填。
+
+### FS-012 跨线偏好和通天塔当前层在目标接入前提前推进
+
+- **状态**：已修复并验证，待本组中文原子提交后回填 hash。
+- **严重级别**：P1。
+- **所属功能组**：世界迁移 / 通天塔 / 玩家位置与进度一致性。
+- **影响链路**：`world:migrate` 或通天塔上一层/下一层 → 更新玩家偏好/塔层进度 → 连接目标实例。
+- **证据**：世界迁移修复前先调用 `updateWorldPreference()`，之后才创建并连接目标分线；通天塔换层先 `updateCurrentLayer()`，再连接目标层。目标实例 lease/attach 失败时，前置状态没有回滚。
+- **根本原因**：偏好和塔层进度被当成发起请求时即可提交的意图，而不是目标实例接入成功后的结果；原同步挂接几乎不失败，新增严格 lease gate 后暴露了部分失败窗口。
+- **为什么错误**：玩家实际位置是权威结果，默认分线和当前塔层必须与成功位置转换一致。提前推进会让后续重连/跨图按未到达目标恢复，或把玩家送到尚未真正进入的塔层。
+- **触发条件**：目标实例被远端 lease 持有、动态注册失败、启动 attach gate 关闭、实例无可用落点或连接过程抛错。
+- **可能后果**：玩家仍在旧图但下次跨图默认进入新分线；塔层进度显示已换层而运行态仍在原层；重连后位置跳变；成功通知与真实位置不一致。
+- **修复方式**：世界迁移仅在目标连接成功的 finalize 阶段更新偏好并发成功通知；同分线无位置变更时保持即时更新。通天塔先完成目标层连接，再推进 `currentLayer`；连接失败不改变进度。
+- **实际修改**：`executeWorldMigration()` 和 `moveLayer()` 调整提交顺序；动作 smoke 增加异步 lease 拒绝用例，明确断言不调用 `updateWorldPreference` 且不发送成功通知；通天塔 smoke 全面 await 异步动作。
+- **验证结果**：compiled `world-runtime-action-execution-smoke` 与 `tongtian-tower-smoke` 通过；前者证明 `lease_not_local` 时偏好和成功通知均未推进，后者证明成功换层后进度正确；`pnpm verify:quick` 通过。未模拟玩家连接成功后进度异步落库失败，该链仍由现有 pending write/flush 负责恢复。
+- **中文原子提交 hash**：待本组提交后回填。
+
+### FS-013 动作与宗门综合 smoke 长期被类型绕过和陈旧夹具削弱
+
+- **状态**：已修复并验证，待本组中文原子提交后回填 hash。
+- **严重级别**：P1。
+- **所属功能组**：验证门禁 / TypeScript / 本地环境隔离。
+- **影响链路**：动作执行、世界迁移、宗门建/迁宗和宗门地图综合回归。
+- **证据**：两份 smoke 均使用 `// @ts-nocheck` 与 CommonJS；动作 smoke 的迁服期望缺少生产已传入的 `relocateExisting:true`，并仍断言偏好先更新；宗门 smoke 在管理摘要断言引用从未定义的 `sect` 变量，调用签名已漂移却未被编译发现。宗门 smoke 还会读取仓库本地数据库环境，在主动 stub 掉 pool 后反而因检测到 URL 而报“宗门持久化暂不可用”。
+- **根本原因**：旧 smoke 通过关闭类型检查维持，接口演进后只剩运行时偶然覆盖；验证进程没有隔离本地 `.env` 已注入的数据库配置，导致无库夹具与真实环境互相矛盾。
+- **为什么错误**：门禁自身固定失败或断言旧行为后，业务回归与夹具漂移无法区分；开发者可能为通过 smoke 放宽生产规则，或直接停止运行这两条关键综合证明。
+- **触发条件**：编译不检查工具文件的真实签名、直接运行宗门 smoke 且本地存在数据库 URL、执行迁服成功断言或走到宗门管理摘要。
+- **可能后果**：动态 lease/attach 回归没有可信证明；测试红灯被误判为业务故障；未定义变量直到很晚才暴露；本地和 CI 结果不一致。
+- **修复方式**：移除两份 smoke 的类型绕过和 CommonJS，改为规范 TypeScript import；按当前构造器/方法签名补齐夹具，修正迁服载荷和宗门 ID 断言；宗门 smoke 在执行 main 前保存并清除数据库 URL，结束后恢复，确保无库综合测试不受本机配置影响。
+- **实际修改**：更新 `world-runtime-action-execution-smoke.ts`、`world-runtime-sect-smoke.ts` 和相关异步断言；补充迁服失败、宗门 lease 等待证明。
+- **验证结果**：server compile 在无 `@ts-nocheck` 下通过；默认环境直接运行 compiled `world-runtime-action-execution-smoke` 与 `world-runtime-sect-smoke` 均通过；`pnpm verify:quick` 完整通过。
+- **中文原子提交 hash**：待本组提交后回填。
 
 ## 2026-07-14 待用户决定
 

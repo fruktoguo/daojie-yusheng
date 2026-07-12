@@ -121,8 +121,11 @@ interface WorldRuntimePlayerSessionDeps {
   clearPendingCommand(playerId: string): void;
   getInstanceRuntime(instanceId: string): InstanceRuntimeLike | null;
   refreshPlayerContextActions?(playerId: string, view?: unknown): unknown;
+  instanceReadyForPlayerAttach?(instanceId: string): { ok: boolean; reason: string; instance?: InstanceRuntimeLike | null };
+  waitForInstanceLeaseReady?(instanceId: string): Promise<void>;
   worldRuntimeService?: {
     instanceReadyForPlayerAttach?(instanceId: string): { ok: boolean; reason: string; instance?: InstanceRuntimeLike | null };
+    waitForInstanceLeaseReady?(instanceId: string): Promise<void>;
   };
 }
 
@@ -155,6 +158,36 @@ export class WorldRuntimePlayerSessionService {
     private readonly playerSessionRouteService: PlayerSessionRouteService | null = null,
   ) {}
 
+  async connectPlayerWhenReady(input: ConnectPlayerInput, deps: WorldRuntimePlayerSessionDeps): Promise<unknown> {
+    const playerId = input.playerId.trim();
+    if (!playerId) {
+      throw new BadRequestException('玩家 ID 不能为空');
+    }
+    const targetInstance = this.resolveTargetInstance(
+      {
+        playerId,
+        requestedInstanceId: normalizeInstanceId(input.instanceId),
+        requestedMapId: normalizeMapId(input.mapId),
+      },
+      deps,
+      { allowCreateFallback: input.allowCreateFallback !== false },
+    );
+    if (!targetInstance) {
+      throw new NotFoundException('目标实例不可用');
+    }
+    if (typeof deps.waitForInstanceLeaseReady === 'function') {
+      await deps.waitForInstanceLeaseReady(targetInstance.meta.instanceId);
+    } else {
+      await deps.worldRuntimeService?.waitForInstanceLeaseReady?.(targetInstance.meta.instanceId);
+    }
+    return this.connectPlayer({
+      ...input,
+      instanceId: targetInstance.meta.instanceId,
+      mapId: targetInstance.template.id,
+      allowCreateFallback: false,
+    }, deps);
+  }
+
   connectPlayer(input: ConnectPlayerInput, deps: WorldRuntimePlayerSessionDeps): unknown {
     const playerId = input.playerId.trim();
     if (!playerId) {
@@ -180,7 +213,8 @@ export class WorldRuntimePlayerSessionService {
     if (!targetInstance) {
       throw new NotFoundException('目标实例不可用');
     }
-    const attachReady = deps.worldRuntimeService?.instanceReadyForPlayerAttach?.(targetInstance.meta.instanceId)
+    const attachReady = deps.instanceReadyForPlayerAttach?.(targetInstance.meta.instanceId)
+      ?? deps.worldRuntimeService?.instanceReadyForPlayerAttach?.(targetInstance.meta.instanceId)
       ?? resolveInstanceAttachReady(targetInstance);
     if (!attachReady.ok) {
       deps.logger.warn(

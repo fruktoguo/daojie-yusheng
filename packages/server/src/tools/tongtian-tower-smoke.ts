@@ -57,7 +57,7 @@ async function main(): Promise<void> {
   assert.equal(shadowSkill.cooldown, 10, '虚影重击冷却应为 10 tick');
 
   connectToPublicMap(deps, 'player:1', 31, 15);
-  const enterView = tower.executeAction('player:1', 'tower:tongtian:enter', deps);
+  const enterView = await tower.executeAction('player:1', 'tower:tongtian:enter', deps);
   assert.equal(enterView.instance.instanceId, 'tower:tongtian:layer:1');
   const layer1Template = templates.getOrThrow('tongtian_tower_layer_1') as any;
   assert.equal(layer1Template.mapGroupName, '秘境', '通天塔层地图分类应归为秘境');
@@ -79,12 +79,12 @@ async function main(): Promise<void> {
     '塔内任意位置都可退出，未解锁下一层时不显示下一层',
   );
 
-  assert.throws(
-    () => tower.executeAction('player:1', 'tower:tongtian:previous', deps),
+  await assert.rejects(
+    tower.executeAction('player:1', 'tower:tongtian:previous', deps),
     /第一层不能退到上一层/,
   );
-  assert.throws(
-    () => tower.executeAction('player:1', 'tower:tongtian:next', deps),
+  await assert.rejects(
+    tower.executeAction('player:1', 'tower:tongtian:next', deps),
     /尚未通关当前层/,
   );
 
@@ -105,7 +105,7 @@ async function main(): Promise<void> {
   assert.equal(layer1.listMonsters().every((monster: any) => monster.name.startsWith('虚影')), true);
 
   connectToPublicMap(deps, 'player:2', 31, 15);
-  tower.executeAction('player:2', 'tower:tongtian:enter', deps);
+  await tower.executeAction('player:2', 'tower:tongtian:enter', deps);
   assert.equal(layer1.listMonsters().length, 5, '中途进入不增加当前波次怪物');
   assertTowerMonsterMix(layer1, 4, 1);
 
@@ -123,11 +123,11 @@ async function main(): Promise<void> {
     '解锁后塔内任意位置都可下一层或退出',
   );
 
-  assert.throws(
-    () => tower.executeAction('player:2', 'tower:tongtian:next', deps),
+  await assert.rejects(
+    tower.executeAction('player:2', 'tower:tongtian:next', deps),
     /尚未通关当前层/,
   );
-  const layer2View = tower.executeAction('player:1', 'tower:tongtian:next', deps);
+  const layer2View = await tower.executeAction('player:1', 'tower:tongtian:next', deps);
   assert.equal(layer2View.instance.instanceId, 'tower:tongtian:layer:2');
   assert.equal(persistence.rows.get('player:1')?.currentLayer, 2);
 
@@ -143,14 +143,14 @@ async function main(): Promise<void> {
   persistence.updateCurrentLayer('player:dead', 99);
   persistence.promoteHighestLayer('player:dead', 99);
   connectToPublicMap(deps, 'player:dead', 31, 15);
-  const deadLayerView = tower.executeAction('player:dead', 'tower:tongtian:enter', deps);
+  const deadLayerView = await tower.executeAction('player:dead', 'tower:tongtian:enter', deps);
   assert.equal(deadLayerView.instance.instanceId, 'tower:tongtian:layer:99');
   const deadPlayer = deps.playerRuntimeService.getPlayer('player:dead');
   assert.ok(deadPlayer, '死亡传送回归用例需要玩家运行态');
   deadPlayer.hp = 0;
   deps.worldRuntimeGmQueueService.markPendingRespawn('player:dead');
-  assert.throws(
-    () => tower.executeAction('player:dead', 'tower:tongtian:exit', deps),
+  await assert.rejects(
+    tower.executeAction('player:dead', 'tower:tongtian:exit', deps),
     /重伤倒地时不能操作通天塔/,
     '死亡时不能通过通天塔动作换层或退出',
   );
@@ -262,7 +262,7 @@ async function main(): Promise<void> {
     '恢复后的通天塔层应保留磁盘回填标记',
   );
 
-  tower.executeAction('player:1', 'tower:tongtian:previous', deps);
+  await tower.executeAction('player:1', 'tower:tongtian:previous', deps);
   assert.equal(persistence.rows.get('player:1')?.currentLayer, 1);
 
   clearWaveMonsters(layer1);
@@ -280,7 +280,7 @@ async function main(): Promise<void> {
     desc: '',
     cooldownLeft: 30,
   }];
-  tower.executeAction('player:1', 'tower:tongtian:exit', deps);
+  await tower.executeAction('player:1', 'tower:tongtian:exit', deps);
   assert.equal(cooldownPlayer.lifeElapsedTicks, 100, '退出通天塔不能重置玩家自己的 tick');
   assert.equal(
     cooldownPlayer.combat.cooldownReadyTickBySkillId['skill:tongtian:cooldown-smoke'],
@@ -298,13 +298,13 @@ async function main(): Promise<void> {
     ['tower:tongtian:enter'],
     '退出通天塔后上一层/下一层/退出动作必须移除，只显示入口动作',
   );
-  tower.executeAction('player:2', 'tower:tongtian:exit', deps);
+  await tower.executeAction('player:2', 'tower:tongtian:exit', deps);
   assert.equal(layer1.listMonsters().length, 0, '空层清理后不保留怪物');
   for (let index = 0; index < 60; index += 1) {
     layer1.tickOnce();
   }
   connectToPublicMap(deps, 'player:1', 31, 15);
-  tower.executeAction('player:1', 'tower:tongtian:enter', deps);
+  await tower.executeAction('player:1', 'tower:tongtian:enter', deps);
   assert.equal(layer1.listMonsters().length, 5, '停刷超过一轮后进入立即刷新');
   assertTowerMonsterMix(layer1, 4, 1);
 
@@ -312,7 +312,7 @@ async function main(): Promise<void> {
   persistence.promoteHighestLayer('player:3', 50);
   assert.equal(tower.getLayerMonsterLevel(50), 50);
   connectToPublicMap(deps, 'player:3', 31, 15);
-  tower.executeAction('player:3', 'tower:tongtian:enter', deps);
+  await tower.executeAction('player:3', 'tower:tongtian:enter', deps);
   const layer50 = deps.getInstanceRuntimeOrThrow('tower:tongtian:layer:50');
   const layer50Monster = layer50.listMonsters().find((monster: any) => monster.monsterId === 'm_tongtian_shadow');
   assert.ok(layer50Monster, '第 50 层应刷新普通虚影');

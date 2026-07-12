@@ -110,6 +110,7 @@ import { WorldRuntimeInstanceScheduleService } from './runtime/world/world-runti
 import { WorldRuntimeMovementService } from './runtime/world/world-runtime-movement.service';
 import { WorldRuntimeSummaryQueryService } from './runtime/world/query/world-runtime-summary-query.service';
 import { WorldRuntimeInstanceStateService } from './runtime/world/world-runtime-instance-state.service';
+import { WorldRuntimeInstanceLeaseReadinessService } from './runtime/world/world-runtime-instance-lease-readiness.service';
 import { WorldRuntimeInstanceQueryService } from './runtime/world/query/world-runtime-instance-query.service';
 import { WorldRuntimePendingCommandService } from './runtime/world/command/world-runtime-pending-command.service';
 import { WorldRuntimePlayerLocationService } from './runtime/world/world-runtime-player-location.service';
@@ -321,6 +322,7 @@ const WORLD_GATEWAY_PROVIDERS = shouldStartHttpServer()
     WorldRuntimeMovementService,
     WorldRuntimeSummaryQueryService,
     WorldRuntimeInstanceStateService,
+    WorldRuntimeInstanceLeaseReadinessService,
     WorldRuntimeInstanceQueryService,
     WorldRuntimePendingCommandService,
     WorldRuntimePlayerLocationService,
