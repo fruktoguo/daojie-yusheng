@@ -66,3 +66,9 @@
 - 单一 GM 角色，无分级权限
 - 所有 GM 端点统一通过 Token 鉴权
 - 开发环境可通过 `SERVER_ALLOW_INSECURE_LOCAL_GM_PASSWORD=1` 降级
+
+## GM 玩家修改持久化边界
+
+- 玩家修改请求只允许已注册的 `section`；未知分区直接拒绝，不执行无意义或扩大范围的存档写入。
+- `basic`、`realm`、`techniques`、`craftSkills`、`items`、`quests` 和位置/重置等操作只写实际受影响的玩家分域投影，不回退为整玩家投影覆盖。
+- 在线炼体调整完成数据库写入后，只确认 `body_training`、`progression`、`attr` 三个 domain，并携带构建快照时的持久化 revision；数据库 I/O 期间产生的新变更继续保持 dirty，等待下一轮 flush。

@@ -161,7 +161,7 @@ async function main(): Promise<void> {
     },
   });
 
-  assert.deepEqual(savedDomains, ['inventory', 'equipment']);
+  assert.deepEqual(savedDomains, ['inventory', 'equipment', 'artifact']);
   assert.equal(savedDomains.includes('market_storage'), false);
   assert.equal(savedOptions.allowInventoryEmptyOverwrite, true);
   assert.equal(savedOptions.allowEquipmentEmptyOverwrite, true);

@@ -25,13 +25,13 @@
 | shared 类型、协议与 protobuf | 进行中 | shared build 与协议审计通过；兑换码和离线收益主动刷新 C2S/S2C 已关联 `requestId`；工坊专用面板/任务事件不再复制到空消费 EventBus 字段 | 完成其余大包体的数据流与消费复核 |
 | 服务端网络同步、AOI、首包/增量 | 进行中 | `pnpm verify:quick` runtime smoke 通过；网关 action 已验证单次 delta 和兑换终态关联；工坊无效 EventBus 载荷清理后协议总量实测下降 | 逐字段检查其余频率、范围、恢复语义 |
 | 服务端 runtime、tick、移动、战斗、交互 | 进行中 | server compile、quick runtime smoke 通过；无库本地主线 18 类 smoke 已完整跑通，怪物战斗/技能/重置夹具已按真实机制校正；宗门队列、资产锁、地图投影与 durable commit 编排边界已从无状态规则和 SQL 中分离 | 继续按 mechanics 文档审查真实调用链、热路径及未被 smoke 覆盖的机制 |
-| 持久化、恢复、强事务与关闭 | 进行中 | server compile 通过；边界审计 forbidden 已清零；玩家统计总账回读/flush 已按玩家串行并接入 quick smoke；账号真源及宗门真源在已配置数据库但连接池/初始化失败时均改为 fail-closed | 复核其余玩家/实例分域、outbox、恢复围栏；真实 DB 恢复成功路径仍需获准后验证 |
+| 持久化、恢复、强事务与关闭 | 进行中 | server compile 通过；边界审计 forbidden 已清零；玩家统计总账回读/flush 已按玩家串行并接入 quick smoke；账号真源及宗门真源在已配置数据库但连接池/初始化失败时均改为 fail-closed；GM 定向玩家修改不再回退整投影写入或全清 dirty domain | 复核其余玩家/实例分域、outbox、恢复围栏；真实 DB 恢复成功路径仍需获准后验证 |
 | 配置编辑器、schema、导入发布 | 进行中 | 构建、content-contract、异步代际 smoke 与浏览器乱序回包验证通过 | 继续复核地图保存、schema 与发布入口 |
-| 鉴权、权限、GM 高危操作 | 进行中 | 全部 GM controller 已确认受 Guard 保护；改密 token 撤销与启动回读已有 compiled smoke；注册激活 smoke 不再把鉴权要求误判为名称冲突；IP 失败预算和所有 GM 密码入口已统一限流；账号库未就绪会同时阻断 HTTP、GM、Socket 和 readiness | GM 审计 fail-open、高危 scope、GET 密码兼容入口及维护态策略等待产品决定 |
+| 鉴权、权限、GM 高危操作 | 进行中 | 全部 GM controller 已确认受 Guard 保护；改密 token 撤销与启动回读已有 compiled smoke；注册激活 smoke 不再把鉴权要求误判为名称冲突；IP 失败预算和所有 GM 密码入口已统一限流；账号库未就绪会同时阻断 HTTP、GM、Socket 和 readiness；玩家修改未知 section 会被拒绝，已注册操作只写对应 domain | GM 审计 fail-open、高危 scope、GET 密码兼容入口及维护态策略等待产品决定 |
 | 错误处理、日志与可观测性 | 进行中 | 已确认 GM 审计写入失败只告警并放行；协议与鉴权 smoke 的假红、跳过和测试替身漂移已分别校正 | 继续检查吞异常、敏感信息、告警与失败水位 |
-| 性能、内存、网络包体 | 进行中 | 文件体积门禁失败；战斗 action、玩家成长、宗门 runtime、协议审计、鉴权启动、玩家分域与强事务 smoke 已按职责拆分或清理并退出各自增幅清单；构建产物存在大 chunk 警告 | 继续拆分其余 14 个基线增幅和 3 个新超限文件，并区分真实热路径问题、门禁误报和冷路径债务 |
+| 性能、内存、网络包体 | 进行中 | 文件体积门禁失败；战斗 action、玩家成长、宗门 runtime、GM 玩家服务、协议审计、鉴权启动、玩家分域与强事务 smoke 已按职责拆分或清理并退出各自增幅清单；构建产物存在大 chunk 警告 | 继续拆分其余 14 个基线增幅和 2 个新超限文件，并区分真实热路径问题、门禁误报和冷路径债务 |
 | 浅色、深色、手机与触控 | 待检查 | 构建门禁不证明视觉结果 | 需要浏览器级检查 |
-| 测试、构建、清理链与边界门禁 | 进行中 | quick/client/release contract/config build、边界审计通过；24 个工具文件的 37 处 Socket.IO 客户端均有 parser 守卫，无库 `verify:release:local` 的 18 类场景通过；鉴权启动 smoke 已恢复编译检查，宗门主 smoke 的异步入口也已改为真实等待和异步拒绝断言 | 继续检查其余持久化夹具清理、DB 分支与失真测试 |
+| 测试、构建、清理链与边界门禁 | 进行中 | quick/client/release contract/config build、边界审计通过；24 个工具文件的 37 处 Socket.IO 客户端均有 parser 守卫，无库 `verify:release:local` 的 18 类场景通过；鉴权启动和宗门异步 smoke 已修复；GM domain-write 已进入 quick，物品编辑与恢复丹夹具重新对齐当前 domain/模板水合契约 | 继续检查其余持久化夹具清理、DB 分支与失真测试 |
 
 ## 已发现问题
 
@@ -51,7 +51,7 @@
 - 为什么错误：巨型模块扩大冲突面和隐式副作用，难以证明单一职责、事务边界及局部 UI 更新；门禁红灯失去阻止继续膨胀的能力。
 - 后果：运行时/持久化改动更容易产生竞态、旧态覆盖、全量刷新或回归遗漏；review 和验证成本持续增加。
 - 修复方向：先修正生成物、工具与生产代码的分类口径，再按真实职责拆分当前生产超限模块；不得简单更新 baseline 掩盖增长。
-- 当前证据：`pnpm proof:file-size-gate` 退出 1；战斗 action、玩家成长、宗门 runtime、协议审计、鉴权启动、玩家分域持久化和强事务 smoke 整理后，剩余 14 个 baseline regression、3 个新超 3000 行文件。
+- 当前证据：`pnpm proof:file-size-gate` 退出 1；战斗 action、玩家成长、宗门 runtime、GM 玩家服务、协议审计、鉴权启动、玩家分域持久化和强事务 smoke 整理后，剩余 14 个 baseline regression、2 个新超 3000 行文件。
 - 本轮进展：`world-runtime-combat-action.service.ts` 原先在 3415 行类中同时承载动作编排和约 500 行无状态规范化、目标索引、结果投影及诊断计时辅助；这些逻辑没有服务实例状态或外部调用契约，却扩大了权威编排层的修改面。现已提取为 546 行 `world-runtime-combat-action.helpers.ts`，主服务降到 2955 行并退出 3000 行错误清单；新 helper 同步纳入禁止网络、数据库、文件和 JSON 序列化的战斗热路径边界检查。剩余超限文件仍保持未完成状态，不更新 baseline 掩盖问题。
 - 本轮进展：`protocol-audit.ts` 把账号/JWT 辅助和 Markdown 报告投影混在 3135 行主流程中，现提取为 68/87 行两个窄 helper，主文件降到 2953 行并删除旧 baseline；完整 18 类协议审计通过。其余超限文件仍保持未完成状态。
 - 本轮进展：`auth-bootstrap-smoke.ts` 的动态导出、自读源码与生成式废注释使文件达到 6668 行，现改为静态导出和三个有类型的函数分类模块，删除无信息注释后降到 6078 行，低于既有 6500 行 baseline；它仍超过 3000 行，后续还需按主线、迁移和持久化证明继续拆分，当前不删除 baseline。
@@ -59,6 +59,7 @@
 - 本轮进展：`durable-operation-smoke.ts` 把市场、邮件、钱包、装备和 active job 的 seed/期望夹具继续堆入 with-db 编排，现提取为 1073 行 support 模块，主文件从 5224 行降到 4293 行，回到既有 4724 行 baseline 内；强事务服务本身仍是独立未完成的生产超限项。
 - 本轮进展：`player-progression.service.ts` 在权威玩家变更、配置读取和属性重算编排之外，还堆入了约 500 行突破需求、背包计数、功法品阶、灵根归一化和传法速率纯规则。现已提取为窄的 `player-progression-rule.helpers.ts`，主服务降到体积门禁口径的 2815 行并退出新超限清单；配置、玩家变更、属性重算和持久化副作用仍留在权威服务。
 - 本轮进展：`world-runtime-sect.service.ts` 把建表/核心投影自愈 SQL、玩家显示/成员/权限归一化与地图资产编排聚合在同一个新超限文件。现已把常量收敛到 `constants/gameplay/sect.ts`，持久化 schema/修复移入 `sect-durable-persistence.ts`，成员与权限辅助收敛到 555 行 domain helper；权威队列、玩家资产锁、地图投影和 durable commit 编排仍留在主服务。主文件在门禁口径为 2926 行，新超限项从 4 个降为 3 个。
+- 本轮进展：`native-gm-player.service.ts` 在玩家持久化编排之外还承载模板实例归一化、展示投影、恢复丹映射和全部依赖 port；更严重的是多个定向 GM 操作仍回退整玩家投影。现已把 274 行纯 helper 与 137 行 port 契约独立出来，主服务降到门禁口径 2944 行；同时所有已注册 GM 修改收敛为精确 domain 写入，新超限项从 3 个降为 2 个。
 
 ### FS-003 `[ ]` server tools 大量绕过 TypeScript 检查并保留 CommonJS 写法
 
@@ -450,7 +451,7 @@
 - 为什么错误：CI 的颜色与报告语义相反；“error”不阻断合并，且已偿还的技术债仍保留隐形增长额度。只要历史 regression 恰好清零，新巨型文件或旧文件重新越线都可能在门禁绿灯下进入主线。
 - 后果：体积门禁无法阻止职责重新聚合，维护者会误以为新增超限已受保护；巨型模块的冲突面、隐式副作用与验证成本继续增长。
 - 修复方式：把无 baseline 的新超限文件和不再对应超限文件的陈旧 baseline 一并纳入阻断条件；增加 `--contract-proof` 自验证，明确证明新超限与陈旧豁免都会失败。移除已降到 3000 行内的战斗 action、GM admin 和 world projector 三个陈旧 baseline，使其未来再次越线时立即按新文件阻断。
-- 验证：`pnpm proof:file-size-gate:contract` 通过；真实 `pnpm proof:file-size-gate` 仍按预期退出 1，最新结果列出 14 个 baseline regression 与 3 个无 baseline 新超限文件，未再出现陈旧 baseline。
+- 验证：`pnpm proof:file-size-gate:contract` 通过；真实 `pnpm proof:file-size-gate` 仍按预期退出 1；后续完成宗门与 GM 玩家服务拆分后，最新结果列出 14 个 baseline regression 与 2 个无 baseline 新超限文件，未再出现陈旧 baseline。
 
 ### FS-043 `[x]` 主协议审计绕过类型检查且把冷路径投影混入用例编排
 
@@ -468,7 +469,7 @@
 - 为什么错误：鉴权、快照恢复和会话围栏是发布主证明链，验证脚本却绕开编译器并在运行时反射自身文本。生产构造器调整不会触发编译错误，错误对象会被静默注入 `contextHelper`；只跑生产默认的无库配置时，该 case 又会因内存回退关闭而返回 `skipped`，进一步掩盖实际断言没有执行。
 - 后果：真正打开内存态功能链时，恢复通知依次出现 `rememberAuthenticatedSnapshotRecovery is not a function`、`bootstrap_runtime_connect_player_unavailable` 和缺失 `loadPendingOfflineGainReports`，在核心协议断言前即崩溃；门禁可能把“脚本启动或主动跳过”误当成鉴权合同有效。动态 `eval` 还使重命名、打包与静态分析结果不可靠，并让 6668 行文件继续膨胀。
 - 修复方式：全部改为标准 ES import/export 并恢复 TypeScript 检查；用静态函数表保留原有 `__helpers`、`__fixtures`、`__contractVerifiers`、`__all` 和直接导出合同，三个分类器改成有类型的独立模块。为 bootstrap smoke 新增命名依赖组装器，把 runtime session 端口放回 `worldRuntimeService`，按当前生产端口补齐会话、同步、通知与离线收益替身；同时删除无信息注释和重复环境判断，主文件降到 6078 行。
-- 验证：`pnpm --filter @mud/server compile` 通过；编译产物静态导出校验确认 99 个总函数、50 个 helper、28 个 fixture、21 个 verifier 以及历史直接导出均存在。显式清空数据库、Pooler 与 Redis，并只在 test 环境打开内存回退后，stable `auth-bootstrap` case 完整执行并通过恢复通知、恢复 trace、bootstrap 关联、token seed、session 策略和主线协议拒绝旧事件等断言；`pnpm proof:file-size-gate` 不再把该文件列为 baseline regression，最新门禁仍因其他 14 个增幅和 3 个新超限文件按预期失败。未执行任何数据库写入路径。
+- 验证：`pnpm --filter @mud/server compile` 通过；编译产物静态导出校验确认 99 个总函数、50 个 helper、28 个 fixture、21 个 verifier 以及历史直接导出均存在。显式清空数据库、Pooler 与 Redis，并只在 test 环境打开内存回退后，stable `auth-bootstrap` case 完整执行并通过恢复通知、恢复 trace、bootstrap 关联、token seed、session 策略和主线协议拒绝旧事件等断言；`pnpm proof:file-size-gate` 不再把该文件列为 baseline regression，后续拆分后最新门禁仍因其他 14 个增幅和 2 个新超限文件按预期失败。未执行任何数据库写入路径。
 
 ### FS-045 `[x]` 玩家分域持久化 smoke 吞掉失败清理并在清理前输出成功
 
@@ -495,7 +496,7 @@
 - 为什么错误：纯规则和有副作用的权威编排没有边界，要求或数值调整必须在巨型类中 review，难以单独验证规则是否会触发玩家变更。该文件又已成为无 baseline 的新超限项，说明权威边界还在继续聚合职责。
 - 后果：突破、天门、功法领悟或战斗经验改动会扩大冲突面，容易误触玩家属性重算、脏域与持久化副作用；新的纯判定也难以在不构造完整服务的情况下聚焦测试。
 - 修复方式：把突破要求、背包计数、功法品阶、灵根归一化、输入值收敛和传法速率提取到 `player-progression-rule.helpers.ts`，只导出主服务需要的窄函数。配置加载、玩家变更、属性重算和持久化副作用继续留在服务中，不改入参、调用顺序或数值公式。
-- 验证：`pnpm --filter @mud/server compile` 和完整 `pnpm verify:quick` 通过；显式无 DB/Redis 的 compiled `progression` stable case 通过登录、面板、功法、装备、修炼、治疗、Buff、地图解锁与灵石增量链；`pnpm proof:file-size-gate` 确认主服务为 2815 行并将新超限项从 5 个降为 4 个。随后宗门拆分将当前新超限项继续降为 3 个；本组未执行数据库写入路径。
+- 验证：`pnpm --filter @mud/server compile` 和完整 `pnpm verify:quick` 通过；显式无 DB/Redis 的 compiled `progression` stable case 通过登录、面板、功法、装备、修炼、治疗、Buff、地图解锁与灵石增量链；`pnpm proof:file-size-gate` 确认主服务为 2815 行并将新超限项从 5 个降为 4 个。随后宗门和 GM 玩家服务拆分将当前新超限项继续降为 2 个；本组未执行数据库写入路径。
 
 ### FS-048 `[x]` 宗门持久化配置故障会降级到内存并放行资产变更
 
@@ -523,6 +524,33 @@
 - 后果：宗门权限、成员顺序、宗主继任、解散和道具回滚等高风险路径看似有 smoke，实际没有按权威队列顺序完成验证；测试可能产生假红、假绿或在错误位置崩溃，掩盖真正的资产回归。
 - 修复方式：所有异步入口改为显式 `await`，拒绝路径使用 `await assert.rejects` 并对齐当前机制文本；虚拟边界 smoke 迁移为标准 TypeScript import/export，按真实的“阵基激活 + 被毁变 Floor”两次可视边界变化断言 revision `+2`。
 - 验证：server compile、完整 `pnpm verify:quick` 通过；`world-runtime-sect-smoke`、virtual-boundary-sync、durable-mutation、durable-reconciliation、core-normalization、derived-runtime-state、formation、use-item、building-room-fengshui 和 instance-read-facade 共 10 项聚焦 compiled smoke 均执行到结尾并通过。
+
+### FS-051 `[x]` GM 定向玩家修改会整投影覆盖并误清全部脏域
+
+- 严重级别：高。
+- 根本原因：离线重置、天门重置、炼体、底蕴/战斗经验补偿和批量回城虽然只修改少数字段，却统一调用 `savePlayerSnapshotProjection` 保存完整玩家投影；在线炼体在数据库 I/O 完成后又调用无 domain、无快照 revision 的 `markPersisted(playerId)`。数据库事务只在写入时加玩家锁，读取和构建快照发生在锁外。
+- 为什么错误：正式真源已经按 `vitals`、`progression`、`inventory`、`technique` 等领域拆分，定向 GM 操作必须只覆盖实际修改的领域。完整快照可能在构建后变旧；无参数 `markPersisted` 还会把 I/O 期间新产生但尚未落库的其他 dirty domain 一并当成成功。
+- 后果：玩家在线战斗、获得物品、推进功法或后台 flush 与 GM 操作交错时，旧快照可能把新生命、背包、功法、任务等数据回退；脏标记被误清后下一轮 flush 不会补写，形成永久资产或进度丢失。批量快捷指令会把风险放大到整个作用域。
+- 修复方式：移除 GM service 对完整投影写入 API 的依赖；重置只写 `world_anchor/position_checkpoint/vitals/buff/combat_pref`，天门只写 `attr`，离线炼体只写 `body_training`，底蕴和战斗经验只写 `progression`，普通编辑沿既有 section 映射写精确 domain。在线炼体按当前运行时规则写 `body_training/progression/attr`，并把构建快照时的 `persistentRevision` 与精确 domain 一起传给 `markPersisted`，I/O 期间的新变更继续保持 dirty。
+- 验证：新增 `native-gm-player-domain-write` compiled smoke 并接入 `verify:quick`，动态覆盖 7 次写入、空 Buff 明确覆盖、在线炼体 revision 确认和“完整投影 API 一旦被调用立即失败”的守卫；完整 `pnpm verify:quick` 与边界审计通过。当前无真实数据库，因此未动态制造 tick/flush 与 GM HTTP 并发。
+
+### FS-052 `[x]` 未知 GM 玩家修改分区会静默执行完整快照写入
+
+- 严重级别：高。
+- 根本原因：`applyPlayerSnapshotMutationToPersistence` 对未知 `section` 不执行任何字段修改，`getGmUpdateProjectionDomains` 返回空集合，旧保存逻辑随后把“没有可识别 domain”解释为回退完整玩家投影。
+- 为什么错误：客户端类型不能替代 HTTP 运行时校验；未知输入应明确拒绝。用完整写入兜底既掩盖调用方协议漂移，又把一个无效请求扩大为全玩家领域覆盖。
+- 后果：旧客户端、手工请求或拼写错误会收到成功，运维误以为修改生效；同时可能触发 FS-051 的旧态覆盖、无意义 watermark 推进和大量跨表写入。
+- 修复方式：domain 写入成为 GM 玩家服务的必需 port，不再提供完整投影 fallback；section 无法映射到任何允许 domain 时抛出 `BadRequestException`，不执行持久化或运行态回写。
+- 验证：`native-gm-player-domain-write` smoke 对 `section=unknown` 使用 `assert.rejects`，确认错误文本、零次 domain 写入和零次完整投影写入；server compile 与完整 quick 门禁通过。
+
+### FS-053 `[x]` GM 物品与恢复丹 smoke 偏离当前 domain 和模板水合契约
+
+- 严重级别：中。
+- 根本原因：物品编辑 smoke 仍断言 `items` 只保存 inventory/equipment，漏掉生产映射中的 artifact；恢复丹 smoke 用 `JSON.stringify/parse` 构造持久化和运行态替身，丢失模板原型上的 grade/level 等静态字段，导致共享堆叠签名把同一恢复丹误判成不同堆叠。独立持久化边界 smoke 还继续搜索已移除的整投影方法。
+- 为什么错误：这些 smoke 验证的正是 GM 资产边界，却用与生产水合行为不同的对象和过期 domain 期望。测试失败无法区分生产 bug 与替身失真，测试未运行时又会保留错误架构结论。
+- 后果：职责拆分或模板实例优化后出现假红，维护者可能错误修改生产堆叠规则；反过来，artifact 漏存或 GM 再次回退整投影时，旧断言也不能提供可信保护。
+- 修复方式：物品编辑期望对齐 `inventory/equipment/artifact`；恢复丹替身在每次运行态/持久化/托管仓回读时通过 `ContentTemplateRepository.normalizeItem` 恢复模板属性，再验证堆叠与 domain；独立持久化 proof 改为要求分域方法并显式禁止 `savePlayerSnapshotProjection`。
+- 验证：compiled `native-gm-player-technique-refresh`、`native-gm-cleanup-invalid-items`、`recovery-pill-migration` 和 `flush-independent-persistence` 均执行通过；前两项分别证明物品实例 ID/domain 映射与无效物品清理，恢复丹用例证明在线/离线背包、装备和托管仓迁移合并，边界 proof 锁定 GM 分域直写。
 
 ## 待进一步验证或用户决定
 
@@ -641,3 +669,4 @@
 | 强事务 smoke 拆分与清理合同 | server compile、显式无 DB/Redis 的 compiled smoke 清理聚合合同通过；文件体积门禁确认主文件回到 baseline 内 | fixture 与编排边界已拆分；22 个收尾任务不中断且错误显式聚合，13 个事务不再吞 rollback 失败；主文件为 4293 行 | with-db 分支按预期跳过，未动态证明邮件/市场/钱包/装备/作业强事务、真实 rollback、outbox 和审计表清理 |
 | 玩家成长权威边界拆分 | server compile、完整 `pnpm verify:quick` 和显式无 DB/Redis 的 compiled `progression` stable case 通过；文件体积门禁确认主服务退出错误清单 | 突破、功法、灵根、传法与输入归一化纯规则已离开有副作用的服务；完整成长主链与 quick 回归仍执行；主服务为门禁口径 2815 行 | 无数据库，不证明成长状态持久化、断电恢复、多玩家并发或长期数值演化 |
 | 宗门持久化与运行时边界 | server compile、完整 `pnpm verify:quick`、`pnpm audit:boundaries` 和 10 项宗门相关 compiled smoke 通过；文件体积门禁确认主服务退出错误清单 | fake pool/provider 下的数据库配置 fail-closed、初始化重试、回滚错误聚合、主异步流程、核心归一化、虚拟边界、阵法/道具/房间风水联动和 2926 行职责边界 | 未连接真实数据库，不证明建表/核心修复/启动回读的实表语义、多节点一致性、长时间 tick 或连接中断恢复 |
+| GM 玩家分域写入与服务边界 | server compile、完整 `pnpm verify:quick`、边界审计、4 项 GM 玩家 compiled smoke 和文件体积门禁已运行 | 7 条 GM 写入均为精确 domain、未知 section 拒绝、在线炼体 revision 确认、物品/恢复丹模板水合与 2944 行服务边界；新超限项降为 2 个 | 无真实 DB/HTTP 并发，不证明跨节点 GM、tick/flush 竞争和数据库故障时的实表最终值；高危审计 fail-open 仍待用户决定 |

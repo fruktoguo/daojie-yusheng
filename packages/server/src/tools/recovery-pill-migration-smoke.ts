@@ -30,17 +30,32 @@ function findCount(items: any[], itemId: string): number {
 const content = new ContentTemplateRepository();
 content.onModuleInit();
 
+function cloneAndHydrateItems(items: any[]): any[] {
+  return JSON.parse(JSON.stringify(items)).map((item: any) => content.normalizeItem(item) ?? item);
+}
+
+function cloneAndHydrateSnapshot(snapshot: any): any {
+  const cloned = JSON.parse(JSON.stringify(snapshot));
+  cloned.inventory.items = cloneAndHydrateItems(cloned.inventory.items);
+  for (const slot of cloned.equipment.slots) {
+    if (slot?.item) {
+      slot.item = content.normalizeItem(slot.item) ?? slot.item;
+    }
+  }
+  return cloned;
+}
+
 const runtimePlayerId = 'player:recovery-pill-runtime-smoke';
 const offlinePlayerId = 'player:recovery-pill-offline-smoke';
 const runtimeSnapshot = createPlayerSnapshot(runtimePlayerId, [
   { itemId: 'pure_yang_pill', count: 2 },
-  content.createItem('recovery_powder', 3),
+  { itemId: 'recovery_powder', count: 3 },
   { itemId: 'pill.nurturing_paste', count: 1 },
 ], { itemId: 'pill.earthrest_paste', count: 1 });
 const offlineSnapshot = createPlayerSnapshot(offlinePlayerId, [
   { itemId: 'pill.cleartide_powder', count: 6 },
   { itemId: 'pill.earthrest_paste', count: 2 },
-  content.createItem('stabilizing_pellet', 1),
+  { itemId: 'stabilizing_pellet', count: 1 },
 ]);
 
 const persistedSnapshots = new Map<string, any>([
@@ -52,21 +67,21 @@ const runtimeSnapshots = new Map<string, any>([
   [runtimePlayerId, JSON.parse(JSON.stringify(runtimeSnapshot))],
 ]);
 const marketStorages = new Map<string, { items: any[] }>([
-  [runtimePlayerId, { items: [{ itemId: 'pure_yang_pill', count: 4 }, content.createItem('recovery_powder', 1)] }],
+  [runtimePlayerId, { items: [{ itemId: 'pure_yang_pill', count: 4 }, { itemId: 'recovery_powder', count: 1 }] }],
   [offlinePlayerId, { items: [{ itemId: 'pill.nurturing_paste', count: 5 }] }],
 ]);
 
 const playerRuntimeService = {
   snapshot(playerId: string) {
     const snapshot = runtimeSnapshots.get(playerId);
-    return snapshot ? JSON.parse(JSON.stringify(snapshot)) : null;
+    return snapshot ? cloneAndHydrateSnapshot(snapshot) : null;
   },
   buildStarterPersistenceSnapshot() {
     return null;
   },
   buildPersistenceSnapshot(playerId: string) {
     const snapshot = runtimeSnapshots.get(playerId);
-    return snapshot ? JSON.parse(JSON.stringify(snapshot)) : null;
+    return snapshot ? cloneAndHydrateSnapshot(snapshot) : null;
   },
   restoreSnapshot(snapshot: any) {
     runtimeSnapshots.set(snapshot.playerId, JSON.parse(JSON.stringify(snapshot)));
@@ -87,7 +102,7 @@ const playerRuntimeService = {
 const persistenceService = {
   async loadProjectedSnapshot(playerId: string) {
     const snapshot = persistedSnapshots.get(playerId);
-    return snapshot ? JSON.parse(JSON.stringify(snapshot)) : null;
+    return snapshot ? cloneAndHydrateSnapshot(snapshot) : null;
   },
   async savePlayerSnapshotProjection(playerId: string, snapshot: any) {
     throw new Error(`recovery pill migration should use scoped domain save, got full projection save for ${playerId}`);
@@ -109,14 +124,15 @@ const persistenceService = {
   async listProjectedSnapshots() {
     return Array.from(persistedSnapshots.entries(), ([playerId, snapshot]) => ({
       playerId,
-      snapshot: JSON.parse(JSON.stringify(snapshot)),
+      snapshot: cloneAndHydrateSnapshot(snapshot),
     }));
   },
 };
 
 const marketRuntimeService = {
   getStorage(playerId: string) {
-    return JSON.parse(JSON.stringify(marketStorages.get(playerId) ?? { items: [] }));
+    const storage = marketStorages.get(playerId) ?? { items: [] };
+    return { items: cloneAndHydrateItems(storage.items) };
   },
   async runExclusiveMarketMutation(playerId: string, action: (context: any) => any) {
     return action({

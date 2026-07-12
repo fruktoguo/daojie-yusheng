@@ -25,7 +25,8 @@ async function main(): Promise<void> {
   assert.match(mailPersistence, /pruneStructuredMailboxSnapshot|upsertMailRecoveryWatermark/);
 
   assert.match(gmPlayer, /savePlayerPersistenceSnapshotForGmUpdate\(/);
-  assert.match(gmPlayer, /savePlayerPersistenceSnapshot\(/);
+  assert.match(gmPlayer, /savePlayerPersistenceSnapshotDomains\(/);
+  assert.doesNotMatch(gmPlayer, /savePlayerSnapshotProjection\(/);
   assert.match(gmPlayer, /recordGmAuditEntry\(/);
 
   assert.doesNotMatch(flushRuntime, /PLAYER_MAILBOX_PAYLOAD_KIND/);
@@ -35,7 +36,7 @@ async function main(): Promise<void> {
 
   console.log(JSON.stringify({
     ok: true,
-    answers: 'mail 由 MailRuntimeService -> MailPersistenceService 直写结构化真源；GM edit 由 NativeGmPlayerService 直写玩家快照并记录审计；二者没有伪装为 flush staging payload。',
+    answers: 'mail 由 MailRuntimeService -> MailPersistenceService 直写结构化真源；GM edit 由 NativeGmPlayerService 精确写入玩家分域投影并记录审计；二者没有伪装为 flush staging payload。',
     workerBoundary: 'flush-task-noop-retry smoke 覆盖 unsupported player domain 在 worker role 下只 retry，不回退 runtime flush。',
     completionMapping: 'flush-independent-persistence',
   }, null, 2));

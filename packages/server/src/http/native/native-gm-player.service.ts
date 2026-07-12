@@ -10,7 +10,6 @@
  */
 import { BadRequestException, Inject, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import {
-  DEFAULT_BASE_ATTRS,
   DEFAULT_INVENTORY_CAPACITY,
   Direction,
   ARTIFACT_SLOTS,
@@ -23,7 +22,7 @@ import {
   normalizeBodyTrainingState,
 } from '@mud/shared';
 import { resolveCraftSkillExpToNextByLevel } from '../../runtime/craft/craft-skill-exp.helpers';
-import { isLegacyItemInstanceId, reassignItemInstanceId } from '../../runtime/world/item-instance-id.helpers';
+import { reassignItemInstanceId } from '../../runtime/world/item-instance-id.helpers';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { MapTemplateRepository } from '../../runtime/map/map-template.repository';
 import { DatabasePoolProvider } from '../../persistence/database-pool.provider';
@@ -33,7 +32,6 @@ import { repairQuestProgressPayloads } from '../../persistence/quest-progress-pa
 import { PlayerDomainPersistenceService } from '../../persistence/player-domain-persistence.service';
 import { ActivityPersistenceService } from '../../persistence/activity-persistence.service';
 import { MarketRuntimeService } from '../../runtime/market/market-runtime.service';
-import { resolvePlayerDisplayName } from '../../runtime/player/player-display-name';
 import { PlayerProgressionService } from '../../runtime/player/player-progression.service';
 import { PlayerRuntimeService } from '../../runtime/player/player-runtime.service';
 import { createRuntimeTemporaryBuff, materializeRuntimeTemporaryBuff } from '../../runtime/player/runtime-buff-instance';
@@ -43,125 +41,42 @@ import { NATIVE_GM_PLAYER_MUTATION_CONTRACT } from './native-gm-contract';
 import { isNativeGmBotPlayerId } from './native-gm.constants';
 import { buildNativeGmPlayerRiskView } from './native-gm-player-risk';
 import type { GmActorContext } from './native-gm-actor-context';
-const RAW_BASE_ATTRS_PERSISTENCE_MARKER = '__rawBaseAttrs';
-
-function asGmItemRecord(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === 'object' && !Array.isArray(value)
-    ? value as Record<string, unknown>
-    : null;
-}
-
-function normalizeGmItemString(value: unknown): string | null {
-  if (typeof value !== 'string') {
-    return null;
-  }
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
-
-function normalizeStableGmItemInstanceId(value: unknown): string | null {
-  const normalized = normalizeGmItemString(value);
-  if (!normalized || isLegacyItemInstanceId(normalized)) {
-    return null;
-  }
-  return normalized;
-}
-
-function writeGmItemOwnProperty(item: Record<string, unknown>, key: string, value: unknown): void {
-  Object.defineProperty(item, key, {
-    value,
-    writable: true,
-    configurable: true,
-    enumerable: true,
-  });
-}
-/**
- * ManagedAccountEntryLike：定义接口结构约束，明确可交付字段含义。
- */
-
-
-interface ManagedAccountEntryLike {
-/**
- * userId：userID标识。
- */
-
-  userId?: string;  
-  /**
- * username：username名称或显示文本。
- */
-
-  username?: string;  
-  playerNo?: number | null;
-  /**
- * createdAt：createdAt相关字段。
- */
-
-  createdAt?: string;  
-  /**
- * totalOnlineSeconds：totalOnlineSecond相关字段。
- */
-
-  totalOnlineSeconds?: number;  
-  /**
- * currentOnlineStartedAt：currentOnlineStartedAt相关字段。
- */
-
-  currentOnlineStartedAt?: string;
-  registerIp?: string | null;
-  lastLoginIp?: string | null;
-  lastLoginAt?: string | null;
-  registerDeviceId?: string | null;
-  lastLoginDeviceId?: string | null;
-  bannedAt?: string | null;
-  banReason?: string | null;
-  bannedBy?: string | null;
-  isRiskAdmin?: boolean;
-}
-/**
- * ContentTemplateRepositoryLike：定义接口结构约束，明确可交付字段含义。
- */
-
-
-interface ContentTemplateRepositoryLike {
-  createItem(itemId: string, count?: number): Record<string, unknown> | null;
-  getItemName(itemId: string): string | null;
-  normalizeItem(input: unknown): unknown;
-  hydrateTechniqueState(input: unknown): unknown;
-}
-/**
- * MapTemplateRepositoryLike：定义接口结构约束，明确可交付字段含义。
- */
-
-
-interface MapTemplateRepositoryLike {
-  getOrThrow(mapId: string): any;
-}
-/**
- * PersistedPlayerEntryLike：定义接口结构约束，明确可交付字段含义。
- */
-
-
-interface PersistedPlayerEntryLike {
-/**
- * playerId：玩家ID标识。
- */
-
-  playerId: string;  
-  /**
- * snapshot：快照状态或数据块。
- */
-
-  snapshot: any;
-}
-/**
- * GmPlayerScopeOptions：限定 GM 快捷操作的目标玩家；为空时保持全员语义。
- */
-
-
-interface GmPlayerScopeOptions {
-  playerIds?: unknown;
-  targetPlayerIds?: unknown;
-}
+import {
+  addRecoveryPillMigrationSummary,
+  asGmItemRecord,
+  buildManagedAccountView,
+  clamp,
+  cloneRatioDivisors,
+  createEmptyRecoveryPillMigrationSummary,
+  decodePersistedRawBaseAttrs,
+  encodePersistedRawBaseAttrs,
+  hasRecoveryPillMigration,
+  isLegacyRecoveryPillItemId,
+  normalizeGmItemString,
+  normalizeRawBaseAttrs,
+  normalizeStableGmItemInstanceId,
+  resolveManagedPlayerDisplayName,
+  resolveManagedPlayerName,
+  resolveRecoveryPillMigrationTarget,
+  toLegacyArtifactSlots,
+  toLegacyEquipmentSlots,
+  writeGmItemOwnProperty,
+  type RecoveryPillMigrationSummary,
+} from './native-gm-player.helpers';
+import type {
+  ActivityPersistenceServiceLike,
+  ContentTemplateRepositoryLike,
+  GmPlayerDatabaseTableViewLike,
+  GmPlayerScopeOptions,
+  MapTemplateRepositoryLike,
+  MarketRuntimeServiceLike,
+  NativeManagedAccountServiceLike,
+  PersistedPlayerEntryLike,
+  PlayerDomainPersistenceServiceLike,
+  PlayerProgressionServiceLike,
+  PlayerRuntimeServiceLike,
+  WorldRuntimeServiceLike,
+} from './native-gm-player.ports';
 
 /**
  * GmMutationAuditOptions：调用方传入的 audit hook，落 gm_audit_log。
@@ -190,180 +105,6 @@ function safeDescribe<T>(fn: ((arg: T) => unknown) | undefined, arg: T): unknown
   } catch (error) {
     return { describeError: error instanceof Error ? error.message : String(error) };
   }
-}
-
-const RECOVERY_PILL_MIGRATION_TARGETS: Record<string, string> = {
-  pure_yang_pill: 'recovery_powder',
-  'pill.nurturing_paste': 'stabilizing_pellet',
-  'pill.cleartide_powder': 'recovery_powder',
-  'pill.earthrest_paste': 'stabilizing_pellet',
-};
-
-interface RecoveryPillMigrationSummary {
-  inventoryStacksMigrated: number;
-  inventoryItemsMigrated: number;
-  marketStorageStacksMigrated: number;
-  marketStorageItemsMigrated: number;
-  equipmentMigrated: number;
-}
-
-function createEmptyRecoveryPillMigrationSummary(): RecoveryPillMigrationSummary {
-  return {
-    inventoryStacksMigrated: 0,
-    inventoryItemsMigrated: 0,
-    marketStorageStacksMigrated: 0,
-    marketStorageItemsMigrated: 0,
-    equipmentMigrated: 0,
-  };
-}
-
-function hasRecoveryPillMigration(summary: RecoveryPillMigrationSummary): boolean {
-  return summary.inventoryStacksMigrated > 0
-    || summary.marketStorageStacksMigrated > 0
-    || summary.equipmentMigrated > 0;
-}
-
-function isLegacyRecoveryPillItemId(itemId: unknown): boolean {
-  return typeof itemId === 'string'
-    && Object.prototype.hasOwnProperty.call(RECOVERY_PILL_MIGRATION_TARGETS, itemId.trim());
-}
-
-function addRecoveryPillMigrationSummary(
-  target: RecoveryPillMigrationSummary,
-  source: RecoveryPillMigrationSummary,
-): void {
-  target.inventoryStacksMigrated += source.inventoryStacksMigrated;
-  target.inventoryItemsMigrated += source.inventoryItemsMigrated;
-  target.marketStorageStacksMigrated += source.marketStorageStacksMigrated;
-  target.marketStorageItemsMigrated += source.marketStorageItemsMigrated;
-  target.equipmentMigrated += source.equipmentMigrated;
-}
-/**
- * PlayerDomainPersistenceServiceLike：定义接口结构约束，明确可交付字段含义。
- */
-
-
-interface PlayerDomainPersistenceServiceLike {
-  loadProjectedSnapshot(playerId: string, buildStarterSnapshot: (playerId: string) => any | null): Promise<any | null>;
-  savePlayerSnapshotProjection(playerId: string, snapshot: any): Promise<void>;
-  savePlayerSnapshotProjectionDomains?(
-    playerId: string,
-    snapshot: any,
-    domains: Iterable<string>,
-    options?: {
-      allowInventoryEmptyOverwrite?: boolean;
-      allowEquipmentEmptyOverwrite?: boolean;
-      allowArtifactEmptyOverwrite?: boolean;
-      allowBuffEmptyOverwrite?: boolean;
-    },
-  ): Promise<void>;
-  listProjectedSnapshots(buildStarterSnapshot: (playerId: string) => any | null): Promise<PersistedPlayerEntryLike[]>;
-}
-/**
- * PlayerProgressionServiceLike：定义接口结构约束，明确可交付字段含义。
- */
-
-
-interface PlayerProgressionServiceLike {
-  createRealmStateFromLevel(realmLv: number, progress: number): any;
-  initializePlayer(snapshot: any): void;
-}
-/**
- * PlayerRuntimeServiceLike：定义接口结构约束，明确可交付字段含义。
- */
-
-
-interface PlayerRuntimeServiceLike {
-  snapshot(playerId: string): any;
-  buildStarterPersistenceSnapshot(playerId: string): any;
-  buildPersistenceSnapshot(playerId: string): any;
-  restoreSnapshot(snapshot: any): void;
-  listPlayerSnapshots(): any[];
-  rebuildActionState(snapshot: any, tick: number): void;
-  refreshOnlineTechniqueTemplates(): any;
-  markPersisted(playerId: string): void;
-  setManagedBodyTrainingLevel(playerId: string, level: number): any;
-}
-/**
- * MarketRuntimeServiceLike：定义接口结构约束，明确可交付字段含义。
- */
-
-
-interface MarketRuntimeServiceLike {
-  getStorage(playerId: string): { items: any[] };
-  runExclusiveMarketMutation(playerId: string, action: (context: any) => Promise<any> | any): Promise<any>;
-  setStorage(playerId: string, storage: { items: any[] }, context: any): void;
-  ensureStorageHydrated?(playerId: string): Promise<void>;
-}
-
-interface ActivityPersistenceServiceLike {
-  isEnabled(): boolean;
-  loadMonthCard(playerId: string): Promise<{
-    startAt: number;
-    expireAt: number;
-    totalPoolMerit: number;
-    remainingPoolMerit: number;
-    eternalEnabled: boolean;
-    dailySignInFixedMeritBonus: number;
-    lastClaimDate: string | null;
-  } | null>;
-  setMonthCardPool(
-    playerId: string,
-    totalPoolMerit: number,
-    remainingPoolMerit: number,
-    nowMs?: number,
-    options?: { eternalEnabled?: boolean; dailySignInFixedMeritBonus?: number },
-  ): Promise<{
-    startAt: number;
-    expireAt: number;
-    totalPoolMerit: number;
-    remainingPoolMerit: number;
-    eternalEnabled: boolean;
-    dailySignInFixedMeritBonus: number;
-    lastClaimDate: string | null;
-  }>;
-  activateEternalMonthCard(
-    playerId: string,
-    nowMs?: number,
-    poolGrant?: number,
-    fixedSignInBonus?: number,
-    durationDays?: number,
-  ): Promise<{
-    startAt: number;
-    expireAt: number;
-    totalPoolMerit: number;
-    remainingPoolMerit: number;
-    eternalEnabled: boolean;
-    dailySignInFixedMeritBonus: number;
-    lastClaimDate: string | null;
-  }>;
-}
-/**
- * WorldRuntimeServiceLike：定义接口结构约束，明确可交付字段含义。
- */
-
-
-interface WorldRuntimeServiceLike {
-  worldRuntimeCommandIntakeFacadeService: {
-    enqueueGmUpdatePlayer(input: unknown): void;
-    enqueueGmResetPlayer(playerId: string): void;
-    enqueueGmSpawnBots(anchorPlayerId: string, count: number): void;
-    enqueueGmRemoveBots(playerIds: string[], all: boolean): void;
-  };
-}
-/**
- * NativeManagedAccountServiceLike：定义接口结构约束，明确可交付字段含义。
- */
-
-
-interface NativeManagedAccountServiceLike {
-  getManagedAccountIndex(playerIds: string[]): Promise<Map<string, ManagedAccountEntryLike>>;
-}
-
-interface GmPlayerDatabaseTableViewLike {
-  table: string;
-  rowCount: number;
-  payload: unknown;
 }
 
 const GM_PLAYER_DATABASE_TABLES = [
@@ -428,6 +169,15 @@ const GM_CRAFT_SKILL_KEYS = [
   'miningSkill',
   'buildingSkill',
 ] as const;
+
+const GM_RESET_PLAYER_PERSISTENCE_DOMAINS = [
+  'world_anchor',
+  'position_checkpoint',
+  'vitals',
+  'buff',
+  'combat_pref',
+] as const;
+const GM_BODY_TRAINING_PERSISTENCE_DOMAINS = ['body_training', 'progression', 'attr'] as const;
 /**
  * NativeGmPlayerService：封装该能力的入口与生命周期，承载运行时核心协作。
  */
@@ -705,7 +455,12 @@ export class NativeGmPlayerService {
     persisted.combat.autoBattle = false;
     persisted.combat.combatTargetId = null;
     persisted.combat.combatTargetLocked = false;
-    await this.savePlayerPersistenceSnapshot(playerId, persisted);
+    await this.savePlayerPersistenceSnapshotDomains(
+      playerId,
+      persisted,
+      GM_RESET_PLAYER_PERSISTENCE_DOMAINS,
+      { allowBuffEmptyOverwrite: true },
+    );
 
     await this.recordGmAuditEntry({
       op: 'gm.player.reset_persisted',
@@ -755,7 +510,7 @@ export class NativeGmPlayerService {
 
     persisted.progression.heavenGate = null;
     persisted.progression.spiritualRoots = null;
-    await this.savePlayerPersistenceSnapshot(playerId, persisted);
+    await this.savePlayerPersistenceSnapshotDomains(playerId, persisted, ['attr']);
     if (!runtime) {
       await this.recordGmAuditEntry({
         op: 'gm.player.reset_heaven_gate',
@@ -839,7 +594,7 @@ export class NativeGmPlayerService {
       }
       const beforeLevel = persisted?.progression?.bodyTraining?.level ?? null;
       persisted.progression.bodyTraining = this.buildBodyTrainingState(persisted.progression.bodyTraining, level);
-      await this.savePlayerPersistenceSnapshot(playerId, persisted);
+      await this.savePlayerPersistenceSnapshotDomains(playerId, persisted, ['body_training']);
       await this.recordGmAuditEntry({
         op: 'gm.player.set_body_training_level',
         targetType: 'player',
@@ -858,12 +613,21 @@ export class NativeGmPlayerService {
     const beforeLevel = beforePersisted?.progression?.bodyTraining?.level ?? null;
 
     this.playerRuntimeService.setManagedBodyTrainingLevel(playerId, level);
+    const snapshotRevision = this.playerRuntimeService.getPersistenceRevision(playerId);
     const persisted = this.playerRuntimeService.buildPersistenceSnapshot(playerId);
     if (!persisted) {
       throw new NotFoundException('目标玩家不存在');
     }
-    await this.savePlayerPersistenceSnapshot(playerId, persisted);
-    this.playerRuntimeService.markPersisted(playerId);
+    await this.savePlayerPersistenceSnapshotDomains(
+      playerId,
+      persisted,
+      GM_BODY_TRAINING_PERSISTENCE_DOMAINS,
+    );
+    this.playerRuntimeService.markPersisted(
+      playerId,
+      GM_BODY_TRAINING_PERSISTENCE_DOMAINS,
+      snapshotRevision,
+    );
     await this.recordGmAuditEntry({
       op: 'gm.player.set_body_training_level',
       targetType: 'player',
@@ -888,6 +652,7 @@ export class NativeGmPlayerService {
     const amount = this.parseCounterDelta(requestedAmount, '底蕴增量');
 
     await this.mutateManagedPlayer(playerId, {
+      domains: ['progression'],
       mutatePersisted: (persisted) => {
         persisted.progression.foundation = this.applyCounterDelta(persisted.progression.foundation, amount);
       },
@@ -915,6 +680,7 @@ export class NativeGmPlayerService {
     const amount = this.parseCounterDelta(requestedAmount, '战斗经验增量');
 
     await this.mutateManagedPlayer(playerId, {
+      domains: ['progression'],
       mutatePersisted: (persisted) => {
         persisted.progression.combatExp = this.applyCounterDelta(persisted.progression.combatExp, amount);
       },
@@ -1079,7 +845,12 @@ export class NativeGmPlayerService {
       entry.snapshot.combat.autoBattle = false;
       entry.snapshot.combat.combatTargetId = null;
       entry.snapshot.combat.combatTargetLocked = false;
-      await this.savePlayerPersistenceSnapshot(entry.playerId, entry.snapshot);
+      await this.savePlayerPersistenceSnapshotDomains(
+        entry.playerId,
+        entry.snapshot,
+        GM_RESET_PLAYER_PERSISTENCE_DOMAINS,
+        { allowBuffEmptyOverwrite: true },
+      );
       updatedOfflinePlayers += 1;
     }
 
@@ -2068,20 +1839,23 @@ export class NativeGmPlayerService {
     );
   }
 
-  private async savePlayerPersistenceSnapshot(playerId: string, snapshot: any): Promise<void> {
-    await this.playerDomainPersistenceService.savePlayerSnapshotProjection(playerId, snapshot);
-  }
-
   private async savePlayerPersistenceSnapshotDomains(
     playerId: string,
     snapshot: any,
     domains: Iterable<string>,
+    options: {
+      allowInventoryEmptyOverwrite?: boolean;
+      allowEquipmentEmptyOverwrite?: boolean;
+      allowArtifactEmptyOverwrite?: boolean;
+      allowBuffEmptyOverwrite?: boolean;
+    } = {},
   ): Promise<void> {
-    if (typeof this.playerDomainPersistenceService.savePlayerSnapshotProjectionDomains === 'function') {
-      await this.playerDomainPersistenceService.savePlayerSnapshotProjectionDomains(playerId, snapshot, domains);
-      return;
-    }
-    await this.savePlayerPersistenceSnapshot(playerId, snapshot);
+    await this.playerDomainPersistenceService.savePlayerSnapshotProjectionDomains(
+      playerId,
+      snapshot,
+      domains,
+      options,
+    );
   }
 
   private async savePlayerPersistenceSnapshotForGmUpdate(
@@ -2091,24 +1865,20 @@ export class NativeGmPlayerService {
     submittedSnapshot: any,
   ): Promise<void> {
     const domains = this.getGmUpdateProjectionDomains(section, submittedSnapshot);
-    if (
-      domains.length > 0
-      && typeof this.playerDomainPersistenceService.savePlayerSnapshotProjectionDomains === 'function'
-    ) {
-      await this.playerDomainPersistenceService.savePlayerSnapshotProjectionDomains(
-        playerId,
-        snapshot,
-        domains,
-        {
-          allowInventoryEmptyOverwrite: domains.includes('inventory') && Array.isArray(submittedSnapshot?.inventory?.items),
-          allowEquipmentEmptyOverwrite: domains.includes('equipment') && submittedSnapshot?.equipment && typeof submittedSnapshot.equipment === 'object',
-          allowArtifactEmptyOverwrite: domains.includes('artifact') && submittedSnapshot?.artifacts && typeof submittedSnapshot.artifacts === 'object',
-          allowBuffEmptyOverwrite: domains.includes('buff') && Array.isArray(submittedSnapshot?.temporaryBuffs),
-        },
-      );
-      return;
+    if (domains.length === 0) {
+      throw new BadRequestException(`不支持的玩家修改分区：${String(section ?? 'basic')}`);
     }
-    await this.savePlayerPersistenceSnapshot(playerId, snapshot);
+    await this.savePlayerPersistenceSnapshotDomains(
+      playerId,
+      snapshot,
+      domains,
+      {
+        allowInventoryEmptyOverwrite: domains.includes('inventory') && Array.isArray(submittedSnapshot?.inventory?.items),
+        allowEquipmentEmptyOverwrite: domains.includes('equipment') && submittedSnapshot?.equipment && typeof submittedSnapshot.equipment === 'object',
+        allowArtifactEmptyOverwrite: domains.includes('artifact') && submittedSnapshot?.artifacts && typeof submittedSnapshot.artifacts === 'object',
+        allowBuffEmptyOverwrite: domains.includes('buff') && Array.isArray(submittedSnapshot?.temporaryBuffs),
+      },
+    );
   }
 
   private getGmUpdateProjectionDomains(section: unknown, snapshot: any): string[] {
@@ -2212,6 +1982,7 @@ export class NativeGmPlayerService {
   private async mutateManagedPlayer(
     playerId: string,
     input: {
+      domains: readonly string[];
       mutatePersisted: (persisted: any) => void;
       mutateRuntime?: (runtime: any, persisted: any) => void;
       audit?: GmMutationAuditOptions;
@@ -2239,7 +2010,7 @@ export class NativeGmPlayerService {
     let auditError: string | null = null;
     try {
       input.mutatePersisted(persisted);
-      await this.savePlayerPersistenceSnapshot(playerId, persisted);
+      await this.savePlayerPersistenceSnapshotDomains(playerId, persisted, input.domains);
     } catch (error) {
       auditError = error instanceof Error ? error.message : String(error);
       if (input.audit) {
@@ -2491,7 +2262,7 @@ export class NativeGmPlayerService {
 
   private createMigratedRecoveryPillItem(item: any): any | null {
     const sourceItemId = typeof item?.itemId === 'string' ? item.itemId.trim() : '';
-    const targetItemId = RECOVERY_PILL_MIGRATION_TARGETS[sourceItemId];
+    const targetItemId = resolveRecoveryPillMigrationTarget(sourceItemId);
     if (!targetItemId) {
       return null;
     }
@@ -3169,182 +2940,4 @@ export class NativeGmPlayerService {
       return mapId;
     }
   }
-}
-/**
- * buildManagedAccountView：构建并返回目标对象。
- * @param account 参数说明。
- * @param online 参数说明。
- * @returns 无返回值，直接更新ManagedAccount视图相关状态。
- */
-
-
-function buildManagedAccountView(account, online) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-  if (!account?.userId || !account.username) {
-    return undefined;
-  }
-
-  let totalOnlineSeconds = Number.isFinite(account.totalOnlineSeconds)
-    ? Math.max(0, Math.trunc(account.totalOnlineSeconds))
-    : 0;
-  if (online && typeof account.currentOnlineStartedAt === 'string' && account.currentOnlineStartedAt) {
-    const sessionStartedAt = Date.parse(account.currentOnlineStartedAt);
-    if (Number.isFinite(sessionStartedAt)) {
-      totalOnlineSeconds += Math.max(0, Math.floor((Date.now() - sessionStartedAt) / 1000));
-    }
-  }
-
-  return {
-    userId: account.userId,
-    playerNo: normalizeOptionalPlayerNo(account.playerNo),
-    username: account.username,
-    createdAt: typeof account.createdAt === 'string' && account.createdAt ? account.createdAt : new Date(0).toISOString(),
-    totalOnlineSeconds,
-    isRiskAdmin: account.isRiskAdmin === true,
-    status: account.bannedAt ? 'banned' : 'active',
-    bannedAt: account.bannedAt ?? undefined,
-    banReason: account.banReason ?? undefined,
-    bannedBy: account.bannedBy ?? undefined,
-    lastLoginAt: account.lastLoginAt ?? undefined,
-    lastLoginIp: account.lastLoginIp ?? undefined,
-    lastLoginDeviceId: account.lastLoginDeviceId ?? undefined,
-  };
-}
-
-function normalizeOptionalPlayerNo(value: unknown): number | null {
-  const numeric = typeof value === 'number'
-    ? value
-    : typeof value === 'bigint'
-      ? Number(value)
-      : typeof value === 'string' && value.trim()
-        ? Number(value.trim())
-        : NaN;
-  if (!Number.isSafeInteger(numeric) || numeric <= 0) {
-    return null;
-  }
-  return Math.trunc(numeric);
-}
-
-function resolveManagedPlayerName(player, account, fallback: string): string {
-  return resolvePlayerDisplayName({
-    playerId: player?.id,
-    playerName: account?.playerName,
-    name: player?.name,
-    displayName: account?.displayName ?? player?.displayName,
-    username: account?.username,
-  }, { fallback });
-}
-
-function resolveManagedPlayerDisplayName(player, account, fallback: string): string {
-  return resolvePlayerDisplayName({
-    playerId: player?.id,
-    displayName: account?.displayName ?? player?.displayName,
-    playerName: account?.playerName,
-    name: player?.name,
-  }, { fallback });
-}
-
-/**
- * clamp：执行clamp相关逻辑。
- * @param value 参数说明。
- * @param min 参数说明。
- * @param max 参数说明。
- * @returns 无返回值，直接更新clamp相关状态。
- */
-
-
-function clamp(value, min, max) {
-  return Math.max(min, Math.min(max, value));
-}
-
-function normalizeRawBaseAttrs(source) {
-  const attrs = { ...DEFAULT_BASE_ATTRS };
-  if (!source || typeof source !== 'object') {
-    return attrs;
-  }
-  for (const key of Object.keys(DEFAULT_BASE_ATTRS)) {
-    const value = Number(source[key]);
-    if (Number.isFinite(value)) {
-      attrs[key] = Math.max(0, Math.trunc(value));
-    }
-  }
-  return attrs;
-}
-
-function encodePersistedRawBaseAttrs(source) {
-  return {
-    ...normalizeRawBaseAttrs(source),
-    [RAW_BASE_ATTRS_PERSISTENCE_MARKER]: true,
-  };
-}
-
-function decodePersistedRawBaseAttrs(source) {
-  if (!source || typeof source !== 'object' || source[RAW_BASE_ATTRS_PERSISTENCE_MARKER] !== true) {
-    return { ...DEFAULT_BASE_ATTRS };
-  }
-  return normalizeRawBaseAttrs(source);
-}
-
-function createEmptyLegacyArtifactSlot(slot) {
-  return {
-    slot,
-    unlocked: false,
-    enabled: false,
-    qi: 0,
-    maxQi: 0,
-    item: null,
-  };
-}
-
-function toLegacyArtifactSlots(artifacts) {
-  const slots = Array.isArray(artifacts?.slots) ? artifacts.slots : [];
-  const bySlot = new Map(slots.map((entry) => [entry.slot, entry]));
-  return {
-    revision: Number.isFinite(artifacts?.revision) ? Math.max(0, Math.trunc(artifacts.revision)) : 1,
-    slots: ARTIFACT_SLOTS.map((slot) => {
-      const entry = bySlot.get(slot) ?? null;
-      if (!entry || typeof entry !== 'object') {
-        return createEmptyLegacyArtifactSlot(slot);
-      }
-      const record = entry as Record<string, any>;
-      return {
-        slot,
-        unlocked: record.unlocked === true,
-        enabled: record.enabled === true,
-        qi: Number.isFinite(record.qi) ? Math.max(0, Math.trunc(record.qi)) : 0,
-        maxQi: Number.isFinite(record.maxQi) ? Math.max(0, Math.trunc(record.maxQi)) : 0,
-        item: record.item ? { ...record.item } : null,
-      };
-    }),
-  };
-}
-/**
- * toLegacyEquipmentSlots：执行toLegacy装备Slot相关逻辑。
- * @param slots 参数说明。
- * @returns 无返回值，直接更新toLegacy装备Slot相关状态。
- */
-
-
-function toLegacyEquipmentSlots(slots) {
-  const bySlot = new Map((Array.isArray(slots) ? slots : []).map((entry) => [entry.slot, entry.item ? { ...entry.item } : null]));
-  return Object.fromEntries(EQUIP_SLOTS.map((slot) => [slot, bySlot.get(slot) ?? null]));
-}
-/**
- * cloneRatioDivisors：判断RatioDivisor是否满足条件。
- * @param source 来源对象。
- * @returns 无返回值，直接更新RatioDivisor相关状态。
- */
-
-
-function cloneRatioDivisors(source) {
-  return {
-    dodge: source.dodge,
-    crit: source.crit,
-    breakPower: source.breakPower,
-    resolvePower: source.resolvePower,
-    cooldownSpeed: source.cooldownSpeed,
-    moveSpeed: source.moveSpeed,
-    elementDamageReduce: source.elementDamageReduce ? { ...source.elementDamageReduce } : undefined,
-  };
 }

@@ -143,6 +143,7 @@ const smokeCases = [
     { name: 'native-request-ip', scriptFile: 'native-request-ip-smoke.js', standalone: true },
     { name: 'registration-activation', scriptFile: 'registration-activation-smoke.js', standalone: true },
     { name: 'native-auth-persistence-failure', scriptFile: 'native-auth-persistence-failure-smoke.js', standalone: true },
+    { name: 'native-gm-player-domain-write', scriptFile: 'native-gm-player-domain-write-smoke.js', standalone: true },
     { name: 'gm', scriptFile: 'gm-smoke.js' },
     { name: 'month-card-pool', scriptFile: 'month-card-pool-smoke.js', standalone: true },
     { name: 'daily-sign-in-fortune', scriptFile: 'daily-sign-in-fortune-smoke.js', standalone: true },

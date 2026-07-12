@@ -50,6 +50,8 @@ const status = runVerificationSteps({
         '--case',
         'native-auth-persistence-failure',
         '--case',
+        'native-gm-player-domain-write',
+        '--case',
         'world-gateway-offline-gain-refresh',
         '--case',
         'player-statistic-ledger-io',
