@@ -131,6 +131,7 @@ function main() {
   const marketMountTsx = read('src/react-ui/panels/market/mount-market-panel.tsx');
   const panelFlagsTs = read('src/react-ui/bridge/panel-flags.ts');
   const inventoryPanelTs = read('src/ui/panels/inventory-panel.ts');
+  const inventoryBulkDiscardDialogTs = read('src/ui/panels/inventory-bulk-discard-dialog.ts');
   const inventoryFormationDialogTs = read('src/ui/panels/inventory-formation-dialog.ts');
 
   const mainLineCount = lineCount('src/main.ts');
@@ -213,6 +214,10 @@ function main() {
   assertMissing(inventoryPanelTs, /resolveFormationSetupPlan|syncFormationPreview/, '背包总控不得重新承载阵法公式或预览更新');
   assertIncludes(inventoryFormationDialogTs, /resolveFormationSetupPlan\(/, '阵法对话框必须复用 shared 的布阵计划公式');
   assertIncludes(inventoryFormationDialogTs, /getItemInstanceId\(item\)/, '阵法提交必须继续使用物品实例 ID');
+  assertIncludes(inventoryPanelTs, /new InventoryBulkDiscardDialogController\(/, '背包总控必须把批量丢弃状态与二次确认委托给专用控制器');
+  assertMissing(inventoryPanelTs, /bulkDiscardSelectedIds|renderBulkDiscardModal|buildBulkDiscardRenderKey/, '背包总控不得重新承载批量丢弃状态和渲染键');
+  assertIncludes(inventoryBulkDiscardDialogTs, /getItemInstanceId\(item\)/, '批量丢弃必须从当前背包读取稳定物品实例 ID');
+  assertIncludes(inventoryBulkDiscardDialogTs, /dropItems\(itemInstanceIds\)/, '批量丢弃确认必须只提交当前仍存在的实例 ID');
 
   assertIncludes(socketTs, /createSocketRuntimeSender/, 'socket.ts 必须继续通过 runtime sender owner 收口发送面');
   assertIncludes(socketTs, /createSocketPanelSender/, 'socket.ts 必须继续通过 panel sender owner 收口发送面');

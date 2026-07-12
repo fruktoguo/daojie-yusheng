@@ -89,6 +89,9 @@ import {
   normalizeInventoryRevision,
 } from './inventory-page-request-state';
 import {
+  InventoryBulkDiscardDialogController,
+} from './inventory-bulk-discard-dialog';
+import {
   InventoryFormationDialogController,
   type FormationRangePreviewPayload,
 } from './inventory-formation-dialog';
@@ -104,13 +107,6 @@ type UseItemOptions = {
 type InventoryCellRibbon = {
   label: string;
   title?: string;
-};
-
-type BulkDiscardEntry = {
-  item: ItemStack;
-  itemInstanceId: string;
-  slotIndex: number;
-  name: string;
 };
 
 function replaceElementHtml(root: HTMLElement, html: string): void {
@@ -309,10 +305,6 @@ export class InventoryPanel {
   private selectedItemKey: string | null = null;
   /** actionDialog：动作对话。 */
   private actionDialog: InventoryActionDialogState | null = null;
-  private bulkDiscardModalOpen = false;
-  private bulkDiscardSelectedIds = new Set<string>();
-  private bulkDiscardFilter: InventoryFilter = 'all';
-  private bulkDiscardConfirmOpen = false;
   /** formationDialogSlotIndex：布阵对话槽位。 */
   private formationDialogSlotIndex: number | null = null;
   /** sectFoundingDialogSlotIndex：建宗令建宗面板槽位。 */
@@ -351,6 +343,14 @@ export class InventoryPanel {
     previewRange: (payload) => {
       this.onPreviewFormationRange?.(payload);
     },
+  });
+  private readonly bulkDiscardDialogController = new InventoryBulkDiscardDialogController({
+    ownerId: InventoryPanel.MODAL_OWNER,
+    getInventory: () => this.lastInventory,
+    getItemInstanceId: (item) => this.getInventoryItemInstanceId(item),
+    dropItems: (itemInstanceIds) => this.onBulkDropItems?.(itemInstanceIds),
+    closeModal: () => this.closeModal(),
+    resetParentModalState: () => this.resetModalState(),
   });
   /** lastPlayerContextKey：上次玩家上下文签名。 */
   private lastPlayerContextKey: string | null = null;
@@ -427,10 +427,7 @@ export class InventoryPanel {
     this.selectedSlotIndex = null;
     this.selectedItemKey = null;
     this.actionDialog = null;
-    this.bulkDiscardModalOpen = false;
-    this.bulkDiscardSelectedIds.clear();
-    this.bulkDiscardFilter = 'all';
-    this.bulkDiscardConfirmOpen = false;
+    this.bulkDiscardDialogController.reset();
     this.formationDialogSlotIndex = null;
     this.sectFoundingDialogSlotIndex = null;
     this.lastModalRenderKey = null;
@@ -1621,241 +1618,15 @@ export class InventoryPanel {
       return;
     }
     this.resetModalState();
-    this.bulkDiscardFilter = this.activeFilter;
-    this.bulkDiscardSelectedIds.clear();
-    this.bulkDiscardConfirmOpen = false;
-    this.bulkDiscardModalOpen = true;
-    this.renderBulkDiscardModal();
-  }
-
-  private renderBulkDiscardModal(): void {
-    if (!this.lastInventory) {
-      this.bulkDiscardModalOpen = false;
-      detailModalHost.close(InventoryPanel.MODAL_OWNER);
-      return;
-    }
-    this.bulkDiscardModalOpen = true;
-    const allEntries = this.getBulkDiscardEntries();
-    const existingIds = new Set(allEntries.map((entry) => entry.itemInstanceId));
-    for (const itemInstanceId of Array.from(this.bulkDiscardSelectedIds)) {
-      if (!existingIds.has(itemInstanceId)) {
-        this.bulkDiscardSelectedIds.delete(itemInstanceId);
-      }
-    }
-    if (this.bulkDiscardConfirmOpen) {
-      this.renderBulkDiscardConfirmModal();
-      return;
-    }
-    const visibleEntries = allEntries.filter((entry) => this.matchesBulkDiscardFilter(entry.item));
-    detailModalHost.open({
-      ownerId: InventoryPanel.MODAL_OWNER,
-      variantClass: 'detail-modal--inventory-bulk-discard',
-      title: '一键丢弃',
-      subtitle: `已选 ${formatDisplayInteger(this.bulkDiscardSelectedIds.size)} 组物品`,
-      hint: t('common.modal.click-blank-cancel', undefined),
-      renderBody: (body) => {
-        this.renderBulkDiscardBody(body, visibleEntries);
-      },
-      onClose: () => {
-        this.resetModalState();
-      },
-      onAfterRender: (body, signal) => {
-        this.bindBulkDiscardModalActions(body, signal);
-      },
-    });
-    this.lastModalRenderKey = this.buildBulkDiscardRenderKey();
-  }
-
-  private renderBulkDiscardBody(body: HTMLElement, visibleEntries: BulkDiscardEntry[]): void {
-    const selectedCount = this.bulkDiscardSelectedIds.size;
-    replaceElementHtml(body, `
-      <div class="inventory-bulk-discard">
-        <div class="inventory-bulk-discard-tabs">
-          ${INVENTORY_FILTER_TABS.map((tab) => `
-            <button class="inventory-filter-tab${this.bulkDiscardFilter === tab.id ? ' active' : ''}" type="button" data-bulk-discard-filter="${this.escapeHtml(tab.id)}">
-              ${this.escapeHtml(tab.label)}
-            </button>
-          `).join('')}
-        </div>
-        <div class="inventory-bulk-discard-toolbar">
-          <span>当前 ${formatDisplayInteger(visibleEntries.length)} 组 · 已选 ${formatDisplayInteger(selectedCount)} 组</span>
-          <div class="inventory-bulk-discard-tools">
-            <button class="small-btn ghost" type="button" data-bulk-discard-select-visible>全选当前</button>
-            <button class="small-btn ghost" type="button" data-bulk-discard-clear>清空</button>
-          </div>
-        </div>
-        <div class="inventory-bulk-discard-list">
-          ${visibleEntries.length > 0 ? visibleEntries.map((entry) => {
-            const checked = this.bulkDiscardSelectedIds.has(entry.itemInstanceId);
-            return `
-              <button class="inventory-bulk-discard-row${checked ? ' selected' : ''}" type="button" data-bulk-discard-toggle="${this.escapeHtml(entry.itemInstanceId)}" aria-pressed="${checked ? 'true' : 'false'}">
-                <span class="inventory-bulk-discard-check">${checked ? '✓' : ''}</span>
-                ${this.renderBulkDiscardRowContent(entry)}
-              </button>
-            `;
-          }).join('') : '<div class="empty-hint">当前筛选下没有可丢弃物品</div>'}
-        </div>
-        <div class="detail-modal-actions inventory-bulk-discard-actions">
-          <button class="small-btn ghost" type="button" data-bulk-discard-cancel>取消</button>
-          <button class="small-btn danger" type="button" data-bulk-discard-next ${selectedCount > 0 ? '' : 'disabled'}>确认丢弃</button>
-        </div>
-      </div>
-    `);
-  }
-
-  private bindBulkDiscardModalActions(body: HTMLElement, signal: AbortSignal): void {
-    body.querySelectorAll<HTMLElement>('[data-bulk-discard-filter]').forEach((button) => {
-      button.addEventListener('click', (event) => {
-        event.stopPropagation();
-        const nextFilter = this.normalizeInventoryPageFilter(button.dataset.bulkDiscardFilter);
-        if (nextFilter !== this.bulkDiscardFilter) {
-          this.bulkDiscardFilter = nextFilter;
-          this.renderBulkDiscardModal();
-        }
-      }, { signal });
-    });
-    body.querySelectorAll<HTMLElement>('[data-bulk-discard-toggle]').forEach((button) => {
-      button.addEventListener('click', (event) => {
-        event.stopPropagation();
-        const itemInstanceId = button.dataset.bulkDiscardToggle ?? '';
-        if (!itemInstanceId) {
-          return;
-        }
-        if (this.bulkDiscardSelectedIds.has(itemInstanceId)) {
-          this.bulkDiscardSelectedIds.delete(itemInstanceId);
-        } else {
-          this.bulkDiscardSelectedIds.add(itemInstanceId);
-        }
-        this.renderBulkDiscardModal();
-      }, { signal });
-    });
-    body.querySelector<HTMLElement>('[data-bulk-discard-select-visible]')?.addEventListener('click', (event) => {
-      event.stopPropagation();
-      for (const entry of this.getBulkDiscardEntries()) {
-        if (this.matchesBulkDiscardFilter(entry.item)) {
-          this.bulkDiscardSelectedIds.add(entry.itemInstanceId);
-        }
-      }
-      this.renderBulkDiscardModal();
-    }, { signal });
-    body.querySelector<HTMLElement>('[data-bulk-discard-clear]')?.addEventListener('click', (event) => {
-      event.stopPropagation();
-      this.bulkDiscardSelectedIds.clear();
-      this.renderBulkDiscardModal();
-    }, { signal });
-    body.querySelector<HTMLElement>('[data-bulk-discard-cancel]')?.addEventListener('click', (event) => {
-      event.stopPropagation();
-      this.closeModal();
-    }, { signal });
-    body.querySelector<HTMLElement>('[data-bulk-discard-next]')?.addEventListener('click', (event) => {
-      event.stopPropagation();
-      if (this.bulkDiscardSelectedIds.size === 0) {
-        return;
-      }
-      this.bulkDiscardConfirmOpen = true;
-      this.renderBulkDiscardModal();
-    }, { signal });
-  }
-
-  private renderBulkDiscardConfirmModal(): void {
-    const selectedEntries = this.getBulkDiscardSelectedEntries();
-    if (selectedEntries.length === 0) {
-      this.bulkDiscardConfirmOpen = false;
-      this.renderBulkDiscardModal();
-      return;
-    }
-    detailModalHost.open({
-      ownerId: InventoryPanel.MODAL_OWNER,
-      variantClass: 'detail-modal--inventory-bulk-discard',
-      title: '确认丢弃',
-      subtitle: `将丢弃 ${formatDisplayInteger(selectedEntries.length)} 组物品`,
-      hint: t('common.modal.click-blank-cancel', undefined),
-      renderBody: (body) => {
-        replaceElementHtml(body, `
-          <div class="inventory-bulk-discard-confirm">
-            <div class="inventory-bulk-discard-warning">确认后会把选中的所有堆叠全部丢弃，不能选择数量。</div>
-            <div class="inventory-bulk-discard-list inventory-bulk-discard-list--confirm">
-              ${selectedEntries.map((entry) => `
-                <div class="inventory-bulk-discard-row selected">
-                  <span class="inventory-bulk-discard-check">✓</span>
-                  ${this.renderBulkDiscardRowContent(entry)}
-                </div>
-              `).join('')}
-            </div>
-            <div class="detail-modal-actions inventory-bulk-discard-actions">
-              <button class="small-btn ghost" type="button" data-bulk-discard-back>返回选择</button>
-              <button class="small-btn danger" type="button" data-bulk-discard-confirm>确认丢弃</button>
-            </div>
-          </div>
-        `);
-      },
-      onClose: () => {
-        this.resetModalState();
-      },
-      onAfterRender: (body, signal) => {
-        body.querySelector<HTMLElement>('[data-bulk-discard-back]')?.addEventListener('click', (event) => {
-          event.stopPropagation();
-          this.bulkDiscardConfirmOpen = false;
-          this.renderBulkDiscardModal();
-        }, { signal });
-        body.querySelector<HTMLElement>('[data-bulk-discard-confirm]')?.addEventListener('click', (event) => {
-          event.stopPropagation();
-          const itemInstanceIds = this.getBulkDiscardSelectedEntries().map((entry) => entry.itemInstanceId);
-          if (itemInstanceIds.length === 0) {
-            this.bulkDiscardConfirmOpen = false;
-            this.renderBulkDiscardModal();
-            return;
-          }
-          this.onBulkDropItems?.(itemInstanceIds);
-          this.closeModal();
-        }, { signal });
-      },
-    });
-    this.lastModalRenderKey = this.buildBulkDiscardRenderKey();
-  }
-
-  private getBulkDiscardEntries(): BulkDiscardEntry[] {
-    return (this.lastInventory?.items ?? [])
-      .map((item, slotIndex) => {
-        const itemInstanceId = this.getInventoryItemInstanceId(item);
-        if (!itemInstanceId) {
-          return null;
-        }
-        return {
-          item,
-          itemInstanceId,
-          slotIndex,
-          name: getItemDisplayMeta(item).displayItem.name,
-        };
-      })
-      .filter((entry): entry is BulkDiscardEntry => entry !== null);
-  }
-
-  private getBulkDiscardSelectedEntries(): BulkDiscardEntry[] {
-    return this.getBulkDiscardEntries().filter((entry) => this.bulkDiscardSelectedIds.has(entry.itemInstanceId));
-  }
-
-  private renderBulkDiscardRowContent(entry: BulkDiscardEntry): string {
-    return `
-      <span class="inventory-bulk-discard-info">
-        <span class="inventory-bulk-discard-name">${this.escapeHtml(entry.name)}</span>
-        <span class="inventory-bulk-discard-meta">
-          <span>数量 ${formatDisplayInteger(Math.max(0, Math.floor(Number(entry.item.count) || 0)))}</span>
-        </span>
-      </span>
-    `;
-  }
-
-  private matchesBulkDiscardFilter(item: ItemStack): boolean {
-    return matchesInventoryTypeFilter(item.type, this.bulkDiscardFilter);
+    this.bulkDiscardDialogController.open(this.activeFilter);
   }
 
   /** renderModal：渲染弹窗。 */
   private renderModal(): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    if (this.bulkDiscardModalOpen) {
-      this.renderBulkDiscardModal();
+    if (this.bulkDiscardDialogController.isOpen()) {
+      this.bulkDiscardDialogController.render();
       return;
     }
     if (!this.lastInventory || !this.selectedItemKey) {
@@ -1999,9 +1770,7 @@ export class InventoryPanel {
     const item = this.lastInventory?.items[slotIndex];
     this.selectedItemKey = item ? this.getItemIdentity(item) : null;
     this.actionDialog = null;
-    this.bulkDiscardSelectedIds.clear();
-    this.bulkDiscardFilter = 'all';
-    this.bulkDiscardConfirmOpen = false;
+    this.bulkDiscardDialogController.reset();
     this.formationDialogSlotIndex = null;
     this.sectFoundingDialogSlotIndex = slotIndex;
     this.renderModal();
@@ -2570,23 +2339,8 @@ export class InventoryPanel {
   private patchModal(): boolean {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    if (this.bulkDiscardModalOpen) {
-      if (!this.lastInventory) {
-        this.bulkDiscardModalOpen = false;
-        this.lastModalRenderKey = null;
-        detailModalHost.close(InventoryPanel.MODAL_OWNER);
-        return true;
-      }
-      if (!detailModalHost.isOpenFor(InventoryPanel.MODAL_OWNER)) {
-        this.bulkDiscardModalOpen = false;
-        this.lastModalRenderKey = null;
-        return true;
-      }
-      const nextRenderKey = this.buildBulkDiscardRenderKey();
-      if (this.lastModalRenderKey !== nextRenderKey) {
-        this.renderBulkDiscardModal();
-      }
-      return true;
+    if (this.bulkDiscardDialogController.isOpen()) {
+      return this.bulkDiscardDialogController.patch();
     }
     if (!this.lastInventory || !this.selectedItemKey) {
       this.lastModalRenderKey = null;
@@ -3761,10 +3515,7 @@ export class InventoryPanel {
     this.selectedSlotIndex = null;
     this.selectedItemKey = null;
     this.actionDialog = null;
-    this.bulkDiscardModalOpen = false;
-    this.bulkDiscardSelectedIds.clear();
-    this.bulkDiscardFilter = 'all';
-    this.bulkDiscardConfirmOpen = false;
+    this.bulkDiscardDialogController.reset();
     this.formationDialogSlotIndex = null;
     this.sectFoundingDialogSlotIndex = null;
     this.lastModalRenderKey = null;
@@ -3813,16 +3564,6 @@ export class InventoryPanel {
       this.sourceExpanded ? '1' : '0',
       hasLoadedItemSourceCatalog() ? '1' : '0',
       equippedComparisonItem ? this.getItemIdentity(equippedComparisonItem) : '',
-    ].join('|');
-  }
-
-  private buildBulkDiscardRenderKey(): string {
-    return [
-      'bulk-discard',
-      this.bulkDiscardFilter,
-      this.bulkDiscardConfirmOpen ? 'confirm' : 'select',
-      [...this.bulkDiscardSelectedIds].sort().join(','),
-      String((this.lastInventory as { revision?: number } | null)?.revision ?? 0),
     ].join('|');
   }
 
