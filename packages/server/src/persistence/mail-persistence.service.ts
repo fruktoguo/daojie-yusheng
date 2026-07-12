@@ -10,6 +10,7 @@
  * 使用 advisory lock 保证同一玩家邮箱的并发写入安全。
  */
 import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
+import { createHash } from 'node:crypto';
 import { Pool } from 'pg';
 
 import { resolveServerDatabaseUrl } from '../config/env-alias';
@@ -65,6 +66,11 @@ interface MailboxPayload {
   revision: number;
   welcomeMailDeliveredAt: number | null;
   mails: MailEntryPayload[];
+}
+
+export interface BroadcastMailPersistenceResult {
+  mailIds: string[];
+  recipientCount: number;
 }
 
 interface StructuredMailRow {
@@ -337,6 +343,102 @@ export class MailPersistenceService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  /**
+   * 以一次集合事务投递全服邮件。收件人锁、邮件、附件、计数和恢复水位要么全部提交，
+   * 要么全部回滚；同一 batchId 重放使用确定性 mail_id，不会重复发放。
+   */
+  async saveBroadcastMail(
+    playerIds: readonly string[],
+    batchId: string,
+    mail: unknown,
+  ): Promise<BroadcastMailPersistenceResult> {
+    if (!this.pool || !this.enabled) {
+      throw new Error('mail_persistence_disabled');
+    }
+
+    const normalizedPlayerIds = Array.from(new Set(
+      (Array.isArray(playerIds) ? playerIds : [])
+        .map((playerId) => normalizeRequiredString(playerId))
+        .filter((playerId) => playerId.length > 0),
+    )).sort(compareStableString);
+    const normalizedBatchId = normalizeRequiredString(batchId);
+    if (!normalizedBatchId) {
+      throw new Error('mail_broadcast_batch_id_required');
+    }
+    if (normalizedBatchId.length > 180) {
+      throw new Error(`mail_broadcast_batch_id_too_long:${normalizedBatchId.length}`);
+    }
+    if (normalizedPlayerIds.length === 0) {
+      return { mailIds: [], recipientCount: 0 };
+    }
+
+    const mailIds = normalizedPlayerIds.map((playerId) => buildBroadcastMailId(normalizedBatchId, playerId));
+    const normalizedMail = normalizeMailEntry({
+      ...(asRecord(mail) ?? {}),
+      version: 1,
+      mailId: mailIds[0],
+    });
+    if (!normalizedMail) {
+      throw new Error('mail_broadcast_payload_invalid');
+    }
+    if (normalizedMail.expireAt !== null && normalizedMail.expireAt <= Date.now()) {
+      throw new Error('mail_broadcast_already_expired');
+    }
+    const payloadHash = buildBroadcastMailPayloadHash(normalizedMail);
+    const recipientSetHash = buildBroadcastRecipientSetHash(normalizedPlayerIds);
+
+    for (let attempt = 1; attempt <= SAVE_MAILBOX_RETRY_LIMIT; attempt += 1) {
+      const client = await this.pool.connect();
+      try {
+        await client.query('BEGIN');
+        await acquirePlayerMailLocks(client, normalizedPlayerIds);
+        const insertedRows = await insertBroadcastMailRows(
+          client,
+          normalizedPlayerIds,
+          mailIds,
+          normalizedBatchId,
+          normalizedMail,
+          payloadHash,
+          recipientSetHash,
+        );
+        if (insertedRows.length !== normalizedPlayerIds.length) {
+          await assertBroadcastMailReplayCompatible(
+            client,
+            normalizedPlayerIds,
+            mailIds,
+            normalizedBatchId,
+            payloadHash,
+            recipientSetHash,
+          );
+        }
+        if (insertedRows.length > 0) {
+          await insertBroadcastMailAttachments(client, insertedRows, normalizedMail.attachments);
+          const counterRows = await refreshBroadcastMailCounters(
+            client,
+            insertedRows.map((row) => row.playerId),
+          );
+          await upsertBroadcastMailRecoveryWatermarks(client, counterRows);
+        }
+        await client.query('COMMIT');
+        return {
+          mailIds,
+          recipientCount: normalizedPlayerIds.length,
+        };
+      } catch (error: unknown) {
+        await client.query('ROLLBACK').catch(() => undefined);
+        if (attempt < SAVE_MAILBOX_RETRY_LIMIT && isRetryableMailboxWriteError(error)) {
+          await delay(SAVE_MAILBOX_RETRY_BASE_DELAY_MS * attempt);
+          continue;
+        }
+        throw error;
+      } finally {
+        client.release();
+      }
+    }
+
+    throw new Error('mail_broadcast_retry_exhausted');
+  }
+
   async cleanupExpiredMails(limit = 64): Promise<number> {
     if (!this.pool || !this.enabled) {
       return 0;
@@ -553,6 +655,353 @@ async function acquirePlayerMailLock(
   playerId: string,
 ): Promise<void> {
   await client.query('SELECT pg_advisory_xact_lock($1::integer, hashtext($2))', [7101, playerId]);
+}
+
+async function acquirePlayerMailLocks(
+  client: import('pg').PoolClient,
+  playerIds: readonly string[],
+): Promise<void> {
+  if (playerIds.length === 0) {
+    return;
+  }
+  await client.query(
+    `
+      SELECT pg_advisory_xact_lock($1::integer, hashtext(recipient.player_id))
+      FROM unnest($2::varchar[]) AS recipient(player_id)
+      ORDER BY recipient.player_id ASC
+    `,
+    [7101, playerIds],
+  );
+}
+
+interface InsertedBroadcastMailRow {
+  playerId: string;
+  mailId: string;
+}
+
+interface BroadcastMailCounterRow {
+  playerId: string;
+  counterVersion: number;
+}
+
+async function insertBroadcastMailRows(
+  client: import('pg').PoolClient,
+  playerIds: readonly string[],
+  mailIds: readonly string[],
+  batchId: string,
+  mail: MailEntryPayload,
+  payloadHash: string,
+  recipientSetHash: string,
+): Promise<InsertedBroadcastMailRow[]> {
+  const result = await client.query<{ player_id?: unknown; mail_id?: unknown }>(
+    `
+      INSERT INTO ${PLAYER_MAIL_TABLE}(
+        mail_id,
+        player_id,
+        sender_type,
+        sender_label,
+        template_id,
+        mail_type,
+        title,
+        body,
+        source_type,
+        source_ref_id,
+        metadata_jsonb,
+        mail_version,
+        created_at,
+        expire_at,
+        first_seen_at,
+        read_at,
+        claimed_at,
+        deleted_at,
+        updated_at
+      )
+      SELECT
+        recipient.mail_id,
+        recipient.player_id,
+        'system',
+        $3,
+        $4,
+        'system',
+        $5,
+        $6,
+        'gm_broadcast',
+        $7,
+        $8::jsonb,
+        $9,
+        $10,
+        $11,
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        to_timestamp($12::double precision / 1000.0)
+      FROM unnest($1::varchar[], $2::varchar[]) AS recipient(player_id, mail_id)
+      ON CONFLICT (mail_id) DO NOTHING
+      RETURNING player_id, mail_id
+    `,
+    [
+      playerIds,
+      mailIds,
+      mail.senderLabel,
+      mail.templateId,
+      mail.fallbackTitle,
+      mail.fallbackBody,
+      batchId,
+      JSON.stringify({
+        args: mail.args,
+        broadcastBatchId: batchId,
+        broadcastPayloadHash: payloadHash,
+        broadcastRecipientSetHash: recipientSetHash,
+      }),
+      Math.max(1, Math.trunc(Number(mail.mailVersion ?? 1))),
+      Math.trunc(Number(mail.createdAt)),
+      normalizeOptionalInteger(mail.expireAt),
+      normalizeRequiredInteger(mail.updatedAt, Math.trunc(Number(mail.createdAt))),
+    ],
+  );
+  return result.rows.map((row) => ({
+    playerId: normalizeRequiredString(row.player_id),
+    mailId: normalizeRequiredString(row.mail_id),
+  })).filter((row) => row.playerId.length > 0 && row.mailId.length > 0);
+}
+
+async function assertBroadcastMailReplayCompatible(
+  client: import('pg').PoolClient,
+  playerIds: readonly string[],
+  mailIds: readonly string[],
+  batchId: string,
+  payloadHash: string,
+  recipientSetHash: string,
+): Promise<void> {
+  const result = await client.query<{ compatible_count?: unknown }>(
+    `
+      SELECT COUNT(*)::bigint AS compatible_count
+      FROM unnest($1::varchar[], $2::varchar[]) AS recipient(player_id, mail_id)
+      INNER JOIN ${PLAYER_MAIL_TABLE} mail
+        ON mail.player_id = recipient.player_id
+       AND mail.mail_id = recipient.mail_id
+       AND mail.source_type = 'gm_broadcast'
+       AND mail.source_ref_id = $3
+       AND mail.metadata_jsonb->>'broadcastPayloadHash' = $4
+       AND mail.metadata_jsonb->>'broadcastRecipientSetHash' = $5
+    `,
+    [playerIds, mailIds, batchId, payloadHash, recipientSetHash],
+  );
+  const compatibleCount = Math.max(0, normalizeRequiredInteger(result.rows[0]?.compatible_count, 0));
+  if (compatibleCount !== playerIds.length) {
+    throw new Error(`mail_broadcast_batch_payload_conflict:${batchId}`);
+  }
+}
+
+async function insertBroadcastMailAttachments(
+  client: import('pg').PoolClient,
+  insertedRows: readonly InsertedBroadcastMailRow[],
+  attachments: readonly MailAttachmentPayload[],
+): Promise<void> {
+  if (insertedRows.length === 0 || attachments.length === 0) {
+    return;
+  }
+  await client.query(
+    `
+      INSERT INTO ${PLAYER_MAIL_ATTACHMENT_TABLE}(
+        attachment_id,
+        mail_id,
+        player_id,
+        attachment_kind,
+        item_id,
+        count,
+        currency_type,
+        amount,
+        item_payload_jsonb,
+        claim_operation_id,
+        claimed_at,
+        created_at
+      )
+      SELECT
+        'mail_attachment:' || recipient.mail_id || ':' || (attachment.ordinality - 1)::text,
+        recipient.mail_id,
+        recipient.player_id,
+        'item',
+        attachment.payload->>'itemId',
+        GREATEST(1, (attachment.payload->>'count')::bigint),
+        NULL,
+        NULL,
+        attachment.payload,
+        NULL,
+        NULL,
+        now()
+      FROM unnest($1::varchar[], $2::varchar[]) AS recipient(player_id, mail_id)
+      CROSS JOIN LATERAL jsonb_array_elements($3::jsonb)
+        WITH ORDINALITY AS attachment(payload, ordinality)
+      ON CONFLICT (attachment_id) DO NOTHING
+    `,
+    [
+      insertedRows.map((row) => row.playerId),
+      insertedRows.map((row) => row.mailId),
+      JSON.stringify(attachments),
+    ],
+  );
+}
+
+async function refreshBroadcastMailCounters(
+  client: import('pg').PoolClient,
+  playerIds: readonly string[],
+): Promise<BroadcastMailCounterRow[]> {
+  const now = Date.now();
+  const result = await client.query<{ player_id?: unknown; counter_version?: unknown }>(
+    `
+      WITH target AS (
+        SELECT player_id
+        FROM unnest($1::varchar[]) AS recipient(player_id)
+      ),
+      summary AS (
+        SELECT
+          target.player_id,
+          COALESCE(COUNT(mail.mail_id) FILTER (WHERE mail.read_at IS NULL), 0)::bigint AS unread_count,
+          COALESCE(COUNT(mail.mail_id) FILTER (
+            WHERE mail.claimed_at IS NULL
+              AND EXISTS (
+                SELECT 1
+                FROM ${PLAYER_MAIL_ATTACHMENT_TABLE} attachment
+                WHERE attachment.player_id = target.player_id
+                  AND attachment.mail_id = mail.mail_id
+                  AND attachment.claimed_at IS NULL
+              )
+          ), 0)::bigint AS unclaimed_count,
+          MAX(mail.created_at) AS latest_mail_at
+        FROM target
+        LEFT JOIN ${PLAYER_MAIL_TABLE} mail
+          ON mail.player_id = target.player_id
+         AND mail.deleted_at IS NULL
+         AND (mail.expire_at IS NULL OR mail.expire_at > $2)
+        GROUP BY target.player_id
+      ),
+      next_counter AS (
+        SELECT
+          summary.player_id,
+          summary.unread_count,
+          summary.unclaimed_count,
+          summary.latest_mail_at,
+          COALESCE(current_counter.counter_version, 0) + 1 AS counter_version,
+          current_counter.welcome_mail_delivered_at
+        FROM summary
+        LEFT JOIN ${PLAYER_MAIL_COUNTER_TABLE} current_counter
+          ON current_counter.player_id = summary.player_id
+      )
+      INSERT INTO ${PLAYER_MAIL_COUNTER_TABLE}(
+        player_id,
+        unread_count,
+        unclaimed_count,
+        latest_mail_at,
+        counter_version,
+        welcome_mail_delivered_at,
+        updated_at
+      )
+      SELECT
+        player_id,
+        unread_count,
+        unclaimed_count,
+        latest_mail_at,
+        counter_version,
+        welcome_mail_delivered_at,
+        now()
+      FROM next_counter
+      ON CONFLICT (player_id)
+      DO UPDATE SET
+        unread_count = EXCLUDED.unread_count,
+        unclaimed_count = EXCLUDED.unclaimed_count,
+        latest_mail_at = EXCLUDED.latest_mail_at,
+        counter_version = GREATEST(
+          ${PLAYER_MAIL_COUNTER_TABLE}.counter_version + 1,
+          EXCLUDED.counter_version
+        ),
+        welcome_mail_delivered_at = COALESCE(
+          ${PLAYER_MAIL_COUNTER_TABLE}.welcome_mail_delivered_at,
+          EXCLUDED.welcome_mail_delivered_at
+        ),
+        updated_at = now()
+      RETURNING player_id, counter_version
+    `,
+    [playerIds, now],
+  );
+  return result.rows.map((row) => ({
+    playerId: normalizeRequiredString(row.player_id),
+    counterVersion: Math.max(1, normalizeRequiredInteger(row.counter_version, 1)),
+  })).filter((row) => row.playerId.length > 0);
+}
+
+async function upsertBroadcastMailRecoveryWatermarks(
+  client: import('pg').PoolClient,
+  counterRows: readonly BroadcastMailCounterRow[],
+): Promise<void> {
+  if (counterRows.length === 0) {
+    return;
+  }
+  await client.query(
+    `
+      INSERT INTO ${PLAYER_RECOVERY_WATERMARK_TABLE}(
+        player_id,
+        mail_version,
+        mail_counter_version,
+        updated_at
+      )
+      SELECT recipient.player_id, 1, recipient.counter_version, now()
+      FROM unnest($1::varchar[], $2::bigint[]) AS recipient(player_id, counter_version)
+      ON CONFLICT (player_id)
+      DO UPDATE SET
+        mail_version = GREATEST(${PLAYER_RECOVERY_WATERMARK_TABLE}.mail_version, EXCLUDED.mail_version),
+        mail_counter_version = GREATEST(
+          ${PLAYER_RECOVERY_WATERMARK_TABLE}.mail_counter_version,
+          EXCLUDED.mail_counter_version
+        ),
+        updated_at = now()
+    `,
+    [
+      counterRows.map((row) => row.playerId),
+      counterRows.map((row) => row.counterVersion),
+    ],
+  );
+}
+
+function buildBroadcastMailId(batchId: string, playerId: string): string {
+  const batchHash = createHash('sha256').update(batchId, 'utf8').digest('hex').slice(0, 32);
+  const playerHash = createHash('sha256').update(playerId, 'utf8').digest('hex').slice(0, 32);
+  return `mail:b:${batchHash}:p:${playerHash}`;
+}
+
+function buildBroadcastMailPayloadHash(mail: MailEntryPayload): string {
+  return createHash('sha256').update(stableMailJsonStringify({
+    senderLabel: mail.senderLabel,
+    templateId: mail.templateId,
+    args: mail.args,
+    fallbackTitle: mail.fallbackTitle,
+    fallbackBody: mail.fallbackBody,
+    attachments: mail.attachments,
+    expireAt: mail.expireAt,
+  }), 'utf8').digest('hex');
+}
+
+function buildBroadcastRecipientSetHash(playerIds: readonly string[]): string {
+  return createHash('sha256').update(playerIds.join('\n'), 'utf8').digest('hex');
+}
+
+function compareStableString(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+
+function stableMailJsonStringify(value: unknown): string {
+  if (value === null || typeof value !== 'object') {
+    return JSON.stringify(value) ?? 'null';
+  }
+  if (Array.isArray(value)) {
+    return `[${value.map((entry) => stableMailJsonStringify(entry)).join(',')}]`;
+  }
+  const record = value as Record<string, unknown>;
+  return `{${Object.keys(record)
+    .sort()
+    .map((key) => `${JSON.stringify(key)}:${stableMailJsonStringify(record[key])}`)
+    .join(',')}}`;
 }
 
 async function loadMailboxWriteFence(

@@ -220,6 +220,34 @@ const WATERMARK_COLUMNS = [
 type RecoveryWatermarkColumn = (typeof WATERMARK_COLUMNS)[number];
 type RecoveryWatermarkPatch = Partial<Record<RecoveryWatermarkColumn, number>>;
 
+/** 能证明角色分域已经建立的水位；identity/presence/mail 单独存在时不代表角色快照完整。 */
+const PLAYER_PROJECTED_STATE_WATERMARK_COLUMNS: readonly RecoveryWatermarkColumn[] = [
+  'anchor_version',
+  'position_checkpoint_version',
+  'vitals_version',
+  'progression_version',
+  'attr_version',
+  'body_training_version',
+  'wallet_version',
+  'sect_membership_version',
+  'market_storage_version',
+  'inventory_version',
+  'map_unlock_version',
+  'equipment_version',
+  'artifact_version',
+  'technique_version',
+  'buff_version',
+  'quest_version',
+  'combat_pref_version',
+  'auto_battle_skill_version',
+  'auto_use_item_rule_version',
+  'profession_version',
+  'alchemy_preset_version',
+  'active_job_version',
+  'enhancement_record_version',
+  'logbook_version',
+];
+
 const PLAYER_PROJECTION_WATERMARK_COLUMN_BY_DOMAIN: Readonly<Record<string, RecoveryWatermarkColumn>> = {
   world_anchor: 'anchor_version',
   position_checkpoint: 'position_checkpoint_version',
@@ -2955,6 +2983,24 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
     }
 
     return buildProjectedSnapshotFromDomains(starterSnapshot, domains, this.contentTemplateRepository);
+  }
+
+  /** 只读取已建立角色分域的玩家 ID，供广播等无需快照内容的低频运维链路使用。 */
+  async listProjectedPlayerIds(): Promise<string[]> {
+    if (!this.pool || !this.enabled) {
+      return [];
+    }
+    const result = await this.pool.query<{ player_id?: unknown }>(
+      `
+        SELECT player_id
+        FROM ${PLAYER_RECOVERY_WATERMARK_TABLE}
+        WHERE GREATEST(${PLAYER_PROJECTED_STATE_WATERMARK_COLUMNS.join(', ')}) > 0
+        ORDER BY player_id ASC
+      `,
+    );
+    return result.rows
+      .map((row) => normalizeRequiredString(row.player_id))
+      .filter((playerId) => playerId.length > 0);
   }
 
   async listProjectedSnapshots(
@@ -7641,32 +7687,9 @@ function hasProjectedPlayerDomainState(domains: Omit<LoadedPlayerDomains, 'hasPr
   if (!watermark) {
     return false;
   }
-  return [
-    'anchor_version',
-    'position_checkpoint_version',
-    'vitals_version',
-    'progression_version',
-    'attr_version',
-    'body_training_version',
-    'wallet_version',
-    'sect_membership_version',
-    'market_storage_version',
-    'inventory_version',
-    'map_unlock_version',
-    'equipment_version',
-    'artifact_version',
-    'technique_version',
-    'buff_version',
-    'quest_version',
-    'combat_pref_version',
-    'auto_battle_skill_version',
-    'auto_use_item_rule_version',
-    'profession_version',
-    'alchemy_preset_version',
-    'active_job_version',
-    'enhancement_record_version',
-    'logbook_version',
-  ].some((column) => (normalizeOptionalInteger(watermark[column]) ?? 0) > 0);
+  return PLAYER_PROJECTED_STATE_WATERMARK_COLUMNS.some(
+    (column) => (normalizeOptionalInteger(watermark[column]) ?? 0) > 0,
+  );
 }
 
 function hasAnyLoadedPlayerDomainState(domains: Omit<LoadedPlayerDomains, 'hasProjectedState'>): boolean {

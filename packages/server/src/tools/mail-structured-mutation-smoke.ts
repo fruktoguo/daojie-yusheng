@@ -2,6 +2,7 @@ import { installSmokeTimeout } from './smoke-timeout';
 
 installSmokeTimeout(__filename);
 
+import assert from 'node:assert/strict';
 import { Pool } from 'pg';
 
 import { ContentTemplateRepository } from '../content/content-template.repository';
@@ -46,6 +47,14 @@ async function main(): Promise<void> {
   const now = Date.now();
   const playerId = `mail_mut_${now.toString(36)}`;
   const stalePlayerId = `${playerId}_stale`;
+  const broadcastRecipientCount = Math.max(
+    2,
+    Math.min(5_000, Math.trunc(Number(process.env.MAIL_BROADCAST_SMOKE_RECIPIENT_COUNT ?? 2)) || 2),
+  );
+  const broadcastPlayerIds = Array.from(
+    { length: broadcastRecipientCount },
+    (_, index) => `${playerId}_broadcast_${index}`,
+  );
   const pool = new Pool({ connectionString: databaseUrl });
   const contentTemplateRepository = new ContentTemplateRepository();
   const databasePoolProvider = new DatabasePoolProvider();
@@ -88,6 +97,7 @@ async function main(): Promise<void> {
 
   try {
     await cleanupPlayer(pool, playerId);
+    await cleanupPlayers(pool, broadcastPlayerIds);
 
     await mailPersistence.saveMailbox(playerId, {
       version: 1,
@@ -341,6 +351,110 @@ async function main(): Promise<void> {
       throw new Error(`unexpected runtime summary after delete: ${JSON.stringify(summary)}`);
     }
 
+    const broadcastBatchId = `broadcast:smoke:${now.toString(36)}`;
+    const broadcastStartedAt = Date.now();
+    const broadcastResult = await runtime.createBroadcastMail(
+      broadcastPlayerIds,
+      broadcastBatchId,
+      {
+        fallbackTitle: 'mail broadcast atomic smoke',
+        fallbackBody: 'mail broadcast atomic smoke',
+        attachments: [{ itemId: 'spirit_stone', count: 3 }],
+      },
+    );
+    const replayedBroadcastResult = await runtime.createBroadcastMail(
+      broadcastPlayerIds,
+      broadcastBatchId,
+      {
+        fallbackTitle: 'mail broadcast atomic smoke',
+        fallbackBody: 'mail broadcast atomic smoke',
+        attachments: [{ itemId: 'spirit_stone', count: 3 }],
+      },
+    );
+    await assert.rejects(
+      runtime.createBroadcastMail(
+        broadcastPlayerIds,
+        broadcastBatchId,
+        {
+          fallbackTitle: 'mail broadcast conflicting replay',
+          fallbackBody: 'mail broadcast conflicting replay',
+          attachments: [{ itemId: 'spirit_stone', count: 99 }],
+        },
+      ),
+      /mail_broadcast_batch_payload_conflict/,
+    );
+    await assert.rejects(
+      runtime.createBroadcastMail(
+        broadcastPlayerIds.slice(1),
+        broadcastBatchId,
+        {
+          fallbackTitle: 'mail broadcast atomic smoke',
+          fallbackBody: 'mail broadcast atomic smoke',
+          attachments: [{ itemId: 'spirit_stone', count: 3 }],
+        },
+      ),
+      /mail_broadcast_batch_payload_conflict/,
+    );
+    const broadcastDurationMs = Date.now() - broadcastStartedAt;
+    const broadcastMailRows = await fetchRows(
+      pool,
+      `SELECT player_id, mail_id, source_type, source_ref_id
+         FROM player_mail
+        WHERE player_id = ANY($1::varchar[])
+        ORDER BY player_id ASC`,
+      [broadcastPlayerIds],
+    );
+    const broadcastAttachmentRows = await fetchRows(
+      pool,
+      `SELECT player_id, mail_id, item_id, count
+         FROM player_mail_attachment
+        WHERE player_id = ANY($1::varchar[])
+        ORDER BY player_id ASC`,
+      [broadcastPlayerIds],
+    );
+    const broadcastCounterRows = await fetchRows(
+      pool,
+      `SELECT player_id, unread_count, unclaimed_count, counter_version
+         FROM player_mail_counter
+        WHERE player_id = ANY($1::varchar[])
+        ORDER BY player_id ASC`,
+      [broadcastPlayerIds],
+    );
+    const broadcastWatermarkRows = await fetchRows(
+      pool,
+      `SELECT player_id, mail_version, mail_counter_version
+         FROM player_recovery_watermark
+        WHERE player_id = ANY($1::varchar[])
+        ORDER BY player_id ASC`,
+      [broadcastPlayerIds],
+    );
+    if (
+      broadcastResult.recipientCount !== broadcastRecipientCount
+      || broadcastResult.mailIds.length !== broadcastRecipientCount
+      || new Set(broadcastResult.mailIds).size !== broadcastRecipientCount
+      || JSON.stringify(replayedBroadcastResult) !== JSON.stringify(broadcastResult)
+      || broadcastMailRows.length !== broadcastRecipientCount
+      || broadcastMailRows.some((row) => row.source_type !== 'gm_broadcast' || row.source_ref_id !== broadcastBatchId)
+      || broadcastAttachmentRows.length !== broadcastRecipientCount
+      || broadcastAttachmentRows.some((row) => row.item_id !== 'spirit_stone' || Number(row.count) !== 3)
+      || broadcastCounterRows.length !== broadcastRecipientCount
+      || broadcastCounterRows.some((row) => Number(row.unread_count) !== 1
+        || Number(row.unclaimed_count) !== 1
+        || Number(row.counter_version) !== 1)
+      || broadcastWatermarkRows.length !== broadcastRecipientCount
+      || broadcastWatermarkRows.some((row) => Number(row.mail_version) !== 1
+        || Number(row.mail_counter_version) !== 1)
+    ) {
+      throw new Error(`unexpected atomic broadcast state: ${JSON.stringify({
+        broadcastResult,
+        replayedBroadcastResult,
+        broadcastMailRows,
+        broadcastAttachmentRows,
+        broadcastCounterRows,
+        broadcastWatermarkRows,
+      })}`);
+    }
+
     await verifyCrossNodeStaleWritePreservesClaim(pool, mailPersistence, stalePlayerId, now + 100);
 
     console.log(
@@ -349,7 +463,9 @@ async function main(): Promise<void> {
           ok: true,
           playerId,
           mailId,
-          answers: 'with-db 下已验证邮箱快照仅做单调 upsert，旧节点同版本写不会回滚 durable claim、清掉附件 claim_operation_id 或删除更新邮件；markRead/delete 后计数和恢复水位在事务锁内单调推进',
+          broadcastRecipientCount,
+          broadcastDurationMs,
+          answers: 'with-db 下已验证邮箱快照仅做单调 upsert，旧节点同版本写不会回滚 durable claim、清掉附件 claim_operation_id 或删除更新邮件；markRead/delete 后计数和恢复水位在事务锁内单调推进；GM 广播以确定性 mail_id 在一个集合事务内批量写邮件、附件、计数和恢复水位，同 batchId 重放不会重复邮件或计数',
           excludes: '不证明 GM restore 或真实客户端分页交互',
           completionMapping: 'release:proof:with-db.mail-structured-mutation',
         },
@@ -360,6 +476,7 @@ async function main(): Promise<void> {
   } finally {
     await cleanupPlayer(pool, playerId).catch(() => undefined);
     await cleanupPlayer(pool, stalePlayerId).catch(() => undefined);
+    await cleanupPlayers(pool, broadcastPlayerIds).catch(() => undefined);
     await mailPersistence.onModuleDestroy().catch(() => undefined);
     await durableOperation.onModuleDestroy().catch(() => undefined);
     await databasePoolProvider.onModuleDestroy().catch(() => undefined);
@@ -515,6 +632,41 @@ async function cleanupPlayer(pool: Pool, playerId: string): Promise<void> {
         continue;
       }
       await client.query(`DELETE FROM ${quoteIdentifier(tableName)} WHERE player_id = $1`, [playerId]);
+    }
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function cleanupPlayers(pool: Pool, playerIds: readonly string[]): Promise<void> {
+  const normalizedPlayerIds = Array.from(new Set(
+    playerIds.map((playerId) => playerId.trim()).filter((playerId) => playerId.length > 0),
+  ));
+  if (normalizedPlayerIds.length === 0) {
+    return;
+  }
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    for (const tableName of PLAYER_SCOPED_TABLES) {
+      if (tableName === 'persistent_documents') {
+        const legacyTable = await client.query("SELECT to_regclass('public.persistent_documents') AS table_name");
+        if (legacyTable.rows[0]?.table_name) {
+          await client.query(
+            'DELETE FROM persistent_documents WHERE scope = $1 AND key = ANY($2::varchar[])',
+            ['server_mailboxes_v1', normalizedPlayerIds],
+          );
+        }
+        continue;
+      }
+      await client.query(
+        `DELETE FROM ${quoteIdentifier(tableName)} WHERE player_id = ANY($1::varchar[])`,
+        [normalizedPlayerIds],
+      );
     }
     await client.query('COMMIT');
   } catch (error) {

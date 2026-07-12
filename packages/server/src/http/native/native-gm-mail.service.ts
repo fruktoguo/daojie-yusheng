@@ -9,30 +9,31 @@
  * 排除 GM 机器人。
  */
 import { Inject, Injectable } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import { PlayerDomainPersistenceService } from '../../persistence/player-domain-persistence.service';
 import { MailRuntimeService } from '../../runtime/mail/mail-runtime.service';
 import { PlayerRuntimeService } from '../../runtime/player/player-runtime.service';
 import { NATIVE_GM_MAIL_RECIPIENT_CONTRACT } from './native-gm-contract';
 import { isNativeGmBotPlayerId } from './native-gm.constants';
-/** 玩家快照最小接口。 */
-interface PlayerSnapshotLike {
-  playerId: string;
-}
 
 /** 邮件运行时服务端口。 */
 interface MailRuntimeServiceLike {
   createDirectMail(playerId: string, input: unknown): Promise<string>;
+  createBroadcastMail(
+    playerIds: readonly string[],
+    batchId: string,
+    input: unknown,
+  ): Promise<{ mailIds: string[]; recipientCount: number }>;
 }
 
 /** 玩家持久化服务端口。 */
 interface PlayerDomainPersistenceServiceLike {
-  listProjectedSnapshots(buildStarterSnapshot: (playerId: string) => any | null): Promise<PlayerSnapshotLike[]>;
+  listProjectedPlayerIds(): Promise<string[]>;
 }
 
 /** 玩家运行时服务端口。 */
 interface PlayerRuntimeServiceLike {
-  listPlayerSnapshots(): PlayerSnapshotLike[];
-  buildStarterPersistenceSnapshot(playerId: string): any | null;
+  listPlayerIds(): string[];
 }
 
 /** GM 邮件服务：定向邮件和广播邮件发送，排除 GM 机器人。 */
@@ -53,47 +54,45 @@ export class NativeGmMailService {
   async collectBroadcastRecipientPlayerIds(): Promise<string[]> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    const runtimePlayerIds: string[] = this.playerRuntimeService
-      .listPlayerSnapshots()
-      .filter((entry) => !isNativeGmBotPlayerId(entry.playerId))
-      .map((entry) => entry.playerId);
+    const runtimePlayerIds = this.playerRuntimeService
+      .listPlayerIds()
+      .filter((playerId) => !isNativeGmBotPlayerId(playerId));
     const deliveredPlayerIds = new Set(runtimePlayerIds);
 
     if (NATIVE_GM_MAIL_RECIPIENT_CONTRACT.persistedFallbackRecipients !== 'persisted_non_runtime_non_bot_players') {
       return runtimePlayerIds;
     }
 
-    const persistedEntries = await this.playerDomainPersistenceService.listProjectedSnapshots(
-      (playerId) => this.playerRuntimeService.buildStarterPersistenceSnapshot(playerId),
-    );
-    for (const entry of persistedEntries) {
-      if (isNativeGmBotPlayerId(entry.playerId) || deliveredPlayerIds.has(entry.playerId)) {
+    const persistedPlayerIds = await this.playerDomainPersistenceService.listProjectedPlayerIds();
+    for (const playerId of persistedPlayerIds) {
+      if (isNativeGmBotPlayerId(playerId) || deliveredPlayerIds.has(playerId)) {
         continue;
       }
-      deliveredPlayerIds.add(entry.playerId);
+      deliveredPlayerIds.add(playerId);
     }
 
     return Array.from(deliveredPlayerIds);
   }  
   /** 向所有非机器人玩家广播邮件，支持指定范围。 */
   async createBroadcastMail(input?: unknown) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const deliveredMailIds: string[] = [];
-    const batchId = `broadcast:${Date.now().toString(36)}`;
+    const requestedBatchId = input && typeof input === 'object' && 'batchId' in input
+      ? String((input as { batchId?: unknown }).batchId ?? '').trim()
+      : '';
+    const batchId = requestedBatchId || `broadcast:${Date.now().toString(36)}:${randomUUID()}`;
     const scopedPlayerIds = this.normalizePlayerIdScope(input);
     const recipientPlayerIds = scopedPlayerIds.length > 0
       ? scopedPlayerIds
       : await this.collectBroadcastRecipientPlayerIds();
-
-    for (const playerId of recipientPlayerIds) {
-      deliveredMailIds.push(await this.mailRuntimeService.createDirectMail(playerId, input ?? {}));
-    }
+    const result = await this.mailRuntimeService.createBroadcastMail(
+      recipientPlayerIds,
+      batchId,
+      input ?? {},
+    );
 
     return {
-      mailId: deliveredMailIds[0] ?? batchId,
+      mailId: result.mailIds[0] ?? batchId,
       batchId,
-      recipientCount: deliveredMailIds.length,
+      recipientCount: result.recipientCount,
     };
   }
 

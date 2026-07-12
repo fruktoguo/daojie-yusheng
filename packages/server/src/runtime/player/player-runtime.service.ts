@@ -5275,6 +5275,10 @@ export class PlayerRuntimeService {
     listPlayerSnapshots() {
         return Array.from(this.players.values(), (player) => cloneRuntimePlayerState(player));
     }
+    /** 只返回当前已水合玩家 ID，避免只需身份的运维链路深拷完整玩家运行态。 */
+    listPlayerIds() {
+        return Array.from(this.players.keys());
+    }
     /** 列出 GM 列表所需的轻量玩家摘要，避免为诊断面板深拷贝完整玩家运行态。 */
     listGmPlayerSummaries() {
         return Array.from(this.players.values(), (player) => ({

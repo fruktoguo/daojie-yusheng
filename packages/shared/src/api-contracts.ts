@@ -4150,6 +4150,8 @@ export interface GmResetPerfRes {
 
 /** GM 广播邮件请求；可选玩家范围为空时按全员邮件处理。 */
 export interface GmBroadcastMailReq extends GmCreateMailReq {
+  /** 客户端生成的幂等批次 ID；同一操作重试必须复用。 */
+  batchId?: string;
 /**
  * playerIds：玩家ID相关字段。
  */

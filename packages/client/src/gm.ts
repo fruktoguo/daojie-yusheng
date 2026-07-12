@@ -36,6 +36,7 @@ import {
   type GmDiagnosticsResultSet,
   type GmUploadDatabaseBackupRes,
   type GmCreateMailReq,
+  type GmBroadcastMailReq,
   type GmRedeemCodeGroupDetailRes,
   type GmRedeemCodeGroupListRes,
   type GmSetPlayerBodyTrainingLevelReq,
@@ -153,6 +154,7 @@ import {
   expandTechniqueExpCurve,
   getTechniqueExpToNext,
 } from '@mud/shared';
+import { GmMailBroadcastIdempotencyState } from './gm-mail-broadcast-idempotency';
 import {
   GM_FACING_OPTIONS,
   GM_QUEST_LINE_OPTIONS,
@@ -1165,6 +1167,7 @@ let directMailDraftPlayerId: string | null = null;
 let directMailDraft = createDefaultMailComposerDraft();
 /** broadcastMailDraft：broadcast邮件Draft。 */
 let broadcastMailDraft = createDefaultMailComposerDraft();
+const broadcastMailIdempotencyState = new GmMailBroadcastIdempotencyState();
 /** shortcutMailComposerRefreshBlocked：shortcut邮件Composer Refresh Blocked。 */
 let shortcutMailComposerRefreshBlocked = false;
 /** directMailAttachmentPageByIndex：direct邮件Attachment分页By索引。 */
@@ -6475,6 +6478,13 @@ async function sendShortcutMail(): Promise<void> {
   }
   const payload = getMailComposerPayload(broadcastMailDraft);
   const targetPlayerId = broadcastMailDraft.targetPlayerId.trim();
+  const broadcastBatchId = targetPlayerId ? null : broadcastMailIdempotencyState.resolve(payload);
+  const requestPayload: GmCreateMailReq | GmBroadcastMailReq = targetPlayerId
+    ? payload
+    : {
+        ...payload,
+        batchId: broadcastBatchId!,
+      };
   const path = targetPlayerId
     ? `${GM_API_BASE_PATH}/players/${encodeURIComponent(targetPlayerId)}/mail`
     : `${GM_API_BASE_PATH}/mail/broadcast`;
@@ -6494,17 +6504,29 @@ async function sendShortcutMail(): Promise<void> {
  /**
  * recipientCount：数量或计量字段。
  */
- recipientCount?: number }>(path, {
+  recipientCount?: number }>(path, {
     method: 'POST',
-    body: JSON.stringify(payload),
+    body: JSON.stringify(requestPayload),
   });
+  const shouldResetBroadcastDraft = broadcastBatchId
+    ? broadcastMailDraft.targetPlayerId.trim().length === 0
+      && broadcastMailIdempotencyState.matches(
+        broadcastBatchId,
+        getMailComposerPayload(broadcastMailDraft),
+      )
+    : true;
+  if (broadcastBatchId) {
+    broadcastMailIdempotencyState.complete(broadcastBatchId);
+  }
   const targetPlayer = targetPlayerId
     ? (state?.players.find((player) => player.id === targetPlayerId) ?? null)
     : null;
-  /** broadcastMailDraft：broadcast邮件Draft。 */
-  broadcastMailDraft = createDefaultMailComposerDraft();
-  resetMailAttachmentPageStore('shortcut');
-  renderShortcutMailComposer();
+  if (shouldResetBroadcastDraft) {
+    /** broadcastMailDraft：broadcast邮件Draft。 */
+    broadcastMailDraft = createDefaultMailComposerDraft();
+    resetMailAttachmentPageStore('shortcut');
+    renderShortcutMailComposer();
+  }
   setStatus(targetPlayer
     ? t('gm.mail.sent', { roleName: targetPlayer.roleName, mailId: result.mailId })
     : t('gm.mail.broadcast.sent', { batchId: result.batchId ?? result.mailId, recipientCount: result.recipientCount ?? 0 }));

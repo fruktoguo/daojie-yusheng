@@ -3,7 +3,7 @@
 ## 审计口径
 
 - 生产主线：`packages/client`、`packages/shared`、`packages/server`、`packages/config-editor`。
-- 当前基线：`main` 分支 `2d25b98d`；相对 `origin/main` ahead 11。
+- 当前基线：`main` 分支 `ad70d202`；相对 `origin/main` ahead 12。
 - package manager：`pnpm@10.29.1`。
 - 每项结论必须来自机制文档、完整调用链、测试、编译产物或运行数据；仅凭搜索未发现异常不能标记为“确认无问题”。
 - `[x]` 只表示该行列出的具体证据范围已完成，不代表相邻系统或整个项目已完成。
@@ -35,6 +35,7 @@
 - [x] P-14 宗门实例 shell、入口、地块和护宗阵在 lease 就绪前被应用的问题已修复；见 FS-011。
 - [x] P-15 玩家心跳与断线 presence 的提交确认、单域修订清理和关机失败上报已修复；见 FS-014。
 - [x] P-16 玩家集合分域已提交但零行时复活 starter 资产与状态的问题已修复；见 FS-015。
+- [x] P-17 GM 全服广播邮件的全快照枚举、逐玩家串行投递和部分提交问题已修复；见 FS-016。
 
 ### 服务端权威运行时
 
@@ -300,7 +301,7 @@
 
 ### FS-015 玩家空集合分域恢复会复活 starter 资产与状态
 
-- **状态**：已修复、验证，等待本组原子提交。
+- **状态**：已修复、验证并提交。
 - **严重级别**：P0。
 - **所属功能组**：玩家分域持久化 / 背包装备 / 功法任务 / 自动化配置 / 重启恢复。
 - **影响链路**：玩家消耗、转移、出售、卸下或清空集合状态 → 对应 `player_*` 分域事务提交并推进 `player_recovery_watermark` → 重启、重连或 snapshot miss → `loadProjectedSnapshot()` → starter snapshot 与分域数据合成。
@@ -312,6 +313,22 @@
 - **修复方式**：新增统一的集合权威判定：行为非空，或对应 recovery watermark 版本大于 0，均表示该分域可覆盖 starter；权威零行时显式写入空背包/锁定物、空装备与神器槽状态、空功法任务和空自动化/预设/日志集合。watermark 为 0 且无行时仍保留 starter，以维持真正未投影的新玩家兼容语义，不新增旧格式运行时转换分支。
 - **实际修改**：`player-domain-persistence.service.ts` 将九类集合恢复接入 watermark-aware 覆盖；`player-domain-recovery-smoke.ts` 增加带 sentinel starter 的真实 PostgreSQL 权威空集合回读与自动清理，并把陈旧的任务对象进度夹具校正为当前 mechanics/shared 定义的数值 `progress` 与 `active` 状态；`server-memory-retention-smoke.ts` 同步验证恢复单一所有者约束，并修正成长规则拆分后 source assertion 应读取 helper 的验证漂移。
 - **验证结果**：`git diff --check` 与 `pnpm --filter @mud/server compile` 通过；真实 PostgreSQL compiled `player-domain-recovery-smoke` 通过并自动清理，明确证明背包、锁定物、装备、神器、功法、任务、自动技能、自动用药、炼丹预设和日志十类 starter sentinel 均未复活；真实 PostgreSQL compiled `player-domain-persistence-smoke` 通过；compiled `player-runtime-projection-entry-smoke` 证明运行态只接受分域投影恢复；compiled `server-memory-retention-smoke` 证明当前恢复单一所有者约束与成长规则 helper 引用复用断言均成立；`pnpm verify:quick` 完整通过，生产边界仍为 `world-runtime.service.ts = 1200` 行。未模拟生产快照损坏或数据库人工删行；watermark 已推进但数据被异常删除时仍会按权威空集合恢复，这是以数据库提交真源为准的失败关闭语义。
+- **中文原子提交 hash**：`ad70d202`（`fix(persistence): 修复玩家空集合分域恢复`）。
+
+### FS-016 GM 全服广播邮件逐玩家装配快照并串行部分提交
+
+- **状态**：已修复并完成专项验证，等待本组原子提交。
+- **严重级别**：P0。
+- **所属功能组**：GM 邮件 / 玩家枚举 / 邮件持久化 / 5000 玩家容量。
+- **影响链路**：GM `POST /mail/broadcast` → `NativeGmMailService.collectBroadcastRecipientPlayerIds()` → 在线运行态与离线分域枚举 → `MailRuntimeService.createDirectMail()` → `player_mail / player_mail_attachment / player_mail_counter / player_recovery_watermark`。
+- **证据**：修复前在线收件人通过 `listPlayerSnapshots()` 深拷每个完整玩家运行态后只取 `playerId`；离线收件人调用 `listProjectedSnapshots()`，对每个 recovery watermark 玩家执行二十余张分域表查询、构造 starter 并装配完整快照后也只取 `playerId`。收件人确定后又用 `for ... await` 串行调用定向邮件；每人会写前回读邮箱、写局部真源、提交后再回读邮箱。在 5000 玩家口径下，离线枚举会放大为十万级 SQL，投递是 5000 条串行强持久化链，且每名玩家各自提交。
+- **根本原因**：广播复用了“读取完整离线玩家快照”和“发送单封定向邮件”两个低基数接口，没有为“只枚举角色 ID”和“同一内容批量持久化”建立独立边界；`batchId` 只用于响应展示，不参与幂等键或事务。
+- **为什么错误**：广播是一个 GM 运维动作，必须在 5000 玩家目标规模下具有有界数据库往返，并且不能向 GM 报错时留下无法识别、无法安全重放的部分收件人状态。只为 ID 深拷玩家资产和逐表水合违反最小数据原则；逐玩家事务也不满足整批操作的原子性和确定性重放要求。
+- **触发条件**：GM 未指定 `playerIds` 发全服邮件；玩家数、离线玩家分域或邮箱历史增长；数据库/HTTP 在串行投递中途超时；操作方因未收到响应而重新发送。
+- **可能后果**：GM 请求长时间占用 HTTP、连接池和数据库，正常玩家邮件读取/领取与 flush 被挤压；在线玩家完整状态深拷制造瞬时内存和 GC 压力；邮箱缓存被广播遍历污染；中途失败时前半玩家已收到、后半未收到，重试又会让前半重复获得附件，形成运营资产重复或漏发。
+- **修复方式**：玩家运行态新增只返回 map key 的 `listPlayerIds()`；玩家分域新增单 SQL `listProjectedPlayerIds()`，只选择具有角色投影水位的 ID，排除仅 identity/presence/mail 的非完整角色。GM 客户端为一次发送生成带 UUID 的 `batchId`，请求失败且草稿未变时复用，草稿变化立即换代，旧请求迟到成功不能清除新批次或重置已编辑草稿；服务端兼容未带 ID 的旧客户端。每名玩家的 `mail_id` 由 `batchId + playerId` 哈希确定；持久化层按跨节点一致的玩家 ID 字符串顺序一次取得 advisory lock，通过集合 SQL 在同一事务内批量写入邮件与附件、重算邮箱计数并推进恢复水位，失败整批回滚，同 batch 重放因确定性主键不重复；同 ID 的正文/附件 hash 或收件人集合 hash 不一致则拒绝并回滚。提交后仅删除本节点已命中的对应邮箱缓存。
+- **实际修改**：更新 shared `GmBroadcastMailReq`、客户端 GM 发送链与独立幂等状态模块；更新 `player-runtime.service.ts`、`player-domain-persistence.service.ts`、`native-gm-mail.service.ts`、`mail-runtime.service.ts` 与 `mail-persistence.service.ts`；扩展真实数据库 `mail-structured-mutation-smoke.ts`；新增服务端容量 smoke 和客户端失败重试 proof，并把 proof 接入客户端 build；同步邮件机制文档。
+- **验证结果**：`git diff --check`、`pnpm --filter @mud/server compile`、`pnpm verify:client`、`pnpm audit:protocol` 与最终 `pnpm verify:quick` 通过；客户端 `proof:gm-mail-broadcast-idempotency` 证明相同草稿失败重试复用 ID、草稿变化换代、旧响应不清新代和不重置已编辑草稿，且明确成功后可再次发送相同内容；compiled `native-gm-mail-broadcast-smoke` 以 5000 个离线 ID + 1 个在线 ID 证明只执行 1 次投影 ID 查询和 1 次集合持久化调用，定向邮件调用为 0，重复与 GM bot 被排除，并证明客户端 batch ID 端到端透传；真实 PostgreSQL compiled `mail-structured-mutation-smoke` 以 5000 个自动清理收件人完成邮件、附件、计数和水位整批提交、同 batch 重放，以及正文/附件或收件人集合变化时的冲突回滚，最终实测四次调用共 `952ms`，每名玩家仍只有 1 封邮件、1 份附件、`unread/unclaimed/counterVersion = 1/1/1`；默认 2 人夹具复跑通过；compiled `mail-monotonic-idempotency-smoke` 与 `mail-runtime-durable-required-smoke` 通过。`952ms` 只代表当前本地数据库，不等同于生产 SLA；未做多个 GM 节点用同 batch 并发请求或生产 30Mbps 链路压测。
 - **中文原子提交 hash**：待提交。
 
 ## 2026-07-14 待用户决定

@@ -510,6 +510,26 @@ export class MailRuntimeService {
             return mailId;
         });
     }
+    /** 以单次持久化事务向一组玩家广播同一封邮件，并在提交后使本节点缓存失效。 */
+    async createBroadcastMail(playerIds, batchId, input) {
+        const normalizedPlayerIds = Array.from(new Set(
+            (Array.isArray(playerIds) ? playerIds : [])
+                .map((playerId) => typeof playerId === 'string' ? playerId.trim() : '')
+                .filter((playerId) => playerId.length > 0),
+        ));
+        const normalizedBatchId = typeof batchId === 'string' ? batchId.trim() : '';
+        const now = Date.now();
+        const entry = buildMailEntry('mail:broadcast:prototype', input ?? {}, now);
+        const result = await this.mailPersistenceService.saveBroadcastMail(
+            normalizedPlayerIds,
+            normalizedBatchId,
+            serializeMailboxEntry(entry),
+        );
+        for (const playerId of normalizedPlayerIds) {
+            this.discardMailboxCache(playerId);
+        }
+        return result;
+    }
     /** 往邮箱里追加一封邮件，供欢迎信和系统发信复用。 */
     appendMail(playerId, mailbox, input) {
         const previousNewestCreatedAt = Number.isFinite(mailbox.mails[0]?.createdAt)
@@ -518,24 +538,7 @@ export class MailRuntimeService {
         const now = Math.max(Date.now(), previousNewestCreatedAt + 1);
 
         const mailId = buildMailId(playerId, mailbox, now);
-        mailbox.mails.unshift({
-            version: 1,
-            mailVersion: 1,
-            mailId,
-            senderLabel: input.senderLabel?.trim() || MAIL_DEFAULT_SENDER_LABEL,
-            templateId: input.templateId?.trim() || null,
-            args: normalizeArgs(input.args),
-            fallbackTitle: input.fallbackTitle?.trim() || null,
-            fallbackBody: input.fallbackBody?.trim() || null,
-            attachments: normalizeAttachments(input.attachments),
-            createdAt: now,
-            updatedAt: now,
-            expireAt: Number.isFinite(input.expireAt) ? Math.trunc(Number(input.expireAt)) : null,
-            firstSeenAt: null,
-            readAt: null,
-            claimedAt: null,
-            deletedAt: null,
-        });
+        mailbox.mails.unshift(buildMailEntry(mailId, input, now));
         mailbox.revision += 1;
         this.compactMailbox(mailbox);
         return mailId;
@@ -974,6 +977,27 @@ function shouldRetryClaimFence(error) {
 
 function buildMailId(playerId, mailbox, createdAt) {
     return `mail:${normalizeMailIdComponent(playerId)}:${createdAt.toString(36)}:${mailbox.revision.toString(36)}:${mailbox.mails.length.toString(36)}`;
+}
+
+function buildMailEntry(mailId, input, createdAt) {
+    return {
+        version: 1,
+        mailVersion: 1,
+        mailId,
+        senderLabel: input.senderLabel?.trim() || MAIL_DEFAULT_SENDER_LABEL,
+        templateId: input.templateId?.trim() || null,
+        args: normalizeArgs(input.args),
+        fallbackTitle: input.fallbackTitle?.trim() || null,
+        fallbackBody: input.fallbackBody?.trim() || null,
+        attachments: normalizeAttachments(input.attachments),
+        createdAt,
+        updatedAt: createdAt,
+        expireAt: Number.isFinite(input.expireAt) ? Math.trunc(Number(input.expireAt)) : null,
+        firstSeenAt: null,
+        readAt: null,
+        claimedAt: null,
+        deletedAt: null,
+    };
 }
 
 function normalizeMailIdComponent(value) {
