@@ -45,6 +45,7 @@ const inventoryPanel = read('src/ui/panels/inventory-panel.ts');
 const bodyTrainingPanel = read('src/ui/panels/body-training-panel.ts');
 const craftWorkbench = read('src/ui/craft-workbench-modal.ts');
 const craftEnhancementView = read('src/ui/craft-enhancement-view.ts');
+const craftTransmissionView = read('src/ui/craft-transmission-view.ts');
 const npcShop = read('src/ui/npc-shop-modal.ts');
 const npcQuest = read('src/ui/npc-quest-modal.ts');
 const socialPanel = read('src/ui/panels/social-panel.ts');
@@ -243,10 +244,11 @@ assertIncludes(inventoryContext, /lastPlayerContextKey === nextContextKey/, '背
 const bodyTrainingDynamic = section(bodyTrainingPanel, '/** syncDynamic：同步Dynamic。 */', 'private useReactPanel(): boolean {', 'BodyTrainingPanel.syncDynamic');
 assertIncludes(bodyTrainingDynamic, /patchOrRender\(\)/, '炼体高频同步必须优先走结构感知 patch');
 
-const craftPatch = section(craftWorkbench, 'private patchOpenCraftShell(): void {', 'private tryPatchTransmissionBody(body: HTMLElement): boolean {', 'CraftWorkbenchModal.patchOpenCraftShell');
+const craftPatch = section(craftWorkbench, 'private patchOpenCraftShell(): void {', 'private patchOpenCraftQueueOnly(): void {', 'CraftWorkbenchModal.patchOpenCraftShell');
 assertIncludes(craftPatch, /tryPatchAlchemyBody/, '炼制弹层同步必须保留局部炼丹 patch');
 assertIncludes(craftPatch, /tryPatchEnhancementBody/, '炼制弹层同步必须保留局部强化 patch');
-assertIncludes(craftPatch, /tryPatchTransmissionBody/, '炼制弹层同步必须保留局部传功 patch');
+assertIncludes(craftPatch, /transmissionView\.tryPatchTransmissionBody/, '炼制弹层同步必须委托传功子视图局部 patch');
+assertIncludes(craftPatch, /transmissionView\.tryPatchTechniqueRefiningBody/, '功法精炼同步必须委托传功子视图局部 patch');
 assertIncludes(craftWorkbench, /this\.enhancementView\.mergeServerEnhancementSessionRecord\(/, '强化历史增量必须由强化子视图唯一合并');
 assertIncludes(craftWorkbench, /this\.enhancementView\.closeTransientUi\(\)/, '工坊关闭时必须释放强化子视图的弹层和提示');
 assertIncludes(craftWorkbench, /confirmModalHost\.close\(CraftWorkbenchModal\.ALCHEMY_MATERIAL_PICKER_OWNER\)/, '工坊关闭时必须释放炼制材料选择弹层');
@@ -255,6 +257,12 @@ assertMissing(craftWorkbench, /private readonly enhancementFormulaTooltip/, '工
 assertIncludes(craftEnhancementView, /renderEnhancementActiveJob\(activeJob, selected\)/, '强化子视图必须保留专用运行态详情，不能退化为仅显示公共队列');
 assertIncludes(craftEnhancementView, /closeTransientUi\(\): void \{/, '强化子视图必须提供统一临时 UI 释放入口');
 assertIncludes(craftEnhancementView, /\[data-craft-action="enhancement-refresh"\]/, '强化刷新入口必须由强化子视图绑定');
+assertIncludes(craftWorkbench, /this\.transmissionView\.closeTransientUi\(\)/, '工坊关闭时必须释放传功子视图确认弹层');
+assertMissing(craftWorkbench, /private (?:renderTransmissionBody|renderTechniqueRefiningBody|bindTransmissionEvents|buildTransmissionRenderKey)\(/, '工坊主类不得重新吸收传功或功法精炼模板与事件');
+assertIncludes(craftTransmissionView, /tech\.name \?\? ''[\s\S]*?tech\.grade \?\? ''[\s\S]*?tech\.category \?\? ''[\s\S]*?tech\.realmLv \?\? ''/, '传功结构 key 必须覆盖功法显示与成本语义');
+assertIncludes(craftTransmissionView, /target\.playerId}:\$\{target\.name}/, '传功结构 key 必须覆盖附近玩家名称变化');
+assertIncludes(craftTransmissionView, /body\.addEventListener\('focusout'[\s\S]*?this\.parent\.patchOpenCraftShell\(\)/, '传功输入结束聚焦后必须补做被延迟的结构 patch');
+assertIncludes(craftTransmissionView, /private buildTechniqueBookCraftPickerKey\(\)[\s\S]*?tech\.realmLv \?\? ''/, '功法抄录结构 key 必须覆盖影响残页成本的境界');
 
 const npcShopRender = section(npcShop, 'private render(): void {', '/** renderBody：渲染身体。 */', 'NpcShopModal.render');
 assertIncludes(npcShopRender, /this\.patchBody\(body, meta\)/, 'NPC 商店已打开时必须先复用稳定壳体');

@@ -33,6 +33,7 @@ function extractMethod(source, signature) {
 
 const modalSource = readSource('packages/client/src/ui/craft-workbench-modal.ts');
 const queueSource = readSource('packages/client/src/ui/craft-queue-view.ts');
+const transmissionSource = readSource('packages/client/src/ui/craft-transmission-view.ts');
 const mountSource = readSource('packages/client/src/react-ui/panels/craft/mount-craft-workbench-panel.tsx');
 const updateTasksMethod = extractMethod(modalSource, 'updateTechniqueActivityTasks(data: S2C_TechniqueActivityTasks): void');
 const syncReactShellMethod = extractMethod(modalSource, '): void {\n    const current = getReactCraftWorkbenchState();');
@@ -41,6 +42,9 @@ const queueStructureKeyMethod = extractMethod(modalSource, 'private buildCraftQu
 const patchOpenCraftShellMethod = extractMethod(modalSource, 'private patchOpenCraftShell(): void');
 const patchOpenCraftQueueOnlyMethod = extractMethod(modalSource, 'private patchOpenCraftQueueOnly(): void');
 const patchCraftQueuePanelMethod = extractMethod(modalSource, 'private patchCraftQueuePanel(root: HTMLElement): boolean');
+const patchTransmissionMethod = extractMethod(transmissionSource, 'tryPatchTransmissionBody(body: HTMLElement): boolean');
+const transmissionRenderKeyMethod = extractMethod(transmissionSource, 'buildTransmissionRenderKey(): string');
+const techniqueBookCraftKeyMethod = extractMethod(transmissionSource, 'private buildTechniqueBookCraftPickerKey(): string');
 
 assert.match(
   updateTasksMethod,
@@ -59,8 +63,13 @@ assert.match(
 );
 assert.match(
   patchOpenCraftShellMethod,
-  /this\.syncReactShell\(definition, false\);\s*mountReactCraftWorkbenchPanel\(body\);\s*this\.patchCraftShellHeaderAndTabs\(body\);/,
-  'React craft task patches must still use DOM-local queue progress patching after syncing structural shell state',
+  /this\.syncReactShell\(definition, this\.activeMode === 'transmission'\);\s*mountReactCraftWorkbenchPanel\(body\);\s*this\.patchCraftShellHeaderAndTabs\(body\);/,
+  'React craft task patches must sync transmission structure only when its semantic key changes, then keep DOM-local progress patching',
+);
+assert.match(
+  patchOpenCraftShellMethod,
+  /this\.transmissionView\.tryPatchTransmissionBody\(body\);/,
+  'craft shell updates must delegate transmission progress and structure patches to the transmission view',
 );
 assert.match(
   headerKeyMethod,
@@ -98,6 +107,21 @@ assert.match(
   'queue structural changes must replace only the craft queue panel content, then patch progress in place',
 );
 assert.match(
+  patchTransmissionMethod,
+  /this\.shouldDeferTransmissionContentPatch\(content\)[\s\S]*?this\.patchTransmissionProgress\(content\);[\s\S]*?replaceElementHtml\(content, this\.renderTransmissionBody\(\)\);/,
+  'transmission structure changes must preserve focused input and otherwise replace only the transmission content region',
+);
+assert.match(
+  transmissionRenderKeyMethod,
+  /tech\.name \?\? ''[\s\S]*?tech\.grade \?\? ''[\s\S]*?tech\.category \?\? ''[\s\S]*?tech\.realmLv \?\? ''[\s\S]*?target\.playerId}:\$\{target\.name}/,
+  'transmission structure key must cover technique display metadata and target names instead of IDs only',
+);
+assert.match(
+  techniqueBookCraftKeyMethod,
+  /tech\.name \?\? ''[\s\S]*?tech\.realmLv \?\? ''[\s\S]*?this\.resolveTechniqueMaxLevel\(tech\)/,
+  'technique book craft key must cover the realm and metadata that determine labels and fragment cost',
+);
+assert.match(
   queueSource,
   /patchCraftQueueProgress\(root: HTMLElement\): void \{[\s\S]*?detail\.textContent = progress\.detail;[\s\S]*?label\.textContent = progress\.label;[\s\S]*?fill\.style\.width = `\$\{\(progress\.ratio \* 100\)\.toFixed\(2\)\}%`;[\s\S]*?interrupt\.classList\.toggle\('is-hidden', !interruptProgress\);/,
   'craft queue progress patch must update text, fill width, active class and interrupt bar in place',
@@ -114,6 +138,7 @@ console.log(JSON.stringify({
     'Technique activity task updates call patchOpenCraftQueueOnly and do not call render(), patchOpenCraftShell(), or tryPatchEnhancementBody().',
     'Queue structural changes replace only .craft-queue-panel content; volatile progress fields patch text/fill nodes in place.',
     'React craft shell preserves headerHtml when the structural header key is unchanged, then patches queue progress in place.',
+    'Transmission patches preserve focused input, include display/cost metadata in structural keys, and patch progress locally.',
     'The structural header key excludes volatile work/interrupt progress fields.',
   ],
 }, null, 2));
