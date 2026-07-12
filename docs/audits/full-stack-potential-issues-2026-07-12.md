@@ -28,10 +28,10 @@
 | 持久化、恢复、强事务与关闭 | 进行中 | server compile 通过；边界审计 forbidden 已清零；玩家统计总账回读/flush 已按玩家串行并接入 quick smoke；账号真源启动失败与恢复重连已改为 fail-closed | 复核其余玩家/实例分域、outbox、恢复围栏；真实 DB 恢复成功路径仍需获准后验证 |
 | 配置编辑器、schema、导入发布 | 进行中 | 构建、content-contract、异步代际 smoke 与浏览器乱序回包验证通过 | 继续复核地图保存、schema 与发布入口 |
 | 鉴权、权限、GM 高危操作 | 进行中 | 全部 GM controller 已确认受 Guard 保护；改密 token 撤销与启动回读已有 compiled smoke；注册激活 smoke 不再把鉴权要求误判为名称冲突；IP 失败预算和所有 GM 密码入口已统一限流；账号库未就绪会同时阻断 HTTP、GM、Socket 和 readiness | GM 审计 fail-open、高危 scope、GET 密码兼容入口及维护态策略等待产品决定 |
-| 错误处理、日志与可观测性 | 进行中 | 已确认 GM 审计写入失败只告警并放行；smoke 的协议/鉴权假红已修正 | 继续检查吞异常、敏感信息、告警与失败水位 |
-| 性能、内存、网络包体 | 进行中 | 文件体积门禁失败；战斗 action 编排服务已按无状态辅助职责拆分并退出 3000 行错误清单；构建产物存在大 chunk 警告 | 继续拆分其余 17 个基线增幅和 6 个新超限文件，并区分真实热路径问题、门禁误报和冷路径债务 |
+| 错误处理、日志与可观测性 | 进行中 | 已确认 GM 审计写入失败只告警并放行；协议与鉴权 smoke 的假红、跳过和测试替身漂移已分别校正 | 继续检查吞异常、敏感信息、告警与失败水位 |
+| 性能、内存、网络包体 | 进行中 | 文件体积门禁失败；战斗 action、协议审计与鉴权启动 smoke 已按职责拆分或清理并退出各自增幅清单；构建产物存在大 chunk 警告 | 继续拆分其余 15 个基线增幅和 6 个新超限文件，并区分真实热路径问题、门禁误报和冷路径债务 |
 | 浅色、深色、手机与触控 | 待检查 | 构建门禁不证明视觉结果 | 需要浏览器级检查 |
-| 测试、构建、清理链与边界门禁 | 进行中 | quick/client/release contract/config build、边界审计通过；24 个工具文件的 37 处 Socket.IO 客户端均有 parser 守卫，无库 `verify:release:local` 的 18 类场景通过 | 继续检查其余持久化夹具清理、DB 分支与失真测试 |
+| 测试、构建、清理链与边界门禁 | 进行中 | quick/client/release contract/config build、边界审计通过；24 个工具文件的 37 处 Socket.IO 客户端均有 parser 守卫，无库 `verify:release:local` 的 18 类场景通过；鉴权启动 smoke 已恢复编译检查并在显式内存隔离环境执行全部主线断言 | 继续检查其余持久化夹具清理、DB 分支与失真测试 |
 
 ## 已发现问题
 
@@ -47,13 +47,14 @@
 ### FS-002 `[ ]` 文件体积门禁已失守，生产巨型模块继续膨胀
 
 - 严重级别：高。
-- 根本原因：多个运行时、持久化、GM 和客户端面板持续把新职责并回巨型文件；体积门禁当前仍报告 16 个已超限文件继续增长，另有 6 个文件首次超过 3000 行。生成文件和大型 smoke 又与生产模块混在同一口径，增加了噪音。
+- 根本原因：多个运行时、持久化、GM 和客户端面板持续把新职责并回巨型文件；体积门禁当前仍报告 15 个已超限文件继续增长，另有 6 个文件首次超过 3000 行。生成文件和大型 smoke 又与生产模块混在同一口径，增加了噪音。
 - 为什么错误：巨型模块扩大冲突面和隐式副作用，难以证明单一职责、事务边界及局部 UI 更新；门禁红灯失去阻止继续膨胀的能力。
 - 后果：运行时/持久化改动更容易产生竞态、旧态覆盖、全量刷新或回归遗漏；review 和验证成本持续增加。
 - 修复方向：先修正生成物、工具与生产代码的分类口径，再按真实职责拆分当前生产超限模块；不得简单更新 baseline 掩盖增长。
-- 当前证据：`pnpm proof:file-size-gate` 退出 1；战斗 action 和协议审计工具拆分后，剩余 16 个 baseline regression、6 个新超 3000 行文件。
+- 当前证据：`pnpm proof:file-size-gate` 退出 1；战斗 action、协议审计和鉴权启动 smoke 整理后，剩余 15 个 baseline regression、6 个新超 3000 行文件。
 - 本轮进展：`world-runtime-combat-action.service.ts` 原先在 3415 行类中同时承载动作编排和约 500 行无状态规范化、目标索引、结果投影及诊断计时辅助；这些逻辑没有服务实例状态或外部调用契约，却扩大了权威编排层的修改面。现已提取为 546 行 `world-runtime-combat-action.helpers.ts`，主服务降到 2955 行并退出 3000 行错误清单；新 helper 同步纳入禁止网络、数据库、文件和 JSON 序列化的战斗热路径边界检查。剩余超限文件仍保持未完成状态，不更新 baseline 掩盖问题。
 - 本轮进展：`protocol-audit.ts` 把账号/JWT 辅助和 Markdown 报告投影混在 3135 行主流程中，现提取为 68/87 行两个窄 helper，主文件降到 2953 行并删除旧 baseline；完整 18 类协议审计通过。其余超限文件仍保持未完成状态。
+- 本轮进展：`auth-bootstrap-smoke.ts` 的动态导出、自读源码与生成式废注释使文件达到 6668 行，现改为静态导出和三个有类型的函数分类模块，删除无信息注释后降到 6078 行，低于既有 6500 行 baseline；它仍超过 3000 行，后续还需按主线、迁移和持久化证明继续拆分，当前不删除 baseline。
 
 ### FS-003 `[ ]` server tools 大量绕过 TypeScript 检查并保留 CommonJS 写法
 
@@ -62,7 +63,7 @@
 - 为什么错误：这些验证脚本本应用来证明生产契约，却绕过类型检查；接口漂移可能直到运行 smoke 才暴露，未进入默认 suite 的脚本甚至会长期失真，同时违反项目 TypeScript 红线。
 - 后果：门禁产生假阳性，重构调用签名后旧 smoke 可能静默失效，关键恢复/资产测试的可信度下降。
 - 修复方向：按稳定 suite 与高风险资产/恢复脚本优先，逐组迁移为规范 TypeScript import/export 并移除抑制；每组运行实际 compiled smoke 后原子提交。
-- 本轮进展：`player-runtime-dirty-domain-smoke.ts` 与 `protocol-audit.ts` 已移除 `@ts-nocheck` 并重新进入 server compile；协议审计顶层 7 个 CommonJS `require` 已迁移为标准 import，并把账号命名/JWT 解析及 Markdown 投影拆为两个有类型的窄 helper。当前剩余 167 个 `@ts-nocheck`，含 CommonJS 的 `.ts` 文件降为 143 个。
+- 本轮进展：`player-runtime-dirty-domain-smoke.ts`、`protocol-audit.ts`、`auth-bootstrap-smoke.ts` 及后者三个 support 模块已移除 `@ts-nocheck` 并重新进入 server compile；协议审计和鉴权启动 smoke 的 CommonJS 入口已迁移为标准 import/export。当前剩余 163 个 `@ts-nocheck`，含 CommonJS 的 `.ts` 文件降为 139 个。
 
 ### FS-004 `[x]` 玩家分域空覆盖 smoke 的异常路径缺少兜底清理
 
@@ -445,7 +446,7 @@
 - 为什么错误：CI 的颜色与报告语义相反；“error”不阻断合并，且已偿还的技术债仍保留隐形增长额度。只要历史 regression 恰好清零，新巨型文件或旧文件重新越线都可能在门禁绿灯下进入主线。
 - 后果：体积门禁无法阻止职责重新聚合，维护者会误以为新增超限已受保护；巨型模块的冲突面、隐式副作用与验证成本继续增长。
 - 修复方式：把无 baseline 的新超限文件和不再对应超限文件的陈旧 baseline 一并纳入阻断条件；增加 `--contract-proof` 自验证，明确证明新超限与陈旧豁免都会失败。移除已降到 3000 行内的战斗 action、GM admin 和 world projector 三个陈旧 baseline，使其未来再次越线时立即按新文件阻断。
-- 验证：`pnpm proof:file-size-gate:contract` 通过；真实 `pnpm proof:file-size-gate` 仍按预期退出 1，并在后续拆分后分别列出 16 个 baseline regression 与 6 个无 baseline 新超限文件，未再出现陈旧 baseline。
+- 验证：`pnpm proof:file-size-gate:contract` 通过；真实 `pnpm proof:file-size-gate` 仍按预期退出 1，并在后续拆分后分别列出 15 个 baseline regression 与 6 个无 baseline 新超限文件，未再出现陈旧 baseline。
 
 ### FS-043 `[x]` 主协议审计绕过类型检查且把冷路径投影混入用例编排
 
@@ -455,6 +456,15 @@
 - 后果：协议事件新增、审计 helper 签名变化或有库分支调整可能只在运行到特定 case 时才失败；未执行的分支无法得到编译保护，发布审计本身成为假安全感来源。巨型文件也提高修改冲突与报告投影误改业务用例的风险。
 - 修复方式：改为标准 ES import，删除 `@ts-nocheck`；给预期 C2S/S2C 集合显式声明可扩展字符串数组，并用 TypeScript 默认参数表达原有运行语义。把账号/JWT 无状态规则和显示名/Markdown 投影分别提取到有类型 helper，主文件降到 2953 行并删除陈旧体积 baseline。
 - 验证：`pnpm --filter @mud/server compile` 通过；先用 stable runner 聚焦运行 `bootstrap-runtime`，再运行完整 `pnpm audit:protocol`，无库隔离服务的 18 类用例、逐包覆盖报告和关闭 drain 全部通过；`pnpm proof:file-size-gate` 已不再把协议审计列入 3000 行错误或 regression。
+
+### FS-044 `[x]` 鉴权启动 smoke 动态执行自身源码且测试替身已偏离生产构造器
+
+- 严重级别：高。
+- 根本原因：`auth-bootstrap-smoke.ts` 与三个 support 文件是历史编译后 JavaScript 回填，保留 `@ts-nocheck`、CommonJS 导出和大量无信息生成注释；主文件还读取自身源码、用正则提取函数名并通过 `eval` 重建导出分类。`WorldSessionBootstrapService` 拆分依赖后，smoke 仍按旧位置注入 runtime session 替身，并漏掉 post-bootstrap 所需的离线收益读取端口。
+- 为什么错误：鉴权、快照恢复和会话围栏是发布主证明链，验证脚本却绕开编译器并在运行时反射自身文本。生产构造器调整不会触发编译错误，错误对象会被静默注入 `contextHelper`；只跑生产默认的无库配置时，该 case 又会因内存回退关闭而返回 `skipped`，进一步掩盖实际断言没有执行。
+- 后果：真正打开内存态功能链时，恢复通知依次出现 `rememberAuthenticatedSnapshotRecovery is not a function`、`bootstrap_runtime_connect_player_unavailable` 和缺失 `loadPendingOfflineGainReports`，在核心协议断言前即崩溃；门禁可能把“脚本启动或主动跳过”误当成鉴权合同有效。动态 `eval` 还使重命名、打包与静态分析结果不可靠，并让 6668 行文件继续膨胀。
+- 修复方式：全部改为标准 ES import/export 并恢复 TypeScript 检查；用静态函数表保留原有 `__helpers`、`__fixtures`、`__contractVerifiers`、`__all` 和直接导出合同，三个分类器改成有类型的独立模块。为 bootstrap smoke 新增命名依赖组装器，把 runtime session 端口放回 `worldRuntimeService`，按当前生产端口补齐会话、同步、通知与离线收益替身；同时删除无信息注释和重复环境判断，主文件降到 6078 行。
+- 验证：`pnpm --filter @mud/server compile` 通过；编译产物静态导出校验确认 99 个总函数、50 个 helper、28 个 fixture、21 个 verifier 以及历史直接导出均存在。显式清空数据库、Pooler 与 Redis，并只在 test 环境打开内存回退后，stable `auth-bootstrap` case 完整执行并通过恢复通知、恢复 trace、bootstrap 关联、token seed、session 策略和主线协议拒绝旧事件等断言；`pnpm proof:file-size-gate` 不再把该文件列为 baseline regression，但仍因其他 15 个增幅和 6 个新超限文件按预期失败。未执行任何数据库写入路径。
 
 ## 待进一步验证或用户决定
 
@@ -568,3 +578,4 @@
 | `pnpm verify:quick`（加入 `native-auth-persistence-failure` 后） | 通过 | server/shared 编译、production-boundaries、release contract 及 13 个 quick case；证明账号库配置后连接失败会 503、readiness 降级、重载真实重连并冒泡失败 | 无真实 DB，不证明成功重连后的实表全量回读、数据库恢复事务或多节点镜像失效传播 |
 | 战斗 action 边界拆分专项验证 | server compile 与 `combat-e2e-outcome-matrix`、`world-runtime-combat-action-service`、`world-runtime-combat-boundary` 三项 compiled smoke 通过 | 无状态 helper 拆分后动作定义、目标选择、结果应用、脏域、事件与热路径禁用项保持原契约；主服务为 2955 行 | `proof:file-size-gate` 仍因其他历史增幅文件失败，不证明其余巨型模块已完成拆分 |
 | 协议审计 TypeScript 与职责拆分验证 | server compile、聚焦 `bootstrap-runtime` stable audit、完整 `pnpm audit:protocol` 均通过 | 主审计已受类型检查；18 类用例、账号/JWT 辅助、显示名、Markdown 投影、逐包统计和关闭 drain 保持可执行；主文件为 2953 行 | 无数据库，因此未执行 GM/兑换与持久化 seed 的 with-db 分支 |
+| 鉴权启动 smoke TypeScript 与替身契约验证 | server compile、99 项编译产物导出兼容检查及显式无 DB/Redis 的完整 `auth-bootstrap` stable case 均通过 | `@ts-nocheck`、CommonJS、自读源码和 `eval` 已移除；当前 bootstrap 构造器、runtime 连接、恢复通知、trace、session 与主线协议断言真实执行；主文件为 6078 行 | 未运行数据库持久化、migration/compat 实表和多节点会话恢复分支；文件仍超过 3000 行 |

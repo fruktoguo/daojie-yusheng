@@ -1,26 +1,75 @@
-// @ts-nocheck
-
 /**
  * 用途：执行 auth-bootstrap 链路的冒烟验证。
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-const smoke_timeout_1 = require("./smoke-timeout");
+import * as path from 'node:path';
+import * as smoke_timeout_1 from './smoke-timeout';
+import * as pg_1 from 'pg';
+import * as socket_io_client_1 from 'socket.io-client';
+import * as msgpackParser from 'socket.io-msgpack-parser';
+import * as shared_1 from '@mud/shared';
+import * as env_alias_1 from '../config/env-alias';
+import * as schema_bigint_migration_1 from '../persistence/schema-bigint-migration';
+import * as world_gateway_1 from '../network/world.gateway';
+import * as world_player_auth_service_1 from '../network/world-player-auth.service';
+import * as world_client_event_service_1 from '../network/world-client-event.service';
+import * as world_player_snapshot_service_1 from '../network/world-player-snapshot.service';
+import * as world_player_source_service_1 from '../network/world-player-source.service';
+import * as world_player_token_service_1 from '../network/world-player-token.service';
+import * as world_session_bootstrap_service_1 from '../network/world-session-bootstrap.service';
+import * as world_sync_protocol_service_1 from '../network/world-sync-protocol.service';
+import * as world_protocol_projection_service_1 from '../network/world-protocol-projection.service';
+import * as runtime_gm_state_service_1 from '../runtime/gm/runtime-gm-state.service';
+import * as smoke_payload_1 from './smoke-payload';
+import * as smoke_player_auth_1 from './smoke-player-auth';
+import { buildHelperFunctionNames } from './auth-bootstrap-smoke-support/helpers';
+import { buildFixtureFunctionNames } from './auth-bootstrap-smoke-support/fixtures';
+import { buildVerifyFunctionNames } from './auth-bootstrap-smoke-support/contract-verifiers';
+
+type AnyRecord = Record<string, any>;
+
+// 这些构造器在 smoke 中接收最小测试替身；生产服务本身仍保持完整依赖类型。
+const WorldGatewayForSmoke: any = world_gateway_1.WorldGateway;
+const WorldClientEventServiceForSmoke: any = world_client_event_service_1.WorldClientEventService;
+const WorldSyncProtocolServiceForSmoke: any = world_sync_protocol_service_1.WorldSyncProtocolService;
+const WorldProtocolProjectionServiceForSmoke: any = world_protocol_projection_service_1.WorldProtocolProjectionService;
+const RuntimeGmStateServiceForSmoke: any = runtime_gm_state_service_1.RuntimeGmStateService;
+const WorldPlayerAuthServiceForSmoke: any = world_player_auth_service_1.WorldPlayerAuthService;
+const WorldPlayerSnapshotServiceForSmoke: any = world_player_snapshot_service_1.WorldPlayerSnapshotService;
+
+type WorldSessionBootstrapSmokeDependencies = {
+    worldPlayerAuthService?: unknown;
+    worldPlayerSnapshotService?: unknown;
+    worldGmAuthService?: unknown;
+    playerRuntimeService?: unknown;
+    mailRuntimeService?: unknown;
+    activityRuntimeService?: unknown;
+    worldRuntimeService?: unknown;
+    worldSessionService?: unknown;
+    worldSyncService?: unknown;
+    worldClientEventService?: unknown;
+};
+
+/**
+ * 用命名依赖组装 bootstrap smoke，避免生产构造器参数调整后测试替身静默错位。
+ */
+function createWorldSessionBootstrapServiceForSmoke(
+    dependencies: WorldSessionBootstrapSmokeDependencies = {},
+): any {
+    return new world_session_bootstrap_service_1.WorldSessionBootstrapService(
+        (dependencies.worldPlayerAuthService ?? null) as never,
+        (dependencies.worldPlayerSnapshotService ?? null) as never,
+        (dependencies.worldGmAuthService ?? null) as never,
+        (dependencies.playerRuntimeService ?? null) as never,
+        (dependencies.mailRuntimeService ?? null) as never,
+        (dependencies.activityRuntimeService ?? null) as never,
+        (dependencies.worldRuntimeService ?? null) as never,
+        (dependencies.worldSessionService ?? null) as never,
+        (dependencies.worldSyncService ?? null) as never,
+        (dependencies.worldClientEventService ?? null) as never,
+    );
+}
+
 (0, smoke_timeout_1.installSmokeTimeout)(__filename);
-const pg_1 = require("pg");
-const socket_io_client_1 = require("socket.io-client");
-const msgpackParser = require("socket.io-msgpack-parser");
-const shared_1 = require("@mud/shared");
-const env_alias_1 = require("../config/env-alias");
-const schema_bigint_migration_1 = require("../persistence/schema-bigint-migration");
-const world_gateway_1 = require("../network/world.gateway");
-const world_player_auth_service_1 = require("../network/world-player-auth.service");
-const world_client_event_service_1 = require("../network/world-client-event.service");
-const world_player_snapshot_service_1 = require("../network/world-player-snapshot.service");
-const world_player_source_service_1 = require("../network/world-player-source.service");
-const world_player_token_service_1 = require("../network/world-player-token.service");
-const world_session_bootstrap_service_1 = require("../network/world-session-bootstrap.service");
-const smoke_payload_1 = require("./smoke-payload");
-const smoke_player_auth_1 = require("./smoke-player-auth");
 /**
  * 目标 server 服务地址。
  */
@@ -33,13 +82,11 @@ const SERVER_DATABASE_URL = (0, env_alias_1.resolveServerDatabaseUrl)();
  * 标记本次验证是否启用了数据库持久化链路。
  */
 const DATABASE_ENABLED = Boolean((0, env_alias_1.resolveServerDatabaseUrl)().trim());
-const LEGACY_HTTP_MEMORY_FALLBACK_ENABLED = isEnvEnabled('SERVER_ALLOW_LEGACY_HTTP_MEMORY_FALLBACK')
-    || isEnvEnabled('SERVER_ALLOW_LEGACY_HTTP_MEMORY_FALLBACK');
+const LEGACY_HTTP_MEMORY_FALLBACK_ENABLED = isEnvEnabled('SERVER_ALLOW_LEGACY_HTTP_MEMORY_FALLBACK');
 /**
  * 控制是否允许持久化环境继续走 compat identity backfill（应急开关，默认关闭）。
  */
-const ALLOW_COMPAT_IDENTITY_BACKFILL = isEnvEnabled('SERVER_AUTH_ALLOW_COMPAT_IDENTITY_BACKFILL')
-    || isEnvEnabled('SERVER_AUTH_ALLOW_COMPAT_IDENTITY_BACKFILL');
+const ALLOW_COMPAT_IDENTITY_BACKFILL = isEnvEnabled('SERVER_AUTH_ALLOW_COMPAT_IDENTITY_BACKFILL');
 /**
  * 持久化环境下默认要求 authenticated 链路只接受主线 identity 真源。
  */
@@ -47,8 +94,7 @@ const STRICT_NATIVE_IDENTITY_REQUIRED = DATABASE_ENABLED && !ALLOW_COMPAT_IDENTI
 /**
  * 标记是否开启认证追踪，便于校验身份来源与落盘路径。
  */
-const AUTH_TRACE_ENABLED = process.env.SERVER_AUTH_TRACE_ENABLED === '1'
-    || process.env.SERVER_AUTH_TRACE_ENABLED === '1';
+const AUTH_TRACE_ENABLED = process.env.SERVER_AUTH_TRACE_ENABLED === '1';
 /**
  * 断线会话保活窗口，用于验证续连与过期行为。
  */
@@ -74,9 +120,6 @@ const AUTH_BOOTSTRAP_BOUNDARY = Object.freeze({
         '不是 release 完整完成定义，也不能单独替代 acceptance/full',
     ],
 });
-/**
- * 记录 legacy 下行事件集合，用于断言 mainline socket 没有串出旧协议消息。
- */
 const LEGACY_S2C_EVENTS = new Set([
     's:init',
     's:tick',
@@ -123,7 +166,7 @@ const REGISTER_ACCOUNT_NAME_MAX_LENGTH = 20;
  */
 const suffix = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
-function createWorldGatewayForAuthBootstrapSmoke(overrides = {}) {
+function createWorldGatewayForAuthBootstrapSmoke(overrides: AnyRecord = {}): any {
     const gatewayGuardHelper = overrides.gatewayGuardHelper ?? {
         rejectWhenNotReady: () => false,
         requirePlayerId: () => true,
@@ -142,7 +185,7 @@ function createWorldGatewayForAuthBootstrapSmoke(overrides = {}) {
     const playerSessionRouteService = overrides.playerSessionRouteService ?? {
         resolveBootstrapTarget: async () => null,
     };
-    return new world_gateway_1.WorldGateway(
+    return new WorldGatewayForSmoke(
         overrides.worldGmSocketService ?? {},
         overrides.worldProtocolProjectionService ?? {},
         overrides.sessionBootstrapService ?? {},
@@ -191,7 +234,7 @@ function isEnvEnabled(key) {
  * @returns 无返回值，直接更新StrictNativeSkippedProof相关状态。
  */
 
-function buildStrictNativeSkippedProof(reason) {
+function buildStrictNativeSkippedProof(reason: string): AnyRecord {
     return {
         skipped: true,
         reason,
@@ -203,7 +246,7 @@ function buildStrictNativeSkippedProof(reason) {
  * @returns 无返回值，直接更新ProfileSkippedProof相关状态。
  */
 
-function buildProfileSkippedProof(reason) {
+function buildProfileSkippedProof(reason: string): AnyRecord {
     return {
         skipped: true,
         reason,
@@ -217,7 +260,7 @@ function buildProfileSkippedProof(reason) {
  * @returns 无返回值，直接更新RegisterAccount名称相关状态。
  */
 
-function buildRegisterAccountName(accountSuffix, retryAttempt = null) {
+function buildRegisterAccountName(accountSuffix: string, retryAttempt: number | null = null): string {
     const retrySuffix = retryAttempt === null ? '' : `_${retryAttempt}`;
     const maxSuffixLength = Math.max(0, REGISTER_ACCOUNT_NAME_MAX_LENGTH - REGISTER_ACCOUNT_NAME_PREFIX.length - retrySuffix.length);
     const normalizedSuffix = accountSuffix.slice(0, maxSuffixLength);
@@ -230,9 +273,10 @@ function buildRegisterAccountName(accountSuffix, retryAttempt = null) {
  * @returns 无返回值，直接更新withEnvOverride相关状态。
  */
 
-async function withEnvOverrides(overrides, run) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
+async function withEnvOverrides(
+    overrides: Record<string, string | null | undefined>,
+    run: () => any | Promise<any>,
+): Promise<any> {
     const previous = new Map();
     for (const [key, value] of Object.entries(overrides)) {
         previous.set(key, Object.prototype.hasOwnProperty.call(process.env, key) ? process.env[key] : undefined);
@@ -263,8 +307,6 @@ async function withEnvOverrides(overrides, run) {
  */
 
 function readAuthBootstrapProfile() {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
     const raw = typeof process.env.SERVER_AUTH_BOOTSTRAP_PROFILE === 'string'
         ? process.env.SERVER_AUTH_BOOTSTRAP_PROFILE.trim().toLowerCase()
         : '';
@@ -277,8 +319,6 @@ function readAuthBootstrapProfile() {
  * 编排主线认证引导 smoke 的完整校验流程并输出证明结果。
  */
 async function main() {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
     if (!DATABASE_ENABLED && !LEGACY_HTTP_MEMORY_FALLBACK_ENABLED) {
         console.log(JSON.stringify({
             ok: true,
@@ -300,55 +340,28 @@ async function main() {
     if (AUTH_TRACE_ENABLED) {
         await clearAuthTrace();
     }
-/**
- * 记录认证。
- */
     const auth = await registerAndLoginPlayer(`na_${suffix.slice(-6)}`, buildUniqueDisplayName(`auth-bootstrap:${suffix}`), `鉴角${suffix.slice(-4)}`);
     if (DATABASE_ENABLED) {
         await ensureLegacyCompatPlayerSnapshotDocument(auth.identity);
     }
-/**
- * 记录legacybackfillfallbackcontract。
- */
-/**
- * 记录authenticated缺失snapshot恢复contract。
- */
     const authenticatedMissingSnapshotRecoveryContract = RUN_MAINLINE_PROOFS
         ? await verifyAuthenticatedMissingSnapshotRecoveryContract()
         : buildProfileSkippedProof('profile_migration_skips_mainline');
-/**
- * 记录authenticated缺失snapshot恢复noticecontract。
- */
     const authenticatedSnapshotRecoveryNoticeContract = RUN_MAINLINE_PROOFS
         ? await verifyAuthenticatedSnapshotRecoveryNoticeContract()
         : buildProfileSkippedProof('profile_migration_skips_mainline');
-/**
- * 记录authenticated缺失snapshot恢复tracecontract。
- */
     const authenticatedSnapshotRecoveryTraceContract = RUN_MAINLINE_PROOFS
         ? await verifyAuthenticatedSnapshotRecoveryTraceContract()
         : buildProfileSkippedProof('profile_migration_skips_mainline');
-/**
- * 记录authenticated缺失snapshot恢复bootstrap链contract。
- */
     const authenticatedSnapshotRecoveryBootstrapLinkContract = RUN_MAINLINE_PROOFS
         ? await verifyAuthenticatedSnapshotRecoveryBootstrapLinkContract()
         : buildProfileSkippedProof('profile_migration_skips_mainline');
-/**
- * 记录令牌seedidentitycontract。
- */
     const tokenSeedIdentityContract = RUN_MAINLINE_PROOFS
         ? await verifyTokenSeedIdentityContract()
         : buildProfileSkippedProof('profile_migration_skips_mainline');
-/**
- * 记录令牌seed原生快照contract。
- */
     const tokenSeedNativeStarterSnapshotContract = RUN_MAINLINE_PROOFS
         ? await verifyTokenSeedNativeStarterSnapshotContract()
         : buildProfileSkippedProof('profile_migration_skips_mainline');
-/**
- * 记录令牌seed原生快照bootstrap证明。
- */
     const tokenSeedNativeStarterBootstrapProof = RUN_MAINLINE_PROOFS
         ? (DATABASE_ENABLED
             ? {
@@ -357,16 +370,10 @@ async function main() {
             }
             : null)
         : buildProfileSkippedProof('profile_migration_skips_mainline');
-/**
- * 记录令牌seedpersistfailurecontract。
- */
     const tokenSeedPersistFailureContract = RUN_MAINLINE_PROOFS
         ? await verifyTokenSeedPersistFailureContract()
         : buildProfileSkippedProof('profile_migration_skips_mainline');
-    /**
-     * 记录认证预种快照服务缺失contract。
-     */
-    const authPreseedSnapshotServiceUnavailableContract = RUN_MAINLINE_PROOFS
+        const authPreseedSnapshotServiceUnavailableContract = RUN_MAINLINE_PROOFS
         ? {
             coveredBy: 'tokenSeedNativeStarterSnapshotContract',
             authOwnsStarterSnapshotPersistence: tokenSeedNativeStarterSnapshotContract?.authOwnsStarterSnapshotPersistence ?? false,
@@ -431,20 +438,11 @@ async function main() {
         }, null, 2));
         return;
     }
-/**
- * 记录运行态玩家ID。
- */
     let runtimePlayerId = null;
     try {
-/**
- * 记录firstbootstrap。
- */
         const firstBootstrap = await runAuthBootstrap(auth.accessToken, auth.identity);
         runtimePlayerId = firstBootstrap.playerId;
         const mainlineProtocolRejectsLegacyEventContract = await verifyProtocolSocketRejectsLegacyEventContract(auth.accessToken, runtimePlayerId);
-/**
- * 记录认证trace。
- */
         const authTrace = AUTH_TRACE_ENABLED
             ? await waitForAuthTrace(runtimePlayerId, firstBootstrap.sessionId ?? null)
             : null;
@@ -481,15 +479,9 @@ async function main() {
         if (!DATABASE_ENABLED && authTrace?.bootstrapLinkedSnapshotPersistedSource !== null) {
             throw new Error(`expected no-db first bootstrap linked snapshot persisted source to be null, got ${authTrace?.bootstrapLinkedSnapshotPersistedSource ?? 'unknown'}`);
         }
-/**
- * 记录authenticated会话证明链。
- */
         const authenticatedSessionProof = RUN_MAINLINE_PROOFS
             ? await verifyAuthenticatedSessionContract(auth.accessToken, auth.identity, runtimePlayerId, authTrace?.identitySource ?? null)
             : buildProfileSkippedProof('profile_migration_skips_mainline');
-/**
- * 记录snapshotsequence。
- */
         const snapshotSequence = AUTH_TRACE_ENABLED
             ? await verifySnapshotSequence(auth.accessToken, runtimePlayerId, authTrace, {
                 includeMigrationProofs: RUN_MIGRATION_PROOFS,
@@ -593,11 +585,6 @@ function formatSocketFailurePayload(payload) {
  * 验证无效或错误令牌在 mainline socket 上会按预期失败。
  */
 async function expectProtocolSocketAuthFailure(token, expectedCode = 'AUTH_FAIL', options = undefined) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-/**
- * 记录socket。
- */
     const socket = (0, socket_io_client_1.io)(SERVER_URL, {
         path: '/socket.io',
         transports: ['websocket'],
@@ -610,21 +597,9 @@ async function expectProtocolSocketAuthFailure(token, expectedCode = 'AUTH_FAIL'
             sessionId: typeof options?.sessionId === 'string' ? options.sessionId : undefined,
         },
     });
-/**
- * 记录legacyevents。
- */
     const legacyEvents = [];
-/**
- * 记录nexterrorpayload。
- */
     let nextErrorPayload = null;
-/**
- * 记录connecterrorpayload。
- */
     let connectErrorPayload = null;
-/**
- * 记录disconnected。
- */
     let disconnected = false;
     const debugAuthFailure = process.env.SERVER_SMOKE_DEBUG_AUTH_FAILURES === '1';
     const debugAuthFailureLog = (...args) => {
@@ -632,17 +607,8 @@ async function expectProtocolSocketAuthFailure(token, expectedCode = 'AUTH_FAIL'
             console.log('[server smoke][auth-failure-debug]', ...args);
         }
     };
-/**
- * 记录init会话数量。
- */
     let initSessionCount = 0;
-/**
- * 记录bootstrap数量。
- */
     let bootstrapCount = 0;
-/**
- * 记录地图enter数量。
- */
     let mapEnterCount = 0;
     try {
         socket.onAny((event) => {
@@ -668,10 +634,7 @@ async function expectProtocolSocketAuthFailure(token, expectedCode = 'AUTH_FAIL'
             debugAuthFailureLog('disconnect', reason);
         });
         socket.connect();
-        await new Promise((resolve, reject) => {
-/**
- * 记录timer。
- */
+        await new Promise<void>((resolve, reject) => {
             const timer = setTimeout(() => reject(new Error('invalid mainline token socket connect timeout')), 5000);
             socket.once('connect', () => {
                 clearTimeout(timer);
@@ -700,10 +663,7 @@ async function expectProtocolSocketAuthFailure(token, expectedCode = 'AUTH_FAIL'
         }
         else {
             await waitFor(() => nextErrorPayload !== null || disconnected, 5000, 'nextAuthFailure');
-            /**
- * 记录code。
- */
-            const code = typeof nextErrorPayload?.code === 'string' ? nextErrorPayload.code : '';
+                        const code = typeof nextErrorPayload?.code === 'string' ? nextErrorPayload.code : '';
             if (code && code !== expectedCode) {
                 throw new Error(`expected mainline socket to fail with ${expectedCode}, got ${JSON.stringify(nextErrorPayload)}`);
             }
@@ -722,10 +682,7 @@ async function expectProtocolSocketAuthFailure(token, expectedCode = 'AUTH_FAIL'
 /**
  * 创建带事件计数与等待能力的 mainline 协议测试 socket 包装器。
  */
-function createProtocolSocket(token, options = undefined) {
-/**
- * 记录socket。
- */
+function createProtocolSocket(token: string, options: AnyRecord = undefined): any {
     const socket = (0, socket_io_client_1.io)(SERVER_URL, {
         path: '/socket.io',
         transports: ['websocket'],
@@ -738,49 +695,16 @@ function createProtocolSocket(token, options = undefined) {
             sessionId: typeof options?.sessionId === 'string' ? options.sessionId : undefined,
         },
     });
-/**
- * 记录byevent。
- */
     const byEvent = new Map();
-/**
- * 记录legacyevents。
- */
     const legacyEvents = [];
-/**
- * 记录fatalerror。
- */
     let fatalError = null;
-/**
- * 记录是否由测试主动关闭。
- */
     let closedByTest = false;
-/**
- * 记录地图enter数量。
- */
     let mapEnterCount = 0;
-/**
- * 记录bootstrap数量。
- */
     let bootstrapCount = 0;
-/**
- * 记录地图static数量。
- */
     let mapStaticCount = 0;
-/**
- * 记录境界数量。
- */
     let realmCount = 0;
-/**
- * 记录worlddelta数量。
- */
     let worldDeltaCount = 0;
-/**
- * 记录selfdelta数量。
- */
     let selfDeltaCount = 0;
-/**
- * 记录paneldelta数量。
- */
     let panelDeltaCount = 0;
     const allowedMainlineErrorCodes = new Set(Array.isArray(options?.allowedMainlineErrorCodes)
         ? options.allowedMainlineErrorCodes
@@ -789,9 +713,6 @@ function createProtocolSocket(token, options = undefined) {
             .filter((code) => code.length > 0)
         : []);
     socket.onAny((event, payload) => {
-/**
- * 记录existing。
- */
         const existing = byEvent.get(event) ?? [];
         existing.push(payload);
         byEvent.set(event, existing);
@@ -805,8 +726,6 @@ function createProtocolSocket(token, options = undefined) {
  */
 
     function clearBootstrapDisconnectFatalIfRecovered() {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
         const initSessionEventCount = (byEvent.get(shared_1.S2C.InitSession) ?? []).length;
         if (!(fatalError instanceof Error)
             || !fatalError.message.startsWith('mainline socket disconnected before bootstrap')
@@ -816,9 +735,6 @@ function createProtocolSocket(token, options = undefined) {
         fatalError = null;
     }
     socket.on(shared_1.S2C.Error, (payload) => {
-/**
- * 记录code。
- */
         const code = typeof payload?.code === 'string' ? payload.code : '';
         if (code === 'PLAYER_ID_MISMATCH' || allowedMainlineErrorCodes.has(code)) {
             return;
@@ -870,8 +786,6 @@ function createProtocolSocket(token, options = undefined) {
  * 在继续测试前抛出 socket 侧已捕获的致命错误。
  */
     function throwIfFatal() {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
         clearBootstrapDisconnectFatalIfRecovered();
         if (fatalError) {
             throw fatalError;
@@ -943,15 +857,10 @@ function createProtocolSocket(token, options = undefined) {
  */
 
         async onceConnected() {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
             if (socket.connected) {
                 return;
             }
-            await new Promise((resolve, reject) => {
-/**
- * 记录timer。
- */
+            await new Promise<void>((resolve, reject) => {
                 const timer = setTimeout(() => reject(new Error('mainline socket connect timeout')), 5000);
                 socket.once('connect', () => {
                     clearTimeout(timer);
@@ -1000,17 +909,15 @@ function createProtocolSocket(token, options = undefined) {
  * @returns 无返回值，直接更新waitFor事件相关状态。
  */
 
-        async waitForEvent(event, predicate = () => true, timeoutMs = 5000) {
+        async waitForEvent(
+            event: string,
+            predicate: (payload: any) => boolean | Promise<boolean> = () => true,
+            timeoutMs = 5000,
+        ): Promise<any> {
             return waitForValue(async () => {
                 throwIfFatal();
-/**
- * 记录payloads。
- */
                 const payloads = byEvent.get(event) ?? [];
                 for (let index = payloads.length - 1; index >= 0; index -= 1) {
-/**
- * 记录payload。
- */
                     const payload = payloads[index];
                     if (await predicate(payload)) {
                         return payload;
@@ -1045,8 +952,6 @@ function assertNoLegacyEvents(target, label) {
  */
 
 function flattenNoticeItems(payloads) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
     const items = [];
     for (const payload of payloads) {
         if (!Array.isArray(payload?.items)) {
@@ -1166,27 +1071,13 @@ function createAuthStarterSnapshotDeps() {
  * 验证 access token 直连后能完整收到主线首包与基础同步事件。
  */
 async function runAuthBootstrap(token, expectedIdentity = null, options = undefined) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-/**
- * 记录successsocket。
- */
     const successSocket = createProtocolSocket(token, {
         allowedMainlineErrorCodes: ['HELLO_AUTH_BOOTSTRAP_FORBIDDEN'],
     });
-/**
- * 记录运行态玩家ID。
- */
     let runtimePlayerId = null;
     try {
         await successSocket.onceConnected();
-/**
- * 记录init会话。
- */
         const initSession = await successSocket.waitForEvent(shared_1.S2C.InitSession, (payload) => typeof payload?.pid === 'string' && payload.pid.trim().length > 0, 5000);
-/**
- * 记录bootstrap。
- */
         const bootstrap = await successSocket.waitForEvent(shared_1.S2C.Bootstrap, (payload) => typeof payload?.self?.id === 'string' && payload.self.id.trim().length > 0, 5000);
         await waitFor(() => successSocket.mapEnterCount > 0
             && successSocket.mapStaticCount > 0
@@ -1197,9 +1088,6 @@ async function runAuthBootstrap(token, expectedIdentity = null, options = undefi
         if (initSession.pid !== runtimePlayerId) {
             throw new Error(`init/bootstrap player mismatch: init=${initSession.pid} bootstrap=${runtimePlayerId}`);
         }
-/**
- * 记录状态。
- */
         const state = await fetchPlayerState(runtimePlayerId);
         if (!state?.player || state.player.playerId !== runtimePlayerId) {
             throw new Error(`runtime state missing expected player ${runtimePlayerId}`);
@@ -1277,8 +1165,6 @@ async function runAuthBootstrap(token, expectedIdentity = null, options = undefi
  * 验证 mainline socket 发出 legacy 事件会被拒绝，且不会降级为 legacy 协议。
  */
 async function verifyProtocolSocketRejectsLegacyEventContract(token, expectedPlayerId) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
     const socket = createProtocolSocket(token);
     try {
         await socket.onceConnected();
@@ -1357,8 +1243,6 @@ async function verifyProtocolSocketRejectsLegacyEventContract(token, expectedPla
  */
 
 async function verifyHelloAuthBootstrapForbiddenContract() {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
     const emittedErrors = [];
     let disconnected = false;
     let bootstrapCallCount = 0;
@@ -1404,7 +1288,7 @@ async function verifyHelloAuthBootstrapForbiddenContract() {
             },
         },
     });
-    const client = {
+    const client: AnyRecord = {
         id: 'proof_socket_hello_auth_bootstrap_forbidden',
         handshake: {
             auth: {
@@ -1457,8 +1341,6 @@ async function verifyHelloAuthBootstrapForbiddenContract() {
  */
 
 async function verifyImplicitLegacyProtocolEntryContract() {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
     const emittedErrors = [];
     const emittedEvents = [];
     let disconnected = false;
@@ -1576,7 +1458,7 @@ async function verifyImplicitLegacyProtocolEntryContract() {
     if (emittedEvents.length !== 0) {
         throw new Error(`expected explicit legacy protocol entry to avoid pong emission while disabled, got ${JSON.stringify(emittedEvents)}`);
     }
-    const eventService = new world_client_event_service_1.WorldClientEventService({
+    const eventService = new WorldClientEventServiceForSmoke({
         getSummary: async () => ({})
     }, {}, {
         getPendingLogbookMessages: () => [],
@@ -1610,7 +1492,7 @@ async function verifyImplicitLegacyProtocolEntryContract() {
     if (eventClient.emitted.some((entry) => LEGACY_S2C_EVENTS.has(entry.event))) {
         throw new Error(`expected unknown protocol event emission to avoid legacy events, got ${JSON.stringify(eventClient.emitted)}`);
     }
-    const syncEmission = new (require("../network/world-sync-protocol.service").WorldSyncProtocolService)().resolveEmission({ data: {} });
+    const syncEmission = new WorldSyncProtocolServiceForSmoke().resolveEmission({ data: {} });
     if (syncEmission.emitMainline !== true || syncEmission.protocol !== 'mainline') {
         throw new Error(`expected unknown protocol sync emission to stay mainline-only, got ${JSON.stringify(syncEmission)}`);
     }
@@ -1634,7 +1516,7 @@ async function verifyImplicitLegacyProtocolEntryContract() {
             this.emitted.push({ event, payload });
         },
     };
-    const projectionService = new (require("../network/world-protocol-projection.service").WorldProtocolProjectionService)({
+    const projectionService = new WorldProtocolProjectionServiceForSmoke({
         buildLegacyTileRuntimeDetail: (mapId, payload) => ({
             mapId,
             x: payload?.x,
@@ -1662,15 +1544,14 @@ async function verifyImplicitLegacyProtocolEntryContract() {
     try {
         eventService.emitError(explicitLegacyDisabledEventClient, 'PROOF_EXPLICIT_LEGACY_DISABLED', 'proof explicit legacy disabled');
         eventService.emitSystemMessage(explicitLegacyDisabledEventClient, 'proof explicit legacy disabled notice');
-        explicitLegacyDisabledSyncEmission = new (require("../network/world-sync-protocol.service").WorldSyncProtocolService)().resolveEmission({ data: { protocol: 'legacy' } });
+        explicitLegacyDisabledSyncEmission = new WorldSyncProtocolServiceForSmoke().resolveEmission({ data: { protocol: 'legacy' } });
         projectionService.emitTileDetail(projectionClient, {
             mapId: 'yunlai_town',
             x: 1,
             y: 1,
             entities: [],
         });
-        const RuntimeGmStateService = require("../runtime/gm/runtime-gm-state.service").RuntimeGmStateService;
-        const runtimeGmStateService = new RuntimeGmStateService({
+        const runtimeGmStateService = new RuntimeGmStateServiceForSmoke({
             listSummaries: () => [],
         }, {
             listPlayerSnapshots: () => [],
@@ -1751,9 +1632,7 @@ async function verifyImplicitLegacyProtocolEntryContract() {
  */
 
 async function verifyGmBootstrapSessionPolicyContract() {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const bootstrapService = new world_session_bootstrap_service_1.WorldSessionBootstrapService(null, null, null, null, null, null, null, null, null, null);
+    const bootstrapService = createWorldSessionBootstrapServiceForSmoke();
     const gateway = createWorldGatewayForAuthBootstrapSmoke({
         sessionBootstrapService: bootstrapService,
     });
@@ -2199,7 +2078,7 @@ async function verifyGmBootstrapSessionPolicyContract() {
 }
 
 async function verifyMalformedMainlineIdentityAndSnapshotRecordGuardContract() {
-    const authService = new world_player_auth_service_1.WorldPlayerAuthService({
+    const authService = new WorldPlayerAuthServiceForSmoke({
         validatePlayerToken() {
             return {
                 sub: 'proof_user_invalid_mainline_identity_shape',
@@ -2242,7 +2121,7 @@ async function verifyMalformedMainlineIdentityAndSnapshotRecordGuardContract() {
     if (malformedIdentity !== null) {
         throw new Error(`expected malformed mainline identity record to be rejected before bootstrap, got ${JSON.stringify(malformedIdentity)}`);
     }
-    const snapshotService = new world_player_snapshot_service_1.WorldPlayerSnapshotService({
+    const snapshotService = new WorldPlayerSnapshotServiceForSmoke({
         isEnabled() {
             return true;
         },
@@ -2346,31 +2225,11 @@ function parseSessionEpochFromSessionId(sessionId) {
  */
 
 async function verifyAuthenticatedSessionContract(token, expectedIdentity, expectedPlayerId, identitySource = null) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-/**
- * 记录first。
- */
     const first = createProtocolSocket(token);
-/**
- * 记录second。
- */
     let second = null;
-/**
- * 记录third。
- */
     let third = null;
-/**
- * 记录fourth。
- */
     let fourth = null;
-/**
- * 记录fifth。
- */
     let fifth = null;
-/**
- * 记录sixth。
- */
     let sixth = null;
     const readRuntimeSessionFence = async () => {
         const state = await fetchPlayerState(expectedPlayerId);
@@ -2391,13 +2250,7 @@ async function verifyAuthenticatedSessionContract(token, expectedIdentity, expec
     let thirdRuntimeFence = null;
     try {
         await first.onceConnected();
-/**
- * 记录firstinit。
- */
         const firstInit = await first.waitForEvent(shared_1.S2C.InitSession, (payload) => typeof payload?.pid === 'string' && payload.pid.trim().length > 0, 5000);
-/**
- * 记录firstbootstrap。
- */
         const firstBootstrap = await first.waitForEvent(shared_1.S2C.Bootstrap, (payload) => typeof payload?.self?.id === 'string' && payload.self.id.trim().length > 0, 5000);
         if (firstBootstrap.self.id !== expectedPlayerId || firstInit.pid !== expectedPlayerId) {
             throw new Error(`authenticated session proof first bootstrap player mismatch: expected=${expectedPlayerId} init=${firstInit.pid} bootstrap=${firstBootstrap.self.id}`);
@@ -2414,17 +2267,8 @@ async function verifyAuthenticatedSessionContract(token, expectedIdentity, expec
         }
         second = createProtocolSocket(token);
         await second.onceConnected();
-/**
- * 记录replacedkick。
- */
         const replacedKick = await first.waitForEvent(shared_1.S2C.Kick, (payload) => payload?.reason === 'replaced', 5000);
-/**
- * 记录secondinit。
- */
         const secondInit = await second.waitForEvent(shared_1.S2C.InitSession, (payload) => typeof payload?.pid === 'string' && payload.pid.trim().length > 0, 5000);
-/**
- * 记录secondbootstrap。
- */
         const secondBootstrap = await second.waitForEvent(shared_1.S2C.Bootstrap, (payload) => typeof payload?.self?.id === 'string' && payload.self.id.trim().length > 0, 5000);
         if (replacedKick?.reason !== 'replaced') {
             throw new Error(`expected authenticated replacement kick, got ${JSON.stringify(replacedKick)}`);
@@ -2458,17 +2302,8 @@ async function verifyAuthenticatedSessionContract(token, expectedIdentity, expec
         }
         third = createProtocolSocket(token, { sessionId: `${secondInit.sid}:stale` });
         await third.onceConnected();
-/**
- * 记录staleRequestedKick。
- */
         const staleRequestedKick = await second.waitForEvent(shared_1.S2C.Kick, (payload) => payload?.reason === 'replaced', 5000);
-/**
- * 记录staleRequestedInit。
- */
         const staleRequestedInit = await third.waitForEvent(shared_1.S2C.InitSession, (payload) => typeof payload?.pid === 'string' && payload.pid.trim().length > 0, 5000);
-/**
- * 记录staleRequestedBootstrap。
- */
         const staleRequestedBootstrap = await third.waitForEvent(shared_1.S2C.Bootstrap, (payload) => typeof payload?.self?.id === 'string' && payload.self.id.trim().length > 0, 5000);
         if (staleRequestedKick?.reason !== 'replaced') {
             throw new Error(`expected authenticated stale-request replacement kick, got ${JSON.stringify(staleRequestedKick)}`);
@@ -2507,13 +2342,7 @@ async function verifyAuthenticatedSessionContract(token, expectedIdentity, expec
         await delay(SESSION_DETACH_SETTLE_MS);
         fourth = createProtocolSocket(token);
         await fourth.onceConnected();
-/**
- * 记录resumedinit。
- */
         const resumedInit = await fourth.waitForEvent(shared_1.S2C.InitSession, (payload) => typeof payload?.pid === 'string' && payload.pid.trim().length > 0, 5000);
-/**
- * 记录resumedbootstrap。
- */
         const resumedBootstrap = await fourth.waitForEvent(shared_1.S2C.Bootstrap, (payload) => typeof payload?.self?.id === 'string' && payload.self.id.trim().length > 0, 5000);
         if (resumedInit.pid !== expectedPlayerId || resumedBootstrap.self.id !== expectedPlayerId) {
             throw new Error(`authenticated session proof resumed bootstrap player mismatch: ${JSON.stringify(resumedInit)}`);
@@ -2540,13 +2369,7 @@ async function verifyAuthenticatedSessionContract(token, expectedIdentity, expec
         await delay(SESSION_DETACH_SETTLE_MS);
         fifth = createProtocolSocket(token, { sessionId: resumedInit.sid });
         await fifth.onceConnected();
-/**
- * 记录explicitrequestedinit。
- */
         const explicitRequestedInit = await fifth.waitForEvent(shared_1.S2C.InitSession, (payload) => typeof payload?.pid === 'string' && payload.pid.trim().length > 0, 5000);
-/**
- * 记录explicitrequestedbootstrap。
- */
         const explicitRequestedBootstrap = await fifth.waitForEvent(shared_1.S2C.Bootstrap, (payload) => typeof payload?.self?.id === 'string' && payload.self.id.trim().length > 0, 5000);
         if (explicitRequestedInit.pid !== expectedPlayerId || explicitRequestedBootstrap.self.id !== expectedPlayerId) {
             throw new Error(`authenticated session proof explicit-request bootstrap player mismatch: ${JSON.stringify(explicitRequestedInit)}`);
@@ -2569,13 +2392,7 @@ async function verifyAuthenticatedSessionContract(token, expectedIdentity, expec
         await delay(SESSION_DETACH_EXPIRE_MS + 1200);
         sixth = createProtocolSocket(token);
         await sixth.onceConnected();
-/**
- * 记录expiredinit。
- */
         const expiredInit = await sixth.waitForEvent(shared_1.S2C.InitSession, (payload) => typeof payload?.pid === 'string' && payload.pid.trim().length > 0, 5000);
-/**
- * 记录expiredbootstrap。
- */
         const expiredBootstrap = await sixth.waitForEvent(shared_1.S2C.Bootstrap, (payload) => typeof payload?.self?.id === 'string' && payload.self.id.trim().length > 0, 5000);
         if (expiredInit.pid !== expectedPlayerId || expiredBootstrap.self.id !== expectedPlayerId) {
             throw new Error(`authenticated session proof expired bootstrap player mismatch: ${JSON.stringify(expiredInit)}`);
@@ -2631,48 +2448,36 @@ async function verifyAuthenticatedSessionContract(token, expectedIdentity, expec
  */
 
 async function verifyAuthenticatedMissingSnapshotRecoveryContract() {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-/**
- * 记录默认calls。
- */
     const defaultCalls = [];
-/**
- * 记录默认恢复calls。
- */
     let defaultRecoveryCalls = 0;
-/**
- * 记录默认bootstrap服务。
- */
-    const defaultBootstrapService = new world_session_bootstrap_service_1.WorldSessionBootstrapService(null, {
-        isPersistenceEnabled: () => true,
-        loadPlayerSnapshot: async (playerId, fallbackReason) => {
-            defaultCalls.push({
-                playerId,
-                fallbackReason,
-            });
-            return null;
-        },
-        ensureNativeStarterSnapshot: async () => {
-            defaultRecoveryCalls += 1;
-            return {
-                ok: true,
-                snapshot: {
-                    version: 1,
-                    placement: {
-                        templateId: 'yunlai_town',
-                        x: 32,
-                        y: 5,
-                        facing: 1,
+    const defaultBootstrapService = createWorldSessionBootstrapServiceForSmoke({
+        worldPlayerSnapshotService: {
+            isPersistenceEnabled: () => true,
+            loadPlayerSnapshot: async (playerId, fallbackReason) => {
+                defaultCalls.push({
+                    playerId,
+                    fallbackReason,
+                });
+                return null;
+            },
+            ensureNativeStarterSnapshot: async () => {
+                defaultRecoveryCalls += 1;
+                return {
+                    ok: true,
+                    snapshot: {
+                        version: 1,
+                        placement: {
+                            templateId: 'yunlai_town',
+                            x: 32,
+                            y: 5,
+                            facing: 1,
+                        },
                     },
-                },
-                persistedSource: 'native',
-            };
+                    persistedSource: 'native',
+                };
+            },
         },
-    }, null, null, null, null, null, null, null, null);
-/**
- * 记录默认error。
- */
+    });
     let defaultError = null;
     try {
         await defaultBootstrapService.loadAuthenticatedPlayerSnapshot({
@@ -2691,61 +2496,52 @@ async function verifyAuthenticatedMissingSnapshotRecoveryContract() {
         || !defaultError.message.includes('recoveryReason=native_snapshot_recovery_disabled')) {
         throw new Error(`expected authenticated missing snapshot recovery to stay disabled by default, got error=${defaultError instanceof Error ? defaultError.message : String(defaultError)} recoveryCalls=${defaultRecoveryCalls} call=${JSON.stringify(defaultCalls[0] ?? null)}`);
     }
-/**
- * 记录恢复calls。
- */
     const recoveryCalls = [];
-/**
- * 记录恢复seedcalls。
- */
     let recoverySeedCalls = 0;
-/**
- * 记录恢复bootstrap服务。
- */
-    const recoveryBootstrapService = new world_session_bootstrap_service_1.WorldSessionBootstrapService({
-        playerIdentityPersistenceService: {
-            isEnabled: () => true,
-            savePlayerIdentity: async (identity) => ({
-                ...identity,
-                authSource: 'mainline',
-                persistedSource: 'native',
-            }),
+    const recoveryBootstrapService = createWorldSessionBootstrapServiceForSmoke({
+        worldPlayerAuthService: {
+            playerIdentityPersistenceService: {
+                isEnabled: () => true,
+                savePlayerIdentity: async (identity) => ({
+                    ...identity,
+                    authSource: 'mainline',
+                    persistedSource: 'native',
+                }),
+            },
         },
-    }, {
-        isPersistenceEnabled: () => true,
-        loadPlayerSnapshot: async (playerId, fallbackReason) => {
-            recoveryCalls.push({
-                playerId,
-                fallbackReason,
-            });
-            return null;
-        },
-        ensureNativeStarterSnapshot: async (playerId) => {
-            recoverySeedCalls += 1;
-            return {
-                ok: true,
-                snapshot: {
-                    version: 1,
-                    placement: {
-                        templateId: 'yunlai_town',
-                        x: 32,
-                        y: 5,
-                        facing: 1,
+        worldPlayerSnapshotService: {
+            isPersistenceEnabled: () => true,
+            loadPlayerSnapshot: async (playerId, fallbackReason) => {
+                recoveryCalls.push({
+                    playerId,
+                    fallbackReason,
+                });
+                return null;
+            },
+            ensureNativeStarterSnapshot: async (playerId) => {
+                recoverySeedCalls += 1;
+                return {
+                    ok: true,
+                    snapshot: {
+                        version: 1,
+                        placement: {
+                            templateId: 'yunlai_town',
+                            x: 32,
+                            y: 5,
+                            facing: 1,
+                        },
+                        inventory: {
+                            items: [{
+                                    itemId: `starter_recovery_${playerId}`,
+                                    count: 1,
+                                }],
+                        },
                     },
-                    inventory: {
-                        items: [{
-                                itemId: `starter_recovery_${playerId}`,
-                                count: 1,
-                            }],
-                    },
-                },
-                persistedSource: 'native',
-            };
+                    persistedSource: 'native',
+                };
+            },
         },
-    }, null, null, null, null, null, null, null, null);
-/**
- * 记录previousrecoveryenv。
- */
+    });
     const previousRecoveryEnv = process.env.SERVER_AUTH_ALLOW_NATIVE_SNAPSHOT_RECOVERY;
     process.env.SERVER_AUTH_ALLOW_NATIVE_SNAPSHOT_RECOVERY = '1';
     let unknownSourceRejectedError = null;
@@ -2753,33 +2549,36 @@ async function verifyAuthenticatedMissingSnapshotRecoveryContract() {
     let tokenLegacyBackfillRejectedError = null;
     let promotionFailureError = null;
     let promotionFailureSeedCalls = 0;
-    const promotionFailureBootstrapService = new world_session_bootstrap_service_1.WorldSessionBootstrapService({
-        playerIdentityPersistenceService: {
-            isEnabled: () => true,
-            savePlayerIdentity: async () => {
-                throw new Error('forced_token_seed_native_promotion_failure');
+    const promotionFailureBootstrapService = createWorldSessionBootstrapServiceForSmoke({
+        worldPlayerAuthService: {
+            playerIdentityPersistenceService: {
+                isEnabled: () => true,
+                savePlayerIdentity: async () => {
+                    throw new Error('forced_token_seed_native_promotion_failure');
+                },
             },
         },
-    }, {
-        isPersistenceEnabled: () => true,
-        loadPlayerSnapshot: async () => null,
-        ensureNativeStarterSnapshot: async () => {
-            promotionFailureSeedCalls += 1;
-            return {
-                ok: true,
-                snapshot: {
-                    version: 1,
-                    placement: {
-                        templateId: 'yunlai_town',
-                        x: 32,
-                        y: 5,
-                        facing: 1,
+        worldPlayerSnapshotService: {
+            isPersistenceEnabled: () => true,
+            loadPlayerSnapshot: async () => null,
+            ensureNativeStarterSnapshot: async () => {
+                promotionFailureSeedCalls += 1;
+                return {
+                    ok: true,
+                    snapshot: {
+                        version: 1,
+                        placement: {
+                            templateId: 'yunlai_town',
+                            x: 32,
+                            y: 5,
+                            facing: 1,
+                        },
                     },
-                },
-                persistedSource: 'native',
-            };
+                    persistedSource: 'native',
+                };
+            },
         },
-    }, null, null, null, null, null, null, null, null);
+    });
     try {
 /** 
  * 记录tokenseedsnapshot。
@@ -2793,9 +2592,6 @@ async function verifyAuthenticatedMissingSnapshotRecoveryContract() {
         if (!tokenSeedSnapshot || tokenSeedSnapshot.placement?.templateId !== 'yunlai_town') {
             throw new Error(`expected authenticated missing snapshot token_seed recovery to return starter snapshot, got ${JSON.stringify(tokenSeedSnapshot ?? null)}`);
         }
-/**
- * 记录tokenseedtokensnapshot。
- */
         const tokenSeedTokenSnapshot = await recoveryBootstrapService.loadAuthenticatedPlayerSnapshot({
             userId: 'proof_user_missing_snapshot_token_seed_token',
             playerId: 'proof_player_missing_snapshot_token_seed_token',
@@ -2906,9 +2702,6 @@ async function verifyAuthenticatedMissingSnapshotRecoveryContract() {
     if (recoverySeedCalls !== 2 || missingRecoveryProof) {
         throw new Error(`expected authenticated missing snapshot recovery to seed only token_seed and reject unsupported identities, got recoverySeedCalls=${recoverySeedCalls} missing=${JSON.stringify(missingRecoveryProof ?? null)} calls=${JSON.stringify(recoveryCalls)}`);
     }
-/**
- * 记录nativerejectederror。
- */
     let nativeRejectedError = null;
     const previousRejectedEnv = process.env.SERVER_AUTH_ALLOW_NATIVE_SNAPSHOT_RECOVERY;
     process.env.SERVER_AUTH_ALLOW_NATIVE_SNAPSHOT_RECOVERY = '1';
@@ -2954,17 +2747,8 @@ async function verifyAuthenticatedMissingSnapshotRecoveryContract() {
  * 验证 authenticated snapshot recovery 在 bootstrap 期间会落入待确认日志并进入首包发送链。
  */
 async function verifyAuthenticatedSnapshotRecoveryNoticeContract() {
-/**
- * 记录已排队消息。
- */
     const queuedByPlayerId = new Map();
-/**
- * 记录已发出 notice 事件。
- */
     const emittedEventsByPlayerId = new Map();
-/**
- * 记录玩家运行时服务。
- */
     const playerRuntimeService = {
         loadOrCreatePlayer: async () => ({
             templateId: 'yunlai_town',
@@ -2972,6 +2756,7 @@ async function verifyAuthenticatedSnapshotRecoveryNoticeContract() {
             y: 5,
         }),
         setIdentity: () => undefined,
+        loadPendingOfflineGainReports: async () => [],
         queuePendingLogbookMessage: (playerId, message) => {
             const entries = queuedByPlayerId.get(playerId) ?? [];
             const existingIndex = entries.findIndex((entry) => entry.id === message.id);
@@ -2992,71 +2777,72 @@ async function verifyAuthenticatedSnapshotRecoveryNoticeContract() {
         },
         getPendingLogbookMessages: (playerId) => (queuedByPlayerId.get(playerId) ?? []).map((entry) => ({ ...entry })),
     };
-/**
- * 记录客户端事件服务。
- */
-    const clientEventService = new world_client_event_service_1.WorldClientEventService(null, null, playerRuntimeService, null, null, null);
-/**
- * 记录bootstrap服务。
- */
-    const bootstrapService = new world_session_bootstrap_service_1.WorldSessionBootstrapService(null, null, null, playerRuntimeService, {
-        ensurePlayerMailbox: async () => undefined,
-        ensureWelcomeMail: async () => undefined,
-    }, {
-        getStatus: async () => ({ serverNow: Date.now(), monthCard: {}, dailySignIn: {}, hasRedDot: false }),
-    }, {
-        getAll: () => [],
-    }, {
-        worldRuntimePlayerSessionService: {
-            removePlayer: () => undefined,
-            connectPlayer: () => undefined,
+    const clientEventService = new WorldClientEventServiceForSmoke(null, null, playerRuntimeService, null, null, null);
+    const bootstrapService = createWorldSessionBootstrapServiceForSmoke({
+        playerRuntimeService,
+        mailRuntimeService: {
+            ensurePlayerMailbox: async () => undefined,
+            ensureWelcomeMail: async () => undefined,
         },
-    }, {
-        getBinding: () => null,
-        registerSocket: (client, playerId, requestedSessionId) => ({
-            playerId,
-            sessionId: requestedSessionId?.trim() || `${playerId}:notice`,
-            socketId: client.id,
-            resumed: false,
-            connected: true,
-            detachedAt: null,
-            expireAt: null,
-        }),
-    }, {
-        emitInitialSync: () => undefined,
-    }, {
-        emitActivityStatus: () => undefined,
-        emitMailSummaryForPlayer: async () => undefined,
-        emitPendingLogbookNotice: (client, entry) => {
-            const playerId = typeof entry?.id === 'string' ? entry.id.split(':')[1] ?? '' : '';
-            const events = emittedEventsByPlayerId.get(playerId) ?? [];
-            const proxyClient = {
-                data: client?.data ?? {},
-                emit: (event, payload) => {
-                    events.push({ event, payload });
-                    if (typeof client?.emit === 'function') {
-                        client.emit(event, payload);
-                    }
-                },
-            };
-            clientEventService.emitPendingLogbookNotice(proxyClient, entry);
-            emittedEventsByPlayerId.set(playerId, events);
+        activityRuntimeService: {
+            getStatus: async () => ({ serverNow: Date.now(), monthCard: {}, dailySignIn: {}, hasRedDot: false }),
         },
-        emitPendingLogbookMessages: (client, playerId) => {
-            const events = emittedEventsByPlayerId.get(playerId) ?? [];
-            const proxyClient = {
-                data: client?.data ?? {},
-                emit: (event, payload) => {
-                    events.push({ event, payload });
-                    if (typeof client?.emit === 'function') {
-                        client.emit(event, payload);
-                    }
-                },
-            };
-            clientEventService.emitPendingLogbookMessages(proxyClient, playerId);
-            emittedEventsByPlayerId.set(playerId, events);
+        worldRuntimeService: {
+            getAll: () => [],
+            worldRuntimePlayerSessionService: {
+                removePlayer: () => undefined,
+                connectPlayer: () => undefined,
+            },
         },
-    });    
+        worldSessionService: {
+            getBinding: () => null,
+            registerSocket: (client, playerId, requestedSessionId) => ({
+                playerId,
+                sessionId: requestedSessionId?.trim() || `${playerId}:notice`,
+                socketId: client.id,
+                resumed: false,
+                connected: true,
+                detachedAt: null,
+                expireAt: null,
+            }),
+        },
+        worldSyncService: {
+            emitInitialSync: () => undefined,
+        },
+        worldClientEventService: {
+            emitActivityStatus: () => undefined,
+            emitMailSummaryForPlayer: async () => undefined,
+            emitPendingLogbookNotice: (client, entry) => {
+                const playerId = typeof entry?.id === 'string' ? entry.id.split(':')[1] ?? '' : '';
+                const events = emittedEventsByPlayerId.get(playerId) ?? [];
+                const proxyClient = {
+                    data: client?.data ?? {},
+                    emit: (event, payload) => {
+                        events.push({ event, payload });
+                        if (typeof client?.emit === 'function') {
+                            client.emit(event, payload);
+                        }
+                    },
+                };
+                clientEventService.emitPendingLogbookNotice(proxyClient, entry);
+                emittedEventsByPlayerId.set(playerId, events);
+            },
+            emitPendingLogbookMessages: (client, playerId) => {
+                const events = emittedEventsByPlayerId.get(playerId) ?? [];
+                const proxyClient = {
+                    data: client?.data ?? {},
+                    emit: (event, payload) => {
+                        events.push({ event, payload });
+                        if (typeof client?.emit === 'function') {
+                            client.emit(event, payload);
+                        }
+                    },
+                };
+                clientEventService.emitPendingLogbookMessages(proxyClient, playerId);
+                emittedEventsByPlayerId.set(playerId, events);
+            },
+        },
+    });
     /**
  * runNoticeCase：执行runNoticeCase相关逻辑。
  * @param persistedSource 参数说明。
@@ -3065,8 +2851,6 @@ async function verifyAuthenticatedSnapshotRecoveryNoticeContract() {
  */
 
     async function runNoticeCase(persistedSource, expectedText) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
         const playerId = `proof_player_snapshot_recovery_notice_${persistedSource}`;
         const client = {
             id: `socket_snapshot_recovery_notice_${persistedSource}`,
@@ -3127,9 +2911,6 @@ async function verifyAuthenticatedSnapshotRecoveryNoticeContract() {
             persistUntilAck: true,
         };
     }
-/**
- * 记录tokenseednotice。
- */
     const tokenSeedNotice = await runNoticeCase('token_seed', '首次以主线真源入场');
     return {
         tokenSeedNotice,
@@ -3142,8 +2923,6 @@ async function verifyAuthenticatedSnapshotRecoveryNoticeContract() {
  */
 
 async function withLocalAuthTraceEnabled(run) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
     const previousTraceEnv = process.env.SERVER_AUTH_TRACE_ENABLED;
     const previousTraceState = globalThis.__MAINLINE_AUTH_TRACE;
     process.env.SERVER_AUTH_TRACE_ENABLED = '1';
@@ -3174,8 +2953,6 @@ async function withLocalAuthTraceEnabled(run) {
  */
 
 function findLatestSnapshotRecoveryTrace(playerId) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
     const trace = (0, world_player_token_service_1.readAuthTrace)();
     const records = Array.isArray(trace?.records) ? trace.records : [];
     for (let index = records.length - 1; index >= 0; index -= 1) {
@@ -3200,66 +2977,74 @@ async function verifyAuthenticatedSnapshotRecoveryTraceContract() {
         const previousRecoveryEnv = process.env.SERVER_AUTH_ALLOW_NATIVE_SNAPSHOT_RECOVERY;
         process.env.SERVER_AUTH_ALLOW_NATIVE_SNAPSHOT_RECOVERY = '1';
         try {
-        const bootstrapService = new world_session_bootstrap_service_1.WorldSessionBootstrapService({
-            playerIdentityPersistenceService: {
-                isEnabled: () => true,
-                savePlayerIdentity: async (identity) => ({
-                    ...identity,
-                    authSource: 'mainline',
+        const bootstrapService = createWorldSessionBootstrapServiceForSmoke({
+            worldPlayerAuthService: {
+                playerIdentityPersistenceService: {
+                    isEnabled: () => true,
+                    savePlayerIdentity: async (identity) => ({
+                        ...identity,
+                        authSource: 'mainline',
+                        persistedSource: 'native',
+                    }),
+                },
+            },
+            worldPlayerSnapshotService: {
+                isPersistenceEnabled: () => true,
+                loadPlayerSnapshot: async () => null,
+                ensureNativeStarterSnapshot: async (playerId) => ({
+                    ok: true,
+                    seeded: true,
+                    snapshot: {
+                        version: 1,
+                        placement: {
+                            templateId: 'yunlai_town',
+                            x: 32,
+                            y: 5,
+                            facing: 1,
+                        },
+                    },
                     persistedSource: 'native',
                 }),
             },
-        }, {
-            isPersistenceEnabled: () => true,
-            loadPlayerSnapshot: async () => null,
-            ensureNativeStarterSnapshot: async (playerId) => ({
-                ok: true,
-                seeded: true,
-                snapshot: {
-                    version: 1,
-                    placement: {
-                        templateId: 'yunlai_town',
-                        x: 32,
-                        y: 5,
-                        facing: 1,
+        });
+        const failureBootstrapService = createWorldSessionBootstrapServiceForSmoke({
+            worldPlayerSnapshotService: {
+                isPersistenceEnabled: () => true,
+                loadPlayerSnapshot: async () => null,
+                ensureNativeStarterSnapshot: async () => ({
+                    ok: false,
+                    failureStage: 'native_snapshot_recovery_seed_failed',
+                }),
+            },
+        });
+        const promotionFailureBootstrapService = createWorldSessionBootstrapServiceForSmoke({
+            worldPlayerAuthService: {
+                playerIdentityPersistenceService: {
+                    isEnabled: () => true,
+                    savePlayerIdentity: async () => {
+                        throw new Error('forced_token_seed_native_promotion_failure');
                     },
-                },
-                persistedSource: 'native',
-            }),
-        }, null, null, null, null, null, null, null, null);
-        const failureBootstrapService = new world_session_bootstrap_service_1.WorldSessionBootstrapService(null, {
-            isPersistenceEnabled: () => true,
-            loadPlayerSnapshot: async () => null,
-            ensureNativeStarterSnapshot: async () => ({
-                ok: false,
-                failureStage: 'native_snapshot_recovery_seed_failed',
-            }),
-        }, null, null, null, null, null, null, null, null);
-        const promotionFailureBootstrapService = new world_session_bootstrap_service_1.WorldSessionBootstrapService({
-            playerIdentityPersistenceService: {
-                isEnabled: () => true,
-                savePlayerIdentity: async () => {
-                    throw new Error('forced_token_seed_native_promotion_failure');
                 },
             },
-        }, {
-            isPersistenceEnabled: () => true,
-            loadPlayerSnapshot: async () => null,
-            ensureNativeStarterSnapshot: async () => ({
-                ok: true,
-                seeded: true,
-                snapshot: {
-                    version: 1,
-                    placement: {
-                        templateId: 'yunlai_town',
-                        x: 32,
-                        y: 5,
-                        facing: 1,
+            worldPlayerSnapshotService: {
+                isPersistenceEnabled: () => true,
+                loadPlayerSnapshot: async () => null,
+                ensureNativeStarterSnapshot: async () => ({
+                    ok: true,
+                    seeded: true,
+                    snapshot: {
+                        version: 1,
+                        placement: {
+                            templateId: 'yunlai_town',
+                            x: 32,
+                            y: 5,
+                            facing: 1,
+                        },
                     },
-                },
-                persistedSource: 'native',
-            }),
-        }, null, null, null, null, null, null, null, null);
+                    persistedSource: 'native',
+                }),
+            },
+        });
         const tokenSeedPlayerId = 'proof_player_snapshot_recovery_trace_token_seed';
         (0, world_player_token_service_1.clearAuthTrace)();
         await bootstrapService.loadAuthenticatedPlayerSnapshot({
@@ -3410,9 +3195,6 @@ async function verifyAuthenticatedSnapshotRecoveryBootstrapLinkContract() {
         const previousRecoveryEnv = process.env.SERVER_AUTH_ALLOW_NATIVE_SNAPSHOT_RECOVERY;
         process.env.SERVER_AUTH_ALLOW_NATIVE_SNAPSHOT_RECOVERY = '1';
         try {
-/**
- * 记录玩家运行时服务。
- */
             const playerRuntimeService = {
                 loadOrCreatePlayer: async () => ({
                     templateId: 'yunlai_town',
@@ -3420,72 +3202,76 @@ async function verifyAuthenticatedSnapshotRecoveryBootstrapLinkContract() {
                     y: 5,
                 }),
                 setIdentity: () => undefined,
+                loadPendingOfflineGainReports: async () => [],
                 queuePendingLogbookMessage: () => undefined,
                 getPendingLogbookMessages: () => [],
             };
-/**
- * 记录bootstrap服务。
- */
-            const bootstrapService = new world_session_bootstrap_service_1.WorldSessionBootstrapService({
-                playerIdentityPersistenceService: {
-                    isEnabled: () => true,
-                    savePlayerIdentity: async (identity) => ({
-                        ...identity,
-                        authSource: 'mainline',
+            const bootstrapService = createWorldSessionBootstrapServiceForSmoke({
+                worldPlayerAuthService: {
+                    playerIdentityPersistenceService: {
+                        isEnabled: () => true,
+                        savePlayerIdentity: async (identity) => ({
+                            ...identity,
+                            authSource: 'mainline',
+                            persistedSource: 'native',
+                        }),
+                    },
+                },
+                worldPlayerSnapshotService: {
+                    isPersistenceEnabled: () => true,
+                    loadPlayerSnapshot: async () => null,
+                    ensureNativeStarterSnapshot: async () => ({
+                        ok: true,
+                        seeded: true,
+                        snapshot: {
+                            version: 1,
+                            placement: {
+                                templateId: 'yunlai_town',
+                                x: 32,
+                                y: 5,
+                                facing: 1,
+                            },
+                        },
                         persistedSource: 'native',
                     }),
                 },
-            }, {
-                isPersistenceEnabled: () => true,
-                loadPlayerSnapshot: async () => null,
-                ensureNativeStarterSnapshot: async () => ({
-                    ok: true,
-                    seeded: true,
-                    snapshot: {
-                        version: 1,
-                        placement: {
-                            templateId: 'yunlai_town',
-                            x: 32,
-                            y: 5,
-                            facing: 1,
-                        },
-                    },
-                    persistedSource: 'native',
-                }),
-            }, null, playerRuntimeService, {
-                ensurePlayerMailbox: async () => undefined,
-                ensureWelcomeMail: async () => undefined,
-            }, {
-                getStatus: async () => ({ serverNow: Date.now(), monthCard: {}, dailySignIn: {}, hasRedDot: false }),
-            }, {
-                getAll: () => [],
-            }, {
-                worldRuntimePlayerSessionService: {
-                    removePlayer: () => undefined,
-                    connectPlayer: () => undefined,
+                playerRuntimeService,
+                mailRuntimeService: {
+                    ensurePlayerMailbox: async () => undefined,
+                    ensureWelcomeMail: async () => undefined,
                 },
-            }, {
-                getBinding: () => null,
-                registerSocket: (client, playerId, requestedSessionId) => ({
-                    playerId,
-                    sessionId: requestedSessionId?.trim() || `${playerId}:bootstrap`,
-                    socketId: client.id,
-                    resumed: false,
-                    connected: true,
-                    detachedAt: null,
-                    expireAt: null,
-                }),
-            }, {
-                emitInitialSync: () => undefined,
-            }, {
-                emitActivityStatus: () => undefined,
-                emitMailSummaryForPlayer: async () => undefined,
-                emitPendingLogbookNotice: () => undefined,
-                emitPendingLogbookMessages: () => undefined,
+                activityRuntimeService: {
+                    getStatus: async () => ({ serverNow: Date.now(), monthCard: {}, dailySignIn: {}, hasRedDot: false }),
+                },
+                worldRuntimeService: {
+                    getAll: () => [],
+                    worldRuntimePlayerSessionService: {
+                        removePlayer: () => undefined,
+                        connectPlayer: () => undefined,
+                    },
+                },
+                worldSessionService: {
+                    getBinding: () => null,
+                    registerSocket: (client, playerId, requestedSessionId) => ({
+                        playerId,
+                        sessionId: requestedSessionId?.trim() || `${playerId}:bootstrap`,
+                        socketId: client.id,
+                        resumed: false,
+                        connected: true,
+                        detachedAt: null,
+                        expireAt: null,
+                    }),
+                },
+                worldSyncService: {
+                    emitInitialSync: () => undefined,
+                },
+                worldClientEventService: {
+                    emitActivityStatus: () => undefined,
+                    emitMailSummaryForPlayer: async () => undefined,
+                    emitPendingLogbookNotice: () => undefined,
+                    emitPendingLogbookMessages: () => undefined,
+                },
             });
-/**
- * 记录读取最新bootstrap trace。
- */
             const readLatestBootstrapTrace = (playerId) => {
                 const trace = (0, world_player_token_service_1.readAuthTrace)();
                 const records = Array.isArray(trace?.records) ? trace.records : [];
@@ -3592,11 +3378,6 @@ async function verifyAuthenticatedSnapshotRecoveryBootstrapLinkContract() {
  * 验证 token 直连时玩家身份的种子构造与来源标记。
  */
 async function verifyTokenSeedIdentityContract() {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-/**
- * 记录payload。
- */
     const payload = {
         sub: 'proof_user_token_seed',
         username: 'proof_token_seed',
@@ -3604,19 +3385,10 @@ async function verifyTokenSeedIdentityContract() {
         playerId: 'proof_player_token_seed',
         playerName: 'proof token seed',
     };
-/**
- * 记录compatidentitycalls。
- */
     let compatIdentityCalls = 0;
-/**
- * 记录compatsnapshotcalls。
- */
     let compatSnapshotCalls = 0;
     const starterSnapshotDeps = createAuthStarterSnapshotDeps();
-/**
- * 记录认证服务。
- */
-    const authService = new world_player_auth_service_1.WorldPlayerAuthService({
+    const authService = new WorldPlayerAuthServiceForSmoke({
         validatePlayerToken: () => payload,
         resolvePlayerIdentityFromPayload: () => ({
             userId: payload.sub,
@@ -3658,9 +3430,6 @@ async function verifyTokenSeedIdentityContract() {
             failureStage: 'unexpected_migration_snapshot_seed',
         }),
     });
-/**
- * 记录identity。
- */
     const identity = await authService.authenticatePlayerToken('proof.token.token_seed');
     if (!identity || identity.authSource !== 'token') {
         throw new Error(`expected persistence-enabled token identity to seed mainline auth without compat identity lookup, got ${JSON.stringify(identity)}`);
@@ -3689,7 +3458,7 @@ async function verifyTokenSeedIdentityContract() {
         playerName: 'proof legacy sync',
         persistedSource: 'legacy_sync',
     };
-    const nextStoreAuthService = new world_player_auth_service_1.WorldPlayerAuthService({
+    const nextStoreAuthService = new WorldPlayerAuthServiceForSmoke({
         validatePlayerToken: () => payload,
         resolvePlayerIdentityFromPayload: () => ({
             userId: payload.sub,
@@ -3740,7 +3509,7 @@ async function verifyTokenSeedIdentityContract() {
     if (mainlineProtocolIdentity.persistedSource !== 'token_seed') {
         throw new Error(`expected mainline protocol token_seed identity store hit to keep persistedSource=token_seed, got ${JSON.stringify(mainlineProtocolIdentity)}`);
     }
-    const legacyBackfillAuthService = new world_player_auth_service_1.WorldPlayerAuthService({
+    const legacyBackfillAuthService = new WorldPlayerAuthServiceForSmoke({
         validatePlayerToken: () => payload,
         resolvePlayerIdentityFromPayload: () => ({
             userId: payload.sub,
@@ -3763,7 +3532,7 @@ async function verifyTokenSeedIdentityContract() {
             return null;
         },
     });
-    const legacySyncAuthService = new world_player_auth_service_1.WorldPlayerAuthService({
+    const legacySyncAuthService = new WorldPlayerAuthServiceForSmoke({
         validatePlayerToken: () => payload,
         resolvePlayerIdentityFromPayload: () => ({
             userId: payload.sub,
@@ -3798,15 +3567,17 @@ async function verifyTokenSeedIdentityContract() {
     if (mainlineProtocolLegacySyncIdentity !== null) {
         throw new Error(`expected mainline protocol auth to reject loaded legacy_sync identity before bootstrap, got ${JSON.stringify(mainlineProtocolLegacySyncIdentity)}`);
     }
-    const tokenSeedBootstrapService = new world_session_bootstrap_service_1.WorldSessionBootstrapService({
-        playerIdentityPersistenceService: {
-            isEnabled: () => true,
-            savePlayerIdentity: async (identity) => ({
-                ...identity,
-                persistedSource: 'native',
-            }),
+    const tokenSeedBootstrapService = createWorldSessionBootstrapServiceForSmoke({
+        worldPlayerAuthService: {
+            playerIdentityPersistenceService: {
+                isEnabled: () => true,
+                savePlayerIdentity: async (identity) => ({
+                    ...identity,
+                    persistedSource: 'native',
+                }),
+            },
         },
-    }, null, null, null, null, null, null, null, null, null);
+    });
     const tokenSeedGateway = createWorldGatewayForAuthBootstrapSmoke({
         sessionBootstrapService: tokenSeedBootstrapService,
     });
@@ -3844,31 +3615,34 @@ async function verifyTokenSeedIdentityContract() {
     if (!promotedIdentity || promotedIdentity.authSource !== 'mainline' || promotedIdentity.persistedSource !== 'native') {
         throw new Error(`expected bootstrap-owned token_seed promotion to normalize into mainline/native, got ${JSON.stringify(promotedIdentity)}`);
     }
-    const preseededPromotionFailureBootstrapService = new world_session_bootstrap_service_1.WorldSessionBootstrapService({
-        playerIdentityPersistenceService: {
-            isEnabled: () => true,
-            savePlayerIdentity: async () => {
-                throw new Error('forced_token_seed_native_promotion_failure');
-            },
-        },
-    }, {
-        isPersistenceEnabled: () => true,
-        loadPlayerSnapshotResult: async () => ({
-            snapshot: {
-                version: 1,
-                placement: {
-                    templateId: 'yunlai_town',
-                    x: 3,
-                    y: 3,
-                    facing: 1,
+    const preseededPromotionFailureBootstrapService = createWorldSessionBootstrapServiceForSmoke({
+        worldPlayerAuthService: {
+            playerIdentityPersistenceService: {
+                isEnabled: () => true,
+                savePlayerIdentity: async () => {
+                    throw new Error('forced_token_seed_native_promotion_failure');
                 },
             },
-            source: 'mainline',
-            persistedSource: 'native',
-            fallbackReason: 'persistence_enabled_blocked:token',
-            seedPersisted: false,
-        }),
-    }, null, null, null, null, null, null, null, null);
+        },
+        worldPlayerSnapshotService: {
+            isPersistenceEnabled: () => true,
+            loadPlayerSnapshotResult: async () => ({
+                snapshot: {
+                    version: 1,
+                    placement: {
+                        templateId: 'yunlai_town',
+                        x: 3,
+                        y: 3,
+                        facing: 1,
+                    },
+                },
+                source: 'mainline',
+                persistedSource: 'native',
+                fallbackReason: 'persistence_enabled_blocked:token',
+                seedPersisted: false,
+            }),
+        },
+    });
     const preseededPromotionFailureClient = {
         id: 'proof_socket_token_seed_preseeded_promotion_failure',
         data: {
@@ -3946,9 +3720,7 @@ async function verifyTokenSeedIdentityContract() {
  */
 
 
-function verifySnapshotSequence(_token, _playerId, authTrace, options = {}) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
+function verifySnapshotSequence(_token, _playerId, authTrace, options: AnyRecord = {}) {
     if (!authTrace) {
         return {
             supported: false,
@@ -3992,11 +3764,6 @@ function verifySnapshotSequence(_token, _playerId, authTrace, options = {}) {
  * 验证带库 token 首登在缺失 compat snapshot 时，会直接写入 mainline-native starter snapshot。
  */
 async function verifyTokenSeedNativeStarterSnapshotContract() {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-/**
- * 记录payload。
- */
     const payload = {
         sub: 'proof_user_token_native_snapshot',
         username: 'proof_token_native_snapshot',
@@ -4004,27 +3771,12 @@ async function verifyTokenSeedNativeStarterSnapshotContract() {
         playerId: 'proof_player_token_native_snapshot',
         playerName: 'proof token native snapshot',
     };
-/**
- * 记录compatidentitycalls。
- */
     let compatIdentityCalls = 0;
-/**
- * 记录compatsnapshotcalls。
- */
     let compatSnapshotCalls = 0;
-/**
- * 记录savedsnapshot。
- */
     let savedSnapshot = null;
-/**
- * 记录savedsnapshotoptions。
- */
     let savedSnapshotOptions = null;
     const starterSnapshotDeps = createAuthStarterSnapshotDeps();
-/**
- * 记录认证服务。
- */
-    const authService = new world_player_auth_service_1.WorldPlayerAuthService({
+    const authService = new WorldPlayerAuthServiceForSmoke({
         validatePlayerToken: () => payload,
         resolvePlayerIdentityFromPayload: () => ({
             userId: payload.sub,
@@ -4066,9 +3818,6 @@ async function verifyTokenSeedNativeStarterSnapshotContract() {
             failureStage: 'unexpected_migration_snapshot_seed',
         }),
     });
-/**
- * 记录identity。
- */
     const identity = await authService.authenticatePlayerToken('proof.token.token_native_snapshot');
     if (!identity || identity.authSource !== 'token') {
         throw new Error(`expected missing-mainline-snapshot token identity to seed native starter snapshot and authenticate as token, got ${JSON.stringify(identity)}`);
@@ -4091,31 +3840,14 @@ async function verifyTokenSeedNativeStarterSnapshotContract() {
  * 验证 with-db token_seed 在鉴权放行后，bootstrap/snapshot 阶段仍能从缺失主线身份与 compat snapshot 中恢复为 mainline-native starter snapshot。
  */
 async function verifyTokenSeedNativeStarterBootstrapProof() {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
     const expectedRecoveryIdentityPersistedSource = 'token_seed';
-/**
- * 记录认证。
- */
     const auth = await registerAndLoginPlayer(`na_seed_${suffix.slice(-6)}`, buildUniqueDisplayName(`mainline-auth-token-seed:${suffix}`), `种角${suffix.slice(-4)}`);
-/**
- * 记录payload。
- */
     const payload = parseJwtPayload(auth.accessToken);
-/**
- * 记录userID。
- */
     const userId = typeof payload?.sub === 'string' ? payload.sub.trim() : '';
-/**
- * 记录玩家ID。
- */
     const playerId = typeof payload?.playerId === 'string' ? payload.playerId.trim() : '';
     if (!userId || !playerId) {
         throw new Error(`mainline auth token missing identity fields for token-seed native starter bootstrap proof: ${JSON.stringify(payload)}`);
     }
-/**
- * 记录bootstrap。
- */
     let bootstrap = null;
     const previousRecoveryEnv = process.env.SERVER_AUTH_ALLOW_NATIVE_SNAPSHOT_RECOVERY;
     process.env.SERVER_AUTH_ALLOW_NATIVE_SNAPSHOT_RECOVERY = '1';
@@ -4143,9 +3875,6 @@ async function verifyTokenSeedNativeStarterBootstrapProof() {
         if (bootstrap.playerId !== playerId) {
             throw new Error(`token-seed native starter bootstrap player mismatch: expected=${playerId} actual=${bootstrap.playerId}`);
         }
-/**
- * 记录认证trace。
- */
         const authTrace = await waitForAuthTrace(playerId, bootstrap.sessionId ?? null, {
             requireReject: false,
         });
@@ -4179,21 +3908,12 @@ async function verifyTokenSeedNativeStarterBootstrapProof() {
         if (persistedIdentityPayload?.persistedSource !== 'native') {
             throw new Error(`expected token-seed native starter bootstrap to promote persisted identity to native, got ${JSON.stringify(persistedIdentityPayload)}`);
         }
-/**
- * 记录persistedpayload。
- */
         const persistedPayload = await readPersistedPlayerSnapshotPayload(playerId, 'token-seed native starter bootstrap proof');
         if (!Array.isArray(persistedPayload?.inventory?.items) || persistedPayload.inventory.items.length < 1) {
             throw new Error(`expected token-seed native starter bootstrap persisted snapshot to keep starter inventory, got ${JSON.stringify(persistedPayload?.inventory ?? null)}`);
         }
         await waitForPlayerState(playerId, true);
-/**
- * 记录state。
- */
         const state = await fetchPlayerState(playerId);
-/**
- * 记录runtimeitems。
- */
         const runtimeItems = Array.isArray(state?.player?.inventory?.items)
             ? state.player.inventory.items
             : [];
@@ -4241,11 +3961,6 @@ async function verifyTokenSeedNativeStarterBootstrapProof() {
  * 验证 token 种子身份在持久化失败时的拒绝或回退行为。
  */
 async function verifyTokenSeedPersistFailureContract() {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-/**
- * 记录payload。
- */
     const payload = {
         sub: 'proof_user_token_persist_blocked',
         username: 'proof_token_persist_blocked',
@@ -4253,15 +3968,9 @@ async function verifyTokenSeedPersistFailureContract() {
         playerId: 'proof_player_token_persist_blocked',
         playerName: 'proof token persist blocked',
     };
-/**
- * 记录compatidentitycalls。
- */
     let compatIdentityCalls = 0;
     const starterSnapshotDeps = createAuthStarterSnapshotDeps();
-/**
- * 记录认证服务。
- */
-    const authService = new world_player_auth_service_1.WorldPlayerAuthService({
+    const authService = new WorldPlayerAuthServiceForSmoke({
         validatePlayerToken: () => payload,
         resolvePlayerIdentityFromPayload: () => ({
             userId: payload.sub,
@@ -4298,9 +4007,6 @@ async function verifyTokenSeedPersistFailureContract() {
             failureStage: 'unexpected_migration_snapshot_seed',
         }),
     });
-/**
- * 记录identity。
- */
     const identity = await authService.authenticatePlayerToken('proof.token.token_persist_blocked');
     if (identity !== null) {
         throw new Error(`expected token-seed persist failure to reject auth before compat fallback, got ${JSON.stringify(identity)}`);
@@ -4318,19 +4024,8 @@ async function verifyTokenSeedPersistFailureContract() {
  * 处理校验compatbackfillsavefailuremissingsnapshotrejection。
  */
 async function verifyCompatBackfillSaveFailureMissingSnapshotRejection(token, playerId) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-/**
- * 记录payload。
- */
     const payload = parseJwtPayload(token);
-/**
- * 记录tokenidentity。
- */
     const tokenIdentity = parseTokenIdentity(token);
-/**
- * 记录userID。
- */
     const userId = typeof payload?.sub === 'string' ? payload.sub.trim() : '';
     if (!userId) {
         throw new Error(`mainline auth token missing sub for compat-backfill-save-failed snapshot-miss proof: ${JSON.stringify(payload)}`);
@@ -4346,16 +4041,10 @@ async function verifyCompatBackfillSaveFailureMissingSnapshotRejection(token, pl
     await dropPlayerSnapshotSourcesButKeepIdentity(playerId);
     await expectLegacyCompatPlayerSnapshotDocument(playerId, false);
     await expectPersistedPlayerSnapshotDocument(playerId, false);
-/**
- * 记录injection。
- */
     const injection = await installIdentityBackfillSaveFailure(userId);
     try {
         await clearAuthTrace();
         await expectProtocolSocketAuthFailure(token, 'AUTH_FAIL');
-/**
- * 记录failure认证trace。
- */
         const failureAuthTrace = await waitForFailedIdentitySourceAuthTrace(userId, playerId, 'token_persist_blocked');
         if (failureAuthTrace.identityPersistAttempted !== true) {
             throw new Error(`expected compat-backfill-save-failed snapshot-miss to attempt persistence, got ${JSON.stringify(failureAuthTrace)}`);
@@ -4390,11 +4079,6 @@ async function verifyCompatBackfillSaveFailureMissingSnapshotRejection(token, pl
  * 处理校验nextidentitycompatsnapshotignored。
  */
 async function verifyMainlineIdentityCompatSnapshotIgnored(token, playerId) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-/**
- * 记录persistedidentity。
- */
     const persistedIdentity = parseTokenIdentity(token);
     if (!persistedIdentity?.userId) {
         throw new Error(`mainline auth token missing persisted identity fields for mainline-identity-compat-snapshot-ignored proof: ${JSON.stringify(parseJwtPayload(token))}`);
@@ -4410,9 +4094,6 @@ async function verifyMainlineIdentityCompatSnapshotIgnored(token, playerId) {
     await expectPersistedPlayerSnapshotDocument(playerId, false);
     await clearAuthTrace();
     await expectProtocolSocketAuthFailure(token, 'AUTH_FAIL');
-/**
- * 记录failure认证trace。
- */
     const failureAuthTrace = await waitForFailedSnapshotAuthTrace(playerId, 'miss');
     if (failureAuthTrace.identitySource !== 'mainline') {
         throw new Error(`expected mainline-identity-compat-snapshot-ignored identity source to stay mainline, got ${failureAuthTrace.identitySource ?? 'unknown'}`);
@@ -4431,11 +4112,6 @@ async function verifyMainlineIdentityCompatSnapshotIgnored(token, playerId) {
  * 处理校验invalidpersistedsnapshotrejection。
  */
 async function verifyInvalidPersistedSnapshotRejection(token, playerId) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-/**
- * 记录persistedidentity。
- */
     const persistedIdentity = parseTokenIdentity(token);
     if (!persistedIdentity?.userId) {
         throw new Error(`mainline auth token missing persisted identity fields for invalid-snapshot rejection proof: ${JSON.stringify(parseJwtPayload(token))}`);
@@ -4450,9 +4126,6 @@ async function verifyInvalidPersistedSnapshotRejection(token, playerId) {
     await writeInvalidPersistedSnapshotDocument(playerId);
     await clearAuthTrace();
     await expectProtocolSocketAuthFailure(token, 'AUTH_FAIL');
-/**
- * 记录failure认证trace。
- */
     const failureAuthTrace = await waitForFailedSnapshotAuthTrace(playerId, 'mainline_invalid');
     if (failureAuthTrace.identitySource !== 'mainline') {
         throw new Error(`expected invalid-snapshot rejection identity source to stay mainline, got ${failureAuthTrace.identitySource ?? 'unknown'}`);
@@ -4469,11 +4142,6 @@ async function verifyInvalidPersistedSnapshotRejection(token, playerId) {
  * 处理校验invalidpersistedsnapshotmetapersisted来源normalization。
  */
 async function verifyInvalidPersistedSnapshotMetaPersistedSourceNormalization(token, playerId) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-/**
- * 记录persistedidentity。
- */
     const persistedIdentity = parseTokenIdentity(token);
     if (!persistedIdentity?.userId) {
         throw new Error(`mainline auth token missing persisted identity fields for invalid-snapshot-meta normalization proof: ${JSON.stringify(parseJwtPayload(token))}`);
@@ -4487,16 +4155,10 @@ async function verifyInvalidPersistedSnapshotMetaPersistedSourceNormalization(to
     await ensurePersistedPlayerSnapshotDocument(playerId, 'native');
     await writeInvalidPersistedSnapshotMetaPersistedSource(playerId);
     await clearAuthTrace();
-/**
- * 记录bootstrap。
- */
     const bootstrap = await runAuthBootstrap(token);
     if (bootstrap.playerId !== playerId) {
         throw new Error(`invalid-snapshot-meta normalization bootstrap player mismatch: expected=${playerId} actual=${bootstrap.playerId}`);
     }
-/**
- * 记录认证trace。
- */
     const authTrace = await waitForAuthTrace(playerId, bootstrap.sessionId ?? null, {
         requireReject: false,
     });
@@ -4516,11 +4178,6 @@ async function verifyInvalidPersistedSnapshotMetaPersistedSourceNormalization(to
  * 处理校验invalidpersistedsnapshotunlocked地图idsnormalization。
  */
 async function verifyInvalidPersistedSnapshotUnlockedMapIdsNormalization(token, playerId) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-/**
- * 记录persistedidentity。
- */
     const persistedIdentity = parseTokenIdentity(token);
     if (!persistedIdentity?.userId) {
         throw new Error(`mainline auth token missing persisted identity fields for invalid-snapshot-unlockedMapIds normalization proof: ${JSON.stringify(parseJwtPayload(token))}`);
@@ -4534,16 +4191,10 @@ async function verifyInvalidPersistedSnapshotUnlockedMapIdsNormalization(token, 
     await ensurePersistedPlayerSnapshotDocument(playerId, 'native');
     await writeInvalidPersistedSnapshotUnlockedMapIds(playerId);
     await clearAuthTrace();
-/**
- * 记录bootstrap。
- */
     const bootstrap = await runAuthBootstrap(token);
     if (bootstrap.playerId !== playerId) {
         throw new Error(`invalid-snapshot-unlockedMapIds normalization bootstrap player mismatch: expected=${playerId} actual=${bootstrap.playerId}`);
     }
-/**
- * 记录认证trace。
- */
     const authTrace = await waitForAuthTrace(playerId, bootstrap.sessionId ?? null, {
         requireReject: false,
     });
@@ -4556,13 +4207,7 @@ async function verifyInvalidPersistedSnapshotUnlockedMapIdsNormalization(token, 
     if (authTrace.snapshotPersistedSource !== 'native') {
         throw new Error(`expected invalid-snapshot-unlockedMapIds normalization persisted source to stay native, got ${authTrace.snapshotPersistedSource ?? 'unknown'}`);
     }
-/**
- * 记录状态。
- */
     const state = await fetchPlayerState(playerId);
-/**
- * 记录运行态unlocked地图ids。
- */
     const runtimeUnlockedMapIds = state?.player?.unlockedMapIds;
     if (!Array.isArray(runtimeUnlockedMapIds)) {
         throw new Error(`expected invalid-snapshot-unlockedMapIds normalization to expose runtime array unlockedMapIds, got ${JSON.stringify(runtimeUnlockedMapIds)}`);
@@ -4576,19 +4221,8 @@ async function verifyInvalidPersistedSnapshotUnlockedMapIdsNormalization(token, 
  * 处理校验invalidpersistedidentityrejection。
  */
 async function verifyInvalidPersistedIdentityRejection(token) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-/**
- * 记录payload。
- */
     const payload = parseJwtPayload(token);
-/**
- * 记录userID。
- */
     const userId = typeof payload?.sub === 'string' ? payload.sub.trim() : '';
-/**
- * 记录玩家ID。
- */
     const playerId = typeof payload?.playerId === 'string' ? payload.playerId.trim() : '';
     if (!userId || !playerId) {
         throw new Error(`mainline auth token missing identity fields for invalid-identity rejection proof: ${JSON.stringify(payload)}`);
@@ -4596,9 +4230,6 @@ async function verifyInvalidPersistedIdentityRejection(token) {
     await writeInvalidPersistedIdentityDocument(userId, playerId);
     await clearAuthTrace();
     await expectProtocolSocketAuthFailure(token, 'AUTH_FAIL');
-/**
- * 记录failure认证trace。
- */
     const failureAuthTrace = await waitForFailedIdentityAuthTrace(userId, playerId);
     if (failureAuthTrace.identitySource !== 'mainline_invalid') {
         throw new Error(`expected invalid-identity rejection source to be mainline_invalid, got ${failureAuthTrace.identitySource ?? 'unknown'}`);
@@ -4615,15 +4246,7 @@ async function verifyInvalidPersistedIdentityRejection(token) {
  * 处理registerandlogin玩家。
  */
 async function registerAndLoginPlayer(accountSuffix, displayName, roleName) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-/**
- * 记录account名称。
- */
     let accountName = buildRegisterAccountName(accountSuffix);
-/**
- * 记录password。
- */
     const password = `Pass_${accountSuffix}`;
     let currentDisplayName = displayName;
     let currentRoleName = roleName;
@@ -4657,9 +4280,6 @@ async function registerAndLoginPlayer(accountSuffix, displayName, roleName) {
     if (!registered) {
         throw new Error(`failed to register mainline-auth smoke player after retries: accountSuffix=${accountSuffix}`);
     }
-/**
- * 记录login。
- */
     const login = await requestJson('/api/auth/login', {
         method: 'POST',
         body: {
@@ -4667,20 +4287,11 @@ async function registerAndLoginPlayer(accountSuffix, displayName, roleName) {
             password,
         },
     });
-/**
- * 记录access令牌。
- */
     const accessToken = typeof login?.accessToken === 'string' ? login.accessToken : '';
-/**
- * 记录refresh令牌。
- */
     const refreshToken = typeof login?.refreshToken === 'string' ? login.refreshToken : '';
     if (!accessToken || !refreshToken) {
         throw new Error(`unexpected login payload: ${JSON.stringify(login)}`);
     }
-/**
- * 记录payload。
- */
     const payload = parseJwtPayload(accessToken);
     if (typeof payload?.playerId !== 'string' || !payload.playerId.trim()) {
         throw new Error(`mainline auth token missing playerId: ${JSON.stringify(payload)}`);
@@ -4702,17 +4313,8 @@ async function registerAndLoginPlayer(accountSuffix, displayName, roleName) {
  * 解析令牌identity。
  */
 function parseTokenIdentity(token) {
-/**
- * 记录payload。
- */
     const payload = parseJwtPayload(token);
-/**
- * 记录玩家ID。
- */
     const playerId = typeof payload?.playerId === 'string' ? payload.playerId.trim() : '';
-/**
- * 记录玩家名称。
- */
     const playerName = typeof payload?.playerName === 'string' ? payload.playerName.trim() : '';
     return {
         userId: typeof payload?.sub === 'string' ? payload.sub.trim() : '',
@@ -4726,8 +4328,6 @@ function parseTokenIdentity(token) {
  * 断言bootstrapmatchesexpectedidentity。
  */
 function assertBootstrapMatchesExpectedIdentity(expectedIdentity, actual) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
     if (!expectedIdentity) {
         return;
     }
@@ -4747,12 +4347,7 @@ function assertBootstrapMatchesExpectedIdentity(expectedIdentity, actual) {
 /**
  * 处理fetch玩家状态。
  */
-async function fetchPlayerState(playerId) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-/**
- * 记录response。
- */
+async function fetchPlayerState(playerId): Promise<any> {
     const response = await fetch(`${SERVER_URL}/runtime/players/${playerId}/state`);
     if (!response.ok) {
         throw new Error(`request failed: ${response.status} ${await response.text()}`);
@@ -4767,17 +4362,8 @@ async function waitForPresenceSessionFence(playerId, input, timeoutMs) {
     return null;
   }
 
-/**
- * 记录normalizedPlayerId。
- */
     const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
-/**
- * 记录normalizedRuntimeOwnerId。
- */
     const normalizedRuntimeOwnerId = typeof input?.runtimeOwnerId === 'string' ? input.runtimeOwnerId.trim() : '';
-/**
- * 记录normalizedSessionEpoch。
- */
     const normalizedSessionEpoch = Number.isFinite(input?.sessionEpoch)
         ? Math.max(1, Math.trunc(Number(input.sessionEpoch)))
         : 0;
@@ -4785,32 +4371,17 @@ async function waitForPresenceSessionFence(playerId, input, timeoutMs) {
         return null;
     }
 
-/**
- * 记录pool。
- */
     const pool = new pg_1.Pool({
         connectionString: SERVER_DATABASE_URL,
     });
     try {
         return await waitForValue(async () => {
-/**
- * 记录result。
- */
             const result = await pool.query('SELECT online, runtime_owner_id, session_epoch FROM player_presence WHERE player_id = $1 LIMIT 1', [normalizedPlayerId]);
-/**
- * 记录row。
- */
             const row = Array.isArray(result?.rows) ? result.rows[0] : null;
             if (!row) {
                 return null;
             }
-/**
- * 记录runtimeOwnerId。
- */
             const runtimeOwnerId = typeof row.runtime_owner_id === 'string' ? row.runtime_owner_id.trim() : '';
-/**
- * 记录sessionEpoch。
- */
             const sessionEpoch = Number.isFinite(row.session_epoch)
                 ? Math.trunc(Number(row.session_epoch))
                 : Number(row.session_epoch ?? 0);
@@ -4828,11 +4399,6 @@ async function waitForPresenceSessionFence(playerId, input, timeoutMs) {
  * 处理delete玩家。
  */
 async function deletePlayer(playerId) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-/**
- * 记录response。
- */
     const response = await fetch(`${SERVER_URL}/runtime/players/${playerId}`, {
         method: 'DELETE',
     });
@@ -4844,11 +4410,6 @@ async function deletePlayer(playerId) {
  * 刷新持久化。
  */
 async function flushPersistence() {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-/**
- * 记录response。
- */
     const response = await fetch(`${SERVER_URL}/runtime/persistence/flush`, {
         method: 'POST',
     });
@@ -4859,27 +4420,17 @@ async function flushPersistence() {
 /**
  * 处理fetch认证trace。
  */
-async function fetchAuthTrace() {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-/**
- * 记录response。
- */
+async function fetchAuthTrace(): Promise<any> {
     const response = await fetch(`${SERVER_URL}/runtime/auth-trace`);
     if (!response.ok) {
         throw new Error(`request failed: /runtime/auth-trace: ${response.status} ${await response.text()}`);
     }
-    return response.json();
+    return response.json() as Promise<any>;
 }
 /**
  * 处理clear认证trace。
  */
 async function clearAuthTrace() {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-/**
- * 记录response。
- */
     const response = await fetch(`${SERVER_URL}/runtime/auth-trace`, {
         method: 'DELETE',
     });
@@ -4891,38 +4442,17 @@ async function clearAuthTrace() {
  * 等待forfailedsnapshot认证trace。
  */
 async function waitForFailedSnapshotAuthTrace(playerId, expectedSnapshotSource) {
-/**
- * 记录trace。
- */
     const trace = await waitForValue(async () => {
-/**
- * 记录payload。
- */
         const payload = await fetchAuthTrace();
-/**
- * 记录trace。
- */
         const trace = payload?.trace;
         if (!trace?.enabled || !Array.isArray(trace.records)) {
             throw new Error(`unexpected auth trace payload: ${JSON.stringify(payload)}`);
         }
-/**
- * 记录accept索引。
- */
         const acceptIndex = trace.records.findIndex((entry) => entry?.type === 'token' && entry?.outcome === 'accept');
-/**
- * 记录identity索引。
- */
         const identityIndex = trace.records.findIndex((entry) => entry?.type === 'identity' && entry?.playerId === playerId);
-/**
- * 记录snapshot索引。
- */
         const snapshotIndex = trace.records.findIndex((entry) => entry?.type === 'snapshot'
             && entry?.playerId === playerId
             && entry?.source === expectedSnapshotSource);
-/**
- * 记录bootstrap索引。
- */
         const bootstrapIndex = trace.records.findIndex((entry) => entry?.type === 'bootstrap' && entry?.playerId === playerId);
         if (!(acceptIndex >= 0
             && identityIndex > acceptIndex
@@ -4932,13 +4462,7 @@ async function waitForFailedSnapshotAuthTrace(playerId, expectedSnapshotSource) 
         }
         return trace;
     }, 5000, 'nextAuthTraceFailure');
-/**
- * 记录identity。
- */
     const identity = trace.records.find((entry) => entry?.type === 'identity' && entry?.playerId === playerId);
-/**
- * 记录snapshot。
- */
     const snapshot = trace.records.find((entry) => entry?.type === 'snapshot' && entry?.playerId === playerId);
     return {
         enabled: trace.enabled,
@@ -4959,17 +4483,8 @@ async function waitForFailedIdentityAuthTrace(userId, playerId) {
  * 等待forfailedidentity来源认证trace。
  */
 async function waitForFailedIdentitySourceAuthTrace(userId, playerId, expectedSource) {
-/**
- * 记录trace。
- */
     const trace = await waitForValue(async () => {
-/**
- * 记录payload。
- */
         const payload = await fetchAuthTrace();
-/**
- * 记录trace。
- */
         const trace = payload?.trace;
         if (!trace?.enabled || !Array.isArray(trace.records)) {
             throw new Error(`unexpected auth trace payload: ${JSON.stringify(payload)}`);
@@ -5021,9 +4536,6 @@ async function waitForFailedIdentitySourceAuthTrace(userId, playerId, expectedSo
             matchedIdentity,
         };
     }, 5000, 'nextAuthTraceIdentityFailure');
-/**
- * 记录identity。
- */
     const identity = trace.matchedIdentity ?? trace.trace.records.find((entry) => entry?.type === 'identity'
         && entry?.userId === userId
         && entry?.source === expectedSource);
@@ -5045,13 +4557,7 @@ async function waitForFailedIdentitySourceAuthTrace(userId, playerId, expectedSo
  * 读取汇总数量。
  */
 function readSummaryCount(bucket, key) {
-/**
- * 记录normalizedkey。
- */
     const normalizedKey = typeof key === 'string' && key ? key : 'unknown';
-/**
- * 记录价值。
- */
     const value = bucket?.[normalizedKey];
     return Number.isFinite(value) ? Number(value) : 0;
 }
@@ -5059,38 +4565,15 @@ function readSummaryCount(bucket, key) {
  * 轮询认证追踪接口，等待指定玩家的认证记录落出。
  */
 async function waitForAuthTrace(playerId, sessionId, options = undefined) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-/**
- * 记录requirereject。
- */
     const requireReject = options?.requireReject !== false;
-/**
- * 记录trace。
- */
     const trace = await waitForValue(async () => {
-/**
- * 记录payload。
- */
         const payload = await fetchAuthTrace();
-/**
- * 记录trace。
- */
         const trace = payload?.trace;
         if (!trace?.enabled || !Array.isArray(trace.records)) {
             throw new Error(`unexpected auth trace payload: ${JSON.stringify(payload)}`);
         }
-/**
- * 记录reject索引。
- */
         const rejectIndex = trace.records.findIndex((entry) => entry?.type === 'token' && entry?.outcome === 'reject');
-/**
- * 记录accept索引。
- */
         const acceptIndex = trace.records.findIndex((entry) => entry?.type === 'token' && entry?.outcome === 'accept');
-/**
- * 记录identity索引。
- */
         const identityIndex = trace.records.findIndex((entry) => entry?.type === 'identity'
             && entry?.playerId === playerId
             && (entry?.source === 'mainline'
@@ -5098,22 +4581,13 @@ async function waitForAuthTrace(playerId, sessionId, options = undefined) {
                 || entry?.source === 'token_runtime'
                 || entry?.source === 'legacy_runtime'
                 || entry?.source === 'migration_backfill'));
-/**
- * 记录snapshot索引。
- */
         const snapshotIndex = trace.records.findIndex((entry) => entry?.type === 'snapshot'
             && entry?.playerId === playerId
             && (entry?.source === 'mainline'
                 || entry?.source === 'legacy_runtime'
                 || entry?.source === 'legacy_seeded'
                 || entry?.source === 'miss'));
-/**
- * 记录bootstrap索引。
- */
         const bootstrapIndex = trace.records.findIndex((entry) => entry?.type === 'bootstrap' && entry?.playerId === playerId);
-/**
- * 记录令牌ordering就绪状态。
- */
         const tokenOrderingReady = requireReject
             ? rejectIndex >= 0 && acceptIndex > rejectIndex
             : acceptIndex >= 0;
@@ -5125,35 +4599,14 @@ async function waitForAuthTrace(playerId, sessionId, options = undefined) {
         }
         return trace;
     }, 5000, 'nextAuthTrace');
-/**
- * 记录reject。
- */
     const reject = trace.records.find((entry) => entry?.type === 'token' && entry?.outcome === 'reject');
-/**
- * 记录accept。
- */
     const accept = trace.records.find((entry) => entry?.type === 'token' && entry?.outcome === 'accept');
-/**
- * 记录identity。
- */
     const identity = trace.records.find((entry) => entry?.type === 'identity' && entry?.playerId === playerId);
-/**
- * 记录snapshot。
- */
     const snapshot = trace.records.find((entry) => entry?.type === 'snapshot' && entry?.playerId === playerId);
-/**
- * 记录bootstrap。
- */
     const bootstrap = trace.records.find((entry) => entry?.type === 'bootstrap' && entry?.playerId === playerId);
-/**
- * 记录snapshotrecovery。
- */
     const snapshotRecovery = trace.records
         .filter((entry) => entry?.type === 'snapshot_recovery' && entry?.playerId === playerId)
         .slice(-1)[0] ?? null;
-/**
- * 记录汇总。
- */
     const summary = trace.summary;
     if ((!reject && requireReject) || !accept || !identity || !snapshot || !bootstrap) {
         throw new Error(`unexpected auth trace payload: ${JSON.stringify(trace)}`);
@@ -5238,9 +4691,6 @@ async function waitForAuthTrace(playerId, sessionId, options = undefined) {
     if (readSummaryCount(summary.bootstrap.identitySourceCounts, bootstrap.identitySource) < 1) {
         throw new Error(`auth trace summary missing bootstrap identity source count: ${JSON.stringify(summary)}`);
     }
-/**
- * 记录linked来源key。
- */
     const linkedSourceKey = `${bootstrap.identitySource ?? identity.source ?? 'unknown'}|${snapshot.source ?? 'unknown'}`;
     if (readSummaryCount(summary.bootstrap.linkedSourceCounts, linkedSourceKey) < 1) {
         throw new Error(`auth trace summary missing linked source count for ${linkedSourceKey}: ${JSON.stringify(summary)}`);
@@ -5317,11 +4767,6 @@ async function waitForAuthTrace(playerId, sessionId, options = undefined) {
  * 确保legacycompatschema。
  */
 async function ensureLegacyCompatSchema() {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-/**
- * 记录pool。
- */
     const pool = new pg_1.Pool({
         connectionString: SERVER_DATABASE_URL,
     });
@@ -5411,14 +4856,9 @@ async function ensureLegacyCompatSchema() {
  * 处理seedlegacycompat玩家snapshot。
  */
 async function seedLegacyCompatPlayerSnapshot(identity) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
     if (!identity?.userId || !identity.playerId || !identity.playerName) {
         throw new Error(`invalid identity for legacy compat seed: ${JSON.stringify(identity)}`);
     }
-/**
- * 记录pool。
- */
     const pool = new pg_1.Pool({
         connectionString: SERVER_DATABASE_URL,
     });
@@ -5509,11 +4949,6 @@ async function seedLegacyCompatPlayerSnapshot(identity) {
  * 处理haslegacycompat玩家snapshot文档。
  */
 async function hasLegacyCompatPlayerSnapshotDocument(playerId) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-/**
- * 记录pool。
- */
     const pool = new pg_1.Pool({
         connectionString: SERVER_DATABASE_URL,
     });
@@ -5532,8 +4967,6 @@ async function hasLegacyCompatPlayerSnapshotDocument(playerId) {
  * 处理ensurelegacycompat玩家snapshot文档。
  */
 async function ensureLegacyCompatPlayerSnapshotDocument(identity) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
     await seedLegacyCompatPlayerSnapshot(identity);
     const seeded = await waitForValue(async () => {
         const exists = await hasLegacyCompatPlayerSnapshotDocument(identity.playerId);
@@ -5547,11 +4980,6 @@ async function ensureLegacyCompatPlayerSnapshotDocument(identity) {
  * 处理drop玩家snapshotsourcesbutkeepidentity。
  */
 async function dropPlayerSnapshotSourcesButKeepIdentity(playerId) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-/**
- * 记录pool。
- */
     const pool = new pg_1.Pool({
         connectionString: SERVER_DATABASE_URL,
     });
@@ -5567,11 +4995,6 @@ async function dropPlayerSnapshotSourcesButKeepIdentity(playerId) {
  * 处理droppersisted玩家snapshot。
  */
 async function dropPersistedPlayerSnapshot(playerId) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-/**
- * 记录pool。
- */
     const pool = new pg_1.Pool({
         connectionString: SERVER_DATABASE_URL,
     });
@@ -5586,11 +5009,6 @@ async function dropPersistedPlayerSnapshot(playerId) {
  * 处理droppersistedidentity文档。
  */
 async function dropPersistedIdentityDocument(userId) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-/**
- * 记录pool。
- */
     const pool = new pg_1.Pool({
         connectionString: SERVER_DATABASE_URL,
     });
@@ -5605,11 +5023,6 @@ async function dropPersistedIdentityDocument(userId) {
  * 处理expectlegacycompat玩家snapshot文档。
  */
 async function expectLegacyCompatPlayerSnapshotDocument(playerId, shouldExist) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-/**
- * 记录pool。
- */
     const pool = new pg_1.Pool({
         connectionString: SERVER_DATABASE_URL,
     });
@@ -5618,9 +5031,6 @@ async function expectLegacyCompatPlayerSnapshotDocument(playerId, shouldExist) {
  * 累计当前结果。
  */
         const result = await pool.query('SELECT 1 FROM players WHERE id = $1 LIMIT 1', [playerId]).catch(ignoreMissingCompatCleanupError);
-/**
- * 记录exists。
- */
         const exists = Array.isArray(result?.rows) && result.rows.length > 0;
         if (exists !== shouldExist) {
             throw new Error(`expected compat player snapshot shouldExist=${shouldExist} for playerId=${playerId}, got exists=${exists}`);
@@ -5634,11 +5044,6 @@ async function expectLegacyCompatPlayerSnapshotDocument(playerId, shouldExist) {
  * 处理expectpersisted玩家snapshot文档。
  */
 async function expectPersistedPlayerSnapshotDocument(playerId, shouldExist) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-/**
- * 记录pool。
- */
     const pool = new pg_1.Pool({
         connectionString: SERVER_DATABASE_URL,
     });
@@ -5647,9 +5052,6 @@ async function expectPersistedPlayerSnapshotDocument(playerId, shouldExist) {
  * 累计当前结果。
  */
         const result = await pool.query('SELECT 1 FROM server_player_snapshot WHERE player_id = $1 LIMIT 1', [playerId]).catch(ignoreMissingCompatCleanupError);
-/**
- * 记录exists。
- */
         const exists = Array.isArray(result?.rows) && result.rows.length > 0;
         if (exists !== shouldExist) {
             throw new Error(`expected persisted snapshot document shouldExist=${shouldExist} for playerId=${playerId}, got exists=${exists}`);
@@ -5663,11 +5065,6 @@ async function expectPersistedPlayerSnapshotDocument(playerId, shouldExist) {
  * 处理expectpersistedidentity文档。
  */
 async function expectPersistedIdentityDocument(userId, shouldExist) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-/**
- * 记录pool。
- */
     const pool = new pg_1.Pool({
         connectionString: SERVER_DATABASE_URL,
     });
@@ -5676,9 +5073,6 @@ async function expectPersistedIdentityDocument(userId, shouldExist) {
  * 累计当前结果。
  */
         const result = await pool.query('SELECT 1 FROM server_player_identity WHERE user_id = $1 LIMIT 1', [userId]).catch(ignoreMissingCompatCleanupError);
-/**
- * 记录exists。
- */
         const exists = Array.isArray(result?.rows) && result.rows.length > 0;
         if (exists !== shouldExist) {
             throw new Error(`expected persisted identity document shouldExist=${shouldExist} for userId=${userId}, got exists=${exists}`);
@@ -5692,11 +5086,6 @@ async function expectPersistedIdentityDocument(userId, shouldExist) {
  * 读取persisted玩家snapshotpayload。
  */
 async function readPersistedPlayerSnapshotPayload(playerId, errorContext) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-/**
- * 记录pool。
- */
     const pool = new pg_1.Pool({
         connectionString: SERVER_DATABASE_URL,
     });
@@ -5705,9 +5094,6 @@ async function readPersistedPlayerSnapshotPayload(playerId, errorContext) {
  * 累计当前结果。
  */
         const result = await pool.query('SELECT payload FROM server_player_snapshot WHERE player_id = $1 LIMIT 1', [playerId]).catch(ignoreMissingCompatCleanupError);
-/**
- * 记录payload。
- */
         const payload = result?.rows?.[0]?.payload;
         if (!payload || typeof payload !== 'object') {
             throw new Error(`missing persisted snapshot payload for ${errorContext}: playerId=${playerId}`);
@@ -5726,11 +5112,6 @@ async function readPersistedPlayerSnapshotPayload(playerId, errorContext) {
  */
 
 async function readPersistedIdentityPayload(userId, errorContext) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-/**
- * 记录pool。
- */
     const pool = new pg_1.Pool({
         connectionString: SERVER_DATABASE_URL,
     });
@@ -5739,9 +5120,6 @@ async function readPersistedIdentityPayload(userId, errorContext) {
  * 累计当前结果。
  */
         const result = await pool.query('SELECT payload FROM server_player_identity WHERE user_id = $1 LIMIT 1', [userId]).catch(ignoreMissingCompatCleanupError);
-/**
- * 记录payload。
- */
         const payload = result?.rows?.[0]?.payload;
         if (!payload || typeof payload !== 'object') {
             throw new Error(`missing persisted identity payload for ${errorContext}: userId=${userId}`);
@@ -5756,11 +5134,6 @@ async function readPersistedIdentityPayload(userId, errorContext) {
  * 写入invalidpersistedidentity文档。
  */
 async function writeInvalidPersistedIdentityDocument(userId, playerId) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-/**
- * 记录pool。
- */
     const pool = new pg_1.Pool({
         connectionString: SERVER_DATABASE_URL,
     });
@@ -5806,11 +5179,6 @@ async function writeInvalidPersistedIdentityDocument(userId, playerId) {
  * 写入invalidpersistedsnapshot文档。
  */
 async function writeInvalidPersistedSnapshotDocument(playerId) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-/**
- * 记录pool。
- */
     const pool = new pg_1.Pool({
         connectionString: SERVER_DATABASE_URL,
     });
@@ -5849,11 +5217,6 @@ async function writeInvalidPersistedSnapshotDocument(playerId) {
  * 写入persistedplayersnapshot文档。
  */
 async function writePersistedPlayerSnapshotDocument(playerId, persistedSource = 'native') {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-/**
- * 记录pool。
- */
     const pool = new pg_1.Pool({
         connectionString: SERVER_DATABASE_URL,
     });
@@ -5966,8 +5329,6 @@ async function writePersistedPlayerSnapshotDocument(playerId, persistedSource = 
  * 写入并等待persistedplayersnapshot文档可见。
  */
 async function ensurePersistedPlayerSnapshotDocument(playerId, persistedSource = 'native') {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
     await writePersistedPlayerSnapshotDocument(playerId, persistedSource);
     const visible = await waitForValue(async () => {
         const pool = new pg_1.Pool({
@@ -5989,28 +5350,14 @@ async function ensurePersistedPlayerSnapshotDocument(playerId, persistedSource =
  * 写入invalidpersistedsnapshotmetapersisted来源。
  */
 async function writeInvalidPersistedSnapshotMetaPersistedSource(playerId) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-/**
- * 记录payload。
- */
     const payload = await readPersistedPlayerSnapshotPayload(playerId, 'invalid meta normalization proof');
-/**
- * 记录pool。
- */
     const pool = new pg_1.Pool({
         connectionString: SERVER_DATABASE_URL,
     });
     try {
-/**
- * 记录snapshotmeta。
- */
         const snapshotMeta = payload.__snapshotMeta && typeof payload.__snapshotMeta === 'object'
             ? payload.__snapshotMeta
             : {};
-/**
- * 记录nextpayload。
- */
         const nextPayload = {
             ...payload,
             __snapshotMeta: {
@@ -6034,22 +5381,11 @@ async function writeInvalidPersistedSnapshotMetaPersistedSource(playerId) {
  * 写入invalidpersistedsnapshotunlocked地图ids。
  */
 async function writeInvalidPersistedSnapshotUnlockedMapIds(playerId) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-/**
- * 记录payload。
- */
     const payload = await readPersistedPlayerSnapshotPayload(playerId, 'invalid unlockedMapIds normalization proof');
-/**
- * 记录pool。
- */
     const pool = new pg_1.Pool({
         connectionString: SERVER_DATABASE_URL,
     });
     try {
-/**
- * 记录nextpayload。
- */
         const nextPayload = {
             ...payload,
             unlockedMapIds: 'invalid_unlocked_map_ids',
@@ -6069,18 +5405,10 @@ async function writeInvalidPersistedSnapshotUnlockedMapIds(playerId) {
  * 写入persistedidentity文档。
  */
 async function writePersistedIdentityDocument(identity) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-/**
- * 记录normalizedidentity。
- */
     const normalizedIdentity = normalizePersistedIdentity(identity);
     if (!normalizedIdentity) {
         throw new Error(`invalid persisted identity seed payload: ${JSON.stringify(identity)}`);
     }
-/**
- * 记录pool。
- */
     const pool = new pg_1.Pool({
         connectionString: SERVER_DATABASE_URL,
     });
@@ -6124,11 +5452,6 @@ async function writePersistedIdentityDocument(identity) {
  * 处理installidentitybackfillsavefailure。
  */
 async function installIdentityBackfillSaveFailure(userId) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-/**
- * 记录normalizeduserID。
- */
     const normalizedUserId = typeof userId === 'string' ? userId.trim() : '';
     if (!normalizedUserId) {
         throw new Error('missing userId for identity backfill failure injection');
@@ -6137,17 +5460,8 @@ async function installIdentityBackfillSaveFailure(userId) {
  * 为本次 smoke 生成唯一后缀，避免账号和玩家标识冲突。
  */
     const suffix = normalizedUserId.replace(/[^a-zA-Z0-9]/g, '').slice(0, 24) || 'proof';
-/**
- * 记录trigger名称。
- */
     const triggerName = `server_fail_identity_backfill_${suffix}`;
-/**
- * 记录function名称。
- */
     const functionName = `server_fail_identity_backfill_fn_${suffix}`;
-/**
- * 记录pool。
- */
     const pool = new pg_1.Pool({
         connectionString: SERVER_DATABASE_URL,
     });
@@ -6186,11 +5500,6 @@ async function installIdentityBackfillSaveFailure(userId) {
  * 处理installsnapshotseedsavefailure。
  */
 async function installSnapshotSeedSaveFailure(playerId) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-/**
- * 记录normalized玩家ID。
- */
     const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
     if (!normalizedPlayerId) {
         throw new Error('missing playerId for snapshot seed failure injection');
@@ -6199,17 +5508,8 @@ async function installSnapshotSeedSaveFailure(playerId) {
  * 为本次 smoke 生成唯一后缀，避免账号和玩家标识冲突。
  */
     const suffix = normalizedPlayerId.replace(/[^a-zA-Z0-9]/g, '').slice(0, 24) || 'proof';
-/**
- * 记录trigger名称。
- */
     const triggerName = `server_fail_snapshot_seed_${suffix}`;
-/**
- * 记录function名称。
- */
     const functionName = `server_fail_snapshot_seed_fn_${suffix}`;
-/**
- * 记录pool。
- */
     const pool = new pg_1.Pool({
         connectionString: SERVER_DATABASE_URL,
     });
@@ -6248,14 +5548,9 @@ async function installSnapshotSeedSaveFailure(playerId) {
  * 处理uninstallidentitybackfillsavefailure。
  */
 async function uninstallIdentityBackfillSaveFailure(injection) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
     if (!injection?.triggerName || !injection?.functionName) {
         return;
     }
-/**
- * 记录pool。
- */
     const pool = new pg_1.Pool({
         connectionString: SERVER_DATABASE_URL,
     });
@@ -6271,14 +5566,9 @@ async function uninstallIdentityBackfillSaveFailure(injection) {
  * 处理uninstallsnapshotseedsavefailure。
  */
 async function uninstallSnapshotSeedSaveFailure(injection) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
     if (!injection?.triggerName || !injection?.functionName) {
         return;
     }
-/**
- * 记录pool。
- */
     const pool = new pg_1.Pool({
         connectionString: SERVER_DATABASE_URL,
     });
@@ -6294,11 +5584,6 @@ async function uninstallSnapshotSeedSaveFailure(injection) {
  * 写入invalidlegacycompatunlockedminimapids。
  */
 async function writeInvalidLegacyCompatUnlockedMinimapIds(playerId) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-/**
- * 记录pool。
- */
     const pool = new pg_1.Pool({
         connectionString: SERVER_DATABASE_URL,
     });
@@ -6322,11 +5607,6 @@ async function writeInvalidLegacyCompatUnlockedMinimapIds(playerId) {
  * 写入invalidlegacycompat地图ID。
  */
 async function writeInvalidLegacyCompatMapId(playerId) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-/**
- * 记录pool。
- */
     const pool = new pg_1.Pool({
         connectionString: SERVER_DATABASE_URL,
     });
@@ -6347,14 +5627,9 @@ async function writeInvalidLegacyCompatMapId(playerId) {
  * 清理legacycompat玩家snapshot。
  */
 async function cleanupLegacyCompatPlayerSnapshot(identity) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
     if (!identity?.userId || !identity.playerId) {
         return;
     }
-/**
- * 记录pool。
- */
     const pool = new pg_1.Pool({
         connectionString: SERVER_DATABASE_URL,
     });
@@ -6372,10 +5647,8 @@ async function cleanupLegacyCompatPlayerSnapshot(identity) {
  * 处理ignoremissingcompatcleanuperror。
  */
 function ignoreMissingCompatCleanupError(error) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
     if (error && typeof error === 'object' && error.code === '42P01') {
-        return;
+        return { rows: [], rowCount: 0 };
     }
     throw error;
 }
@@ -6383,35 +5656,18 @@ function ignoreMissingCompatCleanupError(error) {
  * 规范化persistedidentity。
  */
 function normalizePersistedIdentity(identity) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
     if (!identity || typeof identity !== 'object') {
         return null;
     }
-/**
- * 记录userID。
- */
     const userId = typeof identity.userId === 'string' ? identity.userId.trim() : '';
-/**
- * 记录username。
- */
     const username = typeof identity.username === 'string' ? identity.username.trim() : '';
-/**
- * 记录玩家ID。
- */
     const playerId = typeof identity.playerId === 'string' ? identity.playerId.trim() : '';
     if (!userId || !username || !playerId) {
         return null;
     }
-/**
- * 记录显示信息名称。
- */
     const displayName = typeof identity.displayName === 'string' && identity.displayName.trim()
         ? identity.displayName.trim()
         : username;
-/**
- * 记录玩家名称。
- */
     const playerName = typeof identity.playerName === 'string' && identity.playerName.trim()
         ? identity.playerName.trim()
         : username;
@@ -6431,16 +5687,8 @@ function normalizePersistedIdentity(identity) {
 /**
  * 处理requestjson。
  */
-async function requestJson(path, init) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-/**
- * 记录请求体。
- */
+async function requestJson(path, init): Promise<any> {
     const body = init?.body === undefined ? undefined : JSON.stringify(init.body);
-/**
- * 记录response。
- */
     const response = await fetch(`${SERVER_URL}${path}`, {
         method: init?.method ?? 'GET',
         headers: body === undefined ? undefined : {
@@ -6454,17 +5702,12 @@ async function requestJson(path, init) {
     if (response.status === 204) {
         return null;
     }
-    return response.json();
+    return response.json() as Promise<any>;
 }
 /**
  * 等待for。
  */
-async function waitFor(predicate, timeoutMs, label = 'waitFor') {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-/**
- * 记录startedat。
- */
+async function waitFor(predicate: () => boolean | Promise<boolean>, timeoutMs: number, label = 'waitFor'): Promise<void> {
     const startedAt = Date.now();
     while (true) {
         if (await predicate()) {
@@ -6479,10 +5722,11 @@ async function waitFor(predicate, timeoutMs, label = 'waitFor') {
 /**
  * 等待for价值。
  */
-async function waitForValue(producer, timeoutMs, label = 'waitForValue') {
-/**
- * 记录resolved。
- */
+async function waitForValue<T = any>(
+    producer: () => T | null | undefined | Promise<T | null | undefined>,
+    timeoutMs: number,
+    label = 'waitForValue',
+): Promise<T> {
     let resolved = null;
     await waitFor(async () => {
         resolved = await producer();
@@ -6495,9 +5739,6 @@ async function waitForValue(producer, timeoutMs, label = 'waitForValue') {
  */
 async function waitForPlayerState(playerId, shouldExist) {
     await waitFor(async () => {
-/**
- * 记录状态。
- */
         const state = await fetchPlayerState(playerId);
         return shouldExist ? Boolean(state?.player) : !state?.player;
     }, 5000, shouldExist ? 'waitForPlayerStatePresent' : 'waitForPlayerStateMissing');
@@ -6506,7 +5747,7 @@ async function waitForPlayerState(playerId, shouldExist) {
  * 处理delay。
  */
 function delay(ms) {
-    return new Promise((resolve) => {
+    return new Promise<void>((resolve) => {
         setTimeout(resolve, ms);
     });
 }
@@ -6569,11 +5810,6 @@ function buildCompactSeed(seed, width) {
  */
 
 function computeSeedHash(seed) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-/**
- * 记录hash。
- */
     let hash = 0;
     for (let index = 0; index < seed.length; index += 1) {
         hash = (hash * 33 + seed.charCodeAt(index)) >>> 0;
@@ -6584,14 +5820,9 @@ function computeSeedHash(seed) {
  * 解析jwtpayload。
  */
 function parseJwtPayload(token) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
     if (typeof token !== 'string') {
         return null;
     }
-/**
- * 记录segments。
- */
     const segments = token.split('.');
     if (segments.length < 2) {
         return null;
@@ -6604,7 +5835,7 @@ function parseJwtPayload(token) {
     }
 }
 
-if (require.main === module) {
+if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(__filename)) {
     void main().catch((error) => {
         console.error(error);
         process.exitCode = 1;
@@ -6613,56 +5844,235 @@ if (require.main === module) {
     });
 }
 
-const { buildHelperFunctionNames } = require('./auth-bootstrap-smoke-support/helpers');
-const { buildFixtureFunctionNames } = require('./auth-bootstrap-smoke-support/fixtures');
-const { buildVerifyFunctionNames } = require('./auth-bootstrap-smoke-support/contract-verifiers');
-const coreSource = (() => {
-    const fs = require('node:fs');
-    return fs.readFileSync(__filename, 'utf8');
-})();
-const declaredFunctionNames = Array.from(coreSource.matchAll(/^\s*(?:async\s+)?function\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*\(/gm), (match) => match[1]);
+const declaredFunctions = {
+    createWorldGatewayForAuthBootstrapSmoke,
+    isEnvEnabled,
+    buildStrictNativeSkippedProof,
+    buildProfileSkippedProof,
+    buildRegisterAccountName,
+    withEnvOverrides,
+    readAuthBootstrapProfile,
+    extractSocketFailureCode,
+    formatSocketFailurePayload,
+    expectProtocolSocketAuthFailure,
+    createProtocolSocket,
+    assertNoLegacyEvents,
+    flattenNoticeItems,
+    hasPendingLogbookMessage,
+    createAuthStarterSnapshotDeps,
+    runAuthBootstrap,
+    verifyProtocolSocketRejectsLegacyEventContract,
+    verifyHelloAuthBootstrapForbiddenContract,
+    verifyImplicitLegacyProtocolEntryContract,
+    verifyGmBootstrapSessionPolicyContract,
+    verifyMalformedMainlineIdentityAndSnapshotRecordGuardContract,
+    shouldExpectImplicitDetachedResume,
+    isSamePlayerHigherEpochSid,
+    shouldExpectConnectedSessionReuse,
+    shouldExpectRequestedSessionMismatchRotation,
+    isNewerSamePlayerSessionId,
+    parseSessionEpochFromSessionId,
+    verifyAuthenticatedSessionContract,
+    verifyAuthenticatedMissingSnapshotRecoveryContract,
+    verifyAuthenticatedSnapshotRecoveryNoticeContract,
+    withLocalAuthTraceEnabled,
+    findLatestSnapshotRecoveryTrace,
+    verifyAuthenticatedSnapshotRecoveryTraceContract,
+    verifyAuthenticatedSnapshotRecoveryBootstrapLinkContract,
+    verifyTokenSeedIdentityContract,
+    verifySnapshotSequence,
+    verifyTokenSeedNativeStarterSnapshotContract,
+    verifyTokenSeedNativeStarterBootstrapProof,
+    verifyTokenSeedPersistFailureContract,
+    verifyCompatBackfillSaveFailureMissingSnapshotRejection,
+    verifyMainlineIdentityCompatSnapshotIgnored,
+    verifyInvalidPersistedSnapshotRejection,
+    verifyInvalidPersistedSnapshotMetaPersistedSourceNormalization,
+    verifyInvalidPersistedSnapshotUnlockedMapIdsNormalization,
+    verifyInvalidPersistedIdentityRejection,
+    registerAndLoginPlayer,
+    parseTokenIdentity,
+    assertBootstrapMatchesExpectedIdentity,
+    fetchPlayerState,
+    waitForPresenceSessionFence,
+    deletePlayer,
+    flushPersistence,
+    fetchAuthTrace,
+    clearAuthTrace,
+    waitForFailedSnapshotAuthTrace,
+    waitForFailedIdentityAuthTrace,
+    waitForFailedIdentitySourceAuthTrace,
+    readSummaryCount,
+    waitForAuthTrace,
+    ensureLegacyCompatSchema,
+    seedLegacyCompatPlayerSnapshot,
+    hasLegacyCompatPlayerSnapshotDocument,
+    ensureLegacyCompatPlayerSnapshotDocument,
+    dropPlayerSnapshotSourcesButKeepIdentity,
+    dropPersistedPlayerSnapshot,
+    dropPersistedIdentityDocument,
+    expectLegacyCompatPlayerSnapshotDocument,
+    expectPersistedPlayerSnapshotDocument,
+    expectPersistedIdentityDocument,
+    readPersistedPlayerSnapshotPayload,
+    readPersistedIdentityPayload,
+    writeInvalidPersistedIdentityDocument,
+    writeInvalidPersistedSnapshotDocument,
+    writePersistedPlayerSnapshotDocument,
+    ensurePersistedPlayerSnapshotDocument,
+    writeInvalidPersistedSnapshotMetaPersistedSource,
+    writeInvalidPersistedSnapshotUnlockedMapIds,
+    writePersistedIdentityDocument,
+    installIdentityBackfillSaveFailure,
+    installSnapshotSeedSaveFailure,
+    uninstallIdentityBackfillSaveFailure,
+    uninstallSnapshotSeedSaveFailure,
+    writeInvalidLegacyCompatUnlockedMinimapIds,
+    writeInvalidLegacyCompatMapId,
+    cleanupLegacyCompatPlayerSnapshot,
+    ignoreMissingCompatCleanupError,
+    normalizePersistedIdentity,
+    requestJson,
+    waitFor,
+    waitForValue,
+    waitForPlayerState,
+    delay,
+    buildUniqueDisplayName,
+    buildRetryDisplayName,
+    buildRetryRoleName,
+    buildSingleDisplayNameChar,
+    buildCompactSeed,
+    computeSeedHash,
+    parseJwtPayload,
+};
+const declaredFunctionNames = Object.keys(declaredFunctions);
 const fixtureFunctionNames = buildFixtureFunctionNames(declaredFunctionNames);
 const helperFunctionNames = buildHelperFunctionNames(declaredFunctionNames, fixtureFunctionNames);
-/**
- * collectExports：执行Export相关逻辑。
- * @param names 参数说明。
- * @returns 无返回值，直接更新Export相关状态。
- */
 
-function collectExports(names) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const result = {};
+function selectFunctions(names: string[]): Record<string, (...args: any[]) => any> {
+    const result: Record<string, (...args: any[]) => any> = {};
     for (const name of names) {
-        let value;
-        try {
-            value = eval(name);
-        }
-        catch {
-            value = undefined;
-        }
+        const value = declaredFunctions[name];
         if (typeof value === 'function') {
             result[name] = value;
         }
     }
     return result;
 }
-const helperFunctions = collectExports(helperFunctionNames);
-const fixtureFunctions = collectExports(fixtureFunctionNames);
-const verifyFunctionNames = buildVerifyFunctionNames(declaredFunctionNames, helperFunctions, fixtureFunctions);
-const verifyFunctions = collectExports(verifyFunctionNames);
 
-module.exports = {
-    main,
-    __all: {
-        ...helperFunctions,
-        ...fixtureFunctions,
-        ...verifyFunctions,
-    },
-    __helpers: helperFunctions,
-    __fixtures: fixtureFunctions,
-    __contractVerifiers: verifyFunctions,
+const helperFunctions = selectFunctions(helperFunctionNames);
+const fixtureFunctions = selectFunctions(fixtureFunctionNames);
+const verifyFunctionNames = buildVerifyFunctionNames(declaredFunctionNames, helperFunctions, fixtureFunctions);
+const verifyFunctions = selectFunctions(verifyFunctionNames);
+
+export const __helpers = helperFunctions;
+export const __fixtures = fixtureFunctions;
+export const __contractVerifiers = verifyFunctions;
+export const __all = {
     ...helperFunctions,
     ...fixtureFunctions,
     ...verifyFunctions,
+};
+
+export {
+    createWorldGatewayForAuthBootstrapSmoke,
+    isEnvEnabled,
+    buildStrictNativeSkippedProof,
+    buildProfileSkippedProof,
+    buildRegisterAccountName,
+    withEnvOverrides,
+    readAuthBootstrapProfile,
+    main,
+    extractSocketFailureCode,
+    formatSocketFailurePayload,
+    expectProtocolSocketAuthFailure,
+    createProtocolSocket,
+    assertNoLegacyEvents,
+    flattenNoticeItems,
+    hasPendingLogbookMessage,
+    createAuthStarterSnapshotDeps,
+    runAuthBootstrap,
+    verifyProtocolSocketRejectsLegacyEventContract,
+    verifyHelloAuthBootstrapForbiddenContract,
+    verifyImplicitLegacyProtocolEntryContract,
+    verifyGmBootstrapSessionPolicyContract,
+    verifyMalformedMainlineIdentityAndSnapshotRecordGuardContract,
+    shouldExpectImplicitDetachedResume,
+    isSamePlayerHigherEpochSid,
+    shouldExpectConnectedSessionReuse,
+    shouldExpectRequestedSessionMismatchRotation,
+    isNewerSamePlayerSessionId,
+    parseSessionEpochFromSessionId,
+    verifyAuthenticatedSessionContract,
+    verifyAuthenticatedMissingSnapshotRecoveryContract,
+    verifyAuthenticatedSnapshotRecoveryNoticeContract,
+    withLocalAuthTraceEnabled,
+    findLatestSnapshotRecoveryTrace,
+    verifyAuthenticatedSnapshotRecoveryTraceContract,
+    verifyAuthenticatedSnapshotRecoveryBootstrapLinkContract,
+    verifyTokenSeedIdentityContract,
+    verifySnapshotSequence,
+    verifyTokenSeedNativeStarterSnapshotContract,
+    verifyTokenSeedNativeStarterBootstrapProof,
+    verifyTokenSeedPersistFailureContract,
+    verifyCompatBackfillSaveFailureMissingSnapshotRejection,
+    verifyMainlineIdentityCompatSnapshotIgnored,
+    verifyInvalidPersistedSnapshotRejection,
+    verifyInvalidPersistedSnapshotMetaPersistedSourceNormalization,
+    verifyInvalidPersistedSnapshotUnlockedMapIdsNormalization,
+    verifyInvalidPersistedIdentityRejection,
+    registerAndLoginPlayer,
+    parseTokenIdentity,
+    assertBootstrapMatchesExpectedIdentity,
+    fetchPlayerState,
+    waitForPresenceSessionFence,
+    deletePlayer,
+    flushPersistence,
+    fetchAuthTrace,
+    clearAuthTrace,
+    waitForFailedSnapshotAuthTrace,
+    waitForFailedIdentityAuthTrace,
+    waitForFailedIdentitySourceAuthTrace,
+    readSummaryCount,
+    waitForAuthTrace,
+    ensureLegacyCompatSchema,
+    seedLegacyCompatPlayerSnapshot,
+    hasLegacyCompatPlayerSnapshotDocument,
+    ensureLegacyCompatPlayerSnapshotDocument,
+    dropPlayerSnapshotSourcesButKeepIdentity,
+    dropPersistedPlayerSnapshot,
+    dropPersistedIdentityDocument,
+    expectLegacyCompatPlayerSnapshotDocument,
+    expectPersistedPlayerSnapshotDocument,
+    expectPersistedIdentityDocument,
+    readPersistedPlayerSnapshotPayload,
+    readPersistedIdentityPayload,
+    writeInvalidPersistedIdentityDocument,
+    writeInvalidPersistedSnapshotDocument,
+    writePersistedPlayerSnapshotDocument,
+    ensurePersistedPlayerSnapshotDocument,
+    writeInvalidPersistedSnapshotMetaPersistedSource,
+    writeInvalidPersistedSnapshotUnlockedMapIds,
+    writePersistedIdentityDocument,
+    installIdentityBackfillSaveFailure,
+    installSnapshotSeedSaveFailure,
+    uninstallIdentityBackfillSaveFailure,
+    uninstallSnapshotSeedSaveFailure,
+    writeInvalidLegacyCompatUnlockedMinimapIds,
+    writeInvalidLegacyCompatMapId,
+    cleanupLegacyCompatPlayerSnapshot,
+    ignoreMissingCompatCleanupError,
+    normalizePersistedIdentity,
+    requestJson,
+    waitFor,
+    waitForValue,
+    waitForPlayerState,
+    delay,
+    buildUniqueDisplayName,
+    buildRetryDisplayName,
+    buildRetryRoleName,
+    buildSingleDisplayNameChar,
+    buildCompactSeed,
+    computeSeedHash,
+    parseJwtPayload,
 };

@@ -3,9 +3,6 @@
  *
  * 维护时要让脚本参数、失败退出码和副作用范围清晰，避免误操作生产数据。
  */
-// @ts-nocheck
-
-Object.defineProperty(exports, "__esModule", { value: true });
 const HELPER_EXCLUDES = new Set([
     'main',
     'collectExports',
@@ -18,14 +15,10 @@ const HELPER_EXCLUDES = new Set([
  */
 
 
-function buildHelperFunctionNames(declaredFunctionNames, fixtureFunctionNames = []) {
+export function buildHelperFunctionNames(declaredFunctionNames: string[], fixtureFunctionNames: string[] = []): string[] {
     const fixtureSet = new Set(Array.isArray(fixtureFunctionNames) ? fixtureFunctionNames : []);
     return Array.from(new Set(Array.isArray(declaredFunctionNames) ? declaredFunctionNames : []))
         .filter((name) => !HELPER_EXCLUDES.has(name))
         .filter((name) => !fixtureSet.has(name))
         .filter((name) => !/^verify/.test(name));
 }
-
-module.exports = {
-    buildHelperFunctionNames,
-};
