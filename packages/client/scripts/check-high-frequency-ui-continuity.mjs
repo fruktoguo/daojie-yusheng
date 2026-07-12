@@ -37,6 +37,8 @@ function assertMissing(content, pattern, message) {
 const marketPanel = read('src/ui/panels/market-panel.ts');
 const transmissionView = read('src/ui/panels/market-transmission-view.ts');
 const actionPanel = read('src/ui/panels/action-panel.ts');
+const actionCombatSettings = read('src/ui/panels/action-panel-combat-settings.ts');
+const actionSectManagement = read('src/ui/panels/action-panel-sect-management.ts');
 const techniquePanel = read('src/ui/panels/technique-panel.ts');
 const inventoryPanel = read('src/ui/panels/inventory-panel.ts');
 const bodyTrainingPanel = read('src/ui/panels/body-training-panel.ts');
@@ -208,6 +210,14 @@ assertIncludes(tradeHistoryRequest, /requestSource, requestScope, this\.tradeHis
 const actionDynamic = section(actionPanel, '/** 只同步会变的动作状态，优先走局部 patch，避免整块重绘。 */', '/** 从玩家快照初始化面板状态。 */', 'ActionPanel.syncDynamic');
 assertIncludes(actionDynamic, /buildActionPanelContentKey/, '行动面板高频同步必须保留结构签名');
 assertIncludes(actionDynamic, /patchDynamicActionPanel/, '行动面板高频同步必须优先局部 patch');
+assertIncludes(actionPanel, /this\.combatSettings\.renderCombatSettingsModalIfOpen\(\)/, '行动面板必须把战斗设置更新委托给唯一子面板');
+assertIncludes(actionPanel, /this\.sectMgmt\.renderSectManagementModalIfOpen\(\)/, '行动面板必须把宗门管理更新委托给唯一子面板');
+assertIncludes(actionCombatSettings, /export class CombatSettingsSubpanel/, '战斗设置子面板必须保留独立状态与渲染拥有者');
+assertIncludes(actionSectManagement, /export class SectManagementSubpanel/, '宗门管理子面板必须保留独立状态与渲染拥有者');
+assertMissing(actionPanel, /private renderCombatSettingsModal\(/, '主行动面板不得重新吸收战斗设置模板');
+assertMissing(actionPanel, /private renderSectManagementModal\(/, '主行动面板不得重新吸收宗门管理模板');
+assertMissing(actionPanel, /private cloneAutoUsePillConfigs\(/, '主行动面板不得保留自动丹药旧实现代码岛');
+assertMissing(actionPanel, /function parseSectManagementData\(/, '主行动面板不得复制宗门数据解析职责');
 
 const techniqueDynamic = section(techniquePanel, '/** 仅同步经验、进度条与主修状态，避免高频整块重绘 */', '/** initFromPlayer：初始化From玩家。 */', 'TechniquePanel.syncDynamic');
 assertIncludes(techniqueDynamic, /patchList\(\)/, '功法面板高频同步必须优先 patch 列表');
