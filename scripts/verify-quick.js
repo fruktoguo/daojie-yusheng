@@ -46,6 +46,8 @@ const status = runVerificationSteps({
         '--case',
         'native-request-ip',
         '--case',
+        'registration-activation',
+        '--case',
         'world-gateway-offline-gain-refresh',
         '--case',
         'player-statistic-ledger-io',

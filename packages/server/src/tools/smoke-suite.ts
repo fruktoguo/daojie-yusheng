@@ -141,6 +141,7 @@ const smokeCases = [
     { name: 'auth-bootstrap-legacy-import', scriptFile: 'auth-bootstrap-smoke.js' },
     { name: 'gm-auth-token-revocation', scriptFile: 'gm-auth-token-revocation-smoke.js', standalone: true },
     { name: 'native-request-ip', scriptFile: 'native-request-ip-smoke.js', standalone: true },
+    { name: 'registration-activation', scriptFile: 'registration-activation-smoke.js', standalone: true },
     { name: 'gm', scriptFile: 'gm-smoke.js' },
     { name: 'month-card-pool', scriptFile: 'month-card-pool-smoke.js', standalone: true },
     { name: 'daily-sign-in-fortune', scriptFile: 'daily-sign-in-fortune-smoke.js', standalone: true },

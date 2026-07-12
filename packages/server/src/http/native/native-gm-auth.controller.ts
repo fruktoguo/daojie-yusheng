@@ -42,6 +42,9 @@ interface RequestLike {
   [key: string]: unknown;
 }
 
+/** 所有校验同一 GM 密码的公开入口共享主体失败预算，不能由调用方输入拆桶。 */
+const GM_AUTH_RATE_LIMIT_SUBJECT = 'gm';
+
 /** GM 鉴权服务端口：登录和修改密码。 */
 interface RuntimeGmAuthServicePort {
   login(password: string, options?: { scopes?: unknown; scope?: unknown; role?: unknown }): Promise<unknown>;
@@ -65,17 +68,17 @@ export class NativeGmAuthController {
   @Post('gm/login')
   @HttpCode(HttpStatus.OK)
   async login(@Body() body: GmLoginBody, @Req() request: RequestLike) {
-    this.rateLimitService.assertAllowed('gmLogin', request, 'gm');
+    this.rateLimitService.assertAllowed('gmLogin', request, GM_AUTH_RATE_LIMIT_SUBJECT);
     try {
       const result = await this.authService.login(body?.password ?? '', {
         scopes: body?.scopes,
         scope: body?.scope,
         role: body?.role,
       });
-      this.rateLimitService.recordSuccess('gmLogin', request, 'gm');
+      this.rateLimitService.recordSuccess('gmLogin', request, GM_AUTH_RATE_LIMIT_SUBJECT);
       return result;
     } catch (error) {
-      this.rateLimitService.recordFailure('gmLogin', request, 'gm');
+      this.rateLimitService.recordFailure('gmLogin', request, GM_AUTH_RATE_LIMIT_SUBJECT);
       throw error;
     }
   }
@@ -107,15 +110,14 @@ export class NativeGmAuthController {
   }
 
   private async getRegistrationActivationCodeWithPassword(password: string, sourceText: string, request: RequestLike) {
-    const subject = `registration-activation:${sourceText}`;
-    this.rateLimitService.assertAllowed('gmLogin', request, subject);
+    this.rateLimitService.assertAllowed('gmLogin', request, GM_AUTH_RATE_LIMIT_SUBJECT);
     try {
       await this.authService.login(password);
       const result = await this.playerAuthService.getRegistrationActivationCode(sourceText);
-      this.rateLimitService.recordSuccess('gmLogin', request, subject);
+      this.rateLimitService.recordSuccess('gmLogin', request, GM_AUTH_RATE_LIMIT_SUBJECT);
       return { ok: true, ...result };
     } catch (error) {
-      this.rateLimitService.recordFailure('gmLogin', request, subject);
+      this.rateLimitService.recordFailure('gmLogin', request, GM_AUTH_RATE_LIMIT_SUBJECT);
       throw error;
     }
   }

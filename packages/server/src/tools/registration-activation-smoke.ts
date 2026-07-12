@@ -25,6 +25,9 @@ async function main(): Promise<void> {
       { ensureNativeStarterSnapshot: async () => ({ ok: true }) },
     );
 
+    proveIpFailureBudgetSurvivesUnrelatedSuccess();
+    await proveRegistrationActivationSharesGmCredentialBudget();
+
     const first = await service.register(
       'regact1',
       'password123',
@@ -186,6 +189,8 @@ async function main(): Promise<void> {
         'GM-password API returns the fixed source-text activation code',
         'GM-password API keeps legacy qq parameter as source text alias',
         'GM-password API rejects wrong GM password',
+        'an unrelated successful login cannot clear the source IP failure budget',
+        'GM login and registration-activation endpoints share one credential failure budget',
         'generated activation code is bound to exactly one account',
         'legacy env activation code also becomes single-use after binding',
         'each registered user gets an invite code',
@@ -199,6 +204,79 @@ async function main(): Promise<void> {
       process.env.SERVER_REGISTRATION_ACTIVATION_CODES = previousCodes;
     }
   }
+}
+
+/** 成功登录只能清除自己的主体桶，不能重置同 IP 对其他账号的累计失败。 */
+function proveIpFailureBudgetSurvivesUnrelatedSuccess(): void {
+  const rateLimitService = new NativeAuthRateLimitService();
+  const request = { headers: {}, ip: '198.51.100.80' };
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    rateLimitService.recordFailure('login', request, `victim-before-${attempt}`);
+  }
+  rateLimitService.recordSuccess('login', request, 'attacker-owned-valid-account');
+  for (let attempt = 5; attempt < 12; attempt += 1) {
+    rateLimitService.recordFailure('login', request, `victim-after-${attempt}`);
+  }
+  assert.throws(
+    () => rateLimitService.assertAllowed('login', request, 'fresh-victim'),
+    (error: unknown) => isTooManyRequestsError(error),
+  );
+}
+
+/** GM 登录与激活码签发校验同一口令，跨入口、跨来源文本也必须共用主体失败预算。 */
+async function proveRegistrationActivationSharesGmCredentialBudget(): Promise<void> {
+  let loginAttemptCount = 0;
+  const controller = new NativeGmAuthController(
+    {
+      login: async () => {
+        loginAttemptCount += 1;
+        throw new Error('GM 密码错误');
+      },
+      changePassword: async () => ({ ok: true }),
+    },
+    {
+      getRegistrationActivationCode: async () => {
+        throw new Error('错误密码不应进入激活码生成');
+      },
+    },
+    new NativeAuthRateLimitService(),
+  );
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    await assert.rejects(
+      () => controller.login(
+        { password: 'wrong-gm-pass' },
+        { headers: {}, ip: `198.51.100.${attempt + 1}` },
+      ),
+      /GM 密码错误/,
+    );
+  }
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    await assert.rejects(
+      () => controller.issueRegistrationActivationCode(
+        { password: 'wrong-gm-pass', text: `攻击者可控来源-${attempt}` },
+        { headers: {}, ip: `203.0.113.${attempt + 1}` },
+      ),
+      /GM 密码错误/,
+    );
+  }
+
+  await assert.rejects(
+    () => controller.issueRegistrationActivationCode(
+      { password: 'wrong-gm-pass', text: '全新来源文本' },
+      { headers: {}, ip: '192.0.2.99' },
+    ),
+    (error: unknown) => isTooManyRequestsError(error),
+  );
+  assert.equal(loginAttemptCount, 4);
+}
+
+function isTooManyRequestsError(error: unknown): boolean {
+  const candidate = error as { getStatus?: () => unknown; status?: unknown; statusCode?: unknown };
+  const status = typeof candidate?.getStatus === 'function'
+    ? candidate.getStatus()
+    : (candidate?.status ?? candidate?.statusCode);
+  return status === 429;
 }
 
 function isActivationRequiredError(error: unknown): boolean {

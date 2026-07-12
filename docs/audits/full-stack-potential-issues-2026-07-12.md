@@ -27,7 +27,7 @@
 | 服务端 runtime、tick、移动、战斗、交互 | 进行中 | server compile、quick runtime smoke 通过；无库本地主线 18 类 smoke 已完整跑通，怪物战斗/技能/重置夹具已按真实机制校正 | 继续按 mechanics 文档审查真实调用链、热路径及未被 smoke 覆盖的机制 |
 | 持久化、恢复、强事务与关闭 | 进行中 | server compile 通过；边界审计 forbidden 已清零；玩家统计总账回读/flush 已按玩家串行并接入 quick smoke | 复核其余玩家/实例分域、outbox、恢复围栏 |
 | 配置编辑器、schema、导入发布 | 进行中 | 构建、content-contract、异步代际 smoke 与浏览器乱序回包验证通过 | 继续复核地图保存、schema 与发布入口 |
-| 鉴权、权限、GM 高危操作 | 进行中 | 全部 GM controller 已确认受 Guard 保护；改密 token 撤销与启动回读已有 compiled smoke；注册激活 smoke 不再把鉴权要求误判为名称冲突 | GM 审计 fail-open、高危 scope、GET 密码兼容入口及维护态策略等待产品决定 |
+| 鉴权、权限、GM 高危操作 | 进行中 | 全部 GM controller 已确认受 Guard 保护；改密 token 撤销与启动回读已有 compiled smoke；注册激活 smoke 不再把鉴权要求误判为名称冲突；IP 失败预算和所有 GM 密码入口已统一限流 | 继续复核鉴权持久化故障语义；GM 审计 fail-open、高危 scope、GET 密码兼容入口及维护态策略等待产品决定 |
 | 错误处理、日志与可观测性 | 进行中 | 已确认 GM 审计写入失败只告警并放行；smoke 的协议/鉴权假红已修正 | 继续检查吞异常、敏感信息、告警与失败水位 |
 | 性能、内存、网络包体 | 进行中 | 文件体积门禁失败；构建产物存在大 chunk 警告 | 区分真实热路径问题、门禁误报和冷路径债务 |
 | 浅色、深色、手机与触控 | 待检查 | 构建门禁不证明视觉结果 | 需要浏览器级检查 |
@@ -396,6 +396,26 @@
 - 修复方式：候选谓词与运行时统一为 `Math.round(hpRegenRate) > 0`，同时要求目标空闲、存活且可扣减至少 1 点生命。
 - 验证：聚焦 monster-reset smoke 通过，完整无库 release 套件同样通过。
 
+### FS-038 `[x]` 任意一次成功登录会清空同 IP 对所有账号的失败预算
+
+- 严重级别：高。
+- 根本原因：`NativeAuthRateLimitService.recordSuccess` 同时删除主体桶和 IP 桶；IP 桶聚合的是该来源在同一认证 scope 下对所有主体的失败，但成功请求无需与此前失败的目标主体相同。
+- 为什么错误：主体成功只能证明当前凭据合法，不能证明同 IP 对其他账号的尝试不是暴力攻击。攻击者可先对多个目标试错，再用自己的有效账号成功登录清空 IP 累计，如此循环，使声明的 `maxIpFailures` 永远达不到。
+- 触发条件：攻击者拥有一个普通有效账号，在对不同受害账号尝试密码之间穿插自己的成功登录；注册或刷新 scope 也存在相同的跨主体清零语义。
+- 后果：IP 维度从“限制来源总失败量”退化为只限制连续失败；攻击者仍可对每个主体轮换尝试，显著放大撞库和凭据填充吞吐。主体桶无法替代 IP 桶，因为目标账号可以持续轮换。
+- 修复方式：成功请求只清除其规范化主体桶，保留该 scope 的 IP 失败历史直到滑动窗口自然过期；不改变既有阈值、封禁时长或主体成功后的容错语义。
+- 验证：修复前用当前编译产物复现“5 次跨账号失败 → 自有账号成功 → 7 次跨账号失败”仍未封禁；修复后同一 12 次总失败在成功请求之后仍触发 429。新增断言已进入 `registration-activation` stable case，完整 `pnpm verify:quick` 通过。
+
+### FS-039 `[x]` 激活码签发按调用方文本拆分同一 GM 密码的主体限流
+
+- 严重级别：高。
+- 根本原因：GM 登录用固定主体 `gm`，`/gm/registration-activation-code` 虽然校验同一个 GM 密码，却把 `registration-activation:${sourceText}` 作为主体；`sourceText` 完全由未鉴权调用方控制。
+- 为什么错误：限流主体应对应被猜测的凭据，而不是请求业务参数。攻击者每次更换来源文本即可获得新的 4 次主体预算；再更换 IP 就能同时绕过 IP 桶，与 GM 登录入口的失败也互不累计。
+- 触发条件：从多个来源 IP 对激活码 POST/兼容 GET 发起错误 GM 密码请求，并为每次请求使用不同 `text/qq`。
+- 后果：拥有数据库恢复、密钥、环境变量和服务控制权的单一 GM 密码可被分布式高速猜测；激活码入口还成为绕过正常 GM 登录全局主体封禁的旁路。
+- 修复方式：提取固定 `GM_AUTH_RATE_LIMIT_SUBJECT`，GM 登录和所有激活码签发入口统一使用 `gm` 主体；业务来源文本只参与激活码映射，不参与凭据限流键。
+- 验证：修复前复现四个不同 IP、四个不同来源文本的失败后第五次仍可进入密码校验；修复后两次 GM 登录失败加两次激活码失败即封禁固定主体，第五次在调用密码服务前返回 429。`registration-activation` 已加入 `verify:quick`，全套 quick smoke 通过。
+
 ## 待进一步验证或用户决定
 
 ### D-001 `[?]` 客户端初始包同时装载 React 面板与 legacy 回退实现
@@ -504,3 +524,4 @@
 | `node packages/server/src/tools/check-production-boundaries.ts` | 修复后通过 | 24 个工具文件中的 37 处 Socket.IO 客户端全部显式使用 msgpack parser；直接 delta 消费方均覆盖 `SyncEnvelope` | 不证明外部仓库脚本或未执行场景的业务断言 |
 | 无库 `pnpm verify:release:local` | 通过 | client build、server compile、production-boundaries、18 类稳定主线场景和 compiled protocol audit 均完成；含怪物六类、progression、combat、loot、认证、GM、兑换、恢复与关闭 drain | 明确不证明 persistence、shadow、acceptance、full、destructive；auth/GM/redeem 的 DB 分支因无数据库而跳过 |
 | 聚焦 compiled `progression` stable case | 收紧断言后通过 | Socket 生命周期、envelope 解码及同 tick 灵气流转下仍完整注入接近 100 点；最终值 `99.9991977` | 不证明真实数据库持久化与长期多 tick 灵气演化 |
+| `pnpm verify:quick`（加入 `registration-activation` 后） | 通过 | server/shared 编译、production-boundaries、release contract 及 12 个 quick case；证明成功请求不再清空 IP 失败预算，GM 密码跨入口共享主体预算 | 无 DB，不证明多节点间内存限流共享、真实代理/CDN 地址聚合及长期攻击流量 |
