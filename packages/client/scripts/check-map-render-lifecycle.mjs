@@ -2,12 +2,15 @@
 
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const clientRoot = path.resolve(scriptDirectory, '..');
+const repoRoot = path.resolve(clientRoot, '../..');
+const nodeRequire = createRequire(import.meta.url);
 
 function read(relativePath) {
   return fs.readFileSync(path.join(clientRoot, relativePath), 'utf8');
@@ -23,7 +26,10 @@ function loadTypeScriptModule(relativePath) {
     fileName: modulePath,
   }).outputText;
   const module = { exports: {} };
-  new Function('exports', 'module', compiled)(module.exports, module);
+  const localRequire = (specifier) => specifier === '@mud/shared'
+    ? nodeRequire(path.join(repoRoot, 'packages/shared/dist/index.js'))
+    : nodeRequire(specifier);
+  new Function('exports', 'module', 'require', compiled)(module.exports, module, localRequire);
   return module.exports;
 }
 
@@ -65,6 +71,98 @@ function completeReader(job, dataUrl) {
 
 const { advanceFrameDeadlineAfterRender } = loadTypeScriptModule(
   'src/game-map/runtime/frame-schedule.ts',
+);
+const {
+  buildPixiTerrainChunkOverlaySignature,
+  buildPixiTerrainChunkStaticSignature,
+} = loadTypeScriptModule('src/game-map/renderer/pixi-terrain-cache-signatures.ts');
+const shared = nodeRequire(path.join(repoRoot, 'packages/shared/dist/index.js'));
+
+assert.deepEqual(
+  shared.resolveSenseQiOverlaySignal(2_250, [], 1_000),
+  { family: 'aura', value: 3 },
+  '地块灵气绝对值必须先换算为等级，不能直接把 2250 当作颜色等级',
+);
+assert.deepEqual(
+  shared.resolveSenseQiOverlaySignal(2_250, [{ key: 'sha.refined.neutral', value: 9_999, level: 4 }], 1_000),
+  { family: 'sha', value: 4 },
+  '更强的资源等级必须覆盖基础灵气家族与等级',
+);
+assert.deepEqual(
+  shared.resolveSenseQiOverlaySignal(2_250, [{ key: 'demonic.refined.neutral', value: 3_375 }], 1_000),
+  { family: 'demonic', value: 4 },
+  '缺少显式等级时必须按有效资源值换算等级',
+);
+
+const baseTile = {
+  type: 'floor',
+  walkable: true,
+  blocksSight: false,
+  aura: 1_000,
+  resources: [{ key: 'aura.refined.neutral', label: '灵气', value: 1_000, level: 1 }],
+  occupiedBy: null,
+  modifiedAt: null,
+};
+const buildStaticSignature = (tile) => buildPixiTerrainChunkStaticSignature(
+  new Map([['0,0', tile]]),
+  0,
+  0,
+  32,
+  true,
+  false,
+  1,
+);
+const baseStaticSignature = buildStaticSignature(baseTile);
+assert.equal(buildStaticSignature({
+  ...baseTile,
+  hp: 5,
+  maxHp: 10,
+  hpVisible: true,
+  aura: 3_375,
+  resources: [{ key: 'sha.refined.neutral', label: '煞气', value: 3_375, level: 4 }],
+}), baseStaticSignature, '动态生命与气机变化不得让静态地形缓存失效');
+assert.notEqual(
+  buildStaticSignature({ ...baseTile, surfaceType: 'mud' }),
+  baseStaticSignature,
+  '地形贴图输入变化必须让静态地形缓存失效',
+);
+
+const buildOverlaySignature = (tile, senseQiLevelBaseValue = 1_000) => buildPixiTerrainChunkOverlaySignature(
+  new Map([['0,0', tile]]),
+  new Set(['0,0']),
+  0,
+  0,
+  32,
+  senseQiLevelBaseValue === null ? 'sense:null' : `sense:${senseQiLevelBaseValue}`,
+  senseQiLevelBaseValue,
+);
+assert.equal(
+  buildOverlaySignature(baseTile),
+  buildOverlaySignature({ ...baseTile, aura: 1_200 }),
+  '同一灵气等级内的半衰期数值波动不应重建望气覆盖层',
+);
+assert.notEqual(
+  buildOverlaySignature(baseTile),
+  buildOverlaySignature({ ...baseTile, aura: 1_500 }),
+  '基础灵气等级变化必须重建望气覆盖层',
+);
+assert.notEqual(
+  buildOverlaySignature(baseTile),
+  buildOverlaySignature({
+    ...baseTile,
+    resources: [{ key: 'sha.refined.neutral', label: '煞气', value: 1_000, level: 3 }],
+  }),
+  '资源条数不变时，家族或等级变化仍必须重建望气覆盖层',
+);
+assert.notEqual(
+  buildOverlaySignature({ ...baseTile, hp: 10, maxHp: 10 }),
+  buildOverlaySignature({ ...baseTile, hp: 10, maxHp: 10, hpVisible: true }),
+  'hpVisible 的未指定与显式 true 语义不同，必须分别失效',
+);
+assert.equal(
+  buildOverlaySignature(baseTile, null),
+  buildOverlaySignature({ ...baseTile, aura: 3_375, resources: [] }, null),
+  '望气关闭时气机变化不应重建动态覆盖层',
 );
 
 const frameIntervalMs = 1000 / 60;

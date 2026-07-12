@@ -119,7 +119,7 @@ function resolveObservedFacing(
     : (nextFacing ?? previousFacing ?? undefined);
 }
 
-function buildTerrainTileRenderSignature(tile: Tile | null | undefined): string {
+function buildTerrainTileStaticSignature(tile: Tile | null | undefined): string {
   if (!tile) {
     return 'null';
   }
@@ -129,11 +129,6 @@ function buildTerrainTileRenderSignature(tile: Tile | null | undefined): string 
     tile.surfaceType ?? '',
     tile.structureType ?? '',
     Array.isArray(tile.interactableKinds) ? tile.interactableKinds.join('+') : '',
-    tile.hp ?? '',
-    tile.maxHp ?? '',
-    tile.hpVisible === false ? 0 : 1,
-    tile.aura ?? '',
-    tile.resources?.length ?? 0,
   ].join(':');
 }
 
@@ -1351,12 +1346,12 @@ export class MapStore {
     for (const patch of normalizedPatches) {
       const key = `${patch.x},${patch.y}`;
       if (patch.tile) {
-        const previousSignature = buildTerrainTileRenderSignature(this.tileCache.get(key) ?? this.snapshotTileCache.get(key));
+        const previousSignature = buildTerrainTileStaticSignature(this.tileCache.get(key) ?? this.snapshotTileCache.get(key));
         const nextTile = cloneJson(patch.tile);
         this.visibleTiles.add(key);
         this.tileCache.set(key, nextTile);
         this.updateRenderTileCacheAt(key);
-        if (previousSignature !== buildTerrainTileRenderSignature(nextTile)) {
+        if (previousSignature !== buildTerrainTileStaticSignature(nextTile)) {
           this.markTerrainTileDirty(patch.x, patch.y);
           terrainChanged = true;
         }
@@ -1399,12 +1394,12 @@ export class MapStore {
         }
         const x = originX + columnIndex;
         const y = originY + rowIndex;
-        const previousSignature = buildTerrainTileRenderSignature(this.tileCache.get(key) ?? this.snapshotTileCache.get(key));
+        const previousSignature = buildTerrainTileStaticSignature(this.tileCache.get(key) ?? this.snapshotTileCache.get(key));
         const nextTile = cloneJson(tile);
         this.visibleTiles.add(key);
         this.tileCache.set(key, nextTile);
         this.updateRenderTileCacheAt(key);
-        if (previousSignature !== buildTerrainTileRenderSignature(nextTile)) {
+        if (previousSignature !== buildTerrainTileStaticSignature(nextTile)) {
           this.markTerrainTileDirty(x, y);
           terrainChanged = true;
         }

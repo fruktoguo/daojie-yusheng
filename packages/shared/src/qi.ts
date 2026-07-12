@@ -45,6 +45,51 @@ export interface QiResourceDescriptor {
   element: QiElementKey;
 }
 
+/** 望气覆盖层所需的最小地块资源投影。 */
+export interface SenseQiResourceSignalInput {
+  key: string;
+  value?: number;
+  effectiveValue?: number;
+  level?: number;
+}
+
+/** 望气覆盖层最终用于着色的气机家族与等级。 */
+export interface SenseQiOverlaySignal {
+  family: QiFamilyKey;
+  value: number;
+}
+
+/**
+ * 把地块灵气绝对值和各类气机资源统一投影为望气着色信号。
+ *
+ * `tileAura` 是运行时绝对值，不能直接当作等级参与颜色归一化；资源若已携带
+ * 服务端计算的等级则优先使用，否则按当前地图的灵气等级基准换算。
+ */
+export function resolveSenseQiOverlaySignal(
+  tileAura: number | null | undefined,
+  resources: readonly SenseQiResourceSignalInput[] | null | undefined,
+  auraLevelBaseValue = DEFAULT_AURA_LEVEL_BASE_VALUE,
+): SenseQiOverlaySignal {
+  let family: QiFamilyKey = 'aura';
+  let value = getAuraLevel(Number(tileAura ?? 0), auraLevelBaseValue);
+  for (const resource of resources ?? []) {
+    const parsed = parseQiResourceKey(resource.key);
+    if (!parsed) {
+      continue;
+    }
+    const projectedValue = resource.effectiveValue ?? resource.value ?? 0;
+    const candidate = typeof resource.level === 'number' && Number.isFinite(resource.level)
+      ? Math.max(0, resource.level)
+      : getAuraLevel(projectedValue, auraLevelBaseValue);
+    if (candidate <= value) {
+      continue;
+    }
+    family = parsed.family;
+    value = candidate;
+  }
+  return { family, value };
+}
+
 /** 灵力投影筛选条件：按资源键、族、形态或元素筛选命中项。 */
 export interface QiProjectionSelector {
 /**

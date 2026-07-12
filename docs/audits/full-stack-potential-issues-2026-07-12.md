@@ -29,7 +29,7 @@
 | 配置编辑器、schema、导入发布 | 进行中 | 构建、content-contract、异步代际 smoke 与浏览器乱序回包验证通过 | 继续复核地图保存、schema 与发布入口 |
 | 鉴权、权限、GM 高危操作 | 进行中 | 全部 GM controller 已确认受 Guard 保护；改密 token 撤销与启动回读已有 compiled smoke；注册激活 smoke 不再把鉴权要求误判为名称冲突；IP 失败预算和所有 GM 密码入口已统一限流；账号库未就绪会同时阻断 HTTP、GM、Socket 和 readiness；玩家修改未知 section 会被拒绝，已注册操作只写对应 domain | GM 审计 fail-open、高危 scope、GET 密码兼容入口及维护态策略等待产品决定 |
 | 错误处理、日志与可观测性 | 进行中 | 已确认 GM 审计写入失败只告警并放行；协议与鉴权 smoke 的假红、跳过和测试替身漂移已分别校正 | 继续检查吞异常、敏感信息、告警与失败水位 |
-| 性能、内存、网络包体 | 进行中 | 文件体积门禁失败；战斗 action、玩家成长、宗门 runtime、GM 玩家服务、协议审计、鉴权启动、玩家分域与强事务 smoke 已按职责拆分或清理并退出各自增幅清单；构建产物存在大 chunk 警告 | 继续拆分其余 14 个基线增幅和 2 个新超限文件，并区分真实热路径问题、门禁误报和冷路径债务 |
+| 性能、内存、网络包体 | 进行中 | 文件体积门禁失败；战斗 action、玩家成长、宗门 runtime、GM 玩家服务、协议审计、鉴权启动、玩家分域与强事务 smoke 已按职责拆分或清理并退出各自增幅清单；构建产物存在大 chunk 警告 | 继续拆分其余 14 个基线增幅和 1 个新超限文件，并区分真实热路径问题、门禁误报和冷路径债务 |
 | 浅色、深色、手机与触控 | 待检查 | 构建门禁不证明视觉结果 | 需要浏览器级检查 |
 | 测试、构建、清理链与边界门禁 | 进行中 | quick/client/release contract/config build、边界审计通过；24 个工具文件的 37 处 Socket.IO 客户端均有 parser 守卫，无库 `verify:release:local` 的 18 类场景通过；鉴权启动和宗门异步 smoke 已修复；GM domain-write 已进入 quick，物品编辑与恢复丹夹具重新对齐当前 domain/模板水合契约 | 继续检查其余持久化夹具清理、DB 分支与失真测试 |
 
@@ -63,6 +63,7 @@
 - 本轮进展：`inventory-panel.ts` 把分页列表、物品详情、批量丢弃和阵法布置规则全部聚合在同一面板类中；阵法弹窗独占约 540 行输入联动、共享公式投影、范围预览和提交载荷组装，扩大了普通背包更新的修改面。现已提取 `InventoryFormationDialogController`，继续复用 shared 的 `resolveFormationSetupPlan` 和稳定 `itemInstanceId`，服务端权威结算及面板局部更新语义不变；主面板从 4396 行降到 3838 行。它仍属于 2 个新超限文件之一，后续必须继续拆分详情与批量操作职责，当前不更新 baseline。
 - 本轮进展：背包批量丢弃原先在主面板维护打开态、筛选、选中实例和二次确认 4 组状态，并把自己的 render key、库存淘汰和弹窗关闭生命周期混入通用详情弹窗；现已提取 `InventoryBulkDiscardDialogController`，只从当前库存收集仍存在的稳定实例 ID，并在服务端处理前保留二次确认。主面板进一步降到门禁口径 3580 行，但详情/动作规则尚未拆分，仍不更新 baseline。
 - 本轮进展：背包单物品的使用、丢弃、摧毁、数量草稿、特殊消耗品提示和二次确认继续占用约 600 行，并把依赖玩家境界/道基/天关的确认文案挂在不含玩家上下文的通用 render key 上；另有约 50 行从未被任何渲染路径调用的功法书概要投影。现已提取 `InventoryItemActionDialogController` 与纯状态对象，删除不可达投影，主面板降到门禁口径 2984 行并退出新超限清单；特殊确认按玩家上下文 revision 失效，普通数量输入不受无关增量打断。当前唯一新超限文件为 Pixi renderer，FS-002 仍未完成。
+- 本轮进展：Pixi renderer 的地形静态签名、动态覆盖签名和望气数值投影原本混在主适配器中，且失效域与实际绘制字段不一致。现已提取 90 行 `pixi-terrain-cache-signatures.ts`，主文件降到门禁口径 3729 行；该文件仍是唯一新超限项，后续必须继续拆出 profiling/资源职责，当前不建立 baseline。
 
 ### FS-003 `[ ]` server tools 大量绕过 TypeScript 检查并保留 CommonJS 写法
 
@@ -583,6 +584,24 @@
 - 修复方式：把单物品操作状态和渲染收口到 `InventoryItemActionDialogController`，纯状态对象区分普通数量弹窗与上下文相关的特殊确认；只有特殊确认把 `playerContextRevision` 纳入 render key，普通输入继续保留焦点和未完成草稿。使用、丢弃和摧毁仍只提交当前 `itemInstanceId`，摧毁保留独立二次确认。
 - 验证：新增 `proof:inventory-action-dialog-lifecycle`，动态证明实例不串用、普通上下文更新不打断输入、特殊上下文更新必定改变代际、空草稿保留和摧毁确认状态入键；client TypeScript、生产边界 proof 与完整 `verify:client` 结果见验证表。未连接真实服务端，不证明服务端并发资产事务和实际视觉文案。
 
+### FS-057 `[x]` 望气颜色混用绝对值与等级且漏掉资源变化失效
+
+- 严重级别：中高。
+- 根本原因：Canvas 与 Pixi 都把地块 `aura` 绝对值直接作为颜色等级，却把资源 `level` 或由资源值换算出的等级与它比较；Pixi 覆盖层签名只记录 `tile.aura`，没有记录实际参与着色的资源家族、`level/effectiveValue/value`，并把 `hpVisible=undefined` 与显式 `true` 合并成同一个签名。
+- 为什么错误：灵气机制以 `1000 × 1.5^(n-1)` 的绝对值阈值换算等级，视觉常量 `maxAuraLevel=6` 明确要求输入等级。缓存签名必须覆盖渲染函数真正读取且会改变像素的全部语义，同时保留 `hpVisible` 的三态含义。
+- 后果：基础灵气达到 1000 后会被误当成上千级并直接映射为最高强度颜色，煞气/魔气资源的真实等级通常也永远无法超过这个错误基线；资源数量不变但家族或等级更新时，Pixi 继续显示旧颜色；满生命地块把 `hpVisible` 从未指定改为强制显示时也可能不出现生命条。
+- 修复方式：在 shared 建立唯一的 `resolveSenseQiOverlaySignal`，先把地块绝对灵气换算为等级，再选择等级最高的有效气机资源；Canvas 与 Pixi 共同复用。Pixi 动态签名按最终家族/等级而非原始浮点值失效，并精确区分生命条可见性三态，因此同一等级内的半衰期微小变化不会重建，真正的颜色或生命条变化不会漏掉。
+- 验证：shared build 通过；地图生命周期 proof 动态覆盖 `2250 → 3 级`、更强煞气/魔气选择、同等级半衰期不失效、等级/家族变化失效和 `hpVisible` 三态。Canvas 与 Pixi 均经 client TypeScript 检查，完整客户端门禁结果见验证表。
+
+### FS-058 `[x]` 动态地块状态会销毁重建 Pixi 静态 GPU 分块缓存
+
+- 严重级别：中高。
+- 根本原因：Pixi 静态分块签名和 MapStore 的静态 chunk revision 同时混入 `hp/maxHp/hpVisible/aura/resources`；但静态分块实际只绘制地形底色、运行时贴图、双网格边缘和字形，生命条与望气属于独立覆盖层。小地图只绘制地块类型，也会被这些动态字段推动基础画布版本。
+- 为什么错误：缓存失效域必须与实际消费字段一致。战斗生命值和灵气半衰期属于运行态高频变化，不应触发 `cacheAsTexture(false)`、销毁所有静态子节点、重建 16×16 分块并重新生成 GPU 纹理，也不应重画只关心地形类型的小地图。
+- 后果：可破坏地块战斗、灵气流转或资源变化会同时放大为相邻静态分块的字符串扫描、Pixi 对象分配、纹理回收和重新上传；多人同屏或移动端会增加主线程抖动、GC 与显存带宽，严重时造成掉帧，而画面静态部分并没有变化。
+- 修复方式：提取 `pixi-terrain-cache-signatures.ts` 作为地形缓存边界；静态签名只保留 `type/terrainType/surfaceType/structureType/interactableKinds` 和渲染配置，MapStore 也只用这些字段推进静态 chunk revision。生命条、可见性和望气信号由覆盖层独立签名负责，地图记忆仍照常保存动态资源但不推动仅绘制地形类型的小地图基础缓存。
+- 验证：空间缓存 proof 锁定 MapStore 静态签名不得重新混入动态字段；地图生命周期 proof 动态证明生命、灵气和资源改变不影响静态签名，而地形分层字段改变必定失效。完整客户端门禁结果见验证表；当前没有 GPU trace 或低端真机长时间灵气流转压测，不把静态证明等同于实测帧率收益。
+
 ## 待进一步验证或用户决定
 
 ### D-001 `[?]` 客户端初始包同时装载 React 面板与 legacy 回退实现
@@ -706,3 +725,4 @@
 | 背包阵法弹窗职责拆分 | client TypeScript、生产边界 proof 与完整 `verify:client` 通过；文件体积门禁按预期仍退出 1 | 阵法共享公式、实例引用、范围预览清理和提交载荷已由窄控制器承载；主面板降至 3838 行且未更新 baseline | 其余详情与批量操作仍在巨型面板中；未做真实浏览器触控、焦点与长列表滚动回归 |
 | 背包批量丢弃弹窗职责拆分 | client TypeScript、生产边界 proof 与完整 `verify:client` 通过；文件体积门禁按预期仍退出 1 | 筛选、选择、二次确认、缺失实例淘汰与单次关闭由专用控制器承载；总面板降至门禁口径 3580 行 | 无真实服务端并发和网络重放；详情/动作职责仍需继续拆分，文件体积门禁尚未恢复，其他 14 个 baseline regression 未变 |
 | 背包单物品动作弹窗与上下文失效 | 专项状态 proof、client TypeScript、生产边界 proof 与完整 `verify:client` 通过；文件体积门禁确认主面板降至 2984 行 | 稳定实例身份、数量草稿、摧毁二次确认及特殊使用上下文失效均有确定性保护；背包面板退出新超限清单 | 无真实服务端资产并发、触控/焦点视觉回归；门禁仍因 Pixi 新超限和 14 个 baseline regression 退出 1 |
+| 望气投影与 Pixi 地形缓存失效域 | `pnpm build:shared`、地图 lifecycle/spatial-cache proof 和完整 `pnpm verify:client` 通过；文件体积门禁按预期退出 1 | 绝对灵气统一换算等级，Canvas/Pixi 共用信号；资源/生命条变化精确失效动态层且不再销毁静态 GPU 分块 | 未做 WebGL GPU trace、低端真机半衰期长跑和视觉截图；Pixi 主文件仍为 3729 行，14 个 baseline regression 未处理 |

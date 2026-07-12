@@ -55,6 +55,12 @@ next = current > base ? current - step : current + step
 - 灵脉/灵泉等地标
 - 玩家修炼消耗（逸散）
 
+## 望气显示口径
+
+- 地块 `aura` 是灵气绝对值，客户端必须先按当前地图的 `levelBaseValue` 调用 `getAuraLevel` 换算为等级，再进入颜色映射。
+- 地块存在多类气机资源时，优先使用服务端给出的 `level`；缺少等级时才按 `effectiveValue/value` 换算，最终以等级最高的资源家族和等级着色。
+- 灵气绝对值在同一等级区间内随半衰期流转时，望气颜色不变；只有最终家族或等级变化才需要让覆盖层缓存失效。
+
 ## 灵气对修炼的影响
 
 ```typescript

@@ -17,19 +17,17 @@ import {
   type FloatingActionTextStyle,
 } from './types';
 import {
-  DEFAULT_AURA_LEVEL_BASE_VALUE,
   GameTimeState,
   GroundItemEntryView,
   GroundItemPileView,
-  getAuraLevel,
   isOffsetInRange,
   ItemType,
   NpcQuestMarker,
-  parseQiResourceKey,
   TILE_VISUAL_BG_COLORS,
   TILE_VISUAL_GLYPHS,
   TILE_VISUAL_GLYPH_COLORS,
   normalizeAuraLevelBaseValue,
+  resolveSenseQiOverlaySignal,
   RenderEntity,
   SENSE_QI_OVERLAY_STYLE,
   Tile,
@@ -350,12 +348,10 @@ function easeInOutCubic(t: number): number {
 
 /** 依据感气值计算叠加层 RGBA 样式。 */
 function getSenseQiOverlayStyle(
-  aura: number,
-  levelBaseValue = DEFAULT_AURA_LEVEL_BASE_VALUE,
+  auraLevel: number,
   family: 'aura' | 'sha' | 'demonic' = 'aura',
 ): string {
-  void levelBaseValue;
-  const normalized = Math.max(0, Math.min(aura, SENSE_QI_OVERLAY_STYLE.maxAuraLevel)) / SENSE_QI_OVERLAY_STYLE.maxAuraLevel;
+  const normalized = Math.max(0, Math.min(auraLevel, SENSE_QI_OVERLAY_STYLE.maxAuraLevel)) / SENSE_QI_OVERLAY_STYLE.maxAuraLevel;
   const palette = family === 'sha'
     ? {
       baseRed: 30,
@@ -380,39 +376,6 @@ function getSenseQiOverlayStyle(
   const blue = Math.round(palette.baseBlue + normalized * palette.blueRange);
   const alpha = SENSE_QI_OVERLAY_STYLE.baseAlpha - normalized * SENSE_QI_OVERLAY_STYLE.alphaRange;
   return `rgba(${red}, ${green}, ${blue}, ${alpha.toFixed(3)})`;
-}
-
-function resolveSenseQiOverlaySignal(tile: Tile | null | undefined, levelBaseValue = DEFAULT_AURA_LEVEL_BASE_VALUE): {
-  family: 'aura' | 'sha' | 'demonic';
-  value: number;
-} {
-  if (!tile) {
-    return { family: 'aura', value: 0 };
-  }
-  if (!Array.isArray(tile.resources) || tile.resources.length === 0) {
-    return { family: 'aura', value: Math.max(0, tile.aura ?? 0) };
-  }
-  let strongestFamily: 'aura' | 'sha' | 'demonic' = 'aura';
-  let strongestValue = Math.max(0, tile.aura ?? 0);
-  for (const resource of tile.resources) {
-    const resourceValue = resource.effectiveValue ?? resource.value;
-    const candidate = typeof resource.level === 'number' && Number.isFinite(resource.level)
-      ? resource.level
-      : getAuraLevel(resourceValue, levelBaseValue);
-    if (typeof candidate !== 'number' || !Number.isFinite(candidate) || candidate <= strongestValue) {
-      continue;
-    }
-    const parsed = parseQiResourceKey(resource.key);
-    if (!parsed) {
-      continue;
-    }
-    strongestFamily = parsed.family;
-    strongestValue = candidate;
-  }
-  return {
-    family: strongestFamily,
-    value: strongestValue,
-  };
 }
 
 /** 渲染中实体的动画状态。 */
@@ -1891,9 +1854,9 @@ export class TextRenderer implements IRenderer {
 
         if (tile && this.senseQiOverlay) {
           const signal: ReturnType<typeof resolveSenseQiOverlaySignal> = isVisible
-            ? resolveSenseQiOverlaySignal(tile, senseQiLevelBaseValue)
+            ? resolveSenseQiOverlaySignal(tile.aura, tile.resources, senseQiLevelBaseValue)
             : { family: 'aura', value: 0 };
-          ctx.fillStyle = getSenseQiOverlayStyle(signal.value, senseQiLevelBaseValue, signal.family);
+          ctx.fillStyle = getSenseQiOverlayStyle(signal.value, signal.family);
           ctx.fillRect(sx, sy, cellSize, cellSize);
           const formationRangeVisual = this.resolveFormationRangeVisual(gx, gy, true);
           if (formationRangeVisual) {

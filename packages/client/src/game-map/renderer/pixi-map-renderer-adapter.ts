@@ -20,10 +20,9 @@ import {
 } from 'pixi.js';
 import {
   DEFAULT_AURA_LEVEL_BASE_VALUE,
-  getAuraLevel,
   isMobileEntityObjectKind,
   isOffsetInRange,
-  parseQiResourceKey,
+  resolveSenseQiOverlaySignal,
   SENSE_QI_OVERLAY_STYLE,
   TILE_VISUAL_BG_COLORS,
   TILE_VISUAL_GLYPH_COLORS,
@@ -97,6 +96,11 @@ import {
   resetRuntimeProfileFrameMetrics,
   setRuntimeProfilerEnabled,
 } from '../../debug/runtime-profiler';
+import {
+  buildPixiTerrainChunkOverlaySignature,
+  buildPixiTerrainChunkStaticSignature,
+  PIXI_TERRAIN_CHUNK_SIZE,
+} from './pixi-terrain-cache-signatures';
 
 type PixiRenderer = Renderer<HTMLCanvasElement>;
 type FloatingActionTextStyle = 'default' | 'divine' | 'chant';
@@ -293,7 +297,7 @@ declare global {
   }
 }
 
-const CHUNK_SIZE = 16;
+const CHUNK_SIZE = PIXI_TERRAIN_CHUNK_SIZE;
 const MAX_FLOATING_TEXTS = 256;
 const MAX_ATTACK_TRAILS = 192;
 const ATTACK_TRAIL_REACH_MS = 110;
@@ -773,19 +777,7 @@ function getFengShuiOverlayStroke(cell: { score: number }): { color: number; alp
 }
 
 function getSenseQiOverlayStyle(tile: Tile | null | undefined, levelBaseValue = DEFAULT_AURA_LEVEL_BASE_VALUE): { color: number; alpha: number } {
-  let family: 'aura' | 'sha' | 'demonic' = 'aura';
-  let value = Math.max(0, tile?.aura ?? 0);
-  for (const resource of tile?.resources ?? []) {
-    const resourceValue = resource.effectiveValue ?? resource.value;
-    const candidate = typeof resource.level === 'number' && Number.isFinite(resource.level)
-      ? resource.level
-      : getAuraLevel(resourceValue, levelBaseValue);
-    if (candidate <= value) continue;
-    const parsed = parseQiResourceKey(resource.key);
-    if (!parsed) continue;
-    family = parsed.family;
-    value = candidate;
-  }
+  const { family, value } = resolveSenseQiOverlaySignal(tile?.aura, tile?.resources, levelBaseValue);
   const normalized = Math.max(0, Math.min(value, SENSE_QI_OVERLAY_STYLE.maxAuraLevel)) / SENSE_QI_OVERLAY_STYLE.maxAuraLevel;
   const palette = family === 'sha'
     ? { baseRed: 30, redRange: 164, baseGreen: 10, greenRange: 54, baseBlue: 8, blueRange: 32 }
@@ -2050,54 +2042,27 @@ export class PixiMapRendererAdapter {
   }
 
   private buildTerrainChunkStaticSignature(scene: MapSceneSnapshot, cx: number, cy: number, cellSize: number): string {
-    const startX = cx * CHUNK_SIZE;
-    const startY = cy * CHUNK_SIZE;
-    let signature = `${cellSize}|${this.performanceConfig.renderRuntimeTileSprites ? 1 : 0}|${this.performanceConfig.terrainTextMode ? 1 : 0}|${this.runtimeTileSpriteRevision}`;
-    for (let y = startY - 1; y <= startY + CHUNK_SIZE; y += 1) {
-      for (let x = startX - 1; x <= startX + CHUNK_SIZE; x += 1) {
-        const key = `${x},${y}`;
-        const tile = scene.terrain.tileCache.get(key);
-        if (!tile) continue;
-        signature += [
-          '',
-          key,
-          tile.type,
-          tile.terrainType ?? '',
-          tile.surfaceType ?? '',
-          tile.structureType ?? '',
-          Array.isArray(tile.interactableKinds) ? tile.interactableKinds.join('+') : '',
-          tile.hp ?? '',
-          tile.maxHp ?? '',
-          tile.hpVisible === false ? 0 : 1,
-          tile.aura ?? '',
-          tile.resources?.length ?? 0,
-        ].join(':');
-      }
-    }
-    return signature;
+    return buildPixiTerrainChunkStaticSignature(
+      scene.terrain.tileCache,
+      cx,
+      cy,
+      cellSize,
+      this.performanceConfig.renderRuntimeTileSprites,
+      this.performanceConfig.terrainTextMode,
+      this.runtimeTileSpriteRevision,
+    );
   }
 
   private buildTerrainChunkOverlaySignature(scene: MapSceneSnapshot, cx: number, cy: number, cellSize: number): string {
-    const startX = cx * CHUNK_SIZE;
-    const startY = cy * CHUNK_SIZE;
-    let signature = `${cellSize}|${this.terrainOverlaySignature}`;
-    for (let y = startY; y < startY + CHUNK_SIZE; y += 1) {
-      for (let x = startX; x < startX + CHUNK_SIZE; x += 1) {
-        const key = `${x},${y}`;
-        const tile = scene.terrain.tileCache.get(key);
-        signature += [
-          '',
-          key,
-          scene.terrain.visibleTiles.has(key) ? 1 : 0,
-          tile?.type ?? '',
-          tile?.hp ?? '',
-          tile?.maxHp ?? '',
-          tile?.hpVisible === false ? 0 : 1,
-          tile?.aura ?? '',
-        ].join(':');
-      }
-    }
-    return signature;
+    return buildPixiTerrainChunkOverlaySignature(
+      scene.terrain.tileCache,
+      scene.terrain.visibleTiles,
+      cx,
+      cy,
+      cellSize,
+      this.terrainOverlaySignature,
+      scene.overlays.senseQi?.levelBaseValue ?? null,
+    );
   }
 
   private rebuildTerrainChunkStaticLayers(chunk: TerrainChunkView, scene: MapSceneSnapshot, cellSize: number, signature: string): void {

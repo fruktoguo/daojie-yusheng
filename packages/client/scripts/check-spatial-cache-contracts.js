@@ -33,6 +33,11 @@ assert.match(runtimeState, /options\.clearLootPanel\(\)[\s\S]*?options\.clearBui
 
 const mapStore = read('src/game-map/store/map-store.ts');
 assert.match(mapStore, /else if \(instanceChanged\)[\s\S]*?this\.clearGroundPiles\(\)[\s\S]*?this\.entityMap\.clear\(\)/);
+const terrainStaticSignatureStart = mapStore.indexOf('function buildTerrainTileStaticSignature');
+const terrainStaticSignatureEnd = mapStore.indexOf('\nfunction ', terrainStaticSignatureStart + 1);
+assert.ok(terrainStaticSignatureStart >= 0 && terrainStaticSignatureEnd > terrainStaticSignatureStart);
+const terrainStaticSignatureBody = mapStore.slice(terrainStaticSignatureStart, terrainStaticSignatureEnd);
+assert.doesNotMatch(terrainStaticSignatureBody, /tile\.(?:hp|maxHp|hpVisible|aura|resources)/, '动态地块字段不得推进静态地形 revision');
 
 const observe = read('src/main-observe-state-source.ts');
 assert.match(observe, /activeObservedTile\.instanceId === \(player\.instanceId \?\? player\.mapId\)/);
