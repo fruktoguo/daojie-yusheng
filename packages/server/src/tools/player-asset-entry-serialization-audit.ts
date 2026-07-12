@@ -86,6 +86,26 @@ assertOrdered(genericGrantSource, [
   'input.playerRuntimeService.replaceInventoryItems',
 ]);
 
+const npcQuestSource = readFileSync(
+  resolveProjectPath('packages/server/src/runtime/world/world-runtime-npc-quest-write.service.ts'),
+  'utf8',
+);
+const npcQuestSubmitSource = npcQuestSource.slice(
+  npcQuestSource.indexOf('async dispatchSubmitNpcQuestLocked'),
+  npcQuestSource.indexOf('enqueueNpcInteraction'),
+);
+assert.equal(
+  npcQuestSubmitSource.includes('replaceWalletBalances'),
+  false,
+  'NPC 任务提交后不得用 player_wallet 快照覆盖背包派生钱包投影',
+);
+assertOrdered(npcQuestSubmitSource, [
+  'const nextInventoryItems = buildNextQuestInventorySnapshots',
+  'const nextWalletBalances = buildQuestWalletProjection',
+  'await runSubmit()',
+  'this.playerRuntimeService.replaceInventoryItems',
+]);
+
 const gmSource = readFileSync(
   resolveProjectPath('packages/server/src/runtime/world/world-runtime.controller.ts'),
   'utf8',
@@ -116,6 +136,7 @@ console.log(JSON.stringify({
   guarantees: [
     'P0 玩家资产入口统一经过 runExclusiveAssetMutation',
     '通用背包发放在 durable 成功前不暴露 next runtime snapshot',
+    'NPC 任务奖励把灵石纳入背包真源，并按 inventory plan -> wallet projection -> durable -> runtime apply 执行',
     'Runtime wallet 管理入口只写背包真源，并按 replay -> durable -> runtime apply 执行',
     'GM 背包发放按 next snapshot -> durable -> runtime apply 执行',
   ],

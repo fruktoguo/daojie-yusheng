@@ -54,9 +54,12 @@ canQuestBecomeReady = progress >= required
 ## 奖励发放
 
 ```
-1. 扣除提交物品: consumeInventoryItemByItemId(requiredItemId, requiredItemCount)
-2. 发放背包奖励: receiveInventoryItem(playerId, reward)
-3. 发放灵石奖励: creditWallet(playerId, 'spirit_stone', count)
+1. 在玩家资产串行区内预演扣除提交物品
+2. 把普通奖励与灵石奖励统一合入下一版背包快照
+3. durable 路径把背包真源、钱包投影与任务状态放入同一事务提交
+4. 提交成功后用背包快照刷新运行态，钱包展示由背包中的灵石派生
 ```
 
-- `spirit_stone` 被识别为钱包类奖励，不占背包格
+- `spirit_stone` 是背包货币真源：已有同签名灵石堆时直接合并；没有灵石堆时会占用一个背包格，背包不足则任务不能提交。
+- 任务提交物品本身若为灵石，钱包投影同样按扣除后的背包数量更新，不能只对奖励做增量累加。
+- 普通奖励、灵石、提交物品和任务完成态必须同成同败；数据库提交失败时不提前修改运行态。

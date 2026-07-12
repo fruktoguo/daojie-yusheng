@@ -15,7 +15,7 @@ async function main(): Promise<void> {
       ok: true,
       skipped: true,
       reason: 'SERVER_DATABASE_URL/DATABASE_URL missing',
-      answers: 'with-db 下 submitNpcQuestRewards 会在同一事务内提交 player_inventory_item/player_wallet/watermark/outbox/audit，并执行 runtime_owner_id + session_epoch + instance lease fencing',
+      answers: 'with-db 下 submitNpcQuestRewards 会在同一事务内提交含灵石真源的 player_inventory_item、player_wallet 投影、任务、水位、outbox 与 audit，并执行 runtime_owner_id + session_epoch + instance lease fencing',
       excludes: '不证明 quest_state 本身已与奖励资产放进同一事务，也不证明更通用的世界 tick 资产 intent 编排',
     }, null, 2));
     return;
@@ -220,9 +220,11 @@ async function main(): Promise<void> {
     );
 
     if (
-      inventoryRows.length !== 1
+      inventoryRows.length !== 2
       || inventoryRows[0]?.item_id !== 'rat_tail'
       || Number(inventoryRows[0]?.count) !== 2
+      || inventoryRows[1]?.item_id !== 'spirit_stone'
+      || Number(inventoryRows[1]?.count) !== 3
     ) {
       throw new Error(`unexpected quest reward inventory rows: ${JSON.stringify(inventoryRows)}`);
     }
@@ -271,7 +273,7 @@ async function main(): Promise<void> {
     console.log(JSON.stringify({
       ok: true,
       case: 'npc-quest-reward-durable',
-      answers: 'with-db 下 submitNpcQuestRewards 现已验证 runtime_owner_id + session_epoch + instance lease fencing、幂等回放、拒绝不污染真源，以及 player_inventory_item/player_wallet/player_quest_progress/watermark/outbox/audit 的同事务提交',
+      answers: 'with-db 下 submitNpcQuestRewards 现已验证 runtime_owner_id + session_epoch + instance lease fencing、幂等回放、拒绝不污染真源，以及含灵石背包真源的 player_inventory_item、player_wallet 投影、player_quest_progress、watermark、outbox 与 audit 的同事务提交',
       excludes: '不证明更通用的世界 tick 资产 intent 编排',
       completionMapping: 'release:proof:with-db.npc-quest-reward-durable',
       firstResult,
@@ -293,6 +295,14 @@ function buildNextInventoryItems() {
       rawPayload: {
         itemId: 'rat_tail',
         count: 2,
+      },
+    },
+    {
+      itemId: 'spirit_stone',
+      count: 3,
+      rawPayload: {
+        itemId: 'spirit_stone',
+        count: 3,
       },
     },
   ];

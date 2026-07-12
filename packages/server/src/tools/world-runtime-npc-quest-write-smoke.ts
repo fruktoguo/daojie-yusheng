@@ -1,8 +1,6 @@
-// @ts-nocheck
+import assert from 'node:assert/strict';
 
-const assert = require("node:assert/strict");
-
-const { WorldRuntimeNpcQuestWriteService } = require("../runtime/world/world-runtime-npc-quest-write.service");
+import { WorldRuntimeNpcQuestWriteService } from '../runtime/world/world-runtime-npc-quest-write.service';
 
 function createDeferred() {
     let resolve;
@@ -73,6 +71,14 @@ function createService(player, log = []) {
         replaceInventoryItems(playerId, items) {
             player.inventory = player.inventory ?? { items: [] };
             player.inventory.items = items.map((entry) => ({ ...entry }));
+            const spiritStoneCount = player.inventory.items
+                .filter((entry) => entry.itemId === 'spirit_stone')
+                .reduce((total, entry) => total + Number(entry.count ?? 0), 0);
+            player.wallet = {
+                balances: spiritStoneCount > 0
+                    ? [{ walletType: 'spirit_stone', balance: spiritStoneCount, frozenBalance: 0, version: 1 }]
+                    : [],
+            };
             log.push(['replaceInventoryItems', playerId, items.map((entry) => [entry.itemId, entry.count])]);
         },
         replaceWalletBalances(playerId, balances) {
@@ -83,17 +89,6 @@ function createService(player, log = []) {
         },
         creditWallet(playerId, walletType, amount) {
             log.push(['creditWallet', playerId, walletType, amount]);
-        },
-    }, {
-        createQuestStateFromSource(playerId, questId, status = 'active') {
-            log.push(['createQuestStateFromSource', playerId, questId, status]);
-            return {
-                id: questId,
-                title: questId === 'quest:next' ? '后续任务' : questId,
-                status,
-                progress: 0,
-                required: 1,
-            };
         },
     });
 }
@@ -578,9 +573,7 @@ async function testDispatchSubmitNpcQuestFallsBackWhenDurableUnavailable() {
     assert.equal(player.quests.quests[0].status, 'completed');
     assert.deepEqual(log, [
         ['refreshQuestStates', 'player:1'],
-        ['consumeInventoryItemByItemId', 'player:1', 'quest_token', 1],
-        ['receiveInventoryItem', 'player:1', 'rat_tail', 2],
-        ['creditWallet', 'player:1', 'spirit_stone', 3],
+        ['replaceInventoryItems', 'player:1', [['quest_token', 1], ['rat_tail', 2], ['spirit_stone', 3]]],
         ['markQuestStateDirty', 'player:1'],
         ['tryAcceptNextQuest', 'player:1', 'quest:next'],
         ['refreshQuestStates', 'player:1'],
@@ -601,6 +594,9 @@ async function testDispatchSubmitNpcQuestUsesDurableInventoryGrant() {
         inventory: {
             items: [{ itemId: 'quest_token', count: 1, name: '信物' }],
             capacity: 8,
+        },
+        wallet: {
+            balances: [],
         },
         quests: {
             quests: [{
@@ -634,6 +630,14 @@ async function testDispatchSubmitNpcQuestUsesDurableInventoryGrant() {
                 return true;
             },
             async submitNpcQuestRewards(input) {
+                assert.deepEqual(
+                    input.nextInventoryItems.map((entry) => [entry.itemId, entry.count]),
+                    [['rat_tail', 2], ['spirit_stone', 3]],
+                );
+                assert.deepEqual(
+                    input.nextWalletBalances.map((entry) => [entry.walletType, entry.balance]),
+                    [['spirit_stone', 3]],
+                );
                 log.push(['submitNpcQuestRewards', input.questId, input.expectedInstanceId, input.expectedAssignedNodeId, input.expectedOwnershipEpoch]);
                 return deferred.promise;
             },
@@ -696,8 +700,7 @@ async function testDispatchSubmitNpcQuestUsesDurableInventoryGrant() {
         ['refreshQuestStates', 'player:1'],
         ['createQuestStateFromSource', 'player:1', 'quest:next', 'active'],
         ['submitNpcQuestRewards', 'quest:ready', 'instance:quest-smoke', 'node:quest-smoke', 11],
-        ['replaceInventoryItems', 'player:1', [['rat_tail', 2]]],
-        ['replaceWalletBalances', 'player:1', [['spirit_stone', 3, 1]]],
+        ['replaceInventoryItems', 'player:1', [['rat_tail', 2], ['spirit_stone', 3]]],
         ['markQuestStateDirty', 'player:1'],
         ['refreshQuestStates', 'player:1'],
         ['queuePlayerNotice', 'player:1', '阿青：做得不错，这是你的奖励 奖励到手', 'success'],
@@ -707,6 +710,67 @@ async function testDispatchSubmitNpcQuestUsesDurableInventoryGrant() {
     assert.equal(player.quests.quests[1].id, 'quest:next');
     assert.equal(player.wallet.balances[0].walletType, 'spirit_stone');
     assert.equal(player.wallet.balances[0].balance, 3);
+}
+
+async function testDispatchSubmitNpcQuestProjectsWalletFromFinalInventory() {
+    const log = [];
+    const player = {
+        playerId: 'player:wallet-projection',
+        runtimeOwnerId: 'runtime-owner:wallet-projection',
+        sessionEpoch: 9,
+        inventory: {
+            items: [{ itemId: 'spirit_stone', count: 5, name: '灵石', type: 'currency' }],
+            capacity: 1,
+        },
+        wallet: {
+            balances: [{ walletType: 'spirit_stone', balance: 99, frozenBalance: 0, version: 4 }],
+        },
+        quests: {
+            quests: [{
+                id: 'quest:wallet-projection',
+                status: 'ready',
+                submitNpcId: 'npc_a',
+                requiredItemId: 'spirit_stone',
+                requiredItemCount: 2,
+            }],
+        },
+    };
+    const service = createService(player, log);
+    await service.dispatchSubmitNpcQuest(player.playerId, 'npc_a', 'quest:wallet-projection', {
+        resolveAdjacentNpc() {
+            return { npcId: 'npc_a', name: '阿青' };
+        },
+        buildQuestRewardItems() {
+            return [{ itemId: 'spirit_stone', count: 1, name: '灵石', type: 'currency' }];
+        },
+        durableOperationService: {
+            isEnabled() {
+                return true;
+            },
+            async submitNpcQuestRewards(input) {
+                assert.deepEqual(
+                    input.nextInventoryItems.map((entry) => [entry.itemId, entry.count]),
+                    [['spirit_stone', 4]],
+                );
+                assert.deepEqual(
+                    input.nextWalletBalances.map((entry) => [entry.walletType, entry.balance, entry.version]),
+                    [['spirit_stone', 4, 5]],
+                );
+                return { ok: true, alreadyCommitted: false, questId: input.questId };
+            },
+        },
+        refreshQuestStates() {},
+        tryAcceptNextQuest() {
+            return null;
+        },
+        queuePlayerNotice() {},
+    });
+    assert.deepEqual(
+        player.inventory.items.map((entry) => [entry.itemId, entry.count]),
+        [['spirit_stone', 4]],
+    );
+    assert.equal(player.wallet.balances[0].balance, 4);
+    assert.equal(log.some((entry) => entry[0] === 'replaceWalletBalances'), false);
 }
 
 async function testDispatchSubmitNpcQuestFailsClosedWithoutRuntimeOwner() {
@@ -762,6 +826,7 @@ async function main() {
     await testDispatchSubmitNpcQuestRefreshesStateBeforeReadyCheck();
     await testDispatchSubmitNpcQuestFallsBackWhenDurableUnavailable();
     await testDispatchSubmitNpcQuestUsesDurableInventoryGrant();
+    await testDispatchSubmitNpcQuestProjectsWalletFromFinalInventory();
     await testDispatchSubmitNpcQuestFailsClosedWithoutRuntimeOwner();
     console.log(JSON.stringify({ ok: true, case: 'world-runtime-npc-quest-write' }, null, 2));
 }

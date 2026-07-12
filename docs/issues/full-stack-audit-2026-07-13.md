@@ -3,7 +3,7 @@
 ## 审计口径
 
 - 生产主线：`packages/client`、`packages/shared`、`packages/server`、`packages/config-editor`。
-- 当前基线：`main` 分支 `0c6df9ba`；相对 `origin/main` ahead 15。
+- 当前基线：`main` 分支 `d511cd0a`；相对 `origin/main` ahead 16。
 - package manager：`pnpm@10.29.1`。
 - 每项结论必须来自机制文档、完整调用链、测试、编译产物或运行数据；仅凭搜索未发现异常不能标记为“确认无问题”。
 - `[x]` 只表示该行列出的具体证据范围已完成，不代表相邻系统或整个项目已完成。
@@ -16,6 +16,7 @@
 - [x] A-01 工作区、分支、近期提交、package scripts、mechanics 索引和现有持久化审计材料已盘点。
 - [ ] A-02 `packages/*` 生产模块、入口、后台 worker、smoke/proof/audit 与文档的完整对应关系。
 - [ ] A-03 公共 API、依赖方向、文件职责和运行时/网络/持久化/UI 边界审计。
+- [x] A-04 NPC 任务写路径 smoke 的 TypeScript 绕过、构造器漂移和错误资产模型已修复；见 FS-022。
 
 ### 资产、持久化与恢复
 
@@ -38,6 +39,7 @@
 - [x] P-17 GM 全服广播邮件的全快照枚举、逐玩家串行投递和部分提交问题已修复；见 FS-016。
 - [x] P-18 兑换码灵石写错真源、拆分资产事务及 pending 重试重复规划问题已修复；见 FS-017。
 - [x] P-19 Runtime 钱包/背包管理入口写错资产真源、缺少稳定重放身份且生产降级为易失写的问题已修复；见 FS-020。
+- [x] P-20 NPC 任务灵石奖励未进入背包真源、钱包投影按旧模型增量覆盖的问题已修复；见 FS-021。
 
 ### 服务端权威运行时
 
@@ -385,7 +387,7 @@
 
 ### FS-020 Runtime 资产管理入口写错真源且生产 durable 失效时静默降级
 
-- **状态**：已修复并完成专项/真实数据库验证，等待本组原子提交。
+- **状态**：已修复、完成专项/真实数据库验证并原子提交。
 - **严重级别**：P0。
 - **所属功能组**：Runtime HTTP / 背包与灵石 / durable operation / 管理操作幂等。
 - **影响链路**：`/runtime/players/:playerId/wallet/credit|debit` 或 `grant-item` → 玩家资产串行区 → `DurableOperationService.mutatePlayerWallet()` / `grantInventoryItems()` → 运行态 `creditWallet()` / `debitWallet()` / `replaceInventoryItems()` → flush 与重启恢复。
@@ -397,7 +399,39 @@
 - **修复方式**：wallet credit/debit 改为规划完整背包 after snapshot，并通过一次 `grantInventoryItems` 以 `grant/remove` 动作写 `player_inventory_item`、inventory watermark、outbox 和 audit，提交后统一 `replaceInventoryItems()` 刷新 wallet 投影。wallet 与 grant-item 接受并返回稳定 `requestId / operationId`；生产强制调用方提供 requestId，提交前回读 operation，精确重放直接返回当前运行态，source 参数不同则拒绝。生产 durable 不可用时失败关闭，仅明确 test/verify/smoke 环境保留运行态 fallback；数量上限、背包容量、余额不足、session 与实例 lease fence 均在提交前校验。
 - **实际修改**：更新 `world-runtime.controller.ts` 与 Runtime HTTP 环境判定导出；重写 `world-runtime-wallet-route-smoke.ts` 的背包真源夹具、输入/容量、重放/冲突和生产失败关闭断言；修复相邻 `world-runtime-inventory-route-smoke.ts` 的 durable 装配和当前 source identity；扩展 `player-asset-entry-serialization-audit.ts`，静态禁止该入口回退 `mutatePlayerWallet`；同步 GM mechanics。
 - **验证结果**：`git diff --check`、`pnpm --filter @mud/server compile` 与最终 `pnpm verify:quick` 通过；compiled `world-runtime-wallet-route-smoke` 证明灵石 `10 → 14 → 11` 全程只形成两次 inventory durable call，相同 requestId 的 credit 和 grant-item 均不重复，参数冲突、零数量、超上限、非法 requestId、满背包、生产缺 requestId 和生产 durable disabled 均拒绝，运行态 fallback 调用为 0；compiled `world-runtime-inventory-route-smoke` 证明 source identity、session/instance fence 和 durable 失败不改运行态；compiled `player-asset-entry-serialization-audit` 证明 wallet 管理入口按 replay → inventory durable → runtime apply 串行且源代码不再调用 `mutatePlayerWallet`；compiled `strong-persistence-lease-report` 通过；真实 PostgreSQL compiled `inventory-grant-durable-smoke` 证明 inventory、watermark、outbox、audit 与来源变更同事务、精确重放不重复、拒绝不污染真源。
+- **中文原子提交 hash**：`d511cd0a`（`fix(runtime): 加固运行时资产管理入口`）。
+
+### FS-021 NPC 任务灵石奖励未进入背包真源
+
+- **状态**：已修复并完成专项/真实数据库验证，等待本组原子提交。
+- **严重级别**：P0。
+- **所属功能组**：NPC 任务 / 奖励结算 / 背包与灵石 / durable operation。
+- **影响链路**：玩家提交 ready 任务 → `WorldRuntimeNpcQuestWriteService.dispatchSubmitNpcQuestLocked()` → 奖励分类 → `DurableOperationService.submitNpcQuestRewards()` → `player_inventory_item / player_wallet / player_quest_progress` → 运行态背包与钱包投影 → 重启恢复。
+- **证据**：修复前任务写路径把 `spirit_stone` 从 `inventoryRewards` 中剔除，`nextInventoryItems` 只包含提交物品扣除结果和普通奖励；灵石只通过 `applyQuestWalletRewards()` 累加进 `nextWalletBalances` 并写 `player_wallet`。durable 提交后运行态先以不含灵石的快照执行 `replaceInventoryItems()`，再用 `replaceWalletBalances()` 强行显示灵石。当前玩家钱包读取、加减和恢复均以背包中的 `spirit_stone` 为真源，二者语义直接冲突。原 mechanics 还明确写着灵石奖励“不占背包格”，与当前物品化货币模型不符。
+- **根本原因**：任务强事务实现停留在旧的独立钱包模型；灵石迁移为背包货币后，只调整了 `PlayerRuntimeService`，没有同步任务奖励规划、容量校验、durable after snapshot、运行态应用和机制文档。钱包投影还按“旧余额 + 奖励”计算，任务若提交灵石物品也不会反映扣除结果。
+- **为什么错误**：任务奖励、提交物品和任务完成态必须同成同败，且所有要求重启后仍存在的资产必须写当前数据库真源。用 `player_wallet` 制造一个背包中不存在的余额只会让当前进程暂时显示成功；投影不能反向覆盖真源，也不能绕过背包容量和物品数量上限。
+- **触发条件**：提交含灵石奖励的任务；提交物品本身是灵石；玩家没有灵石堆且背包已满；灵石堆接近 `2_147_483_647`；任务 durable 提交后进程重启或玩家重新登录。
+- **可能后果**：任务界面与钱包即时显示已经获得灵石，但重启/重连从 `player_inventory_item` 恢复后奖励消失；`player_wallet` 与背包长期账实不符；满背包仍可领取本应占新格的灵石；提交灵石任务后钱包投影保留旧余额；堆叠溢出时出现截断或超界资产；审计记录显示任务成功而玩家实际未获得可恢复奖励。
+- **修复方式**：不再区分普通奖励和钱包奖励；先在玩家资产串行区内克隆当前背包，按提交物品扣除，再用共享物品堆叠签名合入全部奖励并分配必要的 `itemInstanceId`，校验容量和数量上限。由最终背包快照精确派生 `spirit_stone` 钱包投影，连同任务状态在一次 durable 事务内提交；提交成功后只 `replaceInventoryItems()`，由运行态背包刷新钱包缓存，禁止 `replaceWalletBalances()` 反向覆盖。无 durable 测试路径也复用同一快照规划，避免两套结算语义。
+- **实际修改**：更新 `world-runtime-npc-quest-write.service.ts`、任务 mechanics、任务写路径 smoke、真实数据库 `npc-quest-reward-durable-smoke.ts` 与玩家资产串行静态审计。
+- **验证结果**：`git diff --check`、`pnpm --filter @mud/server compile` 与最终 `pnpm verify:quick` 通过；compiled `world-runtime-npc-quest-write-smoke` 证明提交物品扣除、普通奖励和灵石奖励形成同一 next inventory，钱包投影精确为背包灵石数量，durable 返回前不修改运行态，提交后不再调用 `replaceWalletBalances`；compiled `player-asset-entry-serialization-audit` 证明顺序为 inventory plan → wallet projection → durable → runtime apply；真实 PostgreSQL compiled `npc-quest-reward-durable-smoke` 证明拒绝不污染真源、session/instance lease fence、精确重放，以及包含 `rat_tail x2 + spirit_stone x3` 的背包真源、钱包投影、任务行、水位、outbox、audit 同事务提交并自动清理夹具。
 - **中文原子提交 hash**：待提交。
+
+### FS-022 NPC 任务写路径 smoke 通过 TypeScript 绕过隐藏构造器漂移
+
+- **状态**：已修复并完成编译/专项验证，等待随 FS-021 原子提交。
+- **严重级别**：P1（验证盲区，不直接修改玩家数据）。
+- **所属功能组**：NPC 任务 / TypeScript 门禁 / smoke 可信度。
+- **影响链路**：`world-runtime-npc-quest-write-smoke.ts` → server compile → `WorldRuntimeNpcQuestWriteService` 构造器与任务资产结算断言。
+- **证据**：该 smoke 使用 `// @ts-nocheck` 和 CommonJS；它把含 `createQuestStateFromSource()` 的对象作为第二构造参数传入，但生产构造器第二参数早已是 `DurableOperationService`。类型检查被关闭后这一漂移长期未暴露。测试夹具同时把灵石只放进 wallet、断言 durable 后调用 `replaceWalletBalances()`，恰好把 FS-021 的错误行为固化为“正确期望”。
+- **根本原因**：服务职责和构造器变更后，旧 smoke 没有同步迁移；`@ts-nocheck` 让 TypeScript 无法校验依赖位置和夹具字段，CommonJS 写法也绕开项目的 TypeScript 模块规范。
+- **为什么错误**：资产 smoke 应证明当前生产依赖和真源语义，不能用失效构造器与不可能状态制造绿灯。若测试把 bug 写成期望，后续修复反而会被错误阻止；若继续关闭类型检查，依赖签名再次漂移也不会在编译期失败。
+- **触发条件**：修改任务写服务构造器、钱包/背包真源或 durable 结算顺序；单独运行旧 smoke 时仍可能因依赖恰好未被访问而通过。
+- **可能后果**：任务资产回归缺少可信门禁；测试声称覆盖 durable，实际使用的是错位依赖；灵石丢失、运行态提前应用或调用顺序错误被长期掩盖。
+- **修复方式**：移除 `@ts-nocheck` 与 CommonJS，改为规范 TypeScript import；删除错位的第二构造参数；补齐真实 wallet 派生夹具，把期望改为灵石进入背包、durable 前不应用、提交后仅替换背包。首次恢复类型检查即准确发现错位 `createQuestStateFromSource` 和缺失 wallet 字段，修正后 server compile 与 compiled smoke 均通过。
+- **实际修改**：更新 `world-runtime-npc-quest-write-smoke.ts`，并由静态资产审计补充生产源代码顺序断言。
+- **验证结果**：移除 TypeScript 绕过后的 `pnpm --filter @mud/server compile` 通过；compiled `world-runtime-npc-quest-write-smoke` 与 `player-asset-entry-serialization-audit` 通过。
+- **中文原子提交 hash**：待提交（随 FS-021）。
 
 ## 2026-07-14 待用户决定
 
