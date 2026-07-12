@@ -3,7 +3,7 @@
 ## 审计口径
 
 - 生产主线：`packages/client`、`packages/shared`、`packages/server`、`packages/config-editor`。
-- 当前基线：`main` 分支 `8424735c`；相对 `origin/main` ahead 6。
+- 当前基线：`main` 分支 `77c0cced`；相对 `origin/main` ahead 7。
 - package manager：`pnpm@10.29.1`。
 - 每项结论必须来自机制文档、完整调用链、测试、编译产物或运行数据；仅凭搜索未发现异常不能标记为“确认无问题”。
 - `[x]` 只表示该行列出的具体证据范围已完成，不代表相邻系统或整个项目已完成。
@@ -27,6 +27,7 @@
 - [x] P-06 密室拆除的活跃 lease/ownership epoch fence 已完成静态审计并修复；验证与提交信息见 FS-001。
 - [x] P-07 通用托管实例到期销毁的 catalog lease/epoch CAS、失败保留运行态和旧 writer 隔离已修复；见 FS-002。
 - [x] P-08 通天塔空闲实例的 dirty 落盘、统一销毁入口与 catalog CAS 顺序已修复；见 FS-004。
+- [x] P-09 普通启动与 GM 恢复错误批量销毁实例 catalog 真源的问题已修复；见 FS-005。
 
 ### 服务端权威运行时
 
@@ -112,7 +113,7 @@
 
 ### FS-004 通天塔空闲清理吞掉落盘失败并绕过统一销毁围栏
 
-- **状态**：已修复并完成专项验证，待本功能组原子提交。
+- **状态**：已修复、验证并提交。
 - **严重级别**：P0。
 - **所属功能组**：通天塔 / 空闲生命周期 / 实例分域 / catalog lease。
 - **影响链路**：世界维护 tick 或玩家退出 → `WorldRuntimeTongtianTowerService.cleanupIdleInstances()` → `flushInstanceDomains()` → 本地实例/tick/loot/event/formation 清理 → `instance_catalog`。
@@ -124,6 +125,22 @@
 - **修复方式**：空闲清理先要求 `flushInstanceDomains` 能力并完成落盘，异常时保留实例；落盘后通过全局 dirty 清单复查，仍 dirty 时继续保留。只有两道检查都通过才调用同层 `world-runtime-instance-lease.helpers.ts` 的 `destroyManagedInstance()` 权威入口，由其执行在线玩家复查、当前节点 lease 校验、catalog lease/epoch CAS、epoch 递增和提交后的内存卸载；能力缺失、CAS 拒绝或数据库异常均按实例记录原因并等待下轮重试。
 - **实际修改**：`world-runtime-tongtian-tower.service.ts` 删除重复的本地卸载与普通 catalog upsert，改为“flush → dirty 复查 → 统一销毁”，并直接复用实例生命周期 helper，未向已经到达生产边界阈值的 `WorldRuntimeService` facade 增加新职责；`tongtian-tower-smoke.ts` 增加落盘异常、落盘后仍 dirty、catalog 冲突和精确 lease/epoch 成功四段证明；机制文档同步失败关闭与 CAS 顺序。
 - **验证结果**：`git diff --check` 与 `pnpm --filter @mud/server compile` 通过；compiled `tongtian-tower-smoke` 通过，证明前三种失败均保留原运行态且不提前清理 tick/loot，成功时携带本地 lease 与 epoch `4`、采用 catalog 新 epoch `5` 后卸载；真实 PostgreSQL `tongtian-tower-persistence-smoke` 通过且自清理玩家进度夹具；compiled `world-runtime-tower-restart-recovery-smoke` 通过，证明重启恢复仍先裁定塔层 lease 再恢复离线挂机玩家；`pnpm verify:quick` 完整通过，生产边界检查确认 `world-runtime.service.ts` 仍为阈值内的 1200 行。`verify:quick` 不证明完整 persistence/shadow/acceptance/full 或真实多节点 split-brain。
+- **中文原子提交 hash**：`77c0cced`（`fix(persistence): 加固通天塔空闲销毁围栏`）。
+
+### FS-005 世界运行态重建把 catalog 真源批量改成 destroyed/stopped
+
+- **状态**：已修复并完成专项验证，待本功能组原子提交。
+- **严重级别**：P0。
+- **所属功能组**：服务启动 / GM 数据库恢复 / 实例 catalog / 生命周期终态。
+- **影响链路**：`ServerLifecycleCoordinatorService.recoverWorld()` 或 `NativeDatabaseRestoreCoordinatorService.reloadAfterRestore()` → `WorldRuntimeLifecycleService.rebuildPersistentRuntimeAfterRestore()` → `instance_catalog.updateInstanceStatus()` / `upsertInstanceCatalog()` → catalog 接管与玩家恢复。
+- **证据**：修复前 `rebuildPersistentRuntimeAfterRestore()` 默认令 `rewriteCatalogRuntimeStatus = true`；普通启动在未配置环境变量时默认走 eager 并显式传 true，GM 数据库恢复也显式传 true。方法先把 catalog 可恢复条目物化到内存，随后遍历全部本地实例，以仅含 `instance_id` 的无条件 `UPDATE` 写入 `destroyed/stopped`，再用普通 upsert 清空 lease；两次写入都没有匹配当前节点、lease token 或 ownership epoch。
+- **根本原因**：早期实现把“丢弃当前进程的旧内存对象并从数据库重建”错误建模为“销毁数据库中的实例”，混淆了本地运行态 reset 与持久化生命周期终态；后来新增轻量/完整恢复选项时只给该旧循环加了开关，又在默认恢复改回 eager 后重新启用了它。
+- **为什么错误**：`instance_catalog` 是启动扫描、节点归属和恢复判断的真源，重启或导入后的内存重建不代表实例业务生命周期结束。真正销毁必须由显式流程按 `assigned_node_id + lease_token + ownership_epoch` 做 CAS 并递增 epoch；恢复代码无权根据本地枚举结果越过远端所有权写终态。
+- **触发条件**：启用 PostgreSQL 实例 catalog 后进行默认 eager 服务启动，或执行 GM 数据库恢复；只要待恢复 catalog 条目被物化或本地仍有同 ID 运行态，就会进入无围栏重写。
+- **可能后果**：仍应恢复的公共、宗门、个人或长生命周期实例在 catalog 中变成终态，后续 `shouldRestoreCatalogEntry()` 直接跳过；实例分域数据留在数据库却失去可恢复目录，形成持久化孤儿；离线挂机玩家因目标实例缺失被隔离；旧节点还能覆盖新节点的活跃 lease，造成双节点接管/卸载错乱。
+- **修复方式**：彻底删除 `rewriteCatalogRuntimeStatus` 选项及批量 `updateInstanceStatus + upsertInstanceCatalog` 循环；普通启动和 GM 恢复只 reset 本节点内存结构，catalog 继续作为恢复真源。实例的 `destroyed/stopped` 转换只允许走已有的显式 lease/epoch CAS 销毁入口。
+- **实际修改**：`world-runtime-lifecycle.service.ts` 删除恢复期 catalog 终态重写；启动协调器、GM 恢复协调器和接口同步移除该选项；`startup-lifecycle-coordinator-smoke.ts` 证明调用载荷不再携带销毁开关；`world-runtime-lifecycle-smoke.ts` 在 catalog 条目已物化的场景中设置终态写入陷阱，证明轻量重建仍保留 catalog 且不触发该写入；schema 文档补充恢复与销毁边界。
+- **验证结果**：`git diff --check` 与 `pnpm --filter @mud/server compile` 通过；compiled `world-runtime-lifecycle-smoke` 通过，catalog 终态写入陷阱未触发且轻量恢复仍保留 catalog shell；compiled `startup-lifecycle-coordinator-smoke` 通过，证明默认 eager 启动仍在 traffic/tick/flush 闸门关闭期间恢复，但调用载荷已不存在销毁开关；compiled `native-database-restore-route-cleanup-smoke` 通过，证明 GM 恢复后的 world/market/mail/GM auth/player auth 重载顺序未变；`pnpm verify:quick` 完整通过，生产边界仍为 `world-runtime.service.ts = 1200` 行。该验证不证明真实多节点滚动启动、完整数据库导入/恢复或 release/shadow/acceptance/full。
 - **中文原子提交 hash**：待本功能组提交后回填。
 
 ## 2026-07-14 待用户决定

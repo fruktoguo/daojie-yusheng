@@ -296,11 +296,9 @@ export class WorldRuntimeLifecycleService {
         restoreOfflinePlayers?: boolean;
         restoreInstanceDomains?: boolean;
         restoreCatalogInstances?: boolean;
-        rewriteCatalogRuntimeStatus?: boolean;
     } = {}) {
         const restoreCatalogInstances = options.restoreCatalogInstances !== false;
         const restoreInstanceDomains = options.restoreInstanceDomains !== false;
-        const rewriteCatalogRuntimeStatus = options.rewriteCatalogRuntimeStatus !== false;
         const catalogEntries = deps.instanceCatalogService?.isEnabled?.() && restoreCatalogInstances
             ? await deps.instanceCatalogService.listInstanceCatalogEntries?.()
             : [];
@@ -364,39 +362,6 @@ export class WorldRuntimeLifecycleService {
                     destroyAt: entry.destroy_at ? new Date(entry.destroy_at).toISOString() : null,
                     lastActiveAt: entry.last_active_at ? new Date(entry.last_active_at).toISOString() : null,
                     lastPersistedAt: entry.last_persisted_at ? new Date(entry.last_persisted_at).toISOString() : null,
-                });
-            }
-        }
-        if (deps.instanceCatalogService?.isEnabled?.() && rewriteCatalogRuntimeStatus) {
-            for (const [instanceId, instance] of deps.listInstanceEntries()) {
-                const kind = typeof instance?.kind === 'string' && instance.kind.trim() ? instance.kind.trim() : 'public';
-                const templateId = instance?.template?.id ?? instance?.templateId ?? '';
-                const shardKey = instance?.meta?.shardKey ?? instanceId;
-                await deps.instanceCatalogService.updateInstanceStatus(instanceId, 'destroyed', 'stopped');
-                await deps.instanceCatalogService.upsertInstanceCatalog({
-                    instanceId,
-                    templateId,
-                    instanceType: kind,
-                    persistentPolicy: normalizePersistentPolicy(
-                        instance?.meta?.persistentPolicy
-                        ?? (instance?.meta?.persistent === true || instance?.persistent === true ? 'persistent' : 'ephemeral'),
-                    ),
-                    ownerPlayerId: instance?.meta?.ownerPlayerId ?? null,
-                    ownerSectId: instance?.meta?.ownerSectId ?? null,
-                    partyId: instance?.meta?.partyId ?? null,
-                    lineId: instance?.meta?.lineId ?? null,
-                    status: 'destroyed',
-                    runtimeStatus: 'stopped',
-                    assignedNodeId: instance?.meta?.assignedNodeId ?? null,
-                    leaseToken: null,
-                    leaseExpireAt: null,
-                    ownershipEpoch: instance?.meta?.ownershipEpoch ?? 0,
-                    clusterId: instance?.meta?.clusterId ?? null,
-                    shardKey,
-                    routeDomain: instance?.meta?.routeDomain ?? null,
-                    destroyAt: instance?.meta?.destroyAt ?? null,
-                    lastActiveAt: instance?.meta?.lastActiveAt ?? null,
-                    lastPersistedAt: instance?.meta?.lastPersistedAt ?? null,
                 });
             }
         }

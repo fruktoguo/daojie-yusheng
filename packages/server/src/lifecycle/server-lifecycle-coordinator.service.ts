@@ -176,7 +176,6 @@ export class ServerLifecycleCoordinatorService implements OnApplicationBootstrap
       restoreOfflinePlayers: false,
       restoreInstanceDomains: eagerRestore,
       restoreCatalogInstances: true,
-      rewriteCatalogRuntimeStatus: eagerRestore,
     });
     const instanceIds = this.listRuntimeInstanceIds();
     this.startupBarrierService.openInstanceWrites(instanceIds);

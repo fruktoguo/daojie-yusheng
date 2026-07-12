@@ -53,7 +53,6 @@ interface WorldRuntimeServiceLike {
     restoreOfflinePlayers?: boolean;
     restoreInstanceDomains?: boolean;
     restoreCatalogInstances?: boolean;
-    rewriteCatalogRuntimeStatus?: boolean;
   }): Promise<void>;
 }
 
@@ -184,7 +183,6 @@ export class NativeDatabaseRestoreCoordinatorService {
         restoreOfflinePlayers: true,
         restoreInstanceDomains: true,
         restoreCatalogInstances: true,
-        rewriteCatalogRuntimeStatus: true,
       });
     }
     if (NATIVE_GM_RESTORE_CONTRACT.reloadMarketAfterRestore) {

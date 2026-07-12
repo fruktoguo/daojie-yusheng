@@ -39,6 +39,7 @@
 - 租约机制防止多节点同时加载同一实例
 - `ownership_epoch` 递增防止旧节点的过期写入
 - 实例销毁必须用运行态持有的 `assigned_node_id + lease_token + ownership_epoch` 做原子 CAS；销毁成功时先递增 `ownership_epoch` 和 `metadata_version`、清空 lease，再卸载本地运行态。CAS 冲突或数据库失败时保留运行态，等待租约同步收敛，不能先删内存再补写 catalog
+- 普通启动和 GM 数据库恢复只重建本节点内存运行态，不得把 catalog 真源批量改写为 `destroyed/stopped`；实例终态只能由显式销毁流程按上述 lease/epoch CAS 产生
 
 ---
 

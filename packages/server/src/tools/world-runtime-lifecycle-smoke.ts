@@ -592,7 +592,7 @@ async function testRestoreOfflineHangingPlayersSkipsMissingTowerInstance() {
     });
 }
 
-async function testStartupLazyRebuildSkipsHeavyDomainRestore() {
+async function testStartupLazyRebuildPreservesCatalogAndSkipsHeavyDomainRestore() {
     const service = new WorldRuntimeLifecycleService();
     const log = [];
     const runtimeInstances = new Set();
@@ -644,7 +644,7 @@ async function testStartupLazyRebuildSkipsHeavyDomainRestore() {
             },
             async updateInstanceStatus() {
                 log.push('rewriteCatalogRuntimeStatus');
-                throw new Error('lazy_startup_must_not_rewrite_catalog_status');
+                throw new Error('runtime_rebuild_must_not_rewrite_catalog_status');
             },
         },
         instanceDomainPersistenceService: {
@@ -689,7 +689,6 @@ async function testStartupLazyRebuildSkipsHeavyDomainRestore() {
         restoreOfflinePlayers: false,
         restoreInstanceDomains: false,
         restoreCatalogInstances: true,
-        rewriteCatalogRuntimeStatus: false,
     });
 
     assert.equal(log.includes('listInstanceCatalogEntries'), true);
@@ -708,7 +707,7 @@ async function main() {
     testBootstrapPublicInstances();
     await testRestoreAndRebuild();
     await testRestoreOfflineHangingPlayersSkipsMissingTowerInstance();
-    await testStartupLazyRebuildSkipsHeavyDomainRestore();
+    await testStartupLazyRebuildPreservesCatalogAndSkipsHeavyDomainRestore();
     console.log(JSON.stringify({ ok: true, case: 'world-runtime-lifecycle' }, null, 2));
 }
 

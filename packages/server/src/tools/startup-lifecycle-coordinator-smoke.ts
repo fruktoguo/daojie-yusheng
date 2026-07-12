@@ -85,7 +85,6 @@ async function assertAllRoleStartupOrder(): Promise<void> {
       restoreOfflinePlayers?: boolean;
       restoreInstanceDomains?: boolean;
       restoreCatalogInstances?: boolean;
-      rewriteCatalogRuntimeStatus?: boolean;
     }) {
       order.push('world');
       assert.equal(
@@ -95,7 +94,7 @@ async function assertAllRoleStartupOrder(): Promise<void> {
       assert.equal(options.restoreOfflinePlayers, false);
       assert.equal(options.restoreInstanceDomains, true);
       assert.equal(options.restoreCatalogInstances, true);
-      assert.equal(options.rewriteCatalogRuntimeStatus, true);
+      assert.equal('rewriteCatalogRuntimeStatus' in options, false);
       assert.equal(barrier.isTickOpen(), false);
       assert.equal(barrier.isFlushOpen(), false);
       assert.equal(barrier.isTrafficOpen(), false);
