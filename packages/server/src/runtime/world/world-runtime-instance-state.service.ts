@@ -7,12 +7,23 @@
  * 地图实例运行时状态容器
  * 以泛型 Map 存储所有活跃实例的运行时对象，提供增删查遍历接口
  */
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
+
+import {
+  WorldRuntimeInstanceScheduleService,
+  type SchedulableInstanceRuntime,
+} from './world-runtime-instance-schedule.service';
 
 /** 泛型实例状态容器，TInstance 为具体实例运行时类型 */
 @Injectable()
 export class WorldRuntimeInstanceStateService<TInstance = unknown> {
   readonly instances = new Map<string, TInstance>();
+
+  constructor(
+    @Optional()
+    @Inject(WorldRuntimeInstanceScheduleService)
+    private readonly instanceScheduleService: WorldRuntimeInstanceScheduleService | null = null,
+  ) {}
 
   getInstanceRuntime(instanceId: string): TInstance | null {
     return this.instances.get(instanceId) ?? null;
@@ -20,10 +31,15 @@ export class WorldRuntimeInstanceStateService<TInstance = unknown> {
 
   setInstanceRuntime(instanceId: string, instance: TInstance): void {
     this.instances.set(instanceId, instance);
+    this.instanceScheduleService?.registerOrUpdate(
+      instanceId,
+      instance as SchedulableInstanceRuntime,
+    );
   }
 
   deleteInstanceRuntime(instanceId: string): void {
     this.instances.delete(instanceId);
+    this.instanceScheduleService?.unregister(instanceId);
   }
 
   listInstanceRuntimes(): IterableIterator<TInstance> {
@@ -40,5 +56,6 @@ export class WorldRuntimeInstanceStateService<TInstance = unknown> {
 
   resetState(): void {
     this.instances.clear();
+    this.instanceScheduleService?.rebuild([]);
   }
 }

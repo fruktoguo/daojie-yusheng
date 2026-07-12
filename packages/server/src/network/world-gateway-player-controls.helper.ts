@@ -8,7 +8,7 @@
  * 收敛聊天、自动战斗配置、修炼、天门和离线收益确认等玩家操作入口。
  */
 
-import { C2S, S2C, type ClientToServerEventPayload } from '@mud/shared';
+import { C2S, S2C, type ClientToServerEventPayload, type TimeChamberOperationKind } from '@mud/shared';
 import type { Socket } from 'socket.io';
 
 const MAX_OFFLINE_GAIN_REFRESH_REQUEST_ID_LENGTH = 96;
@@ -25,6 +25,7 @@ interface WorldGatewayPlayerControlsDeps {
   };
   socialRuntimeService: any;
   treasureVaultRuntimeService: any;
+  timeChamberRuntimeService: any;
   worldSessionService: {
     getSocketByPlayerId(playerId: string): any;
   };
@@ -484,6 +485,41 @@ export class WorldGatewayPlayerControlsHelper {
     await this.handleTreasureVaultOperation(client, 'TREASURE_VAULT_RENAME_FAILED', () => this.gateway.treasureVaultRuntimeService.rename(this.gateway.gatewayGuardHelper.requirePlayerId(client), payload, this.gateway.worldRuntimeService));
   }
 
+  async handleRequestTimeChamber(
+    client: Socket,
+    payload: ClientToServerEventPayload<typeof C2S.RequestTimeChamber>,
+  ): Promise<void> {
+    await this.handleTimeChamberOperation(client, 'detail', 'REQUEST_TIME_CHAMBER_FAILED', payload?.requestId, () => this.gateway.timeChamberRuntimeService.buildDetail(this.gateway.gatewayGuardHelper.requirePlayerId(client), payload, this.gateway.worldRuntimeService));
+  }
+
+  async handleDepositTimeChamberFuel(
+    client: Socket,
+    payload: ClientToServerEventPayload<typeof C2S.DepositTimeChamberFuel>,
+  ): Promise<void> {
+    await this.handleTimeChamberOperation(client, 'deposit', 'DEPOSIT_TIME_CHAMBER_FUEL_FAILED', payload?.requestId, () => this.gateway.timeChamberRuntimeService.depositFuel(this.gateway.gatewayGuardHelper.requirePlayerId(client), payload, this.gateway.worldRuntimeService), true);
+  }
+
+  async handleSetTimeChamberSpeed(
+    client: Socket,
+    payload: ClientToServerEventPayload<typeof C2S.SetTimeChamberSpeed>,
+  ): Promise<void> {
+    await this.handleTimeChamberOperation(client, 'speed', 'SET_TIME_CHAMBER_SPEED_FAILED', payload?.requestId, () => this.gateway.timeChamberRuntimeService.setSpeed(this.gateway.gatewayGuardHelper.requirePlayerId(client), payload, this.gateway.worldRuntimeService));
+  }
+
+  async handleRenameTimeChamber(
+    client: Socket,
+    payload: ClientToServerEventPayload<typeof C2S.RenameTimeChamber>,
+  ): Promise<void> {
+    await this.handleTimeChamberOperation(client, 'rename', 'RENAME_TIME_CHAMBER_FAILED', payload?.requestId, () => this.gateway.timeChamberRuntimeService.rename(this.gateway.gatewayGuardHelper.requirePlayerId(client), payload, this.gateway.worldRuntimeService));
+  }
+
+  async handleResizeTimeChamber(
+    client: Socket,
+    payload: ClientToServerEventPayload<typeof C2S.ResizeTimeChamber>,
+  ): Promise<void> {
+    await this.handleTimeChamberOperation(client, 'resize', 'RESIZE_TIME_CHAMBER_FAILED', payload?.requestId, () => this.gateway.timeChamberRuntimeService.resize(this.gateway.gatewayGuardHelper.requirePlayerId(client), payload, this.gateway.worldRuntimeService));
+  }
+
   private emitSocialOperationResult(client: Socket, operation: 'request' | 'respond' | 'level' | 'remove' | 'message', result: any): void {
     client.emit(S2C.SocialOperationResult, {
       ok: result?.ok === true,
@@ -527,9 +563,43 @@ export class WorldGatewayPlayerControlsHelper {
       this.gateway.worldClientEventService.emitGatewayError(client, errorCode, error);
     }
   }
+
+  private async handleTimeChamberOperation(
+    client: Socket,
+    operation: TimeChamberOperationKind,
+    errorCode: string,
+    requestIdInput: unknown,
+    run: () => Promise<any>,
+    emitDelta = false,
+  ): Promise<void> {
+    const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
+    if (!playerId) {
+      return;
+    }
+    try {
+      const result = await run();
+      client.emit(S2C.TimeChamberOperationResult, result);
+      if (emitDelta && result?.ok === true) {
+        this.gateway.worldSyncService?.emitDeltaSync(playerId, client);
+      }
+    } catch (error) {
+      client.emit(S2C.TimeChamberOperationResult, {
+        ok: false,
+        operation,
+        requestId: normalizeTimeChamberRequestId(requestIdInput),
+        reason: 'time_chamber_operation_failed',
+      });
+      this.gateway.worldClientEventService.emitGatewayError(client, errorCode, error);
+    }
+  }
 }
 
 function normalizeOfflineGainRefreshRequestId(value: unknown): string {
   const requestId = typeof value === 'string' ? value.trim() : '';
   return requestId.length <= MAX_OFFLINE_GAIN_REFRESH_REQUEST_ID_LENGTH ? requestId : '';
+}
+
+function normalizeTimeChamberRequestId(value: unknown): string | undefined {
+  const requestId = typeof value === 'string' ? value.trim() : '';
+  return requestId && requestId.length <= 128 ? requestId : undefined;
 }

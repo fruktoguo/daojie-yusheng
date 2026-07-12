@@ -16,6 +16,7 @@ import type { LeaderboardRuntimeService } from '../runtime/player/leaderboard-ru
 import type { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
 import type { ActivityRuntimeService } from '../runtime/activity/activity-runtime.service';
 import type { TreasureVaultRuntimeService } from '../runtime/building/treasure-vault-runtime.service';
+import type { TimeChamberRuntimeService } from '../runtime/building/time-chamber-runtime.service';
 import type { SocialRuntimeService } from '../runtime/social/social-runtime.service';
 import type { WorldRuntimeService } from '../runtime/world/world-runtime.service';
 import type { WorldClientEventService } from './world-client-event.service';
@@ -57,6 +58,7 @@ export interface WorldGatewayHelperContext {
   activityRuntimeService: ActivityRuntimeService;
   socialRuntimeService: SocialRuntimeService;
   treasureVaultRuntimeService: TreasureVaultRuntimeService;
+  timeChamberRuntimeService: TimeChamberRuntimeService;
   leaderboardRuntimeService: LeaderboardRuntimeService;
   runtimeGmStateService: RuntimeGmStateService;
   worldRuntimeService: WorldRuntimeService;

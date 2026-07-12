@@ -54,6 +54,7 @@ const OUTBOX_EVENT_TABLE = 'outbox_event';
 const DEAD_LETTER_EVENT_TABLE = 'dead_letter_event';
 const ASSET_AUDIT_LOG_TABLE = 'asset_audit_log';
 const ASSET_AUDIT_LOG_ARCHIVE_TABLE = 'asset_audit_log_archive';
+const MAX_DURABLE_TIME_CHAMBER_FUEL_UNITS = Number.MAX_SAFE_INTEGER;
 const DURABLE_OPERATION_ID_SAFE_LENGTH = 173;
 const DURABLE_OPERATION_BIGINT_COLUMNS_BY_TABLE = {
   [OUTBOX_EVENT_TABLE]: ['attempt_count'],
@@ -269,6 +270,12 @@ export type DurableInventoryGrantSourceMutation =
       containerId: string;
       sourceId: string;
       statePayload: Record<string, unknown>;
+    }
+  | {
+      kind: 'time_chamber_fuel';
+      instanceId: string;
+      buildingId: string;
+      fuelUnits: number;
     };
 
 export interface GrantInventoryItemsResult {
@@ -5976,6 +5983,19 @@ function normalizeInventoryGrantSourceMutation(
       statePayload: normalizeDurableJsonObject(value.statePayload),
     };
   }
+  if (value.kind === 'time_chamber_fuel') {
+    const buildingId = normalizeRequiredString(value.buildingId);
+    const fuelUnits = Math.trunc(Number(value.fuelUnits) || 0);
+    if (!buildingId || !Number.isSafeInteger(fuelUnits) || fuelUnits <= 0) {
+      return null;
+    }
+    return {
+      kind: 'time_chamber_fuel',
+      instanceId,
+      buildingId,
+      fuelUnits,
+    };
+  }
   return null;
 }
 
@@ -5988,7 +6008,34 @@ async function persistInventoryGrantSourceMutation(
     await replaceDurableGroundTile(client, mutation);
     return;
   }
-  await replaceDurableContainerState(client, mutation);
+  if (mutation.kind === 'container_state') {
+    await replaceDurableContainerState(client, mutation);
+    return;
+  }
+  await addDurableTimeChamberFuel(client, mutation);
+}
+
+async function addDurableTimeChamberFuel(
+  client: import('pg').PoolClient,
+  mutation: Extract<DurableInventoryGrantSourceMutation, { kind: 'time_chamber_fuel' }>,
+): Promise<void> {
+  const result = await client.query(
+    `UPDATE instance_time_chamber_state
+        SET fuel_units = fuel_units + $3,
+            revision = revision + 1,
+            updated_at = now()
+      WHERE source_instance_id = $1
+        AND building_id = $2
+        AND fuel_units <= $4::bigint - $3::bigint`,
+    [mutation.instanceId, mutation.buildingId, mutation.fuelUnits, MAX_DURABLE_TIME_CHAMBER_FUEL_UNITS],
+  );
+  if ((result.rowCount ?? 0) !== 1) {
+    const existing = await client.query(
+      'SELECT 1 FROM instance_time_chamber_state WHERE source_instance_id = $1 AND building_id = $2 LIMIT 1',
+      [mutation.instanceId, mutation.buildingId],
+    );
+    throw new Error((existing.rowCount ?? 0) > 0 ? 'time_chamber_fuel_limit' : 'time_chamber_state_not_found');
+  }
 }
 
 async function replaceDurableGroundTile(

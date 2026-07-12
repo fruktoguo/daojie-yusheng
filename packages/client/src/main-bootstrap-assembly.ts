@@ -35,6 +35,7 @@ import type { MainRuntimeStateSource } from './main-runtime-state-source';
 import type { MainSettingsStateSource } from './main-settings-state-source';
 import type { MainActivityStateSource } from './main-activity-state-source';
 import type { MainSocialStateSource } from './main-social-state-source';
+import type { MainTimeChamberStateSource } from './main-time-chamber-state-source';
 import type { MainTargetingStateSource } from './main-targeting-state-source';
 import type { MainUiStateSource } from './main-ui-state-source';
 import { ChangelogPanel } from './ui/changelog-panel';
@@ -314,6 +315,7 @@ type MainBootstrapAssemblyOptions = {
     | 'handleTreasureVaultDetail'
     | 'handleTreasureVaultOperationResult'
   >;
+  timeChamberStateSource: Pick<MainTimeChamberStateSource, 'handleOperationResult'>;
   /**
  * mailStateSource：邮件状态来源相关字段。
  */
@@ -805,6 +807,7 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
     onDaoistDirectMessage: (data) => options.socialStateSource.handleDaoistDirectMessage(data),
     onTreasureVaultDetail: (data) => options.socialStateSource.handleTreasureVaultDetail(data),
     onTreasureVaultOperationResult: (data) => options.socialStateSource.handleTreasureVaultOperationResult(data),
+    onTimeChamberOperationResult: (data) => options.timeChamberStateSource.handleOperationResult(data),
     onMailSummary: (data) => options.mailStateSource.handleMailSummary(data.summary),
     onMailPage: (data) => options.mailStateSource.handleMailPage(data.page),
     onMailDetail: (data) => options.mailStateSource.handleMailDetail(data.detail, data.error),

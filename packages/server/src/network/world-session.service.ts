@@ -308,6 +308,18 @@ export class WorldSessionService {
     return bindings;
   }
 
+  listBindingsForPlayerIds(playerIds: Iterable<string>): WorldSessionBinding[] {
+    const bindings: WorldSessionBinding[] = [];
+    const seen = new Set<string>();
+    for (const playerId of playerIds) {
+      if (seen.has(playerId)) continue;
+      seen.add(playerId);
+      const binding = this.bindingByPlayerId.get(playerId);
+      if (binding?.connected) bindings.push(binding);
+    }
+    return bindings;
+  }
+
   listConnectedBindings(): WorldSessionBinding[] {
     const bindings: WorldSessionBinding[] = [];
     for (const binding of this.bindingByPlayerId.values()) {

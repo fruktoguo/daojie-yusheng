@@ -4,6 +4,7 @@
  * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
+import { MAX_INSTANCE_TICK_SPEED } from '@mud/shared';
 
 import { MapTemplateRepository } from './map-template.repository';
 
@@ -40,7 +41,7 @@ export class RuntimeMapConfigService {
       this.gmMapPausedByMapId.set(mapId, false);
     }
     if (Number.isFinite(Number(body?.speed))) {
-      const speed = clamp(Number(body?.speed), 0, 100);
+      const speed = clamp(Number(body?.speed), 0, MAX_INSTANCE_TICK_SPEED);
       this.gmMapTickSpeedByMapId.set(mapId, speed);
       this.gmMapPausedByMapId.set(mapId, speed === 0);
     }

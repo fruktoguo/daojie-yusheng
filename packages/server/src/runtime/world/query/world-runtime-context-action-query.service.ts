@@ -141,6 +141,16 @@ export class WorldRuntimeContextActionQueryService {
             requiresTarget: true,
             targetMode: 'any',
         });
+        if (typeof deps?.timeChamberRuntimeService?.isTimeChamberInstance === 'function'
+            && deps.timeChamberRuntimeService.isTimeChamberInstance(view.instance.instanceId)) {
+            actions.push({
+                id: 'time_chamber:leave',
+                name: '离开密室',
+                type: 'travel',
+                desc: '返回密室入口所在的外部地图。',
+                cooldownLeft: 0,
+            });
+        }
         const respawnTargetMapId = typeof player?.respawnTemplateId === 'string' && player.respawnTemplateId.trim()
             ? player.respawnTemplateId.trim()
             : (typeof deps?.resolveDefaultRespawnMapId === 'function' ? deps.resolveDefaultRespawnMapId() : 'yunlai_town');
@@ -252,6 +262,28 @@ export class WorldRuntimeContextActionQueryService {
                                 name: `设置权限：${buildingName}`,
                                 type: 'interact',
                                 desc: '建造者可设置宝库查看、存入、取出的使用权限。',
+                                cooldownLeft: 0,
+                            });
+                        }
+                    }
+                    if (isTimeChamberBuilding(instance, building)) {
+                        const buildingName = typeof entry?.name === 'string' && entry.name.trim()
+                            ? entry.name.trim()
+                            : '密室';
+                        const encodedBuildingId = encodeURIComponent(building.id);
+                        actions.push({
+                            id: `time_chamber:enter:${encodedBuildingId}`,
+                            name: `进入：${buildingName}`,
+                            type: 'travel',
+                            desc: '进入该建筑对应的独立密室地图。',
+                            cooldownLeft: 0,
+                        });
+                        if (typeof building.ownerPlayerId === 'string' && building.ownerPlayerId.trim() === player.id) {
+                            actions.push({
+                                id: `time_chamber:console:${encodedBuildingId}`,
+                                name: `管理：${buildingName}`,
+                                type: 'interact',
+                                desc: '调整名称、空间大小、时间流速并补充灵石。',
                                 cooldownLeft: 0,
                             });
                         }
@@ -400,6 +432,18 @@ function isTreasureVaultBuilding(instance, building) {
     const compiled = instance?.buildingCatalog?.defByHandle?.[building.defHandle]
         ?? instance?.buildingCatalog?.defById?.get?.(building.defId);
     return Math.max(0, Math.trunc(Number(compiled?.treasureVaultCapacity) || 0)) > 0;
+}
+
+function isTimeChamberBuilding(instance, building) {
+    if (!building || building.state !== 'active') {
+        return false;
+    }
+    if (building.defId === 'time_chamber' || building.defHandle === 'time_chamber') {
+        return true;
+    }
+    const compiled = instance?.buildingCatalog?.defByHandle?.[building.defHandle]
+        ?? instance?.buildingCatalog?.defById?.get?.(building.defId);
+    return Math.max(0, Math.trunc(Number(compiled?.timeChamberDefaultCapacity) || 0)) > 0;
 }
 
 function appendEquippedContextActions(actions, player) {

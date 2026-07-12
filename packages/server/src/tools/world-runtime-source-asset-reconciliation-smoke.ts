@@ -164,6 +164,9 @@ async function testCommitResponseFailureGetsDedicatedError(): Promise<void> {
           rows: [{ runtime_owner_id: 'runtime:source-smoke', session_epoch: 3 }],
         };
       }
+      if (normalized.includes('player_id <> $1')) {
+        return { rowCount: 0, rows: [] };
+      }
       return { rowCount: 1, rows: [] };
     },
     release(destroy?: boolean): void {
@@ -198,7 +201,11 @@ async function testCommitResponseFailureGetsDedicatedError(): Promise<void> {
   catch (error) {
     caught = error;
   }
-  assert.equal(caught instanceof DurableOperationCommitOutcomeUnknownError, true);
+  assert.equal(
+    caught instanceof DurableOperationCommitOutcomeUnknownError,
+    true,
+    `应抛出 COMMIT 结果不确定错误，实际为：${caught instanceof Error ? `${caught.name}: ${caught.message}` : String(caught)}`,
+  );
   assert.equal(isDurableCommitOutcomeUnknownError(caught), true);
   assert.equal(queries.includes('ROLLBACK'), false);
   assert.equal(clientDestroyed, true);

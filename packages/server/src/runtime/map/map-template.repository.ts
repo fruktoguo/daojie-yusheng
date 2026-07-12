@@ -42,6 +42,8 @@ export class MapTemplateRepository {
  */
 
     templates = new Map();
+    /** 仅记录进程内动态注册的模板，防止清理接口误删静态内容模板。 */
+    runtimeTemplateIds = new Set();
     mapGroupMembersById = new Map();
     mapGroupNameById = new Map();
     mapGroupIdByAlias = new Map();
@@ -146,9 +148,42 @@ export class MapTemplateRepository {
         const template = this.buildTemplate(normalized, new Map(), new Map());
         this.registerTemplateObjectRefs(template);
         this.templates.set(template.id, template);
+        this.runtimeTemplateIds.add(template.id);
         this.questRegistry.registerMapTemplate(template);
         this.rebuildMapGroupIndex();
         return template;
+    }
+    /** unregisterRuntimeMapTemplate：释放已销毁实例独占的动态模板。 */
+    unregisterRuntimeMapTemplate(templateId) {
+        const normalized = typeof templateId === 'string' ? templateId.trim() : '';
+        if (!normalized || !this.runtimeTemplateIds.delete(normalized)) {
+            return false;
+        }
+        this.npcRegistry.unregisterMapTemplate(normalized);
+        this.questRegistry.unregisterMapTemplate(normalized);
+        this.containerRegistry.unregisterMapTemplate(normalized);
+        this.landmarkRegistry.unregisterMapTemplate(normalized);
+        this.templates.delete(normalized);
+        this.rebuildMapGroupIndex();
+        return true;
+    }
+    /** 更新动态地图的玩家可见名称；静态内容模板不允许通过该入口改写。 */
+    renameRuntimeMapTemplate(templateId, displayName) {
+        const normalizedId = typeof templateId === 'string' ? templateId.trim() : '';
+        const normalizedName = typeof displayName === 'string' ? displayName.trim() : '';
+        if (!normalizedId || !normalizedName || !this.runtimeTemplateIds.has(normalizedId)) {
+            return false;
+        }
+        const template = this.templates.get(normalizedId);
+        if (!template) {
+            return false;
+        }
+        template.name = normalizedName;
+        if (template.source && typeof template.source === 'object') {
+            template.source.name = normalizedName;
+        }
+        this.rebuildMapGroupIndex();
+        return true;
     }
     /**
  * getNpcLocation：读取NPC位置。
@@ -177,6 +212,7 @@ export class MapTemplateRepository {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         this.templates.clear();
+        this.runtimeTemplateIds.clear();
         this.mapGroupMembersById.clear();
         this.mapGroupNameById.clear();
         this.mapGroupIdByAlias.clear();

@@ -88,6 +88,7 @@ export * from './market-request';
 export * from './content-config-validation';
 export * from './build-material';
 export * from './building-types';
+export * from './time-chamber-types';
 export * from './fengshui-types';
 export * from './loot-view-types';
 export * from './market-types';

@@ -8,14 +8,15 @@
  * 编排世界运行时查询、地图实例创建/迁移/冻结/重建、玩家迁移、
  * 性能计数器重置、tick/时间配置修改等 GM 操作。
  */
-import { BadRequestException, Inject, Injectable, Logger } from '@nestjs/common';
-import { type GmCreateWorldInstanceReq, type GmListPlayersQuery, type GmPlayerListRes, type GmTransferPlayerToInstanceReq, type GmWorldInstanceLinePreset } from '@mud/shared';
+import { BadRequestException, Inject, Injectable, Logger, Optional } from '@nestjs/common';
+import { MAX_INSTANCE_TICK_SPEED, type GmCreateWorldInstanceReq, type GmListPlayersQuery, type GmPlayerListRes, type GmTransferPlayerToInstanceReq, type GmWorldInstanceLinePreset } from '@mud/shared';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { MapTemplateRepository } from '../../runtime/map/map-template.repository';
 import { resolvePlayerDisplayName } from '../../runtime/player/player-display-name';
 import { RuntimeMapConfigService } from '../../runtime/map/runtime-map-config.service';
 import { RuntimeGmStateService } from '../../runtime/gm/runtime-gm-state.service';
 import { WorldRuntimeService } from '../../runtime/world/world-runtime.service';
+import { WorldRuntimeInstanceScheduleService } from '../../runtime/world/world-runtime-instance-schedule.service';
 import { DurableOperationService } from '../../persistence/durable-operation.service';
 import { OutboxDispatcherService } from '../../persistence/outbox-dispatcher.service';
 import { MapPersistenceFlushService } from '../../persistence/map-persistence-flush.service';
@@ -337,6 +338,8 @@ export class NativeGmWorldService {
     private readonly databasePoolProvider: DatabasePoolProvider | null,
     @Inject(WorldRuntimeService)
     private readonly worldRuntimeService: WorldRuntimeServiceLike,
+    @Optional() @Inject(WorldRuntimeInstanceScheduleService)
+    private readonly instanceScheduleService?: WorldRuntimeInstanceScheduleService,
   ) {
     this.outboxDispatcherService = outboxDispatcherService;
     this.durableOperationService = durableOperationService;
@@ -961,6 +964,7 @@ export class NativeGmWorldService {
     if (typeof targetInstance.markPersistenceDirtyDomains === 'function') {
       targetInstance.markPersistenceDirtyDomains(['time']);
     }
+    this.instanceScheduleService?.registerOrUpdate(instanceId, targetInstance);
     await this.flushTickSpeedCheckpoints([instanceId]);
     return { ok: true };
   }
@@ -998,6 +1002,9 @@ export class NativeGmWorldService {
       }
       if (typeof inst.markPersistenceDirtyDomains === 'function') {
         inst.markPersistenceDirtyDomains(['time']);
+      }
+      if (instanceId) {
+        this.instanceScheduleService?.registerOrUpdate(instanceId, inst);
       }
     }
     return affectedInstanceIds;
@@ -1178,7 +1185,7 @@ function parseRequiredLinePreset(input: unknown): GmWorldInstanceLinePreset {
 
 function normalizePersistedMapTickSpeed(value: unknown): number | undefined {
   if (!Number.isFinite(Number(value))) return undefined;
-  return Math.max(0, Math.min(100, Number(value)));
+  return Math.max(0, Math.min(MAX_INSTANCE_TICK_SPEED, Number(value)));
 }
 
 function normalizePersistedMapTimeScale(value: unknown): number | undefined {

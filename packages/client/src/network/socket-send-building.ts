@@ -27,6 +27,26 @@ export function createSocketBuildingSender(deps: BuildingSenderDeps) {
     sendFengShuiObserve(payload: ClientToServerEventPayload<typeof C2S.FengShuiObserve>): void {
       deps.emitEvent(C2S.FengShuiObserve, payload);
     },
+
+    sendRequestTimeChamber(payload: ClientToServerEventPayload<typeof C2S.RequestTimeChamber>): void {
+      deps.emitEvent(C2S.RequestTimeChamber, payload);
+    },
+
+    sendDepositTimeChamberFuel(payload: ClientToServerEventPayload<typeof C2S.DepositTimeChamberFuel>): void {
+      deps.emitEvent(C2S.DepositTimeChamberFuel, payload);
+    },
+
+    sendSetTimeChamberSpeed(payload: ClientToServerEventPayload<typeof C2S.SetTimeChamberSpeed>): void {
+      deps.emitEvent(C2S.SetTimeChamberSpeed, payload);
+    },
+
+    sendRenameTimeChamber(payload: ClientToServerEventPayload<typeof C2S.RenameTimeChamber>): void {
+      deps.emitEvent(C2S.RenameTimeChamber, payload);
+    },
+
+    sendResizeTimeChamber(payload: ClientToServerEventPayload<typeof C2S.ResizeTimeChamber>): void {
+      deps.emitEvent(C2S.ResizeTimeChamber, payload);
+    },
   };
 }
 

@@ -61,6 +61,14 @@ export class WorldSyncService {
     }
 
     async flushConnectedPlayers() {
+        return this.flushBindings(this.worldSessionService.listBindings());
+    }
+    /** 只刷新到期实例涉及的玩家，跨图玩家由调用方合并传送前后的集合。 */
+    async flushPlayerIds(playerIds: Iterable<string>) {
+        return this.flushBindings(this.worldSessionService.listBindingsForPlayerIds(playerIds));
+    }
+
+    private async flushBindings(bindings: any[]) {
         const breakdown = createSyncFlushBreakdownSample();
         try {
             const clearCachesStartedAt = performance.now();
@@ -68,7 +76,6 @@ export class WorldSyncService {
             addSyncFlushDuration(breakdown, 'clearCachesMs', clearCachesStartedAt);
             breakdown.clearCachesCount += 1;
 
-            const bindings = this.worldSessionService.listBindings();
             breakdown.playerCount = Array.isArray(bindings) ? bindings.length : 0;
 
             const pendingEmits: PendingEnvelopeEmit[] = [];

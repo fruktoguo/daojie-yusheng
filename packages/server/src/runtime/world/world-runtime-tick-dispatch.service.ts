@@ -147,8 +147,8 @@ export class WorldRuntimeTickDispatchService {
  * @returns 无返回值，直接更新PendingCommand相关状态。
  */
 
-    async dispatchPendingCommands(deps, recordTickSectionDuration = null) {
-        return deps.worldRuntimePendingCommandService.dispatchPendingCommands(deps, recordTickSectionDuration);
+    async dispatchPendingCommands(deps, recordTickSectionDuration = null, scopedPlayerIds = null) {
+        return deps.worldRuntimePendingCommandService.dispatchPendingCommands(deps, recordTickSectionDuration, scopedPlayerIds);
     }
     /**
  * dispatchPendingSystemCommands：判断待处理SystemCommand是否满足条件。

@@ -36,6 +36,7 @@ export function runMainAppBootstrap(context: ReturnType<typeof import('./main-ap
     buildingFengShuiStateSource: context.buildingFengShuiStateSource,
     activityStateSource: context.activityStateSource,
     socialStateSource: context.socialStateSource,
+    timeChamberStateSource: context.timeChamberStateSource,
     mailStateSource: context.mailStateSource,
     settingsStateSource: context.settingsStateSource,
     marketStateSource: context.marketStateSource,

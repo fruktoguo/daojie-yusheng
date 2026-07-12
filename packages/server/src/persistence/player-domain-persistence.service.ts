@@ -1644,6 +1644,50 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
     return (result.rowCount ?? 0) > 0;
   }
 
+  /** 拆除持久实例前检查在线与离线挂机位置，避免把仍在世界中的玩家留在孤儿实例。 */
+  async hasRetainedPlayersInInstance(instanceId: string): Promise<boolean> {
+    const normalizedInstanceId = normalizeRequiredString(instanceId);
+    if (!this.pool || !this.enabled || !normalizedInstanceId) {
+      return false;
+    }
+    const result = await this.pool.query(
+      `
+        SELECT 1
+        FROM ${PLAYER_PRESENCE_TABLE} presence
+        JOIN ${PLAYER_POSITION_CHECKPOINT_TABLE} position ON position.player_id = presence.player_id
+        WHERE presence.in_world = true
+          AND position.instance_id = $1
+        LIMIT 1
+      `,
+      [normalizedInstanceId],
+    );
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  /** 密室准入读取在线与离线挂机占用者；返回 ID 便于与运行时占用集合去重。 */
+  async listRetainedPlayerIdsInInstance(instanceId: string, limit = 101): Promise<string[]> {
+    const normalizedInstanceId = normalizeRequiredString(instanceId);
+    if (!this.pool || !this.enabled || !normalizedInstanceId) {
+      return [];
+    }
+    const normalizedLimit = Math.max(1, Math.min(101, Math.trunc(Number(limit) || 101)));
+    const result = await this.pool.query(
+      `
+        SELECT presence.player_id
+        FROM ${PLAYER_PRESENCE_TABLE} presence
+        JOIN ${PLAYER_POSITION_CHECKPOINT_TABLE} position ON position.player_id = presence.player_id
+        WHERE presence.in_world = true
+          AND position.instance_id = $1
+        ORDER BY presence.player_id ASC
+        LIMIT $2
+      `,
+      [normalizedInstanceId, normalizedLimit],
+    );
+    return (result.rows ?? [])
+      .map((row) => normalizeRequiredString(row?.player_id))
+      .filter((playerId) => playerId.length > 0);
+  }
+
   /** 将超时离线玩家标记为彻底离线（in_world=false） */
   async expireOfflineHangingPlayers(
     offlineTimeoutMs: number = 48 * 60 * 60 * 1000,

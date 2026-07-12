@@ -11,6 +11,7 @@ import { Inject, Injectable } from '@nestjs/common';
 
 import { WorldRuntimeInstanceTickOrchestrationService } from './world-runtime-instance-tick-orchestration.service';
 import { WorldRuntimeMetricsService } from './world-runtime-metrics.service';
+import type { InstanceTickSchedulePlan } from './world-runtime-instance-schedule.service';
 
 type FrameDeps = unknown;
 type InstanceTickSpeedResolver = ((templateId: string) => number | null | undefined) | null;
@@ -20,6 +21,7 @@ interface FrameOrchestrationServiceLike {
     deps: FrameDeps,
     frameDurationMs?: number,
     getInstanceTickSpeed?: InstanceTickSpeedResolver,
+    scheduledPlans?: InstanceTickSchedulePlan[] | null,
   ): Promise<number>;
 }
 
@@ -45,8 +47,9 @@ export class WorldRuntimeFrameService {
     deps: FrameDeps,
     frameDurationMs = 1000,
     getInstanceTickSpeed: InstanceTickSpeedResolver = null,
+    scheduledPlans: InstanceTickSchedulePlan[] | null = null,
   ): Promise<number> {
-    return this.worldRuntimeInstanceTickOrchestrationService.advanceFrame(deps, frameDurationMs, getInstanceTickSpeed);
+    return this.worldRuntimeInstanceTickOrchestrationService.advanceFrame(deps, frameDurationMs, getInstanceTickSpeed, scheduledPlans);
   }
 
   recordSyncFlushDuration(durationMs: number): void {

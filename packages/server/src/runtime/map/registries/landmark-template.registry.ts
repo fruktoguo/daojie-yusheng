@@ -21,6 +21,7 @@ export class LandmarkTemplateRegistry {
     if (!mapId) {
       return;
     }
+    this.unregisterMapTemplate(mapId);
     const ids: string[] = [];
     for (const landmark of template.landmarks ?? []) {
       const landmarkId = String(landmark?.id ?? '').trim();
@@ -32,6 +33,18 @@ export class LandmarkTemplateRegistry {
       ids.push(landmarkId);
     }
     this.landmarkIdsByMapId.set(mapId, ids);
+  }
+
+  unregisterMapTemplate(mapIdInput: string): void {
+    const mapId = String(mapIdInput ?? '').trim();
+    if (!mapId) {
+      return;
+    }
+    const landmarkIds = this.landmarkIdsByMapId.get(mapId) ?? [];
+    this.landmarkIdsByMapId.delete(mapId);
+    for (const landmarkId of landmarkIds) {
+      this.landmarkTemplates.delete(landmarkId);
+    }
   }
 
   getRef(landmarkId: string): Readonly<any> {

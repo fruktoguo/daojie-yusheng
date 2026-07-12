@@ -132,6 +132,23 @@ export class WorldRuntimeNavigationService {
     getBlockedPlayerIds() {
         return this.navigationIntents.size > 0 ? new Set(this.navigationIntents.keys()) : undefined;
     }
+    /** 只收集指定实例内仍有导航意图的玩家，避免加速实例每息复制全服导航集合。 */
+    getBlockedPlayerIdsForInstance(instanceId, deps) {
+        if (this.navigationIntents.size === 0) {
+            return undefined;
+        }
+        const instance = deps.getInstanceRuntime?.(instanceId);
+        const playerIds = typeof instance?.listPlayerIds === 'function'
+            ? instance.listPlayerIds()
+            : deps.worldSessionService?.listInstancePlayerIds?.(instanceId) ?? [];
+        const blockedPlayerIds = new Set();
+        for (const playerId of playerIds) {
+            if (this.navigationIntents.has(playerId)) {
+                blockedPlayerIds.add(playerId);
+            }
+        }
+        return blockedPlayerIds.size > 0 ? blockedPlayerIds : undefined;
+    }
     /**
  * reset：执行reset相关逻辑。
  * @returns 无返回值，直接更新reset相关状态。
@@ -430,7 +447,15 @@ export class WorldRuntimeNavigationService {
             return;
         }
         const candidates = [];
-        const intentEntries = Array.from(this.navigationIntents.entries());
+        const scopedPlayerIds = instanceId && typeof deps.worldSessionService?.listInstancePlayerIds === 'function'
+            ? deps.worldSessionService.listInstancePlayerIds(instanceId)
+            : null;
+        const intentEntries = scopedPlayerIds
+            ? scopedPlayerIds.flatMap((playerId) => {
+                const intent = this.navigationIntents.get(playerId);
+                return intent ? [[playerId, intent]] : [];
+            })
+            : Array.from(this.navigationIntents.entries());
         const scopeKey = typeof instanceId === 'string' && instanceId.trim() ? instanceId.trim() : '*';
         const startIndex = intentEntries.length > 0
             ? Math.max(0, Math.trunc(Number(this.navigationMaterializationCursorByScope.get(scopeKey) ?? 0))) % intentEntries.length

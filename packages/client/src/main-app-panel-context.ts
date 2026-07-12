@@ -18,6 +18,7 @@ import { createMainPanelRuntimeSource } from './main-panel-runtime-source';
 import { createMainQuestStateSource } from './main-quest-state-source';
 import { createMainSettingsStateSource } from './main-settings-state-source';
 import { createMainSocialStateSource } from './main-social-state-source';
+import { createMainTimeChamberStateSource } from './main-time-chamber-state-source';
 import { createMainTechniqueGenerationPanelSource } from './main-technique-generation-panel-source';
 import { createMainTechniqueStateSource } from './main-technique-state-source';
 import { createMainUiStateSource } from './main-ui-state-source';
@@ -90,14 +91,13 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
       settingsPanel,
       npcShopModal,
       npcQuestModal,
-      entityDetailModal,
+      entityDetailModal, timeChamberConsoleModal,
       craftWorkbenchModal,
       panelSystem,
     },
     rootRuntimeSource,
     callbacks,
   } = options;
-
   const mailStateSource = createMainMailStateSource({
     socket: socialEconomySender,
     recoverSession: () => loginUI.restoreSession(),
@@ -107,7 +107,7 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
     isSocketConnected: () => socket.connected,
   });
   const socialStateSource = createMainSocialStateSource({ socialPanel, treasureVaultModal, socket: socialEconomySender, getPlayer: () => rootRuntimeSource.getPlayer(), hydrateInventoryItem: (item, previous) => detailHydrationSource.hydrateSyncedItemStack(item, previous), showToast: (message, kind) => uiStateSource.showToast(message, kind) });
-
+  const timeChamberStateSource = createMainTimeChamberStateSource({ modal: timeChamberConsoleModal, socket: buildingSender, getPlayer: () => rootRuntimeSource.getPlayer(), showToast: (message, kind) => uiStateSource.showToast(message, kind) });
   let uiStateSource!: ReturnType<typeof createMainUiStateSource>;
   let panelDeltaStateSource!: ReturnType<typeof import('./main-panel-delta-state-source').createMainPanelDeltaStateSource>;
   const techniqueActivityOpeners = { alchemy: () => craftWorkbenchModal.openAlchemy(), forging: () => craftWorkbenchModal.openForging(), enhancement: () => craftWorkbenchModal.openEnhancement() } as const satisfies Record<ClientTechniqueActivityKind | 'forging', () => void>;
@@ -128,6 +128,7 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
     openTechniqueRefiningPanel: () => craftWorkbenchModal.openTechniqueRefining(),
     openScripturePlatformRecordingModal: (buildingId) => openScripturePlatformRecordingModal({ buildingId, getPlayer: () => rootRuntimeSource.getPlayer(), sendAction: (actionId) => runtimeSender.sendAction(actionId), showToast: (message, kind) => callbacks.showToast(message, kind) }),
     openTreasureVault: (buildingId) => socialStateSource.openTreasureVault(buildingId),
+    openTimeChamberConsole: (buildingId) => timeChamberStateSource.open(buildingId),
     openWorldMigrationModal: () => openWorldMigrationModal({
       getPlayer: () => rootRuntimeSource.getPlayer(),
       sendAction: (actionId, target) => runtimeSender.sendAction(actionId, target),
@@ -283,7 +284,7 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
   });
 
   return {
-    mailStateSource, activityStateSource, socialStateSource, buildingFengShuiStateSource,
+    mailStateSource, activityStateSource, socialStateSource, timeChamberStateSource, buildingFengShuiStateSource,
     actionStateSource,
     techniqueStateSource,
     attrDetailStateSource,

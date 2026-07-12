@@ -10,7 +10,7 @@
  */
 import * as fs from 'node:fs';
 
-import { TileType, type BuildingDef } from '@mud/shared';
+import { MAX_INSTANCE_TICK_SPEED, TileType, type BuildingDef } from '@mud/shared';
 
 import { resolveProjectPath } from '../../common/project-path';
 import { compileBuildingDefinitions } from './building-content.repository';
@@ -102,6 +102,32 @@ const DEFAULT_BUILDING_DEFS: BuildingDef[] = [
     },
     economy: { buildTicks: 600, durabilityMultiplier: 30, maxHp: 60, cost: [{ itemId: 'cloth', count: 2 }, { itemId: 'wood', count: 1 }] },
     craftEffectStats: { transmission: { speedRate: 1 } },
+  },
+  {
+    id: 'time_chamber',
+    name: '密室',
+    visual: { glyph: '室', color: '#6554c0', layer: 'furniture' },
+    placement: { layer: 'facility', footprint: [{ dx: 0, dy: 0 }] },
+    topology: { blocksMove: false },
+    fengShui: {
+      elementVector: { earth: 18, metal: 6, water: 4 },
+      traits: ['facility.time_chamber', 'space.independent'],
+      stability: 16,
+      comfort: 3,
+      qiAffinity: 2,
+    },
+    economy: {
+      buildTicks: 3600,
+      durabilityMultiplier: 140,
+      maxHp: 180,
+      cost: [{ itemId: 'wood', count: 8 }, { itemId: 'stone', count: 12 }, { itemId: 'metal', count: 4 }],
+    },
+    timeChamber: {
+      defaultCapacity: 1,
+      maxSpeed: MAX_INSTANCE_TICK_SPEED,
+      fuelUnitsPerSpiritStone: 36_000,
+      allowedSizeTiers: ['small', 'medium', 'large'],
+    },
   },
 ];
 

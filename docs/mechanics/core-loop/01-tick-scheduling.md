@@ -8,8 +8,10 @@
 | WORLD_TICK_INTERVAL_MS | 1000 ms | 同上 |
 | WORLD_TICK_RATE_HZ | 1 Hz | 同上 |
 | TICK_BUDGET | 200 ms | 同上 |
-| MIN_TICK_INTERVAL_MS | 100 ms（加速实例下限） | `packages/server/src/runtime/tick/world-tick.service.ts` |
-| BASE_TICK_INTERVAL_MS | 1000 ms | 同上 |
+| MIN_INTERVAL_MS | 100 ms（10 倍实例 deadline 下限） | `packages/server/src/runtime/world/world-runtime-instance-schedule.service.ts` |
+| BASE_INTERVAL_MS | 1000 ms | 同上 |
+| MAX_CATCH_UP_STEPS_PER_INSTANCE | 4 息/批 | 同上 |
+| MAX_PLANS_PER_BATCH | 256 实例/批 | 同上 |
 | MAX_CONSECUTIVE_FAILURES_BEFORE_UNHEALTHY | 5 | 同上 |
 | MAP_TIME_PERSISTENCE_CHECKPOINT_INTERVAL_TICKS | 300 | `packages/server/src/runtime/instance/map-instance.runtime.ts` |
 | DEATH_WAIT_TIME | 10 秒 | `packages/shared/src/constants/gameplay/core.ts` |
@@ -22,21 +24,22 @@
 源文件: `packages/server/src/runtime/tick/world-tick.service.ts`
 
 ```
-scheduleNextTick() → 递归 setTimeout
+实例创建/恢复/改速 → WorldRuntimeInstanceScheduleService.registerOrUpdate()
   ↓
-resolveEffectiveTickIntervalMs():
-  扫描所有实例 tickSpeed，取最大值 maxSpeed
-  动态间隔 = max(100, round(1000 / maxSpeed))
+普通实例最小堆 + 加速实例最小堆（单调时钟 deadline，旧 generation 惰性失效）
+  ↓
+scheduleNextTick() → 按最近有效 deadline 递归 setTimeout
   ↓
 runTickOnce():
   1. 检查 shuttingDown / startupBarrier / tickInFlight
-  2. actualElapsedMs = now - lastTickStartedAt
-  3. 检查维护模式 → 跳过
-  4. worldRuntimeService.advanceFrame(actualElapsedMs, null)
-  5. worldSyncService.flushConnectedPlayers()    ← 同步推送
-  6. runtimeEventBusService.flushTick()          ← 事件总线收尾
-  7. 跳帧检测: actualInterval > target × 1.5 → 记录 skippedFrameCount
+  2. collectDue(now)：普通堆优先，再取加速堆；单批最多 256 个实例
+  3. worldRuntimeService.advanceFrame(actualElapsedMs, duePlans)
+  4. 只同步到期实例以及本批跨图涉及的玩家
+  5. 只清理到期实例的事件队列
+  6. 每 1 秒按真实经过时间执行世界维护，不因密室加速而提频
 ```
+
+调度器不为每个实例注册独立系统定时任务。单服 10000 个实例只维护两个内存最小堆和实例索引；普通地图与加速地图的 deadline、命令物化、同步和事件收尾彼此隔离。
 
 ## 实例级 Tick 编排
 
@@ -47,10 +50,11 @@ runTickOnce():
 ```
 1.  resetFrameEffects()                    — 清除上帧战斗特效
 2.  reconcileDefeatedPlayersBeforeTick()   — 清理死亡玩家仇恨/命令
-3.  计算每实例 steps:
-      accumulated = previousProgress + speed × (frameDurationMs / 1000)
-      steps = floor(accumulated)
-      余数存回 TickProgress
+3.  消费调度器给出的实例计划：`instanceId / speed / steps`
+      - 正常到期通常为 1 step
+      - 积压时单实例单批最多追赶 4 step
+      - 超过 4 step 的旧债务计数后丢弃，并从当前时间重同步 deadline
+      - 密室先按实际可用燃料裁剪获准 steps，核心 tick 成功后才逐息扣费
 4.  processPendingRespawns()               — 复活队列
 5.  materializeNavigationCommands()        — 寻路意图物化
 6.  materializeAutoUsePills()              — 自动嗑药
@@ -74,10 +78,14 @@ runTickOnce():
 
 ### 玩家与地图异速行动
 
-- 每个地图实例有独立 `tickSpeed`（默认 1.0）
-- 加速实例: `steps = floor(accumulated + speed × elapsed/1000)`
-- 余数跨帧保留，保证精确步进
-- 动态调整全局 tick 间隔以适配最快实例
+- 每个地图实例有独立 `tickSpeed`（默认 1.0，当前统一上限 10.0）。
+- `nextDueAt` 从上次 deadline 递推，避免按执行完成时间重排造成长期漂移。
+- 服务冷启动重建索引时，按稳定 `instanceId` 将首个 deadline 确定性分散到各自 tick 间隔内，避免大量同速实例在同一毫秒形成启动尖峰；运行中的创建和主动改速仍从完整新间隔起算。
+- 普通实例先于加速积压出队；高倍实例即使欠下追赶息，也不能饿死正常地图。
+- 单实例单批最多补 4 息；超额积压不会永久追债，也不会产生密室燃料费用。
+- 改速、暂停、恢复、创建和销毁都会更新调度 generation；过期堆节点不会再次推进实例。
+- `lease_degraded / fenced` 等暂时不可写状态只会把该实例延后 1 秒重试，不会永久删除索引；`stopped / destroyed` 才是终态。
+- 高频批次只枚举到期实例的玩家索引，不扫描全部连接，也不调用全局事件清空。
 - 无玩家实例仍保持 1Hz 逻辑时间推进，不再降到 0.1Hz；调度层传入 `sleepMonsterAi=true`，只休眠怪物主动寻敌、移动、攻击和吟唱，复活倒计时、地块恢复、临时地块、灵气流转、阵法与地图时间仍按 1Hz 推进。
 
 ## 异步任务调度

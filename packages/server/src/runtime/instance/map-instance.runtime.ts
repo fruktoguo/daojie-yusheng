@@ -8,7 +8,7 @@
  * 单张地图的全部运行态：地块平面、占位、妖兽 AI、战斗、建筑、
  * 资源刷新、灵气流动、AOI 广播和持久化脏域追踪。
  */
-import { BUILDING_TOPOLOGY_BLOCKS_MOVE, BUILDING_TOPOLOGY_BLOCKS_SIGHT, DEFAULT_AGGRO_THRESHOLD, DEFAULT_PASSIVE_THREAT_PER_TICK, DEFAULT_QI_RESOURCE_DESCRIPTOR, DEFAULT_QI_RUNTIME_FLOW_CONFIGS, DISPERSED_AURA_RESOURCE_KEY, Direction, GROUND_ITEM_EXPIRE_TICKS, LOST_TARGET_THREAT_DECAY_RATIO, LOST_TARGET_THREAT_FLAT_DECAY_HP_RATIO, MAX_THREAT_VALUE, MOVE_POINT_UNIT, QI_HALF_LIFE_RATE_SCALE, StructureType, TERRAIN_DESTROYED_RESTORE_TICKS, TERRAIN_REGEN_RATE_PER_TICK, TERRAIN_RESTORE_RETRY_DELAY_TICKS, THREAT_DISTANCE_FALLOFF_PER_TILE, TILE_AURA_HALF_LIFE_RATE_SCALE, TILE_AURA_HALF_LIFE_RATE_SCALED, TerrainType, TileType, buildEffectiveTargetingGeometry, buildQiResourceKey, calcQiCostWithOutputLimit, calculateDispersedAuraGainPerTile, calculateTerrainDurability, composeTileTypeFromLayers, computeAffectedCellsFromAnchor, createItemStackSignature, createNumericStats, doesTileTypeBlockSight, getEffectiveMoveSpeed, getLayeredTileTraversalCost, getMaxStoredMovePoints, getMovePointsPerTick, getStructureDurabilityProfile, getTileTraversalCost, getTileTypeFromMapChar, horizontalFacingFromDelta, horizontalFacingFromTo, isGroundInteractableCellLayerTarget, isOffsetInRange, isTileTypeWalkable, mergeItemStackEntryInto, normalizeHorizontalFacing, normalizeStructureType, normalizeSurfaceType, normalizeTerrainType, parseQiResourceKey, percentModifierToMultiplier, resolveDefaultTileLayerFallback, resolveMonsterTemplateRecord, resolveSkillRequiresTarget, resolveTileLayerSeedFromTemplateContext, resolveTileLayerSeedFromTileType } from '@mud/shared';
+import { BUILDING_TOPOLOGY_BLOCKS_MOVE, BUILDING_TOPOLOGY_BLOCKS_SIGHT, DEFAULT_AGGRO_THRESHOLD, DEFAULT_PASSIVE_THREAT_PER_TICK, DEFAULT_QI_RESOURCE_DESCRIPTOR, DEFAULT_QI_RUNTIME_FLOW_CONFIGS, DISPERSED_AURA_RESOURCE_KEY, Direction, GROUND_ITEM_EXPIRE_TICKS, LOST_TARGET_THREAT_DECAY_RATIO, LOST_TARGET_THREAT_FLAT_DECAY_HP_RATIO, MAX_INSTANCE_TICK_SPEED, MAX_THREAT_VALUE, MOVE_POINT_UNIT, QI_HALF_LIFE_RATE_SCALE, StructureType, TERRAIN_DESTROYED_RESTORE_TICKS, TERRAIN_REGEN_RATE_PER_TICK, TERRAIN_RESTORE_RETRY_DELAY_TICKS, THREAT_DISTANCE_FALLOFF_PER_TILE, TILE_AURA_HALF_LIFE_RATE_SCALE, TILE_AURA_HALF_LIFE_RATE_SCALED, TerrainType, TileType, buildEffectiveTargetingGeometry, buildQiResourceKey, calcQiCostWithOutputLimit, calculateDispersedAuraGainPerTile, calculateTerrainDurability, composeTileTypeFromLayers, computeAffectedCellsFromAnchor, createItemStackSignature, createNumericStats, doesTileTypeBlockSight, getEffectiveMoveSpeed, getLayeredTileTraversalCost, getMaxStoredMovePoints, getMovePointsPerTick, getStructureDurabilityProfile, getTileTraversalCost, getTileTypeFromMapChar, horizontalFacingFromDelta, horizontalFacingFromTo, isGroundInteractableCellLayerTarget, isOffsetInRange, isTileTypeWalkable, mergeItemStackEntryInto, normalizeHorizontalFacing, normalizeStructureType, normalizeSurfaceType, normalizeTerrainType, parseQiResourceKey, percentModifierToMultiplier, resolveDefaultTileLayerFallback, resolveMonsterTemplateRecord, resolveSkillRequiresTarget, resolveTileLayerSeedFromTemplateContext, resolveTileLayerSeedFromTileType } from '@mud/shared';
 import { readTrimmedEnv } from '../../config/env-alias';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import '../map/map-template.repository';
@@ -1158,6 +1158,26 @@ class MapInstanceRuntime {
         this.persistentRevision += 1;
         return true;
     }
+    /** 密室改尺寸前检查实例内没有玩家、实体、建筑、掉落或待执行指令。 */
+    canReplaceEmptyRuntimeTemplate() {
+        return this.playersById.size === 0
+            && this.monstersByRuntimeId.size === 0
+            && this.buildingById.size === 0
+            && this.groundPilesByTile.size === 0
+            && this.pendingCommands.size === 0
+            && this.temporaryTileByTile.size === 0
+            && this.tileDamageByTile.size === 0
+            && this.runtimePortals.length === 0
+            && this.buildRuntimeTilePersistenceEntries().length === 0;
+    }
+    /** 空实例替换动态模板；实际迁移仍复用通用模板扩展路径。 */
+    replaceEmptyRuntimeTemplate(nextTemplate) {
+        if (!this.canReplaceEmptyRuntimeTemplate()) {
+            return false;
+        }
+        return this.replaceTemplateForSectExpansion(nextTemplate);
+    }
+
     /** replaceTemplateForSectExpansion：宗门地图扩圈时替换模板并迁移运行态坐标。 */
     replaceTemplateForSectExpansion(nextTemplate) {
         if (!nextTemplate || !Number.isFinite(Number(nextTemplate.width)) || !Number.isFinite(Number(nextTemplate.height))) {
@@ -1723,7 +1743,7 @@ class MapInstanceRuntime {
         return { ok: true, building, changed: true };
     }
     /** deconstructBuildingInstance：服务端权威拆除建筑，调用方负责返还和审计。 */
-    deconstructBuildingInstance(buildingIdInput, options: { treasureVaultRecovered?: boolean } = {}) {
+    deconstructBuildingInstance(buildingIdInput, options: { treasureVaultRecovered?: boolean; timeChamberReleased?: boolean } = {}) {
         const buildingId = normalizeBuildingId(buildingIdInput);
         if (!buildingId || !this.buildingById.has(buildingId)) {
             return { ok: false, reason: 'building_not_found' };
@@ -1734,6 +1754,9 @@ class MapInstanceRuntime {
             : null;
         if (isTreasureVaultBuildingForRuntime(compiled, building) && options?.treasureVaultRecovered !== true) {
             return { ok: false, reason: 'treasure_vault_recovery_required' };
+        }
+        if (isTimeChamberBuildingForRuntime(compiled, building) && options?.timeChamberReleased !== true) {
+            return { ok: false, reason: 'time_chamber_release_required' };
         }
         const changedCells = (this.buildingCellsById.get(buildingId) ?? []).slice();
         const wasInRoomInfluence = changedCells.some((cellIndex) => this.isCellInRoomInfluence(cellIndex));
@@ -2460,6 +2483,40 @@ class MapInstanceRuntime {
             }
         }
         return vaults;
+    }
+    /** 启动自检前找出会被摧毁、且需要先释放独立实例的密室建筑。 */
+    listPrunableTimeChamberBuildings(state) {
+        const buildings = Array.isArray(state?.buildings) ? state.buildings : [];
+        const chambers = [];
+        for (const entry of buildings) {
+            const id = normalizeBuildingId(entry?.id ?? entry?.buildingId);
+            const defId = normalizeBuildingId(entry?.defId);
+            if (!id || !defId) {
+                continue;
+            }
+            const compiled = this.buildingCatalog?.defById?.get?.(defId);
+            if (!isTimeChamberBuildingForRuntime(compiled, entry)) {
+                continue;
+            }
+            if (this.buildingCatalog?.defById && !compiled) {
+                chambers.push(buildSkippedBuildingRecord(id, defId, entry?.ownerPlayerId, 'unknown_def'));
+                continue;
+            }
+            const location = {
+                x: Math.trunc(Number(entry?.x) || 0),
+                y: Math.trunc(Number(entry?.y) || 0),
+                rotation: normalizeBuildingRotation(entry?.rotation),
+            };
+            const cells = resolvePersistedBuildingCells(this, location, entry?.cells, compiled);
+            const conflict = findBuildingProtectedPlacementConflict(
+                this,
+                iterateBuildingProtectedPlacementPoints(this, cells, location.x, location.y),
+            );
+            if (conflict.ok !== true) {
+                chambers.push(buildSkippedBuildingRecord(id, defId, entry?.ownerPlayerId, conflict.reason));
+            }
+        }
+        return chambers;
     }
     hydrateBuildingRoomFengShuiState(state, options: { keepBuildingIds?: Set<string> } = {}) {
         const buildings = Array.isArray(state?.buildings) ? state.buildings : [];
@@ -3374,7 +3431,9 @@ class MapInstanceRuntime {
                 building.updatedAtTick = this.tick;
                 building.revision = Math.max(1, Math.trunc(Number(building.revision) || 1)) + 1;
                 const deconstructResult = this.deconstructBuildingInstance(building.id);
-                if (deconstructResult?.ok !== true && deconstructResult?.reason === 'treasure_vault_recovery_required') {
+                if (deconstructResult?.ok !== true
+                    && (deconstructResult?.reason === 'treasure_vault_recovery_required'
+                        || deconstructResult?.reason === 'time_chamber_release_required')) {
                     building.hp = 1;
                     building.state = 'active';
                     building.updatedAtTick = this.tick;
@@ -3392,7 +3451,7 @@ class MapInstanceRuntime {
                         targetName: current.targetName,
                         buildingId: building.id,
                         building: true,
-                        protectedByTreasureVaultRecovery: true,
+                        protectedBySpecialBuildingLifecycle: true,
                     };
                 }
             }
@@ -4874,7 +4933,7 @@ class MapInstanceRuntime {
         }
         this.tick = Math.max(0, Math.trunc(Number(tick)));
         if (options && Number.isFinite(Number(options.tickSpeed))) {
-            this.tickSpeed = Math.max(0, Number(options.tickSpeed));
+            this.tickSpeed = Math.max(0, Math.min(MAX_INSTANCE_TICK_SPEED, Number(options.tickSpeed)));
             this.paused = this.tickSpeed === 0;
         }
         if (options && typeof options.paused === 'boolean') {
@@ -9438,6 +9497,13 @@ function isTreasureVaultBuildingForRuntime(compiled, building) {
         return true;
     }
     return Math.max(0, Math.trunc(Number(compiled?.treasureVaultCapacity) || 0)) > 0;
+}
+
+function isTimeChamberBuildingForRuntime(compiled, building) {
+    if (building?.defId === 'time_chamber' || building?.defHandle === 'time_chamber') {
+        return true;
+    }
+    return Math.max(0, Math.trunc(Number(compiled?.timeChamberDefaultCapacity) || 0)) > 0;
 }
 function resolveBuildingCombatTileType(building, compiled) {
     if (typeof compiled?.visualTileType === 'string' && compiled.visualTileType.trim()) {

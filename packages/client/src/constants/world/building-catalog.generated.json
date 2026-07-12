@@ -246,6 +246,51 @@
     "blocksSight": false
   },
   {
+    "id": "time_chamber",
+    "name": "密室",
+    "layer": "facility",
+    "visualGlyph": "室",
+    "visualColor": "#6554c0",
+    "allowRotate": true,
+    "footprint": [
+      {
+        "dx": 0,
+        "dy": 0
+      }
+    ],
+    "cost": [
+      {
+        "itemId": "wood",
+        "count": 8
+      },
+      {
+        "itemId": "stone",
+        "count": 12
+      },
+      {
+        "itemId": "metal",
+        "count": 4
+      }
+    ],
+    "traits": [
+      "facility.time_chamber",
+      "space.independent"
+    ],
+    "elementVector": {
+      "earth": 18,
+      "metal": 6,
+      "water": 4
+    },
+    "durabilityMultiplier": 140,
+    "buildTicks": 3600,
+    "maxHp": 180,
+    "stability": 16,
+    "comfort": 3,
+    "opening": "none",
+    "blocksMove": false,
+    "blocksSight": false
+  },
+  {
     "id": "meditation_mat",
     "name": "蒲团",
     "layer": "facility",

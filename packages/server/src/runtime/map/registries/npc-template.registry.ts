@@ -23,6 +23,7 @@ export class NpcTemplateRegistry {
     if (!mapId) {
       return;
     }
+    this.unregisterMapTemplate(mapId);
     const ids: string[] = [];
     for (const npc of template.npcs ?? []) {
       const npcId = String(npc?.id ?? '').trim();
@@ -44,6 +45,21 @@ export class NpcTemplateRegistry {
       }
     }
     this.npcIdsByMapId.set(mapId, ids);
+  }
+
+  unregisterMapTemplate(mapIdInput: string): void {
+    const mapId = String(mapIdInput ?? '').trim();
+    if (!mapId) {
+      return;
+    }
+    const npcIds = this.npcIdsByMapId.get(mapId) ?? [];
+    this.npcIdsByMapId.delete(mapId);
+    for (const npcId of npcIds) {
+      this.npcTemplates.delete(npcId);
+      if (this.npcLocationById.get(npcId)?.mapId === mapId) {
+        this.npcLocationById.delete(npcId);
+      }
+    }
   }
 
   getRef(npcId: string): Readonly<any> {

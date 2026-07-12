@@ -226,8 +226,8 @@ export class WorldRuntimeStateFacadeService {
  * @returns 无返回值，直接更新advance帧相关状态。
  */
 
-    async advanceFrame(frameDurationMs, getInstanceTickSpeed, deps) {
-        return deps.worldRuntimeFrameService.advanceFrame(deps, frameDurationMs, getInstanceTickSpeed);
+    async advanceFrame(frameDurationMs, getInstanceTickSpeed, scheduledPlans, deps) {
+        return deps.worldRuntimeFrameService.advanceFrame(deps, frameDurationMs, getInstanceTickSpeed, scheduledPlans);
     }
     /**
  * recordSyncFlushDuration：处理record同步刷新耗时并更新相关状态。

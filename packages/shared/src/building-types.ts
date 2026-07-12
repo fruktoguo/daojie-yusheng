@@ -26,6 +26,8 @@ export type BuildingVisualLayer =
 
 export type BuildingOpeningKind = 'none' | 'door' | 'window';
 
+export type TimeChamberSizeTier = 'small' | 'medium' | 'large';
+
 export type BuildingInstanceState =
   | 'planned'
   | 'building'
@@ -97,6 +99,12 @@ export interface BuildingDef {
   treasureVault?: {
     capacity?: number;
   };
+  timeChamber?: {
+    defaultCapacity?: number;
+    maxSpeed?: number;
+    fuelUnitsPerSpiritStone?: number;
+    allowedSizeTiers?: TimeChamberSizeTier[];
+  };
   craftEffectStats?: CraftEffectStatsPatch;
 }
 
@@ -128,6 +136,10 @@ export interface CompiledBuildingDef {
   costCounts: Uint32Array;
   cellLayerTarget: CellLayerTarget;
   treasureVaultCapacity: number;
+  timeChamberDefaultCapacity: number;
+  timeChamberMaxSpeed: number;
+  timeChamberFuelUnitsPerSpiritStone: number;
+  timeChamberAllowedSizeTiers: TimeChamberSizeTier[];
   craftEffectStats?: CraftEffectStatsPatch;
 }
 

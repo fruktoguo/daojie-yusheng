@@ -21,6 +21,7 @@ export class ContainerTemplateRegistry {
     if (!mapId) {
       return;
     }
+    this.unregisterMapTemplate(mapId);
     const ids: string[] = [];
     for (const container of template.containers ?? []) {
       const containerId = String(container?.id ?? '').trim();
@@ -32,6 +33,18 @@ export class ContainerTemplateRegistry {
       ids.push(containerId);
     }
     this.containerIdsByMapId.set(mapId, ids);
+  }
+
+  unregisterMapTemplate(mapIdInput: string): void {
+    const mapId = String(mapIdInput ?? '').trim();
+    if (!mapId) {
+      return;
+    }
+    const containerIds = this.containerIdsByMapId.get(mapId) ?? [];
+    this.containerIdsByMapId.delete(mapId);
+    for (const containerId of containerIds) {
+      this.containerTemplates.delete(containerId);
+    }
   }
 
   getRef(containerId: string): Readonly<any> {

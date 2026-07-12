@@ -79,6 +79,49 @@ export async function recoverVaultsBeforePlacementPrune(
   return blocked;
 }
 
+/** 启动自检摧毁密室外部建筑前，先原子释放对应独立实例与燃料状态。 */
+export async function releaseTimeChambersBeforePlacementPrune(
+  runtime: any,
+  instanceId: string,
+  instance: any,
+  state: unknown,
+  logger: any,
+): Promise<Set<string>> {
+  const blocked = new Set<string>();
+  if (typeof instance?.listPrunableTimeChamberBuildings !== 'function') {
+    return blocked;
+  }
+  const chambers: SkippedBuildingRecord[] = instance.listPrunableTimeChamberBuildings(state) ?? [];
+  if (chambers.length === 0) {
+    return blocked;
+  }
+  const service = runtime?.timeChamberRuntimeService;
+  if (typeof service?.prepareDeconstruct !== 'function') {
+    logger?.error?.(`启动摧毁违规密室时释放服务不可用，全部可恢复密室豁免摧毁：${instanceId}`);
+    for (const chamber of chambers) {
+      markBlocked(blocked, chamber);
+    }
+    return blocked;
+  }
+  for (const chamber of chambers) {
+    if (!chamber.id) {
+      continue;
+    }
+    try {
+      const result = await service.prepareDeconstruct(instanceId, chamber.id, runtime);
+      if (result?.ok === true) {
+        continue;
+      }
+      logger?.error?.(`启动摧毁违规密室时无法释放独立实例，${describeChamberBlockOutcome(chamber)} instance=${instanceId} building=${chamber.id} reason=${result?.reason ?? ''}`);
+      markBlocked(blocked, chamber);
+    } catch (error) {
+      logger?.error?.(`启动摧毁违规密室时释放异常，${describeChamberBlockOutcome(chamber)} instance=${instanceId} building=${chamber.id} ${(error as Error)?.message ?? error}`);
+      markBlocked(blocked, chamber);
+    }
+  }
+  return blocked;
+}
+
 /** logPrunedBuildingAudit：逐条记录被启动自检摧毁的建筑，供事后回读与申诉。 */
 export function logPrunedBuildingAudit(instanceId: string, hydrateResult: unknown, logger: any): void {
   const skipped = resolveSkippedBuildings(hydrateResult);
@@ -106,6 +149,12 @@ function markBlocked(blocked: Set<string>, vault: SkippedBuildingRecord): void {
 function describeBlockOutcome(vault: SkippedBuildingRecord): string {
   return vault?.reason === 'unknown_def'
     ? '该宝库定义已删除、无法保留，库存仍留在 instance_building_storage_item'
+    : '已豁免摧毁并原地保留';
+}
+
+function describeChamberBlockOutcome(chamber: SkippedBuildingRecord): string {
+  return chamber?.reason === 'unknown_def'
+    ? '该密室定义已删除、无法保留，独立实例需由 GM 检查'
     : '已豁免摧毁并原地保留';
 }
 

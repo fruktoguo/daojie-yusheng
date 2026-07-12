@@ -287,7 +287,7 @@ export function createMainRuntimeOwnerContext(options: CreateMainRuntimeOwnerCon
     refreshHudChrome: () => panelContext.uiStateSource.refreshHudChrome(),
     syncPlayerContext: (player) => { panelContext.inventoryStateSource.syncPlayerContext(player); panelContext.socialStateSource.syncPlayerContext(player ?? null); },
     hideObserveModal: () => mapRuntimeBridgeSource.hideObserveModal(), clearLootPanel: () => panelContext.panelDeps.lootPanel.clear(),
-    clearBuildingFengShuiState: () => panelContext.buildingFengShuiStateSource.clear(), setChatPersistenceScope: (scope) => panelContext.panelDeps.chatUI.setPersistenceScope(scope),
+    clearBuildingFengShuiState: () => { panelContext.buildingFengShuiStateSource.clear(); panelContext.timeChamberStateSource.clear(); }, setChatPersistenceScope: (scope) => panelContext.panelDeps.chatUI.setPersistenceScope(scope),
     setPanelRuntimeMapId: (mapId) => panelContext.panelRuntimeSource.setRuntimeMapId(mapId),
     syncQuestMapId: (mapId) => panelContext.questStateSource.syncMapId(mapId),
     updateAttrPanel: (value) => attrPanel.update(value),
@@ -349,7 +349,7 @@ export function createMainRuntimeOwnerContext(options: CreateMainRuntimeOwnerCon
     refreshUiChrome: () => panelContext.uiStateSource.refreshUiChrome(),
     initMailState: (playerId) => panelContext.mailStateSource.initFromPlayer(playerId),
     initActivityState: () => panelContext.activityStateSource.init(), initSocialState: () => panelContext.socialStateSource.init(),
-    hideObserveModal: () => mapRuntimeBridgeSource.hideObserveModal(), clearLootPanel: () => panelContext.panelDeps.lootPanel.clear(), clearBuildingFengShuiState: () => panelContext.buildingFengShuiStateSource.clear(),
+    hideObserveModal: () => mapRuntimeBridgeSource.hideObserveModal(), clearLootPanel: () => panelContext.panelDeps.lootPanel.clear(), clearBuildingFengShuiState: () => { panelContext.buildingFengShuiStateSource.clear(); panelContext.timeChamberStateSource.clear(); },
     applyWorldDelta: (data, mapIdHint, instanceIdHint) => runtimeDeltaStateSource.handleWorldDelta(data, mapIdHint, instanceIdHint),
     applySelfDelta: (data) => runtimeDeltaStateSource.handleSelfDelta(data),
     applyPanelDelta: (data) => runtimeDeltaStateSource.handlePanelDelta(data),
@@ -413,7 +413,7 @@ export function createMainRuntimeOwnerContext(options: CreateMainRuntimeOwnerCon
     clearWorldSummaryState: () => panelContext.worldSummaryStateSource.clear(),
     clearLootPanel: () => panelContext.panelDeps.lootPanel.clear(),
     clearWorldPanel: () => panelContext.panelDeps.worldPanel.clear(),
-    clearMailState: () => panelContext.mailStateSource.clear(), clearActivityState: () => panelContext.activityStateSource.clear(), clearSocialState: () => panelContext.socialStateSource.clear(), clearBuildingFengShuiState: () => panelContext.buildingFengShuiStateSource.clear(), clearSettingsState: () => panelContext.settingsStateSource.clear(),
+    clearMailState: () => panelContext.mailStateSource.clear(), clearActivityState: () => panelContext.activityStateSource.clear(), clearSocialState: () => panelContext.socialStateSource.clear(), clearBuildingFengShuiState: () => { panelContext.buildingFengShuiStateSource.clear(); panelContext.timeChamberStateSource.clear(); }, clearSettingsState: () => panelContext.settingsStateSource.clear(),
     resetMapRuntime: () => mapRuntime.reset(),
     resetReactUiBridge: () => {
       reactUiBridge.reset();

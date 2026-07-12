@@ -221,7 +221,14 @@ export async function handleBuildDeconstructIntent(runtime, playerId, payload) {
     if (recovery.ok !== true) {
         return recordBuildingOperation(runtime, operationKey, { requestId, ok: false, reason: recovery.reason ?? 'treasure_vault_recovery_failed' }, { action: 'deconstruct', playerId, instanceId: context.instance.meta.instanceId, buildingId });
     }
-    const result = context.instance.deconstructBuildingInstance(buildingId, { treasureVaultRecovered: true });
+    const chamberRelease = await releaseTimeChamberBeforeDeconstruct(runtime, context.instance, building);
+    if (chamberRelease.ok !== true) {
+        return recordBuildingOperation(runtime, operationKey, { requestId, ok: false, reason: chamberRelease.reason ?? 'time_chamber_release_failed' }, { action: 'deconstruct', playerId, instanceId: context.instance.meta.instanceId, buildingId });
+    }
+    const result = context.instance.deconstructBuildingInstance(buildingId, {
+        treasureVaultRecovered: true,
+        timeChamberReleased: true,
+    });
     return recordBuildingOperation(runtime, operationKey, {
         requestId,
         ok: result?.ok === true,
@@ -229,6 +236,17 @@ export async function handleBuildDeconstructIntent(runtime, playerId, payload) {
         treasureVaultRecoveryMailId: recovery.mailId,
         treasureVaultRecoveredItems: recovery.itemCount,
     }, { action: 'deconstruct', playerId, instanceId: context.instance.meta.instanceId, buildingId });
+}
+
+async function releaseTimeChamberBeforeDeconstruct(runtime, instance, building) {
+    if (!isTimeChamberBuilding(instance, building)) {
+        return { ok: true };
+    }
+    const service = runtime?.timeChamberRuntimeService;
+    if (typeof service?.prepareDeconstruct !== 'function') {
+        return { ok: false, reason: 'time_chamber_release_unavailable' };
+    }
+    return service.prepareDeconstruct(instance?.meta?.instanceId, building?.id, runtime);
 }
 
 async function recoverTreasureVaultItemsBeforeDeconstruct(runtime, instance, building, reason) {
@@ -255,6 +273,15 @@ function isTreasureVaultBuilding(instance, building) {
     const compiled = instance?.buildingCatalog?.defByHandle?.[building?.defHandle]
         ?? instance?.buildingCatalog?.defById?.get?.(building?.defId);
     return Math.max(0, Math.trunc(Number(compiled?.treasureVaultCapacity) || 0)) > 0;
+}
+
+function isTimeChamberBuilding(instance, building) {
+    if (building?.defId === 'time_chamber' || building?.defHandle === 'time_chamber') {
+        return true;
+    }
+    const compiled = instance?.buildingCatalog?.defByHandle?.[building?.defHandle]
+        ?? instance?.buildingCatalog?.defById?.get?.(building?.defId);
+    return Math.max(0, Math.trunc(Number(compiled?.timeChamberDefaultCapacity) || 0)) > 0;
 }
 
 export function listBuildingOperationAudit(runtime, limit = 50) {

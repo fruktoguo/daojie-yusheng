@@ -16,6 +16,9 @@ export const WORLD_TICK_INTERVAL_MS = TICK_INTERVAL;
 /** 世界运行时主循环频率（Hz）。 */
 export const WORLD_TICK_RATE_HZ = 1000 / WORLD_TICK_INTERVAL_MS;
 
+/** 单实例逻辑时间流速上限；调度、GM、checkpoint 恢复和玩法配置共用。 */
+export const MAX_INSTANCE_TICK_SPEED = 10;
+
 /** 单 tick 最大处理时间（毫秒） */
 export const TICK_BUDGET = 200;
 

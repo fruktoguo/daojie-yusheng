@@ -7,7 +7,11 @@
 
 import { randomBytes } from 'node:crypto';
 import { normalizeRuntimeInstancePersistentPolicy, parseRuntimeInstanceDescriptor } from "./world-runtime.normalization.helpers";
-import { logPrunedBuildingAudit, recoverVaultsBeforePlacementPrune } from './building-placement-prune.helpers';
+import {
+  logPrunedBuildingAudit,
+  recoverVaultsBeforePlacementPrune,
+  releaseTimeChambersBeforePlacementPrune,
+} from './building-placement-prune.helpers';
 
 const INSTANCE_LEASE_TTL_MS = 45_000;
 const INSTANCE_LEASE_RENEW_SKEW_MS = 5_000;
@@ -977,6 +981,8 @@ export async function hydratePersistentInstanceSnapshot(runtime, instanceId, ins
     && typeof instance.hydrateBuildingRoomFengShuiState === 'function') {
     // 先返还即将被摧毁的宝库库存：删除建筑行后就取不到 owner 了；返还失败的宝库豁免摧毁。
     const keepBuildingIds = await recoverVaultsBeforePlacementPrune(runtime, instanceId, instance, buildingRoomFengShuiState, runtime?.logger);
+    const keptTimeChambers = await releaseTimeChambersBeforePlacementPrune(runtime, instanceId, instance, buildingRoomFengShuiState, runtime?.logger);
+    for (const buildingId of keptTimeChambers) keepBuildingIds.add(buildingId);
     const hydrateResult = instance.hydrateBuildingRoomFengShuiState(buildingRoomFengShuiState, { keepBuildingIds });
     logPrunedBuildingAudit(instanceId, hydrateResult, runtime?.logger);
     await persistBuildingRoomStateAfterUnknownDefPrune(runtime, domainPersistenceService, instanceId, instance, hydrateResult);

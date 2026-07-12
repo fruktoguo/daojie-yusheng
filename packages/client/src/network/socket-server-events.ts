@@ -55,6 +55,7 @@ export const GAMEPLAY_SERVER_EVENTS = [
   S2C.DaoistDirectMessage,
   S2C.TreasureVaultDetail,
   S2C.TreasureVaultOperationResult,
+  S2C.TimeChamberOperationResult,
   S2C.MailSummary,
   S2C.MailPage,
   S2C.MailDetail,

@@ -11,6 +11,7 @@
 import {
   GM_WORLD_DEFAULT_ZOOM,
   GM_WORLD_POLL_INTERVAL_MS,
+  MAX_INSTANCE_TICK_SPEED,
   type GmCreateWorldInstanceReq,
   type GmCreateWorldInstanceRes,
   type GmRuntimeEntity,
@@ -1170,7 +1171,7 @@ export class GmWorldViewer {
       : 0;
     const speedValue = this.speedDraft ?? String(realtimeTickRate);
     const offsetValue = this.offsetDraft ?? String(offsetTicks);
-    const speeds = [0, 0.5, 1, 2, 5, 10, 20, 50, 100];
+    const speeds = [0, 0.5, 1, 2, 5, 10].filter((speed) => speed <= MAX_INSTANCE_TICK_SPEED);
     this.ensureTimeControlShell(speeds);
     this.syncTimeControlMetric('current', formatClockFromTicks(time.localTicks, time.dayLength));
     this.syncTimeControlMetric('phase', time.phaseLabel);
@@ -1233,7 +1234,7 @@ export class GmWorldViewer {
               data-world-speed-input
               step="0.1"
               min="0"
-              max="100"
+              max="${MAX_INSTANCE_TICK_SPEED}"
               style="width:96px"
             />
             <button class="small-btn" data-world-speed-apply>应用速度</button>

@@ -532,7 +532,10 @@ export class WorldRuntimeAutoCombatService {
     }
     /** materializeAutoUsePillsForInstance：只为指定实例的玩家自动使用丹药（加速 tick 补偿用）。 */
     materializeAutoUsePillsForInstance(instanceId, deps) {
-        for (const playerId of deps.listConnectedPlayerIds()) {
+        const playerIds = typeof deps.worldSessionService?.listInstancePlayerIds === 'function'
+            ? deps.worldSessionService.listInstancePlayerIds(instanceId)
+            : deps.listConnectedPlayerIds();
+        for (const playerId of playerIds) {
             if (typeof deps.hasPendingCommand === 'function' && deps.hasPendingCommand(playerId)) {
                 continue;
             }
@@ -628,7 +631,10 @@ export class WorldRuntimeAutoCombatService {
     }
     /** materializeAutoCombatCommandsForInstance：只为指定实例的玩家物化自动战斗命令（加速 tick 补偿用）。 */
     materializeAutoCombatCommandsForInstance(instanceId, deps) {
-        for (const playerId of deps.listConnectedPlayerIds()) {
+        const playerIds = typeof deps.worldSessionService?.listInstancePlayerIds === 'function'
+            ? deps.worldSessionService.listInstancePlayerIds(instanceId)
+            : deps.listConnectedPlayerIds();
+        for (const playerId of playerIds) {
             if (deps.hasPendingCommand(playerId) || deps.worldRuntimeNavigationService.hasNavigationIntent(playerId)) {
                 continue;
             }

@@ -6,6 +6,7 @@
 import { ConflictException, HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { findPlayerSkill, resolveRuntimeSkillRange } from '../world-runtime.normalization.helpers';
 import { chebyshevDistance } from '../world-runtime.path-planning.helpers';
+import { buildStructuredNotice } from '../structured-notice.helpers';
 
 function isOutOfRangeFailure(message) {
     return message === '目标超出攻击距离'
@@ -125,6 +126,9 @@ function isExpectedUseItemReject(message) {
 }
 
 function isExpectedPendingCommandReject(command, message) {
+    if (command?.kind === 'timeChamberTransfer') {
+        return true;
+    }
     if (command?.kind === 'moveTo') {
         return isExpectedNavigationReject(message);
     }
@@ -336,6 +340,7 @@ function resolvePendingCommandPerfKey(command) {
     switch (command?.kind) {
         case 'move':
         case 'portal':
+        case 'timeChamberTransfer':
             return 'pendingCommands.instanceMoveMs';
         case 'moveTo':
             return 'pendingCommands.navigationMs';
@@ -576,6 +581,27 @@ export class WorldRuntimePendingCommandService {
  */
 
     async dispatchCommand(playerId, command, deps) {
+        if (command.kind === 'timeChamberTransfer') {
+            const result = command.direction === 'enter'
+                ? await deps.timeChamberRuntimeService.enter(
+                    playerId,
+                    command.sourceInstanceId,
+                    command.buildingId,
+                    deps,
+                )
+                : await deps.timeChamberRuntimeService.leave(playerId, deps);
+            if (!result?.ok) {
+                const reason = typeof result?.reason === 'string' ? result.reason : 'time_chamber_transfer_failed';
+                const content = resolveTimeChamberTransferNotice(reason);
+                const notice = buildStructuredNotice(
+                    'warn',
+                    content.key,
+                    content.text,
+                );
+                deps.queuePlayerNotice(playerId, notice.text, notice.kind, undefined, undefined, notice.structured);
+            }
+            return;
+        }
         if (command.kind === 'move' || command.kind === 'portal') {
             await deps.dispatchInstanceCommand(playerId, command);
             return;
@@ -726,10 +752,13 @@ export class WorldRuntimePendingCommandService {
  * @returns 无返回值，直接更新PendingCommand相关状态。
  */
 
-    async dispatchPendingCommands(deps, recordTickSectionDuration = null) {
+    async dispatchPendingCommands(deps, recordTickSectionDuration = null, scopedPlayerIds: Iterable<string> | null = null) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        const pendingEntries = Array.from(this.pendingCommands.entries(), ([playerId, queue]) => [playerId, queue[0]] as const)
+        const sourceEntries = scopedPlayerIds
+            ? Array.from(scopedPlayerIds, (playerId) => [playerId, this.pendingCommands.get(playerId)] as const)
+            : Array.from(this.pendingCommands.entries());
+        const pendingEntries = sourceEntries.map(([playerId, queue]) => [playerId, queue?.[0]] as const)
             .filter((entry): entry is readonly [string, PendingCommandEntry] => Boolean(entry[1]));
         for (const [playerId, pendingEntry] of pendingEntries) {
             const queueBeforeDispatch = this.pendingCommands.get(playerId);
@@ -836,3 +865,20 @@ export class WorldRuntimePendingCommandService {
         this.pendingCommands.clear();
     }
 };
+
+function resolveTimeChamberTransferNotice(reason: string): { key: string; text: string } {
+    switch (reason) {
+        case 'time_chamber_full':
+            return { key: 'notice.time-chamber.full', text: '密室当前已有修士，请稍后再试。' };
+        case 'time_chamber_too_far':
+            return { key: 'notice.time-chamber.too-far', text: '需要靠近密室入口才能进入。' };
+        case 'time_chamber_source_changed':
+            return { key: 'notice.time-chamber.source-changed', text: '密室入口已经发生变化，请重新操作。' };
+        case 'not_in_time_chamber':
+            return { key: 'notice.time-chamber.not-inside', text: '当前不在密室中。' };
+        case 'time_chamber_exit_missing':
+            return { key: 'notice.time-chamber.exit-missing', text: '密室出口暂时不可用。' };
+        default:
+            return { key: 'notice.time-chamber.unavailable', text: '密室暂时无法通行，请稍后再试。' };
+    }
+}

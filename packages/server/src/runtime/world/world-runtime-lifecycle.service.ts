@@ -9,7 +9,11 @@
  */
 import { Injectable } from '@nestjs/common';
 import * as world_runtime_normalization_helpers_1 from './world-runtime.normalization.helpers';
-import { logPrunedBuildingAudit, recoverVaultsBeforePlacementPrune } from './building-placement-prune.helpers';
+import {
+    logPrunedBuildingAudit,
+    recoverVaultsBeforePlacementPrune,
+    releaseTimeChambersBeforePlacementPrune,
+} from './building-placement-prune.helpers';
 
 const {
     buildPublicInstanceId,
@@ -249,6 +253,8 @@ export class WorldRuntimeLifecycleService {
                     && typeof instance.hydrateBuildingRoomFengShuiState === 'function') {
                     // 先返还即将被摧毁的宝库库存：删除建筑行后就取不到 owner 了；返还失败的宝库豁免摧毁。
                     const keepBuildingIds = await recoverVaultsBeforePlacementPrune(deps, instanceId, instance, buildingRoomFengShuiState, deps?.logger);
+                    const keptTimeChambers = await releaseTimeChambersBeforePlacementPrune(deps, instanceId, instance, buildingRoomFengShuiState, deps?.logger);
+                    for (const buildingId of keptTimeChambers) keepBuildingIds.add(buildingId);
                     const hydrateResult = instance.hydrateBuildingRoomFengShuiState(buildingRoomFengShuiState, { keepBuildingIds });
                     logPrunedBuildingAudit(instanceId, hydrateResult, deps?.logger);
                     await persistBuildingRoomStateAfterUnknownDefPrune(deps, domainPersistenceService, instanceId, instance, hydrateResult);

@@ -278,6 +278,36 @@ export class WorldRuntimeActionExecutionService {
                 view: deps.getPlayerViewOrThrow(playerId),
             };
         }
+        if (actionId.startsWith('time_chamber:enter:')) {
+            const buildingId = safeDecodeActionPart(actionId.slice('time_chamber:enter:'.length).trim());
+            const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
+            if (!buildingId || !player.instanceId) {
+                throw new BadRequestException('密室入口目标不能为空');
+            }
+            deps.enqueuePendingCommand(playerId, {
+                kind: 'timeChamberTransfer',
+                direction: 'enter',
+                sourceInstanceId: player.instanceId,
+                buildingId,
+            });
+            return {
+                kind: 'queued',
+                view: deps.getPlayerViewOrThrow(playerId),
+            };
+        }
+        if (actionId === 'time_chamber:leave') {
+            deps.enqueuePendingCommand(playerId, {
+                kind: 'timeChamberTransfer',
+                direction: 'leave',
+            });
+            return {
+                kind: 'queued',
+                view: deps.getPlayerViewOrThrow(playerId),
+            };
+        }
+        if (actionId.startsWith('time_chamber:console:')) {
+            throw new BadRequestException('密室控制台应由客户端界面打开');
+        }
         if (actionId.startsWith('scripture:record:')) {
             const rest = actionId.slice('scripture:record:'.length);
             const separator = rest.indexOf(':');

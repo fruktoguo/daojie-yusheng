@@ -91,6 +91,7 @@ type MainLowFrequencySocketBindingsOptions = {
   onDaoistDirectMessage: (data: ServerToClientEventPayload<typeof S2C.DaoistDirectMessage>) => void;
   onTreasureVaultDetail: (data: ServerToClientEventPayload<typeof S2C.TreasureVaultDetail>) => void;
   onTreasureVaultOperationResult: (data: ServerToClientEventPayload<typeof S2C.TreasureVaultOperationResult>) => void;
+  onTimeChamberOperationResult: (data: ServerToClientEventPayload<typeof S2C.TimeChamberOperationResult>) => void;
   /**
  * onMailSummary：on邮件摘要状态或数据块。
  */
@@ -235,6 +236,7 @@ export function bindMainLowFrequencySocketEvents(options: MainLowFrequencySocket
   options.socket.on(S2C.DaoistDirectMessage, options.onDaoistDirectMessage);
   options.socket.on(S2C.TreasureVaultDetail, options.onTreasureVaultDetail);
   options.socket.on(S2C.TreasureVaultOperationResult, options.onTreasureVaultOperationResult);
+  options.socket.on(S2C.TimeChamberOperationResult, options.onTimeChamberOperationResult);
   options.socket.on(S2C.MailSummary, options.onMailSummary);
   options.socket.on(S2C.MailPage, options.onMailPage);
   options.socket.on(S2C.MailDetail, options.onMailDetail);

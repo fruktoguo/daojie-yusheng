@@ -22,6 +22,7 @@ import {
   BUILDING_TOPOLOGY_ROOM_BOUNDARY,
   BUILDING_TOPOLOGY_SEMI_OUTDOOR_LINK,
   BUILDING_VISUAL_LAYER_ID_BY_KEY,
+  MAX_INSTANCE_TICK_SPEED,
   normalizeCraftEffectStatsPatch,
   FENGSHUI_ELEMENT_INDEX,
   getDefaultTileDurabilityMultiplier,
@@ -30,9 +31,11 @@ import {
   type CompiledBuildingCatalog,
   type CompiledBuildingDef,
   type FiveElement,
+  type TimeChamberSizeTier,
 } from '@mud/shared';
 
 const ROTATIONS = [0, 90, 180, 270] as const;
+const MAX_TIME_CHAMBER_FUEL_UNITS_PER_SPIRIT_STONE = 1_000_000_000;
 
 /** 建筑内容仓库：提供 BuildingDef → CompiledBuildingCatalog 的编译入口。 */
 export class BuildingContentRepository {
@@ -134,6 +137,10 @@ export function compileBuildingDefinitions(definitions: readonly BuildingDef[]):
       costCounts: Uint32Array.from(cost.map((entry) => clampInt(entry.count, 1, Number.MAX_SAFE_INTEGER))),
       cellLayerTarget,
       treasureVaultCapacity: clampInt(definition.treasureVault?.capacity, 0, Number.MAX_SAFE_INTEGER, 0),
+      timeChamberDefaultCapacity: clampInt(definition.timeChamber?.defaultCapacity, 0, 100, 0),
+      timeChamberMaxSpeed: clampInt(definition.timeChamber?.maxSpeed, 1, MAX_INSTANCE_TICK_SPEED, 1),
+      timeChamberFuelUnitsPerSpiritStone: clampInt(definition.timeChamber?.fuelUnitsPerSpiritStone, 1, MAX_TIME_CHAMBER_FUEL_UNITS_PER_SPIRIT_STONE, 36_000),
+      timeChamberAllowedSizeTiers: normalizeTimeChamberSizeTiers(definition.timeChamber?.allowedSizeTiers),
       craftEffectStats: normalizeCraftEffectStatsPatch(definition.craftEffectStats),
     };
 
@@ -149,6 +156,18 @@ export function compileBuildingDefinitions(definitions: readonly BuildingDef[]):
     traitIdsByKey,
     traitKeysById,
   };
+}
+
+function normalizeTimeChamberSizeTiers(value: TimeChamberSizeTier[] | undefined): TimeChamberSizeTier[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const allowed = new Set<TimeChamberSizeTier>(['small', 'medium', 'large']);
+  const normalized = Array.from(new Set(value.filter((entry): entry is TimeChamberSizeTier => allowed.has(entry))));
+  if (normalized.length !== value.length) {
+    throw new Error('building_def_invalid_time_chamber_size_tier');
+  }
+  return normalized;
 }
 
 function buildTopologyMask(

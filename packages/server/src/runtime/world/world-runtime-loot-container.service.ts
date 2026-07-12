@@ -553,62 +553,68 @@ export class WorldRuntimeLootContainerService {
  */
 
     advanceContainerSearches(instanceAccess, playerLocationIndex, currentTick) {
-        for (const [instanceId, states] of this.containerStatesByInstanceId) {
-            const instance = instanceAccess.getInstanceRuntime(instanceId);
-            if (!instance) {
+        for (const instanceId of this.containerStatesByInstanceId.keys()) {
+            this.advanceContainerSearchesForInstance(instanceId, instanceAccess, playerLocationIndex, currentTick);
+        }
+    }
+
+    /** 只推进一个实际执行了逻辑息的实例，避免其他地图提频时误扣搜索息数。 */
+    advanceContainerSearchesForInstance(instanceId, instanceAccess, playerLocationIndex, currentTick) {
+        const states = this.containerStatesByInstanceId.get(instanceId);
+        const instance = states ? instanceAccess.getInstanceRuntime(instanceId) : null;
+        if (!states || !instance) {
+            return;
+        }
+        const instanceTick = Number.isFinite(Number(instance.tick))
+            ? Math.max(0, Math.trunc(Number(instance.tick) || 0))
+            : Math.max(0, Math.trunc(Number(currentTick) || 0));
+        let changed = false;
+        for (const state of states.values()) {
+            const runtimeContainer = instance.template.containers.find((entry) => entry.id === state.containerId) ?? null;
+            if (!runtimeContainer) {
                 continue;
             }
-            const instanceTick = Number.isFinite(Number(instance.tick))
-                ? Math.max(0, Math.trunc(Number(instance.tick) || 0))
-                : Math.max(0, Math.trunc(Number(currentTick) || 0));
-            let changed = false;
-            for (const state of states.values()) {
-                const runtimeContainer = instance.template.containers.find((entry) => entry.id === state.containerId) ?? null;
-                if (!runtimeContainer) {
-                    continue;
-                }
-                const activeViewer = this.resolveActiveContainerViewer(instanceId, runtimeContainer.x, runtimeContainer.y, playerLocationIndex);
-                if (runtimeContainer.variant === 'herb') {
-                    const repaired = repairStaleHerbSchedule(runtimeContainer, state, instanceTick);
-                    const advanced = this.advanceHerbGrowth(runtimeContainer, state, instanceTick, activeViewer);
-                    if (repaired || advanced) {
-                        changed = true;
-                    }
-                    continue;
-                }
-                if (typeof state.refreshAtTick === 'number' && state.refreshAtTick <= instanceTick && !state.activeSearch) {
-                    const refreshedEntries = this.generateContainerEntries(runtimeContainer, instanceTick, activeViewer);
-                    state.entries = refreshedEntries;
-                    state.generatedAtTick = instanceTick;
-                    state.refreshAtTick = resolveContainerRefreshAtTick(runtimeContainer, instanceTick);
+            const activeViewer = this.resolveActiveContainerViewer(instanceId, runtimeContainer.x, runtimeContainer.y, playerLocationIndex);
+            if (runtimeContainer.variant === 'herb') {
+                const repaired = repairStaleHerbSchedule(runtimeContainer, state, instanceTick);
+                const advanced = this.advanceHerbGrowth(runtimeContainer, state, instanceTick, activeViewer);
+                if (repaired || advanced) {
                     changed = true;
                 }
-                if (!state.activeSearch) {
-                    if (hasHiddenContainerEntries(state.entries) && activeViewer) {
-                        this.beginContainerSearch(state, runtimeContainer.grade);
-                        changed = true;
-                    }
-                    continue;
-                }
-                state.activeSearch.remainingTicks -= 1;
+                continue;
+            }
+            if (typeof state.refreshAtTick === 'number' && state.refreshAtTick <= instanceTick && !state.activeSearch) {
+                const refreshedEntries = this.generateContainerEntries(runtimeContainer, instanceTick, activeViewer);
+                state.entries = refreshedEntries;
+                state.generatedAtTick = instanceTick;
+                state.refreshAtTick = resolveContainerRefreshAtTick(runtimeContainer, instanceTick);
                 changed = true;
-                if (state.activeSearch.remainingTicks > 0) {
-                    continue;
-                }
-                const target = state.entries.find((entry) => !entry.visible && createItemStackSignature(entry.item) === state.activeSearch?.itemKey);
-                if (target) {
-                    target.visible = true;
-                }
-                state.activeSearch = undefined;
+            }
+            if (!state.activeSearch) {
                 if (hasHiddenContainerEntries(state.entries) && activeViewer) {
                     this.beginContainerSearch(state, runtimeContainer.grade);
+                    changed = true;
                 }
+                continue;
             }
-            if (changed) {
-                this.markContainerPersistenceDirty(instanceId);
+            state.activeSearch.remainingTicks -= 1;
+            changed = true;
+            if (state.activeSearch.remainingTicks > 0) {
+                continue;
+            }
+            const target = state.entries.find((entry) => !entry.visible && createItemStackSignature(entry.item) === state.activeSearch?.itemKey);
+            if (target) {
+                target.visible = true;
+            }
+            state.activeSearch = undefined;
+            if (hasHiddenContainerEntries(state.entries) && activeViewer) {
+                this.beginContainerSearch(state, runtimeContainer.grade);
             }
         }
-    }    
+        if (changed) {
+            this.markContainerPersistenceDirty(instanceId);
+        }
+    }
     /**
  * hasActiveContainerViewer：判断激活ContainerViewer是否满足条件。
  * @param instanceId instance ID。

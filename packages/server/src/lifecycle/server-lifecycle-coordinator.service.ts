@@ -27,6 +27,7 @@ import { GeneratedTechniqueStoreService } from '../runtime/technique-generation/
 import { TechniqueGenerationService } from '../runtime/technique-generation/technique-generation.service';
 import { ensureGeneratedTechniqueTables } from '../persistence/generated-technique-persistence.service';
 import { PlayerDomainPersistenceService } from '../persistence/player-domain-persistence.service';
+import { TimeChamberRuntimeService } from '../runtime/building/time-chamber-runtime.service';
 
 @Injectable()
 export class ServerLifecycleCoordinatorService implements OnApplicationBootstrap, OnModuleDestroy {
@@ -53,6 +54,7 @@ export class ServerLifecycleCoordinatorService implements OnApplicationBootstrap
     @Optional() @Inject(GeneratedTechniqueStoreService) private readonly generatedTechniqueStoreService?: GeneratedTechniqueStoreService,
     @Optional() @Inject(TechniqueGenerationService) private readonly techniqueGenerationService?: TechniqueGenerationService,
     @Optional() @Inject(PlayerDomainPersistenceService) private readonly playerDomainPersistenceService?: PlayerDomainPersistenceService,
+    @Optional() @Inject(TimeChamberRuntimeService) private readonly timeChamberRuntimeService?: TimeChamberRuntimeService,
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
@@ -143,7 +145,9 @@ export class ServerLifecycleCoordinatorService implements OnApplicationBootstrap
       const replayedPayloads = await replayRuntime.replayDurablePayloadsBeforeRecovery();
       this.logger.log(`权威恢复前 durable flush payload 已清空：processed=${replayedPayloads}`);
       await this.playerDomainPersistenceService?.runPostReplayStartupMaintenance();
+      await this.timeChamberRuntimeService?.prepareForWorldRecovery();
       await this.recoverWorld();
+      await this.timeChamberRuntimeService?.applyRecoveredRuntimeState(this.worldRuntimeService);
       await this.recoverPlayers();
     }
 

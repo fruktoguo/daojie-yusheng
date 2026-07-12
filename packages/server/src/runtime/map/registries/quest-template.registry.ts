@@ -9,9 +9,11 @@ import { deepFreezeTemplate } from '../../../content/registries/template-freeze'
 @Injectable()
 export class QuestTemplateRegistry {
   readonly questSourceById = new Map<string, any>();
+  private readonly questIdsByMapId = new Map<string, string[]>();
 
   loadAll(): void {
     this.questSourceById.clear();
+    this.questIdsByMapId.clear();
   }
 
   registerMapTemplate(template: any): void {
@@ -19,6 +21,8 @@ export class QuestTemplateRegistry {
     if (!mapId) {
       return;
     }
+    this.unregisterMapTemplate(mapId);
+    const questIds: string[] = [];
     for (const npc of template.npcs ?? []) {
       for (const quest of npc.quests ?? []) {
         const questId = String(quest?.id ?? '').trim();
@@ -34,6 +38,22 @@ export class QuestTemplateRegistry {
           giverX: npc.x,
           giverY: npc.y,
         }));
+        questIds.push(questId);
+      }
+    }
+    this.questIdsByMapId.set(mapId, questIds);
+  }
+
+  unregisterMapTemplate(mapIdInput: string): void {
+    const mapId = String(mapIdInput ?? '').trim();
+    if (!mapId) {
+      return;
+    }
+    const questIds = this.questIdsByMapId.get(mapId) ?? [];
+    this.questIdsByMapId.delete(mapId);
+    for (const questId of questIds) {
+      if (this.questSourceById.get(questId)?.giverMapId === mapId) {
+        this.questSourceById.delete(questId);
       }
     }
   }

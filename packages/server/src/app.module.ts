@@ -82,6 +82,8 @@ import { CraftPanelRuntimeService } from './runtime/craft/craft-panel-runtime.se
 import { CraftPanelAlchemyQueryService } from './runtime/craft/craft-panel-alchemy-query.service';
 import { CraftPanelEnhancementQueryService } from './runtime/craft/craft-panel-enhancement-query.service';
 import { TreasureVaultRuntimeService } from './runtime/building/treasure-vault-runtime.service';
+import { TimeChamberAdmissionPolicy } from './runtime/building/time-chamber-admission.policy';
+import { TimeChamberRuntimeService } from './runtime/building/time-chamber-runtime.service';
 import { SocialRuntimeService } from './runtime/social/social-runtime.service';
 import { ChatRuntimeService } from './runtime/chat/chat-runtime.service';
 import { WorldRuntimeNpcShopQueryService } from './runtime/world/query/world-runtime-npc-shop-query.service';
@@ -104,6 +106,7 @@ import { WorldRuntimeStateFacadeService } from './runtime/world/world-runtime-st
 import { WorldRuntimeTickDispatchService } from './runtime/world/world-runtime-tick-dispatch.service';
 import { WorldRuntimeWorldAccessService } from './runtime/world/world-runtime-world-access.service';
 import { WorldRuntimeInstanceTickOrchestrationService } from './runtime/world/world-runtime-instance-tick-orchestration.service';
+import { WorldRuntimeInstanceScheduleService } from './runtime/world/world-runtime-instance-schedule.service';
 import { WorldRuntimeMovementService } from './runtime/world/world-runtime-movement.service';
 import { WorldRuntimeSummaryQueryService } from './runtime/world/query/world-runtime-summary-query.service';
 import { WorldRuntimeInstanceStateService } from './runtime/world/world-runtime-instance-state.service';
@@ -291,6 +294,8 @@ const WORLD_GATEWAY_PROVIDERS = shouldStartHttpServer()
     CraftPanelEnhancementQueryService,
     CraftPanelRuntimeService,
     TreasureVaultRuntimeService,
+    TimeChamberAdmissionPolicy,
+    TimeChamberRuntimeService,
     SocialRuntimeService,
     WorldRuntimeNpcShopQueryService,
     WorldRuntimeQuestQueryService,
@@ -312,6 +317,7 @@ const WORLD_GATEWAY_PROVIDERS = shouldStartHttpServer()
     WorldRuntimeTickDispatchService,
     WorldRuntimeWorldAccessService,
     WorldRuntimeInstanceTickOrchestrationService,
+    WorldRuntimeInstanceScheduleService,
     WorldRuntimeMovementService,
     WorldRuntimeSummaryQueryService,
     WorldRuntimeInstanceStateService,

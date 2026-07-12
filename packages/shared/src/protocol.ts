@@ -52,6 +52,14 @@ import type {
   TreasureVaultOperationResultView,
 } from './protocol-social';
 import type { C2S_RequestContentTemplates, S2C_ContentTemplates } from './content-resolver-types';
+import type {
+  C2S_DepositTimeChamberFuelView,
+  C2S_RenameTimeChamberView,
+  C2S_RequestTimeChamberView,
+  C2S_ResizeTimeChamberView,
+  C2S_SetTimeChamberSpeedView,
+  TimeChamberOperationResultView,
+} from './time-chamber-types';
 
 // ===== 本地 shadowing 接口（与 export type * 同名，必须留在本文件以避免 TS2308） =====
 
@@ -176,6 +184,11 @@ export const C2S = {
   OrganizeTreasureVault: 'n:c:organizeTreasureVault',
   UpdateTreasureVaultPermissions: 'n:c:updateTreasureVaultPermissions',
   RenameTreasureVault: 'n:c:renameTreasureVault',
+  RequestTimeChamber: 'n:c:requestTimeChamber',
+  DepositTimeChamberFuel: 'n:c:depositTimeChamberFuel',
+  SetTimeChamberSpeed: 'n:c:setTimeChamberSpeed',
+  RenameTimeChamber: 'n:c:renameTimeChamber',
+  ResizeTimeChamber: 'n:c:resizeTimeChamber',
   AckSystemMessages: 'n:c:ackSystemMessages',
   AckOfflineGainReports: 'n:c:ackOfflineGainReports',
   RequestOfflineGainReports: 'n:c:requestOfflineGainReports',
@@ -206,6 +219,7 @@ export const S2C = {
   DaoistDirectMessage: 'n:s:daoistDirectMessage',
   TreasureVaultDetail: 'n:s:treasureVaultDetail',
   TreasureVaultOperationResult: 'n:s:treasureVaultOperationResult',
+  TimeChamberOperationResult: 'n:s:timeChamberOperationResult',
   OfflineGainReports: 'n:s:offlineGainReports',
   ActivityStatus: 'n:s:activityStatus',
   ActivityOperationResult: 'n:s:activityOperationResult',
@@ -373,6 +387,11 @@ export interface C2S_PayloadMap extends Record<C2S_EventName, unknown> {
   [C2S.OrganizeTreasureVault]: C2S_OrganizeTreasureVaultView;
   [C2S.UpdateTreasureVaultPermissions]: C2S_UpdateTreasureVaultPermissionsView;
   [C2S.RenameTreasureVault]: C2S_RenameTreasureVaultView;
+  [C2S.RequestTimeChamber]: C2S_RequestTimeChamberView;
+  [C2S.DepositTimeChamberFuel]: C2S_DepositTimeChamberFuelView;
+  [C2S.SetTimeChamberSpeed]: C2S_SetTimeChamberSpeedView;
+  [C2S.RenameTimeChamber]: C2S_RenameTimeChamberView;
+  [C2S.ResizeTimeChamber]: C2S_ResizeTimeChamberView;
   [C2S.AckSystemMessages]: RequestPayloads.C2S_AckSystemMessages;
   [C2S.AckOfflineGainReports]: RequestPayloads.C2S_AckOfflineGainReports;
   [C2S.RequestOfflineGainReports]: RequestPayloads.C2S_RequestOfflineGainReports;
@@ -403,6 +422,7 @@ export interface S2C_PayloadMap extends Record<S2C_EventName, unknown> {
   [S2C.DaoistDirectMessage]: DaoistDirectMessageView;
   [S2C.TreasureVaultDetail]: TreasureVaultDetailView;
   [S2C.TreasureVaultOperationResult]: TreasureVaultOperationResultView;
+  [S2C.TimeChamberOperationResult]: TimeChamberOperationResultView;
   [S2C.OfflineGainReports]: ResponsePayloads.S2C_OfflineGainReports;
   [S2C.ActivityStatus]: ResponsePayloads.S2C_ActivityStatus;
   [S2C.ActivityOperationResult]: ResponsePayloads.S2C_ActivityOperationResult;

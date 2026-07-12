@@ -77,6 +77,7 @@ import { WorldRuntimeSystemCommandEnqueueService } from './command/world-runtime
 import { WorldRuntimeTongtianTowerService } from './world-runtime-tongtian-tower.service';
 import { MailRuntimeService } from '../mail/mail-runtime.service';
 import { TreasureVaultRuntimeService } from '../building/treasure-vault-runtime.service';
+import { TimeChamberRuntimeService } from '../building/time-chamber-runtime.service';
 import { ActivityRuntimeService } from '../activity/activity-runtime.service';
 import { PlayerCombatService } from '../combat/player-combat.service';
 import { DurableOperationService } from '../../persistence/durable-operation.service';
@@ -199,7 +200,6 @@ export class WorldRuntimeService {
     playerRuntimeService;
 
     playerCombatService;
-
     worldSessionService;
 
     worldClientEventService;
@@ -434,6 +434,7 @@ export class WorldRuntimeService {
         @Inject(PlayerPersistenceFlushService) playerPersistenceFlushService: PlayerPersistenceFlushService,
         @Inject(MailRuntimeService) mailRuntimeService: MailRuntimeService,
         @Inject(TreasureVaultRuntimeService) treasureVaultRuntimeService: TreasureVaultRuntimeService,
+        @Inject(TimeChamberRuntimeService) public readonly timeChamberRuntimeService: TimeChamberRuntimeService,
         @Inject(ActivityRuntimeService) activityRuntimeService: ActivityRuntimeService,
         @Inject(DurableOperationService) durableOperationService: DurableOperationService,
         @Inject(RuntimeEventBusService) runtimeEventBusService: RuntimeEventBusService = undefined,
@@ -632,7 +633,6 @@ export class WorldRuntimeService {
     getInstanceRuntime(instanceId) {
         return this.worldRuntimeStateFacadeService.getInstanceRuntime(instanceId, this);
     }
-
     setInstanceRuntime(instanceId, instance) {
         this.worldRuntimeStateFacadeService.setInstanceRuntime(instanceId, instance, this);
         syncManagedInstanceRegistration(this, instanceId, instance);
@@ -891,8 +891,8 @@ export class WorldRuntimeService {
         async tickAll() {
         return this.worldRuntimeStateFacadeService.tickAll(this);
     }
-        async advanceFrame(frameDurationMs = 1000, getInstanceTickSpeed = null) {
-        return this.worldRuntimeStateFacadeService.advanceFrame(frameDurationMs, getInstanceTickSpeed, this);
+        async advanceFrame(frameDurationMs = 1000, getInstanceTickSpeed = null, scheduledPlans = null) {
+        return this.worldRuntimeStateFacadeService.advanceFrame(frameDurationMs, getInstanceTickSpeed, scheduledPlans, this);
     }
         recordSyncFlushDuration(durationMs) {
         this.worldRuntimeStateFacadeService.recordSyncFlushDuration(durationMs, this);
@@ -984,8 +984,8 @@ export class WorldRuntimeService {
         resolveAutoBattleDesiredRange(player) {
         return this.worldRuntimeTickDispatchService.resolveAutoBattleDesiredRange(player, this);
     }
-        async dispatchPendingCommands(recordTickSectionDuration = null) {
-        return this.worldRuntimeTickDispatchService.dispatchPendingCommands(this, recordTickSectionDuration);
+        async dispatchPendingCommands(recordTickSectionDuration = null, scopedPlayerIds = null) {
+        return this.worldRuntimeTickDispatchService.dispatchPendingCommands(this, recordTickSectionDuration, scopedPlayerIds);
     }
         dispatchPendingSystemCommands() {
         this.worldRuntimeTickDispatchService.dispatchPendingSystemCommands(this);

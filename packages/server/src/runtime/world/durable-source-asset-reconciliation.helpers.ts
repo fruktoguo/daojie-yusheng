@@ -11,8 +11,10 @@ export interface DurableInventoryMutationRequest {
   [key: string]: unknown;
 }
 
-export interface DurableInventoryMutationClient {
-  grantInventoryItems(input: DurableInventoryMutationRequest): Promise<unknown>;
+export interface DurableInventoryMutationClient<
+  TRequest extends DurableInventoryMutationRequest = DurableInventoryMutationRequest,
+> {
+  grantInventoryItems(input: TRequest): Promise<unknown>;
   getOperationStatus?(operationId: string): Promise<'pending' | 'committed' | null>;
   getOperationReplay?(operationId: string): Promise<{
     operation: Record<string, unknown> | null;
@@ -47,9 +49,11 @@ export function isDurableCommitOutcomeUnknownError(error: unknown): boolean {
  * 用新连接先查 operation 状态；未提交时再以同 operationId 幂等重放一次。
  * 只有明确的普通事务失败才返回 failed，查询不可达或再次丢失 COMMIT 回包均保持 unknown。
  */
-export async function reconcileDurableInventoryCommitOutcome(
-  durable: DurableInventoryMutationClient,
-  request: DurableInventoryMutationRequest,
+export async function reconcileDurableInventoryCommitOutcome<
+  TRequest extends DurableInventoryMutationRequest,
+>(
+  durable: DurableInventoryMutationClient<TRequest>,
+  request: TRequest,
 ): Promise<DurableInventoryCommitReconciliation> {
   // DurableOperationService 在正常运行期会自行持锁收敛；只有关停打断时才会把 unknown 交回调用方。
   // 此时不能再开启 status/replay/幂等事务，否则会挤占主进程的优雅关闭预算。
