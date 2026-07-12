@@ -27,28 +27,12 @@ import { confirmModalHost } from './confirm-modal-host';
 import { describeEquipmentBonuses } from './equipment-tooltip';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from './floating-tooltip';
 import { t } from './i18n';
-import { bindInlineItemTooltips, renderInlineItemChip } from './item-inline-tooltip';
 import { getItemAffixTypeLabel, getItemDecorClassName, getItemDisplayMeta } from './item-display';
 import { readEnhancementHistoryFromStorage } from './enhancement-history-storage';
 import { resolveClientDisplayToken } from './structured-notice-display';
 
 type EnhancementJobView = NonNullable<NonNullable<S2C_EnhancementPanel['state']>['job']>;
 type EnhancementItemView = SyncedEnhancementCandidateView['item'];
-
-type EnhancementViewState = {
-  targetLevelValue: string | null;
-  protectionStartValue: string | null;
-  protectionValue: string | null;
-  pickerTop: number;
-  historyTop: number;
-  selectedTargetKey: string | null;
-};
-
-type StoredEnhancementHistoryStateV1 = {
-  version: 1;
-  totals: PlayerEnhancementRecord[];
-  sessionRecord: PlayerEnhancementRecord | null;
-};
 
 type StoredEnhancementHistoryState = {
   version: 2;
@@ -287,6 +271,14 @@ export class CraftEnhancementView {
   readonly enhancementFormulaTooltip = new FloatingTooltip();
 
   constructor(private readonly parent: CraftEnhancementParent) {}
+
+  closeTransientUi(): void {
+    confirmModalHost.close(`${this.parent.MODAL_OWNER}:enhancement-picker`);
+    confirmModalHost.close(`${this.parent.MODAL_OWNER}:enhancement-history-list`);
+    confirmModalHost.close(`${this.parent.MODAL_OWNER}:enhancement-history-session`);
+    confirmModalHost.close(`${this.parent.MODAL_OWNER}:enhancement-history-detail`);
+    this.enhancementFormulaTooltip.hide(true);
+  }
 
   // --- State accessors ---
 
@@ -600,19 +592,6 @@ export class CraftEnhancementView {
         </div>
       </div>
     `;
-  }
-
-  private renderEnhancementWorkbenchSection(): string {
-    const state = this.getEnhancementPanelState();
-    const selected = this.getSelectedEnhancementCandidate();
-    const selectedProtection = this.getSelectedEnhancementProtection(selected);
-    if (state?.job) {
-      return `${this.renderEnhancementActiveJob(state.job, selected)}${selected ? this.renderEnhancementWorkbench(selected, selectedProtection) : ''}`;
-    }
-    if (selected) {
-      return this.renderEnhancementWorkbench(selected, selectedProtection);
-    }
-    return `<div class="enhancement-workbench-grid" data-enhancement-idle-key="${escapeHtml(this.buildEnhancementIdleWorkbenchKey())}"><div class="enhancement-workbench-side">${this.renderEnhancementTargetSlot(null, null)}</div><div class="enhancement-workbench-main"><div class="enhancement-empty-state">请选择一件装备或法宝。</div></div></div>`;
   }
 
   private renderEnhancementFormulaPill(): string {
@@ -1117,6 +1096,11 @@ export class CraftEnhancementView {
       return;
     }
     if (target.closest('[data-enhancement-formula-tooltip="1"]')) {
+      return;
+    }
+    const refresh = target.closest<HTMLElement>('[data-craft-action="enhancement-refresh"]');
+    if (refresh) {
+      this.parent.callbacks?.onRequestEnhancement?.();
       return;
     }
     const openHistory = target.closest<HTMLElement>('[data-enhancement-open-history="1"]');

@@ -44,6 +44,7 @@ const techniquePanel = read('src/ui/panels/technique-panel.ts');
 const inventoryPanel = read('src/ui/panels/inventory-panel.ts');
 const bodyTrainingPanel = read('src/ui/panels/body-training-panel.ts');
 const craftWorkbench = read('src/ui/craft-workbench-modal.ts');
+const craftEnhancementView = read('src/ui/craft-enhancement-view.ts');
 const npcShop = read('src/ui/npc-shop-modal.ts');
 const npcQuest = read('src/ui/npc-quest-modal.ts');
 const socialPanel = read('src/ui/panels/social-panel.ts');
@@ -246,6 +247,14 @@ const craftPatch = section(craftWorkbench, 'private patchOpenCraftShell(): void 
 assertIncludes(craftPatch, /tryPatchAlchemyBody/, '炼制弹层同步必须保留局部炼丹 patch');
 assertIncludes(craftPatch, /tryPatchEnhancementBody/, '炼制弹层同步必须保留局部强化 patch');
 assertIncludes(craftPatch, /tryPatchTransmissionBody/, '炼制弹层同步必须保留局部传功 patch');
+assertIncludes(craftWorkbench, /this\.enhancementView\.mergeServerEnhancementSessionRecord\(/, '强化历史增量必须由强化子视图唯一合并');
+assertIncludes(craftWorkbench, /this\.enhancementView\.closeTransientUi\(\)/, '工坊关闭时必须释放强化子视图的弹层和提示');
+assertIncludes(craftWorkbench, /confirmModalHost\.close\(CraftWorkbenchModal\.ALCHEMY_MATERIAL_PICKER_OWNER\)/, '工坊关闭时必须释放炼制材料选择弹层');
+assertMissing(craftWorkbench, /private (?:renderEnhancementActiveJob|ensureLocalEnhancementHistoryLoaded|openEnhancementPickerModal|bindEnhancementFormulaTooltip)\(/, '工坊主类不得重新吸收强化模板、历史或提示生命周期');
+assertMissing(craftWorkbench, /private readonly enhancementFormulaTooltip/, '工坊主类不得保留强化子视图已接管的废弃提示实例');
+assertIncludes(craftEnhancementView, /renderEnhancementActiveJob\(activeJob, selected\)/, '强化子视图必须保留专用运行态详情，不能退化为仅显示公共队列');
+assertIncludes(craftEnhancementView, /closeTransientUi\(\): void \{/, '强化子视图必须提供统一临时 UI 释放入口');
+assertIncludes(craftEnhancementView, /\[data-craft-action="enhancement-refresh"\]/, '强化刷新入口必须由强化子视图绑定');
 
 const npcShopRender = section(npcShop, 'private render(): void {', '/** renderBody：渲染身体。 */', 'NpcShopModal.render');
 assertIncludes(npcShopRender, /this\.patchBody\(body, meta\)/, 'NPC 商店已打开时必须先复用稳定壳体');
