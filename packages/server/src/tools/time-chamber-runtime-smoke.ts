@@ -140,12 +140,136 @@ async function main(): Promise<void> {
     '目标实例不可挂接时不能误报传送成功',
   );
 
+  await testDeconstructLeaseFence();
+
   console.log(JSON.stringify({
     ok: true,
-    answers: '密室首版容量为 1 且准入策略可独立替换，三档空间为 9/15/21，燃料按高倍逻辑息扣除并在不足时回落 1 倍。',
+    answers: '密室首版容量为 1 且准入策略可独立替换，三档空间为 9/15/21，燃料按高倍逻辑息扣除并在不足时回落 1 倍；拆除只能命中本地完全匹配的活跃 lease，并递增 ownership epoch 隔离旧 writer。',
     excludes: '不连接数据库，不证明真实事务、实例目录恢复和客户端控制台。',
     completionMapping: 'time-chamber-domain-runtime',
   }, null, 2));
+}
+
+async function testDeconstructLeaseFence(): Promise<void> {
+  const state = {
+    sourceInstanceId: 'source:deconstruct',
+    buildingId: 'building:deconstruct',
+    chamberInstanceId: 'chamber:deconstruct',
+    templateId: 'template:deconstruct',
+    ownerPlayerId: 'player:owner',
+    displayName: '拆除围栏密室',
+    sizeTier: 'small' as const,
+    capacity: 1,
+    configuredSpeed: 1,
+    databaseFuelUnits: 0,
+    reservedFuelUnits: 0,
+    fuelUnitsPerSpiritStone: 36_000,
+    maxSpeed: 10,
+    allowedSizeTiers: ['small', 'medium', 'large'],
+    revision: 3,
+  };
+  const queryLog: Array<{ sql: string; params: unknown[] }> = [];
+  let catalogRow = {
+    assigned_node_id: 'node:remote',
+    lease_token: 'lease:remote',
+    ownership_epoch: 8,
+    lease_active: true,
+  };
+  const client = {
+    async query(sql: string, params: unknown[] = []): Promise<{ rows: any[]; rowCount: number }> {
+      const normalizedSql = sql.replace(/\s+/g, ' ').trim();
+      queryLog.push({ sql: normalizedSql, params });
+      if (normalizedSql.startsWith('SELECT assigned_node_id')) {
+        return { rows: [catalogRow], rowCount: 1 };
+      }
+      if (normalizedSql.startsWith('UPDATE instance_catalog')) {
+        return { rows: [], rowCount: 1 };
+      }
+      if (normalizedSql.startsWith('DELETE FROM instance_time_chamber_state')) {
+        return { rows: [], rowCount: 1 };
+      }
+      return { rows: [], rowCount: 0 };
+    },
+    release(): void {},
+  };
+  const service = new TimeChamberRuntimeService(
+    {} as any,
+    { unregisterRuntimeMapTemplate(): boolean { return true; } } as any,
+    {
+      playerDomainPersistenceService: {
+        isEnabled: () => true,
+        hasRetainedPlayersInInstance: async () => false,
+      },
+    } as any,
+    {} as any,
+    { registerOrUpdate(): void {}, unregister(): void {} } as any,
+    new TimeChamberAdmissionPolicy(),
+  );
+  const serviceInternal = service as any;
+  serviceInternal.enabled = true;
+  serviceInternal.pool = {
+    connect: async () => client,
+    query: async () => ({ rows: [], rowCount: 0 }),
+  };
+  serviceInternal.storeState(state);
+
+  const chamberInstance = {
+    meta: {
+      assignedNodeId: 'node:local',
+      leaseToken: 'lease:local',
+      ownershipEpoch: 7,
+      runtimeStatus: 'leased',
+      status: 'active',
+    },
+    listPlayerIds: () => [],
+    canReplaceEmptyRuntimeTemplate: () => true,
+  };
+  const runtime = {
+    getInstanceRuntime: (instanceId: string) => instanceId === state.chamberInstanceId ? chamberInstance : null,
+    isInstanceLeaseWritable: () => true,
+    worldRuntimeInstanceStateService: { deleteInstanceRuntime(): void {} },
+    worldRuntimeTickProgressService: { clearInstance(): void {} },
+    worldRuntimeLootContainerService: { removeInstanceState(): void {} },
+    runtimeEventBusService: { discardInstance(): void {} },
+    worldRuntimeFormationService: {
+      listRuntimeFormations: () => [],
+      releaseInstance(): void {},
+    },
+  };
+
+  assert.deepEqual(
+    await service.prepareDeconstruct(state.sourceInstanceId, state.buildingId, runtime),
+    { ok: false, reason: 'time_chamber_unavailable' },
+    '数据库活跃 lease 已转移到远端时，旧本地运行态不得删除密室',
+  );
+  assert.equal(serviceInternal.stateByBuildingKey.size, 1, 'lease 冲突后必须保留密室状态');
+  assert.equal(
+    queryLog.some((entry) => entry.sql.startsWith('UPDATE instance_catalog') || entry.sql.startsWith('DELETE FROM instance_time_chamber_state')),
+    false,
+    'lease 冲突必须在任何销毁写入前失败关闭',
+  );
+
+  queryLog.length = 0;
+  catalogRow = {
+    assigned_node_id: 'node:local',
+    lease_token: 'lease:local',
+    ownership_epoch: 7,
+    lease_active: true,
+  };
+  assert.deepEqual(
+    await service.prepareDeconstruct(state.sourceInstanceId, state.buildingId, runtime),
+    { ok: true },
+    '本地运行态与数据库活跃 lease/epoch 完全匹配时允许原子拆除',
+  );
+  const catalogUpdate = queryLog.find((entry) => entry.sql.startsWith('UPDATE instance_catalog'));
+  const stateDelete = queryLog.find((entry) => entry.sql.startsWith('DELETE FROM instance_time_chamber_state'));
+  assert.ok(catalogUpdate, '拆除必须更新实例目录');
+  assert.match(catalogUpdate.sql, /ownership_epoch = ownership_epoch \+ 1/);
+  assert.match(catalogUpdate.sql, /metadata_version = GREATEST\(metadata_version, ownership_epoch \+ 1\)/);
+  assert.deepEqual(catalogUpdate.params, [state.chamberInstanceId, 7]);
+  assert.ok(stateDelete, '拆除必须删除密室领域状态');
+  assert.deepEqual(stateDelete.params, [state.sourceInstanceId, state.buildingId, state.revision]);
+  assert.equal(serviceInternal.stateByBuildingKey.size, 0, '事务提交后才可清理本地密室状态');
 }
 
 void main().catch((error) => {

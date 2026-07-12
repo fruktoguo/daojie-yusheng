@@ -564,6 +564,9 @@ export class TimeChamberRuntimeService implements OnModuleInit {
         return { ok: true };
       }
       const instance = runtime.getInstanceRuntime?.(state.chamberInstanceId);
+      if (instance && !isRuntimeInstanceWritable(runtime, instance)) {
+        return { ok: false, reason: 'time_chamber_unavailable' };
+      }
       if (instance?.listPlayerIds?.().length > 0) {
         return { ok: false, reason: 'time_chamber_occupied' };
       }
@@ -579,21 +582,49 @@ export class TimeChamberRuntimeService implements OnModuleInit {
       if (await persistence.hasRetainedPlayersInInstance(state.chamberInstanceId)) {
         return { ok: false, reason: 'time_chamber_occupied' };
       }
+      const expectedLeaseFence = resolveRuntimeLeaseFence(instance);
       const client = await this.pool.connect();
       try {
         await client.query('BEGIN');
-        await client.query(
+        const catalogResult = await client.query(
+          `SELECT assigned_node_id, lease_token, ownership_epoch,
+                  assigned_node_id IS NOT NULL
+                    AND lease_token IS NOT NULL
+                    AND lease_expire_at IS NOT NULL
+                    AND lease_expire_at > now() AS lease_active
+             FROM instance_catalog
+            WHERE instance_id = $1
+            FOR UPDATE`,
+          [state.chamberInstanceId],
+        );
+        const catalogRow = catalogResult.rows?.[0] ?? null;
+        if (catalogRow && !canRetireCatalogRow(catalogRow, expectedLeaseFence)) {
+          await client.query('ROLLBACK');
+          return { ok: false, reason: 'time_chamber_unavailable' };
+        }
+        if (catalogRow) {
+          const catalogUpdate = await client.query(
           `UPDATE instance_catalog
               SET status = 'destroyed', runtime_status = 'stopped',
                   assigned_node_id = NULL, lease_token = NULL, lease_expire_at = NULL,
+                  ownership_epoch = ownership_epoch + 1,
+                  metadata_version = GREATEST(metadata_version, ownership_epoch + 1),
                   destroy_at = now(), last_active_at = now()
-            WHERE instance_id = $1`,
-          [state.chamberInstanceId],
+            WHERE instance_id = $1 AND ownership_epoch = $2`,
+            [state.chamberInstanceId, normalizeCatalogOwnershipEpoch(catalogRow.ownership_epoch)],
+          );
+          if ((catalogUpdate.rowCount ?? 0) !== 1) {
+            throw new Error('time_chamber_lease_conflict');
+          }
+        }
+        const stateDelete = await client.query(
+          `DELETE FROM ${TIME_CHAMBER_TABLE}
+            WHERE source_instance_id = $1 AND building_id = $2 AND revision = $3`,
+          [state.sourceInstanceId, state.buildingId, state.revision],
         );
-        await client.query(
-          `DELETE FROM ${TIME_CHAMBER_TABLE} WHERE source_instance_id = $1 AND building_id = $2`,
-          [state.sourceInstanceId, state.buildingId],
-        );
+        if ((stateDelete.rowCount ?? 0) !== 1) {
+          throw new Error('time_chamber_revision_conflict');
+        }
         await client.query('COMMIT');
       } catch (error) {
         await client.query('ROLLBACK').catch(() => undefined);
@@ -1251,6 +1282,37 @@ function matchesExpectedRevision(expectedRevision: unknown, currentRevision: num
 
 function isPlayerDomainPersistenceEnabled(persistence: any): boolean {
   return typeof persistence?.isEnabled === 'function' && persistence.isEnabled() === true;
+}
+
+interface RuntimeLeaseFence {
+  assignedNodeId: string;
+  leaseToken: string;
+  ownershipEpoch: number;
+}
+
+function resolveRuntimeLeaseFence(instance: any): RuntimeLeaseFence | null {
+  const assignedNodeId = normalizeString(instance?.meta?.assignedNodeId);
+  const leaseToken = normalizeString(instance?.meta?.leaseToken);
+  const ownershipEpoch = normalizeCatalogOwnershipEpoch(instance?.meta?.ownershipEpoch);
+  return assignedNodeId && leaseToken
+    ? { assignedNodeId, leaseToken, ownershipEpoch }
+    : null;
+}
+
+/** 活跃租约只能由持有完全相同 lease/epoch 的本地运行态销毁；过期或空租约由行锁和 epoch 递增接管。 */
+function canRetireCatalogRow(row: any, expectedLeaseFence: RuntimeLeaseFence | null): boolean {
+  if (row?.lease_active !== true) {
+    return true;
+  }
+  return expectedLeaseFence !== null
+    && normalizeString(row?.assigned_node_id) === expectedLeaseFence.assignedNodeId
+    && normalizeString(row?.lease_token) === expectedLeaseFence.leaseToken
+    && normalizeCatalogOwnershipEpoch(row?.ownership_epoch) === expectedLeaseFence.ownershipEpoch;
+}
+
+function normalizeCatalogOwnershipEpoch(value: unknown): number {
+  const numeric = Number(value);
+  return Number.isSafeInteger(numeric) && numeric >= 0 ? numeric : 0;
 }
 
 function isRuntimeInstanceWritable(runtime: any, instance: any): boolean {

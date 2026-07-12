@@ -182,7 +182,7 @@ TypedArray 索引结构，按 cellIndex 存储:
 
 ### 拆除与恢复
 
-- 主动拆除前必须确认密室无人；随后先把独立实例目录标记为 destroyed/stopped 并删除密室状态，成功后才允许删除外部建筑。
+- 主动拆除前必须确认密室无人；随后在同一数据库事务中锁定 `instance_catalog`，活跃 lease 必须与本地运行态的 `assignedNodeId / leaseToken / ownershipEpoch` 完全一致，销毁时递增 ownership epoch 以隔离旧 writer，再删除密室状态。事务成功后才允许删除外部建筑。
 - 被攻击至 0 耐久时不能绕过异步释放链，建筑会保留 1 点耐久等待正常拆除。
 - 启动禁建区自检会预检将被摧毁的密室，并调用同一释放入口；释放失败的可恢复建筑加入豁免集合，避免产生孤儿实例。
 - 启动先加载密室状态并注册动态模板，再恢复实例目录与 checkpoint；建筑恢复完成后重新应用配置、燃料和实例 deadline，最后才开放 tick。

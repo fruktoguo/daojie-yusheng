@@ -4,6 +4,8 @@ import { MAX_INSTANCE_TICK_SPEED } from '@mud/shared';
 import { resolveServerDatabaseUrl } from '../config/env-alias';
 import { DatabasePoolProvider } from '../persistence/database-pool.provider';
 import { DurableOperationService } from '../persistence/durable-operation.service';
+import { TimeChamberAdmissionPolicy } from '../runtime/building/time-chamber-admission.policy';
+import { TimeChamberRuntimeService } from '../runtime/building/time-chamber-runtime.service';
 import { installSmokeTimeout } from './smoke-timeout';
 
 installSmokeTimeout(__filename);
@@ -37,7 +39,7 @@ async function main(): Promise<void> {
   try {
     await service.onModuleInit();
     await ensureTimeChamberTable(pool);
-    await cleanup(pool, playerId, instanceId, buildingId);
+    await cleanup(pool, playerId, instanceId, chamberInstanceId, buildingId);
     await seedFixture(pool, {
       playerId,
       runtimeOwnerId,
@@ -102,15 +104,23 @@ async function main(): Promise<void> {
       throw new Error(`密室燃料 outbox 异常：${JSON.stringify(outbox.rows)}`);
     }
 
+    await assertDeconstructLeaseFence(pool, {
+      instanceId,
+      buildingId,
+      chamberInstanceId,
+      playerId,
+      nodeId,
+    });
+
     console.log(JSON.stringify({
       ok: true,
       case: 'time-chamber-durable-fuel',
-      answers: '灵石扣减、密室燃料增加、watermark、outbox 和资产审计同事务提交；相同 operationId 回放不重复扣石或加油；密室状态缺失时整个事务回滚。',
+      answers: '灵石扣减、密室燃料增加、watermark、outbox 和资产审计同事务提交；相同 operationId 回放不重复扣石或加油；密室状态缺失时整个事务回滚；拆除拒绝远端活跃 lease，并在本地精确匹配时递增 ownership epoch 后原子删除状态。',
       excludes: '不启动 socket 客户端，不证明控制台 DOM 交互。',
       completionMapping: 'release:proof:with-db.time-chamber-durable-fuel',
     }, null, 2));
   } finally {
-    await cleanup(pool, playerId, instanceId, buildingId).catch(() => undefined);
+    await cleanup(pool, playerId, instanceId, chamberInstanceId, buildingId).catch(() => undefined);
     await service.onModuleDestroy().catch(() => undefined);
     await databasePoolProvider.onModuleDestroy().catch(() => undefined);
     await pool.end().catch(() => undefined);
@@ -214,6 +224,22 @@ async function seedFixture(pool: Pool, input: {
        ) VALUES ($1, $2, $3, $4, $5, '事务烟测密室', 'small', 1, 1, 100, 1)`,
       [input.instanceId, input.buildingId, input.chamberInstanceId, `template:${input.chamberInstanceId}`, input.playerId],
     );
+    await client.query(
+      `INSERT INTO instance_catalog(
+         instance_id, template_id, instance_type, persistent_policy, status, runtime_status,
+         assigned_node_id, lease_token, lease_expire_at, ownership_epoch, metadata_version,
+         cluster_id, shard_key, route_domain, created_at, last_active_at, last_persisted_at
+       ) VALUES ($1, $2, 'time_chamber', 'persistent', 'active', 'leased',
+         $3, $4, $5::timestamptz, 5, 5, 'default', $1, $6, now(), now(), now())`,
+      [
+        input.chamberInstanceId,
+        `template:${input.chamberInstanceId}`,
+        `node:remote:${input.playerId}`,
+        `lease:remote:${input.playerId}`,
+        new Date(Date.now() + 60_000).toISOString(),
+        `time-chamber:${input.chamberInstanceId}`,
+      ],
+    );
     await client.query('COMMIT');
   } catch (error) {
     await client.query('ROLLBACK').catch(() => undefined);
@@ -248,7 +274,132 @@ async function assertState(
   }
 }
 
-async function cleanup(pool: Pool, playerId: string, instanceId: string, buildingId: string): Promise<void> {
+async function assertDeconstructLeaseFence(pool: Pool, input: {
+  instanceId: string;
+  buildingId: string;
+  chamberInstanceId: string;
+  playerId: string;
+  nodeId: string;
+}): Promise<void> {
+  const localLeaseToken = `lease:local:${input.playerId}`;
+  const state = {
+    sourceInstanceId: input.instanceId,
+    buildingId: input.buildingId,
+    chamberInstanceId: input.chamberInstanceId,
+    templateId: `template:${input.chamberInstanceId}`,
+    ownerPlayerId: input.playerId,
+    displayName: '事务烟测密室',
+    sizeTier: 'small',
+    capacity: 1,
+    configuredSpeed: 1,
+    databaseFuelUnits: 72_100,
+    reservedFuelUnits: 0,
+    fuelUnitsPerSpiritStone: 36_000,
+    maxSpeed: MAX_INSTANCE_TICK_SPEED,
+    allowedSizeTiers: ['small', 'medium', 'large'],
+    revision: 2,
+  };
+  const runtimeInstance = {
+    meta: {
+      assignedNodeId: input.nodeId,
+      leaseToken: localLeaseToken,
+      ownershipEpoch: 4,
+      runtimeStatus: 'leased',
+      status: 'active',
+    },
+    listPlayerIds: () => [],
+    canReplaceEmptyRuntimeTemplate: () => true,
+  };
+  const runtime = {
+    getInstanceRuntime: (instanceId: string) => instanceId === input.chamberInstanceId ? runtimeInstance : null,
+    isInstanceLeaseWritable: () => true,
+    worldRuntimeInstanceStateService: { deleteInstanceRuntime(): void {} },
+    worldRuntimeTickProgressService: { clearInstance(): void {} },
+    worldRuntimeLootContainerService: { removeInstanceState(): void {} },
+    runtimeEventBusService: { discardInstance(): void {} },
+    worldRuntimeFormationService: {
+      listRuntimeFormations: () => [],
+      releaseInstance(): void {},
+    },
+  };
+  const timeChamberService = new TimeChamberRuntimeService(
+    {} as never,
+    { unregisterRuntimeMapTemplate(): boolean { return true; } } as never,
+    {
+      playerDomainPersistenceService: {
+        isEnabled: () => true,
+        hasRetainedPlayersInInstance: async () => false,
+      },
+    } as never,
+    {} as never,
+    { registerOrUpdate(): void {}, unregister(): void {} } as never,
+    new TimeChamberAdmissionPolicy(),
+  );
+  const internals = timeChamberService as any;
+  internals.pool = pool;
+  internals.enabled = true;
+  internals.storeState(state);
+
+  const rejected = await timeChamberService.prepareDeconstruct(input.instanceId, input.buildingId, runtime);
+  if (rejected.ok !== false || rejected.reason !== 'time_chamber_unavailable') {
+    throw new Error(`远端活跃 lease 未阻止密室拆除：${JSON.stringify(rejected)}`);
+  }
+  const retained = await pool.query(
+    `SELECT c.status, c.runtime_status, c.assigned_node_id, c.ownership_epoch, s.revision
+       FROM instance_catalog c
+       JOIN instance_time_chamber_state s ON s.chamber_instance_id = c.instance_id
+      WHERE c.instance_id = $1`,
+    [input.chamberInstanceId],
+  );
+  if (retained.rows.length !== 1
+    || retained.rows[0]?.status !== 'active'
+    || retained.rows[0]?.runtime_status !== 'leased'
+    || retained.rows[0]?.assigned_node_id !== `node:remote:${input.playerId}`
+    || Number(retained.rows[0]?.ownership_epoch) !== 5
+    || Number(retained.rows[0]?.revision) !== 2) {
+    throw new Error(`远端 lease 冲突后密室状态被误改：${JSON.stringify(retained.rows)}`);
+  }
+
+  await pool.query(
+    `UPDATE instance_catalog
+        SET assigned_node_id = $2, lease_token = $3,
+            lease_expire_at = $4::timestamptz, ownership_epoch = 6, metadata_version = 6
+      WHERE instance_id = $1`,
+    [input.chamberInstanceId, input.nodeId, localLeaseToken, new Date(Date.now() + 60_000).toISOString()],
+  );
+  runtimeInstance.meta.ownershipEpoch = 6;
+  const completed = await timeChamberService.prepareDeconstruct(input.instanceId, input.buildingId, runtime);
+  if (completed.ok !== true) {
+    throw new Error(`本地精确 lease 未能完成密室拆除：${JSON.stringify(completed)}`);
+  }
+  const destroyed = await pool.query(
+    `SELECT status, runtime_status, assigned_node_id, lease_token, ownership_epoch, metadata_version
+       FROM instance_catalog WHERE instance_id = $1`,
+    [input.chamberInstanceId],
+  );
+  const remainingState = await pool.query(
+    'SELECT 1 FROM instance_time_chamber_state WHERE source_instance_id = $1 AND building_id = $2',
+    [input.instanceId, input.buildingId],
+  );
+  if (destroyed.rows.length !== 1
+    || destroyed.rows[0]?.status !== 'destroyed'
+    || destroyed.rows[0]?.runtime_status !== 'stopped'
+    || destroyed.rows[0]?.assigned_node_id !== null
+    || destroyed.rows[0]?.lease_token !== null
+    || Number(destroyed.rows[0]?.ownership_epoch) !== 7
+    || Number(destroyed.rows[0]?.metadata_version) < 7
+    || remainingState.rows.length !== 0) {
+    throw new Error(`密室拆除事务结果异常：catalog=${JSON.stringify(destroyed.rows)} state=${JSON.stringify(remainingState.rows)}`);
+  }
+}
+
+async function cleanup(
+  pool: Pool,
+  playerId: string,
+  instanceId: string,
+  chamberInstanceId: string,
+  buildingId: string,
+): Promise<void> {
   await pool.query('DELETE FROM outbox_event WHERE partition_key = $1', [playerId]).catch(() => undefined);
   await pool.query('DELETE FROM asset_audit_log WHERE player_id = $1', [playerId]).catch(() => undefined);
   await pool.query('DELETE FROM durable_operation_log WHERE player_id = $1', [playerId]).catch(() => undefined);
@@ -259,7 +410,7 @@ async function cleanup(pool: Pool, playerId: string, instanceId: string, buildin
     'DELETE FROM instance_time_chamber_state WHERE source_instance_id = $1 AND building_id = $2',
     [instanceId, buildingId],
   ).catch(() => undefined);
-  await pool.query('DELETE FROM instance_catalog WHERE instance_id = $1', [instanceId]).catch(() => undefined);
+  await pool.query('DELETE FROM instance_catalog WHERE instance_id = ANY($1::varchar[])', [[instanceId, chamberInstanceId]]).catch(() => undefined);
 }
 
 main().catch((error) => {
