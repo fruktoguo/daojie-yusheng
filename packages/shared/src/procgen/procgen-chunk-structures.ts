@@ -4,18 +4,19 @@
  * 维护时应保持无副作用、可在浏览器与 Node 环境同时使用，不引入单端专属依赖。
  */
 /**
- * 无限世界结构镶嵌 · 基元库：类型、三层+家具写入器、建筑/房间/走廊/家具的绘制原语。
+ * 无限世界结构镶嵌：在连续自然地貌上「点阵撒下」成组结构（城镇/地牢/小屋），
+ * 让世界既像真实旷野、又散落地下城与聚落——而非把整图切成被墙包裹的矩形分区。
  *
- * 各具体结构生成器（城镇 / 地牢 / 迷宫）都 import 这里的原语，只负责「怎么布局」，
- * 不重复实现「怎么落格」。写入器只写落在本 chunk 局部范围的世界格，跨块结构由相邻
- * 块各自 stamp 出一致结果——这是跨块无缝的前提（结构完全由世界槽 seed 决定）。
- *
- * 家具不进结构层（composeTileTypeFromLayers 会忽略非枚举结构 id），而是独立锚点：
- * 局部格坐标 + 一个汉字字形，demo 渲染层直接把汉字画在格上——无需家具贴图。
+ * 与有界秘境的 BSP 分区正相反：这里没有全局矩形、没有门位拓扑、没有 BFS 连通。
+ * 结构由「世界结构点阵」决定：世界按 gridSize 划成槽，每槽 (seed,sx,sy) 确定性地
+ * roll 是否放结构、放什么、放在槽内哪个抖动位置。生成某 chunk 时，扫所有 footprint
+ * 与本块相交的槽、各自 stamp——因结构完全由 (seed,sx,sy) 决定世界坐标，相邻 chunk
+ * 对同一结构写入逐格一致，跨块无缝；且只写结构自身 footprint、绝不动周围，故结构
+ * 像「镶嵌」在自然地貌里，边缘直接过渡回草原/森林，没有生硬的包裹墙。
  */
 import { ProcgenRng } from './procgen-random';
 
-/** 结构各槽位地块 + 建筑构件。主题只换这份映射即换皮。 */
+/** 结构各槽位地块：墙/门/窗/室内地板/聚落地面/街道。主题只换这份映射即换皮。 */
 export interface InfiniteStructurePalette {
   wallTile: string;
   doorTile: string;
@@ -24,36 +25,39 @@ export interface InfiniteStructurePalette {
   floorTile: string;
   /** 聚落压平地面（terrain 层）。 */
   groundTile: string;
-  /** 巷道/小径（surface 层）。 */
+  /** 街道/小径（surface 层）。 */
   streetTile: string;
-  /** 主干道（surface 层，比巷道更正式）。 */
-  roadTile: string;
 }
 
-/** 家具锚点：局部格坐标 + 展示字形，demo 直接画汉字，不依赖贴图。 */
-export interface FurnitureAnchor {
-  x: number;
-  y: number;
-  glyph: string;
-}
-
-/** 结构点阵参数：网格、密度、四类结构权重。 */
+/** 结构点阵参数：网格、密度、各类结构权重与尺寸。 */
 export interface InfiniteStructureSpec {
-  /** 世界结构槽边长（格）——放大它即整体放大结构规模。 */
+  /** 世界结构槽边长（格）。 */
   gridSize: number;
   /** 每槽放结构的概率。 */
   density: number;
   palette: InfiniteStructurePalette;
   townWeight: number;
   dungeonWeight: number;
-  mazeWeight: number;
   roomWeight: number;
+  /** 城镇压平半径。 */
+  townRadius: readonly [number, number];
+  /** 城镇房屋数。 */
+  townHouses: readonly [number, number];
+  /** 地牢房间数。 */
+  dungeonRooms: readonly [number, number];
   /** 墙上开窗概率。 */
   windowChance: number;
 }
 
-/** 三层 + 家具写入器：只落本 chunk [0,size) 局部范围的世界格，跨块由邻块各自 stamp。 */
-export interface ChunkWriter {
+/** 家具锚点：局部格坐标 + 展示字形，demo 直接画汉字，不进结构层、不参与 walkable。 */
+export interface FurnitureAnchor {
+  x: number;
+  y: number;
+  glyph: string;
+}
+
+/** 三层 + 家具写入器：只写落在本 chunk [0,size) 局部范围内的世界格，跨块由邻块各自 stamp。 */
+interface ChunkWriter {
   terrain: string[];
   surface: (string | null)[];
   structure: (string | null)[];
@@ -63,28 +67,21 @@ export interface ChunkWriter {
   size: number;
 }
 
-/** 世界格是否落在本 chunk 局部范围内。 */
-export function inChunk(w: ChunkWriter, wx: number, wy: number): boolean {
-  const lx = wx - w.worldX0;
-  const ly = wy - w.worldY0;
-  return lx >= 0 && ly >= 0 && lx < w.size && ly < w.size;
-}
-
-export function putTerrain(w: ChunkWriter, wx: number, wy: number, tile: string): void {
+function putTerrain(w: ChunkWriter, wx: number, wy: number, tile: string): void {
   const lx = wx - w.worldX0;
   const ly = wy - w.worldY0;
   if (lx < 0 || ly < 0 || lx >= w.size || ly >= w.size) return;
   w.terrain[ly * w.size + lx] = tile;
 }
 
-export function putSurface(w: ChunkWriter, wx: number, wy: number, tile: string | null): void {
+function putSurface(w: ChunkWriter, wx: number, wy: number, tile: string | null): void {
   const lx = wx - w.worldX0;
   const ly = wy - w.worldY0;
   if (lx < 0 || ly < 0 || lx >= w.size || ly >= w.size) return;
   w.surface[ly * w.size + lx] = tile;
 }
 
-export function putStructure(w: ChunkWriter, wx: number, wy: number, tile: string | null): void {
+function putStructure(w: ChunkWriter, wx: number, wy: number, tile: string | null): void {
   const lx = wx - w.worldX0;
   const ly = wy - w.worldY0;
   if (lx < 0 || ly < 0 || lx >= w.size || ly >= w.size) return;
@@ -92,45 +89,140 @@ export function putStructure(w: ChunkWriter, wx: number, wy: number, tile: strin
 }
 
 /** 家具锚点：只收落在本 chunk 的（跨块房间由邻块各收自己那半，家具是单格点不重复）。 */
-export function putFurniture(w: ChunkWriter, wx: number, wy: number, glyph: string): void {
+function putFurniture(w: ChunkWriter, wx: number, wy: number, glyph: string): void {
   const lx = wx - w.worldX0;
   const ly = wy - w.worldY0;
   if (lx < 0 || ly < 0 || lx >= w.size || ly >= w.size) return;
   w.furniture.push({ x: lx, y: ly, glyph });
 }
 
+/** 家具字形池：demo 直接把汉字画在格上，一眼可辨是何陈设。 */
+const FURNITURE_GLYPHS = ['床', '柜', '案', '炉', '榻', '箱', '瓮', '几', '架', '缸'];
+
+/** 房间内摆家具：内部按概率放家具字形（小屋也能放 1~2 件）；内部为空则略过。 */
+function furnishRoom(rng: ProcgenRng, x: number, y: number, rw: number, rh: number, w: ChunkWriter): void {
+  const ix0 = x + 1, iy0 = y + 1, ix1 = x + rw - 2, iy1 = y + rh - 2;
+  if (ix1 < ix0 || iy1 < iy0) return;
+  for (let gy = iy0; gy <= iy1; gy += 1) {
+    for (let gx = ix0; gx <= ix1; gx += 1) {
+      if (rng.chance(0.3)) putFurniture(w, gx, gy, rng.pick(FURNITURE_GLYPHS));
+    }
+  }
+}
+
+/** 地牢房间簇围绕结构中心的最大抖动半径（决定地牢紧凑度，并锚定 reach 外扩量）。 */
+const DUNGEON_SPREAD = 12;
+
+/** 结构类型加权挑选。 */
+function pickKind(rng: ProcgenRng, spec: InfiniteStructureSpec): 'town' | 'dungeon' | 'room' {
+  const total = spec.townWeight + spec.dungeonWeight + spec.roomWeight;
+  let r = rng.next() * total;
+  if ((r -= spec.townWeight) < 0) return 'town';
+  if ((r -= spec.dungeonWeight) < 0) return 'dungeon';
+  return 'room';
+}
+
+/**
+ * 世界结构点阵调度：扫所有 footprint 可能与本 chunk 相交的槽，逐槽确定性 stamp。
+ * 只写落在本块的格，跨块结构由相邻块各自 stamp 出一致结果，天然无缝。
+ */
+export function stampStructures(
+  seed: string,
+  size: number,
+  spec: InfiniteStructureSpec,
+  cx: number,
+  cy: number,
+  terrain: string[],
+  surface: (string | null)[],
+  structure: (string | null)[],
+  furniture: FurnitureAnchor[],
+): void {
+  const g = spec.gridSize;
+  const worldX0 = cx * size;
+  const worldY0 = cy * size;
+  const writer: ChunkWriter = { terrain, surface, structure, furniture, worldX0, worldY0, size };
+  // 结构最大伸展（城镇半径 / 地牢紧凑簇半径）决定 footprint 外扩：向外多扫若干槽，
+  // 保证 footprint 伸进本块的边缘结构不被漏画——这是跨块无缝的前提。
+  const reach = Math.max(spec.townRadius[1], DUNGEON_SPREAD + 6, 8) + 2;
+  const sx0 = Math.floor((worldX0 - reach) / g);
+  const sx1 = Math.floor((worldX0 + size + reach) / g);
+  const sy0 = Math.floor((worldY0 - reach) / g);
+  const sy1 = Math.floor((worldY0 + size + reach) / g);
+  for (let sy = sy0; sy <= sy1; sy += 1) {
+    for (let sx = sx0; sx <= sx1; sx += 1) {
+      const rng = new ProcgenRng(`${seed}:struct:${sx}:${sy}`);
+      if (!rng.chance(spec.density)) continue;
+      // 结构中心在槽内抖动，留 margin 防相邻槽结构交叠。
+      const margin = Math.max(2, Math.min(Math.floor(g / 2) - 1, Math.floor(reach / 2)));
+      const span = Math.max(0, g - 2 * margin - 1);
+      const ox = sx * g + margin + rng.int(0, span);
+      const oy = sy * g + margin + rng.int(0, span);
+      const kind = pickKind(rng, spec);
+      if (kind === 'town') stampTown(rng, ox, oy, spec, writer);
+      else if (kind === 'dungeon') stampDungeon(rng, ox, oy, spec, writer);
+      else stampRoom(rng, ox, oy, spec, writer);
+    }
+  }
+}
+
+/**
+ * 城镇：一片圆形压平地面 + 稀疏小屋 + 连到镇心的街道。圆形边缘直接过渡回自然地貌，
+ * 没有外墙包裹——远看像旷野中的聚落。
+ */
+function stampTown(rng: ProcgenRng, cx: number, cy: number, spec: InfiniteStructureSpec, w: ChunkWriter): void {
+  const pal = spec.palette;
+  const r = rng.intInRange(spec.townRadius);
+  const r2 = r * r;
+  // 1. 压平地面：圆内 terrain→groundTile、清散点 structure。
+  for (let dy = -r; dy <= r; dy += 1) {
+    for (let dx = -r; dx <= r; dx += 1) {
+      if (dx * dx + dy * dy > r2) continue;
+      putTerrain(w, cx + dx, cy + dy, pal.groundTile);
+      putStructure(w, cx + dx, cy + dy, null);
+    }
+  }
+  // 2. 稀疏房屋：圆内抖动布点，房屋须整体在圆内且互不重叠。
+  const count = rng.intInRange(spec.townHouses);
+  const placed: Array<{ x: number; y: number; w: number; h: number }> = [];
+  for (let i = 0; i < count; i += 1) {
+    const bw = rng.int(4, 6);
+    const bh = rng.int(4, 5);
+    for (let attempt = 0; attempt < 12; attempt += 1) {
+      const hx = cx + rng.int(-r + 1, r - bw);
+      const hy = cy + rng.int(-r + 1, r - bh);
+      if (!houseInCircle(hx, hy, bw, bh, cx, cy, r)) continue;
+      if (placed.some((p) => overlaps(hx, hy, bw, bh, p, 1))) continue;
+      drawBuilding(rng, hx, hy, bw, bh, spec, w);
+      // 街道：门前引一条到镇心的小径（surface 层，不动 terrain/structure）。
+      streetToCenter(hx + (bw >> 1), hy + bh - 1, cx, cy, pal.streetTile, w);
+      placed.push({ x: hx, y: hy, w: bw, h: bh });
+      break;
+    }
+  }
+}
+
+/** 房屋整体是否落在压平圆内（四角都在圆内即可）。 */
+function houseInCircle(x: number, y: number, bw: number, bh: number, cx: number, cy: number, r: number): boolean {
+  const r2 = r * r;
+  const corners: ReadonlyArray<readonly [number, number]> = [
+    [x, y], [x + bw - 1, y], [x, y + bh - 1], [x + bw - 1, y + bh - 1],
+  ];
+  return corners.every(([px, py]) => (px - cx) ** 2 + (py - cy) ** 2 <= r2);
+}
+
 /** 两矩形是否在 gap 间距内交叠。 */
-export function overlaps(
+function overlaps(
   x: number, y: number, bw: number, bh: number,
   p: { x: number; y: number; w: number; h: number }, gap: number,
 ): boolean {
   return x - gap < p.x + p.w && x + bw + gap > p.x && y - gap < p.y + p.h && y + bh + gap > p.y;
 }
 
-/** 家具字形池：demo 直接把汉字画在格上，一眼可辨是何陈设。 */
-const FURNITURE_GLYPHS = ['床', '柜', '案', '炉', '榻', '箱', '瓮', '几', '架', '屏', '缸', '桌'];
-
 /**
- * 房间内摆家具：沿内墙一圈按概率放家具字形，中央留出通道。
- * 房间内部不足 3×3 不摆（太挤）——这也是「房间不能太小」的下限保障。
+ * 画一栋建筑：wall 外框 + 一扇 door + 随机 window + 室内 floor。
+ * 脚下 terrain 一律压成 floorTile，避免露出自然地貌导致墙飘在水/崖上。
  */
-export function furnishRoom(rng: ProcgenRng, x: number, y: number, rw: number, rh: number, w: ChunkWriter): void {
-  const ix0 = x + 1, iy0 = y + 1, ix1 = x + rw - 2, iy1 = y + rh - 2;
-  if (ix1 - ix0 < 2 || iy1 - iy0 < 2) return;
-  for (let gy = iy0; gy <= iy1; gy += 1) {
-    for (let gx = ix0; gx <= ix1; gx += 1) {
-      const onInnerEdge = gx === ix0 || gx === ix1 || gy === iy0 || gy === iy1;
-      if (!onInnerEdge) continue;
-      if (rng.chance(0.32)) putFurniture(w, gx, gy, rng.pick(FURNITURE_GLYPHS));
-    }
-  }
-}
-
-/**
- * 画一栋建筑：wall 外框 + 一扇 door + 随机 window + 室内 floor + 沿墙家具。
- * 脚下 terrain 一律压成 floorTile，避免墙飘在水/崖上。房间尺寸由调用方给（宜 ≥6）。
- */
-export function drawBuilding(
+function drawBuilding(
   rng: ProcgenRng, x: number, y: number, bw: number, bh: number,
   spec: InfiniteStructureSpec, w: ChunkWriter,
 ): void {
@@ -158,10 +250,40 @@ export function drawBuilding(
   furnishRoom(rng, x, y, bw, bh, w);
 }
 
-/** 画一间石墙房间（地牢/迷宫用）：wall 框 + floor 内 + 可选家具。房间外不动（保持自然）。 */
-export function drawRoomBox(
-  rng: ProcgenRng, x: number, y: number, rw: number, rh: number,
-  pal: InfiniteStructurePalette, w: ChunkWriter, furnish: boolean,
+/** 从 (fx,fy) 到镇心 (cx,cy) 铺一条 L 形街道（surface 层）。 */
+function streetToCenter(fx: number, fy: number, cx: number, cy: number, street: string, w: ChunkWriter): void {
+  let y = fy;
+  while (y !== cy) { putSurface(w, fx, y, street); y += y < cy ? 1 : -1; }
+  let x = fx;
+  while (x !== cx) { putSurface(w, x, cy, street); x += x < cx ? 1 : -1; }
+}
+
+/**
+ * 地牢/地表遗迹：数间石墙房间沿主轴排布，相邻房间走廊连通，房间外一律不动——
+ * 像野外一座半塌的地下城，四周仍是自然草木，而非把整块地包成山洞。
+ */
+function stampDungeon(rng: ProcgenRng, cx: number, cy: number, spec: InfiniteStructureSpec, w: ChunkWriter): void {
+  const pal = spec.palette;
+  const count = rng.intInRange(spec.dungeonRooms);
+  // 房间围绕结构中心紧凑抖动布点，相邻房间走廊相连——伸展受 DUNGEON_SPREAD 限制，
+  // 既连成一座地表地牢，又保证不越出 reach 外扩范围（跨块无缝前提）。
+  let prevX = cx;
+  let prevY = cy;
+  for (let i = 0; i < count; i += 1) {
+    const rw = rng.int(4, 7);
+    const rh = rng.int(4, 6);
+    const rectCx = cx + rng.int(-DUNGEON_SPREAD, DUNGEON_SPREAD);
+    const rectCy = cy + rng.int(-DUNGEON_SPREAD, DUNGEON_SPREAD);
+    drawRoomBox(rng, rectCx - (rw >> 1), rectCy - (rh >> 1), rw, rh, pal, w);
+    if (i > 0) carveCorridor(prevX, prevY, rectCx, rectCy, pal, w);
+    prevX = rectCx;
+    prevY = rectCy;
+  }
+}
+
+/** 画一间石墙房间：wall 框 + floor 内 + 室内家具。房间外不动（保持自然）。 */
+function drawRoomBox(
+  rng: ProcgenRng, x: number, y: number, rw: number, rh: number, pal: InfiniteStructurePalette, w: ChunkWriter,
 ): void {
   for (let dy = 0; dy < rh; dy += 1) {
     for (let dx = 0; dx < rw; dx += 1) {
@@ -172,22 +294,16 @@ export function drawRoomBox(
       putStructure(w, gx, gy, edge ? pal.wallTile : null);
     }
   }
-  if (furnish) furnishRoom(rng, x, y, rw, rh, w);
+  furnishRoom(rng, x, y, rw, rh, w);
 }
 
-/** L 形走廊（可加宽）：铺 floor 并清墙，让房间互通、走廊也嵌在自然里。 */
-export function carveCorridor(
-  x0: number, y0: number, x1: number, y1: number,
-  pal: InfiniteStructurePalette, w: ChunkWriter, width: number,
+/** 房间间走廊：L 形，铺 floor 并清墙，让房间互通、走廊也嵌在自然里。 */
+function carveCorridor(
+  x0: number, y0: number, x1: number, y1: number, pal: InfiniteStructurePalette, w: ChunkWriter,
 ): void {
-  const half = Math.max(0, Math.floor((width - 1) / 2));
   const cut = (gx: number, gy: number): void => {
-    for (let oy = -half; oy <= half; oy += 1) {
-      for (let ox = -half; ox <= half; ox += 1) {
-        putTerrain(w, gx + ox, gy + oy, pal.floorTile);
-        putStructure(w, gx + ox, gy + oy, null);
-      }
-    }
+    putTerrain(w, gx, gy, pal.floorTile);
+    putStructure(w, gx, gy, null);
   };
   let x = x0;
   while (x !== x1) { cut(x, y0); x += x < x1 ? 1 : -1; }
@@ -196,12 +312,17 @@ export function carveCorridor(
   cut(x1, y1);
 }
 
-/** 四类结构加权挑选。 */
-export function pickKind(rng: ProcgenRng, spec: InfiniteStructureSpec): 'town' | 'dungeon' | 'maze' | 'room' {
-  const total = spec.townWeight + spec.dungeonWeight + spec.mazeWeight + spec.roomWeight;
-  let r = rng.next() * total;
-  if ((r -= spec.townWeight) < 0) return 'town';
-  if ((r -= spec.dungeonWeight) < 0) return 'dungeon';
-  if ((r -= spec.mazeWeight) < 0) return 'maze';
-  return 'room';
+/** 散落小屋：1-2 栋独立建筑，直接嵌在自然地貌里。 */
+function stampRoom(rng: ProcgenRng, cx: number, cy: number, spec: InfiniteStructureSpec, w: ChunkWriter): void {
+  const n = rng.int(1, 2);
+  const placed: Array<{ x: number; y: number; w: number; h: number }> = [];
+  for (let i = 0; i < n; i += 1) {
+    const bw = rng.int(4, 6);
+    const bh = rng.int(4, 5);
+    const ox = cx + rng.int(-4, 4);
+    const oy = cy + rng.int(-4, 4);
+    if (placed.some((p) => overlaps(ox, oy, bw, bh, p, 1))) continue;
+    drawBuilding(rng, ox, oy, bw, bh, spec, w);
+    placed.push({ x: ox, y: oy, w: bw, h: bh });
+  }
 }

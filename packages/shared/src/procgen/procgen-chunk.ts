@@ -17,7 +17,7 @@
  */
 import { fbmNoise2D, hashStringToUint32, ProcgenRng } from './procgen-random';
 import { smoothTerrain } from './procgen-fields';
-import { stampStructures } from './procgen-chunk-assemble';
+import { stampStructures } from './procgen-chunk-structures';
 import type { FurnitureAnchor, InfiniteStructureSpec } from './procgen-chunk-structures';
 import type { ProcgenFieldSpec } from './procgen-types';
 

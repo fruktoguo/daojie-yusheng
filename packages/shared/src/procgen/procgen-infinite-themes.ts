@@ -34,13 +34,14 @@ const BAMBOO_VALLEY: InfiniteWorldSpec = {
     { tile: 'stone', density: 0.03, onTerrain: ['hill'] },
   ],
   structures: {
-    gridSize: 72,
-    density: 0.5,
+    gridSize: 40,
+    density: 0.55,
     palette: {
       wallTile: 'wall', doorTile: 'door', windowTile: 'window',
-      floorTile: 'floor', groundTile: 'floor', streetTile: 'trail', roadTile: 'road',
+      floorTile: 'floor', groundTile: 'floor', streetTile: 'trail',
     },
-    townWeight: 3, dungeonWeight: 1, mazeWeight: 1, roomWeight: 2, windowChance: 0.35,
+    townWeight: 3, dungeonWeight: 1, roomWeight: 2,
+    townRadius: [7, 11], townHouses: [4, 7], dungeonRooms: [3, 4], windowChance: 0.35,
   },
 };
 
@@ -65,13 +66,14 @@ const SPIRIT_RAVINE: InfiniteWorldSpec = {
     { tile: 'tree', density: 0.03, onTerrain: ['grass'] },
   ],
   structures: {
-    gridSize: 72,
-    density: 0.5,
+    gridSize: 38,
+    density: 0.60,
     palette: {
       wallTile: 'wall', doorTile: 'door', windowTile: 'window',
-      floorTile: 'floor', groundTile: 'floor', streetTile: 'trail', roadTile: 'road',
+      floorTile: 'floor', groundTile: 'floor', streetTile: 'trail',
     },
-    townWeight: 1, dungeonWeight: 3, mazeWeight: 2, roomWeight: 1, windowChance: 0.30,
+    townWeight: 1, dungeonWeight: 3, roomWeight: 1,
+    townRadius: [6, 9], townHouses: [3, 5], dungeonRooms: [4, 6], windowChance: 0.30,
   },
 };
 
@@ -95,13 +97,14 @@ const MOLTEN_CAVERN: InfiniteWorldSpec = {
     { tile: 'spirit_ore', density: 0.02, onTerrain: ['hill'] },
   ],
   structures: {
-    gridSize: 72,
-    density: 0.5,
+    gridSize: 34,
+    density: 0.65,
     palette: {
       wallTile: 'wall', doorTile: 'door', windowTile: 'window',
-      floorTile: 'floor', groundTile: 'floor', streetTile: 'trail', roadTile: 'road',
+      floorTile: 'floor', groundTile: 'floor', streetTile: 'trail',
     },
-    townWeight: 1, dungeonWeight: 3, mazeWeight: 3, roomWeight: 1, windowChance: 0.25,
+    townWeight: 1, dungeonWeight: 4, roomWeight: 2,
+    townRadius: [5, 8], townHouses: [3, 4], dungeonRooms: [4, 7], windowChance: 0.25,
   },
 };
 
@@ -126,13 +129,14 @@ const COLD_MARSH: InfiniteWorldSpec = {
     { tile: 'stone', density: 0.03, onTerrain: ['hill'] },
   ],
   structures: {
-    gridSize: 72,
-    density: 0.5,
+    gridSize: 42,
+    density: 0.50,
     palette: {
       wallTile: 'wall', doorTile: 'door', windowTile: 'window',
-      floorTile: 'floor', groundTile: 'mud', streetTile: 'trail', roadTile: 'road',
+      floorTile: 'floor', groundTile: 'mud', streetTile: 'trail',
     },
-    townWeight: 3, dungeonWeight: 1, mazeWeight: 1, roomWeight: 2, windowChance: 0.30,
+    townWeight: 3, dungeonWeight: 1, roomWeight: 2,
+    townRadius: [6, 10], townHouses: [4, 6], dungeonRooms: [3, 4], windowChance: 0.30,
   },
 };
 
@@ -159,13 +163,14 @@ const ABYSS_REALM: InfiniteWorldSpec = {
     { tile: 'spirit_ore', density: 0.015, onTerrain: ['hill'] },
   ],
   structures: {
-    gridSize: 72,
-    density: 0.5,
+    gridSize: 40,
+    density: 0.55,
     palette: {
       wallTile: 'wall', doorTile: 'door', windowTile: 'window',
-      floorTile: 'floor', groundTile: 'grass', streetTile: 'trail', roadTile: 'road',
+      floorTile: 'floor', groundTile: 'grass', streetTile: 'trail',
     },
-    townWeight: 2, dungeonWeight: 2, mazeWeight: 2, roomWeight: 2, windowChance: 0.32,
+    townWeight: 2, dungeonWeight: 2, roomWeight: 2,
+    townRadius: [6, 10], townHouses: [4, 6], dungeonRooms: [3, 5], windowChance: 0.32,
   },
 };
 
