@@ -55,7 +55,11 @@ class RuntimeHttpAccessGuard {
         return true;
     }
 };
-export { RuntimeHttpAccessGuard, resolveRuntimeHttpAccessPolicy };
+export {
+    RuntimeHttpAccessGuard,
+    resolveRuntimeHttpAccessPolicy,
+    isRuntimeHttpAutoEnabledForTest as isRuntimeHttpTestEnvironment,
+};
 /** 解析运行时 HTTP 访问策略，按显式配置优先，再回退测试环境自动放开。 */
 function resolveRuntimeHttpAccessPolicy(env) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。

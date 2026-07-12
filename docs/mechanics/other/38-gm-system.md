@@ -74,6 +74,9 @@
 - 生产或预发布环境请求启用但缺少 token 时失败关闭；即使继承了 `smoke:*` lifecycle 变量，也不能绕过声明为 `production / prod / staging` 的运行环境。
 - 请求通过 `x-runtime-admin-token` 或 `Authorization: Bearer <token>` 携带凭据；token 使用恒定时间比较。
 - 仅明确的测试、验证和 smoke 运行环境允许无 token 启用，便于本地门禁启动临时服务；该豁免不适用于生产或预发布环境。
+- `wallet/credit`、`wallet/debit` 与 `grant-item` 是资产管理入口：生产请求必须携带调用方生成的稳定 `requestId`，响应同时返回 `requestId` 和内部 `operationId`；网络失败重试必须复用原 `requestId`。
+- 钱包增减也统一写入 `player_inventory_item` 背包真源，`wallet` 只由提交后的运行态背包刷新；同 `requestId` 同参数精确重放不会重复变更，不同参数复用会被拒绝。
+- 非测试环境的 durable operation 不可用时，资产入口返回失败，不允许只修改易失运行态后返回成功；测试环境仍可使用无数据库运行态 fallback 供协议和玩法 smoke 构造夹具。
 
 ## GM 玩家修改持久化边界
 

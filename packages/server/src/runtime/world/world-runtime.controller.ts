@@ -5,6 +5,7 @@
  */
 import { BadRequestException, Body, Controller, Delete, Get, Inject, NotFoundException, Param, Post, Query, ServiceUnavailableException, UseGuards } from '@nestjs/common';
 import { mergeItemStackInto } from '@mud/shared';
+import { randomUUID } from 'node:crypto';
 import { MapPersistenceFlushService } from '../../persistence/map-persistence-flush.service';
 import { PlayerPersistenceFlushService } from '../../persistence/player-persistence-flush.service';
 import { DurableOperationService } from '../../persistence/durable-operation.service';
@@ -13,7 +14,7 @@ import { MailRuntimeService } from '../mail/mail-runtime.service';
 import { MarketRuntimeService } from '../market/market-runtime.service';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { RuntimeEventBusMetricsService } from '../event-bus/runtime-event-bus-metrics.service';
-import { RuntimeHttpAccessGuard } from './runtime-http-access.guard';
+import { RuntimeHttpAccessGuard, isRuntimeHttpTestEnvironment } from './runtime-http-access.guard';
 import { WorldRuntimeService } from './world-runtime.service';
 import { assignItemInstanceIdIfNeeded } from './item-instance-id.helpers';
 
@@ -358,9 +359,7 @@ export class WorldRuntimeController {
     /** grantItem：直接给玩家发放物品并同步运行态。 */
     @Post('players/:playerId/grant-item')
     async grantItem(@Param('playerId') playerId, @Body() body) {
-        return {
-            player: await this.applyDurableInventoryGrant(playerId, body),
-        };
+        return await this.applyDurableInventoryGrant(playerId, body);
     }
     /** useItem：提交使用物品请求，由世界运行时处理消耗和效果。 */
     @Post('players/:playerId/use-item')
@@ -533,59 +532,78 @@ export class WorldRuntimeController {
     /** creditWallet：给玩家钱包加余额。 */
     @Post('players/:playerId/wallet/credit')
     async creditWallet(@Param('playerId') playerId, @Body() body) {
-        return {
-            player: await this.applyDurableWalletMutation(playerId, body, 'credit'),
-        };
+        return await this.applyDurableWalletMutation(playerId, body, 'credit');
     }
     /** debitWallet：给玩家钱包扣余额。 */
     @Post('players/:playerId/wallet/debit')
     async debitWallet(@Param('playerId') playerId, @Body() body) {
-        return {
-            player: await this.applyDurableWalletMutation(playerId, body, 'debit'),
-        };
+        return await this.applyDurableWalletMutation(playerId, body, 'debit');
     }
 
     async applyDurableWalletMutation(playerId, body, action) {
         const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
         const walletType = typeof body?.walletType === 'string' ? body.walletType.trim() : '';
-        const amount = Number.isFinite(body?.amount) ? Math.max(1, Math.trunc(Number(body.amount))) : 1;
-        if (!normalizedPlayerId || !walletType || amount <= 0) {
+        const amount = body?.amount === undefined
+            ? 1
+            : (Number.isFinite(body.amount) ? Math.trunc(Number(body.amount)) : 0);
+        if (!normalizedPlayerId || !walletType || amount <= 0 || amount > MAX_ITEM_COUNT) {
             throw new BadRequestException('钱包变更参数无效');
         }
-        return this.runExclusivePlayerAssetMutation(
+        const requestId = normalizeRuntimeAssetRequestId(body?.requestId);
+        const operationId = `op:${normalizedPlayerId}:runtime-wallet:${requestId}`;
+        const player = await this.runExclusivePlayerAssetMutation(
             normalizedPlayerId,
-            () => this.applyDurableWalletMutationLocked(normalizedPlayerId, walletType, amount, action),
+            () => this.applyDurableWalletMutationLocked(
+                normalizedPlayerId,
+                walletType,
+                amount,
+                action,
+                operationId,
+            ),
         );
+        return { player, requestId, operationId };
     }
 
-    async applyDurableWalletMutationLocked(normalizedPlayerId, walletType, amount, action) {
+    async applyDurableWalletMutationLocked(normalizedPlayerId, walletType, amount, action, operationId) {
         const player = this.playerRuntimeService.getPlayerOrThrow(normalizedPlayerId);
-        if (typeof this.durableOperationService?.isEnabled === 'function' && !this.durableOperationService.isEnabled()) {
+        if (!this.durableOperationService?.isEnabled?.()) {
+            if (!isRuntimeHttpTestEnvironment(process.env)) {
+                throw new ServiceUnavailableException('持久化资产变更服务不可用，已拒绝运行态钱包变更');
+            }
             if (action === 'credit') {
                 return this.playerRuntimeService.creditWallet(normalizedPlayerId, walletType, amount);
             }
             return this.playerRuntimeService.debitWallet(normalizedPlayerId, walletType, amount);
+        }
+        const sourceRefId = `${action}:${walletType}:x${amount}`;
+        if (await this.isCommittedRuntimeAssetOperation(operationId, 'gm_wallet', sourceRefId)) {
+            return player;
         }
         const runtimeOwnerId = typeof player.runtimeOwnerId === 'string' && player.runtimeOwnerId.trim() ? player.runtimeOwnerId.trim() : '';
         const sessionEpoch = Number.isFinite(player.sessionEpoch) ? Math.max(1, Math.trunc(Number(player.sessionEpoch))) : 0;
         if (!runtimeOwnerId || sessionEpoch <= 0) {
             throw new ServiceUnavailableException('玩家会话尚未准备好，无法执行持久化钱包变更');
         }
-        const nextWalletBalances = buildNextWalletBalances(player.wallet?.balances, walletType, amount, action);
-        if (!nextWalletBalances) {
+        const mutation = buildWalletInventoryMutation(
+            player,
+            walletType,
+            amount,
+            action,
+            this.playerRuntimeService.contentTemplateRepository,
+        );
+        if (!mutation) {
             throw new NotFoundException(`${walletType} 余额不足`);
         }
         const location = this.worldRuntimeService.worldRuntimePlayerLocationService.getPlayerLocation(normalizedPlayerId);
         const expectedInstanceId = location?.instanceId ?? null;
         const instanceLease = await this.resolveInstanceLeaseContext(expectedInstanceId);
-        const operationId = `op:${normalizedPlayerId}:wallet:${action}:${walletType}:${Date.now().toString(36)}`;
         if (expectedInstanceId && !instanceLease) {
             throw new ServiceUnavailableException('持久化钱包变更需要地图实例租约');
         }
-        if (typeof this.durableOperationService?.mutatePlayerWallet !== 'function') {
+        if (typeof this.durableOperationService?.grantInventoryItems !== 'function') {
             throw new ServiceUnavailableException('持久化钱包变更服务不可用');
         }
-        await this.durableOperationService.mutatePlayerWallet({
+        const result = await this.durableOperationService.grantInventoryItems({
             operationId,
             playerId: normalizedPlayerId,
             expectedRuntimeOwnerId: runtimeOwnerId,
@@ -593,34 +611,47 @@ export class WorldRuntimeController {
             expectedInstanceId,
             expectedAssignedNodeId: instanceLease?.assignedNodeId ?? null,
             expectedOwnershipEpoch: instanceLease?.ownershipEpoch ?? null,
-            walletType,
-            action,
-            delta: amount,
-            nextWalletBalances,
+            sourceType: 'gm_wallet',
+            sourceRefId,
+            inventoryAction: action === 'credit' ? 'grant' : 'remove',
+            grantedItems: mutation.affectedItems.map((item) => buildGrantedInventorySnapshot(item)),
+            nextInventoryItems: buildNextInventorySnapshots(mutation.nextItems),
         });
-        if (action === 'credit') {
-            return this.playerRuntimeService.creditWallet(normalizedPlayerId, walletType, amount);
+        if (result?.alreadyCommitted === true) {
+            return player;
         }
-        return this.playerRuntimeService.debitWallet(normalizedPlayerId, walletType, amount);
+        return this.playerRuntimeService.replaceInventoryItems(normalizedPlayerId, mutation.nextItems);
     }
 
     async applyDurableInventoryGrant(playerId, body) {
         const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
         const itemId = typeof body?.itemId === 'string' ? body.itemId.trim() : '';
-        const count = Number.isFinite(body?.count) ? Math.max(1, Math.trunc(Number(body.count))) : 1;
-        if (!normalizedPlayerId || !itemId || count <= 0) {
+        const count = body?.count === undefined
+            ? 1
+            : (Number.isFinite(body.count) ? Math.trunc(Number(body.count)) : 0);
+        if (!normalizedPlayerId || !itemId || count <= 0 || count > MAX_ITEM_COUNT) {
             throw new BadRequestException('背包发放参数无效');
         }
-        return this.runExclusivePlayerAssetMutation(
+        const requestId = normalizeRuntimeAssetRequestId(body?.requestId);
+        const operationId = `op:${normalizedPlayerId}:runtime-inventory-grant:${requestId}`;
+        const player = await this.runExclusivePlayerAssetMutation(
             normalizedPlayerId,
-            () => this.applyDurableInventoryGrantLocked(normalizedPlayerId, itemId, count),
+            () => this.applyDurableInventoryGrantLocked(normalizedPlayerId, itemId, count, operationId),
         );
+        return { player, requestId, operationId };
     }
 
-    async applyDurableInventoryGrantLocked(normalizedPlayerId, itemId, count) {
+    async applyDurableInventoryGrantLocked(normalizedPlayerId, itemId, count, operationId) {
         const player = this.playerRuntimeService.getPlayerOrThrow(normalizedPlayerId);
-        if (typeof this.durableOperationService?.isEnabled === 'function' && !this.durableOperationService.isEnabled()) {
+        if (!this.durableOperationService?.isEnabled?.()) {
+            if (!isRuntimeHttpTestEnvironment(process.env)) {
+                throw new ServiceUnavailableException('持久化资产变更服务不可用，已拒绝运行态背包发放');
+            }
             return this.playerRuntimeService.grantItem(normalizedPlayerId, itemId, count);
+        }
+        const sourceRefId = `gm:${itemId}:x${count}`;
+        if (await this.isCommittedRuntimeAssetOperation(operationId, 'gm_grant', sourceRefId)) {
+            return player;
         }
         const runtimeOwnerId = typeof player.runtimeOwnerId === 'string' && player.runtimeOwnerId.trim() ? player.runtimeOwnerId.trim() : '';
         const sessionEpoch = Number.isFinite(player.sessionEpoch) ? Math.max(1, Math.trunc(Number(player.sessionEpoch))) : 0;
@@ -635,9 +666,16 @@ export class WorldRuntimeController {
         const nextRuntimeItems = Array.isArray(player.inventory?.items)
             ? player.inventory.items.map((entry) => ({ ...entry }))
             : [];
+        const existingCount = nextRuntimeItems.length;
         const mergeResult = mergeItemStackInto(nextRuntimeItems, { ...grantedItem });
-        if (mergeResult.merged && mergeResult.entry.count > MAX_ITEM_COUNT) {
-            mergeResult.entry.count = MAX_ITEM_COUNT;
+        if (mergeResult.entry.count > MAX_ITEM_COUNT) {
+            throw new BadRequestException(`${itemId} 数量超过上限`);
+        }
+        const capacity = Number.isFinite(Number(player.inventory?.capacity))
+            ? Math.max(0, Math.trunc(Number(player.inventory.capacity)))
+            : Number.MAX_SAFE_INTEGER;
+        if (!mergeResult.merged && existingCount >= capacity) {
+            throw new BadRequestException('背包空间不足');
         }
         if (mergeResult.merged && typeof mergeResult.entry.itemInstanceId === 'string') {
             grantedItem.itemInstanceId = mergeResult.entry.itemInstanceId;
@@ -651,8 +689,7 @@ export class WorldRuntimeController {
         if (typeof this.durableOperationService?.grantInventoryItems !== 'function') {
             throw new ServiceUnavailableException('持久化背包发放服务不可用');
         }
-        const operationId = `op:${normalizedPlayerId}:inventory-grant:${itemId}:x${count}:${Date.now().toString(36)}`;
-        await this.durableOperationService.grantInventoryItems({
+        const result = await this.durableOperationService.grantInventoryItems({
             operationId,
             playerId: normalizedPlayerId,
             expectedRuntimeOwnerId: runtimeOwnerId,
@@ -661,11 +698,31 @@ export class WorldRuntimeController {
             expectedAssignedNodeId: instanceLease?.assignedNodeId ?? null,
             expectedOwnershipEpoch: instanceLease?.ownershipEpoch ?? null,
             sourceType: 'gm_grant',
-            sourceRefId: `gm:${itemId}`,
+            sourceRefId,
             grantedItems: [buildGrantedInventorySnapshot(grantedItem)],
             nextInventoryItems: buildNextInventorySnapshots(nextRuntimeItems),
         });
+        if (result?.alreadyCommitted === true) {
+            return player;
+        }
         return this.playerRuntimeService.replaceInventoryItems(normalizedPlayerId, nextRuntimeItems);
+    }
+
+    async isCommittedRuntimeAssetOperation(operationId, sourceType, sourceRefId) {
+        const getReplay = this.durableOperationService?.getOperationReplay;
+        if (typeof getReplay !== 'function') {
+            return false;
+        }
+        const replay = await getReplay.call(this.durableOperationService, operationId);
+        const operation = replay?.operation;
+        if (!operation || operation.status !== 'committed') {
+            return false;
+        }
+        const payload = normalizeDurablePayload(operation.payload_jsonb);
+        if (payload?.sourceType !== sourceType || payload?.sourceRefId !== sourceRefId) {
+            throw new BadRequestException('资产请求 requestId 已被不同参数使用');
+        }
+        return true;
     }
 
     async runExclusivePlayerAssetMutation(playerId, action) {
@@ -697,36 +754,82 @@ export class WorldRuntimeController {
     }
 };
 
-function buildNextWalletBalances(existingBalances, walletType, amount, action) {
-    const balances = Array.isArray(existingBalances)
-        ? existingBalances.map((entry) => ({
-            walletType: typeof entry?.walletType === 'string' ? entry.walletType.trim() : '',
-            balance: Math.max(0, Math.trunc(Number(entry?.balance ?? 0))),
-            frozenBalance: Math.max(0, Math.trunc(Number(entry?.frozenBalance ?? 0))),
-            version: Math.max(0, Math.trunc(Number(entry?.version ?? 0))),
-        })).filter((entry) => entry.walletType)
-        : [];
-    const entry = balances.find((row) => row.walletType === walletType);
-    if (action === 'credit') {
-        if (entry) {
-            entry.balance += amount;
-            entry.version += 1;
-        } else {
-            balances.push({
-                walletType,
-                balance: amount,
-                frozenBalance: 0,
-                version: 1,
-            });
+function normalizeRuntimeAssetRequestId(value) {
+    if (value === undefined || value === null) {
+        if (!isRuntimeHttpTestEnvironment(process.env)) {
+            throw new BadRequestException('生产资产请求必须提供 requestId');
         }
-        return balances;
+        return randomUUID();
     }
-    if (!entry || entry.balance < amount) {
+    const normalized = typeof value === 'string' ? value.trim() : '';
+    if (!normalized || normalized.length > 128 || !/^[a-zA-Z0-9._:-]+$/u.test(normalized)) {
+        throw new BadRequestException('资产请求 requestId 无效');
+    }
+    return normalized;
+}
+
+function buildWalletInventoryMutation(player, walletType, amount, action, contentTemplateRepository) {
+    const currentItems = Array.isArray(player?.inventory?.items)
+        ? player.inventory.items.map((entry) => ({ ...entry }))
+        : [];
+    if (action === 'credit') {
+        const item = contentTemplateRepository?.createItem?.(walletType, amount);
+        if (!item) {
+            throw new NotFoundException(`钱包物品不存在：${walletType}`);
+        }
+        assignItemInstanceIdIfNeeded(item);
+        const existingCount = currentItems.length;
+        const mergeResult = mergeItemStackInto(currentItems, { ...item });
+        if (mergeResult.entry.count > MAX_ITEM_COUNT) {
+            throw new BadRequestException(`${walletType} 数量超过上限`);
+        }
+        const capacity = Number.isFinite(Number(player?.inventory?.capacity))
+            ? Math.max(0, Math.trunc(Number(player.inventory.capacity)))
+            : Number.MAX_SAFE_INTEGER;
+        if (!mergeResult.merged && existingCount >= capacity) {
+            throw new BadRequestException('背包空间不足');
+        }
+        if (mergeResult.merged && typeof mergeResult.entry.itemInstanceId === 'string') {
+            item.itemInstanceId = mergeResult.entry.itemInstanceId;
+        }
+        return { nextItems: currentItems, affectedItems: [item] };
+    }
+
+    let remaining = amount;
+    const nextItems = [];
+    const affectedItems = [];
+    for (const item of currentItems) {
+        const available = Math.max(0, Math.trunc(Number(item?.count ?? 0)));
+        if (item?.itemId !== walletType || remaining <= 0) {
+            nextItems.push(item);
+            continue;
+        }
+        const removed = Math.min(available, remaining);
+        remaining -= removed;
+        if (removed > 0) {
+            affectedItems.push({ ...item, count: removed });
+        }
+        if (available > removed) {
+            nextItems.push({ ...item, count: available - removed });
+        }
+    }
+    return remaining === 0 ? { nextItems, affectedItems } : null;
+}
+
+function normalizeDurablePayload(value) {
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+        return value;
+    }
+    if (typeof value !== 'string' || !value.trim()) {
         return null;
     }
-    entry.balance -= amount;
-    entry.version += 1;
-    return balances;
+    try {
+        const parsed = JSON.parse(value);
+        return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null;
+    }
+    catch {
+        return null;
+    }
 }
 
 function buildNextInventorySnapshots(items) {

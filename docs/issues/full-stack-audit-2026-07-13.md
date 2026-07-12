@@ -3,7 +3,7 @@
 ## 审计口径
 
 - 生产主线：`packages/client`、`packages/shared`、`packages/server`、`packages/config-editor`。
-- 当前基线：`main` 分支 `428bdbb9`；相对 `origin/main` ahead 14。
+- 当前基线：`main` 分支 `0c6df9ba`；相对 `origin/main` ahead 15。
 - package manager：`pnpm@10.29.1`。
 - 每项结论必须来自机制文档、完整调用链、测试、编译产物或运行数据；仅凭搜索未发现异常不能标记为“确认无问题”。
 - `[x]` 只表示该行列出的具体证据范围已完成，不代表相邻系统或整个项目已完成。
@@ -37,6 +37,7 @@
 - [x] P-16 玩家集合分域已提交但零行时复活 starter 资产与状态的问题已修复；见 FS-015。
 - [x] P-17 GM 全服广播邮件的全快照枚举、逐玩家串行投递和部分提交问题已修复；见 FS-016。
 - [x] P-18 兑换码灵石写错真源、拆分资产事务及 pending 重试重复规划问题已修复；见 FS-017。
+- [x] P-19 Runtime 钱包/背包管理入口写错资产真源、缺少稳定重放身份且生产降级为易失写的问题已修复；见 FS-020。
 
 ### 服务端权威运行时
 
@@ -368,7 +369,7 @@
 
 ### FS-019 生产 Runtime 调试控制面缺少 token 时反而无鉴权放行
 
-- **状态**：已修复并完成专项验证，等待本组原子提交。
+- **状态**：已修复、完成专项验证并原子提交。
 - **严重级别**：P0。
 - **所属功能组**：Runtime HTTP / 管理鉴权 / 玩家资产与世界运维安全。
 - **影响链路**：部署环境设置 `SERVER_RUNTIME_HTTP=1` → `RuntimeHttpAccessGuard.resolveRuntimeHttpAccessPolicy()` → `/runtime/*` 全部路由 → 玩家连接、位置、背包、钱包、市场、邮件、实例和 flush 操作。
@@ -380,6 +381,22 @@
 - **修复方式**：策略显式区分 `misconfigured` 与正常关闭；`production / prod / staging` 声明优先于 npm lifecycle，生产显式开启但无 token 时保持关闭并返回明确 503。只有 `test / verify / smoke` 环境允许无 token；配置 token 后才允许生产访问，并用 `timingSafeEqual` 比较凭据。独立 smoke 覆盖生产缺 token、生产带 token、production 不受 smoke lifecycle 绕过、测试豁免、正确/错误 Bearer token。稳定 smoke 编排和各 case 子进程默认强制 `SERVER_RUNTIME_ENV=test`，只接受专用 `SERVER_SMOKE_RUNTIME_ENV` 或单用例显式覆盖，不再继承宿主机生产值。
 - **实际修改**：更新 `runtime-http-access.guard.ts` 与稳定 smoke 编排入口 `run-stable-smoke-suite.ts`，并在修改编排入口时移除其遗留 `@ts-nocheck`；新增 `runtime-http-access-guard-smoke.ts`；同步 GM mechanics 的独立 Runtime 调试控制面边界。
 - **验证结果**：`git diff --check`、`pnpm --filter @mud/server compile` 与最终 `pnpm verify:quick` 通过；compiled `runtime-http-access-guard-smoke` 证明生产/预发布缺 token 失败关闭、生产带 token 正常启用、production 声明不受 `smoke:*` lifecycle 绕过、测试无 token 豁免，以及正确/错误 Bearer token 分支；无数据库 compiled stable `runtime` smoke 通过，证明临时 HTTP 服务在隔离后的 test 环境仍可完成真实路由调用。首次 `verify:quick` 在修复 smoke 环境隔离前按预期失败于 runtime 503，证明新守卫没有被旧测试配置绕过；隔离修复后全门禁复跑通过。
+- **中文原子提交 hash**：`0c6df9ba`（`fix(security): 加固运行时调试控制面鉴权`）。
+
+### FS-020 Runtime 资产管理入口写错真源且生产 durable 失效时静默降级
+
+- **状态**：已修复并完成专项/真实数据库验证，等待本组原子提交。
+- **严重级别**：P0。
+- **所属功能组**：Runtime HTTP / 背包与灵石 / durable operation / 管理操作幂等。
+- **影响链路**：`/runtime/players/:playerId/wallet/credit|debit` 或 `grant-item` → 玩家资产串行区 → `DurableOperationService.mutatePlayerWallet()` / `grantInventoryItems()` → 运行态 `creditWallet()` / `debitWallet()` / `replaceInventoryItems()` → flush 与重启恢复。
+- **证据**：运行态 `getWalletBalanceByType()`、`creditWallet()` 和 `debitWallet()` 均以背包物品为真源，且只标记 `inventory` dirty；修复前 wallet HTTP 却先只替换数据库 `player_wallet`，随后运行态方法修改 `player.inventory.items`，两侧不是同一状态。wallet 与 grant-item 入口在 durable service disabled 时还会直接调用运行态方法并返回成功。operation ID 使用 `Date.now()` 在服务端临时生成，调用方不能在丢失响应后复用；现有 wallet route smoke 甚至构造“wallet 有 10 灵石、背包为空”的不可能运行态，只断言旧钱包事务而掩盖真源分裂。
+- **根本原因**：管理路由沿用旧的独立钱包真源模型，没有随灵石收敛为背包货币同步迁移；“测试无数据库可用”的 fallback 未受环境边界约束，泄漏到生产；幂等只停留在 durable service 内部，HTTP 命令没有调用方稳定身份，也没有校验重放参数。
+- **为什么错误**：管理资产操作与玩法发奖必须写同一数据库真源，且数据库不可用时不能用易失内存成功响应掩盖未持久化。强事务的幂等键必须由请求方在重试间保持稳定；相同键若参数变化必须冲突，而不是重复执行或静默接受另一条命令。
+- **触发条件**：通过 Runtime 控制面增减灵石；数据库可用时进程在 `player_wallet` 提交后、背包 flush 前重启；数据库不可用时执行钱包或发物；HTTP 响应在提交后丢失并由调用方重试；同 requestId 被误用于不同数量或物品。
+- **可能后果**：灵石在当前进程显示成功但重启后消失，或数据库钱包投影与背包真源长期分裂；生产数据库故障期间管理操作被误报成功并在重启时全部丢失；网络重试重复增发/扣除资产；错误复用幂等键产生不可解释的运营账实差异。
+- **修复方式**：wallet credit/debit 改为规划完整背包 after snapshot，并通过一次 `grantInventoryItems` 以 `grant/remove` 动作写 `player_inventory_item`、inventory watermark、outbox 和 audit，提交后统一 `replaceInventoryItems()` 刷新 wallet 投影。wallet 与 grant-item 接受并返回稳定 `requestId / operationId`；生产强制调用方提供 requestId，提交前回读 operation，精确重放直接返回当前运行态，source 参数不同则拒绝。生产 durable 不可用时失败关闭，仅明确 test/verify/smoke 环境保留运行态 fallback；数量上限、背包容量、余额不足、session 与实例 lease fence 均在提交前校验。
+- **实际修改**：更新 `world-runtime.controller.ts` 与 Runtime HTTP 环境判定导出；重写 `world-runtime-wallet-route-smoke.ts` 的背包真源夹具、输入/容量、重放/冲突和生产失败关闭断言；修复相邻 `world-runtime-inventory-route-smoke.ts` 的 durable 装配和当前 source identity；扩展 `player-asset-entry-serialization-audit.ts`，静态禁止该入口回退 `mutatePlayerWallet`；同步 GM mechanics。
+- **验证结果**：`git diff --check`、`pnpm --filter @mud/server compile` 与最终 `pnpm verify:quick` 通过；compiled `world-runtime-wallet-route-smoke` 证明灵石 `10 → 14 → 11` 全程只形成两次 inventory durable call，相同 requestId 的 credit 和 grant-item 均不重复，参数冲突、零数量、超上限、非法 requestId、满背包、生产缺 requestId 和生产 durable disabled 均拒绝，运行态 fallback 调用为 0；compiled `world-runtime-inventory-route-smoke` 证明 source identity、session/instance fence 和 durable 失败不改运行态；compiled `player-asset-entry-serialization-audit` 证明 wallet 管理入口按 replay → inventory durable → runtime apply 串行且源代码不再调用 `mutatePlayerWallet`；compiled `strong-persistence-lease-report` 通过；真实 PostgreSQL compiled `inventory-grant-durable-smoke` 证明 inventory、watermark、outbox、audit 与来源变更同事务、精确重放不重复、拒绝不污染真源。
 - **中文原子提交 hash**：待提交。
 
 ## 2026-07-14 待用户决定

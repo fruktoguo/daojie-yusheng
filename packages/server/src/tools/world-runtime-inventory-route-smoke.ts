@@ -14,6 +14,7 @@ async function main(): Promise<void> {
     sessionEpoch: 8,
     inventory: {
       items: [] as Array<Record<string, unknown>>,
+      capacity: 16,
       revision: 0,
     },
     persistentRevision: 0,
@@ -48,6 +49,13 @@ async function main(): Promise<void> {
     {} as never,
     {} as never,
     {
+      contentTemplateRepository: {
+        createItem(itemId: string, count: number) {
+          return itemId === 'rat_tail'
+            ? { itemId, count, name: '鼠尾', type: 'material' }
+            : null;
+        },
+      },
       getPlayerOrThrow(requestedPlayerId: string) {
         if (requestedPlayerId !== playerId) {
           throw new Error(`unexpected player ${requestedPlayerId}`);
@@ -70,6 +78,15 @@ async function main(): Promise<void> {
         runtimePlayer.dirtyDomains = new Set(['inventory']);
         return runtimePlayer;
       },
+      replaceInventoryItems(requestedPlayerId: string, items: Array<Record<string, unknown>>) {
+        assert.equal(requestedPlayerId, playerId);
+        runtimePlayer.inventory.items = items.map((entry) => ({ ...entry }));
+        runtimePlayer.inventory.revision += 1;
+        runtimePlayer.persistentRevision += 1;
+        runtimePlayer.selfRevision += 1;
+        runtimePlayer.dirtyDomains = new Set(['inventory']);
+        return runtimePlayer;
+      },
       playerProgressionService: {
         refreshPreview() {},
       },
@@ -77,6 +94,9 @@ async function main(): Promise<void> {
     {} as never,
     {} as never,
     {
+      isEnabled() {
+        return true;
+      },
       async grantInventoryItems(input: Record<string, unknown>) {
         durableCalls.push(input);
         if (shouldFail) {
@@ -93,7 +113,11 @@ async function main(): Promise<void> {
     { getMetrics: () => ({}) } as never,
   );
 
-  const result = await controller.grantItem(playerId, { itemId: 'rat_tail', count: 2 });
+  const result = await controller.grantItem(playerId, {
+    itemId: 'rat_tail',
+    count: 2,
+    requestId: 'inventory-route-success',
+  });
   assert.equal(result.player.inventory.items.length, 1);
   assert.equal(result.player.inventory.items[0]?.itemId, 'rat_tail');
   assert.equal(result.player.inventory.items[0]?.count, 2);
@@ -105,11 +129,18 @@ async function main(): Promise<void> {
   assert.equal(durableCalls[0]?.expectedAssignedNodeId, 'node:inventory-route');
   assert.equal(durableCalls[0]?.expectedOwnershipEpoch, 10);
   assert.equal(durableCalls[0]?.sourceType, 'gm_grant');
-  assert.equal(durableCalls[0]?.sourceRefId, 'gm:rat_tail');
+  assert.equal(durableCalls[0]?.sourceRefId, 'gm:rat_tail:x2');
   assert.equal((durableCalls[0]?.grantedItems as Array<Record<string, unknown>>)?.[0]?.itemId, 'rat_tail');
 
   shouldFail = true;
-  await assert.rejects(() => controller.grantItem(playerId, { itemId: 'rat_tail', count: 1 }), /durable inventory grant failed/);
+  await assert.rejects(
+    () => controller.grantItem(playerId, {
+      itemId: 'rat_tail',
+      count: 1,
+      requestId: 'inventory-route-failure',
+    }),
+    /durable inventory grant failed/,
+  );
   assert.equal(runtimePlayer.inventory.items[0]?.count, 2);
   assert.equal(runtimePlayer.inventory.revision, 1);
   assert.equal(runtimePlayer.persistentRevision, 1);

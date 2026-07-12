@@ -90,6 +90,20 @@ const gmSource = readFileSync(
   resolveProjectPath('packages/server/src/runtime/world/world-runtime.controller.ts'),
   'utf8',
 );
+const gmWalletSource = gmSource.slice(
+  gmSource.indexOf('async applyDurableWalletMutationLocked'),
+  gmSource.indexOf('async applyDurableInventoryGrant'),
+);
+assert.equal(
+  gmWalletSource.includes('mutatePlayerWallet({'),
+  false,
+  'Runtime wallet 管理入口不得绕过背包真源写 player_wallet',
+);
+assertOrdered(gmWalletSource, [
+  'await this.isCommittedRuntimeAssetOperation',
+  'const result = await this.durableOperationService.grantInventoryItems',
+  'return this.playerRuntimeService.replaceInventoryItems',
+]);
 assertOrdered(gmSource.slice(gmSource.indexOf('async applyDurableInventoryGrantLocked')), [
   'const nextRuntimeItems',
   'await this.durableOperationService.grantInventoryItems',
@@ -102,6 +116,7 @@ console.log(JSON.stringify({
   guarantees: [
     'P0 玩家资产入口统一经过 runExclusiveAssetMutation',
     '通用背包发放在 durable 成功前不暴露 next runtime snapshot',
+    'Runtime wallet 管理入口只写背包真源，并按 replay -> durable -> runtime apply 执行',
     'GM 背包发放按 next snapshot -> durable -> runtime apply 执行',
   ],
 }, null, 2));
