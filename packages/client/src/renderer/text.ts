@@ -71,12 +71,9 @@ import { TileSpriteCache } from './tile-sprite-cache';
 import { runtimeImagePack } from './runtime-image-pack';
 import { t as translateUi } from '../ui/i18n';
 import {
-  FloatingTextBurstLayout,
-  normalizeTimedEffectDuration,
-  pruneExpiredTimedEffectsInPlace,
-  resolveFloatingTextDuration,
-  resolveWarningZoneOrigin,
-} from './combat-effect-layout';
+  CanvasCombatEffectRuntime,
+  DEFAULT_CANVAS_WARNING_ZONE_DURATION_MS,
+} from './canvas-combat-effect-runtime';
 
 const ENTITY_FACING_FLIP_TRANSITION_MS = 160;
 const ATTACK_MOTION_DURATION_MS = 180;
@@ -889,148 +886,6 @@ function buildLootContainerSignature(list: readonly { kind?: RenderEntity['kind'
 }
 
 /** 浮动文字实例。 */
-interface FloatingText {
-  /**
- * x：x相关字段。
- */
-
-  x: number;  
-  /**
- * y：y相关字段。
- */
-
-  y: number;  
-  /**
- * text：text名称或显示文本。
- */
-
-  text: string;  
-  /**
- * color：color相关字段。
- */
-
-  color: string;  
-  /**
- * variant：variant相关字段。
- */
-
-  variant: 'damage' | 'action';  
-  /**
- * actionStyle：actionStyle相关字段。
- */
-
-  actionStyle?: FloatingActionTextStyle;  
-  /** 同格同类浮字的横向爆散偏移。 */
-  burstOffsetX: number;
-  /** 同格同类浮字的纵向爆散偏移。 */
-  burstOffsetY: number;
-  /**
- * createdAt：createdAt相关字段。
- */
-
-  createdAt: number;  
-  /**
- * duration：duration相关字段。
- */
-
-  duration: number;
-}
-
-/** 攻击拖尾实例。 */
-interface AttackTrail {
-  /**
- * fromX：fromX相关字段。
- */
-
-  fromX: number;  
-  /**
- * fromY：fromY相关字段。
- */
-
-  fromY: number;  
-  /**
- * toX：toX相关字段。
- */
-
-  toX: number;  
-  /**
- * toY：toY相关字段。
- */
-
-  toY: number;  
-  /**
- * color：color相关字段。
- */
-
-  color: string;  
-  /**
- * createdAt：createdAt相关字段。
- */
-
-  createdAt: number;  
-  /**
- * duration：duration相关字段。
- */
-
-  duration: number;
-}
-
-/** 预警区域实例。 */
-interface WarningZone {
-  /**
- * cells：cell相关字段。
- */
-
-  cells: Array<{  
-  /**
- * x：x相关字段。
- */
- x: number;  
- /**
- * y：y相关字段。
- */
- y: number;  
- /**
- * expandDistance：expandDistance相关字段。
- */
- expandDistance: number }>;  
- /**
- * color：color相关字段。
- */
-
-  color: string;  
-  /**
- * baseColor：baseColor相关字段。
- */
-
-  baseColor: string;  
-  /**
- * originX：originX相关字段。
- */
-
-  originX: number;  
-  /**
- * originY：originY相关字段。
- */
-
-  originY: number;  
-  /**
- * maxExpandDistance：maxExpandDistance相关字段。
- */
-
-  maxExpandDistance: number;  
-  /**
- * createdAt：createdAt相关字段。
- */
-
-  createdAt: number;  
-  /**
- * duration：duration相关字段。
- */
-
-  duration: number;
-}
-
 /** 旧路径淡出过渡状态。 */
 interface FadingPathState {
 /**
@@ -1077,18 +932,6 @@ interface FadingPathState {
 const DEFAULT_PATH_TRAIL_FADE_MS = 500;
 /** 路径过渡最小透明度系数。 */
 const PATH_TRAIL_FADE_ALPHA = 0.7;
-/** 浮动文字缓存上限。 */
-const MAX_FLOATING_TEXTS = 256;
-/** 攻击拖尾缓存上限。 */
-const MAX_ATTACK_TRAILS = 192;
-const ATTACK_TRAIL_REACH_MS = 110;
-const ATTACK_TRAIL_HOLD_MS = 200;
-const ATTACK_TRAIL_FADE_MS = 170;
-const ATTACK_TRAIL_DURATION_MS = ATTACK_TRAIL_REACH_MS + ATTACK_TRAIL_HOLD_MS + ATTACK_TRAIL_FADE_MS;
-/** 预警区域缓存上限。 */
-const MAX_WARNING_ZONES = 64;
-/** 预警区域默认持续时长。 */
-const DEFAULT_WARNING_ZONE_DURATION_MS = 1240;
 /** 地形缓存边缘预绘格数，覆盖相机追随平移时露出的边，避免每跨一格重绘 dual-grid。 */
 const TERRAIN_CACHE_OVERSCAN_CELLS = 10;
 /** edge mask 成本较高，开启时只保留较薄缓存边，避免屏幕外大范围逐像素 mask。 */
@@ -1194,13 +1037,7 @@ export class TextRenderer implements IRenderer {
   private readonly terrainTileKeysScratch: string[] = [];
   private readonly terrainTilesScratch: Array<Tile | null> = [];
   private performanceConfig: MapPerformanceConfig = { ...DEFAULT_MAP_PERFORMANCE_CONFIG };
-  /** 当前浮动文字列表。 */
-  private floatingTexts: FloatingText[] = [];
-  private readonly floatingTextBurstLayout = new FloatingTextBurstLayout<FloatingText>();
-  /** 当前攻击拖尾列表。 */
-  private attackTrails: AttackTrail[] = [];
-  /** 当前预警区域列表。 */
-  private warningZones: WarningZone[] = [];
+  private readonly combatEffectRuntime = new CanvasCombatEffectRuntime();
   /**
  * lastMotionSyncToken：lastMotionSyncToken标识。
  */
@@ -1261,10 +1098,7 @@ export class TextRenderer implements IRenderer {
     this.groundPileByTileKey.clear();
     this.lootContainerTileKeys.clear();
     this.lastLootContainerSignature = '';
-    this.floatingTexts = [];
-    this.floatingTextBurstLayout.reset();
-    this.attackTrails = [];
-    this.warningZones = [];
+    this.combatEffectRuntime.reset();
     this.targetingOverlay = null;
     this.targetingAffectedKeys.clear();
     this.formationRangeOverlay = null;
@@ -2995,39 +2829,15 @@ export class TextRenderer implements IRenderer {
     variant: 'damage' | 'action' = 'damage',
     actionStyle?: FloatingActionTextStyle,
     durationMs?: number,
-  ) {
-    const now = performance.now();
-    this.pruneExpiredFloatingTexts(now);
-    this.floatingTexts.push({
-      x,
-      y,
-      text,
-      color,
-      variant,
-      actionStyle,
-      burstOffsetX: 0,
-      burstOffsetY: 0,
-      createdAt: now,
-      duration: resolveFloatingTextDuration(variant, actionStyle, durationMs),
-    });
-    this.trimFloatingTexts();
+  ): void {
+    this.combatEffectRuntime.addFloatingText(x, y, text, color, variant, actionStyle, durationMs);
   }
 
   /** 添加攻击拖尾特效（从攻击者到目标的箭头线段） */
-  addAttackTrail(fromX: number, fromY: number, toX: number, toY: number, color = '#ffd27a') {
+  addAttackTrail(fromX: number, fromY: number, toX: number, toY: number, color = '#ffd27a'): void {
     const now = performance.now();
-    this.pruneExpiredAttackTrails(now);
     this.triggerAttackMotion(fromX, fromY, toX, toY, now);
-    this.attackTrails.push({
-      fromX,
-      fromY,
-      toX,
-      toY,
-      color,
-      createdAt: now,
-      duration: ATTACK_TRAIL_DURATION_MS,
-    });
-    this.trimAttackTrails();
+    this.combatEffectRuntime.addAttackTrail(fromX, fromY, toX, toY, color, now);
   }  
 
   private triggerAttackMotion(fromX: number, fromY: number, toX: number, toY: number, now: number): void {
@@ -3050,315 +2860,33 @@ export class TextRenderer implements IRenderer {
     }
     return null;
   }
-  /**
- * addWarningZone：处理WarningZone并更新相关状态。
- * @param cells Array<{ x: number; y: number }> 参数说明。
- * @param color 参数说明。
- * @param durationMs 参数说明。
- * @param baseColor string 参数说明。
- * @param originX number 参数说明。
- * @param originY number 参数说明。
- * @returns 无返回值，直接更新WarningZone相关状态。
- */
-
-
+  /** 添加逐步扩散的地块预警特效。 */
   addWarningZone(
-    cells: Array<{    
-    /**
- * x：x相关字段。
- */
- x: number;    
- /**
- * y：y相关字段。
- */
- y: number }>,
+    cells: Array<{ x: number; y: number }>,
     color = '#ff2a2a',
-    durationMs = DEFAULT_WARNING_ZONE_DURATION_MS,
+    durationMs = DEFAULT_CANVAS_WARNING_ZONE_DURATION_MS,
     baseColor?: string,
     originX?: number,
     originY?: number,
-  ) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (cells.length === 0) {
-      return;
-    }
-    const now = performance.now();
-    this.pruneExpiredWarningZones(now);
-    const origin = resolveWarningZoneOrigin(cells, originX, originY);
-    const rawDistances = cells.map((cell) => Math.max(Math.abs(cell.x - origin.x), Math.abs(cell.y - origin.y)));
-    const minExpandDistance = rawDistances.reduce(
-      (minDistance, distance) => Math.min(minDistance, distance),
-      rawDistances[0] ?? 0,
-    );
-    const zoneCells = cells.map((cell, index) => ({
-      x: cell.x,
-      y: cell.y,
-      expandDistance: Math.max(0, rawDistances[index] - minExpandDistance),
-    }));
-    const maxExpandDistance = zoneCells.reduce(
-      (maxDistance, cell) => Math.max(maxDistance, cell.expandDistance),
-      0,
-    );
-    this.warningZones.push({
-      cells: zoneCells,
-      color,
-      baseColor: baseColor ?? color,
-      originX: origin.x,
-      originY: origin.y,
-      maxExpandDistance,
-      createdAt: now,
-      duration: normalizeTimedEffectDuration(durationMs, DEFAULT_WARNING_ZONE_DURATION_MS),
-    });
-    this.trimWarningZones();
+  ): void {
+    this.combatEffectRuntime.addWarningZone(cells, color, durationMs, baseColor, originX, originY);
   }
 
   /** 绘制所有浮动文字，自动清理过期条目 */
-  renderFloatingTexts(camera: Camera) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (!this.ctx || this.floatingTexts.length === 0) return;
-    const ctx = this.ctx;
-    const now = performance.now();
-    const sw = ctx.canvas.width;
-    const sh = ctx.canvas.height;
-    const cellSize = getCellSize();
-    const screenOffsetX = sw / 2 - camera.x + camera.offsetX;
-    const screenOffsetY = sh / 2 - camera.y + camera.offsetY;
-
-    this.pruneExpiredFloatingTexts(now);
-    this.floatingTextBurstLayout.apply(this.floatingTexts, cellSize);
-
-    for (const entry of this.floatingTexts) {
-      const progress = Math.min(1, (now - entry.createdAt) / entry.duration);
-      const actionStyle = entry.variant === 'action' ? (entry.actionStyle ?? 'default') : undefined;
-      const motionProgress = entry.variant === 'action' && actionStyle === 'default' ? progress * progress : progress;
-      const rise = entry.variant === 'action'
-        ? actionStyle === 'divine'
-          ? 0
-          : cellSize * (0.08 + motionProgress * 0.46)
-        : cellSize * (0.2 + progress * 0.8);
-      const alpha = entry.variant === 'action' && actionStyle === 'divine'
-        ? 1 - Math.max(0, (progress - 0.86) / 0.14)
-        : 1 - progress;
-      const sx = entry.x * cellSize + screenOffsetX;
-      const sy = entry.y * cellSize + screenOffsetY;
-      if (sx + cellSize < 0 || sx > sw || sy + cellSize < 0 || sy > sh) continue;
-      ctx.save();
-      ctx.globalAlpha = alpha;
-      if (entry.variant === 'action') {
-        if (actionStyle === 'divine') {
-          const fontSize = Math.max(30, cellSize * 0.84);
-          const lineHeight = fontSize * 1.12;
-          const chars = [...entry.text.trim()].filter((char) => char.trim().length > 0);
-          const stackHeight = chars.length > 0 ? lineHeight * Math.max(0, chars.length - 1) + fontSize : fontSize;
-          const scale = 0.98 + motionProgress * 0.08;
-          ctx.translate(
-            sx - cellSize * 0.06 + entry.burstOffsetX,
-            sy + cellSize - stackHeight - entry.burstOffsetY,
-          );
-          ctx.scale(scale, scale);
-          ctx.textAlign = 'left';
-          ctx.textBaseline = 'top';
-          ctx.font = buildCanvasFont('floatingAction', fontSize);
-          this.drawOutlinedVerticalText(
-            entry.text,
-            0,
-            0,
-            entry.color,
-            'rgba(15,12,10,0.9)',
-            lineHeight,
-          );
-        } else if (actionStyle === 'chant') {
-          const fontSize = Math.max(24, cellSize * 0.82);
-          const lineHeight = fontSize * 1.02;
-          const chars = [...entry.text.trim()].filter((char) => char.trim().length > 0);
-          const stackHeight = chars.length > 0 ? lineHeight * Math.max(0, chars.length - 1) + fontSize : fontSize;
-          const alpha = progress < 0.95 ? 1 : 1 - Math.max(0, (progress - 0.95) / 0.05);
-          ctx.globalAlpha = alpha;
-          ctx.translate(
-            sx - cellSize * 0.12 + entry.burstOffsetX,
-            sy - cellSize * 0.48 - entry.burstOffsetY - stackHeight,
-          );
-          ctx.textAlign = 'left';
-          ctx.textBaseline = 'top';
-          ctx.font = buildCanvasFont('floatingAction', fontSize);
-          ctx.shadowColor = 'rgba(120, 18, 12, 0.55)';
-          ctx.shadowBlur = Math.max(6, cellSize * 0.16);
-          this.drawChantText(
-            entry.text,
-            progress,
-            0,
-            0,
-            entry.color,
-            'rgba(24,8,6,0.98)',
-            lineHeight,
-            fontSize,
-          );
-        } else {
-          const fontSize = Math.max(10, cellSize * 0.28);
-          const scale = 0.98 + motionProgress * 0.08;
-          ctx.translate(
-            sx - cellSize * 0.06 + entry.burstOffsetX,
-            sy - cellSize * 0.08 - rise - entry.burstOffsetY,
-          );
-          ctx.scale(scale, scale);
-          ctx.textAlign = 'left';
-          ctx.textBaseline = 'top';
-          ctx.font = buildCanvasFont('floatingAction', fontSize);
-          this.drawOutlinedVerticalText(
-            entry.text,
-            0,
-            0,
-            entry.color,
-            'rgba(15,12,10,0.9)',
-            fontSize * 1.12,
-          );
-        }
-      } else {
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'alphabetic';
-        ctx.font = buildCanvasFont('floatingDamage', Math.max(14, cellSize * 0.45));
-        this.drawOutlinedText(
-          entry.text,
-          sx + cellSize / 2 + entry.burstOffsetX,
-          sy - rise - entry.burstOffsetY,
-          entry.color,
-          'rgba(15,12,10,0.95)',
-        );
-      }
-      ctx.restore();
-    }
+  renderFloatingTexts(camera: Camera): void {
+    if (!this.ctx) return;
+    this.combatEffectRuntime.renderFloatingTexts(this.ctx, camera);
   }
-
   /** 绘制所有攻击拖尾，自动清理过期条目 */
-  renderAttackTrails(camera: Camera) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (!this.ctx || this.attackTrails.length === 0) return;
-    const ctx = this.ctx;
-    const now = performance.now();
-    const sw = ctx.canvas.width;
-    const sh = ctx.canvas.height;
-    const cellSize = getCellSize();
-    const screenOffsetX = sw / 2 - camera.x + camera.offsetX;
-    const screenOffsetY = sh / 2 - camera.y + camera.offsetY;
-
-    this.pruneExpiredAttackTrails(now);
-
-    for (const entry of this.attackTrails) {
-      const elapsed = now - entry.createdAt;
-      const reachProgress = easeOutCubic(Math.min(1, elapsed / ATTACK_TRAIL_REACH_MS));
-      const fadeProgress = Math.min(1, Math.max(0, (elapsed - ATTACK_TRAIL_REACH_MS - ATTACK_TRAIL_HOLD_MS) / ATTACK_TRAIL_FADE_MS));
-      const alpha = 1 - fadeProgress * 0.85;
-      const fromSx = entry.fromX * cellSize + cellSize / 2 + screenOffsetX;
-      const fromSy = entry.fromY * cellSize + cellSize / 2 + screenOffsetY;
-      const toSx = entry.toX * cellSize + cellSize / 2 + screenOffsetX;
-      const toSy = entry.toY * cellSize + cellSize / 2 + screenOffsetY;
-      const dx = toSx - fromSx;
-      const dy = toSy - fromSy;
-      const distance = Math.hypot(dx, dy);
-      if (distance < 1) continue;
-      const tipSx = fromSx + dx * reachProgress;
-      const tipSy = fromSy + dy * reachProgress;
-      const tailProgress = Math.max(0, reachProgress - 0.72);
-      const tailSx = fromSx + dx * tailProgress;
-      const tailSy = fromSy + dy * tailProgress;
-
-      ctx.save();
-      ctx.globalAlpha = alpha;
-      ctx.strokeStyle = entry.color;
-      ctx.fillStyle = entry.color;
-      ctx.lineWidth = Math.max(1.25, cellSize * 0.045);
-      ctx.lineCap = 'round';
-      ctx.beginPath();
-      ctx.moveTo(tailSx, tailSy);
-      ctx.lineTo(tipSx, tipSy);
-      ctx.stroke();
-
-      const angle = Math.atan2(dy, dx);
-      const head = Math.min(distance * reachProgress * 0.5, Math.max(6, cellSize * 0.18));
-      if (head < 2) {
-        ctx.restore();
-        continue;
-      }
-      ctx.beginPath();
-      ctx.moveTo(tipSx, tipSy);
-      ctx.lineTo(tipSx - head * Math.cos(angle - Math.PI / 6), tipSy - head * Math.sin(angle - Math.PI / 6));
-      ctx.lineTo(tipSx - head * Math.cos(angle + Math.PI / 6), tipSy - head * Math.sin(angle + Math.PI / 6));
-      ctx.closePath();
-      ctx.fill();
-      ctx.restore();
-    }
+  renderAttackTrails(camera: Camera): void {
+    if (!this.ctx) return;
+    this.combatEffectRuntime.renderAttackTrails(this.ctx, camera);
   }
-
   /** 绘制会逐步扩散并淡出的警示区域。 */
-  renderWarningZones(camera: Camera) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (!this.ctx || this.warningZones.length === 0) return;
-    const ctx = this.ctx;
-    const now = performance.now();
-    const sw = ctx.canvas.width;
-    const sh = ctx.canvas.height;
-    const cellSize = getCellSize();
-    const screenOffsetX = sw / 2 - camera.x + camera.offsetX;
-    const screenOffsetY = sh / 2 - camera.y + camera.offsetY;
-
-    this.pruneExpiredWarningZones(now);
-
-    for (const zone of this.warningZones) {
-      const progress = Math.min(1, (now - zone.createdAt) / zone.duration);
-      const fadeProgress = progress <= 0.72 ? 0 : Math.min(1, (progress - 0.72) / 0.28);
-      const pulse = 0.96 + Math.sin(progress * Math.PI * 3) * 0.04;
-      const baseFillAlpha = Math.max(0.02, (1 - fadeProgress * 0.9) * 0.1);
-      const baseStrokeAlpha = Math.max(0.08, (1 - fadeProgress * 0.84) * 0.32);
-      const expandFillAlpha = Math.max(0.045, (1 - fadeProgress * 0.9) * 0.18 * pulse);
-      const expandStrokeAlpha = Math.max(0.16, (1 - fadeProgress * 0.82) * 0.72);
-      const revealDistance = progress * (zone.maxExpandDistance + 1);
-      const settledDistance = Math.floor(revealDistance);
-      const frontierAlpha = Math.max(0, Math.min(1, revealDistance - settledDistance));
-
-      for (const cell of zone.cells) {
-        const sx = cell.x * cellSize + screenOffsetX;
-        const sy = cell.y * cellSize + screenOffsetY;
-        if (sx + cellSize < 0 || sx > sw || sy + cellSize < 0 || sy > sh) {
-          continue;
-        }
-
-        ctx.save();
-        ctx.globalAlpha = baseFillAlpha;
-        ctx.fillStyle = zone.baseColor;
-        ctx.fillRect(sx + 1, sy + 1, cellSize - 2, cellSize - 2);
-        ctx.globalAlpha = baseStrokeAlpha;
-        ctx.strokeStyle = zone.baseColor;
-        ctx.lineWidth = Math.max(1.25, cellSize * 0.08);
-        ctx.strokeRect(sx + 1.5, sy + 1.5, cellSize - 3, cellSize - 3);
-        ctx.restore();
-
-        let overlayAlpha = 0;
-        if (cell.expandDistance < settledDistance) {
-          overlayAlpha = 1;
-        } else if (cell.expandDistance === settledDistance) {
-          overlayAlpha = frontierAlpha;
-        }
-        if (overlayAlpha <= 0.01) {
-          continue;
-        }
-
-        ctx.save();
-        ctx.globalAlpha = expandFillAlpha * overlayAlpha;
-        ctx.fillStyle = zone.color;
-        ctx.fillRect(sx + 1, sy + 1, cellSize - 2, cellSize - 2);
-        ctx.globalAlpha = expandStrokeAlpha * overlayAlpha;
-        ctx.strokeStyle = zone.color;
-        ctx.lineWidth = Math.max(1.35, cellSize * 0.09);
-        ctx.strokeRect(sx + 1.5, sy + 1.5, cellSize - 3, cellSize - 3);
-        ctx.restore();
-      }
-    }
+  renderWarningZones(camera: Camera): void {
+    if (!this.ctx) return;
+    this.combatEffectRuntime.renderWarningZones(this.ctx, camera);
   }
-
   /** 释放渲染器持有的所有缓存与临时状态。 */
   destroy() {
     this.ctx = null;
@@ -3384,145 +2912,14 @@ export class TextRenderer implements IRenderer {
     this.pathIndexByKey.clear();
     this.pathTargetKey = null;
     this.fadingPath = null;
-    this.floatingTexts = [];
-    this.floatingTextBurstLayout.reset();
-    this.attackTrails = [];
-    this.warningZones = [];
+    this.combatEffectRuntime.reset();
     this.lastMotionSyncToken = undefined;
     this.previousVisibleTileRevision = -1;
     this.textMeasureCache.clear();
     this.tileSpriteCache.clear();
   }
 
-  /**
- * drawChantText：执行drawChantText相关逻辑。
- * @param text string 参数说明。
- * @param progress number 参数说明。
- * @param x number X 坐标。
- * @param y number Y 坐标。
- * @param fill string 参数说明。
- * @param stroke string 参数说明。
- * @param lineHeight number 参数说明。
- * @param fontSize number 参数说明。
- * @returns 无返回值，直接更新drawChantText相关状态。
- */
-
-
-  private drawChantText(
-    text: string,
-    progress: number,
-    x: number,
-    y: number,
-    fill: string,
-    stroke: string,
-    lineHeight: number,
-    fontSize: number,
-  ): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (!this.ctx) {
-      return;
-    }
-    const ctx = this.ctx;
-    const chars = [...text.trim()].filter((char) => char.trim().length > 0);
-    if (chars.length === 0) {
-      return;
-    }
-    const segment = 1 / chars.length;
-    const slamWindow = Math.max(segment * 0.45, 0.06);
-
-    ctx.lineJoin = 'round';
-    ctx.lineWidth = Math.max(3.2, fontSize * 0.12);
-    ctx.strokeStyle = stroke;
-    ctx.fillStyle = fill;
-
-    chars.forEach((char, index) => {
-      const start = segment * index;
-      const localProgress = Math.max(0, Math.min(1, (progress - start) / slamWindow));
-      if (localProgress <= 0) {
-        return;
-      }
-      const fallPhase = Math.min(1, localProgress / 0.72);
-      const settlePhase = Math.max(0, (localProgress - 0.72) / 0.28);
-      const acceleratedFall = Math.pow(fallPhase, 2.6);
-      const impactDrop = (1 - acceleratedFall) * fontSize * 0.92;
-      const settle = easeOutCubic(settlePhase);
-      let impactScaleX = 1 - Math.min(1, fallPhase * 1.2) * 0.08;
-      let impactScaleY = 1 + Math.min(1, fallPhase * 1.2) * 0.16;
-      if (settlePhase > 0) {
-        impactScaleX = 1.22 - settle * 0.22;
-        impactScaleY = 0.76 + settle * 0.24;
-      }
-      const charAlpha = Math.min(1, localProgress * 1.8);
-      const offsetDirection = index % 2 === 0 ? -1 : 1;
-      const staggerOffsetX = offsetDirection * fontSize * 0.12;
-      const drawY = y + lineHeight * index - impactDrop;
-
-      ctx.save();
-      ctx.globalAlpha *= charAlpha;
-      ctx.translate(x + staggerOffsetX, drawY);
-      ctx.scale(impactScaleX, impactScaleY);
-      ctx.strokeText(char, 0, 0);
-      ctx.fillText(char, 0, 0);
-      ctx.restore();
-    });
-  }  
-  /** 清理过期的浮动文字。 */
-  private pruneExpiredFloatingTexts(now: number): void {
-    pruneExpiredTimedEffectsInPlace(this.floatingTexts, now);
-  }
-
-  /** 清理过期的攻击拖尾。 */
-  private pruneExpiredAttackTrails(now: number): void {
-    pruneExpiredTimedEffectsInPlace(this.attackTrails, now);
-  }
-
-  /** 清理过期的警示区域。 */
-  private pruneExpiredWarningZones(now: number): void {
-    pruneExpiredTimedEffectsInPlace(this.warningZones, now);
-  }
-
-  /** 控制浮动文字缓存上限。 */
-  private trimFloatingTexts(): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const overflow = this.floatingTexts.length - MAX_FLOATING_TEXTS;
-    if (overflow > 0) {
-      this.floatingTexts.splice(0, overflow);
-    }
-  }
-
-  /** 控制攻击拖尾缓存上限。 */
-  private trimAttackTrails(): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const overflow = this.attackTrails.length - MAX_ATTACK_TRAILS;
-    if (overflow > 0) {
-      this.attackTrails.splice(0, overflow);
-    }
-  }
-
-  /** 控制警示区域缓存上限。 */
-  private trimWarningZones(): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const overflow = this.warningZones.length - MAX_WARNING_ZONES;
-    if (overflow > 0) {
-      this.warningZones.splice(0, overflow);
-    }
-  }  
-  /**
- * renderPathArrows：执行路径Arrow相关逻辑。
- * @param camera Camera 参数说明。
- * @param visibleTiles ReadonlySet<string> 参数说明。
- * @param playerX number 参数说明。
- * @param playerY number 参数说明。
- * @param displayRangeX number 参数说明。
- * @param displayRangeY number 参数说明。
- * @returns 无返回值，直接更新路径Arrow相关状态。
- */
-
-
+  /** 绘制当前路径及正在淡出的旧路径箭头。 */
   private renderPathArrows(
     camera: Camera,
     visibleTiles: ReadonlySet<string>,
@@ -3574,26 +2971,8 @@ export class TextRenderer implements IRenderer {
         1,
       );
     }
-  }  
-  /**
- * renderPathArrowLayer：执行路径Arrow层相关逻辑。
- * @param ctx CanvasRenderingContext2D 上下文信息。
- * @param camera Camera 参数说明。
- * @param sw number 参数说明。
- * @param sh number 参数说明。
- * @param visibleTiles ReadonlySet<string> 参数说明。
- * @param playerX number 参数说明。
- * @param playerY number 参数说明。
- * @param displayRangeX number 参数说明。
- * @param displayRangeY number 参数说明。
- * @param cells { x: number; y: number }[] 参数说明。
- * @param indexByKey Map<string, number> 参数说明。
- * @param targetKey string | null 参数说明。
- * @param alpha number 参数说明。
- * @returns 无返回值，直接更新路径Arrow层相关状态。
- */
-
-
+  }
+  /** 绘制一层路径箭头并应用指定透明度。 */
   private renderPathArrowLayer(
     ctx: CanvasRenderingContext2D,
     camera: Camera,
@@ -3604,15 +2983,7 @@ export class TextRenderer implements IRenderer {
     playerY: number,
     displayRangeX: number,
     displayRangeY: number,
-    cells: {    
-    /**
- * x：x相关字段。
- */
- x: number;    
- /**
- * y：y相关字段。
- */
- y: number }[],
+    cells: Array<{ x: number; y: number }>,
     indexByKey: Map<string, number>,
     targetKey: string | null,
     alpha: number,
@@ -4159,27 +3530,6 @@ export class TextRenderer implements IRenderer {
     this.ctx.strokeText(text, x, y);
     this.ctx.fillStyle = fill;
     this.ctx.fillText(text, x, y);
-  }
-
-  /** 绘制带描边的竖排文本。 */
-  private drawOutlinedVerticalText(text: string, x: number, y: number, fill: string, stroke: string, lineHeight: number) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (!this.ctx) return;
-    const ctx = this.ctx;
-    const chars = [...text.trim()].filter((char) => char.trim().length > 0);
-    if (chars.length === 0) {
-      return;
-    }
-    ctx.lineJoin = 'round';
-    ctx.lineWidth = 2.4;
-    ctx.strokeStyle = stroke;
-    ctx.fillStyle = fill;
-    chars.forEach((char, index) => {
-      const drawY = y + lineHeight * index;
-      ctx.strokeText(char, x, drawY);
-      ctx.fillText(char, x, drawY);
-    });
   }
 
 }

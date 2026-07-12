@@ -67,6 +67,7 @@
 - 本轮进展：Pixi profiling 的状态、窗口、全局调试句柄和帧样本聚合原本全部挂在渲染 adapter 上，且关闭诊断时仍在每帧创建测量闭包和 schedule 对象。现已提取 `PixiRenderProfiler` 并改为无闭包时间戳上报；主文件降到门禁口径约 3572 行，仍需继续拆出纯渲染 primitive 才能退出唯一新超限清单。
 - 本轮进展：Pixi adapter 中剩余的内部场景类型、纯视觉规则和运行时图包清单归一化分别提取到 144/317/209 行模块；adapter 只保留 Pixi 场景拥有权、资源加载、分块绘制、实体/特效更新和生命周期编排，拆分时门禁口径降到 2971 行。后续加入拥挤/威胁箭头热路径修复后当前为 2987 行，仍低于硬阈值；唯一新超限已清零，未建立或扩大任何 baseline。
 - 本轮进展：Pixi adapter 继续把浮字、攻击拖尾和预警区的对象创建、逐帧更新、限额与销毁交给约 386 行 `PixiCombatEffectRuntime`，主 adapter 当前降到门禁口径 2715 行。Canvas `text.ts` 同时复用无分配布局规则，从 4304 行降到 4186 行，既有 baseline 增幅缩小 118 行但尚未退出超限；14 个 baseline regression 总数不变。
+- 本轮进展：Canvas `TextRenderer` 仍直接拥有三类战斗特效数组、约 500 行创建/绘制/限额逻辑和吟唱动画，现提取为 `CanvasCombatEffectRuntime`；实体攻击冲量仍由实体拥有者处理，Canvas 观察视图的公开绘制入口只做委托。主文件降到门禁口径 3536 行并回到 3556 行 baseline 内，历史增长回归从 14 个降为 13 个。
 
 ### FS-003 `[ ]` server tools 大量绕过 TypeScript 检查并保留 CommonJS 写法
 
@@ -639,7 +640,16 @@
 - 为什么错误：这些集合与对象位于 60 FPS 表现热路径，条目上限又允许 256 个浮字、192 个拖尾和 64 个预警区；生命周期数组应保持稳定并原地回收，颜色等事件期常量不应在每格每帧解析。Pixi 是玩家主世界唯一渲染后端，Canvas 是既有表现基线，同一结构化 `actionStyle` 和 warning zone 不能因后端不同而改变排列、持续时间或扩散原点。
 - 后果：持续战斗会产生稳定的短命数组、字符串、Map 和小对象，放大主线程 GC 与浏览器整体卡顿；技能名/吟唱在主世界会横排、过早按普通浮字淡出，缺少原点的不规则预警区扩散顺序与 GM Canvas 观察视图不一致。RGBA 自定义颜色的透明度也会在 Pixi 拖尾/预警区中丢失。
 - 修复方式：新增共享 `combat-effect-layout.ts`，用可复用的数值二维行/格点池按创建顺序直接写入爆散偏移，提供原地过期压缩、统一正时长、纵排文字和预警原点规则；Canvas/Pixi 共同使用。新增 `PixiCombatEffectRuntime` 唯一拥有三类 Pixi 节点、数组、限额和逐帧绘制；没有特效时立即返回，幸存项原地压缩，颜色与 alpha 在入队时解析，所有过期、溢出和 reset 路径仍先从父容器移除再销毁节点。动作浮字按 default/divine/chant 使用对应字号、纵排位置、持续时间与淡出。
-- 验证：地图生命周期 proof 动态覆盖吟唱默认时长、非法时长收敛、纵排投影、包围盒原点、负坐标同格爆散、variant 隔离、布局池 reset 和数组身份不变的原地过期回收；源码守卫禁止 Pixi runtime 恢复 `filter`，并锁定 adapter 特效职责、浮字/预警节点销毁链。client TypeScript 与完整 `pnpm verify:client` 通过；文件体积门禁确认 adapter 为 2715 行、Canvas renderer 为 4186 行，无新增超限，仍只因既有 14 个 baseline 增幅退出 1。未做真实多人持续战斗 allocation trace、WebGL 截图及移动真机长跑。
+- 验证：地图生命周期 proof 动态覆盖吟唱默认时长、非法时长收敛、纵排投影、包围盒原点、负坐标同格爆散、variant 隔离、布局池 reset 和数组身份不变的原地过期回收；源码守卫禁止 Pixi runtime 恢复 `filter`，并锁定 adapter 特效职责、浮字/预警节点销毁链。client TypeScript 与完整 `pnpm verify:client` 通过；本组验证时 adapter 为 2715 行、Canvas renderer 为 4186 行，FS-063 后 Canvas 当前进一步降为 3536 行。未做真实多人持续战斗 allocation trace、WebGL 截图及移动真机长跑。
+
+### FS-063 `[x]` Canvas 主渲染器继续聚合完整战斗特效子系统
+
+- 严重级别：中。
+- 根本原因：完成跨后端无分配布局后，`TextRenderer` 仍直接声明浮字、攻击拖尾和预警区的全部状态、上限常量、创建、逐帧绘制、过期回收、吟唱动画与销毁重置；这些逻辑只依赖 Canvas context、相机和 cell size，却与地形缓存、实体名字牌、路径和观察视图编排共处 4186 行主文件。
+- 为什么错误：Canvas 主渲染器应拥有帧编排和实体动画，独立特效对象的生命周期与绘制是单独变化轴。继续混放不仅让一个战斗表现改动扩大到全部地图渲染，还使 `text.ts` 长期超过体积 baseline，让门禁无法区分新增职责回流与既有债务。
+- 后果：修改浮字/预警样式时更容易误触地形、实体、路径或 GM 观察视图；review 和回归范围被放大，历史体积红灯持续掩盖其他新增增长。特效数组被外层 `destroy/resetScene` 直接替换，也使后续独立验证拥有权更加困难。
+- 修复方式：新增 `CanvasCombatEffectRuntime`，唯一拥有三类数组、创建顺序、绘制、限额、原地过期回收和 reset；`TextRenderer` 保留公开接口及实体攻击冲量查找，只把同一 `now` 传给特效 runtime。原浮字字号、纵排、吟唱落字、拖尾几何、预警扩散、视口裁剪和颜色语义保持不变；顺带把无信息的生成式参数注释收敛为描述设计意图的短注释。
+- 验证：client TypeScript 与地图生命周期 proof 通过；源码守卫要求 `TextRenderer` 委托给 `CanvasCombatEffectRuntime`、禁止三类数组回流，并锁定特效 runtime 原地 `copyWithin` 限额。`pnpm proof:file-size-gate` 确认 `text.ts` 为 3536 行，低于 3556 行 baseline，历史增长回归从 14 个降为 13 个。完整客户端门禁结果见验证表；未连接 GM 世界观察流做真实 Canvas 战斗截图。
 
 ## 待进一步验证或用户决定
 
@@ -768,4 +778,4 @@
 | Pixi profiler 热路径与销毁生命周期 | 动态 profiler lifecycle proof、client TypeScript 与完整 `pnpm verify:client` 通过；文件体积门禁按预期退出 1 | 关闭时不再创建测量闭包/帧快照，启停和销毁可完整释放窗口、定时探针及全局闭包 | 未做 Chrome heap snapshot 与长时间 profiler 压测 |
 | Pixi adapter 职责边界 | 图包/视觉 primitive 动态 proof、client TypeScript、完整 `pnpm verify:client` 与文件体积门禁对应检查通过 | adapter 降至 2971 行并退出唯一新超限，清单解析、纯视觉规则和场景类型形成窄边界 | 14 个历史 baseline 增幅仍使总体门禁退出 1；既有构建警告未变 |
 | Pixi 实体与威胁箭头每帧状态 | 动态空间索引 proof、源码边界守卫、完整 `pnpm verify:client` 通过；该组 adapter 为 2987 行，后续特效拆分后当前 2715 行 | crowd 遮挡使用当前帧插值/视口，实体动画共用帧时钟；威胁箭头按本地玩家身份着色、只读可见索引且不再分配数组兜底 | 未做真实多人 crowd 视觉回归、Chrome allocation profile 和移动真机帧率压测；既有 14 个 baseline 增幅未变 |
-| Canvas/Pixi 战斗特效布局与生命周期 | 动态布局/时长 proof、client TypeScript、完整 `pnpm verify:client` 通过；文件体积门禁确认 adapter 2715 行、Canvas renderer 4186 行 | 浮字分组和三类过期回收不再逐帧替换数组；Pixi 节点限额/销毁收口，动作文字纵排/时长/淡出与预警原点跨后端统一 | 未做真实战斗 WebGL/Canvas 对照截图、Chrome allocation trace 和移动真机长跑；Canvas renderer 仍超过历史 baseline |
+| Canvas/Pixi 战斗特效布局与生命周期 | 动态布局/时长 proof、client TypeScript、完整 `pnpm verify:client` 通过；文件体积门禁确认 adapter 2715 行、Canvas renderer 3536 行 | 浮字分组和三类过期回收不再逐帧替换数组；Pixi/Canvas 特效拥有权均收口，动作文字纵排/时长/淡出与预警原点跨后端统一；Canvas 退出历史增长清单 | 未做真实战斗 WebGL/Canvas 对照截图、Chrome allocation trace、GM 观察流和移动真机长跑；其余 13 个 baseline 回归未变 |

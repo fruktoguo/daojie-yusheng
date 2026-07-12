@@ -220,6 +220,8 @@ assert.doesNotMatch(mapRuntime, /while\s*\(\s*this\.nextFrameAt\s*<=\s*now\s*\)/
 
 const pixiRenderer = read('src/game-map/renderer/pixi-map-renderer-adapter.ts');
 const pixiCombatEffects = read('src/game-map/renderer/pixi-combat-effect-runtime.ts');
+const canvasRenderer = read('src/renderer/text.ts');
+const canvasCombatEffects = read('src/renderer/canvas-combat-effect-runtime.ts');
 assert.match(pixiRenderer, /private mountGeneration = 0/);
 assert.match(pixiRenderer, /generation !== this\.mountGeneration \|\| this\.canvas !== canvas/);
 assert.match(pixiRenderer, /this\.app\.renderer\.resize\(this\.width, this\.height, 1\);\s*this\.ready = true/);
@@ -242,6 +244,10 @@ assert.doesNotMatch(pixiRenderer, /private (?:floatingTexts|attackTrails|warning
 assert.doesNotMatch(pixiCombatEffects, /\.filter\(/, 'Pixi 特效逐帧回收不得重建数组');
 assert.match(pixiCombatEffects, /entry\.text\.parent\?\.removeChild\(entry\.text\);\s*entry\.text\.destroy\(\)/, '浮字移除必须同步释放 Pixi 节点');
 assert.match(pixiCombatEffects, /zone\.graphics\.parent\?\.removeChild\(zone\.graphics\);\s*zone\.graphics\.destroy\(\)/, '预警区移除必须同步释放 Pixi 节点');
+assert.match(canvasRenderer, /new CanvasCombatEffectRuntime\(\)/, 'Canvas 主渲染器必须把战斗特效状态交给窄拥有者');
+assert.doesNotMatch(canvasRenderer, /private (?:floatingTexts|attackTrails|warningZones)\b/, 'Canvas 主渲染器不得重新吸收战斗特效数组');
+assert.doesNotMatch(canvasCombatEffects, /this\.(?:floatingTexts|attackTrails|warningZones)\s*=\s*this\.(?:floatingTexts|attackTrails|warningZones)\.filter\(/, 'Canvas 特效回收不得恢复为数组重建');
+assert.match(canvasCombatEffects, /entries\.copyWithin\(0, overflow\)/, 'Canvas 特效溢出必须保持数组身份并原地压缩');
 assert.doesNotMatch(pixiRenderer, /^function (?:normalizePixiTileSpriteMap|buildFormationRangeSignature|parseColor)\b/m, 'adapter 不得重新吸收图包解析和纯视觉规则');
 
 const storage = new MemoryStorage();
