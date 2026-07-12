@@ -134,9 +134,7 @@ function toTsObject(records, valueSelector) {
 }
 
 function buildOutput(records) {
-  const categories = Object.fromEntries(records.map((record) => [record.key, record.category]));
-  const notes = Object.fromEntries(records.filter((record) => record.note).map((record) => [record.key, record.note]));
-  return `/**\n * 本文件负责承载自动生成的前端语言包常量，来源固定为 packages/client/src/content/i18n/zh-CN.csv。\n *\n * 维护时要通过生成脚本更新文案，保持 CSV、类型导出和客户端渲染口径一致，避免手写本文件造成覆盖丢失。\n */\n\nexport const CLIENT_I18N_MESSAGES = ${toTsObject(records, (record) => record.text)} as const;\n\nexport const CLIENT_I18N_CATEGORIES = ${JSON.stringify(categories, null, 2)} as const;\n\nexport const CLIENT_I18N_NOTES = ${JSON.stringify(notes, null, 2)} as const;\n\nexport type ClientI18nKey = keyof typeof CLIENT_I18N_MESSAGES;\n`;
+  return `/**\n * 本文件负责承载自动生成的前端语言包常量，来源固定为 packages/client/src/content/i18n/zh-CN.csv。\n *\n * 维护时要通过生成脚本更新文案，保持 CSV、类型导出和客户端渲染口径一致，避免手写本文件造成覆盖丢失。\n */\n\nexport const CLIENT_I18N_MESSAGES = ${toTsObject(records, (record) => record.text)} as const;\n\nexport type ClientI18nKey = keyof typeof CLIENT_I18N_MESSAGES;\n`;
 }
 
 const records = readRecords();

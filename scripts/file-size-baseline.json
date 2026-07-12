@@ -1,6 +1,5 @@
 {
   "packages/client/src/gm.ts": 8619,
-  "packages/client/src/constants/ui/i18n.generated.ts": 7585,
   "packages/server/src/runtime/instance/map-instance.runtime.ts": 7194,
   "packages/server/src/runtime/player/player-runtime.service.ts": 6997,
   "packages/server/src/tools/auth-bootstrap-smoke.ts": 6500,

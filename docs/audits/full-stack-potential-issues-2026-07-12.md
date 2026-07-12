@@ -29,7 +29,7 @@
 | 配置编辑器、schema、导入发布 | 进行中 | 构建、content-contract、异步代际 smoke 与浏览器乱序回包验证通过 | 继续复核地图保存、schema 与发布入口 |
 | 鉴权、权限、GM 高危操作 | 进行中 | 全部 GM controller 已确认受 Guard 保护；改密 token 撤销与启动回读已有 compiled smoke；注册激活 smoke 不再把鉴权要求误判为名称冲突；IP 失败预算和所有 GM 密码入口已统一限流；账号库未就绪会同时阻断 HTTP、GM、Socket 和 readiness；玩家修改未知 section 会被拒绝，已注册操作只写对应 domain | GM 审计 fail-open、高危 scope、GET 密码兼容入口及维护态策略等待产品决定 |
 | 错误处理、日志与可观测性 | 进行中 | 已确认 GM 审计写入失败只告警并放行；协议与鉴权 smoke 的假红、跳过和测试替身漂移已分别校正 | 继续检查吞异常、敏感信息、告警与失败水位 |
-| 性能、内存、网络包体 | 进行中 | 文件体积门禁只剩 14 个历史 baseline 增幅；本轮发现的无 baseline 新超限已全部拆回阈值内；构建产物仍有大 chunk 警告 | 继续逐个处理 14 个基线增幅，并区分真实热路径问题、门禁误报和冷路径债务 |
+| 性能、内存、网络包体 | 进行中 | 文件体积门禁只剩 12 个历史 baseline 增幅；本轮发现的无 baseline 新超限已全部拆回阈值内，自动生成数据也已与手写职责门禁分离；构建产物仍有大 chunk 警告 | 继续逐个处理 12 个真实基线增幅，并区分热路径问题、冷路径债务和可独立职责 |
 | 浅色、深色、手机与触控 | 待检查 | 构建门禁不证明视觉结果 | 需要浏览器级检查 |
 | 测试、构建、清理链与边界门禁 | 进行中 | quick/client/release contract/config build、边界审计通过；24 个工具文件的 37 处 Socket.IO 客户端均有 parser 守卫，无库 `verify:release:local` 的 18 类场景通过；鉴权启动和宗门异步 smoke 已修复；GM domain-write 已进入 quick，物品编辑与恢复丹夹具重新对齐当前 domain/模板水合契约 | 继续检查其余持久化夹具清理、DB 分支与失真测试 |
 
@@ -51,7 +51,7 @@
 - 为什么错误：巨型模块扩大冲突面和隐式副作用，难以证明单一职责、事务边界及局部 UI 更新；门禁红灯失去阻止继续膨胀的能力。
 - 后果：运行时/持久化改动更容易产生竞态、旧态覆盖、全量刷新或回归遗漏；review 和验证成本持续增加。
 - 修复方向：先修正生成物、工具与生产代码的分类口径，再按真实职责拆分当前生产超限模块；不得简单更新 baseline 掩盖增长。
-- 当前证据：`pnpm proof:file-size-gate` 仍因 14 个 baseline regression 退出 1；本轮发现的战斗 action、玩家成长、宗门 runtime、GM 玩家服务、协议审计、玩家分域 smoke、背包面板和 Pixi renderer 等无 baseline 新超限均已拆回 3000 行内，当前没有新超限或陈旧 baseline。
+- 当前证据：`pnpm proof:file-size-gate` 仍因 12 个真实手写模块的 baseline regression 退出 1；本轮发现的战斗 action、玩家成长、宗门 runtime、GM 玩家服务、协议审计、玩家分域 smoke、背包面板和 Pixi renderer 等无 baseline 新超限均已拆回 3000 行内，当前没有新超限或陈旧 baseline。
 - 本轮进展：`world-runtime-combat-action.service.ts` 原先在 3415 行类中同时承载动作编排和约 500 行无状态规范化、目标索引、结果投影及诊断计时辅助；这些逻辑没有服务实例状态或外部调用契约，却扩大了权威编排层的修改面。现已提取为 546 行 `world-runtime-combat-action.helpers.ts`，主服务降到 2955 行并退出 3000 行错误清单；新 helper 同步纳入禁止网络、数据库、文件和 JSON 序列化的战斗热路径边界检查。剩余超限文件仍保持未完成状态，不更新 baseline 掩盖问题。
 - 本轮进展：`protocol-audit.ts` 把账号/JWT 辅助和 Markdown 报告投影混在 3135 行主流程中，现提取为 68/87 行两个窄 helper，主文件降到 2953 行并删除旧 baseline；完整 18 类协议审计通过。其余超限文件仍保持未完成状态。
 - 本轮进展：`auth-bootstrap-smoke.ts` 的动态导出、自读源码与生成式废注释使文件达到 6668 行，现改为静态导出和三个有类型的函数分类模块，删除无信息注释后降到 6078 行，低于既有 6500 行 baseline；它仍超过 3000 行，后续还需按主线、迁移和持久化证明继续拆分，当前不删除 baseline。
@@ -68,6 +68,7 @@
 - 本轮进展：Pixi adapter 中剩余的内部场景类型、纯视觉规则和运行时图包清单归一化分别提取到 144/317/209 行模块；adapter 只保留 Pixi 场景拥有权、资源加载、分块绘制、实体/特效更新和生命周期编排，拆分时门禁口径降到 2971 行。后续加入拥挤/威胁箭头热路径修复后当前为 2987 行，仍低于硬阈值；唯一新超限已清零，未建立或扩大任何 baseline。
 - 本轮进展：Pixi adapter 继续把浮字、攻击拖尾和预警区的对象创建、逐帧更新、限额与销毁交给约 386 行 `PixiCombatEffectRuntime`，主 adapter 当前降到门禁口径 2715 行。Canvas `text.ts` 同时复用无分配布局规则，从 4304 行降到 4186 行，既有 baseline 增幅缩小 118 行但尚未退出超限；14 个 baseline regression 总数不变。
 - 本轮进展：Canvas `TextRenderer` 仍直接拥有三类战斗特效数组、约 500 行创建/绘制/限额逻辑和吟唱动画，现提取为 `CanvasCombatEffectRuntime`；实体攻击冲量仍由实体拥有者处理，Canvas 观察视图的公开绘制入口只做委托。主文件降到门禁口径 3536 行并回到 3556 行 baseline 内，历史增长回归从 14 个降为 13 个。
+- 本轮进展：语言包生成器把 CSV 中只供内容维护的 category 与 note 复制成两个从未被消费的运行时导出，且文件体积门禁把 `*.generated.ts` 数据产物误判为手写职责膨胀。现已保留 CSV 完整校验但只生成运行时消息与 key 类型，并让门禁显式排除约定命名的生成源文件；语言包生成物从 8899 行降到 3829 行并移除错误 baseline，历史增长回归从 13 个降为 12 个。
 
 ### FS-003 `[ ]` server tools 大量绕过 TypeScript 检查并保留 CommonJS 写法
 
@@ -651,6 +652,16 @@
 - 修复方式：新增 `CanvasCombatEffectRuntime`，唯一拥有三类数组、创建顺序、绘制、限额、原地过期回收和 reset；`TextRenderer` 保留公开接口及实体攻击冲量查找，只把同一 `now` 传给特效 runtime。原浮字字号、纵排、吟唱落字、拖尾几何、预警扩散、视口裁剪和颜色语义保持不变；顺带把无信息的生成式参数注释收敛为描述设计意图的短注释。
 - 验证：client TypeScript 与地图生命周期 proof 通过；源码守卫要求 `TextRenderer` 委托给 `CanvasCombatEffectRuntime`、禁止三类数组回流，并锁定特效 runtime 原地 `copyWithin` 限额。`pnpm proof:file-size-gate` 确认 `text.ts` 为 3536 行，低于 3556 行 baseline，历史增长回归从 14 个降为 13 个。完整客户端门禁结果见验证表；未连接 GM 世界观察流做真实 Canvas 战斗截图。
 
+### FS-064 `[x]` 语言包生成物携带未消费元数据且被职责体积门禁误判
+
+- 严重级别：中。
+- 根本原因：`generate-i18n.mjs` 除客户端唯一消费的 `CLIENT_I18N_MESSAGES` 和 key 类型外，还把每条 CSV 的 category 与非空 note 复制成 `CLIENT_I18N_CATEGORIES`、`CLIENT_I18N_NOTES`；全仓没有任何消费点。文件体积门禁又无条件扫描所有 `.ts/.tsx`，把随内容条数线性增长的 `i18n.generated.ts` 纳入手写模块 baseline。
+- 为什么错误：category/note 是内容维护元数据，真源应留在 CSV，不应进入客户端 TypeScript 图；自动生成数据的行数表达内容规模，而非模块职责或控制流复杂度，用同一 3000 行阈值会持续制造不可行动的假红。
+- 触发条件：运行任意 client prebuild/typecheck 时都会解析多余导出；当 CSV 继续增加文案、生成文件超过旧 baseline 时，体积门禁即使没有新增手写职责也会失败。
+- 后果：每次 typecheck/build 都需额外解析数千行不会被使用的对象字面量；新增正常文案也会让架构门禁失败，维护者容易错误扩大 baseline，从而掩盖真正继续膨胀的 runtime、持久化和 UI 模块。
+- 修复方式：生成器继续读取、校验并排序四列 CSV，但 TS 产物只输出消息表与 `ClientI18nKey`，category/note 保留在 CSV 真源；文件体积门禁按明确的 `.generated.ts/.generated.tsx` 后缀跳过自动生成源，并移除对应旧 baseline。契约 proof 锁定只跳过后缀约定，不会误排除普通 `generated/` 目录中的手写文件。
+- 验证：`pnpm --filter @mud/client generate:i18n` 确认 3819 条记录可确定性生成；产物从 8899 行降到 3829 行，仓库搜索确认被移除的两个导出没有消费点；`pnpm proof:file-size-gate:contract` 与完整 `pnpm verify:client` 通过。完整体积门禁仍按预期因其余 12 个真实 baseline 增长退出 1，且没有新超限或陈旧 baseline。
+
 ## 待进一步验证或用户决定
 
 ### D-001 `[?]` 客户端初始包同时装载 React 面板与 legacy 回退实现
@@ -779,3 +790,4 @@
 | Pixi adapter 职责边界 | 图包/视觉 primitive 动态 proof、client TypeScript、完整 `pnpm verify:client` 与文件体积门禁对应检查通过 | adapter 降至 2971 行并退出唯一新超限，清单解析、纯视觉规则和场景类型形成窄边界 | 14 个历史 baseline 增幅仍使总体门禁退出 1；既有构建警告未变 |
 | Pixi 实体与威胁箭头每帧状态 | 动态空间索引 proof、源码边界守卫、完整 `pnpm verify:client` 通过；该组 adapter 为 2987 行，后续特效拆分后当前 2715 行 | crowd 遮挡使用当前帧插值/视口，实体动画共用帧时钟；威胁箭头按本地玩家身份着色、只读可见索引且不再分配数组兜底 | 未做真实多人 crowd 视觉回归、Chrome allocation profile 和移动真机帧率压测；既有 14 个 baseline 增幅未变 |
 | Canvas/Pixi 战斗特效布局与生命周期 | 动态布局/时长 proof、client TypeScript、完整 `pnpm verify:client` 通过；文件体积门禁确认 adapter 2715 行、Canvas renderer 3536 行 | 浮字分组和三类过期回收不再逐帧替换数组；Pixi/Canvas 特效拥有权均收口，动作文字纵排/时长/淡出与预警原点跨后端统一；Canvas 退出历史增长清单 | 未做真实战斗 WebGL/Canvas 对照截图、Chrome allocation trace、GM 观察流和移动真机长跑；其余 13 个 baseline 回归未变 |
+| i18n 生成链与文件体积分类 | 3819 条 i18n 确定性生成、体积门禁契约 proof 与完整 `pnpm verify:client` 通过；完整体积门禁仅因其余 12 个真实增长项退出 1 | CSV category/note 真源继续校验但不进入未消费运行时导出；`.generated.ts/.tsx` 不再污染手写职责门禁 | 未量化 TypeScript/Vite 解析耗时收益；现有大 chunk、Vite CJS 与 protobuf eval 警告未变 |

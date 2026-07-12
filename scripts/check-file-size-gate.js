@@ -34,6 +34,10 @@ function countLines(filePath) {
   return content.split('\n').length;
 }
 
+function isGeneratedSourceFile(filePath) {
+  return /\.generated\.tsx?$/.test(filePath);
+}
+
 function walkTs(dir, results = []) {
   if (!fs.existsSync(dir)) return results;
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -82,6 +86,9 @@ function runContractProof() {
 
   assert.deepEqual(newOversized, [{ file: 'new.ts', lines: 3001 }]);
   assert.deepEqual(staleBaselines, ['resolved.ts']);
+  assert.equal(isGeneratedSourceFile('src/constants/ui/i18n.generated.ts'), true);
+  assert.equal(isGeneratedSourceFile('src/catalog.generated.tsx'), true);
+  assert.equal(isGeneratedSourceFile('src/generated/i18n.ts'), false);
   assert.equal(hasBlockingViolations({ regressions: [], newOversized, staleBaselines }), true);
   assert.equal(hasBlockingViolations({ regressions: [], newOversized: [], staleBaselines: [] }), false);
   console.log('file size gate contract check passed');
@@ -98,6 +105,10 @@ function main() {
     const absDir = path.join(repoRoot, scanDir);
     const files = walkTs(absDir);
     for (const file of files) {
+      // 生成数据的行数随内容规模增长，不代表手写模块职责膨胀。
+      if (isGeneratedSourceFile(file)) {
+        continue;
+      }
       const lines = countLines(file);
       const rel = path.relative(repoRoot, file);
 
