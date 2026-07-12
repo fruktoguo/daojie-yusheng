@@ -226,6 +226,7 @@ export class NativePlayerAuthService {
   ): Promise<AuthTokens> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    this.authStore.assertOperational();
     const normalizedUsername = normalizeUsername(accountName);
     const normalizedDisplayName = normalizeDisplayName(displayName);
     const normalizedRoleName = normalizeRoleName(roleName) || buildDefaultRoleName(normalizedUsername);
@@ -330,6 +331,7 @@ export class NativePlayerAuthService {
   }
 
   async getRegistrationActivationCode(sourceText: string): Promise<RegistrationActivationCodeIssueView> {
+    this.authStore.assertOperational();
     const record = await this.authStore.getOrCreateRegistrationActivationCodeForSourceText(sourceText);
     return {
       sourceText: record.sourceText ?? '',
@@ -355,6 +357,7 @@ export class NativePlayerAuthService {
   async login(loginName: string, password: string, context: AuthRequestContext = {}): Promise<AuthTokens> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    this.authStore.assertOperational();
     const normalizedLoginName = normalizeUsername(loginName).trim();
     const directUser = await this.authStore.findUserByUsername(normalizedLoginName);
     const roleMatchedUsers = await this.authStore.findUsersByRoleName(normalizedLoginName);
@@ -405,6 +408,7 @@ export class NativePlayerAuthService {
   async refresh(refreshToken: string, context: AuthRequestContext = {}): Promise<AuthTokens> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    this.authStore.assertOperational();
     const payload = this.worldPlayerTokenCodecService.validateRefreshToken(typeof refreshToken === 'string' ? refreshToken.trim() : '');
     if (!payload || payload.role === 'gm' || typeof payload.sub !== 'string' || typeof payload.username !== 'string') {
       throw new UnauthorizedException('刷新令牌无效或已过期');
@@ -426,6 +430,7 @@ export class NativePlayerAuthService {
   async checkDisplayName(displayName = ''): Promise<DisplayNameAvailabilityResult> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    this.authStore.assertOperational();
     const normalizedDisplayName = normalizeDisplayName(displayName);
     const error = validateDisplayName(normalizedDisplayName);
     if (error) {
@@ -448,6 +453,7 @@ export class NativePlayerAuthService {
  ok: true }> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    this.authStore.assertOperational();
     const user = await this.requireUser(accessToken);
     if (!await verifyPassword(currentPassword, user.passwordHash)) {
       throw new BadRequestException('当前密码错误');
@@ -474,6 +480,7 @@ export class NativePlayerAuthService {
  displayName: string }> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    this.authStore.assertOperational();
     const user = await this.requireUser(accessToken);
     const normalizedDisplayName = normalizeDisplayName(displayName);
     const displayNameError = validateDisplayName(normalizedDisplayName);
@@ -511,6 +518,7 @@ export class NativePlayerAuthService {
  roleName: string }> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    this.authStore.assertOperational();
     const user = await this.requireUser(accessToken);
     const normalizedRoleName = normalizeRoleName(roleName);
     const roleNameError = validateRoleName(normalizedRoleName);

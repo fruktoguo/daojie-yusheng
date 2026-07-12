@@ -195,6 +195,7 @@ export class NativeManagedAccountService {
   async getManagedAccountIndex(playerIds: Iterable<string> | null | undefined): Promise<Map<string, ManagedAccountRecord>> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    this.authStore.assertOperational();
     const normalizedPlayerIds = Array.from(new Set(Array.from(playerIds ?? [])
       .filter((playerId): playerId is string => typeof playerId === 'string')
       .map((playerId) => playerId.trim())
@@ -235,6 +236,7 @@ export class NativeManagedAccountService {
   async updateManagedPlayerPassword(playerId: string, newPassword: string, actor = 'gm'): Promise<void> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    this.authStore.assertOperational();
     const passwordError = validatePassword(newPassword);
     if (passwordError) {
       throw new BadRequestException(passwordError);
@@ -284,6 +286,7 @@ export class NativeManagedAccountService {
   async updateManagedPlayerAccount(playerId: string, username: string): Promise<ManagedAccountUpdateResult> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    this.authStore.assertOperational();
     const user = await this.requireManagedUser(playerId);
     const normalizedUsername = normalizeUsername(username);
     const usernameError = validateUsername(normalizedUsername);
@@ -336,6 +339,7 @@ export class NativeManagedAccountService {
 
   /** GM 快捷封禁托管账号，优先让市场撤单返还与账号封禁态同一 durable 事务提交。 */
   async banManagedPlayerAccount(playerId: string, reason: string, bannedBy = 'gm'): Promise<void> {
+    this.authStore.assertOperational();
     const user = await this.requireManagedUser(playerId);
     const updatedAt = Date.now();
     const nextUser = {
@@ -365,6 +369,7 @@ export class NativeManagedAccountService {
 
   /** GM 快捷解封托管账号。 */
   async unbanManagedPlayerAccount(playerId: string): Promise<void> {
+    this.authStore.assertOperational();
     const user = await this.requireManagedUser(playerId);
     await this.authStore.saveUser({
       ...user,

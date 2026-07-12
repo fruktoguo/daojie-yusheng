@@ -17,6 +17,7 @@ async function main(): Promise<void> {
     { enabled: true, pool: {} } as never,
     { enabled: true, pool: {} } as never,
     { enabled: true, pool: {} } as never,
+    { isEnabled: () => true } as never,
     { build: () => ({}) } as never,
     { getRuntimeSummary: () => ({ ready: true }) } as never,
     undefined,

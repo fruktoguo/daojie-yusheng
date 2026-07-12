@@ -14,6 +14,11 @@ interface PersistenceServiceLike {
   pool?: unknown;
 }
 
+/** 原生玩家账号真源最小接口；readiness 不能只检查“使用 native auth”这一声明。 */
+interface AuthStoreServiceLike {
+  isEnabled?: () => boolean;
+}
+
 /** 运行时摘要最小接口 */
 interface RuntimeSummaryLike {
   tick?: number;
@@ -53,6 +58,7 @@ export interface HealthReadinessDependencies {
   mailPersistenceService?: PersistenceServiceLike | null;
   marketPersistenceService?: PersistenceServiceLike | null;
   activityPersistenceService?: PersistenceServiceLike | null;
+  authStoreService?: AuthStoreServiceLike | null;
   maintenanceStateService?: MaintenanceStateServiceLike | null;
   worldRuntimeService?: RuntimeServiceLike | null;
   startupRunId?: string | null;
@@ -120,8 +126,8 @@ interface HealthResponse {
     auth: {
       ready: boolean;
       mode: 'native_only';
-      source: null;
-      reason: 'native_auth_only';
+      source: 'native_player_auth_store' | null;
+      reason: 'ready' | 'database_unconfigured' | 'service_unavailable' | 'init_incomplete_or_failed';
     };
     runtime: RuntimeReadiness;
     startup?: StartupReadiness;
@@ -139,7 +145,7 @@ export function buildHealthResponse(dependencies: HealthReadinessDependencies): 
     market: resolvePersistenceReadiness(database.configured, dependencies.marketPersistenceService),
     activity: resolvePersistenceReadiness(database.configured, dependencies.activityPersistenceService),
   };
-  const auth = resolveAuthReadiness();
+  const auth = resolveAuthReadiness(database.configured, dependencies.authStoreService);
   const runtime = resolveRuntimeReadiness(dependencies.worldRuntimeService, dependencies.startupRunId);
   const shutdown = dependencies.shutdownStatus ?? null;
 
@@ -149,6 +155,7 @@ export function buildHealthResponse(dependencies: HealthReadinessDependencies): 
     && persistence.mail.enabled
     && persistence.market.enabled
     && persistence.activity.enabled
+    && auth.ready
     && runtime.ready
     && !(shutdown?.blocking === true);
 
@@ -235,13 +242,30 @@ function inspectPersistenceServiceEnabled(service: PersistenceServiceLike): bool
   return service.enabled === true && service.pool != null;
 }
 
-/** 鉴权 readiness 当前固定为原生主线。 */
-function resolveAuthReadiness() {
+/** 原生鉴权只有在账号真源表和内存索引完成初始化后才允许接收玩家流量。 */
+function resolveAuthReadiness(databaseConfigured: boolean, service?: AuthStoreServiceLike | null) {
+  if (!databaseConfigured) {
+    return {
+      ready: false,
+      mode: 'native_only' as const,
+      source: null,
+      reason: 'database_unconfigured' as const,
+    };
+  }
+  if (!service || typeof service.isEnabled !== 'function') {
+    return {
+      ready: false,
+      mode: 'native_only' as const,
+      source: null,
+      reason: 'service_unavailable' as const,
+    };
+  }
+  const ready = service.isEnabled();
   return {
-    ready: true,
+    ready,
     mode: 'native_only' as const,
-    source: null,
-    reason: 'native_auth_only' as const,
+    source: 'native_player_auth_store' as const,
+    reason: ready ? 'ready' as const : 'init_incomplete_or_failed' as const,
   };
 }
 

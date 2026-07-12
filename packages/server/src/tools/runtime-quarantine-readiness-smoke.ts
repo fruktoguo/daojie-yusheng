@@ -65,6 +65,7 @@ function main(): void {
       mailPersistenceService: { enabled: true, pool: {} },
       marketPersistenceService: { enabled: true, pool: {} },
       activityPersistenceService: { enabled: true, pool: {} },
+      authStoreService: { isEnabled: () => true },
       worldRuntimeService: { getRuntimeSummary: () => summary },
       startupRunId: 'startup:smoke:quarantine',
     });

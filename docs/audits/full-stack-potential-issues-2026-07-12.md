@@ -25,9 +25,9 @@
 | shared 类型、协议与 protobuf | 进行中 | shared build 与协议审计通过；兑换码和离线收益主动刷新 C2S/S2C 已关联 `requestId`；工坊专用面板/任务事件不再复制到空消费 EventBus 字段 | 完成其余大包体的数据流与消费复核 |
 | 服务端网络同步、AOI、首包/增量 | 进行中 | `pnpm verify:quick` runtime smoke 通过；网关 action 已验证单次 delta 和兑换终态关联；工坊无效 EventBus 载荷清理后协议总量实测下降 | 逐字段检查其余频率、范围、恢复语义 |
 | 服务端 runtime、tick、移动、战斗、交互 | 进行中 | server compile、quick runtime smoke 通过；无库本地主线 18 类 smoke 已完整跑通，怪物战斗/技能/重置夹具已按真实机制校正 | 继续按 mechanics 文档审查真实调用链、热路径及未被 smoke 覆盖的机制 |
-| 持久化、恢复、强事务与关闭 | 进行中 | server compile 通过；边界审计 forbidden 已清零；玩家统计总账回读/flush 已按玩家串行并接入 quick smoke | 复核其余玩家/实例分域、outbox、恢复围栏 |
+| 持久化、恢复、强事务与关闭 | 进行中 | server compile 通过；边界审计 forbidden 已清零；玩家统计总账回读/flush 已按玩家串行并接入 quick smoke；账号真源启动失败与恢复重连已改为 fail-closed | 复核其余玩家/实例分域、outbox、恢复围栏；真实 DB 恢复成功路径仍需获准后验证 |
 | 配置编辑器、schema、导入发布 | 进行中 | 构建、content-contract、异步代际 smoke 与浏览器乱序回包验证通过 | 继续复核地图保存、schema 与发布入口 |
-| 鉴权、权限、GM 高危操作 | 进行中 | 全部 GM controller 已确认受 Guard 保护；改密 token 撤销与启动回读已有 compiled smoke；注册激活 smoke 不再把鉴权要求误判为名称冲突；IP 失败预算和所有 GM 密码入口已统一限流 | 继续复核鉴权持久化故障语义；GM 审计 fail-open、高危 scope、GET 密码兼容入口及维护态策略等待产品决定 |
+| 鉴权、权限、GM 高危操作 | 进行中 | 全部 GM controller 已确认受 Guard 保护；改密 token 撤销与启动回读已有 compiled smoke；注册激活 smoke 不再把鉴权要求误判为名称冲突；IP 失败预算和所有 GM 密码入口已统一限流；账号库未就绪会同时阻断 HTTP、GM、Socket 和 readiness | GM 审计 fail-open、高危 scope、GET 密码兼容入口及维护态策略等待产品决定 |
 | 错误处理、日志与可观测性 | 进行中 | 已确认 GM 审计写入失败只告警并放行；smoke 的协议/鉴权假红已修正 | 继续检查吞异常、敏感信息、告警与失败水位 |
 | 性能、内存、网络包体 | 进行中 | 文件体积门禁失败；构建产物存在大 chunk 警告 | 区分真实热路径问题、门禁误报和冷路径债务 |
 | 浅色、深色、手机与触控 | 待检查 | 构建门禁不证明视觉结果 | 需要浏览器级检查 |
@@ -416,6 +416,26 @@
 - 修复方式：提取固定 `GM_AUTH_RATE_LIMIT_SUBJECT`，GM 登录和所有激活码签发入口统一使用 `gm` 主体；业务来源文本只参与激活码映射，不参与凭据限流键。
 - 验证：修复前复现四个不同 IP、四个不同来源文本的失败后第五次仍可进入密码校验；修复后两次 GM 登录失败加两次激活码失败即封禁固定主体，第五次在调用密码服务前返回 429。`registration-activation` 已加入 `verify:quick`，全套 quick smoke 通过。
 
+### FS-040 `[x]` 账号数据库初始化失败会退回易失内存真源且 readiness 仍为绿色
+
+- 严重级别：严重。
+- 根本原因：`NativePlayerAuthStoreService.onModuleInit` 在数据库连接、建表或全量加载失败后关闭连接池并继续运行，后续 `saveUser` 等方法自动走内存分支；`health-readiness` 又把 auth 固定写成 `ready: true`，且整体 readiness 不依赖真实账号库状态。
+- 为什么错误：数据库已经配置时，账号正式真源只能是数据库，初始化失败不能被解释为“主动选择无数据库本地模式”。内存注册会签发可用 token，后续身份/初始快照还可能写入其他持久化表，但账号本身重启即丢，形成无法登录的孤儿玩家数据。健康检查宣告可用还会让负载均衡继续送入真实流量。
+- 触发条件：启动时 PostgreSQL 暂时不可达、账号表建表/迁移失败、权限不足、查询超时或任一账号/激活码全量加载失败。
+- 后果：已有用户统一表现为“不存在”，新注册看似成功却在重启后消失；多副本中还可能只有部分节点进入空账号世界。封禁镜像缺失时，绕过 readiness 的 Socket 路径也无法可靠拒绝已封禁账号。
+- 修复方式：显式区分“完全未配置数据库的本地内存模式”和“已配置但未就绪的故障模式”；后者的账号查询、注册、自助修改和 GM 账号操作统一返回 503，Socket token 鉴权 fail-closed。把 `NativePlayerAuthStoreService.isEnabled()` 注入 auth readiness，并纳入整体 readiness 判定。
+- 验证：新增 `native-auth-persistence-failure` 用不可达本地端口复现真实连接失败，证明 `isOperational=false`、账号写入返回 503、内存索引保持为空、`readiness.auth.reason=init_incomplete_or_failed` 且整体不就绪；完整 `pnpm verify:quick` 通过，无数据库显式本地模式的注册、session 和 runtime smoke 未回归。
+
+### FS-041 `[x]` 数据库恢复后账号库在连接池缺失时静默跳过重载
+
+- 严重级别：高。
+- 根本原因：数据库恢复协调器明确调用 `NativePlayerAuthStoreService.reloadFromPersistence()`，但该方法遇到 `pool=null` 或 `enabled=false` 直接返回成功。账号库若在启动时失败、连接池已关闭或恢复过程使池失效，就不会重新建连，也不会向恢复任务报告失败。
+- 为什么错误：恢复完成必须重建账号和激活码内存镜像，不能把“没有执行”当成“重载成功”。否则恢复接口可返回成功，而运行节点继续持有空索引或恢复前旧索引，与刚恢复的数据库真源分叉。
+- 触发条件：账号库初始连接失败后通过 GM 恢复数据库；恢复前后专用 auth pool 被关闭/失效；或重载查询任一步失败。
+- 后果：恢复后的账号仍无法登录、封禁和名称唯一性判断使用旧数据，需人工重启才能恢复；更严重时旧镜像会接受已在备份中撤销或变更的账号状态。
+- 修复方式：`reloadFromPersistence` 在数据库已配置但池不可用时重新创建带既有超时配置的专用池、确保表存在并完整读取账号与激活码后再替换索引；重连或重载失败时关闭池、保持 fail-closed 并向恢复协调器抛错，禁止假成功。
+- 验证：故障 smoke 在初次连接失败后再次调用 reload，确认它真实发起第二次连接且把 `ECONNREFUSED` 冒泡，而不是静默返回；`pnpm verify:quick` 通过。当前无获准真实 DB 恢复环境，因此尚不声称成功恢复后的表回读已做实库验证。
+
 ## 待进一步验证或用户决定
 
 ### D-001 `[?]` 客户端初始包同时装载 React 面板与 legacy 回退实现
@@ -525,3 +545,4 @@
 | 无库 `pnpm verify:release:local` | 通过 | client build、server compile、production-boundaries、18 类稳定主线场景和 compiled protocol audit 均完成；含怪物六类、progression、combat、loot、认证、GM、兑换、恢复与关闭 drain | 明确不证明 persistence、shadow、acceptance、full、destructive；auth/GM/redeem 的 DB 分支因无数据库而跳过 |
 | 聚焦 compiled `progression` stable case | 收紧断言后通过 | Socket 生命周期、envelope 解码及同 tick 灵气流转下仍完整注入接近 100 点；最终值 `99.9991977` | 不证明真实数据库持久化与长期多 tick 灵气演化 |
 | `pnpm verify:quick`（加入 `registration-activation` 后） | 通过 | server/shared 编译、production-boundaries、release contract 及 12 个 quick case；证明成功请求不再清空 IP 失败预算，GM 密码跨入口共享主体预算 | 无 DB，不证明多节点间内存限流共享、真实代理/CDN 地址聚合及长期攻击流量 |
+| `pnpm verify:quick`（加入 `native-auth-persistence-failure` 后） | 通过 | server/shared 编译、production-boundaries、release contract 及 13 个 quick case；证明账号库配置后连接失败会 503、readiness 降级、重载真实重连并冒泡失败 | 无真实 DB，不证明成功重连后的实表全量回读、数据库恢复事务或多节点镜像失效传播 |

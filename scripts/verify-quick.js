@@ -48,6 +48,8 @@ const status = runVerificationSteps({
         '--case',
         'registration-activation',
         '--case',
+        'native-auth-persistence-failure',
+        '--case',
         'world-gateway-offline-gain-refresh',
         '--case',
         'player-statistic-ledger-io',

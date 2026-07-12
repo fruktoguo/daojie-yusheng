@@ -173,6 +173,7 @@ interface PlayerIdentityPersistencePort {
 }
 
 interface NativePlayerAuthStorePort {
+  isOperational?(): boolean;
   findUserById?(userId: string): Promise<{
     id?: string | null;
     userId?: string | null;
@@ -399,6 +400,14 @@ export class WorldPlayerAuthService {
 
     const payload = this.worldPlayerTokenService.validatePlayerToken(token);
     if (!payload) {
+      return null;
+    }
+    if (
+      this.nativePlayerAuthStore
+      && typeof this.nativePlayerAuthStore.isOperational === 'function'
+      && !this.nativePlayerAuthStore.isOperational()
+    ) {
+      this.logger.error('拒绝玩家令牌：主线账号真源未就绪');
       return null;
     }
     if (await this.isBannedAccountPayload(payload)) {

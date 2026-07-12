@@ -3,7 +3,7 @@
  * 维护账号的 PostgreSQL 真源和内存多维索引（userId/username/playerId/roleName/displayName），
  * 提供唯一性检查、冲突检测和持久化读写能力。
  */
-import { BadRequestException, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, OnModuleDestroy, OnModuleInit, ServiceUnavailableException } from '@nestjs/common';
 import { isDuplicateFriendlyDisplayName } from '@mud/shared';
 import { randomBytes } from 'node:crypto';
 import { Pool } from 'pg';
@@ -500,11 +500,14 @@ export class NativePlayerAuthStoreService implements OnModuleInit, OnModuleDestr
   /** 记录存储层状态，便于定位启动和回退分支。 */
   private readonly logger = new Logger(NativePlayerAuthStoreService.name);
 
-  /** 可选的数据库连接池；未启用时完全走内存模式。 */
+  /** 可选的数据库连接池；只有完全未配置数据库时才允许走内存模式。 */
   private pool: Pool | null = null;
 
   /** 标记持久化是否已经成功初始化。 */
   private enabled = false;
+
+  /** 一旦配置过数据库，初始化失败必须保持 fail-closed，不能退回易失内存账号库。 */
+  private persistenceConfigured = Boolean(resolveServerDatabaseUrl().trim());
 
   /** 按用户 ID 索引的账号快照。 */
   private readonly usersById = new Map<string, NativePlayerAuthUser>();
@@ -535,34 +538,17 @@ export class NativePlayerAuthStoreService implements OnModuleInit, OnModuleDestr
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const databaseUrl = resolveServerDatabaseUrl();
+    this.persistenceConfigured = Boolean(databaseUrl.trim());
     if (!databaseUrl.trim()) {
       this.logger.log('主线玩家鉴权存储运行在纯内存模式：未提供 SERVER_DATABASE_URL/DATABASE_URL');
       return;
     }
 
-    this.pool = new Pool({
-      connectionString: databaseUrl,
-      max: resolveAuthStorePoolMax(),
-      idleTimeoutMillis: resolveAuthStorePoolIdleTimeoutMillis(),
-      connectionTimeoutMillis: resolveAuthStorePoolConnectionTimeoutMillis(),
-      statement_timeout: resolveAuthStoreStatementTimeoutMillis(),
-    });
-    // 防止意外的连接错误导致进程退出，仅记录日志，下一次 query 会自动重新拿连接。
-    this.pool.on('error', (error) => {
-      this.logger.error(
-        `主线玩家鉴权存储连接池捕获错误：${error instanceof Error ? error.message : String(error)}`,
-        error instanceof Error ? error.stack : undefined,
-      );
-    });
-
     try {
-      await ensurePlayerAuthTable(this.pool);
-      this.enabled = true;
-      await this.reloadFromPersistence();
+      await this.openPersistence(databaseUrl);
       this.logger.log(`主线玩家鉴权存储已就绪：已加载 ${this.usersById.size} 个账号`);
     } catch (error) {
-      this.logger.error('主线玩家鉴权存储持久化初始化失败，已回退为纯内存模式', error instanceof Error ? error.stack : String(error));
-      await this.closePool();
+      this.logger.error('主线玩家鉴权存储持久化初始化失败，已进入不可用模式并拒绝账号读写', error instanceof Error ? error.stack : String(error));
     }
   }
 
@@ -576,15 +562,78 @@ export class NativePlayerAuthStoreService implements OnModuleInit, OnModuleDestr
     return this.enabled && this.pool !== null;
   }
 
-  /** 从正式 auth 专表重建账号索引。 */
+  /** 无数据库的显式本地模式可工作；数据库已配置时必须完成持久化初始化。 */
+  isOperational(): boolean {
+    return !this.persistenceConfigured || this.isEnabled();
+  }
+
+  /** 在 HTTP/GM 账号入口统一 fail-closed，防止生成重启即丢的内存账号。 */
+  assertOperational(): void {
+    if (this.isOperational()) {
+      return;
+    }
+    throw new ServiceUnavailableException('玩家账号存储暂不可用，请稍后重试');
+  }
+
+  /** 从正式 auth 专表重建账号索引；恢复后连接已失效时会重新建池，而不是静默跳过。 */
   async reloadFromPersistence(): Promise<void> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    const databaseUrl = resolveServerDatabaseUrl();
+    if (!databaseUrl.trim()) {
+      if (this.persistenceConfigured) {
+        throw new ServiceUnavailableException('玩家账号存储缺少数据库连接配置，无法重新加载');
+      }
+      return;
+    }
+    this.persistenceConfigured = true;
+
     if (!this.pool || !this.enabled) {
+      await this.openPersistence(databaseUrl);
       return;
     }
 
-    const result = await this.pool.query<PersistedAuthRow>(`
+    try {
+      await this.reloadIndexesFromPool(this.pool);
+    } catch (error) {
+      await this.closePool();
+      throw error;
+    }
+  }
+
+  /** 创建专用连接池并原子加载完整账号索引；任一步失败都关闭池并保持不可用。 */
+  private async openPersistence(databaseUrl: string): Promise<void> {
+    await this.closePool();
+    const pool = new Pool({
+      connectionString: databaseUrl,
+      max: resolveAuthStorePoolMax(),
+      idleTimeoutMillis: resolveAuthStorePoolIdleTimeoutMillis(),
+      connectionTimeoutMillis: resolveAuthStorePoolConnectionTimeoutMillis(),
+      statement_timeout: resolveAuthStoreStatementTimeoutMillis(),
+    });
+    this.pool = pool;
+    // 防止空闲连接错误直接触发未处理事件；业务 query 仍会明确失败，不会切回内存模式。
+    pool.on('error', (error) => {
+      this.logger.error(
+        `主线玩家鉴权存储连接池捕获错误：${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+    });
+
+    try {
+      await ensurePlayerAuthTable(pool);
+      await this.reloadIndexesFromPool(pool);
+      this.enabled = true;
+    } catch (error) {
+      await this.closePool();
+      throw error;
+    }
+  }
+
+  /** 先完整读取两张真源表，再一次性替换内存索引，查询失败时保留旧镜像。 */
+  private async reloadIndexesFromPool(pool: Pool): Promise<void> {
+
+    const result = await pool.query<PersistedAuthRow>(`
       SELECT
         user_id,
         username,
@@ -613,7 +662,7 @@ export class NativePlayerAuthStoreService implements OnModuleInit, OnModuleDestr
       ORDER BY user_id ASC
     `);
 
-    const activationResult = await this.pool.query<PersistedRegistrationActivationCodeRow>(`
+    const activationResult = await pool.query<PersistedRegistrationActivationCodeRow>(`
       SELECT
         activation_code,
         source_text,
@@ -647,6 +696,7 @@ export class NativePlayerAuthStoreService implements OnModuleInit, OnModuleDestr
 
   /** 返回当前内存里的账号快照副本。 */
   async listUsers(): Promise<NativePlayerAuthUser[]> {
+    this.assertOperational();
     return Array.from(this.usersById.values()).map(cloneUser);
   }
 
@@ -666,6 +716,7 @@ export class NativePlayerAuthStoreService implements OnModuleInit, OnModuleDestr
   async saveUser(user: AuthRecordCandidate): Promise<NativePlayerAuthUser> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    this.assertOperational();
     let normalized = normalizeAuthRecord(user);
     if (!normalized) {
       throw new BadRequestException('账号记录无效');
@@ -687,6 +738,7 @@ export class NativePlayerAuthStoreService implements OnModuleInit, OnModuleDestr
   }
 
   async saveUserWithRegistrationActivationCode(user: AuthRecordCandidate, activationCode: string): Promise<NativePlayerAuthUser | null> {
+    this.assertOperational();
     let normalized = normalizeAuthRecord(user);
     if (!normalized) {
       throw new BadRequestException('账号记录无效');
@@ -852,6 +904,7 @@ export class NativePlayerAuthStoreService implements OnModuleInit, OnModuleDestr
   }
 
   async getOrCreateRegistrationActivationCodeForSourceText(sourceText: string): Promise<RegistrationActivationCodeRecord> {
+    this.assertOperational();
     const normalizedSourceText = normalizeRegistrationActivationSourceText(sourceText);
     if (!normalizedSourceText) {
       throw new BadRequestException('注册激活码来源文本不能为空');
@@ -928,6 +981,7 @@ export class NativePlayerAuthStoreService implements OnModuleInit, OnModuleDestr
   }
 
   async findRegistrationActivationCode(activationCode: string): Promise<RegistrationActivationCodeRecord | null> {
+    this.assertOperational();
     const normalizedActivationCode = normalizeRegistrationActivationCode(activationCode);
     if (!normalizedActivationCode) {
       return null;
@@ -1051,6 +1105,7 @@ export class NativePlayerAuthStoreService implements OnModuleInit, OnModuleDestr
   async refreshUserFromPersistenceById(userId: string): Promise<NativePlayerAuthUser | null> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    this.assertOperational();
     if (!this.pool || !this.enabled) {
       return this.usersById.get(userId) ?? null;
     }
@@ -1102,6 +1157,7 @@ export class NativePlayerAuthStoreService implements OnModuleInit, OnModuleDestr
   async findUserById(userId: string): Promise<NativePlayerAuthUser | null> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    this.assertOperational();
     const normalizedUserId = normalizeRequiredString(userId);
     if (!normalizedUserId) {
       return null;
@@ -1129,6 +1185,7 @@ export class NativePlayerAuthStoreService implements OnModuleInit, OnModuleDestr
   async findUserByPlayerId(playerId: string): Promise<NativePlayerAuthUser | null> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    this.assertOperational();
     const normalizedPlayerId = normalizeRequiredString(playerId);
     const userId = normalizedPlayerId ? this.userIdByPlayerId.get(normalizedPlayerId) ?? '' : '';
     if (!userId) {
@@ -1142,6 +1199,7 @@ export class NativePlayerAuthStoreService implements OnModuleInit, OnModuleDestr
   async findUserByInviteCode(inviteCode: string): Promise<NativePlayerAuthUser | null> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    this.assertOperational();
     const normalizedInviteCode = normalizeInviteCode(inviteCode);
     const userId = normalizedInviteCode ? this.userIdByInviteCode.get(normalizedInviteCode) ?? '' : '';
     if (!userId) {
@@ -1155,6 +1213,7 @@ export class NativePlayerAuthStoreService implements OnModuleInit, OnModuleDestr
   async findUserByUsername(username: string): Promise<NativePlayerAuthUser | null> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    this.assertOperational();
     const normalizedUsername = normalizeUsername(username).trim();
     const userId = normalizedUsername ? this.userIdByUsername.get(normalizedUsername) ?? '' : '';
     if (!userId) {
@@ -1168,6 +1227,7 @@ export class NativePlayerAuthStoreService implements OnModuleInit, OnModuleDestr
   async findUsersByRoleName(roleName: string): Promise<NativePlayerAuthUser[]> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    this.assertOperational();
     const normalizedRoleName = normalizeRoleName(roleName);
     if (!normalizedRoleName) {
       return [];
@@ -1182,6 +1242,7 @@ export class NativePlayerAuthStoreService implements OnModuleInit, OnModuleDestr
 
   /** 检查某 IP 是否已在账号库出现过注册或登录记录，供注册冷路径执行同 IP 激活码门禁。 */
   async hasObservedAuthIp(ip: string): Promise<boolean> {
+    this.assertOperational();
     const normalizedIp = normalizeOptionalString(ip, 64);
     if (!normalizedIp) {
       return false;
@@ -1211,6 +1272,7 @@ export class NativePlayerAuthStoreService implements OnModuleInit, OnModuleDestr
   async ensureAvailable(value: string, requestedKind: AuthConflictKind, options: EnsureAvailableOptions = {}): Promise<string | null> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    this.assertOperational();
     if (requestedKind === 'display' && isDuplicateFriendlyDisplayName(value)) {
       return null;
     }
@@ -1293,6 +1355,7 @@ export class NativePlayerAuthStoreService implements OnModuleInit, OnModuleDestr
   replaceUser(user: NativePlayerAuthUser): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    this.assertOperational();
     const previous = this.usersById.get(user.id) ?? null;
     if (previous) {
       this.unindexUser(previous);

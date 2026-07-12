@@ -18,6 +18,7 @@ import { StartupStatusService } from '../lifecycle/startup-status.service';
 import { ShutdownStatusService } from '../lifecycle/shutdown-status.service';
 import { shouldStartHttpServer } from '../config/runtime-role';
 import { WorldRuntimeService } from '../runtime/world/world-runtime.service';
+import { NativePlayerAuthStoreService } from '../http/native/native-player-auth-store.service';
 import { buildHealthResponse } from './health-readiness';
 import { ServerReadinessDependenciesService } from './server-readiness-dependencies.service';
 
@@ -30,6 +31,10 @@ interface PersistenceServiceLike {
 /** 世界运行时服务鸭子类型接口 */
 interface WorldRuntimeServiceLike {
   getRuntimeSummary?: () => unknown;
+}
+
+interface AuthStoreServiceLike {
+  isEnabled?: () => boolean;
 }
 
 /** 健康就绪检测服务：汇总依赖状态并输出 readiness 响应 */
@@ -48,6 +53,9 @@ export class HealthReadinessService {
     @Optional()
     @Inject(ActivityPersistenceService)
     private readonly activityPersistenceService: PersistenceServiceLike,
+    @Optional()
+    @Inject(NativePlayerAuthStoreService)
+    private readonly authStoreService: AuthStoreServiceLike,
     @Optional()
     @Inject(ServerReadinessDependenciesService)
     private readonly serverReadinessDependenciesService: ServerReadinessDependenciesService,
@@ -73,6 +81,7 @@ export class HealthReadinessService {
       mailPersistenceService: this.mailPersistenceService,
       marketPersistenceService: this.marketPersistenceService,
       activityPersistenceService: this.activityPersistenceService,
+      authStoreService: this.authStoreService,
       ...(this.serverReadinessDependenciesService?.build() ?? {}),
       worldRuntimeService: this.worldRuntimeService,
       startupRunId: startup?.startupRunId ?? null,

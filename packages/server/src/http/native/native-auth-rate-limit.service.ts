@@ -70,7 +70,7 @@ export class NativeAuthRateLimitService {
    * IP 桶聚合同一来源的所有失败，不能被该来源任意一次成功请求清空；否则攻击者可用自己的
    * 有效账号穿插成功登录，持续重置对其他账号的 IP 级暴力尝试预算。
    */
-  recordSuccess(_scope: RateLimitScope, _request: any, subject?: string): void {
+  recordSuccess(scope: RateLimitScope, _request: any, subject?: string): void {
     const normalizedSubject = this.normalizeSubject(subject);
     if (normalizedSubject) this.clearBucket(this.buildKey(scope, 'subject', normalizedSubject));
   }
