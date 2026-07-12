@@ -498,6 +498,11 @@ export interface TechniqueState {
  */
 
   layers?: TechniqueLayerDef[];  
+  /**
+   * learnTechniqueMaxLevel：通过残卷学习后可修炼到的最高层数。
+   * 缺省表示可修炼至功法模板满层；该字段只记录玩家动态限制，不替代完整模板 layers。
+   */
+  learnTechniqueMaxLevel?: number;
 
 }
 
@@ -507,6 +512,7 @@ export type TechniqueTransmissionJobStatus = 'running' | 'blocked';
 
 export type TechniqueTransmissionBlockedReason =
   | 'teacher_out_of_range'
+  | 'teacher_technique_not_perfected'
   | 'not_created_technique'
   | 'scripture_platform_unavailable'
   | 'scripture_platform_out_of_range'
@@ -550,6 +556,8 @@ export interface PendingTechniqueComprehensionState {
   realmLv: number;
   grade?: TechniqueGrade;
   category?: TechniqueCategory;
+  /** 功法残卷允许领悟后的最高修炼层数；缺省表示模板满层。 */
+  maxLevel?: number;
   createdAtTick: number;
   updatedAtTick: number;
   activeTransferJob?: TechniqueTransmissionJobState | null;

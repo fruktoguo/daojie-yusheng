@@ -163,6 +163,8 @@ export interface TechniqueUpdateEntryView {
  */
 
   expToNext?: number;  
+  /** 残卷学习后的最高可修炼层数；null 表示清除动态限制。 */
+  learnTechniqueMaxLevel?: number | null;
   /**
  * realmLv：realmLv相关字段。
  */

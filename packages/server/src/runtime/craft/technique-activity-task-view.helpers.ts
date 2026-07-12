@@ -352,6 +352,9 @@ function resolveTransmissionBlockedReason(reason: unknown): string {
   if (reason === 'teacher_out_of_range') {
     return '传授者不在 2 格范围内';
   }
+  if (reason === 'teacher_technique_not_perfected') {
+    return '传授者尚未将原功法修至满层';
+  }
   if (reason === 'not_created_technique') {
     return '只能传授自创功法';
   }

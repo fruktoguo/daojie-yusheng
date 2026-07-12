@@ -18,6 +18,7 @@ import {
   calculateTechniqueComprehensionProgressBreakdown,
   getItemDisplayName,
   isCreatedTechniqueId,
+  isTechniqueFullyMastered,
 } from '@mud/shared';
 import { getLocalRealmLevelEntry, getLocalTechniqueTemplate } from '../content/local-templates';
 import { getItemTypeLabel, getTechniqueCategoryLabel, getTechniqueGradeLabel } from '../domain-labels';
@@ -393,7 +394,18 @@ export class CraftTransmissionView {
   }
 
   private getTransmittableTechniques(): PlayerState['techniques'] {
-    return (this.parent.transmissionTechniques ?? []).filter((tech) => isCreatedTechniqueId(tech.techId));
+    return (this.parent.transmissionTechniques ?? []).filter((tech) => {
+      if (!isCreatedTechniqueId(tech.techId)) {
+        return false;
+      }
+      const template = getLocalTechniqueTemplate(tech.techId);
+      return isTechniqueFullyMastered({
+        level: tech.level,
+        layers: Array.isArray(template?.layers) && template.layers.length > 0
+          ? template.layers
+          : tech.layers,
+      });
+    });
   }
 
   private getTransmissionTechniqueMetaText(tech: PlayerState['techniques'][number]): string {
@@ -434,17 +446,18 @@ export class CraftTransmissionView {
     if (category === 'divine') {
       return null;
     }
-    return {
+    const candidate = {
       ...tech,
       techId,
       name: tech?.name || template?.name || techId,
       grade: tech?.grade ?? template?.grade,
       category: category ?? (template?.skills?.length ? 'arts' : 'internal'),
       realmLv: tech?.realmLv ?? template?.realmLv,
-      layers: Array.isArray(tech?.layers) && tech.layers.length > 0
-        ? tech.layers
-        : (template?.layers ?? []),
+      layers: Array.isArray(template?.layers) && template.layers.length > 0
+        ? template.layers
+        : (tech?.layers ?? []),
     } as PlayerState['techniques'][number];
+    return isTechniqueFullyMastered(candidate) ? candidate : null;
   }
 
   private renderTransmissionPendingRow(

@@ -1,8 +1,8 @@
 /**
  * 本文件是客户端藏经台弹层模块。UI 只负责选择与发送意图，录入合法性由服务端权威校验。
  */
-import { getTechniqueMaxLevel, isCreatedTechniqueId, type PlayerState } from '@mud/shared';
-import { getLocalRealmLevelEntry } from '../content/local-templates';
+import { getTechniqueMaxLevel, isCreatedTechniqueId, isTechniqueFullyMastered, type PlayerState } from '@mud/shared';
+import { getLocalRealmLevelEntry, getLocalTechniqueTemplate } from '../content/local-templates';
 import { getTechniqueCategoryLabel, getTechniqueGradeLabel } from '../domain-labels';
 import { formatDisplayInteger } from '../utils/number';
 import { detailModalHost } from './detail-modal-host';
@@ -53,9 +53,13 @@ function getRecordableTechniques(player: PlayerState): ScriptureTechniqueOption[
       if (!techId || !isCreatedTechniqueId(techId)) {
         return false;
       }
-      const level = Math.max(1, Math.trunc(Number(technique.level) || 1));
-      const maxLevel = getTechniqueMaxLevel(Array.isArray(technique.layers) ? technique.layers : undefined, level);
-      return level >= maxLevel || Number(technique.expToNext ?? 0) <= 0;
+      const template = getLocalTechniqueTemplate(techId);
+      return isTechniqueFullyMastered({
+        level: technique.level,
+        layers: Array.isArray(template?.layers) && template.layers.length > 0
+          ? template.layers
+          : technique.layers,
+      });
     })
     .map((technique) => ({
       ...technique,

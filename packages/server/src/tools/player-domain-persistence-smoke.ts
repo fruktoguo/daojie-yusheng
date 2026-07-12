@@ -297,7 +297,7 @@ async function main(): Promise<void> {
       || techniqueRows.map((entry) => `${String(entry?.tech_id ?? '')}:${Number(entry?.level ?? 0)}`).join(',')
         !== 'qi.breathing:3,sword.basic:2'
       || JSON.stringify(techniqueRows[0]?.raw_payload ?? null) !== '{}'
-      || JSON.stringify(techniqueRows[1]?.raw_payload ?? null) !== '{}'
+      || Number((techniqueRows[1]?.raw_payload as { learnTechniqueMaxLevel?: unknown } | null)?.learnTechniqueMaxLevel ?? 0) !== 2
     ) {
       throw new Error(`unexpected player_technique_state rows: ${JSON.stringify(techniqueRows)}`);
     }
@@ -359,6 +359,10 @@ async function main(): Promise<void> {
       !projectedSnapshot
       || projectedSnapshot.combat?.cultivationActive !== true
       || projectedSnapshot.techniques?.cultivatingTechId !== 'qi.breathing'
+      || (projectedSnapshot.techniques?.techniques as Array<{
+        techId?: unknown;
+        learnTechniqueMaxLevel?: unknown;
+      }> | undefined)?.find((entry) => entry.techId === 'sword.basic')?.learnTechniqueMaxLevel !== 2
     ) {
       throw new Error(`unexpected projected cultivation state: ${JSON.stringify(projectedSnapshot?.combat ?? null)}`);
     }

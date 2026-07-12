@@ -5,7 +5,7 @@
  */
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import type { PlayerState, TechniqueCategory, TechniqueState } from '@mud/shared';
-import { getTechniqueMaxLevel, TECHNIQUE_GRADE_ORDER } from '@mud/shared';
+import { getTechniqueMaxLevel, isTechniqueFullyMastered, isTechniqueLearnLimitReached, TECHNIQUE_GRADE_ORDER } from '@mud/shared';
 import { createPanelStore } from '../../stores/create-panel-store';
 import { getTechniqueCategoryLabel, getTechniqueGradeLabel } from '../../../domain-labels';
 import { getLocalRealmLevelEntry } from '../../../content/local-templates';
@@ -89,7 +89,13 @@ function getProgressRatio(tech: TechniqueState): number {
   return required > 0 ? Math.min(1, (tech.exp ?? 0) / required) : 0;
 }
 
+function isTechniqueCappedBeforeMastery(tech: TechniqueState): boolean {
+  return !isTechniqueFullyMastered(tech)
+    && (isTechniqueLearnLimitReached(tech) || (tech.expToNext ?? 0) <= 0);
+}
+
 function formatProgressText(tech: TechniqueState): string {
+  if (isTechniqueCappedBeforeMastery(tech)) return t('technique.progress.fragment-limit', undefined);
   const maxLevel = getTechniqueMaxLevel(tech.layers, tech.level);
   if (tech.level >= maxLevel) return t('technique.progress.max-level', undefined);
   return `${tech.exp ?? 0} / ${tech.expToNext ?? 0}`;

@@ -5,7 +5,7 @@
  */
 import { Injectable, Logger, Optional, Inject } from '@nestjs/common';
 import * as fs from 'fs';
-import { DEFAULT_PLAYER_REALM_STAGE, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, PLAYER_REALM_STAGE_LEVEL_RANGES, PlayerRealmStage, SHATTER_SPIRIT_PILL_COST_RATIO as SHARED_SHATTER_SPIRIT_PILL_COST_RATIO, TechniqueRealm, calculateTechniqueComprehensionProgressGain, calculateTechniqueComprehensionRequiredProgress, computeCraftSkillExpGain, deriveTechniqueRealm, getBodyTrainingExpToNext, getMonsterKillExpLevelAdjustment, getMonsterLevelExpDecayMultiplier, getTechniqueExpLevelAdjustment, getTechniqueExpToNext, getTechniqueMaxLevel, isCreatedTechniqueId, normalizeBodyTrainingState } from '@mud/shared';
+import { DEFAULT_PLAYER_REALM_STAGE, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, PLAYER_REALM_STAGE_LEVEL_RANGES, PlayerRealmStage, SHATTER_SPIRIT_PILL_COST_RATIO as SHARED_SHATTER_SPIRIT_PILL_COST_RATIO, calculateTechniqueComprehensionProgressGain, calculateTechniqueComprehensionRequiredProgress, computeCraftSkillExpGain, deriveTechniqueRealm, getBodyTrainingExpToNext, getMonsterKillExpLevelAdjustment, getMonsterLevelExpDecayMultiplier, getTechniqueExpLevelAdjustment, getTechniqueExpToNext, getTechniqueTrainingMaxLevel, isCreatedTechniqueId, isTechniqueFullyMastered, normalizeBodyTrainingState, normalizeTechniqueLearnMaxLevel } from '@mud/shared';
 import { resolveProjectPath } from '../../common/project-path';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { getMonsterCombatExpGradeFactor, resolveMonsterCombatExpTierFactor } from '../combat/monster-combat-exp-equivalent.helper';
@@ -1871,7 +1871,7 @@ export class PlayerProgressionService {
                     techniquesDirty: true,
                     actionsDirty: true,
                     notices: [{
-                            text: `${current.name ?? current.techId} 已圆满，主修已自动切换为 ${toName}。`,
+                            text: `${current.name ?? current.techId} 已达当前修炼上限，主修已自动切换为 ${toName}。`,
                             kind: 'info',
                             structured: { key: 'notice.progression.technique-auto-switch', vars: { fromName: current.name ?? current.techId, toName }, pills: [{ key: 'fromName', style: 'skill' }, { key: 'toName', style: 'skill' }] },
                         }],
@@ -1978,10 +1978,10 @@ export class PlayerProgressionService {
 
         const level = Math.max(1, Math.floor(technique.level ?? 1));
 
-        const maxLevel = getTechniqueMaxLevel(technique.layers ?? undefined, level);
+        const maxLevel = getTechniqueTrainingMaxLevel(technique);
         return level >= maxLevel || (technique.expToNext ?? 0) <= 0;
     }
-    /** 判断已学功法是否全部圆满。 */
+    /** 判断已学功法是否都已达到各自当前可修炼上限。 */
     areAllTechniquesMaxed(player) {
         return player.techniques.techniques.length > 0
             && player.techniques.techniques.every((entry) => this.isTechniqueMaxed(entry));
@@ -2031,7 +2031,7 @@ export class PlayerProgressionService {
 
         const previousExp = Math.max(0, Math.floor(technique.exp ?? 0));
 
-        const maxLevel = getTechniqueMaxLevel(technique.layers ?? undefined, previousLevel);
+        const maxLevel = getTechniqueTrainingMaxLevel(technique);
         if (previousLevel >= maxLevel || (technique.expToNext ?? 0) <= 0) {
             if (this.areAllTechniquesMaxed(player)) {
                 return this.advanceBodyTrainingProgressInternal(player, applyTechniqueRateBonus(amount, 1, options), resolved);
@@ -2056,22 +2056,26 @@ export class PlayerProgressionService {
         while ((technique.expToNext ?? 0) > 0 && technique.exp >= (technique.expToNext ?? 0) && technique.level < maxLevel) {
             technique.exp -= technique.expToNext ?? 0;
             technique.level += 1;
-            technique.expToNext = getTechniqueExpToNext(technique.level, technique.layers ?? undefined);
+            const reachedTrainingMaxLevel = technique.level >= maxLevel;
+            technique.expToNext = reachedTrainingMaxLevel
+                ? 0
+                : getTechniqueExpToNext(technique.level, technique.layers ?? undefined);
             technique.realm = deriveTechniqueRealm(technique.level, technique.layers ?? undefined);
+            const fullyMastered = isTechniqueFullyMastered(technique);
             notices.push({
-                text: (technique.expToNext ?? 0) > 0
-                    ? `${technique.name ?? technique.techId} 提升至第 ${technique.level} 层。`
-                    : `${technique.name ?? technique.techId} 已修至圆满。`,
+                text: fullyMastered
+                    ? `${technique.name ?? technique.techId} 已修至圆满。`
+                    : `${technique.name ?? technique.techId} 提升至第 ${technique.level} 层。`,
                 kind: 'success',
-                structured: (technique.expToNext ?? 0) > 0
-                    ? { key: 'notice.progression.technique-level-up', vars: { techName: technique.name ?? technique.techId, level: technique.level }, pills: [{ key: 'techName', style: 'skill' }, { key: 'level', style: 'damage' }] }
-                    : { key: 'notice.progression.technique-perfected', vars: { techName: technique.name ?? technique.techId }, pills: [{ key: 'techName', style: 'skill' }] },
+                structured: fullyMastered
+                    ? { key: 'notice.progression.technique-perfected', vars: { techName: technique.name ?? technique.techId }, pills: [{ key: 'techName', style: 'skill' }] }
+                    : { key: 'notice.progression.technique-level-up', vars: { techName: technique.name ?? technique.techId, level: technique.level }, pills: [{ key: 'techName', style: 'skill' }, { key: 'level', style: 'damage' }] },
             });
             actionsDirty = true;
         }
         if (technique.level >= maxLevel && (technique.expToNext ?? 0) <= 0) {
             technique.exp = 0;
-            technique.realm = TechniqueRealm.Perfection;
+            technique.realm = deriveTechniqueRealm(technique.level, technique.layers ?? undefined);
         }
         if (technique.level === previousLevel && technique.exp === previousExp) {
             return resolved;
@@ -2653,27 +2657,27 @@ function snapshotCultivatingTechnique(player) {
 }
 
 function toTechniqueUpdateEntryLocal(technique, maxLevelInput = undefined) {
-    const maxLevel = Number.isFinite(Number(maxLevelInput))
-        ? Math.max(1, Math.trunc(Number(maxLevelInput)))
-        : undefined;
-    const layers = Array.isArray(technique.layers)
-        ? (maxLevel === undefined ? technique.layers : technique.layers.filter((layer) => Math.max(1, Math.floor(Number(layer?.level) || 1)) <= maxLevel))
-        : [];
-    const finalMaxLevel = maxLevel === undefined ? undefined : Math.max(1, getTechniqueMaxLevel(layers, maxLevel));
-    const level = finalMaxLevel === undefined ? technique.level : Math.min(Math.max(1, Math.floor(Number(technique.level) || 1)), finalMaxLevel);
+    const layers = Array.isArray(technique.layers) ? technique.layers : [];
+    const learnTechniqueMaxLevel = normalizeTechniqueLearnMaxLevel(maxLevelInput, layers, technique.level);
+    const trainingMaxLevel = learnTechniqueMaxLevel ?? getTechniqueTrainingMaxLevel({
+        level: technique.level,
+        layers,
+    });
+    const level = Math.min(Math.max(1, Math.floor(Number(technique.level) || 1)), trainingMaxLevel);
     return {
         techId: technique.techId,
         level,
         exp: technique.exp,
-        expToNext: finalMaxLevel !== undefined && level >= finalMaxLevel ? 0 : technique.expToNext,
+        expToNext: learnTechniqueMaxLevel !== undefined && level >= learnTechniqueMaxLevel ? 0 : technique.expToNext,
         realmLv: technique.realmLv,
-        realm: technique.realm ?? TechniqueRealm.Entry,
+        realm: deriveTechniqueRealm(level, layers),
         skillsEnabled: technique.skillsEnabled !== false,
         name: technique.name,
         grade: technique.grade ?? null,
         category: technique.category ?? null,
         skills: technique.skills,
         layers,
+        ...(learnTechniqueMaxLevel === undefined ? {} : { learnTechniqueMaxLevel }),
     };
 }
 /**

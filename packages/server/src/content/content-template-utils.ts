@@ -5,7 +5,7 @@
  */
 import * as fs from 'fs';
 import * as path from 'path';
-import { DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS, DEFAULT_PLAYER_REALM_STAGE, DEFAULT_QI_RESOURCE_DESCRIPTOR, Direction, ELEMENT_KEYS, EQUIP_SLOTS, NUMERIC_SCALAR_STAT_KEYS, PLAYER_REALM_NUMERIC_TEMPLATES, TECHNIQUE_EXP_BASE, TechniqueRealm, buildQiResourceKey, calculateTechniqueSkillQiCost, cloneNumericRatioDivisors, cloneNumericStats, compileEquipmentBaselinePercentsToActualStats, compileValueStatsToActualStats, createMonsterMainCombatStatModifierStats, deriveTechniqueRealm, expandTechniqueAttrRatio, expandTechniqueExpCurve, expandTechniqueLayerGains, getTechniqueExpToNext, getTileTypeFromMapChar, inferMonsterTierFromName, isTileTypeWalkable, normalizeCraftEffectStatsPatch, normalizeEditableMapDocument, normalizeMonsterTier as normalizeSharedMonsterTier, normalizeTargetingDefaultMaxTargets, normalizeTechniqueAttrRatio, resolveMonsterTemplateRecord, resolveSkillRequiresTarget, resolveSkillUnlockLevel, scaleTechniqueExp, shouldExpandTechniqueAttrRatio } from '@mud/shared';
+import { DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS, DEFAULT_PLAYER_REALM_STAGE, DEFAULT_QI_RESOURCE_DESCRIPTOR, Direction, ELEMENT_KEYS, EQUIP_SLOTS, NUMERIC_SCALAR_STAT_KEYS, PLAYER_REALM_NUMERIC_TEMPLATES, TECHNIQUE_EXP_BASE, TechniqueRealm, buildQiResourceKey, calculateTechniqueSkillQiCost, cloneNumericRatioDivisors, cloneNumericStats, compileEquipmentBaselinePercentsToActualStats, compileValueStatsToActualStats, createMonsterMainCombatStatModifierStats, deriveTechniqueRealm, expandTechniqueAttrRatio, expandTechniqueExpCurve, expandTechniqueLayerGains, getTechniqueExpToNext, getTileTypeFromMapChar, inferMonsterTierFromName, isTileTypeWalkable, normalizeCraftEffectStatsPatch, normalizeEditableMapDocument, normalizeMonsterTier as normalizeSharedMonsterTier, normalizeTargetingDefaultMaxTargets, normalizeTechniqueAttrRatio, normalizeTechniqueLearnMaxLevel, resolveMonsterTemplateRecord, resolveSkillRequiresTarget, resolveSkillUnlockLevel, scaleTechniqueExp, shouldExpandTechniqueAttrRatio } from '@mud/shared';
 import { resolveProjectPath } from '../common/project-path';
 
 const ITEM_INSTANCE_FIELD_KEYS = new Set(['itemId', 'itemInstanceId', 'count', 'enhanceLevel', 'enhancementLevel', 'learnTechniqueId', 'learnTechniqueMaxLevel', 'grade', 'level']);
@@ -322,9 +322,17 @@ function normalizeTechniqueGrade(raw) {
 function buildTechniqueRuntimeStateFromTemplate(template: any, input: any = {}) {
     const level = Number.isFinite(input?.level) ? Math.max(1, Math.trunc(Number(input.level))) : 1;
     const exp = Number.isFinite(input?.exp) ? Math.max(0, Math.trunc(Number(input.exp))) : 0;
-    const expToNext = Number.isFinite(input?.expToNext)
-        ? Math.max(0, Math.trunc(Number(input.expToNext)))
-        : (getTechniqueExpToNext(level, template.layers) ?? 0);
+    const learnTechniqueMaxLevel = normalizeTechniqueLearnMaxLevel(input?.learnTechniqueMaxLevel, template.layers, level);
+    const expToNext = learnTechniqueMaxLevel !== undefined && level >= learnTechniqueMaxLevel
+        ? 0
+        : Number.isFinite(input?.expToNext)
+            ? Math.max(0, Math.trunc(Number(input.expToNext)))
+            : (getTechniqueExpToNext(level, template.layers) ?? 0);
+    const realm = learnTechniqueMaxLevel !== undefined && level >= learnTechniqueMaxLevel
+        ? deriveTechniqueRealm(level, template.layers)
+        : Number.isFinite(input?.realm)
+            ? Math.max(0, Math.trunc(Number(input.realm)))
+            : deriveTechniqueRealm(level, template.layers);
     return {
         techId: template.id,
         name: template.name,
@@ -332,15 +340,14 @@ function buildTechniqueRuntimeStateFromTemplate(template: any, input: any = {}) 
         exp,
         expToNext,
         realmLv: template.realmLv,
-        realm: Number.isFinite(input?.realm)
-            ? Math.max(0, Math.trunc(Number(input.realm)))
-            : deriveTechniqueRealm(level, template.layers),
+        realm,
         skillsEnabled: input?.skillsEnabled !== false,
         // skills/layers 是启动期内容模板，运行态只读共享；玩家态只保留等级/经验等动态字段。
         skills: template.skills,
         grade: template.grade,
         category: template.category,
         layers: template.layers,
+        ...(learnTechniqueMaxLevel === undefined ? {} : { learnTechniqueMaxLevel }),
     };
 }
 

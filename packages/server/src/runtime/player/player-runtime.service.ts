@@ -6261,6 +6261,7 @@ function hasTechniqueTemplateProjectionChanged(current, hydrated) {
         || current?.grade !== hydrated?.grade
         || current?.category !== hydrated?.category
         || current?.realmLv !== hydrated?.realmLv
+        || current?.learnTechniqueMaxLevel !== hydrated?.learnTechniqueMaxLevel
         || current?.skills !== hydrated?.skills
         || current?.layers !== hydrated?.layers;
 }
@@ -8431,6 +8432,9 @@ function buildRuntimePlayerPersistenceSnapshot(player, mapTemplateRepository = n
 }
 
 function buildPersistedTechniqueState(entry) {
+    const learnTechniqueMaxLevel = Number.isFinite(Number(entry.learnTechniqueMaxLevel))
+        ? Math.max(1, Math.trunc(Number(entry.learnTechniqueMaxLevel)))
+        : undefined;
     return {
         techId: entry.techId,
         level: entry.level,
@@ -8444,6 +8448,7 @@ function buildPersistedTechniqueState(entry) {
         category: entry.category ?? null,
         skills: Array.isArray(entry.skills) ? entry.skills : [],
         layers: Array.isArray(entry.layers) ? entry.layers : [],
+        ...(learnTechniqueMaxLevel === undefined ? {} : { learnTechniqueMaxLevel }),
     };
 }
 
@@ -8873,7 +8878,9 @@ function normalizeTransmissionJob(value) {
         range: Math.max(1, Math.floor(Number(value.range) || 2)),
         realmLv: Math.max(1, Math.floor(Number(value.realmLv) || 1)),
         status: value.status === 'blocked' ? 'blocked' : 'running',
-        blockedReason: value.blockedReason === 'teacher_out_of_range' || value.blockedReason === 'not_created_technique'
+        blockedReason: value.blockedReason === 'teacher_out_of_range'
+            || value.blockedReason === 'teacher_technique_not_perfected'
+            || value.blockedReason === 'not_created_technique'
             || value.blockedReason === 'scripture_platform_unavailable'
             || value.blockedReason === 'scripture_platform_out_of_range'
             || value.blockedReason === 'scripture_recording_locked'

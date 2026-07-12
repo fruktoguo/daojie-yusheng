@@ -360,6 +360,9 @@ function buildTechniqueEntryPatch(previous: TechniqueUpdateEntryView | null, cur
     if (previous.level !== current.level) { patch.level = current.level; }
     if (previous.exp !== current.exp) { patch.exp = current.exp; }
     if (previous.expToNext !== current.expToNext) { patch.expToNext = current.expToNext; }
+    if (previous.learnTechniqueMaxLevel !== current.learnTechniqueMaxLevel) {
+        patch.learnTechniqueMaxLevel = current.learnTechniqueMaxLevel ?? null;
+    }
     if (previous.realmLv !== current.realmLv) { patch.realmLv = current.realmLv; }
     if (previous.realm !== current.realm) { patch.realm = current.realm; }
     if ((previous.skillsEnabled !== false) !== (current.skillsEnabled !== false)) {

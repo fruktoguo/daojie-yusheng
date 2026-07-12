@@ -672,6 +672,7 @@ export function isSameTechniqueEntry(left: TechniqueUpdateEntryView | null | und
         && left.level === right.level
         && left.exp === right.exp
         && left.expToNext === right.expToNext
+        && left.learnTechniqueMaxLevel === right.learnTechniqueMaxLevel
         && left.realmLv === right.realmLv
         && left.realm === right.realm
         && (left.skillsEnabled !== false) === (right.skillsEnabled !== false)

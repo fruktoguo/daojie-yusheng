@@ -616,6 +616,10 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
       level: patch.level ?? previousSameTechnique?.level ?? 1,
       exp: patch.exp ?? previousSameTechnique?.exp ?? 0,
       expToNext: patch.expToNext ?? previousSameTechnique?.expToNext ?? 0,
+      learnTechniqueMaxLevel: applyNullablePatch(
+        patch.learnTechniqueMaxLevel,
+        previousSameTechnique?.learnTechniqueMaxLevel,
+      ),
       realmLv: template?.realmLv ?? patch.realmLv ?? previousSameTechnique?.realmLv ?? 1,
       realm: patch.realm ?? previousSameTechnique?.realm ?? TechniqueRealm.Entry,
       name: resolveSyncedTechniqueName(patch.techId, applyNullablePatch(patch.name, previousSameTechnique?.name), template?.name),
@@ -1018,6 +1022,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
         previous.techId !== next.techId
         || previous.name !== next.name
         || previous.level !== next.level
+        || previous.learnTechniqueMaxLevel !== next.learnTechniqueMaxLevel
         || previous.realmLv !== next.realmLv
         || previous.realm !== next.realm
         || previous.grade !== next.grade

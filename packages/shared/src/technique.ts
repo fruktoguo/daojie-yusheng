@@ -128,6 +128,51 @@ export function getTechniqueMaxLevel(layers?: TechniqueLayerDef[], currentLevel 
   return Math.max(1, currentLevel);
 }
 
+/** 规范化残卷学习上限；达到模板满层时省略该动态限制。 */
+export function normalizeTechniqueLearnMaxLevel(
+  input: unknown,
+  layers?: TechniqueLayerDef[],
+  currentLevel = 1,
+): number | undefined {
+  const numeric = Number(input);
+  if (!Number.isFinite(numeric) || numeric <= 0) {
+    return undefined;
+  }
+  const templateMaxLevel = getTechniqueMaxLevel(layers, currentLevel);
+  const normalized = Math.max(1, Math.min(templateMaxLevel, Math.trunc(numeric)));
+  return normalized < templateMaxLevel ? normalized : undefined;
+}
+
+/** 获取当前玩家实际可修炼到的最高层数，残卷限制不会改变模板满层语义。 */
+export function getTechniqueTrainingMaxLevel(
+  technique: Pick<TechniqueState, 'level' | 'layers' | 'learnTechniqueMaxLevel'>,
+): number {
+  const templateMaxLevel = getTechniqueMaxLevel(technique.layers, technique.level);
+  return normalizeTechniqueLearnMaxLevel(
+    technique.learnTechniqueMaxLevel,
+    technique.layers,
+    technique.level,
+  ) ?? templateMaxLevel;
+}
+
+/** 是否真正达到功法模板满层；残卷上限和 expToNext=0 都不能冒充圆满。 */
+export function isTechniqueFullyMastered(
+  technique: Pick<TechniqueState, 'level' | 'layers'>,
+): boolean {
+  const level = Math.max(1, Math.trunc(Number(technique.level) || 1));
+  return level >= getTechniqueMaxLevel(technique.layers, level);
+}
+
+/** 是否已达到残卷学习上限但尚未达到功法模板满层。 */
+export function isTechniqueLearnLimitReached(
+  technique: Pick<TechniqueState, 'level' | 'layers' | 'learnTechniqueMaxLevel'>,
+): boolean {
+  const level = Math.max(1, Math.trunc(Number(technique.level) || 1));
+  const templateMaxLevel = getTechniqueMaxLevel(technique.layers, level);
+  const trainingMaxLevel = getTechniqueTrainingMaxLevel(technique);
+  return trainingMaxLevel < templateMaxLevel && level >= trainingMaxLevel;
+}
+
 /** 获取指定层的配置定义 */
 export function getTechniqueLayerDef(level: number, layers?: TechniqueLayerDef[]): TechniqueLayerDef | undefined {
   return normalizeLayers(layers).find((entry) => entry.level === level);

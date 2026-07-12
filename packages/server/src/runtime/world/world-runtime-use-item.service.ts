@@ -8,7 +8,7 @@
  * 处理丹药、技能书、传送符、灵石等各类物品的使用逻辑分支
  */
 import { Inject, Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
-import { CUSTOM_TECHNIQUE_BOOK_ITEM_ID, DEFAULT_QI_RESOURCE_DESCRIPTOR, MERIT_ETERNAL_DAILY_SIGN_IN_FIXED_BONUS, MERIT_ETERNAL_POOL_GRANT, MERIT_ETERNAL_USE_BEHAVIOR, MERIT_MONTH_CARD_DURATION_DAYS, MERIT_MONTH_CARD_POOL_GRANT, MERIT_MONTH_CARD_USE_BEHAVIOR, SECT_ENTRANCE_RELOCATION_USE_BEHAVIOR, TECHNIQUE_FRAGMENT_ITEM_ID, buildQiResourceKey, calculateTechniqueBookCraftFragmentCost, calculateTechniqueBookDecomposeFragments, getItemDisplayName, getTechniqueMaxLevel, isCreatedTechniqueId } from '@mud/shared';
+import { CUSTOM_TECHNIQUE_BOOK_ITEM_ID, DEFAULT_QI_RESOURCE_DESCRIPTOR, MERIT_ETERNAL_DAILY_SIGN_IN_FIXED_BONUS, MERIT_ETERNAL_POOL_GRANT, MERIT_ETERNAL_USE_BEHAVIOR, MERIT_MONTH_CARD_DURATION_DAYS, MERIT_MONTH_CARD_POOL_GRANT, MERIT_MONTH_CARD_USE_BEHAVIOR, SECT_ENTRANCE_RELOCATION_USE_BEHAVIOR, TECHNIQUE_FRAGMENT_ITEM_ID, buildQiResourceKey, calculateTechniqueBookCraftFragmentCost, calculateTechniqueBookDecomposeFragments, getItemDisplayName, getTechniqueMaxLevel, isCreatedTechniqueId, isTechniqueFullyMastered } from '@mud/shared';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { REFINED_SHA_RESOURCE_KEY } from '../../constants/gameplay/pvp';
 import { ActivityRuntimeService, normalizeActivityError } from '../activity/activity-runtime.service';
@@ -24,22 +24,22 @@ function normalizeOptionalStringSafe(value) {
     return typeof value === 'string' && value.trim() ? value.trim() : null;
 }
 
-function hasPlayerLearnedTechnique(player, techniqueId) {
+function findPlayerLearnedTechnique(player, techniqueId) {
     const normalizedTechniqueId = normalizeOptionalStringSafe(techniqueId);
     if (!normalizedTechniqueId) {
-        return false;
+        return null;
     }
     const learned = Array.isArray(player?.techniques?.techniques)
         ? player.techniques.techniques
         : Array.isArray(player?.techniques)
             ? player.techniques
             : [];
-    return learned.some((entry) => {
+    return learned.find((entry) => {
         const entryTechniqueId = normalizeOptionalStringSafe(entry?.techId)
             ?? normalizeOptionalStringSafe(entry?.techniqueId)
             ?? normalizeOptionalStringSafe(entry?.id);
         return entryTechniqueId === normalizedTechniqueId;
-    });
+    }) ?? null;
 }
 
 /** world-runtime use-item orchestration：承接物品使用结算分支。 */
@@ -249,7 +249,8 @@ export class WorldRuntimeUseItemService {
             throw new BadRequestException('只能抄录自创功法');
         }
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
-        if (!hasPlayerLearnedTechnique(player, techniqueId)) {
+        const learnedTechnique = findPlayerLearnedTechnique(player, techniqueId);
+        if (!learnedTechnique) {
             throw new BadRequestException('只能抄录已掌握功法');
         }
         const technique = this.contentTemplateRepository.createTechniqueState(techniqueId);
@@ -258,6 +259,12 @@ export class WorldRuntimeUseItemService {
         }
         if (technique.category === 'divine') {
             throw new BadRequestException('神通不能抄录为功法书');
+        }
+        if (!isTechniqueFullyMastered({
+            level: Math.max(1, Math.trunc(Number(learnedTechnique.level) || 1)),
+            layers: Array.isArray(technique.layers) ? technique.layers : undefined,
+        })) {
+            throw new BadRequestException('只有修至原功法满层后才能抄录');
         }
         const maxTemplateLevel = getTechniqueMaxLevel(Array.isArray(technique.layers) ? technique.layers : undefined, technique.level ?? 1);
         const maxLevel = Number.isFinite(Number(maxLevelInput))

@@ -388,6 +388,9 @@ export function projectBootstrapTechniqueStateForSync(entry) {
     level: entry.level ?? 1,
     exp: entry.exp ?? 0,
     expToNext: entry.expToNext ?? 0,
+    ...(Number.isFinite(Number(entry.learnTechniqueMaxLevel))
+      ? { learnTechniqueMaxLevel: Math.max(1, Math.trunc(Number(entry.learnTechniqueMaxLevel))) }
+      : {}),
     realmLv: entry.realmLv,
     realm: entry.realm,
     skillsEnabled: entry.skillsEnabled !== false,

@@ -3,11 +3,16 @@ import {
   calculateTechniqueComprehensionProgressGain,
   calculateTechniqueComprehensionRequiredProgress,
   computeCraftSkillExpGain,
+  fromWireTechniqueEntry,
+  isTechniqueFullyMastered,
+  toWireTechniqueEntry,
 } from '@mud/shared';
+import { projectBootstrapTechniqueStateForSync } from '../network/world-sync-player-state.service';
 import { PlayerProgressionService } from '../runtime/player/player-progression.service';
 import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
 import { TechniqueActivityPipelineService } from '../runtime/craft/pipeline/technique-activity-pipeline.service';
 import { TransmissionStrategy } from '../runtime/craft/pipeline/strategies/transmission.strategy';
+import { WorldRuntimeUseItemService } from '../runtime/world/world-runtime-use-item.service';
 
 function createTechnique(techId: string, name: string) {
   return {
@@ -28,14 +33,31 @@ function createTechnique(techId: string, name: string) {
 
 const technique = createTechnique('tech.test', '试炼功法');
 const createdTechnique = createTechnique('gen_test_created', '自创试炼功法');
+const runtimeTechniqueTemplates = new Map<string, ReturnType<typeof createTechnique>>();
+const fragmentLimitedTechnique = {
+  ...createTechnique('gen_fragment_limited', '残卷试炼功法'),
+  layers: Array.from({ length: 9 }, (_, index) => ({
+    level: index + 1,
+    expToNext: index < 8 ? 10 : 0,
+    attrs: {},
+  })),
+  expToNext: 10,
+};
 
 const contentTemplateRepository = {
   createTechniqueState(techId: string) {
+    const runtimeTechnique = runtimeTechniqueTemplates.get(techId);
+    if (runtimeTechnique) {
+      return { ...runtimeTechnique, layers: [...runtimeTechnique.layers] };
+    }
     if (techId === technique.techId) {
       return { ...technique, layers: [...technique.layers] };
     }
     if (techId === createdTechnique.techId) {
       return { ...createdTechnique, layers: [...createdTechnique.layers] };
+    }
+    if (techId === fragmentLimitedTechnique.techId) {
+      return { ...fragmentLimitedTechnique, layers: [...fragmentLimitedTechnique.layers] };
     }
     return null;
   },
@@ -898,6 +920,7 @@ function testScriptureRecordingUsesTransmissionJobAndLocksBuilding() {
     expToNext: 0,
     layers: [{ level: 1, expToNext: 0, attrs: {} }],
   };
+  runtimeTechniqueTemplates.set(scriptureTechnique.techId, scriptureTechnique);
   recorder.techniques.techniques.push(scriptureTechnique);
   runtimeService.players.set(recorder.playerId, recorder);
   const scriptureRequired = expectedRequiredProgress('created', scriptureTechnique, recorder.realm.realmLv);
@@ -995,6 +1018,7 @@ function testScriptureRecordingUsesTransmissionJobAndLocksBuilding() {
     techId: 'gen_scripture_visitor',
     name: '访客藏经功法',
   };
+  runtimeTechniqueTemplates.set(visitorTechnique.techId, visitorTechnique);
   visitor.techniques.techniques.push(visitorTechnique);
   runtimeService.players.set(visitor.playerId, visitor);
   const publicBuilding: any = {
@@ -1081,6 +1105,125 @@ function testScriptureContemplationStartsJobAndCompletesTechnique() {
   assert.equal(learner.techniques.techniques.some((entry) => entry.techId === createdTechnique.techId), true);
 }
 
+function testFragmentLearnLimitCannotBecomePropagationAuthority() {
+  const { progressionService, runtimeService } = createRuntimeService();
+  const learner = createPlayer('learner:fragment-limit', 0, 0);
+  const requiredProgress = expectedRequiredProgress('created', fragmentLimitedTechnique, learner.realm.realmLv);
+  learner.techniques.cultivatingTechId = fragmentLimitedTechnique.techId;
+  learner.pendingTechniqueComprehensions.push({
+    techId: fragmentLimitedTechnique.techId,
+    name: fragmentLimitedTechnique.name,
+    sourceKind: 'created',
+    selfComprehensionAllowed: true,
+    progress: requiredProgress - 1,
+    requiredProgress,
+    realmLv: fragmentLimitedTechnique.realmLv,
+    grade: fragmentLimitedTechnique.grade,
+    category: fragmentLimitedTechnique.category,
+    maxLevel: 8,
+    createdAtTick: 0,
+    updatedAtTick: 0,
+    activeTransferJob: null,
+  });
+
+  const comprehensionResult = progressionService.advanceTechniqueProgressInternal(learner, 1, {
+    allowPendingComprehension: true,
+    pendingComprehensionTicks: 1,
+  });
+  assert.equal(comprehensionResult.changed, true);
+  assert.equal(learner.pendingTechniqueComprehensions.length, 0);
+
+  const learned = learner.techniques.techniques.find((entry) => entry.techId === fragmentLimitedTechnique.techId);
+  assert.ok(learned);
+  assert.equal(learned.layers?.length, 9, '残卷学习后不得截断原功法模板层级');
+  assert.equal(learned.learnTechniqueMaxLevel, 8);
+  const bootstrapProjection = projectBootstrapTechniqueStateForSync(learned);
+  assert.equal(bootstrapProjection.learnTechniqueMaxLevel, 8, '首包功法投影必须携带残卷修炼上限');
+  assert.equal(
+    fromWireTechniqueEntry(toWireTechniqueEntry(bootstrapProjection)).learnTechniqueMaxLevel,
+    8,
+    '功法增量 protobuf 编解码不得丢失残卷修炼上限',
+  );
+
+  learner.techniques.cultivatingTechId = fragmentLimitedTechnique.techId;
+  const trainingResult = progressionService.advanceTechniqueProgressInternal(learner, 1_000);
+  assert.equal(trainingResult.changed, true);
+  assert.equal(learned.level, 8);
+  assert.equal(learned.exp, 0);
+  assert.equal(learned.expToNext, 0);
+  assert.equal(isTechniqueFullyMastered(learned), false);
+  assert.equal(
+    trainingResult.notices.some((notice: any) => notice.structured?.key === 'notice.progression.technique-perfected'),
+    false,
+  );
+
+  const transmissionTarget = createPlayer('learner:fragment-target', 0, 1);
+  runtimeService.players.set(learner.playerId, learner);
+  runtimeService.players.set(transmissionTarget.playerId, transmissionTarget);
+  const { pipeline, ctx } = createTransmissionPipeline(runtimeService);
+  const transmissionResult = pipeline.start(transmissionTarget, 'transmission', {
+    learnerPlayerId: transmissionTarget.playerId,
+    teacherPlayerId: learner.playerId,
+    techniqueId: fragmentLimitedTechnique.techId,
+  }, ctx as never);
+  assert.equal(transmissionResult.ok, false);
+  assert.match(transmissionResult.error ?? '', /原功法满层/);
+
+  const scriptureBuilding: any = {
+    id: 'building:scripture:fragment-limit',
+    defId: 'scripture_platform',
+    instanceId: learner.instanceId,
+    x: learner.x,
+    y: learner.y,
+    state: 'active',
+    revision: 1,
+    updatedAtTick: 0,
+  };
+  const scriptureInstance: any = {
+    buildingById: new Map([[scriptureBuilding.id, scriptureBuilding]]),
+    localBuildingViewCacheById: new Map(),
+    markPersistenceDirtyDomainsHighPriority() {},
+    persistentRevision: 0,
+  };
+  const scripturePipeline = createTransmissionPipelineWithInstance(runtimeService, scriptureInstance);
+  const scriptureResult = scripturePipeline.pipeline.start(learner, 'transmission', {
+    mode: 'scripture_recording',
+    learnerPlayerId: learner.playerId,
+    techniqueId: fragmentLimitedTechnique.techId,
+    buildingId: scriptureBuilding.id,
+  }, scripturePipeline.ctx as never);
+  assert.equal(scriptureResult.ok, false);
+  assert.match(scriptureResult.error ?? '', /只有练满的功法/);
+
+  const refiningBuilding = {
+    id: 'building:refining:fragment-limit',
+    defId: 'technique_refining_table',
+    state: 'active',
+    x: learner.x,
+    y: learner.y,
+  };
+  const useItemService = new WorldRuntimeUseItemService(
+    contentTemplateRepository as never,
+    null as never,
+    runtimeService as never,
+  );
+  assert.throws(
+    () => useItemService.dispatchCraftTechniqueBook(
+      learner.playerId,
+      fragmentLimitedTechnique.techId,
+      8,
+      {
+        getInstanceRuntime() {
+          return { buildingById: new Map([[refiningBuilding.id, refiningBuilding]]) };
+        },
+        refreshQuestStates() {},
+        queuePlayerNotice() {},
+      },
+    ),
+    /原功法满层/,
+  );
+}
+
 testSelfComprehensionProgressesOnlyWithoutTransmission();
 testTransmittedPendingCannotSelfComprehendWithoutActiveJob();
 testTransmittedPendingCannotBeSetAsMainTechnique();
@@ -1100,5 +1243,6 @@ testTransmissionBlocksCancelsAndContinues();
 testTransmissionUsesStandingFacilitySpeedForBothPlayers();
 testScriptureRecordingUsesTransmissionJobAndLocksBuilding();
 testScriptureContemplationStartsJobAndCompletesTechnique();
+testFragmentLearnLimitCannotBecomePropagationAuthority();
 
 console.log(JSON.stringify({ ok: true, case: 'technique-comprehension' }, null, 2));

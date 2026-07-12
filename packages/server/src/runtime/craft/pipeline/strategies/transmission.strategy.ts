@@ -7,8 +7,11 @@ import {
   calculateTechniqueComprehensionProgressBreakdown,
   calculateTechniqueComprehensionRequiredProgress,
   computeCraftSkillExpGain,
+  deriveTechniqueRealm,
   getTechniqueMaxLevel,
   isCreatedTechniqueId,
+  isTechniqueFullyMastered,
+  normalizeTechniqueLearnMaxLevel,
   readCraftEffectStat,
   type PlayerTransmissionJob,
   type TechniqueActivityNoticeMessage,
@@ -102,6 +105,10 @@ export class TransmissionStrategy implements TechniqueActivityStrategy<PlayerTra
     }
     if (!isCreatedTechniqueId(techniqueId)) {
       return { ok: false, error: '只能传授自创功法。' };
+    }
+    const teacherTechniqueTemplate = resolveTechniqueTemplateState(ctx, techniqueId);
+    if (!isTechniqueEntryFullyMastered(teacherTechnique, teacherTechniqueTemplate)) {
+      return { ok: false, error: '只有修至原功法满层后才能传授。' };
     }
     if (learner.techniques?.techniques?.some((entry: any) => entry?.techId === techniqueId)) {
       return { ok: false, error: '学习者已经掌握该功法。' };
@@ -251,6 +258,9 @@ export class TransmissionStrategy implements TechniqueActivityStrategy<PlayerTra
     const teacherTechnique = teacher?.techniques?.techniques?.find((entry: any) => entry?.techId === job.techniqueId) ?? null;
     if (!teacher || !teacherTechnique || !isPlayerInTransmissionRange(teacher, learner, job.range)) {
       return blockTransmission(learner, job, pending, 'teacher_out_of_range', ctx);
+    }
+    if (!isTechniqueEntryFullyMastered(teacherTechnique, resolveTechniqueTemplateState(ctx, job.techniqueId))) {
+      return blockTransmission(learner, job, pending, 'teacher_technique_not_perfected', ctx);
     }
     if (job.status !== 'running' || job.blockedReason !== undefined) {
       job.status = 'running';
@@ -425,7 +435,7 @@ function validateScriptureRecordingStart(
   if (!isCreatedTechniqueId(techniqueId)) {
     return { ok: false, error: '只能录入自创功法。' };
   }
-  if (!isTechniqueEntryMaxed(technique)) {
+  if (!isTechniqueEntryFullyMastered(technique, resolveTechniqueTemplateState(ctx, techniqueId))) {
     return { ok: false, error: '只有练满的功法可以录入藏经台。' };
   }
   const requiredProgress = calculateTechniqueComprehensionRequiredProgress({
@@ -736,7 +746,7 @@ function executeScriptureRecordingTick(recorder: any, job: PlayerTransmissionJob
     return blockScriptureRecording(recorder, job, 'scripture_recording_locked', ctx);
   }
   const technique = findPlayerTechnique(recorder, job.techniqueId);
-  if (!technique || !isTechniqueEntryMaxed(technique)) {
+  if (!technique || !isTechniqueEntryFullyMastered(technique, resolveTechniqueTemplateState(ctx, job.techniqueId))) {
     return blockScriptureRecording(recorder, job, 'scripture_platform_unavailable', ctx);
   }
   if (job.status !== 'running' || job.blockedReason !== undefined) {
@@ -1128,10 +1138,24 @@ function findPlayerTechnique(player: any, techniqueId: string): any | null {
   return (player?.techniques?.techniques ?? []).find((entry: any) => entry?.techId === techniqueId) ?? null;
 }
 
-function isTechniqueEntryMaxed(technique: any): boolean {
-  const level = Math.max(1, Math.floor(Number(technique?.level) || 1));
-  const maxLevel = getTechniqueMaxLevel(Array.isArray(technique?.layers) ? technique.layers : undefined, level);
-  return level >= maxLevel || Number(technique?.expToNext ?? 0) <= 0;
+function resolveTechniqueTemplateState(ctx: PipelineContext, techniqueId: string): any | null {
+  const repository = ctx.contentTemplateRepository as { createTechniqueState?(id: string): unknown } | null;
+  return typeof repository?.createTechniqueState === 'function'
+    ? repository.createTechniqueState(techniqueId) ?? null
+    : null;
+}
+
+function isTechniqueEntryFullyMastered(technique: any, template: any = null): boolean {
+  const layers = Array.isArray(template?.layers) && template.layers.length > 0
+    ? template.layers
+    : null;
+  if (!layers) {
+    return false;
+  }
+  return isTechniqueFullyMastered({
+    level: Math.max(1, Math.floor(Number(technique?.level) || 1)),
+    layers,
+  });
 }
 
 function isPlayerNearBuilding(player: any, building: any, range: number): boolean {
@@ -1176,27 +1200,27 @@ function normalizeText(value: unknown): string {
 }
 
 function toTechniqueUpdateEntry(technique: any, maxLevelInput: unknown = undefined): any {
-  const maxLevel = Number.isFinite(Number(maxLevelInput))
-    ? Math.max(1, Math.trunc(Number(maxLevelInput)))
-    : undefined;
-  const layers = Array.isArray(technique.layers)
-    ? (maxLevel === undefined ? technique.layers : technique.layers.filter((layer: any) => Math.max(1, Math.floor(Number(layer?.level) || 1)) <= maxLevel))
-    : [];
-  const finalMaxLevel = maxLevel === undefined ? undefined : Math.max(1, getTechniqueMaxLevel(layers, maxLevel));
-  const level = finalMaxLevel === undefined ? technique.level : Math.min(Math.max(1, Math.floor(Number(technique.level) || 1)), finalMaxLevel);
+  const layers = Array.isArray(technique.layers) ? technique.layers : [];
+  const learnTechniqueMaxLevel = normalizeTechniqueLearnMaxLevel(maxLevelInput, layers, technique.level);
+  const templateMaxLevel = getTechniqueMaxLevel(layers, technique.level);
+  const level = Math.min(
+    Math.max(1, Math.floor(Number(technique.level) || 1)),
+    learnTechniqueMaxLevel ?? templateMaxLevel,
+  );
   return {
     techId: technique.techId,
     level,
     exp: technique.exp,
-    expToNext: finalMaxLevel !== undefined && level >= finalMaxLevel ? 0 : technique.expToNext,
+    expToNext: learnTechniqueMaxLevel !== undefined && level >= learnTechniqueMaxLevel ? 0 : technique.expToNext,
     realmLv: technique.realmLv,
-    realm: technique.realm,
+    realm: deriveTechniqueRealm(level, layers),
     skillsEnabled: technique.skillsEnabled !== false,
     name: technique.name,
     grade: technique.grade,
     category: technique.category,
     skills: Array.isArray(technique.skills) ? technique.skills : [],
     layers,
+    ...(learnTechniqueMaxLevel === undefined ? {} : { learnTechniqueMaxLevel }),
   };
 }
 

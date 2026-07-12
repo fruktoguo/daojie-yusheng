@@ -35,6 +35,11 @@ export function toWireTechniqueEntry(entry: TechniqueUpdateEntry): Record<string
   if (entry.level !== undefined) wire.level = entry.level;
   if (entry.exp !== undefined) wire.exp = entry.exp;
   if (entry.expToNext !== undefined) wire.expToNext = entry.expToNext;
+  if (entry.learnTechniqueMaxLevel === null) {
+    wire.clearLearnTechniqueMaxLevel = true;
+  } else if (entry.learnTechniqueMaxLevel !== undefined) {
+    wire.learnTechniqueMaxLevel = entry.learnTechniqueMaxLevel;
+  }
   if (entry.realmLv !== undefined) wire.realmLv = entry.realmLv;
   if (entry.realm !== undefined) wire.realm = entry.realm;
   setNullableWireValue(wire, 'name', 'clearName', entry.name);
@@ -63,6 +68,11 @@ export function fromWireTechniqueEntry(wire: Record<string, unknown>): Technique
   if (hasOwn(wire, 'level')) patch.level = Number(wire.level ?? 0);
   if (hasOwn(wire, 'exp')) patch.exp = Number(wire.exp ?? 0);
   if (hasOwn(wire, 'expToNext')) patch.expToNext = Number(wire.expToNext ?? 0);
+  if (wire.clearLearnTechniqueMaxLevel === true) {
+    patch.learnTechniqueMaxLevel = null;
+  } else if (hasOwn(wire, 'learnTechniqueMaxLevel')) {
+    patch.learnTechniqueMaxLevel = Number(wire.learnTechniqueMaxLevel ?? 0);
+  }
   if (hasOwn(wire, 'realmLv')) patch.realmLv = Number(wire.realmLv ?? 1);
   if (hasOwn(wire, 'realm')) patch.realm = Number(wire.realm ?? 0) as TechniqueState['realm'];
   const name = readNullableWireValue<string>(wire, 'name', 'clearName');

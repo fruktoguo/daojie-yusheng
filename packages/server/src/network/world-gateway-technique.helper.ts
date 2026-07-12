@@ -167,6 +167,9 @@ function projectTechniquePageItem(entry: any) {
     level,
     exp: Math.max(0, Number(entry?.exp) || 0),
     expToNext: Math.max(0, Number(entry?.expToNext) || 0),
+    ...(Number.isFinite(Number(entry?.learnTechniqueMaxLevel))
+      ? { learnTechniqueMaxLevel: Math.max(1, Math.trunc(Number(entry.learnTechniqueMaxLevel))) }
+      : {}),
     realmLv: Number.isFinite(Number(entry?.realmLv)) ? Math.max(1, Math.trunc(Number(entry.realmLv))) : undefined,
     realm: Number.isFinite(Number(entry?.realm)) ? Math.trunc(Number(entry.realm)) : deriveTechniqueRealm(level, layers),
     skillsEnabled: entry?.skillsEnabled !== false,

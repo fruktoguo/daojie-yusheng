@@ -206,6 +206,8 @@ message TechniqueUpdateEntryPayload {
   optional bool clearLayers = 13;
   optional string category = 17;
   optional bool clearCategory = 18;
+  optional uint32 learnTechniqueMaxLevel = 19;
+  optional bool clearLearnTechniqueMaxLevel = 20;
 }
 
 message ActionsUpdatePayload {

@@ -159,6 +159,9 @@ function hydrateMissingTechniqueState(input: Record<string, unknown>): Record<st
   }
   const level = Number.isFinite(input.level) ? Math.max(1, Math.trunc(Number(input.level))) : 1;
   const rawLayers = Array.isArray(input.layers) ? input.layers : [];
+  const learnTechniqueMaxLevel = Number.isFinite(input.learnTechniqueMaxLevel)
+    ? Math.max(1, Math.trunc(Number(input.learnTechniqueMaxLevel)))
+    : undefined;
   const layers = rawLayers.length > 0
     ? rawLayers.map((entry: unknown) => {
       const e = entry as Record<string, unknown> | null;
@@ -186,6 +189,7 @@ function hydrateMissingTechniqueState(input: Record<string, unknown>): Record<st
     grade: typeof input.grade === 'string' ? input.grade : undefined,
     category: typeof input.category === 'string' ? input.category : undefined,
     layers,
+    ...(learnTechniqueMaxLevel === undefined ? {} : { learnTechniqueMaxLevel }),
   };
 }
 

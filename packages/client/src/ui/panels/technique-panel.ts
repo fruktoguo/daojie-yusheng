@@ -17,6 +17,8 @@ import {
   deriveTechniqueRealm,
   getTechniqueExpLevelAdjustment,
   getTechniqueMaxLevel,
+  isTechniqueFullyMastered,
+  isTechniqueLearnLimitReached,
   PlayerState,
   resolveSkillUnlockLevel,
   TECHNIQUE_ATTR_KEYS,
@@ -247,6 +249,11 @@ function getTechniqueProgressRatio(tech: TechniqueState): number {
   return Math.max(0, Math.min(1, tech.exp / tech.expToNext));
 }
 
+function isTechniqueCappedBeforeMastery(tech: TechniqueState): boolean {
+  return !isTechniqueFullyMastered(tech)
+    && (isTechniqueLearnLimitReached(tech) || tech.expToNext <= 0);
+}
+
 /** getTechniqueRemainingExp：读取Technique Remaining Exp。 */
 function getTechniqueRemainingExp(tech: TechniqueState): number {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -259,6 +266,9 @@ function getTechniqueRemainingExp(tech: TechniqueState): number {
 
 /** formatTechniqueProgressText：格式化Technique进度文本。 */
 function formatTechniqueProgressText(tech: TechniqueState): string {
+  if (isTechniqueCappedBeforeMastery(tech)) {
+    return t('technique.progress.fragment-limit', undefined);
+  }
   return tech.expToNext > 0
     ? `${formatDisplayInteger(tech.exp)}/${formatDisplayInteger(tech.expToNext)}`
     : t('technique.progress.max-level', undefined);
@@ -266,6 +276,9 @@ function formatTechniqueProgressText(tech: TechniqueState): string {
 
 /** formatTechniqueRemainText：格式化Technique Remain文本。 */
 function formatTechniqueRemainText(tech: TechniqueState): string {
+  if (isTechniqueCappedBeforeMastery(tech)) {
+    return t('technique.progress.fragment-limit-note', undefined);
+  }
   return tech.expToNext > 0
     ? t('technique.progress.remain-exp', { exp: formatDisplayInteger(getTechniqueRemainingExp(tech)) })
     : t('technique.progress.completed', undefined);

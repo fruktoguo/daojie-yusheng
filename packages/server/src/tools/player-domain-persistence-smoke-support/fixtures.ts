@@ -276,6 +276,7 @@ export function buildSnapshot(now: number): PersistedPlayerSnapshot {
           realmLv: 2,
           skillsEnabled: false,
           name: '基础剑诀',
+          learnTechniqueMaxLevel: 2,
         },
       ],
       cultivatingTechId: 'qi.breathing',

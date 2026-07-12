@@ -6905,6 +6905,10 @@ function buildTechniqueStateRows(snapshot: PersistedPlayerSnapshot): TechniqueSt
     if (!techId) {
       continue;
     }
+    const learnTechniqueMaxLevelInput = normalizeOptionalInteger(normalized?.learnTechniqueMaxLevel);
+    const learnTechniqueMaxLevel = learnTechniqueMaxLevelInput !== null && learnTechniqueMaxLevelInput > 0
+      ? learnTechniqueMaxLevelInput
+      : null;
     rows.push({
       techId,
       level: normalizeMinimumInteger(normalized?.level, 1, 1),
@@ -6912,7 +6916,9 @@ function buildTechniqueStateRows(snapshot: PersistedPlayerSnapshot): TechniqueSt
       expToNext: normalizeOptionalNumber(normalized?.expToNext),
       realmLv: normalizeOptionalInteger(normalized?.realmLv),
       skillsEnabled: normalized?.skillsEnabled !== false,
-      rawPayload: {},
+      rawPayload: {
+        ...(learnTechniqueMaxLevel === null ? {} : { learnTechniqueMaxLevel }),
+      },
     });
   }
   return rows;
@@ -8013,6 +8019,8 @@ function applyProjectedTechniques(
     revision: Math.max(1, Number(snapshot.techniques?.revision ?? 1)),
     techniques: rows.map((row) => {
       const techId = normalizeOptionalString(row.tech_id) ?? 'tech:unknown';
+      const rawPayload = asRecord(decodeJsonValue(row.raw_payload));
+      const learnTechniqueMaxLevelInput = normalizeOptionalInteger(rawPayload?.learnTechniqueMaxLevel);
       const dynamicState = {
         techId,
         level: normalizeMinimumInteger(row.level, 1, 1),
@@ -8020,6 +8028,9 @@ function applyProjectedTechniques(
         expToNext: normalizeOptionalNumber(row.exp_to_next) ?? 0,
         realmLv: normalizeOptionalInteger(row.realm_lv) ?? undefined,
         skillsEnabled: row.skills_enabled !== false,
+        ...(learnTechniqueMaxLevelInput !== null && learnTechniqueMaxLevelInput > 0
+          ? { learnTechniqueMaxLevel: learnTechniqueMaxLevelInput }
+          : {}),
       };
       return hydrateProjectedTechniqueState(dynamicState, contentTemplateRepository);
     }),
