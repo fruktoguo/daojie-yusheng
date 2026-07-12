@@ -69,6 +69,7 @@ import {
 } from './pixi-profiler-window';
 import { normalizeRuntimeImagePackVersion } from '../../renderer/runtime-image-pack-url';
 import { PixiRenderProfiler } from './pixi-render-profiler';
+import { isPixiEntityInViewport, PixiFrameGridPointSet } from './pixi-frame-spatial-index';
 import {
   buildPixiTerrainChunkOverlaySignature,
   buildPixiTerrainChunkStaticSignature,
@@ -165,6 +166,12 @@ const DUAL_GRID_QUADS = [
   { mask: 8, x: 0.5, y: 0.5 },
 ] as const;
 const DUAL_GRID_QUARTER_SOURCE_OVERLAP_PX = 1;
+const SELF_THREAT_ARROW_PIXI_COLOR = parseColor(SELF_THREAT_ARROW_COLOR);
+const SELF_THREAT_ARROW_PIXI_GLOW = parseColor(SELF_THREAT_ARROW_GLOW);
+const SELF_THREAT_ARROW_PIXI_GLOW_ALPHA = parseAlpha(SELF_THREAT_ARROW_GLOW, 1);
+const OTHER_THREAT_ARROW_PIXI_COLOR = parseColor(OTHER_THREAT_ARROW_COLOR);
+const OTHER_THREAT_ARROW_PIXI_GLOW = parseColor(OTHER_THREAT_ARROW_GLOW);
+const OTHER_THREAT_ARROW_PIXI_GLOW_ALPHA = parseAlpha(OTHER_THREAT_ARROW_GLOW, 1);
 
 /** Pixi/WebGL2 主世界渲染适配器。 */
 export class PixiMapRendererAdapter {
@@ -191,6 +198,7 @@ export class PixiMapRendererAdapter {
   private readonly terrainChunks = new Map<string, TerrainChunkView>();
   private readonly terrainFogChunks = new Map<string, TerrainFogChunkView>();
   private readonly entities = new Map<string, EntityView>();
+  private readonly crowdedTileKeysScratch = new PixiFrameGridPointSet();
   private readonly formationRangeVisuals = new Map<string, FormationRangeVisual>();
   private readonly formationRangeSenseQiVisuals = new Map<string, FormationRangeVisual>();
   private readonly localPlayerFallbackId = '__local-player-fallback__';
@@ -576,7 +584,7 @@ export class PixiMapRendererAdapter {
     this.updateEntityViews(camera, progress, player.id, player.x, player.y, player.char);
     this.profiler.end('entityViews', entityViewsStartedAt);
     const threatArrowsStartedAt = this.profiler.start();
-    this.renderThreatArrows();
+    this.renderThreatArrows(player.id);
     this.profiler.end('threatArrows', threatArrowsStartedAt);
     const effectsStartedAt = this.profiler.start();
     this.updateEffects(camera);
@@ -2291,11 +2299,19 @@ export class PixiMapRendererAdapter {
     const viewportTop = camera.y - this.height / 2 - cellSize * 2;
     const viewportRight = camera.x + this.width / 2 + cellSize * 2;
     const viewportBottom = camera.y + this.height / 2 + cellSize * 2;
-    const crowdedTileKeys = new Set<string>();
+    const frameNow = performance.now();
+    const crowdedTileKeys = this.crowdedTileKeysScratch;
+    crowdedTileKeys.reset();
     let localPlayerInRenderedEntities = false;
     for (const [id, view] of this.entities) {
       const anim = view.anim;
-      if (view.root.visible && anim.kind === 'crowd') crowdedTileKeys.add(`${anim.gridX},${anim.gridY}`);
+      if (anim.kind === 'crowd') {
+        const worldX = anim.oldWX + (anim.targetWX - anim.oldWX) * t;
+        const worldY = anim.oldWY + (anim.targetWY - anim.oldWY) * t;
+        if (isPixiEntityInViewport(worldX, worldY, cellSize, viewportLeft, viewportTop, viewportRight, viewportBottom)) {
+          crowdedTileKeys.add(anim.gridX, anim.gridY);
+        }
+      }
       if (id !== this.localPlayerFallbackId && anim.id === localPlayerId) localPlayerInRenderedEntities = true;
     }
     for (const view of this.entities.values()) {
@@ -2307,17 +2323,16 @@ export class PixiMapRendererAdapter {
       const wx = anim.oldWX + (anim.targetWX - anim.oldWX) * t;
       const wy = anim.oldWY + (anim.targetWY - anim.oldWY) * t;
       view.root.position.set(wx, wy);
-      const inViewport = wx + cellSize >= viewportLeft && wx <= viewportRight && wy + cellSize >= viewportTop && wy <= viewportBottom;
-      const hiddenByCrowd = anim.kind === 'player' && crowdedTileKeys.has(`${anim.gridX},${anim.gridY}`);
+      const inViewport = isPixiEntityInViewport(wx, wy, cellSize, viewportLeft, viewportTop, viewportRight, viewportBottom);
+      const hiddenByCrowd = anim.kind === 'player' && crowdedTileKeys.has(anim.gridX, anim.gridY);
       view.root.visible = inViewport && !hiddenByCrowd;
-      this.patchEntityMotion(view, motionProgress);
+      if (view.root.visible) this.patchEntityMotion(view, motionProgress, frameNow);
     }
     this.ensureLocalPlayerFallback(localPlayerId, localPlayerX, localPlayerY, localPlayerChar, localPlayerInRenderedEntities);
   }
 
-  private patchEntityMotion(view: EntityView, motionProgress: number): void {
+  private patchEntityMotion(view: EntityView, motionProgress: number, now: number): void {
     const anim = view.anim;
-    const now = performance.now();
     const motionDx = anim.targetWX - anim.oldWX;
     const motionDy = anim.targetWY - anim.oldWY;
     const motionDistance = Math.hypot(motionDx, motionDy);
@@ -2438,14 +2453,14 @@ export class PixiMapRendererAdapter {
     }
   }
 
-  private renderThreatArrows(): void {
+  private renderThreatArrows(localPlayerId: string): void {
     const graphics = this.threatArrowGraphics;
     graphics.clear();
     const cellSize = getCellSize();
     for (const arrow of this.threatArrows) {
       const from = this.resolveThreatEntityView(arrow.ownerId);
       const to = this.resolveThreatEntityView(arrow.targetId);
-      if (!from || !to) continue;
+      if (!from?.root.visible || !to?.root.visible) continue;
       const fromCenterX = from.root.x + cellSize / 2;
       const fromCenterY = from.root.y + cellSize / 2;
       const toCenterX = to.root.x + cellSize / 2;
@@ -2463,9 +2478,10 @@ export class PixiMapRendererAdapter {
       const curvature = Math.max(cellSize * 0.32, Math.min(distance * 0.18, cellSize * 0.76));
       const controlX = (startX + endX) / 2;
       const controlY = Math.min(startY, endY) - curvature;
-      const self = from.anim.kind === 'player';
-      const color = parseColor(self ? SELF_THREAT_ARROW_COLOR : OTHER_THREAT_ARROW_COLOR);
-      const glow = self ? SELF_THREAT_ARROW_GLOW : OTHER_THREAT_ARROW_GLOW;
+      const self = arrow.ownerId === localPlayerId;
+      const color = self ? SELF_THREAT_ARROW_PIXI_COLOR : OTHER_THREAT_ARROW_PIXI_COLOR;
+      const glowColor = self ? SELF_THREAT_ARROW_PIXI_GLOW : OTHER_THREAT_ARROW_PIXI_GLOW;
+      const glowAlpha = self ? SELF_THREAT_ARROW_PIXI_GLOW_ALPHA : OTHER_THREAT_ARROW_PIXI_GLOW_ALPHA;
       const baseWidth = Math.max(0.55, cellSize * 0.02);
       const dashLength = Math.max(5, cellSize * 0.17);
       const gapLength = Math.max(4, cellSize * 0.12);
@@ -2480,8 +2496,8 @@ export class PixiMapRendererAdapter {
         endY,
         dashLength,
         gapLength,
-        parseColor(glow),
-        parseAlpha(glow, 1),
+        glowColor,
+        glowAlpha,
         baseWidth + Math.max(1.9, cellSize * 0.048),
       );
       this.drawDashedQuadraticCurve(
@@ -2593,7 +2609,7 @@ export class PixiMapRendererAdapter {
   }
 
   private resolveThreatEntityView(id: string): EntityView | undefined {
-    return this.entities.get(id) ?? [...this.entities.values()].find((view) => view.anim.id === id);
+    return this.entities.get(id);
   }
 
   private addFloatingText(

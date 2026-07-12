@@ -196,6 +196,13 @@ assert.doesNotMatch(pixiRenderer, /profileMeasure|this\.profiler\.[A-Za-z]+\([^\
 assert.match(pixiRenderer, /if \(profileActive\) \{[\s\S]*?this\.profiler\.recordFrame\(frameAtMs, activeSchedule\)/, '关闭 profiler 时不得构造帧诊断快照');
 assert.match(pixiRenderer, /from '\.\/pixi-runtime-image-manifest'/);
 assert.match(pixiRenderer, /from '\.\/pixi-render-primitives'/);
+assert.match(pixiRenderer, /this\.renderThreatArrows\(player\.id\)/, '威胁箭头必须以本地玩家身份区分自有与他人关系');
+assert.match(pixiRenderer, /const self = arrow\.ownerId === localPlayerId/, '不能把所有玩家发起的威胁关系都渲染为自己的颜色');
+assert.match(pixiRenderer, /if \(!from\?\.root\.visible \|\| !to\?\.root\.visible\) continue/, '离开当前视口的实体不得继续绘制穿屏威胁箭头');
+assert.match(pixiRenderer, /this\.patchEntityMotion\(view, motionProgress, frameNow\)/, '同一帧的实体动画必须复用统一时钟');
+assert.match(pixiRenderer, /return this\.entities\.get\(id\);/, '威胁实体必须直接复用权威实体索引');
+assert.doesNotMatch(pixiRenderer, /view\.root\.visible && anim\.kind === 'crowd'/, '拥挤判定不得读取上一帧可见性');
+assert.doesNotMatch(pixiRenderer, /\[\.\.\.this\.entities\.values\(\)\]\.find/, '每帧威胁箭头不得退化为实体数组分配与线性查找');
 assert.doesNotMatch(pixiRenderer, /^function (?:normalizePixiTileSpriteMap|buildFormationRangeSignature|parseColor)\b/m, 'adapter 不得重新吸收图包解析和纯视觉规则');
 
 const storage = new MemoryStorage();
@@ -273,6 +280,7 @@ try {
   const { PixiRenderProfiler } = await vite.ssrLoadModule('/src/game-map/renderer/pixi-render-profiler.ts');
   const runtimeImageManifest = await vite.ssrLoadModule('/src/game-map/renderer/pixi-runtime-image-manifest.ts');
   const renderPrimitives = await vite.ssrLoadModule('/src/game-map/renderer/pixi-render-primitives.ts');
+  const frameSpatialIndex = await vite.ssrLoadModule('/src/game-map/renderer/pixi-frame-spatial-index.ts');
   const spriteMap = runtimeImageManifest.normalizePixiTileSpriteMap({
     'terrain:floor': {
       src: './floor.png',
@@ -298,6 +306,25 @@ try {
   }, new Map([['floor', 'terrain:floor']])), 'structure:gate', '图层选择必须保持 structure 优先级');
   assert.equal(renderPrimitives.parseColor('rgba(12, 34, 56, 0.5)'), 0x0c2238, '颜色投影拆分后必须保持 RGB 语义');
   assert.equal(renderPrimitives.buildGridPointSignature([{ x: 1, y: 2 }, { x: 3, y: 4 }]), '2|1,2|3,4');
+  const crowdedTiles = new frameSpatialIndex.PixiFrameGridPointSet();
+  crowdedTiles.add(-4, 8);
+  crowdedTiles.add(-4, 9);
+  assert.equal(crowdedTiles.has(-4, 8), true, '拥挤格点索引必须支持负坐标');
+  assert.equal(crowdedTiles.has(8, -4), false, '二维格点索引不得交换坐标后误命中');
+  crowdedTiles.reset();
+  assert.equal(crowdedTiles.has(-4, 8), false, '每帧重置后不得保留上一帧拥挤状态');
+  crowdedTiles.add(12, 6);
+  assert.equal(crowdedTiles.has(12, 6), true, '重置后的行容器必须可以安全复用');
+  assert.equal(
+    frameSpatialIndex.isPixiEntityInViewport(95, 20, 10, 0, 0, 100, 100),
+    true,
+    '实体边缘进入视口时必须算作当前帧可见',
+  );
+  assert.equal(
+    frameSpatialIndex.isPixiEntityInViewport(111, 20, 10, 0, 0, 100, 100),
+    false,
+    '实体完全离开视口时不得污染当前帧拥挤索引',
+  );
 
   const profiler = new PixiRenderProfiler(() => ({
     terrainChunks: 0,
