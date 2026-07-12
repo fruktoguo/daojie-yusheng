@@ -10,7 +10,7 @@ import { Server, Socket } from 'socket.io';
 import * as msgpackParser from 'socket.io-msgpack-parser';
 import { resolveServerCorsOptions } from '../config/server-cors';
 import { HealthReadinessService } from '../health/health-readiness.service';
-import { PlayerDomainPersistenceService } from '../persistence/player-domain-persistence.service';
+import { PlayerDomainPersistenceService, isSupersededPlayerFlushFenceError } from '../persistence/player-domain-persistence.service';
 import { PlayerPersistenceFlushService } from '../persistence/player-persistence-flush.service';
 import { PlayerSessionRouteService } from '../persistence/player-session-route.service';
 import { MailRuntimeService } from '../runtime/mail/mail-runtime.service';
@@ -168,10 +168,11 @@ class WorldGateway implements WorldGatewayHelperContext {
     async drainDetachedBinding(binding) {
         await this.gatewaySessionStateHelper.clearDisconnectedPlayerState(binding);
         if (binding.connected) {
-            return { playerId: binding.playerId, presencePersisted: false, flushSucceeded: false, skipped: true };
+            return { playerId: binding.playerId, presencePersisted: false, flushSucceeded: false, skipped: true, superseded: false };
         }
         let presencePersisted = false;
         let flushSucceeded = false;
+        let superseded = false;
         try {
             await this.gatewayPresenceHelper.persistOfflinePresence(binding);
             presencePersisted = true;
@@ -184,9 +185,18 @@ class WorldGateway implements WorldGatewayHelperContext {
             flushSucceeded = true;
         }
         catch (error) {
-            this.logger.error(`刷新脱机玩家失败：${binding.playerId}`, error instanceof Error ? error.stack : String(error));
+            if (isSupersededPlayerFlushFenceError(error)) {
+                // 玩家已被更新会话接管，旧绑定的这次刷盘是过期的良性收敛：跳过而非报错。
+                // 权威数据由新会话按更高 epoch 持久化，此处不算失败，也无需保留 dirty 重试。
+                superseded = true;
+                flushSucceeded = true;
+                this.logger.warn(`脱机玩家刷盘已被更新会话取代（fence 收敛），跳过：${binding.playerId}`);
+            }
+            else {
+                this.logger.error(`刷新脱机玩家失败：${binding.playerId}`, error instanceof Error ? error.stack : String(error));
+            }
         }
-        return { playerId: binding.playerId, presencePersisted, flushSucceeded, skipped: false };
+        return { playerId: binding.playerId, presencePersisted, flushSucceeded, skipped: false, superseded };
     }
     /** 为 socket 挂载每事件频率限制中间件，超限时拒绝后续包。 */
     attachRateLimitGuard(client: Socket) {

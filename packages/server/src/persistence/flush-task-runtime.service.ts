@@ -23,6 +23,8 @@ import {
   PlayerDomainPersistenceService,
   PLAYER_SNAPSHOT_PROJECTABLE_DIRTY_DOMAINS,
   nextPlayerPersistenceVersion,
+  isConvergedPlayerProjectionFenceError,
+  isConvergedPlayerPresenceFenceError,
   type PlayerPresenceUpsertInput,
 } from './player-domain-persistence.service';
 import { PlayerPersistenceFlushService } from './player-persistence-flush.service';
@@ -1975,19 +1977,6 @@ function isPayloadRevisionCurrent(
 
 function isStaleGroundItemStatePayloadError(error: unknown): boolean {
   return error instanceof Error && error.message.startsWith('stale_ground_item_state_payload:');
-}
-
-function isConvergedPlayerProjectionFenceError(error: unknown): boolean {
-  if (!(error instanceof Error)) {
-    return false;
-  }
-  return error.message.startsWith('player_snapshot_projection_stale_session:')
-    || error.message.startsWith('player_snapshot_projection_stale_owner:')
-    || error.message.startsWith('player_snapshot_projection_missing_presence:');
-}
-
-function isConvergedPlayerPresenceFenceError(error: unknown): boolean {
-  return error instanceof Error && error.message.startsWith('player_presence_stale_fence:');
 }
 
 function isDeterministicReplayPlayerPayloadError(error: unknown): boolean {

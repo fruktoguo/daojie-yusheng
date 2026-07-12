@@ -13,6 +13,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import {
     PlayerDomainPersistenceService,
     nextPlayerPersistenceVersion,
+    isConvergedPlayerPresenceFenceError,
 } from '../persistence/player-domain-persistence.service';
 import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
 
@@ -46,6 +47,11 @@ class WorldGatewayPresenceHelper {
                 : Date.now(),
             versionSeed: nextPlayerPersistenceVersion(),
         }).catch((error) => {
+            if (isConvergedPlayerPresenceFenceError(error)) {
+                // 玩家已被更新会话接管，离线 presence 写入过期即良性收敛，跳过而非报错。
+                this.logger.warn(`脱机在线状态已被更新会话取代（fence 收敛），跳过：${binding.playerId}`);
+                return;
+            }
             this.logger.error(`刷新脱机在线状态失败：${binding.playerId}`, error instanceof Error ? error.stack : String(error));
         });
     }

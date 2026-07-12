@@ -8833,6 +8833,34 @@ async function assertPlayerSnapshotProjectionFenceCurrent(
   }
 }
 
+/**
+ * 判定玩家快照投影围栏是否因“已被更新会话/所有者取代”而拒绝写入。
+ * stale_session / stale_owner / missing_presence 都表示更高权威已接管该玩家，
+ * 本次投影写入是过期的良性收敛（stale-safe），调用方应跳过而非当作失败重试或报错。
+ */
+export function isConvergedPlayerProjectionFenceError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+  return error.message.startsWith('player_snapshot_projection_stale_session:')
+    || error.message.startsWith('player_snapshot_projection_stale_owner:')
+    || error.message.startsWith('player_snapshot_projection_missing_presence:');
+}
+
+/** 玩家在线状态围栏因更新会话已推进 epoch/owner 而拒绝写入的良性收敛判定。 */
+export function isConvergedPlayerPresenceFenceError(error: unknown): boolean {
+  return error instanceof Error && error.message.startsWith('player_presence_stale_fence:');
+}
+
+/**
+ * 脱机 drain 刷盘因玩家已被更新会话接管而应跳过的合并判定（投影围栏 + 在线状态围栏）。
+ * 命中即代表本次刷盘过期，安全跳过，不应打成 error。
+ */
+export function isSupersededPlayerFlushFenceError(error: unknown): boolean {
+  return isConvergedPlayerProjectionFenceError(error)
+    || isConvergedPlayerPresenceFenceError(error);
+}
+
 async function acquireSchemaInitLock(client: PoolClient): Promise<void> {
   await client.query('SELECT pg_advisory_xact_lock($1::integer, $2::integer)', [7100, 1]);
 }
