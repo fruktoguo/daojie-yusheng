@@ -60,6 +60,7 @@
 - 本轮进展：`player-progression.service.ts` 在权威玩家变更、配置读取和属性重算编排之外，还堆入了约 500 行突破需求、背包计数、功法品阶、灵根归一化和传法速率纯规则。现已提取为窄的 `player-progression-rule.helpers.ts`，主服务降到体积门禁口径的 2815 行并退出新超限清单；配置、玩家变更、属性重算和持久化副作用仍留在权威服务。
 - 本轮进展：`world-runtime-sect.service.ts` 把建表/核心投影自愈 SQL、玩家显示/成员/权限归一化与地图资产编排聚合在同一个新超限文件。现已把常量收敛到 `constants/gameplay/sect.ts`，持久化 schema/修复移入 `sect-durable-persistence.ts`，成员与权限辅助收敛到 555 行 domain helper；权威队列、玩家资产锁、地图投影和 durable commit 编排仍留在主服务。主文件在门禁口径为 2926 行，新超限项从 4 个降为 3 个。
 - 本轮进展：`native-gm-player.service.ts` 在玩家持久化编排之外还承载模板实例归一化、展示投影、恢复丹映射和全部依赖 port；更严重的是多个定向 GM 操作仍回退整玩家投影。现已把 274 行纯 helper 与 137 行 port 契约独立出来，主服务降到门禁口径 2944 行；同时所有已注册 GM 修改收敛为精确 domain 写入，新超限项从 3 个降为 2 个。
+- 本轮进展：`inventory-panel.ts` 把分页列表、物品详情、批量丢弃和阵法布置规则全部聚合在同一面板类中；阵法弹窗独占约 540 行输入联动、共享公式投影、范围预览和提交载荷组装，扩大了普通背包更新的修改面。现已提取 `InventoryFormationDialogController`，继续复用 shared 的 `resolveFormationSetupPlan` 和稳定 `itemInstanceId`，服务端权威结算及面板局部更新语义不变；主面板从 4396 行降到 3838 行。它仍属于 2 个新超限文件之一，后续必须继续拆分详情与批量操作职责，当前不更新 baseline。
 
 ### FS-003 `[ ]` server tools 大量绕过 TypeScript 检查并保留 CommonJS 写法
 
@@ -690,3 +691,4 @@
 | GM 玩家分域写入与服务边界 | server compile、完整 `pnpm verify:quick`、边界审计、4 项 GM 玩家 compiled smoke 和文件体积门禁已运行 | 7 条 GM 写入均为精确 domain、未知 section 拒绝、在线炼体 revision 确认、物品/恢复丹模板水合与 2944 行服务边界；新超限项降为 2 个 | 无真实 DB/HTTP 并发，不证明跨节点 GM、tick/flush 竞争和数据库故障时的实表最终值；高危审计 fail-open 仍待用户决定 |
 | 背包实例投影与客户端水合 | `build:shared`、完整 `verify:client`、完整 `verify:quick` 及两端专项 proof/smoke 通过 | shared 字段覆盖、服务端分页完整投影、内部字段隔离、客户端不继承旧槽位及实例值优先均有确定性保护 | 不证明正式服历史异常物品、弱网长延迟翻页、实际包体分布和移动端视觉 |
 | 背包分页请求生命周期 | 状态机 proof、完整 `verify:client`、`build:shared`、`audit:protocol`、完整 `verify:quick` 与 compiled 网关 smoke 通过 | 旧/无身份/错坐标/低 revision 回包拒绝，发送失败与超时解锁，服务端 requestId/knownRevision fail-closed | 未做浏览器弱网、socket 真断连、多节点路由与长时间重复翻页压测；既有构建警告未变 |
+| 背包阵法弹窗职责拆分 | client TypeScript、生产边界 proof 与完整 `verify:client` 通过；文件体积门禁按预期仍退出 1 | 阵法共享公式、实例引用、范围预览清理和提交载荷已由窄控制器承载；主面板降至 3838 行且未更新 baseline | 其余详情与批量操作仍在巨型面板中；未做真实浏览器触控、焦点与长列表滚动回归 |

@@ -130,6 +130,8 @@ function main() {
   const marketReactTsx = read('src/react-ui/panels/market/MarketPanel.tsx');
   const marketMountTsx = read('src/react-ui/panels/market/mount-market-panel.tsx');
   const panelFlagsTs = read('src/react-ui/bridge/panel-flags.ts');
+  const inventoryPanelTs = read('src/ui/panels/inventory-panel.ts');
+  const inventoryFormationDialogTs = read('src/ui/panels/inventory-formation-dialog.ts');
 
   const mainLineCount = lineCount('src/main.ts');
   const compositionLineCount = lineCount('src/main-app-composition.ts');
@@ -206,6 +208,11 @@ function main() {
   assertIncludes(runtimeDeltaStateSourceTs, /handleSelfDelta\(data:[\s\S]*?player\.hp = data\.hp/, 'HP 必须继续由 SelfDelta 落地');
   assertIncludes(runtimeDeltaStateSourceTs, /handleSelfDelta\(data:[\s\S]*?player\.qi = data\.qi/, '灵力必须继续由 SelfDelta 落地');
   assertIncludes(runtimeDeltaStateSourceTs, /player\.temporaryBuffs = mergeVisibleBuffStates\(player\.temporaryBuffs, data\.buff\)/, 'Buff 必须继续由 PanelDelta 合并');
+
+  assertIncludes(inventoryPanelTs, /new InventoryFormationDialogController\(/, '背包总控必须把阵法表单与预览委托给专用控制器');
+  assertMissing(inventoryPanelTs, /resolveFormationSetupPlan|syncFormationPreview/, '背包总控不得重新承载阵法公式或预览更新');
+  assertIncludes(inventoryFormationDialogTs, /resolveFormationSetupPlan\(/, '阵法对话框必须复用 shared 的布阵计划公式');
+  assertIncludes(inventoryFormationDialogTs, /getItemInstanceId\(item\)/, '阵法提交必须继续使用物品实例 ID');
 
   assertIncludes(socketTs, /createSocketRuntimeSender/, 'socket.ts 必须继续通过 runtime sender owner 收口发送面');
   assertIncludes(socketTs, /createSocketPanelSender/, 'socket.ts 必须继续通过 panel sender owner 收口发送面');
