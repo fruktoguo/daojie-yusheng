@@ -6,6 +6,7 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
+import { createServer } from 'vite';
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const clientRoot = path.resolve(scriptDirectory, '..');
@@ -190,14 +191,25 @@ assert.match(pixiRenderer, /generation !== this\.mountGeneration \|\| this\.canv
 assert.match(pixiRenderer, /this\.app\.renderer\.resize\(this\.width, this\.height, 1\);\s*this\.ready = true/);
 assert.match(pixiRenderer, /unmount\(\): void \{\s*this\.mountGeneration \+= 1;\s*this\.ready = false/);
 assert.match(pixiRenderer, /this\.rendererInitPromise\.then\(\(\) => \{\s*this\.destroyApplicationResources\(\)/);
+assert.match(pixiRenderer, /destroy\(\): void \{[\s\S]*?this\.profiler\.destroy\(\)/);
+assert.doesNotMatch(pixiRenderer, /profileMeasure|this\.profiler\.[A-Za-z]+\([^\n]*\(\) =>/, '正常帧路径不得为 profiler 创建测量闭包');
+assert.match(pixiRenderer, /if \(profileActive\) \{[\s\S]*?this\.profiler\.recordFrame\(frameAtMs, activeSchedule\)/, '关闭 profiler 时不得构造帧诊断快照');
 
 const storage = new MemoryStorage();
 const dispatchedEvents = [];
 globalThis.window = {
   localStorage: storage,
+  setInterval: globalThis.setInterval,
+  clearInterval: globalThis.clearInterval,
+  setTimeout: globalThis.setTimeout,
+  clearTimeout: globalThis.clearTimeout,
   dispatchEvent(event) {
     dispatchedEvents.push(event);
   },
+};
+globalThis.requestAnimationFrame = (callback) => {
+  callback(performance.now());
+  return 1;
 };
 globalThis.CustomEvent = class CustomEvent {
   constructor(type, init) {
@@ -247,5 +259,57 @@ await assert.rejects(saveBeforeReset, /local_runtime_image_override_superseded/)
 assert.equal(imageOverrides.getRuntimeImageOverride(resource.key), null, '恢复默认后旧读图不得重新写回覆盖');
 assert.equal(dispatchedEvents.length, 2, '恢复默认应只发布一次新快照');
 await settlePromise();
+
+const vite = await createServer({
+  root: clientRoot,
+  logLevel: 'error',
+  server: { middlewareMode: true },
+  appType: 'custom',
+});
+try {
+  const { PixiRenderProfiler } = await vite.ssrLoadModule('/src/game-map/renderer/pixi-render-profiler.ts');
+  const profiler = new PixiRenderProfiler(() => ({
+    terrainChunks: 0,
+    cachedTerrainChunks: 0,
+    terrainCachedContainers: 0,
+    terrainChunkChildren: 0,
+    entities: 0,
+    groundChildren: 0,
+    entityChildren: 0,
+    effectChildren: 0,
+    screenChildren: 0,
+    pathChildren: 0,
+    floatingTexts: 0,
+    attackTrails: 0,
+    warningZones: 0,
+    runtimeTileTextures: 0,
+    runtimeAtlasTextures: 0,
+    runtimeEntityTextures: 0,
+    runtimeTileTextureRequests: 0,
+    runtimeEntityTextureRequests: 0,
+    runtimeTileManifestState: 'idle',
+    backbufferWidth: 1,
+    backbufferHeight: 1,
+    backbufferPixels: 1,
+  }));
+  assert.equal(profiler.isActive(), false, 'profiler 默认不得进入正常渲染热路径');
+  profiler.setEnabled(true);
+  assert.equal(profiler.isActive(), true, '显式启用后才允许采集帧数据');
+  assert.equal(typeof window.__mudPixiProfileReset, 'function', '启用 profiler 必须注册显式重置入口');
+  const startedAt = profiler.start();
+  profiler.end('renderFrame', startedAt);
+  profiler.count('frames');
+  profiler.publish(true);
+  assert.equal(window.__mudPixiProfile?.enabled, true, '启用状态必须发布诊断快照');
+  window.__mudPixiProfileReset();
+  assert.equal(window.__mudPixiProfile?.counters.frames, 0, '全局重置入口必须重置累计计数');
+  profiler.destroy();
+  assert.equal(profiler.isActive(), false, '销毁后必须停止采集');
+  assert.equal('__mudPixiProfile' in window, false, '销毁后不得保留诊断快照');
+  assert.equal('__mudPixiProfileReset' in window, false, '销毁后不得保留捕获渲染器的重置闭包');
+  assert.equal('__mudRuntimeProfilerEnabled' in window, false, '销毁后必须同步关闭运行时 profiler');
+} finally {
+  await vite.close();
+}
 
 console.log('地图渲染调度与异步生命周期证明通过');

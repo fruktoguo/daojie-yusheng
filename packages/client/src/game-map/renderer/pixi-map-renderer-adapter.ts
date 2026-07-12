@@ -74,28 +74,11 @@ import type { CameraState } from '../camera/camera-controller';
 import type { TopdownProjection } from '../projection/topdown-projection';
 import type { MapEntityTransition, MapSceneSnapshot, ObservedMapEntity } from '../types';
 import {
-  createPixiProfileCounters,
-  createPixiProfileFrameCounters,
-  createPixiProfileFrameMetrics,
-  createPixiProfileMetrics,
-  PIXI_PROFILE_COUNTER_KEYS,
-  PIXI_PROFILE_LOG_INTERVAL_MS,
-  PIXI_PROFILE_METRIC_KEYS,
-  PixiProfilerWindow,
-  type PixiProfileCounterKey,
-  type PixiProfileFrameSample,
   type PixiProfileFrameSchedule,
-  type PixiProfileMetricKey,
-  type PixiProfileSnapshot,
-  type PixiProfileState,
+  type PixiProfileRendererState,
 } from './pixi-profiler-window';
 import { normalizeRuntimeImagePackVersion, resolveRuntimeImagePackAssetUrl } from '../../renderer/runtime-image-pack-url';
-import {
-  consumeBrowserProfileFrameDiagnostics,
-  consumeRuntimeProfileFrameMetrics,
-  resetRuntimeProfileFrameMetrics,
-  setRuntimeProfilerEnabled,
-} from '../../debug/runtime-profiler';
+import { PixiRenderProfiler } from './pixi-render-profiler';
 import {
   buildPixiTerrainChunkOverlaySignature,
   buildPixiTerrainChunkStaticSignature,
@@ -289,13 +272,6 @@ type RuntimeTileSpriteManifest = {
   legacyTiles?: Record<string, unknown>;
   entities?: Record<string, unknown>;
 };
-
-declare global {
-  interface Window {
-    __mudPixiProfile?: PixiProfileSnapshot;
-    __mudPixiProfileReset?: () => void;
-  }
-}
 
 const CHUNK_SIZE = PIXI_TERRAIN_CHUNK_SIZE;
 const MAX_FLOATING_TEXTS = 256;
@@ -869,9 +845,7 @@ export class PixiMapRendererAdapter {
   private rendererInitPromise: Promise<void> | null = null;
   private rendererInitialized = false;
   private applicationDestroyed = false;
-  private profileEnabled = false;
-  private profileState: PixiProfileState | null = null;
-  private profileWindow: PixiProfilerWindow | null = null;
+  private readonly profiler = new PixiRenderProfiler(() => this.buildProfileRendererState());
   private timeAtmosphere: TimeAtmosphereState = {
     initialized: false,
     overlay: [0, 0, 0, 0],
@@ -888,7 +862,7 @@ export class PixiMapRendererAdapter {
     this.mountGeneration = generation;
     this.canvas = canvas;
     this.ready = false;
-    this.refreshProfileState();
+    this.profiler.refresh();
     this.pathLayer.addChild(this.interactionOverlayGraphics, this.targetingGraphics, this.senseQiHoverGraphics, this.pathGraphics);
     this.threatArrowGraphics.name = 'threat-arrows';
     this.threatArrowLayer.addChild(this.threatArrowGraphics);
@@ -952,9 +926,7 @@ export class PixiMapRendererAdapter {
     this.ready = false;
     this.canvas = null;
     this.resetScene();
-    this.profileWindow?.destroy();
-    this.profileWindow = null;
-    setRuntimeProfilerEnabled(false);
+    this.profiler.destroy();
     this.removeRuntimeImageOverrideListener();
     this.releaseRuntimeImageResources(new Set());
     if (this.rendererInitialized) {
@@ -1029,7 +1001,7 @@ export class PixiMapRendererAdapter {
       || previous.monsterTextMode !== config.monsterTextMode
       || previous.herbTextMode !== config.herbTextMode;
     this.performanceConfig = { ...config };
-    this.setProfileEnabled(config.showPixiProfiler);
+    this.profiler.setEnabled(config.showPixiProfiler);
     if (!previousRenderRuntimeTileSprites && this.performanceConfig.renderRuntimeTileSprites) {
       this.ensureRuntimeTileSpritesRequested();
     }
@@ -1045,14 +1017,18 @@ export class PixiMapRendererAdapter {
     motionSyncToken?: number,
     pathFadeDurationMs = DEFAULT_PATH_TRAIL_FADE_MS,
   ): void {
-    this.refreshProfileState();
-    const startedAt = this.profileStart();
-    this.profileCount('syncScenes');
+    this.profiler.refresh();
+    const startedAt = this.profiler.start();
+    this.profiler.count('syncScenes');
     this.ensureRuntimeTileSpritesRequested();
     this.setPathHighlight(scene.overlays.pathCells, pathFadeDurationMs);
     this.threatArrows = scene.overlays.threatArrows.map((entry) => ({ ...entry }));
-    this.profileMeasure('syncEntities', () => this.syncEntities(scene.entities, transition, motionSyncToken));
-    this.profileMeasure('formationRangeCache', () => this.rebuildFormationRangeVisualCacheIfNeeded());
+    const syncEntitiesStartedAt = this.profiler.start();
+    this.syncEntities(scene.entities, transition, motionSyncToken);
+    this.profiler.end('syncEntities', syncEntitiesStartedAt);
+    const formationRangeStartedAt = this.profiler.start();
+    this.rebuildFormationRangeVisualCacheIfNeeded();
+    this.profiler.end('formationRangeCache', formationRangeStartedAt);
     const terrainOverlaySignature = this.buildTerrainOverlaySignature(scene);
     if (terrainOverlaySignature !== this.terrainOverlaySignature) {
       this.terrainOverlaySignature = terrainOverlaySignature;
@@ -1068,13 +1044,13 @@ export class PixiMapRendererAdapter {
       );
       this.lastVisibleTileRevision = scene.terrain.visibleTileRevision;
     }
-    this.profileMeasure('worldOverlays', () => {
-      this.rebuildWorldOverlays(scene);
-      this.rebuildInteractionOverlayLayer(scene);
-      this.rebuildTargetingLayer(scene);
-      this.rebuildSenseQiHoverLayer(scene);
-    });
-    this.profileEnd('syncScene', startedAt);
+    const worldOverlaysStartedAt = this.profiler.start();
+    this.rebuildWorldOverlays(scene);
+    this.rebuildInteractionOverlayLayer(scene);
+    this.rebuildTargetingLayer(scene);
+    this.rebuildSenseQiHoverLayer(scene);
+    this.profiler.end('worldOverlays', worldOverlaysStartedAt);
+    this.profiler.end('syncScene', startedAt);
   }
 
   enqueueEffect(effect: CombatEffect): void {
@@ -1135,7 +1111,7 @@ export class PixiMapRendererAdapter {
     this.terrainFogLastRebuildAt = 0;
     this.lastVisibleTileRevision = -1;
     this.timeAtmosphere.initialized = false;
-    this.resetProfileState();
+    this.profiler.reset();
   }
 
   syncDisplayMetrics(): void {
@@ -1186,27 +1162,44 @@ export class PixiMapRendererAdapter {
     void projection;
     const player = scene.player;
     if (!this.ready || !player) return;
-    const renderMethodStartedAt = performance.now();
-    this.refreshProfileState();
-    const frameStartedAt = this.profileStart();
-    this.profileCount('frames');
-    this.profileMeasure('camera', () => this.updateCameraTransform(camera));
-    this.profileMeasure('terrainChunks', () => this.updateTerrainChunks(scene, camera));
-    this.profileMeasure('entityViews', () => this.updateEntityViews(camera, progress, player.id, player.x, player.y, player.char));
-    this.profileMeasure('threatArrows', () => this.renderThreatArrows());
-    this.profileMeasure('effects', () => this.updateEffects(camera));
-    this.profileMeasure('timeOverlay', () => this.renderTimeOverlay(scene.terrain.time));
-    this.profileMeasure('appRender', () => this.app.render());
-    this.profileEnd('renderFrame', frameStartedAt);
-    const activeSchedule: PixiProfileFrameSchedule = {
-      ...schedule,
-      rafCallbackActiveMs: Math.max(
-        schedule.rafCallbackPreRenderMs,
-        schedule.rafCallbackPreRenderMs + Math.max(0, performance.now() - renderMethodStartedAt),
-      ),
-    };
-    this.recordProfileFrame(frameAtMs, activeSchedule);
-    this.publishProfileIfNeeded();
+    this.profiler.refresh();
+    const profileActive = this.profiler.isActive();
+    const renderMethodStartedAt = profileActive ? performance.now() : 0;
+    const frameStartedAt = this.profiler.start();
+    this.profiler.count('frames');
+    const cameraStartedAt = this.profiler.start();
+    this.updateCameraTransform(camera);
+    this.profiler.end('camera', cameraStartedAt);
+    const terrainStartedAt = this.profiler.start();
+    this.updateTerrainChunks(scene, camera);
+    this.profiler.end('terrainChunks', terrainStartedAt);
+    const entityViewsStartedAt = this.profiler.start();
+    this.updateEntityViews(camera, progress, player.id, player.x, player.y, player.char);
+    this.profiler.end('entityViews', entityViewsStartedAt);
+    const threatArrowsStartedAt = this.profiler.start();
+    this.renderThreatArrows();
+    this.profiler.end('threatArrows', threatArrowsStartedAt);
+    const effectsStartedAt = this.profiler.start();
+    this.updateEffects(camera);
+    this.profiler.end('effects', effectsStartedAt);
+    const timeOverlayStartedAt = this.profiler.start();
+    this.renderTimeOverlay(scene.terrain.time);
+    this.profiler.end('timeOverlay', timeOverlayStartedAt);
+    const appRenderStartedAt = this.profiler.start();
+    this.app.render();
+    this.profiler.end('appRender', appRenderStartedAt);
+    this.profiler.end('renderFrame', frameStartedAt);
+    if (profileActive) {
+      const activeSchedule: PixiProfileFrameSchedule = {
+        ...schedule,
+        rafCallbackActiveMs: Math.max(
+          schedule.rafCallbackPreRenderMs,
+          schedule.rafCallbackPreRenderMs + Math.max(0, performance.now() - renderMethodStartedAt),
+        ),
+      };
+      this.profiler.recordFrame(frameAtMs, activeSchedule);
+      this.profiler.publish();
+    }
   }
 
   getCanvas(): HTMLCanvasElement | null {
@@ -1230,23 +1223,6 @@ export class PixiMapRendererAdapter {
     for (const chunk of this.terrainChunks.values()) {
       chunk.staticSignature = '';
       chunk.overlaySignature = '';
-    }
-  }
-
-  private setProfileEnabled(enabled: boolean): void {
-    if (this.profileEnabled === enabled) return;
-    this.profileEnabled = enabled;
-    setRuntimeProfilerEnabled(enabled);
-    if (enabled) {
-      this.refreshProfileState();
-      return;
-    }
-    this.profileState = null;
-    this.profileWindow?.destroy();
-    this.profileWindow = null;
-    if (typeof window !== 'undefined') {
-      delete window.__mudPixiProfile;
-      delete window.__mudPixiProfileReset;
     }
   }
 
@@ -1525,7 +1501,7 @@ export class PixiMapRendererAdapter {
     sprite.height = cellSize;
     sprite.zIndex = ref.zIndex;
     chunkContainer.addChild(sprite);
-    this.profileCount('runtimeTileSprites');
+    this.profiler.count('runtimeTileSprites');
   }
 
   private drawDualGridSprite(
@@ -1560,7 +1536,7 @@ export class PixiMapRendererAdapter {
       sprite.height = cellSize + overlap * 2;
       sprite.zIndex = ref.zIndex + 0.1;
       chunkContainer.addChild(sprite);
-      this.profileCount('dualGridSprites');
+      this.profiler.count('dualGridSprites');
       return;
     }
     const halfSourceW = cellW / 2;
@@ -1615,7 +1591,7 @@ export class PixiMapRendererAdapter {
       sprite.height = destH;
       sprite.zIndex = ref.zIndex + 0.1;
       chunkContainer.addChild(sprite);
-      this.profileCount('dualGridSprites');
+      this.profiler.count('dualGridSprites');
     }
   }
 
@@ -1796,12 +1772,16 @@ export class PixiMapRendererAdapter {
         chunk.lastSeenFrame = this.chunkFrame;
         const staticSignature = this.resolveTerrainChunkStaticSignature(chunk, scene, cellSize);
         if (staticSignature !== chunk.staticSignature) {
-          this.profileCount('terrainChunkRebuilds');
-          this.profileMeasure('terrainRebuild', () => this.rebuildTerrainChunkStaticLayers(chunk, scene, cellSize, staticSignature));
+          this.profiler.count('terrainChunkRebuilds');
+          const staticRebuildStartedAt = this.profiler.start();
+          this.rebuildTerrainChunkStaticLayers(chunk, scene, cellSize, staticSignature);
+          this.profiler.end('terrainRebuild', staticRebuildStartedAt);
         }
         const overlaySignature = this.resolveTerrainChunkOverlaySignature(chunk, scene, cellSize);
         if (overlaySignature !== chunk.overlaySignature) {
-          this.profileMeasure('terrainRebuild', () => this.rebuildTerrainChunkOverlayLayer(chunk, scene, cellSize, overlaySignature));
+          const overlayRebuildStartedAt = this.profiler.start();
+          this.rebuildTerrainChunkOverlayLayer(chunk, scene, cellSize, overlaySignature);
+          this.profiler.end('terrainRebuild', overlayRebuildStartedAt);
         }
       }
     }
@@ -1811,9 +1791,13 @@ export class PixiMapRendererAdapter {
         this.terrainChunks.delete(key);
       }
     }
-    this.profileSetCounter('visibleChunks', visibleChunkCount);
-    this.profileMeasure('terrainFog', () => this.rebuildTerrainFogLayer(scene, startCX, startCY, endCX, endCY, cellSize));
-    this.profileMeasure('pathLayer', () => this.rebuildPathLayer(scene));
+    this.profiler.setCounter('visibleChunks', visibleChunkCount);
+    const terrainFogStartedAt = this.profiler.start();
+    this.rebuildTerrainFogLayer(scene, startCX, startCY, endCX, endCY, cellSize);
+    this.profiler.end('terrainFog', terrainFogStartedAt);
+    const pathLayerStartedAt = this.profiler.start();
+    this.rebuildPathLayer(scene);
+    this.profiler.end('pathLayer', pathLayerStartedAt);
   }
 
   private createTerrainChunk(key: string, cx: number, cy: number): TerrainChunkView {
@@ -2004,11 +1988,13 @@ export class PixiMapRendererAdapter {
       terrainChunkRevision: scene.terrain.terrainChunkRevisions.get(chunk.key) ?? 0,
     };
     if (chunk.staticSignature && chunk.staticSignatureDeps && this.isSameTerrainChunkStaticSignatureDeps(chunk.staticSignatureDeps, deps)) {
-      this.profileCount('terrainChunkSignatureHits');
+      this.profiler.count('terrainChunkSignatureHits');
       return chunk.staticSignature;
     }
-    const signature = this.profileMeasure('terrainSignature', () => this.buildTerrainChunkStaticSignature(scene, chunk.cx, chunk.cy, cellSize));
-    this.profileCount('terrainChunkSignatures');
+    const signatureStartedAt = this.profiler.start();
+    const signature = this.buildTerrainChunkStaticSignature(scene, chunk.cx, chunk.cy, cellSize);
+    this.profiler.end('terrainSignature', signatureStartedAt);
+    this.profiler.count('terrainChunkSignatures');
     chunk.staticSignatureDeps = deps;
     return signature;
   }
@@ -2022,7 +2008,9 @@ export class PixiMapRendererAdapter {
     if (chunk.overlaySignature && chunk.overlaySignatureDeps && this.isSameTerrainChunkOverlaySignatureDeps(chunk.overlaySignatureDeps, deps)) {
       return chunk.overlaySignature;
     }
-    const signature = this.profileMeasure('terrainSignature', () => this.buildTerrainChunkOverlaySignature(scene, chunk.cx, chunk.cy, cellSize));
+    const signatureStartedAt = this.profiler.start();
+    const signature = this.buildTerrainChunkOverlaySignature(scene, chunk.cx, chunk.cy, cellSize);
+    this.profiler.end('terrainSignature', signatureStartedAt);
     chunk.overlaySignatureDeps = deps;
     return signature;
   }
@@ -2228,7 +2216,7 @@ export class PixiMapRendererAdapter {
     this.groundPileSignature = signature;
     this.clearContainer(this.groundLayer);
     const cellSize = getCellSize();
-    this.profileSetCounter('groundPiles', scene.groundPiles.size);
+    this.profiler.setCounter('groundPiles', scene.groundPiles.size);
     for (const pile of scene.groundPiles.values()) {
       const root = new Container();
       root.position.set(pile.x * cellSize, pile.y * cellSize);
@@ -2422,8 +2410,8 @@ export class PixiMapRendererAdapter {
     }
     this.pathLayerSignature = signature;
     this.pathGraphics.clear();
-    this.profileSetCounter('pathCells', this.pathCells.length);
-    this.profileSetCounter('fadingPathCells', this.fadingPath?.cells.length ?? 0);
+    this.profiler.setCounter('pathCells', this.pathCells.length);
+    this.profiler.setCounter('fadingPathCells', this.fadingPath?.cells.length ?? 0);
     this.drawPathCells(this.pathGraphics, this.pathCells, 1);
     if (this.fadingPath && fadingAlpha > 0) this.drawPathCells(this.pathGraphics, this.fadingPath.cells, fadingAlpha * PATH_TRAIL_FADE_ALPHA);
     this.drawPathArrows(this.pathGraphics, playerX, playerY, this.pathCells, 1);
@@ -2897,7 +2885,7 @@ export class PixiMapRendererAdapter {
 
   private updateEntityViews(camera: CameraState, progress: number, localPlayerId: string, localPlayerX: number, localPlayerY: number, localPlayerChar: string): void {
     const cellSize = getCellSize();
-    this.profileSetCounter('entities', this.entities.size);
+    this.profiler.setCounter('entities', this.entities.size);
     const motionProgress = clamp01(progress);
     const t = easeOutCubic(motionProgress);
     const viewportLeft = camera.x - this.width / 2 - cellSize * 2;
@@ -3527,124 +3515,7 @@ export class PixiMapRendererAdapter {
     ];
   }
 
-  private refreshProfileState(): void {
-    if (!this.profileEnabled) {
-      if (this.profileState && typeof window !== 'undefined') {
-        delete window.__mudPixiProfile;
-        delete window.__mudPixiProfileReset;
-      }
-      this.profileState = null;
-      return;
-    }
-    if (this.profileState) return;
-    if (!this.profileWindow) {
-      this.profileWindow = new PixiProfilerWindow();
-      this.profileWindow.mount();
-    }
-    this.profileState = {
-      startedAt: performance.now(),
-      lastPublishedAt: 0,
-      lastFrameAt: 0,
-      frameIndex: 0,
-      metrics: createPixiProfileMetrics(),
-      counters: createPixiProfileCounters(),
-      frameMetrics: createPixiProfileFrameMetrics(),
-      frameCounters: createPixiProfileFrameCounters(),
-      lastFrameSample: null,
-    };
-    if (typeof window !== 'undefined') {
-      window.__mudPixiProfileReset = () => this.resetProfileState();
-    }
-  }
-
-  private resetProfileState(): void {
-    if (!this.profileEnabled) {
-      this.profileState = null;
-      return;
-    }
-    this.profileState = {
-      startedAt: performance.now(),
-      lastPublishedAt: 0,
-      lastFrameAt: 0,
-      frameIndex: 0,
-      metrics: createPixiProfileMetrics(),
-      counters: createPixiProfileCounters(),
-      frameMetrics: createPixiProfileFrameMetrics(),
-      frameCounters: createPixiProfileFrameCounters(),
-      lastFrameSample: null,
-    };
-    resetRuntimeProfileFrameMetrics();
-    this.profileWindow?.reset();
-    this.publishProfileIfNeeded(true);
-  }
-
-  private profileStart(): number {
-    return this.profileState ? performance.now() : 0;
-  }
-
-  private profileEnd(key: PixiProfileMetricKey, startedAt: number): void {
-    const state = this.profileState;
-    if (!state || startedAt <= 0) return;
-    const elapsed = performance.now() - startedAt;
-    const metric = state.metrics[key];
-    metric.count += 1;
-    metric.totalMs += elapsed;
-    metric.maxMs = Math.max(metric.maxMs, elapsed);
-    metric.lastMs = elapsed;
-    state.frameMetrics[key] += elapsed;
-  }
-
-  private profileMeasure<T>(key: PixiProfileMetricKey, callback: () => T): T {
-    const startedAt = this.profileStart();
-    try {
-      return callback();
-    } finally {
-      this.profileEnd(key, startedAt);
-    }
-  }
-
-  private profileCount(key: PixiProfileCounterKey, count = 1): void {
-    const state = this.profileState;
-    if (!state) return;
-    state.counters[key] += count;
-    state.frameCounters[key] += count;
-  }
-
-  private profileSetCounter(key: PixiProfileCounterKey, count: number): void {
-    const state = this.profileState;
-    if (!state) return;
-    state.counters[key] = count;
-    state.frameCounters[key] = count;
-  }
-
-  private recordProfileFrame(frameAtMs: number, schedule: PixiProfileFrameSchedule): void {
-    const state = this.profileState;
-    if (!state) return;
-    state.frameIndex += 1;
-    const previousFrameAt = state.lastFrameAt;
-    const frameIntervalMs = previousFrameAt > 0 ? Math.max(0, frameAtMs - previousFrameAt) : 0;
-    state.lastFrameAt = frameAtMs;
-    const renderer = this.buildProfileRendererState();
-    const sample: PixiProfileFrameSample = {
-      index: state.frameIndex,
-      atMs: frameAtMs,
-      frameIntervalMs,
-      frameFps: frameIntervalMs > 0 ? 1000 / frameIntervalMs : null,
-      schedule,
-      totalMs: state.frameMetrics.renderFrame,
-      metrics: { ...state.frameMetrics },
-      runtimeMetrics: consumeRuntimeProfileFrameMetrics(),
-      browser: consumeBrowserProfileFrameDiagnostics(frameAtMs),
-      counters: { ...state.frameCounters },
-      renderer,
-    };
-    state.lastFrameSample = sample;
-    this.profileWindow?.recordFrame(sample);
-    state.frameMetrics = createPixiProfileFrameMetrics();
-    state.frameCounters = createPixiProfileFrameCounters();
-  }
-
-  private buildProfileRendererState(): PixiProfileSnapshot['renderer'] {
+  private buildProfileRendererState(): PixiProfileRendererState {
     let cachedTerrainChunks = 0;
     let terrainCachedContainers = 0;
     let terrainChunkChildren = 0;
@@ -3690,34 +3561,6 @@ export class PixiMapRendererAdapter {
       backbufferHeight: this.height,
       backbufferPixels: this.width * this.height,
     };
-  }
-
-  private publishProfileIfNeeded(force = false): void {
-    const state = this.profileState;
-    if (!state || typeof window === 'undefined') return;
-    const now = performance.now();
-    if (!force && now - state.lastPublishedAt < PIXI_PROFILE_LOG_INTERVAL_MS) return;
-    state.lastPublishedAt = now;
-    const metrics = Object.fromEntries(PIXI_PROFILE_METRIC_KEYS.map((key) => {
-      const metric = state.metrics[key];
-      return [key, {
-        count: metric.count,
-        totalMs: Number(metric.totalMs.toFixed(3)),
-        maxMs: Number(metric.maxMs.toFixed(3)),
-        lastMs: Number(metric.lastMs.toFixed(3)),
-        avgMs: metric.count > 0 ? Number((metric.totalMs / metric.count).toFixed(3)) : 0,
-      }];
-    })) as PixiProfileSnapshot['metrics'];
-    const snapshot: PixiProfileSnapshot = {
-      enabled: true,
-      startedAt: state.startedAt,
-      elapsedMs: Number((now - state.startedAt).toFixed(3)),
-      metrics,
-      counters: { ...state.counters },
-      renderer: this.buildProfileRendererState(),
-      latestFrame: state.lastFrameSample,
-    };
-    window.__mudPixiProfile = snapshot;
   }
 
   private resolveActionTextStyle(effect: Extract<CombatEffect, { type: 'float' }>): FloatingActionTextStyle | undefined {

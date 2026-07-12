@@ -64,6 +64,7 @@
 - 本轮进展：背包批量丢弃原先在主面板维护打开态、筛选、选中实例和二次确认 4 组状态，并把自己的 render key、库存淘汰和弹窗关闭生命周期混入通用详情弹窗；现已提取 `InventoryBulkDiscardDialogController`，只从当前库存收集仍存在的稳定实例 ID，并在服务端处理前保留二次确认。主面板进一步降到门禁口径 3580 行，但详情/动作规则尚未拆分，仍不更新 baseline。
 - 本轮进展：背包单物品的使用、丢弃、摧毁、数量草稿、特殊消耗品提示和二次确认继续占用约 600 行，并把依赖玩家境界/道基/天关的确认文案挂在不含玩家上下文的通用 render key 上；另有约 50 行从未被任何渲染路径调用的功法书概要投影。现已提取 `InventoryItemActionDialogController` 与纯状态对象，删除不可达投影，主面板降到门禁口径 2984 行并退出新超限清单；特殊确认按玩家上下文 revision 失效，普通数量输入不受无关增量打断。当前唯一新超限文件为 Pixi renderer，FS-002 仍未完成。
 - 本轮进展：Pixi renderer 的地形静态签名、动态覆盖签名和望气数值投影原本混在主适配器中，且失效域与实际绘制字段不一致。现已提取 90 行 `pixi-terrain-cache-signatures.ts`，主文件降到门禁口径 3729 行；该文件仍是唯一新超限项，后续必须继续拆出 profiling/资源职责，当前不建立 baseline。
+- 本轮进展：Pixi profiling 的状态、窗口、全局调试句柄和帧样本聚合原本全部挂在渲染 adapter 上，且关闭诊断时仍在每帧创建测量闭包和 schedule 对象。现已提取 `PixiRenderProfiler` 并改为无闭包时间戳上报；主文件降到门禁口径约 3572 行，仍需继续拆出纯渲染 primitive 才能退出唯一新超限清单。
 
 ### FS-003 `[ ]` server tools 大量绕过 TypeScript 检查并保留 CommonJS 写法
 
@@ -602,6 +603,15 @@
 - 修复方式：提取 `pixi-terrain-cache-signatures.ts` 作为地形缓存边界；静态签名只保留 `type/terrainType/surfaceType/structureType/interactableKinds` 和渲染配置，MapStore 也只用这些字段推进静态 chunk revision。生命条、可见性和望气信号由覆盖层独立签名负责，地图记忆仍照常保存动态资源但不推动仅绘制地形类型的小地图基础缓存。
 - 验证：空间缓存 proof 锁定 MapStore 静态签名不得重新混入动态字段；地图生命周期 proof 动态证明生命、灵气和资源改变不影响静态签名，而地形分层字段改变必定失效。完整客户端门禁结果见验证表；当前没有 GPU trace 或低端真机长时间灵气流转压测，不把静态证明等同于实测帧率收益。
 
+### FS-059 `[x]` Pixi profiler 在关闭时仍制造帧分配且销毁后保留渲染器闭包
+
+- 严重级别：中高。
+- 根本原因：adapter 用 `profileMeasure(key, () => ...)` 包裹每帧相机、地形、实体、特效和 Pixi render 等十余个阶段，即使 profiler 关闭也会先创建箭头函数；每帧还无条件构造带对象展开的 `activeSchedule`。开启 profiler 后，`window.__mudPixiProfileReset` 捕获整个 adapter；`destroy()` 先 `resetScene()` 创建新诊断状态，只销毁窗口却没有删除全局重置闭包和快照。
+- 为什么错误：可选诊断设施关闭时不应持续向 60 FPS 热路径引入短命函数和对象；生命周期拥有者销毁时必须释放所有全局入口。全局闭包只要仍可达，就会连带保留地图分块、实体、纹理引用和 Pixi 场景树。
+- 后果：正常玩家即使从未开启 profiler，也会承受稳定的帧级分配和额外 `performance.now()`/函数调用成本，增加移动端 GC 抖动；曾开启诊断的会话在地图运行时销毁后仍可能无法回收整套渲染器对象图，并向控制台暴露已失效的重置入口。
+- 修复方式：提取 `PixiRenderProfiler`，统一拥有启停、runtime profiler、窗口、样本和两个 `window` 句柄；adapter 改为显式 `start/end`，不再传测量闭包，且只有 `isActive()` 时才计算活跃时长、展开 schedule、记录和发布帧样本。销毁统一关闭底层 profiler、停止定时探针、销毁窗口并删除全局快照与重置入口。
+- 验证：地图生命周期 proof 通过 Vite 实际加载 profiler，动态验证默认关闭、启用/发布/重置、销毁后三个全局/运行态入口全部释放；源码守卫禁止 adapter 恢复测量闭包，并要求帧快照位于 active 守卫内。完整客户端门禁结果见验证表。
+
 ## 待进一步验证或用户决定
 
 ### D-001 `[?]` 客户端初始包同时装载 React 面板与 legacy 回退实现
@@ -726,3 +736,4 @@
 | 背包批量丢弃弹窗职责拆分 | client TypeScript、生产边界 proof 与完整 `verify:client` 通过；文件体积门禁按预期仍退出 1 | 筛选、选择、二次确认、缺失实例淘汰与单次关闭由专用控制器承载；总面板降至门禁口径 3580 行 | 无真实服务端并发和网络重放；详情/动作职责仍需继续拆分，文件体积门禁尚未恢复，其他 14 个 baseline regression 未变 |
 | 背包单物品动作弹窗与上下文失效 | 专项状态 proof、client TypeScript、生产边界 proof 与完整 `verify:client` 通过；文件体积门禁确认主面板降至 2984 行 | 稳定实例身份、数量草稿、摧毁二次确认及特殊使用上下文失效均有确定性保护；背包面板退出新超限清单 | 无真实服务端资产并发、触控/焦点视觉回归；门禁仍因 Pixi 新超限和 14 个 baseline regression 退出 1 |
 | 望气投影与 Pixi 地形缓存失效域 | `pnpm build:shared`、地图 lifecycle/spatial-cache proof 和完整 `pnpm verify:client` 通过；文件体积门禁按预期退出 1 | 绝对灵气统一换算等级，Canvas/Pixi 共用信号；资源/生命条变化精确失效动态层且不再销毁静态 GPU 分块 | 未做 WebGL GPU trace、低端真机半衰期长跑和视觉截图；Pixi 主文件仍为 3729 行，14 个 baseline regression 未处理 |
+| Pixi profiler 热路径与销毁生命周期 | 动态 profiler lifecycle proof、client TypeScript 与完整 `pnpm verify:client` 通过；文件体积门禁按预期退出 1 | 关闭时不再创建测量闭包/帧快照，启停和销毁可完整释放窗口、定时探针及全局闭包 | 未做 Chrome heap snapshot 与长时间 profiler 压测；Pixi 主文件仍超过 3000 行 |
