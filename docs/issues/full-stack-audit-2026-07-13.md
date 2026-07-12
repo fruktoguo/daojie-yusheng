@@ -3,7 +3,7 @@
 ## 审计口径
 
 - 生产主线：`packages/client`、`packages/shared`、`packages/server`、`packages/config-editor`。
-- 当前基线：`main` 分支 `08eb28b4`；相对 `origin/main` ahead 9。
+- 当前基线：`main` 分支 `09e7dbf5`；相对 `origin/main` ahead 10。
 - package manager：`pnpm@10.29.1`。
 - 每项结论必须来自机制文档、完整调用链、测试、编译产物或运行数据；仅凭搜索未发现异常不能标记为“确认无问题”。
 - `[x]` 只表示该行列出的具体证据范围已完成，不代表相邻系统或整个项目已完成。
@@ -33,6 +33,7 @@
 - [x] P-12 动态实例从创建到 catalog 注册、lease claim 和可写状态之间的异步空窗已修复；见 FS-008。
 - [x] P-13 lease 到期后的 5 秒旧节点写入宽限已移除；见 FS-010。
 - [x] P-14 宗门实例 shell、入口、地块和护宗阵在 lease 就绪前被应用的问题已修复；见 FS-011。
+- [x] P-15 玩家心跳与断线 presence 的提交确认、单域修订清理和关机失败上报已修复；见 FS-014。
 
 ### 服务端权威运行时
 
@@ -186,7 +187,7 @@
 
 ### FS-008 动态实例在异步 catalog 注册完成前已被视为可写
 
-- **状态**：已修复并验证，待本组中文原子提交后回填 hash。
+- **状态**：已修复、验证并提交。
 - **严重级别**：P0。
 - **所属功能组**：动态实例 / catalog 注册 / lease claim / tick 与持久化写入。
 - **影响链路**：宗门、密室、通天塔或其他按需实例创建 → `setInstanceRuntime()` → 后台 `syncManagedInstanceRegistration()` → tick、实例分域写入和玩家挂接。
@@ -198,11 +199,11 @@
 - **修复方式**：新增 `WorldRuntimeInstanceLeaseReadinessService`，按 `instanceId` 串行 catalog 注册和 lease 同步，使用 generation 与对象恒等守卫隔离 reset/替换；任务可由挂接和领域服务等待。catalog 启用时缺少 node/token 一律不可写；任务失败保持实例不可写，由 attach/tick/领域写入闸门失败关闭。
 - **实际修改**：`WorldRuntimeService.setInstanceRuntime()` 改为调度就绪服务并暴露 `waitForInstanceLeaseReady()`；`syncManagedInstanceRegistration()` 改为可等待并在 upsert、claim 前后检查当前对象；密室恢复/创建和通天塔/宗门相邻路径等待就绪；新增 `instance-lease-readiness-smoke.ts` 证明同 ID 任务串行、旧对象不 claim、当前对象只 claim 一次。
 - **验证结果**：server compile 通过；compiled `instance-lease-readiness-smoke` 证明缺 lease 初始不可写、旧 runtime 未 claim、当前 runtime claim 一次且等待器直到 claim 后才完成；compiled 通天塔、密室、宗门、启动恢复和 bootstrap smoke 均通过；真实 PostgreSQL `instance-lease-runtime-smoke` 通过；`pnpm verify:quick` 完整通过。未证明 10000 实例同时注册的吞吐和真实跨节点网络分区。
-- **中文原子提交 hash**：待本组提交后回填。
+- **中文原子提交 hash**：`09e7dbf5`（`fix(runtime): 加固动态实例租约就绪门禁`）。
 
 ### FS-009 玩家挂接读取了错误依赖形状并绕过真实 attach gate
 
-- **状态**：已修复并验证，待本组中文原子提交后回填 hash。
+- **状态**：已修复、验证并提交。
 - **严重级别**：P0。
 - **所属功能组**：玩家会话 / bootstrap / 动态实例 / 跨图与通天塔。
 - **影响链路**：socket bootstrap、离线收益确认、HTTP connect、世界迁移、通天塔进出/换层 → `WorldRuntimePlayerSessionService.connectPlayer()` → 目标实例 attach gate。
@@ -214,11 +215,11 @@
 - **修复方式**：会话服务优先调用 `deps.instanceReadyForPlayerAttach()`，仅把嵌套形状保留为兼容夹具；新增 `connectPlayerWhenReady()`，先解析/创建精确目标、等待该实例就绪，再以禁止 fallback 的精确 ID 重新进入同步 `connectPlayer()`，由最终挂接点再次执行权威 guard。bootstrap、离线收益确认、HTTP controller、通天塔和世界迁移统一 await 新入口。
 - **实际修改**：更新 session bootstrap runtime port 与调用链为异步；controller 改为 await；通天塔动作支持异步挂接；动作执行服务兼容同步普通动作与异步塔/迁服动作；专项 smoke 证明生产直传 guard 被调用且顺序为 wait → guard → connect。
 - **验证结果**：compiled `instance-lease-readiness-smoke`、`world-session-bootstrap-instance-fallback-smoke`、`world-runtime-action-execution-smoke`、`tongtian-tower-smoke` 与 `world-runtime-lifecycle-smoke` 通过；`pnpm verify:quick` 的 runtime/socket 主证明链通过。未执行真实双节点 socket 导流或滚动重启验收。
-- **中文原子提交 hash**：待本组提交后回填。
+- **中文原子提交 hash**：`09e7dbf5`（`fix(runtime): 加固动态实例租约就绪门禁`）。
 
 ### FS-010 lease 到期后旧节点仍有 5 秒写入宽限
 
-- **状态**：已修复并验证，待本组中文原子提交后回填 hash。
+- **状态**：已修复、验证并提交。
 - **严重级别**：P0。
 - **所属功能组**：实例 lease / split-brain / 写入 fence。
 - **影响链路**：实例 tick、动作、持久化 flush、销毁和玩家挂接 → `isInstanceLeaseWritable()`；远端节点 → `InstanceCatalogService.claimInstanceLease()`。
@@ -230,11 +231,11 @@
 - **修复方式**：所有运行态写权限和本地过期降级判断改为严格比较 `leaseExpireAt > Date.now()`；续租/接管探测仍可保留调度偏移，但在成功原子 renew/claim 前绝不恢复写入。
 - **实际修改**：收紧 `isInstanceLeaseWritable()` 与 `shouldMarkLocalLeaseDegraded()`；专项 smoke 构造未来 lease 与已过期 1 毫秒 lease，证明前者可写、后者立即停写。
 - **验证结果**：compiled `instance-lease-readiness-smoke` 的 `beforeExpiryWritable=true / expiredWritable=false`；compiled `instance-lease-sync-error-smoke` 证明到期进入 `lease_degraded` 且续租恢复后才重开写入；真实 PostgreSQL `instance-lease-runtime-smoke` 和 `pnpm verify:quick` 通过。未做真实双节点亚毫秒级 claim/旧写竞态压测。
-- **中文原子提交 hash**：待本组提交后回填。
+- **中文原子提交 hash**：`09e7dbf5`（`fix(runtime): 加固动态实例租约就绪门禁`）。
 
 ### FS-011 宗门入口和运行态副作用可发生在实例 lease 就绪前
 
-- **状态**：已修复并验证，待本组中文原子提交后回填 hash。
+- **状态**：已修复、验证并提交。
 - **严重级别**：P0。
 - **所属功能组**：宗门 / 启动恢复 / 动态实例 / 阵法与地图地块。
 - **影响链路**：启动 `restoreSects()`、建宗、迁宗 → 创建/查找宗门实例 → 同步宗门地块、挂入口/核心 portal、创建/迁移护宗阵、写宗门资产。
@@ -246,11 +247,11 @@
 - **修复方式**：启动 lease 前的 `restoreSects()` 只注册模板和创建 shell，显式 `applyRuntimeState:false`；真正应用时对入口与宗门实例逐一等待动态注册、即时续租且关闭隐式 hydrate，最后再次检查对象仍是当前 runtime 且严格可写，不满足则记录并跳过。建宗在任何 portal、资产和阵法变更前同时校验当前入口与新宗门实例；迁宗同时校验旧入口、目标入口和宗门实例，旧入口缺失或非本节点写权时失败关闭。建宗失败以统一 `destroyManagedInstance()` 的 catalog lease/epoch CAS 回收新实例，拒绝或异常时保留不可写运行态并记录原因，不再无围栏删内存。
 - **实际修改**：为 `restoreSects()` 增加运行态应用分相；新增 `prepareSectRuntimeApply()` 的双实例就绪/续租/对象恒等/可写检查；建宗与迁宗改用多实例 `waitForSectInstancesLeaseReady()`；建宗 rollback 复用统一实例销毁围栏；综合宗门 smoke 记录并断言建宗、两次恢复和迁宗的等待次数与顺序，并证明 lease 拒绝时物品、入口和实例表全部回滚。
 - **验证结果**：规范 TypeScript 编译通过；默认本地环境下 compiled `world-runtime-sect-smoke` 通过，证明建宗同时等待入口与宗门实例、迁宗校验旧/新入口和宗门实例、恢复同时等待入口与宗门实例，且 lease 拒绝不会消耗物品、挂入口或留下运行态实例；compiled `world-runtime-lifecycle-smoke`、真实 PostgreSQL `instance-lease-runtime-smoke` 与 `pnpm verify:quick` 通过。未做两节点分别持有入口图与宗门图的集群验收。
-- **中文原子提交 hash**：待本组提交后回填。
+- **中文原子提交 hash**：`09e7dbf5`（`fix(runtime): 加固动态实例租约就绪门禁`）。
 
 ### FS-012 跨线偏好和通天塔当前层在目标接入前提前推进
 
-- **状态**：已修复并验证，待本组中文原子提交后回填 hash。
+- **状态**：已修复、验证并提交。
 - **严重级别**：P1。
 - **所属功能组**：世界迁移 / 通天塔 / 玩家位置与进度一致性。
 - **影响链路**：`world:migrate` 或通天塔上一层/下一层 → 更新玩家偏好/塔层进度 → 连接目标实例。
@@ -262,11 +263,11 @@
 - **修复方式**：世界迁移仅在目标连接成功的 finalize 阶段更新偏好并发成功通知；同分线无位置变更时保持即时更新。通天塔先完成目标层连接，再推进 `currentLayer`；连接失败不改变进度。
 - **实际修改**：`executeWorldMigration()` 和 `moveLayer()` 调整提交顺序；动作 smoke 增加异步 lease 拒绝用例，明确断言不调用 `updateWorldPreference` 且不发送成功通知；通天塔 smoke 全面 await 异步动作。
 - **验证结果**：compiled `world-runtime-action-execution-smoke` 与 `tongtian-tower-smoke` 通过；前者证明 `lease_not_local` 时偏好和成功通知均未推进，后者证明成功换层后进度正确；`pnpm verify:quick` 通过。未模拟玩家连接成功后进度异步落库失败，该链仍由现有 pending write/flush 负责恢复。
-- **中文原子提交 hash**：待本组提交后回填。
+- **中文原子提交 hash**：`09e7dbf5`（`fix(runtime): 加固动态实例租约就绪门禁`）。
 
 ### FS-013 动作与宗门综合 smoke 长期被类型绕过和陈旧夹具削弱
 
-- **状态**：已修复并验证，待本组中文原子提交后回填 hash。
+- **状态**：已修复、验证并提交。
 - **严重级别**：P1。
 - **所属功能组**：验证门禁 / TypeScript / 本地环境隔离。
 - **影响链路**：动作执行、世界迁移、宗门建/迁宗和宗门地图综合回归。
@@ -278,7 +279,23 @@
 - **修复方式**：移除两份 smoke 的类型绕过和 CommonJS，改为规范 TypeScript import；按当前构造器/方法签名补齐夹具，修正迁服载荷和宗门 ID 断言；宗门 smoke 在执行 main 前保存并清除数据库 URL，结束后恢复，确保无库综合测试不受本机配置影响。
 - **实际修改**：更新 `world-runtime-action-execution-smoke.ts`、`world-runtime-sect-smoke.ts` 和相关异步断言；补充迁服失败、宗门 lease 等待证明。
 - **验证结果**：server compile 在无 `@ts-nocheck` 下通过；默认环境直接运行 compiled `world-runtime-action-execution-smoke` 与 `world-runtime-sect-smoke` 均通过；`pnpm verify:quick` 完整通过。
-- **中文原子提交 hash**：待本组提交后回填。
+- **中文原子提交 hash**：`09e7dbf5`（`fix(runtime): 加固动态实例租约就绪门禁`）。
+
+### FS-014 心跳与断线 presence 在落库失败时仍被误判为成功
+
+- **状态**：已修复并完成专项验证，待本组原子提交。
+- **严重级别**：P0。
+- **所属功能组**：玩家会话 / presence 三态 / 断线恢复 / 关闭链路。
+- **影响链路**：socket 心跳或断线 → `WorldGatewayPresenceHelper` → `PlayerDomainPersistenceService.savePlayerPresence()` → `player_presence` / `player_recovery_watermark` → dirty 清理与 `WorldShutdownDrainService` 结果。
+- **证据**：修复前心跳入口以 fire-and-forget 发起 `savePlayerPresence()` 后，未等待事务成功就立即写入 5 秒节流时间并调用 `markPersisted()`；该调用没有携带本次捕获的 presence 单域修订，异步 IO 期间发生断线或换绑时也可能清除较新的 dirty。断线入口又在 helper 内捕获并吞掉所有非围栏异常，`WorldGateway.drainDetachedBinding()` 因 promise 正常完成而无条件把 `presencePersisted` 设为 `true`。
+- **根本原因**：直接 presence 小事务只把“已发起”当成“已提交”，没有把数据库事务结果与运行态 dirty 的精确修订绑定；helper 与关闭编排器之间也没有保留失败传播合同。
+- **为什么错误**：`player_presence` 是在线、离线挂机、离线三态以及 session owner/epoch 的恢复真源。只有数据库提交成功后才能清除对应 dirty；清除时也只能确认发起 IO 前捕获的单域修订。关闭链路必须准确记录 presence 失败，否则会在错误恢复线索上伪报 drain 成功。
+- **触发条件**：心跳写入期间 PostgreSQL 短暂失败、连接池超时或事务异常；心跳事务 in-flight 时玩家断线/顶号；关机逐玩家 detach 时 presence 写入失败。
+- **可能后果**：数据库继续显示玩家在线或保留旧 owner/heartbeat，进程紧接崩溃时没有 dirty 可重试；较新的离线挂机状态被旧心跳成功回调误清；启动恢复、GM 在线统计和 session route 判断读取陈旧状态；关机结果错误显示 presence 已落盘，运维无法识别需按残留在线态恢复的玩家。
+- **修复方式**：心跳按玩家合并 in-flight 写入，只在数据库事务成功后更新节流时间；提交前捕获 `presence` 单域修订和 runtime revision，成功回调再次比较同一单域修订，完全一致时才精确 `markPersisted`，失败则保留 dirty 并允许下一次心跳立即重试。bootstrap 首次 presence 写也采用相同修订比较。断线 helper 仅把更新会话已推进 fence 视为良性收敛，其他错误重新抛给 gateway，由 drain 结果记录 `presencePersisted=false`。
+- **实际修改**：更新 `world-gateway-presence.helper.ts` 的心跳提交确认、in-flight 去重、修订清理和断线错误传播；更新 `world-session-bootstrap-player-init.service.ts` 的 revision-aware dirty 清理；扩展 `player-presence-immediate-smoke.ts`，覆盖心跳失败不清 dirty、失败后立即重试、断线失败进入结构化结果，并保留 `在线 / 离线挂机 / 离线` 原语义。
+- **验证结果**：`git diff --check` 与 `pnpm --filter @mud/server compile` 通过；compiled `player-presence-immediate-smoke` 通过，故障注入时出现预期错误日志且最终 `ok=true`，证明心跳首次失败未标记 persisted、第二次立即重试成功、心跳 IO 期间的新断线修订未被旧成功回调清除、断线写失败返回 `presencePersisted=false`，原离线收益 blocking 状态仍为 `online=false / inWorld=true`；compiled `player-runtime-session-fence-smoke`、`player-session-route-smoke`、`shutdown-coordinator-order-smoke` 与 `shutdown-failed-flush-keeps-lease-smoke` 通过；`pnpm verify:quick` 完整通过，生产边界仍为 `world-runtime.service.ts = 1200` 行。上述验证不证明真实多节点同时登录、网络分区、完整 with-db/shadow/acceptance/full 或数据库故障恢复耗时。
+- **中文原子提交 hash**：待本组提交生成。
 
 ## 2026-07-14 待用户决定
 

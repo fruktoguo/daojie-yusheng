@@ -52,6 +52,8 @@ interface PlayerRuntimePort {
         transferTargetNodeId?: string | null;
         versionSeed?: number | null;
     } | null;
+    getPersistenceRevision?(playerId: string): number | null;
+    getPersistenceDomainRevision?(playerId: string, domain: string): number | null;
     markPersisted?(playerId: string, persistedDomains?: ReadonlySet<string> | Iterable<string> | null, persistedRevision?: number | null): void;
 }
 
@@ -166,6 +168,11 @@ export class WorldSessionBootstrapPlayerInitService {
         });
         const presence = this.playerRuntimeService.describePersistencePresence?.(input.playerId) ?? null;
         if (presence) {
+            const capturedDomainRevision = this.playerRuntimeService.getPersistenceDomainRevision?.(
+                input.playerId,
+                'presence',
+            ) ?? null;
+            const capturedRuntimeRevision = this.playerRuntimeService.getPersistenceRevision?.(input.playerId) ?? null;
             if (typeof this.playerDomainPersistenceService?.savePlayerPresence === 'function') {
                 await this.playerDomainPersistenceService.savePlayerPresence(input.playerId, {
                     ...presence,
@@ -179,7 +186,17 @@ export class WorldSessionBootstrapPlayerInitService {
                     versionSeed: nextPlayerPersistenceVersion(),
                 });
             }
-            this.playerRuntimeService.markPersisted?.(input.playerId, new Set(['presence']), null);
+            const currentDomainRevision = this.playerRuntimeService.getPersistenceDomainRevision?.(
+                input.playerId,
+                'presence',
+            ) ?? capturedDomainRevision;
+            if (currentDomainRevision === capturedDomainRevision) {
+                this.playerRuntimeService.markPersisted?.(
+                    input.playerId,
+                    new Set(['presence']),
+                    capturedRuntimeRevision,
+                );
+            }
             const routeSessionEpoch = Number.isFinite(presence.sessionEpoch)
                 ? Math.max(1, Math.trunc(Number(presence.sessionEpoch)))
                 : 0;

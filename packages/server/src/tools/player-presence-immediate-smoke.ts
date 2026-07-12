@@ -336,15 +336,27 @@ async function verifyGatewayHeartbeatAndDisconnectWrites(): Promise<{
   heartbeatWrites: number;
   disconnectWrites: number;
   flushCalls: string[];
+  failedHeartbeatRetried: boolean;
+  newerPresenceDirtyPreserved: boolean;
+  disconnectFailureReported: boolean;
 }> {
   const presenceWrites: Array<{ playerId: string; online: boolean; inWorld: boolean; offlineSinceAt: number | null }> = [];
   const persisted: string[] = [];
   const flushCalls: string[] = [];
   let heartbeatCount = 0;
   let notReadyCount = 0;
+  let presenceDomainRevision = 0;
+  let runtimeRevision = 1;
+  let failNextPresenceWrite = false;
+  let blockedHeartbeatPlayerId = '';
+  let releaseBlockedHeartbeatWrite: (() => void) | null = null;
+  const blockedHeartbeatWrite = new Promise<void>((resolve) => {
+    releaseBlockedHeartbeatWrite = resolve;
+  });
   const playerRuntimeService = {
     markHeartbeat() {
       heartbeatCount += 1;
+      presenceDomainRevision += 1;
     },
     describePersistencePresence() {
       return {
@@ -360,7 +372,15 @@ async function verifyGatewayHeartbeatAndDisconnectWrites(): Promise<{
     markPersisted(playerId: string) {
       persisted.push(playerId);
     },
+    getPersistenceRevision() {
+      return runtimeRevision;
+    },
+    getPersistenceDomainRevision() {
+      return presenceDomainRevision;
+    },
     detachSession() {
+      presenceDomainRevision += 1;
+      runtimeRevision += 1;
       return undefined;
     },
   };
@@ -369,6 +389,13 @@ async function verifyGatewayHeartbeatAndDisconnectWrites(): Promise<{
       return true;
     },
     async savePlayerPresence(playerId: string, input: { online: boolean; inWorld: boolean; offlineSinceAt?: number | null }) {
+      if (failNextPresenceWrite) {
+        failNextPresenceWrite = false;
+        throw new Error('presence_write_failed');
+      }
+      if (playerId === blockedHeartbeatPlayerId) {
+        await blockedHeartbeatWrite;
+      }
       presenceWrites.push({
         playerId,
         online: input.online,
@@ -460,9 +487,8 @@ async function verifyGatewayHeartbeatAndDisconnectWrites(): Promise<{
     },
   };
 
-  gateway.handleHeartbeat(client as never, {} as never);
-  gateway.handleHeartbeat(client as never, {} as never);
-  await new Promise((resolve) => setImmediate(resolve));
+  await gateway.handleHeartbeat(client as never, {} as never);
+  await gateway.handleHeartbeat(client as never, {} as never);
 
   assert.equal(heartbeatCount, 2);
   assert.deepEqual(presenceWrites, [
@@ -475,23 +501,63 @@ async function verifyGatewayHeartbeatAndDisconnectWrites(): Promise<{
   ]);
   assert.deepEqual(persisted, ['presence:player']);
 
+  const failurePlayerId = 'presence:heartbeat-retry';
+  const failedHeartbeatClient = {
+    id: 'socket:presence-retry',
+    data: { playerId: failurePlayerId },
+  };
+  failNextPresenceWrite = true;
+  await gateway.handleHeartbeat(failedHeartbeatClient as never, {} as never);
+  assert.equal(persisted.includes(failurePlayerId), false);
+  assert.equal(gateway.gatewayPresenceHelper.shouldPersistHeartbeatPresence(failurePlayerId), true);
+  await gateway.handleHeartbeat(failedHeartbeatClient as never, {} as never);
+  assert.equal(persisted.includes(failurePlayerId), true);
+
+  const racePlayerId = 'presence:heartbeat-disconnect-race';
+  blockedHeartbeatPlayerId = racePlayerId;
+  const raceHeartbeatPromise = gateway.handleHeartbeat({
+    id: 'socket:presence-race',
+    data: { playerId: racePlayerId },
+  } as never, {} as never);
+  playerRuntimeService.detachSession();
+  releaseBlockedHeartbeatWrite?.();
+  await raceHeartbeatPromise;
+  assert.equal(persisted.includes(racePlayerId), false);
+
   await gateway.handleDisconnect({ id: 'socket:presence' } as never);
 
-  assert.equal(presenceWrites.length, 2);
-  assert.deepEqual(presenceWrites[1], {
+  const disconnectWrite = presenceWrites.find((entry) => entry.playerId === 'presence:player' && entry.online === false);
+  assert.ok(disconnectWrite);
+  assert.deepEqual(disconnectWrite, {
     playerId: 'presence:player',
     online: false,
     inWorld: true,
-    offlineSinceAt: presenceWrites[1]?.offlineSinceAt ?? null,
+    offlineSinceAt: disconnectWrite.offlineSinceAt,
   });
-  assert.ok(Number.isFinite(Number(presenceWrites[1]?.offlineSinceAt ?? NaN)));
+  assert.ok(Number.isFinite(Number(disconnectWrite.offlineSinceAt)));
   assert.deepEqual(flushCalls, ['presence:player']);
-  assert.deepEqual(persisted, ['presence:player']);
+  assert.deepEqual(persisted, ['presence:player', failurePlayerId]);
+
+  failNextPresenceWrite = true;
+  const failedDrain = await gateway.drainDetachedBinding({
+    playerId: 'presence:disconnect-failure',
+    sessionId: 'sid:disconnect-failure',
+    socketId: null,
+    resumed: false,
+    connected: false,
+    detachedAt: Date.now(),
+    expireAt: Date.now() + 15_000,
+  });
+  assert.equal(failedDrain.presencePersisted, false);
+  assert.equal(failedDrain.flushSucceeded, true);
 
   return {
-    heartbeatWrites: 1,
+    heartbeatWrites: 3,
     disconnectWrites: 1,
     flushCalls,
+    failedHeartbeatRetried: true,
+    newerPresenceDirtyPreserved: true,
+    disconnectFailureReported: true,
   };
 }
 
