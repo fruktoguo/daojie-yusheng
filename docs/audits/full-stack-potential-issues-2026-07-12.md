@@ -29,7 +29,7 @@
 | 配置编辑器、schema、导入发布 | 进行中 | 构建、content-contract、异步代际 smoke 与浏览器乱序回包验证通过 | 继续复核地图保存、schema 与发布入口 |
 | 鉴权、权限、GM 高危操作 | 进行中 | 全部 GM controller 已确认受 Guard 保护；改密 token 撤销与启动回读已有 compiled smoke；注册激活 smoke 不再把鉴权要求误判为名称冲突；IP 失败预算和所有 GM 密码入口已统一限流；账号库未就绪会同时阻断 HTTP、GM、Socket 和 readiness | GM 审计 fail-open、高危 scope、GET 密码兼容入口及维护态策略等待产品决定 |
 | 错误处理、日志与可观测性 | 进行中 | 已确认 GM 审计写入失败只告警并放行；smoke 的协议/鉴权假红已修正 | 继续检查吞异常、敏感信息、告警与失败水位 |
-| 性能、内存、网络包体 | 进行中 | 文件体积门禁失败；构建产物存在大 chunk 警告 | 区分真实热路径问题、门禁误报和冷路径债务 |
+| 性能、内存、网络包体 | 进行中 | 文件体积门禁失败；战斗 action 编排服务已按无状态辅助职责拆分并退出 3000 行错误清单；构建产物存在大 chunk 警告 | 继续拆分其余 17 个基线增幅和 6 个新超限文件，并区分真实热路径问题、门禁误报和冷路径债务 |
 | 浅色、深色、手机与触控 | 待检查 | 构建门禁不证明视觉结果 | 需要浏览器级检查 |
 | 测试、构建、清理链与边界门禁 | 进行中 | quick/client/release contract/config build、边界审计通过；24 个工具文件的 37 处 Socket.IO 客户端均有 parser 守卫，无库 `verify:release:local` 的 18 类场景通过 | 继续检查其余持久化夹具清理、DB 分支与失真测试 |
 
@@ -47,11 +47,12 @@
 ### FS-002 `[ ]` 文件体积门禁已失守，生产巨型模块继续膨胀
 
 - 严重级别：高。
-- 根本原因：多个运行时、持久化、GM 和客户端面板持续把新职责并回巨型文件；`scripts/file-size-baseline.json` 没有阻止 18 个已超限文件继续增长，另有 5 个文件首次超过 3000 行。生成文件和大型 smoke 又与生产模块混在同一口径，增加了噪音。
+- 根本原因：多个运行时、持久化、GM 和客户端面板持续把新职责并回巨型文件；体积门禁当前仍报告 17 个已超限文件继续增长，另有 6 个文件首次超过 3000 行。生成文件和大型 smoke 又与生产模块混在同一口径，增加了噪音。
 - 为什么错误：巨型模块扩大冲突面和隐式副作用，难以证明单一职责、事务边界及局部 UI 更新；门禁红灯失去阻止继续膨胀的能力。
 - 后果：运行时/持久化改动更容易产生竞态、旧态覆盖、全量刷新或回归遗漏；review 和验证成本持续增加。
 - 修复方向：先修正生成物、工具与生产代码的分类口径，再按真实职责拆分当前生产超限模块；不得简单更新 baseline 掩盖增长。
-- 当前证据：`pnpm proof:file-size-gate` 退出 1，报告 18 个 baseline regression、5 个新超 3000 行文件。
+- 当前证据：`pnpm proof:file-size-gate` 退出 1，报告 17 个 baseline regression、6 个新超 3000 行文件。
+- 本轮进展：`world-runtime-combat-action.service.ts` 原先在 3415 行类中同时承载动作编排和约 500 行无状态规范化、目标索引、结果投影及诊断计时辅助；这些逻辑没有服务实例状态或外部调用契约，却扩大了权威编排层的修改面。现已提取为 546 行 `world-runtime-combat-action.helpers.ts`，主服务降到 2955 行并退出 3000 行错误清单；新 helper 同步纳入禁止网络、数据库、文件和 JSON 序列化的战斗热路径边界检查。剩余超限文件仍保持未完成状态，不更新 baseline 掩盖问题。
 
 ### FS-003 `[ ]` server tools 大量绕过 TypeScript 检查并保留 CommonJS 写法
 
@@ -546,3 +547,4 @@
 | 聚焦 compiled `progression` stable case | 收紧断言后通过 | Socket 生命周期、envelope 解码及同 tick 灵气流转下仍完整注入接近 100 点；最终值 `99.9991977` | 不证明真实数据库持久化与长期多 tick 灵气演化 |
 | `pnpm verify:quick`（加入 `registration-activation` 后） | 通过 | server/shared 编译、production-boundaries、release contract 及 12 个 quick case；证明成功请求不再清空 IP 失败预算，GM 密码跨入口共享主体预算 | 无 DB，不证明多节点间内存限流共享、真实代理/CDN 地址聚合及长期攻击流量 |
 | `pnpm verify:quick`（加入 `native-auth-persistence-failure` 后） | 通过 | server/shared 编译、production-boundaries、release contract 及 13 个 quick case；证明账号库配置后连接失败会 503、readiness 降级、重载真实重连并冒泡失败 | 无真实 DB，不证明成功重连后的实表全量回读、数据库恢复事务或多节点镜像失效传播 |
+| 战斗 action 边界拆分专项验证 | server compile 与 `combat-e2e-outcome-matrix`、`world-runtime-combat-action-service`、`world-runtime-combat-boundary` 三项 compiled smoke 通过 | 无状态 helper 拆分后动作定义、目标选择、结果应用、脏域、事件与热路径禁用项保持原契约；主服务为 2955 行 | `proof:file-size-gate` 仍因其他 17 个历史增幅文件失败，不证明其余巨型模块已完成拆分 |

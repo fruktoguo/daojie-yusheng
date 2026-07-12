@@ -10,6 +10,7 @@ const path = require('node:path');
 
 const runtimeFiles = [
   'packages/server/src/runtime/world/combat/world-runtime-combat-action.service.ts',
+  'packages/server/src/runtime/world/combat/world-runtime-combat-action.helpers.ts',
   'packages/server/src/runtime/combat/combat-outcome-apply-adapters.ts',
   'packages/server/src/runtime/combat/combat-event-query.ts',
   'packages/server/src/runtime/combat/combat-runtime-event-ring.helpers.ts',
