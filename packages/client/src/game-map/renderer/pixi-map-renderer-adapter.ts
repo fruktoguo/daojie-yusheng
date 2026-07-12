@@ -33,7 +33,6 @@ import {
   type Tile,
 } from '@mud/shared';
 import { getCellSize } from '../../display';
-import { isLocalDivineSkillName } from '../../content/local-templates';
 import { DEFAULT_MAP_PERFORMANCE_CONFIG, type MapPerformanceConfig } from '../../constants/ui/performance';
 import {
   PATH_ARROW_COLOR,
@@ -70,6 +69,7 @@ import {
 import { normalizeRuntimeImagePackVersion } from '../../renderer/runtime-image-pack-url';
 import { PixiRenderProfiler } from './pixi-render-profiler';
 import { isPixiEntityInViewport, PixiFrameGridPointSet } from './pixi-frame-spatial-index';
+import { PixiCombatEffectRuntime } from './pixi-combat-effect-runtime';
 import {
   buildPixiTerrainChunkOverlaySignature,
   buildPixiTerrainChunkStaticSignature,
@@ -115,20 +115,15 @@ import {
 } from './pixi-render-primitives';
 import type {
   AnimEntity,
-  AttackTrailEffect,
   EntityNameplateBadge,
   EntityView,
   FadingPathState,
-  FloatingActionTextStyle,
-  FloatingTextBurstOffset,
-  FloatingTextEffect,
   FormationRangeVisual,
   TerrainChunkOverlaySignatureDeps,
   TerrainChunkStaticSignatureDeps,
   TerrainChunkView,
   TerrainFogChunkView,
   TimeAtmosphereState,
-  WarningZoneEffect,
 } from './pixi-render-state';
 
 type PixiRenderer = Renderer<HTMLCanvasElement>;
@@ -138,14 +133,6 @@ const ARTIFACT_AURA_COLOR = 0xa8fbff;
 const ARTIFACT_AURA_FLOW_MS = 1200;
 
 const CHUNK_SIZE = PIXI_TERRAIN_CHUNK_SIZE;
-const MAX_FLOATING_TEXTS = 256;
-const MAX_ATTACK_TRAILS = 192;
-const ATTACK_TRAIL_REACH_MS = 110;
-const ATTACK_TRAIL_HOLD_MS = 200;
-const ATTACK_TRAIL_FADE_MS = 170;
-const ATTACK_TRAIL_DURATION_MS = ATTACK_TRAIL_REACH_MS + ATTACK_TRAIL_HOLD_MS + ATTACK_TRAIL_FADE_MS;
-const MAX_WARNING_ZONES = 64;
-const DEFAULT_WARNING_ZONE_DURATION_MS = 1240;
 const DEFAULT_PATH_TRAIL_FADE_MS = 500;
 const PATH_TRAIL_FADE_ALPHA = 0.7;
 const DEFAULT_RUNTIME_IMAGE_PACK_MANIFEST_URL = '/assets/runtime-image-packs/default/manifest.json';
@@ -191,6 +178,7 @@ export class PixiMapRendererAdapter {
   private readonly threatArrowLayer = new Container();
   private readonly entityLayer = new Container();
   private readonly effectLayer = new Container();
+  private readonly combatEffectRuntime = new PixiCombatEffectRuntime(this.effectLayer);
   private readonly screenLayer = new Container();
   private readonly pathGraphics = new Graphics();
   private readonly threatArrowGraphics = new Graphics();
@@ -225,10 +213,6 @@ export class PixiMapRendererAdapter {
   private pathCells: GridPoint[] = [];
   private fadingPath: FadingPathState | null = null;
   private threatArrows: Array<{ ownerId: string; targetId: string }> = [];
-  private floatingTexts: FloatingTextEffect[] = [];
-  private attackTrails: AttackTrailEffect[] = [];
-  private warningZones: WarningZoneEffect[] = [];
-  private nextEffectId = 1;
   private performanceConfig: MapPerformanceConfig = { ...DEFAULT_MAP_PERFORMANCE_CONFIG };
   private runtimeTileSpriteRefs = new Map<string, PixiTileSpriteRef>();
   private runtimeLegacyTileKeys = new Map<string, string>();
@@ -463,22 +447,8 @@ export class PixiMapRendererAdapter {
   enqueueEffect(effect: CombatEffect): void {
     if (effect.type === 'attack') {
       this.triggerAttackMotion(effect.fromX, effect.fromY, effect.toX, effect.toY);
-      this.addAttackTrail(effect.fromX, effect.fromY, effect.toX, effect.toY, effect.color);
-      return;
     }
-    if (effect.type === 'warning_zone') {
-      this.addWarningZone(effect.cells, effect.color, effect.durationMs, effect.baseColor, effect.originX, effect.originY);
-      return;
-    }
-    this.addFloatingText(
-      effect.x,
-      effect.y,
-      effect.text,
-      effect.color,
-      effect.variant,
-      this.resolveActionTextStyle(effect),
-      effect.durationMs,
-    );
+    this.combatEffectRuntime.enqueue(effect);
   }
 
   resetScene(): void {
@@ -492,15 +462,12 @@ export class PixiMapRendererAdapter {
     this.pathGraphics.clear();
     this.clearTerrainFogChunks();
     this.clearContainer(this.groundLayer);
-    this.clearContainer(this.effectLayer);
+    this.combatEffectRuntime.reset();
     this.threatArrowGraphics.clear();
     this.interactionOverlayGraphics.clear();
     this.targetingGraphics.clear();
     this.senseQiHoverGraphics.clear();
     this.timeOverlayGraphics.clear();
-    this.floatingTexts = [];
-    this.attackTrails = [];
-    this.warningZones = [];
     this.formationRangeVisuals.clear();
     this.formationRangeSenseQiVisuals.clear();
     this.formationRangeSignature = '';
@@ -587,7 +554,7 @@ export class PixiMapRendererAdapter {
     this.renderThreatArrows(player.id);
     this.profiler.end('threatArrows', threatArrowsStartedAt);
     const effectsStartedAt = this.profiler.start();
-    this.updateEffects(camera);
+    this.combatEffectRuntime.update();
     this.profiler.end('effects', effectsStartedAt);
     const timeOverlayStartedAt = this.profiler.start();
     this.renderTimeOverlay(scene.terrain.time);
@@ -2612,52 +2579,6 @@ export class PixiMapRendererAdapter {
     return this.entities.get(id);
   }
 
-  private addFloatingText(
-    x: number,
-    y: number,
-    text: string,
-    color = '#ffd27a',
-    variant: 'damage' | 'action' = 'damage',
-    actionStyle?: FloatingActionTextStyle,
-    durationMs?: number,
-  ): void {
-    const cellSize = getCellSize();
-    const label = new Text({
-      text,
-      style: textStyle(variant === 'action' ? 'floatingAction' : 'floatingDamage', variant === 'action' ? Math.max(10, cellSize * 0.28) : Math.max(14, cellSize * 0.45), color, 'rgba(15,12,10,0.95)', 3),
-      anchor: variant === 'action' ? { x: 0, y: 0 } : { x: 0.5, y: 1 },
-    });
-    this.effectLayer.addChild(label);
-    this.floatingTexts.push({
-      id: this.nextEffectId++,
-      x,
-      y,
-      text: label,
-      variant,
-      actionStyle,
-      createdAt: performance.now(),
-      duration: durationMs ?? (variant === 'action' ? 1000 : 850),
-    });
-    this.trimFloatingTextEffects();
-  }
-
-  private addAttackTrail(fromX: number, fromY: number, toX: number, toY: number, color = '#ffd27a'): void {
-    const graphics = new Graphics();
-    this.effectLayer.addChild(graphics);
-    this.attackTrails.push({
-      id: this.nextEffectId++,
-      fromX,
-      fromY,
-      toX,
-      toY,
-      color,
-      graphics,
-      createdAt: performance.now(),
-      duration: ATTACK_TRAIL_DURATION_MS,
-    });
-    this.trimAttackTrailEffects();
-  }
-
   private triggerAttackMotion(fromX: number, fromY: number, toX: number, toY: number): void {
     const view = this.resolveAttackMotionView(fromX, fromY);
     if (!view) return;
@@ -2677,194 +2598,6 @@ export class PixiMapRendererAdapter {
       if (view.anim.gridX === gridX && view.anim.gridY === gridY) return view;
     }
     return null;
-  }
-
-  private addWarningZone(cells: GridPoint[], color = '#ff2a2a', durationMs = DEFAULT_WARNING_ZONE_DURATION_MS, baseColor?: string, originX?: number, originY?: number): void {
-    if (cells.length === 0) return;
-    const origin = {
-      x: Number.isFinite(originX) ? Math.round(originX ?? 0) : Math.round(cells.reduce((sum, cell) => sum + cell.x, 0) / cells.length),
-      y: Number.isFinite(originY) ? Math.round(originY ?? 0) : Math.round(cells.reduce((sum, cell) => sum + cell.y, 0) / cells.length),
-    };
-    const distances = cells.map((cell) => Math.max(Math.abs(cell.x - origin.x), Math.abs(cell.y - origin.y)));
-    const minDistance = Math.min(...distances);
-    const zoneCells = cells.map((cell, index) => ({ ...cell, expandDistance: distances[index] - minDistance }));
-    const graphics = new Graphics();
-    this.effectLayer.addChild(graphics);
-    this.warningZones.push({
-      id: this.nextEffectId++,
-      cells: zoneCells,
-      color,
-      baseColor: baseColor ?? color,
-      createdAt: performance.now(),
-      duration: Math.max(1, Math.round(durationMs)),
-      maxExpandDistance: Math.max(...zoneCells.map((cell) => cell.expandDistance)),
-      graphics,
-    });
-    this.trimWarningZoneEffects();
-  }
-
-  private updateEffects(camera: CameraState): void {
-    void camera;
-    const now = performance.now();
-    const cellSize = getCellSize();
-    this.floatingTexts = this.floatingTexts.filter((entry) => {
-      const progress = (now - entry.createdAt) / entry.duration;
-      if (progress >= 1) {
-        this.destroyFloatingTextEffect(entry);
-        return false;
-      }
-      return true;
-    });
-    const groups = new Map<string, FloatingTextEffect[]>();
-    const burstMetaById = new Map<number, { index: number; total: number }>();
-    for (const entry of this.floatingTexts) {
-      const key = `${entry.x},${entry.y},${entry.variant}`;
-      const group = groups.get(key);
-      if (group) {
-        group.push(entry);
-      } else {
-        groups.set(key, [entry]);
-      }
-    }
-    for (const group of groups.values()) {
-      group.sort((left, right) => left.createdAt - right.createdAt || left.id - right.id);
-      for (let index = 0; index < group.length; index += 1) {
-        burstMetaById.set(group[index].id, { index, total: group.length });
-      }
-    }
-    for (const entry of this.floatingTexts) {
-      const progress = (now - entry.createdAt) / entry.duration;
-      const rise = entry.variant === 'action' ? cellSize * (0.08 + progress * 0.46) : cellSize * (0.2 + progress * 0.8);
-      const burstMeta = burstMetaById.get(entry.id) ?? { index: 0, total: 1 };
-      const burst = this.getFloatingTextBurstOffset(burstMeta.index, burstMeta.total, cellSize);
-      entry.text.alpha = entry.actionStyle === 'divine' ? 1 - Math.max(0, (progress - 0.86) / 0.14) : 1 - progress;
-      entry.text.position.set(entry.x * cellSize + cellSize / 2 + burst.offsetX, entry.y * cellSize - rise - burst.offsetY);
-    }
-    this.attackTrails = this.attackTrails.filter((entry) => {
-      const elapsed = now - entry.createdAt;
-      const progress = elapsed / entry.duration;
-      if (progress >= 1) {
-        this.destroyAttackTrailEffect(entry);
-        return false;
-      }
-      this.drawAttackTrailEffect(entry, cellSize, elapsed);
-      return true;
-    });
-    this.warningZones = this.warningZones.filter((zone) => {
-      const progress = (now - zone.createdAt) / zone.duration;
-      if (progress >= 1) {
-        this.destroyWarningZoneEffect(zone);
-        return false;
-      }
-      zone.graphics.clear();
-      const revealDistance = progress * (zone.maxExpandDistance + 1);
-      const lifetimeFade = 1 - progress * 0.62;
-      for (const cell of zone.cells) {
-        const localReveal = clamp01(revealDistance - cell.expandDistance);
-        if (localReveal <= 0) continue;
-        const revealEase = easeOutCubic(localReveal);
-        const edgePulse = 1 - Math.abs(localReveal - 0.5) * 2;
-        const sx = cell.x * cellSize;
-        const sy = cell.y * cellSize;
-        zone.graphics.rect(sx + 1, sy + 1, cellSize - 2, cellSize - 2).fill({ color: parseColor(zone.baseColor), alpha: 0.08 * revealEase * lifetimeFade });
-        zone.graphics.rect(sx + 1, sy + 1, cellSize - 2, cellSize - 2).fill({ color: parseColor(zone.color), alpha: (0.10 + edgePulse * 0.12) * revealEase * lifetimeFade });
-        zone.graphics.rect(sx + 1.5, sy + 1.5, cellSize - 3, cellSize - 3).stroke({ color: parseColor(zone.color), alpha: (0.42 + edgePulse * 0.34) * revealEase * lifetimeFade, width: Math.max(1.35, cellSize * (0.06 + edgePulse * 0.04)) });
-      }
-      return true;
-    });
-  }
-
-  private trimFloatingTextEffects(): void {
-    const overflow = this.floatingTexts.length - MAX_FLOATING_TEXTS;
-    if (overflow <= 0) return;
-    for (const entry of this.floatingTexts.splice(0, overflow)) {
-      this.destroyFloatingTextEffect(entry);
-    }
-  }
-
-  private trimAttackTrailEffects(): void {
-    const overflow = this.attackTrails.length - MAX_ATTACK_TRAILS;
-    if (overflow <= 0) return;
-    for (const entry of this.attackTrails.splice(0, overflow)) {
-      this.destroyAttackTrailEffect(entry);
-    }
-  }
-
-  private trimWarningZoneEffects(): void {
-    const overflow = this.warningZones.length - MAX_WARNING_ZONES;
-    if (overflow <= 0) return;
-    for (const zone of this.warningZones.splice(0, overflow)) {
-      this.destroyWarningZoneEffect(zone);
-    }
-  }
-
-  private destroyFloatingTextEffect(entry: FloatingTextEffect): void {
-    entry.text.parent?.removeChild(entry.text);
-    entry.text.destroy();
-  }
-
-  private destroyAttackTrailEffect(entry: AttackTrailEffect): void {
-    entry.graphics.parent?.removeChild(entry.graphics);
-    entry.graphics.destroy();
-  }
-
-  private destroyWarningZoneEffect(zone: WarningZoneEffect): void {
-    zone.graphics.parent?.removeChild(zone.graphics);
-    zone.graphics.destroy();
-  }
-
-  private getFloatingTextBurstOffset(index: number, count: number, cellSize: number): FloatingTextBurstOffset {
-    if (count <= 1 || index < 0) {
-      return { offsetX: 0, offsetY: 0 };
-    }
-    const horizontalStep = cellSize * 0.3;
-    const verticalStep = cellSize * 0.12;
-    const centeredIndex = index - (count - 1) / 2;
-    return {
-      offsetX: centeredIndex * horizontalStep,
-      offsetY: Math.abs(centeredIndex) * verticalStep,
-    };
-  }
-
-  private drawAttackTrailEffect(entry: AttackTrailEffect, cellSize: number, elapsed: number): void {
-    const sx = entry.fromX * cellSize + cellSize / 2;
-    const sy = entry.fromY * cellSize + cellSize / 2;
-    const ex = entry.toX * cellSize + cellSize / 2;
-    const ey = entry.toY * cellSize + cellSize / 2;
-    const dx = ex - sx;
-    const dy = ey - sy;
-    const distance = Math.hypot(dx, dy);
-    entry.graphics.clear();
-    if (distance < 1) return;
-
-    const reachProgress = easeOutCubic(elapsed / ATTACK_TRAIL_REACH_MS);
-    const tipX = sx + dx * reachProgress;
-    const tipY = sy + dy * reachProgress;
-    const tailProgress = Math.max(0, reachProgress - 0.72);
-    const tailX = sx + dx * tailProgress;
-    const tailY = sy + dy * tailProgress;
-    const angle = Math.atan2(dy, dx);
-    const color = parseColor(entry.color);
-    const fadeProgress = Math.min(1, Math.max(0, (elapsed - ATTACK_TRAIL_REACH_MS - ATTACK_TRAIL_HOLD_MS) / ATTACK_TRAIL_FADE_MS));
-    const alpha = 1 - fadeProgress * 0.85;
-
-    entry.graphics
-      .moveTo(tailX, tailY)
-      .lineTo(tipX, tipY)
-      .stroke({ color, alpha, width: Math.max(1.25, cellSize * 0.045) });
-    const headLength = Math.min(distance * reachProgress * 0.5, Math.max(6, cellSize * 0.18));
-    if (headLength < 2) return;
-    const headWidth = Math.min(headLength * 0.5, Math.max(3, cellSize * 0.09));
-    const headBackX = tipX - headLength * Math.cos(angle);
-    const headBackY = tipY - headLength * Math.sin(angle);
-    const normalX = -Math.sin(angle);
-    const normalY = Math.cos(angle);
-    entry.graphics
-      .moveTo(tipX, tipY)
-      .lineTo(headBackX + normalX * headWidth, headBackY + normalY * headWidth)
-      .lineTo(headBackX - normalX * headWidth, headBackY - normalY * headWidth)
-      .closePath()
-      .fill({ color, alpha });
   }
 
   private getFadingPathAlpha(now: number): number {
@@ -2963,9 +2696,9 @@ export class PixiMapRendererAdapter {
       effectChildren: this.effectLayer.children.length,
       screenChildren: this.screenLayer.children.length,
       pathChildren: this.pathLayer.children.length,
-      floatingTexts: this.floatingTexts.length,
-      attackTrails: this.attackTrails.length,
-      warningZones: this.warningZones.length,
+      floatingTexts: this.combatEffectRuntime.floatingTextCount,
+      attackTrails: this.combatEffectRuntime.attackTrailCount,
+      warningZones: this.combatEffectRuntime.warningZoneCount,
       runtimeTileTextures: this.runtimeTileTextures.size,
       runtimeAtlasTextures: this.runtimeAtlasTextures.size,
       runtimeEntityTextures: this.runtimeEntityTextures.size,
@@ -2978,9 +2711,4 @@ export class PixiMapRendererAdapter {
     };
   }
 
-  private resolveActionTextStyle(effect: Extract<CombatEffect, { type: 'float' }>): FloatingActionTextStyle | undefined {
-    if (effect.variant !== 'action') return undefined;
-    if (effect.actionStyle) return effect.actionStyle;
-    return isLocalDivineSkillName(effect.text) ? 'divine' : 'default';
-  }
 }

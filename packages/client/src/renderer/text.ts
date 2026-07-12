@@ -70,6 +70,13 @@ import { TextMeasureCache } from './text-measure-cache';
 import { TileSpriteCache } from './tile-sprite-cache';
 import { runtimeImagePack } from './runtime-image-pack';
 import { t as translateUi } from '../ui/i18n';
+import {
+  FloatingTextBurstLayout,
+  normalizeTimedEffectDuration,
+  pruneExpiredTimedEffectsInPlace,
+  resolveFloatingTextDuration,
+  resolveWarningZoneOrigin,
+} from './combat-effect-layout';
 
 const ENTITY_FACING_FLIP_TRANSITION_MS = 160;
 const ATTACK_MOTION_DURATION_MS = 180;
@@ -883,11 +890,6 @@ function buildLootContainerSignature(list: readonly { kind?: RenderEntity['kind'
 
 /** 浮动文字实例。 */
 interface FloatingText {
-/**
- * id：ID标识。
- */
-
-  id: number;  
   /**
  * x：x相关字段。
  */
@@ -918,6 +920,10 @@ interface FloatingText {
  */
 
   actionStyle?: FloatingActionTextStyle;  
+  /** 同格同类浮字的横向爆散偏移。 */
+  burstOffsetX: number;
+  /** 同格同类浮字的纵向爆散偏移。 */
+  burstOffsetY: number;
   /**
  * createdAt：createdAt相关字段。
  */
@@ -932,11 +938,6 @@ interface FloatingText {
 
 /** 攻击拖尾实例。 */
 interface AttackTrail {
-/**
- * id：ID标识。
- */
-
-  id: number;  
   /**
  * fromX：fromX相关字段。
  */
@@ -976,11 +977,6 @@ interface AttackTrail {
 
 /** 预警区域实例。 */
 interface WarningZone {
-/**
- * id：ID标识。
- */
-
-  id: number;  
   /**
  * cells：cell相关字段。
  */
@@ -1033,20 +1029,6 @@ interface WarningZone {
  */
 
   duration: number;
-}
-
-/** 浮动文字在同点堆叠时的偏移。 */
-interface FloatingTextBurstOffset {
-/**
- * offsetX：offsetX相关字段。
- */
-
-  offsetX: number;  
-  /**
- * offsetY：offsetY相关字段。
- */
-
-  offsetY: number;
 }
 
 /** 旧路径淡出过渡状态。 */
@@ -1214,16 +1196,11 @@ export class TextRenderer implements IRenderer {
   private performanceConfig: MapPerformanceConfig = { ...DEFAULT_MAP_PERFORMANCE_CONFIG };
   /** 当前浮动文字列表。 */
   private floatingTexts: FloatingText[] = [];
+  private readonly floatingTextBurstLayout = new FloatingTextBurstLayout<FloatingText>();
   /** 当前攻击拖尾列表。 */
   private attackTrails: AttackTrail[] = [];
   /** 当前预警区域列表。 */
   private warningZones: WarningZone[] = [];
-  /** 浮动文字 ID 自增。 */
-  private nextFloatingTextId = 1;
-  /** 攻击拖尾 ID 自增。 */
-  private nextAttackTrailId = 1;
-  /** 预警区域 ID 自增。 */
-  private nextWarningZoneId = 1;  
   /**
  * lastMotionSyncToken：lastMotionSyncToken标识。
  */
@@ -1285,6 +1262,7 @@ export class TextRenderer implements IRenderer {
     this.lootContainerTileKeys.clear();
     this.lastLootContainerSignature = '';
     this.floatingTexts = [];
+    this.floatingTextBurstLayout.reset();
     this.attackTrails = [];
     this.warningZones = [];
     this.targetingOverlay = null;
@@ -3021,23 +2999,16 @@ export class TextRenderer implements IRenderer {
     const now = performance.now();
     this.pruneExpiredFloatingTexts(now);
     this.floatingTexts.push({
-      id: this.nextFloatingTextId++,
       x,
       y,
       text,
       color,
       variant,
       actionStyle,
+      burstOffsetX: 0,
+      burstOffsetY: 0,
       createdAt: now,
-      duration: durationMs !== undefined
-        ? Math.max(1, Math.round(durationMs))
-        : variant === 'action' && actionStyle === 'divine'
-          ? 1000
-          : variant === 'action' && actionStyle === 'chant'
-            ? 1240
-            : variant === 'action'
-              ? 1000
-              : 850,
+      duration: resolveFloatingTextDuration(variant, actionStyle, durationMs),
     });
     this.trimFloatingTexts();
   }
@@ -3048,7 +3019,6 @@ export class TextRenderer implements IRenderer {
     this.pruneExpiredAttackTrails(now);
     this.triggerAttackMotion(fromX, fromY, toX, toY, now);
     this.attackTrails.push({
-      id: this.nextAttackTrailId++,
       fromX,
       fromY,
       toX,
@@ -3115,7 +3085,7 @@ export class TextRenderer implements IRenderer {
     }
     const now = performance.now();
     this.pruneExpiredWarningZones(now);
-    const origin = this.resolveWarningZoneOrigin(cells, originX, originY);
+    const origin = resolveWarningZoneOrigin(cells, originX, originY);
     const rawDistances = cells.map((cell) => Math.max(Math.abs(cell.x - origin.x), Math.abs(cell.y - origin.y)));
     const minExpandDistance = rawDistances.reduce(
       (minDistance, distance) => Math.min(minDistance, distance),
@@ -3131,7 +3101,6 @@ export class TextRenderer implements IRenderer {
       0,
     );
     this.warningZones.push({
-      id: this.nextWarningZoneId++,
       cells: zoneCells,
       color,
       baseColor: baseColor ?? color,
@@ -3139,7 +3108,7 @@ export class TextRenderer implements IRenderer {
       originY: origin.y,
       maxExpandDistance,
       createdAt: now,
-      duration: Math.max(1, Math.round(durationMs)),
+      duration: normalizeTimedEffectDuration(durationMs, DEFAULT_WARNING_ZONE_DURATION_MS),
     });
     this.trimWarningZones();
   }
@@ -3158,23 +3127,7 @@ export class TextRenderer implements IRenderer {
     const screenOffsetY = sh / 2 - camera.y + camera.offsetY;
 
     this.pruneExpiredFloatingTexts(now);
-    const groups = new Map<string, FloatingText[]>();
-    const burstMetaById = new Map<number, { index: number; total: number }>();
-    for (const entry of this.floatingTexts) {
-      const key = `${entry.x},${entry.y},${entry.variant}`;
-      const group = groups.get(key);
-      if (group) {
-        group.push(entry);
-      } else {
-        groups.set(key, [entry]);
-      }
-    }
-    for (const group of groups.values()) {
-      group.sort((left, right) => left.createdAt - right.createdAt || left.id - right.id);
-      for (let index = 0; index < group.length; index += 1) {
-        burstMetaById.set(group[index].id, { index, total: group.length });
-      }
-    }
+    this.floatingTextBurstLayout.apply(this.floatingTexts, cellSize);
 
     for (const entry of this.floatingTexts) {
       const progress = Math.min(1, (now - entry.createdAt) / entry.duration);
@@ -3191,9 +3144,6 @@ export class TextRenderer implements IRenderer {
       const sx = entry.x * cellSize + screenOffsetX;
       const sy = entry.y * cellSize + screenOffsetY;
       if (sx + cellSize < 0 || sx > sw || sy + cellSize < 0 || sy > sh) continue;
-      const burstMeta = burstMetaById.get(entry.id) ?? { index: 0, total: 1 };
-      const burst = this.getFloatingTextBurstOffset(burstMeta.index, burstMeta.total, cellSize);
-
       ctx.save();
       ctx.globalAlpha = alpha;
       if (entry.variant === 'action') {
@@ -3204,8 +3154,8 @@ export class TextRenderer implements IRenderer {
           const stackHeight = chars.length > 0 ? lineHeight * Math.max(0, chars.length - 1) + fontSize : fontSize;
           const scale = 0.98 + motionProgress * 0.08;
           ctx.translate(
-            sx - cellSize * 0.06 + burst.offsetX,
-            sy + cellSize - stackHeight - burst.offsetY,
+            sx - cellSize * 0.06 + entry.burstOffsetX,
+            sy + cellSize - stackHeight - entry.burstOffsetY,
           );
           ctx.scale(scale, scale);
           ctx.textAlign = 'left';
@@ -3227,8 +3177,8 @@ export class TextRenderer implements IRenderer {
           const alpha = progress < 0.95 ? 1 : 1 - Math.max(0, (progress - 0.95) / 0.05);
           ctx.globalAlpha = alpha;
           ctx.translate(
-            sx - cellSize * 0.12 + burst.offsetX,
-            sy - cellSize * 0.48 - burst.offsetY - stackHeight,
+            sx - cellSize * 0.12 + entry.burstOffsetX,
+            sy - cellSize * 0.48 - entry.burstOffsetY - stackHeight,
           );
           ctx.textAlign = 'left';
           ctx.textBaseline = 'top';
@@ -3249,8 +3199,8 @@ export class TextRenderer implements IRenderer {
           const fontSize = Math.max(10, cellSize * 0.28);
           const scale = 0.98 + motionProgress * 0.08;
           ctx.translate(
-            sx - cellSize * 0.06 + burst.offsetX,
-            sy - cellSize * 0.08 - rise - burst.offsetY,
+            sx - cellSize * 0.06 + entry.burstOffsetX,
+            sy - cellSize * 0.08 - rise - entry.burstOffsetY,
           );
           ctx.scale(scale, scale);
           ctx.textAlign = 'left';
@@ -3271,8 +3221,8 @@ export class TextRenderer implements IRenderer {
         ctx.font = buildCanvasFont('floatingDamage', Math.max(14, cellSize * 0.45));
         this.drawOutlinedText(
           entry.text,
-          sx + cellSize / 2 + burst.offsetX,
-          sy - rise - burst.offsetY,
+          sx + cellSize / 2 + entry.burstOffsetX,
+          sy - rise - entry.burstOffsetY,
           entry.color,
           'rgba(15,12,10,0.95)',
         );
@@ -3435,6 +3385,7 @@ export class TextRenderer implements IRenderer {
     this.pathTargetKey = null;
     this.fadingPath = null;
     this.floatingTexts = [];
+    this.floatingTextBurstLayout.reset();
     this.attackTrails = [];
     this.warningZones = [];
     this.lastMotionSyncToken = undefined;
@@ -3443,21 +3394,6 @@ export class TextRenderer implements IRenderer {
     this.tileSpriteCache.clear();
   }
 
-  /** 为一组浮动文字计算爆散位移。 */
-  private getFloatingTextBurstOffset(index: number, count: number, cellSize: number): FloatingTextBurstOffset {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (count <= 1 || index < 0) {
-      return { offsetX: 0, offsetY: 0 };
-    }
-    const horizontalStep = cellSize * 0.3;
-    const verticalStep = cellSize * 0.12;
-    const centeredIndex = index - (count - 1) / 2;
-    return {
-      offsetX: centeredIndex * horizontalStep,
-      offsetY: Math.abs(centeredIndex) * verticalStep,
-    };
-  }  
   /**
  * drawChantText：执行drawChantText相关逻辑。
  * @param text string 参数说明。
@@ -3531,73 +3467,19 @@ export class TextRenderer implements IRenderer {
       ctx.restore();
     });
   }  
-  /**
- * resolveWarningZoneOrigin：规范化或转换WarningZoneOrigin。
- * @param cells Array<{ x: number; y: number }> 参数说明。
- * @param originX number 参数说明。
- * @param originY number 参数说明。
- * @returns 返回WarningZoneOrigin。
- */
-
-
-  private resolveWarningZoneOrigin(
-    cells: Array<{    
-    /**
- * x：x相关字段。
- */
- x: number;    
- /**
- * y：y相关字段。
- */
- y: number }>,
-    originX?: number,
-    originY?: number,
-  ): {  
-  /**
- * x：x相关字段。
- */
- x: number;  
- /**
- * y：y相关字段。
- */
- y: number } {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (Number.isFinite(originX) && Number.isFinite(originY)) {
-      return {
-        x: Math.round(originX ?? 0),
-        y: Math.round(originY ?? 0),
-      };
-    }
-    let minX = cells[0].x;
-    let maxX = cells[0].x;
-    let minY = cells[0].y;
-    let maxY = cells[0].y;
-    for (const cell of cells) {
-      if (cell.x < minX) minX = cell.x;
-      if (cell.x > maxX) maxX = cell.x;
-      if (cell.y < minY) minY = cell.y;
-      if (cell.y > maxY) maxY = cell.y;
-    }
-    return {
-      x: Math.round((minX + maxX) / 2),
-      y: Math.round((minY + maxY) / 2),
-    };
-  }
-
   /** 清理过期的浮动文字。 */
   private pruneExpiredFloatingTexts(now: number): void {
-    this.floatingTexts = this.floatingTexts.filter((entry) => now - entry.createdAt < entry.duration);
+    pruneExpiredTimedEffectsInPlace(this.floatingTexts, now);
   }
 
   /** 清理过期的攻击拖尾。 */
   private pruneExpiredAttackTrails(now: number): void {
-    this.attackTrails = this.attackTrails.filter((entry) => now - entry.createdAt < entry.duration);
+    pruneExpiredTimedEffectsInPlace(this.attackTrails, now);
   }
 
   /** 清理过期的警示区域。 */
   private pruneExpiredWarningZones(now: number): void {
-    this.warningZones = this.warningZones.filter((entry) => now - entry.createdAt < entry.duration);
+    pruneExpiredTimedEffectsInPlace(this.warningZones, now);
   }
 
   /** 控制浮动文字缓存上限。 */

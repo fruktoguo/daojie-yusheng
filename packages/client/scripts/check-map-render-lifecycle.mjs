@@ -77,6 +77,7 @@ const {
   buildPixiTerrainChunkOverlaySignature,
   buildPixiTerrainChunkStaticSignature,
 } = loadTypeScriptModule('src/game-map/renderer/pixi-terrain-cache-signatures.ts');
+const combatEffectLayout = loadTypeScriptModule('src/renderer/combat-effect-layout.ts');
 const shared = nodeRequire(path.join(repoRoot, 'packages/shared/dist/index.js'));
 
 assert.deepEqual(
@@ -181,11 +182,44 @@ assertNextDeadline(1_000, 1_000 + 24 * 60 * 60 * 1_000);
 assert.equal(advanceFrameDeadlineAfterRender(Number.NaN, 5_000, 20), 5_020);
 assert.equal(advanceFrameDeadlineAfterRender(5_000, 5_000, 0), 5_000 + frameIntervalMs);
 
+assert.equal(combatEffectLayout.resolveFloatingTextDuration('action', 'chant', undefined), 1240, '吟唱浮字默认时长必须与 Canvas 规则一致');
+assert.equal(combatEffectLayout.resolveFloatingTextDuration('damage', undefined, 0), 1, '显式异常时长必须收敛为可推进的正数');
+assert.equal(combatEffectLayout.normalizeTimedEffectDuration(Number.NaN, 1240), 1240, '非有限时长不得让特效永久残留');
+assert.equal(combatEffectLayout.buildVerticalFloatingText(' 天 道 '), '天\n道', '动作文字必须投影为非空字符纵排');
+assert.deepEqual(
+  combatEffectLayout.resolveWarningZoneOrigin([{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 10 }]),
+  { x: 5, y: 5 },
+  '缺少权威原点时两种渲染器必须使用同一包围盒中心',
+);
+const burstEntries = [
+  { x: -1, y: 2, variant: 'damage', burstOffsetX: 0, burstOffsetY: 0 },
+  { x: -1, y: 2, variant: 'damage', burstOffsetX: 0, burstOffsetY: 0 },
+  { x: -1, y: 2, variant: 'action', burstOffsetX: 0, burstOffsetY: 0 },
+];
+const burstLayout = new combatEffectLayout.FloatingTextBurstLayout();
+burstLayout.apply(burstEntries, 100);
+assert.deepEqual(
+  burstEntries.map((entry) => [entry.burstOffsetX, entry.burstOffsetY]),
+  [[-15, 6], [15, 6], [0, 0]],
+  '同格同类浮字必须按创建顺序爆散，不同 variant 不得互相挤压',
+);
+burstLayout.reset();
+const timedEffects = [
+  { id: 1, createdAt: 0, duration: 100 },
+  { id: 2, createdAt: 80, duration: 100 },
+  { id: 3, createdAt: 90, duration: 100 },
+];
+const timedEffectsIdentity = timedEffects;
+combatEffectLayout.pruneExpiredTimedEffectsInPlace(timedEffects, 150);
+assert.equal(timedEffects, timedEffectsIdentity, '过期回收不得替换特效数组身份');
+assert.deepEqual(timedEffects.map((entry) => entry.id), [2, 3], '原地压缩必须保持幸存特效创建顺序');
+
 const mapRuntime = read('src/game-map/runtime/map-runtime.ts');
 assert.match(mapRuntime, /advanceFrameDeadlineAfterRender\(this\.nextFrameAt, now, minFrameIntervalMs\)/);
 assert.doesNotMatch(mapRuntime, /while\s*\(\s*this\.nextFrameAt\s*<=\s*now\s*\)/);
 
 const pixiRenderer = read('src/game-map/renderer/pixi-map-renderer-adapter.ts');
+const pixiCombatEffects = read('src/game-map/renderer/pixi-combat-effect-runtime.ts');
 assert.match(pixiRenderer, /private mountGeneration = 0/);
 assert.match(pixiRenderer, /generation !== this\.mountGeneration \|\| this\.canvas !== canvas/);
 assert.match(pixiRenderer, /this\.app\.renderer\.resize\(this\.width, this\.height, 1\);\s*this\.ready = true/);
@@ -203,6 +237,11 @@ assert.match(pixiRenderer, /this\.patchEntityMotion\(view, motionProgress, frame
 assert.match(pixiRenderer, /return this\.entities\.get\(id\);/, '威胁实体必须直接复用权威实体索引');
 assert.doesNotMatch(pixiRenderer, /view\.root\.visible && anim\.kind === 'crowd'/, '拥挤判定不得读取上一帧可见性');
 assert.doesNotMatch(pixiRenderer, /\[\.\.\.this\.entities\.values\(\)\]\.find/, '每帧威胁箭头不得退化为实体数组分配与线性查找');
+assert.match(pixiRenderer, /new PixiCombatEffectRuntime\(this\.effectLayer\)/, 'adapter 必须把 Pixi 特效对象生命周期交给窄拥有者');
+assert.doesNotMatch(pixiRenderer, /private (?:floatingTexts|attackTrails|warningZones)\b/, 'adapter 不得重新吸收战斗特效数组');
+assert.doesNotMatch(pixiCombatEffects, /\.filter\(/, 'Pixi 特效逐帧回收不得重建数组');
+assert.match(pixiCombatEffects, /entry\.text\.parent\?\.removeChild\(entry\.text\);\s*entry\.text\.destroy\(\)/, '浮字移除必须同步释放 Pixi 节点');
+assert.match(pixiCombatEffects, /zone\.graphics\.parent\?\.removeChild\(zone\.graphics\);\s*zone\.graphics\.destroy\(\)/, '预警区移除必须同步释放 Pixi 节点');
 assert.doesNotMatch(pixiRenderer, /^function (?:normalizePixiTileSpriteMap|buildFormationRangeSignature|parseColor)\b/m, 'adapter 不得重新吸收图包解析和纯视觉规则');
 
 const storage = new MemoryStorage();

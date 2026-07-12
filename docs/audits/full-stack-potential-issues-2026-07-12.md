@@ -21,7 +21,7 @@
 | --- | --- | --- | --- |
 | 客户端应用状态与断线/跨图生命周期 | 进行中 | `pnpm verify:client` 通过；兑换码和离线收益刷新均有请求关联、会话清理及乱序 proof | 逐条复核其余网络派生状态、迟到回包和重置边界 |
 | UI 局部更新、焦点、滚动、选区 | 进行中 | 高频 UI continuity proof 通过 | 继续审查未被 proof 覆盖的面板和弹层 |
-| 地图渲染、相机、命中与资源释放 | 进行中 | map render lifecycle、spatial cache proof 通过；Pixi 拥挤遮挡、威胁箭头身份/视口和帧时钟边界已有动态与源码 proof | 动态检查移动端触控与大视口性能 |
+| 地图渲染、相机、命中与资源释放 | 进行中 | map render lifecycle、spatial cache proof 通过；Pixi 拥挤遮挡、威胁箭头身份/视口、帧时钟及战斗特效拥有权已有动态与源码 proof | 动态检查移动端触控与大视口性能 |
 | shared 类型、协议与 protobuf | 进行中 | shared build 与协议审计通过；兑换码和离线收益主动刷新 C2S/S2C 已关联 `requestId`；工坊专用面板/任务事件不再复制到空消费 EventBus 字段 | 完成其余大包体的数据流与消费复核 |
 | 服务端网络同步、AOI、首包/增量 | 进行中 | `pnpm verify:quick` runtime smoke 通过；网关 action 已验证单次 delta 和兑换终态关联；工坊无效 EventBus 载荷清理后协议总量实测下降 | 逐字段检查其余频率、范围、恢复语义 |
 | 服务端 runtime、tick、移动、战斗、交互 | 进行中 | server compile、quick runtime smoke 通过；无库本地主线 18 类 smoke 已完整跑通，怪物战斗/技能/重置夹具已按真实机制校正；宗门队列、资产锁、地图投影与 durable commit 编排边界已从无状态规则和 SQL 中分离 | 继续按 mechanics 文档审查真实调用链、热路径及未被 smoke 覆盖的机制 |
@@ -66,6 +66,7 @@
 - 本轮进展：Pixi renderer 的地形静态签名、动态覆盖签名和望气数值投影原本混在主适配器中，且失效域与实际绘制字段不一致。现已提取 90 行 `pixi-terrain-cache-signatures.ts`，主文件降到门禁口径 3729 行；该文件仍是唯一新超限项，后续必须继续拆出 profiling/资源职责，当前不建立 baseline。
 - 本轮进展：Pixi profiling 的状态、窗口、全局调试句柄和帧样本聚合原本全部挂在渲染 adapter 上，且关闭诊断时仍在每帧创建测量闭包和 schedule 对象。现已提取 `PixiRenderProfiler` 并改为无闭包时间戳上报；主文件降到门禁口径约 3572 行，仍需继续拆出纯渲染 primitive 才能退出唯一新超限清单。
 - 本轮进展：Pixi adapter 中剩余的内部场景类型、纯视觉规则和运行时图包清单归一化分别提取到 144/317/209 行模块；adapter 只保留 Pixi 场景拥有权、资源加载、分块绘制、实体/特效更新和生命周期编排，拆分时门禁口径降到 2971 行。后续加入拥挤/威胁箭头热路径修复后当前为 2987 行，仍低于硬阈值；唯一新超限已清零，未建立或扩大任何 baseline。
+- 本轮进展：Pixi adapter 继续把浮字、攻击拖尾和预警区的对象创建、逐帧更新、限额与销毁交给约 386 行 `PixiCombatEffectRuntime`，主 adapter 当前降到门禁口径 2715 行。Canvas `text.ts` 同时复用无分配布局规则，从 4304 行降到 4186 行，既有 baseline 增幅缩小 118 行但尚未退出超限；14 个 baseline regression 总数不变。
 
 ### FS-003 `[ ]` server tools 大量绕过 TypeScript 检查并保留 CommonJS 写法
 
@@ -629,7 +630,16 @@
 - 为什么错误：相机和实体可见性属于当前帧派生，不能读取上一帧渲染结果；同一个 frame 的动画应该使用同一个时钟。渲染器实体 `Map` 的 key 与 `anim.id` 在 `syncEntities` 中是同一身份，继续全量兜底既不增加可恢复性又破坏 O(1) 查找。威胁箭头的“自己”语义取决于本地玩家 ID，而不是通用实体类型。
 - 后果：相机跳转、快速平移或 crowd 跨越视口时，同格玩家可能短暂重复出现或被错误隐藏一帧；其他玩家主动攻击时会被错误绘成“自己的”威胁颜色，视口外两端还可能形成穿过屏幕的无主箭头。多人同屏下，每帧坐标字符串、Set、实体数组、逐实体时钟和重复颜色解析会持续增加 GC 与主线程成本。
 - 修复方式：新增可复用、支持负坐标的二维 `PixiFrameGridPointSet`，每帧回收行集合；crowd 用当前插值坐标与统一视口函数建立遮挡索引，所有可见实体共用一次 `frameNow`，不可见实体暂停无效表现 patch。威胁箭头只从实体 `Map` 直接读取可见两端，以 `arrow.ownerId === localPlayerId` 选择颜色，并预解析 Pixi 颜色常量。
-- 验证：地图生命周期 proof 通过 Vite 动态覆盖负坐标、跨帧重置、容器复用和实体边缘视口判定；源码守卫锁定本地玩家身份、不可见端点过滤、统一时钟、直接实体索引，并禁止恢复上一帧 crowd 判定和数组线性兜底。完整 `pnpm verify:client` 通过；`pnpm proof:file-size-gate` 确认 adapter 当前为 2987 行且无新超限，仍只因既有 14 个 baseline 增幅退出 1。未做 WebGL 实机多人拥挤截图和长时间帧分配 profile，不把静态/构建 proof 当作真机帧率数据。
+- 验证：地图生命周期 proof 通过 Vite 动态覆盖负坐标、跨帧重置、容器复用和实体边缘视口判定；源码守卫锁定本地玩家身份、不可见端点过滤、统一时钟、直接实体索引，并禁止恢复上一帧 crowd 判定和数组线性兜底。完整 `pnpm verify:client` 通过；本组提交时文件体积门禁确认 adapter 为 2987 行且无新超限，FS-062 后当前进一步降为 2715 行，门禁仍只因既有 14 个 baseline 增幅退出 1。未做 WebGL 实机多人拥挤截图和长时间帧分配 profile，不把静态/构建 proof 当作真机帧率数据。
+
+### FS-062 `[x]` Pixi 战斗特效逐帧重建集合且动作文字语义与 Canvas 漂移
+
+- 严重级别：中高。
+- 根本原因：每个渲染帧分别用三个 `filter` 替换浮字、攻击拖尾和预警区数组；浮字再创建字符串坐标 key、分组 `Map`、分组数组、逐 ID 元数据 `Map`、每条 `{ index, total }` 和偏移对象。预警区每个格子每帧重复解析颜色。主世界 Pixi 还把所有动作文字按普通横排文字创建，吟唱默认时长、纵排位置和末段淡出没有复用 Canvas 已实现的表现规则；未给预警原点时，Pixi 用坐标平均值而 Canvas 用包围盒中心。
+- 为什么错误：这些集合与对象位于 60 FPS 表现热路径，条目上限又允许 256 个浮字、192 个拖尾和 64 个预警区；生命周期数组应保持稳定并原地回收，颜色等事件期常量不应在每格每帧解析。Pixi 是玩家主世界唯一渲染后端，Canvas 是既有表现基线，同一结构化 `actionStyle` 和 warning zone 不能因后端不同而改变排列、持续时间或扩散原点。
+- 后果：持续战斗会产生稳定的短命数组、字符串、Map 和小对象，放大主线程 GC 与浏览器整体卡顿；技能名/吟唱在主世界会横排、过早按普通浮字淡出，缺少原点的不规则预警区扩散顺序与 GM Canvas 观察视图不一致。RGBA 自定义颜色的透明度也会在 Pixi 拖尾/预警区中丢失。
+- 修复方式：新增共享 `combat-effect-layout.ts`，用可复用的数值二维行/格点池按创建顺序直接写入爆散偏移，提供原地过期压缩、统一正时长、纵排文字和预警原点规则；Canvas/Pixi 共同使用。新增 `PixiCombatEffectRuntime` 唯一拥有三类 Pixi 节点、数组、限额和逐帧绘制；没有特效时立即返回，幸存项原地压缩，颜色与 alpha 在入队时解析，所有过期、溢出和 reset 路径仍先从父容器移除再销毁节点。动作浮字按 default/divine/chant 使用对应字号、纵排位置、持续时间与淡出。
+- 验证：地图生命周期 proof 动态覆盖吟唱默认时长、非法时长收敛、纵排投影、包围盒原点、负坐标同格爆散、variant 隔离、布局池 reset 和数组身份不变的原地过期回收；源码守卫禁止 Pixi runtime 恢复 `filter`，并锁定 adapter 特效职责、浮字/预警节点销毁链。client TypeScript 与完整 `pnpm verify:client` 通过；文件体积门禁确认 adapter 为 2715 行、Canvas renderer 为 4186 行，无新增超限，仍只因既有 14 个 baseline 增幅退出 1。未做真实多人持续战斗 allocation trace、WebGL 截图及移动真机长跑。
 
 ## 待进一步验证或用户决定
 
@@ -757,4 +767,5 @@
 | 望气投影与 Pixi 地形缓存失效域 | `pnpm build:shared`、地图 lifecycle/spatial-cache proof 和完整 `pnpm verify:client` 通过；文件体积门禁按预期退出 1 | 绝对灵气统一换算等级，Canvas/Pixi 共用信号；资源/生命条变化精确失效动态层且不再销毁静态 GPU 分块 | 未做 WebGL GPU trace、低端真机半衰期长跑和视觉截图；14 个 baseline regression 仍未处理 |
 | Pixi profiler 热路径与销毁生命周期 | 动态 profiler lifecycle proof、client TypeScript 与完整 `pnpm verify:client` 通过；文件体积门禁按预期退出 1 | 关闭时不再创建测量闭包/帧快照，启停和销毁可完整释放窗口、定时探针及全局闭包 | 未做 Chrome heap snapshot 与长时间 profiler 压测 |
 | Pixi adapter 职责边界 | 图包/视觉 primitive 动态 proof、client TypeScript、完整 `pnpm verify:client` 与文件体积门禁对应检查通过 | adapter 降至 2971 行并退出唯一新超限，清单解析、纯视觉规则和场景类型形成窄边界 | 14 个历史 baseline 增幅仍使总体门禁退出 1；既有构建警告未变 |
-| Pixi 实体与威胁箭头每帧状态 | 动态空间索引 proof、源码边界守卫、完整 `pnpm verify:client` 通过；文件体积门禁确认 adapter 当前 2987 行且无新超限 | crowd 遮挡使用当前帧插值/视口，实体动画共用帧时钟；威胁箭头按本地玩家身份着色、只读可见索引且不再分配数组兜底 | 未做真实多人 crowd 视觉回归、Chrome allocation profile 和移动真机帧率压测；既有 14 个 baseline 增幅未变 |
+| Pixi 实体与威胁箭头每帧状态 | 动态空间索引 proof、源码边界守卫、完整 `pnpm verify:client` 通过；该组 adapter 为 2987 行，后续特效拆分后当前 2715 行 | crowd 遮挡使用当前帧插值/视口，实体动画共用帧时钟；威胁箭头按本地玩家身份着色、只读可见索引且不再分配数组兜底 | 未做真实多人 crowd 视觉回归、Chrome allocation profile 和移动真机帧率压测；既有 14 个 baseline 增幅未变 |
+| Canvas/Pixi 战斗特效布局与生命周期 | 动态布局/时长 proof、client TypeScript、完整 `pnpm verify:client` 通过；文件体积门禁确认 adapter 2715 行、Canvas renderer 4186 行 | 浮字分组和三类过期回收不再逐帧替换数组；Pixi 节点限额/销毁收口，动作文字纵排/时长/淡出与预警原点跨后端统一 | 未做真实战斗 WebGL/Canvas 对照截图、Chrome allocation trace 和移动真机长跑；Canvas renderer 仍超过历史 baseline |

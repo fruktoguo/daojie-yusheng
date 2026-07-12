@@ -84,38 +84,35 @@ export interface EntityView {
 }
 
 export interface FloatingTextEffect {
-  id: number;
   x: number;
   y: number;
   text: Text;
   variant: 'damage' | 'action';
   actionStyle?: FloatingActionTextStyle;
+  burstOffsetX: number;
+  burstOffsetY: number;
   createdAt: number;
   duration: number;
 }
 
-export interface FloatingTextBurstOffset {
-  offsetX: number;
-  offsetY: number;
-}
-
 export interface AttackTrailEffect {
-  id: number;
   fromX: number;
   fromY: number;
   toX: number;
   toY: number;
-  color: string;
+  color: number;
+  colorAlpha: number;
   graphics: Graphics;
   createdAt: number;
   duration: number;
 }
 
 export interface WarningZoneEffect {
-  id: number;
   cells: Array<{ x: number; y: number; expandDistance: number }>;
-  color: string;
-  baseColor: string;
+  color: number;
+  colorAlpha: number;
+  baseColor: number;
+  baseColorAlpha: number;
   createdAt: number;
   duration: number;
   maxExpandDistance: number;
