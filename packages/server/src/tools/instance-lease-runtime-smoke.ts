@@ -12,6 +12,7 @@ import { resolveServerDatabaseUrl } from '../config/env-alias';
 import { WorldRuntimeService } from '../runtime/world/world-runtime.service';
 import { MapInstanceRuntime } from '../runtime/instance/map-instance.runtime';
 import { NodeRegistryService } from '../persistence/node-registry.service';
+import { destroyManagedInstance } from '../runtime/world/world-runtime-instance-lease.helpers';
 
 const databaseUrl = resolveServerDatabaseUrl();
 const INSTANCE_CATALOG_TABLE = 'instance_catalog';
@@ -44,12 +45,13 @@ async function main(): Promise<void> {
   const fenceInstanceId = 'line:yunlai_town:peaceful:91';
   const adoptInstanceId = 'line:yunlai_town:peaceful:93';
   const takeoverInstanceId = 'line:yunlai_town:peaceful:92';
+  const destroyInstanceId = 'line:yunlai_town:peaceful:94';
   try {
     const worldRuntimeService = app.get(WorldRuntimeService);
     const nodeRegistryService = app.get(NodeRegistryService);
     const localNodeId = nodeRegistryService.getNodeId();
 
-    await cleanupInstanceRows(pool, [fenceInstanceId, takeoverInstanceId, adoptInstanceId]);
+    await cleanupInstanceRows(pool, [fenceInstanceId, takeoverInstanceId, adoptInstanceId, destroyInstanceId]);
 
     const renewalDegradeProof = await verifyRenewFailureFence({
       pool,
@@ -69,6 +71,12 @@ async function main(): Promise<void> {
       localNodeId,
       instanceId: takeoverInstanceId,
     });
+    const destroyFenceProof = await verifyDestroyFenceBeforeRuntimeCleanup({
+      pool,
+      worldRuntimeService,
+      localNodeId,
+      instanceId: destroyInstanceId,
+    });
     console.log(
       JSON.stringify(
         {
@@ -76,7 +84,8 @@ async function main(): Promise<void> {
           renewalDegradeProof,
           localAdoptionProof,
           takeoverProof,
-          answers: 'with-db 下已验证实例 runtime 会认领 persistent instance lease、接管过期 lease、在本节点重启导致内存 lease token 落后时采用 catalog 本地 lease 并续约，并在 lease 续约失败时进入 lease_degraded、在 lease 不再属于本节点时阻断 dirty map 写链',
+          destroyFenceProof,
+          answers: 'with-db 下已验证实例 runtime 会认领 persistent instance lease、接管过期 lease、在本节点重启导致内存 lease token 落后时采用 catalog 本地 lease 并续约，并在 lease 续约失败时进入 lease_degraded、在 lease 不再属于本节点时阻断 dirty map 写链；实例销毁会先 CAS 持久化 lease/epoch fence，冲突时保留运行态，成功时递增 epoch 后才卸载。',
           excludes: '不证明真实多节点 socket 导流、跨节点 transfer、过期 lease 自动接管、split-brain 双活或玩家迁移缓冲',
           completionMapping: 'release:proof:with-db.instance-lease-runtime',
         },
@@ -85,11 +94,99 @@ async function main(): Promise<void> {
       ),
     );
   } finally {
-    await cleanupInstanceRows(pool, [fenceInstanceId, takeoverInstanceId, adoptInstanceId]).catch(() => undefined);
+    await cleanupInstanceRows(pool, [fenceInstanceId, takeoverInstanceId, adoptInstanceId, destroyInstanceId]).catch(() => undefined);
     await app.close().catch(() => undefined);
     await pool.end().catch(() => undefined);
     restoreEnv('SERVER_NODE_ID', previousNodeId);
   }
+}
+
+async function verifyDestroyFenceBeforeRuntimeCleanup(input: {
+  pool: Pool;
+  worldRuntimeService: any;
+  localNodeId: string;
+  instanceId: string;
+}): Promise<{
+  conflictPreservedRuntime: boolean;
+  destroyedOwnershipEpoch: number;
+}> {
+  const template = input.worldRuntimeService.templateRepository.getOrThrow('yunlai_town');
+  const monsterSpawns = input.worldRuntimeService.contentTemplateRepository.createRuntimeMonstersForMap(template.id);
+  const localLeaseToken = `lease:${input.instanceId}:local`;
+  const instance = new MapInstanceRuntime({
+    instanceId: input.instanceId,
+    template,
+    monsterSpawns,
+    kind: 'public',
+    persistent: true,
+    persistentPolicy: 'long_lived',
+    createdAt: Date.now(),
+    displayName: 'Lease Destroy Fence Smoke',
+    linePreset: 'peaceful',
+    lineIndex: 94,
+    instanceOrigin: 'gm_manual',
+    defaultEntry: false,
+    supportsPvp: false,
+    canDamageTile: true,
+    assignedNodeId: input.localNodeId,
+    leaseToken: localLeaseToken,
+    leaseExpireAt: new Date(Date.now() + 60_000).toISOString(),
+    ownershipEpoch: 3,
+    runtimeStatus: 'leased',
+    status: 'active',
+    destroyAt: new Date(Date.now() - 1_000).toISOString(),
+  });
+  input.worldRuntimeService.worldRuntimeInstanceStateService.setInstanceRuntime(input.instanceId, instance);
+  input.worldRuntimeService.worldRuntimeTickProgressService.initializeInstance(input.instanceId);
+  await input.pool.query(
+    `INSERT INTO ${INSTANCE_CATALOG_TABLE}(
+       instance_id, template_id, instance_type, persistent_policy,
+       status, runtime_status, assigned_node_id, lease_token, lease_expire_at,
+       ownership_epoch, metadata_version, shard_key, route_domain, destroy_at, created_at, last_active_at
+     ) VALUES (
+       $1, 'yunlai_town', 'public', 'long_lived',
+       'active', 'leased', 'node:remote', 'lease:remote', now() + interval '60 second',
+       4, 4, $1, 'peaceful', now() - interval '1 second', now(), now()
+     )`,
+    [input.instanceId],
+  );
+
+  const rejected = await destroyManagedInstance(input.worldRuntimeService, input.instanceId, 'lease_destroy_smoke');
+  assert.deepEqual(rejected, { ok: false, reason: 'instance_catalog_fence_failed' });
+  assert.equal(input.worldRuntimeService.getInstanceRuntime(input.instanceId), instance);
+  assert.equal(instance.meta.status, 'active');
+  assert.equal(instance.meta.leaseToken, localLeaseToken);
+  const retainedRow = await fetchInstanceRow(input.pool, input.instanceId);
+  assert.equal(retainedRow?.assigned_node_id, 'node:remote');
+  assert.equal(retainedRow?.status, 'active');
+  assert.equal(Number(retainedRow?.ownership_epoch), 4);
+
+  await input.pool.query(
+    `UPDATE ${INSTANCE_CATALOG_TABLE}
+        SET assigned_node_id = $2,
+            lease_token = $3,
+            lease_expire_at = now() + interval '60 second',
+            ownership_epoch = 4,
+            metadata_version = GREATEST(metadata_version, 4)
+      WHERE instance_id = $1`,
+    [input.instanceId, input.localNodeId, localLeaseToken],
+  );
+  instance.meta.ownershipEpoch = 4;
+  const destroyed = await destroyManagedInstance(input.worldRuntimeService, input.instanceId, 'lease_destroy_smoke');
+  assert.deepEqual(destroyed, { ok: true });
+  assert.equal(input.worldRuntimeService.getInstanceRuntime(input.instanceId), null);
+  const destroyedRow = await fetchInstanceRow(input.pool, input.instanceId);
+  assert.equal(destroyedRow?.status, 'destroyed');
+  assert.equal(destroyedRow?.runtime_status, 'stopped');
+  assert.equal(destroyedRow?.assigned_node_id, null);
+  assert.equal(destroyedRow?.lease_token, null);
+  assert.equal(Number(destroyedRow?.ownership_epoch), 5);
+  assert.ok(Number(destroyedRow?.metadata_version) >= 5);
+
+  return {
+    conflictPreservedRuntime: true,
+    destroyedOwnershipEpoch: Number(destroyedRow?.ownership_epoch),
+  };
 }
 
 async function verifyLocalCatalogLeaseAdoption(input: {
@@ -301,6 +398,8 @@ async function verifyTakeoverAndDirtyWriteGuard(input: {
         allocation_payload,
         active,
         remaining_aura_budget,
+        remaining_qi_budget,
+        remaining_spirit_stone_budget,
         created_at_ms,
         updated_at_ms,
         updated_at
@@ -309,10 +408,14 @@ async function verifyTakeoverAndDirtyWriteGuard(input: {
         $1, $2, 'player:lease-smoke', NULL, 'spirit_gathering',
         'formation_disk.mortal', 'mortal', 1, 100, 1000,
         1, 1, $1, 1, 1,
-        '{}'::jsonb, true, 10000, 1, 1, now()
+        '{}'::jsonb, true, 10000, 10000, 100, 1, 1, now()
       )
       ON CONFLICT (instance_id, formation_instance_id)
-      DO UPDATE SET remaining_aura_budget = EXCLUDED.remaining_aura_budget, updated_at = now()
+      DO UPDATE SET
+        remaining_aura_budget = EXCLUDED.remaining_aura_budget,
+        remaining_qi_budget = EXCLUDED.remaining_qi_budget,
+        remaining_spirit_stone_budget = EXCLUDED.remaining_spirit_stone_budget,
+        updated_at = now()
     `,
     [input.instanceId, formationInstanceId],
   );

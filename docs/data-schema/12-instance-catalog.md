@@ -20,6 +20,7 @@
 | lease_token | varchar(180) | | 租约令牌 |
 | lease_expire_at | timestamptz | | 租约过期时间 |
 | ownership_epoch | bigint | NOT NULL, DEFAULT 0 | 所有权纪元 |
+| metadata_version | bigint | NOT NULL, DEFAULT 0 | catalog 元数据版本，阻止低版本 upsert 覆盖新状态 |
 | cluster_id | varchar(120) | | 集群 ID |
 | shard_key | varchar(120) | NOT NULL | 分片键 |
 | route_domain | varchar(120) | | 路由域 |
@@ -37,6 +38,7 @@
 - 所有地图实例的"户口本"，启动时扫描此表恢复实例
 - 租约机制防止多节点同时加载同一实例
 - `ownership_epoch` 递增防止旧节点的过期写入
+- 实例销毁必须用运行态持有的 `assigned_node_id + lease_token + ownership_epoch` 做原子 CAS；销毁成功时先递增 `ownership_epoch` 和 `metadata_version`、清空 lease，再卸载本地运行态。CAS 冲突或数据库失败时保留运行态，等待租约同步收敛，不能先删内存再补写 catalog
 
 ---
 

@@ -8,6 +8,7 @@ import {
 async function main(): Promise<void> {
   const previousForce = process.env.SERVER_FORCE_RECLAIM_STALE_LEASES;
   const previousRuntimeEnv = process.env.SERVER_RUNTIME_ENV;
+  const previousNodeEnv = process.env.NODE_ENV;
   try {
     const productionDefaultProof = await verifyStartupRecoveryDoesNotForceReclaimWithoutEnv();
     process.env.SERVER_FORCE_RECLAIM_STALE_LEASES = '1';
@@ -25,6 +26,7 @@ async function main(): Promise<void> {
   } finally {
     restoreEnv('SERVER_FORCE_RECLAIM_STALE_LEASES', previousForce);
     restoreEnv('SERVER_RUNTIME_ENV', previousRuntimeEnv);
+    restoreEnv('NODE_ENV', previousNodeEnv);
   }
 }
 
@@ -35,6 +37,7 @@ async function verifyStartupRecoveryDoesNotForceReclaimWithoutEnv(): Promise<{
 }> {
   delete process.env.SERVER_FORCE_RECLAIM_STALE_LEASES;
   delete process.env.SERVER_RUNTIME_ENV;
+  delete process.env.NODE_ENV;
   const instanceId = 'public:startup-recovery-prod-default';
   const catalogRow = {
     instance_id: instanceId,

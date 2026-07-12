@@ -211,11 +211,44 @@ export async function destroyManagedInstance(runtime, instanceId, reason = 'sche
   if (Array.isArray(activePlayers) && activePlayers.length > 0) {
     return { ok: false, reason: 'players_present', players: activePlayers };
   }
+  const destroyAt = instance.meta.destroyAt ?? new Date().toISOString();
+  let nextOwnershipEpoch = normalizeOwnershipEpoch(instance?.meta?.ownershipEpoch, 0);
+  if (runtime.instanceCatalogService?.isEnabled?.()) {
+    if (typeof runtime.instanceCatalogService.destroyInstanceCatalogWithFence !== 'function') {
+      return { ok: false, reason: 'instance_catalog_destroy_unsupported' };
+    }
+    const localNodeId = runtime.nodeRegistryService.getNodeId();
+    const assignedNodeId = typeof instance?.meta?.assignedNodeId === 'string' && instance.meta.assignedNodeId.trim()
+      ? instance.meta.assignedNodeId.trim()
+      : null;
+    const leaseToken = typeof instance?.meta?.leaseToken === 'string' && instance.meta.leaseToken.trim()
+      ? instance.meta.leaseToken.trim()
+      : null;
+    if ((assignedNodeId === null) !== (leaseToken === null)) {
+      return { ok: false, reason: 'instance_lease_incomplete' };
+    }
+    if (assignedNodeId !== null && (assignedNodeId !== localNodeId || !isInstanceLeaseWritable(runtime, instance))) {
+      return { ok: false, reason: 'instance_lease_not_local' };
+    }
+    const destroyed = await runtime.instanceCatalogService.destroyInstanceCatalogWithFence({
+      instanceId,
+      assignedNodeId,
+      leaseToken,
+      expectedOwnershipEpoch: nextOwnershipEpoch,
+      destroyAt,
+    });
+    if (destroyed?.ok !== true || !Number.isFinite(Number(destroyed.ownershipEpoch))) {
+      return { ok: false, reason: 'instance_catalog_fence_failed' };
+    }
+    nextOwnershipEpoch = normalizeOwnershipEpoch(destroyed.ownershipEpoch, nextOwnershipEpoch + 1);
+  }
   instance.meta.runtimeStatus = 'stopped';
   instance.meta.status = 'destroyed';
+  instance.meta.assignedNodeId = null;
   instance.meta.leaseToken = null;
   instance.meta.leaseExpireAt = null;
-  instance.meta.destroyAt = instance.meta.destroyAt ?? new Date().toISOString();
+  instance.meta.ownershipEpoch = nextOwnershipEpoch;
+  instance.meta.destroyAt = destroyAt;
   runtime.worldRuntimeInstanceStateService.deleteInstanceRuntime(instanceId);
   runtime.worldRuntimeTickProgressService.clearInstance(instanceId);
   runtime.worldRuntimeLootContainerService.removeInstanceState(instanceId);
@@ -224,30 +257,6 @@ export async function destroyManagedInstance(runtime, instanceId, reason = 'sche
   }
   if (typeof runtime.worldRuntimeFormationService?.releaseInstance === 'function') {
     runtime.worldRuntimeFormationService.releaseInstance(instanceId);
-  }
-  if (runtime.instanceCatalogService?.isEnabled?.()) {
-    await runtime.instanceCatalogService.upsertInstanceCatalog({
-      instanceId,
-      templateId: instance?.template?.id ?? instance?.templateId ?? '',
-      instanceType: typeof instance?.kind === 'string' ? instance.kind : 'public',
-      persistentPolicy: typeof instance?.meta?.persistentPolicy === 'string' ? instance.meta.persistentPolicy : 'persistent',
-      ownerPlayerId: instance?.meta?.ownerPlayerId ?? null,
-      ownerSectId: instance?.meta?.ownerSectId ?? null,
-      partyId: instance?.meta?.partyId ?? null,
-      lineId: instance?.meta?.lineId ?? null,
-      status: 'destroyed',
-      runtimeStatus: 'stopped',
-      assignedNodeId: null,
-      leaseToken: null,
-      leaseExpireAt: null,
-      ownershipEpoch: instance?.meta?.ownershipEpoch ?? 0,
-      clusterId: instance?.meta?.clusterId ?? null,
-      shardKey: instance?.meta?.shardKey ?? instanceId,
-      routeDomain: instance?.meta?.routeDomain ?? null,
-      destroyAt: instance?.meta?.destroyAt ?? new Date().toISOString(),
-      lastActiveAt: instance?.meta?.lastActiveAt ?? null,
-      lastPersistedAt: instance?.meta?.lastPersistedAt ?? null,
-    });
   }
   runtime.logger.log(`实例 ${instanceId} 已按生命周期销毁：${reason}`);
   return { ok: true };
@@ -765,7 +774,10 @@ export async function destroyExpiredManagedInstances(runtime) {
     if (!Number.isFinite(destroyAt) || destroyAt > now) {
       continue;
     }
-    await destroyManagedInstance(runtime, instanceId, 'expire_at_reached');
+    const result = await destroyManagedInstance(runtime, instanceId, 'expire_at_reached');
+    if (result?.ok !== true) {
+      runtime.logger.warn(`过期实例销毁被拒绝：${instanceId} reason=${result?.reason ?? 'unknown'}`);
+    }
   }
 }
 

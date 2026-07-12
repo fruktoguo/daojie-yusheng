@@ -286,6 +286,73 @@ export class InstanceCatalogService implements OnModuleInit {
     );
   }
 
+  /**
+   * 以当前 lease/epoch 为 CAS 销毁实例目录，并递增 epoch 隔离所有旧 flush writer。
+   * 无 lease 的新建实例只允许匹配数据库同样未分配的行，不能覆盖已经被其他节点认领的目录。
+   */
+  async destroyInstanceCatalogWithFence(input: {
+    instanceId: string;
+    assignedNodeId?: string | null;
+    leaseToken?: string | null;
+    expectedOwnershipEpoch: number;
+    destroyAt?: string | Date | null;
+  }): Promise<{ ok: boolean; ownershipEpoch: number | null }> {
+    const instanceId = input.instanceId.trim();
+    if (!this.pool || !this.enabled || !instanceId) {
+      return { ok: false, ownershipEpoch: null };
+    }
+    const assignedNodeId = typeof input.assignedNodeId === 'string' && input.assignedNodeId.trim()
+      ? input.assignedNodeId.trim()
+      : null;
+    const leaseToken = typeof input.leaseToken === 'string' && input.leaseToken.trim()
+      ? input.leaseToken.trim()
+      : null;
+    const expectedOwnershipEpoch = Number(input.expectedOwnershipEpoch);
+    if ((assignedNodeId === null) !== (leaseToken === null)
+      || !Number.isSafeInteger(expectedOwnershipEpoch)
+      || expectedOwnershipEpoch < 0) {
+      return { ok: false, ownershipEpoch: null };
+    }
+    const result = await this.pool.query(
+      `UPDATE ${INSTANCE_CATALOG_TABLE}
+          SET status = 'destroyed',
+              runtime_status = 'stopped',
+              assigned_node_id = NULL,
+              lease_token = NULL,
+              lease_expire_at = NULL,
+              ownership_epoch = ownership_epoch + 1,
+              metadata_version = GREATEST(metadata_version, ownership_epoch + 1),
+              destroy_at = COALESCE($5::timestamptz, now()),
+              last_active_at = now()
+        WHERE instance_id = $1
+          AND ownership_epoch = $4
+          AND (
+            (assigned_node_id = $2 AND lease_token = $3)
+            OR (
+              $2::varchar IS NULL
+              AND $3::varchar IS NULL
+              AND assigned_node_id IS NULL
+              AND lease_token IS NULL
+            )
+          )
+        RETURNING ownership_epoch`,
+      [
+        instanceId,
+        assignedNodeId,
+        leaseToken,
+        expectedOwnershipEpoch,
+        input.destroyAt ?? null,
+      ],
+    );
+    if ((result.rowCount ?? 0) !== 1) {
+      return { ok: false, ownershipEpoch: null };
+    }
+    return {
+      ok: true,
+      ownershipEpoch: Number(result.rows[0]?.ownership_epoch ?? null) || null,
+    };
+  }
+
   async markInstanceTemplateMissing(input: {
     instanceId: string;
     templateId: string;
