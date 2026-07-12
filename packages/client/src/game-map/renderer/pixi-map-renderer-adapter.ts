@@ -14,15 +14,11 @@ import {
   Text,
   Texture,
   type Renderer,
-  type TextStyleFontWeight,
-  type TextStyleOptions,
   type WebGLRenderer,
 } from 'pixi.js';
 import {
-  DEFAULT_AURA_LEVEL_BASE_VALUE,
   isMobileEntityObjectKind,
   isOffsetInRange,
-  resolveSenseQiOverlaySignal,
   SENSE_QI_OVERLAY_STYLE,
   TILE_VISUAL_BG_COLORS,
   TILE_VISUAL_GLYPH_COLORS,
@@ -30,17 +26,14 @@ import {
   normalizeAuraLevelBaseValue,
   resolveWorldObjectRenderOrder,
   type CombatEffect,
-  type FengShuiGrade,
   type GameTimeState,
   type GridPoint,
-  type GroundItemEntryView,
   type GroundItemPileView,
   type NpcQuestMarker,
   type Tile,
 } from '@mud/shared';
 import { getCellSize } from '../../display';
 import { isLocalDivineSkillName } from '../../content/local-templates';
-import { UI_TEXT_SETTINGS } from '../../constants/ui/text';
 import { DEFAULT_MAP_PERFORMANCE_CONFIG, type MapPerformanceConfig } from '../../constants/ui/performance';
 import {
   PATH_ARROW_COLOR,
@@ -61,12 +54,9 @@ import {
   TIME_ATMOSPHERE_PROFILES,
   TIME_FILTER_LERP,
 } from '../../constants/visuals/time-atmosphere';
-import { buildEntitySpriteLookupPlan, type EntitySpriteTransform } from '../../entity-facing';
-import { getEntityBadgeClassName, getMonsterPresentation } from '../../monster-presentation';
+import { getMonsterPresentation } from '../../monster-presentation';
 import {
-  getRuntimeImageOverrideSpriteEntries,
   RUNTIME_IMAGE_OVERRIDES_CHANGED_EVENT,
-  resolveRuntimeImageOverrideSrc,
 } from '../../renderer/local-runtime-image-overrides';
 import { formatDisplayInteger } from '../../utils/number';
 import { t as translateUi } from '../../ui/i18n';
@@ -77,201 +67,74 @@ import {
   type PixiProfileFrameSchedule,
   type PixiProfileRendererState,
 } from './pixi-profiler-window';
-import { normalizeRuntimeImagePackVersion, resolveRuntimeImagePackAssetUrl } from '../../renderer/runtime-image-pack-url';
+import { normalizeRuntimeImagePackVersion } from '../../renderer/runtime-image-pack-url';
 import { PixiRenderProfiler } from './pixi-render-profiler';
 import {
   buildPixiTerrainChunkOverlaySignature,
   buildPixiTerrainChunkStaticSignature,
   PIXI_TERRAIN_CHUNK_SIZE,
 } from './pixi-terrain-cache-signatures';
+import {
+  addLocalPixiEntityOverrideSpriteRefs,
+  normalizeLegacyTileMap,
+  normalizePixiTileSpriteMap,
+  pickRuntimeEntitySpriteSelection,
+  resolveTopTileSpriteKey,
+  type PixiTileSpriteRef,
+  type RuntimeEntitySpriteSelection,
+  type RuntimeTileSpriteManifest,
+} from './pixi-runtime-image-manifest';
+import {
+  buildBuildPreviewSignature,
+  buildFengShuiOverlaySignature,
+  buildFormationRangeSignature,
+  buildGridPointSignature,
+  buildGroundPileSignature,
+  buildNameplateBadgeSignature,
+  buildSenseQiHoverSignature,
+  buildTargetingOverlaySignature,
+  clamp01,
+  colorWithAlpha,
+  easeInOutCubic,
+  easeOutCubic,
+  getFengShuiOverlayFill,
+  getFengShuiOverlayStroke,
+  getSenseQiOverlayStyle,
+  isTileInsideFormationRange,
+  isTileOnFormationBoundary,
+  parseAlpha,
+  parseColor,
+  resolveEntityBadgePalette,
+  resolveEntityFallbackLabel,
+  resolveEntityHpBarColor,
+  resolveEntityLabelColor,
+  resolveGroundItemLabel,
+  resolveNameplateBadges,
+  textStyle,
+} from './pixi-render-primitives';
+import type {
+  AnimEntity,
+  AttackTrailEffect,
+  EntityNameplateBadge,
+  EntityView,
+  FadingPathState,
+  FloatingActionTextStyle,
+  FloatingTextBurstOffset,
+  FloatingTextEffect,
+  FormationRangeVisual,
+  TerrainChunkOverlaySignatureDeps,
+  TerrainChunkStaticSignatureDeps,
+  TerrainChunkView,
+  TerrainFogChunkView,
+  TimeAtmosphereState,
+  WarningZoneEffect,
+} from './pixi-render-state';
 
 type PixiRenderer = Renderer<HTMLCanvasElement>;
-type FloatingActionTextStyle = 'default' | 'divine' | 'chant';
-
-interface TerrainChunkView {
-  key: string;
-  cx: number;
-  cy: number;
-  baseContainer: Container;
-  spriteContainer: Container;
-  edgeContainer: Container;
-  glyphContainer: Container;
-  overlayContainer: Container;
-  staticSignature: string;
-  overlaySignature: string;
-  staticSignatureDeps: TerrainChunkStaticSignatureDeps | null;
-  overlaySignatureDeps: TerrainChunkOverlaySignatureDeps | null;
-  lastSeenFrame: number;
-}
-
-interface TerrainFogChunkView {
-  key: string;
-  cx: number;
-  cy: number;
-  graphics: Graphics;
-  signature: string;
-  lastSeenFrame: number;
-}
-
-interface TerrainChunkStaticSignatureDeps {
-  cellSize: number;
-  renderRuntimeTileSprites: boolean;
-  terrainTextMode: boolean;
-  runtimeTileSpriteRevision: number;
-  terrainChunkRevision: number;
-}
-
-interface TerrainChunkOverlaySignatureDeps {
-  cellSize: number;
-  terrainOverlaySignature: string;
-  visibleTileRevision: number;
-}
-
-interface AnimEntity extends ObservedMapEntity {
-  gridX: number;
-  gridY: number;
-  oldWX: number;
-  oldWY: number;
-  targetWX: number;
-  targetWY: number;
-}
-
-type EntityNameplateBadge = NonNullable<ObservedMapEntity['badge']>;
-
-type RuntimeEntitySpriteSelection = {
-  ref: PixiTileSpriteRef;
-  transform: EntitySpriteTransform;
-};
-
-const IDENTITY_ENTITY_SPRITE_TRANSFORM: EntitySpriteTransform = {
-  flipX: false,
-};
 const ENTITY_FACING_FLIP_TRANSITION_MS = 160;
 const ATTACK_MOTION_DURATION_MS = 180;
 const ARTIFACT_AURA_COLOR = 0xa8fbff;
 const ARTIFACT_AURA_FLOW_MS = 1200;
-
-function easeInOutCubic(t: number): number {
-  const value = clamp01(t);
-  return value < 0.5
-    ? 4 * value * value * value
-    : 1 - Math.pow(-2 * value + 2, 3) / 2;
-}
-
-interface EntityView {
-  anim: AnimEntity;
-  root: Container;
-  visualRoot: Container;
-  artifactAura: Graphics;
-  shadow: Graphics;
-  image: Sprite;
-  glyph: Text;
-  label: Text;
-  badgeLayer: Container;
-  hpBar: Graphics;
-  progressBar: Graphics;
-  buffLayer: Container;
-  questMarker: Container;
-  formationMarker: Graphics;
-  respawnLabel: Text;
-  staticSignature: string;
-  hiddenByFormation: boolean;
-  imageBaseScaleX: number;
-  imageBaseScaleY: number;
-  imageFlipSourceSign: number;
-  imageFlipTargetSign: number;
-  imageFlipStartedAt: number;
-  attackMotionStartedAt?: number;
-  attackMotionUnitX?: number;
-  attackMotionUnitY?: number;
-}
-
-interface FloatingTextEffect {
-  id: number;
-  x: number;
-  y: number;
-  text: Text;
-  variant: 'damage' | 'action';
-  actionStyle?: FloatingActionTextStyle;
-  createdAt: number;
-  duration: number;
-}
-
-interface FloatingTextBurstOffset {
-  offsetX: number;
-  offsetY: number;
-}
-
-interface AttackTrailEffect {
-  id: number;
-  fromX: number;
-  fromY: number;
-  toX: number;
-  toY: number;
-  color: string;
-  graphics: Graphics;
-  createdAt: number;
-  duration: number;
-}
-
-interface WarningZoneEffect {
-  id: number;
-  cells: Array<{ x: number; y: number; expandDistance: number }>;
-  color: string;
-  baseColor: string;
-  createdAt: number;
-  duration: number;
-  maxExpandDistance: number;
-  graphics: Graphics;
-}
-
-interface FadingPathState {
-  cells: GridPoint[];
-  startedAt: number;
-  durationMs: number;
-}
-
-interface TimeAtmosphereState {
-  initialized: boolean;
-  overlay: [number, number, number, number];
-  sky: [number, number, number, number];
-  horizon: [number, number, number, number];
-  vignetteAlpha: number;
-}
-
-interface FormationRangeVisual {
-  highlightColor: string;
-  boundary: boolean;
-  boundaryChar?: string;
-  boundaryColor: string;
-}
-
-interface PixiTileSpriteRef {
-  key: string;
-  src: string;
-  cols: number;
-  rows: number;
-  col: number;
-  row: number;
-  colSpan: number;
-  rowSpan: number;
-  insetRatio: number;
-  fit: 'cover' | 'contain';
-  zIndex: number;
-  order: number;
-  renderOrder: number;
-  dualGrid: boolean;
-}
-
-type RuntimeTileSpriteManifest = {
-  version?: unknown;
-  defaults?: {
-    tile?: Record<string, unknown>;
-  };
-  tiles?: Record<string, unknown>;
-  legacyTiles?: Record<string, unknown>;
-  entities?: Record<string, unknown>;
-};
 
 const CHUNK_SIZE = PIXI_TERRAIN_CHUNK_SIZE;
 const MAX_FLOATING_TEXTS = 256;
@@ -302,470 +165,6 @@ const DUAL_GRID_QUADS = [
   { mask: 8, x: 0.5, y: 0.5 },
 ] as const;
 const DUAL_GRID_QUARTER_SOURCE_OVERLAP_PX = 1;
-
-function clamp01(value: number): number {
-  return Math.max(0, Math.min(1, value));
-}
-
-function easeOutCubic(t: number): number {
-  return 1 - Math.pow(1 - clamp01(t), 3);
-}
-
-function parseColor(input: string | undefined, fallback = 0xffffff): number {
-  if (!input) return fallback;
-  const value = input.trim();
-  if (value.startsWith('#')) {
-    const hex = value.slice(1);
-    const expanded = hex.length === 3 ? hex.split('').map((entry) => entry + entry).join('') : hex;
-    const parsed = Number.parseInt(expanded.slice(0, 6), 16);
-    return Number.isFinite(parsed) ? parsed : fallback;
-  }
-  const match = value.match(/rgba?\(([^)]+)\)/i);
-  if (match) {
-    const [r, g, b] = match[1].split(',').map((entry) => Number.parseFloat(entry.trim()));
-    if ([r, g, b].every((entry) => Number.isFinite(entry))) {
-      return ((Math.round(r) & 255) << 16) | ((Math.round(g) & 255) << 8) | (Math.round(b) & 255);
-    }
-  }
-  return fallback;
-}
-
-function parseAlpha(input: string | undefined, fallback = 1): number {
-  if (!input) return fallback;
-  const match = input.match(/rgba?\(([^)]+)\)/i);
-  if (!match) return fallback;
-  const parts = match[1].split(',').map((entry) => entry.trim());
-  return parts.length >= 4 ? clamp01(Number.parseFloat(parts[3])) : fallback;
-}
-
-function colorWithAlpha(color: string | undefined, alpha: number): { color: number; alpha: number } {
-  return { color: parseColor(color, 0x3b82f6), alpha: clamp01(alpha) };
-}
-
-function buildGridPointSignature(cells: readonly GridPoint[] | null | undefined): string {
-  if (!cells || cells.length === 0) return '0';
-  let signature = String(cells.length);
-  for (const cell of cells) signature += `|${cell.x},${cell.y}`;
-  return signature;
-}
-
-function buildTargetingOverlaySignature(state: MapSceneSnapshot['overlays']['targeting']): string {
-  if (!state) return 'targeting:null';
-  return [
-    state.originX,
-    state.originY,
-    state.range,
-    state.visibleOnly === true ? 1 : 0,
-    state.shape ?? '',
-    state.radius ?? '',
-    state.hoverX ?? '',
-    state.hoverY ?? '',
-    buildGridPointSignature(state.affectedCells),
-  ].join('|');
-}
-
-function buildSenseQiHoverSignature(state: MapSceneSnapshot['overlays']['senseQi']): string {
-  if (!state || typeof state.hoverX !== 'number' || typeof state.hoverY !== 'number') return 'sense-hover:null';
-  return `${state.hoverX},${state.hoverY}`;
-}
-
-function resolveEntityFallbackLabel(kind: string | null | undefined): string {
-  switch (kind) {
-    case 'crowd': return translateUi('map-render.entity.crowd', undefined);
-    case 'monster': return translateUi('map-render.entity.monster', undefined);
-    case 'player': return translateUi('map-render.entity.player', undefined);
-    case 'container': return translateUi('map-render.entity.container', undefined);
-    case 'building': return translateUi('map-render.entity.building', undefined);
-    case 'formation': return translateUi('map-render.entity.formation', undefined);
-    case 'portal': return translateUi('map-render.entity.portal', undefined);
-    case 'mechanism': return translateUi('map-render.entity.mechanism', undefined);
-    case 'npc':
-    default:
-      return translateUi('map-render.entity.npc', undefined);
-  }
-}
-
-function resolveEntityLabelColor(kind: string | null | undefined): string {
-  switch (kind) {
-    case 'crowd': return '#f4dfaf';
-    case 'monster': return '#ffddcc';
-    case 'player': return '#d8f3c3';
-    case 'container': return '#ffe3b8';
-    case 'building': return '#d7e6f5';
-    case 'formation': return '#9cc8ff';
-    case 'portal': return '#a7f3d0';
-    case 'mechanism': return '#f9a8d4';
-    default: return '#cce7ff';
-  }
-}
-
-function resolveEntityHpBarColor(kind: string | null | undefined, hostile: boolean | undefined): string {
-  if (hostile === true || kind === 'monster') return '#d15252';
-  switch (kind) {
-    case 'npc': return '#58a8ff';
-    case 'container': return '#c18b46';
-    case 'building': return '#7dd3fc';
-    case 'formation': return '#9cc8ff';
-    default: return '#63c46b';
-  }
-}
-
-function resolveEntityBadgePalette(badge: EntityNameplateBadge): {
-  fill: string;
-  stroke: string;
-  text: string;
-} {
-  const badgeClassName = getEntityBadgeClassName(badge);
-  if (badge.tone === 'sect') {
-    return {
-      fill: 'rgba(151, 83, 28, 0.92)',
-      stroke: 'rgba(255, 198, 128, 0.86)',
-      text: '#fff6eb',
-    };
-  }
-  const fill = badgeClassName?.includes('--boss') || badge.tone === 'demonic'
-    ? 'rgba(120, 32, 24, 0.92)'
-    : 'rgba(42, 54, 91, 0.92)';
-  const stroke = badgeClassName?.includes('--boss')
-    ? 'rgba(255, 188, 156, 0.86)'
-    : badge.tone === 'demonic'
-      ? 'rgba(255, 151, 151, 0.84)'
-      : 'rgba(185, 211, 255, 0.82)';
-  return {
-    fill,
-    stroke,
-    text: '#fff6eb',
-  };
-}
-
-function resolveNameplateBadges(
-  badges: ObservedMapEntity['badges'] | null | undefined,
-  badge: ObservedMapEntity['badge'] | null | undefined,
-  fallbackBadge: ObservedMapEntity['badge'] | null | undefined,
-): EntityNameplateBadge[] {
-  const source = Array.isArray(badges) && badges.length > 0
-    ? badges
-    : badge
-      ? [badge]
-      : fallbackBadge
-        ? [fallbackBadge]
-        : [];
-  return source.filter((entry): entry is EntityNameplateBadge => (
-    typeof entry?.text === 'string' && entry.text.trim().length > 0
-  ));
-}
-
-function buildNameplateBadgeSignature(badges: readonly EntityNameplateBadge[]): string {
-  return badges.map((badge) => `${badge.text}:${badge.tone ?? ''}`).join(',');
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function normalizePositiveInteger(value: unknown, fallback: number): number {
-  const numeric = Math.trunc(Number(value));
-  return Number.isFinite(numeric) && numeric > 0 ? numeric : fallback;
-}
-
-function normalizeNonNegativeInteger(value: unknown, fallback: number): number {
-  const numeric = Math.trunc(Number(value));
-  return Number.isFinite(numeric) && numeric >= 0 ? numeric : fallback;
-}
-
-function normalizeTileSpriteZIndex(value: unknown, key: string): number {
-  const raw = isRecord(value) ? readPixiSpriteMetaField(value, undefined, 'zIndex') : undefined;
-  const numeric = Number(raw);
-  if (Number.isFinite(numeric)) return numeric;
-  if (key.startsWith('terrain:')) return 100;
-  if (key.startsWith('surface:')) return 200;
-  if (key.startsWith('structure:')) return 300;
-  if (key.startsWith('interactable:')) return 400;
-  return 500;
-}
-
-function readPixiSpriteField(value: Record<string, unknown>, defaults: Record<string, unknown> | undefined, field: string): unknown {
-  return value[field] !== undefined ? value[field] : defaults?.[field];
-}
-
-function readPixiSpriteMetaField(value: Record<string, unknown>, defaults: Record<string, unknown> | undefined, field: string): unknown {
-  const valueMeta = isRecord(value.meta) ? value.meta : undefined;
-  if (valueMeta?.[field] !== undefined) return valueMeta[field];
-  if (value[field] !== undefined) return value[field];
-  const defaultMeta = defaults && isRecord(defaults.meta) ? defaults.meta : undefined;
-  if (defaultMeta?.[field] !== undefined) return defaultMeta[field];
-  return defaults?.[field];
-}
-
-function normalizeTileSpriteZIndexWithDefaults(value: Record<string, unknown>, defaults: Record<string, unknown> | undefined, key: string): number {
-  const raw = readPixiSpriteMetaField(value, defaults, 'zIndex');
-  const numeric = Number(raw);
-  if (Number.isFinite(numeric)) return numeric;
-  return normalizeTileSpriteZIndex(value, key);
-}
-
-function normalizeTileSpriteDualGrid(value: Record<string, unknown>, defaults: Record<string, unknown> | undefined): boolean {
-  const rawDualGrid = readPixiSpriteMetaField(value, defaults, 'dualGrid');
-  return rawDualGrid === true || (isRecord(rawDualGrid) && rawDualGrid.enabled !== false);
-}
-
-function normalizeSpriteFit(value: unknown): 'cover' | 'contain' {
-  return value === 'contain' ? 'contain' : 'cover';
-}
-
-function normalizePixiTileSpriteRef(
-  value: unknown,
-  manifestUrl: string,
-  version: string,
-  key: string,
-  order: number,
-  defaults?: Record<string, unknown>,
-): PixiTileSpriteRef | null {
-  if (!isRecord(value) || typeof value.src !== 'string' || value.src.trim().length === 0) return null;
-  return {
-    key,
-    src: resolveRuntimeImageOverrideSrc(key, resolveRuntimeImagePackAssetUrl(manifestUrl, value.src, version)),
-    cols: normalizePositiveInteger(readPixiSpriteField(value, defaults, 'cols'), 1),
-    rows: normalizePositiveInteger(readPixiSpriteField(value, defaults, 'rows'), 1),
-    col: normalizeNonNegativeInteger(readPixiSpriteField(value, defaults, 'col'), 0),
-    row: normalizeNonNegativeInteger(readPixiSpriteField(value, defaults, 'row'), 0),
-    colSpan: normalizePositiveInteger(readPixiSpriteField(value, defaults, 'colSpan'), 1),
-    rowSpan: normalizePositiveInteger(readPixiSpriteField(value, defaults, 'rowSpan'), 1),
-    insetRatio: Number.isFinite(Number(readPixiSpriteField(value, defaults, 'insetRatio')))
-      ? Math.max(0, Math.min(0.4, Number(readPixiSpriteField(value, defaults, 'insetRatio'))))
-      : 0,
-    fit: normalizeSpriteFit(readPixiSpriteField(value, defaults, 'fit')),
-    zIndex: normalizeTileSpriteZIndexWithDefaults(value, defaults, key),
-    order,
-    renderOrder: order,
-    dualGrid: normalizeTileSpriteDualGrid(value, defaults),
-  };
-}
-
-function resolveTopTileSpriteKey(tile: Tile, legacyTileKeys: ReadonlyMap<string, string>): string | null {
-  const structureType = typeof tile.structureType === 'string' && tile.structureType.length > 0 ? tile.structureType : null;
-  if (structureType) return `structure:${structureType}`;
-  const interactable = Array.isArray(tile.interactableKinds)
-    ? tile.interactableKinds.find((kind) => typeof kind === 'string' && kind.length > 0)
-    : undefined;
-  if (interactable) return `interactable:${interactable}`;
-  const surfaceType = typeof tile.surfaceType === 'string' && tile.surfaceType.length > 0 ? tile.surfaceType : null;
-  if (surfaceType) return `surface:${surfaceType}`;
-  const terrainType = typeof tile.terrainType === 'string' && tile.terrainType.length > 0 ? tile.terrainType : null;
-  if (terrainType) return `terrain:${terrainType}`;
-  return legacyTileKeys.get(tile.type) ?? null;
-}
-
-function normalizePixiTileSpriteMap(
-  value: unknown,
-  manifestUrl: string,
-  version: string,
-  defaults?: Record<string, unknown>,
-): Map<string, PixiTileSpriteRef> {
-  const result = new Map<string, PixiTileSpriteRef>();
-  if (!isRecord(value)) return result;
-  let order = 0;
-  for (const [key, rawRef] of Object.entries(value)) {
-    const normalizedKey = key.trim();
-    const ref = normalizePixiTileSpriteRef(rawRef, manifestUrl, version, normalizedKey, order, defaults);
-    order += 1;
-    if (normalizedKey && ref) result.set(normalizedKey, ref);
-  }
-  return result;
-}
-
-function addLocalPixiEntityOverrideSpriteRefs(sprites: Map<string, PixiTileSpriteRef>): void {
-  let order = sprites.size;
-  for (const entry of getRuntimeImageOverrideSpriteEntries()) {
-    if (!entry.src.startsWith('data:image/')) continue;
-    sprites.set(entry.key, {
-      key: entry.key,
-      src: entry.src,
-      cols: 1,
-      rows: 1,
-      col: 0,
-      row: 0,
-      colSpan: 1,
-      rowSpan: 1,
-      insetRatio: 0,
-      fit: 'contain',
-      zIndex: 500,
-      order,
-      renderOrder: order,
-      dualGrid: false,
-    });
-    order += 1;
-  }
-}
-
-function normalizeLegacyTileMap(value: unknown): Map<string, string> {
-  const result = new Map<string, string>();
-  if (!isRecord(value)) return result;
-  for (const [key, rawValue] of Object.entries(value)) {
-    const normalizedKey = key.trim();
-    const mappedKey = typeof rawValue === 'string' ? rawValue.trim() : '';
-    if (normalizedKey && mappedKey) result.set(normalizedKey, mappedKey);
-  }
-  return result;
-}
-
-function pickRuntimeEntitySpriteSelection(
-  entity: Pick<ObservedMapEntity, 'id' | 'kind' | 'name' | 'char' | 'facing' | 'monsterId'>,
-  sprites: ReadonlyMap<string, PixiTileSpriteRef>,
-): RuntimeEntitySpriteSelection | null {
-  const plan = buildEntitySpriteLookupPlan(entity);
-  for (let index = 0; index < plan.keys.length; index += 1) {
-    const ref = sprites.get(plan.keys[index]!);
-    if (ref) {
-      return {
-        ref,
-        transform: plan.transforms[index] ?? IDENTITY_ENTITY_SPRITE_TRANSFORM,
-      };
-    }
-  }
-  return null;
-}
-
-function resolveGroundItemLabel(entry: GroundItemEntryView): string {
-  const explicit = [...(entry.groundLabel?.trim() ?? '')].filter((char) => char.trim().length > 0).join('');
-  if (explicit) return explicit.slice(0, 2);
-  const chars = [...entry.name.trim()].filter((char) => char.trim().length > 0);
-  const hanChar = chars.find((char) => /[\u3400-\u9fff\uf900-\ufaff]/u.test(char));
-  if (hanChar) return hanChar;
-  const wordChar = chars.find((char) => /[A-Za-z0-9]/.test(char));
-  return wordChar ? wordChar.toUpperCase() : chars[0]?.slice(0, 1) ?? '?';
-}
-
-function textStyle(preset: keyof typeof UI_TEXT_SETTINGS.canvasPresets, fontSize: number, fill: string, stroke = 'rgba(15,12,10,0.9)', strokeWidth = 3): TextStyleOptions {
-  const config = UI_TEXT_SETTINGS.canvasPresets[preset];
-  const family = UI_TEXT_SETTINGS.families[config.family];
-  return {
-    fontFamily: family,
-    fontWeight: String(config.weight) as TextStyleFontWeight,
-    fontSize: Math.max(1, Number(fontSize.toFixed(2))),
-    fill,
-    stroke: { color: stroke, width: strokeWidth },
-    padding: Math.max(2, Math.ceil(strokeWidth + 2)),
-  };
-}
-
-function isTileInsideFormationRange(anim: AnimEntity, gx: number, gy: number): boolean {
-  const radius = Math.max(1, Math.trunc(Number(anim.formationRadius) || 0));
-  const dx = gx - anim.gridX;
-  const dy = gy - anim.gridY;
-  if (Math.abs(dx) > radius || Math.abs(dy) > radius) return false;
-  if (anim.formationRangeShape === 'circle') return (dx * dx) + (dy * dy) <= radius * radius;
-  if (anim.formationRangeShape === 'checkerboard') return ((gx + gy) % 2) === 0;
-  return true;
-}
-
-function isTileOnFormationBoundary(anim: AnimEntity, gx: number, gy: number): boolean {
-  if (!isTileInsideFormationRange(anim, gx, gy)) return false;
-  const radius = Math.max(1, Math.trunc(Number(anim.formationRadius) || 0));
-  const dx = gx - anim.gridX;
-  const dy = gy - anim.gridY;
-  if (anim.formationRangeShape === 'circle') {
-    return (dx * dx) + (dy * dy) <= radius * radius
-      && (
-        ((dx + 1) * (dx + 1)) + (dy * dy) > radius * radius
-        || ((dx - 1) * (dx - 1)) + (dy * dy) > radius * radius
-        || (dx * dx) + ((dy + 1) * (dy + 1)) > radius * radius
-        || (dx * dx) + ((dy - 1) * (dy - 1)) > radius * radius
-      );
-  }
-  return Math.abs(dx) === radius || Math.abs(dy) === radius;
-}
-
-function buildFormationRangeSignature(entities: Iterable<AnimEntity>): string {
-  let count = 0;
-  let signature = '';
-  for (const anim of entities) {
-    if (anim.kind !== 'formation' || !Number.isFinite(Number(anim.formationRadius)) || anim.formationActive === false) continue;
-    count += 1;
-    signature += [
-      '',
-      anim.id,
-      anim.gridX,
-      anim.gridY,
-      anim.formationRadius ?? '',
-      anim.formationRangeShape ?? '',
-      anim.formationRangeHighlightColor ?? '',
-      anim.formationBoundaryChar ?? '',
-      anim.formationBoundaryColor ?? '',
-      anim.formationBoundaryRangeHighlightColor ?? '',
-      anim.formationRangeVisibleWithoutSenseQi === true ? 1 : 0,
-      anim.formationBoundaryVisibleWithoutSenseQi === true ? 1 : 0,
-      anim.formationBlocksBoundary === true ? 1 : 0,
-    ].join('|');
-  }
-  return `${count}${signature}`;
-}
-
-function buildFengShuiOverlaySignature(cells: readonly { x: number; y: number; score: number; grade: FengShuiGrade; revision: number }[] | undefined): string {
-  if (!cells || cells.length === 0) return '0';
-  let signature = String(cells.length);
-  for (const cell of cells) signature += `|${cell.x},${cell.y},${Math.trunc(cell.score)},${cell.grade},${cell.revision}`;
-  return signature;
-}
-
-function buildBuildPreviewSignature(cells: readonly { x: number; y: number; ok: boolean; warning?: boolean }[] | undefined): string {
-  if (!cells || cells.length === 0) return '0';
-  let signature = String(cells.length);
-  for (const cell of cells) signature += `|${cell.x},${cell.y},${cell.ok ? 1 : 0},${cell.warning === true ? 1 : 0}`;
-  return signature;
-}
-
-function buildGroundPileSignature(piles: ReadonlyMap<string, GroundItemPileView>): string {
-  let signature = String(piles.size);
-  for (const pile of piles.values()) {
-    signature += `|${pile.sourceId}:${pile.x},${pile.y}:${pile.items.length}`;
-    for (const item of pile.items) {
-      signature += `,${item.itemKey}:${item.itemId}:${item.type}:${item.count}:${item.groundLabel ?? ''}:${item.grade ?? ''}:${item.enhanceLevel ?? ''}:${item.name}`;
-    }
-  }
-  return signature;
-}
-
-function getFengShuiOverlayFill(cell: { score: number }): { color: number; alpha: number } {
-  const score = Math.max(-1000, Math.min(1000, Math.trunc(Number(cell.score) || 0)));
-  const strength = Math.min(1, Math.abs(score) / 1000);
-  if (score === 0) return { color: 0x94a3b8, alpha: 0.08 };
-  const alpha = 0.10 + strength * 0.32;
-  if (score > 0) {
-    const red = Math.round(80 - strength * 46);
-    const green = Math.round(150 + strength * 74);
-    const blue = Math.round(96 - strength * 40);
-    return { color: (red << 16) | (green << 8) | blue, alpha };
-  }
-  const red = Math.round(180 + strength * 58);
-  const green = Math.round(92 - strength * 50);
-  const blue = Math.round(72 - strength * 34);
-  return { color: (red << 16) | (green << 8) | blue, alpha };
-}
-
-function getFengShuiOverlayStroke(cell: { score: number }): { color: number; alpha: number } {
-  const score = Math.max(-1000, Math.min(1000, Math.trunc(Number(cell.score) || 0)));
-  const strength = Math.min(1, Math.abs(score) / 1000);
-  if (score === 0) return { color: 0xcbd5e1, alpha: 0.34 };
-  return score > 0
-    ? { color: 0x4ade80, alpha: 0.42 + strength * 0.50 }
-    : { color: 0xf87171, alpha: 0.42 + strength * 0.50 };
-}
-
-function getSenseQiOverlayStyle(tile: Tile | null | undefined, levelBaseValue = DEFAULT_AURA_LEVEL_BASE_VALUE): { color: number; alpha: number } {
-  const { family, value } = resolveSenseQiOverlaySignal(tile?.aura, tile?.resources, levelBaseValue);
-  const normalized = Math.max(0, Math.min(value, SENSE_QI_OVERLAY_STYLE.maxAuraLevel)) / SENSE_QI_OVERLAY_STYLE.maxAuraLevel;
-  const palette = family === 'sha'
-    ? { baseRed: 30, redRange: 164, baseGreen: 10, greenRange: 54, baseBlue: 8, blueRange: 32 }
-    : family === 'demonic'
-      ? { baseRed: 10, redRange: 56, baseGreen: 24, greenRange: 150, baseBlue: 12, blueRange: 48 }
-      : SENSE_QI_OVERLAY_STYLE;
-  const red = Math.round(palette.baseRed + normalized * palette.redRange);
-  const green = Math.round(palette.baseGreen + normalized * palette.greenRange);
-  const blue = Math.round(palette.baseBlue + normalized * palette.blueRange);
-  const alpha = SENSE_QI_OVERLAY_STYLE.baseAlpha - normalized * SENSE_QI_OVERLAY_STYLE.alphaRange;
-  return { color: (red << 16) | (green << 8) | blue, alpha: clamp01(alpha) };
-}
 
 /** Pixi/WebGL2 主世界渲染适配器。 */
 export class PixiMapRendererAdapter {

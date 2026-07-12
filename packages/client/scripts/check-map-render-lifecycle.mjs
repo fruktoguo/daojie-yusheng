@@ -194,6 +194,9 @@ assert.match(pixiRenderer, /this\.rendererInitPromise\.then\(\(\) => \{\s*this\.
 assert.match(pixiRenderer, /destroy\(\): void \{[\s\S]*?this\.profiler\.destroy\(\)/);
 assert.doesNotMatch(pixiRenderer, /profileMeasure|this\.profiler\.[A-Za-z]+\([^\n]*\(\) =>/, '正常帧路径不得为 profiler 创建测量闭包');
 assert.match(pixiRenderer, /if \(profileActive\) \{[\s\S]*?this\.profiler\.recordFrame\(frameAtMs, activeSchedule\)/, '关闭 profiler 时不得构造帧诊断快照');
+assert.match(pixiRenderer, /from '\.\/pixi-runtime-image-manifest'/);
+assert.match(pixiRenderer, /from '\.\/pixi-render-primitives'/);
+assert.doesNotMatch(pixiRenderer, /^function (?:normalizePixiTileSpriteMap|buildFormationRangeSignature|parseColor)\b/m, 'adapter 不得重新吸收图包解析和纯视觉规则');
 
 const storage = new MemoryStorage();
 const dispatchedEvents = [];
@@ -268,6 +271,34 @@ const vite = await createServer({
 });
 try {
   const { PixiRenderProfiler } = await vite.ssrLoadModule('/src/game-map/renderer/pixi-render-profiler.ts');
+  const runtimeImageManifest = await vite.ssrLoadModule('/src/game-map/renderer/pixi-runtime-image-manifest.ts');
+  const renderPrimitives = await vite.ssrLoadModule('/src/game-map/renderer/pixi-render-primitives.ts');
+  const spriteMap = runtimeImageManifest.normalizePixiTileSpriteMap({
+    'terrain:floor': {
+      src: './floor.png',
+      cols: 4,
+      rows: 2,
+      meta: { zIndex: 123, dualGrid: true },
+    },
+  }, '/assets/runtime-image-packs/default/manifest.json', 'test-version');
+  const floorSprite = spriteMap.get('terrain:floor');
+  assert.equal(floorSprite?.cols, 4, '图包清单归一化必须保留合法 atlas 列数');
+  assert.equal(floorSprite?.zIndex, 123, '图包 meta 层级必须进入 Pixi 引用');
+  assert.equal(floorSprite?.dualGrid, true, '图包 dual-grid 元数据必须进入 Pixi 引用');
+  assert.equal(runtimeImageManifest.resolveTopTileSpriteKey({
+    type: 'floor',
+    walkable: true,
+    blocksSight: false,
+    aura: 0,
+    occupiedBy: null,
+    modifiedAt: null,
+    terrainType: 'stone',
+    surfaceType: 'grass',
+    structureType: 'gate',
+  }, new Map([['floor', 'terrain:floor']])), 'structure:gate', '图层选择必须保持 structure 优先级');
+  assert.equal(renderPrimitives.parseColor('rgba(12, 34, 56, 0.5)'), 0x0c2238, '颜色投影拆分后必须保持 RGB 语义');
+  assert.equal(renderPrimitives.buildGridPointSignature([{ x: 1, y: 2 }, { x: 3, y: 4 }]), '2|1,2|3,4');
+
   const profiler = new PixiRenderProfiler(() => ({
     terrainChunks: 0,
     cachedTerrainChunks: 0,
