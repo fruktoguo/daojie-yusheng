@@ -107,7 +107,7 @@ export interface InventoryPageView {
  * requestId：客户端请求 ID 回显。
  */
 
-  requestId?: string;
+  requestId: string;
   /**
  * filter：本页使用的分类筛选。
  */

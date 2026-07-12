@@ -603,7 +603,7 @@ export interface RequestInventoryPageView {
  * requestId：客户端请求 ID，用于忽略过期响应。
  */
 
-  requestId?: string;
+  requestId: string;
   /**
  * knownRevision：客户端当前已知背包版本，仅作诊断和过期保护。
  */

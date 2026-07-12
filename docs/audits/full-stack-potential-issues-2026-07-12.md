@@ -561,6 +561,15 @@
 - 修复方式：在 shared 建立覆盖全部 `SyncedItemStack` key 的显式投影白名单，新增字段漏登记会在编译期失败，投影时深克隆并拒绝运行时内部字段；背包分页和背包/装备/法宝 PanelDelta 切片统一复用该投影。客户端把每个回包视为完整实例视图，只用本地模板补静态字段，不再从旧槽位继承；实例特殊属性改为服务端值优先。背包网关 smoke 同步迁移为规范 TypeScript，并把分页字段完整性和引用隔离接入 `verify:quick`；生产边界门禁禁止物品浅展开回归。
 - 验证：`pnpm build:shared`、`pnpm verify:client`、完整 `pnpm verify:quick` 均通过；新增客户端水合 proof 动态覆盖旧槽位不继承、特殊属性/Buff/上下文动作保留和深克隆，compiled 网关 smoke 覆盖过滤、搜索、30 条上限、请求回显、revision、完整实例投影及内部字段拒绝。`pnpm proof:file-size-gate` 已运行，仍因 FS-002 记录的 14 个 baseline regression 与 2 个新超限文件退出 1，本组没有新增超限。未连接真实弱网，不能替代长延迟翻页和实际包体压测。
 
+### FS-055 `[x]` 背包分页请求缺少完整代际与失败生命周期
+
+- 严重级别：中高。
+- 根本原因：客户端只在回包和当前快照“同时存在非空 requestId”时才比较身份，没有要求当前 pending、筛选坐标和 revision 下界全部匹配；翻页又直接把快照改成目标 offset 和空 items，但没有立即 patch loading。网络发送器丢弃本地出站门禁结果，也没有超时释放 pending。服务端虽然声明 `knownRevision` 用于过期保护，实际完全未读取，且会为缺少 requestId 的请求生成无法关联的回包。
+- 为什么错误：分页回包是低频异步查询结果，筛选、搜索、页码和背包 revision 任一变化都会产生新代际。没有唯一可接受 pending 就无法证明回包仍属于当前视图；把“已接受页面”和“正在请求目标页”塞进同一快照，也破坏了展示基线与请求状态的边界。
+- 后果：弱网、重连或快速翻页时，缺身份/旧坐标回包可能覆盖当前页；点击下一页后列表会短暂退回本地第一页，按钮仍可连续点击并堆积请求。若 socket 尚未可写或回包丢失，面板会永久停在 loading，后续普通 update 也不再补发。多节点或异常路由下的旧 revision 还可能把客户端背包视图倒退。
+- 修复方式：新增独立 `InventoryPageRequestState`，当前只保留一个 pending，严格校验 requestId、filter、search、offset、limit 和 revision 下界；已接受页与 pending 分离，翻页期间保留旧页并局部禁用按钮。发送器返回出站是否接受，本地拒绝和 10 秒超时都精确撤销本代 pending；背包 revision 推进会取消旧请求。shared 将 requestId 收紧为必填，服务端拒绝缺失/超长身份和领先于运行态的 knownRevision。
+- 验证：新增纯状态机 proof 覆盖乱序、无身份、坐标不一致、版本回退、正确回包和本地发送失败；`pnpm verify:client`、`pnpm build:shared`、`pnpm audit:protocol` 与完整 `pnpm verify:quick` 均通过。compiled `world-gateway-inventory-helper` smoke 动态证明服务端对缺失 requestId 和领先 revision fail-closed。未注入真实网络延迟和断网，不替代浏览器弱网实测；Vite 仍有既有大 chunk 和 protobuf `eval` 警告。
+
 ## 待进一步验证或用户决定
 
 ### D-001 `[?]` 客户端初始包同时装载 React 面板与 legacy 回退实现
@@ -680,3 +689,4 @@
 | 宗门持久化与运行时边界 | server compile、完整 `pnpm verify:quick`、`pnpm audit:boundaries` 和 10 项宗门相关 compiled smoke 通过；文件体积门禁确认主服务退出错误清单 | fake pool/provider 下的数据库配置 fail-closed、初始化重试、回滚错误聚合、主异步流程、核心归一化、虚拟边界、阵法/道具/房间风水联动和 2926 行职责边界 | 未连接真实数据库，不证明建表/核心修复/启动回读的实表语义、多节点一致性、长时间 tick 或连接中断恢复 |
 | GM 玩家分域写入与服务边界 | server compile、完整 `pnpm verify:quick`、边界审计、4 项 GM 玩家 compiled smoke 和文件体积门禁已运行 | 7 条 GM 写入均为精确 domain、未知 section 拒绝、在线炼体 revision 确认、物品/恢复丹模板水合与 2944 行服务边界；新超限项降为 2 个 | 无真实 DB/HTTP 并发，不证明跨节点 GM、tick/flush 竞争和数据库故障时的实表最终值；高危审计 fail-open 仍待用户决定 |
 | 背包实例投影与客户端水合 | `build:shared`、完整 `verify:client`、完整 `verify:quick` 及两端专项 proof/smoke 通过 | shared 字段覆盖、服务端分页完整投影、内部字段隔离、客户端不继承旧槽位及实例值优先均有确定性保护 | 不证明正式服历史异常物品、弱网长延迟翻页、实际包体分布和移动端视觉 |
+| 背包分页请求生命周期 | 状态机 proof、完整 `verify:client`、`build:shared`、`audit:protocol`、完整 `verify:quick` 与 compiled 网关 smoke 通过 | 旧/无身份/错坐标/低 revision 回包拒绝，发送失败与超时解锁，服务端 requestId/knownRevision fail-closed | 未做浏览器弱网、socket 真断连、多节点路由与长时间重复翻页压测；既有构建警告未变 |

@@ -72,7 +72,7 @@ type MainInventoryStateSourceOptions = {
  * sendRequestInventoryPage：请求服务端背包分页。
  */
 
-  sendRequestInventoryPage: (payload: C2S_RequestInventoryPage) => void;
+  sendRequestInventoryPage: (payload: C2S_RequestInventoryPage) => boolean;
   /**
  * hydrateSyncedItemStack：水合服务端轻量物品。
  */

@@ -453,6 +453,7 @@ function normalizeInventoryItemInstanceId(value: unknown): string {
 }
 
 function buildInventoryPagePayload(player: any, payload: any) {
+    const requestId = normalizeInventoryPageRequestId(payload?.requestId);
     const filter = normalizeInventoryPageFilter(payload?.filter);
     const search = normalizeInventoryPageSearch(payload?.search);
     const offset = normalizeInventoryPageOffset(payload?.offset);
@@ -476,8 +477,13 @@ function buildInventoryPagePayload(player: any, payload: any) {
     const cooldowns = Array.isArray(player?.inventory?.cooldowns)
         ? player.inventory.cooldowns.map((entry) => ({ ...entry }))
         : undefined;
+    const revision = Math.max(1, Math.trunc(Number(player?.inventory?.revision ?? 1) || 1));
+    const knownRevision = normalizeInventoryPageKnownRevision(payload?.knownRevision);
+    if (knownRevision !== undefined && revision < knownRevision) {
+        throw new BadRequestException('客户端背包版本领先于当前运行态，请重新同步');
+    }
     return {
-        requestId: normalizeInventoryPageRequestId(payload?.requestId),
+        requestId,
         filter,
         search,
         offset,
@@ -485,7 +491,7 @@ function buildInventoryPagePayload(player: any, payload: any) {
         total,
         totalItems: items.length,
         capacity: Math.max(0, Math.trunc(Number(player?.inventory?.capacity ?? 0) || 0)),
-        revision: Math.max(1, Math.trunc(Number(player?.inventory?.revision ?? 1) || 1)),
+        revision,
         items: pageItems,
         ...(cooldowns ? { cooldowns } : {}),
         ...(Number.isFinite(Number(player?.inventory?.serverTick))
@@ -519,9 +525,23 @@ function normalizeInventoryPageSearch(value: unknown): string {
     return value.replace(/\s+/g, ' ').trim().slice(0, 64).toLowerCase();
 }
 
-function normalizeInventoryPageRequestId(value: unknown): string | undefined {
+function normalizeInventoryPageRequestId(value: unknown): string {
     const requestId = typeof value === 'string' ? value.trim() : '';
-    return requestId ? requestId.slice(0, 80) : undefined;
+    if (!requestId || requestId.length > 80) {
+        throw new BadRequestException('背包分页请求 ID 无效');
+    }
+    return requestId;
+}
+
+function normalizeInventoryPageKnownRevision(value: unknown): number | undefined {
+    if (value === undefined || value === null || value === '') {
+        return undefined;
+    }
+    const revision = Math.trunc(Number(value));
+    if (!Number.isFinite(revision) || revision <= 0) {
+        throw new BadRequestException('背包分页已知版本无效');
+    }
+    return revision;
 }
 
 function normalizeBulkDropItemInstanceIds(payload: any): string[] {

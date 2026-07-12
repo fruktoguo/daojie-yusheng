@@ -177,6 +177,28 @@ function testInventoryPagePreservesInstanceProjection(): void {
   sourceItem.consumeBuffs[0].name = '已污染';
   assert.equal(projectedItem?.equipSpecialStats?.luck, 7, '分页回包不得共享运行时物品引用');
   assert.equal(projectedItem?.consumeBuffs?.[0]?.name, '实例增益', '分页回包嵌套数组必须独立克隆');
+
+  helper.handleRequestInventoryPage(client, { filter: 'all', offset: 0, limit: 30, requestId: '' });
+  assert.deepEqual(log[1], [
+    'emitGatewayError',
+    'socket:1',
+    'REQUEST_INVENTORY_PAGE_FAILED',
+    '背包分页请求 ID 无效',
+  ], '缺少 requestId 的请求必须 fail-closed，不能生成无法关联的回包');
+
+  helper.handleRequestInventoryPage(client, {
+    filter: 'all',
+    offset: 0,
+    limit: 30,
+    requestId: 'request:inventory:ahead',
+    knownRevision: 10,
+  });
+  assert.deepEqual(log[2], [
+    'emitGatewayError',
+    'socket:1',
+    'REQUEST_INVENTORY_PAGE_FAILED',
+    '客户端背包版本领先于当前运行态，请重新同步',
+  ], '服务端不得用旧 revision 覆盖客户端已知的新背包');
 }
 
 testInventoryGatherRouting();
