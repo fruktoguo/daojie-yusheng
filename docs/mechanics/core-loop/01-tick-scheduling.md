@@ -11,7 +11,7 @@
 | MIN_INTERVAL_MS | 100 ms（10 倍实例 deadline 下限） | `packages/server/src/runtime/world/world-runtime-instance-schedule.service.ts` |
 | BASE_INTERVAL_MS | 1000 ms | 同上 |
 | MAX_CATCH_UP_STEPS_PER_INSTANCE | 4 息/批 | 同上 |
-| MAX_PLANS_PER_BATCH | 256 实例/批 | 同上 |
+| MAX_PLANS_PER_BATCH | 2048 实例/批 | 同上 |
 | MAX_CONSECUTIVE_FAILURES_BEFORE_UNHEALTHY | 5 | 同上 |
 | MAP_TIME_PERSISTENCE_CHECKPOINT_INTERVAL_TICKS | 300 | `packages/server/src/runtime/instance/map-instance.runtime.ts` |
 | DEATH_WAIT_TIME | 10 秒 | `packages/shared/src/constants/gameplay/core.ts` |
@@ -28,11 +28,11 @@
   ↓
 普通实例最小堆 + 加速实例最小堆（单调时钟 deadline，旧 generation 惰性失效）
   ↓
-scheduleNextTick() → 按最近有效 deadline 递归 setTimeout
+scheduleNextTick() → 按最近有效 deadline 递归 setTimeout，并限制全局帧起始频率
   ↓
 runTickOnce():
   1. 检查 shuttingDown / startupBarrier / tickInFlight
-  2. collectDue(now)：普通堆优先，再取加速堆；单批最多 256 个实例
+  2. collectDue(now)：普通堆优先，再取加速堆；单批最多 2048 个实例
   3. worldRuntimeService.advanceFrame(actualElapsedMs, duePlans)
   4. 只同步到期实例以及本批跨图涉及的玩家
   5. 只清理到期实例的事件队列
@@ -40,6 +40,8 @@ runTickOnce():
 ```
 
 调度器不为每个实例注册独立系统定时任务。单服 10000 个实例只维护两个内存最小堆和实例索引；普通地图与加速地图的 deadline、命令物化、同步和事件收尾彼此隔离。
+
+全局 dispatcher 两次帧开始之间至少间隔 `100ms`，对应当前实例最高 `10x`，不会因为大量错峰 deadline 退化为 `5ms` 轮询。`setTimeout` 的单次剩余等待量仍可能小于 `100ms`（例如本帧已执行 `95ms` 时只需再等 `5ms`），但它不是逻辑 tick 周期。慢帧指标直接读取 deadline 调度器因补帧上限真实丢弃的逻辑息，并以 10 秒窗口限频告警，不再根据 timer 剩余等待量估算。
 
 ## 实例级 Tick 编排
 

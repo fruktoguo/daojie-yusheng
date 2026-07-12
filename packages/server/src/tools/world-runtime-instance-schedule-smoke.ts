@@ -21,6 +21,28 @@ function createInstance(instanceId: string, tickSpeed: number): FakeInstance {
   };
 }
 
+function verifyTenThousandNormalInstancesFitTenHertzDispatcher(): void {
+  const service = new WorldRuntimeInstanceScheduleService();
+  const instances = new Map<string, FakeInstance>();
+  for (let index = 0; index < 10_000; index += 1) {
+    const instance = createInstance(`instance:scale:${index}`, 1);
+    instances.set(instance.meta.instanceId, instance);
+  }
+  service.rebuild(instances.entries(), 0);
+
+  let totalPlans = 0;
+  let maxBatchSize = 0;
+  for (let nowMs = 100; nowMs <= 1_000; nowMs += 100) {
+    const plans = service.collectDue(nowMs, (instanceId) => instances.get(instanceId) ?? null);
+    totalPlans += plans.length;
+    maxBatchSize = Math.max(maxBatchSize, plans.length);
+  }
+
+  assert.equal(totalPlans, 10_000, '10000 个 1x 实例必须在十个 100ms dispatcher 量子内各推进一次');
+  assert.ok(maxBatchSize <= 2_048, '单个 100ms 量子必须受 2048 实例批次上限保护');
+  assert.equal(service.getDroppedLogicalStepCount(), 0, '正常规模错峰不能制造逻辑息丢弃');
+}
+
 async function main(): Promise<void> {
   const service = new WorldRuntimeInstanceScheduleService();
   let scheduleChangeCount = 0;
@@ -89,11 +111,12 @@ async function main(): Promise<void> {
   stateService.deleteInstanceRuntime(transient.meta.instanceId);
   assert.equal(stateSchedule.getScheduledInstanceCount(), 0, '实例删除必须立即退出 deadline 索引');
 
+  verifyTenThousandNormalInstancesFitTenHertzDispatcher();
   await verifyStaleScheduledPlanIsRejected();
 
   console.log(JSON.stringify({
     ok: true,
-    answers: '实例 deadline 调度能让 10 倍实例独立到期，普通实例同批优先，补帧单实例最多 4 步且超额债务丢弃，租约短暂降级不会遗失索引，暂停与改速会即时更新唤醒。',
+    answers: '实例 deadline 调度能让 10 倍实例独立到期，10000 个 1 倍实例可在 10Hz dispatcher 下完成每秒一息，普通实例同批优先，补帧单实例最多 4 步且超额债务丢弃。',
     excludes: '不证明完整世界帧内各领域业务逻辑，只验证调度索引、优先级和补帧边界。',
     completionMapping: 'instance-deadline-scheduler',
   }, null, 2));

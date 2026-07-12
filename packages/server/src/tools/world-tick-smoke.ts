@@ -333,6 +333,84 @@ async function testScheduleChangeImmediatelyReordersWakeTimer(): Promise<void> {
   assert.equal(scheduleChangedListener, null, '关停后必须解除调度变更监听');
 }
 
+function testDispatcherStartRateIsBoundedByMaxInstanceSpeed(): void {
+  const service = new WorldTickService(
+    { flushTick(): void {} },
+    { isRuntimeMaintenanceActive(): boolean { return false; } },
+    { getMapTickSpeed(): number { return 1; }, isMapPaused(): boolean { return false; } },
+    {
+      advanceFrame(): void {},
+      recordSyncFlushDuration(): void {},
+    },
+    { flushConnectedPlayers(): void {} },
+  );
+  const internals = service as unknown as {
+    lastTickStartedAt: number;
+    resolveNextWakeDelayMs(nowMs: number, requestedDelayMs: number): number;
+  };
+  internals.lastTickStartedAt = 1_000;
+
+  assert.equal(
+    internals.resolveNextWakeDelayMs(1_008, 5),
+    92,
+    '多个错峰 deadline 只相差 5ms 时，全局 dispatcher 仍不得早于 100ms 量子再次启动',
+  );
+  assert.equal(
+    internals.resolveNextWakeDelayMs(1_095, 5),
+    5,
+    '本帧已执行 95ms 时允许只等待余下 5ms，但帧开始间隔仍为 100ms',
+  );
+  assert.equal(
+    internals.resolveNextWakeDelayMs(1_008, 500),
+    500,
+    '较晚的真实 deadline 不能被全局频率下限提前',
+  );
+}
+
+function testDeadlineWaitRemainderIsNotReportedAsSkippedFrame(): void {
+  let droppedLogicalStepCount = 0;
+  const service = new WorldTickService(
+    { flushTick(): void {} },
+    { isRuntimeMaintenanceActive(): boolean { return false; } },
+    { getMapTickSpeed(): number { return 1; }, isMapPaused(): boolean { return false; } },
+    {
+      advanceFrame(): void {},
+      recordSyncFlushDuration(): void {},
+    },
+    { flushConnectedPlayers(): void {} },
+    undefined,
+    undefined,
+    {
+      resolveNextDelayMs(): number { return 5; },
+      collectDue(): [] { return []; },
+      getDroppedLogicalStepCount(): number { return droppedLogicalStepCount; },
+    } as never,
+  );
+  const internals = service as unknown as {
+    currentWakeDelayMs: number;
+    lastIntervalMs: number;
+    lastDroppedStepWarningAtMs: number;
+    refreshSkippedFrameMetrics(observedAtMs: number): void;
+  };
+  internals.currentWakeDelayMs = 5;
+  internals.lastIntervalMs = 11;
+  internals.refreshSkippedFrameMetrics(100);
+  assert.equal(
+    service.getTickMetrics().skippedFrameCount,
+    0,
+    '11ms dispatcher 间隔不能因为 timer 只剩 5ms 就被误报为跳帧',
+  );
+
+  droppedLogicalStepCount = 7;
+  internals.lastDroppedStepWarningAtMs = 100;
+  internals.refreshSkippedFrameMetrics(101);
+  assert.equal(
+    service.getTickMetrics().skippedFrameCount,
+    7,
+    '跳帧指标必须直接采用 deadline 调度器真实丢弃的逻辑息',
+  );
+}
+
 Promise.resolve()
   .then(() => testAwaitsAdvanceFrameBeforeSyncFlush())
   .then(() => testTickInFlightPreventsReentry())
@@ -340,6 +418,8 @@ Promise.resolve()
   .then(() => testShutdownWaitsForInFlightTickAndBlocksNewTicks())
   .then(() => testAcceleratedFramesUseScopedSyncAndKeepOneHertzGlobalFlush())
   .then(() => testScheduleChangeImmediatelyReordersWakeTimer())
+  .then(() => testDispatcherStartRateIsBoundedByMaxInstanceSpeed())
+  .then(() => testDeadlineWaitRemainderIsNotReportedAsSkippedFrame())
   .then(() => {
     console.log(JSON.stringify({ ok: true, case: 'world-tick' }, null, 2));
   });

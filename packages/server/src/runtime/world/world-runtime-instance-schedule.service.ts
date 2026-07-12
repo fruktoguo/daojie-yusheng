@@ -37,7 +37,9 @@ interface DeadlineNode {
 const BASE_INTERVAL_MS = gameplayConstants.WORLD_TICK_INTERVAL_MS;
 const MIN_INTERVAL_MS = BASE_INTERVAL_MS / MAX_INSTANCE_TICK_SPEED;
 const MAX_CATCH_UP_STEPS_PER_INSTANCE = 4;
-const MAX_PLANS_PER_BATCH = 256;
+/** 10000 个 1x 实例在 10Hz dispatcher 下平均每批 1000 个；保留约两倍错峰偏斜余量。 */
+const MAX_PLANS_PER_BATCH = 2_048;
+/** 仅用于避免已到期 deadline 形成 0ms 忙轮询；全局帧起始频率由 WorldTickService 限制为最高 10Hz。 */
 const MIN_WAKE_DELAY_MS = 5;
 
 /** 仅按 deadline 排序的二叉最小堆。 */
