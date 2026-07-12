@@ -133,6 +133,8 @@ function main() {
   const inventoryPanelTs = read('src/ui/panels/inventory-panel.ts');
   const inventoryBulkDiscardDialogTs = read('src/ui/panels/inventory-bulk-discard-dialog.ts');
   const inventoryFormationDialogTs = read('src/ui/panels/inventory-formation-dialog.ts');
+  const inventoryItemActionDialogTs = read('src/ui/panels/inventory-item-action-dialog.ts');
+  const inventoryItemActionDialogStateTs = read('src/ui/panels/inventory-item-action-dialog-state.ts');
 
   const mainLineCount = lineCount('src/main.ts');
   const compositionLineCount = lineCount('src/main-app-composition.ts');
@@ -218,6 +220,11 @@ function main() {
   assertMissing(inventoryPanelTs, /bulkDiscardSelectedIds|renderBulkDiscardModal|buildBulkDiscardRenderKey/, '背包总控不得重新承载批量丢弃状态和渲染键');
   assertIncludes(inventoryBulkDiscardDialogTs, /getItemInstanceId\(item\)/, '批量丢弃必须从当前背包读取稳定物品实例 ID');
   assertIncludes(inventoryBulkDiscardDialogTs, /dropItems\(itemInstanceIds\)/, '批量丢弃确认必须只提交当前仍存在的实例 ID');
+  assertIncludes(inventoryPanelTs, /new InventoryItemActionDialogController\(/, '背包总控必须把使用、丢弃和摧毁弹窗委托给专用控制器');
+  assertMissing(inventoryPanelTs, /\bactionDialog\b|renderActionDialog|getSpecialUseConfirmSummary/, '背包总控不得重新承载物品操作弹窗状态和特殊使用规则');
+  assertIncludes(inventoryItemActionDialogTs, /getItemInstanceId\(item\)/, '单物品资产操作必须继续使用稳定物品实例 ID');
+  assertIncludes(inventoryItemActionDialogTs, /getPlayerContextRevision\(\)/, '特殊使用确认必须读取玩家上下文代际');
+  assertIncludes(inventoryItemActionDialogStateTs, /contextDependent \? `context:\$\{input\.playerContextRevision\}`/, '特殊使用确认渲染键必须随玩家上下文失效');
 
   assertIncludes(socketTs, /createSocketRuntimeSender/, 'socket.ts 必须继续通过 runtime sender owner 收口发送面');
   assertIncludes(socketTs, /createSocketPanelSender/, 'socket.ts 必须继续通过 panel sender owner 收口发送面');

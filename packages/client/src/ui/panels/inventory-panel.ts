@@ -11,7 +11,6 @@ import {
   EquipSlot,
   EQUIP_SLOTS,
   HeavenGateState,
-  HEAVEN_GATE_REROLL_COST_RATIO,
   Inventory,
   InventoryItemCooldownState,
   ItemStack,
@@ -20,14 +19,11 @@ import {
   PlayerRealmState,
   FORMATION_DISK_TIER_LABELS,
   FormationCreatePayload,
-  SHATTER_SPIRIT_PILL_COST_RATIO,
-  TECHNIQUE_LEARNING_HEAVY_DECAY_WARNING_DELTA,
   createItemStackSignature,
   getFirstGrapheme,
   getGraphemeCount,
   getTechniqueMaxLevel,
   matchesInventoryTypeFilter,
-  shouldWarnTechniqueLearningDifficulty,
   type C2S_RequestInventoryPage,
   type S2C_InventoryPage,
   type SyncedItemStack,
@@ -35,7 +31,6 @@ import {
 import {
   getEquipSlotLabel,
   getItemTypeLabel,
-  getTechniqueGradeLabel,
 } from '../../domain-labels';
 import {
   hasLoadedItemSourceCatalog,
@@ -45,11 +40,8 @@ import {
   renderItemSourceListHtml,
 } from '../../content/item-sources';
 import {
-  getPreviewTechniqueMaxLevel,
-  getLocalRealmLevelEntry,
   getLocalTechniqueTemplate,
   resolvePreviewItem,
-  resolvePreviewTechniqueTemplateLayers,
   resolveTechniqueIdFromBookItemId,
 } from '../../content/local-templates';
 import { detailModalHost } from '../detail-modal-host';
@@ -65,7 +57,6 @@ import { getItemDecorClassName, getItemDisplayMeta, type ItemDisplayMeta } from 
 import { preserveSelection } from '../selection-preserver';
 import { createEmptyHint, createPanelSectionWithTitle, createSmallBtn } from '../ui-primitives';
 import { describePreviewBonuses } from '../stat-preview';
-import { formatTechniqueCumulativeBonusSummary } from '../technique-bonus-summary';
 import { INVENTORY_FILTER_TABS, InventoryFilter } from '../../constants/ui/inventory';
 import { formatDisplayCountBadge, formatDisplayInteger, formatDisplayNumber } from '../../utils/number';
 import {
@@ -92,12 +83,13 @@ import {
   InventoryBulkDiscardDialogController,
 } from './inventory-bulk-discard-dialog';
 import {
+  InventoryItemActionDialogController,
+  type InventoryActionKind,
+} from './inventory-item-action-dialog';
+import {
   InventoryFormationDialogController,
   type FormationRangePreviewPayload,
 } from './inventory-formation-dialog';
-
-/** InventoryActionKind：分类枚举。 */
-type InventoryActionKind = 'use' | 'drop' | 'destroy';
 
 type UseItemOptions = {
   sectName?: string;
@@ -113,30 +105,6 @@ function replaceElementHtml(root: HTMLElement, html: string): void {
   const template = document.createElement('template');
   template.innerHTML = html.trim();
   root.replaceChildren(template.content.cloneNode(true));
-}
-
-/** InventoryActionDialogState：背包物品操作对话框状态。 */
-interface InventoryActionDialogState {
-/**
- * kind：kind相关字段。
- */
-
-  kind: InventoryActionKind;
-  /**
- * itemKey：弹窗打开时选中的物品身份。
- */
-
-  itemKey: string;
-  /**
- * countDraft：数量输入草稿，编辑期允许空值或未完成数字，提交时再归一化。
- */
-
-  countDraft: string;
-  /**
- * confirmDestroy：confirmDestroy相关字段。
- */
-
-  confirmDestroy: boolean;
 }
 
 /** InventoryPrimaryAction：背包条目的主操作定义。 */
@@ -230,12 +198,6 @@ interface InventoryPagedSnapshot {
 
 /** INVENTORY_SOURCE_COLLAPSED_COUNT：背包来源COLLAPSED数量。 */
 const INVENTORY_SOURCE_COLLAPSED_COUNT = 3;
-/** HEAVEN_SPIRITUAL_ROOT_SEED_ITEM_ID：HEAVEN SPIRITUAL ROOT种子物品ID。 */
-const HEAVEN_SPIRITUAL_ROOT_SEED_ITEM_ID = 'root_seed.heaven';
-/** DIVINE_SPIRITUAL_ROOT_SEED_ITEM_ID：DIVINE SPIRITUAL ROOT种子物品ID。 */
-const DIVINE_SPIRITUAL_ROOT_SEED_ITEM_ID = 'root_seed.divine';
-/** SHATTER_SPIRIT_PILL_ITEM_ID：SHATTER灵石PILL物品ID。 */
-const SHATTER_SPIRIT_PILL_ITEM_ID = 'pill.shatter_spirit';
 const FORMATION_DISK_MULTIPLIER_BY_ITEM_ID: Record<string, number> = {
   'formation_disk.mortal': 1,
   'formation_disk.yellow': 2,
@@ -248,8 +210,6 @@ const FORMATION_DISK_TIER_BY_ITEM_ID: Record<string, keyof typeof FORMATION_DISK
   'formation_disk.mystic': 'mystic',
   'formation_disk.earth': 'earth',
 };
-/** HEAVEN_GATE_REROLL_AVERAGE_BONUS：HEAVEN关卡REROLL AVERAGE BONUS。 */
-const HEAVEN_GATE_REROLL_AVERAGE_BONUS = 2;
 /** INVENTORY_INITIAL_RENDER_COUNT：背包初始渲染数量。 */
 const INVENTORY_INITIAL_RENDER_COUNT = 72;
 const INVENTORY_PAGE_SIZE = 30;
@@ -303,8 +263,6 @@ export class InventoryPanel {
   private selectedSlotIndex: number | null = null;
   /** selectedItemKey：selected物品Key。 */
   private selectedItemKey: string | null = null;
-  /** actionDialog：动作对话。 */
-  private actionDialog: InventoryActionDialogState | null = null;
   /** formationDialogSlotIndex：布阵对话槽位。 */
   private formationDialogSlotIndex: number | null = null;
   /** sectFoundingDialogSlotIndex：建宗令建宗面板槽位。 */
@@ -349,6 +307,22 @@ export class InventoryPanel {
     getInventory: () => this.lastInventory,
     getItemInstanceId: (item) => this.getInventoryItemInstanceId(item),
     dropItems: (itemInstanceIds) => this.onBulkDropItems?.(itemInstanceIds),
+    closeModal: () => this.closeModal(),
+    resetParentModalState: () => this.resetModalState(),
+  });
+  private readonly itemActionDialogController = new InventoryItemActionDialogController({
+    ownerId: InventoryPanel.MODAL_OWNER,
+    getPlayerRealm: () => this.playerRealm,
+    getPlayerHeavenGate: () => this.playerHeavenGate,
+    getPlayerFoundation: () => this.playerFoundation,
+    getPlayerContextRevision: () => this.playerContextRevision,
+    isFormationDisk: (item) => this.isFormationDiskItem(item),
+    getItemInstanceId: (item) => this.getInventoryItemInstanceId(item),
+    repairMissingItemInstanceIds: () => this.repairMissingInventoryItemInstanceIds(),
+    useItem: (itemInstanceId, count) => this.onUseItem?.(itemInstanceId, count),
+    dropItem: (itemInstanceId, count) => this.onDropItem?.(itemInstanceId, count),
+    destroyItem: (itemInstanceId, count) => this.onDestroyItem?.(itemInstanceId, count),
+    renderParentModal: () => this.renderModal(),
     closeModal: () => this.closeModal(),
     resetParentModalState: () => this.resetModalState(),
   });
@@ -426,7 +400,7 @@ export class InventoryPanel {
     this.cachedScrollContainer = undefined;
     this.selectedSlotIndex = null;
     this.selectedItemKey = null;
-    this.actionDialog = null;
+    this.itemActionDialogController.reset();
     this.bulkDiscardDialogController.reset();
     this.formationDialogSlotIndex = null;
     this.sectFoundingDialogSlotIndex = null;
@@ -801,7 +775,7 @@ export class InventoryPanel {
       }
       return;
     }
-    if (this.requiresUseConfirmation(item)) {
+    if (this.itemActionDialogController.requiresUseConfirmation(item)) {
       this.selectedSlotIndex = slotIndex;
       this.selectedItemKey = this.getItemIdentity(item);
       this.openActionDialog('use', slotIndex, 1);
@@ -1641,8 +1615,8 @@ export class InventoryPanel {
     }
 
     const { item, slotIndex } = resolved;
-    if (this.actionDialog && this.actionDialog.itemKey !== this.selectedItemKey) {
-      this.actionDialog = null;
+    if (this.itemActionDialogController.isOpen() && !this.itemActionDialogController.matchesItem(this.selectedItemKey)) {
+      this.itemActionDialogController.reset();
     }
     if (this.formationDialogSlotIndex !== null && this.formationDialogSlotIndex !== slotIndex) {
       this.formationDialogSlotIndex = null;
@@ -1658,8 +1632,9 @@ export class InventoryPanel {
       this.renderSectFoundingDialog(item, slotIndex);
       return;
     }
-    if (this.actionDialog) {
-      this.renderActionDialog(item, slotIndex, this.actionDialog);
+    if (this.itemActionDialogController.isOpen()) {
+      this.itemActionDialogController.render(item);
+      this.lastModalRenderKey = this.buildModalRenderKey(item);
       return;
     }
 
@@ -1668,7 +1643,7 @@ export class InventoryPanel {
     if (!hasLoadedItemSourceCatalog()) {
       const pendingItemKey = this.selectedItemKey;
       void preloadItemSourceCatalog().then(() => {
-        if (!this.lastInventory || !pendingItemKey || this.selectedItemKey !== pendingItemKey || this.actionDialog) {
+        if (!this.lastInventory || !pendingItemKey || this.selectedItemKey !== pendingItemKey || this.itemActionDialogController.isOpen()) {
           return;
         }
         this.renderModal();
@@ -1759,7 +1734,7 @@ export class InventoryPanel {
     this.selectedSlotIndex = slotIndex;
     const item = this.lastInventory?.items[slotIndex];
     this.selectedItemKey = item ? this.getItemIdentity(item) : null;
-    this.actionDialog = null;
+    this.itemActionDialogController.reset();
     this.sectFoundingDialogSlotIndex = null;
     this.formationDialogSlotIndex = slotIndex;
     this.renderModal();
@@ -1769,7 +1744,7 @@ export class InventoryPanel {
     this.selectedSlotIndex = slotIndex;
     const item = this.lastInventory?.items[slotIndex];
     this.selectedItemKey = item ? this.getItemIdentity(item) : null;
-    this.actionDialog = null;
+    this.itemActionDialogController.reset();
     this.bulkDiscardDialogController.reset();
     this.formationDialogSlotIndex = null;
     this.sectFoundingDialogSlotIndex = slotIndex;
@@ -1838,156 +1813,6 @@ export class InventoryPanel {
     this.lastModalRenderKey = this.buildModalRenderKey(item);
   }
 
-  /** renderActionDialog：渲染动作对话。 */
-  private renderActionDialog(item: ItemStack, slotIndex: number, dialog: InventoryActionDialogState): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const labels = this.resolveActionLabels(dialog.kind);
-    const maxCount = item.count;
-    const halfCount = Math.max(1, Math.ceil(maxCount / 2));
-    const selectedCount = this.normalizeActionCountDraft(dialog.countDraft, maxCount);
-    const specialUseSummary = dialog.kind === 'use' ? this.getSpecialUseConfirmSummary(item) : null;
-    const displayName = getItemDisplayMeta(item).displayItem.name;
-
-    if (dialog.confirmDestroy) {
-      detailModalHost.open({
-        ownerId: InventoryPanel.MODAL_OWNER,
-      title: t('inventory.destroy.title', undefined),
-      subtitle: t('inventory.modal.item-subtitle.count-only', { itemName: displayName, count: formatDisplayCountBadge(selectedCount) }),
-      hint: t('common.modal.click-blank-cancel', undefined),
-        renderBody: (body) => {
-          this.renderDestroyConfirmBody(body);
-        },
-        onClose: () => {
-          this.resetModalState();
-        },
-        onAfterRender: (body, signal) => {
-          body.querySelector<HTMLElement>('[data-inventory-destroy-back]')?.addEventListener('click', (event) => {
-            event.stopPropagation();
-            this.actionDialog = {
-              ...dialog,
-              confirmDestroy: false,
-            };
-            this.renderModal();
-          }, { signal });
-          body.querySelector<HTMLElement>('[data-inventory-destroy-confirm]')?.addEventListener('click', (event) => {
-            event.stopPropagation();
-            const itemInstanceId = this.getInventoryItemInstanceId(item);
-            if (!itemInstanceId) {
-              this.repairMissingInventoryItemInstanceIds();
-              return;
-            }
-            this.onDestroyItem?.(itemInstanceId, selectedCount);
-            this.closeModal();
-          }, { signal });
-        },
-      });
-      this.lastModalRenderKey = this.buildModalRenderKey(item);
-      return;
-    }
-
-    if (specialUseSummary) {
-      detailModalHost.open({
-        ownerId: InventoryPanel.MODAL_OWNER,
-        title: specialUseSummary.title,
-        subtitle: t('inventory.modal.item-subtitle.count-only', { itemName: displayName, count: formatDisplayCountBadge(1) }),
-        hint: t('common.modal.click-blank-cancel', undefined),
-        renderBody: (body) => {
-          this.renderSpecialUseConfirmBody(body, specialUseSummary);
-        },
-        onClose: () => {
-          this.resetModalState();
-        },
-        onAfterRender: (body, signal) => {
-          body.querySelector<HTMLElement>('[data-inventory-action-cancel]')?.addEventListener('click', (event) => {
-            event.stopPropagation();
-            this.actionDialog = null;
-            this.renderModal();
-          }, { signal });
-          body.querySelector<HTMLElement>('[data-inventory-action-confirm]')?.addEventListener('click', (event) => {
-            event.stopPropagation();
-            const itemInstanceId = this.getInventoryItemInstanceId(item);
-            if (!itemInstanceId) {
-              this.repairMissingInventoryItemInstanceIds();
-              return;
-            }
-            this.onUseItem?.(itemInstanceId, 1);
-            this.closeModal();
-          }, { signal });
-        },
-      });
-      this.lastModalRenderKey = this.buildModalRenderKey(item);
-      return;
-    }
-
-    detailModalHost.open({
-      ownerId: InventoryPanel.MODAL_OWNER,
-      title: labels.title,
-      subtitle: t('inventory.action-dialog.subtitle.max-count', { itemName: displayName, count: formatDisplayInteger(maxCount) }),
-      hint: t('common.modal.click-blank-cancel', undefined),
-      renderBody: (body) => {
-        this.renderActionDialogBody(body, labels, dialog.countDraft, halfCount, maxCount);
-      },
-      onClose: () => {
-        this.resetModalState();
-      },
-      onAfterRender: (body, signal) => {
-        const countInput = body.querySelector<HTMLInputElement>('[data-inventory-action-count="true"]');
-        this.syncActionCountInputWidth(countInput, maxCount);
-        countInput?.addEventListener('input', () => {
-          this.updateActionCountDraft(countInput);
-          this.syncActionCountInputWidth(countInput, maxCount);
-        }, { signal });
-        countInput?.addEventListener('blur', () => {
-          this.commitActionCountInput(countInput, maxCount);
-        }, { signal });
-        body.querySelectorAll<HTMLElement>('[data-inventory-quick-count]').forEach((button) => button.addEventListener('click', (event) => {
-          event.stopPropagation();
-          if (!countInput) {
-            return;
-          }
-          countInput.value = button.dataset.inventoryQuickCount ?? '1';
-          this.updateActionCountDraft(countInput);
-          this.syncActionCountInputWidth(countInput, maxCount);
-        }, { signal }));
-        body.querySelector<HTMLElement>('[data-inventory-action-cancel]')?.addEventListener('click', (event) => {
-          event.stopPropagation();
-          this.actionDialog = null;
-          this.renderModal();
-        }, { signal });
-        body.querySelector<HTMLElement>('[data-inventory-action-confirm]')?.addEventListener('click', (event) => {
-          event.stopPropagation();
-          const selected = this.commitActionCountInput(countInput, maxCount);
-          const itemInstanceId = this.getInventoryItemInstanceId(item);
-          if (dialog.kind === 'use') {
-            if (!itemInstanceId) {
-              this.repairMissingInventoryItemInstanceIds();
-              return;
-            }
-            this.onUseItem?.(itemInstanceId, selected);
-            this.closeModal();
-            return;
-          }
-          if (!itemInstanceId) {
-            this.repairMissingInventoryItemInstanceIds();
-            return;
-          }
-          if (dialog.kind === 'drop') {
-            this.onDropItem?.(itemInstanceId, selected);
-            this.closeModal();
-            return;
-          }
-          this.actionDialog = {
-            ...dialog,
-            countDraft: String(selected),
-            confirmDestroy: true,
-          };
-          this.renderModal();
-        }, { signal });
-      },
-    });
-    this.lastModalRenderKey = this.buildModalRenderKey(item);
-  }
 
   /** renderItemDetailBody：渲染物品详情主体。 */
   private renderItemDetailBody(
@@ -2105,55 +1930,6 @@ export class InventoryPanel {
     });
   }
 
-  /** renderDestroyConfirmBody：渲染摧毁确认主体。 */
-  private renderDestroyConfirmBody(body: HTMLElement): void {
-    replaceElementHtml(body, `
-      <div class="panel-section">
-        <div class="empty-hint">${t('inventory.destroy.warning', undefined)}</div>
-      </div>
-      <div class="inventory-detail-actions">
-        <div class="inventory-detail-actions-group inventory-detail-actions-group--right inventory-detail-actions-group--stretch">
-          <button class="small-btn ghost" type="button" data-inventory-destroy-back>${t('inventory.destroy.back-count', undefined)}</button>
-          <button class="small-btn danger" type="button" data-inventory-destroy-confirm>${t('inventory.destroy.confirm', undefined)}</button>
-        </div>
-      </div>
-    `);
-  }
-
-  /** renderSpecialUseConfirmBody：渲染特殊使用确认主体。 */
-  private renderSpecialUseConfirmBody(
-    body: HTMLElement,
-    summary: {    
-    /**
- * title：title名称或显示文本。
- */
- title: string;    
- /**
- * lines：line相关字段。
- */
- lines: string[];    
- /**
- * confirmLabel：confirmLabel名称或显示文本。
- */
- confirmLabel?: string;    
- /**
- * cancelLabel：cancelLabel名称或显示文本。
- */
- cancelLabel?: string },
-  ): void {
-    replaceElementHtml(body, `
-      <div class="ui-detail-field ui-detail-field--section">
-        <strong>${t('inventory.use-confirm.instructions', undefined)}</strong>
-        ${summary.lines.map((line) => `<div>${this.escapeHtml(line)}</div>`).join('')}
-      </div>
-      <div class="inventory-detail-actions">
-        <div class="inventory-detail-actions-group inventory-detail-actions-group--right inventory-detail-actions-group--stretch">
-          <button class="small-btn ghost" type="button" data-inventory-action-cancel>${this.escapeHtml(summary.cancelLabel ?? t('inventory.action.back-detail', undefined))}</button>
-          <button class="small-btn" type="button" data-inventory-action-confirm>${this.escapeHtml(summary.confirmLabel ?? t('inventory.action.confirm-use', undefined))}</button>
-        </div>
-      </div>
-    `);
-  }
 
   private renderSectFoundingDialogBody(body: HTMLElement): void {
     replaceElementHtml(body, `
@@ -2206,53 +1982,6 @@ export class InventoryPanel {
     return first;
   }
 
-  /** renderActionDialogBody：渲染动作对话主体。 */
-  private renderActionDialogBody(
-    body: HTMLElement,
-    labels: {    
-    /**
- * title：title名称或显示文本。
- */
- title: string;    
- /**
- * confirm：confirm相关字段。
- */
- confirm: string;    
- /**
- * danger：danger相关字段。
- */
- danger: boolean },
-    countDraft: string,
-    halfCount: number,
-    maxCount: number,
-  ): void {
-    replaceElementHtml(body, `
-      <div class="ui-detail-field ui-detail-field--section">
-        <strong>${t('inventory.action-dialog.choose-count', undefined)}</strong>
-        <div class="inventory-batch-use-row inventory-batch-use-row--dialog">
-          <button class="small-btn ghost" type="button" data-inventory-quick-count="1">${t('inventory.action-dialog.one', undefined)}</button>
-          <button class="small-btn ghost" type="button" data-inventory-quick-count="${halfCount}">${t('inventory.action-dialog.half', undefined)}</button>
-          <button class="small-btn ghost" type="button" data-inventory-quick-count="${maxCount}">${t('inventory.action-dialog.all', undefined)}</button>
-          <input
-            class="gm-inline-input"
-            data-inventory-action-count="true"
-            type="number"
-            min="1"
-            max="${maxCount}"
-            step="1"
-            value="${this.escapeHtml(countDraft)}"
-            inputmode="numeric"
-          />
-        </div>
-      </div>
-      <div class="inventory-detail-actions">
-        <div class="inventory-detail-actions-group inventory-detail-actions-group--right inventory-detail-actions-group--stretch">
-          <button class="small-btn ghost" type="button" data-inventory-action-cancel>${t('inventory.action.back-detail', undefined)}</button>
-          <button class="small-btn ${labels.danger ? 'danger' : ''}" type="button" data-inventory-action-confirm>${labels.confirm}</button>
-        </div>
-      </div>
-    `);
-  }
 
   /** patchList：处理patch列表。 */
   private patchList(inventory: Inventory): boolean {
@@ -2396,334 +2125,15 @@ export class InventoryPanel {
     return INVENTORY_PANEL_USABLE_ITEM_TYPES.has(item.type);
   }
 
-  /** getUseCountFromInput：读取使用数量From输入。 */
-  private getUseCountFromInput(input: HTMLInputElement | null, maxCount: number): number {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const rawValue = input?.value ?? '1';
-    return this.normalizeActionCountDraft(rawValue, maxCount);
-  }
-
-  private normalizeActionCountDraft(rawValue: string, maxCount: number): number {
-    const parsed = Number.parseInt(rawValue, 10);
-    if (!Number.isFinite(parsed)) {
-      return 1;
-    }
-    return Math.max(1, Math.min(maxCount, parsed));
-  }
-
-  private updateActionCountDraft(input: HTMLInputElement | null): void {
-    if (!input || !this.actionDialog) {
-      return;
-    }
-    this.actionDialog = {
-      ...this.actionDialog,
-      countDraft: input.value,
-    };
-  }
-
-  private commitActionCountInput(input: HTMLInputElement | null, maxCount: number): number {
-    const selected = this.getUseCountFromInput(input, maxCount);
-    if (input) {
-      input.value = String(selected);
-      this.updateActionCountDraft(input);
-      this.syncActionCountInputWidth(input, maxCount);
-    }
-    return selected;
-  }
-
-  /** syncActionCountInputWidth：同步动作数量输入Width。 */
-  private syncActionCountInputWidth(input: HTMLInputElement | null, maxCount: number): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (!input) {
-      return;
-    }
-    const valueLength = Math.max(1, input.value.trim().length);
-    const maxLength = Math.max(1, String(maxCount).length);
-    const chars = Math.max(4, valueLength, maxLength) + 1;
-    input.style.width = `calc(${chars}ch + 18px)`;
-  }
-
-  /** getSpiritualRootSeedTier：读取Spiritual Root种子Tier。 */
-  private getSpiritualRootSeedTier(item: ItemStack): 'heaven' | 'divine' | null {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (item.itemId === HEAVEN_SPIRITUAL_ROOT_SEED_ITEM_ID) {
-      return 'heaven';
-    }
-    if (item.itemId === DIVINE_SPIRITUAL_ROOT_SEED_ITEM_ID) {
-      return 'divine';
-    }
-    return null;
-  }
-
-  /** requiresUseConfirmation：处理requires使用Confirmation。 */
-  private requiresUseConfirmation(item: ItemStack): boolean {
-    return !this.isFormationDiskItem(item)
-      && (this.getSpiritualRootSeedTier(item) !== null
-      || item.itemId === SHATTER_SPIRIT_PILL_ITEM_ID
-      || this.getTechniqueLearningWarningSummary(item) !== null);
-  }
-
-  /** getHeavenGateRerollCount：读取Heaven关卡Reroll数量。 */
-  private getHeavenGateRerollCount(averageBonus: number): number {
-    return Math.max(0, Math.floor(Math.max(0, averageBonus) / HEAVEN_GATE_REROLL_AVERAGE_BONUS));
-  }
-
-  /** getHeavenGateRerollCost：读取Heaven关卡Reroll Cost。 */
-  private getHeavenGateRerollCost(realm: PlayerRealmState | null): number {
-    return Math.max(1, Math.round(Math.max(1, Math.floor(realm?.progressToNext ?? 1)) * HEAVEN_GATE_REROLL_COST_RATIO));
-  }
-
-  /** getSpiritualRootSeedEquivalentRerollCount：读取Spiritual Root种子Equivalent Reroll数量。 */
-  private getSpiritualRootSeedEquivalentRerollCount(tier: 'heaven' | 'divine'): number {
-    return tier === 'divine' ? 100 : 10;
-  }
-
-  /** getSpecialUseConfirmSummary：读取Special使用Confirm摘要。 */
-  private getSpecialUseConfirmSummary(item: ItemStack): {  
-  /**
- * title：title名称或显示文本。
- */
-
-    title: string;    
-    /**
- * lines：line相关字段。
- */
-
-    lines: string[];    
-    /**
- * confirmLabel：confirmLabel名称或显示文本。
- */
-
-    confirmLabel?: string;    
-    /**
- * cancelLabel：cancelLabel名称或显示文本。
- */
-
-    cancelLabel?: string;
-  } | null {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const techniqueWarningSummary = this.getTechniqueLearningWarningSummary(item);
-    if (techniqueWarningSummary) {
-      return techniqueWarningSummary;
-    }
-    const tier = this.getSpiritualRootSeedTier(item);
-    if (tier) {
-      const currentRerollCount = this.getHeavenGateRerollCount(this.playerHeavenGate?.averageBonus ?? 0);
-      const gainedRerollCount = this.getSpiritualRootSeedEquivalentRerollCount(tier);
-      const reducedCount = Math.max(0, gainedRerollCount - currentRerollCount);
-      const foundationCost = this.getHeavenGateRerollCost(this.playerRealm) * reducedCount;
-      const remainingFoundation = Math.max(0, this.playerFoundation - foundationCost);
-      const nextRerollCount = currentRerollCount + gainedRerollCount;
-    const lines = tier === 'divine'
-      ? [
-            t('inventory.special-use.root-seed.divine.line-1', undefined),
-            t('inventory.special-use.root-seed.line-2', {
-              foundationCost: formatDisplayInteger(foundationCost),
-              foundation: formatDisplayInteger(this.playerFoundation),
-              remainingFoundation: formatDisplayInteger(remainingFoundation),
-            }),
-            t('inventory.special-use.root-seed.line-3', {
-              currentRerollCount: formatDisplayInteger(currentRerollCount),
-              gainedRerollCount: formatDisplayInteger(gainedRerollCount),
-              nextRerollCount: formatDisplayInteger(nextRerollCount),
-            }),
-          ]
-        : [
-            t('inventory.special-use.root-seed.heaven.line-1', undefined),
-            t('inventory.special-use.root-seed.line-2', {
-              foundationCost: formatDisplayInteger(foundationCost),
-              foundation: formatDisplayInteger(this.playerFoundation),
-              remainingFoundation: formatDisplayInteger(remainingFoundation),
-            }),
-            t('inventory.special-use.root-seed.line-3', {
-              currentRerollCount: formatDisplayInteger(currentRerollCount),
-              gainedRerollCount: formatDisplayInteger(gainedRerollCount),
-              nextRerollCount: formatDisplayInteger(nextRerollCount),
-            }),
-          ];
-      return {
-        title: tier === 'divine'
-          ? t('inventory.special-use.root-seed.divine.title', undefined)
-          : t('inventory.special-use.root-seed.heaven.title', undefined),
-        lines,
-      };
-    }
-    const currentRerollCount = this.getHeavenGateRerollCount(this.playerHeavenGate?.averageBonus ?? 0);
-    if (item.itemId !== SHATTER_SPIRIT_PILL_ITEM_ID) {
-      return null;
-    }
-    const currentExp = Math.max(0, Math.floor(this.playerRealm?.progress ?? 0));
-    const expCost = Math.max(0, Math.round(currentExp * SHATTER_SPIRIT_PILL_COST_RATIO));
-    const remainingExp = Math.max(0, currentExp - expCost);
-    const nextRerollCount = currentRerollCount + 1;
-    return {
-      title: t('inventory.special-use.shatter-spirit-pill.title', undefined),
-      lines: [
-        t('inventory.special-use.shatter-spirit-pill.line-1', undefined),
-        t('inventory.special-use.shatter-spirit-pill.line-2', {
-          currentExp: formatDisplayInteger(currentExp),
-          expCost: formatDisplayInteger(expCost),
-          remainingExp: formatDisplayInteger(remainingExp),
-        }),
-        t('inventory.special-use.shatter-spirit-pill.line-3', {
-          currentRerollCount: formatDisplayInteger(currentRerollCount),
-          nextRerollCount: formatDisplayInteger(nextRerollCount),
-        }),
-      ],
-    };
-  }
-
-  /** getTechniqueLearningWarningSummary：读取Technique Learning Warning摘要。 */
-  private getTechniqueLearningWarningSummary(item: ItemStack): {
-  /**
- * title：title名称或显示文本。
- */
-
-    title: string;    
-    /**
- * lines：line相关字段。
- */
-
-    lines: string[];    
-    /**
- * confirmLabel：confirmLabel名称或显示文本。
- */
-
-    confirmLabel?: string;    
-    /**
- * cancelLabel：cancelLabel名称或显示文本。
- */
-
-    cancelLabel?: string;
-  } | null {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (item.type !== 'skill_book') {
-      return null;
-    }
-    const playerRealmLv = Number.isFinite(this.playerRealm?.realmLv)
-      ? Math.max(1, Math.floor(Number(this.playerRealm?.realmLv)))
-      : null;
-    if (playerRealmLv === null) {
-      return null;
-    }
-    const techniqueId = this.getTechniqueIdFromBookItem(item);
-    if (!techniqueId) {
-      return null;
-    }
-    const technique = getLocalTechniqueTemplate(techniqueId);
-    if (!technique || !Number.isFinite(technique.realmLv)) {
-      return null;
-    }
-    const techniqueRealmLv = Math.max(1, Math.floor(Number(technique.realmLv)));
-    if (!shouldWarnTechniqueLearningDifficulty(playerRealmLv, techniqueRealmLv)) {
-      return null;
-    }
-    const gap = techniqueRealmLv - playerRealmLv;
-    return {
-      title: t('inventory.technique-learning-warning.title', { name: technique.name || item.name }),
-      lines: [
-        t('inventory.technique-learning-warning.line-1', undefined),
-        t('inventory.technique-learning-warning.line-2', {
-          gap: formatDisplayInteger(gap),
-          threshold: formatDisplayInteger(TECHNIQUE_LEARNING_HEAVY_DECAY_WARNING_DELTA),
-        }),
-        t('inventory.technique-learning-warning.line-3', undefined),
-      ],
-      confirmLabel: t('inventory.technique-learning-warning.confirm', undefined),
-      cancelLabel: t('inventory.technique-learning-warning.cancel', undefined),
-    };
-  }
-
-  /** formatTechniqueAttrSummary：格式化功法属性摘要。 */
-  private formatTechniqueAttrSummary(
-    technique: NonNullable<ReturnType<typeof getLocalTechniqueTemplate>>,
-    level: number,
-  ): string {
-    return formatTechniqueCumulativeBonusSummary(
-      level,
-      resolvePreviewTechniqueTemplateLayers(technique),
-    );
-  }
-
-  /** buildTechniqueBookSummaryFields：构建功法书概要。 */
-  private buildTechniqueBookSummaryFields(item: ItemStack): Array<{ label: string; value: string }> {
-    const techniqueId = this.getTechniqueIdFromBookItem(item);
-    if (!techniqueId) {
-      return [];
-    }
-    const technique = getLocalTechniqueTemplate(techniqueId);
-    if (!technique) {
-      return [];
-    }
-    const realmLabel = technique.realmLv
-      ? (getLocalRealmLevelEntry(technique.realmLv)?.displayName ?? `Lv.${formatDisplayInteger(technique.realmLv)}`)
-      : '未知';
-    const skillNames = (technique.skills ?? [])
-      .map((skill) => skill.name.trim())
-      .filter((name) => name.length > 0);
-    const maxLevel = getPreviewTechniqueMaxLevel(technique);
-    const learnMaxLevel = Number.isFinite(Number(item.learnTechniqueMaxLevel))
-      ? Math.max(1, Math.min(maxLevel, Math.floor(Number(item.learnTechniqueMaxLevel))))
-      : maxLevel;
-    return [
-      { label: '功法', value: technique.name },
-      { label: '境界', value: realmLabel },
-      { label: '品阶', value: getTechniqueGradeLabel(technique.grade) },
-      {
-        label: learnMaxLevel >= maxLevel ? '满层属性' : '可修上限属性',
-        value: this.formatTechniqueAttrSummary(technique, learnMaxLevel),
-      },
-      {
-        label: `附带技能${skillNames.length > 0 ? `（${formatDisplayInteger(skillNames.length)}）` : ''}`,
-        value: skillNames.length > 0 ? skillNames.join('、') : '无',
-      },
-    ];
-  }
 
   /** openActionDialog：打开动作对话。 */
   private openActionDialog(kind: InventoryActionKind, slotIndex: number, defaultCount: number): void {
     const item = this.lastInventory?.items[slotIndex] ?? null;
-    this.actionDialog = {
-      kind,
-      itemKey: item ? this.getItemIdentity(item) : '',
-      countDraft: String(Math.max(1, defaultCount)),
-      confirmDestroy: false,
-    };
-    this.renderModal();
-  }
-
-  /** resolveActionLabels：解析动作标签。 */
-  private resolveActionLabels(kind: InventoryActionKind): {  
-  /**
- * title：title名称或显示文本。
- */
-
-    title: string;    
-    /**
- * confirm：confirm相关字段。
- */
-
-    confirm: string;    
-    /**
- * danger：danger相关字段。
- */
-
-    danger: boolean;
-  } {
-    switch (kind) {
-      case 'use':
-        return { title: t('inventory.action-dialog.title.use', undefined), confirm: t('inventory.action-dialog.confirm.use', undefined), danger: false };
-      case 'drop':
-        return { title: t('inventory.action-dialog.title.drop', undefined), confirm: t('inventory.action-dialog.confirm.drop', undefined), danger: true };
-      case 'destroy':
-        return { title: t('inventory.action-dialog.title.destroy', undefined), confirm: t('inventory.action-dialog.confirm.destroy', undefined), danger: true };
-      default:
-        return { title: t('inventory.action-dialog.title.default', undefined), confirm: t('inventory.action-dialog.confirm.default', undefined), danger: false };
+    if (!item) {
+      return;
+    }
+    if (this.itemActionDialogController.open(kind, this.getItemIdentity(item), defaultCount)) {
+      this.renderModal();
     }
   }
 
@@ -3514,7 +2924,7 @@ export class InventoryPanel {
   private resetModalState(): void {
     this.selectedSlotIndex = null;
     this.selectedItemKey = null;
-    this.actionDialog = null;
+    this.itemActionDialogController.reset();
     this.bulkDiscardDialogController.reset();
     this.formationDialogSlotIndex = null;
     this.sectFoundingDialogSlotIndex = null;
@@ -3527,15 +2937,9 @@ export class InventoryPanel {
   private buildModalRenderKey(item: ItemStack): string {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    if (this.actionDialog) {
-      return [
-        'action',
-        this.getItemIdentity(item),
-        String(item.count),
-        this.actionDialog.kind,
-        this.actionDialog.confirmDestroy ? '1' : '0',
-        this.actionDialog.countDraft,
-      ].join('|');
+    const actionDialogRenderKey = this.itemActionDialogController.buildRenderKey(item, this.getItemIdentity(item));
+    if (actionDialogRenderKey) {
+      return actionDialogRenderKey;
     }
 
     if (this.formationDialogSlotIndex !== null && this.isFormationDiskItem(item)) {

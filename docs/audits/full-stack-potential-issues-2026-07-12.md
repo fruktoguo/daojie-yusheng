@@ -51,7 +51,7 @@
 - 为什么错误：巨型模块扩大冲突面和隐式副作用，难以证明单一职责、事务边界及局部 UI 更新；门禁红灯失去阻止继续膨胀的能力。
 - 后果：运行时/持久化改动更容易产生竞态、旧态覆盖、全量刷新或回归遗漏；review 和验证成本持续增加。
 - 修复方向：先修正生成物、工具与生产代码的分类口径，再按真实职责拆分当前生产超限模块；不得简单更新 baseline 掩盖增长。
-- 当前证据：`pnpm proof:file-size-gate` 退出 1；战斗 action、玩家成长、宗门 runtime、GM 玩家服务、协议审计、鉴权启动、玩家分域持久化和强事务 smoke 整理后，剩余 14 个 baseline regression、2 个新超 3000 行文件。
+- 当前证据：`pnpm proof:file-size-gate` 退出 1；战斗 action、玩家成长、宗门 runtime、GM 玩家服务、协议审计、鉴权启动、玩家分域持久化、强事务 smoke 和背包面板整理后，剩余 14 个 baseline regression、1 个新超 3000 行文件。
 - 本轮进展：`world-runtime-combat-action.service.ts` 原先在 3415 行类中同时承载动作编排和约 500 行无状态规范化、目标索引、结果投影及诊断计时辅助；这些逻辑没有服务实例状态或外部调用契约，却扩大了权威编排层的修改面。现已提取为 546 行 `world-runtime-combat-action.helpers.ts`，主服务降到 2955 行并退出 3000 行错误清单；新 helper 同步纳入禁止网络、数据库、文件和 JSON 序列化的战斗热路径边界检查。剩余超限文件仍保持未完成状态，不更新 baseline 掩盖问题。
 - 本轮进展：`protocol-audit.ts` 把账号/JWT 辅助和 Markdown 报告投影混在 3135 行主流程中，现提取为 68/87 行两个窄 helper，主文件降到 2953 行并删除旧 baseline；完整 18 类协议审计通过。其余超限文件仍保持未完成状态。
 - 本轮进展：`auth-bootstrap-smoke.ts` 的动态导出、自读源码与生成式废注释使文件达到 6668 行，现改为静态导出和三个有类型的函数分类模块，删除无信息注释后降到 6078 行，低于既有 6500 行 baseline；它仍超过 3000 行，后续还需按主线、迁移和持久化证明继续拆分，当前不删除 baseline。
@@ -62,6 +62,7 @@
 - 本轮进展：`native-gm-player.service.ts` 在玩家持久化编排之外还承载模板实例归一化、展示投影、恢复丹映射和全部依赖 port；更严重的是多个定向 GM 操作仍回退整玩家投影。现已把 274 行纯 helper 与 137 行 port 契约独立出来，主服务降到门禁口径 2944 行；同时所有已注册 GM 修改收敛为精确 domain 写入，新超限项从 3 个降为 2 个。
 - 本轮进展：`inventory-panel.ts` 把分页列表、物品详情、批量丢弃和阵法布置规则全部聚合在同一面板类中；阵法弹窗独占约 540 行输入联动、共享公式投影、范围预览和提交载荷组装，扩大了普通背包更新的修改面。现已提取 `InventoryFormationDialogController`，继续复用 shared 的 `resolveFormationSetupPlan` 和稳定 `itemInstanceId`，服务端权威结算及面板局部更新语义不变；主面板从 4396 行降到 3838 行。它仍属于 2 个新超限文件之一，后续必须继续拆分详情与批量操作职责，当前不更新 baseline。
 - 本轮进展：背包批量丢弃原先在主面板维护打开态、筛选、选中实例和二次确认 4 组状态，并把自己的 render key、库存淘汰和弹窗关闭生命周期混入通用详情弹窗；现已提取 `InventoryBulkDiscardDialogController`，只从当前库存收集仍存在的稳定实例 ID，并在服务端处理前保留二次确认。主面板进一步降到门禁口径 3580 行，但详情/动作规则尚未拆分，仍不更新 baseline。
+- 本轮进展：背包单物品的使用、丢弃、摧毁、数量草稿、特殊消耗品提示和二次确认继续占用约 600 行，并把依赖玩家境界/道基/天关的确认文案挂在不含玩家上下文的通用 render key 上；另有约 50 行从未被任何渲染路径调用的功法书概要投影。现已提取 `InventoryItemActionDialogController` 与纯状态对象，删除不可达投影，主面板降到门禁口径 2984 行并退出新超限清单；特殊确认按玩家上下文 revision 失效，普通数量输入不受无关增量打断。当前唯一新超限文件为 Pixi renderer，FS-002 仍未完成。
 
 ### FS-003 `[ ]` server tools 大量绕过 TypeScript 检查并保留 CommonJS 写法
 
@@ -572,6 +573,16 @@
 - 修复方式：新增独立 `InventoryPageRequestState`，当前只保留一个 pending，严格校验 requestId、filter、search、offset、limit 和 revision 下界；已接受页与 pending 分离，翻页期间保留旧页并局部禁用按钮。发送器返回出站是否接受，本地拒绝和 10 秒超时都精确撤销本代 pending；背包 revision 推进会取消旧请求。shared 将 requestId 收紧为必填，服务端拒绝缺失/超长身份和领先于运行态的 knownRevision。
 - 验证：新增纯状态机 proof 覆盖乱序、无身份、坐标不一致、版本回退、正确回包和本地发送失败；`pnpm verify:client`、`pnpm build:shared`、`pnpm audit:protocol` 与完整 `pnpm verify:quick` 均通过。compiled `world-gateway-inventory-helper` smoke 动态证明服务端对缺失 requestId 和领先 revision fail-closed。未注入真实网络延迟和断网，不替代浏览器弱网实测；Vite 仍有既有大 chunk 和 protobuf `eval` 警告。
 
+### FS-056 `[x]` 特殊物品使用确认不会随玩家成本上下文更新
+
+- 严重级别：中。
+- 根本原因：灵根种子、碎灵丹和高境界功法书的确认文案依赖 `realm`、`foundation`、`heavenGate.averageBonus` 等玩家状态；这些字段已进入 `buildPlayerContextKey` 并会触发面板更新，但动作弹窗的 render key 只包含物品身份、数量、动作类型和输入草稿，不包含玩家上下文代际。
+- 为什么错误：`patchModal()` 以 render key 相等作为“不重绘”依据。依赖数据变化却不进入失效键，会让界面缓存与它实际读取的数据边界不一致；服务端继续按最新状态权威结算，客户端提示因此不能代表即将执行的结果。
+- 触发条件：玩家停留在特殊使用确认弹窗时，收到境界经验、道基、天关平均加成或境界等级增量，例如另一条结算先完成或状态在同一会话中被刷新。
+- 后果：界面可能继续显示旧的道基/经验消耗、剩余值、重抽次数或功法难度警告；玩家依据过期信息确认后，服务端可能按不同成本执行或拒绝，形成高风险决策误导，但不会绕过服务端资产校验。
+- 修复方式：把单物品操作状态和渲染收口到 `InventoryItemActionDialogController`，纯状态对象区分普通数量弹窗与上下文相关的特殊确认；只有特殊确认把 `playerContextRevision` 纳入 render key，普通输入继续保留焦点和未完成草稿。使用、丢弃和摧毁仍只提交当前 `itemInstanceId`，摧毁保留独立二次确认。
+- 验证：新增 `proof:inventory-action-dialog-lifecycle`，动态证明实例不串用、普通上下文更新不打断输入、特殊上下文更新必定改变代际、空草稿保留和摧毁确认状态入键；client TypeScript、生产边界 proof 与完整 `verify:client` 结果见验证表。未连接真实服务端，不证明服务端并发资产事务和实际视觉文案。
+
 ## 待进一步验证或用户决定
 
 ### D-001 `[?]` 客户端初始包同时装载 React 面板与 legacy 回退实现
@@ -694,3 +705,4 @@
 | 背包分页请求生命周期 | 状态机 proof、完整 `verify:client`、`build:shared`、`audit:protocol`、完整 `verify:quick` 与 compiled 网关 smoke 通过 | 旧/无身份/错坐标/低 revision 回包拒绝，发送失败与超时解锁，服务端 requestId/knownRevision fail-closed | 未做浏览器弱网、socket 真断连、多节点路由与长时间重复翻页压测；既有构建警告未变 |
 | 背包阵法弹窗职责拆分 | client TypeScript、生产边界 proof 与完整 `verify:client` 通过；文件体积门禁按预期仍退出 1 | 阵法共享公式、实例引用、范围预览清理和提交载荷已由窄控制器承载；主面板降至 3838 行且未更新 baseline | 其余详情与批量操作仍在巨型面板中；未做真实浏览器触控、焦点与长列表滚动回归 |
 | 背包批量丢弃弹窗职责拆分 | client TypeScript、生产边界 proof 与完整 `verify:client` 通过；文件体积门禁按预期仍退出 1 | 筛选、选择、二次确认、缺失实例淘汰与单次关闭由专用控制器承载；总面板降至门禁口径 3580 行 | 无真实服务端并发和网络重放；详情/动作职责仍需继续拆分，文件体积门禁尚未恢复，其他 14 个 baseline regression 未变 |
+| 背包单物品动作弹窗与上下文失效 | 专项状态 proof、client TypeScript、生产边界 proof 与完整 `verify:client` 通过；文件体积门禁确认主面板降至 2984 行 | 稳定实例身份、数量草稿、摧毁二次确认及特殊使用上下文失效均有确定性保护；背包面板退出新超限清单 | 无真实服务端资产并发、触控/焦点视觉回归；门禁仍因 Pixi 新超限和 14 个 baseline regression 退出 1 |
