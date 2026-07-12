@@ -4,7 +4,6 @@
   "packages/server/src/runtime/player/player-runtime.service.ts": 6997,
   "packages/server/src/tools/auth-bootstrap-smoke.ts": 6500,
   "packages/server/src/persistence/player-domain-persistence.service.ts": 5790,
-  "packages/client/src/ui/panels/action-panel.ts": 5631,
   "packages/server/src/tools/durable-operation-smoke.ts": 4724,
   "packages/client/src/gm-map-editor.ts": 4462,
   "packages/server/src/persistence/instance-domain-persistence.service.ts": 4079,

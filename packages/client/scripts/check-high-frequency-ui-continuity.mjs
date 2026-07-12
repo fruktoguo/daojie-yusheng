@@ -39,6 +39,7 @@ const transmissionView = read('src/ui/panels/market-transmission-view.ts');
 const actionPanel = read('src/ui/panels/action-panel.ts');
 const actionCombatSettings = read('src/ui/panels/action-panel-combat-settings.ts');
 const actionSectManagement = read('src/ui/panels/action-panel-sect-management.ts');
+const actionSkillManagement = read('src/ui/panels/action-panel-skill-management.ts');
 const techniquePanel = read('src/ui/panels/technique-panel.ts');
 const inventoryPanel = read('src/ui/panels/inventory-panel.ts');
 const bodyTrainingPanel = read('src/ui/panels/body-training-panel.ts');
@@ -218,6 +219,17 @@ assertMissing(actionPanel, /private renderCombatSettingsModal\(/, '主行动面�
 assertMissing(actionPanel, /private renderSectManagementModal\(/, '主行动面板不得重新吸收宗门管理模板');
 assertMissing(actionPanel, /private cloneAutoUsePillConfigs\(/, '主行动面板不得保留自动丹药旧实现代码岛');
 assertMissing(actionPanel, /function parseSectManagementData\(/, '主行动面板不得复制宗门数据解析职责');
+assertIncludes(actionPanel, /this\.skillMgmt\.renderSkillManagementModalIfOpen\(\)/, '行动面板必须把技能管理刷新委托给唯一子面板');
+assertIncludes(actionPanel, /this\.skillMgmt\.renderSkillPresetModalIfOpen\(\)/, '行动面板必须把技能预设刷新委托给唯一子面板');
+assertIncludes(actionSkillManagement, /ownerId: this\.p\.SKILL_MANAGEMENT_MODAL_OWNER/, '技能管理子面板必须直接拥有管理弹层模板');
+assertIncludes(actionSkillManagement, /ownerId: this\.p\.SKILL_PRESET_MODAL_OWNER/, '技能管理子面板必须直接拥有预设弹层模板');
+assertIncludes(actionSkillManagement, /private applySkillManagementDraftMutation\(/, '技能管理草稿变更必须由子面板唯一编排');
+assertIncludes(actionSkillManagement, /onRequestClose: \(\) => this\.confirmDiscardSkillManagementChanges\(\)/, '技能管理子面板关闭前必须保留未应用草稿确认');
+assertIncludes(actionSkillManagement, /this\.p\.bindTooltips\(body, signal\)/, '技能管理重绘后必须恢复技能提示绑定');
+assertIncludes(actionSkillManagement, /\[data-skill-preset-import\]/, '技能预设子面板必须保留导入事件入口');
+assertMissing(actionSkillManagement, /_renderSkill|_bindSkill|as unknown as \{ _/, '技能子面板不得反向调用主类私有模板或事件绑定');
+assertMissing(actionPanel, /private _(?:render|bind)Skill/, '主行动面板不得重新吸收技能弹层模板和事件绑定');
+assertMissing(actionPanel, /private (?:applySkillManagementDraftMutation|renderSkillManagementItem|saveCurrentSkillPreset|parseSkillPresetCollection)\(/, '主行动面板不得重新吸收技能管理或预设实现');
 
 const techniqueDynamic = section(techniquePanel, '/** 仅同步经验、进度条与主修状态，避免高频整块重绘 */', '/** initFromPlayer：初始化From玩家。 */', 'TechniquePanel.syncDynamic');
 assertIncludes(techniqueDynamic, /patchList\(\)/, '功法面板高频同步必须优先 patch 列表');

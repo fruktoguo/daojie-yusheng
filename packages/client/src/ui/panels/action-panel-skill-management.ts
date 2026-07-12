@@ -6,13 +6,9 @@
 import type {
   ActionDef,
   AutoBattleSkillConfig,
-  AutoUsePillCondition,
-  AutoUsePillConfig,
-  PlayerState,
-  SkillDef,
 } from '@mud/shared';
 import { detailModalHost } from '../detail-modal-host';
-import { buildSkillTooltipContent, type SkillPreviewMetrics, summarizeSkillPreviewMetrics } from '../skill-tooltip';
+import { type SkillPreviewMetrics, summarizeSkillPreviewMetrics } from '../skill-tooltip';
 import { t } from '../i18n';
 import { formatDisplayInteger, formatDisplayNumber } from '../../utils/number';
 import { ACTION_SKILL_PRESETS_KEY } from '../../constants/ui/action';
@@ -34,7 +30,6 @@ import type {
   SkillPresetLibrary,
   SkillPresetRecord,
   SkillPresetSkillState,
-  SkillPresetStatus,
 } from './action-panel-internal';
 
 // ─── 本地常量 ───
@@ -45,6 +40,12 @@ const SECT_MANAGEMENT_DATA_PATTERN = /\n?@@sect:([^@\n]+)@@/;
 
 function stripSectManagementData(desc: string | undefined): string {
   return (desc ?? '').replace(SECT_MANAGEMENT_DATA_PATTERN, '').trim();
+}
+
+function replaceElementHtml(root: HTMLElement, html: string): void {
+  const template = document.createElement('template');
+  template.innerHTML = html.trim();
+  root.replaceChildren(template.content.cloneNode(true));
 }
 
 // ─── 子面板类 ───
@@ -277,7 +278,7 @@ export class SkillManagementSubpanel {
   // ─── 技能管理弹层 ───
 
   openSkillManagement(): void {
-    this.p.skillManagementTab = (this.p as unknown as { activeSkillTab: 'auto' | 'manual' }).activeSkillTab;
+    this.p.skillManagementTab = this.p.activeSkillTab;
     this.p.skillManagementListScrollTop = 0;
     this.p.skillManagementStatus = null;
     this.syncSkillManagementDraft();
@@ -543,7 +544,7 @@ export class SkillManagementSubpanel {
       disabled: t('action.skill.manage.bulk.disabled-label', undefined),
     } satisfies Record<SkillManagementBulkMode, string>)[mode];
     this.p.skillManagementStatus = { tone: 'success', text: t('action.skill.manage.bulk.done', { count: formatDisplayInteger(filteredSkillIds.size), label }) };
-    this.p.applySkillManagementDraftMutation((skills) => skills.map((action) => (
+    this.applySkillManagementDraftMutation((skills) => skills.map((action) => (
       filteredSkillIds.has(action.id)
         ? mode === 'enabled'
           ? { ...action, skillEnabled: true }
@@ -615,7 +616,7 @@ export class SkillManagementSubpanel {
         }),
       };
     }
-    this.p.applySkillManagementDraftMutation(
+    this.applySkillManagementDraftMutation(
       (skills) => this.reorderSkillManagementSubset(skills, orderedIds),
       rerender,
     );
@@ -827,9 +828,701 @@ export class SkillManagementSubpanel {
     this.p.onUpdateAutoBattleSkills?.(nextAutoBattleSkills);
   }
 
-  // ─── 渲染方法（大型模板方法，保留在主面板中通过委托调用） ───
+  /** 切换技能管理弹层里的自动战斗开关。 */
+  private toggleSkillManagementAutoBattleSkill(actionId: string): void {
+    this.applySkillManagementDraftMutation((skills) => skills.map((action) => (
+      action.id === actionId
+        ? { ...action, autoBattleEnabled: action.autoBattleEnabled === false }
+        : action
+    )));
+  }
 
-  renderSkillManagementSortPanel(): string {
+  /** 切换技能管理弹层里的技能启用开关。 */
+  private toggleSkillManagementSkillEnabled(actionId: string): void {
+    this.applySkillManagementDraftMutation((skills) => skills.map((action) => (
+      action.id === actionId
+        ? { ...action, skillEnabled: action.skillEnabled === false }
+        : action
+    )));
+  }
+
+
+  /** 在技能管理草稿里调整技能顺位。 */
+  private moveSkillManagementSkill(actionId: string, targetId: string, position: 'before' | 'after'): void {
+    if (actionId === targetId) return;
+    this.applySkillManagementDraftMutation((skills) => {
+      const sourceIndex = skills.findIndex((action) => action.id === actionId);
+      const targetIndex = skills.findIndex((action) => action.id === targetId);
+      if (sourceIndex < 0 || targetIndex < 0) {
+        return skills;
+      }
+      const next = [...skills];
+      const [moved] = next.splice(sourceIndex, 1);
+      const baseIndex = next.findIndex((action) => action.id === targetId);
+      const insertIndex = position === 'before' ? baseIndex : baseIndex + 1;
+      next.splice(insertIndex, 0, moved);
+      return next;
+    });
+  }
+
+
+  /** 把技能管理草稿的改动写回预览态并刷新弹层。 */
+  private applySkillManagementDraftMutation(
+    mutator: (skills: ActionDef[]) => ActionDef[],
+    rerender = true,
+  ): void {
+    this.resetSkillManagementCloseConfirm();
+    const orderedIds = this.p.skillManagementSortField === 'custom'
+      ? []
+      : this.getSortedSkillManagementActionIds();
+    const skillActions = this.p.getSkillActions(this.getSkillManagementPreviewActions())
+      .map((action) => ({
+        ...action,
+        autoBattleEnabled: action.autoBattleEnabled !== false,
+        skillEnabled: action.skillEnabled !== false,
+      }));
+    const orderedSkillActions = orderedIds.length > 1
+      ? this.reorderSkillManagementSubset(skillActions, orderedIds)
+      : skillActions;
+    const mutated = this.p.normalizeSkillActions(mutator(orderedSkillActions));
+    this.p.skillManagementDraft = this.p.normalizeSkillConfigs(this.p.getAutoBattleSkillConfigs(mutated));
+    if (rerender) {
+      this.renderSkillManagementModal();
+    }
+  }
+
+
+  /** 绑定技能管理弹层里的自动开关。 */
+  private bindSkillManagementAutoToggleEvents(root: HTMLElement, signal: AbortSignal): void {
+    root.querySelectorAll<HTMLElement>('[data-skill-manage-auto-toggle]').forEach((button) => {
+      button.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const actionId = button.dataset.skillManageAutoToggle;
+        if (!actionId) return;
+        this.toggleSkillManagementAutoBattleSkill(actionId);
+      }, { signal });
+    });
+  }
+
+
+  /** 绑定技能管理弹层里的启用开关。 */
+  private bindSkillManagementEnabledToggleEvents(root: HTMLElement, signal: AbortSignal): void {
+    root.querySelectorAll<HTMLElement>('[data-skill-manage-enabled-toggle]').forEach((button) => {
+      button.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const actionId = button.dataset.skillManageEnabledToggle;
+        if (!actionId) return;
+        this.toggleSkillManagementSkillEnabled(actionId);
+      }, { signal });
+    });
+  }
+
+
+  /** 绑定技能管理弹层的拖拽排序交互。 */
+  private bindSkillManagementDragEvents(root: HTMLElement, signal: AbortSignal): void {
+    root.querySelectorAll<HTMLElement>('[data-skill-manage-drag]').forEach((handle) => {
+      handle.addEventListener('dragstart', (event) => {
+        const actionId = handle.dataset.skillManageDrag;
+        if (!actionId || !(event.dataTransfer instanceof DataTransfer)) return;
+        this.p.draggingSkillId = actionId;
+        this.p.dragOverSkillId = null;
+        this.p.dragOverPosition = null;
+        event.dataTransfer.effectAllowed = 'move';
+        event.dataTransfer.setData('text/plain', actionId);
+        this.p.updateDragIndicators();
+      }, { signal });
+      handle.addEventListener('dragend', () => {
+        this.p.clearDragState();
+      }, { signal });
+    });
+    root.querySelectorAll<HTMLElement>('[data-skill-manage-skill-row]').forEach((row) => {
+      row.addEventListener('dragover', (event) => {
+        event.preventDefault();
+        const actionId = row.dataset.skillManageSkillRow;
+        if (!actionId || !this.p.draggingSkillId || actionId === this.p.draggingSkillId) return;
+        const rect = row.getBoundingClientRect();
+        const midpoint = rect.top + rect.height / 2;
+        this.p.dragOverSkillId = actionId;
+        this.p.dragOverPosition = event.clientY < midpoint ? 'before' : 'after';
+        this.p.updateDragIndicators();
+      }, { signal });
+      row.addEventListener('dragleave', (event) => {
+        const related = event.relatedTarget;
+        if (related instanceof Node && row.contains(related)) {
+          return;
+        }
+        if (this.p.dragOverSkillId === row.dataset.skillManageSkillRow) {
+          this.p.dragOverSkillId = null;
+          this.p.dragOverPosition = null;
+          this.p.updateDragIndicators();
+        }
+      }, { signal });
+      row.addEventListener('drop', (event) => {
+        event.preventDefault();
+        const targetId = row.dataset.skillManageSkillRow;
+        if (!this.p.draggingSkillId || !targetId || !this.p.dragOverPosition) {
+          this.p.clearDragState();
+          return;
+        }
+        this.moveSkillManagementSkill(this.p.draggingSkillId, targetId, this.p.dragOverPosition);
+        this.p.clearDragState();
+      }, { signal });
+    });
+  }
+
+
+  /** 关闭技能管理前确认是否放弃本地草稿。 */
+  private confirmDiscardSkillManagementChanges(): boolean {
+    if (!this.hasPendingSkillManagementChanges()) {
+      return true;
+    }
+    return window.confirm(t('action.skill.manage.confirm-discard', undefined));
+  }
+
+
+  /** 生成技能管理空态文案。 */
+  private getSkillManagementEmptyStateText(): string {
+    const base = this.p.skillManagementTab === 'auto'
+      ? t('action.skill.manage.empty.auto', undefined)
+      : this.p.skillManagementTab === 'manual'
+        ? t('action.skill.manage.empty.manual', undefined)
+        : t('action.skill.manage.empty.disabled', undefined);
+    if (this.p.skillManagementFilterToggles.size === 0) {
+      return base;
+    }
+    return t('action.skill.manage.empty.with-filter', { base });
+  }
+
+
+  /** 关闭方案弹层后，把输入草稿和状态提示清空。 */
+  private resetSkillPresetModalState(): void {
+    this.p.skillPresetNameDraft = '';
+    this.p.skillPresetImportText = '';
+    this.p.skillPresetStatus = null;
+    if (!this.p.skillPresets.some((preset) => preset.id === this.p.selectedSkillPresetId)) {
+      this.p.selectedSkillPresetId = this.p.skillPresets[0]?.id ?? null;
+    }
+  }
+
+
+  /** 清理技能方案删除二次确认状态。 */
+  private resetSkillPresetDeleteConfirm(): void {
+    if (this.p.skillPresetStatus?.tone === 'info') {
+      this.p.skillPresetStatus = null;
+    }
+  }
+
+
+  /** 汇总一份方案里自动和手动技能的数量。 */
+  private getSkillPresetSummaryLine(skills: SkillPresetSkillState[]): string {
+    const auto = skills.filter((skill) => skill.enabled !== false).length;
+    const manual = skills.length - auto;
+    return t('action.skill-preset.summary.recorded', { count: formatDisplayInteger(skills.length), auto: formatDisplayInteger(auto), manual: formatDisplayInteger(manual) });
+  }
+
+
+  /** 对比方案与当前技能列表，给出命中和缺失的摘要。 */
+  private getSkillPresetCompatibilitySummary(preset: SkillPresetRecord): string {
+    const currentSkillIds = new Set(this.p.getSkillActions(this.p.currentActions).map((action) => action.id));
+    const presetSkillIds = new Set(preset.skills.map((skill) => skill.skillId));
+    let matched = 0;
+    for (const skill of preset.skills) {
+      if (currentSkillIds.has(skill.skillId)) {
+        matched += 1;
+      }
+    }
+    let currentOnly = 0;
+    for (const action of this.p.getSkillActions(this.p.currentActions)) {
+      if (!presetSkillIds.has(action.id)) {
+        currentOnly += 1;
+      }
+    }
+    return t('action.skill-preset.summary.compatibility', {
+      matched,
+      total: preset.skills.length,
+      currentOnly,
+    });
+  }
+
+
+  /** 把方案弹层里的结果提示渲染成状态条。 */
+  private renderSkillPresetStatus(): string {
+    if (!this.p.skillPresetStatus) {
+      return '';
+    }
+    return `<div class="skill-preset-status ui-status-text ${this.p.skillPresetStatus.tone === 'error' ? 'error' : this.p.skillPresetStatus.tone === 'success' ? 'success' : ''}">${escapeHtml(this.p.skillPresetStatus.text)}</div>`;
+  }
+
+
+  /** 渲染技能方案弹层，包含保存、导入、导出和列表。 */
+  private renderSkillPresetModal(): void {
+    const currentSkills = this.getCurrentSkillPresetSnapshot();
+    const selected = this.getSelectedSkillPreset();
+    const currentSummary = this.getSkillPresetSummaryLine(currentSkills);
+    const selectedSummary = selected ? this.getSkillPresetSummaryLine(selected.skills) : t('action.skill-preset.selected.none', undefined);
+    const compatibilitySummary = selected ? this.getSkillPresetCompatibilitySummary(selected) : t('action.skill-preset.compatibility.none', undefined);
+
+    detailModalHost.open({
+      ownerId: this.p.SKILL_PRESET_MODAL_OWNER,
+      variantClass: 'detail-modal--skill-preset',
+      title: t('action.skill-preset.title', undefined),
+      subtitle: t('action.skill-preset.subtitle', { presetCount: this.p.skillPresets.length, skillCount: currentSkills.length }),
+      renderBody: (body) => {
+        replaceElementHtml(body, `
+        <div class="skill-preset-shell ui-card-list">
+          <div class="skill-preset-hero">
+            <div class="skill-preset-card">
+              <div class="skill-preset-card-title">${t('action.skill-preset.save-layout.title', undefined)}</div>
+              <div class="skill-preset-card-copy">${t('action.skill-preset.save-layout.copy', undefined)}</div>
+              <div class="skill-manage-summary">
+                <span>${escapeHtml(currentSummary)}</span>
+                <span>${t('action.skill-preset.enabled-summary', { slotSummary: this.p.getSkillSlotSummary(this.p.currentActions) })}</span>
+              </div>
+              <div class="skill-preset-save-row">
+                <input
+                  class="skill-preset-name-input ui-input"
+                  data-skill-preset-name-input
+                  type="text"
+                  maxlength="${SKILL_PRESET_NAME_MAX_LENGTH}"
+                  placeholder="${t('action.skill-preset.name.placeholder', undefined)}"
+                  value="${escapeHtml(this.p.skillPresetNameDraft)}"
+                />
+                <button class="small-btn" data-skill-preset-save type="button"${currentSkills.length > 0 ? '' : ' disabled'}>${t('action.skill-preset.action.save-current', undefined)}</button>
+                <button class="small-btn ghost" data-skill-preset-overwrite type="button"${selected && currentSkills.length > 0 ? '' : ' disabled'}>${t('action.skill-preset.action.overwrite-selected', undefined)}</button>
+              </div>
+            </div>
+            <div class="skill-preset-card">
+              <div class="skill-preset-card-title">${t('action.skill-preset.selected.title', undefined)}</div>
+              <div class="skill-preset-card-copy">${selected ? escapeHtml(selectedSummary) : t('action.skill-preset.selected.empty', undefined)}</div>
+              <div class="skill-manage-summary">
+                <span>${escapeHtml(compatibilitySummary)}</span>
+                <span>${selected ? t('action.skill-preset.export.selected-copy', undefined) : t('action.skill-preset.export.list-copy', undefined)}</span>
+              </div>
+              <div class="skill-preset-actions">
+                <button class="small-btn" data-skill-preset-apply type="button"${selected ? '' : ' disabled'}>${t('action.skill-preset.action.apply-selected', undefined)}</button>
+                <button class="small-btn ghost" data-skill-preset-copy type="button"${selected ? '' : ' disabled'}>${t('action.skill-preset.action.copy-selected', undefined)}</button>
+                <button class="small-btn ghost" data-skill-preset-export-selected type="button"${selected ? '' : ' disabled'}>${t('action.skill-preset.action.export-selected', undefined)}</button>
+                <button class="small-btn ghost" data-skill-preset-export-all type="button"${this.p.skillPresets.length > 0 ? '' : ' disabled'}>${t('action.skill-preset.action.export-all', undefined)}</button>
+                <button class="small-btn danger" data-skill-preset-delete type="button"${selected ? '' : ' disabled'}>${t('action.skill-preset.action.delete-selected', undefined)}</button>
+              </div>
+            </div>
+          </div>
+          ${this.renderSkillPresetStatus()}
+          <div class="skill-preset-layout">
+            <div class="skill-preset-list-card">
+              <div class="skill-preset-section-head">
+                <div class="skill-preset-card-title">${t('action.skill-preset.list.title', undefined)}</div>
+                <div class="skill-preset-list-meta">${this.p.skillPresets.length > 0 ? t('action.skill-preset.list.sorted-copy', undefined) : t('action.skill-preset.list.empty-meta', undefined)}</div>
+              </div>
+              ${this.p.skillPresets.length === 0
+                ? `<div class="empty-hint">${t('action.skill-preset.list.empty-hint', undefined)}</div>`
+                : `<div class="skill-preset-list">
+                    ${this.p.skillPresets.map((preset) => `
+                      <button
+                        class="skill-preset-item ${preset.id === this.p.selectedSkillPresetId ? 'active' : ''}"
+                        data-skill-preset-select="${escapeHtml(preset.id)}"
+                        type="button"
+                      >
+                        <span class="skill-preset-item-name">${escapeHtml(preset.name)}</span>
+                        <span class="skill-preset-item-meta">${escapeHtml(this.getSkillPresetSummaryLine(preset.skills))}</span>
+                        <span class="skill-preset-item-meta">${escapeHtml(this.getSkillPresetCompatibilitySummary(preset))}</span>
+                      </button>
+                    `).join('')}
+                  </div>`}
+            </div>
+            <div class="skill-preset-import-card">
+              <div class="skill-preset-section-head">
+                <div class="skill-preset-card-title">${t('action.skill-preset.import.title', undefined)}</div>
+                <button class="small-btn ghost" data-skill-preset-import-file-open type="button">${t('action.skill-preset.action.read-file', undefined)}</button>
+              </div>
+              <div class="skill-preset-card-copy">${t('action.skill-preset.import.copy', undefined)}</div>
+              <textarea
+                class="skill-preset-import-input ui-textarea"
+                data-skill-preset-import-input
+                placeholder="${t('action.skill-preset.import.placeholder', undefined)}"
+              >${escapeHtml(this.p.skillPresetImportText)}</textarea>
+              <input class="hidden" data-skill-preset-import-file type="file" accept="text/plain,.txt,.preset,application/json,.json" />
+              <div class="skill-preset-actions">
+                <button class="small-btn" data-skill-preset-import type="button"${this.p.skillPresetImportText.trim() ? '' : ' disabled'}>${t('action.skill-preset.action.import-local', undefined)}</button>
+                <button class="small-btn ghost" data-skill-preset-import-clear type="button"${this.p.skillPresetImportText.trim() ? '' : ' disabled'}>${t('action.skill-preset.action.clear-input', undefined)}</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `);
+      },
+      onClose: () => {
+        this.resetSkillPresetModalState();
+      },
+      onAfterRender: (body, signal) => {
+        this.bindSkillPresetEvents(body, signal);
+      },
+    });
+    this.p.skillPresetExternalRevision = this.buildSkillPresetExternalRevision();
+  }
+
+
+  /** 给技能方案弹层装配输入、保存、导入和导出事件。 */
+  bindSkillPresetEvents(root: HTMLElement, signal: AbortSignal): void {
+    root.querySelectorAll<HTMLInputElement>('[data-skill-preset-name-input]').forEach((input) => {
+      input.addEventListener('input', () => {
+        this.resetSkillPresetDeleteConfirm();
+        this.p.skillPresetNameDraft = input.value.slice(0, SKILL_PRESET_NAME_MAX_LENGTH);
+      }, { signal });
+    });
+    root.querySelectorAll<HTMLElement>('[data-skill-preset-save]').forEach((button) => {
+      button.addEventListener('click', () => {
+        this.resetSkillPresetDeleteConfirm();
+        this.saveCurrentSkillPreset(false);
+      }, { signal });
+    });
+    root.querySelectorAll<HTMLElement>('[data-skill-preset-overwrite]').forEach((button) => {
+      button.addEventListener('click', () => {
+        this.resetSkillPresetDeleteConfirm();
+        this.saveCurrentSkillPreset(true);
+      }, { signal });
+    });
+    root.querySelectorAll<HTMLElement>('[data-skill-preset-select]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const presetId = button.dataset.skillPresetSelect;
+        if (!presetId) {
+          return;
+        }
+        this.resetSkillPresetDeleteConfirm();
+        this.p.selectedSkillPresetId = presetId;
+        const preset = this.getSelectedSkillPreset();
+        this.p.skillPresetNameDraft = preset?.name ?? this.p.skillPresetNameDraft;
+        this.p.skillPresetStatus = null;
+        this.renderSkillPresetModal();
+      }, { signal });
+    });
+    root.querySelectorAll<HTMLElement>('[data-skill-preset-apply]').forEach((button) => {
+      button.addEventListener('click', () => {
+        this.resetSkillPresetDeleteConfirm();
+        this.applySelectedSkillPreset();
+      }, { signal });
+    });
+    root.querySelectorAll<HTMLElement>('[data-skill-preset-copy]').forEach((button) => {
+      button.addEventListener('click', () => {
+        this.resetSkillPresetDeleteConfirm();
+        this.copySelectedSkillPreset();
+      }, { signal });
+    });
+    root.querySelectorAll<HTMLElement>('[data-skill-preset-export-selected]').forEach((button) => {
+      button.addEventListener('click', () => {
+        this.resetSkillPresetDeleteConfirm();
+        this.exportSelectedSkillPreset();
+      }, { signal });
+    });
+    root.querySelectorAll<HTMLElement>('[data-skill-preset-export-all]').forEach((button) => {
+      button.addEventListener('click', () => {
+        this.resetSkillPresetDeleteConfirm();
+        this.exportAllSkillPresets();
+      }, { signal });
+    });
+    root.querySelectorAll<HTMLElement>('[data-skill-preset-delete]').forEach((button) => {
+      button.addEventListener('click', () => {
+        this.deleteSelectedSkillPreset();
+      }, { signal });
+    });
+    root.querySelectorAll<HTMLTextAreaElement>('[data-skill-preset-import-input]').forEach((input) => {
+      input.addEventListener('input', () => {
+        this.resetSkillPresetDeleteConfirm();
+        this.p.skillPresetImportText = input.value;
+      }, { signal });
+    });
+    root.querySelectorAll<HTMLElement>('[data-skill-preset-import-clear]').forEach((button) => {
+      button.addEventListener('click', () => {
+        this.resetSkillPresetDeleteConfirm();
+        this.p.skillPresetImportText = '';
+        this.p.skillPresetStatus = null;
+        this.renderSkillPresetModal();
+      }, { signal });
+    });
+    root.querySelectorAll<HTMLElement>('[data-skill-preset-import]').forEach((button) => {
+      button.addEventListener('click', () => {
+        this.resetSkillPresetDeleteConfirm();
+        this.importSkillPresetsFromText(this.p.skillPresetImportText);
+      }, { signal });
+    });
+    root.querySelectorAll<HTMLElement>('[data-skill-preset-import-file-open]').forEach((button) => {
+      button.addEventListener('click', () => {
+        root.querySelector<HTMLInputElement>('[data-skill-preset-import-file]')?.click();
+      }, { signal });
+    });
+    root.querySelectorAll<HTMLInputElement>('[data-skill-preset-import-file]').forEach((input) => {
+      input.addEventListener('change', async () => {
+        const file = input.files?.[0];
+        if (!file) {
+          return;
+        }
+        try {
+          this.p.skillPresetImportText = await file.text();
+          this.p.skillPresetStatus = {
+            tone: 'info',
+            text: t('action.skill-preset.status.file-read', { fileName: file.name }),
+          };
+          this.renderSkillPresetModal();
+        } catch {
+          this.p.skillPresetStatus = {
+            tone: 'error',
+            text: t('action.skill-preset.status.file-read-failed', undefined),
+          };
+          this.renderSkillPresetModal();
+        } finally {
+          input.value = '';
+        }
+      }, { signal });
+    });
+  }
+
+
+  /** 渲染技能管理弹层，包含分组、筛选、排序和批量操作。 */
+  private renderSkillManagementModal(): void {
+    if (detailModalHost.isOpenFor(this.p.SKILL_MANAGEMENT_MODAL_OWNER)) {
+      this.captureSkillManagementListScroll();
+    }
+    const previewActions = this.getSkillManagementPreviewActions();
+    const skillEntries = this.getSkillManagementEntries(previewActions);
+    const filteredEntries = this.getFilteredSkillManagementEntries(skillEntries);
+    const autoBattleDisplayOrders = this.p.buildAutoBattleDisplayOrderMap(previewActions);
+    const autoEntries = filteredEntries.filter((entry) => entry.action.skillEnabled !== false && entry.action.autoBattleEnabled !== false);
+    const manualEntries = filteredEntries.filter((entry) => entry.action.skillEnabled !== false && entry.action.autoBattleEnabled === false);
+    const disabledEntries = filteredEntries.filter((entry) => entry.action.skillEnabled === false);
+    const slotSummary = this.p.getSkillSlotSummary(previewActions);
+    const visibleEntries = this.sortSkillManagementEntries(
+      this.p.skillManagementTab === 'auto'
+        ? autoEntries
+        : this.p.skillManagementTab === 'manual'
+          ? manualEntries
+          : disabledEntries,
+    );
+    const dragSortEnabled = this.p.skillManagementTab === 'auto'
+      && this.p.skillManagementSortField === 'custom'
+      && visibleEntries.length > 1;
+    const hint = this.buildSkillManagementHint(dragSortEnabled, slotSummary);
+
+    detailModalHost.open({
+      ownerId: this.p.SKILL_MANAGEMENT_MODAL_OWNER,
+      variantClass: 'detail-modal--skill-management',
+      title: t('action.skill.manage', undefined),
+      subtitle: t('action.skill.manage.subtitle', {
+        skillCount: skillEntries.length,
+        slotSummary,
+        filteredCount: filteredEntries.length,
+      }),
+      renderBody: (body) => {
+        replaceElementHtml(body, `
+        <div class="skill-manage-shell ui-card-list">
+          <div class="skill-manage-topbar">
+            <div class="action-skill-subtabs skill-manage-subtabs">
+              <button class="action-skill-subtab-btn ${this.p.skillManagementTab === 'auto' ? 'active' : ''}" data-skill-manage-tab="auto" type="button">
+                ${t('action.skill.tab.auto', undefined)}
+                <span class="action-skill-subtab-count">${autoEntries.length}</span>
+              </button>
+              <button class="action-skill-subtab-btn ${this.p.skillManagementTab === 'manual' ? 'active' : ''}" data-skill-manage-tab="manual" type="button">
+                ${t('action.skill.tab.manual', undefined)}
+                <span class="action-skill-subtab-count">${manualEntries.length}</span>
+              </button>
+              <button class="action-skill-subtab-btn ${this.p.skillManagementTab === 'disabled' ? 'active' : ''}" data-skill-manage-tab="disabled" type="button">
+                ${t('action.skill.manage.tab.disabled', undefined)}
+                <span class="action-skill-subtab-count">${disabledEntries.length}</span>
+              </button>
+            </div>
+            <div class="skill-manage-toolbar">
+              <button class="small-btn" data-skill-manage-apply type="button">${t('common.action.execute', undefined)}</button>
+              <button class="small-btn ghost" data-skill-manage-cancel type="button">${t('common.action.cancel', undefined)}</button>
+              <button class="small-btn ghost ${this.p.skillManagementSortOpen ? 'active' : ''}" data-skill-manage-sort-toggle type="button">
+                ${this.p.skillManagementSortOpen ? t('action.skill.manage.sort.close', undefined) : t('action.skill.manage.sort.open', undefined)}
+              </button>
+              <button class="small-btn ghost ${this.p.skillManagementFilterOpen ? 'active' : ''}" data-skill-manage-filter-toggle type="button">
+                ${this.p.skillManagementFilterOpen ? t('action.skill.manage.filter.close', undefined) : t('action.skill.manage.filter.open', undefined)}
+              </button>
+            </div>
+          </div>
+          <div class="skill-manage-summary">
+            <span>${t('action.skill.manage.summary.enabled', { slotSummary })}</span>
+            <span>${t('action.skill.manage.summary.filtered', { count: formatDisplayInteger(filteredEntries.length) })}</span>
+            <span>${t('action.skill.manage.summary.auto', { count: formatDisplayInteger(autoEntries.length) })}</span>
+            <span>${t('action.skill.manage.summary.manual', { count: formatDisplayInteger(manualEntries.length) })}</span>
+            <span>${t('action.skill.manage.summary.disabled', { count: formatDisplayInteger(disabledEntries.length) })}</span>
+          </div>
+          ${this.p.skillManagementSortOpen ? this.renderSkillManagementSortPanel() : ''}
+          ${this.p.skillManagementFilterOpen ? `
+            <div class="skill-manage-filter-panel">
+              <div class="skill-manage-filter-head">
+                <div class="skill-manage-filter-title">${t('action.skill.manage.filter.title', undefined)}</div>
+                <button class="small-btn ghost" data-skill-manage-filter-all type="button">${t('action.skill.manage.filter.all', undefined)}</button>
+              </div>
+              <div class="skill-manage-chip-group">
+                <span class="skill-manage-chip-group-title">${t('action.skill.manage.filter.tags', undefined)}</span>
+                <div class="skill-manage-chip-row">
+                  ${this.renderSkillManagementChipToggle('melee', t('action.skill.manage.filter.melee', undefined))}
+                  ${this.renderSkillManagementChipToggle('ranged', t('action.skill.manage.filter.ranged', undefined))}
+                  ${this.renderSkillManagementChipToggle('physical', t('action.skill.manage.filter.physical', undefined))}
+                  ${this.renderSkillManagementChipToggle('spell', t('action.skill.manage.filter.spell', undefined))}
+                  ${this.renderSkillManagementChipToggle('single', t('action.skill.manage.filter.single', undefined))}
+                  ${this.renderSkillManagementChipToggle('aoe', t('action.skill.manage.filter.aoe', undefined))}
+                </div>
+              </div>
+              <div class="skill-manage-filter-copy">${t('action.skill.manage.filter.copy', undefined)}</div>
+            </div>
+          ` : ''}
+          <div class="skill-manage-batch">
+            <button class="small-btn" data-skill-manage-bulk="auto" type="button"${filteredEntries.length > 0 ? '' : ' disabled'}>${t('action.skill.manage.bulk.auto', undefined)}</button>
+            <button class="small-btn ghost" data-skill-manage-bulk="manual" type="button"${filteredEntries.length > 0 ? '' : ' disabled'}>${t('action.skill.manage.bulk.manual', undefined)}</button>
+            <button class="small-btn ghost" data-skill-manage-bulk="enabled" type="button"${filteredEntries.length > 0 ? '' : ' disabled'}>${t('action.skill.manage.bulk.enabled', undefined)}</button>
+            <button class="small-btn ghost" data-skill-manage-bulk="disabled" type="button"${filteredEntries.length > 0 ? '' : ' disabled'}>${t('action.skill.manage.bulk.disabled', undefined)}</button>
+          </div>
+          <div class="action-section-hint">${hint}</div>
+          ${visibleEntries.length === 0
+            ? `<div class="empty-hint">${escapeHtml(this.getSkillManagementEmptyStateText())}</div>`
+            : `<div class="action-skill-list skill-manage-list">
+              ${visibleEntries.map((entry) => this.renderSkillManagementItem(entry.action, {
+                showDragHandle: dragSortEnabled,
+                autoBattleDisplayOrder: this.p.skillManagementTab === 'auto'
+                  ? (autoBattleDisplayOrders.get(entry.action.id) ?? null)
+                  : null,
+                canMoveUp: this.p.skillManagementSortField === 'custom' && visibleEntries.indexOf(entry) > 0,
+                canMoveDown: this.p.skillManagementSortField === 'custom' && visibleEntries.indexOf(entry) < visibleEntries.length - 1,
+              }, entry.metrics)).join('')}
+            </div>`}
+        </div>
+      `);
+      },
+      onRequestClose: () => this.confirmDiscardSkillManagementChanges(),
+      onClose: () => {
+        this.discardSkillManagementDraft();
+      },
+      onAfterRender: (body, signal) => {
+        this.bindSkillManagementEvents(body, signal);
+        this.p.bindTooltips(body, signal);
+        this.restoreSkillManagementListScroll(body);
+      },
+    });
+    this.p.skillManagementExternalRevision = this.buildSkillManagementExternalRevision();
+  }
+
+
+  /** 给技能管理弹层装配分组切换、筛选、排序和应用事件。 */
+  private bindSkillManagementEvents(root: HTMLElement, signal: AbortSignal): void {
+    root.querySelectorAll<HTMLElement>('[data-skill-manage-apply]').forEach((button) => {
+      button.addEventListener('click', () => {
+        this.applySkillManagementChanges();
+      }, { signal });
+    });
+    root.querySelectorAll<HTMLElement>('[data-skill-manage-cancel]').forEach((button) => {
+      button.addEventListener('click', () => {
+        this.cancelSkillManagementChanges();
+      }, { signal });
+    });
+    root.querySelectorAll<HTMLElement>('[data-skill-manage-tab]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const tab = button.dataset.skillManageTab as SkillManagementTab | undefined;
+        if (!tab) return;
+        this.p.skillManagementTab = tab;
+        this.renderSkillManagementModal();
+      }, { signal });
+    });
+    root.querySelectorAll<HTMLElement>('[data-skill-manage-sort-toggle]').forEach((button) => {
+      button.addEventListener('click', () => {
+        this.p.skillManagementSortOpen = !this.p.skillManagementSortOpen;
+        this.renderSkillManagementModal();
+      }, { signal });
+    });
+    root.querySelectorAll<HTMLElement>('[data-skill-manage-sort-field-toggle]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const value = button.dataset.skillManageSortFieldToggle as SkillManagementSortField | undefined;
+        if (!value) return;
+        if (value === this.p.skillManagementSortField) {
+          return;
+        }
+        if (value === 'custom' && this.p.skillManagementSortField !== 'custom') {
+          this.applySkillManagementSortOrder(false, false);
+        }
+        this.p.skillManagementSortField = value;
+        this.renderSkillManagementModal();
+      }, { signal });
+    });
+    root.querySelectorAll<HTMLElement>('[data-skill-manage-sort-direction-toggle]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const value = button.dataset.skillManageSortDirectionToggle as SkillManagementSortDirection | undefined;
+        if (!value) return;
+        this.p.skillManagementSortDirection = value;
+        this.renderSkillManagementModal();
+      }, { signal });
+    });
+    root.querySelectorAll<HTMLElement>('[data-skill-manage-filter-toggle]').forEach((button) => {
+      button.addEventListener('click', () => {
+        this.p.skillManagementFilterOpen = !this.p.skillManagementFilterOpen;
+        this.renderSkillManagementModal();
+      }, { signal });
+    });
+    root.querySelectorAll<HTMLElement>('[data-skill-manage-filter-toggle-chip]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const value = button.dataset.skillManageFilterToggleChip as SkillManagementFilterToggle | undefined;
+        if (!value) return;
+        if (this.p.skillManagementFilterToggles.has(value)) {
+          this.p.skillManagementFilterToggles.delete(value);
+        } else {
+          this.p.skillManagementFilterToggles.add(value);
+        }
+        this.renderSkillManagementModal();
+      }, { signal });
+    });
+    root.querySelectorAll<HTMLElement>('[data-skill-manage-filter-all]').forEach((button) => {
+      button.addEventListener('click', () => {
+        this.resetSkillManagementFilters();
+        this.renderSkillManagementModal();
+      }, { signal });
+    });
+    root.querySelectorAll<HTMLElement>('[data-skill-manage-move-up], [data-skill-manage-move-down]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const actionId = button.dataset.skillManageMoveUp ?? button.dataset.skillManageMoveDown;
+        if (!actionId) {
+          return;
+        }
+        const position = button.dataset.skillManageMoveUp ? 'before' : 'after';
+        const visibleEntries = this.sortSkillManagementEntries(
+          this.getFilteredSkillManagementEntries(this.getSkillManagementEntries(this.getSkillManagementPreviewActions())),
+        ).filter((entry) => (
+          this.p.skillManagementTab === 'disabled'
+            ? entry.action.skillEnabled === false
+            : this.p.skillManagementTab === 'auto'
+              ? entry.action.skillEnabled !== false && entry.action.autoBattleEnabled !== false
+              : entry.action.skillEnabled !== false && entry.action.autoBattleEnabled === false
+        ));
+        const currentIndex = visibleEntries.findIndex((entry) => entry.action.id === actionId);
+        if (currentIndex < 0) {
+          return;
+        }
+        const targetId = position === 'before'
+          ? (visibleEntries[currentIndex - 1]?.action.id ?? null)
+          : (visibleEntries[currentIndex + 1]?.action.id ?? null);
+        if (!targetId) {
+          return;
+        }
+        this.moveSkillManagementSkill(actionId, targetId, position);
+      }, { signal });
+    });
+    root.querySelectorAll<HTMLElement>('[data-skill-manage-bulk]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const mode = button.dataset.skillManageBulk as SkillManagementBulkMode | undefined;
+        if (!mode || !['auto', 'manual', 'enabled', 'disabled'].includes(mode)) {
+          return;
+        }
+        this.applySkillManagementBulkMode(mode);
+      }, { signal });
+    });
+    this.bindSkillManagementAutoToggleEvents(root, signal);
+    this.bindSkillManagementEnabledToggleEvents(root, signal);
+    this.bindSkillManagementDragEvents(root, signal);
+  }
+
+  /** 渲染技能管理里的排序面板、方向和应用说明。 */
+  private renderSkillManagementSortPanel(): string {
     return `
       <div class="skill-manage-sort-panel">
         <div class="skill-manage-filter-head">
@@ -870,29 +1563,92 @@ export class SkillManagementSubpanel {
     return `<button class="skill-manage-toggle-chip ${this.p.skillManagementSortDirection === value ? 'active' : ''}" data-skill-manage-sort-direction-toggle="${escapeHtml(value)}" type="button">${escapeHtml(label)}</button>`;
   }
 
-  /**
-   * renderSkillManagementModal 和 renderSkillPresetModal 是大型模板方法，
-   * 由于与主面板的 DOM 绑定和 tooltip 系统紧密耦合，
-   * 当前阶段保留在主面板中，通过主面板调用子面板的逻辑方法实现委托。
-   * 后续可进一步迁移。
-   */
-  renderSkillManagementModal(): void {
-    // 委托回主面板的原始实现
-    (this.p as unknown as { _renderSkillManagementModal(): void })._renderSkillManagementModal();
+
+  /** 生成技能管理列表上方的操作提示。 */
+  private buildSkillManagementHint(dragSortEnabled: boolean, slotSummary: string): string {
+    if (this.p.skillManagementTab === 'disabled') {
+      return t('action.skill.manage.hint.disabled', { slotSummary });
+    }
+    if (this.p.skillManagementSortField !== 'custom') {
+      return t('action.skill.manage.hint.sorted', { slotSummary });
+    }
+    if (dragSortEnabled) {
+      return t('action.skill.manage.hint.drag', { slotSummary });
+    }
+    return this.p.skillManagementTab === 'auto'
+      ? t('action.skill.manage.hint.auto', { slotSummary })
+      : t('action.skill.manage.hint.manual', { slotSummary });
   }
 
-  renderSkillPresetModal(): void {
-    // 委托回主面板的原始实现
-    (this.p as unknown as { _renderSkillPresetModal(): void })._renderSkillPresetModal();
+
+  /** 渲染当前排序字段对应的指标读数。 */
+  private renderSkillManagementMetricReadout(metrics: SkillPreviewMetrics): string | null {
+    switch (this.p.skillManagementSortField) {
+      case 'actualDamage':
+        return metrics.actualDamage === null
+          ? t('action.skill.manage.metric.damage-unknown', undefined)
+          : t('action.skill.manage.metric.damage', { value: formatDisplayNumber(metrics.actualDamage) });
+      case 'qiCost':
+        return t('action.skill.manage.metric.qi-cost', { value: formatDisplayNumber(metrics.actualQiCost) });
+      default:
+        return null;
+    }
   }
 
-  bindSkillManagementEvents(root: HTMLElement, signal: AbortSignal): void {
-    // 委托回主面板的原始实现
-    (this.p as unknown as { _bindSkillManagementEvents(root: HTMLElement, signal: AbortSignal): void })._bindSkillManagementEvents(root, signal);
+
+  /** 渲染筛选标签按钮。 */
+  private renderSkillManagementChipToggle(value: SkillManagementFilterToggle, label: string): string {
+    return `<button class="skill-manage-toggle-chip ${this.p.skillManagementFilterToggles.has(value) ? 'active' : ''}" data-skill-manage-filter-toggle-chip="${escapeHtml(value)}" type="button">${escapeHtml(label)}</button>`;
   }
 
-  bindSkillPresetEvents(root: HTMLElement, signal: AbortSignal): void {
-    // 委托回主面板的原始实现
-    (this.p as unknown as { _bindSkillPresetEvents(root: HTMLElement, signal: AbortSignal): void })._bindSkillPresetEvents(root, signal);
+
+  /** 渲染技能管理弹层里的单条技能。 */
+  private renderSkillManagementItem(
+    action: ActionDef,
+    options?: {
+      showDragHandle?: boolean;
+      autoBattleDisplayOrder?: number | null;
+      canMoveUp?: boolean;
+      canMoveDown?: boolean;
+    },
+    metrics?: SkillPreviewMetrics,
+  ): string {
+    const skillContext = this.p.skillLookup.get(action.id);
+    const tooltipAttrs = skillContext
+      ? ` data-action-tooltip-title="${escapeHtml(skillContext.skill.name)}" data-action-tooltip-skill-id="${escapeHtml(skillContext.skill.id)}" data-action-tooltip-rich="1"`
+      : '';
+    const autoBattleEnabled = action.autoBattleEnabled !== false;
+    const skillEnabled = action.skillEnabled !== false;
+    const autoBattleOrder = typeof options?.autoBattleDisplayOrder === 'number'
+      ? options.autoBattleDisplayOrder + 1
+      : undefined;
+    const rowAttrs = options?.showDragHandle ? ` data-skill-manage-skill-row="${action.id}"` : '';
+    const canMoveUp = options?.canMoveUp === true;
+    const canMoveDown = options?.canMoveDown === true;
+    const metricReadout = metrics ? this.renderSkillManagementMetricReadout(metrics) : '';
+    const affinityChip = skillContext ? this.p.renderActionSkillAffinityChip(skillContext.skill) : '';
+
+    return `<div class="action-item action-item-draggable" data-action-row="${action.id}"${rowAttrs}>
+      <div class="action-copy ${skillContext ? 'action-copy-tooltip' : ''} ${affinityChip ? 'action-copy--with-affinity' : ''}"${tooltipAttrs}>
+        <div>
+          <span class="action-name">${escapeHtml(action.name)}</span>
+          <span class="action-type">${t('action.card.skill-type', undefined)}</span>
+          ${typeof action.range === 'number' ? `<span class="action-type">${t('action.range', { range: formatDisplayNumber(action.range) })}</span>` : ''}
+          <span class="action-type ${autoBattleEnabled ? 'auto-battle-enabled' : 'auto-battle-disabled'}">${autoBattleEnabled ? t('action.skill.auto-state.enabled', undefined) : t('action.skill.auto-state.disabled', undefined)}</span>
+          <span class="action-type ${skillEnabled ? 'auto-battle-enabled' : 'auto-battle-disabled'}">${skillEnabled ? t('action.skill.manage.skill-enabled.enabled', undefined) : t('action.skill.manage.skill-enabled.disabled', undefined)}</span>
+          ${autoBattleOrder ? `<span class="action-type">${t('action.skill.order', { order: formatDisplayInteger(autoBattleOrder) })}</span>` : ''}
+        </div>
+        <div class="action-desc">${escapeHtml(stripSectManagementData(action.desc))}</div>
+        ${affinityChip}
+      </div>
+      <div class="action-cta">
+        ${metricReadout ? `<span class="skill-manage-metric-readout">${escapeHtml(metricReadout)}</span>` : ''}
+        <button class="small-btn ghost ${autoBattleEnabled ? 'active' : ''}" data-skill-manage-auto-toggle="${action.id}" type="button">${t('action.skill.manage.toggle.auto', { state: autoBattleEnabled ? t('common.state.on') : t('common.state.off') })}</button>
+        <button class="small-btn ghost ${skillEnabled ? 'active' : ''}" data-skill-manage-enabled-toggle="${action.id}" type="button">${t('action.skill.manage.toggle.enabled', { state: skillEnabled ? t('common.state.on') : t('common.state.off') })}</button>
+        <button class="small-btn ghost" data-skill-manage-move-up="${action.id}" type="button"${canMoveUp ? '' : ' disabled'}>${t('action.skill.manage.move-up', undefined)}</button>
+        <button class="small-btn ghost" data-skill-manage-move-down="${action.id}" type="button"${canMoveDown ? '' : ' disabled'}>${t('action.skill.manage.move-down', undefined)}</button>
+        ${options?.showDragHandle ? `<button class="small-btn ghost action-drag-handle" data-skill-manage-drag="${action.id}" draggable="true" type="button">${t('common.action.drag', undefined)}</button>` : ''}
+      </div>
+    </div>`;
   }
 }

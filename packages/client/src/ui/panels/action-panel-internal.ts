@@ -15,7 +15,6 @@ import type {
   AutoUsePillConfig,
   CombatTargetingRuleKey,
   CombatTargetingRules,
-  ItemStack,
   PlayerState,
   SkillDef,
 } from '@mud/shared';
@@ -169,6 +168,7 @@ export interface ActionPanelInternal {
 
   // ─── 状态字段 ───
   currentActions: ActionDef[];
+  activeSkillTab: 'auto' | 'manual';
   previewPlayer?: PlayerState;
   skillLookup: Map<string, { skill: SkillDef; techLevel: number; knownSkills: SkillDef[] }>;
   onAction: ((actionId: string, requiresTarget?: boolean, targetMode?: string, range?: number, actionName?: string) => void) | null;
@@ -230,9 +230,9 @@ export interface ActionPanelInternal {
   normalizeSkillConfigs(configs: AutoBattleSkillConfig[]): AutoBattleSkillConfig[];
   normalizeSkillActions(actions: ActionDef[]): ActionDef[];
   replaceSkillActions(skillActions: ActionDef[]): ActionDef[];
+  updateDragIndicators(): void;
   clearDragState(): void;
   buildAutoBattleDisplayOrderMap(actions: ActionDef[]): Map<string, number>;
   renderActionSkillAffinityChip(skill: SkillDef): string;
-  applySkillManagementDraftMutation(mutator: (skills: ActionDef[]) => ActionDef[], rerender?: boolean): void;
   areAutoBattleSkillConfigsEqual(left: AutoBattleSkillConfig[] | null | undefined, right: AutoBattleSkillConfig[] | null | undefined): boolean;
 }
