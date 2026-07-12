@@ -8821,6 +8821,9 @@
     .sect-manage-card--wide {
       grid-column: 1 / -1;
     }
+    .sect-manage-secondary-cards {
+      display: contents;
+    }
     .sect-stat-card-label {
       color: var(--ink-grey);
       font-size: var(--font-size-13);
@@ -8877,6 +8880,34 @@
       overflow: hidden;
       border: 1px solid var(--wash-ink);
       background: var(--paper-white);
+    }
+    .sect-application-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .sect-application-search {
+      width: min(280px, 48%);
+      min-width: 180px;
+    }
+    .sect-application-pagination {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+    .sect-application-page-status {
+      min-width: 150px;
+      color: var(--ink-grey);
+      font-size: var(--font-size-12);
+      text-align: center;
+    }
+    .sect-application-load-failed {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
     }
     .sect-member-table-head,
     .sect-member-table-row {

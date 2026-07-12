@@ -6,6 +6,15 @@
 /** 宗门 ID。 */
 export type SectId = string;
 
+/** 宗门待审批申请默认分页大小。 */
+export const SECT_APPLICATION_PAGE_DEFAULT_LIMIT = 20;
+
+/** 宗门待审批申请单次请求上限。 */
+export const SECT_APPLICATION_PAGE_MAX_LIMIT = 50;
+
+/** 宗门待审批申请搜索词最大长度。 */
+export const SECT_APPLICATION_SEARCH_MAX_LENGTH = 64;
+
 /** 迁宗令道具 ID。 */
 export const SECT_ENTRANCE_RELOCATION_ITEM_ID = 'sect_entrance_relocation_token';
 
@@ -78,4 +87,43 @@ export interface SectMemberSummary {
   role: SectMemberRole;
   joinedAt: number;
   status: 'active' | 'left' | 'expelled';
+}
+
+/** 请求宗门待审批申请分页。宗门身份由当前登录玩家推导，不接受客户端指定。 */
+export interface RequestSectApplicationPageView {
+  /** 客户端请求 ID，用于拒绝迟到响应。 */
+  requestId: string;
+  /** 申请人姓名或玩家 ID 搜索词，服务端先搜索再分页。 */
+  search?: string;
+  /** 搜索结果偏移量。 */
+  offset?: number;
+  /** 本次请求数量。 */
+  limit?: number;
+}
+
+/** 宗门待审批申请分页条目。 */
+export interface SectApplicationPageItemView {
+  playerId: string;
+  name: string;
+  appliedAt: number;
+}
+
+/** 宗门待审批申请分页响应。 */
+export interface SectApplicationPageView {
+  /** 客户端请求 ID 回显。 */
+  requestId: string;
+  /** 服务端按当前玩家身份解析出的宗门 ID。 */
+  sectId: SectId;
+  /** 服务端规范化后的搜索词。 */
+  search: string;
+  /** 搜索结果偏移量。 */
+  offset: number;
+  /** 本次请求数量上限。 */
+  limit: number;
+  /** 当前搜索条件下的待审批申请总数。 */
+  total: number;
+  /** 宗门权威版本，用于拒绝旧宗门状态生成的迟到响应。 */
+  revision: number;
+  /** 当前页待审批申请。 */
+  items: SectApplicationPageItemView[];
 }

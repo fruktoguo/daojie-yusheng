@@ -115,6 +115,7 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
   const actionStateSource = createMainActionStateSource({
     actionPanel,
     socket: runtimeSender,
+    requestSectApplicationPage: (payload) => panelSender.sendRequestSectApplicationPage(payload),
     beginTargeting: callbacks.beginTargeting,
     cancelTargeting: callbacks.cancelTargeting,
     hideObserveModal: callbacks.hideObserveModal,

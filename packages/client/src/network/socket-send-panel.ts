@@ -110,6 +110,9 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
     sendRequestInventoryPage(payload: ClientToServerEventPayload<typeof C2S.RequestInventoryPage>): boolean {
       return deps.emitEvent(C2S.RequestInventoryPage, payload).accepted;
     },
+    sendRequestSectApplicationPage(payload: ClientToServerEventPayload<typeof C2S.RequestSectApplicationPage>): boolean {
+      return deps.emitEvent(C2S.RequestSectApplicationPage, payload).accepted;
+    },
     sendRequestTechniquePage(payload: ClientToServerEventPayload<typeof C2S.RequestTechniquePage>): void {
       deps.emitEvent(C2S.RequestTechniquePage, payload);
     },

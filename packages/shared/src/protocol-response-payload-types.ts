@@ -96,6 +96,7 @@ import type {
 import type { Attributes } from './attribute-types';
 import type { TechniqueCategory, TechniqueGrade } from './cultivation-types';
 import type { SkillDef } from './skill-types';
+import type { SectApplicationPageView } from './sect-types';
 
 /** 战利品窗口增量：同步当前可拾取源与条目。 */
 export interface S2C_LootWindowUpdate extends LootWindowUpdateView {}
@@ -266,6 +267,8 @@ export interface S2C_RealmUpdate extends RealmUpdateView {}
 export interface S2C_InventoryUpdate extends InventoryUpdateView {}
 /** 背包面板分页响应。 */
 export interface S2C_InventoryPage extends InventoryPageView {}
+/** 宗门待审批申请分页响应。 */
+export interface S2C_SectApplicationPage extends SectApplicationPageView {}
 /** 功法面板分页响应。 */
 export interface S2C_TechniquePage extends TechniquePageView {}
 /** 装备面板更新。 */

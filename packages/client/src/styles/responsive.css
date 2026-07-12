@@ -520,6 +520,20 @@
       .sect-application-table {
         overflow-x: visible;
       }
+      .sect-application-toolbar {
+        align-items: stretch;
+        flex-direction: column;
+      }
+      .sect-application-search {
+        width: 100%;
+        min-width: 0;
+      }
+      .sect-application-pagination {
+        justify-content: space-between;
+      }
+      .sect-application-page-status {
+        min-width: 0;
+      }
       .sect-member-table-head {
         display: none;
       }

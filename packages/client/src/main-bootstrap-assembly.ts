@@ -18,6 +18,7 @@ import type { NpcShopModal } from './ui/npc-shop-modal';
 import type { CraftWorkbenchModal } from './ui/craft-workbench-modal';
 import type { DebugPanel } from './ui/debug-panel';
 import type { MainAttrDetailStateSource } from './main-attr-detail-state-source';
+import type { MainActionStateSource } from './main-action-state-source';
 import type { MainBreakthroughStateSource } from './main-breakthrough-state-source';
 import type { MainBuildingFengShuiStateSource } from './main-building-fengshui-state-source';
 import type { MainConnectionStateSource } from './main-connection-state-source';
@@ -349,6 +350,7 @@ type MainBootstrapAssemblyOptions = {
  */
 
   inventoryStateSource: Pick<MainInventoryStateSource, 'handleInventoryPage'>;
+  actionStateSource: Pick<MainActionStateSource, 'handleSectApplicationPage'>;
   techniqueStateSource: Pick<MainTechniqueStateSource, 'handleTechniquePage'>;
   /**
  * noticeStateSource：notice状态来源相关字段。
@@ -817,6 +819,7 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
     onMarketItemBook: (data) => options.marketStateSource.handleMarketItemBook(data),
     onMarketTradeHistory: (data) => options.marketStateSource.handleMarketTradeHistory(data),
     onInventoryPage: (data) => options.inventoryStateSource.handleInventoryPage(data),
+    onSectApplicationPage: (data) => options.actionStateSource.handleSectApplicationPage(data),
     onTechniquePage: (data) => options.techniqueStateSource.handleTechniquePage(data),
     onNpcShop: (data) => options.detailStateSource.handleNpcShop(data),
     onBuildResult: (data) => options.buildingFengShuiStateSource.handleBuildResult(data),

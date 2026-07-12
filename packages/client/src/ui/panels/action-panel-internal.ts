@@ -15,6 +15,7 @@ import type {
   AutoUsePillConfig,
   CombatTargetingRuleKey,
   CombatTargetingRules,
+  C2S_RequestSectApplicationPage,
   PlayerState,
   SkillDef,
 } from '@mud/shared';
@@ -105,12 +106,6 @@ export interface SectManagementPermission {
   label: string;
 }
 
-export interface SectManagementApplication {
-  playerId: string;
-  name: string;
-  appliedAt: number;
-}
-
 export interface SectManagementGuardianData {
   active: boolean;
   strength: number;
@@ -136,7 +131,8 @@ export interface SectManagementData {
   permissions: SectManagementPermission[];
   rolePermissions: Record<string, Record<string, boolean>>;
   members: SectManagementMember[];
-  applications: SectManagementApplication[];
+  applicationTotal: number;
+  applicationRevision: number;
 }
 
 export interface SectManagementSummary {
@@ -176,6 +172,7 @@ export interface ActionPanelInternal {
   onUpdateAutoUsePills: ((pills: AutoUsePillConfig[]) => void) | null;
   onUpdateCombatTargetingRules: ((rules: CombatTargetingRules) => void) | null;
   onUpdateAutoBattleTargetingMode: ((mode: AutoBattleTargetingMode) => void) | null;
+  onRequestSectApplicationPage: ((payload: C2S_RequestSectApplicationPage) => boolean) | null;
 
   // skill management state
   skillManagementTab: SkillManagementTab;

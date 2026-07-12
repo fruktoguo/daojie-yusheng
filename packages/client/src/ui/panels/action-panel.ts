@@ -18,7 +18,9 @@ import {
   normalizeCombatAttackIntensity,
   resolveSkillRequiresTarget,
   resolveSkillUnlockLevel,
+  type C2S_RequestSectApplicationPage,
   type CombatAttackIntensity,
+  type S2C_SectApplicationPage,
 } from '@mud/shared';
 import { detailModalHost } from '../detail-modal-host';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../floating-tooltip';
@@ -228,6 +230,8 @@ export class ActionPanel {
   private onUpdateCombatTargetingRules: ((rules: CombatTargetingRules) => void) | null = null;
   /** 同步优先索敌方案。 */
   private onUpdateAutoBattleTargetingMode: ((mode: AutoBattleTargetingMode) => void) | null = null;
+  /** 请求宗门待审批申请分页。 */
+  private onRequestSectApplicationPage: ((payload: C2S_RequestSectApplicationPage) => boolean) | null = null;
   /** 当前主标签页，决定展示对话、技能、开关还是通用动作。 */
   private activeTab: ActionMainTab = 'dialogue';
   /** 当前技能子标签页。 */
@@ -378,6 +382,7 @@ export class ActionPanel {
     this.skillManagementListScrollTop = 0;
     this.combatSettingsActiveTab = 'auto_pills';
     this.sectManagementTab = 'guardian';
+    this.sectMgmt.reset();
     this.autoUsePillSelectedIndex = 0;
     this.autoUsePillSubview = 'main';
     detailModalHost.close(this.SKILL_MANAGEMENT_MODAL_OWNER);
@@ -407,12 +412,19 @@ export class ActionPanel {
     onUpdateAutoUsePills?: (pills: AutoUsePillConfig[]) => void,
     onUpdateCombatTargetingRules?: (rules: CombatTargetingRules) => void,
     onUpdateAutoBattleTargetingMode?: (mode: AutoBattleTargetingMode) => void,
+    onRequestSectApplicationPage?: (payload: C2S_RequestSectApplicationPage) => boolean,
   ): void {
     this.onAction = onAction;
     this.onUpdateAutoBattleSkills = onUpdateAutoBattleSkills ?? null;
     this.onUpdateAutoUsePills = onUpdateAutoUsePills ?? null;
     this.onUpdateCombatTargetingRules = onUpdateCombatTargetingRules ?? null;
     this.onUpdateAutoBattleTargetingMode = onUpdateAutoBattleTargetingMode ?? null;
+    this.onRequestSectApplicationPage = onRequestSectApplicationPage ?? null;
+  }
+
+  /** 消费宗门待审批申请的低频分页响应。 */
+  handleSectApplicationPage(page: S2C_SectApplicationPage): void {
+    this.sectMgmt.handleSectApplicationPage(page);
   }
 
   /** 读取外部面板展示用的绑键按钮文案。 */

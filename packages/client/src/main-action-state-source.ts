@@ -6,7 +6,9 @@
 import {
   ActionDef,
   AutoBattleSkillConfig,
+  C2S_RequestSectApplicationPage,
   PlayerState,
+  S2C_SectApplicationPage,
   buildDefaultCombatTargetingRules,
   normalizeAutoBattleTargetingMode,
   normalizeCombatTargetingRules,
@@ -27,7 +29,7 @@ type MainActionStateSourceOptions = {
  * actionPanel：action面板相关字段。
  */
 
-  actionPanel: Pick<ActionPanel, 'setCallbacks' | 'initFromPlayer' | 'update' | 'syncDynamic' | 'clear'>;  
+  actionPanel: Pick<ActionPanel, 'setCallbacks' | 'handleSectApplicationPage' | 'initFromPlayer' | 'update' | 'syncDynamic' | 'clear'>;
   /**
  * socket：socket相关字段。
  */
@@ -41,6 +43,8 @@ type MainActionStateSourceOptions = {
     | 'sendUpdateCombatTargetingRules'
     | 'sendUpdateAutoBattleTargetingMode'
   >;  
+  /** 请求宗门待审批申请分页。 */
+  requestSectApplicationPage: (payload: C2S_RequestSectApplicationPage) => boolean;
   /**
  * beginTargeting：beginTargeting相关字段。
  */
@@ -263,9 +267,14 @@ export function createMainActionStateSource(options: MainActionStateSourceOption
     (mode) => {
       options.socket.sendUpdateAutoBattleTargetingMode(mode);
     },
+    (payload) => options.requestSectApplicationPage(payload),
   );
 
   return {  
+    /** 消费宗门待审批申请分页响应。 */
+    handleSectApplicationPage(page: S2C_SectApplicationPage): void {
+      options.actionPanel.handleSectApplicationPage(page);
+    },
   /**
  * initFromPlayer：执行initFrom玩家相关逻辑。
  * @param player PlayerState 玩家对象。

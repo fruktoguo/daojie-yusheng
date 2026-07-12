@@ -120,6 +120,7 @@ export const C2S = {
   UseItem: 'n:c:useItem',
   RepairInventoryItemInstanceIds: 'n:c:repairInventoryItemInstanceIds',
   RequestInventoryPage: 'n:c:requestInventoryPage',
+  RequestSectApplicationPage: 'n:c:requestSectApplicationPage',
   RequestTechniquePage: 'n:c:requestTechniquePage',
   CreateFormation: 'n:c:createFormation',
   SetFormationActive: 'n:c:setFormationActive',
@@ -224,6 +225,7 @@ export const S2C = {
   MarketItemBook: 'n:s:marketItemBook',
   MarketTradeHistory: 'n:s:marketTradeHistory',
   InventoryPage: 'n:s:inventoryPage',
+  SectApplicationPage: 'n:s:sectApplicationPage',
   TechniquePage: 'n:s:techniquePage',
   AttrDetail: 'n:s:attrDetail',
   Leaderboard: 'n:s:leaderboard',
@@ -319,6 +321,7 @@ export interface C2S_PayloadMap extends Record<C2S_EventName, unknown> {
   [C2S.UseItem]: RequestPayloads.C2S_UseItem;
   [C2S.RepairInventoryItemInstanceIds]: RequestPayloads.C2S_RepairInventoryItemInstanceIds;
   [C2S.RequestInventoryPage]: RequestPayloads.C2S_RequestInventoryPage;
+  [C2S.RequestSectApplicationPage]: RequestPayloads.C2S_RequestSectApplicationPage;
   [C2S.RequestTechniquePage]: RequestPayloads.C2S_RequestTechniquePage;
   [C2S.CreateFormation]: RequestPayloads.C2S_CreateFormation;
   [C2S.SetFormationActive]: RequestPayloads.C2S_SetFormationActive;
@@ -419,6 +422,7 @@ export interface S2C_PayloadMap extends Record<S2C_EventName, unknown> {
   [S2C.MarketItemBook]: ResponsePayloads.S2C_MarketItemBook;
   [S2C.MarketTradeHistory]: ResponsePayloads.S2C_MarketTradeHistory;
   [S2C.InventoryPage]: ResponsePayloads.S2C_InventoryPage;
+  [S2C.SectApplicationPage]: ResponsePayloads.S2C_SectApplicationPage;
   [S2C.TechniquePage]: ResponsePayloads.S2C_TechniquePage;
   [S2C.AttrDetail]: S2C_AttrDetail;
   [S2C.Leaderboard]: ResponsePayloads.S2C_Leaderboard;

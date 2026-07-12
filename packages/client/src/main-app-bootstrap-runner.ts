@@ -40,6 +40,7 @@ export function runMainAppBootstrap(context: ReturnType<typeof import('./main-ap
     settingsStateSource: context.settingsStateSource,
     marketStateSource: context.marketStateSource,
     inventoryStateSource: context.inventoryStateSource,
+    actionStateSource: context.actionStateSource,
     techniqueStateSource: context.techniqueStateSource,
     noticeStateSource: context.noticeStateSource,
     connectionStateSource: context.connectionStateSource,

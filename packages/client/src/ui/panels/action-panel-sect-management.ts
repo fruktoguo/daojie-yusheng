@@ -8,12 +8,24 @@
  * 负责宗门管理弹层的渲染和交互。
  * 从 action-panel.ts 拆分而来。
  */
-import type { ActionDef, PlayerState } from '@mud/shared';
+import {
+  SECT_APPLICATION_PAGE_DEFAULT_LIMIT,
+  type ActionDef,
+  type PlayerState,
+  type S2C_SectApplicationPage,
+} from '@mud/shared';
 import { detailModalHost } from '../detail-modal-host';
 import { t } from '../i18n';
 import { getLocalRealmLevelEntry } from '../../content/local-templates';
 import { formatDisplayNumber } from '../../utils/number';
 import { escapeHtml } from './action-panel-helpers';
+import {
+  SectApplicationPageRequestState,
+  normalizeSectApplicationPageLimit,
+  normalizeSectApplicationPageOffset,
+  normalizeSectApplicationPageSearch,
+  normalizeSectApplicationRevision,
+} from './sect-application-page-request-state';
 import type { ActionPanel } from './action-panel';
 import type {
   ActionPanelInternal,
@@ -29,6 +41,8 @@ import type {
 // ─── 本地常量 ───
 
 const SECT_MANAGEMENT_DATA_PATTERN = /\n?@@sect:([^@\n]+)@@/;
+const SECT_APPLICATION_SEARCH_DEBOUNCE_MS = 250;
+const SECT_APPLICATION_REQUEST_TIMEOUT_MS = 8_000;
 
 const DEFAULT_SECT_MANAGEMENT_ROLES: SectManagementRole[] = [
   { id: 'leader', label: t('action.sect.role.leader', undefined), assignable: false },
@@ -130,16 +144,6 @@ function normalizeSectManagementMember(input: unknown): SectManagementMember {
   };
 }
 
-function normalizeSectManagementApplication(input: unknown): { playerId: string; name: string; appliedAt: number } {
-  const source = input && typeof input === 'object' ? input as Partial<{ playerId: string; name: string; appliedAt: number }> : {};
-  const playerId = typeof source.playerId === 'string' && source.playerId.trim() ? source.playerId.trim() : '';
-  return {
-    playerId,
-    name: typeof source.name === 'string' && source.name.trim() ? source.name.trim() : t('action.sect.fallback.unknown-applicant', undefined),
-    appliedAt: Number.isFinite(Number(source.appliedAt)) ? Math.trunc(Number(source.appliedAt)) : 0,
-  };
-}
-
 function normalizeSectManagementRolePermissions(
   input: unknown,
   roles: SectManagementRole[],
@@ -197,7 +201,8 @@ function buildFallbackSectManagementData(player: PlayerState | null): SectManage
       self: true,
       leader: true,
     }],
-    applications: [],
+    applicationTotal: 0,
+    applicationRevision: 0,
   };
 }
 
@@ -218,9 +223,6 @@ function parseSectManagementData(desc: string | undefined, player: PlayerState |
     const members = Array.isArray(parsed.members) && parsed.members.length > 0
       ? parsed.members.map(normalizeSectManagementMember)
       : fallback.members;
-    const applications = Array.isArray(parsed.applications)
-      ? parsed.applications.map(normalizeSectManagementApplication).filter((entry) => entry.playerId)
-      : fallback.applications;
     return {
       selfPlayerId: typeof parsed.selfPlayerId === 'string' ? parsed.selfPlayerId : fallback.selfPlayerId,
       canEditPermissions: parsed.canEditPermissions === true,
@@ -236,7 +238,10 @@ function parseSectManagementData(desc: string | undefined, player: PlayerState |
       permissions,
       rolePermissions: normalizeSectManagementRolePermissions(parsed.rolePermissions, roles, permissions),
       members,
-      applications,
+      applicationTotal: Number.isFinite(Number(parsed.applicationTotal))
+        ? Math.max(0, Math.trunc(Number(parsed.applicationTotal)))
+        : fallback.applicationTotal,
+      applicationRevision: normalizeSectApplicationRevision(parsed.applicationRevision),
     };
   } catch (_error) {
     return fallback;
@@ -247,12 +252,30 @@ function parseSectManagementData(desc: string | undefined, player: PlayerState |
 
 export class SectManagementSubpanel {
   private readonly p: ActionPanelInternal;
+  private applicationSearchDraft = '';
+  private applicationPageOffset = 0;
+  private applicationSectId = '';
+  private applicationPage: S2C_SectApplicationPage | null = null;
+  private readonly applicationPageRequestState = new SectApplicationPageRequestState();
+  private applicationSearchTimer: number | null = null;
+  private applicationRequestTimeout: number | null = null;
 
   constructor(parent: ActionPanel) {
     this.p = parent as unknown as ActionPanelInternal;
   }
 
+  reset(): void {
+    this.applicationSearchDraft = '';
+    this.applicationPageOffset = 0;
+    this.applicationSectId = '';
+    this.applicationPage = null;
+    this.applicationPageRequestState.reset();
+    this.clearApplicationSearchTimer();
+    this.clearApplicationRequestTimeout();
+  }
+
   openSectManagementModal(): void {
+    this.reset();
     this.p.sectManagementTab = 'overview';
     this.p.sectManagementExternalRevision = '';
     this.renderSectManagementModal();
@@ -318,6 +341,7 @@ export class SectManagementSubpanel {
       },
       onAfterRender: (body, signal) => {
         this.bindSectManagementActions(body, signal);
+        this.ensureSectApplicationPageRequested(summary);
       },
     });
   }
@@ -347,8 +371,16 @@ export class SectManagementSubpanel {
         return true;
       }
     }
+    if (this.p.sectManagementTab === 'manage') {
+      const managePanel = content.querySelector<HTMLElement>('[data-sect-manage-panel]');
+      if (managePanel && this.patchSectManagementManagePanel(managePanel, summary)) {
+        this.ensureSectApplicationPageRequested(summary);
+        return true;
+      }
+    }
     replaceElementHtml(content, this.renderSectManagementTabPanel(summary));
     this.bindSectManagementActions(content);
+    this.ensureSectApplicationPageRequested(summary);
     return true;
   }
 
@@ -357,6 +389,54 @@ export class SectManagementSubpanel {
     if (node) {
       node.textContent = value;
     }
+  }
+
+  private bindSectActionButtons(root: HTMLElement, options?: AddEventListenerOptions): void {
+    root.querySelectorAll<HTMLElement>('[data-sect-action]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const actionId = button.dataset.sectAction;
+        if (!actionId) return;
+        if (actionId === 'sect:dissolve' && !window.confirm(t('action.sect.manage.confirm.dissolve', undefined))) return;
+        if (actionId === 'sect:leave' && !window.confirm(t('action.sect.manage.confirm.leave', undefined))) return;
+        this.p.onAction?.(actionId, false, undefined, undefined, button.textContent?.trim() || '未知行动');
+      }, options);
+    });
+  }
+
+  private bindSectApplicationControls(root: HTMLElement, options?: AddEventListenerOptions): void {
+    root.querySelector<HTMLInputElement>('[data-sect-application-search]')?.addEventListener('input', (event) => {
+      const input = event.currentTarget as HTMLInputElement;
+      this.applicationSearchDraft = input.value;
+      this.applicationPageOffset = 0;
+      this.clearApplicationSearchTimer();
+      this.applicationSearchTimer = window.setTimeout(() => {
+        this.applicationSearchTimer = null;
+        const summary = this.resolveCurrentSectManagementSummary();
+        if (summary) {
+          this.requestSectApplicationPage(summary, 0);
+        }
+      }, SECT_APPLICATION_SEARCH_DEBOUNCE_MS);
+      const summary = this.resolveCurrentSectManagementSummary();
+      if (summary) {
+        this.patchCurrentSectApplicationSection(summary);
+      }
+    }, options);
+
+    root.querySelectorAll<HTMLButtonElement>('[data-sect-application-page]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const direction = button.dataset.sectApplicationPage;
+        if (direction === 'prev' || direction === 'next') {
+          this.requestAdjacentSectApplicationPage(direction);
+        }
+      }, options);
+    });
+
+    root.querySelector<HTMLButtonElement>('[data-sect-application-retry]')?.addEventListener('click', () => {
+      const summary = this.resolveCurrentSectManagementSummary();
+      if (summary) {
+        this.requestSectApplicationPage(summary, this.applicationPageOffset);
+      }
+    }, options);
   }
 
   private bindSectManagementActions(root: HTMLElement, signal?: AbortSignal): void {
@@ -369,15 +449,8 @@ export class SectManagementSubpanel {
         this.renderSectManagementModal();
       }, options);
     });
-    root.querySelectorAll<HTMLElement>('[data-sect-action]').forEach((button) => {
-      button.addEventListener('click', () => {
-        const actionId = button.dataset.sectAction;
-        if (!actionId) return;
-        if (actionId === 'sect:dissolve' && !window.confirm(t('action.sect.manage.confirm.dissolve', undefined))) return;
-        if (actionId === 'sect:leave' && !window.confirm(t('action.sect.manage.confirm.leave', undefined))) return;
-        this.p.onAction?.(actionId, false, undefined, undefined, button.textContent?.trim() || '未知行动');
-      }, options);
-    });
+    this.bindSectActionButtons(root, options);
+    this.bindSectApplicationControls(root, options);
     root.querySelectorAll<HTMLElement>('button[data-sect-guardian-active]').forEach((button) => {
       button.addEventListener('click', () => {
         const active = button.dataset.sectGuardianActive === '1';
@@ -629,43 +702,71 @@ export class SectManagementSubpanel {
   }
 
   renderSectManagementManagePanel(summary: SectManagementSummary): string {
+    const reviewCard = summary.data.canReviewApplications
+      ? this.renderSectApplicationReviewCard(summary)
+      : '';
+    return `
+      <div class="sect-detail-pane" data-sect-manage-panel>
+        <div class="sect-pane-head">
+          <div>
+            <div class="panel-section-title">${t('action.sect.manage.manage.title', undefined)}</div>
+          </div>
+        </div>
+        <div class="sect-manage-card-grid">
+          ${reviewCard}
+          <div class="sect-manage-secondary-cards" data-sect-manage-secondary-cards>
+            ${this.renderSectManagementSecondaryCards(summary)}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  private renderSectApplicationReviewCard(summary: SectManagementSummary): string {
+    const page = this.getActiveSectApplicationPage(summary);
+    const pending = this.isSectApplicationPageLoading();
+    const pagination = this.buildSectApplicationPagination(summary, page);
+    return `
+      <div class="sect-manage-card sect-manage-card--wide" data-sect-application-section aria-busy="${pending ? 'true' : 'false'}">
+        <div class="sect-application-toolbar">
+          <div class="sect-manage-card-title">${t('action.sect.manage.manage.review-title', undefined)}</div>
+          <input
+            class="ui-input sect-application-search"
+            data-sect-application-search
+            type="search"
+            maxlength="64"
+            autocomplete="off"
+            value="${escapeHtml(this.applicationSearchDraft)}"
+            aria-label="${t('action.sect.manage.manage.search-aria', undefined)}"
+            placeholder="${t('action.sect.manage.manage.search-placeholder', undefined)}"
+          >
+        </div>
+        <div class="sect-application-table">
+          <div class="sect-application-table-head">
+            <span>${t('action.sect.manage.manage.column.applicant', undefined)}</span>
+            <span>${t('action.sect.manage.manage.column.type', undefined)}</span>
+            <span>${t('action.sect.manage.manage.column.time', undefined)}</span>
+            <span>${t('action.sect.manage.manage.column.actions', undefined)}</span>
+          </div>
+          <div data-sect-application-rows>
+            ${this.renderSectApplicationRows(summary, page, pending)}
+          </div>
+        </div>
+        <div class="sect-application-pagination">
+          <button class="small-btn ghost" data-sect-application-page="prev" type="button"${pagination.canPrevious && !pending ? '' : ' disabled'}>${t('action.sect.manage.manage.page-prev', undefined)}</button>
+          <span class="sect-application-page-status" data-sect-application-page-status aria-live="polite">${pagination.label}</span>
+          <button class="small-btn ghost" data-sect-application-page="next" type="button"${pagination.canNext && !pending ? '' : ' disabled'}>${t('action.sect.manage.manage.page-next', undefined)}</button>
+        </div>
+      </div>
+    `;
+  }
+
+  private renderSectManagementSecondaryCards(summary: SectManagementSummary): string {
     const transferTargets = summary.data.members.filter((member) => !member.self && !member.leader);
     const transferButtons = transferTargets.length > 0
       ? transferTargets.map((member) => `<button class="small-btn ghost" data-sect-action="sect:transfer:${escapeHtml(encodeURIComponent(member.playerId))}" type="button"${summary.data.canTransfer ? '' : ' disabled'}>${t('action.sect.manage.manage.transfer-to', { name: escapeHtml(member.name) })}</button>`).join('')
       : `<div class="sect-empty-note">${t('action.sect.manage.manage.transfer-empty', undefined)}</div>`;
-    const applicationRows = summary.data.applications.length > 0
-      ? summary.data.applications.map((entry) => `
-        <div class="sect-application-table-row">
-          <span class="sect-member-name-cell">
-            <span class="sect-member-name-main">${escapeHtml(entry.name)}</span>
-            <span class="sect-member-name-sub">${t('action.sect.manage.manage.pending', undefined)}</span>
-          </span>
-          <span>${t('action.sect.manage.manage.application-type', undefined)}</span>
-          <span>${escapeHtml(formatSectTimestamp(entry.appliedAt))}</span>
-          <span class="action-section-actions">
-            <button class="small-btn" data-sect-action="sect:application:approve:${escapeHtml(encodeURIComponent(entry.playerId))}" type="button"${summary.data.canReviewApplications ? '' : ' disabled'}>${t('action.sect.manage.manage.approve', undefined)}</button>
-            <button class="small-btn ghost" data-sect-action="sect:application:reject:${escapeHtml(encodeURIComponent(entry.playerId))}" type="button"${summary.data.canReviewApplications ? '' : ' disabled'}>${t('action.sect.manage.manage.reject', undefined)}</button>
-          </span>
-        </div>
-      `).join('')
-      : `<div class="sect-empty-note">${t('action.sect.manage.manage.applications-empty', undefined)}</div>`;
     const cards: string[] = [];
-    if (summary.data.canReviewApplications) {
-      cards.push(`
-        <div class="sect-manage-card sect-manage-card--wide">
-          <div class="sect-manage-card-title">${t('action.sect.manage.manage.review-title', undefined)}</div>
-          <div class="sect-application-table">
-            <div class="sect-application-table-head">
-              <span>${t('action.sect.manage.manage.column.applicant', undefined)}</span>
-              <span>${t('action.sect.manage.manage.column.type', undefined)}</span>
-              <span>${t('action.sect.manage.manage.column.time', undefined)}</span>
-              <span>${t('action.sect.manage.manage.column.actions', undefined)}</span>
-            </div>
-            ${applicationRows}
-          </div>
-        </div>
-      `);
-    }
     if (summary.data.canManageGuardian) {
       cards.push(`
         <div class="sect-manage-card">
@@ -698,18 +799,332 @@ export class SectManagementSubpanel {
         </div>
       `);
     }
-    return `
-      <div class="sect-detail-pane">
-        <div class="sect-pane-head">
-          <div>
-            <div class="panel-section-title">${t('action.sect.manage.manage.title', undefined)}</div>
-          </div>
-        </div>
-        <div class="sect-manage-card-grid">
-          ${cards.join('')}
-        </div>
+    return cards.join('');
+  }
+
+  private renderSectApplicationRows(
+    summary: SectManagementSummary,
+    page: S2C_SectApplicationPage | null,
+    pending: boolean,
+  ): string {
+    if (summary.data.applicationTotal <= 0 && !normalizeSectApplicationPageSearch(this.applicationSearchDraft)) {
+      return `<div class="sect-empty-note">${t('action.sect.manage.manage.applications-empty', undefined)}</div>`;
+    }
+    if (!page) {
+      return pending
+        ? `<div class="sect-empty-note">${t('action.sect.manage.manage.applications-loading', undefined)}</div>`
+        : `<div class="sect-empty-note sect-application-load-failed">
+            <span>${t('action.sect.manage.manage.applications-load-failed', undefined)}</span>
+            <button class="small-btn ghost" data-sect-application-retry type="button">${t('action.sect.manage.manage.retry', undefined)}</button>
+          </div>`;
+    }
+    if (page.items.length <= 0) {
+      const emptyKey = normalizeSectApplicationPageSearch(this.applicationSearchDraft)
+        ? 'action.sect.manage.manage.applications-search-empty'
+        : 'action.sect.manage.manage.applications-empty';
+      return `<div class="sect-empty-note">${t(emptyKey, undefined)}</div>`;
+    }
+    return page.items.map((entry) => `
+      <div class="sect-application-table-row">
+        <span class="sect-member-name-cell">
+          <span class="sect-member-name-main">${escapeHtml(entry.name)}</span>
+          <span class="sect-member-name-sub">${t('action.sect.manage.manage.pending', undefined)}</span>
+        </span>
+        <span>${t('action.sect.manage.manage.application-type', undefined)}</span>
+        <span>${escapeHtml(formatSectTimestamp(entry.appliedAt))}</span>
+        <span class="action-section-actions">
+          <button class="small-btn" data-sect-action="sect:application:approve:${escapeHtml(encodeURIComponent(entry.playerId))}" type="button"${summary.data.canReviewApplications ? '' : ' disabled'}>${t('action.sect.manage.manage.approve', undefined)}</button>
+          <button class="small-btn ghost" data-sect-action="sect:application:reject:${escapeHtml(encodeURIComponent(entry.playerId))}" type="button"${summary.data.canReviewApplications ? '' : ' disabled'}>${t('action.sect.manage.manage.reject', undefined)}</button>
+        </span>
       </div>
-    `;
+    `).join('');
+  }
+
+  private buildSectApplicationPagination(
+    summary: SectManagementSummary,
+    page: S2C_SectApplicationPage | null,
+  ): { label: string; canPrevious: boolean; canNext: boolean } {
+    if (!page) {
+      if (summary.data.applicationTotal <= 0) {
+        return {
+          label: t('action.sect.manage.manage.page-meta', { total: 0, page: 1, totalPages: 1 }),
+          canPrevious: false,
+          canNext: false,
+        };
+      }
+      return {
+        label: t('action.sect.manage.manage.applications-loading', undefined),
+        canPrevious: false,
+        canNext: false,
+      };
+    }
+    const totalPages = Math.max(1, Math.ceil(page.total / page.limit));
+    const currentPage = Math.min(totalPages, Math.floor(page.offset / page.limit) + 1);
+    return {
+      label: t('action.sect.manage.manage.page-meta', {
+        total: page.total,
+        page: currentPage,
+        totalPages,
+      }),
+      canPrevious: page.offset > 0,
+      canNext: page.offset + page.items.length < page.total,
+    };
+  }
+
+  private patchSectManagementManagePanel(root: HTMLElement, summary: SectManagementSummary): boolean {
+    const applicationSection = root.querySelector<HTMLElement>('[data-sect-application-section]');
+    if (Boolean(applicationSection) !== summary.data.canReviewApplications) {
+      return false;
+    }
+    if (applicationSection) {
+      this.patchSectApplicationSection(applicationSection, summary);
+    }
+    const secondaryCards = root.querySelector<HTMLElement>('[data-sect-manage-secondary-cards]');
+    if (!secondaryCards) {
+      return false;
+    }
+    replaceElementHtml(secondaryCards, this.renderSectManagementSecondaryCards(summary));
+    this.bindSectManagementActions(secondaryCards);
+    return true;
+  }
+
+  private patchSectApplicationSection(section: HTMLElement, summary: SectManagementSummary): void {
+    const page = this.getActiveSectApplicationPage(summary);
+    const pending = this.isSectApplicationPageLoading();
+    const rows = section.querySelector<HTMLElement>('[data-sect-application-rows]');
+    if (rows) {
+      replaceElementHtml(rows, this.renderSectApplicationRows(summary, page, pending));
+      this.bindSectActionButtons(rows);
+      this.bindSectApplicationControls(rows);
+    }
+    const pagination = this.buildSectApplicationPagination(summary, page);
+    this.setText(section, '[data-sect-application-page-status]', pagination.label);
+    const previous = section.querySelector<HTMLButtonElement>('[data-sect-application-page="prev"]');
+    const next = section.querySelector<HTMLButtonElement>('[data-sect-application-page="next"]');
+    if (previous) {
+      previous.disabled = pending || !pagination.canPrevious;
+    }
+    if (next) {
+      next.disabled = pending || !pagination.canNext;
+    }
+    section.setAttribute('aria-busy', pending ? 'true' : 'false');
+  }
+
+  private getActiveSectApplicationPage(summary: SectManagementSummary): S2C_SectApplicationPage | null {
+    const page = this.applicationPage;
+    const sectId = this.resolveCurrentSectId();
+    if (
+      !page
+      || !sectId
+      || page.sectId !== sectId
+      || normalizeSectApplicationPageSearch(page.search) !== normalizeSectApplicationPageSearch(this.applicationSearchDraft)
+      || normalizeSectApplicationPageOffset(page.offset) !== this.applicationPageOffset
+      || normalizeSectApplicationPageLimit(page.limit) !== SECT_APPLICATION_PAGE_DEFAULT_LIMIT
+      || normalizeSectApplicationRevision(page.revision) < summary.data.applicationRevision
+    ) {
+      return null;
+    }
+    return page;
+  }
+
+  private resolveCurrentSectId(): string {
+    return typeof this.p.previewPlayer?.sectId === 'string' ? this.p.previewPlayer.sectId.trim() : '';
+  }
+
+  private isSectApplicationPageLoading(): boolean {
+    return this.applicationSearchTimer !== null || this.applicationPageRequestState.isPending();
+  }
+
+  private resolveCurrentSectManagementSummary(): SectManagementSummary | null {
+    const action = this.p.currentActions.find((entry) => entry.id === 'sect:manage');
+    return action ? this.resolveSectManagementSummary(action) : null;
+  }
+
+  private syncSectApplicationPageVersion(summary: SectManagementSummary): void {
+    const sectId = this.resolveCurrentSectId();
+    const revision = normalizeSectApplicationRevision(summary.data.applicationRevision);
+    if (this.applicationSectId && sectId !== this.applicationSectId) {
+      this.reset();
+    }
+    this.applicationSectId = sectId;
+
+    const pending = this.applicationPageRequestState.getPending();
+    if (pending && (pending.sectId !== sectId || pending.minimumRevision < revision)) {
+      this.applicationPageRequestState.reset();
+      this.clearApplicationRequestTimeout();
+    }
+    if (this.applicationPage && (
+      this.applicationPage.sectId !== sectId
+      || normalizeSectApplicationRevision(this.applicationPage.revision) < revision
+    )) {
+      this.applicationPage = null;
+    }
+    if (summary.data.applicationTotal <= 0 && !normalizeSectApplicationPageSearch(this.applicationSearchDraft)) {
+      this.applicationPageOffset = 0;
+    }
+  }
+
+  private ensureSectApplicationPageRequested(summary: SectManagementSummary, force = false): void {
+    if (
+      this.p.sectManagementTab !== 'manage'
+      || !summary.data.canReviewApplications
+      || !this.p.onRequestSectApplicationPage
+      || !this.resolveCurrentSectId()
+    ) {
+      return;
+    }
+    if (summary.data.applicationTotal <= 0 && !normalizeSectApplicationPageSearch(this.applicationSearchDraft)) {
+      this.patchCurrentSectApplicationSection(summary);
+      return;
+    }
+    if (this.applicationPageRequestState.isPending()) {
+      return;
+    }
+    if (!force && this.getActiveSectApplicationPage(summary)) {
+      return;
+    }
+    this.requestSectApplicationPage(summary, this.applicationPageOffset);
+  }
+
+  private requestSectApplicationPage(summary: SectManagementSummary, offset: number): void {
+    const sectId = this.resolveCurrentSectId();
+    if (!summary.data.canReviewApplications || !sectId || !this.p.onRequestSectApplicationPage) {
+      return;
+    }
+    if (summary.data.applicationTotal <= 0 && !normalizeSectApplicationPageSearch(this.applicationSearchDraft)) {
+      this.applicationPage = null;
+      this.applicationPageOffset = 0;
+      this.applicationPageRequestState.reset();
+      this.clearApplicationRequestTimeout();
+      this.patchCurrentSectApplicationSection(summary);
+      return;
+    }
+    this.clearApplicationRequestTimeout();
+    const payload = this.applicationPageRequestState.begin({
+      sectId,
+      search: this.applicationSearchDraft,
+      offset,
+      limit: SECT_APPLICATION_PAGE_DEFAULT_LIMIT,
+      minimumRevision: summary.data.applicationRevision,
+    });
+    this.applicationPageOffset = normalizeSectApplicationPageOffset(payload.offset);
+    this.armApplicationRequestTimeout(payload.requestId);
+    if (!this.p.onRequestSectApplicationPage(payload)) {
+      this.applicationPageRequestState.cancel(payload.requestId);
+      this.clearApplicationRequestTimeout();
+    }
+    this.patchCurrentSectApplicationSection(summary);
+  }
+
+  private requestAdjacentSectApplicationPage(direction: 'prev' | 'next'): void {
+    if (this.applicationPageRequestState.isPending()) {
+      return;
+    }
+    const summary = this.resolveCurrentSectManagementSummary();
+    if (!summary) {
+      return;
+    }
+    const page = this.getActiveSectApplicationPage(summary);
+    if (!page) {
+      this.requestSectApplicationPage(summary, this.applicationPageOffset);
+      return;
+    }
+    const nextOffset = direction === 'prev'
+      ? Math.max(0, page.offset - page.limit)
+      : page.offset + page.limit;
+    if (direction === 'next' && nextOffset >= page.total) {
+      return;
+    }
+    this.requestSectApplicationPage(summary, nextOffset);
+  }
+
+  handleSectApplicationPage(page: S2C_SectApplicationPage): void {
+    const decision = this.applicationPageRequestState.resolve(page);
+    if (decision === 'ignored') {
+      return;
+    }
+    this.clearApplicationRequestTimeout();
+    const summary = this.resolveCurrentSectManagementSummary();
+    if (!summary) {
+      this.applicationPage = null;
+      return;
+    }
+    if (decision === 'invalid-current') {
+      this.applicationPage = null;
+      this.patchCurrentSectApplicationSection(summary);
+      this.ensureSectApplicationPageRequested(summary, true);
+      return;
+    }
+
+    const total = Math.max(0, Math.trunc(Number(page.total) || 0));
+    const limit = normalizeSectApplicationPageLimit(page.limit);
+    const responseOffset = normalizeSectApplicationPageOffset(page.offset);
+    if (total > 0 && responseOffset >= total) {
+      this.applicationPage = null;
+      this.applicationPageOffset = Math.floor((total - 1) / limit) * limit;
+      this.requestSectApplicationPage(summary, this.applicationPageOffset);
+      return;
+    }
+
+    const normalizedOffset = total <= 0 ? 0 : responseOffset;
+    this.applicationPageOffset = normalizedOffset;
+    this.applicationPage = {
+      ...page,
+      search: normalizeSectApplicationPageSearch(page.search),
+      offset: normalizedOffset,
+      limit,
+      total,
+      revision: normalizeSectApplicationRevision(page.revision),
+      items: (Array.isArray(page.items) ? page.items : []).map((entry) => ({
+        playerId: typeof entry?.playerId === 'string' ? entry.playerId.trim() : '',
+        name: typeof entry?.name === 'string' && entry.name.trim()
+          ? entry.name.trim()
+          : t('action.sect.fallback.unknown-applicant', undefined),
+        appliedAt: Number.isFinite(Number(entry?.appliedAt)) ? Math.max(0, Math.trunc(Number(entry.appliedAt))) : 0,
+      })).filter((entry) => entry.playerId),
+    };
+    this.patchCurrentSectApplicationSection(summary);
+  }
+
+  private patchCurrentSectApplicationSection(summary: SectManagementSummary): void {
+    if (
+      this.p.sectManagementTab !== 'manage'
+      || !detailModalHost.isOpenFor(this.p.SECT_MANAGEMENT_MODAL_OWNER)
+    ) {
+      return;
+    }
+    const body = document.getElementById('detail-modal-body');
+    const section = body?.querySelector<HTMLElement>('[data-sect-application-section]');
+    if (section) {
+      this.patchSectApplicationSection(section, summary);
+    }
+  }
+
+  private armApplicationRequestTimeout(requestId: string): void {
+    this.clearApplicationRequestTimeout();
+    this.applicationRequestTimeout = window.setTimeout(() => {
+      this.applicationRequestTimeout = null;
+      if (this.applicationPageRequestState.cancel(requestId)) {
+        const summary = this.resolveCurrentSectManagementSummary();
+        if (summary) {
+          this.patchCurrentSectApplicationSection(summary);
+        }
+      }
+    }, SECT_APPLICATION_REQUEST_TIMEOUT_MS);
+  }
+
+  private clearApplicationRequestTimeout(): void {
+    if (this.applicationRequestTimeout !== null) {
+      window.clearTimeout(this.applicationRequestTimeout);
+      this.applicationRequestTimeout = null;
+    }
+  }
+
+  private clearApplicationSearchTimer(): void {
+    if (this.applicationSearchTimer !== null) {
+      window.clearTimeout(this.applicationSearchTimer);
+      this.applicationSearchTimer = null;
+    }
   }
 
   renderSectMemberRow(summary: SectManagementSummary, member: SectManagementMember, assignableRoles: SectManagementRole[]): string {
@@ -800,7 +1215,9 @@ export class SectManagementSubpanel {
     const realmLabel = this.p.previewPlayer?.realm?.displayName || this.p.previewPlayer?.realmName || this.p.previewPlayer?.realm?.name || t('action.sect.manage.fallback.realm', undefined);
     const memberCountLabel = String(data.members.length || 1);
     const notice = t('action.sect.manage.notice', { name });
-    return { name, mark, domainLabel, guardianStatusLabel, guardianAuraLabel, sectIdLabel, leaderName, realmLabel, memberCountLabel, notice, data };
+    const summary = { name, mark, domainLabel, guardianStatusLabel, guardianAuraLabel, sectIdLabel, leaderName, realmLabel, memberCountLabel, notice, data };
+    this.syncSectApplicationPageVersion(summary);
+    return summary;
   }
 
   buildSectManagementRevision(summary: SectManagementSummary): string {
@@ -812,7 +1229,7 @@ export class SectManagementSubpanel {
       case 'roles':
         return `${base}|${summary.data.canEditPermissions}|${JSON.stringify(summary.data.roles)}|${JSON.stringify(summary.data.permissions)}|${JSON.stringify(summary.data.rolePermissions)}`;
       case 'manage':
-        return `${base}|${summary.data.canReviewApplications}|${summary.data.canTransfer}|${summary.data.canDissolve}|${summary.data.canLeave}|${JSON.stringify(summary.data.applications)}|${JSON.stringify(summary.data.members)}`;
+        return `${base}|${summary.data.canReviewApplications}|${summary.data.canTransfer}|${summary.data.canDissolve}|${summary.data.canLeave}|${summary.data.applicationTotal}|${summary.data.applicationRevision}|${JSON.stringify(summary.data.members)}`;
       case 'guardian':
         return `${base}|${summary.guardianStatusLabel}|${JSON.stringify(summary.data.guardian)}|${summary.data.canManageGuardian}`;
       case 'overview':

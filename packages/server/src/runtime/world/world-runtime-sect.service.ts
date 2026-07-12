@@ -4,7 +4,14 @@
  * 维护时要保持状态变更受控，所有影响资产或位置的结果都应能被持久化与恢复链覆盖。
  */
 import { BadRequestException, ForbiddenException, Logger, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
-import { FORMATION_AURA_PER_SPIRIT_STONE, SECT_ENTRANCE_RELOCATION_COOLDOWN_MS, TileType } from '@mud/shared';
+import {
+    FORMATION_AURA_PER_SPIRIT_STONE,
+    SECT_APPLICATION_PAGE_DEFAULT_LIMIT,
+    SECT_APPLICATION_PAGE_MAX_LIMIT,
+    SECT_APPLICATION_SEARCH_MAX_LENGTH,
+    SECT_ENTRANCE_RELOCATION_COOLDOWN_MS,
+    TileType,
+} from '@mud/shared';
 import { resolveServerDatabaseUrl } from '../../config/env-alias';
 import {
     SECT_BASE_CLEAR_RADIUS,
@@ -787,6 +794,26 @@ class WorldRuntimeSectService {
             cooldownLeft: 0,
         });
         return actions;
+    }
+
+    /** 按当前玩家的权威宗门身份返回待审批申请分页，不允许客户端指定任意宗门。 */
+    buildSectApplicationPage(playerId, payload = null) {
+        const normalizedPlayerId = normalizeOptionalString(playerId);
+        if (!normalizedPlayerId) {
+            throw new BadRequestException('玩家身份无效');
+        }
+        this.playerRuntimeService.getPlayerOrThrow(normalizedPlayerId);
+        const sectId = this.resolvePlayerSectId(normalizedPlayerId);
+        const sect = sectId ? this.findSectById(sectId) : null;
+        if (!sect || sect.status === 'dissolved') {
+            throw new NotFoundException('宗门已不存在');
+        }
+        ensureSectState(sect, this.playerRuntimeService);
+        if (!isSectMember(sect, normalizedPlayerId)) {
+            throw new ForbiddenException('你不在该宗门成员名册中');
+        }
+        assertSectPermission(sect, normalizedPlayerId, 'member_role');
+        return buildSectApplicationPageView(sect, payload);
     }
 
     async executeSectAction(playerId, actionId, deps) {
@@ -2226,7 +2253,7 @@ function buildSectManagementData(sect, playerId, playerRuntimeService = null, gu
     const canLeave = selfPlayerId !== '' && sect.leaderPlayerId !== selfPlayerId && isSectMember(sect, selfPlayerId);
     const selfPlayer = selfPlayerId ? playerRuntimeService?.getPlayer?.(selfPlayerId) : null;
     return {
-        v: 1,
+        v: 2,
         selfPlayerId,
         canEditPermissions,
         canTransfer: canEditPermissions,
@@ -2253,14 +2280,95 @@ function buildSectManagementData(sect, playerId, playerRuntimeService = null, gu
                 leader: member.playerId === sect.leaderPlayerId,
             };
         }),
-        applications: sect.applications
-            .filter((entry) => entry.status === 'pending')
-            .map((entry) => ({
-                playerId: entry.playerId,
-                name: entry.name,
-                appliedAt: entry.appliedAt,
-            })),
+        applicationTotal: countPendingSectApplications(sect),
+        applicationRevision: normalizeSectApplicationRevision(sect.updatedAt),
     };
+}
+
+function buildSectApplicationPageView(sect, payload) {
+    const requestId = normalizeSectApplicationPageRequestId(payload?.requestId);
+    const search = normalizeSectApplicationPageSearch(payload?.search);
+    const offset = normalizeSectApplicationPageOffset(payload?.offset);
+    const limit = normalizeSectApplicationPageLimit(payload?.limit);
+    const items = [];
+    let total = 0;
+    for (const application of Array.isArray(sect?.applications) ? sect.applications : []) {
+        if (application?.status !== 'pending' || !matchesSectApplicationPageSearch(application, search)) {
+            continue;
+        }
+        if (total >= offset && items.length < limit) {
+            items.push({
+                playerId: normalizeOptionalString(application.playerId),
+                name: normalizeOptionalString(application.name) || normalizeOptionalString(application.playerId),
+                appliedAt: Number.isFinite(Number(application.appliedAt))
+                    ? Math.max(0, Math.trunc(Number(application.appliedAt)))
+                    : 0,
+            });
+        }
+        total += 1;
+    }
+    return {
+        requestId,
+        sectId: sect.sectId,
+        search,
+        offset,
+        limit,
+        total,
+        revision: normalizeSectApplicationRevision(sect.updatedAt),
+        items,
+    };
+}
+
+function countPendingSectApplications(sect) {
+    let total = 0;
+    for (const application of Array.isArray(sect?.applications) ? sect.applications : []) {
+        if (application?.status === 'pending') {
+            total += 1;
+        }
+    }
+    return total;
+}
+
+function normalizeSectApplicationRevision(value) {
+    const parsed = Math.trunc(Number(value));
+    return Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
+}
+
+function normalizeSectApplicationPageRequestId(value) {
+    const requestId = typeof value === 'string' ? value.trim() : '';
+    if (!requestId || requestId.length > 80) {
+        throw new BadRequestException('宗门申请分页请求 ID 无效');
+    }
+    return requestId;
+}
+
+function normalizeSectApplicationPageSearch(value) {
+    if (typeof value !== 'string') {
+        return '';
+    }
+    return value.replace(/\s+/g, ' ').trim().slice(0, SECT_APPLICATION_SEARCH_MAX_LENGTH).toLowerCase();
+}
+
+function normalizeSectApplicationPageOffset(value) {
+    const parsed = Math.trunc(Number(value));
+    return Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
+}
+
+function normalizeSectApplicationPageLimit(value) {
+    const parsed = Math.trunc(Number(value));
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+        return SECT_APPLICATION_PAGE_DEFAULT_LIMIT;
+    }
+    return Math.max(1, Math.min(SECT_APPLICATION_PAGE_MAX_LIMIT, parsed));
+}
+
+function matchesSectApplicationPageSearch(application, search) {
+    if (!search) {
+        return true;
+    }
+    const playerId = normalizeOptionalString(application?.playerId).toLowerCase();
+    const name = normalizeOptionalString(application?.name).toLowerCase();
+    return playerId.includes(search) || name.includes(search);
 }
 
 function decodeActionPart(value) {

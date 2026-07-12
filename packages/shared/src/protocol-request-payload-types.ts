@@ -90,6 +90,7 @@ import type {
   UnequipView,
   UseItemView,
 } from './client-service-request-types';
+import type { RequestSectApplicationPageView } from './sect-types';
 import type {
   GmGetStateRequestView,
   GmRemoveBotsRequestView,
@@ -268,6 +269,8 @@ export interface C2S_UseItem extends UseItemView {}
 export interface C2S_RepairInventoryItemInstanceIds extends RepairInventoryItemInstanceIdsView {}
 /** 请求背包分页数据。 */
 export interface C2S_RequestInventoryPage extends RequestInventoryPageView {}
+/** 请求宗门待审批申请分页。 */
+export interface C2S_RequestSectApplicationPage extends RequestSectApplicationPageView {}
 /** 请求功法分页数据。 */
 export interface C2S_RequestTechniquePage extends RequestTechniquePageView {}
 /** 布置阵法。 */

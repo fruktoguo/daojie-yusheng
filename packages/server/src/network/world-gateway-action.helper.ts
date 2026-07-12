@@ -10,6 +10,7 @@
 
 import {
   C2S,
+  S2C,
   RETURN_TO_SPAWN_ACTION_ID,
   parseTileTargetRef,
   type GridPoint,
@@ -93,6 +94,9 @@ interface WorldGatewayActionDeps {
     worldRuntimeTongtianTowerService?: {
       flushPlayerProgress(playerId: string): Promise<void>;
     };
+    worldRuntimeSectService?: {
+      buildSectApplicationPage(playerId: string, payload: unknown): unknown;
+    };
   };
   worldSyncService?: {
     emitDeltaSync(playerId: string, socketOverride?: Socket): void;
@@ -134,6 +138,25 @@ export class WorldGatewayActionHelper {
       await this.handleProtocolAction(client, playerId, payload);
     } catch (error) {
       this.gateway.worldClientEventService.emitGatewayError(client, 'USE_ACTION_FAILED', error);
+    }
+  }
+
+  handleRequestSectApplicationPage(
+    client: Socket,
+    payload: ClientToServerEventPayload<typeof C2S.RequestSectApplicationPage>,
+  ): void {
+    const playerId = this.gateway.gatewayGuardHelper.requireActivePlayerId(client);
+    if (!playerId) {
+      return;
+    }
+    try {
+      const sectService = this.gateway.worldRuntimeService.worldRuntimeSectService;
+      if (!sectService) {
+        throw new Error('宗门服务尚未就绪');
+      }
+      client.emit(S2C.SectApplicationPage, sectService.buildSectApplicationPage(playerId, payload));
+    } catch (error) {
+      this.gateway.worldClientEventService.emitGatewayError(client, 'REQUEST_SECT_APPLICATION_PAGE_FAILED', error);
     }
   }
 

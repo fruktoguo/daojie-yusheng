@@ -303,6 +303,10 @@ class WorldGateway implements WorldGatewayHelperContext {
     handleRequestInventoryPage(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayInventoryHelper.handleRequestInventoryPage(client, payload);
     }
+    @SubscribeMessage(C2S.RequestSectApplicationPage)
+    handleRequestSectApplicationPage(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
+        return this.gatewayActionHelper.handleRequestSectApplicationPage(client, payload);
+    }
     @SubscribeMessage(C2S.RequestTechniquePage)
     handleRequestTechniquePage(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayTechniqueHelper.handleRequestTechniquePage(client, payload);

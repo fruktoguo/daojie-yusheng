@@ -54,6 +54,8 @@ const status = runVerificationSteps({
         '--case',
         'world-gateway-inventory-helper',
         '--case',
+        'world-runtime-sect-application-page',
+        '--case',
         'world-gateway-offline-gain-refresh',
         '--case',
         'player-statistic-ledger-io',
