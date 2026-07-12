@@ -3,7 +3,7 @@
 ## 审计口径
 
 - 生产主线：`packages/client`、`packages/shared`、`packages/server`、`packages/config-editor`。
-- 当前基线：`main` 分支 `ad70d202`；相对 `origin/main` ahead 12。
+- 当前基线：`main` 分支 `7a50115d`；相对 `origin/main` ahead 13。
 - package manager：`pnpm@10.29.1`。
 - 每项结论必须来自机制文档、完整调用链、测试、编译产物或运行数据；仅凭搜索未发现异常不能标记为“确认无问题”。
 - `[x]` 只表示该行列出的具体证据范围已完成，不代表相邻系统或整个项目已完成。
@@ -36,6 +36,7 @@
 - [x] P-15 玩家心跳与断线 presence 的提交确认、单域修订清理和关机失败上报已修复；见 FS-014。
 - [x] P-16 玩家集合分域已提交但零行时复活 starter 资产与状态的问题已修复；见 FS-015。
 - [x] P-17 GM 全服广播邮件的全快照枚举、逐玩家串行投递和部分提交问题已修复；见 FS-016。
+- [x] P-18 兑换码灵石写错真源、拆分资产事务及 pending 重试重复规划问题已修复；见 FS-017。
 
 ### 服务端权威运行时
 
@@ -73,6 +74,7 @@
 - [ ] X-04 最终最小门禁、专项 proof、with-db、协议/边界审计及未覆盖风险汇总。
 - [x] X-05 实例接管 smoke 的阵法双资源夹具、生产默认环境隔离和全应用关闭超时已修复；见 FS-003。
 - [x] X-06 动态实例/动作/宗门相关 smoke 的类型绕过、陈旧断言、未定义变量和本地数据库环境串扰已修复；见 FS-013。
+- [x] X-07 inventory durable with-db smoke 未注入共享连接池、实际禁用被测服务的问题已修复；见 FS-018。
 
 ## 已确认问题
 
@@ -317,7 +319,7 @@
 
 ### FS-016 GM 全服广播邮件逐玩家装配快照并串行部分提交
 
-- **状态**：已修复并完成专项验证，等待本组原子提交。
+- **状态**：已修复、验证并提交。
 - **严重级别**：P0。
 - **所属功能组**：GM 邮件 / 玩家枚举 / 邮件持久化 / 5000 玩家容量。
 - **影响链路**：GM `POST /mail/broadcast` → `NativeGmMailService.collectBroadcastRecipientPlayerIds()` → 在线运行态与离线分域枚举 → `MailRuntimeService.createDirectMail()` → `player_mail / player_mail_attachment / player_mail_counter / player_recovery_watermark`。
@@ -329,6 +331,38 @@
 - **修复方式**：玩家运行态新增只返回 map key 的 `listPlayerIds()`；玩家分域新增单 SQL `listProjectedPlayerIds()`，只选择具有角色投影水位的 ID，排除仅 identity/presence/mail 的非完整角色。GM 客户端为一次发送生成带 UUID 的 `batchId`，请求失败且草稿未变时复用，草稿变化立即换代，旧请求迟到成功不能清除新批次或重置已编辑草稿；服务端兼容未带 ID 的旧客户端。每名玩家的 `mail_id` 由 `batchId + playerId` 哈希确定；持久化层按跨节点一致的玩家 ID 字符串顺序一次取得 advisory lock，通过集合 SQL 在同一事务内批量写入邮件与附件、重算邮箱计数并推进恢复水位，失败整批回滚，同 batch 重放因确定性主键不重复；同 ID 的正文/附件 hash 或收件人集合 hash 不一致则拒绝并回滚。提交后仅删除本节点已命中的对应邮箱缓存。
 - **实际修改**：更新 shared `GmBroadcastMailReq`、客户端 GM 发送链与独立幂等状态模块；更新 `player-runtime.service.ts`、`player-domain-persistence.service.ts`、`native-gm-mail.service.ts`、`mail-runtime.service.ts` 与 `mail-persistence.service.ts`；扩展真实数据库 `mail-structured-mutation-smoke.ts`；新增服务端容量 smoke 和客户端失败重试 proof，并把 proof 接入客户端 build；同步邮件机制文档。
 - **验证结果**：`git diff --check`、`pnpm --filter @mud/server compile`、`pnpm verify:client`、`pnpm audit:protocol` 与最终 `pnpm verify:quick` 通过；客户端 `proof:gm-mail-broadcast-idempotency` 证明相同草稿失败重试复用 ID、草稿变化换代、旧响应不清新代和不重置已编辑草稿，且明确成功后可再次发送相同内容；compiled `native-gm-mail-broadcast-smoke` 以 5000 个离线 ID + 1 个在线 ID 证明只执行 1 次投影 ID 查询和 1 次集合持久化调用，定向邮件调用为 0，重复与 GM bot 被排除，并证明客户端 batch ID 端到端透传；真实 PostgreSQL compiled `mail-structured-mutation-smoke` 以 5000 个自动清理收件人完成邮件、附件、计数和水位整批提交、同 batch 重放，以及正文/附件或收件人集合变化时的冲突回滚，最终实测四次调用共 `952ms`，每名玩家仍只有 1 封邮件、1 份附件、`unread/unclaimed/counterVersion = 1/1/1`；默认 2 人夹具复跑通过；compiled `mail-monotonic-idempotency-smoke` 与 `mail-runtime-durable-required-smoke` 通过。`952ms` 只代表当前本地数据库，不等同于生产 SLA；未做多个 GM 节点用同 batch 并发请求或生产 30Mbps 链路压测。
+- **中文原子提交 hash**：`7a50115d`（`fix(mail): 加固全服广播原子投递`）。
+
+### FS-017 兑换码灵石奖励写错真源且 pending 重试会重复规划资产
+
+- **状态**：已修复并完成专项验证，等待本组原子提交。
+- **严重级别**：P0。
+- **所属功能组**：兑换码 / 背包与灵石 / durable operation / 重启补偿。
+- **影响链路**：玩家提交兑换码 → `RedeemCodeRuntimeService.redeemCodes()` → `claimCodeForUse()` 抢占 `pending` → `grantInventoryItems()` / `mutatePlayerWallet()` → 运行态 `replaceInventoryItems()` / `creditWallet()` → `finalizeCodeUse()` → 重启恢复。
+- **证据**：当前 `PlayerRuntimeService.getWalletBalanceByType()` 直接统计背包物品，`creditWallet()` 也创建物品、修改 `player.inventory.items`、只标记 `inventory` dirty，再由 `refreshWalletCacheFromInventory()` 刷新 wallet；因此 `player_inventory_item` 才是灵石正式真源。修复前兑换码却把普通奖励写 `player_inventory_item`、把 `spirit_stone` 单独写 `player_wallet`，随后运行态 `creditWallet()` 才改背包。一个混合奖励码会经过多个独立 durable operation；奖励提交后若码 finalize 失败，重试又基于已经增加的运行态重新生成 `nextInventoryItems`，与同 operationId 已保存的 payload 不同。原 smoke 只证明“失败后码保持 pending”，没有执行第二次兑换来证明补偿真正可达。
+- **根本原因**：兑换码链路保留了旧的“钱包独立真源”假设，没有随灵石收敛为背包真源同步调整；`pending` 只保存玩家和 operationId，没有冻结首次 claim 时的奖励；补偿设计把“可重试”误等同于“重新执行整段规划”。兑换成功后还会调用全量 `saveDocument()`，陈旧节点快照可能覆盖专用 claim/finalize 已写入的非 active raw payload 或回退全局 revision。
+- **为什么错误**：要求“下次还在”的灵石必须在奖励事务内写入当前数据库真源。一个兑换码是单一资产授予命令，不能把背包和灵石拆成可部分提交的事务；幂等重放必须复用首次命令身份和奖励快照，不能使用已变化的运行态重新构造 after snapshot。`pending / used / destroyed` 是单调核销状态，全量旧快照不得覆盖专用条件更新。
+- **触发条件**：兑换码同时包含普通物品与灵石；灵石 durable 提交后进程崩溃、背包 flush 未完成；普通奖励已提交但后续灵石或 finalize 失败；GM 在 pending 期间修改分组奖励；同一玩家稍后重试 pending 码；旧节点执行全量兑换码文档保存。
+- **可能后果**：数据库 `player_wallet` 显示已加灵石但重启从 `player_inventory_item` 恢复时奖励消失；满背包玩家仍被塞入灵石物品，突破容量；混合奖励只发一半；pending 码因 durable replay identity 冲突永久卡死；若重复运行态应用再被 flush，可能重复固化物品；后续奖励修改让同一个码混用两套奖励；旧全量快照破坏 used/pending 的补偿字段和审计身份。
+- **修复方式**：所有奖励（含灵石）统一进入一次 `grantInventoryItems`，背包容量按全部奖励计算，wallet 只随真实运行态背包刷新；数据库 claim 从同事务锁定的分组行读取奖励，并在首次 active→pending 时保存 `pendingRewards`，同 operationId 重放始终保留原快照。奖励 operation 已 committed 时，重试跳过容量重规划、durable grant 和运行态应用，只继续 finalize；成功核销后不再用全量文档重复覆盖专用持久化结果。全量保存路径禁止 `pending` 回退 `active`，并把 `used / destroyed` 作为不可覆盖终态，同时保留 GM 显式 `pending → destroyed` 的处置能力；全局 revision 按 `GREATEST(current + 1, incoming)` 单调前进。GM 奖励条目合并重复 itemId，并拒绝非有限、非正数或超过 `2_147_483_647` 的数量。
+- **实际修改**：更新 `redeem-code-runtime.service.ts`、`redeem-code-persistence.service.ts` 和兑换码 mechanics；扩展 runtime durable、启动持久化与真实 PostgreSQL claim smoke；新增真实 PostgreSQL 灵石背包真源 smoke。
+- **验证结果**：`pnpm --filter @mud/server compile` 与 `pnpm verify:quick` 通过；compiled `redeem-code-runtime-durable-smoke` 证明普通物品与灵石只形成一次 inventory durable call，finalize 首次失败后第二次只补核销，durable 调用、运行态背包替换和成功 notice 均不重复，且 GM 修改分组后结果仍使用首次 pending 奖励；compiled `redeem-code-persistence-startup-smoke`、`world-runtime-redeem-code-smoke` 通过；真实 PostgreSQL compiled `redeem-code-persistence-claim-db-smoke` 证明 active→pending 冻结奖励，分组从灵石 1 改为 99 后同 operationId 仍回读 1，随后 finalize used，陈旧 active 全量保存不能回退终态，而 GM 显式 pending→destroyed 仍可完成；真实 PostgreSQL compiled `redeem-code-inventory-source-db-smoke` 证明灵石只写 `player_inventory_item` 和 inventory watermark、精确重放不重复，`player_wallet` 与 wallet watermark 均为零；真实 PostgreSQL compiled `inventory-grant-durable-smoke` 证明修复后的共享连接池注入下，既有库存 durable 验证仍完整执行。
+- **中文原子提交 hash**：待提交。
+
+### FS-018 inventory durable 数据库 smoke 实际禁用了被测服务
+
+- **状态**：已修复并完成真实数据库复跑，等待本组原子提交。
+- **严重级别**：P1（验证门禁失效，不直接修改玩家数据）。
+- **所属功能组**：durable operation / 共享数据库连接池 / with-db 验证。
+- **影响链路**：`inventory-grant-durable-smoke` 构造 `DurableOperationService` → `onModuleInit()` → `DatabasePoolProvider.getPool('durable-operation')` → 资产事务证明。
+- **证据**：服务构造器已经接收 `NodeRegistryService + DatabasePoolProvider`，并在没有 provider 时明确记录“数据库连接池提供者未提供连接池”、保持 disabled；现有 smoke 仍只传第一个参数。按当前代码直接执行会在首个 `grantInventoryItems()` 抛出 `durable_operation_service_disabled`，不能证明文档所称的真实 PostgreSQL 围栏、幂等和多表提交。
+- **根本原因**：连接池架构改为统一 provider 后，非 Nest 的独立工具夹具没有同步构造依赖，也没有断言 `service.isEnabled()`。
+- **为什么错误**：with-db smoke 的目标就是执行真实事务；若被测服务在初始化阶段已禁用，后续失败只说明夹具错误，无法作为 durable 主链回归证据，并会让新增同类证明复制错误装配。
+- **触发条件**：直接运行 compiled `inventory-grant-durable-smoke`，或按它的旧构造方式编写新的 durable 数据库工具。
+- **可能后果**：关键资产门禁长期不可用；开发者可能把 `durable_operation_service_disabled` 误判为生产逻辑回归；CI 即使保留脚本也无法覆盖真实事务。
+- **修复方式**：独立工具显式创建共享 `DatabasePoolProvider`，作为第二构造参数注入 durable 服务，并在 finally 中由 provider 统一关闭；业务查询用的独立 pool 仍单独清理。
+- **实际修改**：修正 `inventory-grant-durable-smoke.ts`，新 `redeem-code-inventory-source-db-smoke.ts` 使用同一装配约定。
+- **验证结果**：两条 compiled 工具均连接真实 PostgreSQL 并通过；原 inventory 工具重新证明 session/instance fence、地面来源、背包、水位、outbox、audit 和幂等重放，新工具证明兑换码灵石背包真源，所有夹具均在 finally 清理。
 - **中文原子提交 hash**：待提交。
 
 ## 2026-07-14 待用户决定
@@ -343,3 +377,14 @@
 - **推荐方案**：方案 C。它不需要把已消耗/预留燃料逆向折算为灵石，也不会因配置变更产生套利；玩家必须显式决定是否放弃。
 - **暂不处理的后果**：当前拆除会永久销毁全部剩余燃料，且服务端没有独立确认语义。
 - **需要用户决定**：选择 A、B 或 C；若选择 B，还需确定零头和历史兑换率口径。
+
+### D-002 玩家单次允许提交 5 个还是 50 个兑换码
+
+- **已确认事实**：`MAX_BATCH_REDEEM_CODES` 常量和原 mechanics 表写 50，输入归一化最多保留 50 个；但 `redeemCodes()` 随后对超过 5 个直接报错，mechanics 索引也写“单次上限 5 码”，因此当前真实玩家行为是 5。客户端文案只说支持多个，没有公开具体数值。
+- **缺失证据 / 无法确定原因**：没有产品说明能证明 50 是目标批量能力还是仅用于防御性解析上限，也没有运营侧一次发放大量码后的玩家使用场景。把入口改成 50 会显著增加单请求持锁和数据库事务次数；把常量改成 5 则会正式放弃可能预留的批量能力。
+- **方案 A**：统一为 5。把归一化上限、服务端错误和 mechanics 全部收敛到 5；单请求成本最小，符合当前线上行为和索引说明。
+- **方案 B**：统一为 50。移除 5 码硬限制；需要把逐码串行 durable 操作的请求时限、全局兑换码 mutation queue 和错误结果包体一起做容量验证。
+- **方案 C**：通过生产友好的服务端配置控制，默认 5、最大 50，并在客户端显示当前限制。更灵活，但新增配置契约和运维复杂度。
+- **推荐方案**：方案 A。当前实现、索引和 3 秒频限都更接近小批量交互；在没有 50 码真实需求和容量证据时，不应扩大单请求资产操作面。
+- **暂不处理的后果**：实际仍只允许 5 个；代码保留 50 的内部常量，后续维护者可能再次误读并改出行为漂移。
+- **需要用户决定**：选择 A、B 或 C；若选择 B，还需确认是否接受一次请求最长跨越 50 个 durable operation。

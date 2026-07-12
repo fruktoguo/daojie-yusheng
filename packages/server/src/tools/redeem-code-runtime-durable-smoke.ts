@@ -26,7 +26,11 @@ function nextTick(): Promise<void> {
   return new Promise((resolve) => setImmediate(resolve));
 }
 
-function buildHarness(code: string, options: { persistentClaim?: boolean; persistedPresenceAhead?: boolean } = {}) {
+function buildHarness(code: string, options: {
+  persistentClaim?: boolean;
+  persistedPresenceAhead?: boolean;
+  finalizeFailureCount?: number;
+} = {}) {
   const playerId = 'player:redeem-durable-smoke';
   const nowIso = '2026-04-23T00:00:00.000Z';
   const player = {
@@ -61,6 +65,8 @@ function buildHarness(code: string, options: { persistentClaim?: boolean; persis
   const savedPresences: Array<Record<string, unknown>> = [];
   const assetMutationCalls: Array<readonly string[]> = [];
   let assetMutationDepth = 0;
+  let rewardOperationCommitted = false;
+  let finalizeFailureCount = Math.max(0, Math.trunc(options.finalizeFailureCount ?? 0));
   const persistedPresence = options.persistedPresenceAhead === true
     ? {
         playerId,
@@ -84,6 +90,10 @@ function buildHarness(code: string, options: { persistentClaim?: boolean; persis
     },
   };
   if (options.persistentClaim === true) {
+    const pendingRewards = [
+      { itemId: 'rat_tail', count: 2 },
+      { itemId: 'spirit_stone', count: 3 },
+    ];
     persistenceService.claimCodeForUse = async (input: Record<string, unknown>) => {
       claimCalls.push(input);
       if (input.code !== code) {
@@ -98,12 +108,17 @@ function buildHarness(code: string, options: { persistentClaim?: boolean; persis
           code,
           status: 'pending',
           pendingOperationId: input.operationId,
+          pendingRewards: pendingRewards.map((entry) => ({ ...entry })),
           updatedAt: input.usedAt,
         },
       };
     };
     persistenceService.finalizeCodeUse = async (input: Record<string, unknown>) => {
       finalizeCalls.push(input);
+      if (finalizeFailureCount > 0) {
+        finalizeFailureCount -= 1;
+        return { ok: false, reason: 'simulated_finalize_failure' };
+      }
       if (input.code !== code) {
         return { ok: false, reason: 'not_pending' };
       }
@@ -230,12 +245,15 @@ function buildHarness(code: string, options: { persistentClaim?: boolean; persis
       async grantInventoryItems(input: Record<string, unknown>) {
         assert.equal(assetMutationDepth, 1, 'durable 背包提交必须位于资产串行区');
         durableCalls.push(input);
-        return deferred.promise;
+        const result = await deferred.promise;
+        if (result.ok) {
+          rewardOperationCommitted = true;
+        }
+        return result;
       },
-      async mutatePlayerWallet(input: Record<string, unknown>) {
-        assert.equal(assetMutationDepth, 1, 'durable 钱包提交必须位于资产串行区');
-        walletMutations.push(input);
-        return { ok: true, alreadyCommitted: false };
+      async isOperationCommitted(operationId: string) {
+        assert.equal(operationId, `op:${playerId}:redeem-code:${code}`);
+        return rewardOperationCommitted;
       },
     } as never,
     {
@@ -325,6 +343,7 @@ async function main(): Promise<void> {
   assert.equal(success.durableCalls[0]?.sourceType, 'redeem_code');
   assert.equal(success.durableCalls[0]?.sourceRefId, success.code);
   assert.equal((success.durableCalls[0]?.grantedItems as Array<Record<string, unknown>>)?.[0]?.itemId, 'rat_tail');
+  assert.equal((success.durableCalls[0]?.grantedItems as Array<Record<string, unknown>>)?.[1]?.itemId, 'spirit_stone');
   assert.equal(success.notices.length, 0);
   assert.equal(success.logbookMessages.length, 0);
   assert.equal(success.persistedDocuments.length, 0);
@@ -335,25 +354,24 @@ async function main(): Promise<void> {
   success.deferred.resolve({
     ok: true,
     alreadyCommitted: false,
-    grantedCount: 2,
+    grantedCount: 5,
     sourceType: 'redeem_code',
   });
   const successResult = await successPromise;
   assert.equal(successResult.results.length, 1);
   assert.equal(successResult.results[0]?.ok, true);
-  assert.equal(success.walletCredits.length, 1);
-  assert.equal(success.walletMutations.length, 1);
-  assert.equal(success.walletMutations[0]?.walletType, 'spirit_stone');
-  assert.equal(success.walletMutations[0]?.delta, 3);
-  assert.deepEqual(success.walletCredits[0], { walletType: 'spirit_stone', amount: 3 });
+  assert.equal(success.walletCredits.length, 0);
+  assert.equal(success.walletMutations.length, 0);
   assert.equal(success.replacedInventories.length, 1);
   assert.equal(success.player.inventory.items[0]?.itemId, 'rat_tail');
   assert.equal(success.player.inventory.items[0]?.count, 2);
+  assert.equal(success.player.inventory.items[1]?.itemId, 'spirit_stone');
+  assert.equal(success.player.inventory.items[1]?.count, 3);
   assert.equal(success.notices.length, 1);
   const redeemNoticeStructured = success.notices[0]?.structured as { key?: string } | undefined;
   assert.equal(redeemNoticeStructured?.key, 'notice.redeem.success');
   assert.equal(success.logbookMessages.length, 0);
-  assert.equal(success.persistedDocuments.length, 1);
+  assert.equal(success.persistedDocuments.length, 0);
   assert.equal((success as any).service.codes[0]?.status, 'used');
   assert.equal(success.receivedInventories.length, 0);
 
@@ -383,6 +401,46 @@ async function main(): Promise<void> {
   assert.equal(persistentClaimFailure.claimCalls[0]?.operationId, `op:${persistentClaimFailure.player.playerId}:redeem-code:${persistentClaimFailure.code}`);
   assert.equal((persistentClaimFailure as any).service.codes[0]?.status, 'pending');
 
+  const finalizeRetry = buildHarness('REDEEM-DURABLE-CODE-006', {
+    persistentClaim: true,
+    finalizeFailureCount: 1,
+  });
+  const finalizeFailurePromise = finalizeRetry.service.redeemCodes(
+    finalizeRetry.player.playerId,
+    [finalizeRetry.code],
+  );
+  await nextTick();
+  finalizeRetry.deferred.resolve({
+    ok: true,
+    alreadyCommitted: false,
+    grantedCount: 5,
+    sourceType: 'redeem_code',
+  });
+  await assert.rejects(() => finalizeFailurePromise, /redeem_code_finalize_failed/);
+  assert.equal(finalizeRetry.durableCalls.length, 1);
+  assert.equal(finalizeRetry.replacedInventories.length, 1);
+  assert.equal(finalizeRetry.notices.length, 0);
+  assert.equal((finalizeRetry as any).service.codes[0]?.status, 'pending');
+  (finalizeRetry as any).service.groups[0].rewards = [{ itemId: 'rat_tail', count: 99 }];
+  (finalizeRetry as any).service._redeemRateMap.clear();
+
+  const retryResult = await finalizeRetry.service.redeemCodes(
+    finalizeRetry.player.playerId,
+    [finalizeRetry.code],
+  );
+  assert.equal(retryResult.results[0]?.ok, true);
+  assert.deepEqual(retryResult.results[0]?.rewards, [
+    { itemId: 'rat_tail', count: 2 },
+    { itemId: 'spirit_stone', count: 3 },
+  ]);
+  assert.equal(finalizeRetry.durableCalls.length, 1, '已提交奖励的重试不得再次调用 durable grant');
+  assert.equal(finalizeRetry.replacedInventories.length, 1, '已提交奖励的重试不得再次应用运行态背包');
+  assert.equal(finalizeRetry.player.inventory.items[0]?.count, 2);
+  assert.equal(finalizeRetry.player.inventory.items[1]?.count, 3);
+  assert.equal(finalizeRetry.finalizeCalls.length, 2);
+  assert.equal(finalizeRetry.notices.length, 1);
+  assert.equal((finalizeRetry as any).service.codes[0]?.status, 'used');
+
   const persistentClaimSuccess = buildHarness('REDEEM-DURABLE-CODE-004', { persistentClaim: true });
   const persistentClaimSuccessPromise = persistentClaimSuccess.service.redeemCodes(
     persistentClaimSuccess.player.playerId,
@@ -392,7 +450,7 @@ async function main(): Promise<void> {
   persistentClaimSuccess.deferred.resolve({
     ok: true,
     alreadyCommitted: false,
-    grantedCount: 2,
+    grantedCount: 5,
     sourceType: 'redeem_code',
   });
   const persistentClaimSuccessResult = await persistentClaimSuccessPromise;
@@ -412,7 +470,7 @@ async function main(): Promise<void> {
   staleFence.deferred.resolve({
     ok: true,
     alreadyCommitted: false,
-    grantedCount: 2,
+    grantedCount: 5,
     sourceType: 'redeem_code',
   });
   const staleFenceResult = await staleFencePromise;
@@ -433,11 +491,14 @@ async function main(): Promise<void> {
     JSON.stringify(
       {
         ok: true,
-        durableCallCount: success.durableCalls.length + failure.durableCalls.length + persistentClaimFailure.durableCalls.length + persistentClaimSuccess.durableCalls.length + staleFence.durableCalls.length,
-        persistentClaimCount: persistentClaimFailure.claimCalls.length + persistentClaimSuccess.claimCalls.length,
-        persistentFinalizeCount: persistentClaimSuccess.finalizeCalls.length,
+        durableCallCount: success.durableCalls.length + failure.durableCalls.length + persistentClaimFailure.durableCalls.length + persistentClaimSuccess.durableCalls.length + staleFence.durableCalls.length + finalizeRetry.durableCalls.length,
+        persistentClaimCount:
+          persistentClaimFailure.claimCalls.length
+          + persistentClaimSuccess.claimCalls.length
+          + finalizeRetry.claimCalls.length,
+        persistentFinalizeCount: persistentClaimSuccess.finalizeCalls.length + finalizeRetry.finalizeCalls.length,
         answers:
-          'RedeemCodeRuntimeService 的非钱包奖励会走 grantInventoryItems durable 主链；持久化兑换码会在发奖前先通过 claimCodeForUse 抢占 pending，奖励 durable 成功后 finalize 为 used；durable 失败时不发物、不发钱包、不发 notice，兑换码保持 pending 供同 operationId 幂等补偿；兑换发奖前会同步数据库 player_presence fence',
+          'RedeemCodeRuntimeService 把灵石和普通物品统一纳入一次 grantInventoryItems 背包真源事务；持久化兑换码先抢占 pending 并冻结奖励快照，奖励成功后 finalize；finalize 失败重试只补核销，不重复 durable grant、运行态应用或 notice；兑换前同步数据库 player_presence fence',
         excludes: '不证明 live socket 兑换码链路、真实 PostgreSQL 并发条件更新或任务奖励库存抽象已统一切换到同一 durable 主链',
         completionMapping: 'release:proof:redeem-code-runtime-durable',
       },

@@ -1,6 +1,7 @@
 import { Pool } from 'pg';
 
 import { resolveServerDatabaseUrl } from '../config/env-alias';
+import { DatabasePoolProvider } from '../persistence/database-pool.provider';
 import { DurableOperationService } from '../persistence/durable-operation.service';
 import { installSmokeTimeout } from './smoke-timeout';
 
@@ -27,11 +28,12 @@ async function main(): Promise<void> {
   const leasedInstanceId = `instance:${playerId}:lease`;
 
   const pool = new Pool({ connectionString: databaseUrl });
+  const databasePoolProvider = new DatabasePoolProvider();
   const service = new DurableOperationService({
     getNodeId() {
       return 'node:inventory-grant-smoke';
     },
-  } as never);
+  } as never, databasePoolProvider);
 
   try {
     await service.onModuleInit();
@@ -263,6 +265,7 @@ async function main(): Promise<void> {
   } finally {
     await cleanupPlayer(pool, playerId).catch(() => undefined);
     await service.onModuleDestroy().catch(() => undefined);
+    await databasePoolProvider.onModuleDestroy().catch(() => undefined);
     await pool.end().catch(() => undefined);
   }
 }

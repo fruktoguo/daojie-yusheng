@@ -29,6 +29,7 @@ const MAX_BATCH_REDEEM_CODES = 50;
 
 /** 单个分组一次最多创建的兑换码数量。 */
 const MAX_GROUP_CREATE_COUNT = 500;
+const MAX_REDEEM_REWARD_ITEM_COUNT = 2_147_483_647;
 const REDEEM_RATE_LIMIT_MS = 3_000;
 const REDEEM_RATE_CACHE_TTL_MS = 60_000;
 const REDEEM_RATE_CACHE_MAX_PLAYERS = 10_000;
@@ -301,8 +302,6 @@ export class RedeemCodeRuntimeService {
 
             const nowIso = new Date().toISOString();
 
-            let changed = false;
-
             const results = [];
             for (const submittedCode of normalizedCodes) {
                 const codeEntry = this.codes.find((entry) => entry.code === submittedCode);
@@ -337,7 +336,14 @@ export class RedeemCodeRuntimeService {
                     continue;
                 }
 
-                const rewards = Array.isArray(group?.rewards) ? group.rewards.map((entry) => ({ ...entry })) : [];
+                const operationId = buildRedeemOperationId(player.playerId, submittedCode);
+                const pendingRewards = codeEntry.status === 'pending'
+                    && codeEntry.pendingOperationId === operationId
+                    ? normalizeRewardSnapshots(codeEntry.pendingRewards)
+                    : [];
+                let rewards = pendingRewards.length > 0
+                    ? pendingRewards
+                    : normalizeRewardSnapshots(group?.rewards);
                 if (rewards.length === 0) {
                     results.push({
                         code: submittedCode,
@@ -348,18 +354,8 @@ export class RedeemCodeRuntimeService {
                     continue;
                 }
 
-                const items = [];
-
-                let invalidRewardItem = false;
-                for (const reward of rewards) {
-                    const item = this.contentTemplateRepository.createItem(reward.itemId, reward.count);
-                    if (!item) {
-                        invalidRewardItem = true;
-                        break;
-                    }
-                    items.push(item);
-                }
-                if (invalidRewardItem) {
+                let items = this.createRewardItems(rewards);
+                if (!items) {
                     results.push({
                         code: submittedCode,
                         ok: false,
@@ -368,7 +364,8 @@ export class RedeemCodeRuntimeService {
                     });
                     continue;
                 }
-                if (!canReceiveAllRewards(player.inventory.items, player.inventory.capacity, items)) {
+                let rewardGrantAlreadyCommitted = await this.isRewardGrantCommitted(operationId);
+                if (!rewardGrantAlreadyCommitted && !canReceiveAllRewards(player.inventory.items, player.inventory.capacity, items)) {
                     results.push({
                         code: submittedCode,
                         ok: false,
@@ -378,7 +375,6 @@ export class RedeemCodeRuntimeService {
                     });
                     continue;
                 }
-                const operationId = buildRedeemOperationId(player.playerId, submittedCode);
                 const claimResult = await this.claimCodeForUseBeforeRewards(codeEntry, player, nowIso, operationId);
                 if (!claimResult.ok) {
                     results.push({
@@ -389,21 +385,25 @@ export class RedeemCodeRuntimeService {
                     });
                     continue;
                 }
-                const walletItems = [];
-                const inventoryItems = [];
-                for (const item of items) {
-                    if (isWalletRewardItemId(item.itemId)) {
-                        walletItems.push(item);
-                        continue;
-                    }
-                    inventoryItems.push(item);
+                rewards = Array.isArray(claimResult.rewards) && claimResult.rewards.length > 0
+                    ? claimResult.rewards
+                    : rewards;
+                items = this.createRewardItems(rewards);
+                if (!items) {
+                    throw new ServiceUnavailableException('redeem_code_pending_reward_invalid');
                 }
-                if (inventoryItems.length > 0) {
-                    await this.grantInventoryRewards(player, inventoryItems, submittedCode);
+                rewardGrantAlreadyCommitted = await this.isRewardGrantCommitted(operationId);
+                if (!rewardGrantAlreadyCommitted && !canReceiveAllRewards(player.inventory.items, player.inventory.capacity, items)) {
+                    results.push({
+                        code: submittedCode,
+                        ok: false,
+                        message: '背包空间不足',
+                        groupName,
+                        rewards: rewards.map((entry) => ({ ...entry })),
+                    });
+                    continue;
                 }
-                for (const item of walletItems) {
-                    await this.grantWalletReward(player, item, submittedCode);
-                }
+                await this.grantInventoryRewards(player, items, submittedCode, rewardGrantAlreadyCommitted);
                 const finalizeResult = await this.finalizeCodeUseAfterRewards(codeEntry, player, nowIso, operationId);
                 if (!finalizeResult.ok) {
                     throw new ServiceUnavailableException('redeem_code_finalize_failed');
@@ -413,6 +413,7 @@ export class RedeemCodeRuntimeService {
                 codeEntry.usedByRoleName = player.name;
                 codeEntry.usedAt = nowIso;
                 codeEntry.updatedAt = nowIso;
+                codeEntry.pendingRewards = [];
                 if (group) {
                     group.updatedAt = nowIso;
                 }
@@ -432,10 +433,6 @@ export class RedeemCodeRuntimeService {
                     groupName,
                     rewards: rewards.map((entry) => ({ ...entry })),
                 });
-                changed = true;
-            }
-            if (changed) {
-                await this.persist();
             }
             return { results };
         }));
@@ -481,7 +478,7 @@ export class RedeemCodeRuntimeService {
             throw new BadRequestException('兑换码分组至少需要一个奖励物品');
         }
 
-        const normalized = [];
+        const normalizedByItemId = new Map();
         for (const reward of rewards) {
             if (!reward || typeof reward.itemId !== 'string') {
                 continue;
@@ -489,15 +486,24 @@ export class RedeemCodeRuntimeService {
 
             const itemId = reward.itemId.trim();
 
-            const count = Math.max(1, Math.floor(Number(reward.count) || 0));
-            if (!itemId || count <= 0) {
+            const rawCount = Number(reward.count);
+            if (!itemId) {
                 continue;
             }
+            if (!Number.isFinite(rawCount) || rawCount < 1 || rawCount > MAX_REDEEM_REWARD_ITEM_COUNT) {
+                throw new BadRequestException(`奖励物品数量无效：${itemId}`);
+            }
+            const count = Math.floor(rawCount);
             if (!this.contentTemplateRepository.createItem(itemId, count)) {
                 throw new BadRequestException(`奖励物品不存在：${itemId}`);
             }
-            normalized.push({ itemId, count });
+            const nextCount = (normalizedByItemId.get(itemId) ?? 0) + count;
+            if (nextCount > MAX_REDEEM_REWARD_ITEM_COUNT) {
+                throw new BadRequestException(`奖励物品数量超过上限：${itemId}`);
+            }
+            normalizedByItemId.set(itemId, nextCount);
         }
+        const normalized = Array.from(normalizedByItemId, ([itemId, count]) => ({ itemId, count }));
         if (normalized.length === 0) {
             throw new BadRequestException('兑换码分组至少需要一个有效奖励物品');
         }
@@ -588,12 +594,15 @@ export class RedeemCodeRuntimeService {
             updatedAt: code.updatedAt,
         };
     }
-    /** 尝试把兑换码的非钱包奖励走 grantInventoryItems durable 主链。 */
-    async grantInventoryRewards(player, items, submittedCode) {
+    /** 兑换码全部奖励统一写入背包真源；灵石 wallet 只由背包投影刷新。 */
+    async grantInventoryRewards(player, items, submittedCode, alreadyCommitted = false) {
         const normalizedItems = Array.isArray(items)
             ? items.map((entry) => this.contentTemplateRepository.normalizeItem(entry))
             : [];
         if (normalizedItems.length === 0) {
+            return;
+        }
+        if (alreadyCommitted) {
             return;
         }
         await this.syncCurrentPresenceFence(player.playerId);
@@ -608,7 +617,7 @@ export class RedeemCodeRuntimeService {
                     throw new ServiceUnavailableException('redeem_code_inventory_durable_context_required');
                 }
                 try {
-                    await this.durableOperationService.grantInventoryItems({
+                    const result = await this.durableOperationService.grantInventoryItems({
                         operationId: `op:${player.playerId}:redeem-code:${submittedCode}`,
                         playerId: player.playerId,
                         expectedRuntimeOwnerId: durableContext.runtimeOwnerId,
@@ -621,6 +630,9 @@ export class RedeemCodeRuntimeService {
                         grantedItems: buildGrantedInventorySnapshots(normalizedItems),
                         nextInventoryItems,
                     });
+                    if (result?.alreadyCommitted === true) {
+                        return;
+                    }
                     finalError = null;
                     break;
                 }
@@ -657,12 +669,18 @@ export class RedeemCodeRuntimeService {
         if (!result?.ok) {
             return { ok: false, persistent: true, reason: result?.reason ?? 'not_active' };
         }
+        const pendingRewards = normalizeRewardSnapshots(result?.code?.pendingRewards);
         if (result?.skipped !== true) {
             codeEntry.status = 'pending';
             codeEntry.pendingOperationId = operationId;
+            codeEntry.pendingRewards = pendingRewards;
             codeEntry.updatedAt = nowIso;
         }
-        return { ok: true, persistent: result?.skipped !== true };
+        return {
+            ok: true,
+            persistent: result?.skipped !== true,
+            rewards: pendingRewards,
+        };
     }
 
     /** 奖励 durable 全部成功后，才把 pending 兑换码最终核销为 used。 */
@@ -683,47 +701,23 @@ export class RedeemCodeRuntimeService {
         }
         return { ok: true, persistent: result?.skipped !== true };
     }
-    /** 兑换码钱包奖励必须走 durable 钱包事务，禁止 direct runtime fallback。 */
-    async grantWalletReward(player, item, submittedCode) {
-        const walletType = typeof item?.itemId === 'string' ? item.itemId.trim() : '';
-        const amount = Math.max(1, Math.trunc(Number(item?.count ?? 1)));
-        const nextWalletBalances = buildNextWalletBalances(player.wallet?.balances ?? [], walletType, amount);
-        await this.syncCurrentPresenceFence(player.playerId);
-        let finalError = null;
-        for (let attempt = 0; attempt < 2; attempt += 1) {
-            const durableContext = await this.resolveDurableInventoryGrantContext(player);
-            if (!durableContext || !this.durableOperationService?.isEnabled?.() || typeof this.durableOperationService?.mutatePlayerWallet !== 'function') {
-                throw new ServiceUnavailableException('redeem_code_wallet_durable_context_required');
+    createRewardItems(rewards) {
+        const items = [];
+        for (const reward of normalizeRewardSnapshots(rewards)) {
+            const item = this.contentTemplateRepository.createItem(reward.itemId, reward.count);
+            if (!item) {
+                return null;
             }
-            try {
-                await this.durableOperationService.mutatePlayerWallet({
-                    operationId: `op:${player.playerId}:redeem-code-wallet:${submittedCode}:${walletType}`,
-                    playerId: player.playerId,
-                    expectedRuntimeOwnerId: durableContext.runtimeOwnerId,
-                    expectedSessionEpoch: durableContext.sessionEpoch,
-                    expectedInstanceId: durableContext.expectedInstanceId,
-                    expectedAssignedNodeId: durableContext.expectedAssignedNodeId,
-                    expectedOwnershipEpoch: durableContext.expectedOwnershipEpoch,
-                    walletType,
-                    action: 'credit',
-                    delta: amount,
-                    nextWalletBalances,
-                });
-                finalError = null;
-                break;
-            }
-            catch (error) {
-                finalError = error;
-                if (attempt === 0 && shouldRetryRedeemSessionFence(error) && await this.syncCurrentPresenceFence(player.playerId)) {
-                    continue;
-                }
-                break;
-            }
+            items.push(item);
         }
-        if (finalError) {
-            throw finalError;
+        return items;
+    }
+    async isRewardGrantCommitted(operationId) {
+        const query = this.durableOperationService?.isOperationCommitted;
+        if (typeof query !== 'function') {
+            return false;
         }
-        this.playerRuntimeService.creditWallet(player.playerId, walletType, amount);
+        return await query.call(this.durableOperationService, operationId);
     }
     /** 解析兑换码 durable 发物所需的 session/lease 上下文。 */
     async resolveDurableInventoryGrantContext(player) {
@@ -941,32 +935,6 @@ function normalizeSubmittedCodes(codes) {
     }
     return normalized;
 }
-function buildNextWalletBalances(existingBalances, walletType, amount) {
-    const normalizedWalletType = typeof walletType === 'string' ? walletType.trim() : '';
-    const normalizedAmount = Math.max(1, Math.trunc(Number(amount ?? 1)));
-    const balances = Array.isArray(existingBalances)
-        ? existingBalances.map((entry) => ({
-            walletType: typeof entry?.walletType === 'string' ? entry.walletType.trim() : '',
-            balance: Math.max(0, Math.trunc(Number(entry?.balance ?? 0))),
-            frozenBalance: Math.max(0, Math.trunc(Number(entry?.frozenBalance ?? 0))),
-            version: Math.max(0, Math.trunc(Number(entry?.version ?? 0))),
-        })).filter((entry) => entry.walletType)
-        : [];
-    const existing = balances.find((entry) => entry.walletType === normalizedWalletType);
-    if (existing) {
-        existing.balance += normalizedAmount;
-        existing.version += 1;
-    }
-    else if (normalizedWalletType) {
-        balances.push({
-            walletType: normalizedWalletType,
-            balance: normalizedAmount,
-            frozenBalance: 0,
-            version: 1,
-        });
-    }
-    return balances;
-}
 /**
  * cloneGroup：构建Group。
  * @param group 参数说明。
@@ -977,6 +945,19 @@ function buildRedeemOperationId(playerId, submittedCode) {
     const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : 'unknown-player';
     const normalizedCode = typeof submittedCode === 'string' ? submittedCode.trim().toUpperCase() : 'unknown-code';
     return `op:${normalizedPlayerId}:redeem-code:${normalizedCode}`;
+}
+
+function normalizeRewardSnapshots(rewards) {
+    return Array.isArray(rewards)
+        ? rewards
+            .map((entry) => ({
+                itemId: typeof entry?.itemId === 'string' ? entry.itemId.trim() : '',
+                count: Number.isSafeInteger(Number(entry?.count))
+                    ? Math.max(1, Math.trunc(Number(entry.count)))
+                    : 0,
+            }))
+            .filter((entry) => entry.itemId && entry.count > 0)
+        : [];
 }
 
 function cloneGroup(group) {
@@ -1022,9 +1003,6 @@ function canReceiveAllRewards(currentItems, capacity, items) {
 
     const snapshot = Array.isArray(currentItems) ? currentItems.map((entry) => ({ ...entry })) : [];
     for (const item of items) {
-        if (isWalletRewardItemId(item?.itemId)) {
-            continue;
-        }
         const incoming = { ...item };
         assignItemInstanceIdIfNeeded(incoming);
         const existing = canMergeItemStack(incoming)
@@ -1100,9 +1078,6 @@ async function resolveInstanceLeaseContext(instanceId, instanceCatalogService) {
         assignedNodeId,
         ownershipEpoch,
     };
-}
-function isWalletRewardItemId(itemId) {
-    return typeof itemId === 'string' && itemId.trim() === 'spirit_stone';
 }
 function shouldRetryRedeemSessionFence(error) {
     const message = error instanceof Error ? error.message : String(error);

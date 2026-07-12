@@ -195,7 +195,9 @@ export class RedeemCodePersistenceService {
                   INSERT INTO ${REDEEM_CODE_STATE_TABLE}(state_key, revision, updated_at)
                   VALUES ($1, $2, now())
                   ON CONFLICT (state_key)
-                  DO UPDATE SET revision = EXCLUDED.revision, updated_at = now()
+                  DO UPDATE SET
+                    revision = GREATEST(${REDEEM_CODE_STATE_TABLE}.revision + 1, EXCLUDED.revision),
+                    updated_at = now()
                 `,
                 [REDEEM_CODE_STATE_KEY, normalized.revision],
             );
@@ -251,33 +253,45 @@ export class RedeemCodePersistenceService {
                       ON CONFLICT (code_id)
                       DO UPDATE SET
                         status = CASE
-                          WHEN ${REDEEM_CODE_TABLE}.status = 'used' AND EXCLUDED.status <> 'used' THEN ${REDEEM_CODE_TABLE}.status
-                          WHEN ${REDEEM_CODE_TABLE}.status = 'pending' AND EXCLUDED.status = 'active' THEN ${REDEEM_CODE_TABLE}.status
-                          WHEN ${REDEEM_CODE_TABLE}.status = 'destroyed' AND EXCLUDED.status = 'active' THEN ${REDEEM_CODE_TABLE}.status
+                          WHEN ${REDEEM_CODE_TABLE}.status IN ('used', 'destroyed')
+                            OR (${REDEEM_CODE_TABLE}.status = 'pending' AND EXCLUDED.status <> 'destroyed')
+                            THEN ${REDEEM_CODE_TABLE}.status
                           ELSE EXCLUDED.status
                         END,
                         used_by_player_id = CASE
-                          WHEN ${REDEEM_CODE_TABLE}.status = 'used' AND EXCLUDED.status <> 'used' THEN ${REDEEM_CODE_TABLE}.used_by_player_id
+                          WHEN ${REDEEM_CODE_TABLE}.status IN ('used', 'destroyed')
+                            OR (${REDEEM_CODE_TABLE}.status = 'pending' AND EXCLUDED.status <> 'destroyed')
+                            THEN ${REDEEM_CODE_TABLE}.used_by_player_id
                           ELSE EXCLUDED.used_by_player_id
                         END,
                         used_by_role_name = CASE
-                          WHEN ${REDEEM_CODE_TABLE}.status = 'used' AND EXCLUDED.status <> 'used' THEN ${REDEEM_CODE_TABLE}.used_by_role_name
+                          WHEN ${REDEEM_CODE_TABLE}.status IN ('used', 'destroyed')
+                            OR (${REDEEM_CODE_TABLE}.status = 'pending' AND EXCLUDED.status <> 'destroyed')
+                            THEN ${REDEEM_CODE_TABLE}.used_by_role_name
                           ELSE EXCLUDED.used_by_role_name
                         END,
                         used_at = CASE
-                          WHEN ${REDEEM_CODE_TABLE}.status = 'used' AND EXCLUDED.status <> 'used' THEN ${REDEEM_CODE_TABLE}.used_at
+                          WHEN ${REDEEM_CODE_TABLE}.status IN ('used', 'destroyed')
+                            OR (${REDEEM_CODE_TABLE}.status = 'pending' AND EXCLUDED.status <> 'destroyed')
+                            THEN ${REDEEM_CODE_TABLE}.used_at
                           ELSE EXCLUDED.used_at
                         END,
                         destroyed_at = CASE
-                          WHEN ${REDEEM_CODE_TABLE}.status = 'destroyed' AND EXCLUDED.status = 'active' THEN ${REDEEM_CODE_TABLE}.destroyed_at
+                          WHEN ${REDEEM_CODE_TABLE}.status IN ('used', 'destroyed')
+                            OR (${REDEEM_CODE_TABLE}.status = 'pending' AND EXCLUDED.status <> 'destroyed')
+                            THEN ${REDEEM_CODE_TABLE}.destroyed_at
                           ELSE EXCLUDED.destroyed_at
                         END,
                         updated_at = CASE
-                          WHEN ${REDEEM_CODE_TABLE}.status <> 'active' AND EXCLUDED.status = 'active' THEN ${REDEEM_CODE_TABLE}.updated_at
+                          WHEN ${REDEEM_CODE_TABLE}.status IN ('used', 'destroyed')
+                            OR (${REDEEM_CODE_TABLE}.status = 'pending' AND EXCLUDED.status <> 'destroyed')
+                            THEN ${REDEEM_CODE_TABLE}.updated_at
                           ELSE EXCLUDED.updated_at
                         END,
                         raw_payload = CASE
-                          WHEN ${REDEEM_CODE_TABLE}.status <> 'active' AND EXCLUDED.status = 'active' THEN ${REDEEM_CODE_TABLE}.raw_payload
+                          WHEN ${REDEEM_CODE_TABLE}.status IN ('used', 'destroyed')
+                            OR (${REDEEM_CODE_TABLE}.status = 'pending' AND EXCLUDED.status <> 'destroyed')
+                            THEN ${REDEEM_CODE_TABLE}.raw_payload
                           ELSE EXCLUDED.raw_payload
                         END
                     `,
@@ -360,7 +374,9 @@ export class RedeemCodePersistenceService {
                   INSERT INTO ${REDEEM_CODE_STATE_TABLE}(state_key, revision, updated_at)
                   VALUES ($1, $2, now())
                   ON CONFLICT (state_key)
-                  DO UPDATE SET revision = EXCLUDED.revision, updated_at = now()
+                  DO UPDATE SET
+                    revision = GREATEST(${REDEEM_CODE_STATE_TABLE}.revision + 1, EXCLUDED.revision),
+                    updated_at = now()
                 `,
                 [REDEEM_CODE_STATE_KEY, normalizedRevision],
             );
@@ -400,29 +416,35 @@ export class RedeemCodePersistenceService {
             await client.query('BEGIN');
             const result = await client.query(
                 `
-                  UPDATE ${REDEEM_CODE_TABLE}
+                  UPDATE ${REDEEM_CODE_TABLE} AS target
                   SET
                     status = 'pending',
                     updated_at = $4::timestamptz,
-                    raw_payload = raw_payload
+                    raw_payload = target.raw_payload
                       || jsonb_build_object(
                         'status', 'pending',
                         'pendingOperationId', $5::text,
                         'pendingByPlayerId', $2::text,
                         'pendingByRoleName', $3::text,
                         'pendingAt', $4::text,
+                        'pendingRewards', CASE
+                          WHEN target.status = 'active' THEN group_row.rewards_payload
+                          ELSE COALESCE(target.raw_payload->'pendingRewards', group_row.rewards_payload)
+                        END,
                         'updatedAt', $4::text
                       )
-                  WHERE code = $1
+                  FROM ${REDEEM_CODE_GROUP_TABLE} AS group_row
+                  WHERE target.code = $1
+                    AND group_row.group_id = target.group_id
                     AND (
-                      status = 'active'
+                      target.status = 'active'
                       OR (
-                        status = 'pending'
-                        AND raw_payload->>'pendingOperationId' = $5::text
-                        AND raw_payload->>'pendingByPlayerId' = $2::text
+                        target.status = 'pending'
+                        AND target.raw_payload->>'pendingOperationId' = $5::text
+                        AND target.raw_payload->>'pendingByPlayerId' = $2::text
                       )
                     )
-                  RETURNING code_id, group_id, code, status, updated_at, raw_payload
+                  RETURNING target.code_id, target.group_id, target.code, target.status, target.updated_at, target.raw_payload
                 `,
                 [code, playerId, pendingByRoleName, pendingAt, operationId],
             );
@@ -480,18 +502,18 @@ export class RedeemCodePersistenceService {
                   UPDATE ${REDEEM_CODE_TABLE}
                   SET
                     status = 'used',
-                    used_by_player_id = $2,
-                    used_by_role_name = $3,
+                    used_by_player_id = $2::varchar,
+                    used_by_role_name = $3::varchar,
                     used_at = COALESCE(used_at, $4::timestamptz),
                     updated_at = $4::timestamptz,
                     raw_payload = raw_payload
                       || jsonb_build_object(
                         'status', 'used',
                         'redeemOperationId', $5::text,
-                        'usedByPlayerId', $2::text,
-                        'usedByRoleName', $3::text,
-                        'usedAt', $4::text,
-                        'updatedAt', $4::text
+                        'usedByPlayerId', $2::varchar,
+                        'usedByRoleName', $3::varchar,
+                        'usedAt', $4::timestamptz,
+                        'updatedAt', $4::timestamptz
                       )
                   WHERE code = $1
                     AND (
@@ -503,7 +525,7 @@ export class RedeemCodePersistenceService {
                       OR (
                         status = 'used'
                         AND raw_payload->>'redeemOperationId' = $5::text
-                        AND used_by_player_id = $2::text
+                        AND used_by_player_id = $2::varchar
                       )
                     )
                   RETURNING code_id, group_id, code, status, used_by_player_id, used_by_role_name, used_at, updated_at, raw_payload
@@ -583,6 +605,7 @@ function buildRedeemCodeResult(row, fallback) {
         usedAt: normalizeNullableDbTimestamp(row?.used_at) ?? (status === 'used' ? fallback.timestamp : null),
         updatedAt: normalizeDbTimestamp(row?.updated_at ?? fallback.timestamp),
         pendingOperationId: typeof rawPayload.pendingOperationId === 'string' ? rawPayload.pendingOperationId : fallback.operationId,
+        pendingRewards: normalizeRedeemCodeRewards(rawPayload.pendingRewards),
         redeemOperationId: typeof rawPayload.redeemOperationId === 'string' ? rawPayload.redeemOperationId : status === 'used' ? fallback.operationId : null,
     };
 }
@@ -710,6 +733,8 @@ function normalizeRedeemCodeDocument(raw) {
 
                 pendingAt: typeof entry.pendingAt === 'string' ? entry.pendingAt : null,
 
+                pendingRewards: normalizeRedeemCodeRewards(entry.pendingRewards),
+
                 redeemOperationId: typeof entry.redeemOperationId === 'string' ? entry.redeemOperationId : null,
 
                 createdAt: typeof entry.createdAt === 'string' ? entry.createdAt : new Date(0).toISOString(),
@@ -718,6 +743,20 @@ function normalizeRedeemCodeDocument(raw) {
             }))
             : [],
     };
+}
+
+function normalizeRedeemCodeRewards(value) {
+    return Array.isArray(value)
+        ? value
+            .filter((entry) => entry && typeof entry === 'object' && typeof entry.itemId === 'string')
+            .map((entry) => ({
+            itemId: String(entry.itemId).trim(),
+            count: Number.isSafeInteger(Number(entry.count))
+                ? Math.max(1, Math.trunc(Number(entry.count)))
+                : 1,
+        }))
+            .filter((entry) => entry.itemId)
+        : [];
 }
 
 function normalizeDbTimestamp(value) {
