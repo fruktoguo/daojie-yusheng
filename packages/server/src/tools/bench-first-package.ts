@@ -8,6 +8,7 @@ const { spawn } = require("node:child_process");
 const { createServer } = require("node:net");
 const { join, resolve } = require("node:path");
 const io = require("socket.io-client");
+const msgpackParser = require("socket.io-msgpack-parser");
 const shared = require("@mud/shared");
 
 /**
@@ -145,6 +146,7 @@ async function measureHandshake() {
   const socket = io(baseUrl, {
     path: "/socket.io",
     transports: ["websocket"],
+    parser: msgpackParser,
     auth: { protocol: "mainline" },
   });
   try {

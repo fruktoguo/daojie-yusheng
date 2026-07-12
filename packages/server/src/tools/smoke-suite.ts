@@ -82,6 +82,11 @@ const serverEntry = path.join(distRoot, 'main.js');
  */
 const cliArgs = process.argv.slice(2);
 /**
+ * 每次套件执行都使用独立的注册激活码命名空间，避免复用已绑定的持久化激活码。
+ */
+const smokeRegistrationRunId = `${process.pid.toString(36)}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+const SMOKE_REGISTRATION_ACTIVATION_CODE_COUNT = 64;
+/**
  * 记录include持久化。
  */
 const includePersistence = cliArgs.includes('--include-persistence');
@@ -827,15 +832,15 @@ const CASE_NODE_ID_INSTANCE_IDS = new Map([
     ['monster-ai', ['real:wildlands', 'public:wildlands']],
     ['monster-loot', ['public:yunlai_town']],
     ['monster-runtime', ['real:wildlands', 'public:wildlands']],
-    ['monster-skill', ['real:wildlands', 'public:wildlands']],
+    ['monster-skill', ['real:ancient_ruins', 'public:ancient_ruins']],
     ['monster-reset', ['real:wildlands', 'public:wildlands']],
 ]);
-const MONSTER_WILDLANDS_SMOKE_CASES = new Set([
-    'monster-runtime',
-    'monster-combat',
-    'monster-ai',
-    'monster-skill',
-    'monster-reset',
+const DEFAULT_MONSTER_SMOKE_INSTANCE_ID_BY_CASE = new Map([
+    ['monster-runtime', 'real:wildlands'],
+    ['monster-combat', 'real:wildlands'],
+    ['monster-ai', 'real:wildlands'],
+    ['monster-skill', 'real:ancient_ruins'],
+    ['monster-reset', 'real:wildlands'],
 ]);
 /**
  * 规范化 nodeId 字符串。
@@ -884,9 +889,13 @@ async function resolveCaseExtraEnv(entry) {
  * 记录extra环境变量。
  */
     const extraEnv = {};
-    if (MONSTER_WILDLANDS_SMOKE_CASES.has(entry.name)
+    const smokeRegistrationActivationCodes = buildSmokeRegistrationActivationCodes(entry.name);
+    extraEnv.SERVER_REGISTRATION_ACTIVATION_CODES = smokeRegistrationActivationCodes;
+    extraEnv.SERVER_SMOKE_REGISTRATION_ACTIVATION_CODES = smokeRegistrationActivationCodes;
+    const defaultMonsterSmokeInstanceId = DEFAULT_MONSTER_SMOKE_INSTANCE_ID_BY_CASE.get(entry.name);
+    if (defaultMonsterSmokeInstanceId
         && !(typeof process.env.SERVER_SMOKE_INSTANCE_ID === 'string' && process.env.SERVER_SMOKE_INSTANCE_ID.trim())) {
-        extraEnv.SERVER_SMOKE_INSTANCE_ID = 'real:wildlands';
+        extraEnv.SERVER_SMOKE_INSTANCE_ID = defaultMonsterSmokeInstanceId;
     }
 /**
  * 记录数据库地址。
@@ -945,6 +954,16 @@ async function resolveCaseExtraEnv(entry) {
         extraEnv.SERVER_SMOKE_TIMEOUT_MS = LONG_RUNNING_SMOKE_TIMEOUT_MS;
     }
     return extraEnv;
+}
+/**
+ * 为单个 smoke 用例生成隔离的单次注册激活码池。
+ */
+function buildSmokeRegistrationActivationCodes(caseName) {
+    const normalizedCaseName = String(caseName ?? 'unknown')
+        .trim()
+        .replace(/[^0-9A-Za-z_-]+/g, '-')
+        .slice(0, 32) || 'unknown';
+    return Array.from({ length: SMOKE_REGISTRATION_ACTIVATION_CODE_COUNT }, (_, index) => (`SMOKE-${smokeRegistrationRunId}-${normalizedCaseName}-${index.toString(36)}`).toUpperCase()).join(',');
 }
 /**
  * 清理caseextra环境变量。

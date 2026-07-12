@@ -8,6 +8,7 @@ const smoke_timeout_1 = require("./smoke-timeout");
 (0, smoke_timeout_1.installSmokeTimeout)(__filename);
 const pg_1 = require("pg");
 const socket_io_client_1 = require("socket.io-client");
+const msgpackParser = require("socket.io-msgpack-parser");
 const shared_1 = require("@mud/shared");
 const env_alias_1 = require("../config/env-alias");
 const schema_bigint_migration_1 = require("../persistence/schema-bigint-migration");
@@ -18,6 +19,7 @@ const world_player_snapshot_service_1 = require("../network/world-player-snapsho
 const world_player_source_service_1 = require("../network/world-player-source.service");
 const world_player_token_service_1 = require("../network/world-player-token.service");
 const world_session_bootstrap_service_1 = require("../network/world-session-bootstrap.service");
+const smoke_payload_1 = require("./smoke-payload");
 const smoke_player_auth_1 = require("./smoke-player-auth");
 /**
  * 目标 server 服务地址。
@@ -599,6 +601,7 @@ async function expectProtocolSocketAuthFailure(token, expectedCode = 'AUTH_FAIL'
     const socket = (0, socket_io_client_1.io)(SERVER_URL, {
         path: '/socket.io',
         transports: ['websocket'],
+        parser: msgpackParser,
         forceNew: true,
         autoConnect: false,
         auth: {
@@ -726,6 +729,7 @@ function createProtocolSocket(token, options = undefined) {
     const socket = (0, socket_io_client_1.io)(SERVER_URL, {
         path: '/socket.io',
         transports: ['websocket'],
+        parser: msgpackParser,
         forceNew: true,
         autoConnect: false,
         auth: {
@@ -851,14 +855,16 @@ function createProtocolSocket(token, options = undefined) {
     socket.on(shared_1.S2C.Realm, () => {
         realmCount += 1;
     });
-    socket.on(shared_1.S2C.WorldDelta, () => {
-        worldDeltaCount += 1;
-    });
-    socket.on(shared_1.S2C.SelfDelta, () => {
-        selfDeltaCount += 1;
-    });
-    socket.on(shared_1.S2C.PanelDelta, () => {
-        panelDeltaCount += 1;
+    (0, smoke_payload_1.bindSmokeSyncEvents)(socket, {
+        worldDelta: () => {
+            worldDeltaCount += 1;
+        },
+        selfDelta: () => {
+            selfDeltaCount += 1;
+        },
+        panelDelta: () => {
+            panelDeltaCount += 1;
+        },
     });
 /**
  * 在继续测试前抛出 socket 侧已捕获的致命错误。

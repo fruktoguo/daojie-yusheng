@@ -80,6 +80,65 @@ function expectAbsent(label, source, pattern, reason) {
 function expectPresent(label, source, pattern, reason) {
     assert.ok(pattern.test(source), `${label} 缺少预期边界：${reason}`);
 }
+
+function listTypeScriptFiles(root) {
+    const files = [];
+    for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
+        const absolutePath = path.join(root, entry.name);
+        if (entry.isDirectory()) {
+            files.push(...listTypeScriptFiles(absolutePath));
+        }
+        else if (entry.isFile() && entry.name.endsWith('.ts')) {
+            files.push(absolutePath);
+        }
+    }
+    return files;
+}
+
+function checkSmokeSocketParsers() {
+    const toolsRoot = path.join(packageRoot, 'src', 'tools');
+    let files = 0;
+    let socketCalls = 0;
+    for (const absolutePath of listTypeScriptFiles(toolsRoot)) {
+        const source = fs.readFileSync(absolutePath, 'utf8');
+        if (!source.includes('socket.io-client')) {
+            continue;
+        }
+        const calls = source.match(/\(0,\s*socket_io_client_1\.io\)\s*\(|(?:^|[^\w.])io\s*\(/gm) ?? [];
+        if (calls.length <= 0) {
+            continue;
+        }
+        const parsers = source.match(/parser\s*:\s*msgpackParser\b/g) ?? [];
+        const relativePath = path.relative(packageRoot, absolutePath);
+        assert.equal(
+            parsers.length,
+            calls.length,
+            `${relativePath} 的 Socket.IO 客户端必须逐个显式配置 msgpack parser：calls=${calls.length} parsers=${parsers.length}`,
+        );
+        files += 1;
+        socketCalls += calls.length;
+    }
+    return { files, socketCalls };
+}
+
+function checkSmokeSyncEnvelopeConsumers() {
+    const toolsRoot = path.join(packageRoot, 'src', 'tools');
+    let files = 0;
+    for (const absolutePath of listTypeScriptFiles(toolsRoot)) {
+        const source = fs.readFileSync(absolutePath, 'utf8');
+        if (!source.includes('socket.io-client')
+            || !/\.on\((?:shared_1\.)?S2C\.(?:WorldDelta|SelfDelta|PanelDelta)/.test(source)) {
+            continue;
+        }
+        const relativePath = path.relative(packageRoot, absolutePath);
+        assert.ok(
+            source.includes('bindSmokeSyncEvents') || source.includes('S2C.SyncEnvelope'),
+            `${relativePath} 消费拆分增量时必须同时兼容生产主线 SyncEnvelope`,
+        );
+        files += 1;
+    }
+    return { files };
+}
 /**
  * checkWorldRuntime：判断世界运行态是否满足条件。
  * @returns 无返回值，完成世界运行态的条件判断。
@@ -171,6 +230,8 @@ function main() {
             worldGateway: checkWorldGateway(),
             worldSync: checkWorldSync(),
             worldProjector: checkWorldProjector(),
+            smokeSocketParsers: checkSmokeSocketParsers(),
+            smokeSyncEnvelopeConsumers: checkSmokeSyncEnvelopeConsumers(),
         },
     };
 

@@ -37,6 +37,7 @@ const registeredSmokePlayers = new Map();
 let smokePlayerCleanupHooksInstalled = false;
 let smokePlayerCleanupPromise = null;
 let smokePlayerExitCleanupInFlight = false;
+let smokeRegistrationActivationCodeCursor = 0;
 /**
  * 创建smoke 校验玩家identity。
  */
@@ -142,6 +143,7 @@ async function registerAndLoginSmokePlayer(baseUrl, options = undefined) {
  * 记录角色名。
  */
         const roleName = buildRoleName(rolePrefix, seed, attempt);
+        const activationCode = takeSmokeRegistrationActivationCode();
         try {
             await requestJson(normalizedBaseUrl, '/api/auth/register', {
                 method: 'POST',
@@ -150,6 +152,7 @@ async function registerAndLoginSmokePlayer(baseUrl, options = undefined) {
                     password,
                     displayName,
                     roleName,
+                    ...(activationCode ? { activationCode } : {}),
                 },
             });
 /**
@@ -490,8 +493,28 @@ function isRegisterConflictError(error) {
  * 记录message。
  */
     const message = error instanceof Error ? error.message : String(error);
-    return /已存在|already exists|duplicate|账号|角色名|显示名称|称号/i.test(message)
-        || /POST \/api\/auth\/register: 500 .*Internal server error/i.test(message);
+    if (/REGISTRATION_ACTIVATION_REQUIRED/i.test(message)) {
+        return false;
+    }
+    return /账号已存在|角色(?:名|名称)已存在|显示名称已存在|称号已存在|already exists|duplicate/i.test(message);
+}
+/**
+ * 领取套件注入的 smoke 专用激活码；不读取生产激活码环境变量。
+ */
+function takeSmokeRegistrationActivationCode() {
+    const raw = typeof process.env.SERVER_SMOKE_REGISTRATION_ACTIVATION_CODES === 'string'
+        ? process.env.SERVER_SMOKE_REGISTRATION_ACTIVATION_CODES
+        : '';
+    const codes = raw
+        .split(/[\s,]+/)
+        .map((entry) => entry.trim())
+        .filter(Boolean);
+    if (smokeRegistrationActivationCodeCursor >= codes.length) {
+        return '';
+    }
+    const activationCode = codes[smokeRegistrationActivationCodeCursor] ?? '';
+    smokeRegistrationActivationCodeCursor += 1;
+    return activationCode;
 }
 /**
  * 解析 JWT payload，提取 playerId 等字段。

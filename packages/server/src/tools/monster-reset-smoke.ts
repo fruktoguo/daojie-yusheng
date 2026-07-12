@@ -34,9 +34,8 @@ async function main() {
 /**
  * 记录目标。
  */
-    const target = initialMonsters.monsters.find((entry) => entry.alive
-        && entry.monsterId === preferredMonsterId
-        && entry.aggroTargetPlayerId === null) ?? initialMonsters.monsters.find((entry) => entry.alive && entry.aggroTargetPlayerId === null);
+    const target = initialMonsters.monsters.find((entry) => entry.monsterId === preferredMonsterId && canVerifyMonsterRecovery(entry))
+        ?? initialMonsters.monsters.find(canVerifyMonsterRecovery);
     if (!target) {
         throw new Error(`no idle monster found in ${instanceId}`);
     }
@@ -84,6 +83,13 @@ async function main() {
         withinWanderRange: isMonsterWithinWanderRange(finalMonster.monster),
         finalMonster,
     }, null, 2));
+}
+/** 只选择按运行时取整规则每息确实能够回血的空闲妖兽。 */
+function canVerifyMonsterRecovery(monster) {
+    return monster?.alive === true
+        && monster.aggroTargetPlayerId === null
+        && monster.hp > 1
+        && Math.round(Number(monster.numericStats?.hpRegenRate) || 0) > 0;
 }
 function isMonsterWithinWanderRange(monster) {
     if (!monster) {

@@ -8,6 +8,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const smoke_timeout_1 = require("./smoke-timeout");
 (0, smoke_timeout_1.installSmokeTimeout)(__filename);
 const socket_io_client_1 = require("socket.io-client");
+const msgpackParser = require("socket.io-msgpack-parser");
 const shared_1 = require("@mud/shared");
 const env_alias_1 = require("../config/env-alias");
 const smoke_payload_1 = require("./smoke-payload");
@@ -44,6 +45,7 @@ async function main() {
     const socket = (0, socket_io_client_1.io)(SERVER_URL, {
         path: '/socket.io',
         transports: ['websocket'],
+        parser: msgpackParser,
         auth: {
             token: auth.accessToken,
             protocol: 'mainline',
@@ -63,8 +65,8 @@ async function main() {
     socket.on(shared_1.S2C.MapEnter, (payload) => {
         mapEnterEvents.push(smoke_payload_1.decodeSmokePayload(payload));
     });
-    socket.on(shared_1.S2C.SelfDelta, (payload) => {
-        selfEvents.push(smoke_payload_1.decodeSmokePayload(payload));
+    (0, smoke_payload_1.bindSmokeSyncEvents)(socket, {
+        selfDelta: (payload) => selfEvents.push(payload),
     });
     socket.on(shared_1.S2C.InitSession, (payload) => {
         const decodedPayload = smoke_payload_1.decodeSmokePayload(payload);

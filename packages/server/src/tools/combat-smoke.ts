@@ -9,9 +9,11 @@ const smoke_timeout_1 = require("./smoke-timeout");
 (0, smoke_timeout_1.installSmokeTimeout)(__filename);
 const pg_1 = require("pg");
 const socket_io_client_1 = require("socket.io-client");
+const msgpackParser = require("socket.io-msgpack-parser");
 const shared_1 = require("@mud/shared");
 const env_alias_1 = require("../config/env-alias");
 const next_gm_contract_1 = require("../http/native/native-gm-contract");
+const smoke_payload_1 = require("./smoke-payload");
 const smoke_player_auth_1 = require("./smoke-player-auth");
 /**
  * 记录 server 访问地址。
@@ -123,6 +125,7 @@ async function main() {
     const attacker = (0, socket_io_client_1.io)(SERVER_URL, {
         path: '/socket.io',
         transports: ['websocket'],
+        parser: msgpackParser,
         auth: {
             token: attackerAuth.accessToken,
             protocol: 'mainline',
@@ -134,6 +137,7 @@ async function main() {
     const defender = (0, socket_io_client_1.io)(SERVER_URL, {
         path: '/socket.io',
         transports: ['websocket'],
+        parser: msgpackParser,
         auth: {
             token: defenderAuth.accessToken,
             protocol: 'mainline',
@@ -162,20 +166,14 @@ async function main() {
     defender.on(shared_1.S2C.Error, (payload) => {
         throw new Error(`defender socket error: ${JSON.stringify(payload)}`);
     });
-    attacker.on(shared_1.S2C.PanelDelta, (payload) => {
-        attackerPanels.push(payload);
+    (0, smoke_payload_1.bindSmokeSyncEvents)(attacker, {
+        panelDelta: (payload) => attackerPanels.push(payload),
+        selfDelta: (payload) => attackerSelf.push(payload),
+        worldDelta: (payload) => attackerWorld.push(payload),
     });
-    defender.on(shared_1.S2C.PanelDelta, (payload) => {
-        defenderPanels.push(payload);
-    });
-    attacker.on(shared_1.S2C.SelfDelta, (payload) => {
-        attackerSelf.push(payload);
-    });
-    defender.on(shared_1.S2C.SelfDelta, (payload) => {
-        defenderSelf.push(payload);
-    });
-    attacker.on(shared_1.S2C.WorldDelta, (payload) => {
-        attackerWorld.push(payload);
+    (0, smoke_payload_1.bindSmokeSyncEvents)(defender, {
+        panelDelta: (payload) => defenderPanels.push(payload),
+        selfDelta: (payload) => defenderSelf.push(payload),
     });
     attacker.on(shared_1.S2C.InitSession, (payload) => {
         attackerId = String(payload?.pid ?? '');

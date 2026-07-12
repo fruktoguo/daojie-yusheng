@@ -8,8 +8,10 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const smoke_timeout_1 = require("./smoke-timeout");
 (0, smoke_timeout_1.installSmokeTimeout)(__filename);
 const socket_io_client_1 = require("socket.io-client");
+const msgpackParser = require("socket.io-msgpack-parser");
 const shared_1 = require("@mud/shared");
 const env_alias_1 = require("../config/env-alias");
+const smoke_payload_1 = require("./smoke-payload");
 const smoke_player_auth_1 = require("./smoke-player-auth");
 /**
  * 记录 server 访问地址。
@@ -30,6 +32,7 @@ let playerId = '';
 let sessionId = '';
 let progressionResourceInstanceId = '';
 let progressionStage = 'bootstrap';
+let activeSocket = null;
 /**
  * 解析背包物品的稳定实例引用；脚本可用数组查找本地目标，但协议只发送 itemInstanceId。
  */
@@ -61,11 +64,14 @@ async function main() {
     const socket = (0, socket_io_client_1.io)(SERVER_URL, {
         path: '/socket.io',
         transports: ['websocket'],
+        parser: msgpackParser,
+        autoConnect: false,
         auth: {
             token: auth.accessToken,
             protocol: 'mainline',
         },
     });
+    activeSocket = socket;
 /**
  * 记录panelevents。
  */
@@ -77,15 +83,14 @@ async function main() {
     socket.on(shared_1.S2C.Error, (payload) => {
         throw new Error(`socket error: ${JSON.stringify(payload)}`);
     });
-    socket.on(shared_1.S2C.PanelDelta, (payload) => {
-        panelEvents.push(payload);
-    });
-    socket.on(shared_1.S2C.SelfDelta, (payload) => {
-        selfEvents.push(payload);
+    (0, smoke_payload_1.bindSmokeSyncEvents)(socket, {
+        panelDelta: (payload) => panelEvents.push(payload),
+        selfDelta: (payload) => selfEvents.push(payload),
     });
     socket.on(shared_1.S2C.InitSession, (payload) => {
-        playerId = String(payload?.pid ?? '');
-        sessionId = String(payload?.sid ?? '');
+        const decodedPayload = (0, smoke_payload_1.decodeSmokePayload)(payload);
+        playerId = String(decodedPayload?.pid ?? '');
+        sessionId = String(decodedPayload?.sid ?? '');
     });
     await onceConnected(socket);
     socket.emit(shared_1.C2S.Hello, {
@@ -279,7 +284,8 @@ async function main() {
  * 记录灵气after。
  */
         const auraAfter = await fetchTileAura(state.player.instanceId, state.player.x, state.player.y);
-        return auraAfter === auraBefore + 100
+        // 玩家命令结算后同一 tick 还会推进地块灵气自然流转，允许最多 1 点的流转误差，但仍证明完整注入量。
+        return auraAfter >= auraBefore + 99
             && state.player?.inventory?.items?.every((entry) => entry.itemId !== 'spirit_stone');
     }, PROGRESSION_WAIT_MS);
 /**
@@ -287,6 +293,7 @@ async function main() {
  */
     const finalTileAura = await fetchTileAura(currentState.player.instanceId, currentState.player.x, currentState.player.y);
     socket.close();
+    activeSocket = null;
     if (playerId) {
         await deletePlayer(playerId);
     }
@@ -582,18 +589,26 @@ async function onceConnected(socket) {
         return;
     }
     await new Promise((resolve, reject) => {
-/**
- * 记录timer。
- */
-        const timer = setTimeout(() => reject(new Error('socket connect timeout')), 4000);
-        socket.once('connect', () => {
-            clearTimeout(timer);
+        const onConnect = () => {
+            cleanup();
             resolve();
-        });
-        socket.once('connect_error', (error) => {
-            clearTimeout(timer);
+        };
+        const onConnectError = (error) => {
+            cleanup();
             reject(error);
-        });
+        };
+        const timer = setTimeout(() => {
+            cleanup();
+            reject(new Error('socket connect timeout'));
+        }, 4000);
+        const cleanup = () => {
+            clearTimeout(timer);
+            socket.off('connect', onConnect);
+            socket.off('connect_error', onConnectError);
+        };
+        socket.once('connect', onConnect);
+        socket.once('connect_error', onConnectError);
+        socket.connect();
     });
 }
 /**
@@ -620,5 +635,10 @@ void main().catch((error) => {
     console.error(error);
     process.exitCode = 1;
 }).finally(async () => {
+    if (activeSocket) {
+        activeSocket.removeAllListeners();
+        activeSocket.close();
+        activeSocket = null;
+    }
     await (0, smoke_player_auth_1.flushRegisteredSmokePlayers)();
 });

@@ -12,6 +12,7 @@ const node_net_1 = require("node:net");
 const node_path_1 = require("node:path");
 const pg_1 = require("pg");
 const socket_io_client_1 = require("socket.io-client");
+const msgpackParser = require("socket.io-msgpack-parser");
 const shared_1 = require("@mud/shared");
 const env_alias_1 = require("../config/env-alias");
 const smoke_payload_1 = require("./smoke-payload");
@@ -168,6 +169,7 @@ async function connectAndMutate(token) {
     const socket = (0, socket_io_client_1.io)(baseUrl, {
         path: '/socket.io',
         transports: ['websocket'],
+        parser: msgpackParser,
         forceNew: true,
         auth: {
             token,
@@ -396,6 +398,7 @@ async function reconnectAndRead(reconnectTarget) {
     const socket = (0, socket_io_client_1.io)(baseUrl, {
         path: '/socket.io',
         transports: ['websocket'],
+        parser: msgpackParser,
         forceNew: true,
         auth: {
             token: accessToken,
@@ -423,14 +426,16 @@ async function reconnectAndRead(reconnectTarget) {
     socket.on(shared_1.S2C.MapEnter, (payload) => {
         captured.mapEnter = smoke_payload_1.decodeSmokePayload(payload);
     });
-    socket.on(shared_1.S2C.SelfDelta, (payload) => {
-        captured.selfDelta = smoke_payload_1.decodeSmokePayload(payload);
-    });
-    socket.on(shared_1.S2C.PanelDelta, (payload) => {
-        captured.panelDelta = smoke_payload_1.decodeSmokePayload(payload);
-    });
-    socket.on(shared_1.S2C.WorldDelta, (payload) => {
-        captured.worldDelta = smoke_payload_1.decodeSmokePayload(payload);
+    (0, smoke_payload_1.bindSmokeSyncEvents)(socket, {
+        selfDelta: (payload) => {
+            captured.selfDelta = payload;
+        },
+        panelDelta: (payload) => {
+            captured.panelDelta = payload;
+        },
+        worldDelta: (payload) => {
+            captured.worldDelta = payload;
+        },
     });
 /**
  * 记录init会话。

@@ -10,6 +10,7 @@
  */
 
 import { io } from "socket.io-client";
+import * as msgpackParser from "socket.io-msgpack-parser";
 import { C2S, S2C } from "@mud/shared";
 
 /** 调试脚本默认连接的本地服务地址。 */
@@ -63,8 +64,8 @@ const tile = (instanceId: string, x: number, y: number) =>
 async function main() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-  const d = io(base, { path: "/socket.io", transports: ["websocket"] });
-  const l = io(base, { path: "/socket.io", transports: ["websocket"] });
+  const d = io(base, { path: "/socket.io", transports: ["websocket"], parser: msgpackParser });
+  const l = io(base, { path: "/socket.io", transports: ["websocket"], parser: msgpackParser });
   d.on(S2C.Error, (payload) => console.log("dropper error", payload));
   l.on(S2C.Error, (payload) => console.log("looter error", payload));
   await Promise.all([

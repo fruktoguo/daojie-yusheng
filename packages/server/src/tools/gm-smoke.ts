@@ -8,9 +8,11 @@ const smoke_timeout_1 = require("./smoke-timeout");
 (0, smoke_timeout_1.installSmokeTimeout)(__filename);
 const pg_1 = require("pg");
 const socket_io_client_1 = require("socket.io-client");
+const msgpackParser = require("socket.io-msgpack-parser");
 const shared_1 = require("@mud/shared");
 const env_alias_1 = require("../config/env-alias");
 const next_gm_contract_1 = require("../http/native/native-gm-contract");
+const smoke_payload_1 = require("./smoke-payload");
 const smoke_player_auth_1 = require("./smoke-player-auth");
 const smoke_player_cleanup_1 = require("./smoke-player-cleanup");
 /**
@@ -117,6 +119,7 @@ async function main() {
     protocolGuardSocket = (0, socket_io_client_1.io)(SERVER_URL, {
         path: '/socket.io',
         transports: ['websocket'],
+        parser: msgpackParser,
         forceNew: true,
         auth: {
             token: auth.accessToken,
@@ -146,6 +149,7 @@ async function main() {
     legacyProtocolGuardSocket = (0, socket_io_client_1.io)(SERVER_URL, {
         path: '/socket.io',
         transports: ['websocket'],
+        parser: msgpackParser,
         forceNew: true,
         auth: {
             token: auth.accessToken,
@@ -167,6 +171,7 @@ async function main() {
     gmSessionIdGuardSocket = (0, socket_io_client_1.io)(SERVER_URL, {
         path: '/socket.io',
         transports: ['websocket'],
+        parser: msgpackParser,
         forceNew: true,
         auth: {
             token: auth.accessToken,
@@ -206,6 +211,7 @@ async function main() {
         nonGmSocket = (0, socket_io_client_1.io)(SERVER_URL, {
             path: '/socket.io',
             transports: ['websocket'],
+            parser: msgpackParser,
             forceNew: true,
             auth: {
                 token: auth.accessToken,
@@ -280,6 +286,7 @@ async function main() {
     socket = (0, socket_io_client_1.io)(SERVER_URL, {
         path: '/socket.io',
         transports: ['websocket'],
+        parser: msgpackParser,
         forceNew: true,
         auth: {
             token: auth.accessToken,
@@ -348,14 +355,16 @@ async function main() {
     socket.on(shared_1.S2C.Realm, () => {
         realmCount += 1;
     });
-    socket.on(shared_1.S2C.WorldDelta, () => {
-        worldDeltaCount += 1;
-    });
-    socket.on(shared_1.S2C.SelfDelta, () => {
-        selfDeltaCount += 1;
-    });
-    socket.on(shared_1.S2C.PanelDelta, () => {
-        panelDeltaCount += 1;
+    (0, smoke_payload_1.bindSmokeSyncEvents)(socket, {
+        worldDelta: () => {
+            worldDeltaCount += 1;
+        },
+        selfDelta: () => {
+            selfDeltaCount += 1;
+        },
+        panelDelta: () => {
+            panelDeltaCount += 1;
+        },
     });
     socket.on(shared_1.S2C.GmState, (payload) => {
         gmStateEvents.push({ kind: 'mainline', payload });

@@ -14,6 +14,7 @@ const node_net_1 = require("node:net");
 const node_path_1 = require("node:path");
 const node_zlib_1 = require("node:zlib");
 const socket_io_client_1 = require("socket.io-client");
+const msgpackParser = require("socket.io-msgpack-parser");
 const shared_next_1 = require("@mud/shared");
 const pg_1 = require("pg");
 const env_alias_1 = require("../config/env-alias");
@@ -2447,6 +2448,7 @@ async function expectMainlineSocketRejectedForMaintenance() {
     const socket = (0, socket_io_client_1.io)(baseUrl, {
         path: '/socket.io',
         transports: ['websocket'],
+        parser: msgpackParser,
         forceNew: true,
         auth: {
             protocol: 'mainline',

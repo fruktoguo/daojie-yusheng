@@ -6,6 +6,7 @@ import { createServer } from 'node:net';
 import { join, resolve } from 'node:path';
 import { Pool } from 'pg';
 import { io, type Socket } from 'socket.io-client';
+import * as msgpackParser from 'socket.io-msgpack-parser';
 import { S2C } from '@mud/shared';
 
 import { resolveServerDatabaseUrl } from '../config/env-alias';
@@ -122,7 +123,7 @@ async function stopServer(server: RunningServer): Promise<void> {
 }
 
 async function connectPlayer(baseUrl: string, token: string): Promise<Socket> {
-  const socket = io(baseUrl, { path: '/socket.io', transports: ['websocket'], forceNew: true, auth: { token, protocol: 'mainline' } });
+  const socket = io(baseUrl, { path: '/socket.io', transports: ['websocket'], parser: msgpackParser, forceNew: true, auth: { token, protocol: 'mainline' } });
   const init = waitForSocketEvent(socket, S2C.InitSession);
   await init;
   return socket;

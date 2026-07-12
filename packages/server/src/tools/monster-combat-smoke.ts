@@ -8,6 +8,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const smoke_timeout_1 = require("./smoke-timeout");
 (0, smoke_timeout_1.installSmokeTimeout)(__filename);
 const socket_io_client_1 = require("socket.io-client");
+const msgpackParser = require("socket.io-msgpack-parser");
 const shared_1 = require("@mud/shared");
 const env_alias_1 = require("../config/env-alias");
 const smoke_payload_1 = require("./smoke-payload");
@@ -93,6 +94,7 @@ async function main() {
     const socket = (0, socket_io_client_1.io)(SERVER_URL, {
         path: '/socket.io',
         transports: ['websocket'],
+        parser: msgpackParser,
         auth: {
             token: auth.accessToken,
             protocol: 'mainline',
@@ -106,11 +108,9 @@ async function main() {
     socket.on(shared_1.S2C.Error, (payload) => {
         throw new Error(`socket error: ${JSON.stringify(payload)}`);
     });
-    socket.on(shared_1.S2C.WorldDelta, (payload) => {
-        worldEvents.push(smoke_payload_1.decodeSmokePayload(payload));
-    });
-    socket.on(shared_1.S2C.SelfDelta, (payload) => {
-        selfEvents.push(smoke_payload_1.decodeSmokePayload(payload));
+    (0, smoke_payload_1.bindSmokeSyncEvents)(socket, {
+        worldDelta: (payload) => worldEvents.push(payload),
+        selfDelta: (payload) => selfEvents.push(payload),
     });
     socket.on(shared_1.S2C.InitSession, (payload) => {
         const decodedPayload = smoke_payload_1.decodeSmokePayload(payload);
@@ -123,14 +123,12 @@ async function main() {
         await postJson('/runtime/players/connect', {
             playerId,
             sessionId,
-            instanceId,
-            mapId: resolveMonsterMapId(instanceId),
-            // Spawn on the monster anchor and let runtime pick the nearest open tile.
-            // This avoids brittle assumptions about fixed offset positions still being visible/in-range.
-            preferredX: target.x,
-            preferredY: target.y,
+            instanceId: 'public:yunlai_town',
+            mapId: 'yunlai_town',
+            preferredX: 32,
+            preferredY: 5,
         });
-        await waitFor(async () => sameSmokeInstanceId((await fetchPlayerState(playerId)).player?.instanceId, instanceId), 15000);
+        await waitFor(async () => (await fetchPlayerState(playerId)).player?.instanceId === 'public:yunlai_town', 15000);
         await waitFor(async () => {
             if (!playerId) {
                 return false;
@@ -212,28 +210,18 @@ async function main() {
  * 记录真实技能range。
  */
         const learnedSkillRange = Number.isFinite(learnedSkill.range) ? Math.max(1, Math.trunc(learnedSkill.range)) : skillRange;
-        await postJson(`/runtime/players/${playerId}/vitals`, {
-            hp: boostedVitalCap,
-            maxHp: boostedVitalCap,
-            qi: boostedVitalCap,
-            maxQi: boostedVitalCap,
+/**
+ * 选择准备阶段未参与战斗的满血妖兽；玩家在安全区完成领悟，目标不会被准备流程污染。
+ */
+        const freshTarget = await resolveFreshMonsterCombatTarget(instanceId);
+        await postJson('/runtime/players/connect', {
+            playerId,
+            sessionId,
+            instanceId,
+            mapId: resolveMonsterMapId(instanceId),
+            preferredX: freshTarget.x,
+            preferredY: freshTarget.y,
         });
-        await waitFor(async () => {
-/**
- * 记录状态。
- */
-            const state = await fetchPlayerState(playerId);
-            return sameSmokeInstanceId(state.player?.instanceId, instanceId)
-                && state.player?.combat?.autoRetaliate === false
-                && state.player?.combat?.autoBattle === false
-                && state.player?.hp === boostedVitalCap
-                && state.player?.maxHp === boostedVitalCap
-                && state.player?.qi === boostedVitalCap
-                && state.player?.maxQi === boostedVitalCap;
-        }, 15000);
-/**
- * 记录resolved目标。
- */
         const resolvedTarget = await waitForState(async () => {
             const [view, playerState] = await Promise.all([
                 fetchPlayerView(playerId),
@@ -253,16 +241,8 @@ async function main() {
 /**
  * 记录inrangemonsters。
  */
-            const inRangeMonsters = visibleMonsters.filter((entry) => Math.max(Math.abs(entry.x - player.x), Math.abs(entry.y - player.y)) <= learnedSkillRange);
-/**
- * 记录优先值目标。
- */
-            const preferredTarget = inRangeMonsters.find((entry) => entry.monsterId === target.monsterId);
-/**
- * 记录fallback目标。
- */
-            const fallbackTarget = inRangeMonsters[0];
-            return preferredTarget ?? fallbackTarget ?? null;
+            return visibleMonsters.find((entry) => entry.runtimeId === freshTarget.runtimeId
+                && Math.max(Math.abs(entry.x - player.x), Math.abs(entry.y - player.y)) <= learnedSkillRange) ?? null;
         }, 15000);
 /**
  * 记录resolved怪物。
@@ -328,16 +308,37 @@ async function main() {
         beforeMonster = await fetchMonster(instanceId, resolvedTarget.runtimeId);
         const beforeEventCount = worldEvents.length;
         socket.emit(shared_1.C2S.CastSkill, buildCastSkillPayload(learnedSkill, resolvedTarget));
+        let castProbe = null;
         await waitFor(async () => {
             const [playerState, monsterState] = await Promise.all([
                 fetchPlayerState(playerId),
                 fetchMonster(instanceId, resolvedTarget.runtimeId),
             ]);
+            castProbe = {
+                player: {
+                    hp: playerState.player?.hp,
+                    qi: playerState.player?.qi,
+                    maxQi: playerState.player?.maxQi,
+                    x: playerState.player?.x,
+                    y: playerState.player?.y,
+                    pendingSkillCast: playerState.player?.combat?.pendingSkillCast,
+                    cooldownLeft: readCooldownLeft(playerState.player, learnedSkillId),
+                },
+                monster: {
+                    alive: monsterState.monster?.alive,
+                    hp: monsterState.monster?.hp,
+                    x: monsterState.monster?.x,
+                    y: monsterState.monster?.y,
+                },
+                recentWorldEvents: worldEvents.slice(beforeEventCount),
+            };
             return playerState.player?.qi < beforePlayer.player.qi
                 || readCooldownLeft(playerState.player, learnedSkillId) > 0
                 || monsterState.monster?.hp < beforeMonster.monster.hp
                 || worldEvents.slice(beforeEventCount).some((payload) => payload.m?.some((entry) => entry.id === resolvedTarget.runtimeId && typeof entry.hp === 'number' && entry.hp < beforeMonster.monster.hp));
-        }, 15000);
+        }, 15000).catch((error) => {
+            throw new Error(`${error.message}: ${JSON.stringify(castProbe)}`);
+        });
         finalPlayer = await fetchPlayerState(playerId);
         finalMonster = await fetchMonster(instanceId, resolvedTarget.runtimeId);
 /**
@@ -374,6 +375,20 @@ async function main() {
         socket.close();
         await deletePlayer(playerId);
     }
+}
+/**
+ * 选择准备阶段未参与交战的满血妖兽，并优先保留足够血量用于验证技能伤害。
+ */
+async function resolveFreshMonsterCombatTarget(instanceIdValue) {
+    return waitForState(async () => {
+        const response = await fetchJson(`${SERVER_URL}/runtime/instances/${instanceIdValue}/monsters`);
+        const monsters = (Array.isArray(response?.monsters) ? response.monsters : [])
+            .filter((monster) => monster?.alive
+                && !monster.aggroTargetPlayerId
+                && monster.hp === monster.maxHp)
+            .sort((left, right) => (right.maxHp ?? 0) - (left.maxHp ?? 0));
+        return monsters[0] ?? null;
+    }, 15000);
 }
 /**
  * 解析可用的妖兽实例，兼容 public 实例被旧 lease fencing 短暂卸载。

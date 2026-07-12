@@ -8,6 +8,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const smoke_timeout_1 = require("./smoke-timeout");
 (0, smoke_timeout_1.installSmokeTimeout)(__filename);
 const socket_io_client_1 = require("socket.io-client");
+const msgpackParser = require("socket.io-msgpack-parser");
 const shared_1 = require("@mud/shared");
 const env_alias_1 = require("../config/env-alias");
 const smoke_payload_1 = require("./smoke-payload");
@@ -27,11 +28,11 @@ let sessionId = '';
 /**
  * 记录instanceID。
  */
-let instanceId = process.env.SERVER_SMOKE_INSTANCE_ID ?? 'public:wildlands';
+let instanceId = process.env.SERVER_SMOKE_INSTANCE_ID ?? 'public:ancient_ruins';
 /**
  * 记录优先值怪物ID。
  */
-const preferredMonsterId = process.env.SERVER_SMOKE_MONSTER_ID ?? 'm_swamp_lizard';
+const preferredMonsterId = process.env.SERVER_SMOKE_MONSTER_ID ?? 'm_bone_owl';
 /**
  * 记录boostedhp。
  */
@@ -69,6 +70,7 @@ async function main() {
     const socket = (0, socket_io_client_1.io)(SERVER_URL, {
         path: '/socket.io',
         transports: ['websocket'],
+        parser: msgpackParser,
         auth: {
             token: auth.accessToken,
             protocol: 'mainline',
@@ -78,8 +80,8 @@ async function main() {
     socket.on(shared_1.S2C.Error, (payload) => {
         throw new Error(`socket error: ${JSON.stringify(payload)}`);
     });
-    socket.on(shared_1.S2C.WorldDelta, (payload) => {
-        worldEvents.push(smoke_payload_1.decodeSmokePayload(payload));
+    (0, smoke_payload_1.bindSmokeSyncEvents)(socket, {
+        worldDelta: (payload) => worldEvents.push(payload),
     });
     socket.on(shared_1.S2C.InitSession, (payload) => {
         const decodedPayload = smoke_payload_1.decodeSmokePayload(payload);
@@ -92,14 +94,12 @@ async function main() {
         await postJson('/runtime/players/connect', {
             playerId,
             sessionId,
-            instanceId,
-            mapId: resolveMonsterMapId(instanceId),
-            // Spawn on the monster anchor and let runtime pick the nearest open tile.
-            // This avoids brittle assumptions about fixed offset positions still being visible/in-range.
-            preferredX: target.x,
-            preferredY: target.y,
+            instanceId: 'public:yunlai_town',
+            mapId: 'yunlai_town',
+            preferredX: 32,
+            preferredY: 5,
         });
-        await waitFor(async () => sameSmokeInstanceId((await fetchPlayerState(playerId)).player?.instanceId, instanceId), 30000);
+        await waitFor(async () => (await fetchPlayerState(playerId)).player?.instanceId === 'public:yunlai_town', 30000);
 /**
  * 记录initial玩家。
  */
@@ -122,7 +122,7 @@ async function main() {
  * 记录状态。
  */
             const state = await fetchPlayerState(playerId);
-            return sameSmokeInstanceId(state.player?.instanceId, instanceId)
+            return state.player?.instanceId === 'public:yunlai_town'
                 && state.player?.maxHp === boostedHp
                 && (state.player?.hp ?? 0) > 0;
         }, 30000);
@@ -135,32 +135,11 @@ async function main() {
             socket.emit(shared_1.C2S.UseAction, { actionId: 'toggle:auto_battle' });
             await waitFor(async () => (await fetchPlayerState(playerId)).player?.combat?.autoBattle === false, 30000);
         }
-        await postJson(`/runtime/players/${playerId}/vitals`, {
-            hp: boostedHp,
-            maxHp: boostedHp,
-        });
+        const readyPlayer = await fetchPlayerState(playerId);
 /**
- * 记录resolved目标。
+ * 选择满状态妖兽；玩家在安全区完成准备，妖兽尚未消耗技能冷却与灵力。
  */
-        const resolvedTarget = await waitForState(async () => {
-/**
- * 记录view。
- */
-            const view = await fetchPlayerView(playerId);
-/**
- * 记录visiblemonsters。
- */
-            const visibleMonsters = (view.view?.localMonsters ?? []);
-/**
- * 记录优先值目标。
- */
-            const preferredTarget = visibleMonsters.find((entry) => entry.monsterId === target.monsterId);
-/**
- * 记录fallback目标。
- */
-            const fallbackTarget = visibleMonsters[0];
-            return preferredTarget ?? fallbackTarget ?? null;
-        }, 30000);
+        const resolvedTarget = await resolveFreshMonsterSkillTarget(instanceId);
         const resolvedMonsterBefore = await fetchMonster(instanceId, resolvedTarget.runtimeId);
 /**
  * 记录用于贴近目标的技能。
@@ -210,11 +189,6 @@ async function main() {
         }, 30000).catch((error) => {
             throw new Error(`${error.message}: ${JSON.stringify(anchorProbe)}`);
         });
-        await postJson(`/runtime/players/${playerId}/vitals`, {
-            hp: boostedHp,
-            maxHp: boostedHp,
-        });
-        const readyPlayer = await fetchPlayerState(playerId);
         let skillProbe = null;
         await waitFor(async () => {
             const [playerState, monsterState] = await Promise.all([
@@ -413,6 +387,36 @@ function findObservedMonsterSkill(monster, player) {
     return null;
 }
 /**
+ * 选择准备阶段未消耗资源和冷却的妖兽，确保本用例观察的是测试窗口内的技能施放。
+ */
+async function resolveFreshMonsterSkillTarget(instanceIdValue) {
+    return waitForState(async () => {
+        const response = await fetchJson(`${SERVER_URL}/runtime/instances/${instanceIdValue}/monsters`);
+        const monsters = Array.isArray(response?.monsters) ? response.monsters : [];
+        for (const monster of monsters) {
+            if (!monster?.alive
+                || monster.aggroTargetPlayerId
+                || monster.hp !== monster.maxHp
+                || Object.keys(monster.cooldownReadyTickBySkillId ?? {}).length > 0) {
+                continue;
+            }
+            const skill = selectRangedSkill(monster.skills);
+            if (!skill) {
+                continue;
+            }
+            const qiCost = Math.round((0, shared_1.calcQiCostWithOutputLimit)(
+                Math.max(0, Math.round(Number(skill.cost) || 0)),
+                Math.max(0, Number(monster.numericStats?.maxQiOutputPerTick) || 0),
+            ));
+            if ((monster.qi ?? 0) < qiCost) {
+                continue;
+            }
+            return monster;
+        }
+        return null;
+    }, 30000);
+}
+/**
  * 解析可用的妖兽实例，兼容 public 实例被旧 lease fencing 短暂卸载。
  */
 async function resolveInitialMonsterContext(preferredInstanceId) {
@@ -436,7 +440,7 @@ async function resolveInitialMonsterContext(preferredInstanceId) {
 function buildMonsterInstanceCandidates(preferredInstanceId) {
     const raw = typeof preferredInstanceId === 'string' && preferredInstanceId.trim()
         ? preferredInstanceId.trim()
-        : 'public:wildlands';
+        : 'public:ancient_ruins';
     const candidates = [raw];
     const match = raw.match(/^(public|real):(.+)$/);
     if (match) {

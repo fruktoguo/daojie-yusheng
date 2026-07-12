@@ -24,14 +24,14 @@
 | 地图渲染、相机、命中与资源释放 | 进行中 | map render lifecycle、spatial cache proof 通过 | 动态检查移动端触控与大视口性能 |
 | shared 类型、协议与 protobuf | 进行中 | shared build 与协议审计通过；兑换码和离线收益主动刷新 C2S/S2C 已关联 `requestId`；工坊专用面板/任务事件不再复制到空消费 EventBus 字段 | 完成其余大包体的数据流与消费复核 |
 | 服务端网络同步、AOI、首包/增量 | 进行中 | `pnpm verify:quick` runtime smoke 通过；网关 action 已验证单次 delta 和兑换终态关联；工坊无效 EventBus 载荷清理后协议总量实测下降 | 逐字段检查其余频率、范围、恢复语义 |
-| 服务端 runtime、tick、移动、战斗、交互 | 待检查 | server compile、quick runtime smoke 通过 | 按 mechanics 文档审查真实调用链和热路径 |
+| 服务端 runtime、tick、移动、战斗、交互 | 进行中 | server compile、quick runtime smoke 通过；无库本地主线 18 类 smoke 已完整跑通，怪物战斗/技能/重置夹具已按真实机制校正 | 继续按 mechanics 文档审查真实调用链、热路径及未被 smoke 覆盖的机制 |
 | 持久化、恢复、强事务与关闭 | 进行中 | server compile 通过；边界审计 forbidden 已清零；玩家统计总账回读/flush 已按玩家串行并接入 quick smoke | 复核其余玩家/实例分域、outbox、恢复围栏 |
 | 配置编辑器、schema、导入发布 | 进行中 | 构建、content-contract、异步代际 smoke 与浏览器乱序回包验证通过 | 继续复核地图保存、schema 与发布入口 |
-| 鉴权、权限、GM 高危操作 | 进行中 | 全部 GM controller 已确认受 Guard 保护；改密 token 撤销与启动回读已有 compiled smoke | 继续复核审计失败语义；高危 scope、二次确认与维护态策略等待产品决定 |
-| 错误处理、日志与可观测性 | 待检查 | 尚无全域结论 | 检查吞异常、敏感信息、告警与失败水位 |
+| 鉴权、权限、GM 高危操作 | 进行中 | 全部 GM controller 已确认受 Guard 保护；改密 token 撤销与启动回读已有 compiled smoke；注册激活 smoke 不再把鉴权要求误判为名称冲突 | GM 审计 fail-open、高危 scope、GET 密码兼容入口及维护态策略等待产品决定 |
+| 错误处理、日志与可观测性 | 进行中 | 已确认 GM 审计写入失败只告警并放行；smoke 的协议/鉴权假红已修正 | 继续检查吞异常、敏感信息、告警与失败水位 |
 | 性能、内存、网络包体 | 进行中 | 文件体积门禁失败；构建产物存在大 chunk 警告 | 区分真实热路径问题、门禁误报和冷路径债务 |
 | 浅色、深色、手机与触控 | 待检查 | 构建门禁不证明视觉结果 | 需要浏览器级检查 |
-| 测试、构建、清理链与边界门禁 | 进行中 | quick/client/release contract/config build、边界审计通过 | 继续检查其余持久化夹具清理与失真测试 |
+| 测试、构建、清理链与边界门禁 | 进行中 | quick/client/release contract/config build、边界审计通过；24 个工具文件的 37 处 Socket.IO 客户端均有 parser 守卫，无库 `verify:release:local` 的 18 类场景通过 | 继续检查其余持久化夹具清理、DB 分支与失真测试 |
 
 ## 已发现问题
 
@@ -316,6 +316,86 @@
 - 修复方式：解析全部合法转发地址，从最靠近服务端的右侧开始跳过可信代理，返回第一个非可信来源；只有整条链均可信时才回退最左地址。保留 `SERVER_TRUST_PROXY=1` 的显式全信任兼容语义，未命中可信直连时仍完全忽略代理头。
 - 验证：当前编译产物已复现 `198.51.100.99, 203.0.113.55` 被错误解析为攻击者提供的首地址；完整 `pnpm verify:quick` 通过，stable runner 明确选中并通过 `native-request-ip`，覆盖伪造链首、多级可信代理、直连忽略头部以及显式关闭/全信任语义。
 
+### FS-030 `[x]` 服务端 Socket.IO smoke 未使用生产 msgpack parser
+
+- 严重级别：高（验证真实性）。
+- 根本原因：生产 Socket.IO 服务使用 `socket.io-msgpack-parser`，24 个工具文件中的 37 处 `io(...)` 客户端仍使用默认 parser；工具代码没有统一创建入口，现有生产边界检查也没有校验两端 parser 契约。
+- 为什么错误：Socket.IO 自定义 parser 是双端协议的一部分，不能只在服务端启用。默认 parser 无法可靠解释生产端的 msgpack 帧，连接即使建立，事件也可能解析失败或得到与真实客户端不同的载荷。
+- 触发条件：运行任何通过 Socket.IO 连接真实编译服务的 smoke、protocol audit、首包 bench、关闭路径或调试工具。
+- 后果：主线 smoke 会假红、漏收事件或挂到超时；更危险的是开发者可能为迁就错误夹具去修改正确的生产协议，使 release 门禁不能代表客户端真实连接方式。
+- 修复方式：为全部 37 个客户端显式配置同一 `msgpackParser`；在递归 production-boundaries 中统计每个 `io(...)` 调用并要求 parser 数量完全一致，防止新工具再次漏配。
+- 验证：`pnpm --filter @mud/server compile` 通过；`check-production-boundaries` 报告 24 个工具文件、37 处 Socket.IO 调用全部覆盖；无库 `pnpm verify:release:local` 的 18 类稳定场景全部通过。
+
+### FS-031 `[x]` smoke 只监听拆分 delta，忽略生产 `SyncEnvelope`
+
+- 严重级别：高（验证真实性）。
+- 根本原因：生产同步会把 `WorldDelta`、`SelfDelta`、`PanelDelta` 合并进 `S2C.SyncEnvelope`，多个 smoke 仍只监听历史拆分事件；各脚本还分别手写 Buffer/JSON 解码，未复用 shared 的事件 payload 解码契约。
+- 为什么错误：承载层合并不改变业务 delta 语义，但只监听旧事件会把“服务端正确发在 envelope 中”误判为“没有发”；直接断言原始 Buffer 还会把编码差异误判为业务字段缺失。
+- 触发条件：服务端在拥塞控制或批量同步路径发送 `SyncEnvelope`，尤其是 progression、combat、loot、GM、持久化和怪物场景等待增量时。
+- 后果：功能正常却稳定超时或假红；release 门禁无法覆盖当前生产同步主线，也可能掩盖 envelope 内真实字段回归。
+- 修复方式：在 `smoke-payload.ts` 提供统一 `bindSmokeSyncEvents`，同时订阅拆分事件和 envelope，使用 `decodeServerEventPayload` 解码后按 `w/s/p` 路由；迁移所有有 delta 断言的 smoke，并新增“直接监听拆分 delta 必须同时支持 envelope”的边界守卫。
+- 验证：production-boundaries 的直接消费者检查通过；combat、loot、progression、GM、持久化、怪物及玩家恢复/复活场景均在完整无库 release 套件中通过。
+
+### FS-032 `[x]` 注册 smoke 把激活码要求误判为账号冲突并重试到限流
+
+- 严重级别：中（验证真实性与环境稳定性）。
+- 根本原因：同一来源注册过账号后，后续注册需要激活码；公共 smoke 注册助手既不提供激活码，又用包含“账号”等宽泛文本和任意注册 500 错误判断名称冲突，因而把 `REGISTRATION_ACTIVATION_REQUIRED` 当成可换名重试的问题。
+- 为什么错误：激活码是来源注册策略，不会因更换用户名、角色名或显示名而消失；重复提交只会累加认证失败计数。把鉴权要求归类为唯一性冲突违反了错误码语义。
+- 触发条件：一组 smoke 在同一 server/来源地址上依次创建两个以上玩家，或持久环境已有该来源的注册记录。
+- 后果：后续场景循环换名仍失败，最终触发 429；整组 release smoke 假红，并向持久环境制造无意义注册尝试。
+- 修复方式：每次 suite、每个 case 生成隔离的 64 个 smoke 专用单次激活码，同时注入服务端允许集合和仅由 smoke helper 消费的变量；冲突分类明确排除 `REGISTRATION_ACTIVATION_REQUIRED`，只重试真实账号/角色/显示名重复。
+- 验证：无库 `verify:release:local` 连续执行 18 类场景均完成注册和清理；auth-bootstrap、GM、redeem 场景正常退出，未再出现激活要求被换名重试或 429。
+
+### FS-033 `[x]` progression smoke 的 Socket 生命周期存在抢跑与失败泄漏
+
+- 严重级别：中（验证稳定性）。
+- 根本原因：socket 按默认 `autoConnect: true` 创建，连接过程可能在事件监听和 `Hello` 初始化前开始；连接成功/失败/超时监听没有统一清理，异常路径也不保证关闭活跃 socket。
+- 为什么错误：测试必须先建立完整观察面再触发被测流程。连接抢跑会漏掉初始化事件，遗留监听或 socket 则会让失败用例继续持有句柄、污染后续清理和套件退出。
+- 触发条件：本机连接建立很快、连接失败后重试、任一 progression 中间断言抛错或套件连续运行。
+- 后果：`playerId/sessionId` 偶发为空、用例超时而非给出真实功能结果，失败进程迟迟不退出，后续用例还可能受到残留会话影响。
+- 修复方式：改为 `autoConnect: false`，装好全部监听后显式 `connect()`；连接成功、失败和超时共用一次性 cleanup，最终清理无条件移除监听并关闭活跃 socket。
+- 验证：重新编译后聚焦 `progression` stable case 通过并正常退出；完整无库 release 套件也通过该场景。
+
+### FS-034 `[x]` progression smoke 把同 tick 灵气自然流转误判为注入失败
+
+- 严重级别：中（验证真实性）。
+- 根本原因：用例要求地块灵气严格等于 `auraBefore + 100`，但 GM 注入命令结算后同一 1Hz tick 仍会推进地块灵气自然流转；断言忽略了机制文档规定的 tick 副作用。
+- 为什么错误：比较浮点严格相等且假设命令是该 tick 唯一写入者，与真实权威运行时不符。实际完整注入后观测值可为约 `99.9992`，并非少发奖励。
+- 触发条件：注入后等待状态期间跨过一次灵气自然流转，或浮点运算产生小数误差。
+- 后果：正确的 progression 链被判失败；若为迎合测试停掉自然流转，反而会破坏真实玩法。
+- 修复方式：保留消耗灵石与灵气增加的双重证明，将阈值改为至少增加 99 点，只容纳最多 1 点同 tick 流转误差，仍能抓住未完整注入 100 点的明显回归。
+- 验证：收紧后的聚焦 `progression` case 通过，最终地块灵气为 `99.9991977`，所有学习、属性、装备、修炼、治疗、Buff、地图解锁和灵石消费 patch 同时通过。
+
+### FS-035 `[x]` loot smoke 仍按易变背包槽位发送物品引用
+
+- 严重级别：中（验证真实性）。
+- 根本原因：生产背包操作已经以稳定 `itemInstanceId` 为权威引用，loot smoke 仍从数组位置构造废弃的 `slotIndex` 请求，和当前协议及背包重排语义脱节。
+- 为什么错误：数组槽位是客户端展示投影，会随拾取、合并、排序和删除变化，不能唯一标识玩家资产；测试使用废弃字段无法证明生产客户端真实发送的路径。
+- 触发条件：loot 场景使用或丢弃拾取物，尤其在背包已经重排或服务端不再接受 `slotIndex` 时。
+- 后果：正常的稳定引用实现被测试判失败；或测试假绿但生产的 `itemInstanceId` 路径完全未覆盖，错用/错丢资产风险不可见。
+- 修复方式：从背包结果读取目标物品的 `itemInstanceId`，只发送当前 `itemRef` 契约，不再依赖槽位。
+- 验证：聚焦 loot smoke 与完整无库 release 套件均通过；此前接入门禁的 `inventory-item-instance-ref` 继续证明重排后的全套资产操作。
+
+### FS-036 `[x]` 怪物战斗与技能 smoke 的准备阶段会污染被测状态
+
+- 严重级别：中（验证真实性）。
+- 根本原因：用例先把玩家放到怪物身边再学习技能、调整属性和关闭自动战斗；准备期间怪物会真实攻击玩家，打断技能领悟，并提前消耗目标的灵力、冷却、仇恨与生命。技能用例还固定选择 `m_swamp_lizard`，其现有数值无法支付任一配置技能的真实灵力成本。
+- 为什么错误：被测窗口开始前，玩家和目标必须处于可解释的初始状态。让权威 tick 在夹具准备期间推进战斗，会把“准备被打断/资源已消耗”误判为“战斗或技能逻辑失效”；选择机制上不可能施法的目标也无法证明施法链。
+- 触发条件：怪物在玩家准备期间进入仇恨范围；目标提前普攻/施法；固定怪物技能成本高于其最大灵力；并行 tick 恰好跨过准备步骤。
+- 后果：领悟、仇恨、技能冷却和伤害断言随机失败，错误诊断指向生产战斗逻辑；真实回归与夹具污染混在一起，结果不可复现。
+- 修复方式：先在安全城镇完成学习、属性与自动战斗设置，再选择存活、满血、无仇恨、无冷却且付得起远程技能成本的新鲜怪物并传送到附近；monster-skill 默认改用 `ancient_ruins` 的可施法候选，同时保留 D-009 对不可施法内容的独立归档。
+- 验证：聚焦 monster-combat 和 monster-skill 均通过；完整无库 release 套件中的 monster runtime/combat/AI/skill/reset/loot 六类场景全部通过。
+
+### FS-037 `[x]` monster-reset smoke 选择运行时不会恢复生命的目标
+
+- 严重级别：中（验证真实性）。
+- 根本原因：用例只要求 `hpRegenRate > 0`，生产恢复逻辑却按 `Math.round(hpRegenRate)` 结算；介于 0 和 0.5 的正数在运行时每 tick 实际恢复 0，仍会被测试选为目标。
+- 为什么错误：测试候选条件必须与生产消费公式一致。检查原始浮点正数无法证明取整后的有效恢复量，等待该目标回血必然超时。
+- 触发条件：场景中首个空闲、存活怪物的 `hpRegenRate` 为正但四舍五入为 0。
+- 后果：怪物重置机制正常却固定假红；开发者可能错误修改恢复公式或内容数值来迁就测试。
+- 修复方式：候选谓词与运行时统一为 `Math.round(hpRegenRate) > 0`，同时要求目标空闲、存活且可扣减至少 1 点生命。
+- 验证：聚焦 monster-reset smoke 通过，完整无库 release 套件同样通过。
+
 ## 待进一步验证或用户决定
 
 ### D-001 `[?]` 客户端初始包同时装载 React 面板与 legacy 回退实现
@@ -366,6 +446,30 @@
 - 可选方案：① 推荐：生产显式设置仅包含实际 Nginx/Caddy 节点或固定代理子网的 `SERVER_TRUSTED_PROXIES`，同时用网络 ACL 禁止其他来源直连 server；② 保持 RFC1918 默认并确认 server 端口只对代理容器开放；③ 设置 `off`，仅适用于没有反向代理或不需要来源 IP 的部署。
 - 2026-07-13 需要决定：确认正式服代理地址/子网与 server 端口暴露范围，随后把精确配置纳入部署检查。
 
+### D-007 `[?]` GM 持久审计不可用或写入失败时所有高危写操作继续放行
+
+- 当前证据：`GmAuditLogPersistenceService.recordEntry` 明确采用 fail-open：未配置数据库、表初始化失败、连接池未就绪或单次 `INSERT` 失败时只记 warn/error 并返回；玩家、密钥、数据库、环境变量和管理 controller/service 还在外层吞掉审计异常。代码注释一方面声明 GM 写必须落 `gm_audit_log`，另一方面又要求审计不能阻断主操作。
+- 潜在后果：数据库审计链路故障期间仍可修改玩家资产、密钥、环境、数据库或服务状态，但正式真源没有不可抵赖记录；日志也可能与同一数据库故障、容器重启或轮转一起丢失。改为统一 fail-closed 又会在审计表短暂抖动时阻断紧急恢复和止损操作。
+- 无法直接确定的原因：这是审计完整性与灾难恢复可用性的运营取舍；不同操作的容忍度不应相同，仓库无法替用户决定哪些紧急操作允许带“审计欠账”执行。
+- 可选方案：① 推荐：玩家资产、密钥明文/写入、清库/恢复和服务重启默认 fail-closed；只为灾难恢复提供显式 break-glass 模式，将最小脱机审计写入独立持久介质并在数据库恢复后补录；② 只对资产和密钥 fail-closed，普通诊断/低风险配置保留 fail-open；③ 保持全部 fail-open，但建立强告警、审计可用性 readiness 和外部日志不可变存储。
+- 2026-07-13 需要决定：高危操作的 fail-closed 清单、break-glass 授权方式，以及审计数据库不可用时是否允许数据库恢复本身继续执行。
+
+### D-008 `[?]` 注册激活码兼容 GET 会把 GM 密码放入 URL
+
+- 当前证据：`GET /api/auth/gm/registration-activation-code` 接受 `password`、`text/qq` query，并用 GM 密码直接登录；源码注释已承认 POST 才能避免密码进入访问日志。仓库内生产客户端和 protocol audit 使用 POST，GET 仅由兼容 smoke 直接调用，无法证明外部调用方是否仍依赖它。
+- 潜在后果：完整 URL 可能进入 Nginx/access log、APM、浏览器历史、代理缓存、Referer 或运维截图，使拥有全部 GM 权限的明文密码扩散到远超凭据系统的存储面；立即删除则可能打断只会拼 URL 的外部机器人。
+- 无法直接确定的原因：GET 是否仍有仓库外调用方属于生产集成事实；直接移除属于公共 API 破坏性变更，保留则持续承担明确凭据泄露风险。
+- 可选方案：① 推荐：给外部调用方短迁移窗口后删除 GET，只保留 POST body；自动化改用短期、最小 scope token，而非长期 GM 密码；② GET 改为只接受一次性受限 token，并禁止密码参数；③ 暂时保留，要求网关对该路径彻底关闭 query/access/APM 记录，但仍不能消除浏览器和中间代理暴露。
+- 2026-07-13 需要决定：确认仓库外是否仍有 GET 调用方及迁移期限；若没有，下一组可直接删除端点和兼容 smoke。
+
+### D-009 `[?]` 18 个配置了技能的怪物在当前灵力成本规则下永远无法施放任何技能
+
+- 当前证据：对 97 个怪物模板逐个以运行时 `calcQiCostWithOutputLimit`、生成后的 `maxQiOutputPerTick` 和 `maxQi` 计算，以下 18 个没有任何一项已配技能可支付：`m_ruin_guardian`、`m_wild_boar`、`m_swamp_lizard`、`m_wild_bandit`、`m_mire_spider`、`m_dust_vulture`、`m_spirit_wolf`、`m_bamboo_serpent`、`m_bamboo_sprite`、`m_bamboo_mantis`、`m_void_hunter`、`m_fallen_palace_lord`、`m_mine_ghoul`、`m_crystal_bat`、`m_town_rat_south`、`m_town_rat_refuse`、`m_gate_thug`、`m_night_blade`。例如 `m_swamp_lizard` 的技能基础成本 18、实际输出上限 2，折算成本 346，高于最大灵力 15；`m_wild_bandit` 的 `cloud_blade` 折算成本 256060，高于最大灵力 13。
+- 潜在后果：这些怪物虽然内容上声明了技能，生产 AI 永远只能走普攻/移动分支；战斗难度、表现和掉落区域体验与配置意图不符。简单放宽通用公式会同时改变全部玩家和怪物技能成本，影响面远大于 18 个模板。
+- 无法直接确定的原因：无法从代码判定是怪物 `maxQi/maxQiOutputPerTick` 偏低、技能配错、生成倾向缩放异常，还是设计上希望怪物沿用另一套成本规则；任一修复都会改变实际战斗平衡。
+- 可选方案：① 推荐：先在内容启动校验中阻止“有技能但无一可施放”的模板，再逐个为怪物配置可负担的专用技能或校正灵力/输出倾向；② 给怪物定义明确且有文档/基线的专用成本倍率；③ 提高这 18 个怪物的最大灵力和输出，但需重新测伤害频率、难度和掉落效率。不要直接改通用玩家成本公式。
+- 2026-07-13 需要决定：怪物是否应与玩家共用完整输出惩罚公式，以及优先采用“调内容”还是“怪物专用成本规则”；决定后需补内容校验和 18 个模板的基线 smoke。
+
 以下候选仍属于本轮可以继续用代码和运行证据判定的技术项，不提前作为产品决策：
 
 - 当前无已发现但尚未完成技术判定的候选；后续覆盖扫描发现的新候选会继续追加。
@@ -397,3 +501,6 @@
 | compiled `gm-auth-token-revocation-smoke` | 新增并通过 | 改密即时撤销、登录/改密串行以及进程重启回读当前 `rev` | 内存假池，不证明多 HTTP 节点间的撤销传播与真实 DB 故障 |
 | compiled `native-request-ip-smoke` | 修复并注册后通过 | 可信代理链解析、伪造链首拒绝、直连忽略头部与显式关闭/全信任语义 | 不证明正式服网络 ACL 与实际代理 CIDR 配置 |
 | `pnpm audit:protocol` | 通过 | 无库主线服务实际启动、18 类场景的 C2S/S2C 事件覆盖与逐包字节统计；工坊重复目录、67KB envelope 和空消费 EventBus 载荷已消失；关闭 drain 完成 | 无数据库，因此未运行兑换码 DB 用例；也不直接证明 5000 并发带宽和压测结果 |
+| `node packages/server/src/tools/check-production-boundaries.ts` | 修复后通过 | 24 个工具文件中的 37 处 Socket.IO 客户端全部显式使用 msgpack parser；直接 delta 消费方均覆盖 `SyncEnvelope` | 不证明外部仓库脚本或未执行场景的业务断言 |
+| 无库 `pnpm verify:release:local` | 通过 | client build、server compile、production-boundaries、18 类稳定主线场景和 compiled protocol audit 均完成；含怪物六类、progression、combat、loot、认证、GM、兑换、恢复与关闭 drain | 明确不证明 persistence、shadow、acceptance、full、destructive；auth/GM/redeem 的 DB 分支因无数据库而跳过 |
+| 聚焦 compiled `progression` stable case | 收紧断言后通过 | Socket 生命周期、envelope 解码及同 tick 灵气流转下仍完整注入接近 100 点；最终值 `99.9991977` | 不证明真实数据库持久化与长期多 tick 灵气演化 |

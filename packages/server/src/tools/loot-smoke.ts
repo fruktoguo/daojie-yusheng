@@ -8,8 +8,10 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const smoke_timeout_1 = require("./smoke-timeout");
 (0, smoke_timeout_1.installSmokeTimeout)(__filename);
 const socket_io_client_1 = require("socket.io-client");
+const msgpackParser = require("socket.io-msgpack-parser");
 const shared_1 = require("@mud/shared");
 const env_alias_1 = require("../config/env-alias");
+const smoke_payload_1 = require("./smoke-payload");
 const smoke_player_auth_1 = require("./smoke-player-auth");
 /**
  * 记录 server 访问地址。
@@ -60,6 +62,7 @@ async function main() {
     const dropper = (0, socket_io_client_1.io)(SERVER_URL, {
         path: '/socket.io',
         transports: ['websocket'],
+        parser: msgpackParser,
         auth: {
             token: dropperAuth.accessToken,
             protocol: 'mainline',
@@ -71,6 +74,7 @@ async function main() {
     const looter = (0, socket_io_client_1.io)(SERVER_URL, {
         path: '/socket.io',
         transports: ['websocket'],
+        parser: msgpackParser,
         auth: {
             token: looterAuth.accessToken,
             protocol: 'mainline',
@@ -98,17 +102,13 @@ async function main() {
     looter.on(shared_1.S2C.Error, (payload) => {
         throw new Error(`looter socket error: ${JSON.stringify(payload)}`);
     });
-    dropper.on(shared_1.S2C.PanelDelta, (payload) => {
-        dropperPanels.push(payload);
+    (0, smoke_payload_1.bindSmokeSyncEvents)(dropper, {
+        panelDelta: (payload) => dropperPanels.push(payload),
+        worldDelta: (payload) => dropperWorld.push(payload),
     });
-    looter.on(shared_1.S2C.PanelDelta, (payload) => {
-        looterPanels.push(payload);
-    });
-    dropper.on(shared_1.S2C.WorldDelta, (payload) => {
-        dropperWorld.push(payload);
-    });
-    looter.on(shared_1.S2C.WorldDelta, (payload) => {
-        looterWorld.push(payload);
+    (0, smoke_payload_1.bindSmokeSyncEvents)(looter, {
+        panelDelta: (payload) => looterPanels.push(payload),
+        worldDelta: (payload) => looterWorld.push(payload),
     });
     dropper.on(shared_1.S2C.InitSession, (payload) => {
         dropperId = String(payload?.pid ?? '');
@@ -143,11 +143,12 @@ async function main() {
         return getInventoryCount(state.player, TARGET_ITEM_ID) >= DROP_COUNT;
     }, LOOT_WAIT_MS);
 /**
- * 记录dropperslot。
+ * 记录dropper物品。
  */
     const dropperStateAfterGrant = await fetchState(dropperId);
-    const slotIndex = dropperStateAfterGrant.player.inventory.items.findIndex((entry) => entry.itemId === TARGET_ITEM_ID);
-    if (slotIndex < 0) {
+    const dropperItem = dropperStateAfterGrant.player.inventory.items.find((entry) => entry.itemId === TARGET_ITEM_ID) ?? null;
+    const dropperItemInstanceId = typeof dropperItem?.itemInstanceId === 'string' ? dropperItem.itemInstanceId.trim() : '';
+    if (!dropperItem || !dropperItemInstanceId) {
         throw new Error(`missing ${TARGET_ITEM_ID} before drop`);
     }
 /**
@@ -179,7 +180,7 @@ async function main() {
  */
     const groundCountBefore = getGroundItemCount(tileBeforeDrop?.tile?.groundPile, TARGET_ITEM_ID);
     dropper.emit(shared_1.C2S.DropItem, {
-        slotIndex,
+        itemRef: { itemInstanceId: dropperItemInstanceId },
         count: DROP_COUNT,
     });
 /**
