@@ -2,7 +2,7 @@
 
 ## 核心常量
 
-源文件: `packages/server/src/runtime/world/world-runtime-sect.service.ts`
+源文件: `packages/server/src/constants/gameplay/sect.ts`
 
 | 常量 | 值 | 说明 |
 |------|-----|------|
@@ -73,3 +73,4 @@ SectStatus = 'active' | 'dissolved' | 'locked'
 - 解散宗门先持有宗门队列锁，再读取当前完整成员列表并一次性取得所有成员资产锁；不得使用排队前的成员快照，否则等待期间新加入的成员可能漏锁。
 - 地块破坏触发的领地扩张与管理操作共用同一宗门队列；管理事务等待数据库期间，tick 扩张只能排队，不能越过后被失败回滚覆盖。
 - 普通宗门文档保存先固定本轮宗门 ID 集合并取得对应宗门锁，再作为一个 durable commit queue 任务采样和写库；新建宗门留给自身强事务，禁止普通 save 抢先暴露尚未原子提交的宗门快照。
+- 生产配置了数据库时，共享连接池缺失、建表或核心坐标自愈失败必须让宗门恢复和资产变更 fail-closed；只有完全未配置数据库的本地模式可使用内存态回退。

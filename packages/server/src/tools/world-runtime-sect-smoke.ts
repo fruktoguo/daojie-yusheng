@@ -311,7 +311,7 @@ async function main() {
     defaultEntry: true,
     canDamageTile: true,
   });
-  assert.throws(() => sectService.dispatchCreateSect(playerId, 0, player.inventory.items[0], {
+  await assert.rejects(() => sectService.dispatchCreateSect(playerId, 0, player.inventory.items[0], {
     ...deps,
     getPlayerLocationOrThrow(targetPlayerId) {
       assert.equal(targetPlayerId, playerId);
@@ -340,7 +340,7 @@ async function main() {
     targetY: 0,
     name: "近邻界门",
   });
-  await assert.rejects(() => useItemService.dispatchUseItem(playerId, 0, deps, { sectName: "近门宗", sectMark: "近" }), /五格阵基内不能有传送点/);
+  await assert.rejects(() => useItemService.dispatchUseItem(playerId, 0, deps, { sectName: "近门宗", sectMark: "近" }), /五格阵基内不能与传送点重叠/);
   publicInstance.runtimePortals = [];
   assert.equal(player.inventory.items[0].count, 1);
   assert.equal(player.sectId, null);
@@ -376,7 +376,7 @@ async function main() {
   assert.equal(entrance.kind, "sect_entrance");
   assert.equal(entrance.char, "玄");
   assert.equal(entrance.targetInstanceId, `sect:${player.sectId}:main`);
-  assert.throws(() => sectService.dispatchCreateSect(deputyPlayerId, 0, {
+  await assert.rejects(() => sectService.dispatchCreateSect(deputyPlayerId, 0, {
     itemId: "sect_founding_token",
     name: "建宗令",
     type: "consumable",
@@ -447,7 +447,7 @@ async function main() {
   assert.equal(entranceActions.some((action) => action.id.startsWith("sect:enter:")), false);
   deputyPlayer.x = 4;
   deputyPlayer.y = 4;
-  sectService.executeSectAction(deputyPlayerId, joinAction.id, deps);
+  await sectService.executeSectAction(deputyPlayerId, joinAction.id, deps);
   assert.equal(deputyPlayer.sectId, previousSectId);
   assert.equal(sectService.findSectById(player.sectId).members.some((entry) => entry.playerId === deputyPlayerId), false);
   assert.equal(sectService.findSectById(player.sectId).applications.some((entry) => entry.playerId === deputyPlayerId && entry.status === "pending"), true);
@@ -462,10 +462,10 @@ async function main() {
   }, deps);
   const nonMemberEnterAction = nearEntranceActions.find((action) => action.id.startsWith("sect:enter:"));
   assert.ok(nonMemberEnterAction);
-  sectService.executeSectAction(deputyPlayerId, nonMemberEnterAction.id, deps);
+  await sectService.executeSectAction(deputyPlayerId, nonMemberEnterAction.id, deps);
   assert.equal(deputyPlayer.sectId, previousSectId);
   assert.equal(transfers.at(-1).targetInstanceId, entrance.targetInstanceId);
-  sectService.executeSectAction(playerId, `sect:application:approve:${encodeURIComponent(deputyPlayerId)}`, deps);
+  await sectService.executeSectAction(playerId, `sect:application:approve:${encodeURIComponent(deputyPlayerId)}`, deps);
   assert.equal(deputyPlayer.sectId, player.sectId);
   assert.equal(sectService.findSectById(player.sectId).members.find((entry) => entry.playerId === deputyPlayerId).roleId, "outer");
   assert.equal(sectService.findSectById(player.sectId).members.find((entry) => entry.playerId === deputyPlayerId).name, "副宗");
@@ -484,7 +484,7 @@ async function main() {
   assert.equal(sameSectEntranceActions.some((action) => action.id.startsWith("sect:apply:")), false);
   const enterAction = sameSectEntranceActions.find((action) => action.id.startsWith("sect:enter:"));
   assert.ok(enterAction);
-  sectService.executeSectAction(deputyPlayerId, enterAction.id, deps);
+  await sectService.executeSectAction(deputyPlayerId, enterAction.id, deps);
   assert.equal(transfers.at(-1).targetInstanceId, entrance.targetInstanceId);
 
   player.inventory.items[1] = {
@@ -890,9 +890,9 @@ async function main() {
   assert.match(memberManageData, /"statusLabel":"离线"/);
   assert.match(memberManageData, /"realmLv":7/);
   assert.match(memberManageData, /"realmLv":6/);
-  assert.throws(() => sectService.executeSectAction(deputyPlayerId, "sect:guardian:toggle", deps), /当前职位没有该宗门权限/);
-  assert.throws(() => sectService.executeSectAction(laborPlayerId, "sect:guardian:toggle", deps), /当前职位没有该宗门权限/);
-  assert.throws(() => sectService.dispatchRelocateSectEntrance(laborPlayerId, 0, {
+  await assert.rejects(() => sectService.executeSectAction(deputyPlayerId, "sect:guardian:toggle", deps), /当前职位没有该宗门权限/);
+  await assert.rejects(() => sectService.executeSectAction(laborPlayerId, "sect:guardian:toggle", deps), /当前职位没有该宗门权限/);
+  await assert.rejects(() => sectService.dispatchRelocateSectEntrance(laborPlayerId, 0, {
     itemId: "sect_entrance_relocation_token",
     name: "迁宗令",
   }, deps), /只有宗主或副宗主/);
@@ -904,7 +904,7 @@ async function main() {
   const laborMaintainAction = laborCoreActions.find((action) => action.id === "sect:guardian:maintain");
   assert.ok(laborMaintainAction);
   assert.match(laborMaintainAction.desc, /当前大阵灵力\s+10万/);
-  sectService.executeSectAction(laborPlayerId, "sect:guardian:maintain", deps);
+  await sectService.executeSectAction(laborPlayerId, "sect:guardian:maintain", deps);
   assert.equal(pendingCommands.length, 0);
   assert.equal(laborPlayer.formationJob?.formationInstanceId, `formation:sect_guardian:${expandedSect.sectId}`);
   assert.equal(craftMutationFlushes.at(-1)?.playerId, laborPlayerId);
@@ -920,38 +920,38 @@ async function main() {
   const laborCancelAction = laborMaintainingCoreActions.find((action) => action.id === "sect:guardian:cancel_maintain");
   assert.ok(laborCancelAction);
   assert.match(laborCancelAction.desc, /当前大阵灵力\s+10万/);
-  sectService.executeSectAction(laborPlayerId, "sect:guardian:cancel_maintain", deps);
+  await sectService.executeSectAction(laborPlayerId, "sect:guardian:cancel_maintain", deps);
   assert.equal(pendingCommands.length, 0);
   assert.equal(laborPlayer.formationJob, null);
   assert.equal(notices.at(-1)?.structured?.key, "notice.craft.formation.stopped");
-  sectService.executeSectAction(playerId, `sect:member:role:${encodeURIComponent(deputyPlayerId)}:deputy`, deps);
+  await sectService.executeSectAction(playerId, `sect:member:role:${encodeURIComponent(deputyPlayerId)}:deputy`, deps);
   assert.equal(expandedSect.members.find((entry) => entry.playerId === deputyPlayerId).roleId, "deputy");
-  sectService.executeSectAction(deputyPlayerId, "sect:guardian:toggle", deps);
+  await sectService.executeSectAction(deputyPlayerId, "sect:guardian:toggle", deps);
   assert.equal(guardians.find((entry) => entry.id === `formation:sect_guardian:${expandedSect.sectId}`).active, false);
-  sectService.executeSectAction(deputyPlayerId, "sect:guardian:maintain", deps);
+  await sectService.executeSectAction(deputyPlayerId, "sect:guardian:maintain", deps);
   const deputyMaintainingCoreActions = sectService.buildSectCoreActions({
     playerId: deputyPlayerId,
     self: { x: expandedSect.coreX, y: expandedSect.coreY },
     instance: { instanceId: sectInstance.meta.instanceId },
   }, deps);
   assert.ok(deputyMaintainingCoreActions.some((action) => action.id === "sect:guardian:cancel_maintain"));
-  sectService.executeSectAction(deputyPlayerId, "sect:guardian:cancel_maintain", deps);
+  await sectService.executeSectAction(deputyPlayerId, "sect:guardian:cancel_maintain", deps);
   assert.equal(deputyPlayer.formationJob, null);
-  assert.throws(() => sectService.executeSectAction(playerId, `sect:member:role:${encodeURIComponent(elderPlayerId)}:supreme_elder`, deps), /太上长老暂时无法任命/);
-  sectService.executeSectAction(playerId, `sect:member:remove:${encodeURIComponent(elderPlayerId)}`, deps);
+  await assert.rejects(() => sectService.executeSectAction(playerId, `sect:member:role:${encodeURIComponent(elderPlayerId)}:supreme_elder`, deps), /太上长老暂时无法任命/);
+  await sectService.executeSectAction(playerId, `sect:member:remove:${encodeURIComponent(elderPlayerId)}`, deps);
   assert.equal(expandedSect.members.some((entry) => entry.playerId === elderPlayerId), false);
   assert.equal(elderPlayer.sectId, null);
-  sectService.executeSectAction(laborPlayerId, "sect:leave", deps);
+  await sectService.executeSectAction(laborPlayerId, "sect:leave", deps);
   assert.equal(laborPlayer.sectId, null);
   assert.equal(expandedSect.members.some((entry) => entry.playerId === laborPlayerId), false);
   assert.equal(sectService.playerSectId.has(laborPlayerId), false);
-  sectService.executeSectAction(playerId, `sect:permission:toggle:elder:member_remove`, deps);
+  await sectService.executeSectAction(playerId, `sect:permission:toggle:elder:member_remove`, deps);
   assert.equal(expandedSect.rolePermissions.elder.member_remove, true);
-  sectService.executeSectAction(playerId, `sect:transfer:${encodeURIComponent(deputyPlayerId)}`, deps);
+  await sectService.executeSectAction(playerId, `sect:transfer:${encodeURIComponent(deputyPlayerId)}`, deps);
   assert.equal(expandedSect.leaderPlayerId, deputyPlayerId);
   assert.equal(expandedSect.members.find((entry) => entry.playerId === deputyPlayerId).roleId, "leader");
   assert.equal(expandedSect.members.find((entry) => entry.playerId === playerId).roleId, "deputy");
-  sectService.executeSectAction(deputyPlayerId, "sect:dissolve", deps);
+  await sectService.executeSectAction(deputyPlayerId, "sect:dissolve", deps);
   assert.equal(sectService.findSectById(expandedSect.sectId), null);
   assert.equal(player.sectId, null);
   assert.equal(deputyPlayer.sectId, null);

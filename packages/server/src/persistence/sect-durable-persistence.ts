@@ -12,8 +12,9 @@ import {
 } from './player-domain-persistence.service';
 import type { PersistedPlayerSnapshot } from './player-persistence.service';
 import { isTransientPostgresError } from './pg-error-utils';
+import { SECT_CORE_CHAR, SECT_TEMPLATE_PREFIX } from '../constants/gameplay/sect';
 
-const SECT_TABLE = 'server_sect';
+export const SECT_TABLE = 'server_sect';
 const PLAYER_SECT_MEMBERSHIP_TABLE = 'player_sect_membership';
 const PLAYER_RECOVERY_WATERMARK_TABLE = 'player_recovery_watermark';
 const INSTANCE_FORMATION_STATE_TABLE = 'instance_formation_state';
@@ -85,6 +86,194 @@ export class SectDurableMutationStoppedError extends Error {
   constructor() {
     super('sect_durable_mutation_stopped');
   }
+}
+
+export interface SectCorePersistenceRepairReport {
+  sectRowsUpdated: number;
+  overlayRowsUpdated: number;
+}
+
+/** 启动期确保宗门真源表与查询索引存在。 */
+export async function ensureSectTable(pool: Pick<Pool, 'connect'>): Promise<void> {
+  const client = await pool.connect();
+  try {
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS ${SECT_TABLE} (
+        sect_id varchar(180) PRIMARY KEY,
+        name varchar(120) NOT NULL,
+        mark varchar(16) NOT NULL,
+        founder_player_id varchar(100) NOT NULL,
+        leader_player_id varchar(100) NOT NULL,
+        status varchar(32) NOT NULL,
+        entrance_instance_id varchar(180) NOT NULL,
+        entrance_template_id varchar(120) NOT NULL,
+        entrance_x bigint NOT NULL DEFAULT 0,
+        entrance_y bigint NOT NULL DEFAULT 0,
+        sect_instance_id varchar(180) NOT NULL,
+        sect_template_id varchar(180) NOT NULL,
+        created_at_ms bigint NOT NULL,
+        updated_at_ms bigint NOT NULL,
+        raw_payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+        updated_at timestamptz NOT NULL DEFAULT now()
+      )
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS server_sect_leader_idx
+      ON ${SECT_TABLE}(leader_player_id, status)
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS server_sect_template_idx
+      ON ${SECT_TABLE}(sect_template_id)
+    `);
+  } finally {
+    client.release();
+  }
+}
+
+/** 把历史宗门核心坐标与传送门投影修复为当前契约。 */
+export async function repairPersistedSectCoreState(
+  pool: Pick<Pool, 'connect'>,
+): Promise<SectCorePersistenceRepairReport> {
+  const client = await pool.connect();
+  let clientReleased = false;
+  try {
+    await client.query('BEGIN');
+    const report = await repairPersistedSectCoreStateWithClient(client);
+    await client.query('COMMIT');
+    return report;
+  } catch (error: unknown) {
+    try {
+      await client.query('ROLLBACK');
+    } catch (rollbackError: unknown) {
+      client.release(true);
+      clientReleased = true;
+      throw new AggregateError(
+        [error, rollbackError],
+        'sect_core_persistence_repair_and_rollback_failed',
+      );
+    }
+    throw error;
+  } finally {
+    if (!clientReleased) {
+      client.release();
+    }
+  }
+}
+
+export async function repairPersistedSectCoreStateWithClient(
+  client: Pick<PoolClient, 'query'>,
+): Promise<SectCorePersistenceRepairReport> {
+  const sectResult = await client.query(`
+    WITH patched AS (
+      SELECT
+        sect_id,
+        ('${SECT_TEMPLATE_PREFIX}' || sect_id) AS stable_template_id,
+        jsonb_set(
+          jsonb_set(
+            jsonb_set(COALESCE(raw_payload, '{}'::jsonb), '{coreX}', '0'::jsonb, true),
+            '{coreY}', '0'::jsonb,
+            true
+          ),
+          '{sectTemplateId}',
+          to_jsonb('${SECT_TEMPLATE_PREFIX}' || sect_id),
+          true
+        ) AS next_payload
+      FROM ${SECT_TABLE}
+    )
+    UPDATE ${SECT_TABLE} target
+    SET
+      sect_template_id = patched.stable_template_id,
+      raw_payload = patched.next_payload,
+      updated_at = now()
+    FROM patched
+    WHERE target.sect_id = patched.sect_id
+      AND (
+        target.sect_template_id IS DISTINCT FROM patched.stable_template_id
+        OR target.raw_payload IS DISTINCT FROM patched.next_payload
+      )
+  `);
+
+  const overlayTableResult = await client.query("SELECT to_regclass('instance_overlay_chunk') AS table_name");
+  if (!overlayTableResult.rows?.[0]?.table_name) {
+    return { sectRowsUpdated: sectResult.rowCount ?? 0, overlayRowsUpdated: 0 };
+  }
+
+  const overlayResult = await client.query(`
+    WITH canonical AS (
+      SELECT
+        sect_id,
+        sect_instance_id AS instance_id,
+        jsonb_build_object(
+          'id', 'sect_core:0,0',
+          'x', 0,
+          'y', 0,
+          'targetMapId', COALESCE(NULLIF(btrim(entrance_template_id), ''), NULLIF(btrim(raw_payload->>'entranceTemplateId'), ''), 'yunlai_town'),
+          'targetInstanceId', COALESCE(NULLIF(btrim(entrance_instance_id), ''), NULLIF(btrim(raw_payload->>'entranceInstanceId'), ''), NULL),
+          'targetX', entrance_x,
+          'targetY', entrance_y,
+          'direction', 'two_way',
+          'kind', 'sect_core',
+          'trigger', 'manual',
+          'hidden', false,
+          'name', name || '宗门核心',
+          'char', '${SECT_CORE_CHAR}',
+          'color', '#d8c37a',
+          'sectId', sect_id
+        ) AS portal
+      FROM ${SECT_TABLE}
+      WHERE COALESCE(status, 'active') <> 'dissolved'
+        AND NULLIF(btrim(sect_instance_id), '') IS NOT NULL
+    )
+    INSERT INTO instance_overlay_chunk(
+      instance_id,
+      patch_kind,
+      chunk_key,
+      patch_version,
+      patch_payload,
+      updated_at
+    )
+    SELECT
+      instance_id,
+      'portal',
+      'runtime_portals',
+      1,
+      jsonb_build_object('version', 1, 'portals', jsonb_build_array(portal)),
+      now()
+    FROM canonical
+    ON CONFLICT (instance_id, patch_kind, chunk_key)
+    DO UPDATE SET
+      patch_version = instance_overlay_chunk.patch_version + 1,
+      patch_payload = jsonb_build_object(
+        'version',
+        COALESCE((instance_overlay_chunk.patch_payload->>'version')::bigint, 1),
+        'portals',
+        COALESCE(
+          (
+            SELECT jsonb_agg(entry)
+            FROM jsonb_array_elements(COALESCE(instance_overlay_chunk.patch_payload->'portals', '[]'::jsonb)) AS entry
+            WHERE COALESCE(entry->>'sectId', '') <> (EXCLUDED.patch_payload->'portals'->0->>'sectId')
+          ),
+          '[]'::jsonb
+        ) || (EXCLUDED.patch_payload->'portals')
+      ),
+      updated_at = now()
+    WHERE EXISTS (
+      SELECT 1
+      FROM jsonb_array_elements(COALESCE(instance_overlay_chunk.patch_payload->'portals', '[]'::jsonb)) AS entry
+      WHERE COALESCE(entry->>'sectId', '') = (EXCLUDED.patch_payload->'portals'->0->>'sectId')
+        AND entry IS DISTINCT FROM (EXCLUDED.patch_payload->'portals'->0)
+    )
+    OR NOT EXISTS (
+      SELECT 1
+      FROM jsonb_array_elements(COALESCE(instance_overlay_chunk.patch_payload->'portals', '[]'::jsonb)) AS entry
+      WHERE entry = (EXCLUDED.patch_payload->'portals'->0)
+    )
+  `);
+
+  return {
+    sectRowsUpdated: sectResult.rowCount ?? 0,
+    overlayRowsUpdated: overlayResult.rowCount ?? 0,
+  };
 }
 
 export interface SettleDurableSectMutationOptions {

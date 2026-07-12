@@ -1,12 +1,11 @@
-// @ts-nocheck
-"use strict";
+import assert from 'node:assert/strict';
 
-const assert = require("node:assert/strict");
-const { TileType } = require("@mud/shared");
-const { MapTemplateRepository } = require("../runtime/map/map-template.repository");
-const { MapInstanceRuntime } = require("../runtime/instance/map-instance.runtime");
+import { TileType } from '@mud/shared';
 
-function main() {
+import { MapInstanceRuntime } from '../runtime/instance/map-instance.runtime';
+import { MapTemplateRepository } from '../runtime/map/map-template.repository';
+
+function main(): void {
   const templateRepository = new MapTemplateRepository();
   templateRepository.registerRuntimeMapTemplate({
     id: "sect_virtual_boundary_sync_smoke",
@@ -59,11 +58,16 @@ function main() {
   const previousSightRevision = instance.sightBlockingRevision;
 
   const opened = instance.damageTile(3, 1, virtualBoundary.maxHp);
+  assert.ok(opened);
   assert.equal(opened.destroyed, true);
   assert.equal(opened.virtualBoundary, true);
   assert.equal(instance.getEffectiveTileType(3, 1), TileType.Floor);
   assert.equal(instance.isTileSightBlocked(3, 1), false);
-  assert.equal(instance.sightBlockingRevision, previousSightRevision + 1);
+  assert.equal(
+    instance.sightBlockingRevision,
+    previousSightRevision + 2,
+    '虚拟石墙激活和被击破成地板各推进一次遮挡修订',
+  );
   assert.ok(instance.getStaticTileSyncRevision() > previousStaticRevision);
 
   const staticPlan = instance.consumeStaticTileSyncDirtyTiles();

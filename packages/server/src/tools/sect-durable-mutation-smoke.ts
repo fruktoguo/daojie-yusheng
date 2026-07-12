@@ -4,6 +4,7 @@ import type { Pool, PoolClient, QueryResult } from 'pg';
 import {
   persistDurableSectMutation,
   persistDurableSectMutationUntilSettled,
+  repairPersistedSectCoreState,
   SectDurableCommitOutcomeUnknownError,
   SectDurableMutationStoppedError,
   type DurableSectSnapshot,
@@ -110,6 +111,7 @@ class SequencedPool {
 }
 
 async function main(): Promise<void> {
+  await proveCoreRepairPreservesRollbackFailure();
   await proveSectInventoryAndMembershipShareOneTransaction();
   await proveFailureRollsBackWholeMutation();
   await proveRollbackFailureDestroysClient();
@@ -125,6 +127,35 @@ async function main(): Promise<void> {
   await proveInitialShutdownIsNotUnknownCommit();
   await proveShutdownInterruptsPendingReadback();
   console.log('sect-durable-mutation-smoke: ok');
+}
+
+async function proveCoreRepairPreservesRollbackFailure(): Promise<void> {
+  const primaryOnlyClient = new RecordingClient({ failOn: 'WITH patched AS' });
+  await assert.rejects(
+    repairPersistedSectCoreState(new RecordingPool(primaryOnlyClient) as unknown as Pool),
+    /injected_sect_persistence_failure/,
+  );
+  assert.equal(primaryOnlyClient.queries.at(-1)?.sql, 'ROLLBACK');
+  assert.equal(primaryOnlyClient.released, true);
+  assert.equal(primaryOnlyClient.destroyed, false);
+
+  const rollbackFailureClient = new RecordingClient({
+    failOn: 'WITH patched AS',
+    failRollback: true,
+  });
+  await assert.rejects(
+    repairPersistedSectCoreState(new RecordingPool(rollbackFailureClient) as unknown as Pool),
+    (error: unknown) => {
+      assert.ok(error instanceof AggregateError);
+      assert.deepEqual(
+        error.errors.map((entry: unknown) => entry instanceof Error ? entry.message : String(entry)),
+        ['injected_sect_persistence_failure', 'injected_sect_rollback_failure'],
+      );
+      return true;
+    },
+  );
+  assert.equal(rollbackFailureClient.released, true);
+  assert.equal(rollbackFailureClient.destroyed, true);
 }
 
 async function proveRetryPresenceFenceConfirmsCommittedPostState(): Promise<void> {

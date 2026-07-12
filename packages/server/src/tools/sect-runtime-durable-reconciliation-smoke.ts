@@ -608,6 +608,7 @@ async function waitUntil(predicate: () => boolean): Promise<void> {
 }
 
 async function main(): Promise<void> {
+  await proveConfiguredPersistenceFailureIsFailClosedAndRetryable();
   await proveDurableMutationCannotBeOvertaken();
   await proveMembershipLockRetriesWithLatestSect();
   await proveApprovalUsesStableMembershipLock();
@@ -623,6 +624,56 @@ async function main(): Promise<void> {
   await proveDelayedFormationWriterUsesImmutablePreAwaitSnapshot();
   await proveFormationRuntimeWritesDoNotRepeatDdlOrCloseFlush();
   console.log('sect-runtime-durable-reconciliation-smoke: ok');
+}
+
+async function proveConfiguredPersistenceFailureIsFailClosedAndRetryable(): Promise<void> {
+  const previousServerDatabaseUrl = process.env.SERVER_DATABASE_URL;
+  const previousDatabaseUrl = process.env.DATABASE_URL;
+  process.env.SERVER_DATABASE_URL = 'postgres://sect-persistence-smoke.invalid/database';
+  delete process.env.DATABASE_URL;
+  try {
+    let poolRequestCount = 0;
+    const service = new WorldRuntimeSectService(
+      {},
+      {},
+      {},
+      null,
+      {
+        getPool() {
+          poolRequestCount += 1;
+          return null;
+        },
+      },
+    ) as unknown as {
+      ensurePersistencePool(): Promise<unknown>;
+      persistenceInitPromise: Promise<void> | null;
+      persistenceReady: boolean;
+    };
+
+    await assert.rejects(
+      service.ensurePersistencePool(),
+      /宗门持久化连接池不可用/,
+    );
+    assert.equal(service.persistenceInitPromise, null, '失败初始化不得留下永久 rejected promise');
+    assert.equal(service.persistenceReady, false);
+
+    await assert.rejects(
+      service.ensurePersistencePool(),
+      /宗门持久化连接池不可用/,
+    );
+    assert.equal(poolRequestCount, 2, '后续请求应重试取得已恢复的共享连接池');
+  } finally {
+    restoreEnvironmentValue('SERVER_DATABASE_URL', previousServerDatabaseUrl);
+    restoreEnvironmentValue('DATABASE_URL', previousDatabaseUrl);
+  }
+}
+
+function restoreEnvironmentValue(name: string, value: string | undefined): void {
+  if (value === undefined) {
+    delete process.env[name];
+    return;
+  }
+  process.env[name] = value;
 }
 
 void main().catch((error: unknown) => {
