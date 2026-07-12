@@ -575,6 +575,8 @@ async function main() {
   const manageAction = coreActions.find((action) => action.id === "sect:manage");
   assert.match(manageAction.desc, /地域\s+25格/);
   assert.doesNotMatch(manageAction.desc, /地域\s+\d+x\d+/);
+  const manageData = JSON.parse(decodeURIComponent(/@@sect:(.*)@@/.exec(manageAction.desc)?.[1] ?? ""));
+  assert.equal(manageData.sectId, sect.sectId, "宗门管理摘要必须携带申请分页的权威宗门 ID");
   assert.ok(!coreActions.some((action) => action.id === "sect:guardian:refill"));
 
   const badRealSectInstanceId = `real:${entrance.targetMapId}`;

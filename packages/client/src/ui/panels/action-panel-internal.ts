@@ -117,6 +117,7 @@ export interface SectManagementGuardianData {
 }
 
 export interface SectManagementData {
+  sectId: string;
   selfPlayerId: string;
   canEditPermissions: boolean;
   canTransfer: boolean;

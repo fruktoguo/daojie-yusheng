@@ -42,6 +42,9 @@ pendingApplications.push({
 
 service.sectsById.set('sect:test', {
   sectId: 'sect:test',
+  sectInstanceId: 'sect-domain:test',
+  coreX: 0,
+  coreY: 0,
   name: '测试宗门',
   status: 'active',
   leaderPlayerId: 'leader',
@@ -63,6 +66,15 @@ service.sectsById.set('sect:test', {
     },
   ],
 });
+
+const manageAction = service.buildSectCoreActions({
+  playerId: 'leader',
+  self: { x: 0, y: 0 },
+  instance: { instanceId: 'sect-domain:test' },
+}, { playerRuntimeService }).find((action) => action.id === 'sect:manage');
+assert.ok(manageAction, '宗门核心必须提供管理入口');
+const manageData = JSON.parse(decodeURIComponent(/@@sect:(.*)@@/.exec(manageAction.desc)?.[1] ?? ''));
+assert.equal(manageData.sectId, 'sect:test', '管理摘要必须提供申请分页使用的权威宗门 ID');
 
 const firstPage = service.buildSectApplicationPage('leader', {
   requestId: 'sect-page:1',

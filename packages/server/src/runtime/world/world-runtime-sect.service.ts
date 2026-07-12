@@ -2253,7 +2253,8 @@ function buildSectManagementData(sect, playerId, playerRuntimeService = null, gu
     const canLeave = selfPlayerId !== '' && sect.leaderPlayerId !== selfPlayerId && isSectMember(sect, selfPlayerId);
     const selfPlayer = selfPlayerId ? playerRuntimeService?.getPlayer?.(selfPlayerId) : null;
     return {
-        v: 2,
+        v: 3,
+        sectId: sect.sectId,
         selfPlayerId,
         canEditPermissions,
         canTransfer: canEditPermissions,

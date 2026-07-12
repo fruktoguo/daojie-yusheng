@@ -51,6 +51,18 @@ export function normalizeSectApplicationRevision(value: unknown): number {
   return Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
 }
 
+/** 优先使用宗门管理摘要中的权威宗门 ID，玩家投影仅作为旧数据回退。 */
+export function resolveSectApplicationPageScopeSectId(
+  managementSectId: unknown,
+  projectedPlayerSectId: unknown,
+): string {
+  const normalizedManagementSectId = typeof managementSectId === 'string' ? managementSectId.trim() : '';
+  if (normalizedManagementSectId) {
+    return normalizedManagementSectId;
+  }
+  return typeof projectedPlayerSectId === 'string' ? projectedPlayerSectId.trim() : '';
+}
+
 /** 同一时刻只接受当前请求且不落后于已知宗门版本的响应。 */
 export class SectApplicationPageRequestState {
   private sequence = 0;

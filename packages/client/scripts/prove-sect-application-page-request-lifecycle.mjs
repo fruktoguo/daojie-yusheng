@@ -29,7 +29,21 @@ function loadStateModule() {
   return module.exports;
 }
 
-const { SectApplicationPageRequestState } = loadStateModule();
+const {
+  SectApplicationPageRequestState,
+  resolveSectApplicationPageScopeSectId,
+} = loadStateModule();
+
+assert.equal(
+  resolveSectApplicationPageScopeSectId('sect:summary', undefined),
+  'sect:summary',
+  '玩家投影缺少 sectId 时，宗门管理摘要仍必须允许分页请求发出',
+);
+assert.equal(
+  resolveSectApplicationPageScopeSectId('sect:summary', 'sect:stale-player'),
+  'sect:summary',
+  '宗门管理摘要必须优先于可能滞后的玩家投影',
+);
 
 function createPage(request, overrides = {}) {
   return {

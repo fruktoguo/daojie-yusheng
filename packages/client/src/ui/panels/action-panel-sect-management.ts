@@ -25,6 +25,7 @@ import {
   normalizeSectApplicationPageOffset,
   normalizeSectApplicationPageSearch,
   normalizeSectApplicationRevision,
+  resolveSectApplicationPageScopeSectId,
 } from './sect-application-page-request-state';
 import type { ActionPanel } from './action-panel';
 import type {
@@ -178,6 +179,7 @@ function buildFallbackSectManagementData(player: PlayerState | null): SectManage
   const name = player?.name || player?.displayName || t('action.sect.fallback.current-leader', undefined);
   const rolePermissions = normalizeSectManagementRolePermissions({}, DEFAULT_SECT_MANAGEMENT_ROLES, DEFAULT_SECT_MANAGEMENT_PERMISSIONS);
   return {
+    sectId: typeof player?.sectId === 'string' ? player.sectId.trim() : '',
     selfPlayerId: playerId,
     canEditPermissions: true,
     canTransfer: true,
@@ -224,6 +226,7 @@ function parseSectManagementData(desc: string | undefined, player: PlayerState |
       ? parsed.members.map(normalizeSectManagementMember)
       : fallback.members;
     return {
+      sectId: typeof parsed.sectId === 'string' && parsed.sectId.trim() ? parsed.sectId.trim() : fallback.sectId,
       selfPlayerId: typeof parsed.selfPlayerId === 'string' ? parsed.selfPlayerId : fallback.selfPlayerId,
       canEditPermissions: parsed.canEditPermissions === true,
       canTransfer: parsed.canTransfer === true,
@@ -912,7 +915,7 @@ export class SectManagementSubpanel {
 
   private getActiveSectApplicationPage(summary: SectManagementSummary): S2C_SectApplicationPage | null {
     const page = this.applicationPage;
-    const sectId = this.resolveCurrentSectId();
+    const sectId = this.resolveCurrentSectId(summary);
     if (
       !page
       || !sectId
@@ -927,8 +930,8 @@ export class SectManagementSubpanel {
     return page;
   }
 
-  private resolveCurrentSectId(): string {
-    return typeof this.p.previewPlayer?.sectId === 'string' ? this.p.previewPlayer.sectId.trim() : '';
+  private resolveCurrentSectId(summary: SectManagementSummary): string {
+    return resolveSectApplicationPageScopeSectId(summary.data.sectId, this.p.previewPlayer?.sectId);
   }
 
   private isSectApplicationPageLoading(): boolean {
@@ -941,7 +944,7 @@ export class SectManagementSubpanel {
   }
 
   private syncSectApplicationPageVersion(summary: SectManagementSummary): void {
-    const sectId = this.resolveCurrentSectId();
+    const sectId = this.resolveCurrentSectId(summary);
     const revision = normalizeSectApplicationRevision(summary.data.applicationRevision);
     if (this.applicationSectId && sectId !== this.applicationSectId) {
       this.reset();
@@ -969,7 +972,7 @@ export class SectManagementSubpanel {
       this.p.sectManagementTab !== 'manage'
       || !summary.data.canReviewApplications
       || !this.p.onRequestSectApplicationPage
-      || !this.resolveCurrentSectId()
+      || !this.resolveCurrentSectId(summary)
     ) {
       return;
     }
@@ -987,7 +990,7 @@ export class SectManagementSubpanel {
   }
 
   private requestSectApplicationPage(summary: SectManagementSummary, offset: number): void {
-    const sectId = this.resolveCurrentSectId();
+    const sectId = this.resolveCurrentSectId(summary);
     if (!summary.data.canReviewApplications || !sectId || !this.p.onRequestSectApplicationPage) {
       return;
     }
@@ -1210,7 +1213,8 @@ export class SectManagementSubpanel {
     const domainLabel = /地域\s*([^·\s。]+)/.exec(desc)?.[1] ?? t('action.sect.manage.fallback.domain', undefined);
     const guardianStatusLabel = /大阵\s*([^·\s。]+)/.exec(desc)?.[1] ?? t('action.sect.manage.fallback.guardian-status', undefined);
     const guardianAuraLabel = /灵力\s*([^·\s。]+)/.exec(desc)?.[1] ?? t('action.sect.manage.fallback.guardian-aura', undefined);
-    const sectIdLabel = this.p.previewPlayer?.sectId ? t('action.sect.manage.summary.sect-id', { sectId: this.p.previewPlayer.sectId }) : t('action.sect.manage.summary.bound', undefined);
+    const sectId = resolveSectApplicationPageScopeSectId(data.sectId, this.p.previewPlayer?.sectId);
+    const sectIdLabel = sectId ? t('action.sect.manage.summary.sect-id', { sectId }) : t('action.sect.manage.summary.bound', undefined);
     const leaderName = data.members.find((member) => member.leader)?.name || this.p.previewPlayer?.name || this.p.previewPlayer?.displayName || t('action.sect.manage.fallback.leader', undefined);
     const realmLabel = this.p.previewPlayer?.realm?.displayName || this.p.previewPlayer?.realmName || this.p.previewPlayer?.realm?.name || t('action.sect.manage.fallback.realm', undefined);
     const memberCountLabel = String(data.members.length || 1);
