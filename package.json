@@ -41,6 +41,7 @@
     "diff:main:server": "git --no-pager diff main -- packages/server",
     "proof:release-gates": "node scripts/check-release-gates.js",
     "proof:file-size-gate": "node scripts/check-file-size-gate.js",
+    "proof:file-size-gate:contract": "node scripts/check-file-size-gate.js --contract-proof",
     "proof:craft-panel-local-patch": "node scripts/prove-craft-panel-local-patch.js",
     "proof:craft-panel-responsive-theme": "node scripts/prove-craft-panel-responsive-theme.js",
     "proof:client-s2c-consumption": "node scripts/prove-client-s2c-consumption.js",

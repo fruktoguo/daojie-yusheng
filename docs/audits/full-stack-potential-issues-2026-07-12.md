@@ -437,6 +437,15 @@
 - 修复方式：`reloadFromPersistence` 在数据库已配置但池不可用时重新创建带既有超时配置的专用池、确保表存在并完整读取账号与激活码后再替换索引；重连或重载失败时关闭池、保持 fail-closed 并向恢复协调器抛错，禁止假成功。
 - 验证：故障 smoke 在初次连接失败后再次调用 reload，确认它真实发起第二次连接且把 `ECONNREFUSED` 冒泡，而不是静默返回；`pnpm verify:quick` 通过。当前无获准真实 DB 恢复环境，因此尚不声称成功恢复后的表回读已做实库验证。
 
+### FS-042 `[x]` 文件体积门禁把新巨型文件标成错误却仍可能返回成功
+
+- 严重级别：高。
+- 根本原因：`check-file-size-gate.js` 会把所有超过 3000 行的文件加入 `errors` 并打印 `NEW - needs baseline or split`，但最终退出码只检查 `regressions`；没有 baseline 的新超限文件不属于 regression。已拆回阈值内的文件也不会让旧 baseline 失效，陈旧豁免会继续允许其重新膨胀。
+- 为什么错误：CI 的颜色与报告语义相反；“error”不阻断合并，且已偿还的技术债仍保留隐形增长额度。只要历史 regression 恰好清零，新巨型文件或旧文件重新越线都可能在门禁绿灯下进入主线。
+- 后果：体积门禁无法阻止职责重新聚合，维护者会误以为新增超限已受保护；巨型模块的冲突面、隐式副作用与验证成本继续增长。
+- 修复方式：把无 baseline 的新超限文件和不再对应超限文件的陈旧 baseline 一并纳入阻断条件；增加 `--contract-proof` 自验证，明确证明新超限与陈旧豁免都会失败。移除已降到 3000 行内的战斗 action、GM admin 和 world projector 三个陈旧 baseline，使其未来再次越线时立即按新文件阻断。
+- 验证：`pnpm proof:file-size-gate:contract` 通过；真实 `pnpm proof:file-size-gate` 仍按预期退出 1，并分别列出 17 个 baseline regression 与 6 个无 baseline 新超限文件，未再出现陈旧 baseline。
+
 ## 待进一步验证或用户决定
 
 ### D-001 `[?]` 客户端初始包同时装载 React 面板与 legacy 回退实现

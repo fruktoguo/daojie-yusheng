@@ -12,11 +12,8 @@
   "packages/client/src/ui/craft-workbench-modal.ts": 4062,
   "packages/server/src/persistence/durable-operation.service.ts": 4030,
   "packages/client/src/ui/panels/market-panel.ts": 3896,
-  "packages/server/src/http/native/native-gm-admin.service.ts": 3613,
   "packages/shared/src/api-contracts.ts": 3562,
   "packages/client/src/renderer/text.ts": 3556,
-  "packages/server/src/network/world-projector.helpers.ts": 3305,
-  "packages/server/src/runtime/world/combat/world-runtime-combat-action.service.ts": 3293,
   "packages/server/src/runtime/market/market-runtime.service.ts": 3150,
   "packages/server/src/runtime/craft/craft-panel-runtime.service.ts": 3052,
   "packages/server/src/tools/protocol-audit.ts": 3010

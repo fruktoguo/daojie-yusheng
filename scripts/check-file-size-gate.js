@@ -15,6 +15,7 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
+const assert = require('node:assert/strict');
 
 const WARN_THRESHOLD = 1500;
 const ERROR_THRESHOLD = 3000;
@@ -52,6 +53,38 @@ function loadBaseline() {
     return JSON.parse(fs.readFileSync(BASELINE_FILE, 'utf8'));
   }
   return {};
+}
+
+function resolveNewOversizedFiles(errors, baseline) {
+  return errors.filter(({ file }) => baseline[file] == null);
+}
+
+function resolveStaleBaselineFiles(errors, baseline) {
+  const oversizedFiles = new Set(errors.map(({ file }) => file));
+  return Object.keys(baseline).filter((file) => !oversizedFiles.has(file));
+}
+
+function hasBlockingViolations({ regressions, newOversized, staleBaselines }) {
+  return regressions.length > 0 || newOversized.length > 0 || staleBaselines.length > 0;
+}
+
+function runContractProof() {
+  const baseline = {
+    'legacy.ts': 3200,
+    'resolved.ts': 3100,
+  };
+  const errors = [
+    { file: 'legacy.ts', lines: 3190 },
+    { file: 'new.ts', lines: 3001 },
+  ];
+  const newOversized = resolveNewOversizedFiles(errors, baseline);
+  const staleBaselines = resolveStaleBaselineFiles(errors, baseline);
+
+  assert.deepEqual(newOversized, [{ file: 'new.ts', lines: 3001 }]);
+  assert.deepEqual(staleBaselines, ['resolved.ts']);
+  assert.equal(hasBlockingViolations({ regressions: [], newOversized, staleBaselines }), true);
+  assert.equal(hasBlockingViolations({ regressions: [], newOversized: [], staleBaselines: [] }), false);
+  console.log('file size gate contract check passed');
 }
 
 function main() {
@@ -96,11 +129,31 @@ function main() {
     }
   }
 
+  const newOversized = resolveNewOversizedFiles(errors, baseline);
+  const staleBaselines = resolveStaleBaselineFiles(errors, baseline);
+
+  if (newOversized.length > 0) {
+    console.log(`\n❌ ${newOversized.length} new file(s) exceed ${ERROR_THRESHOLD} lines without a baseline:`);
+    for (const { file, lines } of newOversized) {
+      console.log(`  ${file}: ${lines} lines`);
+    }
+  }
+
   if (regressions.length > 0) {
     console.log(`\n❌ ${regressions.length} file(s) grew beyond their baseline:`);
     for (const { file, lines, baseline: bl } of regressions) {
       console.log(`  ${file}: ${bl} → ${lines} (+${lines - bl})`);
     }
+  }
+
+  if (staleBaselines.length > 0) {
+    console.log(`\n❌ ${staleBaselines.length} stale baseline entr${staleBaselines.length === 1 ? 'y' : 'ies'} no longer point to an oversized file:`);
+    for (const file of staleBaselines) {
+      console.log(`  ${file}`);
+    }
+  }
+
+  if (hasBlockingViolations({ regressions, newOversized, staleBaselines })) {
     process.exitCode = 1;
   }
 
@@ -119,4 +172,8 @@ function main() {
   }
 }
 
-main();
+if (process.argv.includes('--contract-proof')) {
+  runContractProof();
+} else {
+  main();
+}
