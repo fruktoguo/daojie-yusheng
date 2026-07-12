@@ -10,8 +10,45 @@ import { resolveServerDatabaseUrl } from '../config/env-alias';
 import { DatabasePoolProvider } from '../persistence/database-pool.provider';
 import { DurableOperationService } from '../persistence/durable-operation.service';
 import { MailPersistenceService } from '../persistence/mail-persistence.service';
-import type { PersistedPlayerSnapshot } from '../persistence/player-persistence.service';
 import { MailRuntimeService } from '../runtime/mail/mail-runtime.service';
+import {
+  buildActiveJobCancelEnhancementRecords,
+  buildActiveJobCancelEquipmentSlots,
+  buildActiveJobCancelInventoryItems,
+  buildActiveJobCancelWalletBalances,
+  buildActiveJobCompleteEnhancementRecords,
+  buildActiveJobCompleteInventoryItems,
+  buildActiveJobCompleteWalletBalances,
+  buildActiveJobSnapshot,
+  buildActiveJobStartEnhancementRecords,
+  buildActiveJobStartInventoryItems,
+  buildActiveJobStartWalletBalances,
+  buildEquipmentSlots,
+  buildMarketBuyNowBuyerInventoryItems,
+  buildMarketBuyNowBuyerWalletBalances,
+  buildMarketBuyNowMatches,
+  buildMarketCancelSellInventoryItems,
+  buildMarketCancelWalletBalances,
+  buildMarketSellNowMatches,
+  buildMarketSellNowSellerInventoryItems,
+  buildMarketSellNowSellerWalletBalances,
+  buildNextInventoryItems,
+  buildNextSnapshot,
+  buildNextWalletBalances,
+  buildNpcShopInventoryItems,
+  buildNpcShopWalletBalances,
+  buildUnequippedEnhancedInventoryItems,
+  buildWalletMutationBalances,
+  rollbackAndThrow,
+  seedClaimFixture,
+  seedEquipmentFixture,
+  seedMarketBuyNowFixture,
+  seedMarketCancelFixture,
+  seedMarketClaimFixture,
+  seedMarketSellNowFixture,
+  seedNpcShopFixture,
+  seedPlayerWalletFixture,
+} from './durable-operation-smoke-support/fixtures';
 
 const databaseUrl = resolveServerDatabaseUrl();
 
@@ -34,6 +71,8 @@ const PLAYER_SCOPED_TABLES = [
 ] as const;
 
 async function main(): Promise<void> {
+  await assertCleanupFailureAggregation();
+
   if (!databaseUrl.trim()) {
     console.log(
       JSON.stringify(
@@ -41,8 +80,8 @@ async function main(): Promise<void> {
           ok: true,
           skipped: true,
           reason: 'SERVER_DATABASE_URL/DATABASE_URL missing',
-          answers: 'with-db 下 DurableOperationService 会校验 session fencing，并驱动 MailRuntimeService 的邮件附件领取在单事务内提交 mail/wallet/inventory/snapshot/outbox/audit/watermark',
-          excludes: '不证明真实世界 tick 入口、并发客户端冲突窗口、GM 备份恢复或多节点 outbox 消费',
+          answers: '无 DB 时验证单个清理任务失败不会阻断后续收尾且所有错误都会保留；with-db 下 DurableOperationService 会校验 session fencing，并驱动 MailRuntimeService 的邮件附件领取在单事务内提交 mail/wallet/inventory/snapshot/outbox/audit/watermark',
+          excludes: '不证明真实世界 tick 入口、并发客户端冲突窗口、GM 备份恢复或多节点 outbox 消费；当前未连接数据库，因此未实际触发资产表清理失败与 rollback 失败分支',
           completionMapping: 'release:proof:with-db.durable-operation',
         },
         null,
@@ -266,22 +305,54 @@ async function main(): Promise<void> {
       },
     } as any,
   );
-
-  await service.onModuleInit();
-  await leaseAwareService.onModuleInit();
-  await mailPersistence.onModuleInit();
-  contentTemplateRepository.onModuleInit();
-  if (!service.isEnabled()) {
-    throw new Error('durable-operation service not enabled');
-  }
-  if (!leaseAwareService.isEnabled()) {
-    throw new Error('lease-aware durable-operation service not enabled');
-  }
-  if (!mailPersistence.isEnabled()) {
-    throw new Error('mail-persistence service not enabled');
-  }
+  const testPlayerIds = [
+    playerId,
+    runtimePlayerId,
+    marketPlayerId,
+    marketSellPlayerId,
+    marketSellBuyerId,
+    marketBuyPlayerId,
+    marketBuySellerId,
+    marketCancelPlayerId,
+    shopPlayerId,
+    walletPlayerId,
+    equipPlayerId,
+    activeJobStartPlayerId,
+    activeJobCancelPlayerId,
+    activeJobPlayerId,
+    activeJobCompletePlayerId,
+    activeJobAdvancePlayerId,
+  ];
+  const testInstanceIds = [
+    `instance:${marketPlayerId}:lease`,
+    leasedMarketSellInstanceId,
+    leasedMarketBuyInstanceId,
+    leasedMarketCancelInstanceId,
+    leasedActiveJobCancelInstanceId,
+    leasedActiveJobCompleteInstanceId,
+    `instance:${shopPlayerId}:lease`,
+    runtimeLeaseInstanceId,
+  ];
+  let runFailed = false;
+  let runError: unknown;
+  let successPayload: Record<string, unknown> | null = null;
+  const cleanupErrors: Error[] = [];
 
   try {
+    await service.onModuleInit();
+    await leaseAwareService.onModuleInit();
+    await mailPersistence.onModuleInit();
+    contentTemplateRepository.onModuleInit();
+    if (!service.isEnabled()) {
+      throw new Error('durable-operation service not enabled');
+    }
+    if (!leaseAwareService.isEnabled()) {
+      throw new Error('lease-aware durable-operation service not enabled');
+    }
+    if (!mailPersistence.isEnabled()) {
+      throw new Error('mail-persistence service not enabled');
+    }
+
     await cleanupPlayer(pool, playerId);
     await cleanupPlayer(pool, runtimePlayerId);
     await cleanupPlayer(pool, marketPlayerId);
@@ -3327,1011 +3398,135 @@ async function main(): Promise<void> {
       throw new Error(`unexpected active-job watermark row: ${JSON.stringify(activeJobWatermarkRow)}`);
     }
 
-    console.log(
-      JSON.stringify(
-        {
-          ok: true,
-          playerId,
-          runtimePlayerId,
-          answers: 'with-db 下已验证 DurableOperationService 的 runtime_owner_id + session_epoch fencing，以及 mail/market-storage/market-sell-now/market-buy-now/market-cancel/npc-shop/wallet/equipment/active-job-start/active-job-cancel/active-job-complete/active-job-advance/active-job-update 十三条强事务链的幂等回放与拒绝回滚；active-job-advance 额外覆盖 profession 同事务回读、重放身份、失败回滚、跨 owner 拒绝和资产 no-op 不改写，MailRuntimeService 真实领取入口也会走 durable claim 主链并刷新结构化邮箱真源',
-          excludes: '不证明真实客户端并发窗口、tick 编排内 mutation intent、GM restore、批量投递或 outbox dispatcher 消费',
-          completionMapping: 'release:proof:with-db.durable-operation',
-          firstResult,
-          secondResult,
-          runtimeResult,
-          marketOperationResult,
-          marketSellResult,
-          marketBuyResult,
-          marketCancelResult,
-          shopOperationResult,
-          walletMutationResult,
-          equipOperationResult,
-          activeJobStartResult,
-          activeJobCancelResult,
-          activeJobCompleteResult,
-          activeJobAdvanceResult,
-          activeJobUpdateResult,
-          activeJobReplaceResult,
-          outboxCount: outboxRows.length,
-          auditCount: auditRows.length,
-        },
-        null,
-        2,
-      ),
-    );
-  } finally {
-    await cleanupInstanceCatalog(pool, [
-      `instance:${marketPlayerId}:lease`,
-      leasedMarketSellInstanceId,
-      leasedMarketBuyInstanceId,
-      leasedMarketCancelInstanceId,
-      leasedActiveJobCancelInstanceId,
-      leasedActiveJobCompleteInstanceId,
-      `instance:${shopPlayerId}:lease`,
-      runtimeLeaseInstanceId,
-    ]).catch(() => undefined);
-    await cleanupPlayer(pool, playerId).catch(() => undefined);
-    await cleanupPlayer(pool, runtimePlayerId).catch(() => undefined);
-    await cleanupPlayer(pool, marketPlayerId).catch(() => undefined);
-    await cleanupPlayer(pool, marketSellPlayerId).catch(() => undefined);
-    await cleanupPlayer(pool, marketSellBuyerId).catch(() => undefined);
-    await cleanupPlayer(pool, marketBuyPlayerId).catch(() => undefined);
-    await cleanupPlayer(pool, marketBuySellerId).catch(() => undefined);
-    await cleanupPlayer(pool, marketCancelPlayerId).catch(() => undefined);
-    await cleanupPlayer(pool, shopPlayerId).catch(() => undefined);
-    await cleanupPlayer(pool, walletPlayerId).catch(() => undefined);
-    await cleanupPlayer(pool, equipPlayerId).catch(() => undefined);
-    await cleanupPlayer(pool, activeJobStartPlayerId).catch(() => undefined);
-    await cleanupPlayer(pool, activeJobCancelPlayerId).catch(() => undefined);
-    await cleanupPlayer(pool, activeJobPlayerId).catch(() => undefined);
-    await cleanupPlayer(pool, activeJobCompletePlayerId).catch(() => undefined);
-    await cleanupPlayer(pool, activeJobAdvancePlayerId).catch(() => undefined);
-    await pool.end().catch(() => undefined);
-    await mailPersistence.onModuleDestroy().catch(() => undefined);
-    await leaseAwareService.onModuleDestroy().catch(() => undefined);
-    await service.onModuleDestroy().catch(() => undefined);
-    await databasePoolProvider.onModuleDestroy().catch(() => undefined);
-  }
-}
-
-async function seedClaimFixture(
-  pool: Pool,
-  input: {
-    playerId: string;
-    runtimeOwnerId: string;
-    sessionEpoch: number;
-    mailId: string;
-    attachmentId: string;
-    now: number;
-  },
-): Promise<void> {
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-    await client.query(
-      `
-        INSERT INTO player_presence(
-          player_id,
-          online,
-          in_world,
-          last_heartbeat_at,
-          runtime_owner_id,
-          session_epoch,
-          updated_at
-        )
-        VALUES ($1, $2, $3, $4, $5, $6, now())
-      `,
-      [input.playerId, true, true, input.now, input.runtimeOwnerId, input.sessionEpoch],
-    );
-    await client.query(
-      `
-        INSERT INTO player_mail(
-          mail_id,
-          player_id,
-          sender_type,
-          sender_label,
-          mail_type,
-          title,
-          body,
-          metadata_jsonb,
-          mail_version,
-          created_at,
-          updated_at
-        )
-        VALUES ($1, $2, 'system', 'system', 'system', $3, $4, '{}'::jsonb, 1, $5, now())
-      `,
-      [input.mailId, input.playerId, 'durable smoke', 'durable smoke body', input.now],
-    );
-    await client.query(
-      `
-        INSERT INTO player_mail_attachment(
-          attachment_id,
-          mail_id,
-          player_id,
-          attachment_kind,
-          item_id,
-          count,
-          item_payload_jsonb,
-          created_at
-        )
-        VALUES ($1, $2, $3, 'item', 'spirit_stone', 1, $4::jsonb, now())
-      `,
-      [input.attachmentId, input.mailId, input.playerId, JSON.stringify({ itemId: 'spirit_stone', count: 1 })],
-    );
-    await client.query(
-      `
-        INSERT INTO server_player_snapshot(
-          player_id,
-          template_id,
-          instance_id,
-          persisted_source,
-          saved_at,
-          updated_at,
-          payload
-        )
-        VALUES ($1, 'yunlai_town', 'public:yunlai_town', 'native', $2, now(), $3::jsonb)
-      `,
-      [input.playerId, input.now, JSON.stringify(buildNextSnapshot(input.now))],
-    );
-    await client.query('COMMIT');
+    successPayload = {
+      ok: true,
+      playerId,
+      runtimePlayerId,
+      answers: 'with-db 下已验证 DurableOperationService 的 runtime_owner_id + session_epoch fencing，以及 mail/market-storage/market-sell-now/market-buy-now/market-cancel/npc-shop/wallet/equipment/active-job-start/active-job-cancel/active-job-complete/active-job-advance/active-job-update 十三条强事务链的幂等回放与拒绝回滚；active-job-advance 额外覆盖 profession 同事务回读、重放身份、失败回滚、跨 owner 拒绝和资产 no-op 不改写，MailRuntimeService 真实领取入口也会走 durable claim 主链并刷新结构化邮箱真源',
+      excludes: '不证明真实客户端并发窗口、tick 编排内 mutation intent、GM restore、批量投递或 outbox dispatcher 消费',
+      completionMapping: 'release:proof:with-db.durable-operation',
+      firstResult,
+      secondResult,
+      runtimeResult,
+      marketOperationResult,
+      marketSellResult,
+      marketBuyResult,
+      marketCancelResult,
+      shopOperationResult,
+      walletMutationResult,
+      equipOperationResult,
+      activeJobStartResult,
+      activeJobCancelResult,
+      activeJobCompleteResult,
+      activeJobAdvanceResult,
+      activeJobUpdateResult,
+      activeJobReplaceResult,
+      outboxCount: outboxRows.length,
+      auditCount: auditRows.length,
+    };
   } catch (error) {
-    await client.query('ROLLBACK').catch(() => undefined);
-    throw error;
+    runFailed = true;
+    runError = error;
   } finally {
-    client.release();
+    cleanupErrors.push(...await collectCleanupErrors([
+      {
+        label: '测试实例目录清理',
+        run: () => cleanupInstanceCatalog(pool, testInstanceIds),
+      },
+      ...testPlayerIds.map((testPlayerId) => ({
+        label: `测试玩家清理 playerId=${testPlayerId}`,
+        run: () => cleanupPlayer(pool, testPlayerId),
+      })),
+      {
+        label: 'smoke 独立数据库连接池关闭',
+        run: () => pool.end(),
+      },
+      {
+        label: 'MailPersistenceService 关闭',
+        run: () => mailPersistence.onModuleDestroy(),
+      },
+      {
+        label: 'lease-aware DurableOperationService 关闭',
+        run: () => leaseAwareService.onModuleDestroy(),
+      },
+      {
+        label: 'DurableOperationService 关闭',
+        run: () => service.onModuleDestroy(),
+      },
+      {
+        label: 'DatabasePoolProvider 关闭',
+        run: () => databasePoolProvider.onModuleDestroy(),
+      },
+    ]));
   }
-}
 
-async function seedMarketClaimFixture(
-  pool: Pool,
-  input: {
-    playerId: string;
-    runtimeOwnerId: string;
-    sessionEpoch: number;
-    now: number;
-  },
-): Promise<void> {
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-    await client.query(
-      `
-        INSERT INTO player_presence(
-          player_id,
-          online,
-          in_world,
-          last_heartbeat_at,
-          runtime_owner_id,
-          session_epoch,
-          updated_at
-        )
-        VALUES ($1, $2, $3, $4, $5, $6, now())
-      `,
-      [input.playerId, true, true, input.now, input.runtimeOwnerId, input.sessionEpoch],
+  if (runFailed || cleanupErrors.length > 0) {
+    throw new AggregateError(
+      runFailed ? [runError, ...cleanupErrors] : cleanupErrors,
+      runFailed
+        ? 'durable-operation smoke 执行失败'
+        : 'durable-operation smoke 清理失败',
     );
-    await client.query(
-      `
-        INSERT INTO player_inventory_item(
-          item_instance_id,
-          player_id,
-          slot_index,
-          item_id,
-          count,
-          raw_payload,
-          updated_at
-        )
-        VALUES ($1, $2, 0, 'spirit_stone', 2, $3::jsonb, now())
-      `,
-      [
-        `inventory:${input.playerId}:0`,
-        input.playerId,
-        JSON.stringify({ itemId: 'spirit_stone', count: 2 }),
-      ],
-    );
-    await client.query(
-      `
-        INSERT INTO player_market_storage_item(
-          storage_item_id,
-          player_id,
-          slot_index,
-          item_id,
-          count,
-          enhance_level,
-          raw_payload,
-          updated_at
-        )
-        VALUES
-          ($1, $2, 0, 'spirit_stone', 7, NULL, $3::jsonb, now()),
-          ($4, $2, 1, 'moon_herb', 4, NULL, $5::jsonb, now())
-      `,
-      [
-        `storage:${input.playerId}:0`,
-        input.playerId,
-        JSON.stringify({ itemId: 'spirit_stone', count: 7 }),
-        `storage:${input.playerId}:1`,
-        JSON.stringify({ itemId: 'moon_herb', count: 4 }),
-      ],
-    );
-    await client.query('COMMIT');
-  } catch (error) {
-    await client.query('ROLLBACK').catch(() => undefined);
-    throw error;
-  } finally {
-    client.release();
   }
-}
-
-async function seedNpcShopFixture(
-  pool: Pool,
-  input: {
-    playerId: string;
-    runtimeOwnerId: string;
-    sessionEpoch: number;
-    now: number;
-  },
-): Promise<void> {
-  return seedNpcShopFixtureImpl(pool, input);
-}
-
-async function seedPlayerWalletFixture(
-  pool: Pool,
-  input: {
-    playerId: string;
-    runtimeOwnerId: string;
-    sessionEpoch: number;
-    now: number;
-    walletBalance: number;
-  },
-): Promise<void> {
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-    await client.query(
-      `
-        INSERT INTO player_presence(
-          player_id,
-          online,
-          in_world,
-          last_heartbeat_at,
-          runtime_owner_id,
-          session_epoch,
-          updated_at
-        )
-        VALUES ($1, $2, $3, $4, $5, $6, now())
-      `,
-      [input.playerId, true, true, input.now, input.runtimeOwnerId, input.sessionEpoch],
-    );
-    await client.query(
-      `
-        INSERT INTO player_wallet(
-          player_id,
-          wallet_type,
-          balance,
-          frozen_balance,
-          version,
-          updated_at
-        )
-        VALUES ($1, 'spirit_stone', $2, 0, 1, now())
-      `,
-      [input.playerId, Math.max(0, Math.trunc(Number(input.walletBalance ?? 0)))],
-    );
-    await client.query('COMMIT');
-  } catch (error) {
-    await client.query('ROLLBACK').catch(() => undefined);
-    throw error;
-  } finally {
-    client.release();
+  if (successPayload === null) {
+    throw new Error('durable-operation smoke 未生成成功结果');
   }
+  console.log(JSON.stringify(successPayload, null, 2));
 }
 
-function buildNpcShopInventoryItems() {
-  return buildNpcShopInventoryItemsImpl();
-}
+type CleanupTask = {
+  label: string;
+  run: () => Promise<unknown>;
+};
 
-function buildNpcShopWalletBalances() {
-  return buildNpcShopWalletBalancesImpl();
-}
-
-function buildWalletMutationBalances(balance: number) {
-  return [
-    {
-      walletType: 'spirit_stone',
-      balance: Math.max(0, Math.trunc(Number(balance ?? 0))),
-      frozenBalance: 0,
-      version: 2,
-    },
-  ];
-}
-
-async function seedMarketBuyNowFixture(
-  pool: Pool,
-  input: {
-    buyerId: string;
-    buyerRuntimeOwnerId: string;
-    buyerSessionEpoch: number;
-    sellerId: string;
-    now: number;
-  },
-): Promise<void> {
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-    await client.query(
-      `
-        INSERT INTO player_presence(
-          player_id,
-          online,
-          in_world,
-          last_heartbeat_at,
-          runtime_owner_id,
-          session_epoch,
-          updated_at
-        )
-        VALUES ($1, $2, $3, $4, $5, $6, now())
-      `,
-      [input.buyerId, true, true, input.now, input.buyerRuntimeOwnerId, input.buyerSessionEpoch],
-    );
-    await client.query(
-      `
-        INSERT INTO player_wallet(
-          player_id,
-          wallet_type,
-          balance,
-          frozen_balance,
-          version,
-          updated_at
-        )
-        VALUES
-          ($1, 'spirit_stone', 20, 0, 1, now()),
-          ($2, 'spirit_stone', 3, 0, 1, now())
-      `,
-      [input.buyerId, input.sellerId],
-    );
-    await client.query(
-      `
-        INSERT INTO player_inventory_item(
-          item_instance_id,
-          item_id,
-          player_id,
-          slot_index,
-          count,
-          raw_payload,
-          updated_at
-        )
-        VALUES ($1, 'rat_tail', $2, 0, 4, $3::jsonb, now())
-      `,
-      [
-        `inventory:${input.sellerId}:0`,
-        input.sellerId,
-        JSON.stringify({
-          itemId: 'rat_tail',
-          itemInstanceId: `inventory:${input.sellerId}:0`,
-          count: 4,
-        }),
-      ],
-    );
-    await client.query('COMMIT');
-  } catch (error) {
-    await client.query('ROLLBACK').catch(() => undefined);
-    throw error;
-  } finally {
-    client.release();
+async function collectCleanupErrors(tasks: CleanupTask[]): Promise<Error[]> {
+  const errors: Error[] = [];
+  for (const task of tasks) {
+    try {
+      await task.run();
+    } catch (error) {
+      errors.push(new Error(
+        `${task.label}失败：${error instanceof Error ? error.message : String(error)}`,
+      ));
+    }
   }
+  return errors;
 }
 
-async function seedMarketSellNowFixture(
-  pool: Pool,
-  input: {
-    sellerId: string;
-    sellerRuntimeOwnerId: string;
-    sellerSessionEpoch: number;
-    buyerId: string;
-    now: number;
-  },
-): Promise<void> {
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-    await client.query(
-      `
-        INSERT INTO player_presence(
-          player_id,
-          online,
-          in_world,
-          last_heartbeat_at,
-          runtime_owner_id,
-          session_epoch,
-          updated_at
-        )
-        VALUES ($1, $2, $3, $4, $5, $6, now())
-      `,
-      [input.sellerId, true, true, input.now, input.sellerRuntimeOwnerId, input.sellerSessionEpoch],
+async function assertCleanupFailureAggregation(): Promise<void> {
+  const completedLabels: string[] = [];
+  const errors = await collectCleanupErrors([
+    {
+      label: '第一个清理任务',
+      run: async () => {
+        completedLabels.push('first');
+        throw new Error('first_cleanup_failed');
+      },
+    },
+    {
+      label: '中间清理任务',
+      run: async () => {
+        completedLabels.push('middle');
+      },
+    },
+    {
+      label: '最后一个清理任务',
+      run: async () => {
+        completedLabels.push('last');
+        throw new Error('last_cleanup_failed');
+      },
+    },
+  ]);
+  if (
+    completedLabels.join(',') !== 'first,middle,last'
+    || errors.length !== 2
+    || !errors[0]?.message.includes('第一个清理任务失败：first_cleanup_failed')
+    || !errors[1]?.message.includes('最后一个清理任务失败：last_cleanup_failed')
+  ) {
+    throw new Error(
+      `cleanup aggregation contract failed: completed=${completedLabels.join(',')} errors=${errors.map((error) => error.message).join('|')}`,
     );
-    await client.query(
-      `
-        INSERT INTO player_wallet(
-          player_id,
-          wallet_type,
-          balance,
-          frozen_balance,
-          version,
-          updated_at
-        )
-        VALUES ($1, 'spirit_stone', 3, 0, 1, now())
-      `,
-      [input.sellerId],
-    );
-    await client.query(
-      `
-        INSERT INTO player_inventory_item(
-          item_instance_id,
-          item_id,
-          player_id,
-          slot_index,
-          count,
-          raw_payload,
-          updated_at
-        )
-        VALUES ($1, 'rat_tail', $2, 0, 4, $3::jsonb, now())
-      `,
-      [
-        `inventory:${input.sellerId}:0`,
-        input.sellerId,
-        JSON.stringify({
-          itemId: 'rat_tail',
-          itemInstanceId: `inventory:${input.sellerId}:0`,
-          count: 4,
-        }),
-      ],
-    );
-    await client.query(
-      `
-        INSERT INTO player_wallet(
-          player_id,
-          wallet_type,
-          balance,
-          frozen_balance,
-          version,
-          updated_at
-        )
-        VALUES ($1, 'spirit_stone', 0, 0, 1, now())
-        ON CONFLICT (player_id, wallet_type) DO NOTHING
-      `,
-      [input.buyerId],
-    );
-    await client.query('COMMIT');
-  } catch (error) {
-    await client.query('ROLLBACK').catch(() => undefined);
-    throw error;
-  } finally {
-    client.release();
   }
-}
-
-function buildMarketSellNowSellerInventoryItems() {
-  return [
-    {
-      itemId: 'rat_tail',
-      count: 2,
-      rawPayload: {
-        itemId: 'rat_tail',
-        count: 2,
-      },
-    },
-  ];
-}
-
-function buildMarketSellNowSellerWalletBalances() {
-  return [
-    {
-      walletType: 'spirit_stone',
-      balance: 9,
-      frozenBalance: 0,
-      version: 2,
-    },
-  ];
-}
-
-function buildMarketSellNowMatches(buyerId: string) {
-  return [
-    {
-      buyerId,
-      tradeQuantity: 2,
-      totalCost: 6,
-      nextBuyerInventoryItems: [
-        {
-          itemId: 'rat_tail',
-          count: 2,
-          rawPayload: {
-            itemId: 'rat_tail',
-            count: 2,
-          },
-        },
-      ],
-    },
-  ];
-}
-
-function buildMarketBuyNowBuyerInventoryItems() {
-  return [
-    {
-      itemId: 'rat_tail',
-      count: 2,
-      rawPayload: {
-        itemId: 'rat_tail',
-        count: 2,
-      },
-    },
-  ];
-}
-
-function buildMarketBuyNowBuyerWalletBalances() {
-  return [
-    {
-      walletType: 'spirit_stone',
-      balance: 14,
-      frozenBalance: 0,
-      version: 2,
-    },
-  ];
-}
-
-function buildMarketBuyNowMatches(sellerId: string) {
-  return [
-    {
-      sellerId,
-      tradeQuantity: 2,
-      totalCost: 6,
-      nextSellerInventoryItems: [
-        {
-          itemId: 'rat_tail',
-          count: 2,
-          rawPayload: {
-            itemId: 'rat_tail',
-            count: 2,
-          },
-        },
-      ],
-      nextSellerWalletBalances: [
-        {
-          walletType: 'spirit_stone',
-          balance: 9,
-          frozenBalance: 0,
-          version: 2,
-        },
-      ],
-    },
-  ];
-}
-
-async function seedMarketCancelFixture(
-  pool: Pool,
-  input: {
-    playerId: string;
-    runtimeOwnerId: string;
-    sessionEpoch: number;
-    now: number;
-  },
-): Promise<void> {
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-    await client.query(
-      `
-        INSERT INTO player_presence(
-          player_id,
-          online,
-          in_world,
-          last_heartbeat_at,
-          runtime_owner_id,
-          session_epoch,
-          updated_at
-        )
-        VALUES ($1, $2, $3, $4, $5, $6, now())
-      `,
-      [input.playerId, true, true, input.now, input.runtimeOwnerId, input.sessionEpoch],
-    );
-    await client.query(
-      `
-        INSERT INTO player_wallet(
-          player_id,
-          wallet_type,
-          balance,
-          frozen_balance,
-          version,
-          updated_at
-        )
-        VALUES ($1, 'spirit_stone', 5, 0, 1, now())
-      `,
-      [input.playerId],
-    );
-    await client.query('COMMIT');
-  } catch (error) {
-    await client.query('ROLLBACK').catch(() => undefined);
-    throw error;
-  } finally {
-    client.release();
-  }
-}
-
-function buildMarketCancelSellInventoryItems() {
-  return [
-    {
-      itemId: 'rat_tail',
-      count: 2,
-      rawPayload: {
-        itemId: 'rat_tail',
-        count: 2,
-      },
-    },
-  ];
-}
-
-function buildMarketCancelWalletBalances() {
-  return [
-    {
-      walletType: 'spirit_stone',
-      balance: 5,
-      frozenBalance: 0,
-      version: 1,
-    },
-  ];
-}
-
-async function seedNpcShopFixtureImpl(
-  pool: Pool,
-  input: {
-    playerId: string;
-    runtimeOwnerId: string;
-    sessionEpoch: number;
-    now: number;
-  },
-): Promise<void> {
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-    await client.query(
-      `
-        INSERT INTO player_presence(
-          player_id,
-          online,
-          in_world,
-          last_heartbeat_at,
-          runtime_owner_id,
-          session_epoch,
-          updated_at
-        )
-        VALUES ($1, $2, $3, $4, $5, $6, now())
-      `,
-      [input.playerId, true, true, input.now, input.runtimeOwnerId, input.sessionEpoch],
-    );
-    await client.query(
-      `
-        INSERT INTO player_wallet(
-          player_id,
-          wallet_type,
-          balance,
-          frozen_balance,
-          version,
-          updated_at
-        )
-        VALUES ($1, 'spirit_stone', 20, 0, 1, now())
-      `,
-      [input.playerId],
-    );
-    await client.query(
-      `
-        INSERT INTO player_inventory_item(
-          item_instance_id,
-          player_id,
-          slot_index,
-          item_id,
-          count,
-          raw_payload,
-          locked_by,
-          updated_at
-        )
-        VALUES ($1, $2, 0, 'spirit_stone', 20, '{}'::jsonb, NULL, now())
-      `,
-      [`inv:${input.playerId}:0`, input.playerId],
-    );
-    await client.query('COMMIT');
-  } catch (error) {
-    await client.query('ROLLBACK').catch(() => undefined);
-    throw error;
-  } finally {
-    client.release();
-  }
-}
-
-function buildNextInventoryItems() {
-  return [];
-}
-
-function buildNextWalletBalances() {
-  return [
-    {
-      walletType: 'spirit_stone',
-      balance: 1,
-      frozenBalance: 0,
-      version: 1,
-    },
-  ];
-}
-
-function buildNpcShopInventoryItemsImpl() {
-  return [
-    {
-      itemId: 'spirit_stone',
-      itemInstanceId: 'inv:legacy-shop-player:0',
-      count: 10,
-      rawPayload: {
-        itemId: 'spirit_stone',
-        count: 10,
-      },
-    },
-    {
-      itemId: 'qi_pill',
-      itemInstanceId: 'inv:legacy-shop-player:1',
-      count: 2,
-      rawPayload: {
-        itemId: 'qi_pill',
-        count: 2,
-      },
-    },
-  ];
-}
-
-function buildNpcShopWalletBalancesImpl() {
-  return [
-    {
-      walletType: 'spirit_stone',
-      balance: 10,
-      frozenBalance: 0,
-      version: 2,
-    },
-  ];
-}
-
-function buildActiveJobStartInventoryItems() {
-  return [
-    {
-      itemId: 'moon_grass',
-      count: 1,
-      rawPayload: {
-        itemId: 'moon_grass',
-        count: 1,
-      },
-    },
-  ];
-}
-
-function buildActiveJobStartWalletBalances() {
-  return [
-    {
-      walletType: 'spirit_stone',
-      balance: 6,
-      frozenBalance: 0,
-      version: 2,
-    },
-  ];
-}
-
-function buildActiveJobStartEnhancementRecords() {
-  return [
-    {
-      itemId: 'iron_sword',
-      highestLevel: 1,
-      levels: [],
-      actionStartedAt: 100,
-      actionEndedAt: null,
-      startLevel: 1,
-      initialTargetLevel: 2,
-      desiredTargetLevel: 2,
-      protectionStartLevel: null,
-      status: 'running',
-    },
-  ];
-}
-
-function buildActiveJobCancelInventoryItems() {
-  return [
-    {
-      itemId: 'moon_grass',
-      count: 4,
-      rawPayload: {
-        itemId: 'moon_grass',
-        count: 4,
-      },
-    },
-  ];
-}
-
-function buildActiveJobCancelWalletBalances() {
-  return [
-    {
-      walletType: 'spirit_stone',
-      balance: 2,
-      frozenBalance: 0,
-      version: 2,
-    },
-  ];
-}
-
-function buildActiveJobCancelEnhancementRecords() {
-  return [
-    {
-      itemId: 'iron_sword',
-      highestLevel: 2,
-      levels: [{ level: 2, success: true }],
-      actionStartedAt: 100,
-      actionEndedAt: 160,
-      startLevel: 1,
-      initialTargetLevel: 3,
-      desiredTargetLevel: 3,
-      protectionStartLevel: null,
-      status: 'cancelled',
-    },
-  ];
-}
-
-function buildActiveJobCancelEquipmentSlots() {
-  return [
-    {
-      slot: 'weapon',
-      item: {
-        itemId: 'iron_sword',
-        name: '铁剑',
-        count: 1,
-        type: 'equipment',
-        level: 8,
-        enhanceLevel: 1,
-      },
-    },
-    {
-      slot: 'body',
-      item: null,
-    },
-  ];
-}
-
-function buildActiveJobCompleteInventoryItems() {
-  return [
-    {
-      itemId: 'qi_pill',
-      count: 1,
-      rawPayload: {
-        itemId: 'qi_pill',
-        count: 1,
-      },
-    },
-  ];
-}
-
-function buildActiveJobCompleteWalletBalances() {
-  return [
-    {
-      walletType: 'spirit_stone',
-      balance: 6,
-      frozenBalance: 0,
-      version: 2,
-    },
-  ];
-}
-
-function buildActiveJobCompleteEnhancementRecords() {
-  return [
-    {
-      itemId: 'iron_sword',
-      highestLevel: 3,
-      levels: [{ level: 3, success: true }],
-      actionStartedAt: 100,
-      actionEndedAt: 180,
-      startLevel: 2,
-      initialTargetLevel: 3,
-      desiredTargetLevel: 3,
-      protectionStartLevel: null,
-      status: 'completed',
-    },
-  ];
-}
-
-async function seedEquipmentFixture(
-  pool: Pool,
-  input: {
-    playerId: string;
-    runtimeOwnerId: string;
-    sessionEpoch: number;
-    now: number;
-  },
-): Promise<void> {
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-    await client.query(
-      `
-        INSERT INTO player_presence(
-          player_id,
-          online,
-          in_world,
-          last_heartbeat_at,
-          runtime_owner_id,
-          session_epoch,
-          updated_at
-        )
-        VALUES ($1, $2, $3, $4, $5, $6, now())
-      `,
-      [input.playerId, true, true, input.now, input.runtimeOwnerId, input.sessionEpoch],
-    );
-    await client.query(
-      `
-        INSERT INTO player_inventory_item(
-          item_instance_id,
-          item_id,
-          player_id,
-          slot_index,
-          count,
-          raw_payload,
-          updated_at
-        )
-        VALUES ($1, $2, $3, 0, 1, $4::jsonb, now())
-      `,
-      [
-        `inventory:${input.playerId}:0`,
-        'iron_sword',
-        input.playerId,
-        JSON.stringify({
-          itemId: 'iron_sword',
-          itemInstanceId: `inventory:${input.playerId}:0`,
-          count: 1,
-          slot: 'weapon',
-        }),
-      ],
-    );
-    await client.query('COMMIT');
-  } catch (error) {
-    await client.query('ROLLBACK').catch(() => undefined);
-    throw error;
-  } finally {
-    client.release();
-  }
-}
-
-function buildEquipmentSlots(playerId: string) {
-  const itemInstanceId = `inventory:${playerId}:0`;
-  return [
-    {
-      slot: 'weapon',
-      itemInstanceId,
-      item: {
-        itemId: 'iron_sword',
-        itemInstanceId,
-        count: 1,
-        slot: 'weapon',
-        enhanceLevel: 4,
-      },
-    },
-  ];
-}
-
-function buildUnequippedEnhancedInventoryItems(playerId: string) {
-  const itemInstanceId = `inventory:${playerId}:0`;
-  return [
-    {
-      itemId: 'iron_sword',
-      itemInstanceId,
-      count: 1,
-      slot: 'weapon',
-      enhanceLevel: 4,
-      rawPayload: {
-        itemId: 'iron_sword',
-        itemInstanceId,
-        count: 1,
-        slot: 'weapon',
-        enhanceLevel: 4,
-      },
-    },
-  ];
 }
 
 async function verifyActiveJobAdvanceProfessionAndNoopWrites(
@@ -4778,8 +3973,7 @@ async function seedActiveJobFixture(
     );
     await client.query('COMMIT');
   } catch (error) {
-    await client.query('ROLLBACK').catch(() => undefined);
-    throw error;
+    await rollbackAndThrow(client, error);
   } finally {
     client.release();
   }
@@ -4853,8 +4047,7 @@ async function seedActiveJobStartFixture(
     );
     await client.query('COMMIT');
   } catch (error) {
-    await client.query('ROLLBACK').catch(() => undefined);
-    throw error;
+    await rollbackAndThrow(client, error);
   } finally {
     client.release();
   }
@@ -4937,8 +4130,7 @@ async function seedActiveJobCancelFixture(
     );
     await client.query('COMMIT');
   } catch (error) {
-    await client.query('ROLLBACK').catch(() => undefined);
-    throw error;
+    await rollbackAndThrow(client, error);
   } finally {
     client.release();
   }
@@ -5022,134 +4214,12 @@ async function seedActiveJobCompleteFixture(
     );
     await client.query('COMMIT');
   } catch (error) {
-    await client.query('ROLLBACK').catch(() => undefined);
-    throw error;
+    await rollbackAndThrow(client, error);
   } finally {
     client.release();
   }
 }
 
-function buildActiveJobSnapshot(
-  playerId: string,
-  options: {
-    jobRunId: string;
-    jobType: 'alchemy' | 'enhancement';
-    jobVersion: number;
-    phase: string;
-    remainingTicks: number;
-  },
-) {
-  return {
-    jobRunId: options.jobRunId,
-    jobType: options.jobType,
-    status: options.remainingTicks > 0 ? 'running' : 'completed',
-    phase: options.phase,
-    startedAt: Date.now(),
-    finishedAt: options.remainingTicks > 0 ? null : Date.now(),
-    pausedTicks: options.phase === 'paused' ? 2 : 0,
-    totalTicks: 12,
-    remainingTicks: options.remainingTicks,
-    successRate: options.jobType === 'alchemy' ? 0.9 : 0.75,
-    speedRate: options.jobType === 'alchemy' ? 1.1 : 1.2,
-    jobVersion: options.jobVersion,
-    detailJson: {
-      playerId,
-      jobRunId: options.jobRunId,
-      jobType: options.jobType,
-      jobVersion: options.jobVersion,
-      phase: options.phase,
-      remainingTicks: options.remainingTicks,
-      status: options.remainingTicks > 0 ? 'running' : 'completed',
-    },
-  };
-}
-
-function buildNextSnapshot(now: number, instanceId = 'public:yunlai_town'): PersistedPlayerSnapshot {
-  return {
-    version: 1,
-    savedAt: now + 1,
-    placement: {
-      instanceId,
-      templateId: 'yunlai_town',
-      x: 31,
-      y: 54,
-      facing: 1,
-    },
-    worldPreference: {
-      linePreset: 'peaceful',
-    },
-    vitals: {
-      hp: 100,
-      maxHp: 100,
-      qi: 0,
-      maxQi: 100,
-    },
-    progression: {
-      foundation: 0,
-      combatExp: 0,
-      bodyTraining: null,
-      alchemySkill: null,
-      gatherSkill: null,
-      gatherJob: null,
-      alchemyPresets: [],
-      alchemyJob: null,
-      enhancementSkill: null,
-      enhancementSkillLevel: 1,
-      enhancementJob: null,
-      enhancementRecords: [],
-      boneAgeBaseYears: 18,
-      lifeElapsedTicks: 0,
-      lifespanYears: null,
-      realm: null,
-      heavenGate: null,
-      spiritualRoots: null,
-    },
-    unlockedMapIds: ['yunlai_town'],
-    inventory: {
-      revision: 2,
-      capacity: 24,
-      items: [],
-    },
-    wallet: {
-      balances: buildNextWalletBalances(),
-    },
-    equipment: {
-      revision: 1,
-      slots: [],
-    },
-    artifacts: {
-      revision: 0,
-      slots: [],
-    },
-    techniques: {
-      revision: 1,
-      techniques: [],
-      cultivatingTechId: null,
-    },
-    buffs: {
-      revision: 1,
-      buffs: [],
-    },
-    quests: {
-      revision: 1,
-      entries: [],
-    },
-    combat: {
-      autoBattle: false,
-      autoRetaliate: true,
-      autoBattleStationary: false,
-      combatTargetId: null,
-      combatTargetLocked: false,
-      allowAoePlayerHit: false,
-      autoIdleCultivation: true,
-      autoSwitchCultivation: false,
-      senseQiActive: false,
-      autoBattleSkills: [],
-    },
-    pendingLogbookMessages: [],
-    runtimeBonuses: [],
-  };
-}
 
 async function cleanupPlayer(pool: Pool, playerId: string): Promise<void> {
   const client = await pool.connect();
@@ -5163,8 +4233,7 @@ async function cleanupPlayer(pool: Pool, playerId: string): Promise<void> {
     }
     await client.query('COMMIT');
   } catch (error) {
-    await client.query('ROLLBACK').catch(() => undefined);
-    throw error;
+    await rollbackAndThrow(client, error);
   } finally {
     client.release();
   }
