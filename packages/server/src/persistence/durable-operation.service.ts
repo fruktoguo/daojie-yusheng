@@ -34,6 +34,11 @@ import {
   persistDurableFormationWriteWithClient,
   type DurableSectFormationWrite,
 } from './sect-durable-persistence';
+import {
+  normalizeDurableTileResourceSourceMutation,
+  persistDurableTileResourceSourceMutation,
+  type DurableTileResourceSourceMutation,
+} from './tile-resource-durable-persistence';
 
 const PLAYER_PRESENCE_TABLE = 'player_presence';
 const PLAYER_WALLET_TABLE = 'player_wallet';
@@ -256,6 +261,7 @@ export interface GrantInventoryItemsInput {
   expectedSessionEpoch: number;
   expectedInstanceId?: string | null;
   expectedAssignedNodeId?: string | null;
+  expectedLeaseToken?: string | null;
   expectedOwnershipEpoch?: number | null;
   sourceType: string;
   sourceRefId?: string | null;
@@ -284,7 +290,8 @@ export type DurableInventoryGrantSourceMutation =
       instanceId: string;
       buildingId: string;
       fuelUnits: number;
-    };
+    }
+  | DurableTileResourceSourceMutation;
 
 export interface GrantInventoryItemsResult {
   ok: boolean;
@@ -1537,7 +1544,8 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
         || normalizedSourceType === 'ground_take_all'
         || normalizedSourceType === 'container_take'
         || normalizedSourceType === 'container_take_all'
-        || normalizedSourceType === 'ground_drop')
+        || normalizedSourceType === 'ground_drop'
+        || normalizedSourceType === 'tile_resource_use')
       && !normalizedSourceMutation
     ) {
       throw new Error('inventory_grant_source_mutation_required');
@@ -1548,6 +1556,14 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
     ) {
       throw new Error('inventory_grant_source_instance_mismatch');
     }
+    if (normalizedSourceMutation?.kind === 'tile_resource') {
+      if (normalizedSourceType !== 'tile_resource_use') {
+        throw new Error('tile_resource_source_type_mismatch');
+      }
+      if (Math.trunc(Number(input.expectedOwnershipEpoch ?? 0)) !== normalizedSourceMutation.ownershipEpoch) {
+        throw new Error('tile_resource_source_ownership_epoch_mismatch');
+      }
+    }
 
     return this.executeAssetMutation<GrantInventoryItemsResult>({
       operationId: normalizedOperationId,
@@ -1556,6 +1572,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
       expectedSessionEpoch: input.expectedSessionEpoch,
       expectedInstanceId: input.expectedInstanceId,
       expectedAssignedNodeId: input.expectedAssignedNodeId,
+      expectedLeaseToken: input.expectedLeaseToken,
       expectedOwnershipEpoch: input.expectedOwnershipEpoch,
       operationType: `player_inventory_${inventoryAction}`,
       aggregateType: 'player_inventory_item',
@@ -1666,6 +1683,29 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
             }),
           ],
         );
+
+        if (normalizedSourceMutation?.kind === 'tile_resource') {
+          await insertAssetAuditLog(
+            client,
+            normalizedOperationId,
+            normalizedPlayerId,
+            'tile_resource',
+            normalizedSourceMutation.instanceId,
+            'increase',
+            {
+              gains: normalizedSourceMutation.gains,
+            },
+            {},
+            {
+              values: normalizedSourceMutation.gains.map((entry) => ({
+                resourceKey: entry.resourceKey,
+                tileIndex: entry.tileIndex,
+                value: entry.nextValue,
+              })),
+            },
+            'tile-resource',
+          );
+        }
 
         return {
           ok: true,
@@ -6355,6 +6395,9 @@ function normalizeInventoryGrantSourceMutation(
       fuelUnits,
     };
   }
+  if (value.kind === 'tile_resource') {
+    return normalizeDurableTileResourceSourceMutation(value, instanceId);
+  }
   return null;
 }
 
@@ -6371,7 +6414,11 @@ async function persistInventoryGrantSourceMutation(
     await replaceDurableContainerState(client, mutation);
     return;
   }
-  await addDurableTimeChamberFuel(client, mutation);
+  if (mutation.kind === 'time_chamber_fuel') {
+    await addDurableTimeChamberFuel(client, mutation);
+    return;
+  }
+  await persistDurableTileResourceSourceMutation(client, mutation);
 }
 
 async function addDurableTimeChamberFuel(
@@ -7113,7 +7160,13 @@ async function insertAssetAuditLog(
   delta: unknown,
   before: unknown,
   after: unknown,
+  logIdSuffix?: string,
 ): Promise<void> {
+  const normalizedLogIdSuffix = normalizeOptionalString(logIdSuffix);
+  const rawLogId = `audit:${operationId}${normalizedLogIdSuffix ? `:${normalizedLogIdSuffix}` : ''}`;
+  const logId = rawLogId.length <= 180
+    ? rawLogId
+    : `audit:h:${createHash('sha256').update(rawLogId).digest('hex')}`;
   await client.query(
     `
       INSERT INTO ${ASSET_AUDIT_LOG_TABLE}(
@@ -7123,7 +7176,7 @@ async function insertAssetAuditLog(
       VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, $9::jsonb, now())
       ON CONFLICT (log_id) DO NOTHING
     `,
-    [`audit:${operationId}`, operationId, playerId, assetType, assetRefId, action, JSON.stringify(delta ?? {}), JSON.stringify(before ?? {}), JSON.stringify(after ?? {})],
+    [logId, operationId, playerId, assetType, assetRefId, action, JSON.stringify(delta ?? {}), JSON.stringify(before ?? {}), JSON.stringify(after ?? {})],
   );
 }
 

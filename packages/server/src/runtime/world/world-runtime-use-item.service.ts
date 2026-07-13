@@ -7,14 +7,25 @@
  * 物品使用结算服务
  * 处理丹药、技能书、传送符、灵石等各类物品的使用逻辑分支
  */
-import { Inject, Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, BadRequestException, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { CUSTOM_TECHNIQUE_BOOK_ITEM_ID, DEFAULT_QI_RESOURCE_DESCRIPTOR, MERIT_ETERNAL_DAILY_SIGN_IN_FIXED_BONUS, MERIT_ETERNAL_POOL_GRANT, MERIT_ETERNAL_USE_BEHAVIOR, MERIT_MONTH_CARD_DURATION_DAYS, MERIT_MONTH_CARD_POOL_GRANT, MERIT_MONTH_CARD_USE_BEHAVIOR, SECT_ENTRANCE_RELOCATION_USE_BEHAVIOR, TECHNIQUE_FRAGMENT_ITEM_ID, buildQiResourceKey, calculateTechniqueBookCraftFragmentCost, calculateTechniqueBookDecomposeFragments, getItemDisplayName, getTechniqueMaxLevel, isCreatedTechniqueId, isTechniqueFullyMastered } from '@mud/shared';
+import { randomUUID } from 'node:crypto';
+import { resolveServerDatabaseUrl } from '../../config/env-alias';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { REFINED_SHA_RESOURCE_KEY } from '../../constants/gameplay/pvp';
+import { nextPlayerPersistenceVersion } from '../../persistence/player-domain-persistence.service';
 import { ActivityRuntimeService, normalizeActivityError } from '../activity/activity-runtime.service';
 import { MapTemplateRepository } from '../map/map-template.repository';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { buildStructuredNotice } from './structured-notice.helpers';
+import {
+    isDurableCommitOutcomeUnknownError,
+    reconcileDurableInventoryCommitOutcome,
+} from './durable-source-asset-reconciliation.helpers';
+import {
+    buildGrantedInventorySnapshots,
+    buildNextInventorySnapshots,
+} from './world-runtime-inventory-grant.helpers';
 
 const DEFAULT_TILE_AURA_RESOURCE_KEY = buildQiResourceKey(DEFAULT_QI_RESOURCE_DESCRIPTOR);
 const CURRENT_RESPAWN_BIND_USE_BEHAVIOR = 'bind_current_respawn';
@@ -145,7 +156,7 @@ export class WorldRuntimeUseItemService {
             return;
         }
         if (this.resolveTileResourceGains(item).length > 0) {
-            this.handleTileResourceItem(playerId, itemInstanceId, item, deps, count);
+            await this.handleTileResourceItem(playerId, itemInstanceId, item, deps, count);
             return;
         }
         if (count > 1) {
@@ -528,31 +539,259 @@ export class WorldRuntimeUseItemService {
  * @returns 无返回值，直接更新Tile资源道具相关状态。
  */
 
-    handleTileResourceItem(playerId, itemInstanceId, item, deps, count = 1) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-        const resourceGains = this.resolveTileResourceGains(item);
-        const normalizedCount = normalizeUseItemCount(count, item);
+    async handleTileResourceItem(playerId, itemInstanceId, item, deps, count = 1) {
+        return this.runExclusiveTileResourceUse(playerId, deps, async (location, instance) => {
+            const currentInventoryItem = this.playerRuntimeService.peekInventoryItemByInstanceId(playerId, itemInstanceId);
+            if (!currentInventoryItem) {
+                throw new NotFoundException(`背包物品不存在：${normalizeInventoryItemInstanceId(itemInstanceId) || 'unknown'}`);
+            }
+            const currentItem = this.resolveUseItemView(currentInventoryItem);
+            if (currentItem.itemId !== item.itemId) {
+                throw new BadRequestException('地块资源物品已变化，请重试');
+            }
+            const resourceGains = this.resolveTileResourceGains(currentItem);
+            const normalizedCount = normalizeUseItemCount(count, currentItem);
+            if (resourceGains.length <= 0) {
+                throw new BadRequestException(`无法解析物品 ${currentItem.itemId} 的地块资源效果`);
+            }
+            const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
+            if (isProtectedTileResourceUseTile(instance, player.x, player.y)) {
+                throw new BadRequestException('当前位于安全区、出生点、传送点或 NPC 附近，无法使用地块资源道具。');
+            }
+            const durable = deps?.durableOperationService ?? null;
+            if (durable?.isEnabled?.() !== true) {
+                if (resolveServerDatabaseUrl().trim() && !isTileResourceVolatileFallbackAllowed()) {
+                    throw new ServiceUnavailableException('地块资源资产事务暂不可用，请稍后重试');
+                }
+                this.applyVolatileTileResourceUse(
+                    playerId,
+                    itemInstanceId,
+                    currentItem,
+                    normalizedCount,
+                    resourceGains,
+                    player,
+                    instance,
+                    deps,
+                );
+                return;
+            }
+            await this.commitTileResourceUseDurably({
+                playerId,
+                itemInstanceId,
+                item: currentItem,
+                count: normalizedCount,
+                resourceGains,
+                location,
+                player,
+                instance,
+                deps,
+                durable,
+            });
+        });
+    }
+
+    async runExclusiveTileResourceUse(playerId, deps, action) {
+        const runWithInstanceDomain = async () => {
+            const location = deps.getPlayerLocationOrThrow(playerId);
+            const instance = deps.getInstanceRuntimeOrThrow(location.instanceId);
+            const coordinator = instance?.runExclusivePersistenceDomainMutation;
+            if (typeof coordinator !== 'function') {
+                return action(location, instance);
+            }
+            return coordinator.call(instance, ['tile_resource'], () => action(location, instance));
+        };
+        const playerCoordinator = this.playerRuntimeService?.runExclusiveAssetMutation;
+        if (typeof playerCoordinator !== 'function') {
+            return runWithInstanceDomain();
+        }
+        return playerCoordinator.call(this.playerRuntimeService, [playerId], runWithInstanceDomain);
+    }
+
+    applyVolatileTileResourceUse(playerId, itemInstanceId, item, count, resourceGains, player, instance, deps) {
         if (resourceGains.length <= 0) {
             throw new BadRequestException(`无法解析物品 ${item.itemId} 的地块资源效果`);
         }
-        const location = deps.getPlayerLocationOrThrow(playerId);
-        const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
-        const instance = deps.getInstanceRuntimeOrThrow(location.instanceId);
-        if (isProtectedTileResourceUseTile(instance, player.x, player.y)) {
-            throw new BadRequestException('当前位于安全区、出生点、传送点或 NPC 附近，无法使用地块资源道具。');
-        }
         const results = [];
         for (const entry of resourceGains) {
-            const totalGain = entry.amount * normalizedCount;
+            const totalGain = entry.amount * count;
             const nextValue = instance.addTileResource(entry.resourceKey, player.x, player.y, totalGain);
             if (nextValue === null) {
                 throw new BadRequestException(`无法在 ${player.x},${player.y} 增加地块资源 ${entry.resourceKey}`);
             }
             results.push({ ...entry, amount: totalGain, nextValue });
         }
-        this.playerRuntimeService.consumeInventoryItemByInstanceId(playerId, itemInstanceId, normalizedCount);
+        this.playerRuntimeService.consumeInventoryItemByInstanceId(playerId, itemInstanceId, count);
         deps.refreshQuestStates(playerId);
-        deps.queuePlayerNotice(playerId, buildTileResourceUseNotice(item, normalizedCount, results), 'success');
+        queueTileResourceUseNotice(deps, playerId, item, count, results);
+    }
+
+    async commitTileResourceUseDurably(input) {
+        const { playerId, itemInstanceId, item, count, resourceGains, player, instance, deps, durable } = input;
+        if (
+            typeof durable?.grantInventoryItems !== 'function'
+            || typeof instance?.toTileIndex !== 'function'
+            || typeof instance?.getTileResource !== 'function'
+            || typeof instance?.capturePersistenceDomainFlushSnapshot !== 'function'
+            || typeof instance?.buildTileResourcePersistenceDelta !== 'function'
+        ) {
+            throw new BadRequestException('地块资源资产事务暂不可用，请稍后重试');
+        }
+        const instanceId = typeof instance?.meta?.instanceId === 'string' ? instance.meta.instanceId.trim() : '';
+        const assignedNodeId = typeof instance?.meta?.assignedNodeId === 'string' ? instance.meta.assignedNodeId.trim() : '';
+        const leaseToken = typeof instance?.meta?.leaseToken === 'string' ? instance.meta.leaseToken.trim() : '';
+        const ownershipEpoch = Number.isFinite(Number(instance?.meta?.ownershipEpoch))
+            ? Math.max(0, Math.trunc(Number(instance.meta.ownershipEpoch)))
+            : 0;
+        if (
+            !instanceId
+            || instanceId !== input.location.instanceId
+            || !assignedNodeId
+            || !leaseToken
+            || ownershipEpoch <= 0
+            || (typeof deps?.isInstanceLeaseWritable === 'function' && deps.isInstanceLeaseWritable(instance) !== true)
+        ) {
+            throw new BadRequestException('当前地图实例资产事务围栏暂不可用，请稍后重试');
+        }
+        const runtimeOwnerId = typeof player?.runtimeOwnerId === 'string' ? player.runtimeOwnerId.trim() : '';
+        const sessionEpoch = Number.isFinite(Number(player?.sessionEpoch))
+            ? Math.max(0, Math.trunc(Number(player.sessionEpoch)))
+            : 0;
+        if (!runtimeOwnerId || sessionEpoch <= 0) {
+            throw new BadRequestException('玩家资产事务围栏暂不可用，请稍后重试');
+        }
+        const tileIndex = instance.toTileIndex(player.x, player.y);
+        const plannedGains = planTileResourceGains(instance, resourceGains, count, player.x, player.y, tileIndex);
+        const flushSnapshot = instance.capturePersistenceDomainFlushSnapshot(['tile_resource']);
+        const domainRevisionBeforeCommit = typeof instance.getPersistenceDomainRevision === 'function'
+            ? instance.getPersistenceDomainRevision('tile_resource')
+            : null;
+        const pendingDelta = instance.buildTileResourcePersistenceDelta(flushSnapshot);
+        if (!pendingDelta || pendingDelta.fullReplace === true) {
+            throw new BadRequestException('地块资源持久化正在收敛，请稍后重试');
+        }
+        const nextRuntimeInventoryItems = buildInventoryAfterConsume(
+            player.inventory?.items,
+            itemInstanceId,
+            count,
+        );
+        const sourceMutation = buildDurableTileResourceSourceMutation({
+            instanceId,
+            ownershipEpoch,
+            flushLedgerVersion: nextPlayerPersistenceVersion(),
+            pendingDelta,
+            plannedGains,
+        });
+        const durableInput = {
+            operationId: `tile-resource-use:${playerId}:${randomUUID()}`,
+            playerId,
+            expectedRuntimeOwnerId: runtimeOwnerId,
+            expectedSessionEpoch: sessionEpoch,
+            expectedInstanceId: instanceId,
+            expectedAssignedNodeId: assignedNodeId,
+            expectedLeaseToken: leaseToken,
+            expectedOwnershipEpoch: ownershipEpoch,
+            sourceType: 'tile_resource_use',
+            sourceRefId: `${item.itemId}:${itemInstanceId}:${tileIndex}`,
+            inventoryAction: 'remove',
+            sourceMutation,
+            grantedItems: buildGrantedInventorySnapshots([{ ...item, count }]),
+            nextInventoryItems: buildNextInventorySnapshots(nextRuntimeInventoryItems),
+        };
+        const releaseHold = typeof instance.acquirePersistenceDomainHold === 'function'
+            ? instance.acquirePersistenceDomainHold('tile_resource')
+            : () => undefined;
+        let committedInventoryItems = nextRuntimeInventoryItems;
+        try {
+            if (!await this.syncCurrentPlayerPresence(playerId)) {
+                throw new BadRequestException('玩家资产事务围栏暂不可用，请稍后重试');
+            }
+            const currentFence = this.playerRuntimeService.getSessionFence?.(playerId)
+                ?? this.playerRuntimeService.describePersistencePresence?.(playerId)
+                ?? null;
+            if (!currentFence?.runtimeOwnerId || !currentFence?.sessionEpoch) {
+                throw new BadRequestException('玩家资产事务围栏暂不可用，请稍后重试');
+            }
+            durableInput.expectedRuntimeOwnerId = currentFence.runtimeOwnerId;
+            durableInput.expectedSessionEpoch = Math.max(1, Math.trunc(Number(currentFence.sessionEpoch)));
+            try {
+                await durable.grantInventoryItems(durableInput);
+            }
+            catch (error) {
+                if (!isDurableCommitOutcomeUnknownError(error)) {
+                    throw error;
+                }
+                const reconciliation = await reconcileDurableInventoryCommitOutcome(durable, durableInput);
+                if (reconciliation.outcome === 'failed') {
+                    throw reconciliation.error;
+                }
+                if (reconciliation.outcome === 'unknown') {
+                    throw error;
+                }
+                committedInventoryItems = reconciliation.inventoryItems;
+            }
+            const concurrentDomainMutation = domainRevisionBeforeCommit !== null
+                && typeof instance.getPersistenceDomainRevision === 'function'
+                && instance.getPersistenceDomainRevision('tile_resource') !== domainRevisionBeforeCommit;
+            const results = [];
+            for (const gain of plannedGains) {
+                const nextValue = instance.addTileResource(gain.resourceKey, player.x, player.y, gain.amount);
+                if (nextValue === null) {
+                    throw new Error(`tile_resource_runtime_apply_failed:${gain.resourceKey}:${tileIndex}`);
+                }
+                results.push({ resourceKey: gain.resourceKey, amount: gain.amount, nextValue });
+            }
+            this.playerRuntimeService.replaceInventoryItems(playerId, committedInventoryItems);
+            if (!concurrentDomainMutation && results.every((entry, index) => entry.nextValue === plannedGains[index]?.nextValue)) {
+                const committedSnapshot = instance.capturePersistenceDomainFlushSnapshot(['tile_resource']);
+                instance.markPersistenceDomainsPersisted?.(['tile_resource'], committedSnapshot);
+            }
+            deps.refreshQuestStates(playerId);
+            queueTileResourceUseNotice(deps, playerId, item, count, results);
+        }
+        finally {
+            releaseHold();
+        }
+    }
+
+    async syncCurrentPlayerPresence(playerId) {
+        const persistence = this.playerRuntimeService?.playerDomainPersistenceService;
+        if (!persistence?.isEnabled?.()) {
+            return false;
+        }
+        const persistedPresence = typeof persistence.loadPlayerPresence === 'function'
+            ? await persistence.loadPlayerPresence(playerId)
+            : null;
+        let presence = this.playerRuntimeService.describePersistencePresence?.(playerId) ?? null;
+        if (!presence?.runtimeOwnerId || !presence?.sessionEpoch) {
+            return false;
+        }
+        const persistedSessionEpoch = Number.isFinite(Number(persistedPresence?.sessionEpoch))
+            ? Math.max(0, Math.trunc(Number(persistedPresence.sessionEpoch)))
+            : 0;
+        const persistedRuntimeOwnerId = typeof persistedPresence?.runtimeOwnerId === 'string'
+            ? persistedPresence.runtimeOwnerId.trim()
+            : '';
+        const runtimeSessionEpoch = Math.max(0, Math.trunc(Number(presence.sessionEpoch ?? 0)));
+        const runtimeOwnerId = typeof presence.runtimeOwnerId === 'string' ? presence.runtimeOwnerId.trim() : '';
+        if (
+            typeof this.playerRuntimeService.ensureRuntimeSessionFenceAtLeast === 'function'
+            && persistedSessionEpoch > 0
+            && (
+                runtimeSessionEpoch <= persistedSessionEpoch
+                || (persistedRuntimeOwnerId && persistedRuntimeOwnerId !== runtimeOwnerId)
+            )
+        ) {
+            this.playerRuntimeService.ensureRuntimeSessionFenceAtLeast(playerId, persistedSessionEpoch);
+            presence = this.playerRuntimeService.describePersistencePresence?.(playerId) ?? null;
+        }
+        if (!presence?.runtimeOwnerId || !presence?.sessionEpoch) {
+            return false;
+        }
+        await persistence.savePlayerPresence(playerId, {
+            ...presence,
+            versionSeed: nextPlayerPersistenceVersion(),
+        });
+        return true;
     }
     /**
  * resolveTileResourceGains：解析地块资源增益列表。
@@ -602,31 +841,160 @@ function normalizeUseItemCount(input, item) {
     return count;
 }
 
+function isTileResourceVolatileFallbackAllowed() {
+    const runtimeEnv = [process.env.SERVER_RUNTIME_ENV, process.env.APP_ENV, process.env.NODE_ENV]
+        .map((value) => typeof value === 'string' ? value.trim().toLowerCase() : '')
+        .find(Boolean) ?? '';
+    return runtimeEnv === 'test'
+        || runtimeEnv === 'verify'
+        || runtimeEnv === 'smoke'
+        || runtimeEnv === 'development'
+        || runtimeEnv === 'dev';
+}
+
 function normalizeInventoryItemInstanceId(value) {
     return typeof value === 'string' ? value.trim() : '';
 }
 
-function buildTileResourceUseNotice(item, count, results) {
-    const countText = count > 1 ? ` x${count}` : '';
-    if (results.length === 1) {
-        const result = results[0];
-        const resourceLabel = resolveTileResourceNoticeLabel(result.resourceKey);
-        return `使用 ${item.name}${countText}，当前地块${resourceLabel}提升至 ${result.nextValue}`;
+function buildInventoryAfterConsume(items, itemInstanceId, count) {
+    const normalizedItemInstanceId = normalizeInventoryItemInstanceId(itemInstanceId);
+    const normalizedCount = Math.max(1, Math.trunc(Number(count) || 0));
+    const nextItems = Array.isArray(items) ? items.map((entry) => ({ ...entry })) : [];
+    const index = nextItems.findIndex((entry) => normalizeInventoryItemInstanceId(entry?.itemInstanceId) === normalizedItemInstanceId);
+    if (index < 0) {
+        throw new NotFoundException(`背包物品不存在：${normalizedItemInstanceId || 'unknown'}`);
     }
-    const summary = results
-        .map((entry) => `${resolveTileResourceNoticeLabel(entry.resourceKey)} ${entry.nextValue}`)
-        .join('，');
-    return `使用 ${item.name}${countText}，当前地块资源提升：${summary}`;
+    const available = Math.max(1, Math.trunc(Number(nextItems[index]?.count ?? 1)));
+    if (available < normalizedCount) {
+        throw new BadRequestException('物品数量不足');
+    }
+    if (available === normalizedCount) {
+        nextItems.splice(index, 1);
+    }
+    else {
+        nextItems[index] = { ...nextItems[index], count: available - normalizedCount };
+    }
+    return nextItems;
 }
 
-function resolveTileResourceNoticeLabel(resourceKey) {
+function planTileResourceGains(instance, resourceGains, count, x, y, tileIndex) {
+    const amountByResourceKey = new Map();
+    for (const entry of resourceGains) {
+        const resourceKey = typeof entry?.resourceKey === 'string' ? entry.resourceKey.trim() : '';
+        const amount = Number(entry?.amount) * count;
+        if (!resourceKey || !Number.isFinite(amount) || amount <= 0) {
+            continue;
+        }
+        amountByResourceKey.set(resourceKey, (amountByResourceKey.get(resourceKey) ?? 0) + amount);
+    }
+    const planned = [];
+    for (const [resourceKey, amount] of amountByResourceKey.entries()) {
+        const currentValue = Number(instance.getTileResource(resourceKey, x, y));
+        if (!Number.isFinite(currentValue)) {
+            throw new BadRequestException(`无法读取当前地块资源 ${resourceKey}`);
+        }
+        planned.push({
+            resourceKey,
+            tileIndex,
+            amount,
+            nextValue: Math.max(0, currentValue + amount),
+        });
+    }
+    planned.sort((left, right) => left.resourceKey.localeCompare(right.resourceKey));
+    if (planned.length <= 0) {
+        throw new BadRequestException('地块资源效果无效');
+    }
+    return planned;
+}
+
+function buildDurableTileResourceSourceMutation(input) {
+    const upsertByKey = new Map();
+    for (const entry of Array.isArray(input.pendingDelta?.upserts) ? input.pendingDelta.upserts : []) {
+        const resourceKey = typeof entry?.resourceKey === 'string' ? entry.resourceKey.trim() : '';
+        const tileIndex = Math.trunc(Number(entry?.tileIndex));
+        const value = Number(entry?.value);
+        if (resourceKey && Number.isSafeInteger(tileIndex) && tileIndex >= 0 && Number.isFinite(value) && value >= 0) {
+            upsertByKey.set(`${resourceKey}\u0000${tileIndex}`, { resourceKey, tileIndex, value });
+        }
+    }
+    for (const gain of input.plannedGains) {
+        upsertByKey.set(`${gain.resourceKey}\u0000${gain.tileIndex}`, {
+            resourceKey: gain.resourceKey,
+            tileIndex: gain.tileIndex,
+            value: gain.nextValue,
+        });
+    }
+    const deletes = (Array.isArray(input.pendingDelta?.deletes) ? input.pendingDelta.deletes : [])
+        .map((entry) => ({
+            resourceKey: typeof entry?.resourceKey === 'string' ? entry.resourceKey.trim() : '',
+            tileIndex: Math.trunc(Number(entry?.tileIndex)),
+        }))
+        .filter((entry) => entry.resourceKey
+            && Number.isSafeInteger(entry.tileIndex)
+            && entry.tileIndex >= 0
+            && !upsertByKey.has(`${entry.resourceKey}\u0000${entry.tileIndex}`));
+    return {
+        kind: 'tile_resource',
+        instanceId: input.instanceId,
+        ownershipEpoch: input.ownershipEpoch,
+        flushLedgerVersion: input.flushLedgerVersion,
+        upserts: Array.from(upsertByKey.values()),
+        deletes,
+        gains: input.plannedGains.map((entry) => ({ ...entry })),
+    };
+}
+
+function buildTileResourceUseNotice(item, count, results) {
+    const itemName = getItemDisplayName(item);
+    if (results.length === 1) {
+        const result = results[0];
+        const resourceKind = resolveTileResourceNoticeKind(result.resourceKey);
+        return buildStructuredNotice(
+            'success',
+            count > 1
+                ? `notice.item.tile-${resourceKind.keySegment}-used-batch`
+                : `notice.item.tile-${resourceKind.keySegment}-used`,
+            `使用 ${itemName}${count > 1 ? ` x${count}` : ''}，当前地块${resourceKind.fallbackLabel}提升至 ${result.nextValue}`,
+            {
+                vars: { itemName, count, nextValue: result.nextValue },
+                pills: [{ key: 'itemName', style: 'target' }],
+            },
+        );
+    }
+    const summary = results
+        .map((entry) => `${resolveTileResourceNoticeKind(entry.resourceKey).fallbackLabel} ${entry.nextValue}`)
+        .join('，');
+    return buildStructuredNotice(
+        'success',
+        count > 1 ? 'notice.item.tile-resources-used-batch' : 'notice.item.tile-resources-used',
+        `使用 ${itemName}${count > 1 ? ` x${count}` : ''}，当前地块资源提升：${summary}`,
+        {
+            vars: { itemName, count, resourceCount: results.length },
+            pills: [{ key: 'itemName', style: 'target' }],
+        },
+    );
+}
+
+function queueTileResourceUseNotice(deps, playerId, item, count, results) {
+    const notice = buildTileResourceUseNotice(item, count, results);
+    deps.queuePlayerNotice(
+        playerId,
+        notice.text,
+        notice.kind,
+        undefined,
+        undefined,
+        notice.structured,
+    );
+}
+
+function resolveTileResourceNoticeKind(resourceKey) {
     if (resourceKey === REFINED_SHA_RESOURCE_KEY) {
-        return '煞气';
+        return { keySegment: 'sha', fallbackLabel: '煞气' };
     }
     if (resourceKey === DEFAULT_TILE_AURA_RESOURCE_KEY) {
-        return '灵气';
+        return { keySegment: 'aura', fallbackLabel: '灵气' };
     }
-    return '资源';
+    return { keySegment: 'resource', fallbackLabel: '资源' };
 }
 
 function isProtectedTileResourceUseTile(instance, x, y) {

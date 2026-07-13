@@ -19,6 +19,7 @@ import { normalizeMonsterTier } from '@mud/shared';
 import { ensureBigintColumnType, ensureDoubleColumnType } from './schema-bigint-migration';
 
 const INSTANCE_TILE_RESOURCE_STATE_TABLE = 'instance_tile_resource_state';
+const INSTANCE_FLUSH_LEDGER_TABLE = 'instance_flush_ledger';
 const INSTANCE_TILE_CELL_TABLE = 'instance_tile_cell';
 const INSTANCE_TILE_DAMAGE_STATE_TABLE = 'instance_tile_damage_state';
 const INSTANCE_TEMPORARY_TILE_STATE_TABLE = 'instance_temporary_tile_state';
@@ -99,6 +100,13 @@ const INSTANCE_DOMAIN_DOUBLE_COLUMNS_BY_TABLE = {
   [INSTANCE_BUILDING_STATE_TABLE]: ['hp', 'max_hp'],
   [INSTANCE_FENGSHUI_STATE_TABLE]: ['qi_score'],
 } as const;
+
+interface InstanceFlushLedgerClaim {
+  ownershipEpoch: number;
+  latestVersion: number;
+  claimOwnerId: string;
+  fencingToken: string | null;
+}
 
 /** 地图实例分域持久化服务：按域独立管理地块、资源、容器、怪物、建筑等实例状态的落库与恢复 */
 @Injectable()
@@ -1685,10 +1693,16 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
       instanceId: string;
       upserts: Array<{ resourceKey: string; tileIndex: number; value: number }>;
       deletes: Array<{ resourceKey: string; tileIndex: number }>;
+      ledgerClaim?: {
+        ownershipEpoch: number;
+        latestVersion: number;
+        claimOwnerId: string;
+        fencingToken?: string | null;
+      } | null;
     }>,
-  ): Promise<void> {
+  ): Promise<string[]> {
     if (!this.pool || !this.enabled || !Array.isArray(batch) || batch.length === 0) {
-      return;
+      return [];
     }
     const entries = batch
       .map((item) => {
@@ -1729,22 +1743,36 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
           });
         }
         if (upsertRows.length === 0 && deleteRows.length === 0) return null;
+        const ledgerClaim = normalizeInstanceFlushLedgerClaim(item.ledgerClaim);
+        if (item.ledgerClaim && !ledgerClaim) {
+          return null;
+        }
         return {
           instanceId,
           upsertsJson: JSON.stringify(upsertRows),
           deletesJson: JSON.stringify(deleteRows),
+          ledgerClaim,
         };
       })
-      .filter(Boolean) as Array<{ instanceId: string; upsertsJson: string; deletesJson: string }>;
-    if (entries.length === 0) return;
+      .filter(Boolean) as Array<{
+        instanceId: string;
+        upsertsJson: string;
+        deletesJson: string;
+        ledgerClaim: InstanceFlushLedgerClaim | null;
+      }>;
+    if (entries.length === 0) return [];
     entries.sort((a, b) => a.instanceId < b.instanceId ? -1 : a.instanceId > b.instanceId ? 1 : 0);
     const client = await this.pool.connect();
+    const appliedInstanceIds: string[] = [];
     try {
       await client.query('BEGIN');
       for (const entry of entries) {
         await acquireInstanceDomainLock(client, entry.instanceId);
       }
       for (const entry of entries) {
+        if (entry.ledgerClaim && !await isCurrentClaimedInstanceFlushPayload(client, entry.instanceId, entry.ledgerClaim)) {
+          continue;
+        }
         if (entry.deletesJson !== '[]') {
           await client.query(
             `WITH incoming AS (
@@ -1771,6 +1799,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
             [entry.instanceId, entry.upsertsJson],
           );
         }
+        appliedInstanceIds.push(entry.instanceId);
       }
       await client.query('COMMIT');
     } catch (error: unknown) {
@@ -1779,6 +1808,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     } finally {
       client.release();
     }
+    return appliedInstanceIds;
   }
 
   /**
@@ -4394,6 +4424,53 @@ async function ensureInstanceBuildingOperationIdempotencyTable(pool: Pool): Prom
     await client.query(`SELECT pg_advisory_unlock($1, $2)`, [INSTANCE_TILE_RESOURCE_STATE_LOCK_NAMESPACE, INSTANCE_BUILDING_OPERATION_IDEMPOTENCY_LOCK_KEY]).catch(() => undefined);
     client.release();
   }
+}
+
+function normalizeInstanceFlushLedgerClaim(input: {
+  ownershipEpoch: number;
+  latestVersion: number;
+  claimOwnerId: string;
+  fencingToken?: string | null;
+} | null | undefined): InstanceFlushLedgerClaim | null {
+  if (!input || typeof input !== 'object') {
+    return null;
+  }
+  const ownershipEpoch = Math.trunc(Number(input.ownershipEpoch));
+  const latestVersion = Math.trunc(Number(input.latestVersion));
+  const claimOwnerId = normalizeRequiredString(input.claimOwnerId);
+  const fencingToken = normalizeRequiredString(input.fencingToken) || null;
+  if (
+    !Number.isSafeInteger(ownershipEpoch)
+    || ownershipEpoch < 0
+    || !Number.isSafeInteger(latestVersion)
+    || latestVersion < 0
+    || !claimOwnerId
+  ) {
+    return null;
+  }
+  return { ownershipEpoch, latestVersion, claimOwnerId, fencingToken };
+}
+
+async function isCurrentClaimedInstanceFlushPayload(
+  client: any,
+  instanceId: string,
+  claim: InstanceFlushLedgerClaim,
+): Promise<boolean> {
+  const result = await client.query(
+    `SELECT 1
+     FROM ${INSTANCE_FLUSH_LEDGER_TABLE}
+     WHERE instance_id = $1
+       AND domain = 'tile_resource'
+       AND ownership_epoch = $2
+       AND latest_version = $3
+       AND claimed_by = $4
+       AND fencing_token IS NOT DISTINCT FROM $5::varchar
+       AND payload_jsonb IS NOT NULL
+       AND latest_version > flushed_version
+     LIMIT 1`,
+    [instanceId, claim.ownershipEpoch, claim.latestVersion, claim.claimOwnerId, claim.fencingToken],
+  );
+  return (result.rowCount ?? 0) === 1;
 }
 
 async function acquireInstanceDomainLock(client: any, instanceId: string): Promise<void> {

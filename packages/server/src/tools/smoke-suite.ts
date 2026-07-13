@@ -119,6 +119,7 @@ const smokeCases = [
   { name: 'world-runtime-auto-combat', scriptFile: 'world-runtime-auto-combat-smoke.js', standalone: true },
   { name: 'world-runtime-damageable-tile', scriptFile: 'world-runtime-damageable-tile-smoke.js', standalone: true },
   { name: 'world-runtime-temporary-tile-skill', scriptFile: 'world-runtime-temporary-tile-skill-smoke.js', standalone: true },
+  { name: 'world-runtime-tile-resource-item-durable', scriptFile: 'world-runtime-tile-resource-item-durable-smoke.js', standalone: true },
   { name: 'world-runtime-formation', scriptFile: 'world-runtime-formation-smoke.js', standalone: true },
     { name: 'world-runtime-loot-container', scriptFile: 'world-runtime-loot-container-smoke.js', standalone: true },
     { name: 'world-runtime-monster-los', scriptFile: 'world-runtime-monster-los-smoke.js', standalone: true },
@@ -203,6 +204,7 @@ const smokeCases = [
   { name: 'instance-tile-damage-flush-worker', scriptFile: 'instance-tile-damage-flush-worker-smoke.js', standalone: true },
   { name: 'instance-monster-runtime-flush-worker', scriptFile: 'instance-monster-runtime-flush-worker-smoke.js', standalone: true },
   { name: 'instance-state-purge-worker', scriptFile: 'instance-state-purge-worker-smoke.js', standalone: true },
+  { name: 'tile-resource-use-durable', scriptFile: 'tile-resource-use-durable-smoke.js', standalone: true },
   { name: 'instance-lease-runtime', scriptFile: 'instance-lease-runtime-smoke.js', standalone: true },
   { name: 'instance-lease-sync-error', scriptFile: 'instance-lease-sync-error-smoke.js', standalone: true },
   { name: 'instance-lease-periodic-force-reclaim', scriptFile: 'instance-lease-periodic-force-reclaim-smoke.js', standalone: true },
@@ -299,6 +301,7 @@ const SMOKE_CASE_GROUPS = Object.freeze({
     'player-runtime-projection-entry',
   ],
   'instance-maintenance': [
+    'world-runtime-tile-resource-item-durable',
     'instance-resource-flush-worker',
     'instance-container-flush-worker',
     'instance-ground-item-flush-worker',
@@ -306,6 +309,7 @@ const SMOKE_CASE_GROUPS = Object.freeze({
     'instance-tile-damage-flush-worker',
     'instance-monster-runtime-flush-worker',
     'instance-state-purge-worker',
+    'tile-resource-use-durable',
     'instance-lease-runtime',
     'instance-lease-sync-error',
     'instance-lease-periodic-force-reclaim',
@@ -378,8 +382,9 @@ const DB_SMOKE_CASES = new Set([
     'durable-operation',
     'treasure-vault-asset-safety',
     'time-chamber-durable-fuel',
-  'gm-database',
-  'shutdown-drain',
+    'tile-resource-use-durable',
+    'gm-database',
+    'shutdown-drain',
 ]);
 const PARALLEL_STANDALONE_CASES = new Set([
     'snapshot-retirement',

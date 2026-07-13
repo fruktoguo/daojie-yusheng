@@ -181,6 +181,7 @@ interface InstanceRuntimeView {
   capturePersistenceDomainFlushSnapshot?: (domains: string[]) => unknown;
   markPersistenceDomainsStaged?: (domains: string[], flushSnapshot: unknown, stagingGenerationId: string) => void;
   markPersistenceDomainsPersisted?: (domains: string[], flushSnapshot?: unknown) => void;
+  isPersistenceDomainHeld?: (domain: string) => boolean;
   buildRuntimeTilePersistenceEntries?: () => unknown[];
   buildTemporaryTilePersistenceEntries?: () => unknown[];
   buildGroundPersistenceDelta?: (flushSnapshot?: unknown) => { fullReplace?: boolean; tileIndices?: unknown[]; entries?: unknown[] } | null;
@@ -194,7 +195,17 @@ interface InstanceRuntimeView {
 interface BatchPersistencePort {
   saveTileDamageStates?(instanceId: string, entries: unknown[]): Promise<void>;
   saveTileDamageDeltaBatch?(deltas: Array<{ instanceId: string; upserts: unknown[]; deletes: unknown[] }>): Promise<void>;
-  saveTileResourceDeltaBatch?(deltas: Array<{ instanceId: string; upserts: unknown[]; deletes: unknown[] }>): Promise<void>;
+  saveTileResourceDeltaBatch?(deltas: Array<{
+    instanceId: string;
+    upserts: unknown[];
+    deletes: unknown[];
+    ledgerClaim?: {
+      ownershipEpoch: number;
+      latestVersion: number;
+      claimOwnerId: string;
+      fencingToken?: string | null;
+    };
+  }>): Promise<void | string[]>;
   saveInstanceRecoveryWatermarkBatch?(rows: Array<{ instanceId: string; payload: unknown }>): Promise<void>;
   saveInstanceRecoveryWatermark?(instanceId: string, payload: unknown): Promise<void>;
   saveInstanceCheckpoint?(instanceId: string, payload: unknown): Promise<void>;
@@ -899,7 +910,9 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
       const runtime = instanceId ? this.worldRuntimeService.getInstanceRuntime?.(instanceId) : null;
       if (!instanceId || !runtime?.meta?.persistent) continue;
       const ownershipEpoch = normalizeInt(runtime.meta.ownershipEpoch, 0, 0, Number.MAX_SAFE_INTEGER);
-      const domains = Array.from(normalizeDomains(entry.domains)).sort();
+      const domains = Array.from(normalizeDomains(entry.domains))
+        .filter((domain) => runtime.isPersistenceDomainHeld?.(domain) !== true)
+        .sort();
       const buildingDomains = domains.filter((domain) => INSTANCE_BUILDING_COMPOSITE_DOMAINS.has(domain));
       const stageDomains: Array<{ taskDomain: string; stagedDomains: string[] }> = [];
       if (buildingDomains.some((domain) => this.isInstanceDomainUnstaged(runtime, domain))) {
@@ -1835,6 +1848,7 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
     if (currentRows.length === 0) {
       return processed;
     }
+    let appliedRows = currentRows;
     if (domain === 'tile_damage') {
       const fullReplaceRows = currentRows.filter((row) => row.payload.fullReplace === true);
       if (fullReplaceRows.length > 0 && typeof persistence?.saveTileDamageStates !== 'function') {
@@ -1852,20 +1866,33 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
         })));
       }
     } else if (domain === 'tile_resource') {
-      await persistence!.saveTileResourceDeltaBatch!(currentRows.map((row) => ({
+      const appliedInstanceIds = await persistence!.saveTileResourceDeltaBatch!(currentRows.map((row) => ({
         instanceId: row.task.id,
         upserts: row.payload.upserts,
         deletes: row.payload.deletes,
+        ledgerClaim: row.task.claimOwnerId ? {
+          ownershipEpoch: normalizeInt(row.task.ownershipEpoch, 0, 0, Number.MAX_SAFE_INTEGER),
+          latestVersion: normalizeInt(row.task.latestRevision, 0, 0, Number.MAX_SAFE_INTEGER),
+          claimOwnerId: row.task.claimOwnerId,
+          fencingToken: row.task.fencingToken ?? null,
+        } : undefined,
       })));
+      if (Array.isArray(appliedInstanceIds)) {
+        const appliedInstanceIdSet = new Set(appliedInstanceIds);
+        appliedRows = currentRows.filter((row) => appliedInstanceIdSet.has(row.task.id));
+      }
     }
-    const watermarks = currentRows
+    const appliedTaskKeys = new Set(appliedRows.map((row) => instanceTaskKey(row.task)));
+    const watermarks = appliedRows
       .filter((row) => row.payload.watermarkPayload)
       .map((row) => ({ instanceId: row.task.id, payload: row.payload.watermarkPayload }));
     if (watermarks.length > 0) await persistence!.saveInstanceRecoveryWatermarkBatch!(watermarks);
     for (const { task, payload } of currentRows) {
       if (await this.flushLedgerService.markFlushTaskFlushed(task)) {
         processed += 1;
-        this.markInstancePayloadPersisted(task, payload);
+        if (appliedTaskKeys.has(instanceTaskKey(task))) {
+          this.markInstancePayloadPersisted(task, payload);
+        }
       }
       this.failureAttempts.delete(instanceTaskKey(task));
       remaining.delete(instanceTaskKey(task));

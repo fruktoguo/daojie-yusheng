@@ -3,7 +3,7 @@
 ## 审计口径
 
 - 生产主线：`packages/client`、`packages/shared`、`packages/server`、`packages/config-editor`。
-- 当前基线：`main` 分支 `f2282617`；相对 `origin/main` ahead 29。
+- 当前基线：`main` 分支 `05365916`；相对 `origin/main` ahead 30。
 - package manager：`pnpm@10.29.1`。
 - 每项结论必须来自机制文档、完整调用链、测试、编译产物或运行数据；仅凭搜索未发现异常不能标记为“确认无问题”。
 - `[x]` 只表示该行列出的具体证据范围已完成，不代表相邻系统或整个项目已完成。
@@ -49,6 +49,7 @@
 - [x] P-24 普通阵法与宗门阵法数据库 writer 可越过实例 lease handoff 覆盖/删除新节点后态的问题已修复；见 FS-028。
 - [x] P-25 阵法维护每息分步提交玩家灵力、技艺/job 与阵法后态的问题已修复；见 FS-029。
 - [x] P-26 实例增量域转入单行 flush ledger 后过早清除脏键、后续 payload 覆盖可能漏写旧键的问题已修复；见 FS-037。
+- [x] P-27 地块资源消耗品把背包扣除与实例资源分步提交、旧 worker payload 可迟到覆盖的问题已修复；见 FS-038。
 
 ### 服务端权威运行时
 
@@ -75,6 +76,7 @@
 - [x] S-09 自动凝练根基的手动开关与 tick 自动关闭通知已统一为结构化 key；见 FS-034。
 - [x] S-10 世界迁移的现世/虚境与保持/切换四种成功通知已使用稳定结构化 key；见 FS-035。
 - [x] S-11 吟唱阻塞六类技艺命令与强制攻击矿脉旁路的通知已统一结构化；见 FS-036。
+- [x] S-12 地块资源消耗品成功通知已迁移为稳定结构化 key/变量；见 FS-038。
 
 ### 客户端、UI 与渲染
 
@@ -95,6 +97,7 @@
 - [x] X-07 inventory durable with-db smoke 未注入共享连接池、实际禁用被测服务的问题已修复；见 FS-018。
 - [x] X-08 生产显式开启 `/runtime` 控制面但缺少管理 token 时无鉴权放行的问题已修复；见 FS-019。
 - [x] X-09 `tile_resource`、`tile_damage`、`ground_item`、`monster_runtime` 增量 payload 的跨 staging 覆盖丢键风险已修复；见 FS-037。
+- [x] X-10 地块资源 durable 事务与已 claim 的旧 flush payload 竞争、COMMIT 后运行态应用及生产降级边界已修复；见 FS-038。
 
 ## 已确认问题
 
@@ -675,7 +678,7 @@
 
 ### FS-037 实例增量域进入 flush ledger 后过早清除脏键
 
-- **状态**：已修复并完成专项验证，待中文原子提交。
+- **状态**：已修复、验证并完成中文原子提交。
 - **严重级别**：P0。
 - **所属功能组**：实例分域持久化 / flush ledger / 地块资源与损坏 / 地面物品 / 妖兽运行态。
 - **影响链路**：实例增量域变脏 → `capturePersistenceDomainFlushSnapshot()` → `FlushTaskRuntimeService.stageInstanceTasks()` → 单行 `instance_flush_ledger` UPSERT → `markPersistenceDomainsStaged()` → 同域再次变化 → 新 payload 覆盖旧 payload → worker 回放。
@@ -687,7 +690,23 @@
 - **修复方式**：`markPersistenceDomainsStaged()` 只清除 dirty domain 的调度标记、合并窗口和优先级，不再清除增量脏键与 full-replace 义务；真实数据库写入成功并通过 domain revision 守卫后，仍由 `markPersistenceDomainsPersisted()` 统一清理。这样同域再次变化时，新 payload 自动包含旧版未落库键与本次新键，可安全覆盖 ledger 单行 payload。
 - **实际修改**：更新 `MapInstanceRuntime.markPersistenceDomainsStaged()` 的义务转移语义；在 `instance-persistence-flush-consistency-smoke.ts` 增加两次不同地块资源变化跨 staging 的累计 delta 断言，并证明真实 persisted 后才清空增量。
 - **验证结果**：`git diff --check`、`pnpm --filter @mud/server compile` 与 compiled `instance-persistence-flush-consistency-smoke` 通过；专项证明第一次 staging 后调度 dirty 已清除但旧增量键仍保留，第二版 payload 同时包含旧键和新键，且第二版真实 persisted 后增量集合才归零。该专项不替代真实 PostgreSQL 多 worker claim 竞争或完整 release 门禁。
-- **中文原子提交 hash**：待本次提交。
+- **中文原子提交 hash**：`05365916`。
+
+### FS-038 地块资源消耗品跨玩家与实例两域分步结算
+
+- **状态**：已修复并验证，待中文原子提交。
+- **严重级别**：P0。
+- **所属功能组**：背包资产 / 地块资源 / 实例 flush ledger / lease fence / 结构化通知。
+- **影响链路**：玩家使用血精石等地块资源物品 → `WorldRuntimeUseItemService.handleTileResourceItem()` → 实例 `tile_resource` 运行态与 `instance_tile_resource_state` → 玩家背包真源 → flush ledger worker → 客户端成功通知。
+- **证据**：修复前先逐项执行 `instance.addTileResource()`，随后才调用 `consumeInventoryItemByInstanceId()`；玩家背包和实例资源由两条独立 flush 链落库，既没有共同事务，也没有 COMMIT 结果未知收敛。更隐蔽的是，已经 claim 的旧 `tile_resource` payload 可在新的资产事务之后迟到写回旧绝对值。成功提示还只发送服务端拼接的中文字符串。
+- **根本原因**：物品使用入口把“消耗背包物品”和“增加实例地块资源”当作两个普通运行态 mutation，没有把它们识别为同一资产转移；通用 `grantInventoryItems()` 缺少 `tile_resource` 来源 mutation、精确 lease token、实例 ledger barrier 和第二类资产审计；worker 落库前也没有在实例 advisory lock 内重验当前 claim。
+- **为什么错误**：一个玩家动作的扣物与加资源必须具有同一提交结果。仅给运行态加锁不能跨数据库崩溃窗口保证原子性；仅在事务中写资源也不能阻止事务前已认领的旧 payload 在事务后覆盖。生产数据库模式若在 durable 服务不可用时退回内存写，还会把暂时故障放大为永久资产漂移。
+- **触发条件**：使用地块资源消耗品时任一分域 flush、进程或数据库操作在两步之间失败；或者旧 ledger worker 已 claim payload，随后与物品使用事务并发；或者生产数据库已配置但 durable service 初始化失败。
+- **可能后果**：物品未扣却永久获得灵气/煞气，或物品已扣但资源在重启后消失；旧 worker 把新资源值覆盖回旧值；运行态与数据库长期不一致；同一成功结果无法由客户端稳定本地化、聚合或富文本渲染。
+- **修复方式**：在玩家资产锁与实例 `tile_resource` 分域锁内只规划背包和累计资源后态，并在首次异步操作前持有 persistence hold；通过 `grantInventoryItems()` 在同一 PostgreSQL 事务内校验玩家 session fence 与实例 `assignedNodeId / leaseToken / ownershipEpoch`，写入背包、累计地块资源、recovery watermark、outbox、inventory/tile_resource 双审计及单调 ledger barrier。worker 在相同实例 advisory lock 内重验 claim、fencing token、payload 和版本，失效 claim 不再落资源。事务确认后才一次应用运行态；COMMIT 回包未知沿用 durable reconciliation；生产数据库模式 durable 未就绪时失败关闭。成功通知按灵气、煞气、通用单资源与多资源拆为八个稳定 i18n key，不再把服务端中文资源标签或预拼摘要放进结构化变量。
+- **实际修改**：新增独立 `tile-resource-durable-persistence.ts`，扩展 durable source mutation 与精确 lease token；`FlushTaskRuntimeService` 在 persistence hold 期间跳过 staging，并把 ledger claim 传给实例资源 writer；writer 返回实际应用的实例集合，只有已应用 payload 才推进 watermark 和运行态 persisted 标记。物品使用链新增累计 delta 规划、事务后应用和结构化 notice；机制文档、客户端语言包、smoke suite 与两个专项 smoke 同步更新。
+- **验证结果**：`git diff --check`、`pnpm --filter @mud/server compile`、`pnpm verify:client` 与 `pnpm verify:quick` 通过；客户端门禁确认 3883 条 i18n 真源/生成物一致，TypeScript/Vite、UI 连续性、请求生命周期、Socket 和地图渲染 proof 未回归。compiled `world-runtime-tile-resource-item-durable-smoke` 证明 COMMIT 前不改两域、成功后一次应用、普通失败不污染、结构化通知与生产数据库模式失败关闭；compiled `flush-task-staged-transfer-smoke`、`flush-instance-payload-smoke`、`instance-persistence-flush-consistency-smoke` 证明 hold、累计 delta 和普通 payload 链未回归。真实 PostgreSQL `tile-resource-use-durable-smoke` 证明错误 lease 全量拒绝、正确事务同时写背包/资源/ledger barrier/outbox/双审计、旧 claim 无法迟到覆盖及同 operationId 重放不重复；真实 PostgreSQL `inventory-grant-durable-smoke` 证明既有地面来源事务未回归。尚未模拟真实网络断线下的 COMMIT 回包丢失和多节点同时续租，也未执行完整 release/shadow/acceptance 门禁；这些仍属于 X-02/X-04 的后续范围。
+- **中文原子提交 hash**：待提交。
 
 ## 2026-07-14 待用户决定
 

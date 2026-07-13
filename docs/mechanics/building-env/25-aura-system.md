@@ -54,6 +54,15 @@ next = current > base ? current - step : current + step
 - 聚灵阵效果（tile_aura_source）
 - 灵脉/灵泉等地标
 - 玩家修炼消耗（逸散）
+- 配置了 `tileAuraGainAmount` 或 `tileResourceGains` 的消耗品主动注入
+
+### 消耗品注入的资产一致性
+
+- 玩家在地块使用灵石、血精石等资源消耗品时，背包扣除与 `instance_tile_resource_state` 后态必须在同一个 durable operation 中提交。
+- 事务同时校验玩家 `runtime_owner_id + session_epoch` 与实例 `assigned_node_id + lease_token + ownership_epoch`；任一围栏失效时，背包和地块资源都不改变。
+- 事务会接管该实例 `tile_resource` 域尚未真实落库的累计 delta，并写入更高版本的 flush ledger barrier；已经认领的旧 payload 在取得实例 advisory lock 后必须再次校验 claim，不能迟到覆盖玩家操作后的资源值。
+- 服务端收到明确 COMMIT 成功，或通过同一 `operationId` 回读确认成功后，才把背包与地块资源后态一次性应用到运行态。普通失败保持两域不变；COMMIT 结果未决期间阻止相关玩家和实例 flush 越过事务边界。
+- 事务等待期间如果自然流转等逻辑又改变了同一资源域，本次物品增量仍由 durable 真源保存；并发产生的额外运行态变化继续保留为累计 dirty，由后续增量 flush 收敛，不能用旧快照清除。
 
 ## 望气显示口径
 

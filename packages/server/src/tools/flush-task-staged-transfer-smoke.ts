@@ -21,6 +21,7 @@ async function main(): Promise<void> {
     await verifyFallbackSnapshotExpandsToSingleDomainTasks();
     await verifyProjectionStagingClaimsCompleteRuntimeFence();
     await verifyRejectedLedgerGenerationKeepsDirty();
+    await verifyHeldInstanceDomainIsNotStaged();
     await verifyCompleteInstancePayloadStaging();
     await verifyStoppedEpochStartupReplay();
   } finally {
@@ -29,10 +30,63 @@ async function main(): Promise<void> {
   }
   console.log(JSON.stringify({
     ok: true,
-    answers: '统一 staging 已按 generation single-flight，高频修订在内存合并窗口内不重复覆盖 ledger，高优先级与关机最终 staging 可绕过窗口；玩家投影在 fence 不完整时会先 claim ownership 并重读完整 fence；实例覆盖完整 payload 与恢复前 replay。',
+    answers: '统一 staging 已按 generation single-flight，高频修订在内存合并窗口内不重复覆盖 ledger，高优先级与关机最终 staging 可绕过窗口；玩家投影在 fence 不完整时会先 claim ownership 并重读完整 fence；被 durable 事务 hold 的实例域不会生成竞态 payload；实例覆盖完整 payload 与恢复前 replay。',
     excludes: '不证明真实 PostgreSQL 多进程 claim 竞争；该部分由 flush-ledger DB smoke 覆盖。',
     completionMapping: 'flush-task-staged-transfer',
   }, null, 2));
+}
+
+async function verifyHeldInstanceDomainIsNotStaged(): Promise<void> {
+  const instanceId = 'held-instance-domain-staging';
+  let held = true;
+  const staged: FlushTask[] = [];
+  const instance = {
+    meta: { persistent: true, ownershipEpoch: 3 },
+    getPersistenceRevision: () => 1,
+    getPersistenceDomainRevision: () => 1,
+    getStagedPersistenceDomainRevision: () => 0,
+    isPersistenceDomainHeld: (domain: string) => held && domain === 'tile_resource',
+    capturePersistenceDomainFlushSnapshot: () => ({
+      persistenceRevision: 1,
+      domainRevisions: new Map([['tile_resource', 1]]),
+      dirtyTileResourceByKey: new Map([['ore', new Set([1])]]),
+    }),
+    buildTileResourcePersistenceDelta: () => ({
+      fullReplace: false,
+      upserts: [{ resourceKey: 'ore', tileIndex: 1, value: 3 }],
+      deletes: [],
+    }),
+    markPersistenceDomainsStaged: () => undefined,
+  };
+  const runtime = new FlushTaskRuntimeService(
+    { listUnstagedPlayerDomainRevisions: () => new Map() } as never,
+    {
+      listDirtyPersistentInstanceDomains: () => [{ instanceId, domains: ['tile_resource'] }],
+      getInstanceRuntime: () => instance,
+      buildDomainDeltaBatch: () => [{
+        instanceId,
+        fullReplace: false,
+        upserts: [{ resourceKey: 'ore', tileIndex: 1, value: 3 }],
+        deletes: [],
+        flushSnapshot: instance.capturePersistenceDomainFlushSnapshot(),
+      }],
+    } as never,
+    { flushPlayerDomains: async () => true } as never,
+    {
+      isEnabled: () => true,
+      upsertFlushTasks: async (tasks: FlushTask[]) => {
+        staged.push(...tasks);
+        return tasks.length;
+      },
+    } as never,
+    { signalPlayerFlush() {}, signalInstanceFlush() {} } as never,
+  );
+
+  await runtime.stageDirtyTasksOnce();
+  assert.equal(staged.length, 0, 'persistence hold 期间不得把事务前快照写入 ledger');
+  held = false;
+  await runtime.stageDirtyTasksOnce();
+  assert.equal(staged.length, 1, 'hold 释放后仍须正常承接未落库实例域');
 }
 
 async function verifyStagingCoalescesHighFrequencyRevisions(): Promise<void> {
