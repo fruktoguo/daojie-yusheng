@@ -70,6 +70,12 @@ const PLAYER_PROJECTABLE_DOMAIN_SET = new Set<string>(PLAYER_SNAPSHOT_PROJECTABL
 const PLAYER_FALLBACK_SNAPSHOT_DOMAIN = 'snapshot';
 const PLAYER_PRESENCE_PAYLOAD_KIND = 'player_presence';
 const PLAYER_SNAPSHOT_PROJECTION_PAYLOAD_KIND = 'player_snapshot_projection';
+const PLAYER_GROUPED_CLAIM_DOMAINS = Object.freeze([
+  'presence',
+  PLAYER_FALLBACK_SNAPSHOT_DOMAIN,
+  ...PLAYER_SNAPSHOT_PROJECTABLE_DIRTY_DOMAINS,
+]);
+const PLAYER_GROUPED_CLAIM_DOMAIN_SET = new Set<string>(PLAYER_GROUPED_CLAIM_DOMAINS);
 const INSTANCE_DOMAIN_DELTA_PAYLOAD_KIND = 'instance_domain_delta';
 const INSTANCE_DOMAIN_STATE_PAYLOAD_KIND = 'instance_domain_state';
 const INSTANCE_PAYLOAD_BATCH_DOMAINS = new Set(['tile_damage', 'tile_resource']);
@@ -496,14 +502,23 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
       }
       const playerTasks = instanceId
         ? []
-        : await this.flushLedgerService.claimReadyFlushTasks({
-            workerId,
-            scope: 'player',
-            limit: STAGING_BATCH_SIZE,
-            claimTtlMs: PAYLOAD_CLAIM_RENEW_TTL_MS,
-            payloadRequired: true,
-            includeDelayed: true,
-          });
+        : typeof this.flushLedgerService.claimReadyPlayerFlushTaskGroups === 'function'
+          ? await this.flushLedgerService.claimReadyPlayerFlushTaskGroups({
+              workerId,
+              limit: STAGING_BATCH_SIZE,
+              claimTtlMs: PAYLOAD_CLAIM_RENEW_TTL_MS,
+              payloadRequired: true,
+              includeDelayed: true,
+              includedDomains: PLAYER_GROUPED_CLAIM_DOMAINS,
+            })
+          : await this.flushLedgerService.claimReadyFlushTasks({
+              workerId,
+              scope: 'player',
+              limit: STAGING_BATCH_SIZE,
+              claimTtlMs: PAYLOAD_CLAIM_RENEW_TTL_MS,
+              payloadRequired: true,
+              includeDelayed: true,
+            });
       const instanceTasks = await this.flushLedgerService.claimReadyFlushTasks({
         workerId,
         scope: 'instance',
@@ -676,6 +691,20 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
     for (const priority of ['high', 'normal', 'low'] satisfies FlushTaskPriority[]) {
       const limit = limits[priority];
       if (limit <= 0) {
+        continue;
+      }
+      if (
+        scope === 'player'
+        && (!domain || PLAYER_GROUPED_CLAIM_DOMAIN_SET.has(domain))
+        && typeof this.flushLedgerService.claimReadyPlayerFlushTaskGroups === 'function'
+      ) {
+        result.push(...await this.flushLedgerService.claimReadyPlayerFlushTaskGroups({
+          workerId,
+          domain,
+          priority,
+          limit,
+          includedDomains: domain ? [domain] : PLAYER_GROUPED_CLAIM_DOMAINS,
+        }));
         continue;
       }
       result.push(...await this.flushLedgerService.claimReadyFlushTasks({ workerId, scope, domain, priority, limit }));
@@ -1100,7 +1129,7 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
           if (options.failFastDeterministicPayload === true && isDeterministicReplayPlayerPayloadError(error)) {
             throw error;
           }
-          results[index] = await this.retryPlayerTasksIndividually(group, error);
+          results[index] = await this.retryPlayerTaskGroup(group, error);
         }
       },
     );
@@ -1183,19 +1212,32 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
       const invalidTasks = payloadRows.filter((row) => !row.payload).map((row) => row.task);
       if (invalidTasks.length > 0) {
         if (shouldStartAuthoritativeRuntime()) return null;
+        const abandonedTaskKeys = new Set<string>();
         for (const task of invalidTasks) {
           const attemptKey = playerTaskKey(task);
           const attempt = this.bumpFailureAttempt(attemptKey);
           if (attempt >= STALE_PAYLOAD_ABANDON_THRESHOLD) {
             this.logger.warn(`玩家刷盘放弃 stale projection：playerId=${playerId} domain=${task.domain} attempt=${attempt}`);
-            await this.flushLedgerService.markFlushTaskFlushed(task);
-            this.failureAttempts.delete(attemptKey);
-            processed += 1;
-          } else {
-            await this.flushLedgerService.markFlushTaskRetry(task, RETRY_DELAY_MS);
+            if (await this.flushLedgerService.markFlushTaskFlushed(task)) {
+              abandonedTaskKeys.add(playerTaskKey(task));
+              this.failureAttempts.delete(attemptKey);
+              processed += 1;
+            }
           }
         }
+        const retryTasks = projectionTasks.filter((task) => !abandonedTaskKeys.has(playerTaskKey(task)));
+        if (retryTasks.length > 0) {
+          await this.flushLedgerService.markFlushTasksRetry(retryTasks, RETRY_DELAY_MS);
+        }
+        // 同一玩家 payload 组中只要存在不可解析行，就不能先提交其余领域制造半组真源。
+        return processed;
       }
+      const currentPayloadRows: Array<{
+        task: FlushTask;
+        payload: PlayerSnapshotProjectionPayload;
+        effectiveRuntimeOwnerId: string | null;
+        domains: string[];
+      }> = [];
       for (const { task, payload } of payloadRows) {
         if (!payload) {
           continue;
@@ -1222,54 +1264,105 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
             `player_snapshot_projection_incomplete_fence:${playerId}:expectedOwner=${effectiveRuntimeOwnerId ?? 'none'}:expectedEpoch=${payload.sessionEpoch ?? 'none'}`,
           );
         }
-        const domains = new Set(payload.projectedDomains.length > 0
+        const domains = Array.from(new Set(payload.projectedDomains.length > 0
           ? payload.projectedDomains
           : (task.domain === PLAYER_FALLBACK_SNAPSHOT_DOMAIN
               ? Array.from(PLAYER_PROJECTABLE_DOMAIN_SET)
-              : [task.domain]));
-        let allProjectedDomainsWritten = true;
-        let staleFenceDuringWrite = false;
-        for (const projectedDomain of Array.from(domains).sort()) {
-          if (!await this.renewPayloadClaim(task)) {
-            allProjectedDomainsWritten = false;
-            break;
+              : [task.domain]))).sort();
+        for (const projectedDomain of domains) {
+          if (!PLAYER_PROJECTABLE_DOMAIN_SET.has(projectedDomain)) {
+            throw new Error(`player_snapshot_projection_domain_unsupported:${playerId}:${task.domain}:${projectedDomain}`);
           }
-          try {
-            await this.playerDomainPersistenceService.savePlayerSnapshotProjectionDomains(
-              playerId,
-              payload.snapshot,
-              new Set([projectedDomain]),
-              {
-                allowInventoryEmptyOverwrite: projectedDomain === 'inventory',
-                allowEquipmentEmptyOverwrite: projectedDomain === 'equipment',
-                allowArtifactEmptyOverwrite: projectedDomain === 'artifact',
-                allowBuffEmptyOverwrite: projectedDomain === 'buff',
-                expectedRuntimeOwnerId: effectiveRuntimeOwnerId,
-                expectedSessionEpoch: payload.sessionEpoch ?? null,
-                expectedProjectionVersion: payload.projectionVersion,
-              },
-            );
-          } catch (error) {
-            if (!isConvergedPlayerProjectionFenceError(error)) {
-              throw error;
+        }
+        currentPayloadRows.push({ task, payload, effectiveRuntimeOwnerId, domains });
+      }
+      if (currentPayloadRows.length > 0) {
+        const currentTasks = currentPayloadRows.map((row) => row.task);
+        if (!await this.renewPayloadClaims(currentTasks)) {
+          await this.flushLedgerService.markFlushTasksRetry(currentTasks, RETRY_DELAY_MS);
+          return processed;
+        }
+        const writeByDomain = new Map<string, {
+          domain: string;
+          task: FlushTask;
+          payload: PlayerSnapshotProjectionPayload;
+          effectiveRuntimeOwnerId: string | null;
+        }>();
+        for (const row of currentPayloadRows) {
+          const candidateVersion = Math.max(
+            0,
+            Math.trunc(Number(row.payload.projectionVersion) || 0),
+            Math.trunc(Number(row.task.latestRevision) || 0),
+          );
+          for (const domain of row.domains) {
+            const existing = writeByDomain.get(domain);
+            const existingVersion = existing
+              ? Math.max(
+                  0,
+                  Math.trunc(Number(existing.payload.projectionVersion) || 0),
+                  Math.trunc(Number(existing.task.latestRevision) || 0),
+                )
+              : -1;
+            if (!existing || candidateVersion >= existingVersion) {
+              writeByDomain.set(domain, {
+                domain,
+                task: row.task,
+                payload: row.payload,
+                effectiveRuntimeOwnerId: row.effectiveRuntimeOwnerId,
+              });
             }
-            staleFenceDuringWrite = true;
-            this.logger.warn(
-              `玩家刷盘事务内 fence 已过期，按 stale-safe 收敛：playerId=${playerId} domain=${task.domain} error=${formatError(error)}`,
-            );
-            break;
           }
         }
-        if (staleFenceDuringWrite) {
-          if (await this.flushLedgerService.markFlushTaskFlushed(task)) processed += 1;
-          continue;
+        const batchEntries = Array.from(writeByDomain.values())
+          .sort((left, right) => left.domain.localeCompare(right.domain))
+          .map((entry) => ({
+            snapshot: entry.payload.snapshot,
+            domains: [entry.domain],
+            options: {
+              allowInventoryEmptyOverwrite: entry.domain === 'inventory',
+              allowEquipmentEmptyOverwrite: entry.domain === 'equipment',
+              allowArtifactEmptyOverwrite: entry.domain === 'artifact',
+              allowBuffEmptyOverwrite: entry.domain === 'buff',
+              expectedRuntimeOwnerId: entry.effectiveRuntimeOwnerId,
+              expectedSessionEpoch: entry.payload.sessionEpoch ?? null,
+              expectedProjectionVersion: entry.payload.projectionVersion,
+            },
+          }));
+        try {
+          if (typeof this.playerDomainPersistenceService.savePlayerSnapshotProjectionDomainBatch === 'function') {
+            await this.playerDomainPersistenceService.savePlayerSnapshotProjectionDomainBatch(playerId, batchEntries);
+          } else {
+            // 仅供旧测试夹具/渐进集成；生产服务始终提供单事务 batch writer。
+            for (const entry of batchEntries) {
+              await this.playerDomainPersistenceService.savePlayerSnapshotProjectionDomains(
+                playerId,
+                entry.snapshot,
+                entry.domains,
+                entry.options,
+              );
+            }
+          }
+        } catch (error) {
+          if (!isConvergedPlayerProjectionFenceError(error)) {
+            throw error;
+          }
+          this.logger.warn(
+            `玩家刷盘事务内 fence 已过期，按 stale-safe 收敛：playerId=${playerId} domains=${batchEntries.map((entry) => Array.from(entry.domains).join(',')).join(',')} error=${formatError(error)}`,
+          );
+          for (const row of currentPayloadRows) {
+            if (await this.flushLedgerService.markFlushTaskFlushed(row.task)) {
+              processed += 1;
+            }
+          }
+          return processed;
         }
-        if (!allProjectedDomainsWritten || (domains.size > 0 && !await this.renewPayloadClaim(task))) {
-          continue;
-        }
-        if (await this.flushLedgerService.markFlushTaskFlushed(task)) {
-          processed += 1;
-          this.markPlayerPayloadPersisted(playerId, task, payload);
+        // 写真源已经原子提交；续租失败的行不冒充已确认，稍后重放会被逐域 watermark 安全吸收。
+        await this.renewPayloadClaims(currentTasks);
+        for (const row of currentPayloadRows) {
+          if (await this.flushLedgerService.markFlushTaskFlushed(row.task)) {
+            processed += 1;
+            this.markPlayerPayloadPersisted(playerId, row.task, row.payload);
+          }
         }
       }
     }
@@ -1282,6 +1375,22 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
       this.logger.warn(`刷盘 payload claim 已失效，放弃写真源 scope=${task.scope} id=${task.id} domain=${task.domain}`);
     }
     return renewed;
+  }
+
+  private async renewPayloadClaims(tasks: FlushTask[]): Promise<boolean> {
+    if (tasks.length === 0) {
+      return true;
+    }
+    if (typeof this.flushLedgerService.renewFlushTaskClaims === 'function') {
+      const renewed = await this.flushLedgerService.renewFlushTaskClaims(tasks, PAYLOAD_CLAIM_RENEW_TTL_MS);
+      if (renewed === tasks.length) {
+        return true;
+      }
+      this.logger.warn(`玩家刷盘 payload claim 组不完整，放弃本轮写真源 playerId=${tasks[0]?.id ?? 'unknown'} renewed=${renewed}/${tasks.length}`);
+      return false;
+    }
+    const results = await Promise.all(tasks.map((task) => this.renewPayloadClaim(task)));
+    return results.every(Boolean);
   }
 
   private markPlayerPayloadPersisted(
@@ -1381,34 +1490,24 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
     return batchProcessed + sumProcessedCounts(results);
   }
 
-  private async retryPlayerTasksIndividually(tasks: FlushTask[], groupError: unknown): Promise<number> {
-    let processed = 0;
-    this.logger.warn(`玩家聚合刷盘失败，降级为逐 domain 隔离 playerId=${tasks[0]?.id ?? 'unknown'}: ${formatError(groupError)}`);
-    for (const task of tasks) {
-      if (this.isGlobalBackoffActive()) {
-        return processed;
-      }
-      const attemptKey = playerTaskKey(task);
-      try {
-        const payloadProcessed = await this.processPlayerPayloadTaskGroup(task.id, [task]);
-        if (payloadProcessed !== null) {
-          processed += payloadProcessed;
-          this.failureAttempts.delete(attemptKey);
-          continue;
-        }
-        const flushed = await this.playerPersistenceFlushService.flushPlayerDomains(task.id, [task.domain]);
-        if (flushed === false) {
-          await this.flushLedgerService.markFlushTaskRetry(task, RETRY_DELAY_MS);
-          continue;
-        }
-        await this.flushLedgerService.markFlushTaskFlushed(task);
-        this.failureAttempts.delete(attemptKey);
-        processed += 1;
-      } catch (error) {
-        await this.markTaskRetryWithDiagnostics(task, error);
-      }
+  private async retryPlayerTaskGroup(tasks: FlushTask[], error: unknown): Promise<number> {
+    if (tasks.length === 0) {
+      return 0;
     }
-    return processed;
+    const failure = classifyFlushFailure(error);
+    const attemptKey = playerGroupKey(tasks);
+    const attempt = this.bumpFailureAttempt(attemptKey);
+    const retryDelayMs = resolveFlushRetryDelayMs(failure, attempt);
+    const domains = Array.from(new Set(tasks.map((task) => task.domain))).sort();
+    this.recordFlushFailure('player', tasks[0]?.id ?? 'unknown', domains.join(','), failure, attempt, retryDelayMs);
+    if (failure.globalBackoffMs > 0) {
+      this.applyGlobalBackoff(failure.globalBackoffMs);
+    }
+    this.logger.warn(
+      `玩家聚合刷盘失败，整组回滚并重试 playerId=${tasks[0]?.id ?? 'unknown'} domains=${domains.join(',')} category=${failure.category}: ${formatError(error)}`,
+    );
+    await this.flushLedgerService.markFlushTasksRetry(tasks, retryDelayMs);
+    return 0;
   }
 
   private async processInstanceStatePayloadTaskGroup(group: FlushTask[]): Promise<number | null> {

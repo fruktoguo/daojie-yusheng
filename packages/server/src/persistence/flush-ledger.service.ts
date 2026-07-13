@@ -19,6 +19,7 @@ const PLAYER_FLUSH_LEDGER_TABLE = 'player_flush_ledger';
 const INSTANCE_FLUSH_LEDGER_TABLE = 'instance_flush_ledger';
 const FLUSH_LEDGER_LOCK_NAMESPACE = 42871;
 const FLUSH_LEDGER_LOCK_KEY = 4001;
+const PLAYER_FLUSH_GROUP_CLAIM_LOCK_NAMESPACE = 42872;
 const DEFAULT_FLUSH_LEDGER_BATCH_SIZE = 250;
 const MAX_FLUSH_LEDGER_BATCH_SIZE = 1_000;
 const DEFAULT_FLUSH_TASK_CLAIM_TTL_MS = 30_000;
@@ -166,37 +167,137 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
     const rows = input.scope === 'player'
       ? await this.claimPlayerFlushLedger(input)
       : await this.claimInstanceFlushLedger(input);
-    return rows
-      .map((row) => {
-        const id = input.scope === 'player'
-          ? normalizeRequiredString(row.player_id)
-          : normalizeRequiredString(row.instance_id);
-        const domain = normalizeRequiredString(row.domain);
-        if (!id || !domain) {
-          return null;
-        }
-        const task: FlushTask = {
-          scope: input.scope,
-          id,
-          domain,
-          priority: normalizePriority(row.priority),
-          latestRevision: normalizePositiveInteger(row.latest_version, 0, 0, Number.MAX_SAFE_INTEGER),
-          ownershipEpoch: input.scope === 'instance'
-            ? normalizePositiveInteger(row.ownership_epoch, 0, 0, Number.MAX_SAFE_INTEGER)
-            : null,
-          runtimeOwnerId: normalizeOptionalString(row.runtime_owner_id),
-          fencingToken: normalizeOptionalString(row.fencing_token),
-          claimOwnerId: normalizeOptionalString(row.claimed_by),
-          idempotencyKey: normalizeOptionalString(row.idempotency_key),
-          payloadJson: row.payload_jsonb ?? null,
-          failureCategory: normalizeOptionalString(row.failure_category),
-          dirtySinceAt: normalizeOptionalTimestamp(row.dirty_since_at),
-          nextAttemptAt: normalizeOptionalTimestamp(row.next_attempt_at ?? row.retry_after),
-          createdAt: normalizeOptionalTimestamp(row.created_at),
-        };
-        return task;
-      })
-      .filter((task): task is FlushTask => task !== null);
+    return mapFlushLedgerRowsToTasks(input.scope, rows);
+  }
+
+  /**
+   * 以 playerId 为认领单位：候选优先级和额度按玩家计算，一旦选中便接管该玩家指定领域范围内的全部待刷行。
+   * 事务级 advisory lock 与“范围内任一活跃 claim 则整组跳过”共同阻止不同 worker 拆分同一玩家投影。
+   */
+  async claimReadyPlayerFlushTaskGroups(
+    input: Omit<ClaimFlushTaskInput, 'scope' | 'ownershipEpoch'> & { includedDomains?: readonly string[] },
+  ): Promise<FlushTask[]> {
+    if (!this.pool || !this.enabled) {
+      return [];
+    }
+    const workerId = normalizeRequiredString(input.workerId);
+    if (!workerId) {
+      return [];
+    }
+    const claimOwnerId = buildClaimOwnerId(workerId);
+    const claimTtlMs = resolveFlushTaskClaimTtlMs(input.claimTtlMs);
+    const playerLimit = normalizePositiveInteger(input.limit, 32, 1, 5_000);
+    const candidateLimit = Math.min(20_000, Math.max(playerLimit, playerLimit * 4));
+    const queryParams: Array<string | number | string[]> = [
+      claimOwnerId,
+      claimTtlMs,
+      PLAYER_FLUSH_GROUP_CLAIM_LOCK_NAMESPACE,
+    ];
+    const candidateFilters = [
+      'candidate.latest_version > candidate.flushed_version',
+      '(candidate.claim_until IS NULL OR candidate.claim_until < now())',
+    ];
+    if (input.includeDelayed !== true) {
+      candidateFilters.push('(COALESCE(candidate.next_attempt_at, candidate.retry_after) IS NULL OR COALESCE(candidate.next_attempt_at, candidate.retry_after) <= now())');
+    }
+    if (input.payloadRequired === true) {
+      candidateFilters.push('candidate.payload_jsonb IS NOT NULL');
+    }
+    const includedDomains = Array.from(new Set(
+      (input.includedDomains ?? [])
+        .map((entry) => normalizeRequiredString(entry))
+        .filter(Boolean),
+    )).sort();
+    let includedDomainsParam: string | null = null;
+    if (input.includedDomains && includedDomains.length === 0) {
+      return [];
+    }
+    if (includedDomains.length > 0) {
+      queryParams.push(includedDomains);
+      includedDomainsParam = `$${queryParams.length}`;
+      candidateFilters.push(`candidate.domain = ANY(${includedDomainsParam}::varchar[])`);
+    }
+    const playerId = normalizeRequiredString(input.id);
+    if (playerId) {
+      queryParams.push(playerId);
+      candidateFilters.push(`candidate.player_id = $${queryParams.length}`);
+    }
+    const domain = normalizeRequiredString(input.domain);
+    if (domain) {
+      queryParams.push(domain);
+      candidateFilters.push(`candidate.domain = $${queryParams.length}`);
+    }
+    const priority = normalizeOptionalPriority(input.priority);
+    if (priority) {
+      queryParams.push(priority);
+      candidateFilters.push(`candidate.priority = $${queryParams.length}`);
+    }
+    queryParams.push(candidateLimit);
+    const candidateLimitParam = `$${queryParams.length}`;
+    queryParams.push(playerLimit);
+    const playerLimitParam = `$${queryParams.length}`;
+    const claimedPayloadFilter = input.payloadRequired === true ? 'AND ledger.payload_jsonb IS NOT NULL' : '';
+    const claimedDomainFilter = includedDomainsParam
+      ? `AND ledger.domain = ANY(${includedDomainsParam}::varchar[])`
+      : '';
+    const activeClaimDomainFilter = includedDomainsParam
+      ? `AND active_claim.domain = ANY(${includedDomainsParam}::varchar[])`
+      : '';
+    const result = await this.pool.query<Record<string, unknown>>(
+      `
+        WITH candidate_players AS MATERIALIZED (
+          SELECT
+            candidate.player_id,
+            MIN(candidate.dirty_since_at) AS oldest_dirty_since_at,
+            MIN(candidate.updated_at) AS oldest_updated_at
+          FROM ${PLAYER_FLUSH_LEDGER_TABLE} candidate
+          WHERE ${candidateFilters.join(' AND ')}
+            AND NOT EXISTS (
+              SELECT 1
+              FROM ${PLAYER_FLUSH_LEDGER_TABLE} active_claim
+              WHERE active_claim.player_id = candidate.player_id
+                AND active_claim.latest_version > active_claim.flushed_version
+                ${activeClaimDomainFilter}
+                AND active_claim.claimed_by IS NOT NULL
+                AND active_claim.claim_until >= now()
+            )
+          GROUP BY candidate.player_id
+          ORDER BY MIN(candidate.dirty_since_at) ASC NULLS LAST,
+                   MIN(candidate.updated_at) ASC,
+                   candidate.player_id ASC
+          LIMIT ${candidateLimitParam}
+        ), locked_players AS MATERIALIZED (
+          SELECT candidate.player_id
+          FROM candidate_players candidate
+          WHERE pg_try_advisory_xact_lock($3::integer, hashtext(candidate.player_id))
+          ORDER BY candidate.oldest_dirty_since_at ASC NULLS LAST,
+                   candidate.oldest_updated_at ASC,
+                   candidate.player_id ASC
+          LIMIT ${playerLimitParam}
+        ), claimed AS (
+          UPDATE ${PLAYER_FLUSH_LEDGER_TABLE} ledger
+          SET claimed_by = $1,
+              claim_until = now() + ($2::bigint * interval '1 millisecond')
+          WHERE ledger.player_id IN (SELECT player_id FROM locked_players)
+            AND ledger.latest_version > ledger.flushed_version
+            AND (ledger.claim_until IS NULL OR ledger.claim_until < now())
+            ${claimedPayloadFilter}
+            ${claimedDomainFilter}
+          RETURNING ledger.player_id, ledger.domain, ledger.priority, ledger.latest_version,
+            ledger.flushed_version, ledger.dirty_since_at, ledger.next_attempt_at, ledger.claimed_by,
+            ledger.claim_until, ledger.runtime_owner_id, ledger.fencing_token, ledger.idempotency_key,
+            ledger.payload_jsonb, ledger.failure_category, ledger.retry_after, ledger.created_at,
+            ledger.updated_at
+        )
+        SELECT *
+        FROM claimed
+        ORDER BY player_id ASC,
+                 CASE priority WHEN 'high' THEN 0 WHEN 'normal' THEN 1 WHEN 'low' THEN 2 ELSE 1 END ASC,
+                 domain ASC
+      `,
+      queryParams,
+    );
+    return mapFlushLedgerRowsToTasks('player', result.rows);
   }
 
   async markFlushTaskFlushed(task: FlushTask, flushedRevision = task.latestRevision): Promise<boolean> {
@@ -472,6 +573,82 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
       ],
     );
     return (result.rowCount ?? 0) > 0;
+  }
+
+  /** 批量延长同一轮认领，避免玩家多域事务在写入前后逐行续租放大 SQL。 */
+  async renewFlushTaskClaims(tasks: FlushTask[], ttlMs?: number): Promise<number> {
+    if (!this.pool || !this.enabled || tasks.length === 0) {
+      return 0;
+    }
+    const claimedTasks = dedupeClaimedFlushTasks(tasks);
+    const claimTtlMs = resolveFlushTaskClaimTtlMs(ttlMs);
+    let renewed = 0;
+    const playerTasks = claimedTasks.filter((task) => task.scope === 'player');
+    if (playerTasks.length > 0) {
+      const result = await this.pool.query(
+        `
+          WITH input AS (
+            SELECT *
+            FROM jsonb_to_recordset($1::jsonb) AS claimed(
+              player_id varchar(100), domain varchar(64), claim_owner_id varchar(120), fencing_token varchar(120)
+            )
+          )
+          UPDATE ${PLAYER_FLUSH_LEDGER_TABLE} ledger
+          SET claim_until = now() + ($2::bigint * interval '1 millisecond')
+          FROM input
+          WHERE ledger.player_id = input.player_id
+            AND ledger.domain = input.domain
+            AND ledger.claimed_by = input.claim_owner_id
+            AND ledger.fencing_token IS NOT DISTINCT FROM input.fencing_token
+            AND ledger.latest_version > ledger.flushed_version
+        `,
+        [
+          JSON.stringify(playerTasks.map((task) => ({
+            player_id: task.id,
+            domain: task.domain,
+            claim_owner_id: task.claimOwnerId,
+            fencing_token: task.fencingToken ?? null,
+          }))),
+          claimTtlMs,
+        ],
+      );
+      renewed += result.rowCount ?? 0;
+    }
+    const instanceTasks = claimedTasks.filter((task) => task.scope === 'instance');
+    if (instanceTasks.length > 0) {
+      const result = await this.pool.query(
+        `
+          WITH input AS (
+            SELECT *
+            FROM jsonb_to_recordset($1::jsonb) AS claimed(
+              instance_id varchar(100), domain varchar(64), ownership_epoch bigint,
+              claim_owner_id varchar(120), fencing_token varchar(120)
+            )
+          )
+          UPDATE ${INSTANCE_FLUSH_LEDGER_TABLE} ledger
+          SET claim_until = now() + ($2::bigint * interval '1 millisecond')
+          FROM input
+          WHERE ledger.instance_id = input.instance_id
+            AND ledger.domain = input.domain
+            AND ledger.ownership_epoch = input.ownership_epoch
+            AND ledger.claimed_by = input.claim_owner_id
+            AND ledger.fencing_token IS NOT DISTINCT FROM input.fencing_token
+            AND ledger.latest_version > ledger.flushed_version
+        `,
+        [
+          JSON.stringify(instanceTasks.map((task) => ({
+            instance_id: task.id,
+            domain: task.domain,
+            ownership_epoch: normalizePositiveInteger(task.ownershipEpoch, 0, 0, Number.MAX_SAFE_INTEGER),
+            claim_owner_id: task.claimOwnerId,
+            fencing_token: task.fencingToken ?? null,
+          }))),
+          claimTtlMs,
+        ],
+      );
+      renewed += result.rowCount ?? 0;
+    }
+    return renewed;
   }
 
   /**
@@ -1640,6 +1817,43 @@ function buildFlushTaskIdempotencyKey(task: FlushTask): string {
 
 function normalizePriority(value: unknown): FlushTaskPriority {
   return value === 'high' || value === 'low' || value === 'normal' ? value : 'normal';
+}
+
+function mapFlushLedgerRowsToTasks(
+  scope: FlushTaskScope,
+  rows: readonly Record<string, unknown>[],
+): FlushTask[] {
+  return rows
+    .map((row) => {
+      const id = scope === 'player'
+        ? normalizeRequiredString(row.player_id)
+        : normalizeRequiredString(row.instance_id);
+      const domain = normalizeRequiredString(row.domain);
+      if (!id || !domain) {
+        return null;
+      }
+      const task: FlushTask = {
+        scope,
+        id,
+        domain,
+        priority: normalizePriority(row.priority),
+        latestRevision: normalizePositiveInteger(row.latest_version, 0, 0, Number.MAX_SAFE_INTEGER),
+        ownershipEpoch: scope === 'instance'
+          ? normalizePositiveInteger(row.ownership_epoch, 0, 0, Number.MAX_SAFE_INTEGER)
+          : null,
+        runtimeOwnerId: normalizeOptionalString(row.runtime_owner_id),
+        fencingToken: normalizeOptionalString(row.fencing_token),
+        claimOwnerId: normalizeOptionalString(row.claimed_by),
+        idempotencyKey: normalizeOptionalString(row.idempotency_key),
+        payloadJson: row.payload_jsonb ?? null,
+        failureCategory: normalizeOptionalString(row.failure_category),
+        dirtySinceAt: normalizeOptionalTimestamp(row.dirty_since_at),
+        nextAttemptAt: normalizeOptionalTimestamp(row.next_attempt_at ?? row.retry_after),
+        createdAt: normalizeOptionalTimestamp(row.created_at),
+      };
+      return task;
+    })
+    .filter((task): task is FlushTask => task !== null);
 }
 
 function normalizeOptionalPriority(value: unknown): FlushTaskPriority | null {

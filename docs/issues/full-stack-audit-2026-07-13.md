@@ -3,7 +3,7 @@
 ## 审计口径
 
 - 生产主线：`packages/client`、`packages/shared`、`packages/server`、`packages/config-editor`。
-- 当前基线：`main` 分支 `58f6595a`；相对 `origin/main` ahead 36。
+- 当前基线：`main` 分支 `48a332b5`；相对 `origin/main` ahead 37。
 - package manager：`pnpm@10.29.1`。
 - 每项结论必须来自机制文档、完整调用链、测试、编译产物或运行数据；仅凭搜索未发现异常不能标记为“确认无问题”。
 - `[x]` 只表示该行列出的具体证据范围已完成，不代表相邻系统或整个项目已完成。
@@ -60,6 +60,8 @@
 - [x] P-32 功法书拒绝路径先扣物品及自动主修遗漏 `combat_pref` 脏域的问题已修复；见 FS-047。
 - [x] P-33 恢复药 `hp/qi` 共享冷却已进入 Buff 持久化真源，断线、重启、死亡和遁返不再重置；见 FS-048。
 - [x] P-34 水合期非法复活点修复已标记实际拥有 respawn 字段的 `world_anchor` 域；见 FS-049。
+- [x] P-35 同一玩家普通多领域 flush 已按玩家整组认领并在一个事务内提交，失败不再逐域部分成功；见 FS-051。
+- [x] P-36 玩家分域服务并行启动时，运行期重复 DDL 与已开始的业务写事务可形成 PostgreSQL 死锁；迁移契约待用户决定，见 D-004。
 
 ### 服务端权威运行时
 
@@ -116,6 +118,7 @@
 - [x] X-13 durable 事务与普通玩家分域 flush 共用锁时的跨队列版本顺序已修复，并由真实 PostgreSQL 锁等待竞态证明；见 FS-045。
 - [x] X-14 持久效果道具的来源 CAS、精确重放、空背包保护与生产失败关闭已由真实 PostgreSQL 专项 smoke 证明；见 FS-046。
 - [x] X-15 恢复药共享冷却与非法复活点修复已通过内存快照、真实分域表和恢复回读三层验证；见 FS-048、FS-049。
+- [x] X-16 玩家多领域 ledger 的并发 claim、事务回滚、独立 watermark 和未知域隔离已由真实 PostgreSQL 故障注入证明；见 FS-051。
 
 ## 已确认问题
 
@@ -870,7 +873,7 @@
 
 ### FS-048 恢复药共享冷却可通过断线或进程重启重置
 
-- **状态**：已修复并完成专项验证，待本组中文原子提交后回填 hash。
+- **状态**：已修复、验证并完成中文原子提交。
 - **严重级别**：P1。
 - **所属功能组**：背包消耗品 / 恢复药 / Buff / 玩家分域持久化与恢复。
 - **影响链路**：手动或自动使用恢复药 → `markConsumableItemCooldown()` → `inventory.consumableCooldownStartedAtByGroup` 与 `inventory.cooldowns` → 玩家快照 / `player_persistent_buff_state` → 断线重连、进程重启、死亡复生与遁返。
@@ -882,11 +885,11 @@
 - **修复方式**：将两组冷却表示为固定 ID 的隐藏运行时 Buff：`system.consumable_cooldown.hp/qi`。状态不携带属性、数值或 tick 效果，只复用现有 Buff 的逐息衰减、`player_persistent_buff_state` 回读以及死亡/遁返保留能力；水合后按 `remainingTicks + duration + lifeElapsedTicks` 重建背包内的派生起始 tick。每次用药以规范模板刷新内部状态，避免同 ID 的陈旧 payload 残留效果；客户端背包冷却列表继续只做投影。
 - **实际修改**：`PlayerRuntimeService` 新增内部冷却 Buff 的规范构造、刷新、来源校验和水合恢复；用药时同时标记 `buff` 脏域，内部状态固定 `hidden` 且设置 `persistOnDeath/persistOnReturnToSpawn`。脏域 smoke 覆盖两组冷却、快照 materialize、重新水合、死亡、遁返、到期后再使用及拒绝路径不扣物品；真实数据库写入/恢复夹具追加隐藏性与两个保留标记的 raw payload 对称断言；背包与 Buff mechanics 同步真源和生命周期约束。
 - **验证结果**：`pnpm --filter @mud/server compile` 通过；compiled `inventory-consumable-cooldown-smoke`、`player-runtime-dirty-domain-smoke`、`player-runtime-persistence-roundtrip-smoke` 通过；真实 PostgreSQL `player-domain-persistence-smoke` 与 `player-domain-recovery-smoke` 通过，证明 persistent buff 的完整 raw payload 可写入 `player_persistent_buff_state` 并参与 snapshot miss 回读恢复。
-- **中文原子提交 hash**：待本组提交后回填。
+- **中文原子提交 hash**：`48a332b5`（`fix(persistence): 修复玩家冷却与复活点恢复`）。
 
 ### FS-049 水合期复活点修复标记了错误持久化域
 
-- **状态**：已修复并完成专项验证，待本组中文原子提交后回填 hash。
+- **状态**：已修复、验证并完成中文原子提交。
 - **严重级别**：P1。
 - **所属功能组**：玩家 world anchor / 复活点 / 水合修复 / 分域 flush。
 - **影响链路**：分域或旧快照读取 respawn → `hydrateFromSnapshot()` 校验地图与坐标 → 回退地图出生点 → dirty domain → `player_world_anchor` / `player_position_checkpoint`。
@@ -898,11 +901,11 @@
 - **修复方式**：修复完成后只标记 `world_anchor` 并推进玩家持久化 revision，不再误标 `position_checkpoint`；以强类型 dirty-domain smoke 和完整往返 smoke 同时断言修复坐标、正确域存在及错误域不存在。
 - **实际修改**：调整 `hydrateFromSnapshot()` 的修复脏域；新增非法坐标水合断言；同步更新旧往返 smoke 的函数名和契约。
 - **验证结果**：`pnpm --filter @mud/server compile`、compiled `player-runtime-dirty-domain-smoke` 与 `player-runtime-persistence-roundtrip-smoke` 通过；真实 PostgreSQL `player-domain-persistence-smoke` 和 `player-domain-recovery-smoke` 通过，覆盖 `player_world_anchor`、`player_position_checkpoint` 的独立投影与恢复链。
-- **中文原子提交 hash**：待本组提交后回填。
+- **中文原子提交 hash**：`48a332b5`（随 FS-048）。
 
 ### FS-050 玩家持久化往返 smoke 固化错误脏域且绕过 TypeScript
 
-- **状态**：已修复并完成专项验证，待本组中文原子提交后回填 hash。
+- **状态**：已修复、验证并完成中文原子提交。
 - **严重级别**：P2。
 - **所属功能组**：验证门禁 / 玩家持久化恢复 / TypeScript 契约。
 - **影响链路**：服务端编译 → compiled tool runner → `player-runtime-persistence-roundtrip-smoke` → 非法复活点回退断言。
@@ -914,7 +917,23 @@
 - **修复方式**：改为标准 ESM import，移除 `@ts-nocheck`，为服务构造和动态测试快照补充最小显式类型边界，仅在验证“运行时不持久字段”时做局部类型收窄；将断言更新为 `world_anchor=true` 且 `position_checkpoint=false`。
 - **实际修改**：升级 `player-runtime-persistence-roundtrip-smoke.ts` 的模块与类型写法，并重命名复活点测试以表达当前契约；不放宽生产类型、断言或编译设置。
 - **验证结果**：`pnpm --filter @mud/server compile` 通过；compiled `player-runtime-persistence-roundtrip-smoke` 通过，且文件已无 `@ts-nocheck`、`require()`、`@ts-ignore` 或 `@ts-expect-error`。
-- **中文原子提交 hash**：待本组提交后回填。
+- **中文原子提交 hash**：`48a332b5`（随 FS-048）。
+
+### FS-051 玩家多领域普通刷盘可部分提交并在失败后继续逐域降级
+
+- **状态**：已修复、验证，待本组中文原子提交。
+- **严重级别**：P0（玩家资产）/P1（重启状态一致性）。
+- **所属功能组**：玩家分域持久化 / flush ledger / 多 worker claim / 物品与 Buff 恢复。
+- **影响链路**：普通道具使用、Buff tick、死亡/遁返或其他同步玩家操作 → 同时标记 `inventory/vitals/buff/progression/attr/...` → 每域瘦 payload 写入 `player_flush_ledger` → worker claim → `PlayerDomainPersistenceService` 分域真源与 `player_recovery_watermark` → 断线/重启恢复。
+- **证据**：普通消耗品入口会先由 `useItemByInstanceId()` 消耗背包，再由 `applyConsumableItem()` 修改气血/灵力并施加 Buff，各子服务分别标记 `inventory`、`vitals`、`buff` 等域。修复前 `PlayerPersistenceFlushService.flushPlayerDirtyDomains()` 明确循环每个 domain，逐次调用各自开启事务的 `savePlayerSnapshotProjectionDomains()`；durable worker 也逐 task、逐 projected domain 调用同一单域 writer。更严重的是，聚合处理一旦抛错，`retryPlayerTasksIndividually()` 会再次按 domain 单独执行，计划文档虽然写着“玩家按 playerId 聚合一次刷盘”，实际数据库事务和失败语义仍是逐域。账本 claim 同样按 `(player_id, domain)` 行额度认领，两名 worker 可以各拿同一玩家的一部分域。
+- **根本原因**：既有“按玩家聚合”只发生在内存数组分组层，持久化 API、数据库事务边界、ledger claim 单位和失败降级仍全部以 domain 为单位；此前为保证每域 watermark 独立而拆开的写调用，被误当成必须拆开事务，而没有建立“一个玩家事务内逐域过滤”的批量边界。
+- **为什么错误**：同一权威操作产生的来源资产和效果必须只有一个持久化结果。每域独立事务意味着一个 SQL 失败时，已经提交的域无法回滚；逐域降级还会把已经暴露的部分提交主动固化。仅在内存按 playerId 分组也不能阻止多个进程拆分 claim。另一方面，简单合成一个全量玩家快照又会退化现有瘦 payload、独立水位和包体优化，因此正确边界应是“瘦 payload 保持分域，claim/事务按玩家聚合”。
+- **触发条件**：同一玩家一轮产生两个以上脏域，任一后序域遇到 SQL/连接/空覆盖校验失败；两个 worker 并发认领同一玩家的不同行；高优先级 `inventory` 已到期而配套 `vitals/buff` 尚在 coalesce；或 legacy `snapshot` 与显式 domain payload 同时存在。
+- **可能后果**：道具已经永久扣除但恢复量、Buff、冷却或成长效果在重启后消失；效果已经落库而道具行因失败复活，形成资产复制；死亡/遁返只持久一部分后态；两个 worker 按不同快照交错推进水位；账本显示各行分别成功，却无法从日志还原一次玩家操作的真实提交结果。
+- **修复方式**：保留每域独立 ledger 行和瘦 snapshot，但新增按 playerId 的 claim：优先级额度按玩家计数，一名 worker 取得事务级 advisory lock 后认领该玩家 included-domain 范围内全部 pending 投影，包括仍延迟的 coalesce 行；任一投影已有活跃 claim 时整组跳过。未知 `mail/market/GM` 等非投影域不进入该 included-domain 集，避免历史坏行毒化资产组。消费侧按领域选出最高版本 payload，通过新的 batch writer 在同一玩家 advisory lock 和数据库事务内逐域校验 session fence、水位与空覆盖守卫；普通错误整组回滚/重试，禁止逐域降级。每域水位独立比较，已提交的新域只跳过自身；COMMIT 后确认丢失可由 watermark 幂等重放。
+- **实际修改**：`FlushLedgerService` 新增玩家组 claim 和批量续租，使用 playerId advisory lock、玩家额度、included-domain 边界和活跃 claim 排斥；`FlushTaskRuntimeService` 的正常消费与启动 replay 改用玩家组 claim，重复域选最高版本后只调用一次 `savePlayerSnapshotProjectionDomainBatch()`，失败走整组诊断/retry；`PlayerDomainPersistenceService` 新增单事务 batch writer和逐域 applicable watermark 解析；inline `PlayerPersistenceFlushService` 也把本轮全部 projected domains 交给同一事务。保留每域 slim payload、空覆盖选项、session fence、独立 watermark 与历史单域 API，未新增 migration 或依赖。
+- **验证结果**：`pnpm verify:quick`、`pnpm audit:boundaries` 通过；compiled `player-persistence-flush-smoke`、`flush-presence-payload-smoke`、`flush-task-staged-transfer-smoke`、`flush-task-noop-retry-smoke` 通过，其中故障注入证明 batch writer 抛错后零逐域补写、零 flushed、全部当前域一次 retry。真实 PostgreSQL `flush-task-worker-db-smoke` 证明 `limit=1` 时同一玩家三个跨优先级/延迟投影由唯一 worker 整组认领，并发结果严格为 `[0,3]`，未知 `mail` 域仍可独立认领；真实 PostgreSQL `player-domain-persistence-smoke` 证明第三域重复键失败后前两域真源与三个 watermark 全部回滚，并证明较新的 inventory 水位只跳过旧 inventory、不阻断同批 vitals；真实 PostgreSQL `flush-task-runtime-smoke`、`player-domain-empty-overwrite-guard-smoke` 均在串行执行时通过。并行执行后两类玩家分域数据库 smoke 暴露的启动期 DDL 死锁已独立登记为 D-004，不属于本项 batch 事务语义失败。
+- **中文原子提交 hash**：待本次提交后回填（计划 `fix(persistence): 原子提交玩家多领域刷盘`）。
 
 ## 2026-07-14 待用户决定
 
@@ -950,3 +969,16 @@
 - **推荐方案**：方案 B。它将功法书视为对已有领悟资格的单调升级，不会因顺序不同降低玩家权益，并且能让完整书的“缺省表示满层”语义成立。
 - **暂不处理的后果**：重复使用仍按当前实现消耗；低层残卷可降级上限，完整书不会解除旧上限。
 - **需要用户决定**：选择 A、B 或 C；若选择 B，还需确认升级时是否保留已有领悟进度（建议保留）。
+
+### D-004 生产运行时是否继续自动执行玩家分域 DDL
+
+- **已确认事实**：`PlayerDomainPersistenceService.onModuleInit()` 每次启动都会调用 `ensurePlayerDomainTables()`，在同一个事务中依次执行整套 `CREATE TABLE IF NOT EXISTS`、`ALTER TABLE` 和 `CREATE INDEX IF NOT EXISTS`。`acquireSchemaInitLock()` 的事务级 advisory lock 只会串行化多个 schema 初始化事务，不会阻止先完成初始化的进程随后开始业务 DML。将两个标准玩家分域真实 PostgreSQL smoke 并行运行时，先启动的进程已进入 `replacePlayerWalletRows()` 等 DML，后启动的进程取得 schema lock 后申请 `ALTER TABLE` 所需的 `AccessExclusiveLock`，双方最终触发 PostgreSQL `40P01 deadlock_detected`；两个 smoke 的清理函数只有逐表 `DELETE`，没有 `TRUNCATE` 或其他 DDL，改为串行执行后均通过。相同的运行时 ensure 模式还存在于邮件、durable operation、市场、兑换码和战斗审计等持久化服务，风险不只限于测试。
+- **根本原因 / 为什么错误**：项目把“首次建库或 schema 升级”和“每个应用实例的正常启动”混在同一路径。即使 DDL 文本在当前 schema 上看似幂等，PostgreSQL 仍需取得表级强锁；advisory lock 只协调同类初始化者，无法与不知道该约定的业务事务形成全局先后关系。滚动发布、并行扩容、崩溃拉起或运维工具启动时，新进程可能在旧进程持续写入期间反复申请强锁。
+- **可能后果**：业务事务与启动事务被数据库判定死锁并回滚；新实例 readiness 长时间卡住或持久化服务因初始化异常直接禁用；旧实例的玩家资产、邮件、市场或 durable operation 写入出现重试和延迟；多个服务各自运行 DDL 时还可能扩大锁等待链，形成发布期故障放大。
+- **缺失证据 / 无法直接修复原因**：将生产运行时改成只校验 schema，需要先确定唯一 migration 执行入口、部署时序、版本水位、回滚和 readiness 失败策略；这属于数据库 migration 与发布契约变更，按项目规则必须得到用户明确许可。当前仓库尚无足以证明能完全承接这些表定义的统一 migration/preflight 真源，不能只删除 `ensure*Tables()` 调用。
+- **方案 A**：建立唯一、可审计的部署期 migration/preflight，在新版本实例接流量前完成全部 DDL；应用运行时只校验 schema 版本与关键列/索引，漂移则 readiness 失败。长期边界最清晰，可彻底移除正常业务期 DDL，但需要一次系统性迁移清单、发布顺序和回滚演练。
+- **方案 B**：保留运行时 ensure，但先读取 schema 元数据，仅在确有缺失时进入全局 schema maintenance lock 并执行 DDL；正常无漂移启动只校验。改造较小，但元数据检查到 DDL 之间仍有竞态，且滚动升级期间依然需要让全部业务 writer 遵守维护锁。
+- **方案 C**：维持当前代码，运维上要求 schema 初始化期间停止或 drain 所有旧实例和写入 worker，再串行启动新实例。无需代码迁移，但依赖人工流程，扩容、自动重启和故障恢复时最脆弱，也不符合长期在线 MMO 的滚动发布目标。
+- **推荐方案**：方案 A。DDL 应属于部署控制面，不应由每个生产应用实例在普通启动时重复执行；运行时只做快速、只读且失败关闭的 schema 契约校验。
+- **暂不处理的后果**：单进程串行启动通常可用，但并行测试、滚动发布、横向扩容或自动拉起仍可能和既有业务写入发生锁等待或死锁；不能把 advisory lock 视为已经消除风险。
+- **需要用户决定**：是否批准按方案 A 设计并实施统一 migration/preflight 与运行时 validate-only；若批准，还需确认首轮是否覆盖仓库全部 `ensure*Tables()` 服务，建议一次覆盖，避免只迁移玩家分域后留下同类风险。

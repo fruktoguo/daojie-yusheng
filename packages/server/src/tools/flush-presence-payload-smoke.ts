@@ -4,6 +4,7 @@ installSmokeTimeout(__filename);
 
 import assert from 'node:assert/strict';
 
+import { PLAYER_SNAPSHOT_PROJECTABLE_DIRTY_DOMAINS } from '../persistence/player-domain-persistence.service';
 import { FlushTaskRuntimeService } from '../persistence/flush-task-runtime.service';
 import type { FlushTask } from '../persistence/flush-task.types';
 
@@ -15,6 +16,10 @@ async function main(): Promise<void> {
 
   const saved: Array<{ playerId: string; payload: unknown }> = [];
   const savedProjections: Array<{ playerId: string; domains: string[]; snapshot: unknown; options?: Record<string, unknown> }> = [];
+  const savedProjectionBatches: Array<{
+    playerId: string;
+    entries: Array<{ domains: string[]; snapshot: unknown; options?: Record<string, unknown> }>;
+  }> = [];
   const flushed: FlushTask[] = [];
   let claimed = false;
   const task: FlushTask = {
@@ -146,6 +151,19 @@ async function main(): Promise<void> {
         isEnabled: () => true,
         renewFlushTaskClaim: async () => true,
         savePlayerPresence: async () => undefined,
+        savePlayerSnapshotProjectionDomainBatch: async (
+          playerId: string,
+          entries: Array<{ domains: Iterable<string>; snapshot: unknown; options?: Record<string, unknown> }>,
+        ) => {
+          savedProjectionBatches.push({
+            playerId,
+            entries: entries.map((entry) => ({
+              domains: Array.from(entry.domains).sort(),
+              snapshot: entry.snapshot,
+              options: entry.options,
+            })),
+          });
+        },
         savePlayerSnapshotProjectionDomains: async (playerId: string, snapshot: unknown, domains: Iterable<string>, options?: Record<string, unknown>) => {
           savedProjections.push({ playerId, snapshot, domains: Array.from(domains).sort(), options });
         },
@@ -153,21 +171,17 @@ async function main(): Promise<void> {
     );
     const projectionProcessed = await projectionRuntime.runOnce('snapshot-payload-smoke');
     assert.equal(projectionProcessed, 3);
-    assert.ok(savedProjections.length > 3);
-    assert.equal(savedProjections[0]?.playerId, 'player-snapshot-1');
-    assert.deepEqual(savedProjections[0]?.domains, ['inventory']);
-    assert.deepEqual(savedProjections[1]?.domains, ['quest']);
-    assert.deepEqual((savedProjections[0]?.snapshot as { inventory?: unknown })?.inventory, { items: [{ itemId: 'ore' }] });
-    assert.deepEqual((savedProjections[1]?.snapshot as { quests?: unknown })?.quests, { entries: [{ questId: 'quest-1' }] });
-    const fallbackWrites = savedProjections.slice(2);
-    assert.equal(fallbackWrites.every((entry) => entry.domains.length === 1), true, 'legacy snapshot fallback 必须逐域 CAS，不能 all-or-none');
-    const fallbackByDomain = new Map(fallbackWrites.map((entry) => [entry.domains[0], entry]));
-    assert.equal(fallbackByDomain.has('inventory'), true, 'legacy snapshot fallback 必须派生全部 projectable domains');
-    assert.equal(fallbackByDomain.has('quest'), true);
-    assert.equal(fallbackByDomain.get('inventory')?.options?.allowInventoryEmptyOverwrite, true);
-    assert.equal(fallbackByDomain.get('equipment')?.options?.allowEquipmentEmptyOverwrite, true);
-    assert.equal(fallbackByDomain.get('artifact')?.options?.allowArtifactEmptyOverwrite, true);
-    assert.equal(fallbackByDomain.get('buff')?.options?.allowBuffEmptyOverwrite, true);
+    assert.equal(savedProjections.length, 0, '生产 payload 消费不得退回逐域多事务 writer');
+    assert.equal(savedProjectionBatches.length, 1, '同一玩家全部已认领投影必须只提交一个 batch');
+    assert.equal(savedProjectionBatches[0]?.playerId, 'player-snapshot-1');
+    const batchByDomain = new Map(savedProjectionBatches[0]?.entries.map((entry) => [entry.domains[0], entry]));
+    assert.equal(batchByDomain.size, PLAYER_SNAPSHOT_PROJECTABLE_DIRTY_DOMAINS.length);
+    assert.equal(batchByDomain.has('inventory'), true, 'legacy snapshot fallback 必须派生全部 projectable domains');
+    assert.equal(batchByDomain.has('quest'), true);
+    assert.equal(batchByDomain.get('inventory')?.options?.allowInventoryEmptyOverwrite, true);
+    assert.equal(batchByDomain.get('equipment')?.options?.allowEquipmentEmptyOverwrite, true);
+    assert.equal(batchByDomain.get('artifact')?.options?.allowArtifactEmptyOverwrite, true);
+    assert.equal(batchByDomain.get('buff')?.options?.allowBuffEmptyOverwrite, true);
     assert.equal(flushed.length, 4);
 
     const staleProjectionTask: FlushTask = {
@@ -216,8 +230,10 @@ async function main(): Promise<void> {
     );
     const staleProjectionProcessed = await staleProjectionRuntime.runOnce('stale-snapshot-payload-smoke');
     assert.equal(staleProjectionProcessed, 1);
-    assert.equal(savedProjections.length, 2 + fallbackWrites.length);
+    assert.equal(savedProjections.length, 0);
+    assert.equal(savedProjectionBatches.length, 1);
     assert.equal(flushed.length, 5);
+    await proveProjectionBatchFailureRetriesWholePlayer();
     await proveHistoricalOwnerlessProjectionFenceCompatibility();
     await proveHistoricalPresenceFenceConvergence();
     await proveStartupReplayDrainsPresenceBeforeProjection();
@@ -228,10 +244,101 @@ async function main(): Promise<void> {
   }
   console.log(JSON.stringify({
     ok: true,
-    answers: '玩家 presence 与 snapshot projectable flush task 可在 worker role 下从 staging payload 写入 PlayerDomainPersistenceService，并 mark flushed；历史 payload 缺 owner 时不信任可能残留的 ledger owner，只有 payload/DB 精确 fence 或同 epoch双方均已释放 owner才写入，旧 session/owner 与不存在玩家的 projection 会 stale-safe 收敛。',
+    answers: '玩家 presence 与 snapshot projectable flush task 可在 worker role 下从 staging payload 写入 PlayerDomainPersistenceService，并 mark flushed；同一玩家的多个 projection 只调用一次单事务 batch writer，任一领域写失败时整组进入 retry 且不会降级为逐域写入；历史 payload 缺 owner 时不信任可能残留的 ledger owner，只有 payload/DB 精确 fence 或同 epoch双方均已释放 owner才写入，旧 session/owner 与不存在玩家的 projection 会 stale-safe 收敛。',
     excludes: '不证明邮件/市场/GM edit 或实例 domain，也不证明真实 DB with-db 竞争。',
     completionMapping: 'flush-player-payload',
   }, null, 2));
+}
+
+async function proveProjectionBatchFailureRetriesWholePlayer(): Promise<void> {
+  const playerId = 'player-projection-batch-failure';
+  const tasks: FlushTask[] = [
+    {
+      scope: 'player',
+      id: playerId,
+      domain: 'inventory',
+      priority: 'high',
+      latestRevision: 101,
+      payloadJson: {
+        kind: 'player_snapshot_projection',
+        projectedDomains: ['inventory'],
+        snapshot: {
+          version: 1,
+          savedAt: 101,
+          placement: { templateId: 'map-1', x: 1, y: 2 },
+          inventory: { items: [{ itemId: 'pill-1' }] },
+        },
+      },
+    },
+    {
+      scope: 'player',
+      id: playerId,
+      domain: 'buff',
+      priority: 'normal',
+      latestRevision: 102,
+      payloadJson: {
+        kind: 'player_snapshot_projection',
+        projectedDomains: ['buff'],
+        snapshot: {
+          version: 1,
+          savedAt: 102,
+          placement: { templateId: 'map-1', x: 1, y: 2 },
+          buffs: { buffs: [{ buffId: 'buff-1', sourceSkillId: 'skill-1' }] },
+        },
+      },
+    },
+  ];
+  const retriedGroups: FlushTask[][] = [];
+  const flushedTasks: FlushTask[] = [];
+  let sequentialWrites = 0;
+  let batchWrites = 0;
+  let claimed = false;
+  const runtime = new FlushTaskRuntimeService(
+    {} as never,
+    {} as never,
+    { flushPlayerDomains: async () => { throw new Error('batch failure must not use runtime flush fallback'); } } as never,
+    {
+      isEnabled: () => true,
+      claimReadyFlushTasks: async () => {
+        if (claimed) return [];
+        claimed = true;
+        return tasks;
+      },
+      renewFlushTaskClaims: async (claimedTasks: FlushTask[]) => claimedTasks.length,
+      markFlushTaskFlushed: async (task: FlushTask) => {
+        flushedTasks.push(task);
+        return true;
+      },
+      markFlushTasksRetry: async (retryTasks: FlushTask[]) => {
+        retriedGroups.push([...retryTasks]);
+        return retryTasks.length;
+      },
+    } as never,
+    { signalPlayerFlush: () => undefined, signalInstanceFlush: () => undefined } as never,
+    undefined,
+    undefined,
+    {
+      isEnabled: () => true,
+      savePlayerSnapshotProjectionDomainBatch: async () => {
+        batchWrites += 1;
+        throw new Error('forced_projection_batch_failure');
+      },
+      savePlayerSnapshotProjectionDomains: async () => {
+        sequentialWrites += 1;
+      },
+    } as never,
+  );
+
+  assert.equal(await runtime.runOnce('projection-batch-failure-smoke'), 0);
+  assert.equal(batchWrites, 1);
+  assert.equal(sequentialWrites, 0, 'batch 写失败后不得逐域补写制造部分提交');
+  assert.equal(flushedTasks.length, 0, '事务失败后不得确认任一领域已刷盘');
+  assert.equal(retriedGroups.length, 1);
+  assert.deepEqual(
+    retriedGroups[0]?.map((task) => task.domain).sort(),
+    ['buff', 'inventory'],
+    '事务失败后必须以玩家为单位重试全部当前 projection',
+  );
 }
 
 async function proveHistoricalOwnerlessProjectionFenceCompatibility(): Promise<void> {

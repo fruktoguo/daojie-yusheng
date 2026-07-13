@@ -35,7 +35,7 @@ async function main(): Promise<void> {
           ok: true,
           skipped: true,
           reason: 'SERVER_DATABASE_URL/DATABASE_URL missing',
-          answers: '无 DB 时已用 fake pool 验证 inventory/wallet/equipment/map/technique/buff/quest/auto/profession/alchemy/enhancement/logbook 快照保存不再发送裸整玩家 DELETE，inventory 重复 slot 会重排保留全部 item_instance_id，wallet/market_storage/equipment 非法 entry 不会被静默跳过后触发 stale cleanup，auto_battle_skill/auto_use_item_rule 可合法清空偏好列表，并验证单个清理任务失败不会阻断后续收尾且所有错误都会保留；with-db 下 PlayerDomainPersistenceService 能把 presence 与快照投影写进分域表、推进 recovery watermark，并验证运行时显式选项可清空最后一个 inventory/equipment/buff row',
+          answers: '无 DB 时已用 fake pool 验证 inventory/wallet/equipment/map/technique/buff/quest/auto/profession/alchemy/enhancement/logbook 快照保存不再发送裸整玩家 DELETE，inventory 重复 slot 会重排保留全部 item_instance_id，wallet/market_storage/equipment 非法 entry 不会被静默跳过后触发 stale cleanup，auto_battle_skill/auto_use_item_rule 可合法清空偏好列表，并验证单个清理任务失败不会阻断后续收尾且所有错误都会保留；with-db 下 PlayerDomainPersistenceService 还会验证同一玩家多领域单事务提交、失败整批回滚和逐领域 recovery watermark 过滤',
           excludes: '不证明 bootstrap 已切到分域恢复，也不证明域级 dirty/多 worker/真实 with-db release 全链路；当前未连接数据库，因此未实际触发玩家表清理失败与 rollback 失败分支',
           completionMapping: 'release:proof:with-db.player-domain-persistence',
         },
@@ -57,6 +57,7 @@ async function main(): Promise<void> {
   const autoPreferenceClearPlayerId = `${playerId}_auto_pref_clear`;
   const marketConflictOwnerId = `${playerId}_market_conflict_owner`;
   const projectionFencePlayerId = `${playerId}_projection_fence`;
+  const projectionBatchPlayerId = `${playerId}_projection_batch`;
   const now = Date.now();
   const databasePoolProvider = new DatabasePoolProvider();
   const service = new PlayerDomainPersistenceService(null, databasePoolProvider);
@@ -73,6 +74,7 @@ async function main(): Promise<void> {
     autoPreferenceClearPlayerId,
     marketConflictOwnerId,
     projectionFencePlayerId,
+    projectionBatchPlayerId,
   ];
   let runFailed = false;
   let runError: unknown;
@@ -96,6 +98,7 @@ async function main(): Promise<void> {
     await cleanupPlayer(pool, autoPreferenceClearPlayerId);
     await cleanupPlayer(pool, marketConflictOwnerId);
     await cleanupPlayer(pool, projectionFencePlayerId);
+    await cleanupPlayer(pool, projectionBatchPlayerId);
 
     await service.savePlayerPresence(playerId, {
       online: true,
@@ -1559,6 +1562,187 @@ async function main(): Promise<void> {
       );
     }
 
+    const batchRuntimeOwnerId = `runtime:${projectionBatchPlayerId}:1`;
+    const batchSessionEpoch = 1;
+    const batchBaselineVersion = latestProjectionVersion + 100;
+    await service.savePlayerPresence(projectionBatchPlayerId, {
+      online: true,
+      inWorld: true,
+      lastHeartbeatAt: batchBaselineVersion,
+      offlineSinceAt: null,
+      runtimeOwnerId: batchRuntimeOwnerId,
+      sessionEpoch: batchSessionEpoch,
+      versionSeed: batchBaselineVersion,
+    });
+    const batchBaselineSnapshot = buildSnapshot(batchBaselineVersion);
+    batchBaselineSnapshot.inventory = {
+      revision: 30,
+      capacity: 20,
+      items: [{
+        itemId: 'batch_baseline_inventory_marker',
+        count: 1,
+        itemInstanceId: `inv:${projectionBatchPlayerId}:baseline`,
+      }],
+    };
+    batchBaselineSnapshot.vitals = { hp: 71, maxHp: 100, qi: 41, maxQi: 100 };
+    batchBaselineSnapshot.buffs = {
+      revision: 30,
+      buffs: [{
+        buffId: 'buff.batch_baseline',
+        sourceSkillId: 'skill.batch_baseline',
+        sourceCasterId: projectionBatchPlayerId,
+        remainingTicks: 20,
+        duration: 30,
+        stacks: 1,
+        maxStacks: 1,
+      }],
+    };
+    const batchBaselineOptions = {
+      expectedRuntimeOwnerId: batchRuntimeOwnerId,
+      expectedSessionEpoch: batchSessionEpoch,
+      expectedProjectionVersion: batchBaselineVersion,
+    };
+    await service.savePlayerSnapshotProjectionDomainBatch(projectionBatchPlayerId, [
+      {
+        snapshot: batchBaselineSnapshot,
+        domains: ['inventory'],
+        options: { ...batchBaselineOptions, allowInventoryEmptyOverwrite: true },
+      },
+      { snapshot: batchBaselineSnapshot, domains: ['vitals'], options: batchBaselineOptions },
+      { snapshot: batchBaselineSnapshot, domains: ['buff'], options: batchBaselineOptions },
+    ]);
+
+    const failedBatchVersion = batchBaselineVersion + 10;
+    const failedBatchSnapshot = buildSnapshot(failedBatchVersion);
+    failedBatchSnapshot.inventory = {
+      revision: 31,
+      capacity: 20,
+      items: [{
+        itemId: 'batch_failed_inventory_marker',
+        count: 1,
+        itemInstanceId: `inv:${projectionBatchPlayerId}:failed`,
+      }],
+    };
+    failedBatchSnapshot.vitals = { hp: 9, maxHp: 100, qi: 8, maxQi: 100 };
+    const duplicateBuff = {
+      buffId: 'buff.batch_duplicate',
+      sourceSkillId: 'skill.batch_duplicate',
+      sourceCasterId: projectionBatchPlayerId,
+      remainingTicks: 10,
+      duration: 20,
+      stacks: 1,
+      maxStacks: 1,
+    };
+    failedBatchSnapshot.buffs = {
+      revision: 31,
+      // 同一 INSERT 中重复冲突键会让 PostgreSQL 拒绝整条语句，用于证明前序 inventory/vitals 也会回滚。
+      buffs: [{ ...duplicateBuff }, { ...duplicateBuff }],
+    };
+    let failedBatchRejected = false;
+    try {
+      const failedBatchOptions = {
+        expectedRuntimeOwnerId: batchRuntimeOwnerId,
+        expectedSessionEpoch: batchSessionEpoch,
+        expectedProjectionVersion: failedBatchVersion,
+      };
+      await service.savePlayerSnapshotProjectionDomainBatch(projectionBatchPlayerId, [
+        {
+          snapshot: failedBatchSnapshot,
+          domains: ['inventory'],
+          options: { ...failedBatchOptions, allowInventoryEmptyOverwrite: true },
+        },
+        { snapshot: failedBatchSnapshot, domains: ['vitals'], options: failedBatchOptions },
+        { snapshot: failedBatchSnapshot, domains: ['buff'], options: failedBatchOptions },
+      ]);
+    } catch {
+      failedBatchRejected = true;
+    }
+    if (!failedBatchRejected) {
+      throw new Error('expected duplicate buff row to reject the whole player projection batch');
+    }
+    const rolledBackBatchState = await Promise.all([
+      fetchRows(pool, 'SELECT item_id FROM player_inventory_item WHERE player_id = $1 ORDER BY slot_index ASC', [projectionBatchPlayerId]),
+      fetchSingleRow(pool, 'SELECT hp, qi FROM player_vitals WHERE player_id = $1', [projectionBatchPlayerId]),
+      fetchRows(pool, 'SELECT buff_id FROM player_persistent_buff_state WHERE player_id = $1 ORDER BY buff_id ASC', [projectionBatchPlayerId]),
+      fetchSingleRow(pool, 'SELECT inventory_version, vitals_version, buff_version FROM player_recovery_watermark WHERE player_id = $1', [projectionBatchPlayerId]),
+    ]);
+    if (
+      rolledBackBatchState[0].length !== 1
+      || rolledBackBatchState[0][0]?.item_id !== 'batch_baseline_inventory_marker'
+      || Number(rolledBackBatchState[1]?.hp) !== 71
+      || Number(rolledBackBatchState[1]?.qi) !== 41
+      || rolledBackBatchState[2].length !== 1
+      || rolledBackBatchState[2][0]?.buff_id !== 'buff.batch_baseline'
+      || Number(rolledBackBatchState[3]?.inventory_version) !== batchBaselineVersion
+      || Number(rolledBackBatchState[3]?.vitals_version) !== batchBaselineVersion
+      || Number(rolledBackBatchState[3]?.buff_version) !== batchBaselineVersion
+    ) {
+      throw new Error(`player projection batch failure did not rollback every domain: ${JSON.stringify(rolledBackBatchState)}`);
+    }
+
+    const mixedBatchVersion = batchBaselineVersion + 20;
+    const newerInventoryVersion = batchBaselineVersion + 30;
+    const newerInventorySnapshot = buildSnapshot(newerInventoryVersion);
+    newerInventorySnapshot.inventory = {
+      revision: 32,
+      capacity: 20,
+      items: [{
+        itemId: 'batch_newer_inventory_marker',
+        count: 1,
+        itemInstanceId: `inv:${projectionBatchPlayerId}:newer`,
+      }],
+    };
+    await service.savePlayerSnapshotProjectionDomains(
+      projectionBatchPlayerId,
+      newerInventorySnapshot,
+      ['inventory'],
+      {
+        allowInventoryEmptyOverwrite: true,
+        expectedRuntimeOwnerId: batchRuntimeOwnerId,
+        expectedSessionEpoch: batchSessionEpoch,
+        expectedProjectionVersion: newerInventoryVersion,
+      },
+    );
+    const mixedBatchSnapshot = buildSnapshot(mixedBatchVersion);
+    mixedBatchSnapshot.inventory = {
+      revision: 33,
+      capacity: 20,
+      items: [{
+        itemId: 'batch_stale_inventory_marker',
+        count: 1,
+        itemInstanceId: `inv:${projectionBatchPlayerId}:stale`,
+      }],
+    };
+    mixedBatchSnapshot.vitals = { hp: 55, maxHp: 100, qi: 44, maxQi: 100 };
+    const mixedBatchOptions = {
+      expectedRuntimeOwnerId: batchRuntimeOwnerId,
+      expectedSessionEpoch: batchSessionEpoch,
+      expectedProjectionVersion: mixedBatchVersion,
+    };
+    await service.savePlayerSnapshotProjectionDomainBatch(projectionBatchPlayerId, [
+      {
+        snapshot: mixedBatchSnapshot,
+        domains: ['inventory'],
+        options: { ...mixedBatchOptions, allowInventoryEmptyOverwrite: true },
+      },
+      { snapshot: mixedBatchSnapshot, domains: ['vitals'], options: mixedBatchOptions },
+    ]);
+    const mixedBatchState = await Promise.all([
+      fetchRows(pool, 'SELECT item_id FROM player_inventory_item WHERE player_id = $1 ORDER BY slot_index ASC', [projectionBatchPlayerId]),
+      fetchSingleRow(pool, 'SELECT hp, qi FROM player_vitals WHERE player_id = $1', [projectionBatchPlayerId]),
+      fetchSingleRow(pool, 'SELECT inventory_version, vitals_version FROM player_recovery_watermark WHERE player_id = $1', [projectionBatchPlayerId]),
+    ]);
+    if (
+      mixedBatchState[0].length !== 1
+      || mixedBatchState[0][0]?.item_id !== 'batch_newer_inventory_marker'
+      || Number(mixedBatchState[1]?.hp) !== 55
+      || Number(mixedBatchState[1]?.qi) !== 44
+      || Number(mixedBatchState[2]?.inventory_version) !== newerInventoryVersion
+      || Number(mixedBatchState[2]?.vitals_version) !== mixedBatchVersion
+    ) {
+      throw new Error(`player projection batch independent watermark filtering failed: ${JSON.stringify(mixedBatchState)}`);
+    }
+
     const directAnchorRow = await fetchSingleRow(
       pool,
       'SELECT respawn_template_id, last_safe_template_id, preferred_line_preset FROM player_world_anchor WHERE player_id = $1',
@@ -1804,7 +1988,7 @@ async function main(): Promise<void> {
       playerId,
       edgePlayerId,
       directPlayerId,
-      answers: 'with-db 下 PlayerDomainPersistenceService 已能把 presence、wallet、vitals、progression core、attr、body training、inventory、market storage、map unlock、equipment、technique、persistent buff、quest、combat/auto-*、强化记录、日志与职业作业投影写入当前已落地的分域表，并支持 inventory/wallet/equipment/map/technique/buff/quest/auto/profession/alchemy/enhancement/logbook/market storage 快照 stale 行清理、wallet/market storage/equipment 非法 entry 拒绝静默跳过、运行时显式选项清空最后一个 inventory/equipment/buff row、auto_battle_skill/auto_use_item_rule 清空偏好列表、旧 session projection 不会覆盖当前玩家分域、wallet/market storage 的 loadPlayerDomains 读链与对应 watermark 推进，以及 alchemy/forging/enhancement/transmission/gather/mining/building/formation 旧快照 job 写入 player_active_job、player_active_job 再按统一 job kind 投影恢复到 progression.<kind>Job',
+      answers: 'with-db 下 PlayerDomainPersistenceService 已能把 presence、wallet、vitals、progression core、attr、body training、inventory、market storage、map unlock、equipment、technique、persistent buff、quest、combat/auto-*、强化记录、日志与职业作业投影写入当前已落地的分域表；同一玩家多领域使用一个事务，后序领域 SQL 失败会回滚前序行与全部 watermark，混合新旧版本时又能逐领域跳过旧 payload 并提交其余领域；同时支持 inventory/wallet/equipment/map/technique/buff/quest/auto/profession/alchemy/enhancement/logbook/market storage 快照 stale 行清理、非法资产 entry 拒绝静默跳过、显式清空最后一个 inventory/equipment/buff row、旧 session 防覆盖及统一 active job 投影恢复',
       excludes: '不证明 bootstrap 分域恢复、域级 dirty set、分域多 worker、完整玩家全域拆表都已落地',
       completionMapping: 'release:proof:with-db.player-domain-persistence',
       projectedTables: [...PLAYER_DOMAIN_PROJECTED_TABLES],

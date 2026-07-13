@@ -339,10 +339,16 @@ export interface PlayerSnapshotProjectionDomainWriteOptions {
   expectedRuntimeOwnerId?: string | null;
   expectedSessionEpoch?: number | null;
   /**
-   * durable staging 为本次单域投影分配的单调版本。
-   * worker 必须在玩家事务锁内先比较 recovery watermark，旧版本不得覆盖较新的分域真源。
+   * durable staging 为本次投影分配的单调版本。
+   * worker 必须在玩家事务锁内逐域比较 recovery watermark，旧版本不得覆盖较新的分域真源。
    */
   expectedProjectionVersion?: number | null;
+}
+
+export interface PlayerSnapshotProjectionDomainBatchEntry {
+  snapshot: PersistedPlayerSnapshot;
+  domains: Iterable<string>;
+  options?: PlayerSnapshotProjectionDomainWriteOptions;
 }
 
 interface PlayerDomainPruneOptions {
@@ -2298,61 +2304,117 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
     domains: Iterable<string>,
     options: PlayerSnapshotProjectionDomainWriteOptions = {},
   ): Promise<void> {
+    if (!snapshot) {
+      return;
+    }
+    await this.savePlayerSnapshotProjectionDomainBatch(playerId, [{ snapshot, domains, options }]);
+  }
+
+  /**
+   * 同一玩家本轮已认领的分域 payload 必须共用一个数据库事务。
+   * 每个 domain 仍保留自己的瘦 snapshot、版本水位和空覆盖守卫；任一写入失败时整批回滚。
+   */
+  async savePlayerSnapshotProjectionDomainBatch(
+    playerId: string,
+    entries: readonly PlayerSnapshotProjectionDomainBatchEntry[],
+  ): Promise<void> {
     const normalizedPlayerId = normalizeRequiredString(playerId);
-    if (!this.pool || !this.enabled || !normalizedPlayerId || !snapshot?.placement?.templateId) {
+    if (!this.pool || !this.enabled || !normalizedPlayerId || entries.length === 0) {
       return;
     }
 
-    const normalizedDomains = normalizeProjectedDirtyDomains(domains);
-    if (normalizedDomains.size === 0) {
+    const normalizedEntries: Array<{
+      domain: string;
+      snapshot: PersistedPlayerSnapshot;
+      options: PlayerSnapshotProjectionDomainWriteOptions;
+      requiresLiveDbStateWrite: boolean;
+      writePlan: PlayerDomainWritePlan | null;
+    }> = [];
+    const seenDomains = new Set<string>();
+    for (const entry of entries) {
+      if (!entry?.snapshot?.placement?.templateId) {
+        throw new Error(`player_snapshot_projection_batch_snapshot_missing:${normalizedPlayerId}`);
+      }
+      const entryOptions = entry.options ?? {};
+      for (const domain of Array.from(normalizeProjectedDirtyDomains(entry.domains)).sort()) {
+        if (seenDomains.has(domain)) {
+          throw new Error(`player_snapshot_projection_batch_duplicate_domain:${normalizedPlayerId}:${domain}`);
+        }
+        seenDomains.add(domain);
+        const requiresLiveDbStateWrite = domain === 'equipment'
+          || domain === 'inventory'
+          || domain === 'artifact';
+        normalizedEntries.push({
+          domain,
+          snapshot: entry.snapshot,
+          options: entryOptions,
+          requiresLiveDbStateWrite,
+          writePlan: null,
+        });
+      }
+    }
+    if (normalizedEntries.length === 0) {
       return;
     }
 
-    const requiresLiveDbStateWrite = normalizedDomains.has('equipment')
-      || normalizedDomains.has('inventory')
-      || normalizedDomains.has('artifact');
-    const writePlan = requiresLiveDbStateWrite
-      ? null
-      : await this.resolvePlayerSnapshotProjectionWritePlan(
+    for (const entry of normalizedEntries) {
+      if (entry.requiresLiveDbStateWrite) {
+        continue;
+      }
+      entry.writePlan = await this.resolvePlayerSnapshotProjectionWritePlan(
         normalizedPlayerId,
-        snapshot,
-        normalizedDomains,
-        options,
+        entry.snapshot,
+        [entry.domain],
+        entry.options,
       );
+    }
 
     await this.withTransaction(async (client) => {
       await acquirePlayerPersistenceLock(client, normalizedPlayerId);
-      await assertPlayerSnapshotProjectionFenceCurrent(client, normalizedPlayerId, options);
-      if (!await shouldApplyPlayerSnapshotProjectionVersion(
+      const checkedFenceKeys = new Set<string>();
+      for (const entry of normalizedEntries) {
+        const fenceKey = `${normalizeOptionalString(entry.options.expectedRuntimeOwnerId) ?? ''}\u0000${normalizeOptionalInteger(entry.options.expectedSessionEpoch) ?? ''}`;
+        if (checkedFenceKeys.has(fenceKey)) {
+          continue;
+        }
+        await assertPlayerSnapshotProjectionFenceCurrent(client, normalizedPlayerId, entry.options);
+        checkedFenceKeys.add(fenceKey);
+      }
+      const applicableDomains = await resolveApplicablePlayerSnapshotProjectionDomains(
         client,
         normalizedPlayerId,
-        normalizedDomains,
-        options.expectedProjectionVersion,
-      )) {
-        return;
-      }
-      if (requiresLiveDbStateWrite) {
-        await savePlayerSnapshotProjectionDomainsWithClient(
-          client,
-          normalizedPlayerId,
-          snapshot,
-          normalizedDomains,
-          options,
-        );
-        return;
-      }
-      // 仅做 live-client SELECT 级验证，避免空覆盖保护失效；真正写入仍使用 worker 产出的 plan。
-      await buildPlayerSnapshotProjectionWritePlan(
-        normalizedPlayerId,
-        snapshot,
-        normalizedDomains,
-        options,
-        client,
+        normalizedEntries.map((entry) => ({
+          domain: entry.domain,
+          expectedProjectionVersion: entry.options.expectedProjectionVersion,
+        })),
       );
-      if (!writePlan) {
-        throw new Error(`player snapshot projection write plan missing:${normalizedPlayerId}`);
+      for (const entry of normalizedEntries) {
+        if (!applicableDomains.has(entry.domain)) {
+          continue;
+        }
+        if (entry.requiresLiveDbStateWrite) {
+          await savePlayerSnapshotProjectionDomainsWithClient(
+            client,
+            normalizedPlayerId,
+            entry.snapshot,
+            new Set([entry.domain]),
+            entry.options,
+          );
+          continue;
+        }
+        // 仅做 live-client SELECT 级验证，避免空覆盖保护失效；真正写入仍使用 worker 产出的 plan。
+        await buildPlayerSnapshotProjectionWritePlan(
+          normalizedPlayerId,
+          entry.snapshot,
+          [entry.domain],
+          entry.options,
+          client,
+        );
+        if (!entry.writePlan) {
+          throw new Error(`player snapshot projection write plan missing:${normalizedPlayerId}:${entry.domain}`);
+        }
+        await executePlayerDomainWritePlan(client, entry.writePlan);
       }
-      await executePlayerDomainWritePlan(client, writePlan);
     });
   }
 
@@ -3830,35 +3892,50 @@ export async function savePlayerSnapshotProjectionDomainsWithClient(
   }
 }
 
-async function shouldApplyPlayerSnapshotProjectionVersion(
+async function resolveApplicablePlayerSnapshotProjectionDomains(
   client: PoolClient,
   playerId: string,
-  domains: ReadonlySet<string>,
-  expectedVersionInput: unknown,
-): Promise<boolean> {
-  const expectedVersion = Number(expectedVersionInput);
-  if (!Number.isFinite(expectedVersion) || expectedVersion <= 0) {
-    return true;
-  }
-
-  const watermarkColumns = Array.from(new Set(Array.from(domains, (domain) => {
-    const column = PLAYER_PROJECTION_WATERMARK_COLUMN_BY_DOMAIN[domain];
+  entries: readonly { domain: string; expectedProjectionVersion: unknown }[],
+): Promise<Set<string>> {
+  const applicableDomains = new Set<string>();
+  const versionedEntries: Array<{
+    domain: string;
+    column: RecoveryWatermarkColumn;
+    expectedVersion: number;
+  }> = [];
+  for (const entry of entries) {
+    const column = PLAYER_PROJECTION_WATERMARK_COLUMN_BY_DOMAIN[entry.domain];
     if (!column) {
-      throw new Error(`player_projection_watermark_column_missing:${playerId}:${domain}`);
+      throw new Error(`player_projection_watermark_column_missing:${playerId}:${entry.domain}`);
     }
-    return column;
-  }))).sort();
-  if (watermarkColumns.length === 0) {
-    return true;
+    const expectedVersion = Math.max(0, Math.trunc(Number(entry.expectedProjectionVersion)));
+    if (!Number.isFinite(expectedVersion) || expectedVersion <= 0) {
+      applicableDomains.add(entry.domain);
+      continue;
+    }
+    versionedEntries.push({ domain: entry.domain, column, expectedVersion });
   }
-
-  return shouldApplyPlayerRecoveryWatermarkVersion(
-    client,
-    playerId,
-    watermarkColumns,
-    expectedVersion,
-    false,
+  if (versionedEntries.length === 0) {
+    return applicableDomains;
+  }
+  const watermarkColumns = Array.from(new Set(versionedEntries.map((entry) => entry.column))).sort();
+  const result = await client.query<Record<string, unknown>>(
+    `
+      SELECT ${watermarkColumns.join(', ')}
+      FROM ${PLAYER_RECOVERY_WATERMARK_TABLE}
+      WHERE player_id = $1
+      FOR UPDATE
+    `,
+    [playerId],
   );
+  const watermark = result.rows[0];
+  for (const entry of versionedEntries) {
+    const currentVersion = Number(watermark?.[entry.column]);
+    if (!watermark || !Number.isFinite(currentVersion) || Math.max(0, Math.trunc(currentVersion)) < entry.expectedVersion) {
+      applicableDomains.add(entry.domain);
+    }
+  }
+  return applicableDomains;
 }
 
 async function shouldApplyPlayerRecoveryWatermarkVersion(

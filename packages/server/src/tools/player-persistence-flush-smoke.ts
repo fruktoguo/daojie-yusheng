@@ -458,15 +458,7 @@ async function testBuffSelectiveProjectionAllowsEmptyOverwrite(): Promise<void> 
   assert.deepEqual(harness.selectiveProjectionCalls, [
     {
       playerId,
-      domains: ['attr'],
-      allowInventoryEmptyOverwrite: false,
-      allowEquipmentEmptyOverwrite: false,
-      allowArtifactEmptyOverwrite: false,
-      allowBuffEmptyOverwrite: false,
-    },
-    {
-      playerId,
-      domains: ['buff'],
+      domains: ['attr', 'buff'],
       allowInventoryEmptyOverwrite: false,
       allowEquipmentEmptyOverwrite: false,
       allowArtifactEmptyOverwrite: false,
@@ -489,15 +481,7 @@ async function testEquipmentSelectiveProjectionAllowsEmptyOverwrite(): Promise<v
   assert.deepEqual(harness.selectiveProjectionCalls, [
     {
       playerId,
-      domains: ['attr'],
-      allowInventoryEmptyOverwrite: false,
-      allowEquipmentEmptyOverwrite: false,
-      allowArtifactEmptyOverwrite: false,
-      allowBuffEmptyOverwrite: false,
-    },
-    {
-      playerId,
-      domains: ['equipment'],
+      domains: ['attr', 'equipment'],
       allowInventoryEmptyOverwrite: false,
       allowEquipmentEmptyOverwrite: true,
       allowArtifactEmptyOverwrite: false,
@@ -615,7 +599,7 @@ async function main(): Promise<void> {
     JSON.stringify(
       {
         ok: true,
-        answers: 'PlayerPersistenceFlushService 现已先进入玩家资产串行器再拍快照，并只写玩家分域表：presence-only 直写、受支持脏域 selective projection、wallet 分域投影；运行时 inventory/equipment/buff dirty flush 显式允许最后一行正常清空，snapshot fallback 脏域会硬失败，lease 失效时不会继续提交；离线收益累积即使没有普通 dirty player 也会刷新，shutdown 失败会冒泡。',
+        answers: 'PlayerPersistenceFlushService 现已先进入玩家资产串行器再拍快照，并只写玩家分域表：presence-only 直写、同一玩家本轮受支持脏域通过一次事务批量提交、wallet 分域投影；批量内部逐域比较 watermark，运行时 inventory/equipment/buff dirty flush 显式允许最后一行正常清空，snapshot fallback 脏域会硬失败，lease 失效时不会继续提交；离线收益累积即使没有普通 dirty player 也会刷新，shutdown 失败会冒泡。',
         completionMapping: 'release:proof:with-db.player-persistence-flush-strategy',
       },
       null,

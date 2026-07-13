@@ -38,6 +38,7 @@ async function main(): Promise<void> {
 
   const playerId = `flush_worker_db_player_${Date.now().toString(36)}`;
   const retryPlayerId = `${playerId}_retry`;
+  const groupedPlayerId = `${playerId}_grouped`;
   const instanceId = `public:flush_worker_db_instance_${Date.now().toString(36)}`;
   const staleInstanceId = `${instanceId}_stale`;
 
@@ -45,7 +46,7 @@ async function main(): Promise<void> {
     assert.equal(ledger.isEnabled(), true, 'flush ledger should be enabled');
     assert.equal(playerPresencePersistence.isEnabled(), true, 'player domain persistence should be enabled');
     assert.equal(instancePersistence.isEnabled(), true, 'instance domain persistence should be enabled');
-    await cleanupAll(pool, [playerId, retryPlayerId], [instanceId, staleInstanceId]);
+    await cleanupAll(pool, [playerId, retryPlayerId, groupedPlayerId], [instanceId, staleInstanceId]);
 
     await ledger.upsertFlushTask({
       scope: 'player',
@@ -97,6 +98,101 @@ async function main(): Promise<void> {
     assert.equal(Number(retryRow?.flushed_version ?? 0), 0);
     assert.ok(retryRow?.next_attempt_at);
 
+    const delayedAt = new Date(Date.now() + 60_000).toISOString();
+    await ledger.upsertFlushTasks([
+      {
+        scope: 'player',
+        id: groupedPlayerId,
+        domain: 'inventory',
+        priority: 'high',
+        latestRevision: 21,
+        nextAttemptAt: new Date().toISOString(),
+        payloadJson: { kind: 'player_snapshot_projection', projectedDomains: ['inventory'] },
+      },
+      {
+        scope: 'player',
+        id: groupedPlayerId,
+        domain: 'vitals',
+        priority: 'normal',
+        latestRevision: 22,
+        nextAttemptAt: delayedAt,
+        payloadJson: { kind: 'player_snapshot_projection', projectedDomains: ['vitals'] },
+      },
+      {
+        scope: 'player',
+        id: groupedPlayerId,
+        domain: 'buff',
+        priority: 'normal',
+        latestRevision: 23,
+        nextAttemptAt: delayedAt,
+        payloadJson: { kind: 'player_snapshot_projection', projectedDomains: ['buff'] },
+      },
+      {
+        scope: 'player',
+        id: groupedPlayerId,
+        domain: 'mail',
+        priority: 'high',
+        latestRevision: 24,
+        nextAttemptAt: new Date().toISOString(),
+        payloadJson: { kind: 'legacy_unsupported_player_payload' },
+      },
+    ]);
+    const groupedProjectionDomains = ['inventory', 'vitals', 'buff'];
+    const groupedClaims = await Promise.all([
+      ledger.claimReadyPlayerFlushTaskGroups({
+        workerId: 'flush-worker-db:group-a',
+        id: groupedPlayerId,
+        priority: 'high',
+        limit: 1,
+        payloadRequired: true,
+        includedDomains: groupedProjectionDomains,
+      }),
+      ledger.claimReadyPlayerFlushTaskGroups({
+        workerId: 'flush-worker-db:group-b',
+        id: groupedPlayerId,
+        priority: 'high',
+        limit: 1,
+        payloadRequired: true,
+        includedDomains: groupedProjectionDomains,
+      }),
+    ]);
+    assert.deepEqual(
+      groupedClaims.map((tasks) => tasks.length).sort((left, right) => left - right),
+      [0, 3],
+      '并发认领必须产生一个整组赢家和一个空结果 loser',
+    );
+    const groupedWinner = groupedClaims.find((tasks) => tasks.length > 0) ?? [];
+    const groupedLoser = groupedClaims.find((tasks) => tasks.length === 0) ?? [];
+    assert.equal(groupedWinner.length, 3, 'limit=1 应按玩家额度认领该玩家的全部待刷领域');
+    assert.equal(groupedLoser.length, 0, '并发 worker 不得拆分同一玩家的领域 claim');
+    assert.deepEqual(
+      groupedWinner.map((task) => task.domain).sort(),
+      ['buff', 'inventory', 'vitals'],
+      '高优先级 inventory 到期后应连同延迟中的 vitals/buff 一并认领',
+    );
+    assert.equal(new Set(groupedWinner.map((task) => task.claimOwnerId)).size, 1);
+    assert.equal(
+      (await ledger.claimReadyPlayerFlushTaskGroups({
+        workerId: 'flush-worker-db:group-third',
+        id: groupedPlayerId,
+        limit: 1,
+        payloadRequired: true,
+        includeDelayed: true,
+        includedDomains: groupedProjectionDomains,
+      })).length,
+      0,
+      '任一领域存在活跃 claim 时必须阻断整名玩家被其他 worker 再认领',
+    );
+    const unsupportedTasks = await ledger.claimReadyFlushTasks({
+      workerId: 'flush-worker-db:unsupported',
+      scope: 'player',
+      id: groupedPlayerId,
+      domain: 'mail',
+      limit: 1,
+      payloadRequired: true,
+    });
+    assert.equal(unsupportedTasks.length, 1, '未知玩家域不得被资产投影聚合 claim 吞入同一事务组');
+
     await ledger.upsertFlushTask({
       scope: 'instance',
       id: instanceId,
@@ -142,14 +238,15 @@ async function main(): Promise<void> {
       ok: true,
       playerClaimed: playerTasks.length,
       retryClaimed: retryTasks.length,
+      groupedPlayerClaimed: groupedWinner.length,
       instanceClaimed: instanceTasks.length,
       staleClaimed: staleTasks.length,
-      answers: 'flush worker 的真实 DB ledger claim / retry / flush / fencing 路径已验证：player presence 写入真源、invalid payload 进入 retry、instance checkpoint 写入真源、stale ownership epoch 不写入只 mark flushed、重复 claim 不再返回已 flushed 任务。',
+      answers: 'flush worker 的真实 DB ledger claim / retry / flush / fencing 路径已验证：player presence 写入真源、invalid payload 进入 retry、同一玩家的到期高优先级投影会连同延迟投影被单个 worker 整组认领且并发 worker 无法拆分，未知玩家域不会混入资产投影组、instance checkpoint 写入真源、stale ownership epoch 不写入只 mark flushed、重复 claim 不再返回已 flushed 任务。',
       excludes: '不证明跨节点竞争或 5000/10000 容量压测。',
       completionMapping: 'release:proof:flush-task-worker',
     }, null, 2));
   } finally {
-    await cleanupAll(pool, [playerId, retryPlayerId], [instanceId, staleInstanceId]).catch(() => undefined);
+    await cleanupAll(pool, [playerId, retryPlayerId, groupedPlayerId], [instanceId, staleInstanceId]).catch(() => undefined);
     await app.close().catch(() => undefined);
     restoreEnv('SERVER_RUNTIME_ROLE', previousRole);
     restoreEnv('SERVER_FLUSH_TASK_RUNTIME_MODE', previousMode);

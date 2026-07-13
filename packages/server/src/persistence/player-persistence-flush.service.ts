@@ -551,23 +551,23 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
       // Phase 9：分域服务内部会优先通过 PersistenceWorkerPool 构建 write plan，
       // 主线程在通过 lease 校验后只负责执行计划内 SQL 并据结果 markPersisted。
       const projectionPresence = this.playerRuntimeService.describePersistencePresence(playerId);
-      // 每个 domain 独立比较 watermark。若批量写入中只有一个 domain 已被更高版本推进，
-      // 不能因此跳过同批其他仍待提交的 domain。
-      for (const domain of Array.from(projectedDomains).sort()) {
-        await this.playerDomainPersistenceService.savePlayerSnapshotProjectionDomains(
-          playerId,
-          snapshot,
-          new Set([domain]),
-          {
-            allowInventoryEmptyOverwrite: domain === 'inventory',
-            allowEquipmentEmptyOverwrite: domain === 'equipment',
-            allowArtifactEmptyOverwrite: domain === 'artifact',
-            allowBuffEmptyOverwrite: domain === 'buff',
-            expectedRuntimeOwnerId: projectionPresence?.runtimeOwnerId ?? null,
-            expectedSessionEpoch: projectionPresence?.sessionEpoch ?? null,
-            expectedProjectionVersion: snapshot.savedAt,
-          },
-        );
+      // 所有本轮玩家业务域必须共用一次事务；服务内部仍逐域比较 watermark，
+      // 已被更高版本推进的 domain 会独立跳过，不会阻断同批其他合法写入。
+      await this.playerDomainPersistenceService.savePlayerSnapshotProjectionDomains(
+        playerId,
+        snapshot,
+        projectedDomains,
+        {
+          allowInventoryEmptyOverwrite: projectedDomains.has('inventory'),
+          allowEquipmentEmptyOverwrite: projectedDomains.has('equipment'),
+          allowArtifactEmptyOverwrite: projectedDomains.has('artifact'),
+          allowBuffEmptyOverwrite: projectedDomains.has('buff'),
+          expectedRuntimeOwnerId: projectionPresence?.runtimeOwnerId ?? null,
+          expectedSessionEpoch: projectionPresence?.sessionEpoch ?? null,
+          expectedProjectionVersion: snapshot.savedAt,
+        },
+      );
+      for (const domain of projectedDomains) {
         persistedDomains.add(domain);
       }
     }
