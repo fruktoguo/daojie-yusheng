@@ -12,6 +12,10 @@ const viewSource = fs.readFileSync(
   path.join(clientRoot, 'src/ui/panels/action-panel-sect-management.ts'),
   'utf8',
 );
+const i18nSource = fs.readFileSync(
+  path.join(clientRoot, 'src/content/i18n/zh-CN.csv'),
+  'utf8',
+);
 
 function loadStateModule() {
   const sourcePath = path.join(clientRoot, 'src/ui/panels/sect-application-page-request-state.ts');
@@ -87,5 +91,20 @@ assert.match(patchMethodSource, /replaceElementHtml\(rows,/, '分页回包只能
 assert.doesNotMatch(patchMethodSource, /replaceElementHtml\(section,/, '分页回包不得重建含搜索输入框的申请卡片');
 assert.match(viewSource, /data-sect-application-search/, '申请卡片必须保留独立搜索输入框');
 assert.match(viewSource, /data-sect-application-rows/, '申请卡片必须保留独立行容器');
+assert.match(
+  viewSource,
+  /resolveSectApplicationPageScopeSectId\(summary\.data\.sectId, this\.p\.previewPlayer\?\.sectId\)/,
+  '宗门 ID 必须只用于申请分页的内部作用域隔离',
+);
+assert.doesNotMatch(
+  viewSource,
+  /sectIdLabel|data-sect-summary-field="sectId"|action\.sect\.manage\.summary\.sect-id/,
+  '宗门管理界面不得把内部宗门 ID 渲染给玩家',
+);
+assert.doesNotMatch(
+  i18nSource,
+  /^action\.sect\.manage\.summary\.sect-id,/m,
+  '语言包不得保留内部宗门 ID 的玩家可见文案',
+);
 
 console.log(JSON.stringify({ ok: true, case: 'sect-application-page-request-lifecycle' }, null, 2));

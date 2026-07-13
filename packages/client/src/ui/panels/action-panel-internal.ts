@@ -142,7 +142,6 @@ export interface SectManagementSummary {
   domainLabel: string;
   guardianStatusLabel: string;
   guardianAuraLabel: string;
-  sectIdLabel: string;
   leaderName: string;
   realmLabel: string;
   memberCountLabel: string;

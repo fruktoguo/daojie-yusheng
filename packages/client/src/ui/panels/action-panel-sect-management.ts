@@ -333,7 +333,7 @@ export class SectManagementSubpanel {
                 <span data-sect-summary-field="name">${escapeHtml(summary.name)}</span>
                 <span data-sect-summary-field="mark">${t('action.sect.manage.summary.mark', { mark: escapeHtml(summary.mark) })}</span>
                 <span data-sect-summary-field="domain">${t('action.sect.manage.summary.domain', { domain: escapeHtml(summary.domainLabel) })}</span>
-                <span data-sect-summary-field="sectId">${escapeHtml(summary.sectIdLabel)}</span>
+                <span data-sect-summary-field="guardian">${t('action.sect.manage.summary.guardian', { status: escapeHtml(summary.guardianStatusLabel) })}</span>
               </div>
               <div class="sect-manage-content">
                 ${this.renderSectManagementTabPanel(summary)}
@@ -362,7 +362,7 @@ export class SectManagementSubpanel {
     this.setText(body, '[data-sect-summary-field="name"]', summary.name);
     this.setText(body, '[data-sect-summary-field="mark"]', t('action.sect.manage.summary.mark', { mark: summary.mark }));
     this.setText(body, '[data-sect-summary-field="domain"]', t('action.sect.manage.summary.domain', { domain: summary.domainLabel }));
-    this.setText(body, '[data-sect-summary-field="sectId"]', summary.sectIdLabel);
+    this.setText(body, '[data-sect-summary-field="guardian"]', t('action.sect.manage.summary.guardian', { status: summary.guardianStatusLabel }));
     const content = body.querySelector<HTMLElement>('.sect-manage-content');
     if (!content) {
       return false;
@@ -1213,20 +1213,18 @@ export class SectManagementSubpanel {
     const domainLabel = /地域\s*([^·\s。]+)/.exec(desc)?.[1] ?? t('action.sect.manage.fallback.domain', undefined);
     const guardianStatusLabel = /大阵\s*([^·\s。]+)/.exec(desc)?.[1] ?? t('action.sect.manage.fallback.guardian-status', undefined);
     const guardianAuraLabel = /灵力\s*([^·\s。]+)/.exec(desc)?.[1] ?? t('action.sect.manage.fallback.guardian-aura', undefined);
-    const sectId = resolveSectApplicationPageScopeSectId(data.sectId, this.p.previewPlayer?.sectId);
-    const sectIdLabel = sectId ? t('action.sect.manage.summary.sect-id', { sectId }) : t('action.sect.manage.summary.bound', undefined);
     const leaderName = data.members.find((member) => member.leader)?.name || this.p.previewPlayer?.name || this.p.previewPlayer?.displayName || t('action.sect.manage.fallback.leader', undefined);
     const realmLabel = this.p.previewPlayer?.realm?.displayName || this.p.previewPlayer?.realmName || this.p.previewPlayer?.realm?.name || t('action.sect.manage.fallback.realm', undefined);
     const memberCountLabel = String(data.members.length || 1);
     const notice = t('action.sect.manage.notice', { name });
-    const summary = { name, mark, domainLabel, guardianStatusLabel, guardianAuraLabel, sectIdLabel, leaderName, realmLabel, memberCountLabel, notice, data };
+    const summary = { name, mark, domainLabel, guardianStatusLabel, guardianAuraLabel, leaderName, realmLabel, memberCountLabel, notice, data };
     this.syncSectApplicationPageVersion(summary);
     return summary;
   }
 
   buildSectManagementRevision(summary: SectManagementSummary): string {
     const tabKeys = this.resolveSectManagementTabs(summary).map((entry) => entry.tab).join('|');
-    const base = `${this.p.sectManagementTab}|${tabKeys}|${summary.name}|${summary.mark}|${summary.domainLabel}|${summary.sectIdLabel}|${summary.leaderName}|${summary.realmLabel}|${summary.memberCountLabel}`;
+    const base = `${this.p.sectManagementTab}|${tabKeys}|${summary.name}|${summary.mark}|${summary.domainLabel}|${summary.guardianStatusLabel}|${summary.leaderName}|${summary.realmLabel}|${summary.memberCountLabel}`;
     switch (this.p.sectManagementTab) {
       case 'members':
         return `${base}|${summary.data.canRemoveMembers}|${summary.data.canChangeRoles}|${JSON.stringify(summary.data.members)}|${JSON.stringify(summary.data.roles)}`;
