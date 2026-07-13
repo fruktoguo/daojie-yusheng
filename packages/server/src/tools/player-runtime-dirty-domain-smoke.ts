@@ -1761,7 +1761,10 @@ function testAdvanceSinglePlayerTickAutoRefinesRootFoundation(): void {
   assert.equal(player.realm.progress, 0);
   assert.equal(player.inventory.items.some((entry) => entry.itemId === 'spirit_stone'), false);
   assert.ok(player.notices.queue.some((notice) => notice.text.includes('你凝练 1 点根基')));
-  assert.ok(player.notices.queue.some((notice) => notice.text.includes('已关闭自动凝练根基')));
+  assert.ok(player.notices.queue.some((notice) => (
+    notice.text.includes('已关闭自动凝练根基')
+    && notice.structured?.key === 'notice.action.auto-root-foundation-cap'
+  )));
   assertDirtyDomains(service, playerId, ['inventory', 'progression', 'attr', 'vitals', 'combat_pref'], ['snapshot']);
 }
 

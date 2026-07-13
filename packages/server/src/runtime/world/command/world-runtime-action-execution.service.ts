@@ -197,14 +197,24 @@ export class WorldRuntimeActionExecutionService {
                 player = this.playerRuntimeService.updateCombatSettings(playerId, { autoRootFoundation: enabled }, currentTick);
             }
             const enabledAfterUpdate = player?.combat?.autoRootFoundation === true;
+            const noticeText = enabledAfterUpdate
+                ? '已开启自动凝练根基，修为和材料满足时会每息检测并自动凝练。'
+                : enabled
+                    ? '根基已达当前境界上限，已关闭自动凝练根基。'
+                    : '已关闭自动凝练根基。';
+            const noticeKey = enabledAfterUpdate
+                ? 'notice.action.auto-root-foundation-enabled'
+                : enabled
+                    ? 'notice.action.auto-root-foundation-cap'
+                    : 'notice.action.auto-root-foundation-disabled';
+            const notice = buildStructuredNotice('info', noticeKey, noticeText);
             deps.queuePlayerNotice(
                 playerId,
-                enabledAfterUpdate
-                    ? '已开启自动凝练根基，修为和材料满足时会每息检测并自动凝练。'
-                    : enabled
-                        ? '根基已达当前境界上限，已关闭自动凝练根基。'
-                        : '已关闭自动凝练根基。',
-                'info',
+                notice.text,
+                notice.kind,
+                undefined,
+                undefined,
+                notice.structured,
             );
             return { kind: 'queued', view: deps.getPlayerViewOrThrow(playerId) };
         }

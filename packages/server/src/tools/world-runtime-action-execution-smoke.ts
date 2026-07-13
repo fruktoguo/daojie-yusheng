@@ -102,7 +102,9 @@ function createService(player, log = []) {
 
 
 function createDeps(log = []): any {
+    const notices: any[] = [];
     return {    
+        notices,
     /**
  * getPlayerLocationOrThrow：读取玩家位置OrThrow。
  * @param playerId 玩家 ID。
@@ -177,8 +179,15 @@ function createDeps(log = []): any {
  * @returns 无返回值，直接更新queue玩家Notice相关状态。
  */
 
-        queuePlayerNotice(playerId, message, kind) {
+        queuePlayerNotice(playerId, message, kind, _title, _icon, structured) {
             log.push(['queuePlayerNotice', playerId, message, kind]);
+            notices.push({
+                playerId,
+                message,
+                kind,
+                key: structured?.key ?? null,
+                vars: structured?.vars,
+            });
         },
         worldRuntimeCraftInterruptService: {
             interruptCraftForReason(playerId, player, reason) {
@@ -369,6 +378,7 @@ function testAutoRootFoundationToggleUsesImmediateRuntimeCheck() {
         ['queuePlayerNotice', 'player:1', '已开启自动凝练根基，修为和材料满足时会每息检测并自动凝练。', 'info'],
         ['getPlayerViewOrThrow', 'player:1'],
     ]);
+    assert.equal(deps.notices.at(-1)?.key, 'notice.action.auto-root-foundation-enabled');
 }
 
 function testAutoRootFoundationOnActionUsesImmediateRuntimeCheck() {
@@ -389,6 +399,7 @@ function testAutoRootFoundationOnActionUsesImmediateRuntimeCheck() {
         ['queuePlayerNotice', 'player:1', '已开启自动凝练根基，修为和材料满足时会每息检测并自动凝练。', 'info'],
         ['getPlayerViewOrThrow', 'player:1'],
     ]);
+    assert.equal(deps.notices.at(-1)?.key, 'notice.action.auto-root-foundation-enabled');
 }
 
 function testAutoRootFoundationOffKeepsExplicitFalse() {
@@ -409,6 +420,7 @@ function testAutoRootFoundationOffKeepsExplicitFalse() {
         ['queuePlayerNotice', 'player:1', '已关闭自动凝练根基。', 'info'],
         ['getPlayerViewOrThrow', 'player:1'],
     ]);
+    assert.equal(deps.notices.at(-1)?.key, 'notice.action.auto-root-foundation-disabled');
 }
 
 function testAutoRootFoundationOffActionKeepsExplicitFalse() {
@@ -429,6 +441,26 @@ function testAutoRootFoundationOffActionKeepsExplicitFalse() {
         ['queuePlayerNotice', 'player:1', '已关闭自动凝练根基。', 'info'],
         ['getPlayerViewOrThrow', 'player:1'],
     ]);
+    assert.equal(deps.notices.at(-1)?.key, 'notice.action.auto-root-foundation-disabled');
+}
+
+function testAutoRootFoundationAtCapUsesStructuredNotice() {
+    const log = [];
+    const service = createService({
+        combat: {
+            autoRootFoundation: false,
+        },
+        techniques: {},
+    }, log);
+    service.playerRuntimeService.updateAutoRootFoundation = (playerId, enabled, currentTick) => {
+        log.push(['updateAutoRootFoundation', playerId, enabled, currentTick]);
+        return { combat: { autoRootFoundation: false } };
+    };
+    const deps = createDeps(log);
+    const result = service.executeAction('player:1', 'realm:auto_refine_root_foundation:on', undefined, deps);
+    assertQueuedViewTick(result, 2);
+    assert.equal(deps.notices.at(-1)?.key, 'notice.action.auto-root-foundation-cap');
+    assert.equal(deps.notices.at(-1)?.message, '根基已达当前境界上限，已关闭自动凝练根基。');
 }
 
 function testWorldMigrationSwitchesToRealLine() {
@@ -774,8 +806,8 @@ async function testInvalidManualCastClearsPendingCommand() {
                 log.push(['warn', message]);
             },
         },
-        queuePlayerNotice(playerId, message, kind) {
-            log.push(['queuePlayerNotice', playerId, message, kind]);
+        queuePlayerNotice(playerId, message, kind, _title, _icon, structured) {
+            log.push(['queuePlayerNotice', playerId, message, kind, structured?.key ?? null]);
         },
         resolveCurrentTickForPlayerId(playerId) {
             log.push(['resolveCurrentTickForPlayerId', playerId]);
@@ -802,7 +834,7 @@ async function testInvalidManualCastClearsPendingCommand() {
         ['clearManualEngagePending', 'player:1'],
         ['clearCombatTarget', 'player:1', 88],
         ['warn', '处理玩家 player:1 的待执行指令失败：castSkill（目标无效） debug=auto=0 manual=1 skill=skill.test playerState=missing'],
-        ['queuePlayerNotice', 'player:1', '目标无效', 'warn'],
+        ['queuePlayerNotice', 'player:1', '行动未能完成，请稍后重试。', 'warn', 'notice.command.failed'],
     ]);
 }
 
@@ -816,6 +848,7 @@ async function run() {
     testAutoRootFoundationOnActionUsesImmediateRuntimeCheck();
     testAutoRootFoundationOffKeepsExplicitFalse();
     testAutoRootFoundationOffActionKeepsExplicitFalse();
+    testAutoRootFoundationAtCapUsesStructuredNotice();
     testWorldMigrationSwitchesToRealLine();
     await testWorldMigrationFailureKeepsPreviousPreference();
     testWorldMigrationRejectsPeacefulWhenShaBuffActive();

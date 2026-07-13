@@ -3,7 +3,7 @@
 ## 审计口径
 
 - 生产主线：`packages/client`、`packages/shared`、`packages/server`、`packages/config-editor`。
-- 当前基线：`main` 分支 `c997822d`；相对 `origin/main` ahead 25。
+- 当前基线：`main` 分支 `5ada4dec`；相对 `origin/main` ahead 26。
 - package manager：`pnpm@10.29.1`。
 - 每项结论必须来自机制文档、完整调用链、测试、编译产物或运行数据；仅凭搜索未发现异常不能标记为“确认无问题”。
 - `[x]` 只表示该行列出的具体证据范围已完成，不代表相邻系统或整个项目已完成。
@@ -71,6 +71,7 @@
 - [x] S-06 兑换与异步导航异常把原始服务端错误文本发给玩家的问题已修复；见 FS-031。
 - [x] S-07 待执行指令异常透传未分类服务端错误文本的问题已修复；见 FS-032。
 - [x] S-08 通天塔进入、通关与退出通知已迁移为结构化 key/变量，并通过真实运行时烟测；见 FS-033。
+- [x] S-09 自动凝练根基的手动开关与 tick 自动关闭通知已统一为结构化 key；见 FS-034。
 
 ### 客户端、UI 与渲染
 
@@ -606,7 +607,7 @@
 
 ### FS-033 通天塔状态通知由服务端直接拼接玩家文案
 
-- **状态**：已修复并完成编译、专项、客户端与最小总门禁验证，待本组中文原子提交。
+- **状态**：已修复、验证并完成中文原子提交。
 - **严重级别**：P2（协议与本地化边界错误，不直接影响塔层进度或玩家资产）。
 - **所属功能组**：通天塔 / 玩家通知 / 客户端 i18n / 运行时烟测。
 - **影响链路**：进入、通关或退出通天塔 → `WorldRuntimeTongtianTowerService` → `queuePlayerNotice()` → Notice 协议 → 客户端日志与浮层。
@@ -618,7 +619,23 @@
 - **修复方式**：三条路径统一调用 `buildStructuredNotice()`，分别发送 `notice.tower.entered`、`notice.tower.layer-cleared` 和 `notice.tower.exited`；层数、解锁层和实际出口地图名作为 vars，数字与地图名使用 pill 元数据；服务端中文仅保留为旧客户端/日志 fallback。客户端 CSV 新增三条中文真源并重新生成类型常量。
 - **实际修改**：更新通天塔运行时服务、客户端中文 i18n CSV/生成产物和 `tongtian-tower-smoke.ts`；烟测夹具开始捕获结构化 key/vars，并断言进入和退出变量正确、通关通知只发给该波参与者而不发给中途加入者。
 - **验证结果**：`git diff --check`、`pnpm --filter @mud/server compile`、`pnpm verify:client` 与 `pnpm verify:quick` 通过；compiled `tongtian-tower-smoke` 证明进入第 1 层发送 `{ layer: 1 }`，第 1 层通关只向首波参与者发送 `{ layer: 1, unlockedLayer: 2 }`，退出返回栖真渡发送 `{ mapName: '栖真渡' }`，且既有塔层 lease、恢复、冷却和空闲销毁断言未回归；客户端门禁证明 3862 条语言包生成、TypeScript/Vite、UI 连续性、请求生命周期、Socket 出站和地图渲染 proof 未回归，最小总门禁的 server compile、生产边界与无库 smoke 子集完整通过。
-- **中文原子提交 hash**：待本组提交后回填（计划提交：`fix(notice): 结构化通天塔状态通知`）。
+- **中文原子提交 hash**：`5ada4dec`。
+
+### FS-034 自动凝练根基存在动作与 tick 两条纯文本通知旁路
+
+- **状态**：已修复并完成编译、两项专项、客户端与最小总门禁验证，待本组中文原子提交。
+- **严重级别**：P2（协议与本地化边界错误，不改变凝练结算或持久化语义）。
+- **所属功能组**：境界修炼 / 自动凝练根基 / 玩家 tick / 动作入口 / 结构化通知。
+- **影响链路**：玩家手动开启/关闭自动凝练 → `WorldRuntimeActionExecutionService.executeAction()`；或每息自动凝练达到当前境界上限 → `PlayerRuntimeService.disableAutoRootFoundationAtCap()` → EventBus/本地通知队列 → Notice 协议 → 客户端。
+- **证据**：动作入口根据开启、主动关闭和到达上限三种状态直接选择中文字符串，以三参数调用 `queuePlayerNotice()`；玩家 tick 检测到上限后则自行创建只含 `id/kind/text` 的 notice 并直写 EventBus/本地队列，完全绕过同类进度通知已使用的 `queuePlayerStructuredNotice()`。因此同一“达到上限并自动关闭”语义在按钮入口和 tick 入口有两套纯文本实现，客户端语言包没有稳定 key。
+- **根本原因**：自动凝练开关与上限关闭分别演进在 world action 层和 player runtime 层，结构化通知迁移只覆盖了相邻修炼结果，没有沿“手动入口 → 权威 tick → 自动关闭 → EventBus”完整追踪；player runtime 还重复实现了通知入队细节。
+- **为什么错误**：客户端应通过稳定 key 渲染玩家文案；同一业务状态不能因触发来源不同而一个走 world helper、另一个直接拼接 EventBus entry。重复入队实现还容易遗漏结构化载荷、优先级和后续队列约束。
+- **触发条件**：手动开启或关闭自动凝练；开启时已经达到当前上限；自动凝练一息后达到上限并由 tick 自动关闭。
+- **可能后果**：客户端无法本地化或稳定聚合自动凝练状态；文案修改需发服务端；手动与自动关闭可能漂移；后续通知队列契约变化时，player runtime 的旁路可能再次漏字段。资产、根基上限、材料消耗和 `combat_pref` dirty domain 本身不受影响。
+- **修复方式**：定义开启、主动关闭、达到上限三个独立 key，避免把不可本地化的状态枚举作为中文变量；动作入口统一使用 `buildStructuredNotice()`。player runtime 的 tick 自动关闭复用现有 `queuePlayerStructuredNotice()`，发送与动作入口相同的上限 key，不再手写 EventBus entry。客户端 CSV 成为三条中文真源。
+- **实际修改**：更新动作执行服务、玩家运行时、客户端中文 i18n CSV/生成产物、动作综合 smoke 与玩家 dirty-domain smoke；动作 smoke 覆盖开启、主动关闭、开启时已达上限三种 key，dirty-domain smoke 覆盖自动凝练结算后由 tick 关闭的 key。专项运行还暴露动作 smoke 仍期待 FS-032 之前的原始“目标无效”通知，已按当前协议修正为通用文案和 `notice.command.failed`，防止既有修复造成假红。
+- **验证结果**：`git diff --check`、`pnpm --filter @mud/server compile`、compiled `world-runtime-action-execution-smoke`、compiled `player-runtime-dirty-domain-smoke`、`pnpm verify:client` 与 `pnpm verify:quick` 通过；动作专项证明开启、主动关闭、开启时已达上限及相邻待执行指令 key，dirty-domain 专项证明自动凝练后根基、材料、偏好 dirty domain 不变且自动关闭携带 `notice.action.auto-root-foundation-cap`；客户端门禁证明 3865 条语言包生成、TypeScript/Vite、UI 连续性、请求生命周期、Socket 出站和地图渲染 proof 未回归，最小总门禁包含该 dirty-domain smoke 并完整通过 server compile、生产边界和无库 smoke 子集。
+- **中文原子提交 hash**：待本组提交后回填（计划提交：`fix(notice): 结构化自动凝练状态通知`）。
 
 ## 2026-07-14 待用户决定
 

@@ -6027,17 +6027,11 @@ export class PlayerRuntimeService {
         this.bumpPersistentRevision(player);
         const text = '根基已达当前境界上限，已关闭自动凝练根基。';
         if (emitNotice) {
-            const entry = {
-                id: player.notices.nextId,
-                kind: 'info' as const,
+            this.queuePlayerStructuredNotice(player, {
+                kind: 'info',
                 text,
-            };
-            player.notices.nextId += 1;
-            if (this.runtimeEventBusService) {
-                this.runtimeEventBusService.queuePlayerNotice(player.playerId, entry);
-            } else {
-                player.notices.queue.push(entry);
-            }
+                structured: { key: 'notice.action.auto-root-foundation-cap' },
+            });
         }
         return true;
     }
