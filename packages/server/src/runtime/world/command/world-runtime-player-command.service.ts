@@ -639,7 +639,7 @@ export class WorldRuntimePlayerCommandService {
                 await this.worldRuntimeUseItemService.dispatchUseItem(playerId, command.itemInstanceId, deps, command.payload);
                 return;
             case 'createFormation':
-                deps.worldRuntimeFormationService.dispatchCreateFormation(playerId, command.payload, deps);
+                await deps.worldRuntimeFormationService.dispatchCreateFormation(playerId, command.payload, deps);
                 requestPlayerDeltaSync(deps, playerId);
                 return;
             case 'setFormationActive':
@@ -647,7 +647,7 @@ export class WorldRuntimePlayerCommandService {
                 requestPlayerDeltaSync(deps, playerId);
                 return;
             case 'refillFormation':
-                deps.worldRuntimeFormationService.dispatchRefillFormation(playerId, command.payload, deps);
+                await deps.worldRuntimeFormationService.dispatchRefillFormation(playerId, command.payload, deps);
                 requestPlayerDeltaSync(deps, playerId);
                 return;
             case 'equip':

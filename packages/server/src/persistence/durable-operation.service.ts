@@ -24,8 +24,15 @@ import {
 import { NodeRegistryService } from './node-registry.service';
 import type { PersistedPlayerSnapshot } from './player-persistence.service';
 import { isTransientPostgresError } from './pg-error-utils';
-import type { PlayerTechniqueActivityQueueUpsertInput } from './player-domain-persistence.service';
+import {
+  savePlayerSnapshotProjectionDomainsWithClient,
+  type PlayerTechniqueActivityQueueUpsertInput,
+} from './player-domain-persistence.service';
 import { ensureBigintColumnsWithClient } from './schema-bigint-migration';
+import {
+  persistDurableFormationWriteWithClient,
+  type DurableSectFormationWrite,
+} from './sect-durable-persistence';
 
 const PLAYER_PRESENCE_TABLE = 'player_presence';
 const PLAYER_WALLET_TABLE = 'player_wallet';
@@ -283,6 +290,31 @@ export interface GrantInventoryItemsResult {
   alreadyCommitted: boolean;
   grantedCount: number;
   sourceType: string;
+}
+
+export interface CommitFormationResourceMutationInput {
+  operationId: string;
+  playerId: string;
+  expectedRuntimeOwnerId: string;
+  expectedSessionEpoch: number;
+  expectedInstanceId: string;
+  expectedAssignedNodeId: string;
+  expectedOwnershipEpoch: number;
+  action: 'deploy' | 'refill' | 'inject';
+  formationWrite: DurableSectFormationWrite;
+  expectedFormationUpdatedAtMs?: number | null;
+  expectFormationAbsent?: boolean;
+  nextPlayerSnapshot: PersistedPlayerSnapshot;
+  spiritStoneCount: number;
+  qiAmount: number;
+  diskItemInstanceId?: string | null;
+}
+
+export interface CommitFormationResourceMutationResult {
+  ok: boolean;
+  alreadyCommitted: boolean;
+  action: 'deploy' | 'refill' | 'inject';
+  formationInstanceId: string;
 }
 
 /**
@@ -1611,6 +1643,138 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
           alreadyCommitted: false,
           grantedCount: normalizedGrantedItems.reduce((total, entry) => total + Math.max(0, Math.trunc(Number(entry?.count ?? 0))), 0),
           sourceType: normalizedSourceType,
+        };
+      },
+    });
+  }
+
+  /** 玩家背包、钱包、灵力与阵法资源池同事务提交，供布阵和一次性补给命令使用。 */
+  async commitFormationResourceMutation(
+    input: CommitFormationResourceMutationInput,
+  ): Promise<CommitFormationResourceMutationResult> {
+    const normalizedPlayerId = normalizeRequiredString(input.playerId);
+    const normalizedOperationId = normalizeDurableOperationId(input.operationId);
+    const normalizedFormationInstanceId = normalizeRequiredString(input.formationWrite?.formationInstanceId);
+    const normalizedFormationWorldInstanceId = normalizeRequiredString(input.formationWrite?.instanceId);
+    const normalizedExpectedInstanceId = normalizeRequiredString(input.expectedInstanceId);
+    const action = input.action === 'deploy' || input.action === 'refill' || input.action === 'inject'
+      ? input.action
+      : null;
+    const spiritStoneCount = Math.max(0, Math.trunc(Number(input.spiritStoneCount ?? 0)));
+    const qiAmount = Math.max(0, Math.trunc(Number(input.qiAmount ?? 0)));
+    const expectedFormationUpdatedAtMs = input.expectedFormationUpdatedAtMs == null
+      ? null
+      : Math.max(0, Math.trunc(Number(input.expectedFormationUpdatedAtMs)));
+    const nextPlayerSnapshot = input.nextPlayerSnapshot;
+    const formationSnapshot = input.formationWrite?.snapshot;
+    if (
+      !normalizedPlayerId
+      || !normalizedOperationId
+      || !action
+      || !normalizedFormationInstanceId
+      || !normalizedFormationWorldInstanceId
+      || normalizedExpectedInstanceId !== normalizedFormationWorldInstanceId
+      || !formationSnapshot
+      || normalizeRequiredString(formationSnapshot.id) !== normalizedFormationInstanceId
+      || normalizeRequiredString(formationSnapshot.instanceId) !== normalizedFormationWorldInstanceId
+      || !nextPlayerSnapshot?.placement?.templateId
+      || (spiritStoneCount <= 0 && qiAmount <= 0 && !normalizeOptionalString(input.diskItemInstanceId))
+    ) {
+      throw new Error('invalid_formation_resource_mutation_input');
+    }
+
+    const payload = {
+      action,
+      formationInstanceId: normalizedFormationInstanceId,
+      instanceId: normalizedFormationWorldInstanceId,
+      expectedFormationUpdatedAtMs,
+      expectFormationAbsent: input.expectFormationAbsent === true,
+      spiritStoneCount,
+      qiAmount,
+      diskItemInstanceId: normalizeOptionalString(input.diskItemInstanceId),
+      inventoryItems: nextPlayerSnapshot.inventory?.items ?? [],
+      walletBalances: nextPlayerSnapshot.wallet?.balances ?? [],
+      vitals: nextPlayerSnapshot.vitals ?? null,
+      formationSnapshot,
+    };
+
+    return this.executeAssetMutation<CommitFormationResourceMutationResult>({
+      operationId: normalizedOperationId,
+      playerId: normalizedPlayerId,
+      expectedRuntimeOwnerId: input.expectedRuntimeOwnerId,
+      expectedSessionEpoch: input.expectedSessionEpoch,
+      expectedInstanceId: normalizedExpectedInstanceId,
+      expectedAssignedNodeId: input.expectedAssignedNodeId,
+      expectedOwnershipEpoch: input.expectedOwnershipEpoch,
+      operationType: `formation_resource_${action}`,
+      aggregateType: 'instance_formation_state',
+      payload,
+      onAlreadyCommitted: async () => ({
+        ok: true,
+        alreadyCommitted: true,
+        action,
+        formationInstanceId: normalizedFormationInstanceId,
+      }),
+      onMutate: async (client) => {
+        await persistDurableFormationWriteWithClient(
+          client,
+          {
+            formationInstanceId: normalizedFormationInstanceId,
+            instanceId: normalizedFormationWorldInstanceId,
+            snapshot: formationSnapshot,
+          },
+          {
+            expectAbsent: input.expectFormationAbsent === true,
+            expectedUpdatedAtMs: expectedFormationUpdatedAtMs,
+          },
+        );
+        await savePlayerSnapshotProjectionDomainsWithClient(
+          client,
+          normalizedPlayerId,
+          nextPlayerSnapshot,
+          ['inventory', 'wallet', 'vitals'],
+          { allowInventoryEmptyOverwrite: true },
+        );
+        await insertDurableOutboxEvent(
+          client,
+          normalizedOperationId,
+          `formation.resource.${action}`,
+          normalizedFormationWorldInstanceId,
+          {
+            playerId: normalizedPlayerId,
+            formationInstanceId: normalizedFormationInstanceId,
+            instanceId: normalizedFormationWorldInstanceId,
+            action,
+            spiritStoneCount,
+            qiAmount,
+          },
+        );
+        await insertAssetAuditLog(
+          client,
+          normalizedOperationId,
+          normalizedPlayerId,
+          'formation_resource',
+          normalizedFormationInstanceId,
+          action,
+          {
+            spiritStoneCount: -spiritStoneCount,
+            qiAmount: -qiAmount,
+            diskItemInstanceId: normalizeOptionalString(input.diskItemInstanceId),
+          },
+          {
+            formationUpdatedAtMs: expectedFormationUpdatedAtMs,
+          },
+          {
+            formationUpdatedAtMs: Math.max(0, Math.trunc(Number(formationSnapshot.updatedAt ?? 0))),
+            remainingQiBudget: Number(formationSnapshot.remainingQiBudget ?? 0),
+            remainingSpiritStoneBudget: Number(formationSnapshot.remainingSpiritStoneBudget ?? 0),
+          },
+        );
+        return {
+          ok: true,
+          alreadyCommitted: false,
+          action,
+          formationInstanceId: normalizedFormationInstanceId,
         };
       },
     });

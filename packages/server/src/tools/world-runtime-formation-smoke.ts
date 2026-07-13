@@ -1,24 +1,52 @@
-// @ts-nocheck
-"use strict";
-
 /**
  * 用途：证明布阵会在 tick 执行路径内留下 runtime 阵法实体，并进入世界投影。
  */
 
-Object.defineProperty(exports, "__esModule", { value: true });
+import assert from 'node:assert/strict';
+import { Pool } from 'pg';
 
-const assert = require("node:assert/strict");
-const { Pool } = require("pg");
-const { resolveServerDatabaseUrl } = require("../config/env-alias");
-const { DatabasePoolProvider } = require("../persistence/database-pool.provider");
-const { WorldRuntimeFormationService } = require("../runtime/world/world-runtime-formation.service");
-const { TechniqueActivityPipelineService } = require("../runtime/craft/pipeline/technique-activity-pipeline.service");
-const { FormationStrategy } = require("../runtime/craft/pipeline/strategies/formation.strategy");
-const { MapTemplateRepository } = require("../runtime/map/map-template.repository");
-const { MapInstanceRuntime } = require("../runtime/instance/map-instance.runtime");
-const { buildFullWorldDelta } = require("../network/world-projector.helpers");
-const { resolveFormationMonsterExpMultiplier, resolveSuppressedMonsterNumericStats } = require("../runtime/world/combat/formation-combat-effect.helpers");
-const { DEFAULT_FORMATION_TILE_AURA_RESOURCE_KEY, DISPERSED_AURA_RESOURCE_KEY, FORMATION_TICKS_PER_DAY, QI_HALF_LIFE_RATE_SCALE, TileType, buildQiHalfLifeRateScaled, calculateDispersedAuraGainPerTile, createNumericStats, decodeMessage, encodeMessage, fromWireTick, resolveFormationSetupPlan, tickPayloadType, toWireTick } = require("@mud/shared");
+import {
+  DEFAULT_FORMATION_TILE_AURA_RESOURCE_KEY,
+  DISPERSED_AURA_RESOURCE_KEY,
+  Direction,
+  FORMATION_TICKS_PER_DAY,
+  QI_HALF_LIFE_RATE_SCALE,
+  TileType,
+  buildQiHalfLifeRateScaled,
+  calculateDispersedAuraGainPerTile,
+  createNumericStats,
+  decodeMessage,
+  encodeMessage,
+  fromWireTick,
+  resolveFormationSetupPlan,
+  resolveFormationStats,
+  tickPayloadType,
+  toWireTick,
+} from '@mud/shared';
+import { resolveServerDatabaseUrl } from '../config/env-alias';
+import { buildFullWorldDelta } from '../network/world-projector.helpers';
+import { DatabasePoolProvider } from '../persistence/database-pool.provider';
+import { TechniqueActivityPipelineService } from '../runtime/craft/pipeline/technique-activity-pipeline.service';
+import { FormationStrategy } from '../runtime/craft/pipeline/strategies/formation.strategy';
+import { MapInstanceRuntime } from '../runtime/instance/map-instance.runtime';
+import { MapTemplateRepository } from '../runtime/map/map-template.repository';
+import {
+  resolveFormationMonsterExpMultiplier,
+  resolveSuppressedMonsterNumericStats,
+} from '../runtime/world/combat/formation-combat-effect.helpers';
+import { WorldRuntimeFormationService } from '../runtime/world/world-runtime-formation.service';
+
+type FormationServicePersistenceInternals = {
+  dirtyFormationInstanceIds: Set<string>;
+  removedFormationKeysByInstanceId: Map<string, Map<string, number>>;
+  _formationPersistTimers: Map<string, ReturnType<typeof setTimeout>>;
+};
+
+function getFormationPersistenceInternals(
+  service: WorldRuntimeFormationService,
+): FormationServicePersistenceInternals {
+  return service as unknown as FormationServicePersistenceInternals;
+}
 
 const playerId = "player:formation-smoke";
 const sectPlayerId = "player:formation-sect-member";
@@ -58,6 +86,8 @@ async function main() {
     wallet: {
       spirit_stone: 100000,
     },
+    formationJob: null as null | Record<string, unknown>,
+    techniqueActivityQueue: [] as Array<Record<string, unknown>>,
   };
   const tileResources = new Map();
   const instance = {
@@ -268,12 +298,19 @@ async function main() {
     worldRevision: instance.worldRevision,
     selfRevision: 1,
     playerId,
-    instance: { instanceId, templateId: "formation_smoke" },
-    self: { x: 4, y: 5, name: "阵法测试", displayName: "阵" },
+    instance: {
+      instanceId,
+      templateId: "formation_smoke",
+      name: "阵法测试地图",
+      kind: "public",
+      width: 16,
+      height: 16,
+    },
+    self: { x: 4, y: 5, facing: Direction.East, name: "阵法测试", displayName: "阵" },
     visiblePlayers: [
-      { playerId: "player:visible", name: "凌梦雨", displayName: "凌", x: 5, y: 5 },
-      { playerId: "player:legacy-placeholder", name: "旧档修士", displayName: "@", x: 6, y: 5 },
-      { playerId: "p_28be0b16-0f11-4583-a397-bb7741016e75_1773932128803", name: "p_28be0b16-0f11-4583-a397-bb7741016e75_1773932128803", displayName: "p_28be0b16-0f11-4583-a397-bb7741016e75_1773932128803", x: 7, y: 5 },
+      { playerId: "player:visible", name: "凌梦雨", displayName: "凌", x: 5, y: 5, facing: Direction.East },
+      { playerId: "player:legacy-placeholder", name: "旧档修士", displayName: "@", x: 6, y: 5, facing: Direction.East },
+      { playerId: "p_28be0b16-0f11-4583-a397-bb7741016e75_1773932128803", name: "p_28be0b16-0f11-4583-a397-bb7741016e75_1773932128803", displayName: "p_28be0b16-0f11-4583-a397-bb7741016e75_1773932128803", x: 7, y: 5, facing: Direction.East },
     ],
     localNpcs: [],
     localMonsters: [],
@@ -323,6 +360,8 @@ async function main() {
         walkable: true,
         blocksSight: false,
         aura: 0,
+        occupiedBy: null,
+        modifiedAt: 0,
         resources: [{
           key: DEFAULT_FORMATION_TILE_AURA_RESOURCE_KEY,
           label: "灵气",
@@ -641,11 +680,14 @@ async function main() {
     assert.equal(stabilizedAtTickStart(3, 3), true);
     service.advanceInstanceFormations(snapshotInstance, 7, deps);
     assert.equal(service.isTerrainStabilized(snapshotInstanceId, 3, 3), true);
-    assert.equal(snapshotInstance.advanceTileRecovery(stabilizedAtTickStart), false);
+    assert.equal(snapshotInstance.advanceTileRecovery(stabilizedAtTickStart, null), false);
     assert.equal(snapshotInstance.getTileCombatState(3, 3)?.destroyed, true);
     service.applyDamageToFormation(snapshotInstanceId, "formation:snapshot:earth-stabilizing", 999999, playerId, deps);
     assert.equal(service.isTerrainStabilized(snapshotInstanceId, 3, 3), false);
-    assert.equal(snapshotInstance.advanceTileRecovery((x, y) => service.isTerrainStabilized(snapshotInstanceId, x, y)), true);
+    assert.equal(snapshotInstance.advanceTileRecovery(
+      (x, y) => service.isTerrainStabilized(snapshotInstanceId, x, y),
+      null,
+    ), true);
     assert.equal(snapshotInstance.getTileCombatState(3, 3)?.destroyed, false);
   }
 
@@ -671,8 +713,15 @@ async function main() {
     worldRevision: instance.worldRevision,
     selfRevision: 1,
     playerId,
-    instance: { instanceId, templateId: "formation_smoke" },
-    self: { x: 4, y: 5, name: "阵法测试", displayName: "阵" },
+    instance: {
+      instanceId,
+      templateId: "formation_smoke",
+      name: "阵法测试地图",
+      kind: "public",
+      width: 16,
+      height: 16,
+    },
+    self: { x: 4, y: 5, facing: Direction.East, name: "阵法测试", displayName: "阵" },
     visiblePlayers: [],
     localNpcs: [],
     localMonsters: [],
@@ -709,8 +758,15 @@ async function main() {
     worldRevision: instance.worldRevision,
     selfRevision: 1,
     playerId,
-    instance: { instanceId, templateId: "formation_smoke" },
-    self: { x: 4, y: 5, name: "阵法测试", displayName: "阵" },
+    instance: {
+      instanceId,
+      templateId: "formation_smoke",
+      name: "阵法测试地图",
+      kind: "public",
+      width: 16,
+      height: 16,
+    },
+    self: { x: 4, y: 5, facing: Direction.East, name: "阵法测试", displayName: "阵" },
     visiblePlayers: [],
     localNpcs: [],
     localMonsters: [],
@@ -903,8 +959,15 @@ async function main() {
     worldRevision: instance.worldRevision,
     selfRevision: 1,
     playerId,
-    instance: { instanceId, templateId: "formation_smoke" },
-    self: { x: 4, y: 5, name: "阵法测试", displayName: "阵" },
+    instance: {
+      instanceId,
+      templateId: "formation_smoke",
+      name: "阵法测试地图",
+      kind: "public",
+      width: 16,
+      height: 16,
+    },
+    self: { x: 4, y: 5, facing: Direction.East, name: "阵法测试", displayName: "阵" },
     visiblePlayers: [],
     localNpcs: [],
     localMonsters: [],
@@ -1015,10 +1078,10 @@ async function testFormationDeferredPersistenceDoesNotLazyInitialize() {
   };
   let scheduled = null;
   const originalSetTimeout = global.setTimeout;
-  global.setTimeout = ((callback) => {
+  global.setTimeout = ((callback: () => void) => {
     scheduled = () => callback();
     return 0;
-  });
+  }) as unknown as typeof global.setTimeout;
   try {
     service.persistInstanceFormationsSoon("inst:formation:deferred");
   } finally {
@@ -1028,7 +1091,7 @@ async function testFormationDeferredPersistenceDoesNotLazyInitialize() {
   scheduled?.();
   await new Promise((resolve) => originalSetTimeout(resolve, 0));
   assert.equal(ensureCalls, 0);
-  assert.equal(service.dirtyFormationInstanceIds.has("inst:formation:deferred"), true);
+  assert.equal(getFormationPersistenceInternals(service).dirtyFormationInstanceIds.has("inst:formation:deferred"), true);
 }
 
 async function testFormationShutdownDoesNotRepeatFinalFlush() {
@@ -1057,14 +1120,17 @@ async function testFormationFlushAllNowFlushesPendingInstances() {
   );
   const instanceId = "inst:formation:flush-all";
   service.formationsByInstanceId.set(instanceId, []);
-  service._formationPersistTimers.set(instanceId, setTimeout(() => undefined, 10_000));
+  getFormationPersistenceInternals(service)._formationPersistTimers.set(
+    instanceId,
+    setTimeout(() => undefined, 10_000),
+  );
   const savedInstanceIds = [];
   service.saveInstanceFormations = async (targetInstanceId) => {
     savedInstanceIds.push(targetInstanceId);
   };
   await service.flushAllNow();
   assert.deepEqual(savedInstanceIds, [instanceId]);
-  assert.equal(service._formationPersistTimers.size, 0);
+  assert.equal(getFormationPersistenceInternals(service)._formationPersistTimers.size, 0);
 }
 
 async function testFormationPersistFailureKeepsDirtyForFlushAll() {
@@ -1079,7 +1145,7 @@ async function testFormationPersistFailureKeepsDirtyForFlushAll() {
   };
   service.persistFormationSnapshotSoon(formation);
   await new Promise((resolve) => setImmediate(resolve));
-  assert.equal(service.dirtyFormationInstanceIds.has(instanceId), true);
+  assert.equal(getFormationPersistenceInternals(service).dirtyFormationInstanceIds.has(instanceId), true);
   const savedInstanceIds = [];
   service.saveInstanceFormations = async (targetInstanceId) => {
     savedInstanceIds.push(targetInstanceId);
@@ -1087,7 +1153,7 @@ async function testFormationPersistFailureKeepsDirtyForFlushAll() {
   };
   await service.flushAllNow();
   assert.deepEqual(savedInstanceIds, [instanceId]);
-  assert.equal(service.dirtyFormationInstanceIds.has(instanceId), false);
+  assert.equal(getFormationPersistenceInternals(service).dirtyFormationInstanceIds.has(instanceId), false);
 }
 
 async function testFormationSaveInstanceFormationsReplaysRemovalDirty() {
@@ -1125,8 +1191,8 @@ async function testFormationSaveInstanceFormationsReplaysRemovalDirty() {
   assert.ok(clientQueries.some((entry) => entry[0].includes("formation_instance_id = $2")
     && entry[1]?.[0] === instanceId
     && entry[1]?.[1] === formationId));
-  assert.equal(service.dirtyFormationInstanceIds.has(instanceId), false);
-  assert.equal(service.removedFormationKeysByInstanceId.has(instanceId), false);
+  assert.equal(getFormationPersistenceInternals(service).dirtyFormationInstanceIds.has(instanceId), false);
+  assert.equal(getFormationPersistenceInternals(service).removedFormationKeysByInstanceId.has(instanceId), false);
 }
 
 function testFormationSuppressionEffects(service) {
@@ -1249,7 +1315,7 @@ async function runFormationPersistenceSmoke(playerRuntimeService) {
     `, [detachedOwnerPlayerId, persistenceInstanceId]);
     const template = saveService.resolveFormationTemplate("spirit_gathering");
     const allocation = { effectPercent: 80, rangePercent: 10, durationPercent: 10 };
-    const stats = require("@mud/shared").resolveFormationStats(template, 100, 4, allocation);
+    const stats = resolveFormationStats(template, 100, 4, allocation);
     saveService.formationsByInstanceId.set(persistenceInstanceId, [{
       instanceId: persistenceInstanceId,
       id: formationId,

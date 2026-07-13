@@ -247,11 +247,12 @@ export class WorldRuntimeActionExecutionService {
         }
         if (actionId.startsWith('formation:refill:')) {
             const formationInstanceId = actionId.slice('formation:refill:'.length).trim();
-            deps.worldRuntimeFormationService.dispatchRefillFormation(playerId, {
+            return Promise.resolve(deps.worldRuntimeFormationService.dispatchRefillFormation(playerId, {
                 formationInstanceId,
-            }, deps);
-            deps.refreshPlayerContextActions(playerId);
-            return { kind: 'queued', view: deps.getPlayerViewOrThrow(playerId) };
+            }, deps)).then(() => {
+                deps.refreshPlayerContextActions(playerId);
+                return { kind: 'queued', view: deps.getPlayerViewOrThrow(playerId) };
+            });
         }
         if (actionId.startsWith('formation:maintain:')) {
             const formationInstanceId = actionId.slice('formation:maintain:'.length).trim();

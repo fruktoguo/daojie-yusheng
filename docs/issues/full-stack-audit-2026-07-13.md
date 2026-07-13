@@ -3,7 +3,7 @@
 ## 审计口径
 
 - 生产主线：`packages/client`、`packages/shared`、`packages/server`、`packages/config-editor`。
-- 当前基线：`main` 分支 `d4d1e0a6`；相对 `origin/main` ahead 18。
+- 当前基线：`main` 分支 `3834b238`；相对 `origin/main` ahead 19。
 - package manager：`pnpm@10.29.1`。
 - 每项结论必须来自机制文档、完整调用链、测试、编译产物或运行数据；仅凭搜索未发现异常不能标记为“确认无问题”。
 - `[x]` 只表示该行列出的具体证据范围已完成，不代表相邻系统或整个项目已完成。
@@ -18,6 +18,7 @@
 - [ ] A-03 公共 API、依赖方向、文件职责和运行时/网络/持久化/UI 边界审计。
 - [x] A-04 NPC 任务写路径 smoke 的 TypeScript 绕过、构造器漂移和错误资产模型已修复；见 FS-022。
 - [x] A-05 NPC 商店 smoke 的 TypeScript 绕过、提前成功输出和旧分步资产模型已修复；见 FS-024。
+- [x] A-06 阵法运行时 smoke 的 TypeScript 绕过、投影/地块夹具漂移和旧 API 调用已修复；见 FS-027。
 
 ### 资产、持久化与恢复
 
@@ -43,6 +44,7 @@
 - [x] P-20 NPC 任务灵石奖励未进入背包真源、钱包投影按旧模型增量覆盖的问题已修复；见 FS-021。
 - [x] P-21 NPC 商店扣款释放格子仍被拒绝、堆叠可溢出且 fallback 分步改资产的问题已修复；见 FS-023。
 - [x] P-22 邮件灵石附件按旧钱包增量投影、堆叠可越过数量上限的问题已修复；见 FS-025。
+- [x] P-23 布阵、普通阵法补给和护宗大阵一次性注入的玩家资产与阵法后态分步提交问题已修复；见 FS-026。
 
 ### 服务端权威运行时
 
@@ -470,7 +472,7 @@
 
 ### FS-025 邮件灵石附件用旧钱包增量覆盖背包真源且堆叠可越界
 
-- **状态**：已修复并完成编译、专项与真实数据库验证，等待本组原子提交。
+- **状态**：已修复、完成编译、专项与真实数据库验证并原子提交。
 - **严重级别**：P0（资产投影账实不符）/ P1（附件数量越界）。
 - **所属功能组**：邮件 / 附件领取 / 背包与灵石 / durable operation / 资产投影。
 - **影响链路**：玩家批量领取附件 → `MailRuntimeService.resolveAttachmentItems()` → `buildNextInventoryItems()` → `claimAttachmentsDurably()` → `DurableOperationService.claimMailAttachments()` → `player_inventory_item / player_wallet / player_mail_attachment / player_mail_counter` → 运行态背包与重启恢复。
@@ -482,7 +484,39 @@
 - **修复方式**：新增玩家域共享 `buildWalletBalancesFromInventory()`，折叠旧钱包行但只从最终背包精确重建指定货币条目；任务、商店和邮件统一复用，删除邮件 `mergeWalletCredits()`。邮件 resolver 只标记批次是否含钱包物品，durable 计划从 `nextInventoryItems` 派生 `nextWalletBalances`，与背包、邮件领取态、计数、水位、outbox 和 audit 同事务提交。附件预演在已有堆合并和新堆加入时都校验正整数及 `2_147_483_647` 上限，越界与容量不足分别失败关闭，整批保持未领取。
 - **实际修改**：新增 `wallet-inventory-projection.helpers.ts` 并让 NPC 任务、NPC 商店、邮件三条资产链共用；更新邮件运行时、邮件 mechanics、邮件附件专项 smoke、真实数据库 durable smoke 夹具/断言与玩家资产串行静态审计。
 - **验证结果**：`git diff --check`、`pnpm --filter @mud/server compile` 与最终 `pnpm verify:quick` 通过；compiled `mail-wallet-attachment-smoke` 证明“背包 10、旧钱包 1、附件 10”时 durable 钱包计划精确为 20 而不是 11，并证明单堆已达上限时拒绝；compiled `mail-runtime-durable-required-smoke`、`world-runtime-npc-quest-write-smoke`、`world-runtime-npc-shop-smoke` 与 `player-asset-entry-serialization-audit` 通过，证明共享投影未改变相邻任务/商店语义且邮件不再保留旧增量函数；真实 PostgreSQL compiled `durable-operation-smoke` 以 0 退出，证明运行态初始背包 10、陈旧钱包 1、附件 +1 后，数据库和运行态背包/钱包均精确为 11，邮件领取态、计数、幂等重放及清理链同时通过。
-- **中文原子提交 hash**：待提交。
+- **中文原子提交 hash**：`3834b238`（`fix(mail): 加固附件领取钱包投影`）。
+
+### FS-026 阵法资源命令先扣玩家资产再异步保存阵法后态
+
+- **状态**：已修复并完成编译、专项与真实数据库验证，待本组中文原子提交。
+- **严重级别**：P0（玩家资产与阵法真源可部分提交）。
+- **所属功能组**：阵法 / 背包与灵石 / 玩家灵力 / 实例 lease / durable operation。
+- **影响链路**：tick 内布阵或补给命令、宗门管理动作 → `WorldRuntimeFormationService.dispatchCreateFormation() / dispatchRefillFormation() / dispatchInjectPersistentFormationEnergy()` → 玩家背包/钱包/灵力与地图灵力扩散 → 阵法运行态 → `instance_formation_state`。
+- **证据**：修复前布阵依次执行 `spendQi()`、地图 `disperseQiAt()`、`debitWallet()`、`consumeInventoryItemByInstanceId()`，随后才把阵法放入运行态并调用不等待结果的 `persistFormationSnapshotSoon()`；普通补给和护宗大阵一次性注入也先扣玩家资产、直接修改阵法资源池，再异步保存阵法。玩家快照与阵法行由不同 writer、不同事务推进，命令处理器和宗门动作均不等待阵法资源提交结果，也没有把玩家 session、实例 lease/epoch 与阵法 revision 放在同一个资产提交围栏中。
+- **根本原因**：阵法最初把持久化实现为运行态快照的最终一致性镜像，后续加入阵盘、灵石和玩家灵力消耗时仍沿用“先改内存、稍后落阵法”的模型；玩家资产 durable operation 没有提供阵法领域写入钩子，普通阵法 writer 与宗门 durable writer 的 advisory lock 也没有被资源命令复用。
+- **为什么错误**：布阵和一次性补给是单个不可拆分的资产命令。阵盘、灵石、玩家灵力与获得的阵法资源必须同成同败；地图实例又可能在命令执行期间迁移，旧节点不能只凭本地对象继续写入。阵法补给还会与每 tick 衰减、开关和管理操作竞争，旧资源池快照不得覆盖已经更新的阵法行。
+- **触发条件**：扣除资产后阵法数据库写入失败或进程崩溃；玩家快照 flush 与阵法异步 writer 只成功一个；命令执行时实例 lease 已转移或 epoch 变化；同一阵法在等待玩家资产锁期间被 tick/管理操作推进；阵法实例 ID 与数据库已有行碰撞；客户端或队列重试已提交请求。
+- **可能后果**：玩家失去阵盘、灵石或灵力但阵法在重启后消失；阵法获得资源但玩家扣款未能恢复；旧节点在 lease handoff 后污染新节点真源；补给用旧 `updatedAt` 覆盖较新的衰减/管理结果；重复请求二次扣款；命令先返回成功而稍后的阵法保存失败，只留下难以关联的 warning。
+- **修复方式**：布阵、普通补给和护宗大阵一次性注入全部改为先克隆并规划最终 `inventory / wallet / vitals / formation`，在玩家资产串行区与阵法持久化串行区内调用新的 `commitFormationResourceMutation()`。事务先校验玩家 `runtime_owner_id + session_epoch`、实例 `assigned_node_id + ownership_epoch + 未过期 lease`，再用与普通/宗门阵法 writer 相同的 advisory lock 校验“新建必须不存在”或“数据库 revision 不得新于运行态基线”，最后同事务写阵法、玩家三个投影域、恢复水位、outbox、资产 audit 和 operation log。只有 durable 成功后才一次性替换背包、设置灵力、扩散地图灵力并应用阵法运行态；tick 命令和宗门动作显式等待提交。生产数据库已配置但 durable 不可用时失败关闭，仅明确的测试/开发环境保留无库 fallback。
+- **实际修改**：更新 `durable-operation.service.ts`、`sect-durable-persistence.ts`、`world-runtime-formation.service.ts`、玩家命令/动作/宗门调用点、阵法 mechanics 与玩家资产串行静态审计；新增无库入口 smoke 和真实 PostgreSQL durable smoke。
+- **验证结果**：`git diff --check`、`pnpm --filter @mud/server compile` 与 `pnpm verify:quick` 通过；compiled `formation-resource-durable-entry-smoke` 证明 durable 返回前不修改玩家、地图或阵法运行态，失败不扣资产，生产缺失 durable 时失败关闭；真实 PostgreSQL compiled `formation-resource-durable-smoke` 证明错误 epoch、阵法 ID 冲突和旧 formation revision 均整笔拒绝且不污染真源，成功与精确重放把 inventory/wallet/vitals/formation/watermark/outbox/audit/operation 同事务提交并自动清理；compiled `world-runtime-formation-smoke`、`world-runtime-action-execution-smoke`、`world-runtime-sect-smoke`、`inventory-item-instance-ref-smoke`、`player-asset-entry-serialization-audit`、`sect-runtime-durable-reconciliation-smoke` 与 `sect-durable-mutation-smoke` 通过。
+- **中文原子提交 hash**：待本组提交后回填（计划提交：`fix(formation): 加固阵法资源原子提交`）。
+
+### FS-027 阵法核心 smoke 关闭类型检查并固化过期契约
+
+- **状态**：已修复并完成编译与专项验证，待随 FS-026 原子提交。
+- **严重级别**：P1（验证盲区，不直接修改玩家数据）。
+- **所属功能组**：阵法 / 世界投影 / 地块恢复 / TypeScript 门禁。
+- **影响链路**：`world-runtime-formation-smoke.ts` → server compile → 阵法创建、补给、投影、地块恢复、持久化重试与数据库恢复证明。
+- **证据**：旧 smoke 使用 `// @ts-nocheck` 和 CommonJS，因而未暴露四组契约漂移：世界投影夹具缺少地图 `name/kind/width/height` 与玩家 `facing`；协议地块缺少必填 `occupiedBy/modifiedAt`；玩家夹具缺少 `formationJob/techniqueActivityQueue`；`advanceTileRecovery()` 已增加 provider 参数但测试仍按旧签名调用。测试还直接访问阵法服务私有持久化集合和 timer，无法由类型系统约束访问边界。
+- **根本原因**：早期脚本式 smoke 没有随 server 工具迁移到规范 TypeScript；生产投影、技艺 pipeline 和地块恢复 API 演进时，关闭类型检查使夹具只在恰好执行到对应分支时才可能暴露错误。
+- **为什么错误**：阵法 smoke 同时承担协议投影、运行时资源与持久化恢复的关键证明；它若不参与编译，生产接口删改、必填字段变化或测试依赖错位都不会阻断门禁。直接依赖私有字段而不显式声明测试观察面，也会让重构错误表现为不清晰的运行时异常。
+- **触发条件**：投影必填字段、地块协议、技艺活动结构、恢复 API 或阵法持久化内部实现再次变化；CI 只执行 TypeScript compile 而未逐个运行该 smoke。
+- **可能后果**：编译绿灯不能证明阵法关键测试仍可运行；测试可能用生产中不可能出现的对象得到错误结论；协议和恢复行为回归延迟到运行时，且维护者可能为旧夹具错误放宽生产类型或接口。
+- **修复方式**：移除 `@ts-nocheck`、CommonJS 和动态 `require`，改为规范 ES/TypeScript import；补齐真实投影、方向和地块字段，更新地块恢复 API 参数与技艺玩家夹具；仅为持久化重试断言定义最小的测试内部观察接口，经 `unknown` 显式收口后访问，避免在生产类上扩大公开 API。首次恢复类型检查暴露的全部错误均通过修正夹具和调用点解决，没有重新引入类型绕过。
+- **实际修改**：更新 `world-runtime-formation-smoke.ts`。
+- **验证结果**：移除 TypeScript 绕过后 `pnpm --filter @mud/server compile` 通过；compiled `world-runtime-formation-smoke` 完整通过，并继续证明阵法投影、双资源消耗、地块稳定、护宗阵、持久化 dirty 重试与数据库恢复链。
+- **中文原子提交 hash**：待随 FS-026 提交后回填。
 
 ## 2026-07-14 待用户决定
 

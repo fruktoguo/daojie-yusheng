@@ -68,6 +68,13 @@ export interface DurableSectFormationWrite {
   snapshot: Record<string, unknown> | null;
 }
 
+export interface DurableFormationWriteFence {
+  /** 新建阵法必须确认同 ID 行不存在，避免碰撞时扣除玩家资产。 */
+  expectAbsent?: boolean;
+  /** 更新阵法允许数据库暂时落后，但拒绝覆盖比运行态基线更新的行。 */
+  expectedUpdatedAtMs?: number | null;
+}
+
 export interface PersistDurableSectMutationInput {
   sectWrites: DurableSectWrite[];
   playerProjectionWrites?: DurableSectPlayerProjectionWrite[];
@@ -824,6 +831,83 @@ async function persistSectFormationWrite(
       normalizeTimestamp(formation.updatedAt, Date.now()),
     ],
   );
+}
+
+/**
+ * 在已经持有玩家资产事务的连接中提交单条阵法后态。
+ *
+ * 该入口复用宗门与普通阵法相同的 advisory lock，并在扣除玩家资产前校验阵法版本；
+ * 实例 lease/epoch 必须由外层 durable operation 在同一事务中先行校验。
+ */
+export async function persistDurableFormationWriteWithClient(
+  client: PoolClient,
+  input: DurableSectFormationWrite,
+  fence: DurableFormationWriteFence = {},
+): Promise<void> {
+  const write = normalizeFormationWrites([input])[0];
+  if (!write?.snapshot) {
+    throw new Error('durable_formation_snapshot_required');
+  }
+  const nextUpdatedAtMs = normalizeTimestamp(write.snapshot.updatedAt, 0);
+  if (nextUpdatedAtMs <= 0) {
+    throw new Error(`durable_formation_revision_invalid:${write.formationInstanceId}`);
+  }
+  const expectedUpdatedAtMs = fence.expectedUpdatedAtMs == null
+    ? null
+    : normalizeTimestamp(fence.expectedUpdatedAtMs, 0);
+  if (expectedUpdatedAtMs !== null && nextUpdatedAtMs <= expectedUpdatedAtMs) {
+    throw new Error(`durable_formation_revision_not_advanced:${write.formationInstanceId}`);
+  }
+
+  await client.query(
+    'SELECT pg_advisory_xact_lock($1::integer, hashtext($2))',
+    [FORMATION_LOCK_NAMESPACE, write.formationInstanceId],
+  );
+  const current = await client.query<{
+    instance_id: unknown;
+    updated_at_ms: unknown;
+  }>(
+    `SELECT instance_id, updated_at_ms
+     FROM ${INSTANCE_FORMATION_STATE_TABLE}
+     WHERE formation_instance_id = $1
+     FOR UPDATE`,
+    [write.formationInstanceId],
+  );
+  if (fence.expectAbsent === true && (current.rowCount ?? 0) > 0) {
+    throw new Error(`durable_formation_already_exists:${write.formationInstanceId}`);
+  }
+  if (expectedUpdatedAtMs !== null) {
+    const currentRow = current.rows[0] ?? null;
+    const currentInstanceId = normalizeRequiredString(currentRow?.instance_id);
+    const currentUpdatedAtMs = normalizeTimestamp(currentRow?.updated_at_ms, 0);
+    if (
+      !currentRow
+      || currentInstanceId !== write.instanceId
+      || currentUpdatedAtMs > expectedUpdatedAtMs
+    ) {
+      throw new Error(
+        `durable_formation_revision_conflict:${write.formationInstanceId}:expected=${expectedUpdatedAtMs}:actual=${currentUpdatedAtMs || 'missing'}`,
+      );
+    }
+  }
+
+  await persistSectFormationWrite(client, write);
+  const persisted = await client.query<{
+    instance_id: unknown;
+    updated_at_ms: unknown;
+  }>(
+    `SELECT instance_id, updated_at_ms
+     FROM ${INSTANCE_FORMATION_STATE_TABLE}
+     WHERE formation_instance_id = $1`,
+    [write.formationInstanceId],
+  );
+  const persistedRow = persisted.rows[0] ?? null;
+  if (
+    normalizeRequiredString(persistedRow?.instance_id) !== write.instanceId
+    || normalizeTimestamp(persistedRow?.updated_at_ms, 0) !== nextUpdatedAtMs
+  ) {
+    throw new Error(`durable_formation_write_not_applied:${write.formationInstanceId}`);
+  }
 }
 
 function normalizeSectWrites(input: readonly DurableSectWrite[]): DurableSectWrite[] {

@@ -3,11 +3,15 @@
  *
  * 维护时要保持状态变更受控，所有影响资产或位置的结果都应能被持久化与恢复链覆盖。
  */
-import { BadRequestException, ForbiddenException, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Logger, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { DEFAULT_FORMATION_TILE_AURA_RESOURCE_KEY, FORMATION_AURA_PER_SPIRIT_STONE, FORMATION_DISK_TIER_MULTIPLIERS, FORMATION_QI_HALF_LIFE_TICKS, FORMATION_SPIRIT_STONE_ITEM_ID, FORMATION_TICKS_PER_DAY, QI_HALF_LIFE_RATE_SCALE, buildQiHalfLifeRateScaled, formatDisplayInteger, getFormationTemplateById, isFormationSetupInput, normalizeFormationAllocation, normalizeFormationSetup, resolveFormationCostConfig, resolveFormationDamagePerAura, resolveFormationDamageReduction, resolveFormationLifecycle as resolveSharedFormationLifecycle, resolveFormationMinSpiritStoneCount, resolveFormationQiCost, resolveFormationSetupPlan, resolveFormationStats, resolveFormationVisual } from '@mud/shared';
+import { createHash } from 'node:crypto';
 import { Pool } from 'pg';
 import { resolveServerDatabaseUrl } from '../../config/env-alias';
+import { nextPlayerPersistenceVersion } from '../../persistence/player-domain-persistence.service';
 import { ensureBigintColumnType, ensureDoubleColumnType } from '../../persistence/schema-bigint-migration';
+import { buildWalletBalancesFromInventory } from '../player/wallet-inventory-projection.helpers';
+import { assignItemInstanceIdIfNeeded } from './item-instance-id.helpers';
 import { buildStructuredNotice } from './structured-notice.helpers';
 import { findProtectedPlacementConflict, formatProtectedPlacementConflictReason } from './protected-placement.helpers';
 
@@ -114,6 +118,23 @@ class WorldRuntimeFormationService {
     }
 
     dispatchCreateFormation(playerId, payload, deps) {
+        const plan = this.buildCreateFormationPlan(playerId, payload, deps);
+        const durableContext = this.resolveFormationResourceDurableContext(plan.instance, deps);
+        if (durableContext) {
+            return this.runExclusivePlayerFormationResourceMutation(
+                playerId,
+                plan.formation.id,
+                () => this.commitCreateFormationPlan(plan, durableContext, deps),
+            );
+        }
+        if (resolveServerDatabaseUrl().trim() && !isFormationVolatileFallbackAllowed()) {
+            throw new ServiceUnavailableException('阵法资产事务暂不可用，请稍后重试');
+        }
+        this.applyFormationResourceFallback(playerId, plan.qiCost, plan.spiritStoneCount, plan.itemInstanceId, plan.instance, plan.placement);
+        return this.applyCreatedFormationRuntime(plan, deps, false);
+    }
+
+    buildCreateFormationPlan(playerId, payload, deps) {
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
         const itemInstanceId = resolveInventoryItemInstanceId(payload, this.playerRuntimeService, playerId);
         const diskItem = this.playerRuntimeService.peekInventoryItemByInstanceId(playerId, itemInstanceId);
@@ -161,10 +182,6 @@ class WorldRuntimeFormationService {
             name: template.name,
         });
         this.assertCanPay(playerId, qiCost, spiritStoneCount);
-        this.playerRuntimeService.spendQi(playerId, qiCost);
-        instance.disperseQiAt?.(placement.x, placement.y, qiCost);
-        this.playerRuntimeService.debitWallet(playerId, FORMATION_SPIRIT_STONE_ITEM_ID, spiritStoneCount);
-        this.playerRuntimeService.consumeInventoryItemByInstanceId(playerId, itemInstanceId, 1);
         const now = Date.now();
         const formation = {
             instanceId: instance.meta.instanceId,
@@ -194,9 +211,61 @@ class WorldRuntimeFormationService {
             createdAt: now,
             updatedAt: now,
         };
+        return {
+            playerId,
+            player,
+            itemInstanceId,
+            qiCost,
+            spiritStoneCount,
+            instance,
+            placement,
+            formation,
+        };
+    }
+
+    async commitCreateFormationPlan(plan, durableContext, deps) {
+        const player = this.playerRuntimeService.getPlayerOrThrow(plan.playerId);
+        const nextInventoryItems = buildFormationResourceInventoryPlan(
+            player.inventory?.items,
+            plan.spiritStoneCount,
+            plan.itemInstanceId,
+        );
+        const nextQi = Math.max(0, Math.trunc(Number(player.qi ?? 0)) - plan.qiCost);
+        await this.commitFormationResourcePlan({
+            playerId: plan.playerId,
+            player,
+            action: 'deploy',
+            formation: plan.formation,
+            expectedFormationUpdatedAtMs: null,
+            expectFormationAbsent: true,
+            nextInventoryItems,
+            nextQi,
+            spiritStoneCount: plan.spiritStoneCount,
+            qiAmount: plan.qiCost,
+            diskItemInstanceId: plan.itemInstanceId,
+            durableContext,
+        });
+        this.playerRuntimeService.replaceInventoryItems(plan.playerId, nextInventoryItems);
+        this.playerRuntimeService.setVitals(plan.playerId, { qi: nextQi });
+        plan.instance.disperseQiAt?.(plan.placement.x, plan.placement.y, plan.qiCost);
+        return this.applyCreatedFormationRuntime(plan, deps, true);
+    }
+
+    applyFormationResourceFallback(playerId, qiCost, spiritStoneCount, itemInstanceId, instance, placement) {
+        this.playerRuntimeService.spendQi(playerId, qiCost);
+        instance.disperseQiAt?.(placement.x, placement.y, qiCost);
+        this.playerRuntimeService.debitWallet(playerId, FORMATION_SPIRIT_STONE_ITEM_ID, spiritStoneCount);
+        this.playerRuntimeService.consumeInventoryItemByInstanceId(playerId, itemInstanceId, 1);
+    }
+
+    applyCreatedFormationRuntime(plan, deps, durableCommitted) {
+        const { formation, instance, playerId } = plan;
+        const { template, stats, spiritStoneCount } = formation;
         this.getFormationList(instance.meta.instanceId).push(formation);
         touchInstanceRevision(instance);
-        this.persistFormationSnapshotSoon(formation);
+        if (!durableCommitted) {
+            this.persistFormationSnapshotSoon(formation);
+        }
         this.enqueueFormationNotice(
             playerId,
             'success',
@@ -345,6 +414,28 @@ class WorldRuntimeFormationService {
     }
 
     dispatchRefillFormation(playerId, payload, deps = null) {
+        const plan = this.buildRefillFormationPlan(playerId, payload, deps);
+        const instance = this.resolveFormationWriteInstance(plan.formation, deps);
+        const durableContext = this.resolveFormationResourceDurableContext(instance, deps);
+        if (durableContext) {
+            return this.runExclusivePlayerFormationResourceMutation(
+                playerId,
+                plan.formation.id,
+                () => this.commitRefillFormationPlan(
+                    this.buildRefillFormationPlan(playerId, payload, deps),
+                    durableContext,
+                    deps,
+                ),
+            );
+        }
+        if (resolveServerDatabaseUrl().trim() && !isFormationVolatileFallbackAllowed()) {
+            throw new ServiceUnavailableException('阵法资产事务暂不可用，请稍后重试');
+        }
+        this.applyRefillFormationPlayerResources(plan, deps);
+        return this.applyRefillFormationRuntime(plan, deps, false);
+    }
+
+    buildRefillFormationPlan(playerId, payload, deps = null) {
         const formation = this.findOwnedFormation(playerId, payload?.formationInstanceId);
         if (isPersistentFormation(formation)) {
             throw new BadRequestException('持续性阵法需要在阵法管理面板注入灵石或灵力');
@@ -360,6 +451,58 @@ class WorldRuntimeFormationService {
             throw new BadRequestException('至少需要补充灵石或灵力');
         }
         this.assertCanPay(playerId, qiAmount, spiritStoneCount);
+        const nextFormation = cloneFormationForResourceMutation(formation);
+        if (spiritStoneCount > 0) {
+            setFormationRemainingSpiritStoneBudget(nextFormation, resolveFormationRemainingSpiritStoneBudget(nextFormation) + spiritStoneCount);
+        }
+        if (qiAmount > 0) {
+            setFormationRemainingQiBudget(nextFormation, resolveFormationRemainingQiBudget(nextFormation) + qiAmount);
+        }
+        if (resolveFormationRemainingQiBudget(nextFormation) > 0 && resolveFormationRemainingSpiritStoneBudget(nextFormation) > 0) {
+            nextFormation.active = true;
+        }
+        nextFormation.updatedAt = resolveNextFormationUpdatedAt(formation);
+        return {
+            playerId,
+            formation,
+            nextFormation,
+            expectedFormationUpdatedAtMs: Math.max(0, Math.trunc(Number(formation.updatedAt) || 0)),
+            spiritStoneCount,
+            qiAmount,
+        };
+    }
+
+    async commitRefillFormationPlan(plan, durableContext, deps) {
+        const player = this.playerRuntimeService.getPlayerOrThrow(plan.playerId);
+        const nextInventoryItems = buildFormationResourceInventoryPlan(
+            player.inventory?.items,
+            plan.spiritStoneCount,
+        );
+        const nextQi = Math.max(0, Math.trunc(Number(player.qi ?? 0)) - plan.qiAmount);
+        await this.commitFormationResourcePlan({
+            playerId: plan.playerId,
+            player,
+            action: 'refill',
+            formation: plan.nextFormation,
+            expectedFormationUpdatedAtMs: plan.expectedFormationUpdatedAtMs,
+            expectFormationAbsent: false,
+            nextInventoryItems,
+            nextQi,
+            spiritStoneCount: plan.spiritStoneCount,
+            qiAmount: plan.qiAmount,
+            diskItemInstanceId: null,
+            durableContext,
+        });
+        this.playerRuntimeService.replaceInventoryItems(plan.playerId, nextInventoryItems);
+        this.playerRuntimeService.setVitals(plan.playerId, { qi: nextQi });
+        if (plan.qiAmount > 0) {
+            dispersePlayerQiSpend(deps, this.playerRuntimeService.getPlayerOrThrow(plan.playerId), plan.qiAmount);
+        }
+        return this.applyRefillFormationRuntime(plan, deps, true);
+    }
+
+    applyRefillFormationPlayerResources(plan, deps) {
+        const { playerId, qiAmount, spiritStoneCount } = plan;
         if (qiAmount > 0) {
             this.playerRuntimeService.spendQi(playerId, qiAmount);
             dispersePlayerQiSpend(deps, this.playerRuntimeService.getPlayerOrThrow(playerId), qiAmount);
@@ -367,18 +510,15 @@ class WorldRuntimeFormationService {
         if (spiritStoneCount > 0) {
             this.playerRuntimeService.debitWallet(playerId, FORMATION_SPIRIT_STONE_ITEM_ID, spiritStoneCount);
         }
-        if (spiritStoneCount > 0) {
-            setFormationRemainingSpiritStoneBudget(formation, resolveFormationRemainingSpiritStoneBudget(formation) + spiritStoneCount);
-        }
-        if (qiAmount > 0) {
-            setFormationRemainingQiBudget(formation, resolveFormationRemainingQiBudget(formation) + qiAmount);
-        }
-        if (resolveFormationRemainingQiBudget(formation) > 0 && resolveFormationRemainingSpiritStoneBudget(formation) > 0) {
-            formation.active = true;
-        }
-        formation.updatedAt = resolveNextFormationUpdatedAt(formation);
+    }
+
+    applyRefillFormationRuntime(plan, deps, durableCommitted) {
+        const { playerId, formation, nextFormation, spiritStoneCount, qiAmount } = plan;
+        Object.assign(formation, nextFormation);
         touchRuntimeInstanceRevision(deps, formation.instanceId);
-        this.persistFormationSnapshotSoon(formation);
+        if (!durableCommitted) {
+            this.persistFormationSnapshotSoon(formation);
+        }
         this.enqueueFormationNotice(
             playerId,
             'success',
@@ -555,6 +695,28 @@ class WorldRuntimeFormationService {
     }
 
     dispatchInjectPersistentFormationEnergy(playerId, payload, deps = null) {
+        const plan = this.buildPersistentFormationInjectionPlan(playerId, payload);
+        const instance = this.resolveFormationWriteInstance(plan.formation, deps);
+        const durableContext = this.resolveFormationResourceDurableContext(instance, deps);
+        if (durableContext) {
+            return this.runExclusivePlayerFormationResourceMutation(
+                playerId,
+                plan.formation.id,
+                () => this.commitPersistentFormationInjectionPlan(
+                    this.buildPersistentFormationInjectionPlan(playerId, payload),
+                    durableContext,
+                    deps,
+                ),
+            );
+        }
+        if (resolveServerDatabaseUrl().trim() && !isFormationVolatileFallbackAllowed()) {
+            throw new ServiceUnavailableException('阵法资产事务暂不可用，请稍后重试');
+        }
+        this.applyPersistentFormationInjectionPlayerResources(plan, deps);
+        return this.applyPersistentFormationInjectionRuntime(plan, deps, false);
+    }
+
+    buildPersistentFormationInjectionPlan(playerId, payload) {
         const formation = this.findFormationByInstanceOrId(payload?.instanceId, payload?.formationInstanceId);
         if (!formation) {
             throw new NotFoundException('阵法不存在');
@@ -568,23 +730,74 @@ class WorldRuntimeFormationService {
             throw new BadRequestException('至少需要注入灵石或灵力');
         }
         this.assertCanInject(playerId, qiAmount, spiritStoneCount);
+        const nextFormation = cloneFormationForResourceMutation(formation);
+        if (spiritStoneCount > 0) {
+            setFormationRemainingSpiritStoneBudget(nextFormation, resolveFormationRemainingSpiritStoneBudget(nextFormation) + spiritStoneCount);
+        }
+        if (qiAmount > 0) {
+            setFormationRemainingQiBudget(nextFormation, resolveFormationRemainingQiBudget(nextFormation) + qiAmount);
+        }
+        if (resolveFormationRemainingQiBudget(nextFormation) > 0 && resolveFormationRemainingSpiritStoneBudget(nextFormation) > 0) {
+            nextFormation.active = true;
+        }
+        nextFormation.updatedAt = resolveNextFormationUpdatedAt(formation);
+        return {
+            playerId,
+            formation,
+            nextFormation,
+            expectedFormationUpdatedAtMs: Math.max(0, Math.trunc(Number(formation.updatedAt) || 0)),
+            spiritStoneCount,
+            qiAmount,
+        };
+    }
+
+    async commitPersistentFormationInjectionPlan(plan, durableContext, deps) {
+        const player = this.playerRuntimeService.getPlayerOrThrow(plan.playerId);
+        const nextInventoryItems = buildFormationResourceInventoryPlan(
+            player.inventory?.items,
+            plan.spiritStoneCount,
+        );
+        const nextQi = Math.max(0, Math.trunc(Number(player.qi ?? 0)) - plan.qiAmount);
+        await this.commitFormationResourcePlan({
+            playerId: plan.playerId,
+            player,
+            action: 'inject',
+            formation: plan.nextFormation,
+            expectedFormationUpdatedAtMs: plan.expectedFormationUpdatedAtMs,
+            expectFormationAbsent: false,
+            nextInventoryItems,
+            nextQi,
+            spiritStoneCount: plan.spiritStoneCount,
+            qiAmount: plan.qiAmount,
+            diskItemInstanceId: null,
+            durableContext,
+        });
+        this.playerRuntimeService.replaceInventoryItems(plan.playerId, nextInventoryItems);
+        this.playerRuntimeService.setVitals(plan.playerId, { qi: nextQi });
+        if (plan.qiAmount > 0) {
+            dispersePlayerQiSpend(deps, this.playerRuntimeService.getPlayerOrThrow(plan.playerId), plan.qiAmount);
+        }
+        return this.applyPersistentFormationInjectionRuntime(plan, deps, true);
+    }
+
+    applyPersistentFormationInjectionPlayerResources(plan, deps) {
+        const { playerId, qiAmount, spiritStoneCount } = plan;
         if (qiAmount > 0) {
             this.playerRuntimeService.spendQi(playerId, qiAmount);
             dispersePlayerQiSpend(deps, this.playerRuntimeService.getPlayerOrThrow(playerId), qiAmount);
         }
         if (spiritStoneCount > 0) {
             this.playerRuntimeService.debitWallet(playerId, FORMATION_SPIRIT_STONE_ITEM_ID, spiritStoneCount);
-            setFormationRemainingSpiritStoneBudget(formation, resolveFormationRemainingSpiritStoneBudget(formation) + spiritStoneCount);
         }
-        if (qiAmount > 0) {
-            setFormationRemainingQiBudget(formation, resolveFormationRemainingQiBudget(formation) + qiAmount);
-        }
-        if (resolveFormationRemainingQiBudget(formation) > 0 && resolveFormationRemainingSpiritStoneBudget(formation) > 0) {
-            formation.active = true;
-        }
-        formation.updatedAt = resolveNextFormationUpdatedAt(formation);
+    }
+
+    applyPersistentFormationInjectionRuntime(plan, deps, durableCommitted) {
+        const { playerId, formation, nextFormation, spiritStoneCount, qiAmount } = plan;
+        Object.assign(formation, nextFormation);
         touchRuntimeInstanceRevision(deps, formation.instanceId);
-        this.persistFormationSnapshotSoon(formation);
+        if (!durableCommitted) {
+            this.persistFormationSnapshotSoon(formation);
+        }
         this.enqueueFormationNotice(
             playerId,
             'success',
@@ -1841,6 +2054,179 @@ class WorldRuntimeFormationService {
         return template;
     }
 
+    resolveFormationWriteInstance(formation, deps) {
+        const instanceId = normalizeInstanceId(formation?.instanceId);
+        const instance = instanceId && typeof deps?.getInstanceRuntime === 'function'
+            ? deps.getInstanceRuntime(instanceId)
+            : null;
+        if (!instance || deps?.getInstanceRuntime?.(instanceId) !== instance) {
+            throw new ServiceUnavailableException('阵法所在实例暂不可用');
+        }
+        return instance;
+    }
+
+    resolveFormationResourceDurableContext(instance, deps) {
+        const durable = this.durableOperationService;
+        if (!durable?.isEnabled?.() || typeof durable.commitFormationResourceMutation !== 'function') {
+            return null;
+        }
+        const instanceId = normalizeInstanceId(instance?.meta?.instanceId);
+        const assignedNodeId = normalizeOptionalString(instance?.meta?.assignedNodeId);
+        const ownershipEpoch = Number.isFinite(Number(instance?.meta?.ownershipEpoch))
+            ? Math.max(0, Math.trunc(Number(instance.meta.ownershipEpoch)))
+            : 0;
+        const leaseWritable = typeof deps?.isInstanceLeaseWritable !== 'function'
+            || deps.isInstanceLeaseWritable(instance) === true;
+        if (
+            !instanceId
+            || deps?.getInstanceRuntime?.(instanceId) !== instance
+            || !assignedNodeId
+            || ownershipEpoch <= 0
+            || !leaseWritable
+        ) {
+            throw new ServiceUnavailableException('阵法所在实例租约尚未就绪');
+        }
+        return {
+            durable,
+            instanceId,
+            assignedNodeId,
+            ownershipEpoch,
+        };
+    }
+
+    runExclusivePlayerFormationResourceMutation(playerId, formationInstanceId, action) {
+        const runFormationLocked = () => this.runExclusiveFormationPersistence([formationInstanceId], action);
+        const coordinator = this.playerRuntimeService?.runExclusiveAssetMutation;
+        if (typeof coordinator !== 'function') {
+            return runFormationLocked();
+        }
+        return coordinator.call(this.playerRuntimeService, [playerId], runFormationLocked);
+    }
+
+    async commitFormationResourcePlan(input) {
+        const currentPlayer = this.playerRuntimeService.getPlayerOrThrow(input.playerId);
+        if (Math.max(0, Math.trunc(Number(currentPlayer.qi ?? 0))) < input.qiAmount) {
+            throw new NotFoundException('灵力不足');
+        }
+        const currentSnapshot = this.playerRuntimeService.buildPersistenceSnapshot?.(input.playerId) ?? null;
+        const sessionFence = this.playerRuntimeService.getSessionFence?.(input.playerId) ?? null;
+        if (!currentSnapshot || !sessionFence?.runtimeOwnerId || !sessionFence?.sessionEpoch) {
+            throw new ServiceUnavailableException('玩家资产事务围栏暂不可用');
+        }
+        const nextInventoryItems = input.nextInventoryItems.map((entry) => ({ ...entry }));
+        const nextWalletBalances = buildWalletBalancesFromInventory(
+            currentSnapshot.wallet?.balances,
+            nextInventoryItems,
+        );
+        const savedAt = nextPlayerPersistenceVersion();
+        const nextPlayerSnapshot = {
+            ...currentSnapshot,
+            savedAt,
+            inventory: {
+                ...currentSnapshot.inventory,
+                revision: Math.max(1, Math.trunc(Number(currentSnapshot.inventory?.revision ?? 0)) + 1),
+                items: nextInventoryItems.map((entry) => ({ ...entry })),
+            },
+            wallet: {
+                ...currentSnapshot.wallet,
+                balances: nextWalletBalances,
+            },
+            vitals: {
+                ...currentSnapshot.vitals,
+                qi: input.nextQi,
+            },
+        };
+        const formationSnapshot = serializeFormation(input.formation);
+        const operationSignature = createHash('sha256')
+            .update(JSON.stringify({
+                playerId: input.playerId,
+                action: input.action,
+                formationInstanceId: formationSnapshot.id,
+                expectedFormationUpdatedAtMs: input.expectedFormationUpdatedAtMs,
+                nextFormationUpdatedAtMs: formationSnapshot.updatedAt,
+                spiritStoneCount: input.spiritStoneCount,
+                qiAmount: input.qiAmount,
+                diskItemInstanceId: input.diskItemInstanceId,
+            }))
+            .digest('hex')
+            .slice(0, 32);
+        const durableInput = {
+            operationId: `op:formation-resource:${operationSignature}`,
+            playerId: input.playerId,
+            expectedRuntimeOwnerId: sessionFence.runtimeOwnerId,
+            expectedSessionEpoch: sessionFence.sessionEpoch,
+            expectedInstanceId: input.durableContext.instanceId,
+            expectedAssignedNodeId: input.durableContext.assignedNodeId,
+            expectedOwnershipEpoch: input.durableContext.ownershipEpoch,
+            action: input.action,
+            formationWrite: {
+                formationInstanceId: formationSnapshot.id,
+                instanceId: formationSnapshot.instanceId,
+                snapshot: formationSnapshot,
+            },
+            expectedFormationUpdatedAtMs: input.expectedFormationUpdatedAtMs,
+            expectFormationAbsent: input.expectFormationAbsent === true,
+            nextPlayerSnapshot,
+            spiritStoneCount: input.spiritStoneCount,
+            qiAmount: input.qiAmount,
+            diskItemInstanceId: input.diskItemInstanceId,
+        };
+        try {
+            await input.durableContext.durable.commitFormationResourceMutation(durableInput);
+        }
+        catch (error) {
+            if (!isFormationPlayerFenceConflict(error) || !(await this.syncCurrentFormationPlayerPresence(input.playerId))) {
+                throw error;
+            }
+            const refreshedFence = this.playerRuntimeService.getSessionFence?.(input.playerId) ?? null;
+            if (!refreshedFence?.runtimeOwnerId || !refreshedFence?.sessionEpoch) {
+                throw error;
+            }
+            durableInput.expectedRuntimeOwnerId = refreshedFence.runtimeOwnerId;
+            durableInput.expectedSessionEpoch = refreshedFence.sessionEpoch;
+            await input.durableContext.durable.commitFormationResourceMutation(durableInput);
+        }
+    }
+
+    async syncCurrentFormationPlayerPresence(playerId) {
+        const persistence = this.playerRuntimeService?.playerDomainPersistenceService;
+        if (!persistence?.isEnabled?.()) {
+            return false;
+        }
+        const persistedPresence = typeof persistence.loadPlayerPresence === 'function'
+            ? await persistence.loadPlayerPresence(playerId)
+            : null;
+        let presence = this.playerRuntimeService.describePersistencePresence?.(playerId) ?? null;
+        if (!presence?.runtimeOwnerId || !presence?.sessionEpoch) {
+            return false;
+        }
+        const persistedSessionEpoch = Number.isFinite(Number(persistedPresence?.sessionEpoch))
+            ? Math.max(0, Math.trunc(Number(persistedPresence.sessionEpoch)))
+            : 0;
+        const persistedRuntimeOwnerId = normalizeOptionalString(persistedPresence?.runtimeOwnerId) ?? '';
+        const runtimeSessionEpoch = Math.max(0, Math.trunc(Number(presence.sessionEpoch ?? 0)));
+        const runtimeOwnerId = normalizeOptionalString(presence.runtimeOwnerId) ?? '';
+        if (
+            typeof this.playerRuntimeService.ensureRuntimeSessionFenceAtLeast === 'function'
+            && persistedSessionEpoch > 0
+            && (
+                runtimeSessionEpoch <= persistedSessionEpoch
+                || (persistedRuntimeOwnerId && persistedRuntimeOwnerId !== runtimeOwnerId)
+            )
+        ) {
+            this.playerRuntimeService.ensureRuntimeSessionFenceAtLeast(playerId, persistedSessionEpoch);
+            presence = this.playerRuntimeService.describePersistencePresence?.(playerId) ?? null;
+        }
+        if (!presence?.runtimeOwnerId || !presence?.sessionEpoch) {
+            return false;
+        }
+        await persistence.savePlayerPresence(playerId, {
+            ...presence,
+            versionSeed: nextPlayerPersistenceVersion(),
+        });
+        return true;
+    }
+
     assertCanPay(playerId, qiCost, spiritStoneCount) {
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
         if (player.qi < qiCost) {
@@ -2150,6 +2536,80 @@ function resolveFormationTickCost(formation) {
         qiCost: remainingQiBudget <= 0 ? 0 : Math.min(remainingQiBudget, remainingQiBudget * qiDecayRate),
         spiritStoneCost: remainingSpiritStoneBudget <= 0 ? 0 : Math.min(remainingSpiritStoneBudget, dailySpiritStoneCost / FORMATION_TICKS_PER_DAY),
     };
+}
+
+function buildFormationResourceInventoryPlan(items, spiritStoneCount, diskItemInstanceId = null) {
+    const nextItems = Array.isArray(items) ? items.map((entry) => ({ ...entry })) : [];
+    for (const entry of nextItems) {
+        assignItemInstanceIdIfNeeded(entry);
+    }
+    let remainingSpiritStones = Math.max(0, Math.trunc(Number(spiritStoneCount) || 0));
+    for (let index = nextItems.length - 1; index >= 0 && remainingSpiritStones > 0; index -= 1) {
+        const entry = nextItems[index];
+        if (entry?.itemId !== FORMATION_SPIRIT_STONE_ITEM_ID) {
+            continue;
+        }
+        const currentCount = Math.max(0, Math.trunc(Number(entry.count ?? 0)));
+        const consumed = Math.min(currentCount, remainingSpiritStones);
+        entry.count = currentCount - consumed;
+        remainingSpiritStones -= consumed;
+        if (entry.count <= 0) {
+            nextItems.splice(index, 1);
+        }
+    }
+    if (remainingSpiritStones > 0) {
+        throw new NotFoundException('灵石不足');
+    }
+
+    const normalizedDiskItemInstanceId = normalizeOptionalString(diskItemInstanceId);
+    if (normalizedDiskItemInstanceId) {
+        const diskIndex = nextItems.findIndex((entry) => (
+            normalizeOptionalString(entry?.itemInstanceId) === normalizedDiskItemInstanceId
+        ));
+        if (diskIndex < 0) {
+            throw new NotFoundException('阵盘已不在背包中');
+        }
+        const disk = nextItems[diskIndex];
+        const diskCount = Math.max(0, Math.trunc(Number(disk?.count ?? 0)));
+        if (diskCount <= 0) {
+            throw new NotFoundException('阵盘数量不足');
+        }
+        if (diskCount === 1) {
+            nextItems.splice(diskIndex, 1);
+        }
+        else {
+            disk.count = diskCount - 1;
+        }
+    }
+    return nextItems;
+}
+
+function cloneFormationForResourceMutation(formation) {
+    return {
+        ...formation,
+        allocation: formation?.allocation && typeof formation.allocation === 'object'
+            ? { ...formation.allocation }
+            : formation?.allocation,
+        stats: formation?.stats && typeof formation.stats === 'object'
+            ? { ...formation.stats }
+            : formation?.stats,
+    };
+}
+
+function isFormationPlayerFenceConflict(error) {
+    const message = String(error instanceof Error ? error.message : error);
+    return message.startsWith('player_session_fencing_conflict');
+}
+
+function isFormationVolatileFallbackAllowed() {
+    const runtimeEnv = [process.env.SERVER_RUNTIME_ENV, process.env.APP_ENV, process.env.NODE_ENV]
+        .map((value) => typeof value === 'string' ? value.trim().toLowerCase() : '')
+        .find(Boolean) ?? '';
+    return runtimeEnv === 'test'
+        || runtimeEnv === 'verify'
+        || runtimeEnv === 'smoke'
+        || runtimeEnv === 'development'
+        || runtimeEnv === 'dev';
 }
 
 function resolveFormationDailySpiritStoneCost(formation) {

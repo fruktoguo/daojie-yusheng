@@ -62,6 +62,14 @@ const proofs: readonly EntryProof[] = [
       'runExclusiveAssetMutation',
     ],
   },
+  {
+    file: 'packages/server/src/runtime/world/world-runtime-formation.service.ts',
+    entryMarkers: [
+      'runExclusivePlayerFormationResourceMutation',
+      'runExclusiveAssetMutation',
+      'commitFormationResourceMutation',
+    ],
+  },
 ];
 
 for (const proof of proofs) {
@@ -147,6 +155,52 @@ assertOrdered(mailDurableSource, [
   'await this.durableOperationService.claimMailAttachments',
 ]);
 
+const formationSource = readFileSync(
+  resolveProjectPath('packages/server/src/runtime/world/world-runtime-formation.service.ts'),
+  'utf8',
+);
+const formationDeployStart = formationSource.indexOf('async commitCreateFormationPlan');
+const formationDeploySource = formationSource.slice(
+  formationDeployStart,
+  formationSource.indexOf('applyFormationResourceFallback', formationDeployStart),
+);
+assertOrdered(formationDeploySource, [
+  'buildFormationResourceInventoryPlan',
+  'await this.commitFormationResourcePlan',
+  'this.playerRuntimeService.replaceInventoryItems',
+  'this.playerRuntimeService.setVitals',
+  'this.applyCreatedFormationRuntime',
+]);
+const formationDurableSource = readFileSync(
+  resolveProjectPath('packages/server/src/persistence/durable-operation.service.ts'),
+  'utf8',
+);
+const formationDurableStart = formationDurableSource.indexOf('async commitFormationResourceMutation');
+const formationDurableMethod = formationDurableSource.slice(
+  formationDurableStart,
+  formationDurableSource.indexOf('async submitNpcQuestRewards', formationDurableStart),
+);
+assertOrdered(formationDurableMethod, [
+  'persistDurableFormationWriteWithClient',
+  'savePlayerSnapshotProjectionDomainsWithClient',
+  'insertDurableOutboxEvent',
+  'insertAssetAuditLog',
+]);
+const playerCommandSource = readFileSync(
+  resolveProjectPath('packages/server/src/runtime/world/command/world-runtime-player-command.service.ts'),
+  'utf8',
+);
+assert.equal(
+  playerCommandSource.includes('await deps.worldRuntimeFormationService.dispatchCreateFormation'),
+  true,
+  'tick 命令必须等待布阵 durable 提交后再继续同步',
+);
+assert.equal(
+  playerCommandSource.includes('await deps.worldRuntimeFormationService.dispatchRefillFormation'),
+  true,
+  'tick 命令必须等待阵法补给 durable 提交后再继续同步',
+);
+
 const gmSource = readFileSync(
   resolveProjectPath('packages/server/src/runtime/world/world-runtime.controller.ts'),
   'utf8',
@@ -180,6 +234,7 @@ console.log(JSON.stringify({
     'NPC 任务奖励把灵石纳入背包真源，并按 inventory plan -> wallet projection -> durable -> runtime apply 执行',
     'NPC 商店先预演扣款与发物，再执行 durable 和一次性运行态背包替换',
     '邮件灵石附件的钱包投影从最终背包重建，不使用旧钱包增量',
+    '布阵与阵法补给按 inventory/vitals plan -> formation durable -> runtime apply 执行，并由 tick 命令等待提交',
     'Runtime wallet 管理入口只写背包真源，并按 replay -> durable -> runtime apply 执行',
     'GM 背包发放按 next snapshot -> durable -> runtime apply 执行',
   ],

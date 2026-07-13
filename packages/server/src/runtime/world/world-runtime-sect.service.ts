@@ -888,7 +888,7 @@ class WorldRuntimeSectService {
             const [, , , stoneText = '0', qiText = '0'] = actionId.split(':');
             const formation = deps.worldRuntimeFormationService.findFormationInInstance(sect.entranceInstanceId, guardianId)
                 ?? this.ensureGuardianFormation(sect, deps);
-            deps.worldRuntimeFormationService.dispatchInjectPersistentFormationEnergy(playerId, {
+            await deps.worldRuntimeFormationService.dispatchInjectPersistentFormationEnergy(playerId, {
                 instanceId: sect.entranceInstanceId,
                 formationInstanceId: formation?.id ?? guardianId,
                 spiritStoneCount: normalizeNonNegativeInteger(stoneText),
@@ -916,7 +916,7 @@ class WorldRuntimeSectService {
             if (!formation) {
                 this.ensureGuardianFormation(sect, deps);
             } else {
-                deps.worldRuntimeFormationService.dispatchInjectPersistentFormationEnergy(playerId, {
+                await deps.worldRuntimeFormationService.dispatchInjectPersistentFormationEnergy(playerId, {
                     instanceId: sect.entranceInstanceId,
                     formationInstanceId: guardianId,
                     spiritStoneCount: Math.ceil(SECT_GUARDIAN_INITIAL_AURA / FORMATION_AURA_PER_SPIRIT_STONE),
