@@ -3,7 +3,7 @@
 ## 审计口径
 
 - 生产主线：`packages/client`、`packages/shared`、`packages/server`、`packages/config-editor`。
-- 当前基线：`main` 分支 `5ada4dec`；相对 `origin/main` ahead 26。
+- 当前基线：`main` 分支 `afb9d94d`；相对 `origin/main` ahead 27。
 - package manager：`pnpm@10.29.1`。
 - 每项结论必须来自机制文档、完整调用链、测试、编译产物或运行数据；仅凭搜索未发现异常不能标记为“确认无问题”。
 - `[x]` 只表示该行列出的具体证据范围已完成，不代表相邻系统或整个项目已完成。
@@ -72,6 +72,7 @@
 - [x] S-07 待执行指令异常透传未分类服务端错误文本的问题已修复；见 FS-032。
 - [x] S-08 通天塔进入、通关与退出通知已迁移为结构化 key/变量，并通过真实运行时烟测；见 FS-033。
 - [x] S-09 自动凝练根基的手动开关与 tick 自动关闭通知已统一为结构化 key；见 FS-034。
+- [x] S-10 世界迁移的现世/虚境与保持/切换四种成功通知已使用稳定结构化 key；见 FS-035。
 
 ### 客户端、UI 与渲染
 
@@ -623,7 +624,7 @@
 
 ### FS-034 自动凝练根基存在动作与 tick 两条纯文本通知旁路
 
-- **状态**：已修复并完成编译、两项专项、客户端与最小总门禁验证，待本组中文原子提交。
+- **状态**：已修复、验证并完成中文原子提交。
 - **严重级别**：P2（协议与本地化边界错误，不改变凝练结算或持久化语义）。
 - **所属功能组**：境界修炼 / 自动凝练根基 / 玩家 tick / 动作入口 / 结构化通知。
 - **影响链路**：玩家手动开启/关闭自动凝练 → `WorldRuntimeActionExecutionService.executeAction()`；或每息自动凝练达到当前境界上限 → `PlayerRuntimeService.disableAutoRootFoundationAtCap()` → EventBus/本地通知队列 → Notice 协议 → 客户端。
@@ -635,7 +636,23 @@
 - **修复方式**：定义开启、主动关闭、达到上限三个独立 key，避免把不可本地化的状态枚举作为中文变量；动作入口统一使用 `buildStructuredNotice()`。player runtime 的 tick 自动关闭复用现有 `queuePlayerStructuredNotice()`，发送与动作入口相同的上限 key，不再手写 EventBus entry。客户端 CSV 成为三条中文真源。
 - **实际修改**：更新动作执行服务、玩家运行时、客户端中文 i18n CSV/生成产物、动作综合 smoke 与玩家 dirty-domain smoke；动作 smoke 覆盖开启、主动关闭、开启时已达上限三种 key，dirty-domain smoke 覆盖自动凝练结算后由 tick 关闭的 key。专项运行还暴露动作 smoke 仍期待 FS-032 之前的原始“目标无效”通知，已按当前协议修正为通用文案和 `notice.command.failed`，防止既有修复造成假红。
 - **验证结果**：`git diff --check`、`pnpm --filter @mud/server compile`、compiled `world-runtime-action-execution-smoke`、compiled `player-runtime-dirty-domain-smoke`、`pnpm verify:client` 与 `pnpm verify:quick` 通过；动作专项证明开启、主动关闭、开启时已达上限及相邻待执行指令 key，dirty-domain 专项证明自动凝练后根基、材料、偏好 dirty domain 不变且自动关闭携带 `notice.action.auto-root-foundation-cap`；客户端门禁证明 3865 条语言包生成、TypeScript/Vite、UI 连续性、请求生命周期、Socket 出站和地图渲染 proof 未回归，最小总门禁包含该 dirty-domain smoke 并完整通过 server compile、生产边界和无库 smoke 子集。
-- **中文原子提交 hash**：待本组提交后回填（计划提交：`fix(notice): 结构化自动凝练状态通知`）。
+- **中文原子提交 hash**：`afb9d94d`。
+
+### FS-035 世界迁移成功状态由服务端拼接四种自由文本
+
+- **状态**：已修复并完成编译、专项、客户端与最小总门禁验证，待本组中文原子提交。
+- **严重级别**：P2（协议与本地化边界错误，不改变世界偏好或跨实例接入顺序）。
+- **所属功能组**：世界迁移 / 分线偏好 / 动作入口 / 结构化通知。
+- **影响链路**：玩家在手动界门附近选择现世或虚境 → `executeWorldMigration()` 校验 → 同线更新偏好，或等待目标实例连接成功后更新偏好 → `buildWorldMigrationNotice()` → 三参数 `queuePlayerNotice()` → 客户端。
+- **证据**：世界迁移已正确在目标实例连接成功后才提交偏好，但成功提示仍由 `buildWorldMigrationNotice()` 返回四种中文字符串；调用方只传 `text/kind`，客户端语言包没有对应 key。四个分支分别是现世保持、现世切换完成、虚境保持和虚境切换完成。
+- **根本原因**：FS-012 修复了迁移提交时序，却把 notice builder 保留为字符串函数；审计当时聚焦位置与偏好权威性，没有继续追踪 Notice 的结构化消费边界。
+- **为什么错误**：分线预设和“保持/完成”都是稳定协议语义，应由 key 表达，不能让客户端从中文句子反推。把中文世界名作为变量同样会让服务端承担本地化，因此需要四个明确 key，而不是一个 key 加中文或不可翻译的状态变量。
+- **触发条件**：玩家选择当前已在的分线；或从虚境切入现世、从现世切入虚境并成功连接目标实例。
+- **可能后果**：迁移文案必须随服务端发布；多语言客户端无法独立渲染；日志/浮层难以稳定聚合同类迁移；旧客户端 fallback 与新客户端文案可能漂移。连接失败仍不会更新偏好或发送成功通知，这一既有安全语义不受影响。
+- **修复方式**：让 builder 返回 `buildStructuredNotice()` 结果，按现世/虚境和保持/完成组合选择四个稳定 key；两条调用路径都发送第六个结构化载荷，中文仅作 fallback。客户端 CSV 新增四条真源，不发送中文世界名或状态变量。
+- **实际修改**：更新动作执行服务、客户端中文 i18n CSV/生成产物和动作综合 smoke；smoke 覆盖四个 key，并继续保留目标实例 lease 失败时不提交偏好、不发送成功通知的断言。
+- **验证结果**：`git diff --check`、`pnpm --filter @mud/server compile`、compiled `world-runtime-action-execution-smoke`、`pnpm verify:client` 与 `pnpm verify:quick` 通过；专项证明四种成功分支分别发送预期 key，现世切换的连接输入、偏好提交顺序以及 lease 拒绝失败关闭语义未回归；客户端门禁证明 3869 条语言包生成、TypeScript/Vite、UI 连续性、请求生命周期、Socket 出站和地图渲染 proof 未回归，最小总门禁的 server compile、生产边界与无库 smoke 子集完整通过。
+- **中文原子提交 hash**：待本组提交后回填（计划提交：`fix(notice): 结构化世界迁移状态通知`）。
 
 ## 2026-07-14 待用户决定
 

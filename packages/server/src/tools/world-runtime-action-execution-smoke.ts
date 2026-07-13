@@ -499,6 +499,54 @@ function testWorldMigrationSwitchesToRealLine() {
         ['updateWorldPreference', 'player:1', 'real'],
         ['queuePlayerNotice', 'player:1', '你已切入现世，后续跨图会默认进入现世线。', 'success'],
     ]);
+    assert.equal(deps.notices.at(-1)?.key, 'notice.action.world-migration-real-complete');
+}
+
+function testWorldMigrationStructuredNoticeVariants() {
+    const cases = [
+        {
+            currentLinePreset: 'peaceful',
+            targetLinePreset: 'peaceful',
+            expectedKey: 'notice.action.world-migration-peaceful-kept',
+        },
+        {
+            currentLinePreset: 'real',
+            targetLinePreset: 'real',
+            expectedKey: 'notice.action.world-migration-real-kept',
+        },
+        {
+            currentLinePreset: 'real',
+            targetLinePreset: 'peaceful',
+            expectedKey: 'notice.action.world-migration-peaceful-complete',
+        },
+    ];
+    for (const testCase of cases) {
+        const log = [];
+        const service = createService({
+            sessionId: 'session:1',
+            instanceId: `${testCase.currentLinePreset === 'real' ? 'real' : 'public'}:yunlai_town`,
+            templateId: 'yunlai_town',
+            x: 10,
+            y: 10,
+            combat: {},
+            techniques: {},
+        }, log);
+        const deps = createDeps(log);
+        deps.getPlayerViewOrThrow = (playerId) => {
+            log.push(['getPlayerViewOrThrow', playerId]);
+            return {
+                tick: 2,
+                instance: {
+                    instanceId: `${testCase.currentLinePreset === 'real' ? 'real' : 'public'}:yunlai_town`,
+                    templateId: 'yunlai_town',
+                },
+                self: { x: 10, y: 10 },
+                localPortals: [{ x: 10, y: 11, trigger: 'manual', targetMapId: 'wildlands' }],
+            };
+        };
+        service.executeAction('player:1', 'world:migrate', testCase.targetLinePreset, deps);
+        assert.equal(deps.notices.at(-1)?.key, testCase.expectedKey);
+    }
 }
 
 async function testWorldMigrationFailureKeepsPreviousPreference() {
@@ -850,6 +898,7 @@ async function run() {
     testAutoRootFoundationOffActionKeepsExplicitFalse();
     testAutoRootFoundationAtCapUsesStructuredNotice();
     testWorldMigrationSwitchesToRealLine();
+    testWorldMigrationStructuredNoticeVariants();
     await testWorldMigrationFailureKeepsPreviousPreference();
     testWorldMigrationRejectsPeacefulWhenShaBuffActive();
     testWorldMigrationRejectsBacklashWhenReturningPeaceful();

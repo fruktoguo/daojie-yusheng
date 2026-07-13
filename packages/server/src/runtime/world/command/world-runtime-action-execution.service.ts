@@ -430,7 +430,8 @@ export class WorldRuntimeActionExecutionService {
         const currentLinePreset = resolveLinePresetFromInstanceId(currentView?.instance?.instanceId ?? player.instanceId);
         if (currentLinePreset === linePreset) {
             this.playerRuntimeService.updateWorldPreference?.(playerId, linePreset);
-            deps.queuePlayerNotice(playerId, buildWorldMigrationNotice(linePreset, true), 'success');
+            const notice = buildWorldMigrationNotice(linePreset, true);
+            deps.queuePlayerNotice(playerId, notice.text, notice.kind, undefined, undefined, notice.structured);
             return {
                 kind: 'queued',
                 view: deps.getPlayerViewOrThrow(playerId),
@@ -457,7 +458,8 @@ export class WorldRuntimeActionExecutionService {
         };
         const finalizeMigration = (nextView) => {
             this.playerRuntimeService.updateWorldPreference?.(playerId, linePreset);
-            deps.queuePlayerNotice(playerId, buildWorldMigrationNotice(linePreset, false), 'success');
+            const notice = buildWorldMigrationNotice(linePreset, false);
+            deps.queuePlayerNotice(playerId, notice.text, notice.kind, undefined, undefined, notice.structured);
             return {
                 kind: 'queued',
                 view: nextView,
@@ -528,12 +530,20 @@ function safeDecodeActionPart(value) {
 }
 
 function buildWorldMigrationNotice(linePreset, alreadyThere) {
-    if (linePreset === 'real') {
-        return alreadyThere
+    const isReal = linePreset === 'real';
+    const text = isReal
+        ? alreadyThere
             ? '默认世界已保持为现世，后续跨图会继续进入现世线。'
-            : '你已切入现世，后续跨图会默认进入现世线。';
-    }
-    return alreadyThere
-        ? '默认世界已保持为虚境，后续跨图会继续进入虚境线。'
-        : '你已切入虚境，后续跨图会默认进入虚境线。';
+            : '你已切入现世，后续跨图会默认进入现世线。'
+        : alreadyThere
+            ? '默认世界已保持为虚境，后续跨图会继续进入虚境线。'
+            : '你已切入虚境，后续跨图会默认进入虚境线。';
+    const key = isReal
+        ? alreadyThere
+            ? 'notice.action.world-migration-real-kept'
+            : 'notice.action.world-migration-real-complete'
+        : alreadyThere
+            ? 'notice.action.world-migration-peaceful-kept'
+            : 'notice.action.world-migration-peaceful-complete';
+    return buildStructuredNotice('success', key, text);
 }
