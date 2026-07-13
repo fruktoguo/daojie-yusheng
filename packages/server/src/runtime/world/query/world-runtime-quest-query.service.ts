@@ -4,6 +4,7 @@
  * 维护时应避免查询路径产生副作用，并控制返回字段，防止高频同步带出完整大对象。
  */
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { resolvePlayerFacingContentName } from '@mud/shared';
 import { ContentTemplateRepository } from '../../../content/content-template.repository';
 import { MapTemplateRepository } from '../../map/map-template.repository';
 import { PlayerRuntimeService } from '../../player/player-runtime.service';
@@ -504,25 +505,38 @@ export class WorldRuntimeQuestQueryService {
 
         quest = this.materializeQuestView('', quest);
         if (quest.rewards.length > 0) {
-            return quest.rewards.map((entry) => toQuestRewardItem(this.contentTemplateRepository.createItem(entry.itemId, entry.count), {
-                itemId: entry.itemId,
-                name: entry.name ?? entry.itemId,
-                type: entry.type ?? 'material',
-                count: entry.count,
-                desc: entry.desc ?? (entry.name ?? entry.itemId),
-            }));
+            return quest.rewards.map((entry) => {
+                const name = resolvePlayerFacingContentName(
+                    entry.itemId,
+                    '未知物品',
+                    entry.name,
+                    this.contentTemplateRepository.getItemName(entry.itemId),
+                );
+                return toQuestRewardItem(this.contentTemplateRepository.createItem(entry.itemId, entry.count), {
+                    itemId: entry.itemId,
+                    name,
+                    type: entry.type ?? 'material',
+                    count: entry.count,
+                    desc: entry.desc ?? name,
+                });
+            });
         }
         if (!quest.rewardItemId) {
             return [];
         }
 
         const item = this.contentTemplateRepository.createItem(quest.rewardItemId, 1);
+        const name = resolvePlayerFacingContentName(
+            quest.rewardItemId,
+            '未知物品',
+            this.contentTemplateRepository.getItemName(quest.rewardItemId),
+        );
         return [toQuestRewardItem(item, {
             itemId: quest.rewardItemId,
-            name: quest.rewardItemId,
+            name,
             type: 'material',
             count: 1,
-            desc: quest.rewardItemId,
+            desc: name,
         })];
     }    
     /**
@@ -543,12 +557,18 @@ export class WorldRuntimeQuestQueryService {
             }
 
             const count = Number.isInteger(entry.count) ? Math.max(1, Number(entry.count)) : 1;
+            const name = resolvePlayerFacingContentName(
+                itemId,
+                '未知物品',
+                entry.name,
+                this.contentTemplateRepository.getItemName(itemId),
+            );
             rewards.push(toQuestRewardItem(this.contentTemplateRepository.createItem(itemId, count), {
                 itemId,
-                name: itemId,
+                name,
                 type: 'material',
                 count,
-                desc: itemId,
+                desc: typeof entry.desc === 'string' && entry.desc.trim() ? entry.desc : name,
             }));
         }
         if (rewards.length > 0) {
@@ -561,12 +581,17 @@ export class WorldRuntimeQuestQueryService {
         }
 
         const item = this.contentTemplateRepository.createItem(rewardItemId, 1);
+        const name = resolvePlayerFacingContentName(
+            rewardItemId,
+            '未知物品',
+            this.contentTemplateRepository.getItemName(rewardItemId),
+        );
         return [toQuestRewardItem(item, {
             itemId: rewardItemId,
-            name: rewardItemId,
+            name,
             type: 'material',
             count: 1,
-            desc: rewardItemId,
+            desc: name,
         })];
     }    
     /**
@@ -646,13 +671,23 @@ export class WorldRuntimeQuestQueryService {
         if (!source) {
             return {
                 ...quest,
-                title: quest.title ?? quest.id,
+                title: resolvePlayerFacingContentName(quest.id, '未知任务', quest.title),
                 desc: quest.desc ?? '',
-                targetName: quest.targetName ?? quest.targetMonsterId ?? quest.id,
+                targetName: resolvePlayerFacingContentName(quest.targetMonsterId ?? quest.id, '未知目标', quest.targetName),
                 rewardText: quest.rewardText ?? '',
                 rewardItemId: quest.rewardItemId ?? '',
                 rewardItemIds: Array.isArray(quest.rewardItemIds) ? quest.rewardItemIds.slice() : [],
-                rewards: Array.isArray(quest.rewards) ? quest.rewards.map((entry) => ({ ...entry })) : [],
+                rewards: Array.isArray(quest.rewards)
+                    ? quest.rewards.map((entry) => ({
+                        ...entry,
+                        name: resolvePlayerFacingContentName(
+                            entry.itemId,
+                            '未知物品',
+                            entry.name,
+                            this.contentTemplateRepository.getItemName(entry.itemId),
+                        ),
+                    }))
+                    : [],
             };
         }
 

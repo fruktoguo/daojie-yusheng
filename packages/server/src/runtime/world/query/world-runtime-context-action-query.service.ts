@@ -4,7 +4,7 @@
  * 维护时应避免查询路径产生副作用，并控制返回字段，防止高频同步带出完整大对象。
  */
 import { Injectable } from '@nestjs/common';
-import { RETURN_TO_SPAWN_ACTION_ID, RETURN_TO_SPAWN_COOLDOWN_TICKS, formatDisplayInteger } from '@mud/shared';
+import { RETURN_TO_SPAWN_ACTION_ID, RETURN_TO_SPAWN_COOLDOWN_TICKS, formatDisplayInteger, resolvePlayerFacingContentName } from '@mud/shared';
 import { MapTemplateRepository } from '../../map/map-template.repository';
 import { PlayerRuntimeService } from '../../player/player-runtime.service';
 import { WorldRuntimeNpcQuestInteractionQueryService } from './world-runtime-npc-quest-interaction-query.service';
@@ -154,9 +154,13 @@ export class WorldRuntimeContextActionQueryService {
         const respawnTargetMapId = typeof player?.respawnTemplateId === 'string' && player.respawnTemplateId.trim()
             ? player.respawnTemplateId.trim()
             : (typeof deps?.resolveDefaultRespawnMapId === 'function' ? deps.resolveDefaultRespawnMapId() : 'yunlai_town');
-        let respawnTargetName = respawnTargetMapId || '默认复活点';
+        let respawnTargetName = '默认复活点';
         if (respawnTargetMapId && this.templateRepository.has(respawnTargetMapId)) {
-            respawnTargetName = this.templateRepository.getOrThrow(respawnTargetMapId).name || respawnTargetMapId;
+            respawnTargetName = resolvePlayerFacingContentName(
+                respawnTargetMapId,
+                '默认复活点',
+                this.templateRepository.getOrThrow(respawnTargetMapId).name,
+            );
         } else {
             const stableSectTemplateId = resolveStableSectTemplateId(respawnTargetMapId);
             if (stableSectTemplateId && this.templateRepository.has(stableSectTemplateId)) {
@@ -303,9 +307,7 @@ export class WorldRuntimeContextActionQueryService {
                     continue;
                 }
                 const remainingTicks = Math.max(1, Math.trunc(Number(entry?.remainingTicks ?? building.buildRemainingTicks ?? building.buildStrength ?? 1)));
-                const buildingName = typeof entry?.name === 'string' && entry.name.trim()
-                    ? entry.name.trim()
-                    : (typeof building.defId === 'string' ? building.defId : '建筑');
+                const buildingName = resolvePlayerFacingContentName(building.defId, '未知建筑', entry?.name);
                 const sectBuildPermission = typeof deps?.worldRuntimeSectService?.resolveSectInstancePermission === 'function'
                     ? deps.worldRuntimeSectService.resolveSectInstancePermission(
                         view.playerId,
@@ -412,7 +414,7 @@ function buildScripturePlatformActions(player, building) {
             type: 'interact',
             desc: `参悟藏经台内的${normalizeText(building.scriptureTechniqueName) || '功法'}。`,
             scriptureTechniqueId: existingTechniqueId,
-            scriptureTechniqueName: normalizeText(building.scriptureTechniqueName) || existingTechniqueId,
+            scriptureTechniqueName: resolvePlayerFacingContentName(existingTechniqueId, '未知功法', building.scriptureTechniqueName),
             scriptureTechniqueRealmLv: Math.max(1, Math.trunc(Number(building.scriptureRealmLv) || 1)),
             scriptureTechniqueGrade: normalizeText(building.scriptureGrade) || undefined,
             scriptureTechniqueCategory: normalizeText(building.scriptureCategory) || undefined,

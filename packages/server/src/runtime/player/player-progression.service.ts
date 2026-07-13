@@ -5,7 +5,7 @@
  */
 import { Injectable, Logger, Optional, Inject } from '@nestjs/common';
 import * as fs from 'fs';
-import { DEFAULT_PLAYER_REALM_STAGE, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, PLAYER_REALM_STAGE_LEVEL_RANGES, PlayerRealmStage, SHATTER_SPIRIT_PILL_COST_RATIO as SHARED_SHATTER_SPIRIT_PILL_COST_RATIO, calculateTechniqueComprehensionProgressGain, calculateTechniqueComprehensionRequiredProgress, computeCraftSkillExpGain, deriveTechniqueRealm, getBodyTrainingExpToNext, getMonsterKillExpLevelAdjustment, getMonsterLevelExpDecayMultiplier, getTechniqueExpLevelAdjustment, getTechniqueExpToNext, getTechniqueTrainingMaxLevel, isCreatedTechniqueId, isTechniqueFullyMastered, normalizeBodyTrainingState, normalizeTechniqueLearnMaxLevel } from '@mud/shared';
+import { DEFAULT_PLAYER_REALM_STAGE, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, PLAYER_REALM_STAGE_LEVEL_RANGES, PlayerRealmStage, SHATTER_SPIRIT_PILL_COST_RATIO as SHARED_SHATTER_SPIRIT_PILL_COST_RATIO, calculateTechniqueComprehensionProgressGain, calculateTechniqueComprehensionRequiredProgress, computeCraftSkillExpGain, deriveTechniqueRealm, getBodyTrainingExpToNext, getMonsterKillExpLevelAdjustment, getMonsterLevelExpDecayMultiplier, getTechniqueExpLevelAdjustment, getTechniqueExpToNext, getTechniqueTrainingMaxLevel, isCreatedTechniqueId, isTechniqueFullyMastered, normalizeBodyTrainingState, normalizeTechniqueLearnMaxLevel, resolvePlayerFacingContentName } from '@mud/shared';
 import { resolveProjectPath } from '../../common/project-path';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { getMonsterCombatExpGradeFactor, resolveMonsterCombatExpTierFactor } from '../combat/monster-combat-exp-equivalent.helper';
@@ -1280,7 +1280,11 @@ export class PlayerProgressionService {
                 const blocksBreakthrough = doesBreakthroughRequirementBlock(requirement);
                 const completed = isBreakthroughRequirementCompleted(player, requirement, increaseMultiplier);
                 if (requirement.type === 'item') {
-                    const itemName = this.contentTemplateRepository.getItemName(requirement.itemId) ?? requirement.itemId;
+                    const itemName = resolvePlayerFacingContentName(
+                        requirement.itemId,
+                        '未知物品',
+                        this.contentTemplateRepository.getItemName(requirement.itemId),
+                    );
                     const ownedCount = getInventoryCount(player, requirement.itemId);
                     requirements.push({
                         id: requirement.id,
@@ -1412,7 +1416,11 @@ export class PlayerProgressionService {
         }
         else if (missingItems.length > 0) {
             const missingText = missingItems.map((item) => {
-                const itemName = this.contentTemplateRepository.getItemName(item.itemId) ?? item.itemId;
+                const itemName = resolvePlayerFacingContentName(
+                    item.itemId,
+                    '未知物品',
+                    this.contentTemplateRepository.getItemName(item.itemId),
+                );
                 return `${itemName}缺 ${item.missingCount}`;
             }).join('、');
             blockedReason = `材料不足：${missingText}`;
@@ -1863,7 +1871,8 @@ export class PlayerProgressionService {
             if (next) {
                 player.techniques.cultivatingTechId = next.techId;
                 this.applyRealmPresentation(player, this.normalizeRealmState(player.realm));
-                const toName = next.name ?? next.techId;
+                const fromName = resolvePlayerFacingContentName(current.techId, '未知功法', current.name);
+                const toName = resolvePlayerFacingContentName(next.techId, '未知功法', next.name);
                 return {
                     changed: true,
                     panelDirty: false,
@@ -1871,9 +1880,9 @@ export class PlayerProgressionService {
                     techniquesDirty: true,
                     actionsDirty: true,
                     notices: [{
-                            text: `${current.name ?? current.techId} 已达当前修炼上限，主修已自动切换为 ${toName}。`,
+                            text: `${fromName} 已达当前修炼上限，主修已自动切换为 ${toName}。`,
                             kind: 'info',
-                            structured: { key: 'notice.progression.technique-auto-switch', vars: { fromName: current.name ?? current.techId, toName }, pills: [{ key: 'fromName', style: 'skill' }, { key: 'toName', style: 'skill' }] },
+                            structured: { key: 'notice.progression.technique-auto-switch', vars: { fromName, toName }, pills: [{ key: 'fromName', style: 'skill' }, { key: 'toName', style: 'skill' }] },
                         }],
                     technique: next.kind === 'learned' ? next.technique : null,
                 };
@@ -2062,14 +2071,15 @@ export class PlayerProgressionService {
                 : getTechniqueExpToNext(technique.level, technique.layers ?? undefined);
             technique.realm = deriveTechniqueRealm(technique.level, technique.layers ?? undefined);
             const fullyMastered = isTechniqueFullyMastered(technique);
+            const techniqueName = resolvePlayerFacingContentName(technique.techId, '未知功法', technique.name);
             notices.push({
                 text: fullyMastered
-                    ? `${technique.name ?? technique.techId} 已修至圆满。`
-                    : `${technique.name ?? technique.techId} 提升至第 ${technique.level} 层。`,
+                    ? `${techniqueName} 已修至圆满。`
+                    : `${techniqueName} 提升至第 ${technique.level} 层。`,
                 kind: 'success',
                 structured: fullyMastered
-                    ? { key: 'notice.progression.technique-perfected', vars: { techName: technique.name ?? technique.techId }, pills: [{ key: 'techName', style: 'skill' }] }
-                    : { key: 'notice.progression.technique-level-up', vars: { techName: technique.name ?? technique.techId, level: technique.level }, pills: [{ key: 'techName', style: 'skill' }, { key: 'level', style: 'damage' }] },
+                    ? { key: 'notice.progression.technique-perfected', vars: { techName: techniqueName }, pills: [{ key: 'techName', style: 'skill' }] }
+                    : { key: 'notice.progression.technique-level-up', vars: { techName: techniqueName, level: technique.level }, pills: [{ key: 'techName', style: 'skill' }, { key: 'level', style: 'damage' }] },
             });
             actionsDirty = true;
         }
@@ -2153,7 +2163,7 @@ export class PlayerProgressionService {
             pending.realmLv = Math.max(1, Math.floor(Number(pendingTechnique.realmLv) || 1));
             pending.grade = pendingTechnique.grade ?? pending.grade;
             pending.category = pendingTechnique.category ?? pending.category;
-            pending.name = pendingTechnique.name ?? pending.name ?? pending.techId;
+            pending.name = resolvePlayerFacingContentName(pending.techId, '未知功法', pendingTechnique.name, pending.name);
         }
         const previousProgress = Math.max(0, Number(pending.progress) || 0);
         const requiredProgress = Math.max(1, Number(pending.requiredProgress) || 1);
@@ -2178,6 +2188,7 @@ export class PlayerProgressionService {
             };
         }
         const technique = this.contentTemplateRepository.createTechniqueState(pending.techId);
+        const pendingTechniqueName = resolvePlayerFacingContentName(pending.techId, '未知功法', pending.name, technique?.name);
         if (!technique) {
             return {
                 changed: true,
@@ -2187,9 +2198,9 @@ export class PlayerProgressionService {
                 professionDirty: transmissionSkillDirty,
                 actionsDirty: false,
                 notices: [{
-                    text: `功法 ${pending.name ?? pending.techId} 已无法找到，领悟进度保留。`,
+                    text: `功法 ${pendingTechniqueName} 已无法找到，领悟进度保留。`,
                     kind: 'warn',
-                    structured: { key: 'notice.progression.technique-comprehension-template-missing', vars: { techName: pending.name ?? pending.techId }, pills: [{ key: 'techName', style: 'skill' }] },
+                    structured: { key: 'notice.progression.technique-comprehension-template-missing', vars: { techName: pendingTechniqueName }, pills: [{ key: 'techName', style: 'skill' }] },
                 }],
             };
         }
@@ -2209,9 +2220,9 @@ export class PlayerProgressionService {
             professionDirty: transmissionSkillDirty,
             actionsDirty: true,
             notices: [{
-                text: `${pending.name ?? pending.techId} 已领悟完成。`,
+                text: `${pendingTechniqueName} 已领悟完成。`,
                 kind: 'success',
-                structured: { key: 'notice.progression.technique-comprehension-complete', vars: { techName: pending.name ?? pending.techId }, pills: [{ key: 'techName', style: 'skill' }] },
+                structured: { key: 'notice.progression.technique-comprehension-complete', vars: { techName: pendingTechniqueName }, pills: [{ key: 'techName', style: 'skill' }] },
             }],
         };
         if (player.combat.autoSwitchCultivation === true) {
@@ -2641,7 +2652,7 @@ function snapshotCultivatingTechnique(player) {
     if (pending) {
         return {
             techId,
-            name: pending.name ?? techId,
+            name: resolvePlayerFacingContentName(techId, '未知功法', pending.name),
             kind: 'comprehension',
             level: 0,
             exp: Math.max(0, Number(pending.progress) || 0),
@@ -2650,7 +2661,7 @@ function snapshotCultivatingTechnique(player) {
     return {
         techId,
         kind: 'technique',
-        name: technique?.name ?? techId,
+        name: resolvePlayerFacingContentName(techId, '未知功法', technique?.name),
         level: Math.max(0, Math.floor(technique?.level ?? 0)),
         exp: Math.max(0, Math.floor(technique?.exp ?? 0)),
     };

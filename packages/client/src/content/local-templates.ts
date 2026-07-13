@@ -20,6 +20,7 @@ import {
   type TechniqueLayerDef,
   type TechniqueState,
   resolveItemTemplateAliasId,
+  resolvePlayerFacingContentName,
   resolveSkillRequiresTarget,
 } from '@mud/shared';
 import { LOCAL_EDITOR_CATALOG } from './editor-catalog';
@@ -109,6 +110,16 @@ export function getLocalTechniqueTemplate(techId: string): GmEditorTechniqueOpti
   return contentResolver.getTechnique(techId);
 }
 
+/** 解析功法玩家可见名称；内部 techId 只保留在协议和操作字段中。 */
+export function resolveClientTechniqueName(techId: string, ...candidates: Array<string | undefined>): string {
+  return resolvePlayerFacingContentName(
+    techId,
+    '未知功法',
+    ...candidates,
+    getLocalTechniqueTemplate(techId)?.name,
+  );
+}
+
 /** 根据书籍物品 ID 读取功法类别。 */
 export function getLocalTechniqueCategoryForBookItem(itemId: string): TechniqueCategory | null {
   return techniqueCategoryByBookItemId.get(itemId) ?? null;
@@ -127,6 +138,16 @@ export function getLocalSkillTemplate(skillId: string): SkillDef | null {
 /** 读取本地 Buff 模板（委托给 ContentResolver）。 */
 export function getLocalBuffTemplate(buffId: string): LocalBuffTemplate | null {
   return contentResolver.getBuff(buffId);
+}
+
+/** 解析增益玩家可见名称；内部 buffId 不作为展示兜底。 */
+export function resolveClientBuffName(buffId: string, ...candidates: Array<string | undefined>): string {
+  return resolvePlayerFacingContentName(
+    buffId,
+    '未知增益',
+    ...candidates,
+    getLocalBuffTemplate(buffId)?.name,
+  );
 }
 
 /** 读取本地任务模板（委托给 ContentResolver）。 */
@@ -167,13 +188,19 @@ export function resolvePreviewItem(item: ItemStack): ItemStack {
     : null;
   const sourceName = resolvePreviewItemName(sourceItem, template?.name);
   const sourceDesc = resolvePreviewItemDesc(sourceItem, template?.desc);
+  const resolvedName = resolvePlayerFacingContentName(
+    sourceItem.itemId,
+    '未知物品',
+    sourceName,
+    template?.name,
+  );
   if (!template) {
-    return sourceName ? { ...sourceItem, name: sourceName } : { ...sourceItem, name: sourceItem.itemId };
+    return { ...sourceItem, name: resolvedName };
   }
   return {
     ...sourceItem,
     itemInstanceId: sourceItem.itemInstanceId,
-    name: sourceName ?? template.name,
+    name: resolvedName,
     type: sourceItem.type || template.type,
     desc: sourceDesc ?? '',
     groundLabel: sourceItem.groundLabel ?? template.groundLabel,
@@ -395,9 +422,11 @@ export function resolvePreviewTechnique(technique: TechniqueState): TechniqueSta
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   const template = getLocalTechniqueTemplate(technique.techId);
+  const resolvedName = resolveClientTechniqueName(technique.techId, technique.name, template?.name);
   if (!template) {
     return {
       ...technique,
+      name: resolvedName,
       realmLv: resolveTechniqueRealmLevel(technique.realmLv, technique.grade),
       realm: deriveTechniqueRealm(technique.level, technique.layers),
       skills: resolvePreviewSkills(technique.skills),
@@ -410,7 +439,7 @@ export function resolvePreviewTechnique(technique: TechniqueState): TechniqueSta
   const realmLv = resolveTechniqueRealmLevel(template.realmLv, technique.grade ?? template.grade);
   return {
     ...technique,
-    name: technique.name || template.name,
+    name: resolvedName,
     grade: technique.grade ?? template.grade,
     category: technique.category ?? template.category ?? (sourceSkills.length > 0 ? 'arts' : 'internal'),
     realmLv,

@@ -36,6 +36,7 @@ import {
   getPreviewTechniqueMaxLevel,
   getLocalRealmLevelEntry,
   getLocalTechniqueTemplate,
+  resolveClientBuffName,
   resolvePreviewItem,
   resolvePreviewTechniqueTemplateLayers,
   resolveTechniqueIdFromBookItemId,
@@ -276,7 +277,7 @@ export function formatEquipmentConditionText(effect: EquipmentEffectDef): string
       case 'is_cultivating':
         return condition.value ? t('equipment-tooltip.condition.cultivating', undefined) : t('equipment-tooltip.condition.not-cultivating', undefined);
       case 'has_buff':
-        return t('equipment-tooltip.condition.has-buff', { buffId: condition.buffId, stacks: condition.minStacks ? t('equipment-tooltip.condition.min-stacks', { stacks: condition.minStacks }) : '' });
+        return t('equipment-tooltip.condition.has-buff', { buffName: resolveClientBuffName(condition.buffId), stacks: condition.minStacks ? t('equipment-tooltip.condition.min-stacks', { stacks: condition.minStacks }) : '' });
       case 'target_kind':
         return t('equipment-tooltip.condition.target-kind', { value: condition.in.map((entry) => getConditionTargetKindLabel(entry)).join(' / ') });
       default:

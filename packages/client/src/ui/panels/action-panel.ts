@@ -32,7 +32,7 @@ import {
 } from '../floating-panel-preferences';
 import { buildSkillTooltipContent } from '../skill-tooltip';
 import { preserveSelection } from '../selection-preserver';
-import { getLocalRealmLevelEntry } from '../../content/local-templates';
+import { getLocalRealmLevelEntry, resolveClientTechniqueName } from '../../content/local-templates';
 import { getActionTypeLabel, getTechniqueCategoryLabel, getTechniqueGradeLabel } from '../../domain-labels';
 import {
   ACTION_SHORTCUTS_CHANGED_EVENT,
@@ -1551,7 +1551,7 @@ export class ActionPanel {
       return escapeHtml(stripSectManagementData(action.desc));
     }
     const techniqueId = normalizeActionText(action.scriptureTechniqueId);
-    const techniqueName = normalizeActionText(action.scriptureTechniqueName) || this.resolveKnownTechniqueName(techniqueId) || '功法';
+    const techniqueName = resolveClientTechniqueName(techniqueId, action.scriptureTechniqueName, this.resolveKnownTechniqueName(techniqueId));
     const chip = `<span class="action-technique-chip" data-action-technique-tooltip="true">${escapeHtml(techniqueName)}</span>`;
     return `参悟藏经台内的${chip}。`;
   }
@@ -1566,7 +1566,7 @@ export class ActionPanel {
     const knownTechnique = techniqueId
       ? this.previewPlayer?.techniques?.find((entry) => entry.techId === techniqueId)
       : undefined;
-    const title = normalizeActionText(knownTechnique?.name) || normalizeActionText(action.scriptureTechniqueName) || techniqueId || '功法';
+    const title = resolveClientTechniqueName(techniqueId, knownTechnique?.name, action.scriptureTechniqueName);
     const grade = knownTechnique?.grade ?? action.scriptureTechniqueGrade;
     const category = knownTechnique?.category ?? action.scriptureTechniqueCategory;
     const realmLv = Math.max(1, Math.trunc(Number(knownTechnique?.realmLv ?? action.scriptureTechniqueRealmLv) || 1));

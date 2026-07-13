@@ -7,6 +7,7 @@ import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { ContentTemplateRepository } from '../../../content/content-template.repository';
 import { BLOOD_ESSENCE_ITEM_ID, PVP_SOUL_INJURY_BUFF_ID } from '../../../constants/gameplay/pvp';
 import { PlayerRuntimeService } from '../../player/player-runtime.service';
+import { resolvePlayerDisplayName } from '../../player/player-display-name';
 import { PlayerCountersPersistenceService } from '../../../persistence/player-counters-persistence.service';
 import { buildStructuredNotice } from '../structured-notice.helpers';
 import { resolveFormationMonsterExpMultiplier } from './formation-combat-effect.helpers';
@@ -439,6 +440,7 @@ export class WorldRuntimePlayerCombatService {
             const soulNotice = buildStructuredNotice('combat', 'notice.combat.soul-injury', '神魂受损；身死与遁返都不会清除，需静养一时辰。', {});
             deps.queuePlayerNotice(victim.playerId, soulNotice.text, soulNotice.kind, undefined, undefined, soulNotice.structured);
         }
+        const victimName = resolvePlayerDisplayName(victim, { playerId: victim?.playerId, fallback: '未知玩家' });
         const bloodEssenceCount = Math.max(1, Math.floor((victim.realm?.realmLv ?? 1) ** 2));
         const reward = this.contentTemplateRepository.createItem(BLOOD_ESSENCE_ITEM_ID, bloodEssenceCount);
         if (reward && deathSite.instance) {
@@ -453,8 +455,8 @@ export class WorldRuntimePlayerCombatService {
             }
             else {
                 deps.spawnGroundItem(deathSite.instance, deathSite.x, deathSite.y, reward);
-                const pvpDropNotice = buildStructuredNotice('loot', 'notice.loot.pvp-bag-full', `你的背包已满，${reward.name} x${bloodEssenceCount} 掉在了 ${victim.name} 倒下之处。`, {
-                    vars: { itemName: reward.name, count: bloodEssenceCount, victimName: victim.name },
+                const pvpDropNotice = buildStructuredNotice('loot', 'notice.loot.pvp-bag-full', `你的背包已满，${reward.name} x${bloodEssenceCount} 掉在了 ${victimName} 倒下之处。`, {
+                    vars: { itemName: reward.name, count: bloodEssenceCount, victimName },
                     pills: [{ key: 'itemName', style: 'target' }, { key: 'victimName', style: 'target' }],
                 });
                 deps.queuePlayerNotice(killer.playerId, pvpDropNotice.text, pvpDropNotice.kind, undefined, undefined, pvpDropNotice.structured);

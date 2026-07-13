@@ -414,10 +414,10 @@ function normalizeTemporaryBuffs(value) {
 
         const buffId = typeof buff.buffId === 'string' ? buff.buffId.trim() : '';
 
-        const name = typeof buff.name === 'string' ? buff.name.trim() : '';
-        if (!buffId || !name) {
+        if (!buffId) {
             continue;
         }
+        const name = shared_1.resolvePlayerFacingContentName(buffId, '未知增益', buff.name);
         buffs.push({
             ...buff,
             buffId,

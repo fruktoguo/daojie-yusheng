@@ -9,6 +9,7 @@ import {
   TechniqueRealm,
   deriveTechniqueRealm,
   getTechniqueMaxLevel,
+  resolvePlayerFacingContentName,
   type TechniqueCategory,
   type TechniqueGrade,
   type TechniquePageCategoryFilterView,
@@ -163,7 +164,7 @@ function projectTechniquePageItem(entry: any) {
   const layers = Array.isArray(entry?.layers) ? entry.layers : [];
   return {
     techId: String(entry?.techId ?? ''),
-    name: typeof entry?.name === 'string' ? entry.name : String(entry?.techId ?? ''),
+    name: resolvePlayerFacingContentName(entry?.techId, '未知功法', entry?.name),
     level,
     exp: Math.max(0, Number(entry?.exp) || 0),
     expToNext: Math.max(0, Number(entry?.expToNext) || 0),

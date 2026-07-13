@@ -4,6 +4,7 @@
  * 维护时应避免查询路径产生副作用，并控制返回字段，防止高频同步带出完整大对象。
  */
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { resolvePlayerFacingContentName } from '@mud/shared';
 import { ContentTemplateRepository } from '../../../content/content-template.repository';
 import { PlayerRuntimeService } from '../../player/player-runtime.service';
 
@@ -47,7 +48,8 @@ export class WorldRuntimeNpcShopQueryService {
  */
 
     getCurrencyItemName() {
-        return this.contentTemplateRepository.createItem(NPC_SHOP_CURRENCY_ITEM_ID, 1)?.name ?? NPC_SHOP_CURRENCY_ITEM_ID;
+        const item = this.contentTemplateRepository.createItem(NPC_SHOP_CURRENCY_ITEM_ID, 1);
+        return resolvePlayerFacingContentName(NPC_SHOP_CURRENCY_ITEM_ID, '未知货币', item?.name);
     }
     /**
  * buildNpcShopView：构建并返回目标对象。

@@ -8,7 +8,7 @@
  * 处理任务交互推进、接取、提交三个直接写入动作
  */
 import { Inject, Injectable, BadRequestException, NotFoundException, Optional } from '@nestjs/common';
-import { mergeItemStackInto } from '@mud/shared';
+import { mergeItemStackInto, resolvePlayerFacingContentName } from '@mud/shared';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { buildWalletBalancesFromInventory } from '../player/wallet-inventory-projection.helpers';
 import { DurableOperationService } from '../../persistence/durable-operation.service';
@@ -599,7 +599,7 @@ function buildNextQuestInventorySnapshots(currentItems, capacity, requiredItemId
         assignItemInstanceIdIfNeeded(incoming);
         const mergeResult = mergeItemStackInto(nextItems, incoming);
         if (Math.max(0, Math.trunc(Number(mergeResult.entry.count ?? 0))) > QUEST_INVENTORY_ITEM_COUNT_MAX) {
-            throw new BadRequestException(`${itemId} 数量超过上限，无法领取奖励`);
+            throw new BadRequestException(`${resolvePlayerFacingContentName(itemId, '未知物品', reward?.name)}数量超过上限，无法领取奖励`);
         }
         if (!mergeResult.merged && nextItems.length > normalizedCapacity) {
             return null;

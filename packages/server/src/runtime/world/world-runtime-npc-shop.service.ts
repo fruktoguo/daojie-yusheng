@@ -8,7 +8,7 @@
  * 处理玩家购买请求的校验、扣款、物品发放和持久化提交
  */
 import { BadRequestException, Inject, Injectable, Optional } from '@nestjs/common';
-import { canMergeItemStack, createItemStackSignature } from '@mud/shared';
+import { canMergeItemStack, createItemStackSignature, resolvePlayerFacingContentName } from '@mud/shared';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { buildWalletBalancesFromInventory } from '../player/wallet-inventory-projection.helpers';
 import { WorldRuntimeNpcShopQueryService } from './query/world-runtime-npc-shop-query.service';
@@ -257,14 +257,14 @@ function applyNpcShopPurchaseToInventory(existingItems, capacity, item, currency
         const nextCount = Math.max(0, Math.trunc(Number(existing.count ?? 0)))
             + Math.max(0, Math.trunc(Number(incoming.count ?? 0)));
         if (nextCount > NPC_SHOP_INVENTORY_ITEM_COUNT_MAX) {
-            throw new BadRequestException(`${incoming.itemId} 数量超过上限，无法购买`);
+            throw new BadRequestException(`${resolvePlayerFacingContentName(incoming.itemId, '未知物品', incoming.name)}数量超过上限，无法购买`);
         }
         existing.count = nextCount;
         return nextItems;
     }
     const incomingCount = Math.max(0, Math.trunc(Number(incoming.count ?? 0)));
     if (incomingCount <= 0 || incomingCount > NPC_SHOP_INVENTORY_ITEM_COUNT_MAX) {
-        throw new BadRequestException(`${incoming.itemId} 数量超过上限，无法购买`);
+        throw new BadRequestException(`${resolvePlayerFacingContentName(incoming.itemId, '未知物品', incoming.name)}数量超过上限，无法购买`);
     }
     const normalizedCapacity = Number.isFinite(Number(capacity))
         ? Math.max(0, Math.trunc(Number(capacity)))

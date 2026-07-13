@@ -27,9 +27,10 @@ export function hydrateSyncedInventoryItem(
     count: Math.max(0, Math.trunc(Number(item.count) || 0)),
   } as ItemStack;
   const resolved = options.resolvePreviewItem(source);
+  const resolvedName = resolved.name?.trim();
   return options.cloneValue({
     ...resolved,
-    name: resolved.name?.trim() || item.itemId,
+    name: resolvedName && resolvedName !== item.itemId ? resolvedName : '未知物品',
     type: resolved.type ?? 'material',
     desc: resolved.desc ?? '',
   });

@@ -59,6 +59,8 @@ const status = runVerificationSteps({
         '--case',
         'world-runtime-sect',
         '--case',
+        'social-runtime-instance-name',
+        '--case',
         'world-gateway-offline-gain-refresh',
         '--case',
         'player-statistic-ledger-io',

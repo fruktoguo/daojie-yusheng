@@ -13,6 +13,7 @@ import {
   isTechniqueFullyMastered,
   normalizeTechniqueLearnMaxLevel,
   readCraftEffectStat,
+  resolvePlayerFacingContentName,
   type PlayerTransmissionJob,
   type TechniqueActivityNoticeMessage,
   type TechniqueActivityResolveResult,
@@ -130,12 +131,12 @@ export class TransmissionStrategy implements TechniqueActivityStrategy<PlayerTra
         learnerPlayerId: learner.playerId,
         teacherPlayerId,
         techniqueId,
-        techniqueName: teacherTechnique.name ?? techniqueId,
+        techniqueName: resolvePlayerFacingContentName(techniqueId, '未知功法', teacherTechnique.name),
         requiredProgress,
         realmLv: Math.max(1, Math.floor(Number(teacherTechnique.realmLv) || 1)),
         grade: teacherTechnique.grade ?? undefined,
         category: teacherTechnique.category ?? undefined,
-        teacherName: teacher.displayName ?? teacher.name ?? teacherPlayerId,
+        teacherName: resolveRuntimePlayerDisplayName(teacher, { playerId: teacherPlayerId, fallback: '未知玩家' }),
       },
     };
   }
@@ -303,7 +304,7 @@ export class TransmissionStrategy implements TechniqueActivityStrategy<PlayerTra
       messages: [{
         kind: 'transmission',
         key: 'notice.progression.technique-comprehension-complete',
-        vars: { techName: pending.name ?? pending.techId },
+        vars: { techName: resolvePlayerFacingContentName(pending.techId, '未知功法', pending.name) },
         pills: [{ key: 'techName', style: 'skill' }],
       }],
     };
@@ -451,7 +452,7 @@ function validateScriptureRecordingStart(
       learnerPlayerId: recorder.playerId,
       teacherPlayerId: recorder.playerId,
       techniqueId,
-      techniqueName: technique.name ?? techniqueId,
+      techniqueName: resolvePlayerFacingContentName(techniqueId, '未知功法', technique.name),
       requiredProgress,
       realmLv: Math.max(1, Math.floor(Number(technique.realmLv) || 1)),
       grade: technique.grade ?? undefined,
@@ -501,7 +502,7 @@ function validateScriptureContemplationStart(
       learnerPlayerId: learner.playerId,
       teacherPlayerId: learner.playerId,
       techniqueId,
-      techniqueName: normalizeText(building.scriptureTechniqueName) || techniqueId,
+      techniqueName: resolvePlayerFacingContentName(techniqueId, '未知功法', building.scriptureTechniqueName),
       requiredProgress,
       realmLv: Math.max(1, Math.floor(Number(building.scriptureRealmLv) || 1)),
       grade: building.scriptureGrade ?? undefined,
@@ -664,7 +665,7 @@ function refreshPendingRequirement(learner: any, pending: any, teacherTechnique:
   pending.realmLv = Math.max(1, Math.floor(Number(teacherTechnique.realmLv) || 1));
   pending.grade = teacherTechnique.grade ?? pending.grade;
   pending.category = teacherTechnique.category ?? pending.category;
-  pending.name = teacherTechnique.name ?? pending.name ?? pending.techId;
+  pending.name = resolvePlayerFacingContentName(pending.techId, '未知功法', teacherTechnique.name, pending.name);
   job.techniqueName = pending.name;
   job.realmLv = pending.realmLv;
   job.grade = pending.grade;
@@ -685,7 +686,10 @@ function queueTeacherTransmissionStartNotice(validated: TransmissionValidatedPay
     structured: {
       key: 'notice.craft.transmission.teacher-start',
       vars: {
-        learnerName: resolvePlayerDisplayName(runtime.getPlayer?.(validated.learnerPlayerId) ?? null, validated.learnerPlayerId),
+        learnerName: resolveRuntimePlayerDisplayName(runtime.getPlayer?.(validated.learnerPlayerId) ?? null, {
+          playerId: validated.learnerPlayerId,
+          fallback: '未知玩家',
+        }),
         techniqueName: validated.techniqueName,
       },
       pills: [
@@ -694,10 +698,6 @@ function queueTeacherTransmissionStartNotice(validated: TransmissionValidatedPay
       ],
     },
   });
-}
-
-function resolvePlayerDisplayName(player: any, fallbackPlayerId: string): string {
-  return normalizeText(player?.displayName) || normalizeText(player?.name) || fallbackPlayerId;
 }
 
 function blockTransmission(
@@ -859,7 +859,13 @@ function executeScriptureContemplationTick(learner: any, job: PlayerTransmission
   pending.selfComprehensionAllowed = false;
   delete pending.activeTransferJob;
   const previousProgress = Math.max(0, Math.min(requiredProgress, Number(pending.progress) || 0));
-  pending.name = normalizeText(building.scriptureTechniqueName) || job.techniqueName || pending.name || job.techniqueId;
+  pending.name = resolvePlayerFacingContentName(
+    job.techniqueId,
+    '未知功法',
+    building.scriptureTechniqueName,
+    job.techniqueName,
+    pending.name,
+  );
   pending.sourceKind = 'created';
   pending.requiredProgress = requiredProgress;
   pending.realmLv = Math.max(1, Math.floor(Number(building.scriptureRealmLv ?? job.realmLv ?? pending.realmLv) || 1));
@@ -893,7 +899,7 @@ function executeScriptureContemplationTick(learner: any, job: PlayerTransmission
     messages: [{
       kind: 'transmission',
       key: 'notice.progression.technique-comprehension-complete',
-      vars: { techName: pending.name ?? pending.techId },
+      vars: { techName: resolvePlayerFacingContentName(pending.techId, '未知功法', pending.name) },
       pills: [{ key: 'techName', style: 'skill' }],
     }],
   };

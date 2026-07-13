@@ -32,6 +32,7 @@ import {
 } from '@mud/shared';
 import { formatDisplayInteger, formatDisplaySignedNumber } from '../utils/number';
 import { getLocalItemTemplate } from '../content/local-templates';
+import { resolveClientItemBaseName } from '../content/item-display-name';
 import { getTechniqueGradeLabel } from '../domain-labels';
 import { confirmModalHost } from './confirm-modal-host';
 import { t } from './i18n';
@@ -1053,9 +1054,7 @@ export class CraftAlchemyView {
 
   private resolveAlchemyMaterialName(recipe: AlchemyRecipeCatalogEntry, itemId: string): string {
     const recipeIngredient = recipe.ingredients.find((ingredient) => ingredient.itemId === itemId);
-    return recipeIngredient?.name?.trim()
-      || getLocalItemTemplate(itemId)?.name?.trim()
-      || itemId;
+    return resolveClientItemBaseName(itemId, recipeIngredient?.name, getLocalItemTemplate(itemId)?.name);
   }
 
   renderAlchemyJobCard(job: NonNullable<NonNullable<S2C_AlchemyPanel['state']>['job']> | null): string {
@@ -1084,7 +1083,7 @@ export class CraftAlchemyView {
         <div class="alchemy-job-head">
           <div>
             <div class="alchemy-job-title">${escapeHtml(t('craft.workbench.alchemy.job.title'))}</div>
-            <div class="alchemy-job-name">${this.renderAlchemyItemReference(job.outputItemId, recipe?.outputName ?? job.outputItemId, 'reward')}</div>
+            <div class="alchemy-job-name">${this.renderAlchemyItemReference(job.outputItemId, resolveClientItemBaseName(job.outputItemId, recipe?.outputName, getLocalItemTemplate(job.outputItemId)?.name), 'reward')}</div>
           </div>
           <div class="alchemy-job-metrics">
             <span class="alchemy-metric-chip alchemy-job-phase-chip ${phaseClass}">${escapeHtml(getAlchemyPhaseLabel(job.phase))}</span>

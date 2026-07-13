@@ -4,7 +4,7 @@
  * 维护时要保证结算仍由服务端权威执行，客户端只接收结构化结果和必要表现字段。
  */
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { getDamageTrailColor, resolveSkillRequiresTarget, resolveTargetingGeometryMaxTargets } from '@mud/shared';
+import { getDamageTrailColor, resolvePlayerFacingContentName, resolveSkillRequiresTarget, resolveTargetingGeometryMaxTargets } from '@mud/shared';
 import { PlayerCombatService } from '../../combat/player-combat.service';
 import { resolveCombatDamage } from '../../combat/combat-pipeline-compose';
 import { createCombatOutcomeApplyAdapters } from '../../combat/combat-outcome-apply-adapters';
@@ -27,6 +27,14 @@ const {
 } = world_runtime_observation_helpers_1;
 const BASE_CHANT_TICK_DURATION_MS = 1000;
 const CHANT_LABEL_EXTRA_DURATION_MS = 240;
+
+function resolveMonsterDisplayName(monster, fallbackId) {
+    return resolvePlayerFacingContentName(monster?.monsterId ?? fallbackId, '未知妖兽', monster?.name);
+}
+
+function resolveMonsterSkillDisplayName(skill, skillId) {
+    return resolvePlayerFacingContentName(skillId, '未知技能', skill?.name);
+}
 
 function resolveTickScaledChantDurationMs(ticks, tickSpeed = 1) {
     const normalizedTicks = Math.max(0, Math.trunc(Number(ticks) || 0));
@@ -301,8 +309,8 @@ export class WorldRuntimeMonsterActionApplyService {
             damageFloat: { x: runtimeTargetPosition.x, y: runtimeTargetPosition.y, damage: resolvedDamage.damage, color: effectColor },
             notices: [{
                 playerId: action.targetPlayerId,
-                text: `${formatCombatActionClause(monster.name ?? monster.monsterId ?? action.runtimeId, '你', '攻击')}，${formatCombatResolutionOutcome(resolvedDamage, damageKind)}`,
-                combat: buildCombatNoticePayload({ caster: monster.name ?? monster.monsterId ?? action.runtimeId, target: '你', skill: '攻击', resolution: { ...resolvedDamage, damageKind } }),
+                text: `${formatCombatActionClause(resolveMonsterDisplayName(monster, action.runtimeId), '你', '攻击')}，${formatCombatResolutionOutcome(resolvedDamage, damageKind)}`,
+                combat: buildCombatNoticePayload({ caster: resolveMonsterDisplayName(monster, action.runtimeId), target: '你', skill: '攻击', resolution: { ...resolvedDamage, damageKind } }),
             }],
         });
         recordMonsterActionPerf(deps, 'monsterActions.basicPresentationMs', presentationStartedAt);
@@ -471,8 +479,8 @@ export class WorldRuntimeMonsterActionApplyService {
                     damageFloat: { x: targetPosition.x, y: targetPosition.y, damage: result.totalDamage, color: effectColor },
                     notices: [{
                         playerId: player.playerId,
-                        text: `${formatCombatActionClause(monster.name ?? monster.monsterId ?? action.runtimeId, '你', skill?.name ?? action.skillId)}，${formatCombatResolutionOutcome(primaryRoll, primaryRoll.damageKind ?? result.damageKind ?? 'spell', primaryRoll.element ?? result.damageElement)}`,
-                        combat: buildCombatNoticePayload({ caster: monster.name ?? monster.monsterId ?? action.runtimeId, target: '你', skill: skill?.name ?? action.skillId, resolution: { ...primaryRoll, damageKind: primaryRoll.damageKind ?? result.damageKind ?? 'spell', element: primaryRoll.element ?? result.damageElement } }),
+                        text: `${formatCombatActionClause(resolveMonsterDisplayName(monster, action.runtimeId), '你', resolveMonsterSkillDisplayName(skill, action.skillId))}，${formatCombatResolutionOutcome(primaryRoll, primaryRoll.damageKind ?? result.damageKind ?? 'spell', primaryRoll.element ?? result.damageElement)}`,
+                        combat: buildCombatNoticePayload({ caster: resolveMonsterDisplayName(monster, action.runtimeId), target: '你', skill: resolveMonsterSkillDisplayName(skill, action.skillId), resolution: { ...primaryRoll, damageKind: primaryRoll.damageKind ?? result.damageKind ?? 'spell', element: primaryRoll.element ?? result.damageElement } }),
                     }],
                 });
                 recordMonsterActionPerf(deps, 'monsterActions.skillPresentationMs', presentationStartedAt);

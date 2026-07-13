@@ -5,7 +5,7 @@
  */
 /** 观察构建工具：生成可见度、结论与实体观察详情。 */
 
-import { DEFAULT_PLAYER_REALM_STAGE, ELEMENT_KEY_LABELS, MONSTER_TIER_LABELS, PLAYER_REALM_NUMERIC_TEMPLATES, cloneNumericRatioDivisors, cloneNumericStats, formatDisplayCurrentMax, formatDisplayInteger } from '@mud/shared';
+import { DEFAULT_PLAYER_REALM_STAGE, ELEMENT_KEY_LABELS, MONSTER_TIER_LABELS, PLAYER_REALM_NUMERIC_TEMPLATES, cloneNumericRatioDivisors, cloneNumericStats, formatDisplayCurrentMax, formatDisplayInteger, resolvePlayerFacingContentName } from '@mud/shared';
 import { resolveCombatDamage } from '../../combat/combat-pipeline-compose';
 
 /** 观察失真阈值：低于该比例时使用模糊文案。 */
@@ -439,7 +439,7 @@ export function buildGroundTileEntityDetail(groundPile) {
 
     const previews = groundPile.items
         .slice(0, 3)
-        .map((entry) => `${entry.name ?? entry.itemId} x${Math.max(0, Math.round(entry.count ?? 0))}`);
+        .map((entry) => `${resolvePlayerFacingContentName(entry.itemId, '未知物品', entry.name)} x${Math.max(0, Math.round(entry.count ?? 0))}`);
 
     const remainingKinds = Math.max(0, groundPile.items.length - previews.length);
 
@@ -450,7 +450,7 @@ export function buildGroundTileEntityDetail(groundPile) {
         id: groundPile.sourceId,
 
         name: groundPile.items.length === 1
-            ? (groundPile.items[0]?.name ?? groundPile.items[0]?.itemId ?? '地面物品')
+            ? resolvePlayerFacingContentName(groundPile.items[0]?.itemId, '未知物品', groundPile.items[0]?.name)
             : `散落物品堆 (${groundPile.items.length})`,
         kind: 'ground',
         observation: {
@@ -486,9 +486,7 @@ export function buildContainerTileEntityDetail(container) {
 }
 /** 生成建筑实体详情与基础状态。 */
 export function buildBuildingTileEntityDetail(building, compiled) {
-    const name = typeof building?.name === 'string' && building.name.trim()
-        ? building.name.trim()
-        : (compiled?.name ?? building?.defId ?? '建筑');
+    const name = resolvePlayerFacingContentName(building?.defId, '未知建筑', building?.name, compiled?.name);
     const maxHp = Math.max(1, Math.trunc(Number(building?.maxHp ?? compiled?.maxHp ?? 1) || 1));
     const hp = Math.max(0, Math.min(maxHp, Math.trunc(Number(building?.hp ?? maxHp) || maxHp)));
     const lines = [
@@ -497,8 +495,15 @@ export function buildBuildingTileEntityDetail(building, compiled) {
         { label: '状态', value: buildBuildingStateLabel(building?.state) },
         { label: '生命', value: formatCurrentMaxObservation(hp, maxHp) },
     ];
-    if (typeof building?.scriptureTechniqueName === 'string' && building.scriptureTechniqueName.trim()) {
-        lines.push({ label: '藏书', value: building.scriptureTechniqueName.trim() });
+    if (typeof building?.scriptureTechniqueId === 'string' && building.scriptureTechniqueId.trim()) {
+        lines.push({
+            label: '藏书',
+            value: resolvePlayerFacingContentName(
+                building.scriptureTechniqueId,
+                '未知功法',
+                building.scriptureTechniqueName,
+            ),
+        });
     }
     return {
         id: building.id,

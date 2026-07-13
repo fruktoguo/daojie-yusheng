@@ -48,6 +48,7 @@ const sameInstance = hydrateSyncedInventoryItem({
 }, options);
 assert.equal(sameInstance.equipAttrs, undefined, '完整实例回包缺失的字段不得从旧槽位补回');
 assert.equal(sameInstance.count, 2, '当前回包数量必须覆盖上一版数量');
+assert.equal(sameInstance.name, '未知物品', '解析出的名称等于 itemId 时必须改用玩家可见占位名');
 
 const replacement = hydrateSyncedInventoryItem({
   itemId: 'equipment.test',

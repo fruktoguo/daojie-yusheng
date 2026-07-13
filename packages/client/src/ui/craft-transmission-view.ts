@@ -20,7 +20,7 @@ import {
   isCreatedTechniqueId,
   isTechniqueFullyMastered,
 } from '@mud/shared';
-import { getLocalRealmLevelEntry, getLocalTechniqueTemplate } from '../content/local-templates';
+import { getLocalRealmLevelEntry, getLocalTechniqueTemplate, resolveClientTechniqueName } from '../content/local-templates';
 import { getItemTypeLabel, getTechniqueCategoryLabel, getTechniqueGradeLabel } from '../domain-labels';
 import { formatDisplayInteger, formatDisplayNumber, formatDisplaySignedNumber } from '../utils/number';
 import { confirmModalHost } from './confirm-modal-host';
@@ -449,7 +449,7 @@ export class CraftTransmissionView {
     const candidate = {
       ...tech,
       techId,
-      name: tech?.name || template?.name || techId,
+      name: resolveClientTechniqueName(techId, tech?.name, template?.name),
       grade: tech?.grade ?? template?.grade,
       category: category ?? (template?.skills?.length ? 'arts' : 'internal'),
       realmLv: tech?.realmLv ?? template?.realmLv,
@@ -478,7 +478,7 @@ export class CraftTransmissionView {
     return `
       <div class="enhancement-candidate-card" data-transmission-pending="${escapeHtmlAttr(entry.techId)}">
         <div class="enhancement-candidate-main">
-          <strong>${escapeHtml(entry.name ?? entry.techId)}</strong>
+          <strong>${escapeHtml(resolveClientTechniqueName(entry.techId, entry.name))}</strong>
           <span data-transmission-pending-progress-text="true">${escapeHtml(status)} · ${formatDisplayInteger(progress)} / ${formatDisplayInteger(required)}${escapeHtml(rateText)}${escapeHtml(estimateText)}</span>
           <span class="transmission-factor-breakdown" data-transmission-pending-factor-text="true"${factorText.length === 0 ? ' hidden' : ''}>${escapeHtml(factorText)}</span>
         </div>
@@ -553,7 +553,7 @@ export class CraftTransmissionView {
     const techniqueOptions = techniques.map((tech) => {
       const metaText = this.getTransmissionTechniqueMetaText(tech);
       const search = `${tech.name ?? ''} ${tech.techId} ${metaText}`.toLowerCase();
-      return `<option value="${escapeHtmlAttr(tech.techId)}" data-search="${escapeHtmlAttr(search)}">${escapeHtml(tech.name ?? tech.techId)} · ${escapeHtml(metaText)}</option>`;
+      return `<option value="${escapeHtmlAttr(tech.techId)}" data-search="${escapeHtmlAttr(search)}">${escapeHtml(resolveClientTechniqueName(tech.techId, tech.name))} · ${escapeHtml(metaText)}</option>`;
     }).join('');
     const targetOptions = targets.length > 0
       ? targets.map((target) => `<option value="${escapeHtmlAttr(target.playerId)}">${escapeHtml(target.name)}</option>`).join('')
@@ -608,7 +608,7 @@ export class CraftTransmissionView {
       const metaText = this.getTransmissionTechniqueMetaText(tech);
       const maxLevel = this.resolveTechniqueMaxLevel(tech);
       const search = `${tech.name ?? ''} ${tech.techId} ${metaText}`.toLowerCase();
-      return `<option value="${escapeHtmlAttr(tech.techId)}" data-search="${escapeHtmlAttr(search)}" data-max-level="${maxLevel}">${escapeHtml(tech.name ?? tech.techId)} · ${escapeHtml(metaText)} · 满层 ${formatDisplayInteger(maxLevel)} 层</option>`;
+      return `<option value="${escapeHtmlAttr(tech.techId)}" data-search="${escapeHtmlAttr(search)}" data-max-level="${maxLevel}">${escapeHtml(resolveClientTechniqueName(tech.techId, tech.name))} · ${escapeHtml(metaText)} · 满层 ${formatDisplayInteger(maxLevel)} 层</option>`;
     }).join('');
     const firstMaxLevel = this.resolveTechniqueMaxLevel(filteredTechniques[0]);
     const firstCost = this.calculateTechniqueBookCraftCost(filteredTechniques[0], firstMaxLevel);

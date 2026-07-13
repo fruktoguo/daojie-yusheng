@@ -7,7 +7,7 @@ import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
-import { ALCHEMY_FURNACE_OUTPUT_COUNT, ARTIFACT_CRAFT_BASE_SUCCESS_RATE, ELEMENT_KEYS, EQUIP_SLOTS, ENHANCEMENT_HAMMER_TAG, ENHANCEMENT_SPIRIT_STONE_ITEM_ID, MAX_ENHANCE_LEVEL, TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH, TECHNIQUE_GRADE_ORDER, addCraftElementVector, applyCraftOutputRate, canMergeItemStack, cloneCraftEffectStats, compactCraftElementVector, computeAlchemyAdjustedBrewTicks, computeAlchemyAdjustedSuccessRate, computeAlchemyBatchOutputCountWithSize, computeAlchemyBrewTicks, computeAlchemyTotalJobTicks, computeCraftSkillExpGain, computeEnhancementAdjustedSuccessRate, computeEnhancementJobBaseTicks, computeEnhancementJobTicks, computeEnhancementToolSpeedRate, computeFivePhaseElementMatch, computeLuckSuccessRateBonus, createEmptyCraftElementVector, createItemStackSignature, getAlchemySpiritStoneCost, getItemDisplayName, isLegacyItemInstanceId, normalizeCraftEffectStatsPatch, normalizeCraftElementVector } from '@mud/shared';
+import { ALCHEMY_FURNACE_OUTPUT_COUNT, ARTIFACT_CRAFT_BASE_SUCCESS_RATE, ELEMENT_KEYS, EQUIP_SLOTS, ENHANCEMENT_HAMMER_TAG, ENHANCEMENT_SPIRIT_STONE_ITEM_ID, MAX_ENHANCE_LEVEL, TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH, TECHNIQUE_GRADE_ORDER, addCraftElementVector, applyCraftOutputRate, canMergeItemStack, cloneCraftEffectStats, compactCraftElementVector, computeAlchemyAdjustedBrewTicks, computeAlchemyAdjustedSuccessRate, computeAlchemyBatchOutputCountWithSize, computeAlchemyBrewTicks, computeAlchemyTotalJobTicks, computeCraftSkillExpGain, computeEnhancementAdjustedSuccessRate, computeEnhancementJobBaseTicks, computeEnhancementJobTicks, computeEnhancementToolSpeedRate, computeFivePhaseElementMatch, computeLuckSuccessRateBonus, createEmptyCraftElementVector, createItemStackSignature, getAlchemySpiritStoneCost, getItemDisplayName, isLegacyItemInstanceId, normalizeCraftEffectStatsPatch, normalizeCraftElementVector, resolvePlayerFacingContentName } from '@mud/shared';
 import type { ItemStack } from '@mud/shared';
 import { assignItemInstanceIdIfNeeded, compareItemInstanceId, isItemInstanceIdHardCheckEnabled } from '../world/item-instance-id.helpers';
 import { lockItem, unlockItem, getLockedItem, lockedItemToItemStack } from '../player/inventory-lock.helpers';
@@ -847,7 +847,7 @@ export class CraftPanelRuntimeService {
         for (const ingredient of ingredients) {
             const requiredCount = Math.max(1, Math.trunc(Number(ingredient.count) || 0));
             if (countInventoryItem(player, ingredient.itemId) < requiredCount) {
-                return { ok: false, error: `${this.contentTemplateRepository.getItemName(ingredient.itemId) ?? ingredient.itemId} 数量不足。` };
+                return { ok: false, error: `${resolvePlayerFacingContentName(ingredient.itemId, '未知物品', this.contentTemplateRepository.getItemName(ingredient.itemId))} 数量不足。` };
             }
         }
         const batchSpiritStoneCost = this.resolveAlchemyLikeBatchSpiritStoneCost(validatedOrJob);
@@ -1129,7 +1129,10 @@ export class CraftPanelRuntimeService {
             return buildCraftMutationResult(normalizedSelection.error);
         }
         const requestedPresetId = normalizeText(payload?.presetId);
-        const presetName = normalizeAlchemyPresetName(payload?.name, recipe.outputName || recipe.recipeId);
+        const presetName = normalizeAlchemyPresetName(
+            payload?.name,
+            resolvePlayerFacingContentName(recipe.recipeId, '未命名炼制预设', recipe.outputName),
+        );
         const presetId = requestedPresetId || createAlchemyPresetId(recipe.recipeId);
         const existingIndex = player.alchemyPresets.findIndex((entry) => entry.presetId === presetId);
         const nextPreset = {
@@ -1195,7 +1198,7 @@ export class CraftPanelRuntimeService {
             panelChanged: true,
             messages: [{
                     kind: 'system',
-                    text: `已删除炼制预设：${removed?.name ?? presetId}`,
+                    text: `已删除炼制预设：${resolvePlayerFacingContentName(presetId, '未命名炼制预设', removed?.name)}`,
                 }],
         };
     }
@@ -1307,7 +1310,7 @@ export class CraftPanelRuntimeService {
             kind: normalizedJobKind,
             key: 'notice.craft.alchemy.completed',
             vars: {
-                itemName: this.contentTemplateRepository.getItemName(job.outputItemId) ?? job.outputItemId,
+                itemName: resolvePlayerFacingContentName(job.outputItemId, '未知物品', this.contentTemplateRepository.getItemName(job.outputItemId)),
                 activityLabel,
                 successNoun,
                 count: job.successCount,
@@ -1454,7 +1457,7 @@ export class CraftPanelRuntimeService {
         const totalTicks = computeEnhancementJobTicks(target.item.level, totalSpeedRate);
         const protectionItemId = validated.protection ? (validated.config?.protectionItemId ?? target.item.itemId) : undefined;
         const protectionItemName = protectionItemId
-            ? (this.contentTemplateRepository.getItemName(protectionItemId) ?? protectionItemId)
+            ? resolvePlayerFacingContentName(protectionItemId, '未知物品', this.contentTemplateRepository.getItemName(protectionItemId))
             : undefined;
         const protectionItemSignature = validated.protection
             ? createItemStackSignature(validated.protection.item)
@@ -1907,13 +1910,13 @@ export class CraftPanelRuntimeService {
             durationTicks: computeEnhancementJobTicks(item.level, totalSpeedRate),
             materials: requirements.map((entry) => ({
                 itemId: entry.itemId,
-                name: this.contentTemplateRepository.getItemName(entry.itemId) ?? entry.itemId,
+                name: resolvePlayerFacingContentName(entry.itemId, '未知物品', this.contentTemplateRepository.getItemName(entry.itemId)),
                 count: entry.count,
                 ownedCount: countInventoryItem(player, entry.itemId),
             })),
             protectionItemId: config?.protectionItemId,
             protectionItemName: config?.protectionItemId
-                ? (this.contentTemplateRepository.getItemName(config.protectionItemId) ?? config.protectionItemId)
+                ? resolvePlayerFacingContentName(config.protectionItemId, '未知物品', this.contentTemplateRepository.getItemName(config.protectionItemId))
                 : undefined,
             allowSelfProtection: !config?.protectionItemId,
             protectionCandidates: this.buildProtectionCandidates(player, ref, item, config),
@@ -3473,7 +3476,11 @@ function buildAlchemyQueueItem(recipe, ingredients, quantity, kind = 'alchemy') 
     return {
         queueId: buildCraftQueueId(normalizedKind),
         kind: normalizedKind,
-        label: recipe?.outputName ?? recipe?.outputItemId ?? (normalizedKind === 'forging' ? '炼器任务' : '炼丹任务'),
+        label: resolvePlayerFacingContentName(
+            recipe?.outputItemId,
+            normalizedKind === 'forging' ? '炼器任务' : '炼丹任务',
+            recipe?.outputName,
+        ),
         quantity,
         createdAt: Date.now(),
         payload: {
@@ -3489,7 +3496,7 @@ function buildEnhancementQueueItem(target, protection, payload, desiredTargetLev
     return {
         queueId: buildCraftQueueId('enhancement'),
         kind: 'enhancement',
-        label: targetLabel ?? target?.item?.name ?? target?.item?.itemId ?? '强化任务',
+        label: resolvePlayerFacingContentName(target?.item?.itemId, '强化任务', targetLabel, target?.item?.name),
         quantity: desiredTargetLevel,
         createdAt: Date.now(),
         payload: {
@@ -4099,7 +4106,7 @@ function validateAlchemySelection(contentTemplateRepository, recipe, submitted) 
   for (const ingredient of mainIngredients) {
     const submittedCount = submittedMap.get(ingredient.itemId) ?? 0;
     if (submittedCount !== ingredient.count) {
-      return { error: `${ingredient.name ?? ingredient.itemId} 属于主药/主材，数量必须为 ${ingredient.count}。` };
+      return { error: `${resolvePlayerFacingContentName(ingredient.itemId, '未知物品', ingredient.name, contentTemplateRepository.getItemName(ingredient.itemId))} 属于主药/主材，数量必须为 ${ingredient.count}。` };
     }
     const item = contentTemplateRepository.createItem(ingredient.itemId, 1);
     if (item?.materialValues?.elements) {
@@ -4119,7 +4126,7 @@ function validateAlchemySelection(contentTemplateRepository, recipe, submitted) 
     }
     const elements = item.materialValues?.elements;
     if (!elements || Object.keys(elements).length === 0) {
-      return { error: `${item.name ?? item.itemId} 没有五行值，不能作为辅药/辅材。` };
+      return { error: `${resolvePlayerFacingContentName(item.itemId, '未知物品', item.name, contentTemplateRepository.getItemName(item.itemId))} 没有五行值，不能作为辅药/辅材。` };
     }
     addCraftElementVector(inputElements, elements, count);
     normalizedIngredients.push({ itemId: entry.itemId, count });

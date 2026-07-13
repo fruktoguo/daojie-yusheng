@@ -3,16 +3,17 @@
  *
  * 维护时不能在这里执行资源扣除、结算或取消；所有写操作仍必须回到 runtime/pipeline。
  */
-import type {
-  RuntimeTechniqueActivityKind,
-  TechniqueComprehensionProgressBreakdown,
-  TechniqueActivityCancelRef,
-  TechniqueActivityQueueItem,
-  TechniqueActivityTaskListView,
-  TechniqueActivityTaskState,
-  TechniqueActivityTaskView,
+import {
+  resolvePlayerFacingContentName,
+  type CraftQueueItemView,
+  type RuntimeTechniqueActivityKind,
+  type TechniqueComprehensionProgressBreakdown,
+  type TechniqueActivityCancelRef,
+  type TechniqueActivityQueueItem,
+  type TechniqueActivityTaskListView,
+  type TechniqueActivityTaskState,
+  type TechniqueActivityTaskView,
 } from '@mud/shared';
-import type { CraftQueueItemView } from '@mud/shared';
 
 type LegacyTechniqueJob = {
   jobRunId?: string;
@@ -273,7 +274,6 @@ function resolveJobLabel(kind: RuntimeTechniqueActivityKind, job: LegacyTechniqu
   }
   return normalizeText(job.label)
     || normalizeText(job.recipeName)
-    || normalizeText(job.outputItemId)
     || resolveJobTargetLabel(kind, job)
     || resolveKindLabel(kind);
 }
@@ -295,9 +295,11 @@ function resolveJobTargetLabel(kind: RuntimeTechniqueActivityKind, job: LegacyTe
     return normalizeText(job.miningNodeName);
   }
   if (kind === 'transmission') {
-    return normalizeText(job.techniqueName) || normalizeText(job.techniqueId);
+    return resolvePlayerFacingContentName(job.techniqueId, '未知功法', job.techniqueName);
   }
-  return normalizeText(job.outputItemId);
+  return job.outputItemId
+    ? resolvePlayerFacingContentName(job.outputItemId, '未知物品')
+    : undefined;
 }
 
 function normalizeCancelRef(

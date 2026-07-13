@@ -45,6 +45,7 @@ import {
   normalizeAlchemyQuantity,
 } from '@mud/shared';
 import { getLocalItemTemplate } from '../content/local-templates';
+import { resolveClientItemBaseName } from '../content/item-display-name';
 import { getTechniqueGradeLabel } from '../domain-labels';
 import { formatDisplayInteger, formatDisplaySignedNumber } from '../utils/number';
 import { confirmModalHost } from './confirm-modal-host';
@@ -1975,9 +1976,7 @@ export class CraftWorkbenchModal {
 
   private resolveAlchemyMaterialName(recipe: AlchemyRecipeCatalogEntry, itemId: string): string {
     const recipeIngredient = recipe.ingredients.find((ingredient) => ingredient.itemId === itemId);
-    return recipeIngredient?.name?.trim()
-      || getLocalItemTemplate(itemId)?.name?.trim()
-      || itemId;
+    return resolveClientItemBaseName(itemId, recipeIngredient?.name, getLocalItemTemplate(itemId)?.name);
   }
 
   private renderEnhancementBody(): string {
@@ -2345,7 +2344,7 @@ export class CraftWorkbenchModal {
       const grade = String(item.grade ?? template?.grade ?? 'mortal');
       byItemId.set(item.itemId, {
         itemId: item.itemId,
-        name: item.name ?? template?.name ?? item.itemId,
+        name: resolveClientItemBaseName(item.itemId, item.name, template?.name),
         level: Math.max(1, Math.floor(Number(item.level ?? template?.level) || 1)),
         grade,
         gradeLabel: getTechniqueGradeLabel(grade as never),

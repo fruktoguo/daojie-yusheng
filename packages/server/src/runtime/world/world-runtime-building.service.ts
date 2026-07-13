@@ -7,7 +7,7 @@
  * 建筑系统运行时服务
  * 处理建筑放置、拆除、建造进度、材料消耗和风水计算
  */
-import { BUILDING_MAX_BUILD_TICKS, calculateTerrainDurability, hasBuildMaterialCategory, isGenericBuildMaterialSlotItemId, resolveGenericBuildMaterialSlotCategory } from '@mud/shared';
+import { BUILDING_MAX_BUILD_TICKS, calculateTerrainDurability, hasBuildMaterialCategory, isGenericBuildMaterialSlotItemId, resolveGenericBuildMaterialSlotCategory, resolvePlayerFacingContentName } from '@mud/shared';
 import { resolveCraftSkillExpToNextByLevel } from '../craft/craft-skill-exp.helpers';
 import { executeBuildingTick } from '../craft/pipeline/strategies/building-tick.helpers';
 import { buildStructuredNotice } from './structured-notice.helpers';
@@ -142,7 +142,12 @@ export function dispatchStartBuildingConstruction(runtime, playerId, buildingIdI
     if (result?.ok !== true || !result.building) {
         throw new Error(localizeStartBuildingFailure(result?.reason));
     }
-    const buildingName = resolveBuildingDisplayName(context.instance, result.building) ?? result.building.name ?? result.building.defId ?? '建筑';
+    const buildingName = resolvePlayerFacingContentName(
+        result.building.defId,
+        '未知建筑',
+        resolveBuildingDisplayName(context.instance, result.building),
+        result.building.name,
+    );
     const remainingProgress = Math.max(1, Number(result.building.buildRemainingTicks ?? result.building.buildStrength ?? 1) || 1);
     const totalTicks = Math.max(1, Math.ceil(remainingProgress / resolveBuildingProgressPerTick(player)));
     player.buildingJob = {
@@ -272,7 +277,12 @@ async function recoverTreasureVaultItemsBeforeDeconstruct(runtime, instance, bui
     return service.recoverVaultItemsToOwnerMail({
         instanceId: instance?.meta?.instanceId,
         buildingId: building?.id,
-        buildingName: resolveBuildingDisplayName(instance, building) ?? building?.name ?? building?.defId ?? '宝库',
+        buildingName: resolvePlayerFacingContentName(
+            building?.defId,
+            '未知宝库',
+            resolveBuildingDisplayName(instance, building),
+            building?.name,
+        ),
         ownerPlayerId: building?.ownerPlayerId ?? null,
         reason,
     });
@@ -472,7 +482,12 @@ export function awardBuildingConstructionProgress(runtime, playerIdInput, progre
 }
 export function notifyBuildingConstructionCompletion(runtime, building) {
     const playerId = normalizeBuildingRequestId(building?.ownerPlayerId);
-    const buildingName = resolveBuildingDisplayNameByRuntime(runtime, building) ?? building?.defId ?? '建筑';
+    const buildingName = resolvePlayerFacingContentName(
+        building?.defId,
+        '未知建筑',
+        resolveBuildingDisplayNameByRuntime(runtime, building),
+        building?.name,
+    );
     if (playerId && canQueueBuildingNotice(runtime)) {
         const notice = buildStructuredNotice(
             'building',

@@ -3,6 +3,8 @@
  *
  * 维护时应保持无副作用、可在浏览器与 Node 环境同时使用，不引入单端专属依赖。
  */
+import { resolvePlayerFacingContentName } from './content-display-name';
+
 export interface MapGroupInfo {
   mapGroupId: string;
   mapGroupName: string;
@@ -55,14 +57,14 @@ function inferNamePrefix(name: string): string {
 
 export function resolveMapGroupInfo(source: MapGroupSource): MapGroupInfo {
   const mapId = normalizeText(source.id);
-  const mapName = normalizeText(source.name) || mapId || '未知地图';
+  const mapName = resolvePlayerFacingContentName(mapId, '未知地图', source.name);
   const explicitGroupId = normalizeText(source.mapGroupId);
   const explicitGroupName = normalizeText(source.mapGroupName);
   if (explicitGroupId || explicitGroupName) {
     const groupId = explicitGroupId || mapId;
     return {
       mapGroupId: groupId,
-      mapGroupName: explicitGroupName || inferNamePrefix(mapName) || mapName || groupId,
+      mapGroupName: resolvePlayerFacingContentName(groupId, '未知地域', explicitGroupName, inferNamePrefix(mapName), mapName),
       mapGroupOrder: normalizeInteger(source.mapGroupOrder) ?? 1000,
       mapGroupMemberOrder: inferMemberOrder(mapId, groupId, source),
     };
@@ -82,7 +84,7 @@ export function resolveMapGroupInfo(source: MapGroupSource): MapGroupInfo {
 
   const parentMapId = normalizeText(source.parentMapId);
   if (parentMapId) {
-    const groupName = inferNamePrefix(mapName) || parentMapId;
+    const groupName = resolvePlayerFacingContentName(parentMapId, '未知地域', inferNamePrefix(mapName), mapName);
     return {
       mapGroupId: parentMapId,
       mapGroupName: groupName,

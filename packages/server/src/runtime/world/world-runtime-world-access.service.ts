@@ -207,7 +207,7 @@ export class WorldRuntimeWorldAccessService {
 
         const location = deps.getPlayerLocation(playerId);
         if (!location) {
-            throw new NotFoundException(`玩家 ${playerId} 尚未连接`);
+            throw new NotFoundException('玩家尚未连接');
         }
         return location;
     }    
@@ -223,7 +223,7 @@ export class WorldRuntimeWorldAccessService {
 
         const instance = deps.getInstanceRuntime(instanceId);
         if (!instance) {
-            throw new NotFoundException(`地图实例不存在：${instanceId}`);
+            throw new NotFoundException('地图实例不存在');
         }
         return instance;
     }    
@@ -280,7 +280,7 @@ export class WorldRuntimeWorldAccessService {
 
         const view = deps.getPlayerView(playerId);
         if (!view) {
-            throw new NotFoundException(`玩家不存在：${playerId}`);
+            throw new NotFoundException('玩家不存在');
         }
         return view;
     }

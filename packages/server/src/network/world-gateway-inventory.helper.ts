@@ -16,6 +16,7 @@ import {
     S2C,
     cloneSyncedItemStackView,
     matchesInventoryTypeFilter,
+    resolvePlayerFacingContentName,
     type ItemType,
     type SyncedItemStack,
 } from '@mud/shared';
@@ -71,7 +72,7 @@ class WorldGatewayInventoryHelper {
             }
             const destroyed = this.gateway.playerRuntimeService.destroyInventoryItemByInstanceId(playerId, itemInstanceId, payload?.count);
             this.gateway.playerRuntimeService.enqueueNotice(playerId, {
-                text: `你摧毁了 ${destroyed.name ?? destroyed.itemId} x${destroyed.count}。`,
+                text: `你摧毁了 ${resolvePlayerFacingContentName(destroyed.itemId, '未知物品', destroyed.name)} x${destroyed.count}。`,
                 kind: 'info',
             });
         }

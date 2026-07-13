@@ -8,7 +8,7 @@
  * 单张地图的全部运行态：地块平面、占位、妖兽 AI、战斗、建筑、
  * 资源刷新、灵气流动、AOI 广播和持久化脏域追踪。
  */
-import { BUILDING_TOPOLOGY_BLOCKS_MOVE, BUILDING_TOPOLOGY_BLOCKS_SIGHT, DEFAULT_AGGRO_THRESHOLD, DEFAULT_PASSIVE_THREAT_PER_TICK, DEFAULT_QI_RESOURCE_DESCRIPTOR, DEFAULT_QI_RUNTIME_FLOW_CONFIGS, DISPERSED_AURA_RESOURCE_KEY, Direction, GROUND_ITEM_EXPIRE_TICKS, LOST_TARGET_THREAT_DECAY_RATIO, LOST_TARGET_THREAT_FLAT_DECAY_HP_RATIO, MAX_INSTANCE_TICK_SPEED, MAX_THREAT_VALUE, MOVE_POINT_UNIT, QI_HALF_LIFE_RATE_SCALE, StructureType, TERRAIN_DESTROYED_RESTORE_TICKS, TERRAIN_REGEN_RATE_PER_TICK, TERRAIN_RESTORE_RETRY_DELAY_TICKS, THREAT_DISTANCE_FALLOFF_PER_TILE, TILE_AURA_HALF_LIFE_RATE_SCALE, TILE_AURA_HALF_LIFE_RATE_SCALED, TerrainType, TileType, buildEffectiveTargetingGeometry, buildQiResourceKey, calcQiCostWithOutputLimit, calculateDispersedAuraGainPerTile, calculateTerrainDurability, composeTileTypeFromLayers, computeAffectedCellsFromAnchor, createItemStackSignature, createNumericStats, doesTileTypeBlockSight, getEffectiveMoveSpeed, getLayeredTileTraversalCost, getMaxStoredMovePoints, getMovePointsPerTick, getStructureDurabilityProfile, getTileTraversalCost, getTileTypeFromMapChar, horizontalFacingFromDelta, horizontalFacingFromTo, isGroundInteractableCellLayerTarget, isOffsetInRange, isTileTypeWalkable, mergeItemStackEntryInto, normalizeHorizontalFacing, normalizeStructureType, normalizeSurfaceType, normalizeTerrainType, parseQiResourceKey, percentModifierToMultiplier, resolveDefaultTileLayerFallback, resolveMonsterTemplateRecord, resolveSkillRequiresTarget, resolveTileLayerSeedFromTemplateContext, resolveTileLayerSeedFromTileType } from '@mud/shared';
+import { BUILDING_TOPOLOGY_BLOCKS_MOVE, BUILDING_TOPOLOGY_BLOCKS_SIGHT, DEFAULT_AGGRO_THRESHOLD, DEFAULT_PASSIVE_THREAT_PER_TICK, DEFAULT_QI_RESOURCE_DESCRIPTOR, DEFAULT_QI_RUNTIME_FLOW_CONFIGS, DISPERSED_AURA_RESOURCE_KEY, Direction, GROUND_ITEM_EXPIRE_TICKS, LOST_TARGET_THREAT_DECAY_RATIO, LOST_TARGET_THREAT_FLAT_DECAY_HP_RATIO, MAX_INSTANCE_TICK_SPEED, MAX_THREAT_VALUE, MOVE_POINT_UNIT, QI_HALF_LIFE_RATE_SCALE, StructureType, TERRAIN_DESTROYED_RESTORE_TICKS, TERRAIN_REGEN_RATE_PER_TICK, TERRAIN_RESTORE_RETRY_DELAY_TICKS, THREAT_DISTANCE_FALLOFF_PER_TILE, TILE_AURA_HALF_LIFE_RATE_SCALE, TILE_AURA_HALF_LIFE_RATE_SCALED, TerrainType, TileType, buildEffectiveTargetingGeometry, buildQiResourceKey, calcQiCostWithOutputLimit, calculateDispersedAuraGainPerTile, calculateTerrainDurability, composeTileTypeFromLayers, computeAffectedCellsFromAnchor, createItemStackSignature, createNumericStats, doesTileTypeBlockSight, getEffectiveMoveSpeed, getLayeredTileTraversalCost, getMaxStoredMovePoints, getMovePointsPerTick, getStructureDurabilityProfile, getTileTraversalCost, getTileTypeFromMapChar, horizontalFacingFromDelta, horizontalFacingFromTo, isGroundInteractableCellLayerTarget, isOffsetInRange, isTileTypeWalkable, mergeItemStackEntryInto, normalizeHorizontalFacing, normalizeStructureType, normalizeSurfaceType, normalizeTerrainType, parseQiResourceKey, percentModifierToMultiplier, resolveDefaultTileLayerFallback, resolveMonsterTemplateRecord, resolvePlayerFacingContentName, resolveSkillRequiresTarget, resolveTileLayerSeedFromTemplateContext, resolveTileLayerSeedFromTileType } from '@mud/shared';
 import { readTrimmedEnv } from '../../config/env-alias';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import '../map/map-template.repository';
@@ -6893,9 +6893,7 @@ class MapInstanceRuntime {
         const color = typeof compiled?.color === 'string' && compiled.color.trim()
             ? compiled.color.trim()
             : '#cbd5e1';
-        const name = typeof building?.name === 'string' && building.name.trim()
-            ? building.name.trim()
-            : (compiled?.name ?? building.defId);
+        const name = resolvePlayerFacingContentName(building.defId, '未知建筑', building?.name, compiled?.name);
         const cached = this.localBuildingViewCacheById.get(building.id);
         if (cached
             && cached.x === building.x
@@ -8549,7 +8547,7 @@ function toGroundPileView(pile) {
         items: pile.items.map((entry) => ({
             itemKey: entry.itemKey,
             itemId: entry.item.itemId,
-            name: entry.item.name ?? entry.item.itemId,
+            name: resolvePlayerFacingContentName(entry.item.itemId, '未知物品', entry.item.name),
             type: (entry.item.type ?? 'material'),
             count: entry.item.count,
             grade: entry.item.grade,
@@ -8892,7 +8890,7 @@ function buildMonsterInitialBuffState(monster, effect) {
     const duration = Math.max(1, Math.trunc(Number(effect.duration) || 1));
     const infiniteDuration = effect.infiniteDuration === true;
     const stacks = Math.min(maxStacks, Math.max(1, Math.trunc(Number(effect.stacks) || 1)));
-    const name = typeof effect.name === 'string' && effect.name.trim() ? effect.name.trim() : effect.buffId;
+    const name = resolvePlayerFacingContentName(effect.buffId, '未知增益', effect.name);
     const shortMark = typeof effect.shortMark === 'string' && effect.shortMark.trim()
         ? String(Array.from(effect.shortMark.trim())[0] ?? '气')
         : String(Array.from(name)[0] ?? '气');

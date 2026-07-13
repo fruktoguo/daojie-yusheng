@@ -11,7 +11,7 @@
 /** 运行时参数标准化工具：统一输入解析、比较稳定性与展示数据。
  * 职责：输入校验、ID 构建、坐标/数值归一化。 */
 import { BadRequestException } from '@nestjs/common';
-import { ARTIFACT_SLOTS, Direction, EQUIP_SLOTS, applyCombatAttackIntensityQiCost, calcQiCostWithOutputLimit, createItemStackSignature, getDamageTrailColor, getItemStackDisplayLabel, mergeItemStackEntryInto, mergeItemStackInto, resolveSkillEffectiveRange } from '@mud/shared';
+import { ARTIFACT_SLOTS, Direction, EQUIP_SLOTS, applyCombatAttackIntensityQiCost, calcQiCostWithOutputLimit, createItemStackSignature, getDamageTrailColor, getItemStackDisplayLabel, mergeItemStackEntryInto, mergeItemStackInto, resolvePlayerFacingContentName, resolveSkillEffectiveRange } from '@mud/shared';
 
 /** 统一动作 ID。 */
 export function normalizeRuntimeActionId(actionIdInput) {
@@ -470,24 +470,25 @@ export function resolveQuestTargetLabel(objectiveType, quest, targetRealmLabel, 
     if ((objectiveType === 'realm_progress' || objectiveType === 'realm_stage') && typeof targetRealmLabel === 'string' && targetRealmLabel.trim()) {
         return targetRealmLabel.trim();
     }
-    if (typeof quest.targetName === 'string' && quest.targetName.trim()) {
-        return quest.targetName;
-    }
     if (objectiveType === 'talk') {
-        return typeof quest.targetNpcName === 'string' && quest.targetNpcName.trim()
-            ? quest.targetNpcName
-            : targetNpcName || (typeof quest.targetNpcId === 'string' ? quest.targetNpcId : quest.title);
+        return resolvePlayerFacingContentName(
+            quest.targetNpcId,
+            '未知人物',
+            quest.targetName,
+            quest.targetNpcName,
+            targetNpcName,
+        );
     }
     if (objectiveType === 'submit_item') {
-        return requiredItemName || (typeof quest.requiredItemId === 'string' ? quest.requiredItemId : quest.title);
+        return resolvePlayerFacingContentName(quest.requiredItemId, '未知物品', quest.targetName, requiredItemName);
     }
     if (objectiveType === 'learn_technique') {
-        return techniqueName || (typeof quest.targetTechniqueId === 'string' ? quest.targetTechniqueId : quest.title);
+        return resolvePlayerFacingContentName(quest.targetTechniqueId, '未知功法', quest.targetName, techniqueName);
     }
     if (objectiveType === 'kill' && typeof quest.targetMonsterId === 'string' && quest.targetMonsterId.trim()) {
-        return quest.targetMonsterId;
+        return resolvePlayerFacingContentName(quest.targetMonsterId, '未知妖兽', quest.targetName);
     }
-    return quest.title;
+    return resolvePlayerFacingContentName(quest.id, '未知目标', quest.targetName, quest.title);
 }
 /** 生成任务奖励展示文本。 */
 export function buildQuestRewardText(quest, rewards) {

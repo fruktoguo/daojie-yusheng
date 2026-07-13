@@ -245,7 +245,7 @@ market.auction.consign.package,坊市,打包 {count} 件,
 market.auction.consign.package-count,坊市,寄拍数量,
 market.auction.consign.search,坊市,搜索物品,
 market.auction.consign.search-empty,坊市,没有匹配的可寄拍物品。,
-market.auction.consign.search-placeholder,坊市,输入物品名或 ID,
+market.auction.consign.search-placeholder,坊市,输入物品名称,
 market.auction.consign.select-hint,坊市,先选择要打包寄拍的背包物品。,
 market.auction.consign.start-price,坊市,起拍总价,
 market.auction.consign.submit,坊市,确认寄拍,
@@ -376,7 +376,7 @@ market.transmission.page-status,坊市,共 {total} 卷，第 {page} / {totalPage
 market.transmission.realm.unknown,坊市,境界未明,
 market.transmission.ribbon.mine,坊市,我的寄售,
 market.transmission.search,坊市,搜索功法,
-market.transmission.search-placeholder,坊市,输入功法名或 ID,
+market.transmission.search-placeholder,坊市,输入功法名称,
 market.transmission.sort.grade-desc,坊市,品阶从高到低,
 market.transmission.sort.label,坊市,排序,
 market.transmission.sort.name-asc,坊市,名称顺序,
@@ -2013,7 +2013,6 @@ entity-detail.observation.rows.empty,实体详情,暂且如此。,范围D固定�
 entity-detail.observation.title,实体详情,观测,范围D固定前端可见文本
 entity-detail.player.empty,实体详情,暂未探明此身详情。,范围D固定前端可见文本
 entity-detail.player.field.display-name,实体详情,称呼,范围D固定前端可见文本
-entity-detail.player.field.id,实体详情,编号,范围D固定前端可见文本
 entity-detail.player.subtitle,实体详情,玩家观测,范围D固定前端可见文本
 entity-detail.player.tracking.coordinate,实体详情,卷宗坐标,范围D固定前端可见文本
 entity-detail.player.tracking.desc,实体详情,该坐标来自天下榜玩家击杀榜的低频追索结果，榜册开启期间每十息刷新一次。,范围D固定前端可见文本
@@ -3007,7 +3006,7 @@ action.sect.manage.manage.reject,行动,退回,
 action.sect.manage.manage.retry,行动,重试,
 action.sect.manage.manage.review-title,行动,入宗审批,
 action.sect.manage.manage.search-aria,行动,搜索待审批申请人,
-action.sect.manage.manage.search-placeholder,行动,搜索申请人姓名 / ID,
+action.sect.manage.manage.search-placeholder,行动,搜索申请人姓名,
 action.sect.manage.manage.title,行动,宗门事务,
 action.sect.manage.manage.transfer-empty,行动,暂无可转让成员。,
 action.sect.manage.manage.transfer-title,行动,宗门转让,
@@ -3380,7 +3379,7 @@ equipment-tooltip.buff.stack-limit.comma,装备提示,，最多 {stackLimit} 层
 equipment-tooltip.buff.stack-limit.suffix,装备提示,· 最多 {stackLimit} 层,范围D固定前端可见文本
 equipment-tooltip.chance.line,装备提示,触发概率：{chance},范围D固定前端可见文本
 equipment-tooltip.condition.cultivating,装备提示,仅修炼中生效,范围D固定前端可见文本
-equipment-tooltip.condition.has-buff,装备提示,需带有 {buffId}{stacks},范围D固定前端可见文本
+equipment-tooltip.condition.has-buff,装备提示,需带有 {buffName}{stacks},范围D固定前端可见文本
 equipment-tooltip.condition.hp-ratio,装备提示,生命 {op} {value},范围D固定前端可见文本
 equipment-tooltip.condition.line,装备提示,条件：{conditions},范围D固定前端可见文本
 equipment-tooltip.condition.map,装备提示,地图：{value},范围D固定前端可见文本

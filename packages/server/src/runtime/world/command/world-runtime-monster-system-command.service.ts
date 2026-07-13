@@ -42,7 +42,7 @@ export class WorldRuntimeMonsterSystemCommandService {
         const instance = deps.getInstanceRuntimeOrThrow(instanceId);
         const items = this.contentTemplateRepository.rollMonsterDrops(monsterId, rolls);
         if (items.length === 0) {
-            throw new NotFoundException(`妖兽 ${monsterId} 没有产出掉落`);
+            throw new NotFoundException('该妖兽没有产出掉落');
         }
         this.spawnItems(instance, x, y, items, deps);
     }

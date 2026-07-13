@@ -61,6 +61,7 @@ import {
   resolveClampedMarketResponsePage,
 } from '@mud/shared';
 import { getLocalItemTemplate, getLocalTechniqueCategoryForBookItem, resolvePreviewItem, resolveTechniqueIdFromBookItemId } from '../../content/local-templates';
+import { resolveClientItemBaseName } from '../../content/item-display-name';
 import { buildItemTooltipPayload, describeItemEffectDetails } from '../equipment-tooltip';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../floating-tooltip';
 import { detailModalHost } from '../detail-modal-host';
@@ -1194,7 +1195,7 @@ export class MarketPanel {
     const selectedItemId = this.ensureHeavenlyDaoShopSelection()?.itemId ?? null;
     return HEAVENLY_DAO_SHOP_ITEMS.map((entry) => {
       const template = getLocalItemTemplate(entry.itemId);
-      const itemName = template?.name ?? entry.itemId;
+      const itemName = resolveClientItemBaseName(entry.itemId, template?.name);
       const countText = entry.count > 1 ? ` x${formatDisplayInteger(entry.count)}` : '';
       const ownedCount = getPlayerOwnedItemCount(this.player, this.inventory, entry.itemId);
       const unitPrice = this.getHeavenlyDaoShopUnitPrice(entry.price);

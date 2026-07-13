@@ -8,6 +8,7 @@ import { randomUUID } from 'node:crypto';
 import {
   canMergeItemStack,
   createItemStackSignature,
+  resolvePlayerFacingContentName,
   type C2S_OrganizeTreasureVaultView,
   type C2S_RenameTreasureVaultView,
   type C2S_TreasureVaultDepositView,
@@ -895,7 +896,7 @@ function resolveVaultCapacity(instance: any, building: any): number {
 
 function resolveBuildingName(instance: any, building: any): string {
   const compiled = instance?.buildingCatalog?.defByHandle?.[building?.defHandle] ?? instance?.buildingCatalog?.defById?.get?.(building?.defId);
-  return normalizeString(building?.name) || normalizeString(compiled?.name) || normalizeString(building?.defId) || '宝库';
+  return resolvePlayerFacingContentName(building?.defId, '宝库', building?.name, compiled?.name);
 }
 
 function normalizeTreasureVaultName(input: unknown): string | null {

@@ -17,7 +17,7 @@ import {
   TECHNIQUE_GRADE_ORDER,
 } from '@mud/shared';
 import { contentResolver } from '../../content/content-resolver';
-import { getLocalRealmLevelEntry, getLocalTechniqueTemplate } from '../../content/local-templates';
+import { getLocalRealmLevelEntry, getLocalTechniqueTemplate, resolveClientTechniqueName } from '../../content/local-templates';
 import { getTechniqueCategoryLabel, getTechniqueGradeLabel } from '../../domain-labels';
 import { formatDisplayInteger } from '../../utils/number';
 import { detailModalHost } from '../detail-modal-host';
@@ -272,7 +272,7 @@ export class MarketTransmissionView {
       itemKey: entry.itemKey,
       item,
       techniqueId,
-      itemName: formatTechniqueName(entry.techniqueName || technique?.name || item.name || techniqueId),
+      itemName: formatTechniqueName(resolveClientTechniqueName(techniqueId, entry.techniqueName, technique?.name, item.name)),
       category,
       categoryLabel: category ? getTechniqueCategoryLabel(category) : t('market.transmission.category.unknown', undefined),
       grade,
@@ -823,7 +823,7 @@ export class MarketTransmissionView {
           itemInstanceId,
           item,
           techniqueId,
-          name: formatTechniqueName(technique?.name || item.name || techniqueId),
+          name: formatTechniqueName(resolveClientTechniqueName(techniqueId, technique?.name, item.name)),
           category,
           categoryLabel: category ? getTechniqueCategoryLabel(category) : t('market.transmission.category.unknown', undefined),
           grade,

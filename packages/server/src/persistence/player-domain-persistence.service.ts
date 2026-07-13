@@ -13,7 +13,7 @@
  * 按域独立读写，支持增量刷盘、恢复水位和旧快照兼容水合。
  */
 import { Inject, Injectable, Logger, Optional, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
-import { ARTIFACT_SLOTS, createItemStackSignature, DEFAULT_COMBAT_ATTACK_INTENSITY, EQUIP_SLOTS, isCreatedTechniqueId, isLegacyItemInstanceId, normalizeCombatAttackIntensity, PLAYER_HEARTBEAT_TIMEOUT_MS, TechniqueRealm } from '@mud/shared';
+import { ARTIFACT_SLOTS, createItemStackSignature, DEFAULT_COMBAT_ATTACK_INTENSITY, EQUIP_SLOTS, isCreatedTechniqueId, isLegacyItemInstanceId, normalizeCombatAttackIntensity, PLAYER_HEARTBEAT_TIMEOUT_MS, resolvePlayerFacingContentName, TechniqueRealm } from '@mud/shared';
 import type { OfflineGainReportView, PlayerStatisticPeriodTotalView } from '@mud/shared';
 import { randomUUID } from 'node:crypto';
 import type { PoolClient } from 'pg';
@@ -8246,7 +8246,7 @@ function applyProjectedTechniqueComprehensions(
       const name = resolveProjectedTechniqueName(techId, contentTemplateRepository);
       return {
         techId,
-        name: name ?? techId,
+        name: resolvePlayerFacingContentName(techId, '未知功法', name),
         sourceKind: normalizeOptionalString(row.source_kind) === 'created'
           ? 'created'
           : 'normal',

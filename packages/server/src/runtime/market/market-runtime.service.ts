@@ -5,7 +5,7 @@
  */
 import { BadRequestException, Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { createHash, randomUUID } from 'crypto';
-import { AUCTION_DEFAULT_DURATION_HOURS, AUCTION_LISTING_FEE_BASE, AUCTION_LISTING_FEE_RATE, AUCTION_MAX_DURATION_HOURS, AUCTION_MIN_DURATION_HOURS, CUSTOM_TECHNIQUE_BOOK_ITEM_ID, EQUIP_SLOTS, HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID, HEAVENLY_DAO_SHOP_ITEMS, ITEM_TYPES, MARKET_MAX_ENHANCE_LEVEL, MARKET_MAX_UNIT_PRICE, TECHNIQUE_EQUIP_SLOTS, TECHNIQUE_GRADE_ORDER, calculateHeavenlyDaoShopDiscountedPrice, calculateMarketTradeTotalCost, canMergeItemStack, createItemStackSignature, getItemDisplayName, getMarketMinimumTradeQuantity, getMarketPriceStep, isValidMarketPrice, isValidMarketTradeQuantity, normalizeMarketAuctionPageSize, normalizeMarketAuctionQuery, normalizeMarketListingsPageSize, normalizeMarketPriceUp, normalizeMarketRequestPage, normalizeMarketTradeSource, normalizeTransmissionCategory, normalizeTransmissionListingSort, resolveClampedMarketResponsePage } from '@mud/shared';
+import { AUCTION_DEFAULT_DURATION_HOURS, AUCTION_LISTING_FEE_BASE, AUCTION_LISTING_FEE_RATE, AUCTION_MAX_DURATION_HOURS, AUCTION_MIN_DURATION_HOURS, CUSTOM_TECHNIQUE_BOOK_ITEM_ID, EQUIP_SLOTS, HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID, HEAVENLY_DAO_SHOP_ITEMS, ITEM_TYPES, MARKET_MAX_ENHANCE_LEVEL, MARKET_MAX_UNIT_PRICE, TECHNIQUE_EQUIP_SLOTS, TECHNIQUE_GRADE_ORDER, calculateHeavenlyDaoShopDiscountedPrice, calculateMarketTradeTotalCost, canMergeItemStack, createItemStackSignature, getItemDisplayName, getMarketMinimumTradeQuantity, getMarketPriceStep, isValidMarketPrice, isValidMarketTradeQuantity, normalizeMarketAuctionPageSize, normalizeMarketAuctionQuery, normalizeMarketListingsPageSize, normalizeMarketPriceUp, normalizeMarketRequestPage, normalizeMarketTradeSource, normalizeTransmissionCategory, normalizeTransmissionListingSort, resolveClampedMarketResponsePage, resolvePlayerFacingContentName } from '@mud/shared';
 import { assignItemInstanceIdIfNeeded } from '../world/item-instance-id.helpers';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { AUCTION_GLOBAL_TRADE_HISTORY_LIMIT, AUCTION_MY_TRADE_HISTORY_VISIBLE_LIMIT, AUCTION_TRADE_HISTORY_PAGE_SIZE, MARKET_CURRENCY_ITEM_ID, MARKET_MAX_ORDER_QUANTITY, MARKET_STORAGE_RUNTIME_CACHE_LIMIT, MARKET_TRADE_HISTORY_PAGE_SIZE, MARKET_TRADE_HISTORY_RUNTIME_CACHE_LIMIT, MARKET_TRADE_HISTORY_VISIBLE_LIMIT } from '../../constants/gameplay/market';
@@ -1755,9 +1755,10 @@ export class MarketRuntimeService {
                 }
             }
             const result = this.createEmptyResult(playerId);
+            const lotItemName = this.resolveMarketItemDisplayName(lot.item, lot.itemId);
             if (previousHighest && previousHighest.bidderId !== playerId && previousHighest.reservedCost > 0) {
                 this.deliverMarketCurrencyToPlayer(previousHighest.bidderId, previousHighest.reservedCost, context);
-                this.pushNotice(result, previousHighest.bidderId, `你在拍卖行的 ${lot.item?.name ?? lot.itemId} 出价已被超过，冻结灵石已退回。`, 'info');
+                this.pushNotice(result, previousHighest.bidderId, `你在拍卖行的 ${lotItemName} 出价已被超过，冻结灵石已退回。`, 'info');
             }
             const extension = this.extendAuctionIfEndingSoon(itemKey, now);
             const bids = existingBids
@@ -1776,9 +1777,9 @@ export class MarketRuntimeService {
             this.auctionBidsByItemKey.set(itemKey, bids);
             this.persistAuctionStateToCarrier(itemKey, context);
             const extensionText = extension.extended ? '，剩余时间已延长至 30 秒' : '';
-            this.pushStructuredNotice(result, playerId, 'success', 'notice.market.auction.bid-placed', `你在拍卖行出价 ${lot.item?.name ?? lot.itemId}，当前总价 ${this.formatUnitPrice(unitPrice)} ${this.getCurrencyItemName()}${extensionText}。`, {
+            this.pushStructuredNotice(result, playerId, 'success', 'notice.market.auction.bid-placed', `你在拍卖行出价 ${lotItemName}，当前总价 ${this.formatUnitPrice(unitPrice)} ${this.getCurrencyItemName()}${extensionText}。`, {
                 vars: {
-                    itemName: lot.item?.name ?? lot.itemId,
+                    itemName: lotItemName,
                     currencyName: this.getCurrencyItemName(),
                     totalPrice: this.formatUnitPrice(unitPrice),
                     extensionText,
@@ -2048,9 +2049,12 @@ export class MarketRuntimeService {
         const techniqueRealmLv = Number.isFinite(rawRealmLv) && rawRealmLv > 0
             ? Math.max(1, Math.trunc(rawRealmLv))
             : undefined;
-        const techniqueName = typeof template?.name === 'string' && template.name.trim()
-            ? template.name.trim()
-            : String(item?.name ?? techniqueId ?? item?.itemId ?? '').trim();
+        const techniqueName = resolvePlayerFacingContentName(
+            techniqueId || item?.itemId,
+            '未知功法',
+            template?.name,
+            item?.name,
+        );
         return {
             techniqueName,
             techniqueCategory: normalizedCategory === 'all' ? undefined : normalizedCategory,
@@ -2614,7 +2618,7 @@ export class MarketRuntimeService {
         return {
             itemId: item.itemId,
             count: 1,
-            name: item.name ?? item.itemId,
+            name: this.resolveMarketItemDisplayName(item, item.itemId),
             type: item.type ?? 'material',
             grade: item.grade,
             level: item.level,
@@ -3290,7 +3294,7 @@ export class MarketRuntimeService {
         const normalized = this.contentTemplateRepository.normalizeItem(item);
         return {
             itemId: normalized.itemId,
-            name: normalized.name ?? normalized.itemId,
+            name: this.resolveMarketItemDisplayName(normalized, normalized.itemId),
             type: normalized.type ?? 'material',
             count: Math.max(1, Math.trunc(normalized.count)),
             desc: normalized.desc ?? '',
@@ -3459,11 +3463,12 @@ export class MarketRuntimeService {
     }
     /** 天道商店专属货币展示名。 */
     getHeavenlyDaoShopCurrencyName() {
-        return this.contentTemplateRepository.createItem(HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID, 1)?.name ?? HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID;
+        const item = this.contentTemplateRepository.createItem(HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID, 1);
+        return this.resolveMarketItemDisplayName(item, HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID);
     }
     /** 生成市场内商品提示标签。 */
     formatMarketItemStackLabel(item) {
-        const label = item?.name ?? item?.itemId ?? '未知物品';
+        const label = this.resolveMarketItemDisplayName(item, item?.itemId);
         const count = Math.max(1, Math.trunc(Number(item?.count ?? 1)));
         return count > 1 ? `${label} x${count}` : label;
     }
@@ -3629,7 +3634,7 @@ export class MarketRuntimeService {
             side: record.buyerId === playerId ? 'buy' : 'sell',
             source: this.normalizeTradeSource(record.source),
             itemId: record.itemId,
-            itemName: this.contentTemplateRepository.getItemName(record.itemId) ?? record.itemId,
+            itemName: this.resolveMarketItemDisplayName(null, record.itemId),
             counterpartyLabel: persistedLabel || identityLabel || onlineLabel || '未知玩家',
             buyerLabel,
             sellerLabel,
@@ -4019,6 +4024,20 @@ export class MarketRuntimeService {
 
     getCurrencyItemName() {
         return this.contentTemplateRepository.getItemName(MARKET_CURRENCY_ITEM_ID) ?? '灵石';
+    }
+    /** 统一解析坊市玩家可见物品名，禁止用 itemId 作为兜底文案。 */
+    resolveMarketItemDisplayName(item, itemIdInput) {
+        const itemId = typeof itemIdInput === 'string' && itemIdInput.trim()
+            ? itemIdInput.trim()
+            : typeof item?.itemId === 'string'
+                ? item.itemId.trim()
+                : '';
+        return resolvePlayerFacingContentName(
+            itemId,
+            '未知物品',
+            item?.name,
+            itemId ? this.contentTemplateRepository.getItemName(itemId) : null,
+        );
     }
     /**
  * buildClaimStoragePlan：构建领取托管仓的目标背包与剩余仓库。

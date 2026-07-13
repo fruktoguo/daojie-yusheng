@@ -115,7 +115,7 @@ export class WorldRuntimeBattleEngageService {
         }
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
         if (!player.instanceId) {
-            throw new BadRequestException(`玩家 ${playerId} 未进入地图实例`);
+            throw new BadRequestException('尚未进入地图实例');
         }
         const monsterInstance = deps.getInstanceRuntimeOrThrow(player.instanceId);
         const resolvedTarget = resolveAttackableTargetRef(

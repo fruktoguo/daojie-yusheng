@@ -15,6 +15,7 @@ import {
 } from '../../persistence/player-domain-persistence.service';
 import { RedeemCodePersistenceService } from '../../persistence/redeem-code-persistence.service';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
+import { resolvePlayerDisplayName } from '../player/player-display-name';
 import { assignItemInstanceIdIfNeeded } from '../world/item-instance-id.helpers';
 import { buildStructuredNotice } from '../world/structured-notice.helpers';
 
@@ -662,7 +663,7 @@ export class RedeemCodeRuntimeService {
         const result = await claimFn.call(this.redeemCodePersistenceService, {
             code: codeEntry.code,
             playerId: player.playerId,
-            playerName: player.name,
+            playerName: resolvePlayerDisplayName(player, { playerId: player.playerId, fallback: '未知玩家' }),
             usedAt: nowIso,
             operationId,
         });
@@ -692,7 +693,7 @@ export class RedeemCodeRuntimeService {
         const result = await finalizeFn.call(this.redeemCodePersistenceService, {
             code: codeEntry.code,
             playerId: player.playerId,
-            playerName: player.name,
+            playerName: resolvePlayerDisplayName(player, { playerId: player.playerId, fallback: '未知玩家' }),
             usedAt: nowIso,
             operationId,
         });

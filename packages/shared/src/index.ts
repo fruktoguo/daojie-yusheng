@@ -62,6 +62,7 @@ export * from './technique-activity-meta';
 export * from './technique-activity-pipeline-types';
 export * from './enhancement-cost';
 export * from './display-number';
+export * from './content-display-name';
 export * from './value';
 export * from './monster';
 export * from './combat';

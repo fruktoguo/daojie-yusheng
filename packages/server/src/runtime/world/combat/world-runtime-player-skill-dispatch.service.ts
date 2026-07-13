@@ -4,7 +4,7 @@
  * 维护时要保证结算仍由服务端权威执行，客户端只接收结构化结果和必要表现字段。
  */
 import { Inject, BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { TileType, applyCombatAttackIntensityQiCost, buildEffectiveTargetingGeometry, calcQiCostWithOutputLimit, computeAffectedCellsFromAnchor, formatDisplayNumber, horizontalFacingFromTo, parseTileTargetRef, percentModifierToMultiplier, resolveSkillRequiresTarget, resolveTargetingGeometryMaxTargets, signedRatioValue, uiLabels } from '@mud/shared';
+import { TileType, applyCombatAttackIntensityQiCost, buildEffectiveTargetingGeometry, calcQiCostWithOutputLimit, computeAffectedCellsFromAnchor, formatDisplayNumber, horizontalFacingFromTo, parseTileTargetRef, percentModifierToMultiplier, resolvePlayerFacingContentName, resolveSkillRequiresTarget, resolveTargetingGeometryMaxTargets, signedRatioValue, uiLabels } from '@mud/shared';
 import { PlayerCombatService } from '../../combat/player-combat.service';
 import { createCombatOutcomeApplyAdapters } from '../../combat/combat-outcome-apply-adapters';
 import { resolveMonsterCombatExpEquivalentFallback } from '../../combat/monster-combat-exp-equivalent.helper';
@@ -27,6 +27,10 @@ type AnyRecord = Record<string, any>;
 
 const BASE_CHANT_TICK_DURATION_MS = 1000;
 const CHANT_LABEL_EXTRA_DURATION_MS = 240;
+
+function resolveMonsterDisplayName(monster) {
+    return resolvePlayerFacingContentName(monster?.monsterId ?? monster?.runtimeId, '未知妖兽', monster?.name);
+}
 
 const { findPlayerSkill, getSkillEffectColor, resolveRuntimeSkillRange } = world_runtime_normalization_helpers_1;
 const { chebyshevDistance } = world_runtime_path_planning_helpers_1;
@@ -623,7 +627,7 @@ export class WorldRuntimePlayerSkillDispatchService {
             deps.worldRuntimeCraftInterruptService.interruptCraftForReason(playerId, attacker, 'attack', deps);
         }
         if (!attacker.instanceId) {
-            throw new BadRequestException(`玩家 ${playerId} 未进入地图实例`);
+            throw new BadRequestException('尚未进入地图实例');
         }
         const skill = findPlayerSkill(attacker, skillId);
         if (!skill) {
@@ -1522,8 +1526,8 @@ export class WorldRuntimePlayerSkillDispatchService {
                         resolutionFloat: { x: monster.x, y: monster.y, resolution: primaryRoll, fallbackColor: effectColor },
                         notices: [{
                             playerId: attacker.playerId,
-                            text: `${formatCombatActionClause('你', formatTargetLabelWithHp(monster.name ?? monster.monsterId ?? monster.runtimeId, monster.hp, monster.maxHp), skill.name)}，${formatCombatResolutionOutcome(primaryRoll, primaryRoll.damageKind ?? damageKind, primaryRoll.element ?? damageElement)}`,
-                            combat: buildCombatNoticePayload({ caster: '你', target: monster.name ?? monster.monsterId ?? monster.runtimeId, targetHp: monster.hp, targetMaxHp: monster.maxHp, skill: skill.name, resolution: { ...primaryRoll, damageKind: primaryRoll.damageKind ?? damageKind, element: primaryRoll.element ?? damageElement } }),
+                            text: `${formatCombatActionClause('你', formatTargetLabelWithHp(resolveMonsterDisplayName(monster), monster.hp, monster.maxHp), skill.name)}，${formatCombatResolutionOutcome(primaryRoll, primaryRoll.damageKind ?? damageKind, primaryRoll.element ?? damageElement)}`,
+                            combat: buildCombatNoticePayload({ caster: '你', target: resolveMonsterDisplayName(monster), targetHp: monster.hp, targetMaxHp: monster.maxHp, skill: skill.name, resolution: { ...primaryRoll, damageKind: primaryRoll.damageKind ?? damageKind, element: primaryRoll.element ?? damageElement } }),
                         }],
                     });
                     recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.presentationMs', presentationStartedAt);
@@ -1565,8 +1569,8 @@ export class WorldRuntimePlayerSkillDispatchService {
                     damageFloat: { x: monster.x, y: monster.y, damage: result.totalDamage, color: effectColor },
                     notices: [{
                         playerId: attacker.playerId,
-                        text: `${formatCombatActionClause('你', formatTargetLabelWithHp(monster.name ?? monster.monsterId ?? monster.runtimeId, outcome?.hp ?? 0, monster.maxHp), skill.name)}，${formatCombatResolutionOutcome(primaryRoll, primaryRoll.damageKind ?? damageKind, primaryRoll.element ?? damageElement)}`,
-                        combat: buildCombatNoticePayload({ caster: '你', target: monster.name ?? monster.monsterId ?? monster.runtimeId, targetHp: outcome?.hp ?? 0, targetMaxHp: monster.maxHp, skill: skill.name, resolution: { ...primaryRoll, damageKind: primaryRoll.damageKind ?? damageKind, element: primaryRoll.element ?? damageElement }, effects: Array.isArray(result.targetBuffs) && result.targetBuffs.length > 0 ? result.targetBuffs.map(b => ({ type: b.category === 'debuff' ? 'debuff' : 'buff', buffId: b.buffId, name: b.name, category: b.category, duration: b.duration })) : undefined }),
+                        text: `${formatCombatActionClause('你', formatTargetLabelWithHp(resolveMonsterDisplayName(monster), outcome?.hp ?? 0, monster.maxHp), skill.name)}，${formatCombatResolutionOutcome(primaryRoll, primaryRoll.damageKind ?? damageKind, primaryRoll.element ?? damageElement)}`,
+                        combat: buildCombatNoticePayload({ caster: '你', target: resolveMonsterDisplayName(monster), targetHp: outcome?.hp ?? 0, targetMaxHp: monster.maxHp, skill: skill.name, resolution: { ...primaryRoll, damageKind: primaryRoll.damageKind ?? damageKind, element: primaryRoll.element ?? damageElement }, effects: Array.isArray(result.targetBuffs) && result.targetBuffs.length > 0 ? result.targetBuffs.map(b => ({ type: b.category === 'debuff' ? 'debuff' : 'buff', buffId: b.buffId, name: b.name, category: b.category, duration: b.duration })) : undefined }),
                     }],
                 });
                 recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.presentationMs', presentationStartedAt);

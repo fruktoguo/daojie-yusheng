@@ -2,7 +2,7 @@
  * 本文件是客户端藏经台弹层模块。UI 只负责选择与发送意图，录入合法性由服务端权威校验。
  */
 import { getTechniqueMaxLevel, isCreatedTechniqueId, isTechniqueFullyMastered, type PlayerState } from '@mud/shared';
-import { getLocalRealmLevelEntry, getLocalTechniqueTemplate } from '../content/local-templates';
+import { getLocalRealmLevelEntry, getLocalTechniqueTemplate, resolveClientTechniqueName } from '../content/local-templates';
 import { getTechniqueCategoryLabel, getTechniqueGradeLabel } from '../domain-labels';
 import { formatDisplayInteger } from '../utils/number';
 import { detailModalHost } from './detail-modal-host';
@@ -90,7 +90,7 @@ function renderRecordingBody(techniques: ScriptureTechniqueOption[]): string {
     `;
   }
   const optionsHtml = techniques.map((technique) => {
-    const name = normalizeText(technique.name) || normalizeText(technique.techId) || '功法';
+    const name = resolveClientTechniqueName(technique.techId, technique.name);
     const search = `${name} ${technique.techId} ${technique.metaText}`.toLowerCase();
     return `<option value="${escapeHtmlAttr(technique.techId)}" data-search="${escapeHtmlAttr(search)}">${escapeHtml(name)} · ${escapeHtml(technique.metaText)}</option>`;
   }).join('');

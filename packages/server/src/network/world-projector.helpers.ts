@@ -37,6 +37,7 @@ import {
   cloneCraftEffectStats,
   getFirstGrapheme,
   normalizeCombatAttackIntensity,
+  resolvePlayerFacingContentName,
 } from '@mud/shared';
 import { cloneAutoUsePillList, cloneCombatTargetingRules, isSameAutoUsePillList, isSameCombatTargetingRules } from '../runtime/player/player-combat-config.helpers';
 import { cloneVisibleBuffProjection, projectVisiblePlayerBuffs } from '../runtime/player/player-buff-projection.helpers';
@@ -229,7 +230,7 @@ function resolveEquipmentSpecialStats(player: ProjectorPlayerLike): Partial<Play
 function toEquipmentEffectivenessItemStack(item: SyncedItemStack): ItemStack {
   return {
     ...item,
-    name: item.name ?? item.itemId,
+    name: resolvePlayerFacingContentName(item.itemId, '未知物品', item.name),
     type: item.type ?? 'equipment',
   } as ItemStack;
 }

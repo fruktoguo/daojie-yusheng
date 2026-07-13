@@ -16,6 +16,8 @@ export interface DaoistRelationView {
   level: DaoistRelationLevel;
   online: boolean;
   instanceId?: string;
+  /** 玩家可见的位置名称；instanceId 仅用于内部定位，不直接展示。 */
+  instanceName?: string;
   x?: number;
   y?: number;
   createdAt: number;

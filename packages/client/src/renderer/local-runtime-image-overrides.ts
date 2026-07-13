@@ -289,7 +289,7 @@ export function createPlayerRuntimeImageResource(input: {
 }): RuntimeImageResourceEntry | null {
   const playerId = normalizeKey(input.playerId);
   if (!playerId) return null;
-  const displayName = normalizeDisplayName(input.roleName) || normalizeDisplayName(input.displayName) || playerId;
+  const displayName = normalizeDisplayName(input.roleName) || normalizeDisplayName(input.displayName) || '我的角色';
   return {
     key: `player:${playerId}`,
     kind: 'entity',

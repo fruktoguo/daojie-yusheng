@@ -4,13 +4,14 @@
  * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
 import { Inject, Injectable, Logger, OnModuleDestroy, Optional } from '@nestjs/common';
-import { calculateMarketTradeTotalCost } from '@mud/shared';
+import { calculateMarketTradeTotalCost, resolvePlayerFacingContentName } from '@mud/shared';
 import { isNativeGmBotPlayerId } from '../../http/native/native-gm.constants';
 import { NativePlayerAuthStoreService } from '../../http/native/native-player-auth-store.service';
 import { MARKET_CURRENCY_ITEM_ID } from '../../constants/gameplay/market';
 import { MarketRuntimeService } from '../market/market-runtime.service';
 import { MapTemplateRepository } from '../map/map-template.repository';
 import { PlayerRuntimeService } from './player-runtime.service';
+import { resolvePlayerDisplayName } from './player-display-name';
 import { PlayerDomainPersistenceService } from '../../persistence/player-domain-persistence.service';
 import { PlayerIdentityPersistenceService } from '../../persistence/player-identity-persistence.service';
 import { PlayerCountersPersistenceService } from '../../persistence/player-counters-persistence.service';
@@ -842,7 +843,7 @@ export class LeaderboardRuntimeService implements OnModuleDestroy {
             return '未知地图';
         }
         const summary = this.mapTemplateRepository.listSummaries().find((entry) => entry.id === normalizedMapId);
-        return summary?.name ?? normalizedMapId;
+        return resolvePlayerFacingContentName(normalizedMapId, '未知地图', summary?.name);
     }
 };
 /**
@@ -911,19 +912,13 @@ function normalizeMarketUnitPrice(input) {
 function normalizePlayerName(player, identity = null) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    if (typeof identity?.playerName === 'string' && identity.playerName.trim()) {
-        return identity.playerName.trim();
-    }
-    if (typeof identity?.displayName === 'string' && identity.displayName.trim()) {
-        return identity.displayName.trim();
-    }
-    if (typeof player.displayName === 'string' && player.displayName.trim()) {
-        return player.displayName.trim();
-    }
-    if (typeof player.name === 'string' && player.name.trim()) {
-        return player.name.trim();
-    }
-    return player.playerId;
+    return resolvePlayerDisplayName({
+        ...player,
+        playerName: identity?.playerName,
+        pendingRoleName: identity?.pendingRoleName,
+        roleName: identity?.roleName,
+        displayName: identity?.displayName ?? player?.displayName,
+    }, { playerId: player?.playerId, fallback: '未知玩家' });
 }
 
 function resolveLeaderboardSnapshotInWorld(player) {

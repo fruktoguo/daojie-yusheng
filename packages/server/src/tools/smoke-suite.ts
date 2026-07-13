@@ -190,6 +190,7 @@ const smokeCases = [
   { name: 'content-monster-spawn', scriptFile: 'content-monster-spawn-smoke.js', standalone: true },
   { name: 'world-sync-delta-order', scriptFile: 'world-sync-delta-order-smoke.js', standalone: true },
   { name: 'world-sync-player-state', scriptFile: 'world-sync-player-state-smoke.js', standalone: true },
+  { name: 'social-runtime-instance-name', scriptFile: 'social-runtime-instance-name-smoke.js', standalone: true },
   { name: 'world-sync-aux-state', scriptFile: 'world-sync-aux-state-smoke.js', standalone: true },
   { name: 'world-sync-map-static-aux', scriptFile: 'world-sync-map-static-aux-smoke.js', standalone: true },
   { name: 'world-sync-map-snapshot-instance-diff', scriptFile: 'world-sync-map-snapshot-instance-diff-smoke.js', standalone: true },

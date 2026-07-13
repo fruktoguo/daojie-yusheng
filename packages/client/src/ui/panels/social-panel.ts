@@ -15,7 +15,7 @@ import type {
   TreasureVaultPermissionScope,
   TreasureVaultOperationResultView,
 } from '@mud/shared';
-import { createItemStackSignature, getTechniqueMaxLevel, TECHNIQUE_GRADE_ORDER } from '@mud/shared';
+import { createItemStackSignature, getTechniqueMaxLevel, resolvePlayerFacingContentName, TECHNIQUE_GRADE_ORDER } from '@mud/shared';
 import { getItemTypeLabel } from '../../domain-labels';
 import { INVENTORY_FILTER_TABS, type InventoryFilter } from '../../constants/ui/inventory';
 import { getItemDecorClassName, getItemDisplayMeta, type ItemDisplayMeta } from '../item-display';
@@ -73,6 +73,14 @@ const RELATION_LABEL: Record<DaoistRelationLevel, string> = {
   dao_friend: '道友',
   close_friend: '至交',
 };
+
+function resolveSocialPlayerName(playerId: string, name: unknown): string {
+  return resolvePlayerFacingContentName(playerId, '未知玩家', name);
+}
+
+function resolveSocialInstanceName(instanceId: unknown, instanceName: unknown): string {
+  return resolvePlayerFacingContentName(instanceId, '未知地域', instanceName);
+}
 
 const PERMISSION_KIND_LABEL: Record<TreasureVaultPermissionKind, string> = {
   view: '可看',
@@ -270,7 +278,7 @@ export class SocialPanel {
         ${incoming.map((entry) => `
           <div class="ui-list-row">
             <div class="ui-list-main">
-              <div class="ui-list-title">${escapeHtml(entry.fromName)}</div>
+              <div class="ui-list-title">${escapeHtml(resolveSocialPlayerName(entry.fromPlayerId, entry.fromName))}</div>
               <div class="ui-list-subtitle">申请结为道友</div>
             </div>
             <div class="social-row-actions">
@@ -282,7 +290,7 @@ export class SocialPanel {
         ${outgoing.map((entry) => `
           <div class="ui-list-row">
             <div class="ui-list-main">
-              <div class="ui-list-title">${escapeHtml(entry.toName)}</div>
+              <div class="ui-list-title">${escapeHtml(resolveSocialPlayerName(entry.toPlayerId, entry.toName))}</div>
               <div class="ui-list-subtitle">申请等待回应</div>
             </div>
           </div>
@@ -300,7 +308,7 @@ export class SocialPanel {
         ${this.view.nearbyCandidates.map((entry) => `
           <div class="ui-list-row">
             <div class="ui-list-main">
-              <div class="ui-list-title">${escapeHtml(entry.name)}</div>
+              <div class="ui-list-title">${escapeHtml(resolveSocialPlayerName(entry.playerId, entry.name))}</div>
               <div class="ui-list-subtitle">距离 ${entry.distance}${entry.relationLevel ? ` · ${RELATION_LABEL[entry.relationLevel]}` : entry.pendingRequest ? ' · 已有申请' : ''}</div>
             </div>
             ${entry.relationLevel || entry.pendingRequest ? '' : `
@@ -323,9 +331,9 @@ export class SocialPanel {
         ${this.view.relations.map((entry) => `
           <div class="ui-list-row ${entry.playerId === selectedPlayerId ? 'active' : ''}" data-social-relation-row="${escapeHtml(entry.playerId)}">
             <button class="ui-list-main text-left" type="button" data-social-action="select" data-player-id="${escapeHtml(entry.playerId)}" aria-pressed="${entry.playerId === selectedPlayerId ? 'true' : 'false'}">
-              <div class="ui-list-title">${escapeHtml(entry.name)} · ${RELATION_LABEL[entry.level]}</div>
+              <div class="ui-list-title">${escapeHtml(resolveSocialPlayerName(entry.playerId, entry.name))} · ${RELATION_LABEL[entry.level]}</div>
               <div class="ui-list-subtitle">
-                <span class="social-presence ${entry.online ? 'is-online' : 'is-offline'}">${entry.online ? '在线' : '离线'}</span>${entry.instanceId ? ` · ${escapeHtml(entry.instanceId)}` : ''}
+                <span class="social-presence ${entry.online ? 'is-online' : 'is-offline'}">${entry.online ? '在线' : '离线'}</span>${entry.instanceName ? ` · ${escapeHtml(resolveSocialInstanceName(entry.instanceId, entry.instanceName))}` : ''}
               </div>
             </button>
             <div class="social-row-actions">
@@ -343,7 +351,7 @@ export class SocialPanel {
       <section class="social-panel-section social-panel-section--conversation" data-social-conversation-host="true">
         <div class="social-panel-section-head">
           <div class="social-panel-section-title">私聊</div>
-          ${selected ? `<span class="social-conversation-peer">${escapeHtml(selected.name)}</span>` : ''}
+          ${selected ? `<span class="social-conversation-peer">${escapeHtml(resolveSocialPlayerName(selected.playerId, selected.name))}</span>` : ''}
         </div>
         ${this.renderMessages(selected)}
       </section>
@@ -372,7 +380,7 @@ export class SocialPanel {
     return `
       <div class="ui-list-row social-message-row" data-social-message-id="${escapeHtml(message.messageId)}">
         <div class="ui-list-main">
-          <div class="ui-list-title">${escapeHtml(message.fromName)}</div>
+          <div class="ui-list-title">${escapeHtml(resolveSocialPlayerName(message.fromPlayerId, message.fromName))}</div>
           <div class="ui-list-subtitle">${escapeHtml(message.text)}</div>
         </div>
       </div>

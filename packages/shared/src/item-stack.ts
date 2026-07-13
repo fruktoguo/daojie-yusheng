@@ -13,6 +13,7 @@
  * 新增实例态字段时只需在白名单中加一项，签名自动生效。
  */
 import { ItemStack } from './item-runtime-types';
+import { resolvePlayerFacingContentName } from './content-display-name';
 
 export type ItemStackMergeItem = { itemId?: string; count?: unknown; [key: string]: unknown };
 export type ItemDisplayNameItem = { itemId?: unknown; name?: unknown; count?: unknown; enhanceLevel?: unknown };
@@ -109,7 +110,7 @@ function normalizeItemDisplayEnhanceLevel(value: unknown): number {
 function normalizeItemBaseDisplayName(item: ItemDisplayNameItem | null | undefined): string {
   const name = typeof item?.name === 'string' ? item.name.trim() : '';
   const itemId = typeof item?.itemId === 'string' ? item.itemId.trim() : '';
-  const baseName = name || itemId || ITEM_DISPLAY_UNKNOWN_NAME;
+  const baseName = resolvePlayerFacingContentName(itemId, ITEM_DISPLAY_UNKNOWN_NAME, name);
   return baseName.replace(/^\+\d+\s+/, '').trim() || ITEM_DISPLAY_UNKNOWN_NAME;
 }
 

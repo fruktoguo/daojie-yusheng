@@ -4,7 +4,7 @@
  * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
 import { Injectable } from '@nestjs/common';
-import { ENHANCEMENT_HAMMER_TAG, MAX_ENHANCE_LEVEL, cloneCraftEffectStats, computeEnhancementAdjustedSuccessRate, computeEnhancementJobTicks, computeEnhancementToolSpeedRate, computeLuckSuccessRateBonus, normalizeCraftEffectStatsPatch } from '@mud/shared';
+import { ENHANCEMENT_HAMMER_TAG, MAX_ENHANCE_LEVEL, cloneCraftEffectStats, computeEnhancementAdjustedSuccessRate, computeEnhancementJobTicks, computeEnhancementToolSpeedRate, computeLuckSuccessRateBonus, normalizeCraftEffectStatsPatch, resolvePlayerFacingContentName } from '@mud/shared';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { assignItemInstanceIdIfNeeded } from '../world/item-instance-id.helpers';
 import { resolvePlayerEffectiveLuck } from '../player/player-special-stat.helpers';
@@ -155,13 +155,13 @@ export class CraftPanelEnhancementQueryService {
             durationTicks: computeEnhancementJobTicks(item.level, totalSpeedRate),
             materials: requirements.map((entry) => ({
                 itemId: entry.itemId,
-                name: this.contentTemplateRepository.getItemName(entry.itemId) ?? entry.itemId,
+                name: resolvePlayerFacingContentName(entry.itemId, '未知物品', this.contentTemplateRepository.getItemName(entry.itemId)),
                 count: entry.count,
                 ownedCount: countInventoryItem(player, entry.itemId),
             })),
             protectionItemId: config?.protectionItemId,
             protectionItemName: config?.protectionItemId
-                ? (this.contentTemplateRepository.getItemName(config.protectionItemId) ?? config.protectionItemId)
+                ? resolvePlayerFacingContentName(config.protectionItemId, '未知物品', this.contentTemplateRepository.getItemName(config.protectionItemId))
                 : undefined,
             allowSelfProtection: !config?.protectionItemId,
             protectionCandidates: buildProtectionCandidates(player, ref, item, config),
@@ -324,7 +324,7 @@ function summarizeEnhancementItem(item) {
     return {
         itemId: item.itemId,
         itemInstanceId: normalizeInventoryItemInstanceId(item.itemInstanceId) || undefined,
-        name: item.name,
+        name: resolvePlayerFacingContentName(item.itemId, '未知物品', item.name),
         type: item.type,
         count: Math.max(0, Math.floor(Number(item.count) || 0)),
         grade: item.grade,

@@ -4,7 +4,7 @@
  * 维护时要保证结算仍由服务端权威执行，客户端只接收结构化结果和必要表现字段。
  */
 import { Inject, Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
-import { formatDisplayNumber, getBasicAttackCombatExperienceDamageMultiplier, getDamageTrailColor, horizontalFacingFromTo, resolveCombatAttackIntensityDamageMultiplier, uiLabels } from '@mud/shared';
+import { formatDisplayNumber, getBasicAttackCombatExperienceDamageMultiplier, getDamageTrailColor, horizontalFacingFromTo, resolveCombatAttackIntensityDamageMultiplier, resolvePlayerFacingContentName, uiLabels } from '@mud/shared';
 import { PlayerRuntimeService } from '../../player/player-runtime.service';
 import { resolveCombatDamage } from '../../combat/combat-pipeline-compose';
 import { createCombatOutcomeApplyAdapters } from '../../combat/combat-outcome-apply-adapters';
@@ -175,7 +175,7 @@ export class WorldRuntimeBasicAttackService {
             deps.worldRuntimeCraftInterruptService.interruptCraftForReason(playerId, attacker, 'attack', deps);
         }
         if (!attacker.instanceId) {
-            throw new BadRequestException(`玩家 ${playerId} 未进入地图实例`);
+            throw new BadRequestException('尚未进入地图实例');
         }
         deps.ensureAttackAllowed(attacker);
         const damageKind = attacker.attrs.numericStats.spellAtk > attacker.attrs.numericStats.physAtk ? 'spell' : 'physical';
@@ -206,7 +206,7 @@ export class WorldRuntimeBasicAttackService {
             }
             return this.dispatchBasicAttackToFormation(attacker, plannedTarget.runtime ?? {
                 id: plannedTarget.id,
-                name: plannedTarget.name ?? plannedTarget.id,
+                name: resolvePlayerFacingContentName(plannedTarget.id, '未知阵法', plannedTarget.name),
                 x: plannedTarget.x,
                 y: plannedTarget.y,
             }, damageKind, baseDamage, deps, attackIntensityDamageMultiplier);

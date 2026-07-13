@@ -171,6 +171,17 @@ function testPlayerState() {
     assert.deepEqual(state.unlockedMinimapIds, ['map.a', 'map.b']);
 }
 
+function testPlayerIdIsNotProjectedAsName() {
+    const service = new WorldSyncPlayerStateService();
+    const player = createPlayer();
+    player.playerId = 'p_34a88cf0-0c4c-44d9-a443-4400a8b696e5_1774164770651';
+    player.name = player.playerId;
+    player.displayName = player.playerId;
+    const state = service.buildPlayerSyncState(player, { instance: { templateId: 'map.a' } }, []);
+    assert.equal(state.name, '修士');
+    assert.equal(state.displayName, '修士');
+}
+
 function testBuffProjectionReusesStableEntry() {
     const service = new WorldSyncPlayerStateService();
     const player = createPlayer();
@@ -207,6 +218,7 @@ function testBuffProjectionReusesStableEntry() {
 }
 
 testPlayerState();
+testPlayerIdIsNotProjectedAsName();
 testBuffProjectionReusesStableEntry();
 
 console.log(JSON.stringify({ ok: true, case: 'world-sync-player-state' }, null, 2));

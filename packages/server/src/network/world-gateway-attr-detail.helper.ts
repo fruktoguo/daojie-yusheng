@@ -3,7 +3,7 @@
  *
  * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
-import { ATTR_KEYS, ATTR_TO_NUMERIC_WEIGHTS, ATTR_TO_PERCENT_NUMERIC_WEIGHTS, CULTIVATE_EXP_PER_TICK, CULTIVATION_REALM_EXP_PER_TICK, DEFAULT_PLAYER_REALM_STAGE, ELEMENT_KEYS, NUMERIC_SCALAR_STAT_KEYS, PLAYER_REALM_CONFIG, TECHNIQUE_MAX_ATTR_PERCENT_BONUS_SOURCE, TechniqueRealm, addPartialNumericStats, applyEquipmentAttributeEffectivenessToItemStack, calcTechniqueFinalAttrBonus, calcTechniqueFinalSpecialStatBonus, calcTechniqueMaxAttrPercentBonus, calcTechniqueQiProjectionModifiers, cloneNumericStats, compileValueStatsToActualStats, createNumericStats, getRealmAttributeMultiplier, getRealmLinearGrowthMultiplier, resolvePlayerRealmAttributeBonus, resolvePlayerRealmNumericTemplate, type PartialNumericStats } from '@mud/shared';
+import { ATTR_KEYS, ATTR_TO_NUMERIC_WEIGHTS, ATTR_TO_PERCENT_NUMERIC_WEIGHTS, CULTIVATE_EXP_PER_TICK, CULTIVATION_REALM_EXP_PER_TICK, DEFAULT_PLAYER_REALM_STAGE, ELEMENT_KEYS, NUMERIC_SCALAR_STAT_KEYS, PLAYER_REALM_CONFIG, TECHNIQUE_MAX_ATTR_PERCENT_BONUS_SOURCE, TechniqueRealm, addPartialNumericStats, applyEquipmentAttributeEffectivenessToItemStack, calcTechniqueFinalAttrBonus, calcTechniqueFinalSpecialStatBonus, calcTechniqueMaxAttrPercentBonus, calcTechniqueQiProjectionModifiers, cloneNumericStats, compileValueStatsToActualStats, createNumericStats, getRealmAttributeMultiplier, getRealmLinearGrowthMultiplier, resolvePlayerFacingContentName, resolvePlayerRealmAttributeBonus, resolvePlayerRealmNumericTemplate, type PartialNumericStats } from '@mud/shared';
 import { PVP_SHA_INFUSION_ATTACK_CAP_PERCENT, PVP_SHA_INFUSION_BUFF_ID } from '../constants/gameplay/pvp';
 import { resolvePlayerDailySignInFortuneLuck } from '../runtime/player/player-special-stat.helpers';
 
@@ -47,7 +47,7 @@ export function buildAttrDetailBonuses(player) {
         }
         bonuses.push({
             source: `technique:${techniqueState.techId}`,
-            label: techniqueState.name ?? techniqueState.techId,
+            label: resolvePlayerFacingContentName(techniqueState.techId, '未知功法', techniqueState.name),
             attrs: {},
             qiProjection: cloneQiProjectionModifiers(qiProjection),
         });
@@ -66,7 +66,7 @@ export function buildAttrDetailBonuses(player) {
         }
         bonuses.push({
             source: `equipment:${entry.slot}`,
-            label: item.itemId,
+            label: resolvePlayerFacingContentName(item.itemId, '未知物品', item.name),
             attrs: clonePartialAttributes(item.equipAttrs),
             stats: clonePartialNumericStats(resolveItemNumericStats(item)),
         });
@@ -80,7 +80,7 @@ export function buildAttrDetailBonuses(player) {
         }
         bonuses.push({
             source: `buff:${buff.buffId}`,
-            label: buff.name || buff.buffId,
+            label: resolvePlayerFacingContentName(buff.buffId, '未知增益', buff.name),
             attrs: clonePartialAttributes(buff.attrs),
             attrMode: resolveBuffModifierMode(buff.attrMode),
             stats: clonePartialNumericStats(buff.stats),
@@ -99,7 +99,7 @@ export function buildAttrDetailBonuses(player) {
         }
         bonuses.push({
             source: bonus.source,
-            label: bonus.label ?? bonus.source,
+            label: resolvePlayerFacingContentName(bonus.source, '其他加成', bonus.label),
             attrs: clonePartialAttributes(bonus.attrs),
             stats: clonePartialNumericStats(bonus.stats),
             qiProjection: cloneQiProjectionModifiers(bonus.qiProjection),
@@ -436,7 +436,7 @@ function appendEquipmentProgressEffectBonus(bonuses, slot, item, effect) {
     }
     bonuses.push({
         source: `equipment:${slot}:effect:${effect.effectId ?? 'progress_boost'}`,
-        label: item.itemId,
+        label: resolvePlayerFacingContentName(item.itemId, '未知物品', item.name),
         attrs: {},
         stats: clonePartialNumericStats(effectStats),
     });
@@ -604,7 +604,7 @@ function toTechniqueState(entry) {
     const skills = entry.skills?.map((skill) => cloneTechniqueSkill(skill)) ?? [];
     return {
         techId: entry.techId,
-        name: entry.name ?? entry.techId,
+        name: resolvePlayerFacingContentName(entry.techId, '未知功法', entry.name),
         level: entry.level ?? 1,
         exp: entry.exp ?? 0,
         expToNext: entry.expToNext ?? 0,

@@ -45,6 +45,7 @@
     "proof:craft-panel-local-patch": "node scripts/prove-craft-panel-local-patch.js",
     "proof:craft-panel-responsive-theme": "node scripts/prove-craft-panel-responsive-theme.js",
     "proof:client-s2c-consumption": "node scripts/prove-client-s2c-consumption.js",
+    "proof:player-facing-names": "node scripts/check-player-facing-name-boundaries.mjs",
     "proof:craft-success-level-penalty": "node scripts/prove-craft-success-level-penalty.js",
     "proof:craft-default-fivephase-recipes": "node scripts/prove-craft-default-fivephase-recipes.js",
     "proof:gm-login-autofill": "node scripts/prove-gm-login-autofill.js",

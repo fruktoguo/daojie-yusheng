@@ -232,7 +232,7 @@ export class WorldRuntimePlayerSessionService {
       ? deps.playerRuntimeService.getPlayer(playerId) as PlayerRuntimeLike | null
       : deps.playerRuntimeService.ensurePlayer(playerId, sessionId);
     if (!playerState) {
-      throw new NotFoundException(`玩家运行态不存在：${playerId}`);
+      throw new NotFoundException('玩家运行态不存在');
     }
     deps.worldRuntimeSectService?.reconcilePlayerSectId?.(playerId);
 

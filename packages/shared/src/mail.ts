@@ -8,6 +8,7 @@ import {
   MAIL_PAGE_SIZE_DEFAULT,
   MAIL_PAGE_SIZE_MAX,
 } from './constants/ui/mail';
+import { resolvePlayerFacingContentName } from './content-display-name';
 import type { MailAttachment, MailFilter, MailTemplateArg } from './mail-types';
 
 /** 邮件投递范围，区分全服和定向投递。 */
@@ -182,7 +183,7 @@ function stringifyMailArg(arg: MailTemplateArg): string {
     case 'number':
       return Number.isFinite(arg.value) ? String(arg.value) : '0';
     case 'item':
-      return arg.label?.trim() || arg.itemId;
+      return resolvePlayerFacingContentName(arg.itemId, '未知物品', arg.label);
     default:
       return '';
   }

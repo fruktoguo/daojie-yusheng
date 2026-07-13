@@ -5,7 +5,7 @@
  */
 import { Injectable } from '@nestjs/common';
 import * as fs from 'fs';
-import { TechniqueRealm, deriveTechniqueRealm, getTechniqueExpToNext } from '@mud/shared';
+import { TechniqueRealm, deriveTechniqueRealm, getTechniqueExpToNext, resolvePlayerFacingContentName } from '@mud/shared';
 import type { TechniqueTemplate } from '@mud/shared';
 import { resolveProjectPath } from '../../common/project-path';
 import type { GeneratedTechniqueStoreService } from '../../runtime/technique-generation/generated-technique-store.service';
@@ -177,7 +177,7 @@ function hydrateMissingTechniqueState(input: Record<string, unknown>): Record<st
     : [];
   return {
     techId,
-    name: typeof input.name === 'string' && input.name ? input.name : techId,
+    name: resolvePlayerFacingContentName(techId, '未知功法', input.name),
     level,
     exp: Number.isFinite(input.exp) ? Math.max(0, Math.trunc(Number(input.exp))) : 0,
     expToNext: Number.isFinite(input.expToNext)

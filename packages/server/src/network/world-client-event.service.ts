@@ -14,6 +14,7 @@ import { S2C, type QuestNavigateResultView } from '@mud/shared';
 import { MailRuntimeService } from '../runtime/mail/mail-runtime.service';
 import { MarketRuntimeService } from '../runtime/market/market-runtime.service';
 import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
+import { resolvePlayerDisplayName } from '../runtime/player/player-display-name';
 import { ChatRuntimeService } from '../runtime/chat/chat-runtime.service';
 import { WorldSessionService } from './world-session.service';
 import { WorldSyncQuestLootService } from './world-sync-quest-loot.service';
@@ -284,11 +285,7 @@ export class WorldClientEventService {
             return;
         }
 
-        const chatLabel = typeof player.displayName === 'string' && player.displayName.trim()
-            ? player.displayName.trim()
-            : typeof player.name === 'string' && player.name.trim()
-                ? player.name.trim()
-                : player.playerId;
+        const chatLabel = resolvePlayerDisplayName(player, { playerId: player.playerId, fallback: '未知玩家' });
 
         const chatMsg = {
             text: message.slice(0, 200).replace(/[<>&"']/g, (ch) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;' })[ch] || ch),

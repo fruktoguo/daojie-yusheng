@@ -8,6 +8,7 @@ import {
   assertCombatAoiResultEventBudget,
   computeAffectedCellsFromAnchor,
   normalizeCombatProtocolResult,
+  resolvePlayerFacingContentName,
   resolveTargetingGeometryMaxTargets,
   resolveSkillRequiresTarget,
 } from '@mud/shared';
@@ -360,7 +361,7 @@ export class WorldRuntimeCombatActionService {
       actionId: skill.id ?? action?.actionId ?? null,
       kind: CombatActionKind.Skill,
       actorKind: action?.actor?.kind ?? input.actorKind ?? null,
-      name: skill.name ?? skill.id ?? action?.actionId ?? null,
+      name: resolvePlayerFacingContentName(skill.id ?? action?.actionId, '未知技能', skill.name),
       source: action?.source ?? CombatActionSource.System,
       requiresTarget,
       targetMode: skill.targetMode ?? skill.targeting?.targetMode ?? null,

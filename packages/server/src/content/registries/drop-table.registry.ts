@@ -4,7 +4,7 @@
  * 维护时要保持模板冻结和实例工厂边界，避免 tick 热路径复制大对象或手写模板字段。
  */
 import { Injectable } from '@nestjs/common';
-import { EQUIP_SLOTS, normalizeMonsterTier as normalizeSharedMonsterTier } from '@mud/shared';
+import { EQUIP_SLOTS, normalizeMonsterTier as normalizeSharedMonsterTier, resolvePlayerFacingContentName } from '@mud/shared';
 import { resolveItemTemplateLevel } from '../content-template-utils';
 import { ItemTemplateRegistry } from './item-template.registry';
 import { TechniqueTemplateRegistry } from './technique-template.registry';
@@ -171,7 +171,7 @@ export class DropTableRegistry {
         }
         drops.push(this.resolveMonsterDropChance({
           itemId,
-          name: item.name ?? itemId,
+          name: resolvePlayerFacingContentName(itemId, '未知物品', item.name),
           type: item.type,
           count: 1,
         }, context));
@@ -330,7 +330,7 @@ export class DropTableRegistry {
       : this.computeSpiritStoneDropChance(context.tier);
     return {
       itemId: item.itemId,
-      name: item.name ?? item.itemId,
+      name: resolvePlayerFacingContentName(item.itemId, '未知物品', item.name),
       type: item.type,
       count,
       chance,
@@ -344,7 +344,7 @@ export class DropTableRegistry {
     }
     return {
       itemId: item.itemId,
-      name: item.name ?? item.itemId,
+      name: resolvePlayerFacingContentName(item.itemId, '未知物品', item.name),
       type: item.type,
       count: 1,
       chance: this.computeMeritDropChance(context.tier),
@@ -400,9 +400,7 @@ export class DropTableRegistry {
     }
     return {
       itemId,
-      name: typeof r.name === 'string' && (r.name as string).trim()
-        ? r.name
-        : (item?.name ?? itemId),
+      name: resolvePlayerFacingContentName(itemId, '未知物品', r.name, item?.name),
       type,
       count: Number.isFinite(r.count) ? Math.max(1, Math.trunc(Number(r.count) ?? 1)) : 1,
       chance: Number.isFinite(r.chance) ? Math.max(0, Math.min(1, Number(r.chance))) : undefined,

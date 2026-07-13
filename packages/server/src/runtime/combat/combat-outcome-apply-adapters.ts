@@ -4,6 +4,7 @@
  * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
 import { CombatTargetKind } from '../world/combat/combat-action.types';
+import { resolvePlayerFacingContentName } from '@mud/shared';
 
 type OutcomeHandlers = Record<string, any>;
 type OutcomeApplyInput = Record<string, any>;
@@ -258,7 +259,7 @@ export function createContainerOutcomeApplyAdapter(handlers: OutcomeHandlers = {
       targetId,
       x,
       y,
-      title: applied?.title ?? result?.title ?? targetId,
+      title: resolvePlayerFacingContentName(targetId, '可攻击目标', applied?.title, result?.title, container?.name),
       appliedDamage: normalizeAppliedDamage(applied?.appliedDamage, damage),
       remainingCount: normalizeNumber(applied?.remainingCount ?? result?.remainingCount),
       respawnRemainingTicks: applied?.respawnRemainingTicks ?? result?.respawnRemainingTicks,

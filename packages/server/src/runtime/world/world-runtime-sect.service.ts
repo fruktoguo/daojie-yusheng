@@ -12,6 +12,7 @@ import {
     SECT_ENTRANCE_RELOCATION_COOLDOWN_MS,
     TileType,
     isSectMemberRoleLowerThan,
+    resolvePlayerFacingContentName,
 } from '@mud/shared';
 import { resolveServerDatabaseUrl } from '../../config/env-alias';
 import {
@@ -1830,11 +1831,11 @@ class WorldRuntimeSectService {
                 return {
                     rank: 0,
                     sectId: sect.sectId,
-                    sectName: normalizeOptionalString(sect.name) || sect.sectId,
+                    sectName: resolvePlayerFacingContentName(sect.sectId, '未知宗门', sect.name),
                     mark: normalizeOptionalString(sect.mark),
                     memberCount: visibleMembers.length,
                     leaderPlayerId: normalizeOptionalString(leader?.playerId),
-                    leaderName: normalizeOptionalString(leader?.name) || normalizeOptionalString(leader?.playerId) || '未知宗主',
+                    leaderName: resolvePlayerDisplayName(leader ?? { playerId: sect.leaderPlayerId }, '未知宗主'),
                     createdAt: Number.isFinite(Number(sect.createdAt)) ? Number(sect.createdAt) : 0,
                 };
             })
@@ -2006,7 +2007,7 @@ class WorldRuntimeSectService {
         const existing = this.findSectById(parsed.sectId);
         const sect = existing ?? {
             sectId: parsed.sectId,
-            name: `${parsed.sectId}宗`,
+            name: '未知宗门',
             mark: SECT_CORE_CHAR,
             founderPlayerId: '',
             leaderPlayerId: '',
@@ -2280,7 +2281,8 @@ class WorldRuntimeSectService {
 export { WorldRuntimeSectService, repairPersistedSectCoreStateWithClient };
 
 function buildSectManagementActionDesc(sect, view, deps, guardian) {
-    const base = `${sect.name} · 印记 ${normalizeOptionalString(sect.mark) || '无'} · 地域 ${formatSectTileCountLabel(sect, view, deps)} · 大阵 ${formatSectGuardianStatusLabel(guardian)} · 灵力 ${formatSectGuardianAuraLabel(guardian)}。`;
+    const sectName = resolvePlayerFacingContentName(sect?.sectId, '未知宗门', sect?.name);
+    const base = `${sectName} · 印记 ${normalizeOptionalString(sect.mark) || '无'} · 地域 ${formatSectTileCountLabel(sect, view, deps)} · 大阵 ${formatSectGuardianStatusLabel(guardian)} · 灵力 ${formatSectGuardianAuraLabel(guardian)}。`;
     const data = buildSectManagementData(sect, view?.playerId, deps?.playerRuntimeService, guardian, deps?.worldRuntimeFormationService);
     return `${base}\n${SECT_MANAGEMENT_DATA_MARKER}${encodeURIComponent(JSON.stringify(data))}${SECT_MANAGEMENT_DATA_MARKER_END}`;
 }
@@ -2349,7 +2351,10 @@ function buildSectApplicationPageView(sect, payload) {
         if (total >= offset && items.length < limit) {
             items.push({
                 playerId: normalizeOptionalString(application.playerId),
-                name: normalizeOptionalString(application.name) || normalizeOptionalString(application.playerId),
+                name: resolvePlayerDisplayName({
+                    playerId: application.playerId,
+                    name: application.name,
+                }, '未知申请人'),
                 appliedAt: Number.isFinite(Number(application.appliedAt))
                     ? Math.max(0, Math.trunc(Number(application.appliedAt)))
                     : 0,
@@ -2737,10 +2742,12 @@ function normalizeSectEntry(entry) {
         maxY: entry.mapMaxY,
     }) ?? fallbackBounds;
     const templateId = resolveSectTemplateIdForBounds(sectId, entry.sectTemplateId, bounds);
+    const sectName = resolvePlayerFacingContentName(sectId, '未知宗门', entry.name);
+    const leaderName = resolvePlayerDisplayName(null, normalizeOptionalString(entry.leaderName) || leaderPlayerId);
         return {
             sectId,
-            name: normalizeOptionalString(entry.name) || `${sectId}宗`,
-            mark: normalizeSectMark(entry.mark, normalizeOptionalString(entry.name) || sectId),
+            name: sectName,
+            mark: normalizeSectMark(entry.mark, sectName),
             founderPlayerId: normalizeOptionalString(entry.founderPlayerId) || leaderPlayerId,
         leaderPlayerId,
         status: entry.status === 'dissolved' || entry.status === 'locked' ? entry.status : 'active',
@@ -2760,13 +2767,13 @@ function normalizeSectEntry(entry) {
         members: normalizeSectMembers(entry.members, {
             sectId,
             leaderPlayerId,
-            leaderName: normalizeOptionalString(entry.leaderName) || leaderPlayerId,
+            leaderName,
             createdAt: Number.isFinite(Number(entry.createdAt)) ? Number(entry.createdAt) : Date.now(),
         }),
         applications: normalizeSectApplications(entry.applications, normalizeSectMembers(entry.members, {
             sectId,
             leaderPlayerId,
-            leaderName: normalizeOptionalString(entry.leaderName) || leaderPlayerId,
+            leaderName,
             createdAt: Number.isFinite(Number(entry.createdAt)) ? Number(entry.createdAt) : Date.now(),
         })),
         rolePermissions: normalizeSectRolePermissions(entry.rolePermissions),

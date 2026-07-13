@@ -1,4 +1,4 @@
-import { computeCraftSkillExpGain, type TechniqueActivityNoticeMessage } from '@mud/shared';
+import { computeCraftSkillExpGain, resolvePlayerFacingContentName, type TechniqueActivityNoticeMessage } from '@mud/shared';
 import type { PipelineContext } from '../technique-activity-strategy';
 import {
   DEFAULT_CRAFT_EXP_TO_NEXT,
@@ -94,7 +94,12 @@ export function executeBuildingTick(
     Math.trunc(Number(building.buildStrength) || 0),
     1,
   );
-  job.buildingName = runtime.resolveBuildingDisplayName?.(instance, building) ?? job.buildingName ?? building.defId ?? '建筑';
+  job.buildingName = resolvePlayerFacingContentName(
+    building.defId,
+    '未知建筑',
+    runtime.resolveBuildingDisplayName?.(instance, building),
+    job.buildingName,
+  );
   job.instanceId = instance.meta?.instanceId ?? instanceId;
   job.totalTicks = nextTotalTicks;
   job.remainingTicks = nextRemainingTicks;
@@ -203,7 +208,12 @@ function isPlayerNearBuilding(player: Record<string, any>, building: Record<stri
 }
 
 function buildBuildingCompletionNotice(runtime: BuildingTickRuntimePort, building: Record<string, any>): TechniqueActivityNoticeMessage {
-  const buildingName = runtime.resolveBuildingDisplayNameByRuntime?.(runtime, building) ?? building?.defId ?? '建筑';
+  const buildingName = resolvePlayerFacingContentName(
+    building?.defId,
+    '未知建筑',
+    runtime.resolveBuildingDisplayNameByRuntime?.(runtime, building),
+    building?.name,
+  );
   return buildBuildingNotice(
     'building',
     'notice.craft.building.completed',
@@ -252,7 +262,7 @@ function buildBuildingSleepPayload(job: Record<string, any>, building: Record<st
       buildingId: job?.buildingId ?? building?.id,
       instanceId: job?.instanceId ?? building?.instanceId,
     },
-    label: job?.buildingName ?? building?.defId ?? '建造',
+    label: resolvePlayerFacingContentName(building?.defId, '建造任务', job?.buildingName, building?.name),
     reason,
   };
 }

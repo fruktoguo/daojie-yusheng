@@ -4,6 +4,7 @@
  * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
+import { resolvePlayerFacingContentName } from '@mud/shared';
 import { MailRuntimeService } from '../mail/mail-runtime.service';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { WorldRuntimeQuestQueryService } from './query/world-runtime-quest-query.service';
@@ -263,7 +264,7 @@ export class WorldRuntimeQuestStateService {
             if (nextProgress !== quest.progress) {
                 quest.progress = nextProgress;
                 if (!quest.targetName || quest.targetName === quest.targetMonsterId) {
-                    quest.targetName = monsterName;
+                    quest.targetName = resolvePlayerFacingContentName(monsterId, '未知妖兽', monsterName);
                 }
                 changed = true;
             }

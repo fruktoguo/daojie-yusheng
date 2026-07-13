@@ -38,6 +38,7 @@ import {
 import {
   getLocalSkillTemplate,
   getLocalTechniqueTemplate,
+  resolveClientTechniqueName,
   resolvePreviewItem,
   resolvePreviewTechnique,
 } from './content/local-templates';
@@ -59,7 +60,6 @@ function refreshActionCooldownsFromReadyTick(actions: ActionDef[], player?: Play
   }
 }
 
-const UNKNOWN_TECHNIQUE_NAME = '未知功法';
 /**
  * MainPanelDeltaStateSourceOptions：统一结构类型，保证协议与运行时一致性。
  */
@@ -296,16 +296,6 @@ function applyNullablePatch<T>(value: T | null | undefined, fallback: T | undefi
 
 function cloneJson<T>(value: T): T {
   return clonePlainValue(value);
-}
-
-function resolveSyncedTechniqueName(techId: string, ...candidates: Array<string | undefined>): string {
-  for (const candidate of candidates) {
-    const trimmed = candidate?.trim();
-    if (trimmed && trimmed !== techId) {
-      return trimmed;
-    }
-  }
-  return UNKNOWN_TECHNIQUE_NAME;
 }
 
 function mergeAttrValuePatch(base: Partial<Attributes> | undefined, patch: Partial<Attributes> | undefined, fallback: Attributes): Attributes {
@@ -622,7 +612,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
       ),
       realmLv: template?.realmLv ?? patch.realmLv ?? previousSameTechnique?.realmLv ?? 1,
       realm: patch.realm ?? previousSameTechnique?.realm ?? TechniqueRealm.Entry,
-      name: resolveSyncedTechniqueName(patch.techId, applyNullablePatch(patch.name, previousSameTechnique?.name), template?.name),
+      name: resolveClientTechniqueName(patch.techId, applyNullablePatch(patch.name, previousSameTechnique?.name), template?.name),
       skills: mergedSkills
         ? cloneJson(mergedSkills)
         : cloneJson(template?.skills ?? []),

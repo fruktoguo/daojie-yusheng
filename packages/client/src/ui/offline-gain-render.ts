@@ -3,7 +3,7 @@
  *
  * 维护时优先保持局部更新和原有焦点/滚动状态，不在 UI 层裁定资产、战斗或移动合法性。
  */
-import type { OfflineGainReportView } from '@mud/shared';
+import { resolvePlayerFacingContentName, type OfflineGainReportView } from '@mud/shared';
 import { formatDisplayInteger } from '../utils/number';
 
 export function renderOfflineGainReports(reports: readonly OfflineGainReportView[]): string {
@@ -148,7 +148,7 @@ function renderTechniqueSection(report: OfflineGainReportView): string {
     `),
     ...report.techniques.map((entry) => `
       <div class="offline-gain-row">
-        <span>${escapeHtml(entry.name?.trim() || '未知功法')}</span>
+        <span>${escapeHtml(resolvePlayerFacingContentName(entry.techniqueId, '未知功法', entry.name))}</span>
         <strong>${escapeHtml(formatSignedAmount(entry.expGained, entry.expLost, entry.levelGain, entry.levelLoss))}</strong>
       </div>
     `),
@@ -185,7 +185,7 @@ function renderItemSection(report: OfflineGainReportView): string {
     '物品收支',
     report.items.map((entry) => `
       <div class="offline-gain-row">
-        <span>${escapeHtml(entry.name || '未知物品')}</span>
+        <span>${escapeHtml(resolvePlayerFacingContentName(entry.itemId, '未知物品', entry.name))}</span>
         <strong>${escapeHtml(formatSignedAmount(entry.gained ?? 0, entry.lost ?? 0))}</strong>
       </div>
     `),

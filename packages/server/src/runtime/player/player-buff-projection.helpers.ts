@@ -13,6 +13,7 @@ import {
   CULTIVATION_BUFF_DURATION,
   CULTIVATION_BUFF_ID,
   buildWorldDarknessBuffState,
+  resolvePlayerFacingContentName,
   type VisibleBuffState,
 } from '@mud/shared';
 
@@ -86,7 +87,7 @@ export function cloneVisibleBuffProjection(source: VisibleBuffState): VisibleBuf
   }
   const projected: VisibleBuffState = freezeVisibleBuffProjection({
     buffId: source.buffId,
-    name: source.name,
+    name: resolvePlayerFacingContentName(source.buffId, '未知增益', source.name),
     desc: source.desc,
     shortMark: source.shortMark,
     category: source.category,
@@ -96,7 +97,9 @@ export function cloneVisibleBuffProjection(source: VisibleBuffState): VisibleBuf
     stacks: source.stacks,
     maxStacks: source.maxStacks,
     sourceSkillId: source.sourceSkillId,
-    sourceSkillName: source.sourceSkillName,
+    sourceSkillName: source.sourceSkillId
+      ? resolvePlayerFacingContentName(source.sourceSkillId, '未知技能', source.sourceSkillName)
+      : source.sourceSkillName,
     realmLv: source.realmLv,
     color: source.color,
     attrs: source.attrs,
@@ -159,8 +162,7 @@ function resolveCultivatingTechniqueName(player: ProjectablePlayerBuffState): st
     return null;
   }
   const technique = (player.techniques?.techniques ?? []).find((entry) => entry.techId === techId);
-  const name = typeof technique?.name === 'string' ? technique.name.trim() : '';
-  return name || techId;
+  return resolvePlayerFacingContentName(techId, '未知功法', technique?.name);
 }
 
 function buildCultivationBuffDescription(techniqueName: string | null): string {

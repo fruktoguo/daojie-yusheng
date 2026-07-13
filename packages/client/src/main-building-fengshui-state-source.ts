@@ -21,6 +21,7 @@ import buildingCatalog from './constants/world/building-catalog.generated.json';
 import { getElementKeyLabel } from './domain-labels';
 import type { MapBuildPreviewOverlayState, MapFengShuiOverlayState } from './game-map/types';
 import type { SocketBuildingSender } from './network/socket-send-building';
+import { resolveClientItemBaseName } from './content/item-display-name';
 import { getLocalItemTemplate } from './content/local-templates';
 import { detailModalHost } from './ui/detail-modal-host';
 import { FloatingTooltip } from './ui/floating-tooltip';
@@ -306,29 +307,31 @@ function getPlayerInventoryMaterialCandidates(
     if (!itemId) {
       continue;
     }
-    if ((item?.type ?? getLocalItemTemplate(itemId)?.type) !== 'material') {
+    const template = getLocalItemTemplate(itemId);
+    if ((item?.type ?? template?.type) !== 'material') {
       continue;
     }
+    const itemName = resolveClientItemBaseName(itemId, item?.name, template?.name);
     const categoryKey = resolveBuildMaterialCategoryKey({
       itemId,
-      name: item?.name ?? getLocalItemTemplate(itemId)?.name,
-      materialCategory: item?.materialCategory ?? getLocalItemTemplate(itemId)?.materialCategory,
-      tags: item?.tags ?? getLocalItemTemplate(itemId)?.tags,
-      type: item?.type ?? getLocalItemTemplate(itemId)?.type,
+      name: itemName,
+      materialCategory: item?.materialCategory ?? template?.materialCategory,
+      tags: item?.tags ?? template?.tags,
+      type: item?.type ?? template?.type,
     });
     if (!hasBuildMaterialCategory({
       itemId,
-      name: item?.name ?? getLocalItemTemplate(itemId)?.name,
-      materialCategory: item?.materialCategory ?? getLocalItemTemplate(itemId)?.materialCategory,
-      tags: item?.tags ?? getLocalItemTemplate(itemId)?.tags,
-      type: item?.type ?? getLocalItemTemplate(itemId)?.type,
+      name: itemName,
+      materialCategory: item?.materialCategory ?? template?.materialCategory,
+      tags: item?.tags ?? template?.tags,
+      type: item?.type ?? template?.type,
     }, resolveGenericBuildMaterialSlotCategory(requirement.itemId))) {
       continue;
     }
     candidates.set(itemId, {
       slotIndex: requirement.slotIndex,
       itemId,
-      label: String(item?.name || resolveBuildMaterialLabel(itemId)).trim() || resolveBuildMaterialLabel(itemId),
+      label: itemName,
       ownedCount: Math.max(0, Math.trunc(Number(item?.count) || 0)),
       requiredCount: requirement.count,
       categoryKey,

@@ -4,7 +4,7 @@
  * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
 import { Inject, BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { applyCombatAttackIntensityQiCost, calcQiCostWithOutputLimit, compileValueStatsToActualStats, percentModifierToMultiplier, resolveCombatAttackIntensityDamageMultiplier, resolveSkillEffectiveRange, signedRatioValue } from '@mud/shared';
+import { applyCombatAttackIntensityQiCost, calcQiCostWithOutputLimit, compileValueStatsToActualStats, percentModifierToMultiplier, resolveCombatAttackIntensityDamageMultiplier, resolvePlayerFacingContentName, resolveSkillEffectiveRange, signedRatioValue } from '@mud/shared';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { resolveMonsterCombatExpEquivalentFallback } from './monster-combat-exp-equivalent.helper';
 import { resolveCombatDamage, resolveTileCombatDamage } from './combat-pipeline-compose';
@@ -521,9 +521,12 @@ function resolveCombatantCombatExp(combatant) {
 const temporaryBuffCompiledStatsCache = new WeakMap();
 
 function toTemporaryBuff(effect, skill) {
-    const fallbackName = typeof effect.name === 'string' && effect.name.trim()
-        ? effect.name.trim()
-        : (typeof skill.name === 'string' && skill.name.trim() ? skill.name.trim() : String(effect.buffId ?? skill.id ?? '效果'));
+    const fallbackName = resolvePlayerFacingContentName(
+        effect.buffId ?? skill.id,
+        '未知效果',
+        effect.name,
+        skill.name,
+    );
     return {
         buffId: effect.buffId,
         name: fallbackName,
@@ -536,7 +539,7 @@ function toTemporaryBuff(effect, skill) {
         stacks: 1,
         maxStacks: Math.max(1, Math.round(effect.maxStacks ?? 1)),
         sourceSkillId: skill.id,
-        sourceSkillName: skill.name,
+        sourceSkillName: resolvePlayerFacingContentName(skill.id, '未知技能', skill.name),
         color: effect.color,
         attrs: effect.attrs || undefined,
         attrMode: effect.attrMode,

@@ -28,7 +28,7 @@ export function resolveClientItemBaseName(itemId: string, ...candidates: Array<s
   if (templateName && templateName !== normalizedItemId) {
     return templateName;
   }
-  return normalizedItemId || UNKNOWN_CLIENT_ITEM_NAME;
+  return UNKNOWN_CLIENT_ITEM_NAME;
 }
 
 export function resolveClientItemDisplayName(item: ClientItemNameSource | null | undefined): string {

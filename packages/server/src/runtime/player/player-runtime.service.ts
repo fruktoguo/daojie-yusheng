@@ -11,7 +11,7 @@
 import { Inject, BadRequestException, Injectable, Logger, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { AsyncLocalStorage } from 'node:async_hooks';
-import { ARTIFACT_SLOTS, ARTIFACT_UNLOCK_REALM_LV, ATTR_KEYS, AUTO_IDLE_CULTIVATION_DELAY_TICKS, BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER, DEFAULT_BASE_ATTRS, DEFAULT_BONE_AGE_YEARS, DEFAULT_COMBAT_ATTACK_INTENSITY, DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS, DEFAULT_INVENTORY_CAPACITY, DEFAULT_PLAYER_REALM_STAGE, Direction, EQUIP_SLOTS, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, RETURN_TO_SPAWN_ACTION_ID, RETURN_TO_SPAWN_COOLDOWN_TICKS, TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH, TechniqueRealm, calculateTechniqueComprehensionProgressGain, calculateTechniqueComprehensionRequiredProgress, canMergeItemStack, cloneCraftEffectStats, coalesceItemStackList, compileValueStatsToActualStats, computeCraftSkillExpGain, createItemStackSignature, enforceSkillEnabledLimit, findMergeableItemStackIndex, getBodyTrainingExpToNext, getTechniqueMaxLevel, isCreatedTechniqueId, mergeItemStackInto, normalizeBodyTrainingState, normalizeCombatAttackIntensity, normalizeHorizontalFacing, percentModifierToMultiplier, resolveArtifactMaxQi, resolvePlayerSkillSlotLimit, resolveSkillRequiresTarget, resolveTechniqueStandardMaxHpRecoveryAmount, resolveTechniqueStandardMaxQiRecoveryAmount, signedRatioValue } from '@mud/shared';
+import { ARTIFACT_SLOTS, ARTIFACT_UNLOCK_REALM_LV, ATTR_KEYS, AUTO_IDLE_CULTIVATION_DELAY_TICKS, BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER, DEFAULT_BASE_ATTRS, DEFAULT_BONE_AGE_YEARS, DEFAULT_COMBAT_ATTACK_INTENSITY, DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS, DEFAULT_INVENTORY_CAPACITY, DEFAULT_PLAYER_REALM_STAGE, Direction, EQUIP_SLOTS, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, RETURN_TO_SPAWN_ACTION_ID, RETURN_TO_SPAWN_COOLDOWN_TICKS, TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH, TechniqueRealm, calculateTechniqueComprehensionProgressGain, calculateTechniqueComprehensionRequiredProgress, canMergeItemStack, cloneCraftEffectStats, coalesceItemStackList, compileValueStatsToActualStats, computeCraftSkillExpGain, createItemStackSignature, enforceSkillEnabledLimit, findMergeableItemStackIndex, getBodyTrainingExpToNext, getTechniqueMaxLevel, isCreatedTechniqueId, mergeItemStackInto, normalizeBodyTrainingState, normalizeCombatAttackIntensity, normalizeHorizontalFacing, percentModifierToMultiplier, resolveArtifactMaxQi, resolvePlayerFacingContentName, resolvePlayerSkillSlotLimit, resolveSkillRequiresTarget, resolveTechniqueStandardMaxHpRecoveryAmount, resolveTechniqueStandardMaxQiRecoveryAmount, signedRatioValue } from '@mud/shared';
 import { assignItemInstanceIdIfNeeded, compareItemInstanceId, isItemInstanceIdHardCheckEnabled } from '../world/item-instance-id.helpers';
 import { isNativeGmBotPlayerId } from '../../http/native/native-gm.constants';
 import { PVP_SHA_BACKLASH_BUFF_ID, PVP_SHA_BACKLASH_DECAY_TICKS, PVP_SHA_BACKLASH_PERCENT_PER_STACK, PVP_SHA_BACKLASH_SOURCE_ID, PVP_SHA_BACKLASH_STACK_DIVISOR, PVP_SHA_INFUSION_ATTACK_CAP_PERCENT, PVP_SHA_INFUSION_BUFF_ID, PVP_SHA_INFUSION_DECAY_TICKS, PVP_SHA_INFUSION_SOURCE_ID, PVP_SOUL_INJURY_BUFF_ID, PVP_SOUL_INJURY_DURATION_TICKS, PVP_SOUL_INJURY_SOURCE_ID } from '../../constants/gameplay/pvp';
@@ -1133,7 +1133,7 @@ export class PlayerRuntimeService {
 
         const player = this.players.get(playerId);
         if (!player) {
-            throw new NotFoundException(`玩家不存在：${playerId}`);
+            throw new NotFoundException('玩家不存在');
         }
         return player;
     }
@@ -1303,7 +1303,7 @@ export class PlayerRuntimeService {
         if (existing) {
             existing.requiredProgress = requiredProgress;
             existing.updatedAtTick = currentTick;
-            existing.name = technique.name ?? existing.name ?? normalizedTechId;
+            existing.name = resolvePlayerFacingContentName(normalizedTechId, '未知功法', technique.name, existing.name);
             existing.sourceKind = normalizedSourceKind;
             if (maxLevel !== undefined) {
                 existing.maxLevel = maxLevel;
@@ -1327,7 +1327,7 @@ export class PlayerRuntimeService {
             );
             pending.push({
                 techId: normalizedTechId,
-                name: technique.name ?? normalizedTechId,
+                name: resolvePlayerFacingContentName(normalizedTechId, '未知功法', technique.name),
                 sourceKind: normalizedSourceKind,
                 creatorPlayerId: creatorPlayerId ?? undefined,
                 selfComprehensionAllowed,
@@ -1437,7 +1437,7 @@ export class PlayerRuntimeService {
             pending.category = technique.category;
             changed = true;
         }
-        const name = technique.name ?? pending.name ?? pending.techId;
+        const name = resolvePlayerFacingContentName(pending.techId, '未知功法', technique.name, pending.name);
         if (pending.name !== name) {
             pending.name = name;
             changed = true;
@@ -2803,7 +2803,7 @@ export class PlayerRuntimeService {
             if (existing) {
                 existing.requiredProgress = requiredProgress;
                 existing.updatedAtTick = currentTick;
-                existing.name = technique.name ?? existing.name ?? learnTechniqueId;
+                existing.name = resolvePlayerFacingContentName(learnTechniqueId, '未知功法', technique.name, existing.name);
                 existing.selfComprehensionAllowed = true;
                 if (bookMaxLevel !== undefined) {
                     existing.maxLevel = bookMaxLevel;
@@ -2812,7 +2812,7 @@ export class PlayerRuntimeService {
             else {
                 pending.push({
                     techId: learnTechniqueId,
-                    name: technique.name ?? learnTechniqueId,
+                    name: resolvePlayerFacingContentName(learnTechniqueId, '未知功法', technique.name),
                     sourceKind: 'normal',
                     selfComprehensionAllowed: true,
                     progress: 0,
@@ -2840,7 +2840,7 @@ export class PlayerRuntimeService {
             consumed = this.applyConsumableItem(player, item);
         }
         if (!consumed) {
-            throw new NotFoundException(`物品 ${item.itemId} 没有可用效果`);
+            throw new NotFoundException(`${resolvePlayerFacingContentName(item.itemId, '未知物品', item.name)}没有可用效果`);
         }
         consumeInventoryItemAt(player.inventory.items, slotIndex, 1);
         if (!learnTechniqueId) {
@@ -2934,11 +2934,11 @@ export class PlayerRuntimeService {
 
         const normalizedCount = Math.max(1, Math.trunc(count));
         if (!Number.isFinite(normalizedCount) || normalizedCount <= 0) {
-            throw new NotFoundException(`使用数量无效：${itemId}`);
+            throw new NotFoundException('使用数量无效');
         }
         const available = readInventoryItemCount(player, itemId);
         if (available < normalizedCount) {
-            throw new NotFoundException(`背包物品不足：${itemId}`);
+            throw new NotFoundException(`${resolvePlayerFacingContentName(itemId, '未知物品', this.contentTemplateRepository.getItemName(itemId))}数量不足`);
         }
         const statisticBefore = this.captureOfflineGainBeforeTick(player);
         let remaining = normalizedCount;
@@ -3081,7 +3081,12 @@ export class PlayerRuntimeService {
 
         const player = this.getPlayerOrThrow(playerId);
         if (player.unlockedMapIds.includes(mapId)) {
-            throw new NotFoundException(`地图已经解锁：${mapId}`);
+            const mapName = resolvePlayerFacingContentName(
+                mapId,
+                '未知地图',
+                this.mapTemplateRepository.has(mapId) ? this.mapTemplateRepository.getOrThrow(mapId).name : undefined,
+            );
+            throw new NotFoundException(`${mapName}已经解锁`);
         }
         player.unlockedMapIds = [...player.unlockedMapIds, mapId]
             .sort((left, right) => left.localeCompare(right, 'zh-Hans-CN'));
@@ -3228,7 +3233,7 @@ export class PlayerRuntimeService {
             return this.equipArtifactItem(player, slotIndex, normalizedItem, expectedItemInstanceId);
         }
         if (!normalizedItem.equipSlot) {
-            throw new NotFoundException(`物品 ${normalizedItem.itemId} 不能装备`);
+            throw new NotFoundException(`${resolvePlayerFacingContentName(normalizedItem.itemId, '未知物品', normalizedItem.name)}不能装备`);
         }
         // 装备类必须有稳定 instanceId；迁移期老装备此处 lazy 升级
         assignItemInstanceIdIfNeeded(normalizedItem);
@@ -3648,7 +3653,7 @@ export class PlayerRuntimeService {
             return player;
         }
         if (player.qi < normalized) {
-            throw new NotFoundException(`玩家 ${playerId} 元气不足`);
+            throw new NotFoundException('元气不足');
         }
         player.qi -= normalized;
         player.selfRevision += 1;
@@ -7599,9 +7604,12 @@ function buildOfflineGainInventorySnapshot(items, contentTemplateRepository = nu
         }
         const existing = byItemId.get(itemId) ?? {
             itemId,
-            name: normalizeOfflineGainString(entry?.name)
-                || (typeof contentTemplateRepository?.getItemName === 'function' ? contentTemplateRepository.getItemName(itemId) : null)
-                || itemId,
+            name: resolvePlayerFacingContentName(
+                itemId,
+                '未知物品',
+                entry?.name,
+                typeof contentTemplateRepository?.getItemName === 'function' ? contentTemplateRepository.getItemName(itemId) : null,
+            ),
             count: 0,
         };
         existing.count += count;
@@ -7619,7 +7627,7 @@ function buildOfflineGainTechniqueSnapshot(techniques) {
             }
             return {
                 techniqueId,
-                name: normalizeOfflineGainString(entry?.name) || techniqueId,
+                name: resolvePlayerFacingContentName(techniqueId, '未知功法', entry?.name),
                 ...buildOfflineGainExpStateSnapshot(entry, {
                     minLevel: 1,
                     levelKey: 'level',
@@ -7643,7 +7651,7 @@ function buildOfflineGainProgressionTechniqueSnapshot(techniques, previousTechni
             const previous = previousById.get(techniqueId);
             return {
                 techniqueId,
-                name: normalizeOfflineGainString(entry?.name) || techniqueId,
+                name: resolvePlayerFacingContentName(techniqueId, '未知功法', entry?.name),
                 level: Math.max(1, Math.trunc(Number(entry?.level ?? 1) || 1)),
                 exp: normalizeOfflineGainCount(entry?.exp),
                 expToNext: normalizeOfflineGainCount(entry?.expToNext),
@@ -7665,7 +7673,7 @@ function buildOfflineGainProgressionTechniqueSnapshotAndDelta(techniques, previo
         const previous = previousById.get(techniqueId);
         const after = {
             techniqueId,
-            name: normalizeOfflineGainString(entry?.name) || techniqueId,
+            name: resolvePlayerFacingContentName(techniqueId, '未知功法', entry?.name),
             level: Math.max(1, Math.trunc(Number(entry?.level ?? 1) || 1)),
             exp: normalizeOfflineGainCount(entry?.exp),
             expToNext: normalizeOfflineGainCount(entry?.expToNext),
@@ -8113,7 +8121,7 @@ function consumeInventoryItemCount(items, itemId, count) {
         }
     }
     if (remaining > 0) {
-        throw new NotFoundException(`背包物品不足：${itemId}`);
+        throw new NotFoundException('背包物品不足');
     }
 }
 /**
@@ -8642,7 +8650,7 @@ function normalizeLegacyTransmissionJobFromPending(sourcePendingList, normalized
             jobType: 'transmission',
             jobVersion: 1,
             techniqueId: techId,
-            techniqueName: pending?.name ?? source.name ?? techId,
+            techniqueName: resolvePlayerFacingContentName(techId, '未知功法', pending?.name, source.name),
             teacherPlayerId: transfer.teacherPlayerId,
             teacherName: transfer.teacherName,
             range: transfer.range ?? 2,
@@ -8696,7 +8704,7 @@ function normalizeAlchemyPresets(value) {
         .map((entry) => ({
         presetId: String(entry.presetId),
         recipeId: String(entry.recipeId),
-        name: typeof entry.name === 'string' ? entry.name : String(entry.recipeId),
+        name: resolvePlayerFacingContentName(entry.recipeId, '未命名炼制预设', entry.name),
         ingredients: Array.isArray(entry.ingredients)
             ? entry.ingredients
                 .filter((ingredient) => typeof ingredient?.itemId === 'string')
@@ -9382,7 +9390,7 @@ function assertConsumableItemCooldownReady(player, item, currentTick) {
     const cooldownLeft = getConsumableItemCooldownRemainingTicks(player, item, currentTick);
     syncConsumableInventoryCooldownProjection(player, currentTick);
     if (cooldownLeft > 0) {
-        throw new BadRequestException(`${item?.name ?? item?.itemId ?? '物品'}冷却中，还需 ${cooldownLeft} 息。`);
+        throw new BadRequestException(`${resolvePlayerFacingContentName(item?.itemId, '未知物品', item?.name)}冷却中，还需 ${cooldownLeft} 息。`);
     }
 }
 
@@ -10949,7 +10957,7 @@ function toConsumableTemporaryBuff(item, buff, sourceRealmLv = 1) {
         stacks: 1,
         maxStacks: Math.max(1, Math.round(buff.maxStacks ?? 1)),
         sourceSkillId,
-        sourceSkillName: item.name ?? item.itemId,
+        sourceSkillName: resolvePlayerFacingContentName(item.itemId, '未知物品', item.name),
         realmLv: Math.max(1, Math.floor(sourceRealmLv)),
         color: buff.color,
         attrs: buff.attrs ? { ...buff.attrs } : undefined,

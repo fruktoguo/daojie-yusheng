@@ -13,6 +13,7 @@ import type {
   NearbyDaoistCandidateView,
   SocialPanelView,
 } from '@mud/shared';
+import { resolvePlayerFacingContentName } from '@mud/shared';
 import { resolveServerDatabaseUrl } from '../../config/env-alias';
 import { NativePlayerAuthStoreService } from '../../http/native/native-player-auth-store.service';
 import { DatabasePoolProvider } from '../../persistence/database-pool.provider';
@@ -84,7 +85,7 @@ export class SocialRuntimeService {
       return { relations: [], incomingRequests: [], outgoingRequests: [], nearbyCandidates: [] };
     }
     const [relations, incomingRequests, outgoingRequests, nearbyCandidates] = await Promise.all([
-      this.loadRelations(normalizedPlayerId),
+      this.loadRelations(normalizedPlayerId, runtime),
       this.loadRequests(normalizedPlayerId, 'incoming'),
       this.loadRequests(normalizedPlayerId, 'outgoing'),
       this.buildNearbyCandidates(normalizedPlayerId, runtime),
@@ -305,7 +306,7 @@ export class SocialRuntimeService {
     return level === 'dao_friend' || level === 'close_friend';
   }
 
-  private async loadRelations(playerId: string): Promise<DaoistRelationView[]> {
+  private async loadRelations(playerId: string, runtime?: any): Promise<DaoistRelationView[]> {
     if (!this.pool || !this.enabled) {
       return [];
     }
@@ -319,12 +320,16 @@ export class SocialRuntimeService {
     return (result.rows ?? []).map((row) => {
       const targetPlayerId = row.player_a_id === playerId ? row.player_b_id : row.player_a_id;
       const player = this.playerRuntimeService.getPlayer(targetPlayerId);
+      const instanceId = normalizeString(player?.instanceId);
       return {
         playerId: targetPlayerId,
         name: this.resolvePlayerName(targetPlayerId, player),
         level: row.level === 'close_friend' ? 'close_friend' : 'dao_friend',
         online: Boolean(player?.sessionId),
-        ...(normalizeString(player?.instanceId) ? { instanceId: normalizeString(player?.instanceId) } : {}),
+        ...(instanceId ? {
+          instanceId,
+          instanceName: resolveRuntimeInstanceName(runtime, instanceId),
+        } : {}),
         ...(Number.isFinite(Number(player?.x)) ? { x: Math.trunc(Number(player.x)) } : {}),
         ...(Number.isFinite(Number(player?.y)) ? { y: Math.trunc(Number(player.y)) } : {}),
         createdAt: Math.max(0, Math.trunc(Number(row.created_at_ms) || 0)),
@@ -482,6 +487,19 @@ function normalizePlayerId(value: unknown): string {
 
 function normalizeString(value: unknown): string {
   return typeof value === 'string' && value.trim() ? value.trim() : '';
+}
+
+function resolveRuntimeInstanceName(runtime: any, instanceId: string): string {
+  const instance = runtime && typeof runtime.getInstanceRuntime === 'function'
+    ? runtime.getInstanceRuntime(instanceId)
+    : null;
+  return resolvePlayerFacingContentName(
+    instanceId,
+    '未知地域',
+    instance?.template?.name,
+    instance?.meta?.displayName,
+    instance?.meta?.name,
+  );
 }
 
 function normalizeDirectMessage(value: unknown): string {

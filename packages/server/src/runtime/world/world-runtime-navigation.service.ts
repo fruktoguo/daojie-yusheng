@@ -8,6 +8,7 @@
  * 管理玩家寻路目标设置、路径规划、跨图导航和导航中断
  */
 import { Inject, Injectable, BadRequestException, Logger, NotFoundException, Optional } from '@nestjs/common';
+import { resolvePlayerFacingContentName } from '@mud/shared';
 import { isServerNextMovementDebugEnabled, logServerNextMovement } from '../../debug/movement-debug';
 import { MapTemplateRepository } from '../map/map-template.repository';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
@@ -659,12 +660,12 @@ export class WorldRuntimeNavigationService {
         if (destination.mapId !== currentMapId) {
             const route = this.findMapRoute(currentMapId, destination.mapId);
             if (!route || route.length < 2) {
-                throw new BadRequestException(`无法规划前往 ${destination.mapId} 的跨图路线`);
+                throw new BadRequestException(`无法规划前往 ${this.resolveMapDisplayName(destination.mapId)} 的跨图路线`);
             }
             const nextMapId = route[1];
             const portal = selectNearestPortal(instance.template.portals, nextMapId, player.x, player.y);
             if (!portal) {
-                throw new BadRequestException(`当前地图没有通往 ${nextMapId} 的界门`);
+                throw new BadRequestException(`当前地图没有通往 ${this.resolveMapDisplayName(nextMapId)} 的界门`);
             }
             if (player.x === portal.x && player.y === portal.y) {
                 logServerNextMovement(deps.logger ?? this.logger, 'runtime.navigation.crossMap.atPortal', {
@@ -714,6 +715,13 @@ export class WorldRuntimeNavigationService {
             pathCost: pathResult.cost,
         });
         return { kind: 'move', direction, maxSteps: pathResult.points.length, path: pathResult.points.map((entry) => ({ x: entry.x, y: entry.y })) };
+    }
+
+    private resolveMapDisplayName(mapId) {
+        const templateName = this.templateRepository.has(mapId)
+            ? this.templateRepository.getOrThrow(mapId).name
+            : this.templateRepository.resolveMapGroupLabel(mapId);
+        return resolvePlayerFacingContentName(mapId, '未知地图', templateName);
     }
     /** resolveNavigationStepAsync：优先通过 AsyncPathfindingService 解析 tick 外寻路，失败时同步 fallback。 */
     async resolveNavigationStepAsync(playerId, intent, deps) {

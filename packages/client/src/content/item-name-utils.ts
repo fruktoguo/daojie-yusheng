@@ -1,3 +1,5 @@
+import { isUsableContentDisplayName } from '@mud/shared';
+
 /**
  * 客户端物品名称候选判断工具。
  *
@@ -15,6 +17,5 @@ export function isClientUnknownItemName(value: string | undefined): boolean {
 }
 
 export function isUsableClientItemNameCandidate(itemId: string, value: string | undefined): boolean {
-  const trimmed = normalizeClientItemNameText(value);
-  return trimmed.length > 0 && trimmed !== itemId.trim() && !isClientUnknownItemName(trimmed);
+  return isUsableContentDisplayName(itemId, UNKNOWN_CLIENT_ITEM_NAME, value);
 }

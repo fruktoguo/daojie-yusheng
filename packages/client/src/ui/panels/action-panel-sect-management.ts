@@ -11,6 +11,7 @@
 import {
   SECT_APPLICATION_PAGE_DEFAULT_LIMIT,
   isSectMemberRoleLowerThan,
+  resolvePlayerFacingContentName,
   type ActionDef,
   type PlayerState,
   type S2C_SectApplicationPage,
@@ -139,7 +140,11 @@ function normalizeSectManagementMember(input: unknown): SectManagementMember {
   const role = DEFAULT_SECT_MANAGEMENT_ROLES.find((entry) => entry.id === roleId);
   return {
     playerId,
-    name: typeof source.name === 'string' && source.name.trim() ? source.name.trim() : t('action.sect.fallback.unknown-member', undefined),
+    name: resolvePlayerFacingContentName(
+      playerId,
+      t('action.sect.fallback.unknown-member', undefined),
+      source.name,
+    ),
     roleId,
     roleLabel: typeof source.roleLabel === 'string' && source.roleLabel.trim() ? source.roleLabel.trim() : role?.label ?? '未知角色',
     realmLv: Number.isFinite(Number(source.realmLv)) && Number(source.realmLv) > 0 ? Math.trunc(Number(source.realmLv)) : null,
@@ -1090,9 +1095,11 @@ export class SectManagementSubpanel {
       revision: normalizeSectApplicationRevision(page.revision),
       items: (Array.isArray(page.items) ? page.items : []).map((entry) => ({
         playerId: typeof entry?.playerId === 'string' ? entry.playerId.trim() : '',
-        name: typeof entry?.name === 'string' && entry.name.trim()
-          ? entry.name.trim()
-          : t('action.sect.fallback.unknown-applicant', undefined),
+        name: resolvePlayerFacingContentName(
+          entry?.playerId,
+          t('action.sect.fallback.unknown-applicant', undefined),
+          entry?.name,
+        ),
         appliedAt: Number.isFinite(Number(entry?.appliedAt)) ? Math.max(0, Math.trunc(Number(entry.appliedAt))) : 0,
       })).filter((entry) => entry.playerId),
     };
@@ -1224,7 +1231,11 @@ export class SectManagementSubpanel {
     const rawDesc = action?.desc ?? '';
     const data = parseSectManagementData(rawDesc, this.p.previewPlayer ?? null);
     const desc = stripSectManagementData(rawDesc);
-    const name = desc.split('·')[0]?.trim() || action?.name || t('action.sect.manage.fallback.name', undefined);
+    const name = resolvePlayerFacingContentName(
+      data.sectId,
+      t('action.sect.manage.fallback.name', undefined),
+      desc.split('·')[0],
+    );
     const mark = /印记\s*([^·\s]+)/.exec(desc)?.[1] ?? t('action.sect.manage.fallback.mark', undefined);
     const domainLabel = /地域\s*([^·\s。]+)/.exec(desc)?.[1] ?? t('action.sect.manage.fallback.domain', undefined);
     const guardianStatusLabel = /大阵\s*([^·\s。]+)/.exec(desc)?.[1] ?? t('action.sect.manage.fallback.guardian-status', undefined);

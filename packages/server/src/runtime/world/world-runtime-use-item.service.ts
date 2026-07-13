@@ -8,7 +8,7 @@
  * 处理丹药、技能书、传送符、灵石等各类物品的使用逻辑分支
  */
 import { Inject, Injectable, BadRequestException, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
-import { CUSTOM_TECHNIQUE_BOOK_ITEM_ID, DEFAULT_QI_RESOURCE_DESCRIPTOR, MERIT_ETERNAL_DAILY_SIGN_IN_FIXED_BONUS, MERIT_ETERNAL_POOL_GRANT, MERIT_ETERNAL_USE_BEHAVIOR, MERIT_MONTH_CARD_DURATION_DAYS, MERIT_MONTH_CARD_POOL_GRANT, MERIT_MONTH_CARD_USE_BEHAVIOR, SECT_ENTRANCE_RELOCATION_USE_BEHAVIOR, TECHNIQUE_FRAGMENT_ITEM_ID, buildQiResourceKey, calculateTechniqueBookCraftFragmentCost, calculateTechniqueBookDecomposeFragments, getItemDisplayName, getTechniqueMaxLevel, isCreatedTechniqueId, isTechniqueFullyMastered } from '@mud/shared';
+import { CUSTOM_TECHNIQUE_BOOK_ITEM_ID, DEFAULT_QI_RESOURCE_DESCRIPTOR, MERIT_ETERNAL_DAILY_SIGN_IN_FIXED_BONUS, MERIT_ETERNAL_POOL_GRANT, MERIT_ETERNAL_USE_BEHAVIOR, MERIT_MONTH_CARD_DURATION_DAYS, MERIT_MONTH_CARD_POOL_GRANT, MERIT_MONTH_CARD_USE_BEHAVIOR, SECT_ENTRANCE_RELOCATION_USE_BEHAVIOR, TECHNIQUE_FRAGMENT_ITEM_ID, buildQiResourceKey, calculateTechniqueBookCraftFragmentCost, calculateTechniqueBookDecomposeFragments, getItemDisplayName, getTechniqueMaxLevel, isCreatedTechniqueId, isTechniqueFullyMastered, resolvePlayerFacingContentName } from '@mud/shared';
 import { randomUUID } from 'node:crypto';
 import { resolveServerDatabaseUrl } from '../../config/env-alias';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
@@ -273,7 +273,7 @@ export class WorldRuntimeUseItemService {
         this.assertNearTechniqueRefiningTable(playerId, deps);
         const techniqueId = typeof techniqueIdInput === 'string' && techniqueIdInput.trim() ? techniqueIdInput.trim() : '';
         if (!techniqueId) {
-            throw new BadRequestException('功法 ID 不能为空');
+            throw new BadRequestException('请选择要抄录的功法');
         }
         if (!isCreatedTechniqueId(techniqueId)) {
             throw new BadRequestException('只能抄录自创功法');
@@ -285,8 +285,9 @@ export class WorldRuntimeUseItemService {
         }
         const technique = this.contentTemplateRepository.createTechniqueState(techniqueId);
         if (!technique) {
-            throw new NotFoundException(`功法不存在：${techniqueId}`);
+            throw new NotFoundException(`${resolvePlayerFacingContentName(techniqueId, '未知功法', learnedTechnique.name)}不存在`);
         }
+        const techniqueName = resolvePlayerFacingContentName(techniqueId, '未知功法', technique.name);
         if (technique.category === 'divine') {
             throw new BadRequestException('神通不能抄录为功法书');
         }
@@ -315,17 +316,17 @@ export class WorldRuntimeUseItemService {
             count: 1,
             learnTechniqueId: techniqueId,
             ...(maxLevel < maxTemplateLevel ? { learnTechniqueMaxLevel: maxLevel } : {}),
-            name: maxLevel >= maxTemplateLevel ? `《${technique.name}》` : `《${technique.name}》残卷`,
+            name: maxLevel >= maxTemplateLevel ? `《${techniqueName}》` : `《${techniqueName}》残卷`,
             type: 'skill_book',
             desc: maxLevel >= maxTemplateLevel
-                ? `完整记载${technique.name}。`
-                : `记载${technique.name}前 ${maxLevel} 层的残卷。`,
+                ? `完整记载${techniqueName}。`
+                : `记载${techniqueName}前 ${maxLevel} 层的残卷。`,
             grade: technique.grade,
             level: technique.realmLv,
         });
         deps.refreshQuestStates?.(playerId);
         const n = buildStructuredNotice('success', 'notice.item.technique-book-crafted', '功法书已抄录', {
-            vars: { techniqueName: technique.name ?? techniqueId, count: cost, maxLevel },
+            vars: { techniqueName, count: cost, maxLevel },
             pills: [{ key: 'techniqueName', style: 'skill' }],
         });
         deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);
@@ -442,7 +443,7 @@ export class WorldRuntimeUseItemService {
             const currentItem = this.requireUnchangedInventoryItem(playerId, itemInstanceId, item.itemId);
             for (const mapId of mapUnlockIds) {
                 if (!this.templateRepository.has(mapId)) {
-                    throw new BadRequestException(`地图解锁目标不存在：${mapId}`);
+                    throw new BadRequestException('地图解锁目标不存在');
                 }
             }
             const unlockMapIds = mapUnlockIds.filter((mapId) => !this.playerRuntimeService.hasUnlockedMap(playerId, mapId));
@@ -506,7 +507,7 @@ export class WorldRuntimeUseItemService {
     async handleRespawnBindItem(playerId, itemInstanceId, item, mapId, deps) {
         const normalizedMapId = typeof mapId === 'string' ? mapId.trim() : '';
         if (!normalizedMapId || !this.templateRepository.has(normalizedMapId)) {
-            throw new BadRequestException(`复活绑定目标不存在：${normalizedMapId || mapId}`);
+            throw new BadRequestException('复活绑定目标不存在');
         }
         const template = this.templateRepository.getOrThrow(normalizedMapId);
         await this.handleResolvedRespawnBindItem(playerId, itemInstanceId, item, {
@@ -676,7 +677,7 @@ export class WorldRuntimeUseItemService {
         if (isOwnSectMap) {
             return {
                 allowed: true,
-                mapName: typeof instance?.template?.name === 'string' && instance.template.name.trim() ? instance.template.name.trim() : templateId,
+                mapName: resolvePlayerFacingContentName(templateId, '未知地域', instance?.template?.name),
                 placement: {
                     templateId: instanceSectId ? `sect_domain:${instanceSectId}` : templateId,
                     instanceId,
@@ -689,7 +690,7 @@ export class WorldRuntimeUseItemService {
         const spawnY = Number.isFinite(instance?.template?.spawnY) ? Math.trunc(Number(instance.template.spawnY)) : undefined;
         return {
             allowed: true,
-            mapName: typeof instance?.template?.name === 'string' && instance.template.name.trim() ? instance.template.name.trim() : templateId,
+            mapName: resolvePlayerFacingContentName(templateId, '未知地域', instance?.template?.name),
             placement: {
                 templateId,
                 instanceId,
@@ -711,7 +712,7 @@ export class WorldRuntimeUseItemService {
         return this.runExclusiveTileResourceUse(playerId, deps, async (location, instance) => {
             const currentInventoryItem = this.playerRuntimeService.peekInventoryItemByInstanceId(playerId, itemInstanceId);
             if (!currentInventoryItem) {
-                throw new NotFoundException(`背包物品不存在：${normalizeInventoryItemInstanceId(itemInstanceId) || 'unknown'}`);
+                throw new NotFoundException('背包物品不存在或已变化');
             }
             const currentItem = this.resolveUseItemView(currentInventoryItem);
             if (currentItem.itemId !== item.itemId) {
@@ -720,7 +721,7 @@ export class WorldRuntimeUseItemService {
             const resourceGains = this.resolveTileResourceGains(currentItem);
             const normalizedCount = normalizeUseItemCount(count, currentItem);
             if (resourceGains.length <= 0) {
-                throw new BadRequestException(`无法解析物品 ${currentItem.itemId} 的地块资源效果`);
+                throw new BadRequestException(`无法解析${resolvePlayerFacingContentName(currentItem.itemId, '未知物品', currentItem.name)}的地块资源效果`);
             }
             const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
             if (isProtectedTileResourceUseTile(instance, player.x, player.y)) {
@@ -777,14 +778,14 @@ export class WorldRuntimeUseItemService {
 
     applyVolatileTileResourceUse(playerId, itemInstanceId, item, count, resourceGains, player, instance, deps) {
         if (resourceGains.length <= 0) {
-            throw new BadRequestException(`无法解析物品 ${item.itemId} 的地块资源效果`);
+            throw new BadRequestException(`无法解析${resolvePlayerFacingContentName(item.itemId, '未知物品', item.name)}的地块资源效果`);
         }
         const results = [];
         for (const entry of resourceGains) {
             const totalGain = entry.amount * count;
             const nextValue = instance.addTileResource(entry.resourceKey, player.x, player.y, totalGain);
             if (nextValue === null) {
-                throw new BadRequestException(`无法在 ${player.x},${player.y} 增加地块资源 ${entry.resourceKey}`);
+                throw new BadRequestException(`无法在 ${player.x},${player.y} 增加地块资源`);
             }
             results.push({ ...entry, amount: totalGain, nextValue });
         }
