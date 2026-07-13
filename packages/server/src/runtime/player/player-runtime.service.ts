@@ -1331,13 +1331,18 @@ export class PlayerRuntimeService {
             });
         }
         player.pendingTechniqueComprehensions = pending;
-        if (!player.techniques.cultivatingTechId && selfComprehensionAllowed) {
+        const cultivationPreferenceChanged = !player.techniques.cultivatingTechId && selfComprehensionAllowed;
+        if (cultivationPreferenceChanged) {
             player.techniques.cultivatingTechId = normalizedTechId;
             player.combat.cultivationActive = true;
         }
         const autoBattleSkillsChanged = syncTechniqueAutoBattleSkillCatalog(player, technique);
         player.techniques.revision += 1;
-        markPlayerDirtyDomains(player, autoBattleSkillsChanged ? ['technique', 'auto_battle_skill'] : ['technique']);
+        markPlayerDirtyDomains(player, [
+            'technique',
+            ...(autoBattleSkillsChanged ? ['auto_battle_skill'] : []),
+            ...(cultivationPreferenceChanged ? ['combat_pref'] : []),
+        ]);
         this.bumpPersistentRevision(player);
         return true;
     }
@@ -2761,6 +2766,7 @@ export class PlayerRuntimeService {
 
         let consumed = false;
         let autoBattleSkillsChanged = false;
+        let cultivationPreferenceChanged = false;
         const currentTick = resolvePlayerRuntimeTick(player, 0);
         if (learnTechniqueId) {
             if (player.techniques.techniques.some((entry) => entry.techId === learnTechniqueId)) {
@@ -2810,7 +2816,8 @@ export class PlayerRuntimeService {
             }
             player.pendingTechniqueComprehensions = pending;
             player.techniques.revision += 1;
-            if (!player.techniques.cultivatingTechId) {
+            cultivationPreferenceChanged = !player.techniques.cultivatingTechId;
+            if (cultivationPreferenceChanged) {
                 player.techniques.cultivatingTechId = technique.techId;
                 player.combat.cultivationActive = true;
             }
@@ -2832,7 +2839,12 @@ export class PlayerRuntimeService {
         this.refreshWalletCacheFromInventory(player, item.itemId);
         this.playerProgressionService.refreshPreview(player);
         markPlayerDirtyDomains(player, learnTechniqueId
-            ? (autoBattleSkillsChanged ? ['inventory', 'technique', 'auto_battle_skill'] : ['inventory', 'technique'])
+            ? [
+                'inventory',
+                'technique',
+                ...(autoBattleSkillsChanged ? ['auto_battle_skill'] : []),
+                ...(cultivationPreferenceChanged ? ['combat_pref'] : []),
+            ]
             : ['inventory']);
         this.bumpPersistentRevision(player);
         this.recordAssetStatisticMutation(player, statisticBefore);
@@ -3064,9 +3076,6 @@ export class PlayerRuntimeService {
             .sort((left, right) => left.localeCompare(right, 'zh-Hans-CN'));
         markPlayerDirtyDomains(player, ['map_unlock']);
         this.bumpPersistentRevision(player);
-        void this.persistMapUnlocks(player).catch((error) => {
-            console.warn(`地图解锁直写失败：${error instanceof Error ? error.message : String(error)}`);
-        });
         return player;
     }
     /**
@@ -3110,7 +3119,7 @@ export class PlayerRuntimeService {
         player.respawnX = nextX;
         player.respawnY = nextY;
         player.selfRevision += 1;
-        markPlayerDirtyDomains(player, ['position_checkpoint']);
+        markPlayerDirtyDomains(player, ['world_anchor']);
         this.bumpPersistentRevision(player);
         return true;
     }
@@ -3145,32 +3154,9 @@ export class PlayerRuntimeService {
         player.respawnX = nextX;
         player.respawnY = nextY;
         player.selfRevision += 1;
-        markPlayerDirtyDomains(player, ['position_checkpoint']);
+        markPlayerDirtyDomains(player, ['world_anchor']);
         this.bumpPersistentRevision(player);
         return true;
-    }
-    /**
- * persistMapUnlocks：执行persist地图Unlocks相关逻辑。
- * @param player 玩家对象。
- * @returns 无返回值，直接更新persist地图Unlocks相关状态。
- */
-
-    async persistMapUnlocks(player) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        if (isFlushTaskConsumerMode()) {
-            return;
-        }
-        if (!this.playerDomainPersistenceService?.isEnabled?.()) {
-            return;
-        }
-        const playerId = typeof player?.playerId === 'string' ? player.playerId.trim() : '';
-        if (!playerId) {
-            return;
-        }
-        await this.playerDomainPersistenceService.savePlayerMapUnlocks(playerId, [...(player.unlockedMapIds ?? [])], {
-            versionSeed: nextPlayerPersistenceVersion(),
-        });
     }
     async persistWallet(player) {
         if (isFlushTaskConsumerMode()) {

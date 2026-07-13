@@ -51,6 +51,11 @@ import {
   persistDurableActivityAssetSourceMutation,
   type DurableActivityAssetSourceMutation,
 } from './activity-asset-durable-persistence';
+import {
+  normalizeDurablePlayerItemUseSourceMutation,
+  persistDurablePlayerItemUseSourceMutation,
+  type DurablePlayerItemUseSourceMutation,
+} from './player-item-use-durable-persistence';
 
 const PLAYER_PRESENCE_TABLE = 'player_presence';
 const PLAYER_WALLET_TABLE = 'player_wallet';
@@ -289,7 +294,8 @@ export type DurableInventoryGrantSourceMutation =
       fuelUnits: number;
     }
   | DurableTileResourceSourceMutation
-  | DurableActivityAssetSourceMutation;
+  | DurableActivityAssetSourceMutation
+  | DurablePlayerItemUseSourceMutation;
 
 export interface GrantInventoryItemsResult {
   ok: boolean;
@@ -1555,7 +1561,9 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
         || normalizedSourceType === 'activity_eternal_activation'
         || normalizedSourceType === 'activity_month_card_claim'
         || normalizedSourceType === 'activity_daily_sign_in_claim'
-        || normalizedSourceType === 'activity_invitation_reward_claim')
+        || normalizedSourceType === 'activity_invitation_reward_claim'
+        || normalizedSourceType === 'item_map_unlock'
+        || normalizedSourceType === 'item_respawn_bind')
       && !normalizedSourceMutation
     ) {
       throw new Error('inventory_grant_source_mutation_required');
@@ -1563,6 +1571,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
     if (
       normalizedSourceMutation
       && normalizedSourceMutation.kind !== 'activity_asset'
+      && normalizedSourceMutation.kind !== 'player_item_use'
       && normalizeOptionalString(input.expectedInstanceId) !== normalizedSourceMutation.instanceId
     ) {
       throw new Error('inventory_grant_source_instance_mismatch');
@@ -1580,6 +1589,17 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
       }
       if (expectedSourceTypeByAction[normalizedSourceMutation.action] !== normalizedSourceType) {
         throw new Error('activity_source_type_mismatch');
+      }
+    }
+    if (normalizedSourceMutation?.kind === 'player_item_use') {
+      const expectedSourceType = normalizedSourceMutation.action === 'unlock_maps'
+        ? 'item_map_unlock'
+        : 'item_respawn_bind';
+      if (normalizedSourceMutation.playerId !== normalizedPlayerId) {
+        throw new Error('player_item_use_source_player_mismatch');
+      }
+      if (expectedSourceType !== normalizedSourceType) {
+        throw new Error('player_item_use_source_type_mismatch');
       }
     }
     if (normalizedSourceMutation?.kind === 'tile_resource') {
@@ -1637,10 +1657,20 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
         sourceType: normalizedSourceType,
       }),
       onMutate: async (client, persistenceVersion) => {
+        const allowEmptyInventoryOverwrite = normalizedNextInventoryItems.length === 0
+          && inventoryAction === 'remove'
+          && normalizedSourceMutation?.kind === 'player_item_use'
+          && await assertPlayerItemUseConsumesLastUnlockedInventoryItem(
+            client,
+            normalizedPlayerId,
+            normalizedGrantedItems,
+          );
         if (normalizedSourceMutation) {
-          await persistInventoryGrantSourceMutation(client, normalizedSourceMutation);
+          await persistInventoryGrantSourceMutation(client, normalizedSourceMutation, persistenceVersion);
         }
-        await replacePlayerInventoryItems(client, normalizedPlayerId, normalizedNextInventoryItems);
+        await replacePlayerInventoryItems(client, normalizedPlayerId, normalizedNextInventoryItems, {
+          allowEmptyOverwrite: allowEmptyInventoryOverwrite,
+        });
 
         await client.query(
           `
@@ -1766,6 +1796,20 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
               committed: true,
             },
             'activity-source',
+          );
+        }
+        if (normalizedSourceMutation?.kind === 'player_item_use') {
+          await insertAssetAuditLog(
+            client,
+            normalizedOperationId,
+            normalizedPlayerId,
+            'player_item_use',
+            normalizedSourceRefId ?? normalizedSourceType,
+            normalizedSourceMutation.action,
+            { sourceMutation: normalizedSourceMutation },
+            {},
+            { committed: true },
+            'player-item-source',
           );
         }
 
@@ -4918,6 +4962,62 @@ async function refuseEmptyOverwriteIfRowsExist(
   }
 }
 
+async function assertPlayerItemUseConsumesLastUnlockedInventoryItem(
+  client: import('pg').PoolClient,
+  playerId: string,
+  removedItems: readonly DurableInventoryItemSnapshot[],
+): Promise<true> {
+  if (removedItems.length !== 1) {
+    throw new Error('player_item_use_empty_inventory_removal_invalid');
+  }
+  const removedItem = removedItems[0];
+  const itemId = normalizeRequiredString(removedItem?.itemId);
+  const itemInstanceId = normalizeRequiredString(removedItem?.itemInstanceId)
+    || normalizeRequiredString((removedItem?.rawPayload as { itemInstanceId?: unknown } | null)?.itemInstanceId);
+  const count = Math.max(1, Math.trunc(Number(removedItem?.count ?? 1)));
+  if (!itemId || !itemInstanceId || isLegacyItemInstanceId(itemInstanceId) || count !== 1) {
+    throw new Error('player_item_use_empty_inventory_removal_invalid');
+  }
+
+  const persisted = await client.query<{
+    item_instance_id?: unknown;
+    item_id?: unknown;
+    count?: unknown;
+    raw_payload?: unknown;
+  }>(
+    `SELECT item_instance_id, item_id, count, raw_payload
+       FROM ${PLAYER_INVENTORY_ITEM_TABLE}
+      WHERE player_id = $1
+        AND locked_by IS NULL
+      FOR UPDATE`,
+    [playerId],
+  );
+  const row = persisted.rows[0];
+  const expectedRawPayload = buildPersistedInventoryItemRawPayload({
+    itemId,
+    count,
+    name: removedItem.name,
+    desc: removedItem.desc,
+    enhanceLevel: removedItem.enhanceLevel,
+    learnTechniqueId: removedItem.learnTechniqueId,
+    learnTechniqueMaxLevel: removedItem.learnTechniqueMaxLevel,
+    grade: removedItem.grade,
+    level: removedItem.level,
+    rawPayload: removedItem.rawPayload,
+  });
+  if (
+    (persisted.rowCount ?? 0) !== 1
+    || normalizeRequiredString(row?.item_instance_id) !== itemInstanceId
+    || normalizeRequiredString(row?.item_id) !== itemId
+    || Math.trunc(Number(row?.count ?? 0)) !== 1
+    || createPersistedInventoryRowSignature(itemId, normalizeDurableJsonObject(row?.raw_payload))
+      !== createPersistedInventoryRowSignature(itemId, expectedRawPayload)
+  ) {
+    throw new Error('player_item_use_empty_inventory_snapshot_changed');
+  }
+  return true;
+}
+
 async function assertNoForeignPlayerOwnedIds(
   client: import('pg').PoolClient,
   tableName: string,
@@ -6425,6 +6525,9 @@ function normalizeInventoryGrantSourceMutation(
   if (value.kind === 'activity_asset') {
     return normalizeDurableActivityAssetSourceMutation(value);
   }
+  if (value.kind === 'player_item_use') {
+    return normalizeDurablePlayerItemUseSourceMutation(value);
+  }
   const instanceId = normalizeRequiredString(value.instanceId);
   if (!instanceId) {
     return null;
@@ -6454,9 +6557,14 @@ function normalizeInventoryGrantSourceMutation(
 async function persistInventoryGrantSourceMutation(
   client: import('pg').PoolClient,
   mutation: DurableInventoryGrantSourceMutation,
+  persistenceVersion: number,
 ): Promise<void> {
   if (mutation.kind === 'activity_asset') {
     await persistDurableActivityAssetSourceMutation(client, mutation);
+    return;
+  }
+  if (mutation.kind === 'player_item_use') {
+    await persistDurablePlayerItemUseSourceMutation(client, mutation, persistenceVersion);
     return;
   }
   await client.query('SELECT pg_advisory_xact_lock($1::integer, hashtext($2))', [7102, mutation.instanceId]);

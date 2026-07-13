@@ -122,7 +122,7 @@ export class WorldRuntimeUseItemService {
             return;
         }
         if (item.useBehavior === CURRENT_RESPAWN_BIND_USE_BEHAVIOR) {
-            this.handleCurrentRespawnBindItem(playerId, itemInstanceId, item, deps);
+            await this.handleCurrentRespawnBindItem(playerId, itemInstanceId, item, deps);
             return;
         }
         if (item.useBehavior === 'open_technique_generation') {
@@ -148,11 +148,11 @@ export class WorldRuntimeUseItemService {
                 : [];
         if (mapUnlockIds.length > 0) {
             const resolved = this.resolveMapUnlockTargets(mapUnlockIds);
-            this.handleMapUnlockItem(playerId, itemInstanceId, item, resolved.mapIds, deps, resolved.label);
+            await this.handleMapUnlockItem(playerId, itemInstanceId, item, resolved.mapIds, deps, resolved.label);
             return;
         }
         if (typeof item.respawnBindMapId === 'string' && item.respawnBindMapId.trim()) {
-            this.handleRespawnBindItem(playerId, itemInstanceId, item, item.respawnBindMapId, deps);
+            await this.handleRespawnBindItem(playerId, itemInstanceId, item, item.respawnBindMapId, deps);
             return;
         }
         if (this.resolveTileResourceGains(item).length > 0) {
@@ -166,14 +166,25 @@ export class WorldRuntimeUseItemService {
             if (!learnedTechniqueId) {
                 throw new NotFoundException('功法书缺少功法 ID');
             }
-            this.playerRuntimeService.consumeInventoryItemByInstanceId(playerId, itemInstanceId, 1);
-            this.playerRuntimeService.addPendingTechniqueComprehensionById(
+            const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
+            if (findPlayerLearnedTechnique(player, learnedTechniqueId)) {
+                throw new BadRequestException('已经掌握该功法');
+            }
+            if (!this.contentTemplateRepository.createTechniqueState(learnedTechniqueId)) {
+                throw new NotFoundException('功法书对应的功法不存在');
+            }
+            const added = this.playerRuntimeService.addPendingTechniqueComprehensionById(
                 playerId,
                 learnedTechniqueId,
                 'normal',
                 null,
                 { maxLevel: item.learnTechniqueMaxLevel },
             );
+            if (!added) {
+                throw new Error(`technique_comprehension_plan_rejected_after_validation:${learnedTechniqueId}`);
+            }
+            // 前面的模板、已学状态与领悟计划校验均为同步操作；先确认计划已写入，避免拒绝路径先扣书。
+            this.playerRuntimeService.consumeInventoryItemByInstanceId(playerId, itemInstanceId, 1);
         }
         else {
             this.playerRuntimeService.useItemByInstanceId(playerId, itemInstanceId);
@@ -426,30 +437,62 @@ export class WorldRuntimeUseItemService {
             label: expandedLabel,
         };
     }
-    handleMapUnlockItem(playerId, itemInstanceId, item, mapUnlockIds, deps, targetLabelOverride = '') {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        for (const mapId of mapUnlockIds) {
-            if (!this.templateRepository.has(mapId)) {
-                throw new BadRequestException(`地图解锁目标不存在：${mapId}`);
+    async handleMapUnlockItem(playerId, itemInstanceId, item, mapUnlockIds, deps, targetLabelOverride = '') {
+        await this.runExclusivePersistentPlayerItemUse(playerId, async () => {
+            const currentItem = this.requireUnchangedInventoryItem(playerId, itemInstanceId, item.itemId);
+            for (const mapId of mapUnlockIds) {
+                if (!this.templateRepository.has(mapId)) {
+                    throw new BadRequestException(`地图解锁目标不存在：${mapId}`);
+                }
             }
-        }
-        if (mapUnlockIds.every((mapId) => this.playerRuntimeService.hasUnlockedMap(playerId, mapId))) {
-            throw new BadRequestException('地图已经解锁');
-        }
-        for (const mapId of mapUnlockIds) {
-            if (!this.playerRuntimeService.hasUnlockedMap(playerId, mapId)) {
-                this.playerRuntimeService.unlockMap(playerId, mapId);
+            const unlockMapIds = mapUnlockIds.filter((mapId) => !this.playerRuntimeService.hasUnlockedMap(playerId, mapId));
+            if (unlockMapIds.length === 0) {
+                throw new BadRequestException('地图已经解锁');
             }
-        }
-        this.playerRuntimeService.consumeInventoryItemByInstanceId(playerId, itemInstanceId, 1);
-        deps.refreshQuestStates(playerId);
-        const targetLabel = targetLabelOverride || (mapUnlockIds.length === 1
-            ? this.templateRepository.getOrThrow(mapUnlockIds[0]).name
-            : `${item.name ?? '地图'}记载的区域`);
-        const n = buildStructuredNotice('success', 'notice.item.map-unlocked', `已解锁地图：${targetLabel}`, { vars: { mapName: targetLabel }, pills: [{ key: 'mapName', style: 'target' }] });
-        deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);
-    }    
+            const durable = deps?.durableOperationService ?? null;
+            if (durable?.isEnabled?.() === true) {
+                const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
+                const expectedUnlockedMapIds = normalizeStringList(player.unlockedMapIds);
+                const nextInventoryItems = buildInventoryAfterConsume(player.inventory?.items, itemInstanceId, 1);
+                const committedInventoryItems = await this.commitPersistentPlayerItemUse({
+                    playerId,
+                    itemInstanceId,
+                    item: currentItem,
+                    nextInventoryItems,
+                    durable,
+                    sourceType: 'item_map_unlock',
+                    sourceMutation: {
+                        kind: 'player_item_use',
+                        action: 'unlock_maps',
+                        playerId,
+                        expectedUnlockedMapIds,
+                        unlockMapIds,
+                    },
+                });
+                this.playerRuntimeService.replaceInventoryItems(playerId, committedInventoryItems);
+                for (const mapId of unlockMapIds) {
+                    if (!this.playerRuntimeService.hasUnlockedMap(playerId, mapId)) {
+                        this.playerRuntimeService.unlockMap(playerId, mapId);
+                    }
+                }
+            }
+            else {
+                this.assertVolatilePersistentItemUseAllowed();
+                for (const mapId of unlockMapIds) {
+                    if (!this.playerRuntimeService.hasUnlockedMap(playerId, mapId)) {
+                        this.playerRuntimeService.unlockMap(playerId, mapId);
+                    }
+                }
+                this.playerRuntimeService.consumeInventoryItemByInstanceId(playerId, itemInstanceId, 1);
+            }
+            deps.refreshQuestStates(playerId);
+            const targetLabel = targetLabelOverride || (mapUnlockIds.length === 1
+                ? this.templateRepository.getOrThrow(mapUnlockIds[0]).name
+                : `${item.name ?? '地图'}记载的区域`);
+            const n = buildStructuredNotice('success', 'notice.item.map-unlocked', `已解锁地图：${targetLabel}`, { vars: { mapName: targetLabel }, pills: [{ key: 'mapName', style: 'target' }] });
+            deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);
+        });
+    }
     /**
  * handleRespawnBindItem：处理复活点绑定道具。
  * @param playerId 玩家 ID。
@@ -460,26 +503,20 @@ export class WorldRuntimeUseItemService {
  * @returns 无返回值，直接更新复活绑定相关状态。
  */
 
-    handleRespawnBindItem(playerId, itemInstanceId, item, mapId, deps) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
+    async handleRespawnBindItem(playerId, itemInstanceId, item, mapId, deps) {
         const normalizedMapId = typeof mapId === 'string' ? mapId.trim() : '';
         if (!normalizedMapId || !this.templateRepository.has(normalizedMapId)) {
             throw new BadRequestException(`复活绑定目标不存在：${normalizedMapId || mapId}`);
         }
-        const changed = this.playerRuntimeService.bindRespawnPoint(playerId, normalizedMapId);
-        if (!changed) {
-            throw new BadRequestException('已经绑定该复活点');
-        }
-        this.playerRuntimeService.consumeInventoryItemByInstanceId(playerId, itemInstanceId, 1);
-        deps.refreshQuestStates(playerId);
-        const targetLabel = this.templateRepository.getOrThrow(normalizedMapId).name;
-        const n = buildStructuredNotice('success', 'notice.item.spawn-bound', `复活点与遁返落点已绑定：${targetLabel}`, { vars: { mapName: targetLabel }, pills: [{ key: 'mapName', style: 'target' }] });
-        deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);
+        const template = this.templateRepository.getOrThrow(normalizedMapId);
+        await this.handleResolvedRespawnBindItem(playerId, itemInstanceId, item, {
+            templateId: normalizedMapId,
+            instanceId: `public:${normalizedMapId}`,
+            x: Number.isFinite(template.spawnX) ? Math.trunc(template.spawnX) : 0,
+            y: Number.isFinite(template.spawnY) ? Math.trunc(template.spawnY) : 0,
+        }, template.name, deps, () => this.playerRuntimeService.bindRespawnPoint(playerId, normalizedMapId));
     }
-    handleCurrentRespawnBindItem(playerId, itemInstanceId, item, deps) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
+    async handleCurrentRespawnBindItem(playerId, itemInstanceId, item, deps) {
         const location = deps.getPlayerLocationOrThrow(playerId);
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
         const instance = deps.getInstanceRuntimeOrThrow(location.instanceId);
@@ -487,14 +524,137 @@ export class WorldRuntimeUseItemService {
         if (!target.allowed) {
             throw new BadRequestException('命石只能在云来镇、栖真渡、云墟台或自己所属宗门使用');
         }
-        const changed = this.playerRuntimeService.bindRespawnPointToPlacement(playerId, target.placement);
-        if (!changed) {
-            throw new BadRequestException('已经绑定该复活点');
+        await this.handleResolvedRespawnBindItem(
+            playerId,
+            itemInstanceId,
+            item,
+            target.placement,
+            target.mapName,
+            deps,
+            () => this.playerRuntimeService.bindRespawnPointToPlacement(playerId, target.placement),
+        );
+    }
+    async handleResolvedRespawnBindItem(playerId, itemInstanceId, item, placement, mapName, deps, applyRespawn) {
+        await this.runExclusivePersistentPlayerItemUse(playerId, async () => {
+            const currentItem = this.requireUnchangedInventoryItem(playerId, itemInstanceId, item.itemId);
+            const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
+            const expectedRespawn = normalizeRuntimeRespawnPoint(player);
+            const nextRespawn = normalizePlannedRespawnPoint(placement);
+            if (!nextRespawn) {
+                throw new BadRequestException('复活绑定落点无效');
+            }
+            if (isSameRuntimeRespawnPoint(expectedRespawn, nextRespawn)) {
+                throw new BadRequestException('已经绑定该复活点');
+            }
+            const durable = deps?.durableOperationService ?? null;
+            if (durable?.isEnabled?.() === true) {
+                const nextInventoryItems = buildInventoryAfterConsume(player.inventory?.items, itemInstanceId, 1);
+                const committedInventoryItems = await this.commitPersistentPlayerItemUse({
+                    playerId,
+                    itemInstanceId,
+                    item: currentItem,
+                    nextInventoryItems,
+                    durable,
+                    sourceType: 'item_respawn_bind',
+                    sourceMutation: {
+                        kind: 'player_item_use',
+                        action: 'bind_respawn',
+                        playerId,
+                        expectedRespawn,
+                        nextRespawn,
+                    },
+                });
+                this.playerRuntimeService.replaceInventoryItems(playerId, committedInventoryItems);
+                applyRespawn();
+            }
+            else {
+                this.assertVolatilePersistentItemUseAllowed();
+                const changed = applyRespawn();
+                if (!changed) {
+                    throw new BadRequestException('已经绑定该复活点');
+                }
+                this.playerRuntimeService.consumeInventoryItemByInstanceId(playerId, itemInstanceId, 1);
+            }
+            deps.refreshQuestStates(playerId);
+            const n = buildStructuredNotice('success', 'notice.item.spawn-bound', `复活点与遁返落点已绑定：${mapName}`, { vars: { mapName }, pills: [{ key: 'mapName', style: 'target' }] });
+            deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);
+        });
+    }
+    async runExclusivePersistentPlayerItemUse(playerId, action) {
+        const coordinator = this.playerRuntimeService?.runExclusiveAssetMutation;
+        if (typeof coordinator !== 'function') {
+            return action();
         }
-        this.playerRuntimeService.consumeInventoryItemByInstanceId(playerId, itemInstanceId, 1);
-        deps.refreshQuestStates(playerId);
-        const n = buildStructuredNotice('success', 'notice.item.spawn-bound', `复活点与遁返落点已绑定：${target.mapName}`, { vars: { mapName: target.mapName }, pills: [{ key: 'mapName', style: 'target' }] });
-        deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);
+        return coordinator.call(this.playerRuntimeService, [playerId], action);
+    }
+    requireUnchangedInventoryItem(playerId, itemInstanceId, expectedItemId) {
+        const currentItem = this.playerRuntimeService.peekInventoryItemByInstanceId(playerId, itemInstanceId);
+        if (!currentItem) {
+            throw new NotFoundException(`背包物品不存在：${normalizeInventoryItemInstanceId(itemInstanceId) || 'unknown'}`);
+        }
+        const resolved = this.resolveUseItemView(currentItem);
+        if (resolved.itemId !== expectedItemId) {
+            throw new BadRequestException('物品状态已变化，请重试');
+        }
+        return resolved;
+    }
+    assertVolatilePersistentItemUseAllowed() {
+        if (resolveServerDatabaseUrl().trim() && !isVolatileDurableItemFallbackAllowed()) {
+            throw new ServiceUnavailableException('物品资产事务暂不可用，请稍后重试');
+        }
+    }
+    async commitPersistentPlayerItemUse(input) {
+        if (typeof input.durable?.grantInventoryItems !== 'function') {
+            throw new ServiceUnavailableException('物品资产事务暂不可用，请稍后重试');
+        }
+        if (!await this.syncCurrentPlayerPresence(input.playerId)) {
+            throw new ServiceUnavailableException('玩家资产事务围栏暂不可用，请稍后重试');
+        }
+        const fence = this.playerRuntimeService.getSessionFence?.(input.playerId)
+            ?? this.playerRuntimeService.describePersistencePresence?.(input.playerId)
+            ?? null;
+        if (!fence?.runtimeOwnerId || !fence?.sessionEpoch) {
+            throw new ServiceUnavailableException('玩家资产事务围栏暂不可用，请稍后重试');
+        }
+        const durableInput = {
+            operationId: `${input.sourceType}:${input.playerId}:${randomUUID()}`,
+            playerId: input.playerId,
+            expectedRuntimeOwnerId: fence.runtimeOwnerId,
+            expectedSessionEpoch: Math.max(1, Math.trunc(Number(fence.sessionEpoch))),
+            sourceType: input.sourceType,
+            sourceRefId: `${input.item.itemId}:${input.itemInstanceId}`,
+            inventoryAction: 'remove',
+            grantedItems: buildGrantedInventorySnapshots([{ ...input.item, count: 1 }]),
+            nextInventoryItems: buildNextInventorySnapshots(input.nextInventoryItems),
+            sourceMutation: input.sourceMutation,
+        };
+        let committedInventoryItems = input.nextInventoryItems;
+        try {
+            try {
+                await input.durable.grantInventoryItems(durableInput);
+            }
+            catch (error) {
+                if (!isDurableCommitOutcomeUnknownError(error)) {
+                    throw error;
+                }
+                const reconciliation = await reconcileDurableInventoryCommitOutcome(input.durable, durableInput);
+                if (reconciliation.outcome === 'failed') {
+                    throw reconciliation.error;
+                }
+                if (reconciliation.outcome === 'unknown') {
+                    throw error;
+                }
+                committedInventoryItems = reconciliation.inventoryItems;
+            }
+        }
+        catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            if (message.includes('player_map_unlock_snapshot_changed') || message.includes('player_respawn_snapshot_changed')) {
+                throw new BadRequestException('玩家持久化状态已变化，请重新进入后再试');
+            }
+            throw error;
+        }
+        return committedInventoryItems;
     }
     resolveCurrentRespawnBindTarget(player, instance) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -568,7 +728,7 @@ export class WorldRuntimeUseItemService {
             }
             const durable = deps?.durableOperationService ?? null;
             if (durable?.isEnabled?.() !== true) {
-                if (resolveServerDatabaseUrl().trim() && !isTileResourceVolatileFallbackAllowed()) {
+                if (resolveServerDatabaseUrl().trim() && !isVolatileDurableItemFallbackAllowed()) {
                     throw new ServiceUnavailableException('地块资源资产事务暂不可用，请稍后重试');
                 }
                 this.applyVolatileTileResourceUse(
@@ -849,7 +1009,7 @@ function normalizeUseItemCount(input, item) {
     return count;
 }
 
-function isTileResourceVolatileFallbackAllowed() {
+function isVolatileDurableItemFallbackAllowed() {
     const runtimeEnv = [process.env.SERVER_RUNTIME_ENV, process.env.APP_ENV, process.env.NODE_ENV]
         .map((value) => typeof value === 'string' ? value.trim().toLowerCase() : '')
         .find(Boolean) ?? '';
@@ -858,6 +1018,47 @@ function isTileResourceVolatileFallbackAllowed() {
         || runtimeEnv === 'smoke'
         || runtimeEnv === 'development'
         || runtimeEnv === 'dev';
+}
+
+function normalizeStringList(value) {
+    return Array.from(new Set(
+        (Array.isArray(value) ? value : [])
+            .map((entry) => typeof entry === 'string' ? entry.trim() : '')
+            .filter(Boolean),
+    )).sort();
+}
+
+function normalizeRuntimeRespawnPoint(player) {
+    const templateId = typeof player?.respawnTemplateId === 'string' ? player.respawnTemplateId.trim() : '';
+    const instanceId = normalizeOptionalStringSafe(player?.respawnInstanceId)
+        ?? (templateId ? `public:${templateId}` : null);
+    return {
+        templateId,
+        instanceId,
+        x: Number.isFinite(Number(player?.respawnX)) ? Math.trunc(Number(player.respawnX)) : 0,
+        y: Number.isFinite(Number(player?.respawnY)) ? Math.trunc(Number(player.respawnY)) : 0,
+    };
+}
+
+function normalizePlannedRespawnPoint(placement) {
+    const templateId = typeof placement?.templateId === 'string' ? placement.templateId.trim() : '';
+    const instanceId = normalizeOptionalStringSafe(placement?.instanceId);
+    if (!templateId || !instanceId) {
+        return null;
+    }
+    return {
+        templateId,
+        instanceId,
+        x: Number.isFinite(Number(placement?.x)) ? Math.trunc(Number(placement.x)) : 0,
+        y: Number.isFinite(Number(placement?.y)) ? Math.trunc(Number(placement.y)) : 0,
+    };
+}
+
+function isSameRuntimeRespawnPoint(left, right) {
+    return left.templateId === right.templateId
+        && left.instanceId === right.instanceId
+        && left.x === right.x
+        && left.y === right.y;
 }
 
 function normalizeInventoryItemInstanceId(value) {

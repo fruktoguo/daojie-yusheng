@@ -189,7 +189,25 @@ function createService(overrides: ServiceOverrides) {
  * @returns 无返回值，完成玩家OrThrow的读取/组装。
  */
 
-        getPlayerOrThrow() { return { x: overrides.playerX ?? 3, y: overrides.playerY ?? 4, sectId: overrides.playerSectId ?? null }; },
+        getPlayerOrThrow() {
+            return {
+                x: overrides.playerX ?? 3,
+                y: overrides.playerY ?? 4,
+                sectId: overrides.playerSectId ?? null,
+                techniques: { techniques: [] },
+            };
+        },
+        addPendingTechniqueComprehensionById(playerId, techniqueId, sourceKind, creatorPlayerId, options) {
+            overrides.log.push([
+                'addPendingTechniqueComprehensionById',
+                playerId,
+                techniqueId,
+                sourceKind,
+                creatorPlayerId,
+                options,
+            ]);
+            return true;
+        },
         consumeItemByItemId(playerId, itemId, count) {
             overrides.log.push(['consumeItemByItemId', playerId, itemId, count]);
             return overrides.consumeItemByItemIdResult ?? true;
@@ -276,11 +294,11 @@ function createService(overrides: ServiceOverrides) {
  */
 
 
-function testMapUnlockBranch() {
+async function testMapUnlockBranch() {
     const log = [];
     const service = createService({ log });
     service.playerRuntimeService.peekInventoryItem = () => ({ itemId: 'map_scroll', name: '荒原图志', mapUnlockIds: ['wildlands'] });
-    service.dispatchUseItem('player:1', 2, createDeps(log));
+    await service.dispatchUseItem('player:1', 2, createDeps(log));
     assert.deepEqual(log, [
         ['unlockMap', 'player:1', 'wildlands'],
         ['consumeInventoryItem', 'player:1', 2, 1],
@@ -288,11 +306,11 @@ function testMapUnlockBranch() {
         ['queuePlayerNotice', 'player:1', '已解锁地图：荒原', 'success'],
     ]);
 }
-function testMapGroupUnlockBranch() {
+async function testMapGroupUnlockBranch() {
     const log = [];
     const service = createService({ log });
     service.playerRuntimeService.peekInventoryItem = () => ({ itemId: 'map_scroll', name: '云来图志', mapUnlockId: '云来镇' });
-    service.dispatchUseItem('player:1', 2, createDeps(log));
+    await service.dispatchUseItem('player:1', 2, createDeps(log));
     assert.deepEqual(log, [
         ['unlockMap', 'player:1', 'yunlai_town'],
         ['unlockMap', 'player:1', 'yunlai_town_ore_basement'],
@@ -386,12 +404,12 @@ async function testTileResourceProtectedTileRejectsUse() {
  */
 
 
-function testRespawnBindBranch() {
+async function testRespawnBindBranch() {
     const log = [];
     const service = createService({ log });
     service.templateRepository.has = (mapId) => mapId === 'yunlai_town';
     service.playerRuntimeService.peekInventoryItem = () => ({ itemId: 'legacy_respawn_scroll', name: '旧复活符', respawnBindMapId: 'yunlai_town' });
-    service.dispatchUseItem('player:1', 4, createDeps(log));
+    await service.dispatchUseItem('player:1', 4, createDeps(log));
     assert.deepEqual(log, [
         ['bindRespawnPoint', 'player:1', 'yunlai_town'],
         ['consumeInventoryItem', 'player:1', 4, 1],
@@ -399,7 +417,7 @@ function testRespawnBindBranch() {
         ['queuePlayerNotice', 'player:1', '复活点与遁返落点已绑定：云来镇', 'success'],
     ]);
 }
-function testCurrentRespawnBindBranchUsesCurrentAllowedMap() {
+async function testCurrentRespawnBindBranchUsesCurrentAllowedMap() {
     const log = [];
     const service = createService({ log });
     service.playerRuntimeService.peekInventoryItem = () => ({ itemId: 'fate_stone', name: '命石', useBehavior: 'bind_current_respawn' });
@@ -409,7 +427,7 @@ function testCurrentRespawnBindBranchUsesCurrentAllowedMap() {
         meta: { instanceId: 'public:qizhen_crossing' },
         template: { id: 'qizhen_crossing', name: '栖真渡', spawnX: 29, spawnY: 15 },
     });
-    service.dispatchUseItem('player:1', 5, deps);
+    await service.dispatchUseItem('player:1', 5, deps);
     assert.deepEqual(log, [
         ['bindRespawnPointToPlacement', 'player:1', 'qizhen_crossing', 'public:qizhen_crossing', 29, 15],
         ['consumeInventoryItem', 'player:1', 5, 1],
@@ -427,7 +445,7 @@ async function testCurrentRespawnBindRejectsDisallowedMapWithoutConsume() {
     );
     assert.deepEqual(log, []);
 }
-function testCurrentRespawnBindAllowsOwnSectMap() {
+async function testCurrentRespawnBindAllowsOwnSectMap() {
     const log = [];
     const service = createService({ log, playerSectId: 'sect:alpha' });
     service.playerRuntimeService.peekInventoryItem = () => ({ itemId: 'fate_stone', name: '命石', useBehavior: 'bind_current_respawn' });
@@ -437,7 +455,7 @@ function testCurrentRespawnBindAllowsOwnSectMap() {
         meta: { instanceId: 'sect:alpha:main', ownerSectId: 'sect:alpha' },
         template: { id: 'sect_domain:sect:alpha:x-1_1:y-1_1', name: '青岚宗', spawnX: 1, spawnY: 1 },
     });
-    service.dispatchUseItem('player:1', 6, deps);
+    await service.dispatchUseItem('player:1', 6, deps);
     assert.deepEqual(log, [
         ['bindRespawnPointToPlacement', 'player:1', 'sect_domain:sect:alpha', 'sect:alpha:main', 0, 0],
         ['consumeInventoryItem', 'player:1', 6, 1],
@@ -495,6 +513,77 @@ function testTechniqueGenerationOpenPanelBranch() {
             key: 'notice.item.open-panel',
             vars: { panel: 'technique_generation' },
         }],
+    ]);
+}
+
+async function testCustomTechniqueBookRejectsLearnedTechniqueWithoutConsume() {
+    const log = [];
+    const service = createService({ log });
+    service.playerRuntimeService.peekInventoryItem = () => ({
+        itemId: 'book.custom_technique',
+        itemInstanceId: 'item:book:learned',
+        name: '《炼法烟测诀》',
+        learnTechniqueId: 'gen_refining_smoke',
+    });
+    service.playerRuntimeService.getPlayerOrThrow = () => ({
+        techniques: { techniques: [{ techId: 'gen_refining_smoke' }] },
+    });
+    await assert.rejects(
+        () => service.dispatchUseItem('player:1', 'item:book:learned', createDeps(log)),
+        /已经掌握该功法/,
+    );
+    assert.deepEqual(log, []);
+}
+
+async function testCustomTechniqueBookRejectsMissingTemplateWithoutConsume() {
+    const log = [];
+    const service = createService({ log });
+    service.playerRuntimeService.peekInventoryItem = () => ({
+        itemId: 'book.custom_technique',
+        itemInstanceId: 'item:book:missing',
+        name: '异常功法书',
+        learnTechniqueId: 'technique.missing',
+    });
+    await assert.rejects(
+        () => service.dispatchUseItem('player:1', 'item:book:missing', createDeps(log)),
+        /功法书对应的功法不存在/,
+    );
+    assert.deepEqual(log, []);
+}
+
+async function testCustomTechniqueBookRejectsPlanWithoutConsume() {
+    const log = [];
+    const service = createService({ log });
+    service.playerRuntimeService.peekInventoryItem = () => ({
+        itemId: 'book.custom_technique',
+        itemInstanceId: 'item:book:rejected',
+        name: '《炼法烟测诀》',
+        learnTechniqueId: 'gen_refining_smoke',
+    });
+    service.playerRuntimeService.addPendingTechniqueComprehensionById = () => false;
+    await assert.rejects(
+        () => service.dispatchUseItem('player:1', 'item:book:rejected', createDeps(log)),
+        /technique_comprehension_plan_rejected_after_validation/,
+    );
+    assert.deepEqual(log, []);
+}
+
+async function testCustomTechniqueBookAddsPlanBeforeConsume() {
+    const log = [];
+    const service = createService({ log });
+    service.playerRuntimeService.peekInventoryItem = () => ({
+        itemId: 'book.custom_technique',
+        itemInstanceId: 'item:book:valid',
+        name: '《炼法烟测诀》残卷',
+        learnTechniqueId: 'gen_refining_smoke',
+        learnTechniqueMaxLevel: 2,
+    });
+    await service.dispatchUseItem('player:1', 'item:book:valid', createDeps(log));
+    assert.deepEqual(log, [
+        ['addPendingTechniqueComprehensionById', 'player:1', 'gen_refining_smoke', 'normal', null, { maxLevel: 2 }],
+        ['consumeInventoryItem', 'player:1', 'item:book:valid', 1],
+        ['refreshQuestStates', 'player:1'],
+        ['queuePlayerNotice', 'player:1', '参悟 《炼法烟测诀》残卷', 'success'],
     ]);
 }
 
@@ -636,18 +725,22 @@ function testTechniqueRefiningDecomposeRejectsMissingTemplate() {
 }
 
 async function main() {
-    testMapUnlockBranch();
-    testMapGroupUnlockBranch();
+    await testMapUnlockBranch();
+    await testMapGroupUnlockBranch();
     testTileAuraBranch();
     testBloodEssenceBatchBranch();
     await testTileResourceProtectedTileRejectsUse();
-    testRespawnBindBranch();
-    testCurrentRespawnBindBranchUsesCurrentAllowedMap();
+    await testRespawnBindBranch();
+    await testCurrentRespawnBindBranchUsesCurrentAllowedMap();
     await testCurrentRespawnBindRejectsDisallowedMapWithoutConsume();
-    testCurrentRespawnBindAllowsOwnSectMap();
+    await testCurrentRespawnBindAllowsOwnSectMap();
     testLegacyTileAuraBranch();
     testNormalUseBranch();
     testTechniqueGenerationOpenPanelBranch();
+    await testCustomTechniqueBookRejectsLearnedTechniqueWithoutConsume();
+    await testCustomTechniqueBookRejectsMissingTemplateWithoutConsume();
+    await testCustomTechniqueBookRejectsPlanWithoutConsume();
+    await testCustomTechniqueBookAddsPlanBeforeConsume();
     testTechniqueRefiningCraftBookBranch();
     testTechniqueRefiningCraftRejectsUnmasteredTechnique();
     testTechniqueRefiningCraftRejectsOutOfRange();

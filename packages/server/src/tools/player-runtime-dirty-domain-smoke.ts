@@ -18,7 +18,6 @@ import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
 import { buildSelfDelta, captureSelfState } from '../network/world-projector.helpers';
 
 function createPlayerRuntimeService() {
-  const mapUnlockWrites: Array<{ playerId: string; mapIds: string[]; versionSeed?: number | null }> = [];
   const autoBattleSkillWrites: Array<{ playerId: string; skills: unknown[]; versionSeed?: number | null }> = [];
   const autoUseRuleWrites: Array<{ playerId: string; rules: unknown[]; versionSeed?: number | null }> = [];
   const walletWrites: Array<{ playerId: string; balances: unknown[]; versionSeed?: number | null }> = [];
@@ -123,9 +122,6 @@ function createPlayerRuntimeService() {
       async savePlayerWallet(playerId: string, balances: unknown[], options: { versionSeed?: number | null } = {}) {
         walletWrites.push({ playerId, balances: [...balances], versionSeed: options.versionSeed ?? null });
       },
-      async savePlayerMapUnlocks(playerId: string, mapIds: readonly string[], options: { versionSeed?: number | null } = {}) {
-        mapUnlockWrites.push({ playerId, mapIds: [...mapIds], versionSeed: options.versionSeed ?? null });
-      },
       async savePlayerLogbookMessages(playerId: string, messages: unknown[], options: { versionSeed?: number | null } = {}) {
         logbookWrites.push({ playerId, messages: [...messages], versionSeed: options.versionSeed ?? null });
       },
@@ -134,13 +130,6 @@ function createPlayerRuntimeService() {
       },
     } as never,
   );
-  (service as unknown as {
-    mapUnlockWrites?: typeof mapUnlockWrites;
-    autoBattleSkillWrites?: typeof autoBattleSkillWrites;
-    autoUseRuleWrites?: typeof autoUseRuleWrites;
-    walletWrites?: typeof walletWrites;
-    logbookWrites?: typeof logbookWrites;
-  }).mapUnlockWrites = mapUnlockWrites;
   (service as unknown as { autoBattleSkillWrites?: typeof autoBattleSkillWrites }).autoBattleSkillWrites = autoBattleSkillWrites;
   (service as unknown as { autoUseRuleWrites?: typeof autoUseRuleWrites }).autoUseRuleWrites = autoUseRuleWrites;
   (service as unknown as { walletWrites?: typeof walletWrites }).walletWrites = walletWrites;
@@ -296,10 +285,29 @@ function testMapUnlockDirtyDomain(): void {
   service.markPersisted(playerId);
   service.unlockMap(playerId, 'bamboo_forest');
   assertDirtyDomains(service, playerId, ['map_unlock'], ['snapshot']);
-  const mapUnlockWrites = (service as unknown as { mapUnlockWrites?: Array<{ playerId: string; mapIds: string[]; versionSeed?: number | null }> }).mapUnlockWrites ?? [];
-  assert.equal(mapUnlockWrites.length, 1);
-  assert.equal(mapUnlockWrites[0].playerId, playerId);
-  assert.deepEqual(mapUnlockWrites[0].mapIds, ['bamboo_forest', 'yunlai_town']);
+  assert.deepEqual(service.getPlayerOrThrow(playerId).unlockedMapIds, ['bamboo_forest', 'yunlai_town']);
+}
+
+function testRespawnBindDirtyDomain(): void {
+  const playerId = 'player:respawn-bind';
+  const service = createHydratedService(playerId);
+  assert.equal(service.bindRespawnPointToPlacement(playerId, {
+    templateId: 'sect_domain:sect:smoke',
+    instanceId: 'sect:smoke:main',
+    x: 0,
+    y: 0,
+  }), true);
+  assertDirtyDomains(service, playerId, ['world_anchor'], ['snapshot', 'position_checkpoint']);
+}
+
+function testPendingTechniqueMarksCultivationPreferenceDirty(): void {
+  const playerId = 'player:pending-technique';
+  const service = createHydratedService(playerId);
+  assert.equal(service.addPendingTechniqueComprehensionById(playerId, 'manual.tech', 'normal'), true);
+  const player = service.getPlayerOrThrow(playerId);
+  assert.equal(player.techniques.cultivatingTechId, 'manual.tech');
+  assert.equal(player.combat.cultivationActive, true);
+  assertDirtyDomains(service, playerId, ['technique', 'auto_battle_skill', 'combat_pref'], ['snapshot']);
 }
 
 function testAutoBattleSkillDirtyDomain(): void {
@@ -695,7 +703,9 @@ function testUseTechniqueBookDirtyDomain(): void {
 
   service.useItem(playerId, 0);
 
-  assertDirtyDomains(service, playerId, ['inventory', 'technique', 'auto_battle_skill'], ['snapshot']);
+  assert.equal(player.techniques.cultivatingTechId, 'manual.tech');
+  assert.equal(player.combat.cultivationActive, true);
+  assertDirtyDomains(service, playerId, ['inventory', 'technique', 'auto_battle_skill', 'combat_pref'], ['snapshot']);
 }
 
 function testUseTechniqueBookRespectsSkillLimit(): void {
@@ -1921,6 +1931,8 @@ function testApplyProgressionResultDirtyDomains(): void {
 function main(): void {
 testAutoUsePillsDirtyDomain();
 testMapUnlockDirtyDomain();
+testRespawnBindDirtyDomain();
+testPendingTechniqueMarksCultivationPreferenceDirty();
 testAutoBattleSkillDirtyDomain();
 testPlayerRetaliateOpensLockedAutoBattle();
 testRetaliatePlayerExpiresAfterThirtyMinutes();

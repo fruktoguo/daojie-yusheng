@@ -3,7 +3,7 @@
 ## 审计口径
 
 - 生产主线：`packages/client`、`packages/shared`、`packages/server`、`packages/config-editor`。
-- 当前基线：`main` 分支 `aef1201f`；相对 `origin/main` ahead 34。
+- 当前基线：`main` 分支 `7c09e908`；相对 `origin/main` ahead 35。
 - package manager：`pnpm@10.29.1`。
 - 每项结论必须来自机制文档、完整调用链、测试、编译产物或运行数据；仅凭搜索未发现异常不能标记为“确认无问题”。
 - `[x]` 只表示该行列出的具体证据范围已完成，不代表相邻系统或整个项目已完成。
@@ -55,6 +55,8 @@
 - [x] P-28 地面拾取、容器拿取与玩家丢弃的来源事务可被已 claim 的旧 ground/container payload 迟到覆盖的问题已修复；见 FS-039。
 - [x] P-29 月卡/永恒激活及月卡、签到、邀请奖励领取把活动来源与玩家背包分步提交的问题已修复；见 FS-042。
 - [x] P-30 durable 玩家资产事务等待数据库锁时可被旧运行态 flush 取得更大版本并在提交后反向覆盖的问题已修复；见 FS-045。
+- [x] P-31 地图解锁与复活点绑定道具的来源效果、背包扣除、watermark、outbox 和审计已收敛为同一 durable transaction；见 FS-046。
+- [x] P-32 功法书拒绝路径先扣物品及自动主修遗漏 `combat_pref` 脏域的问题已修复；见 FS-047。
 
 ### 服务端权威运行时
 
@@ -108,6 +110,7 @@
 - [x] X-11 地面/容器 durable 事务与旧 worker claim 的竞态、无关 dirty 保留和普通 worker 回归已修复；见 FS-039。
 - [x] X-12 活动来源快照、背包后态、watermark、outbox 与双资产审计的原子提交及精确重放已修复；见 FS-042。
 - [x] X-13 durable 事务与普通玩家分域 flush 共用锁时的跨队列版本顺序已修复，并由真实 PostgreSQL 锁等待竞态证明；见 FS-045。
+- [x] X-14 持久效果道具的来源 CAS、精确重放、空背包保护与生产失败关闭已由真实 PostgreSQL 专项 smoke 证明；见 FS-046。
 
 ## 已确认问题
 
@@ -814,7 +817,7 @@
 
 ### FS-045 durable 资产事务可被锁等待期间生成的旧运行态快照反向覆盖
 
-- **状态**：已修复并完成专项验证，待本组中文原子提交。
+- **状态**：已修复、验证并完成中文原子提交。
 - **严重级别**：P0。
 - **所属功能组**：玩家资产 / durable operation / 分域 flush / recovery watermark / 并发恢复。
 - **影响链路**：运行态生成玩家分域快照和 `expectedProjectionVersion` → 普通 flush 等待玩家数据库锁；同时 durable 背包、钱包、邮件、市场、装备、任务或 active job 事务 → 通用 `executeAssetMutation()`、邮件领取或多玩家市场事务协调器 → 同一 `7101 + playerId` advisory transaction lock → 玩家资产表与 `player_recovery_watermark`。
@@ -826,7 +829,39 @@
 - **修复方式**：`executeAssetMutation()` 先开启事务并取得与普通 flush 共用的玩家锁，再调用 `nextPlayerPersistenceVersion()` 分配唯一单调版本；该事务涉及的所有玩家域共享同一版本，不再用 `+N` 伪造未保留的版本区间。这样，等待期间已经 staging 的旧快照版本必然小于 durable 提交 watermark，稍后进入投影写入时会在锁内被跳过。
 - **实际修改**：`durable-operation.service.ts` 把通用强事务、邮件领取及多玩家市场事务的版本生成移动到取得所需玩家锁之后，明确区分业务发生时间与持久化版本；统一 13 类 `executeAssetMutation` 资产/job 回调以及市场多域写入的 domain watermark，不再使用未保留的 `+N` 版本；`inventory-grant-durable-smoke.ts` 新增真实锁阻塞场景，故意在 durable 等锁期间为旧背包快照分配未来版本，释放锁后验证 durable watermark 仍严格更大且旧投影无法覆盖已提交物品。
 - **验证结果**：`pnpm --filter @mud/server compile`、`pnpm verify:quick` 与 `pnpm audit:boundaries` 通过；真实 PostgreSQL `inventory-grant-durable-smoke` 通过并得到 `committedWatermarkVersion = staleProjectionVersion + 1`，旧投影执行后数据库仍只保留 durable 物品；真实 PostgreSQL `durable-operation-smoke` 通过，覆盖 mail、market storage、sell/buy/cancel、NPC shop、wallet、equipment 及 active job start/cancel/complete/advance/update 等既有强事务和幂等/回滚契约。未运行完整 release/shadow/acceptance/full，不据此证明多节点真实网络分区或所有非 `executeAssetMutation` 资产入口。
-- **中文原子提交 hash**：待本组提交。
+- **中文原子提交 hash**：`7c09e908`（`fix(persistence): 阻断强事务旧快照回写`）。
+
+### FS-046 地图解锁与复活点绑定道具分步提交
+
+- **状态**：已修复并完成专项验证，待本组中文原子提交后回填 hash。
+- **严重级别**：P0。
+- **所属功能组**：背包物品 / 地图解锁 / 命石与复活点 / 玩家分域持久化。
+- **影响链路**：使用图志或命石 → `WorldRuntimeUseItemService` → `PlayerRuntimeService` 背包、`unlockedMapIds` 或 respawn 运行态 → `player_inventory_item`、`player_map_unlock` 或 `player_world_anchor` → recovery watermark 与重启恢复。
+- **证据**：地图解锁原来先修改运行态并 fire-and-forget 直写 `player_map_unlock`，然后才单独扣背包；直写失败只打 `console.warn`。两个复活绑定入口修改的是 `respawn_*` 字段，却标记 `position_checkpoint`；这些字段实际属于 `world_anchor`，因此普通 flush 不会写入它们。将两类操作改走 durable 后，真实 DB smoke 又证明通用空覆盖守卫会拒绝消耗背包最后一件合法道具。
+- **根本原因**：持久效果道具被实现为“一次背包操作 + 一次普通状态修改”，而不是消耗来源资产换取持久效果的单一资产转换；复活点又混淆了当前/安全落点的 checkpoint 与玩家绑定的 respawn anchor。通用空覆盖守卫只能看到空后态，无法识别这是否为已验证的最后一件消耗。
+- **为什么错误**：道具扣除与持久效果必须只有一个提交结果；运行态补偿或异步直写都无法在崩溃、部分失败和 COMMIT 回包丢失时判断真正结果。脏域标错则会让内存成功与数据库恢复永久分叉。另一方面，直接放开所有空背包覆盖又会将合法消耗修成全背包资产丢失风险。
+- **触发条件**：任一条直写或后续背包 flush 失败，进程在两步之间崩溃，同一玩家并发使用/刷盘，COMMIT 成功但连接中断，或将命石用在背包最后一格。
+- **可能后果**：地图已解锁但图志复活，图志已消失但地图重启后重新锁定；命石被扣但复活点在重启后回退；旧快照覆盖新结果；最后一件道具始终无法使用，或错误放开守卫后整包被清空。
+- **修复方式**：新增严格归一化的 `player_item_use` 来源 mutation。地图解锁在事务内锁定并精确比对已解锁地图集合；复活绑定锁定并 CAS 比对 respawn 四元组，仅更新 respawn 列，不覆盖 last-safe 落点。同一事务写背包后态、对应 domain watermark、outbox、inventory 与 `player_item_use` 审计；提交确认后才应用运行态，生产 durable 不可用时失败关闭。空背包只在事务内证明当前唯一非锁定行与本次单件消耗的 ID、数量和 payload 精确相符时局部放行。
+- **实际修改**：新增 `player-item-use-durable-persistence.ts` 和真实 PostgreSQL smoke；扩展 `DurableOperationService.grantInventoryItems()` 的来源身份、CAS、watermark、双审计与可证明空背包路径；地图/复活道具入口改为玩家资产串行器内的规划、提交、应用三段式；退役地图 fire-and-forget 直写，并将 respawn 正确标记为 `world_anchor`。
+- **验证结果**：`pnpm --filter @mud/server compile`、compiled `world-runtime-use-item-smoke` 与 `player-runtime-dirty-domain-smoke` 通过；真实 PostgreSQL `player-item-use-durable-smoke` 证明地图/复活来源与背包同事务、精确重放不重复、陈旧来源快照整笔回滚、未验证空覆盖被拒绝、最后一件已核对道具可合法消耗，且复活绑定不覆盖 last-safe；真实 PostgreSQL `inventory-grant-durable-smoke`、`pnpm verify:quick` 与 `pnpm audit:boundaries` 同时通过。
+- **中文原子提交 hash**：待本组提交后回填。
+
+### FS-047 功法书拒绝路径会先扣物品且自动主修偏好可丢失
+
+- **状态**：已修复并完成专项验证，待本组中文原子提交后回填 hash。
+- **严重级别**：P0（道具损失）/P1（重启状态回退）。
+- **所属功能组**：功法书 / 未领悟功法 / 主修偏好 / 玩家分域持久化。
+- **影响链路**：使用自创功法书或普通功法书 → `dispatchUseItem()` / `PlayerRuntimeService.useItem()` / `addPendingTechniqueComprehensionById()` → 背包、pending comprehension、自动战斗技能目录、主修功法与 `cultivationActive` → `inventory/technique/auto_battle_skill/combat_pref` 分域恢复。
+- **证据**：自创功法书分支原来先调用 `consumeInventoryItemByInstanceId()`，之后才调用可返回 `false` 的 `addPendingTechniqueComprehensionById()`，且完全忽略返回值；分支本身也未预先检查已掌握状态和功法模板。两条功法书链都会在无主修时自动设置 `cultivatingTechId` 并开启 `cultivationActive`，但一条只标记 `technique[/auto_battle_skill]`，另一条也遗漏持久这两个偏好字段所需的 `combat_pref`。
+- **根本原因**：自创功法书绕过了既有“校验后消耗”入口，把消耗和 pending 计划写入拆成两个没有成功合同的命令；同时脏域只按函数名中的“功法”标记，没有按实际被修改的持久字段所属域标记。
+- **为什么错误**：业务前置条件失败不是道具消耗的成功结果；先扣除后拒绝会造成不可恢复的玩家资产损失。而运行态修改了主修/修炼开关却不写它们的真源域，会使当前会话与重启恢复语义不一致。
+- **触发条件**：功法书指向不存在的模板、玩家已掌握该功法、计划写入被拒绝，或玩家无主修时使用任意可自行领悟的功法书并在偏好域落盘前重启。
+- **可能后果**：异常、陈旧或重复功法书被吃掉却没有新的未领悟进度；重启后主修回到空值或修炼自动关闭；客户端显示、离线修炼与数据库恢复结果不一致。
+- **修复方式**：自创功法书先校验功法 ID、已掌握状态和模板，再要求 pending 计划明确返回成功，所有拒绝分支均不扣书；计划成功后在同一同步临界段内扣除已核对的 `itemInstanceId`。`addPendingTechniqueComprehensionById()` 和普通 `useItem()` 均追踪自动主修是否实际变化，变化时追加 `combat_pref` 脏域。
+- **实际修改**：重排自创功法书分支的校验/计划/消耗顺序，严格处理计划返回值；两条功法书运行时入口补齐 `combat_pref`；物品使用 smoke 新增已掌握、模板缺失、计划拒绝与成功顺序断言，脏域 smoke 覆盖两个入口的自动主修。
+- **验证结果**：`pnpm --filter @mud/server compile`、compiled `world-runtime-use-item-smoke`、`player-runtime-dirty-domain-smoke` 与既有 `technique-comprehension-smoke` 通过；`pnpm verify:quick` 与 `pnpm audit:boundaries` 同时通过。
+- **中文原子提交 hash**：待本组提交后回填。
 
 ## 2026-07-14 待用户决定
 
@@ -851,3 +886,14 @@
 - **推荐方案**：方案 A。当前实现、索引和 3 秒频限都更接近小批量交互；在没有 50 码真实需求和容量证据时，不应扩大单请求资产操作面。
 - **暂不处理的后果**：实际仍只允许 5 个；代码保留 50 的内部常量，后续维护者可能再次误读并改出行为漂移。
 - **需要用户决定**：选择 A、B 或 C；若选择 B，还需确认是否接受一次请求最长跨越 50 个 durable operation。
+
+### D-003 重复使用同一功法的残卷或完整功法书如何合并上限
+
+- **已确认事实**：玩家尚未领悟某功法时，可以继续使用同功法的功法书。当前两条运行时实现都会保留已有 `progress`并重算 `requiredProgress`；新残卷携带 `learnTechniqueMaxLevel` 时会直接覆盖旧上限，因此更低层残卷可将上限降低；新完整功法书不带该字段，现实现却不会清掉旧残卷上限。不论最终上限是否改变，第二本书都会被消耗。
+- **缺失证据 / 无法确定原因**：现有 mechanics 只规定残卷上限和完整书不写 `learnTechniqueMaxLevel`，没有定义重复使用的合并、升级、拒绝或消耗语义。这会直接决定玩家功法上限和道具资产归属，不能由技术审计自行选择。
+- **方案 A**：一旦存在同功法 pending，任何同名功法书都拒绝且不消耗。语义最简单，但无法用更高层残卷或完整书升级已有上限。
+- **方案 B**：单调升级。更高层残卷提高上限，完整书清除残卷上限并升级到模板满层；相同或更低上限的残卷拒绝且不消耗。不会降级玩家已获得的上限，也不会吞掉无效升级材料。
+- **方案 C**：维持当前覆盖/保留行为并明确提示结果。改动最小，但低层残卷可主动降低上限，完整书又无法解除残卷限制，两个结果都难以从当前机制推导为合理设计。
+- **推荐方案**：方案 B。它将功法书视为对已有领悟资格的单调升级，不会因顺序不同降低玩家权益，并且能让完整书的“缺省表示满层”语义成立。
+- **暂不处理的后果**：重复使用仍按当前实现消耗；低层残卷可降级上限，完整书不会解除旧上限。
+- **需要用户决定**：选择 A、B 或 C；若选择 B，还需确认升级时是否保留已有领悟进度（建议保留）。
