@@ -555,7 +555,11 @@ class WorldRuntimeSectService {
         const committed = await this.commitDurableSectMutation({
             sectWrites: [{ sectId, expectedUpdatedAtMs, snapshot: normalizedSect }],
             playerProjectionWrites: [playerWrite],
-            formationWrites: [this.buildDurableGuardianFormationWrite(relocatedGuardian, deps)].filter(Boolean),
+            formationWrites: [this.buildDurableGuardianFormationWrite(
+                relocatedGuardian,
+                deps,
+                [previousEntranceInstanceId],
+            )].filter(Boolean),
             requirePlayerProjectionIds: [playerId],
             affectedInstanceIds: [previousEntranceInstanceId],
         });
@@ -749,7 +753,7 @@ class WorldRuntimeSectService {
         }, deps, options);
     }
 
-    buildDurableGuardianFormationWrite(formation, deps) {
+    buildDurableGuardianFormationWrite(formation, deps, additionalInstanceIds = []) {
         if (!formation?.id || !formation?.instanceId) {
             return null;
         }
@@ -761,6 +765,11 @@ class WorldRuntimeSectService {
             instanceId: formation.instanceId,
             formationInstanceId: formation.id,
             snapshot,
+            instanceFences: deps.worldRuntimeFormationService?.captureFormationPersistenceFences?.([
+                formation.instanceId,
+                formation.eyeInstanceId,
+                ...additionalInstanceIds,
+            ], deps) ?? [],
         };
     }
 
@@ -1555,6 +1564,10 @@ class WorldRuntimeSectService {
                 formationInstanceId: guardianId,
                 removedAtMs: normalizeIntegerWithDefault(removedGuardian?.updatedAt, Date.now()),
                 snapshot: null,
+                instanceFences: deps.worldRuntimeFormationService?.captureFormationPersistenceFences?.([
+                    currentSect.entranceInstanceId,
+                    currentSect.sectInstanceId,
+                ], deps) ?? [],
             }],
         );
         if (!committed) {

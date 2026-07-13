@@ -17,6 +17,7 @@ import { Pool } from 'pg';
 
 import { resolveServerDatabaseUrl } from '../config/env-alias';
 import { DatabasePoolProvider } from './database-pool.provider';
+import { assertInstanceLeaseWriteFence } from './instance-lease-write-fence';
 import {
   buildPersistedEquipmentItemRawPayload,
   buildPersistedInventoryItemRawPayload,
@@ -7037,56 +7038,13 @@ async function assertInstanceLeaseWritable(
   if (!normalizedInstanceId) {
     return;
   }
-  const normalizedExpectedAssignedNodeId = normalizeRequiredString(input.expectedAssignedNodeId);
-  const normalizedExpectedOwnershipEpoch = normalizeOptionalInteger(input.expectedOwnershipEpoch);
-  const currentNodeId = normalizeRequiredString(input.currentNodeId);
-
-  const result = await client.query<{
-    assigned_node_id?: string | null;
-    lease_token?: string | null;
-    lease_expire_at?: string | Date | null;
-    ownership_epoch?: string | number | null;
-  }>(
-    `
-      SELECT assigned_node_id, lease_token, lease_expire_at, ownership_epoch
-      FROM instance_catalog
-      WHERE instance_id = $1
-      FOR UPDATE
-    `,
-    [normalizedInstanceId],
-  );
-  if (result.rowCount === 0) {
-    throw new Error(`instance_lease_missing:${normalizedInstanceId}`);
-  }
-
-  const row = result.rows[0] ?? null;
-  const assignedNodeId = normalizeRequiredString(row?.assigned_node_id);
-  const leaseToken = normalizeRequiredString(row?.lease_token);
-  const leaseExpireAt = row?.lease_expire_at ? new Date(row.lease_expire_at).getTime() : 0;
-  const ownershipEpoch = normalizeOptionalInteger(row?.ownership_epoch);
-  if (
-    !assignedNodeId
-    || !leaseToken
-    || assignedNodeId !== currentNodeId
-    || (normalizedExpectedAssignedNodeId && assignedNodeId !== normalizedExpectedAssignedNodeId)
-    || (normalizedExpectedOwnershipEpoch != null && ownershipEpoch !== normalizedExpectedOwnershipEpoch)
-    || !Number.isFinite(leaseExpireAt)
-    || leaseExpireAt <= Date.now()
-  ) {
-    throw new Error(
-      [
-        'instance_lease_fencing_conflict',
-        `instanceId=${normalizedInstanceId}`,
-        `expectedNodeId=${currentNodeId || 'null'}`,
-        `expectedAssignedNodeId=${normalizedExpectedAssignedNodeId || 'null'}`,
-        `expectedOwnershipEpoch=${normalizedExpectedOwnershipEpoch ?? 'null'}`,
-        `assignedNodeId=${assignedNodeId || 'null'}`,
-        `ownershipEpoch=${ownershipEpoch ?? 'null'}`,
-        `leaseToken=${leaseToken || 'null'}`,
-        `leaseExpireAt=${Number.isFinite(leaseExpireAt) ? new Date(leaseExpireAt).toISOString() : 'null'}`,
-      ].join(':'),
-    );
-  }
+  await assertInstanceLeaseWriteFence(client, {
+    instanceId: normalizedInstanceId,
+    expectedAssignedNodeId: input.expectedAssignedNodeId,
+    expectedOwnershipEpoch: input.expectedOwnershipEpoch,
+    requiredCurrentNodeId: input.currentNodeId,
+    conflictCode: 'instance_lease_fencing_conflict',
+  });
 }
 
 function resolveCurrentNodeId(): string {

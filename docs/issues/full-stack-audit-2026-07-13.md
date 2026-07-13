@@ -3,7 +3,7 @@
 ## 审计口径
 
 - 生产主线：`packages/client`、`packages/shared`、`packages/server`、`packages/config-editor`。
-- 当前基线：`main` 分支 `3834b238`；相对 `origin/main` ahead 19。
+- 当前基线：`main` 分支 `211f038a`；相对 `origin/main` ahead 20。
 - package manager：`pnpm@10.29.1`。
 - 每项结论必须来自机制文档、完整调用链、测试、编译产物或运行数据；仅凭搜索未发现异常不能标记为“确认无问题”。
 - `[x]` 只表示该行列出的具体证据范围已完成，不代表相邻系统或整个项目已完成。
@@ -45,6 +45,7 @@
 - [x] P-21 NPC 商店扣款释放格子仍被拒绝、堆叠可溢出且 fallback 分步改资产的问题已修复；见 FS-023。
 - [x] P-22 邮件灵石附件按旧钱包增量投影、堆叠可越过数量上限的问题已修复；见 FS-025。
 - [x] P-23 布阵、普通阵法补给和护宗大阵一次性注入的玩家资产与阵法后态分步提交问题已修复；见 FS-026。
+- [x] P-24 普通阵法与宗门阵法数据库 writer 可越过实例 lease handoff 覆盖/删除新节点后态的问题已修复；见 FS-028。
 
 ### 服务端权威运行时
 
@@ -488,7 +489,7 @@
 
 ### FS-026 阵法资源命令先扣玩家资产再异步保存阵法后态
 
-- **状态**：已修复并完成编译、专项与真实数据库验证，待本组中文原子提交。
+- **状态**：已修复、完成编译、专项与真实数据库验证并原子提交。
 - **严重级别**：P0（玩家资产与阵法真源可部分提交）。
 - **所属功能组**：阵法 / 背包与灵石 / 玩家灵力 / 实例 lease / durable operation。
 - **影响链路**：tick 内布阵或补给命令、宗门管理动作 → `WorldRuntimeFormationService.dispatchCreateFormation() / dispatchRefillFormation() / dispatchInjectPersistentFormationEnergy()` → 玩家背包/钱包/灵力与地图灵力扩散 → 阵法运行态 → `instance_formation_state`。
@@ -500,11 +501,11 @@
 - **修复方式**：布阵、普通补给和护宗大阵一次性注入全部改为先克隆并规划最终 `inventory / wallet / vitals / formation`，在玩家资产串行区与阵法持久化串行区内调用新的 `commitFormationResourceMutation()`。事务先校验玩家 `runtime_owner_id + session_epoch`、实例 `assigned_node_id + ownership_epoch + 未过期 lease`，再用与普通/宗门阵法 writer 相同的 advisory lock 校验“新建必须不存在”或“数据库 revision 不得新于运行态基线”，最后同事务写阵法、玩家三个投影域、恢复水位、outbox、资产 audit 和 operation log。只有 durable 成功后才一次性替换背包、设置灵力、扩散地图灵力并应用阵法运行态；tick 命令和宗门动作显式等待提交。生产数据库已配置但 durable 不可用时失败关闭，仅明确的测试/开发环境保留无库 fallback。
 - **实际修改**：更新 `durable-operation.service.ts`、`sect-durable-persistence.ts`、`world-runtime-formation.service.ts`、玩家命令/动作/宗门调用点、阵法 mechanics 与玩家资产串行静态审计；新增无库入口 smoke 和真实 PostgreSQL durable smoke。
 - **验证结果**：`git diff --check`、`pnpm --filter @mud/server compile` 与 `pnpm verify:quick` 通过；compiled `formation-resource-durable-entry-smoke` 证明 durable 返回前不修改玩家、地图或阵法运行态，失败不扣资产，生产缺失 durable 时失败关闭；真实 PostgreSQL compiled `formation-resource-durable-smoke` 证明错误 epoch、阵法 ID 冲突和旧 formation revision 均整笔拒绝且不污染真源，成功与精确重放把 inventory/wallet/vitals/formation/watermark/outbox/audit/operation 同事务提交并自动清理；compiled `world-runtime-formation-smoke`、`world-runtime-action-execution-smoke`、`world-runtime-sect-smoke`、`inventory-item-instance-ref-smoke`、`player-asset-entry-serialization-audit`、`sect-runtime-durable-reconciliation-smoke` 与 `sect-durable-mutation-smoke` 通过。
-- **中文原子提交 hash**：待本组提交后回填（计划提交：`fix(formation): 加固阵法资源原子提交`）。
+- **中文原子提交 hash**：`211f038a`（`fix(formation): 加固阵法资源原子提交`）。
 
 ### FS-027 阵法核心 smoke 关闭类型检查并固化过期契约
 
-- **状态**：已修复并完成编译与专项验证，待随 FS-026 原子提交。
+- **状态**：已修复、完成编译与专项验证并随 FS-026 原子提交。
 - **严重级别**：P1（验证盲区，不直接修改玩家数据）。
 - **所属功能组**：阵法 / 世界投影 / 地块恢复 / TypeScript 门禁。
 - **影响链路**：`world-runtime-formation-smoke.ts` → server compile → 阵法创建、补给、投影、地块恢复、持久化重试与数据库恢复证明。
@@ -516,7 +517,23 @@
 - **修复方式**：移除 `@ts-nocheck`、CommonJS 和动态 `require`，改为规范 ES/TypeScript import；补齐真实投影、方向和地块字段，更新地块恢复 API 参数与技艺玩家夹具；仅为持久化重试断言定义最小的测试内部观察接口，经 `unknown` 显式收口后访问，避免在生产类上扩大公开 API。首次恢复类型检查暴露的全部错误均通过修正夹具和调用点解决，没有重新引入类型绕过。
 - **实际修改**：更新 `world-runtime-formation-smoke.ts`。
 - **验证结果**：移除 TypeScript 绕过后 `pnpm --filter @mud/server compile` 通过；compiled `world-runtime-formation-smoke` 完整通过，并继续证明阵法投影、双资源消耗、地块稳定、护宗阵、持久化 dirty 重试与数据库恢复链。
-- **中文原子提交 hash**：待随 FS-026 提交后回填。
+- **中文原子提交 hash**：`211f038a`（随 FS-026）。
+
+### FS-028 阵法数据库 writer 未校验实例 lease handoff
+
+- **状态**：已修复并完成编译、专项与真实数据库验证，待本组中文原子提交。
+- **严重级别**：P0（旧节点可覆盖或删除新节点阵法真源）。
+- **所属功能组**：阵法 / 宗门护宗阵 / 实例 catalog / lease 与 ownership epoch / 持久化恢复。
+- **影响链路**：阵法 tick 衰减、阵眼受击、开关/强度管理、启动违规阵法清理、宗门创建/迁移/转让/解散 → 单体/批量/删除或宗门跨域 formation writer → `instance_formation_state` 与 `instance_catalog`。
+- **证据**：普通 `saveFormationSnapshot()`、`saveInstanceFormations()` 与 `deleteFormationSnapshot()` 只持有阵法 advisory lock，并以 `updated_at_ms` 防止较旧快照覆盖；事务从不读取 `instance_catalog`。宗门 `persistDurableSectMutation()` 同样先取得阵法锁后直接删写阵法行，没有接收或校验任何实例 lease。`updatedAt` 来自各进程本地 `Date.now()`，旧节点在 handoff 后继续 tick、受击或处理迟到操作时完全可能生成比新节点更大的版本。宗门迁移的阵法写还会按全局 `formation_instance_id` 删除旧行，但只携带新阵法位置，无法证明对原山门实例仍有写权。
+- **根本原因**：阵法行自身只有时间版本，没有持久化 ownership epoch；早期 writer 把“运行时已检查可写”当成足以覆盖异步数据库提交的授权。阵法保存会在同步检查后跨越连接池、队列和事务 await，期间 lease 可以到期或迁移；宗门 durable 事务则只围栏玩家和宗门 revision，没有把跨实例阵法视为需要独立 catalog fence 的领域写。
+- **为什么错误**：实例运行态的本地 lease 检查只能证明检查瞬间可写，不能授权稍后执行的数据库事务。所有实例域 writer 必须在实际写入的同一事务中锁定 catalog 行，并匹配捕获时的 node、token 和 epoch，同时确认 lease 未过期。仅比较墙钟时间不能表达所有权，时钟偏差和旧节点继续运行都会让错误 writer 看起来“更新”。
+- **触发条件**：阵法异步保存已排队时实例 lease 到期、迁移或被强制接管；旧节点 tick/战斗/管理动作在 fence 生效前生成更晚 `updatedAt`；宗门迁移后旧山门由其他节点接管；启动清理或 shutdown flush 使用已失效的本地实例对象；生产调用未提供显式 fence。
+- **可能后果**：旧节点覆盖新节点已经衰减、补给、受击或调整后的阵法资源；旧节点删除新节点仍存在的阵法；宗门迁移只验证新位置却跨节点删除旧位置行；重启恢复得到错误资源池、开关、位置或阵眼归属；同一护宗阵在节点间反复跳变，且由于旧写带更大时间戳，新节点的正确旧版本后态反而无法修复。
+- **修复方式**：阵法运行态在发生 mutation 时从实际实例捕获不可变的 `instanceId / assignedNodeId / leaseToken / ownershipEpoch`，并随 dirty、单体保存和删除请求传递；普通 writer 在事务内先 `SELECT instance_catalog ... FOR UPDATE`，精确匹配 fence、确认 lease 未过期且实例未 destroyed/fenced/stopped，再按固定顺序取得阵法 advisory lock 和写行。生产数据库环境缺失 fence 时失败关闭。宗门跨域 formation write 新增实例 fence 集合，事务按 instanceId 排序先锁所有 catalog 行、再锁阵法；护宗阵写同时包含山门与阵眼实例，迁移额外包含原山门，解散也验证两端。所有 writer 统一采用“实例 catalog 行锁 → 阵法 advisory lock”的数据库锁顺序，避免与资源 durable operation 形成死锁环。
+- **实际修改**：新增共享 `instance-lease-write-fence.ts`，并让 `durable-operation.service.ts` 复用同一 catalog 行锁与 lease 状态校验；更新 `world-runtime-formation.service.ts`、`sect-durable-persistence.ts`、`world-runtime-sect.service.ts`、阵法 mechanics、宗门 durable/reconciliation smoke 与阵法核心 smoke；新增真实 PostgreSQL `formation-persistence-lease-fence-smoke.ts`。
+- **验证结果**：`git diff --check`、`pnpm --filter @mud/server compile` 与 `pnpm verify:quick` 通过；真实 PostgreSQL compiled `formation-persistence-lease-fence-smoke` 证明 handoff 后普通单体、批量、删除和宗门跨域 writer 均拒绝旧 node/token/epoch 且数据库后态不变，新 fence 可以继续保存/删除，生产缺失 fence 时失败关闭，夹具自动清理；compiled `durable-operation-smoke` 完整通过，证明共享围栏抽取未改变邮件、市场、商店、钱包、装备与技艺 job 的强事务语义；compiled `world-runtime-formation-smoke`、`world-runtime-sect-smoke`、`sect-runtime-durable-reconciliation-smoke`、`sect-durable-mutation-smoke`、`formation-resource-durable-entry-smoke`、真实 PostgreSQL `formation-resource-durable-smoke`、`inventory-grant-durable-smoke` 与 `npc-quest-reward-durable-smoke` 通过，证明相邻资源原子事务未回归，宗门 smoke 额外断言 catalog 行锁早于阵法 advisory lock。
+- **中文原子提交 hash**：待本组提交后回填（计划提交：`fix(persistence): 加固阵法写入租约围栏`）。
 
 ## 2026-07-14 待用户决定
 

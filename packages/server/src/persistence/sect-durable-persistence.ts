@@ -12,6 +12,10 @@ import {
 } from './player-domain-persistence.service';
 import type { PersistedPlayerSnapshot } from './player-persistence.service';
 import { isTransientPostgresError } from './pg-error-utils';
+import {
+  assertInstanceLeaseWriteFence,
+  type InstanceLeaseWriteFence,
+} from './instance-lease-write-fence';
 import { SECT_CORE_CHAR, SECT_TEMPLATE_PREFIX } from '../constants/gameplay/sect';
 
 export const SECT_TABLE = 'server_sect';
@@ -61,11 +65,14 @@ export interface DurableSectMembershipWrite {
   updatedAtMs: number;
 }
 
+export type DurableInstanceLeaseFence = InstanceLeaseWriteFence;
+
 export interface DurableSectFormationWrite {
   formationInstanceId: string;
   instanceId: string;
   removedAtMs?: number;
   snapshot: Record<string, unknown> | null;
+  instanceFences?: DurableInstanceLeaseFence[];
 }
 
 export interface DurableFormationWriteFence {
@@ -379,6 +386,15 @@ export async function persistDurableSectMutation(
   const membershipWrites = normalizeMembershipWrites(input.membershipWrites ?? [])
     .filter((write) => !projectedPlayerIds.has(write.playerId));
   const formationWrites = normalizeFormationWrites(input.formationWrites ?? []);
+  const instanceFences = normalizeInstanceLeaseFences(
+    formationWrites.flatMap((write) => write.instanceFences ?? []),
+  );
+  const fencedInstanceIds = new Set(instanceFences.map((fence) => fence.instanceId));
+  for (const write of formationWrites) {
+    if (!fencedInstanceIds.has(write.instanceId)) {
+      throw new Error(`sect_formation_instance_lease_fence_missing:${write.formationInstanceId}:${write.instanceId}`);
+    }
+  }
   const playerIds = Array.from(new Set([
     ...playerProjectionWrites.map((write) => write.playerId),
     ...membershipWrites.map((write) => write.playerId),
@@ -404,6 +420,9 @@ export async function persistDurableSectMutation(
         'SELECT pg_advisory_xact_lock($1::integer, hashtext($2))',
         [SECT_LOCK_NAMESPACE, write.sectId],
       );
+    }
+    for (const fence of instanceFences) {
+      await assertDurableInstanceLeaseFence(client, fence);
     }
     for (const write of formationWrites) {
       await client.query(
@@ -833,6 +852,19 @@ async function persistSectFormationWrite(
   );
 }
 
+async function assertDurableInstanceLeaseFence(
+  client: PoolClient,
+  fence: DurableInstanceLeaseFence,
+): Promise<void> {
+  await assertInstanceLeaseWriteFence(client, {
+    instanceId: fence.instanceId,
+    expectedAssignedNodeId: fence.assignedNodeId,
+    expectedLeaseToken: fence.leaseToken,
+    expectedOwnershipEpoch: fence.ownershipEpoch,
+    conflictCode: 'sect_instance_lease_fencing_conflict',
+  });
+}
+
 /**
  * 在已经持有玩家资产事务的连接中提交单条阵法后态。
  *
@@ -990,10 +1022,41 @@ function normalizeFormationWrites(
       snapshot: entry.snapshot && typeof entry.snapshot === 'object'
         ? { ...entry.snapshot }
         : null,
+      instanceFences: normalizeInstanceLeaseFences(entry.instanceFences ?? []),
     });
   }
   return Array.from(byFormationId.values())
     .sort((left, right) => left.formationInstanceId.localeCompare(right.formationInstanceId));
+}
+
+function normalizeInstanceLeaseFences(
+  input: readonly DurableInstanceLeaseFence[],
+): DurableInstanceLeaseFence[] {
+  const byInstanceId = new Map<string, DurableInstanceLeaseFence>();
+  for (const entry of input ?? []) {
+    const instanceId = normalizeRequiredString(entry?.instanceId);
+    const assignedNodeId = normalizeRequiredString(entry?.assignedNodeId);
+    const leaseToken = normalizeRequiredString(entry?.leaseToken);
+    const ownershipEpoch = Math.max(0, Math.trunc(Number(entry?.ownershipEpoch) || 0));
+    if (!instanceId || !assignedNodeId || !leaseToken || ownershipEpoch <= 0) {
+      continue;
+    }
+    const current = byInstanceId.get(instanceId) ?? null;
+    if (current && (
+      current.assignedNodeId !== assignedNodeId
+      || current.leaseToken !== leaseToken
+      || current.ownershipEpoch !== ownershipEpoch
+    )) {
+      throw new Error(`sect_instance_lease_fence_conflict:${instanceId}`);
+    }
+    byInstanceId.set(instanceId, {
+      instanceId,
+      assignedNodeId,
+      leaseToken,
+      ownershipEpoch,
+    });
+  }
+  return Array.from(byInstanceId.values()).sort((left, right) => left.instanceId.localeCompare(right.instanceId));
 }
 
 function normalizeRequiredString(value: unknown): string {

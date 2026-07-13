@@ -62,6 +62,17 @@ class RecordingClient {
         session_epoch: 7,
       } as unknown as T]);
     }
+    if (normalizedSql.includes('FROM instance_catalog')) {
+      const instanceId = String(params[0] ?? 'real:smoke');
+      return result([{
+        assigned_node_id: 'node:smoke',
+        lease_token: `lease:${instanceId}`,
+        lease_expire_at: new Date(Date.now() + 60_000).toISOString(),
+        ownership_epoch: 7,
+        status: 'active',
+        runtime_status: 'leased',
+      } as unknown as T]);
+    }
     if (normalizedSql.includes('FROM player_inventory_item') && normalizedSql.includes('FOR UPDATE')) {
       return result([]);
     }
@@ -420,6 +431,7 @@ async function proveSectInventoryAndMembershipShareOneTransaction(): Promise<voi
       instanceId: 'real:smoke',
       formationInstanceId: 'formation:sect_guardian:sect:smoke',
       snapshot: createGuardianSnapshot(),
+      instanceFences: [createInstanceFence('real:smoke')],
     }],
   });
 
@@ -430,6 +442,10 @@ async function proveSectInventoryAndMembershipShareOneTransaction(): Promise<voi
   assert.ok(statements.some((sql) => sql.includes('INSERT INTO player_sect_membership')));
   assert.ok(statements.some((sql) => sql.includes('DELETE FROM instance_formation_state')));
   assert.ok(statements.some((sql) => sql.includes('INSERT INTO instance_formation_state')));
+  const instanceFenceIndex = client.queries.findIndex((entry) => entry.sql.includes('FROM instance_catalog'));
+  const formationLockIndex = client.queries.findIndex((entry) => entry.params[0] === 7105);
+  assert.ok(instanceFenceIndex > 0);
+  assert.ok(formationLockIndex > instanceFenceIndex, '实例 catalog 行锁必须先于阵法 advisory lock，避免跨 writer 死锁');
   assert.equal(statements.at(-1), 'COMMIT');
   assert.equal(client.released, true);
 }
@@ -535,6 +551,20 @@ function createGuardianSnapshot(): Record<string, unknown> {
     remainingSpiritStoneBudget: 1000,
     createdAt: 1,
     updatedAt: 20,
+  };
+}
+
+function createInstanceFence(instanceId: string): {
+  instanceId: string;
+  assignedNodeId: string;
+  leaseToken: string;
+  ownershipEpoch: number;
+} {
+  return {
+    instanceId,
+    assignedNodeId: 'node:smoke',
+    leaseToken: `lease:${instanceId}`,
+    ownershipEpoch: 7,
   };
 }
 

@@ -132,6 +132,8 @@ Setup 模式中，输入框显示为“基础强度”，协议字段仍沿用 `
 - 一次性把资源转入阵法池的补给按钮只属于资源管理命令，不显示为持续 job，不获得阵法技艺经验，也不参与打断等待。
 - 普通阵法补给和护宗大阵的一次性注入同样通过 Durable Operation 原子提交玩家 `inventory / wallet / vitals` 与 `instance_formation_state`；更新必须基于当前阵法 `updatedAt`，不得用旧资源池后态覆盖较新的 tick 或管理操作。
 - 生产数据库已配置但 Durable Operation 不可用时，布阵与补给失败关闭；只有明确的 `test / verify / smoke / development` 环境允许无数据库运行态 fallback。
+- 阵法的单体保存、实例批量保存、删除和宗门跨域阵法写入，都必须在同一数据库事务内校验 `instance_catalog` 的 `assigned_node_id / lease_token / ownership_epoch / lease_expire_at`；lease handoff 后旧节点即使持有更大的 `updatedAt` 也不得覆盖或删除新节点真源。
+- 宗门护宗阵同时跨越山门承载实例与宗门阵眼实例时，创建、迁移、转让和解散事务必须携带所有受影响实例的 lease fence；迁移还必须包含原山门实例，禁止只验证新位置后跨实例删除旧阵法行。
 
 ## 阵法效果
 

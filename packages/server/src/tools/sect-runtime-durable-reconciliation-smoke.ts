@@ -324,6 +324,16 @@ async function proveUnknownRegistersExactSharedFenceBeforeRelease(): Promise<voi
         return {
           async query(sql: string) {
             const normalized = sql.replace(/\s+/g, ' ').trim();
+            if (normalized.includes('FROM instance_catalog')) {
+              return queryResult([{
+                assigned_node_id: 'node:sect-reconciliation-smoke',
+                lease_token: 'lease:world:new',
+                lease_expire_at: new Date(Date.now() + 60_000).toISOString(),
+                ownership_epoch: 7,
+                status: 'active',
+                runtime_status: 'leased',
+              }]);
+            }
             if (normalized.startsWith('SELECT updated_at_ms FROM server_sect')) {
               return queryResult([{ updated_at_ms: 10 }]);
             }
@@ -353,6 +363,12 @@ async function proveUnknownRegistersExactSharedFenceBeforeRelease(): Promise<voi
       instanceId: 'world:new',
       formationInstanceId: 'formation:sect_guardian:sect:target',
       snapshot: createGuardianSnapshot(20),
+      instanceFences: [{
+        instanceId: 'world:new',
+        assignedNodeId: 'node:sect-reconciliation-smoke',
+        leaseToken: 'lease:world:new',
+        ownershipEpoch: 7,
+      }],
     }],
     affectedInstanceIds: ['world:old'],
   });

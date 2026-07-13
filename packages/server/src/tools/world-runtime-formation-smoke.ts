@@ -1426,7 +1426,18 @@ async function countRows(pool, sql, params = []) {
   return Number(result.rows?.[0]?.count ?? 0);
 }
 
-main().catch((error) => {
+async function runSmoke(): Promise<void> {
+  const previousRuntimeEnv = process.env.SERVER_RUNTIME_ENV;
+  process.env.SERVER_RUNTIME_ENV = 'smoke';
+  try {
+    await main();
+  } finally {
+    if (previousRuntimeEnv === undefined) delete process.env.SERVER_RUNTIME_ENV;
+    else process.env.SERVER_RUNTIME_ENV = previousRuntimeEnv;
+  }
+}
+
+runSmoke().catch((error) => {
   console.error(error instanceof Error ? error.stack : String(error));
   process.exitCode = 1;
 });
