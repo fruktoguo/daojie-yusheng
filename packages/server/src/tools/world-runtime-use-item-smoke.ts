@@ -1,8 +1,31 @@
-// @ts-nocheck
+import assert from 'node:assert/strict';
 
-const assert = require("node:assert/strict");
+import { WorldRuntimeUseItemService } from '../runtime/world/world-runtime-use-item.service';
 
-const { WorldRuntimeUseItemService } = require("../runtime/world/world-runtime-use-item.service");
+type SmokeLog = unknown[][];
+
+interface UseItemDepsOverrides {
+    location?: { instanceId: string };
+    instance?: Record<string, unknown>;
+}
+
+interface TechniqueRefiningOverrides {
+    building?: {
+        id: string;
+        defId: string;
+        state: string;
+        x: number;
+        y: number;
+    };
+}
+
+interface ServiceOverrides {
+    log: SmokeLog;
+    playerX?: number;
+    playerY?: number;
+    playerSectId?: string | null;
+    consumeItemByItemIdResult?: boolean;
+}
 /**
  * createDeps：构建并返回目标对象。
  * @param log 参数说明。
@@ -10,7 +33,7 @@ const { WorldRuntimeUseItemService } = require("../runtime/world/world-runtime-u
  */
 
 
-function createDeps(log, overrides = {}) {
+function createDeps(log: SmokeLog, overrides: UseItemDepsOverrides = {}) {
     return {    
     /**
  * refreshQuestStates：执行refresh任务状态相关逻辑。
@@ -88,7 +111,7 @@ function createDeps(log, overrides = {}) {
     };
 }
 
-function createTechniqueRefiningDeps(log, overrides = {}) {
+function createTechniqueRefiningDeps(log: SmokeLog, overrides: TechniqueRefiningOverrides = {}) {
     const building = overrides.building ?? {
         id: 'building:technique-refining',
         defId: 'technique_refining_table',
@@ -110,7 +133,7 @@ function createTechniqueRefiningDeps(log, overrides = {}) {
  */
 
 
-function createService(overrides = {}) {
+function createService(overrides: ServiceOverrides) {
     const playerRuntimeService = {    
     /**
  * peekInventoryItem：执行peek背包道具相关逻辑。
@@ -482,7 +505,7 @@ function testTechniqueRefiningCraftBookBranch() {
         x: 3,
         y: 4,
         techniques: {
-            techniques: [{ techId: 'gen_refining_smoke' }],
+            techniques: [{ techId: 'gen_refining_smoke', level: 4 }],
         },
     });
     service.dispatchCraftTechniqueBook('player:1', 'gen_refining_smoke', 2, createTechniqueRefiningDeps(log));
@@ -502,6 +525,23 @@ function testTechniqueRefiningCraftBookBranch() {
         ['refreshQuestStates', 'player:1'],
         ['queuePlayerNotice', 'player:1', '功法书已抄录', 'success'],
     ]);
+}
+
+function testTechniqueRefiningCraftRejectsUnmasteredTechnique() {
+    const log = [];
+    const service = createService({ log });
+    service.playerRuntimeService.getPlayerOrThrow = () => ({
+        x: 3,
+        y: 4,
+        techniques: {
+            techniques: [{ techId: 'gen_refining_smoke', level: 2 }],
+        },
+    });
+    assert.throws(
+        () => service.dispatchCraftTechniqueBook('player:1', 'gen_refining_smoke', 2, createTechniqueRefiningDeps(log)),
+        /只有修至原功法满层后才能抄录/,
+    );
+    assert.deepEqual(log, []);
 }
 
 function testTechniqueRefiningCraftRejectsOutOfRange() {
@@ -609,6 +649,7 @@ async function main() {
     testNormalUseBranch();
     testTechniqueGenerationOpenPanelBranch();
     testTechniqueRefiningCraftBookBranch();
+    testTechniqueRefiningCraftRejectsUnmasteredTechnique();
     testTechniqueRefiningCraftRejectsOutOfRange();
     testTechniqueRefiningCraftRejectsUnknownOrUnlearnedTechnique();
     testTechniqueRefiningCraftRejectsSystemTechnique();

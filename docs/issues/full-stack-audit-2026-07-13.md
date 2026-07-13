@@ -3,7 +3,7 @@
 ## 审计口径
 
 - 生产主线：`packages/client`、`packages/shared`、`packages/server`、`packages/config-editor`。
-- 当前基线：`main` 分支 `1a240861`；相对 `origin/main` ahead 32。
+- 当前基线：`main` 分支 `5db7f560`；相对 `origin/main` ahead 33。
 - package manager：`pnpm@10.29.1`。
 - 每项结论必须来自机制文档、完整调用链、测试、编译产物或运行数据；仅凭搜索未发现异常不能标记为“确认无问题”。
 - `[x]` 只表示该行列出的具体证据范围已完成，不代表相邻系统或整个项目已完成。
@@ -21,6 +21,7 @@
 - [x] A-06 阵法运行时 smoke 的 TypeScript 绕过、投影/地块夹具漂移和旧 API 调用已修复；见 FS-027。
 - [x] A-07 `world-runtime-craft-smoke` 的建筑夹具缺失 AOI chunk revision 索引问题已修复；见 FS-030。
 - [x] A-08 `flush-task-runtime-smoke` 构造器注入错位、虚构实例域和旧 fallback 断言已修复；见 FS-040。
+- [x] A-09 `world-runtime-use-item-smoke` 的功法抄录夹具与满层规则漂移、TypeScript 绕过已修复；见 FS-044。
 
 ### 资产、持久化与恢复
 
@@ -763,7 +764,7 @@
 
 ### FS-042 活动权益来源与玩家背包分步提交
 
-- **状态**：已修复并完成专项验证，待中文原子提交。
+- **状态**：已修复、验证并完成中文原子提交。
 - **严重级别**：P0。
 - **所属功能组**：功德月卡 / 永恒 / 每日签到 / 邀请奖励 / 玩家背包 / 活动持久化。
 - **影响链路**：背包使用功德月卡或永恒、领取月卡功德、每日签到、活动状态自动结算邀请奖励 → `ActivityRuntimeService` / `ActivityPersistenceService` → 活动来源表与领取记录 → `player_inventory_item`、watermark、outbox 和资产审计。
@@ -775,11 +776,11 @@
 - **修复方式**：为 durable operation 增加严格归一化的 `activity_asset` 来源 mutation。五类操作均在玩家资产串行器内规划背包后态，通过同一 PostgreSQL 事务校验 session fence（在世界实例内时同时校验 instance node/epoch），锁定并复核活动来源快照，然后共同写入活动来源/领取记录、背包真源、recovery watermark、outbox、inventory 审计与 activity 审计。事务确认后才替换运行态背包和应用当日签运；相同 operation 精确重放不重复，快照变化整笔回滚；生产持久化不可用时失败关闭。激活数量与累计权益同时受 PostgreSQL `integer` 上限约束。
 - **实际修改**：新增独立 `activity-asset-durable-persistence.ts` 承担五类活动来源事务；扩展 `DurableOperationService.grantInventoryItems()` 的来源身份校验、来源写入和双资产审计；活动运行时改为 durable 规划/提交/应用三段式，邀请奖励先预览后在事务内按实际更新行复核；物品使用入口移除预扣和运行态补偿；机制文档同步活动资产原子性约束，并增加真实 PostgreSQL 专项 proof。
 - **验证结果**：`git diff --check`、`pnpm --filter @mud/server compile`、`pnpm verify:quick` 与 `pnpm audit:boundaries` 通过；compiled `month-card-pool-smoke`、`invitation-activity-smoke`、`daily-sign-in-fortune-smoke` 通过；真实 PostgreSQL `activity-asset-durable-smoke` 证明五类来源与背包、watermark、outbox、双审计同事务提交，激活精确重放不重复且奖励快照不一致会全量回滚；真实 PostgreSQL `inventory-grant-durable-smoke` 与串行重跑的 `durable-operation-smoke` 通过，证明既有来源和通用强事务未回归。`world-runtime-use-item-smoke` 暴露另一个与本组活动修改无关的陈旧功法抄录夹具，已单独纳入后续验证修复，不能据此宣称全套物品使用 smoke 已通过。
-- **中文原子提交 hash**：待提交。
+- **中文原子提交 hash**：`5db7f560`（`fix(persistence): 原子结算活动权益与奖励`）。
 
 ### FS-043 活动状态请求会向客户端暴露未知内部错误
 
-- **状态**：已修复并完成专项验证，待随 FS-042 原子提交。
+- **状态**：已修复、验证并随 FS-042 完成中文原子提交。
 - **严重级别**：P1。
 - **所属功能组**：活动网关 / 客户端错误边界 / 安全。
 - **影响链路**：请求活动状态或领取失败 → `WorldGatewayActivityHelper` → `WorldClientEventService.emitGatewayError()` → `S2C.Error`。
@@ -791,6 +792,22 @@
 - **修复方式**：`normalizeActivityError()` 只映射明确允许展示的活动业务错误，未知异常统一转换为“活动服务暂不可用，请稍后重试”；活动状态、月卡领取、签到领取和活动道具使用入口全部经过同一归一化边界。
 - **实际修改**：活动网关状态 catch 补齐统一归一化；月卡专项 smoke 模拟包含内部数据库地址的异常，并断言状态错误包只收到受控文案。
 - **验证结果**：`pnpm --filter @mud/server compile` 与 compiled `month-card-pool-smoke` 通过，未知 `ECONNREFUSED internal-activity-db:5432` 不再出现在网关错误输出。
+- **中文原子提交 hash**：`5db7f560`。
+
+### FS-044 物品使用 smoke 的功法抄录夹具违反当前满层规则
+
+- **状态**：已修复并完成专项验证，待中文原子提交。
+- **严重级别**：P1（验证门禁失效，不直接改变生产玩家状态）。
+- **所属功能组**：物品使用 / 炼法台 / 功法书抄录 / smoke 类型门禁。
+- **影响链路**：compiled `world-runtime-use-item-smoke` → `dispatchCraftTechniqueBook()` → 自创功法身份、已掌握状态与模板满层校验 → 残页扣除和残卷生成断言。
+- **证据**：生产实现已经按 mechanics 使用模板四层校验 `isTechniqueFullyMastered()`，但成功夹具仍只构造 `{ techId }`，缺失 `level` 时被规范化为 1 层，因此在任何资产断言前稳定抛出“只有修至原功法满层后才能抄录”。该文件还依赖 `// @ts-nocheck` 和 CommonJS `require()`，使构造器或夹具字段漂移无法在编译期暴露；此前生产规则提交没有同步这条 smoke。
+- **根本原因**：残卷越权修复新增服务端满层约束时，只更新了生产、shared、客户端和其他专项 smoke，遗漏了物品使用总分支 smoke；该 smoke 长期关闭 TypeScript 检查，又使缺失 `level` 没有立即形成编译信号。
+- **为什么错误**：成功用例必须满足当前业务前置条件，否则红灯只证明夹具错误而不证明抄录链回归；若简单删除满层校验来迁就夹具，则会重新允许未圆满或达到残卷上限的功法越权抄录。类型绕过还会让未来 API 漂移继续延迟到运行期。
+- **触发条件**：单独运行 compiled `world-runtime-use-item-smoke`，或未来把它纳入更高层 release/proof 门禁。
+- **可能后果**：物品使用专项长期固定失败，真实地图解锁、地块资源、命石、功法书制造/分解回归被噪音掩盖；维护者可能误判生产满层规则有错并放宽权威校验；构造器和夹具继续无编译保护。
+- **修复方式**：成功夹具显式提供模板满层 `level: 4`；新增未满层 `level: 2` 的拒绝用例，证明生产规则仍然生效且不会扣残页或发书；移除 `@ts-nocheck`，改为标准 ESM import，并为日志、依赖覆盖和服务覆盖参数补齐 TypeScript 接口，让文件重新进入正常编译门禁。
+- **实际修改**：只修改 `world-runtime-use-item-smoke.ts` 和本审计台账，不改生产抄录规则。
+- **验证结果**：`git diff --check`、`pnpm --filter @mud/server compile` 与 `pnpm verify:quick` 通过；compiled `world-runtime-use-item-smoke` 通过，既覆盖满层功法成功抄录二层残卷，也覆盖未满层功法被权威拒绝且无资产副作用。
 - **中文原子提交 hash**：待提交。
 
 ## 2026-07-14 待用户决定
