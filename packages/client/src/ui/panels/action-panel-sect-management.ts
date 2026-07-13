@@ -10,6 +10,7 @@
  */
 import {
   SECT_APPLICATION_PAGE_DEFAULT_LIMIT,
+  isSectMemberRoleLowerThan,
   type ActionDef,
   type PlayerState,
   type S2C_SectApplicationPage,
@@ -47,18 +48,21 @@ const SECT_APPLICATION_REQUEST_TIMEOUT_MS = 8_000;
 
 const DEFAULT_SECT_MANAGEMENT_ROLES: SectManagementRole[] = [
   { id: 'leader', label: t('action.sect.role.leader', undefined), assignable: false },
+  { id: 'supreme_elder', label: t('action.sect.role.supreme-elder', undefined), assignable: true },
   { id: 'deputy', label: t('action.sect.role.deputy', undefined), assignable: true },
   { id: 'elder', label: t('action.sect.role.elder', undefined), assignable: true },
   { id: 'inner', label: t('action.sect.role.inner', undefined), assignable: true },
   { id: 'outer', label: t('action.sect.role.outer', undefined), assignable: true },
   { id: 'labor', label: t('action.sect.role.labor', undefined), assignable: true },
-  { id: 'supreme_elder', label: t('action.sect.role.supreme-elder', undefined), assignable: false },
 ];
 
 const DEFAULT_SECT_MANAGEMENT_PERMISSIONS: SectManagementPermission[] = [
   { id: 'guardian', label: t('action.sect.permission.guardian', undefined) },
   { id: 'member_remove', label: t('action.sect.permission.member-remove', undefined) },
+  { id: 'member_approve', label: t('action.sect.permission.member-approve', undefined) },
   { id: 'member_role', label: t('action.sect.permission.member-role', undefined) },
+  { id: 'building_create', label: t('action.sect.permission.building-create', undefined) },
+  { id: 'building_remove', label: t('action.sect.permission.building-remove', undefined) },
 ];
 
 // ─── 本地工具函数 ───
@@ -142,6 +146,7 @@ function normalizeSectManagementMember(input: unknown): SectManagementMember {
     statusLabel: typeof source.statusLabel === 'string' && source.statusLabel.trim() ? source.statusLabel.trim() : t('action.sect.status.offline', undefined),
     self: source.self === true,
     leader: source.leader === true,
+    canChangeRole: typeof source.canChangeRole === 'boolean' ? source.canChangeRole : undefined,
   };
 }
 
@@ -155,7 +160,9 @@ function normalizeSectManagementRolePermissions(
   for (const role of roles) {
     next[role.id] = {};
     for (const permission of permissions) {
-      next[role.id][permission.id] = source?.[role.id]?.[permission.id] === true || role.id === 'leader';
+      next[role.id][permission.id] = source?.[role.id]?.[permission.id] === true
+        || role.id === 'leader'
+        || role.id === 'supreme_elder';
     }
   }
   return next;
@@ -661,7 +668,10 @@ export class SectManagementSubpanel {
   }
 
   renderSectManagementMembersPanel(summary: SectManagementSummary): string {
-    const assignableRoles = summary.data.roles.filter((role) => role.assignable);
+    const selfRoleId = summary.data.members.find((member) => member.self)?.roleId;
+    const assignableRoles = summary.data.roles.filter(
+      (role) => role.assignable && isSectMemberRoleLowerThan(role.id, selfRoleId),
+    );
     const rows = summary.data.members.map((member) => this.renderSectMemberRow(summary, member, assignableRoles)).join('');
     return `
       <div class="sect-detail-pane">
@@ -1131,7 +1141,11 @@ export class SectManagementSubpanel {
   }
 
   renderSectMemberRow(summary: SectManagementSummary, member: SectManagementMember, assignableRoles: SectManagementRole[]): string {
-    const canEditRole = summary.data.canChangeRoles && !member.leader;
+    const selfRoleId = summary.data.members.find((entry) => entry.self)?.roleId;
+    const canEditRole = summary.data.canChangeRoles
+      && !member.leader
+      && !member.self
+      && (member.canChangeRole ?? isSectMemberRoleLowerThan(member.roleId, selfRoleId));
     const roleControl = canEditRole
       ? `<select class="ui-input formation-config-input" data-sect-member-role-select="${escapeHtml(member.playerId)}">
           ${assignableRoles.map((role) => `<option value="${escapeHtml(role.id)}"${role.id === member.roleId ? ' selected' : ''}>${escapeHtml(role.label)}</option>`).join('')}
@@ -1163,7 +1177,9 @@ export class SectManagementSubpanel {
   renderSectRolePermissionCard(summary: SectManagementSummary, role: SectManagementRole): string {
     const permissions = summary.data.permissions.map((permission) => {
       const checked = summary.data.rolePermissions[role.id]?.[permission.id] === true;
-      const disabled = !summary.data.canEditPermissions || role.id === 'leader';
+      const disabled = !summary.data.canEditPermissions
+        || role.id === 'leader'
+        || role.id === 'supreme_elder';
       return `
         <button class="skill-manage-toggle-chip ${checked ? 'active' : ''}" data-sect-action="sect:permission:toggle:${escapeHtml(role.id)}:${escapeHtml(permission.id)}" type="button"${disabled ? ' disabled' : ''}>
           ${escapeHtml(permission.label)}

@@ -11,6 +11,7 @@ import {
     SECT_APPLICATION_SEARCH_MAX_LENGTH,
     SECT_ENTRANCE_RELOCATION_COOLDOWN_MS,
     TileType,
+    isSectMemberRoleLowerThan,
 } from '@mud/shared';
 import { resolveServerDatabaseUrl } from '../../config/env-alias';
 import {
@@ -46,6 +47,7 @@ import {
     assertSectLeader,
     assertSectLeaderOrDeputy,
     assertSectMarkAvailable,
+    assertSectMemberRoleChange,
     assertSectPermission,
     buildDefaultSectRolePermissions,
     buildSectGuardianManagementData,
@@ -53,6 +55,7 @@ import {
     buildSectInstanceId,
     buildSectMemberEntry,
     buildSectTemplateId,
+    canChangeSectMemberRole,
     dispatchSectGuardianTechniqueActivity,
     ensureSectState,
     findPendingSectApplication,
@@ -827,7 +830,7 @@ class WorldRuntimeSectService {
         if (!isSectMember(sect, normalizedPlayerId)) {
             throw new ForbiddenException('你不在该宗门成员名册中');
         }
-        assertSectPermission(sect, normalizedPlayerId, 'member_role');
+        assertSectPermission(sect, normalizedPlayerId, 'member_approve');
         return buildSectApplicationPageView(sect, payload);
     }
 
@@ -943,13 +946,13 @@ class WorldRuntimeSectService {
             return { kind: 'queued', view: deps.getPlayerViewOrThrow(playerId) };
         }
         if (actionId.startsWith('sect:application:approve:')) {
-            assertSectPermission(sect, playerId, 'member_role');
+            assertSectPermission(sect, playerId, 'member_approve');
             const targetPlayerId = decodeActionPart(actionId.slice('sect:application:approve:'.length));
             await this.approveSectApplication(sect, targetPlayerId, playerId, deps);
             return { kind: 'queued', view: deps.getPlayerViewOrThrow(playerId) };
         }
         if (actionId.startsWith('sect:application:reject:')) {
-            assertSectPermission(sect, playerId, 'member_role');
+            assertSectPermission(sect, playerId, 'member_approve');
             const targetPlayerId = decodeActionPart(actionId.slice('sect:application:reject:'.length));
             await this.rejectSectApplication(sect, targetPlayerId, playerId, deps);
             return { kind: 'queued', view: deps.getPlayerViewOrThrow(playerId) };
@@ -1161,7 +1164,7 @@ class WorldRuntimeSectService {
         if (!currentSect || currentSect.status === 'dissolved') {
             throw new NotFoundException('宗门已不存在');
         }
-        assertSectPermission(currentSect, operatorPlayerId, 'member_role');
+        assertSectPermission(currentSect, operatorPlayerId, 'member_approve');
         const application = targetId ? findPendingSectApplication(currentSect, targetId) : null;
         if (!application) {
             throw new NotFoundException('未找到待审批拜帖');
@@ -1230,7 +1233,7 @@ class WorldRuntimeSectService {
         if (!currentSect || currentSect.status === 'dissolved') {
             throw new NotFoundException('宗门已不存在');
         }
-        assertSectPermission(currentSect, operatorPlayerId, 'member_role');
+        assertSectPermission(currentSect, operatorPlayerId, 'member_approve');
         const application = targetId ? findPendingSectApplication(currentSect, targetId) : null;
         if (!application) {
             throw new NotFoundException('未找到待审批拜帖');
@@ -1428,6 +1431,7 @@ class WorldRuntimeSectService {
         if (targetId === currentSect.leaderPlayerId || member.roleId === 'leader') {
             throw new BadRequestException('宗主职位只能通过转让改变');
         }
+        assertSectMemberRoleChange(currentSect, operatorPlayerId, member, roleId);
         const rollback = captureSectMembershipRollback(this, [currentSect.sectId], []);
         const beforeSnapshots = rollback.sects.map((entry) => entry.snapshot);
         try {
@@ -1601,8 +1605,8 @@ class WorldRuntimeSectService {
                 throw new NotFoundException('宗门已不存在');
             }
             assertSectLeader(currentSect, playerId);
-            if (roleId === 'leader') {
-                throw new BadRequestException('宗主权限固定拥有全部管理权');
+            if (roleId === 'leader' || roleId === 'supreme_elder') {
+                throw new BadRequestException('宗主与太上长老固定拥有全部职位权限');
             }
             const rollback = captureSectMembershipRollback(this, [currentSect.sectId], []);
             const beforeSnapshots = rollback.sects.map((entry) => entry.snapshot);
@@ -1887,6 +1891,19 @@ class WorldRuntimeSectService {
             }
         }
         return null;
+    }
+
+    /**
+     * 查询职位权限在指定宗门实例是否生效。
+     * 非宗门实例返回 null，调用方应继续使用自身领域的原有权限规则。
+     */
+    resolveSectInstancePermission(playerId, instanceId, permissionId) {
+        const sect = this.findSectByInstanceId(instanceId);
+        if (!sect || sect.status === 'dissolved') {
+            return null;
+        }
+        ensureSectState(sect, this.playerRuntimeService);
+        return hasSectPermission(sect, playerId, permissionId);
     }
 
     findSectByTemplateId(templateId) {
@@ -2272,11 +2289,19 @@ function buildSectManagementData(sect, playerId, playerRuntimeService = null, gu
     ensureSectState(sect, playerRuntimeService);
     const selfPlayerId = normalizeOptionalString(playerId) || '';
     const canEditPermissions = sect.leaderPlayerId === selfPlayerId;
-    const canReviewApplications = hasSectPermission(sect, selfPlayerId, 'member_role');
+    const canReviewApplications = hasSectPermission(sect, selfPlayerId, 'member_approve');
+    const canChangeRoles = hasSectPermission(sect, selfPlayerId, 'member_role');
     const canLeave = selfPlayerId !== '' && sect.leaderPlayerId !== selfPlayerId && isSectMember(sect, selfPlayerId);
     const selfPlayer = selfPlayerId ? playerRuntimeService?.getPlayer?.(selfPlayerId) : null;
+    const selfMember = sect.members.find((member) => member.playerId === selfPlayerId) ?? null;
+    const projectedRoles = SECT_ROLES.map((role) => ({
+        ...role,
+        assignable: role.assignable
+            && Boolean(selfMember)
+            && isSectMemberRoleLowerThan(role.id, selfMember?.roleId),
+    }));
     return {
-        v: 3,
+        v: 4,
         sectId: sect.sectId,
         selfPlayerId,
         canEditPermissions,
@@ -2287,8 +2312,8 @@ function buildSectManagementData(sect, playerId, playerRuntimeService = null, gu
         canManageGuardian: hasSectPermission(sect, selfPlayerId, 'guardian'),
         guardian: buildSectGuardianManagementData(guardian, formationService, selfPlayer),
         canRemoveMembers: hasSectPermission(sect, selfPlayerId, 'member_remove'),
-        canChangeRoles: hasSectPermission(sect, selfPlayerId, 'member_role'),
-        roles: SECT_ROLES,
+        canChangeRoles,
+        roles: projectedRoles,
         permissions: SECT_PERMISSIONS,
         rolePermissions: normalizeSectRolePermissions(sect.rolePermissions),
         members: sect.members.map((member) => {
@@ -2302,6 +2327,7 @@ function buildSectManagementData(sect, playerId, playerRuntimeService = null, gu
                 statusLabel: resolveSectMemberPresenceLabel(runtimePlayer),
                 self: member.playerId === selfPlayerId,
                 leader: member.playerId === sect.leaderPlayerId,
+                canChangeRole: canChangeRoles && canChangeSectMemberRole(sect, selfPlayerId, member),
             };
         }),
         applicationTotal: countPendingSectApplications(sect),

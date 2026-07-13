@@ -24,8 +24,46 @@ export const SECT_ENTRANCE_RELOCATION_USE_BEHAVIOR = 'relocate_sect_entrance';
 /** 宗门山门迁移冷却：绑定宗门，持续 3 天。 */
 export const SECT_ENTRANCE_RELOCATION_COOLDOWN_MS = 3 * 24 * 60 * 60 * 1000;
 
-/** 宗门成员角色。 */
-export type SectMemberRole = 'leader' | 'elder' | 'member';
+/** 宗门职位层级，索引越小职位越高。 */
+export const SECT_MEMBER_ROLE_HIERARCHY = [
+  'leader',
+  'supreme_elder',
+  'deputy',
+  'elder',
+  'inner',
+  'outer',
+  'labor',
+] as const;
+
+/** 宗门成员职位。 */
+export type SectMemberRole = typeof SECT_MEMBER_ROLE_HIERARCHY[number];
+
+/** 宗门可配置职位权限。 */
+export const SECT_PERMISSION_IDS = [
+  'guardian',
+  'member_remove',
+  'member_approve',
+  'member_role',
+  'building_create',
+  'building_remove',
+] as const;
+
+/** 宗门可配置职位权限。 */
+export type SectPermission = typeof SECT_PERMISSION_IDS[number];
+
+/** 返回职位层级索引；未知职位返回 -1。 */
+export function getSectMemberRoleRank(roleId: unknown): number {
+  return typeof roleId === 'string'
+    ? SECT_MEMBER_ROLE_HIERARCHY.indexOf(roleId as SectMemberRole)
+    : -1;
+}
+
+/** 判断候选职位是否严格低于参照职位。 */
+export function isSectMemberRoleLowerThan(candidateRoleId: unknown, referenceRoleId: unknown): boolean {
+  const candidateRank = getSectMemberRoleRank(candidateRoleId);
+  const referenceRank = getSectMemberRoleRank(referenceRoleId);
+  return candidateRank >= 0 && referenceRank >= 0 && candidateRank > referenceRank;
+}
 
 /** 宗门状态。 */
 export type SectStatus = 'active' | 'dissolved' | 'locked';

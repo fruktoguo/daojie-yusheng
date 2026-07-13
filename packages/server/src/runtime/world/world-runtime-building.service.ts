@@ -47,6 +47,10 @@ export function handleBuildPlaceIntent(runtime, playerId, payload) {
         return recordBuildingOperation(runtime, operationKey, { requestId, ok: false, reason: 'instance_not_persistent' }, { action: 'place', playerId, instanceId: context.instance?.meta?.instanceId ?? null });
     }
     const defId = normalizeBuildingRequestId(payload?.defId);
+    const sectAccess = resolveSectBuildingAccess(runtime, context, playerId, 'building_create');
+    if (sectAccess.applies && !sectAccess.allowed) {
+        return recordBuildingOperation(runtime, operationKey, { requestId, ok: false, reason: 'sect_build_permission_denied' }, { action: 'place', playerId, instanceId: context.instance.meta.instanceId, defId });
+    }
     const compiled = context.instance.buildingCatalog?.defById?.get?.(defId);
     if (!compiled) {
         return recordBuildingOperation(runtime, operationKey, { requestId, ok: false, reason: 'building_def_not_found' }, { action: 'place', playerId, instanceId: context.instance.meta.instanceId, defId });
@@ -72,7 +76,7 @@ export function handleBuildPlaceIntent(runtime, playerId, payload) {
         y: payload?.y,
         rotation: payload?.rotation,
         ownerPlayerId: playerId,
-        ownerSectId: context.player?.sectId ?? null,
+        ownerSectId: sectAccess.sectId ?? context.player?.sectId ?? null,
         state: 'building',
         hp: finalMaxHp,
         maxHp: finalMaxHp,
@@ -102,6 +106,10 @@ export function handleBuildPlaceIntent(runtime, playerId, payload) {
 export function handleStartBuildingConstruction(runtime, playerId, buildingIdInput) {
     const context = resolvePlayerBuildingContext(runtime, playerId);
     const buildingId = normalizeBuildingRequestId(buildingIdInput);
+    const sectAccess = resolveSectBuildingAccess(runtime, context, playerId, 'building_create');
+    if (sectAccess.applies && !sectAccess.allowed) {
+        return { ok: false, reason: 'sect_build_permission_denied' };
+    }
     const result = context.instance.startBuildingConstruction?.(buildingId, playerId) ?? { ok: false, reason: 'building_start_unsupported' };
     if (result?.ok === true) {
         const buildingView = toBuildingInstanceView(result.building);
@@ -210,11 +218,15 @@ export async function handleBuildDeconstructIntent(runtime, playerId, payload) {
     }
     const context = resolvePlayerBuildingContext(runtime, playerId);
     const buildingId = normalizeBuildingRequestId(payload?.buildingId);
+    const sectAccess = resolveSectBuildingAccess(runtime, context, playerId, 'building_remove');
+    if (sectAccess.applies && !sectAccess.allowed) {
+        return recordBuildingOperation(runtime, operationKey, { requestId, ok: false, reason: 'sect_demolish_permission_denied' }, { action: 'deconstruct', playerId, instanceId: context.instance.meta.instanceId, buildingId });
+    }
     const building = context.instance.buildingById?.get?.(buildingId);
     if (!building) {
         return recordBuildingOperation(runtime, operationKey, { requestId, ok: false, reason: 'building_not_found' }, { action: 'deconstruct', playerId, instanceId: context.instance.meta.instanceId, buildingId });
     }
-    if (building.ownerPlayerId !== playerId) {
+    if (!sectAccess.applies && building.ownerPlayerId !== playerId) {
         return recordBuildingOperation(runtime, operationKey, { requestId, ok: false, reason: 'building_owner_mismatch' }, { action: 'deconstruct', playerId, instanceId: context.instance.meta.instanceId, buildingId });
     }
     const recovery = await recoverTreasureVaultItemsBeforeDeconstruct(runtime, context.instance, building, 'deconstruct');
@@ -345,6 +357,27 @@ function resolvePlayerBuildingContext(runtime, playerId) {
         throw new Error(`player_not_found:${playerId}`);
     }
     return { location, instance, player };
+}
+
+/** 宗门地图使用宗门职位权限；其它地图不改变既有建筑权限语义。 */
+function resolveSectBuildingAccess(runtime, context, playerId, permissionId) {
+    const instanceId = normalizeBuildingRequestId(context?.instance?.meta?.instanceId ?? context?.location?.instanceId);
+    const sectService = runtime?.worldRuntimeSectService;
+    const sect = typeof sectService?.findSectByInstanceId === 'function'
+        ? sectService.findSectByInstanceId(instanceId)
+        : null;
+    const sectId = normalizeBuildingRequestId(sect?.sectId ?? context?.instance?.meta?.ownerSectId);
+    if (!sectId) {
+        return { applies: false, allowed: true, sectId: null };
+    }
+    const verdict = typeof sectService?.resolveSectInstancePermission === 'function'
+        ? sectService.resolveSectInstancePermission(playerId, instanceId, permissionId)
+        : false;
+    return {
+        applies: true,
+        allowed: verdict === true,
+        sectId,
+    };
 }
 function normalizeBuildingRequestId(value) {
     return typeof value === 'string' && value.trim() ? value.trim() : '';
@@ -494,6 +527,8 @@ function localizeStartBuildingFailure(reason) {
             return '该建筑当前不可继续施工';
         case 'building_owner_mismatch':
             return '只能建造自己的半成品';
+        case 'sect_build_permission_denied':
+            return '当前职位没有宗门建造权限';
         case 'player_not_found':
             return '当前角色不存在';
         case 'building_too_far':

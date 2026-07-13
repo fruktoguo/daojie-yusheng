@@ -22,7 +22,7 @@
 2. 建筑状态为 'building'（建造中）
 3. 玩家位于半成品 1 格范围内
 
-同一个半成品允许任意可接触玩家同时参与建造。每个参与玩家持有自己的 `buildingJob`，每个 job 每 tick 推进一次共享的 `buildRemainingTicks`，因此多人同时施工会按参与人数加速。`activeBuilderPlayerId` 仅作为兼容/最近启动者字段，不再是半成品施工独占锁。
+同一个半成品允许任意可接触玩家同时参与建造；宗门地图额外要求参与者当前职位拥有 `building_create` 权限。每个参与玩家持有自己的 `buildingJob`，每个 job 每 tick 推进一次共享的 `buildRemainingTicks`，因此多人同时施工会按参与人数加速。`activeBuilderPlayerId` 仅作为兼容/最近启动者字段，不再是半成品施工独占锁。
 
 ### 条件不满足时
 

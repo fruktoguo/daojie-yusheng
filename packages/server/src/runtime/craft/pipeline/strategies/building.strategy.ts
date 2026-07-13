@@ -187,6 +187,12 @@ export class BuildingStrategy implements TechniqueActivityStrategy {
     if (building.state !== 'building') {
       return { satisfied: false, reason: '建筑当前不可继续施工。', shouldCancel: true };
     }
+    const sectBuildPermission = typeof deps?.worldRuntimeSectService?.resolveSectInstancePermission === 'function'
+      ? deps.worldRuntimeSectService.resolveSectInstancePermission(playerId, instanceId, 'building_create')
+      : null;
+    if (sectBuildPermission === false) {
+      return { satisfied: false, reason: '当前职位没有宗门建造权限。', shouldCancel: true };
+    }
     return { satisfied: true };
   }
 
@@ -213,6 +219,9 @@ type BuildingDepsPort = {
   refreshPlayerContextActions?: (playerId: string) => unknown;
   resolveBuildingDisplayName?: (instance: unknown, building: Record<string, any>) => string | null;
   resolveBuildingDisplayNameByRuntime?: (runtime: unknown, building: Record<string, any>) => string | null;
+  worldRuntimeSectService?: {
+    resolveSectInstancePermission?(playerId: string, instanceId: string, permissionId: string): boolean | null;
+  };
 };
 
 function resolvePlayerId(player: unknown): string {

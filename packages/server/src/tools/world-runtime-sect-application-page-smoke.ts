@@ -3,8 +3,14 @@
  */
 import assert from 'node:assert/strict';
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
+import { SECT_MEMBER_ROLE_HIERARCHY, SECT_PERMISSION_IDS } from '@mud/shared';
 import { WorldRuntimeSectService } from '../runtime/world/world-runtime-sect.service';
-import { buildDefaultSectRolePermissions } from '../runtime/world/world-runtime-sect-domain.helpers';
+import {
+  SECT_PERMISSIONS,
+  SECT_ROLES,
+  buildDefaultSectRolePermissions,
+  normalizeSectRolePermissions,
+} from '../runtime/world/world-runtime-sect-domain.helpers';
 
 const players = new Map([
   ['leader', { id: 'leader', playerId: 'leader', name: '宗主', sectId: 'sect:test' }],
@@ -25,6 +31,29 @@ const playerRuntimeService = {
 };
 
 const service = new WorldRuntimeSectService({}, {}, playerRuntimeService);
+assert.deepEqual(
+  SECT_ROLES.map((role) => role.id),
+  [...SECT_MEMBER_ROLE_HIERARCHY],
+  '服务端职位顺序必须与共享层级契约一致',
+);
+assert.deepEqual(
+  SECT_PERMISSIONS.map((permission) => permission.id),
+  [...SECT_PERMISSION_IDS],
+  '服务端职位权限必须覆盖共享六项契约',
+);
+assert.equal(SECT_ROLES.find((role) => role.id === 'supreme_elder')?.assignable, true);
+const restoredPermissions = normalizeSectRolePermissions({
+  deputy: { guardian: true, member_remove: true, member_role: true },
+  supreme_elder: { guardian: false, member_remove: false, member_role: false },
+});
+assert.ok(
+  SECT_PERMISSION_IDS.every((permissionId) => restoredPermissions.deputy[permissionId] === true),
+  '旧快照中的副宗主应补齐新增的默认权限',
+);
+assert.ok(
+  SECT_PERMISSION_IDS.every((permissionId) => restoredPermissions.supreme_elder[permissionId] === true),
+  '太上长老恢复后必须固定拥有全部权限',
+);
 const pendingApplications = Array.from({ length: 25 }, (_, index) => ({
   playerId: `applicant:${String(index + 1).padStart(2, '0')}`,
   name: `申请人${String(index + 1).padStart(2, '0')}`,
@@ -75,6 +104,9 @@ const manageAction = service.buildSectCoreActions({
 assert.ok(manageAction, '宗门核心必须提供管理入口');
 const manageData = JSON.parse(decodeURIComponent(/@@sect:(.*)@@/.exec(manageAction.desc)?.[1] ?? ''));
 assert.equal(manageData.sectId, 'sect:test', '管理摘要必须提供申请分页使用的权威宗门 ID');
+assert.deepEqual(manageData.roles.map((role) => role.id), [...SECT_MEMBER_ROLE_HIERARCHY]);
+assert.equal(manageData.roles.find((role) => role.id === 'supreme_elder')?.assignable, true);
+assert.equal(manageData.members.find((member) => member.playerId === 'outer')?.canChangeRole, true);
 
 const firstPage = service.buildSectApplicationPage('leader', {
   requestId: 'sect-page:1',
@@ -115,7 +147,24 @@ assert.deepEqual(idSearch.items.map((entry) => entry.name), ['青云散人']);
 assert.throws(
   () => service.buildSectApplicationPage('outer', { requestId: 'sect-page:denied' }),
   (error) => error instanceof ForbiddenException,
-  '无 member_role 权限的成员不得读取申请列表',
+  '无 member_approve 权限的成员不得读取申请列表',
+);
+const sect = service.findSectById('sect:test');
+sect.rolePermissions.outer.member_approve = true;
+assert.equal(
+  service.buildSectApplicationPage('outer', { requestId: 'sect-page:reviewer' }).total,
+  26,
+  '同意入宗权限应独立允许读取申请列表',
+);
+assert.equal(
+  service.resolveSectInstancePermission('outer', 'sect-domain:test', 'member_role'),
+  false,
+  '同意入宗权限不得隐式授予修改职位权限',
+);
+assert.equal(
+  service.resolveSectInstancePermission('outer', 'sect-domain:test', 'building_create'),
+  false,
+  '宗门建筑权限必须独立裁定',
 );
 assert.throws(
   () => service.buildSectApplicationPage('leader', { requestId: '' }),

@@ -93,6 +93,8 @@ export interface SectManagementMember {
   statusLabel: string;
   self?: boolean;
   leader?: boolean;
+  /** 服务端按当前操作者职位投影的可修改结果。 */
+  canChangeRole?: boolean;
 }
 
 export interface SectManagementRole {

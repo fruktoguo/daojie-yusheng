@@ -306,6 +306,16 @@ export class WorldRuntimeContextActionQueryService {
                 const buildingName = typeof entry?.name === 'string' && entry.name.trim()
                     ? entry.name.trim()
                     : (typeof building.defId === 'string' ? building.defId : '建筑');
+                const sectBuildPermission = typeof deps?.worldRuntimeSectService?.resolveSectInstancePermission === 'function'
+                    ? deps.worldRuntimeSectService.resolveSectInstancePermission(
+                        view.playerId,
+                        instance.meta.instanceId,
+                        'building_create',
+                    )
+                    : null;
+                if (sectBuildPermission === false) {
+                    continue;
+                }
                 actions.push({
                     id: `building:start:${building.id}`,
                     name: `开始建造：${buildingName}（余 ${remainingTicks} 息）`,

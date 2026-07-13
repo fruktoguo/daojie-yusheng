@@ -468,6 +468,12 @@ function normalizeMaterialFailure(reason: string | undefined): string {
   if (reason === 'not_owner' || reason === 'building_owner_mismatch') {
     return '该建筑不是你建造的，无法拆除';
   }
+  if (reason === 'sect_build_permission_denied') {
+    return '当前职位没有宗门建造权限';
+  }
+  if (reason === 'sect_demolish_permission_denied') {
+    return '当前职位没有宗门拆除权限';
+  }
   return reason;
 }
 

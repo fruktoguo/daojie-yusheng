@@ -7,6 +7,11 @@ import { fileURLToPath } from 'node:url';
 
 const require = createRequire(import.meta.url);
 const ts = require('typescript');
+const {
+  SECT_MEMBER_ROLE_HIERARCHY,
+  SECT_PERMISSION_IDS,
+  isSectMemberRoleLowerThan,
+} = require('@mud/shared');
 const clientRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const viewSource = fs.readFileSync(
   path.join(clientRoot, 'src/ui/panels/action-panel-sect-management.ts'),
@@ -37,6 +42,19 @@ const {
   SectApplicationPageRequestState,
   resolveSectApplicationPageScopeSectId,
 } = loadStateModule();
+
+assert.deepEqual(
+  SECT_MEMBER_ROLE_HIERARCHY,
+  ['leader', 'supreme_elder', 'deputy', 'elder', 'inner', 'outer', 'labor'],
+  '共享职位层级必须保持宗主到杂役的固定顺序',
+);
+assert.deepEqual(
+  SECT_PERMISSION_IDS,
+  ['guardian', 'member_remove', 'member_approve', 'member_role', 'building_create', 'building_remove'],
+  '共享职位权限必须覆盖六项独立能力',
+);
+assert.equal(isSectMemberRoleLowerThan('elder', 'deputy'), true);
+assert.equal(isSectMemberRoleLowerThan('supreme_elder', 'deputy'), false);
 
 assert.equal(
   resolveSectApplicationPageScopeSectId('sect:summary', undefined),
@@ -106,5 +124,25 @@ assert.doesNotMatch(
   /^action\.sect\.manage\.summary\.sect-id,/m,
   '语言包不得保留内部宗门 ID 的玩家可见文案',
 );
+assert.match(
+  viewSource,
+  /member\.canChangeRole \?\? isSectMemberRoleLowerThan\(member\.roleId, selfRoleId\)/,
+  '客户端职位控件必须按服务端投影并兼容共享层级规则',
+);
+assert.match(
+  viewSource,
+  /role\.id === 'supreme_elder'/,
+  '太上长老固定权限必须在客户端禁用编辑',
+);
+for (const key of [
+  'action.sect.permission.guardian',
+  'action.sect.permission.member-remove',
+  'action.sect.permission.member-approve',
+  'action.sect.permission.member-role',
+  'action.sect.permission.building-create',
+  'action.sect.permission.building-remove',
+]) {
+  assert.match(i18nSource, new RegExp(`^${key.replaceAll('.', '\\.')},`, 'm'), `缺少宗门权限文案：${key}`);
+}
 
 console.log(JSON.stringify({ ok: true, case: 'sect-application-page-request-lifecycle' }, null, 2));

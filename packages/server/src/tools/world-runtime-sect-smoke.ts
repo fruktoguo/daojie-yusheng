@@ -1,12 +1,18 @@
 import assert from 'node:assert/strict';
 
-import { Direction, TERRAIN_REGEN_RATE_PER_TICK } from '@mud/shared';
+import { Direction, SECT_PERMISSION_IDS, TERRAIN_REGEN_RATE_PER_TICK } from '@mud/shared';
 import { buildFullWorldDelta } from '../network/world-projector.helpers';
 import { WorldSyncMapSnapshotService } from '../network/world-sync-map-snapshot.service';
 import { buildTechniqueActivityTaskListView } from '../runtime/craft/technique-activity-task-view.helpers';
+import { BuildingStrategy } from '../runtime/craft/pipeline/strategies/building.strategy';
 import { MapInstanceRuntime } from '../runtime/instance/map-instance.runtime';
 import { MapTemplateRepository } from '../runtime/map/map-template.repository';
 import { WorldRuntimeDetailQueryService } from '../runtime/world/query/world-runtime-detail-query.service';
+import {
+  handleBuildDeconstructIntent,
+  handleBuildPlaceIntent,
+  handleStartBuildingConstruction,
+} from '../runtime/world/world-runtime-building.service';
 import { WorldRuntimePlayerSessionService } from '../runtime/world/world-runtime-player-session.service';
 import { WorldRuntimeSectService } from '../runtime/world/world-runtime-sect.service';
 import { WorldRuntimeUseItemService } from '../runtime/world/world-runtime-use-item.service';
@@ -14,6 +20,7 @@ import { findOptimalPathOnMap } from '../runtime/world/world-runtime.path-planni
 
 const playerId = "player:sect-smoke";
 const deputyPlayerId = "player:sect-deputy";
+const supremePlayerId = "player:sect-supreme";
 const elderPlayerId = "player:sect-elder";
 const laborPlayerId = "player:sect-labor";
 const offlinePlayerId = "player:sect-offline";
@@ -99,6 +106,15 @@ async function main() {
     x: 2,
     y: 2,
   };
+  const supremePlayer = {
+    playerId: supremePlayerId,
+    name: "太上",
+    displayName: "太",
+    realm: { realmLv: 9, displayName: "不用于宗门成员显示" },
+    sectId: null,
+    x: 2,
+    y: 2,
+  };
   const laborPlayer = {
     playerId: laborPlayerId,
     name: "杂役",
@@ -112,6 +128,7 @@ async function main() {
   const players = new Map([
     [playerId, player],
     [deputyPlayerId, deputyPlayer],
+    [supremePlayerId, supremePlayer],
     [elderPlayerId, elderPlayer],
     [laborPlayerId, laborPlayer],
   ]);
@@ -901,11 +918,13 @@ async function main() {
   assert.equal(sectInstance.isInBounds(expandedSect.coreX + 9, expandedSect.coreY), true);
 
   expandedSect.members.push(
+    { playerId: supremePlayerId, name: "太上", roleId: "outer", joinedAt: Date.now() },
     { playerId: elderPlayerId, name: "长老", roleId: "elder", joinedAt: Date.now() },
     { playerId: laborPlayerId, name: "杂役", roleId: "labor", joinedAt: Date.now() },
     { playerId: offlinePlayerId, name: "离线道友", roleId: "outer", joinedAt: Date.now() },
   );
   elderPlayer.sectId = expandedSect.sectId;
+  supremePlayer.sectId = expandedSect.sectId;
   laborPlayer.sectId = expandedSect.sectId;
   const memberCoreActions = sectService.buildSectCoreActions({
     playerId: deputyPlayerId,
@@ -958,6 +977,28 @@ async function main() {
   assert.equal(notices.at(-1)?.structured?.key, "notice.craft.formation.stopped");
   await sectService.executeSectAction(playerId, `sect:member:role:${encodeURIComponent(deputyPlayerId)}:deputy`, deps);
   assert.equal(expandedSect.members.find((entry) => entry.playerId === deputyPlayerId).roleId, "deputy");
+  await sectService.executeSectAction(playerId, `sect:member:role:${encodeURIComponent(supremePlayerId)}:supreme_elder`, deps);
+  assert.equal(expandedSect.members.find((entry) => entry.playerId === supremePlayerId).roleId, "supreme_elder");
+  assert.ok(SECT_PERMISSION_IDS.every((permissionId) => expandedSect.rolePermissions.supreme_elder[permissionId] === true));
+  await assert.rejects(
+    () => sectService.executeSectAction(deputyPlayerId, `sect:member:role:${encodeURIComponent(supremePlayerId)}:elder`, deps),
+    /只能修改比自己职位低的成员/,
+  );
+  await assert.rejects(
+    () => sectService.executeSectAction(supremePlayerId, `sect:member:role:${encodeURIComponent(elderPlayerId)}:supreme_elder`, deps),
+    /只能任命比自己职位低的职位/,
+  );
+  await assert.rejects(
+    () => sectService.executeSectAction(supremePlayerId, `sect:member:role:${encodeURIComponent(supremePlayerId)}:elder`, deps),
+    /不能修改自己的职位/,
+  );
+  await sectService.executeSectAction(supremePlayerId, `sect:member:role:${encodeURIComponent(elderPlayerId)}:inner`, deps);
+  assert.equal(expandedSect.members.find((entry) => entry.playerId === elderPlayerId).roleId, "inner");
+  await sectService.executeSectAction(playerId, `sect:member:role:${encodeURIComponent(elderPlayerId)}:elder`, deps);
+  await assert.rejects(
+    () => sectService.executeSectAction(playerId, 'sect:permission:toggle:supreme_elder:guardian', deps),
+    /固定拥有全部职位权限/,
+  );
   await sectService.executeSectAction(deputyPlayerId, "sect:guardian:toggle", deps);
   assert.equal(guardians.find((entry) => entry.id === `formation:sect_guardian:${expandedSect.sectId}`).active, false);
   await sectService.executeSectAction(deputyPlayerId, "sect:guardian:maintain", deps);
@@ -969,7 +1010,107 @@ async function main() {
   assert.ok(deputyMaintainingCoreActions.some((action) => action.id === "sect:guardian:cancel_maintain"));
   await sectService.executeSectAction(deputyPlayerId, "sect:guardian:cancel_maintain", deps);
   assert.equal(deputyPlayer.formationJob, null);
-  await assert.rejects(() => sectService.executeSectAction(playerId, `sect:member:role:${encodeURIComponent(elderPlayerId)}:supreme_elder`, deps), /太上长老暂时无法任命/);
+  const managedBuilding = {
+    id: 'building:sect-managed',
+    defId: 'stone_wall',
+    ownerPlayerId: elderPlayerId,
+    ownerSectId: expandedSect.sectId,
+    state: 'building',
+  };
+  const buildingById = new Map([[managedBuilding.id, managedBuilding]]);
+  const sectBuildingInstance = {
+    meta: {
+      instanceId: sectInstance.meta.instanceId,
+      ownerSectId: expandedSect.sectId,
+      persistent: true,
+    },
+    buildingCatalog: {
+      defById: new Map([['stone_wall', {
+        id: 'stone_wall',
+        name: '石墙',
+        buildTicks: 1,
+        costItemIds: [],
+        costCounts: [],
+        durabilityMultiplier: 1,
+      }]]),
+      defByHandle: {},
+    },
+    buildingById,
+    placeBuildingInstance(input) {
+      const building = { id: input.requestId, ...input };
+      buildingById.set(building.id, building);
+      return { ok: true, building };
+    },
+    startBuildingConstruction(buildingId) {
+      const building = buildingById.get(buildingId);
+      return building ? { ok: true, building } : { ok: false, reason: 'building_not_found' };
+    },
+    deconstructBuildingInstance(buildingId) {
+      return { ok: buildingById.delete(buildingId) };
+    },
+  };
+  const buildingRuntime = {
+    tick: 1,
+    worldRuntimeSectService: sectService,
+    playerRuntimeService,
+    buildingOperationResultsByKey: new Map(),
+    buildingOperationAuditLog: [],
+    getPlayerLocationOrThrow() {
+      return { instanceId: sectBuildingInstance.meta.instanceId };
+    },
+    getInstanceRuntimeOrThrow() {
+      return sectBuildingInstance;
+    },
+    getInstanceRuntime() {
+      return sectBuildingInstance;
+    },
+  };
+  const deniedPlace = handleBuildPlaceIntent(buildingRuntime, laborPlayerId, {
+    requestId: 'building:sect-denied',
+    defId: 'stone_wall',
+    x: 1,
+    y: 1,
+  });
+  assert.equal(deniedPlace.reason, 'sect_build_permission_denied');
+  assert.equal(handleStartBuildingConstruction(buildingRuntime, laborPlayerId, managedBuilding.id).reason, 'sect_build_permission_denied');
+  const buildingStrategy = new BuildingStrategy();
+  const deniedContinue = buildingStrategy.checkContinueCondition(
+    laborPlayer,
+    { buildingId: managedBuilding.id, instanceId: sectBuildingInstance.meta.instanceId },
+    { deps: buildingRuntime } as never,
+  );
+  assert.deepEqual(deniedContinue, {
+    satisfied: false,
+    reason: '当前职位没有宗门建造权限。',
+    shouldCancel: true,
+  });
+  assert.equal(
+    buildingStrategy.checkContinueCondition(
+      supremePlayer,
+      { buildingId: managedBuilding.id, instanceId: sectBuildingInstance.meta.instanceId },
+      { deps: buildingRuntime } as never,
+    ).satisfied,
+    true,
+  );
+  const allowedPlace = handleBuildPlaceIntent(buildingRuntime, supremePlayerId, {
+    requestId: 'building:sect-allowed',
+    defId: 'stone_wall',
+    x: 1,
+    y: 1,
+  });
+  assert.equal(allowedPlace.ok, true);
+  assert.equal(buildingById.get('building:sect-allowed')?.ownerSectId, expandedSect.sectId);
+  const deniedRemove = await handleBuildDeconstructIntent(buildingRuntime, laborPlayerId, {
+    requestId: 'building:sect-remove-denied',
+    buildingId: managedBuilding.id,
+  });
+  assert.equal(deniedRemove.reason, 'sect_demolish_permission_denied');
+  const allowedRemove = await handleBuildDeconstructIntent(buildingRuntime, supremePlayerId, {
+    requestId: 'building:sect-remove-allowed',
+    buildingId: managedBuilding.id,
+  });
+  assert.equal(allowedRemove.ok, true);
+  assert.equal(buildingById.has(managedBuilding.id), false);
   await sectService.executeSectAction(playerId, `sect:member:remove:${encodeURIComponent(elderPlayerId)}`, deps);
   assert.equal(expandedSect.members.some((entry) => entry.playerId === elderPlayerId), false);
   assert.equal(elderPlayer.sectId, null);
@@ -987,6 +1128,7 @@ async function main() {
   assert.equal(sectService.findSectById(expandedSect.sectId), null);
   assert.equal(player.sectId, null);
   assert.equal(deputyPlayer.sectId, null);
+  assert.equal(supremePlayer.sectId, null);
 
   console.log("world-runtime-sect-smoke passed");
 }

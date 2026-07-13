@@ -3,7 +3,14 @@
  * 权威队列、地图改写和持久化提交仍由 WorldRuntimeSectService 编排。
  */
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
-import { formatDisplayInteger, getFirstGrapheme, getGraphemeCount } from '@mud/shared';
+import {
+  SECT_MEMBER_ROLE_HIERARCHY,
+  SECT_PERMISSION_IDS,
+  formatDisplayInteger,
+  getFirstGrapheme,
+  getGraphemeCount,
+  isSectMemberRoleLowerThan,
+} from '@mud/shared';
 
 import {
   SECT_CORE_CHAR,
@@ -12,37 +19,58 @@ import {
 } from '../../constants/gameplay/sect';
 import { resolveSectMemberDisplayName } from '../player/player-display-name';
 
-export const SECT_ROLES = [
-  { id: 'leader', label: '宗主', assignable: false },
-  { id: 'deputy', label: '副宗主', assignable: true },
-  { id: 'elder', label: '长老', assignable: true },
-  { id: 'inner', label: '内门弟子', assignable: true },
-  { id: 'outer', label: '外门弟子', assignable: true },
-  { id: 'labor', label: '杂役', assignable: true },
-  { id: 'supreme_elder', label: '太上长老', assignable: false },
-];
+const SECT_ROLE_LABELS = {
+  leader: '宗主',
+  supreme_elder: '太上长老',
+  deputy: '副宗主',
+  elder: '长老',
+  inner: '内门',
+  outer: '外门',
+  labor: '杂役',
+};
+
+export const SECT_ROLES = SECT_MEMBER_ROLE_HIERARCHY.map((id) => ({
+  id,
+  label: SECT_ROLE_LABELS[id],
+  assignable: id !== 'leader',
+}));
 
 const SECT_ROLE_IDS = new Set(SECT_ROLES.map((entry) => entry.id));
 const SECT_ASSIGNABLE_ROLE_IDS = new Set(
   SECT_ROLES.filter((entry) => entry.assignable).map((entry) => entry.id),
 );
 
-export const SECT_PERMISSIONS = [
-  { id: 'guardian', label: '护宗大阵' },
-  { id: 'member_remove', label: '移除成员' },
-  { id: 'member_role', label: '修改职位' },
-];
-
-const SECT_PERMISSION_IDS = new Set(SECT_PERMISSIONS.map((entry) => entry.id));
-const DEFAULT_SECT_ROLE_PERMISSIONS = {
-  leader: { guardian: true, member_remove: true, member_role: true },
-  deputy: { guardian: true, member_remove: true, member_role: true },
-  elder: { guardian: true, member_remove: false, member_role: false },
-  inner: { guardian: false, member_remove: false, member_role: false },
-  outer: { guardian: false, member_remove: false, member_role: false },
-  labor: { guardian: false, member_remove: false, member_role: false },
-  supreme_elder: { guardian: true, member_remove: false, member_role: false },
+const SECT_PERMISSION_LABELS = {
+  guardian: '护宗大阵',
+  member_remove: '逐出宗门',
+  member_approve: '同意入宗',
+  member_role: '修改职位',
+  building_create: '建造',
+  building_remove: '拆除',
 };
+
+export const SECT_PERMISSIONS = SECT_PERMISSION_IDS.map((id) => ({
+  id,
+  label: SECT_PERMISSION_LABELS[id],
+}));
+
+const SECT_PERMISSION_ID_SET = new Set<string>(SECT_PERMISSIONS.map((entry) => entry.id));
+const ALL_SECT_PERMISSIONS = buildSectPermissionFlags(true);
+const NO_SECT_PERMISSIONS = buildSectPermissionFlags(false);
+const FIXED_FULL_PERMISSION_ROLE_IDS = new Set(['leader', 'supreme_elder']);
+const DEFAULT_SECT_ROLE_PERMISSIONS = {
+  leader: { ...ALL_SECT_PERMISSIONS },
+  supreme_elder: { ...ALL_SECT_PERMISSIONS },
+  deputy: { ...ALL_SECT_PERMISSIONS },
+  elder: { ...NO_SECT_PERMISSIONS, guardian: true },
+  inner: { ...NO_SECT_PERMISSIONS },
+  outer: { ...NO_SECT_PERMISSIONS },
+  labor: { ...NO_SECT_PERMISSIONS },
+};
+
+function buildSectPermissionFlags(enabled) {
+  return Object.fromEntries(SECT_PERMISSION_IDS.map((permissionId) => [permissionId, enabled]));
+}
 
 export function buildSectId(playerId) {
   const normalized = normalizeOptionalString(playerId)?.replace(/[^a-zA-Z0-9:_-]+/g, '_') || 'player';
@@ -407,7 +435,11 @@ export function buildSectMemberEntry(player, roleId, joinedAt = Date.now()) {
 }
 
 export function resolvePlayerDisplayName(player, fallback = '') {
-  return resolveSectMemberDisplayName(player, player?.playerId ?? player?.id ?? fallback);
+  const playerId = normalizeOptionalString(player?.playerId) || normalizeOptionalString(player?.id);
+  return resolveSectMemberDisplayName({
+    ...(player && typeof player === 'object' ? player : {}),
+    name: normalizeOptionalString(player?.name) || normalizeOptionalString(fallback),
+  }, playerId);
 }
 
 export function resolveSectMemberPresenceLabel(player) {
@@ -435,10 +467,14 @@ export function normalizeSectRolePermissions(input) {
       continue;
     }
     for (const permission of SECT_PERMISSIONS) {
-      next[role.id][permission.id] = source[permission.id] === true;
+      if (typeof source[permission.id] === 'boolean') {
+        next[role.id][permission.id] = source[permission.id];
+      }
     }
   }
-  next.leader = { ...DEFAULT_SECT_ROLE_PERMISSIONS.leader };
+  for (const roleId of FIXED_FULL_PERMISSION_ROLE_IDS) {
+    next[roleId] = { ...ALL_SECT_PERMISSIONS };
+  }
   return next;
 }
 
@@ -459,30 +495,21 @@ export function normalizeSectRoleId(input, options: any = {}) {
     throw new BadRequestException('未知宗门职位');
   }
   if (options.requireAssignable === true && !SECT_ASSIGNABLE_ROLE_IDS.has(normalized)) {
-    throw new BadRequestException(
-      normalized === 'supreme_elder'
-        ? '太上长老暂时无法任命'
-        : '该职位不能直接任命',
-    );
-  }
-  if (normalized === 'supreme_elder'
-    && options.allowSupreme !== true
-    && options.requireAssignable !== true) {
-    return options.fallback || 'outer';
+    throw new BadRequestException('该职位不能直接任命');
   }
   return normalized;
 }
 
 export function normalizeSectPermissionId(input) {
   const normalized = normalizeOptionalString(input);
-  if (!normalized || !SECT_PERMISSION_IDS.has(normalized)) {
+  if (!normalized || !SECT_PERMISSION_ID_SET.has(normalized)) {
     throw new BadRequestException('未知宗门权限');
   }
   return normalized;
 }
 
 export function getSectRoleLabel(roleId) {
-  return SECT_ROLES.find((entry) => entry.id === roleId)?.label ?? '外门弟子';
+  return SECT_ROLES.find((entry) => entry.id === roleId)?.label ?? '外门';
 }
 
 function roleSortWeight(roleId) {
@@ -515,6 +542,41 @@ export function hasSectPermission(sect, playerId, permissionId) {
   }
   const rolePermissions = normalizeSectRolePermissions(sect.rolePermissions);
   return rolePermissions[member.roleId]?.[permissionId] === true;
+}
+
+/** 判断操作者是否能调整目标成员；新职位为空时只检查目标层级。 */
+export function canChangeSectMemberRole(sect, operatorPlayerId, targetMember, nextRoleId = null) {
+  const operatorId = normalizeOptionalString(operatorPlayerId);
+  if (!operatorId || !targetMember || targetMember.playerId === operatorId) {
+    return false;
+  }
+  const operator = Array.isArray(sect?.members)
+    ? sect.members.find((entry) => entry.playerId === operatorId)
+    : null;
+  if (!operator || !isSectMemberRoleLowerThan(targetMember.roleId, operator.roleId)) {
+    return false;
+  }
+  return nextRoleId === null || isSectMemberRoleLowerThan(nextRoleId, operator.roleId);
+}
+
+/** 强制职位变更只能作用于比操作者低的成员和职位。 */
+export function assertSectMemberRoleChange(sect, operatorPlayerId, targetMember, nextRoleId) {
+  const operatorId = normalizeOptionalString(operatorPlayerId);
+  if (!operatorId) {
+    throw new ForbiddenException('宗门成员身份无效');
+  }
+  if (targetMember?.playerId === operatorId) {
+    throw new BadRequestException('不能修改自己的职位');
+  }
+  const operator = Array.isArray(sect?.members)
+    ? sect.members.find((entry) => entry.playerId === operatorId)
+    : null;
+  if (!operator || !isSectMemberRoleLowerThan(targetMember?.roleId, operator.roleId)) {
+    throw new ForbiddenException('只能修改比自己职位低的成员');
+  }
+  if (!isSectMemberRoleLowerThan(nextRoleId, operator.roleId)) {
+    throw new ForbiddenException('只能任命比自己职位低的职位');
+  }
 }
 
 export function assertSectLeader(sect, playerId) {

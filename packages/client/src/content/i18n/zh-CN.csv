@@ -3034,7 +3034,7 @@ action.sect.manage.overview.mark,行动,印记 {mark},
 action.sect.manage.overview.members,行动,成员 {memberCount},
 action.sect.manage.role.assignable,行动,可任命,
 action.sect.manage.role.unassignable,行动,不可任命,
-action.sect.manage.roles.copy,行动,只有宗主可以编辑职位权限；太上长老暂时无法任命。,
+action.sect.manage.roles.copy,行动,只有宗主可以编辑普通职位权限；太上长老由宗主任命并固定拥有全部六项职位权限。,
 action.sect.manage.roles.title,行动,宗门职位,
 action.sect.manage.sidebar.aria,行动,宗门管理页签,
 action.sect.manage.sidebar.title,行动,管理,
@@ -3053,15 +3053,18 @@ action.sect.manage.tab.members,行动,宗门成员,
 action.sect.manage.tab.overview,行动,基础信息,
 action.sect.manage.tab.roles,行动,宗门职位,
 action.sect.manage.title,行动,宗门管理,
-action.sect.permission.guardian,行动,护法权限,缺失 key 自动补齐
-action.sect.permission.member-remove,行动,移除成员,缺失 key 自动补齐
-action.sect.permission.member-role,行动,调整职位,缺失 key 自动补齐
+action.sect.permission.building-create,行动,建造,
+action.sect.permission.building-remove,行动,拆除,
+action.sect.permission.guardian,行动,护宗大阵,缺失 key 自动补齐
+action.sect.permission.member-approve,行动,同意入宗,
+action.sect.permission.member-remove,行动,逐出宗门,缺失 key 自动补齐
+action.sect.permission.member-role,行动,修改职位,缺失 key 自动补齐
 action.sect.role.deputy,行动,副宗主,缺失 key 自动补齐
 action.sect.role.elder,行动,长老,缺失 key 自动补齐
-action.sect.role.inner,行动,内门弟子,缺失 key 自动补齐
+action.sect.role.inner,行动,内门,缺失 key 自动补齐
 action.sect.role.labor,行动,杂役,缺失 key 自动补齐
 action.sect.role.leader,行动,宗主,缺失 key 自动补齐
-action.sect.role.outer,行动,外门弟子,缺失 key 自动补齐
+action.sect.role.outer,行动,外门,缺失 key 自动补齐
 action.sect.role.supreme-elder,行动,太上长老,缺失 key 自动补齐
 action.sect.status.offline,行动,离线,缺失 key 自动补齐
 action.sect.status.online,行动,在线,缺失 key 自动补齐
