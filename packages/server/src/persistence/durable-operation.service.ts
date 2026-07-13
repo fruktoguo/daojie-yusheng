@@ -39,6 +39,12 @@ import {
   persistDurableTileResourceSourceMutation,
   type DurableTileResourceSourceMutation,
 } from './tile-resource-durable-persistence';
+import {
+  normalizeDurableLootSourceMutation,
+  persistDurableLootSourceMutation,
+  type DurableContainerStateSourceMutation,
+  type DurableGroundTileSourceMutation,
+} from './loot-source-durable-persistence';
 
 const PLAYER_PRESENCE_TABLE = 'player_presence';
 const PLAYER_WALLET_TABLE = 'player_wallet';
@@ -57,10 +63,6 @@ const PLAYER_PROFESSION_STATE_TABLE = 'player_profession_state';
 const PLAYER_MAIL_TABLE = 'player_mail';
 const PLAYER_MAIL_ATTACHMENT_TABLE = 'player_mail_attachment';
 const PLAYER_MAIL_COUNTER_TABLE = 'player_mail_counter';
-const INSTANCE_GROUND_ITEM_TABLE = 'instance_ground_item';
-const INSTANCE_CONTAINER_STATE_TABLE = 'instance_container_state';
-const INSTANCE_CONTAINER_ENTRY_TABLE = 'instance_container_entry';
-const INSTANCE_CONTAINER_TIMER_TABLE = 'instance_container_timer';
 const PLAYER_RECOVERY_WATERMARK_TABLE = 'player_recovery_watermark';
 const DURABLE_OPERATION_LOG_TABLE = 'durable_operation_log';
 const OUTBOX_EVENT_TABLE = 'outbox_event';
@@ -272,19 +274,8 @@ export interface GrantInventoryItemsInput {
 }
 
 export type DurableInventoryGrantSourceMutation =
-  | {
-      kind: 'ground_tile';
-      instanceId: string;
-      tileIndex: number;
-      remainingItems: unknown[];
-    }
-  | {
-      kind: 'container_state';
-      instanceId: string;
-      containerId: string;
-      sourceId: string;
-      statePayload: Record<string, unknown>;
-    }
+  | DurableGroundTileSourceMutation
+  | DurableContainerStateSourceMutation
   | {
       kind: 'time_chamber_fuel';
       instanceId: string;
@@ -1562,6 +1553,23 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
       }
       if (Math.trunc(Number(input.expectedOwnershipEpoch ?? 0)) !== normalizedSourceMutation.ownershipEpoch) {
         throw new Error('tile_resource_source_ownership_epoch_mismatch');
+      }
+    }
+    if (normalizedSourceMutation?.kind === 'ground_tile' || normalizedSourceMutation?.kind === 'container_state') {
+      const expectedSourceKind = normalizedSourceMutation.kind === 'ground_tile' ? 'ground' : 'container';
+      const sourceTypeMatches = normalizedSourceMutation.kind === 'ground_tile'
+        ? normalizedSourceType === 'ground_take'
+          || normalizedSourceType === 'ground_take_all'
+          || normalizedSourceType === 'ground_drop'
+        : normalizedSourceType === 'container_take' || normalizedSourceType === 'container_take_all';
+      if (!sourceTypeMatches) {
+        throw new Error(`${expectedSourceKind}_source_type_mismatch`);
+      }
+      if (Math.trunc(Number(input.expectedOwnershipEpoch ?? 0)) !== normalizedSourceMutation.ownershipEpoch) {
+        throw new Error(`${expectedSourceKind}_source_ownership_epoch_mismatch`);
+      }
+      if (!normalizeRequiredString(input.expectedLeaseToken)) {
+        throw new Error(`${expectedSourceKind}_source_lease_token_required`);
       }
     }
 
@@ -6354,33 +6362,8 @@ function normalizeInventoryGrantSourceMutation(
   if (!instanceId) {
     return null;
   }
-  if (value.kind === 'ground_tile') {
-    const tileIndex = Number(value.tileIndex);
-    if (!Number.isInteger(tileIndex) || tileIndex < 0) {
-      return null;
-    }
-    return {
-      kind: 'ground_tile',
-      instanceId,
-      tileIndex,
-      remainingItems: Array.isArray(value.remainingItems)
-        ? value.remainingItems.map(normalizeDurableJsonObject)
-        : [],
-    };
-  }
-  if (value.kind === 'container_state') {
-    const containerId = normalizeRequiredString(value.containerId);
-    const sourceId = normalizeRequiredString(value.sourceId);
-    if (!containerId || !sourceId) {
-      return null;
-    }
-    return {
-      kind: 'container_state',
-      instanceId,
-      containerId,
-      sourceId,
-      statePayload: normalizeDurableJsonObject(value.statePayload),
-    };
+  if (value.kind === 'ground_tile' || value.kind === 'container_state') {
+    return normalizeDurableLootSourceMutation(value, instanceId);
   }
   if (value.kind === 'time_chamber_fuel') {
     const buildingId = normalizeRequiredString(value.buildingId);
@@ -6406,12 +6389,8 @@ async function persistInventoryGrantSourceMutation(
   mutation: DurableInventoryGrantSourceMutation,
 ): Promise<void> {
   await client.query('SELECT pg_advisory_xact_lock($1::integer, hashtext($2))', [7102, mutation.instanceId]);
-  if (mutation.kind === 'ground_tile') {
-    await replaceDurableGroundTile(client, mutation);
-    return;
-  }
-  if (mutation.kind === 'container_state') {
-    await replaceDurableContainerState(client, mutation);
+  if (mutation.kind === 'ground_tile' || mutation.kind === 'container_state') {
+    await persistDurableLootSourceMutation(client, mutation);
     return;
   }
   if (mutation.kind === 'time_chamber_fuel') {
@@ -6444,137 +6423,6 @@ async function addDurableTimeChamberFuel(
   }
 }
 
-async function replaceDurableGroundTile(
-  client: import('pg').PoolClient,
-  mutation: Extract<DurableInventoryGrantSourceMutation, { kind: 'ground_tile' }>,
-): Promise<void> {
-  await client.query(
-    `DELETE FROM ${INSTANCE_GROUND_ITEM_TABLE} WHERE instance_id = $1 AND tile_index = $2`,
-    [mutation.instanceId, mutation.tileIndex],
-  );
-  if (mutation.remainingItems.length === 0) {
-    return;
-  }
-  const rows = mutation.remainingItems.map((itemPayload, index) => ({
-    ground_item_id: buildDurableInstanceRowId('ground', mutation.instanceId, `${mutation.tileIndex}:${index}`),
-    tile_index: mutation.tileIndex,
-    item_instance_payload: normalizeDurableJsonObject(itemPayload),
-    expire_at: resolveDurableGroundExpireAt(itemPayload),
-  }));
-  await client.query(
-    `
-      WITH incoming AS (
-        SELECT *
-        FROM jsonb_to_recordset($2::jsonb) AS entry(
-          ground_item_id varchar(100),
-          tile_index bigint,
-          item_instance_payload jsonb,
-          expire_at timestamptz
-        )
-      )
-      INSERT INTO ${INSTANCE_GROUND_ITEM_TABLE}(
-        ground_item_id, instance_id, tile_index, item_instance_payload, expire_at, updated_at
-      )
-      SELECT ground_item_id, $1, tile_index, COALESCE(item_instance_payload, '{}'::jsonb), expire_at, now()
-      FROM incoming
-      ON CONFLICT (ground_item_id)
-      DO UPDATE SET
-        instance_id = EXCLUDED.instance_id,
-        tile_index = EXCLUDED.tile_index,
-        item_instance_payload = EXCLUDED.item_instance_payload,
-        expire_at = EXCLUDED.expire_at,
-        updated_at = now()
-    `,
-    [mutation.instanceId, JSON.stringify(rows)],
-  );
-}
-
-async function replaceDurableContainerState(
-  client: import('pg').PoolClient,
-  mutation: Extract<DurableInventoryGrantSourceMutation, { kind: 'container_state' }>,
-): Promise<void> {
-  const source = normalizeDurableJsonObject(mutation.statePayload);
-  const entries = Array.isArray(source.entries) ? source.entries : [];
-  const metadata: Record<string, unknown> = {};
-  for (const [key, entry] of Object.entries(source)) {
-    if (key !== 'entries' && key !== 'generatedAtTick' && key !== 'refreshAtTick' && key !== 'activeSearch') {
-      metadata[key] = entry;
-    }
-  }
-  await client.query(
-    `DELETE FROM ${INSTANCE_CONTAINER_ENTRY_TABLE} WHERE instance_id = $1 AND container_id = $2`,
-    [mutation.instanceId, mutation.containerId],
-  );
-  await client.query(
-    `DELETE FROM ${INSTANCE_CONTAINER_TIMER_TABLE} WHERE instance_id = $1 AND container_id = $2`,
-    [mutation.instanceId, mutation.containerId],
-  );
-  await client.query(
-    `
-      INSERT INTO ${INSTANCE_CONTAINER_STATE_TABLE}(
-        instance_id, container_id, source_id, state_payload, updated_at
-      )
-      VALUES ($1, $2, $3, $4::jsonb, now())
-      ON CONFLICT (instance_id, container_id)
-      DO UPDATE SET
-        source_id = EXCLUDED.source_id,
-        state_payload = EXCLUDED.state_payload,
-        updated_at = now()
-    `,
-    [mutation.instanceId, mutation.containerId, mutation.sourceId, JSON.stringify(metadata)],
-  );
-  await client.query(
-    `
-      INSERT INTO ${INSTANCE_CONTAINER_TIMER_TABLE}(
-        instance_id, container_id, generated_at_tick, refresh_at_tick,
-        active_search_payload, updated_at
-      )
-      VALUES ($1, $2, $3, $4, $5::jsonb, now())
-    `,
-    [
-      mutation.instanceId,
-      mutation.containerId,
-      normalizeOptionalInteger(source.generatedAtTick),
-      normalizeOptionalInteger(source.refreshAtTick),
-      JSON.stringify(normalizeDurableJsonObject(source.activeSearch)),
-    ],
-  );
-  if (entries.length === 0) {
-    return;
-  }
-  const entryRows = entries.map((value, entryIndex) => {
-    const entry = normalizeDurableJsonObject(value);
-    return {
-      container_id: mutation.containerId,
-      entry_index: entryIndex,
-      item_payload: normalizeDurableJsonObject(entry.item),
-      created_tick: normalizeOptionalInteger(entry.createdTick),
-      visible: entry.visible === true,
-    };
-  });
-  await client.query(
-    `
-      WITH incoming AS (
-        SELECT *
-        FROM jsonb_to_recordset($2::jsonb) AS entry(
-          container_id varchar(100),
-          entry_index bigint,
-          item_payload jsonb,
-          created_tick bigint,
-          visible boolean
-        )
-      )
-      INSERT INTO ${INSTANCE_CONTAINER_ENTRY_TABLE}(
-        instance_id, container_id, entry_index, item_payload, created_tick, visible, updated_at
-      )
-      SELECT $1, container_id, entry_index, COALESCE(item_payload, '{}'::jsonb), created_tick,
-        COALESCE(visible, false), now()
-      FROM incoming
-    `,
-    [mutation.instanceId, JSON.stringify(entryRows)],
-  );
-}
-
 function normalizeDurableJsonValue(value: unknown): unknown {
   try {
     return JSON.parse(stableDurableJson(value ?? {}));
@@ -6596,29 +6444,6 @@ function normalizeDurableJsonObject(value: unknown): Record<string, unknown> {
   catch {
     return {};
   }
-}
-
-function resolveDurableGroundExpireAt(itemPayload: unknown): string | null {
-  const payload = normalizeDurableJsonObject(itemPayload);
-  const expiresAtMs = Number(payload.groundExpiresAtMs);
-  if (!Number.isFinite(expiresAtMs) || expiresAtMs <= 0) {
-    return null;
-  }
-  const expireAt = new Date(Math.trunc(expiresAtMs));
-  return Number.isFinite(expireAt.getTime()) ? expireAt.toISOString() : null;
-}
-
-function buildDurableInstanceRowId(prefix: string, instanceId: string, suffix: string): string {
-  return `${prefix}:${hashDurableString(`${instanceId}:${suffix}`)}:${suffix}`.slice(0, 100);
-}
-
-function hashDurableString(value: string): string {
-  let hash = 2166136261;
-  for (let index = 0; index < value.length; index += 1) {
-    hash ^= value.charCodeAt(index);
-    hash = Math.imul(hash, 16777619);
-  }
-  return (hash >>> 0).toString(36);
 }
 
 function normalizeDurableOperationId(value: unknown): string {

@@ -72,6 +72,10 @@ signature = itemId + '#' + enhanceLevel
 - 地面拾取和容器领取会把来源剩余状态与玩家背包写入同一 durable transaction；失败回滚使用来源 revision/精确逆操作，不覆盖等待数据库期间发生的其他掉落或容器变化。
 - 玩家主动丢弃会把背包扣除与地面物品行作为同一事务提交；COMMIT 回包不确定时保持玩家与来源分域锁，数据库恢复可读后重新进入带 operation 身份校验的幂等入口，禁止直接恢复成提交前背包或地面状态。
 - 实例普通 flush 与来源资产事务共用分域串行器和 revision token；IO 期间出现的新变化继续保留 dirty，不能被旧快照回标为已持久化。
+- 来源资产事务必须同时校验当前 `assigned_node_id + lease_token + ownership_epoch`；缺少精确 lease token、epoch 不一致或租约已失效时整笔拒绝，不能只凭节点名或旧 epoch 修改实例资产。
+- 地面或容器来源后态提交时，必须在同一数据库事务内以更高版本替换对应 `instance_flush_ledger` payload：新 payload 既包含本次来源后态，也累计同域其他尚未刷盘的脏地块或容器；事务提交会清除旧 claim，但不得清掉这些无关 dirty。
+- ground/container worker 在实例 advisory lock 内写真源前，必须再次核对 `ownership_epoch + latest_version + claimed_by + fencing_token` 的精确 claim，且 `claim_until` 尚未过期。已被 durable transaction 取代的旧 payload 只能 no-op，随后旧 ack 也必须失败；当前累计 payload 则可继续回放并在成功后推进 `flushed_version`。
+- 拾取成功、部分拿取、失败和 COMMIT 结果确认中的玩家通知都必须携带结构化 key 与变量；服务端纯文本只作为旧客户端和日志 fallback，客户端负责最终文案拼接。
 
 ## 物品使用逻辑
 

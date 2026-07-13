@@ -279,6 +279,7 @@ export class WorldRuntimeItemGroundService {
             expectedSessionEpoch: sessionEpoch,
             expectedInstanceId: input.instanceId,
             expectedAssignedNodeId: lease?.assignedNodeId ?? null,
+            expectedLeaseToken: lease?.leaseToken ?? null,
             expectedOwnershipEpoch: lease?.ownershipEpoch ?? null,
             sourceType: 'ground_drop',
             sourceRefId: `${input.sourceId}:${operationSignature}`,
@@ -457,11 +458,12 @@ async function resolveGroundDropInstanceLease(instanceId, deps) {
     }
     const row = await deps.instanceCatalogService.loadInstanceCatalog(instanceId);
     const assignedNodeId = typeof row?.assigned_node_id === 'string' ? row.assigned_node_id.trim() : '';
+    const leaseToken = typeof row?.lease_token === 'string' ? row.lease_token.trim() : '';
     const ownershipEpoch = Number.isFinite(Number(row?.ownership_epoch))
         ? Math.max(1, Math.trunc(Number(row.ownership_epoch)))
         : 0;
-    return assignedNodeId && ownershipEpoch > 0
-        ? { assignedNodeId, ownershipEpoch }
+    return assignedNodeId && leaseToken && ownershipEpoch > 0
+        ? { assignedNodeId, leaseToken, ownershipEpoch }
         : null;
 }
 

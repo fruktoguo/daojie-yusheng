@@ -66,16 +66,91 @@ async function main(): Promise<void> {
     assert.equal(savedDamage.length, 1);
     assert.equal(savedWatermarks.length, 1);
     assert.equal(flushed.length, 1);
+    await verifySupersededGroundPayloadStopsBeforeWatermark();
   } finally {
     restoreEnv('SERVER_RUNTIME_ROLE', previousRole);
     restoreEnv('SERVER_FLUSH_TASK_RUNTIME_MODE', previousMode);
   }
   console.log(JSON.stringify({
     ok: true,
-    answers: '实例 tile_damage/tile_resource 可从 staging delta payload 写入批量持久化 API，并 mark flushed。',
-    excludes: '不证明 time/monster_runtime/fengshui/ground_item/container/overlay/room/building，也不证明真实 DB 多 worker 竞争。',
+    answers: '实例 tile_damage/tile_resource 可从 staging delta payload 写入批量持久化 API；ground_item 会透传精确 ledger claim，writer 判定旧 payload 已被取代时不推进实例 watermark 或运行态 persisted 标记。',
+    excludes: '不证明 time/monster_runtime/fengshui/overlay/room/building，也不替代真实 DB ground/container 竞争证明。',
     completionMapping: 'flush-instance-delta-payload',
   }, null, 2));
+}
+
+async function verifySupersededGroundPayloadStopsBeforeWatermark(): Promise<void> {
+  let claimed = false;
+  let watermarkWrites = 0;
+  let markAttempts = 0;
+  const task: FlushTask = {
+    scope: 'instance',
+    id: 'instance-ground-stale',
+    domain: 'ground_item',
+    priority: 'high',
+    latestRevision: 21,
+    ownershipEpoch: 7,
+    claimOwnerId: 'ground-old-worker:claim',
+    fencingToken: 'ground-old-fence',
+    payloadJson: {
+      kind: 'instance_domain_state',
+      domain: 'ground_item',
+      payload: {
+        fullReplace: false,
+        tileIndices: [4],
+        entries: [{ tileIndex: 4, items: [{ itemId: 'rat_tail', count: 1 }] }],
+      },
+      revision: 21,
+      watermarkPayload: { revision: 21 },
+    },
+  };
+  const runtime = new FlushTaskRuntimeService(
+    {} as never,
+    {
+      instanceDomainPersistenceService: {
+        async replaceGroundItemTiles(
+          instanceId: string,
+          tileIndices: number[],
+          _entries: unknown[],
+          ledgerClaim: Record<string, unknown>,
+        ) {
+          assert.equal(instanceId, task.id);
+          assert.deepEqual(tileIndices, [4]);
+          assert.deepEqual(ledgerClaim, {
+            ownershipEpoch: 7,
+            latestVersion: 21,
+            claimOwnerId: 'ground-old-worker:claim',
+            fencingToken: 'ground-old-fence',
+          });
+          return false;
+        },
+        async saveInstanceRecoveryWatermark() {
+          watermarkWrites += 1;
+        },
+      },
+    } as never,
+    { flushPlayerDomains: async () => false } as never,
+    {
+      isEnabled: () => true,
+      claimReadyFlushTasks: async (input: { scope: string }) => {
+        if (input.scope !== 'instance' || claimed) return [];
+        claimed = true;
+        return [task];
+      },
+      markFlushTaskFlushed: async () => {
+        markAttempts += 1;
+        return false;
+      },
+      renewFlushTaskClaim: async () => true,
+      markFlushTaskRetry: async () => true,
+      markFlushTasksRetry: async () => 0,
+    } as never,
+    { signalPlayerFlush: () => undefined, signalInstanceFlush: () => undefined } as never,
+  );
+  const processed = await runtime.runOnce('instance-ground-stale-payload-smoke');
+  assert.equal(processed, 0);
+  assert.equal(markAttempts, 1);
+  assert.equal(watermarkWrites, 0);
 }
 
 function restoreEnv(name: string, value: string | undefined): void {

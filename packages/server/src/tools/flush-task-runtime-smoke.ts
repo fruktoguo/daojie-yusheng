@@ -31,23 +31,36 @@ async function main(): Promise<void> {
   const wakeup = new FlushWakeupService();
   const playerId = `flush_task_player_${Date.now().toString(36)}`;
   const instanceId = `public:flush_task_instance_${Date.now().toString(36)}`;
-  const smokeDomain = `flush_task_smoke_${Date.now().toString(36)}`;
-  const extraInstanceDomain = `${smokeDomain}_extra_instance`;
+  const smokeDomain = 'time';
+  const extraInstanceDomain = 'ground_item';
   let playerPresenceCalls = 0;
   let instanceFlushCalls = 0;
+  let playerDirty = true;
+  const instanceDirtyDomains = new Set([smokeDomain, extraInstanceDomain]);
   const playerPresencePayloads: unknown[] = [];
   const instanceFlushDomains: string[][] = [];
 
   const playerRuntime = {
     listDirtyPlayerDomains() {
-      return new Map([[playerId, new Set(['presence'])]]);
+      return playerDirty ? new Map([[playerId, new Set(['presence'])]]) : new Map();
     },
     describePersistencePresence(targetPlayerId: string) {
       assert.equal(targetPlayerId, playerId);
-      return { playerId: targetPlayerId, online: true };
+      return {
+        playerId: targetPlayerId,
+        online: true,
+        inWorld: true,
+        runtimeOwnerId: `runtime:${targetPlayerId}`,
+        sessionEpoch: 3,
+        lastHeartbeatAt: Date.now(),
+        offlineSinceAt: null,
+      };
     },
     getPersistenceRevision() {
       return 11;
+    },
+    markPersistenceDomainsStaged() {
+      playerDirty = false;
     },
   };
   const playerFlush = {
@@ -58,6 +71,13 @@ async function main(): Promise<void> {
   const playerDomainPersistenceService = {
     isEnabled() {
       return true;
+    },
+    async loadPlayerPresence(playerIdForPresence: string) {
+      assert.equal(playerIdForPresence, playerId);
+      return {
+        runtimeOwnerId: `runtime:${playerIdForPresence}`,
+        sessionEpoch: 3,
+      };
     },
     async savePlayerPresence(playerIdForPresence: string, payload: unknown) {
       assert.equal(playerIdForPresence, playerId);
@@ -88,6 +108,9 @@ async function main(): Promise<void> {
       async replaceGroundItemTiles() {
         return undefined;
       },
+      async saveInstanceRecoveryWatermark() {
+        return undefined;
+      },
       async saveContainerState() {
         return undefined;
       },
@@ -96,14 +119,46 @@ async function main(): Promise<void> {
       },
     },
     listDirtyPersistentInstanceDomains() {
-      return [{ instanceId, domains: [smokeDomain, extraInstanceDomain] }];
+      return instanceDirtyDomains.size > 0
+        ? [{ instanceId, domains: Array.from(instanceDirtyDomains) }]
+        : [];
     },
     getInstanceRuntime(targetInstanceId: string) {
       assert.equal(targetInstanceId, instanceId);
       return {
-        meta: { persistent: true, ownershipEpoch: 3 },
+        meta: { persistent: true, ownershipEpoch: 3, kind: 'public' },
+        template: { id: 'flush-task-runtime-smoke' },
+        tick: 17,
+        tickSpeed: 1,
+        paused: false,
         getPersistenceRevision() {
           return 17;
+        },
+        getPersistenceDomainRevision() {
+          return 17;
+        },
+        isDirtyDomainHighPriority() {
+          return true;
+        },
+        capturePersistenceDomainFlushSnapshot(domains: string[]) {
+          return {
+            persistenceRevision: 17,
+            domainRevisions: Object.fromEntries(domains.map((domain) => [domain, 17])),
+          };
+        },
+        buildGroundPersistenceDelta() {
+          return {
+            fullReplace: false,
+            tileIndices: [4],
+            entries: [{ tileIndex: 4, items: [{ itemId: 'rat_tail', count: 1 }] }],
+          };
+        },
+        markPersistenceDomainsStaged(domains: string[]) {
+          for (const domain of domains) instanceDirtyDomains.delete(domain);
+          return undefined;
+        },
+        markPersistenceDomainsPersisted() {
+          return undefined;
         },
       };
     },
@@ -121,20 +176,29 @@ async function main(): Promise<void> {
     playerFlush as never,
     ledger,
     wakeup,
-      undefined,
+    undefined,
+    undefined,
     playerDomainPersistenceService as never,
   );
 
   try {
     await ledger.onModuleInit();
     await cleanupRows(pool, playerId, instanceId);
-    const processed = await runtime.runOnce('flush-task-runtime-smoke');
-    assert.equal(processed, 2);
-    assert.equal(instanceFlushCalls, 1);
-    assert.deepEqual(instanceFlushDomains, [[extraInstanceDomain, smokeDomain].sort()]);
+    const instanceProcessed = await runtime.runOnce('flush-task-runtime-smoke');
+    assert.equal(instanceProcessed, 2);
+    await pool.query(
+      'UPDATE player_flush_ledger SET next_attempt_at = now() WHERE player_id = $1 AND domain = $2',
+      [playerId, 'presence'],
+    );
+    const playerProcessed = await runtime.runOnce('flush-task-runtime-smoke:player');
+    assert.equal(playerProcessed, 1);
+    const processed = instanceProcessed + playerProcessed;
+    assert.equal(playerPresenceCalls, 1);
+    assert.equal(instanceFlushCalls, 0);
+    assert.deepEqual(instanceFlushDomains, []);
     assert.ok(wakeup.listWakeupKeys().some((key) => key.includes(playerId)));
     assert.ok(wakeup.listWakeupKeys().some((key) => key.includes(instanceId)));
-    const readyPlayers = await ledger.claimReadyFlushTasks({ workerId: 'flush-task-runtime-smoke:probe', scope: 'player', domain: smokeDomain, limit: 10 });
+    const readyPlayers = await ledger.claimReadyFlushTasks({ workerId: 'flush-task-runtime-smoke:probe', scope: 'player', domain: 'presence', limit: 10 });
     const readyInstances = await ledger.claimReadyFlushTasks({ workerId: 'flush-task-runtime-smoke:probe', scope: 'instance', domain: smokeDomain, limit: 10 });
     assert.equal(readyPlayers.length, 0);
     assert.equal(readyInstances.length, 0);
@@ -177,7 +241,7 @@ async function main(): Promise<void> {
       processed,
       playerPresenceCalls,
       instanceFlushCalls,
-      answers: '统一 flush task runtime 已完成 dirty 采集、ledger priority claim 与 mark flushed 闭环；instance 侧会直接触发 flushInstanceDomains，player 侧任务也会被收口清理。',
+      answers: '统一 flush task runtime 已完成 dirty 采集、durable payload staging、ledger priority claim 与 mark flushed 闭环；instance 的 time/ground_item 直接从 payload 写入分域 persistence，player presence 也被收口清理。',
       excludes: '不证明真实生产压测或跨节点故障注入。',
       completionMapping: 'release:proof:stage4.flush-task-runtime',
     }, null, 2));

@@ -1,7 +1,7 @@
 import type { PoolClient } from 'pg';
+import { persistInstanceFlushLedgerBarrier } from './instance-flush-ledger-fence';
 
 const INSTANCE_TILE_RESOURCE_STATE_TABLE = 'instance_tile_resource_state';
-const INSTANCE_FLUSH_LEDGER_TABLE = 'instance_flush_ledger';
 
 export interface DurableTileResourceSourceMutation {
   kind: 'tile_resource';
@@ -91,51 +91,12 @@ export async function persistDurableTileResourceSourceMutation(
       value: entry.value,
     })))],
   );
-  await client.query(
-    `INSERT INTO ${INSTANCE_FLUSH_LEDGER_TABLE}(
-       instance_id, domain, ownership_epoch, latest_version, flushed_version,
-       priority, payload_jsonb, updated_at
-     )
-     VALUES ($1, 'tile_resource', $2, $3, $3, 'low', NULL, now())
-     ON CONFLICT (instance_id, domain, ownership_epoch)
-     DO UPDATE SET
-       latest_version = GREATEST(${INSTANCE_FLUSH_LEDGER_TABLE}.latest_version, EXCLUDED.latest_version),
-       flushed_version = CASE
-         WHEN EXCLUDED.latest_version >= ${INSTANCE_FLUSH_LEDGER_TABLE}.latest_version
-         THEN EXCLUDED.latest_version
-         ELSE ${INSTANCE_FLUSH_LEDGER_TABLE}.flushed_version
-       END,
-       dirty_since_at = CASE
-         WHEN EXCLUDED.latest_version >= ${INSTANCE_FLUSH_LEDGER_TABLE}.latest_version THEN NULL
-         ELSE ${INSTANCE_FLUSH_LEDGER_TABLE}.dirty_since_at
-       END,
-       next_attempt_at = CASE
-         WHEN EXCLUDED.latest_version >= ${INSTANCE_FLUSH_LEDGER_TABLE}.latest_version THEN NULL
-         ELSE ${INSTANCE_FLUSH_LEDGER_TABLE}.next_attempt_at
-       END,
-       claimed_by = CASE
-         WHEN EXCLUDED.latest_version >= ${INSTANCE_FLUSH_LEDGER_TABLE}.latest_version THEN NULL
-         ELSE ${INSTANCE_FLUSH_LEDGER_TABLE}.claimed_by
-       END,
-       claim_until = CASE
-         WHEN EXCLUDED.latest_version >= ${INSTANCE_FLUSH_LEDGER_TABLE}.latest_version THEN NULL
-         ELSE ${INSTANCE_FLUSH_LEDGER_TABLE}.claim_until
-       END,
-       payload_jsonb = CASE
-         WHEN EXCLUDED.latest_version >= ${INSTANCE_FLUSH_LEDGER_TABLE}.latest_version THEN NULL
-         ELSE ${INSTANCE_FLUSH_LEDGER_TABLE}.payload_jsonb
-       END,
-       failure_category = CASE
-         WHEN EXCLUDED.latest_version >= ${INSTANCE_FLUSH_LEDGER_TABLE}.latest_version THEN NULL
-         ELSE ${INSTANCE_FLUSH_LEDGER_TABLE}.failure_category
-       END,
-       retry_after = CASE
-         WHEN EXCLUDED.latest_version >= ${INSTANCE_FLUSH_LEDGER_TABLE}.latest_version THEN NULL
-         ELSE ${INSTANCE_FLUSH_LEDGER_TABLE}.retry_after
-       END,
-       updated_at = now()`,
-    [mutation.instanceId, mutation.ownershipEpoch, mutation.flushLedgerVersion],
-  );
+  await persistInstanceFlushLedgerBarrier(client, {
+    instanceId: mutation.instanceId,
+    domain: 'tile_resource',
+    ownershipEpoch: mutation.ownershipEpoch,
+    version: mutation.flushLedgerVersion,
+  });
 }
 
 function normalizeTileResourceUpserts(

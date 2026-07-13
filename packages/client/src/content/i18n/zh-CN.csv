@@ -2406,6 +2406,7 @@ notice.action.world-migration-real-complete,通知,已切入现世，后续跨�
 notice.action.world-migration-real-kept,通知,默认世界已保持为现世，后续跨图会继续进入现世线。,
 notice.activity.month-card-activated,通知,已使用{itemName} x{count}，月卡总池增加 {merit} 功德，领取时间重置为 {days} 天,
 notice.activity.eternal-activated,通知,已使用{itemName} x{count}，月卡总池增加 {merit} 功德，每日签到固定池增加 {dailySignInFixedMerit} 功德，已获得永恒权益,
+notice.asset.reconciliation-pending,通知,资产操作结果正在确认，请稍后刷新背包。,
 notice.channel.alchemy,通知,炼丹,炼丹频道兜底名
 notice.channel.building,通知,建造,建造频道兜底名
 notice.channel.combat,通知,战斗,战斗频道兜底名
@@ -2592,11 +2593,13 @@ notice.item.tile-sha-used,通知,使用 {itemName}，当前地块煞气提升至
 notice.item.tile-sha-used-batch,通知,使用 {itemName} x{count}，当前地块煞气提升至 {nextValue},
 notice.item.used,通知,使用了 {itemName},
 notice.loot.bag-full,通知,背包空间不足,
-notice.loot.bag-full-ground,通知,背包已满，{itemLabel} 掉落在脚边 ({x},{y})
+notice.loot.bag-full-ground,通知,背包已满，{itemLabel} 掉落在脚边（{x}，{y}）,
 notice.loot.obtained,通知,获得 {itemName},
 notice.loot.obtained-batch,通知,获得 {count} 项物品：{itemList},
 notice.loot.obtained-multi,通知,获得 {itemList},
 notice.loot.pvp-bag-full,通知,背包已满，{victimName} 的 {itemName} x{count} 掉落在地面,
+notice.loot.take-failed-container,通知,拿取失败，物品已留在容器内。,
+notice.loot.take-failed-ground,通知,拿取失败，物品已留在原地。,
 notice.loot.tile-drop-inventory,通知,获得 {itemLabel},通用可拆地块掉落通知
 notice.market.auction.bid-placed,通知,你在拍卖行出价 {itemName}，当前总价 {totalPrice} {currencyName}{extensionText}。,
 notice.market.auction.buyout-buyer,通知,你在拍卖行一口价竞得了 {itemName} x{quantity}，一口价支付 {currencyName} x{totalPrice}。,

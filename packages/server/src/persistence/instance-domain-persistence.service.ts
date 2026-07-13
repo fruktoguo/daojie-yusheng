@@ -17,9 +17,13 @@ import { Pool } from 'pg';
 import { DatabasePoolProvider } from './database-pool.provider';
 import { normalizeMonsterTier } from '@mud/shared';
 import { ensureBigintColumnType, ensureDoubleColumnType } from './schema-bigint-migration';
+import {
+  isCurrentClaimedInstanceFlushPayload,
+  normalizeInstanceFlushLedgerClaim,
+  type InstanceFlushLedgerClaim,
+} from './instance-flush-ledger-fence';
 
 const INSTANCE_TILE_RESOURCE_STATE_TABLE = 'instance_tile_resource_state';
-const INSTANCE_FLUSH_LEDGER_TABLE = 'instance_flush_ledger';
 const INSTANCE_TILE_CELL_TABLE = 'instance_tile_cell';
 const INSTANCE_TILE_DAMAGE_STATE_TABLE = 'instance_tile_damage_state';
 const INSTANCE_TEMPORARY_TILE_STATE_TABLE = 'instance_temporary_tile_state';
@@ -100,13 +104,6 @@ const INSTANCE_DOMAIN_DOUBLE_COLUMNS_BY_TABLE = {
   [INSTANCE_BUILDING_STATE_TABLE]: ['hp', 'max_hp'],
   [INSTANCE_FENGSHUI_STATE_TABLE]: ['qi_score'],
 } as const;
-
-interface InstanceFlushLedgerClaim {
-  ownershipEpoch: number;
-  latestVersion: number;
-  claimOwnerId: string;
-  fencingToken: string | null;
-}
 
 /** 地图实例分域持久化服务：按域独立管理地块、资源、容器、怪物、建筑等实例状态的落库与恢复 */
 @Injectable()
@@ -1770,7 +1767,12 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
         await acquireInstanceDomainLock(client, entry.instanceId);
       }
       for (const entry of entries) {
-        if (entry.ledgerClaim && !await isCurrentClaimedInstanceFlushPayload(client, entry.instanceId, entry.ledgerClaim)) {
+        if (entry.ledgerClaim && !await isCurrentClaimedInstanceFlushPayload(
+          client,
+          entry.instanceId,
+          'tile_resource',
+          entry.ledgerClaim,
+        )) {
           continue;
         }
         if (entry.deletesJson !== '[]') {
@@ -1938,13 +1940,14 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
   async replaceGroundItems(
     instanceId: string,
     entries: Array<{ tileIndex: number; items: unknown[] }>,
-  ): Promise<void> {
+    ledgerClaim: InstanceFlushLedgerClaim | null = null,
+  ): Promise<boolean> {
     if (!this.pool || !this.enabled) {
-      return;
+      return false;
     }
     const normalizedInstanceId = normalizeRequiredString(instanceId);
     if (!normalizedInstanceId) {
-      return;
+      return false;
     }
     const normalizedEntries: Array<{ groundItemId: string; tileIndex: number; itemPayload: unknown; expireAt: string | null }> = [];
     for (const entry of Array.isArray(entries) ? entries : []) {
@@ -1965,6 +1968,15 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     try {
       await client.query('BEGIN');
       await acquireInstanceDomainLock(client, normalizedInstanceId);
+      if (ledgerClaim && !await isCurrentClaimedInstanceFlushPayload(
+        client,
+        normalizedInstanceId,
+        'ground_item',
+        ledgerClaim,
+      )) {
+        await client.query('COMMIT');
+        return false;
+      }
       if (normalizedEntries.length > 0) {
         await client.query(
           `
@@ -2032,6 +2044,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
         ],
       );
       await client.query('COMMIT');
+      return true;
     } catch (error: unknown) {
       await rollbackQuietly(client);
       throw error;
@@ -2045,19 +2058,20 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     instanceId: string,
     tileIndices: number[],
     entries: Array<{ tileIndex: number; items: unknown[] }>,
-  ): Promise<void> {
+    ledgerClaim: InstanceFlushLedgerClaim | null = null,
+  ): Promise<boolean> {
     if (!this.pool || !this.enabled) {
-      return;
+      return false;
     }
     const normalizedInstanceId = normalizeRequiredString(instanceId);
     if (!normalizedInstanceId) {
-      return;
+      return false;
     }
     const normalizedTileIndices = Array.from(new Set((Array.isArray(tileIndices) ? tileIndices : [])
       .filter((tileIndex) => Number.isFinite(Number(tileIndex)))
       .map((tileIndex) => Math.max(0, Math.trunc(Number(tileIndex))))));
     if (normalizedTileIndices.length === 0) {
-      return;
+      return false;
     }
     const dirtyTileIndexSet = new Set(normalizedTileIndices);
     const normalizedEntries: Array<{ groundItemId: string; tileIndex: number; itemPayload: unknown; expireAt: string | null }> = [];
@@ -2082,6 +2096,15 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     try {
       await client.query('BEGIN');
       await acquireInstanceDomainLock(client, normalizedInstanceId);
+      if (ledgerClaim && !await isCurrentClaimedInstanceFlushPayload(
+        client,
+        normalizedInstanceId,
+        'ground_item',
+        ledgerClaim,
+      )) {
+        await client.query('COMMIT');
+        return false;
+      }
       await client.query(
         `DELETE FROM ${INSTANCE_GROUND_ITEM_TABLE} WHERE instance_id = $1 AND tile_index = ANY($2::bigint[])`,
         [normalizedInstanceId, normalizedTileIndices],
@@ -2132,6 +2155,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
         );
       }
       await client.query('COMMIT');
+      return true;
     } catch (error: unknown) {
       await rollbackQuietly(client);
       throw error;
@@ -2196,15 +2220,16 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     containerId: string;
     sourceId: string;
     statePayload: unknown;
-  }): Promise<void> {
+    ledgerClaim?: InstanceFlushLedgerClaim | null;
+  }): Promise<boolean> {
     if (!this.pool || !this.enabled) {
-      return;
+      return false;
     }
     const instanceId = normalizeRequiredString(input.instanceId);
     const containerId = normalizeRequiredString(input.containerId);
     const sourceId = normalizeRequiredString(input.sourceId);
     if (!instanceId || !containerId || !sourceId) {
-      return;
+      return false;
     }
     const sourcePayload = input.statePayload && typeof input.statePayload === 'object'
       ? input.statePayload as Record<string, unknown>
@@ -2220,6 +2245,15 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     try {
       await client.query('BEGIN');
       await acquireInstanceDomainLock(client, instanceId);
+      if (input.ledgerClaim && !await isCurrentClaimedInstanceFlushPayload(
+        client,
+        instanceId,
+        'container_state',
+        input.ledgerClaim,
+      )) {
+        await client.query('COMMIT');
+        return false;
+      }
       await client.query(
         `DELETE FROM ${INSTANCE_CONTAINER_ENTRY_TABLE} WHERE instance_id = $1 AND container_id = $2`,
         [instanceId, containerId],
@@ -2301,6 +2335,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
         );
       }
       await client.query('COMMIT');
+      return true;
     } catch (error: unknown) {
       await rollbackQuietly(client);
       throw error;
@@ -2313,13 +2348,14 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
   async replaceContainerStates(
     instanceId: string,
     states: Array<{ containerId: string; sourceId: string; [key: string]: unknown }>,
-  ): Promise<void> {
+    ledgerClaim: InstanceFlushLedgerClaim | null = null,
+  ): Promise<boolean> {
     if (!this.pool || !this.enabled) {
-      return;
+      return false;
     }
     const normalizedInstanceId = normalizeRequiredString(instanceId);
     if (!normalizedInstanceId) {
-      return;
+      return false;
     }
     const normalizedStatesByContainerId = new Map<string, {
       containerId: string;
@@ -2378,6 +2414,15 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     try {
       await client.query('BEGIN');
       await acquireInstanceDomainLock(client, normalizedInstanceId);
+      if (ledgerClaim && !await isCurrentClaimedInstanceFlushPayload(
+        client,
+        normalizedInstanceId,
+        'container_state',
+        ledgerClaim,
+      )) {
+        await client.query('COMMIT');
+        return false;
+      }
       if (containerRows.length > 0) {
         await client.query(
           `
@@ -2555,6 +2600,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
         ],
       );
       await client.query('COMMIT');
+      return true;
     } catch (error: unknown) {
       await rollbackQuietly(client);
       throw error;
@@ -4424,53 +4470,6 @@ async function ensureInstanceBuildingOperationIdempotencyTable(pool: Pool): Prom
     await client.query(`SELECT pg_advisory_unlock($1, $2)`, [INSTANCE_TILE_RESOURCE_STATE_LOCK_NAMESPACE, INSTANCE_BUILDING_OPERATION_IDEMPOTENCY_LOCK_KEY]).catch(() => undefined);
     client.release();
   }
-}
-
-function normalizeInstanceFlushLedgerClaim(input: {
-  ownershipEpoch: number;
-  latestVersion: number;
-  claimOwnerId: string;
-  fencingToken?: string | null;
-} | null | undefined): InstanceFlushLedgerClaim | null {
-  if (!input || typeof input !== 'object') {
-    return null;
-  }
-  const ownershipEpoch = Math.trunc(Number(input.ownershipEpoch));
-  const latestVersion = Math.trunc(Number(input.latestVersion));
-  const claimOwnerId = normalizeRequiredString(input.claimOwnerId);
-  const fencingToken = normalizeRequiredString(input.fencingToken) || null;
-  if (
-    !Number.isSafeInteger(ownershipEpoch)
-    || ownershipEpoch < 0
-    || !Number.isSafeInteger(latestVersion)
-    || latestVersion < 0
-    || !claimOwnerId
-  ) {
-    return null;
-  }
-  return { ownershipEpoch, latestVersion, claimOwnerId, fencingToken };
-}
-
-async function isCurrentClaimedInstanceFlushPayload(
-  client: any,
-  instanceId: string,
-  claim: InstanceFlushLedgerClaim,
-): Promise<boolean> {
-  const result = await client.query(
-    `SELECT 1
-     FROM ${INSTANCE_FLUSH_LEDGER_TABLE}
-     WHERE instance_id = $1
-       AND domain = 'tile_resource'
-       AND ownership_epoch = $2
-       AND latest_version = $3
-       AND claimed_by = $4
-       AND fencing_token IS NOT DISTINCT FROM $5::varchar
-       AND payload_jsonb IS NOT NULL
-       AND latest_version > flushed_version
-     LIMIT 1`,
-    [instanceId, claim.ownershipEpoch, claim.latestVersion, claim.claimOwnerId, claim.fencingToken],
-  );
-  return (result.rowCount ?? 0) === 1;
 }
 
 async function acquireInstanceDomainLock(client: any, instanceId: string): Promise<void> {

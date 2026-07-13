@@ -88,6 +88,7 @@ function createHarness(options: { durableFailure?: boolean } = {}) {
   };
 
   const instance = {
+    meta: { ownershipEpoch: 5 },
     toTileIndex(x: number, y: number) {
       assert.deepEqual([x, y], [1, 1]);
       return 4;
@@ -132,6 +133,21 @@ function createHarness(options: { durableFailure?: boolean } = {}) {
       return {
         kind: 'ground_tile',
         instanceId,
+        ownershipEpoch: 5,
+        flushLedgerVersion: 101,
+        flushLedgerPayload: {
+          kind: 'instance_domain_state',
+          domain: 'ground_item',
+          payload: {
+            fullReplace: false,
+            tileIndices: [4],
+            entries: [{ tileIndex: 4, items: groundItems.map((item) => ({ ...item })) }],
+          },
+          revision: 101,
+          domainRevisions: { ground_item: 1 },
+          stagedDomains: ['ground_item'],
+          stagingGenerationId: 'durable-source:ground_item:101',
+        },
         tileIndex: 4,
         remainingItems: groundItems.map((item) => ({ ...item })),
       };
@@ -160,7 +176,15 @@ function createHarness(options: { durableFailure?: boolean } = {}) {
     },
     instanceCatalogService: {
       isEnabled() {
-        return false;
+        return true;
+      },
+      async loadInstanceCatalog(instanceId: string) {
+        assert.equal(instanceId, player.instanceId);
+        return {
+          assigned_node_id: 'node:ground-drop',
+          lease_token: 'lease:ground-drop:5',
+          ownership_epoch: 5,
+        };
       },
     },
     refreshQuestStates() {
@@ -204,9 +228,27 @@ async function testSuccessfulDropCommitsSourceAndInventoryTogether(): Promise<vo
   assert.equal(harness.durableCalls.length, 1);
   assert.equal(harness.durableCalls[0]?.inventoryAction, 'remove');
   assert.equal(harness.durableCalls[0]?.sourceType, 'ground_drop');
+  assert.equal(harness.durableCalls[0]?.expectedAssignedNodeId, 'node:ground-drop');
+  assert.equal(harness.durableCalls[0]?.expectedLeaseToken, 'lease:ground-drop:5');
+  assert.equal(harness.durableCalls[0]?.expectedOwnershipEpoch, 5);
   assert.deepEqual(harness.durableCalls[0]?.sourceMutation, {
     kind: 'ground_tile',
     instanceId: harness.player.instanceId,
+    ownershipEpoch: 5,
+    flushLedgerVersion: 101,
+    flushLedgerPayload: {
+      kind: 'instance_domain_state',
+      domain: 'ground_item',
+      payload: {
+        fullReplace: false,
+        tileIndices: [4],
+        entries: [{ tileIndex: 4, items: harness.groundItems }],
+      },
+      revision: 101,
+      domainRevisions: { ground_item: 1 },
+      stagedDomains: ['ground_item'],
+      stagingGenerationId: 'durable-source:ground_item:101',
+    },
     tileIndex: 4,
     remainingItems: harness.groundItems,
   });

@@ -17,6 +17,7 @@ async function main(): Promise<void> {
   await testGroundTakeAllUsesStackSignatureForCapacity();
   await testGroundTakeAllIteratesStableEntrySnapshot();
   await testGroundTakeLongHammerOperationIdFitsOutboxLimit();
+  await testDurableContainerFailureNoticeIsStructured();
   await testContainerTakeDurableGrant();
   await testContainerLootPoolUsesViewerLuck();
   await testContainerTakeAllDurableGrant();
@@ -38,7 +39,7 @@ async function main(): Promise<void> {
   console.log(JSON.stringify({
     ok: true,
     case: 'world-runtime-loot-container',
-    answers: '地面 pile 与容器 source 的单个拿取/全部拿取仍走 grantInventoryItems durable 主链，成功提交后才刷新任务状态并补发 loot notice，同时透传 runtimeOwnerId/sessionEpoch/instanceId/assignedNodeId/ownershipEpoch；草药采集完成不再在 tick 内调用 durable grant 或 presence fence，而是只更新运行态背包、标记 inventory/active_job/profession 脏域并交由 flush 链路落盘；草药会按生长时间持续补库存，库存未耗尽也会增长并写入 container_state，采集和地块攻击只扣 1 朵，下一次生长倒计时持续保留',
+    answers: '地面 pile 与容器 source 的单个拿取/全部拿取仍走 grantInventoryItems durable 主链，成功提交后才刷新任务状态并发送结构化通知，同时透传 runtimeOwnerId/sessionEpoch/instanceId/assignedNodeId/leaseToken/ownershipEpoch；来源 mutation 携带当前 ground 累计 delta 或完整 container states 的可重放 ledger payload；草药采集完成只更新运行态背包、标记 inventory/active_job/profession 脏域并交由 flush 链路落盘；草药会按生长时间持续补库存，库存未耗尽也会增长并写入 container_state，采集和地块攻击只扣 1 朵，下一次生长倒计时持续保留',
     excludes: '本 smoke 只覆盖 loot container facade 行为；采集 tick 迁出旧 service 的结构性 proof 在 world-runtime-craft-smoke，也不证明更泛化的 tick 资产 intent 编排',
   }, null, 2));
 }
@@ -200,6 +201,7 @@ async function testGroundTakeDurableGrantSyncsPresenceFence() {
     { itemKey: 'pile:item:fenced', item: { itemId: 'rat_tail', name: '鼠尾', count: 1, type: 'material' } },
   ];
   const instance = {
+    meta: { ownershipEpoch: 33 },
     getGroundPileBySourceId(sourceId: string) {
       assert.equal(sourceId, 'g:259');
       return {
@@ -253,6 +255,7 @@ async function testGroundTakeDurableGrantSyncsPresenceFence() {
         return {
           assigned_node_id: 'node:ground',
           ownership_epoch: 33,
+          lease_token: 'lease:ground:fenced',
         };
       },
     },
@@ -262,9 +265,10 @@ async function testGroundTakeDurableGrantSyncsPresenceFence() {
   assert.equal(durableCalls.length, 1);
   assert.equal(durableCalls[0]?.expectedRuntimeOwnerId, 'runtime:player:ground:fenced:447');
   assert.equal(durableCalls[0]?.expectedSessionEpoch, 447);
-  assert.deepEqual(durableCalls[0]?.sourceMutation, {
-    kind: 'ground_tile',
+  assert.equal(durableCalls[0]?.expectedLeaseToken, 'lease:ground:fenced');
+  assertDurableGroundMutation(durableCalls[0]?.sourceMutation, {
     instanceId: 'instance:ground:fenced',
+    ownershipEpoch: 33,
     tileIndex: 259,
     remainingItems: [],
   });
@@ -291,6 +295,7 @@ async function testGroundTakeDurableGrant() {
     { itemKey: 'pile:item:1', item: { itemId: 'rat_tail', name: '鼠尾', count: 2, type: 'material' } },
   ];
   const instance = {
+    meta: { ownershipEpoch: 31 },
     getGroundPileBySourceId(sourceId: string) {
       assert.equal(sourceId, 'g:291');
       return {
@@ -326,8 +331,15 @@ async function testGroundTakeDurableGrant() {
     refreshQuestStates(playerId: string) {
       log.push(['refreshQuestStates', playerId]);
     },
-    queuePlayerNotice(playerId: string, message: string, tone: string) {
-      log.push(['queuePlayerNotice', playerId, message, tone]);
+    queuePlayerNotice(
+      playerId: string,
+      message: string,
+      tone: string,
+      _castId: unknown,
+      _combat: unknown,
+      structured: unknown,
+    ) {
+      log.push(['queuePlayerNotice', playerId, message, tone, structured]);
     },
     durableOperationService: {
       isEnabled() {
@@ -354,6 +366,7 @@ async function testGroundTakeDurableGrant() {
         return {
           assigned_node_id: 'node:ground',
           ownership_epoch: 31,
+          lease_token: 'lease:ground:one',
         };
       },
     },
@@ -369,11 +382,12 @@ async function testGroundTakeDurableGrant() {
   assert.equal(durableCalls[0]?.expectedInstanceId, 'instance:ground:1');
   assert.equal(durableCalls[0]?.expectedAssignedNodeId, 'node:ground');
   assert.equal(durableCalls[0]?.expectedOwnershipEpoch, 31);
+  assert.equal(durableCalls[0]?.expectedLeaseToken, 'lease:ground:one');
   assert.equal(durableCalls[0]?.sourceType, 'ground_take');
   assert.equal(durableCalls[0]?.sourceRefId, 'g:291:pile:item:1');
-  assert.deepEqual(durableCalls[0]?.sourceMutation, {
-    kind: 'ground_tile',
+  assertDurableGroundMutation(durableCalls[0]?.sourceMutation, {
     instanceId: 'instance:ground:1',
+    ownershipEpoch: 31,
     tileIndex: 291,
     remainingItems: [],
   });
@@ -386,7 +400,11 @@ async function testGroundTakeDurableGrant() {
   assert.deepEqual(restoredItems, []);
   assert.deepEqual(log, [
     ['refreshQuestStates', 'player:ground:one'],
-    ['queuePlayerNotice', 'player:ground:one', '获得 鼠尾 x2', 'loot'],
+    ['queuePlayerNotice', 'player:ground:one', '获得 鼠尾 x2', 'loot', {
+      key: 'notice.loot.obtained',
+      vars: { itemName: '鼠尾 x2' },
+      pills: [{ key: 'itemName', style: 'target' }],
+    }],
   ]);
 }
 
@@ -455,6 +473,7 @@ async function testGroundTakeAllDurableGrant() {
     { itemKey: 'pile:item:2', item: { itemId: 'wolf_fang', name: '狼牙', count: 1, type: 'material' } },
   ];
   const instance = {
+    meta: { ownershipEpoch: 32 },
     getGroundPileBySourceId(sourceId: string) {
       assert.equal(sourceId, 'g:454');
       return {
@@ -516,6 +535,7 @@ async function testGroundTakeAllDurableGrant() {
         return {
           assigned_node_id: 'node:ground',
           ownership_epoch: 32,
+          lease_token: 'lease:ground:all',
         };
       },
     },
@@ -530,12 +550,13 @@ async function testGroundTakeAllDurableGrant() {
   assert.equal(durableCalls[0]?.expectedInstanceId, 'instance:ground:2');
   assert.equal(durableCalls[0]?.expectedAssignedNodeId, 'node:ground');
   assert.equal(durableCalls[0]?.expectedOwnershipEpoch, 32);
+  assert.equal(durableCalls[0]?.expectedLeaseToken, 'lease:ground:all');
   assert.equal(durableCalls[0]?.sourceType, 'ground_take_all');
   assert.equal(durableCalls[0]?.sourceRefId, 'g:454');
   assert.equal((durableCalls[0]?.grantedItems as Array<Record<string, unknown>>)?.length, 2);
-  assert.deepEqual(durableCalls[0]?.sourceMutation, {
-    kind: 'ground_tile',
+  assertDurableGroundMutation(durableCalls[0]?.sourceMutation, {
     instanceId: 'instance:ground:2',
+    ownershipEpoch: 32,
     tileIndex: 454,
     remainingItems: [],
   });
@@ -625,6 +646,7 @@ async function testGroundTakeAllIteratesStableEntrySnapshot() {
   const takenKeys: string[] = [];
   const durableCalls: Array<Record<string, unknown>> = [];
   const instance = {
+    meta: { ownershipEpoch: 62 },
     getGroundPileBySourceId(sourceId: string) {
       assert.equal(sourceId, 'g:521');
       return pile;
@@ -669,6 +691,12 @@ async function testGroundTakeAllIteratesStableEntrySnapshot() {
   assert.deepEqual(takenKeys, ['equip.copper_furnace#0', 'equip.copper_furnace#15', 'equip.copper_hammer#0']);
   assert.equal(pile.items.length, 0);
   assert.equal((durableCalls[0]?.grantedItems as Array<Record<string, unknown>>)?.length, 3);
+  assertDurableGroundMutation(durableCalls[0]?.sourceMutation, {
+    instanceId: 'instance:ground:snapshot',
+    ownershipEpoch: 62,
+    tileIndex: 521,
+    remainingItems: [],
+  });
   assert.deepEqual(log, [
     ['refreshQuestStates', 'player:ground:snapshot'],
     ['queuePlayerNotice', 'player:ground:snapshot', '获得 铜胎丹炉、+15 铜胎丹炉、铜强化锤', 'loot'],
@@ -712,6 +740,7 @@ async function testGroundTakeLongHammerOperationIdFitsOutboxLimit() {
     },
   ];
   const instance = {
+    meta: { ownershipEpoch: 61 },
     getGroundPileBySourceId(sourceId: string) {
       assert.equal(sourceId, 'g:2256');
       return {
@@ -755,9 +784,9 @@ async function testGroundTakeLongHammerOperationIdFitsOutboxLimit() {
     },
   } as never);
   const operationId = String(durableCalls[0]?.operationId ?? '');
-  assert.deepEqual(durableCalls[0]?.sourceMutation, {
-    kind: 'ground_tile',
+  assertDurableGroundMutation(durableCalls[0]?.sourceMutation, {
     instanceId: 'public:qizhen_crossing',
+    ownershipEpoch: 61,
     tileIndex: 2256,
     remainingItems: [{
       itemId: 'equip.copper_enhancement_hammer',
@@ -772,6 +801,51 @@ async function testGroundTakeLongHammerOperationIdFitsOutboxLimit() {
   assert.ok(operationId.includes(':h:'));
   assert.ok(operationId.length <= 173, `operationId length=${operationId.length}`);
   assert.ok(`outbox:${operationId}`.length <= 180, `outbox event id length=${`outbox:${operationId}`.length}`);
+}
+
+async function testDurableContainerFailureNoticeIsStructured(): Promise<void> {
+  const player = buildPlayer('player:container:failure-notice', 'instance:container:failure-notice', 'runtime:container:failure-notice', 19);
+  const service = new WorldRuntimeLootContainerService({} as never, buildPlayerRuntimeService(player) as never);
+  const notices: Array<unknown[]> = [];
+  let restored = false;
+  await service.grantLootItemsDurably({
+    playerId: player.playerId,
+    player,
+    items: [{ itemId: 'rat_tail', name: '鼠尾', count: 1, type: 'material' }],
+    sourceType: 'container_take',
+    sourceRefId: 'container:failure-notice:rat_tail',
+    sourceMutation: {},
+    deps: {
+      durableOperationService: {
+        async grantInventoryItems() {
+          throw new Error('forced container durable failure');
+        },
+      },
+      instanceCatalogService: {
+        isEnabled() {
+          return false;
+        },
+      },
+      refreshQuestStates() {
+        throw new Error('failed durable grant must not refresh quest state');
+      },
+      queuePlayerNotice(...args: unknown[]) {
+        notices.push(args);
+      },
+    },
+    restoreOnFailure() {
+      restored = true;
+    },
+  } as never);
+  assert.equal(restored, true);
+  assert.equal(player.inventory.items.length, 0);
+  assert.equal(notices.length, 1);
+  assert.deepEqual(notices[0]?.slice(0, 3), [
+    player.playerId,
+    '拿取失败，物品已留在容器内。',
+    'warn',
+  ]);
+  assert.deepEqual(notices[0]?.[5], { key: 'notice.loot.take-failed-container' });
 }
 
 async function testContainerTakeDurableGrant() {
@@ -814,6 +888,7 @@ async function testContainerTakeDurableGrant() {
     },
     getInstanceRuntimeOrThrow() {
       return {
+        meta: { ownershipEpoch: 41 },
         getContainerById(containerId: string) {
           assert.equal(containerId, 'chest1');
           return container;
@@ -851,6 +926,7 @@ async function testContainerTakeDurableGrant() {
         return {
           assigned_node_id: 'node:container',
           ownership_epoch: 41,
+          lease_token: 'lease:container:one',
         };
       },
     },
@@ -869,8 +945,15 @@ async function testContainerTakeDurableGrant() {
   assert.equal(durableCalls[0]?.expectedInstanceId, 'inst1');
   assert.equal(durableCalls[0]?.expectedAssignedNodeId, 'node:container');
   assert.equal(durableCalls[0]?.expectedOwnershipEpoch, 41);
+  assert.equal(durableCalls[0]?.expectedLeaseToken, 'lease:container:one');
   assert.equal(durableCalls[0]?.sourceType, 'container_take');
   assert.equal(durableCalls[0]?.sourceRefId, `container:inst1:chest1:${itemKey}`);
+  assertDurableContainerMutation(durableCalls[0]?.sourceMutation, {
+    instanceId: 'inst1',
+    ownershipEpoch: 41,
+    containerId: 'chest1',
+    sourceId: 'container:inst1:chest1',
+  });
   resolveDurable();
   await pendingContainerTake;
   assert.deepEqual(log, [
@@ -966,6 +1049,7 @@ async function testContainerTakeAllDurableGrant() {
     },
     getInstanceRuntimeOrThrow() {
       return {
+        meta: { ownershipEpoch: 42 },
         getContainerById(containerId: string) {
           assert.equal(containerId, 'chest2');
           return container;
@@ -1003,6 +1087,7 @@ async function testContainerTakeAllDurableGrant() {
         return {
           assigned_node_id: 'node:container',
           ownership_epoch: 42,
+          lease_token: 'lease:container:all',
         };
       },
     },
@@ -1017,9 +1102,16 @@ async function testContainerTakeAllDurableGrant() {
   assert.equal(durableCalls[0]?.expectedInstanceId, 'inst2');
   assert.equal(durableCalls[0]?.expectedAssignedNodeId, 'node:container');
   assert.equal(durableCalls[0]?.expectedOwnershipEpoch, 42);
+  assert.equal(durableCalls[0]?.expectedLeaseToken, 'lease:container:all');
   assert.equal(durableCalls[0]?.sourceType, 'container_take_all');
   assert.equal(durableCalls[0]?.sourceRefId, 'container:inst2:chest2');
   assert.equal((durableCalls[0]?.grantedItems as Array<Record<string, unknown>>)?.length, 2);
+  assertDurableContainerMutation(durableCalls[0]?.sourceMutation, {
+    instanceId: 'inst2',
+    ownershipEpoch: 42,
+    containerId: 'chest2',
+    sourceId: 'container:inst2:chest2',
+  });
   resolveDurable();
   await pendingContainerTakeAll;
   assert.deepEqual(log, [
@@ -2124,6 +2216,71 @@ async function testGatherCompletionDirtyDomains() {
   assert.equal(player.dirtyDomains.has('inventory'), true);
   assert.equal(player.dirtyDomains.has('profession'), true);
   assert.equal(player.gatherSkill?.exp, 42);
+}
+
+function assertDurableGroundMutation(
+  actual: unknown,
+  expected: {
+    instanceId: string;
+    ownershipEpoch: number;
+    tileIndex: number;
+    remainingItems: Array<Record<string, unknown>>;
+  },
+): void {
+  assert.ok(actual && typeof actual === 'object' && !Array.isArray(actual));
+  const mutation = actual as Record<string, unknown>;
+  assert.equal(mutation.kind, 'ground_tile');
+  assert.equal(mutation.instanceId, expected.instanceId);
+  assert.equal(mutation.ownershipEpoch, expected.ownershipEpoch);
+  assert.equal(mutation.tileIndex, expected.tileIndex);
+  assert.deepEqual(mutation.remainingItems, expected.remainingItems);
+  const flushLedgerVersion = Number(mutation.flushLedgerVersion);
+  assert.ok(Number.isSafeInteger(flushLedgerVersion) && flushLedgerVersion > 0);
+  const flushLedgerPayload = mutation.flushLedgerPayload as Record<string, unknown>;
+  assert.equal(flushLedgerPayload.kind, 'instance_domain_state');
+  assert.equal(flushLedgerPayload.domain, 'ground_item');
+  assert.equal(flushLedgerPayload.revision, flushLedgerVersion);
+  assert.deepEqual(flushLedgerPayload.stagedDomains, ['ground_item']);
+  const payload = flushLedgerPayload.payload as Record<string, unknown>;
+  assert.equal(payload.fullReplace, false);
+  assert.deepEqual(payload.tileIndices, [expected.tileIndex]);
+  assert.deepEqual(
+    payload.entries,
+    expected.remainingItems.length > 0
+      ? [{ tileIndex: expected.tileIndex, items: expected.remainingItems }]
+      : [],
+  );
+}
+
+function assertDurableContainerMutation(
+  actual: unknown,
+  expected: {
+    instanceId: string;
+    ownershipEpoch: number;
+    containerId: string;
+    sourceId: string;
+  },
+): void {
+  assert.ok(actual && typeof actual === 'object' && !Array.isArray(actual));
+  const mutation = actual as Record<string, unknown>;
+  assert.equal(mutation.kind, 'container_state');
+  assert.equal(mutation.instanceId, expected.instanceId);
+  assert.equal(mutation.ownershipEpoch, expected.ownershipEpoch);
+  assert.equal(mutation.containerId, expected.containerId);
+  assert.equal(mutation.sourceId, expected.sourceId);
+  const flushLedgerVersion = Number(mutation.flushLedgerVersion);
+  assert.ok(Number.isSafeInteger(flushLedgerVersion) && flushLedgerVersion > 0);
+  const flushLedgerPayload = mutation.flushLedgerPayload as Record<string, unknown>;
+  assert.equal(flushLedgerPayload.kind, 'instance_domain_state');
+  assert.equal(flushLedgerPayload.domain, 'container_state');
+  assert.equal(flushLedgerPayload.revision, flushLedgerVersion);
+  assert.deepEqual(flushLedgerPayload.stagedDomains, ['container_state']);
+  const states = flushLedgerPayload.payload as Array<Record<string, unknown>>;
+  assert.ok(Array.isArray(states));
+  const sourceState = states.find((state) => state.sourceId === expected.sourceId);
+  assert.ok(sourceState);
+  assert.equal(sourceState.containerId, expected.containerId);
+  assert.deepEqual(sourceState.entries, []);
 }
 
 function buildPlayer(playerId: string, instanceId: string, runtimeOwnerId: string | null, sessionEpoch: number) {

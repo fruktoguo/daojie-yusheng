@@ -19,6 +19,7 @@ import type { FlushTask, FlushTaskPriority, FlushTaskScope } from './flush-task.
 import { classifyFlushFailure, resolveFlushRetryDelayMs } from './flush-failure-policy';
 import { FlushDiagnosticsService } from './flush-diagnostics.service';
 import { InstanceCatalogService } from './instance-catalog.service';
+import type { InstanceFlushLedgerClaim } from './instance-flush-ledger-fence';
 import {
   PlayerDomainPersistenceService,
   PLAYER_SNAPSHOT_PROJECTABLE_DIRTY_DOMAINS,
@@ -211,10 +212,20 @@ interface BatchPersistencePort {
   saveInstanceCheckpoint?(instanceId: string, payload: unknown): Promise<void>;
   replaceRuntimeTileCells?(instanceId: string, entries: unknown[]): Promise<void>;
   replaceTemporaryTileStates?(instanceId: string, entries: unknown[]): Promise<void>;
-  replaceGroundItems?(instanceId: string, entries: unknown[]): Promise<void>;
-  replaceGroundItemTiles?(instanceId: string, tileIndices: unknown[], entries: unknown[]): Promise<void>;
-  saveContainerState?(input: { instanceId: string; containerId?: unknown; sourceId?: unknown; statePayload: unknown }): Promise<void>;
-  replaceContainerStates?(instanceId: string, states: Array<{ containerId: string; sourceId: string; [key: string]: unknown }>): Promise<void>;
+  replaceGroundItems?(instanceId: string, entries: unknown[], ledgerClaim?: InstanceFlushLedgerClaim | null): Promise<void | boolean>;
+  replaceGroundItemTiles?(instanceId: string, tileIndices: unknown[], entries: unknown[], ledgerClaim?: InstanceFlushLedgerClaim | null): Promise<void | boolean>;
+  saveContainerState?(input: {
+    instanceId: string;
+    containerId?: unknown;
+    sourceId?: unknown;
+    statePayload: unknown;
+    ledgerClaim?: InstanceFlushLedgerClaim | null;
+  }): Promise<void | boolean>;
+  replaceContainerStates?(
+    instanceId: string,
+    states: Array<{ containerId: string; sourceId: string; [key: string]: unknown }>,
+    ledgerClaim?: InstanceFlushLedgerClaim | null,
+  ): Promise<void | boolean>;
   saveOverlayChunk?(input: { instanceId: string; patchKind?: unknown; chunkKey?: unknown; patchVersion?: unknown; patchPayload?: unknown }): Promise<void>;
   saveMonsterRuntimeDelta?(instanceId: string, upserts: unknown[], deletes: unknown[]): Promise<void>;
   replaceMonsterRuntimeStates?(instanceId: string, states: unknown[]): Promise<void>;
@@ -1441,7 +1452,14 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
         if (!await this.renewPayloadClaim(task)) {
           continue;
         }
-        await this.applyInstanceDomainStatePayload(task, payload);
+        const applied = await this.applyInstanceDomainStatePayload(task, payload);
+        if (!applied) {
+          if (await this.flushLedgerService.markFlushTaskFlushed(task)) {
+            processed += 1;
+          }
+          this.failureAttempts.delete(instanceTaskKey(task));
+          continue;
+        }
         if (await this.flushLedgerService.markFlushTaskFlushed(task)) {
           processed += 1;
           this.markInstancePayloadPersisted(task, payload);
@@ -1551,12 +1569,18 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  private async applyInstanceDomainStatePayload(task: FlushTask, payload: InstanceDomainStatePayload): Promise<void> {
+  private async applyInstanceDomainStatePayload(task: FlushTask, payload: InstanceDomainStatePayload): Promise<boolean> {
     const instanceId = task.id;
     const persistence = this.worldRuntimeService.instanceDomainPersistenceService;
     if (!persistence) {
       throw new Error(`instance_domain_persistence_missing:${instanceId}:${payload.domain}`);
     }
+    const ledgerClaim: InstanceFlushLedgerClaim | null = task.claimOwnerId ? {
+      ownershipEpoch: normalizeInt(task.ownershipEpoch, 0, 0, Number.MAX_SAFE_INTEGER),
+      latestVersion: normalizeInt(task.latestRevision, 0, 0, Number.MAX_SAFE_INTEGER),
+      claimOwnerId: task.claimOwnerId,
+      fencingToken: task.fencingToken ?? null,
+    } : null;
     switch (payload.domain) {
       case 'tile_cell': {
         if (typeof persistence.replaceRuntimeTileCells !== 'function') {
@@ -1584,13 +1608,20 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
           if (typeof persistence.replaceGroundItems !== 'function') {
             throw new Error(`instance_domain_persistence_missing:${instanceId}:ground_item_full_replace`);
           }
-          await persistence.replaceGroundItems(instanceId, data.entries ?? []);
+          const applied = await persistence.replaceGroundItems(instanceId, data.entries ?? [], ledgerClaim);
+          if (applied === false) return false;
         }
         else {
           if (typeof persistence.replaceGroundItemTiles !== 'function') {
             throw new Error(`instance_domain_persistence_missing:${instanceId}:ground_item_delta`);
           }
-          await persistence.replaceGroundItemTiles(instanceId, data?.tileIndices ?? [], data?.entries ?? []);
+          const applied = await persistence.replaceGroundItemTiles(
+            instanceId,
+            data?.tileIndices ?? [],
+            data?.entries ?? [],
+            ledgerClaim,
+          );
+          if (applied === false) return false;
         }
         break;
       }
@@ -1629,11 +1660,26 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
           return normalizeString(record.containerId);
         });
         if (typeof persistence.replaceContainerStates === 'function') {
-          await persistence.replaceContainerStates(instanceId, states as Array<{ containerId: string; sourceId: string; [key: string]: unknown }>);
+          const applied = await persistence.replaceContainerStates(
+            instanceId,
+            states as Array<{ containerId: string; sourceId: string; [key: string]: unknown }>,
+            ledgerClaim,
+          );
+          if (applied === false) return false;
         } else if (typeof persistence.saveContainerState === 'function') {
+          if (ledgerClaim && states.length > 1) {
+            throw new Error(`instance_domain_persistence_atomic_replace_required:${instanceId}:container_state`);
+          }
           for (const state of states) {
             const record = state as { containerId?: unknown; sourceId?: unknown };
-            await persistence.saveContainerState({ instanceId, containerId: record.containerId, sourceId: record.sourceId, statePayload: state });
+            const applied = await persistence.saveContainerState({
+              instanceId,
+              containerId: record.containerId,
+              sourceId: record.sourceId,
+              statePayload: state,
+              ledgerClaim,
+            });
+            if (applied === false) return false;
           }
         }
         else {
@@ -1669,6 +1715,7 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
       }
       await persistence.saveInstanceRecoveryWatermark(instanceId, payload.watermarkPayload);
     }
+    return true;
   }
 
   private async retryInstanceTasksIndividually(tasks: FlushTask[], groupError: unknown): Promise<number> {

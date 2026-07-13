@@ -1098,9 +1098,11 @@ export class WorldRuntimeLootContainerService {
                     deps,
                     sourceType: 'container_take',
                     sourceRefId: `${sourceId}:${itemKey}`,
-                    sourceMutation: this.buildDurableContainerSourceMutation(location.instanceId, sourceId),
-                    successNotice: `获得 ${this.formatLootItemStackLabel(item)}`,
-                    failureNotice: '拿取失败，物品已留在容器内。',
+                    sourceMutation: this.buildDurableContainerSourceMutation(
+                        deps.getInstanceRuntimeOrThrow(location.instanceId),
+                        location.instanceId,
+                        sourceId,
+                    ),
                     restoreOnFailure: () => {
                         this.restoreContainerSourceAfterFailedTake(
                             location.instanceId,
@@ -1155,7 +1157,6 @@ export class WorldRuntimeLootContainerService {
                 sourceType: 'ground_take',
                 sourceRefId: `${sourceId}:${itemKey}`,
                 sourceMutation: this.buildDurableGroundSourceMutation(instance, location.instanceId, sourceId),
-                successNotice: `获得 ${this.formatLootItemStackLabel(taken)}`,
                 restoreOnFailure: () => restoreGroundSourceAfterFailedTake(
                     instance,
                     tileIndex,
@@ -1227,9 +1228,11 @@ export class WorldRuntimeLootContainerService {
                     deps,
                     sourceType: 'container_take_all',
                     sourceRefId: sourceId,
-                    sourceMutation: this.buildDurableContainerSourceMutation(location.instanceId, sourceId),
-                    successNotice: `获得 ${this.formatLootItemListSummary(takenItems)}`,
-                    failureNotice: '拿取失败，物品已留在容器内。',
+                    sourceMutation: this.buildDurableContainerSourceMutation(
+                        deps.getInstanceRuntimeOrThrow(location.instanceId),
+                        location.instanceId,
+                        sourceId,
+                    ),
                     restoreOnFailure: () => {
                         this.restoreContainerSourceAfterFailedTake(
                             location.instanceId,
@@ -1304,8 +1307,7 @@ export class WorldRuntimeLootContainerService {
                 sourceType: 'ground_take_all',
                 sourceRefId: sourceId,
                 sourceMutation: this.buildDurableGroundSourceMutation(instance, location.instanceId, sourceId),
-                successNotice: `获得 ${this.formatLootItemListSummary(takenItems)}`,
-                partialNotice: stoppedByCapacity || takenItems.length < originalItemCount ? '背包空间不足，剩余物品暂时拿不下。' : '',
+                partial: stoppedByCapacity || takenItems.length < originalItemCount,
                 restoreOnFailure: () => restoreGroundSourceAfterFailedTake(
                     instance,
                     tileIndex,
@@ -1509,23 +1511,44 @@ export class WorldRuntimeLootContainerService {
                     : null;
                 return Array.isArray(entry?.items) ? entry.items : [];
             })();
+        const ownershipEpoch = resolveLootSourceOwnershipEpoch(instance);
+        const flushLedgerVersion = nextPlayerPersistenceVersion();
         return {
             kind: 'ground_tile',
             instanceId,
+            ownershipEpoch,
+            flushLedgerVersion,
+            flushLedgerPayload: buildGroundSourceFlushLedgerPayload(
+                instance,
+                tileIndex,
+                currentItems,
+                flushLedgerVersion,
+            ),
             tileIndex,
             remainingItems: Array.isArray(currentItems) ? currentItems.map((item) => ({ ...item })) : [],
         };
     }
 
-    buildDurableContainerSourceMutation(instanceId, sourceId) {
-        const state = this.buildContainerPersistenceStates(instanceId)
+    buildDurableContainerSourceMutation(instance, instanceId, sourceId) {
+        const states = this.buildContainerPersistenceStates(instanceId);
+        const state = states
             .find((entry) => entry?.sourceId === sourceId);
         if (!state?.containerId) {
             throw new BadRequestException('容器持久化状态不存在');
         }
+        const ownershipEpoch = resolveLootSourceOwnershipEpoch(instance);
+        const flushLedgerVersion = nextPlayerPersistenceVersion();
         return {
             kind: 'container_state',
             instanceId,
+            ownershipEpoch,
+            flushLedgerVersion,
+            flushLedgerPayload: buildContainerSourceFlushLedgerPayload(
+                instance,
+                states,
+                this.getContainerPersistenceRevision(instanceId),
+                flushLedgerVersion,
+            ),
             containerId: state.containerId,
             sourceId,
             statePayload: state,
@@ -1579,6 +1602,7 @@ export class WorldRuntimeLootContainerService {
                     expectedSessionEpoch: Math.max(1, Math.trunc(Number(input.player.sessionEpoch ?? 1))),
                     expectedInstanceId: input.player.instanceId ?? null,
                     expectedAssignedNodeId: leaseContext?.assignedNodeId ?? null,
+                    expectedLeaseToken: leaseContext?.leaseToken ?? null,
                     expectedOwnershipEpoch: leaseContext?.ownershipEpoch ?? null,
                     sourceType: input.sourceType,
                     sourceRefId: input.sourceRefId,
@@ -1671,13 +1695,59 @@ export class WorldRuntimeLootContainerService {
                 }
             }
             this.logger.warn(`地面/容器物品持久化拿取失败：playerId=${input.playerId} sourceType=${input.sourceType} sourceRefId=${input.sourceRefId} error=${finalError instanceof Error ? finalError.message : String(finalError)}`);
-            input.deps.queuePlayerNotice(input.playerId, input.failureNotice ?? '拿取失败，物品已留在原地。', 'warn');
+            const sourceIsContainer = input.sourceType === 'container_take' || input.sourceType === 'container_take_all';
+            const failureNotice = buildStructuredNotice(
+                'warn',
+                sourceIsContainer ? 'notice.loot.take-failed-container' : 'notice.loot.take-failed-ground',
+                sourceIsContainer ? '拿取失败，物品已留在容器内。' : '拿取失败，物品已留在原地。',
+                {},
+            );
+            input.deps.queuePlayerNotice(
+                input.playerId,
+                failureNotice.text,
+                failureNotice.kind,
+                undefined,
+                undefined,
+                failureNotice.structured,
+            );
             return;
         }
         input.deps.refreshQuestStates(input.playerId);
-        input.deps.queuePlayerNotice(input.playerId, input.successNotice, 'loot');
-        if (input.partialNotice) {
-            input.deps.queuePlayerNotice(input.playerId, input.partialNotice, 'info');
+        const isMultiTake = input.sourceType === 'ground_take_all' || input.sourceType === 'container_take_all';
+        const itemSummary = isMultiTake
+            ? this.formatLootItemListSummary(input.items)
+            : this.formatLootItemStackLabel(input.items[0]);
+        const successNotice = buildStructuredNotice(
+            'loot',
+            isMultiTake ? 'notice.loot.obtained-multi' : 'notice.loot.obtained',
+            `获得 ${itemSummary}`,
+            isMultiTake
+                ? { vars: { itemList: itemSummary }, pills: [{ key: 'itemList', style: 'target' }] }
+                : { vars: { itemName: itemSummary }, pills: [{ key: 'itemName', style: 'target' }] },
+        );
+        input.deps.queuePlayerNotice(
+            input.playerId,
+            successNotice.text,
+            successNotice.kind,
+            undefined,
+            undefined,
+            successNotice.structured,
+        );
+        if (input.partial === true) {
+            const partialNotice = buildStructuredNotice(
+                'info',
+                'notice.loot.bag-full',
+                '背包空间不足，剩余物品暂时拿不下。',
+                {},
+            );
+            input.deps.queuePlayerNotice(
+                input.playerId,
+                partialNotice.text,
+                partialNotice.kind,
+                undefined,
+                undefined,
+                partialNotice.structured,
+            );
         }
     }
 
@@ -2159,6 +2229,97 @@ function restoreInventoryGrantRollbackState(player, rollbackState, playerRuntime
     playerRuntimeService.playerProgressionService.refreshPreview(player);
 }
 
+function resolveLootSourceOwnershipEpoch(instance) {
+    const ownershipEpoch = Math.trunc(Number(instance?.meta?.ownershipEpoch));
+    if (!Number.isSafeInteger(ownershipEpoch) || ownershipEpoch <= 0) {
+        throw new BadRequestException('当前地图实例资产事务围栏暂不可用，请稍后重试');
+    }
+    return ownershipEpoch;
+}
+
+function buildGroundSourceFlushLedgerPayload(instance, sourceTileIndex, sourceItems, flushLedgerVersion) {
+    const delta = typeof instance?.buildGroundPersistenceDelta === 'function'
+        ? instance.buildGroundPersistenceDelta()
+        : null;
+    let payload;
+    if (delta?.fullReplace === true) {
+        payload = {
+            fullReplace: true,
+            entries: typeof instance?.buildGroundPersistenceEntries === 'function'
+                ? instance.buildGroundPersistenceEntries()
+                : [],
+        };
+    }
+    else {
+        const tileIndices = new Set<number>(
+            (Array.isArray(delta?.tileIndices) ? delta.tileIndices : [])
+                .map((tileIndex) => Math.trunc(Number(tileIndex)))
+                .filter((tileIndex) => Number.isSafeInteger(tileIndex) && tileIndex >= 0),
+        );
+        tileIndices.add(sourceTileIndex);
+        const entriesByTileIndex = new Map<number, { tileIndex: number; items: any[] }>();
+        for (const entry of Array.isArray(delta?.entries) ? delta.entries : []) {
+            const tileIndex = Math.trunc(Number(entry?.tileIndex));
+            if (Number.isSafeInteger(tileIndex) && tileIndex >= 0) {
+                entriesByTileIndex.set(tileIndex, {
+                    tileIndex,
+                    items: Array.isArray(entry?.items) ? entry.items.map((item) => ({ ...item })) : [],
+                });
+            }
+        }
+        if (Array.isArray(sourceItems) && sourceItems.length > 0) {
+            entriesByTileIndex.set(sourceTileIndex, {
+                tileIndex: sourceTileIndex,
+                items: sourceItems.map((item) => ({ ...item })),
+            });
+        }
+        else {
+            entriesByTileIndex.delete(sourceTileIndex);
+        }
+        payload = {
+            fullReplace: false,
+            tileIndices: Array.from(tileIndices).sort((left, right) => left - right),
+            entries: Array.from(entriesByTileIndex.values()).sort((left, right) => left.tileIndex - right.tileIndex),
+        };
+    }
+    return buildLootSourceFlushLedgerPayload(
+        'ground_item',
+        payload,
+        flushLedgerVersion,
+        readInstancePersistenceDomainRevision(instance, 'ground_item'),
+    );
+}
+
+function buildContainerSourceFlushLedgerPayload(
+    instance,
+    states,
+    containerRevision,
+    flushLedgerVersion,
+) {
+    return {
+        ...buildLootSourceFlushLedgerPayload(
+            'container_state',
+            Array.isArray(states) ? states.map((state) => ({ ...state })) : [],
+            flushLedgerVersion,
+            readInstancePersistenceDomainRevision(instance, 'container_state'),
+        ),
+        containerRevision: Math.max(0, Math.trunc(Number(containerRevision) || 0)),
+    };
+}
+
+function buildLootSourceFlushLedgerPayload(domain, payload, flushLedgerVersion, domainRevision) {
+    const normalizedDomainRevision = Math.max(0, Math.trunc(Number(domainRevision) || 0));
+    return {
+        kind: 'instance_domain_state',
+        domain,
+        payload,
+        revision: flushLedgerVersion,
+        domainRevisions: normalizedDomainRevision > 0 ? { [domain]: normalizedDomainRevision } : {},
+        stagedDomains: [domain],
+        stagingGenerationId: `durable-source:${domain}:${flushLedgerVersion}`,
+    };
+}
+
 async function resolveLootInstanceLeaseContext(instanceId, deps) {
     const normalizedInstanceId = typeof instanceId === 'string' ? instanceId.trim() : '';
     if (!normalizedInstanceId || !deps?.instanceCatalogService?.isEnabled?.()) {
@@ -2169,12 +2330,14 @@ async function resolveLootInstanceLeaseContext(instanceId, deps) {
         return null;
     }
     const assignedNodeId = typeof row.assigned_node_id === 'string' ? row.assigned_node_id.trim() : '';
+    const leaseToken = typeof row.lease_token === 'string' ? row.lease_token.trim() : '';
     const ownershipEpoch = Number.isFinite(Number(row.ownership_epoch)) ? Math.max(1, Math.trunc(Number(row.ownership_epoch))) : 0;
-    if (!assignedNodeId || ownershipEpoch <= 0) {
+    if (!assignedNodeId || !leaseToken || ownershipEpoch <= 0) {
         return null;
     }
     return {
         assignedNodeId,
+        leaseToken,
         ownershipEpoch,
     };
 }
