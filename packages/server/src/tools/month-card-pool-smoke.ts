@@ -7,7 +7,8 @@ import {
   MERIT_MONTH_CARD_POOL_GRANT,
 } from '@mud/shared';
 import { calculateMonthCardDailyReward, calculateMonthCardNextPool } from '../persistence/activity-persistence.service';
-import { ActivityRuntimeService } from '../runtime/activity/activity-runtime.service';
+import { WorldGatewayActivityHelper } from '../network/world-gateway-activity.helper';
+import { ActivityRuntimeService, normalizeActivityError } from '../runtime/activity/activity-runtime.service';
 import { WorldRuntimeUseItemService } from '../runtime/world/world-runtime-use-item.service';
 import { installSmokeTimeout } from './smoke-timeout';
 
@@ -31,6 +32,10 @@ async function main(): Promise<void> {
 
   assert.equal(calculateMonthCardDailyReward({ totalPoolMerit: renewedPool, remainingPoolMerit: 20 }), 20);
   assert.equal(calculateMonthCardNextPool(-100), MERIT_MONTH_CARD_POOL_GRANT);
+  assert.equal(
+    normalizeActivityError(new Error('connect ECONNREFUSED internal-activity-db:5432')).message,
+    '活动服务暂不可用，请稍后重试',
+  );
 
   const activationCalls: Array<{ playerId: string; nowMs: number; poolGrant: number }> = [];
   const eternalActivationCalls: Array<{ playerId: string; nowMs: number; poolGrant: number; fixedSignInBonus: number }> = [];
@@ -61,7 +66,7 @@ async function main(): Promise<void> {
         lastClaimDate: null,
       };
     },
-  } as never, {} as never);
+  } as never, {} as never, {} as never, {} as never);
   await service.activateMeritMonthCard('player:month-card-batch', 123456, 3);
   await service.activateEternalMonthCard('player:eternal-batch', 654321, 2);
   assert.deepEqual(activationCalls, [{
@@ -76,6 +81,8 @@ async function main(): Promise<void> {
     fixedSignInBonus: MERIT_ETERNAL_DAILY_SIGN_IN_FIXED_BONUS * 2,
   }]);
   await verifyWorldUseItemEternalDispatch();
+  await verifyDurableActivityRuntimeSettlement();
+  await verifyActivityGatewayErrorNormalization();
 
   console.log(JSON.stringify({
     ok: true,
@@ -84,6 +91,121 @@ async function main(): Promise<void> {
     renewedPoolDailyReward: calculateMonthCardDailyReward({ totalPoolMerit: renewedPool, remainingPoolMerit: renewedPool }),
     batchUseDailyReward: calculateMonthCardDailyReward({ totalPoolMerit: batchPool, remainingPoolMerit: batchPool }),
   }, null, 2));
+}
+
+async function verifyActivityGatewayErrorNormalization(): Promise<void> {
+  const emittedErrors: Array<{ code: string; message: string }> = [];
+  const helper = new WorldGatewayActivityHelper(
+    { requireActivePlayerId: () => 'player:activity-error' } as never,
+    {} as never,
+    {
+      getStatus: async () => {
+        throw new Error('connect ECONNREFUSED internal-activity-db:5432');
+      },
+    } as never,
+    {
+      emitGatewayError: (_client: unknown, code: string, error: unknown) => {
+        emittedErrors.push({
+          code,
+          message: error instanceof Error ? error.message : String(error),
+        });
+      },
+    } as never,
+    {} as never,
+  );
+  await helper.handleRequestActivityStatus({} as never, undefined);
+  assert.deepEqual(emittedErrors, [{
+    code: 'REQUEST_ACTIVITY_STATUS_FAILED',
+    message: '活动服务暂不可用，请稍后重试',
+  }]);
+}
+
+async function verifyDurableActivityRuntimeSettlement(): Promise<void> {
+  const player = {
+    playerId: 'player:activity-durable',
+    runtimeOwnerId: 'runtime:activity-durable',
+    sessionEpoch: 4,
+    instanceId: null,
+    inventory: {
+      items: [{
+        itemInstanceId: '1f5148ab-6f20-4d0b-973d-4d2be77ed94f',
+        itemId: 'merit_eternal',
+        count: 2,
+      }],
+      revision: 0,
+    },
+  };
+  let releaseCommit: (() => void) | null = null;
+  let rejectCommit: ((error: Error) => void) | null = null;
+  const durableCalls: Array<Record<string, unknown>> = [];
+  const playerRuntime = {
+    playerDomainPersistenceService: {
+      isEnabled: () => true,
+      loadPlayerPresence: async () => ({ runtimeOwnerId: player.runtimeOwnerId, sessionEpoch: 3 }),
+      savePlayerPresence: async () => undefined,
+    },
+    runExclusiveAssetMutation: async (_ids: string[], action: () => Promise<unknown>) => action(),
+    getPlayerOrThrow: () => player,
+    peekInventoryItemByInstanceId: () => player.inventory.items[0] ?? null,
+    describePersistencePresence: () => ({ runtimeOwnerId: player.runtimeOwnerId, sessionEpoch: player.sessionEpoch }),
+    getSessionFence: () => ({ runtimeOwnerId: player.runtimeOwnerId, sessionEpoch: player.sessionEpoch }),
+    replaceInventoryItems: (_playerId: string, items: typeof player.inventory.items) => {
+      player.inventory.items = items.map((entry) => ({ ...entry }));
+    },
+  };
+  const durable = {
+    isEnabled: () => true,
+    grantInventoryItems: async (input: Record<string, unknown>) => {
+      durableCalls.push(input);
+      await new Promise<void>((resolve, reject) => {
+        releaseCommit = resolve;
+        rejectCommit = reject;
+      });
+      return { ok: true, alreadyCommitted: false };
+    },
+  };
+  const service = new ActivityRuntimeService(
+    {} as never,
+    playerRuntime as never,
+    durable as never,
+    {} as never,
+  );
+  const firstUse = service.activateEternalMonthCardFromInventoryItem(
+    player.playerId,
+    player.inventory.items[0]!.itemInstanceId,
+    player.inventory.items[0]!,
+    1,
+    123456,
+  );
+  await waitFor(() => durableCalls.length === 1);
+  assert.equal(player.inventory.items[0]?.count, 2, 'COMMIT 前不得提前扣除永恒');
+  releaseCommit?.();
+  await firstUse;
+  assert.equal(player.inventory.items[0]?.count, 1);
+  assert.ok(service.getCachedHeavenlyDaoShopDiscountPercent(player.playerId) > 0);
+  assert.equal(durableCalls[0]?.sourceType, 'activity_eternal_activation');
+
+  const failedUse = service.activateEternalMonthCardFromInventoryItem(
+    player.playerId,
+    player.inventory.items[0]!.itemInstanceId,
+    player.inventory.items[0]!,
+    1,
+    123457,
+  );
+  await waitFor(() => durableCalls.length === 2);
+  rejectCommit?.(new Error('database unavailable'));
+  await assert.rejects(failedUse, /database unavailable/);
+  assert.equal(player.inventory.items[0]?.count, 1, '事务失败不得扣除永恒');
+}
+
+async function waitFor(predicate: () => boolean): Promise<void> {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    if (predicate()) {
+      return;
+    }
+    await new Promise<void>((resolve) => setImmediate(resolve));
+  }
+  throw new Error('等待 activity durable 调用超时');
 }
 
 async function verifyWorldUseItemEternalDispatch(): Promise<void> {
@@ -96,8 +218,6 @@ async function verifyWorldUseItemEternalDispatch(): Promise<void> {
     allowBatchUse: true,
     useBehavior: MERIT_ETERNAL_USE_BEHAVIOR,
   };
-  const consumed: Array<{ playerId: string; itemInstanceId: string; count: number }> = [];
-  const restored: Array<{ playerId: string; count: number }> = [];
   const activated: Array<{ playerId: string; count: number }> = [];
   const notices: Array<{ playerId: string; text: string; kind: string; structured: unknown }> = [];
   const refreshedQuestPlayerIds: string[] = [];
@@ -110,15 +230,15 @@ async function verifyWorldUseItemEternalDispatch(): Promise<void> {
         assert.equal(itemInstanceId, item.itemInstanceId);
         return item;
       },
-      consumeInventoryItemByInstanceId: (playerId: string, itemInstanceId: string, count: number) => {
-        consumed.push({ playerId, itemInstanceId, count });
-      },
-      receiveInventoryItem: (playerId: string, restoredItem: { count?: number }) => {
-        restored.push({ playerId, count: Math.trunc(Number(restoredItem.count) || 0) });
-      },
     },
     {
-      activateEternalMonthCard: async (playerId: string, _nowMs: number, count: number) => {
+      activateEternalMonthCardFromInventoryItem: async (
+        playerId: string,
+        itemInstanceId: string,
+        _item: unknown,
+        count: number,
+      ) => {
+        assert.equal(itemInstanceId, item.itemInstanceId);
         activated.push({ playerId, count });
       },
     } as never,
@@ -132,8 +252,6 @@ async function verifyWorldUseItemEternalDispatch(): Promise<void> {
     },
   }, { count: 2 });
 
-  assert.deepEqual(consumed, [{ playerId: 'player:eternal-use', itemInstanceId: item.itemInstanceId, count: 2 }]);
-  assert.deepEqual(restored, []);
   assert.deepEqual(activated, [{ playerId: 'player:eternal-use', count: 2 }]);
   assert.deepEqual(refreshedQuestPlayerIds, ['player:eternal-use']);
   assert.equal(notices.length, 1);

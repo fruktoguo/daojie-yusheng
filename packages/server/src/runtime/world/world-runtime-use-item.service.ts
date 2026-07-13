@@ -192,12 +192,16 @@ export class WorldRuntimeUseItemService {
     }    
     async handleMeritMonthCardItem(playerId, itemInstanceId, item, deps, count = 1) {
         const normalizedCount = normalizeUseItemCount(count, item);
-        this.playerRuntimeService.consumeInventoryItemByInstanceId(playerId, itemInstanceId, normalizedCount);
         try {
-            await this.activityRuntimeService.activateMeritMonthCard(playerId, Date.now(), normalizedCount);
+            await this.activityRuntimeService.activateMeritMonthCardFromInventoryItem(
+                playerId,
+                itemInstanceId,
+                item,
+                normalizedCount,
+                Date.now(),
+            );
         }
         catch (error) {
-            this.playerRuntimeService.receiveInventoryItem(playerId, { ...item, count: normalizedCount });
             throw normalizeActivityError(error);
         }
         deps.refreshQuestStates(playerId);
@@ -216,12 +220,16 @@ export class WorldRuntimeUseItemService {
 
     async handleMeritEternalItem(playerId, itemInstanceId, item, deps, count = 1) {
         const normalizedCount = normalizeUseItemCount(count, item);
-        this.playerRuntimeService.consumeInventoryItemByInstanceId(playerId, itemInstanceId, normalizedCount);
         try {
-            await this.activityRuntimeService.activateEternalMonthCard(playerId, Date.now(), normalizedCount);
+            await this.activityRuntimeService.activateEternalMonthCardFromInventoryItem(
+                playerId,
+                itemInstanceId,
+                item,
+                normalizedCount,
+                Date.now(),
+            );
         }
         catch (error) {
-            this.playerRuntimeService.receiveInventoryItem(playerId, { ...item, count: normalizedCount });
             throw normalizeActivityError(error);
         }
         deps.refreshQuestStates(playerId);

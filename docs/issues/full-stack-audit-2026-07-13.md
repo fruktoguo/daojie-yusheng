@@ -3,7 +3,7 @@
 ## 审计口径
 
 - 生产主线：`packages/client`、`packages/shared`、`packages/server`、`packages/config-editor`。
-- 当前基线：`main` 分支 `8915663e`；相对 `origin/main` ahead 31。
+- 当前基线：`main` 分支 `1a240861`；相对 `origin/main` ahead 32。
 - package manager：`pnpm@10.29.1`。
 - 每项结论必须来自机制文档、完整调用链、测试、编译产物或运行数据；仅凭搜索未发现异常不能标记为“确认无问题”。
 - `[x]` 只表示该行列出的具体证据范围已完成，不代表相邻系统或整个项目已完成。
@@ -52,6 +52,7 @@
 - [x] P-26 实例增量域转入单行 flush ledger 后过早清除脏键、后续 payload 覆盖可能漏写旧键的问题已修复；见 FS-037。
 - [x] P-27 地块资源消耗品把背包扣除与实例资源分步提交、旧 worker payload 可迟到覆盖的问题已修复；见 FS-038。
 - [x] P-28 地面拾取、容器拿取与玩家丢弃的来源事务可被已 claim 的旧 ground/container payload 迟到覆盖的问题已修复；见 FS-039。
+- [x] P-29 月卡/永恒激活及月卡、签到、邀请奖励领取把活动来源与玩家背包分步提交的问题已修复；见 FS-042。
 
 ### 服务端权威运行时
 
@@ -80,6 +81,7 @@
 - [x] S-11 吟唱阻塞六类技艺命令与强制攻击矿脉旁路的通知已统一结构化；见 FS-036。
 - [x] S-12 地块资源消耗品成功通知已迁移为稳定结构化 key/变量；见 FS-038。
 - [x] S-13 durable 拾取结果通知、资产确认通知 key 与地面满包坐标语言包截断问题已修复；见 FS-041。
+- [x] S-14 活动状态与领取入口透传未知数据库错误的问题已修复；见 FS-043。
 
 ### 客户端、UI 与渲染
 
@@ -102,6 +104,7 @@
 - [x] X-09 `tile_resource`、`tile_damage`、`ground_item`、`monster_runtime` 增量 payload 的跨 staging 覆盖丢键风险已修复；见 FS-037。
 - [x] X-10 地块资源 durable 事务与已 claim 的旧 flush payload 竞争、COMMIT 后运行态应用及生产降级边界已修复；见 FS-038。
 - [x] X-11 地面/容器 durable 事务与旧 worker claim 的竞态、无关 dirty 保留和普通 worker 回归已修复；见 FS-039。
+- [x] X-12 活动来源快照、背包后态、watermark、outbox 与双资产审计的原子提交及精确重放已修复；见 FS-042。
 
 ## 已确认问题
 
@@ -714,7 +717,7 @@
 
 ### FS-039 地面与容器来源事务可被已认领旧 payload 迟到覆盖
 
-- **状态**：已修复并完成验证，待本组中文原子提交后回填 hash。
+- **状态**：已修复、验证并完成中文原子提交。
 - **严重级别**：P0。
 - **所属功能组**：背包资产 / 地面物品 / 掉落容器 / 实例 flush ledger / lease fence。
 - **影响链路**：地面单个/全部拾取、容器单个/全部拿取或玩家主动丢弃 → 运行态来源 mutation → `DurableOperationService.grantInventoryItems()` → `instance_ground_item` / `instance_container_*` → `instance_flush_ledger` worker → 重启恢复。
@@ -726,11 +729,11 @@
 - **修复方式**：来源 mutation 强制携带运行态 `ownershipEpoch`、单调 `flushLedgerVersion` 和可重放的累计域 payload，并要求 durable 请求提供精确 `leaseToken`。同一 PostgreSQL 事务在写当前来源后态后，以更高版本原子替换对应 ledger payload、清除旧 claim，同时保留 ground 累计 dirty tile 或完整 container states；不再清空其他未刷盘义务。ground/container writer 在同一实例 advisory lock 内核对 `ownership_epoch + latest_version + claimed_by + fencing_token + 有效 claim TTL`，失效 payload 返回 no-op，flush runtime 不推进 watermark 或运行态 persisted 标记。当前累计 payload 仍可被新 worker claim、补刷其他来源并正常 ack。
 - **实际修改**：新增通用 `instance-flush-ledger-fence.ts` 与独立 `loot-source-durable-persistence.ts`，从巨型 durable service 中拆出来源写入和 ledger 替换；地面、容器及主动丢弃入口补齐 epoch、lease token 和累计 payload；实例 writer 与 flush runtime 增加精确 claim 传递/重验；机制文档同步事务、worker 与通知约束。`inventory-grant-durable-smoke` 扩展为 ground/container 双来源真实数据库竞态 proof，运行时与普通 worker smoke 同步新契约。
 - **验证结果**：`git diff --check`、`pnpm --filter @mud/server compile`、`pnpm audit:boundaries`、`pnpm verify:client` 与 `pnpm verify:quick` 通过；compiled `world-runtime-loot-container-smoke`、`world-runtime-ground-drop-durable-smoke`、`world-runtime-source-asset-reconciliation-smoke`、`flush-instance-payload-smoke`、`flush-task-staged-transfer-smoke`、`flush-task-runtime-smoke` 通过。真实 PostgreSQL `inventory-grant-durable-smoke` 证明错误 lease 全量拒绝、ground/container 来源与背包同事务、旧 claim no-op、新累计 payload 补刷无关地块/容器及幂等重放；`tile-resource-use-durable-smoke` 证明通用 ledger helper 未破坏地块资源 barrier；`instance-ground-item-flush-worker-smoke`、`instance-container-flush-worker-smoke`、`instance-domain-persistence-smoke` 和 `flush-task-worker-db-smoke` 证明普通分域写入与 claim/retry/flush 闭环未回归。尚未模拟真实网络断线下 COMMIT 回包丢失或多节点同时续租，不替代完整 release/shadow/acceptance/full。
-- **中文原子提交 hash**：待提交后回填。
+- **中文原子提交 hash**：`1a240861`。
 
 ### FS-040 统一 flush runtime smoke 已不再调用当前生产契约
 
-- **状态**：已修复并完成验证，待本组中文原子提交后回填 hash。
+- **状态**：已修复、验证并完成中文原子提交。
 - **严重级别**：P1（验证门禁失效，不直接改变生产玩家状态）。
 - **所属功能组**：统一 flush runtime / 依赖注入 / durable payload / 数据库 smoke。
 - **影响链路**：`flush-task-runtime-smoke` 构造服务 → dirty staging → ledger claim → player/instance payload writer → mark flushed。
@@ -741,11 +744,11 @@
 - **修复方式**：按当前构造器位置显式留出 diagnostics 参数；实例夹具改用真实 `time + ground_item` 域，生成 flush snapshot、ground delta、watermark 并断言直接写分域 persistence，不再期待 fallback；player 夹具提供完整 runtime/persisted fence、追踪 staged 状态并把延迟任务推进到 due 后消费，最终断言 1 个 presence 与 2 个实例任务全部处理且 ledger 不再可 claim。
 - **实际修改**：更新 `flush-task-runtime-smoke.ts` 的依赖注入、dirty 生命周期、player presence loader/writer、实例 payload builder 和结果断言。
 - **验证结果**：compiled `flush-task-runtime-smoke` 以 `processed=3 / playerPresenceCalls=1 / instanceFlushCalls=0` 通过；`pnpm --filter @mud/server compile`、`pnpm verify:quick` 与真实 PostgreSQL `flush-task-worker-db-smoke` 通过。
-- **中文原子提交 hash**：待提交后回填。
+- **中文原子提交 hash**：`1a240861`。
 
 ### FS-041 durable 拾取通知仍有纯文本旁路和失效语言包 key
 
-- **状态**：已修复并完成验证，待本组中文原子提交后回填 hash。
+- **状态**：已修复、验证并完成中文原子提交。
 - **严重级别**：P2（协议与本地化边界错误，不改变资产事务结果）。
 - **所属功能组**：地面/容器拾取 / 结构化通知 / 客户端 i18n 生成。
 - **影响链路**：durable 拾取成功、部分拿取、普通失败或 COMMIT 结果待确认 → `queuePlayerNotice()` → Notice 协议 → 客户端日志/浮层；战斗满包掉地 → `notice.loot.bag-full-ground` → CSV 生成器。
@@ -756,7 +759,39 @@
 - **修复方式**：durable 成功按单个/全部拿取复用 `notice.loot.obtained` 或 `notice.loot.obtained-multi`，部分拿取使用 `notice.loot.bag-full`，地面/容器失败新增独立 key，所有路径都发送第六个结构化载荷；补齐资产确认 key。地面坐标模板改用中文全角括号和逗号，避免 CSV 字段歧义，并重新生成客户端语言包。
 - **实际修改**：更新 loot container durable 通知公共 helper、客户端 `zh-CN.csv` 与生成常量；运行时 smoke 捕获成功和失败的结构化载荷；同时修正地面满包坐标模板。
 - **验证结果**：compiled `world-runtime-loot-container-smoke` 证明成功携带 `notice.loot.obtained` 及 vars/pills，失败携带 `notice.loot.take-failed-container`；生成常量确认 `notice.asset.reconciliation-pending`、两类失败 key 和完整 `{x}，{y}` 坐标模板；`pnpm verify:client` 与 `pnpm verify:quick` 通过，当前语言包共 3886 条。
-- **中文原子提交 hash**：待提交后回填。
+- **中文原子提交 hash**：`1a240861`。
+
+### FS-042 活动权益来源与玩家背包分步提交
+
+- **状态**：已修复并完成专项验证，待中文原子提交。
+- **严重级别**：P0。
+- **所属功能组**：功德月卡 / 永恒 / 每日签到 / 邀请奖励 / 玩家背包 / 活动持久化。
+- **影响链路**：背包使用功德月卡或永恒、领取月卡功德、每日签到、活动状态自动结算邀请奖励 → `ActivityRuntimeService` / `ActivityPersistenceService` → 活动来源表与领取记录 → `player_inventory_item`、watermark、outbox 和资产审计。
+- **证据**：月卡与永恒原来先调用 `consumeInventoryItemByInstanceId()` 扣运行态背包，再通过独立活动事务更新权益；失败时 catch 又用 `receiveInventoryItem()` 补回。月卡领取先提交领取记录和剩余池，再向运行态背包发功德；签到先提交签到记录，再发功德和签运；邀请奖励先把达标行标记为已领，再分别发灵石和功德。这些步骤没有共同事务、稳定 operation 身份或 COMMIT 结果未知收敛。
+- **根本原因**：活动表被当作普通业务状态，背包被当作独立运行态投影，没有把“消耗活动道具获得权益”和“消耗领取资格获得资产”识别为来源资产转移；既有 durable operation 也没有活动来源 mutation、事务内快照复核和活动资产审计能力。
+- **为什么错误**：同一次玩家操作的来源扣减与目标增加必须只有一个提交结果。运行态补偿无法判断数据库事务究竟失败还是已 COMMIT 但响应丢失；领取资格先提交则会永久吞奖励，背包先改则可能在重启后复活道具。仅在事务前读取奖励也不足以抵御并发领取或活动池变化。
+- **触发条件**：数据库调用失败、事务 COMMIT 后连接中断、进程在两步之间崩溃、同一活动入口被并发触发，或月卡池/签到状态/邀请达标行在规划后发生变化。
+- **可能后果**：月卡或永恒道具复活并可重复激活；权益已增加但道具未扣，或道具已扣但权益未到账；月卡池、签到天数、邀请领取标记已推进却没有功德/灵石；重复请求造成资产重复；活动表整数溢出导致事务异常和入口不可用。
+- **修复方式**：为 durable operation 增加严格归一化的 `activity_asset` 来源 mutation。五类操作均在玩家资产串行器内规划背包后态，通过同一 PostgreSQL 事务校验 session fence（在世界实例内时同时校验 instance node/epoch），锁定并复核活动来源快照，然后共同写入活动来源/领取记录、背包真源、recovery watermark、outbox、inventory 审计与 activity 审计。事务确认后才替换运行态背包和应用当日签运；相同 operation 精确重放不重复，快照变化整笔回滚；生产持久化不可用时失败关闭。激活数量与累计权益同时受 PostgreSQL `integer` 上限约束。
+- **实际修改**：新增独立 `activity-asset-durable-persistence.ts` 承担五类活动来源事务；扩展 `DurableOperationService.grantInventoryItems()` 的来源身份校验、来源写入和双资产审计；活动运行时改为 durable 规划/提交/应用三段式，邀请奖励先预览后在事务内按实际更新行复核；物品使用入口移除预扣和运行态补偿；机制文档同步活动资产原子性约束，并增加真实 PostgreSQL 专项 proof。
+- **验证结果**：`git diff --check`、`pnpm --filter @mud/server compile`、`pnpm verify:quick` 与 `pnpm audit:boundaries` 通过；compiled `month-card-pool-smoke`、`invitation-activity-smoke`、`daily-sign-in-fortune-smoke` 通过；真实 PostgreSQL `activity-asset-durable-smoke` 证明五类来源与背包、watermark、outbox、双审计同事务提交，激活精确重放不重复且奖励快照不一致会全量回滚；真实 PostgreSQL `inventory-grant-durable-smoke` 与串行重跑的 `durable-operation-smoke` 通过，证明既有来源和通用强事务未回归。`world-runtime-use-item-smoke` 暴露另一个与本组活动修改无关的陈旧功法抄录夹具，已单独纳入后续验证修复，不能据此宣称全套物品使用 smoke 已通过。
+- **中文原子提交 hash**：待提交。
+
+### FS-043 活动状态请求会向客户端暴露未知内部错误
+
+- **状态**：已修复并完成专项验证，待随 FS-042 原子提交。
+- **严重级别**：P1。
+- **所属功能组**：活动网关 / 客户端错误边界 / 安全。
+- **影响链路**：请求活动状态或领取失败 → `WorldGatewayActivityHelper` → `WorldClientEventService.emitGatewayError()` → `S2C.Error`。
+- **证据**：`normalizeActivityError()` 对未知异常原来直接保留 `error.message`，活动状态请求还完全绕过该函数；`emitGatewayError()` 会把异常 message 交给通用可见错误归一化，而未知文本默认原样返回。数据库驱动或连接错误因此可能携带内部主机名、端口、SQL 片段或存储结构进入客户端。
+- **根本原因**：已知活动业务错误与未知基础设施异常没有明确白名单；状态请求和两个领取请求又分别实现 catch，形成不一致的异常出口。
+- **为什么错误**：业务错误可以给玩家明确反馈，未知异常只能记录在服务端并对外返回稳定通用文案。原样透传既泄露内部拓扑，也把驱动错误文本变成不稳定客户端契约。
+- **触发条件**：活动数据库连接失败、查询异常、依赖服务抛出未分类错误，且玩家请求活动面板或发起领取。
+- **可能后果**：客户端看到连接串主机、端口、表/字段或驱动细节；攻击者可据此推断内部基础设施；错误文案不可本地化且会随依赖版本漂移。
+- **修复方式**：`normalizeActivityError()` 只映射明确允许展示的活动业务错误，未知异常统一转换为“活动服务暂不可用，请稍后重试”；活动状态、月卡领取、签到领取和活动道具使用入口全部经过同一归一化边界。
+- **实际修改**：活动网关状态 catch 补齐统一归一化；月卡专项 smoke 模拟包含内部数据库地址的异常，并断言状态错误包只收到受控文案。
+- **验证结果**：`pnpm --filter @mud/server compile` 与 compiled `month-card-pool-smoke` 通过，未知 `ECONNREFUSED internal-activity-db:5432` 不再出现在网关错误输出。
+- **中文原子提交 hash**：待提交。
 
 ## 2026-07-14 待用户决定
 

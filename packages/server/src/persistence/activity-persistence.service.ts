@@ -21,6 +21,7 @@ import {
 } from '@mud/shared';
 import { resolveServerDatabaseUrl } from '../config/env-alias';
 import { DatabasePoolProvider } from './database-pool.provider';
+import type { ActivityInvitationRewardSnapshot } from './activity-asset-durable-persistence';
 
 const MONTH_CARD_TABLE = 'player_merit_month_card';
 const MONTH_CARD_CLAIM_TABLE = 'player_merit_month_card_claim';
@@ -695,28 +696,49 @@ export class ActivityPersistenceService {
   }
 
   async hasPendingInvitationRewards(playerId: string): Promise<boolean> {
+    const rewards = await this.previewPendingInvitationRewards(playerId);
+    return rewards.inviteeSpiritStone > 0 || rewards.inviteeMerit > 0 || rewards.inviterMerit > 0;
+  }
+
+  async previewPendingInvitationRewards(playerId: string): Promise<ActivityInvitationRewardSnapshot> {
     const normalizedPlayerId = normalizePlayerId(playerId);
     if (!this.pool || !this.enabled || !normalizedPlayerId) {
-      return false;
+      return { inviteeSpiritStone: 0, inviteeMerit: 0, inviterMerit: 0 };
     }
     const result = await this.pool.query(
-      `SELECT 1
-         FROM ${INVITATION_TABLE}
-        WHERE invitee_player_id = $1
-          AND invitee_reward_claimed = false
-        UNION ALL
-       SELECT 1
-         FROM ${INVITATION_TABLE}
-        WHERE inviter_player_id = $1
-          AND (
-            inviter_base_reward_claimed = false
-            OR (invitee_highest_realm_lv >= $2 AND inviter_qi_reward_claimed = false)
-            OR (invitee_highest_realm_lv >= $3 AND inviter_foundation_reward_claimed = false)
-          )
-        LIMIT 1`,
+      `SELECT
+         COUNT(*) FILTER (
+           WHERE invitee_player_id = $1
+             AND invitee_reward_claimed = false
+         )::integer AS invitee_count,
+         COUNT(*) FILTER (
+           WHERE inviter_player_id = $1
+             AND inviter_base_reward_claimed = false
+         )::integer AS inviter_base_count,
+         COUNT(*) FILTER (
+           WHERE inviter_player_id = $1
+             AND invitee_highest_realm_lv >= $2
+             AND inviter_qi_reward_claimed = false
+         )::integer AS inviter_qi_count,
+         COUNT(*) FILTER (
+           WHERE inviter_player_id = $1
+             AND invitee_highest_realm_lv >= $3
+             AND inviter_foundation_reward_claimed = false
+         )::integer AS inviter_foundation_count
+       FROM ${INVITATION_TABLE}
+       WHERE invitee_player_id = $1 OR inviter_player_id = $1`,
       [normalizedPlayerId, INVITATION_QI_REALM_MIN_LEVEL, INVITATION_FOUNDATION_REALM_MIN_LEVEL],
     );
-    return (result.rowCount ?? 0) > 0;
+    const row = result.rows[0] ?? {};
+    const inviteeCount = normalizeCount(row.invitee_count);
+    return {
+      inviteeSpiritStone: inviteeCount * INVITATION_INVITEE_SPIRIT_STONE_REWARD,
+      inviteeMerit: inviteeCount * INVITATION_INVITEE_MERIT_REWARD,
+      inviterMerit:
+        normalizeCount(row.inviter_base_count) * INVITATION_INVITER_BASE_MERIT_REWARD
+        + normalizeCount(row.inviter_qi_count) * INVITATION_INVITER_QI_REALM_MERIT_REWARD
+        + normalizeCount(row.inviter_foundation_count) * INVITATION_INVITER_FOUNDATION_REALM_MERIT_REWARD,
+    };
   }
 
   async claimPendingInvitationRewards(playerId: string): Promise<ActivityInvitationRewardClaimResult> {

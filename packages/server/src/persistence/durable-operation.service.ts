@@ -45,6 +45,11 @@ import {
   type DurableContainerStateSourceMutation,
   type DurableGroundTileSourceMutation,
 } from './loot-source-durable-persistence';
+import {
+  normalizeDurableActivityAssetSourceMutation,
+  persistDurableActivityAssetSourceMutation,
+  type DurableActivityAssetSourceMutation,
+} from './activity-asset-durable-persistence';
 
 const PLAYER_PRESENCE_TABLE = 'player_presence';
 const PLAYER_WALLET_TABLE = 'player_wallet';
@@ -282,7 +287,8 @@ export type DurableInventoryGrantSourceMutation =
       buildingId: string;
       fuelUnits: number;
     }
-  | DurableTileResourceSourceMutation;
+  | DurableTileResourceSourceMutation
+  | DurableActivityAssetSourceMutation;
 
 export interface GrantInventoryItemsResult {
   ok: boolean;
@@ -1536,16 +1542,37 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
         || normalizedSourceType === 'container_take'
         || normalizedSourceType === 'container_take_all'
         || normalizedSourceType === 'ground_drop'
-        || normalizedSourceType === 'tile_resource_use')
+        || normalizedSourceType === 'tile_resource_use'
+        || normalizedSourceType === 'activity_month_card_activation'
+        || normalizedSourceType === 'activity_eternal_activation'
+        || normalizedSourceType === 'activity_month_card_claim'
+        || normalizedSourceType === 'activity_daily_sign_in_claim'
+        || normalizedSourceType === 'activity_invitation_reward_claim')
       && !normalizedSourceMutation
     ) {
       throw new Error('inventory_grant_source_mutation_required');
     }
     if (
       normalizedSourceMutation
+      && normalizedSourceMutation.kind !== 'activity_asset'
       && normalizeOptionalString(input.expectedInstanceId) !== normalizedSourceMutation.instanceId
     ) {
       throw new Error('inventory_grant_source_instance_mismatch');
+    }
+    if (normalizedSourceMutation?.kind === 'activity_asset') {
+      const expectedSourceTypeByAction: Record<DurableActivityAssetSourceMutation['action'], string> = {
+        activate_month_card: 'activity_month_card_activation',
+        activate_eternal: 'activity_eternal_activation',
+        claim_month_card: 'activity_month_card_claim',
+        claim_daily_sign_in: 'activity_daily_sign_in_claim',
+        claim_invitation_rewards: 'activity_invitation_reward_claim',
+      };
+      if (normalizedSourceMutation.playerId !== normalizedPlayerId) {
+        throw new Error('activity_source_player_mismatch');
+      }
+      if (expectedSourceTypeByAction[normalizedSourceMutation.action] !== normalizedSourceType) {
+        throw new Error('activity_source_type_mismatch');
+      }
     }
     if (normalizedSourceMutation?.kind === 'tile_resource') {
       if (normalizedSourceType !== 'tile_resource_use') {
@@ -1712,6 +1739,25 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
               })),
             },
             'tile-resource',
+          );
+        }
+        if (normalizedSourceMutation?.kind === 'activity_asset') {
+          await insertAssetAuditLog(
+            client,
+            normalizedOperationId,
+            normalizedPlayerId,
+            'activity_asset',
+            normalizedSourceRefId ?? normalizedSourceType,
+            normalizedSourceMutation.action,
+            {
+              sourceType: normalizedSourceType,
+              sourceMutation: normalizedSourceMutation,
+            },
+            {},
+            {
+              committed: true,
+            },
+            'activity-source',
           );
         }
 
@@ -6358,6 +6404,9 @@ function normalizeInventoryGrantSourceMutation(
   if (!value || typeof value !== 'object') {
     return null;
   }
+  if (value.kind === 'activity_asset') {
+    return normalizeDurableActivityAssetSourceMutation(value);
+  }
   const instanceId = normalizeRequiredString(value.instanceId);
   if (!instanceId) {
     return null;
@@ -6388,6 +6437,10 @@ async function persistInventoryGrantSourceMutation(
   client: import('pg').PoolClient,
   mutation: DurableInventoryGrantSourceMutation,
 ): Promise<void> {
+  if (mutation.kind === 'activity_asset') {
+    await persistDurableActivityAssetSourceMutation(client, mutation);
+    return;
+  }
   await client.query('SELECT pg_advisory_xact_lock($1::integer, hashtext($2))', [7102, mutation.instanceId]);
   if (mutation.kind === 'ground_tile' || mutation.kind === 'container_state') {
     await persistDurableLootSourceMutation(client, mutation);

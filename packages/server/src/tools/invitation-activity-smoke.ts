@@ -17,8 +17,16 @@ import {
 import { ActivityRuntimeService } from '../runtime/activity/activity-runtime.service';
 
 async function main(): Promise<void> {
-  const granted: Array<{ playerId: string; itemId: string; count: number }> = [];
+  const durableCalls: Array<Record<string, unknown>> = [];
   const progressUpdates: Array<{ playerId: string; highestRealmLv: number }> = [];
+  const expectedRewards = {
+    inviteeSpiritStone: INVITATION_INVITEE_SPIRIT_STONE_REWARD,
+    inviteeMerit: INVITATION_INVITEE_MERIT_REWARD,
+    inviterMerit:
+      INVITATION_INVITER_BASE_MERIT_REWARD
+      + INVITATION_INVITER_QI_REALM_MERIT_REWARD
+      + INVITATION_INVITER_FOUNDATION_REALM_MERIT_REWARD,
+  };
   const activityPersistence = {
     isEnabled: () => true,
     loadMonthCard: async () => null,
@@ -26,19 +34,11 @@ async function main(): Promise<void> {
     updateInvitationInviteeHighestRealmLv: async (playerId: string, highestRealmLv: number) => {
       progressUpdates.push({ playerId, highestRealmLv });
     },
-    hasPendingInvitationRewards: async () => true,
     listInvitationInviteeProgress: async () => [
       { inviteePlayerId: 'p_invitee_qi', highestRealmLv: 1 },
       { inviteePlayerId: 'p_invitee_foundation', highestRealmLv: 19 },
     ],
-    claimPendingInvitationRewards: async () => ({
-      inviteeSpiritStone: INVITATION_INVITEE_SPIRIT_STONE_REWARD,
-      inviteeMerit: INVITATION_INVITEE_MERIT_REWARD,
-      inviterMerit:
-        INVITATION_INVITER_BASE_MERIT_REWARD
-        + INVITATION_INVITER_QI_REALM_MERIT_REWARD
-        + INVITATION_INVITER_FOUNDATION_REALM_MERIT_REWARD,
-    }),
+    previewPendingInvitationRewards: async () => expectedRewards,
     loadInvitationStatus: async () => ({
       totalInvitees: 2,
       registeredRewardedCount: 2,
@@ -46,19 +46,49 @@ async function main(): Promise<void> {
       foundationReachedCount: 1,
     }),
   };
+  const player = {
+    playerId: 'p_inviter',
+    realm: { realmLv: 31 },
+    runtimeOwnerId: 'runtime:activity-smoke',
+    sessionEpoch: 3,
+    instanceId: null,
+    inventory: { items: [], capacity: 24, revision: 0 },
+  };
   const playerRuntime = {
-    getPlayerOrThrow: (playerId: string) => ({ playerId, realm: { realmLv: 31 } }),
+    contentTemplateRepository: {
+      createItem: (itemId: string, count: number) => ({ itemId, count }),
+    },
+    playerDomainPersistenceService: {
+      isEnabled: () => true,
+      loadPlayerPresence: async () => ({ runtimeOwnerId: player.runtimeOwnerId, sessionEpoch: 2 }),
+      savePlayerPresence: async () => undefined,
+    },
+    getPlayerOrThrow: (playerId: string) => {
+      assert.equal(playerId, 'p_inviter');
+      return player;
+    },
     getPlayer: (playerId: string) => {
       if (playerId === 'p_inviter') {
-        return { playerId, realm: { realmLv: 31 }, inventory: { items: [] } };
+        return player;
       }
       return null;
     },
-    grantItem: (playerId: string, itemId: string, count: number) => {
-      granted.push({ playerId, itemId, count });
+    runExclusiveAssetMutation: async (_playerIds: string[], action: () => Promise<unknown>) => action(),
+    describePersistencePresence: () => ({ runtimeOwnerId: player.runtimeOwnerId, sessionEpoch: player.sessionEpoch }),
+    getSessionFence: () => ({ runtimeOwnerId: player.runtimeOwnerId, sessionEpoch: player.sessionEpoch }),
+    ensureRuntimeSessionFenceAtLeast: (_playerId: string, persistedEpoch: number) => {
+      player.sessionEpoch = persistedEpoch + 1;
     },
-    receiveInventoryItem: (playerId: string, item: { itemId: string; count: number }) => {
-      granted.push({ playerId, itemId: item.itemId, count: item.count });
+    replaceInventoryItems: (playerId: string, items: Array<{ itemId: string; count: number }>) => {
+      assert.equal(playerId, 'p_inviter');
+      player.inventory.items = items.map((entry) => ({ ...entry }));
+    },
+  };
+  const durable = {
+    isEnabled: () => true,
+    grantInventoryItems: async (input: Record<string, unknown>) => {
+      durableCalls.push(input);
+      return { ok: true, alreadyCommitted: false };
     },
   };
   const counters = {
@@ -81,6 +111,8 @@ async function main(): Promise<void> {
   const service = new ActivityRuntimeService(
     activityPersistence as never,
     playerRuntime as never,
+    durable as never,
+    {} as never,
     counters as never,
     authStore as never,
   );
@@ -100,18 +132,13 @@ async function main(): Promise<void> {
   assert.equal(status.dailySignIn.rewardPreview.streakBonusPercent, 1);
   assert.equal(status.dailySignIn.lastFortune, null);
   assert.equal(status.hasRedDot, true);
-  assert.deepEqual(granted, [
-    { playerId: 'p_inviter', itemId: SPIRIT_STONE_ITEM_ID, count: INVITATION_INVITEE_SPIRIT_STONE_REWARD },
-    { playerId: 'p_inviter', itemId: MERIT_ITEM_ID, count: INVITATION_INVITEE_MERIT_REWARD },
-    {
-      playerId: 'p_inviter',
-      itemId: MERIT_ITEM_ID,
-      count:
-        INVITATION_INVITER_BASE_MERIT_REWARD
-        + INVITATION_INVITER_QI_REALM_MERIT_REWARD
-        + INVITATION_INVITER_FOUNDATION_REALM_MERIT_REWARD,
-    },
+  assert.deepEqual(player.inventory.items, [
+    { itemId: SPIRIT_STONE_ITEM_ID, count: INVITATION_INVITEE_SPIRIT_STONE_REWARD },
+    { itemId: MERIT_ITEM_ID, count: expectedRewards.inviteeMerit + expectedRewards.inviterMerit },
   ]);
+  assert.equal(durableCalls.length, 1);
+  assert.equal(durableCalls[0]?.sourceType, 'activity_invitation_reward_claim');
+  assert.deepEqual((durableCalls[0]?.sourceMutation as { expectedRewards?: unknown })?.expectedRewards, expectedRewards);
   assert.deepEqual(progressUpdates, [
     { playerId: 'p_inviter', highestRealmLv: 31 },
     { playerId: 'p_invitee_qi', highestRealmLv: 19 },
@@ -125,7 +152,7 @@ async function main(): Promise<void> {
       'activity status exposes invite code and invite link path',
       'invitation stage counts are projected into the activity view',
       'pending invitation rewards contribute to the activity red dot',
-      'invitee and inviter merit/spirit-stone rewards are granted through runtime item paths',
+      'invitee and inviter merit/spirit-stone rewards share one durable inventory transaction',
       'invitee highest realm progress is refreshed before reward claims',
     ],
   }, null, 2));

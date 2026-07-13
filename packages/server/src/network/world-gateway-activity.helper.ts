@@ -29,7 +29,11 @@ export class WorldGatewayActivityHelper {
     try {
       await this.emitActivityStatus(client, playerId);
     } catch (error) {
-      this.worldClientEventService.emitGatewayError(client, 'REQUEST_ACTIVITY_STATUS_FAILED', error);
+      this.worldClientEventService.emitGatewayError(
+        client,
+        'REQUEST_ACTIVITY_STATUS_FAILED',
+        normalizeActivityError(error),
+      );
     }
   }
 
