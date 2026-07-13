@@ -26,6 +26,7 @@ import { NodeRegistryService } from './node-registry.service';
 import type { PersistedPlayerSnapshot } from './player-persistence.service';
 import { isTransientPostgresError } from './pg-error-utils';
 import {
+  nextPlayerPersistenceVersion,
   savePlayerSnapshotProjectionDomainsWithClient,
   type PlayerTechniqueActivityQueueUpsertInput,
 } from './player-domain-persistence.service';
@@ -764,7 +765,6 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
       throw new Error('invalid_claim_mail_attachments_input');
     }
 
-    const now = Date.now();
     const client = await this.pool.connect();
     let clientReleased = false;
     let commitAttempted = false;
@@ -774,6 +774,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
     try {
       await client.query('BEGIN');
       await acquirePlayerAssetLock(client, normalizedPlayerId);
+      const occurredAtMs = Date.now();
 
       const existingOperation = await client.query<{
         status?: string;
@@ -799,7 +800,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
         });
       }
       if (existingOperation.rowCount && existingOperation.rows[0]?.status === 'committed') {
-        const existingCounters = await readMailCounters(client, normalizedPlayerId, now);
+        const existingCounters = await readMailCounters(client, normalizedPlayerId, occurredAtMs);
         clientReleased = await rollbackTransactionOrDestroyClient(client);
         return {
           ok: true,
@@ -808,6 +809,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
           unclaimedCount: existingCounters.unclaimedCount,
         };
       }
+      const persistenceVersion = nextPlayerPersistenceVersion(occurredAtMs);
 
       const presence = await client.query<{
         runtime_owner_id?: string;
@@ -903,7 +905,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
           throw new Error('mail_already_claimed_or_deleted');
         }
         const expireAt = Number(row.expire_at ?? 0);
-        if (Number.isFinite(expireAt) && expireAt > 0 && expireAt <= now) {
+        if (Number.isFinite(expireAt) && expireAt > 0 && expireAt <= occurredAtMs) {
           throw new Error('mail_already_expired');
         }
       }
@@ -964,7 +966,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
             AND mail_id = ANY($4::varchar[])
             AND claimed_at IS NULL
         `,
-        [normalizedOperationId, now, normalizedPlayerId, normalizedMailIds],
+        [normalizedOperationId, occurredAtMs, normalizedPlayerId, normalizedMailIds],
       );
 
       await client.query(
@@ -978,14 +980,14 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
           WHERE player_id = $2
             AND mail_id = ANY($3::varchar[])
         `,
-        [now, normalizedPlayerId, normalizedMailIds],
+        [occurredAtMs, normalizedPlayerId, normalizedMailIds],
       );
 
-      const counters = await readMailCounters(client, normalizedPlayerId, now);
+      const counters = await readMailCounters(client, normalizedPlayerId, occurredAtMs);
       const unreadCount = counters.unreadCount;
       const unclaimedCount = counters.unclaimedCount;
       const latestMailAt = counters.latestMailAt;
-      const counterVersion = Math.max(now, previousCounterVersion + 1);
+      const counterVersion = Math.max(persistenceVersion, previousCounterVersion + 1);
 
       await client.query(
         `
@@ -1030,7 +1032,13 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
             mail_counter_version = GREATEST(${PLAYER_RECOVERY_WATERMARK_TABLE}.mail_counter_version, EXCLUDED.mail_counter_version),
             updated_at = now()
         `,
-        [normalizedPlayerId, nextWalletBalances ? now : 0, now, now, counterVersion],
+        [
+          normalizedPlayerId,
+          nextWalletBalances ? persistenceVersion : 0,
+          persistenceVersion,
+          persistenceVersion,
+          counterVersion,
+        ],
       );
 
       await client.query(
@@ -1171,7 +1179,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
         movedCount,
         remainingCount,
       }),
-      onMutate: async (client, now) => {
+      onMutate: async (client, persistenceVersion) => {
         await replacePlayerInventoryItems(client, normalizedPlayerId, normalizedInventoryItems);
         await replacePlayerMarketStorageItems(client, normalizedPlayerId, normalizedStorageItems, {
           allowEmptyOverwrite: movedCount > 0 && remainingCount === 0,
@@ -1192,7 +1200,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
               market_storage_version = GREATEST(${PLAYER_RECOVERY_WATERMARK_TABLE}.market_storage_version, EXCLUDED.market_storage_version),
               updated_at = now()
           `,
-          [normalizedPlayerId, now, now + 1],
+          [normalizedPlayerId, persistenceVersion, persistenceVersion],
         );
 
         await client.query(
@@ -1302,7 +1310,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
         quantity,
         totalCost,
       }),
-      onMutate: async (client, now) => {
+      onMutate: async (client, persistenceVersion) => {
         await replacePlayerWalletRows(client, normalizedPlayerId, normalizedWalletBalances);
         await replacePlayerInventoryItems(client, normalizedPlayerId, normalizedInventoryItems);
 
@@ -1321,7 +1329,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
               inventory_version = GREATEST(${PLAYER_RECOVERY_WATERMARK_TABLE}.inventory_version, EXCLUDED.inventory_version),
               updated_at = now()
           `,
-          [normalizedPlayerId, now, now + 1],
+          [normalizedPlayerId, persistenceVersion, persistenceVersion],
         );
 
         await client.query(
@@ -1432,7 +1440,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
         action,
         delta,
       }),
-      onMutate: async (client, now) => {
+      onMutate: async (client, persistenceVersion) => {
         await replacePlayerWalletRows(client, normalizedPlayerId, normalizedWalletBalances);
 
         await client.query(
@@ -1448,7 +1456,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
               wallet_version = GREATEST(${PLAYER_RECOVERY_WATERMARK_TABLE}.wallet_version, EXCLUDED.wallet_version),
               updated_at = now()
           `,
-          [normalizedPlayerId, now],
+          [normalizedPlayerId, persistenceVersion],
         );
 
         await client.query(
@@ -1628,7 +1636,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
         grantedCount: normalizedGrantedItems.reduce((total, entry) => total + Math.max(0, Math.trunc(Number(entry?.count ?? 0))), 0),
         sourceType: normalizedSourceType,
       }),
-      onMutate: async (client, now) => {
+      onMutate: async (client, persistenceVersion) => {
         if (normalizedSourceMutation) {
           await persistInventoryGrantSourceMutation(client, normalizedSourceMutation);
         }
@@ -1647,7 +1655,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
               inventory_version = GREATEST(${PLAYER_RECOVERY_WATERMARK_TABLE}.inventory_version, EXCLUDED.inventory_version),
               updated_at = now()
           `,
-          [normalizedPlayerId, now],
+          [normalizedPlayerId, persistenceVersion],
         );
 
         await client.query(
@@ -2100,7 +2108,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
         alreadyCommitted: true,
         questId: normalizedQuestId,
       }),
-      onMutate: async (client, now) => {
+      onMutate: async (client, persistenceVersion) => {
         await replacePlayerInventoryItems(client, normalizedPlayerId, normalizedInventoryItems);
         await replacePlayerWalletRows(client, normalizedPlayerId, normalizedWalletBalances);
         await replacePlayerQuestProgressRows(client, normalizedPlayerId, normalizedQuestEntries);
@@ -2122,7 +2130,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
               quest_version = GREATEST(${PLAYER_RECOVERY_WATERMARK_TABLE}.quest_version, EXCLUDED.quest_version),
               updated_at = now()
           `,
-          [normalizedPlayerId, now, now + 1, now + 2],
+          [normalizedPlayerId, persistenceVersion, persistenceVersion, persistenceVersion],
         );
 
         await client.query(
@@ -2237,7 +2245,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
         action,
         slot: normalizedSlot,
       }),
-      onMutate: async (client, now) => {
+      onMutate: async (client, persistenceVersion) => {
         await replacePlayerInventoryItems(client, normalizedPlayerId, normalizedInventoryItems, {
           allowEmptyOverwrite: action === 'equip',
         });
@@ -2260,7 +2268,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
               equipment_version = GREATEST(${PLAYER_RECOVERY_WATERMARK_TABLE}.equipment_version, EXCLUDED.equipment_version),
               updated_at = now()
           `,
-          [normalizedPlayerId, now, now + 1],
+          [normalizedPlayerId, persistenceVersion, persistenceVersion],
         );
 
         await client.query(
@@ -2390,7 +2398,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
         ok: true,
         alreadyCommitted: true,
       }),
-      onMutate: async (client, now) => {
+      onMutate: async (client, persistenceVersion) => {
         await replacePlayerInventoryItems(client, normalizedSellerId, normalizedSellerInventoryItems);
         await replacePlayerWalletRows(client, normalizedSellerId, normalizedSellerWalletBalances);
         await client.query(
@@ -2408,7 +2416,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
               wallet_version = GREATEST(${PLAYER_RECOVERY_WATERMARK_TABLE}.wallet_version, EXCLUDED.wallet_version),
               updated_at = now()
           `,
-          [normalizedSellerId, now, now + 1],
+          [normalizedSellerId, persistenceVersion, persistenceVersion],
         );
         await client.query(
           `
@@ -2499,7 +2507,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
                 inventory_version = GREATEST(${PLAYER_RECOVERY_WATERMARK_TABLE}.inventory_version, EXCLUDED.inventory_version),
                 updated_at = now()
             `,
-            [normalizedBuyerId, now],
+            [normalizedBuyerId, persistenceVersion],
           );
           await client.query(
             `
@@ -2593,7 +2601,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
         ok: true,
         alreadyCommitted: true,
       }),
-      onMutate: async (client, now) => {
+      onMutate: async (client, persistenceVersion) => {
         await replacePlayerInventoryItems(client, normalizedBuyerId, normalizedBuyerInventoryItems);
         await replacePlayerWalletRows(client, normalizedBuyerId, normalizedBuyerWalletBalances);
         await client.query(
@@ -2611,7 +2619,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
               wallet_version = GREATEST(${PLAYER_RECOVERY_WATERMARK_TABLE}.wallet_version, EXCLUDED.wallet_version),
               updated_at = now()
           `,
-          [normalizedBuyerId, now, now + 1],
+          [normalizedBuyerId, persistenceVersion, persistenceVersion],
         );
         await client.query(
           `
@@ -2673,7 +2681,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
                 wallet_version = GREATEST(${PLAYER_RECOVERY_WATERMARK_TABLE}.wallet_version, EXCLUDED.wallet_version),
                 updated_at = now()
             `,
-            [normalizedSellerId, now, now + 1],
+            [normalizedSellerId, persistenceVersion, persistenceVersion],
           );
         }
         return {
@@ -2726,7 +2734,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
         ok: true,
         alreadyCommitted: true,
       }),
-      onMutate: async (client, now) => {
+      onMutate: async (client, persistenceVersion) => {
         await replacePlayerInventoryItems(client, normalizedPlayerId, normalizedInventoryItems);
         await replacePlayerWalletRows(client, normalizedPlayerId, normalizedWalletBalances);
         await client.query(`DELETE FROM ${MARKET_ORDER_TABLE} WHERE order_id = $1`, [normalizedOrderId]);
@@ -2745,7 +2753,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
               wallet_version = GREATEST(${PLAYER_RECOVERY_WATERMARK_TABLE}.wallet_version, EXCLUDED.wallet_version),
               updated_at = now()
           `,
-          [normalizedPlayerId, now, now + 1],
+          [normalizedPlayerId, persistenceVersion, persistenceVersion],
         );
         return {
           ok: true,
@@ -2804,7 +2812,6 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
     if (requirePresenceFence && (!expectedRuntimeOwnerId || expectedSessionEpoch <= 0)) {
       throw new Error('market_mutation_session_fence_missing');
     }
-    const now = Date.now();
     const client = await this.pool.connect();
     let clientReleased = false;
     let commitAttempted = false;
@@ -2843,6 +2850,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
         clientReleased = await rollbackTransactionOrDestroyClient(client);
         return { ok: true, alreadyCommitted: true };
       }
+      const persistenceVersion = nextPlayerPersistenceVersion();
       let persistedRuntimeOwnerId = expectedRuntimeOwnerId;
       let persistedSessionEpoch = expectedSessionEpoch;
       if (requirePresenceFence) {
@@ -2900,7 +2908,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
       }
       await insertMarketTradeRecords(client, tradeRecords);
       for (const mutation of playerMutations) {
-        await persistMarketPlayerMutation(client, mutation, now);
+        await persistMarketPlayerMutation(client, mutation, persistenceVersion);
       }
       if (banUser) {
         await persistDurableMarketBanUser(client, banUser);
@@ -2999,7 +3007,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
         jobRunId: normalizedNextActiveJob?.jobRunId ?? null,
         jobVersion: normalizedNextActiveJob?.jobVersion ?? null,
       }),
-      onMutate: async (client, now) => {
+      onMutate: async (client, persistenceVersion) => {
         const currentRow = await client.query<{
           job_run_id?: string | null;
           job_version?: string | number | null;
@@ -3079,7 +3087,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
               active_job_version = GREATEST(${PLAYER_RECOVERY_WATERMARK_TABLE}.active_job_version, EXCLUDED.active_job_version),
               updated_at = now()
           `,
-          [normalizedPlayerId, now],
+          [normalizedPlayerId, persistenceVersion],
         );
 
         await client.query(
@@ -3243,7 +3251,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
         jobRunId: normalizedNextActiveJob.jobRunId,
         jobVersion: normalizedNextActiveJob.jobVersion,
       }),
-      onMutate: async (client, now) => {
+      onMutate: async (client, persistenceVersion) => {
         if (normalizedExpectedQueueHeadId && Array.isArray(normalizedNextTechniqueActivityQueue)) {
           await assertPlayerTechniqueActivityQueueHead(
             client,
@@ -3298,7 +3306,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
           );
         }
 
-        const activeJobVersion = Array.isArray(normalizedNextTechniqueActivityQueue) ? now + 3 : now + 2;
+        const activeJobVersion = persistenceVersion;
         await client.query(
           `
             INSERT INTO ${PLAYER_RECOVERY_WATERMARK_TABLE}(
@@ -3320,10 +3328,10 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
           `,
           [
             normalizedPlayerId,
-            now,
-            now + 1,
+            persistenceVersion,
+            persistenceVersion,
             activeJobVersion,
-            Array.isArray(normalizedNextEnhancementRecords) ? activeJobVersion + 1 : 0,
+            Array.isArray(normalizedNextEnhancementRecords) ? persistenceVersion : 0,
           ],
         );
 
@@ -3589,7 +3597,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
         jobRunId: null,
         jobVersion: null,
       }),
-      onMutate: async (client, now) => {
+      onMutate: async (client, persistenceVersion) => {
         const currentRow = await client.query<{
           job_run_id?: string | null;
           job_version?: string | number | null;
@@ -3661,11 +3669,11 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
           `,
           [
             normalizedPlayerId,
-            now,
-            now + 1,
-            Array.isArray(normalizedNextEquipmentSlots) ? now + 2 : 0,
-            now + 3,
-            Array.isArray(normalizedNextEnhancementRecords) ? now + 4 : 0,
+            persistenceVersion,
+            persistenceVersion,
+            Array.isArray(normalizedNextEquipmentSlots) ? persistenceVersion : 0,
+            persistenceVersion,
+            Array.isArray(normalizedNextEnhancementRecords) ? persistenceVersion : 0,
           ],
         );
 
@@ -3819,7 +3827,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
         jobRunId: normalizedNextActiveJob?.jobRunId ?? null,
         jobVersion: normalizedNextActiveJob?.jobVersion ?? null,
       }),
-      onMutate: async (client, now) => {
+      onMutate: async (client, persistenceVersion) => {
         const currentRow = await client.query<{
           job_run_id?: string | null;
           job_version?: string | number | null;
@@ -3873,12 +3881,10 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
           await replacePlayerProfessionStates(client, normalizedPlayerId, normalizedNextProfessionStates);
         }
         await replacePlayerActiveJob(client, normalizedPlayerId, normalizedNextActiveJob);
-        const professionVersion = Array.isArray(normalizedNextProfessionStates) ? now + 3 : 0;
-        // 各分域 watermark 独立比较，profession 与 active_job 可共用同一事务版本；
-        // 保持 active_job 既有 now+3 口径，避免部署后平白抬高旧链路版本。
-        const activeJobVersion = now + 3;
+        const professionVersion = Array.isArray(normalizedNextProfessionStates) ? persistenceVersion : 0;
+        const activeJobVersion = persistenceVersion;
         const enhancementRecordVersion = Array.isArray(normalizedNextEnhancementRecords)
-          ? activeJobVersion + 1
+          ? persistenceVersion
           : 0;
 
         await client.query(
@@ -3906,9 +3912,9 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
           `,
           [
             normalizedPlayerId,
-            now,
-            now + 1,
-            Array.isArray(normalizedNextEquipmentSlots) ? now + 2 : 0,
+            persistenceVersion,
+            persistenceVersion,
+            Array.isArray(normalizedNextEquipmentSlots) ? persistenceVersion : 0,
             professionVersion,
             activeJobVersion,
             enhancementRecordVersion,
@@ -4125,8 +4131,13 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
     operationType: string;
     aggregateType: string;
     payload: unknown;
-    onAlreadyCommitted: (client: import('pg').PoolClient, now: number) => Promise<TResult>;
-    onMutate: (client: import('pg').PoolClient, now: number, runtimeOwnerId: string, sessionEpoch: number) => Promise<TResult>;
+    onAlreadyCommitted: (client: import('pg').PoolClient, occurredAtMs: number) => Promise<TResult>;
+    onMutate: (
+      client: import('pg').PoolClient,
+      persistenceVersion: number,
+      runtimeOwnerId: string,
+      sessionEpoch: number,
+    ) => Promise<TResult>;
   }, commitOutcomeRetryRemaining = 1): Promise<TResult> {
     if (!this.pool || !this.enabled) {
       throw new Error('durable_operation_service_disabled');
@@ -4138,7 +4149,6 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
       throw new Error('invalid_execute_asset_mutation_input');
     }
 
-    const now = Date.now();
     const client = await this.pool.connect();
     let clientReleased = false;
     let commitAttempted = false;
@@ -4173,10 +4183,13 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
         });
       }
       if (existingOperation.rowCount && existingOperation.rows[0]?.status === 'committed') {
-        const committedResult = await input.onAlreadyCommitted(client, now);
+        const committedResult = await input.onAlreadyCommitted(client, Date.now());
         clientReleased = await rollbackTransactionOrDestroyClient(client);
         return committedResult;
       }
+      // 版本必须在取得与普通玩家 flush 共用的数据库锁后生成。
+      // 否则等待锁期间排队的旧运行态快照可能拿到更大版本，并在 durable 提交后反向覆盖资产真源。
+      const persistenceVersion = nextPlayerPersistenceVersion();
 
       const presence = await client.query<{
         runtime_owner_id?: string;
@@ -4250,7 +4263,12 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
         );
       }
 
-      mutationResult = await input.onMutate(client, now, persistedRuntimeOwnerId, Math.trunc(persistedSessionEpoch));
+      mutationResult = await input.onMutate(
+        client,
+        persistenceVersion,
+        persistedRuntimeOwnerId,
+        Math.trunc(persistedSessionEpoch),
+      );
 
       await client.query(
         `
@@ -6936,20 +6954,20 @@ async function insertMarketTradeRecords(client: import('pg').PoolClient, records
 async function persistMarketPlayerMutation(
   client: import('pg').PoolClient,
   mutation: DurableMarketPlayerMutationSnapshot,
-  now: number,
+  persistenceVersion: number,
 ): Promise<void> {
   const watermark: { inventory?: number; wallet?: number; marketStorage?: number } = {};
   if (Array.isArray(mutation.nextInventoryItems)) {
     await replacePlayerInventoryItems(client, mutation.playerId, mutation.nextInventoryItems, { allowEmptyOverwrite: true });
-    watermark.inventory = now;
+    watermark.inventory = persistenceVersion;
   }
   if (Array.isArray(mutation.nextWalletBalances)) {
     await replacePlayerWalletRows(client, mutation.playerId, mutation.nextWalletBalances);
-    watermark.wallet = now + 1;
+    watermark.wallet = persistenceVersion;
   }
   if (Array.isArray(mutation.nextMarketStorageItems)) {
     await replacePlayerMarketStorageItems(client, mutation.playerId, mutation.nextMarketStorageItems, { allowEmptyOverwrite: true });
-    watermark.marketStorage = now + 2;
+    watermark.marketStorage = persistenceVersion;
   }
   await upsertMarketMutationWatermark(client, mutation.playerId, watermark);
 }

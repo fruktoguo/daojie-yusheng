@@ -5,6 +5,11 @@ import { DatabasePoolProvider } from '../persistence/database-pool.provider';
 import { DurableOperationService } from '../persistence/durable-operation.service';
 import { FlushLedgerService } from '../persistence/flush-ledger.service';
 import { InstanceDomainPersistenceService } from '../persistence/instance-domain-persistence.service';
+import {
+  nextPlayerPersistenceVersion,
+  PlayerDomainPersistenceService,
+} from '../persistence/player-domain-persistence.service';
+import { buildSnapshot } from './player-domain-persistence-smoke-support/fixtures';
 import { installSmokeTimeout } from './smoke-timeout';
 
 installSmokeTimeout(__filename);
@@ -41,11 +46,13 @@ async function main(): Promise<void> {
   } as never, databasePoolProvider);
   const ledger = new FlushLedgerService(databasePoolProvider);
   const instancePersistence = new InstanceDomainPersistenceService(databasePoolProvider);
+  const playerPersistence = new PlayerDomainPersistenceService(null, databasePoolProvider, null);
 
   try {
     await service.onModuleInit();
     await ledger.onModuleInit();
     await instancePersistence.onModuleInit();
+    await playerPersistence.onModuleInit();
     await cleanupPlayer(pool, playerId);
     await seedInventoryGrantFixture(pool, {
       playerId,
@@ -351,6 +358,17 @@ async function main(): Promise<void> {
       throw new Error(`unexpected watermark row: ${JSON.stringify(watermarkRow)}`);
     }
 
+    const staleFlushFence = await verifyDurableVersionGeneratedAfterPlayerLock({
+      pool,
+      service,
+      playerPersistence,
+      playerId,
+      runtimeOwnerId,
+      instanceId: leasedInstanceId,
+      assignedNodeId: 'node:inventory-grant-smoke',
+      ownershipEpoch: 4,
+    });
+
     const containerResults = await verifyContainerSourceLedgerFence({
       pool,
       service,
@@ -368,20 +386,124 @@ async function main(): Promise<void> {
     console.log(JSON.stringify({
       ok: true,
       case: 'inventory-grant-durable',
-      answers: 'with-db 下 grantInventoryItems 已验证 runtime_owner_id + session_epoch + 精确 instance lease fencing、幂等回放和拒绝不污染真源；地面/容器来源与背包、watermark、outbox、audit 同事务提交；已认领旧 payload 在事务后无法恢复旧来源，新累计 payload 可继续刷入其他脏地块和容器。',
+      answers: 'with-db 下 grantInventoryItems 已验证 runtime_owner_id + session_epoch + 精确 instance lease fencing、幂等回放和拒绝不污染真源；地面/容器来源与背包、watermark、outbox、audit 同事务提交；durable 版本在玩家锁后生成，等待锁期间已排队的旧运行态快照无法在提交后反向覆盖背包；已认领旧 payload 在事务后无法恢复旧来源，新累计 payload 可继续刷入其他脏地块和容器。',
       excludes: '不证明真实网络断线时 COMMIT 回包丢失或多节点同时续租；运行态锁与不确定回包收敛由对应 facade smoke 覆盖。',
       completionMapping: 'release:proof:with-db.inventory-grant-durable',
       firstResult,
       replayResult,
+      staleFlushFence,
       containerResults,
     }, null, 2));
   } finally {
     await cleanupPlayer(pool, playerId).catch(() => undefined);
+    await playerPersistence.onModuleDestroy().catch(() => undefined);
     await instancePersistence.onModuleDestroy().catch(() => undefined);
     await ledger.onModuleDestroy().catch(() => undefined);
     await service.onModuleDestroy().catch(() => undefined);
     await databasePoolProvider.onModuleDestroy().catch(() => undefined);
     await pool.end().catch(() => undefined);
+  }
+}
+
+async function verifyDurableVersionGeneratedAfterPlayerLock(input: {
+  pool: Pool;
+  service: DurableOperationService;
+  playerPersistence: PlayerDomainPersistenceService;
+  playerId: string;
+  runtimeOwnerId: string;
+  instanceId: string;
+  assignedNodeId: string;
+  ownershipEpoch: number;
+}): Promise<{ staleProjectionVersion: number; committedWatermarkVersion: number }> {
+  const blocker = await input.pool.connect();
+  const operationId = `op:${input.playerId}:version-fence`;
+  const committedItemInstanceId = '00000000-0000-4000-8000-000000000041';
+  const staleItemInstanceId = '00000000-0000-4000-8000-000000000042';
+  try {
+    await blocker.query('BEGIN');
+    await blocker.query(
+      'SELECT pg_advisory_xact_lock($1::integer, hashtext($2))',
+      [7101, input.playerId],
+    );
+
+    const durablePromise = input.service.grantInventoryItems({
+      operationId,
+      playerId: input.playerId,
+      expectedRuntimeOwnerId: input.runtimeOwnerId,
+      expectedSessionEpoch: 9,
+      expectedInstanceId: input.instanceId,
+      expectedAssignedNodeId: input.assignedNodeId,
+      expectedOwnershipEpoch: input.ownershipEpoch,
+      sourceType: 'version_fence_smoke',
+      sourceRefId: committedItemInstanceId,
+      inventoryAction: 'grant',
+      grantedItems: [{
+        itemId: 'current_after_durable_lock',
+        count: 1,
+        itemInstanceId: committedItemInstanceId,
+        rawPayload: {},
+      }],
+      nextInventoryItems: [{
+        itemId: 'current_after_durable_lock',
+        count: 1,
+        itemInstanceId: committedItemInstanceId,
+        rawPayload: {},
+      }],
+    });
+
+    // 模拟 durable 等待玩家锁期间，普通 flush 已经为旧运行态快照分配了版本。
+    const staleProjectionVersion = nextPlayerPersistenceVersion(Date.now() + 60_000);
+    await blocker.query('COMMIT');
+    await durablePromise;
+
+    const staleSnapshot = buildSnapshot(staleProjectionVersion);
+    staleSnapshot.inventory = {
+      revision: 99,
+      capacity: 20,
+      items: [{
+        itemId: 'stale_runtime_snapshot',
+        count: 1,
+        itemInstanceId: staleItemInstanceId,
+      }],
+      lockedItems: [],
+    };
+    await input.playerPersistence.savePlayerSnapshotProjectionDomains(
+      input.playerId,
+      staleSnapshot,
+      ['inventory'],
+      {
+        allowInventoryEmptyOverwrite: true,
+        expectedRuntimeOwnerId: input.runtimeOwnerId,
+        expectedSessionEpoch: 9,
+        expectedProjectionVersion: staleProjectionVersion,
+      },
+    );
+
+    const inventoryRows = await fetchRows(
+      input.pool,
+      'SELECT item_id, item_instance_id FROM player_inventory_item WHERE player_id = $1 ORDER BY slot_index ASC',
+      [input.playerId],
+    );
+    const watermark = await fetchSingleRow(
+      input.pool,
+      'SELECT inventory_version FROM player_recovery_watermark WHERE player_id = $1',
+      [input.playerId],
+    );
+    const committedWatermarkVersion = Number(watermark?.inventory_version ?? 0);
+    if (
+      inventoryRows.length !== 1
+      || inventoryRows[0]?.item_id !== 'current_after_durable_lock'
+      || committedWatermarkVersion <= staleProjectionVersion
+    ) {
+      throw new Error(
+        `stale player projection overwrote durable inventory after lock wait: inventory=${JSON.stringify(inventoryRows)}`
+        + ` watermark=${JSON.stringify(watermark)} staleVersion=${staleProjectionVersion}`,
+      );
+    }
+    return { staleProjectionVersion, committedWatermarkVersion };
+  } finally {
+    await blocker.query('ROLLBACK').catch(() => undefined);
+    blocker.release();
   }
 }
 

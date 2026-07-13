@@ -3,7 +3,7 @@
 ## 审计口径
 
 - 生产主线：`packages/client`、`packages/shared`、`packages/server`、`packages/config-editor`。
-- 当前基线：`main` 分支 `5db7f560`；相对 `origin/main` ahead 33。
+- 当前基线：`main` 分支 `aef1201f`；相对 `origin/main` ahead 34。
 - package manager：`pnpm@10.29.1`。
 - 每项结论必须来自机制文档、完整调用链、测试、编译产物或运行数据；仅凭搜索未发现异常不能标记为“确认无问题”。
 - `[x]` 只表示该行列出的具体证据范围已完成，不代表相邻系统或整个项目已完成。
@@ -54,6 +54,7 @@
 - [x] P-27 地块资源消耗品把背包扣除与实例资源分步提交、旧 worker payload 可迟到覆盖的问题已修复；见 FS-038。
 - [x] P-28 地面拾取、容器拿取与玩家丢弃的来源事务可被已 claim 的旧 ground/container payload 迟到覆盖的问题已修复；见 FS-039。
 - [x] P-29 月卡/永恒激活及月卡、签到、邀请奖励领取把活动来源与玩家背包分步提交的问题已修复；见 FS-042。
+- [x] P-30 durable 玩家资产事务等待数据库锁时可被旧运行态 flush 取得更大版本并在提交后反向覆盖的问题已修复；见 FS-045。
 
 ### 服务端权威运行时
 
@@ -106,6 +107,7 @@
 - [x] X-10 地块资源 durable 事务与已 claim 的旧 flush payload 竞争、COMMIT 后运行态应用及生产降级边界已修复；见 FS-038。
 - [x] X-11 地面/容器 durable 事务与旧 worker claim 的竞态、无关 dirty 保留和普通 worker 回归已修复；见 FS-039。
 - [x] X-12 活动来源快照、背包后态、watermark、outbox 与双资产审计的原子提交及精确重放已修复；见 FS-042。
+- [x] X-13 durable 事务与普通玩家分域 flush 共用锁时的跨队列版本顺序已修复，并由真实 PostgreSQL 锁等待竞态证明；见 FS-045。
 
 ## 已确认问题
 
@@ -796,7 +798,7 @@
 
 ### FS-044 物品使用 smoke 的功法抄录夹具违反当前满层规则
 
-- **状态**：已修复并完成专项验证，待中文原子提交。
+- **状态**：已修复、验证并完成中文原子提交。
 - **严重级别**：P1（验证门禁失效，不直接改变生产玩家状态）。
 - **所属功能组**：物品使用 / 炼法台 / 功法书抄录 / smoke 类型门禁。
 - **影响链路**：compiled `world-runtime-use-item-smoke` → `dispatchCraftTechniqueBook()` → 自创功法身份、已掌握状态与模板满层校验 → 残页扣除和残卷生成断言。
@@ -808,7 +810,23 @@
 - **修复方式**：成功夹具显式提供模板满层 `level: 4`；新增未满层 `level: 2` 的拒绝用例，证明生产规则仍然生效且不会扣残页或发书；移除 `@ts-nocheck`，改为标准 ESM import，并为日志、依赖覆盖和服务覆盖参数补齐 TypeScript 接口，让文件重新进入正常编译门禁。
 - **实际修改**：只修改 `world-runtime-use-item-smoke.ts` 和本审计台账，不改生产抄录规则。
 - **验证结果**：`git diff --check`、`pnpm --filter @mud/server compile` 与 `pnpm verify:quick` 通过；compiled `world-runtime-use-item-smoke` 通过，既覆盖满层功法成功抄录二层残卷，也覆盖未满层功法被权威拒绝且无资产副作用。
-- **中文原子提交 hash**：待提交。
+- **中文原子提交 hash**：`aef1201f`（`test: 修复功法抄录物品烟测漂移`）。
+
+### FS-045 durable 资产事务可被锁等待期间生成的旧运行态快照反向覆盖
+
+- **状态**：已修复并完成专项验证，待本组中文原子提交。
+- **严重级别**：P0。
+- **所属功能组**：玩家资产 / durable operation / 分域 flush / recovery watermark / 并发恢复。
+- **影响链路**：运行态生成玩家分域快照和 `expectedProjectionVersion` → 普通 flush 等待玩家数据库锁；同时 durable 背包、钱包、邮件、市场、装备、任务或 active job 事务 → 通用 `executeAssetMutation()`、邮件领取或多玩家市场事务协调器 → 同一 `7101 + playerId` advisory transaction lock → 玩家资产表与 `player_recovery_watermark`。
+- **证据**：普通玩家投影与 durable operation 共用同一个玩家 advisory lock，投影写入会在锁内按 domain watermark 拒绝旧版本；但修复前通用 `executeAssetMutation()`、邮件领取和多玩家市场事务都在 `pool.connect()` 或取得全部玩家锁之前执行 `Date.now()`，并直接把这个早期时间作为各资产域 watermark。若 durable 已开始等待锁，此时运行态仍可调用 `nextPlayerPersistenceVersion()` 为尚未落库的旧快照分配更大版本；旧 flush 在 durable 提交后取得锁时会通过 watermark 比较，并把事务前的背包、钱包或其他域状态重新写回。
+- **根本原因**：durable 事务虽然复用了普通 flush 的数据库互斥锁，却没有复用同一单调版本序列，也没有把版本分配放到获得锁之后；代码把“事务开始时间”错误当成“该事务在线性化顺序中的提交版本”。多个域还使用 `now + N` 人工错开版本，进程级生成器并不知道这段保留范围，无法保证后续合法写入严格更大。
+- **为什么错误**：watermark 的职责是表达同一玩家域在权威提交顺序中的先后，而不是请求到达时间。等待锁的事务只有在取得互斥权后才能确定自己的线性化位置；在锁前分配版本会让版本顺序与提交顺序相反，从而使本应被拒绝的旧运行态快照被当成更新状态。
+- **触发条件**：任一走 `executeAssetMutation()` 的玩家资产操作与普通 player-domain flush 并发；durable 先开始但因同玩家锁等待，旧运行态快照在等待窗口内被 staging 并分配版本，随后 durable 先于该旧快照提交。
+- **可能后果**：已经成功扣除或发放的物品、货币、装备、任务奖励、市场托管资产或技艺 job 成本在稍后被旧快照复活/抹除；数据库 operation/outbox/audit 显示已提交，但玩家真源与审计结果不一致；重启后出现复制、吞资产或任务状态倒退，且仅在竞态窗口发生，难以复现和追查。
+- **修复方式**：`executeAssetMutation()` 先开启事务并取得与普通 flush 共用的玩家锁，再调用 `nextPlayerPersistenceVersion()` 分配唯一单调版本；该事务涉及的所有玩家域共享同一版本，不再用 `+N` 伪造未保留的版本区间。这样，等待期间已经 staging 的旧快照版本必然小于 durable 提交 watermark，稍后进入投影写入时会在锁内被跳过。
+- **实际修改**：`durable-operation.service.ts` 把通用强事务、邮件领取及多玩家市场事务的版本生成移动到取得所需玩家锁之后，明确区分业务发生时间与持久化版本；统一 13 类 `executeAssetMutation` 资产/job 回调以及市场多域写入的 domain watermark，不再使用未保留的 `+N` 版本；`inventory-grant-durable-smoke.ts` 新增真实锁阻塞场景，故意在 durable 等锁期间为旧背包快照分配未来版本，释放锁后验证 durable watermark 仍严格更大且旧投影无法覆盖已提交物品。
+- **验证结果**：`pnpm --filter @mud/server compile`、`pnpm verify:quick` 与 `pnpm audit:boundaries` 通过；真实 PostgreSQL `inventory-grant-durable-smoke` 通过并得到 `committedWatermarkVersion = staleProjectionVersion + 1`，旧投影执行后数据库仍只保留 durable 物品；真实 PostgreSQL `durable-operation-smoke` 通过，覆盖 mail、market storage、sell/buy/cancel、NPC shop、wallet、equipment 及 active job start/cancel/complete/advance/update 等既有强事务和幂等/回滚契约。未运行完整 release/shadow/acceptance/full，不据此证明多节点真实网络分区或所有非 `executeAssetMutation` 资产入口。
+- **中文原子提交 hash**：待本组提交。
 
 ## 2026-07-14 待用户决定
 
