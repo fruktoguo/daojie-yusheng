@@ -196,48 +196,60 @@ export function rollTechniqueBudgetPercent(): number {
   return Math.round((TECHNIQUE_GENERATION_BUDGET_PERCENT_MIN + Math.random() * span) * 10_000) / 10_000;
 }
 
-export function rollBoostedTechniqueOutcome(playerRealmLv: number, itemSpend: number): TechniqueGenerationRollOutcome {
+export function rollBoostedTechniqueOutcome(
+  playerRealmLv: number,
+  playerHighestRealmLv: number,
+  itemSpend: number,
+): TechniqueGenerationRollOutcome {
+  const currentRealmLv = normalizeTechniqueGenerationRealmLv(playerRealmLv);
+  const gradeReferenceRealmLv = Math.max(
+    currentRealmLv,
+    normalizeTechniqueGenerationRealmLv(playerHighestRealmLv),
+  );
   const attempts = normalizeTechniqueGenerationItemSpend(itemSpend);
   let best: TechniqueGenerationRollOutcome | null = null;
   for (let i = 0; i < attempts; i += 1) {
-    const realmLv = rollTechniqueRealmLv(playerRealmLv);
-    const grade = rollTechniqueGrade(realmLv);
+    const realmLv = rollTechniqueRealmLv(currentRealmLv);
+    const grade = rollTechniqueGrade(gradeReferenceRealmLv);
     const candidate = { grade, realmLv };
     if (!best || compareRollOutcome(candidate, best) > 0) {
       best = candidate;
     }
   }
   return best ?? {
-    realmLv: Math.max(1, Math.min(127, Math.trunc(playerRealmLv))),
-    grade: resolveBaseGrade(playerRealmLv),
+    realmLv: currentRealmLv,
+    grade: resolveBaseGrade(gradeReferenceRealmLv),
   };
 }
 
-export function buildTechniqueGenerationRollRange(playerRealmLv: number, itemSpend: unknown = 1): TechniqueGenerationRollRange {
+export function buildTechniqueGenerationRollRange(
+  playerRealmLv: number,
+  playerHighestRealmLv: number,
+  itemSpend: unknown = 1,
+): TechniqueGenerationRollRange {
+  const currentRealmLv = normalizeTechniqueGenerationRealmLv(playerRealmLv);
+  const gradeReferenceRealmLv = Math.max(
+    currentRealmLv,
+    normalizeTechniqueGenerationRealmLv(playerHighestRealmLv),
+  );
   const spend = normalizeTechniqueGenerationItemSpend(itemSpend);
-  const realmLvMin = Math.max(1, Math.trunc(playerRealmLv) - TECHNIQUE_GENERATION_REALM_LV_OFFSET);
-  const realmLvMax = Math.min(127, Math.trunc(playerRealmLv) + TECHNIQUE_GENERATION_REALM_LV_OFFSET);
-  const gradeIndexes: number[] = [];
-  for (let realmLv = realmLvMin; realmLv <= realmLvMax; realmLv += 1) {
-    const baseIndex = TECHNIQUE_GRADE_ORDER.indexOf(resolveBaseGrade(realmLv));
-    gradeIndexes.push(
-      Math.max(0, baseIndex - TECHNIQUE_GENERATION_GRADE_OFFSET),
-      Math.min(TECHNIQUE_GRADE_ORDER.length - 1, baseIndex + TECHNIQUE_GENERATION_GRADE_OFFSET),
-    );
-  }
-  const gradeMinIndex = Math.min(...gradeIndexes);
-  const gradeMaxIndex = Math.max(...gradeIndexes);
+  const realmLvMin = Math.max(1, currentRealmLv - TECHNIQUE_GENERATION_REALM_LV_OFFSET);
+  const realmLvMax = Math.min(127, currentRealmLv + TECHNIQUE_GENERATION_REALM_LV_OFFSET);
+  const baseGrade = resolveBaseGrade(gradeReferenceRealmLv);
+  const baseGradeIndex = TECHNIQUE_GRADE_ORDER.indexOf(baseGrade);
+  const gradeMinIndex = Math.max(0, baseGradeIndex - TECHNIQUE_GENERATION_GRADE_OFFSET);
+  const gradeMaxIndex = Math.min(TECHNIQUE_GRADE_ORDER.length - 1, baseGradeIndex + TECHNIQUE_GENERATION_GRADE_OFFSET);
   return {
     realmLvMin,
     realmLvMax,
     gradeMin: TECHNIQUE_GRADE_ORDER[gradeMinIndex],
     gradeMax: TECHNIQUE_GRADE_ORDER[gradeMaxIndex],
-    baseGrade: resolveBaseGrade(Math.max(1, Math.min(127, Math.trunc(playerRealmLv)))),
+    baseGrade,
     itemSpendMin: 1,
     itemSpendMax: TECHNIQUE_GENERATION_MAX_ITEM_SPEND,
     itemSpendDefault: spend,
-    realmLvChances: estimateBoostedRealmLvChances(Math.max(1, Math.min(127, Math.trunc(playerRealmLv))), spend),
-    gradeChances: estimateBoostedGradeChances(Math.max(1, Math.min(127, Math.trunc(playerRealmLv))), spend),
+    realmLvChances: estimateBoostedRealmLvChances(currentRealmLv, gradeReferenceRealmLv, spend),
+    gradeChances: estimateBoostedGradeChances(currentRealmLv, gradeReferenceRealmLv, spend),
   };
 }
 
@@ -249,9 +261,13 @@ function compareRollOutcome(left: TechniqueGenerationRollOutcome, right: Techniq
   return left.realmLv - right.realmLv;
 }
 
-function estimateBoostedGradeChances(playerRealmLv: number, itemSpend: number): TechniqueGenerationRollOptionChance[] {
+function estimateBoostedGradeChances(
+  playerRealmLv: number,
+  playerHighestRealmLv: number,
+  itemSpend: number,
+): TechniqueGenerationRollOptionChance[] {
   const attempts = normalizeTechniqueGenerationItemSpend(itemSpend);
-  const singleRollOutcomes = buildSingleRollOutcomeDistribution(playerRealmLv)
+  const singleRollOutcomes = buildSingleRollOutcomeDistribution(playerRealmLv, playerHighestRealmLv)
     .sort((left, right) => compareRollOutcome(left, right));
   const gradeProbabilities = new Map<TechniqueGrade, number>();
   let cumulativeBefore = 0;
@@ -266,9 +282,13 @@ function estimateBoostedGradeChances(playerRealmLv: number, itemSpend: number): 
     .filter((entry) => entry.chance > 0);
 }
 
-function estimateBoostedRealmLvChances(playerRealmLv: number, itemSpend: number): TechniqueGenerationRollRealmChance[] {
+function estimateBoostedRealmLvChances(
+  playerRealmLv: number,
+  playerHighestRealmLv: number,
+  itemSpend: number,
+): TechniqueGenerationRollRealmChance[] {
   const attempts = normalizeTechniqueGenerationItemSpend(itemSpend);
-  const singleRollOutcomes = buildSingleRollOutcomeDistribution(playerRealmLv)
+  const singleRollOutcomes = buildSingleRollOutcomeDistribution(playerRealmLv, playerHighestRealmLv)
     .sort((left, right) => compareRollOutcome(left, right));
   const realmLvProbabilities = new Map<number, number>();
   let cumulativeBefore = 0;
@@ -288,12 +308,15 @@ type TechniqueGenerationWeightedOutcome = TechniqueGenerationRollOutcome & {
   probability: number;
 };
 
-function buildSingleRollOutcomeDistribution(playerRealmLv: number): TechniqueGenerationWeightedOutcome[] {
+function buildSingleRollOutcomeDistribution(
+  playerRealmLv: number,
+  playerHighestRealmLv: number,
+): TechniqueGenerationWeightedOutcome[] {
   const outcomeProbabilities = new Map<string, TechniqueGenerationWeightedOutcome>();
+  const baseGrade = resolveBaseGrade(playerHighestRealmLv);
+  const baseIndex = TECHNIQUE_GRADE_ORDER.indexOf(baseGrade);
   for (const realmOffset of buildAsymmetricOffsetProbabilities(TECHNIQUE_GENERATION_REALM_LV_OFFSET)) {
     const realmLv = Math.max(1, Math.min(127, playerRealmLv + realmOffset.offset));
-    const baseGrade = resolveBaseGrade(realmLv);
-    const baseIndex = TECHNIQUE_GRADE_ORDER.indexOf(baseGrade);
     for (const gradeOffset of buildAsymmetricOffsetProbabilities(TECHNIQUE_GENERATION_GRADE_OFFSET)) {
       const gradeIndex = Math.max(0, Math.min(TECHNIQUE_GRADE_ORDER.length - 1, baseIndex + gradeOffset.offset));
       const grade = TECHNIQUE_GRADE_ORDER[gradeIndex];
@@ -308,6 +331,14 @@ function buildSingleRollOutcomeDistribution(playerRealmLv: number): TechniqueGen
     }
   }
   return [...outcomeProbabilities.values()];
+}
+
+function normalizeTechniqueGenerationRealmLv(value: unknown): number {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return 1;
+  }
+  return Math.max(1, Math.min(127, Math.trunc(numeric)));
 }
 
 function buildAsymmetricOffsetProbabilities(maxOffset: number): Array<{ offset: number; probability: number }> {

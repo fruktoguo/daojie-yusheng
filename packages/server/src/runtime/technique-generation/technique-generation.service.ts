@@ -125,6 +125,7 @@ export class TechniqueGenerationService {
   async requestGeneration(params: {
     playerId: string;
     playerRealmLv: number;
+    playerHighestRealmLv: number;
     category: TechniqueCategory;
     playerContext?: string;
     itemSpend?: number;
@@ -153,9 +154,9 @@ export class TechniqueGenerationService {
       return { success: false, error: '请先处理未完成的功法领悟', errorCode: 'ACTIVE_JOB_EXISTS' };
     }
 
-    // 3. 随机 realmLv + 品阶；投入多个悟道玉简时，多次抽取并择优。
+    // 3. 功法境界按当前境界随机，品阶按历史最高境界随机；投入多个悟道玉简时，多次抽取并择优。
     const itemSpend = normalizeTechniqueGenerationItemSpend(params.itemSpend);
-    const roll = rollBoostedTechniqueOutcome(params.playerRealmLv, itemSpend);
+    const roll = rollBoostedTechniqueOutcome(params.playerRealmLv, params.playerHighestRealmLv, itemSpend);
     const rolledRealmLv = roll.realmLv;
     const rolledGrade = roll.grade;
     const budgetPercent = rollTechniqueBudgetPercent();

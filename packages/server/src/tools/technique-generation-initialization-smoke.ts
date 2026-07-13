@@ -37,6 +37,10 @@ import { TechniqueTemplateRegistry } from '../content/registries/technique-templ
 import { validateTechniqueCandidate } from '../runtime/technique-generation/technique-candidate-validator';
 import { calcArtsBudgetMax } from '../runtime/technique-generation/technique-budget-normalizer';
 import { buildTechniquePrompt } from '../runtime/technique-generation/technique-prompt-builder';
+import {
+  buildTechniqueGenerationRollRange,
+  rollBoostedTechniqueOutcome,
+} from '../runtime/technique-generation/technique-generation-roll';
 import { projectBootstrapTechniqueStateForSync } from '../network/world-sync-player-state.service';
 
 type QueryRecord = {
@@ -100,6 +104,7 @@ async function testUninitializedServiceDoesNotConsumeItem(): Promise<void> {
   const result = await service.requestGeneration({
     playerId: 'p_uninitialized_smoke',
     playerRealmLv: 31,
+    playerHighestRealmLv: 31,
     category: 'internal',
   });
 
@@ -119,6 +124,7 @@ async function testNoModelFailsWithoutConsumingItem(): Promise<void> {
   const result = await service.requestGeneration({
     playerId: 'p_no_model_smoke',
     playerRealmLv: 31,
+    playerHighestRealmLv: 31,
     category: 'internal',
     playerContext: '  test context  ',
   });
@@ -163,21 +169,31 @@ async function testInitializedServiceConsumesRequestedItemSpend(): Promise<void>
 
   let appliedItemCount = 0;
   let appliedEnhanceLevel = 0;
-  const result = await service.requestGeneration({
-    playerId: 'p_generation_boost_smoke',
-    playerRealmLv: 31,
-    category: 'arts',
-    itemSpend: 4,
-    expectedRuntimeOwnerId: 'runtime:techgen-smoke',
-    expectedSessionEpoch: 7,
-    applyInventorySnapshot: async (items) => {
-      const item = items.find((entry) => entry.itemId === 'wudao_yujian');
-      appliedItemCount = item?.count ?? 0;
-      appliedEnhanceLevel = Number((item as { enhanceLevel?: unknown } | undefined)?.enhanceLevel ?? 0);
-    },
-  });
+  const originalRandom = Math.random;
+  Math.random = () => 0;
+  let result: Awaited<ReturnType<TechniqueGenerationService['requestGeneration']>>;
+  try {
+    result = await service.requestGeneration({
+      playerId: 'p_generation_boost_smoke',
+      playerRealmLv: 31,
+      playerHighestRealmLv: 100,
+      category: 'arts',
+      itemSpend: 4,
+      expectedRuntimeOwnerId: 'runtime:techgen-smoke',
+      expectedSessionEpoch: 7,
+      applyInventorySnapshot: async (items) => {
+        const item = items.find((entry) => entry.itemId === 'wudao_yujian');
+        appliedItemCount = item?.count ?? 0;
+        appliedEnhanceLevel = Number((item as { enhanceLevel?: unknown } | undefined)?.enhanceLevel ?? 0);
+      },
+    });
+  } finally {
+    Math.random = originalRandom;
+  }
 
   assert.equal(result.success, true);
+  assert.equal(result.rolledRealmLv, 31);
+  assert.equal(result.rolledGrade, 'saint');
   assert.equal(result.itemSpend, 4);
   assert.ok((result.budgetPercent ?? 0) >= 0.8 && (result.budgetPercent ?? 0) <= 1.2);
   assert.ok((result.totalBudget ?? 0) > 0);
@@ -212,6 +228,7 @@ async function testItemShortageMarksJobFailedAfterAudit(): Promise<void> {
   const result = await service.requestGeneration({
     playerId: 'p_item_shortage_smoke',
     playerRealmLv: 31,
+    playerHighestRealmLv: 31,
     category: 'internal',
     expectedRuntimeOwnerId: 'runtime:shortage',
     expectedSessionEpoch: 3,
@@ -1066,6 +1083,7 @@ async function testRequestGenerationBlocksActiveDraftWithoutConsumingItem(): Pro
   const result = await service.requestGeneration({
     playerId: 'p_active_draft_smoke',
     playerRealmLv: 31,
+    playerHighestRealmLv: 31,
     category: 'internal',
   });
 
@@ -1074,6 +1092,26 @@ async function testRequestGenerationBlocksActiveDraftWithoutConsumingItem(): Pro
   assert.equal(modelResolveCount, 0);
   assert.equal(consumedCount, 0);
   assert.ok(!queries.some((entry) => entry.sql.includes('INSERT INTO technique_generation_job')));
+}
+
+function testTechniqueGenerationRollSeparatesRealmSources(): void {
+  const originalRandom = Math.random;
+  Math.random = () => 0;
+  try {
+    const outcome = rollBoostedTechniqueOutcome(31, 100, 1);
+    assert.equal(outcome.realmLv, 31, '功法境界应继续以当前境界为随机基准');
+    assert.equal(outcome.grade, 'saint', '功法品阶应改用历史最高境界作为随机基准');
+  } finally {
+    Math.random = originalRandom;
+  }
+
+  const range = buildTechniqueGenerationRollRange(31, 100, 1);
+  assert.equal(range.realmLvMin, 25);
+  assert.equal(range.realmLvMax, 37);
+  assert.equal(range.baseGrade, 'saint');
+  assert.equal(range.gradeMin, 'heaven');
+  assert.equal(range.gradeMax, 'emperor');
+  assert.deepEqual(range.gradeChances.map((entry) => entry.grade), ['heaven', 'spirit', 'saint', 'emperor']);
 }
 
 async function testGatewayStatusEmitsRollRange(): Promise<void> {
@@ -1089,6 +1127,7 @@ async function testGatewayStatusEmitsRollRange(): Promise<void> {
     },
     playerRuntimeService: {
       getPlayerRealmLv: () => 31,
+      getPlayerHighestRealmLv: () => 100,
       getSessionFence: () => ({ runtimeOwnerId: 'runtime:gateway-smoke', sessionEpoch: 1 }),
       replaceInventoryItems: () => undefined,
     },
@@ -1110,6 +1149,9 @@ async function testGatewayStatusEmitsRollRange(): Promise<void> {
     rollRange?: {
       itemSpendMax?: number;
       itemSpendDefault?: number;
+      realmLvMin?: number;
+      realmLvMax?: number;
+      baseGrade?: string;
       realmLvChances?: unknown[];
       gradeChances?: unknown[];
     };
@@ -1117,6 +1159,9 @@ async function testGatewayStatusEmitsRollRange(): Promise<void> {
   assert.equal(payload.available, true);
   assert.equal(payload.rollRange?.itemSpendMax, 100);
   assert.equal(payload.rollRange?.itemSpendDefault, 3);
+  assert.equal(payload.rollRange?.realmLvMin, 25);
+  assert.equal(payload.rollRange?.realmLvMax, 37);
+  assert.equal(payload.rollRange?.baseGrade, 'saint');
   assert.ok((payload.rollRange?.realmLvChances?.length ?? 0) > 0);
   assert.ok((payload.rollRange?.gradeChances?.length ?? 0) > 0);
   assert.deepEqual(result, emitted[0]?.payload);
@@ -1132,6 +1177,7 @@ async function testGatewayRequiresDirtyDomainFlushBeforeDurableMutation(): Promi
     worldClientEventService: { emitGatewayError: () => undefined },
     playerRuntimeService: {
       getPlayerRealmLv: () => 31,
+      getPlayerHighestRealmLv: () => 31,
       listDirtyPlayerDomains: () => dirtyByPlayerId,
     },
     playerPersistenceFlushService: {
@@ -1158,6 +1204,7 @@ async function testGatewayRequiresDirtyDomainFlushBeforeDurableMutation(): Promi
 
 async function testGatewayGenerateExceptionEmitsFailureResult(): Promise<void> {
   const emitted: Array<{ event: string; payload: unknown }> = [];
+  let requestedHighestRealmLv = 0;
   const helper = new WorldGatewayTechniqueGenerationHelper({
     gatewayGuardHelper: {
       requirePlayerId: () => 'p_gateway_smoke',
@@ -1169,12 +1216,14 @@ async function testGatewayGenerateExceptionEmitsFailureResult(): Promise<void> {
     },
     playerRuntimeService: {
       getPlayerRealmLv: () => 31,
+      getPlayerHighestRealmLv: () => 100,
       getSessionFence: () => ({ runtimeOwnerId: 'runtime:gateway-error', sessionEpoch: 2 }),
       replaceInventoryItems: () => undefined,
     },
   });
   helper.setService({
-    requestGeneration: async () => {
+    requestGeneration: async (params: { playerHighestRealmLv: number }) => {
+      requestedHighestRealmLv = params.playerHighestRealmLv;
       throw new Error('simulated_insert_failure');
     },
   } as unknown as TechniqueGenerationService);
@@ -1191,6 +1240,7 @@ async function testGatewayGenerateExceptionEmitsFailureResult(): Promise<void> {
   assert.equal(emitted[0]?.event, S2C.TechniqueGenerationResult);
   assert.equal((emitted[0]?.payload as { result?: string; errorMessage?: string }).result, 'failed');
   assert.equal((emitted[0]?.payload as { result?: string; errorMessage?: string }).errorMessage, 'simulated_insert_failure');
+  assert.equal(requestedHighestRealmLv, 100);
 }
 
 async function testGatewayAdoptAndDiscardEmitResultEvents(): Promise<void> {
@@ -1208,6 +1258,7 @@ async function testGatewayAdoptAndDiscardEmitResultEvents(): Promise<void> {
     },
     playerRuntimeService: {
       getPlayerRealmLv: () => 31,
+      getPlayerHighestRealmLv: () => 31,
       getPlayer: () => ({ lifeElapsedTicks: 42 }),
       getSessionFence: () => ({ runtimeOwnerId: 'runtime:gateway-adopt', sessionEpoch: 5 }),
       replaceInventoryItems: () => undefined,
@@ -1831,6 +1882,7 @@ async function main(): Promise<void> {
   await testPublishGeneratedTechniqueCastsRepeatedNameParameter();
   await testCurrentStatusRestoresGeneratedDraftPreview();
   await testRequestGenerationBlocksActiveDraftWithoutConsumingItem();
+  testTechniqueGenerationRollSeparatesRealmSources();
   await testGatewayStatusEmitsRollRange();
   await testGatewayRequiresDirtyDomainFlushBeforeDurableMutation();
   await testGatewayGenerateExceptionEmitsFailureResult();

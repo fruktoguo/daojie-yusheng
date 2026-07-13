@@ -184,7 +184,7 @@ realmLv 和品阶共用同一套概率模型：
 - 同方向内越偏离基准概率越低（按几何衰减）
 ```
 
-设计意图：大概率拿到匹配当前实力的功法，偶尔出低级过渡品，极小概率出高品（机缘感）。
+设计意图：功法境界大概率匹配当前实力，品阶则保留玩家历史修行成果；两个维度都允许偶尔出现低档或高档结果（机缘感）。
 
 #### realmLv 随机
 
@@ -218,7 +218,7 @@ function rollGeometricOffset(max: number): number {
 
 #### 基准品阶确定
 
-根据随机出的 `realmLv` 落在哪些品阶区间，按**区间覆盖比例**确定基准品阶：
+根据玩家历史最高 `realmLv` 落在哪些品阶区间，按**区间覆盖比例**确定基准品阶。功法自身随机出的 `realmLv` 不参与品阶基准计算：
 
 品阶有效区间（来源：`docs/design/balance/境界等级基准期望六维公式.md`）：
 
@@ -340,8 +340,8 @@ class TechniqueGenerationService {
 requestGeneration()
   ├─ 校验玩家境界 ≥ 筑基期（realmLv ≥ 31）     → 不满足拒绝
   ├─ 校验并消耗悟道玉简（背包扣除 1 个）         → 不足拒绝
-  ├─ rollTechniqueRealmLv(playerRealmLv)        → 随机功法 realmLv
-  ├─ rollTechniqueGrade(rolledRealmLv)          → 随机品阶
+  ├─ rollTechniqueRealmLv(playerRealmLv)        → 按当前境界随机功法 realmLv
+  ├─ rollTechniqueGrade(playerHighestRealmLv)   → 按历史最高境界随机品阶
   └─ INSERT technique_generation_job (status=pending)
   │
   ▼
@@ -748,7 +748,7 @@ type TechniquePreview = {
 |---|---|---|
 | 存储 | 单表 JSONB | 与静态功法格式一致，零 JOIN |
 | 入口 | 背包使用悟道玉简 | 道具消耗自然限速，无需额外限额 |
-| 品阶 | 随机（realmLv 决定可选范围） | 增加惊喜感，高品阶稀有 |
+| 品阶 | 随机（历史最高 realmLv 决定可选范围） | 保留历史修行成果，同时维持高品阶稀有度 |
 | realmLv | 玩家当前 ±6 | 保证功法与玩家实力匹配 |
 | 采纳后 | 直接学习 | 简化流程，无需功法书中间道具 |
 | 分类开放 | 内功 + 术法 | 神通/秘术锁死不开放 AI |

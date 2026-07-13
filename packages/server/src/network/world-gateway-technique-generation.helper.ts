@@ -27,6 +27,7 @@ interface TechniqueGenerationHelperDeps {
   };
   playerRuntimeService: {
     getPlayerRealmLv(playerId: string): number | null;
+    getPlayerHighestRealmLv(playerId: string): number | null;
     getPlayer?: (playerId: string) => { lifeElapsedTicks?: number | null; dirtyDomains?: Set<string> } | null;
     listDirtyPlayerDomains?: () => Map<string, Set<string>>;
     getSessionFence?: (playerId: string) => { runtimeOwnerId?: string | null; sessionEpoch?: number | null } | null;
@@ -93,12 +94,15 @@ export class WorldGatewayTechniqueGenerationHelper {
   private async handleGetStatus(client: Socket, playerId: string, request: Record<string, unknown>): Promise<unknown> {
     await this.refundNoModelFailedJobs(client, playerId);
     const realmLv = this.deps.playerRuntimeService.getPlayerRealmLv(playerId);
+    const highestRealmLv = this.deps.playerRuntimeService.getPlayerHighestRealmLv(playerId) ?? realmLv;
     const itemSpend = normalizeTechniqueGenerationItemSpend(request.itemSpend);
     const currentStatus = await this.techniqueGenerationService!.getCurrentStatusForPlayer(playerId);
     const status = {
       available: (realmLv ?? 0) >= 31,
       unavailableReason: (realmLv ?? 0) < 31 ? '需筑基期方可领悟' : undefined,
-      rollRange: realmLv && realmLv >= 31 ? buildTechniqueGenerationRollRange(realmLv, itemSpend) : undefined,
+      rollRange: realmLv && realmLv >= 31
+        ? buildTechniqueGenerationRollRange(realmLv, highestRealmLv ?? realmLv, itemSpend)
+        : undefined,
       currentJob: currentStatus.currentJob,
       currentDraft: currentStatus.currentDraft && currentStatus.currentJob
         ? { jobId: currentStatus.currentJob.jobId, ...currentStatus.currentDraft }
@@ -124,6 +128,7 @@ export class WorldGatewayTechniqueGenerationHelper {
     if (!realmLv) {
       return { success: false, error: '玩家状态异常' };
     }
+    const highestRealmLv = this.deps.playerRuntimeService.getPlayerHighestRealmLv(playerId) ?? realmLv;
 
     let result: Awaited<ReturnType<TechniqueGenerationService['requestGeneration']>>;
     try {
@@ -133,6 +138,7 @@ export class WorldGatewayTechniqueGenerationHelper {
         return this.techniqueGenerationService!.requestGeneration({
           playerId,
           playerRealmLv: realmLv,
+          playerHighestRealmLv: highestRealmLv,
           category,
           playerContext,
           itemSpend,

@@ -1164,6 +1164,15 @@ export class PlayerRuntimeService {
         if (!player) return null;
         return Math.max(1, Math.floor(player.realm?.realmLv ?? 1));
     }
+    /** 获取玩家历史最高境界等级；玩家不在线返回 null。 */
+    getPlayerHighestRealmLv(playerId) {
+        const player = this.getPlayer(playerId);
+        if (!player) return null;
+        if (typeof this.playerProgressionService?.getHighestRealmLv === 'function') {
+            return this.playerProgressionService.getHighestRealmLv(player);
+        }
+        return Math.max(1, Math.floor(player.realm?.realmLv ?? 1));
+    }
     /** 按境界等级读取展示名，避免运行态调用方接触经验等混合配置。 */
     getRealmLevelDisplayName(realmLv) {
         const normalizedRealmLv = Math.max(1, Math.floor(Number(realmLv) || 1));
