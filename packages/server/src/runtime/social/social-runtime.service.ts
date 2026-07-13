@@ -3,7 +3,7 @@
  *
  * 关系真源写入数据库；运行时只在玩家操作时按需查询，不进入 tick 热路径。
  */
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import type {
   DaoistDirectMessageView,
@@ -14,6 +14,7 @@ import type {
   SocialPanelView,
 } from '@mud/shared';
 import { resolveServerDatabaseUrl } from '../../config/env-alias';
+import { NativePlayerAuthStoreService } from '../../http/native/native-player-auth-store.service';
 import { DatabasePoolProvider } from '../../persistence/database-pool.provider';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { resolvePlayerDisplayName } from '../player/player-display-name';
@@ -28,6 +29,14 @@ type PoolLike = {
   query(sql: string, params?: unknown[]): Promise<{ rows: any[] }>;
 };
 
+type PlayerIdentityLookup = {
+  getMemoryUserByPlayerId(playerId: string): {
+    playerName?: string | null;
+    pendingRoleName?: string | null;
+    displayName?: string | null;
+  } | null;
+};
+
 @Injectable()
 export class SocialRuntimeService {
   private readonly logger = new Logger(SocialRuntimeService.name);
@@ -37,6 +46,9 @@ export class SocialRuntimeService {
   constructor(
     @Inject(DatabasePoolProvider) private readonly databasePoolProvider: DatabasePoolProvider,
     @Inject(PlayerRuntimeService) private readonly playerRuntimeService: PlayerRuntimeService,
+    @Optional()
+    @Inject(NativePlayerAuthStoreService)
+    private readonly playerIdentityLookup: PlayerIdentityLookup | null = null,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -110,7 +122,7 @@ export class SocialRuntimeService {
       const targetRuntimePlayer = this.playerRuntimeService.getPlayer(targetPlayerId);
       result.push({
         playerId: targetPlayerId,
-        name: resolvePlayerName(targetRuntimePlayer, targetPlayerId),
+        name: this.resolvePlayerName(targetPlayerId, targetRuntimePlayer),
         distance,
         ...(relations.get(targetPlayerId) ? { relationLevel: relations.get(targetPlayerId) } : {}),
         ...(pending.get(targetPlayerId) ? { pendingRequest: pending.get(targetPlayerId) } : {}),
@@ -266,9 +278,9 @@ export class SocialRuntimeService {
       message: {
         messageId: randomUUID(),
         fromPlayerId: fromId,
-        fromName: resolvePlayerName(fromPlayer, fromId),
+        fromName: this.resolvePlayerName(fromId, fromPlayer),
         toPlayerId: toId,
-        toName: resolvePlayerName(toPlayer, toId),
+        toName: this.resolvePlayerName(toId, toPlayer),
         text,
         sentAt: Date.now(),
       },
@@ -309,7 +321,7 @@ export class SocialRuntimeService {
       const player = this.playerRuntimeService.getPlayer(targetPlayerId);
       return {
         playerId: targetPlayerId,
-        name: resolvePlayerName(player, targetPlayerId),
+        name: this.resolvePlayerName(targetPlayerId, player),
         level: row.level === 'close_friend' ? 'close_friend' : 'dao_friend',
         online: Boolean(player?.sessionId),
         ...(normalizeString(player?.instanceId) ? { instanceId: normalizeString(player?.instanceId) } : {}),
@@ -346,9 +358,9 @@ export class SocialRuntimeService {
       return {
         requestId: row.request_id,
         fromPlayerId: row.from_player_id,
-        fromName: resolvePlayerName(fromPlayer, row.from_player_id),
+        fromName: this.resolvePlayerName(row.from_player_id, fromPlayer),
         toPlayerId: row.to_player_id,
-        toName: resolvePlayerName(toPlayer, row.to_player_id),
+        toName: this.resolvePlayerName(row.to_player_id, toPlayer),
         status: row.status,
         createdAt: Math.max(0, Math.trunc(Number(row.created_at_ms) || 0)),
         expiresAt: Math.max(0, Math.trunc(Number(row.expires_at_ms) || 0)),
@@ -394,6 +406,21 @@ export class SocialRuntimeService {
       Math.abs(Math.trunc(Number(from?.y) || 0) - Math.trunc(Number(target?.y) || 0)),
     );
     return distance <= DAOIST_NEARBY_RADIUS;
+  }
+
+  /**
+   * 道友关系会长期保留，目标玩家可能仅以离线运行态存在；角色名必须回读账号身份内存镜像，
+   * 不能把运行时恢复阶段使用的 playerId 占位值直接退化成“未知玩家”。
+   */
+  private resolvePlayerName(playerId: string, runtimePlayer: any): string {
+    const identity = this.playerIdentityLookup?.getMemoryUserByPlayerId?.(playerId) ?? null;
+    return resolvePlayerDisplayName({
+      playerId,
+      playerName: identity?.playerName,
+      pendingRoleName: identity?.pendingRoleName,
+      name: runtimePlayer?.name,
+      displayName: identity?.displayName ?? runtimePlayer?.displayName,
+    }, { playerId, fallback: '未知玩家' });
   }
 }
 
@@ -455,10 +482,6 @@ function normalizePlayerId(value: unknown): string {
 
 function normalizeString(value: unknown): string {
   return typeof value === 'string' && value.trim() ? value.trim() : '';
-}
-
-function resolvePlayerName(player: any, fallback = ''): string {
-  return resolvePlayerDisplayName(player, { playerId: player?.playerId ?? player?.id ?? fallback, fallback: '未知玩家' });
 }
 
 function normalizeDirectMessage(value: unknown): string {

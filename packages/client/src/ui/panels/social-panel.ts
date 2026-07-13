@@ -189,9 +189,10 @@ export class SocialPanel {
         if (playerId === this.selectedPlayerId) {
           return;
         }
-        this.captureConversationState(this.selectedPlayerId);
+        const inputSnapshot = this.captureConversationState(this.selectedPlayerId);
         this.selectedPlayerId = playerId;
-        this.render();
+        this.patchSelectedRelation(playerId);
+        this.replaceConversationSection(playerId, inputSnapshot);
         return;
       }
       if (action === 'dao_friend' && playerId) this.callbacks.onUpdateRelationLevel(playerId, 'dao_friend');
@@ -218,17 +219,30 @@ export class SocialPanel {
     }
     this.pane.innerHTML = `
       <div class="panel-section social-panel">
-        <div class="panel-section-header">
+        <div class="panel-section-head social-panel-head">
           <div class="panel-section-title">道友</div>
-          <div class="inline-actions">
+          <div class="social-panel-actions">
             <button class="small-btn" type="button" data-social-action="refresh">刷新</button>
             <button class="small-btn" type="button" data-social-action="scan">附近</button>
           </div>
         </div>
-        ${this.renderRequests()}
-        ${this.renderNearby()}
-        ${this.renderRelations(selected?.playerId ?? null)}
-        ${this.renderMessages(selected)}
+        <div class="social-panel-overview">
+          <section class="social-panel-section social-panel-section--requests">
+            ${this.renderSectionHeader('道友申请', this.view.incomingRequests.length + this.view.outgoingRequests.length)}
+            ${this.renderRequests()}
+          </section>
+          <section class="social-panel-section social-panel-section--nearby">
+            ${this.renderSectionHeader('附近修士', this.view.nearbyCandidates.length)}
+            ${this.renderNearby()}
+          </section>
+        </div>
+        <div class="social-panel-workspace">
+          <section class="social-panel-section social-panel-section--relations">
+            ${this.renderSectionHeader('我的道友', this.view.relations.length)}
+            ${this.renderRelations(selected?.playerId ?? null)}
+          </section>
+          ${this.renderConversationSection(selected)}
+        </div>
       </div>
     `;
     if (selected) {
@@ -236,11 +250,20 @@ export class SocialPanel {
     }
   }
 
+  private renderSectionHeader(title: string, count: number): string {
+    return `
+      <div class="social-panel-section-head">
+        <div class="social-panel-section-title">${escapeHtml(title)}</div>
+        <span class="social-panel-count">${Math.max(0, Math.trunc(count))}</span>
+      </div>
+    `;
+  }
+
   private renderRequests(): string {
     const incoming = this.view.incomingRequests;
     const outgoing = this.view.outgoingRequests;
     if (incoming.length === 0 && outgoing.length === 0) {
-      return `<div class="empty-hint">暂无道友申请</div>`;
+      return `<div class="empty-hint compact">暂无道友申请</div>`;
     }
     return `
       <div class="ui-list">
@@ -250,8 +273,10 @@ export class SocialPanel {
               <div class="ui-list-title">${escapeHtml(entry.fromName)}</div>
               <div class="ui-list-subtitle">申请结为道友</div>
             </div>
-            <button class="small-btn" type="button" data-social-action="accept" data-request-id="${escapeHtml(entry.requestId)}">同意</button>
-            <button class="small-btn ghost" type="button" data-social-action="reject" data-request-id="${escapeHtml(entry.requestId)}">拒绝</button>
+            <div class="social-row-actions">
+              <button class="small-btn" type="button" data-social-action="accept" data-request-id="${escapeHtml(entry.requestId)}">同意</button>
+              <button class="small-btn ghost" type="button" data-social-action="reject" data-request-id="${escapeHtml(entry.requestId)}">拒绝</button>
+            </div>
           </div>
         `).join('')}
         ${outgoing.map((entry) => `
@@ -268,7 +293,7 @@ export class SocialPanel {
 
   private renderNearby(): string {
     if (this.view.nearbyCandidates.length === 0) {
-      return `<div class="empty-hint">附近暂无可申请玩家</div>`;
+      return `<div class="empty-hint compact">附近暂无可申请玩家</div>`;
     }
     return `
       <div class="ui-list">
@@ -278,7 +303,11 @@ export class SocialPanel {
               <div class="ui-list-title">${escapeHtml(entry.name)}</div>
               <div class="ui-list-subtitle">距离 ${entry.distance}${entry.relationLevel ? ` · ${RELATION_LABEL[entry.relationLevel]}` : entry.pendingRequest ? ' · 已有申请' : ''}</div>
             </div>
-            ${entry.relationLevel || entry.pendingRequest ? '' : `<button class="small-btn" type="button" data-social-action="request" data-player-id="${escapeHtml(entry.playerId)}">申请</button>`}
+            ${entry.relationLevel || entry.pendingRequest ? '' : `
+              <div class="social-row-actions">
+                <button class="small-btn" type="button" data-social-action="request" data-player-id="${escapeHtml(entry.playerId)}">申请</button>
+              </div>
+            `}
           </div>
         `).join('')}
       </div>
@@ -287,32 +316,47 @@ export class SocialPanel {
 
   private renderRelations(selectedPlayerId: string | null): string {
     if (this.view.relations.length === 0) {
-      return `<div class="empty-hint">暂无道友</div>`;
+      return `<div class="empty-hint compact">暂无道友</div>`;
     }
     return `
       <div class="ui-list">
         ${this.view.relations.map((entry) => `
-          <div class="ui-list-row ${entry.playerId === selectedPlayerId ? 'active' : ''}">
-            <button class="ui-list-main text-left" type="button" data-social-action="select" data-player-id="${escapeHtml(entry.playerId)}">
+          <div class="ui-list-row ${entry.playerId === selectedPlayerId ? 'active' : ''}" data-social-relation-row="${escapeHtml(entry.playerId)}">
+            <button class="ui-list-main text-left" type="button" data-social-action="select" data-player-id="${escapeHtml(entry.playerId)}" aria-pressed="${entry.playerId === selectedPlayerId ? 'true' : 'false'}">
               <div class="ui-list-title">${escapeHtml(entry.name)} · ${RELATION_LABEL[entry.level]}</div>
-              <div class="ui-list-subtitle">${entry.online ? '在线' : '离线'}${entry.instanceId ? ` · ${escapeHtml(entry.instanceId)}` : ''}</div>
+              <div class="ui-list-subtitle">
+                <span class="social-presence ${entry.online ? 'is-online' : 'is-offline'}">${entry.online ? '在线' : '离线'}</span>${entry.instanceId ? ` · ${escapeHtml(entry.instanceId)}` : ''}
+              </div>
             </button>
-            <button class="small-btn ghost" type="button" data-social-action="${entry.level === 'close_friend' ? 'dao_friend' : 'close_friend'}" data-player-id="${escapeHtml(entry.playerId)}">${entry.level === 'close_friend' ? '降为道友' : '设为至交'}</button>
-            <button class="small-btn ghost" type="button" data-social-action="remove" data-player-id="${escapeHtml(entry.playerId)}">解除</button>
+            <div class="social-row-actions">
+              <button class="small-btn ghost" type="button" data-social-action="${entry.level === 'close_friend' ? 'dao_friend' : 'close_friend'}" data-player-id="${escapeHtml(entry.playerId)}">${entry.level === 'close_friend' ? '降为道友' : '设为至交'}</button>
+              <button class="small-btn ghost" type="button" data-social-action="remove" data-player-id="${escapeHtml(entry.playerId)}">解除</button>
+            </div>
           </div>
         `).join('')}
       </div>
     `;
   }
 
+  private renderConversationSection(selected: { playerId: string; name: string } | null): string {
+    return `
+      <section class="social-panel-section social-panel-section--conversation" data-social-conversation-host="true">
+        <div class="social-panel-section-head">
+          <div class="social-panel-section-title">私聊</div>
+          ${selected ? `<span class="social-conversation-peer">${escapeHtml(selected.name)}</span>` : ''}
+        </div>
+        ${this.renderMessages(selected)}
+      </section>
+    `;
+  }
+
   private renderMessages(selected: { playerId: string; name: string } | null): string {
     if (!selected) {
-      return '';
+      return '<div class="empty-hint social-conversation-empty">选择一位道友开始私聊</div>';
     }
     const messages = this.messagesByPlayerId.get(selected.playerId) ?? [];
     return `
-      <div class="ui-list social-message-list" data-social-conversation-peer="${escapeHtml(selected.playerId)}">
-        <div class="ui-list-title">私聊 · ${escapeHtml(selected.name)}</div>
+      <div class="social-message-list" data-social-conversation-peer="${escapeHtml(selected.playerId)}">
         ${messages.length === 0
           ? '<div class="empty-hint" data-social-message-empty="true">暂无消息</div>'
           : messages.map((entry) => this.renderMessageRow(entry)).join('')}
@@ -326,7 +370,7 @@ export class SocialPanel {
 
   private renderMessageRow(message: DaoistDirectMessageView): string {
     return `
-      <div class="ui-list-row" data-social-message-id="${escapeHtml(message.messageId)}">
+      <div class="ui-list-row social-message-row" data-social-message-id="${escapeHtml(message.messageId)}">
         <div class="ui-list-main">
           <div class="ui-list-title">${escapeHtml(message.fromName)}</div>
           <div class="ui-list-subtitle">${escapeHtml(message.text)}</div>
@@ -386,9 +430,34 @@ export class SocialPanel {
     if (currentRoot) {
       currentRoot.replaceWith(nextRoot);
     } else {
-      this.pane.querySelector<HTMLElement>('.social-panel')?.append(nextRoot);
+      const host = this.pane.querySelector<HTMLElement>('[data-social-conversation-host="true"]');
+      host?.querySelector<HTMLElement>('.social-conversation-empty')?.remove();
+      host?.append(nextRoot);
     }
     this.restoreConversationState(peerId, inputSnapshot);
+  }
+
+  private replaceConversationSection(peerId: string, inputSnapshot: SocialMessageInputSnapshot | null): void {
+    const selected = this.view.relations.find((entry) => entry.playerId === peerId);
+    if (!selected) {
+      return;
+    }
+    const fragment = createFragmentFromHtml(this.renderConversationSection(selected));
+    const nextSection = fragment.firstElementChild;
+    const currentSection = this.pane.querySelector<HTMLElement>('[data-social-conversation-host="true"]');
+    if (!(nextSection instanceof HTMLElement) || !currentSection) {
+      return;
+    }
+    currentSection.replaceWith(nextSection);
+    this.restoreConversationState(peerId, inputSnapshot);
+  }
+
+  private patchSelectedRelation(playerId: string): void {
+    for (const row of this.pane.querySelectorAll<HTMLElement>('[data-social-relation-row]')) {
+      const selected = row.dataset.socialRelationRow === playerId;
+      row.classList.toggle('active', selected);
+      row.querySelector<HTMLElement>('[data-social-action="select"]')?.setAttribute('aria-pressed', selected ? 'true' : 'false');
+    }
   }
 
   private getConversationRoot(peerId: string): HTMLElement | null {

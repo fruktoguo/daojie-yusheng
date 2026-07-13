@@ -49,6 +49,7 @@ const craftTransmissionView = read('src/ui/craft-transmission-view.ts');
 const npcShop = read('src/ui/npc-shop-modal.ts');
 const npcQuest = read('src/ui/npc-quest-modal.ts');
 const socialPanel = read('src/ui/panels/social-panel.ts');
+const panelsCss = read('src/styles/panels.css');
 
 const marketUpdate = section(
   marketPanel,
@@ -283,6 +284,29 @@ assertMissing(npcQuestInventorySync, /this\.render\(\)/, 'NPC 任务背包同步
 assertIncludes(npcQuest, /isPlainEqual\(this\.renderedDetailQuestSnapshot, selected\)/, 'NPC 任务重复详情回包必须零 DOM 写入');
 assertIncludes(npcQuest, /clonePlainValue\(selected\)/, 'NPC 任务详情必须保存独立语义快照');
 assertIncludes(npcQuest, /nextSignature === this\.renderedInventoryDetailSignature/, 'NPC 任务无关背包变化必须零 DOM 写入');
+
+const socialSelect = section(
+  socialPanel,
+  "if (action === 'select' && playerId) {",
+  "if (action === 'dao_friend' && playerId)",
+  'SocialPanel.select',
+);
+assertIncludes(socialSelect, /patchSelectedRelation\(playerId\)/, '切换道友必须原位更新列表选中态');
+assertIncludes(socialSelect, /replaceConversationSection\(playerId, inputSnapshot\)/, '切换道友只能替换私聊区域');
+assertMissing(socialSelect, /this\.render\(/, '切换道友不得重建申请、附近和关系列表');
+
+const socialAppendMessage = section(
+  socialPanel,
+  'appendMessage(message: DaoistDirectMessageView, currentPlayerId: string | null): void {',
+  'clear(): void {',
+  'SocialPanel.appendMessage',
+);
+assertIncludes(socialAppendMessage, /patchCurrentConversation\(/, '新私聊消息必须优先追加稳定消息节点');
+assertIncludes(socialPanel, /panel-section-head social-panel-head/, '道友面板标题必须复用现有面板头原语');
+assertMissing(socialPanel, /panel-section-header/, '道友面板不得继续使用不存在的 panel-section-header 类');
+assertIncludes(panelsCss, /\.social-panel \.ui-list-row\s*\{/, '道友列表行必须有明确布局样式');
+assertIncludes(panelsCss, /\.social-panel-workspace\s*\{/, '道友关系与私聊区域必须有稳定工作区布局');
+assertIncludes(panelsCss, /@container social-panel \(max-width: 560px\)/, '道友面板必须保留窄容器响应式布局');
 
 const vaultPlayerSync = section(
   socialPanel,
