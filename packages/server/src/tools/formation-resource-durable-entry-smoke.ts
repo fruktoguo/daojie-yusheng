@@ -129,6 +129,7 @@ async function main(): Promise<void> {
       kind: 'public',
       linePreset: 'real',
       assignedNodeId: 'node:formation-resource',
+      leaseToken: 'lease:formation-resource',
       ownershipEpoch: 9,
     },
     template: { width: 16, height: 16 },
@@ -174,6 +175,7 @@ async function main(): Promise<void> {
   assert.equal(deployInput.action, 'deploy');
   assert.equal(deployInput.expectFormationAbsent, true);
   assert.equal(deployInput.expectedAssignedNodeId, 'node:formation-resource');
+  assert.equal(deployInput.expectedLeaseToken, 'lease:formation-resource');
   assert.equal(deployInput.expectedOwnershipEpoch, 9);
   assert.equal(deployInput.nextPlayerSnapshot.inventory.items.length, 1);
   assert.equal(deployInput.nextPlayerSnapshot.inventory.items[0]?.itemId, 'spirit_stone');

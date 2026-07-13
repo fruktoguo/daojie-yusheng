@@ -31,6 +31,7 @@ async function main(): Promise<void> {
   const formationInstanceId = `formation:${instanceId}:1`;
   const operationPrefix = `op:${playerId}:formation-resource`;
   const nodeId = 'node:formation-resource-durable-smoke';
+  const leaseToken = `lease:${instanceId}`;
   const pool = new Pool({ connectionString: databaseUrl });
   const databasePoolProvider = new DatabasePoolProvider();
   const durable = new DurableOperationService({ getNodeId: () => nodeId } as never, databasePoolProvider);
@@ -58,13 +59,14 @@ async function main(): Promise<void> {
     let rejected = false;
     try {
       await durable.commitFormationResourceMutation({
-        operationId: `${operationPrefix}:wrong-lease`,
+        operationId: `${operationPrefix}:wrong-token`,
         playerId,
         expectedRuntimeOwnerId: runtimeOwnerId,
         expectedSessionEpoch: 6,
         expectedInstanceId: instanceId,
         expectedAssignedNodeId: nodeId,
-        expectedOwnershipEpoch: 10,
+        expectedLeaseToken: `${leaseToken}:stale`,
+        expectedOwnershipEpoch: 9,
         action: 'deploy',
         formationWrite: {
           formationInstanceId,
@@ -82,7 +84,7 @@ async function main(): Promise<void> {
       rejected = String(error instanceof Error ? error.message : error).includes('instance_lease_fencing_conflict');
     }
     if (!rejected) {
-      throw new Error('expected instance lease fencing rejection');
+      throw new Error('expected instance lease token fencing rejection');
     }
     await assertFixtureState(pool, {
       playerId,
@@ -99,6 +101,7 @@ async function main(): Promise<void> {
       expectedSessionEpoch: 6,
       expectedInstanceId: instanceId,
       expectedAssignedNodeId: nodeId,
+      expectedLeaseToken: leaseToken,
       expectedOwnershipEpoch: 9,
       action: 'deploy' as const,
       formationWrite: {
@@ -207,6 +210,88 @@ async function main(): Promise<void> {
       expectedFormationSpiritStones: 40,
     });
 
+    const maintenanceFormation = buildFormationSnapshot(formationInstanceId, instanceId, now + 22, 40, 3_070);
+    const maintenanceJob = buildFormationMaintenanceJob(playerId, formationInstanceId, 2);
+    const maintenanceSnapshot = buildPlayerSnapshot(now + 33, instanceId, 60, 840);
+    if (!maintenanceSnapshot.progression) {
+      throw new Error('formation maintenance snapshot progression missing');
+    }
+    maintenanceSnapshot.progression = {
+      ...maintenanceSnapshot.progression,
+      formationSkill: { level: 2, exp: 1, expToNext: 60 },
+      formationJob: { ...maintenanceJob.detailJson as Record<string, unknown> },
+    };
+    const maintenanceInput = {
+      operationId: `${operationPrefix}:maintenance:1`,
+      playerId,
+      expectedRuntimeOwnerId: runtimeOwnerId,
+      expectedSessionEpoch: 6,
+      expectedInstanceId: instanceId,
+      expectedAssignedNodeId: nodeId,
+      expectedLeaseToken: leaseToken,
+      expectedOwnershipEpoch: 9,
+      formationWrite: {
+        formationInstanceId,
+        instanceId,
+        snapshot: maintenanceFormation,
+      },
+      expectedFormationUpdatedAtMs: now + 21,
+      expectedJobRunId: maintenanceJob.jobRunId,
+      expectedJobVersion: 1,
+      nextActiveJob: maintenanceJob,
+      nextPlayerSnapshot: maintenanceSnapshot,
+      qiAmount: 10,
+      formationQiAmount: 20,
+    };
+    const maintenanceResult = await durable.commitFormationMaintenanceMutation(maintenanceInput);
+    if (!maintenanceResult.ok || maintenanceResult.alreadyCommitted || maintenanceResult.jobVersion !== 2) {
+      throw new Error(`unexpected formation maintenance result: ${JSON.stringify(maintenanceResult)}`);
+    }
+    const maintenanceReplay = await durable.commitFormationMaintenanceMutation(maintenanceInput);
+    if (!maintenanceReplay.ok || !maintenanceReplay.alreadyCommitted) {
+      throw new Error(`unexpected formation maintenance replay: ${JSON.stringify(maintenanceReplay)}`);
+    }
+    await assertFixtureState(pool, {
+      playerId,
+      formationInstanceId,
+      expectedSpiritStones: 60,
+      expectedQi: 840,
+      expectedFormationUpdatedAt: now + 22,
+      expectedFormationSpiritStones: 40,
+    });
+    await assertFormationMaintenanceState(pool, playerId, maintenanceJob.jobRunId, 2, 2, 1);
+
+    rejected = false;
+    try {
+      await durable.commitFormationMaintenanceMutation({
+        ...maintenanceInput,
+        operationId: `${operationPrefix}:maintenance:stale-job`,
+        expectedFormationUpdatedAtMs: now + 22,
+        expectedJobVersion: 1,
+        nextActiveJob: buildFormationMaintenanceJob(playerId, formationInstanceId, 2),
+        formationWrite: {
+          formationInstanceId,
+          instanceId,
+          snapshot: buildFormationSnapshot(formationInstanceId, instanceId, now + 23, 40, 3_090),
+        },
+        nextPlayerSnapshot: buildMaintenancePlayerSnapshot(now + 34, instanceId, 60, 830, playerId, formationInstanceId, 2, 2),
+      });
+    }
+    catch (error) {
+      rejected = String(error instanceof Error ? error.message : error).includes('formation_maintenance_job_fencing_conflict');
+    }
+    if (!rejected) {
+      throw new Error('expected stale formation maintenance job rejection');
+    }
+    await assertFixtureState(pool, {
+      playerId,
+      formationInstanceId,
+      expectedSpiritStones: 60,
+      expectedQi: 840,
+      expectedFormationUpdatedAt: now + 22,
+      expectedFormationSpiritStones: 40,
+    });
+
     const operationRows = await fetchRows(
       pool,
       'SELECT operation_type, status FROM durable_operation_log WHERE player_id = $1 ORDER BY operation_id ASC',
@@ -224,31 +309,41 @@ async function main(): Promise<void> {
     );
     const watermark = await fetchSingleRow(
       pool,
-      'SELECT inventory_version, wallet_version, vitals_version FROM player_recovery_watermark WHERE player_id = $1',
+      'SELECT inventory_version, wallet_version, vitals_version, profession_version, active_job_version FROM player_recovery_watermark WHERE player_id = $1',
       [playerId],
     );
+    const operationTypes = operationRows.map((row) => row.operation_type).sort();
     if (
-      operationRows.length !== 2
+      operationRows.length !== 3
       || operationRows.some((row) => row.status !== 'committed')
-      || operationRows[0]?.operation_type !== 'formation_resource_deploy'
-      || operationRows[1]?.operation_type !== 'formation_resource_refill'
+      || JSON.stringify(operationTypes) !== JSON.stringify([
+        'formation_maintenance_tick',
+        'formation_resource_deploy',
+        'formation_resource_refill',
+      ])
     ) {
       throw new Error(`unexpected formation durable operation rows: ${JSON.stringify(operationRows)}`);
     }
+    const outboxTopics = outboxRows.map((row) => row.topic).sort();
     if (
-      outboxRows.length !== 2
-      || outboxRows[0]?.topic !== 'formation.resource.deploy'
-      || outboxRows[1]?.topic !== 'formation.resource.refill'
+      outboxRows.length !== 3
+      || JSON.stringify(outboxTopics) !== JSON.stringify([
+        'formation.maintenance.tick',
+        'formation.resource.deploy',
+        'formation.resource.refill',
+      ])
       || outboxRows.some((row) => row.status !== 'ready')
     ) {
       throw new Error(`unexpected formation outbox rows: ${JSON.stringify(outboxRows)}`);
     }
+    const auditKinds = auditRows.map((row) => `${row.asset_type}:${row.action}`).sort();
     if (
-      auditRows.length !== 2
-      || auditRows[0]?.asset_type !== 'formation_resource'
-      || auditRows[0]?.action !== 'deploy'
-      || auditRows[1]?.asset_type !== 'formation_resource'
-      || auditRows[1]?.action !== 'refill'
+      auditRows.length !== 3
+      || JSON.stringify(auditKinds) !== JSON.stringify([
+        'formation_maintenance:tick',
+        'formation_resource:deploy',
+        'formation_resource:refill',
+      ])
     ) {
       throw new Error(`unexpected formation audit rows: ${JSON.stringify(auditRows)}`);
     }
@@ -257,6 +352,8 @@ async function main(): Promise<void> {
       || Number(watermark.inventory_version) <= 0
       || Number(watermark.wallet_version) <= 0
       || Number(watermark.vitals_version) <= 0
+      || Number(watermark.profession_version) <= 0
+      || Number(watermark.active_job_version) <= 0
     ) {
       throw new Error(`unexpected formation recovery watermark: ${JSON.stringify(watermark)}`);
     }
@@ -264,10 +361,12 @@ async function main(): Promise<void> {
     console.log(JSON.stringify({
       ok: true,
       case: 'formation-resource-durable',
-      answers: '真实 PostgreSQL 已证明布阵/补给的 presence + instance lease/epoch + formation revision fencing，拒绝不污染玩家或阵法真源，成功时 inventory/wallet/vitals/formation/watermark/outbox/audit 同事务提交且精确重放不重复。',
+      answers: '真实 PostgreSQL 已证明布阵/补给及阵法维护 tick 的 presence + instance node/token/epoch + formation/job revision fencing；维护会把 vitals/profession/active_job/formation/watermark/outbox/audit 同事务提交，拒绝不污染真源且精确重放不重复。',
       firstResult,
       replayResult,
       refillResult,
+      maintenanceResult,
+      maintenanceReplay,
     }, null, 2));
   }
   finally {
@@ -291,6 +390,26 @@ function buildPlayerSnapshot(
     placement: { instanceId, templateId: 'yunlai_town', x: 1, y: 1, facing: 1 },
     worldPreference: { linePreset: 'real' },
     vitals: { hp: 100, maxHp: 100, qi, maxQi: 1_000 },
+    progression: {
+      foundation: 0,
+      combatExp: 0,
+      bodyTraining: null,
+      alchemySkill: null,
+      gatherSkill: null,
+      gatherJob: null,
+      alchemyPresets: [],
+      alchemyJob: null,
+      enhancementSkill: null,
+      enhancementSkillLevel: 1,
+      enhancementJob: null,
+      enhancementRecords: [],
+      boneAgeBaseYears: 16,
+      lifeElapsedTicks: 0,
+      lifespanYears: null,
+      realm: null,
+      heavenGate: null,
+      spiritualRoots: null,
+    },
     inventory: {
       revision: 2,
       capacity: 24,
@@ -313,6 +432,80 @@ function buildPlayerSnapshot(
         : [],
     },
   } as PersistedPlayerSnapshot;
+}
+
+function buildFormationMaintenanceJob(
+  playerId: string,
+  formationInstanceId: string,
+  jobVersion: number,
+): {
+  jobRunId: string;
+  jobType: 'formation';
+  status: string;
+  phase: string;
+  startedAt: number;
+  pausedTicks: number;
+  totalTicks: number;
+  remainingTicks: number;
+  successRate: number;
+  speedRate: number;
+  jobVersion: number;
+  detailJson: Record<string, unknown>;
+} {
+  const jobRunId = `job:${playerId}:formation:maintenance`;
+  const detailJson = {
+    jobRunId,
+    jobType: 'formation',
+    formationInstanceId,
+    formationName: '聚灵阵',
+    phase: 'maintaining',
+    startedAt: 100,
+    pausedTicks: 0,
+    totalTicks: 1,
+    remainingTicks: 1,
+    workTotalTicks: 1,
+    workRemainingTicks: 1,
+    successRate: 1,
+    maintenanceRate: 10,
+    jobVersion,
+  };
+  return {
+    jobRunId,
+    jobType: 'formation',
+    status: 'running',
+    phase: 'maintaining',
+    startedAt: 100,
+    pausedTicks: 0,
+    totalTicks: 1,
+    remainingTicks: 1,
+    successRate: 1,
+    speedRate: 10,
+    jobVersion,
+    detailJson,
+  };
+}
+
+function buildMaintenancePlayerSnapshot(
+  savedAt: number,
+  instanceId: string,
+  spiritStoneCount: number,
+  qi: number,
+  playerId: string,
+  formationInstanceId: string,
+  jobVersion: number,
+  formationSkillExp: number,
+): PersistedPlayerSnapshot {
+  const snapshot = buildPlayerSnapshot(savedAt, instanceId, spiritStoneCount, qi);
+  const job = buildFormationMaintenanceJob(playerId, formationInstanceId, jobVersion);
+  if (!snapshot.progression) {
+    throw new Error('formation maintenance snapshot progression missing');
+  }
+  snapshot.progression = {
+    ...snapshot.progression,
+    formationSkill: { level: 2, exp: formationSkillExp, expToNext: 60 },
+    formationJob: { ...job.detailJson },
+  };
+  return snapshot;
 }
 
 function buildFormationSnapshot(
@@ -463,6 +656,35 @@ async function assertFixtureState(
   }
 }
 
+async function assertFormationMaintenanceState(
+  pool: Pool,
+  playerId: string,
+  expectedJobRunId: string,
+  expectedJobVersion: number,
+  expectedProfessionLevel: number,
+  expectedProfessionExp: number,
+): Promise<void> {
+  const activeJob = await fetchSingleRow(
+    pool,
+    'SELECT job_run_id, job_type, job_version FROM player_active_job WHERE player_id = $1',
+    [playerId],
+  );
+  const profession = await fetchSingleRow(
+    pool,
+    "SELECT level, exp FROM player_profession_state WHERE player_id = $1 AND profession_type = 'formation'",
+    [playerId],
+  );
+  if (
+    activeJob?.job_run_id !== expectedJobRunId
+    || activeJob?.job_type !== 'formation'
+    || Number(activeJob?.job_version ?? 0) !== expectedJobVersion
+    || Number(profession?.level ?? 0) !== expectedProfessionLevel
+    || Number(profession?.exp ?? 0) !== expectedProfessionExp
+  ) {
+    throw new Error(`unexpected formation maintenance state: ${JSON.stringify({ activeJob, profession })}`);
+  }
+}
+
 async function cleanupFixture(
   pool: Pool,
   playerId: string,
@@ -474,7 +696,16 @@ async function cleanupFixture(
   await pool.query('DELETE FROM outbox_event WHERE operation_id LIKE $1', [`${operationPrefix}:%`]).catch(() => undefined);
   await pool.query('DELETE FROM durable_operation_log WHERE player_id = $1', [playerId]).catch(() => undefined);
   await pool.query('DELETE FROM instance_formation_state WHERE formation_instance_id = $1', [formationInstanceId]).catch(() => undefined);
-  for (const table of ['player_inventory_item', 'player_wallet', 'player_vitals', 'player_presence', 'player_recovery_watermark']) {
+  for (const table of [
+    'player_inventory_item',
+    'player_wallet',
+    'player_vitals',
+    'player_active_job',
+    'player_technique_activity_queue',
+    'player_profession_state',
+    'player_presence',
+    'player_recovery_watermark',
+  ]) {
     await pool.query(`DELETE FROM ${table} WHERE player_id = $1`, [playerId]).catch(() => undefined);
   }
   await pool.query('DELETE FROM instance_catalog WHERE instance_id = $1', [instanceId]).catch(() => undefined);

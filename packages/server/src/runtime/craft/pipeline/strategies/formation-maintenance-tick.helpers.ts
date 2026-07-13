@@ -38,10 +38,14 @@ export function resolveFormationMaintenanceTick(
   if (formationService.resolveFormationRemainingSpiritStoneBudget(formation) > 0) {
     formation.active = true;
   }
-  formation.updatedAt = Date.now();
+  formation.updatedAt = Math.max(Date.now(), Math.trunc(Number(formation.updatedAt) || 0) + 1);
   touchRuntimeInstanceRevision(ctx, formation.instanceId);
-  formationService.persistInstanceFormationsSoon?.(formation.instanceId);
-  playerRuntimeService?.recordActivity?.(playerId, Number((ctx.deps as { tick?: unknown } | null)?.tick) || 0, { interruptCultivation: true });
+  if ((ctx.deps as { deferFormationMaintenancePersistence?: unknown } | null)?.deferFormationMaintenancePersistence !== true) {
+    formationService.persistFormationMaintenanceSoon?.(formation, ctx);
+  }
+  if ((ctx.deps as { skipFormationMaintenanceActivityRecord?: unknown } | null)?.skipFormationMaintenanceActivityRecord !== true) {
+    playerRuntimeService?.recordActivity?.(playerId, Number((ctx.deps as { tick?: unknown } | null)?.tick) || 0, { interruptCultivation: true });
+  }
 
   job.maintenanceRate = rate;
   job.remainingTicks = 1;
@@ -75,7 +79,7 @@ function resolveFormationService(ctx: PipelineContext): {
   resolveFormationRemainingQiBudget(formation: Record<string, any>): number;
   resolveFormationRemainingSpiritStoneBudget(formation: Record<string, any>): number;
   setFormationRemainingQiBudget(formation: Record<string, any>, value: number): void;
-  persistInstanceFormationsSoon?(instanceId: string): void;
+  persistFormationMaintenanceSoon?(formation: Record<string, any>, ctx: PipelineContext): void;
 } {
   return (ctx.deps as { worldRuntimeFormationService?: any } | null)?.worldRuntimeFormationService;
 }

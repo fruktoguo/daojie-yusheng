@@ -135,6 +135,16 @@ export class WorldRuntimeCraftTickService {
         if (kind === 'enhancement' && typeof this.craftPanelRuntimeService.tickEnhancementDurably === 'function') {
             return this.craftPanelRuntimeService.tickEnhancementDurably(player, deps);
         }
+        if (
+            kind === 'formation'
+            && typeof deps?.worldRuntimeFormationService?.tickFormationMaintenanceDurably === 'function'
+        ) {
+            return deps.worldRuntimeFormationService.tickFormationMaintenanceDurably(
+                player,
+                (tickDeps: any) => this.craftPanelRuntimeService.tickTechniqueActivity(player, kind, tickDeps),
+                deps,
+            );
+        }
         return Promise.resolve(this.craftPanelRuntimeService.tickTechniqueActivity(player, kind, deps));
     }
 

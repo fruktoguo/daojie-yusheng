@@ -166,6 +166,12 @@ class WorldRuntimeFormationService {
         return this.captureFormationPersistenceFence(instance, deps);
     }
 
+    persistFormationMaintenanceSoon(formation, ctx = null) {
+        const deps = ctx?.deps ?? ctx;
+        const persistenceFence = this.captureFormationPersistenceFenceForFormation(formation, deps);
+        this.persistInstanceFormationsSoon(formation?.instanceId, persistenceFence);
+    }
+
     requiresFormationPersistenceFence() {
         return Boolean(resolveServerDatabaseUrl().trim())
             && !isFormationVolatileFallbackAllowed();
@@ -2190,13 +2196,14 @@ class WorldRuntimeFormationService {
         return instance;
     }
 
-    resolveFormationResourceDurableContext(instance, deps) {
+    resolveFormationResourceDurableContext(instance, deps, requiredMethod = 'commitFormationResourceMutation') {
         const durable = this.durableOperationService;
-        if (!durable?.isEnabled?.() || typeof durable.commitFormationResourceMutation !== 'function') {
+        if (!durable?.isEnabled?.() || typeof durable?.[requiredMethod] !== 'function') {
             return null;
         }
         const instanceId = normalizeInstanceId(instance?.meta?.instanceId);
         const assignedNodeId = normalizeOptionalString(instance?.meta?.assignedNodeId);
+        const leaseToken = normalizeOptionalString(instance?.meta?.leaseToken);
         const ownershipEpoch = Number.isFinite(Number(instance?.meta?.ownershipEpoch))
             ? Math.max(0, Math.trunc(Number(instance.meta.ownershipEpoch)))
             : 0;
@@ -2206,6 +2213,7 @@ class WorldRuntimeFormationService {
             !instanceId
             || deps?.getInstanceRuntime?.(instanceId) !== instance
             || !assignedNodeId
+            || !leaseToken
             || ownershipEpoch <= 0
             || !leaseWritable
         ) {
@@ -2215,6 +2223,7 @@ class WorldRuntimeFormationService {
             durable,
             instanceId,
             assignedNodeId,
+            leaseToken,
             ownershipEpoch,
         };
     }
@@ -2225,7 +2234,164 @@ class WorldRuntimeFormationService {
         if (typeof coordinator !== 'function') {
             return runFormationLocked();
         }
-        return coordinator.call(this.playerRuntimeService, [playerId], runFormationLocked);
+        return coordinator.call(this.playerRuntimeService, [playerId], runFormationLocked, {
+            deferAssetStatisticsUntilSuccess: true,
+        });
+    }
+
+    async tickFormationMaintenanceDurably(player, tickAction, deps = null) {
+        const playerId = normalizePlayerId(player);
+        const formationInstanceId = normalizeOptionalString(player?.formationJob?.formationInstanceId);
+        if (typeof tickAction !== 'function') {
+            throw new Error('formation_maintenance_tick_action_required');
+        }
+        if (!playerId || !formationInstanceId) {
+            return tickAction(deps);
+        }
+        const formation = this.resolveMaintainableFormation(playerId, formationInstanceId, { deps });
+        const instance = this.resolveFormationWriteInstance(formation, deps);
+        const durableContext = this.resolveFormationResourceDurableContext(
+            instance,
+            deps,
+            'commitFormationMaintenanceMutation',
+        );
+        if (!durableContext) {
+            if (resolveServerDatabaseUrl().trim() && !isFormationVolatileFallbackAllowed()) {
+                throw new ServiceUnavailableException('阵法维护资产事务暂不可用，请稍后重试');
+            }
+            return tickAction(deps);
+        }
+
+        return this.runExclusivePlayerFormationResourceMutation(playerId, formationInstanceId, async () => {
+            const currentPlayer = this.playerRuntimeService.getPlayerOrThrow(playerId);
+            const currentJob = currentPlayer?.formationJob;
+            const currentFormation = this.resolveMaintainableFormation(playerId, formationInstanceId, { deps });
+            if (!currentJob || currentJob.formationInstanceId !== formationInstanceId) {
+                return tickAction(deps);
+            }
+            this.playerRuntimeService.recordActivity?.(
+                playerId,
+                Number(deps?.tick) || 0,
+                { interruptCultivation: true },
+            );
+            const before = captureFormationMaintenanceRuntimeState(currentPlayer, currentFormation, instance);
+            const expectedJobRunId = normalizeOptionalString(currentJob.jobRunId);
+            const expectedJobVersion = Math.max(1, Math.trunc(Number(currentJob.jobVersion) || 1));
+            const expectedFormationUpdatedAtMs = Math.max(1, Math.trunc(Number(currentFormation.updatedAt) || 0));
+            if (!expectedJobRunId || expectedFormationUpdatedAtMs <= 0) {
+                throw new ServiceUnavailableException('阵法维护任务围栏暂不可用');
+            }
+            const previousSuppress = currentPlayer.suppressImmediateDomainPersistence;
+            currentPlayer.suppressImmediateDomainPersistence = true;
+            let stagedAfter = null;
+            try {
+                const result = tickAction({
+                    ...deps,
+                    deferFormationMaintenancePersistence: true,
+                    skipFormationMaintenanceActivityRecord: true,
+                });
+                if (result && typeof result.then === 'function') {
+                    throw new Error('formation_maintenance_tick_action_must_be_synchronous');
+                }
+                const qiAmount = Math.max(0, Math.trunc(Number(before.player.qi) - Number(currentPlayer.qi)));
+                const formationQiAmount = Math.max(
+                    0,
+                    Number(resolveFormationRemainingQiBudget(currentFormation)) - Number(before.formation.remainingQiBudget),
+                );
+                if (qiAmount <= 0 || formationQiAmount <= 0) {
+                    return result;
+                }
+                if (currentPlayer.formationJob?.jobRunId !== expectedJobRunId) {
+                    throw new Error('formation_maintenance_runtime_job_identity_changed');
+                }
+                const nextActiveJob = buildFormationMaintenanceActiveJobSnapshot(currentPlayer.formationJob);
+                const nextPlayerSnapshot = this.playerRuntimeService.buildPersistenceSnapshot?.(
+                    playerId,
+                    new Set(['vitals', 'profession', 'active_job']),
+                ) ?? null;
+                if (!nextPlayerSnapshot || !nextActiveJob || nextActiveJob.jobVersion <= expectedJobVersion) {
+                    throw new ServiceUnavailableException('阵法维护后态快照暂不可用');
+                }
+                const snapshotRevision = Math.max(0, Math.trunc(Number(currentPlayer.persistentRevision) || 0));
+                const formationSnapshot = serializeFormation(currentFormation);
+                stagedAfter = captureFormationMaintenanceRuntimeState(currentPlayer, currentFormation, instance);
+                restoreFormationMaintenanceRuntimeState(currentPlayer, currentFormation, instance, before);
+
+                const operationSignatureHash = createHash('sha256');
+                for (const value of [
+                    playerId,
+                    formationInstanceId,
+                    expectedJobRunId,
+                    expectedJobVersion,
+                    expectedFormationUpdatedAtMs,
+                ]) {
+                    operationSignatureHash.update(String(value));
+                    operationSignatureHash.update('\0');
+                }
+                const operationSignature = operationSignatureHash.digest('hex').slice(0, 32);
+                const durableInput = {
+                    operationId: `op:formation-maintenance:${operationSignature}`,
+                    playerId,
+                    expectedRuntimeOwnerId: '',
+                    expectedSessionEpoch: 0,
+                    expectedInstanceId: durableContext.instanceId,
+                    expectedAssignedNodeId: durableContext.assignedNodeId,
+                    expectedLeaseToken: durableContext.leaseToken,
+                    expectedOwnershipEpoch: durableContext.ownershipEpoch,
+                    formationWrite: {
+                        formationInstanceId,
+                        instanceId: formationSnapshot.instanceId,
+                        snapshot: formationSnapshot,
+                    },
+                    expectedFormationUpdatedAtMs,
+                    expectedJobRunId,
+                    expectedJobVersion,
+                    nextActiveJob,
+                    nextPlayerSnapshot,
+                    qiAmount,
+                    formationQiAmount,
+                };
+                await this.commitFormationMaintenancePlan(playerId, durableInput);
+                restoreFormationMaintenanceRuntimeState(currentPlayer, currentFormation, instance, stagedAfter);
+                this.playerRuntimeService.markPersisted?.(
+                    playerId,
+                    new Set(['vitals', 'profession', 'active_job']),
+                    snapshotRevision,
+                );
+                return result;
+            }
+            catch (error) {
+                restoreFormationMaintenanceRuntimeState(currentPlayer, currentFormation, instance, before);
+                throw error;
+            }
+            finally {
+                currentPlayer.suppressImmediateDomainPersistence = previousSuppress;
+            }
+        });
+    }
+
+    async commitFormationMaintenancePlan(playerId, durableInput) {
+        const sessionFence = this.playerRuntimeService.getSessionFence?.(playerId) ?? null;
+        if (!sessionFence?.runtimeOwnerId || !sessionFence?.sessionEpoch) {
+            throw new ServiceUnavailableException('玩家资产事务围栏暂不可用');
+        }
+        durableInput.expectedRuntimeOwnerId = sessionFence.runtimeOwnerId;
+        durableInput.expectedSessionEpoch = sessionFence.sessionEpoch;
+        try {
+            await this.durableOperationService.commitFormationMaintenanceMutation(durableInput);
+        }
+        catch (error) {
+            if (!isFormationPlayerFenceConflict(error) || !(await this.syncCurrentFormationPlayerPresence(playerId))) {
+                throw error;
+            }
+            const refreshedFence = this.playerRuntimeService.getSessionFence?.(playerId) ?? null;
+            if (!refreshedFence?.runtimeOwnerId || !refreshedFence?.sessionEpoch) {
+                throw error;
+            }
+            durableInput.expectedRuntimeOwnerId = refreshedFence.runtimeOwnerId;
+            durableInput.expectedSessionEpoch = refreshedFence.sessionEpoch;
+            await this.durableOperationService.commitFormationMaintenanceMutation(durableInput);
+        }
     }
 
     async commitFormationResourcePlan(input) {
@@ -2282,6 +2448,7 @@ class WorldRuntimeFormationService {
             expectedSessionEpoch: sessionFence.sessionEpoch,
             expectedInstanceId: input.durableContext.instanceId,
             expectedAssignedNodeId: input.durableContext.assignedNodeId,
+            expectedLeaseToken: input.durableContext.leaseToken,
             expectedOwnershipEpoch: input.durableContext.ownershipEpoch,
             action: input.action,
             formationWrite: {
@@ -2719,6 +2886,125 @@ function cloneFormationForResourceMutation(formation) {
             ? { ...formation.stats }
             : formation?.stats,
     };
+}
+
+function captureFormationMaintenanceRuntimeState(player, formation, instance) {
+    return {
+        player: {
+            qi: Number(player?.qi ?? 0),
+            selfRevision: Number(player?.selfRevision ?? 0),
+            persistentRevision: Number(player?.persistentRevision ?? 0),
+            persistedRevision: Number(player?.persistedRevision ?? 0),
+            stagedRevision: Number(player?.stagedRevision ?? 0),
+            formationJob: cloneFormationMaintenanceJob(player?.formationJob),
+            formationSkill: player?.formationSkill && typeof player.formationSkill === 'object'
+                ? { ...player.formationSkill }
+                : player?.formationSkill,
+            dirtyDomains: new Set(player?.dirtyDomains instanceof Set ? player.dirtyDomains : []),
+            persistenceDomainRevisionByDomain: cloneRuntimeMap(player?.persistenceDomainRevisionByDomain),
+            stagedPersistenceDomainRevisionByDomain: cloneRuntimeMap(player?.stagedPersistenceDomainRevisionByDomain),
+            persistenceStagingGenerationByDomain: cloneRuntimeMap(player?.persistenceStagingGenerationByDomain),
+            persistedDomainRevisionByDomain: cloneRuntimeMap(player?.persistedDomainRevisionByDomain),
+        },
+        formation: {
+            remainingQiBudget: resolveFormationRemainingQiBudget(formation),
+            remainingAuraBudget: resolveFormationRemainingQiBudget(formation),
+            remainingSpiritStoneBudget: resolveFormationRemainingSpiritStoneBudget(formation),
+            active: formation?.active !== false,
+            updatedAt: Number(formation?.updatedAt ?? 0),
+        },
+        instanceWorldRevision: Number(instance?.worldRevision ?? 0),
+    };
+}
+
+function restoreFormationMaintenanceRuntimeState(player, formation, instance, state) {
+    if (!state) {
+        return;
+    }
+    player.qi = state.player.qi;
+    player.selfRevision = state.player.selfRevision;
+    player.persistentRevision = state.player.persistentRevision;
+    player.persistedRevision = state.player.persistedRevision;
+    player.stagedRevision = state.player.stagedRevision;
+    player.formationJob = cloneFormationMaintenanceJob(state.player.formationJob);
+    player.formationSkill = state.player.formationSkill && typeof state.player.formationSkill === 'object'
+        ? { ...state.player.formationSkill }
+        : state.player.formationSkill;
+    restoreRuntimeSet(player, 'dirtyDomains', state.player.dirtyDomains);
+    restoreRuntimeMap(player, 'persistenceDomainRevisionByDomain', state.player.persistenceDomainRevisionByDomain);
+    restoreRuntimeMap(player, 'stagedPersistenceDomainRevisionByDomain', state.player.stagedPersistenceDomainRevisionByDomain);
+    restoreRuntimeMap(player, 'persistenceStagingGenerationByDomain', state.player.persistenceStagingGenerationByDomain);
+    restoreRuntimeMap(player, 'persistedDomainRevisionByDomain', state.player.persistedDomainRevisionByDomain);
+    setFormationRemainingQiBudget(formation, state.formation.remainingQiBudget);
+    setFormationRemainingSpiritStoneBudget(formation, state.formation.remainingSpiritStoneBudget);
+    formation.active = state.formation.active;
+    formation.updatedAt = state.formation.updatedAt;
+    if (instance && Number.isFinite(state.instanceWorldRevision)) {
+        instance.worldRevision = state.instanceWorldRevision;
+    }
+}
+
+function cloneFormationMaintenanceJob(job) {
+    if (!job || typeof job !== 'object') {
+        return job ?? null;
+    }
+    return {
+        ...job,
+        interruptState: job.interruptState && typeof job.interruptState === 'object'
+            ? { ...job.interruptState }
+            : job.interruptState ?? null,
+    };
+}
+
+function buildFormationMaintenanceActiveJobSnapshot(job) {
+    const jobRunId = normalizeOptionalString(job?.jobRunId);
+    if (!jobRunId) {
+        return null;
+    }
+    const jobVersion = Math.max(1, Math.trunc(Number(job?.jobVersion) || 1));
+    return {
+        jobRunId,
+        jobType: 'formation',
+        status: normalizeOptionalString(job?.status) || 'running',
+        phase: normalizeOptionalString(job?.phase) || 'maintaining',
+        startedAt: Math.max(1, Math.trunc(Number(job?.startedAt) || Date.now())),
+        finishedAt: job?.finishedAt == null ? null : Math.max(1, Math.trunc(Number(job.finishedAt) || Date.now())),
+        pausedTicks: Math.max(0, Math.trunc(Number(job?.pausedTicks) || 0)),
+        totalTicks: Math.max(0, Math.trunc(Number(job?.totalTicks) || 0)),
+        remainingTicks: Math.max(0, Math.trunc(Number(job?.remainingTicks) || 0)),
+        successRate: Number.isFinite(Number(job?.successRate)) ? Number(job.successRate) : 1,
+        speedRate: Number.isFinite(Number(job?.maintenanceRate)) ? Number(job.maintenanceRate) : 1,
+        jobVersion,
+        detailJson: cloneFormationMaintenanceJob({ ...job, jobRunId, jobType: 'formation', jobVersion }),
+    };
+}
+
+function cloneRuntimeMap(value) {
+    return value instanceof Map ? new Map(value) : new Map();
+}
+
+function restoreRuntimeMap(target, key, snapshot) {
+    const current = target?.[key];
+    if (current instanceof Map) {
+        current.clear();
+        for (const [entryKey, entryValue] of snapshot ?? []) {
+            current.set(entryKey, entryValue);
+        }
+        return;
+    }
+    target[key] = new Map(snapshot ?? []);
+}
+
+function restoreRuntimeSet(target, key, snapshot) {
+    const current = target?.[key];
+    if (current instanceof Set) {
+        current.clear();
+        for (const entry of snapshot ?? []) {
+            current.add(entry);
+        }
+        return;
+    }
+    target[key] = new Set(snapshot ?? []);
 }
 
 function isFormationPlayerFenceConflict(error) {

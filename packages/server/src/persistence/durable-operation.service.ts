@@ -300,6 +300,7 @@ export interface CommitFormationResourceMutationInput {
   expectedSessionEpoch: number;
   expectedInstanceId: string;
   expectedAssignedNodeId: string;
+  expectedLeaseToken: string;
   expectedOwnershipEpoch: number;
   action: 'deploy' | 'refill' | 'inject';
   formationWrite: DurableSectFormationWrite;
@@ -316,6 +317,33 @@ export interface CommitFormationResourceMutationResult {
   alreadyCommitted: boolean;
   action: 'deploy' | 'refill' | 'inject';
   formationInstanceId: string;
+}
+
+export interface CommitFormationMaintenanceMutationInput {
+  operationId: string;
+  playerId: string;
+  expectedRuntimeOwnerId: string;
+  expectedSessionEpoch: number;
+  expectedInstanceId: string;
+  expectedAssignedNodeId: string;
+  expectedLeaseToken: string;
+  expectedOwnershipEpoch: number;
+  formationWrite: DurableSectFormationWrite;
+  expectedFormationUpdatedAtMs: number;
+  expectedJobRunId: string;
+  expectedJobVersion: number;
+  nextActiveJob: DurableActiveJobSnapshot;
+  nextPlayerSnapshot: PersistedPlayerSnapshot;
+  qiAmount: number;
+  formationQiAmount: number;
+}
+
+export interface CommitFormationMaintenanceMutationResult {
+  ok: boolean;
+  alreadyCommitted: boolean;
+  formationInstanceId: string;
+  jobRunId: string;
+  jobVersion: number;
 }
 
 /**
@@ -1658,6 +1686,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
     const normalizedFormationInstanceId = normalizeRequiredString(input.formationWrite?.formationInstanceId);
     const normalizedFormationWorldInstanceId = normalizeRequiredString(input.formationWrite?.instanceId);
     const normalizedExpectedInstanceId = normalizeRequiredString(input.expectedInstanceId);
+    const normalizedExpectedLeaseToken = normalizeRequiredString(input.expectedLeaseToken);
     const action = input.action === 'deploy' || input.action === 'refill' || input.action === 'inject'
       ? input.action
       : null;
@@ -1675,6 +1704,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
       || !normalizedFormationInstanceId
       || !normalizedFormationWorldInstanceId
       || normalizedExpectedInstanceId !== normalizedFormationWorldInstanceId
+      || !normalizedExpectedLeaseToken
       || !formationSnapshot
       || normalizeRequiredString(formationSnapshot.id) !== normalizedFormationInstanceId
       || normalizeRequiredString(formationSnapshot.instanceId) !== normalizedFormationWorldInstanceId
@@ -1706,6 +1736,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
       expectedSessionEpoch: input.expectedSessionEpoch,
       expectedInstanceId: normalizedExpectedInstanceId,
       expectedAssignedNodeId: input.expectedAssignedNodeId,
+      expectedLeaseToken: normalizedExpectedLeaseToken,
       expectedOwnershipEpoch: input.expectedOwnershipEpoch,
       operationType: `formation_resource_${action}`,
       aggregateType: 'instance_formation_state',
@@ -1776,6 +1807,167 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
           alreadyCommitted: false,
           action,
           formationInstanceId: normalizedFormationInstanceId,
+        };
+      },
+    });
+  }
+
+  /** 阵法维护每息把玩家灵力、技艺/job 与阵法灵力池作为同一资产转换提交。 */
+  async commitFormationMaintenanceMutation(
+    input: CommitFormationMaintenanceMutationInput,
+  ): Promise<CommitFormationMaintenanceMutationResult> {
+    const normalizedPlayerId = normalizeRequiredString(input.playerId);
+    const normalizedOperationId = normalizeDurableOperationId(input.operationId);
+    const normalizedFormationInstanceId = normalizeRequiredString(input.formationWrite?.formationInstanceId);
+    const normalizedFormationWorldInstanceId = normalizeRequiredString(input.formationWrite?.instanceId);
+    const normalizedExpectedInstanceId = normalizeRequiredString(input.expectedInstanceId);
+    const normalizedExpectedLeaseToken = normalizeRequiredString(input.expectedLeaseToken);
+    const normalizedExpectedJobRunId = normalizeRequiredString(input.expectedJobRunId);
+    const normalizedExpectedJobVersion = Math.max(1, Math.trunc(Number(input.expectedJobVersion) || 0));
+    const normalizedNextActiveJob = normalizeActiveJobSnapshot(input.nextActiveJob);
+    const expectedFormationUpdatedAtMs = Math.max(1, Math.trunc(Number(input.expectedFormationUpdatedAtMs) || 0));
+    const qiAmount = Math.max(1, Math.trunc(Number(input.qiAmount) || 0));
+    const formationQiAmount = Math.max(1, Math.trunc(Number(input.formationQiAmount) || 0));
+    const formationSnapshot = input.formationWrite?.snapshot;
+    const nextPlayerSnapshot = input.nextPlayerSnapshot;
+    const nextSnapshotJob = nextPlayerSnapshot?.progression?.formationJob;
+    const nextSnapshotJobRunId = normalizeRequiredString(nextSnapshotJob?.jobRunId);
+    const nextSnapshotJobVersion = normalizeOptionalInteger(nextSnapshotJob?.jobVersion) ?? 0;
+    if (
+      !normalizedPlayerId
+      || !normalizedOperationId
+      || !normalizedFormationInstanceId
+      || !normalizedFormationWorldInstanceId
+      || normalizedExpectedInstanceId !== normalizedFormationWorldInstanceId
+      || !normalizedExpectedLeaseToken
+      || !normalizedExpectedJobRunId
+      || normalizedNextActiveJob.jobType !== 'formation'
+      || normalizedNextActiveJob.jobRunId !== normalizedExpectedJobRunId
+      || normalizedNextActiveJob.jobVersion <= normalizedExpectedJobVersion
+      || nextSnapshotJobRunId !== normalizedNextActiveJob.jobRunId
+      || nextSnapshotJobVersion !== normalizedNextActiveJob.jobVersion
+      || !formationSnapshot
+      || normalizeRequiredString(formationSnapshot.id) !== normalizedFormationInstanceId
+      || normalizeRequiredString(formationSnapshot.instanceId) !== normalizedFormationWorldInstanceId
+      || Math.max(0, Math.trunc(Number(formationSnapshot.updatedAt) || 0)) <= expectedFormationUpdatedAtMs
+      || !nextPlayerSnapshot?.placement?.templateId
+    ) {
+      throw new Error('invalid_formation_maintenance_mutation_input');
+    }
+
+    const payload = {
+      formationInstanceId: normalizedFormationInstanceId,
+      instanceId: normalizedFormationWorldInstanceId,
+      expectedFormationUpdatedAtMs,
+      expectedJobRunId: normalizedExpectedJobRunId,
+      expectedJobVersion: normalizedExpectedJobVersion,
+      nextJobVersion: normalizedNextActiveJob.jobVersion,
+      qiAmount,
+      formationQiAmount,
+      nextVitals: nextPlayerSnapshot.vitals ?? null,
+      nextFormationProfession: nextPlayerSnapshot.progression?.formationSkill ?? null,
+      formationSnapshot,
+    };
+
+    return this.executeAssetMutation<CommitFormationMaintenanceMutationResult>({
+      operationId: normalizedOperationId,
+      playerId: normalizedPlayerId,
+      expectedRuntimeOwnerId: input.expectedRuntimeOwnerId,
+      expectedSessionEpoch: input.expectedSessionEpoch,
+      expectedInstanceId: normalizedExpectedInstanceId,
+      expectedAssignedNodeId: input.expectedAssignedNodeId,
+      expectedLeaseToken: normalizedExpectedLeaseToken,
+      expectedOwnershipEpoch: input.expectedOwnershipEpoch,
+      operationType: 'formation_maintenance_tick',
+      aggregateType: 'instance_formation_state',
+      payload,
+      onAlreadyCommitted: async () => ({
+        ok: true,
+        alreadyCommitted: true,
+        formationInstanceId: normalizedFormationInstanceId,
+        jobRunId: normalizedNextActiveJob.jobRunId,
+        jobVersion: normalizedNextActiveJob.jobVersion,
+      }),
+      onMutate: async (client) => {
+        const currentJob = await client.query<{
+          job_run_id?: unknown;
+          job_version?: unknown;
+        }>(
+          `SELECT job_run_id, job_version
+           FROM ${PLAYER_ACTIVE_JOB_TABLE}
+           WHERE player_id = $1
+           FOR UPDATE`,
+          [normalizedPlayerId],
+        );
+        const persistedJobRunId = normalizeRequiredString(currentJob.rows[0]?.job_run_id);
+        const persistedJobVersion = normalizeOptionalInteger(currentJob.rows[0]?.job_version) ?? 0;
+        if (
+          (persistedJobRunId && persistedJobRunId !== normalizedExpectedJobRunId)
+          || persistedJobVersion > normalizedExpectedJobVersion
+        ) {
+          throw new Error([
+            'formation_maintenance_job_fencing_conflict',
+            `expectedJobRunId=${normalizedExpectedJobRunId}`,
+            `expectedJobVersion=${normalizedExpectedJobVersion}`,
+            `persistedJobRunId=${persistedJobRunId || 'null'}`,
+            `persistedJobVersion=${persistedJobVersion}`,
+          ].join(':'));
+        }
+
+        await persistDurableFormationWriteWithClient(
+          client,
+          {
+            formationInstanceId: normalizedFormationInstanceId,
+            instanceId: normalizedFormationWorldInstanceId,
+            snapshot: formationSnapshot,
+          },
+          { expectedUpdatedAtMs: expectedFormationUpdatedAtMs },
+        );
+        await savePlayerSnapshotProjectionDomainsWithClient(
+          client,
+          normalizedPlayerId,
+          nextPlayerSnapshot,
+          ['vitals', 'profession', 'active_job'],
+          { expectedProjectionVersion: nextPlayerSnapshot.savedAt },
+        );
+        await insertDurableOutboxEvent(
+          client,
+          normalizedOperationId,
+          'formation.maintenance.tick',
+          normalizedFormationWorldInstanceId,
+          {
+            playerId: normalizedPlayerId,
+            formationInstanceId: normalizedFormationInstanceId,
+            instanceId: normalizedFormationWorldInstanceId,
+            jobRunId: normalizedNextActiveJob.jobRunId,
+            jobVersion: normalizedNextActiveJob.jobVersion,
+            qiAmount,
+            formationQiAmount,
+          },
+        );
+        await insertAssetAuditLog(
+          client,
+          normalizedOperationId,
+          normalizedPlayerId,
+          'formation_maintenance',
+          normalizedFormationInstanceId,
+          'tick',
+          { qiAmount: -qiAmount, formationQiAmount },
+          {
+            formationUpdatedAtMs: expectedFormationUpdatedAtMs,
+            jobVersion: normalizedExpectedJobVersion,
+          },
+          {
+            formationUpdatedAtMs: Math.max(0, Math.trunc(Number(formationSnapshot.updatedAt) || 0)),
+            jobVersion: normalizedNextActiveJob.jobVersion,
+          },
+        );
+        return {
+          ok: true,
+          alreadyCommitted: false,
+          formationInstanceId: normalizedFormationInstanceId,
+          jobRunId: normalizedNextActiveJob.jobRunId,
+          jobVersion: normalizedNextActiveJob.jobVersion,
         };
       },
     });
@@ -3834,6 +4026,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
     expectedSessionEpoch: number;
     expectedInstanceId?: string | null;
     expectedAssignedNodeId?: string | null;
+    expectedLeaseToken?: string | null;
     expectedOwnershipEpoch?: number | null;
     operationType: string;
     aggregateType: string;
@@ -3906,6 +4099,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
       await assertInstanceLeaseWritable(client, {
         expectedInstanceId: input.expectedInstanceId,
         expectedAssignedNodeId: input.expectedAssignedNodeId,
+        expectedLeaseToken: input.expectedLeaseToken,
         expectedOwnershipEpoch: input.expectedOwnershipEpoch,
         currentNodeId: this.getCurrentNodeId(),
       });
@@ -7030,6 +7224,7 @@ async function assertInstanceLeaseWritable(
   input: {
     expectedInstanceId: string | null | undefined;
     expectedAssignedNodeId?: string | null | undefined;
+    expectedLeaseToken?: string | null | undefined;
     expectedOwnershipEpoch?: number | null | undefined;
     currentNodeId: string;
   },
@@ -7041,6 +7236,7 @@ async function assertInstanceLeaseWritable(
   await assertInstanceLeaseWriteFence(client, {
     instanceId: normalizedInstanceId,
     expectedAssignedNodeId: input.expectedAssignedNodeId,
+    expectedLeaseToken: input.expectedLeaseToken,
     expectedOwnershipEpoch: input.expectedOwnershipEpoch,
     requiredCurrentNodeId: input.currentNodeId,
     conflictCode: 'instance_lease_fencing_conflict',

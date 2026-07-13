@@ -3,7 +3,7 @@
 ## 审计口径
 
 - 生产主线：`packages/client`、`packages/shared`、`packages/server`、`packages/config-editor`。
-- 当前基线：`main` 分支 `211f038a`；相对 `origin/main` ahead 20。
+- 当前基线：`main` 分支 `8bbf225b`；相对 `origin/main` ahead 21。
 - package manager：`pnpm@10.29.1`。
 - 每项结论必须来自机制文档、完整调用链、测试、编译产物或运行数据；仅凭搜索未发现异常不能标记为“确认无问题”。
 - `[x]` 只表示该行列出的具体证据范围已完成，不代表相邻系统或整个项目已完成。
@@ -19,6 +19,7 @@
 - [x] A-04 NPC 任务写路径 smoke 的 TypeScript 绕过、构造器漂移和错误资产模型已修复；见 FS-022。
 - [x] A-05 NPC 商店 smoke 的 TypeScript 绕过、提前成功输出和旧分步资产模型已修复；见 FS-024。
 - [x] A-06 阵法运行时 smoke 的 TypeScript 绕过、投影/地块夹具漂移和旧 API 调用已修复；见 FS-027。
+- [ ] A-07 `world-runtime-craft-smoke` 的建筑夹具缺失 AOI chunk revision 索引，当前无法完整运行；见 FS-030。
 
 ### 资产、持久化与恢复
 
@@ -46,6 +47,7 @@
 - [x] P-22 邮件灵石附件按旧钱包增量投影、堆叠可越过数量上限的问题已修复；见 FS-025。
 - [x] P-23 布阵、普通阵法补给和护宗大阵一次性注入的玩家资产与阵法后态分步提交问题已修复；见 FS-026。
 - [x] P-24 普通阵法与宗门阵法数据库 writer 可越过实例 lease handoff 覆盖/删除新节点后态的问题已修复；见 FS-028。
+- [x] P-25 阵法维护每息分步提交玩家灵力、技艺/job 与阵法后态的问题已修复；见 FS-029。
 
 ### 服务端权威运行时
 
@@ -521,7 +523,7 @@
 
 ### FS-028 阵法数据库 writer 未校验实例 lease handoff
 
-- **状态**：已修复并完成编译、专项与真实数据库验证，待本组中文原子提交。
+- **状态**：已修复、完成编译、专项与真实数据库验证并原子提交。
 - **严重级别**：P0（旧节点可覆盖或删除新节点阵法真源）。
 - **所属功能组**：阵法 / 宗门护宗阵 / 实例 catalog / lease 与 ownership epoch / 持久化恢复。
 - **影响链路**：阵法 tick 衰减、阵眼受击、开关/强度管理、启动违规阵法清理、宗门创建/迁移/转让/解散 → 单体/批量/删除或宗门跨域 formation writer → `instance_formation_state` 与 `instance_catalog`。
@@ -533,7 +535,36 @@
 - **修复方式**：阵法运行态在发生 mutation 时从实际实例捕获不可变的 `instanceId / assignedNodeId / leaseToken / ownershipEpoch`，并随 dirty、单体保存和删除请求传递；普通 writer 在事务内先 `SELECT instance_catalog ... FOR UPDATE`，精确匹配 fence、确认 lease 未过期且实例未 destroyed/fenced/stopped，再按固定顺序取得阵法 advisory lock 和写行。生产数据库环境缺失 fence 时失败关闭。宗门跨域 formation write 新增实例 fence 集合，事务按 instanceId 排序先锁所有 catalog 行、再锁阵法；护宗阵写同时包含山门与阵眼实例，迁移额外包含原山门，解散也验证两端。所有 writer 统一采用“实例 catalog 行锁 → 阵法 advisory lock”的数据库锁顺序，避免与资源 durable operation 形成死锁环。
 - **实际修改**：新增共享 `instance-lease-write-fence.ts`，并让 `durable-operation.service.ts` 复用同一 catalog 行锁与 lease 状态校验；更新 `world-runtime-formation.service.ts`、`sect-durable-persistence.ts`、`world-runtime-sect.service.ts`、阵法 mechanics、宗门 durable/reconciliation smoke 与阵法核心 smoke；新增真实 PostgreSQL `formation-persistence-lease-fence-smoke.ts`。
 - **验证结果**：`git diff --check`、`pnpm --filter @mud/server compile` 与 `pnpm verify:quick` 通过；真实 PostgreSQL compiled `formation-persistence-lease-fence-smoke` 证明 handoff 后普通单体、批量、删除和宗门跨域 writer 均拒绝旧 node/token/epoch 且数据库后态不变，新 fence 可以继续保存/删除，生产缺失 fence 时失败关闭，夹具自动清理；compiled `durable-operation-smoke` 完整通过，证明共享围栏抽取未改变邮件、市场、商店、钱包、装备与技艺 job 的强事务语义；compiled `world-runtime-formation-smoke`、`world-runtime-sect-smoke`、`sect-runtime-durable-reconciliation-smoke`、`sect-durable-mutation-smoke`、`formation-resource-durable-entry-smoke`、真实 PostgreSQL `formation-resource-durable-smoke`、`inventory-grant-durable-smoke` 与 `npc-quest-reward-durable-smoke` 通过，证明相邻资源原子事务未回归，宗门 smoke 额外断言 catalog 行锁早于阵法 advisory lock。
-- **中文原子提交 hash**：待本组提交后回填（计划提交：`fix(persistence): 加固阵法写入租约围栏`）。
+- **中文原子提交 hash**：`8bbf225b`。
+
+### FS-029 阵法维护 tick 分步写入玩家与阵法资产
+
+- **状态**：已修复并完成编译、专项与真实数据库验证，待本组中文原子提交。
+- **严重级别**：P0（玩家资产与阵法资源池可在崩溃/失败后永久分裂）。
+- **所属功能组**：阵法维护 / 通用技艺 job / 玩家灵力与技艺 / 阵法资源 / Durable Operation。
+- **影响链路**：`WorldRuntimeCraftTickService.advanceCraftJobs()` → `FormationStrategy` → `resolveFormationMaintenanceTick()` → `PlayerRuntimeService.spendQi()`、阵法灵力池与技艺/job 运行态修改 → 玩家分域 flush 与阵法异步 writer。
+- **证据**：维护 helper 在同一个同步函数里先直接扣 `player.qi`，再增加 `formation.remainingQiBudget`、推进 `formationJob.jobVersion` 和阵法技艺经验，随后仅调用不带 fence 的 `persistInstanceFormationsSoon(instanceId)`。玩家 `vitals / profession / active_job` 由 1.5 秒分域 flush 独立写入，阵法 writer 则由另一连接、队列和事务保存；两边没有共同 operation ID、事务、CAS 或失败补偿。FS-028 加入生产 fence 后，该调用也没有传入实例 node/token/epoch，恢复后的首个维护 tick 会因缺失 fence 被普通阵法 writer 拒绝。
+- **根本原因**：阵法维护早期被当成“普通进度 tick”，但它实际每息同时完成玩家灵力支出、阵法灵力入账、技艺经验授予和 job 推进，是跨玩家域与实例域的资产转换。通用技艺 pipeline 只负责生命周期和 dirty domain，没有自动提供跨领域原子提交；调用方也没有像强化资产边界那样增加 durable 编排。
+- **为什么错误**：dirty/flush 只能保证各表最终有机会保存，不能保证两个独立事务要么全成要么全败。玩家灵力与阵法灵力是一笔守恒转换，必须共享玩家 session fence、实例 lease fence、job version、formation revision 和同一 COMMIT；在 COMMIT 前修改可被查询/同步的运行态同样会暴露未落库结果。
+- **触发条件**：任一维护 tick 后服务崩溃；玩家 flush 成功而阵法保存失败，或反向发生；实例 handoff 后旧维护任务继续 tick；同一 job 的迟到/重复 tick；阵法更新与维护并发；durable COMMIT 结果未知；生产从数据库恢复阵法后首次维护。
+- **可能后果**：玩家被扣灵但阵法未增加，或阵法凭空增加而玩家未扣灵；技艺经验/job version 与实际资源转换不一致；重启后重复结算或跳过一息；旧节点跨 lease 写阵法；客户端在数据库失败前短暂看到未提交资源；持续维护会累积不可对账的资产差额。
+- **修复方式**：craft tick 对 `formation` 显式路由到阵法 durable 编排，但领域计算仍调用同一 `FormationStrategy`/pipeline；在玩家资产锁与阵法锁内同步计算后态并立即恢复提交前运行态，再提交专用 `commitFormationMaintenanceMutation()`。事务先校验玩家 presence 与实例 node/token/epoch/expiry，再以 job run/version 和 formation `updatedAt` CAS 写入阵法、`vitals / profession / active_job`、watermark、outbox 与 audit；成功后一次性重新应用玩家、技艺/job、阵法和实例 revision，失败恢复完整前态。非生产 fallback 的普通维护保存改由阵法服务捕获并传递 lease fence，阵法 `updatedAt` 同时改为单调递增。
+- **实际修改**：更新 `durable-operation.service.ts`、`formation-maintenance-tick.helpers.ts`、`world-runtime-craft-tick.service.ts`、`world-runtime-formation.service.ts` 与阵法 mechanics；新增 `formation-maintenance-durable-entry-smoke.ts`，扩展阵法资源 entry/真实 PostgreSQL smoke 覆盖 lease token、job CAS、原子提交、精确重放与回滚清理。
+- **验证结果**：`git diff --check`、`pnpm --filter @mud/server compile` 与 `pnpm verify:quick` 通过；compiled `formation-maintenance-durable-entry-smoke` 证明真实 formation strategy/pipeline 在 durable 返回前不会暴露玩家灵力、阵法池、技艺经验、job version 或实例 revision，成功后一次应用且失败完整恢复；真实 PostgreSQL compiled `formation-resource-durable-smoke` 证明 `vitals / profession / active_job / formation / watermark / outbox / audit` 同事务、精确重放不重复、陈旧 job version 拒绝且真源不变；compiled `formation-resource-durable-entry-smoke`、`world-runtime-formation-smoke`、真实 PostgreSQL `formation-persistence-lease-fence-smoke` 与 `durable-operation-smoke` 通过。尚未证明 5000 名玩家同时维护时的数据库吞吐与 tick 延迟，该容量证据仍属于 R-05/X-04 后续专项基准，不能据此声称已完成全量性能覆盖。
+- **中文原子提交 hash**：待本组提交后回填（计划提交：`fix(formation): 原子提交阵法维护资源`）。
+
+### FS-030 `world-runtime-craft-smoke` 建筑夹具缺失 AOI revision 索引
+
+- **状态**：已确认，待独立修复与验证。
+- **严重级别**：P1（综合技艺验证门禁无法完整运行，不直接修改生产数据）。
+- **所属功能组**：技艺综合 smoke / 建筑运行时 / AOI chunk revision。
+- **影响链路**：compiled `world-runtime-craft-smoke` → `testBuildingActiveBuilderAllowsCooperativePlayers()` → `MapInstanceRuntime.startBuildingConstruction()` → `markAoiViewChangedAt()` → `setChunkRevision()`。
+- **证据**：当前 compiled smoke 在阵法维护断言之后进入协作建造夹具时，以 `TypeError: Cannot read properties of undefined (reading 'get')` 终止；栈顶为 `setChunkRevision()` 读取未初始化的 chunk revision 行索引。失败发生在本组阵法代码之外，且 `formation-maintenance-durable-entry-smoke` 与阵法核心 smoke 均独立通过。
+- **根本原因**：测试通过不完整对象/旧构造路径创建 `MapInstanceRuntime`，没有执行当前 AOI chunk revision 索引初始化契约；生产构造器或初始化方法演进后，综合 smoke 的建筑夹具没有同步。
+- **为什么错误**：综合 smoke 应以生产可成立的运行态对象验证技艺链；缺失必需索引会让测试在目标断言前崩溃，既不能证明建筑协作，也会遮挡后续技艺回归。
+- **触发条件**：运行 compiled `world-runtime-craft-smoke` 并进入协作建造用例。
+- **可能后果**：CI/人工验证无法覆盖该 smoke 后半段；建筑、队列或技艺生命周期回归可能被长期遮挡；维护者可能误判为本次相邻业务改动导致。
+- **修复方式**：待下一原子组读取 `MapInstanceRuntime` 当前构造与 AOI 初始化实现，改用生产构造入口或补齐统一 test-double 工厂，禁止仅给单个字段打临时补丁；随后完整运行该 smoke 并补最小边界断言。
 
 ## 2026-07-14 待用户决定
 
