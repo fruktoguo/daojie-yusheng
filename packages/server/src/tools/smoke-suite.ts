@@ -162,6 +162,7 @@ const smokeCases = [
     { name: 'player-respawn', scriptFile: 'player-respawn-smoke.js' },
   { name: 'persistence', scriptFile: 'persistence-smoke.js', standalone: true },
   { name: 'player-persistence-flush', scriptFile: 'player-persistence-flush-smoke.js', standalone: true },
+  { name: 'world-runtime-controller-lease-guard', scriptFile: 'world-runtime-controller-lease-guard-smoke.js', standalone: true },
   { name: 'player-domain-persistence', scriptFile: 'player-domain-persistence-smoke.js', standalone: true },
   { name: 'player-domain-recovery', scriptFile: 'player-domain-recovery-smoke.js', standalone: true },
   { name: 'player-runtime-persistence-roundtrip', scriptFile: 'player-runtime-persistence-roundtrip-smoke.js', standalone: true },

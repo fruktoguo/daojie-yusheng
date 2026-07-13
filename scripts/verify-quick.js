@@ -65,6 +65,8 @@ const status = runVerificationSteps({
         '--case',
         'world-gateway-offline-gain-refresh',
         '--case',
+        'world-runtime-controller-lease-guard',
+        '--case',
         'player-statistic-ledger-io',
         '--case',
         'player-runtime-dirty-domain',

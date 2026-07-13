@@ -89,7 +89,7 @@ export class WorldRuntimeController {
                     if (!location) {
                         return true;
                     }
-                    const instance = this.worldRuntimeService.getInstance(location.instanceId);
+                    const instance = this.worldRuntimeService.getInstanceRuntime(location.instanceId);
                     return instance ? this.worldRuntimeService.isInstanceLeaseWritable(instance) : true;
                 },
             });
