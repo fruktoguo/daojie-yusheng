@@ -3,7 +3,7 @@
 ## 审计口径
 
 - 生产主线：`packages/client`、`packages/shared`、`packages/server`、`packages/config-editor`。
-- 当前基线：`main` 分支 `666292e3`；相对 `origin/main` ahead 24。
+- 当前基线：`main` 分支 `c997822d`；相对 `origin/main` ahead 25。
 - package manager：`pnpm@10.29.1`。
 - 每项结论必须来自机制文档、完整调用链、测试、编译产物或运行数据；仅凭搜索未发现异常不能标记为“确认无问题”。
 - `[x]` 只表示该行列出的具体证据范围已完成，不代表相邻系统或整个项目已完成。
@@ -70,6 +70,7 @@
 - [ ] S-05 新 schema 唯一真源、GM 兼容转换目录和旧格式运行时门禁。
 - [x] S-06 兑换与异步导航异常把原始服务端错误文本发给玩家的问题已修复；见 FS-031。
 - [x] S-07 待执行指令异常透传未分类服务端错误文本的问题已修复；见 FS-032。
+- [x] S-08 通天塔进入、通关与退出通知已迁移为结构化 key/变量，并通过真实运行时烟测；见 FS-033。
 
 ### 客户端、UI 与渲染
 
@@ -589,7 +590,7 @@
 
 ### FS-032 待执行指令失败仍透传未分类异常文本
 
-- **状态**：已修复并完成编译、专项、客户端与最小总门禁验证，待本组中文原子提交。
+- **状态**：已修复、验证并完成中文原子提交。
 - **严重级别**：P1（内部标识/异常信息可能泄露，且玩家通知不满足结构化协议）。
 - **所属功能组**：待执行指令 / 战斗与技艺拒绝 / 结构化通知 / 诊断日志。
 - **影响链路**：`WorldRuntimePendingCommandService.dispatchPendingCommands()` catch → `normalizePendingCommandNoticeMessage()` → `queuePlayerNotice(playerId, noticeMessage, 'warn')`。
@@ -601,7 +602,23 @@
 - **修复方式**：按 `command.kind + 已确认拒绝类别` 建立结构化 key 正向映射：导航、手动战斗、技能冷却/元气、技艺任务与受保护地块物品各自使用稳定语义；未知异常统一显示通用失败，完整原文只写诊断日志；内部 runtime/item/instance ID 和 JavaScript 程序错误继续静默，自动战斗常态目标失效规则不变。
 - **实际修改**：更新 `world-runtime-pending-command.service.ts`、客户端中文 i18n CSV 与生成产物；把 `world-runtime-pending-command-smoke.ts` 从 CommonJS/`@ts-nocheck` 迁为规范 TypeScript，补未知数据库异常、技能内部 ID、跨图内部 map ID、技艺队列、受保护区域物品与结构化 key 断言。迁移过程中还发现该 smoke 仍假设“portal 覆盖 move”和“计数按玩家数”，已按当前生产队列契约修正为 movement 可替换、portal 进入有界一次性队列、计数按真实命令条目数，并移除两个被 JavaScript 静默覆盖的重复 `getInstanceRuntime` 属性。
 - **验证结果**：`git diff --check`、`pnpm --filter @mud/server compile`、`pnpm verify:quick` 与 `pnpm verify:client` 通过；compiled `world-runtime-pending-command-smoke` 完整以 0 退出，证明未知异常不泄露、导航/战斗/技艺/物品拒绝均携带结构化 key、技能与地图内部 ID 不进入玩家通知、自动战斗目标失效和内部程序错误保持静默，同时当前队列所有权/计数契约有真实断言；客户端门禁证明 3859 条语言包生成、TypeScript/Vite、UI 连续性、Socket 出站与地图渲染生命周期未回归。
-- **中文原子提交 hash**：待本组提交后回填（计划提交：`fix(notice): 加固待执行指令失败通知`）。
+- **中文原子提交 hash**：`c997822d`。
+
+### FS-033 通天塔状态通知由服务端直接拼接玩家文案
+
+- **状态**：已修复并完成编译、专项、客户端与最小总门禁验证，待本组中文原子提交。
+- **严重级别**：P2（协议与本地化边界错误，不直接影响塔层进度或玩家资产）。
+- **所属功能组**：通天塔 / 玩家通知 / 客户端 i18n / 运行时烟测。
+- **影响链路**：进入、通关或退出通天塔 → `WorldRuntimeTongtianTowerService` → `queuePlayerNotice()` → Notice 协议 → 客户端日志与浮层。
+- **证据**：进入层、完成当前波次和退出塔层三条生产路径分别使用模板字符串或固定中文直接构造 `text`，调用 `queuePlayerNotice()` 时没有第六个结构化载荷参数；客户端语言包不存在对应 key。现有 `tongtian-tower-smoke` 仅收集 `playerId/text/kind`，因此即使生产通知长期缺少 key 和 vars 也不会失败。
+- **根本原因**：通天塔功能早于结构化通知 helper 建立，后续进度、实例租约和恢复链持续演进时没有把玩家文案迁移到客户端真源；测试夹具也把旧的三参数接口固化为正确契约。
+- **为什么错误**：服务端应只提供稳定消息 key 与层数、目标地图名等结构化数据，中文拼接必须由客户端语言包负责。自由文本没有协议身份，无法稳定本地化、聚合或统一改文案，也让同一信息在旧客户端 fallback 与新客户端渲染之间缺少可验证契约。
+- **触发条件**：玩家进入任意通天塔层；本波参与者击杀全部虚影并解锁下一层；玩家退出通天塔返回出口地图。
+- **可能后果**：修改通天塔玩家文案必须发布服务端；不同客户端语言或渲染入口无法复用；服务端 fallback 与客户端展示可能漂移；新增变量或富文本时只能继续解析中文。该问题不泄露内部异常，也不改变当前塔层参与者、解锁或位置语义。
+- **修复方式**：三条路径统一调用 `buildStructuredNotice()`，分别发送 `notice.tower.entered`、`notice.tower.layer-cleared` 和 `notice.tower.exited`；层数、解锁层和实际出口地图名作为 vars，数字与地图名使用 pill 元数据；服务端中文仅保留为旧客户端/日志 fallback。客户端 CSV 新增三条中文真源并重新生成类型常量。
+- **实际修改**：更新通天塔运行时服务、客户端中文 i18n CSV/生成产物和 `tongtian-tower-smoke.ts`；烟测夹具开始捕获结构化 key/vars，并断言进入和退出变量正确、通关通知只发给该波参与者而不发给中途加入者。
+- **验证结果**：`git diff --check`、`pnpm --filter @mud/server compile`、`pnpm verify:client` 与 `pnpm verify:quick` 通过；compiled `tongtian-tower-smoke` 证明进入第 1 层发送 `{ layer: 1 }`，第 1 层通关只向首波参与者发送 `{ layer: 1, unlockedLayer: 2 }`，退出返回栖真渡发送 `{ mapName: '栖真渡' }`，且既有塔层 lease、恢复、冷却和空闲销毁断言未回归；客户端门禁证明 3862 条语言包生成、TypeScript/Vite、UI 连续性、请求生命周期、Socket 出站和地图渲染 proof 未回归，最小总门禁的 server compile、生产边界与无库 smoke 子集完整通过。
+- **中文原子提交 hash**：待本组提交后回填（计划提交：`fix(notice): 结构化通天塔状态通知`）。
 
 ## 2026-07-14 待用户决定
 

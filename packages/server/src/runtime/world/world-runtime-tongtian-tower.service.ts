@@ -12,6 +12,7 @@ import { MapInstanceRuntime } from '../instance/map-instance.runtime';
 import { TongtianTowerPersistenceService } from '../../persistence/tongtian-tower-persistence.service';
 import { MapTemplateRepository } from '../map/map-template.repository';
 import { destroyManagedInstance } from './world-runtime-instance-lease.helpers';
+import { buildStructuredNotice } from './structured-notice.helpers';
 
 interface TongtianTowerConfig {
   id: string;
@@ -427,7 +428,21 @@ export class WorldRuntimeTongtianTowerService {
       preferredY: this.config.exitY,
       relocateExisting: true,
     }, deps);
-    deps.queuePlayerNotice?.(playerId, '你退出通天塔，回到栖真渡。', 'success');
+    const exitMapName = targetInstance.template?.name ?? '栖真渡';
+    const exitNotice = buildStructuredNotice(
+      'success',
+      'notice.tower.exited',
+      `你退出通天塔，回到${exitMapName}。`,
+      { vars: { mapName: exitMapName }, pills: [{ key: 'mapName', style: 'target' }] },
+    );
+    deps.queuePlayerNotice?.(
+      playerId,
+      exitNotice.text,
+      exitNotice.kind,
+      undefined,
+      undefined,
+      exitNotice.structured,
+    );
     void this.cleanupIdleInstances(deps).catch((error) => {
       this.logger.warn(`通天塔空闲实例清理失败：${error instanceof Error ? error.message : String(error)}`);
     });
@@ -453,7 +468,20 @@ export class WorldRuntimeTongtianTowerService {
     if (!state.activeWave && state.nextSpawnTick <= instance.tick) {
       this.spawnWave(instance, state);
     }
-    deps.queuePlayerNotice?.(playerId, `你进入通天塔第 ${layer} 层。`, 'success');
+    const enteredNotice = buildStructuredNotice(
+      'success',
+      'notice.tower.entered',
+      `你进入通天塔第 ${layer} 层。`,
+      { vars: { layer }, pills: [{ key: 'layer', style: 'damage' }] },
+    );
+    deps.queuePlayerNotice?.(
+      playerId,
+      enteredNotice.text,
+      enteredNotice.kind,
+      undefined,
+      undefined,
+      enteredNotice.structured,
+    );
     return view;
   }
 
@@ -763,9 +791,28 @@ export class WorldRuntimeTongtianTowerService {
       instance.removeRuntimeMonster?.(runtimeId);
     }
     const unlockedLayer = state.layer + 1;
+    const clearedNotice = buildStructuredNotice(
+      'success',
+      'notice.tower.layer-cleared',
+      `通天塔第 ${state.layer} 层已通关，可前往第 ${unlockedLayer} 层。`,
+      {
+        vars: { layer: state.layer, unlockedLayer },
+        pills: [
+          { key: 'layer', style: 'damage' },
+          { key: 'unlockedLayer', style: 'damage' },
+        ],
+      },
+    );
     for (const playerId of wave.participantPlayerIds) {
       this.persistence.promoteHighestLayer(playerId, unlockedLayer);
-      deps.queuePlayerNotice?.(playerId, `通天塔第 ${state.layer} 层已通关，可前往第 ${unlockedLayer} 层。`, 'success');
+      deps.queuePlayerNotice?.(
+        playerId,
+        clearedNotice.text,
+        clearedNotice.kind,
+        undefined,
+        undefined,
+        clearedNotice.structured,
+      );
     }
     state.activeWave = null;
     state.nextSpawnTick = instance.tick + this.config.spawnIntervalTicks;

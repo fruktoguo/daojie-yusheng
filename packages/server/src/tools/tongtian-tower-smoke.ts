@@ -59,6 +59,17 @@ async function main(): Promise<void> {
   connectToPublicMap(deps, 'player:1', 31, 15);
   const enterView = await tower.executeAction('player:1', 'tower:tongtian:enter', deps);
   assert.equal(enterView.instance.instanceId, 'tower:tongtian:layer:1');
+  assert.deepEqual(
+    deps.notices.at(-1),
+    {
+      playerId: 'player:1',
+      text: '你进入通天塔第 1 层。',
+      kind: 'success',
+      key: 'notice.tower.entered',
+      vars: { layer: 1 },
+    },
+    '进入通天塔必须发送由客户端渲染的结构化通知',
+  );
   const layer1Template = templates.getOrThrow('tongtian_tower_layer_1') as any;
   assert.equal(layer1Template.mapGroupName, '秘境', '通天塔层地图分类应归为秘境');
   assert.ok(
@@ -113,6 +124,17 @@ async function main(): Promise<void> {
   tower.advanceInstance(layer1, deps);
   assert.equal(persistence.rows.get('player:1')?.highestLayer, 2);
   assert.equal(persistence.rows.get('player:2')?.highestLayer, 1, '中途进入者不推进本波最高层');
+  assert.deepEqual(
+    deps.notices.filter((notice: any) => notice.key === 'notice.tower.layer-cleared'),
+    [{
+      playerId: 'player:1',
+      text: '通天塔第 1 层已通关，可前往第 2 层。',
+      kind: 'success',
+      key: 'notice.tower.layer-cleared',
+      vars: { layer: 1, unlockedLayer: 2 },
+    }],
+    '通关通知只能发给本波参与者，并携带客户端渲染所需层数变量',
+  );
   layer1.tongtianTowerState.nextSpawnTick = layer1.tick;
   tower.advanceInstance(layer1, deps);
   assert.equal(layer1.listMonsters().length, 10, '两名玩家都在场的新波应刷新 8 小怪 2 精英');
@@ -281,6 +303,17 @@ async function main(): Promise<void> {
     cooldownLeft: 30,
   }];
   await tower.executeAction('player:1', 'tower:tongtian:exit', deps);
+  assert.deepEqual(
+    deps.notices.at(-1),
+    {
+      playerId: 'player:1',
+      text: '你退出通天塔，回到栖真渡。',
+      kind: 'success',
+      key: 'notice.tower.exited',
+      vars: { mapName: '栖真渡' },
+    },
+    '退出通天塔必须把目标地图名作为结构化变量发送',
+  );
   assert.equal(cooldownPlayer.lifeElapsedTicks, 100, '退出通天塔不能重置玩家自己的 tick');
   assert.equal(
     cooldownPlayer.combat.cooldownReadyTickBySkillId['skill:tongtian:cooldown-smoke'],
@@ -385,7 +418,13 @@ function createDeps(
   const instances = new Map<string, MapInstanceRuntime>();
   const playerLocations = new Map<string, { instanceId: string; sessionId: string }>();
   const players = new Map<string, any>();
-  const notices: Array<{ playerId: string; text: string; kind: string }> = [];
+  const notices: Array<{
+    playerId: string;
+    text: string;
+    kind: string;
+    key: string | null;
+    vars?: Record<string, string | number>;
+  }> = [];
   const contextActionsByPlayerId = new Map<string, any[]>();
   const instanceTickProgressById = new Map<string, number>();
   const pendingRespawnPlayerIds = new Set<string>();
@@ -663,8 +702,21 @@ function createDeps(
       instances.set(input.instanceId, instance);
       return instance;
     },
-    queuePlayerNotice(playerId: string, text: string, kind = 'info') {
-      notices.push({ playerId, text, kind });
+    queuePlayerNotice(
+      playerId: string,
+      text: string,
+      kind = 'info',
+      _title?: string,
+      _icon?: string,
+      structured?: { key?: string; vars?: Record<string, string | number> },
+    ) {
+      notices.push({
+        playerId,
+        text,
+        kind,
+        key: structured?.key ?? null,
+        ...(structured?.vars ? { vars: structured.vars } : undefined),
+      });
     },
   };
   return deps;
