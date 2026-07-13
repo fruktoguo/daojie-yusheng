@@ -26,11 +26,20 @@ const LOCAL_LEASE_DEGRADED_REASONS = new Set([
   'flush_instance_domains_lease_check_failed',
 ]);
 
-async function persistBuildingRoomStateAfterUnknownDefPrune(runtime, domainPersistenceService, instanceId, instance, hydrateResult) {
+async function persistBuildingRoomStateAfterStartupRecovery(runtime, domainPersistenceService, instanceId, instance, hydrateResult) {
   const skippedCount = Math.max(0, Math.trunc(Number(hydrateResult?.skippedUnknownDefCount) || 0));
   const skippedProtectedPlacementCount = Math.max(0, Math.trunc(Number(hydrateResult?.skippedProtectedPlacementCount) || 0));
   const restoredSkippedBuildingTileCellCount = Math.max(0, Math.trunc(Number(hydrateResult?.restoredSkippedBuildingTileCellCount) || 0));
-  if (skippedCount <= 0 && skippedProtectedPlacementCount <= 0 && restoredSkippedBuildingTileCellCount <= 0) {
+  const repairedBuildingCellCount = Math.max(0, Math.trunc(Number(hydrateResult?.repairedBuildingCellCount) || 0));
+  const repairedBuildingVisualCellCount = Math.max(0, Math.trunc(Number(hydrateResult?.repairedBuildingVisualCellCount) || 0));
+  const restoredStaleBuildingVisualCellCount = Math.max(0, Math.trunc(Number(hydrateResult?.restoredStaleBuildingVisualCellCount) || 0));
+  const runtimeTileCellRecoveryCount = restoredSkippedBuildingTileCellCount
+    + repairedBuildingVisualCellCount
+    + restoredStaleBuildingVisualCellCount;
+  if (skippedCount <= 0
+    && skippedProtectedPlacementCount <= 0
+    && restoredSkippedBuildingTileCellCount <= 0
+    && repairedBuildingCellCount <= 0) {
     return;
   }
   if (typeof domainPersistenceService?.saveBuildingRoomFengShuiState === 'function') {
@@ -44,7 +53,7 @@ async function persistBuildingRoomStateAfterUnknownDefPrune(runtime, domainPersi
     };
     await domainPersistenceService.saveBuildingRoomFengShuiState(instanceId, state);
   }
-  if (restoredSkippedBuildingTileCellCount > 0 && typeof domainPersistenceService?.replaceRuntimeTileCells === 'function') {
+  if (runtimeTileCellRecoveryCount > 0 && typeof domainPersistenceService?.replaceRuntimeTileCells === 'function') {
     await domainPersistenceService.replaceRuntimeTileCells(
       instanceId,
       typeof instance?.buildRuntimeTilePersistenceEntries === 'function' ? instance.buildRuntimeTilePersistenceEntries() : [],
@@ -58,6 +67,9 @@ async function persistBuildingRoomStateAfterUnknownDefPrune(runtime, domainPersi
   }
   if (restoredSkippedBuildingTileCellCount > 0) {
     runtime.logger?.warn?.(`启动恢复了 ${restoredSkippedBuildingTileCellCount} 个违规建筑占用地块：${instanceId}`);
+  }
+  if (repairedBuildingCellCount > 0) {
+    runtime.logger?.warn?.(`启动修复了 ${repairedBuildingCellCount} 个失配建筑占格：${instanceId}`);
   }
 }
 
@@ -1030,7 +1042,7 @@ export async function hydratePersistentInstanceSnapshot(runtime, instanceId, ins
     for (const buildingId of keptTimeChambers) keepBuildingIds.add(buildingId);
     const hydrateResult = instance.hydrateBuildingRoomFengShuiState(buildingRoomFengShuiState, { keepBuildingIds });
     logPrunedBuildingAudit(instanceId, hydrateResult, runtime?.logger);
-    await persistBuildingRoomStateAfterUnknownDefPrune(runtime, domainPersistenceService, instanceId, instance, hydrateResult);
+    await persistBuildingRoomStateAfterStartupRecovery(runtime, domainPersistenceService, instanceId, instance, hydrateResult);
   }
   const checkpoint = await domainPersistenceService.loadInstanceCheckpoint(instanceId);
   if (checkpoint) {

@@ -2529,6 +2529,11 @@ class MapInstanceRuntime {
         let skippedProtectedPlacementCount = 0;
         let restoredSkippedBuildingTileCellCount = 0;
         let keptProtectedPlacementCount = 0;
+        let repairedBuildingCellCount = 0;
+        let repairedBuildingVisualCellCount = 0;
+        let restoredStaleBuildingVisualCellCount = 0;
+        const repairedBuildingVisualCells = new Set();
+        const staleBuildingVisualRepairByCell = new Map();
         // 被丢弃的建筑可能是宝库，调用方需要先把库存邮件返还给 owner 再清理持久化行。
         const skippedBuildings = [];
         for (const entry of buildings) {
@@ -2601,34 +2606,68 @@ class MapInstanceRuntime {
             if (placementConflict.ok !== true) {
                 keptProtectedPlacementCount += 1;
             }
+            const cellRecovery = inspectPersistedBuildingCellRecovery(this, cells, entry?.cells);
+            repairedBuildingCellCount += cellRecovery.repairedCellCount;
+            if (compiled?.visualTileType && cellRecovery.repairedCellCount > 0) {
+                repairedBuildingVisualCellCount += cellRecovery.repairedCellCount;
+                for (const cellIndex of cells) {
+                    repairedBuildingVisualCells.add(cellIndex);
+                }
+                for (const repair of cellRecovery.staleCells) {
+                    const existing = staleBuildingVisualRepairByCell.get(repair.cellIndex);
+                    if (!existing || (!existing.previousState && repair.previousState)) {
+                        staleBuildingVisualRepairByCell.set(repair.cellIndex, repair);
+                    }
+                }
+            }
             this.buildingById.set(id, building);
             this.buildingCellsById.set(id, cells);
-            const previousTileTypes = resolvePersistedBuildingPreviousTileTypes(this, entry?.cells);
+            const previousTileTypes = resolvePersistedBuildingPreviousTileTypes(this, entry?.cells, cells);
             if (previousTileTypes.length > 0) {
                 this.buildingPreviousTileTypeById.set(id, previousTileTypes);
             }
-            if (compiled?.visualTileType && buildingUsesActiveTopology(building)) {
-                for (const cellIndex of cells) {
-                    if (cellIndex >= 0 && cellIndex < this.tilePlane.getCellCount()) {
-                        this.applyBuildingVisualTileType(cellIndex, compiled);
+        }
+        for (const repair of staleBuildingVisualRepairByCell.values()) {
+            const changed = repair.previousState
+                ? this.restoreBuildingPreviousTileState(repair.cellIndex, repair.previousState)
+                : this.applyDefaultTileLayerFallback(repair.cellIndex);
+            if (changed) {
+                restoredStaleBuildingVisualCellCount += 1;
+                this.markStaticTileSyncDirtyByIndex(repair.cellIndex, { sightBlockingChanged: true, pathingChanged: true });
+            }
+        }
+        for (const building of this.buildingById.values()) {
+            const compiled = this.buildingCatalog?.defByHandle?.[building.defHandle]
+                ?? this.buildingCatalog?.defById?.get?.(building.defId);
+            if (!compiled?.visualTileType || !buildingUsesActiveTopology(building)) {
+                continue;
+            }
+            for (const cellIndex of this.buildingCellsById.get(building.id) ?? []) {
+                if (cellIndex >= 0 && cellIndex < this.tilePlane.getCellCount()) {
+                    this.applyBuildingVisualTileType(cellIndex, compiled);
+                    if (repairedBuildingVisualCells.has(cellIndex)) {
+                        this.markStaticTileSyncDirtyByIndex(cellIndex, { sightBlockingChanged: true, pathingChanged: true });
                     }
                 }
             }
         }
-        if (skippedUnknownDefCount > 0 || skippedProtectedPlacementCount > 0) {
-            this.markAoiViewChangedGlobally({ sightBlockingChanged: restoredSkippedBuildingTileCellCount > 0 });
+        if (skippedUnknownDefCount > 0 || skippedProtectedPlacementCount > 0 || repairedBuildingCellCount > 0) {
+            const tileCellRecoveryRequired = restoredSkippedBuildingTileCellCount > 0
+                || repairedBuildingVisualCellCount > 0
+                || restoredStaleBuildingVisualCellCount > 0;
+            this.markAoiViewChangedGlobally({ sightBlockingChanged: tileCellRecoveryRequired });
             this.worldRevision += 1;
             this.persistentRevision += 1;
             this.markPersistenceDirtyDomains([
                 'building',
                 'room',
                 'fengshui',
-                ...(restoredSkippedBuildingTileCellCount > 0 ? ['tile_cell'] : []),
+                ...(tileCellRecoveryRequired ? ['tile_cell'] : []),
             ]);
         }
         if (this.buildingCatalog?.defByHandle) {
             this.rebuildBuildingRoomFengShuiState();
-            return { buildingCount: this.buildingById.size, rebuilt: true, skippedUnknownDefCount, skippedProtectedPlacementCount, restoredSkippedBuildingTileCellCount, skippedBuildings, keptProtectedPlacementCount };
+            return { buildingCount: this.buildingById.size, rebuilt: true, skippedUnknownDefCount, skippedProtectedPlacementCount, restoredSkippedBuildingTileCellCount, skippedBuildings, keptProtectedPlacementCount, repairedBuildingCellCount, repairedBuildingVisualCellCount, restoredStaleBuildingVisualCellCount };
         }
         this.roomsById = new Map();
         this.roomIdsByHandle = [];
@@ -2673,7 +2712,7 @@ class MapInstanceRuntime {
                 this.fengShuiByRoomId.set(roomId, snapshot);
             }
         }
-        return { buildingCount: this.buildingById.size, rebuilt: false, skippedUnknownDefCount, skippedProtectedPlacementCount, restoredSkippedBuildingTileCellCount, skippedBuildings, keptProtectedPlacementCount };
+        return { buildingCount: this.buildingById.size, rebuilt: false, skippedUnknownDefCount, skippedProtectedPlacementCount, restoredSkippedBuildingTileCellCount, skippedBuildings, keptProtectedPlacementCount, repairedBuildingCellCount, repairedBuildingVisualCellCount, restoredStaleBuildingVisualCellCount };
     }
     /** setPlayerMoveSpeed：设置玩家移动速度。 */
     setPlayerMoveSpeed(playerId, moveSpeed) {
@@ -9671,26 +9710,74 @@ function compiledBuildingAffectsFengShui(compiled) {
     return false;
 }
 function resolvePersistedBuildingCells(instance, building, persistedCells, compiled) {
+    if (compiled?.footprintByRotation) {
+        const compiledCells = [];
+        const footprint = compiled.footprintByRotation[rotationToIndex(building.rotation)] ?? compiled.footprintByRotation[0];
+        for (let index = 0; index < footprint.length; index += 2) {
+            const tileIndex = instance.toTileIndex(building.x + footprint[index], building.y + footprint[index + 1]);
+            if (tileIndex >= 0) {
+                compiledCells.push(tileIndex);
+            }
+        }
+        return Array.from(new Set(compiledCells));
+    }
     const cells = [];
     for (const cell of Array.isArray(persistedCells) ? persistedCells : []) {
-        const tileIndex = Number.isFinite(Number(cell?.tileIndex))
-            ? Math.trunc(Number(cell.tileIndex))
-            : instance.toTileIndex(cell?.x, cell?.y);
-        if (tileIndex >= 0) {
-            cells.push(tileIndex);
-        }
-    }
-    if (cells.length > 0 || !compiled?.footprintByRotation) {
-        return Array.from(new Set(cells));
-    }
-    const footprint = compiled.footprintByRotation[rotationToIndex(building.rotation)] ?? compiled.footprintByRotation[0];
-    for (let index = 0; index < footprint.length; index += 2) {
-        const tileIndex = instance.toTileIndex(building.x + footprint[index], building.y + footprint[index + 1]);
+        const tileIndex = resolvePersistedBuildingCellIndex(instance, cell);
         if (tileIndex >= 0) {
             cells.push(tileIndex);
         }
     }
     return Array.from(new Set(cells));
+}
+
+/** 恢复建筑占格时坐标才是稳定真源，tileIndex 只用于兼容没有坐标的旧数据。 */
+function resolvePersistedBuildingCellIndex(instance, cell) {
+    if (Number.isFinite(Number(cell?.x)) && Number.isFinite(Number(cell?.y))) {
+        return instance.toTileIndex(Math.trunc(Number(cell.x)), Math.trunc(Number(cell.y)));
+    }
+    return Number.isFinite(Number(cell?.tileIndex)) ? Math.trunc(Number(cell.tileIndex)) : -1;
+}
+
+/** 检测重启后失效的进程内 cell 索引，并收集需要清掉的旧建筑视觉。 */
+function inspectPersistedBuildingCellRecovery(instance, canonicalCells, persistedCells) {
+    const expectedCells = Array.from(new Set(Array.isArray(canonicalCells) ? canonicalCells : []));
+    const rows = Array.isArray(persistedCells) ? persistedCells : [];
+    const expectedByCoordinate = new Map(expectedCells.map((cellIndex) => [
+        `${instance.tilePlane.getX(cellIndex)},${instance.tilePlane.getY(cellIndex)}`,
+        cellIndex,
+    ]));
+    const exactExpectedCells = new Set();
+    const staleCells = [];
+    for (const row of rows) {
+        const hasCoordinate = Number.isFinite(Number(row?.x)) && Number.isFinite(Number(row?.y));
+        const coordinateKey = hasCoordinate
+            ? `${Math.trunc(Number(row.x))},${Math.trunc(Number(row.y))}`
+            : '';
+        const expectedCellIndex = coordinateKey ? expectedByCoordinate.get(coordinateKey) : undefined;
+        const persistedTileIndex = Number.isFinite(Number(row?.tileIndex)) ? Math.trunc(Number(row.tileIndex)) : -1;
+        if (expectedCellIndex !== undefined && persistedTileIndex === expectedCellIndex) {
+            exactExpectedCells.add(expectedCellIndex);
+        }
+        const staleCellIndex = expectedCellIndex === undefined
+            ? resolvePersistedBuildingCellIndex(instance, row)
+            : -1;
+        if (staleCellIndex >= 0 && !expectedByCoordinate.has(`${instance.tilePlane.getX(staleCellIndex)},${instance.tilePlane.getY(staleCellIndex)}`)) {
+            staleCells.push({
+                cellIndex: staleCellIndex,
+                previousState: resolvePersistedBuildingPreviousTileState(row),
+            });
+        }
+    }
+    const missingExpectedCellCount = expectedCells.reduce(
+        (count, cellIndex) => count + (exactExpectedCells.has(cellIndex) ? 0 : 1),
+        0,
+    );
+    const extraPersistedCellCount = Math.max(0, rows.length - expectedCells.length);
+    return {
+        repairedCellCount: missingExpectedCellCount + extraPersistedCellCount,
+        staleCells,
+    };
 }
 /** buildSkippedBuildingRecord：记录启动自检丢弃的建筑，供调用方返还宝库库存并写审计。 */
 function buildSkippedBuildingRecord(buildingId, defId, ownerPlayerId, reason) {
@@ -9745,9 +9832,28 @@ function restoreSkippedPersistedBuildingTileCells(instance, persistedCells, cell
     }
     return restoredCount;
 }
-function resolvePersistedBuildingPreviousTileTypes(instance, persistedCells) {
+function resolvePersistedBuildingPreviousTileTypes(instance, persistedCells, canonicalCells = null) {
     const previousTileTypes = [];
-    for (const cell of Array.isArray(persistedCells) ? persistedCells : []) {
+    const rows = Array.isArray(persistedCells) ? persistedCells : [];
+    const targetCells = Array.isArray(canonicalCells) ? Array.from(new Set(canonicalCells)) : [];
+    const rowsByCoordinate = new Map();
+    for (const row of rows) {
+        if (Number.isFinite(Number(row?.x)) && Number.isFinite(Number(row?.y))) {
+            rowsByCoordinate.set(`${Math.trunc(Number(row.x))},${Math.trunc(Number(row.y))}`, row);
+        }
+    }
+    const sources = targetCells.length > 0
+        ? targetCells.map((tileIndex, index) => ({
+            tileIndex,
+            cell: rowsByCoordinate.get(`${instance.tilePlane.getX(tileIndex)},${instance.tilePlane.getY(tileIndex)}`)
+                ?? (targetCells.length === rows.length ? rows[index] : null),
+        }))
+        : rows.map((cell) => ({ tileIndex: resolvePersistedBuildingCellIndex(instance, cell), cell }));
+    for (const source of sources) {
+        const cell = source.cell;
+        if (!cell) {
+            continue;
+        }
         const previousTileType = typeof cell?.previousTileType === 'string' && cell.previousTileType.trim()
             ? cell.previousTileType.trim()
             : typeof cell?.previous_tile_type === 'string' && cell.previous_tile_type.trim()
@@ -9756,34 +9862,44 @@ function resolvePersistedBuildingPreviousTileTypes(instance, persistedCells) {
         if (!previousTileType) {
             continue;
         }
-        const tileIndex = Number.isFinite(Number(cell?.tileIndex))
-            ? Math.trunc(Number(cell.tileIndex))
-            : instance.toTileIndex(cell?.x, cell?.y);
+        const tileIndex = source.tileIndex;
         if (tileIndex >= 0) {
-            const previousState: Record<string, unknown> = { tileType: previousTileType };
-            const terrainValue = readPersistedCellProperty(cell, 'previousTerrainType', 'previous_terrain_type');
-            if (terrainValue.exists) {
-                const terrainType = normalizeOptionalLayerString(terrainValue.value);
-                if (terrainType) {
-                    previousState.terrainType = terrainType;
-                }
-            }
-            const surfaceValue = readPersistedCellProperty(cell, 'previousSurfaceType', 'previous_surface_type');
-            if (surfaceValue.exists) {
-                previousState.surfaceType = normalizeNullableLayerString(surfaceValue.value);
-            }
-            const structureValue = readPersistedCellProperty(cell, 'previousStructureType', 'previous_structure_type');
-            if (structureValue.exists) {
-                previousState.structureType = normalizeNullableLayerString(structureValue.value);
-            }
-            const interactableValue = readPersistedCellProperty(cell, 'previousInteractableKinds', 'previous_interactable_kinds');
-            if (interactableValue.exists) {
-                previousState.interactableKinds = normalizeInteractableKindList(interactableValue.value);
-            }
-            previousTileTypes.push([tileIndex, previousState]);
+            previousTileTypes.push([tileIndex, resolvePersistedBuildingPreviousTileState(cell)]);
         }
     }
     return previousTileTypes;
+}
+
+function resolvePersistedBuildingPreviousTileState(cell) {
+    const previousTileType = typeof cell?.previousTileType === 'string' && cell.previousTileType.trim()
+        ? cell.previousTileType.trim()
+        : typeof cell?.previous_tile_type === 'string' && cell.previous_tile_type.trim()
+            ? cell.previous_tile_type.trim()
+            : '';
+    if (!previousTileType) {
+        return null;
+    }
+    const previousState: Record<string, unknown> = { tileType: previousTileType };
+    const terrainValue = readPersistedCellProperty(cell, 'previousTerrainType', 'previous_terrain_type');
+    if (terrainValue.exists) {
+        const terrainType = normalizeOptionalLayerString(terrainValue.value);
+        if (terrainType) {
+            previousState.terrainType = terrainType;
+        }
+    }
+    const surfaceValue = readPersistedCellProperty(cell, 'previousSurfaceType', 'previous_surface_type');
+    if (surfaceValue.exists) {
+        previousState.surfaceType = normalizeNullableLayerString(surfaceValue.value);
+    }
+    const structureValue = readPersistedCellProperty(cell, 'previousStructureType', 'previous_structure_type');
+    if (structureValue.exists) {
+        previousState.structureType = normalizeNullableLayerString(structureValue.value);
+    }
+    const interactableValue = readPersistedCellProperty(cell, 'previousInteractableKinds', 'previous_interactable_kinds');
+    if (interactableValue.exists) {
+        previousState.interactableKinds = normalizeInteractableKindList(interactableValue.value);
+    }
+    return previousState;
 }
 function readPersistedCellProperty(cell, camelKey, snakeKey) {
     if (cell && Object.prototype.hasOwnProperty.call(cell, camelKey)) {

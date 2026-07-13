@@ -34,6 +34,12 @@ const status = runVerificationSteps({
       args: ['packages/server/dist/tools/world-runtime-building-room-fengshui-smoke.js'],
       shell: false,
     },
+    {
+      label: 'building cell recovery smoke',
+      command: process.execPath,
+      args: ['packages/server/dist/tools/building-cell-recovery-smoke.js'],
+      shell: false,
+    },
   ],
 });
 
