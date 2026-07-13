@@ -21,6 +21,10 @@ const i18nSource = fs.readFileSync(
   path.join(clientRoot, 'src/content/i18n/zh-CN.csv'),
   'utf8',
 );
+const panelsStyleSource = fs.readFileSync(
+  path.join(clientRoot, 'src/styles/panels.css'),
+  'utf8',
+);
 
 function loadStateModule() {
   const sourcePath = path.join(clientRoot, 'src/ui/panels/sect-application-page-request-state.ts');
@@ -128,6 +132,21 @@ assert.match(
   viewSource,
   /member\.canChangeRole \?\? isSectMemberRoleLowerThan\(member\.roleId, selfRoleId\)/,
   '客户端职位控件必须按服务端投影并兼容共享层级规则',
+);
+assert.match(
+  viewSource,
+  /class="sect-member-role-select" data-sect-member-role-select/,
+  '可编辑职位必须使用宗门成员专用下拉框样式',
+);
+assert.match(
+  panelsStyleSource,
+  /\.sect-detail-tag\.strong,\s*\.sect-member-role-select\s*\{/,
+  '职位下拉框必须复用当前职位红色标签的视觉语义',
+);
+assert.match(
+  panelsStyleSource,
+  /\.sect-member-role-select:focus-visible\s*\{/,
+  '职位下拉框必须保留清晰的键盘焦点反馈',
 );
 assert.match(
   viewSource,

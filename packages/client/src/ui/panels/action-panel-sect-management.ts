@@ -1154,7 +1154,7 @@ export class SectManagementSubpanel {
       && !member.self
       && (member.canChangeRole ?? isSectMemberRoleLowerThan(member.roleId, selfRoleId));
     const roleControl = canEditRole
-      ? `<select class="ui-input formation-config-input" data-sect-member-role-select="${escapeHtml(member.playerId)}">
+      ? `<select class="sect-member-role-select" data-sect-member-role-select="${escapeHtml(member.playerId)}">
           ${assignableRoles.map((role) => `<option value="${escapeHtml(role.id)}"${role.id === member.roleId ? ' selected' : ''}>${escapeHtml(role.label)}</option>`).join('')}
         </select>`
       : `<span class="sect-detail-tag ${member.leader ? 'strong' : ''}">${escapeHtml(member.roleLabel)}</span>`;
