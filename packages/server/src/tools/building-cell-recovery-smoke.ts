@@ -11,8 +11,10 @@ const WINDOW_ANCHOR = { x: -1, y: -8 };
 const MAT_ANCHOR = { x: 0, y: -8 };
 const STALE_WINDOW_CELL = { x: -15, y: -13 };
 const STALE_MAT_CELL = { x: -14, y: -13 };
+const ORPHAN_WINDOW_CELL = { x: -13, y: -13 };
+const ORPHAN_DOOR_CELL = { x: -12, y: -13 };
 
-function createInstance(): MapInstanceRuntime {
+function createInstance(sectMap = true): MapInstanceRuntime {
   const templateRepository = new MapTemplateRepository();
   templateRepository.registerRuntimeMapTemplate({
     id: 'building_cell_recovery_smoke',
@@ -20,6 +22,7 @@ function createInstance(): MapInstanceRuntime {
     width: 3,
     height: 3,
     routeDomain: 'system',
+    sectMap,
     tiles: [
       '...',
       '...',
@@ -179,6 +182,71 @@ function main() {
   );
   assert.equal(instance.getDirtyDomains().has('building'), true);
   assert.equal(instance.getDirtyDomains().has('tile_cell'), true);
+
+  const doorDef = instance.buildingCatalog?.defById?.get('wooden_door');
+  assert.ok(doorDef);
+  const orphanWindowCellIndex = instance.activateRuntimeTile(
+    ORPHAN_WINDOW_CELL.x,
+    ORPHAN_WINDOW_CELL.y,
+    TileType.Floor,
+  ).tileIndex;
+  const orphanDoorCellIndex = instance.activateRuntimeTile(
+    ORPHAN_DOOR_CELL.x,
+    ORPHAN_DOOR_CELL.y,
+    TileType.Floor,
+  ).tileIndex;
+  instance.applyBuildingVisualTileType(orphanWindowCellIndex, windowDef);
+  instance.applyBuildingVisualTileType(orphanDoorCellIndex, doorDef);
+  const damagedOrphanWindow = instance.damageTile(
+    ORPHAN_WINDOW_CELL.x,
+    ORPHAN_WINDOW_CELL.y,
+    1,
+  );
+  assert.equal(damagedOrphanWindow?.destroyed, false);
+  instance.clearDirtyDomains();
+
+  const orphanScan = instance.scanOrphanSectBuildingVisuals();
+  assert.equal(orphanScan.eligible, true);
+  assert.deepEqual(
+    orphanScan.candidates.map((candidate) => [candidate.x, candidate.y, candidate.structureType]),
+    [
+      [ORPHAN_WINDOW_CELL.x, ORPHAN_WINDOW_CELL.y, TileType.Window],
+      [ORPHAN_DOOR_CELL.x, ORPHAN_DOOR_CELL.y, TileType.Door],
+    ],
+  );
+  assert.equal(
+    orphanScan.candidates.some((candidate) => (
+      candidate.x === WINDOW_ANCHOR.x && candidate.y === WINDOW_ANCHOR.y
+    )),
+    false,
+  );
+
+  const orphanCleanup = instance.removeOrphanSectBuildingVisuals();
+  assert.equal(orphanCleanup.removedCount, 2);
+  assert.equal(orphanCleanup.clearedTileDamageCount, 1);
+  assert.equal(instance.getEffectiveTileType(ORPHAN_WINDOW_CELL.x, ORPHAN_WINDOW_CELL.y), TileType.Floor);
+  assert.equal(instance.getEffectiveTileType(ORPHAN_DOOR_CELL.x, ORPHAN_DOOR_CELL.y), TileType.Floor);
+  assert.equal(instance.getEffectiveTileType(WINDOW_ANCHOR.x, WINDOW_ANCHOR.y), TileType.Window);
+  assert.equal(
+    instance.buildTileDamagePersistenceEntries().some((entry) => (
+      entry.x === ORPHAN_WINDOW_CELL.x && entry.y === ORPHAN_WINDOW_CELL.y
+    )),
+    false,
+  );
+  assert.equal(instance.getDirtyDomains().has('tile_cell'), true);
+  assert.equal(instance.getDirtyDomains().has('tile_damage'), true);
+  assert.equal(instance.getDirtyDomains().has('room'), true);
+  assert.equal(instance.getDirtyDomains().has('fengshui'), true);
+  assert.equal(instance.removeOrphanSectBuildingVisuals().removedCount, 0);
+
+  const ordinaryInstance = createInstance(false);
+  const ordinaryWindowDef = ordinaryInstance.buildingCatalog?.defById?.get('wooden_window');
+  assert.ok(ordinaryWindowDef);
+  const ordinaryWindowCellIndex = ordinaryInstance.activateRuntimeTile(-1, -1, TileType.Floor).tileIndex;
+  ordinaryInstance.applyBuildingVisualTileType(ordinaryWindowCellIndex, ordinaryWindowDef);
+  assert.equal(ordinaryInstance.scanOrphanSectBuildingVisuals().eligible, false);
+  assert.equal(ordinaryInstance.removeOrphanSectBuildingVisuals().removedCount, 0);
+  assert.equal(ordinaryInstance.getEffectiveTileType(-1, -1), TileType.Window);
 
   const destroyedWindow = instance.damageTile(
     WINDOW_ANCHOR.x,

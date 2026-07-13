@@ -44,6 +44,8 @@
 | GET world/objects | 世界对象 |
 | POST world/instances/:id/freeze | 冻结实例 |
 | POST shortcuts/world/cleanup-abnormal-temporary-tiles | 扫描运行时地图并清理异常临时石头 |
+| POST shortcuts/compat/orphan-sect-building-visuals/dry-run | 只读预检宗门历史孤儿门窗投影，并交叉核对数据库与本节点运行态 |
+| POST shortcuts/compat/orphan-sect-building-visuals/apply | 清理可写 lease 宗门实例的孤儿门窗及同格损坏状态，刷盘后回读验证 |
 | POST shortcuts/players/migrate-recovery-pills | 将旧恢复丹药迁移到当前保留的 8 个恢复丹药 |
 | POST shortcuts/maintenance/repair-market-storage-item-ids | 一次性修复坊市托管仓旧 storage_item_id |
 | GET database/state | 数据库状态 |

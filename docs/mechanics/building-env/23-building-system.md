@@ -118,6 +118,18 @@ TypedArray 索引结构，按 cellIndex 存储:
 
 自动摧毁**不返还建材**；每个被摧毁建筑写一条 warn 审计日志（`instance` / `building` / `def` / `owner` / `reason`），豁免保留的宝库写 error 日志。
 
+### 建筑占格恢复与历史孤儿投影
+
+建筑位置的持久化真源是建筑锚点 `x/y/rotation` 与当前编译后的 footprint。`instance_building_cell.tile_index` 只记录当次进程内的派生索引，恢复时不得跨进程复用；启动水合会按坐标重算 cell，并把失配的建筑占格、视觉投影和持久化行修正到规范坐标。
+
+历史版本曾复用进程内 `tileIndex`，可能在建筑记录删除后留下只有地图结构层的“幽灵门窗”。宗门地图生成器只产生地板与边界石，因此宗门中的 `door/window` 必须能对应当前有效的门窗建筑。统一兼容转换提供：
+
+- `POST /api/gm/shortcuts/compat/orphan-sect-building-visuals/dry-run`：交叉扫描数据库与本节点权威运行态，不修改数据；
+- `POST /api/gm/shortcuts/compat/orphan-sect-building-visuals/apply`：仅处理本节点持有可写 lease 的持久宗门实例，清除孤儿结构层及同格 `tile_damage`，重算房间/风水并立即分域刷盘；
+- apply 后再次回读数据库和运行态；未加载、非本节点 owner、lease 不可写或两侧状态不一致的候选只计入 skipped，不直接改库。
+
+该转换不扫描普通地图，也不清理墙、地板、家具或设施；这些类型可能来自地图模板或其他权威真源，不能用“没有建筑行”推断为孤儿。
+
 ## 建造材料 tag
 
 建筑 `economy.cost[].itemId` 可以使用通用建材槽位：`stone`、`wood`、`cloth`、`metal`、`glass`/`transparent`。这些槽位不是具体物品 ID，而是要求玩家从背包里选择带有对应建材 tag 的材料：

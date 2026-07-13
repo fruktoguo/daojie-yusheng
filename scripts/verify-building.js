@@ -40,6 +40,12 @@ const status = runVerificationSteps({
       args: ['packages/server/dist/tools/building-cell-recovery-smoke.js'],
       shell: false,
     },
+    {
+      label: 'orphan sect building visual conversion smoke',
+      command: process.execPath,
+      args: ['packages/server/dist/tools/orphan-sect-building-visual-conversion-smoke.js'],
+      shell: false,
+    },
   ],
 });
 

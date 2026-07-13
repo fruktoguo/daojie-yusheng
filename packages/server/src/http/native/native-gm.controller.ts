@@ -32,6 +32,7 @@ import { NativeGmWorldService } from './native-gm-world.service';
 import { NativeManagedAccountService } from './native-managed-account.service';
 import { AiArtsStrengthV1ToV2Conversion } from '../../gm/compat-conversions/conversions/technique/ai-arts-strength-v1-to-v2';
 import { DeleteEmptyCustomTechniqueBooksConversion } from '../../gm/compat-conversions/conversions/technique/delete-empty-custom-technique-books';
+import { OrphanSectBuildingVisualsConversion } from '../../gm/compat-conversions/conversions/building/orphan-sect-building-visuals';
 /**
  * UpdatePlayerPasswordBody：定义接口结构约束，明确可交付字段含义。
  */
@@ -273,6 +274,7 @@ export class NativeGmController {
     @Inject(NativeGmMarketTradeService) private readonly nextGmMarketTradeService: NativeGmMarketTradeService,
     @Inject(AiArtsStrengthV1ToV2Conversion) private readonly aiArtsStrengthV1ToV2Conversion: AiArtsStrengthV1ToV2Conversion,
     @Inject(DeleteEmptyCustomTechniqueBooksConversion) private readonly deleteEmptyCustomTechniqueBooksConversion: DeleteEmptyCustomTechniqueBooksConversion,
+    @Inject(OrphanSectBuildingVisualsConversion) private readonly orphanSectBuildingVisualsConversion: OrphanSectBuildingVisualsConversion,
     @Optional()
     @Inject(GmAuditLogPersistenceService)
     private readonly gmAuditLogPersistenceService: GmAuditLogPersistenceService | null = null,
@@ -1149,6 +1151,27 @@ export class NativeGmController {
       targetType: 'compat_conversion',
       targetId: 'delete_empty_custom_technique_books',
     }, (actor) => this.deleteEmptyCustomTechniqueBooksConversion.run({
+      mode: 'apply',
+      actor,
+    }));
+  }
+
+  @Post('shortcuts/compat/orphan-sect-building-visuals/dry-run')
+  async dryRunOrphanSectBuildingVisuals(@Req() request: unknown) {
+    return this.orphanSectBuildingVisualsConversion.run({
+      mode: 'dry-run',
+      actor: extractGmActor(request),
+    });
+  }
+
+  @Post('shortcuts/compat/orphan-sect-building-visuals/apply')
+  async applyOrphanSectBuildingVisuals(@Req() request: unknown) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.shortcuts.compat.orphan_sect_building_visuals.apply',
+      request,
+      targetType: 'compat_conversion',
+      targetId: 'building_orphan_sect_visuals',
+    }, (actor) => this.orphanSectBuildingVisualsConversion.run({
       mode: 'apply',
       actor,
     }));

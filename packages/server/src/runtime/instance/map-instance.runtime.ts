@@ -37,6 +37,11 @@ const DEFAULT_TILE_LAYER_FALLBACK_SEED = resolveDefaultTileLayerFallback();
 const BASE_CHANT_TICK_DURATION_MS = 1000;
 const TREASURE_VAULT_PERMISSION_KINDS = ['view', 'deposit', 'withdraw'];
 const TREASURE_VAULT_PERMISSION_SCOPES = new Set(['all', 'party', 'sect', 'dao_friend', 'close_friend']);
+/** 宗门模板不会原生生成门窗；这两类结构只能来自建筑投影。 */
+const SECT_BUILDING_VISUAL_STRUCTURE_TYPES = new Set([
+    StructureType.Door,
+    StructureType.Window,
+]);
 
 /** INVALID_OCCUPANCY：空占位值，表示该地块当前未被占用。 */
 const INVALID_OCCUPANCY = 0;
@@ -2360,6 +2365,136 @@ class MapInstanceRuntime {
     }
     listBuildingSummaries() {
         return Array.from(this.buildingById.values());
+    }
+    /** 收集宗门地图中由当前有效建筑权威占用的门窗结构格。 */
+    collectExpectedSectBuildingVisualStructures() {
+        const expectedStructureByCell = new Map();
+        if (this.template?.source?.sectMap !== true) {
+            return expectedStructureByCell;
+        }
+        for (const building of this.buildingById.values()) {
+            if (!building || !buildingUsesActiveTopology(building)) {
+                continue;
+            }
+            const compiled = this.buildingCatalog?.defByHandle?.[building.defHandle]
+                ?? this.buildingCatalog?.defById?.get?.(building.defId);
+            if (!compiled?.visualTileType) {
+                continue;
+            }
+            const visualSeed = resolveTileLayerSeedFromTileType(compiled.visualTileType);
+            const structureType = visualSeed?.structure ?? null;
+            if (!SECT_BUILDING_VISUAL_STRUCTURE_TYPES.has(structureType)) {
+                continue;
+            }
+            for (const cellIndex of this.buildingCellsById.get(building.id) ?? []) {
+                if (cellIndex >= 0 && cellIndex < this.tilePlane.getCellCount()) {
+                    expectedStructureByCell.set(cellIndex, structureType);
+                }
+            }
+        }
+        return expectedStructureByCell;
+    }
+    /**
+     * 扫描宗门地图的孤儿门窗投影。
+     *
+     * 宗门地图真源只生成地板与边界石，因此当前格存在门窗、但没有同格有效建筑投影时，
+     * 可以确定它是历史建筑占格错位留下的孤儿结构。普通地图不应用这条判定。
+     */
+    scanOrphanSectBuildingVisuals() {
+        const candidates = [];
+        if (this.template?.source?.sectMap !== true
+            || !this.tilePlane
+            || typeof this.tilePlane.getCellCount !== 'function') {
+            return {
+                eligible: false,
+                scannedTileCount: 0,
+                expectedVisualCellCount: 0,
+                candidates,
+            };
+        }
+        const expectedStructureByCell = this.collectExpectedSectBuildingVisualStructures();
+        const cellCount = this.tilePlane.getCellCount();
+        for (let tileIndex = 0; tileIndex < cellCount; tileIndex += 1) {
+            const layerState = this.tilePlane.getTileLayerState(tileIndex);
+            const structureType = layerState?.structure ?? null;
+            if (!SECT_BUILDING_VISUAL_STRUCTURE_TYPES.has(structureType)) {
+                continue;
+            }
+            const x = this.tilePlane.getX(tileIndex);
+            const y = this.tilePlane.getY(tileIndex);
+            const inTemplateBounds = x >= 0 && y >= 0 && x < this.template.width && y < this.template.height;
+            if (inTemplateBounds && resolveTemplateLayerSeed(this.template, x, y).structure === structureType) {
+                continue;
+            }
+            // 同格只要仍有有效门窗建筑，就交给建筑水合的规范投影逻辑处理，绝不误删。
+            if (expectedStructureByCell.has(tileIndex)) {
+                continue;
+            }
+            candidates.push({
+                instanceId: this.meta.instanceId,
+                tileIndex,
+                x,
+                y,
+                tileType: layerState?.legacyTileType ?? this.tilePlane.getTileType(tileIndex),
+                structureType,
+                hasTileDamage: this.tileDamageByTile.has(tileIndex),
+            });
+        }
+        return {
+            eligible: true,
+            scannedTileCount: cellCount,
+            expectedVisualCellCount: expectedStructureByCell.size,
+            candidates,
+        };
+    }
+    /** GM 兼容转换入口：清除已确认没有有效建筑真源的宗门门窗投影。 */
+    removeOrphanSectBuildingVisuals() {
+        const scan = this.scanOrphanSectBuildingVisuals();
+        if (scan.candidates.length === 0) {
+            return {
+                ...scan,
+                removedCount: 0,
+                clearedTileDamageCount: 0,
+            };
+        }
+        let removedCount = 0;
+        let clearedTileDamageCount = 0;
+        for (const candidate of scan.candidates) {
+            const layerState = this.tilePlane.getTileLayerState(candidate.tileIndex);
+            if (layerState?.structure !== candidate.structureType) {
+                continue;
+            }
+            this.tilePlane.setStructure(candidate.tileIndex, null);
+            if (this.tileDamageByTile.delete(candidate.tileIndex)) {
+                this.markTileDamagePersistenceDirtyHighPriority(candidate.tileIndex);
+                clearedTileDamageCount += 1;
+            }
+            this.markStaticTileSyncDirtyByIndex(candidate.tileIndex, {
+                sightBlockingChanged: true,
+                pathingChanged: true,
+            });
+            removedCount += 1;
+        }
+        if (removedCount > 0) {
+            this.recalculateRoomsAndFengShuiAfterTopologyChange({
+                reason: 'gm_orphan_sect_building_visual_cleanup',
+                dirtyCellCount: removedCount,
+            });
+            this.markAoiViewChangedGlobally({ sightBlockingChanged: true });
+            this.worldRevision += 1;
+            this.persistentRevision += 1;
+            this.markPersistenceDirtyDomainsHighPriority([
+                'tile_cell',
+                'room',
+                'fengshui',
+                ...(clearedTileDamageCount > 0 ? ['tile_damage'] : []),
+            ]);
+        }
+        return {
+            ...scan,
+            removedCount,
+            clearedTileDamageCount,
+        };
     }
     listRoomSummaries() {
         return Array.from(this.roomsById.values());
