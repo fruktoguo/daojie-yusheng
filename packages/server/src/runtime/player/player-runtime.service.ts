@@ -59,6 +59,8 @@ const HEAVEN_SPIRITUAL_ROOT_SEED_ITEM_ID = 'root_seed.heaven';
 const DIVINE_SPIRITUAL_ROOT_SEED_ITEM_ID = 'root_seed.divine';
 const SHATTER_SPIRIT_PILL_ITEM_ID = 'pill.shatter_spirit';
 const WANGSHENG_PILL_ITEM_ID = 'pill.wangsheng';
+const CONSUMABLE_COOLDOWN_BUFF_ID_PREFIX = 'system.consumable_cooldown.';
+const CONSUMABLE_COOLDOWN_SOURCE_ID_PREFIX = 'system:consumable-cooldown:';
 
 /** 体能下限来源标记，用于把基础生命回填到运行时。 */
 const VITAL_BASELINE_BONUS_SOURCE = 'runtime:vitals_baseline';
@@ -5651,7 +5653,7 @@ export class PlayerRuntimeService {
             player.qi = clamp(snapshot.vitals.qi, 0, player.maxQi);
         }
         if (snapshotRespawnRepaired) {
-            markPlayerDirtyDomains(player, ['position_checkpoint']);
+            markPlayerDirtyDomains(player, ['world_anchor']);
             this.bumpPersistentRevision(player);
         }
         // 水合期合并：把旧版拆分开的同 (itemId, enhanceLevel) 签名堆叠重新合到同一 slot。
@@ -5693,6 +5695,7 @@ export class PlayerRuntimeService {
             markPlayerDirtyDomains(player, ['inventory']);
             this.bumpPersistentRevision(player);
         }
+        restoreConsumableCooldownStateFromPersistentBuffs(player);
         // 水合期迁移：旧版 enhancementJob 直接持有 item 完整快照；新版只存 itemInstanceId，
         // 实际物品落在 inventory.lockedItems。若读到旧格式，把 job.item 迁入 lockedItems
         // 并在 job 上保留 itemInstanceId，保证旧存档的进行中强化任务不丢失工件。
@@ -9383,10 +9386,109 @@ function markConsumableItemCooldown(player, item, currentTick) {
     }
     const state = ensureConsumableCooldownState(player);
     const startedAtTick = Math.max(0, Math.trunc(Number(currentTick) || 0));
+    let persistentCooldownChanged = false;
     for (const group of groups) {
         state[group] = startedAtTick;
+        persistentCooldownChanged = upsertPersistentConsumableCooldownBuff(player, group, cooldown)
+            || persistentCooldownChanged;
+    }
+    if (persistentCooldownChanged) {
+        player.buffs.buffs.sort((left, right) => String(left?.buffId ?? '').localeCompare(String(right?.buffId ?? ''), 'zh-Hans-CN'));
+        player.buffs.revision += 1;
+        markPlayerDirtyDomains(player, ['buff']);
     }
     syncConsumableInventoryCooldownProjection(player, startedAtTick);
+}
+
+function upsertPersistentConsumableCooldownBuff(player, group, cooldown) {
+    const normalizedGroup = normalizeConsumableCooldownGroup(group);
+    const normalizedCooldown = Math.max(1, Math.trunc(Number(cooldown) || 0));
+    if (!normalizedGroup || !player?.buffs || !Array.isArray(player.buffs.buffs)) {
+        return false;
+    }
+    const persistentBuff = buildPersistentConsumableCooldownBuff(normalizedGroup, normalizedCooldown);
+    const buffId = persistentBuff.buffId;
+    const existing = player.buffs.buffs.find((entry) => entry?.buffId === buffId);
+    if (existing) {
+        refreshRuntimeTemporaryBuffPrototype(existing, persistentBuff);
+        existing.remainingTicks = persistentBuff.remainingTicks;
+        existing.duration = persistentBuff.duration;
+        existing.stacks = persistentBuff.stacks;
+        existing.maxStacks = persistentBuff.maxStacks;
+        existing.infiniteDuration = persistentBuff.infiniteDuration;
+        existing.persistOnDeath = persistentBuff.persistOnDeath;
+        existing.persistOnReturnToSpawn = persistentBuff.persistOnReturnToSpawn;
+        delete existing.sustainTicksElapsed;
+        return true;
+    }
+    player.buffs.buffs.push(createRuntimeTemporaryBuff(persistentBuff));
+    return true;
+}
+
+function buildPersistentConsumableCooldownBuff(group, cooldown) {
+    return {
+        buffId: `${CONSUMABLE_COOLDOWN_BUFF_ID_PREFIX}${group}`,
+        name: '消耗品冷却',
+        desc: '服务端内部持久化的消耗品共享冷却。',
+        shortMark: '冷',
+        category: 'buff',
+        visibility: 'hidden',
+        remainingTicks: cooldown + 1,
+        duration: cooldown,
+        stacks: 1,
+        maxStacks: 1,
+        sourceSkillId: `${CONSUMABLE_COOLDOWN_SOURCE_ID_PREFIX}${group}`,
+        sourceSkillName: '消耗品冷却',
+        realmLv: 1,
+        infiniteDuration: false,
+        persistOnDeath: true,
+        persistOnReturnToSpawn: true,
+    };
+}
+
+function restoreConsumableCooldownStateFromPersistentBuffs(player) {
+    if (!player?.inventory) {
+        return;
+    }
+    const state = ensureConsumableCooldownState(player);
+    for (const key of Object.keys(state)) {
+        delete state[key];
+    }
+    const currentTick = Math.max(0, Math.trunc(Number(player.lifeElapsedTicks) || 0));
+    for (const buff of Array.isArray(player.buffs?.buffs) ? player.buffs.buffs : []) {
+        const group = resolveConsumableCooldownBuffGroup(buff);
+        const duration = Math.max(0, Math.trunc(Number(buff?.duration) || 0));
+        const remainingTicks = Math.max(0, Math.trunc(Number(buff?.remainingTicks) || 0));
+        if (!group || duration <= 0 || remainingTicks <= 0) {
+            continue;
+        }
+        const elapsedTicks = Math.max(0, duration + 1 - Math.min(remainingTicks, duration + 1));
+        if (elapsedTicks >= duration) {
+            continue;
+        }
+        const startedAtTick = Math.max(0, currentTick - elapsedTicks);
+        const previousStartedAtTick = Number(state[group]);
+        if (!Number.isFinite(previousStartedAtTick) || startedAtTick > previousStartedAtTick) {
+            state[group] = startedAtTick;
+        }
+    }
+    syncConsumableInventoryCooldownProjection(player, currentTick);
+}
+
+function resolveConsumableCooldownBuffGroup(buff) {
+    const buffId = typeof buff?.buffId === 'string' ? buff.buffId.trim() : '';
+    if (!buffId.startsWith(CONSUMABLE_COOLDOWN_BUFF_ID_PREFIX)) {
+        return null;
+    }
+    const group = normalizeConsumableCooldownGroup(buffId.slice(CONSUMABLE_COOLDOWN_BUFF_ID_PREFIX.length));
+    if (!group || buff?.sourceSkillId !== `${CONSUMABLE_COOLDOWN_SOURCE_ID_PREFIX}${group}`) {
+        return null;
+    }
+    return group;
+}
+
+function normalizeConsumableCooldownGroup(value) {
+    return value === 'hp' || value === 'qi' ? value : null;
 }
 
 function getConsumableItemCooldownRemainingTicks(player, item, currentTick) {

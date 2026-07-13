@@ -1,18 +1,15 @@
-// @ts-nocheck
-
-const assert = require("node:assert/strict");
-
-const {
+import * as assert from 'node:assert/strict';
+import {
     createNumericRatioDivisors,
     createNumericStats,
     DEFAULT_BONE_AGE_YEARS,
     DEFAULT_INVENTORY_CAPACITY,
     Direction,
-} = require("@mud/shared");
-const { PlayerRuntimeService } = require("../runtime/player/player-runtime.service");
-const { ContentTemplateRepository } = require("../content/content-template.repository");
+} from '@mud/shared';
+import { ContentTemplateRepository } from '../content/content-template.repository';
+import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
 
-function createPlayerRuntimeService(contentTemplateRepository) {
+function createPlayerRuntimeService(contentTemplateRepository: any = null): PlayerRuntimeService {
     const repository = contentTemplateRepository ?? {
         createStarterInventory() {
             return {
@@ -79,7 +76,7 @@ function createPlayerRuntimeService(contentTemplateRepository) {
     });
 }
 
-function createSnapshot(gatherJob, buildingJob = null) {
+function createSnapshot(gatherJob: any = null, buildingJob: any = null): any {
     return {
         version: 1,
         savedAt: 1000,
@@ -388,7 +385,7 @@ function testMissingRespawnFallsBackToStarterMap() {
     assert.equal(player.respawnY, 5);
 }
 
-function testInvalidRespawnPointFallsBackToMapSpawnAndMarksCheckpointDirty() {
+function testInvalidRespawnPointFallsBackToMapSpawnAndMarksWorldAnchorDirty() {
     const service = createPlayerRuntimeService();
     const snapshot = createSnapshot(null);
     snapshot.respawn = {
@@ -403,7 +400,8 @@ function testInvalidRespawnPointFallsBackToMapSpawnAndMarksCheckpointDirty() {
     assert.equal(player.respawnInstanceId, 'public:yunlai_town');
     assert.equal(player.respawnX, 32);
     assert.equal(player.respawnY, 5);
-    assert.ok(player.dirtyDomains?.has('position_checkpoint'));
+    assert.ok(player.dirtyDomains?.has('world_anchor'));
+    assert.equal(player.dirtyDomains?.has('position_checkpoint'), false);
     assert.ok(player.persistentRevision > player.persistedRevision);
 }
 
@@ -426,14 +424,14 @@ function testPendingSkillCastIsRuntimeOnly() {
         remainingTicks: 2,
     };
     const player = service.hydrateFromSnapshot('player:pending', 'session:pending', snapshot);
-    assert.equal(player.combat.pendingSkillCast, undefined);
-    player.combat.pendingSkillCast = {
+    assert.equal((player.combat as any).pendingSkillCast, undefined);
+    (player.combat as any).pendingSkillCast = {
         skillId: 'skill:runtime-only',
         remainingTicks: 2,
     };
     service.players.set('player:pending', player);
     const persisted = service.buildPersistenceSnapshot('player:pending');
-    assert.equal(persisted.combat.pendingSkillCast, undefined);
+    assert.equal((persisted.combat as any).pendingSkillCast, undefined);
 }
 
 function testReplaceInventoryItemsKeepsTemplateOnPrototype() {
@@ -718,7 +716,7 @@ function testPendingStatisticRecordsEmitOnceUntilReconnect() {
     testInvalidGatherJobFallsBackToNull();
 testFreshSnapshotKeepsGatherJobEmpty();
 testMissingRespawnFallsBackToStarterMap();
-testInvalidRespawnPointFallsBackToMapSpawnAndMarksCheckpointDirty();
+testInvalidRespawnPointFallsBackToMapSpawnAndMarksWorldAnchorDirty();
 testSectIdRoundtrip();
 testPendingSkillCastIsRuntimeOnly();
 testReplaceInventoryItemsKeepsTemplateOnPrototype();

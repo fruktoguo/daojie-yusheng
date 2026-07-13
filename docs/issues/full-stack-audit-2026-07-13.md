@@ -3,7 +3,7 @@
 ## 审计口径
 
 - 生产主线：`packages/client`、`packages/shared`、`packages/server`、`packages/config-editor`。
-- 当前基线：`main` 分支 `7c09e908`；相对 `origin/main` ahead 35。
+- 当前基线：`main` 分支 `58f6595a`；相对 `origin/main` ahead 36。
 - package manager：`pnpm@10.29.1`。
 - 每项结论必须来自机制文档、完整调用链、测试、编译产物或运行数据；仅凭搜索未发现异常不能标记为“确认无问题”。
 - `[x]` 只表示该行列出的具体证据范围已完成，不代表相邻系统或整个项目已完成。
@@ -22,6 +22,7 @@
 - [x] A-07 `world-runtime-craft-smoke` 的建筑夹具缺失 AOI chunk revision 索引问题已修复；见 FS-030。
 - [x] A-08 `flush-task-runtime-smoke` 构造器注入错位、虚构实例域和旧 fallback 断言已修复；见 FS-040。
 - [x] A-09 `world-runtime-use-item-smoke` 的功法抄录夹具与满层规则漂移、TypeScript 绕过已修复；见 FS-044。
+- [x] A-10 `player-runtime-persistence-roundtrip-smoke` 对复活点修复域的陈旧断言及 TypeScript/CommonJS 绕过已修复；见 FS-050。
 
 ### 资产、持久化与恢复
 
@@ -57,6 +58,8 @@
 - [x] P-30 durable 玩家资产事务等待数据库锁时可被旧运行态 flush 取得更大版本并在提交后反向覆盖的问题已修复；见 FS-045。
 - [x] P-31 地图解锁与复活点绑定道具的来源效果、背包扣除、watermark、outbox 和审计已收敛为同一 durable transaction；见 FS-046。
 - [x] P-32 功法书拒绝路径先扣物品及自动主修遗漏 `combat_pref` 脏域的问题已修复；见 FS-047。
+- [x] P-33 恢复药 `hp/qi` 共享冷却已进入 Buff 持久化真源，断线、重启、死亡和遁返不再重置；见 FS-048。
+- [x] P-34 水合期非法复活点修复已标记实际拥有 respawn 字段的 `world_anchor` 域；见 FS-049。
 
 ### 服务端权威运行时
 
@@ -69,6 +72,7 @@
 - [x] R-07 启动期 catalog 注册、claim/sync、实例分域水合和塔层 detached cache 顺序已完成专项修复；见 FS-006。
 - [x] R-08 在线 bootstrap、控制器、通天塔和跨线迁移的玩家挂接统一等待动态实例 lease，并通过真实运行时 attach gate；见 FS-009。
 - [x] R-09 跨线偏好和通天塔当前层只在目标实例接入成功后推进；见 FS-012。
+- [x] R-10 恢复药共享冷却的设置、剩余息数派生、自然结束及死亡/遁返保留已完成专项修复；见 FS-048。
 
 ### shared、协议与内容链路
 
@@ -111,6 +115,7 @@
 - [x] X-12 活动来源快照、背包后态、watermark、outbox 与双资产审计的原子提交及精确重放已修复；见 FS-042。
 - [x] X-13 durable 事务与普通玩家分域 flush 共用锁时的跨队列版本顺序已修复，并由真实 PostgreSQL 锁等待竞态证明；见 FS-045。
 - [x] X-14 持久效果道具的来源 CAS、精确重放、空背包保护与生产失败关闭已由真实 PostgreSQL 专项 smoke 证明；见 FS-046。
+- [x] X-15 恢复药共享冷却与非法复活点修复已通过内存快照、真实分域表和恢复回读三层验证；见 FS-048、FS-049。
 
 ## 已确认问题
 
@@ -833,7 +838,7 @@
 
 ### FS-046 地图解锁与复活点绑定道具分步提交
 
-- **状态**：已修复并完成专项验证，待本组中文原子提交后回填 hash。
+- **状态**：已修复、验证并完成中文原子提交。
 - **严重级别**：P0。
 - **所属功能组**：背包物品 / 地图解锁 / 命石与复活点 / 玩家分域持久化。
 - **影响链路**：使用图志或命石 → `WorldRuntimeUseItemService` → `PlayerRuntimeService` 背包、`unlockedMapIds` 或 respawn 运行态 → `player_inventory_item`、`player_map_unlock` 或 `player_world_anchor` → recovery watermark 与重启恢复。
@@ -845,11 +850,11 @@
 - **修复方式**：新增严格归一化的 `player_item_use` 来源 mutation。地图解锁在事务内锁定并精确比对已解锁地图集合；复活绑定锁定并 CAS 比对 respawn 四元组，仅更新 respawn 列，不覆盖 last-safe 落点。同一事务写背包后态、对应 domain watermark、outbox、inventory 与 `player_item_use` 审计；提交确认后才应用运行态，生产 durable 不可用时失败关闭。空背包只在事务内证明当前唯一非锁定行与本次单件消耗的 ID、数量和 payload 精确相符时局部放行。
 - **实际修改**：新增 `player-item-use-durable-persistence.ts` 和真实 PostgreSQL smoke；扩展 `DurableOperationService.grantInventoryItems()` 的来源身份、CAS、watermark、双审计与可证明空背包路径；地图/复活道具入口改为玩家资产串行器内的规划、提交、应用三段式；退役地图 fire-and-forget 直写，并将 respawn 正确标记为 `world_anchor`。
 - **验证结果**：`pnpm --filter @mud/server compile`、compiled `world-runtime-use-item-smoke` 与 `player-runtime-dirty-domain-smoke` 通过；真实 PostgreSQL `player-item-use-durable-smoke` 证明地图/复活来源与背包同事务、精确重放不重复、陈旧来源快照整笔回滚、未验证空覆盖被拒绝、最后一件已核对道具可合法消耗，且复活绑定不覆盖 last-safe；真实 PostgreSQL `inventory-grant-durable-smoke`、`pnpm verify:quick` 与 `pnpm audit:boundaries` 同时通过。
-- **中文原子提交 hash**：待本组提交后回填。
+- **中文原子提交 hash**：`58f6595a`（`fix(persistence): 原子提交持久化物品效果`）。
 
 ### FS-047 功法书拒绝路径会先扣物品且自动主修偏好可丢失
 
-- **状态**：已修复并完成专项验证，待本组中文原子提交后回填 hash。
+- **状态**：已修复、验证并完成中文原子提交。
 - **严重级别**：P0（道具损失）/P1（重启状态回退）。
 - **所属功能组**：功法书 / 未领悟功法 / 主修偏好 / 玩家分域持久化。
 - **影响链路**：使用自创功法书或普通功法书 → `dispatchUseItem()` / `PlayerRuntimeService.useItem()` / `addPendingTechniqueComprehensionById()` → 背包、pending comprehension、自动战斗技能目录、主修功法与 `cultivationActive` → `inventory/technique/auto_battle_skill/combat_pref` 分域恢复。
@@ -861,6 +866,54 @@
 - **修复方式**：自创功法书先校验功法 ID、已掌握状态和模板，再要求 pending 计划明确返回成功，所有拒绝分支均不扣书；计划成功后在同一同步临界段内扣除已核对的 `itemInstanceId`。`addPendingTechniqueComprehensionById()` 和普通 `useItem()` 均追踪自动主修是否实际变化，变化时追加 `combat_pref` 脏域。
 - **实际修改**：重排自创功法书分支的校验/计划/消耗顺序，严格处理计划返回值；两条功法书运行时入口补齐 `combat_pref`；物品使用 smoke 新增已掌握、模板缺失、计划拒绝与成功顺序断言，脏域 smoke 覆盖两个入口的自动主修。
 - **验证结果**：`pnpm --filter @mud/server compile`、compiled `world-runtime-use-item-smoke`、`player-runtime-dirty-domain-smoke` 与既有 `technique-comprehension-smoke` 通过；`pnpm verify:quick` 与 `pnpm audit:boundaries` 同时通过。
+- **中文原子提交 hash**：`58f6595a`（随 FS-046）。
+
+### FS-048 恢复药共享冷却可通过断线或进程重启重置
+
+- **状态**：已修复并完成专项验证，待本组中文原子提交后回填 hash。
+- **严重级别**：P1。
+- **所属功能组**：背包消耗品 / 恢复药 / Buff / 玩家分域持久化与恢复。
+- **影响链路**：手动或自动使用恢复药 → `markConsumableItemCooldown()` → `inventory.consumableCooldownStartedAtByGroup` 与 `inventory.cooldowns` → 玩家快照 / `player_persistent_buff_state` → 断线重连、进程重启、死亡复生与遁返。
+- **证据**：修复前共享冷却只写在运行时 `inventory.consumableCooldownStartedAtByGroup`，`inventory.cooldowns` 也只是按当前背包投影；`buildRuntimePlayerPersistenceSnapshot()` 两者均不序列化，`hydrateFromSnapshot()` 因而无法恢复。恢复药附带的 120 息可见恢复 Buff 会进入 `buff` 真源，但 60 息 `hp/qi` 共享冷却本身不会，导致同一枚药在当前会话被拒绝、重新水合后立刻可用。
+- **根本原因**：实现把服务端权威冷却真源放进了仅供当前进程使用的背包缓存结构，却没有为“下次还在”的计时状态选择持久化域；客户端投影和权威恢复状态的职责被混在一起。
+- **为什么错误**：同组冷却属于服务端玩法约束，不能由连接或进程生命周期决定。只持久化恢复效果而不持久化服药限制，会让数据库恢复出的状态与断线前权威状态不等价，也让重连成为可主动利用的冷却清除操作。
+- **触发条件**：玩家使用任一气血或灵力恢复药后，在 60 息内断线重连、切换到重新水合的会话，或服务进程滚动重启；随后再次使用同组恢复药。
+- **可能后果**：玩家可反复重连绕过恢复药共享冷却，在战斗、挂机或资源竞争中异常连续补满气血/灵力；自动用药与手动用药行为不一致；生产重启前后平衡规则漂移，且数据库里的恢复 Buff 看似正常而不易定位。
+- **修复方式**：将两组冷却表示为固定 ID 的隐藏运行时 Buff：`system.consumable_cooldown.hp/qi`。状态不携带属性、数值或 tick 效果，只复用现有 Buff 的逐息衰减、`player_persistent_buff_state` 回读以及死亡/遁返保留能力；水合后按 `remainingTicks + duration + lifeElapsedTicks` 重建背包内的派生起始 tick。每次用药以规范模板刷新内部状态，避免同 ID 的陈旧 payload 残留效果；客户端背包冷却列表继续只做投影。
+- **实际修改**：`PlayerRuntimeService` 新增内部冷却 Buff 的规范构造、刷新、来源校验和水合恢复；用药时同时标记 `buff` 脏域，内部状态固定 `hidden` 且设置 `persistOnDeath/persistOnReturnToSpawn`。脏域 smoke 覆盖两组冷却、快照 materialize、重新水合、死亡、遁返、到期后再使用及拒绝路径不扣物品；真实数据库写入/恢复夹具追加隐藏性与两个保留标记的 raw payload 对称断言；背包与 Buff mechanics 同步真源和生命周期约束。
+- **验证结果**：`pnpm --filter @mud/server compile` 通过；compiled `inventory-consumable-cooldown-smoke`、`player-runtime-dirty-domain-smoke`、`player-runtime-persistence-roundtrip-smoke` 通过；真实 PostgreSQL `player-domain-persistence-smoke` 与 `player-domain-recovery-smoke` 通过，证明 persistent buff 的完整 raw payload 可写入 `player_persistent_buff_state` 并参与 snapshot miss 回读恢复。
+- **中文原子提交 hash**：待本组提交后回填。
+
+### FS-049 水合期复活点修复标记了错误持久化域
+
+- **状态**：已修复并完成专项验证，待本组中文原子提交后回填 hash。
+- **严重级别**：P1。
+- **所属功能组**：玩家 world anchor / 复活点 / 水合修复 / 分域 flush。
+- **影响链路**：分域或旧快照读取 respawn → `hydrateFromSnapshot()` 校验地图与坐标 → 回退地图出生点 → dirty domain → `player_world_anchor` / `player_position_checkpoint`。
+- **证据**：水合逻辑发现 respawn 地图、实例或坐标非法后会把运行态修复为有效地图出生点，却标记 `position_checkpoint`。实际 `respawn_template_id/instance_id/x/y` 均由 `world_anchor` 域持有，`position_checkpoint` 只负责当前与 last-safe 落点；因此下一次 flush 不会把修复后的 respawn 写回真源。
+- **根本原因**：代码把“位置修复”按动作名称归入 checkpoint，而没有按被修改字段的数据库所有权选择脏域；与此前复活点绑定入口相同，混淆了当前位置和绑定复活锚点。
+- **为什么错误**：水合期自修复只有在修复结果写回其真源域后才闭环。标记无关域会制造运行态已正常、数据库仍非法的分叉，并让每次恢复重复执行同一迁移。
+- **触发条件**：历史/异常快照缺少有效 respawn 坐标、坐标落在不可行走地块、实例 ID 不合法，或内容地图调整使原复活点失效。
+- **可能后果**：每次登录或重启都重复修复；多节点或后续回读继续得到旧非法锚点；地图出生点变化时玩家恢复位置可能反复漂移，持久化日志还会错误显示 checkpoint 已推进而 world anchor 未更新。
+- **修复方式**：修复完成后只标记 `world_anchor` 并推进玩家持久化 revision，不再误标 `position_checkpoint`；以强类型 dirty-domain smoke 和完整往返 smoke 同时断言修复坐标、正确域存在及错误域不存在。
+- **实际修改**：调整 `hydrateFromSnapshot()` 的修复脏域；新增非法坐标水合断言；同步更新旧往返 smoke 的函数名和契约。
+- **验证结果**：`pnpm --filter @mud/server compile`、compiled `player-runtime-dirty-domain-smoke` 与 `player-runtime-persistence-roundtrip-smoke` 通过；真实 PostgreSQL `player-domain-persistence-smoke` 和 `player-domain-recovery-smoke` 通过，覆盖 `player_world_anchor`、`player_position_checkpoint` 的独立投影与恢复链。
+- **中文原子提交 hash**：待本组提交后回填。
+
+### FS-050 玩家持久化往返 smoke 固化错误脏域且绕过 TypeScript
+
+- **状态**：已修复并完成专项验证，待本组中文原子提交后回填 hash。
+- **严重级别**：P2。
+- **所属功能组**：验证门禁 / 玩家持久化恢复 / TypeScript 契约。
+- **影响链路**：服务端编译 → compiled tool runner → `player-runtime-persistence-roundtrip-smoke` → 非法复活点回退断言。
+- **证据**：该 smoke 使用文件级 `// @ts-nocheck` 和 CommonJS `require()`，且明确断言修复后的 respawn 应标记 `position_checkpoint`。生产修复改为正确的 `world_anchor` 后，专项运行因此失败；原文件的动态快照字段和构造器契约也完全不受 TypeScript 校验。
+- **根本原因**：测试按旧实现细节记录断言而未核对字段所属持久化域，并用全文件类型绕过维持陈旧夹具，导致错误行为反而被固化为回归契约。
+- **为什么错误**：验证应阻止生产语义回退，而不是阻止真实根因修复。文件级类型关闭会让构造器、快照形状和运行时 API 漂移延迟到执行期，与项目 TypeScript 红线直接冲突。
+- **触发条件**：运行该 compiled smoke，或未来修改 `PlayerRuntimeService`、持久化快照和内容仓库接口。
+- **可能后果**：正确修复在验证阶段被误判失败，维护者可能为绿灯重新写入错误域；真实 API 漂移继续绕过编译，在更高成本的 release 门禁或生产恢复时才暴露。
+- **修复方式**：改为标准 ESM import，移除 `@ts-nocheck`，为服务构造和动态测试快照补充最小显式类型边界，仅在验证“运行时不持久字段”时做局部类型收窄；将断言更新为 `world_anchor=true` 且 `position_checkpoint=false`。
+- **实际修改**：升级 `player-runtime-persistence-roundtrip-smoke.ts` 的模块与类型写法，并重命名复活点测试以表达当前契约；不放宽生产类型、断言或编译设置。
+- **验证结果**：`pnpm --filter @mud/server compile` 通过；compiled `player-runtime-persistence-roundtrip-smoke` 通过，且文件已无 `@ts-nocheck`、`require()`、`@ts-ignore` 或 `@ts-expect-error`。
 - **中文原子提交 hash**：待本组提交后回填。
 
 ## 2026-07-14 待用户决定

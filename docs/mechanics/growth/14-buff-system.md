@@ -79,6 +79,12 @@ isPillBuff = sourceSkillId.startsWith('item:')
 - 营造 buff: `activity.building`
 - 黑暗 buff: 世界时间视野减少
 
+### 内部持久计时状态
+
+- 恢复药的 `hp` / `qi` 共享冷却复用运行时 Buff 的持久化和逐息衰减能力，内部 ID 分别为 `system.consumable_cooldown.hp` 与 `system.consumable_cooldown.qi`。
+- 这两条状态固定为 `visibility = hidden`，不携带属性、数值或 tick 效果，也不作为玩家可见增益展示。
+- 状态设置 `persistOnDeath` 与 `persistOnReturnToSpawn`，因此断线重连、进程重启、死亡复生和遁返不会重置冷却；背包冷却列表由它们和玩家 `lifeElapsedTicks` 重新派生。
+
 ## 法宝 Buff
 
 法宝盈能是运行时真实 buff（写回玩家 `buffs` 真源），由玩家法宝 tick 推进：

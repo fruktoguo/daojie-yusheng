@@ -212,6 +212,9 @@ async function main(): Promise<void> {
       || snapshot.buffs.buffs.length !== 1
       || snapshot.buffs.buffs[0]?.['buffId'] !== 'buff.qi_shield'
       || snapshot.buffs.buffs[0]?.['remainingTicks'] !== 15
+      || snapshot.buffs.buffs[0]?.['visibility'] !== 'hidden'
+      || snapshot.buffs.buffs[0]?.['persistOnDeath'] !== true
+      || snapshot.buffs.buffs[0]?.['persistOnReturnToSpawn'] !== true
     ) {
       throw new Error(`unexpected recovered buffs: ${JSON.stringify(snapshot.buffs)}`);
     }
@@ -836,6 +839,9 @@ function buildSnapshot(now: number, playerId: string): ProjectedRecoverySnapshot
           maxStacks: 3,
           sustainTicksElapsed: 4,
           name: '气盾',
+          visibility: 'hidden',
+          persistOnDeath: true,
+          persistOnReturnToSpawn: true,
         },
       ],
     },
@@ -1107,6 +1113,9 @@ function normalizeComparableBuffs(buffs: unknown[]): Array<Record<string, unknow
       stacks: Number(buff?.stacks ?? 0),
       maxStacks: Number(buff?.maxStacks ?? 0),
       sustainTicksElapsed: Number(buff?.sustainTicksElapsed ?? 0),
+      visibility: String(buff?.visibility ?? ''),
+      persistOnDeath: buff?.persistOnDeath === true,
+      persistOnReturnToSpawn: buff?.persistOnReturnToSpawn === true,
     };
   });
 }

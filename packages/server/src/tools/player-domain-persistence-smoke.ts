@@ -168,7 +168,7 @@ async function main(): Promise<void> {
     );
     const persistentBuffRows = await fetchRows(
       pool,
-      'SELECT buff_id, source_skill_id, remaining_ticks, sustain_ticks_elapsed FROM player_persistent_buff_state WHERE player_id = $1 ORDER BY buff_id ASC, source_skill_id ASC',
+      'SELECT buff_id, source_skill_id, remaining_ticks, sustain_ticks_elapsed, raw_payload FROM player_persistent_buff_state WHERE player_id = $1 ORDER BY buff_id ASC, source_skill_id ASC',
       [playerId],
     );
     const questRows = await fetchRows(
@@ -319,6 +319,9 @@ async function main(): Promise<void> {
       || persistentBuffRows[0]?.buff_id !== 'buff.qi_shield'
       || persistentBuffRows[0]?.source_skill_id !== 'skill.qi.shield'
       || Number(persistentBuffRows[0]?.remaining_ticks ?? 0) !== 15
+      || (persistentBuffRows[0]?.raw_payload as Record<string, unknown> | null)?.visibility !== 'hidden'
+      || (persistentBuffRows[0]?.raw_payload as Record<string, unknown> | null)?.persistOnDeath !== true
+      || (persistentBuffRows[0]?.raw_payload as Record<string, unknown> | null)?.persistOnReturnToSpawn !== true
     ) {
       throw new Error(`unexpected player_persistent_buff_state rows: ${JSON.stringify(persistentBuffRows)}`);
     }

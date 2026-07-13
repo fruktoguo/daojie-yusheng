@@ -300,6 +300,28 @@ function testRespawnBindDirtyDomain(): void {
   assertDirtyDomains(service, playerId, ['world_anchor'], ['snapshot', 'position_checkpoint']);
 }
 
+function testInvalidRespawnHydrationMarksWorldAnchorDirty(): void {
+  const playerId = 'player:invalid-respawn-hydration';
+  const service = createPlayerRuntimeService();
+  const snapshot = {
+    ...createSnapshot(),
+    respawn: {
+      templateId: 'yunlai_town',
+      instanceId: 'public:yunlai_town',
+      x: Number.NaN,
+      y: Number.NaN,
+      facing: Direction.South,
+    },
+  };
+
+  const hydrated = service.hydrateFromSnapshot(playerId, `${playerId}:session`, snapshot);
+
+  assert.equal(hydrated.respawnX, 32);
+  assert.equal(hydrated.respawnY, 5);
+  assert.equal(hydrated.dirtyDomains?.has('world_anchor'), true);
+  assert.equal(hydrated.dirtyDomains?.has('position_checkpoint'), false);
+}
+
 function testPendingTechniqueMarksCultivationPreferenceDirty(): void {
   const playerId = 'player:pending-technique';
   const service = createHydratedService(playerId);
@@ -776,16 +798,53 @@ function testUseConsumableItemDirtyDomain(): void {
   player.qi = 10;
   player.inventory.items.push({
     itemId: 'pill.heal_minor',
-    count: 1,
+    count: 2,
     healAmount: 20,
     qiPercent: 0.1,
+    cooldown: 60,
   });
   player.inventory.revision += 1;
   service.markPersisted(playerId);
 
   service.useItem(playerId, 0);
 
-  assertDirtyDomains(service, playerId, ['inventory', 'vitals'], ['snapshot']);
+  assert.equal(player.inventory.items[0]?.count, 1);
+  assert.equal(player.buffs.buffs.filter((buff) => buff.visibility === 'hidden').length, 2);
+  assert.ok(player.buffs.buffs.every((buff) => buff.visibility !== 'hidden'
+    || (buff.persistOnDeath === true && buff.persistOnReturnToSpawn === true)));
+  assertDirtyDomains(service, playerId, ['inventory', 'vitals', 'buff'], ['snapshot']);
+
+  const persistedSnapshot = service.buildPersistenceSnapshot(playerId);
+  assert.equal(persistedSnapshot?.buffs.buffs.filter((buff) => buff.visibility === 'hidden').length, 2);
+  const restoredPlayerId = `${playerId}:restored`;
+  const restored = service.hydrateFromSnapshot(restoredPlayerId, 'session:restored', persistedSnapshot!);
+  service.players.set(restoredPlayerId, restored);
+  assert.throws(() => service.useItem(restoredPlayerId, 0), /冷却中，还需 60 息/);
+  assert.equal(restored.inventory.items[0]?.count, 1);
+
+  service.respawnPlayer(restoredPlayerId, {
+    instanceId: restored.instanceId,
+    templateId: restored.templateId,
+    x: restored.x,
+    y: restored.y,
+    facing: restored.facing,
+    currentTick: restored.lifeElapsedTicks,
+  });
+  assert.throws(() => service.useItem(restoredPlayerId, 0), /冷却中，还需 60 息/);
+  service.respawnPlayer(restoredPlayerId, {
+    instanceId: restored.instanceId,
+    templateId: restored.templateId,
+    x: restored.x,
+    y: restored.y,
+    facing: restored.facing,
+    currentTick: restored.lifeElapsedTicks,
+    buffClearMode: 'return_to_spawn',
+  });
+  assert.throws(() => service.useItem(restoredPlayerId, 0), /冷却中，还需 60 息/);
+
+  restored.lifeElapsedTicks = 60;
+  service.useItem(restoredPlayerId, 0);
+  assert.equal(restored.inventory.items.some((item) => item.itemId === 'pill.heal_minor'), false);
 }
 
 function testInfiniteConsumableBuffSustainsUntilResourceRunsOut(): void {
@@ -1932,6 +1991,7 @@ function main(): void {
 testAutoUsePillsDirtyDomain();
 testMapUnlockDirtyDomain();
 testRespawnBindDirtyDomain();
+testInvalidRespawnHydrationMarksWorldAnchorDirty();
 testPendingTechniqueMarksCultivationPreferenceDirty();
 testAutoBattleSkillDirtyDomain();
 testPlayerRetaliateOpensLockedAutoBattle();
