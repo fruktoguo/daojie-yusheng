@@ -16,6 +16,7 @@ import {
   type PlayerState,
   type S2C_SectApplicationPage,
 } from '@mud/shared';
+import { confirmModalHost } from '../confirm-modal-host';
 import { detailModalHost } from '../detail-modal-host';
 import { t } from '../i18n';
 import { getLocalRealmLevelEntry } from '../../content/local-templates';
@@ -46,6 +47,7 @@ import type {
 const SECT_MANAGEMENT_DATA_PATTERN = /\n?@@sect:([^@\n]+)@@/;
 const SECT_APPLICATION_SEARCH_DEBOUNCE_MS = 250;
 const SECT_APPLICATION_REQUEST_TIMEOUT_MS = 8_000;
+const SECT_MEMBER_ACTION_CONFIRM_OWNER = 'sect-member-action-confirm';
 
 const DEFAULT_SECT_MANAGEMENT_ROLES: SectManagementRole[] = [
   { id: 'leader', label: t('action.sect.role.leader', undefined), assignable: false },
@@ -280,6 +282,7 @@ export class SectManagementSubpanel {
   }
 
   reset(): void {
+    confirmModalHost.close(SECT_MEMBER_ACTION_CONFIRM_OWNER);
     this.applicationSearchDraft = '';
     this.applicationPageOffset = 0;
     this.applicationSectId = '';
@@ -302,6 +305,7 @@ export class SectManagementSubpanel {
     }
     const action = this.p.currentActions.find((entry) => entry.id === 'sect:manage');
     if (!action) {
+      confirmModalHost.close(SECT_MEMBER_ACTION_CONFIRM_OWNER);
       detailModalHost.close(this.p.SECT_MANAGEMENT_MODAL_OWNER);
       return;
     }
@@ -357,6 +361,9 @@ export class SectManagementSubpanel {
       onAfterRender: (body, signal) => {
         this.bindSectManagementActions(body, signal);
         this.ensureSectApplicationPageRequested(summary);
+      },
+      onClose: () => {
+        confirmModalHost.close(SECT_MEMBER_ACTION_CONFIRM_OWNER);
       },
     });
   }
@@ -477,9 +484,26 @@ export class SectManagementSubpanel {
     root.querySelectorAll<HTMLSelectElement>('[data-sect-member-role-select]').forEach((select) => {
       select.addEventListener('change', () => {
         const playerId = select.dataset.sectMemberRoleSelect;
-        const roleId = select.value;
-        if (!playerId || !roleId) return;
-        this.p.onAction?.(`sect:member:role:${encodeURIComponent(playerId)}:${roleId}`, false, undefined, undefined, t('action.sect.manage.action.update-role', undefined));
+        const nextRoleId = select.value;
+        const summary = this.resolveCurrentSectManagementSummary();
+        const member = summary?.data.members.find((entry) => entry.playerId === playerId);
+        const currentRoleId = member?.roleId ?? select.dataset.sectMemberCurrentRole ?? '';
+        if (currentRoleId) {
+          select.value = currentRoleId;
+        }
+        if (!playerId || !nextRoleId || !member || !summary || nextRoleId === currentRoleId) return;
+        const nextRole = summary.data.roles.find((role) => role.id === nextRoleId);
+        if (!nextRole) return;
+        this.openSectMemberRoleConfirm(member, nextRole);
+      }, options);
+    });
+    root.querySelectorAll<HTMLButtonElement>('[data-sect-member-remove]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const playerId = button.dataset.sectMemberRemove;
+        const summary = this.resolveCurrentSectManagementSummary();
+        const member = summary?.data.members.find((entry) => entry.playerId === playerId);
+        if (!member) return;
+        this.openSectMemberRemovalConfirm(member);
       }, options);
     });
     root.querySelector<HTMLElement>('[data-sect-guardian-strength-apply]')?.addEventListener('click', () => {
@@ -488,6 +512,52 @@ export class SectManagementSubpanel {
       this.p.onAction?.(`sect:guardian:strength:${strength}`, false, undefined, undefined, t('action.sect.manage.guardian.control-strength', undefined));
     }, options);
     this.syncSectGuardianStrengthControl(root);
+  }
+
+  private openSectMemberRoleConfirm(member: SectManagementMember, nextRole: SectManagementRole): void {
+    confirmModalHost.open({
+      ownerId: SECT_MEMBER_ACTION_CONFIRM_OWNER,
+      title: t('action.sect.manage.confirm.member-role.title', undefined),
+      subtitle: member.name,
+      bodyHtml: `<div class="empty-hint">${escapeHtml(t('action.sect.manage.confirm.member-role.body', {
+        memberName: member.name,
+        currentRole: member.roleLabel,
+        nextRole: nextRole.label,
+      }))}</div>`,
+      confirmLabel: t('action.sect.manage.confirm.member-role.button', undefined),
+      onConfirm: () => {
+        this.p.onAction?.(
+          `sect:member:role:${encodeURIComponent(member.playerId)}:${nextRole.id}`,
+          false,
+          undefined,
+          undefined,
+          t('action.sect.manage.action.update-role', undefined),
+        );
+      },
+    });
+  }
+
+  private openSectMemberRemovalConfirm(member: SectManagementMember): void {
+    confirmModalHost.open({
+      ownerId: SECT_MEMBER_ACTION_CONFIRM_OWNER,
+      title: t('action.sect.manage.confirm.member-remove.title', undefined),
+      subtitle: member.name,
+      bodyHtml: `<div class="empty-hint">${escapeHtml(t('action.sect.manage.confirm.member-remove.body', {
+        memberName: member.name,
+        roleName: member.roleLabel,
+      }))}</div>`,
+      confirmLabel: t('action.sect.manage.confirm.member-remove.button', undefined),
+      confirmButtonClass: 'danger',
+      onConfirm: () => {
+        this.p.onAction?.(
+          `sect:member:remove:${encodeURIComponent(member.playerId)}`,
+          false,
+          undefined,
+          undefined,
+          t('action.sect.manage.member.remove', undefined),
+        );
+      },
+    });
   }
 
   resolveSectManagementTabs(summary: SectManagementSummary): Array<{ tab: SectManagementTab; label: string }> {
@@ -1154,13 +1224,13 @@ export class SectManagementSubpanel {
       && !member.self
       && (member.canChangeRole ?? isSectMemberRoleLowerThan(member.roleId, selfRoleId));
     const roleControl = canEditRole
-      ? `<select class="sect-member-role-select" data-sect-member-role-select="${escapeHtml(member.playerId)}">
+      ? `<select class="sect-member-role-select" data-sect-member-role-select="${escapeHtml(member.playerId)}" data-sect-member-current-role="${escapeHtml(member.roleId)}">
           ${assignableRoles.map((role) => `<option value="${escapeHtml(role.id)}"${role.id === member.roleId ? ' selected' : ''}>${escapeHtml(role.label)}</option>`).join('')}
         </select>`
       : `<span class="sect-detail-tag ${member.leader ? 'strong' : ''}">${escapeHtml(member.roleLabel)}</span>`;
     const canRemove = summary.data.canRemoveMembers && !member.leader && !member.self;
     const removeButton = canRemove
-      ? `<button class="small-btn ghost" data-sect-action="sect:member:remove:${escapeHtml(encodeURIComponent(member.playerId))}" type="button">${t('action.sect.manage.member.remove', undefined)}</button>`
+      ? `<button class="small-btn ghost" data-sect-member-remove="${escapeHtml(member.playerId)}" type="button">${t('action.sect.manage.member.remove', undefined)}</button>`
       : '';
     const statusClass = member.statusLabel === t('action.sect.status.online', undefined) ? 'sect-online-text' : 'sect-detail-tag';
     return `

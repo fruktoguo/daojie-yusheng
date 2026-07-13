@@ -135,7 +135,7 @@ assert.match(
 );
 assert.match(
   viewSource,
-  /class="sect-member-role-select" data-sect-member-role-select/,
+  /class="sect-member-role-select" data-sect-member-role-select=.*data-sect-member-current-role=/,
   '可编辑职位必须使用宗门成员专用下拉框样式',
 );
 assert.match(
@@ -153,7 +153,38 @@ assert.match(
   /role\.id === 'supreme_elder'/,
   '太上长老固定权限必须在客户端禁用编辑',
 );
+assert.match(
+  viewSource,
+  /import \{ confirmModalHost \} from '\.\.\/confirm-modal-host';/,
+  '宗门成员变更必须复用统一确认弹窗',
+);
+assert.match(
+  viewSource,
+  /select\.value = currentRoleId;/,
+  '职位选择后必须先恢复服务端权威值，确认成功前不得伪装为已生效',
+);
+assert.match(
+  viewSource,
+  /data-sect-member-remove=/,
+  '移除成员必须使用独立确认入口',
+);
+assert.match(
+  viewSource,
+  /private openSectMemberRoleConfirm[\s\S]*?confirmModalHost\.open[\s\S]*?sect:member:role:/,
+  '修改职位必须在确认后才提交动作',
+);
+assert.match(
+  viewSource,
+  /private openSectMemberRemovalConfirm[\s\S]*?confirmModalHost\.open[\s\S]*?sect:member:remove:/,
+  '逐出成员必须在危险操作确认后才提交动作',
+);
 for (const key of [
+  'action.sect.manage.confirm.member-remove.body',
+  'action.sect.manage.confirm.member-remove.button',
+  'action.sect.manage.confirm.member-remove.title',
+  'action.sect.manage.confirm.member-role.body',
+  'action.sect.manage.confirm.member-role.button',
+  'action.sect.manage.confirm.member-role.title',
   'action.sect.permission.guardian',
   'action.sect.permission.member-remove',
   'action.sect.permission.member-approve',
