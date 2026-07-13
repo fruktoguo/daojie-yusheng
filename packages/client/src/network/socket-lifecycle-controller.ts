@@ -11,6 +11,8 @@ import { S2C, PLAYER_HEARTBEAT_INTERVAL_MS, type ServerToClientEventPayload } fr
 
 
 type SocketLifecycleControllerDeps = {
+  /** 返回当前权威 Socket；旧连接的迟到生命周期事件不得影响新连接。 */
+  getSocket: () => Socket | null;
 /**
  * sendHeartbeat：sendHeartbeat相关字段。
  */
@@ -77,26 +79,31 @@ export function createSocketLifecycleController(deps: SocketLifecycleControllerD
 
     bind(socket: Socket): void {
       socket.on('connect', () => {
+        if (deps.getSocket() !== socket) return;
         stopHeartbeat();
         deps.sendHello();
       });
 
       socket.on(S2C.InitSession, () => {
+        if (deps.getSocket() !== socket) return;
         startHeartbeat();
         deps.sendHeartbeat();
       });
 
       socket.on(S2C.Kick, (payload: KickPayload | undefined) => {
+        if (deps.getSocket() !== socket) return;
         onKickCallbacks.forEach((cb) => cb(payload));
         deps.disconnect();
       });
 
       socket.on('disconnect', (reason: string) => {
+        if (deps.getSocket() !== socket) return;
         stopHeartbeat();
         onDisconnectCallbacks.forEach((cb) => cb(reason));
       });
 
       socket.on('connect_error', (error: Error) => {
+        if (deps.getSocket() !== socket) return;
         onConnectErrorCallbacks.forEach((cb) => cb(error.message));
       });
     },    

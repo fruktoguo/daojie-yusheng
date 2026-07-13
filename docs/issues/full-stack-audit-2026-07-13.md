@@ -3,7 +3,7 @@
 ## 审计口径
 
 - 生产主线：`packages/client`、`packages/shared`、`packages/server`、`packages/config-editor`。
-- 当前基线：`main` 分支 `48a332b5`；相对 `origin/main` ahead 37。
+- 当前基线：`main` 分支 `90e1d845`；相对 `origin/main` ahead 38。
 - package manager：`pnpm@10.29.1`。
 - 每项结论必须来自机制文档、完整调用链、测试、编译产物或运行数据；仅凭搜索未发现异常不能标记为“确认无问题”。
 - `[x]` 只表示该行列出的具体证据范围已完成，不代表相邻系统或整个项目已完成。
@@ -92,6 +92,7 @@
 - [x] S-12 地块资源消耗品成功通知已迁移为稳定结构化 key/变量；见 FS-038。
 - [x] S-13 durable 拾取结果通知、资产确认通知 key 与地面满包坐标语言包截断问题已修复；见 FS-041。
 - [x] S-14 活动状态与领取入口透传未知数据库错误的问题已修复；见 FS-043。
+- [x] S-15 Socket 手动重连、换 token 和跨节点重定向后的旧连接入站代际隔离已修复；见 FS-052。
 
 ### 客户端、UI 与渲染
 
@@ -100,6 +101,7 @@
 - [ ] C-03 HUD、面板、弹层、列表、输入、滚动、焦点、展开态和局部 patch 连续性。
 - [ ] C-04 浅色、深色、手机、安全区、触控命中、弹层高度和固定按钮遮挡。
 - [ ] C-05 Canvas/Pixi 分层、相机、投影、命中测试、缓存失效、资源释放和帧性能。
+- [x] C-06 旧 Socket 的业务包与生命周期事件不会污染当前会话，重定向后的真实断线仍会清理待决状态并调度恢复；见 FS-052。
 
 ### 跨链路与安全
 
@@ -119,6 +121,7 @@
 - [x] X-14 持久效果道具的来源 CAS、精确重放、空背包保护与生产失败关闭已由真实 PostgreSQL 专项 smoke 证明；见 FS-046。
 - [x] X-15 恢复药共享冷却与非法复活点修复已通过内存快照、真实分域表和恢复回读三层验证；见 FS-048、FS-049。
 - [x] X-16 玩家多领域 ledger 的并发 claim、事务回滚、独立 watermark 和未知域隔离已由真实 PostgreSQL 故障注入证明；见 FS-051。
+- [x] X-17 Socket 连接切换的旧 `Kick/disconnect/connect_error/InitSession` 与业务包迟到竞态已由可执行 generation proof 覆盖；见 FS-052。
 
 ## 已确认问题
 
@@ -921,7 +924,7 @@
 
 ### FS-051 玩家多领域普通刷盘可部分提交并在失败后继续逐域降级
 
-- **状态**：已修复、验证，待本组中文原子提交。
+- **状态**：已修复、验证并完成中文原子提交。
 - **严重级别**：P0（玩家资产）/P1（重启状态一致性）。
 - **所属功能组**：玩家分域持久化 / flush ledger / 多 worker claim / 物品与 Buff 恢复。
 - **影响链路**：普通道具使用、Buff tick、死亡/遁返或其他同步玩家操作 → 同时标记 `inventory/vitals/buff/progression/attr/...` → 每域瘦 payload 写入 `player_flush_ledger` → worker claim → `PlayerDomainPersistenceService` 分域真源与 `player_recovery_watermark` → 断线/重启恢复。
@@ -933,7 +936,23 @@
 - **修复方式**：保留每域独立 ledger 行和瘦 snapshot，但新增按 playerId 的 claim：优先级额度按玩家计数，一名 worker 取得事务级 advisory lock 后认领该玩家 included-domain 范围内全部 pending 投影，包括仍延迟的 coalesce 行；任一投影已有活跃 claim 时整组跳过。未知 `mail/market/GM` 等非投影域不进入该 included-domain 集，避免历史坏行毒化资产组。消费侧按领域选出最高版本 payload，通过新的 batch writer 在同一玩家 advisory lock 和数据库事务内逐域校验 session fence、水位与空覆盖守卫；普通错误整组回滚/重试，禁止逐域降级。每域水位独立比较，已提交的新域只跳过自身；COMMIT 后确认丢失可由 watermark 幂等重放。
 - **实际修改**：`FlushLedgerService` 新增玩家组 claim 和批量续租，使用 playerId advisory lock、玩家额度、included-domain 边界和活跃 claim 排斥；`FlushTaskRuntimeService` 的正常消费与启动 replay 改用玩家组 claim，重复域选最高版本后只调用一次 `savePlayerSnapshotProjectionDomainBatch()`，失败走整组诊断/retry；`PlayerDomainPersistenceService` 新增单事务 batch writer和逐域 applicable watermark 解析；inline `PlayerPersistenceFlushService` 也把本轮全部 projected domains 交给同一事务。保留每域 slim payload、空覆盖选项、session fence、独立 watermark 与历史单域 API，未新增 migration 或依赖。
 - **验证结果**：`pnpm verify:quick`、`pnpm audit:boundaries` 通过；compiled `player-persistence-flush-smoke`、`flush-presence-payload-smoke`、`flush-task-staged-transfer-smoke`、`flush-task-noop-retry-smoke` 通过，其中故障注入证明 batch writer 抛错后零逐域补写、零 flushed、全部当前域一次 retry。真实 PostgreSQL `flush-task-worker-db-smoke` 证明 `limit=1` 时同一玩家三个跨优先级/延迟投影由唯一 worker 整组认领，并发结果严格为 `[0,3]`，未知 `mail` 域仍可独立认领；真实 PostgreSQL `player-domain-persistence-smoke` 证明第三域重复键失败后前两域真源与三个 watermark 全部回滚，并证明较新的 inventory 水位只跳过旧 inventory、不阻断同批 vitals；真实 PostgreSQL `flush-task-runtime-smoke`、`player-domain-empty-overwrite-guard-smoke` 均在串行执行时通过。并行执行后两类玩家分域数据库 smoke 暴露的启动期 DDL 死锁已独立登记为 D-004，不属于本项 batch 事务语义失败。
-- **中文原子提交 hash**：待本次提交后回填（计划 `fix(persistence): 原子提交玩家多领域刷盘`）。
+- **中文原子提交 hash**：`90e1d845`（`fix(persistence): 原子提交玩家多领域刷盘`）。
+
+### FS-052 旧 Socket 迟到事件可污染新会话且重定向状态会吞掉未来断线
+
+- **状态**：已修复并完成专项验证，待本组中文原子提交后回填 hash。
+- **严重级别**：P1。
+- **所属功能组**：客户端网络 / Socket 生命周期 / 跨节点重定向 / 会话恢复。
+- **影响链路**：登录或已有连接 → 手动重连、refresh token 换代、跨节点 `redirectToServer()` → 创建新 Socket → 旧 Socket 迟到 `InitSession/Kick/disconnect/connect_error` 或任意 S2C 包 → 生命周期回调、协议解码、客户端运行态与 UI；以及 `AUTH_FAIL + redirectUrl` → `redirectInProgress` → 新连接后续真实断线。
+- **证据**：`SocketManager.bindSessionReadiness()` 已显式用 `this.socket === socket` 保护 `sessionReady`，说明旧连接迟到是被识别的真实边界；但 `createSocketLifecycleController.bind()` 的五类监听器没有同类检查，旧 `Kick` 会直接调用当前 manager 的 `disconnect()`，旧 `disconnect/connect_error` 会触发当前 UI 的恢复流程，旧 `InitSession` 会启动共享心跳。`createSocketServerEventRegistry.bindServerEvent()` 也只在绑定时读取一次当前 socket，监听器执行时无 owner 校验，因此旧业务包仍会解码并广播给全部当前状态消费者。另一个独立静态事实是 `main-connection-state-source.ts` 只在重定向成功后把 `redirectInProgress` 设为 `true`，成功连接没有清理入口；主动断开因先命中 `reason === 'io client disconnect'` 直接返回，也不会清理该标志，导致新连接未来第一次非主动断线被静默忽略。
+- **根本原因**：出站已建立 `connected + sessionReady` 会话门禁，入站却只依赖 Socket.IO 对单个连接的事件顺序，没有把“当前 Socket 实例”建模为客户端消费权代际；生命周期 controller 又把跨连接共享的回调和心跳定时器绑定到未带 owner 的闭包。重定向逻辑试图用一个布尔值屏蔽旧断线，但没有与具体 Socket 或一次连接切换绑定，也没有完整的置位/清理状态机。
+- **为什么错误**：手动重连会创建全新的传输和服务端玩家会话，旧连接已经失去对客户端权威显示态的写权。任何旧包进入新会话都违反服务端会话隔离和断线重连必须重建首包的同步契约；尤其 `Kick`、断线清理和心跳是跨所有面板的全局副作用，不能仅靠单个状态处理器自行猜测来源。无 owner 的悬空布尔标志同样不能代表连接代际。
+- **触发条件**：旧连接在换 token、手动恢复或跨节点重定向时已有排队回调；浏览器事件循环在新 Socket 赋值后才派发旧包；旧节点迟到发送 `Kick`/业务结果；或任一次成功重定向后，新连接未来发生 `transport close`、服务端断开或连接错误。
+- **可能后果**：新连接被旧节点的 `Kick` 错误断开并退出登录；旧地图/面板/邮件/市场结果覆盖新会话或新节点状态；旧断线停止新连接心跳并把 UI 标成离线；旧连接错误触发重复 refresh；成功重定向后的第一次真实断线不清理待决兑换/心跳、不设置面板离线态、不调度恢复，客户端可能长期卡在陈旧已连接显示。
+- **修复方式**：生命周期 controller 注入 `getSocket()`，每个绑定回调执行前要求事件源仍与 manager 当前 Socket 严格同一；服务端事件注册表在绑定时捕获 source Socket，并在解码、性能计时和回调广播前做同一身份检查。Socket.IO 对同一实例的自动重连继续正常工作，只有已经被新实例替代的旧 owner 被拒绝。删除没有连接 owner、且成功路径无法清理的 `redirectInProgress`；客户端主动断开仍由既有 `io client disconnect` 分支忽略，而新连接的真实断线始终执行完整清理与恢复。
+- **实际修改**：调整 `socket.ts`、`socket-lifecycle-controller.ts`、`socket-event-registry.ts` 和 `main-connection-state-source.ts`；新增 `prove-socket-session-isolation.mjs`，用两个可控 FakeSocket 动态验证旧/新 owner 行为，并把 proof 纳入客户端生产 build；同步更新 AOI/同步 mechanics。
+- **验证结果**：`pnpm --filter @mud/client proof:socket-session-isolation` 通过；`pnpm verify:client` 全量通过，包含 shared build、客户端 TypeScript、Vite 生产构建、production boundaries、UI continuity、socket outbound gate、新增 session isolation proof、所有请求生命周期 proof 与地图渲染 proof。构建仅有既有 Vite CJS、依赖 `eval` 和大 chunk 警告，无新增失败。
+- **中文原子提交 hash**：待本组提交后回填（计划 `fix(client): 隔离旧连接迟到事件`）。
 
 ## 2026-07-14 待用户决定
 

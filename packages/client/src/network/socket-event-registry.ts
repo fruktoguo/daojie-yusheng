@@ -62,7 +62,15 @@ export function createSocketServerEventRegistry(deps: SocketServerEventRegistryD
 
 
   function bindServerEvent<TEvent extends BoundServerEventName>(event: TEvent): void {
+    const socket = deps.getSocket();
+    if (!socket) {
+      return;
+    }
     const listener = ((raw: unknown) => {
+      // 手动重连、换 token 或跨节点重定向后，旧 Socket 已失去消费权。
+      if (deps.getSocket() !== socket) {
+        return;
+      }
       const decodeMetric = resolveSocketDecodeMetric(event);
       const decodeStartedAt = decodeMetric ? startRuntimeProfileMetric() : 0;
       let data: ServerToClientEventPayload<TEvent>;
@@ -77,7 +85,7 @@ export function createSocketServerEventRegistry(deps: SocketServerEventRegistryD
         callback(data);
       }
     }) as (payload: unknown) => void;
-    deps.getSocket()?.on(event as never, listener as never);
+    socket.on(event as never, listener as never);
   }
 
   return {  

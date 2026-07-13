@@ -95,6 +95,7 @@ export class SocketManager {
   });
   /** 连接生命周期与心跳 owner。 */
   private readonly lifecycle = createSocketLifecycleController({
+    getSocket: () => this.socket,
     sendHeartbeat: () => this.sendHeartbeat(),
     sendHello: () => this.sendHello(),
     disconnect: () => this.disconnect(),

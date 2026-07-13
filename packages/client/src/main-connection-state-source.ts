@@ -111,7 +111,6 @@ export type MainConnectionStateSource = ReturnType<typeof createMainConnectionSt
 
 
 export function createMainConnectionStateSource(options: MainConnectionStateSourceOptions) {
-  let redirectInProgress = false;
   return {  
   /**
  * handleError：处理Error并更新相关状态。
@@ -141,7 +140,6 @@ export function createMainConnectionStateSource(options: MainConnectionStateSour
       const redirectUrl = typeof data.redirectUrl === 'string' ? data.redirectUrl.trim() : '';
       if (data.code === 'AUTH_FAIL') {
         if (redirectUrl && options.redirectConnection(redirectUrl)) {
-          redirectInProgress = true;
           options.renderPingLatency(null, t('connection.status.redirecting', undefined));
           return;
         }
@@ -219,10 +217,6 @@ export function createMainConnectionStateSource(options: MainConnectionStateSour
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
       if (reason === 'io client disconnect') {
-        return;
-      }
-      if (redirectInProgress) {
-        redirectInProgress = false;
         return;
       }
       options.rejectPendingRedeemCodes(t('connection.redeem.disconnected', undefined));
