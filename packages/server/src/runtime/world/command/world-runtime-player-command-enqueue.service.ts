@@ -369,6 +369,21 @@ export class WorldRuntimePlayerCommandEnqueueService {
             deps,
         );
     }
+    /** 调整统一技艺等待队列顺序。 */
+    enqueueReorderTechniqueActivityQueue(playerId, queueIdInput, actionInput, deps) {
+        const queueId = typeof queueIdInput === 'string' ? queueIdInput.trim() : '';
+        const action = actionInput === 'move_to_top' || actionInput === 'move_down'
+            ? actionInput
+            : null;
+        if (!queueId || queueId.length > 180 || !action) {
+            throw new BadRequestException('行动队列调整参数无效');
+        }
+        return this.enqueueNormalizedPlayerCommand(playerId, {
+            kind: 'reorderTechniqueActivityQueue',
+            queueId,
+            action,
+        }, deps);
+    }
     /**
  * enqueueRedeemCodes：处理RedeemCode并更新相关状态。
  * @param playerId 玩家 ID。

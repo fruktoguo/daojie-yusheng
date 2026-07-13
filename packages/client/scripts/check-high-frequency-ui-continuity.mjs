@@ -265,6 +265,40 @@ assertIncludes(craftTransmissionView, /target\.playerId}:\$\{target\.name}/, '�
 assertIncludes(craftTransmissionView, /body\.addEventListener\('focusout'[\s\S]*?this\.parent\.patchOpenCraftShell\(\)/, '传功输入结束聚焦后必须补做被延迟的结构 patch');
 assertIncludes(craftTransmissionView, /private buildTechniqueBookCraftPickerKey\(\)[\s\S]*?tech\.realmLv \?\? ''/, '功法抄录结构 key 必须覆盖影响残页成本的境界');
 
+const floatingQueueRefresh = section(
+  craftWorkbench,
+  'private refreshQueueFloatingPanel(): void {',
+  'private ensureQueueFloatingPanel(): FloatingListPanel {',
+  'CraftWorkbenchModal.refreshQueueFloatingPanel',
+);
+assertIncludes(floatingQueueRefresh, /patchFloatingQueueProgress\(panel\.body, queue\)/, '悬浮行动队列每息进度必须原位 patch');
+assertIncludes(floatingQueueRefresh, /bindQueueFloatingEvents\(panel\)/, '悬浮行动队列必须复用委托事件，内容更新后不能逐按钮重绑');
+
+const floatingQueueStructureKey = section(
+  craftWorkbench,
+  'private buildFloatingQueueStructureKey(',
+  'private renderFloatingQueueList(',
+  'CraftWorkbenchModal.buildFloatingQueueStructureKey',
+);
+assertMissing(floatingQueueStructureKey, /entry\.progress/, '悬浮行动队列结构 key 不得混入每息进度导致整列表重建');
+
+const floatingQueueProgressPatch = section(
+  craftWorkbench,
+  'private patchFloatingQueueProgress(',
+  'private bindQueueFloatingEvents(',
+  'CraftWorkbenchModal.patchFloatingQueueProgress',
+);
+assertIncludes(floatingQueueProgressPatch, /\[data-floating-job-id\]/, '悬浮行动队列必须按稳定任务 ID 定位进度节点');
+assertIncludes(floatingQueueProgressPatch, /progressLabel\.textContent !== progress\.label/, '悬浮行动队列相同进度文本必须零 DOM 写入');
+assertIncludes(floatingQueueProgressPatch, /fill\.style\.width !== fillWidth/, '悬浮行动队列相同进度条宽度必须零 DOM 写入');
+assertIncludes(craftWorkbench, /data-floating-queue-action="move_to_top"/, '悬浮行动队列每项必须提供置顶按钮');
+assertIncludes(craftWorkbench, /data-floating-queue-action="move_down"/, '悬浮行动队列每项必须提供下移按钮');
+assertIncludes(craftWorkbench, /data-floating-queue-action="remove"/, '悬浮行动队列每项必须提供移除按钮');
+assertIncludes(craftWorkbench, /onReorderTechniqueActivityQueue\(queueId, action\)/, '悬浮行动队列排序只能提交服务端权威意图');
+assertIncludes(panelsCss, /\.floating-job-actions\s*\{/, '悬浮行动队列快捷按钮必须有稳定三列布局');
+assertIncludes(panelsCss, /:root\[data-color-mode="dark"\] \.floating-job-action\s*\{/, '悬浮行动队列快捷按钮必须覆盖深色模式');
+assertIncludes(panelsCss, /@media \(max-width: 760px\)[\s\S]*?\.floating-job-action\s*\{[\s\S]*?min-height: 34px;/, '悬浮行动队列快捷按钮必须保留手机触控高度');
+
 const npcShopRender = section(npcShop, 'private render(): void {', '/** renderBody：渲染身体。 */', 'NpcShopModal.render');
 assertIncludes(npcShopRender, /this\.patchBody\(body, meta\)/, 'NPC 商店已打开时必须先复用稳定壳体');
 const npcShopPlayerSync = section(npcShop, 'syncPlayerContext(player?: PlayerState): void {', '/** syncInventory：同步背包。 */', 'NpcShopModal.syncPlayerContext');

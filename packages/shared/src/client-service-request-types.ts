@@ -9,7 +9,7 @@ import type { AuctionFilterCategory, AuctionHouseTab, MarketTradeHistoryScope, M
 import type { MailFilter } from './mail-types';
 import type { AlchemyIngredientSelection, CraftQueueStartMode, EnhancementTargetRef } from './crafting-types';
 import type { InventoryItemRefView } from './inventory-item-ref';
-import type { TechniqueActivityCancelRef } from './technique-activity-types';
+import type { TechniqueActivityCancelRef, TechniqueActivityQueueReorderAction } from './technique-activity-types';
 
 /** 请求坊市首页。 */
 export interface RequestMarketView {}
@@ -284,6 +284,14 @@ export interface CancelTechniqueActivityView {
  */
 
   cancelRef: TechniqueActivityCancelRef;
+}
+
+/** 调整统一技艺等待队列中的任务顺序。 */
+export interface ReorderTechniqueActivityQueueView {
+  /** 服务端下发的稳定队列项 ID。 */
+  queueId: string;
+  /** 置于等待队首，或向等待队尾方向移动一位。 */
+  action: TechniqueActivityQueueReorderAction;
 }
 
 /** 创建卖单。 */

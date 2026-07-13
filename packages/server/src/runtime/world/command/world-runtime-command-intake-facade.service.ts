@@ -306,6 +306,15 @@ export class WorldRuntimeCommandIntakeFacadeService {
     enqueueCancelTechniqueActivity(playerId, kind, deps, cancelRef = null) {
         return deps.worldRuntimePlayerCommandEnqueueService.enqueueCancelTechniqueActivity(playerId, kind, deps, cancelRef);
     }
+    /** 调整统一技艺等待队列顺序。 */
+    enqueueReorderTechniqueActivityQueue(playerId, queueId, action, deps) {
+        return deps.worldRuntimePlayerCommandEnqueueService.enqueueReorderTechniqueActivityQueue(
+            playerId,
+            queueId,
+            action,
+            deps,
+        );
+    }
     /**
  * enqueueRedeemCodes：处理RedeemCode并更新相关状态。
  * @param playerId 玩家 ID。

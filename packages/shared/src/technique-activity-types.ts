@@ -49,6 +49,9 @@ export interface TechniqueActivityCancelRef {
   techId?: string;
 }
 
+/** 统一技艺等待队列支持的顺序调整动作。 */
+export type TechniqueActivityQueueReorderAction = 'move_to_top' | 'move_down';
+
 /** 技艺活动生命周期公共状态。 */
 export interface TechniqueActivityJobBase {
   startedAt: number;

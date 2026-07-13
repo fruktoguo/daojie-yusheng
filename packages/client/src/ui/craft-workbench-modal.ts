@@ -25,6 +25,7 @@ import type {
   S2C_EnhancementPanel,
   S2C_TechniqueActivityTasks,
   TechniqueActivityCancelRef,
+  TechniqueActivityQueueReorderAction,
   TechniqueActivityTaskView,
   RuntimeTechniqueActivityKind,
 } from '@mud/shared';
@@ -85,6 +86,7 @@ type CraftWorkbenchCallbacks = {
   onCancelAlchemy: () => void;
   onCancelForging: () => void;
   onCancelTechniqueActivity: (cancelRef: TechniqueActivityCancelRef) => void;
+  onReorderTechniqueActivityQueue: (queueId: string, action: TechniqueActivityQueueReorderAction) => void;
   onStartEnhancement: (payload: C2S_StartEnhancement) => void;
   onCancelEnhancement: () => void;
   onStartTransmission?: (learnerPlayerId: string, techId: string, options?: { mode?: 'transmission' | 'craft_book' | 'scripture_recording' | 'scripture_contemplation'; maxLevel?: number; buildingId?: string }) => void;
@@ -1411,13 +1413,13 @@ export class CraftWorkbenchModal {
     }
     const panel = this.ensureQueueFloatingPanel();
     panel.setClosed(false);
-    const queueKey = this.buildFloatingQueueKey(queue);
+    const queueKey = this.buildFloatingQueueStructureKey(queue);
     if (panel.getBodyKey() !== queueKey) {
       panel.updateContent(this.renderFloatingQueueList(queue));
       panel.setBodyKey(queueKey);
-      this.queueFloatingEvents?.abort();
-      this.queueFloatingEvents = null;
     }
+    this.patchFloatingQueueProgress(panel.body, queue);
+    this.bindQueueFloatingEvents(panel);
     panel.setTransientHidden(false);
   }
 
@@ -1438,46 +1440,168 @@ export class CraftWorkbenchModal {
     return this.queueFloatingPanel;
   }
 
-  private buildFloatingQueueKey(queue = this.getCraftQueueSnapshot()): string {
+  private buildFloatingQueueStructureKey(queue = this.getCraftQueueSnapshot()): string {
     return queue
       .map((entry) => [
         entry.queueId,
+        entry.kind,
         entry.label,
         entry.quantity ?? '',
         entry.isActive ? 'active' : 'idle',
         entry.state ?? '',
-        entry.progress?.label ?? '',
-        entry.progress?.ratio ?? 0,
+        entry.cancelRef?.kind ?? '',
+        entry.cancelRef?.jobRunId ?? '',
+        entry.cancelRef?.queueId ?? '',
+        entry.cancelRef?.techId ?? '',
       ].join(':'))
       .join('|');
   }
 
   private renderFloatingQueueList(queue = this.getCraftQueueSnapshot()): string {
+    const reorderableQueueIds = queue
+      .filter((entry) => !entry.isActive)
+      .map((entry) => entry.cancelRef?.queueId ?? entry.queueId)
+      .filter((queueId) => Boolean(queueId));
+    const queuePositionById = new Map(reorderableQueueIds.map((queueId, index) => [queueId, index] as const));
     return `
       <div class="floating-job-list">
-        ${queue.map((entry) => this.renderFloatingQueueItem(entry)).join('')}
+        ${queue.map((entry) => {
+          const queueId = entry.cancelRef?.queueId ?? (entry.isActive ? '' : entry.queueId);
+          return this.renderFloatingQueueItem(
+            entry,
+            queueId ? (queuePositionById.get(queueId) ?? null) : null,
+            reorderableQueueIds.length,
+          );
+        }).join('')}
       </div>
     `;
   }
 
-  private renderFloatingQueueItem(entry: CraftQueueDisplayItem): string {
-    const progress = entry.progress ?? {
-      ratio: entry.isActive ? 0 : 0,
-      label: entry.isActive ? '--' : '等待中',
-      detail: '',
-    };
+  private renderFloatingQueueItem(
+    entry: CraftQueueDisplayItem,
+    queuePosition: number | null,
+    reorderableCount: number,
+  ): string {
+    const progress = this.resolveFloatingQueueProgress(entry);
+    const jobRunId = entry.cancelRef?.jobRunId ?? (entry.isActive ? entry.queueId : '');
+    const queueId = entry.cancelRef?.queueId ?? (entry.isActive ? '' : entry.queueId);
+    const techId = entry.cancelRef?.techId ?? '';
+    const kind = entry.cancelRef?.kind ?? entry.kind;
+    const canReorder = queuePosition !== null && Boolean(queueId);
+    const canMoveToTop = canReorder && queuePosition > 0;
+    const canMoveDown = canReorder && queuePosition < reorderableCount - 1;
+    const canRemove = Boolean(jobRunId || queueId || techId);
+    const actionData = `
+      data-kind="${escapeHtmlAttr(kind)}"
+      ${jobRunId ? `data-job-run-id="${escapeHtmlAttr(jobRunId)}"` : ''}
+      ${queueId ? `data-queue-id="${escapeHtmlAttr(queueId)}"` : ''}
+      ${techId ? `data-tech-id="${escapeHtmlAttr(techId)}"` : ''}
+    `;
     return `
-      <div class="floating-job-item${entry.isActive ? ' active' : ''}">
+      <div
+        class="floating-job-item${entry.isActive ? ' active' : ''}"
+        data-floating-job-id="${escapeHtmlAttr(entry.queueId)}"
+      >
         <div class="floating-job-main">
           <span class="floating-job-name">${escapeHtml(entry.label)}</span>
           ${entry.quantity ? `<span class="floating-job-count">x${formatDisplayInteger(entry.quantity)}</span>` : ''}
-          <strong class="floating-job-progress">${escapeHtml(progress.label)}</strong>
+          <strong class="floating-job-progress" data-floating-job-progress="true">${escapeHtml(progress.label)}</strong>
         </div>
         <div class="floating-job-bar" aria-hidden="true">
-          <div class="floating-job-fill" style="width:${(Math.max(0, Math.min(1, progress.ratio)) * 100).toFixed(2)}%"></div>
+          <div class="floating-job-fill" data-floating-job-fill="true" style="width:${(progress.ratio * 100).toFixed(2)}%"></div>
+        </div>
+        <div class="floating-job-actions" role="group" aria-label="${escapeHtmlAttr(`${entry.label} 快捷操作`)}">
+          <button
+            class="floating-job-action"
+            type="button"
+            data-floating-queue-action="move_to_top"
+            ${actionData}
+            aria-label="${escapeHtmlAttr(`将 ${entry.label} 移至等待队首`)}"
+            title="移动到顶部"
+            ${canMoveToTop ? '' : 'disabled'}
+          >置顶</button>
+          <button
+            class="floating-job-action"
+            type="button"
+            data-floating-queue-action="move_down"
+            ${actionData}
+            aria-label="${escapeHtmlAttr(`将 ${entry.label} 向下移动一位`)}"
+            title="向下一个"
+            ${canMoveDown ? '' : 'disabled'}
+          >下移</button>
+          <button
+            class="floating-job-action danger"
+            type="button"
+            data-floating-queue-action="remove"
+            ${actionData}
+            aria-label="${escapeHtmlAttr(`移除 ${entry.label}`)}"
+            title="移除任务"
+            ${canRemove ? '' : 'disabled'}
+          >移除</button>
         </div>
       </div>
     `;
+  }
+
+  private resolveFloatingQueueProgress(entry: CraftQueueDisplayItem): CraftQueueProgressView {
+    const progress = entry.progress ?? {
+      ratio: 0,
+      label: entry.isActive ? '--' : '等待中',
+      detail: '',
+    };
+    return {
+      ...progress,
+      ratio: Math.max(0, Math.min(1, progress.ratio)),
+    };
+  }
+
+  private patchFloatingQueueProgress(root: HTMLElement, queue = this.getCraftQueueSnapshot()): void {
+    const entriesById = new Map(queue.map((entry) => [entry.queueId, entry] as const));
+    root.querySelectorAll<HTMLElement>('[data-floating-job-id]').forEach((item) => {
+      const entry = entriesById.get(item.dataset.floatingJobId ?? '');
+      if (!entry) {
+        return;
+      }
+      const active = Boolean(entry.isActive);
+      if (item.classList.contains('active') !== active) {
+        item.classList.toggle('active', active);
+      }
+      const progress = this.resolveFloatingQueueProgress(entry);
+      const progressLabel = item.querySelector<HTMLElement>('[data-floating-job-progress="true"]');
+      if (progressLabel && progressLabel.textContent !== progress.label) {
+        progressLabel.textContent = progress.label;
+      }
+      const fill = item.querySelector<HTMLElement>('[data-floating-job-fill="true"]');
+      const fillWidth = `${(progress.ratio * 100).toFixed(2)}%`;
+      if (fill && fill.style.width !== fillWidth) {
+        fill.style.width = fillWidth;
+      }
+    });
+  }
+
+  private bindQueueFloatingEvents(panel: FloatingListPanel): void {
+    if (this.queueFloatingEvents) {
+      return;
+    }
+    const controller = new AbortController();
+    this.queueFloatingEvents = controller;
+    panel.body.addEventListener('click', (event) => {
+      const source = event.target instanceof Element ? event.target : null;
+      const target = source?.closest<HTMLButtonElement>('[data-floating-queue-action]') ?? null;
+      if (!target || target.disabled) {
+        return;
+      }
+      const action = target.dataset.floatingQueueAction;
+      if (action === 'remove') {
+        this.dispatchQueueCancellation(target);
+        return;
+      }
+      const queueId = (target.dataset.queueId ?? '').trim();
+      if (!queueId || (action !== 'move_to_top' && action !== 'move_down')) {
+        return;
+      }
+      this.callbacks?.onReorderTechniqueActivityQueue(queueId, action);
+    }, { signal: controller.signal });
   }
 
   private buildCraftHeaderKey(): string {
@@ -1591,6 +1715,22 @@ export class CraftWorkbenchModal {
     return this.queueView.getCraftQueueSnapshot();
   }
 
+  private dispatchQueueCancellation(target: HTMLElement): void {
+    const kind = normalizeTechniqueActivityKind(target.dataset.kind);
+    const jobRunId = (target.dataset.jobRunId ?? '').trim();
+    const queueId = (target.dataset.queueId ?? '').trim();
+    const techId = (target.dataset.techId ?? '').trim();
+    if (!jobRunId && !queueId && !techId) {
+      return;
+    }
+    this.callbacks?.onCancelTechniqueActivity({
+      kind: target.dataset.kind === 'transmission' ? 'transmission' : kind,
+      ...(jobRunId ? { jobRunId } : {}),
+      ...(queueId ? { queueId } : {}),
+      ...(techId ? { techId } : {}),
+    });
+  }
+
   private bindActions(body: HTMLElement, signal: AbortSignal): void {
     if (this.activeMode === 'enhancement') {
       this.bindEnhancementEvents(body, signal);
@@ -1632,19 +1772,7 @@ export class CraftWorkbenchModal {
         return;
       }
       if (action === 'cancel-queue-entry') {
-        const kind = normalizeTechniqueActivityKind(target.dataset.kind);
-        const jobRunId = (target.dataset.jobRunId ?? '').trim();
-        const queueId = (target.dataset.queueId ?? '').trim();
-        const techId = (target.dataset.techId ?? '').trim();
-        if (!jobRunId && !queueId && !techId) {
-          return;
-        }
-        this.callbacks?.onCancelTechniqueActivity({
-          kind: target.dataset.kind === 'transmission' ? 'transmission' : kind,
-          ...(jobRunId ? { jobRunId } : {}),
-          ...(queueId ? { queueId } : {}),
-          ...(techId ? { techId } : {}),
-        });
+        this.dispatchQueueCancellation(target);
         return;
       }
       if (action === 'alchemy-switch-category') {

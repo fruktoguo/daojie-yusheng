@@ -144,6 +144,7 @@ export const C2S = {
   StartGather: 'n:c:startGather',
   CancelGather: 'n:c:cancelGather',
   CancelTechniqueActivity: 'n:c:cancelTechniqueActivity',
+  ReorderTechniqueActivityQueue: 'n:c:reorderTechniqueActivityQueue',
   TakeGround: 'n:c:takeGround',
   SortInventory: 'n:c:sortInventory',
   Equip: 'n:c:equip',
@@ -321,6 +322,7 @@ export interface C2S_PayloadMap extends Record<C2S_EventName, unknown> {
   [C2S.StartGather]: RequestPayloads.C2S_StartGather;
   [C2S.CancelGather]: RequestPayloads.C2S_CancelGather;
   [C2S.CancelTechniqueActivity]: RequestPayloads.C2S_CancelTechniqueActivity;
+  [C2S.ReorderTechniqueActivityQueue]: RequestPayloads.C2S_ReorderTechniqueActivityQueue;
   [C2S.CreateMarketSellOrder]: RequestPayloads.C2S_CreateMarketSellOrder;
   [C2S.CreateMarketBuyOrder]: RequestPayloads.C2S_CreateMarketBuyOrder;
   [C2S.PlaceAuctionBid]: RequestPayloads.C2S_PlaceAuctionBid;

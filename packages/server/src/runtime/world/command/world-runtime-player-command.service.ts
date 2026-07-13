@@ -621,6 +621,30 @@ export class WorldRuntimePlayerCommandService {
         }
         return this.dispatchCancelTechniqueActivity(playerId, kind, deps);
     }
+    /** 统一任务列表排序入口：仅调整等待队列，当前 active job 不参与排序。 */
+    dispatchReorderTechniqueActivityQueue(playerId, queueId, action, deps) {
+        const player = this.playerRuntimeService.getPlayer(playerId);
+        if (!player) {
+            return;
+        }
+        const result = deps.craftPanelRuntimeService.reorderTechniqueActivityQueue(
+            player,
+            queueId,
+            action,
+        );
+        if (!result?.panelChanged) {
+            return;
+        }
+        const target = Array.isArray(player.techniqueActivityQueue)
+            ? player.techniqueActivityQueue.find((item) => item?.queueId === queueId)
+            : null;
+        deps.worldRuntimeCraftMutationService.flushCraftMutation(
+            playerId,
+            result,
+            target?.kind ?? 'alchemy',
+            deps,
+        );
+    }
     /**
  * dispatchPlayerCommand：判断玩家Command是否满足条件。
  * @param playerId 玩家 ID。
@@ -789,6 +813,8 @@ export class WorldRuntimePlayerCommandService {
                 return;
             case 'cancelTechniqueActivity':
                 return this.dispatchCancelTechniqueActivityByRef(playerId, command.cancelRef, deps);
+            case 'reorderTechniqueActivityQueue':
+                return this.dispatchReorderTechniqueActivityQueue(playerId, command.queueId, command.action, deps);
             case 'redeemCodes':
                 return this.worldRuntimeRedeemCodeService.dispatchRedeemCodes(playerId, command.codes, command.requestId, deps);
             case 'breakthrough':

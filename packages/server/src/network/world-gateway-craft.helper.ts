@@ -8,7 +8,8 @@
  * 收敛炼丹、锻造、强化面板请求和活动开始/取消/预设管理入口。
  */
 
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
+import { C2S, type ClientToServerEventPayload } from '@mud/shared';
 import type { Socket } from 'socket.io';
 import { emitTechniqueActivityPanel, emitTechniqueActivityTasks, getTechniqueActivityMetadata } from '../runtime/craft/technique-activity-registry.helpers';
 import { CraftPanelRuntimeService } from '../runtime/craft/craft-panel-runtime.service';
@@ -115,7 +116,36 @@ class WorldGatewayCraftHelper {
             ...(typeof rawRef?.techId === 'string' && rawRef.techId.trim() ? { techId: rawRef.techId.trim() } : {}),
         };
         this.handleCancelTechniqueActivity(client, kind, cancelRef);
-    }    
+    }
+    /** 行动队列顺序调整入口：只校验最小载荷并把意图交给 runtime 命令队列。 */
+    handleReorderTechniqueActivityQueue(
+        client: Socket,
+        payload: ClientToServerEventPayload<typeof C2S.ReorderTechniqueActivityQueue>,
+    ) {
+        const playerId = this.gatewayGuardHelper.requirePlayerId(client);
+        if (!playerId) {
+            return;
+        }
+        try {
+            const queueId = typeof payload?.queueId === 'string' ? payload.queueId.trim() : '';
+            const action = payload?.action === 'move_to_top' || payload?.action === 'move_down'
+                ? payload.action
+                : null;
+            if (!queueId || !action) {
+                throw new BadRequestException('行动队列调整参数无效');
+            }
+            this.worldClientEventService.markProtocol(client, 'mainline');
+            this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueReorderTechniqueActivityQueue(
+                playerId,
+                queueId,
+                action,
+                this.worldRuntimeService,
+            );
+        }
+        catch (error) {
+            this.worldClientEventService.emitGatewayError(client, 'REORDER_TECHNIQUE_ACTIVITY_QUEUE_FAILED', error);
+        }
+    }
     /**
  * handleRequestAlchemyPanel：处理炼丹面板请求并更新相关状态。
  * @param client 参数说明。

@@ -544,6 +544,10 @@ class WorldGateway implements WorldGatewayHelperContext {
     handleCancelTechniqueActivity(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayCraftHelper.handleCancelTechniqueActivityView(client, payload);
     }
+    @SubscribeMessage(C2S.ReorderTechniqueActivityQueue)
+    handleReorderTechniqueActivityQueue(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
+        return this.gatewayCraftHelper.handleReorderTechniqueActivityQueue(client, payload);
+    }
     @SubscribeMessage(C2S.RequestLeaderboard)
     handleRequestLeaderboard(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayReadModelHelper.handleRequestLeaderboard(client, payload);

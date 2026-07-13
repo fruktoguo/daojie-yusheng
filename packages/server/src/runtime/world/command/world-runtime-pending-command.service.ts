@@ -79,7 +79,8 @@ function buildPendingCommandNotice(command, message) {
         || command?.kind === 'cancelBuilding'
         || command?.kind === 'startFormationMaintenance'
         || command?.kind === 'cancelFormationMaintenance'
-        || command?.kind === 'cancelTechniqueActivity') {
+        || command?.kind === 'cancelTechniqueActivity'
+        || command?.kind === 'reorderTechniqueActivityQueue') {
         return buildPendingTechniqueNotice(message);
     }
     if (command?.kind === 'useItem'
@@ -258,7 +259,8 @@ function isExpectedPendingCommandReject(command, message) {
         || command?.kind === 'cancelBuilding'
         || command?.kind === 'startFormationMaintenance'
         || command?.kind === 'cancelFormationMaintenance'
-        || command?.kind === 'cancelTechniqueActivity') {
+        || command?.kind === 'cancelTechniqueActivity'
+        || command?.kind === 'reorderTechniqueActivityQueue') {
         return isExpectedTechniqueActivityReject(message);
     }
     if (command?.kind === 'equip' || command?.kind === 'unequip') {
@@ -486,6 +488,7 @@ function resolvePendingCommandPerfKey(command) {
         case 'startFormationMaintenance':
         case 'cancelFormationMaintenance':
         case 'cancelTechniqueActivity':
+        case 'reorderTechniqueActivityQueue':
             return 'pendingCommands.techniqueActivityMs';
         case 'cultivate':
         case 'breakthrough':

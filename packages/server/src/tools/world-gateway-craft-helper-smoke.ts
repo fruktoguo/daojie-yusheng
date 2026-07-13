@@ -14,6 +14,9 @@ function createGateway(log = [], playerId = 'player:1') {
             enqueueCancelTechniqueActivity(inputPlayerId, kind, deps) {
                 log.push(['enqueueCancelTechniqueActivity', inputPlayerId, kind, deps === runtime]);
             },
+            enqueueReorderTechniqueActivityQueue(inputPlayerId, queueId, action, deps) {
+                log.push(['enqueueReorderTechniqueActivityQueue', inputPlayerId, queueId, action, deps === runtime]);
+            },
             enqueueSaveAlchemyPreset(inputPlayerId, payload, deps) {
                 log.push(['enqueueSaveAlchemyPreset', inputPlayerId, payload, deps === runtime]);
             },
@@ -46,6 +49,10 @@ function createGateway(log = [], playerId = 'player:1') {
             buildTechniqueActivityPanelPayload(player, kind, knownCatalogVersion) {
                 log.push(['buildTechniqueActivityPanelPayload', player.playerId, kind, knownCatalogVersion ?? null]);
                 return { kind, knownCatalogVersion: knownCatalogVersion ?? null };
+            },
+            buildTechniqueActivityTaskListPayload(player, serverTick) {
+                log.push(['buildTechniqueActivityTaskListPayload', player.playerId, serverTick ?? null]);
+                return { tasks: [] };
             },
         },
         worldRuntimeService: runtime,
@@ -81,6 +88,7 @@ function testRequestAndCommandDelegation() {
     helper.handleRequestEnhancementPanel(client, {}, );
     helper.handleStartTechniqueActivity(client, { recipeId: 'recipe:1' }, 'alchemy');
     helper.handleCancelTechniqueActivity(client, 'enhancement');
+    helper.handleReorderTechniqueActivityQueue(client, { queueId: 'queue:1', action: 'move_to_top' });
     helper.handleSaveAlchemyPreset(client, { presetId: 'preset:1' });
     helper.handleDeleteAlchemyPreset(client, { presetId: 'preset:2' });
 
@@ -89,14 +97,20 @@ function testRequestAndCommandDelegation() {
         ['markProtocol', 'socket:1', 'mainline'],
         ['buildTechniqueActivityPanelPayload', 'player:1', 'alchemy', 7],
         ['emit', S2C.AlchemyPanel, { kind: 'alchemy', knownCatalogVersion: 7 }],
+        ['buildTechniqueActivityTaskListPayload', 'player:1', null],
+        ['emit', S2C.TechniqueActivityTasks, { tasks: [] }],
         ['getPlayer', 'player:1'],
         ['markProtocol', 'socket:1', 'mainline'],
         ['buildTechniqueActivityPanelPayload', 'player:1', 'enhancement', null],
         ['emit', S2C.EnhancementPanel, { kind: 'enhancement', knownCatalogVersion: null }],
+        ['buildTechniqueActivityTaskListPayload', 'player:1', null],
+        ['emit', S2C.TechniqueActivityTasks, { tasks: [] }],
         ['markProtocol', 'socket:1', 'mainline'],
         ['enqueueStartTechniqueActivity', 'player:1', 'alchemy', { recipeId: 'recipe:1' }, true],
         ['markProtocol', 'socket:1', 'mainline'],
         ['enqueueCancelTechniqueActivity', 'player:1', 'enhancement', true],
+        ['markProtocol', 'socket:1', 'mainline'],
+        ['enqueueReorderTechniqueActivityQueue', 'player:1', 'queue:1', 'move_to_top', true],
         ['markProtocol', 'socket:1', 'mainline'],
         ['enqueueSaveAlchemyPreset', 'player:1', { presetId: 'preset:1' }, true],
         ['markProtocol', 'socket:1', 'mainline'],
@@ -113,6 +127,7 @@ function testGuardFailureSkipsWork() {
     helper.handleRequestTechniqueActivityPanel(client, { knownCatalogVersion: 1 }, 'alchemy');
     helper.handleStartTechniqueActivity(client, { recipeId: 'recipe:1' }, 'alchemy');
     helper.handleCancelTechniqueActivity(client, 'alchemy');
+    helper.handleReorderTechniqueActivityQueue(client, { queueId: 'queue:1', action: 'move_down' });
     helper.handleSaveAlchemyPreset(client, { presetId: 'preset:1' });
 
     assert.deepEqual(log, []);
@@ -130,6 +145,9 @@ function testGatewayErrorCodes() {
     gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueCancelTechniqueActivity = () => {
         throw new Error('cancel failed');
     };
+    gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueReorderTechniqueActivityQueue = () => {
+        throw new Error('reorder failed');
+    };
     gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueSaveAlchemyPreset = () => {
         throw new Error('save failed');
     };
@@ -142,6 +160,7 @@ function testGatewayErrorCodes() {
     helper.handleRequestTechniqueActivityPanel(client, { knownCatalogVersion: 0 }, 'enhancement');
     helper.handleStartTechniqueActivity(client, { itemId: 'item:1' }, 'enhancement');
     helper.handleCancelTechniqueActivity(client, 'alchemy');
+    helper.handleReorderTechniqueActivityQueue(client, { queueId: 'queue:1', action: 'move_down' });
     helper.handleSaveAlchemyPreset(client, { presetId: 'preset:1' });
     helper.handleDeleteAlchemyPreset(client, { presetId: 'preset:2' });
 
@@ -153,6 +172,8 @@ function testGatewayErrorCodes() {
         ['emitGatewayError', 'socket:1', 'START_ENHANCEMENT_FAILED', 'start failed'],
         ['markProtocol', 'socket:1', 'mainline'],
         ['emitGatewayError', 'socket:1', 'CANCEL_ALCHEMY_FAILED', 'cancel failed'],
+        ['markProtocol', 'socket:1', 'mainline'],
+        ['emitGatewayError', 'socket:1', 'REORDER_TECHNIQUE_ACTIVITY_QUEUE_FAILED', 'reorder failed'],
         ['markProtocol', 'socket:1', 'mainline'],
         ['emitGatewayError', 'socket:1', 'SAVE_ALCHEMY_PRESET_FAILED', 'save failed'],
         ['markProtocol', 'socket:1', 'mainline'],

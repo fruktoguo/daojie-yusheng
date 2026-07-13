@@ -19,6 +19,7 @@ import {
     type PlayerTechniqueActivityQueueUpsertInput,
 } from '../../persistence/player-domain-persistence.service';
 import { isFlushTaskConsumerMode } from '../../persistence/flush-task-runtime-mode';
+import type { TechniqueActivityQueueReorderAction } from '@mud/shared';
 import { DurableOperationService, type DurableProfessionStateSnapshot } from '../../persistence/durable-operation.service';
 import { resolveProjectPath } from '../../common/project-path';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
@@ -735,6 +736,28 @@ export class CraftPanelRuntimeService {
                     vars: { label: item.label },
                     pills: [{ key: 'label', style: 'target' }],
             }],
+        };
+    }
+    /** 调整统一技艺等待队列顺序；边界位置和陈旧 ID 按幂等无变化处理。 */
+    reorderTechniqueActivityQueue(player, queueId, action: TechniqueActivityQueueReorderAction) {
+        const changed = reorderPlayerTechniqueActivityQueueItem(player, queueId, action);
+        if (!changed) {
+            return {
+                ok: true,
+                panelChanged: false,
+                messages: [],
+                groundDrops: [],
+            };
+        }
+        this.finalizeMutation(player, {
+            persistentOnly: true,
+            dirtyDomains: ['active_job'],
+        });
+        return {
+            ok: true,
+            panelChanged: true,
+            messages: [],
+            groundDrops: [],
         };
     }
     /** 校验炼丹/炼器 start 的配方、投料和基础参数；不检查背包和钱包，避免排队任务提前要求资源。 */
@@ -3312,6 +3335,41 @@ function enqueuePlayerTechniqueActivityQueueItem(player, item, mode) {
     }
     setPlayerTechniqueActivityQueue(player, nextQueue);
     return true;
+}
+
+function reorderPlayerTechniqueActivityQueueItem(player, queueIdInput, action: TechniqueActivityQueueReorderAction) {
+    const queueId = typeof queueIdInput === 'string' ? queueIdInput.trim() : '';
+    if (!queueId || (action !== 'move_to_top' && action !== 'move_down')) {
+        return false;
+    }
+    const queues = [
+        getPlayerTechniqueActivityQueue(player),
+        player?.alchemyJob?.queuedJobs,
+        player?.forgingJob?.queuedJobs,
+        player?.enhancementJob?.queuedJobs,
+    ];
+    for (const queue of queues) {
+        if (!Array.isArray(queue)) {
+            continue;
+        }
+        const fromIndex = queue.findIndex((item) => item?.queueId === queueId);
+        if (fromIndex < 0) {
+            continue;
+        }
+        const toIndex = action === 'move_to_top'
+            ? 0
+            : Math.min(queue.length - 1, fromIndex + 1);
+        if (toIndex === fromIndex) {
+            return false;
+        }
+        const [item] = queue.splice(fromIndex, 1);
+        queue.splice(toIndex, 0, item);
+        if (queue === queues[0]) {
+            setPlayerTechniqueActivityQueue(player, queue);
+        }
+        return true;
+    }
+    return false;
 }
 
 function migrateLegacyCraftQueueToUnifiedQueue(player, legacyQueue) {

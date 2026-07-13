@@ -201,6 +201,7 @@ type MainStartupBindingsOptions = {
       onCancelAlchemy: () => void;
       onCancelForging: () => void;
       onCancelTechniqueActivity: (cancelRef: Parameters<SocketPanelSender['sendCancelTechniqueActivity']>[0]) => void;
+      onReorderTechniqueActivityQueue: (...args: Parameters<SocketPanelSender['sendReorderTechniqueActivityQueue']>) => void;
       /**
  * onStartEnhancement：onStart强化相关字段。
  */
@@ -328,6 +329,7 @@ type MainStartupBindingsOptions = {
     | 'sendStartEnhancement'
     | 'sendCancelEnhancement'
     | 'sendCancelTechniqueActivity'
+    | 'sendReorderTechniqueActivityQueue'
     | 'sendDestroyItem'
   >;
   /**
@@ -472,6 +474,7 @@ export function bindMainStartup(options: MainStartupBindingsOptions): void {
     onCancelAlchemy: () => options.panelSender.sendCancelAlchemy(),
     onCancelForging: () => options.panelSender.sendCancelForging(),
     onCancelTechniqueActivity: (cancelRef) => options.panelSender.sendCancelTechniqueActivity(cancelRef),
+    onReorderTechniqueActivityQueue: (queueId, action) => options.panelSender.sendReorderTechniqueActivityQueue(queueId, action),
     onStartEnhancement: (payload) => options.panelSender.sendStartEnhancement(payload),
     onCancelEnhancement: () => options.panelSender.sendCancelEnhancement(),
     onDecomposeTechniqueBook: (itemInstanceId, count) => options.panelSender.sendDestroyItem(itemInstanceId, count, { mode: 'decompose_technique_book' }),
