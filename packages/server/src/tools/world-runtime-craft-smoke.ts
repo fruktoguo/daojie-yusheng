@@ -1677,7 +1677,7 @@ async function testGatherPermanentLossReleasesStaleActiveSearch(): Promise<void>
 }
 
 function testBuildingActiveBuilderAllowsCooperativePlayers(): void {
-  const instance = Object.create(MapInstanceRuntime.prototype) as any;
+  const instance = createCraftSmokeMapInstance('instance:craft-building-cooperative') as any;
   instance.tick = 10;
   instance.worldRevision = 1;
   instance.persistentRevision = 1;
@@ -1701,6 +1701,7 @@ function testBuildingActiveBuilderAllowsCooperativePlayers(): void {
   instance.markPersistenceDirtyDomainsHighPriority = (domains: string[]): void => {
     dirtyDomains.push(domains);
   };
+  const aoiRevisionBefore = instance.resolveAoiViewRevision(1, 1, 0);
 
   const joinedByOtherPlayer = instance.startBuildingConstruction('building-1', 'player:builder-b');
   assert.equal(joinedByOtherPlayer.ok, true);
@@ -1708,6 +1709,9 @@ function testBuildingActiveBuilderAllowsCooperativePlayers(): void {
   assert.equal(building.activeBuilderPlayerId, 'player:builder-b');
   assert.equal(building.buildCompleteTick, 15);
   assert.equal(instance.worldRevision, 2);
+  assert.equal(instance.persistentRevision, 2);
+  const aoiRevisionAfterJoin = instance.resolveAoiViewRevision(1, 1, 0);
+  assert.ok(aoiRevisionAfterJoin > aoiRevisionBefore);
   assert.deepEqual(dirtyDomains, [['building']]);
 
   const resumedByOwner = instance.startBuildingConstruction('building-1', 'player:builder-a');
@@ -1715,7 +1719,48 @@ function testBuildingActiveBuilderAllowsCooperativePlayers(): void {
   assert.equal(building.activeBuilderPlayerId, 'player:builder-a');
   assert.equal(building.buildCompleteTick, 15);
   assert.equal(instance.worldRevision, 3);
+  assert.equal(instance.persistentRevision, 3);
+  assert.ok(instance.resolveAoiViewRevision(1, 1, 0) > aoiRevisionAfterJoin);
   assert.deepEqual(dirtyDomains, [['building'], ['building']]);
+}
+
+function createCraftSmokeMapInstance(instanceId: string): MapInstanceRuntime {
+  const width = 3;
+  const height = 3;
+  const cellCount = width * height;
+  return new MapInstanceRuntime({
+    instanceId,
+    template: {
+      id: 'craft-smoke-map',
+      name: '技艺综合烟测地图',
+      width,
+      height,
+      terrainRows: Array.from({ length: height }, () => '.'.repeat(width)),
+      walkableMask: Uint8Array.from({ length: cellCount }, () => 1),
+      blocksSightMask: new Uint8Array(cellCount),
+      baseAuraByTile: new Int32Array(cellCount),
+      baseTileResourceEntries: [],
+      npcs: [],
+      landmarks: [],
+      containers: [],
+      safeZones: [],
+      portals: [],
+      spawnX: 1,
+      spawnY: 1,
+      source: {},
+    },
+    monsterSpawns: [],
+    kind: 'public',
+    persistent: false,
+    createdAt: Date.now(),
+    displayName: '技艺综合烟测地图',
+    linePreset: 'peaceful',
+    lineIndex: 1,
+    instanceOrigin: 'smoke',
+    defaultEntry: true,
+    supportsPvp: false,
+    canDamageTile: true,
+  });
 }
 
 function testBuildingConstructionCooperativeTicksAccelerateSharedProgress(): void {
