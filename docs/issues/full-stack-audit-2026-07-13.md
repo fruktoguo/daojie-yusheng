@@ -3,7 +3,7 @@
 ## 审计口径
 
 - 生产主线：`packages/client`、`packages/shared`、`packages/server`、`packages/config-editor`。
-- 当前基线：`main` 分支 `5e71e3f7`；相对 `origin/main` ahead 22。
+- 当前基线：`main` 分支 `299ce586`；相对 `origin/main` ahead 23。
 - package manager：`pnpm@10.29.1`。
 - 每项结论必须来自机制文档、完整调用链、测试、编译产物或运行数据；仅凭搜索未发现异常不能标记为“确认无问题”。
 - `[x]` 只表示该行列出的具体证据范围已完成，不代表相邻系统或整个项目已完成。
@@ -68,6 +68,8 @@
 - [ ] S-03 结构化通知 key/变量、i18n 生成与所有服务端玩家可见消息入口。
 - [ ] S-04 config-editor → shared schema → 导入校验 → server catalog → client catalog/展示。
 - [ ] S-05 新 schema 唯一真源、GM 兼容转换目录和旧格式运行时门禁。
+- [x] S-06 兑换与异步导航异常把原始服务端错误文本发给玩家的问题已修复；见 FS-031。
+- [ ] S-07 待执行指令异常仍可能把未分类的原始服务端错误文本发给玩家；见 FS-032。
 
 ### 客户端、UI 与渲染
 
@@ -555,7 +557,7 @@
 
 ### FS-030 `world-runtime-craft-smoke` 建筑夹具缺失 AOI revision 索引
 
-- **状态**：已修复并完成编译、专项与最小总门禁验证，待本组中文原子提交。
+- **状态**：已修复、验证并完成中文原子提交。
 - **严重级别**：P1（综合技艺验证门禁无法完整运行，不直接修改生产数据）。
 - **所属功能组**：技艺综合 smoke / 建筑运行时 / AOI chunk revision。
 - **影响链路**：compiled `world-runtime-craft-smoke` → `testBuildingActiveBuilderAllowsCooperativePlayers()` → `MapInstanceRuntime.startBuildingConstruction()` → `markAoiViewChangedAt()` → `setChunkRevision()`。
@@ -567,7 +569,36 @@
 - **修复方式**：建筑协作用例改为通过 `new MapInstanceRuntime(...)` 和完整的最小地图模板创建实例，让 AOI、地块、建筑拓扑、缓存和持久化修订字段全部走生产初始化；测试只注入当前用例所需的玩家和半成品，并新增两次施工切换均推进 AOI、`worldRevision`、`persistentRevision` 的断言，避免未来再次以补单字段的方式掩盖构造契约漂移。
 - **实际修改**：更新 `world-runtime-craft-smoke.ts`，新增 `createCraftSmokeMapInstance()` 生产构造夹具，移除该用例的 prototype 伪实例，并补 AOI 与双 revision 边界断言；没有修改生产建造、AOI 或技艺逻辑。
 - **验证结果**：`git diff --check`、`pnpm --filter @mud/server compile` 与 `pnpm verify:quick` 通过；compiled `world-runtime-craft-smoke` 完整以 0 退出，原先崩溃点及其后的共享施工、条件休眠、strategy helper、统一 pipeline 与阵法失败分支均完成断言。该修复只恢复并加固既有综合 smoke，不证明 R-04 全部建筑运行时或 R-05 容量指标。
-- **中文原子提交 hash**：待本组提交后回填（计划提交：`test(craft): 修复技艺综合烟测夹具`）。
+- **中文原子提交 hash**：`299ce586`。
+
+### FS-031 兑换与异步导航异常泄露服务端错误文本
+
+- **状态**：已修复并完成服务端编译、前后端专项与客户端门禁验证，待本组中文原子提交。
+- **严重级别**：P1（内部错误信息泄露、协议语义不稳定；不直接修改玩家资产）。
+- **所属功能组**：兑换码 / 异步寻路 / 待执行导航命令 / 结构化通知 / 客户端 i18n。
+- **影响链路**：`WorldRuntimeRedeemCodeService.dispatchRedeemCodes()` 或 `WorldRuntimeNavigationService.materializeNavigationCommandBatch()` 捕获异常 → `error.message` → `queuePlayerNotice()` → Notice 协议 → 客户端日志/浮层。
+- **证据**：兑换 durable 调用失败时，catch 既把 `message` 写服务端 warn，又原样作为玩家通知；导航的 Worker/同步寻路结果回收与 `enqueuePendingCommand()` 两个 catch 也直接发送同一 `message`。这些异常可来自 PostgreSQL、durable operation、Worker、队列或程序错误，现有接口没有保证文本只含玩家可见内容。故障注入 `database host=internal-db...`、`worker host=path-worker-3...` 与 `storage key=private...` 时，旧实现会把完整文本送入 Notice。
+- **根本原因**：异常边界把“运维诊断日志”和“玩家反馈”复用了同一个自由文本字段，缺少从内部异常到稳定玩家语义的显式映射；兑换结果虽已有 `execution_failed` 协议码，旁路 Notice 仍绕过了结构化规则；导航也没有区分确定性业务拒绝与未知基础设施故障。
+- **为什么错误**：内部异常文本不属于客户端协议，可能包含节点名、数据库主机、存储键、内部地图 ID 或实现细节；它也没有稳定 key，无法由客户端语言包统一渲染。后端原样透传违反“后端传 key/变量、前端拼接文本”的通知边界，并把日志数据暴露给不可信客户端。
+- **触发条件**：兑换 durable/数据库异常；异步寻路 Worker 或 fallback 抛错；导航结果正常但待执行命令入队抛错；确定性越界/不可达拒绝进入异步回收 catch。
+- **可能后果**：玩家可见内部拓扑或实现细节，增加安全侦察面；不同异常库升级后文案漂移；前端无法本地化或稳定聚合；原始异常可能过长并污染通知队列。兑换结果同时已有错误码时还会形成两套不一致的失败语义。
+- **修复方式**：原始异常只保留在服务端日志；兑换 catch 固定发送 `notice.redeem.execution-failed`，并继续回显同一 request ID 与 `execution_failed`；导航把越界、任务不可达、一般不可达映射为独立稳定 key，未知 Worker/队列/程序异常统一映射为 `notice.navigation.failed`。所有玩家通知均携带结构化载荷，客户端 CSV 作为中文真源并重新生成类型常量。
+- **实际修改**：更新 `world-runtime-redeem-code.service.ts`、`world-runtime-navigation.service.ts`、中文 i18n CSV 与生成产物；把旧 CommonJS/`@ts-nocheck` 兑换 smoke 改为规范 TypeScript，并新增 `world-runtime-navigation-notice-smoke.ts`，分别注入数据库、Worker、队列与确定性越界故障，断言敏感原文只在服务端日志存在。
+- **验证结果**：`git diff --check`、`pnpm --filter @mud/server compile`、`pnpm verify:quick` 与 `pnpm verify:client` 通过；compiled `world-runtime-redeem-code-smoke` 与 `world-runtime-navigation-notice-smoke` 证明原始内部文本不进入玩家通知、结构化 key 正确、request ID/error code 不变且失败导航意图被清理；客户端门禁证明 3842 条语言包生成、TypeScript、Vite 构建、请求生命周期、UI 连续性、Socket 出站闸门与地图渲染 proof 未回归。待执行指令的独立原始错误旁路仍见 FS-032，不能据此标记 S-03 全覆盖。
+- **中文原子提交 hash**：待本组提交后回填（计划提交：`fix(notice): 隔离兑换与导航内部错误`）。
+
+### FS-032 待执行指令失败仍透传未分类异常文本
+
+- **状态**：已确认，待独立修复与验证。
+- **严重级别**：P1（内部标识/异常信息可能泄露，且玩家通知不满足结构化协议）。
+- **所属功能组**：待执行指令 / 战斗与技艺拒绝 / 结构化通知 / 诊断日志。
+- **影响链路**：`WorldRuntimePendingCommandService.dispatchPendingCommands()` catch → `normalizePendingCommandNoticeMessage()` → `queuePlayerNotice(playerId, noticeMessage, 'warn')`。
+- **证据**：归一化函数只抑制妖兽 runtime ID、背包实例 ID、无出生点 instance ID、英文技能范围与一个 JavaScript TypeError 前缀，其余输入最终直接 `return message`；现有 smoke 明确断言未知 `Error('boom')` 和 `技能 skill.iron_bone_art 尚在冷却` 被原样发送，后者已经暴露内部 skill ID。该 catch 的异常来源覆盖实例指令、玩家指令、自动战斗重试、装备、物品、技艺和导航，不存在“错误文本天然可公开”的统一契约。
+- **根本原因**：早期实现以字符串黑名单逐个遮挡已发现的内部标识，没有建立按 command kind 与拒绝类别映射稳定 notice key 的正向白名单；新的指令或异常格式默认落入原文透传。
+- **为什么错误**：黑名单无法覆盖未知数据库/程序错误和未来标识格式，且把服务端自由文本当成协议；技能 ID、实例 ID 或堆栈片段都可能随着错误来源变化再次外泄。
+- **触发条件**：任一待执行命令抛出未命中现有少量抑制规则的异常；手动技能处于冷却、元气不足或目标异常；基础设施错误从下层冒泡。
+- **可能后果**：内部 ID/实现细节泄露、通知不可本地化、错误文本漂移或过长、相同业务拒绝在不同入口显示不同文案；仅新增一个异常源即可绕过当前黑名单。
+- **修复方式**：下一原子组按 `command.kind + 已确认拒绝类别` 建立结构化 key 白名单，未知异常统一显示稳定通用失败且完整原文只写诊断日志；保留自动战斗常态目标失效的静默策略。同步把仍带 `@ts-nocheck`/CommonJS 的 pending-command smoke 迁成规范 TypeScript，覆盖未知异常、技能冷却、导航拒绝、内部 ID 抑制与自动战斗静默分支。
 
 ## 2026-07-14 待用户决定
 

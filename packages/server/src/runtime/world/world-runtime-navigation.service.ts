@@ -57,6 +57,39 @@ function resolvePlayerMovementPathingOptions(player, deps) {
         : undefined;
 }
 
+function buildNavigationFailureNotice(error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (message === '目标超出地图范围') {
+        return buildStructuredNotice(
+            'warn',
+            'notice.navigation.target-out-of-bounds',
+            '目标超出地图范围。',
+        );
+    }
+    if (message === '当前任务没有可导航目标' || message === '任务目标当前不可达') {
+        return buildStructuredNotice(
+            'warn',
+            'notice.navigation.quest-unreachable',
+            '任务目标当前不可达。',
+        );
+    }
+    if (message === '无法到达该位置'
+        || message === '前往界门的路径不可达'
+        || /^无法规划前往 .+ 的跨图路线$/.test(message)
+        || /^当前地图没有通往 .+ 的界门$/.test(message)) {
+        return buildStructuredNotice(
+            'warn',
+            'notice.navigation.unreachable',
+            '无法到达该位置。',
+        );
+    }
+    return buildStructuredNotice(
+        'warn',
+        'notice.navigation.failed',
+        '导航暂时不可用，请稍后重试。',
+    );
+}
+
 /** movement/navigation 状态域服务：承接导航意图状态与路径物化。 */
 @Injectable()
 export class WorldRuntimeNavigationService {
@@ -519,7 +552,8 @@ export class WorldRuntimeNavigationService {
                 const message = error instanceof Error ? error.message : String(error);
                 logServerNextMovement(deps.logger ?? this.logger, 'runtime.navigation.error', { playerId, intent, message });
                 this.navigationIntents.delete(playerId);
-                deps.queuePlayerNotice(playerId, message, 'warn');
+                const notice = buildNavigationFailureNotice(error);
+                deps.queuePlayerNotice(playerId, notice.text, notice.kind, undefined, undefined, notice.structured);
                 continue;
             }
             if (!step || deps.hasPendingCommand(playerId)) {
@@ -556,7 +590,8 @@ export class WorldRuntimeNavigationService {
                 const message = error instanceof Error ? error.message : String(error);
                 logServerNextMovement(deps.logger ?? this.logger, 'runtime.navigation.error', { playerId, intent, message });
                 this.navigationIntents.delete(playerId);
-                deps.queuePlayerNotice(playerId, message, 'warn');
+                const notice = buildNavigationFailureNotice(error);
+                deps.queuePlayerNotice(playerId, notice.text, notice.kind, undefined, undefined, notice.structured);
             }
         }
     }
