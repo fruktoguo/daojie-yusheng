@@ -3,7 +3,7 @@
 ## 审计口径
 
 - 生产主线：`packages/client`、`packages/shared`、`packages/server`、`packages/config-editor`。
-- 当前基线：`main` 分支 `afb9d94d`；相对 `origin/main` ahead 27。
+- 当前基线：`main` 分支 `f97e5177`；相对 `origin/main` ahead 28。
 - package manager：`pnpm@10.29.1`。
 - 每项结论必须来自机制文档、完整调用链、测试、编译产物或运行数据；仅凭搜索未发现异常不能标记为“确认无问题”。
 - `[x]` 只表示该行列出的具体证据范围已完成，不代表相邻系统或整个项目已完成。
@@ -73,6 +73,7 @@
 - [x] S-08 通天塔进入、通关与退出通知已迁移为结构化 key/变量，并通过真实运行时烟测；见 FS-033。
 - [x] S-09 自动凝练根基的手动开关与 tick 自动关闭通知已统一为结构化 key；见 FS-034。
 - [x] S-10 世界迁移的现世/虚境与保持/切换四种成功通知已使用稳定结构化 key；见 FS-035。
+- [x] S-11 吟唱阻塞六类技艺命令与强制攻击矿脉旁路的通知已统一结构化；见 FS-036。
 
 ### 客户端、UI 与渲染
 
@@ -640,7 +641,7 @@
 
 ### FS-035 世界迁移成功状态由服务端拼接四种自由文本
 
-- **状态**：已修复并完成编译、专项、客户端与最小总门禁验证，待本组中文原子提交。
+- **状态**：已修复、验证并完成中文原子提交。
 - **严重级别**：P2（协议与本地化边界错误，不改变世界偏好或跨实例接入顺序）。
 - **所属功能组**：世界迁移 / 分线偏好 / 动作入口 / 结构化通知。
 - **影响链路**：玩家在手动界门附近选择现世或虚境 → `executeWorldMigration()` 校验 → 同线更新偏好，或等待目标实例连接成功后更新偏好 → `buildWorldMigrationNotice()` → 三参数 `queuePlayerNotice()` → 客户端。
@@ -652,7 +653,23 @@
 - **修复方式**：让 builder 返回 `buildStructuredNotice()` 结果，按现世/虚境和保持/完成组合选择四个稳定 key；两条调用路径都发送第六个结构化载荷，中文仅作 fallback。客户端 CSV 新增四条真源，不发送中文世界名或状态变量。
 - **实际修改**：更新动作执行服务、客户端中文 i18n CSV/生成产物和动作综合 smoke；smoke 覆盖四个 key，并继续保留目标实例 lease 失败时不提交偏好、不发送成功通知的断言。
 - **验证结果**：`git diff --check`、`pnpm --filter @mud/server compile`、compiled `world-runtime-action-execution-smoke`、`pnpm verify:client` 与 `pnpm verify:quick` 通过；专项证明四种成功分支分别发送预期 key，现世切换的连接输入、偏好提交顺序以及 lease 拒绝失败关闭语义未回归；客户端门禁证明 3869 条语言包生成、TypeScript/Vite、UI 连续性、请求生命周期、Socket 出站和地图渲染 proof 未回归，最小总门禁的 server compile、生产边界与无库 smoke 子集完整通过。
-- **中文原子提交 hash**：待本组提交后回填（计划提交：`fix(notice): 结构化世界迁移状态通知`）。
+- **中文原子提交 hash**：`f97e5177`。
+
+### FS-036 吟唱阻塞技艺命令存在重复纯文本通知旁路
+
+- **状态**：已修复并完成编译、两项专项、客户端与最小总门禁验证，待本组中文原子提交。
+- **严重级别**：P2（协议与本地化边界错误，不改变吟唱资源、冷却或技艺 job 生命周期）。
+- **所属功能组**：战斗吟唱 / 技艺命令 / 强制攻击采矿 / 结构化通知。
+- **影响链路**：玩家存在 `pendingSkillCast` → 普通炼丹/强化/采集/挖矿/营造/阵法维护命令在 `dispatchPlayerCommand()` 前置守卫被拒绝；或强制攻击矿脉解析成采矿意图后在 `engageBattle` 分支被拒绝 → 三参数 `queuePlayerNotice()` → 客户端。
+- **证据**：统一前置守卫用多层条件表达式选择六种中文，并只发送 `text/kind`；强制攻击矿脉还有一处独立硬编码“吟唱中无法分心挖矿”。两处没有共享映射或结构化 key，客户端已有的通用 `notice.command.casting-busy` 也没有表达具体被阻止的技艺。
+- **根本原因**：技艺启动命令和“攻击矿脉转采矿”从不同入口汇入同一 job pipeline，吟唱互斥判断却在两个控制流位置各自实现；早期为保留具体活动名直接拼中文，没有抽出领域级拒绝通知映射。
+- **为什么错误**：吟唱拒绝是稳定协议结果，应由客户端 key 渲染；强制攻击采矿不能因为入口不同而绕过结构化契约。若只改前置守卫，`engageBattle` 旁路仍会持续漏字段。
+- **触发条件**：玩家正在吟唱时尝试开始炼丹、强化、采集、挖矿、营造或阵法维护；或对矿脉使用强制攻击而该动作将转化为采矿 job。
+- **可能后果**：六类文案只能随服务端发布且无法本地化/聚合；同一采矿拒绝因入口不同出现协议漂移；未来新增富文本、通知优先级或审计字段时旁路继续漏传。当前拒绝仍发生在任何技艺 job 开始前，不会产生材料扣除或任务残留。
+- **修复方式**：新增一个显式 command-kind → `buildStructuredNotice()` 映射，六类活动使用独立 key，避免传中文活动名变量；统一前置守卫和强制攻击采矿分支复用该 helper，并发送第六个结构化载荷。客户端 CSV 新增六条真源。
+- **实际修改**：更新玩家命令服务、客户端中文 i18n CSV/生成产物和强制攻击采矿 smoke；新增规范 TypeScript 的 `world-runtime-casting-activity-notice-smoke.ts`，直接覆盖六类前置拒绝，另由既有采矿 smoke 覆盖 `engageBattle` 旁路。
+- **验证结果**：`git diff --check`、`pnpm --filter @mud/server compile`、compiled `world-runtime-casting-activity-notice-smoke`、compiled `world-runtime-force-attack-mining-smoke`、`pnpm verify:client` 与 `pnpm verify:quick` 通过；前者证明每类命令只产生一条对应 key，后者证明强制攻击矿脉的特殊入口发送相同采矿 key，非矿地块和正常采矿 job 攻击链未回归；客户端门禁证明 3875 条语言包生成、TypeScript/Vite、UI 连续性、请求生命周期、Socket 出站和地图渲染 proof 未回归，最小总门禁的 server compile、生产边界与无库 smoke 子集完整通过。
+- **中文原子提交 hash**：待本组提交后回填（计划提交：`fix(notice): 结构化吟唱技艺拒绝通知`）。
 
 ## 2026-07-14 待用户决定
 

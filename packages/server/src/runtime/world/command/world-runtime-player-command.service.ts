@@ -18,6 +18,7 @@ import { WorldRuntimeRedeemCodeService } from '../world-runtime-redeem-code.serv
 import { WorldRuntimeProgressionService } from '../world-runtime-progression.service';
 import { WorldRuntimeNpcShopService } from '../world-runtime-npc-shop.service';
 import { WorldRuntimeNpcQuestWriteService } from '../world-runtime-npc-quest-write.service';
+import { buildStructuredNotice } from '../structured-notice.helpers';
 
 const PLAYER_COMBAT_COMMAND_KINDS = new Set(['basicAttack', 'castSkill']);
 
@@ -70,6 +71,25 @@ function normalizeTechniqueActivityKind(kind) {
         || kind === 'formation'
         ? kind
         : 'alchemy';
+}
+
+function buildCastingActivityBusyNotice(commandKind) {
+    switch (commandKind) {
+        case 'startEnhancement':
+            return buildStructuredNotice('system', 'notice.command.casting-busy-enhancement', '吟唱中无法分心强化。');
+        case 'startGather':
+            return buildStructuredNotice('system', 'notice.command.casting-busy-gather', '吟唱中无法分心采集。');
+        case 'startMining':
+            return buildStructuredNotice('system', 'notice.command.casting-busy-mining', '吟唱中无法分心挖矿。');
+        case 'startBuilding':
+            return buildStructuredNotice('system', 'notice.command.casting-busy-building', '吟唱中无法分心营造。');
+        case 'startFormationMaintenance':
+            return buildStructuredNotice('system', 'notice.command.casting-busy-formation-maintenance', '吟唱中无法分心维护阵法。');
+        case 'startAlchemy':
+            return buildStructuredNotice('system', 'notice.command.casting-busy-alchemy', '吟唱中无法分心炼丹。');
+        default:
+            return buildStructuredNotice('system', 'notice.command.casting-busy', '正在吟唱中，无法执行该动作。');
+    }
 }
 
 function normalizeText(value) {
@@ -620,18 +640,8 @@ export class WorldRuntimePlayerCommandService {
             return;
         }
         if (player.combat?.pendingSkillCast && (command.kind === 'startAlchemy' || command.kind === 'startEnhancement' || command.kind === 'startGather' || command.kind === 'startMining' || command.kind === 'startBuilding' || command.kind === 'startFormationMaintenance')) {
-            const pendingActivityText = command.kind === 'startEnhancement'
-                ? '吟唱中无法分心强化。'
-                : command.kind === 'startGather'
-                    ? '吟唱中无法分心采集。'
-                    : command.kind === 'startMining'
-                        ? '吟唱中无法分心挖矿。'
-                        : command.kind === 'startBuilding'
-                            ? '吟唱中无法分心营造。'
-                            : command.kind === 'startFormationMaintenance'
-                                ? '吟唱中无法分心维护阵法。'
-                                : '吟唱中无法分心炼丹。';
-            deps.queuePlayerNotice?.(playerId, pendingActivityText, 'system');
+            const notice = buildCastingActivityBusyNotice(command.kind);
+            deps.queuePlayerNotice?.(playerId, notice.text, notice.kind, undefined, undefined, notice.structured);
             return;
         }
         switch (command.kind) {
@@ -674,7 +684,8 @@ export class WorldRuntimePlayerCommandService {
                 const miningPayload = resolveForcedAttackMiningPayload(player, command, deps);
                 if (miningPayload) {
                     if (player.combat?.pendingSkillCast) {
-                        deps.queuePlayerNotice?.(playerId, '吟唱中无法分心挖矿。', 'system');
+                        const notice = buildCastingActivityBusyNotice('startMining');
+                        deps.queuePlayerNotice?.(playerId, notice.text, notice.kind, undefined, undefined, notice.structured);
                         return;
                     }
                     return this.dispatchStartTechniqueActivity(playerId, 'mining', miningPayload, deps);

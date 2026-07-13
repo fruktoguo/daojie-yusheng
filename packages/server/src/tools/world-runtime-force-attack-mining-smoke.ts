@@ -111,8 +111,15 @@ function createDeps(log: SmokeLogEntry[], tileType: TileType, destroyed = false)
         return { ok: true, started: true };
       },
     },
-    queuePlayerNotice(playerId: string, text: string, kind: string) {
-      log.push(['queuePlayerNotice', playerId, text, kind]);
+    queuePlayerNotice(
+      playerId: string,
+      text: string,
+      kind: string,
+      _title?: string,
+      _icon?: string,
+      structured?: { key?: string },
+    ) {
+      log.push(['queuePlayerNotice', playerId, text, kind, structured?.key ?? null]);
     },
   };
 }
@@ -171,7 +178,13 @@ async function testForcedAttackOreRespectsPendingCast(): Promise<void> {
     ['getPlayer', 'player:force-attack-mining'],
     ['getInstanceRuntime', 'instance:force-attack-mining'],
     ['getTileCombatState', 1, 0],
-    ['queuePlayerNotice', 'player:force-attack-mining', '吟唱中无法分心挖矿。', 'system'],
+    [
+      'queuePlayerNotice',
+      'player:force-attack-mining',
+      '吟唱中无法分心挖矿。',
+      'system',
+      'notice.command.casting-busy-mining',
+    ],
   ]);
 }
 
