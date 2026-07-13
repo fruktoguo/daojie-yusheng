@@ -216,15 +216,46 @@ function testBatchSnapshotRevisionGuard(): void {
   assert.equal(instance.getDirtyDomains().has('tile_resource'), false);
 }
 
+function testStagedDeltaRemainsCumulativeUntilPersisted(): void {
+  const instance = createInstance();
+  const generationId = 'instance-persistence-flush-consistency-smoke';
+
+  instance.setTileResourceValueByIndex('ore', 1, 5);
+  const firstSnapshot = instance.capturePersistenceDomainFlushSnapshot(['tile_resource']);
+  instance.markPersistenceDomainsStaged(['tile_resource'], firstSnapshot, generationId);
+
+  assert.equal(instance.getDirtyDomains().has('tile_resource'), false);
+  assert.deepEqual(
+    instance.buildTileResourcePersistenceDelta().upserts.map((entry) => [entry.tileIndex, entry.value]),
+    [[1, 5]],
+    '转入 ledger 后仍须保留尚未真实落库的增量键',
+  );
+
+  instance.setTileResourceValueByIndex('ore', 2, 7);
+  const secondSnapshot = instance.capturePersistenceDomainFlushSnapshot(['tile_resource']);
+  const cumulativeDelta = instance.buildTileResourcePersistenceDelta(secondSnapshot);
+  assert.deepEqual(
+    cumulativeDelta.upserts.map((entry) => [entry.tileIndex, entry.value]),
+    [[1, 5], [2, 7]],
+    '覆盖 ledger 的新版 payload 必须包含旧版未落库键和本次新键',
+  );
+
+  instance.markPersistenceDomainsStaged(['tile_resource'], secondSnapshot, generationId);
+  instance.markPersistenceDomainsPersisted(['tile_resource'], secondSnapshot);
+  assert.equal(instance.getDirtyDomains().has('tile_resource'), false);
+  assert.deepEqual(instance.buildTileResourcePersistenceDelta().upserts, []);
+}
+
 async function main(): Promise<void> {
   await testInFlightMutationKeepsDirtyAndDurableWaits();
   await testQueuedFlushRechecksUnresolvedFenceAfterDomainLock();
   testContainerRevisionGuard();
   testBatchSnapshotRevisionGuard();
+  testStagedDeltaRemainsCumulativeUntilPersisted();
   console.log(JSON.stringify({
     ok: true,
     case: 'instance-persistence-flush-consistency',
-    answers: '普通实例 flush 与 durable 来源事务共用实例分域串行边界；IO 期间同一 dirty key 再次变化时旧快照不会清除新 dirty，下一轮会把最新状态写回；容器域同样使用 revision 守卫。',
+    answers: '普通实例 flush 与 durable 来源事务共用实例分域串行边界；IO 期间同一 dirty key 再次变化时旧快照不会清除新 dirty；增量域转入 ledger 后保留累计脏键，后续 payload 覆盖不会丢失上一版尚未落库的键；容器域同样使用 revision 守卫。',
   }));
 }
 

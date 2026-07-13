@@ -5715,7 +5715,7 @@ class MapInstanceRuntime {
                 : new Set(),
         };
     }
-    /** ledger 批次提交成功后按捕获快照转移持久化义务，但不推进 persistedRevision。 */
+    /** ledger 批次提交成功后按捕获快照转移调度义务，但增量脏键保留到真实落库。 */
     markPersistenceDomainsStaged(domains, flushSnapshot = null, stagingGenerationId = '') {
         const normalizedGenerationId = typeof stagingGenerationId === 'string' ? stagingGenerationId.trim() : '';
         if (!normalizedGenerationId) {
@@ -5740,9 +5740,10 @@ class MapInstanceRuntime {
             }
             const currentRevision = this.getPersistenceDomainRevision(normalizedDomain);
             if (currentRevision === capturedRevision) {
-                // durable ledger 已接管该修订。若 staging IO 期间同域再变更，修订不同并保守保留全部 delta。
+                // ledger 每个实例域只保留最新 payload。这里只移交调度义务，不能清掉增量脏键：
+                // 若落库前同域再次变化，下一版 payload 必须携带“上一版未落库键 + 新键”的累计后态，
+                // 才能安全覆盖 ledger 中的旧 payload。
                 this.getDirtyDomains().delete(normalizedDomain);
-                clearMapInstancePersistenceDeltaDomain(this, normalizedDomain);
                 this.dirtyDomainFirstMarkedAt?.delete?.(normalizedDomain);
                 this.dirtyDomainHighPriority?.delete?.(normalizedDomain);
             }

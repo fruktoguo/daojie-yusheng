@@ -3,7 +3,7 @@
 ## 审计口径
 
 - 生产主线：`packages/client`、`packages/shared`、`packages/server`、`packages/config-editor`。
-- 当前基线：`main` 分支 `f97e5177`；相对 `origin/main` ahead 28。
+- 当前基线：`main` 分支 `f2282617`；相对 `origin/main` ahead 29。
 - package manager：`pnpm@10.29.1`。
 - 每项结论必须来自机制文档、完整调用链、测试、编译产物或运行数据；仅凭搜索未发现异常不能标记为“确认无问题”。
 - `[x]` 只表示该行列出的具体证据范围已完成，不代表相邻系统或整个项目已完成。
@@ -48,6 +48,7 @@
 - [x] P-23 布阵、普通阵法补给和护宗大阵一次性注入的玩家资产与阵法后态分步提交问题已修复；见 FS-026。
 - [x] P-24 普通阵法与宗门阵法数据库 writer 可越过实例 lease handoff 覆盖/删除新节点后态的问题已修复；见 FS-028。
 - [x] P-25 阵法维护每息分步提交玩家灵力、技艺/job 与阵法后态的问题已修复；见 FS-029。
+- [x] P-26 实例增量域转入单行 flush ledger 后过早清除脏键、后续 payload 覆盖可能漏写旧键的问题已修复；见 FS-037。
 
 ### 服务端权威运行时
 
@@ -93,6 +94,7 @@
 - [x] X-06 动态实例/动作/宗门相关 smoke 的类型绕过、陈旧断言、未定义变量和本地数据库环境串扰已修复；见 FS-013。
 - [x] X-07 inventory durable with-db smoke 未注入共享连接池、实际禁用被测服务的问题已修复；见 FS-018。
 - [x] X-08 生产显式开启 `/runtime` 控制面但缺少管理 token 时无鉴权放行的问题已修复；见 FS-019。
+- [x] X-09 `tile_resource`、`tile_damage`、`ground_item`、`monster_runtime` 增量 payload 的跨 staging 覆盖丢键风险已修复；见 FS-037。
 
 ## 已确认问题
 
@@ -657,7 +659,7 @@
 
 ### FS-036 吟唱阻塞技艺命令存在重复纯文本通知旁路
 
-- **状态**：已修复并完成编译、两项专项、客户端与最小总门禁验证，待本组中文原子提交。
+- **状态**：已修复、验证并完成中文原子提交。
 - **严重级别**：P2（协议与本地化边界错误，不改变吟唱资源、冷却或技艺 job 生命周期）。
 - **所属功能组**：战斗吟唱 / 技艺命令 / 强制攻击采矿 / 结构化通知。
 - **影响链路**：玩家存在 `pendingSkillCast` → 普通炼丹/强化/采集/挖矿/营造/阵法维护命令在 `dispatchPlayerCommand()` 前置守卫被拒绝；或强制攻击矿脉解析成采矿意图后在 `engageBattle` 分支被拒绝 → 三参数 `queuePlayerNotice()` → 客户端。
@@ -669,7 +671,23 @@
 - **修复方式**：新增一个显式 command-kind → `buildStructuredNotice()` 映射，六类活动使用独立 key，避免传中文活动名变量；统一前置守卫和强制攻击采矿分支复用该 helper，并发送第六个结构化载荷。客户端 CSV 新增六条真源。
 - **实际修改**：更新玩家命令服务、客户端中文 i18n CSV/生成产物和强制攻击采矿 smoke；新增规范 TypeScript 的 `world-runtime-casting-activity-notice-smoke.ts`，直接覆盖六类前置拒绝，另由既有采矿 smoke 覆盖 `engageBattle` 旁路。
 - **验证结果**：`git diff --check`、`pnpm --filter @mud/server compile`、compiled `world-runtime-casting-activity-notice-smoke`、compiled `world-runtime-force-attack-mining-smoke`、`pnpm verify:client` 与 `pnpm verify:quick` 通过；前者证明每类命令只产生一条对应 key，后者证明强制攻击矿脉的特殊入口发送相同采矿 key，非矿地块和正常采矿 job 攻击链未回归；客户端门禁证明 3875 条语言包生成、TypeScript/Vite、UI 连续性、请求生命周期、Socket 出站和地图渲染 proof 未回归，最小总门禁的 server compile、生产边界与无库 smoke 子集完整通过。
-- **中文原子提交 hash**：待本组提交后回填（计划提交：`fix(notice): 结构化吟唱技艺拒绝通知`）。
+- **中文原子提交 hash**：`f2282617`。
+
+### FS-037 实例增量域进入 flush ledger 后过早清除脏键
+
+- **状态**：已修复并完成专项验证，待中文原子提交。
+- **严重级别**：P0。
+- **所属功能组**：实例分域持久化 / flush ledger / 地块资源与损坏 / 地面物品 / 妖兽运行态。
+- **影响链路**：实例增量域变脏 → `capturePersistenceDomainFlushSnapshot()` → `FlushTaskRuntimeService.stageInstanceTasks()` → 单行 `instance_flush_ledger` UPSERT → `markPersistenceDomainsStaged()` → 同域再次变化 → 新 payload 覆盖旧 payload → worker 回放。
+- **证据**：`instance_flush_ledger` 的唯一键是 `instance_id + domain + ownership_epoch`，较高 `latest_version` 会以 `EXCLUDED.payload_jsonb` 覆盖旧 payload；但运行态在第一次 ledger UPSERT 成功后立即调用 `clearMapInstancePersistenceDeltaDomain()`，清空 `dirtyTileResourceByKey`、`dirtyTileDamageIndices`、`dirtyGroundItemTileIndices` 或 `dirtyMonsterRuntimeIds`。因此第二次同域变更构造的 payload 只包含新脏键，不再包含仍未真实落库的旧键。
+- **根本原因**：实现把“持久化调度义务已经转交给 durable ledger”错误等同于“增量数据已经落库”，却没有考虑 ledger 每个实例域只保留一个 latest-wins payload，而不是追加保存每版 delta。
+- **为什么错误**：在 latest-wins ledger 中，新 payload 必须是自上次真实 persisted 以来的累计后态；否则覆盖动作会永久删除旧 payload 中尚未落库的独立键。ledger 自身可重试、可认领并不能补回已经从 payload 和运行态脏索引同时清掉的数据。
+- **触发条件**：第一版实例增量 payload 已成功 staging 但尚未被 worker 落库，同一实例同一域的另一个键再次变化，并在旧版完成前进入下一轮 staging。`tile_resource`、`tile_damage`、`ground_item` 和 `monster_runtime` 都使用该公共清理函数。
+- **可能后果**：灵气/煞气、地块损坏、地面掉落或妖兽运行态的部分变化在重启后回退；玩家可能看到已掉落物品重新出现或新掉落消失；相邻地块中只有后一批键持久化；问题只在 staging 与 worker 的并发窗口出现，难以通过普通 happy-path smoke 复现。
+- **修复方式**：`markPersistenceDomainsStaged()` 只清除 dirty domain 的调度标记、合并窗口和优先级，不再清除增量脏键与 full-replace 义务；真实数据库写入成功并通过 domain revision 守卫后，仍由 `markPersistenceDomainsPersisted()` 统一清理。这样同域再次变化时，新 payload 自动包含旧版未落库键与本次新键，可安全覆盖 ledger 单行 payload。
+- **实际修改**：更新 `MapInstanceRuntime.markPersistenceDomainsStaged()` 的义务转移语义；在 `instance-persistence-flush-consistency-smoke.ts` 增加两次不同地块资源变化跨 staging 的累计 delta 断言，并证明真实 persisted 后才清空增量。
+- **验证结果**：`git diff --check`、`pnpm --filter @mud/server compile` 与 compiled `instance-persistence-flush-consistency-smoke` 通过；专项证明第一次 staging 后调度 dirty 已清除但旧增量键仍保留，第二版 payload 同时包含旧键和新键，且第二版真实 persisted 后增量集合才归零。该专项不替代真实 PostgreSQL 多 worker claim 竞争或完整 release 门禁。
+- **中文原子提交 hash**：待本次提交。
 
 ## 2026-07-14 待用户决定
 
