@@ -3,7 +3,7 @@
 ## 审计口径
 
 - 生产主线：`packages/client`、`packages/shared`、`packages/server`、`packages/config-editor`。
-- 当前基线：`main` 分支 `299ce586`；相对 `origin/main` ahead 23。
+- 当前基线：`main` 分支 `666292e3`；相对 `origin/main` ahead 24。
 - package manager：`pnpm@10.29.1`。
 - 每项结论必须来自机制文档、完整调用链、测试、编译产物或运行数据；仅凭搜索未发现异常不能标记为“确认无问题”。
 - `[x]` 只表示该行列出的具体证据范围已完成，不代表相邻系统或整个项目已完成。
@@ -69,7 +69,7 @@
 - [ ] S-04 config-editor → shared schema → 导入校验 → server catalog → client catalog/展示。
 - [ ] S-05 新 schema 唯一真源、GM 兼容转换目录和旧格式运行时门禁。
 - [x] S-06 兑换与异步导航异常把原始服务端错误文本发给玩家的问题已修复；见 FS-031。
-- [ ] S-07 待执行指令异常仍可能把未分类的原始服务端错误文本发给玩家；见 FS-032。
+- [x] S-07 待执行指令异常透传未分类服务端错误文本的问题已修复；见 FS-032。
 
 ### 客户端、UI 与渲染
 
@@ -573,7 +573,7 @@
 
 ### FS-031 兑换与异步导航异常泄露服务端错误文本
 
-- **状态**：已修复并完成服务端编译、前后端专项与客户端门禁验证，待本组中文原子提交。
+- **状态**：已修复、验证并完成中文原子提交。
 - **严重级别**：P1（内部错误信息泄露、协议语义不稳定；不直接修改玩家资产）。
 - **所属功能组**：兑换码 / 异步寻路 / 待执行导航命令 / 结构化通知 / 客户端 i18n。
 - **影响链路**：`WorldRuntimeRedeemCodeService.dispatchRedeemCodes()` 或 `WorldRuntimeNavigationService.materializeNavigationCommandBatch()` 捕获异常 → `error.message` → `queuePlayerNotice()` → Notice 协议 → 客户端日志/浮层。
@@ -585,11 +585,11 @@
 - **修复方式**：原始异常只保留在服务端日志；兑换 catch 固定发送 `notice.redeem.execution-failed`，并继续回显同一 request ID 与 `execution_failed`；导航把越界、任务不可达、一般不可达映射为独立稳定 key，未知 Worker/队列/程序异常统一映射为 `notice.navigation.failed`。所有玩家通知均携带结构化载荷，客户端 CSV 作为中文真源并重新生成类型常量。
 - **实际修改**：更新 `world-runtime-redeem-code.service.ts`、`world-runtime-navigation.service.ts`、中文 i18n CSV 与生成产物；把旧 CommonJS/`@ts-nocheck` 兑换 smoke 改为规范 TypeScript，并新增 `world-runtime-navigation-notice-smoke.ts`，分别注入数据库、Worker、队列与确定性越界故障，断言敏感原文只在服务端日志存在。
 - **验证结果**：`git diff --check`、`pnpm --filter @mud/server compile`、`pnpm verify:quick` 与 `pnpm verify:client` 通过；compiled `world-runtime-redeem-code-smoke` 与 `world-runtime-navigation-notice-smoke` 证明原始内部文本不进入玩家通知、结构化 key 正确、request ID/error code 不变且失败导航意图被清理；客户端门禁证明 3842 条语言包生成、TypeScript、Vite 构建、请求生命周期、UI 连续性、Socket 出站闸门与地图渲染 proof 未回归。待执行指令的独立原始错误旁路仍见 FS-032，不能据此标记 S-03 全覆盖。
-- **中文原子提交 hash**：待本组提交后回填（计划提交：`fix(notice): 隔离兑换与导航内部错误`）。
+- **中文原子提交 hash**：`666292e3`。
 
 ### FS-032 待执行指令失败仍透传未分类异常文本
 
-- **状态**：已确认，待独立修复与验证。
+- **状态**：已修复并完成编译、专项、客户端与最小总门禁验证，待本组中文原子提交。
 - **严重级别**：P1（内部标识/异常信息可能泄露，且玩家通知不满足结构化协议）。
 - **所属功能组**：待执行指令 / 战斗与技艺拒绝 / 结构化通知 / 诊断日志。
 - **影响链路**：`WorldRuntimePendingCommandService.dispatchPendingCommands()` catch → `normalizePendingCommandNoticeMessage()` → `queuePlayerNotice(playerId, noticeMessage, 'warn')`。
@@ -598,7 +598,10 @@
 - **为什么错误**：黑名单无法覆盖未知数据库/程序错误和未来标识格式，且把服务端自由文本当成协议；技能 ID、实例 ID 或堆栈片段都可能随着错误来源变化再次外泄。
 - **触发条件**：任一待执行命令抛出未命中现有少量抑制规则的异常；手动技能处于冷却、元气不足或目标异常；基础设施错误从下层冒泡。
 - **可能后果**：内部 ID/实现细节泄露、通知不可本地化、错误文本漂移或过长、相同业务拒绝在不同入口显示不同文案；仅新增一个异常源即可绕过当前黑名单。
-- **修复方式**：下一原子组按 `command.kind + 已确认拒绝类别` 建立结构化 key 白名单，未知异常统一显示稳定通用失败且完整原文只写诊断日志；保留自动战斗常态目标失效的静默策略。同步把仍带 `@ts-nocheck`/CommonJS 的 pending-command smoke 迁成规范 TypeScript，覆盖未知异常、技能冷却、导航拒绝、内部 ID 抑制与自动战斗静默分支。
+- **修复方式**：按 `command.kind + 已确认拒绝类别` 建立结构化 key 正向映射：导航、手动战斗、技能冷却/元气、技艺任务与受保护地块物品各自使用稳定语义；未知异常统一显示通用失败，完整原文只写诊断日志；内部 runtime/item/instance ID 和 JavaScript 程序错误继续静默，自动战斗常态目标失效规则不变。
+- **实际修改**：更新 `world-runtime-pending-command.service.ts`、客户端中文 i18n CSV 与生成产物；把 `world-runtime-pending-command-smoke.ts` 从 CommonJS/`@ts-nocheck` 迁为规范 TypeScript，补未知数据库异常、技能内部 ID、跨图内部 map ID、技艺队列、受保护区域物品与结构化 key 断言。迁移过程中还发现该 smoke 仍假设“portal 覆盖 move”和“计数按玩家数”，已按当前生产队列契约修正为 movement 可替换、portal 进入有界一次性队列、计数按真实命令条目数，并移除两个被 JavaScript 静默覆盖的重复 `getInstanceRuntime` 属性。
+- **验证结果**：`git diff --check`、`pnpm --filter @mud/server compile`、`pnpm verify:quick` 与 `pnpm verify:client` 通过；compiled `world-runtime-pending-command-smoke` 完整以 0 退出，证明未知异常不泄露、导航/战斗/技艺/物品拒绝均携带结构化 key、技能与地图内部 ID 不进入玩家通知、自动战斗目标失效和内部程序错误保持静默，同时当前队列所有权/计数契约有真实断言；客户端门禁证明 3859 条语言包生成、TypeScript/Vite、UI 连续性、Socket 出站与地图渲染生命周期未回归。
+- **中文原子提交 hash**：待本组提交后回填（计划提交：`fix(notice): 加固待执行指令失败通知`）。
 
 ## 2026-07-14 待用户决定
 

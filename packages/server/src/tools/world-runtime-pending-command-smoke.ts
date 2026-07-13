@@ -1,8 +1,6 @@
-// @ts-nocheck
+import assert from 'node:assert/strict';
 
-const assert = require("node:assert/strict");
-
-const { WorldRuntimePendingCommandService } = require("../runtime/world/command/world-runtime-pending-command.service");
+import { WorldRuntimePendingCommandService } from '../runtime/world/command/world-runtime-pending-command.service';
 /**
  * testQueueOwnershipMethods：执行testQueueOwnershipMethod相关逻辑。
  * @returns 无返回值，直接更新testQueueOwnershipMethod相关状态。
@@ -15,11 +13,11 @@ function testQueueOwnershipMethods() {
     service.enqueuePendingCommand('player:1', { kind: 'portal' });
     service.enqueuePendingCommand('player:2', { kind: 'basicAttack', targetPlayerId: null, targetMonsterId: 'monster:1', targetX: null, targetY: null });
     assert.equal(service.hasPendingCommand('player:1'), true);
-    assert.deepEqual(service.getPendingCommand('player:1'), { kind: 'portal' });
-    assert.equal(service.getPendingCommandCount(), 2);
+    assert.deepEqual(service.getPendingCommand('player:1'), { kind: 'move', direction: 'east' });
+    assert.equal(service.getPendingCommandCount(), 3);
     service.clearPendingCommand('player:2');
     assert.equal(service.hasPendingCommand('player:2'), false);
-    assert.equal(service.getPendingCommandCount(), 1);
+    assert.equal(service.getPendingCommandCount(), 2);
 }
 /**
  * testDispatchRoutesAndClearsQueue：判断testDispatch路线AndClearQueue是否满足条件。
@@ -78,14 +76,14 @@ async function testDispatchRoutesAndClearsQueue() {
  * @returns 无返回值，直接更新queue玩家Notice相关状态。
  */
 
-        queuePlayerNotice(playerId, message, tone) {
-            log.push(['queuePlayerNotice', playerId, message, tone]);
+        queuePlayerNotice(playerId, message, tone, _title, _icon, structured) {
+            log.push(['queuePlayerNotice', playerId, message, tone, structured?.key ?? null]);
         },
     });
     assert.deepEqual(log, [
         ['dispatchInstanceCommand', 'player:1', 'move'],
         ['warn', '处理玩家 player:2 的待执行指令失败：basicAttack（boom） debug=auto=0 manual=0 playerState=missing'],
-        ['queuePlayerNotice', 'player:2', 'boom', 'warn'],
+        ['queuePlayerNotice', 'player:2', '行动未能完成，请稍后重试。', 'warn', 'notice.command.failed'],
         ['dispatchInstanceCommand', 'player:3', 'portal'],
     ]);
     assert.equal(service.getPendingCommandCount(), 0);
@@ -508,13 +506,13 @@ async function testInvalidAttackNoticeUsesTargetReason() {
                 log.push(['warn', message]);
             },
         },
-        queuePlayerNotice(playerId, message, tone) {
-            log.push(['queuePlayerNotice', playerId, message, tone]);
+        queuePlayerNotice(playerId, message, tone, _title, _icon, structured) {
+            log.push(['queuePlayerNotice', playerId, message, tone, structured?.key ?? null]);
         },
     });
     assert.deepEqual(log, [
         ['log', '处理玩家 player:1 的待执行指令失败：basicAttack（该目标无法被攻击） debug=auto=0 manual=0 playerState=missing'],
-        ['queuePlayerNotice', 'player:1', '没有可命中的目标', 'warn'],
+        ['queuePlayerNotice', 'player:1', '没有可命中的目标', 'warn', 'notice.command.no-target'],
     ]);
     assert.equal(service.getPendingCommandCount(), 0);
 }
@@ -555,13 +553,13 @@ async function testMoveToUnreachableFailureUsesLogWhenAvailable() {
                 log.push(['warn', message]);
             },
         },
-        queuePlayerNotice(playerId, message, tone) {
-            log.push(['queuePlayerNotice', playerId, message, tone]);
+        queuePlayerNotice(playerId, message, tone, _title, _icon, structured) {
+            log.push(['queuePlayerNotice', playerId, message, tone, structured?.key ?? null]);
         },
     });
     assert.deepEqual(log, [
         ['log', '处理玩家 player:1 的待执行指令失败：moveTo（无法到达该位置） debug=auto=0 manual=0 playerName=妖 instance=real:cold_tide_marsh playerPos=23,37'],
-        ['queuePlayerNotice', 'player:1', '无法到达该位置', 'warn'],
+        ['queuePlayerNotice', 'player:1', '无法到达该位置', 'warn', 'notice.navigation.unreachable'],
     ]);
     assert.equal(service.getPendingCommandCount(), 0);
 }
@@ -767,9 +765,6 @@ async function testAutoCombatOutOfRangeClearsTargetWithoutNotice() {
             throw new Error('技能 skill:area 超出范围');
         },
         buildAutoCombatCommand() {
-            return null;
-        },
-        getInstanceRuntime() {
             return null;
         },
         playerRuntimeService: {
@@ -1090,13 +1085,13 @@ async function testManualSkillCooldownFailureUsesDebugWhenAvailable() {
                 log.push(['warn', message]);
             },
         },
-        queuePlayerNotice(playerId, message, tone) {
-            log.push(['queuePlayerNotice', playerId, message, tone]);
+        queuePlayerNotice(playerId, message, tone, _title, _icon, structured) {
+            log.push(['queuePlayerNotice', playerId, message, tone, structured?.key ?? null]);
         },
     });
     assert.deepEqual(log, [
         ['debug', '处理玩家 player:1 的待执行指令失败：castSkill（技能 skill.iron_bone_art 尚在冷却） debug=auto=0 manual=0 skill=skill.iron_bone_art playerState=missing'],
-        ['queuePlayerNotice', 'player:1', '技能 skill.iron_bone_art 尚在冷却', 'warn'],
+        ['queuePlayerNotice', 'player:1', '技能尚在冷却。', 'warn', 'notice.command.skill-cooldown'],
     ]);
     assert.equal(service.getPendingCommandCount(), 0);
 }
@@ -1130,13 +1125,13 @@ async function testManualEngageNoTargetFailureUsesDebugWhenAvailable() {
                 log.push(['warn', message]);
             },
         },
-        queuePlayerNotice(playerId, message, tone) {
-            log.push(['queuePlayerNotice', playerId, message, tone]);
+        queuePlayerNotice(playerId, message, tone, _title, _icon, structured) {
+            log.push(['queuePlayerNotice', playerId, message, tone, structured?.key ?? null]);
         },
     });
     assert.deepEqual(log, [
         ['debug', '处理玩家 player:1 的待执行指令失败：engageBattle（没有可命中的目标） debug=auto=0 manual=0 playerState=missing'],
-        ['queuePlayerNotice', 'player:1', '没有可命中的目标', 'warn'],
+        ['queuePlayerNotice', 'player:1', '没有可命中的目标', 'warn', 'notice.command.no-target'],
     ]);
     assert.equal(service.getPendingCommandCount(), 0);
 }
@@ -1173,6 +1168,82 @@ async function testInternalSliceErrorStaysServerInternal() {
     assert.equal(service.getPendingCommandCount(), 0);
 }
 
+async function testStructuredNoticeAllowlistSanitizesCommandFamilies() {
+    const cases = [
+        {
+            name: 'unknown-infrastructure-error',
+            command: { kind: 'portal' },
+            message: 'database host=internal-db pending write failed',
+            text: '行动未能完成，请稍后重试。',
+            key: 'notice.command.failed',
+        },
+        {
+            name: 'technique-queue-full',
+            command: { kind: 'startAlchemy', payload: { presetId: 'preset:1' } },
+            message: '技艺任务队列已满。',
+            text: '技艺任务队列已满。',
+            key: 'notice.command.technique-queue-full',
+        },
+        {
+            name: 'protected-item-use',
+            command: { kind: 'useItem', itemInstanceId: 'item:secret' },
+            message: '当前位于安全区、出生点、传送点或 NPC 附近，无法使用地块资源道具。',
+            text: '当前位于受保护区域，无法使用地块资源道具。',
+            key: 'notice.item.tile-resource-protected-area',
+        },
+        {
+            name: 'qi-insufficient',
+            command: { kind: 'castSkill', skillId: 'skill.internal', targetRef: null },
+            message: '技能 skill.internal 元气不足',
+            text: '元气不足。',
+            key: 'notice.command.qi-insufficient',
+        },
+        {
+            name: 'navigation-route-unavailable',
+            command: { kind: 'moveTo', x: 10, y: 10, allowNearestReachable: false },
+            message: '无法规划前往 map.internal 的跨图路线',
+            text: '无法到达该位置',
+            key: 'notice.navigation.unreachable',
+        },
+        {
+            name: 'navigation-infrastructure-error',
+            command: { kind: 'moveTo', x: 20, y: 20, allowNearestReachable: false },
+            message: 'path worker=internal-7 crashed',
+            text: '行动未能完成，请稍后重试。',
+            key: 'notice.command.failed',
+        },
+    ];
+
+    for (const testCase of cases) {
+        const service = new WorldRuntimePendingCommandService();
+        const notices = [];
+        service.enqueuePendingCommand('player:structured', testCase.command);
+        await service.dispatchPendingCommands({
+            dispatchInstanceCommand() {
+                throw new Error(testCase.message);
+            },
+            dispatchPlayerCommand() {
+                throw new Error(testCase.message);
+            },
+            logger: {
+                debug() {},
+                log() {},
+                warn() {},
+            },
+            queuePlayerNotice(playerId, text, kind, _title, _icon, structured) {
+                notices.push({ playerId, text, kind, key: structured?.key ?? null });
+            },
+        });
+        assert.deepEqual(notices, [{
+            playerId: 'player:structured',
+            text: testCase.text,
+            kind: 'warn',
+            key: testCase.key,
+        }], testCase.name);
+        assert.equal(JSON.stringify(notices).includes('internal'), false, testCase.name);
+    }
+}
+
 testQueueOwnershipMethods();
 Promise.resolve()
     .then(() => testDispatchRoutesAndClearsQueue())
@@ -1193,6 +1264,15 @@ Promise.resolve()
     .then(() => testManualSkillCooldownFailureUsesDebugWhenAvailable())
     .then(() => testManualEngageNoTargetFailureUsesDebugWhenAvailable())
     .then(() => testInternalSliceErrorStaysServerInternal())
+    .then(() => testStructuredNoticeAllowlistSanitizesCommandFamilies())
     .then(() => {
-    console.log(JSON.stringify({ ok: true, case: 'world-runtime-pending-command' }, null, 2));
+    console.log(JSON.stringify({
+        ok: true,
+        case: 'world-runtime-pending-command',
+        answers: [
+            '未知基础设施异常统一映射为稳定通用失败，原始文本只进入服务端诊断。',
+            '战斗、导航、技艺和物品拒绝均使用结构化通知 key，技能与地图内部 ID 不再进入玩家通知。',
+            '自动战斗常态目标失效与已识别的内部程序错误继续保持静默。',
+        ],
+    }, null, 2));
 });

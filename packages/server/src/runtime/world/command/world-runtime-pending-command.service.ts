@@ -37,7 +37,7 @@ function exposesInternalIdentifier(message) {
         || isNoSpawnPointFailure(message);
 }
 
-function normalizePendingCommandNoticeMessage(command, message) {
+function buildPendingCommandNotice(command, message) {
     if (exposesInternalIdentifier(message)) {
         return null;
     }
@@ -47,7 +47,7 @@ function normalizePendingCommandNoticeMessage(command, message) {
         }
     }
     if (message === '该目标无法被攻击') {
-        return '没有可命中的目标';
+        return buildStructuredNotice('warn', 'notice.command.no-target', '没有可命中的目标');
     }
     if (typeof message === 'string' && /^Skill .+ out of range$/.test(message)) {
         return null;
@@ -55,7 +55,112 @@ function normalizePendingCommandNoticeMessage(command, message) {
     if (typeof message === 'string' && message.startsWith("Cannot read properties of undefined")) {
         return null;
     }
-    return message;
+    if (command?.kind === 'moveTo') {
+        return buildPendingNavigationNotice(message);
+    }
+    if (command?.kind === 'engageBattle'
+        || command?.kind === 'basicAttack'
+        || command?.kind === 'castSkill') {
+        return buildPendingCombatNotice(message);
+    }
+    if (command?.kind === 'startTechniqueTransmission'
+        || command?.kind === 'cancelTechniqueTransmission'
+        || command?.kind === 'startAlchemy'
+        || command?.kind === 'cancelAlchemy'
+        || command?.kind === 'startForging'
+        || command?.kind === 'cancelForging'
+        || command?.kind === 'startEnhancement'
+        || command?.kind === 'cancelEnhancement'
+        || command?.kind === 'startGather'
+        || command?.kind === 'cancelGather'
+        || command?.kind === 'startMining'
+        || command?.kind === 'cancelMining'
+        || command?.kind === 'startBuilding'
+        || command?.kind === 'cancelBuilding'
+        || command?.kind === 'startFormationMaintenance'
+        || command?.kind === 'cancelFormationMaintenance'
+        || command?.kind === 'cancelTechniqueActivity') {
+        return buildPendingTechniqueNotice(message);
+    }
+    if (command?.kind === 'useItem'
+        && message === '当前位于安全区、出生点、传送点或 NPC 附近，无法使用地块资源道具。') {
+        return buildStructuredNotice(
+            'warn',
+            'notice.item.tile-resource-protected-area',
+            '当前位于受保护区域，无法使用地块资源道具。',
+        );
+    }
+    return buildStructuredNotice(
+        'warn',
+        'notice.command.failed',
+        '行动未能完成，请稍后重试。',
+    );
+}
+
+function buildPendingNavigationNotice(message) {
+    if (!isExpectedNavigationReject(message)) {
+        return buildStructuredNotice('warn', 'notice.command.failed', '行动未能完成，请稍后重试。');
+    }
+    if (message === '目标超出地图范围') {
+        return buildStructuredNotice('warn', 'notice.navigation.target-out-of-bounds', '目标超出地图范围');
+    }
+    if (message === '任务目标当前不可达') {
+        return buildStructuredNotice('warn', 'notice.navigation.quest-unreachable', '任务目标当前不可达');
+    }
+    return buildStructuredNotice('warn', 'notice.navigation.unreachable', '无法到达该位置');
+}
+
+function buildPendingCombatNotice(message) {
+    if (message === '没有可命中的目标' || message === '该目标无法被攻击') {
+        return buildStructuredNotice('warn', 'notice.command.no-target', '没有可命中的目标');
+    }
+    if (message === '正在吟唱中，无法继续施法。' || message === '正在吟唱中，无法执行战斗动作。') {
+        return buildStructuredNotice('warn', 'notice.command.casting-busy', '正在吟唱中，无法执行该动作。');
+    }
+    if (isOutOfRangeFailure(message)) {
+        return buildStructuredNotice('warn', 'notice.command.target-out-of-range', '目标超出作用范围。');
+    }
+    if (message === '目标被遮挡') {
+        return buildStructuredNotice('warn', 'notice.command.target-blocked', '目标被遮挡。');
+    }
+    if (message === '目标不在同一地图') {
+        return buildStructuredNotice('warn', 'notice.command.target-left-map', '目标已离开当前地图。');
+    }
+    if (message === '目标已经死亡') {
+        return buildStructuredNotice('warn', 'notice.command.target-dead', '目标已经死亡。');
+    }
+    if (message === '施法者已死亡') {
+        return buildStructuredNotice('warn', 'notice.command.caster-dead', '你当前无法继续行动。');
+    }
+    if (message === '当前实例不允许玩家互攻') {
+        return buildStructuredNotice('warn', 'notice.command.pvp-forbidden', '当前区域不允许玩家互攻。');
+    }
+    if (isCooldownFailure(message)) {
+        return buildStructuredNotice('warn', 'notice.command.skill-cooldown', '技能尚在冷却。');
+    }
+    if (typeof message === 'string' && /^(技能|玩家) .+ 元气不足$/.test(message)) {
+        return buildStructuredNotice('warn', 'notice.command.qi-insufficient', '元气不足。');
+    }
+    return buildStructuredNotice('warn', 'notice.command.failed', '行动未能完成，请稍后重试。');
+}
+
+function buildPendingTechniqueNotice(message) {
+    if (message === '学习者已有进行中的技艺任务。') {
+        return buildStructuredNotice('warn', 'notice.command.technique-active', message);
+    }
+    if (message === '技艺任务队列已满。') {
+        return buildStructuredNotice('warn', 'notice.command.technique-queue-full', message);
+    }
+    if (message === '当前没有进行中的任务。' || message === '没有进行中的传授') {
+        return buildStructuredNotice('warn', 'notice.command.technique-none', '当前没有进行中的技艺任务。');
+    }
+    if (message === '学习者已经掌握该功法。') {
+        return buildStructuredNotice('warn', 'notice.command.technique-already-known', message);
+    }
+    if (typeof message === 'string' && /^当前没有可取消的.+任务。$/.test(message)) {
+        return buildStructuredNotice('warn', 'notice.command.technique-cancel-none', '当前没有可取消的技艺任务。');
+    }
+    return buildStructuredNotice('warn', 'notice.command.failed', '行动未能完成，请稍后重试。');
 }
 
 function isTerminalAutoCombatTargetFailure(message) {
@@ -811,7 +916,7 @@ export class WorldRuntimePendingCommandService {
                 if (this.isAutoCombatCommand(failedCommandForDiagnostics) && isTerminalAutoCombatTargetFailure(message)) {
                     this.clearAutoCombatTargetAfterFailure(playerId, deps, failedCommandForDiagnostics);
                 }
-                const noticeMessage = normalizePendingCommandNoticeMessage(failedCommandForDiagnostics, message);
+                const notice = buildPendingCommandNotice(failedCommandForDiagnostics, message);
                 const retrySuffix = failedCommandForDiagnostics !== command ? ` retryOf=${command.kind}` : '';
                 emitPendingCommandFailureLog(
                     deps,
@@ -819,8 +924,15 @@ export class WorldRuntimePendingCommandService {
                     failedCommandForDiagnostics,
                     message,
                 );
-                if (noticeMessage) {
-                    deps.queuePlayerNotice(playerId, noticeMessage, 'warn');
+                if (notice) {
+                    deps.queuePlayerNotice(
+                        playerId,
+                        notice.text,
+                        notice.kind,
+                        undefined,
+                        undefined,
+                        notice.structured,
+                    );
                 }
                 recordPendingCommandPerf(recordTickSectionDuration, 'pendingCommands.failureHandlingMs', failureHandlingStartedAt);
             }
