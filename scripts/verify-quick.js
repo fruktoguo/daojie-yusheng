@@ -57,6 +57,8 @@ const status = runVerificationSteps({
         '--case',
         'world-runtime-sect-application-page',
         '--case',
+        'world-runtime-sect-member-profile',
+        '--case',
         'world-runtime-sect',
         '--case',
         'social-runtime-instance-name',

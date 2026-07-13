@@ -38,6 +38,7 @@ import {
     SECT_TABLE,
     SectDurableCommitOutcomeUnknownError,
 } from '../../persistence/sect-durable-persistence';
+import { loadSectMemberProfiles } from '../../persistence/sect-member-profile-read-model';
 import { buildStructuredNotice } from './structured-notice.helpers';
 import { destroyManagedInstance } from './world-runtime-instance-lease.helpers';
 import * as world_runtime_normalization_helpers_1 from './world-runtime.normalization.helpers';
@@ -107,6 +108,7 @@ class WorldRuntimeSectService {
     databasePoolProvider = null;
     durableOperationService = null;
     worldRuntimeFormationService = null;
+    sectMemberProfilesByPlayerId = new Map<string, { name: string | null; realmLv: number | null }>();
     sectMutationQueueBySectId = new Map<string, Promise<void>>();
     sectDurableCommitQueue = Promise.resolve();
     persistenceClosing = false;
@@ -797,7 +799,7 @@ class WorldRuntimeSectService {
             id: 'sect:manage',
             name: '管理宗门',
             type: 'interact',
-            desc: buildSectManagementActionDesc(sect, view, deps, guardian),
+            desc: buildSectManagementActionDesc(sect, view, deps, guardian, this.sectMemberProfilesByPlayerId),
             cooldownLeft: 0,
         }];
         const maintainingGuardian = player?.formationJob
@@ -1120,6 +1122,7 @@ class WorldRuntimeSectService {
         const beforeSnapshots = rollback.sects.map((entry) => entry.snapshot);
         try {
         const application = upsertSectApplication(sect, player, Date.now());
+        this.rememberSectMemberRuntimeProfile(player);
         advanceSectUpdatedAt(sect);
         await this.commitDurableSectMembershipMutation(beforeSnapshots, new Map());
         this.deliverSectMail(playerId, {
@@ -1175,6 +1178,9 @@ class WorldRuntimeSectService {
             throw new BadRequestException(`${application.name}是${ledSect.name}宗主，无法直接入宗，请其先转让宗主之位或解散原宗门`);
         }
         const applicant = this.playerRuntimeService.getPlayer?.(targetId) ?? null;
+        if (applicant) {
+            this.rememberSectMemberRuntimeProfile(applicant);
+        }
         const currentMembershipSectId = this.resolvePlayerSectId(targetId);
         const affectedSectIds = [currentSect.sectId, currentMembershipSectId].filter(Boolean);
         const rollback = captureSectMembershipRollback(this, affectedSectIds, [targetId]);
@@ -1247,6 +1253,7 @@ class WorldRuntimeSectService {
         application.reviewerPlayerId = operatorPlayerId;
         advanceSectUpdatedAt(currentSect);
         await this.commitDurableSectMembershipMutation(beforeSnapshots, new Map());
+        this.releaseSectMemberProfileIfUnused(targetId);
         this.deliverSectMail(targetId, {
             senderLabel: currentSect.name,
             fallbackTitle: `${currentSect.name}退回了你的拜帖`,
@@ -1295,6 +1302,7 @@ class WorldRuntimeSectService {
             beforeSnapshots,
             new Map([[playerId, null]]),
         );
+        this.releaseSectMemberProfileIfUnused(playerId);
         deps.refreshQuestStates?.(playerId);
         deps.refreshPlayerContextActions?.(playerId);
         queueStructuredSectNotice(deps, playerId, 'success', 'notice.sect.left', `你已离开${currentSect.name}。`, {
@@ -1407,6 +1415,7 @@ class WorldRuntimeSectService {
             beforeSnapshots,
             new Map([[targetId, null]]),
         );
+        this.releaseSectMemberProfileIfUnused(targetId);
         queueStructuredSectNotice(deps, operatorPlayerId, 'success', 'notice.sect.member-removed-operator', '已移除宗门成员。');
         deps.refreshQuestStates?.(targetId);
         } catch (error) {
@@ -1575,6 +1584,9 @@ class WorldRuntimeSectService {
                 ], deps) ?? [],
             }],
         );
+        for (const memberId of memberIds) {
+            this.releaseSectMemberProfileIfUnused(memberId);
+        }
         if (!committed) {
             deps.worldRuntimeFormationService?.persistFormationRemovalSoon?.(removedGuardian);
         }
@@ -1970,17 +1982,122 @@ class WorldRuntimeSectService {
         return sectId;
     }
 
+    /** 记录已水合玩家的轻量资料，供其完全离线后继续展示宗门成员信息。 */
+    rememberSectMemberRuntimeProfile(player) {
+        const playerId = normalizeOptionalString(player?.playerId ?? player?.id);
+        if (!playerId) {
+            return;
+        }
+        const previous = this.sectMemberProfilesByPlayerId.get(playerId) ?? { name: null, realmLv: null };
+        const name = resolveOptionalSectMemberName(player, playerId) ?? previous.name;
+        const realmLv = resolveSectMemberRealmLv(player) ?? previous.realmLv;
+        if (name || realmLv !== null) {
+            this.sectMemberProfilesByPlayerId.set(playerId, { name, realmLv });
+        }
+    }
+
+    /** 仅保留仍属于成员或待审批申请人的缓存，避免长时间运行后累积历史玩家。 */
+    releaseSectMemberProfileIfUnused(playerId) {
+        const normalizedPlayerId = normalizeOptionalString(playerId);
+        if (!normalizedPlayerId) {
+            return;
+        }
+        for (const sect of this.sectsById.values()) {
+            if (sect?.status === 'dissolved') {
+                continue;
+            }
+            if (Array.isArray(sect?.members)
+                && sect.members.some((member) => member?.playerId === normalizedPlayerId)) {
+                return;
+            }
+            if (Array.isArray(sect?.applications)
+                && sect.applications.some((application) => application?.playerId === normalizedPlayerId && application?.status === 'pending')) {
+                return;
+            }
+        }
+        this.sectMemberProfilesByPlayerId.delete(normalizedPlayerId);
+    }
+
+    /**
+     * 启动恢复时批量水合宗门成员资料。
+     * 身份与境界通过一个低频读模型一次取回，不在 tick 或成员循环中逐条访问数据库。
+     */
+    async hydrateSectMemberProfiles(sectsInput) {
+        const sects = (Array.isArray(sectsInput) ? sectsInput : []).filter(Boolean);
+        const playerIds = new Set<string>();
+        for (const sect of sects) {
+            for (const member of Array.isArray(sect?.members) ? sect.members : []) {
+                const playerId = normalizeOptionalString(member?.playerId);
+                if (playerId) playerIds.add(playerId);
+            }
+            for (const application of Array.isArray(sect?.applications) ? sect.applications : []) {
+                if (application?.status !== 'pending') {
+                    continue;
+                }
+                const playerId = normalizeOptionalString(application?.playerId);
+                if (playerId) playerIds.add(playerId);
+            }
+        }
+        const normalizedPlayerIds = [...playerIds];
+        if (normalizedPlayerIds.length === 0) {
+            return;
+        }
+
+        const profileResult = await this.loadPersistedSectMemberProfiles(normalizedPlayerIds).catch((error) => {
+            this.logger.warn(`宗门成员资料批量水合失败：${error instanceof Error ? error.message : String(error)}`);
+            return new Map();
+        });
+        const profiles = profileResult instanceof Map ? profileResult : new Map();
+
+        for (const playerId of normalizedPlayerIds) {
+            const previous = this.sectMemberProfilesByPlayerId.get(playerId) ?? { name: null, realmLv: null };
+            const persisted = profiles.get(playerId);
+            const name = resolveOptionalSectMemberName(persisted, playerId) ?? previous.name;
+            const realmLv = resolveSectMemberRealmLv(persisted) ?? previous.realmLv;
+            if (name || realmLv !== null) {
+                this.sectMemberProfilesByPlayerId.set(playerId, { name, realmLv });
+            }
+        }
+
+        for (const sect of sects) {
+            for (const member of Array.isArray(sect?.members) ? sect.members : []) {
+                const runtimePlayer = this.playerRuntimeService?.getPlayer?.(member.playerId) ?? null;
+                const profile = resolveSectMemberManagementProfile(
+                    member,
+                    runtimePlayer,
+                    this.sectMemberProfilesByPlayerId,
+                );
+                member.name = profile.name;
+            }
+            for (const application of Array.isArray(sect?.applications) ? sect.applications : []) {
+                if (application?.status !== 'pending') {
+                    continue;
+                }
+                const runtimePlayer = this.playerRuntimeService?.getPlayer?.(application.playerId) ?? null;
+                const profile = resolveSectMemberManagementProfile(
+                    application,
+                    runtimePlayer,
+                    this.sectMemberProfilesByPlayerId,
+                );
+                application.name = profile.name;
+            }
+        }
+    }
+
+    async loadPersistedSectMemberProfiles(playerIds) {
+        const pool = await this.ensurePersistencePool();
+        return loadSectMemberProfiles(pool, playerIds);
+    }
+
     async restoreSectTemplates(deps) {
         const document = await this.loadSectDocument();
         const entries = Array.isArray(document?.sects) ? document.sects : [];
-        for (const entry of entries) {
-            const sect = normalizeSectEntry(entry);
-            if (!sect) {
-                continue;
-            }
-            if (sect.status === 'dissolved') {
-                continue;
-            }
+        const sects = entries
+            .map((entry) => normalizeSectEntry(entry))
+            .filter((sect) => sect && sect.status !== 'dissolved');
+        this.sectMemberProfilesByPlayerId.clear();
+        await this.hydrateSectMemberProfiles(sects);
+        for (const sect of sects) {
             ensureSectState(sect, this.playerRuntimeService);
             this.sectsById.set(sect.sectId, sect);
             for (const member of sect.members) {
@@ -2280,14 +2397,40 @@ class WorldRuntimeSectService {
 }
 export { WorldRuntimeSectService, repairPersistedSectCoreStateWithClient };
 
-function buildSectManagementActionDesc(sect, view, deps, guardian) {
+function resolveOptionalSectMemberName(source, playerId) {
+    const name = resolvePlayerDisplayName(source, '未知成员');
+    return name === normalizeOptionalString(playerId)
+        || name === '未知成员' || name === '未知玩家' || name === '未知申请人'
+        ? null
+        : name;
+}
+
+function resolveSectMemberManagementProfile(member, runtimePlayer, profilesByPlayerId) {
+    const playerId = normalizeOptionalString(member?.playerId) || '';
+    const cached = profilesByPlayerId?.get?.(playerId) ?? null;
+    const runtimeName = resolveOptionalSectMemberName(runtimePlayer, playerId);
+    const storedName = resolveOptionalSectMemberName(member, playerId);
+    const name = runtimeName || cached?.name || storedName || '未知成员';
+    const runtimeRealmLv = resolveSectMemberRealmLv(runtimePlayer);
+    const cachedRealmLv = resolveSectMemberRealmLv(cached);
+    const realmLv = runtimeRealmLv ?? cachedRealmLv;
+    if (playerId && profilesByPlayerId?.set && (name !== '未知成员' || realmLv !== null)) {
+        profilesByPlayerId.set(playerId, {
+            name: name !== '未知成员' ? name : null,
+            realmLv,
+        });
+    }
+    return { name, realmLv };
+}
+
+function buildSectManagementActionDesc(sect, view, deps, guardian, profilesByPlayerId = null) {
     const sectName = resolvePlayerFacingContentName(sect?.sectId, '未知宗门', sect?.name);
     const base = `${sectName} · 印记 ${normalizeOptionalString(sect.mark) || '无'} · 地域 ${formatSectTileCountLabel(sect, view, deps)} · 大阵 ${formatSectGuardianStatusLabel(guardian)} · 灵力 ${formatSectGuardianAuraLabel(guardian)}。`;
-    const data = buildSectManagementData(sect, view?.playerId, deps?.playerRuntimeService, guardian, deps?.worldRuntimeFormationService);
+    const data = buildSectManagementData(sect, view?.playerId, deps?.playerRuntimeService, guardian, deps?.worldRuntimeFormationService, profilesByPlayerId);
     return `${base}\n${SECT_MANAGEMENT_DATA_MARKER}${encodeURIComponent(JSON.stringify(data))}${SECT_MANAGEMENT_DATA_MARKER_END}`;
 }
 
-function buildSectManagementData(sect, playerId, playerRuntimeService = null, guardian = null, formationService = null) {
+function buildSectManagementData(sect, playerId, playerRuntimeService = null, guardian = null, formationService = null, profilesByPlayerId = null) {
     ensureSectState(sect, playerRuntimeService);
     const selfPlayerId = normalizeOptionalString(playerId) || '';
     const canEditPermissions = sect.leaderPlayerId === selfPlayerId;
@@ -2320,12 +2463,13 @@ function buildSectManagementData(sect, playerId, playerRuntimeService = null, gu
         rolePermissions: normalizeSectRolePermissions(sect.rolePermissions),
         members: sect.members.map((member) => {
             const runtimePlayer = playerRuntimeService?.getPlayer?.(member.playerId);
+            const profile = resolveSectMemberManagementProfile(member, runtimePlayer, profilesByPlayerId);
             return {
                 playerId: member.playerId,
-                name: member.name,
+                name: profile.name,
                 roleId: member.roleId,
                 roleLabel: getSectRoleLabel(member.roleId),
-                realmLv: resolveSectMemberRealmLv(runtimePlayer),
+                realmLv: profile.realmLv,
                 statusLabel: resolveSectMemberPresenceLabel(runtimePlayer),
                 self: member.playerId === selfPlayerId,
                 leader: member.playerId === sect.leaderPlayerId,

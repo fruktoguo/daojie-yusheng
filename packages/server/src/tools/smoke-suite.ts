@@ -198,6 +198,7 @@ const smokeCases = [
   { name: 'world-gateway-building-helper', scriptFile: 'world-gateway-building-helper-smoke.js', standalone: true },
   { name: 'world-gateway-inventory-helper', scriptFile: 'world-gateway-inventory-helper-smoke.js', standalone: true },
   { name: 'world-runtime-sect-application-page', scriptFile: 'world-runtime-sect-application-page-smoke.js', standalone: true },
+  { name: 'world-runtime-sect-member-profile', scriptFile: 'world-runtime-sect-member-profile-smoke.js', standalone: true },
   { name: 'world-runtime-sect', scriptFile: 'world-runtime-sect-smoke.js', standalone: true },
   { name: 'world-gateway-offline-gain-refresh', scriptFile: 'world-gateway-offline-gain-refresh-smoke.js', standalone: true },
   { name: 'player-runtime-projection-entry', scriptFile: 'player-runtime-projection-entry-smoke.js', standalone: true },

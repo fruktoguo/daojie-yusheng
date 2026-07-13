@@ -80,6 +80,7 @@
     "smoke:inventory-item-instance-ref": "pnpm compile && node dist/tools/inventory-item-instance-ref-smoke.js",
     "smoke:world-gateway-inventory-helper": "pnpm compile && node dist/tools/world-gateway-inventory-helper-smoke.js",
     "smoke:world-runtime-sect-application-page": "pnpm compile && node dist/tools/world-runtime-sect-application-page-smoke.js",
+    "smoke:world-runtime-sect-member-profile": "pnpm compile && node dist/tools/world-runtime-sect-member-profile-smoke.js",
     "smoke:combat-audit-outbox": "pnpm compile && node dist/tools/combat-audit-outbox-smoke.js",
     "smoke:gm-database": "pnpm compile && node dist/tools/gm-database-smoke.js",
     "smoke:gm-database:backup-persistence": "pnpm compile && node dist/tools/gm-database-backup-persistence-smoke.js",
