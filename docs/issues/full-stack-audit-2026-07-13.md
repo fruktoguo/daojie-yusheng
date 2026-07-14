@@ -3,7 +3,7 @@
 ## 审计口径
 
 - 生产主线：`packages/client`、`packages/shared`、`packages/server`、`packages/config-editor`。
-- 当前基线：`main` 分支 `90e1d845`；相对 `origin/main` ahead 38。
+- 当前基线：`main` 分支 `ab83f9ea`；相对 `origin/main` ahead 39。
 - package manager：`pnpm@10.29.1`。
 - 每项结论必须来自机制文档、完整调用链、测试、编译产物或运行数据；仅凭搜索未发现异常不能标记为“确认无问题”。
 - `[x]` 只表示该行列出的具体证据范围已完成，不代表相邻系统或整个项目已完成。
@@ -940,7 +940,7 @@
 
 ### FS-052 旧 Socket 迟到事件可污染新会话且重定向状态会吞掉未来断线
 
-- **状态**：已修复并完成专项验证，待本组中文原子提交后回填 hash。
+- **状态**：已修复、验证并完成中文原子提交。
 - **严重级别**：P1。
 - **所属功能组**：客户端网络 / Socket 生命周期 / 跨节点重定向 / 会话恢复。
 - **影响链路**：登录或已有连接 → 手动重连、refresh token 换代、跨节点 `redirectToServer()` → 创建新 Socket → 旧 Socket 迟到 `InitSession/Kick/disconnect/connect_error` 或任意 S2C 包 → 生命周期回调、协议解码、客户端运行态与 UI；以及 `AUTH_FAIL + redirectUrl` → `redirectInProgress` → 新连接后续真实断线。
@@ -952,7 +952,7 @@
 - **修复方式**：生命周期 controller 注入 `getSocket()`，每个绑定回调执行前要求事件源仍与 manager 当前 Socket 严格同一；服务端事件注册表在绑定时捕获 source Socket，并在解码、性能计时和回调广播前做同一身份检查。Socket.IO 对同一实例的自动重连继续正常工作，只有已经被新实例替代的旧 owner 被拒绝。删除没有连接 owner、且成功路径无法清理的 `redirectInProgress`；客户端主动断开仍由既有 `io client disconnect` 分支忽略，而新连接的真实断线始终执行完整清理与恢复。
 - **实际修改**：调整 `socket.ts`、`socket-lifecycle-controller.ts`、`socket-event-registry.ts` 和 `main-connection-state-source.ts`；新增 `prove-socket-session-isolation.mjs`，用两个可控 FakeSocket 动态验证旧/新 owner 行为，并把 proof 纳入客户端生产 build；同步更新 AOI/同步 mechanics。
 - **验证结果**：`pnpm --filter @mud/client proof:socket-session-isolation` 通过；`pnpm verify:client` 全量通过，包含 shared build、客户端 TypeScript、Vite 生产构建、production boundaries、UI continuity、socket outbound gate、新增 session isolation proof、所有请求生命周期 proof 与地图渲染 proof。构建仅有既有 Vite CJS、依赖 `eval` 和大 chunk 警告，无新增失败。
-- **中文原子提交 hash**：待本组提交后回填（计划 `fix(client): 隔离旧连接迟到事件`）。
+- **中文原子提交 hash**：`ab83f9ea`（`fix(client): 隔离旧连接迟到事件`）。
 
 ## 2026-07-14 待用户决定
 
