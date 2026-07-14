@@ -37,6 +37,7 @@ import {
   type DurableInventoryMutationRequest,
 } from '../world/durable-source-asset-reconciliation.helpers';
 import { buildStructuredNotice } from '../world/structured-notice.helpers';
+import { resolveCompiledBuildingDefinition } from './building-definition-resolution.helpers';
 import { TimeChamberAdmissionPolicy } from './time-chamber-admission.policy';
 import { WorldRuntimeInstanceScheduleService } from '../world/world-runtime-instance-schedule.service';
 
@@ -1134,9 +1135,7 @@ function normalizeStateRow(row: any, config: ReturnType<typeof resolveTimeChambe
 }
 
 function resolveCompiledBuilding(instance: any, building: any): any {
-  return instance?.buildingCatalog?.defByHandle?.[building?.defHandle]
-    ?? instance?.buildingCatalog?.defById?.get?.(building?.defId)
-    ?? null;
+  return resolveCompiledBuildingDefinition(instance?.buildingCatalog, building);
 }
 
 function resolveTimeChamberConfig(compiled: any): { capacity: number; maxSpeed: number; fuelUnitsPerSpiritStone: number; allowedSizeTiers: TimeChamberSizeTier[] } | null {
@@ -1156,10 +1155,10 @@ function resolveTimeChamberConfig(compiled: any): { capacity: number; maxSpeed: 
 }
 
 function isTimeChamberBuilding(instance: any, building: any): boolean {
-  if (building?.defId === TIME_CHAMBER_DEF_ID || building?.defHandle === TIME_CHAMBER_DEF_ID) {
-    return true;
-  }
-  return Math.max(0, Math.trunc(Number(resolveCompiledBuilding(instance, building)?.timeChamberDefaultCapacity) || 0)) > 0;
+  const compiled = resolveCompiledBuilding(instance, building);
+  return building?.defId === TIME_CHAMBER_DEF_ID
+    || compiled?.id === TIME_CHAMBER_DEF_ID
+    || Math.max(0, Math.trunc(Number(compiled?.timeChamberDefaultCapacity) || 0)) > 0;
 }
 
 function buildTimeChamberMapDocument(state: Pick<TimeChamberState, 'templateId' | 'displayName' | 'sizeTier' | 'chamberInstanceId'>): any {

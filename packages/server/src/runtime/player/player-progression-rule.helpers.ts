@@ -5,6 +5,7 @@ import {
 } from '@mud/shared';
 
 import { resolvePlayerCraftEffectStat } from '../craft/craft-effect-runtime.helpers';
+import { resolveCompiledBuildingDefinition } from '../building/building-definition-resolution.helpers';
 
 /**
  * 玩家成长的无状态规则。
@@ -389,8 +390,7 @@ function resolveStandingBuildingTransmissionSpeedRate(player: any, options: any 
         if (!building || building.state !== 'active') {
             continue;
         }
-        const compiled = instance.buildingCatalog?.defByHandle?.[building.defHandle]
-            ?? instance.buildingCatalog?.defById?.get?.(building.defId);
+        const compiled = resolveCompiledBuildingDefinition(instance.buildingCatalog, building);
         speedRate += resolveFiniteNumber(readCraftEffectStat(compiled?.craftEffectStats, 'transmission', 'speedRate'));
     }
     return speedRate;

@@ -7,6 +7,7 @@ import { Injectable } from '@nestjs/common';
 import { RETURN_TO_SPAWN_ACTION_ID, RETURN_TO_SPAWN_COOLDOWN_TICKS, formatDisplayInteger, resolvePlayerFacingContentName } from '@mud/shared';
 import { MapTemplateRepository } from '../../map/map-template.repository';
 import { PlayerRuntimeService } from '../../player/player-runtime.service';
+import { resolveCompiledBuildingDefinition } from '../../building/building-definition-resolution.helpers';
 import { WorldRuntimeNpcQuestInteractionQueryService } from './world-runtime-npc-quest-interaction-query.service';
 import * as world_runtime_normalization_helpers_1 from '../world-runtime.normalization.helpers';
 import * as world_runtime_path_planning_helpers_1 from '../world-runtime.path-planning.helpers';
@@ -438,24 +439,20 @@ function isTreasureVaultBuilding(instance, building) {
     if (!building || building.state !== 'active') {
         return false;
     }
-    if (building.defId === 'treasure_vault' || building.defHandle === 'treasure_vault') {
-        return true;
-    }
-    const compiled = instance?.buildingCatalog?.defByHandle?.[building.defHandle]
-        ?? instance?.buildingCatalog?.defById?.get?.(building.defId);
-    return Math.max(0, Math.trunc(Number(compiled?.treasureVaultCapacity) || 0)) > 0;
+    const compiled = resolveCompiledBuildingDefinition(instance?.buildingCatalog, building);
+    return building.defId === 'treasure_vault'
+        || compiled?.id === 'treasure_vault'
+        || Math.max(0, Math.trunc(Number(compiled?.treasureVaultCapacity) || 0)) > 0;
 }
 
 function isTimeChamberBuilding(instance, building) {
     if (!building || building.state !== 'active') {
         return false;
     }
-    if (building.defId === 'time_chamber' || building.defHandle === 'time_chamber') {
-        return true;
-    }
-    const compiled = instance?.buildingCatalog?.defByHandle?.[building.defHandle]
-        ?? instance?.buildingCatalog?.defById?.get?.(building.defId);
-    return Math.max(0, Math.trunc(Number(compiled?.timeChamberDefaultCapacity) || 0)) > 0;
+    const compiled = resolveCompiledBuildingDefinition(instance?.buildingCatalog, building);
+    return building.defId === 'time_chamber'
+        || compiled?.id === 'time_chamber'
+        || Math.max(0, Math.trunc(Number(compiled?.timeChamberDefaultCapacity) || 0)) > 0;
 }
 
 function appendEquippedContextActions(actions, player) {

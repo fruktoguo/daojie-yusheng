@@ -27,6 +27,7 @@ import { SocialRuntimeService } from '../social/social-runtime.service';
 import { MailRuntimeService } from '../mail/mail-runtime.service';
 import { resolvePlayerDisplayName } from '../player/player-display-name';
 import { compareInventoryItems } from '../player/inventory-sort.helpers';
+import { resolveCompiledBuildingDefinition } from './building-definition-resolution.helpers';
 
 const TREASURE_VAULT_STORAGE_TABLE = 'instance_building_storage_item';
 const PLAYER_MAIL_TABLE = 'player_mail';
@@ -882,20 +883,19 @@ function normalizePermissionMap(input: unknown, fallback: TreasureVaultPermissio
 }
 
 function isTreasureVaultBuilding(instance: any, building: any): boolean {
-  if (building?.defId === TREASURE_VAULT_DEF_ID || building?.defHandle === TREASURE_VAULT_DEF_ID) {
-    return true;
-  }
-  const compiled = instance?.buildingCatalog?.defByHandle?.[building?.defHandle] ?? instance?.buildingCatalog?.defById?.get?.(building?.defId);
-  return Math.max(0, Math.trunc(Number(compiled?.treasureVaultCapacity) || 0)) > 0;
+  const compiled = resolveCompiledBuildingDefinition(instance?.buildingCatalog, building);
+  return building?.defId === TREASURE_VAULT_DEF_ID
+    || compiled?.id === TREASURE_VAULT_DEF_ID
+    || Math.max(0, Math.trunc(Number(compiled?.treasureVaultCapacity) || 0)) > 0;
 }
 
 function resolveVaultCapacity(instance: any, building: any): number {
-  const compiled = instance?.buildingCatalog?.defByHandle?.[building?.defHandle] ?? instance?.buildingCatalog?.defById?.get?.(building?.defId);
+  const compiled = resolveCompiledBuildingDefinition(instance?.buildingCatalog, building);
   return Math.max(0, Math.trunc(Number(compiled?.treasureVaultCapacity) || (isTreasureVaultBuilding(instance, building) ? DEFAULT_TREASURE_VAULT_CAPACITY : 0)));
 }
 
 function resolveBuildingName(instance: any, building: any): string {
-  const compiled = instance?.buildingCatalog?.defByHandle?.[building?.defHandle] ?? instance?.buildingCatalog?.defById?.get?.(building?.defId);
+  const compiled = resolveCompiledBuildingDefinition(instance?.buildingCatalog, building);
   return resolvePlayerFacingContentName(building?.defId, '宝库', building?.name, compiled?.name);
 }
 

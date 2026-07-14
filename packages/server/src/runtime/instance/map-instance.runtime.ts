@@ -17,6 +17,7 @@ import { BuildingTopologyIndex } from '../building/building-topology-index.servi
 import { createRuntimeTilePlaneRoomCellProvider, detectRooms, isRoomTopologyTileType, isStaticRoomBoundaryTile } from '../building/room-detection.service';
 import { calculateFengShuiSnapshot, inferRoomRole } from '../building/fengshui-calculator.service';
 import { getDefaultBuildingRuntime } from '../building/building-default-content';
+import { resolveCompiledBuildingDefinition } from '../building/building-definition-resolution.helpers';
 import { CombatPendingCastCancelReason, cancelPendingCombatCast, createMonsterPendingCombatCast, createMonsterSkillActionFromPendingCast, createMonsterSkillCancelActionFromPendingCast, resolvePendingCombatCastCancellation } from '../combat/pending-combat-cast.helpers';
 import { createRuntimeTemporaryBuff, refreshRuntimeTemporaryBuffPrototype } from '../player/runtime-buff-instance';
 import { canPlayerIgnoreStaticObstacle as canPlayerIgnoreStaticObstacleFromState } from '../player/player-movement-capability.helpers';
@@ -1754,9 +1755,7 @@ class MapInstanceRuntime {
             return { ok: false, reason: 'building_not_found' };
         }
         const building = this.buildingById.get(buildingId);
-        const compiled = building && this.buildingCatalog?.defByHandle
-            ? this.buildingCatalog.defByHandle[building.defHandle] ?? this.buildingCatalog.defById?.get?.(building.defId)
-            : null;
+        const compiled = resolveCompiledBuildingDefinition(this.buildingCatalog, building);
         if (isTreasureVaultBuildingForRuntime(compiled, building) && options?.treasureVaultRecovered !== true) {
             return { ok: false, reason: 'treasure_vault_recovery_required' };
         }
@@ -1812,12 +1811,12 @@ class MapInstanceRuntime {
         this.buildingTopologyIndex = new BuildingTopologyIndex(capacity);
         this.buildingIdByCell.clear();
         const catalog = this.buildingCatalog;
-        if (catalog?.defByHandle) {
+        if (catalog) {
         for (const [buildingId, building] of this.buildingById.entries()) {
                 if (!building || !buildingUsesActiveTopology(building)) {
                     continue;
                 }
-                const compiled = catalog.defByHandle[building.defHandle] ?? catalog.defById?.get?.(building.defId);
+                const compiled = resolveCompiledBuildingDefinition(catalog, building);
                 const cells = this.buildingCellsById.get(buildingId) ?? [];
                 if (!compiled || cells.length === 0) {
                     continue;
@@ -1846,9 +1845,7 @@ class MapInstanceRuntime {
     applyBuildingTopologyForBuilding(buildingId) {
         const building = this.buildingById.get(buildingId);
         const catalog = this.buildingCatalog;
-        const compiled = building && catalog?.defByHandle
-            ? catalog.defByHandle[building.defHandle] ?? catalog.defById?.get?.(building.defId)
-            : null;
+        const compiled = resolveCompiledBuildingDefinition(catalog, building);
         const cells = this.buildingCellsById.get(buildingId) ?? [];
         if (!building || !compiled || cells.length === 0 || !buildingUsesActiveTopology(building)) {
             return false;
@@ -1871,7 +1868,7 @@ class MapInstanceRuntime {
         const cellIndex = Math.trunc(Number(cellIndexInput));
         const layerId = Math.max(0, Math.trunc(Number(layerIdInput) || 0));
         const catalog = this.buildingCatalog;
-        if (!Number.isFinite(cellIndex) || cellIndex < 0 || layerId <= 0 || !catalog?.defByHandle) {
+        if (!Number.isFinite(cellIndex) || cellIndex < 0 || layerId <= 0 || !catalog) {
             return false;
         }
         const candidateIds = new Set(this.buildingIdByCell.get(cellIndex) ?? []);
@@ -1888,7 +1885,7 @@ class MapInstanceRuntime {
             if (!building || building.state === 'destroyed') {
                 continue;
             }
-            const compiled = catalog.defByHandle[building.defHandle] ?? catalog.defById?.get?.(building.defId);
+            const compiled = resolveCompiledBuildingDefinition(catalog, building);
             if (compiled?.layerId === layerId) {
                 return true;
             }
@@ -1898,7 +1895,7 @@ class MapInstanceRuntime {
     /** rebuildBuildingTopologyCells：只重建受影响 cell 的拓扑聚合。 */
     rebuildBuildingTopologyCells(cellIndices) {
         const catalog = this.buildingCatalog;
-        if (!this.buildingTopologyIndex || !catalog?.defByHandle) {
+        if (!this.buildingTopologyIndex || !catalog) {
             return { repairedCellCount: 0, orphanReferenceCount: 0 };
         }
         let repairedCellCount = 0;
@@ -1920,7 +1917,7 @@ class MapInstanceRuntime {
                     orphanReferenceCount += 1;
                     continue;
                 }
-                const compiled = catalog.defByHandle[building.defHandle] ?? catalog.defById?.get?.(building.defId);
+                const compiled = resolveCompiledBuildingDefinition(catalog, building);
                 if (!compiled) {
                     orphanReferenceCount += 1;
                     continue;
@@ -2269,14 +2266,14 @@ class MapInstanceRuntime {
             }
         }
         const catalog = this.buildingCatalog;
-        if (!catalog?.defByHandle) {
+        if (!catalog) {
             return aggregates;
         }
         const buildingEntries = selectedRoomIds
             ? this.collectBuildingEntriesForRoomAggregate(selectedRoomIds)
             : Array.from(this.buildingById.entries());
         for (const [buildingId, building] of buildingEntries) {
-            const compiled = catalog.defByHandle[building.defHandle] ?? catalog.defById?.get?.(building.defId);
+            const compiled = resolveCompiledBuildingDefinition(catalog, building);
             if (!compiled) {
                 continue;
             }
@@ -2376,8 +2373,7 @@ class MapInstanceRuntime {
             if (!building || !buildingUsesActiveTopology(building)) {
                 continue;
             }
-            const compiled = this.buildingCatalog?.defByHandle?.[building.defHandle]
-                ?? this.buildingCatalog?.defById?.get?.(building.defId);
+            const compiled = resolveCompiledBuildingDefinition(this.buildingCatalog, building);
             if (!compiled?.visualTileType) {
                 continue;
             }
@@ -2540,10 +2536,15 @@ class MapInstanceRuntime {
         return snapshot ? Math.trunc((Number(snapshot.score) || 0) / 10) : 0;
     }
     buildBuildingPersistenceEntries() {
-        return Array.from(this.buildingById.values()).map((building) => ({
-            ...building,
-            cells: this.buildBuildingCellPersistenceEntries(building.id),
-        }));
+        return Array.from(this.buildingById.values()).map((building) => {
+            const persistedBuilding = { ...building };
+            // defHandle 仅是当前内容目录的进程内索引，持久化身份始终使用 defId。
+            delete persistedBuilding.defHandle;
+            return {
+                ...persistedBuilding,
+                cells: this.buildBuildingCellPersistenceEntries(building.id),
+            };
+        });
     }
     buildBuildingCellPersistenceEntries(buildingId) {
         const previousTileTypeByCell = new Map(this.buildingPreviousTileTypeById.get(buildingId) ?? []);
@@ -2690,7 +2691,7 @@ class MapInstanceRuntime {
                 restoredSkippedBuildingTileCellCount += restoreSkippedPersistedBuildingTileCells(this, entry?.cells, skippedCells);
                 continue;
             }
-            const defHandle = Math.max(0, Math.trunc(Number(entry?.defHandle) || compiled?.handle || 0));
+            const defHandle = Math.max(0, Math.trunc(Number(compiled?.handle) || 0));
             const building = {
                 id,
                 name: typeof entry?.name === 'string' && entry.name.trim() ? entry.name.trim() : undefined,
@@ -2772,8 +2773,7 @@ class MapInstanceRuntime {
             }
         }
         for (const building of this.buildingById.values()) {
-            const compiled = this.buildingCatalog?.defByHandle?.[building.defHandle]
-                ?? this.buildingCatalog?.defById?.get?.(building.defId);
+            const compiled = resolveCompiledBuildingDefinition(this.buildingCatalog, building);
             if (!compiled?.visualTileType || !buildingUsesActiveTopology(building)) {
                 continue;
             }
@@ -2800,7 +2800,7 @@ class MapInstanceRuntime {
                 ...(tileCellRecoveryRequired ? ['tile_cell'] : []),
             ]);
         }
-        if (this.buildingCatalog?.defByHandle) {
+        if (this.buildingCatalog) {
             this.rebuildBuildingRoomFengShuiState();
             return { buildingCount: this.buildingById.size, rebuilt: true, skippedUnknownDefCount, skippedProtectedPlacementCount, restoredSkippedBuildingTileCellCount, skippedBuildings, keptProtectedPlacementCount, repairedBuildingCellCount, repairedBuildingVisualCellCount, restoredStaleBuildingVisualCellCount };
         }
@@ -2944,9 +2944,7 @@ class MapInstanceRuntime {
         return [];
     }
     activatePlacedBuildingTopologyAndVisual(building) {
-        const compiled = building && this.buildingCatalog?.defByHandle
-            ? this.buildingCatalog.defByHandle[building.defHandle] ?? this.buildingCatalog.defById?.get?.(building.defId)
-            : null;
+        const compiled = resolveCompiledBuildingDefinition(this.buildingCatalog, building);
         const cells = building ? (this.buildingCellsById.get(building.id) ?? []) : [];
         if (!building || !compiled || cells.length === 0) {
             return [];
@@ -3378,7 +3376,7 @@ class MapInstanceRuntime {
             if (!building || building.state === 'destroyed') {
                 continue;
             }
-            const compiled = this.buildingCatalog?.defByHandle?.[building.defHandle] ?? this.buildingCatalog?.defById?.get?.(building.defId);
+            const compiled = resolveCompiledBuildingDefinition(this.buildingCatalog, building);
             result.push({ building, compiled });
         }
         result.sort((left, right) => String(left.building?.id ?? '').localeCompare(String(right.building?.id ?? ''), 'zh-CN'));
@@ -3397,7 +3395,7 @@ class MapInstanceRuntime {
             if (!building || !buildingUsesActiveTopology(building)) {
                 continue;
             }
-            const compiled = this.buildingCatalog?.defByHandle?.[building.defHandle] ?? this.buildingCatalog?.defById?.get?.(building.defId);
+            const compiled = resolveCompiledBuildingDefinition(this.buildingCatalog, building);
             if (!compiled) {
                 continue;
             }
@@ -4063,7 +4061,7 @@ class MapInstanceRuntime {
             if (!building || !buildingUsesActiveTopology(building)) {
                 continue;
             }
-            const compiled = this.buildingCatalog?.defByHandle?.[building.defHandle] ?? this.buildingCatalog?.defById?.get?.(building.defId);
+            const compiled = resolveCompiledBuildingDefinition(this.buildingCatalog, building);
             const maxHp = Math.max(1, Math.trunc(Number(building.maxHp) || Number(compiled?.maxHp) || 1));
             const rawHp = Number(building.hp);
             const hp = Number.isFinite(rawHp)
@@ -6706,7 +6704,7 @@ class MapInstanceRuntime {
         const visibility = this.normalizeVisibilityFilter(visibleTileVisibility);
         const buildings = [];
         for (const building of this.buildingById.values()) {
-            const compiled = this.buildingCatalog?.defByHandle?.[building.defHandle] ?? this.buildingCatalog?.defById?.get?.(building.defId);
+            const compiled = resolveCompiledBuildingDefinition(this.buildingCatalog, building);
             if (!shouldProjectLocalBuilding(building, compiled)) {
                 continue;
             }
@@ -9666,17 +9664,15 @@ function buildingUsesActiveTopology(buildingOrState) {
 }
 
 function isTreasureVaultBuildingForRuntime(compiled, building) {
-    if (building?.defId === 'treasure_vault' || building?.defHandle === 'treasure_vault') {
-        return true;
-    }
-    return Math.max(0, Math.trunc(Number(compiled?.treasureVaultCapacity) || 0)) > 0;
+    return building?.defId === 'treasure_vault'
+        || compiled?.id === 'treasure_vault'
+        || Math.max(0, Math.trunc(Number(compiled?.treasureVaultCapacity) || 0)) > 0;
 }
 
 function isTimeChamberBuildingForRuntime(compiled, building) {
-    if (building?.defId === 'time_chamber' || building?.defHandle === 'time_chamber') {
-        return true;
-    }
-    return Math.max(0, Math.trunc(Number(compiled?.timeChamberDefaultCapacity) || 0)) > 0;
+    return building?.defId === 'time_chamber'
+        || compiled?.id === 'time_chamber'
+        || Math.max(0, Math.trunc(Number(compiled?.timeChamberDefaultCapacity) || 0)) > 0;
 }
 function resolveBuildingCombatTileType(building, compiled) {
     if (typeof compiled?.visualTileType === 'string' && compiled.visualTileType.trim()) {

@@ -4683,6 +4683,8 @@ function normalizeBuildingPersistenceRow(value: unknown): Record<string, unknown
     'building_id',
     'defId',
     'def_id',
+    'defHandle',
+    'def_handle',
     'x',
     'y',
     'rotation',
@@ -4703,6 +4705,9 @@ function normalizeBuildingPersistenceRow(value: unknown): Record<string, unknown
     'revision',
     'payload',
   ]);
+  // 旧行可能从 payload 回读出漂移句柄；新快照必须主动清除，避免再次写回。
+  delete payload.defHandle;
+  delete payload.def_handle;
   return {
     building_id: buildingId,
     def_id: defId,

@@ -826,7 +826,11 @@ async function main(): Promise<void> {
     assert.equal(loadedBuildingRoomFengShuiState.buildings.length, 1);
     assert.equal(loadedBuildingRoomFengShuiState.buildings[0]?.id, 'building:stone_wall:1');
     assert.equal(loadedBuildingRoomFengShuiState.buildings[0]?.defId, 'stone_wall');
-    assert.equal(loadedBuildingRoomFengShuiState.buildings[0]?.defHandle, 7);
+    assert.equal(
+      Object.prototype.hasOwnProperty.call(loadedBuildingRoomFengShuiState.buildings[0], 'defHandle'),
+      false,
+      '建筑定义句柄是进程内派生索引，不得写回持久化 payload',
+    );
     assert.deepEqual(loadedBuildingRoomFengShuiState.buildings[0]?.treasureVaultPermissions, {
       view: ['all', 'sect'],
       deposit: ['party'],

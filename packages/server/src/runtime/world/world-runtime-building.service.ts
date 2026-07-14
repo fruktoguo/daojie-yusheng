@@ -8,6 +8,7 @@
  * 处理建筑放置、拆除、建造进度、材料消耗和风水计算
  */
 import { BUILDING_MAX_BUILD_TICKS, calculateTerrainDurability, hasBuildMaterialCategory, isGenericBuildMaterialSlotItemId, resolveGenericBuildMaterialSlotCategory, resolvePlayerFacingContentName } from '@mud/shared';
+import { resolveCompiledBuildingDefinition } from '../building/building-definition-resolution.helpers';
 import { resolveCraftSkillExpToNextByLevel } from '../craft/craft-skill-exp.helpers';
 import { executeBuildingTick } from '../craft/pipeline/strategies/building-tick.helpers';
 import { buildStructuredNotice } from './structured-notice.helpers';
@@ -289,21 +290,17 @@ async function recoverTreasureVaultItemsBeforeDeconstruct(runtime, instance, bui
 }
 
 function isTreasureVaultBuilding(instance, building) {
-    if (building?.defId === 'treasure_vault' || building?.defHandle === 'treasure_vault') {
-        return true;
-    }
-    const compiled = instance?.buildingCatalog?.defByHandle?.[building?.defHandle]
-        ?? instance?.buildingCatalog?.defById?.get?.(building?.defId);
-    return Math.max(0, Math.trunc(Number(compiled?.treasureVaultCapacity) || 0)) > 0;
+    const compiled = resolveCompiledBuildingDefinition(instance?.buildingCatalog, building);
+    return building?.defId === 'treasure_vault'
+        || compiled?.id === 'treasure_vault'
+        || Math.max(0, Math.trunc(Number(compiled?.treasureVaultCapacity) || 0)) > 0;
 }
 
 function isTimeChamberBuilding(instance, building) {
-    if (building?.defId === 'time_chamber' || building?.defHandle === 'time_chamber') {
-        return true;
-    }
-    const compiled = instance?.buildingCatalog?.defByHandle?.[building?.defHandle]
-        ?? instance?.buildingCatalog?.defById?.get?.(building?.defId);
-    return Math.max(0, Math.trunc(Number(compiled?.timeChamberDefaultCapacity) || 0)) > 0;
+    const compiled = resolveCompiledBuildingDefinition(instance?.buildingCatalog, building);
+    return building?.defId === 'time_chamber'
+        || compiled?.id === 'time_chamber'
+        || Math.max(0, Math.trunc(Number(compiled?.timeChamberDefaultCapacity) || 0)) > 0;
 }
 
 export function listBuildingOperationAudit(runtime, limit = 50) {
@@ -603,8 +600,7 @@ function resolveBuildingDisplayName(instance, building) {
     if (typeof building?.name === 'string' && building.name.trim()) {
         return building.name.trim();
     }
-    const compiled = instance?.buildingCatalog?.defByHandle?.[building?.defHandle]
-        ?? instance?.buildingCatalog?.defById?.get?.(building?.defId);
+    const compiled = resolveCompiledBuildingDefinition(instance?.buildingCatalog, building);
     return typeof compiled?.name === 'string' && compiled.name.trim()
         ? compiled.name.trim()
         : (typeof building?.defId === 'string' ? building.defId : null);

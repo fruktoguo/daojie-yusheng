@@ -24,6 +24,7 @@ import type { TechniqueActivityStrategy, PipelineContext, PersistenceDomain } fr
 import { applyPlayerCraftExpRate, resolvePlayerCraftEffectStat } from '../../craft-effect-runtime.helpers';
 import { advanceTechniqueActivityPause } from '../../technique-activity-runtime.helpers';
 import { resolvePlayerDisplayName as resolveRuntimePlayerDisplayName } from '../../../player/player-display-name';
+import { resolveCompiledBuildingDefinition } from '../../../building/building-definition-resolution.helpers';
 
 type TransmissionValidatedPayload = {
   mode?: 'transmission' | 'scripture_recording' | 'scripture_contemplation';
@@ -1061,8 +1062,7 @@ function resolveStandingBuildingTransmissionSpeedRate(player: any, ctx: Pipeline
     if (!building || building.state !== 'active') {
       continue;
     }
-    const compiled = instance.buildingCatalog?.defByHandle?.[building.defHandle]
-      ?? instance.buildingCatalog?.defById?.get?.(building.defId);
+    const compiled = resolveCompiledBuildingDefinition(instance.buildingCatalog, building);
     speedRate += Math.max(0, readCraftEffectStat(compiled?.craftEffectStats, 'transmission', 'speedRate'));
   }
   return speedRate;
