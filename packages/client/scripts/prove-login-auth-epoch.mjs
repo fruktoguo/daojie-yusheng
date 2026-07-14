@@ -274,7 +274,13 @@ async function verifyDuplicateLoginIsSuppressed(LoginUI, authApi) {
   respond(pendingRequests[0], authToken('single-login'));
   await waitFor(() => authApi.getAccessToken() === 'single-login-access', '唯一登录请求未生效');
   assert.deepEqual(harness.connections, ['single-login-access'], '唯一登录请求应建立一次连接');
-  assert.equal(harness.elements['btn-auth-submit'].disabled, false, '认证完成后应恢复提交按钮');
+  assert.equal(harness.elements['login-overlay'].classList.contains('hidden'), false, '收到 Bootstrap 前必须保留登录阻断层');
+  assert.equal(harness.elements.hud.classList.contains('hidden'), true, '收到 Bootstrap 前不得提前显示 HUD');
+  assert.equal(harness.elements['btn-auth-submit'].disabled, true, '等待 Bootstrap 时不得重复提交登录');
+
+  harness.ui.hide();
+  assert.equal(harness.elements['login-overlay'].classList.contains('hidden'), true, 'Bootstrap 完成后才允许关闭登录阻断层');
+  assert.equal(harness.elements['btn-auth-submit'].disabled, false, 'Bootstrap 完成后应恢复登录控件');
 }
 
 async function verifyFailedLoginRestoresControls(LoginUI, authApi) {

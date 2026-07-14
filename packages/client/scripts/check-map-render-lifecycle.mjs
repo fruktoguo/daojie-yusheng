@@ -79,6 +79,24 @@ const {
 } = loadTypeScriptModule('src/game-map/renderer/pixi-terrain-cache-signatures.ts');
 const combatEffectLayout = loadTypeScriptModule('src/renderer/combat-effect-layout.ts');
 const shared = nodeRequire(path.join(repoRoot, 'packages/shared/dist/index.js'));
+const rootRuntimeSource = read('src/main-root-runtime-source.ts');
+const runtimeDeltaSource = read('src/main-runtime-delta-state-source.ts');
+
+assert.match(
+  rootRuntimeSource,
+  /char:\s*getFirstGrapheme\(displayName\)\s*\|\|\s*undefined/,
+  '设置页更新显示图标时必须保留完整 emoji grapheme',
+);
+assert.doesNotMatch(
+  rootRuntimeSource,
+  /char:\s*\[\.\.\.displayName\]\[0\]/,
+  '显示图标不得按 Unicode code point 截断 ZWJ emoji',
+);
+assert.match(
+  runtimeDeltaSource,
+  /return getSharedFirstGrapheme\(normalized\) \|\| fallback;/,
+  '运行时增量 fallback 必须复用 shared grapheme 分段',
+);
 
 assert.deepEqual(
   shared.resolveSenseQiOverlaySignal(2_250, [], 1_000),

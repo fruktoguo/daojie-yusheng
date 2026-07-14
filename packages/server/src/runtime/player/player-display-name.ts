@@ -53,6 +53,53 @@ export function resolvePlayerDisplayName(
   return fallback && fallback !== playerId && !isPlayerIdLikeDisplayText(fallback) ? fallback : '未知玩家';
 }
 
+/** 解析角色名，不允许把自定义显示图标误投影成玩家名称。 */
+export function resolvePlayerRoleName(
+  source: PlayerDisplayNameSource | null | undefined,
+  options: {
+    playerId?: unknown;
+    fallback?: string;
+  } = {},
+): string {
+  const playerId = normalizeDisplayNameText(options.playerId)
+    || normalizeDisplayNameText(source?.playerId)
+    || normalizeDisplayNameText(source?.id);
+  const candidates = [
+    source?.playerName,
+    source?.roleName,
+    source?.pendingRoleName,
+    source?.name,
+    source?.username,
+  ];
+  for (const candidate of candidates) {
+    const normalized = normalizeDisplayNameText(candidate);
+    if (normalized && normalized !== playerId && !isPlayerIdLikeDisplayText(normalized)) {
+      return normalized;
+    }
+  }
+  const fallback = normalizeDisplayNameText(options.fallback);
+  return fallback && fallback !== playerId && !isPlayerIdLikeDisplayText(fallback) ? fallback : '未知玩家';
+}
+
+/** 解析玩家自定义显示图标，保留 emoji/ZWJ grapheme，不以角色名覆盖有效值。 */
+export function resolvePlayerAvatarDisplayName(
+  source: PlayerDisplayNameSource | null | undefined,
+  options: {
+    playerId?: unknown;
+    fallback?: string;
+  } = {},
+): string {
+  const playerId = normalizeDisplayNameText(options.playerId)
+    || normalizeDisplayNameText(source?.playerId)
+    || normalizeDisplayNameText(source?.id);
+  const displayName = normalizeDisplayNameText(source?.displayName);
+  if (displayName && displayName !== playerId && !isPlayerIdLikeDisplayText(displayName)) {
+    return displayName;
+  }
+  const fallback = normalizeDisplayNameText(options.fallback);
+  return fallback && fallback !== playerId && !isPlayerIdLikeDisplayText(fallback) ? fallback : '修士';
+}
+
 export function resolveSectMemberDisplayName(source: PlayerDisplayNameSource | null | undefined, playerId?: unknown): string {
   return resolvePlayerDisplayName(source, { playerId, fallback: '未知成员' });
 }

@@ -5,7 +5,13 @@
  */
 import type { SocketManager } from './network/socket';
 import { t } from './ui/i18n';
-import { S2C, type ServerToClientEventPayload } from '@mud/shared';
+import {
+  S2C,
+  SOCKET_AUTH_FAIL_CODE,
+  SOCKET_BOOTSTRAP_REDIRECT_CODE,
+  SOCKET_BOOTSTRAP_UNAVAILABLE_CODE,
+  type ServerToClientEventPayload,
+} from '@mud/shared';
 /**
  * MainConnectionStateSourceOptions：统一结构类型，保证协议与运行时一致性。
  */
@@ -111,7 +117,12 @@ export type MainConnectionStateSource = ReturnType<typeof createMainConnectionSt
 
 
 export function createMainConnectionStateSource(options: MainConnectionStateSourceOptions) {
+  let suppressNextBootstrapFailureDisconnectRecovery = false;
   return {  
+    /** 当前 socket 已完整消费 Bootstrap，清除旧连接遗留的失败断线抑制。 */
+    handleBootstrapReady(): void {
+      suppressNextBootstrapFailureDisconnectRecovery = false;
+    },
   /**
  * handleError：处理Error并更新相关状态。
  * @param data { code?: string; message: string } 原始数据。
@@ -138,11 +149,23 @@ export function createMainConnectionStateSource(options: MainConnectionStateSour
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
       const redirectUrl = typeof data.redirectUrl === 'string' ? data.redirectUrl.trim() : '';
-      if (data.code === 'AUTH_FAIL') {
+      if (data.code === SOCKET_BOOTSTRAP_REDIRECT_CODE) {
         if (redirectUrl && options.redirectConnection(redirectUrl)) {
           options.renderPingLatency(null, t('connection.status.redirecting', undefined));
           return;
         }
+        suppressNextBootstrapFailureDisconnectRecovery = true;
+        options.resetGameState();
+        options.showLogin(t('connection.bootstrap.unavailable', undefined));
+        return;
+      }
+      if (data.code === SOCKET_BOOTSTRAP_UNAVAILABLE_CODE) {
+        suppressNextBootstrapFailureDisconnectRecovery = true;
+        options.resetGameState();
+        options.showLogin(t('connection.bootstrap.unavailable', undefined));
+        return;
+      }
+      if (data.code === SOCKET_AUTH_FAIL_CODE) {
         const restored = await options.restoreSession();
         if (restored) {
           return;
@@ -217,10 +240,17 @@ export function createMainConnectionStateSource(options: MainConnectionStateSour
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
       if (reason === 'io client disconnect') {
+        suppressNextBootstrapFailureDisconnectRecovery = false;
         return;
       }
       options.rejectPendingRedeemCodes(t('connection.redeem.disconnected', undefined));
       options.clearPendingSocketPing();
+      if (suppressNextBootstrapFailureDisconnectRecovery) {
+        suppressNextBootstrapFailureDisconnectRecovery = false;
+        options.renderPingLatency(null, t('connection.bootstrap.unavailable', undefined));
+        options.setPanelRuntimeDisconnected();
+        return;
+      }
       options.renderPingLatency(null, navigator.onLine
         ? t('connection.status.restoring', undefined)
         : t('connection.status.offline', undefined));

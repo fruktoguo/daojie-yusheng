@@ -308,7 +308,7 @@ async function main() {
     },
     self: { x: 4, y: 5, facing: Direction.East, name: "阵法测试", displayName: "阵" },
     visiblePlayers: [
-      { playerId: "player:visible", name: "凌梦雨", displayName: "凌", x: 5, y: 5, facing: Direction.East },
+      { playerId: "player:visible", name: "凌梦雨", displayName: "👨‍👩‍👧", x: 5, y: 5, facing: Direction.East },
       { playerId: "player:legacy-placeholder", name: "旧档修士", displayName: "@", x: 6, y: 5, facing: Direction.East },
       { playerId: "p_28be0b16-0f11-4583-a397-bb7741016e75_1773932128803", name: "p_28be0b16-0f11-4583-a397-bb7741016e75_1773932128803", displayName: "p_28be0b16-0f11-4583-a397-bb7741016e75_1773932128803", x: 7, y: 5, facing: Direction.East },
     ],
@@ -326,7 +326,7 @@ async function main() {
   assert.equal(selfProjection.n, "阵法测试");
   assert.equal(selfProjection.ch, "阵");
   assert.equal(visibleProjection.n, "凌梦雨");
-  assert.equal(visibleProjection.ch, "凌");
+  assert.equal(visibleProjection.ch, "👨‍👩‍👧");
   assert.equal(legacyProjection.n, "旧档修士");
   assert.equal(legacyProjection.ch, "旧");
   assert.equal(idOnlyProjection.n, "修士");

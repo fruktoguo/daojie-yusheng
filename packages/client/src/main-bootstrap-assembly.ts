@@ -365,6 +365,7 @@ type MainBootstrapAssemblyOptions = {
 
   connectionStateSource: Pick<
     MainConnectionStateSource,
+    | 'handleBootstrapReady'
     | 'handleError'
     | 'handleKick'
     | 'handleConnectError'
@@ -755,8 +756,9 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
   bindMainHighFrequencySocketEvents({
     socket: options.socket,
     onBootstrap: (data) => {
-      options.loginUI.hide();
       options.runtimeStateSource.handleBootstrap(data);
+      options.connectionStateSource.handleBootstrapReady();
+      options.loginUI.hide();
       completeOfflineGainBlockingConfirmation();
     },
     onInitSession: (data) => options.runtimeStateSource.handleInitSession(data),

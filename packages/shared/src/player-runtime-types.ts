@@ -71,14 +71,10 @@ export interface PlayerState {
  */
 
   id: string;
-  /**
- * name：名称名称或显示文本。
- */
+  /** 角色名，用于名称标签、社交列表等需要识别玩家的场景。 */
 
   name: string;
-  /**
- * displayName：显示名称名称或显示文本。
- */
+  /** 玩家自定义显示图标；地图渲染取完整的首个 grapheme，缺失时回退角色名。 */
 
   displayName?: string;
   /**

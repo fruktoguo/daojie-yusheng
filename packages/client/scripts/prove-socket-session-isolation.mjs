@@ -54,6 +54,9 @@ const S2C = {
   SelfDelta: 'sync:self',
   PanelDelta: 'sync:panel',
 };
+const SOCKET_AUTH_FAIL_CODE = 'AUTH_FAIL';
+const SOCKET_BOOTSTRAP_REDIRECT_CODE = 'BOOTSTRAP_REDIRECT';
+const SOCKET_BOOTSTRAP_UNAVAILABLE_CODE = 'BOOTSTRAP_UNAVAILABLE';
 
 const originalSetInterval = globalThis.setInterval;
 const originalClearInterval = globalThis.clearInterval;
@@ -170,8 +173,17 @@ try {
 
   const { createMainConnectionStateSource } = loadTypeScriptModule(connectionStatePath, {
     './ui/i18n': { t: (key) => key },
+    '@mud/shared': {
+      S2C,
+      SOCKET_AUTH_FAIL_CODE,
+      SOCKET_BOOTSTRAP_REDIRECT_CODE,
+      SOCKET_BOOTSTRAP_UNAVAILABLE_CODE,
+    },
   });
   let redirectCount = 0;
+  let restoreCount = 0;
+  let resetCount = 0;
+  let showLoginCount = 0;
   let rejectPendingCount = 0;
   let clearPingCount = 0;
   let markDisconnectedCount = 0;
@@ -179,14 +191,17 @@ try {
   let lastPingStatus = null;
   const connectionState = createMainConnectionStateSource({
     socket: { connected: false },
-    restoreSession: async () => false,
+    restoreSession: async () => {
+      restoreCount += 1;
+      return false;
+    },
     redirectConnection: () => {
       redirectCount += 1;
       return true;
     },
     hasRefreshToken: () => true,
-    resetGameState: () => undefined,
-    showLogin: () => undefined,
+    resetGameState: () => { resetCount += 1; },
+    showLogin: () => { showLoginCount += 1; },
     showToast: () => undefined,
     logout: () => undefined,
     rejectPendingRedeemCodes: () => { rejectPendingCount += 1; },
@@ -199,17 +214,39 @@ try {
     handlePong: () => undefined,
   });
   await connectionState.handleError({
-    code: 'AUTH_FAIL',
+    code: SOCKET_BOOTSTRAP_REDIRECT_CODE,
     message: 'redirect',
     redirectUrl: 'https://next.example.test',
   });
-  assert.equal(redirectCount, 1, 'AUTH_FAIL 重定向应切换一次连接');
+  assert.equal(redirectCount, 1, 'bootstrap 重定向应切换一次连接');
+  assert.equal(restoreCount, 0, '节点重定向不得刷新认证令牌');
+  await connectionState.handleError({
+    code: SOCKET_BOOTSTRAP_UNAVAILABLE_CODE,
+    message: 'runtime unavailable',
+  });
+  assert.equal(restoreCount, 0, '运行时引导失败不得刷新认证令牌');
+  assert.equal(resetCount, 1, '运行时引导失败应清理未完成的游戏壳状态');
+  assert.equal(showLoginCount, 1, '运行时引导失败应保持登录阻断层可见');
   connectionState.handleDisconnect('transport close');
-  assert.equal(rejectPendingCount, 1, '重定向完成后的真实断线仍应清理待决请求');
-  assert.equal(clearPingCount, 1, '重定向完成后的真实断线仍应清理心跳请求');
-  assert.equal(lastPingStatus, 'connection.status.restoring', '在线环境的真实断线应进入恢复状态');
+  assert.equal(rejectPendingCount, 1, '引导失败后的断线仍应清理待决请求');
+  assert.equal(clearPingCount, 1, '引导失败后的断线仍应清理心跳请求');
+  assert.equal(lastPingStatus, 'connection.bootstrap.unavailable', '引导失败后的断线不得伪装成会话恢复');
   assert.equal(markDisconnectedCount, 1, '重定向完成后的真实断线仍应更新面板状态');
-  assert.equal(recoveryCount, 1, '重定向完成后的真实断线仍应调度恢复');
+  assert.equal(recoveryCount, 0, '服务端明确拒绝 bootstrap 后不得立即进入无效重连循环');
+  await connectionState.handleError({
+    code: SOCKET_BOOTSTRAP_UNAVAILABLE_CODE,
+    message: 'stale runtime unavailable',
+  });
+  connectionState.handleBootstrapReady();
+  connectionState.handleDisconnect('transport close');
+  assert.equal(lastPingStatus, 'connection.status.restoring', '新连接 Bootstrap 成功后不得沿用旧失败的断线抑制');
+  assert.equal(markDisconnectedCount, 2, '新连接后续真实断线仍应更新面板状态');
+  assert.equal(recoveryCount, 1, '新连接 Bootstrap 成功后应恢复正常断线重连');
+  await connectionState.handleError({
+    code: SOCKET_AUTH_FAIL_CODE,
+    message: 'token expired',
+  });
+  assert.equal(restoreCount, 1, '只有明确认证失败才应刷新认证令牌');
 } finally {
   globalThis.setInterval = originalSetInterval;
   globalThis.clearInterval = originalClearInterval;

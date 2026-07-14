@@ -16,6 +16,7 @@ import {
   type TemporaryBuffState,
   type TickRenderEntity,
   cloneJson,
+  getFirstGrapheme as getSharedFirstGrapheme,
   normalizeHorizontalFacing,
 } from '@mud/shared';
 import { logMovement } from './debug/movement-debug';
@@ -445,7 +446,7 @@ function getFirstGrapheme(input: string | undefined, fallback: string): string {
   if (!normalized) {
     return fallback;
   }
-  return [...normalized][0] ?? fallback;
+  return getSharedFirstGrapheme(normalized) || fallback;
 }
 /**
  * MainRuntimeDeltaStateSource：统一结构类型，保证协议与运行时一致性。

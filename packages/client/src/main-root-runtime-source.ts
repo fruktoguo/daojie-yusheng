@@ -3,7 +3,13 @@
  *
  * 维护时要把用户意图、显示派生和服务端权威数据分清，避免为了展示便利复制业务规则。
  */
-import { clonePlainValue, normalizeHorizontalFacing, type Direction, type PlayerState } from '@mud/shared';
+import {
+  clonePlainValue,
+  getFirstGrapheme,
+  normalizeHorizontalFacing,
+  type Direction,
+  type PlayerState,
+} from '@mud/shared';
 import { hasPlayerActiveArtifact } from './artifact-presentation';
 import { resolvePresentationScaleFromBuffs } from './buff-presentation';
 import { buildEntityNameplateBadges } from './entity-nameplate-badges';
@@ -249,7 +255,7 @@ export function createMainRootRuntimeSource(options: MainRootRuntimeSourceOption
 
     applyVisibleDisplayName(playerId: string, displayName: string): void {
       patchVisibleEntity(playerId, {
-        char: [...displayName][0] ?? undefined,
+        char: getFirstGrapheme(displayName) || undefined,
       });
     },    
     /**

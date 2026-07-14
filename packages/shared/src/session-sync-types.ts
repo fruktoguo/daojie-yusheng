@@ -469,6 +469,15 @@ export interface LeaveView {
   entityId: string;
 }
 
+/** Socket 鉴权明确失败；客户端仅在收到此码时尝试刷新登录令牌。 */
+export const SOCKET_AUTH_FAIL_CODE = 'AUTH_FAIL' as const;
+
+/** 玩家会话需要切换到其他节点；与鉴权失败分离，避免无意义刷新令牌。 */
+export const SOCKET_BOOTSTRAP_REDIRECT_CODE = 'BOOTSTRAP_REDIRECT' as const;
+
+/** 鉴权已通过，但角色运行时暂时无法完成 bootstrap。 */
+export const SOCKET_BOOTSTRAP_UNAVAILABLE_CODE = 'BOOTSTRAP_UNAVAILABLE' as const;
+
 /** 通用错误回包视图。 */
 export interface ErrorView {
 /**

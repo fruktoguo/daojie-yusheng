@@ -11,7 +11,12 @@
 
 import type { WorldGatewayHelperContext } from './world-gateway-context.types';
 
-import { S2C } from '@mud/shared';
+import {
+    S2C,
+    SOCKET_AUTH_FAIL_CODE,
+    SOCKET_BOOTSTRAP_REDIRECT_CODE,
+    SOCKET_BOOTSTRAP_UNAVAILABLE_CODE,
+} from '@mud/shared';
 
 const AUTHENTICATED_REQUESTED_SESSION_ID_AUTH_SOURCES = new Set([
     'mainline',
@@ -21,9 +26,9 @@ const AUTHENTICATED_CONNECT_CONTRACT = Object.freeze({
     protocolRequiredCode: 'AUTH_PROTOCOL_REQUIRED',
     unsupportedProtocolCode: 'AUTH_PROTOCOL_UNSUPPORTED',
     invalidSessionIdCode: 'AUTH_SESSION_ID_INVALID',
-    authFailCode: 'AUTH_FAIL',
+    authFailCode: SOCKET_AUTH_FAIL_CODE,
     legacyProtocolDisabledCode: 'LEGACY_PROTOCOL_DISABLED',
-    unauthenticatedDisabledCode: 'AUTH_FAIL',
+    unauthenticatedDisabledCode: SOCKET_AUTH_FAIL_CODE,
 });
 const GM_CONNECT_CONTRACT = Object.freeze({
     authFailCode: 'GM_AUTH_FAIL',
@@ -240,7 +245,7 @@ class WorldGatewayBootstrapHelper {
         const promise = (async () => {
             const routeTarget = await this.resolvePlayerRouteTarget(identity.playerId);
             if (routeTarget && !routeTarget.isLocalTarget) {
-                this.rejectAuthenticatedConnect(client, AUTHENTICATED_CONNECT_CONTRACT.authFailCode, `玩家会话应连接节点 ${routeTarget.targetNodeId}`, {
+                this.rejectAuthenticatedConnect(client, SOCKET_BOOTSTRAP_REDIRECT_CODE, `玩家会话应连接节点 ${routeTarget.targetNodeId}`, {
                     redirectNodeId: routeTarget.targetNodeId,
                     redirectUrl: routeTarget.targetServerUrl,
                 });
@@ -476,7 +481,7 @@ class WorldGatewayBootstrapHelper {
             await this.startConnectionBootstrap(client);
         }
         catch (error) {
-            this.emitGatewayError(client, AUTHENTICATED_CONNECT_CONTRACT.authFailCode, error);
+            this.emitGatewayError(client, SOCKET_BOOTSTRAP_UNAVAILABLE_CODE, error);
             client.disconnect(true);
         }
     }    
@@ -511,7 +516,7 @@ class WorldGatewayBootstrapHelper {
             await this.startConnectionBootstrap(client);
         }
         catch (error) {
-            this.emitGatewayError(client, AUTHENTICATED_CONNECT_CONTRACT.authFailCode, error);
+            this.emitGatewayError(client, SOCKET_BOOTSTRAP_UNAVAILABLE_CODE, error);
             client.disconnect(true);
         }
     }

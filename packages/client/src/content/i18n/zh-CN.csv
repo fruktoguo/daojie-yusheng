@@ -173,6 +173,7 @@ login.login-name.label,登录,账号 / 角色名,登录名标签
 login.login-name.placeholder,登录,输入账号或角色名,登录名输入框占位
 login.mode.login,登录,登录,登录模式按钮和提交按钮
 login.mode.register,登录,注册,注册模式按钮和提交按钮
+login.bootstrap.in-progress,登录,正在接引角色进入世界...,等待 Socket Bootstrap 首包
 login.restore.failed,登录,重归失败,会话恢复失败兜底
 login.restore.in-progress,登录,正在重归天地...,会话恢复状态
 loot.action.gathering,掉落,连续采摘中,
@@ -1364,6 +1365,7 @@ offline-gain.modal.hint.saved,离线收益,已存入本地浏览器,
 offline-gain.modal.subtitle,离线收益,{count} 次离线记录 · {duration},
 offline-gain.modal.title,离线收益,离线挂机收益,
 connection.auth.expired-login,连接,灵气印记已散，请重新入世,登录态失效提示
+connection.bootstrap.unavailable,连接,当前角色所在世界暂不可用，请稍后重试,角色运行时引导失败提示
 connection.error.disconnected,连接,天地失联：{message},连接失败提示
 connection.kicked.removed,连接,会话已失效，请重新入世,会话移除提示
 connection.kicked.replaced,连接,此身已在别处显化,顶号登出提示

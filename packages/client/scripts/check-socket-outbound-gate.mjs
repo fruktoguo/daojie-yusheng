@@ -175,8 +175,8 @@ assert.match(offlineGainModalSource, /blockingRefreshState\.cancel\(requestId\)/
 const bootstrapAssemblySource = readFileSync(bootstrapAssemblyPath, 'utf8');
 assert.match(
   bootstrapAssemblySource,
-  /options\.runtimeStateSource\.handleBootstrap\(data\);\s*completeOfflineGainBlockingConfirmation\(\);/,
-  '阻塞层必须在 Bootstrap 成功处理后关闭',
+  /options\.runtimeStateSource\.handleBootstrap\(data\);\s*options\.connectionStateSource\.handleBootstrapReady\(\);\s*options\.loginUI\.hide\(\);\s*completeOfflineGainBlockingConfirmation\(\);/,
+  '登录与离线收益阻塞层必须在 Bootstrap 成功处理后关闭',
 );
 
 const resetStateSource = readFileSync(resetStateSourcePath, 'utf8');

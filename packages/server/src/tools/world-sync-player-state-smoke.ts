@@ -12,8 +12,8 @@ import { createRuntimeTemporaryBuff } from '../runtime/player/runtime-buff-insta
 function createPlayer(): any {
     return {
         playerId: 'player:1',
-        name: '甲',
-        displayName: '甲乙',
+        name: 'bigmiaomiao',
+        displayName: '❤️‍🔥',
         x: 3,
         y: 4,
         facing: 'south',
@@ -144,6 +144,8 @@ function testPlayerState() {
     const service = new WorldSyncPlayerStateService();
     const state = service.buildPlayerSyncState(createPlayer(), { instance: { templateId: 'map.a' } }, ['map.a', 'map.b']);
     assert.equal(state.id, 'player:1');
+    assert.equal(state.name, 'bigmiaomiao');
+    assert.equal(state.displayName, '❤️‍🔥');
     assert.equal(state.inventory.items[0].itemId, 'potion');
     assert.equal(state.inventory.items[0].itemInstanceId, 'potion-instance-id');
     assert.equal(state.equipment.weapon.itemId, 'sword');

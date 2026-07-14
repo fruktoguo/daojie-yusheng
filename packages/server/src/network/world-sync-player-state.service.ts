@@ -16,7 +16,10 @@ import {
   type PlayerMovementCapabilitiesState,
 } from '@mud/shared';
 import { projectVisiblePlayerBuffs } from '../runtime/player/player-buff-projection.helpers';
-import { resolvePlayerDisplayName } from '../runtime/player/player-display-name';
+import {
+  resolvePlayerAvatarDisplayName,
+  resolvePlayerRoleName,
+} from '../runtime/player/player-display-name';
 import { projectHeavenGateState, projectRealmState } from '../runtime/player/player-realm-projection.helpers';
 import { resolvePlayerDailySignInFortuneLuck } from '../runtime/player/player-special-stat.helpers';
 
@@ -33,7 +36,11 @@ export class WorldSyncPlayerStateService {
 
 function buildPlayerSyncState(player, view, unlockedMinimapIds) {
   const specialStats = resolvePlayerSpecialStats(player);
-  const playerName = resolvePlayerDisplayName(player, { playerId: player?.playerId, fallback: '修士' });
+  const playerName = resolvePlayerRoleName(player, { playerId: player?.playerId, fallback: '修士' });
+  const playerDisplayName = resolvePlayerAvatarDisplayName(player, {
+    playerId: player?.playerId,
+    fallback: playerName,
+  });
   const walletBalances = [];
   for (const entry of Array.isArray(player.wallet?.balances) ? player.wallet.balances : []) {
     const walletType = typeof entry?.walletType === 'string' ? entry.walletType.trim() : '';
@@ -50,7 +57,7 @@ function buildPlayerSyncState(player, view, unlockedMinimapIds) {
   return {
     id: player.playerId,
     name: playerName,
-    displayName: playerName,
+    displayName: playerDisplayName,
     online: true,
     inWorld: true,
     senseQiActive: player.combat.senseQiActive,

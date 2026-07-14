@@ -84,6 +84,8 @@ export class LoginUI {
   private manualAuthEpoch: number | null = null;
   /** 当前自动恢复请求；同一代际内共用，跨代际不得复用旧 promise。 */
   private restoreSessionAttempt: RestoreSessionAttempt | null = null;
+  /** HTTP 鉴权已成功，但尚未收到当前 socket 的 Bootstrap。 */
+  private socketBootstrapPending = false;
   private activationModal: HTMLElement | null = null;
   private activationCodeInput: HTMLInputElement | null = null;
   private activationStatus: HTMLElement | null = null;
@@ -149,7 +151,6 @@ export class LoginUI {
         return false;
       }
       this.onSuccess(data, epoch);
-      this.setError('');
       return true;
     } catch (error) {
       if (!this.isCurrentAuthAttempt(epoch)) {
@@ -169,6 +170,8 @@ export class LoginUI {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     this.setMode('login');
+    this.socketBootstrapPending = false;
+    this.syncAuthPendingState();
     this.overlay.classList.remove('hidden');
     if (message) {
       this.setError(message);
@@ -177,6 +180,9 @@ export class LoginUI {
 
   /** hide：处理hide。 */
   hide(): void {
+    this.socketBootstrapPending = false;
+    this.syncAuthPendingState();
+    this.setError('');
     this.overlay.classList.add('hidden');
   }
 
@@ -319,35 +325,37 @@ export class LoginUI {
       return;
     }
     storeTokens(data);
+    this.socketBootstrapPending = true;
+    this.syncAuthPendingState();
     this.socket.connect(data.accessToken);
-    this.hide();
-    document.getElementById('hud')?.classList.remove('hidden');
-    this.setError('');
+    this.setError(t('login.bootstrap.in-progress', undefined));
   }
 
   private beginManualAuthAttempt(): number {
     const epoch = this.invalidateAuthAttempts();
     this.manualAuthEpoch = epoch;
-    this.syncManualAuthPending(true);
+    this.syncAuthPendingState();
     return epoch;
   }
 
   private finishManualAuthAttempt(epoch: number): void {
     if (this.manualAuthEpoch === epoch) {
       this.manualAuthEpoch = null;
-      this.syncManualAuthPending(false);
+      this.syncAuthPendingState();
     }
   }
 
   private invalidateAuthAttempts(): number {
     this.authEpoch += 1;
     this.manualAuthEpoch = null;
-    this.syncManualAuthPending(false);
+    this.socketBootstrapPending = false;
+    this.syncAuthPendingState();
     return this.authEpoch;
   }
 
   /** 认证写请求必须 single-flight，避免双击把重复注册送到服务端。 */
-  private syncManualAuthPending(pending: boolean): void {
+  private syncAuthPendingState(): void {
+    const pending = this.manualAuthEpoch !== null || this.socketBootstrapPending;
     this.submitBtn.disabled = pending;
     this.loginTab.disabled = pending;
     this.registerTab.disabled = pending;

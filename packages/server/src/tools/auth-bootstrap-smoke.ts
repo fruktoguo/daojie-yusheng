@@ -319,6 +319,7 @@ function readAuthBootstrapProfile() {
  * 编排主线认证引导 smoke 的完整校验流程并输出证明结果。
  */
 async function main() {
+    await verifyBootstrapUnavailableErrorClassificationContract();
     if (!DATABASE_ENABLED && !LEGACY_HTTP_MEMORY_FALLBACK_ENABLED) {
         console.log(JSON.stringify({
             ok: true,
@@ -1095,6 +1096,8 @@ async function runAuthBootstrap(token, expectedIdentity = null, options = undefi
         assertBootstrapMatchesExpectedIdentity(expectedIdentity, {
             initPlayerId: initSession.pid,
             bootstrapPlayerId: runtimePlayerId,
+            bootstrapPlayerName: typeof bootstrap.self?.name === 'string' ? bootstrap.self.name : null,
+            bootstrapDisplayName: typeof bootstrap.self?.displayName === 'string' ? bootstrap.self.displayName : null,
             runtimePlayerId: state.player.playerId,
             runtimePlayerName: typeof state.player.name === 'string' ? state.player.name : null,
         });
@@ -1333,6 +1336,77 @@ async function verifyHelloAuthBootstrapForbiddenContract() {
         code: emittedErrors[0]?.code ?? null,
         disconnected,
         bootstrapCallCount,
+    };
+}
+
+/** 已通过鉴权后的运行时引导失败必须与 AUTH_FAIL 分型。 */
+async function verifyBootstrapUnavailableErrorClassificationContract() {
+    const emittedErrors = [];
+    let disconnected = false;
+    const gateway = createWorldGatewayForAuthBootstrapSmoke({
+        sessionBootstrapService: {
+            pickSocketToken: () => 'proof_token',
+            pickSocketGmToken: () => '',
+            inspectSocketRequestedSessionId: () => ({
+                rawSessionId: null,
+                sessionId: '',
+                provided: false,
+                error: null,
+            }),
+            pickSocketRequestedSessionId: () => '',
+            authenticateSocketToken: async () => ({
+                userId: 'proof_user_bootstrap_unavailable',
+                playerId: 'proof_player_bootstrap_unavailable',
+                authSource: 'mainline',
+                persistedSource: 'native',
+                playerName: '引导验证',
+                displayName: '验',
+            }),
+            resolveAuthenticatedBootstrapContractViolation: () => null,
+            bootstrapPlayerSession: async () => {
+                throw new Error('目标实例暂不可进入：attach_gate_closed');
+            },
+        },
+        worldClientEventService: {
+            markProtocol: (client, protocol) => {
+                client.data.protocol = protocol;
+            },
+            emitGatewayError: (_client, code, error) => {
+                emittedErrors.push({
+                    code,
+                    message: error instanceof Error ? error.message : String(error),
+                });
+            },
+        },
+    });
+    const client: AnyRecord = {
+        id: 'proof_socket_bootstrap_unavailable',
+        handshake: {
+            auth: {
+                token: 'proof_token',
+                protocol: 'mainline',
+            },
+        },
+        data: {},
+        disconnect(force) {
+            disconnected = force === true;
+        },
+    };
+
+    await gateway.handleConnection(client);
+
+    if (!disconnected) {
+        throw new Error('expected unavailable bootstrap to disconnect the socket');
+    }
+    if (emittedErrors.length !== 1 || emittedErrors[0]?.code !== shared_1.SOCKET_BOOTSTRAP_UNAVAILABLE_CODE) {
+        throw new Error(`expected unavailable bootstrap to emit ${shared_1.SOCKET_BOOTSTRAP_UNAVAILABLE_CODE}, got ${JSON.stringify(emittedErrors)}`);
+    }
+    if (emittedErrors[0]?.code === shared_1.SOCKET_AUTH_FAIL_CODE) {
+        throw new Error('runtime bootstrap failure must not be projected as AUTH_FAIL');
+    }
+    return {
+        code: emittedErrors[0]?.code ?? null,
+        disconnected,
     };
 }
 /**
@@ -2258,6 +2332,8 @@ async function verifyAuthenticatedSessionContract(token, expectedIdentity, expec
         assertBootstrapMatchesExpectedIdentity(expectedIdentity, {
             initPlayerId: firstInit.pid,
             bootstrapPlayerId: firstBootstrap.self.id,
+            bootstrapPlayerName: typeof firstBootstrap.self?.name === 'string' ? firstBootstrap.self.name : null,
+            bootstrapDisplayName: typeof firstBootstrap.self?.displayName === 'string' ? firstBootstrap.self.displayName : null,
             runtimePlayerId: expectedPlayerId,
             runtimePlayerName: typeof firstBootstrap.self?.name === 'string' ? firstBootstrap.self.name : null,
         });
@@ -4343,6 +4419,12 @@ function assertBootstrapMatchesExpectedIdentity(expectedIdentity, actual) {
     if (expectedIdentity.playerName !== actual.runtimePlayerName) {
         throw new Error(`token/runtime player name mismatch: token=${expectedIdentity.playerName} runtime=${actual.runtimePlayerName ?? ''}`);
     }
+    if (expectedIdentity.playerName !== actual.bootstrapPlayerName) {
+        throw new Error(`token/bootstrap player name mismatch: token=${expectedIdentity.playerName} bootstrap=${actual.bootstrapPlayerName ?? ''}`);
+    }
+    if (expectedIdentity.displayName !== actual.bootstrapDisplayName) {
+        throw new Error(`token/bootstrap display name mismatch: token=${expectedIdentity.displayName} bootstrap=${actual.bootstrapDisplayName ?? ''}`);
+    }
 }
 /**
  * 处理fetch玩家状态。
@@ -5863,6 +5945,7 @@ const declaredFunctions = {
     runAuthBootstrap,
     verifyProtocolSocketRejectsLegacyEventContract,
     verifyHelloAuthBootstrapForbiddenContract,
+    verifyBootstrapUnavailableErrorClassificationContract,
     verifyImplicitLegacyProtocolEntryContract,
     verifyGmBootstrapSessionPolicyContract,
     verifyMalformedMainlineIdentityAndSnapshotRecordGuardContract,
@@ -5994,6 +6077,7 @@ export {
     runAuthBootstrap,
     verifyProtocolSocketRejectsLegacyEventContract,
     verifyHelloAuthBootstrapForbiddenContract,
+    verifyBootstrapUnavailableErrorClassificationContract,
     verifyImplicitLegacyProtocolEntryContract,
     verifyGmBootstrapSessionPolicyContract,
     verifyMalformedMainlineIdentityAndSnapshotRecordGuardContract,
