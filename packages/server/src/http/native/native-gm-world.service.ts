@@ -8,7 +8,7 @@
  * 编排世界运行时查询、地图实例创建/迁移/冻结/重建、玩家迁移、
  * 性能计数器重置、tick/时间配置修改等 GM 操作。
  */
-import { BadRequestException, Inject, Injectable, Logger, Optional } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Logger, Optional, ServiceUnavailableException } from '@nestjs/common';
 import { MAX_INSTANCE_TICK_SPEED, type GmCreateWorldInstanceReq, type GmListPlayersQuery, type GmPlayerListRes, type GmTransferPlayerToInstanceReq, type GmWorldInstanceLinePreset } from '@mud/shared';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { MapTemplateRepository } from '../../runtime/map/map-template.repository';
@@ -22,6 +22,7 @@ import { OutboxDispatcherService } from '../../persistence/outbox-dispatcher.ser
 import { MapPersistenceFlushService } from '../../persistence/map-persistence-flush.service';
 import { PlayerPersistenceFlushService } from '../../persistence/player-persistence-flush.service';
 import { DatabasePoolProvider } from '../../persistence/database-pool.provider';
+import { InstanceCatalogService } from '../../persistence/instance-catalog.service';
 import {
   buildPublicInstanceId,
   buildManualLineInstanceId,
@@ -163,6 +164,21 @@ interface WorldRuntimeGmQueueLike {
   hasPendingRespawn(playerId: string): boolean;
 }
 
+interface ManagedRuntimeInstanceLike {
+  snapshot(): unknown;
+  listPlayerIds?(): string[];
+  meta?: {
+    assignedNodeId?: string | null;
+    leaseToken?: string | null;
+    leaseExpireAt?: string | null;
+    ownershipEpoch?: number | null;
+    runtimeStatus?: string | null;
+    status?: string | null;
+    destroyAt?: string | null;
+    catalogReservationToken?: string | null;
+  };
+}
+
 interface WorldRuntimeServiceLike {
   getRuntimeSummary(): unknown;
   listBuildingOperationAudit?(limit?: number): unknown[];
@@ -196,8 +212,12 @@ interface WorldRuntimeServiceLike {
     height?: number;
   }>;
   getInstance(instanceId: string): { instanceId: string } | null;
+  getInstanceRuntime?(instanceId: string): ManagedRuntimeInstanceLike | null;
   getPlayerLocation(playerId: string): { instanceId: string } | null;
-  createInstance(input: unknown): { snapshot(): unknown };
+  createInstance(input: unknown): ManagedRuntimeInstanceLike;
+  waitForInstanceLeaseReady?(instanceId: string): Promise<void>;
+  instanceReadyForPlayerAttach?(instanceId: string): { ok: boolean; reason?: string };
+  destroyEmptyManagedInstance?(instanceId: string, reason?: string): Promise<{ ok: boolean; reason?: string }>;
   listInstanceRuntimes(): Iterable<Record<string, unknown>>;
   listInstanceEntries(): Iterable<[string, Record<string, unknown>]>;
   getInstanceCount(): number;
@@ -252,6 +272,7 @@ interface MapPersistenceFlushServiceLike {
 @Injectable()
 export class NativeGmWorldService {
   private readonly logger = new Logger(NativeGmWorldService.name);
+  private readonly manualLineCreationTails = new Map<string, Promise<void>>();
 
 /**
  * networkPerfStartedAt：networkPerfStartedAt相关字段。
@@ -340,6 +361,8 @@ export class NativeGmWorldService {
     private readonly worldRuntimeService: WorldRuntimeServiceLike,
     @Optional() @Inject(WorldRuntimeInstanceScheduleService)
     private readonly instanceScheduleService?: WorldRuntimeInstanceScheduleService,
+    @Optional() @Inject(InstanceCatalogService)
+    private readonly instanceCatalogService?: InstanceCatalogService,
   ) {
     this.outboxDispatcherService = outboxDispatcherService;
     this.durableOperationService = durableOperationService;
@@ -835,34 +858,212 @@ export class NativeGmWorldService {
     const linePreset = parseRequiredLinePreset(body?.linePreset);
     const persistentPolicy = normalizeRuntimeInstancePersistentPolicy(body?.persistentPolicy);
     const expireAt = normalizeOptionalFutureTimestamp(body?.expireAt);
-    const lineIndex = resolveManualLineIndex(this.worldRuntimeService.listInstances(), templateId, linePreset);
-    const instanceId = buildManualLineInstanceId(templateId, linePreset, lineIndex);
-    const presetMeta = buildRuntimeInstancePresetMeta({
-      instanceId,
-      kind: 'public',
-      templateName: template.name,
-      displayName: typeof body?.displayName === 'string' ? body.displayName.trim() : '',
-      linePreset,
-      lineIndex,
-      instanceOrigin: 'gm_manual',
-      defaultEntry: false,
-    });
-    const created = this.worldRuntimeService.createInstance({
-      instanceId,
-      templateId,
-      kind: 'public',
-      persistent: persistentPolicy !== 'ephemeral',
-      persistentPolicy,
-      displayName: presetMeta.displayName,
-      linePreset: presetMeta.linePreset,
-      lineIndex: presetMeta.lineIndex,
-      instanceOrigin: presetMeta.instanceOrigin,
-      defaultEntry: presetMeta.defaultEntry,
-      ...(expireAt ? { destroyAt: new Date(expireAt).toISOString() } : {}),
-    });
-    return {
-      instance: created.snapshot(),
+    const destroyAt = expireAt ? new Date(expireAt).toISOString() : null;
+    const createRuntime = (instanceId: string, lineIndex: number, catalogReservationToken: string | null = null) => {
+      const presetMeta = buildRuntimeInstancePresetMeta({
+        instanceId,
+        kind: 'public',
+        templateName: template.name,
+        displayName: typeof body?.displayName === 'string' ? body.displayName.trim() : '',
+        linePreset,
+        lineIndex,
+        instanceOrigin: 'gm_manual',
+        defaultEntry: false,
+      });
+      return this.worldRuntimeService.createInstance({
+        instanceId,
+        templateId,
+        kind: 'public',
+        persistent: persistentPolicy !== 'ephemeral',
+        persistentPolicy,
+        displayName: presetMeta.displayName,
+        linePreset: presetMeta.linePreset,
+        lineIndex: presetMeta.lineIndex,
+        instanceOrigin: presetMeta.instanceOrigin,
+        defaultEntry: presetMeta.defaultEntry,
+        ...(catalogReservationToken
+          ? { runtimeStatus: 'creating', catalogReservationToken }
+          : {}),
+        ...(destroyAt ? { destroyAt } : {}),
+      });
     };
+
+    // 无数据库 catalog 时，编号扫描与内存实例写入之间没有 await，单 Node 事件循环内天然原子。
+    if (this.instanceCatalogService?.isEnabled() !== true) {
+      const runtimeInstances = this.worldRuntimeService.listInstances();
+      const lineIndex = resolveManualLineIndex(runtimeInstances, templateId, linePreset);
+      const instanceId = buildManualLineInstanceId(templateId, linePreset, lineIndex);
+      const created = createRuntime(instanceId, lineIndex);
+      return { instance: created.snapshot() };
+    }
+
+    const creationKey = `${templateId}\u0000${linePreset}`;
+    return runSerializedManualLineCreation(this.manualLineCreationTails, creationKey, async () => {
+      const runtimeInstances = this.worldRuntimeService.listInstances();
+      const minimumLineIndex = resolveManualLineIndex(runtimeInstances, templateId, linePreset);
+      const instanceIdPrefix = `line:${templateId}:${linePreset}:`;
+      let reservation: { instanceId: string; lineIndex: number; reservationToken: string } | null;
+      try {
+        reservation = await this.instanceCatalogService.reserveNextManualLineInstance({
+          instanceIdPrefix,
+          templateId,
+          persistentPolicy,
+          routeDomain: null,
+          minimumLineIndex,
+          occupiedRuntimeInstanceIds: runtimeInstances.map((instance) => instance.instanceId),
+          destroyAt,
+        });
+        if (!reservation) {
+          throw new Error('manual_line_catalog_reservation_unavailable');
+        }
+      } catch (error) {
+        this.logger.error(
+          `GM 手动分线编号预留失败：template=${templateId} preset=${linePreset}`,
+          error instanceof Error ? error.stack : String(error),
+        );
+        throw new ServiceUnavailableException('手动分线编号预留失败，请稍后重试');
+      }
+
+      let created: ManagedRuntimeInstanceLike | null = null;
+      try {
+        created = createRuntime(
+          reservation.instanceId,
+          reservation.lineIndex,
+          reservation.reservationToken,
+        );
+        await this.worldRuntimeService.waitForInstanceLeaseReady?.(reservation.instanceId);
+        const readiness = this.worldRuntimeService.instanceReadyForPlayerAttach?.(reservation.instanceId);
+        if (readiness && readiness.ok !== true) {
+          throw new ServiceUnavailableException(`手动分线创建后未就绪：${readiness.reason ?? 'unknown'}`);
+        }
+        return {
+          instance: created.snapshot(),
+        };
+      } catch (error) {
+        await this.cleanupFailedManualLineCreation(
+          reservation.instanceId,
+          reservation.reservationToken,
+          created,
+        ).catch((cleanupError: unknown) => {
+          this.logger.warn(
+            `GM 手动分线创建失败后的清理异常：${reservation.instanceId} ${cleanupError instanceof Error ? cleanupError.message : String(cleanupError)}`,
+          );
+        });
+        throw error;
+      }
+    });
+  }
+
+  private async cleanupFailedManualLineCreation(
+    instanceId: string,
+    reservationToken: string,
+    created: ManagedRuntimeInstanceLike | null,
+  ): Promise<void> {
+    const current = this.worldRuntimeService.getInstanceRuntime?.(instanceId) ?? null;
+    if (current && current !== created) {
+      this.logger.warn(
+        `gm_manual_line_cleanup_skipped instance=${instanceId} reason=runtime_replaced runtime_preserved=true`,
+      );
+      return;
+    }
+    if (current && current === created) {
+      const playerIds = current.listPlayerIds?.() ?? [];
+      if (playerIds.length > 0) {
+        this.logger.error(
+          `gm_manual_line_cleanup_skipped instance=${instanceId} reason=players_present runtime_preserved=true catalog_preserved=true players=${playerIds.join(',')}`,
+        );
+        return;
+      }
+      let abandonedReservation = false;
+      if (current.meta) {
+        current.meta.runtimeStatus = 'cleanup_pending';
+        current.meta.destroyAt = new Date().toISOString();
+      }
+      try {
+        abandonedReservation = await this.instanceCatalogService.abandonManualLineReservation(
+          instanceId,
+          reservationToken,
+        ) === true;
+      } catch (error) {
+        this.logger.warn(
+          `gm_manual_line_reservation_abandon_failed instance=${instanceId} ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+      if (abandonedReservation === true) {
+        this.worldRuntimeService.freezeInstanceWriting(instanceId, 'gm_manual_line_reservation_abandoned');
+        return;
+      }
+      let destroyed: { ok?: boolean; reason?: string } | undefined;
+      try {
+        destroyed = await this.worldRuntimeService.destroyEmptyManagedInstance?.(
+          instanceId,
+          'gm_manual_line_creation_failed',
+        );
+      } catch (error) {
+        destroyed = { ok: false, reason: 'destroy_exception' };
+        this.logger.warn(
+          `gm_manual_line_destroy_failed instance=${instanceId} ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+      if (destroyed?.ok === true) {
+        return;
+      }
+      await this.markFailedManualLineCleanupPending(instanceId, current);
+      this.logger.warn(
+        `gm_manual_line_cleanup_deferred instance=${instanceId} reason=${destroyed?.reason ?? 'destroy_unavailable'} runtime_preserved=true catalog_preserved=true`,
+      );
+      return;
+    }
+    const abandoned = await this.instanceCatalogService?.abandonManualLineReservation(
+      instanceId,
+      reservationToken,
+    );
+    if (abandoned !== true) {
+      this.logger.warn(
+        `gm_manual_line_cleanup_deferred instance=${instanceId} reason=creating_abandon_failed runtime_preserved=false catalog_preserved=true`,
+      );
+    }
+  }
+
+  private async markFailedManualLineCleanupPending(
+    instanceId: string,
+    runtime: ManagedRuntimeInstanceLike,
+  ): Promise<void> {
+    const destroyAt = new Date().toISOString();
+    if (runtime.meta) {
+      runtime.meta.runtimeStatus = 'cleanup_pending';
+      runtime.meta.status = 'active';
+      runtime.meta.destroyAt = destroyAt;
+    }
+    const assignedNodeId = typeof runtime.meta?.assignedNodeId === 'string'
+      ? runtime.meta.assignedNodeId.trim()
+      : '';
+    const leaseToken = typeof runtime.meta?.leaseToken === 'string'
+      ? runtime.meta.leaseToken.trim()
+      : '';
+    const ownershipEpoch = Number(runtime.meta?.ownershipEpoch);
+    if (!assignedNodeId
+      || !leaseToken
+      || assignedNodeId !== this.nodeRegistryService.getNodeId()
+      || !Number.isSafeInteger(ownershipEpoch)
+      || ownershipEpoch < 0
+      || typeof this.instanceCatalogService?.markInstanceCleanupPendingWithFence !== 'function') {
+      this.logger.error(
+        `gm_manual_line_cleanup_pending_not_durable instance=${instanceId} reason=runtime_fence_unavailable`,
+      );
+      return;
+    }
+    const persisted = await this.instanceCatalogService.markInstanceCleanupPendingWithFence({
+      instanceId,
+      assignedNodeId,
+      leaseToken,
+      expectedOwnershipEpoch: ownershipEpoch,
+    }).catch(() => false);
+    if (!persisted) {
+      this.logger.error(
+        `gm_manual_line_cleanup_pending_not_durable instance=${instanceId} reason=catalog_cas_failed`,
+      );
+    }
   }
   /**
  * transferPlayerToInstance：把在线玩家迁移到指定实例。
@@ -1211,21 +1412,56 @@ function isNonSectRuntimeLineForSectTemplate(instance: { templateId?: unknown; i
 }
 
 function resolveManualLineIndex(
-  instances: Array<{ templateId?: string; linePreset?: GmWorldInstanceLinePreset; lineIndex?: number }>,
+  instances: Array<{ instanceId?: string; templateId?: string; linePreset?: GmWorldInstanceLinePreset; lineIndex?: number }>,
   templateId: string,
   linePreset: GmWorldInstanceLinePreset,
 ): number {
   let nextIndex = 2;
+  const instanceIdPrefix = `line:${templateId}:${linePreset}:`;
   for (const instance of instances) {
-    if (instance.templateId !== templateId || instance.linePreset !== linePreset) {
+    if (instance.templateId === templateId && instance.linePreset === linePreset) {
+      const lineIndex = Number.isSafeInteger(instance.lineIndex) ? Math.trunc(Number(instance.lineIndex)) : 0;
+      if (lineIndex >= nextIndex) {
+        nextIndex = lineIndex + 1;
+      }
+    }
+    const instanceId = typeof instance.instanceId === 'string' ? instance.instanceId.trim() : '';
+    if (!instanceId.startsWith(instanceIdPrefix)) {
       continue;
     }
-    const lineIndex = Number.isFinite(instance.lineIndex) ? Math.trunc(Number(instance.lineIndex)) : 0;
-    if (lineIndex >= nextIndex) {
-      nextIndex = lineIndex + 1;
+    const suffix = instanceId.slice(instanceIdPrefix.length);
+    if (!/^[0-9]+$/.test(suffix)) {
+      continue;
+    }
+    const idLineIndex = Number(suffix);
+    if (Number.isSafeInteger(idLineIndex) && idLineIndex >= nextIndex) {
+      nextIndex = idLineIndex + 1;
     }
   }
   return nextIndex;
+}
+
+async function runSerializedManualLineCreation<T>(
+  tails: Map<string, Promise<void>>,
+  key: string,
+  operation: () => Promise<T>,
+): Promise<T> {
+  const previous = tails.get(key) ?? Promise.resolve();
+  let releaseCurrent: (() => void) | null = null;
+  const current = new Promise<void>((resolve) => {
+    releaseCurrent = resolve;
+  });
+  const tail = previous.catch(() => undefined).then(() => current);
+  tails.set(key, tail);
+  await previous.catch(() => undefined);
+  try {
+    return await operation();
+  } finally {
+    releaseCurrent?.();
+    if (tails.get(key) === tail) {
+      tails.delete(key);
+    }
+  }
 }
 
 function normalizeOptionalFutureTimestamp(input: unknown): number | null {

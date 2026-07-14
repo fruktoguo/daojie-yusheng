@@ -17,7 +17,7 @@ async function main(): Promise<void> {
     readiness,
     expiry,
     session,
-    answers: 'catalog 启用时，无 assignedNodeId/leaseToken 的动态实例不可写；租约一旦到达数据库过期时刻立即停止写入，不保留跨节点双写宽限；相同实例 ID 的替换注册严格串行，旧任务不会 claim；玩家挂接直接调用真实 WorldRuntimeService 的 lease/attach 闸门，并在动态实例注册完成后才连接。',
+    answers: 'catalog 启用时，无 assignedNodeId/leaseToken 的动态实例不可写；全局 gate 已开放后，动态实例会在 readiness 注册前加入 write gate，只在注册与 lease 成功后加入 attach gate；租约一旦到达数据库过期时刻立即停止写入，不保留跨节点双写宽限；相同实例 ID 的替换注册严格串行，旧任务不会 claim；玩家挂接直接调用真实 WorldRuntimeService 的 lease/attach 闸门，并在动态实例注册完成后才连接。',
     excludes: '不证明真实 PostgreSQL 锁等待、跨节点网络分区或 10000 实例同时注册的吞吐。',
   }, null, 2));
 }
@@ -47,6 +47,8 @@ async function verifyDynamicInstanceWaitsForLeaseAndSupersedesStaleRegistration(
   finalWritable: boolean;
   claimCount: number;
   staleInstanceClaimed: boolean;
+  writeGateEnrolledBeforeRegistration: boolean;
+  attachGateEnrolledAfterClaim: boolean;
 }> {
   const instanceId = 'tower:tongtian:layer:lease-readiness-smoke';
   const instances = new Map<string, any>();
@@ -58,13 +60,40 @@ async function verifyDynamicInstanceWaitsForLeaseAndSupersedesStaleRegistration(
     releaseFirstUpsert = resolve;
   });
   let upsertCount = 0;
+  const writableInstanceIds = new Set<string>();
+  const attachableInstanceIds = new Set<string>();
   const runtime: any = {
     logger: { warn() {}, debug() {}, log() {} },
     nodeRegistryService: { getNodeId: () => 'node:lease-readiness-smoke' },
     instanceDomainPersistenceService: { isEnabled: () => false },
+    startupBarrierService: {
+      getSnapshot() {
+        return { instanceWriteOpen: true, instanceAttachOpen: true };
+      },
+      openInstanceWrites(instanceIds: Iterable<string>) {
+        for (const candidateInstanceId of instanceIds) {
+          writableInstanceIds.add(candidateInstanceId);
+          order.push(`open-write:${candidateInstanceId}`);
+        }
+      },
+      openInstanceAttach(instanceIds: Iterable<string>) {
+        assert.equal(order.at(-1), 'claim', 'attach gate 只能在 catalog claim 成功后开放');
+        for (const candidateInstanceId of instanceIds) {
+          attachableInstanceIds.add(candidateInstanceId);
+          order.push(`open-attach:${candidateInstanceId}`);
+        }
+      },
+      isInstanceWritable(candidateInstanceId: string) {
+        return writableInstanceIds.has(candidateInstanceId);
+      },
+    },
     instanceCatalogService: {
       isEnabled: () => true,
       async upsertInstanceCatalog(input: any) {
+        assert.equal(writableInstanceIds.has(input.instanceId), true,
+          'readiness 注册前必须先把动态实例加入 write gate');
+        assert.equal(attachableInstanceIds.has(input.instanceId), false,
+          'catalog 注册完成前不得开放 attach gate');
         upsertCount += 1;
         order.push(`upsert:${upsertCount}`);
         if (upsertCount === 1) {
@@ -133,13 +162,25 @@ async function verifyDynamicInstanceWaitsForLeaseAndSupersedesStaleRegistration(
   assert.equal(isInstanceLeaseWritable(runtime, staleInstance), false);
   assert.equal(isInstanceLeaseWritable(runtime, currentInstance), true);
   assert.equal(claimCount, 1);
-  assert.deepEqual(order, ['upsert:1', 'upsert:2', 'replay:0', 'claim']);
+  assert.deepEqual(order, [
+    `open-write:${instanceId}`,
+    'upsert:1',
+    `open-write:${instanceId}`,
+    'upsert:2',
+    'replay:0',
+    'claim',
+    `open-attach:${instanceId}`,
+  ]);
+  assert.equal(writableInstanceIds.has(instanceId), true);
+  assert.equal(attachableInstanceIds.has(instanceId), true);
   assert.equal(service.getPendingCount(), 0);
   return {
     initiallyWritable,
     finalWritable: true,
     claimCount,
     staleInstanceClaimed: false,
+    writeGateEnrolledBeforeRegistration: true,
+    attachGateEnrolledAfterClaim: true,
   };
 }
 

@@ -217,6 +217,12 @@ export class WorldRuntimeGmQueueService {
         const nextMapId = command.mapId || player.templateId || deps.resolveDefaultRespawnMapId();
         const resolvedTargetInstance = targetInstance ?? deps.getOrCreatePublicInstance(nextMapId);
         const previous = deps.getPlayerLocation(playerId);
+        const readiness = typeof deps.instanceReadyForPlayerAttach === 'function'
+            ? deps.instanceReadyForPlayerAttach(resolvedTargetInstance.meta.instanceId)
+            : { ok: true, reason: 'ready' };
+        if (!readiness.ok) {
+            throw new BadRequestException(`目标地图实例尚未就绪：${readiness.reason ?? 'unknown'}`);
+        }
         const sessionId = previous?.sessionId ?? player.sessionId ?? `session:${playerId}`;
         const relocatesPlayer = !previous
             || previous.instanceId !== resolvedTargetInstance.meta.instanceId
@@ -231,9 +237,9 @@ export class WorldRuntimeGmQueueService {
             deps.setPlayerLocation(playerId, { instanceId: resolvedTargetInstance.meta.instanceId, sessionId: runtimePlayer.sessionId });
         }
         else if (previous.instanceId !== resolvedTargetInstance.meta.instanceId) {
-            deps.getInstanceRuntime(previous.instanceId)?.disconnectPlayer(playerId);
             const runtimePlayer = resolvedTargetInstance.connectPlayer({ playerId, sessionId, preferredX: command.x, preferredY: command.y });
             resolvedTargetInstance.setPlayerMoveSpeed(playerId, player.attrs.numericStats.moveSpeed);
+            deps.getInstanceRuntime(previous.instanceId)?.disconnectPlayer(playerId);
             deps.setPlayerLocation(playerId, { instanceId: resolvedTargetInstance.meta.instanceId, sessionId: runtimePlayer.sessionId });
         }
         else if (command.x !== undefined && command.y !== undefined) {

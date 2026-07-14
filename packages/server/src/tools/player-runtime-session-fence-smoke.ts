@@ -289,6 +289,36 @@ async function main() {
   assert.equal(legacyTransfer.transferWriteBlocked, true);
   assert.deepEqual(legacyTransfer.transferBufferedNotices, []);
 
+  const restoreRacePlayerId = 'session:fence:offline-restore-race';
+  const restoreSnapshotSource = createPlayerRuntimeService();
+  const restoreSnapshot = restoreSnapshotSource.buildStarterPersistenceSnapshot(restoreRacePlayerId);
+  let releaseOfflineSessionLoad: (() => void) | null = null;
+  const offlineSessionLoadEntered = new Promise<void>((resolve) => {
+    releaseOfflineSessionLoad = resolve;
+  });
+  let continueOfflineSessionLoad: (() => void) | null = null;
+  const offlineSessionLoadBlocked = new Promise<void>((resolve) => {
+    continueOfflineSessionLoad = resolve;
+  });
+  const restoreRaceService = createPlayerRuntimeService();
+  const pendingOfflineRestore = restoreRaceService.restoreOfflineHangingPlayer(restoreRacePlayerId, {
+    isEnabled() { return true; },
+    async loadProjectedSnapshot() { return restoreSnapshot; },
+    async loadPlayerPresence() { return { sessionEpoch: 8 }; },
+    async loadPlayerOfflineGainSession() {
+      releaseOfflineSessionLoad?.();
+      await offlineSessionLoadBlocked;
+      return null;
+    },
+  });
+  await offlineSessionLoadEntered;
+  const onlineDuringRestore = restoreRaceService.ensurePlayer(restoreRacePlayerId, 'sid:online-during-restore');
+  continueOfflineSessionLoad?.();
+  const restoredAfterRace = await pendingOfflineRestore;
+  assert.equal(restoredAfterRace, onlineDuringRestore);
+  assert.equal(restoreRaceService.getPlayer(restoreRacePlayerId), onlineDuringRestore);
+  assert.equal(onlineDuringRestore.sessionId, 'sid:online-during-restore');
+
   console.log(
     JSON.stringify(
       {

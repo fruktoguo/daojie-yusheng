@@ -43,6 +43,18 @@ const SECT_BUILDING_VISUAL_STRUCTURE_TYPES = new Set([
     StructureType.Door,
     StructureType.Window,
 ]);
+/** 销毁、隔离或租约降级中的实例必须在最低层拒绝任何玩家挂接。 */
+const PLAYER_ATTACH_BLOCKED_INSTANCE_STATES = new Set([
+    'creating',
+    'ownership_transition',
+    'releasing',
+    'destroying',
+    'stopped',
+    'fenced',
+    'lease_degraded',
+    'cleanup_pending',
+    'destroyed',
+]);
 
 /** INVALID_OCCUPANCY：空占位值，表示该地块当前未被占用。 */
 const INVALID_OCCUPANCY = 0;
@@ -550,6 +562,7 @@ class MapInstanceRuntime {
             assignedNodeId: request.assignedNodeId ?? null,
             leaseToken: request.leaseToken ?? null,
             leaseExpireAt: request.leaseExpireAt ?? null,
+            catalogReservationToken: request.catalogReservationToken ?? null,
             ownershipEpoch: Number.isFinite(Number(request.ownershipEpoch)) ? Math.max(0, Math.trunc(Number(request.ownershipEpoch))) : 0,
             runtimeStatus: request.runtimeStatus ?? 'running',
             status: request.status ?? 'active',
@@ -699,6 +712,27 @@ class MapInstanceRuntime {
     /** connectPlayer：将玩家接入当前实例，并同步初始移动速度与位置。 */
     connectPlayer(request) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+        const runtimeStatus = typeof this.meta?.runtimeStatus === 'string' ? this.meta.runtimeStatus.trim() : '';
+        const status = typeof this.meta?.status === 'string' ? this.meta.status.trim() : '';
+        const blockedState = PLAYER_ATTACH_BLOCKED_INSTANCE_STATES.has(runtimeStatus)
+            ? runtimeStatus
+            : PLAYER_ATTACH_BLOCKED_INSTANCE_STATES.has(status) ? status : '';
+        if (blockedState) {
+            throw new Error(`实例 ${this.meta.instanceId} 当前状态禁止玩家接入：${blockedState}`);
+        }
+        const assignedNodeId = typeof this.meta?.assignedNodeId === 'string' ? this.meta.assignedNodeId.trim() : '';
+        const leaseToken = typeof this.meta?.leaseToken === 'string' ? this.meta.leaseToken.trim() : '';
+        if (assignedNodeId && leaseToken) {
+            const leaseExpireAt = this.meta?.leaseExpireAt ? new Date(this.meta.leaseExpireAt).getTime() : 0;
+            if (!Number.isFinite(leaseExpireAt) || leaseExpireAt <= Date.now()) {
+                throw new Error(`实例 ${this.meta.instanceId} 当前租约已过期，禁止玩家接入`);
+            }
+        }
+        const destroyAt = this.meta?.destroyAt ? new Date(this.meta.destroyAt).getTime() : 0;
+        if (Number.isFinite(destroyAt) && destroyAt > 0 && destroyAt <= Date.now()) {
+            throw new Error(`实例 ${this.meta.instanceId} 已到计划销毁时间，禁止玩家接入`);
+        }
 
         const existing = this.playersById.get(request.playerId);
         if (existing) {

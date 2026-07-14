@@ -91,7 +91,7 @@ import * as world_runtime_normalization_helpers_1 from './world-runtime.normaliz
 import * as world_runtime_observation_helpers_1 from './query/world-runtime.observation.helpers';
 import * as world_runtime_path_planning_helpers_1 from './world-runtime.path-planning.helpers';
 import { buildCurrentRoomSummaryPatch, buildFengShuiObserveView, dispatchStartBuildingConstruction, handleBuildDeconstructIntent, handleBuildPlaceIntent, handleRoomSetRoleIntent, handleStartBuildingConstruction, interruptBuildingConstruction, listBuildingOperationAudit, tickBuildingConstruction } from './world-runtime-building.service';
-import { claimRecoverableCatalogInstances, fenceInstanceRuntime, getInstanceLeaseStatus, hydratePersistentInstanceSnapshot, isInstanceLeaseWritable, migrateInstanceToNode, migratePlayerToNode, rebuildPersistentInstance, releaseLocalInstanceLeasesForShutdown, syncAllInstanceLeases, syncInstanceLease, unfreezeInstanceWriting } from './world-runtime-instance-lease.helpers';
+import { claimRecoverableCatalogInstances, destroyManagedInstance, fenceInstanceRuntime, getInstanceLeaseStatus, getInstancePlayerAttachReadiness, hydratePersistentInstanceSnapshot, isInstanceLeaseWritable, migrateInstanceToNode, migratePlayerToNode, rebuildPersistentInstance, releaseLocalInstanceLeasesForShutdown, syncAllInstanceLeases, syncInstanceLease, unfreezeInstanceWriting } from './world-runtime-instance-lease.helpers';
 import { WorldRuntimeInstanceLeaseReadinessService } from './world-runtime-instance-lease-readiness.service';
 
 const {
@@ -344,6 +344,8 @@ export class WorldRuntimeService {
     startupBarrierService;
 
     instanceLeaseSyncTimer = null;
+    instanceLeaseSyncInFlight = null;
+    instanceLeaseSyncClosed = false;
     shutdownPersistenceClosed = false;
 
     logger = new Logger(WorldRuntimeService.name);
@@ -637,40 +639,13 @@ export class WorldRuntimeService {
     }
 
     async waitForInstanceLeaseReady(instanceId) { await this.worldRuntimeInstanceLeaseReadinessService.wait(instanceId); }
-
+    /** 受控创建回滚仍统一经过 catalog lease/epoch 围栏与空实例检查。 */ async destroyEmptyManagedInstance(instanceId, reason = 'managed_instance_creation_failed') { return destroyManagedInstance(this, instanceId, reason); }
     isInstanceLeaseWritable(instance) {
         return isInstanceLeaseWritable(this, instance);
     }
 
     instanceReadyForPlayerAttach(instanceId) {
-        const instance = this.getInstanceRuntime(instanceId);
-        if (!instance) {
-            return { ok: false, reason: 'instance_missing', instance: null };
-        }
-        const runtimeStatus = typeof instance?.meta?.runtimeStatus === 'string' ? instance.meta.runtimeStatus.trim() : '';
-        if (runtimeStatus === 'fenced') {
-            return { ok: false, reason: 'lease_fenced', instance };
-        }
-        if (runtimeStatus === 'lease_degraded') {
-            return { ok: false, reason: 'lease_degraded', instance };
-        }
-        if (runtimeStatus === 'template_missing') {
-            return { ok: false, reason: 'template_missing', instance };
-        }
-        if (runtimeStatus === 'stopped') {
-            return { ok: false, reason: 'instance_stopped', instance };
-        }
-        const status = typeof instance?.meta?.status === 'string' ? instance.meta.status.trim() : '';
-        if (status === 'destroyed') {
-            return { ok: false, reason: 'instance_destroyed', instance };
-        }
-        if (this.startupBarrierService?.isInstanceAttachAllowed && !this.startupBarrierService.isInstanceAttachAllowed(instanceId)) {
-            return { ok: false, reason: 'attach_gate_closed', instance };
-        }
-        if (!this.isInstanceLeaseWritable(instance)) {
-            return { ok: false, reason: 'lease_not_local', instance };
-        }
-        return { ok: true, reason: 'ready', instance };
+        return getInstancePlayerAttachReadiness(this, instanceId);
     }
 
     /**
@@ -746,15 +721,33 @@ export class WorldRuntimeService {
         this.logger.log('世界运行时恢复已交由启动链路编排器执行');
     }
     startInstanceLeaseSyncForLifecycleCoordinator() {
+        this.instanceLeaseSyncClosed = false;
         if (this.instanceLeaseSyncTimer) {
             clearInterval(this.instanceLeaseSyncTimer);
         }
         this.instanceLeaseSyncTimer = setInterval(() => {
-            void this.syncAllInstanceLeases().catch((error) => {
+            if (this.instanceLeaseSyncClosed || this.instanceLeaseSyncInFlight) {
+                return;
+            }
+            const task = this.syncAllInstanceLeases();
+            this.instanceLeaseSyncInFlight = task;
+            void task.catch((error) => {
                 this.logger.warn(`实例租约周期同步失败：${error instanceof Error ? error.message : String(error)}`);
+            }).finally(() => {
+                if (this.instanceLeaseSyncInFlight === task) {
+                    this.instanceLeaseSyncInFlight = null;
+                }
             });
         }, INSTANCE_LEASE_RENEW_SKEW_MS * 2);
         this.instanceLeaseSyncTimer.unref?.();
+    }
+    async stopInstanceLeaseSyncForShutdown() {
+        this.instanceLeaseSyncClosed = true;
+        if (this.instanceLeaseSyncTimer) {
+            clearInterval(this.instanceLeaseSyncTimer);
+            this.instanceLeaseSyncTimer = null;
+        }
+        await this.instanceLeaseSyncInFlight;
     }
     async closeForShutdown() {
         if (this.shutdownPersistenceClosed) {
@@ -910,6 +903,7 @@ export class WorldRuntimeService {
         return this.worldRuntimeLifecycleService.restoreOfflineHangingPlayers(this);
     }
     async syncAllInstanceLeases() {
+        if (this.instanceLeaseSyncClosed) return;
         return syncAllInstanceLeases(this);
     }
     async claimRecoverableCatalogInstances(opts?) {

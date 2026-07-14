@@ -24,7 +24,10 @@ async function main(): Promise<void> {
   const writableInstanceIds = new Set<string>();
   const attachableInstanceIds = new Set<string>();
   const towerInstanceId = 'tower:tongtian:layer:47';
+  const failedTowerInstanceId = 'tower:tongtian:layer:48';
   const ordinaryMissingInstanceId = 'dungeon:missing:ordinary';
+  const onlineRacePlayerId = 'player:tower-online-race';
+  const runtimePlayers = new Map<string, { playerId: string; templateId: string; sessionId: string | null }>();
   const towerInstance: SmokeInstance = {
     meta: {
       instanceId: towerInstanceId,
@@ -51,44 +54,63 @@ async function main(): Promise<void> {
           log.push('positions');
           return [
             { playerId: 'player:tower', instanceId: towerInstanceId, x: 3, y: 16 },
+            { playerId: onlineRacePlayerId, instanceId: towerInstanceId, x: 5, y: 18 },
+            { playerId: 'player:tower-failed', instanceId: failedTowerInstanceId, x: 4, y: 17 },
             { playerId: 'player:ordinary', instanceId: ordinaryMissingInstanceId, x: 1, y: 2 },
           ];
         },
       },
       async restoreOfflineHangingPlayer(playerId: string) {
         log.push(['restorePlayer', playerId]);
-        return {
+        const player = {
           playerId,
-          instanceId: towerInstanceId,
           templateId: 'tongtian_tower_layer_47',
+          sessionId: null,
         };
+        runtimePlayers.set(playerId, player);
+        return player;
       },
       async ensureRuntimeOwnershipClaimed(playerId: string) {
         log.push(['claimPlayer', playerId]);
+        if (playerId === onlineRacePlayerId) {
+          const player = runtimePlayers.get(playerId);
+          assert.ok(player);
+          player.sessionId = 'session:online';
+        }
         return { runtimeOwnerId: `owner:${playerId}`, sessionEpoch: 2 };
+      },
+      getPlayer(playerId: string) {
+        return runtimePlayers.get(playerId) ?? null;
       },
       removePlayerRuntime(playerId: string) {
         log.push(['removePlayer', playerId]);
       },
     },
     worldRuntimeTongtianTowerService: {
-      activateCachedLayerInstanceForRestore(input: { instanceId?: string | null }) {
-        log.push(['activateTower', input.instanceId]);
+      async materializeLayerInstanceForRestore(
+        input: { instanceId?: string | null },
+        _deps: unknown,
+        options: { allowCreateIfMissing?: boolean },
+      ) {
+        log.push(['materializeTower', input.instanceId, options]);
+        assert.equal(options.allowCreateIfMissing, false, '离线恢复只能物化 catalog 已存在的塔层');
+        if (input.instanceId === failedTowerInstanceId) {
+          throw new Error('simulated_tower_materialization_failure');
+        }
         assert.equal(input.instanceId, towerInstanceId);
         instances.set(towerInstanceId, towerInstance);
+        log.push(['hydrateTower', input.instanceId]);
+        towerInstance.meta.assignedNodeId = 'node:local';
+        towerInstance.meta.leaseToken = 'lease:local';
+        towerInstance.meta.leaseExpireAt = new Date(Date.now() + 60_000).toISOString();
+        towerInstance.meta.runtimeStatus = 'leased';
+        writableInstanceIds.add(towerInstanceId);
+        attachableInstanceIds.add(towerInstanceId);
         return towerInstance;
       },
     },
     getInstanceRuntime(instanceId: string) {
       return instances.get(instanceId) ?? null;
-    },
-    async syncInstanceLease(instanceId: string, options: { allowForceReclaim?: boolean }) {
-      log.push(['syncLease', instanceId, options]);
-      assert.equal(instanceId, towerInstanceId);
-      towerInstance.meta.assignedNodeId = 'node:local';
-      towerInstance.meta.leaseToken = 'lease:local';
-      towerInstance.meta.leaseExpireAt = new Date(Date.now() + 60_000).toISOString();
-      towerInstance.meta.runtimeStatus = 'leased';
     },
     instanceReadyForPlayerAttach(instanceId: string) {
       const instance = instances.get(instanceId) ?? null;
@@ -156,18 +178,45 @@ async function main(): Promise<void> {
   assert.equal(writableInstanceIds.has(towerInstanceId), true, '恢复的塔层必须加入启动写入白名单');
   assert.equal(attachableInstanceIds.has(towerInstanceId), true, '恢复的塔层必须加入启动附着白名单');
   assert.equal(result.restored, 1);
-  assert.equal(result.skipped, 1);
-  assert.deepEqual(result.skippedByReason, { instance_missing: 1 });
+  assert.equal(result.skipped, 3);
+  assert.equal(result.candidates, 4);
+  assert.deepEqual(result.skippedByReason, { player_became_online: 1, instance_missing: 2 });
   assert.equal(
-    log.findIndex((entry) => Array.isArray(entry) && entry[0] === 'syncLease')
+    log.findIndex((entry) => Array.isArray(entry) && entry[0] === 'hydrateTower')
       < log.findIndex((entry) => Array.isArray(entry) && entry[0] === 'restorePlayer'),
     true,
-    '必须先完成塔层 lease 裁定，再加载并认领玩家运行态',
+    '必须先完成塔层 catalog lease 裁定与 hydrate，再加载并认领玩家运行态',
   );
   assert.equal(
     log.some((entry) => Array.isArray(entry) && entry[0] === 'restorePlayer' && entry[1] === 'player:ordinary'),
     false,
     '普通缺失实例仍应在玩家加载前被拒绝',
+  );
+  assert.equal(
+    log.some((entry) => Array.isArray(entry) && entry[0] === 'restorePlayer' && entry[1] === 'player:tower-failed'),
+    false,
+    '物化失败的塔层不得继续加载玩家运行态',
+  );
+  assert.equal(
+    log.some((entry) => Array.isArray(entry)
+      && entry[0] === 'connectPlayer'
+      && (entry[1] as { playerId?: string })?.playerId === onlineRacePlayerId),
+    false,
+    'ownership claim 等待期间上线的玩家不得被离线恢复重新附着',
+  );
+  assert.equal(
+    log.some((entry) => Array.isArray(entry)
+      && entry[0] === 'assignRoute'
+      && (entry[1] as { playerId?: string })?.playerId === onlineRacePlayerId),
+    false,
+    'ownership claim 等待期间上线的玩家不得被写回 offline route',
+  );
+  assert.equal(
+    log.some((entry) => Array.isArray(entry)
+      && entry[0] === 'warn'
+      && String(entry[1]).includes(`离线挂机通天塔实例按需物化异常：${failedTowerInstanceId}`)),
+    true,
+    '单层物化异常必须被批次内隔离并记录，不能中断其他塔层恢复',
   );
   console.log(JSON.stringify({ ok: true, case: 'world-runtime-tower-restart-recovery' }, null, 2));
 }

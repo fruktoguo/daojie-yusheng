@@ -22,6 +22,7 @@ export class WorldRuntimeInstanceLeaseReadinessService {
     if (!instanceId) {
       return Promise.resolve();
     }
+    enrollInstanceWriteGateWhenGloballyOpen(runtime, instanceId);
     const generation = this.generation;
     const previousTask = this.pendingByInstanceId.get(instanceId)?.task ?? Promise.resolve();
     const isCurrent = () => (
@@ -34,8 +35,13 @@ export class WorldRuntimeInstanceLeaseReadinessService {
         if (!isCurrent()) {
           return;
         }
-        await syncManagedInstanceRegistration(runtime, instanceId, instance, { isCurrent });
-    });
+        const registration = await syncManagedInstanceRegistration(runtime, instanceId, instance, { isCurrent });
+        if (registration?.ok === true
+          && registration.reason !== 'startup_deferred'
+          && isCurrent()) {
+          enrollInstanceAttachGateWhenGloballyOpen(runtime, instanceId);
+        }
+      });
     const pending = { generation, instance, task };
     this.pendingByInstanceId.set(instanceId, pending);
     const cleanup = () => {
@@ -71,5 +77,21 @@ export class WorldRuntimeInstanceLeaseReadinessService {
 
   getPendingCount(): number {
     return this.pendingByInstanceId.size;
+  }
+}
+
+function enrollInstanceWriteGateWhenGloballyOpen(runtime: any, instanceId: string): void {
+  const barrier = runtime.startupBarrierService;
+  const snapshot = barrier?.getSnapshot?.();
+  if (snapshot?.instanceWriteOpen === true) {
+    barrier.openInstanceWrites?.([instanceId]);
+  }
+}
+
+function enrollInstanceAttachGateWhenGloballyOpen(runtime: any, instanceId: string): void {
+  const barrier = runtime.startupBarrierService;
+  const snapshot = barrier?.getSnapshot?.();
+  if (snapshot?.instanceAttachOpen === true) {
+    barrier.openInstanceAttach?.([instanceId]);
   }
 }

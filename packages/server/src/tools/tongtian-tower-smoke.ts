@@ -197,7 +197,7 @@ async function main(): Promise<void> {
   deps.worldRuntimeInstanceStateService.deleteInstanceRuntime('tower:tongtian:layer:2');
   deps.playerLocations.delete('player:1');
   const restoreSession = new WorldRuntimePlayerSessionService(createWorldAccessForSessionRestore(), null);
-  const restoredLayer2View = restoreSession.connectPlayer({
+  const restoredLayer2View = await restoreSession.connectPlayerWhenReady({
     playerId: 'player:1',
     sessionId: 'session:player:1:restore',
     instanceId: 'tower:tongtian:layer:2',
@@ -220,7 +220,7 @@ async function main(): Promise<void> {
     lineIndex: 1,
     displayName: '通天塔 第 30 层·真实',
   });
-  const wrongRealTowerView = restoreSession.connectPlayer({
+  const wrongRealTowerView = await restoreSession.connectPlayerWhenReady({
     playerId: 'player:wrong-real-tower',
     sessionId: 'session:wrong-real-tower',
     instanceId: 'real:tongtian_tower_layer_30',
@@ -237,52 +237,22 @@ async function main(): Promise<void> {
     { instance_id: 'tower:tongtian:layer:7', template_id: 'tongtian_tower_layer_7' },
     deps,
   );
-  assert.equal(cachedTowerLoaded, true, '启动恢复应先把通天塔持久化缓存到内存，不直接重建到 runtime');
+  assert.equal(cachedTowerLoaded, true, '启动恢复只注册通天塔模板');
   assert.equal(
     deps.createInstanceCalls.some((input: any) => input.instanceId === 'tower:tongtian:layer:7'),
     false,
-    '缓存恢复不应触发通天塔实例重建',
+    '模板恢复不应提前物化通天塔实例',
   );
   assert.equal(
     deps.hydrationCalls.includes('tower:tongtian:layer:7'),
-    true,
-    '缓存恢复要从磁盘回填通天塔实例状态',
+    false,
+    '模板恢复不应使用启动快照提前水合塔层',
   );
-  assert.equal(
-    deps.restoreOrder.findIndex((entry: string) => entry === 'lease:tower:tongtian:layer:7')
-      < deps.restoreOrder.findIndex((entry: string) => entry === 'hydrate:tower:tongtian:layer:7'),
-    true,
-    '通天塔缓存必须先取得 catalog lease，再水合持久化状态',
-  );
-  deps.rejectLeaseSyncForInstance('tower:tongtian:layer:8');
-  assert.equal(await tower.primeLayerInstanceCache(
-    { instance_id: 'tower:tongtian:layer:8', template_id: 'tongtian_tower_layer_8' },
+  assert.equal(tower.ensureLayerInstanceForRestore(
+    { instanceId: 'tower:tongtian:layer:10' },
     deps,
-  ), false, '通天塔缓存未取得 lease 时必须拒绝水合');
-  assert.equal(deps.hydrationCalls.includes('tower:tongtian:layer:8'), false);
-  assert.equal(deps.getInstanceRuntime('tower:tongtian:layer:8'), null);
-  persistence.updateCurrentLayer('player:cache', 7);
-  persistence.promoteHighestLayer('player:cache', 7);
-  const cachedLayerView = restoreSession.connectPlayer({
-    playerId: 'player:cache',
-    sessionId: 'session:player:cache:restore',
-    instanceId: 'tower:tongtian:layer:7',
-    mapId: 'tongtian_tower_layer_7',
-    preferredX: 7,
-    preferredY: 8,
-    allowCreateFallback: false,
-  }, deps) as any;
-  assert.equal(cachedLayerView.instance.instanceId, 'tower:tongtian:layer:7');
-  assert.equal(cachedLayerView.self.x, 7, '持久化重连应保留通天塔内横坐标');
-  assert.equal(cachedLayerView.self.y, 8, '持久化重连应保留通天塔内纵坐标');
-  const cachedLayer = deps.getInstanceRuntimeOrThrow('tower:tongtian:layer:7');
-  assert.equal(cachedLayer.meta.supportsPvp, false, '通天塔恢复缓存路径必须保持禁 PVP');
-  assert.equal(cachedLayer.meta.canDamageTile, false, '通天塔恢复缓存路径必须保持禁地块攻击');
-  assert.equal(
-    cachedLayer.__towerRestoreMarker,
-    'hydrated:tower:tongtian:layer:7',
-    '恢复后的通天塔层应保留磁盘回填标记',
-  );
+    { allowCreate: true, requireCatalogEntry: true },
+  ), null, '离线恢复不能为 catalog 缺失的塔层制造第二真源');
 
   await tower.executeAction('player:1', 'tower:tongtian:previous', deps);
   assert.equal(persistence.rows.get('player:1')?.currentLayer, 1);
@@ -361,6 +331,7 @@ async function main(): Promise<void> {
   layer1BeforeDestroy.meta.leaseExpireAt = new Date(Date.now() + 60_000).toISOString();
   layer1BeforeDestroy.meta.ownershipEpoch = 4;
   layer1BeforeDestroy.meta.runtimeStatus = 'leased';
+  deps.setCatalogEnabled(true);
   deps.instanceTickProgressById.set('tower:tongtian:layer:1', 0.5);
   deps.tick += 3599;
   await tower.cleanupIdleInstances(deps);
@@ -438,8 +409,8 @@ function createDeps(
   const hydrationCalls: string[] = [];
   const leaseSyncCalls: string[] = [];
   const restoreOrder: string[] = [];
-  const rejectedLeaseSyncInstanceIds = new Set<string>();
   const createInstanceCalls: any[] = [];
+  let catalogEnabled = false;
   const deps: any = {
     tick: 0,
     logger: {
@@ -479,7 +450,7 @@ function createDeps(
     },
     instanceCatalogService: {
       isEnabled() {
-        return true;
+        return catalogEnabled;
       },
       async destroyInstanceCatalogWithFence(input: any) {
         catalogDestroyCalls.push(input);
@@ -502,24 +473,7 @@ function createDeps(
         activeWave: null,
       };
     },
-    async syncInstanceLease(instanceId: string, options: { hydratePersistentSnapshot?: boolean }) {
-      leaseSyncCalls.push(instanceId);
-      restoreOrder.push(`lease:${instanceId}`);
-      assert.equal(options.hydratePersistentSnapshot, false, '缓存恢复的 lease 同步不能隐式重复水合');
-      const instance = instances.get(instanceId);
-      assert.ok(instance, `lease 同步前必须临时挂载实例：${instanceId}`);
-      if (rejectedLeaseSyncInstanceIds.has(instanceId)) {
-        throw new Error(`simulated_tower_lease_rejection:${instanceId}`);
-      }
-      instance.meta.assignedNodeId = 'node:tongtian-smoke';
-      instance.meta.leaseToken = `lease:${instanceId}`;
-      instance.meta.leaseExpireAt = new Date(Date.now() + 60_000).toISOString();
-      instance.meta.ownershipEpoch = 8;
-      instance.meta.runtimeStatus = 'leased';
-    },
-    rejectLeaseSyncForInstance(instanceId: string) {
-      rejectedLeaseSyncInstanceIds.add(instanceId);
-    },
+    async waitForInstanceLeaseReady() {},
     async flushInstanceDomains(instanceId: string) {
       flushCalls.push(instanceId);
       if (flushFailureInstanceIds.has(instanceId)) {
@@ -554,6 +508,9 @@ function createDeps(
     leaseSyncCalls,
     restoreOrder,
     createInstanceCalls,
+    setCatalogEnabled(enabled: boolean) {
+      catalogEnabled = enabled;
+    },
     playerLocations,
     notices,
     getInstanceRuntime(instanceId: string) {
@@ -697,7 +654,18 @@ function createDeps(
         instanceOrigin: input.instanceOrigin,
         supportsPvp: input.supportsPvp,
         canDamageTile: input.canDamageTile,
+        status: input.status,
+        runtimeStatus: input.runtimeStatus,
+        assignedNodeId: input.assignedNodeId,
+        leaseToken: input.leaseToken,
+        leaseExpireAt: input.leaseExpireAt,
+        ownershipEpoch: input.ownershipEpoch,
+        clusterId: input.clusterId,
+        shardKey: input.shardKey,
         routeDomain: input.routeDomain,
+        destroyAt: input.destroyAt,
+        lastActiveAt: input.lastActiveAt,
+        lastPersistedAt: input.lastPersistedAt,
       });
       instances.set(input.instanceId, instance);
       return instance;

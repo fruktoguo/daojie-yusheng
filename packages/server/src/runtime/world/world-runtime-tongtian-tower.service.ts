@@ -11,7 +11,10 @@ import { resolveProjectPath } from '../../common/project-path';
 import { MapInstanceRuntime } from '../instance/map-instance.runtime';
 import { TongtianTowerPersistenceService } from '../../persistence/tongtian-tower-persistence.service';
 import { MapTemplateRepository } from '../map/map-template.repository';
-import { destroyManagedInstance } from './world-runtime-instance-lease.helpers';
+import {
+  acquireCatalogBackedInstanceLeaseForRestore,
+  destroyManagedInstance,
+} from './world-runtime-instance-lease.helpers';
 import { buildStructuredNotice } from './structured-notice.helpers';
 
 interface TongtianTowerConfig {
@@ -64,7 +67,10 @@ const TOWER_TEMPLATE_PREFIX = 'tongtian_tower_layer_';
 export class WorldRuntimeTongtianTowerService {
   private readonly logger = new Logger(WorldRuntimeTongtianTowerService.name);
   private readonly config: TongtianTowerConfig;
-  private readonly cachedLayerInstances = new Map<number, any>();
+  private readonly layerMaterializationTasks = new Map<string, Promise<any | null>>();
+  private materializationGeneration = 0;
+  private materializationResetInProgress = false;
+  private readonly resetQuiescedInstances = new Map<any, string>();
 
   constructor(
     @Inject(ContentTemplateRepository)
@@ -83,58 +89,45 @@ export class WorldRuntimeTongtianTowerService {
     if (layer <= 0) {
       return false;
     }
-    if (this.cachedLayerInstances.has(layer) || deps.getInstanceRuntime?.(this.getTowerInstanceId(layer))) {
-      return true;
-    }
     const resolvedTemplateId = this.ensureLayerTemplate(layer);
     if (templateId && templateId !== resolvedTemplateId) {
       return false;
     }
-    if (typeof deps.worldRuntimeInstanceStateService?.setInstanceRuntime !== 'function'
-      || typeof deps.worldRuntimeInstanceStateService?.deleteInstanceRuntime !== 'function'
-      || typeof deps.syncInstanceLease !== 'function'
-      || typeof deps.hydratePersistentInstanceSnapshot !== 'function') {
-      this.logger.warn(`通天塔实例恢复缓存缺少 lease/hydrate 能力：${instanceId}`);
-      return false;
-    }
-    const resolvedInstanceId = this.getTowerInstanceId(layer);
-    const instance = this.createDetachedLayerInstance(layer, resolvedInstanceId, deps, entry);
-    deps.worldRuntimeInstanceStateService.setInstanceRuntime(resolvedInstanceId, instance);
-    try {
-      await deps.syncInstanceLease(resolvedInstanceId, {
-        allowForceReclaim: true,
-        hydratePersistentSnapshot: false,
-      });
-      if (deps.getInstanceRuntime?.(resolvedInstanceId) !== instance || !hasLocalCatalogLease(instance, deps)) {
-        await this.releaseDetachedLayerLease(resolvedInstanceId, instance, deps);
-        this.discardDetachedLayerRuntime(resolvedInstanceId, deps);
-        this.logger.warn(`通天塔实例恢复缓存未取得本地 lease：${resolvedInstanceId}`);
-        return false;
-      }
-      await deps.hydratePersistentInstanceSnapshot(resolvedInstanceId, instance);
-    } catch (error) {
-      await this.releaseDetachedLayerLease(resolvedInstanceId, instance, deps);
-      this.discardDetachedLayerRuntime(resolvedInstanceId, deps);
-      this.logger.warn(`通天塔实例恢复缓存失败：${resolvedInstanceId} ${error instanceof Error ? error.message : String(error)}`);
-      return false;
-    }
-    deps.worldRuntimeInstanceStateService.deleteInstanceRuntime(resolvedInstanceId);
-    this.ensureLayerState(instance, layer, deps.tick ?? instance.tick ?? 0);
-    this.cachedLayerInstances.set(layer, instance);
+    // 塔层只注册模板，不在启动时缓存 catalog 行或持有 detached lease。
+    // 玩家真正引用该层时会 fresh load catalog，并按 instanceId 串行物化。
     return true;
   }
 
   async resetLayerInstanceCache(deps: any): Promise<void> {
-    for (const instance of this.cachedLayerInstances.values()) {
-      const instanceId = typeof instance?.meta?.instanceId === 'string' ? instance.meta.instanceId : '';
-      if (instanceId) {
-        await this.releaseDetachedLayerLease(instanceId, instance, deps);
-        deps.worldRuntimeLootContainerService?.removeInstanceState?.(instanceId);
-        deps.runtimeEventBusService?.discardInstance?.(instanceId);
-        deps.worldRuntimeFormationService?.releaseInstance?.(instanceId);
+    this.materializationResetInProgress = true;
+    this.materializationGeneration += 1;
+    this.resetQuiescedInstances.clear();
+    for (const [instanceId, instance] of deps.listInstanceEntries?.() ?? []) {
+      if (parseTowerLayerFromInstanceId(String(instanceId)) <= 0 || !instance?.meta) {
+        continue;
+      }
+      this.resetQuiescedInstances.set(instance, instance.meta.runtimeStatus ?? 'running');
+      instance.meta.runtimeStatus = 'ownership_transition';
+    }
+    const pending = Array.from(this.layerMaterializationTasks.entries());
+    if (pending.length > 0) {
+      await Promise.allSettled(pending.map(([, task]) => task));
+    }
+    for (const [instanceId, task] of pending) {
+      if (this.layerMaterializationTasks.get(instanceId) === task) {
+        this.layerMaterializationTasks.delete(instanceId);
       }
     }
-    this.cachedLayerInstances.clear();
+  }
+
+  completeLayerInstanceCacheReset(): void {
+    for (const [instance, previousRuntimeStatus] of this.resetQuiescedInstances) {
+      if (instance?.meta?.runtimeStatus === 'ownership_transition') {
+        instance.meta.runtimeStatus = previousRuntimeStatus;
+      }
+    }
+    this.resetQuiescedInstances.clear();
+    this.materializationResetInProgress = false;
   }
 
   buildContextActions(view: any, deps: any): any[] {
@@ -300,16 +293,14 @@ export class WorldRuntimeTongtianTowerService {
     return `${TOWER_INSTANCE_PREFIX}${normalizeLayer(layerInput)}`;
   }
 
-  /**
-   * 仅激活启动阶段已经从实例目录和分域快照回填好的塔层缓存。
-   *
-   * 持久化快照恢复会禁用“新建 fallback”，但缓存激活不是新建实例；它必须仍可用于
-   * 重启后的在线重连与离线挂机恢复，且不能在缓存缺失时凭玩家位置制造第二份实例真源。
-   */
+  /** 兼容同步查询入口：只返回已经完成 lease/hydrate 的塔层，不在这里创建或接管。 */
   activateCachedLayerInstanceForRestore(
     input: { instanceId?: string | null; templateId?: string | null },
     deps: any,
   ): any | null {
+    if (this.materializationResetInProgress) {
+      return null;
+    }
     const instanceId = typeof input?.instanceId === 'string' ? input.instanceId.trim() : '';
     const templateId = typeof input?.templateId === 'string' ? input.templateId.trim() : '';
     const layer = parseTowerLayerFromInstanceId(instanceId) || parseTowerLayerFromTemplateId(templateId);
@@ -321,28 +312,14 @@ export class WorldRuntimeTongtianTowerService {
       return null;
     }
     const resolvedInstanceId = this.getTowerInstanceId(layer);
-    const existing = deps.getInstanceRuntime?.(resolvedInstanceId);
-    if (existing) {
-      return existing;
-    }
-    const cached = this.takeCachedLayerInstance(layer);
-    if (!cached) {
-      return null;
-    }
-    this.prepareRestoredLayerInstance(cached, layer, deps.tick);
-    if (typeof deps.setInstanceRuntime === 'function') {
-      deps.setInstanceRuntime(resolvedInstanceId, cached);
-    } else if (typeof deps.worldRuntimeInstanceStateService?.setInstanceRuntime === 'function') {
-      deps.worldRuntimeInstanceStateService.setInstanceRuntime(resolvedInstanceId, cached);
-    }
-    deps.worldRuntimeTickProgressService?.initializeInstance?.(resolvedInstanceId);
-    return cached;
+    const existing = deps.getInstanceRuntime?.(resolvedInstanceId) ?? null;
+    return isTowerInstanceReady(existing, deps) ? existing : null;
   }
 
   ensureLayerInstanceForRestore(
     input: { instanceId?: string | null; templateId?: string | null },
     deps: any,
-    options: { allowCreate?: boolean } = {},
+    _options: { allowCreate?: boolean; requireCatalogEntry?: boolean } = {},
   ): any | null {
     const instanceId = typeof input?.instanceId === 'string' ? input.instanceId.trim() : '';
     const templateId = typeof input?.templateId === 'string' ? input.templateId.trim() : '';
@@ -354,18 +331,71 @@ export class WorldRuntimeTongtianTowerService {
     if (templateId && templateId !== expectedTemplateId) {
       return null;
     }
-    const restored = this.activateCachedLayerInstanceForRestore(input, deps);
-    if (restored) {
-      return restored;
-    }
-    if (options.allowCreate === false) {
+    return this.activateCachedLayerInstanceForRestore(input, deps);
+  }
+
+  /**
+   * 从权威 catalog 按需物化稳定塔层。
+   *
+   * 同一 instanceId 只允许一个任务执行；catalog-backed 路径绕开 createInstance 的自动
+   * readiness，先 direct mount 为 stopped，再 exact claim/revive、完整 hydrate，最后开放 gate。
+   */
+  async materializeLayerInstanceForRestore(
+    input: { instanceId?: string | null; templateId?: string | null },
+    deps: any,
+    options: { allowCreateIfMissing?: boolean } = {},
+  ): Promise<any | null> {
+    if (this.materializationResetInProgress) {
       return null;
     }
-    return this.ensureLayerInstance(layer, deps);
+    const instanceId = typeof input?.instanceId === 'string' ? input.instanceId.trim() : '';
+    const templateId = typeof input?.templateId === 'string' ? input.templateId.trim() : '';
+    const layer = parseTowerLayerFromInstanceId(instanceId) || parseTowerLayerFromTemplateId(templateId);
+    if (layer <= 0) {
+      return null;
+    }
+    const expectedTemplateId = `${TOWER_TEMPLATE_PREFIX}${layer}`;
+    const resolvedInstanceId = this.getTowerInstanceId(layer);
+    if ((instanceId && instanceId !== resolvedInstanceId) || (templateId && templateId !== expectedTemplateId)) {
+      return null;
+    }
+    const ready = deps.getInstanceRuntime?.(resolvedInstanceId) ?? null;
+    if (isTowerInstanceReady(ready, deps)) {
+      return ready;
+    }
+    const pending = this.layerMaterializationTasks.get(resolvedInstanceId);
+    if (pending) {
+      return pending;
+    }
+    const generation = this.materializationGeneration;
+    const task = this.materializeLayerInstance(
+      layer,
+      resolvedInstanceId,
+      expectedTemplateId,
+      generation,
+      deps,
+      options,
+    );
+    this.layerMaterializationTasks.set(resolvedInstanceId, task);
+    try {
+      return await task;
+    } catch (error) {
+      this.logger.warn(
+        `通天塔按需物化异常：${resolvedInstanceId} ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return null;
+    } finally {
+      if (this.layerMaterializationTasks.get(resolvedInstanceId) === task) {
+        this.layerMaterializationTasks.delete(resolvedInstanceId);
+      }
+    }
   }
 
   /** 恢复 catalog 中通天塔条目的模板注册（不创建实例）。 */
-  restoreCatalogTowerTemplate(entry: { template_id?: string; instance_id?: string }, _deps?: any): boolean {
+  restoreCatalogTowerTemplate(
+    entry: { template_id?: string; instance_id?: string; [key: string]: unknown },
+    _deps?: any,
+  ): boolean {
     const templateId = typeof entry?.template_id === 'string' ? entry.template_id.trim() : '';
     const instanceId = typeof entry?.instance_id === 'string' ? entry.instance_id.trim() : '';
     const layer = parseTowerLayerFromTemplateId(templateId) || parseTowerLayerFromInstanceId(instanceId);
@@ -451,7 +481,17 @@ export class WorldRuntimeTongtianTowerService {
 
   private async connectPlayerToLayer(playerId: string, layerInput: number, deps: any): Promise<any> {
     const layer = normalizeLayer(layerInput);
-    const instance = this.ensureLayerInstance(layer, deps);
+    const instance = await this.materializeLayerInstanceForRestore(
+      {
+        instanceId: this.getTowerInstanceId(layer),
+        templateId: `${TOWER_TEMPLATE_PREFIX}${layer}`,
+      },
+      deps,
+      { allowCreateIfMissing: true },
+    );
+    if (!instance) {
+      throw new BadRequestException(`通天塔第 ${layer} 层暂不可进入`);
+    }
     deps.worldRuntimeNavigationService?.clearNavigationIntent?.(playerId);
     deps.clearPendingCommand?.(playerId);
     const player = deps.playerRuntimeService?.getPlayer?.(playerId);
@@ -493,39 +533,144 @@ export class WorldRuntimeTongtianTowerService {
     return sessionService.connectPlayer(input, deps);
   }
 
-  private ensureLayerInstance(layer: number, deps: any): any {
-    const instanceId = this.getTowerInstanceId(layer);
-    const existing = deps.getInstanceRuntime(instanceId);
-    if (existing) {
-      return existing;
-    }
-    const cached = this.takeCachedLayerInstance(layer);
-    if (cached) {
-      this.prepareRestoredLayerInstance(cached, layer, deps.tick);
-      if (typeof deps.setInstanceRuntime === 'function') {
-        deps.setInstanceRuntime(instanceId, cached);
-      } else if (typeof deps.worldRuntimeInstanceStateService?.setInstanceRuntime === 'function') {
-        deps.worldRuntimeInstanceStateService.setInstanceRuntime(instanceId, cached);
+  private async materializeLayerInstance(
+    layer: number,
+    instanceId: string,
+    templateId: string,
+    generation: number,
+    deps: any,
+    options: { allowCreateIfMissing?: boolean },
+  ): Promise<any | null> {
+    const mounted = deps.getInstanceRuntime?.(instanceId) ?? null;
+    if (mounted && !isTowerInstanceReady(mounted, deps)) {
+      await waitForInstanceReadiness(instanceId, deps);
+      const settledMounted = deps.getInstanceRuntime?.(instanceId) ?? null;
+      if (isTowerInstanceReady(settledMounted, deps)) {
+        return settledMounted;
       }
-      deps.worldRuntimeTickProgressService?.initializeInstance?.(instanceId);
-      return cached;
+      if (settledMounted) {
+        this.logger.warn(`通天塔已有运行态尚未就绪，拒绝覆盖物化：${instanceId}`);
+        return null;
+      }
     }
-    const templateId = this.ensureLayerTemplate(layer);
-    const instance = deps.createInstance({
-      instanceId,
-      templateId,
-      kind: 'tower',
-      persistent: true,
-      linePreset: 'peaceful',
-      lineIndex: layer,
-      displayName: `通天塔 第 ${layer} 层`,
-      instanceOrigin: 'gm_manual',
-      routeDomain: 'system',
-      supportsPvp: false,
-      canDamageTile: false,
-    });
-    this.ensureLayerState(instance, layer, deps.tick);
-    return instance;
+
+    const catalogEnabled = deps.instanceCatalogService?.isEnabled?.() === true;
+    const catalog = catalogEnabled && typeof deps.instanceCatalogService?.loadInstanceCatalog === 'function'
+      ? await deps.instanceCatalogService.loadInstanceCatalog(instanceId)
+      : null;
+    if (generation !== this.materializationGeneration) {
+      return null;
+    }
+    if (!catalog) {
+      if (options.allowCreateIfMissing !== true) {
+        return null;
+      }
+      const current = deps.getInstanceRuntime?.(instanceId) ?? null;
+      if (current) {
+        if (isTowerInstanceReady(current, deps)) {
+          return current;
+        }
+        this.logger.warn(`通天塔已有运行态尚未就绪，拒绝新建覆盖：${instanceId}`);
+        return null;
+      }
+      let created: any | null = null;
+      try {
+        created = deps.createInstance({
+          instanceId,
+          templateId: this.ensureLayerTemplate(layer),
+          kind: 'tower',
+          persistent: true,
+          linePreset: 'peaceful',
+          lineIndex: layer,
+          displayName: `通天塔 第 ${layer} 层`,
+          instanceOrigin: 'gm_manual',
+          routeDomain: 'system',
+          supportsPvp: false,
+          canDamageTile: false,
+        });
+        await waitForInstanceReadiness(instanceId, deps);
+        if (generation !== this.materializationGeneration
+          || deps.getInstanceRuntime?.(instanceId) !== created
+          || !isTowerInstanceReady(created, deps)) {
+          await this.cleanupOwnedMaterialization(instanceId, created, deps);
+          return null;
+        }
+        this.ensureLayerState(created, layer, deps.tick);
+        return created;
+      } catch (error) {
+        await this.cleanupOwnedMaterialization(instanceId, created, deps);
+        throw error;
+      }
+    }
+
+    if (!isExpectedTowerCatalogEntry(catalog, instanceId, templateId)) {
+      this.logger.warn(`通天塔 catalog 身份不一致，拒绝物化：${instanceId}`);
+      return null;
+    }
+    const current = deps.getInstanceRuntime?.(instanceId) ?? null;
+    if (current) {
+      if (isTowerInstanceReady(current, deps)) {
+        return current;
+      }
+      this.logger.warn(`通天塔已有运行态尚未就绪，拒绝 catalog 覆盖物化：${instanceId}`);
+      return null;
+    }
+    if (typeof deps.worldRuntimeInstanceStateService?.setInstanceRuntime !== 'function'
+      || typeof deps.worldRuntimeInstanceStateService?.deleteInstanceRuntime !== 'function') {
+      this.logger.warn(`通天塔按需物化缺少 direct mount 能力：${instanceId}`);
+      return null;
+    }
+
+    const instance = this.createDetachedLayerInstance(layer, instanceId, deps, catalog);
+    instance.meta.runtimeStatus = 'stopped';
+    deps.worldRuntimeInstanceStateService.setInstanceRuntime(instanceId, instance);
+    try {
+      const acquired = await acquireCatalogBackedInstanceLeaseForRestore(
+        deps,
+        instanceId,
+        instance,
+        { expectedTemplateId: templateId, expectedInstanceType: 'tower' },
+      );
+      if (acquired?.ok !== true || generation !== this.materializationGeneration) {
+        await this.cleanupOwnedMaterialization(instanceId, instance, deps);
+        return null;
+      }
+      this.ensureLayerState(instance, layer, deps.tick ?? instance.tick ?? 0);
+      deps.worldRuntimeTickProgressService?.initializeInstance?.(instanceId);
+      this.openMaterializedInstanceGates(instanceId, deps);
+      return instance;
+    } catch (error) {
+      await this.cleanupOwnedMaterialization(instanceId, instance, deps);
+      this.logger.warn(`通天塔按需物化失败：${instanceId} ${error instanceof Error ? error.message : String(error)}`);
+      return null;
+    }
+  }
+
+  private openMaterializedInstanceGates(instanceId: string, deps: any): void {
+    this.openMaterializedInstanceWriteGate(instanceId, deps);
+    this.openMaterializedInstanceAttachGate(instanceId, deps);
+  }
+
+  private openMaterializedInstanceWriteGate(instanceId: string, deps: any): void {
+    const snapshot = deps.startupBarrierService?.getSnapshot?.();
+    if (!snapshot || snapshot.instanceWriteOpen === true) {
+      deps.startupBarrierService?.openInstanceWrites?.([instanceId]);
+    }
+  }
+
+  private openMaterializedInstanceAttachGate(instanceId: string, deps: any): void {
+    const snapshot = deps.startupBarrierService?.getSnapshot?.();
+    if (!snapshot || snapshot.instanceAttachOpen === true) {
+      deps.startupBarrierService?.openInstanceAttach?.([instanceId]);
+    }
+  }
+
+  private async cleanupOwnedMaterialization(instanceId: string, instance: any, deps: any): Promise<void> {
+    if (!instance || deps.getInstanceRuntime?.(instanceId) !== instance) {
+      return;
+    }
+    await this.releaseDetachedLayerLease(instanceId, instance, deps);
+    this.discardDetachedLayerRuntime(instanceId, deps, instance);
   }
 
   private ensureLayerTemplate(layer: number): string {
@@ -600,34 +745,10 @@ export class WorldRuntimeTongtianTowerService {
     state.lastEmptyTick = null;
   }
 
-  private cacheLayerInstance(layer: number, instance: any): void {
-    this.cachedLayerInstances.set(normalizeLayer(layer), instance);
-  }
-
-  private takeCachedLayerInstance(layer: number): any | null {
-    const normalizedLayer = normalizeLayer(layer);
-    const cached = this.cachedLayerInstances.get(normalizedLayer) ?? null;
-    if (cached) {
-      this.cachedLayerInstances.delete(normalizedLayer);
-    }
-    return cached;
-  }
-
-  private prepareRestoredLayerInstance(instance: any, layer: number, worldTick: number): void {
-    if (!instance || typeof instance !== 'object') {
+  private discardDetachedLayerRuntime(instanceId: string, deps: any, expectedInstance?: any): void {
+    if (expectedInstance && deps.getInstanceRuntime?.(instanceId) !== expectedInstance) {
       return;
     }
-    instance.meta = instance.meta ?? {};
-    instance.meta.persistent = true;
-    instance.meta.persistentPolicy = 'persistent';
-    instance.meta.status = 'active';
-    instance.meta.runtimeStatus = instance.meta.assignedNodeId && instance.meta.leaseToken ? 'leased' : 'running';
-    instance.meta.destroyAt = null;
-    const state = this.ensureLayerState(instance, layer, worldTick);
-    this.markLayerActive(state, worldTick);
-  }
-
-  private discardDetachedLayerRuntime(instanceId: string, deps: any): void {
     deps.worldRuntimeInstanceStateService?.deleteInstanceRuntime?.(instanceId);
     deps.worldRuntimeTickProgressService?.clearInstance?.(instanceId);
     deps.worldRuntimeLootContainerService?.removeInstanceState?.(instanceId);
@@ -1018,6 +1139,52 @@ function hasLocalCatalogLease(instance: any, deps: any): boolean {
     && Boolean(leaseToken)
     && Number.isFinite(leaseExpireAt)
     && leaseExpireAt > Date.now();
+}
+
+function isTowerInstanceReady(instance: any, deps: any): boolean {
+  const destroyAt = instance?.meta?.destroyAt
+    ? new Date(instance.meta.destroyAt).getTime()
+    : 0;
+  if (!instance
+    || instance?.meta?.status === 'destroyed'
+    || (Number.isFinite(destroyAt) && destroyAt > 0 && destroyAt <= Date.now())) {
+    return false;
+  }
+  const runtimeStatus = typeof instance?.meta?.runtimeStatus === 'string'
+    ? instance.meta.runtimeStatus.trim()
+    : '';
+  if (runtimeStatus === 'stopped'
+    || runtimeStatus === 'ownership_transition'
+    || runtimeStatus === 'creating'
+    || runtimeStatus === 'fenced'
+    || runtimeStatus === 'lease_degraded'
+    || runtimeStatus === 'destroying'
+    || runtimeStatus === 'cleanup_pending') {
+    return false;
+  }
+  return hasLocalCatalogLease(instance, deps);
+}
+
+async function waitForInstanceReadiness(instanceId: string, deps: any): Promise<void> {
+  if (typeof deps.waitForInstanceLeaseReady === 'function') {
+    await deps.waitForInstanceLeaseReady(instanceId);
+    return;
+  }
+  await deps.worldRuntimeService?.waitForInstanceLeaseReady?.(instanceId);
+}
+
+function isExpectedTowerCatalogEntry(
+  entry: Record<string, unknown>,
+  instanceId: string,
+  templateId: string,
+): boolean {
+  const runtimeStatus = String(entry.runtime_status ?? '').trim();
+  return String(entry.instance_id ?? '').trim() === instanceId
+    && String(entry.template_id ?? '').trim() === templateId
+    && String(entry.instance_type ?? '').trim() === 'tower'
+    && runtimeStatus !== 'cleanup_pending'
+    && runtimeStatus !== 'creating'
+    && runtimeStatus !== 'template_missing';
 }
 
 function isNear(xInput: unknown, yInput: unknown, targetX: number, targetY: number): boolean {

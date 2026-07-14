@@ -148,6 +148,7 @@ export class WorldRuntimeInstanceReadFacadeService {
             assignedNodeId: input.assignedNodeId,
             leaseToken: input.leaseToken,
             leaseExpireAt: input.leaseExpireAt,
+            catalogReservationToken: input.catalogReservationToken,
             ownershipEpoch: input.ownershipEpoch,
             clusterId: input.clusterId,
             shardKey: input.shardKey,

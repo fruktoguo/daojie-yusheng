@@ -381,9 +381,14 @@ export class PlayerRuntimeService {
         if (!Number.isFinite(player.offlineSinceAt)) {
             player.offlineSinceAt = Date.now();
         }
-        this.players.set(normalizedPlayerId, player);
         // 从 DB 恢复离线收益会话（含已累积的 payload）
         const persistedSession = await persistenceService.loadPlayerOfflineGainSession(normalizedPlayerId);
+        const lateExisting = this.players.get(normalizedPlayerId);
+        if (lateExisting) {
+            return lateExisting;
+        }
+        // 最后一个 await 之后同步提交 player 与离线收益会话，避免覆盖并发登录刚建立的在线 runtime。
+        this.players.set(normalizedPlayerId, player);
         if (persistedSession) {
             this.offlineGainSessionsByPlayerId.set(normalizedPlayerId, {
                 sessionId: persistedSession.sessionId,

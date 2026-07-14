@@ -98,6 +98,11 @@ interface WorldRuntimePlayerSessionDeps {
     reconcilePlayerSectId?(playerId: string): string | null;
   };
   worldRuntimeTongtianTowerService?: {
+    materializeLayerInstanceForRestore?(
+      input: { instanceId?: string | null; templateId?: string | null },
+      deps: WorldRuntimePlayerSessionDeps,
+      options?: { allowCreateIfMissing?: boolean },
+    ): Promise<InstanceRuntimeLike | null>;
     ensureLayerInstanceForRestore?(
       input: { instanceId?: string | null; templateId?: string | null },
       deps: WorldRuntimePlayerSessionDeps,
@@ -163,12 +168,30 @@ export class WorldRuntimePlayerSessionService {
     if (!playerId) {
       throw new BadRequestException('玩家 ID 不能为空');
     }
+    const targetRequest = {
+      playerId,
+      requestedInstanceId: normalizeInstanceId(input.instanceId),
+      requestedMapId: normalizeMapId(input.mapId),
+    };
+    const towerTemplateId = resolveTowerTemplateIdFromSessionRequest(targetRequest, deps);
+    if (towerTemplateId
+      && typeof deps.worldRuntimeTongtianTowerService?.materializeLayerInstanceForRestore === 'function') {
+      const towerInstance = await deps.worldRuntimeTongtianTowerService.materializeLayerInstanceForRestore(
+        {
+          instanceId: targetRequest.requestedInstanceId.startsWith('tower:tongtian:layer:')
+            ? targetRequest.requestedInstanceId
+            : null,
+          templateId: towerTemplateId,
+        },
+        deps,
+        { allowCreateIfMissing: input.allowCreateFallback !== false },
+      );
+      if (!towerInstance) {
+        throw new ServiceUnavailableException('通天塔实例暂不可用');
+      }
+    }
     const targetInstance = this.resolveTargetInstance(
-      {
-        playerId,
-        requestedInstanceId: normalizeInstanceId(input.instanceId),
-        requestedMapId: normalizeMapId(input.mapId),
-      },
+      targetRequest,
       deps,
       { allowCreateFallback: input.allowCreateFallback !== false },
     );
@@ -383,6 +406,9 @@ export class WorldRuntimePlayerSessionService {
     if (towerInstance) {
       return towerInstance;
     }
+    if (towerTemplateId) {
+      return null;
+    }
     if (!allowCreateFallback) {
       const requestedInstance = input.requestedInstanceId
         ? deps.getInstanceRuntime(input.requestedInstanceId)
@@ -481,9 +507,16 @@ function resolveTowerTemplateIdFromSessionRequest(
   if (input.requestedMapId?.startsWith('tongtian_tower_layer_')) {
     return input.requestedMapId;
   }
+  const towerInstanceMatch = /^tower:tongtian:layer:(\d+)$/.exec(input.requestedInstanceId);
+  if (towerInstanceMatch) {
+    const layer = Number(towerInstanceMatch[1]);
+    if (Number.isSafeInteger(layer) && layer > 0) {
+      return `tongtian_tower_layer_${layer}`;
+    }
+  }
   const descriptor = parseRuntimeInstanceDescriptor(input.requestedInstanceId);
   const templateId = descriptor?.templateId;
-  if (templateId?.startsWith('tongtian_tower_layer_') && deps.templateRepository.has(templateId)) {
+  if (templateId?.startsWith('tongtian_tower_layer_')) {
     return templateId;
   }
   return '';

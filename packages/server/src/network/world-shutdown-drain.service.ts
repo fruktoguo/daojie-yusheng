@@ -74,6 +74,7 @@ export class WorldShutdownDrainService implements BeforeApplicationShutdown {
     this.startupBarrierService.closeInstanceWrites();
     this.durableOperationService.beginShutdown();
     this.worldRuntimeService.worldRuntimeSectService?.beginShutdown?.();
+    await this.worldRuntimeService.stopInstanceLeaseSyncForShutdown?.();
     this.shutdownStatusService.beginPhase('sessions_draining', reason);
     const detachedBindings = this.worldGateway.disconnectAllForShutdown('server_shutdown');
     await runConcurrent(detachedBindings, SHUTDOWN_SESSION_DRAIN_PARALLELISM, async (binding) => {

@@ -7,7 +7,7 @@
  * 世界级访问与工具服务
  * 提供实例创建/查找、默认复生地图、线路分配等世界级公共操作
  */
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { WorldRuntimeSummaryQueryService } from './query/world-runtime-summary-query.service';
 import * as world_runtime_normalization_helpers_1 from './world-runtime.normalization.helpers';
 
@@ -121,6 +121,7 @@ export class WorldRuntimeWorldAccessService {
         if (towerInstance) {
             return towerInstance;
         }
+        rejectUnavailableTongtianTowerTemplate(templateId);
         if (!deps.templateRepository.has(templateId)) {
             throw new NotFoundException(`地图模板不存在：${templateId}`);
         }
@@ -148,6 +149,7 @@ export class WorldRuntimeWorldAccessService {
         if (towerInstance) {
             return towerInstance;
         }
+        rejectUnavailableTongtianTowerTemplate(templateId);
         const normalizedPreset = normalizeRuntimeInstanceLinePreset(linePreset);
         if (normalizedPreset !== 'real') {
             return this.getOrCreatePublicInstance(templateId, deps);
@@ -294,4 +296,10 @@ function resolveTongtianTowerInstance(templateId, deps) {
         return null;
     }
     return deps.worldRuntimeTongtianTowerService.ensureLayerInstanceForRestore({ templateId }, deps);
+}
+
+function rejectUnavailableTongtianTowerTemplate(templateId) {
+    if (typeof templateId === 'string' && templateId.startsWith('tongtian_tower_layer_')) {
+        throw new ServiceUnavailableException(`通天塔实例暂不可用：${templateId}`);
+    }
 }

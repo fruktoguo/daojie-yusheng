@@ -62,6 +62,9 @@ export class WorldRuntimeGmSystemCommandService {
                     getPlayerLocation: (playerId) => deps.getPlayerLocation(playerId),
                     setPlayerLocation: (playerId, location) => deps.setPlayerLocation(playerId, location),
                     getInstanceRuntime: (instanceId) => deps.getInstanceRuntime(instanceId),
+                    instanceReadyForPlayerAttach: (instanceId) => typeof deps.instanceReadyForPlayerAttach === 'function'
+                        ? deps.instanceReadyForPlayerAttach(instanceId)
+                        : { ok: false, reason: 'readiness_unavailable' },
                     getPlayerViewOrThrow: (playerId) => deps.getPlayerViewOrThrow(playerId),
                     refreshPlayerContextActions: (playerId, view) => deps.refreshPlayerContextActions(playerId, view),
                     resolveCurrentTickForPlayerId: (playerId) => deps.resolveCurrentTickForPlayerId(playerId),

@@ -41,52 +41,57 @@ function logOfflineRestoreMissingInstance(deps, instanceId, playerId) {
 /**
  * 激活仍有离线挂机玩家驻留的通天塔层。
  *
- * 通天塔启动时先以 detached cache 形态回填，避免把所有历史层都注册进 tick；这里只对
- * 玩家位置真源实际引用的层做物化，并在加载玩家前完成实例 lease 裁定。普通缺失实例
- * 不走这条路径，缓存缺失时也不创建空白塔层。
+ * 通天塔启动时只恢复模板，避免把所有历史层都注册进 tick；这里只对玩家位置真源实际
+ * 引用的层 fresh load catalog 并物化，在加载玩家前完成 lease、hydrate 与 gate 裁定。
+ * 普通缺失实例不走这条路径，catalog 缺失时也不创建空白塔层。
  */
 async function activateOfflinePlayerTowerInstances(deps, positions) {
     const towerService = deps.worldRuntimeTongtianTowerService;
-    if (typeof towerService?.activateCachedLayerInstanceForRestore !== 'function') {
-        return;
+    if (typeof towerService?.materializeLayerInstanceForRestore !== 'function') {
+        return 0;
     }
     const instanceIds = Array.from(new Set((Array.isArray(positions) ? positions : [])
         .map((entry) => typeof entry?.instanceId === 'string' ? entry.instanceId.trim() : '')
-        .filter((instanceId) => isExpectedMissingOfflineRuntimeInstance(instanceId))))
-        .filter((instanceId) => !deps.getInstanceRuntime(instanceId));
+        .filter((instanceId) => isExpectedMissingOfflineRuntimeInstance(instanceId))));
     const batchSize = 16;
+    let failed = 0;
     for (let index = 0; index < instanceIds.length; index += batchSize) {
         const batch = instanceIds.slice(index, index + batchSize);
         await Promise.all(batch.map(async (instanceId) => {
-            const instance = towerService.activateCachedLayerInstanceForRestore({ instanceId }, deps);
-            if (!instance) {
-                return;
-            }
             try {
-                if (typeof deps.syncInstanceLease === 'function') {
-                    await deps.syncInstanceLease(instance.meta.instanceId, { allowForceReclaim: true });
+                const existing = deps.getInstanceRuntime(instanceId);
+                const existingReadiness = existing && typeof deps.instanceReadyForPlayerAttach === 'function'
+                    ? deps.instanceReadyForPlayerAttach(instanceId)
+                    : null;
+                if (existing && existingReadiness?.ok === true) {
+                    return;
+                }
+                const instance = await towerService.materializeLayerInstanceForRestore(
+                    { instanceId },
+                    deps,
+                    { allowCreateIfMissing: false },
+                );
+                if (!instance) {
+                    failed++;
+                    deps.logger?.warn?.(`离线挂机通天塔实例按需物化失败：${instanceId}`);
+                    return;
+                }
+                const attachReady = typeof deps.instanceReadyForPlayerAttach === 'function'
+                    ? deps.instanceReadyForPlayerAttach(instance.meta.instanceId)
+                    : { ok: true, reason: 'ready', instance };
+                if (!attachReady.ok) {
+                    failed++;
+                    return;
                 }
             } catch (error) {
+                failed++;
                 deps.logger?.warn?.(
-                    `离线挂机通天塔实例租约同步失败：${instanceId} ${error instanceof Error ? error.message : String(error)}`,
+                    `离线挂机通天塔实例按需物化异常：${instanceId} ${error instanceof Error ? error.message : String(error)}`,
                 );
-                return;
-            }
-            const attachReady = typeof deps.instanceReadyForPlayerAttach === 'function'
-                ? deps.instanceReadyForPlayerAttach(instance.meta.instanceId)
-                : { ok: true, reason: 'ready', instance };
-            if (!attachReady.ok && attachReady.reason !== 'attach_gate_closed') {
-                return;
-            }
-            const barrierSnapshot = deps.startupBarrierService?.getSnapshot?.();
-            if (!barrierSnapshot || barrierSnapshot.instanceWriteOpen === true) {
-                deps.startupBarrierService?.openInstanceWrites?.([instance.meta.instanceId]);
-            }
-            if (!barrierSnapshot || barrierSnapshot.instanceAttachOpen === true) {
-                deps.startupBarrierService?.openInstanceAttach?.([instance.meta.instanceId]);
             }
         }));
     }
+    return failed;
 }
 
 async function persistBuildingRoomStateAfterStartupRecovery(deps, domainPersistenceService, instanceId, instance, hydrateResult) {
@@ -139,6 +144,29 @@ async function persistBuildingRoomStateAfterStartupRecovery(deps, domainPersiste
 /** world-runtime lifecycle seam：承接公共实例 bootstrap、持久化恢复与整体验证前 rebuild。 */
 @Injectable()
 export class WorldRuntimeLifecycleService {
+    private offlineRestoreRetryAttempt = 0;
+    private offlineRestoreRetryAt = 0;
+
+    consumeOfflineRestoreRetry(): boolean {
+        if (this.offlineRestoreRetryAt <= 0 || Date.now() < this.offlineRestoreRetryAt) {
+            return false;
+        }
+        const delayMs = Math.min(5 * 60_000, 10_000 * (2 ** Math.min(this.offlineRestoreRetryAttempt, 5)));
+        this.offlineRestoreRetryAttempt++;
+        this.offlineRestoreRetryAt = Date.now() + delayMs;
+        return true;
+    }
+
+    private updateOfflineRestoreRetry(towerActivationFailures: number): void {
+        if (towerActivationFailures <= 0) {
+            this.offlineRestoreRetryAttempt = 0;
+            this.offlineRestoreRetryAt = 0;
+            return;
+        }
+        if (this.offlineRestoreRetryAt <= 0) {
+            this.offlineRestoreRetryAt = Date.now() + 10_000;
+        }
+    }
 /**
  * bootstrapPublicInstances：执行引导PublicInstance相关逻辑。
  * @param deps 运行时依赖。
@@ -321,10 +349,13 @@ export class WorldRuntimeLifecycleService {
     } = {}) {
         const restoreCatalogInstances = options.restoreCatalogInstances !== false;
         const restoreInstanceDomains = options.restoreInstanceDomains !== false;
+        let towerResetStarted = false;
         deps.worldRuntimeInstanceLeaseReadinessService?.reset?.();
+        try {
         if (deps.instanceCatalogService?.isEnabled?.()
             && restoreCatalogInstances
             && typeof deps.worldRuntimeTongtianTowerService?.resetLayerInstanceCache === 'function') {
+            towerResetStarted = true;
             await deps.worldRuntimeTongtianTowerService.resetLayerInstanceCache(deps);
         }
         const catalogEntries = deps.instanceCatalogService?.isEnabled?.() && restoreCatalogInstances
@@ -337,15 +368,16 @@ export class WorldRuntimeLifecycleService {
             for (const entry of Array.isArray(catalogEntries) ? catalogEntries : []) {
                 const instanceId = typeof entry.instance_id === 'string' ? entry.instance_id.trim() : '';
                 const templateId = typeof entry.template_id === 'string' ? entry.template_id.trim() : '';
-                if (!shouldRestoreCatalogEntry(entry)) {
-                    continue;
-                }
                 const towerRestored = typeof deps.worldRuntimeTongtianTowerService?.restoreCatalogTowerTemplate === 'function'
                     && deps.worldRuntimeTongtianTowerService.restoreCatalogTowerTemplate(entry, deps);
                 if (towerRestored) {
-                    if (typeof deps.worldRuntimeTongtianTowerService?.primeLayerInstanceCache === 'function') {
+                    if (shouldRestoreCatalogEntry(entry)
+                        && typeof deps.worldRuntimeTongtianTowerService?.primeLayerInstanceCache === 'function') {
                         await deps.worldRuntimeTongtianTowerService.primeLayerInstanceCache(entry, deps);
                     }
+                    continue;
+                }
+                if (!shouldRestoreCatalogEntry(entry)) {
                     continue;
                 }
                 if (!instanceId || !templateId) {
@@ -403,8 +435,17 @@ export class WorldRuntimeLifecycleService {
         if (restoreInstanceDomains) {
             await this.restorePublicInstancePersistence(deps);
         }
+        if (towerResetStarted) {
+            deps.worldRuntimeTongtianTowerService?.completeLayerInstanceCacheReset?.();
+            towerResetStarted = false;
+        }
         if (options.restoreOfflinePlayers !== false) {
             await this.restoreOfflineHangingPlayers(deps);
+        }
+        } finally {
+            if (towerResetStarted) {
+                deps.worldRuntimeTongtianTowerService?.completeLayerInstanceCacheReset?.();
+            }
         }
     }
 
@@ -468,20 +509,41 @@ export class WorldRuntimeLifecycleService {
             positions = await persistenceService.listOfflineHangingPlayerPositions(baseOfflineTimeoutMs, activeMonthCardPlayerIds, monthCardOfflineTimeoutMs, eternalMonthCardPlayerIds);
         } catch (error) {
             markSkipped('query_failed');
+            this.updateOfflineRestoreRetry(1);
             deps.logger?.warn?.(`查询离线挂机玩家位置失败：${error instanceof Error ? error.message : String(error)}`);
             return result;
         }
         result.candidates = Array.isArray(positions) ? positions.length : 0;
         if (!positions || positions.length === 0) {
+            this.updateOfflineRestoreRetry(0);
             return result;
         }
-        await activateOfflinePlayerTowerInstances(deps, positions);
+        const towerActivationFailures = await activateOfflinePlayerTowerInstances(deps, positions);
         let restored = 0;
+        let restoreFailures = 0;
         const BATCH_SIZE = 50;
         for (let i = 0; i < positions.length; i += BATCH_SIZE) {
             const batch = positions.slice(i, i + BATCH_SIZE);
             await Promise.all(batch.map(async (entry) => {
                 try {
+                    if (isOfflinePlayerAlreadyAttached(deps, entry.playerId)) {
+                        const runtimeFence = deps.playerRuntimeService?.getSessionFence?.(entry.playerId);
+                        const localNodeId = deps.nodeRegistryService?.getNodeId?.();
+                        if (!runtimeFence?.sessionEpoch
+                            || typeof localNodeId !== 'string'
+                            || !localNodeId.trim()
+                            || typeof deps.worldRuntimePlayerSessionService?.assignPlayerRoute !== 'function') {
+                            throw new Error('offline_route_repair_unavailable');
+                        }
+                        await deps.worldRuntimePlayerSessionService.assignPlayerRoute({
+                            playerId: entry.playerId,
+                            nodeId: localNodeId.trim(),
+                            sessionEpoch: runtimeFence.sessionEpoch,
+                            routeStatus: 'offline',
+                        });
+                        markSkipped('already_attached', entry);
+                        return;
+                    }
                     const attachReady = typeof deps.instanceReadyForPlayerAttach === 'function'
                         ? deps.instanceReadyForPlayerAttach(entry.instanceId)
                         : { ok: true, reason: 'ready' };
@@ -519,6 +581,10 @@ export class WorldRuntimeLifecycleService {
                         markSkipped('player_snapshot_missing', entry);
                         return;
                     }
+                    if (hasOnlinePlayerSession(deps, entry.playerId, player)) {
+                        markSkipped('player_became_online', entry);
+                        return;
+                    }
                     const runtimeFence = typeof deps.playerRuntimeService.ensureRuntimeOwnershipClaimed === 'function'
                         ? await deps.playerRuntimeService.ensureRuntimeOwnershipClaimed(entry.playerId)
                         : deps.playerRuntimeService.getSessionFence?.(entry.playerId);
@@ -526,6 +592,13 @@ export class WorldRuntimeLifecycleService {
                         markSkipped('runtime_ownership_claim_failed', entry);
                         deps.logger?.warn?.(`offline_restore_skipped_runtime_ownership_claim_failed instance=${entry.instanceId} player=${entry.playerId}`);
                         deps.playerRuntimeService.removePlayerRuntime?.(entry.playerId);
+                        return;
+                    }
+                    // 认领 ownership 需要等待数据库；等待期间若登录链已绑定在线 session，
+                    // 离线恢复不能复用该在线 fence 再把实例位置和 route 覆盖成 offline。
+                    // 最后一次检查后到同步 connectPlayer 之间没有 await，保证本节点事件循环内不可插入登录。
+                    if (hasOnlinePlayerSession(deps, entry.playerId, player)) {
+                        markSkipped('player_became_online', entry);
                         return;
                     }
                     const requestedMapId = typeof player?.templateId === 'string' && player.templateId.trim()
@@ -555,6 +628,7 @@ export class WorldRuntimeLifecycleService {
                     }
                     restored++;
                 } catch (error) {
+                    restoreFailures++;
                     markSkipped('restore_error', entry, error);
                     deps.logger?.warn?.(
                         `恢复离线挂机玩家失败：${entry.playerId} ${error instanceof Error ? error.message : String(error)}`,
@@ -562,6 +636,7 @@ export class WorldRuntimeLifecycleService {
                 }
             }));
         }
+        this.updateOfflineRestoreRetry(towerActivationFailures + restoreFailures);
         result.restored = restored;
         if (restored > 0 || result.skipped > 0) {
             deps.logger?.log?.(`离线挂机玩家恢复完成：成功 ${restored}，跳过 ${result.skipped}，总计 ${positions.length}`);
@@ -570,8 +645,31 @@ export class WorldRuntimeLifecycleService {
     }
 };
 
+function hasOnlinePlayerSession(deps, playerId, fallbackPlayer = null) {
+    const runtimePlayer = deps.playerRuntimeService?.getPlayer?.(playerId) ?? fallbackPlayer;
+    if (typeof runtimePlayer?.sessionId === 'string' && runtimePlayer.sessionId.trim()) {
+        return true;
+    }
+    const location = deps.getPlayerLocation?.(playerId);
+    return typeof location?.sessionId === 'string' && location.sessionId.trim().length > 0;
+}
+
+function isOfflinePlayerAlreadyAttached(deps, playerId) {
+    const runtimePlayer = deps.playerRuntimeService?.getPlayer?.(playerId);
+    const location = deps.getPlayerLocation?.(playerId);
+    const instance = typeof location?.instanceId === 'string'
+        ? deps.getInstanceRuntime?.(location.instanceId)
+        : null;
+    return runtimePlayer?.sessionId === null
+        && location?.sessionId === null
+        && typeof instance?.getPlayerPosition === 'function'
+        && instance.getPlayerPosition(playerId) != null;
+}
+
 function shouldRestoreCatalogEntry(entry) {
-    if (entry?.status === 'destroyed' || entry?.runtime_status === 'stopped') {
+    if (entry?.status === 'destroyed'
+        || entry?.runtime_status === 'stopped'
+        || entry?.runtime_status === 'creating') {
         return false;
     }
     const destroyAt = entry?.destroy_at ? new Date(entry.destroy_at).getTime() : 0;

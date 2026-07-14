@@ -14,6 +14,7 @@ interface SmokeInstanceMeta {
   leaseToken: string | null;
   ownershipEpoch: number;
   runtimeStatus: string;
+  destroyAt: string | null;
 }
 
 async function main(): Promise<void> {
@@ -24,21 +25,112 @@ async function main(): Promise<void> {
     const missingCatalog = await verifyMissingCatalogLeaseReplaysBeforeEpochAdvance();
     process.env.SERVER_FORCE_RECLAIM_STALE_LEASES = '1';
     process.env.SERVER_RUNTIME_ENV = 'development';
+    const catalogTombstoneRejection = await verifyGenericCatalogTombstoneRejection();
+    const scheduledDestroyAt = await verifyScheduledDestroyAtRemainsClaimable();
     const forceClaim = await verifyForceClaimReplaysBeforeEpochAdvance();
     const migration = await verifyMigrationReplaysBeforeEpochAdvance();
     console.log(JSON.stringify({
       ok: true,
       ordinaryClaim,
       missingCatalog,
+      catalogTombstoneRejection,
+      scheduledDestroyAt,
       forceClaim,
       migration,
-      answers: '普通接管、catalog lease 缺失重建、开发环境强制接管和 GM 实例迁移都会先冻结旧写并 replay 旧 ownership epoch payload，再通过 expected epoch CAS 推进 ownership epoch',
+      answers: '普通接管、catalog lease 缺失重建、开发环境强制接管和 GM 实例迁移都会先冻结旧写并 replay 旧 ownership epoch payload；普通 claim、force claim、adopt 与 reclaim 均不能复活任一 catalog tombstone',
       excludes: '不证明真实 PostgreSQL 跨节点锁竞争，只证明运行时调用顺序、冻结状态与 CAS 入参',
     }, null, 2));
   } finally {
     restoreEnv('SERVER_FORCE_RECLAIM_STALE_LEASES', previousForce);
     restoreEnv('SERVER_RUNTIME_ENV', previousRuntimeEnv);
   }
+}
+
+async function verifyScheduledDestroyAtRemainsClaimable(): Promise<{
+  order: string[];
+  ownershipEpoch: number;
+  destroyAt: string;
+}> {
+  const instanceId = 'public:scheduled-destroy-claim';
+  const order: string[] = [];
+  const destroyAt = new Date(Date.now() + 60_000).toISOString();
+  const instance = buildInstance(instanceId, {
+    assignedNodeId: null,
+    leaseToken: null,
+    ownershipEpoch: 16,
+    runtimeStatus: 'running',
+    destroyAt,
+  });
+  const catalog = {
+    ...buildCatalog(instanceId, 16, null, null, null),
+    status: 'active',
+    runtime_status: 'running',
+    destroy_at: destroyAt,
+  };
+  const runtime = buildRuntime(instanceId, instance, catalog, order, {
+    async claim(input) {
+      assert.equal(input.expectedOwnershipEpoch, 16);
+      order.push('claim');
+      return { ok: true, ownershipEpoch: 17 };
+    },
+  });
+
+  await syncInstanceLease(runtime, instanceId);
+
+  assert.deepEqual(order, ['replay:16', 'claim']);
+  assert.equal(instance.meta.ownershipEpoch, 17);
+  assert.equal(instance.meta.destroyAt, destroyAt);
+  return { order, ownershipEpoch: instance.meta.ownershipEpoch, destroyAt };
+}
+
+async function verifyGenericCatalogTombstoneRejection(): Promise<{
+  cases: Array<{ name: string; order: string[]; runtimeStatus: string }>;
+}> {
+  const definitions = [
+    { name: 'destroyed_status', patch: { status: 'destroyed' } },
+    { name: 'stopped_runtime', patch: { runtime_status: 'stopped' } },
+    {
+      name: 'expired_destroy_at',
+      patch: { destroy_at: new Date(Date.now() - 60_000).toISOString() },
+    },
+  ];
+  const cases: Array<{ name: string; order: string[]; runtimeStatus: string }> = [];
+  for (const [index, definition] of definitions.entries()) {
+    const instanceId = `tower:tongtian:layer:${40 + index}`;
+    const order: string[] = [];
+    const instance = buildInstance(instanceId, {
+      assignedNodeId: null,
+      leaseToken: null,
+      ownershipEpoch: 13,
+      runtimeStatus: 'running',
+    });
+    const catalog = {
+      ...buildCatalog(instanceId, 13, null, null, null),
+      status: 'active',
+      runtime_status: 'running',
+      destroy_at: null,
+      ...definition.patch,
+    };
+    const runtime = buildRuntime(instanceId, instance, catalog, order, {
+      async claim() {
+        throw new Error('普通 claim 不得接管 tombstone');
+      },
+      async forceClaim() {
+        throw new Error('force claim 不得接管 tombstone');
+      },
+      async revive() {
+        throw new Error('generic sync 不得调用显式 revival');
+      },
+    });
+
+    await syncInstanceLease(runtime, instanceId, { allowForceReclaim: true });
+
+    assert.deepEqual(order, ['delete']);
+    assert.equal(instance.meta.runtimeStatus, 'fenced');
+    assert.equal(instance.meta.status, 'lease_lost');
+    cases.push({ name: definition.name, order, runtimeStatus: instance.meta.runtimeStatus });
+  }
+  return { cases };
 }
 
 async function verifyOrdinaryClaimReplaysBeforeEpochAdvance(): Promise<{ order: string[]; ownershipEpoch: number }> {
@@ -54,7 +146,7 @@ async function verifyOrdinaryClaimReplaysBeforeEpochAdvance(): Promise<{ order: 
   const runtime = buildRuntime(instanceId, instance, catalog, order, {
     async claim(input) {
       assert.equal(input.expectedOwnershipEpoch, 3);
-      assert.equal(instance.meta.runtimeStatus, 'stopped');
+      assert.equal(instance.meta.runtimeStatus, 'ownership_transition');
       order.push('claim');
       return { ok: true, ownershipEpoch: 4 };
     },
@@ -84,7 +176,7 @@ async function verifyMissingCatalogLeaseReplaysBeforeEpochAdvance(): Promise<{ o
     },
     async claim(input) {
       assert.equal(input.expectedOwnershipEpoch, 8);
-      assert.equal(instance.meta.runtimeStatus, 'stopped');
+      assert.equal(instance.meta.runtimeStatus, 'ownership_transition');
       order.push('claim');
       return { ok: true, ownershipEpoch: 9 };
     },
@@ -119,7 +211,7 @@ async function verifyForceClaimReplaysBeforeEpochAdvance(): Promise<{ order: str
     },
     async forceClaim(input) {
       assert.equal(input.expectedOwnershipEpoch, 12);
-      assert.equal(instance.meta.runtimeStatus, 'stopped');
+      assert.equal(instance.meta.runtimeStatus, 'ownership_transition');
       order.push('force-claim');
       return { ok: true, ownershipEpoch: 13 };
     },
@@ -154,7 +246,7 @@ async function verifyMigrationReplaysBeforeEpochAdvance(): Promise<{ order: stri
       assert.equal(input.expectedOwnershipEpoch, 20);
       assert.equal(input.sourceNodeId, 'node:local');
       assert.equal(input.sourceLeaseToken, 'lease:local:migrate');
-      assert.equal(instance.meta.runtimeStatus, 'stopped');
+      assert.equal(instance.meta.runtimeStatus, 'ownership_transition');
       order.push('migrate');
       return { ok: true, ownershipEpoch: 21 };
     },
@@ -181,6 +273,7 @@ function buildInstance(instanceId: string, meta: Partial<SmokeInstanceMeta>) {
       leaseToken: null,
       ownershipEpoch: 0,
       runtimeStatus: 'running',
+      destroyAt: null,
       ...meta,
     } satisfies SmokeInstanceMeta,
   };
@@ -205,12 +298,13 @@ function buildCatalog(
 function buildRuntime(
   instanceId: string,
   instance: ReturnType<typeof buildInstance>,
-  catalog: ReturnType<typeof buildCatalog>,
+  catalog: ReturnType<typeof buildCatalog> & Record<string, unknown>,
   order: string[],
   behavior: {
     renew?: (input: Record<string, unknown>) => Promise<boolean>;
     claim?: (input: Record<string, unknown>) => Promise<{ ok: boolean; ownershipEpoch: number | null }>;
     forceClaim?: (input: Record<string, unknown>) => Promise<{ ok: boolean; ownershipEpoch: number | null }>;
+    revive?: (input: Record<string, unknown>) => Promise<{ ok: boolean; ownershipEpoch: number | null }>;
     migrate?: (input: Record<string, unknown>) => Promise<{ ok: boolean; ownershipEpoch: number | null }>;
   },
 ) {
@@ -241,6 +335,9 @@ function buildRuntime(
       async forceClaimInstanceLease(input: Record<string, unknown>) {
         return behavior.forceClaim?.(input) ?? { ok: false, ownershipEpoch: null };
       },
+      async reviveInstanceLeaseWithFence(input: Record<string, unknown>) {
+        return behavior.revive?.(input) ?? { ok: false, ownershipEpoch: null };
+      },
       async migrateInstanceLease(input: Record<string, unknown>) {
         return behavior.migrate?.(input) ?? { ok: false, ownershipEpoch: null };
       },
@@ -253,9 +350,27 @@ function buildRuntime(
     getInstanceRuntime(candidateInstanceId: string) {
       return candidateInstanceId === instanceId ? instance : null;
     },
+    worldRuntimeInstanceStateService: {
+      deleteInstanceRuntime(candidateInstanceId: string) {
+        assert.equal(candidateInstanceId, instanceId);
+        order.push('delete');
+      },
+    },
+    worldRuntimeTickProgressService: {
+      clearInstance() {},
+    },
+    worldRuntimeLootContainerService: {
+      removeInstanceState() {},
+    },
+    runtimeEventBusService: {
+      discardInstance() {},
+    },
+    worldRuntimeFormationService: {
+      releaseInstance() {},
+    },
     async replayInstanceFlushPayloadsBeforeOwnershipChange(targetInstanceId: string, ownershipEpoch: number) {
       assert.equal(targetInstanceId, instanceId);
-      assert.equal(instance.meta.runtimeStatus, 'stopped');
+      assert.equal(instance.meta.runtimeStatus, 'ownership_transition');
       order.push(`replay:${ownershipEpoch}`);
     },
   };

@@ -4,11 +4,15 @@
  * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
 import { Inject, Injectable, Logger, type OnModuleInit } from '@nestjs/common';
+import { randomBytes } from 'node:crypto';
 import { Pool } from 'pg';
 
 import { DatabasePoolProvider } from './database-pool.provider';
 
 const INSTANCE_CATALOG_TABLE = 'instance_catalog';
+const MIN_MANUAL_LINE_INDEX = 2;
+const MAX_MANUAL_LINE_RESERVATION_RETRIES = 1_024;
+const MANUAL_LINE_RESERVATION_TTL_MS = 10 * 60 * 1_000;
 
 const CREATE_INSTANCE_CATALOG_TABLE_SQL = `
   CREATE TABLE IF NOT EXISTS ${INSTANCE_CATALOG_TABLE} (
@@ -98,6 +102,216 @@ export class InstanceCatalogService implements OnModuleInit {
 
   isEnabled(): boolean {
     return this.enabled && this.pool !== null;
+  }
+
+  /**
+   * 为 GM 手动分线预留一个从未使用过的确定性 ID。
+   *
+   * 历史 catalog（包括 destroyed/stopped）全部参与编号上界计算；写入只允许 INSERT，
+   * 绝不通过 ON CONFLICT UPDATE 复活旧行。事务级 advisory lock 负责同一模板/预设的
+   * 跨节点串行，主键冲突重试负责兜住未遵循该锁的并发写入。
+   */
+  async reserveNextManualLineInstance(input: {
+    instanceIdPrefix: string;
+    templateId: string;
+    persistentPolicy: string;
+    routeDomain?: string | null;
+    minimumLineIndex?: number;
+    occupiedRuntimeInstanceIds?: string[];
+    destroyAt?: string | null;
+  }): Promise<{ instanceId: string; lineIndex: number; reservationToken: string } | null> {
+    const pool = this.pool;
+    if (!pool || !this.enabled) {
+      return null;
+    }
+    const instanceIdPrefix = normalizeRequiredCatalogText(input.instanceIdPrefix, 159, 'instance_id_prefix');
+    const templateId = normalizeRequiredCatalogText(input.templateId, 120, 'template_id');
+    const persistentPolicy = normalizeRequiredCatalogText(input.persistentPolicy, 32, 'persistent_policy');
+    const routeDomain = normalizeOptionalCatalogText(input.routeDomain, 120, 'route_domain');
+    let nextLineIndex = normalizeManualLineIndex(input.minimumLineIndex, MIN_MANUAL_LINE_INDEX);
+    for (const instanceId of input.occupiedRuntimeInstanceIds ?? []) {
+      const occupiedLineIndex = parseManualLineIndex(instanceId, instanceIdPrefix);
+      if (occupiedLineIndex !== null && occupiedLineIndex >= nextLineIndex) {
+        nextLineIndex = occupiedLineIndex + 1;
+      }
+    }
+
+    const client = await pool.connect();
+    let transactionStarted = false;
+    try {
+      await client.query('BEGIN');
+      transactionStarted = true;
+      await client.query(
+        'SELECT pg_advisory_xact_lock(hashtext($1::text))',
+        [`gm-manual-line:${instanceIdPrefix}`],
+      );
+      const catalogRows = await client.query(
+        `SELECT instance_id
+           FROM ${INSTANCE_CATALOG_TABLE}
+          WHERE left(instance_id, char_length($1::text)) = $1`,
+        [instanceIdPrefix],
+      );
+      for (const row of catalogRows.rows) {
+        const catalogLineIndex = parseManualLineIndex(row?.instance_id, instanceIdPrefix);
+        if (catalogLineIndex !== null && catalogLineIndex >= nextLineIndex) {
+          nextLineIndex = catalogLineIndex + 1;
+        }
+      }
+
+      for (let attempt = 0; attempt < MAX_MANUAL_LINE_RESERVATION_RETRIES; attempt += 1) {
+        if (!Number.isSafeInteger(nextLineIndex) || nextLineIndex < MIN_MANUAL_LINE_INDEX) {
+          throw new Error(`manual_line_index_exhausted:${instanceIdPrefix}`);
+        }
+        const instanceId = `${instanceIdPrefix}${nextLineIndex}`;
+        const reservationToken = `reservation:${randomBytes(18).toString('base64url')}`;
+        const reservationExpireAt = new Date(Date.now() + MANUAL_LINE_RESERVATION_TTL_MS);
+        if (instanceId.length > 160) {
+          throw new Error(`manual_line_instance_id_too_long:${instanceIdPrefix}`);
+        }
+        const inserted = await client.query(
+          `INSERT INTO ${INSTANCE_CATALOG_TABLE}(
+             instance_id, template_id, instance_type, persistent_policy,
+             owner_player_id, owner_sect_id, party_id, line_id,
+             status, runtime_status,
+             assigned_node_id, lease_token, lease_expire_at, ownership_epoch,
+             metadata_version, cluster_id, shard_key, route_domain, destroy_at,
+             created_at, last_active_at, last_persisted_at
+           )
+           VALUES (
+             $1, $2, 'public', $3,
+             NULL, NULL, NULL, NULL,
+             'active', 'creating',
+             NULL, $6, $7, 0,
+             0, NULL, $1, $4, $5,
+             now(), now(), NULL
+           )
+           ON CONFLICT (instance_id) DO NOTHING
+           RETURNING instance_id`,
+          [
+            instanceId,
+            templateId,
+            persistentPolicy,
+            routeDomain,
+            input.destroyAt ?? null,
+            reservationToken,
+            reservationExpireAt,
+          ],
+        );
+        if ((inserted.rowCount ?? 0) === 1) {
+          await client.query('COMMIT');
+          transactionStarted = false;
+          return { instanceId, lineIndex: nextLineIndex, reservationToken };
+        }
+        nextLineIndex += 1;
+      }
+      throw new Error(`manual_line_reservation_retry_exhausted:${instanceIdPrefix}`);
+    } catch (error) {
+      if (transactionStarted) {
+        await client.query('ROLLBACK').catch(() => undefined);
+      }
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * 确认手动分线 runtime 仍持有未过期的精确预留。
+   *
+   * 预留在真正 claim 前始终保持 creating，避免普通 upsert 清掉 reservation token，
+   * 也避免另一条普通租约链把尚未完成构造的实例提前开放。
+   */
+  async confirmManualLineReservation(input: {
+    instanceId: string;
+    reservationToken: string;
+    expectedTemplateId: string;
+    expectedInstanceType: string;
+    expectedPersistentPolicy: string;
+  }): Promise<boolean> {
+    if (!this.pool || !this.enabled) {
+      return false;
+    }
+    const result = await this.pool.query(
+      `UPDATE ${INSTANCE_CATALOG_TABLE}
+          SET last_active_at = now()
+        WHERE instance_id = $1
+          AND template_id = $3
+          AND instance_type = $4
+          AND persistent_policy = $5
+          AND status = 'active'
+          AND runtime_status = 'creating'
+          AND assigned_node_id IS NULL
+          AND lease_token = $2
+          AND lease_expire_at IS NOT NULL
+          AND lease_expire_at > now()
+          AND ownership_epoch = 0`,
+      [
+        input.instanceId.trim(),
+        input.reservationToken.trim(),
+        input.expectedTemplateId.trim(),
+        input.expectedInstanceType.trim(),
+        input.expectedPersistentPolicy.trim(),
+      ],
+    );
+    return (result.rowCount ?? 0) === 1;
+  }
+
+  /** 仅回收尚未进入 runtime 注册链的手动分线预留，并保留为永久 tombstone。 */
+  async abandonManualLineReservation(instanceIdInput: string, reservationTokenInput: string): Promise<boolean> {
+    const instanceId = typeof instanceIdInput === 'string' ? instanceIdInput.trim() : '';
+    const reservationToken = typeof reservationTokenInput === 'string' ? reservationTokenInput.trim() : '';
+    if (!this.pool || !this.enabled || !instanceId || !reservationToken) {
+      return false;
+    }
+    const result = await this.pool.query(
+      `UPDATE ${INSTANCE_CATALOG_TABLE}
+          SET status = 'destroyed',
+              runtime_status = 'stopped',
+              lease_token = NULL,
+              lease_expire_at = NULL,
+              ownership_epoch = ownership_epoch + 1,
+              metadata_version = GREATEST(metadata_version, ownership_epoch + 1),
+              destroy_at = now(),
+              last_active_at = now()
+        WHERE instance_id = $1
+          AND status = 'active'
+          AND runtime_status = 'creating'
+          AND assigned_node_id IS NULL
+          AND lease_token = $2
+          AND ownership_epoch = 0`,
+      [instanceId, reservationToken],
+    );
+    return (result.rowCount ?? 0) === 1;
+  }
+
+  /** 将超时且从未进入 runtime 的预留转成永久 tombstone，编号仍永不复用。 */
+  async cleanupStaleManualLineReservations(): Promise<string[]> {
+    if (!this.pool || !this.enabled) {
+      return [];
+    }
+    const result = await this.pool.query(
+      `UPDATE ${INSTANCE_CATALOG_TABLE}
+          SET status = 'destroyed',
+              runtime_status = 'stopped',
+              assigned_node_id = NULL,
+              lease_token = NULL,
+              lease_expire_at = NULL,
+              ownership_epoch = ownership_epoch + 1,
+              metadata_version = GREATEST(metadata_version, ownership_epoch + 1),
+              destroy_at = COALESCE(destroy_at, now()),
+              last_active_at = now()
+        WHERE status = 'active'
+          AND runtime_status = 'creating'
+          AND assigned_node_id IS NULL
+          AND lease_token LIKE 'reservation:%'
+          AND lease_expire_at IS NOT NULL
+          AND lease_expire_at <= now()
+          AND ownership_epoch = 0
+        RETURNING instance_id`,
+    );
+    return result.rows
+      .map((row) => typeof row?.instance_id === 'string' ? row.instance_id.trim() : '')
+      .filter(Boolean);
   }
 
   async upsertInstanceCatalog(input: {
@@ -220,6 +434,12 @@ export class InstanceCatalogService implements OnModuleInit {
             WHEN EXCLUDED.last_persisted_at IS NULL THEN ${INSTANCE_CATALOG_TABLE}.last_persisted_at
             ELSE GREATEST(${INSTANCE_CATALOG_TABLE}.last_persisted_at, EXCLUDED.last_persisted_at)
           END
+        WHERE ${INSTANCE_CATALOG_TABLE}.status <> 'destroyed'
+          AND ${INSTANCE_CATALOG_TABLE}.runtime_status <> 'stopped'
+          AND (
+            ${INSTANCE_CATALOG_TABLE}.destroy_at IS NULL
+            OR ${INSTANCE_CATALOG_TABLE}.destroy_at > now()
+          )
       `,
       [
         input.instanceId,
@@ -283,7 +503,7 @@ export class InstanceCatalogService implements OnModuleInit {
 
   /**
    * 以当前 lease/epoch 为 CAS 销毁实例目录，并递增 epoch 隔离所有旧 flush writer。
-   * 无 lease 的新建实例只允许匹配数据库同样未分配的行，不能覆盖已经被其他节点认领的目录。
+   * 销毁必须持有当前有效 lease；未 claim 的创建失败由专用 reservation token 回收链处理。
    */
   async destroyInstanceCatalogWithFence(input: {
     instanceId: string;
@@ -321,15 +541,11 @@ export class InstanceCatalogService implements OnModuleInit {
               last_active_at = now()
         WHERE instance_id = $1
           AND ownership_epoch = $4
-          AND (
-            (assigned_node_id = $2 AND lease_token = $3)
-            OR (
-              $2::varchar IS NULL
-              AND $3::varchar IS NULL
-              AND assigned_node_id IS NULL
-              AND lease_token IS NULL
-            )
-          )
+          AND $2::varchar IS NOT NULL
+          AND $3::varchar IS NOT NULL
+          AND assigned_node_id = $2
+          AND lease_token = $3
+          AND lease_expire_at > now()
         RETURNING ownership_epoch`,
       [
         instanceId,
@@ -346,6 +562,69 @@ export class InstanceCatalogService implements OnModuleInit {
       ok: true,
       ownershipEpoch: Number(result.rows[0]?.ownership_epoch ?? null) || null,
     };
+  }
+
+  /** GM 创建失败后以当前 lease/epoch 标记待清理，阻止重启恢复和新玩家接入。 */
+  async markInstanceCleanupPendingWithFence(input: {
+    instanceId: string;
+    assignedNodeId: string;
+    leaseToken: string;
+    expectedOwnershipEpoch: number;
+  }): Promise<boolean> {
+    if (!this.pool || !this.enabled) {
+      return false;
+    }
+    const result = await this.pool.query(
+      `UPDATE ${INSTANCE_CATALOG_TABLE}
+          SET runtime_status = 'cleanup_pending',
+              destroy_at = now(),
+              last_active_at = now()
+        WHERE instance_id = $1
+          AND status = 'active'
+          AND assigned_node_id = $2
+          AND lease_token = $3
+          AND ownership_epoch = $4`,
+      [
+        input.instanceId.trim(),
+        input.assignedNodeId.trim(),
+        input.leaseToken.trim(),
+        Math.max(0, Math.trunc(input.expectedOwnershipEpoch)),
+      ],
+    );
+    return (result.rowCount ?? 0) === 1;
+  }
+
+  /** 仅在 cleanup_pending 已无有效 owner 时推进永久 tombstone，供崩溃恢复收尾。 */
+  async cleanupAbandonedPendingInstances(): Promise<string[]> {
+    if (!this.pool || !this.enabled) {
+      return [];
+    }
+    const result = await this.pool.query(
+      `UPDATE ${INSTANCE_CATALOG_TABLE}
+          SET status = 'destroyed',
+              runtime_status = 'stopped',
+              assigned_node_id = NULL,
+              lease_token = NULL,
+              lease_expire_at = NULL,
+              ownership_epoch = ownership_epoch + 1,
+              metadata_version = GREATEST(metadata_version, ownership_epoch + 1),
+              destroy_at = COALESCE(destroy_at, now()),
+              last_active_at = now()
+        WHERE status = 'active'
+          AND runtime_status = 'cleanup_pending'
+          AND destroy_at IS NOT NULL
+          AND destroy_at <= now()
+          AND (
+            assigned_node_id IS NULL
+            OR lease_token IS NULL
+            OR lease_expire_at IS NULL
+            OR lease_expire_at <= now()
+          )
+        RETURNING instance_id`,
+    );
+    return result.rows
+      .map((row) => typeof row?.instance_id === 'string' ? row.instance_id.trim() : '')
+      .filter(Boolean);
   }
 
   async markInstanceTemplateMissing(input: {
@@ -381,6 +660,92 @@ export class InstanceCatalogService implements OnModuleInit {
 
   async claimInstanceLease(input: {
     instanceId: string;
+    expectedTemplateId?: string | null;
+    expectedInstanceType?: string | null;
+    nodeId: string;
+    leaseToken: string;
+    leaseExpireAt: Date;
+    expectedOwnershipEpoch: number;
+    expectedReservationToken?: string | null;
+  }): Promise<{ ok: boolean; ownershipEpoch: number | null }> {
+    if (!this.pool || !this.enabled) {
+      return { ok: false, ownershipEpoch: null };
+    }
+    const result = await this.pool.query(
+      `
+        UPDATE ${INSTANCE_CATALOG_TABLE}
+        SET assigned_node_id = $2,
+            lease_token = $3,
+            lease_expire_at = $4,
+            ownership_epoch = ownership_epoch + 1,
+            metadata_version = GREATEST(metadata_version, ownership_epoch + 1),
+            status = 'active',
+            runtime_status = 'leased',
+            last_active_at = now()
+        WHERE instance_id = $1
+          AND ownership_epoch = $5
+          AND status <> 'destroyed'
+          AND runtime_status <> 'stopped'
+          AND (destroy_at IS NULL OR destroy_at > now())
+          AND ($6::varchar IS NULL OR template_id = $6)
+          AND ($7::varchar IS NULL OR instance_type = $7)
+          AND (
+            (
+              $8::varchar IS NOT NULL
+              AND runtime_status = 'creating'
+              AND assigned_node_id IS NULL
+              AND lease_token = $8
+              AND lease_expire_at IS NOT NULL
+              AND lease_expire_at > now()
+            )
+            OR (
+              $8::varchar IS NULL
+              AND runtime_status <> 'creating'
+              AND (
+                assigned_node_id IS NULL
+                OR lease_token IS NULL
+                OR lease_expire_at IS NULL
+                OR lease_expire_at < now()
+              )
+            )
+          )
+        RETURNING ownership_epoch
+      `,
+      [
+        input.instanceId.trim(),
+        input.nodeId.trim(),
+        input.leaseToken.trim(),
+        input.leaseExpireAt,
+        Math.max(0, Math.trunc(input.expectedOwnershipEpoch)),
+        typeof input.expectedTemplateId === 'string' && input.expectedTemplateId.trim()
+          ? input.expectedTemplateId.trim()
+          : null,
+        typeof input.expectedInstanceType === 'string' && input.expectedInstanceType.trim()
+          ? input.expectedInstanceType.trim()
+          : null,
+        typeof input.expectedReservationToken === 'string' && input.expectedReservationToken.trim()
+          ? input.expectedReservationToken.trim()
+          : null,
+      ],
+    );
+    if ((result.rowCount ?? 0) === 0) {
+      return { ok: false, ownershipEpoch: null };
+    }
+    return { ok: true, ownershipEpoch: Number(result.rows[0]?.ownership_epoch ?? null) || null };
+  }
+
+  /**
+   * 以精确 ownership epoch 复活已经回收、但 ID 可复用的实例。
+   *
+   * 普通 claim 不负责清 tombstone；只有调用方已经从权威 catalog/位置链确认这是同一
+   * 稳定实例时才允许走此入口，避免 epoch=0 的临时 runtime 擅自复活历史实例。
+   */
+  async reviveInstanceLeaseWithFence(input: {
+    instanceId: string;
+    expectedTemplateId: string;
+    expectedInstanceType: string;
+    expectedCurrentNodeId?: string | null;
+    expectedCurrentLeaseToken?: string | null;
     nodeId: string;
     leaseToken: string;
     leaseExpireAt: Date;
@@ -399,14 +764,30 @@ export class InstanceCatalogService implements OnModuleInit {
             metadata_version = GREATEST(metadata_version, ownership_epoch + 1),
             status = 'active',
             runtime_status = 'leased',
+            destroy_at = NULL,
             last_active_at = now()
         WHERE instance_id = $1
           AND ownership_epoch = $5
+          AND template_id = $6
+          AND instance_type = $7
+          AND runtime_status NOT IN ('cleanup_pending', 'creating', 'template_missing')
+          AND (destroy_at IS NULL OR destroy_at <= now())
+          AND (
+            status = 'destroyed'
+            OR runtime_status = 'stopped'
+          )
           AND (
             assigned_node_id IS NULL
             OR lease_token IS NULL
             OR lease_expire_at IS NULL
             OR lease_expire_at < now()
+            OR (
+              $8::varchar IS NOT NULL
+              AND $9::varchar IS NOT NULL
+              AND $8 = $2
+              AND assigned_node_id = $8
+              AND lease_token = $9
+            )
           )
         RETURNING ownership_epoch
       `,
@@ -416,6 +797,14 @@ export class InstanceCatalogService implements OnModuleInit {
         input.leaseToken.trim(),
         input.leaseExpireAt,
         Math.max(0, Math.trunc(input.expectedOwnershipEpoch)),
+        input.expectedTemplateId.trim(),
+        input.expectedInstanceType.trim(),
+        typeof input.expectedCurrentNodeId === 'string' && input.expectedCurrentNodeId.trim()
+          ? input.expectedCurrentNodeId.trim()
+          : null,
+        typeof input.expectedCurrentLeaseToken === 'string' && input.expectedCurrentLeaseToken.trim()
+          ? input.expectedCurrentLeaseToken.trim()
+          : null,
       ],
     );
     if ((result.rowCount ?? 0) === 0) {
@@ -426,6 +815,8 @@ export class InstanceCatalogService implements OnModuleInit {
 
   async renewInstanceLease(input: {
     instanceId: string;
+    expectedTemplateId?: string | null;
+    expectedInstanceType?: string | null;
     nodeId: string;
     leaseToken: string;
     leaseExpireAt: Date;
@@ -444,7 +835,14 @@ export class InstanceCatalogService implements OnModuleInit {
         WHERE instance_id = $1
           AND assigned_node_id = $2
           AND lease_token = $3
+          AND runtime_status NOT IN ('cleanup_pending', 'creating')
           AND ownership_epoch = $5
+          AND status <> 'destroyed'
+          AND runtime_status <> 'stopped'
+          AND runtime_status <> 'creating'
+          AND (destroy_at IS NULL OR destroy_at > now())
+          AND ($6::varchar IS NULL OR template_id = $6)
+          AND ($7::varchar IS NULL OR instance_type = $7)
       `,
       [
         input.instanceId.trim(),
@@ -452,6 +850,12 @@ export class InstanceCatalogService implements OnModuleInit {
         input.leaseToken.trim(),
         input.leaseExpireAt,
         Math.max(0, Math.trunc(input.expectedOwnershipEpoch)),
+        typeof input.expectedTemplateId === 'string' && input.expectedTemplateId.trim()
+          ? input.expectedTemplateId.trim()
+          : null,
+        typeof input.expectedInstanceType === 'string' && input.expectedInstanceType.trim()
+          ? input.expectedInstanceType.trim()
+          : null,
       ],
     );
     return (result.rowCount ?? 0) > 0;
@@ -481,6 +885,10 @@ export class InstanceCatalogService implements OnModuleInit {
             last_active_at = now()
         WHERE instance_id = $1
           AND ownership_epoch = $5
+          AND status <> 'destroyed'
+          AND runtime_status <> 'stopped'
+          AND runtime_status <> 'creating'
+          AND (destroy_at IS NULL OR destroy_at > now())
         RETURNING ownership_epoch
       `,
       [
@@ -559,6 +967,7 @@ export class InstanceCatalogService implements OnModuleInit {
         WHERE instance_id = $1
           AND assigned_node_id = $2
           AND lease_token = $3
+          AND runtime_status NOT IN ('cleanup_pending', 'creating')
       `,
       [
         input.instanceId.trim(),
@@ -587,4 +996,41 @@ async function ensureInstanceCatalogTable(pool: Pool): Promise<void> {
   } finally {
     client.release();
   }
+}
+
+function normalizeRequiredCatalogText(input: unknown, maxLength: number, field: string): string {
+  const value = typeof input === 'string' ? input.trim() : '';
+  if (!value || value.length > maxLength) {
+    throw new Error(`invalid_${field}`);
+  }
+  return value;
+}
+
+function normalizeOptionalCatalogText(input: unknown, maxLength: number, field: string): string | null {
+  if (input === null || input === undefined || input === '') {
+    return null;
+  }
+  return normalizeRequiredCatalogText(input, maxLength, field);
+}
+
+function normalizeManualLineIndex(input: unknown, fallback: number): number {
+  const value = Number(input);
+  return Number.isSafeInteger(value) && value >= MIN_MANUAL_LINE_INDEX
+    ? value
+    : fallback;
+}
+
+function parseManualLineIndex(instanceIdInput: unknown, instanceIdPrefix: string): number | null {
+  const instanceId = typeof instanceIdInput === 'string' ? instanceIdInput.trim() : '';
+  if (!instanceId.startsWith(instanceIdPrefix)) {
+    return null;
+  }
+  const suffix = instanceId.slice(instanceIdPrefix.length);
+  if (!/^[0-9]+$/.test(suffix)) {
+    return null;
+  }
+  const lineIndex = Number(suffix);
+  return Number.isSafeInteger(lineIndex) && lineIndex >= MIN_MANUAL_LINE_INDEX
+    ? lineIndex
+    : null;
 }
