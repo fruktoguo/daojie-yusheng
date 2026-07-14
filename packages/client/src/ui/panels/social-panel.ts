@@ -65,6 +65,9 @@ type SocialConversationScrollSnapshot = {
   anchorOffsetTop: number;
 };
 
+type SocialPanelTab = 'relations' | 'requests' | 'nearby' | 'messages';
+type SocialRelationView = SocialPanelView['relations'][number];
+
 export type TreasureVaultModalTab = 'items' | 'permissions';
 type TreasureVaultDepositSort = 'inventory' | 'quality' | 'name' | 'count';
 type TreasureVaultItemSort = 'slot' | 'quality' | 'name' | 'count';
@@ -103,6 +106,13 @@ const SOCIAL_SCROLL_BOTTOM_THRESHOLD_PX = 24;
 const TREASURE_VAULT_DEPOSIT_PAGE_SIZE = 30;
 const MAX_TREASURE_VAULT_DEPOSIT_SELECTION = 100;
 
+const SOCIAL_PANEL_TABS: ReadonlyArray<{ id: SocialPanelTab; label: string }> = [
+  { id: 'relations', label: '道友' },
+  { id: 'requests', label: '申请' },
+  { id: 'nearby', label: '附近' },
+  { id: 'messages', label: '私聊' },
+];
+
 const TREASURE_VAULT_DEPOSIT_SORT_OPTIONS: Array<{ id: TreasureVaultDepositSort; label: string }> = [
   { id: 'inventory', label: '背包顺序' },
   { id: 'quality', label: '品质优先' },
@@ -121,8 +131,10 @@ export class SocialPanel {
   private readonly pane = document.getElementById('pane-social')!;
   private callbacks: SocialPanelCallbacks | null = null;
   private view: SocialPanelView = { relations: [], incomingRequests: [], outgoingRequests: [], nearbyCandidates: [] };
+  private activeTab: SocialPanelTab = 'relations';
   private selectedPlayerId: string | null = null;
   private messagesByPlayerId = new Map<string, DaoistDirectMessageView[]>();
+  private unreadMessagesByPlayerId = new Map<string, number>();
   private messageDraftsByPlayerId = new Map<string, string>();
   private conversationScrollByPlayerId = new Map<string, SocialConversationScrollSnapshot>();
 
@@ -141,7 +153,14 @@ export class SocialPanel {
     if (this.selectedPlayerId && !this.view.relations.some((entry) => entry.playerId === this.selectedPlayerId)) {
       this.selectedPlayerId = null;
     }
-    this.render(inputSnapshot);
+    this.pruneConversationState();
+    this.resolveSelectedRelation();
+    if (!this.pane.querySelector<HTMLElement>('[data-social-tab-content="true"]')) {
+      this.render(inputSnapshot);
+      return;
+    }
+    this.patchTabState();
+    this.replaceActiveTabContent(inputSnapshot);
   }
 
   appendMessage(message: DaoistDirectMessageView, currentPlayerId: string | null): void {
@@ -149,7 +168,16 @@ export class SocialPanel {
     const previousMessages = this.messagesByPlayerId.get(peerId) ?? [];
     const nextMessages = [...previousMessages, message].slice(-MAX_SOCIAL_MESSAGES_PER_PEER);
     this.messagesByPlayerId.set(peerId, nextMessages);
-    if (peerId !== this.selectedPlayerId) {
+    const conversationMounted = this.activeTab === 'messages' && peerId === this.selectedPlayerId;
+    const incoming = currentPlayerId !== null
+      && message.toPlayerId === currentPlayerId
+      && message.fromPlayerId !== currentPlayerId;
+    if (incoming && (!conversationMounted || !this.isConversationVisible(peerId))) {
+      const currentUnread = this.unreadMessagesByPlayerId.get(peerId) ?? 0;
+      this.unreadMessagesByPlayerId.set(peerId, currentUnread + 1);
+      this.patchUnreadIndicators(peerId);
+    }
+    if (!conversationMounted) {
       return;
     }
     const retainedMessageIds = new Set(nextMessages.map((entry) => entry.messageId));
@@ -163,8 +191,10 @@ export class SocialPanel {
 
   clear(): void {
     this.view = { relations: [], incomingRequests: [], outgoingRequests: [], nearbyCandidates: [] };
+    this.activeTab = 'relations';
     this.selectedPlayerId = null;
     this.messagesByPlayerId.clear();
+    this.unreadMessagesByPlayerId.clear();
     this.messageDraftsByPlayerId.clear();
     this.conversationScrollByPlayerId.clear();
     this.render();
@@ -182,27 +212,33 @@ export class SocialPanel {
     });
     this.pane.addEventListener('click', (event) => {
       const target = event.target instanceof HTMLElement ? event.target.closest<HTMLElement>('[data-social-action]') : null;
-      if (!target || !this.callbacks) {
+      if (!target) {
         return;
       }
       const action = target.dataset.socialAction;
       const playerId = target.dataset.playerId ?? '';
       const requestId = target.dataset.requestId ?? '';
+      const tab = target.dataset.socialTab;
+      if (action === 'tab' && isSocialPanelTab(tab)) {
+        this.switchActiveTab(tab);
+        return;
+      }
+      if (action === 'chat' && playerId) {
+        this.openConversation(playerId);
+        return;
+      }
+      if (action === 'select' && playerId) {
+        this.openConversation(playerId);
+        return;
+      }
+      if (!this.callbacks) {
+        return;
+      }
       if (action === 'refresh') this.callbacks.onRefresh();
       if (action === 'scan') this.callbacks.onScanNearby();
       if (action === 'request' && playerId) this.callbacks.onSendRequest(playerId);
       if (action === 'accept' && requestId) this.callbacks.onRespondRequest(requestId, true);
       if (action === 'reject' && requestId) this.callbacks.onRespondRequest(requestId, false);
-      if (action === 'select' && playerId) {
-        if (playerId === this.selectedPlayerId) {
-          return;
-        }
-        const inputSnapshot = this.captureConversationState(this.selectedPlayerId);
-        this.selectedPlayerId = playerId;
-        this.patchSelectedRelation(playerId);
-        this.replaceConversationSection(playerId, inputSnapshot);
-        return;
-      }
       if (action === 'dao_friend' && playerId) this.callbacks.onUpdateRelationLevel(playerId, 'dao_friend');
       if (action === 'close_friend' && playerId) this.callbacks.onUpdateRelationLevel(playerId, 'close_friend');
       if (action === 'remove' && playerId) this.callbacks.onRemoveRelation(playerId);
@@ -216,53 +252,131 @@ export class SocialPanel {
         }
       }
     });
+    this.pane.addEventListener('keydown', (event) => {
+      if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
+        return;
+      }
+      const target = event.target instanceof HTMLElement
+        ? event.target.closest<HTMLElement>('[data-social-tab]')
+        : null;
+      const currentTab = target?.dataset.socialTab;
+      if (!isSocialPanelTab(currentTab)) {
+        return;
+      }
+      const currentIndex = SOCIAL_PANEL_TABS.findIndex((entry) => entry.id === currentTab);
+      const nextIndex = event.key === 'Home'
+        ? 0
+        : event.key === 'End'
+          ? SOCIAL_PANEL_TABS.length - 1
+          : (currentIndex + (event.key === 'ArrowRight' ? 1 : -1) + SOCIAL_PANEL_TABS.length) % SOCIAL_PANEL_TABS.length;
+      const nextTab = SOCIAL_PANEL_TABS[nextIndex]?.id;
+      if (!nextTab) {
+        return;
+      }
+      event.preventDefault();
+      this.switchActiveTab(nextTab);
+      this.pane.querySelector<HTMLButtonElement>(`[data-social-tab="${nextTab}"]`)?.focus();
+    });
   }
 
   private render(inputSnapshot: SocialMessageInputSnapshot | null = null): void {
-    const selected = this.selectedPlayerId
-      ? this.view.relations.find((entry) => entry.playerId === this.selectedPlayerId) ?? null
-      : this.view.relations[0] ?? null;
-    if (!this.selectedPlayerId && selected) {
-      this.selectedPlayerId = selected.playerId;
-    }
+    const selected = this.resolveSelectedRelation();
     this.pane.innerHTML = `
       <div class="panel-section social-panel">
         <div class="panel-section-head social-panel-head">
           <div class="panel-section-title">道友</div>
           <div class="social-panel-actions">
             <button class="small-btn" type="button" data-social-action="refresh">刷新</button>
-            <button class="small-btn" type="button" data-social-action="scan">附近</button>
           </div>
         </div>
-        <div class="social-panel-overview">
-          <section class="social-panel-section social-panel-section--requests">
-            ${this.renderSectionHeader('道友申请', this.view.incomingRequests.length + this.view.outgoingRequests.length)}
-            ${this.renderRequests()}
-          </section>
-          <section class="social-panel-section social-panel-section--nearby">
-            ${this.renderSectionHeader('附近修士', this.view.nearbyCandidates.length)}
-            ${this.renderNearby()}
-          </section>
-        </div>
-        <div class="social-panel-workspace">
-          <section class="social-panel-section social-panel-section--relations">
-            ${this.renderSectionHeader('我的道友', this.view.relations.length)}
-            ${this.renderRelations(selected?.playerId ?? null)}
-          </section>
-          ${this.renderConversationSection(selected)}
+        ${this.renderTabs()}
+        <div class="social-panel-tab-content" data-social-tab-content="true">
+          ${this.renderActiveTabContent(selected)}
         </div>
       </div>
     `;
-    if (selected) {
+    if (this.activeTab === 'messages' && selected) {
       this.restoreConversationState(selected.playerId, inputSnapshot);
     }
   }
 
-  private renderSectionHeader(title: string, count: number): string {
+  private renderTabs(): string {
+    const unreadCount = this.getTotalUnreadCount();
+    return `
+      <div class="ui-subtabs social-panel-tabs" role="tablist" aria-label="道友功能">
+        ${SOCIAL_PANEL_TABS.map((tab) => {
+          const active = tab.id === this.activeTab;
+          const count = this.getTabCount(tab.id);
+          const unread = tab.id === 'messages' ? unreadCount : 0;
+          const ariaLabel = tab.id === 'messages' && unread > 0
+            ? `${tab.label}，${unread} 条未读消息`
+            : count === null
+              ? tab.label
+              : `${tab.label}，${count} 项`;
+          return `
+            <button
+              class="ui-subtab-btn social-panel-tab ${active ? 'active' : ''}"
+              type="button"
+              role="tab"
+              id="social-panel-tab-${tab.id}"
+              data-social-action="tab"
+              data-social-tab="${tab.id}"
+              aria-label="${escapeHtml(ariaLabel)}"
+              aria-selected="${active ? 'true' : 'false'}"
+              aria-controls="social-panel-active-content"
+              tabindex="${active ? '0' : '-1'}"
+            >
+              <span>${tab.label}</span>
+              ${count === null
+                ? `<span class="social-panel-tab-unread" data-social-tab-unread="true" aria-hidden="true" ${unread > 0 ? '' : 'hidden'}>${formatSocialUnreadCount(unread)}</span>`
+                : `<span class="social-panel-tab-count" data-social-tab-count="true">${count}</span>`}
+            </button>
+          `;
+        }).join('')}
+      </div>
+    `;
+  }
+
+  private renderActiveTabContent(selected: SocialRelationView | null): string {
+    if (this.activeTab === 'requests') {
+      return `
+        <section id="social-panel-active-content" class="social-panel-section social-panel-tab-pane social-panel-section--requests" role="tabpanel" aria-labelledby="social-panel-tab-requests" data-social-active-tab="requests">
+          ${this.renderSectionHeader('道友申请', this.view.incomingRequests.length + this.view.outgoingRequests.length)}
+          ${this.renderRequests()}
+        </section>
+      `;
+    }
+    if (this.activeTab === 'nearby') {
+      return `
+        <section id="social-panel-active-content" class="social-panel-section social-panel-tab-pane social-panel-section--nearby" role="tabpanel" aria-labelledby="social-panel-tab-nearby" data-social-active-tab="nearby">
+          ${this.renderSectionHeader(
+            '附近修士',
+            this.view.nearbyCandidates.length,
+            '<button class="small-btn" type="button" data-social-action="scan">刷新附近</button>',
+          )}
+          ${this.renderNearby()}
+        </section>
+      `;
+    }
+    if (this.activeTab === 'messages') {
+      return this.renderConversationPanel(selected);
+    }
+    return `
+      <section id="social-panel-active-content" class="social-panel-section social-panel-tab-pane social-panel-section--relations" role="tabpanel" aria-labelledby="social-panel-tab-relations" data-social-active-tab="relations">
+        ${this.renderSectionHeader('我的道友', this.view.relations.length)}
+        ${this.renderRelations()}
+      </section>
+    `;
+  }
+
+  private renderSectionHeader(title: string, count: number, actions = ''): string {
     return `
       <div class="social-panel-section-head">
         <div class="social-panel-section-title">${escapeHtml(title)}</div>
-        <span class="social-panel-count">${Math.max(0, Math.trunc(count))}</span>
+        <div class="social-panel-section-meta">
+          <span class="social-panel-count">${Math.max(0, Math.trunc(count))}</span>
+          ${actions}
+        </div>
       </div>
     `;
   }
@@ -322,21 +436,22 @@ export class SocialPanel {
     `;
   }
 
-  private renderRelations(selectedPlayerId: string | null): string {
+  private renderRelations(): string {
     if (this.view.relations.length === 0) {
       return `<div class="empty-hint compact">暂无道友</div>`;
     }
     return `
       <div class="ui-list">
         ${this.view.relations.map((entry) => `
-          <div class="ui-list-row ${entry.playerId === selectedPlayerId ? 'active' : ''}" data-social-relation-row="${escapeHtml(entry.playerId)}">
-            <button class="ui-list-main text-left" type="button" data-social-action="select" data-player-id="${escapeHtml(entry.playerId)}" aria-pressed="${entry.playerId === selectedPlayerId ? 'true' : 'false'}">
+          <div class="ui-list-row" data-social-relation-row="${escapeHtml(entry.playerId)}">
+            <div class="ui-list-main">
               <div class="ui-list-title">${escapeHtml(resolveSocialPlayerName(entry.playerId, entry.name))} · ${RELATION_LABEL[entry.level]}</div>
               <div class="ui-list-subtitle">
                 <span class="social-presence ${entry.online ? 'is-online' : 'is-offline'}">${entry.online ? '在线' : '离线'}</span>${entry.instanceName ? ` · ${escapeHtml(resolveSocialInstanceName(entry.instanceId, entry.instanceName))}` : ''}
               </div>
-            </button>
+            </div>
             <div class="social-row-actions">
+              <button class="small-btn" type="button" data-social-action="chat" data-player-id="${escapeHtml(entry.playerId)}">私聊</button>
               <button class="small-btn ghost" type="button" data-social-action="${entry.level === 'close_friend' ? 'dao_friend' : 'close_friend'}" data-player-id="${escapeHtml(entry.playerId)}">${entry.level === 'close_friend' ? '降为道友' : '设为至交'}</button>
               <button class="small-btn ghost" type="button" data-social-action="remove" data-player-id="${escapeHtml(entry.playerId)}">解除</button>
             </div>
@@ -346,19 +461,62 @@ export class SocialPanel {
     `;
   }
 
-  private renderConversationSection(selected: { playerId: string; name: string } | null): string {
+  private renderConversationPanel(selected: SocialRelationView | null): string {
     return `
-      <section class="social-panel-section social-panel-section--conversation" data-social-conversation-host="true">
-        <div class="social-panel-section-head">
-          <div class="social-panel-section-title">私聊</div>
-          ${selected ? `<span class="social-conversation-peer">${escapeHtml(resolveSocialPlayerName(selected.playerId, selected.name))}</span>` : ''}
+      <section id="social-panel-active-content" class="social-panel-section social-panel-tab-pane social-panel-section--conversation" role="tabpanel" aria-labelledby="social-panel-tab-messages" data-social-active-tab="messages">
+        ${this.renderSectionHeader('私聊', this.view.relations.length)}
+        <div class="social-conversation-workspace">
+          <aside class="social-conversation-contacts" aria-label="私聊道友">
+            <div class="social-conversation-contacts-title">会话道友</div>
+            ${this.renderConversationContacts(selected?.playerId ?? null)}
+          </aside>
+          ${this.renderConversationSection(selected)}
         </div>
-        ${this.renderMessages(selected)}
       </section>
     `;
   }
 
-  private renderMessages(selected: { playerId: string; name: string } | null): string {
+  private renderConversationContacts(selectedPlayerId: string | null): string {
+    if (this.view.relations.length === 0) {
+      return '<div class="empty-hint compact">暂无可私聊的道友</div>';
+    }
+    return `
+      <div class="ui-list social-conversation-peer-list">
+        ${this.view.relations.map((entry) => {
+          const unreadCount = this.unreadMessagesByPlayerId.get(entry.playerId) ?? 0;
+          const playerName = resolveSocialPlayerName(entry.playerId, entry.name);
+          const ariaLabel = unreadCount > 0 ? `${playerName}，${unreadCount} 条未读消息` : playerName;
+          return `
+            <div class="ui-list-row ${entry.playerId === selectedPlayerId ? 'active' : ''}" data-social-relation-row="${escapeHtml(entry.playerId)}">
+              <button class="ui-list-main text-left" type="button" data-social-action="select" data-player-id="${escapeHtml(entry.playerId)}" aria-label="${escapeHtml(ariaLabel)}" aria-pressed="${entry.playerId === selectedPlayerId ? 'true' : 'false'}">
+                <div class="social-conversation-peer-title">
+                  <span class="ui-list-title">${escapeHtml(playerName)} · ${RELATION_LABEL[entry.level]}</span>
+                  <span class="social-conversation-peer-unread" data-social-peer-unread="${escapeHtml(entry.playerId)}" aria-hidden="true" ${unreadCount > 0 ? '' : 'hidden'}>${formatSocialUnreadCount(unreadCount)}</span>
+                </div>
+                <div class="ui-list-subtitle">
+                  <span class="social-presence ${entry.online ? 'is-online' : 'is-offline'}">${entry.online ? '在线' : '离线'}</span>
+                </div>
+              </button>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `;
+  }
+
+  private renderConversationSection(selected: SocialRelationView | null): string {
+    return `
+      <div class="social-conversation-detail" data-social-conversation-host="true">
+        <div class="social-panel-section-head">
+          <div class="social-panel-section-title">对话</div>
+          ${selected ? `<span class="social-conversation-peer">${escapeHtml(resolveSocialPlayerName(selected.playerId, selected.name))}</span>` : ''}
+        </div>
+        ${this.renderMessages(selected)}
+      </div>
+    `;
+  }
+
+  private renderMessages(selected: SocialRelationView | null): string {
     if (!selected) {
       return '<div class="empty-hint social-conversation-empty">选择一位道友开始私聊</div>';
     }
@@ -458,6 +616,165 @@ export class SocialPanel {
     }
     currentSection.replaceWith(nextSection);
     this.restoreConversationState(peerId, inputSnapshot);
+  }
+
+  private switchActiveTab(tab: SocialPanelTab): void {
+    const selected = this.resolveSelectedRelation();
+    if (tab === this.activeTab) {
+      if (tab === 'messages' && selected && this.unreadMessagesByPlayerId.delete(selected.playerId)) {
+        this.patchUnreadIndicators(selected.playerId);
+      }
+      return;
+    }
+    const inputSnapshot = this.activeTab === 'messages'
+      ? this.captureConversationState(this.selectedPlayerId)
+      : null;
+    this.activeTab = tab;
+    if (tab === 'messages' && selected) {
+      this.unreadMessagesByPlayerId.delete(selected.playerId);
+    }
+    this.patchTabState();
+    this.replaceActiveTabContent(inputSnapshot);
+  }
+
+  private openConversation(playerId: string): void {
+    if (!this.view.relations.some((entry) => entry.playerId === playerId)) {
+      return;
+    }
+    const tabChanged = this.activeTab !== 'messages';
+    const playerChanged = this.selectedPlayerId !== playerId;
+    const inputSnapshot = this.activeTab === 'messages'
+      ? this.captureConversationState(this.selectedPlayerId)
+      : null;
+    this.activeTab = 'messages';
+    this.selectedPlayerId = playerId;
+    this.unreadMessagesByPlayerId.delete(playerId);
+    this.patchTabState();
+    if (tabChanged) {
+      this.replaceActiveTabContent(null);
+      return;
+    }
+    this.patchSelectedRelation(playerId);
+    this.patchUnreadIndicators(playerId);
+    if (playerChanged) {
+      this.replaceConversationSection(playerId, inputSnapshot);
+    }
+  }
+
+  private replaceActiveTabContent(inputSnapshot: SocialMessageInputSnapshot | null): void {
+    const host = this.pane.querySelector<HTMLElement>('[data-social-tab-content="true"]');
+    if (!host) {
+      this.render(inputSnapshot);
+      return;
+    }
+    const selected = this.resolveSelectedRelation();
+    host.replaceChildren(createFragmentFromHtml(this.renderActiveTabContent(selected)));
+    if (this.activeTab === 'messages' && selected) {
+      this.restoreConversationState(selected.playerId, inputSnapshot);
+    }
+  }
+
+  private resolveSelectedRelation(): SocialRelationView | null {
+    const selected = this.selectedPlayerId
+      ? this.view.relations.find((entry) => entry.playerId === this.selectedPlayerId) ?? null
+      : null;
+    if (selected) {
+      return selected;
+    }
+    const fallback = this.view.relations[0] ?? null;
+    this.selectedPlayerId = fallback?.playerId ?? null;
+    return fallback;
+  }
+
+  private pruneConversationState(): void {
+    const relationIds = new Set(this.view.relations.map((entry) => entry.playerId));
+    for (const state of [
+      this.messagesByPlayerId,
+      this.unreadMessagesByPlayerId,
+      this.messageDraftsByPlayerId,
+      this.conversationScrollByPlayerId,
+    ]) {
+      for (const playerId of state.keys()) {
+        if (!relationIds.has(playerId)) {
+          state.delete(playerId);
+        }
+      }
+    }
+  }
+
+  private getTabCount(tab: SocialPanelTab): number | null {
+    if (tab === 'relations') return this.view.relations.length;
+    if (tab === 'requests') return this.view.incomingRequests.length + this.view.outgoingRequests.length;
+    if (tab === 'nearby') return this.view.nearbyCandidates.length;
+    return null;
+  }
+
+  private getTotalUnreadCount(): number {
+    let total = 0;
+    for (const count of this.unreadMessagesByPlayerId.values()) {
+      total += Math.max(0, Math.trunc(count));
+    }
+    return total;
+  }
+
+  private patchTabState(): void {
+    const unreadCount = this.getTotalUnreadCount();
+    for (const button of this.pane.querySelectorAll<HTMLButtonElement>('[data-social-tab]')) {
+      const tab = button.dataset.socialTab;
+      if (!isSocialPanelTab(tab)) {
+        continue;
+      }
+      const active = tab === this.activeTab;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-selected', active ? 'true' : 'false');
+      button.tabIndex = active ? 0 : -1;
+      const count = this.getTabCount(tab);
+      const countNode = button.querySelector<HTMLElement>('[data-social-tab-count="true"]');
+      if (countNode && count !== null && countNode.textContent !== String(count)) {
+        countNode.textContent = String(count);
+      }
+      if (tab !== 'messages') {
+        button.setAttribute('aria-label', `${SOCIAL_PANEL_TABS.find((entry) => entry.id === tab)?.label ?? tab}，${count ?? 0} 项`);
+        continue;
+      }
+      const unreadNode = button.querySelector<HTMLElement>('[data-social-tab-unread="true"]');
+      if (unreadNode) {
+        unreadNode.hidden = unreadCount <= 0;
+        const nextText = formatSocialUnreadCount(unreadCount);
+        if (unreadNode.textContent !== nextText) {
+          unreadNode.textContent = nextText;
+        }
+      }
+      button.classList.toggle('has-unread', unreadCount > 0);
+      button.dataset.hasUnread = unreadCount > 0 ? 'true' : 'false';
+      button.setAttribute('aria-label', unreadCount > 0 ? `私聊，${unreadCount} 条未读消息` : '私聊');
+    }
+  }
+
+  private patchUnreadIndicators(playerId: string): void {
+    this.patchTabState();
+    const unreadCount = this.unreadMessagesByPlayerId.get(playerId) ?? 0;
+    const relation = this.view.relations.find((entry) => entry.playerId === playerId);
+    const playerName = resolveSocialPlayerName(playerId, relation?.name);
+    const ariaLabel = unreadCount > 0 ? `${playerName}，${unreadCount} 条未读消息` : playerName;
+    for (const badge of this.pane.querySelectorAll<HTMLElement>('[data-social-peer-unread]')) {
+      if (badge.dataset.socialPeerUnread !== playerId) {
+        continue;
+      }
+      badge.hidden = unreadCount <= 0;
+      const nextText = formatSocialUnreadCount(unreadCount);
+      if (badge.textContent !== nextText) {
+        badge.textContent = nextText;
+      }
+      badge.closest<HTMLElement>('[data-social-action="select"]')?.setAttribute('aria-label', ariaLabel);
+    }
+  }
+
+  private isConversationVisible(peerId: string): boolean {
+    const root = this.getConversationRoot(peerId);
+    return document.visibilityState !== 'hidden'
+      && root !== null
+      && root.getClientRects().length > 0;
   }
 
   private patchSelectedRelation(playerId: string): void {
@@ -1514,6 +1831,15 @@ export class TreasureVaultModal {
     }
     return next;
   }
+}
+
+function isSocialPanelTab(value: string | undefined): value is SocialPanelTab {
+  return SOCIAL_PANEL_TABS.some((entry) => entry.id === value);
+}
+
+function formatSocialUnreadCount(count: number): string {
+  const normalized = Math.max(0, Math.trunc(count));
+  return normalized > 99 ? '99+' : String(normalized);
 }
 
 function normalizeSocialPanelView(view: SocialPanelView | null | undefined): SocialPanelView {

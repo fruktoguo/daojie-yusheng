@@ -11035,7 +11035,7 @@
       container-name: social-panel;
       container-type: inline-size;
       display: grid;
-      grid-template-rows: auto auto minmax(240px, 1fr);
+      grid-template-rows: auto auto minmax(0, 1fr);
       gap: 10px;
       height: 100%;
       min-height: 0;
@@ -11053,16 +11053,56 @@
       gap: 6px;
       flex-wrap: wrap;
     }
-    .social-panel-overview,
-    .social-panel-workspace {
+    .social-panel-tabs {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 10px;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 6px;
+      margin-bottom: 0;
+      min-width: 0;
+    }
+    .social-panel-tab {
+      position: relative;
+      min-width: 0;
+      min-height: 38px;
+      padding-inline: 6px;
+    }
+    .social-panel-tab-count,
+    .social-panel-tab-unread,
+    .social-conversation-peer-unread {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex: 0 0 auto;
+      min-width: 18px;
+      height: 18px;
+      padding: 0 5px;
+      border-radius: 999px;
+      font-size: var(--font-size-11);
+      font-variant-numeric: tabular-nums;
+      line-height: 1;
+    }
+    .social-panel-tab-count {
+      border: 1px solid currentColor;
+      color: inherit;
+    }
+    .social-panel-tab-unread,
+    .social-conversation-peer-unread {
+      border: 1px solid color-mix(in srgb, var(--stamp-red) 82%, var(--ink-black) 18%);
+      background: var(--stamp-red);
+      color: #fff;
+      box-shadow: 0 0 0 2px var(--surface-elevated);
+    }
+    .social-panel-tab-unread[hidden],
+    .social-conversation-peer-unread[hidden] {
+      display: none;
+    }
+    .social-panel-tab-content {
       min-width: 0;
       min-height: 0;
+      overflow: hidden;
     }
-    .social-panel-workspace {
-      grid-template-columns: minmax(220px, 0.9fr) minmax(0, 1.25fr);
+    .social-panel-tab-pane {
+      height: 100%;
     }
     .social-panel-section {
       display: flex;
@@ -11082,6 +11122,13 @@
       margin-bottom: 8px;
       padding-bottom: 6px;
       border-bottom: 1px solid var(--wash-ink);
+    }
+    .social-panel-section-meta {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+      min-width: 0;
     }
     .social-panel-section-title {
       min-width: 0;
@@ -11103,6 +11150,40 @@
       font-size: var(--font-size-11);
       font-variant-numeric: tabular-nums;
     }
+    .social-conversation-workspace {
+      display: grid;
+      grid-template-columns: minmax(150px, 0.72fr) minmax(0, 1.4fr);
+      flex: 1 1 auto;
+      gap: 10px;
+      min-width: 0;
+      min-height: 0;
+    }
+    .social-conversation-contacts,
+    .social-conversation-detail {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      min-height: 0;
+      padding: 8px;
+      border: 1px solid var(--wash-ink);
+      background: var(--surface-base);
+    }
+    .social-conversation-contacts-title {
+      margin-bottom: 7px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--wash-ink);
+      color: var(--ink-grey);
+      font-size: var(--font-size-12);
+      font-weight: var(--font-weight-semibold);
+      letter-spacing: 0.06em;
+    }
+    .social-conversation-peer-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      min-width: 0;
+    }
     .social-conversation-peer {
       min-width: 0;
       overflow: hidden;
@@ -11119,19 +11200,18 @@
       min-width: 0;
       min-height: 0;
     }
-    .social-panel-section--requests .ui-list,
-    .social-panel-section--nearby .ui-list {
-      max-height: 150px;
-      overflow-y: auto;
-      overscroll-behavior: contain;
-      padding-right: 2px;
-    }
+    .social-panel-tab-pane > .ui-list,
     .social-panel-section--relations .ui-list,
+    .social-conversation-peer-list,
     .social-message-list {
       flex: 1 1 auto;
       overflow-y: auto;
       overscroll-behavior: contain;
       padding-right: 2px;
+    }
+    .social-panel-tab-pane > .empty-hint,
+    .social-conversation-contacts > .empty-hint {
+      margin: auto 0;
     }
     .social-panel .ui-list-row {
       display: flex;
@@ -11225,7 +11305,7 @@
       gap: 8px;
       margin-top: auto;
       padding-top: 8px;
-      background: var(--surface-elevated);
+      background: var(--surface-base);
     }
     .social-panel .ui-input-row .ui-input {
       min-width: 0;
@@ -11233,19 +11313,33 @@
 
     @container social-panel (max-width: 560px) {
       .social-panel {
-        grid-template-rows: auto auto auto;
+        grid-template-rows: auto auto minmax(0, auto);
         height: auto;
         min-height: 100%;
       }
-      .social-panel-overview,
-      .social-panel-workspace {
+      .social-panel-tab {
+        min-height: 44px;
+        padding-inline: 4px;
+      }
+      .social-panel-tab-content {
+        overflow: visible;
+      }
+      .social-panel-tab-pane {
+        min-height: 280px;
+      }
+      .social-conversation-workspace {
         grid-template-columns: minmax(0, 1fr);
       }
-      .social-panel-section--requests .ui-list,
-      .social-panel-section--nearby .ui-list,
-      .social-panel-section--relations .ui-list,
+      .social-conversation-contacts {
+        max-height: 220px;
+      }
+      .social-conversation-detail {
+        min-height: 300px;
+      }
+      .social-panel-tab-pane > .ui-list,
+      .social-conversation-peer-list,
       .social-message-list {
-        max-height: 260px;
+        max-height: 360px;
       }
       .social-row-actions {
         flex: 1 1 100%;
