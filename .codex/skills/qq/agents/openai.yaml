@@ -1,4 +1,4 @@
 interface:
-  display_name: "QQ 玩家反馈调查"
-  short_description: "安全采集白名单群反馈并向指定玩家定向回告简要分析结果"
-  default_prompt: "使用 $qq 按反馈时间回溯白名单玩家群，分析相关图文上下文，并在明确授权时向指定玩家发送简短总结。"
+  display_name: "QQ 玩家反馈与问题归类"
+  short_description: "安全采集白名单群反馈、归类问题并向指定玩家定向回告"
+  default_prompt: "使用 $qq 对照当前待修复问题回溯白名单玩家群，完成新增、重复或证据不足归类，并在明确授权时向指定玩家发送简短总结。"
