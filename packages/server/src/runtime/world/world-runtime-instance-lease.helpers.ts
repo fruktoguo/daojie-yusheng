@@ -1390,10 +1390,8 @@ export async function acquireCatalogBackedInstanceLeaseForRestore(
     && catalogLeaseExpireAt > Date.now(),
   );
   const tombstone = requiresExplicitCatalogRevival(catalog);
-  if (tombstone && catalog.status !== 'destroyed' && catalogRuntimeStatus !== 'stopped') {
-    stopAndClearRestoredInstanceLease(instance);
-    return { ok: false, reason: 'catalog_destroy_pending', catalog };
-  }
+  // destroy_at 到期本身就是权威 tombstone。历史行可能尚未同步 status/runtime_status，
+  // 精确 identity + epoch 的 revival 会原子清除该状态，不能先要求三种标记同时一致。
   if (hasValidCatalogLease && catalogAssignedNodeId !== nodeId) {
     stopAndClearRestoredInstanceLease(instance);
     return {

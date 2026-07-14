@@ -56,6 +56,7 @@ async function main(): Promise<void> {
   templates.onModuleInit();
 
   const concurrent = await verifyConcurrentMaterialization(content, templates);
+  const expiredDestroyAt = await verifyExpiredDestroyAtRevival(content, templates);
   const sameNodeFutureDestroyAt = await verifySameNodeFutureDestroyAtRenewal(content, templates);
   const otherNodeLease = await verifyOtherNodeValidLeaseFailsClosed(content, templates);
   const sameProcessReentry = await verifySameProcessDestroyAndReentry(content, templates);
@@ -73,6 +74,7 @@ async function main(): Promise<void> {
     ok: true,
     case: 'tongtian-tower-catalog-materialization',
     concurrent,
+    expiredDestroyAt,
     sameNodeFutureDestroyAt,
     otherNodeLease,
     sameProcessReentry,
@@ -85,9 +87,41 @@ async function main(): Promise<void> {
     resetBarrier,
     publicFallbackGuard,
     unavailableTowerRespawnFallback,
-    answers: '通天塔 catalog-backed 物化按 instanceId 单飞、每次从 catalog fresh load epoch、hydrate 失败释放 lease 并丢弃本任务半水合 runtime；catalog 缺失的首次创建在 readiness 前登记 write gate、成功后才登记 attach gate；预先存在的 degraded runtime 与玩家保持不动；在线重连先物化再解析和附着。',
+    answers: '通天塔 catalog-backed 物化按 instanceId 单飞、每次从 catalog fresh load epoch；已到期 destroyAt 即使 status/runtimeStatus 尚未收敛也会按精确 identity + epoch 复活；hydrate 失败释放 lease 并丢弃本任务半水合 runtime；catalog 缺失的首次创建在 readiness 前登记 write gate、成功后才登记 attach gate；预先存在的 degraded runtime 与玩家保持不动；在线重连先物化再解析和附着。',
     excludes: '不证明真实 PostgreSQL 跨节点竞争；数据库 revival CAS 仍由 with-db 实例租约 smoke 负责。',
   }, null, 2));
+}
+
+async function verifyExpiredDestroyAtRevival(
+  content: ContentTemplateRepository,
+  templates: MapTemplateRepository,
+): Promise<{ ownershipEpoch: number; destroyAtCleared: true }> {
+  const harness = createHarness(content, templates, {
+    layer: 46,
+    ownershipEpoch: 50,
+  });
+  harness.catalog.status = 'active';
+  harness.catalog.runtime_status = 'running';
+  harness.catalog.assigned_node_id = null;
+  harness.catalog.lease_token = null;
+  harness.catalog.lease_expire_at = null;
+  harness.catalog.destroy_at = new Date(Date.now() - 60_000).toISOString();
+
+  const instance = await harness.tower.materializeLayerInstanceForRestore({
+    instanceId: harness.instanceId,
+    templateId: harness.templateId,
+  }, harness.deps);
+
+  assert.ok(instance, '已到期 destroyAt 必须足以复活尚未收敛为 destroyed/stopped 的稳定塔层');
+  assert.equal(harness.metrics.reviveCalls, 1);
+  assert.equal(harness.metrics.claimCalls, 0, '已到期 destroyAt 不能误走普通 claim');
+  assert.equal(harness.metrics.hydrateCalls, 1);
+  assert.equal(harness.catalog.status, 'active');
+  assert.equal(harness.catalog.runtime_status, 'leased');
+  assert.equal(harness.catalog.destroy_at, null);
+  assert.equal(instance.meta.ownershipEpoch, 51);
+
+  return { ownershipEpoch: instance.meta.ownershipEpoch, destroyAtCleared: true };
 }
 
 async function verifyUnavailableTowerFallsBackToBoundRespawn(): Promise<{ instanceId: string; explicitRequestRejected: true }> {

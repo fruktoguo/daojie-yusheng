@@ -739,6 +739,7 @@ export class InstanceCatalogService implements OnModuleInit {
    *
    * 普通 claim 不负责清 tombstone；只有调用方已经从权威 catalog/位置链确认这是同一
    * 稳定实例时才允许走此入口，避免 epoch=0 的临时 runtime 擅自复活历史实例。
+   * status/runtime_status 尚未收敛时，已到期 destroy_at 也独立构成 tombstone。
    */
   async reviveInstanceLeaseWithFence(input: {
     instanceId: string;
@@ -775,6 +776,7 @@ export class InstanceCatalogService implements OnModuleInit {
           AND (
             status = 'destroyed'
             OR runtime_status = 'stopped'
+            OR (destroy_at IS NOT NULL AND destroy_at <= now())
           )
           AND (
             assigned_node_id IS NULL

@@ -631,7 +631,12 @@ export class WorldRuntimeTongtianTowerService {
         instance,
         { expectedTemplateId: templateId, expectedInstanceType: 'tower' },
       );
-      if (acquired?.ok !== true || generation !== this.materializationGeneration) {
+      if (acquired?.ok !== true) {
+        this.logger.warn(`通天塔按需物化未取得实例租约：${instanceId} reason=${acquired?.reason ?? 'unknown'}`);
+        await this.cleanupOwnedMaterialization(instanceId, instance, deps);
+        return null;
+      }
+      if (generation !== this.materializationGeneration) {
         await this.cleanupOwnedMaterialization(instanceId, instance, deps);
         return null;
       }

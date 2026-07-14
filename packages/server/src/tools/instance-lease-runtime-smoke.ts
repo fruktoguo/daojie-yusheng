@@ -55,6 +55,7 @@ async function main(): Promise<void> {
   const revivalIdentityInstanceId = 'smoke:instance-lease-revival:identity';
   const revivalSameNodeInstanceId = 'smoke:instance-lease-revival:same-node';
   const revivalRemoteNodeInstanceId = 'smoke:instance-lease-revival:remote-node';
+  const revivalExpiredDestroyInstanceId = 'smoke:instance-lease-revival:expired-destroy-at';
   const upsertDestroyedInstanceId = 'smoke:instance-catalog-upsert:destroyed';
   const upsertStoppedInstanceId = 'smoke:instance-catalog-upsert:stopped';
   const upsertPastDestroyInstanceId = 'smoke:instance-catalog-upsert:past-destroy';
@@ -72,6 +73,7 @@ async function main(): Promise<void> {
     revivalIdentityInstanceId,
     revivalSameNodeInstanceId,
     revivalRemoteNodeInstanceId,
+    revivalExpiredDestroyInstanceId,
     upsertDestroyedInstanceId,
     upsertStoppedInstanceId,
     upsertPastDestroyInstanceId,
@@ -96,6 +98,7 @@ async function main(): Promise<void> {
       identityInstanceId: revivalIdentityInstanceId,
       sameNodeInstanceId: revivalSameNodeInstanceId,
       remoteNodeInstanceId: revivalRemoteNodeInstanceId,
+      expiredDestroyInstanceId: revivalExpiredDestroyInstanceId,
     });
 
     const catalogUpsertEpochProof = await verifyCatalogUpsertKeepsOwnershipEpochMonotonic({
@@ -164,7 +167,7 @@ async function main(): Promise<void> {
           catalogUpsertEpochProof,
           catalogUpsertFenceProof,
           catalogRevivalProof,
-          answers: 'with-db 下已验证实例 runtime 会认领 persistent instance lease、接管过期 lease、在本节点重启导致内存 lease token 落后时采用 catalog 本地 lease 并续约，并在 lease 续约失败时进入 lease_degraded、在 lease 不再属于本节点时阻断 dirty map 写链；实例销毁在 catalog CAS 等待前同步关闭接入和写入，等待期间 lease 过期会拒绝 CAS，CAS 后出现玩家或 runtime replacement 会保留运行态并恢复 catalog lease，不会误删 replacement；实例销毁成功会递增 epoch 后再卸载；目录 upsert 不会把 ownership epoch 回退，也不能覆盖 destroyed、stopped 或已到 destroy_at 的 tombstone fence；未来 destroy_at 的活动实例仍可幂等 upsert、拒绝显式复活清空计划时间并可正常认领 lease；回收目录复活会精确校验 template/type/epoch，同节点有效旧 lease 只允许匹配原 token 后轮换，异节点有效 lease 保持拒绝，成功后清除已到期 destroy_at 并递增 epoch。',
+          answers: 'with-db 下已验证实例 runtime 会认领 persistent instance lease、接管过期 lease、在本节点重启导致内存 lease token 落后时采用 catalog 本地 lease 并续约，并在 lease 续约失败时进入 lease_degraded、在 lease 不再属于本节点时阻断 dirty map 写链；实例销毁在 catalog CAS 等待前同步关闭接入和写入，等待期间 lease 过期会拒绝 CAS，CAS 后出现玩家或 runtime replacement 会保留运行态并恢复 catalog lease，不会误删 replacement；实例销毁成功会递增 epoch 后再卸载；目录 upsert 不会把 ownership epoch 回退，也不能覆盖 destroyed、stopped 或已到 destroy_at 的 tombstone fence；未来 destroy_at 的活动实例仍可幂等 upsert、拒绝显式复活清空计划时间并可正常认领 lease；回收目录复活会精确校验 template/type/epoch，已到期 destroy_at 可修复尚未收敛的 active/running 行，同节点有效旧 lease 只允许匹配原 token 后轮换，异节点有效 lease 保持拒绝，成功后清除已到期 destroy_at 并递增 epoch。',
           excludes: '不证明真实多节点 socket 导流、跨节点 transfer、过期 lease 自动接管、split-brain 双活或玩家迁移缓冲',
           completionMapping: 'release:proof:with-db.instance-lease-runtime',
         },
@@ -187,6 +190,7 @@ async function verifyCatalogRevivalFence(input: {
   identityInstanceId: string;
   sameNodeInstanceId: string;
   remoteNodeInstanceId: string;
+  expiredDestroyInstanceId: string;
 }): Promise<{
   identityCasRejected: boolean;
   revivedOwnershipEpoch: number;
@@ -194,6 +198,7 @@ async function verifyCatalogRevivalFence(input: {
   leaseTokenRotated: boolean;
   sameNodeRequiresExactOldToken: boolean;
   remoteNodeLeaseRejected: boolean;
+  expiredDestroyAtRevived: boolean;
 }> {
   const templateId = 'tongtian_tower_layer_47';
   const instanceType = 'tower';
@@ -353,6 +358,37 @@ async function verifyCatalogRevivalFence(input: {
     remoteNodeRowBefore,
   );
 
+  await input.pool.query(
+    `INSERT INTO ${INSTANCE_CATALOG_TABLE}(
+       instance_id, template_id, instance_type, persistent_policy,
+       status, runtime_status, assigned_node_id, lease_token, lease_expire_at,
+       ownership_epoch, metadata_version, shard_key, route_domain, destroy_at,
+       created_at, last_active_at
+     ) VALUES (
+       $1, $2, $3, 'persistent',
+       'active', 'running', NULL, NULL, NULL,
+       80, 80, $1, 'tower', now() - interval '60 second',
+       now(), now()
+     )`,
+    [input.expiredDestroyInstanceId, templateId, instanceType],
+  );
+  const expiredDestroyRevived = await input.instanceCatalogService.reviveInstanceLeaseWithFence({
+    instanceId: input.expiredDestroyInstanceId,
+    expectedTemplateId: templateId,
+    expectedInstanceType: instanceType,
+    nodeId: input.localNodeId,
+    leaseToken: `lease:${input.expiredDestroyInstanceId}:revived`,
+    leaseExpireAt: new Date(Date.now() + 180_000),
+    expectedOwnershipEpoch: 80,
+  });
+  assert.deepEqual(expiredDestroyRevived, { ok: true, ownershipEpoch: 81 });
+  const expiredDestroyRow = await requireInstanceRow(input.pool, input.expiredDestroyInstanceId);
+  assert.equal(expiredDestroyRow.status, 'active');
+  assert.equal(expiredDestroyRow.runtime_status, 'leased');
+  assert.equal(expiredDestroyRow.assigned_node_id, input.localNodeId);
+  assert.equal(Number(expiredDestroyRow.ownership_epoch), 81);
+  assert.equal(expiredDestroyRow.destroy_at, null);
+
   return {
     identityCasRejected: true,
     revivedOwnershipEpoch: Number(revivedRow.ownership_epoch),
@@ -360,6 +396,7 @@ async function verifyCatalogRevivalFence(input: {
     leaseTokenRotated: revivedRow.lease_token === identityNewToken,
     sameNodeRequiresExactOldToken: sameNodeRevivedRow.lease_token === sameNodeNewToken,
     remoteNodeLeaseRejected: true,
+    expiredDestroyAtRevived: true,
   };
 }
 
