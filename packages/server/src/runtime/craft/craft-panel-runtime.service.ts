@@ -212,11 +212,19 @@ export class CraftPanelRuntimeService {
     }
     /** 构建统一技艺任务列表完整同步。 */
     buildTechniqueActivityTaskListPayload(player, serverTick) {
-        return buildTechniqueActivityTaskListView(player, serverTick);
+        return buildTechniqueActivityTaskListView(
+            player,
+            serverTick,
+            (itemId) => this.contentTemplateRepository.getItemName(itemId),
+        );
     }
     /** 构建统一技艺任务列表运行态 patch。 */
     buildTechniqueActivityTaskPatchPayload(player, serverTick) {
-        return buildTechniqueActivityTaskPatchView(player, serverTick);
+        return buildTechniqueActivityTaskPatchView(
+            player,
+            serverTick,
+            (itemId) => this.contentTemplateRepository.getItemName(itemId),
+        );
     }
     /** 判断玩家当前是否有炼丹任务在进行。 */
     hasActiveAlchemyJob(player) {

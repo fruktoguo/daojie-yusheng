@@ -76,13 +76,15 @@ function main(): void {
       sleepReason: '不在控制点范围内',
       createdAt: 2,
     }],
-  }, 123);
+  }, 123, (itemId) => itemId === 'pill.qi' ? '聚气丹' : null);
 
   assert.equal(view.serverTick, 123);
   assert.equal(view.tasks.length, 6);
 
   const alchemy = view.tasks.find((task) => task.kind === 'alchemy');
   assert.equal(alchemy?.state, 'interrupt_wait');
+  assert.equal(alchemy?.label, '聚气丹');
+  assert.equal(alchemy?.targetLabel, '聚气丹');
   assert.equal(alchemy?.workRemainingTicks, 70);
   assert.equal(alchemy?.interruptWaitRemainingTicks, 10);
   assert.deepEqual(alchemy?.cancelRef, { kind: 'alchemy', jobRunId: 'job:alchemy:1' });
@@ -123,7 +125,7 @@ function main(): void {
   console.log(JSON.stringify({
     ok: true,
     tasks: view.tasks.length,
-    answers: '统一技艺任务视图能同时投影 active job、旧制造队列、统一技艺队列和学习者传法 job；传法打断等待独立于实际 workRemainingTicks。',
+    answers: '统一技艺任务视图能从内容真源解析炼制产物名称，并同时投影 active job、旧制造队列、统一技艺队列和学习者传法 job；传法打断等待独立于实际 workRemainingTicks。',
   }, null, 2));
 }
 

@@ -62,6 +62,8 @@ type TechniqueActivityTaskPlayerView = {
   techniqueActivityQueue?: TechniqueActivityQueueItem[];
 };
 
+export type TechniqueActivityItemNameResolver = (itemId: string) => string | null | undefined;
+
 const LEGACY_ACTIVE_JOB_SLOTS = [
   ['alchemy', 'alchemyJob'],
   ['forging', 'forgingJob'],
@@ -77,6 +79,7 @@ const LEGACY_ACTIVE_JOB_SLOTS = [
 export function buildTechniqueActivityTaskListView(
   player: TechniqueActivityTaskPlayerView | null | undefined,
   serverTick?: number,
+  resolveItemName?: TechniqueActivityItemNameResolver,
 ): TechniqueActivityTaskListView {
   const tasks: TechniqueActivityTaskView[] = [];
   if (!player || typeof player !== 'object') {
@@ -88,7 +91,7 @@ export function buildTechniqueActivityTaskListView(
     if (!isJobVisible(job, kind)) {
       continue;
     }
-    tasks.push(buildActiveJobTaskView(player, kind, job));
+    tasks.push(buildActiveJobTaskView(player, kind, job, resolveItemName));
   }
 
   for (const item of listLegacyCraftQueueItems(player)) {
@@ -110,8 +113,9 @@ export function buildTechniqueActivityTaskListView(
 export function buildTechniqueActivityTaskPatchView(
   player: TechniqueActivityTaskPlayerView | null | undefined,
   serverTick?: number,
+  resolveItemName?: TechniqueActivityItemNameResolver,
 ): { upsert: TechniqueActivityTaskView[]; serverTick?: number } {
-  const view = buildTechniqueActivityTaskListView(player, serverTick);
+  const view = buildTechniqueActivityTaskListView(player, serverTick, resolveItemName);
   return view.serverTick == null
     ? { upsert: view.tasks }
     : { upsert: view.tasks, serverTick: view.serverTick };
@@ -121,13 +125,14 @@ function buildActiveJobTaskView(
   player: TechniqueActivityTaskPlayerView,
   kind: RuntimeTechniqueActivityKind,
   job: LegacyTechniqueJob,
+  resolveItemName?: TechniqueActivityItemNameResolver,
 ): TechniqueActivityTaskView {
   const jobRunId = normalizeText(job.jobRunId) || `active:${kind}:${normalizeText(player.playerId) || 'unknown'}`;
   const interruptWaitRemainingTicks = resolveInterruptWaitRemainingTicks(job);
   const task: TechniqueActivityTaskView = {
     id: `job:${kind}:${jobRunId}`,
     kind,
-    label: resolveJobLabel(kind, job),
+    label: resolveJobLabel(kind, job, resolveItemName),
     state: resolveActiveJobState(job, interruptWaitRemainingTicks),
     workTotalTicks: resolveNonNegativeInteger(job.workTotalTicks ?? job.totalTicks),
     workRemainingTicks: resolveNonNegativeInteger(job.workRemainingTicks ?? job.remainingTicks),
@@ -137,7 +142,7 @@ function buildActiveJobTaskView(
     canCancel: true,
     cancelRef: { kind, jobRunId },
   };
-  const targetLabel = resolveJobTargetLabel(kind, job);
+  const targetLabel = resolveJobTargetLabel(kind, job, resolveItemName);
   if (targetLabel) {
     task.targetLabel = targetLabel;
   }
@@ -262,7 +267,11 @@ function resolveInterruptWaitRemainingTicks(job: LegacyTechniqueJob): number {
   );
 }
 
-function resolveJobLabel(kind: RuntimeTechniqueActivityKind, job: LegacyTechniqueJob): string {
+function resolveJobLabel(
+  kind: RuntimeTechniqueActivityKind,
+  job: LegacyTechniqueJob,
+  resolveItemName?: TechniqueActivityItemNameResolver,
+): string {
   if (kind === 'transmission') {
     if (job.jobType === 'scripture_contemplation') {
       return normalizeText(job.label) || '藏经参悟';
@@ -274,11 +283,15 @@ function resolveJobLabel(kind: RuntimeTechniqueActivityKind, job: LegacyTechniqu
   }
   return normalizeText(job.label)
     || normalizeText(job.recipeName)
-    || resolveJobTargetLabel(kind, job)
+    || resolveJobTargetLabel(kind, job, resolveItemName)
     || resolveKindLabel(kind);
 }
 
-function resolveJobTargetLabel(kind: RuntimeTechniqueActivityKind, job: LegacyTechniqueJob): string | undefined {
+function resolveJobTargetLabel(
+  kind: RuntimeTechniqueActivityKind,
+  job: LegacyTechniqueJob,
+  resolveItemName?: TechniqueActivityItemNameResolver,
+): string | undefined {
   if (kind === 'enhancement') {
     return normalizeText(job.targetItemName);
   }
@@ -298,7 +311,7 @@ function resolveJobTargetLabel(kind: RuntimeTechniqueActivityKind, job: LegacyTe
     return resolvePlayerFacingContentName(job.techniqueId, '未知功法', job.techniqueName);
   }
   return job.outputItemId
-    ? resolvePlayerFacingContentName(job.outputItemId, '未知物品')
+    ? resolvePlayerFacingContentName(job.outputItemId, '未知物品', resolveItemName?.(job.outputItemId))
     : undefined;
 }
 
