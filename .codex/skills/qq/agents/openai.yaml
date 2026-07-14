@@ -1,0 +1,4 @@
+interface:
+  display_name: "QQ 玩家群采集"
+  short_description: "安全采集白名单 QQ 玩家群，并渐进查看关键反馈图片"
+  default_prompt: "使用 $qq 采集白名单玩家群消息，结合图文与回复上下文只查看关键图片并汇总反馈。"
