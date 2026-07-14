@@ -34,6 +34,7 @@ NapCat WebUI 端口与 WebUI token 不等于 OneBot HTTP 地址和 access token�
 | `NAPCAT_REQUEST_INTERVAL_MS` | 否 | action 间隔，范围 `0..5000`，默认 `100` |
 | `NAPCAT_OUTPUT_DIR` | 否 | 默认输出目录；相对路径按 Skill 目录解析 |
 | `NAPCAT_ALLOW_REMOTE` | 否 | 是否允许非回环地址，默认 `false` |
+| `NAPCAT_ALLOW_SEND` | 否 | 是否允许向白名单群内指定成员发送文本总结，默认 `false` |
 
 非回环地址还必须使用 `https://`，避免 access token 和群数据在网络中明文传输。
 
@@ -64,7 +65,15 @@ python3 scripts/qq.py check
 
 下载后使用本地 `view_image` 直接读取。禁止 OCR、批量文字识别、把图片上传到外部模型，或为了省事一次下载快照中的全部图片。
 
-## 5. 常见错误
+## 5. 定向总结发送
+
+`send-summary` 是唯一写操作，只允许在 `NAPCAT_GROUP_IDS` 白名单群内向指定的现有群成员发送一条“@玩家 + 纯文本”总结。启用前必须设置 `NAPCAT_ALLOW_SEND=true`。
+
+消息文件必须位于 `NAPCAT_OUTPUT_DIR` 上一级的 `outgoing/` 目录、使用 UTF-8、权限为 `0600`，且正文不超过 1800 字符。脚本拒绝任意外部文件路径，避免把仓库文件或凭据误发到群里。
+
+每次发送必须提供稳定 `--dedupe-key`。脚本在同一运行目录维护私密账本：成功键不会重复发送；进程中断或网络超时导致结果不确定时也不会自动重试。账本不保存正文，只保存 SHA-256、目标与 OneBot 消息 ID。发送成功后临时消息文件会删除。
+
+## 6. 常见错误
 
 | 现象 | 处理 |
 |---|---|
@@ -76,3 +85,6 @@ python3 scripts/qq.py check
 | 历史消息少于预期 | QQ/NapCat 历史接口可能限制回溯深度；保留“结果可能不完整”的说明 |
 | 图片来源域名被拒绝 | 核对是否为 NapCat 新返回的 QQ/Tencent 媒体域名，确认后精确扩充允许列表 |
 | 图片只是表情或不能证明问题 | 回到候选索引，沿同一图文与回复上下文一次补看一张，不启用 OCR |
+| 定向发送未启用 | 确认用途后设置 `NAPCAT_ALLOW_SEND=true` |
+| 总结文件被拒绝 | 放入私密 `outgoing/` 目录并执行 `chmod 600` |
+| 幂等键状态不确定 | 停止自动重试，由运维核对群消息和私密账本 |

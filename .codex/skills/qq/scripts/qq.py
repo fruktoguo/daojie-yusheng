@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-"""只读采集白名单 QQ 群信息，并渐进提取关键反馈图片。"""
+"""采集白名单 QQ 群反馈，并向群内指定玩家发送受控文本总结。"""
 
 from __future__ import annotations
 
 import argparse
+import fcntl
+import hashlib
 import ipaddress
 import json
 import os
@@ -25,6 +27,8 @@ SKILL_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_ENV_FILE = SKILL_DIR / ".env"
 ENV_KEY_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 GROUP_ID_PATTERN = re.compile(r"^[1-9][0-9]{4,19}$")
+USER_ID_PATTERN = re.compile(r"^[1-9][0-9]{4,19}$")
+DEDUPE_KEY_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$")
 MAX_HISTORY_DAYS = 90
 MAX_HISTORY_LIMIT = 10_000
 MAX_RESPONSE_BYTES = 64 * 1024 * 1024
@@ -35,6 +39,9 @@ MAX_TOTAL_IMAGE_BYTES = 128 * 1024 * 1024
 MAX_IMAGE_CONTEXT_MESSAGES = 10
 MAX_SELECTED_MESSAGE_REFS = 12
 MAX_SELECTED_IMAGES = 24
+MAX_SUMMARY_MESSAGE_CHARS = 1800
+MAX_SUMMARY_FILE_BYTES = 16 * 1024
+MAX_DELIVERY_RECORDS = 2000
 MESSAGE_REF_PATTERN = re.compile(r"^(?P<group_index>[0-9]+):(?P<message_index>[0-9]+)$")
 ALLOWED_IMAGE_HOST_SUFFIXES = (
     "qpic.cn",
@@ -53,6 +60,7 @@ KNOWN_CONFIG_KEYS = {
     "NAPCAT_REQUEST_INTERVAL_MS",
     "NAPCAT_OUTPUT_DIR",
     "NAPCAT_ALLOW_REMOTE",
+    "NAPCAT_ALLOW_SEND",
 }
 
 
@@ -80,6 +88,7 @@ class Settings:
     timeout_seconds: float
     request_interval_seconds: float
     output_dir: Path
+    allow_send: bool
 
 
 def missing_env_guide(env_file: Path) -> str:
@@ -270,6 +279,7 @@ def load_settings(env_file: Path) -> Settings:
         )
         / 1000.0,
         output_dir=output_dir,
+        allow_send=parse_bool(values, "NAPCAT_ALLOW_SEND", False),
     )
 
 
@@ -285,9 +295,9 @@ class NapCatClient:
             time.sleep(remaining)
 
         url = f"{self.settings.base_url}/{action.lstrip('/')}"
-        body = json.dumps(params or {}, ensure_ascii=False, separators=(",", ":")).encode(
-            "utf-8"
-        )
+        body = json.dumps(
+            params or {}, ensure_ascii=False, separators=(",", ":")
+        ).encode("utf-8")
         headers = {
             "Accept": "application/json",
             "Content-Type": "application/json; charset=utf-8",
@@ -339,7 +349,9 @@ class NapCatClient:
         retcode = payload.get("retcode")
         status = payload.get("status")
         if (retcode is not None and retcode != 0) or status == "failed":
-            wording = str(payload.get("wording") or payload.get("message") or "未知错误")
+            wording = str(
+                payload.get("wording") or payload.get("message") or "未知错误"
+            )
             if self.settings.access_token:
                 wording = wording.replace(self.settings.access_token, "[已隐藏]")
             raise NapCatApiError(
@@ -371,7 +383,9 @@ def select_group_ids(
     if not requested_group_ids:
         return allowed_group_ids
     selected = parse_group_ids(requested_group_ids)
-    unauthorized = [group_id for group_id in selected if group_id not in allowed_group_ids]
+    unauthorized = [
+        group_id for group_id in selected if group_id not in allowed_group_ids
+    ]
     if unauthorized:
         raise ConfigError(
             "以下群号未列入 NAPCAT_GROUP_IDS 白名单：" + ", ".join(unauthorized)
@@ -484,7 +498,10 @@ def fetch_group_messages(
 
     messages = sorted(
         messages_by_key.values(),
-        key=lambda item: (int(item.get("time", 0) or 0), str(item.get("message_id", ""))),
+        key=lambda item: (
+            int(item.get("time", 0) or 0),
+            str(item.get("message_id", "")),
+        ),
     )[:limit]
     result_may_be_truncated = not pagination_complete
     return messages, result_may_be_truncated
@@ -713,9 +730,7 @@ def compact_message_context(
 def is_emoji_image_data(data: dict[str, Any]) -> bool:
     summary = str(data.get("summary") or "")
     return bool(
-        data.get("emoji_id")
-        or data.get("emoji_package_id")
-        or "动画表情" in summary
+        data.get("emoji_id") or data.get("emoji_package_id") or "动画表情" in summary
     )
 
 
@@ -868,9 +883,7 @@ def ensure_new_json_path(
 
 def run_index_images(settings: Settings, args: argparse.Namespace) -> None:
     if not 0 <= args.context <= MAX_IMAGE_CONTEXT_MESSAGES:
-        raise ConfigError(
-            f"--context 必须位于 0..{MAX_IMAGE_CONTEXT_MESSAGES}"
-        )
+        raise ConfigError(f"--context 必须位于 0..{MAX_IMAGE_CONTEXT_MESSAGES}")
     snapshot_path, payload = load_collection_snapshot(settings, args.snapshot)
     index_payload = build_image_candidate_index(snapshot_path, payload, args.context)
     runtime_root = settings.output_dir.parent
@@ -880,9 +893,7 @@ def run_index_images(settings: Settings, args: argparse.Namespace) -> None:
         f"{snapshot_path.stem}-images",
     )
     write_private_json(output_path, index_payload)
-    print(
-        f"图片候选索引完成：{index_payload['candidate_count']} 条含图片消息。"
-    )
+    print(f"图片候选索引完成：{index_payload['candidate_count']} 条含图片消息。")
     print(f"输出文件：{output_path}")
 
 
@@ -1084,9 +1095,7 @@ def run_fetch_images(settings: Settings, args: argparse.Namespace) -> None:
                         "单次图片总量超过 "
                         f"{MAX_TOTAL_IMAGE_BYTES // (1024 * 1024)} MiB；请分批查看"
                     )
-                filename = (
-                    f"g{group_index}-m{message_index}-i{image_index}{extension}"
-                )
+                filename = f"g{group_index}-m{message_index}-i{image_index}{extension}"
                 write_private_bytes(temporary_dir / filename, image_payload)
                 total_downloaded_bytes += len(image_payload)
                 downloaded.append(
@@ -1126,13 +1135,240 @@ def run_fetch_images(settings: Settings, args: argparse.Namespace) -> None:
         print(f"图片文件：{output_dir / item['file']}")
 
 
+def parse_user_id(raw_user_id: str) -> str:
+    user_id = str(raw_user_id or "").strip()
+    if not USER_ID_PATTERN.fullmatch(user_id):
+        raise ConfigError(f"无效 QQ 用户号：{user_id!r}")
+    return user_id
+
+
+def resolve_summary_message_file(settings: Settings, raw_path: Path) -> Path:
+    runtime_root = settings.output_dir.parent.resolve()
+    outgoing_root = (runtime_root / "outgoing").resolve()
+    path = raw_path.expanduser()
+    if not path.is_absolute():
+        path = Path.cwd() / path
+    try:
+        resolved = path.resolve(strict=True)
+    except OSError as exc:
+        raise ConfigError(f"总结消息文件不存在或无法读取：{path}") from exc
+    if outgoing_root not in resolved.parents:
+        raise ConfigError(f"总结消息文件必须位于私密目录：{outgoing_root}")
+    if not resolved.is_file():
+        raise ConfigError(f"总结消息路径不是普通文件：{resolved}")
+    mode = resolved.stat().st_mode
+    if mode & 0o077:
+        raise ConfigError("总结消息文件权限过宽；请先执行 chmod 600")
+    if resolved.stat().st_size > MAX_SUMMARY_FILE_BYTES:
+        raise ConfigError(
+            f"总结消息文件超过 {MAX_SUMMARY_FILE_BYTES // 1024} KiB 安全上限"
+        )
+    return resolved
+
+
+def load_summary_message(settings: Settings, raw_path: Path) -> tuple[Path, str]:
+    path = resolve_summary_message_file(settings, raw_path)
+    try:
+        text = path.read_text(encoding="utf-8").strip()
+    except (OSError, UnicodeDecodeError) as exc:
+        raise ConfigError(f"无法读取 UTF-8 总结消息文件：{path}") from exc
+    if not text:
+        raise ConfigError("总结消息不能为空")
+    if "\x00" in text:
+        raise ConfigError("总结消息包含非法空字符")
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+    if len(text) > MAX_SUMMARY_MESSAGE_CHARS:
+        raise ConfigError(f"总结消息最多允许 {MAX_SUMMARY_MESSAGE_CHARS} 个字符")
+    return path, text
+
+
+def atomic_replace_private_json(path: Path, payload: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    try:
+        path.parent.chmod(0o700)
+    except OSError:
+        pass
+    temporary_path: Path | None = None
+    try:
+        file_descriptor, raw_temporary_path = tempfile.mkstemp(
+            prefix=f".{path.name}.", suffix=".tmp", dir=path.parent
+        )
+        temporary_path = Path(raw_temporary_path)
+        os.fchmod(file_descriptor, 0o600)
+        with os.fdopen(file_descriptor, "w", encoding="utf-8") as handle:
+            json.dump(payload, handle, ensure_ascii=False, indent=2)
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary_path, path)
+        temporary_path = None
+        path.chmod(0o600)
+    finally:
+        if temporary_path is not None:
+            try:
+                temporary_path.unlink()
+            except FileNotFoundError:
+                pass
+
+
+def load_delivery_ledger(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {"schema_version": 1, "deliveries": {}}
+    if path.stat().st_size > 4 * 1024 * 1024:
+        raise ConfigError("发送幂等账本超过 4 MiB 安全上限")
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ConfigError(f"无法读取发送幂等账本：{path}") from exc
+    if not isinstance(payload, dict) or payload.get("schema_version") != 1:
+        raise ConfigError("发送幂等账本格式不受支持")
+    deliveries = payload.get("deliveries")
+    if not isinstance(deliveries, dict):
+        raise ConfigError("发送幂等账本 deliveries 应为对象")
+    return payload
+
+
+def trim_delivery_records(deliveries: dict[str, Any]) -> dict[str, Any]:
+    if len(deliveries) <= MAX_DELIVERY_RECORDS:
+        return deliveries
+    ordered = sorted(
+        deliveries.items(),
+        key=lambda item: str(
+            item[1].get("updated_at") if isinstance(item[1], dict) else ""
+        ),
+        reverse=True,
+    )
+    return dict(ordered[:MAX_DELIVERY_RECORDS])
+
+
+def run_send_summary(
+    client: NapCatClient,
+    settings: Settings,
+    group_id: str,
+    args: argparse.Namespace,
+) -> None:
+    if not settings.allow_send:
+        raise ConfigError(
+            "定向发送能力未启用；确认用途后在 .env 设置 NAPCAT_ALLOW_SEND=true"
+        )
+    user_id = parse_user_id(args.user_id)
+    dedupe_key = str(args.dedupe_key or "").strip()
+    if not DEDUPE_KEY_PATTERN.fullmatch(dedupe_key):
+        raise ConfigError(
+            "--dedupe-key 必须是 8..128 位英文、数字、点、冒号、下划线或横线"
+        )
+    message_path, message = load_summary_message(settings, args.message_file)
+    message_sha256 = hashlib.sha256(message.encode("utf-8")).hexdigest()
+
+    require_dict(
+        "get_group_member_info",
+        client.call(
+            "get_group_member_info",
+            {
+                "group_id": int(group_id),
+                "user_id": int(user_id),
+                "no_cache": True,
+            },
+        ),
+    )
+
+    runtime_root = settings.output_dir.parent
+    delivery_dir = runtime_root / "deliveries"
+    delivery_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
+    try:
+        delivery_dir.chmod(0o700)
+    except OSError:
+        pass
+    lock_path = delivery_dir / "send-summary.lock"
+    ledger_path = delivery_dir / "send-summary.json"
+    lock_fd = os.open(lock_path, os.O_CREAT | os.O_RDWR, 0o600)
+    try:
+        os.fchmod(lock_fd, 0o600)
+        with os.fdopen(lock_fd, "a+", encoding="utf-8", closefd=False) as lock_file:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+            ledger = load_delivery_ledger(ledger_path)
+            deliveries = ledger["deliveries"]
+            existing = deliveries.get(dedupe_key)
+            if isinstance(existing, dict):
+                same_target = (
+                    str(existing.get("group_id")) == group_id
+                    and str(existing.get("user_id")) == user_id
+                    and existing.get("message_sha256") == message_sha256
+                )
+                if not same_target:
+                    raise ConfigError("--dedupe-key 已被其他发送内容占用")
+                if existing.get("status") == "sent":
+                    try:
+                        message_path.unlink()
+                    except FileNotFoundError:
+                        pass
+                    print(
+                        "定向总结此前已发送，本次未重复发送。"
+                        f"消息 ID：{existing.get('message_id') or '未知'}"
+                    )
+                    return
+                raise ConfigError(
+                    "该幂等键此前的发送结果不确定，已拒绝自动重试以避免重复消息"
+                )
+
+            now = datetime.now(timezone.utc).isoformat()
+            deliveries[dedupe_key] = {
+                "status": "pending",
+                "group_id": group_id,
+                "user_id": user_id,
+                "message_sha256": message_sha256,
+                "created_at": now,
+                "updated_at": now,
+            }
+            ledger["deliveries"] = trim_delivery_records(deliveries)
+            atomic_replace_private_json(ledger_path, ledger)
+            try:
+                result = require_dict(
+                    "send_group_msg",
+                    client.call(
+                        "send_group_msg",
+                        {
+                            "group_id": int(group_id),
+                            "message": [
+                                {"type": "at", "data": {"qq": user_id}},
+                                {"type": "text", "data": {"text": f"\n{message}"}},
+                            ],
+                        },
+                    ),
+                )
+            except Exception:
+                pending = ledger["deliveries"].get(dedupe_key)
+                if isinstance(pending, dict):
+                    pending["status"] = "uncertain"
+                    pending["updated_at"] = datetime.now(timezone.utc).isoformat()
+                    atomic_replace_private_json(ledger_path, ledger)
+                raise
+
+            message_id = result.get("message_id")
+            sent = ledger["deliveries"].get(dedupe_key)
+            if isinstance(sent, dict):
+                sent["status"] = "sent"
+                sent["message_id"] = message_id
+                sent["updated_at"] = datetime.now(timezone.utc).isoformat()
+                atomic_replace_private_json(ledger_path, ledger)
+            try:
+                message_path.unlink()
+            except FileNotFoundError:
+                pass
+            print(f"定向总结发送完成。消息 ID：{message_id or '未返回'}")
+    finally:
+        os.close(lock_fd)
+
+
 def run_check(client: NapCatClient, group_ids: tuple[str, ...]) -> None:
     require_dict("get_login_info", client.call("get_login_info"))
     print("NapCat 登录态与 OneBot HTTP 连接正常。")
     for group_id in group_ids:
         group_info = require_dict(
             "get_group_info",
-            client.call("get_group_info", {"group_id": int(group_id), "no_cache": True}),
+            client.call(
+                "get_group_info", {"group_id": int(group_id), "no_cache": True}
+            ),
         )
         group_name = str(group_info.get("group_name") or "未返回群名")
         print(f"群 {group_id}：可访问（{group_name}）")
@@ -1152,7 +1388,11 @@ def run_collect(
     days = args.days if args.days is not None else settings.history_days
     if not 1 <= days <= MAX_HISTORY_DAYS:
         raise ConfigError(f"--days 必须位于 1..{MAX_HISTORY_DAYS}")
-    since = parse_iso_time(args.since, "--since") if args.since else until - timedelta(days=days)
+    since = (
+        parse_iso_time(args.since, "--since")
+        if args.since
+        else until - timedelta(days=days)
+    )
     if since >= until:
         raise ConfigError("采集开始时间必须早于结束时间")
 
@@ -1174,7 +1414,9 @@ def run_collect(
     for group_id in group_ids:
         group_info = require_dict(
             "get_group_info",
-            client.call("get_group_info", {"group_id": int(group_id), "no_cache": True}),
+            client.call(
+                "get_group_info", {"group_id": int(group_id), "no_cache": True}
+            ),
         )
 
         members: list[Any] | None = None
@@ -1242,7 +1484,7 @@ def run_collect(
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="只读采集白名单 QQ 玩家群信息，并渐进提取关键反馈图片"
+        description="采集白名单 QQ 玩家群反馈，并定向发送受控文本总结"
     )
     parser.add_argument(
         "--env-file",
@@ -1265,8 +1507,12 @@ def build_parser() -> argparse.ArgumentParser:
     collect_parser.add_argument("--until", help="ISO 格式结束时间，默认当前时间")
     collect_parser.add_argument("--days", type=int, help="回溯天数")
     collect_parser.add_argument("--limit", type=int, help="每群最多保留的消息数")
-    collect_parser.add_argument("--no-members", action="store_true", help="不采集成员列表")
-    collect_parser.add_argument("--no-messages", action="store_true", help="不采集历史消息")
+    collect_parser.add_argument(
+        "--no-members", action="store_true", help="不采集成员列表"
+    )
+    collect_parser.add_argument(
+        "--no-messages", action="store_true", help="不采集历史消息"
+    )
     collect_parser.add_argument("--output", type=Path, help="指定 JSON 输出文件")
 
     index_images_parser = subparsers.add_parser(
@@ -1305,6 +1551,25 @@ def build_parser() -> argparse.ArgumentParser:
     fetch_images_parser.add_argument(
         "--output-dir", type=Path, help="指定新的图片输出目录"
     )
+
+    send_summary_parser = subparsers.add_parser(
+        "send-summary", help="在白名单群内 @ 指定玩家发送文本总结"
+    )
+    send_summary_parser.add_argument("--group-id", required=True, help="目标白名单群号")
+    send_summary_parser.add_argument(
+        "--user-id", required=True, help="目标群成员 QQ 号"
+    )
+    send_summary_parser.add_argument(
+        "--message-file",
+        type=Path,
+        required=True,
+        help="位于私密 outgoing 目录的 UTF-8 文本文件",
+    )
+    send_summary_parser.add_argument(
+        "--dedupe-key",
+        required=True,
+        help="本次反馈的稳定幂等键，重复调用不会重复发送",
+    )
     return parser
 
 
@@ -1328,6 +1593,10 @@ def main() -> int:
             run_index_images(settings, args)
         elif args.command == "fetch-images":
             run_fetch_images(settings, args)
+        elif args.command == "send-summary":
+            group_ids = select_group_ids(settings.allowed_group_ids, [args.group_id])
+            client = NapCatClient(settings)
+            run_send_summary(client, settings, group_ids[0], args)
         else:
             parser.error(f"未知命令：{args.command}")
         return 0
