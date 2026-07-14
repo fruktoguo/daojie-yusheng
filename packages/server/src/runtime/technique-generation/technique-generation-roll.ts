@@ -110,8 +110,7 @@ function rollGeometricOffset(max: number): number {
 /** 基于玩家当前 realmLv，非对称浮动 ±6 */
 export function rollTechniqueRealmLv(playerRealmLv: number): number {
   const offset = rollAsymmetricOffset(TECHNIQUE_GENERATION_REALM_LV_OFFSET);
-  const result = playerRealmLv + offset;
-  return Math.max(1, Math.min(127, result));
+  return applyTechniqueGenerationRealmLvOffset(playerRealmLv, offset);
 }
 
 // ─── 基准品阶确定 ───
@@ -209,8 +208,14 @@ export function rollBoostedTechniqueOutcome(
   const attempts = normalizeTechniqueGenerationItemSpend(itemSpend);
   let best: TechniqueGenerationRollOutcome | null = null;
   for (let i = 0; i < attempts; i += 1) {
-    const realmLv = rollTechniqueRealmLv(currentRealmLv);
-    const grade = rollTechniqueGrade(gradeReferenceRealmLv);
+    // 同一次抽取共享境界偏移，但功法境界和品阶参考境界分别使用当前值与历史最高值。
+    const realmLvOffset = rollAsymmetricOffset(TECHNIQUE_GENERATION_REALM_LV_OFFSET);
+    const realmLv = applyTechniqueGenerationRealmLvOffset(currentRealmLv, realmLvOffset);
+    const rolledGradeReferenceRealmLv = applyTechniqueGenerationRealmLvOffset(
+      gradeReferenceRealmLv,
+      realmLvOffset,
+    );
+    const grade = rollTechniqueGrade(rolledGradeReferenceRealmLv);
     const candidate = { grade, realmLv };
     if (!best || compareRollOutcome(candidate, best) > 0) {
       best = candidate;
@@ -236,9 +241,24 @@ export function buildTechniqueGenerationRollRange(
   const realmLvMin = Math.max(1, currentRealmLv - TECHNIQUE_GENERATION_REALM_LV_OFFSET);
   const realmLvMax = Math.min(127, currentRealmLv + TECHNIQUE_GENERATION_REALM_LV_OFFSET);
   const baseGrade = resolveBaseGrade(gradeReferenceRealmLv);
-  const baseGradeIndex = TECHNIQUE_GRADE_ORDER.indexOf(baseGrade);
-  const gradeMinIndex = Math.max(0, baseGradeIndex - TECHNIQUE_GENERATION_GRADE_OFFSET);
-  const gradeMaxIndex = Math.min(TECHNIQUE_GRADE_ORDER.length - 1, baseGradeIndex + TECHNIQUE_GENERATION_GRADE_OFFSET);
+  const gradeReferenceRealmLvMin = Math.max(
+    1,
+    gradeReferenceRealmLv - TECHNIQUE_GENERATION_REALM_LV_OFFSET,
+  );
+  const gradeReferenceRealmLvMax = Math.min(
+    127,
+    gradeReferenceRealmLv + TECHNIQUE_GENERATION_REALM_LV_OFFSET,
+  );
+  const gradeIndexes: number[] = [];
+  for (let realmLv = gradeReferenceRealmLvMin; realmLv <= gradeReferenceRealmLvMax; realmLv += 1) {
+    const baseGradeIndex = TECHNIQUE_GRADE_ORDER.indexOf(resolveBaseGrade(realmLv));
+    gradeIndexes.push(
+      Math.max(0, baseGradeIndex - TECHNIQUE_GENERATION_GRADE_OFFSET),
+      Math.min(TECHNIQUE_GRADE_ORDER.length - 1, baseGradeIndex + TECHNIQUE_GENERATION_GRADE_OFFSET),
+    );
+  }
+  const gradeMinIndex = Math.min(...gradeIndexes);
+  const gradeMaxIndex = Math.max(...gradeIndexes);
   return {
     realmLvMin,
     realmLvMax,
@@ -313,10 +333,14 @@ function buildSingleRollOutcomeDistribution(
   playerHighestRealmLv: number,
 ): TechniqueGenerationWeightedOutcome[] {
   const outcomeProbabilities = new Map<string, TechniqueGenerationWeightedOutcome>();
-  const baseGrade = resolveBaseGrade(playerHighestRealmLv);
-  const baseIndex = TECHNIQUE_GRADE_ORDER.indexOf(baseGrade);
   for (const realmOffset of buildAsymmetricOffsetProbabilities(TECHNIQUE_GENERATION_REALM_LV_OFFSET)) {
-    const realmLv = Math.max(1, Math.min(127, playerRealmLv + realmOffset.offset));
+    const realmLv = applyTechniqueGenerationRealmLvOffset(playerRealmLv, realmOffset.offset);
+    const rolledGradeReferenceRealmLv = applyTechniqueGenerationRealmLvOffset(
+      playerHighestRealmLv,
+      realmOffset.offset,
+    );
+    const baseGrade = resolveBaseGrade(rolledGradeReferenceRealmLv);
+    const baseIndex = TECHNIQUE_GRADE_ORDER.indexOf(baseGrade);
     for (const gradeOffset of buildAsymmetricOffsetProbabilities(TECHNIQUE_GENERATION_GRADE_OFFSET)) {
       const gradeIndex = Math.max(0, Math.min(TECHNIQUE_GRADE_ORDER.length - 1, baseIndex + gradeOffset.offset));
       const grade = TECHNIQUE_GRADE_ORDER[gradeIndex];
@@ -339,6 +363,10 @@ function normalizeTechniqueGenerationRealmLv(value: unknown): number {
     return 1;
   }
   return Math.max(1, Math.min(127, Math.trunc(numeric)));
+}
+
+function applyTechniqueGenerationRealmLvOffset(realmLv: number, offset: number): number {
+  return Math.max(1, Math.min(127, realmLv + offset));
 }
 
 function buildAsymmetricOffsetProbabilities(maxOffset: number): Array<{ offset: number; probability: number }> {

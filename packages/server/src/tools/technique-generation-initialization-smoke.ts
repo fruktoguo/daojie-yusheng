@@ -1109,9 +1109,36 @@ function testTechniqueGenerationRollSeparatesRealmSources(): void {
   assert.equal(range.realmLvMin, 25);
   assert.equal(range.realmLvMax, 37);
   assert.equal(range.baseGrade, 'saint');
-  assert.equal(range.gradeMin, 'heaven');
+  assert.equal(range.gradeMin, 'earth');
   assert.equal(range.gradeMax, 'emperor');
-  assert.deepEqual(range.gradeChances.map((entry) => entry.grade), ['heaven', 'spirit', 'saint', 'emperor']);
+  assert.deepEqual(range.gradeChances.map((entry) => entry.grade), ['earth', 'heaven', 'spirit', 'saint', 'emperor']);
+
+  const halfStepGoldenCoreRange = buildTechniqueGenerationRollRange(42, 42, 1);
+  assert.equal(halfStepGoldenCoreRange.realmLvMin, 36);
+  assert.equal(halfStepGoldenCoreRange.realmLvMax, 48);
+  assert.equal(halfStepGoldenCoreRange.baseGrade, 'mystic');
+  assert.equal(halfStepGoldenCoreRange.gradeMin, 'mortal');
+  assert.equal(halfStepGoldenCoreRange.gradeMax, 'spirit');
+  assert.equal(
+    halfStepGoldenCoreRange.gradeChances.find((entry) => entry.grade === 'spirit')?.chance,
+    0.8,
+    '半步金丹的 +1 境界偏移应恢复灵阶抽取概率',
+  );
+}
+
+function testTechniqueGenerationRollReusesRealmOffsetFromHistoricalRealm(): void {
+  const originalRandom = Math.random;
+  const randomValues = [0.9, 0.1, 0.1, 0.9, 0.1, 0.9];
+  let randomIndex = 0;
+  Math.random = () => randomValues[randomIndex++] ?? 0;
+  try {
+    const outcome = rollBoostedTechniqueOutcome(31, 42, 1);
+    assert.equal(outcome.realmLv, 32, '功法境界应在当前境界 31 的基础上应用 +1 偏移');
+    assert.equal(outcome.grade, 'spirit', '品阶参考境界应在历史最高境界 42 的基础上复用 +1 偏移');
+    assert.equal(randomIndex, randomValues.length, '功法境界与品阶参考境界应复用同一次境界偏移');
+  } finally {
+    Math.random = originalRandom;
+  }
 }
 
 async function testGatewayStatusEmitsRollRange(): Promise<void> {
@@ -1883,6 +1910,7 @@ async function main(): Promise<void> {
   await testCurrentStatusRestoresGeneratedDraftPreview();
   await testRequestGenerationBlocksActiveDraftWithoutConsumingItem();
   testTechniqueGenerationRollSeparatesRealmSources();
+  testTechniqueGenerationRollReusesRealmOffsetFromHistoricalRealm();
   await testGatewayStatusEmitsRollRange();
   await testGatewayRequiresDirtyDomainFlushBeforeDurableMutation();
   await testGatewayGenerateExceptionEmitsFailureResult();

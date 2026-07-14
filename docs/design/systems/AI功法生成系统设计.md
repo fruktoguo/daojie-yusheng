@@ -188,24 +188,26 @@ realmLv 和品阶共用同一套概率模型：
 
 #### realmLv 随机
 
-基准 = 玩家当前 `realmLv`，浮动范围 ±6：
+每次抽取先生成一个浮动范围为 ±6 的境界偏移。功法境界把该偏移应用到玩家当前 `realmLv`；品阶参考境界把同一个偏移应用到玩家历史最高 `realmLv`：
 
 ```ts
-function rollTechniqueRealmLv(playerRealmLv: number): number {
-  const base = playerRealmLv;
+function rollTechniqueRealmOffset(): number {
   const maxOffset = 6;
 
   // 50% 命中基准
-  if (random() < 0.5) return clamp(base, 1, 127);
+  if (random() < 0.5) return 0;
 
   // 剩余 50%：低方向 75%，高方向 25%
   const goHigh = random() < 0.25;
   // 几何衰减：offset 1~6，越大概率越低
   const offset = rollGeometricOffset(maxOffset);
 
-  const result = goHigh ? base + offset : base - offset;
-  return clamp(result, 1, 127);
+  return goHigh ? offset : -offset;
 }
+
+const realmOffset = rollTechniqueRealmOffset();
+const techniqueRealmLv = clamp(playerCurrentRealmLv + realmOffset, 1, 127);
+const gradeReferenceRealmLv = clamp(playerHighestRealmLv + realmOffset, 1, 127);
 
 // 几何衰减：offset=1 概率最高，每增加 1 概率减半
 function rollGeometricOffset(max: number): number {
@@ -218,7 +220,7 @@ function rollGeometricOffset(max: number): number {
 
 #### 基准品阶确定
 
-根据玩家历史最高 `realmLv` 落在哪些品阶区间，按**区间覆盖比例**确定基准品阶。功法自身随机出的 `realmLv` 不参与品阶基准计算：
+根据玩家历史最高 `realmLv` 加上本次共享境界偏移后的品阶参考境界，按**区间覆盖比例**确定基准品阶。功法自身随机出的绝对 `realmLv` 不直接参与品阶基准计算；两者只共享同一个偏移，因此当前境界下降不会降低品阶基准：
 
 品阶有效区间（来源：`docs/design/balance/境界等级基准期望六维公式.md`）：
 
@@ -340,8 +342,10 @@ class TechniqueGenerationService {
 requestGeneration()
   ├─ 校验玩家境界 ≥ 筑基期（realmLv ≥ 31）     → 不满足拒绝
   ├─ 校验并消耗悟道玉简（背包扣除 1 个）         → 不足拒绝
-  ├─ rollTechniqueRealmLv(playerRealmLv)        → 按当前境界随机功法 realmLv
-  ├─ rollTechniqueGrade(playerHighestRealmLv)   → 按历史最高境界随机品阶
+  ├─ rollTechniqueRealmOffset()                  → 生成本次共享的 ±6 境界偏移
+  ├─ currentRealmLv + offset                     → 按当前境界得到功法 realmLv
+  ├─ highestRealmLv + offset                     → 按历史最高境界得到品阶参考境界
+  ├─ rollTechniqueGrade(gradeReferenceRealmLv)   → 按品阶参考境界随机品阶
   └─ INSERT technique_generation_job (status=pending)
   │
   ▼
@@ -748,8 +752,8 @@ type TechniquePreview = {
 |---|---|---|
 | 存储 | 单表 JSONB | 与静态功法格式一致，零 JOIN |
 | 入口 | 背包使用悟道玉简 | 道具消耗自然限速，无需额外限额 |
-| 品阶 | 随机（历史最高 realmLv 决定可选范围） | 保留历史修行成果，同时维持高品阶稀有度 |
-| realmLv | 玩家当前 ±6 | 保证功法与玩家实力匹配 |
+| 品阶 | 随机（历史最高 realmLv 加本次共享偏移后决定可选范围） | 保留历史修行成果，并恢复原有跨境界边界概率 |
+| realmLv | 玩家当前加本次 ±6 共享偏移 | 保证功法与玩家实力匹配 |
 | 采纳后 | 直接学习 | 简化流程，无需功法书中间道具 |
 | 分类开放 | 内功 + 术法 | 神通/秘术锁死不开放 AI |
 | 解锁 | 筑基期 | 新手保护 + 确保有足够功法体验 |
