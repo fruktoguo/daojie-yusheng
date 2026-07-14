@@ -36,10 +36,13 @@ function main(): void {
   }
   assert.match(ledger, /FOR UPDATE SKIP LOCKED/);
   assert.match(ledger, /buildFlushTaskIdempotencyKey/);
-  assert.match(ledger, /serializePayloadJson/);
+  assert.match(ledger, /JSON\.stringify\(batch\)/);
+  assert.match(ledger, /ORDER BY player_id ASC, domain ASC/);
+  assert.match(ledger, /ORDER BY instance_id ASC, domain ASC, ownership_epoch ASC/);
+  assert.match(ledger, /FOR UPDATE OF ledger/);
   console.log(JSON.stringify({
     ok: true,
-    answers: 'flush ledger 已具备 durable staging 所需字段：scope/entity/domain/priority/revision/ownership/fencing/idempotency/payload/claim/retry/failure/created。',
+    answers: 'flush ledger 已具备 durable staging 所需字段，并约束玩家/实例批量 staging、claim、续租、重试与确认统一按账本主键锁行。',
     excludes: '不证明各 player/instance domain 已完成 payload projector，也不替代 with-db claim proof。',
     completionMapping: 'flush-staging-schema',
   }, null, 2));

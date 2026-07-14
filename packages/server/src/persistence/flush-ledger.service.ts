@@ -119,6 +119,7 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
   /**
    * 批量写入统一刷盘账本。输入会先按主键归并，再以有限批次执行单条 SQL，
    * 避免同一批中重复主键触发 PostgreSQL ON CONFLICT 二次更新错误。
+   * staging 与 consumer 会并发修改同一批行，所有批量 DML 必须保持主键锁序一致。
    */
   async upsertFlushTasks(tasks: FlushTask[], batchSize = DEFAULT_FLUSH_LEDGER_BATCH_SIZE): Promise<number> {
     if (!this.pool || !this.enabled || tasks.length === 0) {
@@ -274,15 +275,23 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
                    candidate.oldest_updated_at ASC,
                    candidate.player_id ASC
           LIMIT ${playerLimitParam}
+        ), claimable AS MATERIALIZED (
+          SELECT ledger.player_id, ledger.domain
+          FROM ${PLAYER_FLUSH_LEDGER_TABLE} ledger
+          INNER JOIN locked_players ON locked_players.player_id = ledger.player_id
+          WHERE ledger.latest_version > ledger.flushed_version
+            AND (ledger.claim_until IS NULL OR ledger.claim_until < now())
+            ${claimedPayloadFilter}
+            ${claimedDomainFilter}
+          ORDER BY ledger.player_id ASC, ledger.domain ASC
+          FOR UPDATE OF ledger
         ), claimed AS (
           UPDATE ${PLAYER_FLUSH_LEDGER_TABLE} ledger
           SET claimed_by = $1,
               claim_until = now() + ($2::bigint * interval '1 millisecond')
-          WHERE ledger.player_id IN (SELECT player_id FROM locked_players)
-            AND ledger.latest_version > ledger.flushed_version
-            AND (ledger.claim_until IS NULL OR ledger.claim_until < now())
-            ${claimedPayloadFilter}
-            ${claimedDomainFilter}
+          FROM claimable
+          WHERE ledger.player_id = claimable.player_id
+            AND ledger.domain = claimable.domain
           RETURNING ledger.player_id, ledger.domain, ledger.priority, ledger.latest_version,
             ledger.flushed_version, ledger.dirty_since_at, ledger.next_attempt_at, ledger.claimed_by,
             ledger.claim_until, ledger.runtime_owner_id, ledger.fencing_token, ledger.idempotency_key,
@@ -335,20 +344,30 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
     if (playerTasks.length > 0) {
       const result = await this.pool.query(
         `
-          WITH input AS (
+          WITH input AS MATERIALIZED (
             SELECT * FROM jsonb_to_recordset($1::jsonb) AS claimed(
               player_id varchar(100), domain varchar(64), flushed_version bigint,
               claim_owner_id varchar(120), fencing_token varchar(120)
             )
+          ), locked AS MATERIALIZED (
+            SELECT ledger.player_id, ledger.domain, input.flushed_version
+            FROM ${PLAYER_FLUSH_LEDGER_TABLE} ledger
+            INNER JOIN input
+              ON input.player_id = ledger.player_id
+             AND input.domain = ledger.domain
+            WHERE ledger.claimed_by = input.claim_owner_id
+              AND ledger.fencing_token IS NOT DISTINCT FROM input.fencing_token
+            ORDER BY ledger.player_id ASC, ledger.domain ASC
+            FOR UPDATE OF ledger
           )
           UPDATE ${PLAYER_FLUSH_LEDGER_TABLE} ledger
-          SET flushed_version = LEAST(GREATEST(ledger.flushed_version, input.flushed_version), ledger.latest_version),
+          SET flushed_version = LEAST(GREATEST(ledger.flushed_version, locked.flushed_version), ledger.latest_version),
               dirty_since_at = CASE
-                WHEN LEAST(GREATEST(ledger.flushed_version, input.flushed_version), ledger.latest_version) >= ledger.latest_version THEN NULL
+                WHEN LEAST(GREATEST(ledger.flushed_version, locked.flushed_version), ledger.latest_version) >= ledger.latest_version THEN NULL
                 ELSE ledger.dirty_since_at
               END,
               payload_jsonb = CASE
-                WHEN LEAST(GREATEST(ledger.flushed_version, input.flushed_version), ledger.latest_version) >= ledger.latest_version THEN NULL
+                WHEN LEAST(GREATEST(ledger.flushed_version, locked.flushed_version), ledger.latest_version) >= ledger.latest_version THEN NULL
                 ELSE ledger.payload_jsonb
               END,
               claimed_by = NULL,
@@ -357,11 +376,9 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
               retry_after = NULL,
               failure_category = NULL,
               updated_at = now()
-          FROM input
-          WHERE ledger.player_id = input.player_id
-            AND ledger.domain = input.domain
-            AND ledger.claimed_by = input.claim_owner_id
-            AND ledger.fencing_token IS NOT DISTINCT FROM input.fencing_token
+          FROM locked
+          WHERE ledger.player_id = locked.player_id
+            AND ledger.domain = locked.domain
         `,
         [
           JSON.stringify(playerTasks.map((task) => ({
@@ -378,20 +395,31 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
     if (instanceTasks.length > 0) {
       const result = await this.pool.query(
         `
-          WITH input AS (
+          WITH input AS MATERIALIZED (
             SELECT * FROM jsonb_to_recordset($1::jsonb) AS claimed(
               instance_id varchar(100), domain varchar(64), ownership_epoch bigint,
               flushed_version bigint, claim_owner_id varchar(120), fencing_token varchar(120)
             )
+          ), locked AS MATERIALIZED (
+            SELECT ledger.instance_id, ledger.domain, ledger.ownership_epoch, input.flushed_version
+            FROM ${INSTANCE_FLUSH_LEDGER_TABLE} ledger
+            INNER JOIN input
+              ON input.instance_id = ledger.instance_id
+             AND input.domain = ledger.domain
+             AND input.ownership_epoch = ledger.ownership_epoch
+            WHERE ledger.claimed_by = input.claim_owner_id
+              AND ledger.fencing_token IS NOT DISTINCT FROM input.fencing_token
+            ORDER BY ledger.instance_id ASC, ledger.domain ASC, ledger.ownership_epoch ASC
+            FOR UPDATE OF ledger
           )
           UPDATE ${INSTANCE_FLUSH_LEDGER_TABLE} ledger
-          SET flushed_version = LEAST(GREATEST(ledger.flushed_version, input.flushed_version), ledger.latest_version),
+          SET flushed_version = LEAST(GREATEST(ledger.flushed_version, locked.flushed_version), ledger.latest_version),
               dirty_since_at = CASE
-                WHEN LEAST(GREATEST(ledger.flushed_version, input.flushed_version), ledger.latest_version) >= ledger.latest_version THEN NULL
+                WHEN LEAST(GREATEST(ledger.flushed_version, locked.flushed_version), ledger.latest_version) >= ledger.latest_version THEN NULL
                 ELSE ledger.dirty_since_at
               END,
               payload_jsonb = CASE
-                WHEN LEAST(GREATEST(ledger.flushed_version, input.flushed_version), ledger.latest_version) >= ledger.latest_version THEN NULL
+                WHEN LEAST(GREATEST(ledger.flushed_version, locked.flushed_version), ledger.latest_version) >= ledger.latest_version THEN NULL
                 ELSE ledger.payload_jsonb
               END,
               claimed_by = NULL,
@@ -400,12 +428,10 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
               retry_after = NULL,
               failure_category = NULL,
               updated_at = now()
-          FROM input
-          WHERE ledger.instance_id = input.instance_id
-            AND ledger.domain = input.domain
-            AND ledger.ownership_epoch = input.ownership_epoch
-            AND ledger.claimed_by = input.claim_owner_id
-            AND ledger.fencing_token IS NOT DISTINCT FROM input.fencing_token
+          FROM locked
+          WHERE ledger.instance_id = locked.instance_id
+            AND ledger.domain = locked.domain
+            AND ledger.ownership_epoch = locked.ownership_epoch
         `,
         [
           JSON.stringify(instanceTasks.map((task) => ({
@@ -458,10 +484,20 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
     if (playerTasks.length > 0) {
       const result = await this.pool.query(
         `
-          WITH input AS (
+          WITH input AS MATERIALIZED (
             SELECT * FROM jsonb_to_recordset($1::jsonb) AS claimed(
               player_id varchar(100), domain varchar(64), claim_owner_id varchar(120), fencing_token varchar(120)
             )
+          ), locked AS MATERIALIZED (
+            SELECT ledger.player_id, ledger.domain
+            FROM ${PLAYER_FLUSH_LEDGER_TABLE} ledger
+            INNER JOIN input
+              ON input.player_id = ledger.player_id
+             AND input.domain = ledger.domain
+            WHERE ledger.claimed_by = input.claim_owner_id
+              AND ledger.fencing_token IS NOT DISTINCT FROM input.fencing_token
+            ORDER BY ledger.player_id ASC, ledger.domain ASC
+            FOR UPDATE OF ledger
           )
           UPDATE ${PLAYER_FLUSH_LEDGER_TABLE} ledger
           SET next_attempt_at = now() + ($2::bigint * interval '1 millisecond'),
@@ -469,11 +505,9 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
               claimed_by = NULL,
               claim_until = NULL,
               updated_at = now()
-          FROM input
-          WHERE ledger.player_id = input.player_id
-            AND ledger.domain = input.domain
-            AND ledger.claimed_by = input.claim_owner_id
-            AND ledger.fencing_token IS NOT DISTINCT FROM input.fencing_token
+          FROM locked
+          WHERE ledger.player_id = locked.player_id
+            AND ledger.domain = locked.domain
         `,
         [
           JSON.stringify(playerTasks.map((task) => ({
@@ -490,11 +524,22 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
     if (instanceTasks.length > 0) {
       const result = await this.pool.query(
         `
-          WITH input AS (
+          WITH input AS MATERIALIZED (
             SELECT * FROM jsonb_to_recordset($1::jsonb) AS claimed(
               instance_id varchar(100), domain varchar(64), ownership_epoch bigint,
               claim_owner_id varchar(120), fencing_token varchar(120)
             )
+          ), locked AS MATERIALIZED (
+            SELECT ledger.instance_id, ledger.domain, ledger.ownership_epoch
+            FROM ${INSTANCE_FLUSH_LEDGER_TABLE} ledger
+            INNER JOIN input
+              ON input.instance_id = ledger.instance_id
+             AND input.domain = ledger.domain
+             AND input.ownership_epoch = ledger.ownership_epoch
+            WHERE ledger.claimed_by = input.claim_owner_id
+              AND ledger.fencing_token IS NOT DISTINCT FROM input.fencing_token
+            ORDER BY ledger.instance_id ASC, ledger.domain ASC, ledger.ownership_epoch ASC
+            FOR UPDATE OF ledger
           )
           UPDATE ${INSTANCE_FLUSH_LEDGER_TABLE} ledger
           SET next_attempt_at = now() + ($2::bigint * interval '1 millisecond'),
@@ -502,12 +547,10 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
               claimed_by = NULL,
               claim_until = NULL,
               updated_at = now()
-          FROM input
-          WHERE ledger.instance_id = input.instance_id
-            AND ledger.domain = input.domain
-            AND ledger.ownership_epoch = input.ownership_epoch
-            AND ledger.claimed_by = input.claim_owner_id
-            AND ledger.fencing_token IS NOT DISTINCT FROM input.fencing_token
+          FROM locked
+          WHERE ledger.instance_id = locked.instance_id
+            AND ledger.domain = locked.domain
+            AND ledger.ownership_epoch = locked.ownership_epoch
         `,
         [
           JSON.stringify(instanceTasks.map((task) => ({
@@ -587,20 +630,28 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
     if (playerTasks.length > 0) {
       const result = await this.pool.query(
         `
-          WITH input AS (
+          WITH input AS MATERIALIZED (
             SELECT *
             FROM jsonb_to_recordset($1::jsonb) AS claimed(
               player_id varchar(100), domain varchar(64), claim_owner_id varchar(120), fencing_token varchar(120)
             )
+          ), locked AS MATERIALIZED (
+            SELECT ledger.player_id, ledger.domain
+            FROM ${PLAYER_FLUSH_LEDGER_TABLE} ledger
+            INNER JOIN input
+              ON input.player_id = ledger.player_id
+             AND input.domain = ledger.domain
+            WHERE ledger.claimed_by = input.claim_owner_id
+              AND ledger.fencing_token IS NOT DISTINCT FROM input.fencing_token
+              AND ledger.latest_version > ledger.flushed_version
+            ORDER BY ledger.player_id ASC, ledger.domain ASC
+            FOR UPDATE OF ledger
           )
           UPDATE ${PLAYER_FLUSH_LEDGER_TABLE} ledger
           SET claim_until = now() + ($2::bigint * interval '1 millisecond')
-          FROM input
-          WHERE ledger.player_id = input.player_id
-            AND ledger.domain = input.domain
-            AND ledger.claimed_by = input.claim_owner_id
-            AND ledger.fencing_token IS NOT DISTINCT FROM input.fencing_token
-            AND ledger.latest_version > ledger.flushed_version
+          FROM locked
+          WHERE ledger.player_id = locked.player_id
+            AND ledger.domain = locked.domain
         `,
         [
           JSON.stringify(playerTasks.map((task) => ({
@@ -618,22 +669,31 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
     if (instanceTasks.length > 0) {
       const result = await this.pool.query(
         `
-          WITH input AS (
+          WITH input AS MATERIALIZED (
             SELECT *
             FROM jsonb_to_recordset($1::jsonb) AS claimed(
               instance_id varchar(100), domain varchar(64), ownership_epoch bigint,
               claim_owner_id varchar(120), fencing_token varchar(120)
             )
+          ), locked AS MATERIALIZED (
+            SELECT ledger.instance_id, ledger.domain, ledger.ownership_epoch
+            FROM ${INSTANCE_FLUSH_LEDGER_TABLE} ledger
+            INNER JOIN input
+              ON input.instance_id = ledger.instance_id
+             AND input.domain = ledger.domain
+             AND input.ownership_epoch = ledger.ownership_epoch
+            WHERE ledger.claimed_by = input.claim_owner_id
+              AND ledger.fencing_token IS NOT DISTINCT FROM input.fencing_token
+              AND ledger.latest_version > ledger.flushed_version
+            ORDER BY ledger.instance_id ASC, ledger.domain ASC, ledger.ownership_epoch ASC
+            FOR UPDATE OF ledger
           )
           UPDATE ${INSTANCE_FLUSH_LEDGER_TABLE} ledger
           SET claim_until = now() + ($2::bigint * interval '1 millisecond')
-          FROM input
-          WHERE ledger.instance_id = input.instance_id
-            AND ledger.domain = input.domain
-            AND ledger.ownership_epoch = input.ownership_epoch
-            AND ledger.claimed_by = input.claim_owner_id
-            AND ledger.fencing_token IS NOT DISTINCT FROM input.fencing_token
-            AND ledger.latest_version > ledger.flushed_version
+          FROM locked
+          WHERE ledger.instance_id = locked.instance_id
+            AND ledger.domain = locked.domain
+            AND ledger.ownership_epoch = locked.ownership_epoch
         `,
         [
           JSON.stringify(instanceTasks.map((task) => ({
@@ -759,6 +819,7 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
             CASE WHEN flushed_version >= latest_version THEN NULL ELSE payload_jsonb END,
             failure_category, retry_after, now()
           FROM input
+          ORDER BY player_id ASC, domain ASC
           ON CONFLICT (player_id, domain)
           DO UPDATE SET
             priority = ${PLAYER_FLUSH_LEDGER_TABLE}.priority,
@@ -869,6 +930,7 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
             CASE WHEN flushed_version >= latest_version THEN NULL ELSE payload_jsonb END,
             failure_category, retry_after, now()
           FROM input
+          ORDER BY instance_id ASC, domain ASC, ownership_epoch ASC
           ON CONFLICT (instance_id, domain, ownership_epoch)
           DO UPDATE SET
             priority = ${INSTANCE_FLUSH_LEDGER_TABLE}.priority,
@@ -1694,7 +1756,10 @@ function dedupePlayerFlushLedgerInputs(inputs: PlayerFlushLedgerUpsertInput[]): 
       rows.set(key, row);
     }
   }
-  return Array.from(rows.values());
+  return Array.from(rows.values()).sort((left, right) => (
+    compareCanonicalString(left.player_id, right.player_id)
+    || compareCanonicalString(left.domain, right.domain)
+  ));
 }
 
 function shouldReplacePlayerBatchRow(current: PlayerFlushLedgerJsonRow, incoming: PlayerFlushLedgerJsonRow): boolean {
@@ -1749,7 +1814,11 @@ function dedupeInstanceFlushLedgerInputs(inputs: InstanceFlushLedgerUpsertInput[
       rows.set(key, row);
     }
   }
-  return Array.from(rows.values());
+  return Array.from(rows.values()).sort((left, right) => (
+    compareCanonicalString(left.instance_id, right.instance_id)
+    || compareCanonicalString(left.domain, right.domain)
+    || left.ownership_epoch - right.ownership_epoch
+  ));
 }
 
 function dedupeClaimedFlushTasks(tasks: FlushTask[]): FlushTask[] {
@@ -1780,7 +1849,22 @@ function dedupeClaimedFlushTasks(tasks: FlushTask[]): FlushTask[] {
       result.set(key, normalizedTask);
     }
   }
-  return Array.from(result.values());
+  return Array.from(result.values()).sort((left, right) => (
+    compareCanonicalString(left.scope, right.scope)
+    || compareCanonicalString(left.id, right.id)
+    || compareCanonicalString(left.domain, right.domain)
+    || normalizePositiveInteger(left.ownershipEpoch, 0, 0, Number.MAX_SAFE_INTEGER)
+      - normalizePositiveInteger(right.ownershipEpoch, 0, 0, Number.MAX_SAFE_INTEGER)
+    || compareCanonicalString(left.claimOwnerId ?? '', right.claimOwnerId ?? '')
+    || compareCanonicalString(left.fencingToken ?? '', right.fencingToken ?? '')
+  ));
+}
+
+function compareCanonicalString(left: string, right: string): number {
+  if (left === right) {
+    return 0;
+  }
+  return left < right ? -1 : 1;
 }
 
 function chunkRows<T>(rows: T[], batchSize: number): T[][] {
