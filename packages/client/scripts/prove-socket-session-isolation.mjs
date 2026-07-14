@@ -57,6 +57,7 @@ const S2C = {
 
 const originalSetInterval = globalThis.setInterval;
 const originalClearInterval = globalThis.clearInterval;
+const originalNavigatorDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
 const activeTimers = new Set();
 let timerSequence = 0;
 globalThis.setInterval = () => {
@@ -67,6 +68,12 @@ globalThis.setInterval = () => {
 globalThis.clearInterval = (token) => {
   activeTimers.delete(token);
 };
+// Node 20 不提供 navigator；proof 显式构造浏览器在线态，避免依赖执行机 Node 版本。
+Object.defineProperty(globalThis, 'navigator', {
+  configurable: true,
+  enumerable: true,
+  value: { onLine: true },
+});
 
 try {
   const { createSocketLifecycleController } = loadTypeScriptModule(lifecyclePath, {
@@ -169,6 +176,7 @@ try {
   let clearPingCount = 0;
   let markDisconnectedCount = 0;
   let recoveryCount = 0;
+  let lastPingStatus = null;
   const connectionState = createMainConnectionStateSource({
     socket: { connected: false },
     restoreSession: async () => false,
@@ -183,7 +191,7 @@ try {
     logout: () => undefined,
     rejectPendingRedeemCodes: () => { rejectPendingCount += 1; },
     clearPendingSocketPing: () => { clearPingCount += 1; },
-    renderPingLatency: () => undefined,
+    renderPingLatency: (_latencyMs, status) => { lastPingStatus = status ?? null; },
     setPanelRuntimeDisconnected: () => { markDisconnectedCount += 1; },
     hasPlayer: () => true,
     scheduleConnectionRecovery: () => { recoveryCount += 1; },
@@ -199,11 +207,17 @@ try {
   connectionState.handleDisconnect('transport close');
   assert.equal(rejectPendingCount, 1, '重定向完成后的真实断线仍应清理待决请求');
   assert.equal(clearPingCount, 1, '重定向完成后的真实断线仍应清理心跳请求');
+  assert.equal(lastPingStatus, 'connection.status.restoring', '在线环境的真实断线应进入恢复状态');
   assert.equal(markDisconnectedCount, 1, '重定向完成后的真实断线仍应更新面板状态');
   assert.equal(recoveryCount, 1, '重定向完成后的真实断线仍应调度恢复');
 } finally {
   globalThis.setInterval = originalSetInterval;
   globalThis.clearInterval = originalClearInterval;
+  if (originalNavigatorDescriptor) {
+    Object.defineProperty(globalThis, 'navigator', originalNavigatorDescriptor);
+  } else {
+    Reflect.deleteProperty(globalThis, 'navigator');
+  }
 }
 
 console.log('socket session isolation proof passed');
