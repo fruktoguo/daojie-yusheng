@@ -21,6 +21,7 @@ interface ConnectPlayerInput {
   preferredX?: number;
   preferredY?: number;
   allowCreateFallback?: boolean;
+  allowUnavailableTowerRespawnFallback?: boolean;
   relocateExisting?: boolean;
 }
 
@@ -50,6 +51,7 @@ interface InstanceRuntimeLike {
     relocateExisting?: boolean;
   }): ConnectedInstancePlayer;
   disconnectPlayer(playerId: string): boolean;
+  detachPlayerSession?(playerId: string): boolean;
   setPlayerMoveSpeed(playerId: string, moveSpeed: number): void;
   setPlayerMovementCapabilities?(playerId: string, capabilities: { staticObstacleIgnore?: boolean } | null | undefined): void;
 }
@@ -64,6 +66,10 @@ interface PlayerRuntimeLike {
     staticObstacleIgnore?: boolean;
   } | null;
   readonly hp?: number;
+  readonly respawnTemplateId?: string | null;
+  readonly respawnInstanceId?: string | null;
+  readonly respawnX?: number | null;
+  readonly respawnY?: number | null;
 }
 
 interface RuntimeSessionLogger {
@@ -176,17 +182,30 @@ export class WorldRuntimePlayerSessionService {
     const towerTemplateId = resolveTowerTemplateIdFromSessionRequest(targetRequest, deps);
     if (towerTemplateId
       && typeof deps.worldRuntimeTongtianTowerService?.materializeLayerInstanceForRestore === 'function') {
-      const towerInstance = await deps.worldRuntimeTongtianTowerService.materializeLayerInstanceForRestore(
-        {
-          instanceId: targetRequest.requestedInstanceId.startsWith('tower:tongtian:layer:')
-            ? targetRequest.requestedInstanceId
-            : null,
-          templateId: towerTemplateId,
-        },
-        deps,
-        { allowCreateIfMissing: input.allowCreateFallback !== false },
-      );
+      let towerInstance: InstanceRuntimeLike | null = null;
+      try {
+        towerInstance = await deps.worldRuntimeTongtianTowerService.materializeLayerInstanceForRestore(
+          {
+            instanceId: targetRequest.requestedInstanceId.startsWith('tower:tongtian:layer:')
+              ? targetRequest.requestedInstanceId
+              : null,
+            templateId: towerTemplateId,
+          },
+          deps,
+          { allowCreateIfMissing: input.allowCreateFallback !== false },
+        );
+      } catch (error) {
+        if (input.allowUnavailableTowerRespawnFallback !== true) {
+          throw error;
+        }
+        deps.logger.warn(
+          `玩家 ${playerId} 的通天塔实例恢复异常，将撤离至绑定复活点：instanceId=${targetRequest.requestedInstanceId} error=${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
       if (!towerInstance) {
+        if (input.allowUnavailableTowerRespawnFallback === true) {
+          return this.connectPlayerToRespawnFallback(input, deps, targetRequest.requestedInstanceId);
+        }
         throw new ServiceUnavailableException('通天塔实例暂不可用');
       }
     }
@@ -304,6 +323,20 @@ export class WorldRuntimePlayerSessionService {
       deps.getInstanceRuntime(location.instanceId)?.disconnectPlayer(playerId) ?? false;
     deps.clearPlayerLocation(playerId);
     return disconnected;
+  }
+
+  detachPlayerSession(playerId: string, deps: WorldRuntimePlayerSessionDeps): boolean {
+    const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
+    const location = normalizedPlayerId ? deps.getPlayerLocation(normalizedPlayerId) : null;
+    if (!location) {
+      return false;
+    }
+    const detached = deps.getInstanceRuntime(location.instanceId)?.detachPlayerSession?.(normalizedPlayerId) ?? false;
+    deps.setPlayerLocation(normalizedPlayerId, {
+      instanceId: location.instanceId,
+      sessionId: null,
+    });
+    return detached;
   }
 
   async assignPlayerRoute(input: {
@@ -470,6 +503,33 @@ export class WorldRuntimePlayerSessionService {
       resolvePlayerWorldPreferenceLinePreset(input.playerId, deps),
       deps,
     );
+  }
+
+  private connectPlayerToRespawnFallback(
+    input: ConnectPlayerInput,
+    deps: WorldRuntimePlayerSessionDeps,
+    unavailableTowerInstanceId: string,
+  ): Promise<unknown> {
+    const player = deps.playerRuntimeService.getPlayer(input.playerId) as PlayerRuntimeLike | null;
+    const respawnTemplateId = normalizeMapId(player?.respawnTemplateId);
+    const respawnInstanceId = normalizeInstanceId(player?.respawnInstanceId);
+    const safeRespawnTemplateId = respawnTemplateId.startsWith('tongtian_tower_layer_') ? '' : respawnTemplateId;
+    const safeRespawnInstanceId = respawnInstanceId.startsWith('tower:tongtian:layer:') ? '' : respawnInstanceId;
+    const targetMapId = safeRespawnTemplateId
+      || this.worldRuntimeWorldAccessService.resolveDefaultRespawnMapId(deps);
+    deps.logger.warn(
+      `玩家 ${input.playerId} 的通天塔实例不可用，已改从绑定复活点恢复：instanceId=${unavailableTowerInstanceId || 'unknown'} respawnInstanceId=${safeRespawnInstanceId || 'default'} respawnTemplateId=${targetMapId || 'default'}`,
+    );
+    return this.connectPlayerWhenReady({
+      ...input,
+      instanceId: safeRespawnInstanceId || null,
+      mapId: targetMapId || null,
+      preferredX: Number.isFinite(player?.respawnX) ? Number(player?.respawnX) : undefined,
+      preferredY: Number.isFinite(player?.respawnY) ? Number(player?.respawnY) : undefined,
+      allowCreateFallback: true,
+      allowUnavailableTowerRespawnFallback: false,
+      relocateExisting: true,
+    }, deps);
   }
 }
 

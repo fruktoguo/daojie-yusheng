@@ -4,6 +4,7 @@
  * 维护时应保持无副作用、可在浏览器与 Node 环境同时使用，不引入单端专属依赖。
  */
 import { ROLE_NAME_MAX_ASCII_LENGTH, ROLE_NAME_MAX_LENGTH } from './constants/network/account';
+import { splitGraphemes } from './grapheme';
 
 /** isHalfWidthRoleNameChar：判断是否Half Width角色名称Char。 */
 export function isHalfWidthRoleNameChar(char: string): boolean {
@@ -13,11 +14,9 @@ export function isHalfWidthRoleNameChar(char: string): boolean {
 
 /** getRoleNameLengthUnits：读取角色名称Length Units。 */
 export function getRoleNameLengthUnits(roleName: string): number {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
   let units = 0;
-  for (const char of roleName) {
-    units += isHalfWidthRoleNameChar(char) ? 1 : 2;
+  for (const grapheme of splitGraphemes(roleName)) {
+    units += isHalfWidthRoleNameGrapheme(grapheme) ? 1 : 2;
   }
   return units;
 }
@@ -29,17 +28,15 @@ export function isRoleNameWithinLimit(roleName: string): boolean {
 
 /** truncateRoleName：处理truncate角色名称。 */
 export function truncateRoleName(roleName: string): string {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
   let units = 0;
   let result = '';
 
-  for (const char of roleName) {
-    const nextUnits = units + (isHalfWidthRoleNameChar(char) ? 1 : 2);
+  for (const grapheme of splitGraphemes(roleName)) {
+    const nextUnits = units + (isHalfWidthRoleNameGrapheme(grapheme) ? 1 : 2);
     if (nextUnits > ROLE_NAME_MAX_ASCII_LENGTH) {
       break;
     }
-    result += char;
+    result += grapheme;
     /** units：units。 */
     units = nextUnits;
   }
@@ -47,11 +44,14 @@ export function truncateRoleName(roleName: string): string {
   return result;
 }
 
+function isHalfWidthRoleNameGrapheme(grapheme: string): boolean {
+  return Array.from(grapheme).every(isHalfWidthRoleNameChar);
+}
+
 /** getRoleNameLimitText：读取角色名称Limit文本。 */
 export function getRoleNameLimitText(): string {
   return `最多 ${ROLE_NAME_MAX_LENGTH} 个字，纯英文最多 ${ROLE_NAME_MAX_ASCII_LENGTH} 个字符`;
 }
-
 
 
 

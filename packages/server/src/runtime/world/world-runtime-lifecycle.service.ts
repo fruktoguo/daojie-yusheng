@@ -547,7 +547,9 @@ export class WorldRuntimeLifecycleService {
                     const attachReady = typeof deps.instanceReadyForPlayerAttach === 'function'
                         ? deps.instanceReadyForPlayerAttach(entry.instanceId)
                         : { ok: true, reason: 'ready' };
-                    if (!attachReady.ok) {
+                    const shouldEvacuateUnavailableTower = !attachReady.ok
+                        && isExpectedMissingOfflineRuntimeInstance(entry.instanceId);
+                    if (!attachReady.ok && !shouldEvacuateUnavailableTower) {
                         const reason = typeof attachReady.reason === 'string' && attachReady.reason.trim() ? attachReady.reason.trim() : 'attach_not_ready';
                         markSkipped(reason, entry);
                         if (reason === 'instance_missing') {
@@ -562,12 +564,15 @@ export class WorldRuntimeLifecycleService {
                         return;
                     }
                     const instance = attachReady.instance ?? deps.getInstanceRuntime(entry.instanceId);
-                    if (!instance) {
+                    if (!instance && !shouldEvacuateUnavailableTower) {
                         markSkipped('instance_missing', entry);
                         logOfflineRestoreMissingInstance(deps, entry.instanceId, entry.playerId);
                         return;
                     }
-                    if (typeof deps.worldRuntimePlayerSessionService?.connectPlayer !== 'function') {
+                    const hasSessionConnect = shouldEvacuateUnavailableTower
+                        ? typeof deps.worldRuntimePlayerSessionService?.connectPlayerWhenReady === 'function'
+                        : typeof deps.worldRuntimePlayerSessionService?.connectPlayer === 'function';
+                    if (!hasSessionConnect) {
                         markSkipped('session_service_missing', entry);
                         deps.logger?.warn?.(`offline_restore_skipped_session_service_missing instance=${entry.instanceId} player=${entry.playerId}`);
                         return;
@@ -604,15 +609,29 @@ export class WorldRuntimeLifecycleService {
                     const requestedMapId = typeof player?.templateId === 'string' && player.templateId.trim()
                         ? player.templateId.trim()
                         : undefined;
-                    deps.worldRuntimePlayerSessionService.connectPlayer({
-                        playerId: entry.playerId,
-                        sessionId: null,
-                        instanceId: instance.meta.instanceId,
-                        mapId: requestedMapId,
-                        preferredX: entry.x,
-                        preferredY: entry.y,
-                        allowCreateFallback: false,
-                    }, deps);
+                    if (shouldEvacuateUnavailableTower) {
+                        await deps.worldRuntimePlayerSessionService.connectPlayerWhenReady({
+                            playerId: entry.playerId,
+                            sessionId: null,
+                            instanceId: entry.instanceId,
+                            mapId: requestedMapId,
+                            preferredX: entry.x,
+                            preferredY: entry.y,
+                            allowCreateFallback: false,
+                            allowUnavailableTowerRespawnFallback: true,
+                        }, deps);
+                    }
+                    else {
+                        deps.worldRuntimePlayerSessionService.connectPlayer({
+                            playerId: entry.playerId,
+                            sessionId: null,
+                            instanceId: instance.meta.instanceId,
+                            mapId: requestedMapId,
+                            preferredX: entry.x,
+                            preferredY: entry.y,
+                            allowCreateFallback: false,
+                        }, deps);
+                    }
                     const localNodeId = deps.nodeRegistryService?.getNodeId?.();
                     if (
                         typeof localNodeId === 'string'

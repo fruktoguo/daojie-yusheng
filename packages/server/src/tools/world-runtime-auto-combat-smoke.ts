@@ -532,6 +532,36 @@ function testAutoCombatDoesNotEnqueueSpentActionCommand(): void {
   assert.equal((enqueueLog[0]?.[1] as { targetMonsterId?: string })?.targetMonsterId, 'monster:1');
 }
 
+function testInstanceMaterializationIncludesOfflineMapResidents(): void {
+  const player = createAutoBattlePlayer();
+  player.combat.combatActionTick = 11;
+  player.combat.combatActionsUsedThisTick = 0;
+  const enqueueLog: unknown[][] = [];
+  const instance = {
+    ...createAdjacentMonsterInstance(),
+    listPlayerIds() {
+      return ['player:1'];
+    },
+  };
+  const deps = {
+    ...createMaterializeDeps(instance, enqueueLog, 12),
+    listConnectedPlayerIds() {
+      return [];
+    },
+    worldSessionService: {
+      listInstancePlayerIds() {
+        return [];
+      },
+    },
+  };
+  const service = new WorldRuntimeAutoCombatService(createPlayerRuntimeService(player) as never);
+
+  service.materializeAutoCombatCommandsForInstance('public:test_map', deps as never);
+
+  assert.equal(enqueueLog.length, 1, '断线后仍驻留地图的玩家必须在按实例调度中物化自动战斗命令');
+  assert.equal((enqueueLog[0]?.[1] as { targetMonsterId?: string })?.targetMonsterId, 'monster:1');
+}
+
 function testMaterializeAutoCombatClearsExpiredRetaliatorBeforeEarlyExit(): void {
   const player = {
     playerId: 'player:1',
@@ -2293,6 +2323,7 @@ function testLockedMiningTileOutsideViewRangeMovesBack(): void {
 }
 
 testAutoCombatDoesNotEnqueueSpentActionCommand();
+testInstanceMaterializationIncludesOfflineMapResidents();
 testManualEngageFallsBackToMoveWhenOnlyRangedSkillIsOnCooldown();
 testAutoBattleSkipsSkillWhenReadyTickIsStillFuture();
 testOutOfRangeSkillMovesToSkillMaxRangeImmediately();

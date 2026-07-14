@@ -26,6 +26,7 @@ interface WorldRuntimeBootstrapSessionPort {
         preferredX?: number;
         preferredY?: number;
         allowCreateFallback?: boolean;
+        allowUnavailableTowerRespawnFallback?: boolean;
     }, deps: unknown): Promise<unknown>;
     connectPlayer(input: {
         playerId: string;
@@ -35,6 +36,7 @@ interface WorldRuntimeBootstrapSessionPort {
         preferredX?: number;
         preferredY?: number;
         allowCreateFallback?: boolean;
+        allowUnavailableTowerRespawnFallback?: boolean;
     }, deps: unknown): unknown;
     removePlayer(playerId: string, reason: string, deps: unknown): unknown;
 }
@@ -80,6 +82,7 @@ export class WorldSessionBootstrapRuntimeService {
             preferredX?: number;
             preferredY?: number;
             allowCreateFallback?: boolean;
+            allowUnavailableTowerRespawnFallback?: boolean;
         },
     ) {
         const port = this.resolveWorldRuntimeBootstrapSessionPort(worldRuntimeService);

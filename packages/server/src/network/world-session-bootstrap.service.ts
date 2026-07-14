@@ -402,6 +402,7 @@ export class WorldSessionBootstrapService {
         preferredX?: number;
         preferredY?: number;
         allowCreateFallback?: boolean;
+        allowUnavailableTowerRespawnFallback?: boolean;
     }) {
         return this.runtimeBootstrapService.connectBootstrapRuntimePlayer(this.worldRuntimeService, input);
     }
@@ -462,6 +463,7 @@ export class WorldSessionBootstrapService {
             preferredX: input.preferredX ?? (player.templateId ? player.x : undefined),
             preferredY: input.preferredY ?? (player.templateId ? player.y : undefined),
             allowCreateFallback: !explicitInstanceId && !snapshotTargetsPersistentInstance,
+            allowUnavailableTowerRespawnFallback: !explicitInstanceId && snapshotTargetsPersistentInstance,
         });
         await this.deferInitialSyncEmission();
         this.worldSyncService.emitInitialSync(binding.playerId, client);

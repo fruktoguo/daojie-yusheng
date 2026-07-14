@@ -66,6 +66,10 @@ async function main(): Promise<void> {
           playerId,
           templateId: 'tongtian_tower_layer_47',
           sessionId: null,
+          respawnTemplateId: 'yunlai_town',
+          respawnInstanceId: 'public:yunlai_town',
+          respawnX: 10,
+          respawnY: 10,
         };
         runtimePlayers.set(playerId, player);
         return player;
@@ -156,6 +160,20 @@ async function main(): Promise<void> {
         assert.equal(input.allowCreateFallback, false);
         return { playerId: input.playerId };
       },
+      async connectPlayerWhenReady(input: {
+        playerId: string;
+        sessionId: null;
+        instanceId: string;
+        allowCreateFallback?: boolean;
+        allowUnavailableTowerRespawnFallback?: boolean;
+      }) {
+        log.push(['connectPlayerWhenReady', input]);
+        assert.equal(input.playerId, 'player:tower-failed');
+        assert.equal(input.instanceId, failedTowerInstanceId);
+        assert.equal(input.allowCreateFallback, false);
+        assert.equal(input.allowUnavailableTowerRespawnFallback, true);
+        return { playerId: input.playerId };
+      },
       async assignPlayerRoute(input: { playerId: string; nodeId: string; sessionEpoch: number; routeStatus: string }) {
         log.push(['assignRoute', input]);
       },
@@ -177,10 +195,10 @@ async function main(): Promise<void> {
 
   assert.equal(writableInstanceIds.has(towerInstanceId), true, '恢复的塔层必须加入启动写入白名单');
   assert.equal(attachableInstanceIds.has(towerInstanceId), true, '恢复的塔层必须加入启动附着白名单');
-  assert.equal(result.restored, 1);
-  assert.equal(result.skipped, 3);
+  assert.equal(result.restored, 2);
+  assert.equal(result.skipped, 2);
   assert.equal(result.candidates, 4);
-  assert.deepEqual(result.skippedByReason, { player_became_online: 1, instance_missing: 2 });
+  assert.deepEqual(result.skippedByReason, { player_became_online: 1, instance_missing: 1 });
   assert.equal(
     log.findIndex((entry) => Array.isArray(entry) && entry[0] === 'hydrateTower')
       < log.findIndex((entry) => Array.isArray(entry) && entry[0] === 'restorePlayer'),
@@ -194,8 +212,15 @@ async function main(): Promise<void> {
   );
   assert.equal(
     log.some((entry) => Array.isArray(entry) && entry[0] === 'restorePlayer' && entry[1] === 'player:tower-failed'),
-    false,
-    '物化失败的塔层不得继续加载玩家运行态',
+    true,
+    '物化失败的塔层必须加载玩家运行态，才能按绑定复活点安全撤离',
+  );
+  assert.equal(
+    log.some((entry) => Array.isArray(entry)
+      && entry[0] === 'connectPlayerWhenReady'
+      && (entry[1] as { playerId?: string })?.playerId === 'player:tower-failed'),
+    true,
+    '物化失败的塔层玩家必须进入通天塔专用复活点撤离链路',
   );
   assert.equal(
     log.some((entry) => Array.isArray(entry)

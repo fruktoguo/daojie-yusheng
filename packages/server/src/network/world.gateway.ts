@@ -172,6 +172,10 @@ class WorldGateway implements WorldGatewayHelperContext {
         if (binding.connected) {
             return { playerId: binding.playerId, presencePersisted: false, flushSucceeded: false, skipped: true, superseded: false };
         }
+        this.worldRuntimeService.worldRuntimePlayerSessionService.detachPlayerSession(
+            binding.playerId,
+            this.worldRuntimeService,
+        );
         let presencePersisted = false;
         let flushSucceeded = false;
         let superseded = false;

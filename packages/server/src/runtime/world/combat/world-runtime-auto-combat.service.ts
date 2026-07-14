@@ -532,9 +532,10 @@ export class WorldRuntimeAutoCombatService {
     }
     /** materializeAutoUsePillsForInstance：只为指定实例的玩家自动使用丹药（加速 tick 补偿用）。 */
     materializeAutoUsePillsForInstance(instanceId, deps) {
-        const playerIds = typeof deps.worldSessionService?.listInstancePlayerIds === 'function'
-            ? deps.worldSessionService.listInstancePlayerIds(instanceId)
-            : deps.listConnectedPlayerIds();
+        const instance = deps.getInstanceRuntime?.(instanceId);
+        const playerIds = typeof instance?.listPlayerIds === 'function'
+            ? instance.listPlayerIds()
+            : deps.worldSessionService?.listInstancePlayerIds?.(instanceId) ?? [];
         for (const playerId of playerIds) {
             if (typeof deps.hasPendingCommand === 'function' && deps.hasPendingCommand(playerId)) {
                 continue;
@@ -631,9 +632,10 @@ export class WorldRuntimeAutoCombatService {
     }
     /** materializeAutoCombatCommandsForInstance：只为指定实例的玩家物化自动战斗命令（加速 tick 补偿用）。 */
     materializeAutoCombatCommandsForInstance(instanceId, deps) {
-        const playerIds = typeof deps.worldSessionService?.listInstancePlayerIds === 'function'
-            ? deps.worldSessionService.listInstancePlayerIds(instanceId)
-            : deps.listConnectedPlayerIds();
+        const instance = deps.getInstanceRuntime?.(instanceId);
+        const playerIds = typeof instance?.listPlayerIds === 'function'
+            ? instance.listPlayerIds()
+            : deps.worldSessionService?.listInstancePlayerIds?.(instanceId) ?? [];
         for (const playerId of playerIds) {
             if (deps.hasPendingCommand(playerId) || deps.worldRuntimeNavigationService.hasNavigationIntent(playerId)) {
                 continue;

@@ -14,6 +14,7 @@ type ConnectInput = {
   preferredX?: number | null;
   preferredY?: number | null;
   allowCreateFallback?: boolean;
+  allowUnavailableTowerRespawnFallback?: boolean;
 };
 
 function createBootstrapService(
@@ -129,10 +130,12 @@ async function main(): Promise<void> {
   });
   assert.equal(persistent.instanceId, 'tower:tongtian:layer:9');
   assert.equal(persistent.allowCreateFallback, false);
+  assert.equal(persistent.allowUnavailableTowerRespawnFallback, true);
 
   const starter = await runCase(() => ({ instanceId: 'public:yunlai_town', templateId: 'yunlai_town', x: 10, y: 11 }));
   assert.equal(starter.instanceId, 'public:yunlai_town');
   assert.equal(starter.allowCreateFallback, true);
+  assert.equal(starter.allowUnavailableTowerRespawnFallback, false);
 
   const explicit = await runCase(
     () => ({ instanceId: 'public:yunlai_town', templateId: 'yunlai_town', x: 10, y: 11 }),
@@ -140,6 +143,7 @@ async function main(): Promise<void> {
   );
   assert.equal(explicit.instanceId, 'real:gm_target');
   assert.equal(explicit.allowCreateFallback, false);
+  assert.equal(explicit.allowUnavailableTowerRespawnFallback, false);
 
   console.log(JSON.stringify({ ok: true, case: 'world-session-bootstrap-instance-fallback' }, null, 2));
 }

@@ -820,6 +820,23 @@ class MapInstanceRuntime {
         // 清除降频标记
         this._throttledSinceMs = null;
     }
+    /** detachPlayerSession：保留离线挂机玩家的实例占位，仅清理网络会话标识。 */
+    detachPlayerSession(playerId) {
+        const player = this.playersById.get(playerId);
+        if (!player) {
+            return false;
+        }
+        if (player.sessionId === null) {
+            return true;
+        }
+        player.sessionId = null;
+        player.selfRevision += 1;
+        this.playerViewCacheByPlayerId.delete(playerId);
+        this.autoCombatViewCacheByPlayerId.delete(playerId);
+        this.autoCombatTileVisibilityCacheByPlayerId.delete(playerId);
+        this.localPlayerViewCacheByPlayerId.delete(playerId);
+        return true;
+    }
     /** disconnectPlayer：断开玩家与实例的挂接，并清理相关排队状态。 */
     disconnectPlayer(playerId) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。

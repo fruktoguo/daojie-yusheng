@@ -481,8 +481,11 @@ export class WorldRuntimeNavigationService {
             return;
         }
         const candidates = [];
-        const scopedPlayerIds = instanceId && typeof deps.worldSessionService?.listInstancePlayerIds === 'function'
-            ? deps.worldSessionService.listInstancePlayerIds(instanceId)
+        const scopedInstance = instanceId ? deps.getInstanceRuntime?.(instanceId) : null;
+        const scopedPlayerIds = instanceId
+            ? (typeof scopedInstance?.listPlayerIds === 'function'
+                ? scopedInstance.listPlayerIds()
+                : deps.worldSessionService?.listInstancePlayerIds?.(instanceId) ?? [])
             : null;
         const intentEntries = scopedPlayerIds
             ? scopedPlayerIds.flatMap((playerId) => {

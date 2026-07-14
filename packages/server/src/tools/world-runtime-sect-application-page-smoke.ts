@@ -9,7 +9,9 @@ import {
   SECT_PERMISSIONS,
   SECT_ROLES,
   buildDefaultSectRolePermissions,
+  normalizeSectApplications,
   normalizeSectRolePermissions,
+  upsertSectApplication,
 } from '../runtime/world/world-runtime-sect-domain.helpers';
 
 const players = new Map([
@@ -170,6 +172,38 @@ assert.throws(
   () => service.buildSectApplicationPage('leader', { requestId: '' }),
   (error) => error instanceof BadRequestException,
   '空请求 ID 必须被拒绝',
+);
+
+const reappliedSect = {
+  members: [],
+  applications: [{
+    playerId: 'applicant:reapply',
+    name: '旧名',
+    status: 'rejected',
+    appliedAt: 10,
+    updatedAt: 20,
+    reviewedAt: 20,
+    reviewerPlayerId: 'leader',
+  }],
+};
+const reapplied = upsertSectApplication(reappliedSect, {
+  playerId: 'applicant:reapply',
+  name: '新名',
+}, 30);
+assert.equal(reappliedSect.applications.length, 1, '被拒后重新申请必须复用同一条玩家记录');
+assert.deepEqual(reapplied, {
+  playerId: 'applicant:reapply',
+  name: '新名',
+  status: 'pending',
+  appliedAt: 30,
+  updatedAt: 30,
+  reviewedAt: null,
+  reviewerPlayerId: null,
+});
+assert.equal(
+  normalizeSectApplications(reappliedSect.applications, []).find((entry) => entry.playerId === 'applicant:reapply')?.status,
+  'pending',
+  '持久化归一化后必须保留重新申请的 pending 状态',
 );
 
 console.log(JSON.stringify({ ok: true, case: 'world-runtime-sect-application-page' }, null, 2));

@@ -433,8 +433,8 @@ export class WorldRuntimeInstanceTickOrchestrationService {
         const preTickMaterializationMs = performance.now() - preTickMaterializationStartedAt;
         const pendingCommandsStartedAt = performance.now();
         const duePlayerIds = dueInstanceIds
-            ? new Set(dueInstanceIds.flatMap((instanceId) => deps.worldSessionService?.listInstancePlayerIds?.(instanceId)
-                ?? deps.getInstanceRuntime(instanceId)?.listPlayerIds?.()
+            ? new Set(dueInstanceIds.flatMap((instanceId) => deps.getInstanceRuntime(instanceId)?.listPlayerIds?.()
+                ?? deps.worldSessionService?.listInstancePlayerIds?.(instanceId)
                 ?? []))
             : null;
         await this.runIsolatedOperation(deps, 'dispatch_pending_commands', { worldTick: deps.tick }, () => deps.dispatchPendingCommands(
@@ -487,7 +487,7 @@ export class WorldRuntimeInstanceTickOrchestrationService {
                         worldTick: deps.tick,
                     }, () => deps.dispatchPendingCommands(
                         (key, durationMs, count = 1) => addTickSectionDuration(sectionDurations, key, durationMs, count),
-                        new Set(deps.worldSessionService?.listInstancePlayerIds?.(instance.meta.instanceId) ?? instance.listPlayerIds()),
+                        new Set(instance.listPlayerIds()),
                     ));
                     addMeasuredTickSection(sectionDurations, 'instance.stepCommandMaterializationMs', instanceStepMaterializationStartedAt);
                     if (!isScheduledInstancePlanStillCurrent(instance, speed, deps)) {
@@ -671,8 +671,7 @@ export class WorldRuntimeInstanceTickOrchestrationService {
                             getInstanceRuntime: (instanceId) => deps.getInstanceRuntime(instanceId),
                         },
                         {
-                            listConnectedPlayerIds: () => deps.worldSessionService?.listInstancePlayerIds?.(instance.meta.instanceId)
-                                ?? instance.listPlayerIds(),
+                            listConnectedPlayerIds: () => instance.listPlayerIds(),
                             getPlayerLocation: (playerId) => deps.getPlayerLocation(playerId),
                         },
                         instance.tick,

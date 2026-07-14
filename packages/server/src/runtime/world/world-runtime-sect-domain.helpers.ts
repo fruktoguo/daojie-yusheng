@@ -355,10 +355,14 @@ export function upsertSectApplication(sect, player, now = Date.now()) {
   if (!playerId) {
     throw new BadRequestException('申请人无效');
   }
-  const existing = findPendingSectApplication(sect, playerId);
+  const existing = (sect.applications ?? []).find((entry) => entry.playerId === playerId) ?? null;
   if (existing) {
     existing.name = resolvePlayerDisplayName(player, existing.name);
+    existing.status = 'pending';
+    existing.appliedAt = now;
     existing.updatedAt = now;
+    existing.reviewedAt = null;
+    existing.reviewerPlayerId = null;
     return existing;
   }
   const application = {

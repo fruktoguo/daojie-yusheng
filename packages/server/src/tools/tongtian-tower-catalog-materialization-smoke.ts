@@ -67,6 +67,7 @@ async function main(): Promise<void> {
   const degradedRuntime = await verifyPreexistingDegradedRuntimeIsPreserved(content, templates);
   const resetBarrier = await verifyResetBlocksNewMaterialization(content, templates);
   const publicFallbackGuard = verifyTowerTemplateCannotFallThroughToPublicInstance();
+  const unavailableTowerRespawnFallback = await verifyUnavailableTowerFallsBackToBoundRespawn();
 
   console.log(JSON.stringify({
     ok: true,
@@ -83,9 +84,94 @@ async function main(): Promise<void> {
     degradedRuntime,
     resetBarrier,
     publicFallbackGuard,
+    unavailableTowerRespawnFallback,
     answers: '通天塔 catalog-backed 物化按 instanceId 单飞、每次从 catalog fresh load epoch、hydrate 失败释放 lease 并丢弃本任务半水合 runtime；catalog 缺失的首次创建在 readiness 前登记 write gate、成功后才登记 attach gate；预先存在的 degraded runtime 与玩家保持不动；在线重连先物化再解析和附着。',
     excludes: '不证明真实 PostgreSQL 跨节点竞争；数据库 revival CAS 仍由 with-db 实例租约 smoke 负责。',
   }, null, 2));
+}
+
+async function verifyUnavailableTowerFallsBackToBoundRespawn(): Promise<{ instanceId: string; explicitRequestRejected: true }> {
+  const towerInstanceId = 'tower:tongtian:layer:55';
+  const respawnInstanceId = 'real:darksoil_abyss';
+  const locations = new Map<string, { instanceId: string; sessionId: string | null }>();
+  const player = {
+    playerId: 'player:stale-tower',
+    sessionId: 'session:stale-tower',
+    hp: 100,
+    attrs: { numericStats: { moveSpeed: 12 } },
+    respawnTemplateId: 'darksoil_abyss',
+    respawnInstanceId,
+    respawnX: 43,
+    respawnY: 7,
+  };
+  const respawnInstance = {
+    meta: { instanceId: respawnInstanceId, status: 'active', runtimeStatus: 'running' },
+    template: { id: 'darksoil_abyss' },
+    connectPlayer(input: { sessionId: string | null; preferredX?: number; preferredY?: number }) {
+      assert.equal(input.preferredX, 43);
+      assert.equal(input.preferredY, 7);
+      return { sessionId: input.sessionId };
+    },
+    disconnectPlayer() { return true; },
+    setPlayerMoveSpeed() {},
+  };
+  const session = new WorldRuntimePlayerSessionService({
+    resolveDefaultRespawnMapId() { return 'yunlai_town'; },
+    getOrCreatePublicInstance() { throw new Error('bound_respawn_must_be_used'); },
+    getOrCreateDefaultLineInstance() { throw new Error('existing_bound_respawn_must_be_used'); },
+    getPlayerViewOrThrow(playerId: string) {
+      return { playerId, instance: { instanceId: locations.get(playerId)?.instanceId } };
+    },
+  } as any, null);
+  const deps = {
+    logger: { debug() {}, warn() {} },
+    templateRepository: { has() { return true; } },
+    worldRuntimeTongtianTowerService: {
+      async materializeLayerInstanceForRestore() { return null; },
+      ensureLayerInstanceForRestore() { return null; },
+    },
+    worldRuntimeGmQueueService: { clearPendingRespawn() {} },
+    worldRuntimeNavigationService: { clearNavigationIntent() {} },
+    worldSessionService: { purgePlayerSession() {} },
+    playerRuntimeService: {
+      ensurePlayer() { return player; },
+      getPlayer() { return player; },
+      removePlayerRuntime() {},
+      syncFromWorldView(_playerId: string, _sessionId: string, view: unknown) { return view; },
+    },
+    getPlayerLocation(playerId: string) { return locations.get(playerId) ?? null; },
+    setPlayerLocation(playerId: string, location: { instanceId: string; sessionId: string | null }) {
+      locations.set(playerId, location);
+    },
+    clearPlayerLocation(playerId: string) { locations.delete(playerId); },
+    clearPendingCommand() {},
+    getInstanceRuntime(instanceId: string) {
+      return instanceId === respawnInstanceId ? respawnInstance : null;
+    },
+  };
+
+  const view = await session.connectPlayerWhenReady({
+    playerId: player.playerId,
+    sessionId: player.sessionId,
+    instanceId: towerInstanceId,
+    mapId: 'tongtian_tower_layer_55',
+    allowCreateFallback: false,
+    allowUnavailableTowerRespawnFallback: true,
+  }, deps as any) as { instance: { instanceId: string } };
+  assert.equal(view.instance.instanceId, respawnInstanceId);
+
+  await assert.rejects(
+    session.connectPlayerWhenReady({
+      playerId: player.playerId,
+      sessionId: player.sessionId,
+      instanceId: towerInstanceId,
+      mapId: 'tongtian_tower_layer_55',
+      allowCreateFallback: false,
+    }, deps as any),
+    ServiceUnavailableException,
+    '显式指定的通天塔目标仍必须失败关闭，不得暗中换图',
+  );
+  return { instanceId: view.instance.instanceId, explicitRequestRejected: true };
 }
 
 async function verifyConcurrentMaterialization(
@@ -405,6 +491,12 @@ async function verifyOnlineConnectMaterializesBeforeResolve(
   const runtime = harness.deps.getInstanceRuntime(harness.instanceId);
   assert.ok(runtime);
   assert.equal(runtime.meta.ownershipEpoch, 41);
+  assert.equal(session.detachPlayerSession('player:catalog-online-connect', harness.deps), true);
+  assert.equal(
+    playerLocations.get('player:catalog-online-connect')?.sessionId,
+    null,
+    '断线必须保留通天塔地图占位，同时清理位置索引中的 sessionId',
+  );
 
   return {
     order: [...harness.metrics.order],
