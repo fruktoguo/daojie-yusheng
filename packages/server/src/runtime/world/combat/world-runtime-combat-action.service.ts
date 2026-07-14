@@ -868,7 +868,7 @@ export class WorldRuntimeCombatActionService {
           actorKind: CombatActorKind.Player,
         }),
         reason: attacker ? CombatRejectReason.ActorDead : CombatRejectReason.MissingTargetRuntimeState,
-        severity: 'warn',
+        severity: 'debug',
         details: { playerId: input.playerId },
         targetCollection: { targets: [], rejected: [] },
       };
@@ -889,7 +889,7 @@ export class WorldRuntimeCombatActionService {
         action,
         definition,
         reason: CombatRejectReason.MissingInstance,
-        severity: 'warn',
+        severity: 'debug',
         details: { instanceId },
         targetCollection: { targets: [], rejected: [] },
       };
@@ -994,7 +994,7 @@ export class WorldRuntimeCombatActionService {
         action,
         definition,
         reason: attacker ? CombatRejectReason.ActorDead : CombatRejectReason.MissingTargetRuntimeState,
-        severity: 'warn',
+        severity: 'debug',
         details: { playerId: input.playerId },
         targetCollection: { targets: [], rejected: [] },
       };
@@ -1005,7 +1005,7 @@ export class WorldRuntimeCombatActionService {
         action,
         definition,
         reason: CombatRejectReason.MissingInstance,
-        severity: 'warn',
+        severity: 'debug',
         details: { instanceId },
         targetCollection: { targets: [], rejected: [] },
       };
@@ -1016,7 +1016,7 @@ export class WorldRuntimeCombatActionService {
         action,
         definition: null,
         reason: CombatRejectReason.MissingSkill,
-        severity: 'warn',
+        severity: 'debug',
         details: { skillId: input.skillId ?? action.actionId },
         targetCollection: { targets: [], rejected: [] },
       };
@@ -1852,7 +1852,7 @@ export class WorldRuntimeCombatActionService {
         action: combatAction,
         definition,
         reason: CombatRejectReason.MissingMonster,
-        severity: 'warn',
+        severity: 'debug',
         details: { runtimeId: action.runtimeId },
         warningCells,
         targetCollection: { targets: [], rejected: [] },
@@ -1864,7 +1864,7 @@ export class WorldRuntimeCombatActionService {
         action: combatAction,
         definition,
         reason: CombatRejectReason.MonsterDead,
-        severity: 'warn',
+        severity: 'debug',
         details: { runtimeId: monster.runtimeId ?? action.runtimeId },
         warningCells,
         targetCollection: { targets: [], rejected: [] },
@@ -1910,7 +1910,7 @@ export class WorldRuntimeCombatActionService {
         action: combatAction,
         definition,
         reason: location ? CombatRejectReason.TargetLocationMismatch : CombatRejectReason.MissingRuntimeTargetPosition,
-        severity: 'warn',
+        severity: 'debug',
         details: {
           locationInstanceId: location?.instanceId,
           playerInstanceId: targetRuntimeState?.instanceId,
@@ -1931,7 +1931,7 @@ export class WorldRuntimeCombatActionService {
         action: combatAction,
         definition,
         reason: CombatRejectReason.MissingTargetLocation,
-        severity: 'warn',
+        severity: 'debug',
         details: {},
         warningCells,
         targetCollection: { targets: [], rejected: [] },
@@ -1948,7 +1948,7 @@ export class WorldRuntimeCombatActionService {
           action: combatAction,
           definition,
           reason: selfBuffTarget ? CombatRejectReason.TargetDead : CombatRejectReason.MissingSelfBuffTarget,
-          severity: 'warn',
+          severity: 'debug',
           details: {},
           warningCells,
           distanceAnchor,
@@ -2086,7 +2086,7 @@ export class WorldRuntimeCombatActionService {
         action: combatAction,
         definition,
         reason: CombatRejectReason.MissingMonster,
-        severity: 'warn',
+        severity: 'debug',
         details: { runtimeId: action.runtimeId },
         warningCells,
       };
@@ -2097,7 +2097,7 @@ export class WorldRuntimeCombatActionService {
         action: combatAction,
         definition,
         reason: CombatRejectReason.MonsterDead,
-        severity: 'warn',
+        severity: 'debug',
         details: { runtimeId: monster.runtimeId ?? action.runtimeId },
         warningCells,
       };
@@ -2204,7 +2204,7 @@ export class WorldRuntimeCombatActionService {
         ok: false,
         reason: CombatRejectReason.MissingTargetLocation,
         details: {},
-        severity: 'warn',
+        severity: 'debug',
       };
     }
     const instance = typeof deps?.getInstanceRuntime === 'function'
@@ -2226,7 +2226,7 @@ export class WorldRuntimeCombatActionService {
         ok: false,
         reason: CombatRejectReason.MissingMonster,
         details: {},
-        severity: 'warn',
+        severity: 'debug',
       };
     }
     if (!monster.alive) {
@@ -2234,7 +2234,7 @@ export class WorldRuntimeCombatActionService {
         ok: false,
         reason: CombatRejectReason.MonsterDead,
         details: {},
-        severity: 'warn',
+        severity: 'debug',
       };
     }
     const position = typeof instance.getPlayerPosition === 'function'
@@ -2245,7 +2245,7 @@ export class WorldRuntimeCombatActionService {
         ok: false,
         reason: CombatRejectReason.MissingRuntimeTargetPosition,
         details: {},
-        severity: 'warn',
+        severity: 'debug',
       };
     }
     const player = playerRuntimeService?.getPlayer?.(action.targetPlayerId);
@@ -2261,7 +2261,7 @@ export class WorldRuntimeCombatActionService {
           playerInstanceId: player?.instanceId,
           locationInstanceId: location.instanceId,
         },
-        severity: 'warn',
+        severity: 'debug',
       };
     }
     const normalizedPosition = normalizeCombatCell(position);
@@ -2270,7 +2270,7 @@ export class WorldRuntimeCombatActionService {
         ok: false,
         reason: CombatRejectReason.MissingRuntimeTargetPosition,
         details: {},
-        severity: 'warn',
+        severity: 'debug',
       };
     }
     const distance = combatChebyshevDistance(monster.x, monster.y, normalizedPosition.x, normalizedPosition.y);
@@ -2352,14 +2352,17 @@ export class WorldRuntimeCombatActionService {
     if (shouldLog) {
       const logger = deps?.logger ?? this.logger;
       const message = this.formatRejectLog(outcome);
-      if (options?.severity === 'warn') {
+      if (options?.severity === 'error') {
+        logger.error?.(message);
+      }
+      else if (options?.severity === 'warn') {
         logger.warn?.(message);
       }
-      else if (typeof logger.debug === 'function') {
-        logger.debug(message);
+      else if (options?.severity === 'info') {
+        logger.log?.(message);
       }
       else {
-        logger.log?.(message);
+        logger.debug?.(message);
       }
     }
     this.recordCombatEvents(deps, outcome, options);

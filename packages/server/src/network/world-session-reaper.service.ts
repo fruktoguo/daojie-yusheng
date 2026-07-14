@@ -185,7 +185,7 @@ export class WorldSessionReaperService {
                 catch (error) {
                     const requeued = this.worldSessionService.requeueExpiredBinding(binding, { lastError: error });
                     if (requeued) {
-                        this.logger.error(`回收玩家 ${binding.playerId} 的会话失败，已重入等待下次重试`, error instanceof Error ? error.stack : String(error));
+                        this.logger.warn(`回收玩家 ${binding.playerId} 的会话失败，已重入等待下次重试`, error instanceof Error ? error.stack : String(error));
                     }
                     else {
                         this.logger.error(`回收玩家 ${binding.playerId} 的会话连续失败超过上限，已转入死信队列`, error instanceof Error ? error.stack : String(error));

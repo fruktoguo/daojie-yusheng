@@ -78,7 +78,10 @@ export class WorldRuntimeSystemCommandService {
             }
             catch (error) {
                 const message = error instanceof Error ? error.message : String(error);
-                this.logger.warn(`处理系统指令 ${command.kind} 失败：${message}`);
+                this.logger.error(
+                    `处理系统指令 ${command.kind} 失败：${message}`,
+                    error instanceof Error ? error.stack : undefined,
+                );
             }
         }
     }

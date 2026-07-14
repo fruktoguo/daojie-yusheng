@@ -16,6 +16,7 @@ import type {
 } from '@mud/shared';
 import type { Socket } from 'socket.io';
 
+import { emitCaughtErrorLog } from '../../logging/caught-error-log';
 import { WorldClientEventService } from '../../network/world-client-event.service';
 import { WorldSessionService } from '../../network/world-session.service';
 import { RedeemCodeRuntimeService } from '../redeem/redeem-code-runtime.service';
@@ -39,7 +40,9 @@ interface WorldClientEventPort {
 
 interface RedeemCodeDeps {
   logger: {
+    debug?(message: string): void;
     warn(message: string): void;
+    error?(message: string, stack?: string): void;
   };
   queuePlayerNotice(
     playerId: string,
@@ -76,7 +79,7 @@ export class WorldRuntimeRedeemCodeService {
       }
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
-      deps.logger.warn(`处理玩家 ${playerId} 的兑换码失败：${message}`);
+      emitCaughtErrorLog(deps.logger, `处理玩家 ${playerId} 的兑换码失败：${message}`, error);
       const notice = buildStructuredNotice(
         'warn',
         'notice.redeem.execution-failed',

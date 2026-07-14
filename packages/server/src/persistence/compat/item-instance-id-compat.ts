@@ -32,7 +32,7 @@ export function assignStableItemInstanceId(
     : randomUUID();
   if (nextItemInstanceId !== normalizedSource) {
     if (normalizedSource && isLegacyItemInstanceId(normalizedSource)) {
-      logger.warn(`装备携带 legacy itemInstanceId，重分配：source=${normalizedSource} -> ${nextItemInstanceId}`);
+      logger.debug(`装备携带 legacy itemInstanceId，重分配：source=${normalizedSource} -> ${nextItemInstanceId}`);
     }
     if (sourceRecords) {
       writeItemInstanceIdToSources(sourceRecords, nextItemInstanceId);

@@ -187,16 +187,16 @@ class WorldGatewayBootstrapHelper {
             return undefined;
         }
         if (client?.data?.isGm === true) {
-            this.gateway.logger.warn(`已忽略 GM 引导中的请求 sessionId：socket=${client.id} sessionId=${requestedSessionId}`);
+            this.gateway.logger.debug(`已忽略 GM 引导中的请求 sessionId：socket=${client.id} sessionId=${requestedSessionId}`);
             return undefined;
         }
         const authSource = this.resolveAuthenticatedIdentitySource(client, identity);
         if (!AUTHENTICATED_REQUESTED_SESSION_ID_AUTH_SOURCES.has(authSource)) {
-            this.gateway.logger.warn(`已忽略鉴权引导中的请求 sessionId：socket=${client.id} authSource=${authSource || '未知'} sessionId=${requestedSessionId}`);
+            this.gateway.logger.debug(`已忽略鉴权引导中的请求 sessionId：socket=${client.id} authSource=${authSource || '未知'} sessionId=${requestedSessionId}`);
             return undefined;
         }
         if (!this.gateway.sessionBootstrapService.shouldAllowRequestedDetachedResume(client)) {
-            this.gateway.logger.warn(`由于复用策略已忽略鉴权引导中的请求 sessionId：socket=${client.id} authSource=${authSource || '未知'} sessionId=${requestedSessionId}`);
+            this.gateway.logger.debug(`由于复用策略已忽略鉴权引导中的请求 sessionId：socket=${client.id} authSource=${authSource || '未知'} sessionId=${requestedSessionId}`);
             return undefined;
         }
         return requestedSessionId;
@@ -274,7 +274,7 @@ class WorldGatewayBootstrapHelper {
  */
 
     rejectUnauthenticatedConnect(client) {
-        this.gateway.logger.warn(`已拒绝未登录套接字连接：socket=${client.id} protocol=${typeof client?.data?.protocol === 'string' ? client.data.protocol : '未知'}`);
+        this.gateway.logger.debug(`已拒绝未登录套接字连接：socket=${client.id} protocol=${typeof client?.data?.protocol === 'string' ? client.data.protocol : '未知'}`);
         return this.rejectAuthenticatedConnect(client, AUTHENTICATED_CONNECT_CONTRACT.unauthenticatedDisabledCode, '未登录连接已禁用，请先登录');
     }    
     /**

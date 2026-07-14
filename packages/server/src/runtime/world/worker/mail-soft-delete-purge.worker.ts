@@ -25,7 +25,7 @@ export class MailSoftDeletePurgeWorker {
   async runOnce(limit = 500, retentionDays = 30): Promise<number> {
     const processed = await this.mailPersistenceService.purgeSoftDeletedMails({ retentionDays, limit });
     if (processed > 0) {
-      this.logger.log(`邮件软删周期清理完成：processed=${processed}, retentionDays=${retentionDays}, limit=${limit}`);
+      this.logger.debug(`邮件软删周期清理完成：processed=${processed}, retentionDays=${retentionDays}, limit=${limit}`);
     }
     return processed;
   }

@@ -4,6 +4,7 @@
  * 维护时要保持状态变更受控，所有影响资产或位置的结果都应能被持久化与恢复链覆盖。
  */
 import { ConflictException, HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { emitCaughtErrorLog } from '../../../logging/caught-error-log';
 import { findPlayerSkill, resolveRuntimeSkillRange } from '../world-runtime.normalization.helpers';
 import { chebyshevDistance } from '../world-runtime.path-planning.helpers';
 import { buildStructuredNotice } from '../structured-notice.helpers';
@@ -424,23 +425,10 @@ function buildPendingCommandFailureDebug(playerId, command, deps) {
     return `debug=${parts.join(' ')}`;
 }
 
-function emitPendingCommandFailureLog(deps, line, command, message) {
-    if (shouldDowngradePendingCommandFailure(command, message)) {
-        const log = typeof deps.logger?.debug === 'function'
-            ? deps.logger.debug
-            : typeof deps.logger?.log === 'function'
-                ? deps.logger.log
-            : null;
-        if (log) {
-            log.call(deps.logger, line);
-            return;
-        }
-    }
-    if (typeof deps.logger?.warn === 'function') {
-        deps.logger.warn(line);
-        return;
-    }
-    deps.logger?.log?.(line);
+function emitPendingCommandFailureLog(deps, line, command, message, error) {
+    emitCaughtErrorLog(deps.logger, line, error, {
+        expected: shouldDowngradePendingCommandFailure(command, message),
+    });
 }
 
 function resolvePendingCommandPerfKey(command) {
@@ -926,6 +914,7 @@ export class WorldRuntimePendingCommandService {
                     `处理玩家 ${playerId} 的待执行指令失败：${failedCommandForDiagnostics.kind}（${message}） ${buildPendingCommandFailureDebug(playerId, failedCommandForDiagnostics, deps)}${retrySuffix}`,
                     failedCommandForDiagnostics,
                     message,
+                    error,
                 );
                 if (notice) {
                     deps.queuePlayerNotice(

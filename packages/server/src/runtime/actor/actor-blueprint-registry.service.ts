@@ -150,7 +150,7 @@ export class ActorBlueprintRegistryService implements OnModuleDestroy {
       }
     }
     if (removed > 0) {
-      this.logger.log(`垃圾回收清理过期蓝图 ${removed} 个，剩余 ${this.entries.size}`);
+      this.logger.debug(`垃圾回收清理过期蓝图 ${removed} 个，剩余 ${this.entries.size}`);
     }
   }
 }

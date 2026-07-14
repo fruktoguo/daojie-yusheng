@@ -494,15 +494,14 @@ export class WorldRuntimeMonsterActionApplyService {
                     selectedTargetCount: actionPlan.selectedTargets.length,
                     rejectedTargets: actionPlan.targetCollection.rejected,
                     skippedTargets,
-                }, { severity: 'warn' });
+                }, { severity: 'debug' });
             }
         }
         catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             this.recordMonsterActionReject(deps, action, CombatRejectReason.CastFailed, {
                 error: message,
-            }, { severity: 'warn' });
-            (deps.logger ?? this.logger).warn(`处理妖兽技能 ${action.skillId}（来源 ${action.runtimeId}）失败：${message}`);
+            }, { severity: 'error' });
         }
     }
 
@@ -511,7 +510,20 @@ export class WorldRuntimeMonsterActionApplyService {
             return this.worldRuntimeCombatActionService.recordMonsterActionReject(deps, action, reason, details, options);
         }
         const logger = deps?.logger ?? this.logger;
-        logger.warn?.(`战斗动作被拒绝 原因=${reason} 动作=${action?.skillId ?? action?.kind ?? '未知'} 实例=${action?.instanceId ?? '未知'} 运行时=${action?.runtimeId ?? '未知'}`);
+        const message = `战斗动作被拒绝 原因=${reason} 动作=${action?.skillId ?? action?.kind ?? '未知'} 实例=${action?.instanceId ?? '未知'} 运行时=${action?.runtimeId ?? '未知'}`;
+        const severity = options?.severity ?? 'debug';
+        if (severity === 'error') {
+            logger.error?.(message);
+        }
+        else if (severity === 'warn') {
+            logger.warn?.(message);
+        }
+        else if (severity === 'info') {
+            logger.log?.(message);
+        }
+        else {
+            logger.debug?.(message);
+        }
         return null;
     }
     recordMonsterActionOutcome(deps, action, target, result = {}, options = undefined) {

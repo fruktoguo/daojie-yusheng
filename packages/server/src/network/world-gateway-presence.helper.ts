@@ -52,7 +52,7 @@ class WorldGatewayPresenceHelper {
         } catch (error) {
             if (isConvergedPlayerPresenceFenceError(error)) {
                 // 玩家已被更新会话接管，离线 presence 写入过期即良性收敛，跳过而非报错。
-                this.logger.warn(`脱机在线状态已被更新会话取代（fence 收敛），跳过：${binding.playerId}`);
+                this.logger.debug(`脱机在线状态已被更新会话取代（fence 收敛），跳过：${binding.playerId}`);
                 return;
             }
             // 非围栏错误必须传播给 disconnect/shutdown 编排器，不能伪报 presence 已落盘。

@@ -114,11 +114,11 @@ export class WorldSessionBootstrapContextHelper {
             return { sessionId: '', error: null };
         }
         if (normalizedSessionId.length > MAX_REQUESTED_SESSION_ID_LENGTH) {
-            this.logger.warn(`${source} 请求的 sessionId 过长，已拒绝：socket=${client?.id ?? '未知'} length=${normalizedSessionId.length}`);
+            this.logger.debug(`${source} 请求的 sessionId 过长，已拒绝：socket=${client?.id ?? '未知'} length=${normalizedSessionId.length}`);
             return { sessionId: '', error: 'too_long' };
         }
         if (!REQUESTED_SESSION_ID_PATTERN.test(normalizedSessionId)) {
-            this.logger.warn(`${source} 请求的 sessionId 含非法字符，已拒绝：socket=${client?.id ?? '未知'}`);
+            this.logger.debug(`${source} 请求的 sessionId 含非法字符，已拒绝：socket=${client?.id ?? '未知'}`);
             return { sessionId: '', error: 'invalid_chars' };
         }
         return { sessionId: normalizedSessionId, error: null };

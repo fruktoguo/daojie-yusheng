@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { BadRequestException, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 
 import { WorldRuntimePendingCommandService } from '../runtime/world/command/world-runtime-pending-command.service';
 /**
@@ -320,7 +321,7 @@ async function testAutoCombatFailedSkillFallsBackToAlternativeCommand() {
     assert.equal(service.getPendingCommandCount(), 0);
 }
 
-async function testAutoCombatRetryFailureLogsRetryCommandDebug() {
+async function testAutoCombatRetryFailureStaysSilentWithoutDebugLogger() {
     const service = new WorldRuntimePendingCommandService();
     const log = [];
     const player = {
@@ -428,7 +429,6 @@ async function testAutoCombatRetryFailureLogsRetryCommandDebug() {
         ['dispatchPlayerCommand', 'player:1', 'basicAttack', 'monster:far'],
         ['clearManualEngagePending', 'player:1'],
         ['clearCombatTarget', 'player:1', 0],
-        ['warn', '处理玩家 player:1 的待执行指令失败：basicAttack（目标超出攻击距离） debug=auto=1 manual=0 playerName=青衫客 instance=public:yunlai_town playerPos=43,56 target=monster:far targetKind=monster targetPos=99,1 distance=56 combatTarget=monster:far combatTargetLocked=0 retryOf=castSkill'],
     ]);
     assert.equal(service.getPendingCommandCount(), 0);
 }
@@ -511,13 +511,12 @@ async function testInvalidAttackNoticeUsesTargetReason() {
         },
     });
     assert.deepEqual(log, [
-        ['log', '处理玩家 player:1 的待执行指令失败：basicAttack（该目标无法被攻击） debug=auto=0 manual=0 playerState=missing'],
         ['queuePlayerNotice', 'player:1', '没有可命中的目标', 'warn', 'notice.command.no-target'],
     ]);
     assert.equal(service.getPendingCommandCount(), 0);
 }
 
-async function testMoveToUnreachableFailureUsesLogWhenAvailable() {
+async function testMoveToUnreachableFailureDoesNotPromoteDebug() {
     const service = new WorldRuntimePendingCommandService();
     const log = [];
     service.enqueuePendingCommand('player:1', {
@@ -558,7 +557,6 @@ async function testMoveToUnreachableFailureUsesLogWhenAvailable() {
         },
     });
     assert.deepEqual(log, [
-        ['log', '处理玩家 player:1 的待执行指令失败：moveTo（无法到达该位置） debug=auto=0 manual=0 playerName=妖 instance=real:cold_tide_marsh playerPos=23,37'],
         ['queuePlayerNotice', 'player:1', '无法到达该位置', 'warn', 'notice.navigation.unreachable'],
     ]);
     assert.equal(service.getPendingCommandCount(), 0);
@@ -621,7 +619,6 @@ async function testAutoCombatInvalidTargetStaysServerInternal() {
     assert.deepEqual(log, [
         ['clearManualEngagePending', 'player:1'],
         ['clearCombatTarget', 'player:1', 0],
-        ['warn', '处理玩家 player:1 的待执行指令失败：basicAttack（该目标无法被攻击） debug=auto=1 manual=0 instance=public:yunlai_town playerPos=unknown target=tile:10:11 targetKind=tile targetPos=10,11'],
     ]);
     assert.equal(service.getPendingCommandCount(), 0);
 
@@ -681,7 +678,6 @@ async function testAutoCombatInvalidTargetStaysServerInternal() {
     assert.deepEqual(skillLog, [
         ['clearManualEngagePending', 'player:1'],
         ['clearCombatTarget', 'player:1', 0],
-        ['warn', '处理玩家 player:1 的待执行指令失败：castSkill（没有可命中的目标） debug=auto=1 manual=0 skill=skill:area instance=public:yunlai_town playerPos=unknown target=monster:gone targetKind=unknown targetPos=unknown'],
     ]);
     assert.equal(skillService.getPendingCommandCount(), 0);
 }
@@ -741,7 +737,6 @@ async function testAutoCombatRetaliateFailurePreservesDifferentLockedTarget() {
     });
     assert.deepEqual(log, [
         ['clearManualEngagePending', 'player:1'],
-        ['warn', '处理玩家 player:1 的待执行指令失败：basicAttack（该目标无法被攻击） debug=auto=1 manual=0 instance=public:yunlai_town playerPos=unknown target=player:attacker targetKind=player targetPos=unknown combatTarget=tile:2:1 combatTargetLocked=1'],
     ]);
     assert.equal(service.getPendingCommandCount(), 0);
 }
@@ -825,7 +820,6 @@ async function testAutoCombatOutOfRangeClearsTargetWithoutNotice() {
     assert.deepEqual(log, [
         ['clearManualEngagePending', 'player:1'],
         ['clearCombatTarget', 'player:1', 0],
-        ['warn', '处理玩家 player:1 的待执行指令失败：castSkill（技能 skill:area 超出范围） debug=auto=1 manual=0 skill=skill:area skillName=地火术 skillRange=3 instance=public:yunlai_town playerPos=1,1 target=monster:far targetKind=monster targetPos=7,2 distance=6 combatTarget=monster:far combatTargetLocked=0'],
     ]);
     assert.equal(service.getPendingCommandCount(), 0);
 }
@@ -926,7 +920,6 @@ async function testAutoCombatPlayerOutOfRangeClearsRetaliateAndThreatTarget() {
         ['buildPlayerOwnerId', 'player:1'],
         ['multiplyThreat', 'player:player:1', 'player:target:1', 0],
         ['clearCombatTarget', 'player:1', 0],
-        ['warn', '处理玩家 player:1 的待执行指令失败：castSkill（目标超出攻击距离） debug=auto=1 manual=0 skill=skill.cloud_blade skillName=流云刀谱 skillRange=3 instance=public:yunlai_town playerPos=43,56 target=player:target:1 targetKind=player targetPos=99,1 distance=56 combatTarget=player:target:1 combatTargetLocked=0'],
     ]);
     assert.equal(service.getPendingCommandCount(), 0);
 }
@@ -1017,7 +1010,6 @@ async function testAutoCombatPlayerPvpDisabledClearsTargetWithoutNotice() {
         ['buildPlayerOwnerId', 'player:1'],
         ['multiplyThreat', 'player:player:1', 'player:target:1', 0],
         ['clearCombatTarget', 'player:1', 0],
-        ['warn', '处理玩家 player:1 的待执行指令失败：basicAttack（当前实例不允许玩家互攻） debug=auto=1 manual=0 instance=public:yunlai_town playerPos=43,56 target=player:target:1 targetKind=player targetPos=44,57 distance=1 combatTarget=player:target:1 combatTargetLocked=0'],
     ]);
     assert.equal(service.getPendingCommandCount(), 0);
 }
@@ -1051,9 +1043,7 @@ async function testSkillOutOfRangeStaysServerInternal() {
             log.push(['queuePlayerNotice', playerId, message, tone]);
         },
     });
-    assert.deepEqual(log, [
-        ['log', '处理玩家 player:1 的待执行指令失败：castSkill（Skill skill.liyan_duanxi out of range） debug=auto=0 manual=0 skill=skill.liyan_duanxi playerState=missing'],
-    ]);
+    assert.deepEqual(log, []);
     assert.equal(service.getPendingCommandCount(), 0);
 }
 
@@ -1154,8 +1144,8 @@ async function testInternalSliceErrorStaysServerInternal() {
             throw new Error("Cannot read properties of undefined (reading 'slice')");
         },
         logger: {
-            warn(message) {
-                log.push(['warn', message]);
+            error(message) {
+                log.push(['error', message]);
             },
         },
         queuePlayerNotice(playerId, message, tone) {
@@ -1163,9 +1153,52 @@ async function testInternalSliceErrorStaysServerInternal() {
         },
     });
     assert.deepEqual(log, [
-        ["warn", "处理玩家 player:1 的待执行指令失败：castSkill（Cannot read properties of undefined (reading 'slice')） debug=auto=0 manual=0 skill=skill.baihong_duanyue playerState=missing"],
+        ["error", "处理玩家 player:1 的待执行指令失败：castSkill（Cannot read properties of undefined (reading 'slice')） debug=auto=0 manual=0 skill=skill.baihong_duanyue playerState=missing"],
     ]);
     assert.equal(service.getPendingCommandCount(), 0);
+}
+
+async function testCaughtHttpExceptionsUseSemanticLogLevels() {
+    async function dispatch(error) {
+        const service = new WorldRuntimePendingCommandService();
+        const logs = [];
+        service.enqueuePendingCommand('player:semantic', {
+            kind: 'startTechniqueTransmission',
+            teacherPlayerId: 'player:teacher',
+            techniqueId: 'technique:missing',
+        });
+        await service.dispatchPendingCommands({
+            dispatchInstanceCommand() {
+                throw new Error('unexpected dispatchInstanceCommand');
+            },
+            dispatchPlayerCommand() {
+                throw error;
+            },
+            logger: {
+                debug(message) {
+                    logs.push(['debug', message]);
+                },
+                warn(message) {
+                    logs.push(['warn', message]);
+                },
+                error(message) {
+                    logs.push(['error', message]);
+                },
+            },
+            queuePlayerNotice() {},
+        });
+        return logs;
+    }
+
+    const missingTeacherTechnique = await dispatch(new BadRequestException('传授者尚未掌握该功法。'));
+    const missingTechnique = await dispatch(new NotFoundException('功法不存在：technique:missing'));
+    const unavailable = await dispatch(new ServiceUnavailableException('功法目录暂不可用'));
+    const programmingError = await dispatch(new TypeError('unexpected technique projection shape'));
+
+    assert.deepEqual(missingTeacherTechnique.map(([level]) => level), ['debug']);
+    assert.deepEqual(missingTechnique.map(([level]) => level), ['debug']);
+    assert.deepEqual(unavailable.map(([level]) => level), ['warn']);
+    assert.deepEqual(programmingError.map(([level]) => level), ['error']);
 }
 
 async function testStructuredNoticeAllowlistSanitizesCommandFamilies() {
@@ -1251,10 +1284,10 @@ Promise.resolve()
     .then(() => testCombatResolvedCommandDropsSameTickMoveIntent())
     .then(() => testAutoCombatStaleTargetRetriesImmediately())
     .then(() => testAutoCombatFailedSkillFallsBackToAlternativeCommand())
-    .then(() => testAutoCombatRetryFailureLogsRetryCommandDebug())
+    .then(() => testAutoCombatRetryFailureStaysSilentWithoutDebugLogger())
     .then(() => testManualEngageAttackClearsServerOnlyEngageState())
     .then(() => testInvalidAttackNoticeUsesTargetReason())
-    .then(() => testMoveToUnreachableFailureUsesLogWhenAvailable())
+    .then(() => testMoveToUnreachableFailureDoesNotPromoteDebug())
     .then(() => testAutoCombatInvalidTargetStaysServerInternal())
     .then(() => testAutoCombatRetaliateFailurePreservesDifferentLockedTarget())
     .then(() => testAutoCombatOutOfRangeClearsTargetWithoutNotice())
@@ -1264,6 +1297,7 @@ Promise.resolve()
     .then(() => testManualSkillCooldownFailureUsesDebugWhenAvailable())
     .then(() => testManualEngageNoTargetFailureUsesDebugWhenAvailable())
     .then(() => testInternalSliceErrorStaysServerInternal())
+    .then(() => testCaughtHttpExceptionsUseSemanticLogLevels())
     .then(() => testStructuredNoticeAllowlistSanitizesCommandFamilies())
     .then(() => {
     console.log(JSON.stringify({
@@ -1272,7 +1306,7 @@ Promise.resolve()
         answers: [
             '未知基础设施异常统一映射为稳定通用失败，原始文本只进入服务端诊断。',
             '战斗、导航、技艺和物品拒绝均使用结构化通知 key，技能与地图内部 ID 不再进入玩家通知。',
-            '自动战斗常态目标失效与已识别的内部程序错误继续保持静默。',
+            '自动战斗常态目标失效只进入 DEBUG；未知程序异常进入 ERROR，4xx/5xx 分别进入 DEBUG/WARN。',
         ],
     }, null, 2));
 });

@@ -963,7 +963,7 @@ async function canClaimRecoverableCatalogEntry(runtime, entry, instanceId, nodeI
     return true;
   }
   if (Number.isFinite(leaseExpireAt) && leaseExpireAt > Date.now()) {
-    runtime.logger.warn(`启动恢复过期租约未到期：${instanceId} assignedNodeId=${assignedNodeId}`);
+    runtime.logger.debug(`启动恢复跳过仍由其他节点持有的实例：${instanceId} assignedNodeId=${assignedNodeId}`);
     return false;
   }
   const persistenceService = runtime.playerRuntimeService?.playerDomainPersistenceService;

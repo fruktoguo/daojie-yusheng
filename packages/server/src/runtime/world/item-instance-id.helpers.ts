@@ -48,7 +48,7 @@ export function assignItemInstanceIdIfNeeded(item: ItemStack | null | undefined)
         return changed;
     }
     if (typeof current === 'string' && isLegacyItemInstanceId(current)) {
-        logger.warn(`物品水合期 legacy itemInstanceId 升级：old=${current} itemId=${(item as { itemId?: string }).itemId ?? 'unknown'}`);
+        logger.debug(`物品水合期 legacy itemInstanceId 升级：old=${current} itemId=${(item as { itemId?: string }).itemId ?? 'unknown'}`);
     }
     (item as { itemInstanceId?: string }).itemInstanceId = randomUUID();
     return true;
@@ -127,7 +127,7 @@ export function compareItemInstanceId(
     }
     if (isLegacyItemInstanceId(actual)) {
         // 服务端是 fallback 形式，水合后才会升级，跳过校验
-        logger.warn(`compareItemInstanceId 跳过校验：actual=${actual} 是 legacy 格式`);
+        logger.debug(`compareItemInstanceId 跳过校验：actual=${actual} 是 legacy 格式`);
         return 'skip';
     }
     return actual === expected ? 'match' : 'mismatch';

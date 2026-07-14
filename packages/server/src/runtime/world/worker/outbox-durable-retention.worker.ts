@@ -60,7 +60,7 @@ export class OutboxDurableRetentionWorker {
         }
       }
       if (totalProcessed > 0) {
-        this.logger.log(`Outbox/durable retention 完成：processed=${totalProcessed} retentionDays=${retentionDays} limit=${limit}`);
+        this.logger.debug(`Outbox/durable retention 完成：processed=${totalProcessed} retentionDays=${retentionDays} limit=${limit}`);
       }
       return totalProcessed;
     } finally {

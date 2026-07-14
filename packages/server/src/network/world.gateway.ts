@@ -192,7 +192,7 @@ class WorldGateway implements WorldGatewayHelperContext {
                 // 权威数据由新会话按更高 epoch 持久化，此处不算失败，也无需保留 dirty 重试。
                 superseded = true;
                 flushSucceeded = true;
-                this.logger.warn(`脱机玩家刷盘已被更新会话取代（fence 收敛），跳过：${binding.playerId}`);
+                this.logger.debug(`脱机玩家刷盘已被更新会话取代（fence 收敛），跳过：${binding.playerId}`);
             }
             else {
                 this.logger.error(`刷新脱机玩家失败：${binding.playerId}`, error instanceof Error ? error.stack : String(error));

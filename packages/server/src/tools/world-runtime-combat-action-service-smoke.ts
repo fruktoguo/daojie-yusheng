@@ -2152,7 +2152,7 @@ async function run() {
   assert.equal(monsterDiagnostics.length, 1);
   assert.equal(monsterDiagnostics[0].reason, CombatRejectReason.MissingTargetLocation);
   assert.equal(monsterDiagnostics[0].actionId, 'basic_attack');
-  assert.equal(logs.filter((entry) => entry[0] === 'debug').length, 1);
+  assert.equal(logs.filter((entry) => entry[0] === 'debug').length, 2);
   assert.equal(logs.filter((entry) => entry[0] === 'log').length, 0);
 
   const chantDiagnostics = [];

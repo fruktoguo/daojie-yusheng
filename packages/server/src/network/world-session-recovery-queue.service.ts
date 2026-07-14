@@ -111,7 +111,7 @@ export class WorldSessionRecoveryQueueService {
     try {
       const result = await task.run();
       if (slowWarned) {
-        this.logger.warn(`恢复队列慢任务最终完成 key=${task.key} priority=${task.priority}`);
+        this.logger.log(`恢复队列慢任务最终完成 key=${task.key} priority=${task.priority}`);
       }
       task.resolve(result);
     } catch (error: unknown) {

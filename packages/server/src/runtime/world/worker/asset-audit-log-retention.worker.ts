@@ -70,7 +70,7 @@ export class AssetAuditLogRetentionWorker {
     });
     const processed = archived + purged;
     if (processed > 0) {
-      this.logger.log(
+      this.logger.debug(
         `资产审计日志 retention 完成：archived=${archived}, purged=${purged}`
         + `, liveRetentionDays=${liveRetentionDays}, archiveRetentionDays=${archiveRetentionDays}`
         + `, combatArchiveRetentionDays=${combatArchiveRetentionDays}`

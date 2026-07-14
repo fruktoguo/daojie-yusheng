@@ -110,7 +110,7 @@ export class MarketTradeHistoryRetentionWorker implements OnModuleInit, OnModule
         }
       }
       if (totalRemoved > 0) {
-        this.logger.log(
+        this.logger.debug(
           `坊市成交历史清理完成：原因=${reason} 删除总数=${totalRemoved} `
           + `单玩家保留=${keepPerPlayer} 保留天数=${retentionDays} 批量限制=${batchLimit}`,
         );

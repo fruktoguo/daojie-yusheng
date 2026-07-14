@@ -1167,13 +1167,13 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
         continue;
       }
       if (!isPlayerPayloadVersionCurrent(payload, task.latestRevision)) {
-        this.logger.warn(`玩家刷盘放弃 stale presence payload：playerId=${playerId} latestRevision=${task.latestRevision} payloadRevision=${payload.projectionVersion ?? 'legacy'}`);
+        this.logger.debug(`玩家刷盘放弃 stale presence payload：playerId=${playerId} latestRevision=${task.latestRevision} payloadRevision=${payload.projectionVersion ?? 'legacy'}`);
         if (await this.flushLedgerService.markFlushTaskFlushed(task)) processed += 1;
         continue;
       }
       const fenceDecision = await this.resolvePlayerPresencePayloadFence(playerId, payload);
       if (fenceDecision === 'stale') {
-        this.logger.warn(
+        this.logger.debug(
           `玩家刷盘丢弃 stale presence fence：playerId=${playerId} payloadEpoch=${payload.sessionEpoch ?? 'none'} payloadOwner=${payload.runtimeOwnerId ?? 'none'}`,
         );
         if (await this.flushLedgerService.markFlushTaskFlushed(task)) processed += 1;
@@ -1193,7 +1193,7 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
         if (!isConvergedPlayerPresenceFenceError(error)) {
           throw error;
         }
-        this.logger.warn(
+        this.logger.debug(
           `玩家 presence 事务内 fence 已过期，按 stale-safe 收敛：playerId=${playerId} error=${formatError(error)}`,
         );
         if (await this.flushLedgerService.markFlushTaskFlushed(task)) processed += 1;
@@ -1243,7 +1243,7 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
           continue;
         }
         if (!isPlayerPayloadVersionCurrent(payload, task.latestRevision)) {
-          this.logger.warn(`玩家刷盘丢弃 stale projection version：playerId=${playerId} domain=${task.domain} latestRevision=${task.latestRevision} payloadRevision=${payload.projectionVersion ?? 'legacy'}`);
+          this.logger.debug(`玩家刷盘丢弃 stale projection version：playerId=${playerId} domain=${task.domain} latestRevision=${task.latestRevision} payloadRevision=${payload.projectionVersion ?? 'legacy'}`);
           if (await this.flushLedgerService.markFlushTaskFlushed(task)) processed += 1;
           continue;
         }
@@ -1255,7 +1255,7 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
           effectiveRuntimeOwnerId,
         );
         if (fenceDecision === 'stale') {
-          this.logger.warn(`玩家刷盘丢弃 stale projection：playerId=${playerId} domain=${task.domain} payloadEpoch=${payload.sessionEpoch ?? 'none'} effectiveOwner=${effectiveRuntimeOwnerId ?? 'none'}`);
+          this.logger.debug(`玩家刷盘丢弃 stale projection：playerId=${playerId} domain=${task.domain} payloadEpoch=${payload.sessionEpoch ?? 'none'} effectiveOwner=${effectiveRuntimeOwnerId ?? 'none'}`);
           if (await this.flushLedgerService.markFlushTaskFlushed(task)) processed += 1;
           continue;
         }
@@ -1346,7 +1346,7 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
           if (!isConvergedPlayerProjectionFenceError(error)) {
             throw error;
           }
-          this.logger.warn(
+          this.logger.debug(
             `玩家刷盘事务内 fence 已过期，按 stale-safe 收敛：playerId=${playerId} domains=${batchEntries.map((entry) => Array.from(entry.domains).join(',')).join(',')} error=${formatError(error)}`,
           );
           for (const row of currentPayloadRows) {
@@ -1372,7 +1372,7 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
   private async renewPayloadClaim(task: FlushTask): Promise<boolean> {
     const renewed = await this.flushLedgerService.renewFlushTaskClaim(task, PAYLOAD_CLAIM_RENEW_TTL_MS);
     if (!renewed) {
-      this.logger.warn(`刷盘 payload claim 已失效，放弃写真源 scope=${task.scope} id=${task.id} domain=${task.domain}`);
+      this.logger.debug(`刷盘 payload claim 已失效，放弃写真源 scope=${task.scope} id=${task.id} domain=${task.domain}`);
     }
     return renewed;
   }
@@ -1386,7 +1386,7 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
       if (renewed === tasks.length) {
         return true;
       }
-      this.logger.warn(`玩家刷盘 payload claim 组不完整，放弃本轮写真源 playerId=${tasks[0]?.id ?? 'unknown'} renewed=${renewed}/${tasks.length}`);
+      this.logger.debug(`玩家刷盘 payload claim 组不完整，放弃本轮写真源 playerId=${tasks[0]?.id ?? 'unknown'} renewed=${renewed}/${tasks.length}`);
       return false;
     }
     const results = await Promise.all(tasks.map((task) => this.renewPayloadClaim(task)));
@@ -1533,7 +1533,7 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
     for (const { task, payload } of payloadRows as Array<{ task: FlushTask; payload: InstanceDomainStatePayload }>) {
       if (!payload) continue;
       if (!isPayloadRevisionCurrent(payload, task.latestRevision)) {
-        this.logger.warn(`实例刷盘放弃 stale state payload：instanceId=${task.id} domain=${task.domain} latestRevision=${task.latestRevision} payloadRevision=${payload.revision ?? 'missing'}`);
+        this.logger.debug(`实例刷盘放弃 stale state payload：instanceId=${task.id} domain=${task.domain} latestRevision=${task.latestRevision} payloadRevision=${payload.revision ?? 'missing'}`);
         if (await this.flushLedgerService.markFlushTaskFlushed(task)) {
           processed += 1;
         }
@@ -1541,7 +1541,7 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
         continue;
       }
       if (!await this.isInstancePayloadFenceCurrent(task)) {
-        this.logger.warn(`实例刷盘丢弃旧 ownership epoch payload：instanceId=${task.id} domain=${task.domain} epoch=${task.ownershipEpoch ?? 0}`);
+        this.logger.debug(`实例刷盘丢弃旧 ownership epoch payload：instanceId=${task.id} domain=${task.domain} epoch=${task.ownershipEpoch ?? 0}`);
         if (await this.flushLedgerService.markFlushTaskFlushed(task)) {
           processed += 1;
         }
@@ -1969,7 +1969,7 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
     let processed = 0;
     for (const row of validRows) {
       if (!isPayloadRevisionCurrent(row.payload, row.task.latestRevision)) {
-        this.logger.warn(`实例刷盘放弃 stale delta payload：instanceId=${row.task.id} domain=${row.task.domain} latestRevision=${row.task.latestRevision} payloadRevision=${row.payload.revision ?? 'missing'}`);
+        this.logger.debug(`实例刷盘放弃 stale delta payload：instanceId=${row.task.id} domain=${row.task.domain} latestRevision=${row.task.latestRevision} payloadRevision=${row.payload.revision ?? 'missing'}`);
         if (await this.flushLedgerService.markFlushTaskFlushed(row.task)) {
           remaining.delete(instanceTaskKey(row.task));
           processed += 1;
@@ -1978,7 +1978,7 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
         continue;
       }
       if (!await this.isInstancePayloadFenceCurrent(row.task)) {
-        this.logger.warn(`实例刷盘丢弃旧 ownership epoch delta：instanceId=${row.task.id} domain=${row.task.domain} epoch=${row.task.ownershipEpoch ?? 0}`);
+        this.logger.debug(`实例刷盘丢弃旧 ownership epoch delta：instanceId=${row.task.id} domain=${row.task.domain} epoch=${row.task.ownershipEpoch ?? 0}`);
         if (await this.flushLedgerService.markFlushTaskFlushed(row.task)) {
           remaining.delete(instanceTaskKey(row.task));
           processed += 1;

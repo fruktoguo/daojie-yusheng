@@ -43,9 +43,7 @@ async function testAwaitsRedeemBeforeEmit(): Promise<void> {
   } as never);
   const deps = {
     logger: {
-      warn(message: string): void {
-        log.push(['warn', message]);
-      },
+      warn(): void {},
     },
     queuePlayerNotice(): void {
       throw new Error('成功兑换不应发送失败通知');
@@ -90,8 +88,9 @@ async function testSanitizesRedeemFailureNotice(): Promise<void> {
   } as never);
   const deps = {
     logger: {
-      warn(message: string): void {
-        log.push(['warn', message]);
+      warn(): void {},
+      error(message: string): void {
+        log.push(['error', message]);
       },
     },
     queuePlayerNotice(
@@ -109,7 +108,7 @@ async function testSanitizesRedeemFailureNotice(): Promise<void> {
   await service.dispatchRedeemCodes('player:2', ['CODE-2'], 'redeem:req:2', deps as never);
 
   assert.deepEqual(log, [
-    ['warn', '处理玩家 player:2 的兑换码失败：database host=internal-db durable commit failed'],
+    ['error', '处理玩家 player:2 的兑换码失败：database host=internal-db durable commit failed'],
     [
       'queuePlayerNotice',
       'player:2',

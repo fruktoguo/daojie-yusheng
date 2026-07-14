@@ -1024,7 +1024,7 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
     );
     const expiredCount = Number(result.rowCount ?? 0);
     if (expiredCount > 0) {
-      this.logger.warn(`已清理陈旧玩家在线态：count=${expiredCount} timeoutMs=${PLAYER_HEARTBEAT_TIMEOUT_MS}`);
+      this.logger.log(`已清理陈旧玩家在线态：count=${expiredCount} timeoutMs=${PLAYER_HEARTBEAT_TIMEOUT_MS}`);
     }
   }
 
@@ -5035,7 +5035,7 @@ async function replacePlayerInventoryItems(
       ? sourceItemInstanceId
       : `inv:${playerId}:${slotIndex}`;
     if (sourceItemInstanceId && isLegacyItemInstanceId(sourceItemInstanceId)) {
-      playerDomainModuleLogger.warn(`背包物品携带 legacy itemInstanceId，走 fallback：playerId=${playerId} slot=${slotIndex} id=${sourceItemInstanceId}`);
+      playerDomainModuleLogger.debug(`背包物品携带 legacy itemInstanceId，走 fallback：playerId=${playerId} slot=${slotIndex} id=${sourceItemInstanceId}`);
     }
     const rawPayload = asRecord(entry?.rawPayload);
     const count = normalizeMinimumInteger(entry?.count, rawPayload?.count, 1);

@@ -68,7 +68,7 @@ export class FlushLedgerRetentionWorker {
         }
       }
       if (totalProcessed > 0) {
-        this.logger.log(
+        this.logger.debug(
           `刷盘账本 retention 完成：processed=${totalProcessed} `
           + `payloadRetentionMinutes=${payloadRetentionMinutes} rowRetentionDays=${rowRetentionDays} limit=${limit}`,
         );

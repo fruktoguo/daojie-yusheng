@@ -54,6 +54,7 @@ async function verifyStartupRecoveryDoesNotForceReclaimWithoutEnv(): Promise<{
   let createdInstanceId: string | null = null;
   const runtime = {
     logger: {
+      debug() {},
       warn() {},
       log() {},
     },
@@ -148,6 +149,7 @@ async function verifyPeriodicSyncDoesNotForceReclaim(): Promise<{
   };
   const runtime = {
     logger: {
+      debug() {},
       warn() {},
       error() {},
     },
@@ -247,6 +249,7 @@ async function verifyStartupRecoveryStillCanForceReclaim(): Promise<{
   const order: string[] = [];
   const runtime = {
     logger: {
+      debug() {},
       log() {},
       warn() {},
     },
