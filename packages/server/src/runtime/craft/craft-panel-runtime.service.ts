@@ -1505,6 +1505,7 @@ export class CraftPanelRuntimeService {
         };
         this.recordEnhancementStart(player, {
             itemId: target.item.itemId,
+            itemName: targetItemName,
             actionStartedAt: player.enhancementJob.startedAt,
             startLevel: validated.currentLevel,
             initialTargetLevel: validated.targetLevel,
@@ -2144,8 +2145,12 @@ export class CraftPanelRuntimeService {
         if (!itemId) {
             return null;
         }
+        const itemName = this.resolveEnhancementRecordItemName(itemId, input);
         const existing = (player.enhancementRecords ?? []).find((entry) => entry.itemId === itemId);
         if (existing) {
+            if (itemName) {
+                existing.itemName = itemName;
+            }
             if (Object.prototype.hasOwnProperty.call(input, 'actionStartedAt')) {
                 existing.actionStartedAt = input.actionStartedAt;
             }
@@ -2169,6 +2174,7 @@ export class CraftPanelRuntimeService {
         }
         const created = {
             itemId,
+            itemName,
             highestLevel: Math.max(0, Number(input.startLevel) || 0),
             levels: [],
             actionStartedAt: input.actionStartedAt,
@@ -2181,6 +2187,17 @@ export class CraftPanelRuntimeService {
         player.enhancementRecords.push(created);
         this.playerRuntimeService.markPersistenceDirtyDomains(player, ['enhancement_record']);
         return created;
+    }
+    resolveEnhancementRecordItemName(itemId, input = {}) {
+        const recordInput = input as { itemName?: unknown };
+        return itemId
+            ? resolvePlayerFacingContentName(
+                itemId,
+                '未知物品',
+                recordInput.itemName,
+                this.contentTemplateRepository.getItemName(itemId),
+            )
+            : '';
     }
     /**
  * touchEnhancementLevelRecord：执行touch强化等级Record相关逻辑。
@@ -2200,10 +2217,12 @@ export class CraftPanelRuntimeService {
         const record = this.touchEnhancementRecord(player, existing
             ? {
                 itemId,
+                itemName: job?.targetItemName,
                 status: 'in_progress',
             }
             : {
                 itemId,
+                itemName: job?.targetItemName,
                 actionStartedAt: job?.startedAt,
                 startLevel: job?.currentLevel ?? 0,
                 initialTargetLevel: job?.targetLevel ?? targetLevel,

@@ -158,6 +158,7 @@ async function testStartInterruptAndCompleteEnhancement(): Promise<void> {
   assert.equal(player.inventory.items.some((item) => item.itemId === 'iron_sword' && item.enhanceLevel === 2), true);
   assert.equal(player.wallet.balances[0].balance, 19);
   assert.equal(player.enhancementRecords[0]?.status, 'completed');
+  assert.equal(player.enhancementRecords[0]?.itemName, '铁剑');
   assert.equal(persistedEnhancementRecords.length > 0, true);
 }
 
@@ -657,6 +658,7 @@ async function testEnhancementUsesTemplateNameWhenRuntimeItemNameMissing(): Prom
 
   assert.equal(start.ok, true);
   assert.equal(player.enhancementJob?.targetItemName, '铁剑');
+  assert.equal(player.enhancementRecords[0]?.itemName, '铁剑');
   assert.equal(start.messages?.[0]?.vars?.itemName, '铁剑');
 
   const queuedTarget = createEquipmentItem('iron_sword', 'iron_sword', 8, 0);

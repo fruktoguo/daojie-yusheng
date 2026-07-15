@@ -173,8 +173,10 @@ function createEmptyEquipmentSlots(): EquipmentSlots {
 const UNKNOWN_ITEM_NAME = '未知物品';
 
 function cloneEnhancementRecord(record: PlayerEnhancementRecord): PlayerEnhancementRecord {
+  const itemName = typeof record.itemName === 'string' ? record.itemName.trim() : '';
   return {
     itemId: record.itemId,
+    ...(itemName ? { itemName } : {}),
     highestLevel: normalizeEnhanceLevel(record.highestLevel),
     levels: [...(record.levels ?? [])]
       .map((entry) => ({

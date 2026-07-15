@@ -19,6 +19,7 @@ import {
   computeLuckSuccessRateBonus,
   getItemDisplayName,
   normalizeEnhanceLevel,
+  resolvePlayerFacingContentName,
 } from '@mud/shared';
 import { getLocalItemTemplate } from '../content/local-templates';
 import { getEquipSlotLabel, getItemTypeLabel } from '../domain-labels';
@@ -157,8 +158,10 @@ function getItemNameClass(name: string): string {
 }
 
 function cloneEnhancementRecord(record: PlayerEnhancementRecord): PlayerEnhancementRecord {
+  const itemName = typeof record.itemName === 'string' ? record.itemName.trim() : '';
   return {
     itemId: record.itemId,
+    ...(itemName ? { itemName } : {}),
     highestLevel: normalizeEnhanceLevel(record.highestLevel),
     levels: [...(record.levels ?? [])]
       .map((entry) => ({
@@ -1434,11 +1437,18 @@ export class CraftEnhancementView {
       if (highestDelta !== 0) return highestDelta;
       const attemptsDelta = this.getEnhancementHistoryAttemptCount(right) - this.getEnhancementHistoryAttemptCount(left);
       if (attemptsDelta !== 0) return attemptsDelta;
-      return this.getEnhancementHistoryItemName(left.itemId).localeCompare(this.getEnhancementHistoryItemName(right.itemId), 'zh-Hans-CN');
+      return this.getEnhancementHistoryItemName(left.itemId, left).localeCompare(this.getEnhancementHistoryItemName(right.itemId, right), 'zh-Hans-CN');
     });
   }
 
-  private getEnhancementHistoryItemName(itemId: string): string { return getLocalItemTemplate(itemId)?.name ?? UNKNOWN_ITEM_NAME; }
+  private getEnhancementHistoryItemName(itemId: string, record?: PlayerEnhancementRecord | null): string {
+    return resolvePlayerFacingContentName(
+      itemId,
+      UNKNOWN_ITEM_NAME,
+      record?.itemName,
+      getLocalItemTemplate(itemId)?.name,
+    );
+  }
   private getEnhancementHistoryItemLevel(itemId: string): number { return Math.max(1, Math.floor(Number(getLocalItemTemplate(itemId)?.level) || 1)); }
   private getEnhancementHistoryAttemptCount(record: PlayerEnhancementRecord): number {
     return (record.levels ?? []).reduce((total, entry) => total + Math.max(0, entry.successCount) + Math.max(0, entry.failureCount), 0);
@@ -1587,7 +1597,7 @@ export class CraftEnhancementView {
       cancelLabel: t('craft.workbench.modal.back'),
       bodyHtml: records.length > 0
         ? `<div class="enhancement-history-list-modal">${records.map((record) => {
-            const itemName = this.getEnhancementHistoryItemName(record.itemId);
+            const itemName = this.getEnhancementHistoryItemName(record.itemId, record);
             const itemLevel = this.getEnhancementHistoryItemLevel(record.itemId);
             const attemptCount = this.getEnhancementHistoryAttemptCount(record);
             return `<button class="enhancement-history-entry" type="button" data-enhancement-history-item="${escapeHtml(record.itemId)}"><span class="enhancement-history-entry-title">${escapeHtml(itemName)}</span><span class="enhancement-history-entry-meta">${escapeHtml(t('craft.workbench.enhancement.history.list.entry-meta', { level: formatDisplayInteger(itemLevel), highestLevel: formatDisplayInteger(record.highestLevel), attemptCount: formatDisplayInteger(attemptCount) }))}</span></button>`;
@@ -1608,8 +1618,8 @@ export class CraftEnhancementView {
     this.ensureLocalEnhancementHistoryLoaded();
     this.parent.activeEnhancementHistoryItemId = itemId;
     this.parent.activeEnhancementHistorySessionKey = null;
-    const itemName = this.getEnhancementHistoryItemName(itemId);
     const sessions = this.getEnhancementHistorySessionsByItem(itemId);
+    const itemName = this.getEnhancementHistoryItemName(itemId, sessions[0]);
     confirmModalHost.open({
       ownerId: `${this.parent.MODAL_OWNER}:enhancement-history-session`,
       title: t('craft.workbench.enhancement.history.session.title'),
@@ -1643,7 +1653,7 @@ export class CraftEnhancementView {
     const record = this.getEnhancementHistorySessionsByItem(itemId).find((entry) => getEnhancementHistorySessionKey(entry) === sessionKey);
     if (!record) return;
     const detailRecord = cloneEnhancementRecord(record);
-    const itemName = this.getEnhancementHistoryItemName(itemId);
+    const itemName = this.getEnhancementHistoryItemName(itemId, detailRecord);
     const itemLevel = this.getEnhancementHistoryItemLevel(itemId);
     const levelMap = new Map(detailRecord.levels.map((entry) => [entry.targetLevel, entry] as const));
     const sessionRange = this.getEnhancementSessionHistoryDisplayRange(detailRecord);

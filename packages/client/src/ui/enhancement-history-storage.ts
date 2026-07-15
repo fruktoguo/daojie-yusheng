@@ -27,8 +27,10 @@ export const ENHANCEMENT_HISTORY_STORAGE_KEY = 'mud:enhancement-history:v2';
 const LEGACY_ENHANCEMENT_HISTORY_KEY = 'mud:enhancement-history:v1';
 
 export function cloneEnhancementRecord(record: PlayerEnhancementRecord): PlayerEnhancementRecord {
+  const itemName = typeof record.itemName === 'string' ? record.itemName.trim() : '';
   return {
     itemId: record.itemId,
+    ...(itemName ? { itemName } : {}),
     highestLevel: normalizeEnhanceLevel(record.highestLevel),
     levels: [...(record.levels ?? [])]
       .map((entry) => ({

@@ -54,7 +54,7 @@ export class CraftPanelEnhancementQueryService {
                 enhancementSkillLevel: Math.max(1, Math.floor(Number(player.enhancementSkill?.level ?? player.enhancementSkillLevel) || 1)),
                 job: player.enhancementJob ? cloneEnhancementJob(player.enhancementJob, player) : null,
                 queue: clonePlayerCraftQueue(player),
-                ...(activeRecord ? { records: [cloneEnhancementRecord(activeRecord)] } : {}),
+                ...(activeRecord ? { records: [cloneEnhancementRecord(activeRecord, this.contentTemplateRepository)] } : {}),
             },
         };
     }    
@@ -75,7 +75,7 @@ export class CraftPanelEnhancementQueryService {
             toolStats: cloneCraftEffectStats(player?.attrs?.craftEffectStats),
             enhancementSkillLevel: Math.max(1, Math.floor(Number(player.enhancementSkill?.level ?? player.enhancementSkillLevel) || 1)),
             candidates: this.collectEnhancementCandidates(player, enhancementConfigs),
-            records: (player.enhancementRecords ?? []).map((entry) => cloneEnhancementRecord(entry)),
+            records: (player.enhancementRecords ?? []).map((entry) => cloneEnhancementRecord(entry, this.contentTemplateRepository)),
             job: player.enhancementJob ? cloneEnhancementJob(player.enhancementJob, player) : null,
             queue: clonePlayerCraftQueue(player),
         };
@@ -368,9 +368,19 @@ function clonePartialNumericStats(stats) {
  * @returns 无返回值，直接更新强化Record相关状态。
  */
 
-function cloneEnhancementRecord(entry) {
+function cloneEnhancementRecord(entry, contentTemplateRepository = null) {
+    const itemId = typeof entry?.itemId === 'string' ? entry.itemId : '';
+    const itemName = itemId
+        ? resolvePlayerFacingContentName(
+            itemId,
+            '未知物品',
+            entry?.itemName,
+            contentTemplateRepository?.getItemName?.(itemId),
+        )
+        : undefined;
     return {
         ...entry,
+        ...(itemName ? { itemName } : {}),
         levels: Array.isArray(entry.levels) ? entry.levels.map((level) => ({ ...level })) : [],
     };
 }

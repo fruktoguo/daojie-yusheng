@@ -5748,6 +5748,9 @@ export class PlayerRuntimeService {
             markPlayerDirtyDomains(player, ['active_job']);
             this.bumpPersistentRevision(player);
         }
+        if (repairEnhancementRecoveryDisplayNames(player, this.contentTemplateRepository)) {
+            this.bumpPersistentRevision(player);
+        }
         if (repairInvalidEnhancementRecoveryState(player)) {
             this.bumpPersistentRevision(player);
         }
@@ -9156,6 +9159,58 @@ function repairInvalidEnhancementRecoveryState(player) {
     }
     player.enhancementJob = null;
     markPlayerDirtyDomains(player, ['active_job', 'enhancement_record', 'inventory']);
+    return true;
+}
+
+function repairEnhancementRecoveryDisplayNames(player, contentTemplateRepository) {
+    const job = player?.enhancementJob;
+    if (!job || typeof job !== 'object') {
+        return false;
+    }
+    const targetItemId = typeof job.targetItemId === 'string' ? job.targetItemId.trim() : '';
+    if (!targetItemId) {
+        return false;
+    }
+    const itemInstanceId = typeof job.itemInstanceId === 'string' ? job.itemInstanceId.trim() : '';
+    const lockedItems = Array.isArray(player?.inventory?.lockedItems) ? player.inventory.lockedItems : [];
+    const lockedItem = itemInstanceId
+        ? lockedItems.find((entry) => entry?.itemInstanceId === itemInstanceId)
+        : null;
+    const records = Array.isArray(player?.enhancementRecords) ? player.enhancementRecords : [];
+    const matchingRecords = records.filter((entry) => entry?.itemId === targetItemId);
+    const resolvedName = resolvePlayerFacingContentName(
+        targetItemId,
+        '未知物品',
+        job.targetItemName,
+        lockedItem?.name,
+        job.item?.name,
+        matchingRecords.find((entry) => entry?.itemName)?.itemName,
+        contentTemplateRepository?.getItemName?.(targetItemId),
+    );
+    if (resolvedName === '未知物品') {
+        return false;
+    }
+
+    const dirtyDomains = [];
+    if (job.targetItemName !== resolvedName) {
+        job.targetItemName = resolvedName;
+        dirtyDomains.push('active_job');
+    }
+    let recordChanged = false;
+    for (const record of matchingRecords) {
+        const currentName = resolvePlayerFacingContentName(targetItemId, '未知物品', record?.itemName);
+        if (currentName === '未知物品') {
+            record.itemName = resolvedName;
+            recordChanged = true;
+        }
+    }
+    if (recordChanged) {
+        dirtyDomains.push('enhancement_record');
+    }
+    if (dirtyDomains.length === 0) {
+        return false;
+    }
+    markPlayerDirtyDomains(player, dirtyDomains);
     return true;
 }
 /**

@@ -873,6 +873,11 @@ export interface PlayerEnhancementRecord {
 
   itemId: string;  
   /**
+ * itemName：强化时记录的玩家可见物品名。
+ */
+
+  itemName?: string;
+  /**
  * highestLevel：highest等级数值。
  */
 
