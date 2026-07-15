@@ -41,6 +41,7 @@ import { GM_HTTP_CONTRACT } from './native/native-gm-contract';
 import { AiArtsStrengthV1ToV2Conversion } from '../gm/compat-conversions/conversions/technique/ai-arts-strength-v1-to-v2';
 import { DeleteEmptyCustomTechniqueBooksConversion } from '../gm/compat-conversions/conversions/technique/delete-empty-custom-technique-books';
 import { OrphanSectBuildingVisualsConversion } from '../gm/compat-conversions/conversions/building/orphan-sect-building-visuals';
+import { TongtianTowerCatalogInstanceTypeConversion } from '../gm/compat-conversions/conversions/world/tongtian-tower-catalog-instance-type';
 
 /** 原生主线 HTTP 路由与依赖注册清单（控制器 + 服务）。 */
 export const NATIVE_HTTP_CONTRACT = Object.freeze({
@@ -86,6 +87,7 @@ export const NATIVE_HTTP_PROVIDERS = [
   AiArtsStrengthV1ToV2Conversion,
   DeleteEmptyCustomTechniqueBooksConversion,
   OrphanSectBuildingVisualsConversion,
+  TongtianTowerCatalogInstanceTypeConversion,
   ...NATIVE_GM_AI_PROVIDER_CONTROLLER_PROVIDERS,
   RuntimeEnvManagementService,
   BotTokenService,

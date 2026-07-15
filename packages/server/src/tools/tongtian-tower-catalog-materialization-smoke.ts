@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { ServiceUnavailableException } from '@nestjs/common';
 
 import { ContentTemplateRepository } from '../content/content-template.repository';
+import { TongtianTowerCatalogInstanceTypeConversion } from '../gm/compat-conversions/conversions/world/tongtian-tower-catalog-instance-type';
 import { TongtianTowerPersistenceService } from '../persistence/tongtian-tower-persistence.service';
 import { MapInstanceRuntime } from '../runtime/instance/map-instance.runtime';
 import { MapTemplateRepository } from '../runtime/map/map-template.repository';
@@ -55,6 +56,7 @@ async function main(): Promise<void> {
   const templates = new MapTemplateRepository();
   templates.onModuleInit();
 
+  const legacyCatalogIdentity = await verifyLegacyCatalogIdentityConversion();
   const concurrent = await verifyConcurrentMaterialization(content, templates);
   const expiredDestroyAt = await verifyExpiredDestroyAtRevival(content, templates);
   const sameNodeFutureDestroyAt = await verifySameNodeFutureDestroyAtRenewal(content, templates);
@@ -73,6 +75,7 @@ async function main(): Promise<void> {
   console.log(JSON.stringify({
     ok: true,
     case: 'tongtian-tower-catalog-materialization',
+    legacyCatalogIdentity,
     concurrent,
     expiredDestroyAt,
     sameNodeFutureDestroyAt,
@@ -87,9 +90,175 @@ async function main(): Promise<void> {
     resetBarrier,
     publicFallbackGuard,
     unavailableTowerRespawnFallback,
-    answers: '通天塔 catalog-backed 物化按 instanceId 单飞、每次从 catalog fresh load epoch；已到期 destroyAt 即使 status/runtimeStatus 尚未收敛也会按精确 identity + epoch 复活；hydrate 失败释放 lease 并丢弃本任务半水合 runtime；catalog 缺失的首次创建在 readiness 前登记 write gate、成功后才登记 attach gate；预先存在的 degraded runtime 与玩家保持不动；在线重连先物化再解析和附着。',
+    answers: '旧 public 塔层只通过显式 GM 兼容转换修正 catalog identity 并推进 epoch/version；通天塔 catalog-backed 物化按 instanceId 单飞、每次从 catalog fresh load epoch；已到期 destroyAt 即使 status/runtimeStatus 尚未收敛也会按精确 identity + epoch 复活；hydrate 失败释放 lease 并丢弃本任务半水合 runtime；catalog 缺失的首次创建在 readiness 前登记 write gate、成功后才登记 attach gate；预先存在的 degraded runtime 与玩家保持不动；在线重连先物化再解析和附着。',
     excludes: '不证明真实 PostgreSQL 跨节点竞争；数据库 revival CAS 仍由 with-db 实例租约 smoke 负责。',
   }, null, 2));
+}
+
+async function verifyLegacyCatalogIdentityConversion(): Promise<{
+  previewConvertible: number;
+  applied: number;
+  verified: number;
+  preservedSkippedRows: number;
+}> {
+  const expiredAt = new Date(Date.now() - 60_000).toISOString();
+  const futureLeaseAt = new Date(Date.now() + 60_000).toISOString();
+  const rows = [
+    createLegacyCatalogRow(28, { ownershipEpoch: 3, metadataVersion: 6 }),
+    createLegacyCatalogRow(40, {
+      status: 'active',
+      runtimeStatus: 'running',
+      ownershipEpoch: 5,
+      metadataVersion: 7,
+    }),
+    createLegacyCatalogRow(41, { templateId: 'tongtian_tower_layer_wrong' }),
+    createLegacyCatalogRow(50, {
+      assignedNodeId: 'node:remote',
+      leaseToken: 'lease:remote',
+      leaseExpireAt: futureLeaseAt,
+    }),
+    {
+      ...createLegacyCatalogRow(55),
+      instance_type: 'tower',
+    },
+  ];
+  for (const row of rows) {
+    row.destroy_at = expiredAt;
+  }
+
+  const query = async (sql: string, params: unknown[] = []) => {
+    const normalized = sql.replace(/\s+/g, ' ').trim();
+    if (normalized === 'BEGIN' || normalized === 'COMMIT' || normalized === 'ROLLBACK') {
+      return { rows: [], rowCount: 0 };
+    }
+    if (normalized.includes('WHERE instance_id = ANY($1::varchar[])')) {
+      const instanceIds = new Set(Array.isArray(params[0]) ? params[0] as string[] : []);
+      const selected = rows.filter((row) => instanceIds.has(row.instance_id)).map((row) => ({ ...row }));
+      return { rows: selected, rowCount: selected.length };
+    }
+    if (normalized.startsWith('SELECT instance_id') && normalized.includes("instance_type = 'public'")) {
+      const selected = rows
+        .filter((row) => row.instance_id.startsWith('tower:tongtian:layer:') && row.instance_type === 'public')
+        .map((row) => ({ ...row }));
+      return { rows: selected, rowCount: selected.length };
+    }
+    if (normalized.startsWith('UPDATE instance_catalog')) {
+      const [instanceId, templateId, ownershipEpoch, metadataVersion, status, runtimeStatus] = params;
+      const row = rows.find((entry) => entry.instance_id === instanceId);
+      const eligible = row
+        && row.template_id === templateId
+        && row.instance_type === 'public'
+        && row.persistent_policy === 'persistent'
+        && row.owner_player_id === null
+        && row.owner_sect_id === null
+        && row.party_id === null
+        && row.line_id === null
+        && row.status === status
+        && row.runtime_status === runtimeStatus
+        && row.assigned_node_id === null
+        && row.lease_token === null
+        && row.lease_expire_at === null
+        && row.ownership_epoch === ownershipEpoch
+        && row.metadata_version === metadataVersion
+        && row.shard_key === row.instance_id
+        && row.route_domain === 'system'
+        && new Date(row.destroy_at).getTime() <= Date.now();
+      if (!row || !eligible) {
+        return { rows: [], rowCount: 0 };
+      }
+      row.instance_type = 'tower';
+      row.ownership_epoch += 1;
+      row.metadata_version = Math.max(row.metadata_version + 1, row.ownership_epoch);
+      return {
+        rows: [{
+          instance_id: row.instance_id,
+          ownership_epoch: row.ownership_epoch,
+          metadata_version: row.metadata_version,
+        }],
+        rowCount: 1,
+      };
+    }
+    throw new Error(`未覆盖的通天塔 catalog 转换 SQL：${normalized}`);
+  };
+  const pool = {
+    query,
+    async connect() {
+      return {
+        query,
+        release() {},
+      };
+    },
+  };
+  const conversion = new TongtianTowerCatalogInstanceTypeConversion({
+    getPool() {
+      return pool;
+    },
+  } as never, null);
+
+  const preview = await conversion.run({ mode: 'dry-run' });
+  assert.equal(preview.matchedRows, 4);
+  assert.equal(preview.convertedRows, 2);
+  assert.equal(preview.skippedRows, 2);
+
+  const applied = await conversion.run({ mode: 'apply' });
+  assert.equal(applied.matchedRows, 4);
+  assert.equal(applied.convertedRows, 2);
+  assert.equal(applied.skippedRows, 2);
+  assert.equal(applied.failedRows, 0);
+  assert.equal(applied.verifiedRows, 2);
+  const layer28 = rows.find((row) => row.instance_id === 'tower:tongtian:layer:28');
+  const layer40 = rows.find((row) => row.instance_id === 'tower:tongtian:layer:40');
+  assert.equal(layer28?.instance_type, 'tower');
+  assert.equal(layer28?.ownership_epoch, 4);
+  assert.equal(layer28?.metadata_version, 7);
+  assert.equal(layer40?.instance_type, 'tower');
+  assert.equal(layer40?.ownership_epoch, 6);
+  assert.equal(layer40?.metadata_version, 8);
+
+  const repeated = await conversion.run({ mode: 'dry-run' });
+  assert.equal(repeated.matchedRows, 2);
+  assert.equal(repeated.convertedRows, 0);
+  assert.equal(repeated.skippedRows, 2);
+
+  return {
+    previewConvertible: preview.convertedRows,
+    applied: applied.convertedRows,
+    verified: applied.verifiedRows,
+    preservedSkippedRows: repeated.skippedRows,
+  };
+}
+
+function createLegacyCatalogRow(layer: number, input: {
+  templateId?: string;
+  status?: 'active' | 'destroyed';
+  runtimeStatus?: 'running' | 'stopped';
+  assignedNodeId?: string | null;
+  leaseToken?: string | null;
+  leaseExpireAt?: string | null;
+  ownershipEpoch?: number;
+  metadataVersion?: number;
+} = {}) {
+  const instanceId = `tower:tongtian:layer:${layer}`;
+  return {
+    instance_id: instanceId,
+    template_id: input.templateId ?? `tongtian_tower_layer_${layer}`,
+    instance_type: 'public',
+    persistent_policy: 'persistent',
+    owner_player_id: null,
+    owner_sect_id: null,
+    party_id: null,
+    line_id: null,
+    status: input.status ?? 'destroyed',
+    runtime_status: input.runtimeStatus ?? 'stopped',
+    assigned_node_id: input.assignedNodeId ?? null,
+    lease_token: input.leaseToken ?? null,
+    lease_expire_at: input.leaseExpireAt ?? null,
+    ownership_epoch: input.ownershipEpoch ?? 1,
+    metadata_version: input.metadataVersion ?? 1,
+    shard_key: instanceId,
+    route_domain: 'system',
+    destroy_at: new Date(Date.now() - 60_000).toISOString(),
+  };
 }
 
 async function verifyExpiredDestroyAtRevival(

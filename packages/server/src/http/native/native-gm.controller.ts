@@ -33,6 +33,7 @@ import { NativeManagedAccountService } from './native-managed-account.service';
 import { AiArtsStrengthV1ToV2Conversion } from '../../gm/compat-conversions/conversions/technique/ai-arts-strength-v1-to-v2';
 import { DeleteEmptyCustomTechniqueBooksConversion } from '../../gm/compat-conversions/conversions/technique/delete-empty-custom-technique-books';
 import { OrphanSectBuildingVisualsConversion } from '../../gm/compat-conversions/conversions/building/orphan-sect-building-visuals';
+import { TongtianTowerCatalogInstanceTypeConversion } from '../../gm/compat-conversions/conversions/world/tongtian-tower-catalog-instance-type';
 /**
  * UpdatePlayerPasswordBody：定义接口结构约束，明确可交付字段含义。
  */
@@ -275,6 +276,7 @@ export class NativeGmController {
     @Inject(AiArtsStrengthV1ToV2Conversion) private readonly aiArtsStrengthV1ToV2Conversion: AiArtsStrengthV1ToV2Conversion,
     @Inject(DeleteEmptyCustomTechniqueBooksConversion) private readonly deleteEmptyCustomTechniqueBooksConversion: DeleteEmptyCustomTechniqueBooksConversion,
     @Inject(OrphanSectBuildingVisualsConversion) private readonly orphanSectBuildingVisualsConversion: OrphanSectBuildingVisualsConversion,
+    @Inject(TongtianTowerCatalogInstanceTypeConversion) private readonly tongtianTowerCatalogInstanceTypeConversion: TongtianTowerCatalogInstanceTypeConversion,
     @Optional()
     @Inject(GmAuditLogPersistenceService)
     private readonly gmAuditLogPersistenceService: GmAuditLogPersistenceService | null = null,
@@ -1172,6 +1174,27 @@ export class NativeGmController {
       targetType: 'compat_conversion',
       targetId: 'building_orphan_sect_visuals',
     }, (actor) => this.orphanSectBuildingVisualsConversion.run({
+      mode: 'apply',
+      actor,
+    }));
+  }
+
+  @Post('shortcuts/compat/tongtian-tower-catalog-instance-type/dry-run')
+  async dryRunTongtianTowerCatalogInstanceType(@Req() request: unknown) {
+    return this.tongtianTowerCatalogInstanceTypeConversion.run({
+      mode: 'dry-run',
+      actor: extractGmActor(request),
+    });
+  }
+
+  @Post('shortcuts/compat/tongtian-tower-catalog-instance-type/apply')
+  async applyTongtianTowerCatalogInstanceType(@Req() request: unknown) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.shortcuts.compat.tongtian_tower_catalog_instance_type.apply',
+      request,
+      targetType: 'compat_conversion',
+      targetId: 'tongtian_tower_catalog_instance_type',
+    }, (actor) => this.tongtianTowerCatalogInstanceTypeConversion.run({
       mode: 'apply',
       actor,
     }));
