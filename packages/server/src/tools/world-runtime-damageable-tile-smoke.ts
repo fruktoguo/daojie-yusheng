@@ -668,15 +668,26 @@ function testRuntimeTileDropsEnterInventoryAndStructuredNotice() {
 
   spawnTileDrops({
     playerId: 'player:tile-drop',
-    tileDrops: [{ itemId: 'stone_chip', count: 2, reason: 'damage' }],
+    tileDrops: [
+      { itemId: 'stone_chip', count: 2, reason: 'damage' },
+      { itemId: 'spirit_stone', count: 3, reason: 'damage' },
+    ],
     deps: {
       contentTemplateRepository: {
         createItem(itemId: string, count: number) {
+          if (itemId === 'spirit_stone') {
+            return { itemId, count, name: '灵石' };
+          }
           return { itemId, count, name: '碎石' };
         },
       },
       playerRuntimeService: {
-        receiveInventoryItem(playerId: string, item: unknown) {
+        getPlayer(playerId: string) {
+          assert.equal(playerId, 'player:tile-drop');
+          return null;
+        },
+        receiveInventoryItem(playerId: string, item: { itemId: string; count: number; name?: string }) {
+          assert.equal(playerId, 'player:tile-drop');
           log.push(['receiveInventoryItem', playerId, item]);
         },
       },
@@ -687,17 +698,34 @@ function testRuntimeTileDropsEnterInventoryAndStructuredNotice() {
   });
 
   assert.deepEqual(log[0], ['receiveInventoryItem', 'player:tile-drop', { itemId: 'stone_chip', count: 2, name: '碎石' }]);
-  assert.deepEqual(log[1], [
+  assert.deepEqual(log[1], ['receiveInventoryItem', 'player:tile-drop', { itemId: 'spirit_stone', count: 3, name: '灵石' }]);
+  assert.deepEqual(log[2], [
     'queuePlayerNotice',
     'player:tile-drop',
-    '获得 碎石 x2',
+    '获得 碎石 x2、灵石 x3',
     'loot',
     {
       key: 'notice.loot.tile-drop-inventory',
-      vars: { itemLabel: '碎石 x2' },
+      vars: { itemLabel: '碎石 x2、灵石 x3' },
       pills: [{ key: 'itemLabel', style: 'target' }],
     },
   ]);
+}
+
+function testRuntimeTileDropsRequireInventoryReceiver() {
+  assert.throws(() => spawnTileDrops({
+    playerId: 'player:tile-drop-missing-receiver',
+    tileDrops: [{ itemId: 'stone_chip', count: 1, reason: 'damage' }],
+    deps: {
+      contentTemplateRepository: {
+        createItem(itemId: string, count: number) {
+          return { itemId, count, name: '碎石' };
+        },
+      },
+      playerRuntimeService: {
+      },
+    },
+  }), /tile_drop_receive_inventory_item_missing/);
 }
 
 function testBasicAttackTileDropsEnterInventory() {
@@ -990,6 +1018,7 @@ async function main() {
   testPlainTickDoesNotDirtyPersistence();
   testRuntimeTileDamageAndDestroyDropsAreSeparated();
   testRuntimeTileDropsEnterInventoryAndStructuredNotice();
+  testRuntimeTileDropsRequireInventoryReceiver();
   testBasicAttackTileDropsEnterInventory();
   testMiningExpAppliesToAnyOreTileDamage();
   testMiningDamageMultiplierAppliesToAnyDamageableTile();

@@ -5,12 +5,15 @@ installSmokeTimeout(__filename);
 import { Pool } from 'pg';
 
 import { resolveServerDatabaseUrl } from '../config/env-alias';
+import { ContentTemplateRepository } from '../content/content-template.repository';
 import { DatabasePoolProvider } from '../persistence/database-pool.provider';
 import { PlayerDomainPersistenceService, PLAYER_DOMAIN_PROJECTED_TABLES } from '../persistence/player-domain-persistence.service';
 import type { PersistedPlayerSnapshot } from '../persistence/player-persistence.service';
 import { PlayerPersistenceService } from '../persistence/player-persistence.service';
 import { WorldPlayerSnapshotService } from '../network/world-player-snapshot.service';
+import { MapInstanceRuntime } from '../runtime/instance/map-instance.runtime';
 import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
+import { spawnTileDrops } from '../runtime/world/combat/tile-drop.helpers';
 
 const databaseUrl = resolveServerDatabaseUrl();
 
@@ -44,6 +47,7 @@ async function main(): Promise<void> {
   const playerId = `pdr_${now.toString(36)}`;
   const presenceOnlyPlayerId = `${playerId}_presence`;
   const emptyCollectionPlayerId = `${playerId}_empty_collections`;
+  const miningDropPlayerId = `${playerId}_mining_drop`;
   const pool = new Pool({ connectionString: databaseUrl });
   const databasePoolProvider = new DatabasePoolProvider();
   const snapshotPersistence = new PlayerPersistenceService(databasePoolProvider);
@@ -59,6 +63,7 @@ async function main(): Promise<void> {
     await cleanupPlayer(pool, playerId);
     await cleanupPlayer(pool, presenceOnlyPlayerId);
     await cleanupPlayer(pool, emptyCollectionPlayerId);
+    await cleanupPlayer(pool, miningDropPlayerId);
 
     const originalSnapshot = buildSnapshot(now, playerId);
     await snapshotPersistence.savePlayerSnapshot(playerId, originalSnapshot, {
@@ -308,6 +313,13 @@ async function main(): Promise<void> {
     );
     assertProjectedEmptyCollections(emptyCollectionRecovered);
 
+    const miningDropProof = await proveMiningSpiritStoneDropRecovery({
+      pool,
+      domainPersistence,
+      playerId: miningDropPlayerId,
+      savedAt: now,
+    });
+
     const enhancementRecoveryPlayerId = `${playerId}_enh`;
     await cleanupPlayer(pool, enhancementRecoveryPlayerId);
     const enhancementSnapshot = buildEnhancementActiveJobRecoverySnapshot(now + 2);
@@ -325,6 +337,13 @@ async function main(): Promise<void> {
       throw new Error(`expected enhancement projected recovery to succeed, got ${JSON.stringify(enhancementRecovered)}`);
     }
     assertEnhancementActiveJobLockedQueueRecovered(enhancementRecovered.snapshot);
+    const enhancementRuntimeService = createPlayerRuntimeService();
+    const enhancementRuntimePlayer = enhancementRuntimeService.hydrateFromSnapshot(
+      enhancementRecoveryPlayerId,
+      'session:enhancement-name-recovery',
+      enhancementRecovered.snapshot,
+    );
+    assertEnhancementDisplayNamesRepaired(enhancementRuntimePlayer);
 
     const missingLockedPlayerId = `${playerId}_enh_missing`;
     await cleanupPlayer(pool, missingLockedPlayerId);
@@ -386,9 +405,11 @@ async function main(): Promise<void> {
           ok: true,
           playerId,
           emptyCollectionPlayerId,
+          miningDropPlayerId,
           enhancementRecoveryPlayerId,
           missingLockedPlayerId,
-          answers: 'with-db 下 snapshot miss 已能从 player-domain 当前已落地的 anchor/checkpoint/vitals/progression core/attr/body training/inventory/map unlock/equipment/artifact/technique/persistent buff/quest/combat config/profession/preset/job/technique queue/enhancement record/logbook 子域回读重建；watermark 已提交且集合行为零行时会按权威空集合覆盖 starter，不再复活背包、锁定物、装备、神器、功法、任务、自动技能、自动用药、炼丹预设和日志；任务夹具按当前数值 progress 与 active 状态验证；强化 active job、lockedItems 与统一技艺队列可一起恢复；active job 存在但锁定物缺失时水合期会停止 job 并标记 active_job/enhancement_record/inventory 脏域',
+          miningDropProof,
+          answers: 'with-db 下 snapshot miss 已能从 player-domain 当前已落地的 anchor/checkpoint/vitals/progression core/attr/body training/inventory/map unlock/equipment/artifact/technique/persistent buff/quest/combat config/profession/preset/job/technique queue/enhancement record/logbook 子域回读重建；watermark 已提交且集合行为零行时会按权威空集合覆盖 starter，不再复活背包、锁定物、装备、神器、功法、任务、自动技能、自动用药、炼丹预设和日志；灵石矿真实掉落已记录背包前后数量与 savedAt，并证明仅持久化背包后重启水合会从背包真源重建钱包；任务夹具按当前数值 progress 与 active 状态验证；强化 active job、lockedItems 与统一技艺队列可一起恢复，旧 detail_jsonb 中的未知物品会从锁定物或模板修复并标记 active_job/enhancement_record 脏域；active job 存在但锁定物缺失时水合期会停止 job 并标记 active_job/enhancement_record/inventory 脏域',
           excludes: '不证明未投影子域已迁出旧快照，也不证明玩家全域已经不再依赖 server_player_snapshot',
           completionMapping: 'release:proof:with-db.player-domain-recovery',
           source: recovered.source,
@@ -404,6 +425,7 @@ async function main(): Promise<void> {
     await cleanupPlayer(pool, playerId).catch(() => undefined);
     await cleanupPlayer(pool, presenceOnlyPlayerId).catch(() => undefined);
     await cleanupPlayer(pool, emptyCollectionPlayerId).catch(() => undefined);
+    await cleanupPlayer(pool, miningDropPlayerId).catch(() => undefined);
     await cleanupPlayer(pool, `${playerId}_enh`).catch(() => undefined);
     await cleanupPlayer(pool, `${playerId}_enh_missing`).catch(() => undefined);
     await pool.end().catch(() => undefined);
@@ -411,6 +433,207 @@ async function main(): Promise<void> {
     await domainPersistence.onModuleDestroy().catch(() => undefined);
     await databasePoolProvider.onModuleDestroy().catch(() => undefined);
   }
+}
+
+async function proveMiningSpiritStoneDropRecovery(input: {
+  pool: Pool;
+  domainPersistence: PlayerDomainPersistenceService;
+  playerId: string;
+  savedAt: number;
+}): Promise<Record<string, number>> {
+  const initialSnapshot = buildStarterSnapshot(input.playerId);
+  initialSnapshot.savedAt = input.savedAt;
+  initialSnapshot.inventory.items = [{ itemId: 'spirit_stone', count: 7 }];
+  initialSnapshot.wallet = {
+    balances: [{ walletType: 'spirit_stone', balance: 7, frozenBalance: 0, version: 1 }],
+  };
+  await input.domainPersistence.savePlayerSnapshotProjection(input.playerId, initialSnapshot);
+
+  const contentTemplateRepository = new ContentTemplateRepository();
+  contentTemplateRepository.loadAll();
+  const runtimeService = createPlayerRuntimeService(contentTemplateRepository);
+  const runtimePlayer = runtimeService.hydrateFromSnapshot(
+    input.playerId,
+    'session:mining-drop-before',
+    initialSnapshot,
+  );
+  runtimeService.players.set(input.playerId, runtimePlayer);
+
+  const inventoryBefore = readSpiritStoneInventoryCount(runtimePlayer);
+  const walletBefore = runtimeService.getWalletBalanceByType(input.playerId, 'spirit_stone');
+  const instance = createSpiritOreDropInstance();
+  const originalRandom = Math.random;
+  let tileDrops: Array<{ itemId?: string; count?: number }> = [];
+  try {
+    Math.random = () => 0;
+    const damageResult = instance.damageTile(1, 0, Number.MAX_SAFE_INTEGER);
+    tileDrops = Array.isArray(damageResult?.tileDrops) ? damageResult.tileDrops : [];
+  } finally {
+    Math.random = originalRandom;
+  }
+  const droppedCount = tileDrops.reduce(
+    (total, entry) => total + (entry?.itemId === 'spirit_stone' ? Math.max(0, Math.trunc(Number(entry.count) || 0)) : 0),
+    0,
+  );
+  if (droppedCount <= 0) {
+    throw new Error(`expected real spirit ore drops: ${JSON.stringify(tileDrops)}`);
+  }
+
+  spawnTileDrops({
+    playerId: input.playerId,
+    tileDrops,
+    deps: {
+      contentTemplateRepository,
+      playerRuntimeService: runtimeService,
+    },
+  });
+
+  const inventoryAfter = readSpiritStoneInventoryCount(runtimePlayer);
+  const walletAfter = runtimeService.getWalletBalanceByType(input.playerId, 'spirit_stone');
+  const projectedWalletAfter = readSpiritStoneWalletProjection(runtimePlayer);
+  if (
+    inventoryBefore !== 7
+    || walletBefore !== 7
+    || inventoryAfter !== inventoryBefore + droppedCount
+    || walletAfter !== inventoryAfter
+    || projectedWalletAfter !== inventoryAfter
+    || !runtimePlayer.dirtyDomains?.has('inventory')
+  ) {
+    throw new Error(`unexpected mining drop runtime projection: ${JSON.stringify({
+      inventoryBefore,
+      walletBefore,
+      droppedCount,
+      inventoryAfter,
+      walletAfter,
+      projectedWalletAfter,
+      dirtyDomains: Array.from(runtimePlayer.dirtyDomains ?? []),
+    })}`);
+  }
+
+  const persistedSnapshot = runtimeService.buildPersistenceSnapshot(
+    input.playerId,
+    ['inventory'],
+  ) as PersistedPlayerSnapshot | null;
+  if (!persistedSnapshot || persistedSnapshot.savedAt <= initialSnapshot.savedAt) {
+    throw new Error(`expected mining persistence time to advance: ${JSON.stringify({
+      before: initialSnapshot.savedAt,
+      after: persistedSnapshot?.savedAt,
+    })}`);
+  }
+  await input.domainPersistence.savePlayerSnapshotProjectionDomains(
+    input.playerId,
+    persistedSnapshot,
+    ['inventory'],
+  );
+
+  const inventoryRow = await input.pool.query<{ count?: string | number }>(
+    "SELECT COALESCE(SUM(count), 0) AS count FROM player_inventory_item WHERE player_id = $1 AND item_id = 'spirit_stone'",
+    [input.playerId],
+  );
+  const walletRow = await input.pool.query<{ balance?: string | number }>(
+    "SELECT balance FROM player_wallet WHERE player_id = $1 AND wallet_type = 'spirit_stone'",
+    [input.playerId],
+  );
+  const persistedInventoryCount = Number(inventoryRow.rows[0]?.count ?? 0);
+  const persistedWalletBeforeHydrate = Number(walletRow.rows[0]?.balance ?? 0);
+  if (persistedInventoryCount !== inventoryAfter || persistedWalletBeforeHydrate !== walletBefore) {
+    throw new Error(`unexpected persisted mining drop state: ${JSON.stringify({
+      persistedInventoryCount,
+      persistedWalletBeforeHydrate,
+      inventoryAfter,
+      walletBefore,
+    })}`);
+  }
+
+  const restartSnapshot = await input.domainPersistence.loadProjectedSnapshot(
+    input.playerId,
+    buildStarterSnapshot,
+  );
+  if (!restartSnapshot) {
+    throw new Error('expected mining drop projected snapshot after restart');
+  }
+  const restartContentTemplateRepository = new ContentTemplateRepository();
+  restartContentTemplateRepository.loadAll();
+  const restartRuntime = createPlayerRuntimeService(restartContentTemplateRepository);
+  const restartPlayer = restartRuntime.hydrateFromSnapshot(
+    input.playerId,
+    'session:mining-drop-after-restart',
+    restartSnapshot,
+  );
+  const restartInventoryCount = readSpiritStoneInventoryCount(restartPlayer);
+  const restartWalletCount = readSpiritStoneWalletProjection(restartPlayer);
+  if (restartInventoryCount !== inventoryAfter || restartWalletCount !== inventoryAfter) {
+    throw new Error(`unexpected mining drop restart hydration: ${JSON.stringify({
+      restartInventoryCount,
+      restartWalletCount,
+      inventoryAfter,
+    })}`);
+  }
+
+  return {
+    inventoryBefore,
+    walletBefore,
+    droppedCount,
+    inventoryAfter,
+    walletAfter,
+    playerSavedAtBefore: initialSnapshot.savedAt,
+    playerSavedAtAfter: persistedSnapshot.savedAt,
+    persistedWalletBeforeHydrate,
+    restartInventoryCount,
+    restartWalletCount,
+  };
+}
+
+function readSpiritStoneInventoryCount(player: ReturnType<PlayerRuntimeService['hydrateFromSnapshot']>): number {
+  return (Array.isArray(player.inventory?.items) ? player.inventory.items : []).reduce(
+    (total, entry) => total + (entry?.itemId === 'spirit_stone' ? Math.max(0, Math.trunc(Number(entry.count) || 0)) : 0),
+    0,
+  );
+}
+
+function readSpiritStoneWalletProjection(player: ReturnType<PlayerRuntimeService['hydrateFromSnapshot']>): number {
+  const entry = (Array.isArray(player.wallet?.balances) ? player.wallet.balances : [])
+    .find((candidate) => candidate?.walletType === 'spirit_stone');
+  return Math.max(0, Math.trunc(Number(entry?.balance) || 0));
+}
+
+function createSpiritOreDropInstance(): MapInstanceRuntime {
+  const cellCount = 9;
+  return new MapInstanceRuntime({
+    instanceId: 'instance:mining-spirit-stone-recovery',
+    template: {
+      id: 'mining_spirit_stone_recovery',
+      name: '灵石矿掉落恢复 Smoke',
+      width: 3,
+      height: 3,
+      terrainRows: ['.灵.', '...', '...'],
+      walkableMask: Uint8Array.from([1, 0, 1, 1, 1, 1, 1, 1, 1]),
+      blocksSightMask: Uint8Array.from([0, 1, 0, 0, 0, 0, 0, 0, 0]),
+      portalIndexByTile: Int32Array.from({ length: cellCount }, () => -1),
+      safeZoneMask: Uint8Array.from({ length: cellCount }, () => 0),
+      baseAuraByTile: Int32Array.from({ length: cellCount }, () => 0),
+      baseTileResourceEntries: [],
+      npcs: [],
+      landmarks: [],
+      containers: [],
+      safeZones: [],
+      portals: [],
+      spawnX: 0,
+      spawnY: 0,
+      source: { mapLv: 1 },
+    },
+    monsterSpawns: [],
+    kind: 'public',
+    persistent: false,
+    createdAt: Date.now(),
+    displayName: '灵石矿掉落恢复 Smoke',
+    linePreset: 'peaceful',
+    lineIndex: 1,
+    instanceOrigin: 'smoke',
+    defaultEntry: true,
+    supportsPvp: false,
+    canDamageTile: true,
+  });
 }
 
 function buildStarterSnapshot(playerId: string): ProjectedRecoverySnapshot {
@@ -1289,7 +1512,7 @@ function buildEnhancementActiveJobRecoverySnapshot(now: number): ProjectedRecove
     totalSpeedRate: 1.1,
     itemInstanceId: 'locked-sword-recovery',
     targetItemId: 'iron_sword',
-    targetItemName: '铁剑',
+    targetItemName: '未知物品',
     targetItemLevel: 1,
     currentLevel: 2,
     targetLevel: 3,
@@ -1334,6 +1557,20 @@ function buildEnhancementActiveJobRecoverySnapshot(now: number): ProjectedRecove
       },
     ],
   } as ProjectedRecoverySnapshot['inventory'];
+  snapshot.progression.enhancementRecords = [
+    {
+      recordId: `enhancement_record:recovery:${now}:iron_sword`,
+      itemId: 'iron_sword',
+      itemName: '未知物品',
+      highestLevel: 2,
+      levels: [{ targetLevel: 2, successCount: 1, failureCount: 0 }],
+      actionStartedAt: now - 10,
+      startLevel: 1,
+      initialTargetLevel: 2,
+      desiredTargetLevel: 4,
+      status: 'in_progress',
+    },
+  ];
   return snapshot;
 }
 
@@ -1363,6 +1600,21 @@ function assertEnhancementActiveJobLockedQueueRecovered(snapshot: PersistedPlaye
     || cancelRef?.queueId !== 'queue:enhancement-followup:recovery'
   ) {
     throw new Error(`unexpected recovered enhancement queue: ${JSON.stringify(queue)}`);
+  }
+}
+
+function assertEnhancementDisplayNamesRepaired(player: ReturnType<PlayerRuntimeService['hydrateFromSnapshot']>): void {
+  const record = Array.isArray(player.enhancementRecords)
+    ? player.enhancementRecords.find((entry) => entry?.itemId === 'iron_sword')
+    : null;
+  if (player.enhancementJob?.targetItemName !== '铁剑' || record?.itemName !== '铁剑') {
+    throw new Error(`enhancement display names should be repaired during hydrate: ${JSON.stringify({
+      job: player.enhancementJob,
+      records: player.enhancementRecords,
+    })}`);
+  }
+  if (!player.dirtyDomains?.has('active_job') || !player.dirtyDomains?.has('enhancement_record')) {
+    throw new Error(`enhancement display name repair should mark persistence domains dirty: ${JSON.stringify(Array.from(player.dirtyDomains ?? []))}`);
   }
 }
 
@@ -1412,9 +1664,9 @@ function assertOrphanLockedEnhancementItemRestored(player: ReturnType<PlayerRunt
   }
 }
 
-function createPlayerRuntimeService(): PlayerRuntimeService {
+function createPlayerRuntimeService(contentTemplateRepository?: ContentTemplateRepository): PlayerRuntimeService {
   return new PlayerRuntimeService(
-    {
+    contentTemplateRepository ?? {
       createStarterInventory() {
         return {
           capacity: 24,
@@ -1429,6 +1681,9 @@ function createPlayerRuntimeService(): PlayerRuntimeService {
       },
       hydrateTechniqueState(entry: unknown) {
         return entry;
+      },
+      getItemName(itemId: string) {
+        return itemId === 'iron_sword' ? '铁剑' : null;
       },
     } as never,
     {
