@@ -2670,7 +2670,6 @@ export const CLIENT_I18N_MESSAGES = {
   "notice.shop.purchased": "购买 {itemLabel}，花费 {currency} x{cost}",
   "notice.system.cooldown": "行动调息中，剩余 {cooldownLeft} 息",
   "notice.time-chamber.exit-missing": "密室出口暂时不可用。",
-  "notice.time-chamber.fuel-empty-fallback": "密室灵石耗尽，时间流速已自动回落为一倍。",
   "notice.time-chamber.full": "密室当前已有修士，请稍后再试。",
   "notice.time-chamber.not-inside": "当前不在密室中。",
   "notice.time-chamber.source-changed": "密室入口已经发生变化，请重新操作。",

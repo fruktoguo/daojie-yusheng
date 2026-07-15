@@ -1,24 +1,33 @@
-/**
- * 密室独立控制台。这里只渲染服务端投影并发送管理意图，不在客户端裁定燃料、容量或调速结果。
- */
-import type { TimeChamberDetailView, TimeChamberOperationKind, TimeChamberSizeTier } from '@mud/shared';
+/** 密室管理面板：只渲染服务端投影并发送经营配置意图。 */
+import type {
+  TimeChamberManagementDetailView,
+  TimeChamberOperationKind,
+  TimeChamberSizeTier,
+} from '@mud/shared';
 
 import { formatDisplayNumber } from '../utils/number';
 import { detailModalHost } from './detail-modal-host';
 
-const MODAL_OWNER = 'time-chamber-console';
+const MODAL_OWNER = 'time-chamber-management';
 const MODAL_VARIANT = 'detail-modal--time-chamber';
+
+type TimeChamberSettingsDraft = {
+  name: string;
+  hourlyFee: number;
+  speed: number;
+  capacity: number;
+};
 
 type TimeChamberConsoleCallbacks = {
   onClose(): void;
+  onSaveSettings(settings: TimeChamberSettingsDraft): void;
   onDeposit(spiritStoneCount: number): void;
-  onSetSpeed(speed: number): void;
-  onRename(name: string): void;
+  onClaimRevenue(spiritStoneCount: number): void;
   onResize(sizeTier: TimeChamberSizeTier): void;
 };
 
 export class TimeChamberConsoleModal {
-  private detail: TimeChamberDetailView | null = null;
+  private detail: TimeChamberManagementDetailView | null = null;
   private callbacks: TimeChamberConsoleCallbacks | null = null;
   private readonly pendingOperations = new Set<TimeChamberOperationKind>();
 
@@ -32,29 +41,27 @@ export class TimeChamberConsoleModal {
     detailModalHost.open({
       ownerId: MODAL_OWNER,
       variantClass: MODAL_VARIANT,
-      title: '密室控制台',
+      title: '管理密室',
       size: 'md',
       subtitle: '正在读取密室状态…',
-      hint: '管理操作均由服务端校验并持久化。',
       onClose: () => this.callbacks?.onClose(),
       renderBody: (body) => {
         const loading = document.createElement('div');
         loading.className = 'time-chamber-loading';
-        loading.textContent = '正在连接独立空间…';
+        loading.textContent = '正在读取经营信息…';
         body.replaceChildren(loading);
       },
     });
   }
 
-  showDetail(detail: TimeChamberDetailView): void {
+  showDetail(detail: TimeChamberManagementDetailView): void {
     this.detail = detail;
-    const subtitle = buildSubtitle(detail);
+    const subtitle = `${detail.configuredSpeed} 倍 · ${detail.activeUsageCount}/${detail.capacity} 人`;
     if (!detailModalHost.isOpenFor(MODAL_OWNER)) {
       detailModalHost.open(this.buildModalOptions(detail, subtitle));
       return;
     }
-    const body = document.getElementById('detail-modal-body');
-    const shell = body?.querySelector<HTMLElement>('[data-time-chamber-shell]') ?? null;
+    const shell = document.querySelector<HTMLElement>('#detail-modal-body [data-time-chamber-management-shell]');
     if (!shell) {
       detailModalHost.patch(this.buildModalOptions(detail, subtitle));
       return;
@@ -65,15 +72,10 @@ export class TimeChamberConsoleModal {
   }
 
   setPending(operation: TimeChamberOperationKind, pending: boolean): void {
-    if (pending) {
-      this.pendingOperations.add(operation);
-    } else {
-      this.pendingOperations.delete(operation);
-    }
-    const shell = document.querySelector<HTMLElement>('#detail-modal-body [data-time-chamber-shell]');
-    if (shell && detailModalHost.isOpenFor(MODAL_OWNER)) {
-      this.syncPendingButtons(shell);
-    }
+    if (pending) this.pendingOperations.add(operation);
+    else this.pendingOperations.delete(operation);
+    const shell = document.querySelector<HTMLElement>('#detail-modal-body [data-time-chamber-management-shell]');
+    if (shell && detailModalHost.isOpenFor(MODAL_OWNER)) this.syncPendingButtons(shell);
   }
 
   clear(): void {
@@ -86,128 +88,156 @@ export class TimeChamberConsoleModal {
     return detailModalHost.isOpenFor(MODAL_OWNER);
   }
 
-  private buildModalOptions(detail: TimeChamberDetailView, subtitle: string) {
+  private buildModalOptions(detail: TimeChamberManagementDetailView, subtitle: string) {
     return {
       ownerId: MODAL_OWNER,
       variantClass: MODAL_VARIANT,
       title: detail.displayName,
       size: 'md' as const,
       subtitle,
-      hint: '高倍流速只推进本密室；灵石耗尽时自动回落为一倍。',
       onClose: () => this.callbacks?.onClose(),
-      renderBody: (body: HTMLElement) => {
-        body.replaceChildren(buildConsoleShell(detail));
-      },
+      renderBody: (body: HTMLElement) => body.replaceChildren(buildConsoleShell(detail)),
       onAfterRender: (body: HTMLElement, signal: AbortSignal) => {
-        const shell = body.querySelector<HTMLElement>('[data-time-chamber-shell]');
+        const shell = body.querySelector<HTMLElement>('[data-time-chamber-management-shell]');
         if (!shell) return;
-        this.bindActions(shell, signal);
+        shell.addEventListener('submit', (event) => this.handleSubmit(event), { signal });
         this.syncPendingButtons(shell);
       },
     };
   }
 
-  private bindActions(shell: HTMLElement, signal: AbortSignal): void {
-    shell.addEventListener('submit', (event) => {
-      event.preventDefault();
-      const form = event.target;
-      if (!(form instanceof HTMLFormElement) || !this.callbacks || !this.detail) return;
-      const operation = form.dataset.timeChamberForm;
-      if (operation === 'deposit') {
-        const count = Math.trunc(Number(form.elements.namedItem('spiritStoneCount') instanceof HTMLInputElement
-          ? (form.elements.namedItem('spiritStoneCount') as HTMLInputElement).value
-          : 0));
-        if (count > 0) this.callbacks.onDeposit(count);
-        return;
+  private handleSubmit(event: SubmitEvent): void {
+    event.preventDefault();
+    const form = event.target;
+    if (!(form instanceof HTMLFormElement) || !this.callbacks || !this.detail) return;
+    const operation = form.dataset.timeChamberForm;
+    if (operation === 'settings') {
+      const name = form.elements.namedItem('name');
+      const hourlyFee = form.elements.namedItem('hourlyFee');
+      const speed = form.elements.namedItem('speed');
+      const capacity = form.elements.namedItem('capacity');
+      if (
+        name instanceof HTMLInputElement
+        && hourlyFee instanceof HTMLInputElement
+        && speed instanceof HTMLSelectElement
+        && capacity instanceof HTMLInputElement
+      ) {
+        this.callbacks.onSaveSettings({
+          name: name.value.trim(),
+          hourlyFee: Math.trunc(Number(hourlyFee.value)),
+          speed: Math.trunc(Number(speed.value)),
+          capacity: Math.trunc(Number(capacity.value)),
+        });
       }
-      if (operation === 'speed') {
-        const field = form.elements.namedItem('speed');
-        if (field instanceof HTMLSelectElement) this.callbacks.onSetSpeed(Math.trunc(Number(field.value)));
-        return;
-      }
-      if (operation === 'rename') {
-        const field = form.elements.namedItem('name');
-        if (field instanceof HTMLInputElement) this.callbacks.onRename(field.value.trim());
-        return;
-      }
-      if (operation === 'resize') {
-        const field = form.elements.namedItem('sizeTier');
-        if (field instanceof HTMLSelectElement && isSizeTier(field.value)) this.callbacks.onResize(field.value);
-      }
-    }, { signal });
+      return;
+    }
+    const countField = form.elements.namedItem('spiritStoneCount');
+    if (operation === 'deposit' && countField instanceof HTMLInputElement) {
+      this.callbacks.onDeposit(Math.trunc(Number(countField.value)));
+      return;
+    }
+    if (operation === 'claim_revenue' && countField instanceof HTMLInputElement) {
+      this.callbacks.onClaimRevenue(Math.trunc(Number(countField.value)));
+      return;
+    }
+    const sizeField = form.elements.namedItem('sizeTier');
+    if (operation === 'resize' && sizeField instanceof HTMLSelectElement && isSizeTier(sizeField.value)) {
+      this.callbacks.onResize(sizeField.value);
+    }
   }
 
   private syncPendingButtons(shell: HTMLElement): void {
-    const mutationPending = Array.from(this.pendingOperations).some((operation) => operation !== 'detail');
+    const mutationPending = this.pendingOperations.size > 0;
     for (const button of shell.querySelectorAll<HTMLButtonElement>('[data-time-chamber-operation]')) {
       const operation = button.dataset.timeChamberOperation as TimeChamberOperationKind | undefined;
       const pending = Boolean(operation && this.pendingOperations.has(operation));
-      const occupiedResize = operation === 'resize' && (this.detail?.occupancy ?? 0) > 0;
-      button.disabled = mutationPending || occupiedResize || this.detail?.isOwner !== true;
+      const blockedByActiveUsage = operation === 'resize' && (this.detail?.settingsLocked === true || (this.detail?.occupancy ?? 0) > 0);
+      const noRevenue = operation === 'claim_revenue' && (this.detail?.revenueSpiritStones ?? 0) <= 0;
+      button.disabled = mutationPending || blockedByActiveUsage || noRevenue || this.detail?.isOwner !== true;
       button.textContent = pending ? '处理中…' : button.dataset.idleLabel ?? '确认';
     }
   }
 }
 
-function buildConsoleShell(detail: TimeChamberDetailView): HTMLElement {
+function buildConsoleShell(detail: TimeChamberManagementDetailView): HTMLElement {
   const shell = document.createElement('div');
-  shell.className = 'time-chamber-console';
-  shell.dataset.timeChamberShell = 'true';
+  shell.className = 'time-chamber-console time-chamber-management';
+  shell.dataset.timeChamberManagementShell = 'true';
 
   const metrics = document.createElement('section');
-  metrics.className = 'time-chamber-metrics';
+  metrics.className = 'time-chamber-metrics time-chamber-metrics--management';
   metrics.append(
     buildMetric('当前流速', 'speed'),
-    buildMetric('灵石储备', 'fuel'),
-    buildMetric('预计可用', 'remaining'),
-    buildMetric('空间状态', 'space'),
+    buildMetric('使用人数', 'users'),
+    buildMetric('燃料储备', 'fuel'),
+    buildMetric('运行成本', 'cost'),
+    buildMetric('待提收益', 'revenue'),
+    buildMetric('激活截止', 'active-until'),
   );
 
   const controls = document.createElement('div');
   controls.className = 'time-chamber-control-grid';
   controls.append(
-    buildDepositForm(),
-    buildSpeedForm(detail),
-    buildRenameForm(detail),
-    buildResizeForm(detail),
+    buildSettingsSection(detail),
+    buildDepositSection(),
+    buildRevenueSection(detail),
+    buildResizeSection(detail),
   );
-
-  const note = document.createElement('p');
-  note.className = 'time-chamber-note';
-  note.textContent = `所有玩家均可从外部入口申请进入；当前准入容量为 ${detail.capacity} 人，位置仍遵循不可重叠规则。`;
-  note.dataset.timeChamberField = 'note';
-
-  shell.append(metrics, controls, note);
+  shell.append(metrics, controls);
   patchDetailFields(shell, detail);
   return shell;
 }
 
-function buildMetric(labelText: string, field: string): HTMLElement {
-  const card = document.createElement('article');
-  card.className = 'time-chamber-metric';
-  const label = document.createElement('span');
-  label.className = 'time-chamber-metric-label';
-  label.textContent = labelText;
-  const value = document.createElement('strong');
-  value.className = 'time-chamber-metric-value';
-  value.dataset.timeChamberField = field;
-  card.append(label, value);
-  return card;
+function buildSettingsSection(detail: TimeChamberManagementDetailView): HTMLElement {
+  const form = document.createElement('form');
+  form.className = 'time-chamber-settings-form';
+  form.dataset.timeChamberForm = 'settings';
+  form.append(
+    buildLabeledInput('名称', 'name', 'text', detail.displayName, { max: 20 }),
+    buildLabeledInput('每小时收费', 'hourlyFee', 'number', String(detail.hourlyFee), { min: 0, max: 10_000_000 }),
+    buildSpeedField(detail),
+    buildLabeledInput('最大人数', 'capacity', 'number', String(detail.capacity), { min: 1, max: detail.maxCapacity }),
+  );
+  const lock = document.createElement('p');
+  lock.className = 'time-chamber-setting-lock';
+  lock.dataset.timeChamberField = 'settings-lock';
+  const button = buildSubmitButton('settings', '保存配置');
+  form.append(lock, button);
+  return buildControlSection('经营配置', form, true);
 }
 
-function buildControlSection(titleText: string, description: string, form: HTMLFormElement): HTMLElement {
-  const section = document.createElement('section');
-  section.className = 'time-chamber-control';
-  const title = document.createElement('h3');
-  title.textContent = titleText;
-  const desc = document.createElement('p');
-  desc.textContent = description;
-  section.append(title, desc, form);
-  return section;
+function buildDepositSection(): HTMLElement {
+  const form = buildCountForm('deposit', '投入燃料');
+  return buildControlSection('补充燃料', form);
 }
 
-function buildDepositForm(): HTMLElement {
-  const form = buildForm('deposit', '投入灵石');
+function buildRevenueSection(detail: TimeChamberManagementDetailView): HTMLElement {
+  const form = buildCountForm('claim_revenue', '提取收益');
+  const input = form.elements.namedItem('spiritStoneCount');
+  if (input instanceof HTMLInputElement) {
+    input.max = String(Math.max(1, detail.revenueSpiritStones));
+    input.value = String(Math.max(1, detail.revenueSpiritStones));
+  }
+  return buildControlSection('经营收益', form);
+}
+
+function buildResizeSection(detail: TimeChamberManagementDetailView): HTMLElement {
+  const form = document.createElement('form');
+  form.className = 'time-chamber-form';
+  form.dataset.timeChamberForm = 'resize';
+  const select = document.createElement('select');
+  select.className = 'ui-input';
+  select.name = 'sizeTier';
+  select.dataset.sizeSignature = buildSizeSignature(detail);
+  appendSizeOptions(select, detail);
+  form.append(select, buildSubmitButton('resize', '调整空间'));
+  return buildControlSection('空间大小', form);
+}
+
+function buildCountForm(operation: 'deposit' | 'claim_revenue', buttonText: string): HTMLFormElement {
+  const form = document.createElement('form');
+  form.className = 'time-chamber-form';
+  form.dataset.timeChamberForm = operation;
   const input = document.createElement('input');
   input.className = 'ui-input';
   input.type = 'number';
@@ -217,12 +247,61 @@ function buildDepositForm(): HTMLElement {
   input.step = '1';
   input.value = '1';
   input.inputMode = 'numeric';
-  form.prepend(input);
-  return buildControlSection('补充燃料', '灵石会持续供给高倍时间流速。', form);
+  form.append(input, buildSubmitButton(operation, buttonText));
+  return form;
 }
 
-function buildSpeedForm(detail: TimeChamberDetailView): HTMLElement {
-  const form = buildForm('speed', '应用流速');
+function buildSubmitButton(operation: TimeChamberOperationKind, label: string): HTMLButtonElement {
+  const button = document.createElement('button');
+  button.type = 'submit';
+  button.className = 'small-btn';
+  button.textContent = label;
+  button.dataset.idleLabel = label;
+  button.dataset.timeChamberOperation = operation;
+  return button;
+}
+
+function buildControlSection(titleText: string, form: HTMLFormElement, wide = false): HTMLElement {
+  const section = document.createElement('section');
+  section.className = `time-chamber-control${wide ? ' time-chamber-control--wide' : ''}`;
+  const title = document.createElement('h3');
+  title.textContent = titleText;
+  section.append(title, form);
+  return section;
+}
+
+function buildLabeledInput(
+  labelText: string,
+  name: string,
+  type: 'text' | 'number',
+  value: string,
+  limits: { min?: number; max?: number },
+): HTMLElement {
+  const label = document.createElement('label');
+  label.className = 'time-chamber-setting-field';
+  const caption = document.createElement('span');
+  caption.textContent = labelText;
+  const input = document.createElement('input');
+  input.className = 'ui-input';
+  input.type = type;
+  input.name = name;
+  input.value = value;
+  input.autocomplete = 'off';
+  if (type === 'number') input.inputMode = 'numeric';
+  if (limits.min !== undefined) input.min = String(limits.min);
+  if (limits.max !== undefined) {
+    if (type === 'text') input.maxLength = limits.max;
+    else input.max = String(limits.max);
+  }
+  label.append(caption, input);
+  return label;
+}
+
+function buildSpeedField(detail: TimeChamberManagementDetailView): HTMLElement {
+  const label = document.createElement('label');
+  label.className = 'time-chamber-setting-field';
+  const caption = document.createElement('span');
+  caption.textContent = '时间倍率';
   const select = document.createElement('select');
   select.className = 'ui-input';
   select.name = 'speed';
@@ -232,68 +311,53 @@ function buildSpeedForm(detail: TimeChamberDetailView): HTMLElement {
     option.textContent = `${speed} 倍`;
     select.append(option);
   }
-  form.prepend(select);
-  return buildControlSection('时间流速', '倍速越高，每现实秒推进的逻辑息数和燃料消耗越高。', form);
+  label.append(caption, select);
+  return label;
 }
 
-function buildRenameForm(detail: TimeChamberDetailView): HTMLElement {
-  const form = buildForm('rename', '保存名称');
-  const input = document.createElement('input');
-  input.className = 'ui-input';
-  input.type = 'text';
-  input.name = 'name';
-  input.maxLength = 20;
-  input.value = detail.displayName;
-  input.autocomplete = 'off';
-  form.prepend(input);
-  return buildControlSection('密室名称', '名称同时用于外部建筑和独立地图。', form);
+function buildMetric(labelText: string, field: string): HTMLElement {
+  const metric = document.createElement('article');
+  metric.className = 'time-chamber-metric';
+  const label = document.createElement('span');
+  label.className = 'time-chamber-metric-label';
+  label.textContent = labelText;
+  const value = document.createElement('strong');
+  value.className = 'time-chamber-metric-value';
+  value.dataset.timeChamberField = field;
+  metric.append(label, value);
+  return metric;
 }
 
-function buildResizeForm(detail: TimeChamberDetailView): HTMLElement {
-  const form = buildForm('resize', '调整空间');
-  const select = document.createElement('select');
-  select.className = 'ui-input';
-  select.name = 'sizeTier';
-  select.dataset.sizeSignature = buildSizeSignature(detail);
-  appendSizeOptions(select, detail);
-  form.prepend(select);
-  return buildControlSection('空间大小', '只能在密室无人且内部没有运行态对象时调整。', form);
-}
-
-function buildForm(operation: Exclude<TimeChamberOperationKind, 'detail'>, buttonText: string): HTMLFormElement {
-  const form = document.createElement('form');
-  form.className = 'time-chamber-form';
-  form.dataset.timeChamberForm = operation;
-  const button = document.createElement('button');
-  button.type = 'submit';
-  button.className = 'small-btn';
-  button.textContent = buttonText;
-  button.dataset.idleLabel = buttonText;
-  button.dataset.timeChamberOperation = operation;
-  form.append(button);
-  return form;
-}
-
-function patchDetailFields(shell: HTMLElement, detail: TimeChamberDetailView): void {
+function patchDetailFields(shell: HTMLElement, detail: TimeChamberManagementDetailView): void {
   setField(shell, 'speed', detail.configuredSpeed === detail.effectiveSpeed
     ? `${detail.effectiveSpeed} 倍`
-    : `设定 ${detail.configuredSpeed} 倍 / 实际 ${detail.effectiveSpeed} 倍`);
-  const spiritStonesPerHour = detail.fuelUnitsPerSpiritStone > 0
-    ? detail.fuelConsumptionUnitsPerSecond * 3600 / detail.fuelUnitsPerSpiritStone
-    : 0;
-  const consumptionText = spiritStonesPerHour > 0
-    ? `约 ${formatDisplayNumber(spiritStonesPerHour, { maximumFractionDigits: 2 })} 枚/小时`
-    : '当前无消耗';
-  setField(shell, 'fuel', `${formatDisplayNumber(detail.fuelSpiritStoneEquivalent, { maximumFractionDigits: 2 })} 枚 · ${consumptionText}`);
-  setField(shell, 'remaining', detail.estimatedRemainingSeconds === null ? '一倍不耗燃料' : formatDuration(detail.estimatedRemainingSeconds));
-  setField(shell, 'space', `${detail.width}×${detail.height} · ${detail.occupancy}/${detail.capacity} 人`);
-  setField(shell, 'note', `所有玩家均可从外部入口申请进入；当前准入容量为 ${detail.capacity} 人，位置仍遵循不可重叠规则。`);
+    : `设定 ${detail.configuredSpeed} 倍 / 当前 ${detail.effectiveSpeed} 倍`);
+  setField(shell, 'users', `${detail.activeUsageCount}/${detail.capacity} 人`);
+  setField(shell, 'fuel', `${formatDisplayNumber(detail.fuelSpiritStoneEquivalent, { maximumFractionDigits: 2 })} 灵石`);
+  setField(shell, 'cost', `${formatDisplayNumber(detail.operatingCostSpiritStonesPerHour)} 灵石/小时`);
+  setField(shell, 'revenue', `${formatDisplayNumber(detail.revenueSpiritStones)} 灵石`);
+  setField(shell, 'active-until', detail.activeUntil ? formatDateTime(detail.activeUntil) : '未激活');
+  setField(shell, 'settings-lock', detail.settingsLocked ? '运行期间倍率与容量保持不变' : '');
 
   const active = document.activeElement;
+  patchInput(shell, 'name', detail.displayName, active);
+  patchInput(shell, 'hourlyFee', String(detail.hourlyFee), active);
+  patchInput(shell, 'capacity', String(detail.capacity), active);
+  const capacity = shell.querySelector<HTMLInputElement>('input[name="capacity"]');
+  if (capacity) {
+    capacity.max = String(detail.maxCapacity);
+    capacity.disabled = detail.settingsLocked;
+  }
   const speed = shell.querySelector<HTMLSelectElement>('select[name="speed"]');
-  if (speed && active !== speed) speed.value = String(detail.configuredSpeed);
-  const name = shell.querySelector<HTMLInputElement>('input[name="name"]');
-  if (name && active !== name) name.value = detail.displayName;
+  if (speed) {
+    if (active !== speed) speed.value = String(detail.configuredSpeed);
+    speed.disabled = detail.settingsLocked;
+  }
+  const claim = shell.querySelector<HTMLInputElement>('form[data-time-chamber-form="claim_revenue"] input[name="spiritStoneCount"]');
+  if (claim && active !== claim) {
+    claim.max = String(Math.max(1, detail.revenueSpiritStones));
+    claim.value = String(Math.max(1, detail.revenueSpiritStones));
+  }
   const size = shell.querySelector<HTMLSelectElement>('select[name="sizeTier"]');
   if (size) {
     const signature = buildSizeSignature(detail);
@@ -306,12 +370,17 @@ function patchDetailFields(shell: HTMLElement, detail: TimeChamberDetailView): v
   }
 }
 
+function patchInput(shell: HTMLElement, name: string, value: string, active: Element | null): void {
+  const input = shell.querySelector<HTMLInputElement>(`input[name="${name}"]`);
+  if (input && active !== input && input.value !== value) input.value = value;
+}
+
 function setField(shell: HTMLElement, name: string, value: string): void {
   const element = shell.querySelector<HTMLElement>(`[data-time-chamber-field="${name}"]`);
   if (element && element.textContent !== value) element.textContent = value;
 }
 
-function appendSizeOptions(select: HTMLSelectElement, detail: TimeChamberDetailView): void {
+function appendSizeOptions(select: HTMLSelectElement, detail: TimeChamberManagementDetailView): void {
   for (const size of detail.allowedSizes) {
     const option = document.createElement('option');
     option.value = size.tier;
@@ -321,28 +390,25 @@ function appendSizeOptions(select: HTMLSelectElement, detail: TimeChamberDetailV
   }
 }
 
-function buildSizeSignature(detail: TimeChamberDetailView): string {
+function buildSizeSignature(detail: TimeChamberManagementDetailView): string {
   return detail.allowedSizes.map((size) => `${size.tier}:${size.width}:${size.height}`).join('|');
-}
-
-function buildSubtitle(detail: TimeChamberDetailView): string {
-  return `空间 ${detail.width}×${detail.height} · ${detail.occupancy}/${detail.capacity} 人`;
 }
 
 function sizeTierLabel(tier: TimeChamberSizeTier): string {
   return tier === 'small' ? '小型' : tier === 'medium' ? '中型' : '大型';
 }
 
-function formatDuration(secondsInput: number): string {
-  const seconds = Math.max(0, Math.trunc(secondsInput));
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const remainder = seconds % 60;
-  if (hours > 0) return `${hours} 小时 ${minutes} 分`;
-  if (minutes > 0) return `${minutes} 分 ${remainder} 秒`;
-  return `${remainder} 秒`;
-}
-
 function isSizeTier(value: string): value is TimeChamberSizeTier {
   return value === 'small' || value === 'medium' || value === 'large';
+}
+
+function formatDateTime(timestamp: number): string {
+  return new Intl.DateTimeFormat('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).format(new Date(timestamp));
 }

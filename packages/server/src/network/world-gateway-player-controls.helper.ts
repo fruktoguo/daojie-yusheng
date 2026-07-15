@@ -489,7 +489,29 @@ export class WorldGatewayPlayerControlsHelper {
     client: Socket,
     payload: ClientToServerEventPayload<typeof C2S.RequestTimeChamber>,
   ): Promise<void> {
-    await this.handleTimeChamberOperation(client, 'detail', 'REQUEST_TIME_CHAMBER_FAILED', payload?.requestId, () => this.gateway.timeChamberRuntimeService.buildDetail(this.gateway.gatewayGuardHelper.requirePlayerId(client), payload, this.gateway.worldRuntimeService));
+    const operation = payload?.mode === 'management' ? 'management_detail' : 'usage_detail';
+    await this.handleTimeChamberOperation(client, operation, 'REQUEST_TIME_CHAMBER_FAILED', payload?.requestId, () => this.gateway.timeChamberRuntimeService.buildDetail(this.gateway.gatewayGuardHelper.requirePlayerId(client), payload, this.gateway.worldRuntimeService));
+  }
+
+  async handleActivateTimeChamber(
+    client: Socket,
+    payload: ClientToServerEventPayload<typeof C2S.ActivateTimeChamber>,
+  ): Promise<void> {
+    await this.handleTimeChamberOperation(client, 'activate', 'ACTIVATE_TIME_CHAMBER_FAILED', payload?.requestId, () => this.gateway.timeChamberRuntimeService.activate(this.gateway.gatewayGuardHelper.requirePlayerId(client), payload, this.gateway.worldRuntimeService), true);
+  }
+
+  async handleEnterTimeChamber(
+    client: Socket,
+    payload: ClientToServerEventPayload<typeof C2S.EnterTimeChamber>,
+  ): Promise<void> {
+    await this.handleTimeChamberOperation(client, 'enter', 'ENTER_TIME_CHAMBER_FAILED', payload?.requestId, () => this.gateway.timeChamberRuntimeService.queueEnter(this.gateway.gatewayGuardHelper.requirePlayerId(client), payload, this.gateway.worldRuntimeService));
+  }
+
+  async handleUpdateTimeChamberSettings(
+    client: Socket,
+    payload: ClientToServerEventPayload<typeof C2S.UpdateTimeChamberSettings>,
+  ): Promise<void> {
+    await this.handleTimeChamberOperation(client, 'settings', 'UPDATE_TIME_CHAMBER_SETTINGS_FAILED', payload?.requestId, () => this.gateway.timeChamberRuntimeService.updateSettings(this.gateway.gatewayGuardHelper.requirePlayerId(client), payload, this.gateway.worldRuntimeService), true);
   }
 
   async handleDepositTimeChamberFuel(
@@ -499,18 +521,11 @@ export class WorldGatewayPlayerControlsHelper {
     await this.handleTimeChamberOperation(client, 'deposit', 'DEPOSIT_TIME_CHAMBER_FUEL_FAILED', payload?.requestId, () => this.gateway.timeChamberRuntimeService.depositFuel(this.gateway.gatewayGuardHelper.requirePlayerId(client), payload, this.gateway.worldRuntimeService), true);
   }
 
-  async handleSetTimeChamberSpeed(
+  async handleClaimTimeChamberRevenue(
     client: Socket,
-    payload: ClientToServerEventPayload<typeof C2S.SetTimeChamberSpeed>,
+    payload: ClientToServerEventPayload<typeof C2S.ClaimTimeChamberRevenue>,
   ): Promise<void> {
-    await this.handleTimeChamberOperation(client, 'speed', 'SET_TIME_CHAMBER_SPEED_FAILED', payload?.requestId, () => this.gateway.timeChamberRuntimeService.setSpeed(this.gateway.gatewayGuardHelper.requirePlayerId(client), payload, this.gateway.worldRuntimeService));
-  }
-
-  async handleRenameTimeChamber(
-    client: Socket,
-    payload: ClientToServerEventPayload<typeof C2S.RenameTimeChamber>,
-  ): Promise<void> {
-    await this.handleTimeChamberOperation(client, 'rename', 'RENAME_TIME_CHAMBER_FAILED', payload?.requestId, () => this.gateway.timeChamberRuntimeService.rename(this.gateway.gatewayGuardHelper.requirePlayerId(client), payload, this.gateway.worldRuntimeService));
+    await this.handleTimeChamberOperation(client, 'claim_revenue', 'CLAIM_TIME_CHAMBER_REVENUE_FAILED', payload?.requestId, () => this.gateway.timeChamberRuntimeService.claimRevenue(this.gateway.gatewayGuardHelper.requirePlayerId(client), payload, this.gateway.worldRuntimeService), true);
   }
 
   async handleResizeTimeChamber(

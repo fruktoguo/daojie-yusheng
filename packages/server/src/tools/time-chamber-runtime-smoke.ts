@@ -1,4 +1,8 @@
 import assert from 'node:assert/strict';
+import {
+  calculateTimeChamberBaseOperatingCost,
+  calculateTimeChamberOperatingCostPerHour,
+} from '@mud/shared';
 
 import { TimeChamberAdmissionPolicy } from '../runtime/building/time-chamber-admission.policy';
 import { TimeChamberRuntimeService } from '../runtime/building/time-chamber-runtime.service';
@@ -13,6 +17,14 @@ async function main(): Promise<void> {
   assert.deepEqual(admission.canEnter(occupantInstance, 'player:one', 1), { ok: true });
   assert.deepEqual(admission.canEnter({ listPlayerIds: () => [] }, 'player:two', 1), { ok: true });
   assert.deepEqual(admission.canEnter({ listPlayerIds: () => [] }, 'player:two', 1, ['player:offline']), { ok: false, reason: 'time_chamber_full' });
+  assert.deepEqual(
+    Array.from({ length: 9 }, (_, index) => calculateTimeChamberBaseOperatingCost(index + 2)),
+    [50, 100, 200, 400, 800, 1600, 3200, 6400, 12800],
+    '2 至 10 倍的每小时基础成本必须逐倍翻倍',
+  );
+  assert.equal(calculateTimeChamberOperatingCostPerHour(2, 1), 50);
+  assert.equal(calculateTimeChamberOperatingCostPerHour(2, 2), 90);
+  assert.equal(calculateTimeChamberOperatingCostPerHour(2, 4), 170, '额外位置按 80% 线性叠加，不能复利');
 
   const registeredDocuments: any[] = [];
   const service = new TimeChamberRuntimeService(
@@ -56,7 +68,8 @@ async function main(): Promise<void> {
     capacity: 1,
     configuredSpeed: 3,
     databaseFuelUnits: 0,
-    reservedFuelUnits: 1000,
+    hourlyFee: 20,
+    revenueSpiritStones: 0,
     fuelUnitsPerSpiritStone: 36000,
     maxSpeed: 10,
     allowedSizeTiers: ['small', 'medium', 'large'],
@@ -68,30 +81,27 @@ async function main(): Promise<void> {
     queuePlayerNotice(): void {},
     getInstanceRuntime: () => chamberInstance,
   };
+  assert.equal(service.authorizeScheduledSteps(state.chamberInstanceId, chamberInstance, 4, 3, runtime), 1);
+  assert.equal(chamberInstance.tickSpeed, 1, '没有有效使用时段时必须固定一倍');
+  serviceInternal.storeUsage({
+    sourceInstanceId: state.sourceInstanceId,
+    buildingId: state.buildingId,
+    chamberInstanceId: state.chamberInstanceId,
+    playerId: 'player:one',
+    startedAt: Date.now(),
+    expiresAt: Date.now() + 60_000,
+    quotedHourlyFee: 20,
+    paidSpiritStones: 20,
+    operatingFuelUnits: 3_600_000,
+  });
+  serviceInternal.applyEffectiveSpeed(state, chamberInstance, runtime);
+  assert.equal(chamberInstance.tickSpeed, 3, '存在有效使用时段时应用管理端设定倍率');
   assert.equal(service.authorizeScheduledSteps(state.chamberInstanceId, chamberInstance, 4, 3, runtime), 4);
-  assert.equal(state.reservedFuelUnits, 1000, '批次授权不能提前扣除尚未执行的逻辑息');
+  const fuelBeforeTick = state.databaseFuelUnits;
   for (let index = 0; index < 4; index += 1) {
     assert.equal(service.consumeScheduledStep(state.chamberInstanceId, chamberInstance, 3, runtime), true);
   }
-  assert.equal(state.reservedFuelUnits, 992, '3 倍每个成功逻辑息消耗 2 单位，4 息共扣 8 单位');
-
-  state.reservedFuelUnits = 1;
-  assert.equal(service.authorizeScheduledSteps(state.chamberInstanceId, chamberInstance, 1, 3, runtime), 0);
-  assert.equal(chamberInstance.tickSpeed, 1, '燃料不足必须回落一倍');
-
-  await new Promise((resolve) => setImmediate(resolve));
-  state.reservedFuelUnits = 100;
-  chamberInstance.tickSpeed = 3;
-  serviceInternal.pool = {
-    async query(): Promise<never> {
-      throw new Error('simulated_reserve_failure');
-    },
-  };
-  assert.equal(service.consumeScheduledStep(state.chamberInstanceId, chamberInstance, 3, runtime), true);
-  await new Promise((resolve) => setImmediate(resolve));
-  await new Promise((resolve) => setImmediate(resolve));
-  assert.equal(chamberInstance.tickSpeed, 1, '运行缓冲补充失败必须立即回落一倍');
-  serviceInternal.pool = null;
+  assert.equal(state.databaseFuelUnits, fuelBeforeTick, '运行成本已在购买时段时预扣，tick 热路径不得再次扣燃料');
 
   serviceInternal.resolveManagedChamber = async () => ({
     ok: true,
@@ -114,6 +124,23 @@ async function main(): Promise<void> {
   serviceInternal.playerRuntimeService = {
     playerDomainPersistenceService: { isEnabled: () => false },
   };
+  serviceInternal.usageByChamberInstanceId.clear();
+  assert.deepEqual(
+    await service.enter('player:one', state.sourceInstanceId, state.buildingId, transferRuntime),
+    { ok: false, reason: 'time_chamber_activation_required' },
+    '没有有效使用时段不能直接进入密室',
+  );
+  serviceInternal.storeUsage({
+    sourceInstanceId: state.sourceInstanceId,
+    buildingId: state.buildingId,
+    chamberInstanceId: state.chamberInstanceId,
+    playerId: 'player:one',
+    startedAt: Date.now(),
+    expiresAt: Date.now() + 60_000,
+    quotedHourlyFee: 20,
+    paidSpiritStones: 20,
+    operatingFuelUnits: 3_600_000,
+  });
   assert.deepEqual(
     await service.enter('player:one', state.sourceInstanceId, state.buildingId, transferRuntime),
     { ok: false, reason: 'time_chamber_persistence_disabled' },
@@ -139,15 +166,148 @@ async function main(): Promise<void> {
     { ok: false, reason: 'time_chamber_unavailable' },
     '目标实例不可挂接时不能误报传送成功',
   );
+  const queuedCommands: any[] = [];
+  (transferRuntime as any).enqueuePendingCommand = (_playerId: string, command: any) => queuedCommands.push(command);
+  assert.deepEqual(
+    await service.queueEnter('player:one', {
+      sourceInstanceId: state.sourceInstanceId,
+      buildingId: state.buildingId,
+      requestId: 'reenter:one',
+    }, transferRuntime),
+    {
+      ok: true,
+      operation: 'enter',
+      requestId: 'reenter:one',
+      entryQueued: true,
+      usageDetail: serviceInternal.buildUsageDetailView('player:one', state, chamberInstance),
+    },
+    '有效使用时段内应允许不重复付费地重新排队进入',
+  );
+  assert.deepEqual(queuedCommands, [{
+    kind: 'timeChamberTransfer',
+    direction: 'enter',
+    sourceInstanceId: state.sourceInstanceId,
+    buildingId: state.buildingId,
+  }]);
 
+  await testUsageExpiryRelocation();
   await testDeconstructLeaseFence();
+  service.onModuleDestroy();
 
   console.log(JSON.stringify({
     ok: true,
-    answers: '密室首版容量为 1 且准入策略可独立替换，三档空间为 9/15/21，燃料按高倍逻辑息扣除并在不足时回落 1 倍；拆除只能命中本地完全匹配的活跃 lease，并递增 ownership epoch 隔离旧 writer。',
+    answers: '密室三档空间为 9/15/21；2 至 10 倍成本从每小时 50 灵石起逐倍翻倍，额外容量按 80% 线性增加；无有效使用时段固定 1 倍且禁止进入，有效时段才应用设定倍率，tick 热路径不重复扣燃料；使用时段到期会迁出玩家并修正持久化位置；拆除仍受实例 lease/epoch 围栏保护。',
     excludes: '不连接数据库，不证明真实事务、实例目录恢复和客户端控制台。',
     completionMapping: 'time-chamber-domain-runtime',
   }, null, 2));
+}
+
+async function testUsageExpiryRelocation(): Promise<void> {
+  const state = {
+    sourceInstanceId: 'source:expiry',
+    buildingId: 'building:expiry',
+    chamberInstanceId: 'chamber:expiry',
+    templateId: 'template:expiry',
+    ownerPlayerId: 'player:owner',
+    displayName: '到期迁出密室',
+    sizeTier: 'small' as const,
+    capacity: 1,
+    configuredSpeed: 4,
+    databaseFuelUnits: 0,
+    hourlyFee: 10,
+    revenueSpiritStones: 10,
+    fuelUnitsPerSpiritStone: 36_000,
+    maxSpeed: 10,
+    allowedSizeTiers: ['small', 'medium', 'large'],
+    revision: 2,
+  };
+  const savedCheckpoints: any[] = [];
+  const queryLog: string[] = [];
+  const service = new TimeChamberRuntimeService(
+    {} as any,
+    {} as any,
+    {
+      playerDomainPersistenceService: {
+        isEnabled: () => true,
+        savePlayerPositionCheckpoint: async (_playerId: string, checkpoint: any) => {
+          savedCheckpoints.push(checkpoint);
+        },
+      },
+    } as any,
+    {} as any,
+    { registerOrUpdate(): void {}, unregister(): void {} } as any,
+    new TimeChamberAdmissionPolicy(),
+  );
+  const internals = service as any;
+  internals.pool = {
+    query: async (sql: string) => {
+      const normalizedSql = sql.replace(/\s+/g, ' ').trim();
+      queryLog.push(normalizedSql);
+      if (normalizedSql.startsWith('SELECT usage.player_id')) {
+        return {
+          rows: [{
+            player_id: 'player:expired',
+            checkpoint_instance_id: state.chamberInstanceId,
+            checkpoint_facing: 6,
+          }],
+          rowCount: 1,
+        };
+      }
+      if (normalizedSql.startsWith('DELETE FROM instance_time_chamber_usage')) {
+        return { rows: [], rowCount: 1 };
+      }
+      return { rows: [], rowCount: 0 };
+    },
+  };
+  internals.storeState(state);
+  internals.storeUsage({
+    sourceInstanceId: state.sourceInstanceId,
+    buildingId: state.buildingId,
+    chamberInstanceId: state.chamberInstanceId,
+    playerId: 'player:expired',
+    startedAt: Date.now() - 7_200_000,
+    expiresAt: Date.now() - 1,
+    quotedHourlyFee: 10,
+    paidSpiritStones: 10,
+    operatingFuelUnits: 1,
+  });
+
+  const sourceInstance = {
+    template: { id: 'map:source' },
+    buildingById: new Map([[state.buildingId, { id: state.buildingId, x: 7, y: 8 }]]),
+  };
+  const chamberInstance = {
+    tickSpeed: 4,
+    paused: false,
+    markPersistenceDirtyDomainsHighPriority(): void {},
+  };
+  let location = { instanceId: state.chamberInstanceId, sessionId: 'session:expired' };
+  const runtime = {
+    getInstanceRuntime: (instanceId: string) => instanceId === state.sourceInstanceId ? sourceInstance : chamberInstance,
+    getPlayerLocation: () => location,
+    instanceReadyForPlayerAttach: () => ({ ok: true }),
+    applyTransfer: (transfer: any) => {
+      location = { instanceId: transfer.targetInstanceId, sessionId: transfer.sessionId };
+    },
+  };
+  const remainingExpiredUsage = await internals.expirePersistedUsagesForState(state, runtime);
+  assert.equal(remainingExpiredUsage, false);
+  assert.equal(location.instanceId, state.sourceInstanceId, '到期玩家必须迁回密室入口所在实例');
+  assert.deepEqual(savedCheckpoints, [{
+    instanceId: state.sourceInstanceId,
+    x: 7,
+    y: 8,
+    facing: 6,
+    checkpointKind: 'time_chamber_usage_expired',
+  }], '到期迁出必须同步修正离线恢复位置');
+  assert.equal(
+    queryLog.some((sql) => sql.startsWith('DELETE FROM instance_time_chamber_usage')),
+    true,
+    '玩家迁出并修正 checkpoint 后才删除已到期使用时段',
+  );
+  internals.applyEffectiveSpeed(state, chamberInstance, runtime);
+  assert.equal(chamberInstance.tickSpeed, 1, '最后一个时段到期后必须恢复一倍速');
+  service.onModuleDestroy();
 }
 
 async function testDeconstructLeaseFence(): Promise<void> {
@@ -162,7 +322,8 @@ async function testDeconstructLeaseFence(): Promise<void> {
     capacity: 1,
     configuredSpeed: 1,
     databaseFuelUnits: 0,
-    reservedFuelUnits: 0,
+    hourlyFee: 0,
+    revenueSpiritStones: 0,
     fuelUnitsPerSpiritStone: 36_000,
     maxSpeed: 10,
     allowedSizeTiers: ['small', 'medium', 'large'],

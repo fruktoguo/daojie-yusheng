@@ -24,6 +24,7 @@ import { NpcShopModal } from './ui/npc-shop-modal';
 import { NpcQuestModal } from './ui/npc-quest-modal';
 import { EntityDetailModal } from './ui/entity-detail-modal';
 import { TimeChamberConsoleModal } from './ui/time-chamber-console-modal';
+import { TimeChamberUsageModal } from './ui/time-chamber-usage-modal';
 import { CraftWorkbenchModal } from './ui/craft-workbench-modal';
 import { createClientPanelSystem } from './ui/panel-system/bootstrap';
 import { createMapRuntime } from './game-map/runtime/map-runtime';
@@ -67,6 +68,7 @@ export function createMainFrontendModules(windowRef: Window) {
     npcShopModal: new NpcShopModal(),
     npcQuestModal: new NpcQuestModal(),
     entityDetailModal: new EntityDetailModal(),
+    timeChamberUsageModal: new TimeChamberUsageModal(),
     timeChamberConsoleModal: new TimeChamberConsoleModal(),
     craftWorkbenchModal: new CraftWorkbenchModal(),
     panelSystem: createClientPanelSystem(windowRef),

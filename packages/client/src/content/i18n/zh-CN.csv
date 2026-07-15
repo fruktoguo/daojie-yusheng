@@ -2464,7 +2464,6 @@ notice.command.technique-cancel-none,通知,当前没有可取消的技艺任务
 notice.command.technique-none,通知,当前没有进行中的技艺任务。,
 notice.command.technique-queue-full,通知,技艺任务队列已满。,
 notice.time-chamber.exit-missing,通知,密室出口暂时不可用。,
-notice.time-chamber.fuel-empty-fallback,通知,密室灵石耗尽，时间流速已自动回落为一倍。,
 notice.time-chamber.full,通知,密室当前已有修士，请稍后再试。,
 notice.time-chamber.not-inside,通知,当前不在密室中。,
 notice.time-chamber.source-changed,通知,密室入口已经发生变化，请重新操作。,

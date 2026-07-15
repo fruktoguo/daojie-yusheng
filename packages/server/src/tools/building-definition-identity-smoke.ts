@@ -108,10 +108,31 @@ async function main(): Promise<void> {
   const contextActions = buildContextActions(player, instance, localBuildings);
   assert.deepEqual(
     contextActions
-      .filter((entry) => entry.id.startsWith('time_chamber:enter:'))
+      .filter((entry) => entry.id.startsWith('time_chamber:usage:'))
       .map((entry) => entry.id),
-    [`time_chamber:enter:${encodeURIComponent(CHAMBER_BUILDING_ID)}`],
-    '真密室应保留入口，旧蒲团不得再生成密室入口',
+    [`time_chamber:usage:${encodeURIComponent(CHAMBER_BUILDING_ID)}`],
+    '真密室应保留开启入口，旧蒲团不得再生成密室入口',
+  );
+  assert.deepEqual(
+    contextActions
+      .filter((entry) => entry.id.startsWith('time_chamber:management:'))
+      .map((entry) => entry.id),
+    [`time_chamber:management:${encodeURIComponent(CHAMBER_BUILDING_ID)}`],
+    '密室管理入口只应向建造者开放',
+  );
+  const ownerUsageAction = contextActions.find((entry) => entry.id.startsWith('time_chamber:usage:'));
+  assert.match(ownerUsageAction?.name ?? '', /^开启：/);
+  assert.match(ownerUsageAction?.desc ?? '', /时间流速 .+使用人数/);
+  const visitorActions = buildContextActions({ ...player, id: 'player:visitor' }, instance, localBuildings);
+  assert.equal(
+    visitorActions.some((entry) => entry.id.startsWith('time_chamber:usage:')),
+    true,
+    '访客应看到密室开启入口',
+  );
+  assert.equal(
+    visitorActions.some((entry) => entry.id.startsWith('time_chamber:management:')),
+    false,
+    '访客不得看到密室管理入口',
   );
   assert.equal(
     contextActions.some((entry) => entry.id.includes(encodeURIComponent(MAT_BUILDING_ID))),
@@ -247,7 +268,8 @@ async function assertPhantomChamberRecoveryUsesDeconstructFence(instance: MapIns
     capacity: 1,
     configuredSpeed: 1,
     databaseFuelUnits: 0,
-    reservedFuelUnits: 0,
+    hourlyFee: 0,
+    revenueSpiritStones: 0,
     fuelUnitsPerSpiritStone: 36_000,
     maxSpeed: MAX_INSTANCE_TICK_SPEED,
     allowedSizeTiers: ['small', 'medium', 'large'],

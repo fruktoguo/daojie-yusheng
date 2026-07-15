@@ -32,16 +32,24 @@ export function createSocketBuildingSender(deps: BuildingSenderDeps) {
       deps.emitEvent(C2S.RequestTimeChamber, payload);
     },
 
+    sendActivateTimeChamber(payload: ClientToServerEventPayload<typeof C2S.ActivateTimeChamber>): void {
+      deps.emitEvent(C2S.ActivateTimeChamber, payload);
+    },
+
+    sendEnterTimeChamber(payload: ClientToServerEventPayload<typeof C2S.EnterTimeChamber>): void {
+      deps.emitEvent(C2S.EnterTimeChamber, payload);
+    },
+
+    sendUpdateTimeChamberSettings(payload: ClientToServerEventPayload<typeof C2S.UpdateTimeChamberSettings>): void {
+      deps.emitEvent(C2S.UpdateTimeChamberSettings, payload);
+    },
+
     sendDepositTimeChamberFuel(payload: ClientToServerEventPayload<typeof C2S.DepositTimeChamberFuel>): void {
       deps.emitEvent(C2S.DepositTimeChamberFuel, payload);
     },
 
-    sendSetTimeChamberSpeed(payload: ClientToServerEventPayload<typeof C2S.SetTimeChamberSpeed>): void {
-      deps.emitEvent(C2S.SetTimeChamberSpeed, payload);
-    },
-
-    sendRenameTimeChamber(payload: ClientToServerEventPayload<typeof C2S.RenameTimeChamber>): void {
-      deps.emitEvent(C2S.RenameTimeChamber, payload);
+    sendClaimTimeChamberRevenue(payload: ClientToServerEventPayload<typeof C2S.ClaimTimeChamberRevenue>): void {
+      deps.emitEvent(C2S.ClaimTimeChamberRevenue, payload);
     },
 
     sendResizeTimeChamber(payload: ClientToServerEventPayload<typeof C2S.ResizeTimeChamber>): void {

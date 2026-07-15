@@ -1,5 +1,12 @@
-/** 密室建筑、控制台和低频网络操作共享契约。 */
+/** 密室建筑、按时使用和经营管理的共享契约与纯计算规则。 */
 import type { TimeChamberSizeTier } from './building-types';
+
+export const TIME_CHAMBER_MIN_SPEED = 1;
+export const TIME_CHAMBER_MAX_SPEED = 10;
+export const TIME_CHAMBER_MIN_USAGE_HOURS = 1;
+export const TIME_CHAMBER_MAX_USAGE_HOURS = 168;
+export const TIME_CHAMBER_MAX_CAPACITY = 100;
+export const TIME_CHAMBER_MAX_HOURLY_FEE = 10_000_000;
 
 export interface TimeChamberSizeOptionView {
   tier: TimeChamberSizeTier;
@@ -7,7 +14,7 @@ export interface TimeChamberSizeOptionView {
   height: number;
 }
 
-export interface TimeChamberDetailView {
+export interface TimeChamberSummaryView {
   sourceInstanceId: string;
   buildingId: string;
   chamberInstanceId: string;
@@ -17,29 +24,58 @@ export interface TimeChamberDetailView {
   sizeTier: TimeChamberSizeTier;
   width: number;
   height: number;
-  allowedSizes: TimeChamberSizeOptionView[];
   capacity: number;
+  activeUsageCount: number;
   occupancy: number;
   configuredSpeed: number;
   effectiveSpeed: number;
-  minSpeed: number;
-  maxSpeed: number;
-  fuelUnits: number;
-  fuelUnitsPerSpiritStone: number;
-  fuelSpiritStoneEquivalent: number;
-  fuelConsumptionUnitsPerSecond: number;
-  estimatedRemainingSeconds: number | null;
+  activeUntil: number | null;
   revision: number;
 }
 
-export type TimeChamberOperationKind = 'detail' | 'deposit' | 'speed' | 'rename' | 'resize';
+export interface TimeChamberUsageDetailView extends TimeChamberSummaryView {
+  usageFeePerHour: number;
+  ownerUsageFree: boolean;
+  playerLeaseExpiresAt: number | null;
+  minUsageHours: number;
+  maxUsageHours: number;
+}
+
+export interface TimeChamberManagementDetailView extends TimeChamberSummaryView {
+  hourlyFee: number;
+  minSpeed: number;
+  maxSpeed: number;
+  maxCapacity: number;
+  allowedSizes: TimeChamberSizeOptionView[];
+  fuelUnits: number;
+  fuelUnitsPerSpiritStone: number;
+  fuelSpiritStoneEquivalent: number;
+  operatingCostSpiritStonesPerHour: number;
+  fuelCoverageHours: number | null;
+  revenueSpiritStones: number;
+  settingsLocked: boolean;
+}
+
+export type TimeChamberPanelMode = 'usage' | 'management';
+
+export type TimeChamberOperationKind =
+  | 'usage_detail'
+  | 'management_detail'
+  | 'activate'
+  | 'enter'
+  | 'settings'
+  | 'deposit'
+  | 'claim_revenue'
+  | 'resize';
 
 export interface TimeChamberOperationResultView {
   ok: boolean;
   operation: TimeChamberOperationKind;
   requestId?: string;
   reason?: string;
-  detail?: TimeChamberDetailView;
+  usageDetail?: TimeChamberUsageDetailView;
+  managementDetail?: TimeChamberManagementDetailView;
+  entryQueued?: boolean;
 }
 
 export interface TimeChamberBuildingRequestView {
@@ -48,23 +84,61 @@ export interface TimeChamberBuildingRequestView {
   requestId: string;
 }
 
-export interface C2S_RequestTimeChamberView extends TimeChamberBuildingRequestView {}
+export interface C2S_RequestTimeChamberView extends TimeChamberBuildingRequestView {
+  mode: TimeChamberPanelMode;
+}
+
+export interface C2S_ActivateTimeChamberView extends TimeChamberBuildingRequestView {
+  durationHours: number;
+  expectedRevision: number;
+}
+
+export interface C2S_EnterTimeChamberView extends TimeChamberBuildingRequestView {}
+
+export interface C2S_UpdateTimeChamberSettingsView extends TimeChamberBuildingRequestView {
+  name: string;
+  hourlyFee: number;
+  speed: number;
+  capacity: number;
+  expectedRevision: number;
+}
 
 export interface C2S_DepositTimeChamberFuelView extends TimeChamberBuildingRequestView {
   spiritStoneCount: number;
 }
 
-export interface C2S_SetTimeChamberSpeedView extends TimeChamberBuildingRequestView {
-  speed: number;
-  expectedRevision: number;
-}
-
-export interface C2S_RenameTimeChamberView extends TimeChamberBuildingRequestView {
-  name: string;
+export interface C2S_ClaimTimeChamberRevenueView extends TimeChamberBuildingRequestView {
+  spiritStoneCount: number;
   expectedRevision: number;
 }
 
 export interface C2S_ResizeTimeChamberView extends TimeChamberBuildingRequestView {
   sizeTier: TimeChamberSizeTier;
   expectedRevision: number;
+}
+
+/** 2 倍每小时 50 灵石，之后每提升一倍，总消耗翻倍。 */
+export function calculateTimeChamberBaseOperatingCost(speedInput: number): number {
+  const speed = Math.trunc(Number(speedInput));
+  if (!Number.isFinite(speed) || speed <= TIME_CHAMBER_MIN_SPEED) {
+    return 0;
+  }
+  const boundedSpeed = Math.min(TIME_CHAMBER_MAX_SPEED, speed);
+  return 50 * 2 ** (boundedSpeed - 2);
+}
+
+/** 每增加一个容量位置，运行成本在线性基础上增加 80%。 */
+export function calculateTimeChamberOperatingCostPerHour(speedInput: number, capacityInput: number): number {
+  const baseCost = calculateTimeChamberBaseOperatingCost(speedInput);
+  const capacity = Math.max(1, Math.min(TIME_CHAMBER_MAX_CAPACITY, Math.trunc(Number(capacityInput) || 1)));
+  return baseCost * (5 + 4 * (capacity - 1)) / 5;
+}
+
+export function calculateTimeChamberUsageFee(hourlyFeeInput: number, durationHoursInput: number): number {
+  const hourlyFee = Math.max(0, Math.min(TIME_CHAMBER_MAX_HOURLY_FEE, Math.trunc(Number(hourlyFeeInput) || 0)));
+  const durationHours = Math.max(
+    TIME_CHAMBER_MIN_USAGE_HOURS,
+    Math.min(TIME_CHAMBER_MAX_USAGE_HOURS, Math.trunc(Number(durationHoursInput) || TIME_CHAMBER_MIN_USAGE_HOURS)),
+  );
+  return hourlyFee * durationHours;
 }

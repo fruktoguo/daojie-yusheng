@@ -272,23 +272,33 @@ export class WorldRuntimeContextActionQueryService {
                         }
                     }
                     if (isTimeChamberBuilding(instance, building)) {
-                        const buildingName = typeof entry?.name === 'string' && entry.name.trim()
-                            ? entry.name.trim()
-                            : '密室';
+                        const summary = typeof deps?.timeChamberRuntimeService?.getInteractionSummary === 'function'
+                            ? deps.timeChamberRuntimeService.getInteractionSummary(instance.meta.instanceId, building.id)
+                            : null;
+                        const buildingName = typeof summary?.displayName === 'string' && summary.displayName.trim()
+                            ? summary.displayName.trim()
+                            : typeof entry?.name === 'string' && entry.name.trim()
+                                ? entry.name.trim()
+                                : '密室';
+                        const configuredSpeed = Math.max(1, Math.trunc(Number(summary?.configuredSpeed) || 1));
+                        const effectiveSpeed = Math.max(1, Math.trunc(Number(summary?.effectiveSpeed) || 1));
+                        const activeUsageCount = Math.max(0, Math.trunc(Number(summary?.activeUsageCount) || 0));
+                        const capacity = Math.max(1, Math.trunc(Number(summary?.capacity) || 1));
+                        const statusText = `时间流速 ${configuredSpeed} 倍（当前 ${effectiveSpeed} 倍） · 使用人数 ${activeUsageCount}/${capacity}`;
                         const encodedBuildingId = encodeURIComponent(building.id);
                         actions.push({
-                            id: `time_chamber:enter:${encodedBuildingId}`,
-                            name: `进入：${buildingName}`,
-                            type: 'travel',
-                            desc: '进入该建筑对应的独立密室地图。',
+                            id: `time_chamber:usage:${encodedBuildingId}`,
+                            name: `开启：${buildingName}`,
+                            type: 'interact',
+                            desc: statusText,
                             cooldownLeft: 0,
                         });
                         if (typeof building.ownerPlayerId === 'string' && building.ownerPlayerId.trim() === player.id) {
                             actions.push({
-                                id: `time_chamber:console:${encodedBuildingId}`,
+                                id: `time_chamber:management:${encodedBuildingId}`,
                                 name: `管理：${buildingName}`,
                                 type: 'interact',
-                                desc: '调整名称、空间大小、时间流速并补充灵石。',
+                                desc: statusText,
                                 cooldownLeft: 0,
                             });
                         }

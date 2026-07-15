@@ -4,7 +4,17 @@
  * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
 import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
-import { createItemStackSignature, EQUIP_SLOTS, isLegacyItemInstanceId, MAIL_BATCH_OPERATION_MAX } from '@mud/shared';
+import {
+  calculateTimeChamberOperatingCostPerHour,
+  createItemStackSignature,
+  EQUIP_SLOTS,
+  isLegacyItemInstanceId,
+  MAIL_BATCH_OPERATION_MAX,
+  TIME_CHAMBER_MAX_CAPACITY,
+  TIME_CHAMBER_MAX_HOURLY_FEE,
+  TIME_CHAMBER_MAX_USAGE_HOURS,
+  TIME_CHAMBER_MIN_USAGE_HOURS,
+} from '@mud/shared';
 import { createHash, randomUUID } from 'node:crypto';
 import { hostname } from 'node:os';
 import {
@@ -292,6 +302,25 @@ export type DurableInventoryGrantSourceMutation =
       instanceId: string;
       buildingId: string;
       fuelUnits: number;
+    }
+  | {
+      kind: 'time_chamber_activation';
+      instanceId: string;
+      buildingId: string;
+      chamberInstanceId: string;
+      playerId: string;
+      durationHours: number;
+      expectedRevision: number;
+      chargedSpiritStones: number;
+      fuelUnitsPerSpiritStone: number;
+    }
+  | {
+      kind: 'time_chamber_revenue';
+      instanceId: string;
+      buildingId: string;
+      ownerPlayerId: string;
+      expectedRevision: number;
+      claimedSpiritStones: number;
     }
   | DurableTileResourceSourceMutation
   | DurableActivityAssetSourceMutation
@@ -1563,7 +1592,9 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
         || normalizedSourceType === 'activity_daily_sign_in_claim'
         || normalizedSourceType === 'activity_invitation_reward_claim'
         || normalizedSourceType === 'item_map_unlock'
-        || normalizedSourceType === 'item_respawn_bind')
+        || normalizedSourceType === 'item_respawn_bind'
+        || normalizedSourceType === 'time_chamber_activation'
+        || normalizedSourceType === 'time_chamber_revenue_claim')
       && !normalizedSourceMutation
     ) {
       throw new Error('inventory_grant_source_mutation_required');
@@ -1608,6 +1639,22 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
       }
       if (Math.trunc(Number(input.expectedOwnershipEpoch ?? 0)) !== normalizedSourceMutation.ownershipEpoch) {
         throw new Error('tile_resource_source_ownership_epoch_mismatch');
+      }
+    }
+    if (normalizedSourceMutation?.kind === 'time_chamber_activation') {
+      if (normalizedSourceType !== 'time_chamber_activation') {
+        throw new Error('time_chamber_activation_source_type_mismatch');
+      }
+      if (normalizedSourceMutation.playerId !== normalizedPlayerId) {
+        throw new Error('time_chamber_activation_player_mismatch');
+      }
+    }
+    if (normalizedSourceMutation?.kind === 'time_chamber_revenue') {
+      if (normalizedSourceType !== 'time_chamber_revenue_claim') {
+        throw new Error('time_chamber_revenue_source_type_mismatch');
+      }
+      if (normalizedSourceMutation.ownerPlayerId !== normalizedPlayerId) {
+        throw new Error('time_chamber_revenue_owner_mismatch');
       }
     }
     if (normalizedSourceMutation?.kind === 'ground_tile' || normalizedSourceMutation?.kind === 'container_state') {
@@ -1658,15 +1705,40 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
       }),
       onMutate: async (client, persistenceVersion) => {
         const allowEmptyInventoryOverwrite = normalizedNextInventoryItems.length === 0
-          && inventoryAction === 'remove'
-          && normalizedSourceMutation?.kind === 'player_item_use'
-          && await assertPlayerItemUseConsumesLastUnlockedInventoryItem(
-            client,
-            normalizedPlayerId,
-            normalizedGrantedItems,
+          && (
+            inventoryAction === 'remove'
+            || inventoryAction === 'transfer'
+          )
+          && (
+            normalizedSourceMutation?.kind === 'player_item_use'
+              ? await assertPlayerItemUseConsumesLastUnlockedInventoryItem(
+                client,
+                normalizedPlayerId,
+                normalizedGrantedItems,
+              )
+              : normalizedSourceMutation?.kind === 'time_chamber_fuel'
+                ? await assertInventoryRemovalConsumesAllUnlockedItems(
+                  client,
+                  normalizedPlayerId,
+                  normalizedGrantedItems,
+                )
+                : normalizedSourceMutation?.kind === 'time_chamber_activation'
+                  ? normalizedSourceMutation.chargedSpiritStones === 0
+                    ? await assertUnlockedInventoryIsEmpty(client, normalizedPlayerId)
+                    : await assertInventoryRemovalConsumesAllUnlockedItems(
+                      client,
+                      normalizedPlayerId,
+                      normalizedGrantedItems,
+                    )
+                  : false
           );
         if (normalizedSourceMutation) {
-          await persistInventoryGrantSourceMutation(client, normalizedSourceMutation, persistenceVersion);
+          await persistInventoryGrantSourceMutation(
+            client,
+            normalizedSourceMutation,
+            persistenceVersion,
+            normalizedOperationId,
+          );
         }
         await replacePlayerInventoryItems(client, normalizedPlayerId, normalizedNextInventoryItems, {
           allowEmptyOverwrite: allowEmptyInventoryOverwrite,
@@ -1810,6 +1882,25 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
             {},
             { committed: true },
             'player-item-source',
+          );
+        }
+        if (
+          normalizedSourceMutation?.kind === 'time_chamber_activation'
+          || normalizedSourceMutation?.kind === 'time_chamber_revenue'
+        ) {
+          await insertAssetAuditLog(
+            client,
+            normalizedOperationId,
+            normalizedPlayerId,
+            'time_chamber',
+            normalizedSourceMutation.kind === 'time_chamber_activation'
+              ? normalizedSourceMutation.chamberInstanceId
+              : `${normalizedSourceMutation.instanceId}:${normalizedSourceMutation.buildingId}`,
+            normalizedSourceMutation.kind === 'time_chamber_activation' ? 'activate' : 'claim_revenue',
+            { sourceMutation: normalizedSourceMutation },
+            {},
+            { committed: true },
+            'time-chamber-source',
           );
         }
 
@@ -5018,6 +5109,85 @@ async function assertPlayerItemUseConsumesLastUnlockedInventoryItem(
   return true;
 }
 
+async function assertInventoryRemovalConsumesAllUnlockedItems(
+  client: import('pg').PoolClient,
+  playerId: string,
+  removedItems: readonly DurableInventoryItemSnapshot[],
+): Promise<true> {
+  if (removedItems.length === 0) {
+    throw new Error('inventory_empty_removal_invalid');
+  }
+  const persisted = await client.query<{
+    item_id?: unknown;
+    count?: unknown;
+    raw_payload?: unknown;
+  }>(
+    `SELECT item_id, count, raw_payload
+       FROM ${PLAYER_INVENTORY_ITEM_TABLE}
+      WHERE player_id = $1
+        AND locked_by IS NULL
+      FOR UPDATE`,
+    [playerId],
+  );
+  const persistedCounts = new Map<string, number>();
+  for (const row of persisted.rows) {
+    const itemId = normalizeRequiredString(row?.item_id);
+    const count = Math.max(1, Math.trunc(Number(row?.count ?? 1)));
+    const signature = createPersistedInventoryRowSignature(itemId, normalizeDurableJsonObject(row?.raw_payload));
+    const key = `${itemId}\u0000${signature}`;
+    persistedCounts.set(key, (persistedCounts.get(key) ?? 0) + count);
+  }
+  const removedCounts = new Map<string, number>();
+  for (const removedItem of removedItems) {
+    const itemId = normalizeRequiredString(removedItem?.itemId);
+    const count = Math.max(1, Math.trunc(Number(removedItem?.count ?? 1)));
+    if (!itemId) {
+      throw new Error('inventory_empty_removal_invalid');
+    }
+    const rawPayload = buildPersistedInventoryItemRawPayload({
+      itemId,
+      count,
+      name: removedItem.name,
+      desc: removedItem.desc,
+      enhanceLevel: removedItem.enhanceLevel,
+      learnTechniqueId: removedItem.learnTechniqueId,
+      learnTechniqueMaxLevel: removedItem.learnTechniqueMaxLevel,
+      grade: removedItem.grade,
+      level: removedItem.level,
+      rawPayload: removedItem.rawPayload,
+    });
+    const signature = createPersistedInventoryRowSignature(itemId, rawPayload);
+    const key = `${itemId}\u0000${signature}`;
+    removedCounts.set(key, (removedCounts.get(key) ?? 0) + count);
+  }
+  if (
+    persistedCounts.size !== removedCounts.size
+    || Array.from(persistedCounts).some(([key, count]) => removedCounts.get(key) !== count)
+  ) {
+    throw new Error('inventory_empty_removal_snapshot_changed');
+  }
+  return true;
+}
+
+async function assertUnlockedInventoryIsEmpty(
+  client: import('pg').PoolClient,
+  playerId: string,
+): Promise<true> {
+  const persisted = await client.query(
+    `SELECT 1
+       FROM ${PLAYER_INVENTORY_ITEM_TABLE}
+      WHERE player_id = $1
+        AND locked_by IS NULL
+      LIMIT 1
+      FOR UPDATE`,
+    [playerId],
+  );
+  if ((persisted.rowCount ?? 0) > 0) {
+    throw new Error('inventory_empty_snapshot_changed');
+  }
+  return true;
+}
+
 async function assertNoForeignPlayerOwnedIds(
   client: import('pg').PoolClient,
   tableName: string,
@@ -6548,6 +6718,66 @@ function normalizeInventoryGrantSourceMutation(
       fuelUnits,
     };
   }
+  if (value.kind === 'time_chamber_activation') {
+    const buildingId = normalizeRequiredString(value.buildingId);
+    const chamberInstanceId = normalizeRequiredString(value.chamberInstanceId);
+    const playerId = normalizeRequiredString(value.playerId);
+    const durationHours = Math.trunc(Number(value.durationHours));
+    const expectedRevision = Math.trunc(Number(value.expectedRevision));
+    const chargedSpiritStones = Math.trunc(Number(value.chargedSpiritStones));
+    const fuelUnitsPerSpiritStone = Math.trunc(Number(value.fuelUnitsPerSpiritStone));
+    if (
+      !buildingId
+      || !chamberInstanceId
+      || !playerId
+      || durationHours < TIME_CHAMBER_MIN_USAGE_HOURS
+      || durationHours > TIME_CHAMBER_MAX_USAGE_HOURS
+      || !Number.isSafeInteger(expectedRevision)
+      || expectedRevision < 1
+      || !Number.isSafeInteger(chargedSpiritStones)
+      || chargedSpiritStones < 0
+      || !Number.isSafeInteger(fuelUnitsPerSpiritStone)
+      || fuelUnitsPerSpiritStone < 1
+      || fuelUnitsPerSpiritStone > 1_000_000_000
+    ) {
+      return null;
+    }
+    return {
+      kind: 'time_chamber_activation',
+      instanceId,
+      buildingId,
+      chamberInstanceId,
+      playerId,
+      durationHours,
+      expectedRevision,
+      chargedSpiritStones,
+      fuelUnitsPerSpiritStone,
+    };
+  }
+  if (value.kind === 'time_chamber_revenue') {
+    const buildingId = normalizeRequiredString(value.buildingId);
+    const ownerPlayerId = normalizeRequiredString(value.ownerPlayerId);
+    const expectedRevision = Math.trunc(Number(value.expectedRevision));
+    const claimedSpiritStones = Math.trunc(Number(value.claimedSpiritStones));
+    if (
+      !buildingId
+      || !ownerPlayerId
+      || !Number.isSafeInteger(expectedRevision)
+      || expectedRevision < 1
+      || !Number.isSafeInteger(claimedSpiritStones)
+      || claimedSpiritStones <= 0
+    ) {
+      return null;
+    }
+    return {
+      kind: 'time_chamber_revenue',
+      instanceId,
+      buildingId,
+      ownerPlayerId,
+      expectedRevision,
+      claimedSpiritStones,
+    };
+  }
   if (value.kind === 'tile_resource') {
     return normalizeDurableTileResourceSourceMutation(value, instanceId);
   }
@@ -6558,6 +6788,7 @@ async function persistInventoryGrantSourceMutation(
   client: import('pg').PoolClient,
   mutation: DurableInventoryGrantSourceMutation,
   persistenceVersion: number,
+  operationId: string,
 ): Promise<void> {
   if (mutation.kind === 'activity_asset') {
     await persistDurableActivityAssetSourceMutation(client, mutation);
@@ -6574,6 +6805,14 @@ async function persistInventoryGrantSourceMutation(
   }
   if (mutation.kind === 'time_chamber_fuel') {
     await addDurableTimeChamberFuel(client, mutation);
+    return;
+  }
+  if (mutation.kind === 'time_chamber_activation') {
+    await activateDurableTimeChamber(client, mutation, operationId);
+    return;
+  }
+  if (mutation.kind === 'time_chamber_revenue') {
+    await claimDurableTimeChamberRevenue(client, mutation);
     return;
   }
   await persistDurableTileResourceSourceMutation(client, mutation);
@@ -6600,6 +6839,203 @@ async function addDurableTimeChamberFuel(
     );
     throw new Error((existing.rowCount ?? 0) > 0 ? 'time_chamber_fuel_limit' : 'time_chamber_state_not_found');
   }
+}
+
+async function activateDurableTimeChamber(
+  client: import('pg').PoolClient,
+  mutation: Extract<DurableInventoryGrantSourceMutation, { kind: 'time_chamber_activation' }>,
+  operationId: string,
+): Promise<void> {
+  const stateResult = await client.query<{
+    chamber_instance_id?: unknown;
+    owner_player_id?: unknown;
+    capacity?: unknown;
+    configured_speed?: unknown;
+    hourly_fee?: unknown;
+    fuel_units?: unknown;
+    revenue_spirit_stones?: unknown;
+    revision?: unknown;
+    now_ms?: unknown;
+  }>(
+    `SELECT chamber_instance_id, owner_player_id, capacity, configured_speed,
+            hourly_fee, fuel_units, revenue_spirit_stones, revision,
+            floor(extract(epoch FROM clock_timestamp()) * 1000)::bigint AS now_ms
+       FROM instance_time_chamber_state
+      WHERE source_instance_id = $1 AND building_id = $2
+      FOR UPDATE`,
+    [mutation.instanceId, mutation.buildingId],
+  );
+  const state = stateResult.rows[0];
+  if (!state) {
+    throw new Error('time_chamber_state_not_found');
+  }
+  if (normalizeRequiredString(state.chamber_instance_id) !== mutation.chamberInstanceId) {
+    throw new Error('time_chamber_instance_changed');
+  }
+  const revision = normalizeSafeInteger(state.revision);
+  if (revision !== mutation.expectedRevision) {
+    throw new Error('time_chamber_revision_conflict');
+  }
+  const ownerPlayerId = normalizeRequiredString(state.owner_player_id);
+  const capacity = Math.max(1, Math.min(TIME_CHAMBER_MAX_CAPACITY, normalizeSafeInteger(state.capacity)));
+  const configuredSpeed = normalizeSafeInteger(state.configured_speed);
+  const hourlyFee = normalizeSafeInteger(state.hourly_fee);
+  if (hourlyFee > TIME_CHAMBER_MAX_HOURLY_FEE) {
+    throw new Error('invalid_time_chamber_hourly_fee');
+  }
+  const chargedSpiritStones = mutation.playerId === ownerPlayerId
+    ? 0
+    : hourlyFee * mutation.durationHours;
+  if (!Number.isSafeInteger(chargedSpiritStones) || chargedSpiritStones !== mutation.chargedSpiritStones) {
+    throw new Error('time_chamber_price_changed');
+  }
+
+  const nowMs = normalizeSafeInteger(state.now_ms);
+  const usageResult = await client.query<{
+    player_id?: unknown;
+    started_at_ms?: unknown;
+    expires_at_ms?: unknown;
+    paid_spirit_stones?: unknown;
+    operating_fuel_units?: unknown;
+  }>(
+    `SELECT player_id, started_at_ms, expires_at_ms, paid_spirit_stones, operating_fuel_units
+       FROM instance_time_chamber_usage
+      WHERE source_instance_id = $1
+        AND building_id = $2
+        AND expires_at_ms > $3
+      FOR UPDATE`,
+    [mutation.instanceId, mutation.buildingId, nowMs],
+  );
+  const activeRows = usageResult.rows;
+  const currentUsage = activeRows.find((row) => normalizeRequiredString(row.player_id) === mutation.playerId) ?? null;
+  if (!currentUsage && activeRows.length >= capacity) {
+    throw new Error('time_chamber_full');
+  }
+  const currentRoomEndMs = activeRows.reduce(
+    (latest, row) => Math.max(latest, normalizeSafeInteger(row.expires_at_ms)),
+    nowMs,
+  );
+  const currentPlayerEndMs = currentUsage ? normalizeSafeInteger(currentUsage.expires_at_ms) : nowMs;
+  const extensionMs = mutation.durationHours * 3_600_000;
+  const nextPlayerEndMs = Math.max(nowMs, currentPlayerEndMs) + extensionMs;
+  if (!Number.isSafeInteger(nextPlayerEndMs)) {
+    throw new Error('time_chamber_usage_time_limit');
+  }
+  const additionalActiveMs = Math.max(0, nextPlayerEndMs - currentRoomEndMs);
+  const operatingCostPerHour = calculateTimeChamberOperatingCostPerHour(configuredSpeed, capacity);
+  const operatingFuelUnitsBigInt = additionalActiveMs > 0 && operatingCostPerHour > 0
+    ? (
+      BigInt(operatingCostPerHour)
+      * BigInt(mutation.fuelUnitsPerSpiritStone)
+      * BigInt(additionalActiveMs)
+      + 3_600_000n
+      - 1n
+    ) / 3_600_000n
+    : 0n;
+  if (operatingFuelUnitsBigInt > BigInt(MAX_DURABLE_TIME_CHAMBER_FUEL_UNITS)) {
+    throw new Error('time_chamber_fuel_limit');
+  }
+  const operatingFuelUnits = Number(operatingFuelUnitsBigInt);
+  const currentFuelUnits = normalizeSafeInteger(state.fuel_units);
+  if (currentFuelUnits < operatingFuelUnits) {
+    throw new Error('time_chamber_fuel_insufficient');
+  }
+  const currentRevenue = normalizeSafeInteger(state.revenue_spirit_stones);
+  if (currentRevenue > MAX_DURABLE_TIME_CHAMBER_FUEL_UNITS - chargedSpiritStones) {
+    throw new Error('time_chamber_revenue_limit');
+  }
+
+  const stateUpdate = await client.query(
+    `UPDATE instance_time_chamber_state
+        SET fuel_units = fuel_units - $3,
+            revenue_spirit_stones = revenue_spirit_stones + $4,
+            revision = revision + 1,
+            updated_at = now()
+      WHERE source_instance_id = $1
+        AND building_id = $2
+        AND revision = $5`,
+    [mutation.instanceId, mutation.buildingId, operatingFuelUnits, chargedSpiritStones, mutation.expectedRevision],
+  );
+  if ((stateUpdate.rowCount ?? 0) !== 1) {
+    throw new Error('time_chamber_revision_conflict');
+  }
+  const startedAtMs = currentUsage ? normalizeSafeInteger(currentUsage.started_at_ms) : nowMs;
+  const paidSpiritStones = (currentUsage ? normalizeSafeInteger(currentUsage.paid_spirit_stones) : 0) + chargedSpiritStones;
+  const accumulatedFuelUnits = (currentUsage ? normalizeSafeInteger(currentUsage.operating_fuel_units) : 0) + operatingFuelUnits;
+  await client.query(
+    `INSERT INTO instance_time_chamber_usage(
+        source_instance_id, building_id, chamber_instance_id, player_id,
+        started_at_ms, expires_at_ms, quoted_hourly_fee, paid_spirit_stones,
+        operating_fuel_units, last_operation_id, updated_at
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, now())
+      ON CONFLICT (source_instance_id, building_id, player_id)
+      DO UPDATE SET
+        chamber_instance_id = EXCLUDED.chamber_instance_id,
+        started_at_ms = EXCLUDED.started_at_ms,
+        expires_at_ms = EXCLUDED.expires_at_ms,
+        quoted_hourly_fee = EXCLUDED.quoted_hourly_fee,
+        paid_spirit_stones = EXCLUDED.paid_spirit_stones,
+        operating_fuel_units = EXCLUDED.operating_fuel_units,
+        last_operation_id = EXCLUDED.last_operation_id,
+        updated_at = now()`,
+    [
+      mutation.instanceId,
+      mutation.buildingId,
+      mutation.chamberInstanceId,
+      mutation.playerId,
+      startedAtMs,
+      nextPlayerEndMs,
+      hourlyFee,
+      paidSpiritStones,
+      accumulatedFuelUnits,
+      operationId,
+    ],
+  );
+}
+
+async function claimDurableTimeChamberRevenue(
+  client: import('pg').PoolClient,
+  mutation: Extract<DurableInventoryGrantSourceMutation, { kind: 'time_chamber_revenue' }>,
+): Promise<void> {
+  const result = await client.query(
+    `UPDATE instance_time_chamber_state
+        SET revenue_spirit_stones = revenue_spirit_stones - $4,
+            revision = revision + 1,
+            updated_at = now()
+      WHERE source_instance_id = $1
+        AND building_id = $2
+        AND owner_player_id = $3
+        AND revision = $5
+        AND revenue_spirit_stones >= $4
+      RETURNING revision`,
+    [
+      mutation.instanceId,
+      mutation.buildingId,
+      mutation.ownerPlayerId,
+      mutation.claimedSpiritStones,
+      mutation.expectedRevision,
+    ],
+  );
+  if ((result.rowCount ?? 0) === 1) {
+    return;
+  }
+  const state = await client.query<{
+    owner_player_id?: unknown;
+    revision?: unknown;
+    revenue_spirit_stones?: unknown;
+  }>(
+    `SELECT owner_player_id, revision, revenue_spirit_stones
+       FROM instance_time_chamber_state
+      WHERE source_instance_id = $1 AND building_id = $2
+      FOR UPDATE`,
+    [mutation.instanceId, mutation.buildingId],
+  );
+  const row = state.rows[0];
+  if (!row) throw new Error('time_chamber_state_not_found');
+  if (normalizeRequiredString(row.owner_player_id) !== mutation.ownerPlayerId) throw new Error('time_chamber_owner_required');
+  if (normalizeSafeInteger(row.revision) !== mutation.expectedRevision) throw new Error('time_chamber_revision_conflict');
+  throw new Error('time_chamber_revenue_insufficient');
 }
 
 function normalizeDurableJsonValue(value: unknown): unknown {
@@ -6753,6 +7189,11 @@ function normalizeOptionalInteger(value: unknown): number | null {
   }
   const numeric = Number(value);
   return Number.isFinite(numeric) ? Math.trunc(numeric) : null;
+}
+
+function normalizeSafeInteger(value: unknown): number {
+  const numeric = Number(value);
+  return Number.isSafeInteger(numeric) && numeric >= 0 ? numeric : 0;
 }
 
 function normalizeOptionalString(value: unknown): string | null {

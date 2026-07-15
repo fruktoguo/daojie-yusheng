@@ -53,11 +53,13 @@ import type {
 } from './protocol-social';
 import type { C2S_RequestContentTemplates, S2C_ContentTemplates } from './content-resolver-types';
 import type {
+  C2S_ActivateTimeChamberView,
+  C2S_ClaimTimeChamberRevenueView,
   C2S_DepositTimeChamberFuelView,
-  C2S_RenameTimeChamberView,
+  C2S_EnterTimeChamberView,
   C2S_RequestTimeChamberView,
   C2S_ResizeTimeChamberView,
-  C2S_SetTimeChamberSpeedView,
+  C2S_UpdateTimeChamberSettingsView,
   TimeChamberOperationResultView,
 } from './time-chamber-types';
 
@@ -187,9 +189,11 @@ export const C2S = {
   UpdateTreasureVaultPermissions: 'n:c:updateTreasureVaultPermissions',
   RenameTreasureVault: 'n:c:renameTreasureVault',
   RequestTimeChamber: 'n:c:requestTimeChamber',
+  ActivateTimeChamber: 'n:c:activateTimeChamber',
+  EnterTimeChamber: 'n:c:enterTimeChamber',
+  UpdateTimeChamberSettings: 'n:c:updateTimeChamberSettings',
   DepositTimeChamberFuel: 'n:c:depositTimeChamberFuel',
-  SetTimeChamberSpeed: 'n:c:setTimeChamberSpeed',
-  RenameTimeChamber: 'n:c:renameTimeChamber',
+  ClaimTimeChamberRevenue: 'n:c:claimTimeChamberRevenue',
   ResizeTimeChamber: 'n:c:resizeTimeChamber',
   AckSystemMessages: 'n:c:ackSystemMessages',
   AckOfflineGainReports: 'n:c:ackOfflineGainReports',
@@ -393,9 +397,11 @@ export interface C2S_PayloadMap extends Record<C2S_EventName, unknown> {
   [C2S.UpdateTreasureVaultPermissions]: C2S_UpdateTreasureVaultPermissionsView;
   [C2S.RenameTreasureVault]: C2S_RenameTreasureVaultView;
   [C2S.RequestTimeChamber]: C2S_RequestTimeChamberView;
+  [C2S.ActivateTimeChamber]: C2S_ActivateTimeChamberView;
+  [C2S.EnterTimeChamber]: C2S_EnterTimeChamberView;
+  [C2S.UpdateTimeChamberSettings]: C2S_UpdateTimeChamberSettingsView;
   [C2S.DepositTimeChamberFuel]: C2S_DepositTimeChamberFuelView;
-  [C2S.SetTimeChamberSpeed]: C2S_SetTimeChamberSpeedView;
-  [C2S.RenameTimeChamber]: C2S_RenameTimeChamberView;
+  [C2S.ClaimTimeChamberRevenue]: C2S_ClaimTimeChamberRevenueView;
   [C2S.ResizeTimeChamber]: C2S_ResizeTimeChamberView;
   [C2S.AckSystemMessages]: RequestPayloads.C2S_AckSystemMessages;
   [C2S.AckOfflineGainReports]: RequestPayloads.C2S_AckOfflineGainReports;

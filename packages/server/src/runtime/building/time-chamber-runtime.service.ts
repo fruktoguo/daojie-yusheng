@@ -2,20 +2,32 @@
  * 密室建筑领域服务。
  *
  * 建筑、玩家位置与实例 tick 仍由 WorldRuntimeService 权威维护；本服务只拥有密室玩法配置、
- * 燃料和外部建筑到独立实例的稳定映射。tick 热路径只扣内存预留燃料，不访问数据库。
+ * 燃料、按时租用和外部建筑到独立实例的稳定映射。运行成本在购买时段时预扣，tick 热路径不访问数据库。
  */
 import { createHash } from 'node:crypto';
-import { Inject, Injectable, Logger, type OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import {
+  calculateTimeChamberOperatingCostPerHour,
+  calculateTimeChamberUsageFee,
   MAX_INSTANCE_TICK_SPEED,
   SPIRIT_STONE_ITEM_ID,
+  TIME_CHAMBER_MAX_CAPACITY,
+  TIME_CHAMBER_MAX_HOURLY_FEE,
+  TIME_CHAMBER_MAX_SPEED,
+  TIME_CHAMBER_MAX_USAGE_HOURS,
+  TIME_CHAMBER_MIN_USAGE_HOURS,
+  type C2S_ActivateTimeChamberView,
+  type C2S_ClaimTimeChamberRevenueView,
   type C2S_DepositTimeChamberFuelView,
-  type C2S_RenameTimeChamberView,
+  type C2S_EnterTimeChamberView,
+  type C2S_RequestTimeChamberView,
   type C2S_ResizeTimeChamberView,
-  type C2S_SetTimeChamberSpeedView,
-  type TimeChamberDetailView,
+  type C2S_UpdateTimeChamberSettingsView,
+  type TimeChamberManagementDetailView,
   type TimeChamberOperationResultView,
   type TimeChamberSizeTier,
+  type TimeChamberSummaryView,
+  type TimeChamberUsageDetailView,
 } from '@mud/shared';
 
 import { resolveServerDatabaseUrl } from '../../config/env-alias';
@@ -36,19 +48,20 @@ import {
   reconcileDurableInventoryCommitOutcome,
   type DurableInventoryMutationRequest,
 } from '../world/durable-source-asset-reconciliation.helpers';
-import { buildStructuredNotice } from '../world/structured-notice.helpers';
 import { resolveCompiledBuildingDefinition } from './building-definition-resolution.helpers';
 import { TimeChamberAdmissionPolicy } from './time-chamber-admission.policy';
 import { WorldRuntimeInstanceScheduleService } from '../world/world-runtime-instance-schedule.service';
 
 const TIME_CHAMBER_TABLE = 'instance_time_chamber_state';
+const TIME_CHAMBER_USAGE_TABLE = 'instance_time_chamber_usage';
 const TIME_CHAMBER_DEF_ID = 'time_chamber';
 const MAX_NAME_LENGTH = 20;
 const MAX_REQUEST_ID_LENGTH = 128;
 const BASE_SPEED = 1;
-const RESERVE_SECONDS = 60;
-const RESERVE_LOW_WATER_SECONDS = 20;
 const MAX_FUEL_UNITS_PER_SPIRIT_STONE = 1_000_000_000;
+const MAX_ITEM_COUNT = 2_147_483_647;
+const EXPIRY_TIMER_MAX_DELAY_MS = 2_147_000_000;
+const EXPIRY_RETRY_DELAY_MS = 5_000;
 
 const SIZE_BY_TIER: Record<TimeChamberSizeTier, { width: number; height: number }> = {
   small: { width: 9, height: 9 },
@@ -77,24 +90,38 @@ interface TimeChamberState {
   capacity: number;
   configuredSpeed: number;
   databaseFuelUnits: number;
-  reservedFuelUnits: number;
+  hourlyFee: number;
+  revenueSpiritStones: number;
   fuelUnitsPerSpiritStone: number;
   maxSpeed: number;
   allowedSizeTiers: TimeChamberSizeTier[];
   revision: number;
 }
 
+interface TimeChamberUsageState {
+  sourceInstanceId: string;
+  buildingId: string;
+  chamberInstanceId: string;
+  playerId: string;
+  startedAt: number;
+  expiresAt: number;
+  quotedHourlyFee: number;
+  paidSpiritStones: number;
+  operatingFuelUnits: number;
+}
+
 @Injectable()
-export class TimeChamberRuntimeService implements OnModuleInit {
+export class TimeChamberRuntimeService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(TimeChamberRuntimeService.name);
   private readonly stateByBuildingKey = new Map<string, TimeChamberState>();
   private readonly stateByChamberInstanceId = new Map<string, TimeChamberState>();
+  private readonly usageByChamberInstanceId = new Map<string, Map<string, TimeChamberUsageState>>();
   private readonly operationTailByKey = new Map<string, Promise<unknown>>();
-  private readonly reservePromiseByKey = new Map<string, Promise<void>>();
   private pool: PoolLike | null = null;
   private enabled = false;
   private initPromise: Promise<void> | null = null;
   private worldRuntime: any = null;
+  private expiryTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
     @Inject(DatabasePoolProvider) private readonly databasePoolProvider: DatabasePoolProvider,
@@ -110,6 +137,13 @@ export class TimeChamberRuntimeService implements OnModuleInit {
     await this.initPromise;
   }
 
+  onModuleDestroy(): void {
+    if (this.expiryTimer) {
+      clearTimeout(this.expiryTimer);
+      this.expiryTimer = null;
+    }
+  }
+
   isEnabled(): boolean {
     return this.enabled && this.pool !== null;
   }
@@ -122,9 +156,10 @@ export class TimeChamberRuntimeService implements OnModuleInit {
     }
   }
 
-  /** 实例目录恢复后应用配置和燃料，并补建尚未进入 catalog 的密室实例。 */
+  /** 实例目录恢复后应用配置和有效使用时段，并补建尚未进入 catalog 的密室实例。 */
   async applyRecoveredRuntimeState(runtime: any): Promise<void> {
     this.worldRuntime = runtime;
+    await this.relocateExpiredPersistedPlayers(runtime);
     const staleStates: TimeChamberState[] = [];
     for (const state of Array.from(this.stateByBuildingKey.values())) {
       const sourceInstance = runtime.getInstanceRuntime?.(state.sourceInstanceId);
@@ -134,9 +169,6 @@ export class TimeChamberRuntimeService implements OnModuleInit {
         if (localChamberInstance && isRuntimeInstanceWritable(runtime, localChamberInstance)) {
           localChamberInstance.meta.ownerPlayerId = state.ownerPlayerId;
           localChamberInstance.meta.displayName = state.displayName;
-          if (state.configuredSpeed > BASE_SPEED) {
-            await this.reserveFuel(state);
-          }
           this.applyEffectiveSpeed(state, localChamberInstance, runtime);
         }
         continue;
@@ -185,9 +217,6 @@ export class TimeChamberRuntimeService implements OnModuleInit {
       }
       instance.meta.ownerPlayerId = state.ownerPlayerId;
       instance.meta.displayName = state.displayName;
-      if (state.configuredSpeed > BASE_SPEED) {
-        await this.reserveFuel(state);
-      }
       this.applyEffectiveSpeed(state, instance, runtime);
     }
     for (const state of staleStates) {
@@ -196,23 +225,134 @@ export class TimeChamberRuntimeService implements OnModuleInit {
         this.logger.warn(`密室孤儿状态清理失败：${state.chamberInstanceId} reason=${result.reason ?? ''}`);
       }
     }
+    this.scheduleNextUsageExpiry();
   }
 
   async buildDetail(
     playerId: string,
-    payload: { sourceInstanceId: string; buildingId: string; requestId: string },
+    payload: C2S_RequestTimeChamberView,
+    runtime: any,
+  ): Promise<TimeChamberOperationResultView> {
+    const requestId = normalizeRequestId(payload.requestId);
+    const mode = payload.mode === 'management' ? 'management' : payload.mode === 'usage' ? 'usage' : null;
+    if (!requestId) {
+      return { ok: false, operation: 'usage_detail', reason: 'request_id_required' };
+    }
+    if (!mode) {
+      return { ok: false, operation: 'usage_detail', requestId, reason: 'invalid_time_chamber_panel_mode' };
+    }
+    return this.runBuildingOperation(payload, async () => {
+      const operation = mode === 'management' ? 'management_detail' : 'usage_detail';
+      const resolved = await this.resolveManagedChamber(playerId, payload, runtime, mode === 'management');
+      if (resolved.ok !== true) {
+        return { ok: false, operation, requestId, reason: resolved.reason };
+      }
+      return mode === 'management'
+        ? {
+          ok: true,
+          operation,
+          requestId,
+          managementDetail: this.buildManagementDetailView(playerId, resolved.state, resolved.chamberInstance),
+        }
+        : {
+          ok: true,
+          operation,
+          requestId,
+          usageDetail: this.buildUsageDetailView(playerId, resolved.state, resolved.chamberInstance),
+        };
+    });
+  }
+
+  async activate(
+    playerId: string,
+    payload: C2S_ActivateTimeChamberView,
     runtime: any,
   ): Promise<TimeChamberOperationResultView> {
     const requestId = normalizeRequestId(payload.requestId);
     if (!requestId) {
-      return { ok: false, operation: 'detail', reason: 'request_id_required' };
+      return { ok: false, operation: 'activate', reason: 'request_id_required' };
     }
     return this.runBuildingOperation(payload, async () => {
-      const resolved = await this.resolveManagedChamber(playerId, payload, runtime, true);
+      const resolved = await this.resolveManagedChamber(playerId, payload, runtime, false);
       if (resolved.ok !== true) {
-        return { ok: false, operation: 'detail', requestId, reason: resolved.reason };
+        return { ok: false, operation: 'activate', requestId, reason: resolved.reason };
       }
-      return { ok: true, operation: 'detail', requestId, detail: this.buildDetailView(playerId, resolved.state, resolved.chamberInstance) };
+      const durationHours = Math.trunc(Number(payload.durationHours));
+      if (
+        !Number.isSafeInteger(durationHours)
+        || durationHours < TIME_CHAMBER_MIN_USAGE_HOURS
+        || durationHours > TIME_CHAMBER_MAX_USAGE_HOURS
+      ) {
+        return { ok: false, operation: 'activate', requestId, reason: 'invalid_time_chamber_duration' };
+      }
+      if (!matchesExpectedRevision(payload.expectedRevision, resolved.state.revision)) {
+        return { ok: false, operation: 'activate', requestId, reason: 'time_chamber_revision_conflict' };
+      }
+      const existingUsage = this.usageByChamberInstanceId.get(resolved.state.chamberInstanceId)?.get(playerId) ?? null;
+      if (!existingUsage || existingUsage.expiresAt <= Date.now()) {
+        const admission = await this.resolveAdmission(playerId, resolved.state, resolved.chamberInstance, runtime);
+        if (!admission.ok) {
+          return { ok: false, operation: 'activate', requestId, reason: admission.reason };
+        }
+      }
+      const operationId = buildTimeChamberOperationId('activate', playerId, resolved.state, requestId);
+      try {
+        await this.activateDurably(playerId, resolved.state, durationHours, operationId, runtime);
+        await this.reloadStateAndUsage(resolved.state);
+        this.applyEffectiveSpeed(resolved.state, resolved.chamberInstance, runtime);
+        this.scheduleNextUsageExpiry();
+        const entryQueued = this.enqueueEnterCommand(playerId, resolved.state, runtime);
+        return {
+          ok: true,
+          operation: 'activate',
+          requestId,
+          entryQueued,
+          usageDetail: this.buildUsageDetailView(playerId, resolved.state, resolved.chamberInstance),
+        };
+      } catch (error) {
+        this.logger.warn(`密室开启失败：${error instanceof Error ? error.message : String(error)}`);
+        return {
+          ok: false,
+          operation: 'activate',
+          requestId,
+          reason: normalizeOperationFailure(error, 'time_chamber_activation_failed'),
+        };
+      }
+    });
+  }
+
+  async queueEnter(
+    playerId: string,
+    payload: C2S_EnterTimeChamberView,
+    runtime: any,
+  ): Promise<TimeChamberOperationResultView> {
+    const requestId = normalizeRequestId(payload.requestId);
+    if (!requestId) {
+      return { ok: false, operation: 'enter', reason: 'request_id_required' };
+    }
+    return this.runBuildingOperation(payload, async () => {
+      const resolved = await this.resolveManagedChamber(playerId, payload, runtime, false);
+      if (resolved.ok !== true) {
+        return { ok: false, operation: 'enter', requestId, reason: resolved.reason };
+      }
+      const usage = this.usageByChamberInstanceId.get(resolved.state.chamberInstanceId)?.get(playerId) ?? null;
+      if (!usage || usage.expiresAt <= Date.now()) {
+        return { ok: false, operation: 'enter', requestId, reason: 'time_chamber_activation_required' };
+      }
+      const admission = await this.resolveAdmission(playerId, resolved.state, resolved.chamberInstance, runtime);
+      if (!admission.ok) {
+        return { ok: false, operation: 'enter', requestId, reason: admission.reason };
+      }
+      if (!this.enqueueEnterCommand(playerId, resolved.state, runtime)) {
+        return { ok: false, operation: 'enter', requestId, reason: 'time_chamber_unavailable' };
+      }
+      return {
+        ok: true,
+        operation: 'enter',
+        requestId,
+        entryQueued: true,
+        usageDetail: this.buildUsageDetailView(playerId, resolved.state, resolved.chamberInstance),
+      };
     });
   }
 
@@ -237,16 +377,13 @@ export class TimeChamberRuntimeService implements OnModuleInit {
       const operationId = buildFuelOperationId(playerId, resolved.state, requestId);
       try {
         await this.depositFuelDurably(playerId, resolved.state, count, operationId, runtime);
-        await this.reloadFuelState(resolved.state);
-        if (resolved.state.configuredSpeed > BASE_SPEED) {
-          await this.reserveFuel(resolved.state);
-          this.applyEffectiveSpeed(resolved.state, resolved.chamberInstance, runtime);
-        }
+        await this.reloadStateAndUsage(resolved.state);
+        this.scheduleNextUsageExpiry();
         return {
           ok: true,
           operation: 'deposit',
           requestId,
-          detail: this.buildDetailView(playerId, resolved.state, resolved.chamberInstance),
+          managementDetail: this.buildManagementDetailView(playerId, resolved.state, resolved.chamberInstance),
         };
       } catch (error) {
         this.logger.warn(`密室投入灵石失败：${error instanceof Error ? error.message : String(error)}`);
@@ -255,84 +392,114 @@ export class TimeChamberRuntimeService implements OnModuleInit {
     });
   }
 
-  async setSpeed(
+  async updateSettings(
     playerId: string,
-    payload: C2S_SetTimeChamberSpeedView,
+    payload: C2S_UpdateTimeChamberSettingsView,
     runtime: any,
   ): Promise<TimeChamberOperationResultView> {
     const requestId = normalizeRequestId(payload.requestId);
     if (!requestId) {
-      return { ok: false, operation: 'speed', reason: 'request_id_required' };
+      return { ok: false, operation: 'settings', reason: 'request_id_required' };
     }
     return this.runBuildingOperation(payload, async () => {
       const resolved = await this.resolveManagedChamber(playerId, payload, runtime, true);
       if (resolved.ok !== true) {
-        return { ok: false, operation: 'speed', requestId, reason: resolved.reason };
+        return { ok: false, operation: 'settings', requestId, reason: resolved.reason };
       }
+      const name = normalizeName(payload.name);
       const speed = Math.trunc(Number(payload.speed));
+      const hourlyFee = Math.trunc(Number(payload.hourlyFee));
+      const capacity = Math.trunc(Number(payload.capacity));
+      const maxCapacity = resolveMaxCapacityForTier(resolved.state.sizeTier);
+      if (!name) {
+        return { ok: false, operation: 'settings', requestId, reason: 'invalid_time_chamber_name' };
+      }
+      if (!Number.isSafeInteger(hourlyFee) || hourlyFee < 0 || hourlyFee > TIME_CHAMBER_MAX_HOURLY_FEE) {
+        return { ok: false, operation: 'settings', requestId, reason: 'invalid_time_chamber_hourly_fee' };
+      }
       if (!Number.isInteger(speed) || speed < BASE_SPEED || speed > resolved.state.maxSpeed) {
-        return { ok: false, operation: 'speed', requestId, reason: 'invalid_time_chamber_speed' };
+        return { ok: false, operation: 'settings', requestId, reason: 'invalid_time_chamber_speed' };
+      }
+      if (!Number.isSafeInteger(capacity) || capacity < 1 || capacity > maxCapacity) {
+        return { ok: false, operation: 'settings', requestId, reason: 'invalid_time_chamber_capacity' };
       }
       if (!matchesExpectedRevision(payload.expectedRevision, resolved.state.revision)) {
-        return { ok: false, operation: 'speed', requestId, reason: 'time_chamber_revision_conflict' };
+        return { ok: false, operation: 'settings', requestId, reason: 'time_chamber_revision_conflict' };
       }
-      if (speed > BASE_SPEED) {
-        await this.reserveFuel(resolved.state, speed);
-        if (resolved.state.reservedFuelUnits < fuelCostPerLogicalTick(speed)) {
-          return { ok: false, operation: 'speed', requestId, reason: 'time_chamber_fuel_empty' };
-        }
+      const activeUsageCount = this.getActiveUsageCount(resolved.state.chamberInstanceId);
+      if (
+        activeUsageCount > 0
+        && (speed !== resolved.state.configuredSpeed || capacity !== resolved.state.capacity)
+      ) {
+        return { ok: false, operation: 'settings', requestId, reason: 'time_chamber_settings_locked' };
       }
-      await this.updateConfigRow(resolved.state, { configuredSpeed: speed });
+      await this.updateConfigRow(resolved.state, { configuredSpeed: speed, displayName: name, hourlyFee, capacity });
+      const nameChanged = name !== resolved.state.displayName;
       resolved.state.configuredSpeed = speed;
+      resolved.state.displayName = name;
+      resolved.state.hourlyFee = hourlyFee;
+      resolved.state.capacity = capacity;
       resolved.state.revision += 1;
+      if (nameChanged) {
+        resolved.building.name = name;
+        resolved.building.updatedAtTick = Math.max(0, Math.trunc(Number(resolved.sourceInstance.tick) || 0));
+        resolved.building.revision = Math.max(1, Math.trunc(Number(resolved.building.revision) || 1)) + 1;
+        markBuildingChanged(resolved.sourceInstance, resolved.building);
+        resolved.chamberInstance.meta.displayName = name;
+        this.templateRepository.renameRuntimeMapTemplate?.(resolved.state.templateId, name);
+        resolved.chamberInstance.worldRevision = Math.max(0, Math.trunc(Number(resolved.chamberInstance.worldRevision) || 0)) + 1;
+      }
       this.applyEffectiveSpeed(resolved.state, resolved.chamberInstance, runtime);
       await runtime.flushInstanceDomains?.(resolved.state.chamberInstanceId, ['time']);
       return {
         ok: true,
-        operation: 'speed',
+        operation: 'settings',
         requestId,
-        detail: this.buildDetailView(playerId, resolved.state, resolved.chamberInstance),
+        managementDetail: this.buildManagementDetailView(playerId, resolved.state, resolved.chamberInstance),
       };
     });
   }
 
-  async rename(
+  async claimRevenue(
     playerId: string,
-    payload: C2S_RenameTimeChamberView,
+    payload: C2S_ClaimTimeChamberRevenueView,
     runtime: any,
   ): Promise<TimeChamberOperationResultView> {
     const requestId = normalizeRequestId(payload.requestId);
     if (!requestId) {
-      return { ok: false, operation: 'rename', reason: 'request_id_required' };
+      return { ok: false, operation: 'claim_revenue', reason: 'request_id_required' };
     }
     return this.runBuildingOperation(payload, async () => {
       const resolved = await this.resolveManagedChamber(playerId, payload, runtime, true);
       if (resolved.ok !== true) {
-        return { ok: false, operation: 'rename', requestId, reason: resolved.reason };
+        return { ok: false, operation: 'claim_revenue', requestId, reason: resolved.reason };
       }
-      const name = normalizeName(payload.name);
-      if (!name) {
-        return { ok: false, operation: 'rename', requestId, reason: 'invalid_time_chamber_name' };
+      const count = Math.trunc(Number(payload.spiritStoneCount));
+      if (!Number.isSafeInteger(count) || count <= 0 || count > resolved.state.revenueSpiritStones) {
+        return { ok: false, operation: 'claim_revenue', requestId, reason: 'time_chamber_revenue_insufficient' };
       }
       if (!matchesExpectedRevision(payload.expectedRevision, resolved.state.revision)) {
-        return { ok: false, operation: 'rename', requestId, reason: 'time_chamber_revision_conflict' };
+        return { ok: false, operation: 'claim_revenue', requestId, reason: 'time_chamber_revision_conflict' };
       }
-      await this.updateConfigRow(resolved.state, { displayName: name });
-      resolved.state.displayName = name;
-      resolved.state.revision += 1;
-      resolved.building.name = name;
-      resolved.building.updatedAtTick = Math.max(0, Math.trunc(Number(resolved.sourceInstance.tick) || 0));
-      resolved.building.revision = Math.max(1, Math.trunc(Number(resolved.building.revision) || 1)) + 1;
-      markBuildingChanged(resolved.sourceInstance, resolved.building);
-      resolved.chamberInstance.meta.displayName = name;
-      this.templateRepository.renameRuntimeMapTemplate?.(resolved.state.templateId, name);
-      resolved.chamberInstance.worldRevision = Math.max(0, Math.trunc(Number(resolved.chamberInstance.worldRevision) || 0)) + 1;
-      return {
-        ok: true,
-        operation: 'rename',
-        requestId,
-        detail: this.buildDetailView(playerId, resolved.state, resolved.chamberInstance),
-      };
+      const operationId = buildTimeChamberOperationId('revenue', playerId, resolved.state, requestId);
+      try {
+        await this.claimRevenueDurably(playerId, resolved.state, count, operationId, runtime);
+        await this.reloadStateAndUsage(resolved.state);
+        return {
+          ok: true,
+          operation: 'claim_revenue',
+          requestId,
+          managementDetail: this.buildManagementDetailView(playerId, resolved.state, resolved.chamberInstance),
+        };
+      } catch (error) {
+        this.logger.warn(`密室收益提取失败：${error instanceof Error ? error.message : String(error)}`);
+        return {
+          ok: false,
+          operation: 'claim_revenue',
+          requestId,
+          reason: normalizeOperationFailure(error, 'time_chamber_revenue_claim_failed'),
+        };
+      }
     });
   }
 
@@ -358,6 +525,12 @@ export class TimeChamberRuntimeService implements OnModuleInit {
       }
       if (!matchesExpectedRevision(payload.expectedRevision, resolved.state.revision)) {
         return { ok: false, operation: 'resize', requestId, reason: 'time_chamber_revision_conflict' };
+      }
+      if (this.getActiveUsageCount(resolved.state.chamberInstanceId) > 0) {
+        return { ok: false, operation: 'resize', requestId, reason: 'time_chamber_settings_locked' };
+      }
+      if (resolved.state.capacity > resolveMaxCapacityForTier(sizeTier)) {
+        return { ok: false, operation: 'resize', requestId, reason: 'time_chamber_capacity_exceeds_size' };
       }
       if (resolved.chamberInstance.listPlayerIds().length > 0) {
         return { ok: false, operation: 'resize', requestId, reason: 'time_chamber_occupied' };
@@ -399,40 +572,23 @@ export class TimeChamberRuntimeService implements OnModuleInit {
         ok: true,
         operation: 'resize',
         requestId,
-        detail: this.buildDetailView(playerId, resolved.state, resolved.chamberInstance),
+        managementDetail: this.buildManagementDetailView(playerId, resolved.state, resolved.chamberInstance),
       };
     });
   }
 
-  /** 所有人都可进入；容量判定由独立 policy 承担。 */
+  /** 已购买有效使用时段的玩家可进入；时段本身预占一个容量名额。 */
   async enter(playerId: string, sourceInstanceId: string, buildingId: string, runtime: any): Promise<{ ok: boolean; reason?: string }> {
     return this.runBuildingOperation({ sourceInstanceId, buildingId }, async () => {
       const resolved = await this.resolveManagedChamber(playerId, { sourceInstanceId, buildingId }, runtime, false);
       if (resolved.ok !== true) {
         return { ok: false, reason: resolved.reason };
       }
-      const persistence = this.playerRuntimeService.playerDomainPersistenceService;
-      if (!isPlayerDomainPersistenceEnabled(persistence)
-        || typeof persistence?.listRetainedPlayerIdsInInstance !== 'function') {
-        return { ok: false, reason: 'time_chamber_persistence_disabled' };
+      const usage = this.usageByChamberInstanceId.get(resolved.state.chamberInstanceId)?.get(playerId) ?? null;
+      if (!usage || usage.expiresAt <= Date.now()) {
+        return { ok: false, reason: 'time_chamber_activation_required' };
       }
-      const retainedPlayerIds = (await persistence.listRetainedPlayerIdsInInstance(
-        resolved.state.chamberInstanceId,
-        resolved.state.capacity + 1,
-      )).filter((retainedPlayerId) => {
-        // 位置 checkpoint 可能比刚完成的跨图传送晚一次 flush；在线运行态已明确离开时不能继续占用名额。
-        const runtimeLocation = runtime.getPlayerLocation?.(retainedPlayerId);
-        const runtimePlayer = this.playerRuntimeService.getPlayer?.(retainedPlayerId);
-        const currentInstanceId = normalizeString(runtimeLocation?.instanceId)
-          || normalizeString(runtimePlayer?.instanceId);
-        return !currentInstanceId || currentInstanceId === resolved.state.chamberInstanceId;
-      });
-      const admission = this.admissionPolicy.canEnter(
-        resolved.chamberInstance,
-        playerId,
-        resolved.state.capacity,
-        retainedPlayerIds,
-      );
+      const admission = await this.resolveAdmission(playerId, resolved.state, resolved.chamberInstance, runtime);
       if (!admission.ok) {
         return admission;
       }
@@ -499,49 +655,24 @@ export class TimeChamberRuntimeService implements OnModuleInit {
     });
   }
 
-  /** 调度批次规划：仅按当前内存燃料裁剪步数，不提前扣除尚未执行的逻辑息。 */
+  /** 运行成本已在购买时段时预扣；这里只在调度批次边界强制执行到期回落。 */
   authorizeScheduledSteps(instanceId: string, instance: any, requestedSteps: number, speed: number, runtime: any): number {
     const state = this.stateByChamberInstanceId.get(instanceId);
-    if (!state || speed <= BASE_SPEED) {
+    if (!state) {
       return requestedSteps;
     }
     this.worldRuntime = runtime;
-    const costPerStep = fuelCostPerLogicalTick(speed);
-    const allowedSteps = Math.min(
-      Math.max(0, Math.trunc(requestedSteps)),
-      Math.floor(state.reservedFuelUnits / costPerStep),
-    );
-    if (state.reservedFuelUnits <= reserveTargetUnits(speed, RESERVE_LOW_WATER_SECONDS)) {
-      this.queueFuelReserve(state);
+    if (this.getActiveUsageCount(instanceId) <= 0) {
+      this.applyEffectiveSpeed(state, instance, runtime);
+      if (!this.expiryTimer && this.hasExpiredUsage(instanceId, Date.now())) {
+        this.scheduleNextUsageExpiry();
+      }
+      return Math.min(Math.max(0, Math.trunc(requestedSteps)), 1);
     }
-    if (allowedSteps <= 0 && requestedSteps > 0) {
-      this.applyBaselineFallback(state, instance, runtime);
-    }
-    return allowedSteps;
+    return requestedSteps;
   }
 
-  /** 一个实例核心逻辑息成功后调用；只为已经真正执行的加速息扣燃料。 */
-  consumeScheduledStep(instanceId: string, instance: any, speed: number, runtime: any): boolean {
-    const state = this.stateByChamberInstanceId.get(instanceId);
-    if (!state || speed <= BASE_SPEED) {
-      return true;
-    }
-    this.worldRuntime = runtime;
-    const costPerStep = fuelCostPerLogicalTick(speed);
-    if (costPerStep <= 0) {
-      return true;
-    }
-    if (state.reservedFuelUnits < costPerStep) {
-      this.applyBaselineFallback(state, instance, runtime);
-      return false;
-    }
-    state.reservedFuelUnits -= costPerStep;
-    if (state.reservedFuelUnits <= reserveTargetUnits(speed, RESERVE_LOW_WATER_SECONDS)) {
-      this.queueFuelReserve(state);
-    }
-    if (state.reservedFuelUnits < costPerStep) {
-      this.applyBaselineFallback(state, instance, runtime);
-    }
+  consumeScheduledStep(_instanceId: string, _instance: any, _speed: number, _runtime: any): boolean {
     return true;
   }
 
@@ -564,6 +695,9 @@ export class TimeChamberRuntimeService implements OnModuleInit {
       }
       if (!state) {
         return { ok: true };
+      }
+      if (this.getActiveUsageCount(state.chamberInstanceId) > 0) {
+        return { ok: false, reason: 'time_chamber_active' };
       }
       const instance = runtime.getInstanceRuntime?.(state.chamberInstanceId);
       if (instance && !isRuntimeInstanceWritable(runtime, instance)) {
@@ -636,6 +770,7 @@ export class TimeChamberRuntimeService implements OnModuleInit {
       }
       this.stateByBuildingKey.delete(key);
       this.stateByChamberInstanceId.delete(state.chamberInstanceId);
+      this.usageByChamberInstanceId.delete(state.chamberInstanceId);
       this.templateRepository.unregisterRuntimeMapTemplate?.(state.templateId);
       this.instanceScheduleService.unregister(state.chamberInstanceId);
       runtime.worldRuntimeInstanceStateService?.deleteInstanceRuntime?.(state.chamberInstanceId);
@@ -655,6 +790,25 @@ export class TimeChamberRuntimeService implements OnModuleInit {
     return this.stateByBuildingKey.get(buildBuildingKey(sourceInstanceId, buildingId)) ?? null;
   }
 
+  getInteractionSummary(sourceInstanceId: string, buildingId: string): {
+    displayName: string;
+    configuredSpeed: number;
+    effectiveSpeed: number;
+    activeUsageCount: number;
+    capacity: number;
+  } | null {
+    const state = this.getStateByExteriorBuilding(sourceInstanceId, buildingId);
+    if (!state) return null;
+    const activeUsageCount = this.countActiveUsages(state.chamberInstanceId, Date.now());
+    return {
+      displayName: state.displayName,
+      configuredSpeed: state.configuredSpeed,
+      effectiveSpeed: activeUsageCount > 0 ? state.configuredSpeed : BASE_SPEED,
+      activeUsageCount,
+      capacity: state.capacity,
+    };
+  }
+
   private async initialize(): Promise<void> {
     if (!resolveServerDatabaseUrl().trim()) {
       this.logger.log('密室持久化已禁用：未提供 SERVER_DATABASE_URL/DATABASE_URL');
@@ -670,7 +824,9 @@ export class TimeChamberRuntimeService implements OnModuleInit {
       this.pool = pool;
       this.enabled = true;
       await this.reloadAllStates();
-      this.logger.log(`密室持久化已启用：恢复 ${this.stateByBuildingKey.size} 条状态`);
+      await this.reloadAllUsageStates();
+      this.scheduleNextUsageExpiry();
+      this.logger.log(`密室持久化已启用：恢复 ${this.stateByBuildingKey.size} 条状态、${this.totalUsageCount()} 个有效使用时段`);
     } catch (error) {
       this.pool = null;
       this.enabled = false;
@@ -692,6 +848,18 @@ export class TimeChamberRuntimeService implements OnModuleInit {
       }
       this.storeState(state);
       this.registerTemplate(state);
+    }
+  }
+
+  private async reloadAllUsageStates(): Promise<void> {
+    if (!this.pool) return;
+    const result = await this.pool.query(
+      `SELECT * FROM ${TIME_CHAMBER_USAGE_TABLE} ORDER BY chamber_instance_id, player_id`,
+    );
+    this.usageByChamberInstanceId.clear();
+    for (const row of result.rows ?? []) {
+      const usage = normalizeUsageRow(row);
+      if (usage) this.storeUsage(usage);
     }
   }
 
@@ -808,11 +976,9 @@ export class TimeChamberRuntimeService implements OnModuleInit {
     return this.templateRepository.registerRuntimeMapTemplate(buildTimeChamberMapDocument(state));
   }
 
-  private buildDetailView(playerId: string, state: TimeChamberState, instance: any): TimeChamberDetailView {
+  private buildSummaryView(playerId: string, state: TimeChamberState, instance: any): TimeChamberSummaryView {
     const dimensions = SIZE_BY_TIER[state.sizeTier];
-    const fuelUnits = Math.max(0, state.databaseFuelUnits + state.reservedFuelUnits);
-    const effectiveSpeed = resolveEffectiveInstanceSpeed(instance);
-    const consumption = fuelConsumptionUnitsPerSecond(effectiveSpeed);
+    const usages = this.listActiveUsages(state.chamberInstanceId, Date.now());
     return {
       sourceInstanceId: state.sourceInstanceId,
       buildingId: state.buildingId,
@@ -823,19 +989,49 @@ export class TimeChamberRuntimeService implements OnModuleInit {
       sizeTier: state.sizeTier,
       width: dimensions.width,
       height: dimensions.height,
-      allowedSizes: state.allowedSizeTiers.map((tier) => ({ tier, ...SIZE_BY_TIER[tier] })),
       capacity: state.capacity,
+      activeUsageCount: usages.length,
       occupancy: instance?.listPlayerIds?.().length ?? 0,
       configuredSpeed: state.configuredSpeed,
-      effectiveSpeed,
+      effectiveSpeed: resolveEffectiveInstanceSpeed(instance),
+      activeUntil: usages.length > 0 ? Math.max(...usages.map((usage) => usage.expiresAt)) : null,
+      revision: state.revision,
+    };
+  }
+
+  private buildUsageDetailView(playerId: string, state: TimeChamberState, instance: any): TimeChamberUsageDetailView {
+    const summary = this.buildSummaryView(playerId, state, instance);
+    const usage = this.usageByChamberInstanceId.get(state.chamberInstanceId)?.get(playerId) ?? null;
+    const isOwner = normalizeString(playerId) === state.ownerPlayerId;
+    return {
+      ...summary,
+      usageFeePerHour: isOwner ? 0 : state.hourlyFee,
+      ownerUsageFree: isOwner,
+      playerLeaseExpiresAt: usage && usage.expiresAt > Date.now() ? usage.expiresAt : null,
+      minUsageHours: TIME_CHAMBER_MIN_USAGE_HOURS,
+      maxUsageHours: TIME_CHAMBER_MAX_USAGE_HOURS,
+    };
+  }
+
+  private buildManagementDetailView(playerId: string, state: TimeChamberState, instance: any): TimeChamberManagementDetailView {
+    const summary = this.buildSummaryView(playerId, state, instance);
+    const operatingCost = calculateTimeChamberOperatingCostPerHour(state.configuredSpeed, state.capacity);
+    return {
+      ...summary,
+      hourlyFee: state.hourlyFee,
       minSpeed: BASE_SPEED,
       maxSpeed: state.maxSpeed,
-      fuelUnits,
+      maxCapacity: resolveMaxCapacityForTier(state.sizeTier),
+      allowedSizes: state.allowedSizeTiers.map((tier) => ({ tier, ...SIZE_BY_TIER[tier] })),
+      fuelUnits: state.databaseFuelUnits,
       fuelUnitsPerSpiritStone: state.fuelUnitsPerSpiritStone,
-      fuelSpiritStoneEquivalent: fuelUnits / state.fuelUnitsPerSpiritStone,
-      fuelConsumptionUnitsPerSecond: consumption,
-      estimatedRemainingSeconds: consumption > 0 ? Math.floor(fuelUnits / consumption) : null,
-      revision: state.revision,
+      fuelSpiritStoneEquivalent: state.databaseFuelUnits / state.fuelUnitsPerSpiritStone,
+      operatingCostSpiritStonesPerHour: operatingCost,
+      fuelCoverageHours: operatingCost > 0
+        ? state.databaseFuelUnits / state.fuelUnitsPerSpiritStone / operatingCost
+        : null,
+      revenueSpiritStones: state.revenueSpiritStones,
+      settingsLocked: summary.activeUsageCount > 0,
     };
   }
 
@@ -909,75 +1105,126 @@ export class TimeChamberRuntimeService implements OnModuleInit {
     });
   }
 
-  private async reserveFuel(state: TimeChamberState, speed = state.configuredSpeed): Promise<void> {
-    if (!this.pool || speed <= BASE_SPEED) {
-      return;
+  private async activateDurably(
+    playerId: string,
+    state: TimeChamberState,
+    durationHours: number,
+    operationId: string,
+    runtime: any,
+  ): Promise<void> {
+    const player = this.playerRuntimeService.getPlayerOrThrow(playerId) as any;
+    if (!this.durableOperationService.isEnabled?.() || !player.runtimeOwnerId || !Number.isFinite(Number(player.sessionEpoch))) {
+      throw new Error('durable_inventory_unavailable');
     }
-    const key = buildBuildingKey(state.sourceInstanceId, state.buildingId);
-    const existing = this.reservePromiseByKey.get(key);
-    if (existing) {
-      await existing;
-      return;
-    }
-    const promise = (async () => {
-      const target = reserveTargetUnits(speed, RESERVE_SECONDS);
-      const needed = Math.max(0, target - state.reservedFuelUnits);
-      if (needed <= 0) {
-        return;
-      }
-      const result = await this.pool!.query(
-        `WITH locked AS MATERIALIZED (
-           SELECT source_instance_id, building_id, fuel_units
-             FROM ${TIME_CHAMBER_TABLE}
-            WHERE source_instance_id = $1 AND building_id = $2
-            FOR UPDATE
-         )
-         UPDATE ${TIME_CHAMBER_TABLE} AS chamber
-            SET fuel_units = chamber.fuel_units - LEAST(locked.fuel_units, $3::bigint),
-                updated_at = now()
-           FROM locked
-          WHERE chamber.source_instance_id = locked.source_instance_id
-            AND chamber.building_id = locked.building_id
-         RETURNING chamber.fuel_units AS after_units,
-                   LEAST(locked.fuel_units, $3::bigint) AS reserved_units`,
-        [state.sourceInstanceId, state.buildingId, needed],
-      );
-      const row = result.rows?.[0];
-      if (!row) {
-        throw new Error('time_chamber_state_not_found');
-      }
-      const afterUnits = normalizeSafeInteger(row?.after_units);
-      state.databaseFuelUnits = afterUnits;
-      state.reservedFuelUnits += normalizeSafeInteger(row?.reserved_units);
-    })().finally(() => {
-      if (this.reservePromiseByKey.get(key) === promise) {
-        this.reservePromiseByKey.delete(key);
-      }
+    await this.playerRuntimeService.runExclusiveAssetMutation([playerId], async () => {
+      const usageFee = playerId === state.ownerPlayerId
+        ? 0
+        : calculateTimeChamberUsageFee(state.hourlyFee, durationHours);
+      const currentItems = Array.isArray(player.inventory?.items) ? player.inventory.items.map((entry) => ({ ...entry })) : [];
+      const removal = removeInventoryItemCount(currentItems, SPIRIT_STONE_ITEM_ID, usageFee);
+      if (!removal.ok) throw new Error('insufficient_spirit_stone');
+      const leaseContext = await resolveInventoryGrantLeaseContext(player.instanceId, runtime.instanceCatalogService);
+      if (player.instanceId && !leaseContext) throw new Error('inventory_grant_lease_context_required');
+      const durableInput: GrantInventoryItemsInput & DurableInventoryMutationRequest = {
+        operationId,
+        playerId,
+        expectedRuntimeOwnerId: player.runtimeOwnerId,
+        expectedSessionEpoch: Math.max(1, Math.trunc(Number(player.sessionEpoch))),
+        expectedInstanceId: player.instanceId ?? null,
+        expectedAssignedNodeId: leaseContext?.assignedNodeId ?? null,
+        expectedOwnershipEpoch: leaseContext?.ownershipEpoch ?? null,
+        sourceType: 'time_chamber_activation',
+        sourceRefId: state.chamberInstanceId,
+        inventoryAction: 'transfer',
+        grantedItems: buildGrantedInventorySnapshots(removal.removedItems),
+        nextInventoryItems: buildNextInventorySnapshots(removal.nextItems),
+        sourceMutation: {
+          kind: 'time_chamber_activation',
+          instanceId: state.sourceInstanceId,
+          buildingId: state.buildingId,
+          chamberInstanceId: state.chamberInstanceId,
+          playerId,
+          durationHours,
+          expectedRevision: state.revision,
+          chargedSpiritStones: usageFee,
+          fuelUnitsPerSpiritStone: state.fuelUnitsPerSpiritStone,
+        },
+      };
+      const applied = await this.commitDurableInventoryMutation(durableInput, playerId, operationId);
+      if (applied) this.playerRuntimeService.replaceInventoryItems(playerId, removal.nextItems);
     });
-    this.reservePromiseByKey.set(key, promise);
-    await promise;
   }
 
-  private queueFuelReserve(state: TimeChamberState): void {
-    void this.runBuildingOperation(state, () => this.reserveFuel(state)).then(() => {
-      const runtime = this.worldRuntime;
-      const instance = runtime?.getInstanceRuntime?.(state.chamberInstanceId);
-      if (instance && state.configuredSpeed > BASE_SPEED && state.reservedFuelUnits >= fuelCostPerLogicalTick(state.configuredSpeed)) {
-        this.applyEffectiveSpeed(state, instance, runtime);
-      }
-    }).catch((error) => {
-      this.logger.warn(`密室燃料缓冲补充失败：${state.chamberInstanceId} ${error instanceof Error ? error.message : String(error)}`);
-      const runtime = this.worldRuntime;
-      const instance = runtime?.getInstanceRuntime?.(state.chamberInstanceId);
-      if (instance) {
-        this.applyBaselineFallback(state, instance, runtime);
-      }
+  private async claimRevenueDurably(
+    playerId: string,
+    state: TimeChamberState,
+    count: number,
+    operationId: string,
+    runtime: any,
+  ): Promise<void> {
+    const player = this.playerRuntimeService.getPlayerOrThrow(playerId) as any;
+    if (!this.durableOperationService.isEnabled?.() || !player.runtimeOwnerId || !Number.isFinite(Number(player.sessionEpoch))) {
+      throw new Error('durable_inventory_unavailable');
+    }
+    await this.playerRuntimeService.runExclusiveAssetMutation([playerId], async () => {
+      const currentItems = Array.isArray(player.inventory?.items) ? player.inventory.items.map((entry) => ({ ...entry })) : [];
+      const grantedItem = this.playerRuntimeService.contentTemplateRepository.createItem(SPIRIT_STONE_ITEM_ID, count);
+      if (!grantedItem) throw new Error('time_chamber_currency_template_missing');
+      const nextItems = addInventoryItemCount(currentItems, grantedItem, count, player.inventory?.capacity);
+      const leaseContext = await resolveInventoryGrantLeaseContext(player.instanceId, runtime.instanceCatalogService);
+      if (player.instanceId && !leaseContext) throw new Error('inventory_grant_lease_context_required');
+      const durableInput: GrantInventoryItemsInput & DurableInventoryMutationRequest = {
+        operationId,
+        playerId,
+        expectedRuntimeOwnerId: player.runtimeOwnerId,
+        expectedSessionEpoch: Math.max(1, Math.trunc(Number(player.sessionEpoch))),
+        expectedInstanceId: player.instanceId ?? null,
+        expectedAssignedNodeId: leaseContext?.assignedNodeId ?? null,
+        expectedOwnershipEpoch: leaseContext?.ownershipEpoch ?? null,
+        sourceType: 'time_chamber_revenue_claim',
+        sourceRefId: state.chamberInstanceId,
+        inventoryAction: 'grant',
+        grantedItems: buildGrantedInventorySnapshots([{ ...grantedItem, count }]),
+        nextInventoryItems: buildNextInventorySnapshots(nextItems),
+        sourceMutation: {
+          kind: 'time_chamber_revenue',
+          instanceId: state.sourceInstanceId,
+          buildingId: state.buildingId,
+          ownerPlayerId: playerId,
+          expectedRevision: state.revision,
+          claimedSpiritStones: count,
+        },
+      };
+      const applied = await this.commitDurableInventoryMutation(durableInput, playerId, operationId);
+      if (applied) this.playerRuntimeService.replaceInventoryItems(playerId, nextItems);
     });
+  }
+
+  private async commitDurableInventoryMutation(
+    input: GrantInventoryItemsInput & DurableInventoryMutationRequest,
+    playerId: string,
+    operationId: string,
+  ): Promise<boolean> {
+    try {
+      const result = await this.durableOperationService.grantInventoryItems(input);
+      return result.alreadyCommitted !== true;
+    } catch (error) {
+      if (!isDurableCommitOutcomeUnknownError(error)) throw error;
+      const reconciliation = await reconcileDurableInventoryCommitOutcome<
+        GrantInventoryItemsInput & DurableInventoryMutationRequest
+      >(this.durableOperationService, input);
+      if (reconciliation.outcome === 'failed') throw reconciliation.error;
+      if (reconciliation.outcome === 'unknown') throw error;
+      this.playerRuntimeService.replaceInventoryItems(playerId, reconciliation.inventoryItems);
+      this.logger.warn(reconciliation.replayReadFailed
+        ? `密室资产事务已确认提交，但 operation 明细暂不可读，已按同一请求后态收敛：operationId=${operationId}`
+        : `密室资产事务 COMMIT 回包不确定，已按 durable operation 回读收敛：operationId=${operationId}`);
+      return false;
+    }
   }
 
   private applyEffectiveSpeed(state: TimeChamberState, instance: any, runtime: any): void {
-    const desired = state.configuredSpeed > BASE_SPEED
-      && state.reservedFuelUnits >= fuelCostPerLogicalTick(state.configuredSpeed)
+    const desired = this.countActiveUsages(state.chamberInstanceId, Date.now()) > 0
       ? state.configuredSpeed
       : BASE_SPEED;
     if (resolveEffectiveInstanceSpeed(instance) === desired && instance.paused !== true) {
@@ -987,25 +1234,6 @@ export class TimeChamberRuntimeService implements OnModuleInit {
     instance.paused = false;
     instance.markPersistenceDirtyDomainsHighPriority?.(['time']);
     this.instanceScheduleService.registerOrUpdate(state.chamberInstanceId, instance);
-  }
-
-  private applyBaselineFallback(state: TimeChamberState, instance: any, runtime: any): void {
-    if (resolveEffectiveInstanceSpeed(instance) === BASE_SPEED) {
-      return;
-    }
-    instance.tickSpeed = BASE_SPEED;
-    instance.paused = false;
-    instance.markPersistenceDirtyDomainsHighPriority?.(['time']);
-    this.instanceScheduleService.registerOrUpdate(state.chamberInstanceId, instance);
-    const notice = buildStructuredNotice(
-      'warn',
-      'notice.time-chamber.fuel-empty-fallback',
-      '密室灵石耗尽，时间流速已自动回落为一倍。',
-    );
-    for (const playerId of instance?.listPlayerIds?.() ?? []) {
-      runtime.queuePlayerNotice?.(playerId, notice.text, notice.kind, undefined, undefined, notice.structured);
-    }
-    this.logger.log(`密室燃料不足，已回落 1x：${state.chamberInstanceId}`);
   }
 
   private applyVerifiedTransfer(playerId: string, targetInstanceId: string, transfer: any, runtime: any): boolean {
@@ -1025,25 +1253,268 @@ export class TimeChamberRuntimeService implements OnModuleInit {
     return normalizeString(runtime.getPlayerLocation?.(playerId)?.instanceId) === normalizeString(targetInstanceId);
   }
 
-  private async reloadFuelState(state: TimeChamberState): Promise<void> {
-    if (!this.pool) {
-      return;
+  private async resolveAdmission(
+    playerId: string,
+    state: TimeChamberState,
+    chamberInstance: any,
+    runtime: any,
+  ): Promise<{ ok: boolean; reason?: string }> {
+    const persistence = this.playerRuntimeService.playerDomainPersistenceService;
+    if (!isPlayerDomainPersistenceEnabled(persistence)
+      || typeof persistence?.listRetainedPlayerIdsInInstance !== 'function') {
+      return { ok: false, reason: 'time_chamber_persistence_disabled' };
     }
+    const retainedPlayerIds = (await persistence.listRetainedPlayerIdsInInstance(
+      state.chamberInstanceId,
+      TIME_CHAMBER_MAX_CAPACITY + 1,
+    )).filter((retainedPlayerId: string) => {
+      // 位置 checkpoint 可能比刚完成的跨图传送晚一次 flush；在线运行态已明确离开时不能继续占用名额。
+      const runtimeLocation = runtime.getPlayerLocation?.(retainedPlayerId);
+      const runtimePlayer = this.playerRuntimeService.getPlayer?.(retainedPlayerId);
+      const currentInstanceId = normalizeString(runtimeLocation?.instanceId)
+        || normalizeString(runtimePlayer?.instanceId);
+      return !currentInstanceId || currentInstanceId === state.chamberInstanceId;
+    });
+    return this.admissionPolicy.canEnter(chamberInstance, playerId, state.capacity, retainedPlayerIds);
+  }
+
+  private enqueueEnterCommand(playerId: string, state: TimeChamberState, runtime: any): boolean {
+    if (typeof runtime?.enqueuePendingCommand !== 'function') return false;
+    runtime.enqueuePendingCommand(playerId, {
+      kind: 'timeChamberTransfer',
+      direction: 'enter',
+      sourceInstanceId: state.sourceInstanceId,
+      buildingId: state.buildingId,
+    });
+    return true;
+  }
+
+  private async reloadStateAndUsage(state: TimeChamberState): Promise<void> {
+    if (!this.pool) return;
     const result = await this.pool.query(
-      `SELECT fuel_units, revision FROM ${TIME_CHAMBER_TABLE}
+      `SELECT * FROM ${TIME_CHAMBER_TABLE}
         WHERE source_instance_id = $1 AND building_id = $2 LIMIT 1`,
       [state.sourceInstanceId, state.buildingId],
     );
     const row = result.rows?.[0];
     if (row) {
       state.databaseFuelUnits = normalizeSafeInteger(row.fuel_units);
+      state.hourlyFee = normalizeSafeInteger(row.hourly_fee);
+      state.revenueSpiritStones = normalizeSafeInteger(row.revenue_spirit_stones);
+      state.capacity = Math.max(1, Math.min(resolveMaxCapacityForTier(state.sizeTier), normalizeSafeInteger(row.capacity)));
+      state.configuredSpeed = Math.max(BASE_SPEED, Math.min(state.maxSpeed, normalizeSafeInteger(row.configured_speed)));
+      state.displayName = normalizeName(row.display_name) || state.displayName;
       state.revision = Math.max(1, normalizeSafeInteger(row.revision));
     }
+    const usageResult = await this.pool.query(
+      `SELECT * FROM ${TIME_CHAMBER_USAGE_TABLE}
+        WHERE source_instance_id = $1 AND building_id = $2
+        ORDER BY player_id`,
+      [state.sourceInstanceId, state.buildingId],
+    );
+    const usageMap = new Map<string, TimeChamberUsageState>();
+    for (const usageRow of usageResult.rows ?? []) {
+      const usage = normalizeUsageRow(usageRow);
+      if (usage) usageMap.set(usage.playerId, usage);
+    }
+    if (usageMap.size > 0) this.usageByChamberInstanceId.set(state.chamberInstanceId, usageMap);
+    else this.usageByChamberInstanceId.delete(state.chamberInstanceId);
+  }
+
+  private listActiveUsages(chamberInstanceId: string, now: number): TimeChamberUsageState[] {
+    const usages = this.usageByChamberInstanceId.get(chamberInstanceId);
+    if (!usages) return [];
+    return Array.from(usages.values()).filter((usage) => usage.expiresAt > now);
+  }
+
+  private countActiveUsages(chamberInstanceId: string, now: number): number {
+    let count = 0;
+    for (const usage of this.usageByChamberInstanceId.get(chamberInstanceId)?.values() ?? []) {
+      if (usage.expiresAt > now) count += 1;
+    }
+    return count;
+  }
+
+  private getActiveUsageCount(chamberInstanceId: string): number {
+    return this.countActiveUsages(chamberInstanceId, Date.now());
+  }
+
+  private hasExpiredUsage(chamberInstanceId: string, now: number): boolean {
+    for (const usage of this.usageByChamberInstanceId.get(chamberInstanceId)?.values() ?? []) {
+      if (usage.expiresAt <= now) return true;
+    }
+    return false;
+  }
+
+  private pruneExpiredUsageState(chamberInstanceId: string, now = Date.now()): void {
+    const usages = this.usageByChamberInstanceId.get(chamberInstanceId);
+    if (!usages) return;
+    for (const [playerId, usage] of usages) {
+      if (usage.expiresAt <= now) usages.delete(playerId);
+    }
+    if (usages.size === 0) this.usageByChamberInstanceId.delete(chamberInstanceId);
+  }
+
+  private storeUsage(usage: TimeChamberUsageState): void {
+    let usages = this.usageByChamberInstanceId.get(usage.chamberInstanceId);
+    if (!usages) {
+      usages = new Map<string, TimeChamberUsageState>();
+      this.usageByChamberInstanceId.set(usage.chamberInstanceId, usages);
+    }
+    usages.set(usage.playerId, usage);
+  }
+
+  private totalUsageCount(): number {
+    let count = 0;
+    for (const usages of this.usageByChamberInstanceId.values()) count += usages.size;
+    return count;
+  }
+
+  private scheduleNextUsageExpiry(): void {
+    if (this.expiryTimer) {
+      clearTimeout(this.expiryTimer);
+      this.expiryTimer = null;
+    }
+    const runtime = this.worldRuntime;
+    if (!runtime) return;
+    const now = Date.now();
+    let nextExpiry = Number.POSITIVE_INFINITY;
+    for (const [chamberInstanceId, usages] of this.usageByChamberInstanceId) {
+      const state = this.stateByChamberInstanceId.get(chamberInstanceId);
+      if (!state || !this.canProcessUsageExpiry(state, runtime)) continue;
+      for (const usage of usages.values()) nextExpiry = Math.min(nextExpiry, usage.expiresAt);
+    }
+    if (!Number.isFinite(nextExpiry)) return;
+    const delay = nextExpiry <= now
+      ? EXPIRY_RETRY_DELAY_MS
+      : Math.max(1, Math.min(EXPIRY_TIMER_MAX_DELAY_MS, nextExpiry - now));
+    this.expiryTimer = setTimeout(() => {
+      this.expiryTimer = null;
+      void this.expireUsageLeases().catch((error) => {
+        this.logger.warn(`密室使用时段到期处理失败：${error instanceof Error ? error.message : String(error)}`);
+        this.scheduleUsageExpiryRetry();
+      });
+    }, delay);
+  }
+
+  private scheduleUsageExpiryRetry(): void {
+    if (this.expiryTimer) clearTimeout(this.expiryTimer);
+    this.expiryTimer = setTimeout(() => {
+      this.expiryTimer = null;
+      void this.expireUsageLeases().catch((error) => {
+        this.logger.warn(`密室使用时段到期重试失败：${error instanceof Error ? error.message : String(error)}`);
+        this.scheduleUsageExpiryRetry();
+      });
+    }, EXPIRY_RETRY_DELAY_MS);
+  }
+
+  private async expireUsageLeases(): Promise<void> {
+    const runtime = this.worldRuntime;
+    if (!runtime) return;
+    const now = Date.now();
+    for (const [chamberInstanceId] of this.usageByChamberInstanceId) {
+      const state = this.stateByChamberInstanceId.get(chamberInstanceId);
+      if (!state || !this.hasExpiredUsage(chamberInstanceId, now) || !this.canProcessUsageExpiry(state, runtime)) continue;
+      await this.runBuildingOperation(state, async () => {
+        await this.reloadStateAndUsage(state);
+        const instance = runtime.getInstanceRuntime?.(state.chamberInstanceId);
+        if (instance) this.applyEffectiveSpeed(state, instance, runtime);
+        const remainingExpiredUsage = await this.expirePersistedUsagesForState(state, runtime);
+        if (!remainingExpiredUsage) this.pruneExpiredUsageState(state.chamberInstanceId);
+      });
+    }
+    this.scheduleNextUsageExpiry();
+  }
+
+  private async relocateExpiredPersistedPlayers(runtime: any): Promise<void> {
+    const now = Date.now();
+    for (const [chamberInstanceId] of this.usageByChamberInstanceId) {
+      const state = this.stateByChamberInstanceId.get(chamberInstanceId);
+      if (!state || !this.hasExpiredUsage(chamberInstanceId, now) || !this.canProcessUsageExpiry(state, runtime)) continue;
+      const remainingExpiredUsage = await this.expirePersistedUsagesForState(state, runtime);
+      if (!remainingExpiredUsage) this.pruneExpiredUsageState(state.chamberInstanceId);
+    }
+  }
+
+  private canProcessUsageExpiry(state: TimeChamberState, runtime: any): boolean {
+    const sourceInstance = runtime?.getInstanceRuntime?.(state.sourceInstanceId);
+    const chamberInstance = runtime?.getInstanceRuntime?.(state.chamberInstanceId);
+    return Boolean(
+      sourceInstance
+      && chamberInstance
+      && isRuntimeInstanceWritable(runtime, sourceInstance)
+      && isRuntimeInstanceWritable(runtime, chamberInstance)
+    );
+  }
+
+  private async expirePersistedUsagesForState(state: TimeChamberState, runtime: any): Promise<boolean> {
+    if (!this.pool) return false;
+    const result = await this.pool.query(
+      `SELECT usage.player_id, checkpoint.instance_id AS checkpoint_instance_id,
+              checkpoint.facing AS checkpoint_facing
+         FROM ${TIME_CHAMBER_USAGE_TABLE} usage
+         LEFT JOIN player_position_checkpoint checkpoint ON checkpoint.player_id = usage.player_id
+        WHERE usage.source_instance_id = $1
+          AND usage.building_id = $2
+          AND usage.expires_at_ms <= floor(extract(epoch FROM clock_timestamp()) * 1000)::bigint`,
+      [state.sourceInstanceId, state.buildingId],
+    );
+    if ((result.rows?.length ?? 0) === 0) return false;
+    const sourceInstance = runtime.getInstanceRuntime?.(state.sourceInstanceId);
+    const building = sourceInstance?.buildingById?.get?.(state.buildingId) ?? null;
+    if (!sourceInstance || !building) return true;
+    const persistence = this.playerRuntimeService.playerDomainPersistenceService;
+    let remainingExpiredUsage = false;
+    for (const row of result.rows) {
+      const playerId = normalizeString(row.player_id);
+      if (!playerId) continue;
+      const runtimeLocation = runtime.getPlayerLocation?.(playerId);
+      if (normalizeString(runtimeLocation?.instanceId) === state.chamberInstanceId) {
+        this.applyVerifiedTransfer(playerId, state.sourceInstanceId, {
+          playerId,
+          sessionId: runtimeLocation.sessionId,
+          fromInstanceId: state.chamberInstanceId,
+          targetMapId: sourceInstance.template.id,
+          targetInstanceId: state.sourceInstanceId,
+          targetX: building.x,
+          targetY: building.y,
+          reason: 'time_chamber_usage_expired',
+        }, runtime);
+      }
+      const checkpointInChamber = normalizeString(row.checkpoint_instance_id) === state.chamberInstanceId;
+      const currentLocationInChamber = normalizeString(runtime.getPlayerLocation?.(playerId)?.instanceId) === state.chamberInstanceId;
+      if (currentLocationInChamber) {
+        remainingExpiredUsage = true;
+        continue;
+      }
+      if (checkpointInChamber && isPlayerDomainPersistenceEnabled(persistence)) {
+        await persistence.savePlayerPositionCheckpoint(playerId, {
+          instanceId: state.sourceInstanceId,
+          x: Math.trunc(Number(building.x) || 0),
+          y: Math.trunc(Number(building.y) || 0),
+          facing: Math.trunc(Number(row.checkpoint_facing) || 2),
+          checkpointKind: 'time_chamber_usage_expired',
+        });
+      }
+      await this.pool.query(
+        `DELETE FROM ${TIME_CHAMBER_USAGE_TABLE}
+          WHERE source_instance_id = $1 AND building_id = $2 AND player_id = $3
+            AND expires_at_ms <= floor(extract(epoch FROM clock_timestamp()) * 1000)::bigint`,
+        [state.sourceInstanceId, state.buildingId, playerId],
+      );
+    }
+    return remainingExpiredUsage;
   }
 
   private async updateConfigRow(
     state: TimeChamberState,
-    patch: { configuredSpeed?: number; displayName?: string; sizeTier?: TimeChamberSizeTier },
+    patch: {
+      configuredSpeed?: number;
+      displayName?: string;
+      sizeTier?: TimeChamberSizeTier;
+      hourlyFee?: number;
+      capacity?: number;
+    },
   ): Promise<void> {
     if (!this.pool) {
       throw new Error('time_chamber_persistence_disabled');
@@ -1053,10 +1524,21 @@ export class TimeChamberRuntimeService implements OnModuleInit {
           SET configured_speed = COALESCE($3, configured_speed),
               display_name = COALESCE($4, display_name),
               size_tier = COALESCE($5, size_tier),
+              hourly_fee = COALESCE($6, hourly_fee),
+              capacity = COALESCE($7, capacity),
               revision = revision + 1,
               updated_at = now()
-        WHERE source_instance_id = $1 AND building_id = $2 AND revision = $6`,
-      [state.sourceInstanceId, state.buildingId, patch.configuredSpeed ?? null, patch.displayName ?? null, patch.sizeTier ?? null, state.revision],
+        WHERE source_instance_id = $1 AND building_id = $2 AND revision = $8`,
+      [
+        state.sourceInstanceId,
+        state.buildingId,
+        patch.configuredSpeed ?? null,
+        patch.displayName ?? null,
+        patch.sizeTier ?? null,
+        patch.hourlyFee ?? null,
+        patch.capacity ?? null,
+        state.revision,
+      ],
     );
     if ((result.rowCount ?? 0) !== 1) {
       throw new Error('time_chamber_revision_conflict');
@@ -1095,14 +1577,40 @@ async function ensureTimeChamberTable(pool: PoolLike): Promise<void> {
       size_tier varchar(16) NOT NULL CHECK (size_tier IN ('small', 'medium', 'large')),
       capacity integer NOT NULL DEFAULT 1 CHECK (capacity BETWEEN 1 AND 100),
       configured_speed integer NOT NULL DEFAULT 1 CHECK (configured_speed BETWEEN 1 AND ${MAX_INSTANCE_TICK_SPEED}),
+      hourly_fee bigint NOT NULL DEFAULT 0 CHECK (hourly_fee BETWEEN 0 AND ${TIME_CHAMBER_MAX_HOURLY_FEE}),
       fuel_units bigint NOT NULL DEFAULT 0 CHECK (fuel_units >= 0),
+      revenue_spirit_stones bigint NOT NULL DEFAULT 0 CHECK (revenue_spirit_stones >= 0),
       revision bigint NOT NULL DEFAULT 1 CHECK (revision >= 1),
       created_at timestamptz NOT NULL DEFAULT now(),
       updated_at timestamptz NOT NULL DEFAULT now(),
       PRIMARY KEY (source_instance_id, building_id)
     )
   `);
+  await pool.query(`ALTER TABLE ${TIME_CHAMBER_TABLE} ADD COLUMN IF NOT EXISTS hourly_fee bigint NOT NULL DEFAULT 0`);
+  await pool.query(`ALTER TABLE ${TIME_CHAMBER_TABLE} ADD COLUMN IF NOT EXISTS revenue_spirit_stones bigint NOT NULL DEFAULT 0`);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ${TIME_CHAMBER_USAGE_TABLE} (
+      source_instance_id varchar(180) NOT NULL,
+      building_id varchar(180) NOT NULL,
+      chamber_instance_id varchar(180) NOT NULL,
+      player_id varchar(100) NOT NULL,
+      started_at_ms bigint NOT NULL CHECK (started_at_ms >= 0),
+      expires_at_ms bigint NOT NULL CHECK (expires_at_ms > started_at_ms),
+      quoted_hourly_fee bigint NOT NULL DEFAULT 0 CHECK (quoted_hourly_fee >= 0),
+      paid_spirit_stones bigint NOT NULL DEFAULT 0 CHECK (paid_spirit_stones >= 0),
+      operating_fuel_units bigint NOT NULL DEFAULT 0 CHECK (operating_fuel_units >= 0),
+      last_operation_id varchar(180) NOT NULL,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now(),
+      PRIMARY KEY (source_instance_id, building_id, player_id),
+      FOREIGN KEY (source_instance_id, building_id)
+        REFERENCES ${TIME_CHAMBER_TABLE}(source_instance_id, building_id)
+        ON DELETE CASCADE
+    )
+  `);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_time_chamber_owner ON ${TIME_CHAMBER_TABLE}(owner_player_id)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_time_chamber_usage_expiry ON ${TIME_CHAMBER_USAGE_TABLE}(chamber_instance_id, expires_at_ms)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_time_chamber_usage_player ON ${TIME_CHAMBER_USAGE_TABLE}(player_id, expires_at_ms)`);
 }
 
 function normalizeStateRow(row: any, config: ReturnType<typeof resolveTimeChamberConfig> = null): TimeChamberState | null {
@@ -1123,14 +1631,36 @@ function normalizeStateRow(row: any, config: ReturnType<typeof resolveTimeChambe
     ownerPlayerId,
     displayName: normalizeName(row?.display_name) || '密室',
     sizeTier,
-    capacity: Math.max(1, Math.trunc(Number(row?.capacity) || config?.capacity || 1)),
-    configuredSpeed: Math.max(BASE_SPEED, Math.min(MAX_INSTANCE_TICK_SPEED, Math.trunc(Number(row?.configured_speed) || BASE_SPEED))),
+    capacity: Math.max(1, Math.min(resolveMaxCapacityForTier(sizeTier), Math.trunc(Number(row?.capacity) || config?.capacity || 1))),
+    configuredSpeed: Math.max(BASE_SPEED, Math.min(TIME_CHAMBER_MAX_SPEED, Math.trunc(Number(row?.configured_speed) || BASE_SPEED))),
     databaseFuelUnits: normalizeSafeInteger(row?.fuel_units),
-    reservedFuelUnits: 0,
+    hourlyFee: Math.min(TIME_CHAMBER_MAX_HOURLY_FEE, normalizeSafeInteger(row?.hourly_fee)),
+    revenueSpiritStones: normalizeSafeInteger(row?.revenue_spirit_stones),
     fuelUnitsPerSpiritStone: config?.fuelUnitsPerSpiritStone ?? 36_000,
     maxSpeed: config?.maxSpeed ?? MAX_INSTANCE_TICK_SPEED,
     allowedSizeTiers: config?.allowedSizeTiers ?? ['small', 'medium', 'large'],
     revision: Math.max(1, normalizeSafeInteger(row?.revision)),
+  };
+}
+
+function normalizeUsageRow(row: any): TimeChamberUsageState | null {
+  const sourceInstanceId = normalizeString(row?.source_instance_id);
+  const buildingId = normalizeString(row?.building_id);
+  const chamberInstanceId = normalizeString(row?.chamber_instance_id);
+  const playerId = normalizeString(row?.player_id);
+  const startedAt = normalizeSafeInteger(row?.started_at_ms);
+  const expiresAt = normalizeSafeInteger(row?.expires_at_ms);
+  if (!sourceInstanceId || !buildingId || !chamberInstanceId || !playerId || expiresAt <= startedAt) return null;
+  return {
+    sourceInstanceId,
+    buildingId,
+    chamberInstanceId,
+    playerId,
+    startedAt,
+    expiresAt,
+    quotedHourlyFee: normalizeSafeInteger(row?.quoted_hourly_fee),
+    paidSpiritStones: normalizeSafeInteger(row?.paid_spirit_stones),
+    operatingFuelUnits: normalizeSafeInteger(row?.operating_fuel_units),
   };
 }
 
@@ -1148,7 +1678,7 @@ function resolveTimeChamberConfig(compiled: any): { capacity: number; maxSpeed: 
     : [];
   return {
     capacity,
-    maxSpeed: Math.max(BASE_SPEED, Math.min(MAX_INSTANCE_TICK_SPEED, Math.trunc(Number(compiled?.timeChamberMaxSpeed) || MAX_INSTANCE_TICK_SPEED))),
+    maxSpeed: Math.max(BASE_SPEED, Math.min(TIME_CHAMBER_MAX_SPEED, Math.trunc(Number(compiled?.timeChamberMaxSpeed) || TIME_CHAMBER_MAX_SPEED))),
     fuelUnitsPerSpiritStone: Math.max(1, Math.min(MAX_FUEL_UNITS_PER_SPIRIT_STONE, Math.trunc(Number(compiled?.timeChamberFuelUnitsPerSpiritStone) || 36_000))),
     allowedSizeTiers: allowed.length > 0 ? allowed : ['small', 'medium', 'large'],
   };
@@ -1205,6 +1735,30 @@ function removeInventoryItemCount(items: any[], itemId: string, count: number): 
   return { ok: remaining === 0, nextItems: remaining === 0 ? nextItems : items, removedItems: remaining === 0 ? removedItems : [] };
 }
 
+function addInventoryItemCount(items: any[], template: any, countInput: number, capacityInput: unknown): any[] {
+  const count = Math.trunc(Number(countInput));
+  if (!Number.isSafeInteger(count) || count <= 0 || count > MAX_ITEM_COUNT) {
+    throw new Error('time_chamber_revenue_inventory_limit');
+  }
+  const nextItems = items.map((item) => ({ ...item }));
+  const existing = nextItems.find((item) => item?.itemId === template?.itemId);
+  if (existing) {
+    const nextCount = Math.max(0, Math.trunc(Number(existing.count) || 0)) + count;
+    if (nextCount > MAX_ITEM_COUNT) throw new Error('time_chamber_revenue_inventory_limit');
+    existing.count = nextCount;
+    return nextItems;
+  }
+  const capacity = Math.max(0, Math.trunc(Number(capacityInput) || nextItems.length));
+  if (nextItems.length >= capacity) throw new Error('inventory_full');
+  nextItems.push({ ...template, count });
+  return nextItems;
+}
+
+function resolveMaxCapacityForTier(tier: TimeChamberSizeTier): number {
+  const dimensions = SIZE_BY_TIER[tier];
+  return Math.min(TIME_CHAMBER_MAX_CAPACITY, Math.max(1, (dimensions.width - 2) * (dimensions.height - 2)));
+}
+
 function markBuildingChanged(instance: any, building: any): void {
   instance.localBuildingViewCacheById?.delete?.(building.id);
   instance.markAoiViewChangedAt?.(building.x, building.y);
@@ -1222,11 +1776,20 @@ function buildStableChamberHash(sourceInstanceId: string, buildingId: string): s
 }
 
 function buildFuelOperationId(playerId: string, state: Pick<TimeChamberState, 'sourceInstanceId' | 'buildingId'>, requestId: string): string {
+  return buildTimeChamberOperationId('fuel', playerId, state, requestId);
+}
+
+function buildTimeChamberOperationId(
+  kind: 'activate' | 'fuel' | 'revenue',
+  playerId: string,
+  state: Pick<TimeChamberState, 'sourceInstanceId' | 'buildingId'>,
+  requestId: string,
+): string {
   const hash = createHash('sha256')
-    .update(`${playerId}\u0000${state.sourceInstanceId}\u0000${state.buildingId}\u0000${requestId}`)
+    .update(`${kind}\u0000${playerId}\u0000${state.sourceInstanceId}\u0000${state.buildingId}\u0000${requestId}`)
     .digest('hex')
     .slice(0, 32);
-  return `time-chamber-fuel:${hash}`;
+  return `time-chamber-${kind}:${hash}`;
 }
 
 function normalizeString(value: unknown): string {
@@ -1254,18 +1817,6 @@ function normalizeSafeInteger(value: unknown): number {
 
 function chebyshevDistance(leftX: number, leftY: number, rightX: number, rightY: number): number {
   return Math.max(Math.abs(Math.trunc(leftX) - Math.trunc(rightX)), Math.abs(Math.trunc(leftY) - Math.trunc(rightY)));
-}
-
-function fuelCostPerLogicalTick(speed: number): number {
-  return Math.max(0, Math.trunc(speed) - BASE_SPEED);
-}
-
-function fuelConsumptionUnitsPerSecond(speed: number): number {
-  return speed > BASE_SPEED ? Math.trunc(speed) * fuelCostPerLogicalTick(speed) : 0;
-}
-
-function reserveTargetUnits(speed: number, seconds: number): number {
-  return Math.max(fuelCostPerLogicalTick(speed), fuelConsumptionUnitsPerSecond(speed) * seconds);
 }
 
 function resolveEffectiveInstanceSpeed(instance: any): number {

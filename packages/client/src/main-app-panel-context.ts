@@ -91,7 +91,7 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
       settingsPanel,
       npcShopModal,
       npcQuestModal,
-      entityDetailModal, timeChamberConsoleModal,
+      entityDetailModal, timeChamberUsageModal, timeChamberConsoleModal,
       craftWorkbenchModal,
       panelSystem,
     },
@@ -107,7 +107,7 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
     isSocketConnected: () => socket.connected,
   });
   const socialStateSource = createMainSocialStateSource({ socialPanel, treasureVaultModal, socket: socialEconomySender, getPlayer: () => rootRuntimeSource.getPlayer(), hydrateInventoryItem: (item, previous) => detailHydrationSource.hydrateSyncedItemStack(item, previous), showToast: (message, kind) => uiStateSource.showToast(message, kind) });
-  const timeChamberStateSource = createMainTimeChamberStateSource({ modal: timeChamberConsoleModal, socket: buildingSender, getPlayer: () => rootRuntimeSource.getPlayer(), showToast: (message, kind) => uiStateSource.showToast(message, kind) });
+  const timeChamberStateSource = createMainTimeChamberStateSource({ usageModal: timeChamberUsageModal, managementModal: timeChamberConsoleModal, socket: buildingSender, getPlayer: () => rootRuntimeSource.getPlayer(), showToast: (message, kind) => uiStateSource.showToast(message, kind) });
   let uiStateSource!: ReturnType<typeof createMainUiStateSource>;
   let panelDeltaStateSource!: ReturnType<typeof import('./main-panel-delta-state-source').createMainPanelDeltaStateSource>;
   const techniqueActivityOpeners = { alchemy: () => craftWorkbenchModal.openAlchemy(), forging: () => craftWorkbenchModal.openForging(), enhancement: () => craftWorkbenchModal.openEnhancement() } as const satisfies Record<ClientTechniqueActivityKind | 'forging', () => void>;
@@ -128,7 +128,7 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
     openTechniqueRefiningPanel: () => craftWorkbenchModal.openTechniqueRefining(),
     openScripturePlatformRecordingModal: (buildingId) => openScripturePlatformRecordingModal({ buildingId, getPlayer: () => rootRuntimeSource.getPlayer(), sendAction: (actionId) => runtimeSender.sendAction(actionId), showToast: (message, kind) => callbacks.showToast(message, kind) }),
     openTreasureVault: (buildingId) => socialStateSource.openTreasureVault(buildingId),
-    openTimeChamberConsole: (buildingId) => timeChamberStateSource.open(buildingId),
+    openTimeChamberUsage: (buildingId) => timeChamberStateSource.openUsage(buildingId), openTimeChamberManagement: (buildingId) => timeChamberStateSource.openManagement(buildingId),
     openWorldMigrationModal: () => openWorldMigrationModal({
       getPlayer: () => rootRuntimeSource.getPlayer(),
       sendAction: (actionId, target) => runtimeSender.sendAction(actionId, target),

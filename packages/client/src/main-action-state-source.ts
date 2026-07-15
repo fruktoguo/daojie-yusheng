@@ -102,8 +102,10 @@ type MainActionStateSourceOptions = {
  */
 
   openTreasureVault: (buildingId: string, initialTab?: TreasureVaultModalTab) => void;
-  /** 打开密室独立控制台。 */
-  openTimeChamberConsole: (buildingId: string) => void;
+  /** 打开密室使用面板。 */
+  openTimeChamberUsage: (buildingId: string) => void;
+  /** 打开密室管理面板。 */
+  openTimeChamberManagement: (buildingId: string) => void;
   /**
  * openWorldMigrationModal：打开世界迁移弹窗。
  */
@@ -227,12 +229,21 @@ export function createMainActionStateSource(options: MainActionStateSourceOption
           return;
         }
       }
-      if (actionId.startsWith('time_chamber:console:')) {
-        const encodedBuildingId = actionId.slice('time_chamber:console:'.length).trim();
+      if (actionId.startsWith('time_chamber:usage:')) {
+        const encodedBuildingId = actionId.slice('time_chamber:usage:'.length).trim();
         if (encodedBuildingId && !encodedBuildingId.includes(':')) {
           options.cancelTargeting();
           options.hideObserveModal();
-          options.openTimeChamberConsole(safeDecodeActionPart(encodedBuildingId));
+          options.openTimeChamberUsage(safeDecodeActionPart(encodedBuildingId));
+          return;
+        }
+      }
+      if (actionId.startsWith('time_chamber:management:')) {
+        const encodedBuildingId = actionId.slice('time_chamber:management:'.length).trim();
+        if (encodedBuildingId && !encodedBuildingId.includes(':')) {
+          options.cancelTargeting();
+          options.hideObserveModal();
+          options.openTimeChamberManagement(safeDecodeActionPart(encodedBuildingId));
           return;
         }
       }

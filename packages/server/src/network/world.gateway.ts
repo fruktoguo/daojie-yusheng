@@ -391,17 +391,25 @@ class WorldGateway implements WorldGatewayHelperContext {
     handleRequestTimeChamber(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayPlayerControlsHelper.handleRequestTimeChamber(client, payload);
     }
+    @SubscribeMessage(C2S.ActivateTimeChamber)
+    handleActivateTimeChamber(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
+        return this.gatewayPlayerControlsHelper.handleActivateTimeChamber(client, payload);
+    }
+    @SubscribeMessage(C2S.EnterTimeChamber)
+    handleEnterTimeChamber(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
+        return this.gatewayPlayerControlsHelper.handleEnterTimeChamber(client, payload);
+    }
+    @SubscribeMessage(C2S.UpdateTimeChamberSettings)
+    handleUpdateTimeChamberSettings(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
+        return this.gatewayPlayerControlsHelper.handleUpdateTimeChamberSettings(client, payload);
+    }
     @SubscribeMessage(C2S.DepositTimeChamberFuel)
     handleDepositTimeChamberFuel(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayPlayerControlsHelper.handleDepositTimeChamberFuel(client, payload);
     }
-    @SubscribeMessage(C2S.SetTimeChamberSpeed)
-    handleSetTimeChamberSpeed(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
-        return this.gatewayPlayerControlsHelper.handleSetTimeChamberSpeed(client, payload);
-    }
-    @SubscribeMessage(C2S.RenameTimeChamber)
-    handleRenameTimeChamber(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
-        return this.gatewayPlayerControlsHelper.handleRenameTimeChamber(client, payload);
+    @SubscribeMessage(C2S.ClaimTimeChamberRevenue)
+    handleClaimTimeChamberRevenue(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
+        return this.gatewayPlayerControlsHelper.handleClaimTimeChamberRevenue(client, payload);
     }
     @SubscribeMessage(C2S.ResizeTimeChamber)
     handleResizeTimeChamber(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
