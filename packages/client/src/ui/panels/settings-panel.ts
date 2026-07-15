@@ -737,7 +737,7 @@ export class SettingsPanel {
         <div class="account-settings-name-grid ui-form-grid ui-form-grid--two-column">
           <div class="account-settings-field account-settings-field--display ui-form-field">
             <label class="ui-form-label" for="settings-display-name">${escapeHtml(t('settings.account.label.display-name', undefined))}</label>
-            <input id="settings-display-name" class="account-settings-display-input ui-input" type="text" maxlength="1" value="${escapeHtml(this.currentDisplayName)}" placeholder="${escapeHtml(t('settings.account.placeholder.display-name', undefined))}" />
+            <input id="settings-display-name" class="account-settings-display-input ui-input" type="text" value="${escapeHtml(this.currentDisplayName)}" placeholder="${escapeHtml(t('settings.account.placeholder.display-name', undefined))}" />
             <div id="settings-display-name-status" class="account-settings-status ui-status-text">${escapeHtml(t('settings.account.status.display-name-current', undefined))}</div>
             <div class="account-settings-actions ui-inline-actions-end ui-action-row">
               <button id="settings-display-name-submit" class="small-btn" type="button">${escapeHtml(t('settings.account.action.save-display-name', undefined))}</button>

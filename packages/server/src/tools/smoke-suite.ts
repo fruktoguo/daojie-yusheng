@@ -143,6 +143,7 @@ const smokeCases = [
     { name: 'gm-auth-token-revocation', scriptFile: 'gm-auth-token-revocation-smoke.js', standalone: true },
     { name: 'native-request-ip', scriptFile: 'native-request-ip-smoke.js', standalone: true },
     { name: 'registration-activation', scriptFile: 'registration-activation-smoke.js', standalone: true },
+    { name: 'name-visibility', scriptFile: 'name-visibility-smoke.js', standalone: true },
     { name: 'native-auth-persistence-failure', scriptFile: 'native-auth-persistence-failure-smoke.js', standalone: true },
     { name: 'native-gm-player-domain-write', scriptFile: 'native-gm-player-domain-write-smoke.js', standalone: true },
     { name: 'gm', scriptFile: 'gm-smoke.js' },
@@ -259,6 +260,7 @@ const SMOKE_CASE_GROUPS = Object.freeze({
     'auth-bootstrap-legacy-import',
     'gm-auth-token-revocation',
     'native-request-ip',
+    'name-visibility',
     'session',
   ],
   'player-persistence-recovery': [

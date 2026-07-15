@@ -68,6 +68,7 @@
     "smoke:player-persistence-flush": "pnpm compile && node dist/tools/player-persistence-flush-smoke.js",
     "smoke:player-domain-persistence": "pnpm compile && node dist/tools/player-domain-persistence-smoke.js",
     "smoke:player-domain-recovery": "pnpm compile && node dist/tools/player-domain-recovery-smoke.js",
+    "smoke:name-visibility": "pnpm compile && node dist/tools/name-visibility-smoke.js",
     "smoke:player-domain-empty-overwrite-guard": "pnpm compile && node dist/tools/player-domain-empty-overwrite-guard-smoke.js",
     "smoke:instance-domain-migration": "pnpm compile && node dist/tools/instance-domain-migration-smoke.js",
     "smoke:instance-tile-damage-flush-worker": "pnpm compile && node dist/tools/instance-tile-damage-flush-worker-smoke.js",

@@ -7,9 +7,11 @@ import {
   ACCOUNT_MAX_LENGTH,
   ACCOUNT_MIN_LENGTH,
   containsInvisibleOnlyNameGrapheme,
+  DISPLAY_NAME_MAX_CODE_POINTS,
   getGraphemeCount,
   getRoleNameLimitText,
   hasVisibleNameGrapheme,
+  isDisplayNameWithinStorageLimit,
   isRoleNameWithinLimit,
   PASSWORD_MIN_LENGTH,
 } from '@mud/shared';
@@ -57,16 +59,20 @@ export function validatePassword(password: string): string | null {
 export function validateDisplayName(displayName: string): string | null {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-  if (!displayName) {
+  const normalized = displayName.normalize('NFC');
+  if (!normalized) {
     return '显示名称不能为空';
   }
-  if (hasWhitespace(displayName)) {
+  if (hasWhitespace(normalized)) {
     return '显示名称不支持空格';
   }
-  if (getGraphemeCount(displayName) !== 1) {
+  if (getGraphemeCount(normalized) !== 1) {
     return '显示名称必须为 1 个字符';
   }
-  if (!hasVisibleNameGrapheme(displayName) || containsInvisibleOnlyNameGrapheme(displayName)) {
+  if (!isDisplayNameWithinStorageLimit(normalized)) {
+    return `显示名称组合序列不能超过 ${DISPLAY_NAME_MAX_CODE_POINTS} 个 Unicode 码点`;
+  }
+  if (!hasVisibleNameGrapheme(normalized) || containsInvisibleOnlyNameGrapheme(normalized)) {
     return '显示名称必须为可见字符';
   }
   return null;

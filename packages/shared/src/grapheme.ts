@@ -48,9 +48,83 @@ export function splitGraphemes(value: string): string[] {
     return [];
   }
   if (!graphemeSegmenter) {
-    return Array.from(value);
+    return splitGraphemesFallback(value);
   }
   return Array.from(graphemeSegmenter.segment(value), (entry) => entry.segment);
+}
+
+function splitGraphemesFallback(value: string): string[] {
+  const codePoints = Array.from(value);
+  const result: string[] = [];
+  for (const codePoint of codePoints) {
+    if (result.length > 0 && codePoint === '\u200D') {
+      result[result.length - 1] += codePoint;
+      continue;
+    }
+    if (
+      result.length > 0
+      && (
+        isCombiningMark(codePoint)
+        || isVariationSelector(codePoint)
+        || isEmojiModifier(codePoint)
+        || isEmojiTag(codePoint)
+      )
+    ) {
+      result[result.length - 1] += codePoint;
+      continue;
+    }
+    if (
+      result.length > 0
+      && isRegionalIndicator(codePoint)
+      && countRegionalIndicators(result[result.length - 1] ?? '') % 2 === 1
+    ) {
+      result[result.length - 1] += codePoint;
+      continue;
+    }
+    if (result.length > 0 && result[result.length - 1]?.endsWith('\u200D')) {
+      result[result.length - 1] += codePoint;
+      continue;
+    }
+    result.push(codePoint);
+  }
+  return result;
+}
+
+function isCombiningMark(value: string): boolean {
+  return /^\p{Mark}$/u.test(value);
+}
+
+function isVariationSelector(value: string): boolean {
+  const codePoint = value.codePointAt(0);
+  return codePoint !== undefined && (
+    (codePoint >= 0xfe00 && codePoint <= 0xfe0f)
+    || (codePoint >= 0xe0100 && codePoint <= 0xe01ef)
+  );
+}
+
+function isEmojiModifier(value: string): boolean {
+  const codePoint = value.codePointAt(0);
+  return codePoint !== undefined && codePoint >= 0x1f3fb && codePoint <= 0x1f3ff;
+}
+
+function isEmojiTag(value: string): boolean {
+  const codePoint = value.codePointAt(0);
+  return codePoint !== undefined && codePoint >= 0xe0020 && codePoint <= 0xe007f;
+}
+
+function isRegionalIndicator(value: string): boolean {
+  const codePoint = value.codePointAt(0);
+  return codePoint !== undefined && codePoint >= 0x1f1e6 && codePoint <= 0x1f1ff;
+}
+
+function countRegionalIndicators(value: string): number {
+  let count = 0;
+  for (const codePoint of value) {
+    if (isRegionalIndicator(codePoint)) {
+      count += 1;
+    }
+  }
+  return count;
 }
 
 /** getGraphemeCount：读取Grapheme数量。 */
@@ -62,9 +136,6 @@ export function getGraphemeCount(value: string): number {
 export function getFirstGrapheme(value: string): string {
   return splitGraphemes(value)[0] ?? '';
 }
-
-
-
 
 
 

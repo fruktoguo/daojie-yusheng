@@ -390,7 +390,7 @@ const AccountTab = memo(function AccountTab({ state }: { state: SettingsPanelSta
         <div className="account-settings-name-grid ui-form-grid ui-form-grid--two-column">
           <div className="account-settings-field account-settings-field--display ui-form-field">
             <label className="ui-form-label">{t('settings.account.label.display-name', undefined)}</label>
-            <input className="account-settings-display-input ui-input" type="text" maxLength={1} value={displayNameInput} placeholder={t('settings.account.placeholder.display-name', undefined)} onChange={(e) => handleDisplayNameInput(e.target.value)} />
+            <input className="account-settings-display-input ui-input" type="text" value={displayNameInput} placeholder={t('settings.account.placeholder.display-name', undefined)} onChange={(e) => handleDisplayNameInput(e.target.value)} />
             <div className={`account-settings-status ui-status-text${displayNameStatusType ? ` ${displayNameStatusType}` : ''}`}>{displayNameStatus}</div>
             <div className="account-settings-actions ui-inline-actions-end ui-action-row">
               <button className="small-btn" type="button" disabled={submitting || !displayNameAvailable} onClick={handleDisplayNameSubmit}>{t('settings.account.action.save-display-name', undefined)}</button>

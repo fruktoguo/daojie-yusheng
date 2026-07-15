@@ -8,6 +8,7 @@ import {
   containsInvisibleOnlyNameGrapheme,
   getGraphemeCount,
   hasVisibleNameGrapheme,
+  isDisplayNameWithinStorageLimit,
   resolveDefaultVisibleDisplayName,
 } from '@mud/shared';
 import * as fs from 'node:fs';
@@ -1192,6 +1193,7 @@ function normalizePlayerName(playerName: unknown, displayName: string, username:
 function isValidVisibleDisplayName(value: string): boolean {
   return value.length > 0
     && getGraphemeCount(value) === 1
+    && isDisplayNameWithinStorageLimit(value)
     && hasVisibleNameGrapheme(value)
     && !containsInvisibleOnlyNameGrapheme(value);
 }

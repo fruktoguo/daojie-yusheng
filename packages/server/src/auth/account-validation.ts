@@ -12,9 +12,11 @@ import {
   ACCOUNT_MIN_LENGTH,
   containsInvisibleOnlyNameGrapheme,
   DEFAULT_VISIBLE_DISPLAY_NAME,
+  DISPLAY_NAME_MAX_CODE_POINTS,
   getGraphemeCount,
   getRoleNameLimitText,
   hasVisibleNameGrapheme,
+  isDisplayNameWithinStorageLimit,
   isRoleNameWithinLimit,
   PASSWORD_MIN_LENGTH,
   resolveDefaultVisibleDisplayName,
@@ -91,6 +93,10 @@ export function validateDisplayName(displayName: unknown): string | null {
 
   if (getGraphemeCount(normalized) !== 1) {
     return '显示名称必须为 1 个字符';
+  }
+
+  if (!isDisplayNameWithinStorageLimit(normalized)) {
+    return `显示名称组合序列不能超过 ${DISPLAY_NAME_MAX_CODE_POINTS} 个 Unicode 码点`;
   }
 
   if (!hasVisibleNameGrapheme(normalized) || containsInvisibleOnlyNameGrapheme(normalized)) {

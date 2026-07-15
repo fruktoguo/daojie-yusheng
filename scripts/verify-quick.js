@@ -49,6 +49,8 @@ const status = runVerificationSteps({
         '--case',
         'registration-activation',
         '--case',
+        'name-visibility',
+        '--case',
         'native-auth-persistence-failure',
         '--case',
         'native-gm-player-domain-write',

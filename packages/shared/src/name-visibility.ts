@@ -7,6 +7,8 @@ import { splitGraphemes } from './grapheme';
 
 /** DEFAULT_VISIBLE_DISPLAY_NAME：可见显示名称默认值。 */
 export const DEFAULT_VISIBLE_DISPLAY_NAME = '人';
+/** 显示名称持久化列按 PostgreSQL 字符数允许的最大 Unicode 码点数。 */
+export const DISPLAY_NAME_MAX_CODE_POINTS = 32;
 /** DEFAULT_INVISIBLE_ROLE_NAME_BASE：INVISIBLE角色名称基础默认值。 */
 export const DEFAULT_INVISIBLE_ROLE_NAME_BASE = '隐身';
 
@@ -36,6 +38,11 @@ export function containsInvisibleOnlyNameGrapheme(value: string): boolean {
   return splitGraphemes(value).some((grapheme) => isInvisibleOnlyNameGrapheme(grapheme));
 }
 
+/** 判断 NFC 规范化后的显示名称是否可安全写入 varchar(32) 持久化列。 */
+export function isDisplayNameWithinStorageLimit(value: string): boolean {
+  return Array.from(value.normalize('NFC')).length <= DISPLAY_NAME_MAX_CODE_POINTS;
+}
+
 /** resolveDefaultVisibleDisplayName：解析默认可见显示名称。 */
 export function resolveDefaultVisibleDisplayName(username: string): string {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -54,7 +61,6 @@ export function resolveDefaultVisibleDisplayName(username: string): string {
 export function isDuplicateFriendlyDisplayName(displayName: string): boolean {
   return displayName.normalize('NFC') === DEFAULT_VISIBLE_DISPLAY_NAME;
 }
-
 
 
 

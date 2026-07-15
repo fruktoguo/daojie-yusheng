@@ -4,7 +4,7 @@
  * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
 import { Injectable, Logger, Inject } from '@nestjs/common';
-import { containsInvisibleOnlyNameGrapheme, getGraphemeCount, hasVisibleNameGrapheme, resolveDefaultVisibleDisplayName } from '@mud/shared';
+import { containsInvisibleOnlyNameGrapheme, getGraphemeCount, hasVisibleNameGrapheme, isDisplayNameWithinStorageLimit, resolveDefaultVisibleDisplayName } from '@mud/shared';
 import { Pool } from 'pg';
 import { resolveServerDatabaseUrl } from '../config/env-alias';
 import { DatabasePoolProvider } from './database-pool.provider';
@@ -701,6 +701,7 @@ function isValidVisibleDisplayName(value) {
     return typeof value === 'string'
         && value.length > 0
         && getGraphemeCount(value) === 1
+        && isDisplayNameWithinStorageLimit(value)
         && hasVisibleNameGrapheme(value)
         && !containsInvisibleOnlyNameGrapheme(value);
 }
