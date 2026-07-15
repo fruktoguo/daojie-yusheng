@@ -420,7 +420,7 @@ type MainBootstrapAssemblyOptions = {
  * craftWorkbenchModal：炼制Workbench弹层相关字段。
  */
 
-  craftWorkbenchModal: Pick<CraftWorkbenchModal, 'setCallbacks' | 'setTransmissionCallbacks' | 'handleTransmissionTargetStatuses' | 'openAlchemy' | 'openForging' | 'openEnhancement' | 'openTransmission' | 'openTechniqueRefining'>;
+  craftWorkbenchModal: Pick<CraftWorkbenchModal, 'setCallbacks' | 'setTransmissionCallbacks' | 'handleTransmissionStatuses' | 'openAlchemy' | 'openForging' | 'openEnhancement' | 'openTransmission' | 'openTechniqueRefining'>;
   /**
  * debugPanel：debug面板相关字段。
  */
@@ -827,7 +827,7 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
     onInventoryPage: (data) => options.inventoryStateSource.handleInventoryPage(data),
     onSectApplicationPage: (data) => options.actionStateSource.handleSectApplicationPage(data),
     onTechniquePage: (data) => options.techniqueStateSource.handleTechniquePage(data),
-    onTechniqueTransmissionTargetStatuses: (data) => options.craftWorkbenchModal.handleTransmissionTargetStatuses(data),
+    onTechniqueTransmissionStatuses: (data) => options.craftWorkbenchModal.handleTransmissionStatuses(data),
     onNpcShop: (data) => options.detailStateSource.handleNpcShop(data),
     onBuildResult: (data) => options.buildingFengShuiStateSource.handleBuildResult(data),
     onRoomSummaryPatch: (data) => options.buildingFengShuiStateSource.handleRoomSummaryPatch(data),

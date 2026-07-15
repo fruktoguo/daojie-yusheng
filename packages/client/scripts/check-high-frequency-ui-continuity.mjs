@@ -304,25 +304,45 @@ assertIncludes(craftTransmissionView, /target\.playerId}:\$\{target\.name}/, '�
 assertIncludes(craftTransmissionView, /body\.addEventListener\('focusout'[\s\S]*?this\.parent\.patchOpenCraftShell\(\)/, '传功输入结束聚焦后必须补做被延迟的结构 patch');
 assertIncludes(craftTransmissionView, /private buildTechniqueBookCraftPickerKey\(\)[\s\S]*?tech\.realmLv \?\? ''/, '功法抄录结构 key 必须覆盖影响残页成本的境界');
 
-const transmissionTargetStatusHandler = section(
+const transmissionStatusHandler = section(
   craftTransmissionView,
-  '  handleTransmissionTargetStatuses(',
+  '  handleTransmissionStatuses(',
   '  resetTechniqueRefiningSelection(): void {',
-  'CraftTransmissionView.handleTransmissionTargetStatuses',
+  'CraftTransmissionView.handleTransmissionStatuses',
 );
-assertIncludes(transmissionTargetStatusHandler, /data\.requestId !== activeRequest\.requestId/, '传功目标状态迟到回包必须按 requestId 丢弃');
-assertIncludes(transmissionTargetStatusHandler, /this\.patchTransmissionTargetOptions\(body\)/, '传功目标状态回包必须只局部更新目标选项');
-assertMissing(transmissionTargetStatusHandler, /replaceElementHtml|patchOpenCraftShell/, '传功目标状态回包不得重建传功内容或工坊壳体');
+assertIncludes(transmissionStatusHandler, /data\.requestId !== activeRequest\.requestId/, '传功状态迟到回包必须按 requestId 丢弃');
+assertIncludes(transmissionStatusHandler, /data\.targetPlayerId !== activeRequest\.targetPlayerId/, '传功状态迟到回包必须按目标玩家丢弃');
+assertIncludes(transmissionStatusHandler, /this\.patchTransmissionTechniqueOptions\(body\)/, '传功状态回包必须只局部更新功法选项');
+assertMissing(transmissionStatusHandler, /replaceElementHtml|patchOpenCraftShell/, '传功状态回包不得重建传功内容或工坊壳体');
 
-const transmissionTargetStatusRequest = section(
+const transmissionStatusRequest = section(
   craftTransmissionView,
-  '  private requestTransmissionTargetStatuses(root: ParentNode): void {',
-  '  private patchTransmissionTargetOptions(root: ParentNode): void {',
-  'CraftTransmissionView.requestTransmissionTargetStatuses',
+  '  private requestTransmissionStatuses(root: ParentNode): void {',
+  '  private patchTransmissionTechniqueOptions(root: ParentNode): void {',
+  'CraftTransmissionView.requestTransmissionStatuses',
 );
-assertIncludes(transmissionTargetStatusRequest, /this\.activeTransmissionTargetStatusRequest\?\.signature === signature/, '相同传功目标状态请求必须在进行中去重');
-assertIncludes(transmissionTargetStatusRequest, /this\.resolvedTransmissionTargetStatusSignature === signature/, '已完成的同语义传功目标状态不得重复请求');
-assertIncludes(craftTransmissionView, /matches\('\[data-transmission-tech-select="true"\]'\)[\s\S]*?this\.requestTransmissionTargetStatuses\(body\)/, '切换功法后必须立即刷新目标已学状态');
+assertIncludes(transmissionStatusRequest, /this\.activeTransmissionStatusRequest\?\.signature === signature/, '相同玩家与功法集合的状态请求必须在进行中去重');
+assertIncludes(transmissionStatusRequest, /this\.resolvedTransmissionStatusSignature === signature/, '已完成的同语义传功状态不得重复请求');
+assertIncludes(transmissionStatusRequest, /request\(\{ requestId, targetPlayerId \}\)/, '传功状态请求只应发送目标玩家，不发送整份玩家状态');
+assertIncludes(craftTransmissionView, /data-transmission-target-select="true"[\s\S]*?data-transmission-tech-select="true"/, '传功界面必须先选择玩家再选择功法');
+assertIncludes(craftTransmissionView, /matches\('\[data-transmission-target-select="true"\]'\)[\s\S]*?this\.requestTransmissionStatuses\(body\)/, '切换玩家后必须刷新功法已学状态');
+
+const transmissionTechniqueChange = section(
+  craftTransmissionView,
+  '      if (event.target instanceof HTMLSelectElement && event.target.matches(\'[data-transmission-tech-select="true"]\')) {',
+  '      if (event.target instanceof HTMLSelectElement && event.target.matches(\'[data-transmission-target-select="true"]\')) {',
+  'CraftTransmissionView transmission technique change',
+);
+assertMissing(transmissionTechniqueChange, /requestTransmissionStatuses/, '切换功法不得重新查询玩家状态');
+
+const transmissionTargetOption = section(
+  craftTransmissionView,
+  '  private renderTransmissionTargetOption(',
+  '  private renderTransmissionTechniqueOption(',
+  'CraftTransmissionView.renderTransmissionTargetOption',
+);
+assertMissing(transmissionTargetOption, /learned|unlearned|transmissionTechniqueStatus/, '玩家列表不得承载功法已学状态');
+assertIncludes(craftTransmissionView, /data-transmission-technique-status="\$\{status\}"/, '功法列表必须直接承载目标玩家的已学状态');
 
 const floatingQueueRefresh = section(
   craftWorkbench,

@@ -169,34 +169,33 @@ class WorldGatewayReadModelHelper {
         }
     }
 
-    /** 查询当前功法对应的附近传功目标已学状态。 */
-    handleRequestTechniqueTransmissionTargetStatuses(
+    /** 查询目标玩家对传授者当前可传功法的已学状态。 */
+    handleRequestTechniqueTransmissionStatuses(
         client: Socket,
-        payload: ClientToServerEventPayload<typeof C2S.RequestTechniqueTransmissionTargetStatuses>,
+        payload: ClientToServerEventPayload<typeof C2S.RequestTechniqueTransmissionStatuses>,
     ): void {
         const playerId = this.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
         const requestId = typeof payload?.requestId === 'string' ? payload.requestId.trim() : '';
-        const techId = typeof payload?.techId === 'string' ? payload.techId.trim() : '';
-        if (!requestId || !techId) {
+        const targetPlayerId = typeof payload?.targetPlayerId === 'string' ? payload.targetPlayerId.trim() : '';
+        if (!requestId || !targetPlayerId) {
             return;
         }
         try {
             this.worldClientEventService.markProtocol(client, 'mainline');
-            client.emit(S2C.TechniqueTransmissionTargetStatuses, {
+            client.emit(S2C.TechniqueTransmissionStatuses, {
                 requestId,
-                techId,
-                targets: this.playerRuntimeService.buildTechniqueTransmissionTargetStatuses(
+                targetPlayerId,
+                techniques: this.playerRuntimeService.buildTechniqueTransmissionStatuses(
                     playerId,
-                    techId,
-                    payload?.targetPlayerIds,
+                    targetPlayerId,
                 ),
             });
         }
         catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'REQUEST_TECHNIQUE_TRANSMISSION_TARGET_STATUSES_FAILED', error);
+            this.worldClientEventService.emitGatewayError(client, 'REQUEST_TECHNIQUE_TRANSMISSION_STATUSES_FAILED', error);
         }
     }
     /**

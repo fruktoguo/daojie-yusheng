@@ -664,14 +664,12 @@ export interface RequestTechniquePageView {
   knownRevision?: number;
 }
 
-/** 请求当前功法对应的附近传功目标已学状态。 */
-export interface RequestTechniqueTransmissionTargetStatusesView {
+/** 请求目标玩家对当前可传功法的已学状态。 */
+export interface RequestTechniqueTransmissionStatusesView {
   /** requestId：客户端请求 ID，用于忽略迟到响应。 */
   requestId: string;
-  /** techId：当前准备传授的功法 ID。 */
-  techId: string;
-  /** targetPlayerIds：客户端当前可见的附近目标，服务端仍会重新校验实例与距离。 */
-  targetPlayerIds: string[];
+  /** targetPlayerId：当前选择的附近目标，服务端仍会重新校验实例与距离。 */
+  targetPlayerId: string;
 }
 
 /** 使用背包物品。 */

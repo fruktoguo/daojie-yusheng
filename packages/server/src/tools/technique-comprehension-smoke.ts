@@ -1224,15 +1224,22 @@ function testFragmentLearnLimitCannotBecomePropagationAuthority() {
   );
 }
 
-function testTransmissionTargetStatusesUseAuthoritativeNearbyState() {
+function testTransmissionStatusesUseAuthoritativeTargetAndTechniqueState() {
   const { runtimeService } = createRuntimeService();
+  const unlearnedTechnique = createTechnique('gen_status_unlearned', '未学状态功法');
+  runtimeTechniqueTemplates.set(unlearnedTechnique.techId, unlearnedTechnique);
   const teacher = createPlayer('teacher:status', 0, 0);
   const learnedTarget = createPlayer('learner:learned', 1, 0);
   const unlearnedTarget = createPlayer('learner:unlearned', 2, 2);
   const farTarget = createPlayer('learner:far', 3, 0);
   const otherInstanceTarget = createPlayer('learner:other-instance', 1, 0);
   otherInstanceTarget.instanceId = 'instance:other';
-  teacher.techniques.techniques.push({ ...createdTechnique });
+  teacher.techniques.techniques.push(
+    { ...createdTechnique },
+    { ...unlearnedTechnique },
+    { ...technique },
+    { ...createdTechnique },
+  );
   learnedTarget.techniques.techniques.push({ ...createdTechnique });
   runtimeService.players.set(teacher.playerId, teacher);
   runtimeService.players.set(learnedTarget.playerId, learnedTarget);
@@ -1241,31 +1248,29 @@ function testTransmissionTargetStatusesUseAuthoritativeNearbyState() {
   runtimeService.players.set(otherInstanceTarget.playerId, otherInstanceTarget);
 
   assert.deepEqual(
-    runtimeService.buildTechniqueTransmissionTargetStatuses(
+    runtimeService.buildTechniqueTransmissionStatuses(
       teacher.playerId,
-      createdTechnique.techId,
-      [
-        learnedTarget.playerId,
-        unlearnedTarget.playerId,
-        learnedTarget.playerId,
-        farTarget.playerId,
-        otherInstanceTarget.playerId,
-        teacher.playerId,
-      ],
+      learnedTarget.playerId,
     ),
     [
-      { playerId: learnedTarget.playerId, learned: true },
-      { playerId: unlearnedTarget.playerId, learned: false },
+      { techId: createdTechnique.techId, learned: true },
+      { techId: unlearnedTechnique.techId, learned: false },
     ],
   );
   assert.deepEqual(
-    runtimeService.buildTechniqueTransmissionTargetStatuses(
+    runtimeService.buildTechniqueTransmissionStatuses(
       teacher.playerId,
-      technique.techId,
-      [learnedTarget.playerId],
+      unlearnedTarget.playerId,
     ),
-    [],
+    [
+      { techId: createdTechnique.techId, learned: false },
+      { techId: unlearnedTechnique.techId, learned: false },
+    ],
   );
+  assert.deepEqual(runtimeService.buildTechniqueTransmissionStatuses(teacher.playerId, farTarget.playerId), []);
+  assert.deepEqual(runtimeService.buildTechniqueTransmissionStatuses(teacher.playerId, otherInstanceTarget.playerId), []);
+  assert.deepEqual(runtimeService.buildTechniqueTransmissionStatuses(teacher.playerId, teacher.playerId), []);
+  runtimeTechniqueTemplates.delete(unlearnedTechnique.techId);
 }
 
 testSelfComprehensionProgressesOnlyWithoutTransmission();
@@ -1288,6 +1293,6 @@ testTransmissionUsesStandingFacilitySpeedForBothPlayers();
 testScriptureRecordingUsesTransmissionJobAndLocksBuilding();
 testScriptureContemplationStartsJobAndCompletesTechnique();
 testFragmentLearnLimitCannotBecomePropagationAuthority();
-testTransmissionTargetStatusesUseAuthoritativeNearbyState();
+testTransmissionStatusesUseAuthoritativeTargetAndTechniqueState();
 
 console.log(JSON.stringify({ ok: true, case: 'technique-comprehension' }, null, 2));

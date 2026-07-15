@@ -327,9 +327,9 @@ class WorldGateway implements WorldGatewayHelperContext {
     handleRequestTechniquePage(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayTechniqueHelper.handleRequestTechniquePage(client, payload);
     }
-    @SubscribeMessage(C2S.RequestTechniqueTransmissionTargetStatuses)
-    handleRequestTechniqueTransmissionTargetStatuses(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
-        return this.gatewayReadModelHelper.handleRequestTechniqueTransmissionTargetStatuses(client, payload);
+    @SubscribeMessage(C2S.RequestTechniqueTransmissionStatuses)
+    handleRequestTechniqueTransmissionStatuses(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
+        return this.gatewayReadModelHelper.handleRequestTechniqueTransmissionStatuses(client, payload);
     }
     @SubscribeMessage(C2S.Chat)
     handleChat(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {

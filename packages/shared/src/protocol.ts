@@ -130,7 +130,7 @@ export const C2S = {
   RequestInventoryPage: 'n:c:requestInventoryPage',
   RequestSectApplicationPage: 'n:c:requestSectApplicationPage',
   RequestTechniquePage: 'n:c:requestTechniquePage',
-  RequestTechniqueTransmissionTargetStatuses: 'n:c:requestTechniqueTransmissionTargetStatuses',
+  RequestTechniqueTransmissionStatuses: 'n:c:requestTechniqueTransmissionStatuses',
   CreateFormation: 'n:c:createFormation',
   SetFormationActive: 'n:c:setFormationActive',
   RefillFormation: 'n:c:refillFormation',
@@ -243,7 +243,7 @@ export const S2C = {
   InventoryPage: 'n:s:inventoryPage',
   SectApplicationPage: 'n:s:sectApplicationPage',
   TechniquePage: 'n:s:techniquePage',
-  TechniqueTransmissionTargetStatuses: 'n:s:techniqueTransmissionTargetStatuses',
+  TechniqueTransmissionStatuses: 'n:s:techniqueTransmissionStatuses',
   AttrDetail: 'n:s:attrDetail',
   Leaderboard: 'n:s:leaderboard',
   LeaderboardPlayerLocations: 'n:s:leaderboardPlayerLocations',
@@ -341,7 +341,7 @@ export interface C2S_PayloadMap extends Record<C2S_EventName, unknown> {
   [C2S.RequestInventoryPage]: RequestPayloads.C2S_RequestInventoryPage;
   [C2S.RequestSectApplicationPage]: RequestPayloads.C2S_RequestSectApplicationPage;
   [C2S.RequestTechniquePage]: RequestPayloads.C2S_RequestTechniquePage;
-  [C2S.RequestTechniqueTransmissionTargetStatuses]: RequestPayloads.C2S_RequestTechniqueTransmissionTargetStatuses;
+  [C2S.RequestTechniqueTransmissionStatuses]: RequestPayloads.C2S_RequestTechniqueTransmissionStatuses;
   [C2S.CreateFormation]: RequestPayloads.C2S_CreateFormation;
   [C2S.SetFormationActive]: RequestPayloads.C2S_SetFormationActive;
   [C2S.RefillFormation]: RequestPayloads.C2S_RefillFormation;
@@ -449,7 +449,7 @@ export interface S2C_PayloadMap extends Record<S2C_EventName, unknown> {
   [S2C.InventoryPage]: ResponsePayloads.S2C_InventoryPage;
   [S2C.SectApplicationPage]: ResponsePayloads.S2C_SectApplicationPage;
   [S2C.TechniquePage]: ResponsePayloads.S2C_TechniquePage;
-  [S2C.TechniqueTransmissionTargetStatuses]: ResponsePayloads.S2C_TechniqueTransmissionTargetStatuses;
+  [S2C.TechniqueTransmissionStatuses]: ResponsePayloads.S2C_TechniqueTransmissionStatuses;
   [S2C.AttrDetail]: S2C_AttrDetail;
   [S2C.Leaderboard]: ResponsePayloads.S2C_Leaderboard;
   [S2C.LeaderboardPlayerLocations]: ResponsePayloads.S2C_LeaderboardPlayerLocations;

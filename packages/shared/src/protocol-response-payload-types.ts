@@ -35,7 +35,7 @@ import type {
   ArtifactUpdateView,
   InventoryPageView,
   TechniquePageView,
-  TechniqueTransmissionTargetStatusesView,
+  TechniqueTransmissionStatusesView,
   InventoryUpdateView,
   LootWindowUpdateView,
   MailOpResultView,
@@ -273,8 +273,8 @@ export interface S2C_SectApplicationPage extends SectApplicationPageView {}
 /** 功法面板分页响应。 */
 export interface S2C_TechniquePage extends TechniquePageView {}
 
-/** 附近传功目标对当前功法的已学状态。 */
-export interface S2C_TechniqueTransmissionTargetStatuses extends TechniqueTransmissionTargetStatusesView {}
+/** 目标玩家对当前可传功法的已学状态。 */
+export interface S2C_TechniqueTransmissionStatuses extends TechniqueTransmissionStatusesView {}
 /** 装备面板更新。 */
 export interface S2C_EquipmentUpdate extends EquipmentUpdateView {}
 /** 法宝面板更新。 */
