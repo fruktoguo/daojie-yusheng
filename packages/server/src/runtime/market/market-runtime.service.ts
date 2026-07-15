@@ -735,7 +735,7 @@ export class MarketRuntimeService {
             const orderItem = this.toOrderItem(item);
 
             const itemKey = this.buildItemKey(orderItem);
-            if (this.hasConflictingOpenOrder(playerId, itemKey, 'sell')) {
+            if (listingMode === 'market' && this.hasConflictingOpenOrder(playerId, itemKey, 'sell')) {
                 return this.singleMessage(playerId, '同一种物品已在求购中，不能同时挂售。');
             }
             const buyOrders = listingMode !== 'market'

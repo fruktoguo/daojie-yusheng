@@ -4,7 +4,7 @@
  * 维护时优先保持局部更新和原有交互状态，不在 UI 层裁定资产、战斗或移动合法性。
  */
 import type { AuctionHouseTab, ItemStack, MarketListedItemView, MarketTradeHistoryEntryView, S2C_AuctionListings, S2C_MarketUpdate } from '@mud/shared';
-import { AUCTION_DEFAULT_DURATION_HOURS, AUCTION_LISTING_FEE_BASE, AUCTION_LISTING_FEE_RATE, AUCTION_MAX_DURATION_HOURS, AUCTION_MIN_DURATION_HOURS, ITEM_TYPES, MARKET_PRICE_PRESET_VALUES, normalizeEnhanceLevel } from '@mud/shared';
+import { AUCTION_DEFAULT_DURATION_HOURS, AUCTION_LISTING_FEE_BASE, AUCTION_LISTING_FEE_RATE, AUCTION_MAX_DURATION_HOURS, AUCTION_MIN_DURATION_HOURS, createItemStackSignature, ITEM_TYPES, MARKET_PRICE_PRESET_VALUES, normalizeEnhanceLevel } from '@mud/shared';
 import { formatDisplayCountBadge, formatDisplayInteger } from '../../utils/number';
 import { getItemTypeLabel } from '../../domain-labels';
 import { getLocalRealmLevelEntry, resolvePreviewItem } from '../../content/local-templates';
@@ -37,6 +37,13 @@ function replaceElementHtml(root: HTMLElement, html: string): void {
   root.replaceChildren(template.content.cloneNode(true));
 }
 
+function createButtonFromHtml(html: string): HTMLButtonElement | null {
+  const template = document.createElement('template');
+  template.innerHTML = html.trim();
+  const element = template.content.firstElementChild;
+  return element instanceof HTMLButtonElement ? element : null;
+}
+
 /** 拍卖行每页最多显示的拍品数量。 */
 const AUCTION_PAGE_SIZE = 10;
 const AUCTION_PRICE_PRESET_VALUES = MARKET_PRICE_PRESET_VALUES.filter((value) => value >= 1);
@@ -47,6 +54,8 @@ type AuctionConsignPriceField = 'start' | 'buyout';
  */
 export class MarketAuctionView {
   private inlineAuctionConsignEvents: AbortController | null = null;
+  /** 寄拍选择器当前已投影的背包与灵石语义；重复每息同步保持零 DOM 写入。 */
+  private auctionConsignProjectionSignature: string | null = null;
 
   constructor(private readonly panel: MarketPanelInternals) {}
 
@@ -88,6 +97,7 @@ export class MarketAuctionView {
         );
       },
       onClose: () => {
+        this.releaseAuctionConsignTransientState();
         p.tradeDialog = null;
         p.tooltipNode = null;
         p.tooltip.hide(true);
@@ -303,8 +313,7 @@ export class MarketAuctionView {
       return `<div class="empty-hint">${escapeHtml(t('auction.empty.select-lot', undefined))}</div>`;
     }
     const listedEntry = this.panel.findListingVariantByKey(lot.itemKey, update) ?? this.panel.buildMarketListingFromAuctionLot(lot);
-    const buyConflict = this.panel.findConflictingOwnOrder(lot.itemKey, 'buy');
-    const canBid = tab === 'participate' && Boolean(listedEntry) && !buyConflict;
+    const canBid = tab === 'participate' && Boolean(listedEntry);
     const canBuyout = canBid && lot.buyoutPrice !== null;
     const ownedCurrency = this.panel.findInventoryItemCountByItemId(update.currencyItemId);
     const displayName = this.formatAuctionLotDisplayName(lot);
@@ -343,7 +352,6 @@ export class MarketAuctionView {
             <button class="small-btn" data-auction-action="bid" data-auction-action-item="${escapeHtmlAttr(lot.itemKey)}" type="button" ${canBid ? '' : 'disabled'}>${escapeHtml(t('market.auction.action.bid', undefined))}</button>
             <button class="small-btn ghost" data-auction-action="buyout" data-auction-action-item="${escapeHtmlAttr(lot.itemKey)}" type="button" ${canBuyout ? '' : 'disabled'}>${escapeHtml(t('market.auction.action.buyout', undefined))}</button>
           </div>
-          ${buyConflict ? `<div class="market-action-hint market-action-hint--error">${escapeHtml(t('market.auction.hint.repeat-bid', undefined))}</div>` : ''}
           <div class="market-action-hint">${escapeHtml(t('market.auction.hint.bid-and-buyout', undefined))}</div>
           ${this.renderAuctionBidHistory(lot, update.currencyItemName)}
         `
@@ -468,7 +476,9 @@ export class MarketAuctionView {
       onAfterRender: (body: HTMLElement, signal: AbortSignal) => {
         this.bindAuctionConsignModalEvents(body, signal);
         this.panel.bindItemTooltipEvents(body, signal);
+        this.captureAuctionConsignProjectionSignature();
       },
+      onClose: () => this.releaseAuctionConsignTransientState(),
     } as const;
     if (detailModalHost.isOpenFor('auction-consign-panel')) {
       detailModalHost.patch(options);
@@ -511,8 +521,10 @@ export class MarketAuctionView {
     this.inlineAuctionConsignEvents = controller;
     this.bindAuctionConsignModalEvents(layer, controller.signal);
     this.panel.bindItemTooltipEvents(layer, controller.signal);
+    this.captureAuctionConsignProjectionSignature();
     layer.querySelector<HTMLElement>('[data-auction-consign-inline-close]')?.addEventListener('click', () => {
       controller.abort();
+      this.auctionConsignProjectionSignature = null;
       this.panel.auctionConsignPanel = { open: false, itemInstanceId: null, quantity: 1, totalPrice: 1, buyoutPrice: 0, durationHours: AUCTION_DEFAULT_DURATION_HOURS, query: '' };
       layer.remove();
     }, { signal: controller.signal });
@@ -653,9 +665,16 @@ export class MarketAuctionView {
   renderAuctionConsignItem(itemInstanceId: string, item: ItemStack, active: boolean): string {
     const itemName = this.panel.getMarketDisplayName(item);
     return `
-      <button class="auction-consign-item ${active ? 'active' : ''}" data-auction-consign-item="${escapeHtmlAttr(itemInstanceId)}" data-market-item-tooltip="auction-consign-item:${escapeHtmlAttr(itemInstanceId)}" type="button">
-        <span>${escapeHtml(itemName)}</span>
-        <strong>${formatDisplayCountBadge(item.count)}</strong>
+      <button
+        class="auction-consign-item ${active ? 'active' : ''}"
+        data-auction-consign-item="${escapeHtmlAttr(itemInstanceId)}"
+        data-ui-key="auction-consign:${escapeHtmlAttr(itemInstanceId)}"
+        data-market-item-tooltip="auction-consign-item:${escapeHtmlAttr(itemInstanceId)}"
+        aria-pressed="${active ? 'true' : 'false'}"
+        type="button"
+      >
+        <span data-auction-consign-item-name>${escapeHtml(itemName)}</span>
+        <strong data-auction-consign-item-count>${formatDisplayCountBadge(item.count)}</strong>
       </button>
     `;
   }
@@ -664,7 +683,7 @@ export class MarketAuctionView {
     const items = this.getFilteredAuctionConsignItems(update);
     if (items.length === 0) {
       const key = this.panel.auctionConsignPanel.query.trim() ? 'market.auction.consign.search-empty' : 'market.auction.consign.empty';
-      return `<div class="empty-hint">${escapeHtml(t(key, undefined))}</div>`;
+      return `<div class="empty-hint" data-auction-consign-empty>${escapeHtml(t(key, undefined))}</div>`;
     }
     return items.map((entry) => this.renderAuctionConsignItem(entry.itemInstanceId, entry.item, this.panel.auctionConsignPanel.itemInstanceId === entry.itemInstanceId)).join('');
   }
@@ -996,6 +1015,7 @@ export class MarketAuctionView {
     }
     this.inlineAuctionConsignEvents?.abort();
     this.inlineAuctionConsignEvents = null;
+    this.auctionConsignProjectionSignature = null;
     this.panel.auctionConsignPanel = { open: false, itemInstanceId: null, quantity: 1, totalPrice: 1, buyoutPrice: 0, durationHours: AUCTION_DEFAULT_DURATION_HOURS, query: '' };
     layer.remove();
     return true;
@@ -1035,24 +1055,118 @@ export class MarketAuctionView {
   }
 
   patchAuctionConsignModalState(): void {
-    this.patchAuctionConsignItems();
-    this.patchAuctionConsignSelectedItem();
+    if (!this.panel.auctionConsignPanel.open) return;
+    const update = this.panel.marketUpdate;
+    if (!update) return;
+    const allItems = this.getAuctionConsignItems(update);
+    const nextSignature = this.buildAuctionConsignProjectionSignature(allItems, update);
+    if (nextSignature === this.auctionConsignProjectionSignature) return;
+    this.auctionConsignProjectionSignature = nextSignature;
+    this.patchAuctionConsignItems(allItems);
     this.patchAuctionConsignPreview();
   }
 
-  patchAuctionConsignItems(): void {
+  patchAuctionConsignItems(allItems = this.getAuctionConsignItems(this.panel.marketUpdate)): void {
     const body = this.panel.getOpenAuctionConsignModalBody();
     const update = this.panel.marketUpdate;
     if (!body || !update) return;
+    if (this.panel.auctionConsignPanel.itemInstanceId
+      && !allItems.some((entry) => entry.itemInstanceId === this.panel.auctionConsignPanel.itemInstanceId)) {
+      this.panel.auctionConsignPanel = {
+        ...this.panel.auctionConsignPanel,
+        itemInstanceId: allItems[0]?.itemInstanceId ?? null,
+      };
+    }
+    const filteredItems = this.getFilteredAuctionConsignItems(update, allItems);
     const list = body.querySelector<HTMLElement>('[data-auction-consign-items]');
     if (!list) return;
-    replaceElementHtml(list, this.renderAuctionConsignItems(update));
+    this.patchAuctionConsignItemList(list, filteredItems);
     const count = body.querySelector<HTMLElement>('[data-auction-consign-count]');
     if (count) {
-      count.textContent = this.renderAuctionConsignCount(update);
+      count.textContent = t('market.auction.consign.visible-count', {
+        visible: formatDisplayInteger(filteredItems.length),
+        total: formatDisplayInteger(allItems.length),
+      });
     }
-    this.panel.bindItemTooltipEvents(list);
     this.patchAuctionConsignSelectedItem();
+  }
+
+  /** 寄拍物品按 itemInstanceId 复用节点，筛选与背包变化不销毁滚动容器。 */
+  private patchAuctionConsignItemList(
+    list: HTMLElement,
+    items: Array<{ itemInstanceId: string; item: ItemStack }>,
+  ): void {
+    const scrollTop = list.scrollTop;
+    if (items.length === 0) {
+      const key = this.panel.auctionConsignPanel.query.trim() ? 'market.auction.consign.search-empty' : 'market.auction.consign.empty';
+      const currentEmpty = list.querySelector<HTMLElement>('[data-auction-consign-empty]');
+      if (!currentEmpty || list.children.length !== 1) {
+        replaceElementHtml(list, `<div class="empty-hint" data-auction-consign-empty>${escapeHtml(t(key, undefined))}</div>`);
+      } else {
+        currentEmpty.textContent = t(key, undefined);
+      }
+      list.scrollTop = scrollTop;
+      return;
+    }
+
+    const existing = new Map<string, HTMLButtonElement>();
+    list.querySelectorAll<HTMLButtonElement>('[data-auction-consign-item]').forEach((row) => {
+      const itemInstanceId = normalizeInventoryItemInstanceId(row.dataset.auctionConsignItem);
+      if (itemInstanceId) existing.set(itemInstanceId, row);
+    });
+    const ordered: HTMLButtonElement[] = [];
+    for (const entry of items) {
+      let row = existing.get(entry.itemInstanceId) ?? null;
+      if (!row || !this.patchAuctionConsignItem(row, entry)) {
+        row = createButtonFromHtml(this.renderAuctionConsignItem(
+          entry.itemInstanceId,
+          entry.item,
+          this.panel.auctionConsignPanel.itemInstanceId === entry.itemInstanceId,
+        ));
+        if (row) {
+          const tooltipHost = document.createElement('div');
+          tooltipHost.appendChild(row);
+          this.panel.bindItemTooltipEvents(tooltipHost, this.inlineAuctionConsignEvents?.signal);
+        }
+      }
+      if (!row) continue;
+      existing.delete(entry.itemInstanceId);
+      ordered.push(row);
+    }
+    existing.forEach((row) => row.remove());
+    this.syncAuctionConsignListChildren(list, ordered);
+    list.scrollTop = scrollTop;
+  }
+
+  private patchAuctionConsignItem(
+    row: HTMLButtonElement,
+    entry: { itemInstanceId: string; item: ItemStack },
+  ): boolean {
+    const name = row.querySelector<HTMLElement>('[data-auction-consign-item-name]');
+    const count = row.querySelector<HTMLElement>('[data-auction-consign-item-count]');
+    if (!name || !count) return false;
+    const active = this.panel.auctionConsignPanel.itemInstanceId === entry.itemInstanceId;
+    const itemName = this.panel.getMarketDisplayName(entry.item);
+    row.className = `auction-consign-item ${active ? 'active' : ''}`;
+    row.dataset.auctionConsignItem = entry.itemInstanceId;
+    row.dataset.uiKey = `auction-consign:${entry.itemInstanceId}`;
+    row.dataset.marketItemTooltip = `auction-consign-item:${entry.itemInstanceId}`;
+    row.setAttribute('aria-pressed', active ? 'true' : 'false');
+    name.textContent = itemName;
+    count.textContent = formatDisplayCountBadge(entry.item.count);
+    return true;
+  }
+
+  private syncAuctionConsignListChildren(container: HTMLElement, ordered: HTMLButtonElement[]): void {
+    const allowed = new Set<HTMLElement>(ordered);
+    for (const child of Array.from(container.children)) {
+      if (!(child instanceof HTMLElement) || !allowed.has(child)) child.remove();
+    }
+    let reference: ChildNode | null = container.firstChild;
+    for (const row of ordered) {
+      if (reference !== row) container.insertBefore(row, reference);
+      reference = row.nextSibling;
+    }
   }
 
   patchAuctionConsignSelectedItem(): void {
@@ -1061,7 +1175,9 @@ export class MarketAuctionView {
     const state = this.panel.auctionConsignPanel;
     const item = this.resolveAuctionConsignSelectedItem();
     body.querySelectorAll<HTMLElement>('[data-auction-consign-item]').forEach((button) => {
-      button.classList.toggle('active', button.dataset.auctionConsignItem === state.itemInstanceId);
+      const active = button.dataset.auctionConsignItem === state.itemInstanceId;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-pressed', active ? 'true' : 'false');
     });
     const quantityMax = Math.max(1, item?.count ?? 1);
     const quantity = Math.max(1, Math.min(quantityMax, Math.floor(Number(state.quantity) || 1)));
@@ -1082,13 +1198,23 @@ export class MarketAuctionView {
     const quantity = Math.max(1, Math.min(quantityMax, Math.floor(Number(state.quantity) || 1)));
     const control = body.querySelector<HTMLElement>('[data-auction-consign-quantity-control]');
     const input = body.querySelector<HTMLInputElement>('[data-auction-consign-quantity]');
-    if (control) {
+    if (!control) return;
+    if (!item || !input) {
       replaceElementHtml(control, this.renderAuctionConsignQuantityControl(item, quantity, quantityMax));
       return;
     }
-    if (input && document.activeElement !== input) {
+    input.min = '1';
+    input.step = '1';
+    input.max = String(quantityMax);
+    if (document.activeElement !== input) {
       input.value = String(quantity);
     }
+    control.querySelectorAll<HTMLButtonElement>('[data-auction-consign-quantity-action]').forEach((button) => {
+      const action = button.dataset.auctionConsignQuantityAction;
+      button.disabled = action === 'decrease'
+        ? quantity <= 1
+        : quantity >= quantityMax;
+    });
   }
 
   patchAuctionConsignPriceControl(): void {
@@ -1124,10 +1250,10 @@ export class MarketAuctionView {
   patchAuctionConsignPriceDisplay(body: HTMLElement, currencyName: string, field: AuctionConsignPriceField, price: number): void {
     const display = body.querySelector<HTMLElement>(`[data-auction-consign-${field}-price-display]`);
     if (!display) return;
-    replaceElementHtml(display, `
-      <strong>${escapeHtml(price <= 0 ? '0' : this.panel.formatMarketUnitPrice(price))}</strong>
-      <span>${escapeHtml(currencyName)}</span>
-    `);
+    const value = display.querySelector<HTMLElement>('strong');
+    const currency = display.querySelector<HTMLElement>('span');
+    if (value) value.textContent = price <= 0 ? '0' : this.panel.formatMarketUnitPrice(price);
+    if (currency) currency.textContent = currencyName;
   }
 
   patchAuctionConsignDurationControl(): void {
@@ -1152,17 +1278,60 @@ export class MarketAuctionView {
       .filter((entry) => entry.itemInstanceId && entry.item.count > 0 && entry.item.itemId !== currencyItemId);
   }
 
-  getFilteredAuctionConsignItems(update: S2C_MarketUpdate | null): Array<{ itemInstanceId: string; item: ItemStack }> {
+  getFilteredAuctionConsignItems(
+    update: S2C_MarketUpdate | null,
+    allItems = this.getAuctionConsignItems(update),
+  ): Array<{ itemInstanceId: string; item: ItemStack }> {
     const query = this.panel.auctionConsignPanel.query.trim().toLocaleLowerCase();
-    const items = this.getAuctionConsignItems(update);
     if (!query) {
-      return items;
+      return allItems;
     }
-    return items.filter((entry) => {
+    return allItems.filter((entry) => {
       const displayName = this.panel.getMarketDisplayName(entry.item).toLocaleLowerCase();
       const itemId = entry.item.itemId.toLocaleLowerCase();
       return displayName.includes(query) || itemId.includes(query);
     });
+  }
+
+  private captureAuctionConsignProjectionSignature(): void {
+    const update = this.panel.marketUpdate;
+    this.auctionConsignProjectionSignature = update
+      ? this.buildAuctionConsignProjectionSignature(this.getAuctionConsignItems(update), update)
+      : null;
+  }
+
+  private buildAuctionConsignProjectionSignature(
+    items: Array<{ itemInstanceId: string; item: ItemStack }>,
+    update: S2C_MarketUpdate,
+  ): string {
+    const encode = (value: unknown): string => {
+      const text = String(value ?? '');
+      return `${text.length}:${text}`;
+    };
+    const ownedCurrency = this.panel.findInventoryItemCountByItemId(update.currencyItemId);
+    return [
+      update.currencyItemId,
+      update.currencyItemName,
+      ownedCurrency,
+      ...items.flatMap((entry, index) => [
+        index,
+        entry.itemInstanceId,
+        createItemStackSignature(entry.item),
+        entry.item.name,
+        entry.item.type,
+        entry.item.count,
+      ]),
+    ].map(encode).join('|');
+  }
+
+  private releaseAuctionConsignTransientState(): void {
+    this.inlineAuctionConsignEvents?.abort();
+    this.inlineAuctionConsignEvents = null;
+    this.auctionConsignProjectionSignature = null;
+    this.panel.auctionConsignPanel = {
+      ...this.panel.auctionConsignPanel,
+      open: false,
+    };
   }
 
   private resolveAuctionConsignSelectedItem(): ItemStack | null {

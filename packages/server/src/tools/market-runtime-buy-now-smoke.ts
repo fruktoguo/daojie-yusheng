@@ -10,6 +10,7 @@ async function main(): Promise<void> {
   const durableCalls: Array<Record<string, unknown>> = [];
   const sellerPlayer = {
     playerId: sellerId,
+    sessionId: 'socket:market-buy-seller',
     runtimeOwnerId: 'runtime:seller',
     sessionEpoch: 9,
     instanceId: 'instance:market-buy',
@@ -18,6 +19,7 @@ async function main(): Promise<void> {
   };
   const buyerPlayer = {
     playerId: buyerId,
+    sessionId: 'socket:market-buy-buyer',
     runtimeOwnerId: 'runtime:buyer',
     sessionEpoch: 7,
     instanceId: 'instance:market-buy',
@@ -260,6 +262,48 @@ async function main(): Promise<void> {
   sellerPlayer.wallet.balances[0].balance = 30;
   await service.createBuyOrder(sellerId, { itemKey, quantity: 1, unitPrice: 6 });
   assert.equal((service as unknown as { openOrders: Array<Record<string, unknown>> }).openOrders.some((order) => order.side === 'buy' && order.ownerId === sellerId), true);
+
+  const ordinarySellAlongsideBuyOrder = await service.createSellOrder(sellerId, {
+    itemRef: { itemInstanceId: 'seller-rat-tail-instance' },
+    quantity: 1,
+    unitPrice: 5,
+    listingMode: 'market',
+  });
+  assert.equal(ordinarySellAlongsideBuyOrder.notices.some((entry) => String(entry.text ?? '').includes('已在求购中')), true);
+  const auctionAlongsideBuyOrder = await service.createSellOrder(sellerId, {
+    itemRef: { itemInstanceId: 'seller-rat-tail-instance' },
+    quantity: 1,
+    unitPrice: 5,
+    listingMode: 'auction',
+  });
+  assert.equal(auctionAlongsideBuyOrder.notices.some((entry) => String(entry.text ?? '').includes('已寄拍')), true);
+  assert.equal((service as unknown as { openOrders: Array<Record<string, unknown>> }).openOrders.some((order) => order.side === 'buy' && order.ownerId === sellerId), true);
+
+  const openOrders = (service as unknown as { openOrders: Array<Record<string, unknown>> }).openOrders;
+  openOrders.push({
+    version: 1,
+    id: 'order:buyer:ordinary-sell',
+    ownerId: buyerId,
+    side: 'sell',
+    status: 'open',
+    itemKey,
+    item: orderItem,
+    remainingQuantity: 1,
+    unitPrice: 7,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  });
+  const auctionPage = service.buildAuctionListingsPage(buyerId, { tab: 'participate', page: 1, pageSize: 10, category: 'all', query: '' });
+  const bidLot = auctionPage.items.find((entry) => entry.itemId === 'rat_tail');
+  assert.ok(bidLot);
+  buyerPlayer.wallet.balances[0].balance = 100;
+  const bidAlongsideOrdinarySell = await service.placeAuctionBid(buyerId, {
+    lotId: bidLot.itemKey,
+    itemKey: bidLot.itemKey,
+    unitPrice: (service as unknown as { getAuctionMinimumBidPrice(value: number): number }).getAuctionMinimumBidPrice(bidLot.currentPrice),
+  });
+  assert.equal(bidAlongsideOrdinarySell.notices.some((entry) => String(entry.text ?? '').includes('拍卖行出价')), true);
+  assert.equal(openOrders.some((order) => order.id === 'order:buyer:ordinary-sell' && order.status === 'open'), true);
 
   buyerPlayer.wallet.balances[0].balance = 100;
   const enhancedBuyOrderResult = await service.createBuyOrder(buyerId, { itemKey: 'iron_sword#5', quantity: 1, unitPrice: 8 });

@@ -35,6 +35,7 @@ function assertMissing(content, pattern, message) {
 }
 
 const marketPanel = read('src/ui/panels/market-panel.ts');
+const auctionView = read('src/ui/panels/market-auction-view.ts');
 const transmissionView = read('src/ui/panels/market-transmission-view.ts');
 const actionPanel = read('src/ui/panels/action-panel.ts');
 const actionCombatSettings = read('src/ui/panels/action-panel-combat-settings.ts');
@@ -95,6 +96,44 @@ assertIncludes(auctionListingsUpdate, /clonePlainValue\(data\)/, '拍卖行必�
 assertIncludes(marketPanel, /this\.marketListingsSnapshot = null;/, '普通坊市语义快照必须随会话清理');
 assertIncludes(marketPanel, /this\.auctionListingsSnapshot = null;/, '拍卖行语义快照必须随会话清理');
 assertIncludes(marketPanel, /this\.transmissionListingsSnapshot = null;/, '传法台语义快照必须随会话清理');
+
+const auctionConsignProjectionSync = section(
+  auctionView,
+  'patchAuctionConsignModalState(): void {',
+  '  patchAuctionConsignItems(',
+  'MarketAuctionView.patchAuctionConsignModalState',
+);
+assertIncludes(auctionConsignProjectionSync, /nextSignature === this\.auctionConsignProjectionSignature/, '发起拍卖重复背包与灵石投影必须零 DOM 写入');
+assertIncludes(auctionConsignProjectionSync, /patchAuctionConsignItems\(allItems\)/, '发起拍卖真实背包变化必须进入局部列表 patch');
+assertMissing(auctionConsignProjectionSync, /replaceElementHtml\(/, '发起拍卖每息同步入口不得替换任何 DOM 子树');
+
+const auctionConsignListPatch = section(
+  auctionView,
+  '  private patchAuctionConsignItemList(',
+  '  private patchAuctionConsignItem(',
+  'MarketAuctionView.patchAuctionConsignItemList',
+);
+assertIncludes(auctionConsignListPatch, /new Map<string, HTMLButtonElement>\(\)/, '发起拍卖物品列表必须按 itemInstanceId 复用节点');
+assertIncludes(auctionConsignListPatch, /syncAuctionConsignListChildren\(list, ordered\)/, '发起拍卖筛选与背包变化只能重排稳定节点');
+assertMissing(auctionConsignListPatch, /renderAuctionConsignItems\(/, '发起拍卖非空列表不得整容器重建');
+assertIncludes(auctionView, /data-ui-key="auction-consign:/, '发起拍卖物品节点必须声明稳定 UI key');
+
+const auctionQuantityPatch = section(
+  auctionView,
+  'patchAuctionConsignQuantityControl(): void {',
+  '  patchAuctionConsignPriceControl(): void {',
+  'MarketAuctionView.patchAuctionConsignQuantityControl',
+);
+assertIncludes(auctionQuantityPatch, /document\.activeElement !== input/, '发起拍卖数量输入聚焦时不得被同步值覆盖');
+assertIncludes(auctionQuantityPatch, /input\.max = String\(quantityMax\)/, '发起拍卖数量上限必须原位同步');
+
+const auctionDetail = section(
+  auctionView,
+  'renderAuctionDetailPanel(lot: AuctionLotView | null, update: S2C_MarketUpdate, tab: AuctionHouseTab): string {',
+  '  renderAuctionBidHistory(',
+  'MarketAuctionView.renderAuctionDetailPanel',
+);
+assertMissing(auctionDetail, /findConflictingOwnOrder\(/, '拍卖竞拍资格不得读取普通坊市反向挂单冲突');
 
 const tradeHistoryUpdate = section(
   marketPanel,
