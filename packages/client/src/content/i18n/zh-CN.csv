@@ -2604,6 +2604,8 @@ notice.loot.take-failed-container,通知,拿取失败，物品已留在容器内
 notice.loot.take-failed-ground,通知,拿取失败，物品已留在原地。,
 notice.loot.tile-drop-inventory,通知,获得 {itemLabel},通用可拆地块掉落通知
 notice.market.auction.bid-placed,通知,你在拍卖行出价 {itemName}，当前总价 {totalPrice} {currencyName}{extensionText}。,
+notice.market.auction.outbid-refunded-inventory,通知,你在拍卖行对 {itemName} 的出价已被超过，冻结的 {currencyName} x{refundAmount} 已自动退回背包。,
+notice.market.auction.outbid-refunded-storage,通知,你在拍卖行对 {itemName} 的出价已被超过，冻结的 {currencyName} x{refundAmount} 已退回坊市托管仓。,
 notice.market.auction.buyout-buyer,通知,你在拍卖行一口价竞得了 {itemName} x{quantity}，一口价支付 {currencyName} x{totalPrice}。,
 notice.market.auction.buyout-seller,通知,你的寄拍已被一口价拍下：{itemName} x{quantity}，入账 {currencyName} x{totalPrice}。,
 notice.market.auction.consigned,通知,已寄拍 {itemName} x{quantity}，整包总价 {totalPrice} {currencyName}，已收上架费 {listingFee} {currencyName}。,

@@ -129,6 +129,7 @@ const smokeCases = [
     { name: 'market-fractional-buy-order-cancel', scriptFile: 'market-fractional-buy-order-cancel-smoke.js', standalone: true },
     { name: 'market-runtime-ban-cancel-orders', scriptFile: 'market-runtime-ban-cancel-orders-smoke.js', standalone: true },
     { name: 'market-runtime-buy-now', scriptFile: 'market-runtime-buy-now-smoke.js', standalone: true },
+    { name: 'market-auction-outbid-refund', scriptFile: 'market-auction-outbid-refund-smoke.js', standalone: true },
     { name: 'market-transmission', scriptFile: 'market-transmission-smoke.js', standalone: true },
     { name: 'market-runtime-sell-now', scriptFile: 'market-runtime-sell-now-smoke.js', standalone: true },
     { name: 'market-runtime-cancel-order', scriptFile: 'market-runtime-cancel-order-smoke.js', standalone: true },

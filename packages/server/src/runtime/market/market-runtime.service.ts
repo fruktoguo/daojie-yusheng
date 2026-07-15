@@ -1759,6 +1759,9 @@ export class MarketRuntimeService {
             const existingBids = this.getSortedAuctionBids(itemKey);
             const previousHighest = existingBids[0] ?? null;
             const previousBid = existingBids.find((entry) => entry.bidderId === playerId) ?? null;
+            if (previousHighest?.bidderId && previousHighest.bidderId !== playerId) {
+                await this.ensureStorageHydrated(previousHighest.bidderId);
+            }
             return this.runExclusivePlayerAssetMutation(
                 [playerId, previousHighest?.bidderId].filter(Boolean),
                 async () => {
@@ -1782,8 +1785,22 @@ export class MarketRuntimeService {
             const result = this.createEmptyResult(playerId);
             const lotItemName = this.resolveMarketItemDisplayName(lot.item, lot.itemId);
             if (previousHighest && previousHighest.bidderId !== playerId && previousHighest.reservedCost > 0) {
-                this.deliverMarketCurrencyToPlayer(previousHighest.bidderId, previousHighest.reservedCost, context);
-                this.pushNotice(result, previousHighest.bidderId, `你在拍卖行的 ${lotItemName} 出价已被超过，冻结灵石已退回。`, 'info');
+                const refundDestination = this.refundOutbidAuctionReserveToPlayer(
+                    previousHighest.bidderId,
+                    previousHighest.reservedCost,
+                    context,
+                );
+                const noticeKey = refundDestination === 'inventory'
+                    ? 'notice.market.auction.outbid-refunded-inventory'
+                    : 'notice.market.auction.outbid-refunded-storage';
+                this.pushStructuredNotice(result, previousHighest.bidderId, 'system', noticeKey, noticeKey, {
+                    vars: {
+                        itemName: lotItemName,
+                        currencyName: MARKET_CURRENCY_ITEM_ID,
+                        refundAmount: previousHighest.reservedCost,
+                    },
+                    pills: [{ key: 'itemName', style: 'target' }, { key: 'refundAmount', style: 'damage' }],
+                });
             }
             const extension = this.extendAuctionIfEndingSoon(itemKey, now);
             const bids = existingBids
@@ -3307,6 +3324,24 @@ export class MarketRuntimeService {
             return;
         }
         this.deliverItemToPlayer(playerId, this.createCurrencyItem(normalizedAmount), context);
+    }
+    /**
+     * 被超价时退回的冻结灵石属于玩家自有资产结算：只要仍有有效运行时围栏，就强制回到背包，
+     * 不因容量已满转入托管仓。玩家已完全脱离运行时则保留托管仓兜底，避免用旧快照覆盖背包真源。
+     */
+    refundOutbidAuctionReserveToPlayer(playerId, amount, context) {
+        const normalizedAmount = Math.max(0, Math.trunc(Number(amount ?? 0)));
+        if (normalizedAmount <= 0) {
+            return 'inventory';
+        }
+        const player = this.playerRuntimeService.getPlayer(playerId);
+        if (player && this.hasActiveProjectionFence(playerId)) {
+            this.captureOnlinePlayerState(playerId, context);
+            this.playerRuntimeService.receiveInventoryItem(playerId, this.createCurrencyItem(normalizedAmount));
+            return 'inventory';
+        }
+        this.mergeStorageItem(playerId, this.createCurrencyItem(normalizedAmount), context);
+        return 'storage';
     }
     /**
  * toFullItem：执行toFull道具相关逻辑。
