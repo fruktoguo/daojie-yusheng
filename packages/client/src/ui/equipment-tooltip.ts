@@ -28,24 +28,19 @@ import {
   getEntityKindLabel,
   getEquipSlotLabel,
   getItemTypeLabel,
-  getTechniqueGradeLabel,
 } from '../domain-labels';
 import { renderItemSourceListHtml } from '../content/item-sources';
 import { getCachedMapMeta } from '../map-static-cache';
 import {
-  getPreviewTechniqueMaxLevel,
-  getLocalRealmLevelEntry,
-  getLocalTechniqueTemplate,
   resolveClientBuffName,
   resolvePreviewItem,
-  resolvePreviewTechniqueTemplateLayers,
-  resolveTechniqueIdFromBookItemId,
+  resolveTechniqueIdFromBookItem,
 } from '../content/local-templates';
 import { SkillTooltipAsideCard, SkillTooltipContent } from './skill-tooltip';
 import { describePreviewBonuses } from './stat-preview';
-import { formatTechniqueCumulativeBonusSummary } from './technique-bonus-summary';
 import { formatDisplayInteger, formatDisplayNumber, formatDisplayPercent } from '../utils/number';
 import { t } from './i18n';
+import { buildTechniqueBookTooltipContent } from './technique-book-detail';
 
 /** escapeHtml：转义 HTML 文本中的危险字符。 */
 function escapeHtml(value: string): string {
@@ -490,9 +485,7 @@ function resolveItemStatusLabel(item: ItemStack, context?: ItemTooltipContext): 
     return t('equipment-tooltip.status.cooldown', { cooldown: formatDisplayInteger(activeCooldown.cooldownLeft) });
   }
   if (item.type === 'skill_book') {
-    const techniqueId = typeof item.learnTechniqueId === 'string' && item.learnTechniqueId.trim()
-      ? item.learnTechniqueId.trim()
-      : resolveTechniqueIdFromBookItemId(item.itemId);
+    const techniqueId = resolveTechniqueIdFromBookItem(item);
     if (techniqueId && context?.learnedTechniqueIds?.has(techniqueId)) {
       return t('equipment-tooltip.status.learned', undefined);
     }
@@ -786,69 +779,6 @@ function buildEquipmentComparisonAsideCard(item: ItemStack, playerRealmLv?: numb
   };
 }
 
-/** buildTechniqueBookTooltipLines：构建功法书 tooltip 行。 */
-function buildTechniqueBookTooltipLines(item: ItemStack): string[] {
-  const techniqueId = typeof item.learnTechniqueId === 'string' && item.learnTechniqueId.trim()
-    ? item.learnTechniqueId.trim()
-    : resolveTechniqueIdFromBookItemId(item.itemId);
-  if (!techniqueId) {
-    return buildTechniqueBookFallbackTooltipLines(item);
-  }
-  const technique = getLocalTechniqueTemplate(techniqueId);
-  if (!technique) {
-    return buildTechniqueBookFallbackTooltipLines(item);
-  }
-  const realmLabel = technique.realmLv
-    ? (getLocalRealmLevelEntry(technique.realmLv)?.displayName ?? `Lv.${formatDisplayInteger(technique.realmLv)}`)
-    : t('equipment-tooltip.value.unknown', undefined);
-  const maxLevel = getPreviewTechniqueMaxLevel(technique);
-  const previewLayers = resolvePreviewTechniqueTemplateLayers(technique);
-  const learnMaxLevel = Number.isFinite(Number(item.learnTechniqueMaxLevel))
-    ? Math.max(1, Math.min(maxLevel, Math.floor(Number(item.learnTechniqueMaxLevel))))
-    : maxLevel;
-  const skillNames = (technique.skills ?? [])
-    .map((skill) => skill.name.trim())
-    .filter((name) => name.length > 0);
-  return [
-    renderPlainLine(t('equipment-tooltip.technique-book.technique', undefined), technique.name),
-    renderPlainLine(t('equipment-tooltip.technique-book.desc', undefined), item.desc?.trim() || t('equipment-tooltip.technique-book.no-desc', undefined)),
-    renderPlainLine(t('equipment-tooltip.technique-book.realm', undefined), realmLabel),
-    renderPlainLine(t('equipment-tooltip.technique-book.grade', undefined), getTechniqueGradeLabel(technique.grade)),
-    renderPlainLine('可修至', learnMaxLevel >= maxLevel ? `满层（${formatDisplayInteger(maxLevel)} 层）` : `${formatDisplayInteger(learnMaxLevel)} / ${formatDisplayInteger(maxLevel)} 层`),
-    renderPlainLine(
-      learnMaxLevel >= maxLevel ? t('equipment-tooltip.technique-book.max-attrs', undefined) : '可修上限属性',
-      formatTechniqueCumulativeBonusSummary(learnMaxLevel, previewLayers),
-    ),
-    renderPlainLine(
-      t('equipment-tooltip.technique-book.skills-label', { count: skillNames.length > 0 ? `（${formatDisplayInteger(skillNames.length)}）` : '' }),
-      skillNames.length > 0 ? skillNames.join('、') : t('equipment-tooltip.value.none', undefined),
-    ),
-  ];
-}
-
-function buildTechniqueBookFallbackTooltipLines(item: ItemStack): string[] {
-  const learnMaxLevel = resolveTechniqueBookItemLearnMaxLevel(item);
-  const lines = [
-    renderPlainLine(t('equipment-tooltip.technique-book.desc', undefined), item.desc?.trim() || t('equipment-tooltip.technique-book.no-desc', undefined)),
-  ];
-  if (learnMaxLevel !== null) {
-    lines.push(renderPlainLine('可修至', `${formatDisplayInteger(learnMaxLevel)} 层`));
-  }
-  return lines;
-}
-
-function resolveTechniqueBookItemLearnMaxLevel(item: ItemStack): number | null {
-  if (Number.isFinite(Number(item.learnTechniqueMaxLevel))) {
-    return Math.max(1, Math.floor(Number(item.learnTechniqueMaxLevel)));
-  }
-  const desc = typeof item.desc === 'string' ? item.desc : '';
-  const match = desc.match(/前\s*(\d+)\s*层/);
-  if (!match) {
-    return null;
-  }
-  return Math.max(1, Math.floor(Number(match[1]) || 1));
-}
-
 /** buildItemTooltipPayload：构建物品提示载荷。 */
 export function buildItemTooltipPayload(item: ItemStack, context?: ItemTooltipContext): ItemTooltipPayload {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -862,9 +792,9 @@ export function buildItemTooltipPayload(item: ItemStack, context?: ItemTooltipCo
     const effectLines = previewItem.effects?.length
       ? previewItem.effects.flatMap((effect) => buildPlainEffectSummary(effect))
       : buildConsumableEffectDetails(previewItem, context?.itemCooldown);
-    const techniqueBookLines = previewItem.type === 'skill_book'
-      ? buildTechniqueBookTooltipLines(previewItem)
-      : [];
+    const techniqueBookContent = previewItem.type === 'skill_book'
+      ? buildTechniqueBookTooltipContent(previewItem)
+      : { lines: [], asideCards: [] };
     const materialValueLines = previewItem.type === 'material'
       ? describeMaterialValueDetails(previewItem)
       : [];
@@ -877,14 +807,14 @@ export function buildItemTooltipPayload(item: ItemStack, context?: ItemTooltipCo
       ...(itemTagsHtml ? [itemTagsHtml] : []),
       ...materialValueLines.map((line) => renderPlainLine(t('equipment-tooltip.label.element-values', undefined), line.replace(/^五行：/, ''))),
       ...(statusLabel ? [renderPlainLine(t('equipment-tooltip.label.status', undefined), statusLabel)] : []),
-      ...techniqueBookLines,
+      ...techniqueBookContent.lines,
       ...effectLines.map((line) => `<span class="skill-tooltip-detail">${escapeHtml(line)}</span>`),
       `<div class="inventory-source-block"><span class="skill-tooltip-label">${t('equipment-tooltip.label.source', undefined)}：</span>${sourceListHtml}</div>`,
     ].filter((line) => line.length > 0);
     return {
       title: previewItem.name,
       lines,
-      asideCards: [],
+      asideCards: techniqueBookContent.asideCards,
       allowHtml: true,
     };
   }

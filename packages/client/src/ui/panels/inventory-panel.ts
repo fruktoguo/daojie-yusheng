@@ -40,9 +40,10 @@ import {
   renderItemSourceListHtml,
 } from '../../content/item-sources';
 import {
+  fetchTechniqueTemplateForBookItem,
   getLocalTechniqueTemplate,
   resolvePreviewItem,
-  resolveTechniqueIdFromBookItemId,
+  resolveTechniqueIdFromBookItem,
 } from '../../content/local-templates';
 import { detailModalHost } from '../detail-modal-host';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../floating-tooltip';
@@ -53,6 +54,7 @@ import {
   describeMaterialValueDetails,
   ItemTooltipCooldownState,
 } from '../equipment-tooltip';
+import { renderTechniqueBookDetailHtml } from '../technique-book-detail';
 import { getItemDecorClassName, getItemDisplayMeta, type ItemDisplayMeta } from '../item-display';
 import { preserveSelection } from '../selection-preserver';
 import { createEmptyHint, createPanelSectionWithTitle, createSmallBtn } from '../ui-primitives';
@@ -356,6 +358,8 @@ export class InventoryPanel {
   private cellRefs = new WeakMap<HTMLElement, InventoryCellRefs>();
   /** pendingVisibleRefresh：面板不可见期间延迟列表刷新。 */
   private pendingVisibleRefresh = false;
+  /** 当前正在按需读取的自创功法模板，按功法 ID 去重。 */
+  private readonly pendingTechniqueTemplateIds = new Set<string>();
   /** handleScrollCapture：处理Scroll Capture。 */
   private handleScrollCapture = (event: Event) => {
     const target = event.target;
@@ -443,6 +447,7 @@ export class InventoryPanel {
     this.shellRefs = null;
     this.cellBySlotIndex.clear();
     this.pendingVisibleRefresh = false;
+    this.pendingTechniqueTemplateIds.clear();
     if (this.useReactPanel()) {
       this.syncReactState(null);
     } else {
@@ -1021,6 +1026,7 @@ export class InventoryPanel {
         allowHtml: tooltip.allowHtml,
         asideCards: tooltip.asideCards,
       });
+      this.ensureTechniqueBookTemplate(item);
     };
 
     this.pane.addEventListener('click', (event) => {
@@ -1055,6 +1061,7 @@ export class InventoryPanel {
         allowHtml: tooltip.allowHtml,
         asideCards: tooltip.asideCards,
       });
+      this.ensureTechniqueBookTemplate(item);
       event.preventDefault();
       event.stopPropagation();
     }, true);
@@ -1615,6 +1622,7 @@ export class InventoryPanel {
     }
 
     const { item, slotIndex } = resolved;
+    this.ensureTechniqueBookTemplate(item);
     if (this.itemActionDialogController.isOpen() && !this.itemActionDialogController.matchesItem(this.selectedItemKey)) {
       this.itemActionDialogController.reset();
     }
@@ -1828,6 +1836,9 @@ export class InventoryPanel {
   ): void {
     const previewItem = resolvePreviewItem(item);
     const actionHtml = this.renderItemDetailActionsHtml(item);
+    const techniqueBookDetailHtml = item.type === 'skill_book'
+      ? renderTechniqueBookDetailHtml(previewItem)
+      : '';
     replaceElementHtml(body, `
       <div class="quest-detail-grid inventory-detail-grid">
         <div class="quest-detail-section">
@@ -1843,14 +1854,17 @@ export class InventoryPanel {
           <span data-inventory-modal-slot="true">${this.escapeHtml(getEquipSlotLabel(item.equipSlot))}</span>
         </div>` : ''}
       </div>
-      <div class="quest-detail-section">
+      ${item.type === 'skill_book' ? '' : `<div class="quest-detail-section">
         <strong>${t('inventory.detail.desc', undefined)}</strong>
         <span data-inventory-modal-desc="true">${this.escapeHtml(previewItem.desc)}</span>
-      </div>
+      </div>`}
       ${statusLabel ? `<div class="quest-detail-section">
         <strong>${t('inventory.detail.status', undefined)}</strong>
         <span data-inventory-modal-status="true">${this.escapeHtml(statusLabel)}</span>
       </div>` : ''}
+      ${item.type === 'skill_book'
+        ? `<div class="quest-detail-section inventory-technique-book-detail" data-inventory-technique-book-detail="true">${techniqueBookDetailHtml}</div>`
+        : ''}
       ${bonusLines.length > 0 ? `<div class="quest-detail-section">
         <strong>${t('inventory.detail.equipment-bonuses', undefined)}</strong>
         <span data-inventory-modal-bonuses="true">${this.escapeHtml(bonusLines.join(' / '))}</span>
@@ -2138,9 +2152,55 @@ export class InventoryPanel {
   }
 
   private getTechniqueIdFromBookItem(item: ItemStack): string | null {
-    return typeof item.learnTechniqueId === 'string' && item.learnTechniqueId.trim()
-      ? item.learnTechniqueId.trim()
-      : resolveTechniqueIdFromBookItemId(item.itemId);
+    return resolveTechniqueIdFromBookItem(item);
+  }
+
+  /** 自创功法书只在玩家查看详情时低频补齐模板，不扩大背包同步包。 */
+  private ensureTechniqueBookTemplate(item: ItemStack): void {
+    if (item.type !== 'skill_book') {
+      return;
+    }
+    const techniqueId = this.getTechniqueIdFromBookItem(item);
+    if (!techniqueId || getLocalTechniqueTemplate(techniqueId) || this.pendingTechniqueTemplateIds.has(techniqueId)) {
+      return;
+    }
+    this.pendingTechniqueTemplateIds.add(techniqueId);
+    void fetchTechniqueTemplateForBookItem(item).then((template) => {
+      this.pendingTechniqueTemplateIds.delete(techniqueId);
+      if (!template) {
+        return;
+      }
+      this.refreshTechniqueBookDisplays(techniqueId);
+    });
+  }
+
+  /** 模板回包后只刷新当前悬浮提示和详情弹层中的功法区域。 */
+  private refreshTechniqueBookDisplays(techniqueId: string): void {
+    if (this.tooltipCell && this.lastInventory) {
+      const rawIndex = this.tooltipCell.dataset.itemSlot;
+      const item = rawIndex ? this.lastInventory.items[parseInt(rawIndex, 10)] : undefined;
+      if (item && this.getTechniqueIdFromBookItem(item) === techniqueId) {
+        this.refreshTooltipContent();
+      }
+    }
+    this.patchSelectedTechniqueBookDetail(techniqueId);
+  }
+
+  /** 局部替换已打开背包详情中的功法内容，保持弹层滚动和操作节点连续。 */
+  private patchSelectedTechniqueBookDetail(techniqueId: string): void {
+    if (!detailModalHost.isOpenFor(InventoryPanel.MODAL_OWNER) || !this.lastInventory) {
+      return;
+    }
+    const resolved = this.resolveSelectedItem(this.lastInventory);
+    if (!resolved || this.getTechniqueIdFromBookItem(resolved.item) !== techniqueId) {
+      return;
+    }
+    const body = document.getElementById('detail-modal-body');
+    const detail = body?.querySelector<HTMLElement>('[data-inventory-technique-book-detail="true"]');
+    if (!detail) {
+      return;
+    }
+    replaceElementHtml(detail, renderTechniqueBookDetailHtml(resolved.item));
   }
 
   /** getPrimaryAction：读取Primary动作。 */

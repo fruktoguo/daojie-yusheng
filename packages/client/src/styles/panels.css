@@ -5661,6 +5661,14 @@
       color: var(--ink-grey);
       font-weight: var(--font-weight-semibold);
     }
+    .technique-book-skill-title {
+      display: block;
+      margin-top: 6px;
+      padding-top: 7px;
+      border-top: 1px solid color-mix(in srgb, var(--panel-border) 60%, transparent);
+      color: var(--tooltip-head-ink);
+      font-weight: var(--font-weight-strong);
+    }
     .equipment-tooltip-tag-list {
       display: flex;
       flex-wrap: wrap;
@@ -6178,6 +6186,68 @@
     }
     .inventory-detail-grid {
       margin-bottom: 4px;
+    }
+    .inventory-technique-book-detail,
+    .inventory-technique-book-summary,
+    .inventory-technique-skill-detail,
+    .inventory-technique-skill-lines,
+    .inventory-technique-buff-list,
+    .inventory-technique-buff-detail {
+      display: grid;
+      min-width: 0;
+    }
+    .inventory-technique-book-detail {
+      gap: 10px;
+    }
+    .inventory-technique-book-summary,
+    .inventory-technique-skill-lines {
+      gap: 4px;
+    }
+    .inventory-technique-book-summary-line,
+    .inventory-technique-skill-line,
+    .inventory-technique-buff-detail > span {
+      overflow-wrap: anywhere;
+      line-height: 1.55;
+    }
+    .inventory-technique-skill-detail {
+      gap: 6px;
+      padding-top: 10px;
+      border-top: 1px solid color-mix(in srgb, var(--panel-border) 68%, transparent);
+    }
+    .inventory-technique-skill-title {
+      color: var(--ink-black);
+      font-size: var(--font-size-role-body-14);
+    }
+    .inventory-technique-buff-list {
+      gap: 6px;
+    }
+    .inventory-technique-buff-detail {
+      gap: 3px;
+      padding-left: 10px;
+      border-left: 3px solid rgba(69, 147, 93, 0.72);
+      color: var(--ink-grey);
+      font-size: var(--font-size-12);
+    }
+    .inventory-technique-buff-detail.debuff {
+      border-left-color: rgba(176, 68, 49, 0.72);
+    }
+    .inventory-technique-buff-head {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--ink-black);
+    }
+    .inventory-technique-buff-mark {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      height: 18px;
+      border-radius: 999px;
+      background: var(--ink-black);
+      color: var(--paper-white);
+      font-size: var(--font-size-11);
+      line-height: 1;
     }
     .formation-dialog-layout {
       display: flex;

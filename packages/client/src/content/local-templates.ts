@@ -85,6 +85,24 @@ export function resolveTechniqueIdFromBookItemId(itemId: string): string | null 
   return null;
 }
 
+/** 从功法书实例读取对应功法 ID，实例字段优先于静态物品 ID。 */
+export function resolveTechniqueIdFromBookItem(
+  item: Pick<ItemStack, 'itemId' | 'learnTechniqueId'>,
+): string | null {
+  const instanceTechniqueId = typeof item.learnTechniqueId === 'string'
+    ? item.learnTechniqueId.trim()
+    : '';
+  return instanceTechniqueId || resolveTechniqueIdFromBookItemId(item.itemId);
+}
+
+/** 按需补齐功法书对应的完整模板，供低频详情入口复用。 */
+export function fetchTechniqueTemplateForBookItem(
+  item: Pick<ItemStack, 'itemId' | 'learnTechniqueId'>,
+): Promise<GmEditorTechniqueOption | null> {
+  const techniqueId = resolveTechniqueIdFromBookItem(item);
+  return techniqueId ? contentResolver.fetchTechnique(techniqueId) : Promise.resolve(null);
+}
+
 for (const item of LOCAL_EDITOR_CATALOG.items) {
   if (item.type !== 'skill_book') {
     continue;
@@ -454,6 +472,31 @@ export function resolvePreviewTechnique(technique: TechniqueState): TechniqueSta
     )),
     layers: resolvedLayers,
   };
+}
+
+/** 把静态或动态功法模板整理为指定层数下的完整客户端预览状态。 */
+export function resolvePreviewTechniqueTemplateState(
+  template: GmEditorTechniqueOption,
+  level = getPreviewTechniqueMaxLevel(template),
+): TechniqueState {
+  const layers = resolvePreviewTechniqueTemplateLayers(template);
+  const maxLevel = getPreviewTechniqueMaxLevel(template);
+  const previewLevel = Math.max(1, Math.min(maxLevel, Math.floor(Number(level) || 1)));
+  const realmLv = resolveTechniqueRealmLevel(template.realmLv, template.grade);
+  const category = template.category ?? ((template.skills?.length ?? 0) > 0 ? 'arts' : 'internal');
+  return resolvePreviewTechnique({
+    techId: template.id,
+    name: template.name,
+    level: previewLevel,
+    exp: 0,
+    expToNext: layers.find((layer) => layer.level === previewLevel)?.expToNext ?? 0,
+    realmLv,
+    realm: deriveTechniqueRealm(previewLevel, layers),
+    skills: clone(template.skills ?? []),
+    grade: template.grade,
+    category,
+    layers,
+  });
 }
 
 function resolvePreviewTechniqueLayers(

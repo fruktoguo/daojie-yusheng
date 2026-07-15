@@ -13,12 +13,15 @@ const vite = await createServer({
 });
 
 try {
-  const [localTemplates, bonusSummary, equipmentTooltip, editorCatalog] = await Promise.all([
+  const [localTemplates, bonusSummary, equipmentTooltip, editorCatalog, contentResolverModule] = await Promise.all([
     vite.ssrLoadModule('/src/content/local-templates.ts'),
     vite.ssrLoadModule('/src/ui/technique-bonus-summary.ts'),
     vite.ssrLoadModule('/src/ui/equipment-tooltip.ts'),
     vite.ssrLoadModule('/src/content/editor-catalog.ts'),
+    vite.ssrLoadModule('/src/content/content-resolver.ts'),
   ]);
+
+  const stripHtml = (value) => value.replace(/<[^>]+>/gu, '');
 
   const resolveTemplatePreview = (techniqueId) => {
     const technique = localTemplates.getLocalTechniqueTemplate(techniqueId);
@@ -108,6 +111,89 @@ try {
   assert.match(fragmentTooltipText, /无属性灵气吸收效率\+1%/u, '残卷提示必须按可修层数累计气机投影');
   assert.doesNotMatch(fragmentTooltipText, /无属性灵气吸收效率\+10%/u, '残卷提示不得套用完整功法满层加成');
 
+  const artsTooltip = equipmentTooltip.buildItemTooltipPayload({
+    itemId: 'book.baihong_duanyue',
+    name: '《白虹断岳典》',
+    type: 'skill_book',
+    desc: '记载白虹断岳典的修行法门。',
+    count: 1,
+    learnTechniqueId: 'baihong_duanyue',
+  });
+  const artsTooltipText = stripHtml(artsTooltip.lines.join('\n'));
+  assert.match(artsTooltipText, /断影/u, '系统术法书必须显示技能名称');
+  assert.match(artsTooltipText, /物理伤害/u, '系统术法书必须显示具体伤害效果');
+  assert.match(artsTooltipText, /破甲/u, '系统术法书必须显示技能附带的 Buff 或 Debuff');
+  assert.match(artsTooltipText, /灵力消耗：[^\n]*\d/u, '系统术法书必须显示具体灵力消耗');
+  assert.match(artsTooltipText, /冷却：20 息/u, '系统术法书必须显示具体冷却时间');
+  assert.ok(artsTooltip.asideCards.length > 0, '系统术法书必须保留技能 Buff 详情侧栏');
+
+  const generatedTechniqueId = 'generated.technique.preview.detail';
+  const generatedTechnique = {
+    id: generatedTechniqueId,
+    name: '星火演法',
+    desc: '引星火成印，随功法层数稳固术式。',
+    grade: 'yellow',
+    category: 'arts',
+    realmLv: 12,
+    maxLayer: 3,
+    layers: [
+      { level: 1, expToNext: 100, attrs: { spirit: 2 } },
+      { level: 2, expToNext: 120, attrs: { spirit: 3 } },
+      { level: 3, expToNext: 0, attrs: { spirit: 4 } },
+    ],
+    skills: [{
+      id: 'skill.generated.technique.preview.detail',
+      name: '星火印',
+      desc: '星火凝成一印，命中后爆开。',
+      cooldown: 9,
+      cost: 321,
+      range: 4,
+      targeting: { shape: 'single', maxTargets: 1 },
+      effects: [{
+        type: 'damage',
+        damageKind: 'spell',
+        element: 'fire',
+        formula: 777,
+      }],
+      unlockLevel: 2,
+      targetMode: 'tile',
+    }],
+  };
+  const requestedTechniqueIds = [];
+  contentResolverModule.contentResolver.bindEmitter((payload) => {
+    requestedTechniqueIds.push(...(payload.techniques ?? []));
+    queueMicrotask(() => {
+      contentResolverModule.contentResolver.handleContentTemplatesResponse({
+        requestId: payload.requestId,
+        techniques: payload.techniques?.includes(generatedTechniqueId) ? [generatedTechnique] : [],
+      });
+    });
+    return { accepted: true };
+  });
+  const generatedBook = {
+    itemId: 'book.custom_technique',
+    name: '《星火演法》',
+    type: 'skill_book',
+    desc: '完整记载星火演法。',
+    count: 1,
+    learnTechniqueId: generatedTechniqueId,
+  };
+  assert.equal(
+    localTemplates.getLocalTechniqueTemplate(generatedTechniqueId),
+    null,
+    '动态自创功法在按需读取前不应伪装成本地静态模板',
+  );
+  const fetchedGeneratedTechnique = await localTemplates.fetchTechniqueTemplateForBookItem(generatedBook);
+  assert.equal(fetchedGeneratedTechnique?.id, generatedTechniqueId, '自创功法书必须能按 learnTechniqueId 读取完整模板');
+  assert.deepEqual(requestedTechniqueIds, [generatedTechniqueId], '自创功法详情查询必须只请求当前功法 ID');
+  const generatedTooltip = equipmentTooltip.buildItemTooltipPayload(generatedBook);
+  const generatedTooltipText = stripHtml(generatedTooltip.lines.join('\n'));
+  assert.match(generatedTooltipText, /神识\+9/u, '自创功法属性链必须能读取动态模板的逐层累计属性');
+  assert.match(generatedTooltipText, /星火印/u, '自创术法书必须显示动态模板里的技能名称');
+  assert.match(generatedTooltipText, /火行法术伤害：777/u, '自创术法书必须显示动态模板里的具体伤害');
+  assert.match(generatedTooltipText, /灵力消耗：321/u, '自创术法书必须显示动态模板里的具体消耗');
+  assert.match(generatedTooltipText, /冷却：9 息/u, '自创术法书必须显示动态模板里的具体冷却');
+
   let coveredTechniqueCount = 0;
   for (const technique of editorCatalog.LOCAL_EDITOR_CATALOG.techniques) {
     const layers = localTemplates.resolvePreviewTechniqueTemplateLayers(technique);
@@ -131,7 +217,7 @@ try {
   }
   assert.ok(coveredTechniqueCount > 0, '功法目录专项验证未覆盖到任何带属性的模板');
 
-  console.log(`功法紧凑模板、逐层属性、气机投影与功法书预览验证通过（覆盖 ${coveredTechniqueCount} 门带属性功法）`);
+  console.log(`功法属性、系统术法、自创功法模板与技能完整详情验证通过（覆盖 ${coveredTechniqueCount} 门带属性功法）`);
 } finally {
   await vite.close();
 }
