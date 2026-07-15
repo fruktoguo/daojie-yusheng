@@ -72,6 +72,7 @@ export const GAMEPLAY_SERVER_EVENTS = [
   S2C.InventoryPage,
   S2C.SectApplicationPage,
   S2C.TechniquePage,
+  S2C.TechniqueTransmissionTargetStatuses,
   S2C.AttrDetail,
   S2C.Leaderboard,
   S2C.LeaderboardPlayerLocations,

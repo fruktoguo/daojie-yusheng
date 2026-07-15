@@ -1224,6 +1224,50 @@ function testFragmentLearnLimitCannotBecomePropagationAuthority() {
   );
 }
 
+function testTransmissionTargetStatusesUseAuthoritativeNearbyState() {
+  const { runtimeService } = createRuntimeService();
+  const teacher = createPlayer('teacher:status', 0, 0);
+  const learnedTarget = createPlayer('learner:learned', 1, 0);
+  const unlearnedTarget = createPlayer('learner:unlearned', 2, 2);
+  const farTarget = createPlayer('learner:far', 3, 0);
+  const otherInstanceTarget = createPlayer('learner:other-instance', 1, 0);
+  otherInstanceTarget.instanceId = 'instance:other';
+  teacher.techniques.techniques.push({ ...createdTechnique });
+  learnedTarget.techniques.techniques.push({ ...createdTechnique });
+  runtimeService.players.set(teacher.playerId, teacher);
+  runtimeService.players.set(learnedTarget.playerId, learnedTarget);
+  runtimeService.players.set(unlearnedTarget.playerId, unlearnedTarget);
+  runtimeService.players.set(farTarget.playerId, farTarget);
+  runtimeService.players.set(otherInstanceTarget.playerId, otherInstanceTarget);
+
+  assert.deepEqual(
+    runtimeService.buildTechniqueTransmissionTargetStatuses(
+      teacher.playerId,
+      createdTechnique.techId,
+      [
+        learnedTarget.playerId,
+        unlearnedTarget.playerId,
+        learnedTarget.playerId,
+        farTarget.playerId,
+        otherInstanceTarget.playerId,
+        teacher.playerId,
+      ],
+    ),
+    [
+      { playerId: learnedTarget.playerId, learned: true },
+      { playerId: unlearnedTarget.playerId, learned: false },
+    ],
+  );
+  assert.deepEqual(
+    runtimeService.buildTechniqueTransmissionTargetStatuses(
+      teacher.playerId,
+      technique.techId,
+      [learnedTarget.playerId],
+    ),
+    [],
+  );
+}
+
 testSelfComprehensionProgressesOnlyWithoutTransmission();
 testTransmittedPendingCannotSelfComprehendWithoutActiveJob();
 testTransmittedPendingCannotBeSetAsMainTechnique();
@@ -1244,5 +1288,6 @@ testTransmissionUsesStandingFacilitySpeedForBothPlayers();
 testScriptureRecordingUsesTransmissionJobAndLocksBuilding();
 testScriptureContemplationStartsJobAndCompletesTechnique();
 testFragmentLearnLimitCannotBecomePropagationAuthority();
+testTransmissionTargetStatusesUseAuthoritativeNearbyState();
 
 console.log(JSON.stringify({ ok: true, case: 'technique-comprehension' }, null, 2));

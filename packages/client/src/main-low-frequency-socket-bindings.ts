@@ -162,6 +162,7 @@ type MainLowFrequencySocketBindingsOptions = {
   /** onSectApplicationPage：宗门待审批申请分页。 */
   onSectApplicationPage: (data: ServerToClientEventPayload<typeof S2C.SectApplicationPage>) => void;
   onTechniquePage: (data: ServerToClientEventPayload<typeof S2C.TechniquePage>) => void;
+  onTechniqueTransmissionTargetStatuses: (data: ServerToClientEventPayload<typeof S2C.TechniqueTransmissionTargetStatuses>) => void;
   /**
  * onNpcShop：onNPCShop相关字段。
  */
@@ -253,6 +254,7 @@ export function bindMainLowFrequencySocketEvents(options: MainLowFrequencySocket
   options.socket.on(S2C.InventoryPage, options.onInventoryPage);
   options.socket.on(S2C.SectApplicationPage, options.onSectApplicationPage);
   options.socket.on(S2C.TechniquePage, options.onTechniquePage);
+  options.socket.on(S2C.TechniqueTransmissionTargetStatuses, options.onTechniqueTransmissionTargetStatuses);
   options.socket.on(S2C.NpcShop, options.onNpcShop);
   options.socket.on(S2C.BuildResult, options.onBuildResult);
   options.socket.on(S2C.RoomSummaryPatch, options.onRoomSummaryPatch);

@@ -11,7 +11,8 @@
 import { Inject, BadRequestException, Injectable, Logger, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { AsyncLocalStorage } from 'node:async_hooks';
-import { ARTIFACT_SLOTS, ARTIFACT_UNLOCK_REALM_LV, ATTR_KEYS, AUTO_IDLE_CULTIVATION_DELAY_TICKS, BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER, DEFAULT_BASE_ATTRS, DEFAULT_BONE_AGE_YEARS, DEFAULT_COMBAT_ATTACK_INTENSITY, DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS, DEFAULT_INVENTORY_CAPACITY, DEFAULT_PLAYER_REALM_STAGE, Direction, EQUIP_SLOTS, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, RETURN_TO_SPAWN_ACTION_ID, RETURN_TO_SPAWN_COOLDOWN_TICKS, TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH, TechniqueRealm, calculateTechniqueComprehensionProgressGain, calculateTechniqueComprehensionRequiredProgress, canMergeItemStack, cloneCraftEffectStats, coalesceItemStackList, compileValueStatsToActualStats, computeCraftSkillExpGain, createItemStackSignature, enforceSkillEnabledLimit, findMergeableItemStackIndex, getBodyTrainingExpToNext, getTechniqueMaxLevel, isCreatedTechniqueId, mergeItemStackInto, normalizeBodyTrainingState, normalizeCombatAttackIntensity, normalizeHorizontalFacing, percentModifierToMultiplier, resolveArtifactMaxQi, resolvePlayerFacingContentName, resolvePlayerSkillSlotLimit, resolveSkillRequiresTarget, resolveTechniqueStandardMaxHpRecoveryAmount, resolveTechniqueStandardMaxQiRecoveryAmount, signedRatioValue } from '@mud/shared';
+import { ARTIFACT_SLOTS, ARTIFACT_UNLOCK_REALM_LV, ATTR_KEYS, AUTO_IDLE_CULTIVATION_DELAY_TICKS, BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER, DEFAULT_BASE_ATTRS, DEFAULT_BONE_AGE_YEARS, DEFAULT_COMBAT_ATTACK_INTENSITY, DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS, DEFAULT_INVENTORY_CAPACITY, DEFAULT_PLAYER_REALM_STAGE, Direction, EQUIP_SLOTS, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, RETURN_TO_SPAWN_ACTION_ID, RETURN_TO_SPAWN_COOLDOWN_TICKS, TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH, TechniqueRealm, calculateTechniqueComprehensionProgressGain, calculateTechniqueComprehensionRequiredProgress, canMergeItemStack, cloneCraftEffectStats, coalesceItemStackList, compileValueStatsToActualStats, computeCraftSkillExpGain, createItemStackSignature, enforceSkillEnabledLimit, findMergeableItemStackIndex, getBodyTrainingExpToNext, getTechniqueMaxLevel, isCreatedTechniqueId, isTechniqueFullyMastered, mergeItemStackInto, normalizeBodyTrainingState, normalizeCombatAttackIntensity, normalizeHorizontalFacing, percentModifierToMultiplier, resolveArtifactMaxQi, resolvePlayerFacingContentName, resolvePlayerSkillSlotLimit, resolveSkillRequiresTarget, resolveTechniqueStandardMaxHpRecoveryAmount, resolveTechniqueStandardMaxQiRecoveryAmount, signedRatioValue } from '@mud/shared';
+import type { TechniqueTransmissionTargetStatusView } from '@mud/shared';
 import { assignItemInstanceIdIfNeeded, compareItemInstanceId, isItemInstanceIdHardCheckEnabled } from '../world/item-instance-id.helpers';
 import { isNativeGmBotPlayerId } from '../../http/native/native-gm.constants';
 import { PVP_SHA_BACKLASH_BUFF_ID, PVP_SHA_BACKLASH_DECAY_TICKS, PVP_SHA_BACKLASH_PERCENT_PER_STACK, PVP_SHA_BACKLASH_SOURCE_ID, PVP_SHA_BACKLASH_STACK_DIVISOR, PVP_SHA_INFUSION_ATTACK_CAP_PERCENT, PVP_SHA_INFUSION_BUFF_ID, PVP_SHA_INFUSION_DECAY_TICKS, PVP_SHA_INFUSION_SOURCE_ID, PVP_SOUL_INJURY_BUFF_ID, PVP_SOUL_INJURY_DURATION_TICKS, PVP_SOUL_INJURY_SOURCE_ID } from '../../constants/gameplay/pvp';
@@ -54,6 +55,8 @@ const MAX_PENDING_LOGBOOK_MESSAGES = 200;
 const PLAYER_TRANSFER_TIMEOUT_MS = 120_000;
 /** 被玩家攻击后保留反击仇敌的最长时间，按 1Hz tick 计算为 30 分钟。 */
 const RETALIATE_PLAYER_TARGET_TIMEOUT_TICKS = 30 * 60;
+/** 单次传功目标状态查询上限，防止恶意载荷放大冷路径遍历。 */
+const TECHNIQUE_TRANSMISSION_TARGET_STATUS_MAX_TARGETS = 64;
 
 const HEAVEN_SPIRITUAL_ROOT_SEED_ITEM_ID = 'root_seed.heaven';
 const DIVINE_SPIRITUAL_ROOT_SEED_ITEM_ID = 'root_seed.divine';
@@ -1029,6 +1032,50 @@ export class PlayerRuntimeService {
 
     getPlayer(playerId) {
         return this.players.get(playerId) ?? null;
+    }
+    /**
+     * 构建当前功法对应的附近传功目标已学状态。
+     *
+     * 该结果只用于客户端候选列表展示；正式传授仍由 TransmissionStrategy 重新校验。
+     */
+    buildTechniqueTransmissionTargetStatuses(
+        teacherPlayerIdInput,
+        techniqueIdInput,
+        targetPlayerIdsInput,
+    ): TechniqueTransmissionTargetStatusView[] {
+        const teacherPlayerId = typeof teacherPlayerIdInput === 'string' ? teacherPlayerIdInput.trim() : '';
+        const techniqueId = typeof techniqueIdInput === 'string' ? techniqueIdInput.trim() : '';
+        const teacher = teacherPlayerId ? this.getPlayer(teacherPlayerId) : null;
+        const teacherTechnique = teacher?.techniques?.techniques?.find((entry) => entry?.techId === techniqueId) ?? null;
+        const techniqueTemplate = techniqueId ? this.contentTemplateRepository?.createTechniqueState?.(techniqueId) ?? null : null;
+        if (!teacher || !teacherTechnique || !isCreatedTechniqueId(techniqueId) || !isTechniqueFullyMastered({
+            level: teacherTechnique.level,
+            layers: Array.isArray(techniqueTemplate?.layers) && techniqueTemplate.layers.length > 0
+                ? techniqueTemplate.layers
+                : teacherTechnique.layers,
+        })) {
+            return [];
+        }
+        const targetPlayerIds = Array.isArray(targetPlayerIdsInput) ? targetPlayerIdsInput : [];
+        const seen = new Set<string>();
+        const result: TechniqueTransmissionTargetStatusView[] = [];
+        const limit = Math.min(targetPlayerIds.length, TECHNIQUE_TRANSMISSION_TARGET_STATUS_MAX_TARGETS);
+        for (let index = 0; index < limit; index += 1) {
+            const targetPlayerId = typeof targetPlayerIds[index] === 'string' ? targetPlayerIds[index].trim() : '';
+            if (!targetPlayerId || targetPlayerId === teacherPlayerId || seen.has(targetPlayerId)) {
+                continue;
+            }
+            seen.add(targetPlayerId);
+            const target = this.getPlayer(targetPlayerId);
+            if (!target || !isPlayerInTransmissionRange(teacher, target)) {
+                continue;
+            }
+            result.push({
+                playerId: targetPlayerId,
+                learned: target.techniques?.techniques?.some((entry) => entry?.techId === techniqueId) === true,
+            });
+        }
+        return result;
     }
     /**
      * 串行执行会跨 await 的玩家资产变更。一次涉及多名玩家时先同步登记全部有序 ticket，

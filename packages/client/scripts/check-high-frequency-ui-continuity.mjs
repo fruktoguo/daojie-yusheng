@@ -304,6 +304,26 @@ assertIncludes(craftTransmissionView, /target\.playerId}:\$\{target\.name}/, '�
 assertIncludes(craftTransmissionView, /body\.addEventListener\('focusout'[\s\S]*?this\.parent\.patchOpenCraftShell\(\)/, '传功输入结束聚焦后必须补做被延迟的结构 patch');
 assertIncludes(craftTransmissionView, /private buildTechniqueBookCraftPickerKey\(\)[\s\S]*?tech\.realmLv \?\? ''/, '功法抄录结构 key 必须覆盖影响残页成本的境界');
 
+const transmissionTargetStatusHandler = section(
+  craftTransmissionView,
+  '  handleTransmissionTargetStatuses(',
+  '  resetTechniqueRefiningSelection(): void {',
+  'CraftTransmissionView.handleTransmissionTargetStatuses',
+);
+assertIncludes(transmissionTargetStatusHandler, /data\.requestId !== activeRequest\.requestId/, '传功目标状态迟到回包必须按 requestId 丢弃');
+assertIncludes(transmissionTargetStatusHandler, /this\.patchTransmissionTargetOptions\(body\)/, '传功目标状态回包必须只局部更新目标选项');
+assertMissing(transmissionTargetStatusHandler, /replaceElementHtml|patchOpenCraftShell/, '传功目标状态回包不得重建传功内容或工坊壳体');
+
+const transmissionTargetStatusRequest = section(
+  craftTransmissionView,
+  '  private requestTransmissionTargetStatuses(root: ParentNode): void {',
+  '  private patchTransmissionTargetOptions(root: ParentNode): void {',
+  'CraftTransmissionView.requestTransmissionTargetStatuses',
+);
+assertIncludes(transmissionTargetStatusRequest, /this\.activeTransmissionTargetStatusRequest\?\.signature === signature/, '相同传功目标状态请求必须在进行中去重');
+assertIncludes(transmissionTargetStatusRequest, /this\.resolvedTransmissionTargetStatusSignature === signature/, '已完成的同语义传功目标状态不得重复请求');
+assertIncludes(craftTransmissionView, /matches\('\[data-transmission-tech-select="true"\]'\)[\s\S]*?this\.requestTransmissionTargetStatuses\(body\)/, '切换功法后必须立即刷新目标已学状态');
+
 const floatingQueueRefresh = section(
   craftWorkbench,
   'private refreshQueueFloatingPanel(): void {',

@@ -5,8 +5,10 @@
  * 局部 DOM 更新和确认弹层等客户端表现状态。
  */
 import type {
+  C2S_RequestTechniqueTransmissionTargetStatuses,
   ItemStack,
   PlayerState,
+  S2C_TechniqueTransmissionTargetStatuses,
   TechniqueCategory,
   TechniqueComprehensionProgressBreakdown,
   TechniqueGrade,
@@ -29,6 +31,7 @@ import { getItemDecorClassName, getItemDisplayMeta } from './item-display';
 
 type TechniqueBookCraftGradeFilter = 'all' | TechniqueGrade;
 type TechniqueBookCraftCategoryFilter = 'all' | TechniqueCategory;
+type TransmissionTargetStatus = 'loading' | 'learned' | 'unlearned' | 'unavailable';
 
 export type CraftTransmissionCallbacks = {
   onStartTransmission?: (
@@ -41,6 +44,7 @@ export type CraftTransmissionCallbacks = {
     },
   ) => void;
   onCancelTransmission?: (techId: string) => void;
+  onRequestTransmissionTargetStatuses?: (payload: C2S_RequestTechniqueTransmissionTargetStatuses) => void;
   getTransmissionTargets?: () => Array<{ playerId: string; name: string }>;
 };
 
@@ -155,11 +159,42 @@ export class CraftTransmissionView {
   private selectedTechniqueBookCount = 1;
   private techniqueBookCraftGradeFilter: TechniqueBookCraftGradeFilter = 'all';
   private techniqueBookCraftCategoryFilter: TechniqueBookCraftCategoryFilter = 'all';
+  private selectedTransmissionTechniqueId = '';
+  private selectedTransmissionTargetPlayerId = '';
+  private transmissionTargetStatusRequestSequence = 0;
+  private activeTransmissionTargetStatusRequest: { requestId: string; techId: string; signature: string } | null = null;
+  private resolvedTransmissionTargetStatusSignature = '';
+  private transmissionTargetStatusTechniqueId = '';
+  private readonly transmissionTargetLearnedByPlayerId = new Map<string, boolean>();
 
   constructor(private readonly parent: CraftTransmissionParent) {}
 
   setCallbacks(callbacks: CraftTransmissionCallbacks): void {
     this.transmissionCallbacks = callbacks;
+  }
+
+  handleTransmissionTargetStatuses(data: S2C_TechniqueTransmissionTargetStatuses): void {
+    const activeRequest = this.activeTransmissionTargetStatusRequest;
+    if (!activeRequest || data.requestId !== activeRequest.requestId || data.techId !== activeRequest.techId) {
+      return;
+    }
+    this.activeTransmissionTargetStatusRequest = null;
+    this.resolvedTransmissionTargetStatusSignature = activeRequest.signature;
+    this.transmissionTargetStatusTechniqueId = data.techId;
+    this.transmissionTargetLearnedByPlayerId.clear();
+    for (const target of data.targets ?? []) {
+      const playerId = typeof target?.playerId === 'string' ? target.playerId.trim() : '';
+      if (playerId) {
+        this.transmissionTargetLearnedByPlayerId.set(playerId, target.learned === true);
+      }
+    }
+    if (this.parent.activeMode !== 'transmission') {
+      return;
+    }
+    const body = document.getElementById('detail-modal-body');
+    if (body instanceof HTMLElement) {
+      this.patchTransmissionTargetOptions(body);
+    }
   }
 
   resetTechniqueRefiningSelection(): void {
@@ -170,6 +205,12 @@ export class CraftTransmissionView {
   closeTransientUi(): void {
     confirmModalHost.close(TECHNIQUE_REFINING_CONFIRM_OWNER);
     this.lastTransmissionRenderKey = null;
+    this.selectedTransmissionTechniqueId = '';
+    this.selectedTransmissionTargetPlayerId = '';
+    this.activeTransmissionTargetStatusRequest = null;
+    this.resolvedTransmissionTargetStatusSignature = '';
+    this.transmissionTargetStatusTechniqueId = '';
+    this.transmissionTargetLearnedByPlayerId.clear();
   }
 
   buildTransmissionRenderKey(): string {
@@ -214,6 +255,7 @@ export class CraftTransmissionView {
       this.lastTransmissionRenderKey = nextKey;
       replaceElementHtml(content, this.renderTransmissionBody());
       this.patchTransmissionProgress(content);
+      this.requestTransmissionTargetStatuses(content);
       return true;
     }
     this.patchTransmissionProgress(content);
@@ -393,6 +435,89 @@ export class CraftTransmissionView {
       ?? [];
   }
 
+  private requestTransmissionTargetStatuses(root: ParentNode): void {
+    const techniqueSelect = root.querySelector<HTMLSelectElement>('[data-transmission-tech-select="true"]');
+    const techId = (techniqueSelect?.value ?? '').trim();
+    const targets = this.getTransmissionTargets();
+    const targetPlayerIds = targets.map((target) => target.playerId).filter(Boolean);
+    this.selectedTransmissionTechniqueId = techId;
+    if (!techId || targetPlayerIds.length === 0) {
+      this.activeTransmissionTargetStatusRequest = null;
+      this.resolvedTransmissionTargetStatusSignature = '';
+      this.transmissionTargetStatusTechniqueId = techId;
+      this.transmissionTargetLearnedByPlayerId.clear();
+      this.patchTransmissionTargetOptions(root);
+      return;
+    }
+    const signature = `${techId}|${targetPlayerIds.join(',')}`;
+    if (this.activeTransmissionTargetStatusRequest?.signature === signature
+      || this.resolvedTransmissionTargetStatusSignature === signature) {
+      this.patchTransmissionTargetOptions(root);
+      return;
+    }
+    const requestId = `transmission-target-status:${++this.transmissionTargetStatusRequestSequence}`;
+    this.activeTransmissionTargetStatusRequest = { requestId, techId, signature };
+    this.resolvedTransmissionTargetStatusSignature = '';
+    this.transmissionTargetStatusTechniqueId = techId;
+    this.transmissionTargetLearnedByPlayerId.clear();
+    this.patchTransmissionTargetOptions(root);
+    const request = this.transmissionCallbacks?.onRequestTransmissionTargetStatuses
+      ?? this.parent.callbacks?.onRequestTransmissionTargetStatuses;
+    if (!request) {
+      this.activeTransmissionTargetStatusRequest = null;
+      this.resolvedTransmissionTargetStatusSignature = signature;
+      this.patchTransmissionTargetOptions(root);
+      return;
+    }
+    request({ requestId, techId, targetPlayerIds });
+  }
+
+  private patchTransmissionTargetOptions(root: ParentNode): void {
+    const techniqueSelect = root.querySelector<HTMLSelectElement>('[data-transmission-tech-select="true"]');
+    const targetSelect = root.querySelector<HTMLSelectElement>('[data-transmission-target-select="true"]');
+    if (!targetSelect) {
+      return;
+    }
+    const techId = (techniqueSelect?.value ?? '').trim();
+    for (const option of Array.from(targetSelect.options)) {
+      const playerId = option.value.trim();
+      if (!playerId) {
+        continue;
+      }
+      const name = (option.dataset.transmissionTargetName ?? option.textContent ?? '').split(' · ')[0]?.trim() || '未知玩家';
+      const status = this.resolveTransmissionTargetStatus(techId, playerId);
+      option.dataset.transmissionTargetName = name;
+      option.dataset.transmissionTargetStatus = status;
+      option.textContent = `${name} · ${this.getTransmissionTargetStatusLabel(status)}`;
+      option.disabled = status === 'learned' || status === 'unavailable';
+    }
+    this.syncTransmissionStartButton(root);
+  }
+
+  private resolveTransmissionTargetStatus(techId: string, playerId: string): TransmissionTargetStatus {
+    if (!techId || this.transmissionTargetStatusTechniqueId !== techId
+      || this.activeTransmissionTargetStatusRequest?.techId === techId) {
+      return 'loading';
+    }
+    if (!this.transmissionTargetLearnedByPlayerId.has(playerId)) {
+      return 'unavailable';
+    }
+    return this.transmissionTargetLearnedByPlayerId.get(playerId) === true ? 'learned' : 'unlearned';
+  }
+
+  private getTransmissionTargetStatusLabel(status: TransmissionTargetStatus): string {
+    if (status === 'learned') {
+      return '已学';
+    }
+    if (status === 'unlearned') {
+      return '未学';
+    }
+    if (status === 'unavailable') {
+      return '不可用';
+    }
+    return '查询中';
+  }
+
   private getTransmittableTechniques(): PlayerState['techniques'] {
     return (this.parent.transmissionTechniques ?? []).filter((tech) => {
       if (!isCreatedTechniqueId(tech.techId)) {
@@ -550,27 +675,50 @@ export class CraftTransmissionView {
     if (techniques.length === 0) {
       return '<div class="empty-hint">暂无可传授自创功法</div>';
     }
+    const selectedTechniqueId = techniques.some((tech) => tech.techId === this.selectedTransmissionTechniqueId)
+      ? this.selectedTransmissionTechniqueId
+      : techniques[0]?.techId ?? '';
+    this.selectedTransmissionTechniqueId = selectedTechniqueId;
+    const selectedTargetPlayerId = targets.some((target) => target.playerId === this.selectedTransmissionTargetPlayerId)
+      ? this.selectedTransmissionTargetPlayerId
+      : targets[0]?.playerId ?? '';
+    this.selectedTransmissionTargetPlayerId = selectedTargetPlayerId;
     const techniqueOptions = techniques.map((tech) => {
       const metaText = this.getTransmissionTechniqueMetaText(tech);
       const search = `${tech.name ?? ''} ${tech.techId} ${metaText}`.toLowerCase();
-      return `<option value="${escapeHtmlAttr(tech.techId)}" data-search="${escapeHtmlAttr(search)}">${escapeHtml(resolveClientTechniqueName(tech.techId, tech.name))} · ${escapeHtml(metaText)}</option>`;
+      return `<option value="${escapeHtmlAttr(tech.techId)}" data-search="${escapeHtmlAttr(search)}"${tech.techId === selectedTechniqueId ? ' selected' : ''}>${escapeHtml(resolveClientTechniqueName(tech.techId, tech.name))} · ${escapeHtml(metaText)}</option>`;
     }).join('');
     const targetOptions = targets.length > 0
-      ? targets.map((target) => `<option value="${escapeHtmlAttr(target.playerId)}">${escapeHtml(target.name)}</option>`).join('')
+      ? targets.map((target) => this.renderTransmissionTargetOption(target, selectedTechniqueId, selectedTargetPlayerId)).join('')
       : '<option value="">附近无可传授玩家</option>';
-    const targetDisabled = targets.length === 0 ? 'disabled' : '';
+    const targetSelectDisabled = targets.length === 0 ? 'disabled' : '';
+    const selectedTargetStatus = selectedTargetPlayerId
+      ? this.resolveTransmissionTargetStatus(selectedTechniqueId, selectedTargetPlayerId)
+      : 'unavailable';
+    const startDisabled = selectedTargetStatus === 'unlearned' ? '' : 'disabled';
     return `
       <div class="transmission-teach-picker">
         <input class="ui-search-input" type="search" data-transmission-tech-search="true" placeholder="搜索自创功法">
         <select class="ui-input" data-transmission-tech-select="true">
           ${techniqueOptions}
         </select>
-        <select class="ui-input" data-transmission-target-select="true" ${targetDisabled}>
+        <select class="ui-input" data-transmission-target-select="true" ${targetSelectDisabled}>
           ${targetOptions}
         </select>
-        <button class="small-btn" type="button" data-craft-action="transmission-start" ${targetDisabled}>传授</button>
+        <button class="small-btn" type="button" data-craft-action="transmission-start" ${startDisabled}>传授</button>
       </div>
     `;
+  }
+
+  private renderTransmissionTargetOption(
+    target: { playerId: string; name: string },
+    techId: string,
+    selectedTargetPlayerId: string,
+  ): string {
+    const status = this.resolveTransmissionTargetStatus(techId, target.playerId);
+    const disabled = status === 'learned' || status === 'unavailable' ? ' disabled' : '';
+    const selected = target.playerId === selectedTargetPlayerId ? ' selected' : '';
+    return `<option value="${escapeHtmlAttr(target.playerId)}" data-transmission-target-name="${escapeHtmlAttr(target.name)}" data-transmission-target-status="${status}"${selected}${disabled}>${escapeHtml(target.name)} · ${this.getTransmissionTargetStatusLabel(status)}</option>`;
   }
 
   private renderTransmissionBookCraftPicker(techniques: PlayerState['techniques']): string {
@@ -965,6 +1113,13 @@ export class CraftTransmissionView {
         this.parent.patchOpenCraftShell();
         return;
       }
+      if (event.target instanceof HTMLSelectElement && event.target.matches('[data-transmission-tech-select="true"]')) {
+        this.selectedTransmissionTechniqueId = event.target.value.trim();
+        this.requestTransmissionTargetStatuses(body);
+      }
+      if (event.target instanceof HTMLSelectElement && event.target.matches('[data-transmission-target-select="true"]')) {
+        this.selectedTransmissionTargetPlayerId = event.target.value.trim();
+      }
       const changed = event.target instanceof HTMLSelectElement
         && (event.target.matches('[data-transmission-tech-select="true"]') || event.target.matches('[data-transmission-target-select="true"]') || event.target.matches('[data-transmission-book-tech-select="true"]'));
       if (changed) {
@@ -982,6 +1137,7 @@ export class CraftTransmissionView {
         }
       });
     }, { signal });
+    this.requestTransmissionTargetStatuses(body);
   }
 
   private normalizeTechniqueBookCraftGradeFilter(value: string): TechniqueBookCraftGradeFilter {
@@ -1014,16 +1170,22 @@ export class CraftTransmissionView {
     if (!selectedOption || selectedOption.hidden) {
       select.value = firstVisibleValue;
     }
+    if (selector === '[data-transmission-tech-select="true"]') {
+      this.selectedTransmissionTechniqueId = select.value.trim();
+      this.requestTransmissionTargetStatuses(body);
+    }
     select.disabled = !firstVisibleValue;
     this.syncTransmissionStartButton(body);
   }
 
-  private syncTransmissionStartButton(body: HTMLElement): void {
+  private syncTransmissionStartButton(body: ParentNode): void {
     const techId = (body.querySelector<HTMLSelectElement>('[data-transmission-tech-select="true"]')?.value ?? '').trim();
-    const learnerPlayerId = (body.querySelector<HTMLSelectElement>('[data-transmission-target-select="true"]')?.value ?? '').trim();
+    const targetSelect = body.querySelector<HTMLSelectElement>('[data-transmission-target-select="true"]');
+    const learnerPlayerId = (targetSelect?.value ?? '').trim();
+    const targetStatus = targetSelect?.selectedOptions[0]?.dataset.transmissionTargetStatus ?? 'loading';
     const button = body.querySelector<HTMLButtonElement>('[data-craft-action="transmission-start"]');
     if (button) {
-      button.disabled = !techId || !learnerPlayerId;
+      button.disabled = !techId || !learnerPlayerId || targetStatus !== 'unlearned';
     }
   }
 

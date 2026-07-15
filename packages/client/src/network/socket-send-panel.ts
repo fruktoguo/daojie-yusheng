@@ -121,6 +121,11 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
     sendRequestTechniquePage(payload: ClientToServerEventPayload<typeof C2S.RequestTechniquePage>): void {
       deps.emitEvent(C2S.RequestTechniquePage, payload);
     },
+    sendRequestTechniqueTransmissionTargetStatuses(
+      payload: ClientToServerEventPayload<typeof C2S.RequestTechniqueTransmissionTargetStatuses>,
+    ): void {
+      deps.emitEvent(C2S.RequestTechniqueTransmissionTargetStatuses, payload);
+    },
     sendCreateFormation(payload: ClientToServerEventPayload<typeof C2S.CreateFormation>): void {
       deps.emitEvent(C2S.CreateFormation, payload);
     },

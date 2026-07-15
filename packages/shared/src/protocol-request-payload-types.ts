@@ -55,6 +55,7 @@ import type {
   RepairInventoryItemInstanceIdsView,
   RequestInventoryPageView,
   RequestTechniquePageView,
+  RequestTechniqueTransmissionTargetStatusesView,
   RequestAlchemyPanelView,
   RequestAttrDetailView,
   RequestAuctionListingsView,
@@ -276,6 +277,9 @@ export interface C2S_RequestInventoryPage extends RequestInventoryPageView {}
 export interface C2S_RequestSectApplicationPage extends RequestSectApplicationPageView {}
 /** 请求功法分页数据。 */
 export interface C2S_RequestTechniquePage extends RequestTechniquePageView {}
+
+/** 查询附近传功目标是否已学当前功法。 */
+export interface C2S_RequestTechniqueTransmissionTargetStatuses extends RequestTechniqueTransmissionTargetStatusesView {}
 /** 布置阵法。 */
 export interface C2S_CreateFormation extends FormationCreatePayload {}
 /** 开启/关闭阵法。 */

@@ -9,7 +9,8 @@
  */
 
 import { Injectable } from '@nestjs/common';
-import { S2C, cloneNumericRatioDivisors, cloneNumericStats, compactNumericStatBreakdownMap } from '@mud/shared';
+import { C2S, S2C, cloneNumericRatioDivisors, cloneNumericStats, compactNumericStatBreakdownMap } from '@mud/shared';
+import type { ClientToServerEventPayload } from '@mud/shared';
 import type { Socket } from 'socket.io';
 import { LeaderboardRuntimeService } from '../runtime/player/leaderboard-runtime.service';
 import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
@@ -166,9 +167,40 @@ class WorldGatewayReadModelHelper {
         catch (error) {
             this.worldClientEventService.emitGatewayError(client, 'REQUEST_DETAIL_FAILED', error);
         }
-    }    
+    }
+
+    /** 查询当前功法对应的附近传功目标已学状态。 */
+    handleRequestTechniqueTransmissionTargetStatuses(
+        client: Socket,
+        payload: ClientToServerEventPayload<typeof C2S.RequestTechniqueTransmissionTargetStatuses>,
+    ): void {
+        const playerId = this.gatewayGuardHelper.requirePlayerId(client);
+        if (!playerId) {
+            return;
+        }
+        const requestId = typeof payload?.requestId === 'string' ? payload.requestId.trim() : '';
+        const techId = typeof payload?.techId === 'string' ? payload.techId.trim() : '';
+        if (!requestId || !techId) {
+            return;
+        }
+        try {
+            this.worldClientEventService.markProtocol(client, 'mainline');
+            client.emit(S2C.TechniqueTransmissionTargetStatuses, {
+                requestId,
+                techId,
+                targets: this.playerRuntimeService.buildTechniqueTransmissionTargetStatuses(
+                    playerId,
+                    techId,
+                    payload?.targetPlayerIds,
+                ),
+            });
+        }
+        catch (error) {
+            this.worldClientEventService.emitGatewayError(client, 'REQUEST_TECHNIQUE_TRANSMISSION_TARGET_STATUSES_FAILED', error);
+        }
+    }
     /**
- * handleRequestTileDetail：处理RequestTile详情并更新相关状态。
+     * handleRequestTileDetail：处理RequestTile详情并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
  * @returns 无返回值，直接更新RequestTile详情相关状态。

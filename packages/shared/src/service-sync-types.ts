@@ -219,6 +219,19 @@ export interface TechniquePageView {
   items: TechniqueUpdateEntryView[];
 }
 
+/** 附近传功目标对当前功法的已学状态。 */
+export interface TechniqueTransmissionTargetStatusView {
+  playerId: string;
+  learned: boolean;
+}
+
+/** 当前功法对应的附近传功目标状态响应。 */
+export interface TechniqueTransmissionTargetStatusesView {
+  requestId: string;
+  techId: string;
+  targets: TechniqueTransmissionTargetStatusView[];
+}
+
 /** 装备面板更新视图。 */
 export interface EquipmentUpdateView {
 /**

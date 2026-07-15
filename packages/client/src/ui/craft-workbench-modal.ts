@@ -24,6 +24,7 @@ import type {
   S2C_AttrUpdate,
   S2C_EnhancementPanel,
   S2C_TechniqueActivityTasks,
+  S2C_TechniqueTransmissionTargetStatuses,
   TechniqueActivityCancelRef,
   TechniqueActivityQueueReorderAction,
   TechniqueActivityTaskView,
@@ -366,6 +367,10 @@ export class CraftWorkbenchModal {
 
   setTransmissionCallbacks(callbacks: CraftTransmissionCallbacks): void {
     this.transmissionView.setCallbacks(callbacks);
+  }
+
+  handleTransmissionTargetStatuses(data: S2C_TechniqueTransmissionTargetStatuses): void {
+    this.transmissionView.handleTransmissionTargetStatuses(data);
   }
 
   initFromPlayer(player: PlayerState): void {
