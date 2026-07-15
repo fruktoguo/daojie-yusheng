@@ -147,6 +147,7 @@
     "checkpoint:compaction-worker": "pnpm compile && node dist/tools/checkpoint-compaction-worker.js",
     "checkpoint:compaction-worker:once": "pnpm compile && node dist/tools/checkpoint-compaction-worker.js --once",
     "smoke:gm": "pnpm compile && node dist/tools/run-stable-smoke-suite.js --case gm",
+    "smoke:recover-empty-custom-technique-books": "pnpm compile && node dist/tools/recover-empty-custom-technique-books-smoke.js",
     "smoke:month-card-pool": "pnpm compile && node dist/tools/run-stable-smoke-suite.js --case month-card-pool",
     "smoke:daily-sign-in-fortune": "pnpm compile && node dist/tools/run-stable-smoke-suite.js --case daily-sign-in-fortune",
     "cleanup:test-players": "pnpm compile && node dist/tools/cleanup-test-players.js",

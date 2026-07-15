@@ -40,6 +40,7 @@ import { RuntimeEnvManagementService } from '../runtime/gm/runtime-env-managemen
 import { GM_HTTP_CONTRACT } from './native/native-gm-contract';
 import { AiArtsStrengthV1ToV2Conversion } from '../gm/compat-conversions/conversions/technique/ai-arts-strength-v1-to-v2';
 import { DeleteEmptyCustomTechniqueBooksConversion } from '../gm/compat-conversions/conversions/technique/delete-empty-custom-technique-books';
+import { RecoverEmptyCustomTechniqueBooksConversion } from '../gm/compat-conversions/conversions/technique/recover-empty-custom-technique-books';
 import { OrphanSectBuildingVisualsConversion } from '../gm/compat-conversions/conversions/building/orphan-sect-building-visuals';
 import { TongtianTowerCatalogInstanceTypeConversion } from '../gm/compat-conversions/conversions/world/tongtian-tower-catalog-instance-type';
 
@@ -85,6 +86,7 @@ export const NATIVE_HTTP_PROVIDERS = [
   NativeGmWorkerService,
   NativeGmWorldService,
   AiArtsStrengthV1ToV2Conversion,
+  RecoverEmptyCustomTechniqueBooksConversion,
   DeleteEmptyCustomTechniqueBooksConversion,
   OrphanSectBuildingVisualsConversion,
   TongtianTowerCatalogInstanceTypeConversion,

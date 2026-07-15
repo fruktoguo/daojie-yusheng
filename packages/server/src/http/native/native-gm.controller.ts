@@ -32,6 +32,7 @@ import { NativeGmWorldService } from './native-gm-world.service';
 import { NativeManagedAccountService } from './native-managed-account.service';
 import { AiArtsStrengthV1ToV2Conversion } from '../../gm/compat-conversions/conversions/technique/ai-arts-strength-v1-to-v2';
 import { DeleteEmptyCustomTechniqueBooksConversion } from '../../gm/compat-conversions/conversions/technique/delete-empty-custom-technique-books';
+import { RecoverEmptyCustomTechniqueBooksConversion } from '../../gm/compat-conversions/conversions/technique/recover-empty-custom-technique-books';
 import { OrphanSectBuildingVisualsConversion } from '../../gm/compat-conversions/conversions/building/orphan-sect-building-visuals';
 import { TongtianTowerCatalogInstanceTypeConversion } from '../../gm/compat-conversions/conversions/world/tongtian-tower-catalog-instance-type';
 /**
@@ -274,6 +275,7 @@ export class NativeGmController {
     @Inject(NativeGmGeneratedTechniqueService) private readonly nextGmGeneratedTechniqueService: NativeGmGeneratedTechniqueService,
     @Inject(NativeGmMarketTradeService) private readonly nextGmMarketTradeService: NativeGmMarketTradeService,
     @Inject(AiArtsStrengthV1ToV2Conversion) private readonly aiArtsStrengthV1ToV2Conversion: AiArtsStrengthV1ToV2Conversion,
+    @Inject(RecoverEmptyCustomTechniqueBooksConversion) private readonly recoverEmptyCustomTechniqueBooksConversion: RecoverEmptyCustomTechniqueBooksConversion,
     @Inject(DeleteEmptyCustomTechniqueBooksConversion) private readonly deleteEmptyCustomTechniqueBooksConversion: DeleteEmptyCustomTechniqueBooksConversion,
     @Inject(OrphanSectBuildingVisualsConversion) private readonly orphanSectBuildingVisualsConversion: OrphanSectBuildingVisualsConversion,
     @Inject(TongtianTowerCatalogInstanceTypeConversion) private readonly tongtianTowerCatalogInstanceTypeConversion: TongtianTowerCatalogInstanceTypeConversion,
@@ -1132,6 +1134,27 @@ export class NativeGmController {
       targetType: 'compat_conversion',
       targetId: 'ai_arts_strength_v1_to_v2',
     }, (actor) => this.aiArtsStrengthV1ToV2Conversion.run({
+      mode: 'apply',
+      actor,
+    }));
+  }
+
+  @Post('shortcuts/compat/recover-empty-custom-technique-books/dry-run')
+  async dryRunRecoverEmptyCustomTechniqueBooks(@Req() request: unknown) {
+    return this.recoverEmptyCustomTechniqueBooksConversion.run({
+      mode: 'dry-run',
+      actor: extractGmActor(request),
+    });
+  }
+
+  @Post('shortcuts/compat/recover-empty-custom-technique-books/apply')
+  async applyRecoverEmptyCustomTechniqueBooks(@Req() request: unknown) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.shortcuts.compat.recover_empty_custom_technique_books.apply',
+      request,
+      targetType: 'compat_conversion',
+      targetId: 'recover_empty_custom_technique_books',
+    }, (actor) => this.recoverEmptyCustomTechniqueBooksConversion.run({
       mode: 'apply',
       actor,
     }));

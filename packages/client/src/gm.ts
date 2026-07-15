@@ -12296,6 +12296,50 @@ async function deleteEmptyCustomTechniqueBooks(): Promise<void> {
   }
 }
 
+async function recoverEmptyCustomTechniqueBooks(): Promise<void> {
+  const button = document.getElementById('shortcut-recover-empty-custom-technique-books') as HTMLButtonElement | null;
+  if (button) {
+    button.disabled = true;
+  }
+  try {
+    setPendingStatus(t('gm.shortcut.recover-empty-books.dry-run-started'));
+    const preview = await request<GmCompatConversionRunRes>(`${GM_API_BASE_PATH}/shortcuts/compat/recover-empty-custom-technique-books/dry-run`, {
+      method: 'POST',
+    });
+    if (preview.convertedRows <= 0) {
+      setStatus(t('gm.shortcut.recover-empty-books.noop', {
+        matchedRows: Math.floor(preview.matchedRows),
+        skippedRows: Math.floor(preview.skippedRows),
+      }), preview.failedRows > 0 || preview.skippedRows > 0);
+      return;
+    }
+    if (!window.confirm(t('gm.shortcut.recover-empty-books.confirm', {
+      matchedRows: Math.floor(preview.matchedRows),
+      convertedRows: Math.floor(preview.convertedRows),
+      skippedRows: Math.floor(preview.skippedRows),
+    }))) {
+      setStatus(t('gm.shortcut.recover-empty-books.cancelled'));
+      return;
+    }
+    const result = await request<GmCompatConversionRunRes>(`${GM_API_BASE_PATH}/shortcuts/compat/recover-empty-custom-technique-books/apply`, {
+      method: 'POST',
+    });
+    await delayRefresh(t('gm.shortcut.recover-empty-books.done', {
+      matchedRows: Math.floor(result.matchedRows),
+      convertedRows: Math.floor(result.convertedRows),
+      skippedRows: Math.floor(result.skippedRows),
+      failedRows: Math.floor(result.failedRows),
+      verifiedRows: Math.floor(result.verifiedRows),
+    }));
+  } catch (error) {
+    setStatus(error instanceof Error ? error.message : t('gm.request.failed'), true);
+  } finally {
+    if (button) {
+      button.disabled = false;
+    }
+  }
+}
+
 async function repairQuestProgressPayloads(): Promise<void> {
   const button = document.getElementById('shortcut-repair-quest-progress-payloads') as HTMLButtonElement | null;
   if (button) {
@@ -13555,6 +13599,9 @@ document.getElementById('shortcut-repair-market-storage-item-ids')?.addEventList
 });
 document.getElementById('shortcut-migrate-ai-arts-strength-v1-to-v2')?.addEventListener('click', () => {
   migrateAiArtsStrengthDraftsV1ToV2().catch((e) => console.error('[GM]', e));
+});
+document.getElementById('shortcut-recover-empty-custom-technique-books')?.addEventListener('click', () => {
+  recoverEmptyCustomTechniqueBooks().catch((e) => console.error('[GM]', e));
 });
 document.getElementById('shortcut-delete-empty-custom-technique-books')?.addEventListener('click', () => {
   deleteEmptyCustomTechniqueBooks().catch((e) => console.error('[GM]', e));

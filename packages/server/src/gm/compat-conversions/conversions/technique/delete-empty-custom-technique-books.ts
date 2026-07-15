@@ -1,8 +1,9 @@
 /**
- * 删除「空书」：itemId 为 book.custom_technique 但已丢失 learnTechniqueId 的自创功法残卷。
+ * 删除不可恢复的「空书」：itemId 为 book.custom_technique、已丢失 learnTechniqueId，
+ * 且书名和描述也都为空的历史残留。
  *
  * 历史缺陷（market toFullItem / 邮件附件白名单剥离实例字段）会把残卷的功法身份物理抹掉，
- * 这类残卷无法学习（使用时抛「功法书缺少功法 ID」）且不可还原，按运营决策直接删除。
+ * 但实际旧数据仍可能保留书名和描述，可由恢复转换唯一匹配已发布功法。此入口不得删除这些可恢复资产。
  *
  * 安全边界：只删除「不持有任何冻结资产」的行。
  * - 求购单冻结了买家灵石（createBuyOrder -> consumeMarketCurrencyFromInventory），
@@ -26,6 +27,7 @@ import type {
   GmCompatConversionRunResult,
   GmCompatConversionSample,
 } from '../../types';
+import { hasCustomTechniqueBookRecoveryHint } from './custom-technique-book-recovery';
 
 export const DELETE_EMPTY_CUSTOM_TECHNIQUE_BOOKS_CONVERSION_ID = 'technique_delete_empty_custom_books';
 
@@ -36,6 +38,14 @@ const EMPTY_AT_ROOT = `COALESCE(raw_payload->>'learnTechniqueId', '') = ''`;
 /** 订单把整个 order 对象写进 raw_payload，物品在 item 子对象下，路径比背包/托管仓深一层。 */
 const EMPTY_IN_ORDER_ITEM = `COALESCE(raw_payload->'item'->>'learnTechniqueId', '') = ''`;
 const IS_AUCTION_LOT = `COALESCE(raw_payload->'auction'->>'mode', '') = 'auction'`;
+const HAS_RECOVERY_HINT_AT_ROOT = `(
+  COALESCE(BTRIM(raw_payload->>'name'), '') <> ''
+  OR COALESCE(BTRIM(raw_payload->>'desc'), '') <> ''
+)`;
+const HAS_RECOVERY_HINT_IN_ORDER_ITEM = `(
+  COALESCE(BTRIM(raw_payload->'item'->>'name'), '') <> ''
+  OR COALESCE(BTRIM(raw_payload->'item'->>'desc'), '') <> ''
+)`;
 
 interface ScanTarget {
   readonly table: string;
@@ -50,14 +60,14 @@ const DELETE_TARGETS: readonly ScanTarget[] = [
     table: 'player_inventory_item',
     idColumn: 'item_instance_id',
     ownerColumn: 'player_id',
-    predicate: `item_id = $1 AND ${EMPTY_AT_ROOT} AND locked_by IS NULL`,
+    predicate: `item_id = $1 AND ${EMPTY_AT_ROOT} AND NOT (${HAS_RECOVERY_HINT_AT_ROOT}) AND locked_by IS NULL`,
     status: 'empty_book',
   },
   {
     table: 'player_market_storage_item',
     idColumn: 'storage_item_id',
     ownerColumn: 'player_id',
-    predicate: `item_id = $1 AND ${EMPTY_AT_ROOT}`,
+    predicate: `item_id = $1 AND ${EMPTY_AT_ROOT} AND NOT (${HAS_RECOVERY_HINT_AT_ROOT})`,
     status: 'empty_book',
   },
   {
@@ -65,8 +75,34 @@ const DELETE_TARGETS: readonly ScanTarget[] = [
     table: 'server_market_order',
     idColumn: 'order_id',
     ownerColumn: 'owner_id',
-    predicate: `item_id = $1 AND side = 'sell' AND status = 'open' AND NOT (${IS_AUCTION_LOT}) AND ${EMPTY_IN_ORDER_ITEM}`,
+    predicate: `item_id = $1 AND side = 'sell' AND status = 'open' AND NOT (${IS_AUCTION_LOT})
+      AND ${EMPTY_IN_ORDER_ITEM} AND NOT (${HAS_RECOVERY_HINT_IN_ORDER_ITEM})`,
     status: 'empty_book',
+  },
+];
+
+const RECOVERY_REVIEW_TARGETS: readonly ScanTarget[] = [
+  {
+    table: 'player_inventory_item',
+    idColumn: 'item_instance_id',
+    ownerColumn: 'player_id',
+    predicate: `item_id = $1 AND ${EMPTY_AT_ROOT} AND ${HAS_RECOVERY_HINT_AT_ROOT}`,
+    status: 'recoverable_book_run_repair_first',
+  },
+  {
+    table: 'player_market_storage_item',
+    idColumn: 'storage_item_id',
+    ownerColumn: 'player_id',
+    predicate: `item_id = $1 AND ${EMPTY_AT_ROOT} AND ${HAS_RECOVERY_HINT_AT_ROOT}`,
+    status: 'recoverable_book_run_repair_first',
+  },
+  {
+    table: 'server_market_order',
+    idColumn: 'order_id',
+    ownerColumn: 'owner_id',
+    predicate: `item_id = $1 AND side = 'sell' AND status = 'open'
+      AND ${EMPTY_IN_ORDER_ITEM} AND ${HAS_RECOVERY_HINT_IN_ORDER_ITEM}`,
+    status: 'recoverable_book_run_repair_first',
   },
 ];
 
@@ -82,14 +118,15 @@ const MANUAL_REVIEW_TARGETS: readonly ScanTarget[] = [
     table: 'server_market_order',
     idColumn: 'order_id',
     ownerColumn: 'owner_id',
-    predicate: `item_id = $1 AND side = 'sell' AND status = 'open' AND ${IS_AUCTION_LOT} AND ${EMPTY_IN_ORDER_ITEM}`,
+    predicate: `item_id = $1 AND side = 'sell' AND status = 'open' AND ${IS_AUCTION_LOT}
+      AND ${EMPTY_IN_ORDER_ITEM} AND NOT (${HAS_RECOVERY_HINT_IN_ORDER_ITEM})`,
     status: 'needs_manual_cancel_auction_lot',
   },
   {
     table: 'player_inventory_item',
     idColumn: 'item_instance_id',
     ownerColumn: 'player_id',
-    predicate: `item_id = $1 AND ${EMPTY_AT_ROOT} AND locked_by IS NOT NULL`,
+    predicate: `item_id = $1 AND ${EMPTY_AT_ROOT} AND NOT (${HAS_RECOVERY_HINT_AT_ROOT}) AND locked_by IS NOT NULL`,
     status: 'needs_manual_unlock',
   },
 ];
@@ -143,9 +180,14 @@ export class DeleteEmptyCustomTechniqueBooksConversion {
     const result = createEmptyResult(options.mode);
 
     result.matchedRows = await this.collectRows(pool, DELETE_TARGETS, result);
-    result.skippedRows = await this.collectRows(pool, MANUAL_REVIEW_TARGETS, result);
-    if (result.skippedRows > 0) {
-      result.errors.push(`${result.skippedRows} 行持有冻结资产或处于锁定态，已跳过；请走撤单/撤拍流程退款后重跑`);
+    const recoverableRows = await this.collectRows(pool, RECOVERY_REVIEW_TARGETS, result);
+    const manualReviewRows = await this.collectRows(pool, MANUAL_REVIEW_TARGETS, result);
+    result.skippedRows = recoverableRows + manualReviewRows;
+    if (recoverableRows > 0) {
+      result.errors.push(`${recoverableRows} 行仍有书名或描述线索，已保护跳过；请先执行空白功法书恢复转换`);
+    }
+    if (manualReviewRows > 0) {
+      result.errors.push(`${manualReviewRows} 行持有冻结资产或处于锁定态，已跳过；请走撤单/撤拍流程退款后重跑`);
     }
 
     if (options.mode === 'dry-run') {
@@ -236,7 +278,10 @@ export class DeleteEmptyCustomTechniqueBooksConversion {
       for (const item of items) {
         const techId = typeof item?.learnTechniqueId === 'string' ? item.learnTechniqueId.trim() : '';
         const instanceId = typeof item?.itemInstanceId === 'string' ? item.itemInstanceId.trim() : '';
-        if (item?.itemId !== CUSTOM_TECHNIQUE_BOOK_ITEM_ID || techId || !instanceId) {
+        if (item?.itemId !== CUSTOM_TECHNIQUE_BOOK_ITEM_ID
+          || techId
+          || !instanceId
+          || hasCustomTechniqueBookRecoveryHint(item)) {
           continue;
         }
         const count = Math.max(1, Math.trunc(Number(item.count) || 1));

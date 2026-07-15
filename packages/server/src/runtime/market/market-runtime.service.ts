@@ -412,6 +412,31 @@ export class MarketRuntimeService {
         // 之后撮合/退款分支无需再为对手方做异步等待，只需 hydrate 当前主动玩家即可。
         await this.ensureStoragesHydrated(this.collectOrderParticipantPlayerIds());
     }
+    /** GM 兼容转换写库时独占坊市状态，并在提交后从数据库重建运行态缓存。 */
+    async runExclusiveCompatibilityPersistenceReload<T>(action: () => Promise<T>): Promise<{
+        result: T;
+        reloadError: string | null;
+    }> {
+        return this.runExclusive(async () => {
+            const result = await action();
+            try {
+                await this.reloadFromPersistence();
+                return { result, reloadError: null };
+            }
+            catch (firstError) {
+                this.logger.warn(`GM 兼容转换提交后首次重载坊市失败，立即重试：${firstError instanceof Error ? firstError.message : String(firstError)}`);
+            }
+            try {
+                await this.reloadFromPersistence();
+                return { result, reloadError: null };
+            }
+            catch (error) {
+                const reloadError = error instanceof Error ? error.message : String(error);
+                this.logger.error(`GM 兼容转换已提交，但坊市运行态重载失败：${reloadError}`);
+                return { result, reloadError };
+            }
+        });
+    }
     /** 收集当前 openOrders 与拍卖出价中的所有参与玩家，用于 hydrate 不变量维护。 */
     collectOrderParticipantPlayerIds() {
         const participants = new Set();
