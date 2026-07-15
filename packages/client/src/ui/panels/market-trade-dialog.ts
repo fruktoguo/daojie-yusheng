@@ -122,9 +122,10 @@ export class MarketTradeDialog {
     const conflictOrder = isAuctionBid ? null : p.findConflictingOwnOrder(entry.itemKey, dialog.kind);
     const ownedCurrency = p.findInventoryItemCountByItemId(currencyItemId);
     const quantityStep = isAuctionBid ? 1 : p.getTradeDialogQuantityStep(dialog.unitPrice);
+    const quantityMinimum = isAuctionBid ? 1 : p.getTradeDialogMinimumQuantity(entry, dialog.kind, dialog.unitPrice);
     const dialogQuantity = isAuctionBid ? 1 : dialog.quantity;
     const quantityMax = isAuctionBid ? 1 : p.getTradeDialogQuantityMax(entry, dialog.kind, dialog.unitPrice);
-    const inputMax = Math.max(quantityStep, quantityMax > 0 ? quantityMax : quantityStep);
+    const inputMax = Math.max(quantityMinimum, quantityMax > 0 ? quantityMax : quantityMinimum);
     dialog.quantity = isAuctionBid ? 1 : p.normalizeTradeDialogQuantity(dialogQuantity, entry, dialog.kind, dialog.unitPrice);
     const totalCost = p.getMarketTradeTotalCost(dialog.quantity, dialog.unitPrice);
     const insufficientCurrency = isBuy && totalCost !== null && totalCost > ownedCurrency;
@@ -142,7 +143,7 @@ export class MarketTradeDialog {
       hints.push(`<div class="market-action-hint market-action-hint--error">${escapeHtml(dialog.kind === 'buy' ? t('market.trade.hint.conflict-buy', undefined) : t('market.trade.hint.conflict-sell', undefined))}</div>`);
     }
     if (insufficientStepQuantity) {
-      hints.push(`<div class="market-action-hint market-action-hint--error">${escapeHtml(isBuy ? t('market.trade.hint.insufficient-step.buy', { currencyName, quantityStep: formatDisplayInteger(quantityStep) }) : t('market.trade.hint.insufficient-step.sell', { quantityStep: formatDisplayInteger(quantityStep) }))}</div>`);
+      hints.push(`<div class="market-action-hint market-action-hint--error">${escapeHtml(isBuy ? t('market.trade.hint.insufficient-step.buy', { currencyName, quantityStep: formatDisplayInteger(quantityMinimum) }) : t('market.trade.hint.insufficient-step.sell', { quantityStep: formatDisplayInteger(quantityMinimum) }))}</div>`);
     }
     if (insufficientCurrency && totalCost !== null) {
       hints.push(`<div class="market-action-hint market-action-hint--error">${escapeHtml(t('market.trade.hint.insufficient-currency', { currencyName, totalCost: formatDisplayInteger(totalCost) }))}</div>`);
@@ -155,6 +156,7 @@ export class MarketTradeDialog {
       title: isAuctionBid ? t('market.trade.title.bid', undefined) : (isBuy ? t('market.trade.title.buy', undefined) : t('market.trade.title.sell', undefined)),
       actionLabel: isAuctionBid ? t('market.trade.action.bid', undefined) : (isBuy ? t('market.trade.action.buy', undefined) : t('market.trade.action.sell', undefined)),
       totalLabel: isAuctionBid ? t('market.trade.total.bid', undefined) : (dialog.kind === 'buy' ? t('market.trade.total.buy', undefined) : t('market.trade.total.sell', undefined)),
+      quantityMinimum,
       quantityStep,
       inputMax,
       totalText: totalCost === null ? '--' : `${formatDisplayInteger(totalCost)} ${currencyName}`,
@@ -232,7 +234,7 @@ export class MarketTradeDialog {
                   <span>${escapeHtml(t('market.trade.field.quantity', undefined))}</span>
                   ${renderTradeQuantityControl({
                     value: dialog.quantity,
-                    min: state.quantityStep,
+                    min: state.quantityMinimum,
                     step: state.quantityStep,
                     max: state.inputMax,
                     inputAttrs: { 'data-market-dialog-quantity': true },
@@ -325,7 +327,7 @@ export class MarketTradeDialog {
       button.disabled = state.priceActionDisabled[action] === true;
     });
     if (state.showQuantityControls && quantityInput && maxButton) {
-      quantityInput.min = String(state.quantityStep);
+      quantityInput.min = String(state.quantityMinimum);
       quantityInput.step = String(state.quantityStep);
       quantityInput.max = String(state.inputMax);
       if (document.activeElement !== quantityInput) {
@@ -377,7 +379,7 @@ export class MarketTradeDialog {
       const action = button.dataset.marketQuantityAction;
       const quantity = action === 'max'
         ? p.getTradeDialogMaxButtonQuantity(selected, update.currencyItemId, p.tradeDialog)
-        : p.getTradeDialogQuantityStep(p.tradeDialog.unitPrice);
+        : p.getTradeDialogMinimumQuantity(selected, p.tradeDialog.kind, p.tradeDialog.unitPrice);
       p.tradeDialog = { ...p.tradeDialog, quantity: p.normalizeTradeDialogQuantity(quantity, selected, p.tradeDialog.kind, p.tradeDialog.unitPrice) };
       this.syncTradeDialogOverlay();
     }));

@@ -73,6 +73,7 @@ export interface MarketTradeDialogViewState {
   title: string;
   actionLabel: string;
   totalLabel: string;
+  quantityMinimum: number;
   quantityStep: number;
   inputMax: number;
   totalText: string;
@@ -261,6 +262,7 @@ export interface MarketPanelInternals {
   normalizeTradeDialogPrice(value: number, direction: 'up' | 'down'): number;
   normalizeTradeDialogQuantity(value: string | number, entry: MarketListedItemView, kind: MarketTradeDialogKind, unitPrice?: number): number;
   getTradeDialogQuantityStep(unitPrice: number): number;
+  getTradeDialogMinimumQuantity(entry: MarketListedItemView, kind: MarketTradeDialogKind, unitPrice: number): number;
   getTradeDialogQuantityMax(entry: MarketListedItemView, kind: MarketTradeDialogKind, unitPrice: number): number;
   getTradeDialogMaxButtonQuantity(entry: MarketListedItemView, currencyItemId: string, dialog: MarketTradeDialogState): number;
   getTradeDialogMinUnitPrice(dialog: MarketTradeDialogState): number;

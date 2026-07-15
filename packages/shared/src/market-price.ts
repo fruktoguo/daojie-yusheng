@@ -13,6 +13,8 @@ import {
 const MARKET_FRACTIONAL_PRICE_SCALE = 100;
 /** MARKET_PRICE_EPSILON：市场价格EPSILON。 */
 const MARKET_PRICE_EPSILON = 1e-9;
+/** 低于 1 灵石时，只允许能用整数件数恰好凑成 1 灵石的分价。 */
+const MARKET_FRACTIONAL_LISTING_PRICE_UNITS = [1, 2, 4, 5, 10, 20, 25, 50] as const;
 
 /** MarketPriceBand：价格档位。 */
 type MarketPriceBand = {
@@ -32,22 +34,6 @@ type MarketPriceBand = {
 
   step: number;
 };
-
-/** greatestCommonDivisor：处理greatest Common Divisor。 */
-function greatestCommonDivisor(left: number, right: number): number {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-  let a = Math.abs(Math.trunc(left));
-  let b = Math.abs(Math.trunc(right));
-  while (b !== 0) {
-    const next = a % b;
-    /** a：a。 */
-    a = b;
-    /** b：b。 */
-    b = next;
-  }
-  return Math.max(1, a);
-}
 
 /** normalizeFractionalPriceUnits：规范化Fractional价格Units。 */
 function normalizeFractionalPriceUnits(value: number): number | null {
@@ -131,6 +117,23 @@ export function isValidMarketPrice(value: number): boolean {
   return (value - band.start) % band.step === 0;
 }
 
+/** 判断单价是否允许用于新建坊市挂单。历史订单仍可保留其他两位小数价用于兼容结算。 */
+export function isValidMarketListingPrice(value: number): boolean {
+  if (!isValidMarketPrice(value)) {
+    return false;
+  }
+  if (value >= 1) {
+    return true;
+  }
+  const scaled = normalizeFractionalPriceUnits(value);
+  return scaled !== null && MARKET_FRACTIONAL_PRICE_SCALE % scaled === 0;
+}
+
+/** 判断单价是否属于旧规则允许、但新挂单已禁止的小数价。 */
+export function isLegacyMarketPrice(value: number): boolean {
+  return value < 1 && isValidMarketPrice(value) && !isValidMarketListingPrice(value);
+}
+
 /** normalizeMarketPriceUp：规范化市场价格Up。 */
 export function normalizeMarketPriceUp(value: number): number {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -140,11 +143,13 @@ export function normalizeMarketPriceUp(value: number): number {
   }
   const bounded = Math.max(MARKET_MIN_UNIT_PRICE, Math.min(MARKET_MAX_UNIT_PRICE, value));
   if (bounded < 1) {
-    const scaled = Math.ceil((bounded * MARKET_FRACTIONAL_PRICE_SCALE) - MARKET_PRICE_EPSILON);
-    if (scaled >= MARKET_FRACTIONAL_PRICE_SCALE) {
-      return 1;
+    const minimumUnits = Math.ceil((bounded * MARKET_FRACTIONAL_PRICE_SCALE) - MARKET_PRICE_EPSILON);
+    for (const units of MARKET_FRACTIONAL_LISTING_PRICE_UNITS) {
+      if (units >= minimumUnits) {
+        return units / MARKET_FRACTIONAL_PRICE_SCALE;
+      }
     }
-    return Math.max(1, scaled) / MARKET_FRACTIONAL_PRICE_SCALE;
+    return 1;
   }
   let current = Math.max(1, Math.ceil(bounded));
   while (true) {
@@ -172,8 +177,14 @@ export function normalizeMarketPriceDown(value: number): number {
   }
   const bounded = Math.max(MARKET_MIN_UNIT_PRICE, Math.min(MARKET_MAX_UNIT_PRICE, value));
   if (bounded < 1) {
-    const scaled = Math.floor((bounded * MARKET_FRACTIONAL_PRICE_SCALE) + MARKET_PRICE_EPSILON);
-    return Math.max(1, Math.min(scaled, MARKET_FRACTIONAL_PRICE_SCALE - 1)) / MARKET_FRACTIONAL_PRICE_SCALE;
+    const maximumUnits = Math.floor((bounded * MARKET_FRACTIONAL_PRICE_SCALE) + MARKET_PRICE_EPSILON);
+    for (let index = MARKET_FRACTIONAL_LISTING_PRICE_UNITS.length - 1; index >= 0; index -= 1) {
+      const units = MARKET_FRACTIONAL_LISTING_PRICE_UNITS[index];
+      if (units !== undefined && units <= maximumUnits) {
+        return units / MARKET_FRACTIONAL_PRICE_SCALE;
+      }
+    }
+    return MARKET_MIN_UNIT_PRICE;
   }
   let current = Math.max(1, Math.floor(bounded));
   while (true) {
@@ -200,7 +211,7 @@ export function getMarketMinimumTradeQuantity(unitPrice: number): number {
   if (scaled === null) {
     return 1;
   }
-  return MARKET_FRACTIONAL_PRICE_SCALE / greatestCommonDivisor(MARKET_FRACTIONAL_PRICE_SCALE, scaled);
+  return Math.ceil(MARKET_FRACTIONAL_PRICE_SCALE / scaled);
 }
 
 /** isValidMarketTradeQuantity：判断是否Valid市场交易Quantity。 */
@@ -210,7 +221,8 @@ export function isValidMarketTradeQuantity(unitPrice: number, quantity: number):
   if (!Number.isFinite(quantity) || !Number.isInteger(quantity) || quantity <= 0) {
     return false;
   }
-  return quantity % getMarketMinimumTradeQuantity(unitPrice) === 0;
+  return isValidMarketListingPrice(unitPrice)
+    && quantity % getMarketMinimumTradeQuantity(unitPrice) === 0;
 }
 
 /** calculateMarketTradeTotalCost：计算市场交易总量Cost。 */
@@ -234,4 +246,55 @@ export function calculateMarketTradeTotalCost(quantity: number, unitPrice: numbe
   }
   const total = totalScaled / MARKET_FRACTIONAL_PRICE_SCALE;
   return Number.isSafeInteger(total) ? total : null;
+}
+
+/** 计算需要整数灵石结算的向上取整总价。 */
+export function calculateMarketRoundedTotalCost(quantity: number, unitPrice: number): number | null {
+  if (!Number.isFinite(quantity) || !Number.isInteger(quantity) || quantity < 0 || !isValidMarketPrice(unitPrice)) {
+    return null;
+  }
+  if (unitPrice >= 1) {
+    const total = quantity * unitPrice;
+    return Number.isSafeInteger(total) ? total : null;
+  }
+  const scaled = normalizeFractionalPriceUnits(unitPrice);
+  if (scaled === null) {
+    return null;
+  }
+  const totalScaled = quantity * scaled;
+  if (!Number.isSafeInteger(totalScaled)) {
+    return null;
+  }
+  const total = Math.ceil(totalScaled / MARKET_FRACTIONAL_PRICE_SCALE);
+  return Number.isSafeInteger(total) ? total : null;
+}
+
+/** 计算开放求购单当前仍托管的整数灵石；旧小数价按累计价值向上取整。 */
+export function calculateMarketOrderReservedCost(quantity: number, unitPrice: number): number | null {
+  return calculateMarketRoundedTotalCost(quantity, unitPrice);
+}
+
+/**
+ * 计算订单本次成交应转移的灵石。
+ * 使用成交前后剩余托管价值之差，让旧异常价多次成交与最终退款严格守恒。
+ */
+export function calculateMarketOrderTradeTotalCost(
+  remainingQuantity: number,
+  tradeQuantity: number,
+  unitPrice: number,
+): number | null {
+  if (!Number.isInteger(remainingQuantity)
+    || !Number.isInteger(tradeQuantity)
+    || remainingQuantity <= 0
+    || tradeQuantity <= 0
+    || tradeQuantity > remainingQuantity) {
+    return null;
+  }
+  const before = calculateMarketOrderReservedCost(remainingQuantity, unitPrice);
+  const after = calculateMarketOrderReservedCost(remainingQuantity - tradeQuantity, unitPrice);
+  if (before === null || after === null) {
+    return null;
+  }
+  const total = before - after;
+  return Number.isSafeInteger(total) && total > 0 ? total : null;
 }

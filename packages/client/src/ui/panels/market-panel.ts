@@ -49,6 +49,7 @@ import {
   TransmissionListingSort,
   getItemDisplayName,
   getMarketPriceStep,
+  isLegacyMarketPrice,
   isPlainEqual,
   normalizeMarketPriceDown,
   normalizeMarketPriceUp,
@@ -3184,22 +3185,44 @@ export class MarketPanel {
   ): number {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    const parsed = typeof value === 'number' ? value : Number.parseInt(value, 10);
+    const parsed = typeof value === 'number' ? value : Number(value);
     const quantityStep = this.getTradeDialogQuantityStep(unitPrice);
+    const minimumQuantity = this.getTradeDialogMinimumQuantity(entry, kind, unitPrice);
     const max = this.getTradeDialogQuantityMax(entry, kind, unitPrice);
     if (max <= 0) {
-      return quantityStep;
+      return minimumQuantity;
     }
     if (!Number.isFinite(parsed)) {
-      return quantityStep;
+      return minimumQuantity;
     }
-    const bounded = Math.max(quantityStep, Math.min(max, Math.floor(parsed)));
-    return Math.max(quantityStep, Math.floor(bounded / quantityStep) * quantityStep);
+    const bounded = Math.max(minimumQuantity, Math.min(max, Math.ceil(parsed)));
+    const alignedUp = Math.ceil(bounded / quantityStep) * quantityStep;
+    if (alignedUp <= max) {
+      return alignedUp;
+    }
+    return Math.max(minimumQuantity, Math.floor(max / quantityStep) * quantityStep);
   }
 
   /** 根据单价计算这笔交易的最小数量步长。 */
   private getTradeDialogQuantityStep(unitPrice: number): number {
     return Math.max(1, getMarketMinimumTradeQuantity(unitPrice));
+  }
+
+  /** 历史异常小数价按 ceil(1 / 单价) 计算最低成交件数，再对齐当前挂单步长。 */
+  private getTradeDialogMinimumQuantity(
+    entry: MarketListedItemView,
+    kind: MarketTradeDialogKind,
+    unitPrice: number,
+  ): number {
+    const quantityStep = this.getTradeDialogQuantityStep(unitPrice);
+    const opposingPrice = kind === 'buy' ? entry.lowestSellPrice : entry.highestBuyPrice;
+    const crossesOpposingPrice = opposingPrice !== undefined
+      && (kind === 'buy' ? opposingPrice <= unitPrice : opposingPrice >= unitPrice);
+    if (!crossesOpposingPrice || opposingPrice === undefined || !isLegacyMarketPrice(opposingPrice)) {
+      return quantityStep;
+    }
+    const legacyMinimum = getMarketMinimumTradeQuantity(opposingPrice);
+    return Math.ceil(legacyMinimum / quantityStep) * quantityStep;
   }
 
   /** 计算当前单价下允许输入的最大数量。 */
@@ -3211,10 +3234,11 @@ export class MarketPanel {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const quantityStep = this.getTradeDialogQuantityStep(unitPrice);
+    const minimumQuantity = this.getTradeDialogMinimumQuantity(entry, kind, unitPrice);
     const cap = kind === 'sell'
       ? this.findMatchingInventoryCount(entry.item)
       : this.getAffordableBuyQuantity(unitPrice, this.marketUpdate?.currencyItemId ?? '');
-    if (cap <= 0) {
+    if (cap < minimumQuantity) {
       return 0;
     }
     return Math.floor(Math.min(cap, MARKET_DIALOG_MAX_QUANTITY) / quantityStep) * quantityStep;
@@ -3223,15 +3247,10 @@ export class MarketPanel {
   /** 给“最大”按钮计算对应的可交易数量。 */
   private getTradeDialogMaxButtonQuantity(
     entry: MarketListedItemView,
-    currencyItemId: string,
+    _currencyItemId: string,
     dialog: MarketTradeDialogState,
   ): number {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (dialog.kind === 'sell') {
-      return this.getTradeDialogQuantityMax(entry, dialog.kind, dialog.unitPrice);
-    }
-    return this.getAffordableBuyQuantity(dialog.unitPrice, currencyItemId);
+    return this.getTradeDialogQuantityMax(entry, dialog.kind, dialog.unitPrice);
   }
 
   /** 计算当前持币量在该单价下最多能买多少。 */

@@ -4,7 +4,7 @@
  * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
 import { Inject, Injectable, Logger, OnModuleDestroy, Optional } from '@nestjs/common';
-import { calculateMarketTradeTotalCost, resolvePlayerFacingContentName } from '@mud/shared';
+import { calculateMarketOrderReservedCost, resolvePlayerFacingContentName } from '@mud/shared';
 import { isNativeGmBotPlayerId } from '../../http/native/native-gm.constants';
 import { NativePlayerAuthStoreService } from '../../http/native/native-player-auth-store.service';
 import { MARKET_CURRENCY_ITEM_ID } from '../../constants/gameplay/market';
@@ -810,7 +810,7 @@ export class LeaderboardRuntimeService implements OnModuleDestroy {
                 continue;
             }
 
-            const cost = calculateMarketTradeTotalCost(
+            const cost = calculateMarketOrderReservedCost(
                 toNonNegativeInteger(order.remainingQuantity, 0),
                 normalizeMarketUnitPrice(order.unitPrice),
             );

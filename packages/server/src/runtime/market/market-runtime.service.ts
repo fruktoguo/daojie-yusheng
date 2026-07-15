@@ -5,7 +5,7 @@
  */
 import { BadRequestException, Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { createHash, randomUUID } from 'crypto';
-import { AUCTION_DEFAULT_DURATION_HOURS, AUCTION_LISTING_FEE_BASE, AUCTION_LISTING_FEE_RATE, AUCTION_MAX_DURATION_HOURS, AUCTION_MIN_DURATION_HOURS, CUSTOM_TECHNIQUE_BOOK_ITEM_ID, EQUIP_SLOTS, HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID, HEAVENLY_DAO_SHOP_ITEMS, ITEM_TYPES, MARKET_MAX_ENHANCE_LEVEL, MARKET_MAX_UNIT_PRICE, TECHNIQUE_EQUIP_SLOTS, TECHNIQUE_GRADE_ORDER, calculateHeavenlyDaoShopDiscountedPrice, calculateMarketTradeTotalCost, canMergeItemStack, createItemStackSignature, getItemDisplayName, getMarketMinimumTradeQuantity, getMarketPriceStep, isValidMarketPrice, isValidMarketTradeQuantity, normalizeMarketAuctionPageSize, normalizeMarketAuctionQuery, normalizeMarketListingsPageSize, normalizeMarketPriceUp, normalizeMarketRequestPage, normalizeMarketTradeSource, normalizeTransmissionCategory, normalizeTransmissionListingSort, resolveClampedMarketResponsePage, resolvePlayerFacingContentName } from '@mud/shared';
+import { AUCTION_DEFAULT_DURATION_HOURS, AUCTION_LISTING_FEE_BASE, AUCTION_LISTING_FEE_RATE, AUCTION_MAX_DURATION_HOURS, AUCTION_MIN_DURATION_HOURS, CUSTOM_TECHNIQUE_BOOK_ITEM_ID, EQUIP_SLOTS, HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID, HEAVENLY_DAO_SHOP_ITEMS, ITEM_TYPES, MARKET_MAX_ENHANCE_LEVEL, MARKET_MAX_UNIT_PRICE, TECHNIQUE_EQUIP_SLOTS, TECHNIQUE_GRADE_ORDER, calculateHeavenlyDaoShopDiscountedPrice, calculateMarketOrderReservedCost, calculateMarketOrderTradeTotalCost, calculateMarketRoundedTotalCost, calculateMarketTradeTotalCost, canMergeItemStack, createItemStackSignature, getItemDisplayName, getMarketMinimumTradeQuantity, getMarketPriceStep, isLegacyMarketPrice, isValidMarketListingPrice, isValidMarketPrice, isValidMarketTradeQuantity, normalizeMarketAuctionPageSize, normalizeMarketAuctionQuery, normalizeMarketListingsPageSize, normalizeMarketPriceUp, normalizeMarketRequestPage, normalizeMarketTradeSource, normalizeTransmissionCategory, normalizeTransmissionListingSort, resolveClampedMarketResponsePage, resolvePlayerFacingContentName } from '@mud/shared';
 import { assignItemInstanceIdIfNeeded } from '../world/item-instance-id.helpers';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { AUCTION_GLOBAL_TRADE_HISTORY_LIMIT, AUCTION_MY_TRADE_HISTORY_VISIBLE_LIMIT, AUCTION_TRADE_HISTORY_PAGE_SIZE, MARKET_CURRENCY_ITEM_ID, MARKET_MAX_ORDER_QUANTITY, MARKET_STORAGE_RUNTIME_CACHE_LIMIT, MARKET_TRADE_HISTORY_PAGE_SIZE, MARKET_TRADE_HISTORY_RUNTIME_CACHE_LIMIT, MARKET_TRADE_HISTORY_VISIBLE_LIMIT } from '../../constants/gameplay/market';
@@ -1224,7 +1224,7 @@ export class MarketRuntimeService {
             }
             else {
 
-                const refund = calculateMarketTradeTotalCost(order.remainingQuantity, order.unitPrice);
+                const refund = calculateMarketOrderReservedCost(order.remainingQuantity, order.unitPrice);
                 if (refund) {
                     this.deliverMarketCurrencyToPlayer(playerId, refund, context);
                 }
@@ -1308,7 +1308,7 @@ export class MarketRuntimeService {
                     this.deliverItemToPlayer(normalizedPlayerId, { ...order.item, count: order.remainingQuantity }, context);
                 }
                 else {
-                    const refund = calculateMarketTradeTotalCost(order.remainingQuantity, order.unitPrice);
+                    const refund = calculateMarketOrderReservedCost(order.remainingQuantity, order.unitPrice);
                     if (refund) {
                         this.deliverMarketCurrencyToPlayer(normalizedPlayerId, refund, context);
                     }
@@ -2938,12 +2938,14 @@ export class MarketRuntimeService {
 
             const maxTradable = Math.min(remaining, order.remainingQuantity);
 
-            const traded = this.getCompatibleTradeQuantity(maxTradable, order.unitPrice, takerUnitPrice);
+            const traded = this.getCompatibleTradeQuantity(maxTradable, order, takerUnitPrice);
             if (traded <= 0) {
                 continue;
             }
 
-            const tradeTotal = calculateMarketTradeTotalCost(traded, order.unitPrice);
+            const tradeTotal = order.side === 'sell'
+                ? calculateMarketRoundedTotalCost(traded, order.unitPrice)
+                : calculateMarketOrderTradeTotalCost(order.remainingQuantity, traded, order.unitPrice);
             if (!tradeTotal) {
                 continue;
             }
@@ -2965,25 +2967,50 @@ export class MarketRuntimeService {
     /**
  * getCompatibleTradeQuantity：读取CompatibleTradeQuantity。
  * @param maxQuantity 参数说明。
- * @param unitPrices 参数说明。
+ * @param order 当前作为 maker 的开放订单。
+ * @param takerUnitPrice 本次主动挂单价格；即时交易传入 Infinity。
  * @returns 无返回值，完成CompatibleTradeQuantity的读取/组装。
  */
 
-    getCompatibleTradeQuantity(maxQuantity, ...unitPrices) {
+    getCompatibleTradeQuantity(maxQuantity, order, takerUnitPrice) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         if (maxQuantity <= 0) {
             return 0;
         }
 
-        let quantityStep = 1;
-        for (const unitPrice of unitPrices) {
-            if (!unitPrice || !isValidMarketPrice(unitPrice)) {
-                continue;
-            }
-            quantityStep = this.leastCommonMultiple(quantityStep, getMarketMinimumTradeQuantity(unitPrice));
+        const orderUnitPrice = Number(order?.unitPrice);
+        const orderRemainingQuantity = Math.max(0, Math.trunc(Number(order?.remainingQuantity) || 0));
+        if (!isValidMarketPrice(orderUnitPrice)
+            || orderRemainingQuantity <= 0
+            || (order?.side !== 'buy' && order?.side !== 'sell')) {
+            return 0;
         }
-        return Math.floor(maxQuantity / quantityStep) * quantityStep;
+
+        let quantityStep = 1;
+        if (isValidMarketListingPrice(takerUnitPrice)) {
+            quantityStep = this.leastCommonMultiple(quantityStep, getMarketMinimumTradeQuantity(takerUnitPrice));
+        }
+        if (isValidMarketListingPrice(orderUnitPrice)) {
+            quantityStep = this.leastCommonMultiple(quantityStep, getMarketMinimumTradeQuantity(orderUnitPrice));
+        }
+
+        const traded = Math.floor(maxQuantity / quantityStep) * quantityStep;
+        if (traded <= 0) {
+            return 0;
+        }
+        if (isLegacyMarketPrice(orderUnitPrice)) {
+            const minimumQuantity = getMarketMinimumTradeQuantity(orderUnitPrice);
+            if (traded < minimumQuantity && traded < orderRemainingQuantity) {
+                return 0;
+            }
+        }
+        const tradeTotal = order.side === 'sell'
+            ? calculateMarketRoundedTotalCost(traded, orderUnitPrice)
+            : calculateMarketOrderTradeTotalCost(orderRemainingQuantity, traded, orderUnitPrice);
+        return tradeTotal === null
+            ? 0
+            : traded;
     }
     /**
  * leastCommonMultiple：执行leastCommonMultiple相关逻辑。
@@ -3470,7 +3497,7 @@ export class MarketRuntimeService {
         }
 
         const unitPrice = value;
-        if (unitPrice <= 0 || unitPrice > MARKET_MAX_UNIT_PRICE || !isValidMarketPrice(unitPrice)) {
+        if (unitPrice <= 0 || unitPrice > MARKET_MAX_UNIT_PRICE || !isValidMarketListingPrice(unitPrice)) {
             return null;
         }
         return unitPrice;
