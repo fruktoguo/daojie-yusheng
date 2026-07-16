@@ -1,4 +1,4 @@
-/** 密室建筑、按时使用和经营管理的共享契约与纯计算规则。 */
+/** 密室建筑、限时开启和管理的共享契约与纯计算规则。 */
 import type { TimeChamberSizeTier } from './building-types';
 
 export const TIME_CHAMBER_MIN_SPEED = 1;
@@ -6,7 +6,6 @@ export const TIME_CHAMBER_MAX_SPEED = 10;
 export const TIME_CHAMBER_MIN_USAGE_HOURS = 1;
 export const TIME_CHAMBER_MAX_USAGE_HOURS = 168;
 export const TIME_CHAMBER_MAX_CAPACITY = 100;
-export const TIME_CHAMBER_MAX_HOURLY_FEE = 10_000_000;
 
 export interface TimeChamberSizeOptionView {
   tier: TimeChamberSizeTier;
@@ -25,34 +24,26 @@ export interface TimeChamberSummaryView {
   width: number;
   height: number;
   capacity: number;
-  activeUsageCount: number;
   occupancy: number;
   configuredSpeed: number;
   effectiveSpeed: number;
+  active: boolean;
   activeUntil: number | null;
   revision: number;
 }
 
 export interface TimeChamberUsageDetailView extends TimeChamberSummaryView {
-  usageFeePerHour: number;
-  ownerUsageFree: boolean;
-  playerLeaseExpiresAt: number | null;
+  activationCostSpiritStonesPerHour: number;
   minUsageHours: number;
   maxUsageHours: number;
 }
 
 export interface TimeChamberManagementDetailView extends TimeChamberSummaryView {
-  hourlyFee: number;
   minSpeed: number;
   maxSpeed: number;
   maxCapacity: number;
   allowedSizes: TimeChamberSizeOptionView[];
-  fuelUnits: number;
-  fuelUnitsPerSpiritStone: number;
-  fuelSpiritStoneEquivalent: number;
   operatingCostSpiritStonesPerHour: number;
-  fuelCoverageHours: number | null;
-  revenueSpiritStones: number;
   settingsLocked: boolean;
 }
 
@@ -64,8 +55,6 @@ export type TimeChamberOperationKind =
   | 'activate'
   | 'enter'
   | 'settings'
-  | 'deposit'
-  | 'claim_revenue'
   | 'resize';
 
 export interface TimeChamberOperationResultView {
@@ -97,18 +86,8 @@ export interface C2S_EnterTimeChamberView extends TimeChamberBuildingRequestView
 
 export interface C2S_UpdateTimeChamberSettingsView extends TimeChamberBuildingRequestView {
   name: string;
-  hourlyFee: number;
   speed: number;
   capacity: number;
-  expectedRevision: number;
-}
-
-export interface C2S_DepositTimeChamberFuelView extends TimeChamberBuildingRequestView {
-  spiritStoneCount: number;
-}
-
-export interface C2S_ClaimTimeChamberRevenueView extends TimeChamberBuildingRequestView {
-  spiritStoneCount: number;
   expectedRevision: number;
 }
 
@@ -134,11 +113,14 @@ export function calculateTimeChamberOperatingCostPerHour(speedInput: number, cap
   return baseCost * (5 + 4 * (capacity - 1)) / 5;
 }
 
-export function calculateTimeChamberUsageFee(hourlyFeeInput: number, durationHoursInput: number): number {
-  const hourlyFee = Math.max(0, Math.min(TIME_CHAMBER_MAX_HOURLY_FEE, Math.trunc(Number(hourlyFeeInput) || 0)));
+export function calculateTimeChamberActivationCost(
+  speedInput: number,
+  capacityInput: number,
+  durationHoursInput: number,
+): number {
   const durationHours = Math.max(
     TIME_CHAMBER_MIN_USAGE_HOURS,
     Math.min(TIME_CHAMBER_MAX_USAGE_HOURS, Math.trunc(Number(durationHoursInput) || TIME_CHAMBER_MIN_USAGE_HOURS)),
   );
-  return hourlyFee * durationHours;
+  return calculateTimeChamberOperatingCostPerHour(speedInput, capacityInput) * durationHours;
 }

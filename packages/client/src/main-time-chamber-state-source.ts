@@ -37,39 +37,30 @@ const FAILURE_TEXT: Record<string, string> = {
   time_chamber_state_create_failed: '密室独立空间创建失败，请稍后重试',
   time_chamber_state_not_found: '密室持久化状态不存在，请重新打开面板',
   time_chamber_unavailable: '密室实例暂不可用，请稍后重试',
-  invalid_spirit_stone_count: '投入的灵石数量无效',
   insufficient_spirit_stone: '背包中的灵石不足',
   durable_inventory_unavailable: '资产持久化服务暂不可用',
   inventory_grant_lease_context_required: '当前位置写入权暂不可用，请稍后重试',
   inventory_empty_snapshot_changed: '背包状态已变化，请重新操作',
   inventory_empty_removal_snapshot_changed: '背包状态已变化，请重新操作',
-  inventory_full: '背包已满，无法提取收益',
   invalid_time_chamber_duration: '使用时长超出允许范围',
   invalid_time_chamber_speed: '时间倍率超出允许范围',
-  invalid_time_chamber_hourly_fee: '每小时收费超出允许范围',
   invalid_time_chamber_capacity: '最大人数超出当前空间上限',
   invalid_time_chamber_name: '名称需为 1 至 20 个有效字符',
   invalid_time_chamber_size: '该空间尺寸不可用',
   time_chamber_full: '密室使用名额已满',
-  time_chamber_activation_required: '当前没有可用的密室使用时段',
-  time_chamber_fuel_insufficient: '密室燃料不足以覆盖新增运行时段',
-  time_chamber_price_changed: '密室价格已变化，请重新确认',
+  time_chamber_activation_required: '密室当前尚未开启',
+  time_chamber_already_active: '密室已开启，无法重复开启或延长时间',
+  time_chamber_expiry_pending: '密室到期清理中，请稍后再开启',
+  time_chamber_price_changed: '密室开启成本已变化，请重新确认',
   time_chamber_instance_changed: '密室独立空间已变化，请重新打开面板',
-  time_chamber_usage_time_limit: '累计使用时段超出系统时间范围',
+  time_chamber_usage_time_limit: '开启时段超出系统时间范围',
   time_chamber_settings_locked: '密室运行期间不能修改倍率、容量或空间',
   time_chamber_capacity_exceeds_size: '请先降低最大人数再缩小空间',
   time_chamber_occupied: '密室有人时不能调整空间',
   time_chamber_not_empty: '密室内部存在对象，暂时不能调整空间',
   time_chamber_revision_conflict: '密室状态已变化，请重新操作',
-  time_chamber_revenue_insufficient: '可提取收益不足',
-  time_chamber_revenue_limit: '密室待提收益已达到上限',
-  time_chamber_revenue_inventory_limit: '收益会使灵石堆叠超过上限',
-  time_chamber_currency_template_missing: '灵石配置不可用，请联系管理员',
   time_chamber_operation_failed: '密室操作暂未完成，请稍后重试',
-  time_chamber_fuel_limit: '密室燃料储备已达到上限',
-  time_chamber_deposit_failed: '投入灵石失败，请稍后重试',
   time_chamber_activation_failed: '密室开启失败，请稍后重试',
-  time_chamber_revenue_claim_failed: '收益提取失败，请稍后重试',
 };
 
 export function createMainTimeChamberStateSource(options: MainTimeChamberStateSourceOptions) {
@@ -216,23 +207,6 @@ export function createMainTimeChamberStateSource(options: MainTimeChamberStateSo
         ...settings,
       });
     }),
-    onDeposit: (spiritStoneCount) => sendOperation<TimeChamberManagementDetailView>('management', 'deposit', (detail, requestId) => {
-      options.socket.sendDepositTimeChamberFuel({
-        sourceInstanceId: detail.sourceInstanceId,
-        buildingId: detail.buildingId,
-        requestId,
-        spiritStoneCount,
-      });
-    }),
-    onClaimRevenue: (spiritStoneCount) => sendOperation<TimeChamberManagementDetailView>('management', 'claim_revenue', (detail, requestId) => {
-      options.socket.sendClaimTimeChamberRevenue({
-        sourceInstanceId: detail.sourceInstanceId,
-        buildingId: detail.buildingId,
-        requestId,
-        spiritStoneCount,
-        expectedRevision: detail.revision,
-      });
-    }),
     onResize: (sizeTier: TimeChamberSizeTier) => sendOperation<TimeChamberManagementDetailView>('management', 'resize', (detail, requestId) => {
       options.socket.sendResizeTimeChamber({
         sourceInstanceId: detail.sourceInstanceId,
@@ -311,11 +285,11 @@ export function createMainTimeChamberStateSource(options: MainTimeChamberStateSo
       }
       if (result.operation === 'activate' || result.operation === 'enter') {
         if (result.entryQueued) {
-          options.showToast(result.operation === 'activate' ? '密室时段已生效，正在进入' : '正在进入密室', 'success');
+          options.showToast(result.operation === 'activate' ? '密室已开启，正在进入' : '正在进入密室', 'success');
           clearModal('usage');
           stopAutoRefresh();
         } else {
-          options.showToast('密室时段已生效，可从当前面板再次进入', 'success');
+          options.showToast('密室已开启，可从当前面板进入', 'success');
         }
         return;
       }
@@ -345,9 +319,7 @@ function buildRequestId(operation: string): string {
 }
 
 function operationSuccessText(operation: TimeChamberOperationKind): string {
-  if (operation === 'deposit') return '灵石已投入密室';
   if (operation === 'settings') return '密室配置已保存';
-  if (operation === 'claim_revenue') return '密室收益已提取';
   if (operation === 'resize') return '密室空间已调整';
   if (operation === 'enter') return '正在进入密室';
   return '密室状态已更新';

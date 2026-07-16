@@ -1,4 +1,4 @@
-/** 密室管理面板：只渲染服务端投影并发送经营配置意图。 */
+/** 密室管理面板：只渲染服务端投影并发送配置意图。 */
 import type {
   TimeChamberManagementDetailView,
   TimeChamberOperationKind,
@@ -13,7 +13,6 @@ const MODAL_VARIANT = 'detail-modal--time-chamber';
 
 type TimeChamberSettingsDraft = {
   name: string;
-  hourlyFee: number;
   speed: number;
   capacity: number;
 };
@@ -21,8 +20,6 @@ type TimeChamberSettingsDraft = {
 type TimeChamberConsoleCallbacks = {
   onClose(): void;
   onSaveSettings(settings: TimeChamberSettingsDraft): void;
-  onDeposit(spiritStoneCount: number): void;
-  onClaimRevenue(spiritStoneCount: number): void;
   onResize(sizeTier: TimeChamberSizeTier): void;
 };
 
@@ -48,7 +45,7 @@ export class TimeChamberConsoleModal {
       renderBody: (body) => {
         const loading = document.createElement('div');
         loading.className = 'time-chamber-loading';
-        loading.textContent = '正在读取经营信息…';
+        loading.textContent = '正在读取管理信息…';
         body.replaceChildren(loading);
       },
     });
@@ -56,7 +53,7 @@ export class TimeChamberConsoleModal {
 
   showDetail(detail: TimeChamberManagementDetailView): void {
     this.detail = detail;
-    const subtitle = `${detail.configuredSpeed} 倍 · ${detail.activeUsageCount}/${detail.capacity} 人`;
+    const subtitle = `${detail.configuredSpeed} 倍 · ${detail.occupancy}/${detail.capacity} 人`;
     if (!detailModalHost.isOpenFor(MODAL_OWNER)) {
       detailModalHost.open(this.buildModalOptions(detail, subtitle));
       return;
@@ -113,31 +110,19 @@ export class TimeChamberConsoleModal {
     const operation = form.dataset.timeChamberForm;
     if (operation === 'settings') {
       const name = form.elements.namedItem('name');
-      const hourlyFee = form.elements.namedItem('hourlyFee');
       const speed = form.elements.namedItem('speed');
       const capacity = form.elements.namedItem('capacity');
       if (
         name instanceof HTMLInputElement
-        && hourlyFee instanceof HTMLInputElement
         && speed instanceof HTMLSelectElement
         && capacity instanceof HTMLInputElement
       ) {
         this.callbacks.onSaveSettings({
           name: name.value.trim(),
-          hourlyFee: Math.trunc(Number(hourlyFee.value)),
           speed: Math.trunc(Number(speed.value)),
           capacity: Math.trunc(Number(capacity.value)),
         });
       }
-      return;
-    }
-    const countField = form.elements.namedItem('spiritStoneCount');
-    if (operation === 'deposit' && countField instanceof HTMLInputElement) {
-      this.callbacks.onDeposit(Math.trunc(Number(countField.value)));
-      return;
-    }
-    if (operation === 'claim_revenue' && countField instanceof HTMLInputElement) {
-      this.callbacks.onClaimRevenue(Math.trunc(Number(countField.value)));
       return;
     }
     const sizeField = form.elements.namedItem('sizeTier');
@@ -151,9 +136,8 @@ export class TimeChamberConsoleModal {
     for (const button of shell.querySelectorAll<HTMLButtonElement>('[data-time-chamber-operation]')) {
       const operation = button.dataset.timeChamberOperation as TimeChamberOperationKind | undefined;
       const pending = Boolean(operation && this.pendingOperations.has(operation));
-      const blockedByActiveUsage = operation === 'resize' && (this.detail?.settingsLocked === true || (this.detail?.occupancy ?? 0) > 0);
-      const noRevenue = operation === 'claim_revenue' && (this.detail?.revenueSpiritStones ?? 0) <= 0;
-      button.disabled = mutationPending || blockedByActiveUsage || noRevenue || this.detail?.isOwner !== true;
+      const blockedByActive = operation === 'resize' && (this.detail?.settingsLocked === true || (this.detail?.occupancy ?? 0) > 0);
+      button.disabled = mutationPending || blockedByActive || this.detail?.isOwner !== true;
       button.textContent = pending ? '处理中…' : button.dataset.idleLabel ?? '确认';
     }
   }
@@ -168,10 +152,8 @@ function buildConsoleShell(detail: TimeChamberManagementDetailView): HTMLElement
   metrics.className = 'time-chamber-metrics time-chamber-metrics--management';
   metrics.append(
     buildMetric('当前流速', 'speed'),
-    buildMetric('使用人数', 'users'),
-    buildMetric('燃料储备', 'fuel'),
+    buildMetric('当前人数', 'users'),
     buildMetric('运行成本', 'cost'),
-    buildMetric('待提收益', 'revenue'),
     buildMetric('激活截止', 'active-until'),
   );
 
@@ -179,8 +161,6 @@ function buildConsoleShell(detail: TimeChamberManagementDetailView): HTMLElement
   controls.className = 'time-chamber-control-grid';
   controls.append(
     buildSettingsSection(detail),
-    buildDepositSection(),
-    buildRevenueSection(detail),
     buildResizeSection(detail),
   );
   shell.append(metrics, controls);
@@ -194,7 +174,6 @@ function buildSettingsSection(detail: TimeChamberManagementDetailView): HTMLElem
   form.dataset.timeChamberForm = 'settings';
   form.append(
     buildLabeledInput('名称', 'name', 'text', detail.displayName, { max: 20 }),
-    buildLabeledInput('每小时收费', 'hourlyFee', 'number', String(detail.hourlyFee), { min: 0, max: 10_000_000 }),
     buildSpeedField(detail),
     buildLabeledInput('最大人数', 'capacity', 'number', String(detail.capacity), { min: 1, max: detail.maxCapacity }),
   );
@@ -203,22 +182,7 @@ function buildSettingsSection(detail: TimeChamberManagementDetailView): HTMLElem
   lock.dataset.timeChamberField = 'settings-lock';
   const button = buildSubmitButton('settings', '保存配置');
   form.append(lock, button);
-  return buildControlSection('经营配置', form, true);
-}
-
-function buildDepositSection(): HTMLElement {
-  const form = buildCountForm('deposit', '投入燃料');
-  return buildControlSection('补充燃料', form);
-}
-
-function buildRevenueSection(detail: TimeChamberManagementDetailView): HTMLElement {
-  const form = buildCountForm('claim_revenue', '提取收益');
-  const input = form.elements.namedItem('spiritStoneCount');
-  if (input instanceof HTMLInputElement) {
-    input.max = String(Math.max(1, detail.revenueSpiritStones));
-    input.value = String(Math.max(1, detail.revenueSpiritStones));
-  }
-  return buildControlSection('经营收益', form);
+  return buildControlSection('密室配置', form, true);
 }
 
 function buildResizeSection(detail: TimeChamberManagementDetailView): HTMLElement {
@@ -232,23 +196,6 @@ function buildResizeSection(detail: TimeChamberManagementDetailView): HTMLElemen
   appendSizeOptions(select, detail);
   form.append(select, buildSubmitButton('resize', '调整空间'));
   return buildControlSection('空间大小', form);
-}
-
-function buildCountForm(operation: 'deposit' | 'claim_revenue', buttonText: string): HTMLFormElement {
-  const form = document.createElement('form');
-  form.className = 'time-chamber-form';
-  form.dataset.timeChamberForm = operation;
-  const input = document.createElement('input');
-  input.className = 'ui-input';
-  input.type = 'number';
-  input.name = 'spiritStoneCount';
-  input.min = '1';
-  input.max = '1000000';
-  input.step = '1';
-  input.value = '1';
-  input.inputMode = 'numeric';
-  form.append(input, buildSubmitButton(operation, buttonText));
-  return form;
 }
 
 function buildSubmitButton(operation: TimeChamberOperationKind, label: string): HTMLButtonElement {
@@ -332,16 +279,13 @@ function patchDetailFields(shell: HTMLElement, detail: TimeChamberManagementDeta
   setField(shell, 'speed', detail.configuredSpeed === detail.effectiveSpeed
     ? `${detail.effectiveSpeed} 倍`
     : `设定 ${detail.configuredSpeed} 倍 / 当前 ${detail.effectiveSpeed} 倍`);
-  setField(shell, 'users', `${detail.activeUsageCount}/${detail.capacity} 人`);
-  setField(shell, 'fuel', `${formatDisplayNumber(detail.fuelSpiritStoneEquivalent, { maximumFractionDigits: 2 })} 灵石`);
+  setField(shell, 'users', `${detail.occupancy}/${detail.capacity} 人`);
   setField(shell, 'cost', `${formatDisplayNumber(detail.operatingCostSpiritStonesPerHour)} 灵石/小时`);
-  setField(shell, 'revenue', `${formatDisplayNumber(detail.revenueSpiritStones)} 灵石`);
   setField(shell, 'active-until', detail.activeUntil ? formatDateTime(detail.activeUntil) : '未激活');
   setField(shell, 'settings-lock', detail.settingsLocked ? '运行期间倍率与容量保持不变' : '');
 
   const active = document.activeElement;
   patchInput(shell, 'name', detail.displayName, active);
-  patchInput(shell, 'hourlyFee', String(detail.hourlyFee), active);
   patchInput(shell, 'capacity', String(detail.capacity), active);
   const capacity = shell.querySelector<HTMLInputElement>('input[name="capacity"]');
   if (capacity) {
@@ -353,11 +297,6 @@ function patchDetailFields(shell: HTMLElement, detail: TimeChamberManagementDeta
     if (active !== speed) speed.value = String(detail.configuredSpeed);
     speed.disabled = detail.settingsLocked;
   }
-  const claim = shell.querySelector<HTMLInputElement>('form[data-time-chamber-form="claim_revenue"] input[name="spiritStoneCount"]');
-  if (claim && active !== claim) {
-    claim.max = String(Math.max(1, detail.revenueSpiritStones));
-    claim.value = String(Math.max(1, detail.revenueSpiritStones));
-  }
   const size = shell.querySelector<HTMLSelectElement>('select[name="sizeTier"]');
   if (size) {
     const signature = buildSizeSignature(detail);
@@ -367,6 +306,7 @@ function patchDetailFields(shell: HTMLElement, detail: TimeChamberManagementDeta
       size.dataset.sizeSignature = signature;
     }
     if (active !== size) size.value = detail.sizeTier;
+    size.disabled = detail.settingsLocked || detail.occupancy > 0;
   }
 }
 

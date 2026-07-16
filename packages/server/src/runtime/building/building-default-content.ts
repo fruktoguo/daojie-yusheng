@@ -125,7 +125,6 @@ const DEFAULT_BUILDING_DEFS: BuildingDef[] = [
     timeChamber: {
       defaultCapacity: 1,
       maxSpeed: MAX_INSTANCE_TICK_SPEED,
-      fuelUnitsPerSpiritStone: 36_000,
       allowedSizeTiers: ['small', 'medium', 'large'],
     },
   },

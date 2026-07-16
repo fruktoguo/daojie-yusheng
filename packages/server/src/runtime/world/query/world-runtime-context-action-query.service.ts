@@ -282,9 +282,9 @@ export class WorldRuntimeContextActionQueryService {
                                 : '密室';
                         const configuredSpeed = Math.max(1, Math.trunc(Number(summary?.configuredSpeed) || 1));
                         const effectiveSpeed = Math.max(1, Math.trunc(Number(summary?.effectiveSpeed) || 1));
-                        const activeUsageCount = Math.max(0, Math.trunc(Number(summary?.activeUsageCount) || 0));
+                        const occupancy = Math.max(0, Math.trunc(Number(summary?.occupancy) || 0));
                         const capacity = Math.max(1, Math.trunc(Number(summary?.capacity) || 1));
-                        const statusText = `时间流速 ${configuredSpeed} 倍（当前 ${effectiveSpeed} 倍） · 使用人数 ${activeUsageCount}/${capacity}`;
+                        const statusText = `时间流速 ${configuredSpeed} 倍（当前 ${effectiveSpeed} 倍） · 当前人数 ${occupancy}/${capacity}`;
                         const encodedBuildingId = encodeURIComponent(building.id);
                         actions.push({
                             id: `time_chamber:usage:${encodedBuildingId}`,

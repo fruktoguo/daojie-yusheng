@@ -403,14 +403,6 @@ class WorldGateway implements WorldGatewayHelperContext {
     handleUpdateTimeChamberSettings(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayPlayerControlsHelper.handleUpdateTimeChamberSettings(client, payload);
     }
-    @SubscribeMessage(C2S.DepositTimeChamberFuel)
-    handleDepositTimeChamberFuel(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
-        return this.gatewayPlayerControlsHelper.handleDepositTimeChamberFuel(client, payload);
-    }
-    @SubscribeMessage(C2S.ClaimTimeChamberRevenue)
-    handleClaimTimeChamberRevenue(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
-        return this.gatewayPlayerControlsHelper.handleClaimTimeChamberRevenue(client, payload);
-    }
     @SubscribeMessage(C2S.ResizeTimeChamber)
     handleResizeTimeChamber(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayPlayerControlsHelper.handleResizeTimeChamber(client, payload);

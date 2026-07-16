@@ -36,7 +36,6 @@ import {
 } from '@mud/shared';
 
 const ROTATIONS = [0, 90, 180, 270] as const;
-const MAX_TIME_CHAMBER_FUEL_UNITS_PER_SPIRIT_STONE = 1_000_000_000;
 
 /** 建筑内容仓库：提供 BuildingDef → CompiledBuildingCatalog 的编译入口。 */
 export class BuildingContentRepository {
@@ -140,7 +139,6 @@ export function compileBuildingDefinitions(definitions: readonly BuildingDef[]):
       treasureVaultCapacity: clampInt(definition.treasureVault?.capacity, 0, Number.MAX_SAFE_INTEGER, 0),
       timeChamberDefaultCapacity: clampInt(definition.timeChamber?.defaultCapacity, 0, 100, 0),
       timeChamberMaxSpeed: clampInt(definition.timeChamber?.maxSpeed, 1, MAX_INSTANCE_TICK_SPEED, 1),
-      timeChamberFuelUnitsPerSpiritStone: clampInt(definition.timeChamber?.fuelUnitsPerSpiritStone, 1, MAX_TIME_CHAMBER_FUEL_UNITS_PER_SPIRIT_STONE, 36_000),
       timeChamberAllowedSizeTiers: normalizeTimeChamberSizeTiers(definition.timeChamber?.allowedSizeTiers),
       craftEffectStats: normalizeCraftEffectStatsPatch(definition.craftEffectStats),
     };

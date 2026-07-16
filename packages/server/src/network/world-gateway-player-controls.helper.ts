@@ -514,20 +514,6 @@ export class WorldGatewayPlayerControlsHelper {
     await this.handleTimeChamberOperation(client, 'settings', 'UPDATE_TIME_CHAMBER_SETTINGS_FAILED', payload?.requestId, () => this.gateway.timeChamberRuntimeService.updateSettings(this.gateway.gatewayGuardHelper.requirePlayerId(client), payload, this.gateway.worldRuntimeService), true);
   }
 
-  async handleDepositTimeChamberFuel(
-    client: Socket,
-    payload: ClientToServerEventPayload<typeof C2S.DepositTimeChamberFuel>,
-  ): Promise<void> {
-    await this.handleTimeChamberOperation(client, 'deposit', 'DEPOSIT_TIME_CHAMBER_FUEL_FAILED', payload?.requestId, () => this.gateway.timeChamberRuntimeService.depositFuel(this.gateway.gatewayGuardHelper.requirePlayerId(client), payload, this.gateway.worldRuntimeService), true);
-  }
-
-  async handleClaimTimeChamberRevenue(
-    client: Socket,
-    payload: ClientToServerEventPayload<typeof C2S.ClaimTimeChamberRevenue>,
-  ): Promise<void> {
-    await this.handleTimeChamberOperation(client, 'claim_revenue', 'CLAIM_TIME_CHAMBER_REVENUE_FAILED', payload?.requestId, () => this.gateway.timeChamberRuntimeService.claimRevenue(this.gateway.gatewayGuardHelper.requirePlayerId(client), payload, this.gateway.worldRuntimeService), true);
-  }
-
   async handleResizeTimeChamber(
     client: Socket,
     payload: ClientToServerEventPayload<typeof C2S.ResizeTimeChamber>,

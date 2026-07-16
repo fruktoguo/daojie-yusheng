@@ -102,7 +102,6 @@ export interface BuildingDef {
   timeChamber?: {
     defaultCapacity?: number;
     maxSpeed?: number;
-    fuelUnitsPerSpiritStone?: number;
     allowedSizeTiers?: TimeChamberSizeTier[];
   };
   craftEffectStats?: CraftEffectStatsPatch;
@@ -138,7 +137,6 @@ export interface CompiledBuildingDef {
   treasureVaultCapacity: number;
   timeChamberDefaultCapacity: number;
   timeChamberMaxSpeed: number;
-  timeChamberFuelUnitsPerSpiritStone: number;
   timeChamberAllowedSizeTiers: TimeChamberSizeTier[];
   craftEffectStats?: CraftEffectStatsPatch;
 }

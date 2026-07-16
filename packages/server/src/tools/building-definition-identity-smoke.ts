@@ -122,7 +122,7 @@ async function main(): Promise<void> {
   );
   const ownerUsageAction = contextActions.find((entry) => entry.id.startsWith('time_chamber:usage:'));
   assert.match(ownerUsageAction?.name ?? '', /^开启：/);
-  assert.match(ownerUsageAction?.desc ?? '', /时间流速 .+使用人数/);
+  assert.match(ownerUsageAction?.desc ?? '', /时间流速 .+当前人数/);
   const visitorActions = buildContextActions({ ...player, playerId: 'player:visitor' }, instance, localBuildings);
   assert.equal(
     visitorActions.some((entry) => entry.id.startsWith('time_chamber:usage:')),
@@ -177,7 +177,6 @@ function buildHandleDriftCatalog() {
       timeChamber: {
         defaultCapacity: 1,
         maxSpeed: MAX_INSTANCE_TICK_SPEED,
-        fuelUnitsPerSpiritStone: 36_000,
         allowedSizeTiers: ['small', 'medium', 'large'],
       },
     },
@@ -267,10 +266,10 @@ async function assertPhantomChamberRecoveryUsesDeconstructFence(instance: MapIns
     sizeTier: 'small',
     capacity: 1,
     configuredSpeed: 1,
-    databaseFuelUnits: 0,
-    hourlyFee: 0,
-    revenueSpiritStones: 0,
-    fuelUnitsPerSpiritStone: 36_000,
+    activeStartedAt: null,
+    activeExpiresAt: null,
+    activationPlayerId: null,
+    activationSpiritStones: 0,
     maxSpeed: MAX_INSTANCE_TICK_SPEED,
     allowedSizeTiers: ['small', 'medium', 'large'],
     revision: 1,

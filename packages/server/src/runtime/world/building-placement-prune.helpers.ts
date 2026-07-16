@@ -79,7 +79,7 @@ export async function recoverVaultsBeforePlacementPrune(
   return blocked;
 }
 
-/** 启动自检摧毁密室外部建筑前，先原子释放对应独立实例与燃料状态。 */
+/** 启动自检摧毁密室外部建筑前，先原子释放对应独立实例与开启状态。 */
 export async function releaseTimeChambersBeforePlacementPrune(
   runtime: any,
   instanceId: string,

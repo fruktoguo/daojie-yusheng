@@ -1,6 +1,6 @@
 /** 密室使用面板：展示服务端详情，并把时长选择和开启意图交给状态编排层。 */
 import {
-  calculateTimeChamberUsageFee,
+  calculateTimeChamberActivationCost,
   type TimeChamberUsageDetailView,
 } from '@mud/shared';
 
@@ -50,7 +50,7 @@ export class TimeChamberUsageModal {
   showDetail(detail: TimeChamberUsageDetailView): void {
     this.detail = detail;
     this.durationHours = clampHours(this.durationHours, detail);
-    const subtitle = `${detail.configuredSpeed} 倍 · ${detail.activeUsageCount}/${detail.capacity} 人`;
+    const subtitle = `${detail.configuredSpeed} 倍 · ${detail.occupancy}/${detail.capacity} 人`;
     if (!detailModalHost.isOpenFor(MODAL_OWNER)) {
       detailModalHost.open(this.buildModalOptions(detail, subtitle));
       return;
@@ -121,6 +121,7 @@ export class TimeChamberUsageModal {
       return;
     }
     if (target.hasAttribute('data-time-chamber-activate')) {
+      if (this.detail.active) return;
       this.callbacks?.onActivate(this.durationHours);
       return;
     }
@@ -131,30 +132,31 @@ export class TimeChamberUsageModal {
     if (!this.detail) return;
     const durationValue = shell.querySelector<HTMLElement>('[data-time-chamber-field="duration"] strong');
     if (durationValue) durationValue.textContent = `${this.durationHours} 小时`;
-    const total = calculateTimeChamberUsageFee(this.detail.usageFeePerHour, this.durationHours);
+    const total = calculateTimeChamberActivationCost(
+      this.detail.configuredSpeed,
+      this.detail.capacity,
+      this.durationHours,
+    );
     setField(shell, 'total', `${formatDisplayNumber(total)} 灵石`);
     for (const button of shell.querySelectorAll<HTMLButtonElement>('[data-time-chamber-duration-action]')) {
       const action = button.dataset.timeChamberDurationAction;
       const atMin = this.durationHours <= this.detail.minUsageHours;
       const atMax = this.durationHours >= this.detail.maxUsageHours;
-      button.disabled = this.pending || ((action === 'half' || action === 'minus') ? atMin : atMax);
+      button.disabled = this.pending || this.detail.active || ((action === 'half' || action === 'minus') ? atMin : atMax);
     }
   }
 
   private syncPending(shell: HTMLElement): void {
     const activateButton = shell.querySelector<HTMLButtonElement>('[data-time-chamber-activate]');
     if (activateButton) {
-      activateButton.disabled = this.pending;
-      activateButton.textContent = this.pending
-        ? '处理中…'
-        : this.detail?.playerLeaseExpiresAt
-          ? '续期并进入'
-          : '支付并开启';
+      activateButton.hidden = this.detail?.active === true;
+      activateButton.disabled = this.pending || this.detail?.active === true;
+      activateButton.textContent = this.pending ? '处理中…' : '支付并开启';
     }
     const enterButton = shell.querySelector<HTMLButtonElement>('[data-time-chamber-enter]');
     if (enterButton) {
-      enterButton.hidden = !this.detail?.playerLeaseExpiresAt;
-      enterButton.disabled = this.pending || !this.detail?.playerLeaseExpiresAt;
+      enterButton.hidden = this.detail?.active !== true;
+      enterButton.disabled = this.pending || this.detail?.active !== true;
       enterButton.textContent = this.pending ? '处理中…' : '进入密室';
     }
     this.patchDuration(shell);
@@ -170,20 +172,23 @@ function buildUsageShell(detail: TimeChamberUsageDetailView, durationHours: numb
   metrics.className = 'time-chamber-metrics';
   metrics.append(
     buildMetric('时间流速', 'speed'),
-    buildMetric('使用人数', 'users'),
-    buildMetric('每小时收费', 'fee'),
-    buildMetric('我的时段', 'lease'),
+    buildMetric('当前人数', 'users'),
+    buildMetric('开启成本', 'cost'),
+    buildMetric('密室状态', 'status'),
   );
 
   const purchase = document.createElement('section');
   purchase.className = 'time-chamber-purchase';
+  purchase.dataset.timeChamberPurchase = 'true';
   const heading = document.createElement('h3');
-  heading.textContent = '使用时长';
+  heading.dataset.timeChamberPurchaseOnly = 'true';
+  heading.textContent = '开启时长';
   const durationControl = document.createElement('div');
   durationControl.className = 'time-chamber-duration-control';
+  durationControl.dataset.timeChamberPurchaseOnly = 'true';
   durationControl.innerHTML = renderTradePriceStepControl({
     value: `${durationHours} 小时`,
-    currencyName: '使用时长',
+    currencyName: '开启时长',
     displayAttrs: { 'data-time-chamber-field': 'duration' },
     leftButtons: [
       { label: '÷2', attrs: { 'data-time-chamber-duration-action': 'half', title: '时长减半' } },
@@ -197,22 +202,25 @@ function buildUsageShell(detail: TimeChamberUsageDetailView, durationHours: numb
   const checkout = document.createElement('div');
   checkout.className = 'time-chamber-checkout';
   const totalLabel = document.createElement('span');
+  totalLabel.dataset.timeChamberPurchaseOnly = 'true';
   totalLabel.textContent = '合计';
   const total = document.createElement('strong');
   total.dataset.timeChamberField = 'total';
+  total.dataset.timeChamberPurchaseOnly = 'true';
   const actions = document.createElement('div');
   actions.className = 'time-chamber-checkout-actions';
   const enter = document.createElement('button');
   enter.type = 'button';
   enter.className = 'small-btn ghost';
   enter.dataset.timeChamberEnter = 'true';
-  enter.hidden = !detail.playerLeaseExpiresAt;
+  enter.hidden = !detail.active;
   enter.textContent = '进入密室';
   const activate = document.createElement('button');
   activate.type = 'button';
   activate.className = 'small-btn';
   activate.dataset.timeChamberActivate = 'true';
-  activate.textContent = detail.playerLeaseExpiresAt ? '续期并进入' : '支付并开启';
+  activate.hidden = detail.active;
+  activate.textContent = '支付并开启';
   actions.append(enter, activate);
   checkout.append(totalLabel, total, actions);
   purchase.append(heading, durationControl, checkout);
@@ -225,7 +233,11 @@ function buildUsageShell(detail: TimeChamberUsageDetailView, durationHours: numb
   );
   shell.append(metrics, purchase, details);
   patchUsageFields(shell, detail);
-  setField(shell, 'total', `${formatDisplayNumber(calculateTimeChamberUsageFee(detail.usageFeePerHour, durationHours))} 灵石`);
+  setField(shell, 'total', `${formatDisplayNumber(calculateTimeChamberActivationCost(
+    detail.configuredSpeed,
+    detail.capacity,
+    durationHours,
+  ))} 灵石`);
   return shell;
 }
 
@@ -233,13 +245,18 @@ function patchUsageFields(shell: HTMLElement, detail: TimeChamberUsageDetailView
   setField(shell, 'speed', detail.configuredSpeed === detail.effectiveSpeed
     ? `${detail.effectiveSpeed} 倍`
     : `设定 ${detail.configuredSpeed} 倍 / 当前 ${detail.effectiveSpeed} 倍`);
-  setField(shell, 'users', `${detail.activeUsageCount}/${detail.capacity} 人`);
-  setField(shell, 'fee', detail.ownerUsageFree ? '建造者免费' : `${formatDisplayNumber(detail.usageFeePerHour)} 灵石`);
-  setField(shell, 'lease', detail.playerLeaseExpiresAt ? formatDateTime(detail.playerLeaseExpiresAt) : '未开启');
+  setField(shell, 'users', `${detail.occupancy}/${detail.capacity} 人`);
+  setField(shell, 'cost', `${formatDisplayNumber(detail.activationCostSpiritStonesPerHour)} 灵石/小时`);
+  setField(shell, 'status', detail.active ? '已开启' : '未开启');
   setField(shell, 'space', `${detail.width}×${detail.height}`);
   setField(shell, 'active-until', detail.activeUntil ? formatDateTime(detail.activeUntil) : '当前未激活');
+  for (const element of shell.querySelectorAll<HTMLElement>('[data-time-chamber-purchase-only]')) {
+    element.hidden = detail.active;
+  }
   const enter = shell.querySelector<HTMLButtonElement>('[data-time-chamber-enter]');
-  if (enter) enter.hidden = !detail.playerLeaseExpiresAt;
+  if (enter) enter.hidden = !detail.active;
+  const activate = shell.querySelector<HTMLButtonElement>('[data-time-chamber-activate]');
+  if (activate) activate.hidden = detail.active;
 }
 
 function buildMetric(labelText: string, field: string): HTMLElement {
