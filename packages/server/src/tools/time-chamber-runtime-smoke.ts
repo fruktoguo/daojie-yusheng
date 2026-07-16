@@ -7,6 +7,8 @@ import {
 
 import { TimeChamberAdmissionPolicy } from '../runtime/building/time-chamber-admission.policy';
 import { TimeChamberRuntimeService } from '../runtime/building/time-chamber-runtime.service';
+import { findBuildingProtectedPlacementConflict } from '../runtime/world/building-protected-placement.helpers';
+import { registerManagedInstanceCatalog } from '../runtime/world/world-runtime-instance-lease.helpers';
 import { installSmokeTimeout } from './smoke-timeout';
 
 installSmokeTimeout(__filename);
@@ -27,6 +29,9 @@ async function main(): Promise<void> {
   assert.equal(calculateTimeChamberOperatingCostPerHour(2, 2), 90);
   assert.equal(calculateTimeChamberOperatingCostPerHour(2, 4), 170, '额外位置按 80% 线性叠加，不能复利');
   assert.equal(calculateTimeChamberActivationCost(2, 4, 3), 510, '开启总价必须由倍率、容量和整小时数直接决定');
+  assert.equal(calculateTimeChamberOperatingCostPerHour(2, 1, 'medium'), 75, '扩大一圈后每小时成本提升 50%');
+  assert.equal(calculateTimeChamberOperatingCostPerHour(2, 1, 'large'), 113, '连续扩大两圈按乘算并向上取整');
+  assert.equal(calculateTimeChamberActivationCost(2, 1, 2, 'large'), 226, '开启总价必须包含当前空间尺寸成本');
 
   const registeredDocuments: any[] = [];
   const service = new TimeChamberRuntimeService(
@@ -38,7 +43,7 @@ async function main(): Promise<void> {
     admission,
   );
   const serviceInternal = service as any;
-  for (const [sizeTier, width] of [['small', 9], ['medium', 15], ['large', 21]] as const) {
+  for (const [sizeTier, width] of [['small', 3], ['medium', 5], ['large', 7]] as const) {
     const template = serviceInternal.registerTemplate({
       templateId: `template:${sizeTier}`,
       displayName: `密室-${sizeTier}`,
@@ -49,13 +54,43 @@ async function main(): Promise<void> {
     assert.equal(template.height, width);
     assert.equal(template.spawnPoint.x, Math.floor(width / 2));
     assert.equal(template.monsters.length, 0);
+    assert.equal(template.safeZones.length, 0);
+    assert.equal(template.tiles.every((row: string) => row === '.'.repeat(width)), true);
   }
   assert.equal(registeredDocuments.length, 3);
+  const placementInstance = {
+    meta: { kind: 'time_chamber' },
+    template: { id: 'time-chamber-template:test', spawnX: 1, spawnY: 1, portals: [] },
+    isInBounds: (x: number, y: number) => x >= 0 && x < 3 && y >= 0 && y < 3,
+    getSafeZoneAtTile: () => ({ id: 'legacy-whole-room-safe-zone' }),
+  };
+  assert.deepEqual(
+    findBuildingProtectedPlacementConflict(placementInstance, [{ x: 1, y: 1 }]),
+    { ok: false, reason: 'protected_placement_spawn', x: 1, y: 1 },
+    '密室只保留中心出生格为禁建点',
+  );
+  assert.deepEqual(
+    findBuildingProtectedPlacementConflict(placementInstance, [{ x: 0, y: 0 }, { x: 2, y: 2 }]),
+    { ok: true },
+    '密室中心以外不能再被安全区或出生点邻域误判为禁建点',
+  );
+  let registeredCatalogInput: any = null;
+  await registerManagedInstanceCatalog({
+    instanceCatalogService: {
+      isEnabled: () => true,
+      upsertInstanceCatalog: async (input: any) => { registeredCatalogInput = input; },
+    },
+  }, 'time-chamber:catalog-test', {
+    template: { id: 'time-chamber-template:catalog-test' },
+    meta: { kind: 'time_chamber', persistent: true },
+  });
+  assert.equal(registeredCatalogInput?.instanceType, 'time_chamber', '实例目录必须读取 meta.kind，不能把密室误登记为 public');
 
   const chamberInstance = {
     tickSpeed: 3,
     paused: false,
     template: { spawnX: 4, spawnY: 4 },
+    buildingById: new Map<string, any>(),
     markPersistenceDirtyDomainsHighPriority(): void {},
     listPlayerIds: () => ['player:one'],
   };
@@ -139,6 +174,31 @@ async function main(): Promise<void> {
   state.activeExpiresAt = null;
   state.activationPlayerId = null;
   state.activationSpiritStones = 0;
+  chamberInstance.listPlayerIds = () => [];
+  chamberInstance.buildingById.set('building:inside', { id: 'building:inside' });
+  serviceInternal.playerRuntimeService = {
+    playerDomainPersistenceService: {
+      isEnabled: () => true,
+      hasRetainedPlayersInInstance: async () => false,
+    },
+  };
+  assert.deepEqual(
+    await service.resize('player:owner', {
+      sourceInstanceId: state.sourceInstanceId,
+      buildingId: state.buildingId,
+      requestId: 'resize:building-lock',
+      sizeTier: 'small',
+      expectedRevision: state.revision,
+    }, runtime),
+    {
+      ok: false,
+      operation: 'resize',
+      requestId: 'resize:building-lock',
+      reason: 'time_chamber_has_buildings',
+    },
+    '密室内存在任意建筑时必须锁定空间大小',
+  );
+  chamberInstance.buildingById.clear();
   assert.deepEqual(
     await service.enter('player:one', state.sourceInstanceId, state.buildingId, transferRuntime),
     { ok: false, reason: 'time_chamber_activation_required' },
@@ -203,7 +263,7 @@ async function main(): Promise<void> {
 
   console.log(JSON.stringify({
     ok: true,
-    answers: '密室三档空间为 9/15/21；2 至 10 倍成本从每小时 50 灵石起逐倍翻倍，额外容量按 80% 线性增加；未开启时固定 1 倍且禁止进入，全室开启后所有玩家可按容量进入；到期会迁出玩家、修正持久化位置并恢复 1 倍；拆除仍受实例 lease/epoch 围栏保护。',
+    answers: '密室三档空间为 3/5/7；每扩大一圈成本乘 1.5，额外容量按 80% 线性增加；中心格为唯一密室保护禁建点；未开启时固定 1 倍且禁止进入，全室开启后所有玩家可按容量进入；到期会迁出玩家、修正持久化位置并恢复 1 倍；拆除仍受实例 lease/epoch 围栏保护。',
     excludes: '不连接数据库，不证明真实事务、实例目录恢复和客户端控制台。',
     completionMapping: 'time-chamber-domain-runtime',
   }, null, 2));

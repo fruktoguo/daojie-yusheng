@@ -155,6 +155,7 @@ function createService(log = [], overrides = {}) {
         return { queued: true };
       },
     },
+    ...overrides.worldRuntimeService,
     getPool() {
       return null;
     },
@@ -232,6 +233,47 @@ async function testGetWorldInstancesSortsByPresetAndIndex() {
   );
 }
 
+async function testGetWorldInstancesGroupsTimeChambersUnderEntranceInstance() {
+  const parent = {
+    instanceId: 'sect:alpha',
+    displayName: '青云宗',
+    templateId: 'sect_domain:alpha',
+    templateName: '青云宗',
+    linePreset: 'peaceful',
+    lineIndex: 1,
+    instanceOrigin: 'bootstrap',
+    defaultEntry: false,
+    persistent: true,
+    supportsPvp: false,
+    canDamageTile: true,
+    playerCount: 2,
+  };
+  const chambers = ['2密室', '1密室'].map((displayName, index) => ({
+    instanceId: `time-chamber:${index + 1}`,
+    displayName,
+    templateId: `time-chamber-template:${index + 1}`,
+    templateName: displayName,
+    parentInstanceId: parent.instanceId,
+    parentBuildingId: `building:${index + 1}`,
+    linePreset: 'peaceful',
+    lineIndex: 1,
+    instanceOrigin: 'bootstrap',
+    defaultEntry: false,
+    persistent: true,
+    supportsPvp: false,
+    canDamageTile: false,
+    playerCount: 0,
+  }));
+  const service = createService([], { instances: [parent, ...chambers] });
+  const result = await service.getWorldInstances();
+  const grouped = new Map(result.instances.map((entry) => [entry.instanceId, entry]));
+  assert.equal(grouped.get(parent.instanceId).linkedGroupRootInstanceId, parent.instanceId);
+  assert.equal(grouped.get(parent.instanceId).linkedGroupOrder, 0);
+  assert.equal(grouped.get('time-chamber:2').linkedGroupDisplayName, '青云宗');
+  assert.equal(grouped.get('time-chamber:2').linkedGroupOrder, 1, '密室按显示名稳定排序后挂在入口地图下');
+  assert.equal(grouped.get('time-chamber:1').linkedGroupOrder, 2);
+}
+
 async function testGetWorldInstanceRuntimeDelegatesToInstanceQuery() {
   const log = [];
   const service = createService(log);
@@ -240,6 +282,50 @@ async function testGetWorldInstanceRuntimeDelegatesToInstanceQuery() {
   assert.deepEqual(log, [
     ['getInstanceRuntime', 'line:yunlai_town:real:2', '1', '2', '3', '4'],
   ]);
+}
+
+async function testDestroyWorldBuildingUsesAuthoritativeLifecycle() {
+  const log = [];
+  const service = createService(log, {
+    worldRuntimeService: {
+      async handleGmBuildDeconstruct(instanceId, buildingId) {
+        log.push(['handleGmBuildDeconstruct', instanceId, buildingId]);
+        return { ok: true, building: { id: buildingId, defId: 'time_chamber' } };
+      },
+    },
+  });
+  const result = await service.destroyWorldInstanceBuilding('sect:alpha', 'building:chamber');
+  assert.equal(result.ok, true);
+  assert.deepEqual(log, [['handleGmBuildDeconstruct', 'sect:alpha', 'building:chamber']]);
+}
+
+async function testDestroyLegacyTimeChamberBootstrapInstance() {
+  const log = [];
+  const instanceId = 'public:time-chamber-template:legacy';
+  const service = createService(log, {
+    worldRuntimeService: {
+      getInstanceRuntime(requestedInstanceId) {
+        assert.equal(requestedInstanceId, instanceId);
+        return {
+          template: { id: 'time-chamber-template:legacy' },
+          meta: { kind: 'public' },
+          snapshot: () => ({
+            instanceId,
+            templateId: 'time-chamber-template:legacy',
+            kind: 'public',
+            defaultEntry: true,
+          }),
+        };
+      },
+      async destroyEmptyManagedInstance(requestedInstanceId, reason) {
+        log.push(['destroyEmptyManagedInstance', requestedInstanceId, reason]);
+        return { ok: true };
+      },
+    },
+  });
+  const result = await service.destroyWorldInstance(instanceId);
+  assert.equal(result.invalidChamberBootstrapRemoved, true);
+  assert.deepEqual(log, [['destroyEmptyManagedInstance', instanceId, 'gm_instance_destroy']]);
 }
 
 function testCreateWorldInstanceBuildsNextManualLine() {
@@ -450,7 +536,10 @@ function testMapRuntimeQueryUsesInstanceTickSpeedAfterRestart() {
 
 void (async () => {
   await testGetWorldInstancesSortsByPresetAndIndex();
+  await testGetWorldInstancesGroupsTimeChambersUnderEntranceInstance();
   await testGetWorldInstanceRuntimeDelegatesToInstanceQuery();
+  await testDestroyWorldBuildingUsesAuthoritativeLifecycle();
+  await testDestroyLegacyTimeChamberBootstrapInstance();
   testCreateWorldInstanceBuildsNextManualLine();
   testCreateWorldInstanceSupportsLifecycleOptions();
   testTransferPlayerToInstanceEnqueuesExplicitInstanceId();

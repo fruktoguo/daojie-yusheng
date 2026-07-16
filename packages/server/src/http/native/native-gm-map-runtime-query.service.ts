@@ -171,6 +171,8 @@ interface RuntimeInstanceLike {
  */
 
   displayName?: string;
+  parentInstanceId?: string;
+  parentBuildingId?: string;
   /**
  * templateId：地图模板 ID 标识。
  */
@@ -938,6 +940,8 @@ export class NativeGmMapRuntimeQueryService {
       mapName: template.name,
       instanceId: runtimeInstance.instanceId,
       instanceName: runtimeInstance.displayName ?? template.name,
+      parentInstanceId: typeof runtimeInstance.parentInstanceId === 'string' ? runtimeInstance.parentInstanceId : undefined,
+      parentBuildingId: typeof runtimeInstance.parentBuildingId === 'string' ? runtimeInstance.parentBuildingId : undefined,
       templateId: template.id,
       templateName: template.name,
       linePreset: runtimeInstance.linePreset ?? 'peaceful',

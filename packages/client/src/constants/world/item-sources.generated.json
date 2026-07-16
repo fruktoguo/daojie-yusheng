@@ -4938,6 +4938,35 @@
       "count": 1
     }
   ],
+  "mat.void_boundary_crystal": [
+    {
+      "kind": "monster_drop",
+      "mapId": "blazewood_waste",
+      "mapName": "焚木荒台",
+      "monsterId": "m_blazewood_king",
+      "monsterName": "焚木妖王",
+      "chance": 0.001,
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "darksoil_abyss",
+      "mapName": "玄壤深渊",
+      "monsterId": "m_darksoil_dragon",
+      "monsterName": "玄壤地龙",
+      "chance": 0.001,
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "darksoil_abyss",
+      "mapName": "玄壤深渊",
+      "monsterId": "m_fivephase_devourer",
+      "monsterName": "五行噬脉兽",
+      "chance": 0.001,
+      "count": 1
+    }
+  ],
   "mat.wood_fire_dao_seed": [
     {
       "kind": "monster_drop",

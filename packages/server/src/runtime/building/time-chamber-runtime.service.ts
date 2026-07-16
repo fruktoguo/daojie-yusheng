@@ -15,6 +15,7 @@ import {
   TIME_CHAMBER_MAX_SPEED,
   TIME_CHAMBER_MAX_USAGE_HOURS,
   TIME_CHAMBER_MIN_USAGE_HOURS,
+  TIME_CHAMBER_SIZE_OPTIONS,
   type C2S_ActivateTimeChamberView,
   type C2S_EnterTimeChamberView,
   type C2S_RequestTimeChamberView,
@@ -56,12 +57,8 @@ const MAX_REQUEST_ID_LENGTH = 128;
 const BASE_SPEED = 1;
 const EXPIRY_TIMER_MAX_DELAY_MS = 2_147_000_000;
 const EXPIRY_RETRY_DELAY_MS = 5_000;
-
-const SIZE_BY_TIER: Record<TimeChamberSizeTier, { width: number; height: number }> = {
-  small: { width: 9, height: 9 },
-  medium: { width: 15, height: 15 },
-  large: { width: 21, height: 21 },
-};
+const ORPHAN_CLEANUP_RETRY_DELAY_MS = 5_000;
+const ORPHAN_CLEANUP_MAX_ATTEMPTS = 6;
 
 type QueryResultLike = { rows: any[]; rowCount?: number };
 type PoolClientLike = {
@@ -103,6 +100,8 @@ export class TimeChamberRuntimeService implements OnModuleInit, OnModuleDestroy 
   private initPromise: Promise<void> | null = null;
   private worldRuntime: any = null;
   private expiryTimer: ReturnType<typeof setTimeout> | null = null;
+  private orphanCleanupRetryTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly orphanCleanupRetryByKey = new Map<string, { state: TimeChamberState; attempt: number }>();
 
   constructor(
     @Inject(DatabasePoolProvider) private readonly databasePoolProvider: DatabasePoolProvider,
@@ -123,6 +122,11 @@ export class TimeChamberRuntimeService implements OnModuleInit, OnModuleDestroy 
       clearTimeout(this.expiryTimer);
       this.expiryTimer = null;
     }
+    if (this.orphanCleanupRetryTimer) {
+      clearTimeout(this.orphanCleanupRetryTimer);
+      this.orphanCleanupRetryTimer = null;
+    }
+    this.orphanCleanupRetryByKey.clear();
   }
 
   isEnabled(): boolean {
@@ -150,6 +154,7 @@ export class TimeChamberRuntimeService implements OnModuleInit, OnModuleDestroy 
         if (localChamberInstance && isRuntimeInstanceWritable(runtime, localChamberInstance)) {
           localChamberInstance.meta.ownerPlayerId = state.ownerPlayerId;
           localChamberInstance.meta.displayName = state.displayName;
+          this.applyInstanceBindingMetadata(state, localChamberInstance);
           this.applyEffectiveSpeed(state, localChamberInstance, runtime);
         }
         continue;
@@ -197,15 +202,49 @@ export class TimeChamberRuntimeService implements OnModuleInit, OnModuleDestroy 
       }
       instance.meta.ownerPlayerId = state.ownerPlayerId;
       instance.meta.displayName = state.displayName;
+      this.applyInstanceBindingMetadata(state, instance);
       this.applyEffectiveSpeed(state, instance, runtime);
     }
     for (const state of staleStates) {
-      const result = await this.prepareDeconstruct(state.sourceInstanceId, state.buildingId, runtime);
-      if (result.ok !== true) {
-        this.logger.warn(`密室孤儿状态清理失败：${state.chamberInstanceId} reason=${result.reason ?? ''}`);
-      }
+      await this.cleanupRecoveredOrphanState(state, runtime, 1);
     }
+    await this.ensurePersistentChambersForActiveBuildings(runtime);
     this.scheduleNextActivationExpiry();
+  }
+
+  /** 建筑完工后立即建立稳定状态与常驻实例，不依赖玩家首次打开面板。 */
+  async ensurePersistentChamberForBuilding(
+    sourceInstanceIdInput: string,
+    buildingIdInput: string,
+    runtime: any,
+  ): Promise<{ ok: boolean; reason?: string; chamberInstanceId?: string }> {
+    await this.initPromise;
+    this.worldRuntime = runtime;
+    if (!this.isEnabled()) {
+      return { ok: false, reason: 'time_chamber_persistence_disabled' };
+    }
+    const sourceInstanceId = normalizeString(sourceInstanceIdInput);
+    const buildingId = normalizeString(buildingIdInput);
+    const sourceInstance = sourceInstanceId ? runtime.getInstanceRuntime?.(sourceInstanceId) : null;
+    const building = sourceInstance?.buildingById?.get?.(buildingId) ?? null;
+    if (!sourceInstance || !building || building.state !== 'active' || !isTimeChamberBuilding(sourceInstance, building)) {
+      return { ok: false, reason: 'time_chamber_not_found' };
+    }
+    if (!isRuntimeInstanceWritable(runtime, sourceInstance)) {
+      return { ok: false, reason: 'time_chamber_unavailable' };
+    }
+    const state = await this.ensureState(sourceInstance, building);
+    if (!state) {
+      return { ok: false, reason: 'time_chamber_state_create_failed' };
+    }
+    const instance = this.ensureRuntimeInstance(state, runtime);
+    await runtime.waitForInstanceLeaseReady?.(state.chamberInstanceId);
+    if (!isRuntimeInstanceWritable(runtime, instance)) {
+      return { ok: false, reason: 'time_chamber_unavailable' };
+    }
+    this.applyInstanceBindingMetadata(state, instance);
+    this.applyEffectiveSpeed(state, instance, runtime);
+    return { ok: true, chamberInstanceId: state.chamberInstanceId };
   }
 
   async buildDetail(
@@ -434,6 +473,9 @@ export class TimeChamberRuntimeService implements OnModuleInit, OnModuleDestroy 
       }
       if ((runtime.worldRuntimeFormationService?.listRuntimeFormations?.(resolved.state.chamberInstanceId)?.length ?? 0) > 0) {
         return { ok: false, operation: 'resize', requestId, reason: 'time_chamber_not_empty' };
+      }
+      if ((resolved.chamberInstance.buildingById?.size ?? 0) > 0) {
+        return { ok: false, operation: 'resize', requestId, reason: 'time_chamber_has_buildings' };
       }
       const persistence = this.playerRuntimeService.playerDomainPersistenceService;
       if (!isPlayerDomainPersistenceEnabled(persistence)
@@ -685,6 +727,22 @@ export class TimeChamberRuntimeService implements OnModuleInit, OnModuleDestroy 
     return this.stateByBuildingKey.get(buildBuildingKey(sourceInstanceId, buildingId)) ?? null;
   }
 
+  getInstanceBinding(chamberInstanceIdInput: string): {
+    chamberInstanceId: string;
+    sourceInstanceId: string;
+    buildingId: string;
+    displayName: string;
+  } | null {
+    const state = this.stateByChamberInstanceId.get(normalizeString(chamberInstanceIdInput));
+    if (!state) return null;
+    return {
+      chamberInstanceId: state.chamberInstanceId,
+      sourceInstanceId: state.sourceInstanceId,
+      buildingId: state.buildingId,
+      displayName: state.displayName,
+    };
+  }
+
   getInteractionSummary(sourceInstanceId: string, buildingId: string): {
     displayName: string;
     configuredSpeed: number;
@@ -835,10 +893,11 @@ export class TimeChamberRuntimeService implements OnModuleInit, OnModuleDestroy 
   private ensureRuntimeInstance(state: TimeChamberState, runtime: any): any {
     const existing = runtime.getInstanceRuntime?.(state.chamberInstanceId);
     if (existing) {
+      this.applyInstanceBindingMetadata(state, existing);
       return existing;
     }
     this.registerTemplate(state);
-    return runtime.createInstance({
+    const instance = runtime.createInstance({
       instanceId: state.chamberInstanceId,
       templateId: state.templateId,
       kind: 'time_chamber',
@@ -852,7 +911,71 @@ export class TimeChamberRuntimeService implements OnModuleInit, OnModuleDestroy 
       runtimeStatus: 'running',
       shardKey: state.chamberInstanceId,
       routeDomain: `time-chamber:${state.chamberInstanceId}`,
+      parentInstanceId: state.sourceInstanceId,
+      parentBuildingId: state.buildingId,
     });
+    this.applyInstanceBindingMetadata(state, instance);
+    return instance;
+  }
+
+  private applyInstanceBindingMetadata(state: TimeChamberState, instance: any): void {
+    if (!instance?.meta) return;
+    instance.meta.parentInstanceId = state.sourceInstanceId;
+    instance.meta.parentBuildingId = state.buildingId;
+  }
+
+  private async ensurePersistentChambersForActiveBuildings(runtime: any): Promise<void> {
+    const entries = typeof runtime.listInstanceEntries === 'function'
+      ? runtime.listInstanceEntries()
+      : [];
+    for (const [instanceId, instance] of entries) {
+      if (!instance?.meta?.persistent || !isRuntimeInstanceWritable(runtime, instance)) continue;
+      for (const building of instance.buildingById?.values?.() ?? []) {
+        if (building?.state !== 'active' || !isTimeChamberBuilding(instance, building)) continue;
+        const result = await this.ensurePersistentChamberForBuilding(instanceId, building.id, runtime);
+        if (result.ok !== true) {
+          this.logger.warn(`密室常驻实例补建失败：${instanceId}/${building.id} reason=${result.reason ?? ''}`);
+        }
+      }
+    }
+  }
+
+  private async cleanupRecoveredOrphanState(state: TimeChamberState, runtime: any, attempt: number): Promise<void> {
+    const key = buildBuildingKey(state.sourceInstanceId, state.buildingId);
+    if (this.stateByBuildingKey.get(key) !== state) return;
+    try {
+      await runtime.waitForInstanceLeaseReady?.(state.chamberInstanceId);
+    } catch (error) {
+      this.logger.warn(`密室孤儿实例等待租约失败：${state.chamberInstanceId} ${error instanceof Error ? error.message : String(error)}`);
+    }
+    const result = await this.prepareDeconstruct(state.sourceInstanceId, state.buildingId, runtime);
+    if (result.ok === true) {
+      this.orphanCleanupRetryByKey.delete(key);
+      return;
+    }
+    if (result.reason === 'time_chamber_unavailable' && attempt < ORPHAN_CLEANUP_MAX_ATTEMPTS) {
+      this.orphanCleanupRetryByKey.set(key, { state, attempt: attempt + 1 });
+      this.scheduleOrphanCleanupRetry(runtime);
+      return;
+    }
+    this.logger.warn(`密室孤儿状态清理失败：${state.chamberInstanceId} reason=${result.reason ?? ''}`);
+  }
+
+  private scheduleOrphanCleanupRetry(runtime: any): void {
+    if (this.orphanCleanupRetryTimer || this.orphanCleanupRetryByKey.size === 0) return;
+    this.orphanCleanupRetryTimer = setTimeout(() => {
+      this.orphanCleanupRetryTimer = null;
+      const pending = Array.from(this.orphanCleanupRetryByKey.values());
+      this.orphanCleanupRetryByKey.clear();
+      void (async () => {
+        for (const entry of pending) {
+          await this.cleanupRecoveredOrphanState(entry.state, runtime, entry.attempt);
+        }
+      })().catch((error) => {
+        this.logger.warn(`密室孤儿状态重试队列失败：${error instanceof Error ? error.message : String(error)}`);
+      });
+    }, ORPHAN_CLEANUP_RETRY_DELAY_MS);
+    this.orphanCleanupRetryTimer.unref?.();
   }
 
   private registerTemplate(state: Pick<TimeChamberState, 'templateId' | 'displayName' | 'sizeTier' | 'chamberInstanceId'>): any {
@@ -860,7 +983,7 @@ export class TimeChamberRuntimeService implements OnModuleInit, OnModuleDestroy 
   }
 
   private buildSummaryView(playerId: string, state: TimeChamberState, instance: any): TimeChamberSummaryView {
-    const dimensions = SIZE_BY_TIER[state.sizeTier];
+    const dimensions = TIME_CHAMBER_SIZE_OPTIONS[state.sizeTier];
     const active = isTimeChamberActive(state, Date.now());
     return {
       sourceInstanceId: state.sourceInstanceId,
@@ -889,6 +1012,7 @@ export class TimeChamberRuntimeService implements OnModuleInit, OnModuleDestroy 
       activationCostSpiritStonesPerHour: calculateTimeChamberOperatingCostPerHour(
         state.configuredSpeed,
         state.capacity,
+        state.sizeTier,
       ),
       minUsageHours: TIME_CHAMBER_MIN_USAGE_HOURS,
       maxUsageHours: TIME_CHAMBER_MAX_USAGE_HOURS,
@@ -897,15 +1021,25 @@ export class TimeChamberRuntimeService implements OnModuleInit, OnModuleDestroy 
 
   private buildManagementDetailView(playerId: string, state: TimeChamberState, instance: any): TimeChamberManagementDetailView {
     const summary = this.buildSummaryView(playerId, state, instance);
-    const operatingCost = calculateTimeChamberOperatingCostPerHour(state.configuredSpeed, state.capacity);
+    const operatingCost = calculateTimeChamberOperatingCostPerHour(
+      state.configuredSpeed,
+      state.capacity,
+      state.sizeTier,
+    );
     return {
       ...summary,
       minSpeed: BASE_SPEED,
       maxSpeed: state.maxSpeed,
       maxCapacity: resolveMaxCapacityForTier(state.sizeTier),
-      allowedSizes: state.allowedSizeTiers.map((tier) => ({ tier, ...SIZE_BY_TIER[tier] })),
+      allowedSizes: state.allowedSizeTiers.map((tier) => ({
+        tier,
+        width: TIME_CHAMBER_SIZE_OPTIONS[tier].width,
+        height: TIME_CHAMBER_SIZE_OPTIONS[tier].height,
+        costMultiplierPercent: TIME_CHAMBER_SIZE_OPTIONS[tier].costMultiplierPercent,
+      })),
       operatingCostSpiritStonesPerHour: operatingCost,
       settingsLocked: state.activeExpiresAt !== null,
+      hasBuildings: (instance?.buildingById?.size ?? 0) > 0,
     };
   }
 
@@ -925,6 +1059,7 @@ export class TimeChamberRuntimeService implements OnModuleInit, OnModuleDestroy 
         state.configuredSpeed,
         state.capacity,
         durationHours,
+        state.sizeTier,
       );
       const currentItems = Array.isArray(player.inventory?.items) ? player.inventory.items.map((entry) => ({ ...entry })) : [];
       const removal = removeInventoryItemCount(currentItems, SPIRIT_STONE_ITEM_ID, activationCost);
@@ -1362,10 +1497,8 @@ function isTimeChamberBuilding(instance: any, building: any): boolean {
 }
 
 function buildTimeChamberMapDocument(state: Pick<TimeChamberState, 'templateId' | 'displayName' | 'sizeTier' | 'chamberInstanceId'>): any {
-  const { width, height } = SIZE_BY_TIER[state.sizeTier];
-  const tiles = Array.from({ length: height }, (_, y) => Array.from({ length: width }, (_, x) => (
-    x === 0 || y === 0 || x === width - 1 || y === height - 1 ? '#' : '.'
-  )).join(''));
+  const { width, height } = TIME_CHAMBER_SIZE_OPTIONS[state.sizeTier];
+  const tiles = Array.from({ length: height }, () => '.'.repeat(width));
   return {
     id: state.templateId,
     name: state.displayName,
@@ -1378,7 +1511,7 @@ function buildTimeChamberMapDocument(state: Pick<TimeChamberState, 'templateId' 
     portals: [],
     npcs: [],
     monsters: [],
-    safeZones: [{ x: Math.floor(width / 2), y: Math.floor(height / 2), radius: Math.max(width, height) }],
+    safeZones: [],
     landmarks: [],
     containers: [],
     auras: [],
@@ -1406,8 +1539,8 @@ function removeInventoryItemCount(items: any[], itemId: string, count: number): 
 }
 
 function resolveMaxCapacityForTier(tier: TimeChamberSizeTier): number {
-  const dimensions = SIZE_BY_TIER[tier];
-  return Math.min(TIME_CHAMBER_MAX_CAPACITY, Math.max(1, (dimensions.width - 2) * (dimensions.height - 2)));
+  const dimensions = TIME_CHAMBER_SIZE_OPTIONS[tier];
+  return Math.min(TIME_CHAMBER_MAX_CAPACITY, Math.max(1, dimensions.width * dimensions.height));
 }
 
 function markBuildingChanged(instance: any, building: any): void {

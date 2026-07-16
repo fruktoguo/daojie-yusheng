@@ -171,7 +171,11 @@ export class TimeChamberConsoleModal {
     for (const button of shell.querySelectorAll<HTMLButtonElement>('[data-time-chamber-operation]')) {
       const operation = button.dataset.timeChamberOperation as TimeChamberOperationKind | undefined;
       const pending = Boolean(operation && this.pendingOperations.has(operation));
-      const blockedByActive = operation === 'resize' && (this.detail?.settingsLocked === true || (this.detail?.occupancy ?? 0) > 0);
+      const blockedByActive = operation === 'resize' && (
+        this.detail?.settingsLocked === true
+        || (this.detail?.occupancy ?? 0) > 0
+        || this.detail?.hasBuildings === true
+      );
       button.disabled = mutationPending || blockedByActive || this.detail?.isOwner !== true;
       button.textContent = pending ? '处理中…' : button.dataset.idleLabel ?? '确认';
     }
@@ -377,7 +381,11 @@ function patchDetailFields(
   setField(shell, 'users', `${detail.occupancy}/${detail.capacity} 人`);
   setField(shell, 'cost', `${formatDisplayNumber(detail.operatingCostSpiritStonesPerHour)} 灵石/小时`);
   setField(shell, 'active-until', detail.activeUntil ? formatDateTime(detail.activeUntil) : '未激活');
-  setField(shell, 'settings-lock', detail.settingsLocked ? '运行期间倍率与容量保持不变' : '');
+  setField(shell, 'settings-lock', detail.settingsLocked
+    ? '运行期间倍率与容量保持不变'
+    : detail.hasBuildings
+      ? '密室内已有建筑，空间大小已锁定'
+      : '');
 
   const draft = settingsDraft ?? buildSettingsInputDraft(detail);
   patchInput(shell, 'name', draft.name);
@@ -402,7 +410,7 @@ function patchDetailFields(
     }
     const nextSize = sizeDraft ?? detail.sizeTier;
     if (size.value !== nextSize) size.value = nextSize;
-    size.disabled = detail.settingsLocked || detail.occupancy > 0;
+    size.disabled = detail.settingsLocked || detail.occupancy > 0 || detail.hasBuildings;
   }
 }
 
@@ -424,14 +432,16 @@ function appendSizeOptions(
   for (const size of detail.allowedSizes) {
     const option = document.createElement('option');
     option.value = size.tier;
-    option.textContent = `${sizeTierLabel(size.tier)}（${size.width}×${size.height}）`;
+    option.textContent = `${sizeTierLabel(size.tier)}（${size.width}×${size.height}，成本 ${size.costMultiplierPercent}%）`;
     option.selected = size.tier === selectedTier;
     select.append(option);
   }
 }
 
 function buildSizeSignature(detail: TimeChamberManagementDetailView): string {
-  return detail.allowedSizes.map((size) => `${size.tier}:${size.width}:${size.height}`).join('|');
+  return detail.allowedSizes
+    .map((size) => `${size.tier}:${size.width}:${size.height}:${size.costMultiplierPercent}`)
+    .join('|');
 }
 
 function buildSettingsInputDraft(detail: TimeChamberManagementDetailView): TimeChamberSettingsInputDraft {
@@ -464,6 +474,7 @@ function buildManagementDetailSignature(detail: TimeChamberManagementDetailView)
     detail.maxCapacity,
     detail.operatingCostSpiritStonesPerHour,
     detail.settingsLocked,
+    detail.hasBuildings,
     detail.isOwner,
     buildSizeSignature(detail),
   ].join('\u0000');

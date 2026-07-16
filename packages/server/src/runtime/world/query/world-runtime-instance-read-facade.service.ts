@@ -153,6 +153,8 @@ export class WorldRuntimeInstanceReadFacadeService {
             clusterId: input.clusterId,
             shardKey: input.shardKey,
             routeDomain: input.routeDomain,
+            parentInstanceId: input.parentInstanceId,
+            parentBuildingId: input.parentBuildingId,
             destroyAt: input.destroyAt,
             lastActiveAt: input.lastActiveAt,
             lastPersistedAt: input.lastPersistedAt,

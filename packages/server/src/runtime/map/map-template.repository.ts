@@ -95,6 +95,10 @@ export class MapTemplateRepository {
     list() {
         return Array.from(this.templates.values());
     }
+    /** 仅列出启动期静态内容地图，运行时独占模板不得生成公共/真实默认线。 */
+    listBootstrapTemplates() {
+        return Array.from(this.templates.values()).filter((template) => !this.runtimeTemplateIds.has(template.id));
+    }
     /**
  * getOrThrow：读取OrThrow。
  * @param templateId template ID。

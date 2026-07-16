@@ -868,5 +868,26 @@
       "矿材",
       "石材"
     ]
+  },
+  {
+    "itemId": "mat.void_boundary_crystal",
+    "name": "太虚界晶",
+    "type": "material",
+    "grade": "heaven",
+    "level": 42,
+    "materialCategory": "exotic",
+    "materialValues": {
+      "elements": {
+        "metal": 60,
+        "wood": 60,
+        "water": 60,
+        "fire": 60,
+        "earth": 60
+      }
+    },
+    "desc": "虚空边界偶然凝成的五行界晶，能够锚定一方独立空间，是营造密室的核心异材。",
+    "tags": [
+      "异材"
+    ]
   }
 ]

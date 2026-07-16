@@ -235,25 +235,78 @@ export async function handleBuildDeconstructIntent(runtime, playerId, payload) {
     if (!sectAccess.applies && building.ownerPlayerId !== playerId) {
         return recordBuildingOperation(runtime, operationKey, { requestId, ok: false, reason: 'building_owner_mismatch' }, { action: 'deconstruct', playerId, instanceId: context.instance.meta.instanceId, buildingId });
     }
-    const recovery = await recoverTreasureVaultItemsBeforeDeconstruct(runtime, context.instance, building, 'deconstruct');
-    if (recovery.ok !== true) {
-        return recordBuildingOperation(runtime, operationKey, { requestId, ok: false, reason: recovery.reason ?? 'treasure_vault_recovery_failed' }, { action: 'deconstruct', playerId, instanceId: context.instance.meta.instanceId, buildingId });
-    }
-    const chamberRelease = await releaseTimeChamberBeforeDeconstruct(runtime, context.instance, building);
-    if (chamberRelease.ok !== true) {
-        return recordBuildingOperation(runtime, operationKey, { requestId, ok: false, reason: chamberRelease.reason ?? 'time_chamber_release_failed' }, { action: 'deconstruct', playerId, instanceId: context.instance.meta.instanceId, buildingId });
-    }
-    const result = context.instance.deconstructBuildingInstance(buildingId, {
-        treasureVaultRecovered: true,
-        timeChamberReleased: true,
-    });
+    const result = await deconstructBuildingWithSpecialLifecycle(runtime, context.instance, building, 'deconstruct');
     return recordBuildingOperation(runtime, operationKey, {
         requestId,
         ok: result?.ok === true,
         reason: result?.ok === true ? undefined : result?.reason ?? 'deconstruct_failed',
-        treasureVaultRecoveryMailId: recovery.mailId,
-        treasureVaultRecoveredItems: recovery.itemCount,
+        treasureVaultRecoveryMailId: result.mailId,
+        treasureVaultRecoveredItems: result.itemCount,
     }, { action: 'deconstruct', playerId, instanceId: context.instance.meta.instanceId, buildingId });
+}
+
+/** GM 拆除仍复用宝库返还、密室释放、lease 校验与分域刷盘，不返还建造材料。 */
+export async function handleGmBuildDeconstruct(runtime, instanceIdInput, buildingIdInput) {
+    const instanceId = normalizeBuildingRequestId(instanceIdInput);
+    const buildingId = normalizeBuildingRequestId(buildingIdInput);
+    const instance = instanceId ? runtime.getInstanceRuntime?.(instanceId) : null;
+    if (!instance) {
+        return { ok: false, reason: 'instance_not_found' };
+    }
+    if (typeof runtime.isInstanceLeaseWritable === 'function' && !runtime.isInstanceLeaseWritable(instance)) {
+        return { ok: false, reason: 'instance_lease_not_local' };
+    }
+    const domains = ['building', 'tile_cell', 'tile_damage', 'room', 'fengshui'];
+    let result = null;
+    const mutate = async () => {
+        if (typeof runtime.isInstanceLeaseWritable === 'function' && !runtime.isInstanceLeaseWritable(instance)) {
+            return { ok: false, reason: 'instance_lease_not_local' };
+        }
+        const building = instance.buildingById?.get?.(buildingId) ?? null;
+        if (!building) {
+            return { ok: false, reason: 'building_not_found' };
+        }
+        const buildingSnapshot = {
+            id: building.id,
+            defId: building.defId,
+            name: resolveBuildingDisplayName(instance, building),
+            x: building.x,
+            y: building.y,
+        };
+        const removed = await deconstructBuildingWithSpecialLifecycle(runtime, instance, building, 'gm_deconstruct');
+        return removed.ok === true ? { ...removed, building: buildingSnapshot } : removed;
+    };
+    if (typeof instance.runExclusivePersistenceDomainMutation === 'function') {
+        result = await instance.runExclusivePersistenceDomainMutation(domains, mutate);
+    }
+    else {
+        result = await mutate();
+    }
+    if (result?.ok === true && typeof runtime.flushInstanceDomains === 'function') {
+        await runtime.flushInstanceDomains(instanceId, domains);
+    }
+    return result ?? { ok: false, reason: 'building_deconstruct_failed' };
+}
+
+async function deconstructBuildingWithSpecialLifecycle(runtime, instance, building, reason) {
+    const recovery = await recoverTreasureVaultItemsBeforeDeconstruct(runtime, instance, building, reason);
+    if (recovery.ok !== true) {
+        return { ok: false, reason: recovery.reason ?? 'treasure_vault_recovery_failed' };
+    }
+    const chamberRelease = await releaseTimeChamberBeforeDeconstruct(runtime, instance, building);
+    if (chamberRelease.ok !== true) {
+        return { ok: false, reason: chamberRelease.reason ?? 'time_chamber_release_failed' };
+    }
+    const result = instance.deconstructBuildingInstance(building.id, {
+        treasureVaultRecovered: true,
+        timeChamberReleased: true,
+    });
+    return {
+        ok: result?.ok === true,
+        reason: result?.ok === true ? undefined : result?.reason ?? 'deconstruct_failed',
+        mailId: recovery.mailId,
+        itemCount: recovery.itemCount,
+    };
 }
 
 async function releaseTimeChamberBeforeDeconstruct(runtime, instance, building) {
@@ -493,6 +546,15 @@ export function notifyBuildingConstructionCompletion(runtime, building) {
             { vars: { buildingName }, pills: [{ key: 'buildingName', style: 'target' }] },
         );
         runtime.queuePlayerNotice(playerId, notice.text, notice.kind, undefined, undefined, notice.structured);
+    }
+    if (building?.defId === 'time_chamber' && typeof runtime?.timeChamberRuntimeService?.ensurePersistentChamberForBuilding === 'function') {
+        void runtime.timeChamberRuntimeService.ensurePersistentChamberForBuilding(
+            building.instanceId,
+            building.id,
+            runtime,
+        ).catch((error) => {
+            runtime.logger?.warn?.(`密室完工后常驻实例创建失败：${building.instanceId}/${building.id} ${error instanceof Error ? error.message : String(error)}`);
+        });
     }
     return 0;
 }

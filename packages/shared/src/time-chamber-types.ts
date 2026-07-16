@@ -7,10 +7,22 @@ export const TIME_CHAMBER_MIN_USAGE_HOURS = 1;
 export const TIME_CHAMBER_MAX_USAGE_HOURS = 168;
 export const TIME_CHAMBER_MAX_CAPACITY = 100;
 
+export const TIME_CHAMBER_SIZE_OPTIONS: Readonly<Record<TimeChamberSizeTier, Readonly<{
+  width: number;
+  height: number;
+  expansionRings: number;
+  costMultiplierPercent: number;
+}>>> = Object.freeze({
+  small: Object.freeze({ width: 3, height: 3, expansionRings: 0, costMultiplierPercent: 100 }),
+  medium: Object.freeze({ width: 5, height: 5, expansionRings: 1, costMultiplierPercent: 150 }),
+  large: Object.freeze({ width: 7, height: 7, expansionRings: 2, costMultiplierPercent: 225 }),
+});
+
 export interface TimeChamberSizeOptionView {
   tier: TimeChamberSizeTier;
   width: number;
   height: number;
+  costMultiplierPercent: number;
 }
 
 export interface TimeChamberSummaryView {
@@ -45,6 +57,7 @@ export interface TimeChamberManagementDetailView extends TimeChamberSummaryView 
   allowedSizes: TimeChamberSizeOptionView[];
   operatingCostSpiritStonesPerHour: number;
   settingsLocked: boolean;
+  hasBuildings: boolean;
 }
 
 export type TimeChamberPanelMode = 'usage' | 'management';
@@ -107,20 +120,27 @@ export function calculateTimeChamberBaseOperatingCost(speedInput: number): numbe
 }
 
 /** 每增加一个容量位置，运行成本在线性基础上增加 80%。 */
-export function calculateTimeChamberOperatingCostPerHour(speedInput: number, capacityInput: number): number {
+export function calculateTimeChamberOperatingCostPerHour(
+  speedInput: number,
+  capacityInput: number,
+  sizeTierInput: TimeChamberSizeTier = 'small',
+): number {
   const baseCost = calculateTimeChamberBaseOperatingCost(speedInput);
   const capacity = Math.max(1, Math.min(TIME_CHAMBER_MAX_CAPACITY, Math.trunc(Number(capacityInput) || 1)));
-  return baseCost * (5 + 4 * (capacity - 1)) / 5;
+  const capacityCost = baseCost * (5 + 4 * (capacity - 1)) / 5;
+  const size = TIME_CHAMBER_SIZE_OPTIONS[sizeTierInput] ?? TIME_CHAMBER_SIZE_OPTIONS.small;
+  return Math.ceil(capacityCost * size.costMultiplierPercent / 100);
 }
 
 export function calculateTimeChamberActivationCost(
   speedInput: number,
   capacityInput: number,
   durationHoursInput: number,
+  sizeTierInput: TimeChamberSizeTier = 'small',
 ): number {
   const durationHours = Math.max(
     TIME_CHAMBER_MIN_USAGE_HOURS,
     Math.min(TIME_CHAMBER_MAX_USAGE_HOURS, Math.trunc(Number(durationHoursInput) || TIME_CHAMBER_MIN_USAGE_HOURS)),
   );
-  return calculateTimeChamberOperatingCostPerHour(speedInput, capacityInput) * durationHours;
+  return calculateTimeChamberOperatingCostPerHour(speedInput, capacityInput, sizeTierInput) * durationHours;
 }

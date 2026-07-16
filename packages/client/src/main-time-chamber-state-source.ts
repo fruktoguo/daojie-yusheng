@@ -64,6 +64,7 @@ const FAILURE_TEXT: Record<string, string> = {
   time_chamber_capacity_exceeds_size: '请先降低最大人数再缩小空间',
   time_chamber_occupied: '密室有人时不能调整空间',
   time_chamber_not_empty: '密室内部存在对象，暂时不能调整空间',
+  time_chamber_has_buildings: '密室内已有建筑，不能再调整空间大小',
   time_chamber_revision_conflict: '密室状态已变化，请重新操作',
   time_chamber_operation_failed: '密室操作暂未完成，请稍后重试',
   time_chamber_activation_failed: '密室开启失败，请稍后重试',

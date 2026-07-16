@@ -3704,6 +3704,18 @@ export interface GmWorldInstanceSummary {
   mapGroupName?: string;
   mapGroupOrder?: number;
   mapGroupMemberOrder?: number;
+  /** 密室等附属实例绑定的入口地图实例。 */
+  parentInstanceId?: string;
+  /** 附属实例绑定的入口建筑。 */
+  parentBuildingId?: string;
+  parentDisplayName?: string;
+  /** GM 世界管理中的父子实例组。 */
+  linkedGroupRootInstanceId?: string;
+  linkedGroupDisplayName?: string;
+  linkedGroupOrder?: number;
+  linkedGroupLinePreset?: GmWorldInstanceLinePreset;
+  /** 运行时实例领域类型。 */
+  kind?: string;
   /**
  * templateId：地图模板 ID 标识。
  */
@@ -3929,6 +3941,9 @@ export interface GmWorldInstanceRuntimeRes extends GmMapRuntimeRes {
  */
 
   instanceName: string;
+  parentInstanceId?: string;
+  parentBuildingId?: string;
+  parentDisplayName?: string;
   /**
  * templateId：地图模板 ID 标识。
  */

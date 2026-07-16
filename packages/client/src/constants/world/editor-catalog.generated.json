@@ -10554,6 +10554,27 @@
       "desc": "药力专碎命宫旧痕。使用后会立刻重置天门，清掉当前已开出的灵根结果，并额外增加 1 次逆天改命累计；同时消耗当前境界修为的 25%。至少需在叩仙门境界使用。"
     },
     {
+      "itemId": "mat.void_boundary_crystal",
+      "name": "太虚界晶",
+      "type": "material",
+      "grade": "heaven",
+      "level": 42,
+      "materialCategory": "exotic",
+      "materialValues": {
+        "elements": {
+          "metal": 60,
+          "wood": 60,
+          "water": 60,
+          "fire": 60,
+          "earth": 60
+        }
+      },
+      "desc": "虚空边界偶然凝成的五行界晶，能够锚定一方独立空间，是营造密室的核心异材。",
+      "tags": [
+        "异材"
+      ]
+    },
+    {
       "itemId": "mantis_blade",
       "name": "螳锋",
       "type": "material",

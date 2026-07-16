@@ -99,6 +99,11 @@ function findConflictAtCell(
   y: number,
 ): BuildingProtectedPlacementConflictReason | null {
   const runtime = instance as any;
+  if (runtime?.meta?.kind === 'time_chamber') {
+    return x === context.spawnX && y === context.spawnY
+      ? BUILDING_PROTECTED_PLACEMENT_CONFLICT_REASONS.spawn
+      : null;
+  }
   if (typeof runtime?.getSafeZoneAtTile === 'function' && runtime.getSafeZoneAtTile(x, y)) {
     return BUILDING_PROTECTED_PLACEMENT_CONFLICT_REASONS.safeZone;
   }

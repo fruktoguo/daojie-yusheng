@@ -176,7 +176,10 @@ export class WorldRuntimeLifecycleService {
     bootstrapPublicInstances(deps) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        for (const template of deps.templateRepository.list()) {
+        const bootstrapTemplates = typeof deps.templateRepository.listBootstrapTemplates === 'function'
+            ? deps.templateRepository.listBootstrapTemplates()
+            : deps.templateRepository.list();
+        for (const template of bootstrapTemplates) {
             if (template?.source?.sectMap === true || String(template?.id ?? '').startsWith('sect_domain:')) {
                 continue;
             }

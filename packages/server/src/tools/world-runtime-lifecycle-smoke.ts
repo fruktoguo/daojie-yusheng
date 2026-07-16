@@ -17,8 +17,15 @@ function testBootstrapPublicInstances() {
  * @returns 无返回值，完成结果的读取/组装。
  */
 
-            list() {
+            listBootstrapTemplates() {
                 return [{ id: 'yunlai_town' }, { id: 'forest_1' }];
+            },
+            list() {
+                return [
+                    { id: 'yunlai_town' },
+                    { id: 'forest_1' },
+                    { id: 'time-chamber-template:runtime-only' },
+                ];
             },
         },        
         /**

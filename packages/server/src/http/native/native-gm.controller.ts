@@ -609,6 +609,30 @@ export class NativeGmController {
     return this.nextGmWorldService.getWorldInstanceBuildingState(instanceId);
   }
 
+  @Delete('world/instances/:instanceId/buildings/:buildingId')
+  destroyWorldInstanceBuilding(
+    @Param('instanceId') instanceId: string,
+    @Param('buildingId') buildingId: string,
+    @Req() request: unknown,
+  ) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.world.instances.buildings.destroy',
+      request,
+      targetType: 'world_building',
+      targetId: `${instanceId}/${buildingId}`,
+    }, () => this.nextGmWorldService.destroyWorldInstanceBuilding(instanceId, buildingId));
+  }
+
+  @Delete('world/instances/:instanceId')
+  destroyWorldInstance(@Param('instanceId') instanceId: string, @Req() request: unknown) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.world.instances.destroy',
+      request,
+      targetType: 'world_instance',
+      targetId: instanceId,
+    }, () => this.nextGmWorldService.destroyWorldInstance(instanceId));
+  }
+
   @Get('world/instances/:instanceId/rooms')
   getWorldInstanceRooms(@Param('instanceId') instanceId: string) {
     return this.nextGmWorldService.getWorldInstanceBuildingState(instanceId);

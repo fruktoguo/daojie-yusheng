@@ -65,6 +65,14 @@ function isSectRuntimeInstance(instance: Pick<GmWorldInstanceSummary, 'instanceI
   return isSectTemplateId(instance.templateId) && instance.instanceId.startsWith('sect:');
 }
 
+function isTimeChamberRuntimeInstance(
+  instance: Pick<GmWorldInstanceSummary, 'instanceId' | 'templateId' | 'parentInstanceId'>,
+): boolean {
+  return Boolean(instance.parentInstanceId)
+    || instance.instanceId.startsWith('time-chamber:')
+    || instance.templateId.startsWith('time-chamber-template:');
+}
+
 function isTongtianTowerInstance(instance: Pick<GmWorldInstanceSummary, 'instanceId' | 'templateId'>): boolean {
   return instance.instanceId.startsWith('tower:tongtian:layer:')
     || instance.templateId.startsWith('tongtian_tower_layer_');
@@ -92,6 +100,9 @@ function buildInstanceLineBadge(instance: GmWorldInstanceSummary): string {
   if (isSectRuntimeInstance(instance)) {
     return '宗门';
   }
+  if (isTimeChamberRuntimeInstance(instance)) {
+    return '密室';
+  }
   return instance.defaultEntry ? '默认线' : '手动线';
 }
 
@@ -102,10 +113,17 @@ function resolveInstanceListTab(instance: GmWorldInstanceSummary): GmWorldInstan
   if (isSectRuntimeInstance(instance)) {
     return 'sect';
   }
+  if (isTimeChamberRuntimeInstance(instance)) {
+    if (instance.parentInstanceId?.startsWith('sect:')) return 'sect';
+    return instance.linkedGroupLinePreset === 'real' || instance.parentInstanceId?.startsWith('real:') ? 'real' : 'void';
+  }
   return instance.linePreset === 'real' ? 'real' : 'void';
 }
 
 function resolveInstanceGroupKey(instance: GmWorldInstanceSummary): string {
+  if (instance.linkedGroupRootInstanceId) {
+    return `linked|||${instance.linkedGroupRootInstanceId}`;
+  }
   if (isTongtianTowerInstance(instance)) {
     return 'tower|||通天塔';
   }
@@ -118,6 +136,9 @@ function resolveInstanceGroupKey(instance: GmWorldInstanceSummary): string {
 }
 
 function resolveInstanceGroupTitle(instance: GmWorldInstanceSummary): string {
+  if (instance.linkedGroupRootInstanceId) {
+    return instance.linkedGroupDisplayName || instance.parentDisplayName || instance.displayName || '关联实例';
+  }
   if (isTongtianTowerInstance(instance)) {
     return '通天塔';
   }
@@ -133,6 +154,10 @@ function compareWorldInstancesForGmList(left: GmWorldInstanceSummary, right: GmW
     const layerGap = parseTongtianTowerLayer(left) - parseTongtianTowerLayer(right);
     if (layerGap !== 0) return layerGap;
     return left.instanceId.localeCompare(right.instanceId);
+  }
+  if (left.linkedGroupRootInstanceId && left.linkedGroupRootInstanceId === right.linkedGroupRootInstanceId) {
+    const linkedOrderGap = (left.linkedGroupOrder ?? 0) - (right.linkedGroupOrder ?? 0);
+    if (linkedOrderGap !== 0) return linkedOrderGap;
   }
   const lineGap = (left.linePreset === 'peaceful' ? 0 : 1) - (right.linePreset === 'peaceful' ? 0 : 1);
   if (lineGap !== 0) return lineGap;
@@ -153,6 +178,9 @@ function buildInstanceCapabilityText(instance: GmWorldInstanceSummary): string {
   }
   if (isSectRuntimeInstance(instance)) {
     return `宗门 · ${instance.supportsPvp ? 'PVP' : '禁PVP'} · ${instance.canDamageTile ? '可打地块' : '禁地块攻击'}`;
+  }
+  if (isTimeChamberRuntimeInstance(instance)) {
+    return `密室 · 持久实例 · ${instance.width}×${instance.height}`;
   }
   return `${instance.templateName} · ${instance.linePreset === 'peaceful' ? '和平' : '真实'} · ${instance.supportsPvp ? 'PVP' : '禁PVP'} · ${instance.canDamageTile ? '可打地块' : '禁地块攻击'}`;
 }
@@ -980,6 +1008,7 @@ export class GmWorldViewer {
         button.style.width = '100%';
         button.style.textAlign = 'left';
         button.style.marginBottom = '4px';
+        button.style.paddingLeft = instance.parentInstanceId ? '20px' : '';
         button.innerHTML = `
           <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;">
             <span style="display:flex;align-items:center;gap:6px;min-width:0;">

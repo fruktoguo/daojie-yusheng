@@ -155,6 +155,7 @@ export class TimeChamberUsageModal {
       this.detail.configuredSpeed,
       this.detail.capacity,
       this.durationHours,
+      this.detail.sizeTier,
     );
     setField(shell, 'total', `${formatDisplayNumber(total)} 灵石`);
     for (const button of shell.querySelectorAll<HTMLButtonElement>('[data-time-chamber-duration-action]')) {
@@ -263,6 +264,7 @@ function buildUsageShell(detail: TimeChamberUsageDetailView, durationHours: numb
     detail.configuredSpeed,
     detail.capacity,
     durationHours,
+    detail.sizeTier,
   ))} 灵石`);
   return shell;
 }

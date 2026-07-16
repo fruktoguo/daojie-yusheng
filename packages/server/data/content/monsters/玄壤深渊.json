@@ -287,6 +287,13 @@
         "type": "material",
         "count": 1,
         "chance": 0.4
+      },
+      {
+        "itemId": "mat.void_boundary_crystal",
+        "name": "太虚界晶",
+        "type": "material",
+        "count": 1,
+        "chance": 0.001
       }
     ],
     "attrTendency": {
@@ -368,6 +375,13 @@
         "type": "material",
         "count": 1,
         "chance": 0.08
+      },
+      {
+        "itemId": "mat.void_boundary_crystal",
+        "name": "太虚界晶",
+        "type": "material",
+        "count": 1,
+        "chance": 0.001
       }
     ],
     "attrTendency": {

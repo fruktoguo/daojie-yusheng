@@ -569,6 +569,8 @@ class MapInstanceRuntime {
             clusterId: request.clusterId ?? null,
             shardKey: request.shardKey ?? request.instanceId,
             routeDomain: request.routeDomain ?? null,
+            parentInstanceId: request.parentInstanceId ?? null,
+            parentBuildingId: request.parentBuildingId ?? null,
             destroyAt: request.destroyAt ?? null,
             lastActiveAt: request.lastActiveAt ?? null,
             lastPersistedAt: request.lastPersistedAt ?? null,
@@ -3296,6 +3298,12 @@ class MapInstanceRuntime {
                 y: player.y,
             })),
         };
+        if (typeof this.meta.parentInstanceId === 'string' && this.meta.parentInstanceId.trim()) {
+            snapshot.parentInstanceId = this.meta.parentInstanceId;
+        }
+        if (typeof this.meta.parentBuildingId === 'string' && this.meta.parentBuildingId.trim()) {
+            snapshot.parentBuildingId = this.meta.parentBuildingId;
+        }
         if (typeof this.meta.destroyAt === 'string' && this.meta.destroyAt.trim()) {
             snapshot.destroyAt = this.meta.destroyAt;
         }

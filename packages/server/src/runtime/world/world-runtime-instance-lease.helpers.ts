@@ -82,7 +82,11 @@ export async function registerManagedInstanceCatalog(runtime, instanceId, instan
     return;
   }
   const templateId = instance?.template?.id ?? instance?.templateId ?? '';
-  const kind = typeof instance?.kind === 'string' && instance.kind.trim() ? instance.kind.trim() : 'public';
+  const kind = typeof instance?.meta?.kind === 'string' && instance.meta.kind.trim()
+    ? instance.meta.kind.trim()
+    : typeof instance?.kind === 'string' && instance.kind.trim()
+      ? instance.kind.trim()
+      : 'public';
   const persistentPolicy = normalizeRuntimeInstancePersistentPolicy(
     instance?.meta?.persistentPolicy
     ?? (instance?.meta?.persistent === true || instance?.persistent === true ? 'persistent' : 'ephemeral'),

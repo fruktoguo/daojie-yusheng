@@ -8,7 +8,7 @@
  * 编排世界运行时查询、地图实例创建/迁移/冻结/重建、玩家迁移、
  * 性能计数器重置、tick/时间配置修改等 GM 操作。
  */
-import { BadRequestException, Inject, Injectable, Logger, Optional, ServiceUnavailableException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Logger, NotFoundException, Optional, ServiceUnavailableException } from '@nestjs/common';
 import { MAX_INSTANCE_TICK_SPEED, type GmCreateWorldInstanceReq, type GmListPlayersQuery, type GmPlayerListRes, type GmTransferPlayerToInstanceReq, type GmWorldInstanceLinePreset } from '@mud/shared';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { MapTemplateRepository } from '../../runtime/map/map-template.repository';
@@ -167,7 +167,10 @@ interface WorldRuntimeGmQueueLike {
 interface ManagedRuntimeInstanceLike {
   snapshot(): unknown;
   listPlayerIds?(): string[];
+  buildingById?: Map<string, unknown>;
+  template?: { id?: string };
   meta?: {
+    kind?: string | null;
     assignedNodeId?: string | null;
     leaseToken?: string | null;
     leaseExpireAt?: string | null;
@@ -198,6 +201,9 @@ interface WorldRuntimeServiceLike {
     mapGroupName?: string;
     mapGroupOrder?: number;
     mapGroupMemberOrder?: number;
+    kind?: string;
+    parentInstanceId?: string;
+    parentBuildingId?: string;
     linePreset?: GmWorldInstanceLinePreset;
     lineIndex?: number;
     instanceOrigin?: 'bootstrap' | 'gm_manual';
@@ -218,6 +224,20 @@ interface WorldRuntimeServiceLike {
   waitForInstanceLeaseReady?(instanceId: string): Promise<void>;
   instanceReadyForPlayerAttach?(instanceId: string): { ok: boolean; reason?: string };
   destroyEmptyManagedInstance?(instanceId: string, reason?: string): Promise<{ ok: boolean; reason?: string }>;
+  handleGmBuildDeconstruct?(instanceId: string, buildingId: string): Promise<{ ok?: boolean; reason?: string; building?: unknown }>;
+  isInstanceLeaseWritable?(instance: unknown): boolean;
+  timeChamberRuntimeService?: {
+    getInstanceBinding?(instanceId: string): {
+      sourceInstanceId: string;
+      buildingId: string;
+      chamberInstanceId: string;
+    } | null;
+    prepareDeconstruct?(
+      sourceInstanceId: string,
+      buildingId: string,
+      runtime: WorldRuntimeServiceLike,
+    ): Promise<{ ok: boolean; reason?: string }>;
+  };
   listInstanceRuntimes(): Iterable<Record<string, unknown>>;
   listInstanceEntries(): Iterable<[string, Record<string, unknown>]>;
   getInstanceCount(): number;
@@ -622,16 +642,106 @@ export class NativeGmWorldService {
       }
     }
     const offlineHangingCounts = await this.loadOfflineHangingCountsByInstance(runtimePlayerIds);
+    const instanceById = new Map(runtimeInstances.map((instance) => [instance.instanceId, instance]));
+    const childOrderByInstanceId = new Map<string, number>();
+    const childrenByParentId = new Map<string, typeof runtimeInstances>();
+    for (const instance of runtimeInstances) {
+      const parentInstanceId = normalizeOptionalString((instance as { parentInstanceId?: unknown }).parentInstanceId);
+      if (!parentInstanceId) continue;
+      const children = childrenByParentId.get(parentInstanceId) ?? [];
+      children.push(instance);
+      childrenByParentId.set(parentInstanceId, children);
+    }
+    for (const children of childrenByParentId.values()) {
+      children.sort((left, right) => (
+        String(left.displayName ?? '').localeCompare(String(right.displayName ?? ''), 'zh-Hans-CN')
+        || left.instanceId.localeCompare(right.instanceId)
+      ));
+      children.forEach((child, index) => childOrderByInstanceId.set(child.instanceId, index + 1));
+    }
     return {
       instances: runtimeInstances
-        .map((instance) => ({
-          ...instance,
-          playerCount: Math.max(0, Math.trunc(Number(instance.playerCount) || 0))
-            + (offlineHangingCounts.get(instance.instanceId) ?? 0),
-        }))
+        .map((instance) => {
+          const parentInstanceId = normalizeOptionalString((instance as { parentInstanceId?: unknown }).parentInstanceId);
+          const isLinkedParent = childrenByParentId.has(instance.instanceId);
+          const groupRootInstanceId = parentInstanceId ?? (isLinkedParent ? instance.instanceId : null);
+          const parent = groupRootInstanceId ? instanceById.get(groupRootInstanceId) : null;
+          return {
+            ...instance,
+            ...(groupRootInstanceId ? {
+              linkedGroupRootInstanceId: groupRootInstanceId,
+              linkedGroupDisplayName: parent?.displayName ?? parent?.templateName ?? groupRootInstanceId,
+              linkedGroupOrder: parentInstanceId ? childOrderByInstanceId.get(instance.instanceId) ?? 1 : 0,
+              linkedGroupLinePreset: parent?.linePreset ?? instance.linePreset,
+              ...(parentInstanceId ? { parentDisplayName: parent?.displayName ?? parent?.templateName ?? parentInstanceId } : {}),
+            } : {}),
+            playerCount: Math.max(0, Math.trunc(Number(instance.playerCount) || 0))
+              + (offlineHangingCounts.get(instance.instanceId) ?? 0),
+          };
+        })
         .slice()
         .sort(compareWorldInstanceSummary),
     };
+  }
+
+  async destroyWorldInstanceBuilding(instanceIdInput: string, buildingIdInput: string) {
+    const instanceId = normalizeRequiredString(instanceIdInput);
+    const buildingId = normalizeRequiredString(buildingIdInput);
+    if (!instanceId || !buildingId) {
+      throw new BadRequestException('实例 ID 和建筑 ID 不能为空');
+    }
+    if (typeof this.worldRuntimeService.handleGmBuildDeconstruct !== 'function') {
+      throw new ServiceUnavailableException('GM 建筑销毁能力不可用');
+    }
+    const result = await this.worldRuntimeService.handleGmBuildDeconstruct(instanceId, buildingId);
+    if (result?.ok !== true) {
+      if (result?.reason === 'instance_not_found' || result?.reason === 'building_not_found') {
+        throw new NotFoundException(result.reason);
+      }
+      throw new BadRequestException(result?.reason ?? 'building_deconstruct_failed');
+    }
+    return { ok: true, instanceId, buildingId, building: result.building ?? null };
+  }
+
+  async destroyWorldInstance(instanceIdInput: string) {
+    const instanceId = normalizeRequiredString(instanceIdInput);
+    const instance = instanceId ? this.worldRuntimeService.getInstanceRuntime?.(instanceId) ?? null : null;
+    if (!instanceId || !instance) {
+      throw new NotFoundException(`目标实例不存在：${instanceId || instanceIdInput}`);
+    }
+    const binding = this.worldRuntimeService.timeChamberRuntimeService?.getInstanceBinding?.(instanceId) ?? null;
+    if (binding) {
+      const source = this.worldRuntimeService.getInstanceRuntime?.(binding.sourceInstanceId) ?? null;
+      if (source?.buildingById?.get?.(binding.buildingId)) {
+        const removed = await this.destroyWorldInstanceBuilding(binding.sourceInstanceId, binding.buildingId);
+        return { ...removed, instanceId, cascadedEntranceBuilding: true };
+      }
+      const released = await this.worldRuntimeService.timeChamberRuntimeService?.prepareDeconstruct?.(
+        binding.sourceInstanceId,
+        binding.buildingId,
+        this.worldRuntimeService,
+      );
+      if (released?.ok !== true) {
+        throw new BadRequestException(released?.reason ?? 'time_chamber_release_failed');
+      }
+      return { ok: true, instanceId, cascadedEntranceBuilding: false };
+    }
+    const snapshot = typeof instance.snapshot === 'function' ? instance.snapshot() as Record<string, unknown> : {};
+    const templateId = normalizeRequiredString(snapshot.templateId ?? instance.template?.id);
+    const kind = normalizeRequiredString(snapshot.kind ?? instance.meta?.kind);
+    const invalidChamberBootstrap = templateId.startsWith('time-chamber-template:')
+      && (instanceId.startsWith('public:') || instanceId.startsWith('real:'));
+    if (kind === 'time_chamber' && !invalidChamberBootstrap) {
+      throw new BadRequestException('time_chamber_binding_missing');
+    }
+    if (snapshot.defaultEntry === true && !invalidChamberBootstrap) {
+      throw new BadRequestException('default_instance_destroy_forbidden');
+    }
+    const destroyed = await this.worldRuntimeService.destroyEmptyManagedInstance?.(instanceId, 'gm_instance_destroy');
+    if (destroyed?.ok !== true) {
+      throw new BadRequestException(destroyed?.reason ?? 'instance_destroy_failed');
+    }
+    return { ok: true, instanceId, invalidChamberBootstrapRemoved: invalidChamberBootstrap };
   }
   /**
  * getWorldInstanceRuntime：读取实例运行态。
@@ -1382,6 +1492,15 @@ function parseRequiredLinePreset(input: unknown): GmWorldInstanceLinePreset {
     throw new BadRequestException('分线预设必须是和平线或真实线');
   }
   return input as GmWorldInstanceLinePreset;
+}
+
+function normalizeRequiredString(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function normalizeOptionalString(value: unknown): string | null {
+  const normalized = normalizeRequiredString(value);
+  return normalized || null;
 }
 
 function normalizePersistedMapTickSpeed(value: unknown): number | undefined {

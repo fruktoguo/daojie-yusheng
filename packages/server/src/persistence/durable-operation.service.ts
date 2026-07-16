@@ -6739,11 +6739,12 @@ async function activateDurableTimeChamber(
     chamber_instance_id?: unknown;
     capacity?: unknown;
     configured_speed?: unknown;
+    size_tier?: unknown;
     active_expires_at_ms?: unknown;
     revision?: unknown;
     now_ms?: unknown;
   }>(
-    `SELECT chamber_instance_id, capacity, configured_speed,
+    `SELECT chamber_instance_id, capacity, configured_speed, size_tier,
             active_expires_at_ms, revision,
             floor(extract(epoch FROM clock_timestamp()) * 1000)::bigint AS now_ms
        FROM instance_time_chamber_state
@@ -6768,6 +6769,7 @@ async function activateDurableTimeChamber(
     configuredSpeed,
     capacity,
     mutation.durationHours,
+    normalizeTimeChamberSizeTier(state.size_tier),
   );
   if (!Number.isSafeInteger(chargedSpiritStones) || chargedSpiritStones !== mutation.chargedSpiritStones) {
     throw new Error('time_chamber_price_changed');
@@ -6966,6 +6968,10 @@ function normalizeOptionalInteger(value: unknown): number | null {
 function normalizeSafeInteger(value: unknown): number {
   const numeric = Number(value);
   return Number.isSafeInteger(numeric) && numeric >= 0 ? numeric : 0;
+}
+
+function normalizeTimeChamberSizeTier(value: unknown): 'small' | 'medium' | 'large' {
+  return value === 'medium' || value === 'large' ? value : 'small';
 }
 
 function normalizeOptionalString(value: unknown): string | null {

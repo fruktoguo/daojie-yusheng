@@ -42,6 +42,10 @@
 | GET players | 玩家列表 |
 | GET world/summary | 世界摘要 |
 | GET world/objects | 世界对象 |
+| GET world/instances | 世界实例列表；附属密室按入口地图返回父子分组字段 |
+| GET world/instances/:id/buildings | 获取指定实例的建筑、房间和风水状态 |
+| DELETE world/instances/:id/buildings/:buildingId | 按建筑特殊生命周期销毁建筑并立即刷盘 |
+| DELETE world/instances/:id | 通过实例目录 lease/epoch 围栏销毁空实例；有效密室级联入口建筑 |
 | POST world/instances/:id/freeze | 冻结实例 |
 | POST shortcuts/world/cleanup-abnormal-temporary-tiles | 扫描运行时地图并清理异常临时石头 |
 | POST shortcuts/compat/orphan-sect-building-visuals/dry-run | 只读预检宗门历史孤儿门窗投影，并交叉核对数据库与本节点运行态 |

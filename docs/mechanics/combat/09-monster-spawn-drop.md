@@ -74,6 +74,7 @@ rollMonsterDrops(monsterId, rolls, lootRateBonus, rareLootRateBonus, context):
 - lootRate/rareLootRate 来自玩家属性 numericStats
 - rareLootRate 仅对 baseChance ≤ 0.001 的稀有物品生效
 - 同物品多次掉落时 count 累加
+- 筑基阶段三名 `demon_king` Boss（焚木妖王、玄壤地龙、五行噬脉兽）各自独立以 `0.001` 基础概率掉落 1 枚「太虚界晶」，用于建造密室。
 
 ### 自动货币掉落
 
