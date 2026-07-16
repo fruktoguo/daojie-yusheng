@@ -15,6 +15,7 @@
 | [GM系统运维手册](gm-system.md) | GM 登录失败、操作无响应、密码更新 |
 | [Worker Pool 运维手册](worker-pool.md) | Worker 崩溃、主线程 CPU 未下降、降级定位 |
 | [Heap Snapshot 摘要诊断](heap-snapshot-summary.md) | 内存泄漏定位、RSS 异常增长 |
+| [服务端进程监督与自动恢复](server-process-supervisor.md) | Node 进程退出、启动卡死、事件循环卡死、无 YAML 自动恢复 |
 
 ## 紧急命令速查
 

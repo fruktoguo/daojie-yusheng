@@ -28,6 +28,8 @@ docker stats $(docker ps -q -f name=daojie-yusheng_server)
 | 连接池耗尽 | 日志有 connection timeout | 重启服务，检查 DB 连接数 |
 | 死循环 | CPU 100% | 重启服务，检查最近部署变更 |
 
+当前镜像启用进程监督后，先在恢复后的 GM 日志中搜索 `进程监督恢复上下文`。其中的 `reason`、`code`、`signal`、`rssMb`、`peakRssMb` 和 `uptimeMs` 用于区分主动卡死恢复、普通异常退出与疑似 OOM；完整说明见 [服务端进程监督与自动恢复](server-process-supervisor.md)。
+
 ```bash
 # 恢复
 docker service update --force daojie-yusheng_server

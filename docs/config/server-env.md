@@ -82,6 +82,23 @@ SERVER_FLUSH_TASK_RUNTIME_MODE=worker
 
 `pnpm --filter @mud/server start:dev` 在本地开发环境且未显式设置上述两项时，会仅为开发进程自动使用 `all/inline`，避免只生产 flush ledger 而没有 worker 消费。
 
+## 进程监督与自动恢复
+
+生产镜像的 `dist/main.js` 默认作为轻量父监督器运行，并拉起实际 Nest 子进程。该机制不改变 Dockerfile 命令、YAML、端口或 api/worker 拆分；开发和测试环境默认直启应用。
+
+常用变量：
+
+| 变量 | 默认值 | 说明 |
+|------|--------|------|
+| `SERVER_PROCESS_SUPERVISOR_ENABLED` | 生产 `true` | 显式启停进程监督 |
+| `SERVER_PROCESS_SUPERVISOR_STARTUP_TIMEOUT_MS` | `180000` | 子进程启动 ready 超时 |
+| `SERVER_PROCESS_SUPERVISOR_HEARTBEAT_TIMEOUT_MS` | `30000` | 子进程事件循环心跳超时 |
+| `SERVER_PROCESS_SUPERVISOR_LIVENESS_FAILURE_THRESHOLD` | `6` | `/live` 连续失败触发恢复次数 |
+| `SERVER_PROCESS_SUPERVISOR_RESTART_MAX_DELAY_MS` | `30000` | 连续崩溃的最大退避时间 |
+| `SERVER_PROCESS_SUPERVISOR_JOURNAL_PATH` | 按节点生成 | 结构化监督事件日志路径 |
+
+完整默认值、故障边界和恢复流程见 [服务端进程监督与自动恢复](../runbook/server-process-supervisor.md)。
+
 ## 本地开发示例
 
 ```bash

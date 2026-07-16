@@ -42,6 +42,8 @@
 
 这属于商业级 Node 服务端的稳妥生产档位。Node runtime 和生产依赖不能删除；删除后 `node dist/main.js` 或 Nest、Socket.IO、PostgreSQL 驱动加载会失败。进一步压缩应作为独立优化处理，例如换 distroless/Wolfi runtime 或对 server 做 bundle，但需要重新验证健康检查、备份 worker、`pg_dump/psql`、TLS/DNS、日志和排障入口。
 
+镜像命令仍是 `node dist/main.js`。生产环境中的 `dist/main.js` 先作为轻量父监督器运行，再拉起 Nest 子进程；异常退出、启动卡死或事件循环卡死会在容器内自动恢复，不要求 CCR 自动更新器同步 YAML。具体见 [服务端进程监督与自动恢复](./runbook/server-process-supervisor.md)。
+
 ## 构建并推送镜像
 
 先登录腾讯云 CCR：

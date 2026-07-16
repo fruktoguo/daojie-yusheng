@@ -91,6 +91,13 @@ const descriptors: RuntimeEnvDescriptor[] = [
   { key: 'SERVER_GM_DATABASE_UPLOAD_MAX_BYTES', label: 'GM 上传大小上限', description: 'GM 数据库上传文件大小上限。', category: 'GM 与调试', restartRequired: true },
   { key: 'GM_DATABASE_UPLOAD_MAX_BYTES', label: 'GM 上传大小上限（兼容）', description: 'GM 数据库上传文件大小上限兼容别名。', category: 'GM 与调试', restartRequired: true },
   { key: 'SERVER_RUNTIME_RESTORE_ACTIVE', label: '恢复中标记', description: '内部恢复状态标记，只读。', category: '运维与恢复', editable: false, persistable: false, restartRequired: false },
+  { key: 'SERVER_PROCESS_SUPERVISOR_ENABLED', label: '进程监督器', description: '生产入口是否启用独立父进程监督。', category: '运维与恢复', editable: false, persistable: false, restartRequired: true },
+  { key: 'SERVER_PROCESS_SUPERVISOR_STARTUP_TIMEOUT_MS', label: '监督启动超时', description: '子进程未 ready 时触发恢复的毫秒数。', category: '运维与恢复', editable: false, persistable: false, restartRequired: true },
+  { key: 'SERVER_PROCESS_SUPERVISOR_HEARTBEAT_TIMEOUT_MS', label: '监督心跳超时', description: '子进程事件循环心跳失联阈值。', category: '运维与恢复', editable: false, persistable: false, restartRequired: true },
+  { key: 'SERVER_PROCESS_SUPERVISOR_LIVENESS_FAILURE_THRESHOLD', label: '监督存活失败阈值', description: '连续 liveness 失败多少次后触发恢复。', category: '运维与恢复', editable: false, persistable: false, restartRequired: true },
+  { key: 'SERVER_PROCESS_SUPERVISOR_RESTART_MAX_DELAY_MS', label: '监督最大退避', description: '连续异常退出时的最大重启等待。', category: '运维与恢复', editable: false, persistable: false, restartRequired: true },
+  { key: 'SERVER_PROCESS_SUPERVISOR_JOURNAL_PATH', label: '监督事件日志', description: '结构化进程监督事件日志路径。', category: '运维与恢复', editable: false, persistable: false, restartRequired: true },
+  { key: 'SERVER_PROCESS_SUPERVISOR_CHILD_OOM_SCORE_ADJ', label: '子进程 OOM 倾向', description: 'Linux 内存不足时游戏子进程的 OOM 选择倾向。', category: '运维与恢复', editable: false, persistable: false, restartRequired: true },
 ];
 
 export const RUNTIME_ENV_DESCRIPTOR_MAP = new Map(descriptors.map((item) => [item.key, item]));

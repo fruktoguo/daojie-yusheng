@@ -39,6 +39,8 @@ const status = runVerificationSteps({
         '--case',
         'readiness-gate',
         '--case',
+        'process-supervisor',
+        '--case',
         'runtime',
         '--case',
         'session',
