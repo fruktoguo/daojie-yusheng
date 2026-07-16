@@ -261,7 +261,7 @@ export class WorldRuntimeContextActionQueryService {
                             desc: '查看附近宝库，并按创建者设定的权限存取物品。',
                             cooldownLeft: 0,
                         });
-                        if (typeof building.ownerPlayerId === 'string' && building.ownerPlayerId.trim() === player.id) {
+                        if (typeof building.ownerPlayerId === 'string' && building.ownerPlayerId.trim() === view.playerId) {
                             actions.push({
                                 id: `treasure_vault:permissions:${encodedBuildingId}`,
                                 name: `设置权限：${buildingName}`,
@@ -293,7 +293,7 @@ export class WorldRuntimeContextActionQueryService {
                             desc: statusText,
                             cooldownLeft: 0,
                         });
-                        if (typeof building.ownerPlayerId === 'string' && building.ownerPlayerId.trim() === player.id) {
+                        if (typeof building.ownerPlayerId === 'string' && building.ownerPlayerId.trim() === view.playerId) {
                             actions.push({
                                 id: `time_chamber:management:${encodedBuildingId}`,
                                 name: `管理：${buildingName}`,

@@ -78,7 +78,7 @@ async function main(): Promise<void> {
   );
 
   const player = {
-    id: 'player:owner',
+    playerId: 'player:owner',
     instanceId: SOURCE_INSTANCE_ID,
     x: 3,
     y: 3,
@@ -99,7 +99,7 @@ async function main(): Promise<void> {
     defId: 'time_chamber',
     x: 4,
     y: 3,
-    ownerPlayerId: player.id,
+    ownerPlayerId: player.playerId,
     state: 'active',
   });
   assert.equal(placedChamber.ok, true);
@@ -123,7 +123,7 @@ async function main(): Promise<void> {
   const ownerUsageAction = contextActions.find((entry) => entry.id.startsWith('time_chamber:usage:'));
   assert.match(ownerUsageAction?.name ?? '', /^开启：/);
   assert.match(ownerUsageAction?.desc ?? '', /时间流速 .+使用人数/);
-  const visitorActions = buildContextActions({ ...player, id: 'player:visitor' }, instance, localBuildings);
+  const visitorActions = buildContextActions({ ...player, playerId: 'player:visitor' }, instance, localBuildings);
   assert.equal(
     visitorActions.some((entry) => entry.id.startsWith('time_chamber:usage:')),
     true,
@@ -236,7 +236,7 @@ function buildContextActions(player: any, instance: MapInstanceRuntime, localBui
     { buildNpcQuestContextAction: () => null } as any,
   );
   return service.buildContextActions({
-    playerId: player.id,
+    playerId: player.playerId,
     self: { x: player.x, y: player.y },
     instance: { instanceId: SOURCE_INSTANCE_ID },
     localBuildings,
