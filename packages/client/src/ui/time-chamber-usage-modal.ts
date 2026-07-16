@@ -22,6 +22,9 @@ export class TimeChamberUsageModal {
   private callbacks: TimeChamberUsageCallbacks | null = null;
   private durationHours = 1;
   private pending = false;
+  private detailIdentity = '';
+  private detailSignature = '';
+  private shell: HTMLElement | null = null;
 
   setCallbacks(callbacks: TimeChamberUsageCallbacks): void {
     this.callbacks = callbacks;
@@ -31,6 +34,9 @@ export class TimeChamberUsageModal {
     this.detail = null;
     this.durationHours = 1;
     this.pending = false;
+    this.detailIdentity = '';
+    this.detailSignature = '';
+    this.shell = null;
     detailModalHost.open({
       ownerId: MODAL_OWNER,
       variantClass: MODAL_VARIANT,
@@ -48,14 +54,23 @@ export class TimeChamberUsageModal {
   }
 
   showDetail(detail: TimeChamberUsageDetailView): void {
+    const identity = buildUsageDetailIdentity(detail);
+    if (this.detailIdentity !== identity) {
+      this.durationHours = detail.minUsageHours;
+      this.detailIdentity = identity;
+      this.detailSignature = '';
+    }
+    const nextSignature = buildUsageDetailSignature(detail);
+    const shell = this.getShell();
     this.detail = detail;
     this.durationHours = clampHours(this.durationHours, detail);
+    if (shell && nextSignature === this.detailSignature) return;
+    this.detailSignature = nextSignature;
     const subtitle = `${detail.configuredSpeed} 倍 · ${detail.occupancy}/${detail.capacity} 人`;
     if (!detailModalHost.isOpenFor(MODAL_OWNER)) {
       detailModalHost.open(this.buildModalOptions(detail, subtitle));
       return;
     }
-    const shell = document.querySelector<HTMLElement>('#detail-modal-body [data-time-chamber-usage-shell]');
     if (!shell) {
       detailModalHost.patch(this.buildModalOptions(detail, subtitle));
       return;
@@ -68,13 +83,16 @@ export class TimeChamberUsageModal {
 
   setPending(pending: boolean): void {
     this.pending = pending;
-    const shell = document.querySelector<HTMLElement>('#detail-modal-body [data-time-chamber-usage-shell]');
-    if (shell && detailModalHost.isOpenFor(MODAL_OWNER)) this.syncPending(shell);
+    const shell = this.getShell();
+    if (shell) this.syncPending(shell);
   }
 
   clear(): void {
     this.detail = null;
     this.pending = false;
+    this.detailIdentity = '';
+    this.detailSignature = '';
+    this.shell = null;
     detailModalHost.close(MODAL_OWNER);
   }
 
@@ -94,6 +112,7 @@ export class TimeChamberUsageModal {
       onAfterRender: (body: HTMLElement, signal: AbortSignal) => {
         const shell = body.querySelector<HTMLElement>('[data-time-chamber-usage-shell]');
         if (!shell) return;
+        this.shell = shell;
         shell.addEventListener('click', (event) => this.handleClick(event), { signal });
         this.syncPending(shell);
       },
@@ -116,7 +135,7 @@ export class TimeChamberUsageModal {
             ? current + 1
             : current * 2;
       this.durationHours = clampHours(next, this.detail);
-      const shell = document.querySelector<HTMLElement>('#detail-modal-body [data-time-chamber-usage-shell]');
+      const shell = this.getShell();
       if (shell) this.patchDuration(shell);
       return;
     }
@@ -160,6 +179,13 @@ export class TimeChamberUsageModal {
       enterButton.textContent = this.pending ? '处理中…' : '进入密室';
     }
     this.patchDuration(shell);
+  }
+
+  private getShell(): HTMLElement | null {
+    if (!detailModalHost.isOpenFor(MODAL_OWNER)) return null;
+    if (this.shell?.isConnected) return this.shell;
+    this.shell = document.querySelector<HTMLElement>('#detail-modal-body [data-time-chamber-usage-shell]');
+    return this.shell;
   }
 }
 
@@ -289,6 +315,29 @@ function setField(shell: HTMLElement, name: string, value: string): void {
 
 function clampHours(value: number, detail: TimeChamberUsageDetailView): number {
   return Math.max(detail.minUsageHours, Math.min(detail.maxUsageHours, Math.trunc(Number(value) || detail.minUsageHours)));
+}
+
+function buildUsageDetailIdentity(detail: TimeChamberUsageDetailView): string {
+  return `${detail.sourceInstanceId}\u0000${detail.buildingId}\u0000${detail.chamberInstanceId}`;
+}
+
+function buildUsageDetailSignature(detail: TimeChamberUsageDetailView): string {
+  return [
+    detail.displayName,
+    detail.sizeTier,
+    detail.width,
+    detail.height,
+    detail.capacity,
+    detail.occupancy,
+    detail.configuredSpeed,
+    detail.effectiveSpeed,
+    detail.active,
+    detail.activeUntil ?? '',
+    detail.revision,
+    detail.activationCostSpiritStonesPerHour,
+    detail.minUsageHours,
+    detail.maxUsageHours,
+  ].join('\u0000');
 }
 
 function formatDateTime(timestamp: number): string {

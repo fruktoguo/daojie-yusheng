@@ -50,6 +50,9 @@ const craftTransmissionView = read('src/ui/craft-transmission-view.ts');
 const npcShop = read('src/ui/npc-shop-modal.ts');
 const npcQuest = read('src/ui/npc-quest-modal.ts');
 const socialPanel = read('src/ui/panels/social-panel.ts');
+const timeChamberStateSource = read('src/main-time-chamber-state-source.ts');
+const timeChamberManagement = read('src/ui/time-chamber-console-modal.ts');
+const timeChamberUsage = read('src/ui/time-chamber-usage-modal.ts');
 const panelsCss = read('src/styles/panels.css');
 
 const marketUpdate = section(
@@ -449,5 +452,58 @@ assertIncludes(
   /else if \(inventoryChanged && this\.detail && !this\.depositPickerOpen\) \{\s*this\.patchVaultDepositState\(\);\s*\}/s,
   '宝库背包变化只能局部更新存入入口',
 );
+
+const timeChamberOpen = section(
+  timeChamberStateSource,
+  '  const open = (mode: TimeChamberPanelMode, buildingId: string): void => {',
+  '  return {',
+  'MainTimeChamberStateSource.open',
+);
+assertIncludes(timeChamberOpen, /activePanelTarget\?\.mode === mode/, '重复触发同一密室交互不得重新打开加载态');
+assertIncludes(timeChamberOpen, /&& isActiveModalOpen\(\)\s*\) \{\s*return;/s, '已打开的同一密室面板必须保持稳定壳体');
+assertIncludes(
+  timeChamberStateSource,
+  /result\.ok && \(result\.operation === 'settings' \|\| result\.operation === 'resize'\)[\s\S]*?showDetail\(result\.managementDetail, acceptedOperation\)/,
+  '密室管理状态源必须只在成功操作回包后确认对应草稿',
+);
+
+const timeChamberManagementDetail = section(
+  timeChamberManagement,
+  '  showDetail(detail: TimeChamberManagementDetailView, acceptedOperation: TimeChamberAcceptedOperation = null): void {',
+  '  setPending(operation: TimeChamberOperationKind, pending: boolean): void {',
+  'TimeChamberConsoleModal.showDetail',
+);
+assertIncludes(timeChamberManagementDetail, /nextSignature === this\.detailSignature/, '密室管理重复详情回包必须零 DOM 写入');
+assertIncludes(timeChamberManagementDetail, /patchDetailFields\(shell, detail, this\.settingsDraft, this\.sizeDraft\)/, '密室管理刷新必须使用本地草稿 patch 稳定控件');
+assertMissing(timeChamberManagementDetail, /replaceChildren\(/, '密室管理详情刷新不得替换弹层 body');
+assertMissing(timeChamberManagement, /document\.activeElement/, '密室管理不能只保护当前焦点，已编辑但失焦的字段也必须保留');
+
+const timeChamberDraftCapture = section(
+  timeChamberManagement,
+  '  private captureDraftChange(event: Event): void {',
+  '  private reconcileDraft(',
+  'TimeChamberConsoleModal.captureDraftChange',
+);
+assertIncludes(timeChamberDraftCapture, /this\.dirtySettings\.add\(target\.name\)/, '密室管理必须逐字段记录未提交草稿');
+assertIncludes(timeChamberDraftCapture, /this\.sizeDirty = target\.value !== this\.detail\.sizeTier/, '密室空间选择必须独立保留未提交草稿');
+
+const timeChamberDraftReconcile = section(
+  timeChamberManagement,
+  '  private reconcileDraft(',
+  '  private resetDraftState(): void {',
+  'TimeChamberConsoleModal.reconcileDraft',
+);
+assertIncludes(timeChamberDraftReconcile, /acceptedOperation === 'settings'/, '密室配置只能在服务端成功回包后确认草稿');
+assertIncludes(timeChamberDraftReconcile, /!this\.dirtySettings\.has\(field\)/, '密室管理轮询只能覆盖未编辑字段');
+
+const timeChamberUsageDetail = section(
+  timeChamberUsage,
+  '  showDetail(detail: TimeChamberUsageDetailView): void {',
+  '  setPending(pending: boolean): void {',
+  'TimeChamberUsageModal.showDetail',
+);
+assertIncludes(timeChamberUsageDetail, /nextSignature === this\.detailSignature/, '密室开启重复详情回包必须零 DOM 写入');
+assertIncludes(timeChamberUsageDetail, /this\.durationHours = clampHours\(this\.durationHours, detail\)/, '密室开启刷新必须保留当前时长草稿');
+assertMissing(timeChamberUsageDetail, /replaceChildren\(/, '密室开启详情刷新不得替换弹层 body');
 
 console.log('high-frequency UI continuity check passed');

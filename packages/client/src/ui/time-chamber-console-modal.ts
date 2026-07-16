@@ -17,6 +17,14 @@ type TimeChamberSettingsDraft = {
   capacity: number;
 };
 
+type TimeChamberSettingsInputDraft = {
+  name: string;
+  speed: string;
+  capacity: string;
+};
+
+type TimeChamberAcceptedOperation = 'settings' | 'resize' | null;
+
 type TimeChamberConsoleCallbacks = {
   onClose(): void;
   onSaveSettings(settings: TimeChamberSettingsDraft): void;
@@ -27,6 +35,13 @@ export class TimeChamberConsoleModal {
   private detail: TimeChamberManagementDetailView | null = null;
   private callbacks: TimeChamberConsoleCallbacks | null = null;
   private readonly pendingOperations = new Set<TimeChamberOperationKind>();
+  private readonly dirtySettings = new Set<keyof TimeChamberSettingsInputDraft>();
+  private settingsDraft: TimeChamberSettingsInputDraft | null = null;
+  private sizeDraft: TimeChamberSizeTier | null = null;
+  private sizeDirty = false;
+  private detailIdentity = '';
+  private detailSignature = '';
+  private shell: HTMLElement | null = null;
 
   setCallbacks(callbacks: TimeChamberConsoleCallbacks): void {
     this.callbacks = callbacks;
@@ -35,6 +50,8 @@ export class TimeChamberConsoleModal {
   openPending(): void {
     this.detail = null;
     this.pendingOperations.clear();
+    this.resetDraftState();
+    this.shell = null;
     detailModalHost.open({
       ownerId: MODAL_OWNER,
       variantClass: MODAL_VARIANT,
@@ -51,33 +68,44 @@ export class TimeChamberConsoleModal {
     });
   }
 
-  showDetail(detail: TimeChamberManagementDetailView): void {
+  showDetail(detail: TimeChamberManagementDetailView, acceptedOperation: TimeChamberAcceptedOperation = null): void {
+    const identity = buildDetailIdentity(detail);
+    if (this.detailIdentity !== identity) {
+      this.resetDraftState();
+      this.detailIdentity = identity;
+    }
+    this.reconcileDraft(detail, acceptedOperation);
+    const nextSignature = buildManagementDetailSignature(detail);
+    const shell = this.getShell();
     this.detail = detail;
+    if (shell && nextSignature === this.detailSignature && acceptedOperation === null) return;
+    this.detailSignature = nextSignature;
     const subtitle = `${detail.configuredSpeed} 倍 · ${detail.occupancy}/${detail.capacity} 人`;
     if (!detailModalHost.isOpenFor(MODAL_OWNER)) {
       detailModalHost.open(this.buildModalOptions(detail, subtitle));
       return;
     }
-    const shell = document.querySelector<HTMLElement>('#detail-modal-body [data-time-chamber-management-shell]');
     if (!shell) {
       detailModalHost.patch(this.buildModalOptions(detail, subtitle));
       return;
     }
     detailModalHost.patch({ ownerId: MODAL_OWNER, title: detail.displayName, subtitle });
-    patchDetailFields(shell, detail);
+    patchDetailFields(shell, detail, this.settingsDraft, this.sizeDraft);
     this.syncPendingButtons(shell);
   }
 
   setPending(operation: TimeChamberOperationKind, pending: boolean): void {
     if (pending) this.pendingOperations.add(operation);
     else this.pendingOperations.delete(operation);
-    const shell = document.querySelector<HTMLElement>('#detail-modal-body [data-time-chamber-management-shell]');
-    if (shell && detailModalHost.isOpenFor(MODAL_OWNER)) this.syncPendingButtons(shell);
+    const shell = this.getShell();
+    if (shell) this.syncPendingButtons(shell);
   }
 
   clear(): void {
     this.detail = null;
     this.pendingOperations.clear();
+    this.resetDraftState();
+    this.shell = null;
     detailModalHost.close(MODAL_OWNER);
   }
 
@@ -93,11 +121,18 @@ export class TimeChamberConsoleModal {
       size: 'md' as const,
       subtitle,
       onClose: () => this.callbacks?.onClose(),
-      renderBody: (body: HTMLElement) => body.replaceChildren(buildConsoleShell(detail)),
+      renderBody: (body: HTMLElement) => body.replaceChildren(buildConsoleShell(
+        detail,
+        this.settingsDraft ?? buildSettingsInputDraft(detail),
+        this.sizeDraft ?? detail.sizeTier,
+      )),
       onAfterRender: (body: HTMLElement, signal: AbortSignal) => {
         const shell = body.querySelector<HTMLElement>('[data-time-chamber-management-shell]');
         if (!shell) return;
+        this.shell = shell;
         shell.addEventListener('submit', (event) => this.handleSubmit(event), { signal });
+        shell.addEventListener('input', (event) => this.captureDraftChange(event), { signal });
+        shell.addEventListener('change', (event) => this.captureDraftChange(event), { signal });
         this.syncPendingButtons(shell);
       },
     };
@@ -141,9 +176,63 @@ export class TimeChamberConsoleModal {
       button.textContent = pending ? '处理中…' : button.dataset.idleLabel ?? '确认';
     }
   }
+
+  private captureDraftChange(event: Event): void {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement || target instanceof HTMLSelectElement) || !this.detail) return;
+    const authoritative = buildSettingsInputDraft(this.detail);
+    if (target.name === 'name' || target.name === 'speed' || target.name === 'capacity') {
+      this.settingsDraft = this.settingsDraft ?? authoritative;
+      this.settingsDraft[target.name] = target.value;
+      if (target.value === authoritative[target.name]) this.dirtySettings.delete(target.name);
+      else this.dirtySettings.add(target.name);
+      return;
+    }
+    if (target.name === 'sizeTier' && isSizeTier(target.value)) {
+      this.sizeDraft = target.value;
+      this.sizeDirty = target.value !== this.detail.sizeTier;
+    }
+  }
+
+  private reconcileDraft(detail: TimeChamberManagementDetailView, acceptedOperation: TimeChamberAcceptedOperation): void {
+    const authoritative = buildSettingsInputDraft(detail);
+    if (acceptedOperation === 'settings') this.dirtySettings.clear();
+    this.settingsDraft = this.settingsDraft ?? authoritative;
+    for (const field of ['name', 'speed', 'capacity'] as const) {
+      if (this.dirtySettings.has(field) && this.settingsDraft[field] === authoritative[field]) {
+        this.dirtySettings.delete(field);
+      }
+      if (!this.dirtySettings.has(field)) this.settingsDraft[field] = authoritative[field];
+    }
+    if (acceptedOperation === 'resize') this.sizeDirty = false;
+    if (!this.sizeDirty || this.sizeDraft === detail.sizeTier) {
+      this.sizeDirty = false;
+      this.sizeDraft = detail.sizeTier;
+    }
+  }
+
+  private resetDraftState(): void {
+    this.settingsDraft = null;
+    this.sizeDraft = null;
+    this.sizeDirty = false;
+    this.dirtySettings.clear();
+    this.detailIdentity = '';
+    this.detailSignature = '';
+  }
+
+  private getShell(): HTMLElement | null {
+    if (!detailModalHost.isOpenFor(MODAL_OWNER)) return null;
+    if (this.shell?.isConnected) return this.shell;
+    this.shell = document.querySelector<HTMLElement>('#detail-modal-body [data-time-chamber-management-shell]');
+    return this.shell;
+  }
 }
 
-function buildConsoleShell(detail: TimeChamberManagementDetailView): HTMLElement {
+function buildConsoleShell(
+  detail: TimeChamberManagementDetailView,
+  settingsDraft: TimeChamberSettingsInputDraft,
+  sizeDraft: TimeChamberSizeTier,
+): HTMLElement {
   const shell = document.createElement('div');
   shell.className = 'time-chamber-console time-chamber-management';
   shell.dataset.timeChamberManagementShell = 'true';
@@ -160,22 +249,22 @@ function buildConsoleShell(detail: TimeChamberManagementDetailView): HTMLElement
   const controls = document.createElement('div');
   controls.className = 'time-chamber-control-grid';
   controls.append(
-    buildSettingsSection(detail),
-    buildResizeSection(detail),
+    buildSettingsSection(detail, settingsDraft),
+    buildResizeSection(detail, sizeDraft),
   );
   shell.append(metrics, controls);
-  patchDetailFields(shell, detail);
+  patchDetailFields(shell, detail, settingsDraft, sizeDraft);
   return shell;
 }
 
-function buildSettingsSection(detail: TimeChamberManagementDetailView): HTMLElement {
+function buildSettingsSection(detail: TimeChamberManagementDetailView, draft: TimeChamberSettingsInputDraft): HTMLElement {
   const form = document.createElement('form');
   form.className = 'time-chamber-settings-form';
   form.dataset.timeChamberForm = 'settings';
   form.append(
-    buildLabeledInput('名称', 'name', 'text', detail.displayName, { max: 20 }),
-    buildSpeedField(detail),
-    buildLabeledInput('最大人数', 'capacity', 'number', String(detail.capacity), { min: 1, max: detail.maxCapacity }),
+    buildLabeledInput('名称', 'name', 'text', draft.name, { max: 20 }),
+    buildSpeedField(detail, draft.speed),
+    buildLabeledInput('最大人数', 'capacity', 'number', draft.capacity, { min: 1, max: detail.maxCapacity }),
   );
   const lock = document.createElement('p');
   lock.className = 'time-chamber-setting-lock';
@@ -185,7 +274,7 @@ function buildSettingsSection(detail: TimeChamberManagementDetailView): HTMLElem
   return buildControlSection('密室配置', form, true);
 }
 
-function buildResizeSection(detail: TimeChamberManagementDetailView): HTMLElement {
+function buildResizeSection(detail: TimeChamberManagementDetailView, sizeDraft: TimeChamberSizeTier): HTMLElement {
   const form = document.createElement('form');
   form.className = 'time-chamber-form';
   form.dataset.timeChamberForm = 'resize';
@@ -193,7 +282,7 @@ function buildResizeSection(detail: TimeChamberManagementDetailView): HTMLElemen
   select.className = 'ui-input';
   select.name = 'sizeTier';
   select.dataset.sizeSignature = buildSizeSignature(detail);
-  appendSizeOptions(select, detail);
+  appendSizeOptions(select, detail, sizeDraft);
   form.append(select, buildSubmitButton('resize', '调整空间'));
   return buildControlSection('空间大小', form);
 }
@@ -244,7 +333,7 @@ function buildLabeledInput(
   return label;
 }
 
-function buildSpeedField(detail: TimeChamberManagementDetailView): HTMLElement {
+function buildSpeedField(detail: TimeChamberManagementDetailView, draftSpeed: string): HTMLElement {
   const label = document.createElement('label');
   label.className = 'time-chamber-setting-field';
   const caption = document.createElement('span');
@@ -256,6 +345,7 @@ function buildSpeedField(detail: TimeChamberManagementDetailView): HTMLElement {
     const option = document.createElement('option');
     option.value = String(speed);
     option.textContent = `${speed} 倍`;
+    option.selected = option.value === draftSpeed;
     select.append(option);
   }
   label.append(caption, select);
@@ -275,7 +365,12 @@ function buildMetric(labelText: string, field: string): HTMLElement {
   return metric;
 }
 
-function patchDetailFields(shell: HTMLElement, detail: TimeChamberManagementDetailView): void {
+function patchDetailFields(
+  shell: HTMLElement,
+  detail: TimeChamberManagementDetailView,
+  settingsDraft: TimeChamberSettingsInputDraft | null,
+  sizeDraft: TimeChamberSizeTier | null,
+): void {
   setField(shell, 'speed', detail.configuredSpeed === detail.effectiveSpeed
     ? `${detail.effectiveSpeed} 倍`
     : `设定 ${detail.configuredSpeed} 倍 / 当前 ${detail.effectiveSpeed} 倍`);
@@ -284,9 +379,9 @@ function patchDetailFields(shell: HTMLElement, detail: TimeChamberManagementDeta
   setField(shell, 'active-until', detail.activeUntil ? formatDateTime(detail.activeUntil) : '未激活');
   setField(shell, 'settings-lock', detail.settingsLocked ? '运行期间倍率与容量保持不变' : '');
 
-  const active = document.activeElement;
-  patchInput(shell, 'name', detail.displayName, active);
-  patchInput(shell, 'capacity', String(detail.capacity), active);
+  const draft = settingsDraft ?? buildSettingsInputDraft(detail);
+  patchInput(shell, 'name', draft.name);
+  patchInput(shell, 'capacity', draft.capacity);
   const capacity = shell.querySelector<HTMLInputElement>('input[name="capacity"]');
   if (capacity) {
     capacity.max = String(detail.maxCapacity);
@@ -294,7 +389,7 @@ function patchDetailFields(shell: HTMLElement, detail: TimeChamberManagementDeta
   }
   const speed = shell.querySelector<HTMLSelectElement>('select[name="speed"]');
   if (speed) {
-    if (active !== speed) speed.value = String(detail.configuredSpeed);
+    if (speed.value !== draft.speed) speed.value = draft.speed;
     speed.disabled = detail.settingsLocked;
   }
   const size = shell.querySelector<HTMLSelectElement>('select[name="sizeTier"]');
@@ -302,17 +397,18 @@ function patchDetailFields(shell: HTMLElement, detail: TimeChamberManagementDeta
     const signature = buildSizeSignature(detail);
     if (size.dataset.sizeSignature !== signature) {
       size.replaceChildren();
-      appendSizeOptions(size, detail);
+      appendSizeOptions(size, detail, sizeDraft ?? detail.sizeTier);
       size.dataset.sizeSignature = signature;
     }
-    if (active !== size) size.value = detail.sizeTier;
+    const nextSize = sizeDraft ?? detail.sizeTier;
+    if (size.value !== nextSize) size.value = nextSize;
     size.disabled = detail.settingsLocked || detail.occupancy > 0;
   }
 }
 
-function patchInput(shell: HTMLElement, name: string, value: string, active: Element | null): void {
+function patchInput(shell: HTMLElement, name: string, value: string): void {
   const input = shell.querySelector<HTMLInputElement>(`input[name="${name}"]`);
-  if (input && active !== input && input.value !== value) input.value = value;
+  if (input && input.value !== value) input.value = value;
 }
 
 function setField(shell: HTMLElement, name: string, value: string): void {
@@ -320,18 +416,57 @@ function setField(shell: HTMLElement, name: string, value: string): void {
   if (element && element.textContent !== value) element.textContent = value;
 }
 
-function appendSizeOptions(select: HTMLSelectElement, detail: TimeChamberManagementDetailView): void {
+function appendSizeOptions(
+  select: HTMLSelectElement,
+  detail: TimeChamberManagementDetailView,
+  selectedTier: TimeChamberSizeTier,
+): void {
   for (const size of detail.allowedSizes) {
     const option = document.createElement('option');
     option.value = size.tier;
     option.textContent = `${sizeTierLabel(size.tier)}（${size.width}×${size.height}）`;
-    option.selected = size.tier === detail.sizeTier;
+    option.selected = size.tier === selectedTier;
     select.append(option);
   }
 }
 
 function buildSizeSignature(detail: TimeChamberManagementDetailView): string {
   return detail.allowedSizes.map((size) => `${size.tier}:${size.width}:${size.height}`).join('|');
+}
+
+function buildSettingsInputDraft(detail: TimeChamberManagementDetailView): TimeChamberSettingsInputDraft {
+  return {
+    name: detail.displayName,
+    speed: String(detail.configuredSpeed),
+    capacity: String(detail.capacity),
+  };
+}
+
+function buildDetailIdentity(detail: TimeChamberManagementDetailView): string {
+  return `${detail.sourceInstanceId}\u0000${detail.buildingId}\u0000${detail.chamberInstanceId}`;
+}
+
+function buildManagementDetailSignature(detail: TimeChamberManagementDetailView): string {
+  return [
+    detail.displayName,
+    detail.sizeTier,
+    detail.width,
+    detail.height,
+    detail.capacity,
+    detail.occupancy,
+    detail.configuredSpeed,
+    detail.effectiveSpeed,
+    detail.active,
+    detail.activeUntil ?? '',
+    detail.revision,
+    detail.minSpeed,
+    detail.maxSpeed,
+    detail.maxCapacity,
+    detail.operatingCostSpiritStonesPerHour,
+    detail.settingsLocked,
+    detail.isOwner,
+    buildSizeSignature(detail),
+  ].join('\u0000');
 }
 
 function sizeTierLabel(tier: TimeChamberSizeTier): string {

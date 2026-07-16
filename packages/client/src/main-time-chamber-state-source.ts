@@ -27,6 +27,12 @@ type MainTimeChamberStateSourceOptions = {
 
 type AnyDetail = TimeChamberUsageDetailView | TimeChamberManagementDetailView;
 
+type ActivePanelTarget = {
+  mode: TimeChamberPanelMode;
+  sourceInstanceId: string;
+  buildingId: string;
+};
+
 const FAILURE_TEXT: Record<string, string> = {
   request_id_required: '密室请求已失效，请重新操作',
   invalid_time_chamber_panel_mode: '密室面板类型无效',
@@ -67,6 +73,7 @@ export function createMainTimeChamberStateSource(options: MainTimeChamberStateSo
   let activeMode: TimeChamberPanelMode | null = null;
   let usageDetail: TimeChamberUsageDetailView | null = null;
   let managementDetail: TimeChamberManagementDetailView | null = null;
+  let activePanelTarget: ActivePanelTarget | null = null;
   let activeDetailRequest: { requestId: string; mode: TimeChamberPanelMode } | null = null;
   let refreshTimer: ReturnType<typeof setInterval> | null = null;
   let detailRequestTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -128,7 +135,10 @@ export function createMainTimeChamberStateSource(options: MainTimeChamberStateSo
   const clearModal = (mode: TimeChamberPanelMode): void => {
     if (mode === 'usage') options.usageModal.clear();
     else options.managementModal.clear();
-    if (activeMode === mode) activeMode = null;
+    if (activeMode === mode) {
+      activeMode = null;
+      activePanelTarget = null;
+    }
   };
 
   const setPending = (operation: TimeChamberOperationKind, pending: boolean): void => {
@@ -169,6 +179,7 @@ export function createMainTimeChamberStateSource(options: MainTimeChamberStateSo
   const closePanel = (mode: TimeChamberPanelMode): void => {
     if (activeMode !== mode) return;
     activeMode = null;
+    activePanelTarget = null;
     usageDetail = null;
     managementDetail = null;
     clearDetailRequest();
@@ -225,9 +236,18 @@ export function createMainTimeChamberStateSource(options: MainTimeChamberStateSo
       options.showToast('当前无法定位密室入口', 'warn');
       return;
     }
+    if (
+      activePanelTarget?.mode === mode
+      && activePanelTarget.sourceInstanceId === player.instanceId
+      && activePanelTarget.buildingId === normalizedBuildingId
+      && isActiveModalOpen()
+    ) {
+      return;
+    }
     usageDetail = null;
     managementDetail = null;
     activeMode = mode;
+    activePanelTarget = { mode, sourceInstanceId: player.instanceId, buildingId: normalizedBuildingId };
     clearDetailRequest();
     clearMutationRequests();
     if (mode === 'usage') options.usageModal.openPending();
@@ -269,7 +289,12 @@ export function createMainTimeChamberStateSource(options: MainTimeChamberStateSo
       }
       if (result.managementDetail) {
         managementDetail = result.managementDetail;
-        if (activeMode === 'management' && options.managementModal.isOpen()) options.managementModal.showDetail(result.managementDetail);
+        const acceptedOperation = result.ok && (result.operation === 'settings' || result.operation === 'resize')
+          ? result.operation
+          : null;
+        if (activeMode === 'management' && options.managementModal.isOpen()) {
+          options.managementModal.showDetail(result.managementDetail, acceptedOperation);
+        }
       }
       if (!result.ok) {
         options.showToast(FAILURE_TEXT[result.reason ?? ''] ?? '密室操作失败，请稍后重试', 'warn');
@@ -298,6 +323,7 @@ export function createMainTimeChamberStateSource(options: MainTimeChamberStateSo
 
     clear(): void {
       activeMode = null;
+      activePanelTarget = null;
       usageDetail = null;
       managementDetail = null;
       clearDetailRequest();
