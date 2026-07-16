@@ -3624,6 +3624,35 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     try {
       await client.query('BEGIN');
       await acquireInstanceDomainLock(client, normalizedInstanceId);
+      const stateExists = await client.query(
+        `
+          SELECT EXISTS (
+            SELECT 1 FROM ${INSTANCE_TILE_RESOURCE_STATE_TABLE} WHERE instance_id = $1
+            UNION ALL SELECT 1 FROM ${INSTANCE_TILE_DAMAGE_STATE_TABLE} WHERE instance_id = $1
+            UNION ALL SELECT 1 FROM ${INSTANCE_TEMPORARY_TILE_STATE_TABLE} WHERE instance_id = $1
+            UNION ALL SELECT 1 FROM ${INSTANCE_CHECKPOINT_TABLE} WHERE instance_id = $1
+            UNION ALL SELECT 1 FROM ${INSTANCE_RECOVERY_WATERMARK_TABLE} WHERE instance_id = $1
+            UNION ALL SELECT 1 FROM ${INSTANCE_GROUND_ITEM_TABLE} WHERE instance_id = $1
+            UNION ALL SELECT 1 FROM ${INSTANCE_CONTAINER_STATE_TABLE} WHERE instance_id = $1
+            UNION ALL SELECT 1 FROM ${INSTANCE_CONTAINER_ENTRY_TABLE} WHERE instance_id = $1
+            UNION ALL SELECT 1 FROM ${INSTANCE_CONTAINER_TIMER_TABLE} WHERE instance_id = $1
+            UNION ALL SELECT 1 FROM ${INSTANCE_MONSTER_RUNTIME_STATE_TABLE} WHERE instance_id = $1
+            UNION ALL SELECT 1 FROM ${INSTANCE_EVENT_STATE_TABLE} WHERE instance_id = $1
+            UNION ALL SELECT 1 FROM ${INSTANCE_OVERLAY_CHUNK_TABLE} WHERE instance_id = $1
+            UNION ALL SELECT 1 FROM ${INSTANCE_BUILDING_CELL_TABLE} WHERE instance_id = $1
+            UNION ALL SELECT 1 FROM ${INSTANCE_BUILDING_STATE_TABLE} WHERE instance_id = $1
+            UNION ALL SELECT 1 FROM ${INSTANCE_ROOM_CELL_TABLE} WHERE instance_id = $1
+            UNION ALL SELECT 1 FROM ${INSTANCE_ROOM_STATE_TABLE} WHERE instance_id = $1
+            UNION ALL SELECT 1 FROM ${INSTANCE_FENGSHUI_STATE_TABLE} WHERE instance_id = $1
+            LIMIT 1
+          ) AS has_state
+        `,
+        [normalizedInstanceId],
+      );
+      if (stateExists.rows?.[0]?.has_state !== true) {
+        await client.query('COMMIT');
+        return 0;
+      }
       const statements = [
         `DELETE FROM ${INSTANCE_TILE_RESOURCE_STATE_TABLE} WHERE instance_id = $1`,
         `DELETE FROM ${INSTANCE_TILE_DAMAGE_STATE_TABLE} WHERE instance_id = $1`,

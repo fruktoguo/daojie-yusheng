@@ -487,6 +487,30 @@ export class InstanceCatalogService implements OnModuleInit {
     return Array.isArray(result.rows) ? (result.rows as Record<string, unknown>[]) : [];
   }
 
+  /** 按稳定游标分页读取需要清理子表状态的 tombstone 实例。 */
+  async listPurgeableInstanceCatalogEntries(input: {
+    afterInstanceId?: string | null;
+    limit?: number;
+  } = {}): Promise<Record<string, unknown>[]> {
+    if (!this.pool || !this.enabled) {
+      return [];
+    }
+    const afterInstanceId = typeof input.afterInstanceId === 'string' ? input.afterInstanceId.trim() : '';
+    const limit = Math.max(1, Math.min(128, Math.trunc(Number(input.limit) || 32)));
+    const result = await this.pool.query(
+      `
+        SELECT instance_id, status, runtime_status
+        FROM ${INSTANCE_CATALOG_TABLE}
+        WHERE (status = 'destroyed' OR runtime_status = 'stopped')
+          AND instance_id > $1
+        ORDER BY instance_id ASC
+        LIMIT $2
+      `,
+      [afterInstanceId, limit],
+    );
+    return Array.isArray(result.rows) ? (result.rows as Record<string, unknown>[]) : [];
+  }
+
   async updateInstanceStatus(instanceId: string, status: string, runtimeStatus: string): Promise<void> {
     if (!this.pool || !this.enabled || !instanceId.trim()) {
       return;

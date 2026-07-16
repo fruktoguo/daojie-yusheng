@@ -164,6 +164,7 @@ const smokeCases = [
     { name: 'player-respawn', scriptFile: 'player-respawn-smoke.js' },
   { name: 'persistence', scriptFile: 'persistence-smoke.js', standalone: true },
   { name: 'player-persistence-flush', scriptFile: 'player-persistence-flush-smoke.js', standalone: true },
+  { name: 'player-counters-persistence', scriptFile: 'player-counters-persistence-smoke.js', standalone: true },
   { name: 'world-runtime-controller-lease-guard', scriptFile: 'world-runtime-controller-lease-guard-smoke.js', standalone: true },
   { name: 'player-domain-persistence', scriptFile: 'player-domain-persistence-smoke.js', standalone: true },
   { name: 'player-domain-recovery', scriptFile: 'player-domain-recovery-smoke.js', standalone: true },
@@ -266,6 +267,7 @@ const SMOKE_CASE_GROUPS = Object.freeze({
   ],
   'player-persistence-recovery': [
     'player-persistence-flush',
+    'player-counters-persistence',
     'player-domain-persistence',
     'player-domain-recovery',
     'player-runtime-persistence-roundtrip',
@@ -389,6 +391,7 @@ const LONG_RUNNING_SMOKE_CASES = new Set([
 ]);
 const DB_SMOKE_CASES = new Set([
     'persistence',
+    'player-counters-persistence',
     'player-domain-persistence',
     'player-domain-recovery',
     'player-anchor-checkpoint-flush-worker',

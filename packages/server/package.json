@@ -66,6 +66,7 @@
     "smoke:building-room-fengshui": "pnpm compile && node dist/tools/world-runtime-building-room-fengshui-smoke.js",
     "smoke:persistence": "pnpm compile && node dist/tools/persistence-smoke.js",
     "smoke:player-persistence-flush": "pnpm compile && node dist/tools/player-persistence-flush-smoke.js",
+    "smoke:player-counters-persistence": "pnpm compile && node dist/tools/player-counters-persistence-smoke.js",
     "smoke:player-domain-persistence": "pnpm compile && node dist/tools/player-domain-persistence-smoke.js",
     "smoke:player-domain-recovery": "pnpm compile && node dist/tools/player-domain-recovery-smoke.js",
     "smoke:name-visibility": "pnpm compile && node dist/tools/name-visibility-smoke.js",

@@ -6,7 +6,7 @@
 /**
  * 玩家通用 KV 计数器持久化服务。
  * 管理击杀数、逆天改命次数、历史最高境界等低频碎数据，
- * 内存缓存 + 异步单条落库，支持 increment/setMax 语义。
+ * 内存缓存 + 异步合并批量落库，支持 increment/setMax 语义。
  */
 import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import type { Pool } from 'pg';
@@ -16,17 +16,41 @@ import { DatabasePoolProvider } from './database-pool.provider';
 import { isRelationMissingError } from './pg-error-utils';
 
 const PLAYER_COUNTERS_TABLE = 'player_counters';
+const PLAYER_COUNTERS_FLUSH_DEBOUNCE_MS = 250;
+const PLAYER_COUNTERS_FLUSH_BATCH_SIZE = 256;
+const PLAYER_COUNTERS_RETRY_BASE_MS = 500;
+const PLAYER_COUNTERS_RETRY_MAX_MS = 30_000;
+const PLAYER_COUNTERS_SHUTDOWN_RETRY_LIMIT = 2;
+const PLAYER_COUNTERS_SHUTDOWN_RETRY_DELAY_MS = 250;
 
-/** 玩家计数器持久化服务：内存缓存 + 异步单条落库 */
+interface PendingCounterWrite {
+  value: number;
+  revision: number;
+}
+
+interface PendingCounterWriteSnapshot {
+  playerId: string;
+  key: string;
+  value: number;
+  revision: number;
+}
+
+/** 玩家计数器持久化服务：内存缓存 + 异步合并批量落库 */
 @Injectable()
 export class PlayerCountersPersistenceService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(PlayerCountersPersistenceService.name);
   /** player_id -> (counter_key -> value) */
   private readonly cache = new Map<string, Map<string, number>>();
-  private readonly pendingWrites = new Map<string, Promise<void>>();
+  /** player_id -> (counter_key -> latest dirty value) */
+  private readonly dirtyWrites = new Map<string, Map<string, PendingCounterWrite>>();
   private pool: Pool | null = null;
   private enabled = false;
   private recreating = false;
+  private dirtyWriteCount = 0;
+  private flushTimer: NodeJS.Timeout | null = null;
+  private flushInFlight: Promise<number> | null = null;
+  private retryAttempt = 0;
+  private stopping = false;
 
   constructor(@Inject(DatabasePoolProvider) private readonly databasePoolProvider: DatabasePoolProvider | null = null) {}
 
@@ -49,14 +73,41 @@ export class PlayerCountersPersistenceService implements OnModuleInit, OnModuleD
   }
 
   async onModuleDestroy(): Promise<void> {
-    const pending = Array.from(this.pendingWrites.values());
-    if (pending.length > 0) {
-      await Promise.allSettled(pending);
+    this.stopping = true;
+    this.clearFlushTimer();
+    const inFlight = this.flushInFlight;
+    if (inFlight) {
+      await inFlight.catch(() => undefined);
+    }
+    let shutdownFailureAttempt = 0;
+    while (this.dirtyWriteCount > 0 && this.pool && this.enabled) {
+      try {
+        await this.flushOneBatch();
+        this.retryAttempt = 0;
+        shutdownFailureAttempt = 0;
+      } catch (error: unknown) {
+        shutdownFailureAttempt += 1;
+        if (shutdownFailureAttempt < PLAYER_COUNTERS_SHUTDOWN_RETRY_LIMIT) {
+          this.logger.warn(
+            `player_counters 关机刷盘失败，准备重试：pending=${this.dirtyWriteCount} attempt=${shutdownFailureAttempt} error=${formatError(error)}`,
+          );
+          await sleep(PLAYER_COUNTERS_SHUTDOWN_RETRY_DELAY_MS);
+          continue;
+        }
+        this.logger.error(
+          `player_counters 关机刷盘失败，仍有 ${this.dirtyWriteCount} 项脏值保留在内存：${formatError(error)}`,
+        );
+        break;
+      }
     }
   }
 
   isEnabled(): boolean {
     return this.enabled;
+  }
+
+  getPendingWriteCount(): number {
+    return this.dirtyWriteCount;
   }
 
   /** 读取单个计数器值，不存在返回 0。 */
@@ -87,7 +138,7 @@ export class PlayerCountersPersistenceService implements OnModuleInit, OnModuleD
       this.cache.set(pid, map);
     }
     map.set(key, value);
-    this.persistSoon(pid, key, value);
+    this.markDirty(pid, key, value);
   }
 
   /** 递增计数器，返回递增后的值。 */
@@ -119,12 +170,10 @@ export class PlayerCountersPersistenceService implements OnModuleInit, OnModuleD
     if (!pid) {
       return;
     }
-    this.cache.delete(pid);
-    for (const key of Array.from(this.pendingWrites.keys())) {
-      if (key.startsWith(`${pid}:`)) {
-        this.pendingWrites.delete(key);
-      }
+    if (this.dirtyWrites.has(pid)) {
+      return;
     }
+    this.cache.delete(pid);
   }
 
   private async loadAll(): Promise<void> {
@@ -147,53 +196,135 @@ export class PlayerCountersPersistenceService implements OnModuleInit, OnModuleD
     }
   }
 
-  private persistSoon(playerId: string, key: string, value: number): void {
+  private markDirty(playerId: string, key: string, value: number): void {
     if (!this.pool || !this.enabled) return;
-    const writeKey = `${playerId}:${key}`;
-    const previous = this.pendingWrites.get(writeKey) ?? Promise.resolve();
-    const next = previous
-      .catch(() => undefined)
-      .then(() => this.persistOne(playerId, key, value));
-    this.pendingWrites.set(writeKey, next);
-    void next.catch((error: unknown) => {
-      this.logger.warn(`player_counters 落库失败 [${writeKey}]：${error instanceof Error ? error.message : String(error)}`);
-    }).finally(() => {
-      if (this.pendingWrites.get(writeKey) === next) {
-        this.pendingWrites.delete(writeKey);
-      }
-    });
+    let playerWrites = this.dirtyWrites.get(playerId);
+    if (!playerWrites) {
+      playerWrites = new Map();
+      this.dirtyWrites.set(playerId, playerWrites);
+    }
+    const pending = playerWrites.get(key);
+    if (pending) {
+      pending.value = value;
+      pending.revision += 1;
+    } else {
+      playerWrites.set(key, { value, revision: 1 });
+      this.dirtyWriteCount += 1;
+    }
+    this.scheduleFlush(PLAYER_COUNTERS_FLUSH_DEBOUNCE_MS);
   }
 
-  private async persistOne(playerId: string, key: string, value: number): Promise<void> {
-    if (!this.pool || !this.enabled) return;
+  private scheduleFlush(delayMs: number): void {
+    if (this.stopping || this.flushTimer || this.flushInFlight || this.dirtyWriteCount <= 0) {
+      return;
+    }
+    this.flushTimer = setTimeout(() => {
+      this.flushTimer = null;
+      this.startFlush();
+    }, Math.max(0, Math.trunc(delayMs)));
+    this.flushTimer.unref();
+  }
+
+  private startFlush(): void {
+    if (this.stopping || this.flushInFlight || this.dirtyWriteCount <= 0) {
+      return;
+    }
+    const run = this.flushOneBatch();
+    this.flushInFlight = run;
+    void this.observeFlush(run);
+  }
+
+  private async observeFlush(run: Promise<number>): Promise<void> {
+    let retryDelayMs = 0;
     try {
-      await this.pool.query(
-        `
-          INSERT INTO ${PLAYER_COUNTERS_TABLE}(player_id, counter_key, value, updated_at)
-          VALUES ($1, $2, $3, now())
-          ON CONFLICT (player_id, counter_key) DO UPDATE SET
-            value = EXCLUDED.value,
-            updated_at = now()
-        `,
-        [playerId, key, value],
+      await run;
+      this.retryAttempt = 0;
+    } catch (error: unknown) {
+      this.retryAttempt += 1;
+      retryDelayMs = resolveRetryDelayMs(this.retryAttempt);
+      this.logger.warn(
+        `player_counters 批量落库失败：pending=${this.dirtyWriteCount} attempt=${this.retryAttempt} retryInMs=${retryDelayMs} error=${formatError(error)}`,
       );
+    } finally {
+      if (this.flushInFlight === run) {
+        this.flushInFlight = null;
+      }
+      if (this.dirtyWriteCount > 0 && !this.stopping) {
+        this.scheduleFlush(retryDelayMs);
+      }
+    }
+  }
+
+  private async flushOneBatch(): Promise<number> {
+    if (!this.pool || !this.enabled || this.dirtyWriteCount <= 0) return 0;
+    const batch = this.collectDirtyBatch(PLAYER_COUNTERS_FLUSH_BATCH_SIZE);
+    if (batch.length === 0) return 0;
+    try {
+      await this.persistBatch(batch);
     } catch (error: unknown) {
       if (isRelationMissingError(error)) {
         await this.tryRecreateTable();
-        await this.pool.query(
-          `
-            INSERT INTO ${PLAYER_COUNTERS_TABLE}(player_id, counter_key, value, updated_at)
-            VALUES ($1, $2, $3, now())
-            ON CONFLICT (player_id, counter_key) DO UPDATE SET
-              value = EXCLUDED.value,
-              updated_at = now()
-          `,
-          [playerId, key, value],
-        );
-        return;
+        await this.persistBatch(batch);
+      } else {
+        throw error;
       }
-      throw error;
     }
+    this.acknowledgeBatch(batch);
+    return batch.length;
+  }
+
+  private collectDirtyBatch(limit: number): PendingCounterWriteSnapshot[] {
+    const batch: PendingCounterWriteSnapshot[] = [];
+    for (const [playerId, playerWrites] of this.dirtyWrites) {
+      for (const [key, pending] of playerWrites) {
+        batch.push({ playerId, key, value: pending.value, revision: pending.revision });
+        if (batch.length >= limit) {
+          return batch;
+        }
+      }
+    }
+    return batch;
+  }
+
+  private async persistBatch(batch: PendingCounterWriteSnapshot[]): Promise<void> {
+    if (!this.pool || !this.enabled || batch.length === 0) return;
+    await this.pool.query(
+      `
+        INSERT INTO ${PLAYER_COUNTERS_TABLE}(player_id, counter_key, value, updated_at)
+        SELECT input.player_id, input.counter_key, input.value, now()
+        FROM UNNEST($1::varchar[], $2::varchar[], $3::bigint[])
+          AS input(player_id, counter_key, value)
+        ON CONFLICT (player_id, counter_key) DO UPDATE SET
+          value = EXCLUDED.value,
+          updated_at = now()
+      `,
+      [
+        batch.map((entry) => entry.playerId),
+        batch.map((entry) => entry.key),
+        batch.map((entry) => entry.value),
+      ],
+    );
+  }
+
+  private acknowledgeBatch(batch: PendingCounterWriteSnapshot[]): void {
+    for (const entry of batch) {
+      const playerWrites = this.dirtyWrites.get(entry.playerId);
+      const pending = playerWrites?.get(entry.key);
+      if (!playerWrites || !pending || pending.revision !== entry.revision) {
+        continue;
+      }
+      playerWrites.delete(entry.key);
+      this.dirtyWriteCount = Math.max(0, this.dirtyWriteCount - 1);
+      if (playerWrites.size === 0) {
+        this.dirtyWrites.delete(entry.playerId);
+      }
+    }
+  }
+
+  private clearFlushTimer(): void {
+    if (!this.flushTimer) return;
+    clearTimeout(this.flushTimer);
+    this.flushTimer = null;
   }
 
   private async tryRecreateTable(): Promise<void> {
@@ -214,6 +345,19 @@ const EMPTY_MAP: ReadonlyMap<string, number> = new Map();
 
 function normalizeId(id: string): string {
   return typeof id === 'string' ? id.trim() : '';
+}
+
+function resolveRetryDelayMs(attempt: number): number {
+  const exponent = Math.max(0, Math.min(16, Math.trunc(attempt) - 1));
+  return Math.min(PLAYER_COUNTERS_RETRY_MAX_MS, PLAYER_COUNTERS_RETRY_BASE_MS * (2 ** exponent));
+}
+
+function formatError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function ensurePlayerCountersTable(pool: Pool): Promise<void> {

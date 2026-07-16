@@ -10,9 +10,19 @@ import { InstanceDomainPersistenceService } from '../../../persistence/instance-
 import { TreasureVaultRuntimeService } from '../../building/treasure-vault-runtime.service';
 
 const INSTANCE_STATE_PURGE_IDLE_MS = 5_000;
+const INSTANCE_STATE_PURGE_CATALOG_BATCH_SIZE = 16;
+const INSTANCE_STATE_PURGE_ORPHAN_VAULT_BATCH_SIZE = 16;
+const INSTANCE_STATE_PURGE_RUN_BUDGET_MS = 20_000;
 
 interface InstanceStatePurgeCatalogPort {
-  listInstanceCatalogEntries(): Promise<Array<Record<string, unknown>>>;
+  listPurgeableInstanceCatalogEntries(input?: {
+    afterInstanceId?: string | null;
+    limit?: number;
+  }): Promise<Array<{
+    instance_id?: unknown;
+    status?: unknown;
+    runtime_status?: unknown;
+  }>>;
 }
 
 interface InstanceStatePurgeRuntimePort {
@@ -31,6 +41,7 @@ interface InstanceStatePurgeTreasureVaultPort {
 @Injectable()
 export class InstanceStatePurgeWorker {
   private readonly logger = new Logger(InstanceStatePurgeWorker.name);
+  private catalogCursor: string | null = null;
 
   constructor(
     @Inject(InstanceCatalogService)
@@ -44,12 +55,30 @@ export class InstanceStatePurgeWorker {
   ) {}
 
   async runOnce(): Promise<number> {
-    const orphanedRecovery = await this.treasureVaultRuntimeService.recoverOrphanedVaultItems?.({ reason: 'instance_state_purge_orphan_scan', limit: 100 });
+    const startedAt = performance.now();
+    const orphanedRecovery = await this.treasureVaultRuntimeService.recoverOrphanedVaultItems?.({
+      reason: 'instance_state_purge_orphan_scan',
+      limit: INSTANCE_STATE_PURGE_ORPHAN_VAULT_BATCH_SIZE,
+    });
     let processed = orphanedRecovery?.recoveredVaults ?? 0;
     if ((orphanedRecovery?.blockedVaults ?? 0) > 0) {
       this.logger.warn(`宝库孤儿库存回收存在阻塞：blocked=${orphanedRecovery?.blockedVaults} reason=${orphanedRecovery?.reason ?? 'unknown'}`);
     }
-    const catalogEntries = await this.instanceCatalogService.listInstanceCatalogEntries();
+    if (performance.now() - startedAt >= INSTANCE_STATE_PURGE_RUN_BUDGET_MS) {
+      return processed;
+    }
+    const catalogEntries = await this.instanceCatalogService.listPurgeableInstanceCatalogEntries({
+      afterInstanceId: this.catalogCursor,
+      limit: INSTANCE_STATE_PURGE_CATALOG_BATCH_SIZE,
+    });
+    if (catalogEntries.length === 0) {
+      this.catalogCursor = null;
+      return processed;
+    }
+    if (performance.now() - startedAt >= INSTANCE_STATE_PURGE_RUN_BUDGET_MS) {
+      return processed;
+    }
+    let consumedAllCatalogEntries = true;
     for (const entry of catalogEntries) {
       const instanceId = typeof entry?.instance_id === 'string' ? entry.instance_id.trim() : '';
       if (!instanceId) {
@@ -58,22 +87,37 @@ export class InstanceStatePurgeWorker {
       const status = typeof entry?.status === 'string' ? entry.status.trim() : '';
       const runtimeStatus = typeof entry?.runtime_status === 'string' ? entry.runtime_status.trim() : '';
       if (status !== 'destroyed' && runtimeStatus !== 'stopped') {
+        this.catalogCursor = instanceId;
         continue;
       }
       const runtime = this.worldRuntimeService.getInstanceRuntime(instanceId);
       if (runtime?.meta?.status !== 'destroyed' && runtime?.meta?.runtimeStatus !== 'stopped' && runtime != null) {
+        this.catalogCursor = instanceId;
         continue;
       }
       const recovery = await this.treasureVaultRuntimeService.recoverVaultItemsForInstance?.({ instanceId, reason: 'instance_state_purge', limit: 500 });
+      if (performance.now() - startedAt >= INSTANCE_STATE_PURGE_RUN_BUDGET_MS) {
+        consumedAllCatalogEntries = false;
+        break;
+      }
       if (recovery && recovery.ok !== true) {
         this.logger.warn(`实例 ${instanceId} 清理前宝库库存回收未完成，跳过实例状态清理：blocked=${recovery.blockedVaults} reason=${recovery.reason ?? 'unknown'}`);
+        this.catalogCursor = instanceId;
         continue;
       }
       processed += recovery?.recoveredVaults ?? 0;
       const removed = await this.instanceDomainPersistenceService.purgeInstanceState(instanceId);
+      this.catalogCursor = instanceId;
       if (removed > 0) {
         processed += 1;
       }
+      if (performance.now() - startedAt >= INSTANCE_STATE_PURGE_RUN_BUDGET_MS) {
+        consumedAllCatalogEntries = false;
+        break;
+      }
+    }
+    if (consumedAllCatalogEntries && catalogEntries.length < INSTANCE_STATE_PURGE_CATALOG_BATCH_SIZE) {
+      this.catalogCursor = null;
     }
     return processed;
   }
