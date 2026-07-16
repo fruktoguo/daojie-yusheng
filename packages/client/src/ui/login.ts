@@ -36,6 +36,7 @@ type RestoreSessionAttempt = {
 export class LoginUI {
   /** overlay：overlay。 */
   private overlay = document.getElementById('login-overlay')!;
+  private form = document.getElementById('auth-form') as HTMLFormElement;
   /** loginTab：login Tab。 */
   private loginTab = document.getElementById('tab-login') as HTMLButtonElement;
   /** registerTab：register Tab。 */
@@ -100,7 +101,8 @@ export class LoginUI {
   constructor(private socket: SocketManager) {
     this.loginTab.addEventListener('click', () => this.setMode('login'));
     this.registerTab.addEventListener('click', () => this.setMode('register'));
-    this.submitBtn.addEventListener('click', () => {
+    this.form.addEventListener('submit', (event) => {
+      event.preventDefault();
       void this.handleSubmit();
     });
     this.displayNameInput.addEventListener('input', () => {

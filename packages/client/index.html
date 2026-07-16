@@ -44,44 +44,46 @@
           <span class="hud-link-btn-text">GitHub</span>
         </a>
       </div>
-      <div class="login-mode-tabs" role="tablist" data-i18n-aria-label="shell.login.mode-tabs.aria-label" aria-label="登录模式切换">
-        <button class="login-mode-tab active" id="tab-login" type="button" role="tab" aria-selected="true" data-i18n="shell.tab-login">登录</button>
-        <button class="login-mode-tab" id="tab-register" type="button" role="tab" aria-selected="false" data-i18n="shell.tab-register">注册</button>
-      </div>
-      <div class="form-group" id="login-name-group">
-        <label id="login-name-label" data-i18n="shell.login-name-label">账号 / 角色名</label>
-        <input id="input-login-name" type="text" data-i18n-placeholder="shell.login-name.placeholder" placeholder="输入账号或角色名" autocomplete="username" />
-      </div>
-      <div class="form-group hidden" id="register-account-group">
-        <label data-i18n="shell.account">账号</label>
-        <input id="input-account-name" type="text" data-i18n-placeholder="shell.account-name.placeholder" placeholder="输入登录账号" autocomplete="off" />
-      </div>
-      <div class="form-group">
-        <label data-i18n="shell.password">密码</label>
-        <input id="input-password" type="password" data-i18n-placeholder="shell.password.placeholder" placeholder="输入密码" autocomplete="current-password" />
-      </div>
-      <div class="login-register-name-row hidden" id="register-name-row">
-        <div class="form-group" id="register-role-name-group">
-          <label data-i18n="shell.register.username.label">用户名</label>
-          <input id="input-role-name" type="text" data-i18n-placeholder="shell.register.username.placeholder" placeholder="输入游戏内用户名" />
+      <form id="auth-form">
+        <div class="login-mode-tabs" role="tablist" data-i18n-aria-label="shell.login.mode-tabs.aria-label" aria-label="登录模式切换">
+          <button class="login-mode-tab active" id="tab-login" type="button" role="tab" aria-selected="true" data-i18n="shell.tab-login">登录</button>
+          <button class="login-mode-tab" id="tab-register" type="button" role="tab" aria-selected="false" data-i18n="shell.tab-register">注册</button>
         </div>
-        <div class="form-group" id="register-display-name-group">
-          <label data-i18n="shell.register.display-icon.label">显示图标</label>
-          <input id="input-display-name" type="text" data-i18n-placeholder="shell.register.display-icon.placeholder" placeholder="1 字" />
-          <div class="field-status" id="display-name-status" data-i18n="shell.display-name-status">注册时必填</div>
+        <div class="form-group" id="login-name-group">
+          <label id="login-name-label" data-i18n="shell.login-name-label">账号 / 角色名</label>
+          <input id="input-login-name" type="text" data-i18n-placeholder="shell.login-name.placeholder" placeholder="输入账号或角色名" autocomplete="username" />
         </div>
-      </div>
-      <div class="form-group hidden" id="register-invitation-code-group">
-        <label data-i18n="shell.register.invitation-code.label">邀请码 <span class="optional-label" data-i18n="shell.optional">(可选)</span></label>
-        <input id="input-invitation-code" type="text" data-i18n-placeholder="shell.register.invitation-code.placeholder" placeholder="邀请链接会自动填入" autocomplete="off" />
-      </div>
-      <div class="login-actions">
-        <button class="action-btn primary-btn" id="btn-auth-submit">
-          <span class="btn-text" id="auth-submit-text" data-i18n="shell.tab-login">登录</span>
-          <span class="btn-border"></span>
-        </button>
-      </div>
-      <div class="login-error" id="login-error"></div>
+        <div class="form-group hidden" id="register-account-group">
+          <label data-i18n="shell.account">账号</label>
+          <input id="input-account-name" type="text" data-i18n-placeholder="shell.account-name.placeholder" placeholder="输入登录账号" autocomplete="off" />
+        </div>
+        <div class="form-group">
+          <label data-i18n="shell.password">密码</label>
+          <input id="input-password" type="password" data-i18n-placeholder="shell.password.placeholder" placeholder="输入密码" autocomplete="current-password" />
+        </div>
+        <div class="login-register-name-row hidden" id="register-name-row">
+          <div class="form-group" id="register-role-name-group">
+            <label data-i18n="shell.register.username.label">用户名</label>
+            <input id="input-role-name" type="text" data-i18n-placeholder="shell.register.username.placeholder" placeholder="输入游戏内用户名" />
+          </div>
+          <div class="form-group" id="register-display-name-group">
+            <label data-i18n="shell.register.display-icon.label">显示图标</label>
+            <input id="input-display-name" type="text" data-i18n-placeholder="shell.register.display-icon.placeholder" placeholder="1 字" />
+            <div class="field-status" id="display-name-status" data-i18n="shell.display-name-status">注册时必填</div>
+          </div>
+        </div>
+        <div class="form-group hidden" id="register-invitation-code-group">
+          <label data-i18n="shell.register.invitation-code.label">邀请码 <span class="optional-label" data-i18n="shell.optional">(可选)</span></label>
+          <input id="input-invitation-code" type="text" data-i18n-placeholder="shell.register.invitation-code.placeholder" placeholder="邀请链接会自动填入" autocomplete="off" />
+        </div>
+        <div class="login-actions">
+          <button class="action-btn primary-btn" id="btn-auth-submit" type="submit">
+            <span class="btn-text" id="auth-submit-text" data-i18n="shell.tab-login">登录</span>
+            <span class="btn-border"></span>
+          </button>
+        </div>
+        <div class="login-error" id="login-error"></div>
+      </form>
     </div>
   </div>
 

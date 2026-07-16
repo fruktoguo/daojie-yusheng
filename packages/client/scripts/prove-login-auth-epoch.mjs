@@ -120,6 +120,7 @@ function createLoginDom() {
   const elements = {};
   for (const id of [
     'login-overlay',
+    'auth-form',
     'tab-login',
     'tab-register',
     'login-name-group',
@@ -243,7 +244,7 @@ async function verifyManualLoginSupersedesRestore(LoginUI, authApi) {
   await waitForRequests(1, '自动恢复请求未发出');
   harness.elements['input-login-name'].value = 'auth-proof';
   harness.elements['input-password'].value = 'auth-proof-password';
-  harness.elements['btn-auth-submit'].dispatch('click');
+  harness.elements['auth-form'].dispatch('submit');
   await waitForRequests(2, '手动登录请求未发出');
   assert.match(pendingRequests[1].url, /\/api\/auth\/login$/, '第二个请求必须是手动登录');
 
@@ -263,8 +264,8 @@ async function verifyDuplicateLoginIsSuppressed(LoginUI, authApi) {
   harness.elements['input-login-name'].value = 'auth-proof';
   harness.elements['input-password'].value = 'auth-proof-password';
 
-  harness.elements['btn-auth-submit'].dispatch('click');
-  harness.elements['btn-auth-submit'].dispatch('click');
+  harness.elements['auth-form'].dispatch('submit');
+  harness.elements['auth-form'].dispatch('submit');
   await settleAsyncWork();
   assert.equal(pendingRequests.length, 1, '连续点击只能发出一条登录请求');
   assert.equal(harness.elements['btn-auth-submit'].disabled, true, '认证期间提交按钮必须禁用');
@@ -289,7 +290,7 @@ async function verifyFailedLoginRestoresControls(LoginUI, authApi) {
   harness.elements['input-login-name'].value = 'auth-proof';
   harness.elements['input-password'].value = 'wrong-password';
 
-  harness.elements['btn-auth-submit'].dispatch('click');
+  harness.elements['auth-form'].dispatch('submit');
   await waitForRequests(1, '失败登录请求未发出');
   respond(pendingRequests[0], { message: '登录失败' }, 401);
   await waitFor(() => harness.elements['btn-auth-submit'].disabled === false, '失败登录后提交按钮未恢复');
@@ -308,8 +309,8 @@ async function verifyLogoutRejectsLateRegister(LoginUI, authApi) {
   harness.elements['input-password'].value = 'auth-proof-password';
   harness.elements['input-role-name'].value = '认证演练';
   harness.elements['input-display-name'].value = '甲';
-  harness.elements['btn-auth-submit'].dispatch('click');
-  harness.elements['btn-auth-submit'].dispatch('click');
+  harness.elements['auth-form'].dispatch('submit');
+  harness.elements['auth-form'].dispatch('submit');
   await waitForRequests(1, '注册前的显示名称检查未发出');
   await settleAsyncWork();
   assert.equal(pendingRequests.length, 1, '连续点击只能发出一条显示名称检查');
