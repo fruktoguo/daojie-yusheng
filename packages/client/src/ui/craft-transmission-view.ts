@@ -52,6 +52,7 @@ export type CraftTransmissionCallbacks = {
 export interface CraftTransmissionParent {
   readonly activeMode: string | null;
   readonly transmissionSkillLevel: number;
+  readonly playerComprehensionSpeedRate: number;
   readonly transmissionTechniques: PlayerState['techniques'];
   readonly pendingTechniqueComprehensions: PlayerState['pendingTechniqueComprehensions'];
   readonly playerRealmLv: number | null;
@@ -651,6 +652,7 @@ export class CraftTransmissionView {
       techniqueRealmLv: Math.max(1, Math.floor(Number(entry.realmLv) || 1)),
       learnerRealmLv: Math.max(1, Math.floor(Number(this.parent.playerRealmLv) || 1)),
       learnerTransmissionLevel: this.parent.transmissionSkillLevel,
+      learnerTransmissionSpeedRate: this.parent.playerComprehensionSpeedRate,
     }).progressGain;
   }
 
@@ -668,6 +670,7 @@ export class CraftTransmissionView {
       techniqueRealmLv: Math.max(1, Math.floor(Number(entry.realmLv) || 1)),
       learnerRealmLv: Math.max(1, Math.floor(Number(this.parent.playerRealmLv) || 1)),
       learnerTransmissionLevel: this.parent.transmissionSkillLevel,
+      learnerTransmissionSpeedRate: this.parent.playerComprehensionSpeedRate,
     });
   }
 

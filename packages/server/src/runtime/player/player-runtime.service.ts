@@ -27,6 +27,7 @@ import { MAX_NOTICES_PER_PLAYER, NOTICE_KIND_PRIORITY, findLowestPriorityNoticeI
 import { MapTemplateRepository } from '../map/map-template.repository';
 import { PlayerAttributesService } from './player-attributes.service';
 import { PlayerProgressionService } from './player-progression.service';
+import { refreshPlayerComprehensionSpeedRateProjection } from './player-comprehension-speed.helpers';
 import { applyPlayerCraftExpRate } from '../craft/craft-effect-runtime.helpers';
 import { cloneAutoUsePillList, cloneCombatTargetingRules, isSameAutoUsePillList, isSameCombatTargetingRules, normalizePersistedAutoUsePills, normalizePersistedCombatTargetingRules } from './player-combat-config.helpers';
 import { projectHeavenGateState, projectRealmState } from './player-realm-projection.helpers';
@@ -452,6 +453,7 @@ export class PlayerRuntimeService {
             rootFoundation: 0,
             combatExp: 0,
             comprehension: 0,
+            comprehensionSpeedRate: 0,
             luck: 0,
             dailySignInFortuneLuck: 0,
             dailySignInFortuneExpireAt: 0,
@@ -4602,6 +4604,9 @@ export class PlayerRuntimeService {
                 this.bumpPersistentRevision(player);
             }
             recordPlayerTickPerf(options, 'playerTick.artifactTickMs', artifactTickStartedAt);
+            refreshPlayerComprehensionSpeedRateProjection(player, {
+                getInstanceRuntime: options.getInstanceRuntime,
+            });
             const idleCultivationResumeStartedAt = performance.now();
             if (player.hp > 0 && shouldResumeIdleCultivation(player, playerTick)) {
                 player.combat.cultivationActive = true;
@@ -5553,6 +5558,7 @@ export class PlayerRuntimeService {
             rootFoundation: normalizeCounter(snapshot.progression?.rootFoundation),
             combatExp: normalizeCounter(snapshot.progression?.combatExp),
             comprehension: normalizeCounter(snapshot.progression?.comprehension),
+            comprehensionSpeedRate: 0,
             luck: normalizeCounter(snapshot.progression?.luck),
             dailySignInFortuneLuck: 0,
             dailySignInFortuneExpireAt: 0,

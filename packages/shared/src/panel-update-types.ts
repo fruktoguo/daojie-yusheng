@@ -69,6 +69,8 @@ export interface AttrUpdateView {
  */
 
   craftEffectStats?: CraftEffectStatsPatch;
+  /** 当前个人功法领悟速度贡献；只同步给玩家本人。 */
+  comprehensionSpeedRate?: number;
   /**
  * boneAgeBaseYears：boneAgeBaseYear相关字段。
  */

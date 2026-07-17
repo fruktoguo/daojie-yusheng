@@ -85,6 +85,7 @@ function buildPlayerSyncState(player, view, unlockedMinimapIds) {
     rootFoundation: Math.max(0, Math.trunc(Number(player.rootFoundation ?? 0) || 0)),
     combatExp: player.combatExp,
     comprehension: specialStats.comprehension,
+    comprehensionSpeedRate: normalizeComprehensionSpeedRate(player.comprehensionSpeedRate),
     luck: specialStats.luck,
     boneAgeBaseYears: player.boneAgeBaseYears,
     lifeElapsedTicks: player.lifeElapsedTicks,
@@ -158,6 +159,11 @@ function clonePendingComprehensions(source, transmissionJob = null) {
     ...entry,
     activeTransferJob: buildProjectedTransmissionJob(entry, transmissionJob),
   }));
+}
+
+function normalizeComprehensionSpeedRate(value) {
+  const normalized = Number(value);
+  return Number.isFinite(normalized) ? normalized : 0;
 }
 
 function buildProjectedTransmissionJob(entry, transmissionJob = null) {

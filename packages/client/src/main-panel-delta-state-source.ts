@@ -469,6 +469,9 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
         luck: Math.max(0, Math.floor(player.luck ?? 0)),
       },
       craftEffectStats: cloneCraftEffectStats(undefined),
+      comprehensionSpeedRate: Number.isFinite(Number(player.comprehensionSpeedRate))
+        ? Number(player.comprehensionSpeedRate)
+        : 0,
       boneAgeBaseYears: player.boneAgeBaseYears,
       lifeElapsedTicks: player.lifeElapsedTicks,
       lifespanYears: player.lifespanYears ?? null,
@@ -538,6 +541,10 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
           ?? Math.max(0, Math.floor(player?.luck ?? 0)),
       },
       craftEffectStats: cloneCraftEffectStats(patch.craftEffectStats ?? previous?.craftEffectStats),
+      comprehensionSpeedRate: patch.comprehensionSpeedRate
+        ?? previous?.comprehensionSpeedRate
+        ?? player?.comprehensionSpeedRate
+        ?? 0,
       boneAgeBaseYears: patch.boneAgeBaseYears ?? previous?.boneAgeBaseYears ?? player?.boneAgeBaseYears ?? undefined,
       lifeElapsedTicks: patch.lifeElapsedTicks ?? previous?.lifeElapsedTicks ?? player?.lifeElapsedTicks ?? undefined,
       lifespanYears: patch.lifespanYears === null
@@ -1147,6 +1154,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
         player.rootFoundation = latestAttrUpdate.specialStats?.rootFoundation ?? player.rootFoundation;
         player.combatExp = latestAttrUpdate.specialStats?.combatExp ?? player.combatExp;
         player.comprehension = latestAttrUpdate.specialStats?.comprehension ?? player.comprehension;
+        player.comprehensionSpeedRate = latestAttrUpdate.comprehensionSpeedRate ?? player.comprehensionSpeedRate;
         player.luck = latestAttrUpdate.specialStats?.luck ?? player.luck;
         player.boneAgeBaseYears = latestAttrUpdate.boneAgeBaseYears ?? player.boneAgeBaseYears;
         if (latestAttrUpdate.lifeElapsedTicks != null) {

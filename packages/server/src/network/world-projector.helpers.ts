@@ -955,6 +955,7 @@ function buildAttrPanelSignature(player: ProjectorPlayerLike): string {
         stableShallowSignature(attr.numericStats),
         stableShallowSignature(attr.ratioDivisors),
         resolveCraftEffectStatsSignature(attr.craftEffectStats),
+        resolveProjectedComprehensionSpeedRate(player),
         resolvePlayerSpecialStatsSignature(resolvePlayerSpecialStatsCached(player)),
         buildCraftSkillSignature(player.alchemySkill),
         buildCraftSkillSignature(player.forgingSkill),
@@ -974,6 +975,11 @@ function resolveCraftEffectStatsSignature(stats: CraftEffectStatsPatch | null | 
         const block = normalized[skillKind];
         return CRAFT_EFFECT_KINDS.map((effectKind) => block[effectKind]).join(',');
     }).join(';');
+}
+
+function resolveProjectedComprehensionSpeedRate(player: ProjectorPlayerLike): number {
+    const normalized = Number(player.comprehensionSpeedRate);
+    return Number.isFinite(normalized) ? normalized : 0;
 }
 
 function resolvePlayerSpecialStatsSignature(stats: PlayerSpecialStats): string {
@@ -1208,6 +1214,7 @@ function canReuseAttrPanelSlice(previousAttr: ProjectedAttrPanelState, player: P
         && isSameCraftSkillState(previousAttr.formationSkill, player.formationSkill)
         && isSameCraftSkillState(previousAttr.transmissionSkill, player.transmissionSkill)
         && isSameCraftEffectStats(previousAttr.craftEffectStats, player.attrs.craftEffectStats)
+        && previousAttr.comprehensionSpeedRate === resolveProjectedComprehensionSpeedRate(player)
         && isSameSpecialStats(previousAttr.specialStats, resolvePlayerSpecialStatsCached(player))
         && isSameAttrBonuses(previousAttr.bonuses, buildAttrBonuses(player));
 }
@@ -1317,6 +1324,7 @@ function captureAttrPanelSlice(player: ProjectorPlayerLike): ProjectedAttrPanelS
         numericStats: cloneNumericStats(player.attrs.numericStats),
         ratioDivisors: cloneNumericRatioDivisors(player.attrs.ratioDivisors),
         craftEffectStats: cloneCraftEffectStats(player.attrs.craftEffectStats),
+        comprehensionSpeedRate: resolveProjectedComprehensionSpeedRate(player),
         specialStats: cloneSpecialStats(resolvePlayerSpecialStatsCached(player)),
         boneAgeBaseYears: player.boneAgeBaseYears,
         lifeElapsedTicks: player.lifeElapsedTicks,
@@ -1407,6 +1415,7 @@ function buildFullAttrDeltaFromState(attr: ProjectedAttrPanelState): ProjectedAt
         numericStats: attr.numericStats,
         ratioDivisors: attr.ratioDivisors,
         craftEffectStats: attr.craftEffectStats,
+        comprehensionSpeedRate: attr.comprehensionSpeedRate,
         specialStats: attr.specialStats,
         boneAgeBaseYears: attr.boneAgeBaseYears,
         lifeElapsedTicks: attr.lifeElapsedTicks,
@@ -1545,6 +1554,7 @@ function buildAttrDeltaFromState(previousAttr: ProjectedAttrPanelState, currentA
     const numericStatsPatch = diffNumericStats(previousAttr.numericStats, currentAttr.numericStats);
     const ratioDivisorsPatch = diffRatioDivisors(previousAttr.ratioDivisors, currentAttr.ratioDivisors);
     const craftEffectStatsChanged = !isSameCraftEffectStats(previousAttr.craftEffectStats, currentAttr.craftEffectStats);
+    const comprehensionSpeedRateChanged = previousAttr.comprehensionSpeedRate !== currentAttr.comprehensionSpeedRate;
     const nextSpecialStats = currentAttr.specialStats;
     const specialStatsChanged = !isSameSpecialStats(previousAttr.specialStats, nextSpecialStats);
     const boneAgeBaseYearsChanged = previousAttr.boneAgeBaseYears !== currentAttr.boneAgeBaseYears;
@@ -1570,6 +1580,7 @@ function buildAttrDeltaFromState(previousAttr: ProjectedAttrPanelState, currentA
         numericStats: numericStatsPatch.patch,
         ratioDivisors: ratioDivisorsPatch.patch,
         craftEffectStats: craftEffectStatsChanged ? currentAttr.craftEffectStats : undefined,
+        comprehensionSpeedRate: comprehensionSpeedRateChanged ? currentAttr.comprehensionSpeedRate : undefined,
         specialStats: specialStatsChanged ? buildSpecialStatsPatch(previousAttr.specialStats, nextSpecialStats) : undefined,
         boneAgeBaseYears: boneAgeBaseYearsChanged ? currentAttr.boneAgeBaseYears : undefined,
         lifeElapsedTicks: lifeElapsedTicksChanged ? currentAttr.lifeElapsedTicks : undefined,

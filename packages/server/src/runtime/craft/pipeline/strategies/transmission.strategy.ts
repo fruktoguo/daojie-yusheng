@@ -12,7 +12,6 @@ import {
   isCreatedTechniqueId,
   isTechniqueFullyMastered,
   normalizeTechniqueLearnMaxLevel,
-  readCraftEffectStat,
   resolvePlayerFacingContentName,
   type PlayerTransmissionJob,
   type TechniqueActivityNoticeMessage,
@@ -21,10 +20,10 @@ import {
   type TechniqueActivityStartValidationResult,
 } from '@mud/shared';
 import type { TechniqueActivityStrategy, PipelineContext, PersistenceDomain } from '../technique-activity-strategy';
-import { applyPlayerCraftExpRate, resolvePlayerCraftEffectStat } from '../../craft-effect-runtime.helpers';
+import { applyPlayerCraftExpRate } from '../../craft-effect-runtime.helpers';
 import { advanceTechniqueActivityPause } from '../../technique-activity-runtime.helpers';
+import { resolvePlayerComprehensionSpeedRate } from '../../../player/player-comprehension-speed.helpers';
 import { resolvePlayerDisplayName as resolveRuntimePlayerDisplayName } from '../../../player/player-display-name';
-import { resolveCompiledBuildingDefinition } from '../../../building/building-definition-resolution.helpers';
 
 type TransmissionValidatedPayload = {
   mode?: 'transmission' | 'scripture_recording' | 'scripture_contemplation';
@@ -1024,48 +1023,12 @@ function resolveScriptureContemplationProgressBreakdown(learner: any, techniqueR
 }
 
 function resolvePlayerTransmissionSpeedRate(player: any, ctx: PipelineContext): number {
-  return resolvePlayerCraftEffectStat(player, 'transmission', 'speedRate')
-    + resolveTechniqueExpRateAsComprehensionSpeedRate(player)
-    + resolveStandingBuildingTransmissionSpeedRate(player, ctx);
-}
-
-function resolveTechniqueExpRateAsComprehensionSpeedRate(player: any): number {
-  const normalized = Number(player?.attrs?.numericStats?.techniqueExpRate);
-  return Number.isFinite(normalized) ? normalized / 10000 : 0;
-}
-
-function resolveStandingBuildingTransmissionSpeedRate(player: any, ctx: PipelineContext): number {
-  const instanceId = normalizeText(player?.instanceId);
-  if (!instanceId) {
-    return 0;
-  }
   const deps = resolveTransmissionDeps(ctx);
-  const instance = deps?.getInstanceRuntime?.(instanceId) ?? ctx.getInstanceRuntime?.(instanceId) ?? null;
-  if (!instance || typeof instance !== 'object') {
-    return 0;
-  }
-  const x = Math.floor(Number(player?.x) || 0);
-  const y = Math.floor(Number(player?.y) || 0);
-  const cellIndex = typeof instance.toTileIndex === 'function'
-    ? Math.trunc(Number(instance.toTileIndex(x, y)))
-    : Math.trunc(Number(instance.tilePlane?.getCellIndex?.(x, y)));
-  if (!Number.isFinite(cellIndex) || cellIndex < 0) {
-    return 0;
-  }
-  const buildingIds = instance.buildingIdByCell?.get?.(cellIndex);
-  if (!buildingIds || typeof buildingIds[Symbol.iterator] !== 'function') {
-    return 0;
-  }
-  let speedRate = 0;
-  for (const buildingId of buildingIds as Iterable<unknown>) {
-    const building = instance.buildingById?.get?.(buildingId);
-    if (!building || building.state !== 'active') {
-      continue;
-    }
-    const compiled = resolveCompiledBuildingDefinition(instance.buildingCatalog, building);
-    speedRate += Math.max(0, readCraftEffectStat(compiled?.craftEffectStats, 'transmission', 'speedRate'));
-  }
-  return speedRate;
+  return resolvePlayerComprehensionSpeedRate(player, {
+    getInstanceRuntime: (instanceId) => deps?.getInstanceRuntime?.(instanceId)
+      ?? ctx.getInstanceRuntime?.(instanceId)
+      ?? null,
+  });
 }
 
 function applyTransmissionSkillExpFromTicks(player: any, elapsedTicks: number, targetLevel: unknown, getExpToNextByLevel: (level: number) => number): boolean {

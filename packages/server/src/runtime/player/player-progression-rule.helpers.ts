@@ -1,11 +1,9 @@
 import {
     ATTR_KEYS,
     TechniqueRealm,
-    readCraftEffectStat,
 } from '@mud/shared';
 
-import { resolvePlayerCraftEffectStat } from '../craft/craft-effect-runtime.helpers';
-import { resolveCompiledBuildingDefinition } from '../building/building-definition-resolution.helpers';
+export { resolvePlayerComprehensionSpeedRate } from './player-comprehension-speed.helpers';
 
 /**
  * 玩家成长的无状态规则。
@@ -351,59 +349,6 @@ export function normalizeProgressionAmount(value) {
     return Number.isFinite(numeric) ? Math.max(0, Math.floor(numeric)) : 0;
 }
 
-export function resolvePlayerComprehensionSpeedRate(player: any, options: any = {}): number {
-    return resolveFiniteNumber(resolvePlayerCraftEffectStat(player, 'transmission', 'speedRate'))
-        + resolveTechniqueExpRateAsComprehensionSpeedRate(player)
-        + resolveStandingBuildingTransmissionSpeedRate(player, options);
-}
-
-function resolveTechniqueExpRateAsComprehensionSpeedRate(player: any): number {
-    return resolveFiniteNumber(player?.attrs?.numericStats?.techniqueExpRate) / 10000;
-}
-
-function resolveStandingBuildingTransmissionSpeedRate(player: any, options: any = {}): number {
-    const instanceId = normalizeProgressionText(player?.instanceId);
-    if (!instanceId) {
-        return 0;
-    }
-    const instance = typeof options.getInstanceRuntime === 'function'
-        ? options.getInstanceRuntime(instanceId)
-        : options.instanceRuntime;
-    if (!instance || typeof instance !== 'object') {
-        return 0;
-    }
-    const x = Math.floor(Number(player?.x) || 0);
-    const y = Math.floor(Number(player?.y) || 0);
-    const cellIndex = typeof instance.toTileIndex === 'function'
-        ? Math.trunc(Number(instance.toTileIndex(x, y)))
-        : Math.trunc(Number(instance.tilePlane?.getCellIndex?.(x, y)));
-    if (!Number.isFinite(cellIndex) || cellIndex < 0) {
-        return 0;
-    }
-    const buildingIds = instance.buildingIdByCell?.get?.(cellIndex);
-    if (!buildingIds || typeof buildingIds[Symbol.iterator] !== 'function') {
-        return 0;
-    }
-    let speedRate = 0;
-    for (const buildingId of buildingIds as Iterable<unknown>) {
-        const building = instance.buildingById?.get?.(buildingId);
-        if (!building || building.state !== 'active') {
-            continue;
-        }
-        const compiled = resolveCompiledBuildingDefinition(instance.buildingCatalog, building);
-        speedRate += resolveFiniteNumber(readCraftEffectStat(compiled?.craftEffectStats, 'transmission', 'speedRate'));
-    }
-    return speedRate;
-}
-
-function resolveFiniteNumber(value: unknown): number {
-    const normalized = Number(value);
-    return Number.isFinite(normalized) ? normalized : 0;
-}
-
-function normalizeProgressionText(value: unknown): string {
-    return typeof value === 'string' && value.trim().length > 0 ? value.trim() : '';
-}
 export function normalizeProgressionTicks(value) {
     const numeric = Number(value);
     return Number.isFinite(numeric) ? Math.max(0, numeric) : 0;

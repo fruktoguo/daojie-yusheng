@@ -295,6 +295,7 @@ message AttrUpdatePayload {
   optional string formationSkillJson = 25;
   optional string transmissionSkillJson = 26;
   optional string craftEffectStatsJson = 27;
+  optional double comprehensionSpeedRate = 28;
 }
 
 message PlayerSpecialStatsPayload {

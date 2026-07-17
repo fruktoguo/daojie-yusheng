@@ -294,6 +294,8 @@ export interface PlayerState {
  */
 
   comprehension?: number;
+  /** 当前个人功法领悟速度贡献；1 表示额外 +100%。 */
+  comprehensionSpeedRate?: number;
   /**
  * luck：幸运，特殊属性。
  */

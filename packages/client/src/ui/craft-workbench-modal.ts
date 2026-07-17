@@ -156,6 +156,11 @@ function normalizeInventoryItemInstanceId(value: unknown): string {
   return typeof value === 'string' && value.trim().length > 0 ? value.trim() : '';
 }
 
+function normalizeComprehensionSpeedRate(value: unknown): number {
+  const normalized = Number(value);
+  return Number.isFinite(normalized) ? normalized : 0;
+}
+
 function readCraftToolStat(
   stats: CraftEffectStatsPatch | null | undefined,
   skillKind: CraftEffectSkillKind,
@@ -309,6 +314,7 @@ export class CraftWorkbenchModal {
   private gatherSkillLevel = 1;
   private enhancementSkillLevel = 1;
   private transmissionSkillLevel = 1;
+  private playerComprehensionSpeedRate = 0;
   private playerLuck = 0;
   private transmissionTechniques: PlayerState['techniques'] = [];
   private pendingTechniqueComprehensions: PlayerState['pendingTechniqueComprehensions'] = [];
@@ -381,6 +387,7 @@ export class CraftWorkbenchModal {
     this.gatherSkillLevel = Math.max(1, Math.floor(player.gatherSkill?.level ?? 1));
     this.enhancementSkillLevel = Math.max(1, Math.floor(player.enhancementSkill?.level ?? player.enhancementSkillLevel ?? 1));
     this.transmissionSkillLevel = Math.max(1, Math.floor(player.transmissionSkill?.level ?? 1));
+    this.playerComprehensionSpeedRate = normalizeComprehensionSpeedRate(player.comprehensionSpeedRate);
     this.playerLuck = Math.max(0, Math.floor(Number(player.luck ?? 0) || 0));
     this.transmissionTechniques = Array.isArray(player.techniques) ? player.techniques : [];
     this.pendingTechniqueComprehensions = Array.isArray(player.pendingTechniqueComprehensions) ? player.pendingTechniqueComprehensions : [];
@@ -405,6 +412,9 @@ export class CraftWorkbenchModal {
     if (update.transmissionSkill) {
       this.transmissionSkillLevel = Math.max(1, Math.floor(update.transmissionSkill.level ?? this.transmissionSkillLevel));
     }
+    if (update.comprehensionSpeedRate !== undefined) {
+      this.playerComprehensionSpeedRate = normalizeComprehensionSpeedRate(update.comprehensionSpeedRate);
+    }
     if (typeof update.specialStats?.luck === 'number') {
       this.playerLuck = Math.max(0, Math.floor(Number(update.specialStats.luck) || 0));
     }
@@ -421,6 +431,9 @@ export class CraftWorkbenchModal {
     this.transmissionTechniques = Array.isArray(player?.techniques) ? player.techniques : [];
     this.pendingTechniqueComprehensions = Array.isArray(player?.pendingTechniqueComprehensions) ? player.pendingTechniqueComprehensions : [];
     this.transmissionSkillLevel = Math.max(1, Math.floor(player?.transmissionSkill?.level ?? this.transmissionSkillLevel));
+    if (player?.comprehensionSpeedRate !== undefined) {
+      this.playerComprehensionSpeedRate = normalizeComprehensionSpeedRate(player.comprehensionSpeedRate);
+    }
     const realmChanged = this.playerRealmLv !== nextRealmLv;
     const luckChanged = this.playerLuck !== nextLuck;
     this.playerRealmLv = nextRealmLv;

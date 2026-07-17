@@ -358,6 +358,7 @@ export interface ProjectorPlayerLike {
   rootFoundation?: number;
   combatExp: number;
   comprehension?: number;
+  comprehensionSpeedRate?: number;
   luck?: number;
   fengShuiLuck?: number;
   boneAgeBaseYears: number;
@@ -451,6 +452,7 @@ export interface ProjectedAttrPanelState {
   numericStats: ProjectedNumericStats;
   ratioDivisors: ProjectedRatioDivisors;
   craftEffectStats: CraftEffectStats;
+  comprehensionSpeedRate: number;
   specialStats: PlayerSpecialStats;
   boneAgeBaseYears: number;
   lifeElapsedTicks: number;

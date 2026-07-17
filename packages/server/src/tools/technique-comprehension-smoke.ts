@@ -3,11 +3,20 @@ import {
   calculateTechniqueComprehensionProgressGain,
   calculateTechniqueComprehensionRequiredProgress,
   computeCraftSkillExpGain,
+  fromWireAttrUpdate,
   fromWireTechniqueEntry,
   isTechniqueFullyMastered,
+  toWireAttrUpdate,
   toWireTechniqueEntry,
 } from '@mud/shared';
+import { buildBootstrapPanelDelta } from '../network/world-projector.helpers';
 import { projectBootstrapTechniqueStateForSync } from '../network/world-sync-player-state.service';
+import { MapInstanceRuntime } from '../runtime/instance/map-instance.runtime';
+import { MapTemplateRepository } from '../runtime/map/map-template.repository';
+import {
+  refreshPlayerComprehensionSpeedRateProjection,
+  resolvePlayerComprehensionSpeedRate,
+} from '../runtime/player/player-comprehension-speed.helpers';
 import { PlayerProgressionService } from '../runtime/player/player-progression.service';
 import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
 import { TechniqueActivityPipelineService } from '../runtime/craft/pipeline/technique-activity-pipeline.service';
@@ -174,27 +183,52 @@ function createTransmissionPipelineWithInstance(runtimeService: PlayerRuntimeSer
   return { pipeline, ctx };
 }
 
-function createMeditationMatInstance(players: Array<{ id: string; x: number; y: number }>, speedRate = 1): any {
-  const matDef = { handle: 1, id: 'meditation_mat', craftEffectStats: { transmission: { speedRate } } };
-  const buildingById = new Map<string, any>();
-  const buildingIdByCell = new Map<number, Set<string>>();
+function createMeditationMatInstance(players: Array<{ id: string; x: number; y: number }>): MapInstanceRuntime {
+  const templateRepository = new MapTemplateRepository();
+  templateRepository.registerRuntimeMapTemplate({
+    id: 'technique_comprehension_mat_smoke',
+    name: '蒲团领悟烟测',
+    width: 8,
+    height: 8,
+    routeDomain: 'system',
+    tiles: Array.from({ length: 8 }, () => '........'),
+    spawnPoint: { x: 7, y: 7 },
+    portals: [],
+    npcs: [],
+    monsters: [],
+    safeZones: [],
+    landmarks: [],
+    containers: [],
+    auras: [],
+  });
+  const instance = new MapInstanceRuntime({
+    instanceId: 'instance:test',
+    template: templateRepository.getOrThrow('technique_comprehension_mat_smoke'),
+    monsterSpawns: [],
+    kind: 'public',
+    persistent: true,
+    createdAt: Date.now(),
+    displayName: '蒲团领悟烟测',
+    linePreset: 'peaceful',
+    lineIndex: 1,
+    instanceOrigin: 'smoke',
+    defaultEntry: true,
+    canDamageTile: true,
+  });
   for (const player of players) {
-    const cellIndex = player.x + player.y * 1000;
     const buildingId = `mat:${player.id}`;
-    buildingById.set(buildingId, { id: buildingId, defId: matDef.id, defHandle: matDef.handle, state: 'active' });
-    buildingIdByCell.set(cellIndex, new Set([buildingId]));
+    const placed = instance.placeBuildingInstance({
+      buildingId,
+      defId: 'meditation_mat',
+      x: player.x,
+      y: player.y,
+      ownerPlayerId: player.id,
+      state: 'active',
+      ignoreOccupancy: true,
+    });
+    assert.equal(placed.ok, true, `蒲团放置失败: ${(placed as { reason?: string }).reason ?? 'unknown'}`);
   }
-  return {
-    buildingCatalog: {
-      defByHandle: [undefined, matDef],
-      defById: new Map([[matDef.id, matDef]]),
-    },
-    buildingById,
-    buildingIdByCell,
-    toTileIndex(x: number, y: number) {
-      return Math.floor(Number(x) || 0) + Math.floor(Number(y) || 0) * 1000;
-    },
-  };
+  return instance;
 }
 
 function startTransmissionWithPipeline(
@@ -611,6 +645,18 @@ function testSelfComprehensionUsesStandingFacilitySpeed() {
     activeTransferJob: null,
   });
   const instance = createMeditationMatInstance([{ id: learner.playerId, x: learner.x, y: learner.y }]);
+  const initialAttrRevision = learner.attrs.revision;
+  assert.equal(
+    refreshPlayerComprehensionSpeedRateProjection(learner, { instanceRuntime: instance }),
+    true,
+  );
+  assert.equal((learner as any).comprehensionSpeedRate, 1);
+  assert.ok(learner.attrs.revision > initialAttrRevision);
+  assert.equal(
+    refreshPlayerComprehensionSpeedRateProjection(learner, { instanceRuntime: instance }),
+    false,
+    '站位和属性未变化时不得重复推动属性增量',
+  );
 
   const result = progressionService.advanceCultivation(learner, 1, {
     auraMultiplier: 10,
@@ -621,6 +667,48 @@ function testSelfComprehensionUsesStandingFacilitySpeed() {
   assert.equal(result.changed, true);
   assert.equal(learner.pendingTechniqueComprehensions[0]?.progress, 2);
   assert.equal(learner.transmissionSkill.exp, getExpectedTransmissionExpGain(1, 1, 1));
+
+  learner.x = 1;
+  assert.equal(refreshPlayerComprehensionSpeedRateProjection(learner, { instanceRuntime: instance }), true);
+  assert.equal((learner as any).comprehensionSpeedRate, 0);
+  const offMatResult = progressionService.advanceCultivation(learner, 1, {
+    getInstanceRuntime: () => instance,
+  });
+  assert.equal(offMatResult.changed, true);
+  assert.equal(learner.pendingTechniqueComprehensions[0]?.progress, 3, '离开蒲团后应回落到基础自悟速度');
+
+  learner.x = 0;
+  const mat = instance.buildingById.get(`mat:${learner.playerId}`);
+  assert.ok(mat);
+  mat.state = 'damaged';
+  assert.equal(
+    resolvePlayerComprehensionSpeedRate(learner, { instanceRuntime: instance }),
+    1,
+    '已建成但受损的蒲团仍应提供站立领悟速度',
+  );
+  assert.equal(refreshPlayerComprehensionSpeedRateProjection(learner, { instanceRuntime: instance }), true);
+  assert.equal((learner as any).comprehensionSpeedRate, 1);
+  const damagedMatResult = progressionService.advanceCultivation(learner, 1, {
+    getInstanceRuntime: () => instance,
+  });
+  assert.equal(damagedMatResult.changed, true);
+  assert.equal(learner.pendingTechniqueComprehensions[0]?.progress, 5);
+}
+
+function testComprehensionSpeedRateProjectionAndCodec() {
+  const player = createPlayer('learner:projection-speed', 0, 0);
+  (player as any).comprehensionSpeedRate = 1.25;
+  const bootstrap = buildBootstrapPanelDelta(player as never);
+  assert.equal(
+    bootstrap.attr?.comprehensionSpeedRate,
+    undefined,
+    '初始属性增量不得重复发送 Bootstrap 已携带的个人领悟速度',
+  );
+  assert.equal(
+    fromWireAttrUpdate(toWireAttrUpdate({ comprehensionSpeedRate: 1.25 })).comprehensionSpeedRate,
+    1.25,
+    '个人领悟速度不得在属性增量编解码中丢失',
+  );
 }
 
 function testAutoSwitchCultivationCanSelectPendingComprehension() {
@@ -1282,6 +1370,7 @@ testRequiredProgressUsesPreFoundationLearnerReduction();
 testDynamicFactorsApplyToProgressGain();
 testCultivationUsesElapsedTicksForPendingComprehension();
 testSelfComprehensionUsesStandingFacilitySpeed();
+testComprehensionSpeedRateProjectionAndCodec();
 testAutoSwitchCultivationCanSelectPendingComprehension();
 testMonsterKillProgressesComprehensionByOneCultivationTick();
 testMonsterKillAutoSwitchesAndProgressesPendingComprehension();
