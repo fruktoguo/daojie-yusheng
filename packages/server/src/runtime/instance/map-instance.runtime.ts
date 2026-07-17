@@ -1594,6 +1594,11 @@ class MapInstanceRuntime {
         if (!compiled) {
             return { ok: false, reason: 'building_def_not_found' };
         }
+        const isTimeChamberInstance = this.meta.kind === 'time_chamber'
+            || String(this.template?.id ?? '').startsWith('time-chamber-template:');
+        if (isTimeChamberInstance && compiled.id === 'time_chamber') {
+            return { ok: false, reason: 'time_chamber_nested_forbidden' };
+        }
         const x = Math.trunc(Number(input?.x));
         const y = Math.trunc(Number(input?.y));
         if (!Number.isFinite(x) || !Number.isFinite(y)) {

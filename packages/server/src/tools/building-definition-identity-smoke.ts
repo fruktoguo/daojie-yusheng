@@ -140,6 +140,32 @@ async function main(): Promise<void> {
     '旧蒲团不得生成任何密室管理动作',
   );
 
+  instance.meta.kind = 'time_chamber';
+  assert.deepEqual(
+    instance.placeBuildingInstance({
+      buildingId: 'building:nested:time-chamber',
+      defId: 'time_chamber',
+      x: 5,
+      y: 3,
+      ownerPlayerId: player.playerId,
+      state: 'active',
+    }),
+    { ok: false, reason: 'time_chamber_nested_forbidden' },
+    '密室实例必须在权威放置入口拒绝再次建造密室',
+  );
+  assert.equal(
+    instance.placeBuildingInstance({
+      buildingId: 'building:inside:meditation-mat',
+      defId: 'meditation_mat',
+      x: 5,
+      y: 4,
+      ownerPlayerId: player.playerId,
+      state: 'active',
+    }).ok,
+    true,
+    '密室仍须允许建造普通建筑',
+  );
+
   for (const persistedBuilding of instance.buildBuildingPersistenceEntries()) {
     assert.equal(
       Object.prototype.hasOwnProperty.call(persistedBuilding, 'defHandle'),
@@ -153,7 +179,7 @@ async function main(): Promise<void> {
   console.log(JSON.stringify({
     ok: true,
     case: 'building-definition-identity',
-    proves: '旧蒲团 handle=8 在新目录中按 defId 水合为 handle=9，并保持蒲团投影、传法加成、密室识别与伪密室恢复清理语义。',
+    proves: '旧蒲团按 defId 保持身份与传法加成；密室识别和伪状态恢复不漂移；密室内拒绝嵌套密室但仍允许普通建筑。',
   }, null, 2));
 }
 

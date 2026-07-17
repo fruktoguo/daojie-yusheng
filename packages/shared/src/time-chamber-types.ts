@@ -13,9 +13,9 @@ export const TIME_CHAMBER_SIZE_OPTIONS: Readonly<Record<TimeChamberSizeTier, Rea
   expansionRings: number;
   costMultiplierPercent: number;
 }>>> = Object.freeze({
-  small: Object.freeze({ width: 3, height: 3, expansionRings: 0, costMultiplierPercent: 100 }),
-  medium: Object.freeze({ width: 5, height: 5, expansionRings: 1, costMultiplierPercent: 150 }),
-  large: Object.freeze({ width: 7, height: 7, expansionRings: 2, costMultiplierPercent: 225 }),
+  small: Object.freeze({ width: 5, height: 5, expansionRings: 0, costMultiplierPercent: 100 }),
+  medium: Object.freeze({ width: 7, height: 7, expansionRings: 1, costMultiplierPercent: 150 }),
+  large: Object.freeze({ width: 9, height: 9, expansionRings: 2, costMultiplierPercent: 225 }),
 });
 
 export interface TimeChamberSizeOptionView {

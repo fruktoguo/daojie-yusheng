@@ -43,7 +43,7 @@ async function main(): Promise<void> {
     admission,
   );
   const serviceInternal = service as any;
-  for (const [sizeTier, width] of [['small', 3], ['medium', 5], ['large', 7]] as const) {
+  for (const [sizeTier, width] of [['small', 5], ['medium', 7], ['large', 9]] as const) {
     const template = serviceInternal.registerTemplate({
       templateId: `template:${sizeTier}`,
       displayName: `密室-${sizeTier}`,
@@ -60,17 +60,17 @@ async function main(): Promise<void> {
   assert.equal(registeredDocuments.length, 3);
   const placementInstance = {
     meta: { kind: 'time_chamber' },
-    template: { id: 'time-chamber-template:test', spawnX: 1, spawnY: 1, portals: [] },
-    isInBounds: (x: number, y: number) => x >= 0 && x < 3 && y >= 0 && y < 3,
+    template: { id: 'time-chamber-template:test', spawnX: 2, spawnY: 2, portals: [] },
+    isInBounds: (x: number, y: number) => x >= 0 && x < 5 && y >= 0 && y < 5,
     getSafeZoneAtTile: () => ({ id: 'legacy-whole-room-safe-zone' }),
   };
   assert.deepEqual(
-    findBuildingProtectedPlacementConflict(placementInstance, [{ x: 1, y: 1 }]),
-    { ok: false, reason: 'protected_placement_spawn', x: 1, y: 1 },
+    findBuildingProtectedPlacementConflict(placementInstance, [{ x: 2, y: 2 }]),
+    { ok: false, reason: 'protected_placement_spawn', x: 2, y: 2 },
     '密室只保留中心出生格为禁建点',
   );
   assert.deepEqual(
-    findBuildingProtectedPlacementConflict(placementInstance, [{ x: 0, y: 0 }, { x: 2, y: 2 }]),
+    findBuildingProtectedPlacementConflict(placementInstance, [{ x: 0, y: 0 }, { x: 4, y: 4 }]),
     { ok: true },
     '密室中心以外不能再被安全区或出生点邻域误判为禁建点',
   );
@@ -263,7 +263,7 @@ async function main(): Promise<void> {
 
   console.log(JSON.stringify({
     ok: true,
-    answers: '密室三档空间为 3/5/7；每扩大一圈成本乘 1.5，额外容量按 80% 线性增加；中心格为唯一密室保护禁建点；未开启时固定 1 倍且禁止进入，全室开启后所有玩家可按容量进入；到期会迁出玩家、修正持久化位置并恢复 1 倍；拆除仍受实例 lease/epoch 围栏保护。',
+    answers: '密室三档空间为 5/7/9；每扩大一圈成本乘 1.5，额外容量按 80% 线性增加；中心格为唯一密室保护禁建点；未开启时固定 1 倍且禁止进入，全室开启后所有玩家可按容量进入；到期会迁出玩家、修正持久化位置并恢复 1 倍；拆除仍受实例 lease/epoch 围栏保护。',
     excludes: '不连接数据库，不证明真实事务、实例目录恢复和客户端控制台。',
     completionMapping: 'time-chamber-domain-runtime',
   }, null, 2));

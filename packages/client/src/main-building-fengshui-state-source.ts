@@ -444,6 +444,9 @@ function normalizeMaterialFailure(reason: string | undefined): string {
   if (reason === 'invalid_building_def' || reason === 'building_def_not_found') {
     return '建筑配置不存在';
   }
+  if (reason === 'time_chamber_nested_forbidden') {
+    return '密室内部不能再次建造密室';
+  }
   if (reason === 'tile_blocked' || reason === 'occupied') {
     return '目标地块已被占用';
   }
@@ -545,7 +548,11 @@ export function createMainBuildingFengShuiStateSource(options: MainBuildingFengS
 
   function getEntriesForCategory(category: BuildCategoryKey): BuildingCatalogEntry[] {
     const layers = new Set(BUILD_CATEGORY_META[category].layers);
-    return buildingCatalog.filter((entry) => layers.has(String(entry.layer))) as BuildingCatalogEntry[];
+    const insideTimeChamber = String(options.getPlayer()?.mapId ?? '').startsWith('time-chamber-template:');
+    return buildingCatalog.filter((entry) => (
+      layers.has(String(entry.layer))
+      && !(insideTimeChamber && entry.id === 'time_chamber')
+    )) as BuildingCatalogEntry[];
   }
 
   function ensureBuildModeSelection(): {
