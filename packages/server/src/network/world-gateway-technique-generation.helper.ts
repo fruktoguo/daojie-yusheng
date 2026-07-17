@@ -17,6 +17,7 @@ import {
   buildTechniqueGenerationRollRange,
   normalizeTechniqueGenerationItemSpend,
 } from '../runtime/technique-generation/technique-generation-roll';
+import { TECHNIQUE_GENERATION_UNLOCK_REALM_LV } from '../runtime/technique-generation/technique-generation-constants';
 
 interface TechniqueGenerationHelperDeps {
   gatewayGuardHelper: {
@@ -97,10 +98,11 @@ export class WorldGatewayTechniqueGenerationHelper {
     const highestRealmLv = this.deps.playerRuntimeService.getPlayerHighestRealmLv(playerId) ?? realmLv;
     const itemSpend = normalizeTechniqueGenerationItemSpend(request.itemSpend);
     const currentStatus = await this.techniqueGenerationService!.getCurrentStatusForPlayer(playerId);
+    const unlocked = (highestRealmLv ?? 0) >= TECHNIQUE_GENERATION_UNLOCK_REALM_LV;
     const status = {
-      available: (realmLv ?? 0) >= 31,
-      unavailableReason: (realmLv ?? 0) < 31 ? '需筑基期方可领悟' : undefined,
-      rollRange: realmLv && realmLv >= 31
+      available: unlocked,
+      unavailableReason: unlocked ? undefined : '需筑基期方可领悟',
+      rollRange: realmLv && unlocked
         ? buildTechniqueGenerationRollRange(realmLv, highestRealmLv ?? realmLv, itemSpend)
         : undefined,
       currentJob: currentStatus.currentJob,

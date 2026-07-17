@@ -8,7 +8,7 @@
  * AI 功法生成业务常量。
  */
 
-/** 解锁洞府研修所需的最低 realmLv（筑基前期） */
+/** 解锁洞府研修所需的最低历史最高境界等级（筑基前期） */
 export const TECHNIQUE_GENERATION_UNLOCK_REALM_LV = 31;
 
 /** realmLv 随机浮动范围（±） */

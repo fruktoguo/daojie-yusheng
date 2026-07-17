@@ -139,8 +139,8 @@ export class TechniqueGenerationService {
       return { success: false, error: '功法领悟系统未就绪', errorCode: 'SERVICE_UNAVAILABLE' };
     }
 
-    // 1. 境界校验
-    if (params.playerRealmLv < TECHNIQUE_GENERATION_UNLOCK_REALM_LV) {
+    // 1. 历史最高境界校验，解锁后不因当前境界回落而关闭
+    if (params.playerHighestRealmLv < TECHNIQUE_GENERATION_UNLOCK_REALM_LV) {
       return { success: false, error: '需筑基期方可领悟', errorCode: 'REALM_LOCKED' };
     }
 

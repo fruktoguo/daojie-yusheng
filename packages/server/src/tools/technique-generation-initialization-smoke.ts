@@ -136,6 +136,31 @@ async function testNoModelFailsWithoutConsumingItem(): Promise<void> {
   assert.ok(!queries.some((entry) => entry.sql.includes('UPDATE technique_generation_job') && entry.sql.includes('item_consumed = true')));
 }
 
+async function testGenerationUnlockUsesHighestRealm(): Promise<void> {
+  const service = new TechniqueGenerationService();
+  service.initialize({
+    pool: createFakePool([]),
+    generatedStore: { refreshAfterPublish: async () => undefined } as unknown as GeneratedTechniqueStoreService,
+    modelConfigResolver: async () => null,
+  });
+
+  const unlocked = await service.requestGeneration({
+    playerId: 'p_highest_realm_unlocked_smoke',
+    playerRealmLv: 1,
+    playerHighestRealmLv: 31,
+    category: 'internal',
+  });
+  assert.equal(unlocked.errorCode, 'NO_MODEL', '当前境界回落后应继续通过历史最高境界门槛');
+
+  const locked = await service.requestGeneration({
+    playerId: 'p_highest_realm_locked_smoke',
+    playerRealmLv: 1,
+    playerHighestRealmLv: 30,
+    category: 'internal',
+  });
+  assert.equal(locked.errorCode, 'REALM_LOCKED', '历史最高境界未达筑基时仍应锁定');
+}
+
 async function testInitializedServiceConsumesRequestedItemSpend(): Promise<void> {
   const queries: QueryRecord[] = [];
   const service = new TechniqueGenerationService();
@@ -1153,7 +1178,7 @@ async function testGatewayStatusEmitsRollRange(): Promise<void> {
       },
     },
     playerRuntimeService: {
-      getPlayerRealmLv: () => 31,
+      getPlayerRealmLv: () => 1,
       getPlayerHighestRealmLv: () => 100,
       getSessionFence: () => ({ runtimeOwnerId: 'runtime:gateway-smoke', sessionEpoch: 1 }),
       replaceInventoryItems: () => undefined,
@@ -1173,6 +1198,7 @@ async function testGatewayStatusEmitsRollRange(): Promise<void> {
   assert.equal(emitted[0]?.event, S2C.TechniqueGenerationStatus);
   const payload = emitted[0]?.payload as {
     available?: boolean;
+    unavailableReason?: string;
     rollRange?: {
       itemSpendMax?: number;
       itemSpendDefault?: number;
@@ -1184,10 +1210,11 @@ async function testGatewayStatusEmitsRollRange(): Promise<void> {
     };
   };
   assert.equal(payload.available, true);
+  assert.equal(payload.unavailableReason, undefined);
   assert.equal(payload.rollRange?.itemSpendMax, 100);
   assert.equal(payload.rollRange?.itemSpendDefault, 3);
-  assert.equal(payload.rollRange?.realmLvMin, 25);
-  assert.equal(payload.rollRange?.realmLvMax, 37);
+  assert.equal(payload.rollRange?.realmLvMin, 1);
+  assert.equal(payload.rollRange?.realmLvMax, 7);
   assert.equal(payload.rollRange?.baseGrade, 'saint');
   assert.ok((payload.rollRange?.realmLvChances?.length ?? 0) > 0);
   assert.ok((payload.rollRange?.gradeChances?.length ?? 0) > 0);
@@ -1891,6 +1918,7 @@ async function testArtsCandidateRejectsLegacyEffectsShape(): Promise<void> {
 async function main(): Promise<void> {
   await testUninitializedServiceDoesNotConsumeItem();
   await testNoModelFailsWithoutConsumingItem();
+  await testGenerationUnlockUsesHighestRealm();
   await testInitializedServiceConsumesRequestedItemSpend();
   await testItemShortageMarksJobFailedAfterAudit();
   await testExecuteGenerationFailureRefundsConsumedItems();
