@@ -9,6 +9,9 @@ function trimTrailingZeros(text: string): string {
 }
 
 const PLAIN_NUMBER_FORMATTERS = new Map<number, Intl.NumberFormat>();
+const DEFAULT_COMPACT_THRESHOLD = 10_000;
+const COMPACT_SIGNIFICANT_DIGITS = 4;
+const DEFAULT_COMPACT_MAXIMUM_FRACTION_DIGITS = COMPACT_SIGNIFICANT_DIGITS - 1;
 
 /** 获取不带千分位的大数格式化器，避免极大数回退为科学计数法。 */
 function getPlainNumberFormatter(maximumFractionDigits: number): Intl.NumberFormat {
@@ -39,6 +42,25 @@ function formatPlainNumber(value: number, maximumFractionDigits: number): string
     return trimTrailingZeros(getPlainNumberFormatter(normalizedDigits).format(value));
   }
   return trimTrailingZeros(value.toFixed(normalizedDigits));
+}
+
+/** 按中文单位缩放后的整数位数，计算四位有效数字对应的十进制位数。 */
+function resolveCompactDecimalPlaces(scaledValue: number, maximumFractionDigits: number): number {
+  const normalizedMaximum = Math.max(0, Math.min(20, Math.floor(maximumFractionDigits)));
+  const integerDigits = scaledValue >= 1
+    ? Math.floor(Math.log10(scaledValue)) + 1
+    : 1;
+  return Math.min(normalizedMaximum, COMPACT_SIGNIFICANT_DIGITS - integerDigits);
+}
+
+/** 按显示精度截断单位缩放值，避免格式化结果进位并夸大绝对值。 */
+function formatCompactNumber(absValue: number, unitValue: number, maximumFractionDigits: number): string {
+  const scaledValue = absValue / unitValue;
+  const decimalPlaces = resolveCompactDecimalPlaces(scaledValue, maximumFractionDigits);
+  const displayScale = 10 ** decimalPlaces;
+  const sourceStep = unitValue / displayScale;
+  const truncatedValue = Math.floor(absValue / sourceStep) / displayScale;
+  return formatPlainNumber(truncatedValue, Math.max(0, decimalPlaces));
 }
 
 /** 中文四位进制大数单位。 */
@@ -78,7 +100,7 @@ export interface DisplayNumberOptions {
   maximumFractionDigits?: number;
   /** 开始压缩为中文单位的阈值。 */
   compactThreshold?: number;
-  /** 压缩为中文单位后最多保留的小数位。 */
+  /** 压缩为中文单位后最多保留的小数位，最终仍受四位有效数字上限约束。 */
   compactMaximumFractionDigits?: number;
 }
 
@@ -89,8 +111,8 @@ export function formatDisplayNumber(value: number, options: DisplayNumberOptions
   }
   const {
     maximumFractionDigits = 2,
-    compactThreshold = 10_000,
-    compactMaximumFractionDigits = 1,
+    compactThreshold = DEFAULT_COMPACT_THRESHOLD,
+    compactMaximumFractionDigits = DEFAULT_COMPACT_MAXIMUM_FRACTION_DIGITS,
   } = options;
   const absValue = Math.abs(value);
   const sign = value < 0 ? '-' : '';
@@ -98,12 +120,14 @@ export function formatDisplayNumber(value: number, options: DisplayNumberOptions
     return `${sign}${formatPlainNumber(absValue, maximumFractionDigits)}`;
   }
   const unit = resolveCompactNumberUnit(absValue);
-  return `${sign}${formatPlainNumber(absValue / unit.value, compactMaximumFractionDigits)}${unit.suffix}`;
+  return `${sign}${formatCompactNumber(absValue, unit.value, compactMaximumFractionDigits)}${unit.suffix}`;
 }
 
 /** 格式化整数显示。 */
 export function formatDisplayInteger(value: number, options: Omit<DisplayNumberOptions, 'maximumFractionDigits'> = {}): string {
-  return formatDisplayNumber(Math.round(value), {
+  const compactThreshold = options.compactThreshold ?? DEFAULT_COMPACT_THRESHOLD;
+  const normalizedValue = Math.abs(value) >= compactThreshold ? value : Math.round(value);
+  return formatDisplayNumber(normalizedValue, {
     ...options,
     maximumFractionDigits: 0,
   });
