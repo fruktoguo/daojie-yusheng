@@ -54,6 +54,23 @@ function createView(instanceId = 'inst.a') {
   };
 }
 
+function testTickIntervalUsesInstanceAuthority() {
+  const runtimeInstance = { tickSpeed: 5, paused: false };
+  const service = createServiceWithRuntime({
+    getInstanceRuntime(instanceId: string) {
+      return instanceId === 'inst.a' ? runtimeInstance : null;
+    },
+    getInstanceTileState() {
+      return null;
+    },
+  });
+
+  assert.equal(service.buildMapTickIntervalMs(createView()), 200, '五倍速实例必须同步 200ms 流转间隔');
+  runtimeInstance.paused = true;
+  assert.equal(service.buildMapTickIntervalMs(createView()), 0, '暂停实例必须同步零流转间隔');
+  assert.equal(service.buildMapTickIntervalMs(createView('missing')), 1000, '实例缺失时才回退地图级默认间隔');
+}
+
 function testInstanceDirtyPlanIsConsumedOnceAndReused() {
   let consumeCount = 0;
   const instance = {
@@ -151,5 +168,6 @@ function testTileProjectionOmitsDefaultBlockingFields() {
 testInstanceDirtyPlanIsConsumedOnceAndReused();
 testParentOverlayFallsBackToPlayerStaticDiff();
 testTileProjectionOmitsDefaultBlockingFields();
+testTickIntervalUsesInstanceAuthority();
 
 console.log(JSON.stringify({ ok: true, case: 'world-sync-map-snapshot-instance-diff' }, null, 2));

@@ -69,6 +69,13 @@ interface WorldSyncMinimapPort {
   buildMinimapSnapshotSync(template: unknown): any;
 }
 
+interface InstanceTimeView {
+  instance?: {
+    instanceId?: string;
+    templateId?: string;
+  };
+}
+
 const visibleTilesSnapshotCacheByPlayer = new WeakMap<object, any>();
 const npcRenderEntityCache = new WeakMap<object, any>();
 const containerRenderEntityCache = new WeakMap<object, any>();
@@ -370,7 +377,7 @@ export class WorldSyncMapSnapshotService {
       view.tick,
       resolvePlayerBaseViewRange(player),
       this.mapRuntimeConfigService.getMapTimeConfig(view.instance.templateId),
-      this.mapRuntimeConfigService.getMapTickSpeed(view.instance.templateId),
+      this.resolveInstanceTickSpeed(view),
     );
     return {
       ...timeState,
@@ -378,8 +385,24 @@ export class WorldSyncMapSnapshotService {
     };
   }
 
-  buildMapTickIntervalMs(mapId: string): number {
-    return resolveMapTickIntervalMs(this.mapRuntimeConfigService.getMapTickSpeed(mapId));
+  buildMapTickIntervalMs(view: InstanceTimeView): number {
+    return resolveMapTickIntervalMs(this.resolveInstanceTickSpeed(view));
+  }
+
+  private resolveInstanceTickSpeed(view: InstanceTimeView): number {
+    const instanceId = typeof view?.instance?.instanceId === 'string' ? view.instance.instanceId.trim() : '';
+    const instance = instanceId && typeof this.worldRuntimeService.getInstanceRuntime === 'function'
+      ? this.worldRuntimeService.getInstanceRuntime(instanceId)
+      : null;
+    if (instance?.paused === true) {
+      return 0;
+    }
+    const instanceSpeed = Number(instance?.tickSpeed);
+    if (Number.isFinite(instanceSpeed) && instanceSpeed >= 0) {
+      return instanceSpeed;
+    }
+    const mapId = typeof view?.instance?.templateId === 'string' ? view.instance.templateId : '';
+    return this.mapRuntimeConfigService.getMapTickSpeed(mapId);
   }
 
   getInstanceStaticTileSyncRevision(view) {

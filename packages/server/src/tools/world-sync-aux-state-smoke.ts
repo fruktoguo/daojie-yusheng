@@ -56,7 +56,8 @@ function createService(
           overlayAlpha: 0,
         };
       },
-      buildMapTickIntervalMs() {
+      buildMapTickIntervalMs(view: { instance?: { instanceId?: string } }) {
+        assert.equal(view.instance?.instanceId, 'inst.a', '流转间隔必须按当前实例视图解析');
         return tickIntervalMs;
       },
       buildMapMetaSync(template: { id: string }) {
@@ -482,6 +483,18 @@ function testTimeOnlyDeltaSyncsTickInterval() {
   ]);
 }
 
+function testInitialSyncSendsAcceleratedInstanceInterval() {
+  const log: unknown[] = [];
+  const { service } = createService(log, { deltaMapPatch: false, tickIntervalMs: 200 });
+  const socket = { id: 'socket:accelerated', emit() {} };
+
+  service.emitAuxInitialSync('player:accelerated', socket, createView(32), createPlayer('炼气', 10));
+
+  assert.deepEqual(log.filter((entry) => Array.isArray(entry) && entry[0] === 'sendWorldDelta'), [
+    ['sendWorldDelta', 'socket:accelerated', false, false, false, 200, true, 'map.a', 'inst.a'],
+  ]);
+}
+
 function testProgressOnlyRealmChangeDoesNotResendRealm() {
   const log: unknown[] = [];
   const { service } = createService(log, { deltaMapPatch: false });
@@ -501,6 +514,7 @@ testMapChangeDoesNotAutoUnlockCurrentMap();
 testInitialSyncSendsCurrentUnlockedMinimap();
 testMapStaticOmitsDefaultFloorTypeOnWire();
 testTimeOnlyDeltaSyncsTickInterval();
+testInitialSyncSendsAcceleratedInstanceInterval();
 testProgressOnlyRealmChangeDoesNotResendRealm();
 console.log(
   JSON.stringify({

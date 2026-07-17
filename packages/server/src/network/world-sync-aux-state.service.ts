@@ -185,7 +185,7 @@ export class WorldSyncAuxStateService {
     const unlockedMapIds = minimapManifest.map((entry) => entry.mapId);
     const mapUnlocked = Array.isArray(player.unlockedMapIds) && player.unlockedMapIds.includes(template.id);
     const timeState = this.worldSyncMapSnapshotService.buildGameTimeState(template, view, player);
-    const timeSyncState = this.buildTimeSyncState(template.id, timeState);
+    const timeSyncState = this.buildTimeSyncState(view, timeState);
     const threatArrows = this.worldSyncThreatService.buildThreatArrows(view);
     const playerSyncState = this.worldSyncPlayerStateService.buildPlayerSyncState(
       player,
@@ -270,7 +270,7 @@ export class WorldSyncAuxStateService {
     const currentVisibleMinimapMarkers = mapStaticPlan.visibleMinimapMarkers;
     const mapChanged = mapStaticPlan.mapChanged;
     const currentTimeSyncState = this.buildTimeSyncState(
-      template.id,
+      view,
       this.worldSyncMapSnapshotService.buildGameTimeState(template, view, player),
     );
     const shouldEmitTimeSync = !isSameTimeSyncState(previous.time, currentTimeSyncState);
@@ -354,10 +354,10 @@ export class WorldSyncAuxStateService {
     return true;
   }
 
-  private buildTimeSyncState(mapId: string, time: GameTimeState): TimeSyncState {
+  private buildTimeSyncState(view: PlayerView, time: GameTimeState): TimeSyncState {
     return {
-      mapId,
-      tickIntervalMs: this.worldSyncMapSnapshotService.buildMapTickIntervalMs(mapId),
+      mapId: view.instance.templateId,
+      tickIntervalMs: this.worldSyncMapSnapshotService.buildMapTickIntervalMs(view),
       time,
     };
   }
