@@ -296,7 +296,8 @@ function testQueueCombatEffectAppendMode(): void {
 }
 
 function testQueueCombatEffectExceedsLimit(): void {
-  const svc = createService();
+  const metrics = new RuntimeEventBusMetricsService();
+  const svc = new RuntimeEventBusService(metrics);
   for (let i = 0; i < MAX_COMBAT_EFFECTS_PER_INSTANCE + 20; i += 1) {
     svc.queueCombatEffect('inst1', { type: 'float', x: i, y: 0, text: `e${i}` });
   }
@@ -307,6 +308,9 @@ function testQueueCombatEffectExceedsLimit(): void {
   if (effects[0]?.type === 'float') {
     assert.equal(effects[0].text, 'e20');
   }
+  const snapshot = metrics.getMetrics();
+  assert.equal(snapshot.droppedByMethod.combatEffect, 20);
+  assert.equal(snapshot.droppedByDetail['combatEffect:inst1'], 20);
 }
 
 function testQueueCombatEffectLimitAppliesToAllInstances(): void {

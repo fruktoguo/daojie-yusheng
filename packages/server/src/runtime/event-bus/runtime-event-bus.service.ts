@@ -286,7 +286,7 @@ export class RuntimeEventBusService {
     const limit = resolveCombatEffectsLimit(instanceId);
     if (queue.combatEffects.length >= limit) {
       queue.combatEffects.shift();
-      this.metrics?.recordDropped('combatEffect');
+      this.metrics?.recordDropped('combatEffect', 1, instanceId);
     }
     queue.combatEffects.push(freezeEventBusProjection(effect));
     this.metrics?.recordQueued('combatEffect');

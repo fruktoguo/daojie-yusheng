@@ -63,6 +63,10 @@ type TileDropRollOptions = {
     dropRateBonus?: number;
 };
 
+function hasAttachedPlayerSession(sessionId: unknown): boolean {
+    return typeof sessionId === 'string' && sessionId.length > 0;
+}
+
 type InstancePersistenceDomainMutationContext = {
     instance: object;
     domains: ReadonlySet<string>;
@@ -229,6 +233,8 @@ class MapInstanceRuntime {
  */
 
     playersById = new Map();    
+    /** 当前实例中仍挂有网络会话的玩家数；离线挂机玩家不计入。 */
+    connectedPlayerSessionCount = 0;
     /**
  * playerIdsByTile：按地块索引维护玩家集合，供 AOE/PvP 目标规划按格取人。
  */
@@ -691,9 +697,13 @@ class MapInstanceRuntime {
         this.initializeMonsterSpawnAccelerationStates();
         this.rebuildBuildingRoomFengShuiState({ reason: 'instance_init_static_room_scan' });
     }
-    /** playerCount：当前实例中的在线玩家数量。 */
+    /** playerCount：当前实例中的运行态玩家数量，包含离线挂机。 */
     get playerCount() {
         return this.playersById.size;
+    }
+    /** 是否存在能够接收本息战斗表现同步的在线会话。 */
+    hasConnectedPlayerSessions() {
+        return this.connectedPlayerSessionCount > 0;
     }
     /** listPlayerIds：列出玩家 ID 列表。 */
     listPlayerIds() {
@@ -738,7 +748,12 @@ class MapInstanceRuntime {
 
         const existing = this.playersById.get(request.playerId);
         if (existing) {
+            const wasConnected = hasAttachedPlayerSession(existing.sessionId);
+            const willBeConnected = hasAttachedPlayerSession(request.sessionId);
             existing.sessionId = request.sessionId;
+            if (wasConnected !== willBeConnected) {
+                this.connectedPlayerSessionCount = Math.max(0, this.connectedPlayerSessionCount + (willBeConnected ? 1 : -1));
+            }
             const hasPreferredPosition = request.relocateExisting === true
                 && Number.isFinite(request.preferredX)
                 && Number.isFinite(request.preferredY);
@@ -774,6 +789,9 @@ class MapInstanceRuntime {
             selfRevision: 1,
         };
         this.playersById.set(player.playerId, player);
+        if (hasAttachedPlayerSession(player.sessionId)) {
+            this.connectedPlayerSessionCount += 1;
+        }
         this.playersByHandle.set(player.handle, player);
         this.addPlayerToTileIndex(player);
         this.setOccupied(player.x, player.y, player.handle);
@@ -828,10 +846,12 @@ class MapInstanceRuntime {
         if (!player) {
             return false;
         }
-        if (player.sessionId === null) {
+        if (!hasAttachedPlayerSession(player.sessionId)) {
+            player.sessionId = null;
             return true;
         }
         player.sessionId = null;
+        this.connectedPlayerSessionCount = Math.max(0, this.connectedPlayerSessionCount - 1);
         player.selfRevision += 1;
         this.playerViewCacheByPlayerId.delete(playerId);
         this.autoCombatViewCacheByPlayerId.delete(playerId);
@@ -846,6 +866,9 @@ class MapInstanceRuntime {
         const player = this.playersById.get(playerId);
         if (!player) {
             return false;
+        }
+        if (hasAttachedPlayerSession(player.sessionId)) {
+            this.connectedPlayerSessionCount = Math.max(0, this.connectedPlayerSessionCount - 1);
         }
         this.removePlayerFromTileIndex(player.playerId, player.x, player.y);
         this.playersById.delete(playerId);

@@ -15,6 +15,7 @@ import {
 import { WorldRuntimeCombatEffectsService } from '../runtime/world/combat/world-runtime-combat-effects.service';
 import { RuntimeEventBusService } from '../runtime/event-bus/runtime-event-bus.service';
 import { emitCombatPresentation } from '../runtime/world/combat/world-runtime-combat-presentation.helpers';
+import { MapInstanceRuntime } from '../runtime/instance/map-instance.runtime';
 
 function createCombatStats(overrides: Record<string, unknown> = {}) {
   return {
@@ -156,13 +157,92 @@ function testCombatPresentationEmitsDodgeFloatText(): void {
   assert.equal(notices[0], '你对目标发起攻击，被闪避，未造成伤害。');
 }
 
+function testCombatPresentationSkipsInstancesWithoutConnectedSessions(): void {
+  const instance = createAudienceInstance();
+  const service = new WorldRuntimeCombatEffectsService(new RuntimeEventBusService());
+  const notices: string[] = [];
+  const deps = {
+    worldRuntimeCombatEffectsService: service,
+    getInstanceRuntime: () => instance,
+    queuePlayerNotice(_playerId: string, text: string) {
+      notices.push(text);
+    },
+  };
+
+  instance.connectPlayer({ playerId: 'player:offline', sessionId: null });
+  assert.equal(instance.hasConnectedPlayerSessions(), false);
+  emitCombatPresentation({
+    deps,
+    instanceId: instance.meta.instanceId,
+    actionLabel: { x: 1, y: 1, text: '攻击' },
+    resolutionFloat: { x: 1, y: 1, resolution: { dodged: true, damage: 0 } },
+    notices: [{ playerId: 'player:offline', text: '离线战斗通知' }],
+  });
+  assert.equal(service.getCombatEffects(instance.meta.instanceId).length, 0);
+  assert.deepEqual(notices, ['离线战斗通知']);
+
+  instance.connectPlayer({ playerId: 'player:offline', sessionId: 'session:online' });
+  assert.equal(instance.hasConnectedPlayerSessions(), true);
+  emitCombatPresentation({
+    deps,
+    instanceId: instance.meta.instanceId,
+    actionLabel: { x: 1, y: 1, text: '攻击' },
+    resolutionFloat: { x: 1, y: 1, resolution: { dodged: true, damage: 0 } },
+  });
+  assert.equal(service.getCombatEffects(instance.meta.instanceId).length, 2);
+
+  assert.equal(instance.detachPlayerSession('player:offline'), true);
+  assert.equal(instance.hasConnectedPlayerSessions(), false);
+  instance.connectPlayer({ playerId: 'player:offline', sessionId: 'session:again' });
+  assert.equal(instance.hasConnectedPlayerSessions(), true);
+  assert.equal(instance.disconnectPlayer('player:offline'), true);
+  assert.equal(instance.hasConnectedPlayerSessions(), false);
+}
+
+function createAudienceInstance(): MapInstanceRuntime {
+  const instanceId = 'instance:combat-presentation-audience';
+  return new MapInstanceRuntime({
+    instanceId,
+    template: {
+      id: instanceId,
+      name: '战斗表现接收者烟测',
+      width: 3,
+      height: 3,
+      terrainRows: ['...', '...', '...'],
+      walkableMask: Uint8Array.from({ length: 9 }, () => 1),
+      blocksSightMask: new Uint8Array(9),
+      baseAuraByTile: new Int32Array(9),
+      baseTileResourceEntries: [],
+      portals: [],
+      npcs: [],
+      safeZones: [],
+      landmarks: [],
+      containers: [],
+      spawnX: 1,
+      spawnY: 1,
+      source: {},
+    },
+    monsterSpawns: [],
+    kind: 'public',
+    persistent: true,
+    createdAt: Date.now(),
+    displayName: '战斗表现接收者烟测',
+    linePreset: 'peaceful',
+    lineIndex: 1,
+    instanceOrigin: 'smoke',
+    defaultEntry: true,
+    canDamageTile: true,
+  });
+}
+
 function main(): void {
   testSkillResolutionKeepsDodgedFeedback();
   testCombatPresentationEmitsDodgeFloatText();
+  testCombatPresentationSkipsInstancesWithoutConnectedSessions();
   console.log(JSON.stringify({
     ok: true,
     case: 'combat-resolution-feedback',
-    answers: '技能结算仍保留闪避/破招/拆招/暴击判定并写入战斗日志；地图飘字会为闪避等可见判定发送短文本反馈。',
+    answers: '技能结算仍保留闪避/破招/拆招/暴击判定并写入战斗日志；存在在线会话时地图飘字会发送短文本反馈，无在线接收者时跳过纯表现事件但保留通知链。',
   }, null, 2));
 }
 

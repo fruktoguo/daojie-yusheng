@@ -42,6 +42,7 @@ interface CombatPresentationDeps {
   pushDamageFloatEffect?: CombatPresentationEffectSource['pushDamageFloatEffect'];
   pushCombatTextFloatEffect?: CombatPresentationEffectSource['pushCombatTextFloatEffect'];
   queuePlayerNotice?: (playerId: string, text: string, kind: string, castId?: string, combat?: unknown, structured?: unknown) => void;
+  getInstanceRuntime?: (instanceId: string) => { hasConnectedPlayerSessions?: () => boolean } | null | undefined;
 }
 
 interface CombatPresentationActionLabel {
@@ -152,11 +153,13 @@ function emitCombatPresentation(input: CombatPresentationInput = {}): void {
     emitCombatNotices(deps, input.notices, input.castId);
     return;
   }
+  const defaultInstanceHasAudience = shouldEmitCombatPresentation(deps, instanceId);
 
   const actionLabel = input.actionLabel;
-  if (actionLabel && effects.pushActionLabelEffect) {
+  const actionLabelInstanceId = actionLabel?.instanceId ?? instanceId;
+  if (actionLabel && effects.pushActionLabelEffect && shouldEmitCombatPresentation(deps, actionLabelInstanceId, instanceId, defaultInstanceHasAudience)) {
     effects.pushActionLabelEffect(
-      actionLabel.instanceId ?? instanceId,
+      actionLabelInstanceId,
       actionLabel.x,
       actionLabel.y,
       actionLabel.text,
@@ -165,9 +168,10 @@ function emitCombatPresentation(input: CombatPresentationInput = {}): void {
   }
 
   const attack = input.attack;
-  if (attack && effects.pushAttackEffect) {
+  const attackInstanceId = attack?.instanceId ?? instanceId;
+  if (attack && effects.pushAttackEffect && shouldEmitCombatPresentation(deps, attackInstanceId, instanceId, defaultInstanceHasAudience)) {
     effects.pushAttackEffect(
-      attack.instanceId ?? instanceId,
+      attackInstanceId,
       attack.fromX,
       attack.fromY,
       attack.toX,
@@ -183,15 +187,19 @@ function emitCombatPresentation(input: CombatPresentationInput = {}): void {
         continue;
       }
       const combatEffect = effect as CombatPresentationCombatEffect;
-      effects.pushCombatEffect(combatEffect.instanceId ?? instanceId, combatEffect.effect ?? effect);
+      const combatEffectInstanceId = combatEffect.instanceId ?? instanceId;
+      if (shouldEmitCombatPresentation(deps, combatEffectInstanceId, instanceId, defaultInstanceHasAudience)) {
+        effects.pushCombatEffect(combatEffectInstanceId, combatEffect.effect ?? effect);
+      }
     }
   }
 
   const damageFloat = input.damageFloat;
   const damage = Math.max(0, Math.round(Number(damageFloat?.damage ?? 0) || 0));
-  if (damageFloat && damage > 0 && effects.pushDamageFloatEffect) {
+  const damageFloatInstanceId = damageFloat?.instanceId ?? instanceId;
+  if (damageFloat && damage > 0 && effects.pushDamageFloatEffect && shouldEmitCombatPresentation(deps, damageFloatInstanceId, instanceId, defaultInstanceHasAudience)) {
     effects.pushDamageFloatEffect(
-      damageFloat.instanceId ?? instanceId,
+      damageFloatInstanceId,
       damageFloat.x,
       damageFloat.y,
       damage,
@@ -208,7 +216,7 @@ function emitCombatResolutionFloat(input: CombatPresentationInput = {}): void {
   if (!effects.pushCombatTextFloatEffect) return;
   const instanceId = input.instanceId ?? input.resolutionFloat?.instanceId;
   const resolutionFloat = input.resolutionFloat;
-  if (!instanceId || !resolutionFloat) return;
+  if (!instanceId || !resolutionFloat || !shouldEmitCombatPresentation(input.deps, resolutionFloat.instanceId ?? instanceId)) return;
   const x = Number(resolutionFloat.x);
   const y = Number(resolutionFloat.y);
   if (!Number.isFinite(x) || !Number.isFinite(y)) return;
@@ -221,6 +229,23 @@ function emitCombatResolutionFloat(input: CombatPresentationInput = {}): void {
     text,
     getCombatResolutionFloatColor(resolutionFloat.resolution, resolutionFloat.fallbackColor ?? '#efe3c2'),
   );
+}
+
+function shouldEmitCombatPresentation(
+  deps: CombatPresentationDeps | undefined,
+  instanceId: string,
+  cachedInstanceId?: string,
+  cachedResult?: boolean,
+): boolean {
+  if (instanceId === cachedInstanceId && typeof cachedResult === 'boolean') {
+    return cachedResult;
+  }
+  if (typeof deps?.getInstanceRuntime !== 'function') {
+    return true;
+  }
+  const instance = deps.getInstanceRuntime(instanceId);
+  return typeof instance?.hasConnectedPlayerSessions !== 'function'
+    || instance.hasConnectedPlayerSessions();
 }
 
 function emitCombatNotices(deps: CombatPresentationDeps | undefined, notices: CombatPresentationNotice[] | undefined, castId?: string): void {
