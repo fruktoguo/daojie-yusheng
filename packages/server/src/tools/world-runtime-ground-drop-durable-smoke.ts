@@ -24,7 +24,7 @@ interface TestPlayer {
   suppressImmediateDomainPersistence: boolean;
 }
 
-function createHarness(options: { durableFailure?: boolean } = {}) {
+function createHarness(options: { durableFailure?: boolean; immediateDurableSuccess?: boolean } = {}) {
   const player: TestPlayer = {
     playerId: 'player:ground-drop',
     x: 1,
@@ -169,6 +169,7 @@ function createHarness(options: { durableFailure?: boolean } = {}) {
       grantInventoryItems(input: Record<string, unknown>) {
         durableCalls.push(structuredClone(input));
         if (options.durableFailure) return Promise.reject(new Error('forced durable failure'));
+        if (options.immediateDurableSuccess) return Promise.resolve();
         return new Promise<void>((resolve) => {
           resolveDurable = resolve;
         });
@@ -286,13 +287,40 @@ async function testFailedDropRestoresExactRuntimeState(): Promise<void> {
   assert.equal(harness.log.includes('notice'), false);
 }
 
+async function testRepeatedRuntimeRevisionUsesDistinctOperationIds(): Promise<void> {
+  const harness = createHarness({ immediateDurableSuccess: true });
+
+  await harness.service.dispatchDropItem(
+    harness.player.playerId,
+    'item:rat-tail',
+    2,
+    harness.deps as never,
+  );
+  harness.player.inventory.revision = 3;
+  await harness.service.dispatchDropItem(
+    harness.player.playerId,
+    'item:rat-tail',
+    1,
+    harness.deps as never,
+  );
+
+  assert.equal(harness.durableCalls.length, 2);
+  const firstOperationId = String(harness.durableCalls[0]?.operationId ?? '');
+  const secondOperationId = String(harness.durableCalls[1]?.operationId ?? '');
+  assert.match(firstOperationId, /^ground-drop:player:ground-drop:instance:ground-drop:[0-9a-f-]{36}$/);
+  assert.match(secondOperationId, /^ground-drop:player:ground-drop:instance:ground-drop:[0-9a-f-]{36}$/);
+  assert.notEqual(firstOperationId, secondOperationId);
+  assert.notEqual(harness.durableCalls[0]?.sourceRefId, harness.durableCalls[1]?.sourceRefId);
+}
+
 async function main(): Promise<void> {
   await testSuccessfulDropCommitsSourceAndInventoryTogether();
   await testFailedDropRestoresExactRuntimeState();
+  await testRepeatedRuntimeRevisionUsesDistinctOperationIds();
   console.log(JSON.stringify({
     ok: true,
     case: 'world-runtime-ground-drop-durable',
-    answers: '地面丢弃在玩家锁和来源锁内把背包删除与地面 tile 快照交给同一 durable transaction；提交前不发任务/通知，失败会精确恢复背包、地面和 revision/dirty。',
+    answers: '地面丢弃在玩家锁和来源锁内把背包删除与地面 tile 快照交给同一 durable transaction；每次玩家丢弃意图使用独立 operation ID，同一物品和运行态 revision 重用也不会误判为旧事务重放；失败会精确恢复背包、地面和 revision/dirty。',
   }));
 }
 

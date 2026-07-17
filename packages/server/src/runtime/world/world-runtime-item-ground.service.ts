@@ -4,7 +4,7 @@
  * 维护时要保持状态变更受控，所有影响资产或位置的结果都应能被持久化与恢复链覆盖。
  */
 import { Inject, Injectable, BadRequestException, Logger } from '@nestjs/common';
-import { createHash } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import {
     isDurableCommitOutcomeUnknownError,
@@ -73,9 +73,7 @@ export class WorldRuntimeItemGroundService {
                     instance,
                     instanceId: location.instanceId,
                     sourceId: pile.sourceId,
-                    itemInstanceIds: [itemInstanceId],
                     affectedItems: [item],
-                    rollbackInventoryRevision: rollback.inventoryRevision,
                     deps,
                 });
                 if (durableCommit) {
@@ -163,9 +161,7 @@ export class WorldRuntimeItemGroundService {
                     instance,
                     instanceId: location.instanceId,
                     sourceId,
-                    itemInstanceIds: normalizedIds,
                     affectedItems,
-                    rollbackInventoryRevision: rollback.inventoryRevision,
                     deps,
                 });
                 if (durableCommit) {
@@ -267,11 +263,8 @@ export class WorldRuntimeItemGroundService {
         if (!sourceMutation) {
             throw new Error('ground_drop_source_mutation_unavailable');
         }
-        const operationSignature = createHash('sha256')
-            .update(`${input.itemInstanceIds.join('|')}:${input.rollbackInventoryRevision}`)
-            .digest('hex')
-            .slice(0, 24);
-        const operationId = `ground-drop:${input.playerId}:${input.instanceId}:${operationSignature}`;
+        const operationNonce = randomUUID();
+        const operationId = `ground-drop:${input.playerId}:${input.instanceId}:${operationNonce}`;
         const durableInput = {
             operationId,
             playerId: input.playerId,
@@ -282,7 +275,7 @@ export class WorldRuntimeItemGroundService {
             expectedLeaseToken: lease?.leaseToken ?? null,
             expectedOwnershipEpoch: lease?.ownershipEpoch ?? null,
             sourceType: 'ground_drop',
-            sourceRefId: `${input.sourceId}:${operationSignature}`,
+            sourceRefId: `${input.sourceId}:${operationNonce}`,
             inventoryAction: 'remove',
             sourceMutation,
             grantedItems: buildGroundDropInventorySnapshots(input.affectedItems),

@@ -71,6 +71,7 @@ signature = itemId + '#' + enhanceLevel
 
 - 地面拾取和容器领取会把来源剩余状态与玩家背包写入同一 durable transaction；失败回滚使用来源 revision/精确逆操作，不覆盖等待数据库期间发生的其他掉落或容器变化。
 - 玩家主动丢弃会把背包扣除与地面物品行作为同一事务提交；COMMIT 回包不确定时保持玩家与来源分域锁，数据库恢复可读后重新进入带 operation 身份校验的幂等入口，禁止直接恢复成提交前背包或地面状态。
+- 每次玩家丢弃意图必须生成独立的 Durable Operation ID；同一事务内部重试复用该 ID，不得用可在重连后重复的背包 revision 或物品实例 ID 组合推导操作身份。
 - 实例普通 flush 与来源资产事务共用分域串行器和 revision token；IO 期间出现的新变化继续保留 dirty，不能被旧快照回标为已持久化。
 - 普通物品使用可能在同一同步操作内同时改变 `inventory`、`vitals`、`buff`、`progression`、`attr` 等多个玩家业务域。各域仍以独立瘦 payload 暂存到 `player_flush_ledger`，但消费额度和 claim 必须按 `playerId` 计算：任一投影到期后，同一玩家本轮其他待刷投影（包括仍处于 coalesce 延迟的投影）由同一个 worker 一并认领，未知/历史非投影域不得混入该组。
 - 同一玩家已认领的业务投影必须在一个数据库事务内写入；每个域独立比较自己的 recovery watermark，旧域只跳过自身，不得阻断同批其他新域。任一域 SQL 或空覆盖校验失败时整批回滚并按玩家组重试，禁止降级为逐域提交；事务内发现 session fence 已被新会话取代时整批不写，并按 stale-safe 收敛。事务提交后才确认 ledger；确认丢失时允许重放，并由逐域 watermark 安全吸收。
