@@ -28,7 +28,7 @@ import { MapTemplateRepository } from '../map/map-template.repository';
 import { PlayerAttributesService } from './player-attributes.service';
 import { PlayerProgressionService } from './player-progression.service';
 import { refreshPlayerComprehensionSpeedRateProjection } from './player-comprehension-speed.helpers';
-import { applyPlayerCraftExpRate } from '../craft/craft-effect-runtime.helpers';
+import { applyPlayerCraftExpRate, resolvePlayerCraftRealmLevel } from '../craft/craft-effect-runtime.helpers';
 import { cloneAutoUsePillList, cloneCombatTargetingRules, isSameAutoUsePillList, isSameCombatTargetingRules, normalizePersistedAutoUsePills, normalizePersistedCombatTargetingRules } from './player-combat-config.helpers';
 import { projectHeavenGateState, projectRealmState } from './player-realm-projection.helpers';
 import { createPlayerRuntimeStateStore } from './player-runtime.state';
@@ -8585,6 +8585,7 @@ function applyTransmissionSkillExpFromTicks(player, elapsedTicks, targetLevel, g
         return false;
     }
     const baseGain = computeCraftSkillExpGain({
+        playerRealmLevel: resolvePlayerCraftRealmLevel(player),
         skillLevel: skill.level,
         targetLevel: Math.max(1, Math.floor(Number(targetLevel) || 1)),
         baseActionTicks: elapsedTicks,

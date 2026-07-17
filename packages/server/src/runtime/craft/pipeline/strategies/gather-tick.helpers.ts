@@ -8,7 +8,11 @@ import {
 } from '@mud/shared';
 import type { PipelineContext } from '../technique-activity-strategy';
 import { resolveCraftSkillExpToNextByLevel } from '../../craft-skill-exp.helpers';
-import { applyPlayerCraftExpRate, resolvePlayerCraftEffectStat } from '../../craft-effect-runtime.helpers';
+import {
+  applyPlayerCraftExpRate,
+  resolvePlayerCraftEffectStat,
+  resolvePlayerCraftRealmLevel,
+} from '../../craft-effect-runtime.helpers';
 import { reassignItemInstanceId } from '../../../world/item-instance-id.helpers';
 import {
   buildContainerSourceId,
@@ -240,6 +244,7 @@ function applyGatherSkillExp(
     return { changed: false, gain: 0 };
   }
   const baseGain = computeCraftSkillExpGain({
+    playerRealmLevel: resolvePlayerCraftRealmLevel(player),
     skillLevel: skill.level,
     targetLevel: Math.max(1, Math.floor(Number(targetLevel) || 1)),
     baseActionTicks,

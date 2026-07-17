@@ -58,7 +58,7 @@ export class AlchemyStrategy implements TechniqueActivityStrategy {
   }
   isResolvePoint(job: any): boolean { return job.currentBatchRemainingTicks <= 0 || job.remainingTicks <= 0; }
   resolve(): TechniqueActivityResolveResult {
-    return { successCount: 0, failureCount: 0, outputs: [], expParams: { skillLevel: 1, targetLevel: 1, baseActionTicks: 1, getExpToNextByLevel: () => 100 }, completed: true };
+    return { successCount: 0, failureCount: 0, outputs: [], expParams: { playerRealmLevel: 1, skillLevel: 1, targetLevel: 1, baseActionTicks: 1, getExpToNextByLevel: () => 100 }, completed: true };
   }
   computeRefund(player: unknown, _job: any, ctx: PipelineContext): TechniqueActivityRefundResult {
     return computeAlchemyLikeCancelRefund(this.craftService, player, 'alchemy', ctx);

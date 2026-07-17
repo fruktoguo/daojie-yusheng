@@ -107,6 +107,7 @@ export class GatherStrategy implements TechniqueActivityStrategy {
       failureCount: 0,
       outputs: [],
       expParams: {
+        playerRealmLevel: 1,
         skillLevel: 1,
         targetLevel: 1,
         baseActionTicks: 1,

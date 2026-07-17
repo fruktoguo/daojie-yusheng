@@ -43,6 +43,7 @@ function createResolved(partial: Partial<TechniqueActivityResolveResult>): Techn
     failureCount: 0,
     outputs: [],
     expParams: {
+      playerRealmLevel: 1,
       skillLevel: 1,
       targetLevel: 1,
       baseActionTicks: 1,

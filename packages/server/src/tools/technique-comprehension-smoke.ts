@@ -267,8 +267,14 @@ function cancelTransmissionWithPipeline(runtimeService: PlayerRuntimeService, le
   return pipeline.cancel(learner, 'transmission', ctx as never);
 }
 
-function getExpectedTransmissionExpGain(skillLevel: number, targetLevel: number, ticks: number): number {
+function getExpectedTransmissionExpGain(
+  skillLevel: number,
+  targetLevel: number,
+  ticks: number,
+  playerRealmLevel = targetLevel,
+): number {
   return computeCraftSkillExpGain({
+    playerRealmLevel,
     skillLevel,
     targetLevel,
     baseActionTicks: ticks,

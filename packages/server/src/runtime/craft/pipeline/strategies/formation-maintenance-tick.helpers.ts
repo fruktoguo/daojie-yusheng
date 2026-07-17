@@ -4,6 +4,7 @@ import type {
   TechniqueActivityResolveResult,
 } from '@mud/shared';
 import type { PipelineContext } from '../technique-activity-strategy';
+import { resolvePlayerCraftRealmLevel } from '../../craft-effect-runtime.helpers';
 
 export function resolveFormationMaintenanceTick(
   player: unknown,
@@ -61,6 +62,7 @@ export function resolveFormationMaintenanceTick(
     failureCount: 0,
     outputs: [],
     expParams: {
+      playerRealmLevel: resolvePlayerCraftRealmLevel(player),
       skillLevel,
       targetLevel: skillLevel,
       baseActionTicks: 1,
@@ -138,6 +140,7 @@ function buildFormationResolveResult(
     failureCount: 0,
     outputs: [],
     expParams: {
+      playerRealmLevel: 1,
       skillLevel: 1,
       targetLevel: 1,
       baseActionTicks: 0,

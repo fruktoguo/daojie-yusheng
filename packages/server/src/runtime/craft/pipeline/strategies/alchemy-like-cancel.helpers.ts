@@ -51,6 +51,7 @@ export function computeAlchemyLikeCancelRefund(
       reason: 'cancelled',
     },
     expParams: {
+      playerRealmLevel: 1,
       skillLevel: 1,
       targetLevel: 1,
       baseActionTicks: 1,

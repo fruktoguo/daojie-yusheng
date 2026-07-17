@@ -214,6 +214,7 @@ export class MiningStrategy implements TechniqueActivityStrategy<PlayerMiningJob
       failureCount: 0,
       outputs: [],
       expParams: {
+        playerRealmLevel: 1,
         skillLevel: 1,
         targetLevel: 1,
         baseActionTicks: 1,

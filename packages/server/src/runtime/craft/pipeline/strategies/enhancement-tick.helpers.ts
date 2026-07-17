@@ -11,7 +11,7 @@ import {
 import { getLockedItem } from '../../../player/inventory-lock.helpers';
 import { advanceTechniqueActivityPause } from '../../technique-activity-runtime.helpers';
 import type { PipelineContext } from '../technique-activity-strategy';
-import { applyPlayerCraftExpRate } from '../../craft-effect-runtime.helpers';
+import { applyPlayerCraftExpRate, resolvePlayerCraftRealmLevel } from '../../craft-effect-runtime.helpers';
 
 export function executeEnhancementTick(craftService: any, player: any, ctx: PipelineContext): unknown {
   craftService.ensureCraftSkills(player);
@@ -110,7 +110,7 @@ export function executeEnhancementTick(craftService: any, player: any, ctx: Pipe
   const skillGain = applyPlayerCraftExpRate(
     player,
     'enhancement',
-    resolveEnhancementSkillExpGain(player.enhancementSkill, job.targetItemLevel, success, ctx),
+    resolveEnhancementSkillExpGain(player, player.enhancementSkill, job.targetItemLevel, success, ctx),
   );
   const skillChanged = applyEnhancementSkillExp(player.enhancementSkill, skillGain, ctx);
   player.enhancementSkillLevel = player.enhancementSkill.level;
@@ -181,6 +181,7 @@ function buildEnhancementTickResult(
 }
 
 function resolveEnhancementSkillExpGain(
+  player: any,
   skill: any,
   targetItemLevel: number,
   success: boolean,
@@ -190,6 +191,7 @@ function resolveEnhancementSkillExpGain(
     return 0;
   }
   const gainResult = computeCraftSkillExpGain({
+    playerRealmLevel: resolvePlayerCraftRealmLevel(player),
     skillLevel: skill.level,
     targetLevel: targetItemLevel,
     baseActionTicks: computeEnhancementJobBaseTicks(targetItemLevel),

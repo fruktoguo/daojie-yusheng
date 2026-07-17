@@ -4,7 +4,11 @@ import {
   DEFAULT_CRAFT_EXP_TO_NEXT,
   resolveCraftSkillExpToNextByLevel,
 } from '../../craft-skill-exp.helpers';
-import { applyPlayerCraftExpRate, resolvePlayerCraftEffectStat } from '../../craft-effect-runtime.helpers';
+import {
+  applyPlayerCraftExpRate,
+  resolvePlayerCraftEffectStat,
+  resolvePlayerCraftRealmLevel,
+} from '../../craft-effect-runtime.helpers';
 
 export function executeBuildingTick(
   playerId: string,
@@ -145,6 +149,7 @@ function applyBuildingSkillExp(source: unknown, player: Record<string, any>, bui
   }
   const skill = ensureBuildingSkillState(source, player);
   const baseGain = computeCraftSkillExpGain({
+    playerRealmLevel: resolvePlayerCraftRealmLevel(player),
     skillLevel: skill.level,
     targetLevel: skill.level,
     baseActionTicks: normalizeBuildStrength(buildStrength),

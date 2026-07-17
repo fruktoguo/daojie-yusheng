@@ -7,7 +7,7 @@ import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
-import { ALCHEMY_FURNACE_OUTPUT_COUNT, ARTIFACT_CRAFT_BASE_SUCCESS_RATE, ELEMENT_KEYS, EQUIP_SLOTS, ENHANCEMENT_HAMMER_TAG, ENHANCEMENT_SPIRIT_STONE_ITEM_ID, MAX_ENHANCE_LEVEL, TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH, TECHNIQUE_GRADE_ORDER, addCraftElementVector, applyCraftOutputRate, canMergeItemStack, cloneCraftEffectStats, compactCraftElementVector, computeAlchemyAdjustedBrewTicks, computeAlchemyAdjustedSuccessRate, computeAlchemyBatchOutputCountWithSize, computeAlchemyBrewTicks, computeAlchemyTotalJobTicks, computeCraftSkillExpGain, computeEnhancementAdjustedSuccessRate, computeEnhancementJobBaseTicks, computeEnhancementJobTicks, computeEnhancementToolSpeedRate, computeFivePhaseElementMatch, computeLuckSuccessRateBonus, createEmptyCraftElementVector, createItemStackSignature, getAlchemySpiritStoneCost, getItemDisplayName, isLegacyItemInstanceId, normalizeCraftEffectStatsPatch, normalizeCraftElementVector, resolvePlayerFacingContentName } from '@mud/shared';
+import { ALCHEMY_FURNACE_OUTPUT_COUNT, ARTIFACT_CRAFT_BASE_SUCCESS_RATE, ELEMENT_KEYS, EQUIP_SLOTS, ENHANCEMENT_HAMMER_TAG, ENHANCEMENT_SPIRIT_STONE_ITEM_ID, MAX_ENHANCE_LEVEL, TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH, TECHNIQUE_GRADE_ORDER, addCraftElementVector, applyCraftOutputRate, canMergeItemStack, cloneCraftEffectStats, compactCraftElementVector, computeAlchemyAdjustedBrewTicks, computeAlchemyAdjustedSuccessRate, computeAlchemyBatchOutputCountWithSize, computeAlchemyBrewTicks, computeAlchemyTotalJobTicks, computeEnhancementAdjustedSuccessRate, computeEnhancementJobTicks, computeEnhancementToolSpeedRate, computeFivePhaseElementMatch, computeLuckSuccessRateBonus, createEmptyCraftElementVector, createItemStackSignature, getAlchemySpiritStoneCost, getItemDisplayName, isLegacyItemInstanceId, normalizeCraftEffectStatsPatch, normalizeCraftElementVector, resolvePlayerFacingContentName } from '@mud/shared';
 import type { ItemStack } from '@mud/shared';
 import { assignItemInstanceIdIfNeeded, compareItemInstanceId, isItemInstanceIdHardCheckEnabled } from '../world/item-instance-id.helpers';
 import { lockItem, unlockItem, getLockedItem, lockedItemToItemStack } from '../player/inventory-lock.helpers';
@@ -38,6 +38,7 @@ import { BuildingStrategy } from './pipeline/strategies/building.strategy';
 import { FormationStrategy } from './pipeline/strategies/formation.strategy';
 import { MiningStrategy } from './pipeline/strategies/mining.strategy';
 import { resolvePlayerEffectiveLuck } from '../player/player-special-stat.helpers';
+import { resolvePlayerCraftRealmLevel } from './craft-effect-runtime.helpers';
 import {
     buildTechniqueActivityTaskListView,
     buildTechniqueActivityTaskPatchView,
@@ -1293,6 +1294,7 @@ export class CraftPanelRuntimeService {
             : null;
         const skill = normalizedJobKind === 'forging' ? player.forgingSkill : player.alchemySkill;
         return {
+            playerRealmLevel: resolvePlayerCraftRealmLevel(player),
             skillLevel: skill?.level ?? 1,
             targetLevel: recipe?.outputLevel ?? job.outputLevel ?? 1,
             baseActionTicks: resolveAlchemySkillBaseActionTicks(recipe, job),
@@ -4210,21 +4212,6 @@ function resolveAlchemySkillBaseActionTicks(recipe, job) {
     return Math.max(1, Math.floor(Number(baseBrewTicks) || 1));
 }
 
-function resolveEnhancementSkillExpGain(source, skill, targetItemLevel, success) {
-    if (!skill || (skill.expToNext ?? 0) <= 0) {
-        return 0;
-    }
-    const gainResult = computeCraftSkillExpGain({
-        skillLevel: skill.level,
-        targetLevel: targetItemLevel,
-        baseActionTicks: computeEnhancementJobBaseTicks(targetItemLevel),
-        successCount: success ? 1 : 0,
-        failureCount: success ? 0 : 1,
-        successMultiplier: 1,
-        getExpToNextByLevel: (level) => resolveCraftSkillExpToNextByLevel(source, level),
-    });
-    return gainResult.finalGain;
-}
 /**
  * resolveAlchemyBatchSuccess：规范化或转换炼丹BatchSuccess。
  * @param outputCount 参数说明。

@@ -24,7 +24,7 @@ computeTimedCraftSkillExp(expToNext, level, baseActionTicks, multiplier):
 ### 批次经验
 
 ```ts
-referenceLevel = min(skillLevel, targetLevel)
+referenceLevel = min(playerRealmLevel, skillLevel, targetLevel)
 successGainPerAttempt = computeTimedCraftSkillExp(expToNext(refLevel), refLevel, baseActionTicks, successMultiplier)
 failureGainPerAttempt = computeTimedCraftSkillExp(expToNext(refLevel), refLevel, baseActionTicks, 0.25)
 baseGain = (successGain × successCount + failureGain × failureCount) / totalAttempts
@@ -33,6 +33,19 @@ finalGain = finalGainRaw > 0 ? max(1, round(finalGainRaw)) : 0  // 正值保底�
 ```
 
 > 注：前期补偿倍率中的 `level` 使用的是玩家当前技能等级（normalizedSkillLevel），而非 referenceLevel。
+
+`playerRealmLevel` 始终取本次获得技艺经验的玩家自身境界。该规则只限制经验公式采用的参考等级，不会单独阻止玩家开始高等级技艺动作；动作准入、成功率和耗时仍按各技艺原有规则判定。
+
+| 技艺 | targetLevel | playerRealmLevel |
+|------|-------------|------------------|
+| 炼丹 | 配方产物等级 | 炼丹者自身境界 |
+| 锻造 | 配方产物等级 | 锻造者自身境界 |
+| 强化 | 目标装备等级 | 强化者自身境界 |
+| 传法 | 目标功法境界 | 本次获得经验的学习者或传授者自身境界 |
+| 采集 | 采集物等级 | 采集者自身境界 |
+| 挖矿 | 矿脉等级 | 挖矿者自身境界 |
+| 建造 | 当前建造技艺等级 | 建造者自身境界 |
+| 阵法维护 | 当前阵法技艺等级 | 维护者自身境界 |
 
 ### 前期补偿倍率
 
@@ -140,6 +153,7 @@ active job 持久化以 `jobRunId + jobVersion` 做 CAS：数据库版本落后�
 baseActionTicks = 1
 successCount = 1
 failureCount = 0
+playerRealmLevel = player.realm.realmLv
 targetLevel = formationSkill.level
 ```
 

@@ -19,3 +19,10 @@ export function applyPlayerCraftExpRate(player: any, skillKind: CraftEffectSkill
     resolvePlayerCraftEffectStat(player, skillKind, 'expRate'),
   );
 }
+
+export function resolvePlayerCraftRealmLevel(player: any): number {
+  return Math.max(
+    1,
+    Math.floor(Number(player?.realm?.realmLv ?? player?.realmLv) || 1),
+  );
+}

@@ -14,6 +14,8 @@ import {
 
 /** 统一技艺经验计算入参。 */
 export interface CraftSkillExpComputationParams {
+  /** 当前执行技艺动作的玩家境界等级。 */
+  playerRealmLevel: number | undefined;
   skillLevel: number | undefined;
   targetLevel: number | undefined;
   baseActionTicks: number | undefined;
@@ -67,12 +69,13 @@ export function computeTimedCraftSkillExp(
 
 /** 统一计算一次或一批技艺动作的经验收益。 */
 export function computeCraftSkillExpGain(params: CraftSkillExpComputationParams): CraftSkillExpComputationResult {
+  const normalizedPlayerRealmLevel = Math.max(1, Math.floor(Number(params.playerRealmLevel) || 1));
   const normalizedSkillLevel = Math.max(1, Math.floor(Number(params.skillLevel) || 1));
   const normalizedTargetLevel = Math.max(1, Math.floor(Number(params.targetLevel) || 1));
   const normalizedSuccessCount = Math.max(0, Math.floor(Number(params.successCount) || 0));
   const normalizedFailureCount = Math.max(0, Math.floor(Number(params.failureCount) || 0));
   const totalAttempts = normalizedSuccessCount + normalizedFailureCount;
-  const referenceLevel = Math.min(normalizedSkillLevel, normalizedTargetLevel);
+  const referenceLevel = Math.min(normalizedPlayerRealmLevel, normalizedSkillLevel, normalizedTargetLevel);
 
   const successGainPerAttempt = computeTimedCraftSkillExp(
     params.getExpToNextByLevel(referenceLevel),

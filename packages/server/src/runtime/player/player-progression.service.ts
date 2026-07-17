@@ -12,7 +12,7 @@ import { getMonsterCombatExpGradeFactor, resolveMonsterCombatExpTierFactor } fro
 import { PlayerAttributesService } from './player-attributes.service';
 import { PlayerCountersPersistenceService } from '../../persistence/player-counters-persistence.service';
 import { normalizeRuntimeRealmExpMultiplier, normalizeRuntimeRealmLevelEntry } from './realm-runtime-exp.helpers';
-import { applyPlayerCraftExpRate } from '../craft/craft-effect-runtime.helpers';
+import { applyPlayerCraftExpRate, resolvePlayerCraftRealmLevel } from '../craft/craft-effect-runtime.helpers';
 import {
     ELEMENT_KEYS,
     TECHNIQUE_GRADE_ORDER,
@@ -2536,6 +2536,7 @@ function applyTransmissionSkillExpFromTicks(player, elapsedTicks, targetLevel, g
         return false;
     }
     const baseGain = computeCraftSkillExpGain({
+        playerRealmLevel: resolvePlayerCraftRealmLevel(player),
         skillLevel: skill.level,
         targetLevel: Math.max(1, Math.floor(Number(targetLevel) || 1)),
         baseActionTicks: elapsedTicks,

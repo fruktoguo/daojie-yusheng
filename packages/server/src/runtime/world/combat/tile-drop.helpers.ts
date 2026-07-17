@@ -14,7 +14,11 @@ import {
   isOreMinableTileType,
 } from '@mud/shared';
 import { resolveCraftSkillExpToNextByLevel } from '../../craft/craft-skill-exp.helpers';
-import { applyPlayerCraftExpRate, resolvePlayerCraftEffectStat } from '../../craft/craft-effect-runtime.helpers';
+import {
+  applyPlayerCraftExpRate,
+  resolvePlayerCraftEffectStat,
+  resolvePlayerCraftRealmLevel,
+} from '../../craft/craft-effect-runtime.helpers';
 import { buildStructuredNotice } from '../structured-notice.helpers';
 import * as worldRuntimeNormalizationHelpers from '../world-runtime.normalization.helpers';
 import { resolvePlayerEffectiveLuck } from '../../player/player-special-stat.helpers';
@@ -71,12 +75,11 @@ export function applyMiningExpForTileDamage(input: {
   }
 
   const oreTileLevel = getOreMiningLevel(input.tileType as string | undefined) ?? 1;
-  const realmLevel = input.attacker?.realmLv ?? input.attacker?.realm?.realmLv ?? 1;
   const miningLevel = Math.max(1, Math.floor(Number(skill.level) || 1));
-  const referenceLevel = Math.min(oreTileLevel, miningLevel, realmLevel);
   const baseGain = computeCraftSkillExpGain({
+    playerRealmLevel: resolvePlayerCraftRealmLevel(input.attacker),
     skillLevel: miningLevel,
-    targetLevel: referenceLevel,
+    targetLevel: oreTileLevel,
     baseActionTicks: MINING_EXP_BASE_ACTION_TICKS,
     getExpToNextByLevel: (level) => resolveCraftSkillExpToNextByLevel(input.playerRuntimeService, level),
     successCount: 1,

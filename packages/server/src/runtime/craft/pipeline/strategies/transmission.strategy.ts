@@ -20,7 +20,7 @@ import {
   type TechniqueActivityStartValidationResult,
 } from '@mud/shared';
 import type { TechniqueActivityStrategy, PipelineContext, PersistenceDomain } from '../technique-activity-strategy';
-import { applyPlayerCraftExpRate } from '../../craft-effect-runtime.helpers';
+import { applyPlayerCraftExpRate, resolvePlayerCraftRealmLevel } from '../../craft-effect-runtime.helpers';
 import { advanceTechniqueActivityPause } from '../../technique-activity-runtime.helpers';
 import { resolvePlayerComprehensionSpeedRate } from '../../../player/player-comprehension-speed.helpers';
 import { resolvePlayerDisplayName as resolveRuntimePlayerDisplayName } from '../../../player/player-display-name';
@@ -323,7 +323,7 @@ export class TransmissionStrategy implements TechniqueActivityStrategy<PlayerTra
       successCount: 0,
       failureCount: 0,
       outputs: [],
-      expParams: { skillLevel: 1, targetLevel: 1, baseActionTicks: 0, getExpToNextByLevel: () => 0 },
+      expParams: { playerRealmLevel: 1, skillLevel: 1, targetLevel: 1, baseActionTicks: 0, getExpToNextByLevel: () => 0 },
       completed: false,
       messages: [],
     };
@@ -1037,6 +1037,7 @@ function applyTransmissionSkillExpFromTicks(player: any, elapsedTicks: number, t
     return false;
   }
   const baseGain = computeCraftSkillExpGain({
+    playerRealmLevel: resolvePlayerCraftRealmLevel(player),
     skillLevel: skill.level,
     targetLevel: Math.max(1, Math.floor(Number(targetLevel) || 1)),
     baseActionTicks: elapsedTicks,
