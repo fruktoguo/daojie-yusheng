@@ -5,7 +5,6 @@ export const TIME_CHAMBER_MIN_SPEED = 1;
 export const TIME_CHAMBER_MAX_SPEED = 10;
 export const TIME_CHAMBER_MIN_USAGE_HOURS = 1;
 export const TIME_CHAMBER_MAX_USAGE_HOURS = 168;
-export const TIME_CHAMBER_MAX_CAPACITY = 100;
 
 export const TIME_CHAMBER_SIZE_OPTIONS: Readonly<Record<TimeChamberSizeTier, Readonly<{
   width: number;
@@ -53,7 +52,6 @@ export interface TimeChamberUsageDetailView extends TimeChamberSummaryView {
 export interface TimeChamberManagementDetailView extends TimeChamberSummaryView {
   minSpeed: number;
   maxSpeed: number;
-  maxCapacity: number;
   allowedSizes: TimeChamberSizeOptionView[];
   operatingCostSpiritStonesPerHour: number;
   settingsLocked: boolean;
@@ -100,7 +98,6 @@ export interface C2S_EnterTimeChamberView extends TimeChamberBuildingRequestView
 export interface C2S_UpdateTimeChamberSettingsView extends TimeChamberBuildingRequestView {
   name: string;
   speed: number;
-  capacity: number;
   expectedRevision: number;
 }
 
@@ -119,14 +116,19 @@ export function calculateTimeChamberBaseOperatingCost(speedInput: number): numbe
   return 50 * 2 ** (boundedSpeed - 2);
 }
 
-/** 每增加一个容量位置，运行成本在线性基础上增加 80%。 */
+/** 密室最大人数固定等于当前空间的总格数。 */
+export function resolveTimeChamberCapacity(sizeTierInput: TimeChamberSizeTier = 'small'): number {
+  const size = TIME_CHAMBER_SIZE_OPTIONS[sizeTierInput] ?? TIME_CHAMBER_SIZE_OPTIONS.small;
+  return size.width * size.height;
+}
+
+/** 每增加一个由空间提供的容量位置，运行成本在线性基础上增加 80%。 */
 export function calculateTimeChamberOperatingCostPerHour(
   speedInput: number,
-  capacityInput: number,
   sizeTierInput: TimeChamberSizeTier = 'small',
 ): number {
   const baseCost = calculateTimeChamberBaseOperatingCost(speedInput);
-  const capacity = Math.max(1, Math.min(TIME_CHAMBER_MAX_CAPACITY, Math.trunc(Number(capacityInput) || 1)));
+  const capacity = resolveTimeChamberCapacity(sizeTierInput);
   const capacityCost = baseCost * (5 + 4 * (capacity - 1)) / 5;
   const size = TIME_CHAMBER_SIZE_OPTIONS[sizeTierInput] ?? TIME_CHAMBER_SIZE_OPTIONS.small;
   return Math.ceil(capacityCost * size.costMultiplierPercent / 100);
@@ -134,7 +136,6 @@ export function calculateTimeChamberOperatingCostPerHour(
 
 export function calculateTimeChamberActivationCost(
   speedInput: number,
-  capacityInput: number,
   durationHoursInput: number,
   sizeTierInput: TimeChamberSizeTier = 'small',
 ): number {
@@ -142,5 +143,5 @@ export function calculateTimeChamberActivationCost(
     TIME_CHAMBER_MIN_USAGE_HOURS,
     Math.min(TIME_CHAMBER_MAX_USAGE_HOURS, Math.trunc(Number(durationHoursInput) || TIME_CHAMBER_MIN_USAGE_HOURS)),
   );
-  return calculateTimeChamberOperatingCostPerHour(speedInput, capacityInput, sizeTierInput) * durationHours;
+  return calculateTimeChamberOperatingCostPerHour(speedInput, sizeTierInput) * durationHours;
 }

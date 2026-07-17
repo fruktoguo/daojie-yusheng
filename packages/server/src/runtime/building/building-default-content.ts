@@ -123,7 +123,6 @@ const DEFAULT_BUILDING_DEFS: BuildingDef[] = [
       cost: [{ itemId: 'wood', count: 8 }, { itemId: 'stone', count: 12 }, { itemId: 'metal', count: 4 }],
     },
     timeChamber: {
-      defaultCapacity: 1,
       maxSpeed: MAX_INSTANCE_TICK_SPEED,
       allowedSizeTiers: ['small', 'medium', 'large'],
     },

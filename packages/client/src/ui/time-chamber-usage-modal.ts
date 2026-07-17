@@ -153,7 +153,6 @@ export class TimeChamberUsageModal {
     if (durationValue) durationValue.textContent = `${this.durationHours} 小时`;
     const total = calculateTimeChamberActivationCost(
       this.detail.configuredSpeed,
-      this.detail.capacity,
       this.durationHours,
       this.detail.sizeTier,
     );
@@ -262,7 +261,6 @@ function buildUsageShell(detail: TimeChamberUsageDetailView, durationHours: numb
   patchUsageFields(shell, detail);
   setField(shell, 'total', `${formatDisplayNumber(calculateTimeChamberActivationCost(
     detail.configuredSpeed,
-    detail.capacity,
     durationHours,
     detail.sizeTier,
   ))} 灵石`);

@@ -100,7 +100,6 @@ export interface BuildingDef {
     capacity?: number;
   };
   timeChamber?: {
-    defaultCapacity?: number;
     maxSpeed?: number;
     allowedSizeTiers?: TimeChamberSizeTier[];
   };
@@ -135,7 +134,7 @@ export interface CompiledBuildingDef {
   costCounts: Uint32Array;
   cellLayerTarget: CellLayerTarget;
   treasureVaultCapacity: number;
-  timeChamberDefaultCapacity: number;
+  timeChamberEnabled: boolean;
   timeChamberMaxSpeed: number;
   timeChamberAllowedSizeTiers: TimeChamberSizeTier[];
   craftEffectStats?: CraftEffectStatsPatch;

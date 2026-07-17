@@ -137,7 +137,7 @@ export function compileBuildingDefinitions(definitions: readonly BuildingDef[]):
       costCounts: Uint32Array.from(cost.map((entry) => clampInt(entry.count, 1, Number.MAX_SAFE_INTEGER))),
       cellLayerTarget,
       treasureVaultCapacity: clampInt(definition.treasureVault?.capacity, 0, Number.MAX_SAFE_INTEGER, 0),
-      timeChamberDefaultCapacity: clampInt(definition.timeChamber?.defaultCapacity, 0, 100, 0),
+      timeChamberEnabled: definition.timeChamber !== undefined,
       timeChamberMaxSpeed: clampInt(definition.timeChamber?.maxSpeed, 1, MAX_INSTANCE_TICK_SPEED, 1),
       timeChamberAllowedSizeTiers: normalizeTimeChamberSizeTiers(definition.timeChamber?.allowedSizeTiers),
       craftEffectStats: normalizeCraftEffectStatsPatch(definition.craftEffectStats),

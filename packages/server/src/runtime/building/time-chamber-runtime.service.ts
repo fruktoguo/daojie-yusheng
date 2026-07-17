@@ -10,8 +10,8 @@ import {
   calculateTimeChamberActivationCost,
   calculateTimeChamberOperatingCostPerHour,
   MAX_INSTANCE_TICK_SPEED,
+  resolveTimeChamberCapacity,
   SPIRIT_STONE_ITEM_ID,
-  TIME_CHAMBER_MAX_CAPACITY,
   TIME_CHAMBER_MAX_SPEED,
   TIME_CHAMBER_MAX_USAGE_HOURS,
   TIME_CHAMBER_MIN_USAGE_HOURS,
@@ -78,7 +78,6 @@ interface TimeChamberState {
   ownerPlayerId: string;
   displayName: string;
   sizeTier: TimeChamberSizeTier;
-  capacity: number;
   configuredSpeed: number;
   activeStartedAt: number | null;
   activeExpiresAt: number | null;
@@ -393,31 +392,25 @@ export class TimeChamberRuntimeService implements OnModuleInit, OnModuleDestroy 
       }
       const name = normalizeName(payload.name);
       const speed = Math.trunc(Number(payload.speed));
-      const capacity = Math.trunc(Number(payload.capacity));
-      const maxCapacity = resolveMaxCapacityForTier(resolved.state.sizeTier);
       if (!name) {
         return { ok: false, operation: 'settings', requestId, reason: 'invalid_time_chamber_name' };
       }
       if (!Number.isInteger(speed) || speed < BASE_SPEED || speed > resolved.state.maxSpeed) {
         return { ok: false, operation: 'settings', requestId, reason: 'invalid_time_chamber_speed' };
       }
-      if (!Number.isSafeInteger(capacity) || capacity < 1 || capacity > maxCapacity) {
-        return { ok: false, operation: 'settings', requestId, reason: 'invalid_time_chamber_capacity' };
-      }
       if (!matchesExpectedRevision(payload.expectedRevision, resolved.state.revision)) {
         return { ok: false, operation: 'settings', requestId, reason: 'time_chamber_revision_conflict' };
       }
       if (
         resolved.state.activeExpiresAt !== null
-        && (speed !== resolved.state.configuredSpeed || capacity !== resolved.state.capacity)
+        && speed !== resolved.state.configuredSpeed
       ) {
         return { ok: false, operation: 'settings', requestId, reason: 'time_chamber_settings_locked' };
       }
-      await this.updateConfigRow(resolved.state, { configuredSpeed: speed, displayName: name, capacity });
+      await this.updateConfigRow(resolved.state, { configuredSpeed: speed, displayName: name });
       const nameChanged = name !== resolved.state.displayName;
       resolved.state.configuredSpeed = speed;
       resolved.state.displayName = name;
-      resolved.state.capacity = capacity;
       resolved.state.revision += 1;
       if (nameChanged) {
         resolved.building.name = name;
@@ -464,9 +457,6 @@ export class TimeChamberRuntimeService implements OnModuleInit, OnModuleDestroy 
       }
       if (resolved.state.activeExpiresAt !== null) {
         return { ok: false, operation: 'resize', requestId, reason: 'time_chamber_settings_locked' };
-      }
-      if (resolved.state.capacity > resolveMaxCapacityForTier(sizeTier)) {
-        return { ok: false, operation: 'resize', requestId, reason: 'time_chamber_capacity_exceeds_size' };
       }
       if (resolved.chamberInstance.listPlayerIds().length > 0) {
         return { ok: false, operation: 'resize', requestId, reason: 'time_chamber_occupied' };
@@ -759,7 +749,7 @@ export class TimeChamberRuntimeService implements OnModuleInit, OnModuleDestroy 
       configuredSpeed: state.configuredSpeed,
       effectiveSpeed: active ? state.configuredSpeed : BASE_SPEED,
       occupancy: instance?.listPlayerIds?.().length ?? 0,
-      capacity: state.capacity,
+      capacity: resolveTimeChamberCapacity(state.sizeTier),
     };
   }
 
@@ -875,7 +865,15 @@ export class TimeChamberRuntimeService implements OnModuleInit, OnModuleDestroy 
        ) VALUES ($1, $2, $3, $4, $5, $6, 'small', $7, 1, 1, now(), now())
        ON CONFLICT (source_instance_id, building_id) DO NOTHING
        RETURNING *`,
-      [sourceInstanceId, building.id, chamberInstanceId, templateId, ownerPlayerId, displayName, config.capacity],
+      [
+        sourceInstanceId,
+        building.id,
+        chamberInstanceId,
+        templateId,
+        ownerPlayerId,
+        displayName,
+        resolveTimeChamberCapacity('small'),
+      ],
     );
     const row = result.rows?.[0] ?? (await this.pool.query(
       `SELECT * FROM ${TIME_CHAMBER_TABLE} WHERE source_instance_id = $1 AND building_id = $2 LIMIT 1`,
@@ -995,7 +993,7 @@ export class TimeChamberRuntimeService implements OnModuleInit, OnModuleDestroy 
       sizeTier: state.sizeTier,
       width: dimensions.width,
       height: dimensions.height,
-      capacity: state.capacity,
+      capacity: resolveTimeChamberCapacity(state.sizeTier),
       occupancy: instance?.listPlayerIds?.().length ?? 0,
       configuredSpeed: state.configuredSpeed,
       effectiveSpeed: resolveEffectiveInstanceSpeed(instance),
@@ -1011,7 +1009,6 @@ export class TimeChamberRuntimeService implements OnModuleInit, OnModuleDestroy 
       ...summary,
       activationCostSpiritStonesPerHour: calculateTimeChamberOperatingCostPerHour(
         state.configuredSpeed,
-        state.capacity,
         state.sizeTier,
       ),
       minUsageHours: TIME_CHAMBER_MIN_USAGE_HOURS,
@@ -1023,14 +1020,12 @@ export class TimeChamberRuntimeService implements OnModuleInit, OnModuleDestroy 
     const summary = this.buildSummaryView(playerId, state, instance);
     const operatingCost = calculateTimeChamberOperatingCostPerHour(
       state.configuredSpeed,
-      state.capacity,
       state.sizeTier,
     );
     return {
       ...summary,
       minSpeed: BASE_SPEED,
       maxSpeed: state.maxSpeed,
-      maxCapacity: resolveMaxCapacityForTier(state.sizeTier),
       allowedSizes: state.allowedSizeTiers.map((tier) => ({
         tier,
         width: TIME_CHAMBER_SIZE_OPTIONS[tier].width,
@@ -1057,7 +1052,6 @@ export class TimeChamberRuntimeService implements OnModuleInit, OnModuleDestroy 
     await this.playerRuntimeService.runExclusiveAssetMutation([playerId], async () => {
       const activationCost = calculateTimeChamberActivationCost(
         state.configuredSpeed,
-        state.capacity,
         durationHours,
         state.sizeTier,
       );
@@ -1161,7 +1155,7 @@ export class TimeChamberRuntimeService implements OnModuleInit, OnModuleDestroy 
     }
     const retainedPlayerIds = (await persistence.listRetainedPlayerIdsInInstance(
       state.chamberInstanceId,
-      TIME_CHAMBER_MAX_CAPACITY + 1,
+      resolveTimeChamberCapacity(state.sizeTier) + 1,
     )).filter((retainedPlayerId: string) => {
       // 位置 checkpoint 可能比刚完成的跨图传送晚一次 flush；在线运行态已明确离开时不能继续占用名额。
       const runtimeLocation = runtime.getPlayerLocation?.(retainedPlayerId);
@@ -1170,7 +1164,12 @@ export class TimeChamberRuntimeService implements OnModuleInit, OnModuleDestroy 
         || normalizeString(runtimePlayer?.instanceId);
       return !currentInstanceId || currentInstanceId === state.chamberInstanceId;
     });
-    return this.admissionPolicy.canEnter(chamberInstance, playerId, state.capacity, retainedPlayerIds);
+    return this.admissionPolicy.canEnter(
+      chamberInstance,
+      playerId,
+      resolveTimeChamberCapacity(state.sizeTier),
+      retainedPlayerIds,
+    );
   }
 
   private enqueueEnterCommand(playerId: string, state: TimeChamberState, runtime: any): boolean {
@@ -1193,7 +1192,6 @@ export class TimeChamberRuntimeService implements OnModuleInit, OnModuleDestroy 
     );
     const row = result.rows?.[0];
     if (row) {
-      state.capacity = Math.max(1, Math.min(resolveMaxCapacityForTier(state.sizeTier), normalizeSafeInteger(row.capacity)));
       state.configuredSpeed = Math.max(BASE_SPEED, Math.min(state.maxSpeed, normalizeSafeInteger(row.configured_speed)));
       state.displayName = normalizeName(row.display_name) || state.displayName;
       state.activeStartedAt = normalizeNullablePositiveInteger(row.active_started_at_ms);
@@ -1360,7 +1358,6 @@ export class TimeChamberRuntimeService implements OnModuleInit, OnModuleDestroy 
       configuredSpeed?: number;
       displayName?: string;
       sizeTier?: TimeChamberSizeTier;
-      capacity?: number;
     },
   ): Promise<void> {
     if (!this.pool) {
@@ -1371,7 +1368,7 @@ export class TimeChamberRuntimeService implements OnModuleInit, OnModuleDestroy 
           SET configured_speed = COALESCE($3, configured_speed),
               display_name = COALESCE($4, display_name),
               size_tier = COALESCE($5, size_tier),
-              capacity = COALESCE($6, capacity),
+              capacity = $6,
               revision = revision + 1,
               updated_at = now()
         WHERE source_instance_id = $1 AND building_id = $2 AND revision = $7`,
@@ -1381,7 +1378,7 @@ export class TimeChamberRuntimeService implements OnModuleInit, OnModuleDestroy 
         patch.configuredSpeed ?? null,
         patch.displayName ?? null,
         patch.sizeTier ?? null,
-        patch.capacity ?? null,
+        resolveTimeChamberCapacity(patch.sizeTier ?? state.sizeTier),
         state.revision,
       ],
     );
@@ -1420,7 +1417,7 @@ async function ensureTimeChamberTable(pool: PoolLike): Promise<void> {
       owner_player_id varchar(100) NOT NULL,
       display_name varchar(40) NOT NULL,
       size_tier varchar(16) NOT NULL CHECK (size_tier IN ('small', 'medium', 'large')),
-      capacity integer NOT NULL DEFAULT 1 CHECK (capacity BETWEEN 1 AND 100),
+      capacity integer NOT NULL DEFAULT 25 CHECK (capacity BETWEEN 1 AND 100),
       configured_speed integer NOT NULL DEFAULT 1 CHECK (configured_speed BETWEEN 1 AND ${MAX_INSTANCE_TICK_SPEED}),
       active_started_at_ms bigint,
       active_expires_at_ms bigint,
@@ -1458,7 +1455,6 @@ function normalizeStateRow(row: any, config: ReturnType<typeof resolveTimeChambe
     ownerPlayerId,
     displayName: normalizeName(row?.display_name) || '密室',
     sizeTier,
-    capacity: Math.max(1, Math.min(resolveMaxCapacityForTier(sizeTier), Math.trunc(Number(row?.capacity) || config?.capacity || 1))),
     configuredSpeed: Math.max(BASE_SPEED, Math.min(TIME_CHAMBER_MAX_SPEED, Math.trunc(Number(row?.configured_speed) || BASE_SPEED))),
     activeStartedAt: normalizeNullablePositiveInteger(row?.active_started_at_ms),
     activeExpiresAt: normalizeNullablePositiveInteger(row?.active_expires_at_ms),
@@ -1474,16 +1470,14 @@ function resolveCompiledBuilding(instance: any, building: any): any {
   return resolveCompiledBuildingDefinition(instance?.buildingCatalog, building);
 }
 
-function resolveTimeChamberConfig(compiled: any): { capacity: number; maxSpeed: number; allowedSizeTiers: TimeChamberSizeTier[] } | null {
-  const capacity = Math.max(0, Math.trunc(Number(compiled?.timeChamberDefaultCapacity) || 0));
-  if (capacity <= 0) {
+function resolveTimeChamberConfig(compiled: any): { maxSpeed: number; allowedSizeTiers: TimeChamberSizeTier[] } | null {
+  if (compiled?.timeChamberEnabled !== true) {
     return null;
   }
   const allowed = Array.isArray(compiled?.timeChamberAllowedSizeTiers)
     ? compiled.timeChamberAllowedSizeTiers.filter((entry) => normalizeSizeTier(entry) !== null)
     : [];
   return {
-    capacity,
     maxSpeed: Math.max(BASE_SPEED, Math.min(TIME_CHAMBER_MAX_SPEED, Math.trunc(Number(compiled?.timeChamberMaxSpeed) || TIME_CHAMBER_MAX_SPEED))),
     allowedSizeTiers: allowed.length > 0 ? allowed : ['small', 'medium', 'large'],
   };
@@ -1493,7 +1487,7 @@ function isTimeChamberBuilding(instance: any, building: any): boolean {
   const compiled = resolveCompiledBuilding(instance, building);
   return building?.defId === TIME_CHAMBER_DEF_ID
     || compiled?.id === TIME_CHAMBER_DEF_ID
-    || Math.max(0, Math.trunc(Number(compiled?.timeChamberDefaultCapacity) || 0)) > 0;
+    || compiled?.timeChamberEnabled === true;
 }
 
 function buildTimeChamberMapDocument(state: Pick<TimeChamberState, 'templateId' | 'displayName' | 'sizeTier' | 'chamberInstanceId'>): any {
@@ -1536,11 +1530,6 @@ function removeInventoryItemCount(items: any[], itemId: string, count: number): 
     }
   }
   return { ok: remaining === 0, nextItems: remaining === 0 ? nextItems : items, removedItems: remaining === 0 ? removedItems : [] };
-}
-
-function resolveMaxCapacityForTier(tier: TimeChamberSizeTier): number {
-  const dimensions = TIME_CHAMBER_SIZE_OPTIONS[tier];
-  return Math.min(TIME_CHAMBER_MAX_CAPACITY, Math.max(1, dimensions.width * dimensions.height));
 }
 
 function markBuildingChanged(instance: any, building: any): void {

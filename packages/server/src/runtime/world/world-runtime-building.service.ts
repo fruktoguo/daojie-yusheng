@@ -353,7 +353,7 @@ function isTimeChamberBuilding(instance, building) {
     const compiled = resolveCompiledBuildingDefinition(instance?.buildingCatalog, building);
     return building?.defId === 'time_chamber'
         || compiled?.id === 'time_chamber'
-        || Math.max(0, Math.trunc(Number(compiled?.timeChamberDefaultCapacity) || 0)) > 0;
+        || compiled?.timeChamberEnabled === true;
 }
 
 export function listBuildingOperationAudit(runtime, limit = 50) {

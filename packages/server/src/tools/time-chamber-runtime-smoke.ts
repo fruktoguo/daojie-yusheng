@@ -3,6 +3,7 @@ import {
   calculateTimeChamberActivationCost,
   calculateTimeChamberBaseOperatingCost,
   calculateTimeChamberOperatingCostPerHour,
+  resolveTimeChamberCapacity,
 } from '@mud/shared';
 
 import { TimeChamberAdmissionPolicy } from '../runtime/building/time-chamber-admission.policy';
@@ -25,13 +26,16 @@ async function main(): Promise<void> {
     [50, 100, 200, 400, 800, 1600, 3200, 6400, 12800],
     '2 至 10 倍的每小时基础成本必须逐倍翻倍',
   );
-  assert.equal(calculateTimeChamberOperatingCostPerHour(2, 1), 50);
-  assert.equal(calculateTimeChamberOperatingCostPerHour(2, 2), 90);
-  assert.equal(calculateTimeChamberOperatingCostPerHour(2, 4), 170, '额外位置按 80% 线性叠加，不能复利');
-  assert.equal(calculateTimeChamberActivationCost(2, 4, 3), 510, '开启总价必须由倍率、容量和整小时数直接决定');
-  assert.equal(calculateTimeChamberOperatingCostPerHour(2, 1, 'medium'), 75, '扩大一圈后每小时成本提升 50%');
-  assert.equal(calculateTimeChamberOperatingCostPerHour(2, 1, 'large'), 113, '连续扩大两圈按乘算并向上取整');
-  assert.equal(calculateTimeChamberActivationCost(2, 1, 2, 'large'), 226, '开启总价必须包含当前空间尺寸成本');
+  assert.deepEqual(
+    (['small', 'medium', 'large'] as const).map(resolveTimeChamberCapacity),
+    [25, 49, 81],
+    '最大人数必须固定等于三档密室的总格数',
+  );
+  assert.equal(calculateTimeChamberOperatingCostPerHour(2), 1010, '5×5 必须按 25 个位置计算线性容量成本');
+  assert.equal(calculateTimeChamberOperatingCostPerHour(2, 'medium'), 2955, '7×7 必须按 49 个位置和一圈空间成本计算');
+  assert.equal(calculateTimeChamberOperatingCostPerHour(2, 'large'), 7313, '9×9 必须按 81 个位置和两圈空间成本计算');
+  assert.equal(calculateTimeChamberActivationCost(2, 3), 3030, '开启总价必须由倍率、空间派生容量和整小时数决定');
+  assert.equal(calculateTimeChamberActivationCost(2, 2, 'large'), 14626, '开启总价必须包含当前空间的派生容量与尺寸成本');
 
   const registeredDocuments: any[] = [];
   const service = new TimeChamberRuntimeService(
@@ -102,7 +106,6 @@ async function main(): Promise<void> {
     ownerPlayerId: 'player:owner',
     displayName: '试炼密室',
     sizeTier: 'small',
-    capacity: 1,
     configuredSpeed: 3,
     activeStartedAt: null as number | null,
     activeExpiresAt: null as number | null,
@@ -112,6 +115,11 @@ async function main(): Promise<void> {
     allowedSizeTiers: ['small', 'medium', 'large'],
     revision: 1,
   };
+  assert.equal(
+    serviceInternal.buildSummaryView('player:owner', state, chamberInstance).capacity,
+    25,
+    '小型密室详情必须投影 25 人容量',
+  );
   serviceInternal.stateByChamberInstanceId.set(state.chamberInstanceId, state);
   const runtime = {
     refreshInstanceSchedule(): void {},
@@ -145,7 +153,6 @@ async function main(): Promise<void> {
       requestId: 'settings:active',
       name: state.displayName,
       speed: state.configuredSpeed + 1,
-      capacity: state.capacity,
       expectedRevision: state.revision,
     }, runtime),
     {
@@ -154,7 +161,7 @@ async function main(): Promise<void> {
       requestId: 'settings:active',
       reason: 'time_chamber_settings_locked',
     },
-    '全室开启期间不能修改倍率或容量',
+    '全室开启期间不能修改倍率',
   );
   let currentLocation = { instanceId: state.sourceInstanceId, sessionId: 'session:one' };
   let transferCount = 0;
@@ -263,7 +270,7 @@ async function main(): Promise<void> {
 
   console.log(JSON.stringify({
     ok: true,
-    answers: '密室三档空间为 5/7/9；每扩大一圈成本乘 1.5，额外容量按 80% 线性增加；中心格为唯一密室保护禁建点；未开启时固定 1 倍且禁止进入，全室开启后所有玩家可按容量进入；到期会迁出玩家、修正持久化位置并恢复 1 倍；拆除仍受实例 lease/epoch 围栏保护。',
+    answers: '密室三档空间为 5/7/9，最大人数固定为 25/49/81；每扩大一圈成本乘 1.5，空间派生容量按每位置 80% 线性增加；中心格为唯一密室保护禁建点；未开启时固定 1 倍且禁止进入，全室开启后所有玩家可按容量进入；到期会迁出玩家、修正持久化位置并恢复 1 倍；拆除仍受实例 lease/epoch 围栏保护。',
     excludes: '不连接数据库，不证明真实事务、实例目录恢复和客户端控制台。',
     completionMapping: 'time-chamber-domain-runtime',
   }, null, 2));
@@ -278,7 +285,6 @@ async function testActivationExpiryRelocation(): Promise<void> {
     ownerPlayerId: 'player:owner',
     displayName: '到期迁出密室',
     sizeTier: 'small' as const,
-    capacity: 1,
     configuredSpeed: 4,
     activeStartedAt: (Date.now() - 7_200_000) as number | null,
     activeExpiresAt: (Date.now() - 1) as number | null,
@@ -331,7 +337,7 @@ async function testActivationExpiryRelocation(): Promise<void> {
       if (normalizedSql.startsWith('SELECT * FROM instance_time_chamber_state')) {
         return {
           rows: [{
-            capacity: state.capacity,
+            capacity: 1,
             configured_speed: state.configuredSpeed,
             display_name: state.displayName,
             active_started_at_ms: null,
@@ -395,7 +401,6 @@ async function testDeconstructLeaseFence(): Promise<void> {
     ownerPlayerId: 'player:owner',
     displayName: '拆除围栏密室',
     sizeTier: 'small' as const,
-    capacity: 1,
     configuredSpeed: 1,
     activeStartedAt: null,
     activeExpiresAt: null,

@@ -14,6 +14,7 @@ import { installSmokeTimeout } from './smoke-timeout';
 installSmokeTimeout(__filename);
 
 const databaseUrl = resolveServerDatabaseUrl();
+const INITIAL_SPIRIT_STONES = 5_000;
 
 async function main(): Promise<void> {
   if (!databaseUrl.trim()) {
@@ -41,7 +42,7 @@ async function main(): Promise<void> {
   const pool = new Pool({ connectionString: databaseUrl });
   const databasePoolProvider = new DatabasePoolProvider();
   const service = new DurableOperationService({ getNodeId: () => nodeId } as never, databasePoolProvider);
-  const activationCost = calculateTimeChamberActivationCost(2, 3, 1);
+  const activationCost = calculateTimeChamberActivationCost(2, 1);
 
   try {
     await service.onModuleInit();
@@ -66,7 +67,7 @@ async function main(): Promise<void> {
       buildingId,
       chamberInstanceId,
       nodeId,
-      currentStoneCount: 500,
+      currentStoneCount: INITIAL_SPIRIT_STONES,
       chargedSpiritStones: activationCost,
       durationHours: 1,
       expectedRevision: 1,
@@ -75,10 +76,11 @@ async function main(): Promise<void> {
     if (!activationResult.ok || activationResult.alreadyCommitted) {
       throw new Error(`密室首次开启事务结果异常：${JSON.stringify(activationResult)}`);
     }
-    await assertInventoryCount(pool, openerPlayerId, 500 - activationCost);
+    await assertInventoryCount(pool, openerPlayerId, INITIAL_SPIRIT_STONES - activationCost);
     const firstState = await readChamberState(pool, instanceId, buildingId);
     if (
       firstState.revision !== 2
+      || firstState.capacity !== 25
       || firstState.activationPlayerId !== openerPlayerId
       || firstState.activationSpiritStones !== activationCost
       || firstState.activeStartedAt === null
@@ -92,7 +94,7 @@ async function main(): Promise<void> {
     if (!replayResult.ok || !replayResult.alreadyCommitted) {
       throw new Error(`密室开启幂等回放异常：${JSON.stringify(replayResult)}`);
     }
-    await assertInventoryCount(pool, openerPlayerId, 500 - activationCost);
+    await assertInventoryCount(pool, openerPlayerId, INITIAL_SPIRIT_STONES - activationCost);
 
     let repeatedActivationRejected = false;
     try {
@@ -104,7 +106,7 @@ async function main(): Promise<void> {
         buildingId,
         chamberInstanceId,
         nodeId,
-        currentStoneCount: 500 - activationCost,
+        currentStoneCount: INITIAL_SPIRIT_STONES - activationCost,
         chargedSpiritStones: activationCost,
         durationHours: 1,
         expectedRevision: 2,
@@ -113,7 +115,7 @@ async function main(): Promise<void> {
       repeatedActivationRejected = String(error instanceof Error ? error.message : error).includes('time_chamber_already_active');
     }
     if (!repeatedActivationRejected) throw new Error('密室开启期间必须拒绝重复开启或续时');
-    await assertInventoryCount(pool, openerPlayerId, 500 - activationCost);
+    await assertInventoryCount(pool, openerPlayerId, INITIAL_SPIRIT_STONES - activationCost);
 
     await pool.query(
       `UPDATE instance_time_chamber_state
@@ -133,7 +135,7 @@ async function main(): Promise<void> {
         buildingId,
         chamberInstanceId,
         nodeId,
-        currentStoneCount: 500 - activationCost,
+        currentStoneCount: INITIAL_SPIRIT_STONES - activationCost,
         chargedSpiritStones: activationCost - 1,
         durationHours: 1,
         expectedRevision: 3,
@@ -142,7 +144,7 @@ async function main(): Promise<void> {
       priceMismatchRejected = String(error instanceof Error ? error.message : error).includes('time_chamber_price_changed');
     }
     if (!priceMismatchRejected) throw new Error('客户端报价与权威公式不一致时应拒绝并回滚');
-    await assertInventoryCount(pool, openerPlayerId, 500 - activationCost);
+    await assertInventoryCount(pool, openerPlayerId, INITIAL_SPIRIT_STONES - activationCost);
 
     const ownerMutation = buildActivationMutation({
       operationId: ownerActivationOperationId,
@@ -152,7 +154,7 @@ async function main(): Promise<void> {
       buildingId,
       chamberInstanceId,
       nodeId,
-      currentStoneCount: 500,
+      currentStoneCount: INITIAL_SPIRIT_STONES,
       chargedSpiritStones: activationCost,
       durationHours: 1,
       expectedRevision: 3,
@@ -161,7 +163,7 @@ async function main(): Promise<void> {
     if (!ownerResult.ok || ownerResult.alreadyCommitted) {
       throw new Error(`建造者付费开启事务异常：${JSON.stringify(ownerResult)}`);
     }
-    await assertInventoryCount(pool, ownerPlayerId, 500 - activationCost);
+    await assertInventoryCount(pool, ownerPlayerId, INITIAL_SPIRIT_STONES - activationCost);
 
     const audit = await pool.query(
       'SELECT action FROM asset_audit_log WHERE operation_id = $1 ORDER BY created_at ASC',
@@ -200,7 +202,7 @@ async function main(): Promise<void> {
     console.log(JSON.stringify({
       ok: true,
       case: 'time-chamber-durable-fuel',
-      answers: '开启者按倍率、容量和时长直接支付；建造者无免费特例；开启状态与背包扣款同事务提交；重复开启、错误报价会完整回滚；相同 operationId 不重复扣款；拆除仍受 lease 与 ownership epoch 围栏保护。',
+      answers: '开启者按倍率、尺寸派生容量和时长直接支付；建造者无免费特例；开启状态与背包扣款同事务提交；重复开启、错误报价会完整回滚；相同 operationId 不重复扣款；拆除仍受 lease 与 ownership epoch 围栏保护。',
       excludes: '不启动 socket 客户端，不证明控制台 DOM 交互与真实时间到期传送。',
       completionMapping: 'release:proof:with-db.time-chamber-durable-fuel',
     }, null, 2));
@@ -270,7 +272,7 @@ async function ensureTimeChamberTable(pool: Pool): Promise<void> {
       owner_player_id varchar(100) NOT NULL,
       display_name varchar(40) NOT NULL,
       size_tier varchar(16) NOT NULL CHECK (size_tier IN ('small', 'medium', 'large')),
-      capacity integer NOT NULL DEFAULT 1 CHECK (capacity BETWEEN 1 AND 100),
+      capacity integer NOT NULL DEFAULT 25 CHECK (capacity BETWEEN 1 AND 100),
       configured_speed integer NOT NULL DEFAULT 1 CHECK (configured_speed BETWEEN 1 AND ${MAX_INSTANCE_TICK_SPEED}),
       active_started_at_ms bigint,
       active_expires_at_ms bigint,
@@ -312,8 +314,13 @@ async function seedFixture(pool: Pool, input: {
       );
       await client.query(
         `INSERT INTO player_inventory_item(item_instance_id, player_id, slot_index, item_id, count, raw_payload, updated_at)
-         VALUES ($1, $2, 0, 'spirit_stone', 500, $3::jsonb, now())`,
-        [`inventory:${playerId}:0`, playerId, JSON.stringify({ itemId: 'spirit_stone', count: 500 })],
+         VALUES ($1, $2, 0, 'spirit_stone', $3, $4::jsonb, now())`,
+        [
+          `inventory:${playerId}:0`,
+          playerId,
+          INITIAL_SPIRIT_STONES,
+          JSON.stringify({ itemId: 'spirit_stone', count: INITIAL_SPIRIT_STONES }),
+        ],
       );
     }
     await client.query(
@@ -370,6 +377,7 @@ async function assertInventoryCount(pool: Pool, playerId: string, expectedStoneC
 }
 
 async function readChamberState(pool: Pool, instanceId: string, buildingId: string): Promise<{
+  capacity: number;
   activeStartedAt: number | null;
   activeExpiresAt: number | null;
   activationPlayerId: string | null;
@@ -377,7 +385,7 @@ async function readChamberState(pool: Pool, instanceId: string, buildingId: stri
   revision: number;
 }> {
   const result = await pool.query(
-    `SELECT active_started_at_ms, active_expires_at_ms, activation_player_id,
+    `SELECT capacity, active_started_at_ms, active_expires_at_ms, activation_player_id,
             activation_spirit_stones, revision
        FROM instance_time_chamber_state
       WHERE source_instance_id = $1 AND building_id = $2`,
@@ -386,6 +394,7 @@ async function readChamberState(pool: Pool, instanceId: string, buildingId: stri
   const row = result.rows[0];
   if (!row) throw new Error('密室状态缺失');
   return {
+    capacity: Number(row.capacity),
     activeStartedAt: row.active_started_at_ms === null ? null : Number(row.active_started_at_ms),
     activeExpiresAt: row.active_expires_at_ms === null ? null : Number(row.active_expires_at_ms),
     activationPlayerId: typeof row.activation_player_id === 'string' ? row.activation_player_id : null,
@@ -419,7 +428,6 @@ async function assertDeconstructLeaseFence(pool: Pool, input: {
     ownerPlayerId: input.playerId,
     displayName: '事务烟测密室',
     sizeTier: 'small',
-    capacity: Number(stateRow.capacity),
     configuredSpeed: Number(stateRow.configured_speed),
     activeStartedAt: stateRow.active_started_at_ms === null ? null : Number(stateRow.active_started_at_ms),
     activeExpiresAt: stateRow.active_expires_at_ms === null ? null : Number(stateRow.active_expires_at_ms),

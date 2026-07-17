@@ -9759,7 +9759,7 @@ function isTreasureVaultBuildingForRuntime(compiled, building) {
 function isTimeChamberBuildingForRuntime(compiled, building) {
     return building?.defId === 'time_chamber'
         || compiled?.id === 'time_chamber'
-        || Math.max(0, Math.trunc(Number(compiled?.timeChamberDefaultCapacity) || 0)) > 0;
+        || compiled?.timeChamberEnabled === true;
 }
 function resolveBuildingCombatTileType(building, compiled) {
     if (typeof compiled?.visualTileType === 'string' && compiled.visualTileType.trim()) {

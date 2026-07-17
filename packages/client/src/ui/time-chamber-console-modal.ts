@@ -14,13 +14,11 @@ const MODAL_VARIANT = 'detail-modal--time-chamber';
 type TimeChamberSettingsDraft = {
   name: string;
   speed: number;
-  capacity: number;
 };
 
 type TimeChamberSettingsInputDraft = {
   name: string;
   speed: string;
-  capacity: string;
 };
 
 type TimeChamberAcceptedOperation = 'settings' | 'resize' | null;
@@ -146,16 +144,13 @@ export class TimeChamberConsoleModal {
     if (operation === 'settings') {
       const name = form.elements.namedItem('name');
       const speed = form.elements.namedItem('speed');
-      const capacity = form.elements.namedItem('capacity');
       if (
         name instanceof HTMLInputElement
         && speed instanceof HTMLSelectElement
-        && capacity instanceof HTMLInputElement
       ) {
         this.callbacks.onSaveSettings({
           name: name.value.trim(),
           speed: Math.trunc(Number(speed.value)),
-          capacity: Math.trunc(Number(capacity.value)),
         });
       }
       return;
@@ -185,7 +180,7 @@ export class TimeChamberConsoleModal {
     const target = event.target;
     if (!(target instanceof HTMLInputElement || target instanceof HTMLSelectElement) || !this.detail) return;
     const authoritative = buildSettingsInputDraft(this.detail);
-    if (target.name === 'name' || target.name === 'speed' || target.name === 'capacity') {
+    if (target.name === 'name' || target.name === 'speed') {
       this.settingsDraft = this.settingsDraft ?? authoritative;
       this.settingsDraft[target.name] = target.value;
       if (target.value === authoritative[target.name]) this.dirtySettings.delete(target.name);
@@ -202,7 +197,7 @@ export class TimeChamberConsoleModal {
     const authoritative = buildSettingsInputDraft(detail);
     if (acceptedOperation === 'settings') this.dirtySettings.clear();
     this.settingsDraft = this.settingsDraft ?? authoritative;
-    for (const field of ['name', 'speed', 'capacity'] as const) {
+    for (const field of ['name', 'speed'] as const) {
       if (this.dirtySettings.has(field) && this.settingsDraft[field] === authoritative[field]) {
         this.dirtySettings.delete(field);
       }
@@ -266,9 +261,8 @@ function buildSettingsSection(detail: TimeChamberManagementDetailView, draft: Ti
   form.className = 'time-chamber-settings-form';
   form.dataset.timeChamberForm = 'settings';
   form.append(
-    buildLabeledInput('名称', 'name', 'text', draft.name, { max: 20 }),
+    buildLabeledInput('名称', 'name', draft.name, 20),
     buildSpeedField(detail, draft.speed),
-    buildLabeledInput('最大人数', 'capacity', 'number', draft.capacity, { min: 1, max: detail.maxCapacity }),
   );
   const lock = document.createElement('p');
   lock.className = 'time-chamber-setting-lock';
@@ -313,9 +307,8 @@ function buildControlSection(titleText: string, form: HTMLFormElement, wide = fa
 function buildLabeledInput(
   labelText: string,
   name: string,
-  type: 'text' | 'number',
   value: string,
-  limits: { min?: number; max?: number },
+  maxLength: number,
 ): HTMLElement {
   const label = document.createElement('label');
   label.className = 'time-chamber-setting-field';
@@ -323,16 +316,11 @@ function buildLabeledInput(
   caption.textContent = labelText;
   const input = document.createElement('input');
   input.className = 'ui-input';
-  input.type = type;
+  input.type = 'text';
   input.name = name;
   input.value = value;
   input.autocomplete = 'off';
-  if (type === 'number') input.inputMode = 'numeric';
-  if (limits.min !== undefined) input.min = String(limits.min);
-  if (limits.max !== undefined) {
-    if (type === 'text') input.maxLength = limits.max;
-    else input.max = String(limits.max);
-  }
+  input.maxLength = maxLength;
   label.append(caption, input);
   return label;
 }
@@ -382,19 +370,13 @@ function patchDetailFields(
   setField(shell, 'cost', `${formatDisplayNumber(detail.operatingCostSpiritStonesPerHour)} 灵石/小时`);
   setField(shell, 'active-until', detail.activeUntil ? formatDateTime(detail.activeUntil) : '未激活');
   setField(shell, 'settings-lock', detail.settingsLocked
-    ? '运行期间倍率与容量保持不变'
+    ? '运行期间倍率与空间保持不变'
     : detail.hasBuildings
       ? '密室内已有建筑，空间大小已锁定'
       : '');
 
   const draft = settingsDraft ?? buildSettingsInputDraft(detail);
   patchInput(shell, 'name', draft.name);
-  patchInput(shell, 'capacity', draft.capacity);
-  const capacity = shell.querySelector<HTMLInputElement>('input[name="capacity"]');
-  if (capacity) {
-    capacity.max = String(detail.maxCapacity);
-    capacity.disabled = detail.settingsLocked;
-  }
   const speed = shell.querySelector<HTMLSelectElement>('select[name="speed"]');
   if (speed) {
     if (speed.value !== draft.speed) speed.value = draft.speed;
@@ -432,7 +414,7 @@ function appendSizeOptions(
   for (const size of detail.allowedSizes) {
     const option = document.createElement('option');
     option.value = size.tier;
-    option.textContent = `${sizeTierLabel(size.tier)}（${size.width}×${size.height}，成本 ${size.costMultiplierPercent}%）`;
+    option.textContent = `${sizeTierLabel(size.tier)}（${size.width}×${size.height}，最大 ${size.width * size.height} 人，成本 ${size.costMultiplierPercent}%）`;
     option.selected = size.tier === selectedTier;
     select.append(option);
   }
@@ -448,7 +430,6 @@ function buildSettingsInputDraft(detail: TimeChamberManagementDetailView): TimeC
   return {
     name: detail.displayName,
     speed: String(detail.configuredSpeed),
-    capacity: String(detail.capacity),
   };
 }
 
@@ -471,7 +452,6 @@ function buildManagementDetailSignature(detail: TimeChamberManagementDetailView)
     detail.revision,
     detail.minSpeed,
     detail.maxSpeed,
-    detail.maxCapacity,
     detail.operatingCostSpiritStonesPerHour,
     detail.settingsLocked,
     detail.hasBuildings,
