@@ -70,7 +70,7 @@
     "topology": { "blocksMove": false },
     "fengShui": { "elementVector": { "earth": 18, "metal": 6, "water": 4 }, "traits": ["facility.time_chamber", "space.independent"], "stability": 16, "comfort": 3, "qiAffinity": 2 },
     "economy": { "buildTicks": 3600, "durabilityMultiplier": 140, "maxHp": 180, "cost": [{ "itemId": "mat.void_boundary_crystal", "count": 1 }] },
-    "timeChamber": { "maxSpeed": 10, "allowedSizeTiers": ["small", "medium", "large"] }
+    "timeChamber": { "defaultCapacity": 1, "maxSpeed": 10, "allowedSizeTiers": ["small", "medium", "large"] }
   },
   {
     "id": "meditation_mat",

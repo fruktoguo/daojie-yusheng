@@ -42,7 +42,7 @@ async function main(): Promise<void> {
   const pool = new Pool({ connectionString: databaseUrl });
   const databasePoolProvider = new DatabasePoolProvider();
   const service = new DurableOperationService({ getNodeId: () => nodeId } as never, databasePoolProvider);
-  const activationCost = calculateTimeChamberActivationCost(2, 1);
+  const activationCost = calculateTimeChamberActivationCost(2, 3, 1);
 
   try {
     await service.onModuleInit();
@@ -80,7 +80,7 @@ async function main(): Promise<void> {
     const firstState = await readChamberState(pool, instanceId, buildingId);
     if (
       firstState.revision !== 2
-      || firstState.capacity !== 25
+      || firstState.capacity !== 3
       || firstState.activationPlayerId !== openerPlayerId
       || firstState.activationSpiritStones !== activationCost
       || firstState.activeStartedAt === null
@@ -202,7 +202,7 @@ async function main(): Promise<void> {
     console.log(JSON.stringify({
       ok: true,
       case: 'time-chamber-durable-fuel',
-      answers: '开启者按倍率、尺寸派生容量和时长直接支付；建造者无免费特例；开启状态与背包扣款同事务提交；重复开启、错误报价会完整回滚；相同 operationId 不重复扣款；拆除仍受 lease 与 ownership epoch 围栏保护。',
+      answers: '开启者按倍率、实际配置容量、空间档位和时长直接支付；建造者无免费特例；开启状态与背包扣款同事务提交；重复开启、错误报价会完整回滚；相同 operationId 不重复扣款；拆除仍受 lease 与 ownership epoch 围栏保护。',
       excludes: '不启动 socket 客户端，不证明控制台 DOM 交互与真实时间到期传送。',
       completionMapping: 'release:proof:with-db.time-chamber-durable-fuel',
     }, null, 2));
@@ -272,7 +272,7 @@ async function ensureTimeChamberTable(pool: Pool): Promise<void> {
       owner_player_id varchar(100) NOT NULL,
       display_name varchar(40) NOT NULL,
       size_tier varchar(16) NOT NULL CHECK (size_tier IN ('small', 'medium', 'large')),
-      capacity integer NOT NULL DEFAULT 25 CHECK (capacity BETWEEN 1 AND 100),
+      capacity integer NOT NULL DEFAULT 1 CHECK (capacity BETWEEN 1 AND 100),
       configured_speed integer NOT NULL DEFAULT 1 CHECK (configured_speed BETWEEN 1 AND ${MAX_INSTANCE_TICK_SPEED}),
       active_started_at_ms bigint,
       active_expires_at_ms bigint,
@@ -428,6 +428,7 @@ async function assertDeconstructLeaseFence(pool: Pool, input: {
     ownerPlayerId: input.playerId,
     displayName: '事务烟测密室',
     sizeTier: 'small',
+    capacity: Number(stateRow.capacity),
     configuredSpeed: Number(stateRow.configured_speed),
     activeStartedAt: stateRow.active_started_at_ms === null ? null : Number(stateRow.active_started_at_ms),
     activeExpiresAt: stateRow.active_expires_at_ms === null ? null : Number(stateRow.active_expires_at_ms),

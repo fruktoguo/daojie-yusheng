@@ -1,6 +1,7 @@
 /** 密室使用面板：展示服务端详情，并把时长选择和开启意图交给状态编排层。 */
 import {
   calculateTimeChamberActivationCost,
+  requiresTimeChamberActivation,
   type TimeChamberUsageDetailView,
 } from '@mud/shared';
 
@@ -126,6 +127,7 @@ export class TimeChamberUsageModal {
     if (!target || !this.detail || this.pending) return;
     const durationAction = target.dataset.timeChamberDurationAction;
     if (durationAction) {
+      if (!requiresTimeChamberActivation(this.detail.configuredSpeed)) return;
       const current = this.durationHours;
       const next = durationAction === 'half'
         ? Math.floor(current / 2)
@@ -140,7 +142,7 @@ export class TimeChamberUsageModal {
       return;
     }
     if (target.hasAttribute('data-time-chamber-activate')) {
-      if (this.detail.active) return;
+      if (this.detail.active || !requiresTimeChamberActivation(this.detail.configuredSpeed)) return;
       this.callbacks?.onActivate(this.durationHours);
       return;
     }
@@ -153,6 +155,7 @@ export class TimeChamberUsageModal {
     if (durationValue) durationValue.textContent = `${this.durationHours} 小时`;
     const total = calculateTimeChamberActivationCost(
       this.detail.configuredSpeed,
+      this.detail.capacity,
       this.durationHours,
       this.detail.sizeTier,
     );
@@ -161,21 +164,26 @@ export class TimeChamberUsageModal {
       const action = button.dataset.timeChamberDurationAction;
       const atMin = this.durationHours <= this.detail.minUsageHours;
       const atMax = this.durationHours >= this.detail.maxUsageHours;
-      button.disabled = this.pending || this.detail.active || ((action === 'half' || action === 'minus') ? atMin : atMax);
+      button.disabled = this.pending
+        || this.detail.active
+        || !requiresTimeChamberActivation(this.detail.configuredSpeed)
+        || ((action === 'half' || action === 'minus') ? atMin : atMax);
     }
   }
 
   private syncPending(shell: HTMLElement): void {
+    const activationRequired = this.detail ? requiresTimeChamberActivation(this.detail.configuredSpeed) : true;
+    const entryAvailable = this.detail?.active === true || (this.detail !== null && !activationRequired);
     const activateButton = shell.querySelector<HTMLButtonElement>('[data-time-chamber-activate]');
     if (activateButton) {
-      activateButton.hidden = this.detail?.active === true;
-      activateButton.disabled = this.pending || this.detail?.active === true;
+      activateButton.hidden = this.detail?.active === true || !activationRequired;
+      activateButton.disabled = this.pending || this.detail?.active === true || !activationRequired;
       activateButton.textContent = this.pending ? '处理中…' : '支付并开启';
     }
     const enterButton = shell.querySelector<HTMLButtonElement>('[data-time-chamber-enter]');
     if (enterButton) {
-      enterButton.hidden = this.detail?.active !== true;
-      enterButton.disabled = this.pending || this.detail?.active !== true;
+      enterButton.hidden = !entryAvailable;
+      enterButton.disabled = this.pending || !entryAvailable;
       enterButton.textContent = this.pending ? '处理中…' : '进入密室';
     }
     this.patchDuration(shell);
@@ -190,6 +198,8 @@ export class TimeChamberUsageModal {
 }
 
 function buildUsageShell(detail: TimeChamberUsageDetailView, durationHours: number): HTMLElement {
+  const activationRequired = requiresTimeChamberActivation(detail.configuredSpeed);
+  const entryAvailable = detail.active || !activationRequired;
   const shell = document.createElement('div');
   shell.className = 'time-chamber-console time-chamber-usage';
   shell.dataset.timeChamberUsageShell = 'true';
@@ -239,13 +249,13 @@ function buildUsageShell(detail: TimeChamberUsageDetailView, durationHours: numb
   enter.type = 'button';
   enter.className = 'small-btn ghost';
   enter.dataset.timeChamberEnter = 'true';
-  enter.hidden = !detail.active;
+  enter.hidden = !entryAvailable;
   enter.textContent = '进入密室';
   const activate = document.createElement('button');
   activate.type = 'button';
   activate.className = 'small-btn';
   activate.dataset.timeChamberActivate = 'true';
-  activate.hidden = detail.active;
+  activate.hidden = detail.active || !activationRequired;
   activate.textContent = '支付并开启';
   actions.append(enter, activate);
   checkout.append(totalLabel, total, actions);
@@ -261,6 +271,7 @@ function buildUsageShell(detail: TimeChamberUsageDetailView, durationHours: numb
   patchUsageFields(shell, detail);
   setField(shell, 'total', `${formatDisplayNumber(calculateTimeChamberActivationCost(
     detail.configuredSpeed,
+    detail.capacity,
     durationHours,
     detail.sizeTier,
   ))} 灵石`);
@@ -268,21 +279,25 @@ function buildUsageShell(detail: TimeChamberUsageDetailView, durationHours: numb
 }
 
 function patchUsageFields(shell: HTMLElement, detail: TimeChamberUsageDetailView): void {
+  const activationRequired = requiresTimeChamberActivation(detail.configuredSpeed);
+  const entryAvailable = detail.active || !activationRequired;
   setField(shell, 'speed', detail.configuredSpeed === detail.effectiveSpeed
     ? `${detail.effectiveSpeed} 倍`
     : `设定 ${detail.configuredSpeed} 倍 / 当前 ${detail.effectiveSpeed} 倍`);
   setField(shell, 'users', `${detail.occupancy}/${detail.capacity} 人`);
   setField(shell, 'cost', `${formatDisplayNumber(detail.activationCostSpiritStonesPerHour)} 灵石/小时`);
-  setField(shell, 'status', detail.active ? '已开启' : '未开启');
+  setField(shell, 'status', detail.active ? '已开启' : activationRequired ? '未开启' : '常驻开放');
   setField(shell, 'space', `${detail.width}×${detail.height}`);
-  setField(shell, 'active-until', detail.activeUntil ? formatDateTime(detail.activeUntil) : '当前未激活');
+  setField(shell, 'active-until', detail.activeUntil
+    ? formatDateTime(detail.activeUntil)
+    : activationRequired ? '当前未激活' : '无需开启时段');
   for (const element of shell.querySelectorAll<HTMLElement>('[data-time-chamber-purchase-only]')) {
-    element.hidden = detail.active;
+    element.hidden = detail.active || !activationRequired;
   }
   const enter = shell.querySelector<HTMLButtonElement>('[data-time-chamber-enter]');
-  if (enter) enter.hidden = !detail.active;
+  if (enter) enter.hidden = !entryAvailable;
   const activate = shell.querySelector<HTMLButtonElement>('[data-time-chamber-activate]');
-  if (activate) activate.hidden = detail.active;
+  if (activate) activate.hidden = detail.active || !activationRequired;
 }
 
 function buildMetric(labelText: string, field: string): HTMLElement {

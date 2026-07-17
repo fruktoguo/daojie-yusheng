@@ -201,6 +201,7 @@ function buildHandleDriftCatalog() {
       topology: { blocksMove: false },
       economy: { maxHp: 180, cost: [] },
       timeChamber: {
+        defaultCapacity: 1,
         maxSpeed: MAX_INSTANCE_TICK_SPEED,
         allowedSizeTiers: ['small', 'medium', 'large'],
       },

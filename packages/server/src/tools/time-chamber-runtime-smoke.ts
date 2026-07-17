@@ -3,7 +3,8 @@ import {
   calculateTimeChamberActivationCost,
   calculateTimeChamberBaseOperatingCost,
   calculateTimeChamberOperatingCostPerHour,
-  resolveTimeChamberCapacity,
+  requiresTimeChamberActivation,
+  resolveTimeChamberCapacityLimit,
 } from '@mud/shared';
 
 import { TimeChamberAdmissionPolicy } from '../runtime/building/time-chamber-admission.policy';
@@ -27,15 +28,18 @@ async function main(): Promise<void> {
     '2 至 10 倍的每小时基础成本必须逐倍翻倍',
   );
   assert.deepEqual(
-    (['small', 'medium', 'large'] as const).map(resolveTimeChamberCapacity),
+    (['small', 'medium', 'large'] as const).map(resolveTimeChamberCapacityLimit),
     [25, 49, 81],
-    '最大人数必须固定等于三档密室的总格数',
+    '三档密室的可配置人数上限必须等于总格数',
   );
-  assert.equal(calculateTimeChamberOperatingCostPerHour(2), 1010, '5×5 必须按 25 个位置计算线性容量成本');
-  assert.equal(calculateTimeChamberOperatingCostPerHour(2, 'medium'), 2955, '7×7 必须按 49 个位置和一圈空间成本计算');
-  assert.equal(calculateTimeChamberOperatingCostPerHour(2, 'large'), 7313, '9×9 必须按 81 个位置和两圈空间成本计算');
-  assert.equal(calculateTimeChamberActivationCost(2, 3), 3030, '开启总价必须由倍率、空间派生容量和整小时数决定');
-  assert.equal(calculateTimeChamberActivationCost(2, 2, 'large'), 14626, '开启总价必须包含当前空间的派生容量与尺寸成本');
+  assert.equal(requiresTimeChamberActivation(1), false, '一倍速不应要求开启时段');
+  assert.equal(requiresTimeChamberActivation(2), true, '二倍及以上必须要求开启时段');
+  assert.equal(calculateTimeChamberOperatingCostPerHour(2, 1), 50);
+  assert.equal(calculateTimeChamberOperatingCostPerHour(2, 2), 90);
+  assert.equal(calculateTimeChamberOperatingCostPerHour(2, 4), 170, '额外配置位置按 80% 线性叠加，不能复利');
+  assert.equal(calculateTimeChamberActivationCost(2, 4, 3), 510, '开启总价必须由倍率、实际容量和整小时数决定');
+  assert.equal(calculateTimeChamberOperatingCostPerHour(2, 1, 'medium'), 75, '扩大一圈后每小时成本提升 50%');
+  assert.equal(calculateTimeChamberOperatingCostPerHour(2, 1, 'large'), 113, '连续扩大两圈按乘算并向上取整');
 
   const registeredDocuments: any[] = [];
   const service = new TimeChamberRuntimeService(
@@ -106,6 +110,7 @@ async function main(): Promise<void> {
     ownerPlayerId: 'player:owner',
     displayName: '试炼密室',
     sizeTier: 'small',
+    capacity: 1,
     configuredSpeed: 3,
     activeStartedAt: null as number | null,
     activeExpiresAt: null as number | null,
@@ -117,8 +122,13 @@ async function main(): Promise<void> {
   };
   assert.equal(
     serviceInternal.buildSummaryView('player:owner', state, chamberInstance).capacity,
+    1,
+    '密室详情必须投影实际配置容量，而不是空间上限',
+  );
+  assert.equal(
+    serviceInternal.buildManagementDetailView('player:owner', state, chamberInstance).maxCapacity,
     25,
-    '小型密室详情必须投影 25 人容量',
+    '小型密室管理详情必须限制最多 25 人',
   );
   serviceInternal.stateByChamberInstanceId.set(state.chamberInstanceId, state);
   const runtime = {
@@ -150,9 +160,28 @@ async function main(): Promise<void> {
     await service.updateSettings('player:owner', {
       sourceInstanceId: state.sourceInstanceId,
       buildingId: state.buildingId,
+      requestId: 'settings:capacity-limit',
+      name: state.displayName,
+      speed: state.configuredSpeed,
+      capacity: 26,
+      expectedRevision: state.revision,
+    }, runtime),
+    {
+      ok: false,
+      operation: 'settings',
+      requestId: 'settings:capacity-limit',
+      reason: 'invalid_time_chamber_capacity',
+    },
+    '5×5 密室必须拒绝超过 25 人的实际容量配置',
+  );
+  assert.deepEqual(
+    await service.updateSettings('player:owner', {
+      sourceInstanceId: state.sourceInstanceId,
+      buildingId: state.buildingId,
       requestId: 'settings:active',
       name: state.displayName,
       speed: state.configuredSpeed + 1,
+      capacity: state.capacity,
       expectedRevision: state.revision,
     }, runtime),
     {
@@ -161,7 +190,7 @@ async function main(): Promise<void> {
       requestId: 'settings:active',
       reason: 'time_chamber_settings_locked',
     },
-    '全室开启期间不能修改倍率',
+    '全室开启期间不能修改倍率或容量',
   );
   let currentLocation = { instanceId: state.sourceInstanceId, sessionId: 'session:one' };
   let transferCount = 0;
@@ -209,12 +238,63 @@ async function main(): Promise<void> {
   assert.deepEqual(
     await service.enter('player:one', state.sourceInstanceId, state.buildingId, transferRuntime),
     { ok: false, reason: 'time_chamber_activation_required' },
-    '密室未开启时不能直接进入',
+    '高倍速密室未开启时不能直接进入',
   );
+  state.configuredSpeed = 1;
+  serviceInternal.playerRuntimeService.playerDomainPersistenceService = {
+    isEnabled: () => true,
+    listRetainedPlayerIdsInInstance: async () => [],
+  };
+  assert.deepEqual(
+    await service.activate('player:one', {
+      sourceInstanceId: state.sourceInstanceId,
+      buildingId: state.buildingId,
+      requestId: 'activate:base-speed',
+      durationHours: 1,
+      expectedRevision: state.revision,
+    }, transferRuntime),
+    {
+      ok: false,
+      operation: 'activate',
+      requestId: 'activate:base-speed',
+      reason: 'time_chamber_activation_not_required',
+    },
+    '一倍速不能创建无意义的计时开启状态',
+  );
+  const freeQueuedCommands: any[] = [];
+  (transferRuntime as any).enqueuePendingCommand = (_playerId: string, command: any) => freeQueuedCommands.push(command);
+  assert.deepEqual(
+    await service.queueEnter('player:one', {
+      sourceInstanceId: state.sourceInstanceId,
+      buildingId: state.buildingId,
+      requestId: 'enter:base-speed',
+    }, transferRuntime),
+    {
+      ok: true,
+      operation: 'enter',
+      requestId: 'enter:base-speed',
+      entryQueued: true,
+      usageDetail: serviceInternal.buildUsageDetailView('player:one', state, chamberInstance),
+    },
+    '一倍速使用面板必须无需开启时段即可排队进入',
+  );
+  assert.equal(freeQueuedCommands.length, 1);
+  assert.deepEqual(
+    await service.enter('player:one', state.sourceInstanceId, state.buildingId, transferRuntime),
+    { ok: true },
+    '一倍速权威传送入口必须无需开启时段即可进入',
+  );
+  assert.equal(currentLocation.instanceId, state.chamberInstanceId);
+  currentLocation = { instanceId: state.sourceInstanceId, sessionId: 'session:one' };
+  transferCount = 0;
+  state.configuredSpeed = 3;
   state.activeStartedAt = Date.now();
   state.activeExpiresAt = Date.now() + 60_000;
   state.activationPlayerId = 'player:other';
   state.activationSpiritStones = 100;
+  serviceInternal.playerRuntimeService.playerDomainPersistenceService = {
+    isEnabled: () => false,
+  };
   assert.deepEqual(
     await service.enter('player:one', state.sourceInstanceId, state.buildingId, transferRuntime),
     { ok: false, reason: 'time_chamber_persistence_disabled' },
@@ -270,7 +350,7 @@ async function main(): Promise<void> {
 
   console.log(JSON.stringify({
     ok: true,
-    answers: '密室三档空间为 5/7/9，最大人数固定为 25/49/81；每扩大一圈成本乘 1.5，空间派生容量按每位置 80% 线性增加；中心格为唯一密室保护禁建点；未开启时固定 1 倍且禁止进入，全室开启后所有玩家可按容量进入；到期会迁出玩家、修正持久化位置并恢复 1 倍；拆除仍受实例 lease/epoch 围栏保护。',
+    answers: '密室三档空间为 5/7/9，可配置人数上限为 25/49/81；运行成本按实际配置容量和空间系数计算；一倍速常驻开放且拒绝计时开启，高倍速必须付费开启后进入；中心格为唯一密室保护禁建点；到期会迁出玩家、修正持久化位置并恢复 1 倍；拆除仍受实例 lease/epoch 围栏保护。',
     excludes: '不连接数据库，不证明真实事务、实例目录恢复和客户端控制台。',
     completionMapping: 'time-chamber-domain-runtime',
   }, null, 2));
@@ -285,6 +365,7 @@ async function testActivationExpiryRelocation(): Promise<void> {
     ownerPlayerId: 'player:owner',
     displayName: '到期迁出密室',
     sizeTier: 'small' as const,
+    capacity: 1,
     configuredSpeed: 4,
     activeStartedAt: (Date.now() - 7_200_000) as number | null,
     activeExpiresAt: (Date.now() - 1) as number | null,
@@ -401,6 +482,7 @@ async function testDeconstructLeaseFence(): Promise<void> {
     ownerPlayerId: 'player:owner',
     displayName: '拆除围栏密室',
     sizeTier: 'small' as const,
+    capacity: 1,
     configuredSpeed: 1,
     activeStartedAt: null,
     activeExpiresAt: null,

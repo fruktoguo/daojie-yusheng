@@ -485,6 +485,7 @@ const timeChamberDraftCapture = section(
   'TimeChamberConsoleModal.captureDraftChange',
 );
 assertIncludes(timeChamberDraftCapture, /this\.dirtySettings\.add\(target\.name\)/, '密室管理必须逐字段记录未提交草稿');
+assertIncludes(timeChamberDraftCapture, /target\.name === 'capacity'/, '密室最大人数输入必须纳入草稿保护，轮询不得回退原值');
 assertIncludes(timeChamberDraftCapture, /this\.sizeDirty = target\.value !== this\.detail\.sizeTier/, '密室空间选择必须独立保留未提交草稿');
 
 const timeChamberDraftReconcile = section(
@@ -505,5 +506,7 @@ const timeChamberUsageDetail = section(
 assertIncludes(timeChamberUsageDetail, /nextSignature === this\.detailSignature/, '密室开启重复详情回包必须零 DOM 写入');
 assertIncludes(timeChamberUsageDetail, /this\.durationHours = clampHours\(this\.durationHours, detail\)/, '密室开启刷新必须保留当前时长草稿');
 assertMissing(timeChamberUsageDetail, /replaceChildren\(/, '密室开启详情刷新不得替换弹层 body');
+assertIncludes(timeChamberUsage, /const entryAvailable = detail\.active \|\| !activationRequired;/, '一倍速密室必须由稳定详情节点直接开放进入按钮');
+assertIncludes(timeChamberUsage, /element\.hidden = detail\.active \|\| !activationRequired;/, '一倍速密室必须隐藏计时购买控件');
 
 console.log('high-frequency UI continuity check passed');

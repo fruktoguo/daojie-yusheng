@@ -57,8 +57,9 @@
         },
         "timeChamber": {
           "type": "object",
-          "required": ["maxSpeed", "allowedSizeTiers"],
+          "required": ["defaultCapacity", "maxSpeed", "allowedSizeTiers"],
           "properties": {
+            "defaultCapacity": { "type": "integer", "minimum": 1, "maximum": 25 },
             "maxSpeed": { "type": "integer", "minimum": 1, "maximum": 10 },
             "allowedSizeTiers": {
               "type": "array",

@@ -10,7 +10,8 @@ import {
   EQUIP_SLOTS,
   isLegacyItemInstanceId,
   MAIL_BATCH_OPERATION_MAX,
-  resolveTimeChamberCapacity,
+  requiresTimeChamberActivation,
+  resolveTimeChamberCapacityLimit,
   TIME_CHAMBER_MAX_USAGE_HOURS,
   TIME_CHAMBER_MIN_USAGE_HOURS,
 } from '@mud/shared';
@@ -6737,13 +6738,14 @@ async function activateDurableTimeChamber(
 ): Promise<void> {
   const stateResult = await client.query<{
     chamber_instance_id?: unknown;
+    capacity?: unknown;
     configured_speed?: unknown;
     size_tier?: unknown;
     active_expires_at_ms?: unknown;
     revision?: unknown;
     now_ms?: unknown;
   }>(
-    `SELECT chamber_instance_id, configured_speed, size_tier,
+    `SELECT chamber_instance_id, capacity, configured_speed, size_tier,
             active_expires_at_ms, revision,
             floor(extract(epoch FROM clock_timestamp()) * 1000)::bigint AS now_ms
        FROM instance_time_chamber_state
@@ -6764,9 +6766,16 @@ async function activateDurableTimeChamber(
   }
   const configuredSpeed = normalizeSafeInteger(state.configured_speed);
   const sizeTier = normalizeTimeChamberSizeTier(state.size_tier);
-  const capacity = resolveTimeChamberCapacity(sizeTier);
+  if (!requiresTimeChamberActivation(configuredSpeed)) {
+    throw new Error('time_chamber_activation_not_required');
+  }
+  const capacity = Math.max(
+    1,
+    Math.min(resolveTimeChamberCapacityLimit(sizeTier), normalizeSafeInteger(state.capacity)),
+  );
   const chargedSpiritStones = calculateTimeChamberActivationCost(
     configuredSpeed,
+    capacity,
     mutation.durationHours,
     sizeTier,
   );
@@ -6790,12 +6799,11 @@ async function activateDurableTimeChamber(
             active_expires_at_ms = $4,
             activation_player_id = $5,
             activation_spirit_stones = $6,
-            capacity = $7,
             revision = revision + 1,
             updated_at = now()
       WHERE source_instance_id = $1
         AND building_id = $2
-        AND revision = $8
+        AND revision = $7
         AND active_expires_at_ms IS NULL`,
     [
       mutation.instanceId,
@@ -6804,7 +6812,6 @@ async function activateDurableTimeChamber(
       expiresAtMs,
       mutation.playerId,
       chargedSpiritStones,
-      capacity,
       mutation.expectedRevision,
     ],
   );
