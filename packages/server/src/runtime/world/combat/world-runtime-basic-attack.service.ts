@@ -7,7 +7,7 @@ import { Inject, Injectable, BadRequestException, NotFoundException } from '@nes
 import { formatDisplayNumber, getBasicAttackCombatExperienceDamageMultiplier, getDamageTrailColor, horizontalFacingFromTo, resolveCombatAttackIntensityDamageMultiplier, resolvePlayerFacingContentName, uiLabels } from '@mud/shared';
 import { PlayerRuntimeService } from '../../player/player-runtime.service';
 import { resolveCombatDamage } from '../../combat/combat-pipeline-compose';
-import { createCombatOutcomeApplyAdapters } from '../../combat/combat-outcome-apply-adapters';
+import { createCombatOutcomeApplyAdapters, projectCombatOutcomeDeps } from '../../combat/combat-outcome-apply-adapters';
 import { resolveMonsterCombatExpEquivalentFallback } from '../../combat/monster-combat-exp-equivalent.helper';
 import { isHostileCombatRelationResolution, resolveCombatRelation } from '../../player/player-combat-config.helpers';
 import { WorldRuntimeCombatActionService } from './world-runtime-combat-action.service';
@@ -285,7 +285,7 @@ export class WorldRuntimeBasicAttackService {
         applyPlayerBasicAttackFacing(this.playerRuntimeService, instance, attacker, formation.x, formation.y);
         const effectColor = getDamageTrailColor(damageKind);
         const scaledDamage = Math.max(1, Math.round(baseDamage * attackIntensityDamageMultiplier));
-        const appliedOutcome = this.applyPlayerBasicAttackOutcome({ ...deps, instance }, attacker, {
+        const appliedOutcome = this.applyPlayerBasicAttackOutcome(projectCombatOutcomeDeps(deps, { instance }), attacker, {
             kind: CombatTargetKind.Formation,
             id: formation.id,
             x: formation.x,
@@ -341,7 +341,7 @@ export class WorldRuntimeBasicAttackService {
         applyPlayerBasicAttackFacing(this.playerRuntimeService, instance, attacker, monster.x, monster.y);
         const resolvedDamage = this.resolveBasicAttackDamageAgainstMonster(attacker, monster, baseDamage, damageKind, deps, attackIntensityDamageMultiplier);
         const effectColor = getDamageTrailColor(damageKind);
-        const appliedOutcome = this.applyPlayerBasicAttackOutcome({ ...deps, instance }, attacker, {
+        const appliedOutcome = this.applyPlayerBasicAttackOutcome(projectCombatOutcomeDeps(deps, { instance }), attacker, {
             kind: CombatTargetKind.Monster,
             id: targetMonsterId,
         }, {
@@ -427,10 +427,9 @@ export class WorldRuntimeBasicAttackService {
             damageFloat: { x: target.x, y: target.y, damage: resolvedDamage.damage, color: effectColor },
         });
         const projectedDefeated = Math.max(0, Math.round(Number(target.hp) || 0)) - Math.max(0, Math.round(Number(resolvedDamage.damage) || 0)) <= 0;
-        const appliedOutcome = this.applyPlayerBasicAttackOutcome({
-            ...deps,
+        const appliedOutcome = this.applyPlayerBasicAttackOutcome(projectCombatOutcomeDeps(deps, {
             currentTick,
-        }, attacker, {
+        }), attacker, {
             kind: CombatTargetKind.Player,
             id: target.playerId,
         }, {
@@ -518,7 +517,7 @@ export class WorldRuntimeBasicAttackService {
             }
             applyPlayerBasicAttackFacing(this.playerRuntimeService, instance, attacker, targetX, targetY);
             const effectColor = getDamageTrailColor(damageKind);
-            const appliedOutcome = this.applyPlayerBasicAttackOutcome({ ...deps, instance }, attacker, {
+            const appliedOutcome = this.applyPlayerBasicAttackOutcome(projectCombatOutcomeDeps(deps, { instance }), attacker, {
                 kind: CombatTargetKind.Formation,
                 id: boundary.id ?? boundary.formationId,
                 x: targetX,
@@ -569,11 +568,10 @@ export class WorldRuntimeBasicAttackService {
             ? Math.max(0, Math.trunc(Number(instance.tick) || 0))
             : Math.max(0, Math.trunc(Number(currentTick ?? deps.tick) || 0));
         const containerAttackOutcome = (!planTargetsTile && !planTargetsBoundary && (planTargetsContainer || !plannedTarget)) && container && damageContainerAtTile
-            ? this.applyPlayerBasicAttackOutcome({
-                ...deps,
+            ? this.applyPlayerBasicAttackOutcome(projectCombatOutcomeDeps(deps, {
                 instance,
                 currentTick: containerTick,
-            }, attacker, {
+            }), attacker, {
                 kind: CombatTargetKind.Container,
                 id: container.id,
                 x: targetX,
@@ -662,7 +660,7 @@ export class WorldRuntimeBasicAttackService {
         const mitigatedDamage = typeof deps.worldRuntimeFormationService?.mitigateTerrainDamage === 'function'
             ? deps.worldRuntimeFormationService.mitigateTerrainDamage(attacker.instanceId, targetX, targetY, effectiveBaseDamage)
             : effectiveBaseDamage;
-        const appliedOutcome = this.applyPlayerBasicAttackOutcome({ ...deps, instance }, attacker, {
+        const appliedOutcome = this.applyPlayerBasicAttackOutcome(projectCombatOutcomeDeps(deps, { instance }), attacker, {
             kind: CombatTargetKind.Tile,
             x: targetX,
             y: targetY,
@@ -821,10 +819,9 @@ export class WorldRuntimeBasicAttackService {
                 attackerPlayerId: attacker.playerId,
                 ...result,
             },
-            deps: {
-                ...deps,
+            deps: projectCombatOutcomeDeps(deps, {
                 playerRuntimeService: this.playerRuntimeService,
-            },
+            }),
             adapters: createCombatOutcomeApplyAdapters({
                 handleMonsterDefeat: () => ({ deferred: true }),
             }),

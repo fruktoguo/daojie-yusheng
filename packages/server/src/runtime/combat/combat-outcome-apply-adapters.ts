@@ -9,6 +9,25 @@ import { resolvePlayerFacingContentName } from '@mud/shared';
 type OutcomeHandlers = Record<string, any>;
 type OutcomeApplyInput = Record<string, any>;
 
+const COMBAT_OUTCOME_AUTHORITY_DEPS = Symbol('combatOutcomeAuthorityDeps');
+
+/**
+ * 为战斗结算附加局部字段时保留原始权威运行时对象。
+ * WorldRuntimeService 的实例查询和租约方法位于原型上，直接对象展开会静默丢失这些方法。
+ */
+export function projectCombatOutcomeDeps(deps: any, patch: Record<string, any> = {}) {
+  const source = deps && typeof deps === 'object' ? deps : {};
+  return {
+    ...source,
+    ...patch,
+    [COMBAT_OUTCOME_AUTHORITY_DEPS]: resolveCombatOutcomeAuthorityDeps(source),
+  };
+}
+
+function resolveCombatOutcomeAuthorityDeps(deps: any) {
+  return deps?.[COMBAT_OUTCOME_AUTHORITY_DEPS] ?? deps;
+}
+
 /**
  * 创建完整的战斗结果落地适配器集合。
  * @param handlers 可选的覆盖回调，优先于 deps 中的默认服务
@@ -196,17 +215,18 @@ export function createFormationOutcomeApplyAdapter(handlers: OutcomeHandlers = {
     const x = normalizeCoordinate(target?.x ?? result?.targetX);
     const y = normalizeCoordinate(target?.y ?? result?.targetY);
     const damage = normalizeDamage(result);
-    const formationService = deps?.worldRuntimeFormationService;
+    const authorityDeps = resolveCombatOutcomeAuthorityDeps(deps);
+    const formationService = deps?.worldRuntimeFormationService ?? authorityDeps?.worldRuntimeFormationService;
     // 区分阵法边界伤害和阵法本体伤害
     const applied = damage > 0
       ? (result?.targetType === 'formation_boundary' || result?.formationBoundary === true
         ? callFirstDefined([
           () => handlers.applyFormationBoundaryDamage?.({ formationId: targetId, x, y, damage, outcome, result, application, deps }),
-          () => formationService?.applyDamageToBoundaryBarrier?.(outcome?.instanceId, x, y, damage, outcome?.actor?.id, deps),
+          () => formationService?.applyDamageToBoundaryBarrier?.(outcome?.instanceId, x, y, damage, outcome?.actor?.id, authorityDeps),
         ])
         : callFirstDefined([
           () => handlers.applyFormationDamage?.({ formationId: targetId, damage, outcome, result, application, deps }),
-          () => formationService?.applyDamageToFormation?.(outcome?.instanceId, targetId, damage, outcome?.actor?.id, deps),
+          () => formationService?.applyDamageToFormation?.(outcome?.instanceId, targetId, damage, outcome?.actor?.id, authorityDeps),
         ]))
       : null;
     return {

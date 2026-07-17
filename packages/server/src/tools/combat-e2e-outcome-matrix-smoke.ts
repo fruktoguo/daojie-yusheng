@@ -12,7 +12,10 @@ import {
   CombatRejectReason,
   CombatTargetKind,
 } from '../runtime/world/combat/combat-action.types';
-import { createCombatOutcomeApplyAdapters } from '../runtime/combat/combat-outcome-apply-adapters';
+import {
+  createCombatOutcomeApplyAdapters,
+  projectCombatOutcomeDeps,
+} from '../runtime/combat/combat-outcome-apply-adapters';
 
 installSmokeTimeout(__filename);
 
@@ -310,20 +313,30 @@ function verifyTileDestroyPersistence(service, adapters) {
 
 function verifyFormationAuraDamage(service, adapters) {
   const calls = [];
+  class AuthorityDeps {
+    worldRuntimeFormationService = {
+      applyDamageToFormation(instanceId, formationId, damage, attackerId, runtimeDeps) {
+        calls.push(['applyDamageToFormation', instanceId, formationId, damage, attackerId, runtimeDeps === authorityDeps]);
+        return { appliedDamage: damage, auraDamage: 30 };
+      },
+    };
+
+    getInstanceRuntime() {
+      return { meta: { instanceId: 'instance:matrix' } };
+    }
+  }
+  const authorityDeps = new AuthorityDeps();
+  const projectedDeps = projectCombatOutcomeDeps(authorityDeps, {
+    instance: { meta: { instanceId: 'instance:matrix' } },
+  });
+  assert.equal(Object.hasOwn(projectedDeps, 'getInstanceRuntime'), false);
   const result = service.applyCombatOutcome({
     actor: { kind: CombatActorKind.Player, id: 'player:formation-attacker' },
     actionId: 'attack:formation',
     instanceId: 'instance:matrix',
     target: { kind: CombatTargetKind.Formation, id: 'formation:1', x: 9, y: 9 },
     result: { damage: 30, auraDamage: 30 },
-    deps: {
-      worldRuntimeFormationService: {
-        applyDamageToFormation(instanceId, formationId, damage, attackerId) {
-          calls.push(['applyDamageToFormation', instanceId, formationId, damage, attackerId]);
-          return { appliedDamage: damage, auraDamage: 30 };
-        },
-      },
-    },
+    deps: projectCombatOutcomeDeps(projectedDeps, { combatActionPhase: CombatActionPhase.ChantResolve }),
     adapters,
     mergeAdapterResultToOutcome: true,
   });
@@ -332,7 +345,7 @@ function verifyFormationAuraDamage(service, adapters) {
   assert.deepEqual(result.dirtyDomains, ['instance:formation']);
   assert.equal(result.outcome.result.auraDamage, 30);
   assert.deepEqual(calls, [
-    ['applyDamageToFormation', 'instance:matrix', 'formation:1', 30, 'player:formation-attacker'],
+    ['applyDamageToFormation', 'instance:matrix', 'formation:1', 30, 'player:formation-attacker', true],
   ]);
   return {
     name: 'formation_aura_damage',

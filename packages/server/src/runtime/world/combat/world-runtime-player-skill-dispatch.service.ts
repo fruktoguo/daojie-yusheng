@@ -6,7 +6,7 @@
 import { Inject, BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { TileType, applyCombatAttackIntensityQiCost, buildEffectiveTargetingGeometry, calcQiCostWithOutputLimit, computeAffectedCellsFromAnchor, formatDisplayNumber, horizontalFacingFromTo, parseTileTargetRef, percentModifierToMultiplier, resolvePlayerFacingContentName, resolveSkillRequiresTarget, resolveTargetingGeometryMaxTargets, signedRatioValue, uiLabels } from '@mud/shared';
 import { PlayerCombatService } from '../../combat/player-combat.service';
-import { createCombatOutcomeApplyAdapters } from '../../combat/combat-outcome-apply-adapters';
+import { createCombatOutcomeApplyAdapters, projectCombatOutcomeDeps } from '../../combat/combat-outcome-apply-adapters';
 import { resolveMonsterCombatExpEquivalentFallback } from '../../combat/monster-combat-exp-equivalent.helper';
 import { isHostileCombatRelationResolution, resolveCombatRelation } from '../../player/player-combat-config.helpers';
 import { PlayerRuntimeService } from '../../player/player-runtime.service';
@@ -1371,11 +1371,11 @@ export class WorldRuntimePlayerSkillDispatchService {
             resolvePlayerSkillFacingAnchor(attacker, targets, castOptions),
         );
         const outcomeDeps = castOptions?.combatActionPhase
-            ? { ...deps, combatActionPhase: castOptions.combatActionPhase }
+            ? projectCombatOutcomeDeps(deps, { combatActionPhase: castOptions.combatActionPhase })
             : deps;
         const outcomeDepsWithInstance = outcomeDeps?.instance === instance
             ? outcomeDeps
-            : { ...outcomeDeps, instance };
+            : projectCombatOutcomeDeps(outcomeDeps, { instance });
         if (castOptions?.showActionLabel !== false) {
             emitCombatPresentation({
                 deps,
@@ -2255,10 +2255,9 @@ export class WorldRuntimePlayerSkillDispatchService {
         if (deps?.playerRuntimeService === this.playerRuntimeService) {
             return deps;
         }
-        return {
-            ...deps,
+        return projectCombatOutcomeDeps(deps, {
             playerRuntimeService: this.playerRuntimeService,
-        };
+        });
     }
 
     recordPlayerSkillOutcome(deps, attacker, skill, target, result: AnyRecord = {}, details: AnyRecord = {}) {
