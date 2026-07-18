@@ -344,6 +344,7 @@ async function main(): Promise<void> {
     buildingId: state.buildingId,
   }]);
 
+  await testRecoveredMissingRuntimeHydration();
   await testActivationExpiryRelocation();
   await testDeconstructLeaseFence();
   service.onModuleDestroy();
@@ -354,6 +355,115 @@ async function main(): Promise<void> {
     excludes: '不连接数据库，不证明真实事务、实例目录恢复和客户端控制台。',
     completionMapping: 'time-chamber-domain-runtime',
   }, null, 2));
+}
+
+async function testRecoveredMissingRuntimeHydration(): Promise<void> {
+  const state = {
+    sourceInstanceId: 'source:recovery',
+    buildingId: 'building:recovery',
+    chamberInstanceId: 'chamber:recovery',
+    templateId: 'template:recovery',
+    ownerPlayerId: 'player:owner',
+    displayName: '恢复密室',
+    sizeTier: 'small' as const,
+    capacity: 1,
+    configuredSpeed: 1,
+    activeStartedAt: null,
+    activeExpiresAt: null,
+    activationPlayerId: null,
+    activationSpiritStones: 0,
+    maxSpeed: 10,
+    allowedSizeTiers: ['small', 'medium', 'large'],
+    revision: 1,
+  };
+  const sourceBuilding = {
+    id: state.buildingId,
+    defId: 'time_chamber',
+    state: 'active',
+    ownerPlayerId: state.ownerPlayerId,
+    name: state.displayName,
+  };
+  const sourceInstance = {
+    meta: { instanceId: state.sourceInstanceId, runtimeStatus: 'leased', status: 'active' },
+    buildingById: new Map([[sourceBuilding.id, sourceBuilding]]),
+    buildingCatalog: {
+      defById: new Map([['time_chamber', {
+        id: 'time_chamber',
+        timeChamberEnabled: true,
+        timeChamberDefaultCapacity: 1,
+        timeChamberMaxSpeed: 10,
+        timeChamberAllowedSizeTiers: ['small', 'medium', 'large'],
+      }]]),
+      defByHandle: [],
+    },
+  };
+  const service = new TimeChamberRuntimeService(
+    {} as any,
+    {
+      registerRuntimeMapTemplate(document: any) {
+        return {
+          ...document,
+          spawnX: document.spawnPoint.x,
+          spawnY: document.spawnPoint.y,
+        };
+      },
+    } as any,
+    {} as any,
+    {} as any,
+    { registerOrUpdate(): void {}, unregister(): void {} } as any,
+    new TimeChamberAdmissionPolicy(),
+  );
+  const internals = service as any;
+  internals.storeState(state);
+
+  let chamberInstance: any = null;
+  const recoveryOrder: string[] = [];
+  const runtime = {
+    getInstanceRuntime(instanceId: string) {
+      if (instanceId === state.sourceInstanceId) return sourceInstance;
+      if (instanceId === state.chamberInstanceId) return chamberInstance;
+      return null;
+    },
+    createInstance(input: any) {
+      recoveryOrder.push('create');
+      chamberInstance = {
+        meta: { ...input },
+        template: { spawnX: 2, spawnY: 2 },
+        tickSpeed: 1,
+        paused: false,
+        buildingById: new Map<string, any>(),
+        listPlayerIds: () => [],
+      };
+      return chamberInstance;
+    },
+    async waitForInstanceLeaseReady(instanceId: string) {
+      assert.equal(instanceId, state.chamberInstanceId);
+      recoveryOrder.push('lease');
+    },
+    isInstanceLeaseWritable: () => true,
+    async hydratePersistentInstanceSnapshot(instanceId: string, instance: any) {
+      assert.equal(instanceId, state.chamberInstanceId);
+      assert.equal(instance, chamberInstance);
+      recoveryOrder.push('hydrate');
+      instance.buildingById.set('building:inside', { id: 'building:inside' });
+    },
+    listInstanceEntries: () => [],
+  };
+
+  await service.applyRecoveredRuntimeState(runtime);
+  assert.deepEqual(recoveryOrder, ['create', 'lease', 'hydrate'], '补建密室必须在 lease 就绪后恢复分域持久化状态');
+  assert.equal(chamberInstance.buildingById.size, 1, '重启后补建的密室不能以空运行态覆盖已有内部建筑');
+
+  recoveryOrder.length = 0;
+  chamberInstance.buildingById.clear();
+  await service.applyRecoveredRuntimeState(runtime, { instanceDomainRestoreMode: 'lazy' });
+  assert.deepEqual(recoveryOrder, ['lease', 'hydrate'], 'lazy 启动已有 catalog 空壳时也必须恢复密室分域状态');
+  assert.equal(chamberInstance.buildingById.size, 1, 'lazy 启动不能把未水合的密室空壳开放给玩家');
+
+  recoveryOrder.length = 0;
+  await service.applyRecoveredRuntimeState(runtime, { instanceDomainRestoreMode: 'eager' });
+  assert.deepEqual(recoveryOrder, ['lease'], 'eager 启动已恢复的密室不能重复读取分域真源');
+  service.onModuleDestroy();
 }
 
 async function testActivationExpiryRelocation(): Promise<void> {

@@ -90,6 +90,10 @@ interface TimeChamberState {
   revision: number;
 }
 
+interface TimeChamberRecoveryOptions {
+  instanceDomainRestoreMode?: 'eager' | 'lazy';
+}
+
 @Injectable()
 export class TimeChamberRuntimeService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(TimeChamberRuntimeService.name);
@@ -143,7 +147,7 @@ export class TimeChamberRuntimeService implements OnModuleInit, OnModuleDestroy 
   }
 
   /** 实例目录恢复后应用配置和全室开启状态，并补建尚未进入 catalog 的密室实例。 */
-  async applyRecoveredRuntimeState(runtime: any): Promise<void> {
+  async applyRecoveredRuntimeState(runtime: any, options: TimeChamberRecoveryOptions = {}): Promise<void> {
     this.worldRuntime = runtime;
     await this.relocateExpiredPersistedPlayers(runtime);
     const staleStates: TimeChamberState[] = [];
@@ -195,11 +199,24 @@ export class TimeChamberRuntimeService implements OnModuleInit, OnModuleDestroy 
         building.name = state.displayName;
         markBuildingChanged(sourceInstance, building);
       }
+      const existingInstance = runtime.getInstanceRuntime?.(state.chamberInstanceId) ?? null;
+      // lazy 启动只恢复 catalog 空壳；密室会继续 tick，必须在开放玩家挂接前补齐全部分域真源。
+      const requiresPersistentHydration = options.instanceDomainRestoreMode === 'lazy' || !existingInstance;
       const instance = this.ensureRuntimeInstance(state, runtime);
       await runtime.waitForInstanceLeaseReady?.(state.chamberInstanceId);
       if (!isRuntimeInstanceWritable(runtime, instance)) {
         this.logger.warn(`密室实例当前不归本节点写入，跳过恢复应用：${state.chamberInstanceId}`);
         continue;
+      }
+      if (requiresPersistentHydration) {
+        if (typeof runtime.hydratePersistentInstanceSnapshot !== 'function') {
+          throw new Error(`time_chamber_recovery_hydration_unavailable:${state.chamberInstanceId}`);
+        }
+        await runtime.hydratePersistentInstanceSnapshot(state.chamberInstanceId, instance);
+        if (runtime.getInstanceRuntime?.(state.chamberInstanceId) !== instance) {
+          throw new Error(`time_chamber_recovery_runtime_replaced:${state.chamberInstanceId}`);
+        }
+        this.logger.log(`密室运行态已从持久化状态完成水合：${state.chamberInstanceId}`);
       }
       instance.meta.ownerPlayerId = state.ownerPlayerId;
       instance.meta.displayName = state.displayName;

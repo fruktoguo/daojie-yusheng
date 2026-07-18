@@ -18,7 +18,7 @@ async function main(): Promise<void> {
 }
 
 function assertBootstrapEntryHandlesRejectedStartup(): void {
-  const source = readFileSync(resolve(process.cwd(), 'packages/server/src/main.ts'), 'utf8');
+  const source = readFileSync(resolve(process.cwd(), 'packages/server/src/bootstrap/server-application.ts'), 'utf8');
   const helperStart = source.indexOf('async function drainAndCloseBootstrapApplication');
   const helperEnd = source.indexOf('// ─── 全局未捕获异常兜底', helperStart);
   const helperSource = source.slice(helperStart, helperEnd);
@@ -27,7 +27,8 @@ function assertBootstrapEntryHandlesRejectedStartup(): void {
     helperSource.indexOf('lifecycleCoordinator.drain(reason)') < helperSource.indexOf('app.close()'),
     'Nest 上下文关闭前必须完成 lifecycle drain',
   );
-  assert.match(source, /void bootstrap\(\)\.catch\(async \(error\) =>/);
+  assert.match(source, /export async function startServerApplication\(\): Promise<void>/);
+  assert.match(source, /await drainAndCloseBootstrapApplication\('startup_failed'\)/);
   assert.match(source, /abortOnError: false/);
 }
 
@@ -193,11 +194,30 @@ async function assertAllRoleStartupOrder(): Promise<void> {
   );
   (coordinator as unknown as {
     playerDomainPersistenceService?: { runPostReplayStartupMaintenance(): Promise<void> };
+    timeChamberRuntimeService?: {
+      prepareForWorldRecovery(): Promise<void>;
+      applyRecoveredRuntimeState(runtime: unknown, options: { instanceDomainRestoreMode?: string }): Promise<void>;
+    };
   }).playerDomainPersistenceService = {
     async runPostReplayStartupMaintenance() {
       order.push('post-replay-maintenance');
       assert.equal(barrier.isTickOpen(), false);
       assert.equal(barrier.isFlushOpen(), false);
+    },
+  };
+  (coordinator as unknown as {
+    timeChamberRuntimeService?: {
+      prepareForWorldRecovery(): Promise<void>;
+      applyRecoveredRuntimeState(runtime: unknown, options: { instanceDomainRestoreMode?: string }): Promise<void>;
+    };
+  }).timeChamberRuntimeService = {
+    async prepareForWorldRecovery() {
+      order.push('time-chamber-prepare');
+    },
+    async applyRecoveredRuntimeState(runtime, options) {
+      assert.equal(runtime, worldRuntimeService);
+      assert.equal(options.instanceDomainRestoreMode, 'eager');
+      order.push('time-chamber-apply');
     },
   };
 
@@ -206,7 +226,9 @@ async function assertAllRoleStartupOrder(): Promise<void> {
   assert.deepEqual(order, [
     'payload-replay',
     'post-replay-maintenance',
+    'time-chamber-prepare',
     'world',
+    'time-chamber-apply',
     'players',
     'market',
     'tick',

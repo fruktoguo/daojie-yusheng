@@ -146,8 +146,8 @@ export class ServerLifecycleCoordinatorService implements OnApplicationBootstrap
       this.logger.log(`权威恢复前 durable flush payload 已清空：processed=${replayedPayloads}`);
       await this.playerDomainPersistenceService?.runPostReplayStartupMaintenance();
       await this.timeChamberRuntimeService?.prepareForWorldRecovery();
-      await this.recoverWorld();
-      await this.timeChamberRuntimeService?.applyRecoveredRuntimeState(this.worldRuntimeService);
+      const worldRecovery = await this.recoverWorld();
+      await this.timeChamberRuntimeService?.applyRecoveredRuntimeState(this.worldRuntimeService, worldRecovery);
       await this.recoverPlayers();
     }
 
@@ -165,7 +165,7 @@ export class ServerLifecycleCoordinatorService implements OnApplicationBootstrap
     this.logger.log(`启动链路编排完成：${JSON.stringify(this.buildReadyMetrics())}`);
   }
 
-  private async recoverWorld(): Promise<void> {
+  private async recoverWorld(): Promise<{ instanceDomainRestoreMode: 'eager' | 'lazy' }> {
     if (!this.worldRuntimeService) {
       throw new Error('world_runtime_service_unavailable');
     }
@@ -183,6 +183,7 @@ export class ServerLifecycleCoordinatorService implements OnApplicationBootstrap
       instanceCount: instanceIds.length,
       instanceDomainRestoreMode,
     });
+    return { instanceDomainRestoreMode };
   }
 
   private async recoverPlayers(): Promise<void> {
