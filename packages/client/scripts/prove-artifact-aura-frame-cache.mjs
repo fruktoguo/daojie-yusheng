@@ -40,4 +40,9 @@ const motionMethod = extractMethod(rendererSource, 'patchEntityMotion');
 assert.match(motionMethod, /this\.updateArtifactAuraFrame\(view, now\);/, '实体动画必须只切换缓存相位');
 assert.doesNotMatch(motionMethod, /drawArtifactAura|createArtifactAuraFrame/, '实体动画不得直接绘制法宝路径');
 
+const destroyMethod = extractMethod(rendererSource, 'destroyEntityView');
+assert.match(destroyMethod, /view\.artifactAura\.removeChildren\(\)/, '实体释放前必须移除全部法宝相位帧');
+assert.match(destroyMethod, /frame\.destroy\(\{ context: true \}\)/, '法宝相位帧必须显式释放 Pixi context');
+assert.match(rendererSource, /for \(const view of this\.entities\.values\(\)\) this\.destroyEntityView\(view\);/, '场景重置必须走统一实体释放入口');
+
 console.log(MARKER);

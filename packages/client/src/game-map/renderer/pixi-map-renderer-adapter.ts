@@ -455,7 +455,7 @@ export class PixiMapRendererAdapter {
   resetScene(): void {
     for (const chunk of this.terrainChunks.values()) this.destroyTerrainChunk(chunk);
     this.terrainChunks.clear();
-    for (const view of this.entities.values()) view.root.destroy({ children: true });
+    for (const view of this.entities.values()) this.destroyEntityView(view);
     this.entities.clear();
     this.pathCells = [];
     this.fadingPath = null;
@@ -1883,7 +1883,7 @@ export class PixiMapRendererAdapter {
     }
     for (const [id, view] of this.entities) {
       if (!seen.has(id)) {
-        view.root.destroy({ children: true });
+        this.destroyEntityView(view);
         this.entities.delete(id);
       }
     }
@@ -1927,6 +1927,14 @@ export class PixiMapRendererAdapter {
     visualRoot.addChild(view.shadow, view.image, view.glyph);
     root.addChild(view.formationMarker, view.artifactAura, visualRoot, view.badgeLayer, view.label, view.hpBar, view.progressBar, view.buffLayer, view.questMarker, view.respawnLabel);
     return view;
+  }
+
+  private destroyEntityView(view: EntityView): void {
+    for (const frame of view.artifactAura.removeChildren()) {
+      frame.destroy({ context: true });
+    }
+    view.artifactAuraFrames = [];
+    view.root.destroy({ children: true });
   }
 
   private patchEntityStatic(view: EntityView): void {
@@ -2389,7 +2397,7 @@ export class PixiMapRendererAdapter {
     if (exists || !Number.isFinite(localPlayerX) || !Number.isFinite(localPlayerY)) {
       const fallback = this.entities.get(this.localPlayerFallbackId);
       if (fallback) {
-        fallback.root.destroy({ children: true });
+        this.destroyEntityView(fallback);
         this.entities.delete(this.localPlayerFallbackId);
       }
       return;
