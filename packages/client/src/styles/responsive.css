@@ -978,6 +978,11 @@
     gap: 8px;
     min-height: 0;
   }
+  .auction-house-shell:not(.transmission-house-shell) {
+    grid-template-rows: auto auto auto;
+    height: auto;
+    min-height: 100%;
+  }
   .auction-house-tabs {
     overflow-x: auto;
     scrollbar-width: thin;
@@ -995,11 +1000,17 @@
     gap: 8px;
     overflow: hidden;
   }
+  .auction-house-board:not(.auction-house-board--transmission) {
+    grid-template-rows: auto minmax(240px, 32dvh) auto;
+    height: auto;
+    overflow: visible;
+  }
   .auction-house-board--history {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: minmax(0, 1fr);
+    grid-template-rows: auto;
     gap: 8px;
-    overflow: hidden;
+    height: auto;
+    overflow: visible;
   }
   /* 传法台在手机端依次排列筛选、列表和详情。 */
   .auction-house-board--transmission {
@@ -1057,6 +1068,16 @@
   .auction-list-panel,
   .auction-detail-panel {
     padding: 8px;
+  }
+  .auction-house-board:not(.auction-house-board--transmission) .auction-list-panel {
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+  .auction-house-board:not(.auction-house-board--transmission) .auction-detail-panel {
+    grid-template-rows: auto auto auto auto auto;
+    overflow: visible;
+  }
+  .auction-house-board:not(.auction-house-board--transmission) .auction-bid-history {
+    overflow: visible;
   }
   .auction-consign-inline-layer {
     padding: 8px;
