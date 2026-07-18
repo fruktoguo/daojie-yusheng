@@ -131,6 +131,7 @@ const ENTITY_FACING_FLIP_TRANSITION_MS = 160;
 const ATTACK_MOTION_DURATION_MS = 180;
 const ARTIFACT_AURA_COLOR = 0xa8fbff;
 const ARTIFACT_AURA_FLOW_MS = 1200;
+const ARTIFACT_AURA_FRAME_COUNT = 16;
 
 const CHUNK_SIZE = PIXI_TERRAIN_CHUNK_SIZE;
 const DEFAULT_PATH_TRAIL_FADE_MS = 500;
@@ -1896,7 +1897,10 @@ export class PixiMapRendererAdapter {
       anim: { ...entity, gridX: entity.wx, gridY: entity.wy, oldWX: targetWX, oldWY: targetWY, targetWX, targetWY },
       root,
       visualRoot,
-      artifactAura: new Graphics(),
+      artifactAura: new Container(),
+      artifactAuraFrames: [],
+      artifactAuraCellSize: 0,
+      artifactAuraFrameIndex: -1,
       shadow: new Graphics(),
       image: new Sprite(Texture.EMPTY),
       glyph: new Text({ text: entity.char, style: textStyle('entityGlyph', getCellSize() * 0.75, entity.color), anchor: 0.5 }),
@@ -1969,7 +1973,7 @@ export class PixiMapRendererAdapter {
     this.patchEntityNameplate(view, label, badges, shouldShowLabel, labelY, cellSize);
     this.drawEntityBars(view, visualCellSize);
     this.drawBuffs(view, cellSize);
-    this.drawArtifactAura(view.artifactAura, anim, cellSize);
+    this.syncArtifactAura(view, cellSize);
     this.drawNpcQuestMarker(view.questMarker, anim.npcQuestMarker ?? undefined, cellSize);
     this.drawFormationMarker(view.formationMarker, anim, cellSize);
     this.drawRespawnLabel(view, cellSize, visualCellSize);
@@ -2151,22 +2155,40 @@ export class PixiMapRendererAdapter {
       .stroke({ ...colorWithAlpha(color, 0.72), width: Math.max(1, cellSize * 0.035) });
   }
 
-  private drawArtifactAura(graphics: Graphics, anim: AnimEntity, cellSize: number, timeMs = 0): void {
-    graphics.clear();
+  private syncArtifactAura(view: EntityView, cellSize: number): void {
+    const { anim, artifactAura } = view;
     const active = anim.kind === 'player' && anim.artifactActive === true;
-    graphics.visible = active;
+    artifactAura.visible = active;
     if (!active) {
       return;
     }
+    artifactAura.position.set(cellSize / 2, cellSize / 2);
+    if (view.artifactAuraCellSize !== cellSize || view.artifactAuraFrames.length !== ARTIFACT_AURA_FRAME_COUNT) {
+      for (const child of artifactAura.removeChildren()) {
+        child.destroy({ context: true });
+      }
+      view.artifactAuraFrames = Array.from(
+        { length: ARTIFACT_AURA_FRAME_COUNT },
+        (_, frameIndex) => this.createArtifactAuraFrame(cellSize, frameIndex),
+      );
+      artifactAura.addChild(...view.artifactAuraFrames);
+      view.artifactAuraCellSize = cellSize;
+      view.artifactAuraFrameIndex = -1;
+    }
+    if (view.artifactAuraFrameIndex < 0) {
+      this.updateArtifactAuraFrame(view, 0);
+    }
+  }
+
+  private createArtifactAuraFrame(cellSize: number, frameIndex: number): Graphics {
+    const graphics = new Graphics();
     const half = Math.max(10, cellSize * 0.56);
     const side = half * 2;
     const perimeter = side * 4;
     const dashLength = Math.max(6, cellSize * 0.18);
     const gapLength = Math.max(4, cellSize * 0.12);
     const cycleLength = dashLength + gapLength;
-    const phase = (timeMs % ARTIFACT_AURA_FLOW_MS) / ARTIFACT_AURA_FLOW_MS * cycleLength;
-    graphics.position.set(cellSize / 2, cellSize / 2);
-    graphics.rotation = 0;
+    const phase = frameIndex / ARTIFACT_AURA_FRAME_COUNT * cycleLength;
 
     const pointAt = (distance: number): { x: number; y: number } => {
       const wrapped = ((distance % perimeter) + perimeter) % perimeter;
@@ -2203,6 +2225,29 @@ export class PixiMapRendererAdapter {
     graphics.stroke({ color: ARTIFACT_AURA_COLOR, alpha: 0.28, width: Math.max(4, cellSize * 0.13) });
     appendDashes();
     graphics.stroke({ color: ARTIFACT_AURA_COLOR, alpha: 1, width: Math.max(2, cellSize * 0.06) });
+    graphics.visible = false;
+    return graphics;
+  }
+
+  private updateArtifactAuraFrame(view: EntityView, timeMs: number): void {
+    if (!view.artifactAura.visible || view.artifactAuraFrames.length === 0) {
+      return;
+    }
+    const frameIndex = Math.floor(
+      (timeMs % ARTIFACT_AURA_FLOW_MS) / ARTIFACT_AURA_FLOW_MS * ARTIFACT_AURA_FRAME_COUNT,
+    ) % ARTIFACT_AURA_FRAME_COUNT;
+    if (frameIndex === view.artifactAuraFrameIndex) {
+      return;
+    }
+    const previousFrame = view.artifactAuraFrames[view.artifactAuraFrameIndex];
+    if (previousFrame) {
+      previousFrame.visible = false;
+    }
+    const nextFrame = view.artifactAuraFrames[frameIndex];
+    if (nextFrame) {
+      nextFrame.visible = true;
+    }
+    view.artifactAuraFrameIndex = frameIndex;
   }
 
   private drawRespawnLabel(view: EntityView, cellSize: number, visualCellSize: number): void {
@@ -2337,7 +2382,7 @@ export class PixiMapRendererAdapter {
     view.glyph.rotation = isMoving || attackPulse > 0 ? glyphLean : 0;
     view.glyph.scale.set(isMoving || attackPulse > 0 ? impactScaleX : 1, isMoving || attackPulse > 0 ? impactScaleY : 1);
     view.glyph.y = visualCellSize / 2 - travelPulse * cellSize * 0.08;
-    if (view.artifactAura.visible) this.drawArtifactAura(view.artifactAura, anim, cellSize, now);
+    this.updateArtifactAuraFrame(view, now);
   }
 
   private ensureLocalPlayerFallback(localPlayerId: string, localPlayerX: number, localPlayerY: number, localPlayerChar: string, exists: boolean): void {

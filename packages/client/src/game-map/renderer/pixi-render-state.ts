@@ -59,7 +59,10 @@ export interface EntityView {
   anim: AnimEntity;
   root: Container;
   visualRoot: Container;
-  artifactAura: Graphics;
+  artifactAura: Container;
+  artifactAuraFrames: Graphics[];
+  artifactAuraCellSize: number;
+  artifactAuraFrameIndex: number;
   shadow: Graphics;
   image: Sprite;
   glyph: Text;
