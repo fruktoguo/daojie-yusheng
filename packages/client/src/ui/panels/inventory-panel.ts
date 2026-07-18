@@ -392,6 +392,9 @@ export class InventoryPanel {
     this.bindTooltipEvents();
     const paneVisibilityObserver = new MutationObserver(() => this.flushPendingVisibleRefresh());
     paneVisibilityObserver.observe(this.pane, { attributes: true, attributeFilter: ['class'] });
+    for (const mobilePane of document.querySelectorAll<HTMLElement>('#mobile-ui-shell .mobile-ui-pane')) {
+      paneVisibilityObserver.observe(mobilePane, { attributes: true, attributeFilter: ['class'] });
+    }
     document.addEventListener('scroll', this.handleScrollCapture, { capture: true, passive: true });
   }
 
@@ -503,7 +506,7 @@ export class InventoryPanel {
     this.invalidatePagedSnapshotForInventory(inventory);
     this.ensureInventoryPageRequested();
     if (this.useReactPanel()) {
-      this.pendingVisibleRefresh = false;
+      this.pendingVisibleRefresh = !this.isPaneVisible();
       this.syncReactState(inventory);
       if (!this.patchModal()) {
         this.renderModal();
@@ -602,7 +605,7 @@ export class InventoryPanel {
     this.renderedVisibleCount = pageItems.length;
 
     if (this.useReactPanel()) {
-      this.pendingVisibleRefresh = false;
+      this.pendingVisibleRefresh = !this.isPaneVisible();
       this.syncReactState(nextInventory);
     } else if (this.isPaneVisible()) {
       this.pendingVisibleRefresh = false;
