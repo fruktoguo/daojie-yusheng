@@ -100,6 +100,13 @@ export function applyMiningExpForTileDamage(input: {
     skill.level += 1;
     skill.expToNext = resolveCraftSkillExpToNextByLevel(input.playerRuntimeService, skill.level);
   }
+  const realmResult = input.playerRuntimeService?.playerProgressionService?.grantCraftRealmExp?.(
+    input.attacker,
+    gain / 2,
+  );
+  if (realmResult) {
+    input.playerRuntimeService?.applyProgressionResult?.(input.attacker, realmResult);
+  }
   return { gained: gain, changed: true };
 }
 
