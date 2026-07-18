@@ -65,6 +65,7 @@ const PLAYER_SCOPED_TABLES = [
   'player_equipment_slot',
   'player_profession_state',
   'player_active_job',
+  'player_enhancement_record',
   'player_presence',
   'player_recovery_watermark',
   'server_player_snapshot',
@@ -2494,7 +2495,7 @@ async function main(): Promise<void> {
     );
     const activeJobStartEnhancementRows = await fetchRows(
       pool,
-      'SELECT item_id, highest_level, status FROM player_enhancement_record WHERE player_id = $1 ORDER BY item_id ASC',
+      'SELECT item_id, item_name, highest_level, status FROM player_enhancement_record WHERE player_id = $1 ORDER BY item_id ASC',
       [activeJobStartPlayerId],
     );
     const activeJobStartQueueRows = await fetchRows(
@@ -2556,6 +2557,7 @@ async function main(): Promise<void> {
     if (
       activeJobStartEnhancementRows.length !== 1
       || activeJobStartEnhancementRows[0]?.item_id !== 'iron_sword'
+      || activeJobStartEnhancementRows[0]?.item_name !== '铁剑'
       || Number(activeJobStartEnhancementRows[0]?.highest_level) !== 1
       || activeJobStartEnhancementRows[0]?.status !== 'running'
     ) {
@@ -2764,7 +2766,7 @@ async function main(): Promise<void> {
     );
     const activeJobCancelEnhancementRows = await fetchRows(
       pool,
-      'SELECT item_id, highest_level, status FROM player_enhancement_record WHERE player_id = $1 ORDER BY item_id ASC',
+      'SELECT item_id, item_name, highest_level, status FROM player_enhancement_record WHERE player_id = $1 ORDER BY item_id ASC',
       [activeJobCancelPlayerId],
     );
     const activeJobCancelRow = await fetchSingleRow(
@@ -2816,6 +2818,7 @@ async function main(): Promise<void> {
     if (
       activeJobCancelEnhancementRows.length !== 1
       || activeJobCancelEnhancementRows[0]?.item_id !== 'iron_sword'
+      || activeJobCancelEnhancementRows[0]?.item_name !== '铁剑'
       || Number(activeJobCancelEnhancementRows[0]?.highest_level) !== 2
       || activeJobCancelEnhancementRows[0]?.status !== 'cancelled'
     ) {
@@ -3034,7 +3037,7 @@ async function main(): Promise<void> {
     );
     const activeJobCompleteEnhancementRows = await fetchRows(
       pool,
-      'SELECT item_id, highest_level, status FROM player_enhancement_record WHERE player_id = $1 ORDER BY item_id ASC',
+      'SELECT item_id, item_name, highest_level, status FROM player_enhancement_record WHERE player_id = $1 ORDER BY item_id ASC',
       [activeJobCompletePlayerId],
     );
     const activeJobCompleteOperationRow = await fetchSingleRow(
@@ -3077,6 +3080,7 @@ async function main(): Promise<void> {
     if (
       activeJobCompleteEnhancementRows.length !== 1
       || activeJobCompleteEnhancementRows[0]?.item_id !== 'iron_sword'
+      || activeJobCompleteEnhancementRows[0]?.item_name !== '铁剑'
       || Number(activeJobCompleteEnhancementRows[0]?.highest_level) !== 3
       || activeJobCompleteEnhancementRows[0]?.status !== 'completed'
     ) {

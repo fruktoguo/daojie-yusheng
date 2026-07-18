@@ -171,6 +171,7 @@ export function buildSnapshot(now: number): PersistedPlayerSnapshot {
         {
           recordId: `enh:${now}:iron_sword`,
           itemId: 'iron_sword',
+          itemName: '铁剑',
           highestLevel: 4,
           levels: [{ targetLevel: 3, successCount: 2, failureCount: 1 }],
           actionStartedAt: now - 60_000,

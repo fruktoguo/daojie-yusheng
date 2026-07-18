@@ -746,6 +746,7 @@ export function buildActiveJobStartEnhancementRecords() {
   return [
     {
       itemId: 'iron_sword',
+      itemName: '铁剑',
       highestLevel: 1,
       levels: [],
       actionStartedAt: 100,
@@ -787,6 +788,7 @@ export function buildActiveJobCancelEnhancementRecords() {
   return [
     {
       itemId: 'iron_sword',
+      itemName: '铁剑',
       highestLevel: 2,
       levels: [{ level: 2, success: true }],
       actionStartedAt: 100,
@@ -848,6 +850,7 @@ export function buildActiveJobCompleteEnhancementRecords() {
   return [
     {
       itemId: 'iron_sword',
+      itemName: '铁剑',
       highestLevel: 3,
       levels: [{ level: 3, success: true }],
       actionStartedAt: 100,

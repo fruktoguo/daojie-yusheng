@@ -468,6 +468,7 @@ export interface DurableActiveJobSnapshot {
 export interface DurableEnhancementRecordSnapshot {
   recordId?: string;
   itemId: string;
+  itemName?: string | null;
   highestLevel?: number;
   levels?: unknown[];
   actionStartedAt?: number | null;
@@ -4760,6 +4761,7 @@ export async function ensureDurableOperationTables(pool: Pool): Promise<void> {
         record_id varchar(180) PRIMARY KEY,
         player_id varchar(100) NOT NULL,
         item_id varchar(120) NOT NULL,
+        item_name varchar(240),
         highest_level bigint NOT NULL DEFAULT 0,
         levels_payload jsonb NOT NULL DEFAULT '[]'::jsonb,
         action_started_at bigint,
@@ -4771,6 +4773,10 @@ export async function ensureDurableOperationTables(pool: Pool): Promise<void> {
         status varchar(32),
         updated_at timestamptz NOT NULL DEFAULT now()
       )
+    `);
+    await client.query(`
+      ALTER TABLE ${PLAYER_ENHANCEMENT_RECORD_TABLE}
+      ADD COLUMN IF NOT EXISTS item_name varchar(240)
     `);
     await client.query(`
       CREATE INDEX IF NOT EXISTS player_enhancement_record_player_idx
@@ -5884,6 +5890,7 @@ async function replacePlayerEnhancementRecords(
   const normalizedRows: Array<{
     record_id: string;
     item_id: string;
+    item_name: string | null;
     highest_level: number;
     levels_payload: unknown[];
     action_started_at: number | null;
@@ -5906,6 +5913,7 @@ async function replacePlayerEnhancementRecords(
     normalizedRows.push({
       record_id: recordId,
       item_id: itemId,
+      item_name: normalizePersistedEnhancementItemName(itemId, row?.itemName),
       highest_level: Math.max(0, Math.trunc(Number(row?.highestLevel ?? 0))),
       levels_payload: Array.isArray(row?.levels) ? row.levels : [],
       action_started_at: normalizeOptionalInteger(row?.actionStartedAt),
@@ -5935,6 +5943,7 @@ async function replacePlayerEnhancementRecords(
           FROM jsonb_to_recordset($2::jsonb) AS entry(
             record_id varchar(180),
             item_id varchar(160),
+            item_name varchar(240),
             highest_level bigint,
             levels_payload jsonb,
             action_started_at bigint,
@@ -5950,6 +5959,7 @@ async function replacePlayerEnhancementRecords(
           record_id,
           player_id,
           item_id,
+          item_name,
           highest_level,
           levels_payload,
           action_started_at,
@@ -5961,7 +5971,7 @@ async function replacePlayerEnhancementRecords(
           status,
           updated_at
         )
-        SELECT record_id, $1, item_id, highest_level, COALESCE(levels_payload, '[]'::jsonb),
+        SELECT record_id, $1, item_id, item_name, highest_level, COALESCE(levels_payload, '[]'::jsonb),
           action_started_at, action_ended_at, start_level, initial_target_level,
           desired_target_level, protection_start_level, status, now()
         FROM incoming
@@ -5969,6 +5979,7 @@ async function replacePlayerEnhancementRecords(
         DO UPDATE SET
           player_id = EXCLUDED.player_id,
           item_id = EXCLUDED.item_id,
+          item_name = COALESCE(${PLAYER_ENHANCEMENT_RECORD_TABLE}.item_name, EXCLUDED.item_name),
           highest_level = EXCLUDED.highest_level,
           levels_payload = EXCLUDED.levels_payload,
           action_started_at = EXCLUDED.action_started_at,
@@ -5982,6 +5993,7 @@ async function replacePlayerEnhancementRecords(
         WHERE ${PLAYER_ENHANCEMENT_RECORD_TABLE}.player_id = EXCLUDED.player_id
           AND ROW(
             ${PLAYER_ENHANCEMENT_RECORD_TABLE}.item_id,
+            ${PLAYER_ENHANCEMENT_RECORD_TABLE}.item_name,
             ${PLAYER_ENHANCEMENT_RECORD_TABLE}.highest_level,
             ${PLAYER_ENHANCEMENT_RECORD_TABLE}.levels_payload,
             ${PLAYER_ENHANCEMENT_RECORD_TABLE}.action_started_at,
@@ -5993,6 +6005,7 @@ async function replacePlayerEnhancementRecords(
             ${PLAYER_ENHANCEMENT_RECORD_TABLE}.status
           ) IS DISTINCT FROM ROW(
             EXCLUDED.item_id,
+            COALESCE(${PLAYER_ENHANCEMENT_RECORD_TABLE}.item_name, EXCLUDED.item_name),
             EXCLUDED.highest_level,
             EXCLUDED.levels_payload,
             EXCLUDED.action_started_at,
@@ -6487,6 +6500,7 @@ function normalizeEnhancementRecordSnapshots(
         normalizeOptionalString(snapshot?.recordId)
         ?? `enhancement_record:${normalizedPlayerId}:${itemId}:${index}`,
       itemId,
+      itemName: normalizePersistedEnhancementItemName(itemId, snapshot?.itemName),
       highestLevel: Math.max(0, Math.trunc(Number(snapshot?.highestLevel ?? 0))),
       levels: Array.isArray(snapshot?.levels) ? snapshot.levels.map((entry) => entry) : [],
       actionStartedAt: normalizeOptionalInteger(snapshot?.actionStartedAt),
@@ -6499,6 +6513,11 @@ function normalizeEnhancementRecordSnapshots(
     });
   }
   return rows;
+}
+
+function normalizePersistedEnhancementItemName(itemId: string, value: unknown): string | null {
+  const itemName = normalizeOptionalString(value);
+  return itemName && itemName !== itemId && itemName !== '未知物品' ? itemName : null;
 }
 
 function normalizeProfessionStateSnapshots(

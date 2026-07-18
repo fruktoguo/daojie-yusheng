@@ -29,7 +29,7 @@ import { describeEquipmentBonuses } from './equipment-tooltip';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from './floating-tooltip';
 import { t } from './i18n';
 import { getItemAffixTypeLabel, getItemDecorClassName, getItemDisplayMeta } from './item-display';
-import { readEnhancementHistoryFromStorage } from './enhancement-history-storage';
+import { inheritEnhancementRecordItemName, readEnhancementHistoryFromStorage } from './enhancement-history-storage';
 import { resolveClientDisplayToken } from './structured-notice-display';
 
 type EnhancementJobView = NonNullable<NonNullable<S2C_EnhancementPanel['state']>['job']>;
@@ -408,7 +408,7 @@ export class CraftEnhancementView {
       ].join('/'))
       .join('|');
     const recordKey = (state?.records ?? [])
-      .map((record) => `${record.itemId}:${record.highestLevel}:${record.levels.map((l) => `${l.targetLevel}:${l.successCount}:${l.failureCount}`).join(',')}`)
+      .map((record) => `${record.itemId}:${record.itemName ?? ''}:${record.highestLevel}:${record.levels.map((l) => `${l.targetLevel}:${l.successCount}:${l.failureCount}`).join(',')}`)
       .join('|');
     return [
       this.parent.enhancementResponseError ?? '',
@@ -1340,6 +1340,7 @@ export class CraftEnhancementView {
     const previousLevels = new Map<number, PlayerEnhancementRecord['levels'][number]>(previous.levels.map((entry) => [entry.targetLevel, entry]));
     return {
       itemId: current.itemId,
+      ...(current.itemName ? { itemName: current.itemName } : {}),
       highestLevel: Math.max(0, normalizeEnhanceLevel(current.highestLevel) - normalizeEnhanceLevel(previous.highestLevel)),
       levels: current.levels
         .map((entry) => {
@@ -1354,6 +1355,7 @@ export class CraftEnhancementView {
   }
 
   private applyEnhancementDeltaRecord(target: PlayerEnhancementRecord, delta: PlayerEnhancementRecord, latestHighestLevel: number): void {
+    inheritEnhancementRecordItemName(target, delta);
     target.highestLevel = Math.max(normalizeEnhanceLevel(target.highestLevel), normalizeEnhanceLevel(latestHighestLevel));
     const levelMap = new Map<number, PlayerEnhancementRecord['levels'][number]>(target.levels.map((entry) => [entry.targetLevel, { ...entry }]));
     for (const entry of delta.levels) {
@@ -1382,6 +1384,7 @@ export class CraftEnhancementView {
     if (!localRecord) return serverRecord ? cloneEnhancementRecord(serverRecord) : null;
     if (!serverRecord) return cloneEnhancementRecord(localRecord);
     const merged = cloneEnhancementRecord(localRecord);
+    inheritEnhancementRecordItemName(merged, serverRecord);
     merged.highestLevel = Math.max(merged.highestLevel, normalizeEnhanceLevel(serverRecord.highestLevel));
     const levelMap = new Map<number, PlayerEnhancementRecord['levels'][number]>(merged.levels.map((entry) => [entry.targetLevel, { ...entry }]));
     for (const entry of serverRecord.levels) {
@@ -1426,6 +1429,7 @@ export class CraftEnhancementView {
     );
     for (const session of this.parent.localEnhancementHistorySessions) {
       const current = recordsByItem.get(session.itemId) ?? { itemId: session.itemId, highestLevel: 0, levels: [] };
+      inheritEnhancementRecordItemName(current, session);
       current.highestLevel = Math.max(normalizeEnhanceLevel(current.highestLevel), normalizeEnhanceLevel(session.highestLevel), normalizeEnhanceLevel(session.startLevel));
       if (!this.parent.localEnhancementHistoryRecords.has(session.itemId) && session.levels.length > 0) {
         this.applyEnhancementDeltaRecord(current, session, session.highestLevel);

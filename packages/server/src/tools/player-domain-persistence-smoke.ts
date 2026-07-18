@@ -209,7 +209,7 @@ async function main(): Promise<void> {
     ]);
     const enhancementRecordRows = await fetchRows(
       pool,
-      'SELECT record_id, item_id, highest_level, status FROM player_enhancement_record WHERE player_id = $1 ORDER BY item_id ASC, record_id ASC',
+      'SELECT record_id, item_id, item_name, highest_level, status FROM player_enhancement_record WHERE player_id = $1 ORDER BY item_id ASC, record_id ASC',
       [playerId],
     );
     const logbookRows = await fetchRows(
@@ -365,6 +365,9 @@ async function main(): Promise<void> {
       !projectedSnapshot
       || projectedSnapshot.combat?.cultivationActive !== true
       || projectedSnapshot.techniques?.cultivatingTechId !== 'qi.breathing'
+      || (projectedSnapshot.progression?.enhancementRecords as Array<{
+        itemName?: unknown;
+      }> | undefined)?.[0]?.itemName !== '铁剑'
       || (projectedSnapshot.techniques?.techniques as Array<{
         techId?: unknown;
         learnTechniqueMaxLevel?: unknown;
@@ -407,6 +410,7 @@ async function main(): Promise<void> {
       enhancementRecordRows.length !== 1
       || enhancementRecordRows[0]?.record_id !== `enh:${now}:iron_sword`
       || enhancementRecordRows[0]?.item_id !== 'iron_sword'
+      || enhancementRecordRows[0]?.item_name !== '铁剑'
       || Number(enhancementRecordRows[0]?.highest_level ?? 0) !== 4
     ) {
       throw new Error(`unexpected player_enhancement_record rows: ${JSON.stringify(enhancementRecordRows)}`);

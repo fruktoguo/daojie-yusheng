@@ -9195,6 +9195,7 @@ function repairInvalidEnhancementRecoveryState(player) {
         }
         player.enhancementRecords.push({
             itemId: targetItemId,
+            itemName: resolvePlayerFacingContentName(targetItemId, '未知物品', job.targetItemName, job.item?.name),
             highestLevel: Math.max(0, Math.floor(Number(job.currentLevel) || 0)),
             levels: [],
             actionStartedAt: Number.isFinite(Number(job.startedAt)) ? Math.max(0, Math.trunc(Number(job.startedAt))) : undefined,
@@ -9213,44 +9214,53 @@ function repairInvalidEnhancementRecoveryState(player) {
 
 function repairEnhancementRecoveryDisplayNames(player, contentTemplateRepository) {
     const job = player?.enhancementJob;
-    if (!job || typeof job !== 'object') {
-        return false;
-    }
-    const targetItemId = typeof job.targetItemId === 'string' ? job.targetItemId.trim() : '';
-    if (!targetItemId) {
-        return false;
-    }
-    const itemInstanceId = typeof job.itemInstanceId === 'string' ? job.itemInstanceId.trim() : '';
+    const targetItemId = job && typeof job === 'object' && typeof job.targetItemId === 'string'
+        ? job.targetItemId.trim()
+        : '';
+    const itemInstanceId = job && typeof job === 'object' && typeof job.itemInstanceId === 'string'
+        ? job.itemInstanceId.trim()
+        : '';
     const lockedItems = Array.isArray(player?.inventory?.lockedItems) ? player.inventory.lockedItems : [];
     const lockedItem = itemInstanceId
         ? lockedItems.find((entry) => entry?.itemInstanceId === itemInstanceId)
         : null;
     const records = Array.isArray(player?.enhancementRecords) ? player.enhancementRecords : [];
     const matchingRecords = records.filter((entry) => entry?.itemId === targetItemId);
-    const resolvedName = resolvePlayerFacingContentName(
-        targetItemId,
-        '未知物品',
-        job.targetItemName,
-        lockedItem?.name,
-        job.item?.name,
-        matchingRecords.find((entry) => entry?.itemName)?.itemName,
-        contentTemplateRepository?.getItemName?.(targetItemId),
-    );
-    if (resolvedName === '未知物品') {
-        return false;
-    }
-
     const dirtyDomains = [];
-    if (job.targetItemName !== resolvedName) {
-        job.targetItemName = resolvedName;
-        dirtyDomains.push('active_job');
+    let activeJobName = '未知物品';
+    if (targetItemId) {
+        activeJobName = resolvePlayerFacingContentName(
+            targetItemId,
+            '未知物品',
+            job.targetItemName,
+            lockedItem?.name,
+            job.item?.name,
+            matchingRecords.find((entry) => entry?.itemName)?.itemName,
+            contentTemplateRepository?.getItemName?.(targetItemId),
+        );
+        if (activeJobName !== '未知物品' && job.targetItemName !== activeJobName) {
+            job.targetItemName = activeJobName;
+            dirtyDomains.push('active_job');
+        }
     }
     let recordChanged = false;
-    for (const record of matchingRecords) {
-        const currentName = resolvePlayerFacingContentName(targetItemId, '未知物品', record?.itemName);
+    for (const record of records) {
+        const recordItemId = typeof record?.itemId === 'string' ? record.itemId.trim() : '';
+        if (!recordItemId) {
+            continue;
+        }
+        const currentName = resolvePlayerFacingContentName(recordItemId, '未知物品', record?.itemName);
         if (currentName === '未知物品') {
-            record.itemName = resolvedName;
-            recordChanged = true;
+            const resolvedName = resolvePlayerFacingContentName(
+                recordItemId,
+                '未知物品',
+                recordItemId === targetItemId ? activeJobName : undefined,
+                contentTemplateRepository?.getItemName?.(recordItemId),
+            );
+            if (resolvedName !== '未知物品') {
+                record.itemName = resolvedName;
+                recordChanged = true;
+            }
         }
     }
     if (recordChanged) {

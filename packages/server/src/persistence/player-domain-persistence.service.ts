@@ -617,6 +617,7 @@ interface TechniqueActivityQueueRow {
 interface EnhancementRecordRow {
   recordId: string;
   itemId: string;
+  itemName?: string | null;
   highestLevel: number;
   levelsPayload: unknown[];
   actionStartedAt: number | null;
@@ -871,16 +872,17 @@ interface PlayerTechniqueActivityQueueLoadRow {
 }
 
 interface PlayerEnhancementRecordLoadRow {
-  record_id?: unknown;
-  item_id?: unknown;
-  highest_level?: unknown;
-  levels_payload?: unknown;
-  action_started_at?: unknown;
-  action_ended_at?: unknown;
-  start_level?: unknown;
-  initial_target_level?: unknown;
-  desired_target_level?: unknown;
-  protection_start_level?: unknown;
+  recordId?: unknown;
+  itemId?: unknown;
+  itemName?: unknown;
+  highestLevel?: unknown;
+  levelsPayload?: unknown;
+  actionStartedAt?: unknown;
+  actionEndedAt?: unknown;
+  startLevel?: unknown;
+  initialTargetLevel?: unknown;
+  desiredTargetLevel?: unknown;
+  protectionStartLevel?: unknown;
   status?: unknown;
 }
 
@@ -2888,16 +2890,17 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
         client,
         `
           SELECT
-            record_id,
-            item_id,
-            highest_level,
-            levels_payload,
-            action_started_at,
-            action_ended_at,
-            start_level,
-            initial_target_level,
-            desired_target_level,
-            protection_start_level,
+            record_id AS "recordId",
+            item_id AS "itemId",
+            item_name AS "itemName",
+            highest_level AS "highestLevel",
+            levels_payload AS "levelsPayload",
+            action_started_at AS "actionStartedAt",
+            action_ended_at AS "actionEndedAt",
+            start_level AS "startLevel",
+            initial_target_level AS "initialTargetLevel",
+            desired_target_level AS "desiredTargetLevel",
+            protection_start_level AS "protectionStartLevel",
             status
           FROM ${PLAYER_ENHANCEMENT_RECORD_TABLE}
           WHERE player_id = $1
@@ -4657,6 +4660,7 @@ export async function ensurePlayerDomainTablesWithClient(client: PoolClient): Pr
       record_id varchar(180) PRIMARY KEY,
       player_id varchar(100) NOT NULL,
       item_id varchar(160) NOT NULL,
+      item_name varchar(240),
       highest_level bigint NOT NULL DEFAULT 0,
       levels_payload jsonb NOT NULL DEFAULT '[]'::jsonb,
       action_started_at bigint,
@@ -4668,6 +4672,10 @@ export async function ensurePlayerDomainTablesWithClient(client: PoolClient): Pr
       status varchar(32),
       updated_at timestamptz NOT NULL DEFAULT now()
     )
+  `);
+  await client.query(`
+    ALTER TABLE ${PLAYER_ENHANCEMENT_RECORD_TABLE}
+    ADD COLUMN IF NOT EXISTS item_name varchar(240)
   `);
   await client.query(`
     CREATE INDEX IF NOT EXISTS player_enhancement_record_player_idx
@@ -6864,6 +6872,7 @@ async function replacePlayerEnhancementRecords(
   const normalizedRows = rows.map((row) => ({
     record_id: row.recordId,
     item_id: row.itemId,
+    item_name: normalizePersistedEnhancementItemName(row.itemId, row.itemName),
     highest_level: row.highestLevel,
     levels_payload: row.levelsPayload,
     action_started_at: row.actionStartedAt,
@@ -6882,6 +6891,7 @@ async function replacePlayerEnhancementRecords(
           FROM jsonb_to_recordset($2::jsonb) AS entry(
             record_id varchar(180),
             item_id varchar(160),
+            item_name varchar(240),
             highest_level bigint,
             levels_payload jsonb,
             action_started_at bigint,
@@ -6897,6 +6907,7 @@ async function replacePlayerEnhancementRecords(
           record_id,
           player_id,
           item_id,
+          item_name,
           highest_level,
           levels_payload,
           action_started_at,
@@ -6908,7 +6919,7 @@ async function replacePlayerEnhancementRecords(
           status,
           updated_at
         )
-        SELECT record_id, $1, item_id, highest_level, COALESCE(levels_payload, '[]'::jsonb),
+        SELECT record_id, $1, item_id, item_name, highest_level, COALESCE(levels_payload, '[]'::jsonb),
           action_started_at, action_ended_at, start_level, initial_target_level,
           desired_target_level, protection_start_level, status, now()
         FROM incoming
@@ -6916,6 +6927,7 @@ async function replacePlayerEnhancementRecords(
         DO UPDATE SET
           player_id = EXCLUDED.player_id,
           item_id = EXCLUDED.item_id,
+          item_name = COALESCE(${PLAYER_ENHANCEMENT_RECORD_TABLE}.item_name, EXCLUDED.item_name),
           highest_level = EXCLUDED.highest_level,
           levels_payload = EXCLUDED.levels_payload,
           action_started_at = EXCLUDED.action_started_at,
@@ -7219,6 +7231,7 @@ export function buildEnhancementRecordRowsFromEntries(
     rows.push({
       recordId,
       itemId,
+      itemName: normalizePersistedEnhancementItemName(itemId, normalized?.itemName),
       highestLevel: normalizeMinimumInteger(normalized?.highestLevel, 0, 0),
       levelsPayload: Array.isArray(normalized?.levels) ? normalized.levels.map((entry) => cloneJsonValue(entry)) : [],
       actionStartedAt: normalizeOptionalInteger(normalized?.actionStartedAt),
@@ -7231,6 +7244,11 @@ export function buildEnhancementRecordRowsFromEntries(
     });
   }
   return rows;
+}
+
+function normalizePersistedEnhancementItemName(itemId: string, value: unknown): string | null {
+  const itemName = resolvePlayerFacingContentName(itemId, '未知物品', normalizeOptionalString(value));
+  return itemName === '未知物品' ? null : itemName;
 }
 
 function buildCombatPreferencesRow(snapshot: PersistedPlayerSnapshot): CombatPreferencesRow | null {
@@ -8754,19 +8772,31 @@ function applyProjectedEnhancementRecords(
     snapshot.progression.enhancementRecords = [];
     return;
   }
-  snapshot.progression.enhancementRecords = rows.map((row) => ({
-    recordId: normalizeOptionalString(row.record_id) ?? undefined,
-    itemId: normalizeOptionalString(row.item_id) ?? 'item:unknown',
-    highestLevel: normalizeMinimumInteger(row.highest_level, 0, 0),
-    levels: normalizeJsonArray(row.levels_payload).map((entry) => cloneJsonValue(entry)),
-    actionStartedAt: normalizeOptionalInteger(row.action_started_at) ?? undefined,
-    actionEndedAt: normalizeOptionalInteger(row.action_ended_at) ?? undefined,
-    startLevel: normalizeOptionalInteger(row.start_level) ?? undefined,
-    initialTargetLevel: normalizeOptionalInteger(row.initial_target_level) ?? undefined,
-    desiredTargetLevel: normalizeOptionalInteger(row.desired_target_level) ?? undefined,
-    protectionStartLevel: normalizeOptionalInteger(row.protection_start_level) ?? undefined,
-    status: normalizeOptionalString(row.status) ?? undefined,
-  }));
+  snapshot.progression.enhancementRecords = projectEnhancementRecordsFromPersistenceRows(rows);
+}
+
+/** 将强化记录持久化行投影回重启水合使用的运行时记录。 */
+export function projectEnhancementRecordsFromPersistenceRows(
+  rows: readonly PlayerEnhancementRecordLoadRow[],
+) {
+  return rows.map((row) => {
+    const itemId = normalizeOptionalString(row.itemId) ?? 'item:unknown';
+    const itemName = normalizePersistedEnhancementItemName(itemId, row.itemName);
+    return {
+      recordId: normalizeOptionalString(row.recordId) ?? undefined,
+      itemId,
+      ...(itemName ? { itemName } : {}),
+      highestLevel: normalizeMinimumInteger(row.highestLevel, 0, 0),
+      levels: normalizeJsonArray(row.levelsPayload).map((entry) => cloneJsonValue(entry)),
+      actionStartedAt: normalizeOptionalInteger(row.actionStartedAt) ?? undefined,
+      actionEndedAt: normalizeOptionalInteger(row.actionEndedAt) ?? undefined,
+      startLevel: normalizeOptionalInteger(row.startLevel) ?? undefined,
+      initialTargetLevel: normalizeOptionalInteger(row.initialTargetLevel) ?? undefined,
+      desiredTargetLevel: normalizeOptionalInteger(row.desiredTargetLevel) ?? undefined,
+      protectionStartLevel: normalizeOptionalInteger(row.protectionStartLevel) ?? undefined,
+      status: normalizeOptionalString(row.status) ?? undefined,
+    };
+  });
 }
 
 function applyProjectedLogbook(

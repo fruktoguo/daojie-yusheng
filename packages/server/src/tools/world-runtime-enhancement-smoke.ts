@@ -180,6 +180,7 @@ async function testDurableEnhancementPersistsAssetsAtomically(): Promise<void> {
   assert.equal(durableCalls.length, 1);
   assert.equal(durableCalls[0]?.kind, 'start');
   assert.equal(durableCalls[0]?.args.nextActiveJob?.jobType, 'enhancement');
+  assert.equal(durableCalls[0]?.args.nextEnhancementRecords?.[0]?.itemName, '铁剑');
   assert.equal(
     durableCalls[0]?.args.nextInventoryItems.some(
       (item: any) => item.itemInstanceId === target.itemInstanceId && item.lockedBy === `enhancement:${player.enhancementJob?.jobRunId}`,
@@ -212,6 +213,7 @@ async function testDurableEnhancementPersistsAssetsAtomically(): Promise<void> {
   assert.equal(completeCall?.kind, 'complete');
   assert.equal(completeCall?.args.completionKind, 'completed');
   assert.equal(completeCall?.args.nextActiveJob, null);
+  assert.equal(completeCall?.args.nextEnhancementRecords?.[0]?.itemName, '铁剑');
   assert.equal(
     completeCall?.args.nextInventoryItems.some(
       (item: any) => item.itemInstanceId === target.itemInstanceId && item.lockedBy == null && item.enhanceLevel === 2,

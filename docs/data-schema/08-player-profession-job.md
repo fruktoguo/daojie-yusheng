@@ -89,6 +89,7 @@
 | record_id | varchar(180) | PK | 记录 ID |
 | player_id | varchar(100) | NOT NULL | 玩家 ID |
 | item_id | varchar(160) | NOT NULL | 装备模板 ID |
+| item_name | varchar(240) | | 强化时的玩家可见物品名快照 |
 | highest_level | bigint | NOT NULL, DEFAULT 0 | 历史最高强化等级 |
 | levels_payload | jsonb | NOT NULL, DEFAULT '[]' | 各等级尝试记录 |
 | action_started_at | bigint | | 本次强化开始时间 |
@@ -104,4 +105,5 @@
 
 **特点**：
 - 记录每件装备的强化历史，用于保护机制和统计
+- `item_name` 随记录写入并在重启回读时恢复，历史展示不依赖当前内容目录仍能解析 `item_id`
 - 结算时走"强持久化事务域"

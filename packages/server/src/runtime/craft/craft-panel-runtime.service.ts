@@ -3708,6 +3708,7 @@ function buildDurableEnhancementRecordsFromEntries(playerId, entries) {
     return buildEnhancementRecordRowsFromEntries(playerId, entries).map((row) => ({
         recordId: row.recordId,
         itemId: row.itemId,
+        itemName: row.itemName,
         highestLevel: row.highestLevel,
         levels: Array.isArray(row.levelsPayload) ? row.levelsPayload : [],
         actionStartedAt: row.actionStartedAt,

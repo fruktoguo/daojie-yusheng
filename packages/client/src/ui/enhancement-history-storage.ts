@@ -8,7 +8,7 @@
  * 从 craft-workbench-modal.ts 和 craft-enhancement-view.ts 提取。
  */
 import type { PlayerEnhancementRecord } from '@mud/shared';
-import { normalizeEnhanceLevel } from '@mud/shared';
+import { normalizeEnhanceLevel, resolvePlayerFacingContentName } from '@mud/shared';
 
 type StoredEnhancementHistoryStateV1 = {
   version: 1;
@@ -25,6 +25,29 @@ type StoredEnhancementHistoryState = {
 
 export const ENHANCEMENT_HISTORY_STORAGE_KEY = 'mud:enhancement-history:v2';
 const LEGACY_ENHANCEMENT_HISTORY_KEY = 'mud:enhancement-history:v1';
+const UNKNOWN_ENHANCEMENT_ITEM_NAME = '未知物品';
+
+/** 仅在目标记录缺少有效名称时，从同一物品的较新记录继承历史显示名。 */
+export function inheritEnhancementRecordItemName(
+  target: PlayerEnhancementRecord,
+  source: PlayerEnhancementRecord | null | undefined,
+): void {
+  if (!source || target.itemId !== source.itemId) return;
+  const currentName = resolvePlayerFacingContentName(
+    target.itemId,
+    UNKNOWN_ENHANCEMENT_ITEM_NAME,
+    target.itemName,
+  );
+  if (currentName !== UNKNOWN_ENHANCEMENT_ITEM_NAME) return;
+  const sourceName = resolvePlayerFacingContentName(
+    source.itemId,
+    UNKNOWN_ENHANCEMENT_ITEM_NAME,
+    source.itemName,
+  );
+  if (sourceName !== UNKNOWN_ENHANCEMENT_ITEM_NAME) {
+    target.itemName = sourceName;
+  }
+}
 
 export function cloneEnhancementRecord(record: PlayerEnhancementRecord): PlayerEnhancementRecord {
   const itemName = typeof record.itemName === 'string' ? record.itemName.trim() : '';
