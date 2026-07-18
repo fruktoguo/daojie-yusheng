@@ -31,7 +31,7 @@ import { getItemDecorClassName, getItemDisplayMeta } from './item-display';
 
 type TechniqueBookCraftGradeFilter = 'all' | TechniqueGrade;
 type TechniqueBookCraftCategoryFilter = 'all' | TechniqueCategory;
-type TransmissionTechniqueStatus = 'idle' | 'loading' | 'learned' | 'unlearned' | 'unavailable';
+type TransmissionTechniqueStatus = 'idle' | 'loading' | 'learned' | 'unlearned' | 'unavailable' | 'error';
 
 export type CraftTransmissionCallbacks = {
   onStartTransmission?: (
@@ -44,7 +44,7 @@ export type CraftTransmissionCallbacks = {
     },
   ) => void;
   onCancelTransmission?: (techId: string) => void;
-  onRequestTransmissionStatuses?: (payload: C2S_RequestTechniqueTransmissionStatuses) => void;
+  onRequestTransmissionStatuses?: (payload: C2S_RequestTechniqueTransmissionStatuses) => boolean;
   getTransmissionTargets?: () => Array<{ playerId: string; name: string }>;
 };
 
@@ -64,6 +64,7 @@ export interface CraftTransmissionParent {
 }
 
 const TECHNIQUE_REFINING_CONFIRM_OWNER = 'craft-workbench-modal:technique-refining-confirm';
+const TRANSMISSION_STATUS_REQUEST_TIMEOUT_MS = 5_000;
 
 function escapeHtml(value: string): string {
   return value
@@ -164,8 +165,10 @@ export class CraftTransmissionView {
   private selectedTransmissionTargetPlayerId = '';
   private transmissionStatusRequestSequence = 0;
   private activeTransmissionStatusRequest: { requestId: string; targetPlayerId: string; signature: string } | null = null;
+  private transmissionStatusRequestTimeout: number | null = null;
   private resolvedTransmissionStatusSignature = '';
   private transmissionStatusTargetPlayerId = '';
+  private failedTransmissionStatusTargetPlayerId = '';
   private readonly transmissionLearnedByTechniqueId = new Map<string, boolean>();
 
   constructor(private readonly parent: CraftTransmissionParent) {}
@@ -179,9 +182,11 @@ export class CraftTransmissionView {
     if (!activeRequest || data.requestId !== activeRequest.requestId || data.targetPlayerId !== activeRequest.targetPlayerId) {
       return;
     }
+    this.clearTransmissionStatusRequestTimeout();
     this.activeTransmissionStatusRequest = null;
     this.resolvedTransmissionStatusSignature = activeRequest.signature;
     this.transmissionStatusTargetPlayerId = data.targetPlayerId;
+    this.failedTransmissionStatusTargetPlayerId = '';
     this.transmissionLearnedByTechniqueId.clear();
     for (const technique of data.techniques ?? []) {
       const techId = typeof technique?.techId === 'string' ? technique.techId.trim() : '';
@@ -198,6 +203,23 @@ export class CraftTransmissionView {
     }
   }
 
+  /** 新会话不能沿用旧 Socket 上尚未完成或已缓存的查询结果。 */
+  handleSessionBootstrap(): void {
+    this.clearTransmissionStatusRequestTimeout();
+    this.activeTransmissionStatusRequest = null;
+    this.resolvedTransmissionStatusSignature = '';
+    this.transmissionStatusTargetPlayerId = '';
+    this.failedTransmissionStatusTargetPlayerId = '';
+    this.transmissionLearnedByTechniqueId.clear();
+    if (this.parent.activeMode !== 'transmission') {
+      return;
+    }
+    const body = document.getElementById('detail-modal-body');
+    if (body instanceof HTMLElement) {
+      this.requestTransmissionStatuses(body);
+    }
+  }
+
   resetTechniqueRefiningSelection(): void {
     this.selectedTechniqueBookIds.clear();
     this.selectedTechniqueBookCount = 1;
@@ -208,9 +230,11 @@ export class CraftTransmissionView {
     this.lastTransmissionRenderKey = null;
     this.selectedTransmissionTechniqueId = '';
     this.selectedTransmissionTargetPlayerId = '';
+    this.clearTransmissionStatusRequestTimeout();
     this.activeTransmissionStatusRequest = null;
     this.resolvedTransmissionStatusSignature = '';
     this.transmissionStatusTargetPlayerId = '';
+    this.failedTransmissionStatusTargetPlayerId = '';
     this.transmissionLearnedByTechniqueId.clear();
   }
 
@@ -442,9 +466,11 @@ export class CraftTransmissionView {
     const techniqueIds = this.getTransmittableTechniques().map((technique) => technique.techId);
     this.selectedTransmissionTargetPlayerId = targetPlayerId;
     if (!targetPlayerId || techniqueIds.length === 0) {
+      this.clearTransmissionStatusRequestTimeout();
       this.activeTransmissionStatusRequest = null;
       this.resolvedTransmissionStatusSignature = '';
       this.transmissionStatusTargetPlayerId = targetPlayerId;
+      this.failedTransmissionStatusTargetPlayerId = '';
       this.transmissionLearnedByTechniqueId.clear();
       this.patchTransmissionTechniqueOptions(root);
       return;
@@ -456,20 +482,68 @@ export class CraftTransmissionView {
       return;
     }
     const requestId = `transmission-status:${++this.transmissionStatusRequestSequence}`;
+    this.clearTransmissionStatusRequestTimeout();
     this.activeTransmissionStatusRequest = { requestId, targetPlayerId, signature };
     this.resolvedTransmissionStatusSignature = '';
     this.transmissionStatusTargetPlayerId = targetPlayerId;
+    this.failedTransmissionStatusTargetPlayerId = '';
     this.transmissionLearnedByTechniqueId.clear();
     this.patchTransmissionTechniqueOptions(root);
     const request = this.transmissionCallbacks?.onRequestTransmissionStatuses
       ?? this.parent.callbacks?.onRequestTransmissionStatuses;
     if (!request) {
-      this.activeTransmissionStatusRequest = null;
-      this.resolvedTransmissionStatusSignature = signature;
+      this.failTransmissionStatusRequest(requestId, root);
+      return;
+    }
+    let accepted = false;
+    try {
+      accepted = request({ requestId, targetPlayerId });
+    } catch {
+      this.failTransmissionStatusRequest(requestId, root);
+      return;
+    }
+    if (!accepted) {
+      this.failTransmissionStatusRequest(requestId, root);
+      return;
+    }
+    if (this.activeTransmissionStatusRequest?.requestId === requestId) {
+      this.transmissionStatusRequestTimeout = window.setTimeout(() => {
+        this.transmissionStatusRequestTimeout = null;
+        this.failTransmissionStatusRequest(requestId);
+      }, TRANSMISSION_STATUS_REQUEST_TIMEOUT_MS);
+    }
+  }
+
+  private clearTransmissionStatusRequestTimeout(): void {
+    if (this.transmissionStatusRequestTimeout === null) {
+      return;
+    }
+    window.clearTimeout(this.transmissionStatusRequestTimeout);
+    this.transmissionStatusRequestTimeout = null;
+  }
+
+  private failTransmissionStatusRequest(requestId: string, root?: ParentNode): void {
+    const activeRequest = this.activeTransmissionStatusRequest;
+    if (!activeRequest || activeRequest.requestId !== requestId) {
+      return;
+    }
+    this.clearTransmissionStatusRequestTimeout();
+    this.activeTransmissionStatusRequest = null;
+    this.resolvedTransmissionStatusSignature = '';
+    this.transmissionStatusTargetPlayerId = activeRequest.targetPlayerId;
+    this.failedTransmissionStatusTargetPlayerId = activeRequest.targetPlayerId;
+    this.transmissionLearnedByTechniqueId.clear();
+    if (root) {
       this.patchTransmissionTechniqueOptions(root);
       return;
     }
-    request({ requestId, targetPlayerId });
+    if (this.parent.activeMode !== 'transmission') {
+      return;
+    }
+    const body = document.getElementById('detail-modal-body');
+    if (body instanceof HTMLElement) {
+      this.patchTransmissionTechniqueOptions(body);
+    }
   }
 
   private patchTransmissionTechniqueOptions(root: ParentNode): void {
@@ -479,6 +553,8 @@ export class CraftTransmissionView {
       return;
     }
     const targetPlayerId = (targetSelect?.value ?? '').trim();
+    const failed = Boolean(targetPlayerId)
+      && this.failedTransmissionStatusTargetPlayerId === targetPlayerId;
     const loading = Boolean(targetPlayerId) && (
       this.transmissionStatusTargetPlayerId !== targetPlayerId
       || this.activeTransmissionStatusRequest?.targetPlayerId === targetPlayerId
@@ -488,7 +564,7 @@ export class CraftTransmissionView {
       if (!techId) {
         option.textContent = !targetPlayerId
           ? '请先选择目标玩家'
-          : loading ? '正在查询功法状态' : '请选择要传授的功法';
+          : loading ? '正在查询功法状态' : failed ? '功法状态查询失败' : '请选择要传授的功法';
         continue;
       }
       const label = option.dataset.transmissionTechniqueLabel ?? option.textContent ?? techId;
@@ -496,14 +572,19 @@ export class CraftTransmissionView {
       option.dataset.transmissionTechniqueLabel = label;
       option.dataset.transmissionTechniqueStatus = status;
       option.textContent = `${label} · ${this.getTransmissionTechniqueStatusLabel(status)}`;
-      option.disabled = status === 'learned' || status === 'unavailable';
+      option.disabled = status === 'learned' || status === 'unavailable' || status === 'error';
     }
     const hasVisibleTechnique = Array.from(techniqueSelect.options)
       .some((option) => Boolean(option.value.trim()) && !option.hidden);
-    techniqueSelect.disabled = !targetPlayerId || loading || !hasVisibleTechnique;
+    techniqueSelect.disabled = !targetPlayerId || loading || failed || !hasVisibleTechnique;
     const searchInput = root.querySelector<HTMLInputElement>('[data-transmission-tech-search="true"]');
     if (searchInput) {
-      searchInput.disabled = !targetPlayerId || loading;
+      searchInput.disabled = !targetPlayerId || loading || failed;
+    }
+    const retryButton = root.querySelector<HTMLButtonElement>('[data-craft-action="transmission-status-retry"]');
+    if (retryButton) {
+      retryButton.hidden = !failed;
+      retryButton.disabled = loading;
     }
     this.syncTransmissionStartButton(root);
   }
@@ -515,6 +596,9 @@ export class CraftTransmissionView {
     if (this.transmissionStatusTargetPlayerId !== targetPlayerId
       || this.activeTransmissionStatusRequest?.targetPlayerId === targetPlayerId) {
       return 'loading';
+    }
+    if (this.failedTransmissionStatusTargetPlayerId === targetPlayerId) {
+      return 'error';
     }
     if (!this.transmissionLearnedByTechniqueId.has(techId)) {
       return 'unavailable';
@@ -534,6 +618,9 @@ export class CraftTransmissionView {
     }
     if (status === 'idle') {
       return '待选择玩家';
+    }
+    if (status === 'error') {
+      return '查询失败';
     }
     return '查询中';
   }
@@ -716,14 +803,16 @@ export class CraftTransmissionView {
       this.transmissionStatusTargetPlayerId !== selectedTargetPlayerId
       || this.activeTransmissionStatusRequest?.targetPlayerId === selectedTargetPlayerId
     );
+    const failed = Boolean(selectedTargetPlayerId)
+      && this.failedTransmissionStatusTargetPlayerId === selectedTargetPlayerId;
     const techniquePlaceholder = !selectedTargetPlayerId
       ? '请先选择目标玩家'
-      : loading ? '正在查询功法状态' : '请选择要传授的功法';
+      : loading ? '正在查询功法状态' : failed ? '功法状态查询失败' : '请选择要传授的功法';
     const techniqueOptions = `<option value=""${selectedTechniqueId ? '' : ' selected'}>${techniquePlaceholder}</option>${techniques
       .map((tech) => this.renderTransmissionTechniqueOption(tech, selectedTargetPlayerId, selectedTechniqueId))
       .join('')}`;
     const targetSelectDisabled = targets.length === 0 ? 'disabled' : '';
-    const techniqueControlsDisabled = !selectedTargetPlayerId || loading ? 'disabled' : '';
+    const techniqueControlsDisabled = !selectedTargetPlayerId || loading || failed ? 'disabled' : '';
     const selectedTechniqueStatus = selectedTechniqueId
       ? this.resolveTransmissionTechniqueStatus(selectedTargetPlayerId, selectedTechniqueId)
       : 'idle';
@@ -737,6 +826,7 @@ export class CraftTransmissionView {
         <select class="ui-input" data-transmission-tech-select="true" aria-label="传授功法" ${techniqueControlsDisabled}>
           ${techniqueOptions}
         </select>
+        <button class="small-btn" type="button" data-craft-action="transmission-status-retry"${failed ? '' : ' hidden'}>重新查询</button>
         <button class="small-btn" type="button" data-craft-action="transmission-start" ${startDisabled}>传授</button>
       </div>
     `;
@@ -759,7 +849,7 @@ export class CraftTransmissionView {
     const label = `${resolveClientTechniqueName(technique.techId, technique.name)} · ${metaText}`;
     const search = `${technique.name ?? ''} ${technique.techId} ${metaText}`.toLowerCase();
     const status = this.resolveTransmissionTechniqueStatus(targetPlayerId, technique.techId);
-    const disabled = status === 'learned' || status === 'unavailable' ? ' disabled' : '';
+    const disabled = status === 'learned' || status === 'unavailable' || status === 'error' ? ' disabled' : '';
     const selected = technique.techId === selectedTechniqueId ? ' selected' : '';
     return `<option value="${escapeHtmlAttr(technique.techId)}" data-search="${escapeHtmlAttr(search)}" data-transmission-technique-label="${escapeHtmlAttr(label)}" data-transmission-technique-status="${status}"${selected}${disabled}>${escapeHtml(label)} · ${this.getTransmissionTechniqueStatusLabel(status)}</option>`;
   }
@@ -1100,6 +1190,12 @@ export class CraftTransmissionView {
       if (techId && learnerPlayerId && status === 'unlearned') {
         (this.transmissionCallbacks?.onStartTransmission ?? this.parent.callbacks?.onStartTransmission)?.(learnerPlayerId, techId);
       }
+      return true;
+    }
+    if (action === 'transmission-status-retry') {
+      this.failedTransmissionStatusTargetPlayerId = '';
+      this.resolvedTransmissionStatusSignature = '';
+      this.requestTransmissionStatuses(body);
       return true;
     }
     if (action === 'transmission-craft-book') {

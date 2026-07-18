@@ -123,8 +123,8 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
     },
     sendRequestTechniqueTransmissionStatuses(
       payload: ClientToServerEventPayload<typeof C2S.RequestTechniqueTransmissionStatuses>,
-    ): void {
-      deps.emitEvent(C2S.RequestTechniqueTransmissionStatuses, payload);
+    ): boolean {
+      return deps.emitEvent(C2S.RequestTechniqueTransmissionStatuses, payload).accepted;
     },
     sendCreateFormation(payload: ClientToServerEventPayload<typeof C2S.CreateFormation>): void {
       deps.emitEvent(C2S.CreateFormation, payload);

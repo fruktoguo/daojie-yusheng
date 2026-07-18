@@ -394,6 +394,7 @@ export class CraftWorkbenchModal {
     this.playerRealmLv = Number.isFinite(Number(player.realm?.realmLv ?? player.realmLv))
       ? Math.max(1, Math.floor(Number(player.realm?.realmLv ?? player.realmLv)))
       : null;
+    this.transmissionView.handleSessionBootstrap();
   }
 
   syncAttrUpdate(update: S2C_AttrUpdate): void {
