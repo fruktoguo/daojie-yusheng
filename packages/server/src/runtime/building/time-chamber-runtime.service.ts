@@ -151,17 +151,56 @@ export class TimeChamberRuntimeService implements OnModuleInit, OnModuleDestroy 
     this.worldRuntime = runtime;
     await this.relocateExpiredPersistedPlayers(runtime);
     const staleStates: TimeChamberState[] = [];
+    const hydratedInstanceIds = new Set<string>();
+    const ensureRecoveredInstanceReady = async (
+      instanceId: string,
+      instance: any,
+      requiresPersistentHydration: boolean,
+    ): Promise<boolean> => {
+      await runtime.waitForInstanceLeaseReady?.(instanceId);
+      if (runtime.getInstanceRuntime?.(instanceId) !== instance) {
+        throw new Error(`time_chamber_recovery_runtime_replaced:${instanceId}`);
+      }
+      if (!isRuntimeInstanceWritable(runtime, instance)) {
+        return false;
+      }
+      if (!requiresPersistentHydration || hydratedInstanceIds.has(instanceId)) {
+        return true;
+      }
+      if (typeof runtime.hydratePersistentInstanceSnapshot !== 'function') {
+        throw new Error(`time_chamber_recovery_hydration_unavailable:${instanceId}`);
+      }
+      await runtime.hydratePersistentInstanceSnapshot(instanceId, instance);
+      if (runtime.getInstanceRuntime?.(instanceId) !== instance) {
+        throw new Error(`time_chamber_recovery_runtime_replaced:${instanceId}`);
+      }
+      hydratedInstanceIds.add(instanceId);
+      return true;
+    };
+    const applyLocalChamberBinding = async (state: TimeChamberState): Promise<void> => {
+      const chamberInstance = runtime.getInstanceRuntime?.(state.chamberInstanceId);
+      if (!chamberInstance || !isRuntimeInstanceWritable(runtime, chamberInstance)) {
+        return;
+      }
+      if (options.instanceDomainRestoreMode === 'lazy'
+        && !await ensureRecoveredInstanceReady(state.chamberInstanceId, chamberInstance, true)) {
+        return;
+      }
+      chamberInstance.meta.ownerPlayerId = state.ownerPlayerId;
+      chamberInstance.meta.displayName = state.displayName;
+      this.applyInstanceBindingMetadata(state, chamberInstance);
+      this.applyEffectiveSpeed(state, chamberInstance, runtime);
+    };
     for (const state of Array.from(this.stateByBuildingKey.values())) {
       const sourceInstance = runtime.getInstanceRuntime?.(state.sourceInstanceId);
       if (!sourceInstance || !isRuntimeInstanceWritable(runtime, sourceInstance)) {
         // 分片节点只处理本地可写实例；远端或续租降级实例不能被误判成孤儿并修改全局状态。
-        const localChamberInstance = runtime.getInstanceRuntime?.(state.chamberInstanceId);
-        if (localChamberInstance && isRuntimeInstanceWritable(runtime, localChamberInstance)) {
-          localChamberInstance.meta.ownerPlayerId = state.ownerPlayerId;
-          localChamberInstance.meta.displayName = state.displayName;
-          this.applyInstanceBindingMetadata(state, localChamberInstance);
-          this.applyEffectiveSpeed(state, localChamberInstance, runtime);
-        }
+        await applyLocalChamberBinding(state);
+        continue;
+      }
+      if (options.instanceDomainRestoreMode === 'lazy'
+        && !await ensureRecoveredInstanceReady(state.sourceInstanceId, sourceInstance, true)) {
+        await applyLocalChamberBinding(state);
         continue;
       }
       const building = sourceInstance?.buildingById?.get?.(state.buildingId) ?? null;
@@ -203,19 +242,15 @@ export class TimeChamberRuntimeService implements OnModuleInit, OnModuleDestroy 
       // lazy 启动只恢复 catalog 空壳；密室会继续 tick，必须在开放玩家挂接前补齐全部分域真源。
       const requiresPersistentHydration = options.instanceDomainRestoreMode === 'lazy' || !existingInstance;
       const instance = this.ensureRuntimeInstance(state, runtime);
-      await runtime.waitForInstanceLeaseReady?.(state.chamberInstanceId);
-      if (!isRuntimeInstanceWritable(runtime, instance)) {
+      if (!await ensureRecoveredInstanceReady(
+        state.chamberInstanceId,
+        instance,
+        requiresPersistentHydration,
+      )) {
         this.logger.warn(`密室实例当前不归本节点写入，跳过恢复应用：${state.chamberInstanceId}`);
         continue;
       }
       if (requiresPersistentHydration) {
-        if (typeof runtime.hydratePersistentInstanceSnapshot !== 'function') {
-          throw new Error(`time_chamber_recovery_hydration_unavailable:${state.chamberInstanceId}`);
-        }
-        await runtime.hydratePersistentInstanceSnapshot(state.chamberInstanceId, instance);
-        if (runtime.getInstanceRuntime?.(state.chamberInstanceId) !== instance) {
-          throw new Error(`time_chamber_recovery_runtime_replaced:${state.chamberInstanceId}`);
-        }
         this.logger.log(`密室运行态已从持久化状态完成水合：${state.chamberInstanceId}`);
       }
       instance.meta.ownerPlayerId = state.ownerPlayerId;

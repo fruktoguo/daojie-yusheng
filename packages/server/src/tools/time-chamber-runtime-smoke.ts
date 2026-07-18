@@ -418,6 +418,7 @@ async function testRecoveredMissingRuntimeHydration(): Promise<void> {
 
   let chamberInstance: any = null;
   const recoveryOrder: string[] = [];
+  let sourceWritable = true;
   const runtime = {
     getInstanceRuntime(instanceId: string) {
       if (instanceId === state.sourceInstanceId) return sourceInstance;
@@ -437,32 +438,66 @@ async function testRecoveredMissingRuntimeHydration(): Promise<void> {
       return chamberInstance;
     },
     async waitForInstanceLeaseReady(instanceId: string) {
-      assert.equal(instanceId, state.chamberInstanceId);
-      recoveryOrder.push('lease');
+      assert.ok(
+        instanceId === state.sourceInstanceId || instanceId === state.chamberInstanceId,
+        `unexpected lease target: ${instanceId}`,
+      );
+      recoveryOrder.push(`lease:${instanceId}`);
     },
-    isInstanceLeaseWritable: () => true,
+    isInstanceLeaseWritable: (instance: any) => instance !== sourceInstance || sourceWritable,
     async hydratePersistentInstanceSnapshot(instanceId: string, instance: any) {
+      recoveryOrder.push(`hydrate:${instanceId}`);
+      if (instanceId === state.sourceInstanceId) {
+        assert.equal(instance, sourceInstance);
+        sourceInstance.buildingById.set(sourceBuilding.id, sourceBuilding);
+        return;
+      }
       assert.equal(instanceId, state.chamberInstanceId);
       assert.equal(instance, chamberInstance);
-      recoveryOrder.push('hydrate');
       instance.buildingById.set('building:inside', { id: 'building:inside' });
     },
     listInstanceEntries: () => [],
   };
 
   await service.applyRecoveredRuntimeState(runtime);
-  assert.deepEqual(recoveryOrder, ['create', 'lease', 'hydrate'], '补建密室必须在 lease 就绪后恢复分域持久化状态');
+  assert.deepEqual(
+    recoveryOrder,
+    ['create', `lease:${state.chamberInstanceId}`, `hydrate:${state.chamberInstanceId}`],
+    '补建密室必须在 lease 就绪后恢复分域持久化状态',
+  );
   assert.equal(chamberInstance.buildingById.size, 1, '重启后补建的密室不能以空运行态覆盖已有内部建筑');
 
   recoveryOrder.length = 0;
+  sourceInstance.buildingById.clear();
   chamberInstance.buildingById.clear();
   await service.applyRecoveredRuntimeState(runtime, { instanceDomainRestoreMode: 'lazy' });
-  assert.deepEqual(recoveryOrder, ['lease', 'hydrate'], 'lazy 启动已有 catalog 空壳时也必须恢复密室分域状态');
+  assert.deepEqual(recoveryOrder, [
+    `lease:${state.sourceInstanceId}`,
+    `hydrate:${state.sourceInstanceId}`,
+    `lease:${state.chamberInstanceId}`,
+    `hydrate:${state.chamberInstanceId}`,
+  ], 'lazy 启动必须先恢复入口建筑分域，再恢复已有密室 catalog 空壳');
+  assert.equal(sourceInstance.buildingById.has(sourceBuilding.id), true, '入口空壳水合后才能执行孤儿判定');
   assert.equal(chamberInstance.buildingById.size, 1, 'lazy 启动不能把未水合的密室空壳开放给玩家');
 
   recoveryOrder.length = 0;
+  sourceWritable = false;
+  chamberInstance.buildingById.clear();
+  await service.applyRecoveredRuntimeState(runtime, { instanceDomainRestoreMode: 'lazy' });
+  assert.deepEqual(recoveryOrder, [
+    `lease:${state.chamberInstanceId}`,
+    `hydrate:${state.chamberInstanceId}`,
+  ], '入口属于其他节点时，本节点可写密室仍必须在开放前恢复分域');
+  assert.equal(chamberInstance.buildingById.size, 1, '跨节点入口不能导致本地密室以空壳运行');
+
+  recoveryOrder.length = 0;
+  sourceWritable = true;
   await service.applyRecoveredRuntimeState(runtime, { instanceDomainRestoreMode: 'eager' });
-  assert.deepEqual(recoveryOrder, ['lease'], 'eager 启动已恢复的密室不能重复读取分域真源');
+  assert.deepEqual(
+    recoveryOrder,
+    [`lease:${state.chamberInstanceId}`],
+    'eager 启动已恢复的密室不能重复读取分域真源',
+  );
   service.onModuleDestroy();
 }
 
