@@ -3422,7 +3422,7 @@ async function ensureFormationMaintenanceActiveJobReady(playerId, player, deps) 
     }
     const flushPlayerDomains = deps?.playerPersistenceFlushService?.flushPlayerDomains;
     if (typeof flushPlayerDomains !== 'function') {
-        throw new ServiceUnavailableException('阵法维护任务状态正在同步，请稍后重试');
+        throw new ServiceUnavailableException('formation_maintenance_active_job_sync_pending');
     }
     await flushPlayerDomains.call(
         deps.playerPersistenceFlushService,
@@ -3430,7 +3430,7 @@ async function ensureFormationMaintenanceActiveJobReady(playerId, player, deps) 
         ['active_job'],
     );
     if (dirtyDomains.has('active_job')) {
-        throw new ServiceUnavailableException('阵法维护任务状态正在同步，请稍后重试');
+        throw new ServiceUnavailableException('formation_maintenance_active_job_sync_pending');
     }
 }
 

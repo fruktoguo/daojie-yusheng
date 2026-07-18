@@ -190,13 +190,20 @@ export class WorldRuntimeCraftTickService {
     }
 };
 
-function buildCraftTickErrorNotice(error: unknown): { text: string; kind: string; structured?: unknown } {
+export function buildCraftTickErrorNotice(error: unknown): { text: string; kind: string; structured?: unknown } {
     const message = error instanceof Error ? error.message : String(error);
     if (message.includes('player_active_job_cas_conflict')) {
         return buildStructuredNotice(
             'warn',
             'notice.craft.enhancement.sync-conflict',
             '强化状态正在同步，请稍后重试。',
+        );
+    }
+    if (message.includes('formation_maintenance_active_job_sync_pending')) {
+        return buildStructuredNotice(
+            'warn',
+            'notice.craft.formation.sync-pending',
+            '阵法维护任务状态正在同步，请稍后重试。',
         );
     }
     return { text: message || '技艺任务处理失败', kind: 'warn' };

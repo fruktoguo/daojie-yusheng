@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 
 import { ensureFormationMaintenanceActiveJobReady } from '../runtime/world/world-runtime-formation.service';
+import { buildCraftTickErrorNotice } from '../runtime/world/world-runtime-craft-tick.service';
 import { installSmokeTimeout } from './smoke-timeout';
 
 installSmokeTimeout(__filename);
@@ -39,7 +40,7 @@ async function main(): Promise<void> {
         flushPlayerDomains: async () => false,
       },
     }),
-    /阵法维护任务状态正在同步/,
+    /formation_maintenance_active_job_sync_pending/,
     '旧 mining job 未收敛时不得放宽 formation job CAS',
   );
 
@@ -49,9 +50,16 @@ async function main(): Promise<void> {
       { dirtyDomains: new Set<string>(['active_job']) },
       {},
     ),
-    /阵法维护任务状态正在同步/,
+    /formation_maintenance_active_job_sync_pending/,
     '缺少 active_job 刷盘边界时必须失败关闭',
   );
+
+  const syncNotice = buildCraftTickErrorNotice(
+    new Error('formation_maintenance_active_job_sync_pending'),
+  );
+  const structured = syncNotice.structured as { key?: string } | undefined;
+  assert.equal(structured?.key, 'notice.craft.formation.sync-pending');
+  assert.equal(syncNotice.kind, 'warn');
 
   console.log('PROOF:FORMATION_MAINTENANCE_JOB_HANDOFF:PASS');
 }

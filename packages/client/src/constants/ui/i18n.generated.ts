@@ -2508,6 +2508,7 @@ export const CLIENT_I18N_MESSAGES = {
   "notice.craft.formation.queued": "已将 {formationName} 的维护加入技艺行动队列。",
   "notice.craft.formation.start": "开始维护 {formationName}。",
   "notice.craft.formation.stopped": "已停止维护 {formationName}。",
+  "notice.craft.formation.sync-pending": "阵法维护任务状态正在同步，请稍后重试。",
   "notice.craft.gather.busy-sleeping": "采集目标正在由其他玩家采集，已转入等待队列。",
   "notice.craft.gather.cancelled": "你停止了 {resourceNodeName} 的采集。",
   "notice.craft.gather.depleted": "{resourceNodeName} 已经采尽。",
