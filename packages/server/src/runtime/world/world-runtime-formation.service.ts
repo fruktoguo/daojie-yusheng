@@ -2269,6 +2269,7 @@ class WorldRuntimeFormationService {
             if (!currentJob || currentJob.formationInstanceId !== formationInstanceId) {
                 return tickAction(deps);
             }
+            await ensureFormationMaintenanceActiveJobReady(playerId, currentPlayer, deps);
             this.playerRuntimeService.recordActivity?.(
                 playerId,
                 Number(deps?.tick) || 0,
@@ -3413,6 +3414,28 @@ function markPlayerRuntimeDirty(player, domains, playerRuntimeService) {
     }
 }
 
+/** 首个阵法资产 tick 前必须先把 job 切换写入真源，不能放宽后续 CAS 栅栏。 */
+async function ensureFormationMaintenanceActiveJobReady(playerId, player, deps) {
+    const dirtyDomains = player?.dirtyDomains;
+    if (!dirtyDomains?.has?.('active_job')) {
+        return;
+    }
+    const flushPlayerDomains = deps?.playerPersistenceFlushService?.flushPlayerDomains;
+    if (typeof flushPlayerDomains !== 'function') {
+        throw new ServiceUnavailableException('阵法维护任务状态正在同步，请稍后重试');
+    }
+    await flushPlayerDomains.call(
+        deps.playerPersistenceFlushService,
+        playerId,
+        ['active_job'],
+    );
+    if (dirtyDomains.has('active_job')) {
+        throw new ServiceUnavailableException('阵法维护任务状态正在同步，请稍后重试');
+    }
+}
+
 function formatInteger(value) {
     return formatDisplayInteger(Math.max(0, Math.floor(Number(value) || 0)));
 }
+
+export { ensureFormationMaintenanceActiveJobReady };

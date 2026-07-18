@@ -112,6 +112,8 @@ cancel → [computeRefundOrCleanup → 清理job]
 
 active job 持久化以 `jobRunId + jobVersion` 做 CAS：数据库版本落后于当前权威运行态时允许按更高版本追赶；请求携带的 expected version 已落后于数据库时必须拒绝，不能仅因请求给出了更高 next version 就覆盖较新的阶段、剩余时长或资源状态。
 
+不同类型 job 的切换也不能把“数据库仍是旧类型”当成可忽略的落后版本。需要强事务逐息结算的新 job（如阵法维护）在第一次资产 tick 前，必须先在玩家资产锁内完成 `active_job` 类型切换刷盘；刷盘未收敛时保持新 job 运行态并等待重试，不得直接进入资产转换事务，也不得放宽 CAS 覆盖旧类型。
+
 自创功法的玉简扣除、生成 job、草稿模板与 job 指针分别在玩家资产锁内原子提交；COMMIT 回包丢失时以同一请求幂等重放。旧执行器只能把仍为 `running` 且没有草稿指针的 job 标为失败并触发返还，不能覆盖已生成草稿或重复返还玉简。若运行态背包/功法域已有未刷盘修改，必须先成功刷入数据库真源再进入自创功法事务。
 
 实际工作进度只由 `workTotalTicks/workRemainingTicks` 表示。攻击、移动、手动开始修炼等行为产生的恢复等待使用独立的 `interruptWaitRemainingTicks`，不能通过修改 job 的实际总耗时或剩余工作量表达。

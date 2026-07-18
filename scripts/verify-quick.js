@@ -65,6 +65,8 @@ const status = runVerificationSteps({
         '--case',
         'world-runtime-sect',
         '--case',
+        'formation-maintenance-job-handoff',
+        '--case',
         'social-runtime-instance-name',
         '--case',
         'world-gateway-offline-gain-refresh',

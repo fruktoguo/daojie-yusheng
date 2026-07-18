@@ -122,6 +122,7 @@ const smokeCases = [
   { name: 'world-runtime-temporary-tile-skill', scriptFile: 'world-runtime-temporary-tile-skill-smoke.js', standalone: true },
   { name: 'world-runtime-tile-resource-item-durable', scriptFile: 'world-runtime-tile-resource-item-durable-smoke.js', standalone: true },
   { name: 'world-runtime-formation', scriptFile: 'world-runtime-formation-smoke.js', standalone: true },
+  { name: 'formation-maintenance-job-handoff', scriptFile: 'formation-maintenance-job-handoff-smoke.js', standalone: true },
     { name: 'world-runtime-loot-container', scriptFile: 'world-runtime-loot-container-smoke.js', standalone: true },
     { name: 'world-runtime-monster-los', scriptFile: 'world-runtime-monster-los-smoke.js', standalone: true },
     { name: 'pending-combat-cast-redis-recovery', scriptFile: 'pending-combat-cast-redis-recovery-smoke.js', standalone: true },
