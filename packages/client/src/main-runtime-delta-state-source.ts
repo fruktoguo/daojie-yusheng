@@ -23,7 +23,7 @@ import { logMovement } from './debug/movement-debug';
 import { endRuntimeProfileMetric, startRuntimeProfileMetric } from './debug/runtime-profiler';
 import { resolveMonsterFacing } from './entity-facing';
 import { getLatestObservedEntitiesSnapshot } from './game-map/store/map-store';
-import { buildChatPersistenceScope } from './main-spatial-context';
+import { buildChatPersistenceScope, resolveWorldDeltaResetContext } from './main-spatial-context';
 import { getMonsterPresentation } from './monster-presentation';
 import type { MainRuntimeObservedEntity as ObservedEntity } from './main-runtime-view-types';
 /**
@@ -671,6 +671,7 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const isFullSnapshot = data.full === 1 || data.reset === 1;
+    const resetContext = resolveWorldDeltaResetContext(data, mapIdHint, instanceIdHint);
     const ignorePreviousEntities = Boolean(mapIdHint || instanceIdHint || isFullSnapshot);
     const playerPatches: TickRenderEntity[] = [];
     const entityPatches: TickRenderEntity[] = [];
@@ -752,8 +753,8 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
       groundPatches,
       instanceId: instanceIdHint ?? data.iid,
       mapId: mapIdHint ?? data.mid,
-      resetInstanceId: instanceIdHint,
-      resetMapId: mapIdHint,
+      resetInstanceId: resetContext.instanceId,
+      resetMapId: resetContext.mapId,
       full: data.full === 1,
       reset: data.reset === 1,
       effects: data.fx ? cloneJson(data.fx) : undefined,

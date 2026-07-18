@@ -4,6 +4,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const ts = require('typescript');
 
 const clientRoot = path.resolve(__dirname, '..');
 const repoRoot = path.resolve(clientRoot, '../..');
@@ -11,6 +12,20 @@ const shared = require(path.join(repoRoot, 'packages/shared/dist/index.js'));
 
 function read(relativePath) {
   return fs.readFileSync(path.join(clientRoot, relativePath), 'utf-8');
+}
+
+function loadTypeScriptModule(relativePath) {
+  const modulePath = path.join(clientRoot, relativePath);
+  const compiled = ts.transpileModule(read(relativePath), {
+    compilerOptions: {
+      module: ts.ModuleKind.CommonJS,
+      target: ts.ScriptTarget.ES2022,
+    },
+    fileName: modulePath,
+  }).outputText;
+  const module = { exports: {} };
+  new Function('exports', 'module', 'require', compiled)(module.exports, module, require);
+  return module.exports;
 }
 
 assert.equal(shared.normalizeMailPage(-3), 1);
@@ -22,7 +37,36 @@ assert.equal(shared.normalizeMarketAuctionPageSize(999), 10);
 assert.equal(shared.normalizeMarketAuctionQuery(`  ${'问'.repeat(40)}  `).length, 32);
 assert.equal(shared.resolveClampedMarketResponsePage(5, 11, 10), 2);
 
+const { resolveWorldDeltaResetContext } = loadTypeScriptModule('src/main-spatial-context.ts');
+assert.deepEqual(
+  resolveWorldDeltaResetContext({
+    full: 1,
+    mid: 'time-chamber-template:test',
+    iid: 'time-chamber:test',
+  }),
+  {
+    mapId: 'time-chamber-template:test',
+    instanceId: 'time-chamber:test',
+  },
+  '重连全量包必须能在缺少 MapEnter 提示时恢复密室实例上下文',
+);
+assert.deepEqual(
+  resolveWorldDeltaResetContext(
+    { reset: 1, mid: 'map:stale', iid: 'instance:stale' },
+    'map:hint',
+    'instance:hint',
+  ),
+  { mapId: 'map:hint', instanceId: 'instance:hint' },
+  '同一批次的 MapEnter 提示应优先于 full/reset 包内回退上下文',
+);
+assert.deepEqual(
+  resolveWorldDeltaResetContext({ mid: 'map:delta', iid: 'instance:delta' }),
+  { mapId: undefined, instanceId: undefined },
+  '普通增量不得把可选 mid/iid 误判为实体重置请求',
+);
+
 const runtimeDelta = read('src/main-runtime-delta-state-source.ts');
+assert.match(runtimeDelta, /resolveWorldDeltaResetContext\(data, mapIdHint, instanceIdHint\)/);
 assert.match(runtimeDelta, /const spatialContextChanged = mapChanged \|\| instanceChanged/);
 assert.match(runtimeDelta, /options\.clearBuildingFengShuiState\(\)/);
 assert.match(runtimeDelta, /options\.setLatestObservedEntities\(\[\]\)[\s\S]*?options\.setLatestObservedEntityMap\(new Map\(\)\)/);

@@ -403,7 +403,7 @@ function buildActionOrder(actions: ProjectedActionEntry[]): string[] {
 }
 
 function buildFullWorldDeltaFromState(
-    view: Pick<ProjectorViewLike, 'tick' | 'worldRevision' | 'selfRevision'>,
+    view: Pick<ProjectorViewLike, 'tick' | 'worldRevision' | 'selfRevision' | 'instance'>,
     state: WorldStateSlice,
 ): WorldDeltaView {
     const players: WorldPlayerPatchView[] = Array.from(state.players, ([id, entry]) => ({
@@ -511,6 +511,8 @@ function buildFullWorldDeltaFromState(
         t: view.tick,
         wr: view.worldRevision,
         sr: view.selfRevision,
+        mid: view.instance.templateId,
+        iid: state.instanceId,
         full: 1,
         reset: 1,
         p: players.length > 0 ? players : undefined,

@@ -194,6 +194,7 @@ const smokeCases = [
   { name: 'world-runtime-player-session-no-auto-instance', scriptFile: 'world-runtime-player-session-no-auto-instance-smoke.js', standalone: true },
   { name: 'world-runtime-pending-cast-instance-transfer', scriptFile: 'world-runtime-pending-cast-instance-transfer-smoke.js', standalone: true },
   { name: 'content-monster-spawn', scriptFile: 'content-monster-spawn-smoke.js', standalone: true },
+  { name: 'world-projector-full-context', scriptFile: 'world-projector-full-context-smoke.js', standalone: true },
   { name: 'world-sync-delta-order', scriptFile: 'world-sync-delta-order-smoke.js', standalone: true },
   { name: 'world-sync-player-state', scriptFile: 'world-sync-player-state-smoke.js', standalone: true },
   { name: 'social-runtime-instance-name', scriptFile: 'social-runtime-instance-name-smoke.js', standalone: true },
