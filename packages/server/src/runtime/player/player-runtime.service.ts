@@ -3673,10 +3673,9 @@ export class PlayerRuntimeService {
 
         const player = this.getPlayerOrThrow(playerId);
 
-        const normalizedTick = Math.max(0, Math.trunc(currentTick));
-        if (player.combat.lastActiveTick < normalizedTick) {
-            player.combat.lastActiveTick = normalizedTick;
-        }
+        // 活动时间必须使用被影响玩家自己的生命周期时钟。PVP 受击路径传入的
+        // currentTick 属于攻击者，直接写入会让短在线玩家的空闲恢复长期停在未来。
+        player.combat.lastActiveTick = resolvePlayerRuntimeTick(player, currentTick);
         if (input.interruptCultivation === true && player.combat.cultivationActive) {
             player.combat.cultivationActive = false;
             this.playerAttributesService.recalculate(player);
@@ -10831,7 +10830,13 @@ function shouldResumeIdleCultivation(player, currentTick) {
         || hasAnyRemainingTechniqueJob(player)) {
         return false;
     }
-    return currentTick - player.combat.lastActiveTick >= AUTO_IDLE_CULTIVATION_DELAY_TICKS;
+    const lastActiveTick = Math.max(0, Math.trunc(Number(player.combat.lastActiveTick) || 0));
+    if (lastActiveTick > currentTick) {
+        // 收敛旧运行态中已被其他玩家时钟污染的未来时间戳，并重新等待完整空闲窗口。
+        player.combat.lastActiveTick = currentTick;
+        return false;
+    }
+    return currentTick - lastActiveTick >= AUTO_IDLE_CULTIVATION_DELAY_TICKS;
 }
 
 function hasDetachedRuntimeActivity(player) {

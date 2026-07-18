@@ -1810,6 +1810,53 @@ function testIdleCultivationResumeRequiresTenIdleTicksAndNoTechniqueQueue(): voi
   assert.equal(player.combat.cultivationActive, true);
 }
 
+function testIdleCultivationUsesAffectedPlayerClock(): void {
+  const playerId = 'player:idle-cultivation-target-clock';
+  const service = createHydratedService(playerId);
+  (service as unknown as {
+    playerProgressionService: {
+      refreshPreview(player: unknown): void;
+      advanceCultivation(player: unknown, elapsedTicks: number, options?: unknown): unknown;
+      autoRefineRootFoundation(player: unknown): unknown;
+    };
+  }).playerProgressionService = {
+    refreshPreview() {},
+    advanceCultivation() {
+      return { changed: false, notices: [], actionsDirty: false, dirtyDomains: [] };
+    },
+    autoRefineRootFoundation() {
+      return { changed: false, notices: [], actionsDirty: false, dirtyDomains: [] };
+    },
+  };
+  const player = service.getPlayerOrThrow(playerId);
+  player.hp = 100;
+  player.combat.cultivationActive = false;
+  player.combat.autoIdleCultivation = true;
+  player.combat.lastActiveTick = 0;
+  player.lifeElapsedTicks = 20;
+  player.techniqueActivityQueue = [];
+  service.markPersisted(playerId);
+
+  // 模拟长在线攻击者在 10000 息击中只经历 20 息的目标。
+  service.recordActivity(playerId, 10_000, { interruptCultivation: true, reason: 'attack' });
+  assert.equal(player.combat.lastActiveTick, 20);
+
+  player.lifeElapsedTicks = 29;
+  service.advanceSinglePlayerTick(player, 10_001, {});
+  assert.equal(player.combat.cultivationActive, true);
+
+  // 已被旧逻辑污染的在线运行态也应先收敛，再按完整 10 息恢复。
+  player.combat.cultivationActive = false;
+  player.combat.lastActiveTick = 99_999;
+  player.lifeElapsedTicks = 40;
+  service.advanceSinglePlayerTick(player, 10_002, {});
+  assert.equal(player.combat.lastActiveTick, 41);
+  assert.equal(player.combat.cultivationActive, false);
+  player.lifeElapsedTicks = 50;
+  service.advanceSinglePlayerTick(player, 10_003, {});
+  assert.equal(player.combat.cultivationActive, true);
+}
+
 function testAdvanceSinglePlayerTickAutoRefinesRootFoundation(): void {
   const playerId = 'player:tick-auto-root-foundation';
   const service = createHydratedService(playerId);
@@ -2036,12 +2083,14 @@ testLogbookDirtyDomain();
   testAdvanceSinglePlayerTickDirtyDomain();
   testIdleCultivationResumeIgnoresStaleNavigationBlockForPendingComprehension();
   testIdleCultivationResumeRequiresTenIdleTicksAndNoTechniqueQueue();
+  testIdleCultivationUsesAffectedPlayerClock();
   testAdvanceSinglePlayerTickAutoRefinesRootFoundation();
   testEnableAutoRootFoundationStopsImmediatelyAtCap();
   testRespawnDirtyDomains();
   testRespawnPreservesActiveSkillCooldown();
   testActionCooldownCountdownDoesNotBumpRevision();
   testApplyProgressionResultDirtyDomains();
+  console.log('REPAIR_PROOF:ISSUE-000011:PASS');
   console.log(
     JSON.stringify(
       {
