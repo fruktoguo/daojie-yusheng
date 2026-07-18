@@ -50,6 +50,7 @@ const craftTransmissionView = read('src/ui/craft-transmission-view.ts');
 const npcShop = read('src/ui/npc-shop-modal.ts');
 const npcQuest = read('src/ui/npc-quest-modal.ts');
 const socialPanel = read('src/ui/panels/social-panel.ts');
+const buildingStateSource = read('src/main-building-fengshui-state-source.ts');
 const timeChamberStateSource = read('src/main-time-chamber-state-source.ts');
 const timeChamberManagement = read('src/ui/time-chamber-console-modal.ts');
 const timeChamberUsage = read('src/ui/time-chamber-usage-modal.ts');
@@ -508,5 +509,16 @@ assertIncludes(timeChamberUsageDetail, /this\.durationHours = clampHours\(this\.
 assertMissing(timeChamberUsageDetail, /replaceChildren\(/, '密室开启详情刷新不得替换弹层 body');
 assertIncludes(timeChamberUsage, /const entryAvailable = detail\.active \|\| !activationRequired;/, '一倍速密室必须由稳定详情节点直接开放进入按钮');
 assertIncludes(timeChamberUsage, /element\.hidden = detail\.active \|\| !activationRequired;/, '一倍速密室必须隐藏计时购买控件');
+
+const buildingModeSync = section(
+  buildingStateSource,
+  '  function syncActiveBuildMode(force = false): void {',
+  '  function hideBuildModeToolbar(): void {',
+  'MainBuildingFengShuiStateSource.syncActiveBuildMode',
+);
+assertIncludes(buildingModeSync, /inventoryRevision !== lastMaterialInventoryRevision/, '营造模式必须按背包 revision 识别材料投影变化');
+assertIncludes(buildingModeSync, /patchBuildModeMaterialProjection\(toolbarHost, materialSlots, selectedEntry\)/, '背包变化只能局部更新营造材料投影');
+assertMissing(buildingModeSync, /`inventory:\$\{/, '营造背包 revision 不得并入整工具栏重建签名');
+assertIncludes(buildingStateSource, /candidate:\$\{candidate\.slotIndex\}:\$\{candidate\.itemId\}/, '营造材料卡片必须按槽位和物品 ID 复用节点');
 
 console.log('high-frequency UI continuity check passed');

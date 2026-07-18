@@ -344,13 +344,17 @@ function getPlayerInventoryMaterialCandidates(
     if (left.disabled !== right.disabled) {
       return left.disabled ? 1 : -1;
     }
+    const leftPreferred = PREFERRED_BUILD_MATERIAL_ITEM_IDS.has(left.itemId);
+    const rightPreferred = PREFERRED_BUILD_MATERIAL_ITEM_IDS.has(right.itemId);
+    if (leftPreferred !== rightPreferred) {
+      return leftPreferred ? -1 : 1;
+    }
     if (left.ownedCount !== right.ownedCount) {
       return right.ownedCount - left.ownedCount;
     }
     return left.label.localeCompare(right.label, 'zh-CN');
   });
-  const preferredCandidates = sortedCandidates.filter((candidate) => PREFERRED_BUILD_MATERIAL_ITEM_IDS.has(candidate.itemId));
-  return preferredCandidates.length > 0 ? preferredCandidates : sortedCandidates;
+  return sortedCandidates;
 }
 
 function buildMaterialSlots(
@@ -509,6 +513,7 @@ export function createMainBuildingFengShuiStateSource(options: MainBuildingFengS
   let followFrame = 0;
   let lastBuildPreviewKey = '';
   let lastToolbarRenderKey = '';
+  let lastMaterialInventoryRevision = -1;
   let selectedMaterialItemIdsBySlot = new Map<number, string>();
   let pendingPlacementIntent: {
     defId: string;
@@ -627,6 +632,7 @@ export function createMainBuildingFengShuiStateSource(options: MainBuildingFengS
     selectedMaterialItemIdsBySlot = new Map();
     lastBuildPreviewKey = '';
     lastToolbarRenderKey = '';
+    lastMaterialInventoryRevision = -1;
   }
 
   function ensureBuildModeFollowLoop(): void {
@@ -679,6 +685,7 @@ export function createMainBuildingFengShuiStateSource(options: MainBuildingFengS
     const activeDefId = selectedEntry?.id ?? '';
     const player = options.getPlayer();
     const materialSlots = buildMaterialSlots(player, selectedEntry, selectedMaterialItemIdsBySlot);
+    const inventoryRevision = Math.max(0, Math.trunc(Number(player?.inventory?.revision) || 0));
     const buildPreviewKey = pendingPlacementIntent && pendingPlacementHover && activeDefId
       ? `${activeDefId}|${pendingPlacementHover.x}|${pendingPlacementHover.y}`
       : 'none';
@@ -695,19 +702,23 @@ export function createMainBuildingFengShuiStateSource(options: MainBuildingFengS
       options.sidePanel.isMobileLayoutActive() ? 'mobile' : 'desktop',
       selectedCategory,
       String(buildStrength),
-      materialSlots.map((slot) => slot.selectedItemId ?? '').join(','),
       pendingDeconstructTargeting ? 'deconstruct' : 'place',
       continuousSelection ? 'continuous' : 'single',
       filteredEntries.map((entry) => entry.id).join(','),
       latestBuildResult?.ok === false ? latestBuildResult.reason ?? '' : latestBuildResult?.ok === true ? 'ok' : '',
     ].join('|');
+    if (!force && renderKey === lastToolbarRenderKey) {
+      if (inventoryRevision !== lastMaterialInventoryRevision) {
+        patchBuildModeMaterialProjection(toolbarHost, materialSlots, selectedEntry);
+        lastMaterialInventoryRevision = inventoryRevision;
+      }
+      return;
+    }
     if (!force && isBuildStrengthInputFocused()) {
       return;
     }
-    if (!force && renderKey === lastToolbarRenderKey) {
-      return;
-    }
     lastToolbarRenderKey = renderKey;
+    lastMaterialInventoryRevision = inventoryRevision;
     renderBuildModeToolbar({
       host: toolbarHost,
       selectedCategory,
@@ -818,6 +829,7 @@ export function createMainBuildingFengShuiStateSource(options: MainBuildingFengS
       suppressNextFengShuiDetailUntil = 0;
       lastBuildPreviewKey = '';
       lastToolbarRenderKey = '';
+      lastMaterialInventoryRevision = -1;
       options.setFengShuiOverlay(null);
       options.setBuildPreviewOverlay(null);
       detailModalHost.close(FENGSHUI_DETAIL_MODAL_OWNER);
@@ -1082,6 +1094,101 @@ type BuildModeToolbarOptions = {
   prepareSignal: () => AbortSignal;
 };
 
+function patchBuildModeMaterialProjection(
+  root: HTMLElement | null,
+  materialSlots: BuildMaterialSlot[],
+  selected: BuildingCatalogEntry | null,
+): void {
+  if (!root) {
+    return;
+  }
+  const materialGrid = root.querySelector<HTMLElement>('.building-mode-material-grid');
+  if (materialGrid) {
+    const scrollTop = materialGrid.scrollTop;
+    patchBuildModeMaterialGrid(materialGrid, materialSlots, selected);
+    materialGrid.scrollTop = scrollTop;
+  }
+  const summary = root.querySelector<HTMLElement>('[data-role="building-material-summary"]');
+  if (summary && selected) {
+    const prefix = summary.dataset.materialSummaryPrefix ?? '点击地图选择建造位置';
+    summary.textContent = `${prefix} · ${formatSelectedMaterialSummary(materialSlots)}`;
+  }
+  const placeButton = root.querySelector<HTMLButtonElement>('[data-action="place"]');
+  if (placeButton) {
+    const baseDisabled = placeButton.dataset.baseDisabled === 'true';
+    placeButton.disabled = baseDisabled || materialSlots.some((slot) => slot.selectionRequired && !slot.ready);
+  }
+}
+
+function patchBuildModeMaterialGrid(
+  materialGrid: HTMLElement,
+  materialSlots: BuildMaterialSlot[],
+  selected: BuildingCatalogEntry | null,
+): void {
+  const existingByKey = new Map<string, HTMLElement>();
+  for (const child of Array.from(materialGrid.children)) {
+    if (child instanceof HTMLElement && child.dataset.materialKey) {
+      existingByKey.set(child.dataset.materialKey, child);
+    }
+  }
+  const ordered: HTMLElement[] = [];
+  for (const slot of materialSlots) {
+    for (const candidate of slot.candidates) {
+      const key = `candidate:${candidate.slotIndex}:${candidate.itemId}`;
+      const existing = existingByKey.get(key);
+      const card = existing instanceof HTMLButtonElement ? existing : document.createElement('button');
+      card.type = 'button';
+      card.dataset.materialKey = key;
+      card.className = candidate.selected
+        ? 'building-mode-material-card active'
+        : candidate.disabled
+          ? 'building-mode-material-card disabled'
+          : 'building-mode-material-card';
+      if (candidate.exact) {
+        delete card.dataset.action;
+      } else {
+        card.dataset.action = 'select-material';
+      }
+      card.dataset.slotIndex = String(candidate.slotIndex);
+      card.dataset.itemId = candidate.itemId;
+      card.disabled = candidate.disabled || candidate.exact;
+      card.style.setProperty('--building-material-accent', resolveBuildMaterialAccent(candidate.categoryKey));
+      card.style.setProperty('--building-material-tint', resolveBuildMaterialTint(candidate.categoryKey));
+      let name = card.querySelector<HTMLElement>('.building-mode-material-card-name');
+      let ownedBadge = card.querySelector<HTMLElement>('.building-mode-material-card-badge');
+      if (!name || !ownedBadge) {
+        name = document.createElement('strong');
+        name.className = 'building-mode-material-card-name';
+        ownedBadge = document.createElement('span');
+        ownedBadge.className = 'building-mode-material-card-badge';
+        card.replaceChildren(name, ownedBadge);
+      }
+      name.textContent = candidate.label;
+      ownedBadge.textContent = String(candidate.ownedCount);
+      ordered.push(card);
+    }
+    if (slot.candidates.length === 0 && slot.selectionRequired) {
+      const key = `empty:${slot.slotIndex}`;
+      const existing = existingByKey.get(key);
+      const emptySlot = existing ?? document.createElement('div');
+      emptySlot.dataset.materialKey = key;
+      emptySlot.className = 'building-mode-material-empty';
+      emptySlot.textContent = `背包里没有可用于${slot.requirement.label}的真实材料`;
+      ordered.push(emptySlot);
+    }
+  }
+  if (materialSlots.length === 0) {
+    const key = 'empty:no-requirements';
+    const existing = existingByKey.get(key);
+    const empty = existing ?? document.createElement('div');
+    empty.dataset.materialKey = key;
+    empty.className = 'building-mode-material-empty';
+    empty.textContent = selected ? '当前造物无需额外材料' : '先选中一个造物';
+    ordered.push(empty);
+  }
+  materialGrid.replaceChildren(...ordered);
+}
+
 function renderBuildModeToolbar(options: BuildModeToolbarOptions): void {
   if (!options.host) {
     return;
@@ -1104,45 +1211,7 @@ function renderBuildModeToolbar(options: BuildModeToolbarOptions): void {
   materialTitle.textContent = '材料';
   const materialGrid = document.createElement('div');
   materialGrid.className = 'building-mode-material-grid';
-  for (const slot of options.materialSlots) {
-    for (const candidate of slot.candidates) {
-      const card = document.createElement('button');
-      card.type = 'button';
-      card.className = candidate.selected
-        ? 'building-mode-material-card active'
-        : candidate.disabled
-          ? 'building-mode-material-card disabled'
-          : 'building-mode-material-card';
-      if (!candidate.exact) {
-        card.dataset.action = 'select-material';
-      }
-      card.dataset.slotIndex = String(candidate.slotIndex);
-      card.dataset.itemId = candidate.itemId;
-      card.disabled = candidate.disabled || candidate.exact;
-      card.style.setProperty('--building-material-accent', resolveBuildMaterialAccent(candidate.categoryKey));
-      card.style.setProperty('--building-material-tint', resolveBuildMaterialTint(candidate.categoryKey));
-      const name = document.createElement('strong');
-      name.className = 'building-mode-material-card-name';
-      name.textContent = candidate.label;
-      const ownedBadge = document.createElement('span');
-      ownedBadge.className = 'building-mode-material-card-badge';
-      ownedBadge.textContent = String(candidate.ownedCount);
-      card.replaceChildren(name, ownedBadge);
-      materialGrid.appendChild(card);
-    }
-    if (slot.candidates.length === 0 && slot.selectionRequired) {
-      const emptySlot = document.createElement('div');
-      emptySlot.className = 'building-mode-material-empty';
-      emptySlot.textContent = `背包里没有可用于${slot.requirement.label}的真实材料`;
-      materialGrid.appendChild(emptySlot);
-    }
-  }
-  if (options.materialSlots.length === 0) {
-    const empty = document.createElement('div');
-    empty.className = 'building-mode-material-empty';
-    empty.textContent = selected ? '当前造物无需额外材料' : '先选中一个造物';
-    materialGrid.appendChild(empty);
-  }
+  patchBuildModeMaterialGrid(materialGrid, options.materialSlots, selected);
   materialPanel.replaceChildren(materialTitle, materialGrid);
 
   const strengthPanel = document.createElement('section');
@@ -1184,8 +1253,10 @@ function renderBuildModeToolbar(options: BuildModeToolbarOptions): void {
   const titleMain = document.createElement('strong');
   titleMain.textContent = selected?.name ?? '暂无符合条件的造物';
   const titleSub = document.createElement('span');
+  titleSub.dataset.role = 'building-material-summary';
+  titleSub.dataset.materialSummaryPrefix = `点击地图选择建造位置 · 营造 Lv.${formatDisplayInteger(builderSkillLevel)}`;
   titleSub.textContent = selected
-    ? `点击地图选择建造位置 · 营造 Lv.${formatDisplayInteger(builderSkillLevel)} · ${formatSelectedMaterialSummary(options.materialSlots)}`
+    ? `${titleSub.dataset.materialSummaryPrefix} · ${formatSelectedMaterialSummary(options.materialSlots)}`
     : '请选择造物';
   title.replaceChildren(titleMain, titleSub);
   const stageStatus = document.createElement('div');
@@ -1205,7 +1276,9 @@ function renderBuildModeToolbar(options: BuildModeToolbarOptions): void {
   actions.className = 'building-mode-actions';
 
   const placeButton = buildModeActionButton('选择位置', 'place', true);
-  placeButton.disabled = !(player && selected) || options.materialSlots.some((slot) => slot.selectionRequired && !slot.ready);
+  const placeBaseDisabled = !(player && selected);
+  placeButton.dataset.baseDisabled = String(placeBaseDisabled);
+  placeButton.disabled = placeBaseDisabled || options.materialSlots.some((slot) => slot.selectionRequired && !slot.ready);
   actions.appendChild(placeButton);
   const deconstructButton = buildModeActionButton('拆除建筑', 'deconstruct');
   deconstructButton.classList.toggle('active', options.pendingDeconstructActive);
@@ -1279,6 +1352,19 @@ function renderBuildModeToolbar(options: BuildModeToolbarOptions): void {
   }, { signal });
   options.host.addEventListener('click', (event) => {
     event.stopPropagation();
+    const target = event.target;
+    const materialButton = target instanceof Element
+      ? target.closest<HTMLButtonElement>('.building-mode-material-card[data-action="select-material"]')
+      : null;
+    if (!materialButton || materialButton.disabled || !options.host?.contains(materialButton)) {
+      return;
+    }
+    event.preventDefault();
+    const slotIndex = Math.max(0, Math.trunc(Number(materialButton.dataset.slotIndex) || 0));
+    const itemId = materialButton.dataset.itemId;
+    if (itemId) {
+      options.onSelectMaterial(slotIndex, itemId);
+    }
   }, { signal });
   options.host.querySelectorAll<HTMLButtonElement>('[data-category]').forEach((button) => {
     button.addEventListener('click', (event) => {
@@ -1307,16 +1393,6 @@ function renderBuildModeToolbar(options: BuildModeToolbarOptions): void {
       const defId = button.dataset.defId;
       if (defId) {
         options.onSelect(defId);
-      }
-    }, { signal });
-  });
-  options.host.querySelectorAll<HTMLButtonElement>('.building-mode-material-card[data-action="select-material"]').forEach((button) => {
-    button.addEventListener('click', (event) => {
-      event.preventDefault();
-      const slotIndex = Math.max(0, Math.trunc(Number(button.dataset.slotIndex) || 0));
-      const itemId = button.dataset.itemId;
-      if (itemId) {
-        options.onSelectMaterial(slotIndex, itemId);
       }
     }, { signal });
   });

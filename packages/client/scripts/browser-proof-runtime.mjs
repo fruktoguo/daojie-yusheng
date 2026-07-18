@@ -189,6 +189,6 @@ export async function withClientBrowserProof({ viewport, profilePrefix }, run) {
     cdp?.close();
     await stopChild(chrome);
     await viteServer?.close();
-    if (profileDir) await rm(profileDir, { recursive: true, force: true });
+    if (profileDir) await rm(profileDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   }
 }
