@@ -35,6 +35,12 @@ const status = runVerificationSteps({
       shell: false,
     },
     {
+      label: 'destroyed stone floor pathing proof',
+      command: process.execPath,
+      args: ['packages/server/dist/tools/destroyed-stone-floor-pathing-proof.js'],
+      shell: false,
+    },
+    {
       label: 'building cell recovery smoke',
       command: process.execPath,
       args: ['packages/server/dist/tools/building-cell-recovery-smoke.js'],

@@ -75,6 +75,8 @@ TypedArray 索引结构，按 cellIndex 存储:
 5. 地块不可行走 → 'tile_not_clear'
 ```
 
+建筑完工替换已摧毁地块时，先把摧毁后的可通行分层写回权威 tile plane，再清除 `tile_damage` 并应用建筑视觉层。地板只覆盖 surface，不得因删除损坏记录而让已摧毁的 stone/wall 结构复活。
+
 ### 拆除与连续选择
 
 - 非宗门地图中，玩家主动拆除建筑时，服务端严格要求 `building.ownerPlayerId === playerId`；非本人建造或缺少建造者归属的旧建筑都不可拆除，并返回明确的权限失败原因。

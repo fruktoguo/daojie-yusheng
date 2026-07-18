@@ -1586,12 +1586,24 @@ class MapInstanceRuntime {
         }
         return changed;
     }
-    /** clearTileDamageForBuildingVisualCells：玩家建筑替换旧静态结构时，清掉同格旧地块损坏状态。 */
+    /** clearTileDamageForBuildingVisualCells：玩家建筑接管损坏地块时，先落实摧毁投影再清掉损坏状态。 */
     clearTileDamageForBuildingVisualCells(cells) {
         let changed = false;
         for (const cellIndex of Array.isArray(cells) ? cells : []) {
             if (cellIndex < 0 || cellIndex >= this.tilePlane.getCellCount()) {
                 continue;
+            }
+            const damage = this.tileDamageByTile.get(cellIndex);
+            if (damage?.destroyed === true) {
+                // destroyed 只是有损坏记录时的派生投影；删除记录前必须清掉已被摧毁的底层结构，
+                // 否则铺设 floor 只会改 surface，原 stone/wall 会随损坏记录消失而复活并继续阻挡。
+                const destroyedState = this.getDestroyedTileLayerStateByCellIndex(cellIndex);
+                this.tilePlane.setTerrain(cellIndex, destroyedState.terrainType);
+                this.tilePlane.setSurface(cellIndex, destroyedState.surfaceType ?? null);
+                this.tilePlane.setStructure(cellIndex, null);
+                if (typeof this.tilePlane.setInteractableKinds === 'function') {
+                    this.tilePlane.setInteractableKinds(cellIndex, destroyedState.interactableKinds);
+                }
             }
             if (this.tileDamageByTile.delete(cellIndex)) {
                 this.markTileDamagePersistenceDirtyHighPriority(cellIndex);

@@ -101,3 +101,5 @@ calculateTileRestoreRetryTicks(tileType) =
 - 建筑家具层
 - 建筑装饰层
 - 实体占位层（occupancy）
+
+已摧毁的结构只在 `tile_damage` 存在时投影为可通行地面。建筑完工接管该格时，服务端必须先把摧毁后的 terrain/surface/structure 落到权威分层，再删除损坏记录并推进静态寻路 revision。否则铺设地板后旧石块结构会重新生效并阻挡通行。
