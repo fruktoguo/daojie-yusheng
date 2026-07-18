@@ -35,6 +35,7 @@ import { mountReactChatPanel, shouldUseReactChatPanel } from '../react-ui/panels
 import { getLocalBuffTemplate } from '../content/local-templates';
 import { describePreviewBonuses } from './stat-preview';
 import { normalizeStructuredNoticeVars, resolveClientDisplayToken } from './structured-notice-display';
+import { shouldPreserveCombatLogSession } from './chat-scope-continuity';
 
 /** 单个聊天频道的本地状态。 */
 interface ChatChannelState {
@@ -1117,12 +1118,18 @@ export class ChatUI {
     if (normalizedScope === this.currentScopeId) {
       return;
     }
+    const preservedCombatState = shouldPreserveCombatLogSession(this.currentScopeId, normalizedScope)
+      ? this.channelStates.get('combat')
+      : undefined;
     this.currentScopeId = normalizedScope;
     this.input.value = '';
     this.persistedMessageKeys.clear();
     this.pendingPersistence.clear();
     for (const channel of CHAT_CHANNELS) {
-      this.channelStates.set(channel, createChannelState());
+      this.channelStates.set(
+        channel,
+        channel === 'combat' && preservedCombatState ? preservedCombatState : createChannelState(),
+      );
     }
     if (!normalizedScope) {
       this.renderAllChannels();
