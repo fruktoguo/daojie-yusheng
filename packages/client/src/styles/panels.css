@@ -11011,9 +11011,27 @@
         width: min(96vw, 760px);
         height: min(84dvh, 920px);
       }
+      .detail-modal-card.detail-modal--mail #detail-modal-body {
+        overflow-x: hidden;
+        overflow-y: auto;
+        overscroll-behavior-y: contain;
+        touch-action: pan-y;
+      }
+      .mail-shell {
+        height: auto;
+        min-height: 100%;
+        grid-template-rows: auto auto auto;
+      }
       .mail-summary-grid,
       .mail-layout {
         grid-template-columns: 1fr;
+      }
+      .mail-layout {
+        grid-template-rows: auto auto;
+        overflow: visible;
+      }
+      .mail-pane {
+        min-height: auto;
       }
       .mail-toolbar,
       .mail-pane-head,
@@ -11022,8 +11040,12 @@
         flex-direction: column;
         align-items: stretch;
       }
+      .mail-list,
       .mail-detail {
-        min-height: 0;
+        height: auto;
+        max-height: none;
+        min-height: auto;
+        overflow: visible;
       }
     }
 

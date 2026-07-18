@@ -18,6 +18,7 @@
     "proof:spatial-cache-contracts": "node ./scripts/check-spatial-cache-contracts.js",
     "proof:map-render-lifecycle": "node ./scripts/check-map-render-lifecycle.mjs",
     "proof:artifact-aura-frame-cache": "node ./scripts/prove-artifact-aura-frame-cache.mjs",
+    "proof:mail-mobile-scroll": "node ./scripts/prove-mail-mobile-scroll.mjs",
     "proof:ui-continuity": "node ./scripts/check-high-frequency-ui-continuity.mjs",
     "generate:editor-catalog": "node ../../scripts/generate-editor-catalog.mjs --client=client --shared=shared",
     "generate:item-sources": "node ./scripts/generate-item-sources.mjs",
