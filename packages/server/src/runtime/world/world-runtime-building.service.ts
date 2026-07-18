@@ -223,17 +223,24 @@ export async function handleBuildDeconstructIntent(runtime, playerId, payload) {
         return { ...replay, duplicate: true };
     }
     const context = resolvePlayerBuildingContext(runtime, playerId);
-    const buildingId = normalizeBuildingRequestId(payload?.buildingId);
+    const requestedBuildingId = normalizeBuildingRequestId(payload?.buildingId);
+    const building = requestedBuildingId
+        ? context.instance.buildingById?.get?.(requestedBuildingId)
+        : resolveDeconstructBuildingAtCoordinate(context.instance, payload?.x, payload?.y);
+    const buildingId = normalizeBuildingRequestId(building?.id ?? requestedBuildingId);
     const sectAccess = resolveSectBuildingAccess(runtime, context, playerId, 'building_remove');
     if (sectAccess.applies && !sectAccess.allowed) {
         return recordBuildingOperation(runtime, operationKey, { requestId, ok: false, reason: 'sect_demolish_permission_denied' }, { action: 'deconstruct', playerId, instanceId: context.instance.meta.instanceId, buildingId });
     }
-    const building = context.instance.buildingById?.get?.(buildingId);
     if (!building) {
         return recordBuildingOperation(runtime, operationKey, { requestId, ok: false, reason: 'building_not_found' }, { action: 'deconstruct', playerId, instanceId: context.instance.meta.instanceId, buildingId });
     }
     if (!sectAccess.applies && building.ownerPlayerId !== playerId) {
         return recordBuildingOperation(runtime, operationKey, { requestId, ok: false, reason: 'building_owner_mismatch' }, { action: 'deconstruct', playerId, instanceId: context.instance.meta.instanceId, buildingId });
+    }
+    const targetAccess = resolveDeconstructTargetAccess(runtime, context, playerId, building, payload);
+    if (!targetAccess.ok) {
+        return recordBuildingOperation(runtime, operationKey, { requestId, ok: false, reason: targetAccess.reason }, { action: 'deconstruct', playerId, instanceId: context.instance.meta.instanceId, buildingId });
     }
     const result = await deconstructBuildingWithSpecialLifecycle(runtime, context.instance, building, 'deconstruct');
     return recordBuildingOperation(runtime, operationKey, {
@@ -243,6 +250,98 @@ export async function handleBuildDeconstructIntent(runtime, playerId, payload) {
         treasureVaultRecoveryMailId: result.mailId,
         treasureVaultRecoveredItems: result.itemCount,
     }, { action: 'deconstruct', playerId, instanceId: context.instance.meta.instanceId, buildingId });
+}
+
+/** 完工视觉建筑不重复投影实体；ID 缺失时按权威占格选择玩家实际点击的最上层建筑。 */
+function resolveDeconstructBuildingAtCoordinate(instance, xInput, yInput) {
+    const x = Number(xInput);
+    const y = Number(yInput);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) {
+        return null;
+    }
+    return instance.getPrimaryBuildingAtTile?.(Math.trunc(x), Math.trunc(y)) ?? null;
+}
+
+/** 拆除必须命中目标建筑的权威占格，并处于玩家当前可见范围内。 */
+function resolveDeconstructTargetAccess(runtime, context, playerId, building, payload) {
+    const cells = collectBuildingOccupiedCells(context.instance, building);
+    if (cells.length === 0) {
+        return { ok: false, reason: 'building_not_found' };
+    }
+    const hasX = payload?.x !== undefined && payload?.x !== null;
+    const hasY = payload?.y !== undefined && payload?.y !== null;
+    let candidates = cells;
+    if (hasX || hasY) {
+        const x = Number(payload?.x);
+        const y = Number(payload?.y);
+        if (!hasX || !hasY || !Number.isFinite(x) || !Number.isFinite(y)) {
+            return { ok: false, reason: 'building_target_mismatch' };
+        }
+        const targetX = Math.trunc(x);
+        const targetY = Math.trunc(y);
+        const matched = cells.find((cell) => cell.x === targetX && cell.y === targetY);
+        if (!matched) {
+            return { ok: false, reason: 'building_target_mismatch' };
+        }
+        candidates = [matched];
+    }
+    const instancePlayer = context.instance.playersById?.get?.(playerId);
+    const playerX = Number(instancePlayer?.x ?? context.player?.x ?? context.location?.x);
+    const playerY = Number(instancePlayer?.y ?? context.player?.y ?? context.location?.y);
+    if (!Number.isFinite(playerX) || !Number.isFinite(playerY)) {
+        return { ok: false, reason: 'building_not_visible' };
+    }
+    const viewRange = resolvePlayerBuildingViewRange(runtime, context, playerId);
+    const inRangeCells = candidates.filter((cell) => Math.max(
+        Math.abs(cell.x - Math.trunc(playerX)),
+        Math.abs(cell.y - Math.trunc(playerY)),
+    ) <= viewRange);
+    if (inRangeCells.length === 0) {
+        return { ok: false, reason: 'building_out_of_range' };
+    }
+    const visibleTiles = buildPlayerVisibleTileLookup(runtime, playerId, context.instance);
+    if (!inRangeCells.some((cell) => isTileVisibleToPlayer(context.instance, cell.x, cell.y, visibleTiles))) {
+        return { ok: false, reason: 'building_not_visible' };
+    }
+    return { ok: true };
+}
+
+function collectBuildingOccupiedCells(instance, building) {
+    const cells = [];
+    const occupiedIndices = instance.buildingCellsById?.get?.(building?.id);
+    if (Array.isArray(occupiedIndices) && typeof instance.tilePlane?.getX === 'function' && typeof instance.tilePlane?.getY === 'function') {
+        for (const cellIndex of occupiedIndices) {
+            const x = Number(instance.tilePlane.getX(cellIndex));
+            const y = Number(instance.tilePlane.getY(cellIndex));
+            if (Number.isFinite(x) && Number.isFinite(y)) {
+                cells.push({ x: Math.trunc(x), y: Math.trunc(y) });
+            }
+        }
+    }
+    if (cells.length > 0) {
+        return cells;
+    }
+    const x = Number(building?.x);
+    const y = Number(building?.y);
+    return Number.isFinite(x) && Number.isFinite(y)
+        ? [{ x: Math.trunc(x), y: Math.trunc(y) }]
+        : [];
+}
+
+function resolvePlayerBuildingViewRange(runtime, context, playerId) {
+    let runtimeRange = null;
+    if (typeof runtime?.playerRuntimeService?.getViewRadius === 'function') {
+        try {
+            runtimeRange = runtime.playerRuntimeService.getViewRadius(playerId);
+        }
+        catch (_error) {
+            runtimeRange = null;
+        }
+    }
+    const rawRange = runtimeRange
+        ?? context.player?.attrs?.numericStats?.viewRange
+        ?? context.player?.viewRange;
+    return Math.max(1, Math.round(Number(rawRange) || 1));
 }
 
 /** GM 拆除仍复用宝库返还、密室释放、lease 校验与分域刷盘，不返还建造材料。 */

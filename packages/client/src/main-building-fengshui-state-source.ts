@@ -471,6 +471,15 @@ function normalizeMaterialFailure(reason: string | undefined): string {
   if (reason === 'building_not_found') {
     return '建筑不存在';
   }
+  if (reason === 'building_target_mismatch') {
+    return '目标建筑已发生变化，请重新选择';
+  }
+  if (reason === 'building_out_of_range') {
+    return '目标建筑超出当前可操作范围';
+  }
+  if (reason === 'building_not_visible') {
+    return '目标建筑不在当前视野内';
+  }
   if (reason === 'not_owner' || reason === 'building_owner_mismatch') {
     return '该建筑不是你建造的，无法拆除';
   }
@@ -863,13 +872,19 @@ export function createMainBuildingFengShuiStateSource(options: MainBuildingFengS
       return continuousSelection;
     },
 
-    confirmBuildDeconstructTarget(buildingId: string): boolean {
-      if (!pendingDeconstructTargeting || !buildingId) {
+    confirmBuildDeconstructTarget(target: { buildingId?: string; x: number; y: number }): boolean {
+      if (!pendingDeconstructTargeting || !Number.isFinite(target.x) || !Number.isFinite(target.y)) {
         return false;
       }
+      const buildingId = typeof target.buildingId === 'string' ? target.buildingId.trim() : '';
       const requestId = `deconstruct:${Date.now()}:${Math.random().toString(36).slice(2)}`;
       buildOperationByRequestId.set(requestId, 'deconstruct');
-      options.socket.sendBuildDeconstruct({ requestId, buildingId });
+      options.socket.sendBuildDeconstruct({
+        requestId,
+        ...(buildingId ? { buildingId } : {}),
+        x: Math.trunc(target.x),
+        y: Math.trunc(target.y),
+      });
       if (!continuousSelection) {
         pendingDeconstructTargeting = false;
       }

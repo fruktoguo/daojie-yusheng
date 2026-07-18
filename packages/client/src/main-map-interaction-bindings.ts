@@ -260,7 +260,7 @@ type MainMapInteractionBindingsOptions = {
   hasPendingBuildPlacementTargeting: () => boolean;
   setPendingBuildPlacementHover: (target: { x?: number; y?: number } | null) => void;
   confirmBuildPlacementTarget: (x: number, y: number) => boolean;
-  confirmBuildDeconstructTarget: (buildingId: string) => boolean;
+  confirmBuildDeconstructTarget: (target: { buildingId?: string; x: number; y: number }) => boolean;
   cancelPendingBuildPlacementTargeting: (clearTargeting?: boolean) => void;
   /**
  * cancelTargeting：cancelTargeting相关字段。
@@ -442,11 +442,15 @@ export function bindMainMapInteractions(options: MainMapInteractionBindingsOptio
             options.showToast(t('map-interaction.toast.build-out-of-range', { range: formatDisplayNumber(pendingTargetedAction.range) }));
             return;
           }
-          if (!clickedBuilding?.id) {
-            options.showToast('请选择一个建筑');
+          if (!options.getVisibleTileAt(target.x, target.y)) {
+            options.showToast(t('map-interaction.toast.select-visible-tile'));
             return;
           }
-          const keepTargeting = options.confirmBuildDeconstructTarget(clickedBuilding.id);
+          const keepTargeting = options.confirmBuildDeconstructTarget({
+            buildingId: clickedBuilding?.id,
+            x: target.x,
+            y: target.y,
+          });
           if (!keepTargeting) {
             options.cancelTargeting();
           }

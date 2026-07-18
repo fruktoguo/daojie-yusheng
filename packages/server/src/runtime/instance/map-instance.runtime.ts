@@ -3469,6 +3469,20 @@ class MapInstanceRuntime {
         result.sort((left, right) => String(left.building?.id ?? '').localeCompare(String(right.building?.id ?? ''), 'zh-CN'));
         return result;
     }
+    /** getPrimaryBuildingAtTile：按地块展示层级选择低频交互应命中的权威建筑。 */
+    getPrimaryBuildingAtTile(x, y) {
+        const candidates = this.getBuildingsAtTile(x, y);
+        let selected = null;
+        let selectedPriority = -1;
+        for (const candidate of candidates) {
+            const priority = resolveBuildingCombatTargetPriority(candidate.compiled, candidate.building);
+            if (priority > selectedPriority) {
+                selected = candidate.building;
+                selectedPriority = priority;
+            }
+        }
+        return selected;
+    }
     /** getActiveBuildingCombatStateAtCellIndex：动态建筑优先作为地块战斗真源。 */
     getActiveBuildingCombatStateAtCellIndex(cellIndex) {
         const ids = this.buildingIdByCell.get(cellIndex);

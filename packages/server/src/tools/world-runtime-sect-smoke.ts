@@ -1013,6 +1013,8 @@ async function main() {
   const managedBuilding = {
     id: 'building:sect-managed',
     defId: 'stone_wall',
+    x: 1,
+    y: 1,
     ownerPlayerId: elderPlayerId,
     ownerSectId: expandedSect.sectId,
     state: 'building',
@@ -1063,6 +1065,9 @@ async function main() {
     },
     getInstanceRuntime() {
       return sectBuildingInstance;
+    },
+    getPlayerView() {
+      return { visibleTileIndices: [], visibleTileKeys: ['1,1'] };
     },
   };
   const deniedPlace = handleBuildPlaceIntent(buildingRuntime, laborPlayerId, {

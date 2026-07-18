@@ -94,7 +94,11 @@ export interface BuildPlaceIntentView {
 
 export interface BuildDeconstructIntentView {
   requestId: string;
-  buildingId: string;
+  /** 建筑实体已投影时提交稳定 ID；服务端不会在 ID 失效时改拆同格其它建筑。 */
+  buildingId?: string;
+  /** 仅以地块视觉呈现的完工建筑通过可见格坐标交由服务端权威解析。 */
+  x?: number;
+  y?: number;
 }
 
 export interface RoomSetRoleRequestView {
