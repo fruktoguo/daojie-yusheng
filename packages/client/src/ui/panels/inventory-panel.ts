@@ -981,10 +981,6 @@ export class InventoryPanel {
       this.selectedItemKey = item ? this.getItemIdentity(item) : null;
       this.tooltip.hide();
       this.tooltipCell = null;
-      if (item && this.isFormationDiskItem(item)) {
-        this.openFormationDialog(this.selectedSlotIndex);
-        return;
-      }
       this.renderModal();
     });
 
