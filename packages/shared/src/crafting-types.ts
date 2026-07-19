@@ -594,6 +594,18 @@ export interface PlayerEnhancementJob {
 
 /** 玩家当前采集任务的最小持久化运行态。 */
 export interface PlayerGatherJob extends TechniqueActivityJobBase {
+  /** 活跃采集任务运行 ID，用于与容器占用恢复对账。 */
+  jobRunId?: string;
+  /** 统一技艺任务类型。 */
+  jobType?: 'gather';
+  /** 活跃任务持久化版本。 */
+  jobVersion?: number;
+  /** 规范化容器来源 ID。 */
+  sourceId?: string;
+  /** 采集目标所在实例 ID。 */
+  instanceId?: string;
+  /** 当前批次采集的物品堆叠键。 */
+  itemKey?: string;
 /**
  * resourceNodeId：资源节点 ID。
  */

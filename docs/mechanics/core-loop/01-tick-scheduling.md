@@ -10,7 +10,8 @@
 | TICK_BUDGET | 200 ms | 同上 |
 | MIN_INTERVAL_MS | 100 ms（10 倍实例 deadline 下限） | `packages/server/src/runtime/world/world-runtime-instance-schedule.service.ts` |
 | BASE_INTERVAL_MS | 1000 ms | 同上 |
-| MAX_CATCH_UP_STEPS_PER_INSTANCE | 4 息/批 | 同上 |
+| MIN_CATCH_UP_STEPS_PER_INSTANCE | 4 息/批 | 同上 |
+| MAX_CATCH_UP_WINDOW_MS | 1000 ms | 同上 |
 | MAX_PLANS_PER_BATCH | 2048 实例/批 | 同上 |
 | MAX_CONSECUTIVE_FAILURES_BEFORE_UNHEALTHY | 5 | 同上 |
 | MAP_TIME_PERSISTENCE_CHECKPOINT_INTERVAL_TICKS | 300 | `packages/server/src/runtime/instance/map-instance.runtime.ts` |
@@ -54,8 +55,8 @@ runTickOnce():
 2.  reconcileDefeatedPlayersBeforeTick()   — 清理死亡玩家仇恨/命令
 3.  消费调度器给出的实例计划：`instanceId / speed / steps`
       - 正常到期通常为 1 step
-      - 积压时单实例单批最多追赶 4 step
-      - 超过 4 step 的旧债务计数后丢弃，并从当前时间重同步 deadline
+      - 积压时至少保留既有 4 step 缓冲，并补齐当前倍率在最近 1 秒内应有的 step（如 `7x=7`、`10x=10`）
+      - 超过当前倍率有界补偿上限的旧债务计数后丢弃，并从当前时间重同步 deadline
       - 密室未开启时强制回落 `1x`；全室开启期间按管理端设定倍率推进，运行成本已由开启者一次付清
 4.  processPendingRespawns()               — 复活队列
 5.  materializeNavigationCommands()        — 寻路意图物化
@@ -85,7 +86,7 @@ runTickOnce():
 - `nextDueAt` 从上次 deadline 递推，避免按执行完成时间重排造成长期漂移。
 - 服务冷启动重建索引时，按稳定 `instanceId` 将首个 deadline 确定性分散到各自 tick 间隔内，避免大量同速实例在同一毫秒形成启动尖峰；运行中的创建和主动改速仍从完整新间隔起算。
 - 普通实例先于加速积压出队；高倍实例即使欠下追赶息，也不能饿死正常地图。
-- 单实例单批最多补 4 息；超额积压不会永久追债。密室按现实开启时长一次收取运行成本，不按实际补帧数量重复计费。
+- 单实例单批至少保留既有 4 息缓冲；高倍实例还会补齐当前倍率在最近 1 秒内应有的逻辑息，更旧积压不会永久追债。密室按现实开启时长一次收取运行成本，不按实际补帧数量重复计费。
 - 改速、暂停、恢复、创建和销毁都会更新调度 generation；过期堆节点不会再次推进实例。
 - `lease_degraded / fenced` 等暂时不可写状态只会把该实例延后 1 秒重试，不会永久删除索引；`stopped / destroyed` 才是终态。
 - 高频批次只枚举到期实例的玩家索引，不扫描全部连接，也不调用全局事件清空。

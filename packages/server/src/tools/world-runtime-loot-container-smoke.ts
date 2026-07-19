@@ -22,6 +22,19 @@ async function main(): Promise<void> {
   await testContainerLootPoolUsesViewerLuck();
   await testContainerTakeAllDurableGrant();
   await testStartGatherSupportsColonInstanceId();
+  await testGatherReconcilesLegacyOwnerlessSearchWithOriginalJob();
+  await testGatherKeepsOwnerlessProgressSkewForOriginalJob();
+  await testGatherReclaimsOwnerlessSearchWithoutJobAfterHydration();
+  await testGatherKeepsOwnerlessSearchWhenHydrationUnknown();
+  await testGatherKeepsOwnedMatchingSearch();
+  await testGatherReconcilesOwnedCrossDomainSkew();
+  await testGatherKeepsOwnedConflictingRunIdsFailClosedOnStartAndTick();
+  await testGatherKeepsOwnedConflictingItemKeysFailClosedOnStartAndTick();
+  await testGatherReclaimsOwnedStaleSearch();
+  await testGatherKeepsOwnedSearchWhenOwnerRuntimeUnavailable();
+  await testGatherReconcilesOfflineHangingOwner();
+  await testGatherKeepsOwnerlessSearchWithMultipleMatchingJobs();
+  await testGatherReconciliationIgnoresNonHerbContainer();
   await testHydrateContainerStatesCanonicalizesLegacySource();
   await testHerbGrowthCreatesStockAndPersists();
   await testHerbGrowthAccumulatesStockAndPersists();
@@ -39,7 +52,7 @@ async function main(): Promise<void> {
   console.log(JSON.stringify({
     ok: true,
     case: 'world-runtime-loot-container',
-    answers: '地面 pile 与容器 source 的单个拿取/全部拿取仍走 grantInventoryItems durable 主链，成功提交后才刷新任务状态并发送结构化通知，同时透传 runtimeOwnerId/sessionEpoch/instanceId/assignedNodeId/leaseToken/ownershipEpoch；来源 mutation 携带当前 ground 累计 delta 或完整 container states 的可重放 ledger payload；草药采集完成只更新运行态背包、标记 inventory/active_job/profession 脏域并交由 flush 链路落盘；草药会按生长时间持续补库存，库存未耗尽也会增长并写入 container_state，采集和地块攻击只扣 1 朵，下一次生长倒计时持续保留',
+    answers: '地面 pile 与容器 source 的单个拿取/全部拿取仍走 grantInventoryItems durable 主链；采集 activeSearch 与 gatherJob 通过 jobRunId 做实例内恢复对账，唯一 legacy 任务可回填，水合未知/多匹配/owner runtime 缺失时 fail closed，owned 跨域进度偏差会保守收敛并继续 tick；草药采集完成不再在 tick 内调用 durable grant 或 presence fence，而是只更新运行态背包、标记 inventory/active_job/profession 脏域并交由 flush 链路落盘；库存按生长时间持续补充',
     excludes: '本 smoke 只覆盖 loot container facade 行为；采集 tick 迁出旧 service 的结构性 proof 在 world-runtime-craft-smoke，也不证明更泛化的 tick 资产 intent 编排',
   }, null, 2));
 }
@@ -1178,6 +1191,462 @@ async function testStartGatherSupportsColonInstanceId() {
   assert.deepEqual(result.messages?.[0]?.vars, { resourceNodeName: '月露草', totalTicks: 5 });
   assert.equal(player.gatherJob?.resourceNodeId, container.id);
   assert.equal(player.gatherJob?.remainingTicks, 5);
+  assert.equal(typeof player.gatherJob?.jobRunId, 'string');
+  const persisted = service.buildContainerPersistenceStates(instanceId);
+  assert.equal(persisted[0]?.activeSearch?.playerId, player.playerId);
+  assert.equal(persisted[0]?.activeSearch?.jobRunId, player.gatherJob?.jobRunId);
+
+  const restored = new WorldRuntimeLootContainerService(
+    {} as never,
+    buildPlayerRuntimeService(player, { lootWindowTarget: { tileX: 5, tileY: 6 } }) as never,
+  );
+  restored.hydrateContainerStates(instanceId, persisted);
+  assert.equal(restored.buildContainerPersistenceStates(instanceId)[0]?.activeSearch?.playerId, player.playerId);
+  assert.equal(restored.buildContainerPersistenceStates(instanceId)[0]?.activeSearch?.jobRunId, player.gatherJob?.jobRunId);
+}
+
+async function testGatherReconcilesLegacyOwnerlessSearchWithOriginalJob() {
+  const fixture = buildGatherReconciliationFixture({ suffix: 'legacy-original' });
+  assignGatherJob(fixture.owner, fixture, { includeIdentity: false });
+  const result = fixture.start();
+
+  assert.equal(result.ok, false);
+  assert.equal(fixture.requester.gatherJob, null);
+  const activeSearch = fixture.persistedActiveSearch();
+  assert.equal(activeSearch?.playerId, fixture.owner.playerId);
+  assert.equal(activeSearch?.jobRunId, fixture.owner.gatherJob?.jobRunId);
+  assert.equal(fixture.owner.gatherJob?.sourceId, fixture.sourceId);
+  assert.equal(fixture.owner.gatherJob?.instanceId, fixture.instanceId);
+  assert.equal(fixture.owner.gatherJob?.itemKey, fixture.itemKey);
+  assert.equal(fixture.owner.persistentRevision, 1);
+  assert.equal(fixture.owner.dirtyDomains.has('active_job'), true);
+  assert.equal(fixture.service.getContainerPersistenceRevision(fixture.instanceId), 1);
+  assert.equal(fixture.instance.worldRevision, 11);
+}
+
+async function testGatherKeepsOwnerlessProgressSkewForOriginalJob() {
+  const fixture = buildGatherReconciliationFixture({ suffix: 'ownerless-progress-skew' });
+  assignGatherJob(fixture.owner, fixture, { includeIdentity: true });
+  const ownerJob = fixture.owner.gatherJob as Record<string, unknown>;
+  ownerJob.remainingTicks = 6;
+  ownerJob.workRemainingTicks = 6;
+  const result = fixture.startAs(fixture.owner.playerId);
+
+  assert.equal(result.ok, false);
+  assert.equal(fixture.requester.gatherJob, null);
+  assert.equal(fixture.persistedActiveSearch()?.playerId, fixture.owner.playerId);
+  assert.equal(fixture.persistedActiveSearch()?.jobRunId, ownerJob.jobRunId);
+  assert.equal(fixture.persistedActiveSearch()?.remainingTicks, 7);
+  assert.equal(ownerJob.remainingTicks, 7);
+  assert.equal(fixture.service.getContainerPersistenceRevision(fixture.instanceId), 1);
+  assert.equal(fixture.owner.persistentRevision, 1);
+  assert.equal(fixture.instance.worldRevision, 11);
+
+  const contenderResult = fixture.start();
+  assert.equal(contenderResult.ok, false);
+  assert.equal(fixture.requester.gatherJob, null);
+  assert.equal(fixture.persistedActiveSearch()?.playerId, fixture.owner.playerId);
+
+  const tickResult = await fixture.service.tickGather(fixture.owner.playerId, fixture.deps as never);
+  assert.equal(tickResult.ok, true);
+  assert.equal(fixture.persistedActiveSearch()?.playerId, fixture.owner.playerId);
+  assert.equal(fixture.persistedActiveSearch()?.jobRunId, ownerJob.jobRunId);
+  assert.equal(fixture.persistedActiveSearch()?.remainingTicks, 6);
+  assert.equal(ownerJob.remainingTicks, 6);
+  assert.equal(fixture.service.getContainerPersistenceRevision(fixture.instanceId), 2);
+}
+
+async function testGatherReclaimsOwnerlessSearchWithoutJobAfterHydration() {
+  const fixture = buildGatherReconciliationFixture({ suffix: 'ownerless-empty' });
+  const result = fixture.start();
+
+  assert.equal(result.ok, true);
+  const activeSearch = fixture.persistedActiveSearch();
+  assert.equal(activeSearch?.playerId, fixture.requester.playerId);
+  assert.equal(activeSearch?.jobRunId, fixture.requester.gatherJob?.jobRunId);
+  assert.equal(fixture.service.getDirtyInstanceIds().has(fixture.instanceId), true);
+  assert.equal(fixture.service.getContainerPersistenceRevision(fixture.instanceId), 2);
+  assert.equal(fixture.instance.worldRevision, 12);
+}
+
+async function testGatherKeepsOwnerlessSearchWhenHydrationUnknown() {
+  const fixture = buildGatherReconciliationFixture({ suffix: 'hydration-unknown', hydrationConfirmed: false });
+  assignGatherJob(fixture.owner, fixture, { includeIdentity: true });
+  const activeSearchBefore = structuredClone(fixture.persistedActiveSearch());
+  const ownerJobBefore = structuredClone(fixture.owner.gatherJob);
+  const tickResult = await fixture.service.tickGather(fixture.owner.playerId, fixture.deps as never);
+  assert.equal(tickResult.ok, true);
+  assert.deepEqual(fixture.persistedActiveSearch(), activeSearchBefore);
+  assert.deepEqual(fixture.owner.gatherJob, ownerJobBefore);
+  assert.equal(fixture.owner.persistentRevision, 0);
+  assert.equal(fixture.service.getContainerPersistenceRevision(fixture.instanceId), 0);
+
+  const result = fixture.start();
+
+  assert.equal(result.ok, false);
+  assert.equal(fixture.persistedActiveSearch()?.playerId, undefined);
+  assert.equal(fixture.requester.gatherJob, null);
+  assert.equal(fixture.service.getDirtyInstanceIds().has(fixture.instanceId), false);
+  assert.equal(fixture.service.getContainerPersistenceRevision(fixture.instanceId), 0);
+  assert.equal(fixture.instance.worldRevision, 10);
+}
+
+async function testGatherKeepsOwnedMatchingSearch() {
+  const fixture = buildGatherReconciliationFixture({ suffix: 'owned-matching', activeOwner: true });
+  assignGatherJob(fixture.owner, fixture, { includeIdentity: true });
+  fixture.setActiveSearchOwner(fixture.owner.playerId, fixture.owner.gatherJob?.jobRunId as string);
+  const result = fixture.start();
+
+  assert.equal(result.ok, false);
+  assert.equal(fixture.persistedActiveSearch()?.playerId, fixture.owner.playerId);
+  assert.equal(fixture.service.getContainerPersistenceRevision(fixture.instanceId), 0);
+  assert.equal(fixture.instance.worldRevision, 10);
+}
+
+async function testGatherReconcilesOwnedCrossDomainSkew() {
+  const fixture = buildGatherReconciliationFixture({ suffix: 'owned-flush-skew', activeOwner: true });
+  assignGatherJob(fixture.owner, fixture, { includeIdentity: true });
+  const ownerJob = fixture.owner.gatherJob as Record<string, unknown>;
+  ownerJob.remainingTicks = 5;
+  ownerJob.workRemainingTicks = 5;
+  fixture.setActiveSearchOwner(fixture.owner.playerId, ownerJob.jobRunId as string);
+  const result = fixture.start();
+
+  assert.equal(result.ok, false);
+  assert.equal(fixture.persistedActiveSearch()?.playerId, fixture.owner.playerId);
+  assert.equal(fixture.persistedActiveSearch()?.jobRunId, ownerJob.jobRunId);
+  assert.equal(fixture.persistedActiveSearch()?.remainingTicks, 7);
+  assert.equal(ownerJob.itemKey, fixture.itemKey);
+  assert.equal(ownerJob.remainingTicks, 7);
+  assert.equal(ownerJob.workRemainingTicks, 7);
+  assert.equal(fixture.owner.persistentRevision, 1);
+  assert.equal(fixture.owner.dirtyDomains.has('active_job'), true);
+  assert.equal(fixture.service.getContainerPersistenceRevision(fixture.instanceId), 0);
+  assert.equal(fixture.instance.worldRevision, 10);
+
+  const tickResult = await fixture.service.tickGather(fixture.owner.playerId, fixture.deps as never);
+  assert.equal(tickResult.ok, true);
+  assert.equal(ownerJob.remainingTicks, 6);
+  assert.equal(fixture.persistedActiveSearch()?.remainingTicks, 6);
+  assert.equal(fixture.service.getContainerPersistenceRevision(fixture.instanceId), 1);
+}
+
+async function testGatherKeepsOwnedConflictingRunIdsFailClosedOnStartAndTick() {
+  const fixture = buildGatherReconciliationFixture({ suffix: 'owned-run-conflict', activeOwner: true });
+  assignGatherJob(fixture.owner, fixture, { includeIdentity: true });
+  const ownerJob = fixture.owner.gatherJob as Record<string, unknown>;
+  const ownerJobRunId = ownerJob.jobRunId;
+  fixture.setActiveSearchOwner(fixture.owner.playerId, 'job:gather:conflicting-container-run');
+  const activeSearchBefore = structuredClone(fixture.persistedActiveSearch());
+  const ownerJobBefore = structuredClone(ownerJob);
+  const inventoryBefore = structuredClone(fixture.owner.inventory.items);
+
+  const startResult = fixture.start();
+  assert.equal(startResult.ok, false);
+  assert.deepEqual(fixture.persistedActiveSearch(), activeSearchBefore);
+  assert.deepEqual(ownerJob, ownerJobBefore);
+  assert.equal(ownerJob.jobRunId, ownerJobRunId);
+  assert.equal(fixture.owner.persistentRevision, 0);
+  assert.equal(fixture.owner.dirtyDomains.has('active_job'), false);
+  assert.equal(fixture.service.getContainerPersistenceRevision(fixture.instanceId), 0);
+  assert.equal(fixture.instance.worldRevision, 10);
+
+  const tickResult = await fixture.service.tickGather(fixture.owner.playerId, fixture.deps as never);
+  assert.equal(tickResult.ok, true);
+  assert.deepEqual(fixture.persistedActiveSearch(), activeSearchBefore);
+  assert.deepEqual(ownerJob, ownerJobBefore);
+  assert.equal(fixture.owner.persistentRevision, 0);
+  assert.equal(fixture.service.getContainerPersistenceRevision(fixture.instanceId), 0);
+  assert.deepEqual(fixture.owner.inventory.items, inventoryBefore);
+
+  fixture.setLootWindowTarget(fixture.owner.playerId, null);
+  await fixture.service.tickGather(fixture.owner.playerId, fixture.deps as never);
+  assert.deepEqual(fixture.persistedActiveSearch(), activeSearchBefore);
+  assert.deepEqual(ownerJob, ownerJobBefore);
+  assert.equal(fixture.owner.persistentRevision, 0);
+  assert.equal(fixture.service.getContainerPersistenceRevision(fixture.instanceId), 0);
+
+  fixture.setLootWindowTarget(fixture.owner.playerId, { tileX: 28, tileY: 25 });
+  fixture.owner.x = 1;
+  await fixture.service.tickGather(fixture.owner.playerId, fixture.deps as never);
+  assert.deepEqual(fixture.persistedActiveSearch(), activeSearchBefore);
+  assert.deepEqual(ownerJob, ownerJobBefore);
+  assert.equal(fixture.owner.persistentRevision, 0);
+  assert.equal(fixture.service.getContainerPersistenceRevision(fixture.instanceId), 0);
+  assert.deepEqual(fixture.owner.inventory.items, inventoryBefore);
+}
+
+async function testGatherKeepsOwnedConflictingItemKeysFailClosedOnStartAndTick() {
+  const fixture = buildGatherReconciliationFixture({ suffix: 'owned-item-conflict', activeOwner: true });
+  assignGatherJob(fixture.owner, fixture, { includeIdentity: true });
+  const ownerJob = fixture.owner.gatherJob as Record<string, unknown>;
+  fixture.setActiveSearchOwner(fixture.owner.playerId, ownerJob.jobRunId as string);
+  ownerJob.itemKey = 'conflicting-player-item-key';
+  const activeSearchBefore = structuredClone(fixture.persistedActiveSearch());
+  const ownerJobBefore = structuredClone(ownerJob);
+  const inventoryBefore = structuredClone(fixture.owner.inventory.items);
+
+  const startResult = fixture.start();
+  assert.equal(startResult.ok, false);
+  assert.deepEqual(fixture.persistedActiveSearch(), activeSearchBefore);
+  assert.deepEqual(ownerJob, ownerJobBefore);
+  assert.equal(fixture.owner.persistentRevision, 0);
+  assert.equal(fixture.service.getContainerPersistenceRevision(fixture.instanceId), 0);
+
+  const tickResult = await fixture.service.tickGather(fixture.owner.playerId, fixture.deps as never);
+  assert.equal(tickResult.ok, true);
+  assert.deepEqual(fixture.persistedActiveSearch(), activeSearchBefore);
+  assert.deepEqual(ownerJob, ownerJobBefore);
+  assert.equal(fixture.owner.persistentRevision, 0);
+  assert.equal(fixture.service.getContainerPersistenceRevision(fixture.instanceId), 0);
+  assert.deepEqual(fixture.owner.inventory.items, inventoryBefore);
+}
+
+async function testGatherReclaimsOwnedStaleSearch() {
+  const fixture = buildGatherReconciliationFixture({ suffix: 'owned-stale', activeOwner: true });
+  fixture.setActiveSearchOwner(fixture.owner.playerId, 'job:gather:stale');
+  const result = fixture.start();
+
+  assert.equal(result.ok, true);
+  assert.equal(fixture.persistedActiveSearch()?.playerId, fixture.requester.playerId);
+  assert.notEqual(fixture.persistedActiveSearch()?.jobRunId, 'job:gather:stale');
+  assert.equal(fixture.service.getContainerPersistenceRevision(fixture.instanceId), 2);
+  assert.equal(fixture.instance.worldRevision, 12);
+}
+
+async function testGatherKeepsOwnedSearchWhenOwnerRuntimeUnavailable() {
+  const fixture = buildGatherReconciliationFixture({ suffix: 'owner-unavailable', activeOwner: true });
+  fixture.removeRuntimePlayer(fixture.owner.playerId);
+  const result = fixture.start();
+
+  assert.equal(result.ok, false);
+  assert.equal(fixture.persistedActiveSearch()?.playerId, fixture.owner.playerId);
+  assert.equal(fixture.requester.gatherJob, null);
+  assert.equal(fixture.service.getContainerPersistenceRevision(fixture.instanceId), 0);
+}
+
+async function testGatherReconcilesOfflineHangingOwner() {
+  const fixture = buildGatherReconciliationFixture({ suffix: 'offline-hanging' });
+  (fixture.owner as any).online = false;
+  (fixture.owner as any).inWorld = true;
+  assignGatherJob(fixture.owner, fixture, { includeIdentity: true });
+  const result = fixture.start();
+
+  assert.equal(result.ok, false);
+  assert.equal(fixture.persistedActiveSearch()?.playerId, fixture.owner.playerId);
+  assert.equal(fixture.persistedActiveSearch()?.jobRunId, fixture.owner.gatherJob?.jobRunId);
+  assert.equal((fixture.owner as any).online, false);
+  assert.equal((fixture.owner as any).inWorld, true);
+}
+
+async function testGatherKeepsOwnerlessSearchWithMultipleMatchingJobs() {
+  const secondOwner = buildPlayer(
+    'player:gather:issue-000012:second-owner',
+    'virtual:darksoil_abyss:issue-000012:multiple',
+    'runtime:gather:second-owner',
+    42,
+  );
+  const fixture = buildGatherReconciliationFixture({
+    suffix: 'multiple',
+    additionalPlayers: [secondOwner],
+  });
+  assignGatherJob(fixture.owner, fixture, { includeIdentity: false });
+  assignGatherJob(secondOwner, fixture, { includeIdentity: false });
+  const activeSearchBefore = structuredClone(fixture.persistedActiveSearch());
+  const firstJobBefore = structuredClone(fixture.owner.gatherJob);
+  const secondJobBefore = structuredClone(secondOwner.gatherJob);
+  const tickResult = await fixture.service.tickGather(fixture.owner.playerId, fixture.deps as never);
+  assert.equal(tickResult.ok, true);
+  assert.deepEqual(fixture.persistedActiveSearch(), activeSearchBefore);
+  assert.deepEqual(fixture.owner.gatherJob, firstJobBefore);
+  assert.deepEqual(secondOwner.gatherJob, secondJobBefore);
+  assert.equal(fixture.owner.persistentRevision, 0);
+  assert.equal(fixture.service.getContainerPersistenceRevision(fixture.instanceId), 0);
+
+  const result = fixture.start();
+
+  assert.equal(result.ok, false);
+  assert.equal(fixture.persistedActiveSearch()?.playerId, undefined);
+  assert.equal(fixture.owner.persistentRevision, 0);
+  assert.equal(secondOwner.persistentRevision, 0);
+  assert.equal(fixture.service.getContainerPersistenceRevision(fixture.instanceId), 0);
+  assert.equal(fixture.instance.worldRevision, 10);
+}
+
+async function testGatherReconciliationIgnoresNonHerbContainer() {
+  const fixture = buildGatherReconciliationFixture({ suffix: 'non-herb', variant: 'chest' });
+  assert.throws(() => fixture.start(), /当前目标不是草药采集点/);
+  assert.equal(fixture.persistedActiveSearch()?.playerId, undefined);
+  assert.equal(fixture.service.getContainerPersistenceRevision(fixture.instanceId), 0);
+  assert.equal(fixture.instance.worldRevision, 10);
+}
+
+function buildGatherReconciliationFixture(options: {
+  suffix: string;
+  hydrationConfirmed?: boolean;
+  activeOwner?: boolean;
+  variant?: string;
+  additionalPlayers?: Array<ReturnType<typeof buildPlayer>>;
+}) {
+  const instanceId = `virtual:darksoil_abyss:issue-000012:${options.suffix}`;
+  const containerId = 'lm_mixed_crystal_28_25';
+  const sourceId = `container:${instanceId}:${containerId}`;
+  const owner = buildPlayer(`player:gather:owner:${options.suffix}`, instanceId, `runtime:gather:owner:${options.suffix}`, 40);
+  const requester = buildPlayer(`player:gather:requester:${options.suffix}`, instanceId, `runtime:gather:requester:${options.suffix}`, 41);
+  const players = [owner, requester, ...(options.additionalPlayers ?? [])];
+  for (const player of players) {
+    player.instanceId = instanceId;
+    player.x = 28;
+    player.y = 24;
+    player.gatherSkill = { level: 20, exp: 0, expToNext: TEST_REALM_EXP_TO_NEXT };
+  }
+  const playersById = new Map(players.map((player) => [player.playerId, player]));
+  const lootWindowTargetsByPlayerId = new Map(players.map((player) => [
+    player.playerId,
+    { tileX: 28, tileY: 25 },
+  ]));
+  const container = {
+    id: containerId,
+    name: '混元脉石',
+    x: 28,
+    y: 25,
+    variant: options.variant ?? 'herb',
+    grade: 'heaven',
+    desc: '可采集矿材',
+    drops: [],
+    lootPools: [],
+  };
+  const item = { itemId: 'mat.mixed_vein_stone', name: '混元脉石', count: 1, level: 40, type: 'material' };
+  const itemKey = createItemStackSignature(item as never);
+  const instance = {
+    tick: 10,
+    worldRevision: 10,
+    listPlayerIds() {
+      return players.map((player) => player.playerId);
+    },
+    getContainerById(id: string) {
+      return id === containerId ? container : null;
+    },
+    markAoiViewChangedAt() {},
+  };
+  const playerRuntimeService = {
+    getPlayer(playerId: string) {
+      return playersById.get(playerId) ?? null;
+    },
+    getPlayerOrThrow(playerId: string) {
+      const player = playersById.get(playerId);
+      if (!player) throw new Error(`player_not_found:${playerId}`);
+      return player;
+    },
+    getLootWindowTarget(playerId: string) {
+      return lootWindowTargetsByPlayerId.get(playerId) ?? null;
+    },
+    clearLootWindow() {},
+    bumpPersistentRevision(player: ReturnType<typeof buildPlayer>) {
+      player.persistentRevision += 1;
+      player.selfRevision += 1;
+    },
+    markPersistenceDirtyDomains(player: ReturnType<typeof buildPlayer>, domains: string[]) {
+      for (const domain of domains) player.dirtyDomains.add(domain);
+    },
+  };
+  const service = new WorldRuntimeLootContainerService({} as never, playerRuntimeService as never);
+  service.hydrateContainerStates(instanceId, [{
+    sourceId,
+    containerId,
+    generatedAtTick: 1,
+    entries: [{ item, createdTick: 1, visible: true }],
+    activeSearch: {
+      ...(options.activeOwner ? { playerId: owner.playerId } : {}),
+      itemKey,
+      totalTicks: 10,
+      remainingTicks: 7,
+    },
+  }]);
+  const deps = {
+    getPlayerLocationOrThrow(playerId: string) {
+      assert.equal(playersById.has(playerId), true);
+      return { instanceId };
+    },
+    getInstanceRuntime(id: string) {
+      return id === instanceId ? instance : null;
+    },
+    getInstanceRuntimeOrThrow(id: string) {
+      assert.equal(id, instanceId);
+      return instance;
+    },
+    startupBarrierService: {
+      isTrafficOpen() {
+        return options.hydrationConfirmed !== false;
+      },
+    },
+  };
+  return {
+    instanceId,
+    containerId,
+    sourceId,
+    itemKey,
+    owner,
+    requester,
+    instance,
+    service,
+    deps,
+    start() {
+      return service.dispatchStartGather(requester.playerId, { sourceId, itemKey }, deps as never);
+    },
+    startAs(playerId: string) {
+      return service.dispatchStartGather(playerId, { sourceId, itemKey }, deps as never);
+    },
+    persistedActiveSearch() {
+      return service.buildContainerPersistenceStates(instanceId)[0]?.activeSearch;
+    },
+    setActiveSearchOwner(playerId: string, jobRunId?: string) {
+      const persisted = service.buildContainerPersistenceStates(instanceId);
+      service.hydrateContainerStates(instanceId, [{
+        ...persisted[0],
+        activeSearch: {
+          ...persisted[0]?.activeSearch,
+          playerId,
+          ...(jobRunId ? { jobRunId } : {}),
+        },
+      }]);
+    },
+    removeRuntimePlayer(playerId: string) {
+      playersById.delete(playerId);
+    },
+    setLootWindowTarget(playerId: string, target: { tileX: number; tileY: number } | null) {
+      if (target) lootWindowTargetsByPlayerId.set(playerId, target);
+      else lootWindowTargetsByPlayerId.delete(playerId);
+    },
+  };
+}
+
+function assignGatherJob(
+  player: ReturnType<typeof buildPlayer>,
+  fixture: ReturnType<typeof buildGatherReconciliationFixture>,
+  options: { includeIdentity: boolean },
+) {
+  player.gatherJob = {
+    ...(options.includeIdentity ? {
+      jobRunId: `job:gather:${player.playerId}`,
+      jobType: 'gather',
+      jobVersion: 1,
+      sourceId: fixture.sourceId,
+      instanceId: fixture.instanceId,
+      itemKey: fixture.itemKey,
+    } : {}),
+    resourceNodeId: fixture.containerId,
+    resourceNodeName: '混元脉石',
+    startedAt: 1,
+    totalTicks: 10,
+    remainingTicks: 7,
+    workTotalTicks: 10,
+    workRemainingTicks: 7,
+    pausedTicks: 0,
+    successRate: 1,
+    spiritStoneCost: 0,
+    phase: 'gathering',
+  };
 }
 
 async function testHydrateContainerStatesCanonicalizesLegacySource() {
@@ -1571,6 +2040,7 @@ async function testGatherCompletionAvoidsDurableGrantInTick() {
   service.hydrateContainerStates('inst-gather-durable', [{
     ...baseState,
     activeSearch: {
+      playerId: player.playerId,
       itemKey,
       totalTicks: 720,
       remainingTicks: 1,
@@ -1679,6 +2149,7 @@ async function testGatherCompletionFormatsTemplateNameAndConsumesOneStock() {
       },
     ],
     activeSearch: {
+      playerId: player.playerId,
       itemKey: createItemStackSignature({ itemId: 'mat.sunmelt_seed', count: 1, level: 20, type: 'material' } as never),
       totalTicks: 1,
       remainingTicks: 1,
@@ -1767,6 +2238,7 @@ async function testGatherCompletionKeepsExpiredGrowthAvailable() {
       },
     ],
     activeSearch: {
+      playerId: player.playerId,
       itemKey: createItemStackSignature({ itemId: 'mat.sunmelt_seed', name: '融阳子', count: 1, level: 20, type: 'material' } as never),
       totalTicks: 1,
       remainingTicks: 1,
@@ -1880,6 +2352,7 @@ async function testGatherCompletionDoesNotSyncPresenceFenceInTick() {
   service.hydrateContainerStates('inst-gather-fenced', [{
     ...baseState,
     activeSearch: {
+      playerId: player.playerId,
       itemKey,
       totalTicks: 720,
       remainingTicks: 1,
@@ -1989,6 +2462,7 @@ async function testGatherCompletionIgnoresDurableFailureBecauseTickDoesNotCallIt
   service.hydrateContainerStates('inst-gather-rollback', [{
     ...baseState,
     activeSearch: {
+      playerId: player.playerId,
       itemKey,
       totalTicks: 720,
       remainingTicks: 1,
@@ -2042,6 +2516,7 @@ async function testGatherCompletionIgnoresDurableFailureBecauseTickDoesNotCallIt
 }
 
 async function testGatherCompletionConsumesSingleAccumulatedStock() {
+  const initialJobRunId = 'job:gather:single-stock:first-unit';
   const player = buildPlayer('player:gather:single-stock', 'inst:gather:single-stock', 'runtime:gather:single-stock', 26);
   player.x = 5;
   player.y = 6;
@@ -2051,6 +2526,9 @@ async function testGatherCompletionConsumesSingleAccumulatedStock() {
     expToNext: TEST_REALM_EXP_TO_NEXT,
   };
   player.gatherJob = {
+    jobRunId: initialJobRunId,
+    jobType: 'gather',
+    jobVersion: 1,
     resourceNodeId: 'herb1',
     resourceNodeName: '凝露草',
     startedAt: Date.now(),
@@ -2093,9 +2571,12 @@ async function testGatherCompletionConsumesSingleAccumulatedStock() {
   const itemKey = Array.isArray(prepared?.items) ? prepared.items[0]?.itemKey : '';
   assert.equal(typeof itemKey, 'string');
   assert.ok(itemKey);
+  player.gatherJob.itemKey = itemKey;
   service.hydrateContainerStates('inst:gather:single-stock', [{
     ...state,
     activeSearch: {
+      playerId: player.playerId,
+      jobRunId: initialJobRunId,
       itemKey,
       totalTicks: 720,
       remainingTicks: 1,
@@ -2124,10 +2605,65 @@ async function testGatherCompletionConsumesSingleAccumulatedStock() {
   assert.equal(player.inventory.items.length, 1);
   assert.equal(player.inventory.items[0]?.count, 1);
   assert.equal(Number(player.gatherJob?.remainingTicks), 3);
+  const nextJobRunId = player.gatherJob?.jobRunId;
+  assert.equal(typeof nextJobRunId, 'string');
+  assert.notEqual(nextJobRunId, initialJobRunId);
   const remaining = service.getPreparedContainerLootSource('inst:gather:single-stock', container as never, player as never);
   assert.equal(remaining?.items.length, 1);
   assert.equal(remaining?.items[0]?.item.count, 2);
   assert.equal(remaining?.destroyed, false);
+  assert.equal(service.buildContainerPersistenceStates('inst:gather:single-stock')[0]?.activeSearch?.jobRunId, nextJobRunId);
+
+  const nextJobBeforeConflict = structuredClone(player.gatherJob);
+  const inventoryBeforeConflict = structuredClone(player.inventory.items);
+  const persistedBeforeConflict = service.buildContainerPersistenceStates('inst:gather:single-stock');
+  service.hydrateContainerStates('inst:gather:single-stock', [{
+    ...persistedBeforeConflict[0],
+    activeSearch: {
+      ...persistedBeforeConflict[0]?.activeSearch,
+      jobRunId: initialJobRunId,
+    },
+  }]);
+  const staleSearchBeforeConflict = structuredClone(service.buildContainerPersistenceStates('inst:gather:single-stock')[0]?.activeSearch);
+  const containerRevisionBeforeConflict = service.getContainerPersistenceRevision('inst:gather:single-stock');
+  const playerRevisionBeforeConflict = player.persistentRevision;
+
+  const conflictStart = service.dispatchStartGather(player.playerId, {
+    sourceId: state.sourceId,
+    itemKey,
+  }, deps as never);
+  assert.equal(conflictStart.ok, false);
+  assert.deepEqual(player.gatherJob, nextJobBeforeConflict);
+  assert.deepEqual(service.buildContainerPersistenceStates('inst:gather:single-stock')[0]?.activeSearch, staleSearchBeforeConflict);
+  assert.deepEqual(player.inventory.items, inventoryBeforeConflict);
+
+  const conflictTick = await service.tickGather(player.playerId, deps as never);
+  assert.equal(conflictTick.ok, true);
+  assert.deepEqual(player.gatherJob, nextJobBeforeConflict);
+  assert.deepEqual(service.buildContainerPersistenceStates('inst:gather:single-stock')[0]?.activeSearch, staleSearchBeforeConflict);
+  assert.deepEqual(player.inventory.items, inventoryBeforeConflict);
+  assert.equal(service.getContainerPersistenceRevision('inst:gather:single-stock'), containerRevisionBeforeConflict);
+  assert.equal(player.persistentRevision, playerRevisionBeforeConflict);
+
+  const nextJobBeforeMissingSearch = structuredClone(player.gatherJob);
+  const inventoryBeforeMissingSearch = structuredClone(player.inventory.items);
+  const persistedBeforeMissingSearch = service.buildContainerPersistenceStates('inst:gather:single-stock');
+  service.hydrateContainerStates('inst:gather:single-stock', [{
+    ...persistedBeforeMissingSearch[0],
+    activeSearch: undefined,
+  }]);
+  const containerRevisionBeforeMissingSearch = service.getContainerPersistenceRevision('inst:gather:single-stock');
+  const playerRevisionBeforeMissingSearch = player.persistentRevision;
+  player.x = 99;
+  player.y = 99;
+
+  const missingSearchTick = await service.tickGather(player.playerId, deps as never);
+  assert.equal(missingSearchTick.ok, true);
+  assert.equal(service.buildContainerPersistenceStates('inst:gather:single-stock')[0]?.activeSearch, undefined);
+  assert.deepEqual(player.gatherJob, nextJobBeforeMissingSearch);
+  assert.deepEqual(player.inventory.items, inventoryBeforeMissingSearch);
+  assert.equal(service.getContainerPersistenceRevision('inst:gather:single-stock'), containerRevisionBeforeMissingSearch);
+  assert.equal(player.persistentRevision, playerRevisionBeforeMissingSearch);
 }
 
 async function testGatherCompletionDirtyDomains() {
@@ -2189,6 +2725,7 @@ async function testGatherCompletionDirtyDomains() {
   service.hydrateContainerStates('inst:gather', [{
     ...state,
     activeSearch: {
+      playerId: player.playerId,
       itemKey,
       totalTicks: 720,
       remainingTicks: 1,

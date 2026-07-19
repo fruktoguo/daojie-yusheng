@@ -22,7 +22,7 @@ type MainTechniqueStateSourceOptions = {
  * socket：socket相关字段。
  */
 
-  socket: Pick<SocketRuntimeSender, 'sendCultivate' | 'sendCancelTechniqueTransmission' | 'sendForgetTechnique'>;
+  socket: Pick<SocketRuntimeSender, 'sendCultivate' | 'sendCancelTechniqueTransmission' | 'sendDiscardTechniqueComprehension' | 'sendForgetTechnique'>;
   panelSocket: Pick<SocketPanelSender, 'sendRequestTechniquePage'>;
 };
 /**
@@ -44,6 +44,7 @@ export function createMainTechniqueStateSource(options: MainTechniqueStateSource
     (techId) => options.socket.sendForgetTechnique(techId),
     undefined,
     (techId) => options.socket.sendCancelTechniqueTransmission(techId),
+    (techId) => options.socket.sendDiscardTechniqueComprehension(techId),
     (payload: C2S_RequestTechniquePage) => options.panelSocket.sendRequestTechniquePage(payload),
   );
 

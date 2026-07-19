@@ -11439,6 +11439,29 @@
       }
     }
 
+    /* 手机端由行囊面板外层统一承接纵向手势，避免被裁切的内层列表抢占滚动。 */
+    .mobile-ui-pane #pane-social .social-panel {
+      grid-template-rows: auto auto auto;
+      height: auto;
+      min-height: 100%;
+    }
+    .mobile-ui-pane #pane-social .social-panel-tab-content {
+      overflow: visible;
+    }
+    .mobile-ui-pane #pane-social .social-panel-tab-pane {
+      height: auto;
+      min-height: 280px;
+    }
+    .mobile-ui-pane #pane-social .social-conversation-contacts {
+      max-height: none;
+    }
+    .mobile-ui-pane #pane-social .social-panel-tab-pane > .ui-list,
+    .mobile-ui-pane #pane-social .social-conversation-peer-list,
+    .mobile-ui-pane #pane-social .social-message-list {
+      max-height: none;
+      overflow-y: visible;
+    }
+
 /* codex-sync: main alchemy enhancement styles */
     .detail-modal-card.detail-modal--craft {
       width: min(1760px, calc(100vw - 24px));

@@ -46,6 +46,34 @@ export async function executeGatherTick(
     return buildGatherTickResult(false, [buildGatherNotice('warn', 'notice.craft.gather.target-missing')]);
   }
 
+  const state = service.ensureContainerState(location.instanceId, container, instance.tick);
+  const activeSearchPlayerId = resolveActiveSearchPlayerId(state.activeSearch);
+  if (activeSearchPlayerId && activeSearchPlayerId !== playerId) {
+    const sleepPayload = buildGatherSleepPayload(job, location.instanceId, container, '采集目标正在由其他玩家采集。');
+    player.gatherJob = null;
+    markPlayerActiveJobDirty(playerRuntimeService, player);
+    return buildGatherTickSleepResult(sleepPayload, [buildGatherNotice('warn', 'notice.craft.gather.busy-sleeping')]);
+  }
+
+  const activeSearchJobRunId = resolveGatherJobRunId(state.activeSearch);
+  const gatherJobRunId = resolveGatherJobRunId(job);
+  if (activeSearchJobRunId && gatherJobRunId && activeSearchJobRunId !== gatherJobRunId) {
+    return buildGatherTickResult();
+  }
+  const activeSearchItemKey = resolveGatherItemKey(state.activeSearch);
+  const gatherJobItemKey = resolveGatherItemKey(job);
+  if (activeSearchItemKey && gatherJobItemKey && activeSearchItemKey !== gatherJobItemKey) {
+    return buildGatherTickResult();
+  }
+  if (state.activeSearch && !activeSearchPlayerId) {
+    return buildGatherTickResult();
+  }
+  if (!state.activeSearch) {
+    // 玩家任务与容器占用分属两个持久化域。缺少 activeSearch 时无法判断容器
+    // 快照是否早于上一单位发奖，tick 不得先按距离清任务或凭 entries 重建。
+    return buildGatherTickResult();
+  }
+
   const lootWindowTarget = playerRuntimeService.getLootWindowTarget?.(playerId);
   if (
     !lootWindowTarget
@@ -53,7 +81,6 @@ export async function executeGatherTick(
     || lootWindowTarget.tileY !== container.y
     || Math.max(Math.abs(player.x - container.x), Math.abs(player.y - container.y)) > 1
   ) {
-    const state = service.ensureContainerState(location.instanceId, container, instance.tick);
     if (state.activeSearch) {
       state.activeSearch = undefined;
       service.markContainerPersistenceDirty(location.instanceId);
@@ -64,39 +91,21 @@ export async function executeGatherTick(
     return buildGatherTickSleepResult(sleepPayload, [buildGatherNotice('warn', 'notice.craft.gather.left-range')]);
   }
 
-  const state = service.ensureContainerState(location.instanceId, container, instance.tick);
-  const activeSearchPlayerId = resolveActiveSearchPlayerId(state.activeSearch);
-  if (activeSearchPlayerId && activeSearchPlayerId !== playerId) {
-    const sleepPayload = buildGatherSleepPayload(job, location.instanceId, container, '采集目标正在由其他玩家采集。');
-    player.gatherJob = null;
-    markPlayerActiveJobDirty(playerRuntimeService, player);
-    return buildGatherTickSleepResult(sleepPayload, [buildGatherNotice('warn', 'notice.craft.gather.busy-sleeping')]);
+  let activeSearchIdentityChanged = false;
+  if (state.activeSearch && !activeSearchJobRunId && gatherJobRunId) {
+    state.activeSearch.jobRunId = gatherJobRunId;
+    activeSearchIdentityChanged = true;
+  } else if (state.activeSearch && activeSearchJobRunId && !gatherJobRunId) {
+    job.jobRunId = activeSearchJobRunId;
   }
-
-  if (state.activeSearch && !activeSearchPlayerId) {
-    state.activeSearch.playerId = playerId;
+  if (state.activeSearch && !activeSearchItemKey && gatherJobItemKey) {
+    state.activeSearch.itemKey = gatherJobItemKey;
+    activeSearchIdentityChanged = true;
+  } else if (state.activeSearch && activeSearchItemKey && !gatherJobItemKey) {
+    job.itemKey = activeSearchItemKey;
+  }
+  if (activeSearchIdentityChanged) {
     service.markContainerPersistenceDirty(location.instanceId);
-  }
-  if (!state.activeSearch) {
-    const nextRow = groupContainerLootRows(state.entries)[0] ?? null;
-    if (!nextRow) {
-      player.gatherJob = null;
-      markPlayerActiveJobDirty(playerRuntimeService, player);
-      return buildGatherTickResult(false, [buildGatherNodeNotice('gather', 'notice.craft.gather.depleted', container.name)]);
-    }
-    const totalTicks = computeEffectiveHerbGatherTicks(player, container, nextRow);
-    state.activeSearch = {
-      playerId,
-      itemKey: nextRow.itemKey,
-      totalTicks,
-      remainingTicks: totalTicks,
-    };
-    job.totalTicks = totalTicks;
-    job.remainingTicks = totalTicks;
-    job.workTotalTicks = totalTicks;
-    job.workRemainingTicks = totalTicks;
-    job.interruptWaitRemainingTicks = 0;
-    job.interruptState = null;
   }
 
   state.activeSearch.remainingTicks -= 1;
@@ -155,19 +164,25 @@ export async function executeGatherTick(
   const nextRow = groupContainerLootRows(state.entries)[0] ?? null;
   if (nextRow) {
     const totalTicks = computeEffectiveHerbGatherTicks(player, container, nextRow);
+    const nextJobRunId = createGatherJobRunId();
     state.activeSearch = {
       playerId,
+      jobRunId: nextJobRunId,
       itemKey: nextRow.itemKey,
       totalTicks,
       remainingTicks: totalTicks,
     };
     player.gatherJob = {
       ...job,
+      jobRunId: nextJobRunId,
+      jobType: 'gather',
+      jobVersion: 1,
       startedAt: Date.now(),
       totalTicks,
       remainingTicks: totalTicks,
       workTotalTicks: totalTicks,
       workRemainingTicks: totalTicks,
+      itemKey: nextRow.itemKey,
       interruptWaitRemainingTicks: 0,
       interruptState: null,
       pausedTicks: 0,
@@ -302,6 +317,20 @@ function resolveActiveSearchPlayerId(activeSearch: unknown): string {
     ? String((activeSearch as { playerId: string }).playerId).trim()
     : '';
   return playerId || '';
+}
+
+function resolveGatherJobRunId(value: unknown): string {
+  const jobRunId = (value as { jobRunId?: unknown } | null)?.jobRunId;
+  return typeof jobRunId === 'string' ? jobRunId.trim() : '';
+}
+
+function resolveGatherItemKey(value: unknown): string {
+  const itemKey = (value as { itemKey?: unknown } | null)?.itemKey;
+  return typeof itemKey === 'string' ? itemKey.trim() : '';
+}
+
+function createGatherJobRunId(): string {
+  return `job:gather:${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
 }
 
 function buildGatherTickResult(

@@ -39,6 +39,7 @@ export function setReactTechniquePanelCallbacks(callbacks: {
   onToggleSkills?: (techId: string, enabled: boolean) => void;
   onOpenDetail?: (techId: string) => void;
   onCancelTransmission?: (techId: string) => void;
+  onDiscardPending?: (techId: string) => void;
 }): void {
   setTechniquePanelCallbacks(callbacks);
 }

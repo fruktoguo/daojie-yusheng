@@ -79,6 +79,7 @@ interface WorldGatewayActionDeps {
       usePortal(playerId: string, deps: unknown): void;
       enqueueCultivate(playerId: string, techId: string | null, deps: unknown): void;
       enqueueForgetTechnique(playerId: string, techId: string | null, deps: unknown): void;
+      enqueueDiscardTechniqueComprehension(playerId: string, techId: string | null, deps: unknown): void;
       enqueueStartTechniqueTransmission(playerId: string, learnerPlayerId: string, techId: string | null, deps: unknown, payload?: unknown): void;
       enqueueCancelTechniqueTransmission(playerId: string, techId: string | null, deps: unknown): void;
       enqueueCastSkill(
@@ -379,6 +380,25 @@ export class WorldGatewayActionHelper {
       );
     } catch (error) {
       this.gateway.worldClientEventService.emitGatewayError(client, 'FORGET_TECHNIQUE_FAILED', error);
+    }
+  }
+
+  handleDiscardTechniqueComprehension(
+    client: Socket,
+    payload: ClientToServerEventPayload<typeof C2S.DiscardTechniqueComprehension>,
+  ): void {
+    const playerId = this.gateway.gatewayGuardHelper.requireActivePlayerId(client);
+    if (!playerId) {
+      return;
+    }
+    try {
+      this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueDiscardTechniqueComprehension(
+        playerId,
+        payload?.techId ?? null,
+        this.gateway.worldRuntimeService,
+      );
+    } catch (error) {
+      this.gateway.worldClientEventService.emitGatewayError(client, 'DISCARD_TECHNIQUE_COMPREHENSION_FAILED', error);
     }
   }
 

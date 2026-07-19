@@ -187,6 +187,12 @@ export interface ForgetTechniqueRequestView {
   techId: string;
 }
 
+/** 放弃尚未领悟的功法进度。 */
+export interface DiscardTechniqueComprehensionRequestView {
+  /** 功法 ID。 */
+  techId: string;
+}
+
 /** 开始传授功法。 */
 export interface StartTechniqueTransmissionRequestView {
 /**

@@ -146,6 +146,8 @@ interface PlayerSnapshotTechniques {
   techniques: unknown[];
   cultivatingTechId: string | null;
   pendingComprehensions?: unknown[];
+  /** 仅由本次在线运行态显式放弃动作产生，不从旧快照恢复。 */
+  allowPendingComprehensionEmptyOverwrite?: boolean;
 }
 
 interface PlayerSnapshotBuffs {

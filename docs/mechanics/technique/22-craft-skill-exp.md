@@ -112,7 +112,11 @@ cancel → [computeRefundOrCleanup → 清理job]
 
 active job 持久化以 `jobRunId + jobVersion` 做 CAS：数据库版本落后于当前权威运行态时允许按更高版本追赶；请求携带的 expected version 已落后于数据库时必须拒绝，不能仅因请求给出了更高 next version 就覆盖较新的阶段、剩余时长或资源状态。
 
-不同类型 job 的切换也不能把“数据库仍是旧类型”当成可忽略的落后版本。需要强事务逐息结算的新 job（如阵法维护）在第一次资产 tick 前，必须先在玩家资产锁内完成 `active_job` 类型切换刷盘；刷盘未收敛时保持新 job 运行态并等待重试，不得直接进入资产转换事务，也不得放宽 CAS 覆盖旧类型。
+采集容器占用 `activeSearch` 与玩家 `gatherJob` 分属实例容器域和玩家活跃任务域，两侧必须共同持久化 `jobRunId`、目标实例、容器来源、`itemKey` 与工作进度。每完成一个单位的采集结算并进入下一单位时，即使仍采集同一种堆叠材料，也必须为下一 `activeSearch/gatherJob` 生成新的 `jobRunId`；否则同 `itemKey` 的跨单位 partial flush 无法区分“尚未发奖”和“已经发奖”。恢复后的对账只允许在开始采集等冷命令或明确的恢复边界执行，并且只扫描当前实例 `listPlayerIds()` 中的居民；该集合包含在线玩家和离线挂机玩家，禁止退化为只看在线会话，也禁止扫描全服玩家。
+
+无 owner 的旧占用只有在实例居民已经确认全部水合后才能裁定。对账先收集同 `instanceId + sourceId/containerId` 的 active `gatherJob`：完全没有同目标任务时才允许清理并重新建立正常 job；只有一个同目标任务且两侧非空的 `itemKey/jobRunId` 不冲突时，才在冷命令内回填 owner 和任务身份。合法的独立 flush 可能让两域短暂出现 `7/6` 之类进度偏差，此时按较大的剩余工作量保守同步并拒绝新玩家，不能按零匹配清理。多个同目标候选、实例居民无法完整回读或玩家水合状态不明时一律 fail closed。热路径 tick 不扫描实例居民，也绝不认领 raw ownerless 占用；原 owner 可通过同目标 start 触发上述冷对账，或显式取消旧任务后重新开始。
+
+已有 owner 的占用在 owner runtime 不可得时同样 fail closed；只有 owner runtime 明确存在且 job 已缺失或目标不符时才能清理。同 owner、同目标且两侧 `jobRunId` 相同，或仅一侧缺少 `jobRunId` 时，允许补齐身份，并以两侧较大的剩余工作量保守回放，同时推进相应脏域版本。两侧 `jobRunId` 均非空但不相同，或两侧 `itemKey` 均非空但不相同时，无法证明属于同一任务批次；start 对账和 gather tick 都必须保持两域原样并 fail closed，禁止自动拼接、扣减进度或授予产出。玩家仍有 `gatherJob` 但容器侧完全缺少 `activeSearch` 时，也可能是容器快照早于上一单位发奖的跨域窗口，tick 不得依据旧 `entries` 自动重建；必须保持不变，待玩家取消旧任务后从冷命令重新开始。
 
 自创功法的玉简扣除、生成 job、草稿模板与 job 指针分别在玩家资产锁内原子提交；COMMIT 回包丢失时以同一请求幂等重放。旧执行器只能把仍为 `running` 且没有草稿指针的 job 标为失败并触发返还，不能覆盖已生成草稿或重复返还玉简。若运行态背包/功法域已有未刷盘修改，必须先成功刷入数据库真源再进入自创功法事务。
 

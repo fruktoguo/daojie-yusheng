@@ -35,6 +35,7 @@ interface TechniquePanelCallbacks {
   onToggleSkills: ((techId: string, enabled: boolean) => void) | null;
   onOpenDetail: ((techId: string) => void) | null;
   onCancelTransmission: ((techId: string) => void) | null;
+  onDiscardPending: ((techId: string) => void) | null;
 }
 
 const callbacks: TechniquePanelCallbacks = {
@@ -42,6 +43,7 @@ const callbacks: TechniquePanelCallbacks = {
   onToggleSkills: null,
   onOpenDetail: null,
   onCancelTransmission: null,
+  onDiscardPending: null,
 };
 
 export function setTechniquePanelCallbacks(cbs: Partial<TechniquePanelCallbacks>): void {
@@ -252,6 +254,9 @@ const PendingTechniqueCard = memo(function PendingTechniqueCard({ pending, isCul
   const handleCancelTransmission = useCallback(() => {
     callbacks.onCancelTransmission?.(pending.techId);
   }, [pending.techId]);
+  const handleDiscardPending = useCallback(() => {
+    callbacks.onDiscardPending?.(pending.techId);
+  }, [pending.techId]);
   const actionLabel = transferLocked
     ? '传授中'
     : !selfComprehensionAllowed
@@ -297,6 +302,9 @@ const PendingTechniqueCard = memo(function PendingTechniqueCard({ pending, isCul
         </button>
         {pending.activeTransferJob && (
           <button className="small-btn danger" type="button" onClick={handleCancelTransmission}>取消传法</button>
+        )}
+        {!pending.activeTransferJob && (
+          <button className="small-btn danger" type="button" onClick={handleDiscardPending}>{t('technique.comprehension.discard.action')}</button>
         )}
       </div>
     </div>

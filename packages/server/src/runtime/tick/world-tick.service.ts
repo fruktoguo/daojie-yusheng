@@ -294,7 +294,7 @@ export class WorldTickService implements OnModuleInit, OnModuleDestroy {
       this.lastLoggedDroppedLogicalStepCount = droppedLogicalStepCount;
       this.lastDroppedStepWarningAtMs = observedAtMs;
       this.logger.warn(
-        `实例 Tick 积压丢弃：本次观测新增 ${newlyDropped} 个逻辑息（累计 ${droppedLogicalStepCount}），单实例单批补帧上限为 4`,
+        `实例 Tick 积压丢弃：本次观测新增 ${newlyDropped} 个逻辑息（累计 ${droppedLogicalStepCount}），已丢弃超出当前倍率有界补偿上限的旧债务`,
       );
       return;
     }

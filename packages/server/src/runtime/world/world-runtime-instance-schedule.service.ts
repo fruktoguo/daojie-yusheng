@@ -36,7 +36,10 @@ interface DeadlineNode {
 
 const BASE_INTERVAL_MS = gameplayConstants.WORLD_TICK_INTERVAL_MS;
 const MIN_INTERVAL_MS = BASE_INTERVAL_MS / MAX_INSTANCE_TICK_SPEED;
-const MAX_CATCH_UP_STEPS_PER_INSTANCE = 4;
+/** 保留既有普通实例过载缓冲，避免短时调度抖动直接丢失逻辑息。 */
+const MIN_CATCH_UP_STEPS_PER_INSTANCE = 4;
+/** 高倍实例至少补偿最近一个现实基准周期，避免倍率越高反而丢失越多逻辑息。 */
+const MAX_CATCH_UP_WINDOW_MS = BASE_INTERVAL_MS;
 /** 10000 个 1x 实例在 10Hz dispatcher 下平均每批 1000 个；保留约两倍错峰偏斜余量。 */
 const MAX_PLANS_PER_BATCH = 2_048;
 /** 仅用于避免已到期 deadline 形成 0ms 忙轮询；全局帧起始频率由 WorldTickService 限制为最高 10Hz。 */
@@ -258,10 +261,11 @@ export class WorldRuntimeInstanceScheduleService {
         }
         const intervalMs = resolveIntervalMs(state.speed);
         const overdueSteps = Math.floor(Math.max(0, nowMs - state.nextDueAtMs) / intervalMs) + 1;
-        const steps = Math.max(1, Math.min(MAX_CATCH_UP_STEPS_PER_INSTANCE, overdueSteps));
+        const maxCatchUpSteps = resolveMaxCatchUpSteps(state.speed);
+        const steps = Math.max(1, Math.min(maxCatchUpSteps, overdueSteps));
         plans.push({ instanceId: node.instanceId, instance, steps, speed: state.speed });
         plannedInstanceIds.add(node.instanceId);
-        if (overdueSteps > MAX_CATCH_UP_STEPS_PER_INSTANCE) {
+        if (overdueSteps > maxCatchUpSteps) {
           // 超载时只补有限逻辑息，其余债务直接丢弃并重同步到当前时间，防止永久追债。
           this.droppedLogicalStepCount += overdueSteps - steps;
           state.nextDueAtMs = nowMs + intervalMs;
@@ -323,6 +327,14 @@ function resolveScheduleSpeed(instance: SchedulableInstanceRuntime): number {
 
 function resolveIntervalMs(speed: number): number {
   return Math.max(MIN_INTERVAL_MS, BASE_INTERVAL_MS / Math.max(0.1, speed));
+}
+
+function resolveMaxCatchUpSteps(speed: number): number {
+  const normalizedSpeed = Math.max(0.1, Math.min(MAX_INSTANCE_TICK_SPEED, speed));
+  return Math.max(
+    MIN_CATCH_UP_STEPS_PER_INSTANCE,
+    Math.ceil(normalizedSpeed * MAX_CATCH_UP_WINDOW_MS / BASE_INTERVAL_MS),
+  );
 }
 
 /** 启动冷路径使用稳定散列分布首个 deadline，不改变实例后续固定周期。 */

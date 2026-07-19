@@ -357,6 +357,7 @@ interface PlayerDomainPruneOptions {
 
 interface TechniqueComprehensionReplaceOptions {
   completedTechniqueIds?: ReadonlySet<string>;
+  allowExplicitEmptyOverwrite?: boolean;
 }
 
 export interface PlayerWorldAnchorUpsertInput {
@@ -3565,7 +3566,15 @@ export async function savePlayerSnapshotProjectionWithClient(
   await replacePlayerEquipmentSlots(client, normalizedPlayerId, equipmentSlots);
   await replacePlayerArtifactSlots(client, normalizedPlayerId, artifactSlots);
   await replacePlayerTechniqueStates(client, normalizedPlayerId, techniqueStates);
-  await replacePlayerTechniqueComprehensions(client, normalizedPlayerId, techniqueComprehensions);
+  await replacePlayerTechniqueComprehensions(
+    client,
+    normalizedPlayerId,
+    techniqueComprehensions,
+    {
+      completedTechniqueIds: new Set(techniqueStates.map((row) => row.techId)),
+      allowExplicitEmptyOverwrite: snapshot.techniques?.allowPendingComprehensionEmptyOverwrite === true,
+    },
+  );
   await replacePlayerPersistentBuffStates(client, normalizedPlayerId, persistentBuffStates);
   await replacePlayerQuestProgressRows(client, normalizedPlayerId, questProgressRows);
   await replacePlayerCombatPreferences(client, normalizedPlayerId, combatPreferences);
@@ -3821,7 +3830,10 @@ export async function savePlayerSnapshotProjectionDomainsWithClient(
       client,
       normalizedPlayerId,
       buildTechniqueComprehensionRows(snapshot),
-      { completedTechniqueIds: new Set(techniqueRows.map((row) => row.techId)) },
+      {
+        completedTechniqueIds: new Set(techniqueRows.map((row) => row.techId)),
+        allowExplicitEmptyOverwrite: snapshot.techniques?.allowPendingComprehensionEmptyOverwrite === true,
+      },
     );
     watermarkPatch.technique_version = versionSeed;
   }
@@ -6162,8 +6174,13 @@ async function replacePlayerTechniqueComprehensions(
       [playerId, JSON.stringify(normalizedRows)],
     );
   }
-  const allowCompletedEmptyOverwrite = normalizedRows.length === 0
-    ? await canPruneCompletedTechniqueComprehensions(client, playerId, options.completedTechniqueIds)
+  const allowEmptyOverwrite = normalizedRows.length === 0
+    ? await canPruneEmptyTechniqueComprehensionsWithClient(
+      client,
+      playerId,
+      options.completedTechniqueIds,
+      options.allowExplicitEmptyOverwrite === true,
+    )
     : false;
   await prunePlayerRowsBySnapshotKeys(
     client,
@@ -6172,16 +6189,17 @@ async function replacePlayerTechniqueComprehensions(
     normalizedRows.map(({ tech_id }) => ({ tech_id })),
     'tech_id varchar(120)',
     'incoming.tech_id = target.tech_id',
-    { allowEmptyOverwrite: allowCompletedEmptyOverwrite },
+    { allowEmptyOverwrite },
   );
 }
 
-async function canPruneCompletedTechniqueComprehensions(
+async function canPruneEmptyTechniqueComprehensionsWithClient(
   client: PoolClient,
   playerId: string,
   completedTechniqueIds: ReadonlySet<string> | undefined,
+  allowExplicitEmptyOverwrite: boolean,
 ): Promise<boolean> {
-  if (!completedTechniqueIds || completedTechniqueIds.size === 0) {
+  if (!allowExplicitEmptyOverwrite && (!completedTechniqueIds || completedTechniqueIds.size === 0)) {
     return false;
   }
   const result = await client.query<{ tech_id: string }>(
@@ -6191,8 +6209,31 @@ async function canPruneCompletedTechniqueComprehensions(
   const existingTechIds = result.rows
     .map((row) => normalizeRequiredString(row.tech_id))
     .filter((techId) => techId.length > 0);
-  return existingTechIds.length > 0
-    && existingTechIds.every((techId) => completedTechniqueIds.has(techId));
+  return canPruneEmptyTechniqueComprehensions(
+    existingTechIds,
+    completedTechniqueIds,
+    allowExplicitEmptyOverwrite,
+  );
+}
+
+/** 空 pending 快照只接受完成态闭环或显式放弃授权，普通空投影继续 fail closed。 */
+export function canPruneEmptyTechniqueComprehensions(
+  existingTechniqueIds: readonly string[],
+  completedTechniqueIds: ReadonlySet<string> | undefined,
+  allowExplicitEmptyOverwrite: boolean,
+): boolean {
+  // worker 构建写计划时没有 live DB 行；显式放弃授权必须独立生成幂等 DELETE。
+  if (allowExplicitEmptyOverwrite) {
+    return true;
+  }
+  const normalizedExistingIds = existingTechniqueIds
+    .map((techniqueId) => normalizeRequiredString(techniqueId))
+    .filter((techniqueId) => techniqueId.length > 0);
+  if (normalizedExistingIds.length === 0) {
+    return false;
+  }
+  return Boolean(completedTechniqueIds?.size)
+    && normalizedExistingIds.every((techniqueId) => completedTechniqueIds?.has(techniqueId));
 }
 
 async function replacePlayerPersistentBuffStates(

@@ -652,6 +652,10 @@ class WorldGateway implements WorldGatewayHelperContext {
     handleForgetTechnique(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayActionHelper.handleForgetTechnique(client, payload);
     }
+    @SubscribeMessage(C2S.DiscardTechniqueComprehension)
+    handleDiscardTechniqueComprehension(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
+        return this.gatewayActionHelper.handleDiscardTechniqueComprehension(client, payload);
+    }
     @SubscribeMessage(C2S.StartTechniqueTransmission)
     handleStartTechniqueTransmission(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayActionHelper.handleStartTechniqueTransmission(client, payload);

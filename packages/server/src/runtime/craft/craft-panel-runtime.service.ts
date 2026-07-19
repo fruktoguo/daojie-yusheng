@@ -1568,9 +1568,10 @@ export class CraftPanelRuntimeService {
         const itemId = typeof item?.itemId === 'string' ? item.itemId.trim() : '';
         const itemName = typeof item?.name === 'string' ? item.name.trim() : '';
         const templateName = itemId ? this.contentTemplateRepository.getItemName(itemId) : null;
+        const resolvedName = resolvePlayerFacingContentName(itemId, '未知物品', itemName, templateName);
         return getItemDisplayName({
-            ...(item ?? {}),
-            ...(templateName && (!itemName || itemName === itemId) ? { name: templateName } : {}),
+            itemId,
+            name: resolvedName,
             enhanceLevel: 0,
         });
     }
@@ -3522,15 +3523,24 @@ function buildAlchemyQueueItem(recipe, ingredients, quantity, kind = 'alchemy') 
 }
 
 function buildEnhancementQueueItem(target, protection, payload, desiredTargetLevel, targetLabel = undefined) {
+    const targetItemId = normalizeText(target?.item?.itemId);
+    const targetItemName = resolvePlayerFacingContentName(
+        targetItemId,
+        '未知物品',
+        targetLabel,
+        target?.item?.name,
+    );
     return {
         queueId: buildCraftQueueId('enhancement'),
         kind: 'enhancement',
-        label: resolvePlayerFacingContentName(target?.item?.itemId, '强化任务', targetLabel, target?.item?.name),
+        label: targetItemName === '未知物品' ? '强化任务' : targetItemName,
         quantity: desiredTargetLevel,
         createdAt: Date.now(),
         payload: {
             target: target?.ref ? cloneTargetRef(target.ref) : undefined,
             protection: protection?.ref ? cloneTargetRef(protection.ref) : undefined,
+            targetItemId: targetItemId || undefined,
+            targetItemName: targetItemName === '未知物品' ? undefined : targetItemName,
             targetLevel: payload?.targetLevel,
             protectionStartLevel: payload?.protectionStartLevel,
         },

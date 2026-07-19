@@ -44,6 +44,7 @@ export type CraftTransmissionCallbacks = {
     },
   ) => void;
   onCancelTransmission?: (techId: string) => void;
+  onDiscardTechniqueComprehension?: (techId: string) => void;
   onRequestTransmissionStatuses?: (payload: C2S_RequestTechniqueTransmissionStatuses) => boolean;
   getTransmissionTargets?: () => Array<{ playerId: string; name: string }>;
 };
@@ -64,6 +65,7 @@ export interface CraftTransmissionParent {
 }
 
 const TECHNIQUE_REFINING_CONFIRM_OWNER = 'craft-workbench-modal:technique-refining-confirm';
+const TECHNIQUE_COMPREHENSION_DISCARD_CONFIRM_OWNER = 'craft-workbench-modal:technique-comprehension-discard-confirm';
 const TRANSMISSION_STATUS_REQUEST_TIMEOUT_MS = 5_000;
 
 function escapeHtml(value: string): string {
@@ -227,6 +229,7 @@ export class CraftTransmissionView {
 
   closeTransientUi(): void {
     confirmModalHost.close(TECHNIQUE_REFINING_CONFIRM_OWNER);
+    confirmModalHost.close(TECHNIQUE_COMPREHENSION_DISCARD_CONFIRM_OWNER);
     this.lastTransmissionRenderKey = null;
     this.selectedTransmissionTechniqueId = '';
     this.selectedTransmissionTargetPlayerId = '';
@@ -719,7 +722,9 @@ export class CraftTransmissionView {
             <span class="attr-craft-exp-fill" data-transmission-pending-progress-fill="true" style="width:${(ratio * 100).toFixed(2)}%"></span>
           </div>
         </div>
-        ${job ? `<button class="small-btn danger" type="button" data-craft-action="transmission-cancel" data-tech-id="${escapeHtmlAttr(entry.techId)}">取消传法</button>` : ''}
+        ${job
+          ? `<button class="small-btn danger" type="button" data-craft-action="transmission-cancel" data-tech-id="${escapeHtmlAttr(entry.techId)}">取消传法</button>`
+          : `<button class="small-btn danger" type="button" data-craft-action="transmission-discard-pending" data-tech-id="${escapeHtmlAttr(entry.techId)}">${escapeHtml(t('technique.comprehension.discard.action'))}</button>`}
       </div>
     `;
   }
@@ -1132,6 +1137,27 @@ export class CraftTransmissionView {
     });
   }
 
+  private openPendingComprehensionDiscardConfirmModal(techId: string): void {
+    const pending = (this.parent.pendingTechniqueComprehensions ?? []).find((entry) => entry.techId === techId);
+    if (!pending || pending.activeTransferJob) {
+      return;
+    }
+    const techniqueName = resolveClientTechniqueName(pending.techId, pending.name);
+    confirmModalHost.open({
+      ownerId: TECHNIQUE_COMPREHENSION_DISCARD_CONFIRM_OWNER,
+      title: t('technique.comprehension.discard.confirm.title', { name: techniqueName }),
+      subtitle: t('technique.comprehension.discard.confirm.subtitle'),
+      bodyHtml: `<p>${escapeHtml(t('technique.comprehension.discard.confirm.body', { name: techniqueName }))}</p>`,
+      confirmLabel: t('technique.comprehension.discard.confirm.ok'),
+      cancelLabel: t('technique.comprehension.discard.confirm.cancel'),
+      confirmButtonClass: 'danger',
+      onConfirm: () => {
+        (this.transmissionCallbacks?.onDiscardTechniqueComprehension
+          ?? this.parent.callbacks?.onDiscardTechniqueComprehension)?.(pending.techId);
+      },
+    });
+  }
+
   private getSelectedTechniqueBookDecomposeCount(item: ItemStack, isSingle: boolean): number {
     const itemCount = Math.max(1, Math.floor(Number(item.count) || 1));
     return isSingle
@@ -1212,6 +1238,13 @@ export class CraftTransmissionView {
       const techId = (target.dataset.techId ?? '').trim();
       if (techId) {
         (this.transmissionCallbacks?.onCancelTransmission ?? this.parent.callbacks?.onCancelTransmission)?.(techId);
+      }
+      return true;
+    }
+    if (action === 'transmission-discard-pending') {
+      const techId = (target.dataset.techId ?? '').trim();
+      if (techId) {
+        this.openPendingComprehensionDiscardConfirmModal(techId);
       }
       return true;
     }

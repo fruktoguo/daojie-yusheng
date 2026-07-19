@@ -169,6 +169,7 @@ export const C2S = {
   UpdateAutoBattleTargetingMode: 'n:c:updateAutoBattleTargetingMode',
   UpdateTechniqueSkillAvailability: 'n:c:updateTechniqueSkillAvailability',
   ForgetTechnique: 'n:c:forgetTechnique',
+  DiscardTechniqueComprehension: 'n:c:discardTechniqueComprehension',
   StartTechniqueTransmission: 'n:c:startTechniqueTransmission',
   CancelTechniqueTransmission: 'n:c:cancelTechniqueTransmission',
   DebugResetSpawn: 'n:c:debugResetSpawn',
@@ -375,6 +376,7 @@ export interface C2S_PayloadMap extends Record<C2S_EventName, unknown> {
   [C2S.UpdateAutoBattleTargetingMode]: RequestPayloads.C2S_UpdateAutoBattleTargetingMode;
   [C2S.UpdateTechniqueSkillAvailability]: RequestPayloads.C2S_UpdateTechniqueSkillAvailability;
   [C2S.ForgetTechnique]: RequestPayloads.C2S_ForgetTechnique;
+  [C2S.DiscardTechniqueComprehension]: RequestPayloads.C2S_DiscardTechniqueComprehension;
   [C2S.StartTechniqueTransmission]: RequestPayloads.C2S_StartTechniqueTransmission;
   [C2S.CancelTechniqueTransmission]: RequestPayloads.C2S_CancelTechniqueTransmission;
   [C2S.DebugResetSpawn]: RequestPayloads.C2S_DebugResetSpawn;

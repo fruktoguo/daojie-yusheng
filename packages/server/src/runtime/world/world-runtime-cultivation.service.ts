@@ -17,6 +17,7 @@ interface CultivationPlayerRuntimePort<TPlayer = unknown> {
   getPlayerOrThrow(playerId: string): TPlayer;
   cultivateTechnique(playerId: string, techniqueId: string | null): void;
   forgetTechnique(playerId: string, techniqueId: string | null): string;
+  discardPendingTechniqueComprehension(playerId: string, techniqueId: string | null): string;
   getTechniqueName(playerId: string, techniqueId: string): string | null | undefined;
 }
 
@@ -69,6 +70,20 @@ export class WorldRuntimeCultivationService {
       vars: { techniqueName },
       pills: [{ key: 'techniqueName', style: 'skill' }],
     });
+    deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);
+  }
+
+  dispatchDiscardTechniqueComprehension(playerId: string, techniqueId: string | null, deps: CultivationDeps): void {
+    const techniqueName = this.playerRuntimeService.discardPendingTechniqueComprehension(playerId, techniqueId);
+    const n = buildStructuredNotice(
+      'warn',
+      'notice.cultivation.technique-comprehension-discarded',
+      '已放弃未领悟功法',
+      {
+        vars: { techniqueName },
+        pills: [{ key: 'techniqueName', style: 'skill' }],
+      },
+    );
     deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);
   }
 }

@@ -733,6 +733,9 @@ export class WorldRuntimePlayerCommandService {
             case 'forgetTechnique':
                 this.worldRuntimeCultivationService.dispatchForgetTechnique(playerId, command.techniqueId, deps);
                 return;
+            case 'discardTechniqueComprehension':
+                this.worldRuntimeCultivationService.dispatchDiscardTechniqueComprehension(playerId, command.techniqueId, deps);
+                return;
             case 'startTechniqueTransmission':
                 if (command.mode === 'craft_book') {
                     return this.worldRuntimeUseItemService.dispatchCraftTechniqueBook(playerId, command.techniqueId, command.maxLevel, deps);

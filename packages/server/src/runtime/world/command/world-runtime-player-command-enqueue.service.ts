@@ -250,6 +250,12 @@ export class WorldRuntimePlayerCommandEnqueueService {
             techniqueId: normalizeTechniqueId(techniqueIdInput),
         }, deps);
     }
+    enqueueDiscardTechniqueComprehension(playerId, techniqueIdInput, deps) {
+        return this.enqueueNormalizedPlayerCommand(playerId, {
+            kind: 'discardTechniqueComprehension',
+            techniqueId: normalizeTechniqueId(techniqueIdInput),
+        }, deps);
+    }
     enqueueStartTechniqueTransmission(playerId, learnerPlayerIdInput, techniqueIdInput, deps, payloadInput = undefined) {
         const payload = payloadInput && typeof payloadInput === 'object' ? payloadInput : {};
         const mode = normalizeTechniqueTransmissionMode(payload.mode);

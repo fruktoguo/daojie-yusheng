@@ -93,6 +93,7 @@ type CraftWorkbenchCallbacks = {
   onCancelEnhancement: () => void;
   onStartTransmission?: (learnerPlayerId: string, techId: string, options?: { mode?: 'transmission' | 'craft_book' | 'scripture_recording' | 'scripture_contemplation'; maxLevel?: number; buildingId?: string }) => void;
   onCancelTransmission?: (techId: string) => void;
+  onDiscardTechniqueComprehension?: (techId: string) => void;
   onDecomposeTechniqueBook?: (itemInstanceId: string, count: number) => void;
   getTransmissionTargets?: () => Array<{ playerId: string; name: string }>;
 };

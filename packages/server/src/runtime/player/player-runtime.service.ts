@@ -490,6 +490,8 @@ export class PlayerRuntimeService {
                 cultivatingTechId: null,
             },
             pendingTechniqueComprehensions: [],
+            allowPendingTechniqueComprehensionEmptyOverwrite: false,
+            pendingTechniqueComprehensionEmptyOverwriteRevision: 0,
             attrs: this.playerAttributesService.createInitialState(),
             actions: {
                 revision: 1,
@@ -3573,6 +3575,41 @@ export class PlayerRuntimeService {
         this.bumpPersistentRevision(player);
         return techniqueName;
     }
+    /** 放弃尚未领悟的功法；进行中的传法必须先走通用 job 取消流程。 */
+    discardPendingTechniqueComprehension(playerId, techniqueId) {
+        const player = this.getPlayerOrThrow(playerId);
+        const normalized = typeof techniqueId === 'string' && techniqueId.trim() ? techniqueId.trim() : '';
+        if (!normalized) {
+            throw new BadRequestException('缺少要放弃的未领悟功法。');
+        }
+        if (player.transmissionJob?.techniqueId === normalized) {
+            throw new BadRequestException('该功法仍在传法中，请先取消传法。');
+        }
+        const pending = Array.isArray(player.pendingTechniqueComprehensions)
+            ? player.pendingTechniqueComprehensions
+            : [];
+        const index = pending.findIndex((entry) => entry?.techId === normalized);
+        if (index < 0) {
+            throw new NotFoundException('未找到待领悟功法。');
+        }
+        const [removed] = pending.splice(index, 1);
+        player.pendingTechniqueComprehensions = pending;
+        const cultivationPreferenceChanged = player.techniques.cultivatingTechId === normalized;
+        if (cultivationPreferenceChanged) {
+            player.techniques.cultivatingTechId = undefined;
+            player.combat.cultivationActive = false;
+        }
+        player.techniques.revision += 1;
+        this.playerProgressionService.refreshPreview(player);
+        markPlayerDirtyDomains(player, [
+            'technique',
+            ...(cultivationPreferenceChanged ? ['combat_pref'] : []),
+        ]);
+        player.allowPendingTechniqueComprehensionEmptyOverwrite = true;
+        player.pendingTechniqueComprehensionEmptyOverwriteRevision = getPlayerPersistenceDomainRevision(player, 'technique');
+        this.bumpPersistentRevision(player);
+        return resolvePlayerFacingContentName(normalized, '未知功法', removed?.name);
+    }
     /**
  * infuseBodyTraining：执行infuseBodyTraining相关逻辑。
  * @param playerId 玩家 ID。
@@ -5589,6 +5626,8 @@ export class PlayerRuntimeService {
             enhancementJob: normalizeEnhancementJob(snapshot.progression?.enhancementJob),
             enhancementRecords: normalizeEnhancementRecords(snapshot.progression?.enhancementRecords),
             pendingTechniqueComprehensions: pendingComprehensions.entries,
+            allowPendingTechniqueComprehensionEmptyOverwrite: false,
+            pendingTechniqueComprehensionEmptyOverwriteRevision: 0,
             unlockedMapIds: snapshot.unlockedMapIds.slice(),
             selfRevision: 1,
             inventory: {
@@ -8443,11 +8482,13 @@ function buildRuntimePlayerPersistenceSnapshot(player, mapTemplateRepository = n
             techniques: needsDomain('technique') ? player.techniques.techniques.map((entry) => buildPersistedTechniqueState(entry)) : [],
             cultivatingTechId: player.techniques.cultivatingTechId,
             pendingComprehensions: clonePendingTechniqueComprehensions(player.pendingTechniqueComprehensions),
+            allowPendingComprehensionEmptyOverwrite: hasCurrentPendingTechniqueComprehensionEmptyOverwriteAuthorization(player),
         } : {
             revision: player.techniques.revision,
             techniques: [],
             cultivatingTechId: player.techniques.cultivatingTechId,
             pendingComprehensions: clonePendingTechniqueComprehensions(player.pendingTechniqueComprehensions),
+            allowPendingComprehensionEmptyOverwrite: hasCurrentPendingTechniqueComprehensionEmptyOverwriteAuthorization(player),
         },
         buffs: needsDomain('buff') ? {
             revision: player.buffs.revision,
@@ -8488,6 +8529,12 @@ function buildRuntimePlayerPersistenceSnapshot(player, mapTemplateRepository = n
         pendingLogbookMessages: needsDomain('logbook') ? player.pendingLogbookMessages.map((entry) => ({ ...entry })) : [],
         runtimeBonuses: needsDomain('attr') ? cloneRuntimeBonusesForSnapshot(player.runtimeBonuses) : [],
     };
+}
+
+function hasCurrentPendingTechniqueComprehensionEmptyOverwriteAuthorization(player) {
+    return player?.allowPendingTechniqueComprehensionEmptyOverwrite === true
+        && Math.max(0, Math.trunc(Number(player.pendingTechniqueComprehensionEmptyOverwriteRevision) || 0))
+            === getPlayerPersistenceDomainRevision(player, 'technique');
 }
 
 function buildPersistedTechniqueState(entry) {
@@ -8796,13 +8843,29 @@ function normalizeGatherJob(value) {
     if (!value || typeof value !== 'object' || typeof value.resourceNodeId !== 'string') {
         return null;
     }
+    const totalTicks = Math.max(1, Math.floor(Number(value.totalTicks) || 1));
+    const remainingTicks = Math.max(0, Math.floor(Number(value.remainingTicks) || 0));
+    const workTotalTicks = Math.max(1, Math.floor(Number(value.workTotalTicks ?? totalTicks) || totalTicks));
+    const workRemainingTicks = Math.max(0, Math.floor(Number(value.workRemainingTicks ?? remainingTicks) || remainingTicks));
     return {
+        jobRunId: typeof value.jobRunId === 'string' && value.jobRunId.trim() ? value.jobRunId.trim() : undefined,
+        jobType: 'gather',
+        jobVersion: Math.max(1, Math.floor(Number(value.jobVersion) || 1)),
         resourceNodeId: String(value.resourceNodeId),
         resourceNodeName: typeof value.resourceNodeName === 'string' ? value.resourceNodeName : String(value.resourceNodeId),
+        sourceId: typeof value.sourceId === 'string' && value.sourceId.trim() ? value.sourceId.trim() : undefined,
+        instanceId: typeof value.instanceId === 'string' && value.instanceId.trim() ? value.instanceId.trim() : undefined,
+        itemKey: typeof value.itemKey === 'string' && value.itemKey.trim() ? value.itemKey.trim() : undefined,
         phase: value.phase === 'paused' ? 'paused' : 'gathering',
         startedAt: Math.max(0, Math.floor(Number(value.startedAt) || 0)),
-        totalTicks: Math.max(1, Math.floor(Number(value.totalTicks) || 1)),
-        remainingTicks: Math.max(0, Math.floor(Number(value.remainingTicks) || 0)),
+        totalTicks,
+        remainingTicks,
+        workTotalTicks,
+        workRemainingTicks,
+        interruptWaitRemainingTicks: Math.max(0, Math.floor(Number(value.interruptWaitRemainingTicks) || 0)),
+        interruptState: value.interruptState && typeof value.interruptState === 'object'
+            ? { ...value.interruptState }
+            : null,
         pausedTicks: Math.max(0, Math.floor(Number(value.pausedTicks) || 0)),
         successRate: Math.max(0, Math.min(1, Number(value.successRate) || 0)),
         spiritStoneCost: Math.max(0, Math.floor(Number(value.spiritStoneCost) || 0)),
@@ -9211,7 +9274,7 @@ function repairInvalidEnhancementRecoveryState(player) {
     return true;
 }
 
-function repairEnhancementRecoveryDisplayNames(player, contentTemplateRepository) {
+export function repairEnhancementRecoveryDisplayNames(player, contentTemplateRepository) {
     const job = player?.enhancementJob;
     const targetItemId = job && typeof job === 'object' && typeof job.targetItemId === 'string'
         ? job.targetItemId.trim()
@@ -9265,11 +9328,64 @@ function repairEnhancementRecoveryDisplayNames(player, contentTemplateRepository
     if (recordChanged) {
         dirtyDomains.push('enhancement_record');
     }
+    if (repairEnhancementQueueDisplayNames(player, contentTemplateRepository)) {
+        dirtyDomains.push('active_job');
+    }
     if (dirtyDomains.length === 0) {
         return false;
     }
     markPlayerDirtyDomains(player, dirtyDomains);
     return true;
+}
+
+function repairEnhancementQueueDisplayNames(player, contentTemplateRepository) {
+    const queue = Array.isArray(player?.techniqueActivityQueue) ? player.techniqueActivityQueue : [];
+    const inventoryItems = Array.isArray(player?.inventory?.items) ? player.inventory.items : [];
+    let changed = false;
+    for (const entry of queue) {
+        if (!entry || typeof entry !== 'object' || entry.kind !== 'enhancement') {
+            continue;
+        }
+        const payload = entry.payload && typeof entry.payload === 'object' ? entry.payload : null;
+        const targetRef = payload?.target && typeof payload.target === 'object' ? payload.target : null;
+        const itemInstanceId = normalizeTechniqueActivityQueueText(targetRef?.itemInstanceId)
+            || normalizeTechniqueActivityQueueText(targetRef?.expectedItemInstanceId);
+        const inventoryItem = itemInstanceId
+            ? inventoryItems.find((item) => item?.itemInstanceId === itemInstanceId)
+            : null;
+        const targetItemId = normalizeTechniqueActivityQueueText(inventoryItem?.itemId)
+            || normalizeTechniqueActivityQueueText(payload?.targetItemId);
+        const currentLabel = normalizeEnhancementQueueItemName(entry.label, targetItemId);
+        const targetItemName = resolvePlayerFacingContentName(
+            targetItemId,
+            '未知物品',
+            currentLabel,
+            payload?.targetItemName,
+            inventoryItem?.name,
+            targetItemId ? contentTemplateRepository?.getItemName?.(targetItemId) : undefined,
+        );
+        if (targetItemName !== '未知物品' && entry.label !== targetItemName) {
+            entry.label = targetItemName;
+            changed = true;
+        }
+        if (payload && targetItemId && payload.targetItemId !== targetItemId) {
+            payload.targetItemId = targetItemId;
+            changed = true;
+        }
+        if (payload && targetItemName !== '未知物品' && payload.targetItemName !== targetItemName) {
+            payload.targetItemName = targetItemName;
+            changed = true;
+        }
+    }
+    return changed;
+}
+
+function normalizeEnhancementQueueItemName(value, itemId) {
+    const normalized = normalizeTechniqueActivityQueueText(value);
+    if (!normalized || normalized === '未知物品' || normalized === '强化任务' || normalized === itemId) {
+        return undefined;
+    }
+    return normalized;
 }
 /**
  * normalizeAlchemyJob：规范化或转换炼丹Job。

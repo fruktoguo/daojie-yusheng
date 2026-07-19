@@ -224,6 +224,8 @@ export class WorldRuntimeLootContainerService {
             })),
             activeSearch: state.activeSearch
                 ? {
+                    playerId: resolveActiveSearchPlayerId(state.activeSearch) || undefined,
+                    jobRunId: resolveActiveSearchJobRunId(state.activeSearch) || undefined,
                     itemKey: state.activeSearch.itemKey,
                     totalTicks: state.activeSearch.totalTicks,
                     remainingTicks: state.activeSearch.remainingTicks,
@@ -268,6 +270,8 @@ export class WorldRuntimeLootContainerService {
                 })),
                 activeSearch: entry.activeSearch
                     ? {
+                        playerId: resolveActiveSearchPlayerId(entry.activeSearch) || undefined,
+                        jobRunId: resolveActiveSearchJobRunId(entry.activeSearch) || undefined,
                         itemKey: entry.activeSearch.itemKey,
                         totalTicks: entry.activeSearch.totalTicks,
                         remainingTicks: entry.activeSearch.remainingTicks,
@@ -685,14 +689,22 @@ export class WorldRuntimeLootContainerService {
 
         const location = deps.getPlayerLocationOrThrow(playerId);
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
-        if (player.gatherJob && Number(player.gatherJob.remainingTicks) > 0) {
-            return buildContainerMutationResult('当前已有采集任务在进行中。');
-        }
+        const hasActivePlayerGatherJob = Boolean(player.gatherJob && Number(player.gatherJob.remainingTicks) > 0);
         const sourceId = typeof payload?.sourceId === 'string' ? payload.sourceId.trim() : '';
         const itemKey = typeof payload?.itemKey === 'string' ? payload.itemKey.trim() : '';
         const resolved = this.resolveHerbContainerStateForPlayer(location.instanceId, playerId, player, sourceId, deps);
-        if (resolved.state.activeSearch) {
+        const reconciliation = this.reconcileGatherActiveSearchForStart(
+            location.instanceId,
+            resolved.instance,
+            resolved.container,
+            resolved.state,
+            deps,
+        );
+        if (reconciliation.blocked) {
             return buildContainerMutationResult('当前已有玩家正在采集该目标。');
+        }
+        if (hasActivePlayerGatherJob) {
+            return buildContainerMutationResult('当前已有采集任务在进行中。');
         }
         const herbRows = groupContainerLootRows(resolved.state.entries);
         const nextRow = (itemKey
@@ -702,17 +714,23 @@ export class WorldRuntimeLootContainerService {
             return buildContainerMutationResult('当前没有可采集的草药。');
         }
         const totalTicks = computeEffectiveHerbGatherTicks(player, resolved.container, nextRow);
+        const jobRunId = createGatherJobRunId();
         resolved.state.activeSearch = {
             playerId,
+            jobRunId,
             itemKey: nextRow.itemKey,
             totalTicks,
             remainingTicks: totalTicks,
         };
         const normalizedSourceId = buildContainerSourceId(location.instanceId, resolved.container.id);
         player.gatherJob = {
+            jobRunId,
+            jobType: 'gather',
+            jobVersion: 1,
             resourceNodeId: resolved.container.id,
             sourceId: normalizedSourceId,
             instanceId: location.instanceId,
+            itemKey: nextRow.itemKey,
             resourceNodeName: resolved.container.name,
             startedAt: Date.now(),
             totalTicks,
@@ -740,7 +758,195 @@ export class WorldRuntimeLootContainerService {
                 [{ key: 'resourceNodeName', style: 'target' }],
             ),
         ]);
-    }    
+    }
+
+    /**
+     * 开始采集属于冷命令边界，可以按实例居民做一次有界恢复对账；tick 热路径不得执行该扫描。
+     */
+    reconcileGatherActiveSearchForStart(instanceId, instance, container, state, deps) {
+        const activeSearch = state?.activeSearch;
+        if (!activeSearch) {
+            return { blocked: false };
+        }
+        const ownerPlayerId = resolveActiveSearchPlayerId(activeSearch);
+        if (ownerPlayerId) {
+            const owner = this.playerRuntimeService.getPlayer(ownerPlayerId);
+            if (!owner) {
+                return { blocked: true };
+            }
+            const ownerJob = owner.gatherJob;
+            if (!isActiveGatherJobForTarget(owner, ownerJob, instanceId, container.id)) {
+                state.activeSearch = undefined;
+                this.markContainerVisibleStateDirty(instanceId, deps, container);
+                return { blocked: false };
+            }
+            if (hasGatherJobRunIdConflict(activeSearch, ownerJob)
+                || hasGatherItemKeyConflict(activeSearch, ownerJob)) {
+                return { blocked: true };
+            }
+            this.backfillGatherSearchIdentity(
+                ownerPlayerId,
+                owner,
+                ownerJob,
+                activeSearch,
+                instanceId,
+                container.id,
+                deps,
+                container,
+                { reconcileOwnedState: true },
+            );
+            return { blocked: true };
+        }
+
+        const residents = collectHydratedInstanceResidentPlayers(instance, this.playerRuntimeService);
+        if (!residents.complete || !isInstancePlayerHydrationConfirmed(instanceId, deps)) {
+            return { blocked: true };
+        }
+        const targetPlayers = residents.players.filter((resident) => (
+            isActiveGatherJobForTarget(
+                resident,
+                resident.gatherJob,
+                instanceId,
+                container.id,
+            )
+        ));
+        if (targetPlayers.length === 0) {
+            state.activeSearch = undefined;
+            this.markContainerVisibleStateDirty(instanceId, deps, container);
+            return { blocked: false };
+        }
+        if (targetPlayers.length !== 1) {
+            return { blocked: true };
+        }
+        const matchedPlayer = targetPlayers[0];
+        if (hasGatherJobRunIdConflict(activeSearch, matchedPlayer.gatherJob)
+            || hasGatherItemKeyConflict(activeSearch, matchedPlayer.gatherJob)) {
+            return { blocked: true };
+        }
+        const exactMatch = isGatherJobExactSearchMatch(
+            matchedPlayer,
+            matchedPlayer.gatherJob,
+            instanceId,
+            container.id,
+            activeSearch,
+        );
+        this.backfillGatherSearchIdentity(
+            matchedPlayer.playerId,
+            matchedPlayer,
+            matchedPlayer.gatherJob,
+            activeSearch,
+            instanceId,
+            container.id,
+            deps,
+            container,
+            exactMatch ? {} : { reconcileOwnedState: true },
+        );
+        return { blocked: true };
+    }
+
+    backfillGatherSearchIdentity(
+        playerId,
+        player,
+        job,
+        activeSearch,
+        instanceId,
+        containerId,
+        deps,
+        container,
+        options: { reconcileOwnedState?: boolean } = {},
+    ) {
+        if (hasGatherJobRunIdConflict(activeSearch, job)) {
+            return false;
+        }
+        let containerChanged = false;
+        let playerChanged = false;
+        if (!resolveActiveSearchPlayerId(activeSearch)) {
+            activeSearch.playerId = playerId;
+            containerChanged = true;
+        }
+        const activeSearchJobRunId = resolveActiveSearchJobRunId(activeSearch);
+        const gatherJobRunId = resolveGatherJobRunId(job);
+        const jobRunId = (options.reconcileOwnedState ? gatherJobRunId : activeSearchJobRunId)
+            || activeSearchJobRunId
+            || gatherJobRunId
+            || createGatherJobRunId();
+        if (activeSearchJobRunId !== jobRunId) {
+            activeSearch.jobRunId = jobRunId;
+            containerChanged = true;
+        }
+        if (gatherJobRunId !== jobRunId) {
+            job.jobRunId = jobRunId;
+            playerChanged = true;
+        }
+        const normalizedSourceId = buildContainerSourceId(instanceId, containerId);
+        if (typeof job.sourceId !== 'string' || job.sourceId.trim() !== normalizedSourceId) {
+            job.sourceId = normalizedSourceId;
+            playerChanged = true;
+        }
+        if (typeof job.instanceId !== 'string' || job.instanceId.trim() !== instanceId) {
+            job.instanceId = instanceId;
+            playerChanged = true;
+        }
+        const activeSearchItemKey = typeof activeSearch.itemKey === 'string' ? activeSearch.itemKey.trim() : '';
+        const gatherJobItemKey = typeof job.itemKey === 'string' ? job.itemKey.trim() : '';
+        if (activeSearchItemKey && gatherJobItemKey !== activeSearchItemKey) {
+            job.itemKey = activeSearchItemKey;
+            playerChanged = true;
+        }
+        else if (!activeSearchItemKey && gatherJobItemKey) {
+            activeSearch.itemKey = gatherJobItemKey;
+            containerChanged = true;
+        }
+        if (options.reconcileOwnedState) {
+            const reconciledRemainingTicks = Math.max(
+                Math.max(0, Math.trunc(Number(activeSearch.remainingTicks) || 0)),
+                normalizeGatherJobRemainingTicks(job),
+            );
+            const reconciledTotalTicks = Math.max(
+                1,
+                reconciledRemainingTicks,
+                Math.trunc(Number(activeSearch.totalTicks) || 0),
+                Math.trunc(Number(job.workTotalTicks ?? job.totalTicks) || 0),
+            );
+            if (Math.max(0, Math.trunc(Number(activeSearch.remainingTicks) || 0)) !== reconciledRemainingTicks) {
+                activeSearch.remainingTicks = reconciledRemainingTicks;
+                containerChanged = true;
+            }
+            if (Math.max(1, Math.trunc(Number(activeSearch.totalTicks) || 1)) !== reconciledTotalTicks) {
+                activeSearch.totalTicks = reconciledTotalTicks;
+                containerChanged = true;
+            }
+            if (Math.max(0, Math.trunc(Number(job.remainingTicks) || 0)) !== reconciledRemainingTicks) {
+                job.remainingTicks = reconciledRemainingTicks;
+                playerChanged = true;
+            }
+            if (Math.max(0, Math.trunc(Number(job.workRemainingTicks ?? job.remainingTicks) || 0)) !== reconciledRemainingTicks) {
+                job.workRemainingTicks = reconciledRemainingTicks;
+                playerChanged = true;
+            }
+            if (Math.max(1, Math.trunc(Number(job.totalTicks) || 1)) !== reconciledTotalTicks) {
+                job.totalTicks = reconciledTotalTicks;
+                playerChanged = true;
+            }
+            if (Math.max(1, Math.trunc(Number(job.workTotalTicks ?? job.totalTicks) || 1)) !== reconciledTotalTicks) {
+                job.workTotalTicks = reconciledTotalTicks;
+                playerChanged = true;
+            }
+        }
+        if (job.jobType !== 'gather') {
+            job.jobType = 'gather';
+            playerChanged = true;
+        }
+        if (containerChanged) {
+            this.markContainerVisibleStateDirty(instanceId, deps, container);
+        }
+        if (playerChanged) {
+            job.jobVersion = Math.max(1, Math.trunc(Number(job.jobVersion) || 0) + 1);
+            this.playerRuntimeService.bumpPersistentRevision?.(player);
+            this.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job']);
+        }
+        return true;
+    }
     /**
  * dispatchCancelGather：取消当前草药采集。
  * @param playerId 玩家 ID。
@@ -1832,7 +2038,7 @@ export class WorldRuntimeLootContainerService {
         if (sourceId !== expectedSourceId) {
             throw new BadRequestException('当前拿取界面与目标容器不一致');
         }
-        return { container, state: this.ensureContainerState(instanceId, container, instance.tick, player) };
+        return { instance, container, state: this.ensureContainerState(instanceId, container, instance.tick, player) };
     }    
     /**
  * resolveHerbContainerStateForPlayer：解析草药容器状态。
@@ -1976,6 +2182,107 @@ function resolveActiveSearchPlayerId(activeSearch) {
     return playerId || '';
 }
 
+function resolveActiveSearchJobRunId(activeSearch) {
+    return typeof activeSearch?.jobRunId === 'string' ? activeSearch.jobRunId.trim() : '';
+}
+
+function resolveGatherJobRunId(job) {
+    return typeof job?.jobRunId === 'string' ? job.jobRunId.trim() : '';
+}
+
+function hasGatherJobRunIdConflict(activeSearch, job) {
+    const activeSearchJobRunId = resolveActiveSearchJobRunId(activeSearch);
+    const gatherJobRunId = resolveGatherJobRunId(job);
+    return Boolean(activeSearchJobRunId && gatherJobRunId && activeSearchJobRunId !== gatherJobRunId);
+}
+
+function hasGatherItemKeyConflict(activeSearch, job) {
+    const activeSearchItemKey = typeof activeSearch?.itemKey === 'string' ? activeSearch.itemKey.trim() : '';
+    const gatherJobItemKey = typeof job?.itemKey === 'string' ? job.itemKey.trim() : '';
+    return Boolean(activeSearchItemKey && gatherJobItemKey && activeSearchItemKey !== gatherJobItemKey);
+}
+
+function createGatherJobRunId() {
+    return `job:gather:${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function normalizeGatherJobRemainingTicks(job) {
+    return Math.max(0, Math.trunc(Number(job?.workRemainingTicks ?? job?.remainingTicks) || 0));
+}
+
+function isActiveGatherJobForTarget(player, job, instanceId, containerId) {
+    if (!job || normalizeGatherJobRemainingTicks(job) <= 0) {
+        return false;
+    }
+    const playerInstanceId = typeof player?.instanceId === 'string' ? player.instanceId.trim() : '';
+    const jobInstanceId = typeof job?.instanceId === 'string' && job.instanceId.trim()
+        ? job.instanceId.trim()
+        : playerInstanceId;
+    if (playerInstanceId !== instanceId || jobInstanceId !== instanceId) {
+        return false;
+    }
+    const expectedSourceId = buildContainerSourceId(instanceId, containerId);
+    const jobSourceId = typeof job?.sourceId === 'string' ? job.sourceId.trim() : '';
+    const resourceNodeId = typeof job?.resourceNodeId === 'string' ? job.resourceNodeId.trim() : '';
+    return jobSourceId === expectedSourceId || resourceNodeId === containerId;
+}
+
+function isGatherJobExactSearchMatch(player, job, instanceId, containerId, activeSearch) {
+    if (!isActiveGatherJobForTarget(player, job, instanceId, containerId)) {
+        return false;
+    }
+    const searchRemainingTicks = Math.max(0, Math.trunc(Number(activeSearch?.remainingTicks) || 0));
+    if (normalizeGatherJobRemainingTicks(job) !== searchRemainingTicks) {
+        return false;
+    }
+    const searchItemKey = typeof activeSearch?.itemKey === 'string' ? activeSearch.itemKey.trim() : '';
+    const jobItemKey = typeof job?.itemKey === 'string' ? job.itemKey.trim() : '';
+    if (searchItemKey && jobItemKey && searchItemKey !== jobItemKey) {
+        return false;
+    }
+    const searchJobRunId = resolveActiveSearchJobRunId(activeSearch);
+    const gatherJobRunId = resolveGatherJobRunId(job);
+    return !searchJobRunId || !gatherJobRunId || searchJobRunId === gatherJobRunId;
+}
+
+function collectHydratedInstanceResidentPlayers(instance, playerRuntimeService) {
+    if (typeof instance?.listPlayerIds !== 'function' || typeof playerRuntimeService?.getPlayer !== 'function') {
+        return { complete: false, players: [] };
+    }
+    let playerIds;
+    try {
+        playerIds = instance.listPlayerIds();
+    }
+    catch (_error) {
+        return { complete: false, players: [] };
+    }
+    if (!Array.isArray(playerIds)) {
+        return { complete: false, players: [] };
+    }
+    const players = [];
+    const seenPlayerIds = new Set();
+    for (const rawPlayerId of playerIds) {
+        const playerId = typeof rawPlayerId === 'string' ? rawPlayerId.trim() : '';
+        if (!playerId || seenPlayerIds.has(playerId)) {
+            continue;
+        }
+        seenPlayerIds.add(playerId);
+        const player = playerRuntimeService.getPlayer(playerId);
+        if (!player) {
+            return { complete: false, players: [] };
+        }
+        players.push(player);
+    }
+    return { complete: true, players };
+}
+
+function isInstancePlayerHydrationConfirmed(instanceId, deps) {
+    if (typeof deps?.areInstancePlayersHydrated === 'function') {
+        return deps.areInstancePlayersHydrated(instanceId) === true;
+    }
+    return deps?.startupBarrierService?.isTrafficOpen?.() === true;
+}
+
 function isActiveSearchOwnedByPlayer(activeSearch, playerId) {
     if (!activeSearch) {
         return false;
@@ -2046,6 +2353,8 @@ function cloneContainerState(state) {
             : [],
         activeSearch: state.activeSearch
             ? {
+                playerId: resolveActiveSearchPlayerId(state.activeSearch) || undefined,
+                jobRunId: resolveActiveSearchJobRunId(state.activeSearch) || undefined,
                 itemKey: state.activeSearch.itemKey,
                 totalTicks: state.activeSearch.totalTicks,
                 remainingTicks: state.activeSearch.remainingTicks,

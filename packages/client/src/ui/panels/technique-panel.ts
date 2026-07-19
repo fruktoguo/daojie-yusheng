@@ -32,7 +32,7 @@ import {
   type S2C_TechniquePage,
 } from '@mud/shared';
 import { getTechniqueCategoryLabel, getTechniqueGradeLabel, getTechniqueRealmLabel } from '../../domain-labels';
-import { getLocalRealmLevelEntry, resolvePreviewTechnique, resolvePreviewTechniques } from '../../content/local-templates';
+import { getLocalRealmLevelEntry, resolveClientTechniqueName, resolvePreviewTechnique, resolvePreviewTechniques } from '../../content/local-templates';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../floating-tooltip';
 import { confirmModalHost } from '../confirm-modal-host';
 import { detailModalHost } from '../detail-modal-host';
@@ -425,6 +425,7 @@ export class TechniquePanel {
   private onToggleTechniqueSkills: ((techId: string, enabled: boolean) => void) | null = null;
   private onForgetTechnique: ((techId: string) => void) | null = null;
   private onCancelTechniqueTransmission: ((techId: string) => void) | null = null;
+  private onDiscardTechniqueComprehension: ((techId: string) => void) | null = null;
   private onRequestTechniquePage: ((payload: C2S_RequestTechniquePage) => void) | null = null;
   /** tooltip：提示。 */
   private tooltip = new FloatingTooltip();
@@ -498,6 +499,7 @@ export class TechniquePanel {
       onToggleSkills: (techId, enabled) => this.handleToggleTechniqueSkills(techId, enabled),
       onOpenDetail: (techId) => this.openTechniqueDetail(techId),
       onCancelTransmission: (techId) => this.handleCancelTechniqueTransmission(techId),
+      onDiscardPending: (techId) => this.handleDiscardTechniqueComprehension(techId),
     });
     this.bindPaneEvents();
     this.bindPaneVisibilityObserver();
@@ -540,12 +542,14 @@ export class TechniquePanel {
     onForgetTechnique?: (techId: string) => void,
     onToggleTechniqueSkills?: (techId: string, enabled: boolean) => void,
     onCancelTechniqueTransmission?: (techId: string) => void,
+    onDiscardTechniqueComprehension?: (techId: string) => void,
     onRequestTechniquePage?: (payload: C2S_RequestTechniquePage) => void,
   ): void {
     this.onCultivate = onCultivate;
     this.onForgetTechnique = onForgetTechnique ?? null;
     this.onToggleTechniqueSkills = onToggleTechniqueSkills ?? null;
     this.onCancelTechniqueTransmission = onCancelTechniqueTransmission ?? null;
+    this.onDiscardTechniqueComprehension = onDiscardTechniqueComprehension ?? null;
     this.onRequestTechniquePage = onRequestTechniquePage ?? null;
     this.ensureTechniquePageRequested(true);
   }
@@ -878,6 +882,25 @@ export class TechniquePanel {
     this.onCancelTechniqueTransmission?.(techId);
   }
 
+  private handleDiscardTechniqueComprehension(techId: string): void {
+    const pending = (this.lastState.pendingComprehensions ?? this.lastState.previewPlayer?.pendingTechniqueComprehensions ?? [])
+      .find((entry) => entry.techId === techId);
+    if (!pending || pending.activeTransferJob) {
+      return;
+    }
+    const techniqueName = resolveClientTechniqueName(pending.techId, pending.name);
+    confirmModalHost.open({
+      ownerId: `technique-comprehension-discard:${pending.techId}`,
+      title: t('technique.comprehension.discard.confirm.title', { name: techniqueName }),
+      subtitle: t('technique.comprehension.discard.confirm.subtitle'),
+      bodyHtml: `<p>${escapeHtml(t('technique.comprehension.discard.confirm.body', { name: techniqueName }))}</p>`,
+      confirmLabel: t('technique.comprehension.discard.confirm.ok'),
+      cancelLabel: t('technique.comprehension.discard.confirm.cancel'),
+      confirmButtonClass: 'danger',
+      onConfirm: () => this.onDiscardTechniqueComprehension?.(pending.techId),
+    });
+  }
+
   private handleForgetTechnique(tech: TechniqueState): void {
     const ownerId = `technique-forget:${tech.techId}`;
     confirmModalHost.open({
@@ -1090,7 +1113,9 @@ export class TechniquePanel {
       </button>
       <div class="tech-card-actions">
         <button class="small-btn ${isCultivating ? 'danger' : 'ghost'}" data-guided-tour-cultivate-button="true" data-cultivate="${canStartCultivating && !isCultivating ? escapeHtml(pending.techId) : ''}" data-cultivate-stop="${isCultivating ? escapeHtml(pending.techId) : ''}" ${startDisabled ? 'disabled' : ''} type="button">${actionLabel}</button>
-        ${transferLocked ? `<button class="small-btn danger" data-tech-transmission-cancel="${escapeHtml(pending.techId)}" type="button">取消传法</button>` : ''}
+        ${transferLocked
+          ? `<button class="small-btn danger" data-tech-transmission-cancel="${escapeHtml(pending.techId)}" type="button">取消传法</button>`
+          : `<button class="small-btn danger" data-tech-comprehension-discard="${escapeHtml(pending.techId)}" type="button">${escapeHtml(t('technique.comprehension.discard.action'))}</button>`}
       </div>
     </div>`.trim();
     const card = template.content.firstElementChild;
@@ -1703,6 +1728,16 @@ export class TechniquePanel {
         const techId = cancelTransmissionButton.dataset.techTransmissionCancel;
         if (techId) {
           this.handleCancelTechniqueTransmission(techId);
+        }
+        return;
+      }
+
+      const discardComprehensionButton = target.closest<HTMLElement>('[data-tech-comprehension-discard]');
+      if (discardComprehensionButton) {
+        event.stopPropagation();
+        const techId = discardComprehensionButton.dataset.techComprehensionDiscard;
+        if (techId) {
+          this.handleDiscardTechniqueComprehension(techId);
         }
         return;
       }

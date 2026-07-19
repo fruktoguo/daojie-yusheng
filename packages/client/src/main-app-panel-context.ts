@@ -144,7 +144,7 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
     getTransmissionTargets: () => resolveNearbyTransmissionTargets(rootRuntimeSource.getPlayer(), rootRuntimeSource.getLatestEntities()),
     onRequestTransmissionStatuses: (payload) => panelSender.sendRequestTechniqueTransmissionStatuses(payload),
     onStartTransmission: (learnerPlayerId, techId, options) => runtimeSender.sendStartTechniqueTransmission(learnerPlayerId, techId, options),
-    onCancelTransmission: (techId) => runtimeSender.sendCancelTechniqueTransmission(techId),
+    onCancelTransmission: (techId) => runtimeSender.sendCancelTechniqueTransmission(techId), onDiscardTechniqueComprehension: (techId) => runtimeSender.sendDiscardTechniqueComprehension(techId),
   });
   const attrDetailStateSource = createMainAttrDetailStateSource({
     attrPanel,

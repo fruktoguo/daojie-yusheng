@@ -71,11 +71,11 @@ async function main(): Promise<void> {
   assert.equal(new Set(firstSecond.map((plan) => plan.instanceId)).size, firstSecond.length, '同一实例单批只能形成一个计划');
   assert.deepEqual(firstSecond.map((plan) => [plan.instanceId, plan.steps]), [
     ['instance:normal', 1],
-    ['instance:accelerated', 4],
+    ['instance:accelerated', 10],
   ]);
-  assert.equal(firstSecond[1]?.steps, 4, '单批补帧必须受上限保护');
-  assert.deepEqual(service.collectDue(1000, resolveInstance), [], '超过补帧上限的历史债务必须丢弃，不能同一时刻持续追债');
-  assert.equal(service.getDroppedLogicalStepCount(), 6, '应记录被过载保护丢弃的逻辑息');
+  assert.equal(firstSecond[1]?.steps, 10, '10 倍实例必须能补齐最近一秒应有的 10 个逻辑息');
+  assert.deepEqual(service.collectDue(1000, resolveInstance), [], '同一时刻已补齐的实例不能重复形成计划');
+  assert.equal(service.getDroppedLogicalStepCount(), 0, '最近一秒内的倍率逻辑息不得被永久丢弃');
 
   normal.tickSpeed = 10;
   service.registerOrUpdate(normal.meta.instanceId, normal, 1000);
@@ -112,14 +112,40 @@ async function main(): Promise<void> {
   assert.equal(stateSchedule.getScheduledInstanceCount(), 0, '实例删除必须立即退出 deadline 索引');
 
   verifyTenThousandNormalInstancesFitTenHertzDispatcher();
+  verifyNormalInstanceCatchUpFloor();
+  verifyConfiguredSpeedCatchUpWindow();
   await verifyStaleScheduledPlanIsRejected();
 
   console.log(JSON.stringify({
     ok: true,
-    answers: '实例 deadline 调度能让 10 倍实例独立到期，10000 个 1 倍实例可在 10Hz dispatcher 下完成每秒一息，普通实例同批优先，补帧单实例最多 4 步且超额债务丢弃。',
+    answers: '实例 deadline 调度能让 10 倍实例独立到期，10000 个 1 倍实例可在 10Hz dispatcher 下完成每秒一息，普通实例同批优先；补帧保留普通实例既有 4 步缓冲，并覆盖最近一秒内配置倍率应有的逻辑息，更旧债务仍会丢弃。',
     excludes: '不证明完整世界帧内各领域业务逻辑，只验证调度索引、优先级和补帧边界。',
     completionMapping: 'instance-deadline-scheduler',
   }, null, 2));
+}
+
+function verifyNormalInstanceCatchUpFloor(): void {
+  const service = new WorldRuntimeInstanceScheduleService();
+  const normal = createInstance('instance:normal-catch-up-floor', 1);
+  service.registerOrUpdate(normal.meta.instanceId, normal, 0);
+
+  const staleDebtPlan = service.collectDue(5_001, () => normal)[0];
+  assert.equal(staleDebtPlan?.steps, 4, '普通实例必须保留既有的单批 4 步过载缓冲');
+  assert.equal(service.getDroppedLogicalStepCount(), 1, '普通实例只丢弃超出 4 步缓冲的旧债务');
+}
+
+function verifyConfiguredSpeedCatchUpWindow(): void {
+  const service = new WorldRuntimeInstanceScheduleService();
+  const chamber = createInstance('time-chamber:catch-up-window', 7);
+  service.registerOrUpdate(chamber.meta.instanceId, chamber, 0);
+
+  const oneSecondPlan = service.collectDue(1_001, () => chamber)[0];
+  assert.equal(oneSecondPlan?.steps, 7, '7 倍实例在一秒调度延迟内必须保留 7 个逻辑息');
+  assert.equal(service.getDroppedLogicalStepCount(), 0, '最近一秒内的 7 个逻辑息不能触发过载丢弃');
+
+  const staleDebtPlan = service.collectDue(5_001, () => chamber)[0];
+  assert.equal(staleDebtPlan?.steps, 7, '超过一秒的积压仍只能补偿最近一秒应有的逻辑息');
+  assert.equal(service.getDroppedLogicalStepCount(), 21, '更旧的 7 倍逻辑债务必须继续受有界过载保护');
 }
 
 async function verifyStaleScheduledPlanIsRejected(): Promise<void> {
