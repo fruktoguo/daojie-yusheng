@@ -2245,6 +2245,11 @@ async function main(): Promise<void> {
       'SELECT item_id, count, raw_payload FROM player_inventory_item WHERE player_id = $1 ORDER BY slot_index ASC',
       [equipPlayerId],
     );
+    const unequipEquipmentRows = await fetchRows(
+      pool,
+      'SELECT slot_type, item_id FROM player_equipment_slot WHERE player_id = $1 ORDER BY slot_type ASC',
+      [equipPlayerId],
+    );
     if (
       unequipInventoryRows.length !== 1
       || unequipInventoryRows[0]?.item_id !== 'iron_sword'
@@ -2252,6 +2257,9 @@ async function main(): Promise<void> {
       || Number((unequipInventoryRows[0]?.raw_payload as { enhanceLevel?: unknown } | null | undefined)?.enhanceLevel ?? 0) !== 4
     ) {
       throw new Error(`unexpected enhanced equipment inventory rows after unequip: ${JSON.stringify(unequipInventoryRows)}`);
+    }
+    if (unequipEquipmentRows.length !== 0) {
+      throw new Error(`unexpected equipment rows after unequip: ${JSON.stringify(unequipEquipmentRows)}`);
     }
 
     await seedActiveJobStartFixture(pool, {

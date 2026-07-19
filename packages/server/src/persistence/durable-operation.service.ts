@@ -5613,10 +5613,6 @@ async function replacePlayerEquipmentSlots(
   }
   const rows = Array.from(rowsBySlotType.values());
 
-  if (rows.length === 0) {
-    return;
-  }
-
   const persistedRows = await client.query<{
     slot_type?: unknown;
     item_instance_id?: unknown;

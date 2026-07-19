@@ -174,6 +174,7 @@ const smokeCases = [
   { name: 'player-statistic-ledger-io', scriptFile: 'player-statistic-ledger-io-smoke.js', standalone: true },
   { name: 'player-runtime-dirty-domain', scriptFile: 'player-runtime-dirty-domain-smoke.js', standalone: true },
   { name: 'inventory-item-instance-ref', scriptFile: 'inventory-item-instance-ref-smoke.js', standalone: true },
+  { name: 'world-runtime-equipment', scriptFile: 'world-runtime-equipment-smoke.js', standalone: true },
   { name: 'craft-persistence-dirty-domain', scriptFile: 'craft-persistence-dirty-domain-smoke.js', standalone: true },
   { name: 'player-domain-empty-overwrite-guard', scriptFile: 'player-domain-empty-overwrite-guard-smoke.js', standalone: true },
   { name: 'player-anchor-checkpoint-flush-worker', scriptFile: 'player-anchor-checkpoint-flush-worker-smoke.js', standalone: true },

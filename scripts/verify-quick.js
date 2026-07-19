@@ -79,6 +79,8 @@ const status = runVerificationSteps({
         '--case',
         'inventory-item-instance-ref',
         '--case',
+        'world-runtime-equipment',
+        '--case',
         'craft-persistence-dirty-domain',
         '--case',
         'technique-activity-completion',
