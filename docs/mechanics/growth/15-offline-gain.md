@@ -11,8 +11,8 @@
 1. 玩家断线时记录 `offlineSinceAt = Date.now()`
 2. 每 tick 执行 `captureOfflineGainBeforeTick` → 正常 tick → `accumulateOfflineGainAfterTick`
 3. 离线期间 tick 产生的境界修为、功法经验、底蕴等增量累积到 `accumulatedPayload`
-4. `accumulatedDurationMs += 1000`（每 tick 1 秒）
-5. 玩家上线时若离线收益累计时长未满 1 分钟，服务端直接结算并清理离线会话，不弹收益确认层；累计时长满 1 分钟时先保持离线挂机态，不立即结算，并下发 `preview/blocking` 离线收益预览
+4. `accumulatedDurationMs += 1000`（每 tick 1 秒）；收益量始终只按实际执行的权威 tick 累计
+5. 玩家上线时若离线收益累计时长未满 1 分钟，服务端直接结算并清理离线会话，不弹收益确认层；累计时长满 1 分钟时先保持离线挂机态，不立即结算，并下发 `preview/blocking` 离线收益预览。若调度积压导致逻辑累计仍不足 1 分钟，但可信的真实离线时长已满 1 分钟，报告时长与阻塞门槛回退真实时长，避免漏掉结算记录；该回退不补发收益
 6. 客户端用不可关闭收益层遮住游戏界面，并每隔数秒请求刷新预览
 7. 玩家点击确认后调用 `finalizeOfflineGainSessionForPlayer` 生成最终报告
 8. 报告持久化到 DB 或暂存内存，客户端确认后删除，同时玩家切回在线 session
@@ -46,7 +46,7 @@
 
 ## 报告保存条件
 
-- `durationMs >= 60_000`（至少离线 1 分钟）
+- `durationMs >= 60_000`（至少离线 1 分钟；逻辑累计未达门槛时可按可信真实离线时长兜底）
 - 且有实际收益 `hasOfflineGainReportParts(report)`
 
 ## 离线时长上限

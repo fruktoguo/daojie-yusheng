@@ -38,6 +38,12 @@ const status = runVerificationSteps({
       shell: false,
     },
     {
+      label: 'offline gain duration',
+      command: process.execPath,
+      args: ['packages/server/dist/tools/offline-gain-duration-smoke.js'],
+      shell: false,
+    },
+    {
       label: 'quick smoke',
       command: process.execPath,
       args: [

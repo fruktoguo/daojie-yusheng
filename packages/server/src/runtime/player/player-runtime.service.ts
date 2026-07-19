@@ -44,6 +44,10 @@ import {
 } from './player-artifact-runtime.helpers';
 import { refreshPlayerMovementCapabilities } from './player-movement-capability.helpers';
 import { PlayerStatisticLedgerIoQueue } from './player-statistic-ledger-io-queue';
+import {
+    OFFLINE_GAIN_REPORT_MIN_DURATION_MS,
+    resolveOfflineGainReportDurationMs,
+} from './offline-gain-duration.helpers';
 
 /** 新角色默认出生地图。 */
 const DEFAULT_PLAYER_STARTER_MAP_ID = 'yunlai_town';
@@ -78,7 +82,6 @@ const PENDING_LOGBOOK_KINDS = new Set([
 ]);
 const PLAYER_PERSISTENCE_DIRTY_FALLBACK_DOMAIN = 'snapshot';
 const PLAYER_PERSISTENCE_DIRTY_PRESENCE_DOMAIN = 'presence';
-const OFFLINE_GAIN_REPORT_MIN_DURATION_MS = 60_000;
 const pvpSoulInjuryBuffByRealmLv = new Map();
 const pvpShaInfusionBuffByRealmLv = new Map();
 const pvpShaBacklashBuffByRealmLv = new Map();
@@ -6899,12 +6902,7 @@ function shouldBlockOfflineGainSessionRecord(session, now = Date.now()) {
     if (!session || typeof session !== 'object') {
         return false;
     }
-    if (session.accumulatedDurationMs !== undefined && session.accumulatedDurationMs !== null && Number.isFinite(Number(session.accumulatedDurationMs))) {
-        const accumulatedDurationMs = normalizeOfflineGainCount(session.accumulatedDurationMs);
-        return accumulatedDurationMs >= OFFLINE_GAIN_REPORT_MIN_DURATION_MS;
-    }
-    const startedAt = normalizeOfflineGainCount(session.startedAt);
-    return startedAt > 0 && Math.max(0, normalizeOfflineGainCount(now) - startedAt) >= OFFLINE_GAIN_REPORT_MIN_DURATION_MS;
+    return resolveOfflineGainReportDurationMs(session, now) >= OFFLINE_GAIN_REPORT_MIN_DURATION_MS;
 }
 const PROGRESSION_ONLY_STATISTIC_DOMAINS = new Set([
     'progression',
@@ -7296,8 +7294,10 @@ function buildPlayerStatisticRecordFromParts(player, session, endedAt, parts, sc
     const normalizedParts = normalizeOfflineGainReportParts(parts);
     const startedAt = normalizeOfflineGainCount(session?.startedAt ?? session?.baselinePayload?.snapshotAt ?? endedAt);
     const normalizedEndedAt = Math.max(startedAt, normalizeOfflineGainCount(endedAt));
-    const accumulatedDurationMs = normalizeOfflineGainCount(session?.accumulatedDurationMs);
-    const durationMs = accumulatedDurationMs > 0 ? accumulatedDurationMs : Math.max(0, normalizedEndedAt - startedAt);
+    const durationMs = resolveOfflineGainReportDurationMs({
+        startedAt,
+        accumulatedDurationMs: session?.accumulatedDurationMs,
+    }, normalizedEndedAt);
     const reportEndedAt = resolveOfflineGainReportEndedAt(startedAt, durationMs, normalizedEndedAt);
     const normalizedScope = scope === 'online' ? 'online' : 'offline';
     return {
