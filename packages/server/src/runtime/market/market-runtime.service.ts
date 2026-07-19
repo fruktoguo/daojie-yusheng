@@ -21,6 +21,7 @@ import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { InstanceCatalogService } from '../../persistence/instance-catalog.service';
 import { buildStructuredNotice } from '../world/structured-notice.helpers';
 import { ActivityRuntimeService } from '../activity/activity-runtime.service';
+import { parseMarketStackSignatureItemKey } from './market-item-key.helpers';
 
 const AUCTION_EXTENSION_WINDOW_MS = 30 * 1000;
 const AUCTION_MAX_EXTENSION_MS = 60 * 60 * 1000;
@@ -3229,25 +3230,19 @@ export class MarketRuntimeService {
             return null;
         }
     }
-    /** 从客户端本地补齐行的 itemId#enhanceLevel 签名还原求购物品。 */
+    /** 从客户端本地补齐行的完整堆叠签名或历史两段签名还原求购物品。 */
     resolveStackSignatureMarketItemKey(itemKey) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        const normalizedItemKey = typeof itemKey === 'string' ? itemKey.trim() : '';
-        const separatorIndex = normalizedItemKey.lastIndexOf('#');
-        if (separatorIndex <= 0 || separatorIndex === normalizedItemKey.length - 1) {
+        const parsedItemKey = parseMarketStackSignatureItemKey(itemKey);
+        if (!parsedItemKey) {
             return null;
         }
-        const itemId = normalizedItemKey.slice(0, separatorIndex).trim();
-        const rawEnhanceLevel = normalizedItemKey.slice(separatorIndex + 1).trim();
-        if (!itemId || !/^\d+$/.test(rawEnhanceLevel)) {
-            return null;
-        }
+        const { itemId, enhanceLevel } = parsedItemKey;
         const baseItem = this.contentTemplateRepository.createItem(itemId, 1);
         if (!baseItem) {
             return null;
         }
-        const enhanceLevel = Math.max(0, Math.trunc(Number(rawEnhanceLevel)));
         const mergedItem = {
             ...baseItem,
             itemId,

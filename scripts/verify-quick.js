@@ -32,6 +32,12 @@ const status = runVerificationSteps({
     { label: 'production boundaries', args: ['--filter', '@mud/server', 'proof:production-boundaries'] },
     { label: 'release gate contract', args: ['proof:release-gates'] },
     {
+      label: 'market stack signature item key',
+      command: process.execPath,
+      args: ['packages/server/dist/tools/market-stack-signature-item-key-smoke.js'],
+      shell: false,
+    },
+    {
       label: 'quick smoke',
       command: process.execPath,
       args: [
