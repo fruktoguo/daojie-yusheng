@@ -56,6 +56,20 @@ const STATIC_CLIENT_ACTION_DEFS: Record<string, ActionDef> = {
     desc: actionText('action.static.return-spawn.desc'),
     cooldownLeft: 0,
   },
+  'sect:manage': {
+    id: 'sect:manage',
+    name: actionText('action.static.sect-manage.name'),
+    type: 'interact',
+    desc: actionText('action.static.sect-manage.desc'),
+    cooldownLeft: 0,
+  },
+  'sect:exit': {
+    id: 'sect:exit',
+    name: actionText('action.static.sect-exit.name'),
+    type: 'travel',
+    desc: actionText('action.static.sect-exit.desc'),
+    cooldownLeft: 0,
+  },
   'alchemy:open': {
     id: 'alchemy:open',
     name: actionText('action.static.alchemy-open.name'),

@@ -25,6 +25,18 @@ const panelsStyleSource = fs.readFileSync(
   path.join(clientRoot, 'src/styles/panels.css'),
   'utf8',
 );
+const actionConstantsSource = fs.readFileSync(
+  path.join(clientRoot, 'src/constants/ui/action.ts'),
+  'utf8',
+);
+const runtimeStateSource = fs.readFileSync(
+  path.join(clientRoot, 'src/main-runtime-state-source.ts'),
+  'utf8',
+);
+const panelDeltaStateSource = fs.readFileSync(
+  path.join(clientRoot, 'src/main-panel-delta-state-source.ts'),
+  'utf8',
+);
 
 function loadStateModule() {
   const sourcePath = path.join(clientRoot, 'src/ui/panels/sect-application-page-request-state.ts');
@@ -42,10 +54,54 @@ function loadStateModule() {
   return module.exports;
 }
 
+function loadActionConstantsModule() {
+  const sourcePath = path.join(clientRoot, 'src/constants/ui/action.ts');
+  const output = ts.transpileModule(actionConstantsSource, {
+    compilerOptions: {
+      module: ts.ModuleKind.CommonJS,
+      target: ts.ScriptTarget.ES2022,
+    },
+    fileName: sourcePath,
+  }).outputText;
+  const translations = new Map([
+    ['action.static.sect-manage.name', '管理宗门'],
+    ['action.static.sect-manage.desc', '打开当前宗门的管理界面。'],
+    ['action.static.sect-exit.name', '离开宗门领地'],
+    ['action.static.sect-exit.desc', '返回宗门山门入口，不会退出宗门成员关系。'],
+  ]);
+  const module = { exports: {} };
+  const execute = new Function('exports', 'module', 'require', output);
+  execute(module.exports, module, (request) => {
+    if (request === '../../ui/i18n') {
+      return { t: (key) => translations.get(key) ?? key };
+    }
+    throw new Error(`未预期的宗门动作定义依赖：${request}`);
+  });
+  return module.exports;
+}
+
 const {
   SectApplicationPageRequestState,
   resolveSectApplicationPageScopeSectId,
 } = loadStateModule();
+const { getStaticClientActionDef } = loadActionConstantsModule();
+
+assert.deepEqual(getStaticClientActionDef('sect:manage'), {
+  id: 'sect:manage',
+  name: '管理宗门',
+  type: 'interact',
+  desc: '打开当前宗门的管理界面。',
+  cooldownLeft: 0,
+}, '宗门管理增量缺少名称时必须有稳定客户端定义');
+assert.deepEqual(getStaticClientActionDef('sect:exit'), {
+  id: 'sect:exit',
+  name: '离开宗门领地',
+  type: 'travel',
+  desc: '返回宗门山门入口，不会退出宗门成员关系。',
+  cooldownLeft: 0,
+}, '宗门出口增量缺少名称时必须有稳定客户端定义');
+assert.match(runtimeStateSource, /action\.name \?\? staticAction\?\.name/, 'bootstrap 水合必须优先使用服务端名称并回退静态定义');
+assert.match(panelDeltaStateSource, /previousSameAction\?\.name \?\? staticAction\?\.name/, '动作增量必须在旧名称缺失时回退静态定义');
 
 assert.deepEqual(
   SECT_MEMBER_ROLE_HIERARCHY,

@@ -613,15 +613,48 @@ async function main() {
     playerId,
     self: { x: 0, y: 0 },
     instance: { instanceId: sectInstance.meta.instanceId },
+    localPortals: [core],
   }, deps);
   assert.ok(coreActions.some((action) => action.id === "sect:manage"));
-  assert.ok(!coreActions.some((action) => action.id === "sect:exit"));
+  assert.ok(!coreActions.some((action) => action.id === "sect:exit"), "核心传送门可用时不得重复显示出口动作");
   const manageAction = coreActions.find((action) => action.id === "sect:manage");
   assert.match(manageAction.desc, /地域\s+25格/);
   assert.doesNotMatch(manageAction.desc, /地域\s+\d+x\d+/);
   const manageData = JSON.parse(decodeURIComponent(/@@sect:(.*)@@/.exec(manageAction.desc)?.[1] ?? ""));
   assert.equal(manageData.sectId, relocatedSect.sectId, "宗门管理摘要必须携带申请分页的权威宗门 ID");
   assert.ok(!coreActions.some((action) => action.id === "sect:guardian:refill"));
+  sectInstance.runtimePortals = [];
+  const missingPortalActions = sectService.buildSectCoreActions({
+    playerId,
+    self: { x: 0, y: 0 },
+    instance: { instanceId: sectInstance.meta.instanceId },
+    localPortals: [],
+  }, deps);
+  assert.equal(missingPortalActions.find((action) => action.id === "sect:exit")?.name, "离开宗门领地");
+  player.x = 0;
+  player.y = 0;
+  transfers.length = 0;
+  leaseReadyWaits.length = 0;
+  await sectService.executeSectAction(playerId, "sect:exit", {
+    ...deps,
+    getPlayerLocationOrThrow(targetPlayerId) {
+      assert.equal(targetPlayerId, playerId);
+      return { instanceId: sectInstance.meta.instanceId, sessionId: "session:sect-smoke" };
+    },
+  });
+  assert.deepEqual(leaseReadyWaits, [sectInstance.meta.instanceId, publicInstanceId]);
+  assert.deepEqual(transfers, [{
+    playerId,
+    sessionId: "session:sect-smoke",
+    fromInstanceId: sectInstance.meta.instanceId,
+    targetMapId: relocatedSect.entranceTemplateId,
+    targetInstanceId: publicInstanceId,
+    targetX: 4,
+    targetY: 0,
+    reason: "manual_portal",
+  }], "宗门出口动作不得依赖已丢失的运行时传送门对象");
+  assert.equal(sectService.ensureSectRuntimeInstance(relocatedSect, deps), sectInstance);
+  assert.equal(sectInstance.getPortalAtTile(0, 0)?.kind, "sect_core", "既有宗门实例必须自愈丢失的核心传送门");
 
   const badRealSectInstanceId = `real:${entrance.targetMapId}`;
   instances.set(badRealSectInstanceId, new MapInstanceRuntime({

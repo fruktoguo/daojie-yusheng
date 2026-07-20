@@ -418,7 +418,7 @@ class WorldRuntimeSectService {
                 this.registerSectTemplate(sect);
                 const sectInstance = this.ensureSectRuntimeInstance(sect, deps);
                 await waitForSectInstancesLeaseReady([entranceInstance, sectInstance], deps);
-                this.attachSectPortals(sect, entranceInstance, sectInstance);
+                this.ensureSectPortalsAttached(sect, entranceInstance, sectInstance);
                 this.sectsById.set(sectId, sect);
                 this.playerSectId.set(playerId, sectId);
                 this.playerRuntimeService.consumeInventoryItemByInstanceId(playerId, itemInstanceId, 1);
@@ -546,7 +546,7 @@ class WorldRuntimeSectService {
         sect.lastEntranceRelocatedAt = now;
         sect.entranceRelocationCooldownUntil = now + SECT_ENTRANCE_RELOCATION_COOLDOWN_MS;
         advanceSectUpdatedAt(sect, now);
-        this.attachSectPortals(sect, entranceInstance, sectInstance);
+        this.ensureSectPortalsAttached(sect, entranceInstance, sectInstance);
         const relocatedGuardian = this.ensureGuardianFormation(
             sect,
             deps,
@@ -631,6 +631,7 @@ class WorldRuntimeSectService {
                 existing.rebaseSectTemplateToStableCoordinates(template);
             }
             syncSectRuntimeDomainTiles(sect, existing);
+            this.ensureSectPortalsAttached(sect, deps.getInstanceRuntime?.(sect.entranceInstanceId), existing);
             return existing;
         }
         if (options.allowCreate === false) {
@@ -725,6 +726,37 @@ class WorldRuntimeSectService {
         });
     }
 
+    ensureSectPortalsAttached(sect, entranceInstance, sectInstance) {
+        if (!entranceInstance || !sectInstance) {
+            return false;
+        }
+        const entranceReady = hasExpectedSectRuntimePortal(entranceInstance, {
+            sectId: sect.sectId,
+            kind: 'sect_entrance',
+            x: sect.entranceX,
+            y: sect.entranceY,
+            targetMapId: sect.sectTemplateId,
+            targetInstanceId: sect.sectInstanceId,
+            targetX: sect.coreX,
+            targetY: sect.coreY,
+        });
+        const coreReady = hasExpectedSectRuntimePortal(sectInstance, {
+            sectId: sect.sectId,
+            kind: 'sect_core',
+            x: sect.coreX,
+            y: sect.coreY,
+            targetMapId: sect.entranceTemplateId,
+            targetInstanceId: sect.entranceInstanceId,
+            targetX: sect.entranceX,
+            targetY: sect.entranceY,
+        });
+        if (entranceReady && coreReady) {
+            return false;
+        }
+        this.attachSectPortals(sect, entranceInstance, sectInstance);
+        return true;
+    }
+
     ensureGuardianFormation(sect, deps, previousGuardian = null, options = {}) {
         if (typeof deps.worldRuntimeFormationService?.upsertSectGuardianFormation !== 'function') {
             return null;
@@ -802,6 +834,23 @@ class WorldRuntimeSectService {
             desc: buildSectManagementActionDesc(sect, view, deps, guardian, this.sectMemberProfilesByPlayerId),
             cooldownLeft: 0,
         }];
+        const hasUsableCorePortal = Array.isArray(view?.localPortals) && view.localPortals.some((portal) => portal?.sectId === sect.sectId
+            && portal?.kind === 'sect_core'
+            && portal?.trigger === 'manual'
+            && normalizeOptionalString(portal?.targetMapId) === sect.entranceTemplateId
+            && normalizeOptionalString(portal?.targetInstanceId) === sect.entranceInstanceId
+            && Math.trunc(Number(portal?.targetX)) === sect.entranceX
+            && Math.trunc(Number(portal?.targetY)) === sect.entranceY
+            && chebyshevDistance(view.self.x, view.self.y, portal.x, portal.y) <= 1);
+        if (!hasUsableCorePortal) {
+            actions.push({
+                id: 'sect:exit',
+                name: '离开宗门领地',
+                type: 'travel',
+                desc: `返回${sect.name}山门入口，不会退出宗门成员关系。`,
+                cooldownLeft: 0,
+            });
+        }
         const maintainingGuardian = player?.formationJob
             && Number(player.formationJob.remainingTicks) > 0
             && player.formationJob.formationInstanceId === `formation:sect_guardian:${sect.sectId}`;
@@ -852,6 +901,9 @@ class WorldRuntimeSectService {
         ensureSectState(sect, this.playerRuntimeService);
         if (!isSectMember(sect, playerId)) {
             throw new ForbiddenException('你不在该宗门成员名册中');
+        }
+        if (actionId === 'sect:exit') {
+            return this.exitSectToEntrance(playerId, sect, deps);
         }
         if (actionId === 'sect:manage') {
             return { kind: 'queued', view: deps.getPlayerViewOrThrow(playerId) };
@@ -1084,6 +1136,38 @@ class WorldRuntimeSectService {
             reason: 'manual_portal',
         });
         queueStructuredSectNotice(deps, playerId, 'travel', 'notice.sect.entered-core', `你穿过${sect.name}山门，返回宗门核心。`, {
+            vars: { sectName: sect.name },
+            pills: [{ key: 'sectName', style: 'target' }],
+        });
+        return { kind: 'queued', view: deps.getPlayerViewOrThrow(playerId) };
+    }
+
+    async exitSectToEntrance(playerId, sect, deps) {
+        const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
+        const location = deps.getPlayerLocationOrThrow(playerId);
+        if (location.instanceId !== sect.sectInstanceId) {
+            throw new BadRequestException('需要在宗门领地内离开');
+        }
+        if (chebyshevDistance(player.x, player.y, sect.coreX, sect.coreY) > 1) {
+            throw new BadRequestException('需要靠近宗门核心才能离开宗门领地');
+        }
+        const sourceInstance = deps.getInstanceRuntime?.(sect.sectInstanceId);
+        const entranceInstance = deps.getInstanceRuntime?.(sect.entranceInstanceId);
+        await waitForSectInstancesLeaseReady([sourceInstance, entranceInstance], deps);
+        if (typeof deps.applyTransfer !== 'function') {
+            throw new ServiceUnavailableException('宗门传送服务尚未就绪');
+        }
+        deps.applyTransfer({
+            playerId,
+            sessionId: location.sessionId,
+            fromInstanceId: sect.sectInstanceId,
+            targetMapId: sect.entranceTemplateId,
+            targetInstanceId: sect.entranceInstanceId,
+            targetX: sect.entranceX,
+            targetY: sect.entranceY,
+            reason: 'manual_portal',
+        });
+        queueStructuredSectNotice(deps, playerId, 'travel', 'notice.sect.exited-core', `你离开${sect.name}宗门领地，返回山门入口。`, {
             vars: { sectName: sect.name },
             pills: [{ key: 'sectName', style: 'target' }],
         });
@@ -1714,7 +1798,7 @@ class WorldRuntimeSectService {
         if (sectInstance) {
             const entranceInstance = deps.getInstanceRuntime(sect.entranceInstanceId);
             if (entranceInstance) {
-                this.attachSectPortals(sect, entranceInstance, sectInstance);
+                this.ensureSectPortalsAttached(sect, entranceInstance, sectInstance);
             }
         }
         this.persistSectsSoon();
@@ -1794,7 +1878,7 @@ class WorldRuntimeSectService {
         markSectExpansionTilesForSync(instance, previousBounds, nextBounds, tx, ty);
         const entranceInstance = deps.getInstanceRuntime?.(sect.entranceInstanceId);
         if (entranceInstance) {
-            this.attachSectPortals(sect, entranceInstance, instance);
+            this.ensureSectPortalsAttached(sect, entranceInstance, instance);
         }
         this.persistSectsSoon();
         queueStructuredSectNotice(deps, sect.leaderPlayerId, 'info', 'notice.sect.boundary-expanded', `${sect.name}边界被凿开，地脉向外扩展了。`, {
@@ -2180,7 +2264,7 @@ class WorldRuntimeSectService {
                 syncSectRuntimeDomainTiles(sect, sectInstance);
             }
             if (applyRuntimeState && entranceInstance && sectInstance) {
-                this.attachSectPortals(sect, entranceInstance, sectInstance);
+                this.ensureSectPortalsAttached(sect, entranceInstance, sectInstance);
                 if (ensureGuardianFormations) {
                     this.ensureGuardianFormation(sect, deps);
                 }
@@ -2804,6 +2888,21 @@ function removeSectRuntimePortals(instance, sectId) {
     instance.persistentRevision += 1;
     instance.markPersistenceDirtyDomains?.(['overlay']);
     return true;
+}
+
+function hasExpectedSectRuntimePortal(instance, expected) {
+    if (!instance || !Array.isArray(instance.runtimePortals)) {
+        return false;
+    }
+    return instance.runtimePortals.some((portal) => portal?.sectId === expected.sectId
+        && portal?.kind === expected.kind
+        && portal?.trigger === 'manual'
+        && Math.trunc(Number(portal?.x)) === Math.trunc(Number(expected.x))
+        && Math.trunc(Number(portal?.y)) === Math.trunc(Number(expected.y))
+        && normalizeOptionalString(portal?.targetMapId) === normalizeOptionalString(expected.targetMapId)
+        && normalizeOptionalString(portal?.targetInstanceId) === normalizeOptionalString(expected.targetInstanceId)
+        && Math.trunc(Number(portal?.targetX)) === Math.trunc(Number(expected.targetX))
+        && Math.trunc(Number(portal?.targetY)) === Math.trunc(Number(expected.targetY)));
 }
 
 function syncSectRuntimeDomainTiles(sect, instance) {
