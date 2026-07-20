@@ -50,12 +50,20 @@ const fixtureExpression = String.raw`
 const resolveSocialEntryExpression = String.raw`
   (() => {
     const bagSection = document.querySelector('[data-mobile-section="bag"]');
+    const bagPane = bagSection?.closest('.mobile-ui-pane');
+    const tabBar = bagSection?.querySelector('.section-tabs');
     const button = [...(bagSection?.querySelectorAll('button') ?? [])]
       .find((entry) => entry.textContent?.trim() === '道友' && entry.getBoundingClientRect().width > 0);
-    if (!(button instanceof HTMLButtonElement)) {
+    if (!(bagSection instanceof HTMLElement)
+      || !(bagPane instanceof HTMLElement)
+      || !(tabBar instanceof HTMLElement)
+      || !(button instanceof HTMLButtonElement)) {
       throw new Error('未找到正式手机端道友入口');
     }
     const rect = button.getBoundingClientRect();
+    const sectionRect = bagSection.getBoundingClientRect();
+    const paneRect = bagPane.getBoundingClientRect();
+    const tabBarRect = tabBar.getBoundingClientRect();
     const x = rect.left + rect.width / 2;
     const y = rect.top + rect.height / 2;
     const hit = document.elementFromPoint(x, y);
@@ -67,6 +75,16 @@ const resolveSocialEntryExpression = String.raw`
       top: rect.top,
       bottom: rect.bottom,
       hit: hit === button || button.contains(hit),
+      viewport: { width: innerWidth, height: innerHeight },
+      bagPane: { top: paneRect.top, bottom: paneRect.bottom, height: paneRect.height },
+      bagSection: { top: sectionRect.top, bottom: sectionRect.bottom, height: sectionRect.height },
+      tabBar: {
+        top: tabBarRect.top,
+        bottom: tabBarRect.bottom,
+        height: tabBarRect.height,
+        clientHeight: tabBar.clientHeight,
+        scrollHeight: tabBar.scrollHeight,
+      },
     };
   })()
 `;
@@ -187,8 +205,15 @@ await withClientBrowserProof(
     await delay(100);
 
     const socialEntry = await cdp.evaluate(resolveSocialEntryExpression);
-    assert(socialEntry.left >= 0 && socialEntry.right <= MOBILE_VIEWPORT.width, '手机端道友入口横向超出视口');
-    assert(socialEntry.top >= 0 && socialEntry.bottom <= MOBILE_VIEWPORT.height, '手机端道友入口纵向超出视口');
+    const socialEntryGeometry = JSON.stringify(socialEntry);
+    assert(
+      socialEntry.left >= 0 && socialEntry.right <= MOBILE_VIEWPORT.width,
+      `手机端道友入口横向超出视口：${socialEntryGeometry}`,
+    );
+    assert(
+      socialEntry.top >= 0 && socialEntry.bottom <= MOBILE_VIEWPORT.height,
+      `手机端道友入口纵向超出视口：${socialEntryGeometry}`,
+    );
     assert.equal(socialEntry.hit, true, '手机端道友入口被其他界面遮挡');
     await dispatchClick(cdp, socialEntry);
     await delay(100);
