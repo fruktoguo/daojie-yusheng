@@ -97,6 +97,8 @@ const status = runVerificationSteps({
         '--case',
         'technique-activity-completion',
         '--case',
+        'technique-activity-statistics-hotpath',
+        '--case',
         'technique-activity-queue-reorder',
         '--case',
         'world-gateway-craft-helper',

@@ -1338,8 +1338,9 @@ class WorldRuntimeSectService {
         }).then(() => {
             const socket = deps?.worldSessionService?.getSocketByPlayerId?.(playerId);
             if (socket && typeof deps?.worldClientEventService?.emitMailSummaryForPlayer === 'function') {
-                void deps.worldClientEventService.emitMailSummaryForPlayer(socket, playerId);
+                return deps.worldClientEventService.emitMailSummaryForPlayer(socket, playerId);
             }
+            return undefined;
         }).catch((error) => {
             this.logger.warn(`宗门邮件发送失败：${error instanceof Error ? error.message : String(error)}`);
         });

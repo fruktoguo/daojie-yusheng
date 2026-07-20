@@ -126,6 +126,8 @@ export class PlayerRuntimeService {
     } | null>>();
     /** 数据库禁用时的离线收益基线缓存。 */
     offlineGainSessionsByPlayerId = new Map();
+    /** 同一玩家的离线收益结算必须串行，避免重连与离线战败同时生成重复报告。 */
+    private readonly offlineGainFinalizationPromiseByPlayerId = new Map<string, Promise<any>>();
     /** 玩家统计持续快照，用于把 tick 外即时资产变化纳入下一次低频统计。 */
     playerStatisticSnapshotsByPlayerId = new Map();
     /** 当前进程尚未合入持久缓存的日总账增量。 */
@@ -912,10 +914,27 @@ export class PlayerRuntimeService {
         if (!player || !normalizedPlayerId) {
             return null;
         }
+        const existing = this.offlineGainFinalizationPromiseByPlayerId.get(normalizedPlayerId);
+        if (existing) {
+            return existing;
+        }
+        const finalization = this.finalizeOfflineGainSessionForPlayerLocked(player, normalizedPlayerId, endedAt);
+        this.offlineGainFinalizationPromiseByPlayerId.set(normalizedPlayerId, finalization);
+        try {
+            return await finalization;
+        }
+        finally {
+            if (this.offlineGainFinalizationPromiseByPlayerId.get(normalizedPlayerId) === finalization) {
+                this.offlineGainFinalizationPromiseByPlayerId.delete(normalizedPlayerId);
+            }
+        }
+    }
+    private async finalizeOfflineGainSessionForPlayerLocked(player, normalizedPlayerId, endedAt) {
+        // 必须在首次数据库 await 前保留内存基线；失败重试仍要能证明本次离线收益。
+        const memorySession = this.offlineGainSessionsByPlayerId.get(normalizedPlayerId);
         const persistedSession = this.playerDomainPersistenceService?.isEnabled?.()
             ? await this.playerDomainPersistenceService.loadPlayerOfflineGainSession(normalizedPlayerId)
-            : this.offlineGainSessionsByPlayerId.get(normalizedPlayerId);
-        const memorySession = this.offlineGainSessionsByPlayerId.get(normalizedPlayerId);
+            : memorySession;
         const session = mergeOfflineGainSessionRecords(persistedSession, memorySession);
         if (!session) {
             return null;
@@ -927,8 +946,6 @@ export class PlayerRuntimeService {
             Math.max(0, Math.trunc(Number(endedAt) || Date.now())),
             this.contentTemplateRepository,
         );
-        this.recordPlayerStatisticTotals(normalizedPlayerId, report, report.endedAt);
-        this.offlineGainSessionsByPlayerId.delete(normalizedPlayerId);
         const shouldSaveOfflineHistory = report.durationMs >= OFFLINE_GAIN_REPORT_MIN_DURATION_MS && hasOfflineGainReportParts(report);
         if (shouldSaveOfflineHistory) {
             if (this.playerDomainPersistenceService?.isEnabled?.()) {
@@ -945,6 +962,11 @@ export class PlayerRuntimeService {
         }
         if (this.playerDomainPersistenceService?.isEnabled?.()) {
             await this.playerDomainPersistenceService.deletePlayerOfflineGainSession(normalizedPlayerId, session.sessionId);
+        }
+        this.recordPlayerStatisticTotals(normalizedPlayerId, report, report.endedAt);
+        const currentMemorySession = this.offlineGainSessionsByPlayerId.get(normalizedPlayerId);
+        if (!currentMemorySession || currentMemorySession === memorySession || currentMemorySession.sessionId === session.sessionId) {
+            this.offlineGainSessionsByPlayerId.delete(normalizedPlayerId);
         }
         return report;
     }
@@ -4872,7 +4894,13 @@ export class PlayerRuntimeService {
         }
         this.scheduledPlayerStatisticLedgerFlushes.add(normalizedPlayerId);
         setTimeout(() => {
-            void this.flushPendingPlayerStatisticLedger(normalizedPlayerId);
+            void this.flushPendingPlayerStatisticLedger(normalizedPlayerId).catch((error) => {
+                this.scheduledPlayerStatisticLedgerFlushes.delete(normalizedPlayerId);
+                this.logger.error(
+                    `统计总账后台调度失败 playerId=${normalizedPlayerId}`,
+                    error instanceof Error ? error.stack : String(error),
+                );
+            });
         }, 0);
     }
     /** flushPendingPlayerStatisticLedger：落盘待写统计总账增量。 */
@@ -7353,8 +7381,15 @@ function buildPlayerStatisticRecordFromParts(player, session, endedAt, parts, sc
 }
 function mergePendingOfflineGainReportList(playerId, reports) {
     const normalizedPlayerId = normalizeOfflineGainString(playerId);
-    const normalizedReports = (Array.isArray(reports) ? reports : [])
-        .filter((report) => normalizeOfflineGainString(report?.id).length > 0);
+    const reportById = new Map();
+    for (const report of Array.isArray(reports) ? reports : []) {
+        const reportId = normalizeOfflineGainString(report?.id);
+        if (reportId) {
+            // 调用方均按“已持久化记录在前、当前权威记录在后”传入，同 ID 保留最终版本。
+            reportById.set(reportId, report);
+        }
+    }
+    const normalizedReports = Array.from(reportById.values());
     if (!normalizedPlayerId || normalizedReports.length <= 1) {
         return normalizedReports;
     }

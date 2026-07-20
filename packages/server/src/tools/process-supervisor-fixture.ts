@@ -3,6 +3,7 @@ import { createServer } from 'node:http';
 
 import {
   notifyServerProcessSupervisorReady,
+  reportServerProcessFatalAndExit,
   runServerProcessSupervisor,
   startServerProcessSupervisorHeartbeat,
 } from '../bootstrap/process-supervisor';
@@ -23,6 +24,10 @@ if (isChild) {
 function runFixtureChild(): void {
   if (mode === 'crash-once' && generation === 1) {
     setTimeout(() => process.exit(17), 40);
+    return;
+  }
+  if (mode === 'fatal-once' && generation === 1) {
+    setTimeout(() => reportServerProcessFatalAndExit('unhandled_rejection', new Error('fixture fatal rejection')), 40);
     return;
   }
   if (mode === 'heartbeat-timeout-once' && generation === 1) {

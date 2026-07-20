@@ -25,6 +25,7 @@ import {
   resolveServerRuntimeRole,
   shouldStartHttpServer,
 } from '../config/runtime-role';
+import { reportServerProcessFatalAndExit } from './process-supervisor';
 
 /** 端口冲突诊断最多采样次数。 */
 const PORT_CONFLICT_SAMPLE_ATTEMPTS = 12;
@@ -309,12 +310,12 @@ async function drainAndCloseBootstrapApplication(reason: string): Promise<void> 
 
 process.on('unhandledRejection', (reason: unknown) => {
   console.error('[致命] 未处理的 Promise 拒绝：', reason instanceof Error ? reason.stack : String(reason));
-  process.exit(1);
+  reportServerProcessFatalAndExit('unhandled_rejection', reason);
 });
 
 process.on('uncaughtException', (error: Error) => {
   console.error('[致命] 未捕获异常：', error.stack ?? error.message);
-  process.exit(1);
+  reportServerProcessFatalAndExit('uncaught_exception', error);
 });
 
 // ─── Graceful shutdown 超时兜底 ───

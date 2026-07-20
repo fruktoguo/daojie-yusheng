@@ -182,6 +182,7 @@ const smokeCases = [
   { name: 'durable-operation', scriptFile: 'durable-operation-smoke.js', standalone: true },
   { name: 'world-runtime-lifecycle', scriptFile: 'world-runtime-lifecycle-smoke.js', standalone: true },
   { name: 'technique-activity-completion', scriptFile: 'technique-activity-completion-proof.js', standalone: true },
+  { name: 'technique-activity-statistics-hotpath', scriptFile: 'technique-activity-statistics-hotpath-smoke.js', standalone: true },
   { name: 'technique-activity-queue-reorder', scriptFile: 'technique-activity-queue-reorder-smoke.js', standalone: true },
   { name: 'world-gateway-craft-helper', scriptFile: 'world-gateway-craft-helper-smoke.js', standalone: true },
   { name: 'snapshot-retirement', scriptFile: 'snapshot-retirement-report-smoke.js', standalone: true },

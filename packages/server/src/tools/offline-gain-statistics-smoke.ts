@@ -529,6 +529,61 @@ async function testFailedDeferredAssetMutationDoesNotCommitStatistics() {
   assert.deepEqual(service.getPendingPlayerStatisticRecords(player.playerId), []);
 }
 
+async function testFailedOfflineSettlementKeepsMemorySessionForRetry() {
+  let replaceAttempts = 0;
+  let deleteAttempts = 0;
+  let persistedReports = [];
+  const persistence = {
+    isEnabled() {
+      return true;
+    },
+    async loadPlayerOfflineGainSession() {
+      return null;
+    },
+    async savePlayerOfflineGainSession() {},
+    async loadPlayerOfflineGainReports() {
+      return persistedReports;
+    },
+    async replacePlayerOfflineGainReports(_playerId, reports) {
+      replaceAttempts += 1;
+      persistedReports = structuredClone(Array.isArray(reports) ? reports : [reports]);
+    },
+    async deletePlayerOfflineGainSession() {
+      deleteAttempts += 1;
+      if (deleteAttempts === 1) {
+        throw new Error('offline session delete failed');
+      }
+    },
+    async incrementPlayerStatisticDayTotal() {},
+  };
+  const service = createService(persistence);
+  const player = createPlayer();
+  service.players.set(player.playerId, player);
+  service.detachSession(player.playerId);
+  player.offlineSinceAt = 1_000;
+  await service.beginOfflineGainSession(player.playerId, 1_000);
+  for (let tick = 1; tick <= 60; tick += 1) {
+    service.advanceSinglePlayerTick(player, tick);
+  }
+
+  await assert.rejects(
+    () => service.finalizeOfflineGainSessionForPlayer(player, 61_000),
+    /offline session delete failed/,
+  );
+  assert.equal(service.offlineGainSessionsByPlayerId.has(player.playerId), true);
+  assert.equal(persistedReports.length, 1);
+
+  const report = await service.finalizeOfflineGainSessionForPlayer(player, 61_000);
+  assert.ok(report);
+  assert.equal(replaceAttempts, 2);
+  assert.equal(deleteAttempts, 2);
+  assert.equal(persistedReports.length, 1);
+  assert.equal(persistedReports[0].progress.find((entry) => entry.kind === 'realmExp').gained, 7_200);
+  assert.equal(service.offlineGainSessionsByPlayerId.has(player.playerId), false);
+  const totals = service.getPlayerStatisticTotalsSync(player.playerId, 61_000);
+  assert.equal(totals.today.progress.gained, 7_200);
+}
+
 async function main() {
   await testOfflineAccumulatedGainWinsOverSnapshotLoss();
   await testOfflineGlobalStatisticsKeepGainAndLossSeparated();
@@ -544,6 +599,7 @@ async function main() {
   await testOnlineAssetMutationsCreateIndependentStatisticReports();
   await testLockedInventoryTransferDoesNotFabricateAssetLoss();
   await testFailedDeferredAssetMutationDoesNotCommitStatistics();
+  await testFailedOfflineSettlementKeepsMemorySessionForRetry();
   console.log("offline-gain-statistics-smoke passed");
 }
 

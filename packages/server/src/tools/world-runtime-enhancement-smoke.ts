@@ -164,10 +164,11 @@ async function testStartInterruptAndCompleteEnhancement(): Promise<void> {
 
 async function testDurableEnhancementPersistsAssetsAtomically(): Promise<void> {
   const durableCalls: DurableEnhancementCall[] = [];
+  const presenceSaves: unknown[] = [];
   const player = createPlayer('player:enhancement:durable', [
     createEquipmentItem('iron_sword', '铁剑', 8, 1),
   ]);
-  const { craftService } = createCraftHarness(player, [], [], { durableCalls });
+  const { craftService } = createCraftHarness(player, [], [], { durableCalls, presenceSaves });
   const target = player.inventory.items[0];
   if (!target?.itemInstanceId) {
     throw new Error('missing enhancement target instance id');
@@ -177,7 +178,9 @@ async function testDurableEnhancementPersistsAssetsAtomically(): Promise<void> {
     target: buildInventoryRef(target),
   });
   assert.equal(start.ok, true);
+  assert.equal(presenceSaves.length, 1);
   assert.equal(durableCalls.length, 1);
+  assert.equal(presenceSaves.length, 1, '强化普通进度 tick 不应写 presence');
   assert.equal(durableCalls[0]?.kind, 'start');
   assert.equal(durableCalls[0]?.args.nextActiveJob?.jobType, 'enhancement');
   assert.equal(durableCalls[0]?.args.nextEnhancementRecords?.[0]?.itemName, '铁剑');
@@ -210,6 +213,7 @@ async function testDurableEnhancementPersistsAssetsAtomically(): Promise<void> {
   }
 
   const completeCall = durableCalls.at(-1);
+  assert.equal(presenceSaves.length, 2, '强化资产边界仍必须校验并刷新 presence fence');
   assert.equal(completeCall?.kind, 'complete');
   assert.equal(completeCall?.args.completionKind, 'completed');
   assert.equal(completeCall?.args.nextActiveJob, null);
@@ -745,6 +749,7 @@ function createCraftHarness(
   options: {
     durableCalls?: DurableEnhancementCall[];
     failDurableKinds?: ReadonlySet<DurableEnhancementCall['kind']>;
+    presenceSaves?: unknown[];
   } = {},
 ): {
   craftService: CraftPanelRuntimeService;
@@ -763,6 +768,11 @@ function createCraftHarness(
     async savePlayerEnhancementRecords(): Promise<void> {
       persistedEnhancementRecords.push(true);
     },
+    ...(options.presenceSaves ? {
+      async savePlayerPresence(_playerId: string, presence: unknown): Promise<void> {
+        options.presenceSaves?.push(presence);
+      },
+    } : {}),
   };
   const durableOperationService = options.durableCalls
     ? createDurableOperationService(options.durableCalls, options.failDurableKinds)

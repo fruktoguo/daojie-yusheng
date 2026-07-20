@@ -466,8 +466,14 @@ export class CraftPanelRuntimeService {
         if (this.pipeline?.hasStrategy(kind)) {
             const ctx = this.buildPipelineContext(deps);
             this.playerRuntimeService.captureOfflineGainBeforeTick?.(player);
-            const result = this.pipeline.tick(player, kind, ctx);
-            this.recordTechniqueActivityStatisticMutation(player, result);
+            const result: any = this.pipeline.tick(player, kind, ctx);
+            if (result && typeof result.then === 'function') {
+                return result.then((resolved) => {
+                    this.recordTechniqueActivityStatisticMutation(player, resolved, true);
+                    return resolved;
+                });
+            }
+            this.recordTechniqueActivityStatisticMutation(player, result, true);
             return result;
         }
         return buildCraftTickResult();
@@ -484,9 +490,6 @@ export class CraftPanelRuntimeService {
             return buildCraftTickResult();
         }
         const durableEnabled = this.shouldUseDurableEnhancementPersistence(player);
-        const durablePresence = durableEnabled
-            ? await this.resolveDurablePresenceFence(player.playerId)
-            : null;
         const before = captureEnhancementAssetRuntimeState(player);
         const expectedJob = player?.enhancementJob ? { ...player.enhancementJob } : null;
         const previousSuppress = player?.suppressImmediateDomainPersistence;
@@ -506,6 +509,9 @@ export class CraftPanelRuntimeService {
                 || player.enhancementJob?.jobRunId !== expectedJob?.jobRunId,
             );
             if (expectedJob && hasAssetBoundary) {
+                const durablePresence = durableEnabled
+                    ? await this.resolveDurablePresenceFence(player.playerId)
+                    : null;
                 await this.commitEnhancementActiveJobWithAssets(player, !player?.enhancementJob ? 'completed' : 'tick', expectedJob, {
                     allowSuppressed: durableEnabled,
                     presence: durablePresence,
@@ -693,8 +699,11 @@ export class CraftPanelRuntimeService {
         this.playerRuntimeService.rebuildActionState?.(player, 0);
     }
     /** 技艺 pipeline 入口补记直接改背包/技艺经验的收支；已由玩家运行时入口记录的部分会被当前快照过滤。 */
-    recordTechniqueActivityStatisticMutation(player, result) {
+    recordTechniqueActivityStatisticMutation(player, result, requireStatisticSignal = false) {
         if (!result?.ok || !player) {
+            return;
+        }
+        if (requireStatisticSignal && !hasTechniqueActivityStatisticSignal(result)) {
             return;
         }
         const beforeSnapshot = this.playerRuntimeService.captureOfflineGainBeforeTick?.(player);
@@ -4016,6 +4025,13 @@ function extractEquipmentItem(player, slot) {
  * @param value 参数说明。
  * @returns 无返回值，直接更新Text相关状态。
  */
+
+function hasTechniqueActivityStatisticSignal(result) {
+    return result?.inventoryChanged === true
+        || result?.equipmentChanged === true
+        || result?.attrChanged === true
+        || Number(result?.craftRealmExpGain) > 0;
+}
 
 function normalizeText(value) {
     return typeof value === 'string' ? value.trim() : '';

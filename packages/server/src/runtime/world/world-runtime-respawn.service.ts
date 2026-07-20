@@ -7,17 +7,21 @@
  * 玩家复生编排服务
  * 消费待复生队列，执行复生点解析、实例迁移、状态重置和通知
  */
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { nextPlayerPersistenceVersion } from '../../persistence/player-domain-persistence.service';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { buildStructuredNotice } from './structured-notice.helpers';
 import { buildPublicInstanceId } from './world-runtime.normalization.helpers';
 
 const PRISON_MAP_ID = 'prison';
+const OFFLINE_DEFEAT_CLEANUP_INITIAL_RETRY_MS = 250;
+const OFFLINE_DEFEAT_CLEANUP_MAX_RETRY_MS = 30_000;
 
 /** world-runtime respawn orchestration：承接复生队列消费与单人复生编排。 */
 @Injectable()
 export class WorldRuntimeRespawnService {
+    private readonly logger = new Logger(WorldRuntimeRespawnService.name);
+    private readonly offlineDefeatCleanupByPlayerId = new Map<string, Promise<void>>();
 /**
  * playerRuntimeService：玩家运行态服务引用。
  */
@@ -64,6 +68,10 @@ export class WorldRuntimeRespawnService {
 
     /** 离线玩家被击杀后移出世界，标记为彻底离线。 */
     removeOfflineDefeatedPlayer(playerId: string, deps) {
+        const player = this.playerRuntimeService.getPlayer(playerId);
+        if (!player) {
+            return Promise.resolve();
+        }
         const previous = deps.getPlayerLocation(playerId);
         if (previous) {
             const previousInstance = deps.getInstanceRuntime(previous.instanceId);
@@ -75,27 +83,102 @@ export class WorldRuntimeRespawnService {
             deps.clearPendingCommand(playerId);
         }
         deps.worldRuntimeGmQueueService?.clearPendingRespawn?.(playerId);
-        // 结算离线收益并移除运行时
-        if (typeof this.playerRuntimeService.finalizeOfflineGainSessionForPlayer === 'function') {
-            const player = this.playerRuntimeService.getPlayer(playerId);
-            if (player) {
-                void this.playerRuntimeService.finalizeOfflineGainSessionForPlayer(player);
+        return this.scheduleOfflineDefeatCleanup(playerId, player, deps);
+    }
+    /**
+     * 离线战败先从世界层脱离，再在 tick 外完成结算和刷盘；只有全部成功才回收运行时。
+     * 同一玩家只保留一个清理任务，数据库短暂失败时指数退避重试。
+     */
+    private scheduleOfflineDefeatCleanup(playerId: string, player, deps): Promise<void> {
+        const existing = this.offlineDefeatCleanupByPlayerId.get(playerId);
+        if (existing) {
+            return existing;
+        }
+        const cleanup = this.persistAndRemoveOfflineDefeatedPlayer(playerId, player, deps)
+            .catch((error) => {
+                this.logger.error(
+                    `离线战败清理异常终止 playerId=${playerId}`,
+                    error instanceof Error ? error.stack : String(error),
+                );
+            })
+            .finally(() => {
+                if (this.offlineDefeatCleanupByPlayerId.get(playerId) === cleanup) {
+                    this.offlineDefeatCleanupByPlayerId.delete(playerId);
+                }
+            });
+        this.offlineDefeatCleanupByPlayerId.set(playerId, cleanup);
+        return cleanup;
+    }
+    private async persistAndRemoveOfflineDefeatedPlayer(playerId: string, player, deps): Promise<void> {
+        let attempt = 0;
+        while (this.isOfflineDefeatCleanupCurrent(playerId, player, deps)) {
+            try {
+                if (typeof this.playerRuntimeService.finalizeOfflineGainSessionForPlayer === 'function') {
+                    await this.playerRuntimeService.finalizeOfflineGainSessionForPlayer(player);
+                }
+                if (!this.isOfflineDefeatCleanupCurrent(playerId, player, deps)) {
+                    return;
+                }
+
+                const persistence = this.playerRuntimeService.playerDomainPersistenceService;
+                if (persistence?.isEnabled?.()) {
+                    if (typeof deps.playerPersistenceFlushService?.flushPlayer !== 'function') {
+                        throw new Error(`offline_defeat_flush_service_unavailable:${playerId}`);
+                    }
+                    await deps.playerPersistenceFlushService.flushPlayer(playerId);
+                    if (!this.isOfflineDefeatCleanupCurrent(playerId, player, deps)) {
+                        return;
+                    }
+                    const pendingDomains = player.dirtyDomains instanceof Set
+                        ? Array.from(player.dirtyDomains).filter((domain) => domain !== 'presence')
+                        : [];
+                    if (pendingDomains.length > 0) {
+                        throw new Error(`offline_defeat_flush_incomplete:${playerId}:${pendingDomains.join(',')}`);
+                    }
+                    const presence = this.playerRuntimeService.describePersistencePresence?.(playerId);
+                    if (!presence || typeof persistence.savePlayerPresence !== 'function') {
+                        throw new Error(`offline_defeat_presence_unavailable:${playerId}`);
+                    }
+                    await persistence.savePlayerPresence(playerId, {
+                        ...presence,
+                        online: false,
+                        inWorld: false,
+                        offlineSinceAt: presence.offlineSinceAt ?? Date.now(),
+                        versionSeed: nextPlayerPersistenceVersion(),
+                    });
+                }
+                if (!this.isOfflineDefeatCleanupCurrent(playerId, player, deps)) {
+                    return;
+                }
+                this.playerRuntimeService.removePlayerRuntime(playerId);
+                return;
+            }
+            catch (error) {
+                if (isPlayerPresenceStaleFenceError(error)) {
+                    this.logger.warn(`离线战败清理已被更新的玩家所有权取代 playerId=${playerId}`);
+                    if (this.isOfflineDefeatCleanupCurrent(playerId, player, deps)) {
+                        this.playerRuntimeService.removePlayerRuntime(playerId);
+                    }
+                    return;
+                }
+                attempt += 1;
+                if (attempt === 1 || isPowerOfTwo(attempt)) {
+                    this.logger.warn(
+                        `离线战败持久化失败，等待重试 playerId=${playerId} attempt=${attempt} error=${error instanceof Error ? error.message : String(error)}`,
+                    );
+                }
+                await waitForOfflineDefeatCleanupRetry(attempt);
             }
         }
-        // 持久化 presence 标记为彻底离线
-        if (this.playerRuntimeService.playerDomainPersistenceService?.isEnabled?.()) {
-            const presence = this.playerRuntimeService.describePersistencePresence?.(playerId);
-            if (presence) {
-                void this.playerRuntimeService.playerDomainPersistenceService.savePlayerPresence(playerId, {
-                    ...presence,
-                    online: false,
-                    inWorld: false,
-                    offlineSinceAt: presence.offlineSinceAt ?? Date.now(),
-                    versionSeed: nextPlayerPersistenceVersion(),
-                });
-            }
+    }
+    private isOfflineDefeatCleanupCurrent(playerId: string, player, deps): boolean {
+        if (this.playerRuntimeService.getPlayer(playerId) !== player) {
+            return false;
         }
-        this.playerRuntimeService.removePlayerRuntime(playerId);
+        if (typeof player.sessionId === 'string' && player.sessionId.trim()) {
+            return false;
+        }
+        return !deps.getPlayerLocation?.(playerId);
     }
     /**
  * respawnPlayer：执行重生玩家相关逻辑。
@@ -240,4 +323,24 @@ function isWalkableTemplatePoint(template, x, y) {
         return true;
     }
     return mask[(y * width) + x] === 1;
+}
+
+function isPlayerPresenceStaleFenceError(error: unknown): boolean {
+    return error instanceof Error && error.message.startsWith('player_presence_stale_fence:');
+}
+
+function isPowerOfTwo(value: number): boolean {
+    return value > 0 && (value & (value - 1)) === 0;
+}
+
+function waitForOfflineDefeatCleanupRetry(attempt: number): Promise<void> {
+    const exponent = Math.max(0, Math.min(7, attempt - 1));
+    const delayMs = Math.min(
+        OFFLINE_DEFEAT_CLEANUP_MAX_RETRY_MS,
+        OFFLINE_DEFEAT_CLEANUP_INITIAL_RETRY_MS * (2 ** exponent),
+    );
+    return new Promise((resolveRetry) => {
+        const timer = setTimeout(resolveRetry, delayMs);
+        timer.unref?.();
+    });
 }

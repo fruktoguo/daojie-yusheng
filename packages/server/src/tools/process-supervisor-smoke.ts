@@ -24,6 +24,12 @@ async function main(): Promise<void> {
   assert.match(crash.output, /generation=2 ready context=/);
   assert.match(crash.output, /"reason":"unexpected_exit"/);
 
+  const fatal = await runCase('fatal-once');
+  assert.match(fatal.output, /"type":"child_fatal"/);
+  assert.match(fatal.output, /"kind":"unhandled_rejection"/);
+  assert.match(fatal.output, /fixture fatal rejection/);
+  assert.match(fatal.output, /generation=2 ready context=.*unhandled_rejection/);
+
   const heartbeat = await runCase('heartbeat-timeout-once');
   assert.match(heartbeat.output, /"type":"recovery_triggered"/);
   assert.match(heartbeat.output, /"reason":"heartbeat_timeout"/);
@@ -36,11 +42,11 @@ async function main(): Promise<void> {
 
   console.log(JSON.stringify({
     ok: true,
-    cases: ['unexpected_exit_restart', 'heartbeat_timeout_restart', 'liveness_failure_restart', 'signal_forwarding', 'restart_context_journal'],
+    cases: ['unexpected_exit_restart', 'fatal_context_restart', 'heartbeat_timeout_restart', 'liveness_failure_restart', 'signal_forwarding', 'restart_context_journal'],
   }, null, 2));
 }
 
-async function runCase(mode: 'crash-once' | 'heartbeat-timeout-once' | 'liveness-timeout-once'): Promise<{ output: string }> {
+async function runCase(mode: 'crash-once' | 'fatal-once' | 'heartbeat-timeout-once' | 'liveness-timeout-once'): Promise<{ output: string }> {
   const tempRoot = mkdtempSync(join(tmpdir(), `server-process-supervisor-${mode}-`));
   const journalPath = join(tempRoot, 'events.jsonl');
   const port = await allocateFreePort();

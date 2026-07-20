@@ -7,7 +7,7 @@
  * 制作任务 tick 推进服务
  * 每帧为有活跃制作任务的玩家推进炼丹、锻造、强化等技艺活动进度
  */
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { CraftPanelRuntimeService } from '../craft/craft-panel-runtime.service';
 import { WorldRuntimeCraftMutationService } from './world-runtime-craft-mutation.service';
@@ -26,6 +26,7 @@ import { buildStructuredNotice } from './structured-notice.helpers';
 /** world-runtime craft tick orchestration：承接 craft job tick 推进编排。 */
 @Injectable()
 export class WorldRuntimeCraftTickService {
+    private readonly logger = new Logger(WorldRuntimeCraftTickService.name);
 /**
  * playerRuntimeService：玩家运行态服务引用。
  */
@@ -125,7 +126,29 @@ export class WorldRuntimeCraftTickService {
             }
           } catch (error) {
             const notice = buildCraftTickErrorNotice(error);
-            deps?.queuePlayerNotice?.(playerId, notice.text, notice.kind, undefined, undefined, notice.structured);
+            this.logger.error(
+                `玩家技艺 tick 失败 playerId=${playerId}`,
+                error instanceof Error ? error.stack : String(error),
+            );
+            try {
+                const noticeOperation = deps?.queuePlayerNotice?.(
+                    playerId,
+                    notice.text,
+                    notice.kind,
+                    undefined,
+                    undefined,
+                    notice.structured,
+                );
+                void Promise.resolve(noticeOperation).catch((noticeError) => {
+                    this.logger.warn(
+                        `玩家技艺 tick 失败通知入队失败 playerId=${playerId} error=${noticeError instanceof Error ? noticeError.message : String(noticeError)}`,
+                    );
+                });
+            } catch (noticeError) {
+                this.logger.warn(
+                    `玩家技艺 tick 失败通知入队失败 playerId=${playerId} error=${noticeError instanceof Error ? noticeError.message : String(noticeError)}`,
+                );
+            }
           }
         }
     }

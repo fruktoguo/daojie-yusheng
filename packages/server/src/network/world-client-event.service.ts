@@ -9,7 +9,7 @@
  * 是 runtime 结果到 socket 事件的唯一翻译层。
  */
 
-import { Inject, Injectable, Optional } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { S2C, type QuestNavigateResultView } from '@mud/shared';
 import { MailRuntimeService } from '../runtime/mail/mail-runtime.service';
 import { MarketRuntimeService } from '../runtime/market/market-runtime.service';
@@ -75,6 +75,7 @@ function normalizeClientVisibleErrorMessage(message) {
 /** 世界客户端事件服务：把 runtime 结果翻译成 Socket 事件并按玩家维度下发。 */
 @Injectable()
 export class WorldClientEventService {
+    private readonly logger = new Logger(WorldClientEventService.name);
     /** 邮件 runtime，用于查询邮件摘要、分页和详情。 */
     mailRuntimeService;
     /** 坊市 runtime，用于查询订单、图鉴和成交历史。 */
@@ -274,7 +275,15 @@ export class WorldClientEventService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         if (this.chatRuntimeService && typeof this.chatRuntimeService.handlePlayerChat === 'function') {
-            void this.chatRuntimeService.handlePlayerChat(playerId, payload);
+            try {
+                const operation = this.chatRuntimeService.handlePlayerChat(playerId, payload);
+                void Promise.resolve(operation).catch((error) => {
+                    this.logger.warn(`聊天意图处理失败 playerId=${playerId} error=${error instanceof Error ? error.message : String(error)}`);
+                });
+            }
+            catch (error) {
+                this.logger.warn(`聊天意图处理失败 playerId=${playerId} error=${error instanceof Error ? error.message : String(error)}`);
+            }
             return;
         }
         const message = typeof payload?.message === 'string' ? payload.message.trim() : '';

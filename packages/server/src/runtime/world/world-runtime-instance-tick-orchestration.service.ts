@@ -770,14 +770,12 @@ export class WorldRuntimeInstanceTickOrchestrationService {
                         addMeasuredTickSection(sectionDurations, 'instance.resolvePendingSkillCastMs', pendingSkillCastStartedAt, currentPlayerIds.length);
                     }
                     const craftJobAdvanceStartedAt = performance.now();
-                    for (const playerId of currentPlayerIds) {
-                        await this.runIsolatedOperation(deps, 'player_craft_jobs', {
-                            instanceId: instance.meta.instanceId,
-                            playerId,
-                            instanceTick: instance.tick,
-                            worldTick: deps.tick,
-                        }, () => deps.worldRuntimeCraftTickService.advanceCraftJobs([playerId], deps));
-                    }
+                    await this.runIsolatedOperation(deps, 'instance_craft_jobs', {
+                        instanceId: instance.meta.instanceId,
+                        playerCount: currentPlayerIds.length,
+                        instanceTick: instance.tick,
+                        worldTick: deps.tick,
+                    }, () => deps.worldRuntimeCraftTickService.advanceCraftJobs(currentPlayerIds, deps));
                     addMeasuredTickSection(sectionDurations, 'instance.craftJobAdvanceMs', craftJobAdvanceStartedAt, currentPlayerIds.length);
                     for (const playerId of currentPlayerIds) {
                         steppedPlayerIds.add(playerId);

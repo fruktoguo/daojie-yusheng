@@ -641,8 +641,8 @@ async function verifyOperationFailuresAreIsolatedWithinTick() {
         },
     };
     deps.worldRuntimeCraftTickService.advanceCraftJobs = async (playerIds) => {
-        log.push(['advanceCraftJobs', playerIds[0]]);
-        if (playerIds[0] === 'player:1') {
+        log.push(['advanceCraftJobs', [...playerIds]]);
+        if (playerIds.includes('player:1')) {
             throw new Error('craft failed');
         }
     };
@@ -670,7 +670,9 @@ async function verifyOperationFailuresAreIsolatedWithinTick() {
     assert.ok(log.some((entry) => Array.isArray(entry) && entry[0] === 'applyMonsterAction' && entry[1] === 'action:ok'));
     assert.ok(log.some((entry) => Array.isArray(entry) && entry[0] === 'advanceTickForPlayerIds' && entry[1] === 'player:2'));
     assert.ok(log.some((entry) => Array.isArray(entry) && entry[0] === 'resolvePendingPlayerSkillCast' && entry[1] === 'player:2'));
-    assert.ok(log.some((entry) => Array.isArray(entry) && entry[0] === 'advanceCraftJobs' && entry[1] === 'player:2'));
+    assert.ok(log.some((entry) => Array.isArray(entry)
+        && entry[0] === 'advanceCraftJobs'
+        && JSON.stringify(entry[1]) === JSON.stringify(['player:1', 'player:2'])));
     assert.ok(log.includes('tongtianTower.advanceInstance'));
     assert.ok(log.includes('advanceContainerSearches'));
     assert.ok(log.some((entry) => Array.isArray(entry) && entry[0] === 'refreshQuestStates' && entry[1] === 'player:2'));
@@ -678,7 +680,9 @@ async function verifyOperationFailuresAreIsolatedWithinTick() {
     assert.ok(diagnostics.some((entry) => entry.phase === 'monster_action_apply' && entry.details.monsterId === 'monster:bad'));
     assert.ok(diagnostics.some((entry) => entry.phase === 'player_tick_advance' && entry.details.playerId === 'player:1'));
     assert.ok(diagnostics.some((entry) => entry.phase === 'player_pending_skill_cast' && entry.details.playerId === 'player:1'));
-    assert.ok(diagnostics.some((entry) => entry.phase === 'player_craft_jobs' && entry.details.playerId === 'player:1'));
+    assert.ok(diagnostics.some((entry) => entry.phase === 'instance_craft_jobs'
+        && entry.details.instanceId === 'instance:1'
+        && entry.details.playerCount === 2));
     assert.ok(diagnostics.some((entry) => entry.phase === 'tongtian_tower_instance'));
     assert.ok(diagnostics.some((entry) => entry.phase === 'loot_container_searches'));
     assert.ok(diagnostics.some((entry) => entry.phase === 'player_quest_refresh' && entry.details.playerId === 'player:1'));

@@ -108,10 +108,18 @@ function main(): void {
   assertOrdered(tickEntry, [
     'this.ensurePipelineInitialized();',
     'this.playerRuntimeService.captureOfflineGainBeforeTick?.(player);',
-    'const result = this.pipeline.tick(player, kind, ctx);',
-    'this.recordTechniqueActivityStatisticMutation(player, result);',
+    'const result: any = this.pipeline.tick(player, kind, ctx);',
+    "if (result && typeof result.then === 'function') {",
+    'this.recordTechniqueActivityStatisticMutation(player, resolved, true);',
+    'return resolved;',
+    'this.recordTechniqueActivityStatisticMutation(player, result, true);',
     'return result;',
-  ], 'tickTechniqueActivity must preserve baseline -> pipeline -> statistic ordering');
+  ], 'tickTechniqueActivity must preserve baseline -> sync/async pipeline -> filtered statistic ordering');
+  assertMatch(
+    craftRuntimeSource,
+    /function hasTechniqueActivityStatisticSignal\(result\) \{[\s\S]*?inventoryChanged[\s\S]*?equipmentChanged[\s\S]*?attrChanged[\s\S]*?craftRealmExpGain/,
+    'technique tick statistics must only diff when a statistic-relevant signal exists',
+  );
   assertMatch(startEntry, /return buildCraftMutationResult\(`unsupported technique activity kind: \$\{kind\}`\);/, 'startTechniqueActivity must reject unregistered kinds');
   assertMatch(cancelEntry, /return buildCraftMutationResult\(`unsupported technique activity kind: \$\{kind\}`\);/, 'cancelTechniqueActivity must reject unregistered kinds');
   assertMatch(interruptEntry, /return buildCraftTickResult\(\);/, 'interruptTechniqueActivity must return an empty result for unregistered kinds');
@@ -163,7 +171,7 @@ function main(): void {
     ok: true,
     answers: [
       '所有 runtime kind 都注册到 CraftPanelRuntimeService、WorldRuntimeCraftTickService 和 WorldRuntimeCraftInterruptService 的 TechniqueActivityPipelineService。',
-      'start/cancel/interrupt/tick 的权威入口均按“统计基线 → pipeline → 统计结算 → 返回”顺序执行，world tick 不再直接分发单技艺 tick service。',
+      'start/cancel/interrupt/tick 的权威入口均按“统计基线 → pipeline → 统计结算 → 返回”顺序执行；异步 tick 在 resolve 后结算，无统计变化的纯进度 tick 跳过全量差分。',
       '炼丹/炼器/强化 world service 只保留 facade，内部调用统一技艺活动入口。',
       'strategy 不再实现 executeStart/executeCancel/executeInterrupt，旧 start/cancel/interrupt 完整委托已移除。',
       '运行时队列写入只进入 techniqueActivityQueue，legacy queuedJobs 只作为兼容迁移/旧按钮取消来源。',

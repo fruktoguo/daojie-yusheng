@@ -4,7 +4,7 @@
  * 是网络层会话生命周期的唯一真源（单进程内存）。
  */
 
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { S2C } from '@mud/shared';
 
 const DEFAULT_SESSION_DETACH_EXPIRE_MS = 15_000;
@@ -115,6 +115,7 @@ function sanitizeRequestedSessionId(rawSessionId: unknown): string {
 
 @Injectable()
 export class WorldSessionService {
+  private readonly logger = new Logger(WorldSessionService.name);
   private readonly socketsById = new Map<string, SocketPort>();
   private readonly bindingBySocketId = new Map<string, WorldSessionBinding>();
   private readonly bindingByPlayerId = new Map<string, WorldSessionBinding>();
@@ -663,7 +664,16 @@ export class WorldSessionService {
     if (!socket || !normalizedInstanceId || typeof socket.join !== 'function') {
       return;
     }
-    void socket.join(buildWorldInstanceRoomId(normalizedInstanceId));
+    try {
+      const operation = socket.join(buildWorldInstanceRoomId(normalizedInstanceId));
+      if (operation) {
+        void operation.catch((error) => {
+          this.logger.warn(`Socket 加入实例房间失败 socketId=${socketId} instanceId=${normalizedInstanceId} error=${error instanceof Error ? error.message : String(error)}`);
+        });
+      }
+    } catch (error) {
+      this.logger.warn(`Socket 加入实例房间失败 socketId=${socketId} instanceId=${normalizedInstanceId} error=${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 
   private leaveSocketInstanceRoom(socketId: string, instanceId: string | null | undefined): void {
@@ -672,7 +682,16 @@ export class WorldSessionService {
     if (!socket || !normalizedInstanceId || typeof socket.leave !== 'function') {
       return;
     }
-    void socket.leave(buildWorldInstanceRoomId(normalizedInstanceId));
+    try {
+      const operation = socket.leave(buildWorldInstanceRoomId(normalizedInstanceId));
+      if (operation) {
+        void operation.catch((error) => {
+          this.logger.warn(`Socket 离开实例房间失败 socketId=${socketId} instanceId=${normalizedInstanceId} error=${error instanceof Error ? error.message : String(error)}`);
+        });
+      }
+    } catch (error) {
+      this.logger.warn(`Socket 离开实例房间失败 socketId=${socketId} instanceId=${normalizedInstanceId} error=${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 }
 

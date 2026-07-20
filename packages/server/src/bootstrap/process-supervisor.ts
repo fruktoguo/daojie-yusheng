@@ -14,11 +14,21 @@ const SUPERVISOR_RESTART_CONTEXT_ENV = 'SERVER_PROCESS_SUPERVISOR_RESTART_CONTEX
 const SUPERVISOR_MESSAGE_SOURCE = 'server-process-supervisor-child';
 const DEVELOPMENT_ENVS = new Set(['development', 'dev', 'local', 'test']);
 
+export type ServerProcessFatalKind = 'unhandled_rejection' | 'uncaught_exception';
+
+interface SupervisorFatalSnapshot {
+  kind: ServerProcessFatalKind;
+  message: string;
+  stack: string | null;
+  reportedAt: string;
+}
+
 interface SupervisorChildMessage {
   source: typeof SUPERVISOR_MESSAGE_SOURCE;
-  type: 'heartbeat' | 'ready';
+  type: 'heartbeat' | 'ready' | 'fatal';
   at: number;
   pid: number;
+  fatal?: SupervisorFatalSnapshot;
 }
 
 interface ChildMemorySnapshot {
@@ -36,6 +46,7 @@ interface SupervisorRestartContext extends ChildMemorySnapshot {
   exitedAt: string;
   uptimeMs: number;
   consecutiveFailures: number;
+  fatal: SupervisorFatalSnapshot | null;
 }
 
 interface ProcessSupervisorConfig {
@@ -102,6 +113,41 @@ export function notifyServerProcessSupervisorReady(): void {
   sendSupervisorChildMessage('ready');
 }
 
+let fatalExitStarted = false;
+
+/** 把致命异常交给父监督器持久化后退出，避免子进程日志随重启一起丢失。 */
+export function reportServerProcessFatalAndExit(kind: ServerProcessFatalKind, error: unknown): void {
+  if (fatalExitStarted) {
+    return;
+  }
+  fatalExitStarted = true;
+  const fatal = normalizeSupervisorFatalError(kind, error);
+  if (process.env[SUPERVISOR_CHILD_ENV] !== '1' || typeof process.send !== 'function' || !process.connected) {
+    process.exit(1);
+    return;
+  }
+
+  let exited = false;
+  const exit = () => {
+    if (exited) return;
+    exited = true;
+    clearTimeout(fallbackTimer);
+    process.exit(1);
+  };
+  const fallbackTimer = setTimeout(exit, 250);
+  try {
+    process.send({
+      source: SUPERVISOR_MESSAGE_SOURCE,
+      type: 'fatal',
+      at: Date.now(),
+      pid: process.pid,
+      fatal,
+    } satisfies SupervisorChildMessage, () => exit());
+  } catch {
+    exit();
+  }
+}
+
 /** 启动常驻父进程；只有收到容器停止信号时才正常返回。 */
 export async function runServerProcessSupervisor(options: RunServerProcessSupervisorOptions): Promise<void> {
   const config = { ...resolveProcessSupervisorConfig(process.env), ...options.config };
@@ -116,6 +162,7 @@ class ServerProcessSupervisor {
   private childReadyAt: number | null = null;
   private lastHeartbeatAt = 0;
   private lastMemory: ChildMemorySnapshot = { rssMb: null, peakRssMb: null };
+  private lastFatal: SupervisorFatalSnapshot | null = null;
   private consecutiveFailures = 0;
   private livenessFailures = 0;
   private livenessInFlight = false;
@@ -165,6 +212,7 @@ class ServerProcessSupervisor {
     this.childReadyAt = null;
     this.lastHeartbeatAt = this.childStartedAt;
     this.lastMemory = { rssMb: null, peakRssMb: null };
+    this.lastFatal = null;
     this.livenessFailures = 0;
     this.recoveryReason = null;
 
@@ -209,6 +257,15 @@ class ServerProcessSupervisor {
 
   private handleChildMessage(child: ChildProcess, message: unknown): void {
     if (child !== this.child || !isSupervisorChildMessage(message)) {
+      return;
+    }
+    if (message.type === 'fatal') {
+      this.lastFatal = message.fatal ?? null;
+      this.record('child_fatal', '服务端子进程报告致命异常', {
+        generation: this.generation,
+        childPid: message.pid,
+        fatal: this.lastFatal,
+      });
       return;
     }
     this.lastHeartbeatAt = Math.max(this.lastHeartbeatAt, message.at);
@@ -342,6 +399,7 @@ class ServerProcessSupervisor {
       exitedAt: new Date(now).toISOString(),
       uptimeMs: Math.max(0, now - this.childStartedAt),
       consecutiveFailures: this.consecutiveFailures,
+      fatal: this.lastFatal,
       ...this.lastMemory,
     };
     this.recentRestartContexts.push(context);
@@ -504,10 +562,41 @@ function isSupervisorChildMessage(value: unknown): value is SupervisorChildMessa
     return false;
   }
   const message = value as Partial<SupervisorChildMessage>;
-  return message.source === SUPERVISOR_MESSAGE_SOURCE
-    && (message.type === 'heartbeat' || message.type === 'ready')
-    && typeof message.at === 'number'
-    && typeof message.pid === 'number';
+  if (message.source !== SUPERVISOR_MESSAGE_SOURCE
+    || (message.type !== 'heartbeat' && message.type !== 'ready' && message.type !== 'fatal')
+    || typeof message.at !== 'number'
+    || typeof message.pid !== 'number') {
+    return false;
+  }
+  if (message.type !== 'fatal') {
+    return true;
+  }
+  const fatal = message.fatal as Partial<SupervisorFatalSnapshot> | undefined;
+  return Boolean(
+    fatal
+    && (fatal.kind === 'unhandled_rejection' || fatal.kind === 'uncaught_exception')
+    && typeof fatal.message === 'string'
+    && (fatal.stack === null || typeof fatal.stack === 'string')
+    && typeof fatal.reportedAt === 'string',
+  );
+}
+
+function normalizeSupervisorFatalError(kind: ServerProcessFatalKind, error: unknown): SupervisorFatalSnapshot {
+  const message = error instanceof Error ? error.message : String(error);
+  const stack = error instanceof Error && typeof error.stack === 'string' ? error.stack : null;
+  return {
+    kind,
+    message: truncateAndRedactFatalText(message || kind, 2_048),
+    stack: stack ? truncateAndRedactFatalText(stack, 6_144) : null,
+    reportedAt: new Date().toISOString(),
+  };
+}
+
+function truncateAndRedactFatalText(value: string, limit: number): string {
+  return value
+    .replace(/((?:password|token|secret|authorization|cookie|connection_string)\s*[=:]\s*)[^\s,;]+/gi, '$1[REDACTED]')
+    .replace(/(postgres(?:ql)?:\/\/[^:\s/]+:)[^@\s]+@/gi, '$1[REDACTED]@')
+    .slice(0, limit);
 }
 
 async function probeLiveness(config: ProcessSupervisorConfig): Promise<boolean> {
