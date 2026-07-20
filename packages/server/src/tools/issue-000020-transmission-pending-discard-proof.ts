@@ -33,6 +33,7 @@ function createPlayer(playerId: string, x: number, y: number) {
     templateId: 'map:issue-000020',
     x,
     y,
+    facing: 1,
     hp: 100,
     maxHp: 100,
     qi: 100,
@@ -56,9 +57,13 @@ function createPlayer(playerId: string, x: number, y: number) {
       ratioDivisors: {},
     },
     buffs: { revision: 1, buffs: [] },
+    quests: { revision: 1, quests: [] },
     inventory: { revision: 1, capacity: 30, items: [], lockedItems: [] },
     equipment: { revision: 1, slots: [] },
     artifacts: { revision: 1, slots: [] },
+    unlockedMapIds: [],
+    pendingLogbookMessages: [],
+    runtimeBonuses: [],
     dirtyDomains: new Set<string>(),
     persistentRevision: 0,
   };
@@ -147,16 +152,53 @@ function main(): void {
   assert.equal(learner.dirtyDomains.has('technique'), true);
   assert.equal((learner as { allowPendingTechniqueComprehensionEmptyOverwrite?: boolean }).allowPendingTechniqueComprehensionEmptyOverwrite, true);
 
+  runtimeService.markPersistenceDirtyDomains(learner as never, ['technique']);
+  const coalescedTechniqueRevision = runtimeService.getPersistenceDomainRevision(learner.playerId, 'technique');
+  const coalescedSnapshot = runtimeService.buildPersistenceSnapshot(learner.playerId, new Set(['technique']));
+  assert.equal(
+    coalescedSnapshot?.techniques.allowPendingComprehensionEmptyOverwrite,
+    true,
+    '放弃最后一条 pending 的授权必须跨越后续 technique 修订与 ledger 合并窗口',
+  );
+  assert.deepEqual(
+    coalescedSnapshot?.techniques.pendingComprehensionEmptyOverwriteTechIds,
+    [TECHNIQUE_ID],
+    '空删除授权必须绑定本次明确放弃的功法 ID',
+  );
+  runtimeService.markPersistenceDomainsPersistedByRevision(
+    learner.playerId,
+    new Map([['technique', coalescedTechniqueRevision ?? 0]]),
+    runtimeService.getPersistenceRevision(learner.playerId) ?? 0,
+    'issue-000020-proof',
+  );
+  const persistedSnapshot = runtimeService.buildPersistenceSnapshot(learner.playerId, new Set(['technique']));
+  assert.equal(
+    persistedSnapshot?.techniques.allowPendingComprehensionEmptyOverwrite,
+    false,
+    '对应 technique 修订落库后必须撤销一次性空删除授权',
+  );
+
   const canPruneEmpty = (playerDomainPersistence as unknown as {
     canPruneEmptyTechniqueComprehensions?: (
       existingTechniqueIds: readonly string[],
       completedTechniqueIds: ReadonlySet<string> | undefined,
       allowExplicitEmptyOverwrite: boolean,
+      explicitlyRemovedTechniqueIds?: ReadonlySet<string>,
     ) => boolean;
   }).canPruneEmptyTechniqueComprehensions;
   assert.equal(typeof canPruneEmpty, 'function', '持久化层缺少显式放弃的窄范围空表清理策略');
   assert.equal(canPruneEmpty(['gen_other'], new Set(), false), false, '普通空快照仍必须触发防误删守卫');
   assert.equal(canPruneEmpty([TECHNIQUE_ID], new Set(), true), true, '显式放弃必须允许删除最后一条 pending 真源');
+  assert.equal(
+    canPruneEmpty(['gen_other'], new Set(), true, new Set([TECHNIQUE_ID])),
+    false,
+    '精确放弃授权不得删除其他 pending 功法真源',
+  );
+  assert.equal(
+    canPruneEmpty([TECHNIQUE_ID], new Set(), true, new Set([TECHNIQUE_ID])),
+    true,
+    '精确放弃授权必须允许删除匹配的 pending 功法真源',
+  );
   assert.equal(typeof (C2S as unknown as Record<string, unknown>).DiscardTechniqueComprehension, 'string');
 
   console.log(MARKER);

@@ -495,6 +495,7 @@ export class PlayerRuntimeService {
             pendingTechniqueComprehensions: [],
             allowPendingTechniqueComprehensionEmptyOverwrite: false,
             pendingTechniqueComprehensionEmptyOverwriteRevision: 0,
+            pendingTechniqueComprehensionEmptyOverwriteTechIds: new Set(),
             attrs: this.playerAttributesService.createInitialState(),
             actions: {
                 revision: 1,
@@ -3608,6 +3609,8 @@ export class PlayerRuntimeService {
             'technique',
             ...(cultivationPreferenceChanged ? ['combat_pref'] : []),
         ]);
+        const emptyOverwriteTechIds = ensurePendingTechniqueComprehensionEmptyOverwriteTechIds(player);
+        emptyOverwriteTechIds.add(normalized);
         player.allowPendingTechniqueComprehensionEmptyOverwrite = true;
         player.pendingTechniqueComprehensionEmptyOverwriteRevision = getPlayerPersistenceDomainRevision(player, 'technique');
         this.bumpPersistentRevision(player);
@@ -5122,6 +5125,11 @@ export class PlayerRuntimeService {
             }
             player.dirtyDomains?.delete(domain);
             ensurePlayerPersistencePersistedMap(player).set(domain, capturedRevision);
+            clearPendingTechniqueComprehensionEmptyOverwriteAuthorizationIfPersisted(
+                player,
+                domain,
+                capturedRevision,
+            );
         }
         const capturedRuntimeRevision = Math.max(0, Math.trunc(Number(runtimeRevision) || 0));
         const noDirtyDomains = !(player.dirtyDomains instanceof Set) || player.dirtyDomains.size === 0;
@@ -5311,15 +5319,26 @@ export class PlayerRuntimeService {
                         normalizedDomain,
                         domainRevision,
                     );
+                    clearPendingTechniqueComprehensionEmptyOverwriteAuthorizationIfPersisted(
+                        player,
+                        normalizedDomain,
+                        domainRevision,
+                    );
                 }
             }
         } else {
             if (!persistedDomains && !hasMutationAfterSnapshot) {
                 const dirtyDomains = player.dirtyDomains instanceof Set ? Array.from(player.dirtyDomains) : [];
                 for (const domain of dirtyDomains) {
+                    const domainRevision = getPlayerPersistenceDomainRevision(player, domain);
                     ensurePlayerPersistencePersistedMap(player).set(
                         domain,
-                        getPlayerPersistenceDomainRevision(player, domain),
+                        domainRevision,
+                    );
+                    clearPendingTechniqueComprehensionEmptyOverwriteAuthorizationIfPersisted(
+                        player,
+                        domain,
+                        domainRevision,
                     );
                 }
                 clearPlayerDirtyDomains(player);
@@ -5631,6 +5650,7 @@ export class PlayerRuntimeService {
             pendingTechniqueComprehensions: pendingComprehensions.entries,
             allowPendingTechniqueComprehensionEmptyOverwrite: false,
             pendingTechniqueComprehensionEmptyOverwriteRevision: 0,
+            pendingTechniqueComprehensionEmptyOverwriteTechIds: new Set(),
             unlockedMapIds: snapshot.unlockedMapIds.slice(),
             selfRevision: 1,
             inventory: {
@@ -6261,6 +6281,21 @@ function markPlayerDirtyDomains(player, domains) {
     for (const domain of Array.isArray(domains) ? domains : []) {
         if (typeof domain === 'string' && domain.trim()) {
             const normalizedDomain = domain.trim();
+            if (normalizedDomain === 'technique'
+                && Array.isArray(player.pendingTechniqueComprehensions)
+                && player.pendingTechniqueComprehensions.length > 0) {
+                const emptyOverwriteTechIds = ensurePendingTechniqueComprehensionEmptyOverwriteTechIds(player);
+                for (const pending of player.pendingTechniqueComprehensions) {
+                    const pendingTechId = typeof pending?.techId === 'string' ? pending.techId.trim() : '';
+                    if (pendingTechId) {
+                        emptyOverwriteTechIds.delete(pendingTechId);
+                    }
+                }
+                if (emptyOverwriteTechIds.size === 0) {
+                    player.allowPendingTechniqueComprehensionEmptyOverwrite = false;
+                    player.pendingTechniqueComprehensionEmptyOverwriteRevision = 0;
+                }
+            }
             player.dirtyDomains.add(normalizedDomain);
             const revisionByDomain = ensurePlayerPersistenceDomainRevisionMap(player);
             const currentRevision = Math.max(
@@ -8351,6 +8386,7 @@ function buildRuntimePlayerPersistenceSnapshot(player, mapTemplateRepository = n
     const needsProgression = needsDomain('progression', 'body_training', 'profession', 'alchemy_preset', 'active_job', 'enhancement_record', 'attr');
     const needsCombat = needsDomain('combat_pref', 'auto_battle_skill', 'auto_use_item_rule');
     const needsTechnique = needsDomain('technique', 'combat_pref');
+    const pendingComprehensionEmptyOverwriteAuthorization = buildPendingTechniqueComprehensionEmptyOverwriteAuthorization(player);
     const templateId = typeof player.templateId === 'string' ? player.templateId.trim() : '';
     const respawnTemplateId = typeof player.respawnTemplateId === 'string' && player.respawnTemplateId.trim()
         ? player.respawnTemplateId.trim()
@@ -8482,13 +8518,13 @@ function buildRuntimePlayerPersistenceSnapshot(player, mapTemplateRepository = n
             techniques: needsDomain('technique') ? player.techniques.techniques.map((entry) => buildPersistedTechniqueState(entry)) : [],
             cultivatingTechId: player.techniques.cultivatingTechId,
             pendingComprehensions: clonePendingTechniqueComprehensions(player.pendingTechniqueComprehensions),
-            allowPendingComprehensionEmptyOverwrite: hasCurrentPendingTechniqueComprehensionEmptyOverwriteAuthorization(player),
+            ...pendingComprehensionEmptyOverwriteAuthorization,
         } : {
             revision: player.techniques.revision,
             techniques: [],
             cultivatingTechId: player.techniques.cultivatingTechId,
             pendingComprehensions: clonePendingTechniqueComprehensions(player.pendingTechniqueComprehensions),
-            allowPendingComprehensionEmptyOverwrite: hasCurrentPendingTechniqueComprehensionEmptyOverwriteAuthorization(player),
+            ...pendingComprehensionEmptyOverwriteAuthorization,
         },
         buffs: needsDomain('buff') ? {
             revision: player.buffs.revision,
@@ -8532,9 +8568,49 @@ function buildRuntimePlayerPersistenceSnapshot(player, mapTemplateRepository = n
 }
 
 function hasCurrentPendingTechniqueComprehensionEmptyOverwriteAuthorization(player) {
+    const authorizationRevision = Math.max(
+        0,
+        Math.trunc(Number(player?.pendingTechniqueComprehensionEmptyOverwriteRevision) || 0),
+    );
     return player?.allowPendingTechniqueComprehensionEmptyOverwrite === true
-        && Math.max(0, Math.trunc(Number(player.pendingTechniqueComprehensionEmptyOverwriteRevision) || 0))
-            === getPlayerPersistenceDomainRevision(player, 'technique');
+        && Array.isArray(player.pendingTechniqueComprehensions)
+        && player.pendingTechniqueComprehensions.length === 0
+        && ensurePendingTechniqueComprehensionEmptyOverwriteTechIds(player).size > 0
+        && authorizationRevision > 0
+        && authorizationRevision <= getPlayerPersistenceDomainRevision(player, 'technique');
+}
+
+function buildPendingTechniqueComprehensionEmptyOverwriteAuthorization(player) {
+    const allowed = hasCurrentPendingTechniqueComprehensionEmptyOverwriteAuthorization(player);
+    return {
+        allowPendingComprehensionEmptyOverwrite: allowed,
+        pendingComprehensionEmptyOverwriteTechIds: allowed
+            ? Array.from(ensurePendingTechniqueComprehensionEmptyOverwriteTechIds(player)).sort()
+            : [],
+    };
+}
+
+function ensurePendingTechniqueComprehensionEmptyOverwriteTechIds(player) {
+    if (!(player?.pendingTechniqueComprehensionEmptyOverwriteTechIds instanceof Set)) {
+        player.pendingTechniqueComprehensionEmptyOverwriteTechIds = new Set();
+    }
+    return player.pendingTechniqueComprehensionEmptyOverwriteTechIds;
+}
+
+function clearPendingTechniqueComprehensionEmptyOverwriteAuthorizationIfPersisted(player, domain, persistedRevision) {
+    if (domain !== 'technique' || player?.allowPendingTechniqueComprehensionEmptyOverwrite !== true) {
+        return;
+    }
+    const authorizationRevision = Math.max(
+        0,
+        Math.trunc(Number(player.pendingTechniqueComprehensionEmptyOverwriteRevision) || 0),
+    );
+    const normalizedPersistedRevision = Math.max(0, Math.trunc(Number(persistedRevision) || 0));
+    if (authorizationRevision > 0 && normalizedPersistedRevision >= authorizationRevision) {
+        player.allowPendingTechniqueComprehensionEmptyOverwrite = false;
+        player.pendingTechniqueComprehensionEmptyOverwriteRevision = 0;
+        ensurePendingTechniqueComprehensionEmptyOverwriteTechIds(player).clear();
+    }
 }
 
 function buildPersistedTechniqueState(entry) {

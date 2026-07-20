@@ -238,13 +238,14 @@ async function main(): Promise<void> {
     await proveHistoricalPresenceFenceConvergence();
     await proveStartupReplayDrainsPresenceBeforeProjection();
     await proveStartupReplayAdvancesDurableFutureFence();
+    await proveStartupReplayPreservesTechniqueComprehensionTruth();
   } finally {
     restoreEnv('SERVER_RUNTIME_ROLE', previousRole);
     restoreEnv('SERVER_FLUSH_TASK_RUNTIME_MODE', previousMode);
   }
   console.log(JSON.stringify({
     ok: true,
-    answers: '玩家 presence 与 snapshot projectable flush task 可在 worker role 下从 staging payload 写入 PlayerDomainPersistenceService，并 mark flushed；同一玩家的多个 projection 只调用一次单事务 batch writer，任一领域写失败时整组进入 retry 且不会降级为逐域写入；历史 payload 缺 owner 时不信任可能残留的 ledger owner，只有 payload/DB 精确 fence 或同 epoch双方均已释放 owner才写入，旧 session/owner 与不存在玩家的 projection 会 stale-safe 收敛。',
+    answers: '玩家 presence 与 snapshot projectable flush task 可在 worker role 下从 staging payload 写入 PlayerDomainPersistenceService，并 mark flushed；同一玩家的多个 projection 只调用一次单事务 batch writer，任一领域写失败时整组进入 retry 且不会降级为逐域写入；历史 payload 缺 owner 时不信任可能残留的 ledger owner，只有 payload/DB 精确 fence 或同 epoch双方均已释放 owner才写入，旧 session/owner 与不存在玩家的 projection 会 stale-safe 收敛；启动重放遇到历史无授权的功法领悟空删除时保留数据库真源、隔离 technique 删除 payload，并继续提交同玩家其余领域。',
     excludes: '不证明邮件/市场/GM edit 或实例 domain，也不证明真实 DB with-db 竞争。',
     completionMapping: 'flush-player-payload',
   }, null, 2));
@@ -683,6 +684,85 @@ async function proveStartupReplayDrainsPresenceBeforeProjection(): Promise<void>
   const processed = await runtime.replayDurablePayloadsBeforeRecovery({ timeoutMs: 5_000 });
   assert.equal(processed, 2);
   assert.deepEqual(writeOrder, ['presence', 'projection']);
+}
+
+async function proveStartupReplayPreservesTechniqueComprehensionTruth(): Promise<void> {
+  const playerId = 'technique-empty-overwrite-replay-player';
+  const pendingDomains = new Set(['attr', 'technique']);
+  const buildTask = (domain: string, latestRevision: number): FlushTask => ({
+    scope: 'player',
+    id: playerId,
+    domain,
+    priority: 'normal',
+    latestRevision,
+    claimOwnerId: `technique-empty-overwrite-${domain}`,
+    payloadJson: {
+      kind: 'player_snapshot_projection',
+      projectedDomains: [domain],
+      projectionVersion: latestRevision,
+      snapshot: {
+        version: 1,
+        savedAt: latestRevision,
+        placement: { templateId: 'map-1', x: 1, y: 2 },
+        techniques: { techniques: [], pendingComprehensions: [] },
+        attrState: { baseAttrs: {} },
+      },
+    },
+  });
+  const tasks = [buildTask('attr', 201), buildTask('technique', 202)];
+  const flushedDomains: string[] = [];
+  const committedDomains: string[][] = [];
+  let batchAttempts = 0;
+  const runtime = new FlushTaskRuntimeService(
+    {} as never,
+    {} as never,
+    { flushPlayerDomains: async () => { throw new Error('startup replay 不得回退 runtime flush'); } } as never,
+    {
+      isEnabled: () => true,
+      countPendingPayloadTasks: async (input?: { scope?: string; domain?: string }) => {
+        if (input?.scope === 'player' && input.domain === 'presence') return 0;
+        return pendingDomains.size;
+      },
+      claimReadyFlushTasks: async (input: { scope: string }) => {
+        if (input.scope === 'instance') return [];
+        return tasks.filter((task) => pendingDomains.has(task.domain));
+      },
+      renewFlushTaskClaims: async (claimedTasks: FlushTask[]) => claimedTasks.length,
+      markFlushTaskFlushed: async (task: FlushTask) => {
+        pendingDomains.delete(task.domain);
+        flushedDomains.push(task.domain);
+        return true;
+      },
+      markFlushTasksRetry: async () => 0,
+      markFlushTaskRetry: async () => true,
+    } as never,
+    { signalPlayerFlush: () => undefined, signalInstanceFlush: () => undefined } as never,
+    undefined,
+    undefined,
+    {
+      isEnabled: () => true,
+      savePlayerSnapshotProjectionDomainBatch: async (
+        _targetPlayerId: string,
+        entries: Array<{ domains: Iterable<string> }>,
+      ) => {
+        batchAttempts += 1;
+        const domains = entries.flatMap((entry) => Array.from(entry.domains)).sort();
+        if (domains.includes('technique')) {
+          throw new Error(
+            `replace_technique_comprehension_refused_empty_overwrite:playerId=${playerId} table=player_technique_comprehension`,
+          );
+        }
+        committedDomains.push(domains);
+      },
+    } as never,
+  );
+
+  const processed = await runtime.replayDurablePayloadsBeforeRecovery({ timeoutMs: 5_000 });
+  assert.equal(processed, 2);
+  assert.equal(batchAttempts, 2, '隔离 technique 后必须重试并提交同玩家其余领域');
+  assert.deepEqual(flushedDomains.sort(), ['attr', 'technique']);
+  assert.deepEqual(committedDomains, [['attr']]);
+  assert.equal(pendingDomains.size, 0);
 }
 
 function restoreEnv(name: string, value: string | undefined): void {

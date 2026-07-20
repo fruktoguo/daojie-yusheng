@@ -233,6 +233,12 @@ interface BlockedComprehensionPruneResult {
   pendingPreserved: boolean;
 }
 
+interface ExplicitDiscardComprehensionPruneResult {
+  playerId: string;
+  techniqueComprehensionRows: number;
+  explicitlyDiscardedPendingDeleted: boolean;
+}
+
 async function main(): Promise<void> {
   if (!databaseUrl.trim()) {
     console.log(
@@ -267,11 +273,13 @@ async function main(): Promise<void> {
   const failures: string[] = [];
   let completedComprehensionPrune: CompletedComprehensionPruneResult | null = null;
   let blockedComprehensionPrune: BlockedComprehensionPruneResult | null = null;
+  let explicitDiscardComprehensionPrune: ExplicitDiscardComprehensionPruneResult | null = null;
   let successPayload: Record<string, unknown> | null = null;
   const testPlayerIds = [
     ...DOMAIN_CASES.map((domainCase) => `${playerIdBase}_${domainCase.tag}`),
     `${playerIdBase}_technique_comprehension_completed`,
     `${playerIdBase}_technique_comprehension_blocked`,
+    `${playerIdBase}_technique_comprehension_discarded`,
   ];
   let runError: unknown = null;
   const cleanupErrors: unknown[] = [];
@@ -345,6 +353,11 @@ async function main(): Promise<void> {
       pool,
       `${playerIdBase}_technique_comprehension_blocked`,
     );
+    explicitDiscardComprehensionPrune = await assertExplicitlyDiscardedTechniqueComprehensionCanPrune(
+      service,
+      pool,
+      `${playerIdBase}_technique_comprehension_discarded`,
+    );
 
     if (failures.length > 0) {
       throw new Error(`empty-overwrite guard failures:\n  - ${failures.join('\n  - ')}`);
@@ -356,8 +369,9 @@ async function main(): Promise<void> {
       domainResults: results,
       completedComprehensionPrune,
       blockedComprehensionPrune,
+      explicitDiscardComprehensionPrune,
       answers:
-        '玩家分域 cleanup DELETE 在 incoming=[] + PG 已有 row 时，已被 refuseEmptyOverwriteIfRowsExist 守卫拒绝；withTransaction rollback 后 PG 中 row 数与 seed 一致。未领悟功法完成后 pendingComprehensions 合法归零时允许删除旧 pending 行；tech_id 未匹配已学功法时仍拒绝清空 pending。',
+        '玩家分域 cleanup DELETE 在 incoming=[] + PG 已有 row 时，已被 refuseEmptyOverwriteIfRowsExist 守卫拒绝；withTransaction rollback 后 PG 中 row 数与 seed 一致。未领悟功法完成或携带匹配功法 ID 的显式放弃授权时允许删除旧 pending 行；普通空投影仍拒绝清空 pending。',
       excludes:
         '不证明 ensureNativeStarterSnapshot 入口的 load 失败拒绝写 starter / hasRecoveryWatermark guard，这两层由 world-player-snapshot.service 自身的逻辑路径覆盖。',
       completionMapping: 'release:proof:with-db.player-domain-empty-overwrite-guard',
@@ -527,6 +541,49 @@ async function assertCompletedTechniqueComprehensionCanPrune(
   if (!result.completedPendingDeleted) {
     throw new Error(
       `completed comprehension prune failed: techniqueStateRows=${techniqueStateRows} techniqueComprehensionRows=${techniqueComprehensionRows}`,
+    );
+  }
+  return result;
+}
+
+async function assertExplicitlyDiscardedTechniqueComprehensionCanPrune(
+  service: PlayerDomainPersistenceService,
+  pool: Pool,
+  playerId: string,
+): Promise<ExplicitDiscardComprehensionPruneResult> {
+  await cleanupPlayer(pool, playerId);
+  const pendingTechId = 'guard_explicitly_discarded_pending_technique';
+  const seedSnapshot = buildTechniqueProjectionSnapshot(playerId, [], [
+    {
+      techId: pendingTechId,
+      sourceKind: 'created',
+      selfComprehensionAllowed: true,
+      progress: 12,
+      requiredProgress: 100,
+      realmLv: 1,
+      grade: 'mortal',
+      category: 'internal',
+      createdAtTick: 10,
+      updatedAtTick: 20,
+    },
+  ]);
+  await service.savePlayerSnapshotProjectionDomains(playerId, seedSnapshot, ['technique']);
+
+  const discardedSnapshot = buildTechniqueProjectionSnapshot(playerId, [], []);
+  discardedSnapshot.techniques.allowPendingComprehensionEmptyOverwrite = true;
+  discardedSnapshot.techniques.pendingComprehensionEmptyOverwriteTechIds = [pendingTechId];
+  await service.savePlayerSnapshotProjectionDomains(playerId, discardedSnapshot, ['technique']);
+
+  const techniqueComprehensionRows = await countDomainRows(pool, 'player_technique_comprehension', playerId);
+  const result = {
+    playerId,
+    techniqueComprehensionRows,
+    explicitlyDiscardedPendingDeleted: techniqueComprehensionRows === 0,
+  };
+  await cleanupPlayer(pool, playerId).catch(() => undefined);
+  if (!result.explicitlyDiscardedPendingDeleted) {
+    throw new Error(
+      `explicitly discarded comprehension prune failed: techniqueComprehensionRows=${techniqueComprehensionRows}`,
     );
   }
   return result;

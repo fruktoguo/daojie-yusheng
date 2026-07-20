@@ -533,7 +533,10 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
       assertReplayableInstancePayloads(instanceTasks);
       const claimedCount = playerTasks.length + instanceTasks.length;
       if (playerTasks.length > 0) {
-        processedTotal += await this.processPlayerTasks(playerTasks, { failFastDeterministicPayload: true });
+        processedTotal += await this.processPlayerTasks(playerTasks, {
+          failFastDeterministicPayload: true,
+          preserveTechniqueComprehensionTruthOnEmptyOverwrite: true,
+        });
       }
       if (instanceTasks.length > 0) {
         processedTotal += await this.processInstanceTasks(instanceTasks);
@@ -1080,7 +1083,10 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
 
   private async processPlayerTasks(
     tasks: FlushTask[],
-    options: { failFastDeterministicPayload?: boolean } = {},
+    options: {
+      failFastDeterministicPayload?: boolean;
+      preserveTechniqueComprehensionTruthOnEmptyOverwrite?: boolean;
+    } = {},
   ): Promise<number> {
     const groups = Array.from(groupTasksById(tasks).values());
     const results = new Array(groups.length).fill(0);
@@ -1126,6 +1132,13 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
           this.failureAttempts.delete(attemptKey);
           results[index] = group.length;
         } catch (error) {
+          if (options.preserveTechniqueComprehensionTruthOnEmptyOverwrite === true) {
+            const preserved = await this.preserveTechniqueComprehensionTruthAndContinueReplay(group, error);
+            if (preserved !== null) {
+              results[index] = preserved;
+              return;
+            }
+          }
           if (options.failFastDeterministicPayload === true && isDeterministicReplayPlayerPayloadError(error)) {
             throw error;
           }
@@ -1508,6 +1521,45 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
     );
     await this.flushLedgerService.markFlushTasksRetry(tasks, retryDelayMs);
     return 0;
+  }
+
+  private async preserveTechniqueComprehensionTruthAndContinueReplay(
+    tasks: FlushTask[],
+    error: unknown,
+  ): Promise<number | null> {
+    const failure = classifyFlushFailure(error);
+    if (
+      failure.category !== 'empty_overwrite_guard'
+      || !failure.message.includes('replace_technique_comprehension_refused_empty_overwrite')
+    ) {
+      return null;
+    }
+    const techniqueTasks = tasks.filter((task) => task.domain === 'technique');
+    if (techniqueTasks.length !== 1) {
+      return null;
+    }
+    const [techniqueTask] = techniqueTasks;
+    const remainingTasks = tasks.filter((task) => task !== techniqueTask);
+    this.recordFlushFailure(
+      'player',
+      techniqueTask.id,
+      techniqueTask.domain,
+      failure,
+      1,
+      0,
+    );
+    if (!await this.flushLedgerService.markFlushTaskFlushed(techniqueTask)) {
+      await this.flushLedgerService.markFlushTasksRetry(tasks, RETRY_DELAY_MS);
+      return 0;
+    }
+    if (remainingTasks.length > 0) {
+      await this.flushLedgerService.markFlushTasksRetry(remainingTasks, 0);
+    }
+    this.failureAttempts.delete(playerGroupKey(tasks));
+    this.logger.error(
+      `启动重放已隔离无法证明的功法领悟空删除 payload：playerId=${techniqueTask.id}，保留 player_technique_comprehension 数据库真源并继续启动`,
+    );
+    return 1;
   }
 
   private async processInstanceStatePayloadTaskGroup(group: FlushTask[]): Promise<number | null> {

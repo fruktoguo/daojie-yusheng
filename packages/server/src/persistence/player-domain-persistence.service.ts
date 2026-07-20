@@ -358,6 +358,7 @@ interface PlayerDomainPruneOptions {
 interface TechniqueComprehensionReplaceOptions {
   completedTechniqueIds?: ReadonlySet<string>;
   allowExplicitEmptyOverwrite?: boolean;
+  explicitlyRemovedTechniqueIds?: ReadonlySet<string>;
 }
 
 export interface PlayerWorldAnchorUpsertInput {
@@ -3573,6 +3574,7 @@ export async function savePlayerSnapshotProjectionWithClient(
     {
       completedTechniqueIds: new Set(techniqueStates.map((row) => row.techId)),
       allowExplicitEmptyOverwrite: snapshot.techniques?.allowPendingComprehensionEmptyOverwrite === true,
+      explicitlyRemovedTechniqueIds: buildTechniqueComprehensionEmptyOverwriteTechIds(snapshot),
     },
   );
   await replacePlayerPersistentBuffStates(client, normalizedPlayerId, persistentBuffStates);
@@ -3833,6 +3835,7 @@ export async function savePlayerSnapshotProjectionDomainsWithClient(
       {
         completedTechniqueIds: new Set(techniqueRows.map((row) => row.techId)),
         allowExplicitEmptyOverwrite: snapshot.techniques?.allowPendingComprehensionEmptyOverwrite === true,
+        explicitlyRemovedTechniqueIds: buildTechniqueComprehensionEmptyOverwriteTechIds(snapshot),
       },
     );
     watermarkPatch.technique_version = versionSeed;
@@ -6180,6 +6183,7 @@ async function replacePlayerTechniqueComprehensions(
       playerId,
       options.completedTechniqueIds,
       options.allowExplicitEmptyOverwrite === true,
+      options.explicitlyRemovedTechniqueIds,
     )
     : false;
   await prunePlayerRowsBySnapshotKeys(
@@ -6198,8 +6202,13 @@ async function canPruneEmptyTechniqueComprehensionsWithClient(
   playerId: string,
   completedTechniqueIds: ReadonlySet<string> | undefined,
   allowExplicitEmptyOverwrite: boolean,
+  explicitlyRemovedTechniqueIds: ReadonlySet<string> | undefined,
 ): Promise<boolean> {
-  if (!allowExplicitEmptyOverwrite && (!completedTechniqueIds || completedTechniqueIds.size === 0)) {
+  if (
+    !allowExplicitEmptyOverwrite
+    && (!completedTechniqueIds || completedTechniqueIds.size === 0)
+    && (!explicitlyRemovedTechniqueIds || explicitlyRemovedTechniqueIds.size === 0)
+  ) {
     return false;
   }
   const result = await client.query<{ tech_id: string }>(
@@ -6213,6 +6222,7 @@ async function canPruneEmptyTechniqueComprehensionsWithClient(
     existingTechIds,
     completedTechniqueIds,
     allowExplicitEmptyOverwrite,
+    explicitlyRemovedTechniqueIds,
   );
 }
 
@@ -6221,9 +6231,14 @@ export function canPruneEmptyTechniqueComprehensions(
   existingTechniqueIds: readonly string[],
   completedTechniqueIds: ReadonlySet<string> | undefined,
   allowExplicitEmptyOverwrite: boolean,
+  explicitlyRemovedTechniqueIds: ReadonlySet<string> | undefined = undefined,
 ): boolean {
-  // worker 构建写计划时没有 live DB 行；显式放弃授权必须独立生成幂等 DELETE。
-  if (allowExplicitEmptyOverwrite) {
+  const normalizedExplicitlyRemovedIds = new Set(
+    Array.from(explicitlyRemovedTechniqueIds ?? [], (techniqueId) => normalizeRequiredString(techniqueId))
+      .filter((techniqueId) => techniqueId.length > 0),
+  );
+  // 兼容修复发布前已经 durable staging 的显式放弃 payload；新 payload 必须携带精确功法 ID。
+  if (allowExplicitEmptyOverwrite && normalizedExplicitlyRemovedIds.size === 0) {
     return true;
   }
   const normalizedExistingIds = existingTechniqueIds
@@ -6232,8 +6247,10 @@ export function canPruneEmptyTechniqueComprehensions(
   if (normalizedExistingIds.length === 0) {
     return false;
   }
-  return Boolean(completedTechniqueIds?.size)
-    && normalizedExistingIds.every((techniqueId) => completedTechniqueIds?.has(techniqueId));
+  return normalizedExistingIds.every((techniqueId) =>
+    completedTechniqueIds?.has(techniqueId) === true
+    || normalizedExplicitlyRemovedIds.has(techniqueId),
+  );
 }
 
 async function replacePlayerPersistentBuffStates(
@@ -7174,6 +7191,16 @@ function buildTechniqueComprehensionRows(snapshot: PersistedPlayerSnapshot): Tec
     });
   }
   return rows;
+}
+
+function buildTechniqueComprehensionEmptyOverwriteTechIds(
+  snapshot: PersistedPlayerSnapshot,
+): ReadonlySet<string> {
+  return new Set(
+    (snapshot.techniques?.pendingComprehensionEmptyOverwriteTechIds ?? [])
+      .map((techniqueId) => normalizeRequiredString(techniqueId))
+      .filter((techniqueId) => techniqueId.length > 0),
+  );
 }
 
 function buildPersistentBuffStateRows(snapshot: PersistedPlayerSnapshot): PersistentBuffStateRow[] {
