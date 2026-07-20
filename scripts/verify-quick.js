@@ -93,6 +93,8 @@ const status = runVerificationSteps({
         '--case',
         'world-runtime-equipment',
         '--case',
+        'market-auction-expiry-return',
+        '--case',
         'craft-persistence-dirty-domain',
         '--case',
         'technique-activity-completion',

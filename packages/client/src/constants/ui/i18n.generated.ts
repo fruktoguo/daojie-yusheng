@@ -2611,6 +2611,7 @@ export const CLIENT_I18N_MESSAGES = {
   "notice.market.auction.buyout-buyer": "你在拍卖行一口价竞得了 {itemName} x{quantity}，一口价支付 {currencyName} x{totalPrice}。",
   "notice.market.auction.buyout-seller": "你的寄拍已被一口价拍下：{itemName} x{quantity}，入账 {currencyName} x{totalPrice}。",
   "notice.market.auction.consigned": "已寄拍 {itemName} x{quantity}，整包总价 {totalPrice} {currencyName}，已收上架费 {listingFee} {currencyName}。",
+  "notice.market.auction.expired-returned": "寄拍 {itemName} x{quantity} 已流拍，物品已自动返还背包或坊市托管仓。",
   "notice.market.auction.outbid-refunded-inventory": "你在拍卖行对 {itemName} 的出价已被超过，冻结的 {currencyName} x{refundAmount} 已自动退回背包。",
   "notice.market.auction.outbid-refunded-storage": "你在拍卖行对 {itemName} 的出价已被超过，冻结的 {currencyName} x{refundAmount} 已退回坊市托管仓。",
   "notice.market.auction.settled-buyer": "你竞得了 {itemName} x{quantity}，整包成交价 {totalPrice} {currencyName}。",

@@ -2616,6 +2616,7 @@ notice.market.auction.outbid-refunded-storage,通知,你在拍卖行对 {itemNam
 notice.market.auction.buyout-buyer,通知,你在拍卖行一口价竞得了 {itemName} x{quantity}，一口价支付 {currencyName} x{totalPrice}。,
 notice.market.auction.buyout-seller,通知,你的寄拍已被一口价拍下：{itemName} x{quantity}，入账 {currencyName} x{totalPrice}。,
 notice.market.auction.consigned,通知,已寄拍 {itemName} x{quantity}，整包总价 {totalPrice} {currencyName}，已收上架费 {listingFee} {currencyName}。,
+notice.market.auction.expired-returned,通知,寄拍 {itemName} x{quantity} 已流拍，物品已自动返还背包或坊市托管仓。,
 notice.market.auction.settled-buyer,通知,你竞得了 {itemName} x{quantity}，整包成交价 {totalPrice} {currencyName}。,
 notice.market.auction.settled-seller,通知,你的寄拍已成交：{itemName} x{quantity}，入账 {currencyName} x{totalPrice}。,
 notice.market.buy-order-duplicate,通知,同一种物品已有求购挂单，不能重复求购。,

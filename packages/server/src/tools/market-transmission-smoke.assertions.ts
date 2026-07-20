@@ -81,6 +81,11 @@ export async function runTransmissionAssertions(
   await service.createSellOrder(sellerId, { itemRef: { itemInstanceId: 'seller-scroll-b' }, quantity: 1, unitPrice: 20, listingMode: 'transmission' });
   assert.equal(internals.openOrders.length, 2, '同 itemId 的两卷残卷被合并成了一条挂单');
   assert.equal(internals.openOrders.every((order) => order.listingMode === 'transmission'), true);
+  assert.deepEqual(
+    internals.openOrders.map((order) => (order.item as LooseRecord).itemInstanceId).sort(),
+    ['seller-scroll-a', 'seller-scroll-b'],
+    '传法台托管订单丢失了原残卷实例身份',
+  );
 
   // 6. 传法台单不得泄漏进普通坊市的目录、盘口与「我的挂单」。
   const listingAfter = service.buildMarketListingsPage({ page: 1, pageSize: 20, category: 'all' });
@@ -137,6 +142,7 @@ export async function runTransmissionAssertions(
   assert.ok(received, '买家没有收到功法残卷');
   assert.equal(received.learnTechniqueId, 'gen_aaa', '买家收到的是空书：learnTechniqueId 在成交链路被剥离');
   assert.equal(received.learnTechniqueMaxLevel, 3, '买家收到的残卷丢失了 learnTechniqueMaxLevel');
+  assert.equal(received.itemInstanceId, 'seller-scroll-a', '传法台成交不是原托管残卷实例');
   // 坊市扣款走钱包，入账走背包灵石物品（与 buy-now 链路一致）。
   assert.equal(buyerPlayer.wallet.balances[0].balance, buyerBalanceBefore - 12);
   const sellerIncome = sellerPlayer.inventory.items.find((item) => item.itemId === 'spirit_stone');
@@ -175,4 +181,5 @@ export async function runTransmissionAssertions(
   assert.ok(reloaded, '传法台订单在 DB 读路径被整行丢弃');
   assert.equal(reloaded.listingMode, 'transmission', '重启回读丢失 listingMode：传法台寄售会退化成普通坊市卖单');
   assert.equal((reloaded.item as LooseRecord).learnTechniqueId, 'gen_bbb', '重启回读丢失 learnTechniqueId');
+  assert.equal((reloaded.item as LooseRecord).itemInstanceId, 'seller-scroll-b', '重启回读丢失托管残卷实例身份');
 }

@@ -758,7 +758,7 @@ export class MarketRuntimeService {
                 return this.singleMessage(playerId, `${this.getCurrencyItemName()}不足，发起拍卖需要上架费 ${this.formatUnitPrice(auctionListingFee)}。`);
             }
 
-            const orderItem = this.toOrderItem(item);
+            let orderItem = this.toOrderItem(item);
 
             const itemKey = this.buildItemKey(orderItem);
             if (listingMode === 'market' && this.hasConflictingOpenOrder(playerId, itemKey, 'sell')) {
@@ -783,7 +783,11 @@ export class MarketRuntimeService {
                 return this.singleMessage(playerId, `${this.getCurrencyItemName()}不足，发起拍卖需要上架费 ${this.formatUnitPrice(auctionListingFee)}。`);
             }
 
-            this.playerRuntimeService.splitInventoryItemByInstanceId(playerId, itemInstanceId, quantity);
+            const extractedItem = this.playerRuntimeService.splitInventoryItemByInstanceId(playerId, itemInstanceId, quantity);
+            if (listingMode !== 'market') {
+                // 拍卖与传法台是一物一单的托管链，必须使用真实拆分出的实例身份。
+                orderItem = this.toEscrowOrderItem(extractedItem);
+            }
 
             const result = this.createEmptyResult(playerId);
 
@@ -2455,7 +2459,7 @@ export class MarketRuntimeService {
         }
         this.initializeAuctionOrderState({ ...nextOrder, createdAt: Date.now() }, context);
     }
-    /** 惰性结算已经到期且存在有效最高出价的拍品。 */
+    /** 惰性结算已到期拍品：成交有效最高出价，无人出价则自动返还寄拍物。 */
     async settleExpiredAuctionLots() {
         return this.runExclusiveMarketMutation('', async (context) => {
             const itemKeys = Array.from(this.auctionTimingByItemKey.keys());
@@ -2499,8 +2503,36 @@ export class MarketRuntimeService {
         const bids = this.getSortedAuctionBids(normalizedItemKey);
         const highestBid = bids[0] ?? null;
         if (!highestBid) {
-            this.persistAuctionStateToCarrier(normalizedItemKey, context);
-            return false;
+            const sellOrder = this.getAuctionSellOrders(normalizedItemKey)
+                .find((order) => !context.deletedOrderIds.has(order.id));
+            if (!sellOrder) {
+                this.clearAuctionStateForItemKey(normalizedItemKey, context);
+                return true;
+            }
+            const returnedQuantity = Math.max(1, Math.trunc(Number(sellOrder.remainingQuantity) || 1));
+            const itemName = getItemDisplayName(sellOrder.item);
+            this.deliverItemToPlayer(
+                sellOrder.ownerId,
+                { ...sellOrder.item, count: returnedQuantity },
+                context,
+            );
+            sellOrder.status = 'cancelled';
+            sellOrder.remainingQuantity = 0;
+            sellOrder.updatedAt = now;
+            this.deleteOrder(sellOrder.id, context, sellOrder);
+            this.clearAuctionStateForItemKey(normalizedItemKey, context);
+            this.pushStructuredNotice(
+                result,
+                sellOrder.ownerId,
+                'loot',
+                'notice.market.auction.expired-returned',
+                'notice.market.auction.expired-returned',
+                {
+                    vars: { itemName, quantity: returnedQuantity },
+                    pills: [{ key: 'itemName', style: 'target' }],
+                },
+            );
+            return true;
         }
         const sellOrder = this.getAuctionSellOrders(normalizedItemKey)
             .find((order) => order.ownerId !== highestBid.bidderId && !context.deletedOrderIds.has(order.id));
@@ -3273,6 +3305,13 @@ export class MarketRuntimeService {
             count: 1,
         };
     }
+    /** 一物一单的拍卖/传法台托管保留原 itemInstanceId，成交、撤单与流拍均交付同一实例。 */
+    toEscrowOrderItem(item) {
+        return {
+            ...this.toFullItem(item),
+            count: 1,
+        };
+    }
     /**
  * createCurrencyItem：构建并返回目标对象。
  * @param count 数量。
@@ -3376,6 +3415,7 @@ export class MarketRuntimeService {
         const normalized = this.contentTemplateRepository.normalizeItem(item);
         return {
             itemId: normalized.itemId,
+            itemInstanceId: normalizeInventoryItemInstanceId(normalized.itemInstanceId) || undefined,
             name: this.resolveMarketItemDisplayName(normalized, normalized.itemId),
             type: normalized.type ?? 'material',
             count: Math.max(1, Math.trunc(normalized.count)),
