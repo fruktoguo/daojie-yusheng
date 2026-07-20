@@ -584,6 +584,10 @@ export interface WorldFormationPatchView {
  */
 
   ac?: 0 | 1;
+  /** hp：阵法当前可承受伤害。 */
+  hp?: number;
+  /** maxHp：阵法基准可承受伤害。 */
+  maxHp?: number;
   /**
  * rs：阵法影响半径。
  */

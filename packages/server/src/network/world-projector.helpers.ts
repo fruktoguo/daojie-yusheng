@@ -492,6 +492,8 @@ function buildFullWorldDeltaFromState(
         ch: entry.ch,
         c: entry.c,
         ac: entry.ac,
+        hp: entry.hp,
+        maxHp: entry.maxHp,
         rs: entry.rs,
         sh: entry.sh,
         hl: entry.hl,
@@ -791,7 +793,7 @@ function projectFormationEntry(entry: ProjectorFormationLike): ProjectedFormatio
     const cached = formationProjectionCache.get(entry);
     if (cached?.signature === signature) { return cached.projected; }
     const projected = freezeProjectedEntry({
-        x: entry.x, y: entry.y, n: entry.name, ch: entry.char ?? '◎', c: entry.active === false ? '#9aa0a6' : entry.color ?? '#4da3ff', ac: entry.active === false ? 0 as const : 1 as const, rs: normalizeOptionalNonNegativeInteger(entry.radius), sh: entry.rangeShape, hl: entry.rangeHighlightColor, bch: entry.boundaryChar, bc: entry.boundaryColor, bhl: entry.boundaryRangeHighlightColor, ev: entry.eyeVisibleWithoutSenseQi === true ? 1 as const : 0 as const, rv: entry.rangeVisibleWithoutSenseQi === true ? 1 as const : 0 as const, bv: entry.boundaryVisibleWithoutSenseQi === true ? 1 as const : 0 as const, tx: entry.showText === false ? 0 as const : 1 as const, bd: entry.blocksBoundary === true ? 1 as const : 0 as const, os: entry.ownerSectId ?? null, op: entry.ownerPlayerId ?? null, lt: entry.lifecycle === 'persistent' ? 1 as const : 0 as const,
+        x: entry.x, y: entry.y, n: entry.name, ch: entry.char ?? '◎', c: entry.active === false ? '#9aa0a6' : entry.color ?? '#4da3ff', ac: entry.active === false ? 0 as const : 1 as const, hp: normalizeOptionalNonNegativeInteger(entry.hp) ?? 0, maxHp: Math.max(1, normalizeOptionalNonNegativeInteger(entry.maxHp) ?? 1), rs: normalizeOptionalNonNegativeInteger(entry.radius), sh: entry.rangeShape, hl: entry.rangeHighlightColor, bch: entry.boundaryChar, bc: entry.boundaryColor, bhl: entry.boundaryRangeHighlightColor, ev: entry.eyeVisibleWithoutSenseQi === true ? 1 as const : 0 as const, rv: entry.rangeVisibleWithoutSenseQi === true ? 1 as const : 0 as const, bv: entry.boundaryVisibleWithoutSenseQi === true ? 1 as const : 0 as const, tx: entry.showText === false ? 0 as const : 1 as const, bd: entry.blocksBoundary === true ? 1 as const : 0 as const, os: entry.ownerSectId ?? null, op: entry.ownerPlayerId ?? null, lt: entry.lifecycle === 'persistent' ? 1 as const : 0 as const,
     });
     formationProjectionCache.set(entry, { signature, projected });
     return projected;
@@ -805,6 +807,8 @@ function buildFormationProjectionSignature(entry: ProjectorFormationLike): strin
         entry.char ?? '◎',
         entry.active === false ? 0 : 1,
         entry.active === false ? '#9aa0a6' : entry.color ?? '#4da3ff',
+        normalizeOptionalNonNegativeInteger(entry.hp) ?? 0,
+        Math.max(1, normalizeOptionalNonNegativeInteger(entry.maxHp) ?? 1),
         normalizeOptionalNonNegativeInteger(entry.radius) ?? '',
         entry.rangeShape ?? '',
         entry.rangeHighlightColor ?? '',

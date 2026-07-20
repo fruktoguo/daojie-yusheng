@@ -289,6 +289,43 @@ function testReturnActionShowsCooldownLeft() {
     assert.equal(actions.find((entry) => entry.id === 'travel:return_spawn')?.cooldownLeft, 1800);
 }
 
+function testDepletedFormationKeepsRecoveryActions() {
+    const log = [];
+    const service = createService({
+        attrs: { numericStats: { viewRange: 3 } },
+        realm: { breakthroughReady: false },
+        equipment: { slots: [] },
+        formationJob: null,
+    }, log);
+    const actions = service.buildContextActions({
+        playerId: 'player:formation-owner',
+        self: { x: 3, y: 3 },
+        instance: { instanceId: 'instance:formation-controls' },
+        localPortals: [],
+        localNpcs: [],
+    }, {
+        worldRuntimeFormationService: {
+            listOwnedFormationsAt() {
+                return [{
+                    id: 'formation:depleted',
+                    name: '太玄封界阵',
+                    active: false,
+                    remainingQiBudget: 0,
+                    remainingSpiritStoneBudget: 80,
+                    radius: 3,
+                    refillSpiritStoneCount: 100,
+                    refillQiCost: 10000,
+                }];
+            },
+        },
+    });
+    assert.deepEqual(actions.filter((entry) => entry.id.includes('formation:depleted')).map((entry) => [entry.id, entry.name]), [
+        ['formation:maintain:formation:depleted', '补充灵力：太玄封界阵'],
+        ['formation:refill:formation:depleted', '资源补给：太玄封界阵'],
+        ['formation:toggle:formation:depleted', '开启：太玄封界阵'],
+    ]);
+}
+
 function testScripturePlatformActionsAreSingleEntrypoints() {
     const log = [];
     const player = {
@@ -357,6 +394,7 @@ testSectEntrancePortalTravelIsNotMemberGated();
 testEquippedContextActionsAreConfigDriven();
 testReturnActionShowsBoundRespawnTarget();
 testReturnActionShowsCooldownLeft();
+testDepletedFormationKeepsRecoveryActions();
 testScripturePlatformActionsAreSingleEntrypoints();
 
 console.log(JSON.stringify({ ok: true, case: 'world-runtime-context-actions' }, null, 2));

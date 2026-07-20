@@ -81,6 +81,8 @@ const combatEffectLayout = loadTypeScriptModule('src/renderer/combat-effect-layo
 const shared = nodeRequire(path.join(repoRoot, 'packages/shared/dist/index.js'));
 const rootRuntimeSource = read('src/main-root-runtime-source.ts');
 const runtimeDeltaSource = read('src/main-runtime-delta-state-source.ts');
+const mapInteractionSource = read('src/main-map-interaction-bindings.ts');
+const targetingHelpers = loadTypeScriptModule('src/main-targeting-helpers.ts');
 
 assert.match(
   rootRuntimeSource,
@@ -97,6 +99,36 @@ assert.match(
   /return getSharedFirstGrapheme\(normalized\) \|\| fallback;/,
   '运行时增量 fallback 必须复用 shared grapheme 分段',
 );
+assert.match(
+  runtimeDeltaSource,
+  /function buildFormationTickEntity[\s\S]*?hp:\s*patch\.hp\s*\?\?\s*previous\?\.hp,[\s\S]*?maxHp:\s*patch\.maxHp\s*\?\?\s*previous\?\.maxHp,/,
+  '阵法世界增量必须把权威耐久映射到地图实体',
+);
+assert.match(
+  mapInteractionSource,
+  /if \(clickedBlockingFormationBoundary\) \{[\s\S]*?sendAction\('battle:engage', encodeTileTargetRef\(\{ x: target\.x, y: target\.y \}\)\)/,
+  '直接点击可见敌对阵法边界必须发送地块接战目标',
+);
+
+const visibleBarrier = {
+  kind: 'formation',
+  wx: 5,
+  wy: 5,
+  formationRadius: 2,
+  formationRangeShape: 'square',
+  formationBlocksBoundary: true,
+  formationBoundaryVisibleWithoutSenseQi: true,
+  formationOwnerPlayerId: 'player:owner',
+  formationOwnerSectId: 'sect:owner',
+  formationActive: true,
+};
+const outsider = { id: 'player:outsider', sectId: 'sect:outsider', senseQiActive: false };
+assert.equal(targetingHelpers.hasBlockingFormationBoundaryAt([visibleBarrier], 3, 5, outsider), true, '阵外玩家应能命中可见封界边界');
+assert.equal(targetingHelpers.hasBlockingFormationBoundaryAt([visibleBarrier], 5, 5, outsider), false, '阵法内部格不得误判为边界');
+assert.equal(targetingHelpers.hasBlockingFormationBoundaryAt([visibleBarrier], 3, 5, { ...outsider, id: 'player:owner' }), false, '阵法所有者可通行时不得误发攻击');
+assert.equal(targetingHelpers.hasBlockingFormationBoundaryAt([{ ...visibleBarrier, formationActive: false }], 3, 5, outsider), false, '关闭阵法不得保留可攻击边界');
+assert.equal(targetingHelpers.hasBlockingFormationBoundaryAt([{ ...visibleBarrier, formationBoundaryVisibleWithoutSenseQi: false }], 3, 5, outsider), false, '不可见边界不得接受盲点攻击');
+assert.equal(targetingHelpers.hasBlockingFormationBoundaryAt([{ ...visibleBarrier, formationBoundaryVisibleWithoutSenseQi: false }], 3, 5, { ...outsider, senseQiActive: true }), true, '感气状态应允许点击已感知边界');
 
 assert.deepEqual(
   shared.resolveSenseQiOverlaySignal(2_250, [], 1_000),

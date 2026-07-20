@@ -3041,6 +3041,19 @@ function resolveFormationRemainingSpiritStoneBudget(formation) {
     return Math.max(0, Number(formation?.remainingSpiritStoneBudget ?? formation?.spiritStoneCount) || 0);
 }
 
+function resolveFormationCombatMaxHp(formation) {
+    const damagePerAura = resolveFormationDamagePerAura(formation?.template);
+    const configuredQiBudget = Math.max(0, Number(formation?.stats?.totalQiBudget ?? formation?.stats?.totalAuraBudget) || 0);
+    const fallbackQiBudget = resolveFormationRemainingQiBudget(formation);
+    return Math.max(1, Math.ceil((configuredQiBudget > 0 ? configuredQiBudget : fallbackQiBudget) * damagePerAura));
+}
+
+function resolveFormationCombatHp(formation) {
+    const maxHp = resolveFormationCombatMaxHp(formation);
+    const currentHp = Math.max(0, Math.ceil(resolveFormationRemainingQiBudget(formation) * resolveFormationDamagePerAura(formation?.template)));
+    return Math.min(maxHp, currentHp);
+}
+
 function setFormationRemainingQiBudget(formation, value) {
     const normalized = Math.max(0, Number(value) || 0);
     formation.remainingQiBudget = normalized;
@@ -3071,6 +3084,8 @@ function buildRuntimeFormationProjection(formation, role = 'effect') {
         rangeShape: formation.template.range.shape,
         ...visual,
         active: formation.active,
+        hp: resolveFormationCombatHp(formation),
+        maxHp: resolveFormationCombatMaxHp(formation),
         blocksBoundary: !isEyeProjection && formation.template.effect.kind === BOUNDARY_BARRIER_EFFECT_KIND,
         damagePerAura: resolveFormationDamagePerAura(formation.template),
         remainingAuraBudget: Math.max(0, Math.floor(resolveFormationRemainingQiBudget(formation))),
@@ -3089,6 +3104,8 @@ function getRuntimeFormationProjection(formation, role = 'effect') {
     const eyeY = Number.isFinite(Number(formation.eyeY)) ? Math.trunc(Number(formation.eyeY)) : formation.y;
     const remainingAuraBudget = Math.max(0, Math.floor(resolveFormationRemainingQiBudget(formation)));
     const remainingSpiritStoneBudget = Math.max(0, Math.floor(resolveFormationRemainingSpiritStoneBudget(formation)));
+    const hp = resolveFormationCombatHp(formation);
+    const maxHp = resolveFormationCombatMaxHp(formation);
     const cachedByRole = runtimeFormationProjectionCache.get(formation);
     const cached = cachedByRole?.[cacheKey];
     if (cached
@@ -3105,6 +3122,8 @@ function getRuntimeFormationProjection(formation, role = 'effect') {
         && cached.radius === (isEyeProjection ? 1 : formation.stats.radius)
         && cached.rangeShape === formation.template.range.shape
         && cached.active === formation.active
+        && cached.hp === hp
+        && cached.maxHp === maxHp
         && cached.remainingAuraBudget === remainingAuraBudget
         && cached.remainingSpiritStoneBudget === remainingSpiritStoneBudget) {
         return cached.projection;
@@ -3126,6 +3145,8 @@ function getRuntimeFormationProjection(formation, role = 'effect') {
             radius: isEyeProjection ? 1 : formation.stats.radius,
             rangeShape: formation.template.range.shape,
             active: formation.active,
+            hp,
+            maxHp,
             remainingAuraBudget,
             remainingSpiritStoneBudget,
             projection,

@@ -1022,6 +1022,8 @@ function projectFormationRenderEntity(formation) {
     color: formation.active === false ? '#9aa0a6' : formation.color ?? '#4da3ff',
     name: formation.name,
     kind: 'formation',
+    hp: formation.hp,
+    maxHp: formation.maxHp,
     formationRadius: formation.radius,
     formationRangeShape: formation.rangeShape,
     formationRangeHighlightColor: formation.rangeHighlightColor,
@@ -1099,6 +1101,8 @@ function isSameFormationRenderEntity(projected, formation) {
     && projected.char === (formation.char ?? '◎')
     && projected.color === (formation.active === false ? '#9aa0a6' : formation.color ?? '#4da3ff')
     && projected.name === formation.name
+    && projected.hp === formation.hp
+    && projected.maxHp === formation.maxHp
     && projected.formationRadius === formation.radius
     && projected.formationRangeShape === formation.rangeShape
     && projected.formationRangeHighlightColor === formation.rangeHighlightColor

@@ -214,6 +214,7 @@ type MainMapInteractionBindingsOptions = {
  */
 
   findObservedEntityAt: (x: number, y: number, kind?: string) => MainNavigationObservedEntity | null;
+  hasBlockingFormationBoundaryAt: (x: number, y: number) => boolean;
   /**
  * getPendingTargetedAction：PendingTargetedAction相关字段。
  */
@@ -395,6 +396,7 @@ export function bindMainMapInteractions(options: MainMapInteractionBindingsOptio
       const clickedFormation = player?.senseQiActive === true
         ? options.findObservedEntityAt(target.x, target.y, 'formation')
         : null;
+      const clickedBlockingFormationBoundary = options.hasBlockingFormationBoundaryAt(target.x, target.y);
       const pendingTargetedAction = options.getPendingTargetedAction();
 
       if (pendingTargetedAction) {
@@ -495,6 +497,11 @@ export function bindMainMapInteractions(options: MainMapInteractionBindingsOptio
       if (clickedMonster) {
         options.clearCurrentPath();
         options.sendAction('battle:engage', clickedMonster.id);
+        return;
+      }
+      if (clickedBlockingFormationBoundary) {
+        options.clearCurrentPath();
+        options.sendAction('battle:engage', encodeTileTargetRef({ x: target.x, y: target.y }));
         return;
       }
       if (!options.isWithinDisplayedMemoryBounds(target.x, target.y)) {

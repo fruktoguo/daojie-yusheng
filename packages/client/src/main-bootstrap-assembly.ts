@@ -203,6 +203,7 @@ type MainBootstrapAssemblyOptions = {
     | 'isObserveOpen'
     | 'planPathTo'
     | 'findObservedEntityAt'
+    | 'hasBlockingFormationBoundaryAt'
     | 'getPendingTargetedAction'
     | 'setPendingTargetedActionHover'
     | 'resolveCurrentTargetingRange'
@@ -718,6 +719,7 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
     mapRuntime: options.mapRuntime,
     planPathTo: (target, bindOptions) => options.mapRuntimeBridgeSource.planPathTo(target, bindOptions),
     findObservedEntityAt: (x, y, kind) => options.mapRuntimeBridgeSource.findObservedEntityAt(x, y, kind),
+    hasBlockingFormationBoundaryAt: (x, y) => options.mapRuntimeBridgeSource.hasBlockingFormationBoundaryAt(x, y),
     getPendingTargetedAction: () => options.mapRuntimeBridgeSource.getPendingTargetedAction(),
     setPendingTargetedActionHover: (target) => options.mapRuntimeBridgeSource.setPendingTargetedActionHover(target),
     resolveCurrentTargetingRange: (action) => options.mapRuntimeBridgeSource.resolveCurrentTargetingRange(action),

@@ -5,7 +5,7 @@ const { createNumericRatioDivisors, createNumericStats } = require("@mud/shared"
 const { WorldProjectorService } = require("../network/world-projector.service");
 
 function main() {
-  const formationProof = proveFormationActivePatchSurvivesObjectCache();
+  const formationProof = proveFormationDurabilityAndActivePatchSurviveObjectCache();
   const artifactProof = proveArtifactOnlyPanelDeltaIsEmitted();
   const lifeProof = proveLifeElapsedTicksPanelDeltaIsEmitted();
   const transmissionProof = proveTransmissionJobPanelDeltaIsEmitted();
@@ -17,30 +17,49 @@ function main() {
     lifeProof,
     transmissionProof,
     combatTargetProof,
-    answers: "阵法 active 原地切换会产生世界实体 patch；仅法宝槽位开关变化也会产生 panelDelta.art，前端无需刷新即可更新世界表现。",
+    answers: "阵法耐久首包、受击增量与 active 原地切换都会产生世界实体 patch；仅法宝槽位开关变化也会产生 panelDelta.art，前端无需刷新即可更新世界表现。",
   }, null, 2));
 }
 
-function proveFormationActivePatchSurvivesObjectCache() {
+function proveFormationDurabilityAndActivePatchSurviveObjectCache() {
   const projector = createProjector();
   const player = createPlayer();
   const formation = createFormation(true);
-  projector.createInitialEnvelope(
+  const initialEnvelope = projector.createInitialEnvelope(
     { playerId: player.playerId, sessionId: "visual_state_session" },
     createView({ tick: 1, worldRevision: 1, formations: [formation] }),
     player,
   );
+  const initialPatch = initialEnvelope.worldDelta?.fmn?.find((entry) => entry.id === formation.id);
+  assert.equal(initialPatch?.hp, 800);
+  assert.equal(initialPatch?.maxHp, 1000);
+
+  formation.hp = 600;
+  const durabilityEnvelope = projector.createDeltaEnvelope(
+    createView({ tick: 2, worldRevision: 2, formations: [formation] }),
+    player,
+  );
+  const durabilityPatch = durabilityEnvelope?.worldDelta?.fmn?.find((entry) => entry.id === formation.id);
+  assert.equal(durabilityPatch?.hp, 600);
+  assert.equal(durabilityPatch?.maxHp, undefined);
 
   formation.active = false;
   const envelope = projector.createDeltaEnvelope(
-    createView({ tick: 2, worldRevision: 2, formations: [formation] }),
+    createView({ tick: 3, worldRevision: 3, formations: [formation] }),
     player,
   );
   const patch = envelope?.worldDelta?.fmn?.find((entry) => entry.id === formation.id);
 
   assert.equal(patch?.ac, 0);
   assert.equal(patch?.c, "#9aa0a6");
-  return { formationId: formation.id, activePatch: patch?.ac, colorPatch: patch?.c };
+  return {
+    formationId: formation.id,
+    initialHp: initialPatch?.hp,
+    initialMaxHp: initialPatch?.maxHp,
+    durabilityPatch: durabilityPatch?.hp,
+    activePatch: patch?.ac,
+    colorPatch: patch?.c,
+  };
 }
 
 function proveArtifactOnlyPanelDeltaIsEmitted() {
@@ -197,6 +216,8 @@ function createFormation(active) {
     char: "阵",
     color: "#4da3ff",
     active,
+    hp: 800,
+    maxHp: 1000,
     radius: 3,
     rangeShape: "circle",
     rangeHighlightColor: "#4da3ff",

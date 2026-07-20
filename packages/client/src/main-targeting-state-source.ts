@@ -16,6 +16,7 @@ import {
   getEffectiveTargetingGeometry,
   getSkillDefByActionId as getSkillDefByActionIdHelper,
   hasAffectableTargetInArea as hasAffectableTargetInAreaHelper,
+  hasBlockingFormationBoundaryAt as hasBlockingFormationBoundaryAtHelper,
   resolveCurrentTargetingRange as resolveCurrentTargetingRangeHelper,
   resolveTargetRefForAction as resolveTargetRefForActionHelper,
 } from './main-targeting-helpers';
@@ -130,7 +131,7 @@ export type MainTargetingHoveredTile = {
 
 type MainTargetingObservedEntity = Pick<
   MainRuntimeObservedEntity,
-  'id' | 'wx' | 'wy' | 'kind' | 'name' | 'formationRadius' | 'formationRangeShape' | 'formationBlocksBoundary' | 'formationOwnerSectId' | 'formationOwnerPlayerId'
+  'id' | 'wx' | 'wy' | 'kind' | 'name' | 'formationRadius' | 'formationRangeShape' | 'formationBlocksBoundary' | 'formationBoundaryVisibleWithoutSenseQi' | 'formationOwnerSectId' | 'formationOwnerPlayerId' | 'formationActive'
 >;
 /**
  * MainTargetingStateSourceOptions：统一结构类型，保证协议与运行时一致性。
@@ -788,6 +789,9 @@ export function createMainTargetingStateSource(options: MainTargetingStateSource
         getTile: options.getVisibleTileAt,
         isPlayerLikeEntityKind,
       });
+    },
+    hasBlockingFormationBoundaryAt(x: number, y: number): boolean {
+      return hasBlockingFormationBoundaryAtHelper(options.getLatestEntities(), x, y, options.getPlayer());
     },
   };
 }

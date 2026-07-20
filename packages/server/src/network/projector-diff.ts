@@ -266,7 +266,7 @@ export function diffFormationEntries(previous: Map<string, ProjectedFormationEnt
     for (const [formationId, entry] of current) {
         const prev = previous.get(formationId);
         if (!prev) {
-            result.push({ id: formationId, x: entry.x, y: entry.y, n: entry.n, ch: entry.ch, c: entry.c, ac: entry.ac, rs: entry.rs, sh: entry.sh, hl: entry.hl, bch: entry.bch, bc: entry.bc, bhl: entry.bhl, ev: entry.ev, rv: entry.rv, bv: entry.bv, tx: entry.tx, bd: entry.bd, os: entry.os, op: entry.op, lt: entry.lt });
+            result.push({ id: formationId, x: entry.x, y: entry.y, n: entry.n, ch: entry.ch, c: entry.c, ac: entry.ac, hp: entry.hp, maxHp: entry.maxHp, rs: entry.rs, sh: entry.sh, hl: entry.hl, bch: entry.bch, bc: entry.bc, bhl: entry.bhl, ev: entry.ev, rv: entry.rv, bv: entry.bv, tx: entry.tx, bd: entry.bd, os: entry.os, op: entry.op, lt: entry.lt });
             continue;
         }
         if (prev === entry) {
@@ -280,6 +280,8 @@ export function diffFormationEntries(previous: Map<string, ProjectedFormationEnt
         if (prev.ch !== entry.ch) { delta.ch = entry.ch; changed = true; }
         if (prev.c !== entry.c) { delta.c = entry.c; changed = true; }
         if (prev.ac !== entry.ac) { delta.ac = entry.ac; changed = true; }
+        if (prev.hp !== entry.hp) { delta.hp = entry.hp; changed = true; }
+        if (prev.maxHp !== entry.maxHp) { delta.maxHp = entry.maxHp; changed = true; }
         if (prev.rs !== entry.rs) { delta.rs = entry.rs; changed = true; }
         if (prev.sh !== entry.sh) { delta.sh = entry.sh; changed = true; }
         if (prev.hl !== entry.hl) { delta.hl = entry.hl; changed = true; }

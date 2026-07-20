@@ -141,6 +141,7 @@ export function createMainRuntimeOwnerContext(options: CreateMainRuntimeOwnerCon
       computeAffectedCellsForAction: (action, anchor) => targetingStateSource.computeAffectedCellsForAction(action, anchor),
       resolveTargetRefForAction: (action, target) => targetingStateSource.resolveTargetRefForAction(action, target),
       hasAffectableTargetInArea: (action, anchorX, anchorY) => targetingStateSource.hasAffectableTargetInArea(action, anchorX, anchorY),
+      hasBlockingFormationBoundaryAt: (x, y) => targetingStateSource.hasBlockingFormationBoundaryAt(x, y),
       syncSenseQiOverlay: () => targetingStateSource.syncSenseQiOverlay(),
       setHoveredMapTile: (value) => targetingStateSource.setHoveredMapTile(value),
       getPendingTargetedAction: () => targetingStateSource.getPendingTargetedAction(),

@@ -2322,6 +2322,124 @@ function testLockedMiningTileOutsideViewRangeMovesBack(): void {
   assert.deepEqual(playerRuntimeService.log, []);
 }
 
+function testLockedFormationBoundaryMovesAndAttacksFromOutside(): void {
+  const player = {
+    playerId: 'player:1',
+    hp: 100,
+    x: 1,
+    y: 1,
+    instanceId: 'public:test_map',
+    qi: 100,
+    attrs: {
+      numericStats: {
+        viewRange: 6,
+        maxQiOutputPerTick: 100,
+      },
+    },
+    actions: { actions: [] },
+    combat: {
+      autoBattle: true,
+      autoRetaliate: false,
+      autoBattleStationary: false,
+      combatTargetId: 'tile:5:1',
+      combatTargetLocked: true,
+      manualEngagePending: false,
+    },
+  };
+  const playerRuntimeService = createPlayerRuntimeService(player);
+  const service = new WorldRuntimeAutoCombatService(playerRuntimeService as never);
+  const instance = {
+    template: { width: 8, height: 4 },
+    meta: { instanceId: 'public:test_map', canDamageTile: true },
+    isPointInSafeZone() {
+      return false;
+    },
+    buildPlayerView() {
+      return {
+        playerId: 'player:1',
+        self: { x: player.x, y: player.y },
+        instance: { width: 8, height: 4 },
+        visiblePlayers: [],
+        localMonsters: [],
+        localNpcs: [],
+        localPortals: [],
+        localGroundPiles: [],
+      };
+    },
+    getMonster() {
+      return null;
+    },
+    getTileCombatState() {
+      return null;
+    },
+    getContainerAtTile() {
+      return null;
+    },
+    canSeeTileFrom() {
+      return true;
+    },
+    isInBounds(x: number, y: number) {
+      return x >= 0 && y >= 0 && x < 8 && y < 4;
+    },
+    toTileIndex(x: number, y: number) {
+      return y * 8 + x;
+    },
+    isDynamicallyBlockedTile(x: number, y: number) {
+      return x === 5 && y === 1;
+    },
+    isWalkable(x: number, y: number) {
+      return x >= 0 && y >= 0 && x < 8 && y < 4 && !(x === 5 && y === 1);
+    },
+    forEachPathingBlocker(_playerId: string, callback: (x: number, y: number) => void) {
+      callback(5, 1);
+    },
+    getTileTraversalCost() {
+      return 1;
+    },
+  };
+  const deps = {
+    resolveCurrentTickForPlayerId() {
+      return 32;
+    },
+    worldRuntimeFormationService: {
+      getAttackableTileCombatState(instanceId: string, x: number, y: number) {
+        assert.equal(instanceId, 'public:test_map');
+        assert.deepEqual([x, y], [5, 1]);
+        return {
+          kind: 'formation_boundary',
+          id: 'formation-boundary:warding:5:1',
+          name: '太玄封界阵',
+          hp: 1000,
+          supportsSkill: true,
+        };
+      },
+    },
+    queuePlayerNotice() {},
+  };
+
+  const moveCommand = service.buildAutoCombatCommand(instance as never, player as never, deps as never);
+  assert.deepEqual(moveCommand, {
+    kind: 'move',
+    direction: 2,
+    continuous: true,
+    maxSteps: 3,
+    path: [{ x: 2, y: 1 }, { x: 3, y: 1 }, { x: 4, y: 1 }],
+    autoCombat: true,
+  });
+
+  player.x = 4;
+  const attackCommand = service.buildAutoCombatCommand(instance as never, player as never, deps as never);
+  assert.deepEqual(attackCommand, {
+    kind: 'basicAttack',
+    targetPlayerId: null,
+    targetMonsterId: null,
+    targetX: 5,
+    targetY: 1,
+    autoCombat: true,
+  });
+  assert.deepEqual(playerRuntimeService.log, []);
+}
+
 testAutoCombatDoesNotEnqueueSpentActionCommand();
 testInstanceMaterializationIncludesOfflineMapResidents();
 testManualEngageFallsBackToMoveWhenOnlyRangedSkillIsOnCooldown();
@@ -2349,6 +2467,7 @@ testRetaliatePlayerDoesNotPreemptLockedPlayerTarget();
 testLockedDepletedHerbTileClearsTarget();
 testLockedFormationContinuesBasicAttack();
 testLockedMiningTileOutsideViewRangeMovesBack();
+testLockedFormationBoundaryMovesAndAttacksFromOutside();
 testAutoUsePillTriggersBeforeAutoCombatCommandMaterialization();
 testAutoUsePillSkipsEmptyConditions();
 testAutoUsePillSkipsWhenManualCommandIsPending();

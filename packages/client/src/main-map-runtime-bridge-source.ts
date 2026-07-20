@@ -310,6 +310,7 @@ type MainMapRuntimeBridgeSourceOptions = {
       anchorX: number,
       anchorY: number,
     ) => boolean;    
+    hasBlockingFormationBoundaryAt: (x: number, y: number) => boolean;
     /**
  * syncSenseQiOverlay：SenseQiOverlay相关字段。
  */
@@ -495,6 +496,9 @@ export function createMainMapRuntimeBridgeSource(options: MainMapRuntimeBridgeSo
     findObservedEntityAt(x: number, y: number, kind?: string): MainNavigationObservedEntity | null {
       return options.navigation.findObservedEntityAt(x, y, kind);
     },    
+    hasBlockingFormationBoundaryAt(x: number, y: number): boolean {
+      return options.targeting.hasBlockingFormationBoundaryAt(x, y);
+    },
     /**
  * handleNpcClickTarget：读取NPCClick目标并返回结果。
  * @param npc MainNavigationObservedEntity 参数说明。

@@ -194,6 +194,8 @@ export interface ProjectorFormationLike {
   y: number;
   name: string;
   active?: boolean;
+  hp?: number;
+  maxHp?: number;
   radius?: number;
   rangeShape?: FormationRangeShape;
   char?: string;
@@ -308,6 +310,8 @@ export interface ProjectedFormationEntry {
   ch: string;
   c: string;
   ac: 0 | 1;
+  hp: number;
+  maxHp: number;
   rs?: number;
   sh?: FormationRangeShape;
   hl?: string;

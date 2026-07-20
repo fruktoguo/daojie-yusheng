@@ -120,8 +120,10 @@ export type TargetingEntityLike = {
   formationRadius?: number;
   formationRangeShape?: FormationRangeShape;
   formationBlocksBoundary?: boolean;
+  formationBoundaryVisibleWithoutSenseQi?: boolean;
   formationOwnerSectId?: string | null;
   formationOwnerPlayerId?: string | null;
+  formationActive?: boolean;
 };
 
 /** 用于判断格子上是否存在可作用地块的轻量对象。 */
@@ -351,6 +353,23 @@ function isCellOnFormationBoundary(entity: TargetingEntityLike, x: number, y: nu
       );
   }
   return Math.abs(dx) === radius || Math.abs(dy) === radius;
+}
+
+/** 判断指定格是否是当前玩家无法穿越且实际可见的阵法边界。 */
+export function hasBlockingFormationBoundaryAt(
+  entities: ReadonlyArray<TargetingEntityLike>,
+  x: number,
+  y: number,
+  player: Pick<PlayerState, 'id' | 'sectId' | 'senseQiActive'> | null | undefined,
+): boolean {
+  return entities.some((entity) => (
+    entity.kind === 'formation'
+    && entity.formationActive !== false
+    && entity.formationBlocksBoundary === true
+    && (player?.senseQiActive === true || entity.formationBoundaryVisibleWithoutSenseQi === true)
+    && !canPlayerPassFormationBoundary(player, entity)
+    && isCellOnFormationBoundary(entity, x, y)
+  ));
 }
 
 function canPlayerPassFormationBoundary(

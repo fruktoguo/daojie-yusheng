@@ -335,6 +335,8 @@ async function main() {
   assert.equal(worldDelta.fmn[0].id, formation.id);
   assert.equal(worldDelta.fmn[0].ch, "◎");
   assert.equal(worldDelta.fmn[0].c, "#4da3ff");
+  assert.equal(worldDelta.fmn[0].hp, Math.ceil(formation.remainingQiBudget * 100));
+  assert.equal(worldDelta.fmn[0].maxHp, Math.ceil(formation.stats.totalQiBudget * 100));
   assert.equal(worldDelta.fmn[0].rs, 2);
   assert.equal(worldDelta.fmn[0].sh, "circle");
   assert.equal(worldDelta.fmn[0].hl, "#3b82f6");
@@ -684,6 +686,10 @@ async function main() {
     assert.equal(snapshotInstance.getTileCombatState(3, 3)?.destroyed, true);
     service.applyDamageToFormation(snapshotInstanceId, "formation:snapshot:earth-stabilizing", 999999, playerId, deps);
     assert.equal(service.isTerrainStabilized(snapshotInstanceId, 3, 3), false);
+    const depletedControls = service.listOwnedFormationsAt(snapshotInstanceId, playerId, 3, 3);
+    assert.equal(depletedControls.length, 1);
+    assert.equal(depletedControls[0].active, false);
+    assert.equal(depletedControls[0].remainingQiBudget, 0);
     assert.equal(snapshotInstance.advanceTileRecovery(
       (x, y) => service.isTerrainStabilized(snapshotInstanceId, x, y),
       null,
