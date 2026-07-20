@@ -289,10 +289,13 @@ const bodyTrainingDynamic = section(bodyTrainingPanel, '/** syncDynamic：同步
 assertIncludes(bodyTrainingDynamic, /patchOrRender\(\)/, '炼体高频同步必须优先走结构感知 patch');
 
 const craftPatch = section(craftWorkbench, 'private patchOpenCraftShell(): void {', 'private patchOpenCraftQueueOnly(): void {', 'CraftWorkbenchModal.patchOpenCraftShell');
+assertIncludes(craftPatch, /getCurrentModalDefinition\(this\.activeMode === 'technique_refining'\)/, '高频工坊同步仅允许为需要结构回退的功法精炼预构造 HTML');
 assertIncludes(craftPatch, /tryPatchAlchemyBody/, '炼制弹层同步必须保留局部炼丹 patch');
 assertIncludes(craftPatch, /tryPatchEnhancementBody/, '炼制弹层同步必须保留局部强化 patch');
 assertIncludes(craftPatch, /transmissionView\.tryPatchTransmissionBody/, '炼制弹层同步必须委托传功子视图局部 patch');
 assertIncludes(craftPatch, /transmissionView\.tryPatchTechniqueRefiningBody/, '功法精炼同步必须委托传功子视图局部 patch');
+assertIncludes(craftPatch, /syncReactShell\(definition, false\)/, '高频工坊同步不得让 React 壳体替换传功内容');
+assertMissing(craftPatch, /syncReactShell\(definition, this\.activeMode === 'transmission'\)/, '传功高频同步不得绕过子视图的局部 patch 与焦点保护');
 assertIncludes(craftWorkbench, /this\.enhancementView\.mergeServerEnhancementSessionRecord\(/, '强化历史增量必须由强化子视图唯一合并');
 assertIncludes(craftWorkbench, /this\.enhancementView\.closeTransientUi\(\)/, '工坊关闭时必须释放强化子视图的弹层和提示');
 assertIncludes(craftWorkbench, /confirmModalHost\.close\(CraftWorkbenchModal\.ALCHEMY_MATERIAL_PICKER_OWNER\)/, '工坊关闭时必须释放炼制材料选择弹层');
@@ -305,8 +308,30 @@ assertIncludes(craftWorkbench, /this\.transmissionView\.closeTransientUi\(\)/, '
 assertMissing(craftWorkbench, /private (?:renderTransmissionBody|renderTechniqueRefiningBody|bindTransmissionEvents|buildTransmissionRenderKey)\(/, '工坊主类不得重新吸收传功或功法精炼模板与事件');
 assertIncludes(craftTransmissionView, /tech\.name \?\? ''[\s\S]*?tech\.grade \?\? ''[\s\S]*?tech\.category \?\? ''[\s\S]*?tech\.realmLv \?\? ''/, '传功结构 key 必须覆盖功法显示与成本语义');
 assertIncludes(craftTransmissionView, /target\.playerId}:\$\{target\.name}/, '传功结构 key 必须覆盖附近玩家名称变化');
+assertIncludes(craftTransmissionView, /panel\.dataset\.transmissionRenderKey !== nextKey/, '传功结构比较必须以实际挂载 DOM 的版本为真源');
+assertIncludes(craftTransmissionView, /data-transmission-render-key="\$\{escapeHtmlAttr\(renderKey\)\}"/, '传功根节点必须记录实际挂载的结构版本');
+assertIncludes(craftTransmissionView, /\[\.\.\.targets\]\.sort/, '传功目标必须稳定排序，避免 AOI 更新顺序触发无意义重建');
 assertIncludes(craftTransmissionView, /body\.addEventListener\('focusout'[\s\S]*?this\.parent\.patchOpenCraftShell\(\)/, '传功输入结束聚焦后必须补做被延迟的结构 patch');
 assertIncludes(craftTransmissionView, /private buildTechniqueBookCraftPickerKey\(\)[\s\S]*?tech\.realmLv \?\? ''/, '功法抄录结构 key 必须覆盖影响残页成本的境界');
+
+const craftTransmissionRenderKey = section(
+  craftTransmissionView,
+  '  buildTransmissionRenderKey(): string {',
+  '  tryPatchTransmissionBody(body: HTMLElement): boolean {',
+  'CraftTransmissionView.buildTransmissionRenderKey',
+);
+assertMissing(craftTransmissionRenderKey, /entry\.progress\b|progressGainPerTick|estimatedRemainingTicks|progressBreakdown/, '传功结构 key 不得混入每息进度字段');
+
+const craftTransmissionProgressPatch = section(
+  craftTransmissionView,
+  '  private patchTransmissionProgress(content: HTMLElement): void {',
+  '  private shouldDeferTransmissionContentPatch(content: HTMLElement): boolean {',
+  'CraftTransmissionView.patchTransmissionProgress',
+);
+assertIncludes(craftTransmissionProgressPatch, /pendingTextNode\.textContent !== progressText/, '传功进度文本无变化时必须零写入');
+assertIncludes(craftTransmissionProgressPatch, /pendingFactorNode\.textContent !== factorText/, '传功速率构成无变化时必须零写入');
+assertIncludes(craftTransmissionProgressPatch, /pendingFillNode\.style\.width !== progressWidth/, '传功进度条无变化时必须零写入');
+assertMissing(craftTransmissionProgressPatch, /replaceElementHtml|replaceChildren|innerHTML/, '传功每息进度 patch 不得替换任何子树');
 
 const transmissionStatusHandler = section(
   craftTransmissionView,

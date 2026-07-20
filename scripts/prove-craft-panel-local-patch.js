@@ -43,6 +43,7 @@ const patchOpenCraftShellMethod = extractMethod(modalSource, 'private patchOpenC
 const patchOpenCraftQueueOnlyMethod = extractMethod(modalSource, 'private patchOpenCraftQueueOnly(): void');
 const patchCraftQueuePanelMethod = extractMethod(modalSource, 'private patchCraftQueuePanel(root: HTMLElement): boolean');
 const patchTransmissionMethod = extractMethod(transmissionSource, 'tryPatchTransmissionBody(body: HTMLElement): boolean');
+const patchTransmissionProgressMethod = extractMethod(transmissionSource, 'private patchTransmissionProgress(content: HTMLElement): void');
 const transmissionRenderKeyMethod = extractMethod(transmissionSource, 'buildTransmissionRenderKey(): string');
 const techniqueBookCraftKeyMethod = extractMethod(transmissionSource, 'private buildTechniqueBookCraftPickerKey(): string');
 
@@ -63,8 +64,18 @@ assert.match(
 );
 assert.match(
   patchOpenCraftShellMethod,
-  /this\.syncReactShell\(definition, this\.activeMode === 'transmission'\);\s*mountReactCraftWorkbenchPanel\(body\);\s*this\.patchCraftShellHeaderAndTabs\(body\);/,
-  'React craft task patches must sync transmission structure only when its semantic key changes, then keep DOM-local progress patching',
+  /getCurrentModalDefinition\(this\.activeMode === 'technique_refining'\)/,
+  'high-frequency craft patches must only pre-render HTML for the refining fallback that consumes it',
+);
+assert.match(
+  patchOpenCraftShellMethod,
+  /this\.syncReactShell\(definition, false\);\s*mountReactCraftWorkbenchPanel\(body\);\s*this\.patchCraftShellHeaderAndTabs\(body\);/,
+  'React craft task patches must leave transmission content ownership to the DOM-local transmission patcher',
+);
+assert.doesNotMatch(
+  patchOpenCraftShellMethod,
+  /this\.syncReactShell\(definition, this\.activeMode === 'transmission'\)/,
+  'React craft task patches must not replace transmission content before focus and progress guards run',
 );
 assert.match(
   patchOpenCraftShellMethod,
@@ -108,13 +119,38 @@ assert.match(
 );
 assert.match(
   patchTransmissionMethod,
-  /this\.shouldDeferTransmissionContentPatch\(content\)[\s\S]*?this\.patchTransmissionProgress\(content\);[\s\S]*?replaceElementHtml\(content, this\.renderTransmissionBody\(\)\);/,
-  'transmission structure changes must preserve focused input and otherwise replace only the transmission content region',
+  /panel\.dataset\.transmissionRenderKey !== nextKey[\s\S]*?this\.shouldDeferTransmissionContentPatch\(content\)[\s\S]*?this\.patchTransmissionProgress\(content\);[\s\S]*?replaceElementHtml\(content, this\.renderTransmissionBody\(\)\);/,
+  'transmission structure changes must compare the mounted DOM version, preserve focused input, and otherwise replace only the transmission content region',
 );
 assert.match(
   transmissionRenderKeyMethod,
   /tech\.name \?\? ''[\s\S]*?tech\.grade \?\? ''[\s\S]*?tech\.category \?\? ''[\s\S]*?tech\.realmLv \?\? ''[\s\S]*?target\.playerId}:\$\{target\.name}/,
   'transmission structure key must cover technique display metadata and target names instead of IDs only',
+);
+assert.doesNotMatch(
+  transmissionRenderKeyMethod,
+  /entry\.progress\b|progressGainPerTick|estimatedRemainingTicks|progressBreakdown/,
+  'volatile transmission progress fields must not enter the structural render key',
+);
+assert.match(
+  patchTransmissionProgressMethod,
+  /pendingTextNode\.textContent !== progressText[\s\S]*?pendingFactorNode\.textContent !== factorText[\s\S]*?pendingFillNode\.style\.width !== progressWidth/,
+  'unchanged transmission progress values must not write text or width back to the DOM',
+);
+assert.doesNotMatch(
+  patchTransmissionProgressMethod,
+  /replaceElementHtml|replaceChildren|innerHTML/,
+  'transmission progress patches must not replace DOM subtrees',
+);
+assert.match(
+  transmissionSource,
+  /data-transmission-render-key="\$\{escapeHtmlAttr\(renderKey\)\}"/,
+  'the mounted transmission panel must carry its actual structural render key',
+);
+assert.match(
+  transmissionSource,
+  /return \[\.\.\.targets\]\.sort/,
+  'transmission targets must use a stable order so AOI patch ordering cannot rebuild the panel',
 );
 assert.match(
   techniqueBookCraftKeyMethod,
@@ -138,7 +174,8 @@ console.log(JSON.stringify({
     'Technique activity task updates call patchOpenCraftQueueOnly and do not call render(), patchOpenCraftShell(), or tryPatchEnhancementBody().',
     'Queue structural changes replace only .craft-queue-panel content; volatile progress fields patch text/fill nodes in place.',
     'React craft shell preserves headerHtml when the structural header key is unchanged, then patches queue progress in place.',
-    'Transmission patches preserve focused input, include display/cost metadata in structural keys, and patch progress locally.',
+    'High-frequency craft patches skip full-panel HTML generation before transmission patches run.',
+    'Transmission patches preserve focused input, compare the mounted DOM key, stabilize target order, and patch progress locally.',
     'The structural header key excludes volatile work/interrupt progress fields.',
   ],
 }, null, 2));

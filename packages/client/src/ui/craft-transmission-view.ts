@@ -158,7 +158,6 @@ function formatComprehensionProgressBreakdown(
 
 export class CraftTransmissionView {
   private transmissionCallbacks: CraftTransmissionCallbacks | null = null;
-  private lastTransmissionRenderKey: string | null = null;
   private readonly selectedTechniqueBookIds = new Set<string>();
   private selectedTechniqueBookCount = 1;
   private techniqueBookCraftGradeFilter: TechniqueBookCraftGradeFilter = 'all';
@@ -230,7 +229,6 @@ export class CraftTransmissionView {
   closeTransientUi(): void {
     confirmModalHost.close(TECHNIQUE_REFINING_CONFIRM_OWNER);
     confirmModalHost.close(TECHNIQUE_COMPREHENSION_DISCARD_CONFIRM_OWNER);
-    this.lastTransmissionRenderKey = null;
     this.selectedTransmissionTechniqueId = '';
     this.selectedTransmissionTargetPlayerId = '';
     this.clearTransmissionStatusRequestTimeout();
@@ -274,13 +272,12 @@ export class CraftTransmissionView {
       return false;
     }
     const nextKey = this.buildTransmissionRenderKey();
-    const hasTransmissionPanel = content.querySelector('[data-transmission-panel="true"]') !== null;
-    if (!hasTransmissionPanel || this.lastTransmissionRenderKey !== nextKey) {
+    const panel = content.querySelector<HTMLElement>('[data-transmission-panel="true"]');
+    if (!panel || panel.dataset.transmissionRenderKey !== nextKey) {
       if (this.shouldDeferTransmissionContentPatch(content)) {
         this.patchTransmissionProgress(content);
         return true;
       }
-      this.lastTransmissionRenderKey = nextKey;
       replaceElementHtml(content, this.renderTransmissionBody());
       this.patchTransmissionProgress(content);
       this.requestTransmissionStatuses(content);
@@ -312,17 +309,24 @@ export class CraftTransmissionView {
       const estimateText = estimate > 0 ? ` · 预计 ${formatTicks(estimate)}` : '';
       const factorText = formatComprehensionProgressBreakdown(this.resolveTransmissionPendingBreakdown(entry));
       const pendingTextNode = card.querySelector<HTMLElement>('[data-transmission-pending-progress-text="true"]');
-      if (pendingTextNode) {
-        pendingTextNode.textContent = `${status} · ${formatDisplayInteger(progress)} / ${formatDisplayInteger(required)}${rateText}${estimateText}`;
+      const progressText = `${status} · ${formatDisplayInteger(progress)} / ${formatDisplayInteger(required)}${rateText}${estimateText}`;
+      if (pendingTextNode && pendingTextNode.textContent !== progressText) {
+        pendingTextNode.textContent = progressText;
       }
       const pendingFactorNode = card.querySelector<HTMLElement>('[data-transmission-pending-factor-text="true"]');
       if (pendingFactorNode) {
-        pendingFactorNode.textContent = factorText;
-        pendingFactorNode.hidden = factorText.length === 0;
+        if (pendingFactorNode.textContent !== factorText) {
+          pendingFactorNode.textContent = factorText;
+        }
+        const factorHidden = factorText.length === 0;
+        if (pendingFactorNode.hidden !== factorHidden) {
+          pendingFactorNode.hidden = factorHidden;
+        }
       }
       const pendingFillNode = card.querySelector<HTMLElement>('[data-transmission-pending-progress-fill="true"]');
-      if (pendingFillNode) {
-        pendingFillNode.style.width = `${(ratio * 100).toFixed(2)}%`;
+      const progressWidth = `${Number((ratio * 100).toFixed(2))}%`;
+      if (pendingFillNode && pendingFillNode.style.width !== progressWidth) {
+        pendingFillNode.style.width = progressWidth;
       }
     }
   }
@@ -431,12 +435,12 @@ export class CraftTransmissionView {
   }
 
   renderTransmissionBody(): string {
-    this.lastTransmissionRenderKey = this.buildTransmissionRenderKey();
+    const renderKey = this.buildTransmissionRenderKey();
     const pending = this.parent.pendingTechniqueComprehensions ?? [];
     const learned = this.getTransmittableTechniques();
     const targets = this.getTransmissionTargets();
     return `
-      <div class="alchemy-tab-stack" data-transmission-panel="true">
+      <div class="alchemy-tab-stack" data-transmission-panel="true" data-transmission-render-key="${escapeHtmlAttr(renderKey)}">
         <section class="alchemy-summary-card">
           <div class="alchemy-summary-head">
             <div class="alchemy-summary-title">未领悟功法</div>
@@ -458,9 +462,12 @@ export class CraftTransmissionView {
   }
 
   private getTransmissionTargets(): Array<{ playerId: string; name: string }> {
-    return this.transmissionCallbacks?.getTransmissionTargets?.()
+    const targets = this.transmissionCallbacks?.getTransmissionTargets?.()
       ?? this.parent.callbacks?.getTransmissionTargets?.()
       ?? [];
+    return [...targets].sort((left, right) => (
+      left.playerId < right.playerId ? -1 : left.playerId > right.playerId ? 1 : 0
+    ));
   }
 
   private requestTransmissionStatuses(root: ParentNode): void {

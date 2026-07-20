@@ -1112,7 +1112,7 @@ export class CraftWorkbenchModal {
     if (!detailModalHost.isOpenFor(CraftWorkbenchModal.MODAL_OWNER)) {
       return;
     }
-    const definition = this.getCurrentModalDefinition();
+    const definition = this.getCurrentModalDefinition(this.activeMode === 'technique_refining');
     const body = document.getElementById('detail-modal-body');
     if (!definition || !(body instanceof HTMLElement)) {
       return;
@@ -1151,7 +1151,7 @@ export class CraftWorkbenchModal {
       })) {
         return;
       }
-      this.syncReactShell(definition, this.activeMode === 'transmission');
+      this.syncReactShell(definition, false);
       mountReactCraftWorkbenchPanel(body);
       this.patchCraftShellHeaderAndTabs(body);
       if ((this.activeMode === 'alchemy' || this.activeMode === 'forging') && this.tryPatchAlchemyBody(body)) {
@@ -1235,13 +1235,13 @@ export class CraftWorkbenchModal {
     }
   }
 
-  private getCurrentModalDefinition(): { title: string; subtitle: string; variantClass: string; body: string } | null {
+  private getCurrentModalDefinition(includeBody = true): { title: string; subtitle: string; variantClass: string; body: string } | null {
     if (this.activeMode === 'alchemy') {
       return {
         title: t('craft.workbench.modal.title'),
         subtitle: this.getCraftSubtitle(),
         variantClass: 'detail-modal--craft detail-modal--craft-alchemy',
-        body: this.renderCraftBody(),
+        body: includeBody ? this.renderCraftBody() : '',
       };
     }
     if (this.activeMode === 'forging') {
@@ -1249,7 +1249,7 @@ export class CraftWorkbenchModal {
         title: t('craft.workbench.modal.title'),
         subtitle: this.getCraftSubtitle(),
         variantClass: 'detail-modal--craft detail-modal--craft-forging',
-        body: this.renderCraftBody(),
+        body: includeBody ? this.renderCraftBody() : '',
       };
     }
     if (this.activeMode === 'enhancement') {
@@ -1257,7 +1257,7 @@ export class CraftWorkbenchModal {
         title: t('craft.workbench.modal.title'),
         subtitle: this.getCraftSubtitle(),
         variantClass: 'detail-modal--craft detail-modal--craft-enhancement',
-        body: this.renderCraftBody(),
+        body: includeBody ? this.renderCraftBody() : '',
       };
     }
     if (this.activeMode === 'transmission') {
@@ -1265,7 +1265,7 @@ export class CraftWorkbenchModal {
         title: t('craft.workbench.modal.title'),
         subtitle: this.getCraftSubtitle(),
         variantClass: 'detail-modal--craft detail-modal--craft-transmission',
-        body: this.renderCraftBody(),
+        body: includeBody ? this.renderCraftBody() : '',
       };
     }
     if (this.activeMode === 'technique_refining') {
@@ -1273,7 +1273,7 @@ export class CraftWorkbenchModal {
         title: '炼法台',
         subtitle: this.getCraftSubtitle(),
         variantClass: 'detail-modal--craft detail-modal--craft-technique-refining',
-        body: this.transmissionView.renderTechniqueRefiningBody(),
+        body: includeBody ? this.transmissionView.renderTechniqueRefiningBody() : '',
       };
     }
     return null;
