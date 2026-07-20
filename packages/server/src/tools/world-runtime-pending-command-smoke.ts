@@ -516,6 +516,38 @@ async function testInvalidAttackNoticeUsesTargetReason() {
     assert.equal(service.getPendingCommandCount(), 0);
 }
 
+async function testForbiddenTileDamageUsesCapabilityNotice() {
+    const service = new WorldRuntimePendingCommandService();
+    const log = [];
+    service.enqueuePendingCommand('player:1', {
+        kind: 'engageBattle',
+        targetPlayerId: null,
+        targetMonsterId: null,
+        targetX: 2,
+        targetY: 2,
+        locked: true,
+    });
+    await service.dispatchPendingCommands({
+        dispatchInstanceCommand() {
+            throw new Error('unexpected dispatchInstanceCommand');
+        },
+        dispatchPlayerCommand() {
+            throw new Error('当前实例不允许攻击地形');
+        },
+        logger: {
+            debug() {},
+            warn() {},
+        },
+        queuePlayerNotice(playerId, message, tone, _title, _icon, structured) {
+            log.push(['queuePlayerNotice', playerId, message, tone, structured?.key ?? null]);
+        },
+    });
+    assert.deepEqual(log, [
+        ['queuePlayerNotice', 'player:1', '当前区域禁止攻击地形。', 'warn', 'notice.command.tile-damage-forbidden'],
+    ]);
+    assert.equal(service.getPendingCommandCount(), 0);
+}
+
 async function testMoveToUnreachableFailureDoesNotPromoteDebug() {
     const service = new WorldRuntimePendingCommandService();
     const log = [];
@@ -1287,6 +1319,7 @@ Promise.resolve()
     .then(() => testAutoCombatRetryFailureStaysSilentWithoutDebugLogger())
     .then(() => testManualEngageAttackClearsServerOnlyEngageState())
     .then(() => testInvalidAttackNoticeUsesTargetReason())
+    .then(() => testForbiddenTileDamageUsesCapabilityNotice())
     .then(() => testMoveToUnreachableFailureDoesNotPromoteDebug())
     .then(() => testAutoCombatInvalidTargetStaysServerInternal())
     .then(() => testAutoCombatRetaliateFailurePreservesDifferentLockedTarget())

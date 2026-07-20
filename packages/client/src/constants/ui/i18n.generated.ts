@@ -2475,6 +2475,7 @@ export const CLIENT_I18N_MESSAGES = {
   "notice.command.technique-cancel-none": "当前没有可取消的技艺任务。",
   "notice.command.technique-none": "当前没有进行中的技艺任务。",
   "notice.command.technique-queue-full": "技艺任务队列已满。",
+  "notice.command.tile-damage-forbidden": "当前区域禁止攻击地形。",
   "notice.craft.activity-condition-failed": "{activityLabel}中断：{reason}",
   "notice.craft.activity-interrupted": "{activityLabel}被{reasonLabel}打断",
   "notice.craft.activity-interrupted-wait": "{itemName} 的{activityLabel}被打断，暂歇 {ticks} 息",

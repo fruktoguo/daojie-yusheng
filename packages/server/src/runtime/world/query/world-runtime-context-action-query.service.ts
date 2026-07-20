@@ -132,18 +132,21 @@ export class WorldRuntimeContextActionQueryService {
             : (Number.isFinite(Number(view?.tick))
                 ? Math.max(0, Math.trunc(Number(view.tick)))
                 : 0);
-        actions.push({
-            id: 'battle:force_attack',
-            name: '强制攻击',
-            type: 'battle',
-            desc: '无视自动索敌限制，直接锁定你选中的目标发起攻击。',
-            cooldownLeft: 0,
-            range: Math.max(1, Math.round(player?.attrs.numericStats.viewRange ?? 1)),
-            requiresTarget: true,
-            targetMode: 'any',
-        });
-        if (typeof deps?.timeChamberRuntimeService?.isTimeChamberInstance === 'function'
-            && deps.timeChamberRuntimeService.isTimeChamberInstance(view.instance.instanceId)) {
+        const isTimeChamberInstance = typeof deps?.timeChamberRuntimeService?.isTimeChamberInstance === 'function'
+            && deps.timeChamberRuntimeService.isTimeChamberInstance(view?.instance?.instanceId);
+        if (!isTimeChamberInstance) {
+            actions.push({
+                id: 'battle:force_attack',
+                name: '强制攻击',
+                type: 'battle',
+                desc: '无视自动索敌限制，直接锁定你选中的目标发起攻击。',
+                cooldownLeft: 0,
+                range: Math.max(1, Math.round(player?.attrs.numericStats.viewRange ?? 1)),
+                requiresTarget: true,
+                targetMode: 'any',
+            });
+        }
+        if (isTimeChamberInstance) {
             actions.push({
                 id: 'time_chamber:leave',
                 name: '离开密室',

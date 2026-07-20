@@ -194,6 +194,31 @@ function testSectEntrancePortalTravelIsNotMemberGated() {
     });
     assert.equal(actions.find((entry) => entry.id === 'portal:travel')?.name, '传送至：青玄宗');
 }
+
+function testTimeChamberOmitsUnavailableForceAttack() {
+    const log = [];
+    const service = createService({
+        attrs: { numericStats: { viewRange: 3 } },
+        realm: { breakthroughReady: false },
+        equipment: { slots: [] },
+    }, log);
+    const actions = service.buildContextActions({
+        playerId: 'player:time-chamber',
+        self: { x: 2, y: 2 },
+        instance: { instanceId: 'time-chamber:1' },
+        localPortals: [],
+        localNpcs: [],
+    }, {
+        timeChamberRuntimeService: {
+            isTimeChamberInstance(instanceId) {
+                assert.equal(instanceId, 'time-chamber:1');
+                return true;
+            },
+        },
+    });
+    assert.equal(actions.some((entry) => entry.id === 'battle:force_attack'), false);
+    assert.equal(actions.find((entry) => entry.id === 'time_chamber:leave')?.name, '离开密室');
+}
 /**
  * testJobFallbackWithoutWeapon：执行testJobFallbackWithoutWeapon相关逻辑。
  * @returns 无返回值，直接更新testJobFallbackWithoutWeapon相关状态。
@@ -391,6 +416,7 @@ function testScripturePlatformActionsAreSingleEntrypoints() {
 
 testBuildContextActions();
 testSectEntrancePortalTravelIsNotMemberGated();
+testTimeChamberOmitsUnavailableForceAttack();
 testEquippedContextActionsAreConfigDriven();
 testReturnActionShowsBoundRespawnTarget();
 testReturnActionShowsCooldownLeft();

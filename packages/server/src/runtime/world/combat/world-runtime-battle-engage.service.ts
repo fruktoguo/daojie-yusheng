@@ -83,6 +83,9 @@ export class WorldRuntimeBattleEngageService {
                 )
                 : null;
             if (!resolvedTarget) {
+                if (targetX !== null && targetY !== null && instance?.meta?.canDamageTile !== true) {
+                    throw new BadRequestException('当前实例不允许攻击地形');
+                }
                 throw new BadRequestException('该目标无法被攻击');
             }
             if (locked && targetRef) {

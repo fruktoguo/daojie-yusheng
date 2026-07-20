@@ -251,6 +251,44 @@ async function testLockedMissingMonsterEngageClearsTargetWithoutRawWarning(): Pr
   assert.equal(attacker.combat.autoBattle, true);
 }
 
+async function testForbiddenTileDamageExplainsInstanceCapability(): Promise<void> {
+  const attacker = {
+    playerId: 'player:attacker',
+    instanceId: 'time-chamber:1',
+    combat: {
+      autoBattle: false,
+      retaliatePlayerTargetId: null,
+      combatTargetingRules: undefined,
+    },
+  };
+  const target = { playerId: 'player:target', instanceId: 'time-chamber:1' };
+  const service = new WorldRuntimeBattleEngageService(createPlayerRuntimeService(attacker, target) as never);
+  const log: Array<unknown[]> = [];
+  await assert.rejects(
+    () => service.dispatchEngageBattle(attacker.playerId, null, null, 2, 2, true, {
+      resolveCurrentTickForPlayerId() {
+        return 12;
+      },
+      getInstanceRuntimeOrThrow(instanceId: string) {
+        assert.equal(instanceId, 'time-chamber:1');
+        return {
+          meta: {
+            instanceId: 'time-chamber:1',
+            kind: 'time_chamber',
+            supportsPvp: false,
+            canDamageTile: false,
+          },
+        };
+      },
+      interruptManualCombat(playerId: string) {
+        log.push(['interruptManualCombat', playerId]);
+      },
+    } as never),
+    /当前实例不允许攻击地形/,
+  );
+  assert.deepEqual(log, [['interruptManualCombat', 'player:attacker']]);
+}
+
 function testForceAttackTileTargetSelectionPriority(): void {
   const attacker = {
     playerId: 'player:attacker',
@@ -517,6 +555,7 @@ async function main(): Promise<void> {
   await testTileEngageAwaitsImmediateAutoCombatCommand();
   await testMonsterEngageAwaitsImmediateAutoCombatCommand();
   await testLockedMissingMonsterEngageClearsTargetWithoutRawWarning();
+  await testForbiddenTileDamageExplainsInstanceCapability();
   testForceAttackTileTargetSelectionPriority();
   await testUnlockedMonsterEngageUsesManualEngageInsteadOfPersistentAutoBattle();
   console.log(JSON.stringify({

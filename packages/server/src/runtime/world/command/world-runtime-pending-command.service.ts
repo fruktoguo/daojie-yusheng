@@ -113,6 +113,9 @@ function buildPendingNavigationNotice(message) {
 }
 
 function buildPendingCombatNotice(message) {
+    if (message === '当前实例不允许攻击地形') {
+        return buildStructuredNotice('warn', 'notice.command.tile-damage-forbidden', '当前区域禁止攻击地形。');
+    }
     if (message === '没有可命中的目标' || message === '该目标无法被攻击') {
         return buildStructuredNotice('warn', 'notice.command.no-target', '没有可命中的目标');
     }
