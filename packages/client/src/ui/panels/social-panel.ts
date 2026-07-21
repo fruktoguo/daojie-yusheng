@@ -24,6 +24,8 @@ import { detailModalHost } from '../detail-modal-host';
 import { describeEquipmentBonuses, describeItemEffectDetails, describeMaterialValueDetails } from '../equipment-tooltip';
 import { getLocalTechniqueTemplate, resolvePreviewItem, resolveTechniqueIdFromBookItemId } from '../../content/local-templates';
 import { describePreviewBonuses } from '../stat-preview';
+import { renderTradeQuantityControl } from '../trade-control-renderers';
+import { normalizeTreasureVaultTransferCount } from '../treasure-vault-transfer-count';
 
 type SocialPanelCallbacks = {
   onRefresh(): void;
@@ -925,7 +927,7 @@ export class TreasureVaultModal {
   private itemSort: TreasureVaultItemSort = 'slot';
   private organizeSubmitting = false;
   private renaming = false;
-  private readonly selectedDepositItemIds = new Set<string>();
+  private readonly selectedDepositCounts = new Map<string, number>();
 
   constructor() {
     this.root = document.createElement('div');
@@ -1106,7 +1108,21 @@ export class TreasureVaultModal {
   }
 
   private bindDepositPickerEvents(): void {
+    this.depositPickerRoot.addEventListener('input', (event) => {
+      const input = event.target instanceof HTMLInputElement
+        ? event.target.closest<HTMLInputElement>('[data-vault-deposit-count]')
+        : null;
+      if (!input || this.depositSubmitting) return;
+      this.updateDepositCountFromInput(input, false);
+    });
     this.depositPickerRoot.addEventListener('change', (event) => {
+      const input = event.target instanceof HTMLInputElement
+        ? event.target.closest<HTMLInputElement>('[data-vault-deposit-count]')
+        : null;
+      if (input) {
+        if (!this.depositSubmitting) this.updateDepositCountFromInput(input, true);
+        return;
+      }
       const select = event.target instanceof HTMLSelectElement
         ? event.target.closest<HTMLSelectElement>('[data-vault-deposit-sort]')
         : null;
@@ -1146,12 +1162,16 @@ export class TreasureVaultModal {
         this.toggleDepositSelection(target.dataset.itemInstanceId ?? '');
         return;
       }
+      if (action === 'decrease-count' || action === 'increase-count') {
+        this.stepDepositCount(target.dataset.itemInstanceId ?? '', action === 'decrease-count' ? -1 : 1);
+        return;
+      }
       if (action === 'select-page') {
         this.toggleCurrentDepositPageSelection();
         return;
       }
       if (action === 'clear') {
-        this.selectedDepositItemIds.clear();
+        this.selectedDepositCounts.clear();
         this.patchDepositPickerSelection();
         return;
       }
@@ -1179,7 +1199,7 @@ export class TreasureVaultModal {
     this.depositPickerOpen = true;
     this.depositFilter = 'all';
     this.depositPage = 0;
-    this.selectedDepositItemIds.clear();
+    this.selectedDepositCounts.clear();
     this.depositPickerRoot.classList.remove('hidden');
     this.renderDepositPicker();
   }
@@ -1189,7 +1209,7 @@ export class TreasureVaultModal {
     this.depositPickerOpen = false;
     this.depositSubmitting = false;
     this.depositPage = 0;
-    this.selectedDepositItemIds.clear();
+    this.selectedDepositCounts.clear();
     this.depositPickerRoot.classList.add('hidden');
     this.depositPickerRoot.innerHTML = '';
   }
@@ -1202,10 +1222,21 @@ export class TreasureVaultModal {
     const previousGridScrollTop = preserveScroll
       ? this.depositPickerRoot.querySelector<HTMLElement>('.treasure-vault-deposit-grid')?.scrollTop ?? 0
       : 0;
+    const activeCountInput = preserveScroll && document.activeElement instanceof HTMLInputElement
+      && this.depositPickerRoot.contains(document.activeElement)
+      && document.activeElement.matches('[data-vault-deposit-count]')
+      ? document.activeElement
+      : null;
+    const focusedCountSnapshot = activeCountInput
+      ? {
+          itemInstanceId: activeCountInput.dataset.itemInstanceId ?? '',
+          value: activeCountInput.value,
+        }
+      : null;
     this.pruneDepositSelection();
     const snapshot = this.getDepositPickerSnapshot();
     this.depositPage = snapshot.page;
-    const selectedCount = this.selectedDepositItemIds.size;
+    const selectedCount = this.selectedDepositCounts.size;
     this.depositPickerRoot.innerHTML = `
       <div class="ui-modal-card ui-modal-card--wide treasure-vault-deposit-picker-card" role="dialog" aria-modal="true" aria-label="批量放入宝库物品">
         <div class="ui-modal-head treasure-vault-modal-head">
@@ -1253,6 +1284,19 @@ export class TreasureVaultModal {
     `;
     const grid = this.depositPickerRoot.querySelector<HTMLElement>('.treasure-vault-deposit-grid');
     if (grid && preserveScroll) grid.scrollTop = previousGridScrollTop;
+    if (focusedCountSnapshot?.itemInstanceId) {
+      const restoredInput = Array.from(this.depositPickerRoot.querySelectorAll<HTMLInputElement>('[data-vault-deposit-count]'))
+        .find((input) => input.dataset.itemInstanceId === focusedCountSnapshot.itemInstanceId);
+      const availableCount = this.resolveDepositAvailableCount(focusedCountSnapshot.itemInstanceId);
+      const parsedDraft = Math.trunc(Number(focusedCountSnapshot.value));
+      if (restoredInput && availableCount > 0) {
+        if (focusedCountSnapshot.value.trim() === ''
+          || (Number.isFinite(parsedDraft) && normalizeTreasureVaultTransferCount(parsedDraft, availableCount) === parsedDraft)) {
+          restoredInput.value = focusedCountSnapshot.value;
+        }
+        restoredInput.focus({ preventScroll: true });
+      }
+    }
   }
 
   private getDepositPickerSnapshot(): {
@@ -1273,7 +1317,7 @@ export class TreasureVaultModal {
       pageCount,
       totalItems: entries.length,
       pageItems,
-      allPageSelected: pageItems.length > 0 && pageItems.every((entry) => this.selectedDepositItemIds.has(entry.itemInstanceId)),
+      allPageSelected: pageItems.length > 0 && pageItems.every((entry) => this.selectedDepositCounts.has(entry.itemInstanceId)),
     };
   }
 
@@ -1311,23 +1355,63 @@ export class TreasureVaultModal {
   }
 
   private renderDepositInventoryCell(item: SyncedItemStack, itemInstanceId: string): string {
-    const selected = this.selectedDepositItemIds.has(itemInstanceId);
+    const selected = this.selectedDepositCounts.has(itemInstanceId);
+    const availableCount = Math.max(1, Math.trunc(Number(item.count) || 1));
+    const selectedCount = normalizeTreasureVaultTransferCount(
+      this.selectedDepositCounts.get(itemInstanceId) ?? availableCount,
+      availableCount,
+    );
     const itemMeta = getItemDisplayMeta(item as ItemStack);
     const displayName = itemMeta.displayItem.name;
     return `
-      <button class="${getItemDecorClassName('inventory-cell', item as ItemStack)} treasure-vault-deposit-cell${selected ? ' selected' : ''}" type="button" data-vault-deposit-action="toggle" data-item-instance-id="${escapeHtml(itemInstanceId)}" aria-pressed="${selected ? 'true' : 'false'}" aria-label="${selected ? '取消选择' : '选择'}${escapeHtml(displayName)}" ${this.depositSubmitting ? 'disabled' : ''}>
-        <span class="treasure-vault-deposit-check" aria-hidden="true">${selected ? '✓' : ''}</span>
-        ${this.renderInventoryCellContent(item as ItemStack)}
-      </button>
+      <div class="treasure-vault-deposit-item" data-vault-deposit-entry data-item-instance-id="${escapeHtml(itemInstanceId)}">
+        <button class="${getItemDecorClassName('inventory-cell', item as ItemStack)} treasure-vault-deposit-cell${selected ? ' selected' : ''}" type="button" data-vault-deposit-action="toggle" data-item-instance-id="${escapeHtml(itemInstanceId)}" aria-pressed="${selected ? 'true' : 'false'}" aria-label="${selected ? '取消选择' : '选择'}${escapeHtml(displayName)}" ${this.depositSubmitting ? 'disabled' : ''}>
+          <span class="treasure-vault-deposit-check" aria-hidden="true">${selected ? '✓' : ''}</span>
+          ${this.renderInventoryCellContent(item as ItemStack)}
+        </button>
+        <div class="treasure-vault-deposit-quantity" aria-hidden="${selected ? 'false' : 'true'}">
+          ${renderTradeQuantityControl({
+            value: selectedCount,
+            min: 1,
+            max: availableCount,
+            inputAttrs: {
+              'data-vault-deposit-count': true,
+              'data-item-instance-id': itemInstanceId,
+              'aria-label': `存入${displayName}数量`,
+              disabled: !selected || this.depositSubmitting,
+            },
+            leftButtons: [{
+              label: '-',
+              attrs: {
+                'data-vault-deposit-action': 'decrease-count',
+                'data-item-instance-id': itemInstanceId,
+                'aria-label': `减少${displayName}存入数量`,
+              },
+              disabled: !selected || this.depositSubmitting || selectedCount <= 1,
+            }],
+            rightButtons: [{
+              label: '+',
+              attrs: {
+                'data-vault-deposit-action': 'increase-count',
+                'data-item-instance-id': itemInstanceId,
+                'aria-label': `增加${displayName}存入数量`,
+              },
+              disabled: !selected || this.depositSubmitting || selectedCount >= availableCount,
+            }],
+          })}
+        </div>
+      </div>
     `;
   }
 
   private toggleDepositSelection(itemInstanceId: string): void {
     if (!itemInstanceId || this.depositSubmitting) return;
-    if (this.selectedDepositItemIds.has(itemInstanceId)) {
-      this.selectedDepositItemIds.delete(itemInstanceId);
-    } else if (this.selectedDepositItemIds.size < MAX_TREASURE_VAULT_DEPOSIT_SELECTION) {
-      this.selectedDepositItemIds.add(itemInstanceId);
+    if (this.selectedDepositCounts.has(itemInstanceId)) {
+      this.selectedDepositCounts.delete(itemInstanceId);
+    } else if (this.selectedDepositCounts.size < MAX_TREASURE_VAULT_DEPOSIT_SELECTION) {
+      const availableCount = this.resolveDepositAvailableCount(itemInstanceId);
+      if (availableCount <= 0) return;
+      this.selectedDepositCounts.set(itemInstanceId, availableCount);
     }
     this.patchDepositPickerSelection();
   }
@@ -1336,11 +1420,13 @@ export class TreasureVaultModal {
     if (this.depositSubmitting) return;
     const snapshot = this.getDepositPickerSnapshot();
     if (snapshot.allPageSelected) {
-      for (const entry of snapshot.pageItems) this.selectedDepositItemIds.delete(entry.itemInstanceId);
+      for (const entry of snapshot.pageItems) this.selectedDepositCounts.delete(entry.itemInstanceId);
     } else {
       for (const entry of snapshot.pageItems) {
-        if (this.selectedDepositItemIds.size >= MAX_TREASURE_VAULT_DEPOSIT_SELECTION) break;
-        this.selectedDepositItemIds.add(entry.itemInstanceId);
+        if (this.selectedDepositCounts.size >= MAX_TREASURE_VAULT_DEPOSIT_SELECTION) break;
+        if (!this.selectedDepositCounts.has(entry.itemInstanceId)) {
+          this.selectedDepositCounts.set(entry.itemInstanceId, Math.max(1, Math.trunc(Number(entry.item.count) || 1)));
+        }
       }
     }
     this.patchDepositPickerSelection();
@@ -1349,11 +1435,14 @@ export class TreasureVaultModal {
   private patchDepositPickerSelection(): void {
     if (!this.depositPickerOpen) return;
     const snapshot = this.getDepositPickerSnapshot();
-    const selectedCount = this.selectedDepositItemIds.size;
+    const selectedCount = this.selectedDepositCounts.size;
     const selectedCountEl = this.depositPickerRoot.querySelector<HTMLElement>('[data-vault-deposit-selected-count]');
     if (selectedCountEl) selectedCountEl.textContent = formatDisplayCountBadge(selectedCount);
-    for (const cell of this.depositPickerRoot.querySelectorAll<HTMLButtonElement>('[data-vault-deposit-action="toggle"]')) {
-      const selected = this.selectedDepositItemIds.has(cell.dataset.itemInstanceId ?? '');
+    for (const entry of this.depositPickerRoot.querySelectorAll<HTMLElement>('[data-vault-deposit-entry]')) {
+      const itemInstanceId = entry.dataset.itemInstanceId ?? '';
+      const selected = this.selectedDepositCounts.has(itemInstanceId);
+      const cell = entry.querySelector<HTMLButtonElement>('[data-vault-deposit-action="toggle"]');
+      if (!cell) continue;
       cell.classList.toggle('selected', selected);
       cell.setAttribute('aria-pressed', selected ? 'true' : 'false');
       const itemName = cell.querySelector<HTMLElement>('.inventory-cell-name')?.textContent?.trim() ?? '物品';
@@ -1361,6 +1450,9 @@ export class TreasureVaultModal {
       cell.disabled = this.depositSubmitting;
       const check = cell.querySelector<HTMLElement>('.treasure-vault-deposit-check');
       if (check) check.textContent = selected ? '✓' : '';
+      const quantityControl = entry.querySelector<HTMLElement>('.treasure-vault-deposit-quantity');
+      quantityControl?.setAttribute('aria-hidden', selected ? 'false' : 'true');
+      this.patchDepositQuantityControl(itemInstanceId);
     }
     const selectPageButton = this.depositPickerRoot.querySelector<HTMLButtonElement>('[data-vault-deposit-action="select-page"]');
     if (selectPageButton) {
@@ -1381,20 +1473,86 @@ export class TreasureVaultModal {
     if (sort) sort.disabled = this.depositSubmitting;
   }
 
+  private updateDepositCountFromInput(input: HTMLInputElement, commit: boolean): void {
+    const itemInstanceId = input.dataset.itemInstanceId ?? '';
+    const availableCount = this.resolveDepositAvailableCount(itemInstanceId);
+    if (!this.selectedDepositCounts.has(itemInstanceId) || availableCount <= 0) return;
+    if (!commit && input.value.trim() === '') return;
+    const count = normalizeTreasureVaultTransferCount(input.value, availableCount);
+    this.selectedDepositCounts.set(itemInstanceId, count);
+    if (commit) input.value = String(count);
+    this.patchDepositQuantityControl(itemInstanceId, !commit);
+  }
+
+  private stepDepositCount(itemInstanceId: string, step: -1 | 1): void {
+    const availableCount = this.resolveDepositAvailableCount(itemInstanceId);
+    const currentCount = this.selectedDepositCounts.get(itemInstanceId);
+    if (currentCount === undefined || availableCount <= 0) return;
+    this.selectedDepositCounts.set(
+      itemInstanceId,
+      normalizeTreasureVaultTransferCount(currentCount + step, availableCount),
+    );
+    this.patchDepositQuantityControl(itemInstanceId);
+  }
+
+  private patchDepositQuantityControl(itemInstanceId: string, preserveFocusedInput = false): void {
+    const entry = Array.from(this.depositPickerRoot.querySelectorAll<HTMLElement>('[data-vault-deposit-entry]'))
+      .find((candidate) => candidate.dataset.itemInstanceId === itemInstanceId);
+    if (!entry) return;
+    const selected = this.selectedDepositCounts.has(itemInstanceId);
+    const availableCount = this.resolveDepositAvailableCount(itemInstanceId);
+    const count = normalizeTreasureVaultTransferCount(
+      this.selectedDepositCounts.get(itemInstanceId) ?? availableCount,
+      availableCount,
+    );
+    if (selected) this.selectedDepositCounts.set(itemInstanceId, count);
+    const input = entry.querySelector<HTMLInputElement>('[data-vault-deposit-count]');
+    if (input) {
+      input.min = '1';
+      input.max = String(Math.max(1, availableCount));
+      input.step = '1';
+      if (!preserveFocusedInput || document.activeElement !== input) input.value = String(count);
+      input.disabled = !selected || this.depositSubmitting;
+    }
+    entry.querySelectorAll<HTMLButtonElement>('[data-vault-deposit-action="decrease-count"], [data-vault-deposit-action="increase-count"]').forEach((button) => {
+      button.disabled = !selected
+        || this.depositSubmitting
+        || (button.dataset.vaultDepositAction === 'decrease-count' ? count <= 1 : count >= availableCount);
+    });
+  }
+
   private pruneDepositSelection(): void {
-    const currentIds = new Set(this.getDepositableInventoryEntries().map((entry) => entry.itemInstanceId));
-    for (const itemInstanceId of this.selectedDepositItemIds) {
-      if (!currentIds.has(itemInstanceId)) this.selectedDepositItemIds.delete(itemInstanceId);
+    const availableById = new Map(
+      this.getDepositableInventoryEntries().map((entry) => [
+        entry.itemInstanceId,
+        Math.max(1, Math.trunc(Number(entry.item.count) || 1)),
+      ]),
+    );
+    for (const [itemInstanceId, count] of this.selectedDepositCounts) {
+      const availableCount = availableById.get(itemInstanceId);
+      if (availableCount === undefined) {
+        this.selectedDepositCounts.delete(itemInstanceId);
+      } else {
+        this.selectedDepositCounts.set(itemInstanceId, normalizeTreasureVaultTransferCount(count, availableCount));
+      }
     }
   }
 
   private getSelectedDepositItems(): Array<{ itemInstanceId: string; count: number }> {
     return this.getDepositableInventoryEntries()
-      .filter((entry) => this.selectedDepositItemIds.has(entry.itemInstanceId))
+      .filter((entry) => this.selectedDepositCounts.has(entry.itemInstanceId))
       .map((entry) => ({
         itemInstanceId: entry.itemInstanceId,
-        count: Math.max(1, Math.trunc(Number(entry.item.count) || 1)),
+        count: normalizeTreasureVaultTransferCount(
+          this.selectedDepositCounts.get(entry.itemInstanceId),
+          entry.item.count,
+        ),
       }));
+  }
+
+  private resolveDepositAvailableCount(itemInstanceId: string): number {
+    const entry = this.getDepositableInventoryEntries().find((candidate) => candidate.itemInstanceId === itemInstanceId);
+    return entry ? Math.max(1, Math.trunc(Number(entry.item.count) || 1)) : 0;
   }
 
   private render(): void {
@@ -1604,11 +1762,40 @@ export class TreasureVaultModal {
         body.replaceChildren(createFragmentFromHtml(this.renderItemDetailBody(item, previewItem, bonusLines, materialValueLines, effectLines, detail.effectivePermissions.withdraw)));
       },
       onAfterRender: (body, signal) => {
+        const availableCount = Math.max(1, Math.trunc(Number(item.count) || 1));
+        const countInput = body.querySelector<HTMLInputElement>('[data-vault-detail-withdraw-count]');
+        const patchCountControl = (value: unknown, commit: boolean): number => {
+          const count = normalizeTreasureVaultTransferCount(value, availableCount);
+          if (countInput && commit) countInput.value = String(count);
+          body.querySelectorAll<HTMLButtonElement>('[data-vault-detail-withdraw-step]').forEach((button) => {
+            button.disabled = button.dataset.vaultDetailWithdrawStep === 'decrease'
+              ? count <= 1
+              : count >= availableCount;
+          });
+          return count;
+        };
+        countInput?.addEventListener('input', () => {
+          if (countInput.value.trim() !== '') patchCountControl(countInput.value, false);
+        }, { signal });
+        countInput?.addEventListener('change', () => {
+          patchCountControl(countInput.value, true);
+        }, { signal });
+        body.querySelectorAll<HTMLButtonElement>('[data-vault-detail-withdraw-step]').forEach((button) => {
+          button.addEventListener('click', (event) => {
+            event.stopPropagation();
+            if (!countInput) return;
+            const currentCount = normalizeTreasureVaultTransferCount(countInput.value, availableCount);
+            const step = button.dataset.vaultDetailWithdrawStep === 'decrease' ? -1 : 1;
+            patchCountControl(currentCount + step, true);
+          }, { signal });
+        });
         body.querySelectorAll<HTMLElement>('[data-vault-detail-withdraw]').forEach((button) => {
           button.addEventListener('click', (event) => {
             event.stopPropagation();
-            const mode = button.dataset.vaultDetailWithdraw === 'all' ? 'all' : 'one';
-            this.callbacks?.onWithdraw(item.storageItemId, mode === 'all' ? Math.max(1, Math.trunc(Number(item.count) || 1)) : 1);
+            const count = button.dataset.vaultDetailWithdraw === 'all'
+              ? availableCount
+              : normalizeTreasureVaultTransferCount(countInput?.value, availableCount);
+            this.callbacks?.onWithdraw(item.storageItemId, count);
             detailModalHost.close(TreasureVaultModal.ITEM_DETAIL_MODAL_OWNER);
           }, { signal });
         });
@@ -1624,8 +1811,37 @@ export class TreasureVaultModal {
     effectLines: string[],
     canWithdraw: boolean,
   ): string {
+    const availableCount = Math.max(1, Math.trunc(Number(item.count) || 1));
     const actionHtml = canWithdraw
-      ? `<div class="inventory-detail-actions"><div class="inventory-detail-actions-group inventory-detail-actions-group--right inventory-detail-actions-group--stretch"><button class="small-btn ghost" type="button" data-vault-detail-withdraw="one">取出一个</button><button class="small-btn" type="button" data-vault-detail-withdraw="all">取出全部</button></div></div>`
+      ? `<div class="treasure-vault-withdraw-quantity">
+          <span>取出数量</span>
+          ${renderTradeQuantityControl({
+            value: 1,
+            min: 1,
+            max: availableCount,
+            inputAttrs: {
+              'data-vault-detail-withdraw-count': true,
+              'aria-label': '取出数量',
+            },
+            leftButtons: [{
+              label: '-',
+              attrs: {
+                'data-vault-detail-withdraw-step': 'decrease',
+                'aria-label': '减少取出数量',
+              },
+              disabled: true,
+            }],
+            rightButtons: [{
+              label: '+',
+              attrs: {
+                'data-vault-detail-withdraw-step': 'increase',
+                'aria-label': '增加取出数量',
+              },
+              disabled: availableCount <= 1,
+            }],
+          })}
+        </div>
+        <div class="inventory-detail-actions"><div class="inventory-detail-actions-group inventory-detail-actions-group--right inventory-detail-actions-group--stretch"><button class="small-btn ghost" type="button" data-vault-detail-withdraw="custom">取出指定数量</button><button class="small-btn" type="button" data-vault-detail-withdraw="all">取出全部</button></div></div>`
       : '<div class="empty-hint compact">无权取出该宝库物品</div>';
     return `
       <div class="quest-detail-grid inventory-detail-grid">

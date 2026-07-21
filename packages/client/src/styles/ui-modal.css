@@ -574,7 +574,54 @@
   overflow: auto;
   align-content: start;
   padding: 2px;
-  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(144px, 1fr));
+}
+
+.treasure-vault-deposit-item {
+  display: grid;
+  grid-template-rows: minmax(74px, 1fr) 32px;
+  gap: 4px;
+  min-width: 0;
+}
+
+.treasure-vault-deposit-item .inventory-cell {
+  min-height: 74px;
+}
+
+.treasure-vault-deposit-quantity {
+  min-height: 32px;
+  opacity: 1;
+  transition: opacity 0.14s ease;
+}
+
+.treasure-vault-deposit-quantity[aria-hidden="true"] {
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.treasure-vault-deposit-quantity .market-quantity-row {
+  display: grid;
+  grid-template-columns: 30px minmax(48px, 1fr) 30px;
+  gap: 4px;
+  flex-wrap: nowrap;
+}
+
+.treasure-vault-deposit-quantity .market-quantity-row .gm-inline-input {
+  width: 100%;
+  height: 30px;
+  padding: 3px 4px;
+  border-radius: 6px;
+  text-align: center;
+}
+
+.treasure-vault-deposit-quantity .market-quantity-row .small-btn {
+  width: 30px;
+  min-width: 30px;
+  min-height: 30px;
+  padding: 0;
+  border-radius: 6px;
+  justify-content: center;
 }
 
 .treasure-vault-deposit-cell.selected {
@@ -621,6 +668,39 @@
 
 .treasure-vault-deposit-actions {
   flex: 0 0 auto;
+}
+
+.treasure-vault-withdraw-quantity {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--wash-ink);
+  color: var(--ink-grey);
+  font-size: var(--font-size-13);
+}
+
+.treasure-vault-withdraw-quantity .market-quantity-row {
+  justify-content: flex-end;
+  flex-wrap: nowrap;
+}
+
+.treasure-vault-withdraw-quantity .market-quantity-row .gm-inline-input {
+  width: min(112px, 28vw);
+  height: 34px;
+  border-radius: 6px;
+  text-align: center;
+}
+
+.treasure-vault-withdraw-quantity .market-quantity-row .small-btn {
+  width: 34px;
+  min-width: 34px;
+  min-height: 34px;
+  padding: 0;
+  border-radius: 6px;
+  justify-content: center;
 }
 
 .treasure-vault-permission-summary,
@@ -716,6 +796,23 @@
   .treasure-vault-deposit-grid {
     min-height: 0;
     max-height: none;
-    grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
+  }
+
+  .treasure-vault-withdraw-quantity {
+    grid-template-columns: 1fr;
+  }
+
+  .treasure-vault-withdraw-quantity .market-quantity-row {
+    justify-content: flex-start;
+  }
+
+  .treasure-vault-withdraw-quantity .market-quantity-row .gm-inline-input {
+    width: min(132px, calc(100vw - 142px));
+    flex: 1 1 auto;
+  }
+
+  .treasure-vault-withdraw-quantity + .inventory-detail-actions .small-btn {
+    flex: 1 1 132px;
   }
 }
