@@ -207,6 +207,8 @@ async function verifyOfflineGainAckPersistsFenceBeforeInitialSync(): Promise<{
   let shouldPersistPresence = true;
   let sessionActive = true;
   let supersedeAfterFlush = false;
+  let ackResumesBlockingSession = true;
+  let expectedReportIds = ['report:offline-gain'];
 
   const helper = new WorldGatewayPlayerControlsHelper({
     gatewayGuardHelper: {
@@ -255,9 +257,10 @@ async function verifyOfflineGainAckPersistsFenceBeforeInitialSync(): Promise<{
       async acknowledgeOfflineGainReports(ackPlayerId: string, reportIds: string[], options: { sessionId?: string | null }) {
         assert.equal(lockActive, true);
         assert.equal(ackPlayerId, playerId);
-        assert.deepEqual(reportIds, ['report:offline-gain']);
+        assert.deepEqual(reportIds, expectedReportIds);
         assert.equal(options.sessionId, sessionId);
         order.push('ack');
+        return ackResumesBlockingSession;
       },
       getPlayer() {
         return {
@@ -301,6 +304,19 @@ async function verifyOfflineGainAckPersistsFenceBeforeInitialSync(): Promise<{
   const successOrder = [...order];
 
   order.length = 0;
+  ackResumesBlockingSession = false;
+  expectedReportIds = ['report:online'];
+  await helper.handleAckOfflineGainReports(client, { reportIds: expectedReportIds });
+  assert.deepEqual(order, [
+    'lock:start',
+    'ack',
+    'lock:end',
+  ], '普通在线收支 ACK 不得刷 presence 或重建首包');
+  assert.equal(errors.length, 0);
+
+  order.length = 0;
+  ackResumesBlockingSession = true;
+  expectedReportIds = ['report:offline-gain'];
   shouldPersistPresence = false;
   await helper.handleAckOfflineGainReports(client, { reportIds: ['report:offline-gain'] });
   assert.deepEqual(order, [
@@ -422,7 +438,11 @@ async function verifyGatewayHeartbeatAndDisconnectWrites(): Promise<{
     {} as never,
     {} as never,
     {} as never,
-    {} as never,
+    {
+      worldRuntimePlayerSessionService: {
+        detachPlayerSession() {},
+      },
+    } as never,
     {
       emitNotReady() {
         notReadyCount += 1;

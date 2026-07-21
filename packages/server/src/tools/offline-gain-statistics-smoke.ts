@@ -296,10 +296,23 @@ async function testBlockingOfflineGainPreviewKeepsAccumulatingUntilAck() {
   assert.equal(previewAfter[0].id, previewBefore[0].id);
   assert.equal(previewAfter[0].durationMs, 62_000);
 
-  await service.acknowledgeOfflineGainReports(player.playerId, [previewAfter[0].id], { sessionId: "sid:confirmed" });
+  const resumedBlockingSession = await service.acknowledgeOfflineGainReports(
+    player.playerId,
+    [previewAfter[0].id],
+    { sessionId: "sid:confirmed" },
+  );
+  assert.equal(resumedBlockingSession, true);
   assert.equal(await service.hasActiveOfflineGainSession(player.playerId), false);
   assert.equal(player.sessionId, "sid:confirmed");
   assert.equal(service.getPendingPlayerStatisticRecords(player.playerId).length, 0);
+  assert.equal(
+    await service.acknowledgeOfflineGainReports(
+      player.playerId,
+      [previewAfter[0].id],
+      { sessionId: "sid:confirmed" },
+    ),
+    false,
+  );
 }
 
 async function testBlockingOfflineGainPreviewKeepsOnlineStatisticRecordsSeparate() {
@@ -340,8 +353,85 @@ async function testBlockingOfflineGainPreviewKeepsOnlineStatisticRecordsSeparate
   assert.deepEqual(remainingOnlineRecords.map((entry) => entry.id), onlineRecords.map((entry) => entry.id));
   assert.equal(remainingOnlineRecords.every((entry) => entry.scope === "online"), true);
 
-  await service.acknowledgeOfflineGainReports(player.playerId, onlineRecords.map((entry) => entry.id));
+  const resumedForOnlineAck = await service.acknowledgeOfflineGainReports(
+    player.playerId,
+    onlineRecords.map((entry) => entry.id),
+  );
+  assert.equal(resumedForOnlineAck, false);
   assert.equal(service.getPendingPlayerStatisticRecords(player.playerId).length, 0);
+}
+
+async function testKnownOnlineStatisticAckStaysOnMemoryFastPath() {
+  let offlineSessionLoads = 0;
+  let persistedReportDeletes = 0;
+  const persistence = {
+    isEnabled() {
+      return true;
+    },
+    async loadPlayerOfflineGainSession() {
+      offlineSessionLoads += 1;
+      return null;
+    },
+    async deletePlayerOfflineGainReports() {
+      persistedReportDeletes += 1;
+    },
+    async incrementPlayerStatisticDayTotal() {},
+  };
+  const service = createService(persistence);
+  const player = createPlayer();
+  service.players.set(player.playerId, player);
+
+  service.creditWallet(player.playerId, "spirit_stone", 25);
+  const records = service.getPendingPlayerStatisticRecords(player.playerId);
+  assert.equal(records.length, 1);
+  assert.equal(records[0].scope, "online");
+
+  const resumedBlockingSession = await service.acknowledgeOfflineGainReports(
+    player.playerId,
+    [records[0].id],
+    { sessionId: player.sessionId },
+  );
+  assert.equal(resumedBlockingSession, false);
+  assert.equal(service.getPendingPlayerStatisticRecords(player.playerId).length, 0);
+  assert.equal(offlineSessionLoads, 0);
+  assert.equal(persistedReportDeletes, 0);
+  assert.equal(player.sessionId, "sid:online");
+}
+
+async function testOnlineStatisticAckCannotReleaseBlockingOfflineSession() {
+  const service = createService();
+  const player = createPlayer();
+  service.players.set(player.playerId, player);
+
+  service.creditWallet(player.playerId, "spirit_stone", 25);
+  const [onlineReport] = service.getPendingPlayerStatisticRecords(player.playerId);
+  assert.equal(onlineReport.scope, "online");
+
+  service.detachSession(player.playerId);
+  player.offlineSinceAt = 1_000;
+  await service.beginOfflineGainSession(player.playerId, 1_000);
+  for (let tick = 1; tick <= 60; tick += 1) {
+    service.advanceSinglePlayerTick(player, tick);
+  }
+  const [blockingPreview] = await service.loadOfflineGainPreviewReports(player.playerId);
+  assert.ok(blockingPreview);
+
+  const resumedForOnlineAck = await service.acknowledgeOfflineGainReports(
+    player.playerId,
+    [onlineReport.id],
+    { sessionId: "sid:blocked" },
+  );
+  assert.equal(resumedForOnlineAck, false);
+  assert.equal(player.sessionId, null);
+  assert.equal(await service.hasActiveOfflineGainSession(player.playerId), true);
+
+  const resumedForBlockingAck = await service.acknowledgeOfflineGainReports(
+    player.playerId,
+    [blockingPreview.id],
+    { sessionId: "sid:blocked" },
+  );
+  assert.equal(resumedForBlockingAck, true);
+  assert.equal(player.sessionId, "sid:blocked");
 }
 
 async function testPersistedOnlineStatisticRecordsStaySeparateFromOfflineSettlement() {
@@ -597,6 +687,8 @@ async function main() {
   await testBlockingOfflineGainReconnectDoesNotResetSession();
   await testShortOfflineGainDoesNotBlockReconnect();
   await testOnlineAssetMutationsCreateIndependentStatisticReports();
+  await testKnownOnlineStatisticAckStaysOnMemoryFastPath();
+  await testOnlineStatisticAckCannotReleaseBlockingOfflineSession();
   await testLockedInventoryTransferDoesNotFabricateAssetLoss();
   await testFailedDeferredAssetMutationDoesNotCommitStatistics();
   await testFailedOfflineSettlementKeepsMemorySessionForRetry();

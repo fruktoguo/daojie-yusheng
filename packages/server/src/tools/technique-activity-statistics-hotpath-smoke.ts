@@ -7,13 +7,55 @@ import { installSmokeTimeout } from './smoke-timeout';
 installSmokeTimeout(__filename);
 
 async function main(): Promise<void> {
+  await testIdlePlayersSkipCraftPipeline();
   await testCraftBatchKeepsPerPlayerIsolation();
   await testStatisticDiffOnlyRunsForRealMutation();
 
   console.log(JSON.stringify({
     ok: true,
-    cases: ['batched_craft_tick_keeps_player_isolation', 'unchanged_tick_skips_statistics_diff', 'statistic_signal_records_diff', 'async_tick_records_after_resolution'],
+    cases: ['idle_players_skip_craft_pipeline', 'active_and_queued_players_are_selected', 'batched_craft_tick_keeps_player_isolation', 'unchanged_tick_skips_statistics_diff', 'statistic_signal_records_diff', 'async_tick_records_after_resolution'],
   }, null, 2));
+}
+
+async function testIdlePlayersSkipCraftPipeline(): Promise<void> {
+  const players = new Map<string, Record<string, unknown>>([
+    ['player:craft-idle', { playerId: 'player:craft-idle', techniqueActivityQueue: [] }],
+    ['player:craft-active', { playerId: 'player:craft-active', miningJob: { remainingTicks: 3 } }],
+    ['player:craft-queued', { playerId: 'player:craft-queued', techniqueActivityQueue: [{ queueId: 'queue:1' }] }],
+  ]);
+  let activeKindReads = 0;
+  let contextBuilds = 0;
+  let compatibilityChecks = 0;
+  const service = new WorldRuntimeCraftTickService(
+    {
+      getPlayer: (playerId: string) => players.get(playerId) ?? null,
+    } as never,
+    {
+      ensureAlchemyLikeActiveJobResourceCompatibilityMutation: () => {
+        compatibilityChecks += 1;
+        return { ok: true };
+      },
+      listActiveTechniqueActivityKinds: () => {
+        activeKindReads += 1;
+        return [];
+      },
+      hasAnyActiveTechniqueActivity: () => false,
+      buildPipelineContext: () => {
+        contextBuilds += 1;
+        return {};
+      },
+    } as never,
+    { flushCraftMutation() {} } as never,
+  );
+
+  assert.deepEqual(
+    service.listTickablePlayerIds([...players.keys(), 'player:missing']),
+    ['player:craft-active', 'player:craft-queued'],
+  );
+  await service.advanceCraftJobs(['player:craft-idle'], {});
+  assert.equal(activeKindReads, 0);
+  assert.equal(contextBuilds, 0);
+  assert.equal(compatibilityChecks, 0);
 }
 
 async function testStatisticDiffOnlyRunsForRealMutation(): Promise<void> {
@@ -50,8 +92,8 @@ async function testStatisticDiffOnlyRunsForRealMutation(): Promise<void> {
 
 async function testCraftBatchKeepsPerPlayerIsolation(): Promise<void> {
   const players = new Map([
-    ['player:craft-fail', { playerId: 'player:craft-fail' }],
-    ['player:craft-ok', { playerId: 'player:craft-ok' }],
+    ['player:craft-fail', { playerId: 'player:craft-fail', miningJob: { remainingTicks: 1 } }],
+    ['player:craft-ok', { playerId: 'player:craft-ok', miningJob: { remainingTicks: 1 } }],
   ]);
   const ticked: string[] = [];
   const flushed: string[] = [];

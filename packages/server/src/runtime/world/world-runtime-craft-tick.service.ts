@@ -21,6 +21,7 @@ import { GatherStrategy } from '../craft/pipeline/strategies/gather.strategy';
 import { BuildingStrategy } from '../craft/pipeline/strategies/building.strategy';
 import { FormationStrategy } from '../craft/pipeline/strategies/formation.strategy';
 import { MiningStrategy } from '../craft/pipeline/strategies/mining.strategy';
+import { hasTechniqueActivityJob } from '../craft/technique-activity-runtime.helpers';
 import { buildStructuredNotice } from './structured-notice.helpers';
 
 /** world-runtime craft tick orchestration：承接 craft job tick 推进编排。 */
@@ -77,6 +78,17 @@ export class WorldRuntimeCraftTickService {
         this.pipeline.register(new FormationStrategy());
         this.queueService = new TechniqueActivityQueueService(this.pipeline);
     }
+    /** 从实例居民中筛出本息确实需要进入技艺管线的玩家。 */
+    listTickablePlayerIds(playerIds): string[] {
+        const tickablePlayerIds: string[] = [];
+        for (const playerId of playerIds ?? []) {
+            const player = this.playerRuntimeService.getPlayer(playerId);
+            if (hasTechniqueActivityTickWork(player)) {
+                tickablePlayerIds.push(playerId);
+            }
+        }
+        return tickablePlayerIds;
+    }
     /**
  * advanceCraftJobs：执行advance炼制Job相关逻辑。
  * @param playerIds player ID 集合。
@@ -91,9 +103,13 @@ export class WorldRuntimeCraftTickService {
             if (!player) {
                 continue;
             }
+            if (!hasTechniqueActivityTickWork(player)) {
+                continue;
+            }
             this.ensureAlchemyLikeResourceCompatibilityAfterRestore(playerId, player, deps);
             for (const kind of this.craftPanelRuntimeService.listActiveTechniqueActivityKinds(player)) {
-                const result = await this.tickActiveTechniqueActivity(player, kind, deps);
+                const pendingResult = this.tickActiveTechniqueActivity(player, kind, deps);
+                const result = isPromiseLike(pendingResult) ? await pendingResult : pendingResult;
                 this.sleepConditionalTechniqueActivityIfRequested(player, result);
                 this.worldRuntimeCraftMutationService.flushCraftMutation(
                     playerId,
@@ -154,7 +170,7 @@ export class WorldRuntimeCraftTickService {
     }
 
     /** 推进活跃技艺；强化必须走强事务入口，避免完成回写和 active_job 分裂。 */
-    private async tickActiveTechniqueActivity(player: any, kind: string, deps: any): Promise<any> {
+    private tickActiveTechniqueActivity(player: any, kind: string, deps: any): any {
         if (kind === 'enhancement' && typeof this.craftPanelRuntimeService.tickEnhancementDurably === 'function') {
             return this.craftPanelRuntimeService.tickEnhancementDurably(player, deps);
         }
@@ -168,7 +184,7 @@ export class WorldRuntimeCraftTickService {
                 deps,
             );
         }
-        return Promise.resolve(this.craftPanelRuntimeService.tickTechniqueActivity(player, kind, deps));
+        return this.craftPanelRuntimeService.tickTechniqueActivity(player, kind, deps);
     }
 
     /** 玩家从持久化恢复后，首轮 craft tick 先迁移旧预扣炼丹/炼器 job。 */
@@ -212,6 +228,31 @@ export class WorldRuntimeCraftTickService {
         );
     }
 };
+
+/** 只读判断玩家是否存在活跃 job、兼容迁移 job 或等待队列。 */
+function hasTechniqueActivityTickWork(player: any): boolean {
+    if (!player || typeof player !== 'object') {
+        return false;
+    }
+    if (player.alchemyJob || player.forgingJob) {
+        return true;
+    }
+    if (
+        hasTechniqueActivityJob(player.enhancementJob)
+        || hasTechniqueActivityJob(player.transmissionJob)
+        || hasTechniqueActivityJob(player.gatherJob)
+        || hasTechniqueActivityJob(player.buildingJob)
+        || hasTechniqueActivityJob(player.miningJob)
+        || hasTechniqueActivityJob(player.formationJob)
+    ) {
+        return true;
+    }
+    return Array.isArray(player.techniqueActivityQueue) && player.techniqueActivityQueue.length > 0;
+}
+
+function isPromiseLike(value: unknown): value is PromiseLike<unknown> {
+    return Boolean(value && typeof (value as { then?: unknown }).then === 'function');
+}
 
 export function buildCraftTickErrorNotice(error: unknown): { text: string; kind: string; structured?: unknown } {
     const message = error instanceof Error ? error.message : String(error);

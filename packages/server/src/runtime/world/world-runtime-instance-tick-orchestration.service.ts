@@ -769,14 +769,20 @@ export class WorldRuntimeInstanceTickOrchestrationService {
                         }
                         addMeasuredTickSection(sectionDurations, 'instance.resolvePendingSkillCastMs', pendingSkillCastStartedAt, currentPlayerIds.length);
                     }
-                    const craftJobAdvanceStartedAt = performance.now();
-                    await this.runIsolatedOperation(deps, 'instance_craft_jobs', {
-                        instanceId: instance.meta.instanceId,
-                        playerCount: currentPlayerIds.length,
-                        instanceTick: instance.tick,
-                        worldTick: deps.tick,
-                    }, () => deps.worldRuntimeCraftTickService.advanceCraftJobs(currentPlayerIds, deps));
-                    addMeasuredTickSection(sectionDurations, 'instance.craftJobAdvanceMs', craftJobAdvanceStartedAt, currentPlayerIds.length);
+                    const craftPlayerIds = typeof deps.worldRuntimeCraftTickService?.listTickablePlayerIds === 'function'
+                        ? deps.worldRuntimeCraftTickService.listTickablePlayerIds(currentPlayerIds)
+                        : currentPlayerIds;
+                    if (craftPlayerIds.length > 0) {
+                        const craftJobAdvanceStartedAt = performance.now();
+                        await this.runIsolatedOperation(deps, 'instance_craft_jobs', {
+                            instanceId: instance.meta.instanceId,
+                            playerCount: craftPlayerIds.length,
+                            candidatePlayerCount: currentPlayerIds.length,
+                            instanceTick: instance.tick,
+                            worldTick: deps.tick,
+                        }, () => deps.worldRuntimeCraftTickService.advanceCraftJobs(craftPlayerIds, deps));
+                        addMeasuredTickSection(sectionDurations, 'instance.craftJobAdvanceMs', craftJobAdvanceStartedAt, craftPlayerIds.length);
+                    }
                     for (const playerId of currentPlayerIds) {
                         steppedPlayerIds.add(playerId);
                     }

@@ -82,7 +82,7 @@ interface WorldGatewayPlayerControlsDeps {
       mode: ClientToServerEventPayload<typeof C2S.UpdateAutoBattleTargetingMode>['mode'],
     ): void;
     updateTechniqueSkillAvailability(playerId: string, techId: string, enabled: boolean): void;
-    acknowledgeOfflineGainReports(playerId: string, reportIds: string[], options?: { sessionId?: string | null }): Promise<void>;
+    acknowledgeOfflineGainReports(playerId: string, reportIds: string[], options?: { sessionId?: string | null }): Promise<boolean>;
     runExclusiveAssetMutation<T>(
       playerIds: readonly string[],
       action: () => Promise<T> | T,
@@ -129,13 +129,14 @@ export class WorldGatewayPlayerControlsHelper {
     }
     try {
       const sessionId = typeof client.data?.sessionId === 'string' ? client.data.sessionId : null;
+      let shouldResumeBootstrap = false;
       await this.gateway.playerRuntimeService.runExclusiveAssetMutation([playerId], async () => {
-        await this.gateway.playerRuntimeService.acknowledgeOfflineGainReports(
+        shouldResumeBootstrap = await this.gateway.playerRuntimeService.acknowledgeOfflineGainReports(
           playerId,
           payload?.reportIds ?? [],
           { sessionId },
         );
-        if (!sessionId || this.gateway.playerDomainPersistenceService.isEnabled() !== true) {
+        if (!shouldResumeBootstrap || !sessionId || this.gateway.playerDomainPersistenceService.isEnabled() !== true) {
           return;
         }
         const presencePersisted = await this.gateway.playerPersistenceFlushService.flushPlayerDomains(
@@ -146,6 +147,9 @@ export class WorldGatewayPlayerControlsHelper {
           throw new Error(`offline_gain_session_presence_flush_failed:${playerId}`);
         }
       });
+      if (!shouldResumeBootstrap) {
+        return;
+      }
       if (this.gateway.gatewayGuardHelper.requireActivePlayerId(client) !== playerId) {
         return;
       }
