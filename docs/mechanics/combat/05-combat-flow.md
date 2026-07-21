@@ -31,6 +31,36 @@
 6. 逐效果结算（damage / heal / buff）
 ```
 
+### 高目标数施法
+
+源文件:
+- `packages/server/src/runtime/combat/player-combat.service.ts`
+- `packages/server/src/runtime/instance/map-instance.runtime.ts`
+- `packages/server/src/runtime/world/combat/world-runtime-player-skill-dispatch.service.ts`
+
+- 单次施法先固定施法者战斗快照、功法等级、目标数和出手力度。
+- 不读取 `target.*` 的伤害公式按 effect 缓存基础伤害；地块目标还缓存完整地块伤害管线结果。
+- 缓存按公式实际依赖比较 `attrs.revision`、`buffs.revision`、生命、元气、境界、功法等级和目标数。未依赖的字段变化不会误伤缓存。
+- 公式读取任意 `target.*` 或未知变量时，保守回退为逐目标求值。
+- 玩家和妖兽目标始终逐目标执行命中、暴击、防御、境界、仇恨、击败与奖励，不复用目标侧随机或减伤结果。
+- 普通可破坏地形在同一施法中逐格校验、扣耐久和掷掉落，但批量提交脏坐标，整批只推进一次世界版本和持久化版本。
+- 建筑、临时地块、虚拟/宗门边界、房间拓扑和风水相关地块自动回退原单格生命周期。
+- 同次批量地块掉落按原规则逐条计算产量，相同 `itemId` 合并入包并合并通知。
+
+### 高目标数表现汇总
+
+当一次包含伤害效果的技能计划目标数大于 8 时，权威结算仍覆盖每个有效目标，但表现层不再为每个目标发送攻击轨迹、伤害飘字和施法者战斗消息。纯治疗、纯 buff/debuff 技能保持原表现链路。
+
+服务端只发送一个 `damage_summary` 战斗特效和一条结构化战斗通知，按敌对目标和地块分别携带:
+
+- `targetCount`: 实际结算目标数
+- `hitCount`: 受到正伤害的目标数
+- `totalDamage`: 实际总伤害
+- `defeatedCount` / `destroyedCount`: 击败或摧毁数量
+- `uniformDamage`: 所有正伤害完全一致时的单目标伤害
+
+客户端负责把结构化数据拼成汇总飘字和战斗记录。PvP 中每名被攻击玩家仍单独收到自己的受击消息；首次进入、跨图和断线重连继续依赖权威世界态，不依赖表现事件恢复状态。
+
 ## 出手力度
 
 源文件:

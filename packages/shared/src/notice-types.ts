@@ -5,6 +5,7 @@
  */
 import type { ElementKey } from './numeric';
 import type { SkillDamageKind } from './skill-types';
+import type { CombatDamageSummaryGroup } from './action-combat-types';
 
 /** 通知消息类型。 */
 export type NoticeKind =
@@ -105,6 +106,11 @@ export interface CombatNoticePayload {
   killed?: boolean;
   /** 通用效果列表：buff/debuff/heal 等。 */
   effects?: CombatNoticeEffect[];
+  /** 高目标数施法汇总，与单目标 resolution 互斥。 */
+  summary?: {
+    enemy?: CombatDamageSummaryGroup;
+    tile?: CombatDamageSummaryGroup;
+  };
 }
 
 /** 胶囊渲染配置。 */

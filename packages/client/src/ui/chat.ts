@@ -471,6 +471,11 @@ function appendStructuredCombatLine(
   const targetMaxHp = combat.targetMaxHp;
   const effects = combat.effects ?? null;
 
+  if (combat.summary) {
+    appendCombatSummaryLine(container, combat, prefix);
+    return;
+  }
+
   // 构建目标标签（含HP百分比）
   const targetLabel = targetHp != null && targetMaxHp != null && targetMaxHp > 0
     ? `${target}‹${targetHp}/${targetMaxHp}›`
@@ -557,6 +562,41 @@ function appendStructuredCombatLine(
   // 伤害行后追加 buff/debuff 标签（如"凝"对目标施加 debuff）
   if (effects && effects.length > 0 && (resolution || formationResolution)) {
     appendCombatEffects(container, effects);
+  }
+}
+
+function appendCombatSummaryLine(
+  container: DocumentFragment | HTMLElement,
+  combat: CombatNoticePayload,
+  prefix: string,
+): void {
+  container.append(prefix + '你施展');
+  container.appendChild(buildSkillPill(combat.skill));
+  const groups = [
+    { label: '敌人', value: combat.summary?.enemy, resultLabel: '击败', resultCount: combat.summary?.enemy?.defeatedCount },
+    { label: '地块', value: combat.summary?.tile, resultLabel: '摧毁', resultCount: combat.summary?.tile?.destroyedCount },
+  ];
+  let written = false;
+  for (const group of groups) {
+    if (!group.value || group.value.targetCount <= 0) continue;
+    container.append(written ? '；' : '，');
+    const countText = group.value.hitCount === group.value.targetCount
+      ? `${formatCombatLogAmount(String(group.value.hitCount))} 个${group.label}`
+      : `${formatCombatLogAmount(String(group.value.hitCount))}/${formatCombatLogAmount(String(group.value.targetCount))} 个${group.label}`;
+    container.append('命中 ');
+    appendTargetPill(container, countText);
+    container.append('，共造成 ');
+    container.appendChild(buildNoticePill(formatCombatLogAmount(String(group.value.totalDamage)), {
+      key: 'damage',
+      style: 'damage',
+      tooltipTitle: `${group.label}总伤害`,
+      tooltipLines: [`实际总伤害 ${formatCombatLogAmount(String(group.value.totalDamage))}`],
+    }));
+    container.append(' 伤害');
+    if (group.resultCount && group.resultCount > 0) {
+      container.append(`，${group.resultLabel} ${formatCombatLogAmount(String(group.resultCount))} 个`);
+    }
+    written = true;
   }
 }
 

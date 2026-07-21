@@ -13,6 +13,8 @@ import { resolveCombatDamage, resolveTileCombatDamage } from './combat-pipeline-
 @Injectable()
 export class PlayerCombatService {
     playerRuntimeService;
+    skillDamageCacheByOwner = new WeakMap();
+    skillDamageCacheStats = createSkillDamageCacheStats();
 
     constructor(
         @Inject(PlayerRuntimeService) playerRuntimeService: any,
@@ -23,6 +25,16 @@ export class PlayerCombatService {
     /** 构建单次施法可复用的施法者战斗态，避免 AOE 多目标重复包装玩家属性。 */
     createCombatPlayerState(player) {
         return toCombatPlayerState(player);
+    }
+
+    /** 读取施法伤害复用统计，供性能诊断与专项回归验证。 */
+    getSkillDamageCacheStats() {
+        return { ...this.skillDamageCacheStats };
+    }
+
+    /** 重置施法伤害复用统计，不清空缓存内容。 */
+    resetSkillDamageCacheStats() {
+        this.skillDamageCacheStats = createSkillDamageCacheStats();
     }
 
     /** 解析并规范化玩家技能；同一次多目标施法可复用该结果，避免按目标重复扫描功法列表。 */
@@ -256,13 +268,27 @@ export class PlayerCombatService {
         for (const effect of resolved.skill.effects) {
             if (effect.type === 'damage') {
                 // 伤害效果：求值公式 → 结算命中/暴击/防御
-                const formulaStartedAt = sectionRecorder ? performance.now() : 0;
-                const baseDamage = Math.max(1, Math.round(evaluateSkillFormula(effect.formula, formulaContext) * damageMultiplier));
-                sectionRecorder?.('formulaEvalMs', performance.now() - formulaStartedAt);
-
-                const damageStartedAt = sectionRecorder ? performance.now() : 0;
-                const damageRoll = resolveEffectDamage(effect, baseDamage, combatContext);
-                sectionRecorder?.('damagePipelineMs', performance.now() - damageStartedAt);
+                const reusableDamage = this.resolveReusableSkillDamage(
+                    effect,
+                    formulaContext,
+                    damageMultiplier,
+                    combatContext,
+                    options,
+                    sectionRecorder,
+                );
+                const baseDamage = reusableDamage.baseDamage;
+                let damageRoll = options?.isTileTarget === true
+                    ? reusableDamage.tileDamageRoll
+                    : undefined;
+                if (!damageRoll) {
+                    const damageStartedAt = sectionRecorder ? performance.now() : 0;
+                    damageRoll = resolveEffectDamage(effect, baseDamage, combatContext);
+                    sectionRecorder?.('damagePipelineMs', performance.now() - damageStartedAt);
+                    if (options?.isTileTarget === true && reusableDamage.cacheable === true) {
+                        reusableDamage.tileDamageRoll = damageRoll;
+                        this.skillDamageCacheStats.tilePipelineMisses += 1;
+                    }
+                }
                 damageRolls.push(damageRoll);
                 hasDamageRoll = true;
                 anyCrit ||= damageRoll.crit === true;
@@ -342,6 +368,45 @@ export class PlayerCombatService {
             resolved: anyResolved,
             broken: anyBroken,
         };
+    }
+
+    /**
+     * 复用目标无关的技能基础伤害；地块目标还可复用完整地块伤害管线结果。
+     * 玩家和妖兽目标仍在调用方逐目标执行随机命中、暴击、防御与境界结算。
+     */
+    resolveReusableSkillDamage(effect, formulaContext, damageMultiplier, combatContext, options, sectionRecorder) {
+        const cacheOwner = options?.formulaCacheOwner;
+        const formulaDependencyMask = resolveReusableSkillFormulaDependencyMask(effect.formula);
+        if (!cacheOwner || typeof cacheOwner !== 'object' || formulaDependencyMask < 0) {
+            this.skillDamageCacheStats.bypasses += 1;
+            const formulaStartedAt = sectionRecorder ? performance.now() : 0;
+            const baseDamage = Math.max(1, Math.round(evaluateSkillFormula(effect.formula, formulaContext) * damageMultiplier));
+            sectionRecorder?.('formulaEvalMs', performance.now() - formulaStartedAt);
+            return { baseDamage };
+        }
+        const dependencyMask = formulaDependencyMask | SKILL_FORMULA_DEPENDENCY.ATTRS;
+
+        let cacheByEffect = this.skillDamageCacheByOwner.get(cacheOwner);
+        if (!cacheByEffect) {
+            cacheByEffect = new WeakMap();
+            this.skillDamageCacheByOwner.set(cacheOwner, cacheByEffect);
+        }
+        const cached = cacheByEffect.get(effect);
+        if (cached && matchesSkillDamageCacheEntry(cached, formulaContext, damageMultiplier, dependencyMask)) {
+            this.skillDamageCacheStats.formulaHits += 1;
+            if (options?.isTileTarget === true && cached.tileDamageRoll) {
+                this.skillDamageCacheStats.tilePipelineHits += 1;
+            }
+            return cached;
+        }
+
+        this.skillDamageCacheStats.formulaMisses += 1;
+        const formulaStartedAt = sectionRecorder ? performance.now() : 0;
+        const baseDamage = Math.max(1, Math.round(evaluateSkillFormula(effect.formula, formulaContext) * damageMultiplier));
+        sectionRecorder?.('formulaEvalMs', performance.now() - formulaStartedAt);
+        const entry = createSkillDamageCacheEntry(formulaContext, damageMultiplier, baseDamage, dependencyMask);
+        cacheByEffect.set(effect, entry);
+        return entry;
     }
 };
 
@@ -431,8 +496,10 @@ function toCombatPlayerState(player) {
             finalAttrs: player.attrs.finalAttrs,
             numericStats: player.attrs.numericStats,
             ratioDivisors: player.attrs.ratioDivisors,
+            revision: Math.max(0, Math.trunc(Number(player.attrs.revision) || 0)),
         },
         buffs: player.buffs.buffs,
+        buffsRevision: Math.max(0, Math.trunc(Number(player.buffs.revision) || 0)),
     };
 }
 
@@ -589,6 +656,19 @@ function resolveSkillCooldownTicks(attacker, cooldown) {
  */
 const constantZeroSkillFormulaEvaluator = () => 0;
 const compiledSkillFormulaCache = new WeakMap();
+const reusableSkillFormulaDependencyCache = new WeakMap();
+const SKILL_FORMULA_DEPENDENCY = Object.freeze({
+    ATTRS: 1 << 0,
+    BUFFS: 1 << 1,
+    HP: 1 << 2,
+    MAX_HP: 1 << 3,
+    QI: 1 << 4,
+    MAX_QI: 1 << 5,
+    REALM: 1 << 6,
+    TECH_LEVEL: 1 << 7,
+    TARGET_COUNT: 1 << 8,
+});
+const UNREUSABLE_SKILL_FORMULA_DEPENDENCY = -1;
 
 function evaluateSkillFormula(formula, context) {
     if (typeof formula === 'number') {
@@ -611,6 +691,128 @@ function getCompiledSkillFormula(formula) {
     const compiled = compileSkillFormula(formula);
     compiledSkillFormulaCache.set(formula, compiled);
     return compiled;
+}
+
+/**
+ * 只有已知的施法者变量、功法等级和目标数可以跨目标复用。
+ * 未知变量保守视为不可复用，避免未来扩展公式变量后误用旧缓存。
+ */
+function resolveReusableSkillFormulaDependencyMask(formula) {
+    if (typeof formula === 'number') {
+        return 0;
+    }
+    if (!formula || typeof formula !== 'object') {
+        return UNREUSABLE_SKILL_FORMULA_DEPENDENCY;
+    }
+    const cached = reusableSkillFormulaDependencyCache.get(formula);
+    if (cached !== undefined) {
+        return cached;
+    }
+    let result = UNREUSABLE_SKILL_FORMULA_DEPENDENCY;
+    if ('var' in formula) {
+        result = resolveReusableSkillFormulaVariableDependency(formula.var);
+    }
+    else if (formula.op === 'clamp') {
+        result = mergeReusableSkillFormulaDependencies([
+            resolveReusableSkillFormulaDependencyMask(formula.value),
+            formula.min === undefined ? 0 : resolveReusableSkillFormulaDependencyMask(formula.min),
+            formula.max === undefined ? 0 : resolveReusableSkillFormulaDependencyMask(formula.max),
+        ]);
+    }
+    else if (['add', 'sub', 'mul', 'div', 'min', 'max'].includes(formula.op)) {
+        result = Array.isArray(formula.args)
+            ? mergeReusableSkillFormulaDependencies(
+                formula.args.map((entry) => resolveReusableSkillFormulaDependencyMask(entry)),
+            )
+            : UNREUSABLE_SKILL_FORMULA_DEPENDENCY;
+    }
+    reusableSkillFormulaDependencyCache.set(formula, result);
+    return result;
+}
+
+function mergeReusableSkillFormulaDependencies(dependencies) {
+    let merged = 0;
+    for (const dependency of dependencies) {
+        if (dependency < 0) {
+            return UNREUSABLE_SKILL_FORMULA_DEPENDENCY;
+        }
+        merged |= dependency;
+    }
+    return merged;
+}
+
+function resolveReusableSkillFormulaVariableDependency(variable) {
+    if (variable === 'techLevel') return SKILL_FORMULA_DEPENDENCY.TECH_LEVEL;
+    if (variable === 'targetCount') return SKILL_FORMULA_DEPENDENCY.TARGET_COUNT;
+    if (typeof variable !== 'string') {
+        return UNREUSABLE_SKILL_FORMULA_DEPENDENCY;
+    }
+    if (variable === 'caster.realmLv') return SKILL_FORMULA_DEPENDENCY.REALM;
+    if (variable === 'caster.hp') return SKILL_FORMULA_DEPENDENCY.HP;
+    if (variable === 'caster.maxHp') return SKILL_FORMULA_DEPENDENCY.MAX_HP;
+    if (variable === 'caster.qi') return SKILL_FORMULA_DEPENDENCY.QI;
+    if (variable === 'caster.maxQi') return SKILL_FORMULA_DEPENDENCY.MAX_QI;
+    if (variable.startsWith('caster.attr.') || variable.startsWith('caster.stat.')) {
+        return SKILL_FORMULA_DEPENDENCY.ATTRS;
+    }
+    if (variable.startsWith('caster.buff.') && variable.endsWith('.stacks')) {
+        return SKILL_FORMULA_DEPENDENCY.BUFFS;
+    }
+    return UNREUSABLE_SKILL_FORMULA_DEPENDENCY;
+}
+
+function createSkillDamageCacheStats() {
+    return {
+        formulaHits: 0,
+        formulaMisses: 0,
+        tilePipelineHits: 0,
+        tilePipelineMisses: 0,
+        bypasses: 0,
+    };
+}
+
+function createSkillDamageCacheEntry(context, damageMultiplier, baseDamage, dependencyMask) {
+    return {
+        cacheable: true,
+        dependencyMask,
+        attrsRevision: Math.max(0, Math.trunc(Number(context.attacker?.attrs?.revision) || 0)),
+        buffsRevision: Math.max(0, Math.trunc(Number(context.attacker?.buffsRevision) || 0)),
+        hp: Number(context.attacker?.hp) || 0,
+        maxHp: Number(context.attacker?.maxHp) || 0,
+        qi: Number(context.attacker?.qi) || 0,
+        maxQi: Number(context.attacker?.maxQi) || 0,
+        realmLv: resolveCombatantRealmLv(context.attacker),
+        techLevel: Math.max(0, Math.trunc(Number(context.techLevel) || 0)),
+        targetCount: Math.max(1, Math.trunc(Number(context.targetCount) || 1)),
+        damageMultiplier,
+        baseDamage,
+        tileDamageRoll: undefined,
+    };
+}
+
+function matchesSkillDamageCacheEntry(entry, context, damageMultiplier, dependencyMask) {
+    if (entry.dependencyMask !== dependencyMask || entry.damageMultiplier !== damageMultiplier) {
+        return false;
+    }
+    if ((dependencyMask & SKILL_FORMULA_DEPENDENCY.ATTRS) !== 0
+        && entry.attrsRevision !== Math.max(0, Math.trunc(Number(context.attacker?.attrs?.revision) || 0))) return false;
+    if ((dependencyMask & SKILL_FORMULA_DEPENDENCY.BUFFS) !== 0
+        && entry.buffsRevision !== Math.max(0, Math.trunc(Number(context.attacker?.buffsRevision) || 0))) return false;
+    if ((dependencyMask & SKILL_FORMULA_DEPENDENCY.HP) !== 0
+        && entry.hp !== (Number(context.attacker?.hp) || 0)) return false;
+    if ((dependencyMask & SKILL_FORMULA_DEPENDENCY.MAX_HP) !== 0
+        && entry.maxHp !== (Number(context.attacker?.maxHp) || 0)) return false;
+    if ((dependencyMask & SKILL_FORMULA_DEPENDENCY.QI) !== 0
+        && entry.qi !== (Number(context.attacker?.qi) || 0)) return false;
+    if ((dependencyMask & SKILL_FORMULA_DEPENDENCY.MAX_QI) !== 0
+        && entry.maxQi !== (Number(context.attacker?.maxQi) || 0)) return false;
+    if ((dependencyMask & SKILL_FORMULA_DEPENDENCY.REALM) !== 0
+        && entry.realmLv !== resolveCombatantRealmLv(context.attacker)) return false;
+    if ((dependencyMask & SKILL_FORMULA_DEPENDENCY.TECH_LEVEL) !== 0
+        && entry.techLevel !== Math.max(0, Math.trunc(Number(context.techLevel) || 0))) return false;
+    if ((dependencyMask & SKILL_FORMULA_DEPENDENCY.TARGET_COUNT) !== 0
+        && entry.targetCount !== Math.max(1, Math.trunc(Number(context.targetCount) || 1))) return false;
+    return true;
 }
 
 function compileSkillFormula(formula) {

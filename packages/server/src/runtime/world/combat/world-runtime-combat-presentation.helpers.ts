@@ -253,10 +253,14 @@ function emitCombatNotices(deps: CombatPresentationDeps | undefined, notices: Co
     return;
   }
   for (const notice of notices) {
-    if (!notice?.playerId || typeof notice.text !== 'string' || notice.text.length <= 0) {
+    if (!notice?.playerId || (typeof notice.text !== 'string' && !notice.combat && !notice.structured)) {
       continue;
     }
-    deps.queuePlayerNotice(notice.playerId, notice.text, notice.kind ?? 'combat', notice.castId ?? castId, notice.combat, notice.structured);
+    const text = typeof notice.text === 'string' ? notice.text : '';
+    if (!text && !notice.combat && !notice.structured) {
+      continue;
+    }
+    deps.queuePlayerNotice(notice.playerId, text, notice.kind ?? 'combat', notice.castId ?? castId, notice.combat, notice.structured);
   }
 }
 

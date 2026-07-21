@@ -19,6 +19,14 @@ import { applyMiningExpForTileDamage, resolveMiningAdjustedTileDamage, resolveMi
 import { WorldRuntimeThreatService } from './world-runtime-threat.service';
 import { resolvePlayerDisplayName } from '../../player/player-display-name';
 import { resolveSuppressedMonsterNumericStats } from './formation-combat-effect.helpers';
+import {
+    buildPlayerSkillDamageSummaryEffect,
+    buildPlayerSkillSummaryNotice,
+    createPlayerSkillCastSummary,
+    recordPlayerSkillEnemySummary,
+    recordPlayerSkillTileSummary,
+    shouldAggregatePlayerSkillPresentation,
+} from './player-skill-cast-summary.helpers';
 import * as world_runtime_normalization_helpers_1 from '../world-runtime.normalization.helpers';
 import * as world_runtime_path_planning_helpers_1 from '../world-runtime.path-planning.helpers';
 import * as world_runtime_observation_helpers_1 from '../query/world-runtime.observation.helpers';
@@ -143,6 +151,31 @@ function resolvePrimaryDamageRoll(result, fallbackDamageKind, fallbackElement) {
         damageKind: result?.damageKind ?? fallbackDamageKind,
         element: result?.damageElement ?? fallbackElement,
     };
+}
+
+/** 单次施法复用地块战斗态，只刷新目标耐久，避免 AOE 按格分配完整数值对象。 */
+function createReusablePlayerSkillTileCombatTarget() {
+    return {
+        runtimeId: 'skill-cast-tile-target',
+        monsterId: 'tile',
+        hp: 1,
+        maxHp: 1,
+        qi: 0,
+        maxQi: 0,
+        attrs: {
+            finalAttrs: createTileCombatAttributes(),
+            numericStats: createTileCombatNumericStats(1),
+            ratioDivisors: createTileCombatRatioDivisors(),
+        },
+        buffs: [],
+    };
+}
+
+function updateReusablePlayerSkillTileCombatTarget(target, hp, maxHp) {
+    target.hp = Math.max(1, Math.round(Number(hp) || 1));
+    target.maxHp = Math.max(1, Math.round(Number(maxHp) || target.hp));
+    target.attrs.numericStats.maxHp = target.maxHp;
+    return target;
 }
 function resolveTickScaledChantDurationMs(ticks, tickSpeed = 1) {
     const normalizedTicks = Math.max(0, Math.trunc(Number(ticks) || 0));
@@ -1391,9 +1424,13 @@ export class WorldRuntimePlayerSkillDispatchService {
         let totalSkillHeal = 0;
         let selfBuffs = [];
         const destroyedTiles = [];
+        const aggregatePresentation = shouldAggregatePlayerSkillPresentation(targets.length, skill?.effects);
+        const castSummary = aggregatePresentation ? createPlayerSkillCastSummary() : null;
+        const pendingTileDamage = [];
         const attackerCombatState = typeof this.playerCombatService.createCombatPlayerState === 'function'
             ? this.playerCombatService.createCombatPlayerState(attacker)
             : undefined;
+        const tileCombatTargetState = createReusablePlayerSkillTileCombatTarget();
         const recordSkillCastSectionDuration = (sectionKey, durationMs, count = 1) => {
             const normalizedKey = typeof sectionKey === 'string' && sectionKey
                 ? sectionKey
@@ -1408,6 +1445,8 @@ export class WorldRuntimePlayerSkillDispatchService {
             range: effectiveRange,
             resolvedSkill,
             attackerCombatState,
+            formulaCacheOwner: attacker,
+            isTileTarget: false,
             onQiSpent: (player, amount) => instance.disperseQiAt?.(player?.x, player?.y, amount),
             recordSkillCastSectionDuration,
         };
@@ -1415,6 +1454,9 @@ export class WorldRuntimePlayerSkillDispatchService {
         for (const target of targets) {
             options.skipResourceAndCooldown = castOptions?.skipResourceAndCooldown === true || castIndex > 0;
             options.skipSelfEffects = castIndex > 0;
+            options.isTileTarget = target.kind === 'tile'
+                || target.kind === 'formation'
+                || target.kind === 'formation_boundary';
             if (target.kind === 'self') {
                 const combatResolveStartedAt = performance.now();
                 const result = this.playerCombatService.castSelfSkill(attacker, skillId, currentTick, options);
@@ -1517,6 +1559,10 @@ export class WorldRuntimePlayerSkillDispatchService {
                         applyKillReward: false,
                     });
                     recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.outcomeApplyMs', outcomeApplyStartedAt);
+                    if (castSummary) {
+                        recordPlayerSkillEnemySummary(castSummary, 0, false);
+                        continue;
+                    }
                     const presentationStartedAt = performance.now();
                     emitCombatPresentation({
                         deps,
@@ -1558,6 +1604,14 @@ export class WorldRuntimePlayerSkillDispatchService {
                     const killRewardStartedAt = performance.now();
                     await deps.handlePlayerMonsterKill(instance, outcome.monster, attacker.playerId);
                     recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.killRewardMs', killRewardStartedAt);
+                }
+                if (castSummary) {
+                    recordPlayerSkillEnemySummary(
+                        castSummary,
+                        normalizeAppliedDamage(outcome?.appliedDamage, result.totalDamage),
+                        outcome?.defeated === true,
+                    );
+                    continue;
                 }
                 const presentationStartedAt = performance.now();
                 emitCombatPresentation({
@@ -1655,6 +1709,26 @@ export class WorldRuntimePlayerSkillDispatchService {
                     await deps.handlePlayerDefeat(updatedTarget.playerId, attacker.playerId);
                     recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.killRewardMs', killRewardStartedAt);
                 }
+                if (castSummary) {
+                    recordPlayerSkillEnemySummary(
+                        castSummary,
+                        normalizeAppliedDamage(appliedOutcome?.adapterResult?.appliedDamage, result.totalDamage),
+                        Boolean(updatedTarget && updatedTarget.hp <= 0),
+                    );
+                    const presentationStartedAt = performance.now();
+                    emitCombatPresentation({
+                        deps,
+                        instanceId: attacker.instanceId,
+                        castId,
+                        notices: [{
+                            playerId: targetPlayer.playerId,
+                            text: `${formatCombatActionClause(resolvePlayerDisplayName(attacker, { playerId: attacker.playerId, fallback: '未知玩家' }), '你', skill.name)}，${formatCombatResolutionOutcome(primaryRoll, primaryRoll.damageKind ?? damageKind, primaryRoll.element ?? damageElement)}`,
+                            combat: buildCombatNoticePayload({ caster: resolvePlayerDisplayName(attacker, { playerId: attacker.playerId, fallback: '未知玩家' }), target: '你', skill: skill.name, resolution: { ...primaryRoll, damageKind: primaryRoll.damageKind ?? damageKind, element: primaryRoll.element ?? damageElement } }),
+                        }],
+                    });
+                    recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.presentationMs', presentationStartedAt);
+                    continue;
+                }
                 const presentationStartedAt = performance.now();
                 emitCombatPresentation({
                     deps,
@@ -1694,20 +1768,15 @@ export class WorldRuntimePlayerSkillDispatchService {
                 const distance = chebyshevDistance(attacker.x, attacker.y, formation.x, formation.y);
                 const effectiveDurability = Math.max(1, Math.min(Number.MAX_SAFE_INTEGER, Math.ceil(formation.remainingAuraBudget * formation.damagePerAura)));
                 const combatResolveStartedAt = performance.now();
-                const result = this.playerCombatService.castSkillToMonster(attacker, {
-                    runtimeId: formation.id,
-                    monsterId: formation.id,
-                    hp: effectiveDurability,
-                    maxHp: effectiveDurability,
-                    qi: 0,
-                    maxQi: 0,
-                    attrs: {
-                        finalAttrs: createTileCombatAttributes(),
-                        numericStats: createTileCombatNumericStats(effectiveDurability),
-                        ratioDivisors: createTileCombatRatioDivisors(),
-                    },
-                    buffs: [],
-                }, skillId, currentTick, distance, () => undefined, { ...options, isTileTarget: true });
+                const result = this.playerCombatService.castSkillToMonster(
+                    attacker,
+                    updateReusablePlayerSkillTileCombatTarget(tileCombatTargetState, effectiveDurability, effectiveDurability),
+                    skillId,
+                    currentTick,
+                    distance,
+                    () => undefined,
+                    options,
+                );
                 recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.combatResolveMs', combatResolveStartedAt);
                 castIndex += 1;
                 totalSkillHeal += Math.max(0, Math.round(Number(result.totalHeal) || 0));
@@ -1790,20 +1859,15 @@ export class WorldRuntimePlayerSkillDispatchService {
                 const distance = chebyshevDistance(attacker.x, attacker.y, target.x, target.y);
                 const effectiveDurability = Math.max(1, Math.min(Number.MAX_SAFE_INTEGER, Math.ceil(boundary.remainingAuraBudget * boundary.damagePerAura)));
                 const combatResolveStartedAt = performance.now();
-                const result = this.playerCombatService.castSkillToMonster(attacker, {
-                    runtimeId: `formation-boundary:${boundary.formationId}:${target.x}:${target.y}`,
-                    monsterId: boundary.formationId,
-                    hp: effectiveDurability,
-                    maxHp: effectiveDurability,
-                    qi: 0,
-                    maxQi: 0,
-                    attrs: {
-                        finalAttrs: createTileCombatAttributes(),
-                        numericStats: createTileCombatNumericStats(effectiveDurability),
-                        ratioDivisors: createTileCombatRatioDivisors(),
-                    },
-                    buffs: [],
-                }, skillId, currentTick, distance, () => undefined, { ...options, isTileTarget: true });
+                const result = this.playerCombatService.castSkillToMonster(
+                    attacker,
+                    updateReusablePlayerSkillTileCombatTarget(tileCombatTargetState, effectiveDurability, effectiveDurability),
+                    skillId,
+                    currentTick,
+                    distance,
+                    () => undefined,
+                    options,
+                );
                 recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.combatResolveMs', combatResolveStartedAt);
                 castIndex += 1;
                 totalSkillHeal += Math.max(0, Math.round(Number(result.totalHeal) || 0));
@@ -1886,25 +1950,41 @@ export class WorldRuntimePlayerSkillDispatchService {
             }
             const distance = chebyshevDistance(attacker.x, attacker.y, target.x, target.y);
             const combatResolveStartedAt = performance.now();
-            const result = this.playerCombatService.castSkillToMonster(attacker, {
-                runtimeId: `tile:${target.x}:${target.y}`,
-                monsterId: `tile:${tileState.tileType}`,
-                hp: tileState.hp,
-                maxHp: tileState.maxHp,
-                qi: 0,
-                maxQi: 0,
-                attrs: {
-                    finalAttrs: createTileCombatAttributes(),
-                    numericStats: createTileCombatNumericStats(tileState.maxHp),
-                    ratioDivisors: createTileCombatRatioDivisors(),
-                },
-                buffs: [],
-                }, skillId, currentTick, distance, () => undefined, { ...options, isTileTarget: true });
+            const result = this.playerCombatService.castSkillToMonster(
+                attacker,
+                updateReusablePlayerSkillTileCombatTarget(tileCombatTargetState, tileState.hp, tileState.maxHp),
+                skillId,
+                currentTick,
+                distance,
+                () => undefined,
+                options,
+            );
                 recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.combatResolveMs', combatResolveStartedAt);
                 castIndex += 1;
                 totalSkillHeal += Math.max(0, Math.round(Number(result.totalHeal) || 0));
                 if (selfBuffs.length === 0 && Array.isArray(result.selfBuffs) && result.selfBuffs.length > 0) {
                     selfBuffs = result.selfBuffs;
+                }
+                if (castSummary && typeof instance.damageTilesBatch === 'function') {
+                    const effectiveTileDamage = result.totalDamage > 0
+                        ? resolveMiningAdjustedTileDamage({
+                            attacker,
+                            tileType: tileState.tileType,
+                            baseDamage: result.totalDamage,
+                        }).damage
+                        : 0;
+                    const mitigatedDamage = effectiveTileDamage > 0
+                        && typeof deps.worldRuntimeFormationService?.mitigateTerrainDamage === 'function'
+                        ? deps.worldRuntimeFormationService.mitigateTerrainDamage(attacker.instanceId, target.x, target.y, effectiveTileDamage)
+                        : effectiveTileDamage;
+                    pendingTileDamage.push({
+                        x: target.x,
+                        y: target.y,
+                        damage: Math.max(0, Math.round(Number(mitigatedDamage) || 0)),
+                        tileState,
+                        effectiveTileDamage,
+                    });
+                    continue;
                 }
                 if (result.totalDamage <= 0) {
                 const outcomeApplyStartedAt = performance.now();
@@ -1920,6 +2000,10 @@ export class WorldRuntimePlayerSkillDispatchService {
                     rawDamage: Math.max(0, Math.round(Number(result.totalDamage) || 0)),
                 });
                 recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.outcomeApplyMs', outcomeApplyStartedAt);
+                if (castSummary) {
+                    recordPlayerSkillTileSummary(castSummary, 0, false);
+                    continue;
+                }
                 const presentationStartedAt = performance.now();
                 emitCombatPresentation({
                     deps,
@@ -1969,6 +2053,13 @@ export class WorldRuntimePlayerSkillDispatchService {
                 this.playerRuntimeService.markPersistenceDirtyDomains(attacker, ['profession']);
                 this.playerRuntimeService.bumpPersistentRevision(attacker);
             }
+            if (castSummary) {
+                recordPlayerSkillTileSummary(castSummary, appliedDamage, tileDamageResult?.destroyed === true);
+                if (tileDamageResult?.destroyed === true) {
+                    destroyedTiles.push({ x: target.x, y: target.y });
+                }
+                continue;
+            }
             const tileTargetName = resolveTileCombatTargetName(tileState);
             const presentationStartedAt = performance.now();
             emitCombatPresentation({
@@ -1988,11 +2079,100 @@ export class WorldRuntimePlayerSkillDispatchService {
                 destroyedTiles.push({ x: target.x, y: target.y });
             }
         }
+        if (pendingTileDamage.length > 0 && castSummary) {
+            const outcomeApplyStartedAt = performance.now();
+            const dropRateBonus = resolveMiningDropRateBonus(attacker);
+            const batchResult = instance.damageTilesBatch(pendingTileDamage, { dropRateBonus });
+            let appliedTotalDamage = 0;
+            let rawTotalDamage = 0;
+            let hitCount = 0;
+            let settledTargetCount = 0;
+            let miningExpChanged = false;
+            const batchedTileDrops = [];
+            for (let index = 0; index < pendingTileDamage.length; index += 1) {
+                const pending = pendingTileDamage[index];
+                const tileDamageResult = batchResult.results[index]?.result;
+                if (!tileDamageResult) {
+                    continue;
+                }
+                const appliedDamage = normalizeAppliedDamage(tileDamageResult.appliedDamage, pending.damage);
+                settledTargetCount += 1;
+                appliedTotalDamage += appliedDamage;
+                rawTotalDamage += Math.max(0, Math.round(Number(pending.effectiveTileDamage) || 0));
+                if (appliedDamage > 0) {
+                    hitCount += 1;
+                }
+                if (Array.isArray(tileDamageResult.tileDrops) && tileDamageResult.tileDrops.length > 0) {
+                    batchedTileDrops.push(...tileDamageResult.tileDrops);
+                }
+                const miningExpResult = applyMiningExpForTileDamage({
+                    attacker,
+                    tileType: pending.tileState.tileType,
+                    appliedDamage,
+                    playerRuntimeService: this.playerRuntimeService,
+                });
+                miningExpChanged ||= miningExpResult.changed;
+                recordPlayerSkillTileSummary(castSummary, appliedDamage, tileDamageResult.destroyed === true);
+                if (tileDamageResult.destroyed === true) {
+                    destroyedTiles.push({ x: pending.x, y: pending.y });
+                }
+            }
+            spawnTileDrops({
+                playerId: attacker.playerId,
+                tileDrops: batchedTileDrops,
+                deps,
+            });
+            if (miningExpChanged) {
+                this.playerRuntimeService.markPersistenceDirtyDomains(attacker, ['profession']);
+                this.playerRuntimeService.bumpPersistentRevision(attacker);
+            }
+            if (settledTargetCount > 0) {
+                const firstTarget = pendingTileDamage[0];
+                this.recordPlayerSkillOutcome(outcomeDeps, attacker, skill, {
+                    kind: CombatTargetKind.Tile,
+                    x: firstTarget.x,
+                    y: firstTarget.y,
+                }, {
+                    hitCount,
+                    targetCount: settledTargetCount,
+                    totalDamage: appliedTotalDamage,
+                    totalRawDamage: rawTotalDamage,
+                    damageKind,
+                    damageElement,
+                }, {
+                    targetType: 'tile_batch',
+                    batch: true,
+                    fastPathCount: batchResult.fastPathCount,
+                    fallbackCount: batchResult.fallbackCount,
+                });
+            }
+            recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.outcomeApplyMs', outcomeApplyStartedAt);
+        }
         if (castIndex === 0) {
             throw new BadRequestException('没有可命中的目标');
         }
         recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.targetApplyMs', targetApplyStartedAt, targets.length);
         const postEffectsStartedAt = performance.now();
+        if (castSummary) {
+            const summaryEffect = buildPlayerSkillDamageSummaryEffect({
+                summary: castSummary,
+                x: attacker.x,
+                y: attacker.y,
+                color: effectColor,
+            });
+            const summaryNotice = buildPlayerSkillSummaryNotice(castSummary, skill.name);
+            if (summaryEffect || summaryNotice) {
+                emitCombatPresentation({
+                    deps,
+                    instanceId: attacker.instanceId,
+                    castId,
+                    combatEffects: summaryEffect ? [summaryEffect] : undefined,
+                    notices: summaryNotice
+                        ? [{ playerId: attacker.playerId, text: '', combat: summaryNotice }]
+                        : undefined,
+                });
+            }
+        }
         if (totalSkillHeal > 0 || selfBuffs.length > 0) {
             const effects = [];
             if (totalSkillHeal > 0) {

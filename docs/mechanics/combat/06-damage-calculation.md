@@ -207,3 +207,17 @@ actualCooldown = max(1, ceil(baseCooldown × cooldownMultiplier))
 | target.stat.{key} | 目标数值属性 |
 | caster.buff.{id}.stacks | 施法者 buff 层数 |
 | target.buff.{id}.stacks | 目标 buff 层数 |
+
+### 公式结果复用与失效
+
+公式编译结果按公式对象使用 `WeakMap` 复用。玩家多目标施法在此基础上增加伤害结果缓存:
+
+- `caster.attr.*` / `caster.stat.*`: 比较施法者 `attrs.revision`
+- `caster.buff.*`: 比较施法者 `buffs.revision`
+- `caster.hp/maxHp/qi/maxQi`: 只比较公式实际读取的资源字段
+- `caster.realmLv`、`techLevel`、`targetCount`: 只比较对应标量
+- 出手力度倍率始终属于缓存键
+- 地块管线始终依赖 `attrs.revision`，因为五行增伤来自施法者属性
+- 任意 `target.*` 和未知变量不进入结果缓存
+
+因此，同一技能下一息继续施放且相关依赖没有变化时，可以直接复用上次基础伤害与地块管线结果；相关版本或标量变化后，第一个目标重算并覆盖缓存，后续目标复用新结果。

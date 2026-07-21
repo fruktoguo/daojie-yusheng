@@ -117,6 +117,17 @@ message CombatEffectPayload {
   optional string baseColor = 14;
   optional sint32 originX = 15;
   optional sint32 originY = 16;
+  optional CombatDamageSummaryGroupPayload enemy = 17;
+  optional CombatDamageSummaryGroupPayload tile = 18;
+}
+
+message CombatDamageSummaryGroupPayload {
+  required uint32 targetCount = 1;
+  required uint32 hitCount = 2;
+  required double totalDamage = 3;
+  optional uint32 defeatedCount = 4;
+  optional uint32 destroyedCount = 5;
+  optional double uniformDamage = 6;
 }
 
 message VisibleTileRowPayload {

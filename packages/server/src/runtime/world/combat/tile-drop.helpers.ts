@@ -143,13 +143,17 @@ export function spawnTileDrops(input: {
   }
   const player = input.deps?.playerRuntimeService?.getPlayer?.(input.playerId);
   const outputRate = resolvePlayerCraftEffectStat(player, 'mining', 'outputRate');
-  const labels: string[] = [];
+  const outputCountByItemId = new Map<string, number>();
   for (const drop of drops) {
     const itemId = typeof drop?.itemId === 'string' ? drop.itemId.trim() : '';
     if (!itemId) {
       continue;
     }
     const count = applyCraftOutputRate(Math.max(1, Math.trunc(Number(drop?.count) || 1)), outputRate);
+    outputCountByItemId.set(itemId, (outputCountByItemId.get(itemId) ?? 0) + count);
+  }
+  const labels: string[] = [];
+  for (const [itemId, count] of outputCountByItemId) {
     const item = typeof content?.createItem === 'function'
       ? content.createItem(itemId, count)
       : null;

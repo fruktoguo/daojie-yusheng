@@ -17,6 +17,12 @@ import { BuildingTopologyIndex } from '../building/building-topology-index.servi
 import { createRuntimeTilePlaneRoomCellProvider, detectRooms, isRoomTopologyTileType, isStaticRoomBoundaryTile } from '../building/room-detection.service';
 import { calculateFengShuiSnapshot, inferRoomRole } from '../building/fengshui-calculator.service';
 import { getDefaultBuildingRuntime } from '../building/building-default-content';
+import {
+    applyMapInstanceOrdinaryTileDamageMutation,
+    damageMapInstanceTilesBatch,
+    type TileDamageBatchInput,
+    type TileDropRollOptions,
+} from './map-instance-tile-damage-batch.helpers';
 import { resolveCompiledBuildingDefinition } from '../building/building-definition-resolution.helpers';
 import { CombatPendingCastCancelReason, cancelPendingCombatCast, createMonsterPendingCombatCast, createMonsterSkillActionFromPendingCast, createMonsterSkillCancelActionFromPendingCast, resolvePendingCombatCastCancellation } from '../combat/pending-combat-cast.helpers';
 import { createRuntimeTemporaryBuff, refreshRuntimeTemporaryBuffPrototype } from '../player/runtime-buff-instance';
@@ -58,10 +64,6 @@ const PLAYER_ATTACH_BLOCKED_INSTANCE_STATES = new Set([
 
 /** INVALID_OCCUPANCY：空占位值，表示该地块当前未被占用。 */
 const INVALID_OCCUPANCY = 0;
-
-type TileDropRollOptions = {
-    dropRateBonus?: number;
-};
 
 function hasAttachedPlayerSession(sessionId: unknown): boolean {
     return typeof sessionId === 'string' && sessionId.length > 0;
@@ -3600,7 +3602,7 @@ class MapInstanceRuntime {
         };
     }
     /** damageTile：对可破坏地块施加伤害。 */
-    damageTile(x, y, damage, options: TileDropRollOptions = {}) {
+    damageTile(x, y, damage, options: TileDropRollOptions = {}): any {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         if (this.meta.canDamageTile !== true) {
@@ -3796,38 +3798,20 @@ class MapInstanceRuntime {
                 sectBoundaryOpened: true,
             };
         }
-        this.tileDamageByTile.set(tileIndex, {
-            hp: nextHp,
-            maxHp: current.maxHp,
-
-            destroyed,
-            respawnLeft: destroyed ? calculateTileRestoreTicks(current.tileType) : 0,
-            modifiedAt: Date.now(),
-        });
-        this.markStaticTileSyncDirtyByIndex(tileIndex, {
-            sightBlockingChanged: destroyed === true,
-            pathingChanged: destroyed === true,
-        });
-        this.worldRevision += 1;
-        this.markTileDamagePersistenceDirtyHighPriority(tileIndex);
-        if (affectsRoomTopology) {
-            this.recalculateRoomsAndFengShuiAfterTopologyChange({ reason: 'tile_destroyed', dirtyCellCount: 1 });
-            this.markPersistenceDirtyDomainsHighPriority(['room', 'fengshui']);
-        }
-        else if (affectsRoomIntegrity) {
-            this.recalculateFengShuiAfterRoomInfluenceChange(tileIndex, 'tile_integrity_damaged');
-            this.markPersistenceDirtyDomainsHighPriority(['fengshui']);
-        }
-        this.persistentRevision += 1;
-        return {
-
-            destroyed,
-            hp: nextHp,
-            maxHp: current.maxHp,
+        return applyMapInstanceOrdinaryTileDamageMutation(this, {
+            current,
+            tileIndex,
             appliedDamage,
-            targetType: current.tileType,
+            nextHp,
+            destroyed,
             tileDrops,
-        };
+            affectsRoomTopology,
+            affectsRoomIntegrity,
+        }, null, calculateTileRestoreTicks);
+    }
+    /** damageTilesBatch：批量伤害普通地块，特殊地块由 helper 回退单格生命周期。 */
+    damageTilesBatch(entries: readonly TileDamageBatchInput[], options: TileDropRollOptions = {}) {
+        return damageMapInstanceTilesBatch(this, entries, options, calculateTileRestoreTicks);
     }
     /** createTemporaryTile：创建或刷新技能生成的临时地块。 */
     createTemporaryTile(x, y, tileType, maxHp, durationTicks, currentTick, options: any = {}) {
@@ -6088,6 +6072,20 @@ class MapInstanceRuntime {
         }
         addNumericDirtyKey(this.dirtyTileDamageIndices, tileIndex);
         this.markStaticTileSyncDirtyByIndex(tileIndex);
+    }
+    /** 批量记录玩家主动破坏的地块损坏脏键，域优先级只推进一次。 */
+    markTileDamagePersistenceDirtyBatchHighPriority(tileIndices: ReadonlySet<number>) {
+        if (!(tileIndices instanceof Set) || tileIndices.size === 0) {
+            return;
+        }
+        markMapInstanceDirtyDomains(this, ['tile_damage']);
+        markMapInstanceDirtyDomainHighPriority(this, ['tile_damage']);
+        if (!(this.dirtyTileDamageIndices instanceof Set)) {
+            this.dirtyTileDamageIndices = new Set();
+        }
+        for (const tileIndex of tileIndices) {
+            addNumericDirtyKey(this.dirtyTileDamageIndices, tileIndex);
+        }
     }
     /** markStaticTileSyncDirtyByIndex：记录实例级地块静态同步脏坐标。 */
     markStaticTileSyncDirtyByIndex(tileIndexInput, options = undefined) {

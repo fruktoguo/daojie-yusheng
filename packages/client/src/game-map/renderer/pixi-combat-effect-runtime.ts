@@ -23,6 +23,7 @@ import type {
   FloatingTextEffect,
   WarningZoneEffect,
 } from './pixi-render-state';
+import { formatCombatDamageSummaryEffect } from './combat-damage-summary-text';
 
 const MAX_FLOATING_TEXTS = 256;
 const MAX_ATTACK_TRAILS = 192;
@@ -48,6 +49,13 @@ export class PixiCombatEffectRuntime {
     }
     if (effect.type === 'warning_zone') {
       this.addWarningZone(effect.cells, effect.color, effect.durationMs, effect.baseColor, effect.originX, effect.originY);
+      return;
+    }
+    if (effect.type === 'damage_summary') {
+      const text = formatCombatDamageSummaryEffect(effect);
+      if (text) {
+        this.addFloatingText(effect.x, effect.y, text, effect.color, 'damage');
+      }
       return;
     }
     const actionStyle = this.resolveActionTextStyle(effect);

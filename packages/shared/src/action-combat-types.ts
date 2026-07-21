@@ -204,5 +204,31 @@ export interface CombatEffectWarningZone {
   durationMs?: number;
 }
 
+/** 单类目标的施法伤害汇总，避免高目标数表现逐条发包。 */
+export interface CombatDamageSummaryGroup {
+  /** 实际参与结算的目标数。 */
+  targetCount: number;
+  /** 实际受到正伤害的目标数。 */
+  hitCount: number;
+  /** 这一类目标承受的实际总伤害。 */
+  totalDamage: number;
+  /** 被击败的敌对目标数。 */
+  defeatedCount?: number;
+  /** 被摧毁的地块数。 */
+  destroyedCount?: number;
+  /** 所有命中伤害完全一致时的单目标伤害。 */
+  uniformDamage?: number;
+}
+
+/** 高目标数施法的聚合伤害飘字。 */
+export interface CombatEffectDamageSummary {
+  type: 'damage_summary';
+  x: number;
+  y: number;
+  color?: string;
+  enemy?: CombatDamageSummaryGroup;
+  tile?: CombatDamageSummaryGroup;
+}
+
 /** 战斗特效联合类型。 */
-export type CombatEffect = CombatEffectAttack | CombatEffectFloat | CombatEffectWarningZone;
+export type CombatEffect = CombatEffectAttack | CombatEffectFloat | CombatEffectWarningZone | CombatEffectDamageSummary;
