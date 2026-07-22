@@ -133,6 +133,34 @@ function verifyRemoteWorldRevisionSkipsProjectorRebuild(): void {
   assert.equal(localDelta?.worldDelta?.p?.find((entry: any) => entry.id === 'player:near')?.x, 5);
 }
 
+function verifySelfDeltaDoesNotRebuildStableWorldProjection(): void {
+  const instance = createInstance();
+  instance.connectPlayer({ playerId: 'player:observer', sessionId: 'session:observer', preferredX: 2, preferredY: 1 });
+  instance.connectPlayer({ playerId: 'player:near', sessionId: 'session:near', preferredX: 4, preferredY: 1 });
+  const projector = createProjector();
+  const player = createProjectorPlayer('player:observer');
+  const initial = instance.buildPlayerView('player:observer', 10);
+  assert.ok(initial);
+  projector.createInitialEnvelope({ playerId: player.playerId, sessionId: 'session:observer' }, initial, player);
+  const cachedBefore = projector.getCachedProjectorState(player.playerId);
+
+  const observer = (instance as any).playersById.get('player:observer');
+  observer.selfRevision += 1;
+  const selfOnlyView = instance.buildPlayerView('player:observer', 10);
+  assert.notEqual(selfOnlyView, initial, 'selfRevision 变化会重建运行时 view 外层');
+  assert.notEqual(selfOnlyView?.visiblePlayers, initial.visiblePlayers, '重建后的可见列表外层引用应变化');
+  assert.equal(selfOnlyView?.visiblePlayers[0], initial.visiblePlayers[0], '未变化的局部条目必须复用缓存引用');
+
+  player.selfRevision += 1;
+  player.hp = 99;
+  const selfDelta = projector.createDeltaEnvelope(selfOnlyView, player);
+  const cachedAfter = projector.getCachedProjectorState(player.playerId);
+  assert.equal(selfDelta?.worldDelta, undefined, '生命变化只应走 SelfDelta，不应重建 world patch');
+  assert.equal(selfDelta?.selfDelta?.hp, 99);
+  assert.equal(cachedAfter?.players, cachedBefore?.players, '自身状态变化不得替换局部世界投影');
+  assert.equal(cachedAfter?.monsters, cachedBefore?.monsters);
+}
+
 function verifyIdentityAndVisiblePresentationStillInvalidateProjector(): void {
   const instance = createInstance();
   instance.connectPlayer({ playerId: 'player:observer', sessionId: 'session:observer', preferredX: 2, preferredY: 1 });
@@ -269,6 +297,7 @@ function createProjectorPlayer(playerId: string) {
 verifyRemoteChangesDoNotRebuildObserverView();
 verifyStaticDirtyUsesLocalChunks();
 verifyRemoteWorldRevisionSkipsProjectorRebuild();
+verifySelfDeltaDoesNotRebuildStableWorldProjection();
 verifyIdentityAndVisiblePresentationStillInvalidateProjector();
 verifyVisibleMonsterBuffStillInvalidatesProjector();
 console.log(JSON.stringify({ ok: true, case: 'world-runtime-aoi-cache-locality' }));

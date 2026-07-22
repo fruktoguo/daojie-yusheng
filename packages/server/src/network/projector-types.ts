@@ -218,6 +218,9 @@ export interface ProjectorViewLike {
   tick: number;
   worldRevision: number;
   selfRevision: number;
+  /** MapInstanceRuntime 的局部 AOI 修订；缺失时 projector 保持 worldRevision 保守语义。 */
+  aoiGlobalRevision?: number;
+  aoiLocalRevision?: number;
   instance: ProjectorInstanceLike;
   self: {
     x: number;

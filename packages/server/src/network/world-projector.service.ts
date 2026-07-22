@@ -45,9 +45,17 @@ type NativePlayerAuthStorePort = {
 };
 
 type ProjectorWorldSource = {
-    instance: unknown;
-    self: unknown;
-    selfRevision: unknown;
+    instanceId: unknown;
+    instanceTemplateId: unknown;
+    instanceName: unknown;
+    instanceKind: unknown;
+    instanceWidth: unknown;
+    instanceHeight: unknown;
+    aoiGlobalRevision: unknown;
+    aoiLocalRevision: unknown;
+    selfX: unknown;
+    selfY: unknown;
+    selfFacing: unknown;
     visiblePlayers: unknown;
     localNpcs: unknown;
     localMonsters: unknown;
@@ -70,7 +78,7 @@ function capturePlayerStateForFullPanel(player: any): any {
 export class WorldProjectorService {
     private readonly cacheByPlayerId = new Map<string, any>();
     private readonly identityProjectionByPlayerId = new Map<string, any>();
-    /** AOI view 命中时 worldRevision 会继续前进；这里单独记录真正影响世界投影的局部来源。 */
+    /** AOI view 命中时 worldRevision、selfRevision 会继续前进；这里单独记录真正影响世界投影的局部来源。 */
     private readonly worldSourceByPlayerId = new Map<string, ProjectorWorldSource>();
 
     constructor(
@@ -146,7 +154,11 @@ export class WorldProjectorService {
             };
         }
         const previousWorldSource = this.worldSourceByPlayerId.get(identityView.playerId);
-        const currentWorld = isSameProjectorWorldSource(previousWorldSource, worldSource)
+        const hasRuntimeAoiRevision = Boolean(previousWorldSource)
+            && hasStableProjectorAoiRevision(previousWorldSource)
+            && hasStableProjectorAoiRevision(worldSource);
+        const currentWorld = (hasRuntimeAoiRevision || previous.worldRevision === identityView.worldRevision)
+            && isSameProjectorWorldSource(previousWorldSource, worldSource)
             && !hasDynamicContainerCountdown(identityView, previous.containers)
             && !hasPlayerPresentationChange(identityView, previous.players)
             && !hasMonsterBuffPresentationChange(identityView, previous.monsters)
@@ -307,9 +319,17 @@ function normalizeIdentityText(value: unknown): string {
 
 function captureProjectorWorldSource(view: any, identityView: any): ProjectorWorldSource {
     return {
-        instance: view?.instance,
-        self: view?.self,
-        selfRevision: view?.selfRevision,
+        instanceId: view?.instance?.instanceId,
+        instanceTemplateId: view?.instance?.templateId,
+        instanceName: view?.instance?.name,
+        instanceKind: view?.instance?.kind,
+        instanceWidth: view?.instance?.width,
+        instanceHeight: view?.instance?.height,
+        aoiGlobalRevision: view?.aoiGlobalRevision,
+        aoiLocalRevision: view?.aoiLocalRevision,
+        selfX: view?.self?.x,
+        selfY: view?.self?.y,
+        selfFacing: view?.self?.facing,
         visiblePlayers: view?.visiblePlayers,
         localNpcs: view?.localNpcs,
         localMonsters: view?.localMonsters,
@@ -324,17 +344,23 @@ function captureProjectorWorldSource(view: any, identityView: any): ProjectorWor
 
 function isSameProjectorWorldSource(left: ProjectorWorldSource | undefined, right: ProjectorWorldSource): boolean {
     if (!left
-        || left.instance !== right.instance
-        || left.self !== right.self
-        || left.selfRevision !== right.selfRevision
-        || left.visiblePlayers !== right.visiblePlayers
-        || left.localNpcs !== right.localNpcs
-        || left.localMonsters !== right.localMonsters
-        || left.localPortals !== right.localPortals
-        || left.localGroundPiles !== right.localGroundPiles
-        || left.localContainers !== right.localContainers
-        || left.localBuildings !== right.localBuildings
-        || left.localFormations !== right.localFormations) {
+        || !Object.is(left.instanceId, right.instanceId)
+        || !Object.is(left.instanceTemplateId, right.instanceTemplateId)
+        || !Object.is(left.instanceName, right.instanceName)
+        || !Object.is(left.instanceKind, right.instanceKind)
+        || !Object.is(left.instanceWidth, right.instanceWidth)
+        || !Object.is(left.instanceHeight, right.instanceHeight)
+        || !Object.is(left.selfX, right.selfX)
+        || !Object.is(left.selfY, right.selfY)
+        || !Object.is(left.selfFacing, right.selfFacing)
+        || !isSameProjectorSourceList(left.visiblePlayers, right.visiblePlayers)
+        || !isSameProjectorSourceList(left.localNpcs, right.localNpcs)
+        || !isSameProjectorSourceList(left.localMonsters, right.localMonsters)
+        || !isSameProjectorSourceList(left.localPortals, right.localPortals)
+        || !isSameProjectorSourceList(left.localGroundPiles, right.localGroundPiles)
+        || !isSameProjectorSourceList(left.localContainers, right.localContainers)
+        || !isSameProjectorSourceList(left.localBuildings, right.localBuildings)
+        || !isSameProjectorSourceList(left.localFormations, right.localFormations)) {
         return false;
     }
     const leftPresentation = left.playerIdentityPresentation;
@@ -349,6 +375,32 @@ function isSameProjectorWorldSource(left: ProjectorWorldSource | undefined, righ
             || !Object.is(previous?.[0], current[0])
             || !Object.is(previous?.[1], current[1])
             || !Object.is(previous?.[2], current[2])) {
+            return false;
+        }
+    }
+    if (hasStableProjectorAoiRevision(left) || hasStableProjectorAoiRevision(right)) {
+        return hasStableProjectorAoiRevision(left)
+            && hasStableProjectorAoiRevision(right)
+            && Object.is(left.aoiGlobalRevision, right.aoiGlobalRevision)
+            && Object.is(left.aoiLocalRevision, right.aoiLocalRevision);
+    }
+    return true;
+}
+
+function hasStableProjectorAoiRevision(source: ProjectorWorldSource): boolean {
+    return Number.isFinite(Number(source.aoiGlobalRevision))
+        && Number.isFinite(Number(source.aoiLocalRevision));
+}
+
+function isSameProjectorSourceList(left: unknown, right: unknown): boolean {
+    if (left === right) {
+        return true;
+    }
+    if (!Array.isArray(left) || !Array.isArray(right) || left.length !== right.length) {
+        return false;
+    }
+    for (let index = 0; index < left.length; index += 1) {
+        if (left[index] !== right[index]) {
             return false;
         }
     }

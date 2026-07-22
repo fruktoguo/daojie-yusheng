@@ -3187,6 +3187,8 @@ class MapInstanceRuntime {
             tick: this.tick,
             worldRevision: this.worldRevision,
             selfRevision: player.selfRevision,
+            aoiGlobalRevision: this.aoiGlobalRevision,
+            aoiLocalRevision,
             instance: {
                 instanceId: this.meta.instanceId,
                 templateId: this.meta.templateId,
