@@ -1220,9 +1220,9 @@ export class WorldRuntimeCombatActionService {
         continue;
       }
       if (target.kind === 'tile') {
-        const state = typeof instance?.getTileCombatState === 'function'
+        const state = target.state ?? (typeof instance?.getTileCombatState === 'function'
           ? instance.getTileCombatState(target.x, target.y)
-          : target.state ?? null;
+          : null);
         normalized.push({
           kind: CombatTargetKind.Tile,
           x: target.x,
@@ -1402,9 +1402,9 @@ export class WorldRuntimeCombatActionService {
           details: {},
         };
       }
-      const state = typeof instance?.getTileCombatState === 'function'
+      const state = target.state ?? (typeof instance?.getTileCombatState === 'function'
         ? instance.getTileCombatState(cell.x, cell.y)
-        : null;
+        : null);
       return {
         ok: true,
         target: {

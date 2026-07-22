@@ -422,9 +422,9 @@ export class CraftPanelRuntimeService {
         const before = captureEnhancementAssetRuntimeState(player);
         const expectedJob = player?.enhancementJob ? { ...player.enhancementJob } : null;
         const previousSuppress = player?.suppressImmediateDomainPersistence;
+        player.suppressImmediateDomainPersistence = true;
         if (durableEnabled) {
             player.enhancementDurableCommitInFlight = true;
-            player.suppressImmediateDomainPersistence = true;
         }
         try {
             const result = this.cancelTechniqueActivity(player, 'enhancement', deps);
@@ -442,8 +442,8 @@ export class CraftPanelRuntimeService {
             throw error;
         }
         finally {
+            player.suppressImmediateDomainPersistence = previousSuppress;
             if (durableEnabled) {
-                player.suppressImmediateDomainPersistence = previousSuppress;
                 player.enhancementDurableCommitInFlight = false;
             }
         }

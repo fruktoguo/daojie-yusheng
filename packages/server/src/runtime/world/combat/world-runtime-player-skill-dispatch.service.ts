@@ -15,7 +15,7 @@ import { CombatActionPhase, CombatActorKind, CombatRejectReason, CombatTargetKin
 import { emitCombatPresentation, nextCastId } from './world-runtime-combat-presentation.helpers';
 import { CombatPendingCastCancelReason, CombatPendingCastStatus, cancelPendingCombatCast, createPlayerPendingCombatCast, createPlayerSkillActionFromPendingCast, resolvePendingCombatCastCancellation } from '../../combat/pending-combat-cast.helpers';
 import { buildStructuredNotice } from '../structured-notice.helpers';
-import { applyMiningExpForTileDamage, resolveMiningAdjustedTileDamage, resolveMiningDropRateBonus, spawnTileDrops } from './tile-drop.helpers';
+import { applyMiningExpForTileDamage, applyMiningExpForTileDamageBatch, resolveMiningAdjustedTileDamage, resolveMiningDropRateBonus, resolveMiningTileDamageMultiplier, spawnTileDrops } from './tile-drop.helpers';
 import { WorldRuntimeThreatService } from './world-runtime-threat.service';
 import { resolvePlayerDisplayName } from '../../player/player-display-name';
 import { resolveSuppressedMonsterNumericStats } from './formation-combat-effect.helpers';
@@ -176,6 +176,21 @@ function updateReusablePlayerSkillTileCombatTarget(target, hp, maxHp) {
     target.maxHp = Math.max(1, Math.round(Number(maxHp) || target.hp));
     target.attrs.numericStats.maxHp = target.maxHp;
     return target;
+}
+
+/** 后续地块只复用目标伤害结果，施法者治疗、buff、资源和冷却仍只在首个有效目标执行。 */
+function createRepeatedPlayerSkillTileResult(result) {
+    if (Math.max(0, Math.round(Number(result?.totalHeal) || 0)) <= 0
+        && (!Array.isArray(result?.selfBuffs) || result.selfBuffs.length === 0)
+        && Math.max(0, Math.round(Number(result?.qiCost) || 0)) <= 0) {
+        return result;
+    }
+    return {
+        ...result,
+        qiCost: 0,
+        totalHeal: 0,
+        selfBuffs: [],
+    };
 }
 function resolveTickScaledChantDurationMs(ticks, tickSpeed = 1) {
     const normalizedTicks = Math.max(0, Math.trunc(Number(ticks) || 0));
@@ -1431,6 +1446,12 @@ export class WorldRuntimePlayerSkillDispatchService {
             ? this.playerCombatService.createCombatPlayerState(attacker)
             : undefined;
         const tileCombatTargetState = createReusablePlayerSkillTileCombatTarget();
+        const canReuseTileSkillResult = aggregatePresentation
+            && resolvedSkill
+            && typeof this.playerCombatService.canReuseResolvedTileSkillResult === 'function'
+            && this.playerCombatService.canReuseResolvedTileSkillResult(resolvedSkill) === true;
+        let miningTileDamageMultiplier = null;
+        let repeatedTileSkillResult = null;
         const recordSkillCastSectionDuration = (sectionKey, durationMs, count = 1) => {
             const normalizedKey = typeof sectionKey === 'string' && sectionKey
                 ? sectionKey
@@ -1449,6 +1470,26 @@ export class WorldRuntimePlayerSkillDispatchService {
             isTileTarget: false,
             onQiSpent: (player, amount) => instance.disperseQiAt?.(player?.x, player?.y, amount),
             recordSkillCastSectionDuration,
+        };
+        const resolveTileSkillResult = (hp, maxHp, distance) => {
+            if (repeatedTileSkillResult) {
+                return repeatedTileSkillResult;
+            }
+            const combatResolveStartedAt = performance.now();
+            const result = this.playerCombatService.castSkillToMonster(
+                attacker,
+                updateReusablePlayerSkillTileCombatTarget(tileCombatTargetState, hp, maxHp),
+                skillId,
+                currentTick,
+                distance,
+                () => undefined,
+                options,
+            );
+            recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.combatResolveMs', combatResolveStartedAt);
+            if (canReuseTileSkillResult) {
+                repeatedTileSkillResult = createRepeatedPlayerSkillTileResult(result);
+            }
+            return result;
         };
         const targetApplyStartedAt = performance.now();
         for (const target of targets) {
@@ -1767,17 +1808,7 @@ export class WorldRuntimePlayerSkillDispatchService {
                 }
                 const distance = chebyshevDistance(attacker.x, attacker.y, formation.x, formation.y);
                 const effectiveDurability = Math.max(1, Math.min(Number.MAX_SAFE_INTEGER, Math.ceil(formation.remainingAuraBudget * formation.damagePerAura)));
-                const combatResolveStartedAt = performance.now();
-                const result = this.playerCombatService.castSkillToMonster(
-                    attacker,
-                    updateReusablePlayerSkillTileCombatTarget(tileCombatTargetState, effectiveDurability, effectiveDurability),
-                    skillId,
-                    currentTick,
-                    distance,
-                    () => undefined,
-                    options,
-                );
-                recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.combatResolveMs', combatResolveStartedAt);
+                const result = resolveTileSkillResult(effectiveDurability, effectiveDurability, distance);
                 castIndex += 1;
                 totalSkillHeal += Math.max(0, Math.round(Number(result.totalHeal) || 0));
                 if (selfBuffs.length === 0 && Array.isArray(result.selfBuffs) && result.selfBuffs.length > 0) {
@@ -1858,17 +1889,7 @@ export class WorldRuntimePlayerSkillDispatchService {
                 }
                 const distance = chebyshevDistance(attacker.x, attacker.y, target.x, target.y);
                 const effectiveDurability = Math.max(1, Math.min(Number.MAX_SAFE_INTEGER, Math.ceil(boundary.remainingAuraBudget * boundary.damagePerAura)));
-                const combatResolveStartedAt = performance.now();
-                const result = this.playerCombatService.castSkillToMonster(
-                    attacker,
-                    updateReusablePlayerSkillTileCombatTarget(tileCombatTargetState, effectiveDurability, effectiveDurability),
-                    skillId,
-                    currentTick,
-                    distance,
-                    () => undefined,
-                    options,
-                );
-                recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.combatResolveMs', combatResolveStartedAt);
+                const result = resolveTileSkillResult(effectiveDurability, effectiveDurability, distance);
                 castIndex += 1;
                 totalSkillHeal += Math.max(0, Math.round(Number(result.totalHeal) || 0));
                 if (selfBuffs.length === 0 && Array.isArray(result.selfBuffs) && result.selfBuffs.length > 0) {
@@ -1935,7 +1956,7 @@ export class WorldRuntimePlayerSkillDispatchService {
                 recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.presentationMs', presentationStartedAt);
                 continue;
             }
-            const tileState = instance.getTileCombatState(target.x, target.y);
+            const tileState = target.state ?? instance.getTileCombatState(target.x, target.y);
             if (!tileState || tileState.destroyed) {
                 this.recordPlayerSkillTargetSkip(deps, attacker, skill, target, tileState?.destroyed
                     ? CombatRejectReason.TargetDead
@@ -1948,45 +1969,42 @@ export class WorldRuntimePlayerSkillDispatchService {
                 });
                 continue;
             }
+            if (miningTileDamageMultiplier === null) {
+                miningTileDamageMultiplier = resolveMiningTileDamageMultiplier(attacker);
+            }
             const distance = chebyshevDistance(attacker.x, attacker.y, target.x, target.y);
-            const combatResolveStartedAt = performance.now();
-            const result = this.playerCombatService.castSkillToMonster(
-                attacker,
-                updateReusablePlayerSkillTileCombatTarget(tileCombatTargetState, tileState.hp, tileState.maxHp),
-                skillId,
-                currentTick,
-                distance,
-                () => undefined,
-                options,
-            );
-                recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.combatResolveMs', combatResolveStartedAt);
-                castIndex += 1;
-                totalSkillHeal += Math.max(0, Math.round(Number(result.totalHeal) || 0));
-                if (selfBuffs.length === 0 && Array.isArray(result.selfBuffs) && result.selfBuffs.length > 0) {
-                    selfBuffs = result.selfBuffs;
-                }
-                if (castSummary && typeof instance.damageTilesBatch === 'function') {
-                    const effectiveTileDamage = result.totalDamage > 0
-                        ? resolveMiningAdjustedTileDamage({
-                            attacker,
-                            tileType: tileState.tileType,
-                            baseDamage: result.totalDamage,
-                        }).damage
-                        : 0;
-                    const mitigatedDamage = effectiveTileDamage > 0
-                        && typeof deps.worldRuntimeFormationService?.mitigateTerrainDamage === 'function'
-                        ? deps.worldRuntimeFormationService.mitigateTerrainDamage(attacker.instanceId, target.x, target.y, effectiveTileDamage)
-                        : effectiveTileDamage;
-                    pendingTileDamage.push({
-                        x: target.x,
-                        y: target.y,
-                        damage: Math.max(0, Math.round(Number(mitigatedDamage) || 0)),
-                        tileState,
-                        effectiveTileDamage,
-                    });
-                    continue;
-                }
-                if (result.totalDamage <= 0) {
+            const result = resolveTileSkillResult(tileState.hp, tileState.maxHp, distance);
+            castIndex += 1;
+            totalSkillHeal += Math.max(0, Math.round(Number(result.totalHeal) || 0));
+            if (selfBuffs.length === 0 && Array.isArray(result.selfBuffs) && result.selfBuffs.length > 0) {
+                selfBuffs = result.selfBuffs;
+            }
+            if (castSummary && typeof instance.damageTilesBatch === 'function') {
+                const effectiveTileDamage = result.totalDamage > 0
+                    ? resolveMiningAdjustedTileDamage({
+                        attacker,
+                        tileType: tileState.tileType,
+                        baseDamage: result.totalDamage,
+                        miningDamageMultiplier: miningTileDamageMultiplier,
+                    }).damage
+                    : 0;
+                const mitigatedDamage = effectiveTileDamage > 0
+                    && typeof deps.worldRuntimeFormationService?.mitigateTerrainDamage === 'function'
+                    ? deps.worldRuntimeFormationService.mitigateTerrainDamage(attacker.instanceId, target.x, target.y, effectiveTileDamage)
+                    : effectiveTileDamage;
+                pendingTileDamage.push({
+                    x: target.x,
+                    y: target.y,
+                    damage: Math.max(0, Math.round(Number(mitigatedDamage) || 0)),
+                    state: tileState,
+                    tileState,
+                    tileType: tileState.tileType,
+                    effectiveTileDamage,
+                    appliedDamage: 0,
+                });
+                continue;
+            }
+            if (result.totalDamage <= 0) {
                 const outcomeApplyStartedAt = performance.now();
                 this.applyPlayerSkillOutcome(outcomeDeps, attacker, skill, {
                     kind: CombatTargetKind.Tile,
@@ -2017,6 +2035,7 @@ export class WorldRuntimePlayerSkillDispatchService {
                 attacker,
                 tileType: tileState.tileType,
                 baseDamage: result.totalDamage,
+                miningDamageMultiplier: miningTileDamageMultiplier,
             }).damage;
             const mitigatedDamage = typeof deps.worldRuntimeFormationService?.mitigateTerrainDamage === 'function'
                 ? deps.worldRuntimeFormationService.mitigateTerrainDamage(attacker.instanceId, target.x, target.y, effectiveTileDamage)
@@ -2087,15 +2106,15 @@ export class WorldRuntimePlayerSkillDispatchService {
             let rawTotalDamage = 0;
             let hitCount = 0;
             let settledTargetCount = 0;
-            let miningExpChanged = false;
             const batchedTileDrops = [];
             for (let index = 0; index < pendingTileDamage.length; index += 1) {
                 const pending = pendingTileDamage[index];
-                const tileDamageResult = batchResult.results[index]?.result;
+                const tileDamageResult = batchResult.results[index];
                 if (!tileDamageResult) {
                     continue;
                 }
                 const appliedDamage = normalizeAppliedDamage(tileDamageResult.appliedDamage, pending.damage);
+                pending.appliedDamage = appliedDamage;
                 settledTargetCount += 1;
                 appliedTotalDamage += appliedDamage;
                 rawTotalDamage += Math.max(0, Math.round(Number(pending.effectiveTileDamage) || 0));
@@ -2105,13 +2124,6 @@ export class WorldRuntimePlayerSkillDispatchService {
                 if (Array.isArray(tileDamageResult.tileDrops) && tileDamageResult.tileDrops.length > 0) {
                     batchedTileDrops.push(...tileDamageResult.tileDrops);
                 }
-                const miningExpResult = applyMiningExpForTileDamage({
-                    attacker,
-                    tileType: pending.tileState.tileType,
-                    appliedDamage,
-                    playerRuntimeService: this.playerRuntimeService,
-                });
-                miningExpChanged ||= miningExpResult.changed;
                 recordPlayerSkillTileSummary(castSummary, appliedDamage, tileDamageResult.destroyed === true);
                 if (tileDamageResult.destroyed === true) {
                     destroyedTiles.push({ x: pending.x, y: pending.y });
@@ -2122,7 +2134,12 @@ export class WorldRuntimePlayerSkillDispatchService {
                 tileDrops: batchedTileDrops,
                 deps,
             });
-            if (miningExpChanged) {
+            const miningExpResult = applyMiningExpForTileDamageBatch({
+                attacker,
+                entries: pendingTileDamage,
+                playerRuntimeService: this.playerRuntimeService,
+            });
+            if (miningExpResult.changed) {
                 this.playerRuntimeService.markPersistenceDirtyDomains(attacker, ['profession']);
                 this.playerRuntimeService.bumpPersistentRevision(attacker);
             }
@@ -2290,6 +2307,7 @@ export class WorldRuntimePlayerSkillDispatchService {
                     kind: 'tile',
                     x: target.x,
                     y: target.y,
+                    state: target.state,
                     source: target.source,
                 });
             }

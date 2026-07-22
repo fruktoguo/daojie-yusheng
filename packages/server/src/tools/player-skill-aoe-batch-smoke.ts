@@ -17,6 +17,7 @@ import { MapInstanceRuntime } from '../runtime/instance/map-instance.runtime';
 import { WorldRuntimeCombatActionService } from '../runtime/world/combat/world-runtime-combat-action.service';
 import { WorldRuntimePlayerSkillDispatchService } from '../runtime/world/combat/world-runtime-player-skill-dispatch.service';
 import { shouldAggregatePlayerSkillPresentation } from '../runtime/world/combat/player-skill-cast-summary.helpers';
+import { applyMiningExpForTileDamage, applyMiningExpForTileDamageBatch } from '../runtime/world/combat/tile-drop.helpers';
 import {
   createTileCombatAttributes,
   createTileCombatNumericStats,
@@ -156,6 +157,12 @@ function createRuntimeHarness(attacker: any, instance: MapInstanceRuntime) {
     },
   };
   const playerCombatService = new PlayerCombatService(playerRuntimeService as any);
+  const castSkillToMonster = playerCombatService.castSkillToMonster.bind(playerCombatService);
+  let castSkillToMonsterCount = 0;
+  playerCombatService.castSkillToMonster = (castAttacker, target, skillId, currentTick, distance, applyTargetBuff, options) => {
+    castSkillToMonsterCount += 1;
+    return castSkillToMonster(castAttacker, target, skillId, currentTick, distance, applyTargetBuff, options);
+  };
   const dispatchService = new WorldRuntimePlayerSkillDispatchService(
     playerRuntimeService as any,
     playerCombatService as any,
@@ -209,6 +216,12 @@ function createRuntimeHarness(attacker: any, instance: MapInstanceRuntime) {
     notices,
     combatOutcomes,
     receivedItems,
+    getCastSkillToMonsterCount() {
+      return castSkillToMonsterCount;
+    },
+    resetCastSkillToMonsterCount() {
+      castSkillToMonsterCount = 0;
+    },
     setCurrentTick(value: number) {
       currentTick = value;
     },
@@ -274,6 +287,12 @@ async function testLargeTileCastBatchesAuthorityAndPresentation(): Promise<void>
   const attacker = createCaster(skill, instance.meta.instanceId);
   const harness = createRuntimeHarness(attacker, instance);
   const targets = createTileTargets();
+  const getTileCombatState = instance.getTileCombatState.bind(instance);
+  let tileStateReadCount = 0;
+  instance.getTileCombatState = (x: number, y: number) => {
+    tileStateReadCount += 1;
+    return getTileCombatState(x, y);
+  };
   const castOptions = {
     prevalidatedTargets: true,
     skipResourceAndCooldown: true,
@@ -287,17 +306,20 @@ async function testLargeTileCastBatchesAuthorityAndPresentation(): Promise<void>
   await harness.dispatchService.dispatchSkillTargets(attacker, skill.id, skill, targets, harness.deps as any, castOptions);
   const firstCacheStats = harness.playerCombatService.getSkillDamageCacheStats();
   assert.deepEqual(firstCacheStats, {
-    formulaHits: TARGET_COUNT - 1,
+    formulaHits: 0,
     formulaMisses: 1,
-    tilePipelineHits: TARGET_COUNT - 1,
+    tilePipelineHits: 0,
     tilePipelineMisses: 1,
     bypasses: 0,
   });
+  assert.equal(harness.getCastSkillToMonsterCount(), 1);
+  assert.equal(tileStateReadCount, TARGET_COUNT);
   assert.equal(instance.worldRevision, firstWorldRevision + 1);
   assert.equal(instance.persistentRevision, firstPersistentRevision + 1);
   assert.equal(instance.dirtyTileDamageIndices.size, TARGET_COUNT);
   assert.equal(instance.staticTileSyncDirtyTileKeys.size, TARGET_COUNT);
-  const firstDamage = instance.getTileCombatState(0, 0)?.maxHp - instance.getTileCombatState(0, 0)?.hp;
+  const firstTileState = instance.getTileCombatState(0, 0);
+  const firstDamage = (firstTileState?.maxHp ?? 0) - (firstTileState?.hp ?? 0);
   assert.ok(Number.isFinite(firstDamage) && firstDamage > 0);
   assertAggregatedPresentation(harness, firstDamage);
   assert.equal(harness.combatOutcomes.length, 1);
@@ -308,16 +330,20 @@ async function testLargeTileCastBatchesAuthorityAndPresentation(): Promise<void>
   harness.clearPresentation();
   harness.setCurrentTick(2);
   attacker.qi -= 1;
+  tileStateReadCount = 0;
   harness.playerCombatService.resetSkillDamageCacheStats();
+  harness.resetCastSkillToMonsterCount();
   const secondWorldRevision = instance.worldRevision;
   await harness.dispatchService.dispatchSkillTargets(attacker, skill.id, skill, targets, harness.deps as any, castOptions);
   assert.deepEqual(harness.playerCombatService.getSkillDamageCacheStats(), {
-    formulaHits: TARGET_COUNT,
+    formulaHits: 1,
     formulaMisses: 0,
-    tilePipelineHits: TARGET_COUNT,
+    tilePipelineHits: 1,
     tilePipelineMisses: 0,
     bypasses: 0,
   });
+  assert.equal(harness.getCastSkillToMonsterCount(), 1);
+  assert.equal(tileStateReadCount, TARGET_COUNT);
   assert.equal(instance.worldRevision, secondWorldRevision + 1);
   assertAggregatedPresentation(harness, firstDamage);
 
@@ -326,15 +352,19 @@ async function testLargeTileCastBatchesAuthorityAndPresentation(): Promise<void>
   attacker.attrs.numericStats.spellAtk = 120;
   attacker.attrs.revision += 1;
   harness.playerCombatService.resetSkillDamageCacheStats();
+  harness.resetCastSkillToMonsterCount();
   const thirdHpBefore = instance.getTileCombatState(0, 0)?.hp ?? 0;
+  tileStateReadCount = 0;
   await harness.dispatchService.dispatchSkillTargets(attacker, skill.id, skill, targets, harness.deps as any, castOptions);
   assert.deepEqual(harness.playerCombatService.getSkillDamageCacheStats(), {
-    formulaHits: TARGET_COUNT - 1,
+    formulaHits: 0,
     formulaMisses: 1,
-    tilePipelineHits: TARGET_COUNT - 1,
+    tilePipelineHits: 0,
     tilePipelineMisses: 1,
     bypasses: 0,
   });
+  assert.equal(harness.getCastSkillToMonsterCount(), 1);
+  assert.equal(tileStateReadCount, TARGET_COUNT);
   const thirdDamage = thirdHpBefore - (instance.getTileCombatState(0, 0)?.hp ?? 0);
   assert.ok(thirdDamage > firstDamage);
   assertAggregatedPresentation(harness, thirdDamage);
@@ -415,6 +445,7 @@ async function testEnemyTargetsKeepPerTargetAuthorityAndAggregatePresentation():
     tilePipelineMisses: 0,
     bypasses: 0,
   });
+  assert.equal(harness.getCastSkillToMonsterCount(), 9);
   assert.equal(harness.actionLabels.length, 1);
   assert.equal(harness.attackEffects.length, 0);
   assert.equal(harness.damageFloats.length, 0);
@@ -428,6 +459,131 @@ async function testEnemyTargetsKeepPerTargetAuthorityAndAggregatePresentation():
   for (const monster of monsters.values()) {
     assert.equal(monster.hp, 900);
   }
+}
+
+async function testTargetDependentTileFormulaKeepsPerTargetResolution(): Promise<void> {
+  const skill = {
+    id: 'skill.target_hp_tile_dispatch',
+    name: '照脉裂矿',
+    cost: 0,
+    cooldown: 1,
+    range: 3,
+    targeting: { range: 3, shape: 'square', radius: 1, maxTargets: 9, targetMode: 'tile' },
+    effects: [{ type: 'damage', damageKind: 'spell', formula: { var: 'target.hp' } }],
+  };
+  const instance = createMapInstance(['LLL', 'LLL', 'LLL'], 'instance:target-formula-fallback');
+  const attacker = createCaster(skill, instance.meta.instanceId);
+  attacker.x = 1;
+  attacker.y = 1;
+  const harness = createRuntimeHarness(attacker, instance);
+  const targets: any[] = [];
+  let expectedTotalDamage = 0;
+  let index = 0;
+  for (let y = 0; y < 3; y += 1) {
+    for (let x = 0; x < 3; x += 1) {
+      instance.damageTile(x, y, index + 1);
+      const state = instance.getTileCombatState(x, y);
+      assert.ok(state && state.hp > 0);
+      expectedTotalDamage += state.hp;
+      targets.push({ kind: 'tile', x, y, state });
+      index += 1;
+    }
+  }
+
+  harness.playerCombatService.resetSkillDamageCacheStats();
+  await harness.dispatchService.dispatchSkillTargets(attacker, skill.id, skill, targets, harness.deps as any, {
+    prevalidatedTargets: true,
+    skipResourceAndCooldown: true,
+    targetX: 1,
+    targetY: 1,
+  });
+  assert.equal(harness.getCastSkillToMonsterCount(), 9);
+  assert.deepEqual(harness.playerCombatService.getSkillDamageCacheStats(), {
+    formulaHits: 0,
+    formulaMisses: 0,
+    tilePipelineHits: 0,
+    tilePipelineMisses: 0,
+    bypasses: 9,
+  });
+  assert.deepEqual(harness.combatEffects[0].effect.tile, {
+    targetCount: 9,
+    hitCount: 9,
+    totalDamage: expectedTotalDamage,
+    destroyedCount: 9,
+  });
+}
+
+function createMiningExpHarness() {
+  const craftRealmExp: number[] = [];
+  let appliedProgressionCount = 0;
+  return {
+    service: {
+      playerProgressionService: {
+        getRealmRuntimeExpToNext(level: number) {
+          return 5 + level;
+        },
+        grantCraftRealmExp(_player: any, amount: number) {
+          craftRealmExp.push(Math.max(0, Math.round(amount)));
+          return { changed: true };
+        },
+      },
+      applyProgressionResult() {
+        appliedProgressionCount += 1;
+      },
+    },
+    craftRealmExp,
+    getAppliedProgressionCount() {
+      return appliedProgressionCount;
+    },
+  };
+}
+
+function testMiningExpBatchMatchesSequentialSettlement(): void {
+  const skill = {
+    id: 'skill.mining_exp_batch',
+    name: '聚脉采灵',
+    cost: 0,
+    cooldown: 1,
+    effects: [{ type: 'damage', formula: 1 }],
+  };
+  const sequentialAttacker = createCaster(skill, 'instance:mining-exp-sequential');
+  sequentialAttacker.realm.realmLv = 10;
+  sequentialAttacker.miningSkill = { level: 1, exp: 4, expToNext: 6 };
+  const batchedAttacker = structuredClone(sequentialAttacker);
+  const entries = Array.from({ length: 24 }, (_, entryIndex) => ({
+    tileType: entryIndex % 3 === 0 ? TileType.BlackIronOre : TileType.SpiritOre,
+    appliedDamage: entryIndex % 7 === 0 ? 0 : 1,
+  }));
+  const sequentialHarness = createMiningExpHarness();
+  const batchedHarness = createMiningExpHarness();
+  let sequentialGain = 0;
+  let sequentialHitCount = 0;
+  for (const entry of entries) {
+    const result = applyMiningExpForTileDamage({
+      attacker: sequentialAttacker,
+      tileType: entry.tileType,
+      appliedDamage: entry.appliedDamage,
+      playerRuntimeService: sequentialHarness.service,
+    });
+    sequentialGain += result.gained;
+    if (result.changed) sequentialHitCount += 1;
+  }
+  const batched = applyMiningExpForTileDamageBatch({
+    attacker: batchedAttacker,
+    entries,
+    playerRuntimeService: batchedHarness.service,
+  });
+
+  assert.equal(batched.gained, sequentialGain);
+  assert.equal(batched.hitCount, sequentialHitCount);
+  assert.deepEqual(batchedAttacker.miningSkill, sequentialAttacker.miningSkill);
+  assert.equal(
+    batchedHarness.craftRealmExp.reduce((sum, amount) => sum + amount, 0),
+    sequentialHarness.craftRealmExp.reduce((sum, amount) => sum + amount, 0),
+  );
+  assert.equal(batchedHarness.craftRealmExp.length, 1);
+  assert.equal(batchedHarness.getAppliedProgressionCount(), 1);
+  assert.equal(sequentialHarness.craftRealmExp.length, sequentialHitCount);
 }
 
 function testDamageSummaryProtobufRoundTrip(): void {
@@ -470,8 +626,8 @@ function testSpecialTileFallsBackToSingleMutation(): void {
   ]);
   assert.equal(result.fastPathCount, 1);
   assert.equal(result.fallbackCount, 1);
-  assert.equal(result.results[0].result?.appliedDamage, 1);
-  assert.equal(result.results[1].result?.temporary, true);
+  assert.equal(result.results[0]?.appliedDamage, 1);
+  assert.equal(result.results[1]?.temporary, true);
   assert.equal(instance.worldRevision, worldRevision + 2);
   assert.equal(instance.persistentRevision, persistentRevision + 2);
 }
@@ -547,6 +703,8 @@ async function main(): Promise<void> {
   testDamageAggregationBoundary();
   await testLargeTileCastBatchesAuthorityAndPresentation();
   await testEnemyTargetsKeepPerTargetAuthorityAndAggregatePresentation();
+  await testTargetDependentTileFormulaKeepsPerTargetResolution();
+  testMiningExpBatchMatchesSequentialSettlement();
   testSpecialTileFallsBackToSingleMutation();
   testTargetDependentFormulaBypassesReuse();
   testDamageSummaryProtobufRoundTrip();

@@ -29,6 +29,7 @@ export function resolveMiningAdjustedTileDamage(input: {
   attacker: any;
   tileType: unknown;
   baseDamage: unknown;
+  miningDamageMultiplier?: number;
 }): {
   damage: number;
   isOreTile: boolean;
@@ -39,14 +40,21 @@ export function resolveMiningAdjustedTileDamage(input: {
     return { damage: baseDamage, isOreTile };
   }
 
-  const miningLevel = input.attacker?.miningSkill?.level ?? 0;
-  const miningSpeedRate = resolvePlayerCraftEffectStat(input.attacker, 'mining', 'speedRate');
-  const levelMultiplier = getMiningDamageMultiplier(miningLevel);
-  const equipMultiplier = 1 + Math.max(0, Number(miningSpeedRate) || 0);
+  const multiplier = Number.isFinite(Number(input.miningDamageMultiplier))
+    ? Math.max(0, Number(input.miningDamageMultiplier))
+    : resolveMiningTileDamageMultiplier(input.attacker);
   return {
-    damage: Math.max(1, Math.round(baseDamage * levelMultiplier * equipMultiplier)),
+    damage: Math.max(1, Math.round(baseDamage * multiplier)),
     isOreTile,
   };
+}
+
+/** 同次施法复用挖矿等级和装备对地块伤害的乘区。 */
+export function resolveMiningTileDamageMultiplier(attacker: any): number {
+  const miningLevel = attacker?.miningSkill?.level ?? 0;
+  const miningSpeedRate = resolvePlayerCraftEffectStat(attacker, 'mining', 'speedRate');
+  return getMiningDamageMultiplier(miningLevel)
+    * (1 + Math.max(0, Number(miningSpeedRate) || 0));
 }
 
 export function resolveMiningDropRateBonus(attacker: any): number {
@@ -108,6 +116,89 @@ export function applyMiningExpForTileDamage(input: {
     input.playerRuntimeService?.applyProgressionResult?.(input.attacker, realmResult);
   }
   return { gained: gain, changed: true };
+}
+
+/**
+ * 批量结算同次地块技能命中的挖矿经验。
+ * 经验仍按目标顺序和升级后的实时技能等级计算，只合并重复公式求值、状态写回与境界经验落账。
+ */
+export function applyMiningExpForTileDamageBatch(input: {
+  attacker: any;
+  entries: ReadonlyArray<{ tileType: unknown; appliedDamage: unknown }>;
+  playerRuntimeService: any;
+}): { gained: number; changed: boolean; hitCount: number } {
+  const skill = input.attacker?.miningSkill;
+  if (!skill || !Array.isArray(input.entries) || input.entries.length === 0) {
+    return { gained: 0, changed: false, hitCount: 0 };
+  }
+
+  let miningLevel = Math.max(1, Math.floor(Number(skill.level) || 1));
+  let miningExp = Math.max(0, Number(skill.exp) || 0);
+  let miningExpToNext = Math.max(0, Math.floor(Number(skill.expToNext) || 0));
+  const playerRealmLevel = resolvePlayerCraftRealmLevel(input.attacker);
+  const gainBySkillLevel = new Map<number, Map<number, number>>();
+  let totalGain = 0;
+  let totalCraftRealmGain = 0;
+  let hitCount = 0;
+
+  for (const entry of input.entries) {
+    if (!isOreMinableTileType(entry?.tileType as string | undefined)) {
+      continue;
+    }
+    const damage = Math.max(0, Math.round(Number(entry?.appliedDamage) || 0));
+    if (damage <= 0) {
+      continue;
+    }
+    const oreTileLevel = getOreMiningLevel(entry.tileType as string | undefined) ?? 1;
+    let gainByTargetLevel = gainBySkillLevel.get(miningLevel);
+    if (!gainByTargetLevel) {
+      gainByTargetLevel = new Map<number, number>();
+      gainBySkillLevel.set(miningLevel, gainByTargetLevel);
+    }
+    let gain = gainByTargetLevel.get(oreTileLevel);
+    if (gain === undefined) {
+      const baseGain = computeCraftSkillExpGain({
+        playerRealmLevel,
+        skillLevel: miningLevel,
+        targetLevel: oreTileLevel,
+        baseActionTicks: MINING_EXP_BASE_ACTION_TICKS,
+        getExpToNextByLevel: (level) => resolveCraftSkillExpToNextByLevel(input.playerRuntimeService, level),
+        successCount: 1,
+        failureCount: 0,
+        successMultiplier: 1,
+      }).finalGain;
+      gain = applyPlayerCraftExpRate(input.attacker, 'mining', baseGain);
+      gainByTargetLevel.set(oreTileLevel, gain);
+    }
+    if (gain <= 0) {
+      continue;
+    }
+
+    hitCount += 1;
+    totalGain += gain;
+    totalCraftRealmGain += Math.max(0, Math.round(gain / 2));
+    miningExp += gain;
+    while (miningExpToNext > 0 && miningExp >= miningExpToNext) {
+      miningExp -= miningExpToNext;
+      miningLevel += 1;
+      miningExpToNext = resolveCraftSkillExpToNextByLevel(input.playerRuntimeService, miningLevel);
+    }
+  }
+
+  if (totalGain <= 0) {
+    return { gained: 0, changed: false, hitCount: 0 };
+  }
+  skill.level = miningLevel;
+  skill.exp = miningExp;
+  skill.expToNext = miningExpToNext;
+  const realmResult = input.playerRuntimeService?.playerProgressionService?.grantCraftRealmExp?.(
+    input.attacker,
+    totalCraftRealmGain,
+  );
+  if (realmResult) {
+    input.playerRuntimeService?.applyProgressionResult?.(input.attacker, realmResult);
+  }
+  return { gained: totalGain, changed: true, hitCount };
 }
 
 export function resolveTileDamageDropMultiplier(appliedDamage: unknown): number {

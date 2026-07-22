@@ -37,6 +37,25 @@ export class PlayerCombatService {
         this.skillDamageCacheStats = createSkillDamageCacheStats();
     }
 
+    /**
+     * 判断地块目标能否复用整份技能结算结果。
+     * 只要任一伤害公式读取目标变量或未知变量，就必须逐目标执行完整结算。
+     */
+    canReuseResolvedTileSkillResult(resolved) {
+        const effects = Array.isArray(resolved?.skill?.effects) ? resolved.skill.effects : [];
+        let hasDamageEffect = false;
+        for (const effect of effects) {
+            if (effect?.type !== 'damage') {
+                continue;
+            }
+            hasDamageEffect = true;
+            if (resolveReusableSkillFormulaDependencyMask(effect.formula) < 0) {
+                return false;
+            }
+        }
+        return hasDamageEffect;
+    }
+
     /** 解析并规范化玩家技能；同一次多目标施法可复用该结果，避免按目标重复扫描功法列表。 */
     resolvePlayerSkillForCast(attacker, skillId, currentTick) {
         const resolved = resolvePlayerSkill(attacker.techniques.techniques, attacker.combat.cooldownReadyTickBySkillId, skillId);

@@ -18,6 +18,8 @@ import { RuntimeMapConfigService } from '../map/runtime-map-config.service';
 import type { TickSectionDurations } from './world-runtime-metrics.service';
 import type { InstanceTickSchedulePlan } from './world-runtime-instance-schedule.service';
 
+const DEFERRED_CRAFT_RUNTIME_UPDATE_OPTIONS = Object.freeze({ deferRuntimeUpdates: true });
+
 /** world-runtime instance tick orchestration：承接实例级 tick 编排外壳。 */
 @Injectable()
 export class WorldRuntimeInstanceTickOrchestrationService {
@@ -457,6 +459,7 @@ export class WorldRuntimeInstanceTickOrchestrationService {
         const reusableTickResult = { completedBuildings: [] as any[], transfers: [] as any[], monsterActions: [] as any[] };
         const instanceTicksStartedAt = performance.now();
         for (const { instance, steps, speed, sleepMonsterAi } of instanceStepPlans) {
+            const deferCraftRuntimeUpdates = steps > 1;
             for (let index = 0; index < steps; index += 1) {
                 if (scheduledPlans !== null && !isScheduledInstancePlanStillCurrent(instance, speed, deps)) {
                     break;
@@ -780,7 +783,11 @@ export class WorldRuntimeInstanceTickOrchestrationService {
                             candidatePlayerCount: currentPlayerIds.length,
                             instanceTick: instance.tick,
                             worldTick: deps.tick,
-                        }, () => deps.worldRuntimeCraftTickService.advanceCraftJobs(craftPlayerIds, deps));
+                        }, () => deps.worldRuntimeCraftTickService.advanceCraftJobs(
+                            craftPlayerIds,
+                            deps,
+                            deferCraftRuntimeUpdates ? DEFERRED_CRAFT_RUNTIME_UPDATE_OPTIONS : undefined,
+                        ));
                         addMeasuredTickSection(sectionDurations, 'instance.craftJobAdvanceMs', craftJobAdvanceStartedAt, craftPlayerIds.length);
                     }
                     for (const playerId of currentPlayerIds) {
@@ -799,6 +806,9 @@ export class WorldRuntimeInstanceTickOrchestrationService {
                 if (!fuelConsumed) {
                     break;
                 }
+            }
+            if (deferCraftRuntimeUpdates) {
+                deps.worldRuntimeCraftTickService?.flushDeferredRuntimeUpdates?.(deps);
             }
         }
         const postTickCleanupStartedAt = performance.now();

@@ -6,6 +6,8 @@ export type TileDamageBatchInput = {
   x: number;
   y: number;
   damage: number;
+  /** 同一事件循环内完成权威校验的地块快照；重复坐标会自动回退实时读取。 */
+  state?: TileCombatState;
 };
 
 interface TileDamageBatchMutationContext {
@@ -13,7 +15,7 @@ interface TileDamageBatchMutationContext {
   dirtyTileIndices: Set<number>;
 }
 
-interface TileCombatState {
+export interface TileCombatState {
   tileType: string;
   hp: number;
   maxHp: number;
@@ -86,7 +88,7 @@ export function damageMapInstanceTilesBatch(
   }
   if (instance.meta.canDamageTile !== true) {
     return {
-      results: entries.map((entry) => ({ x: entry.x, y: entry.y, result: null })),
+      results: entries.map(() => null),
       fastPathCount: 0,
       fallbackCount: 0,
     };
@@ -96,41 +98,46 @@ export function damageMapInstanceTilesBatch(
     modifiedAt: Date.now(),
     dirtyTileIndices: new Set(),
   };
-  const results: Array<{ x: number; y: number; result: TileDamageResult | null }> = [];
+  const results: Array<TileDamageResult | null> = [];
+  const seenTileIndices = new Set<number>();
   let fastPathCount = 0;
   let fallbackCount = 0;
   for (const entry of entries) {
     const x = Math.trunc(Number(entry?.x));
     const y = Math.trunc(Number(entry?.y));
     const normalizedDamage = Math.max(0, Math.round(Number(entry?.damage) || 0));
-    const current = instance.getTileCombatState(x, y);
+    const tileIndex = instance.toTileIndex(x, y);
+    const canUsePrevalidatedState = Boolean(entry?.state)
+      && tileIndex >= 0
+      && !seenTileIndices.has(tileIndex);
+    const current = canUsePrevalidatedState
+      ? entry.state ?? null
+      : instance.getTileCombatState(x, y);
+    if (tileIndex >= 0) {
+      seenTileIndices.add(tileIndex);
+    }
     if (!current || current.destroyed === true) {
-      results.push({ x, y, result: null });
+      results.push(null);
       continue;
     }
     if (normalizedDamage <= 0) {
       results.push({
-        x,
-        y,
-        result: {
-          destroyed: current.destroyed,
-          hp: current.hp,
-          maxHp: current.maxHp,
-          appliedDamage: 0,
-          targetType: current.tileType,
-        },
+        destroyed: current.destroyed,
+        hp: current.hp,
+        maxHp: current.maxHp,
+        appliedDamage: 0,
+        targetType: current.tileType,
       });
       continue;
     }
 
-    const tileIndex = instance.toTileIndex(x, y);
     const requiresStateFallback = current.virtualBoundary === true
       || current.temporary === true
       || current.building === true
       || tileIndex < 0;
     if (requiresStateFallback) {
       fallbackCount += 1;
-      results.push({ x, y, result: instance.damageTile(x, y, normalizedDamage, options) });
+      results.push(instance.damageTile(x, y, normalizedDamage, options));
       continue;
     }
 
@@ -151,7 +158,7 @@ export function damageMapInstanceTilesBatch(
       || affectsRoomIntegrity;
     if (requiresFallback) {
       fallbackCount += 1;
-      results.push({ x, y, result: instance.damageTile(x, y, normalizedDamage, options) });
+      results.push(instance.damageTile(x, y, normalizedDamage, options));
       continue;
     }
 
@@ -167,7 +174,7 @@ export function damageMapInstanceTilesBatch(
       affectsRoomIntegrity: false,
     }, batch, calculateRestoreTicks);
     fastPathCount += 1;
-    results.push({ x, y, result });
+    results.push(result);
   }
 
   if (batch.dirtyTileIndices.size > 0) {

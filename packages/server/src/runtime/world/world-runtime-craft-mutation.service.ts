@@ -17,6 +17,10 @@ import { buildStructuredNotice } from './structured-notice.helpers';
 @Injectable()
 export class WorldRuntimeCraftMutationService {
     logger = new Logger(WorldRuntimeCraftMutationService.name);
+    private readonly deferredRuntimeUpdatesByPlayerId = new Map<string, {
+        taskList: boolean;
+        panels: Set<string>;
+    }>();
 /**
  * playerRuntimeService：玩家运行态服务引用。
  */
@@ -153,13 +157,53 @@ export class WorldRuntimeCraftMutationService {
                 deps.queuePlayerNotice(playerId, notice.text, notice.kind, undefined, undefined, notice.structured);
             }
         }
-        if (result.panelChanged || this.hasAnyActiveTechniqueActivity(playerId)) {
+        const shouldUpdateTaskList = result.panelChanged || this.hasAnyActiveTechniqueActivity(playerId);
+        const shouldUpdatePanel = result.panelChanged || this.hasActiveCraftPanelJob(playerId, panel);
+        if (options.deferRuntimeUpdates === true) {
+            this.deferRuntimeUpdate(playerId, panel, shouldUpdateTaskList, shouldUpdatePanel);
+            return;
+        }
+        if (shouldUpdateTaskList) {
             this.emitTechniqueActivityTaskUpdate(playerId);
         }
-        if (result.panelChanged || this.hasActiveCraftPanelJob(playerId, panel)) {
+        if (shouldUpdatePanel) {
             this.emitCraftPanelUpdate(playerId, panel, deps);
         }
-    }    
+    }
+
+    /** 记录高倍实例本帧最终需要刷新的技艺投影，避免每个逻辑息重复组包和 emit。 */
+    private deferRuntimeUpdate(playerId, panel, taskList, panelUpdate): void {
+        if (!taskList && !panelUpdate) {
+            return;
+        }
+        let deferred = this.deferredRuntimeUpdatesByPlayerId.get(playerId);
+        if (!deferred) {
+            deferred = { taskList: false, panels: new Set<string>() };
+            this.deferredRuntimeUpdatesByPlayerId.set(playerId, deferred);
+        }
+        deferred.taskList ||= taskList === true;
+        if (panelUpdate === true && typeof panel === 'string' && panel) {
+            deferred.panels.add(panel);
+        }
+    }
+
+    /** 下发高倍实例本帧最终状态；完成后立即清空，断线玩家由现有首包恢复。 */
+    flushDeferredRuntimeUpdates(deps): void {
+        if (this.deferredRuntimeUpdatesByPlayerId.size === 0) {
+            return;
+        }
+        const pending = Array.from(this.deferredRuntimeUpdatesByPlayerId.entries());
+        this.deferredRuntimeUpdatesByPlayerId.clear();
+        for (const [playerId, deferred] of pending) {
+            if (deferred.taskList) {
+                this.emitTechniqueActivityTaskUpdate(playerId);
+            }
+            for (const panel of deferred.panels) {
+                this.emitCraftPanelUpdate(playerId, panel, deps);
+            }
+        }
+    }
+
     /** 判断任一技艺任务是否仍需推送运行态。 */
     hasAnyActiveTechniqueActivity(playerId) {
         const player = this.playerRuntimeService.getPlayer(playerId);

@@ -24,6 +24,18 @@ import { MiningStrategy } from '../craft/pipeline/strategies/mining.strategy';
 import { hasTechniqueActivityJob } from '../craft/technique-activity-runtime.helpers';
 import { buildStructuredNotice } from './structured-notice.helpers';
 
+const CRAFT_TICK_FLUSH_OPTIONS = Object.freeze({
+    skipActiveJobPersistence: true,
+    deferRuntimeUpdates: false,
+});
+const DEFERRED_CRAFT_TICK_FLUSH_OPTIONS = Object.freeze({
+    skipActiveJobPersistence: true,
+    deferRuntimeUpdates: true,
+});
+const DEFERRED_CRAFT_QUEUE_FLUSH_OPTIONS = Object.freeze({
+    deferRuntimeUpdates: true,
+});
+
 /** world-runtime craft tick orchestration：承接 craft job tick 推进编排。 */
 @Injectable()
 export class WorldRuntimeCraftTickService {
@@ -96,7 +108,11 @@ export class WorldRuntimeCraftTickService {
  * @returns 无返回值，直接更新advance炼制Job相关状态。
  */
 
-    async advanceCraftJobs(playerIds, deps) {
+    async advanceCraftJobs(playerIds, deps, options: any = undefined) {
+        const deferRuntimeUpdates = options?.deferRuntimeUpdates === true;
+        const tickFlushOptions = deferRuntimeUpdates
+            ? DEFERRED_CRAFT_TICK_FLUSH_OPTIONS
+            : CRAFT_TICK_FLUSH_OPTIONS;
         for (const playerId of playerIds) {
           try {
             const player = this.playerRuntimeService.getPlayer(playerId);
@@ -116,6 +132,7 @@ export class WorldRuntimeCraftTickService {
                     result,
                     kind,
                     deps,
+                    tickFlushOptions,
                 );
             }
 
@@ -136,7 +153,13 @@ export class WorldRuntimeCraftTickService {
                 if (queueResult?.ok) {
                     const kind = this.resolveQueueResultKind(player);
                     if (kind) {
-                        this.worldRuntimeCraftMutationService.flushCraftMutation(playerId, queueResult, kind, deps);
+                        this.worldRuntimeCraftMutationService.flushCraftMutation(
+                            playerId,
+                            queueResult,
+                            kind,
+                            deps,
+                            deferRuntimeUpdates ? DEFERRED_CRAFT_QUEUE_FLUSH_OPTIONS : undefined,
+                        );
                     }
                 }
             }
@@ -184,7 +207,42 @@ export class WorldRuntimeCraftTickService {
                 deps,
             );
         }
-        return this.craftPanelRuntimeService.tickTechniqueActivity(player, kind, deps);
+        return this.runWithDeferredActiveJobPersistence(
+            player,
+            () => this.craftPanelRuntimeService.tickTechniqueActivity(player, kind, deps),
+        );
+    }
+
+    /** 普通进度息只标记分域脏数据，交给统一 flush；命令和资产边界仍使用各自强写路径。 */
+    private runWithDeferredActiveJobPersistence(player: any, action: () => any): any {
+        const previousSuppress = player?.suppressImmediateDomainPersistence;
+        if (player) {
+            player.suppressImmediateDomainPersistence = true;
+        }
+        try {
+            const result = action();
+            if (isPromiseLike(result)) {
+                return Promise.resolve(result).finally(() => {
+                    if (player) {
+                        player.suppressImmediateDomainPersistence = previousSuppress;
+                    }
+                });
+            }
+            if (player) {
+                player.suppressImmediateDomainPersistence = previousSuppress;
+            }
+            return result;
+        } catch (error) {
+            if (player) {
+                player.suppressImmediateDomainPersistence = previousSuppress;
+            }
+            throw error;
+        }
+    }
+
+    /** 高倍实例完成本帧全部逻辑息后统一下发最终技艺投影。 */
+    flushDeferredRuntimeUpdates(deps): void {
+        this.worldRuntimeCraftMutationService.flushDeferredRuntimeUpdates?.(deps);
     }
 
     /** 玩家从持久化恢复后，首轮 craft tick 先迁移旧预扣炼丹/炼器 job。 */

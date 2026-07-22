@@ -163,6 +163,8 @@ playerRealmLevel = player.realm.realmLv
 targetLevel = formationSkill.level
 ```
 
+大范围技能同次命中多个矿脉时，挖矿经验仍按目标顺序逐次采用当时的挖矿等级计算，并保持每次正收益至少为 1、逐级升级和单次境界修为取整规则；实现上缓存相同“挖矿等级 + 矿脉等级”的经验结果，最后一次写回技能状态并合并境界修为落账。
+
 ### 队列系统
 
 ```ts
