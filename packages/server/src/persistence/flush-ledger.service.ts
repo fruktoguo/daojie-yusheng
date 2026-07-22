@@ -83,6 +83,18 @@ export interface InstanceFlushLedgerUpsertInput {
   failureCategory?: string | null;
 }
 
+export interface FlushTaskUpsertIdentity {
+  scope: FlushTaskScope;
+  id: string;
+  domain: string;
+  ownershipEpoch: number | null;
+}
+
+export interface FlushTaskUpsertResult {
+  changed: number;
+  accepted: FlushTaskUpsertIdentity[];
+}
+
 /** 统一刷盘账本服务：管理玩家和实例的脏版本跟踪与分布式认领 */
 @Injectable()
 export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
@@ -127,8 +139,21 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
    * staging 与 consumer 会并发修改同一批行，所有批量 DML 必须保持主键锁序一致。
    */
   async upsertFlushTasks(tasks: FlushTask[], batchSize = DEFAULT_FLUSH_LEDGER_BATCH_SIZE): Promise<number> {
+    return (await this.upsertFlushTasksDetailed(tasks, batchSize)).changed;
+  }
+
+  /**
+   * 批量写入账本并返回实际通过 generation CAS 的任务主键。
+   *
+   * staging 在组包期间允许 durable writer 抢先写入更新版本；调用方必须只对 accepted
+   * 条目转移 runtime dirty 义务，被更新版本覆盖的条目应保留 dirty 并在下一轮重建。
+   */
+  async upsertFlushTasksDetailed(
+    tasks: FlushTask[],
+    batchSize = DEFAULT_FLUSH_LEDGER_BATCH_SIZE,
+  ): Promise<FlushTaskUpsertResult> {
     if (!this.pool || !this.enabled || tasks.length === 0) {
-      return 0;
+      return { changed: 0, accepted: [] };
     }
     const stagedAt = new Date().toISOString();
     const playerInputs: PlayerFlushLedgerUpsertInput[] = [];
@@ -165,8 +190,12 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
         });
       }
     }
-    return (await this.upsertPlayerFlushLedgers(playerInputs, batchSize))
-      + (await this.upsertInstanceFlushLedgers(instanceInputs, batchSize));
+    const playerResult = await this.upsertPlayerFlushLedgersDetailed(playerInputs, batchSize);
+    const instanceResult = await this.upsertInstanceFlushLedgersDetailed(instanceInputs, batchSize);
+    return {
+      changed: playerResult.changed + instanceResult.changed,
+      accepted: [...playerResult.accepted, ...instanceResult.accepted],
+    };
   }
 
   async claimReadyFlushTasks(input: ClaimFlushTaskInput): Promise<FlushTask[]> {
@@ -883,8 +912,15 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
     inputs: PlayerFlushLedgerUpsertInput[],
     batchSize = DEFAULT_FLUSH_LEDGER_BATCH_SIZE,
   ): Promise<number> {
+    return (await this.upsertPlayerFlushLedgersDetailed(inputs, batchSize)).changed;
+  }
+
+  private async upsertPlayerFlushLedgersDetailed(
+    inputs: PlayerFlushLedgerUpsertInput[],
+    batchSize = DEFAULT_FLUSH_LEDGER_BATCH_SIZE,
+  ): Promise<FlushTaskUpsertResult> {
     if (!this.pool || !this.enabled || inputs.length === 0) {
-      return 0;
+      return { changed: 0, accepted: [] };
     }
     const rows = dedupePlayerFlushLedgerInputs(inputs);
     const normalizedBatchSize = normalizePositiveInteger(
@@ -894,8 +930,9 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
       MAX_FLUSH_LEDGER_BATCH_SIZE,
     );
     let changed = 0;
+    const accepted: FlushTaskUpsertIdentity[] = [];
     for (const batch of chunkRows(rows, normalizedBatchSize)) {
-      const result = await this.pool.query(
+      const result = await this.pool.query<{ player_id: string; domain: string }>(
         `
           WITH input AS (
             SELECT *
@@ -961,8 +998,13 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
                 WHEN GREATEST(${PLAYER_FLUSH_LEDGER_TABLE}.flushed_version, EXCLUDED.flushed_version) >= EXCLUDED.latest_version
                 THEN NULL ELSE EXCLUDED.payload_jsonb END
               ELSE EXCLUDED.payload_jsonb END,
-            failure_category = CASE WHEN EXCLUDED.latest_version > ${PLAYER_FLUSH_LEDGER_TABLE}.latest_version
-              THEN EXCLUDED.failure_category ELSE ${PLAYER_FLUSH_LEDGER_TABLE}.failure_category END,
+            failure_category = CASE
+              WHEN ${PLAYER_FLUSH_LEDGER_TABLE}.failure_category = '${PLAYER_FLUSH_ASSET_CONFLICT_QUARANTINE}'
+                THEN ${PLAYER_FLUSH_LEDGER_TABLE}.failure_category
+              WHEN EXCLUDED.latest_version > ${PLAYER_FLUSH_LEDGER_TABLE}.latest_version
+                THEN EXCLUDED.failure_category
+              ELSE ${PLAYER_FLUSH_LEDGER_TABLE}.failure_category
+            END,
             retry_after = CASE WHEN EXCLUDED.latest_version > ${PLAYER_FLUSH_LEDGER_TABLE}.latest_version
               THEN LEAST(
                 COALESCE(${PLAYER_FLUSH_LEDGER_TABLE}.retry_after, EXCLUDED.retry_after),
@@ -978,12 +1020,21 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
               AND ${PLAYER_FLUSH_LEDGER_TABLE}.payload_jsonb IS NULL
               AND EXCLUDED.payload_jsonb IS NOT NULL
             )
+          RETURNING player_id, domain
         `,
         [JSON.stringify(batch)],
       );
       changed += result.rowCount ?? 0;
+      for (const row of result.rows) {
+        accepted.push({
+          scope: 'player',
+          id: row.player_id,
+          domain: row.domain,
+          ownershipEpoch: null,
+        });
+      }
     }
-    return changed;
+    return { changed, accepted };
   }
 
   async upsertInstanceFlushLedger(input: InstanceFlushLedgerUpsertInput): Promise<void> {
@@ -994,8 +1045,15 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
     inputs: InstanceFlushLedgerUpsertInput[],
     batchSize = DEFAULT_FLUSH_LEDGER_BATCH_SIZE,
   ): Promise<number> {
+    return (await this.upsertInstanceFlushLedgersDetailed(inputs, batchSize)).changed;
+  }
+
+  private async upsertInstanceFlushLedgersDetailed(
+    inputs: InstanceFlushLedgerUpsertInput[],
+    batchSize = DEFAULT_FLUSH_LEDGER_BATCH_SIZE,
+  ): Promise<FlushTaskUpsertResult> {
     if (!this.pool || !this.enabled || inputs.length === 0) {
-      return 0;
+      return { changed: 0, accepted: [] };
     }
     const rows = dedupeInstanceFlushLedgerInputs(inputs);
     const normalizedBatchSize = normalizePositiveInteger(
@@ -1005,8 +1063,9 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
       MAX_FLUSH_LEDGER_BATCH_SIZE,
     );
     let changed = 0;
+    const accepted: FlushTaskUpsertIdentity[] = [];
     for (const batch of chunkRows(rows, normalizedBatchSize)) {
-      const result = await this.pool.query(
+      const result = await this.pool.query<{ instance_id: string; domain: string; ownership_epoch: string | number }>(
         `
           WITH input AS (
             SELECT *
@@ -1087,12 +1146,21 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
               AND ${INSTANCE_FLUSH_LEDGER_TABLE}.payload_jsonb IS NULL
               AND EXCLUDED.payload_jsonb IS NOT NULL
             )
+          RETURNING instance_id, domain, ownership_epoch
         `,
         [JSON.stringify(batch)],
       );
       changed += result.rowCount ?? 0;
+      for (const row of result.rows) {
+        accepted.push({
+          scope: 'instance',
+          id: row.instance_id,
+          domain: row.domain,
+          ownershipEpoch: normalizePositiveInteger(row.ownership_epoch, 0, 0, Number.MAX_SAFE_INTEGER),
+        });
+      }
     }
-    return changed;
+    return { changed, accepted };
   }
 
   async claimPlayerFlushLedger(input: {

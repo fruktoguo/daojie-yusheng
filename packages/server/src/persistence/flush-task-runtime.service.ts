@@ -12,7 +12,7 @@ import { StartupBarrierService } from '../lifecycle/startup-barrier.service';
 import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
 import { WorldRuntimeService } from '../runtime/world/world-runtime.service';
 import { DatabasePoolProvider } from './database-pool.provider';
-import { FlushLedgerService } from './flush-ledger.service';
+import { FlushLedgerService, type FlushTaskUpsertIdentity, type FlushTaskUpsertResult } from './flush-ledger.service';
 import { FlushWakeupService } from './flush-wakeup.service';
 import { isFlushTaskConsumerMode, isInlineFlushTaskRuntimeMode } from './flush-task-runtime-mode';
 import type { FlushTask, FlushTaskPriority, FlushTaskScope } from './flush-task.types';
@@ -62,6 +62,7 @@ const STARTUP_PAYLOAD_REPLAY_TIMEOUT_MS = readInt('SERVER_STARTUP_PAYLOAD_REPLAY
 const STARTUP_PAYLOAD_REPLAY_POLL_MS = readInt('SERVER_STARTUP_PAYLOAD_REPLAY_POLL_MS', 'STARTUP_PAYLOAD_REPLAY_POLL_MS', 100, 25, 2_000);
 // 关服总预算为 28 秒；为后台 worker drain 和各领域 final flush 保留足够余量。
 const SHUTDOWN_PAYLOAD_REPLAY_TIMEOUT_MS = 10_000;
+const SHUTDOWN_STAGING_MAX_ROUNDS = 3;
 const INSTANCE_COALESCE_DOMAINS = new Set(['tile_damage', 'tile_resource', 'fengshui']);
 const PLAYER_HIGH_PRIORITY_DOMAINS = new Set(['presence', 'position_checkpoint', 'world_anchor', 'inventory', 'equipment', 'artifact', 'market', 'mail', 'gm_edit', 'gm']);
 const INSTANCE_LOW_PRIORITY_DOMAINS = new Set(['time', 'monster_runtime', 'tile_resource', 'tile_damage', 'fengshui']);
@@ -368,7 +369,18 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
     if (this.flushLedgerService.isEnabled()) {
       if (shouldStartAuthoritativeRuntime()) {
         try {
-          await this.runStagingCycle({ bypassFlushBarrier: true });
+          let superseded = 0;
+          for (let round = 1; round <= SHUTDOWN_STAGING_MAX_ROUNDS; round += 1) {
+            superseded = await this.runStagingCycle({ bypassFlushBarrier: true });
+            if (superseded === 0) {
+              break;
+            }
+          }
+          if (superseded > 0) {
+            throw new Error(
+              `flush_task_shutdown_staging_superseded:pending=${superseded}:rounds=${SHUTDOWN_STAGING_MAX_ROUNDS}`,
+            );
+          }
         } catch (error) {
           failures.push(error);
           this.logger.error('统一刷盘关机最终 staging 失败', formatError(error));
@@ -419,6 +431,7 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
       return this.staging;
     }
     const staging = this.runStagingCycle()
+      .then(() => undefined)
       .catch((error) => {
         const failure = classifyFlushFailure(error);
         this.recordFlushFailure('instance', 'staging', 'batch', failure, 1, 0);
@@ -536,7 +549,6 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
         processedTotal += await this.processPlayerTasks(playerTasks, {
           failFastDeterministicPayload: true,
           preserveTechniqueComprehensionTruthOnEmptyOverwrite: true,
-          quarantineInventoryOwnershipConflict: true,
         });
       }
       if (instanceTasks.length > 0) {
@@ -606,14 +618,15 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  private async runStagingCycle(options?: { bypassFlushBarrier?: boolean }): Promise<void> {
+  private async runStagingCycle(options?: { bypassFlushBarrier?: boolean }): Promise<number> {
     if (!options?.bypassFlushBarrier && this.startupBarrierService && !this.startupBarrierService.isFlushOpen()) {
-      return;
+      return 0;
     }
     if (!this.flushLedgerService.isEnabled() || !shouldStartAuthoritativeRuntime()) {
-      return;
+      return 0;
     }
     const pending: Array<{ task: FlushTask; markStaged: () => void }> = [];
+    let supersededTotal = 0;
     const commitPending = async (): Promise<void> => {
       if (pending.length === 0) {
         return;
@@ -621,12 +634,24 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
       const current = pending.splice(0, pending.length);
       const tasks = current.map((entry) => entry.task);
       const expectedChanged = new Set(tasks.map(stagingFlushTaskKey)).size;
-      const changed = await this.flushLedgerService.upsertFlushTasks(tasks);
-      if (changed !== expectedChanged) {
-        throw new Error(`flush_task_staging_generation_rejected:changed=${changed}:expected=${expectedChanged}`);
+      const result = await this.upsertStagingTasks(tasks, expectedChanged);
+      const acceptedKeys = new Set(result.accepted.map(stagingFlushTaskIdentityKey));
+      if (acceptedKeys.size !== result.changed) {
+        throw new Error(
+          `flush_task_staging_result_inconsistent:accepted=${acceptedKeys.size}:changed=${result.changed}`,
+        );
       }
       for (const entry of current) {
-        entry.markStaged();
+        if (acceptedKeys.has(stagingFlushTaskKey(entry.task))) {
+          entry.markStaged();
+        }
+      }
+      const superseded = Math.max(0, expectedChanged - acceptedKeys.size);
+      supersededTotal += superseded;
+      if (superseded > 0) {
+        this.logger.debug(
+          `统一刷盘 staging 遇到更新 generation，保留对应 runtime dirty 等待重建：accepted=${acceptedKeys.size} superseded=${superseded}`,
+        );
       }
     };
     const enqueue = async (entry: { task: FlushTask; markStaged: () => void }): Promise<void> => {
@@ -640,6 +665,24 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
     await this.stagePlayerTasks(enqueue, force);
     await this.stageInstanceTasks(enqueue, force);
     await commitPending();
+    return supersededTotal;
+  }
+
+  private async upsertStagingTasks(tasks: FlushTask[], expectedChanged: number): Promise<FlushTaskUpsertResult> {
+    const detailedUpsert = (this.flushLedgerService as FlushLedgerService & {
+      upsertFlushTasksDetailed?: (input: FlushTask[]) => Promise<FlushTaskUpsertResult>;
+    }).upsertFlushTasksDetailed;
+    if (typeof detailedUpsert === 'function') {
+      return await detailedUpsert.call(this.flushLedgerService, tasks);
+    }
+    const changed = await this.flushLedgerService.upsertFlushTasks(tasks);
+    if (changed !== expectedChanged) {
+      return { changed: 0, accepted: [] };
+    }
+    return {
+      changed,
+      accepted: Array.from(dedupeStagingFlushTaskIdentities(tasks).values()),
+    };
   }
 
   async runOnce(workerId = this.workerId, filter?: { playerDomain?: string; instanceDomain?: string }): Promise<number> {
@@ -1087,7 +1130,6 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
     options: {
       failFastDeterministicPayload?: boolean;
       preserveTechniqueComprehensionTruthOnEmptyOverwrite?: boolean;
-      quarantineInventoryOwnershipConflict?: boolean;
     } = {},
   ): Promise<number> {
     const groups = Array.from(groupTasksById(tasks).values());
@@ -1141,12 +1183,10 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
               return;
             }
           }
-          if (options.quarantineInventoryOwnershipConflict === true) {
-            const quarantined = await this.quarantineInventoryOwnershipConflictAndContinueReplay(group, error);
-            if (quarantined !== null) {
-              results[index] = quarantined;
-              return;
-            }
+          const quarantined = await this.quarantineInventoryOwnershipConflict(group, error);
+          if (quarantined !== null) {
+            results[index] = quarantined;
+            return;
           }
           if (options.failFastDeterministicPayload === true && isDeterministicReplayPlayerPayloadError(error)) {
             throw error;
@@ -1571,7 +1611,7 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
     return 1;
   }
 
-  private async quarantineInventoryOwnershipConflictAndContinueReplay(
+  private async quarantineInventoryOwnershipConflict(
     tasks: FlushTask[],
     error: unknown,
   ): Promise<number | null> {
@@ -1589,14 +1629,14 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
     const quarantined = await this.flushLedgerService.quarantinePlayerFlushTasksForAssetConflict(tasks);
     if (quarantined !== tasks.length) {
       throw new Error(
-        `startup_player_asset_conflict_quarantine_incomplete:playerId=${playerId}:updated=${quarantined}:expected=${tasks.length}`,
+        `player_asset_conflict_quarantine_incomplete:playerId=${playerId}:updated=${quarantined}:expected=${tasks.length}`,
       );
     }
     const domains = Array.from(new Set(tasks.map((task) => task.domain))).sort();
     this.recordFlushFailure('player', playerId, domains.join(','), failure, 1, 0);
     this.failureAttempts.delete(playerGroupKey(tasks));
     this.logger.error(
-      `启动重放已隔离库存实例跨玩家归属冲突：playerId=${playerId} domains=${domains.join(',')}，保留 durable payload 与数据库现有资产归属并继续启动；该玩家需人工核对后解除隔离`,
+      `已隔离库存实例跨玩家归属冲突：playerId=${playerId} domains=${domains.join(',')}，保留 durable payload 与数据库现有资产归属；该玩家需人工核对后解除隔离`,
     );
     return tasks.length;
   }
@@ -2558,6 +2598,28 @@ function stagingFlushTaskKey(task: FlushTask): string {
   return task.scope === 'player'
     ? `player\u0000${task.id}\u0000${task.domain}`
     : `instance\u0000${task.id}\u0000${task.domain}\u0000${Math.max(0, Math.trunc(Number(task.ownershipEpoch ?? 0)))}`;
+}
+
+function stagingFlushTaskIdentityKey(identity: FlushTaskUpsertIdentity): string {
+  return identity.scope === 'player'
+    ? `player\u0000${identity.id}\u0000${identity.domain}`
+    : `instance\u0000${identity.id}\u0000${identity.domain}\u0000${Math.max(0, Math.trunc(Number(identity.ownershipEpoch ?? 0)))}`;
+}
+
+function dedupeStagingFlushTaskIdentities(tasks: FlushTask[]): Map<string, FlushTaskUpsertIdentity> {
+  const identities = new Map<string, FlushTaskUpsertIdentity>();
+  for (const task of tasks) {
+    const identity: FlushTaskUpsertIdentity = {
+      scope: task.scope,
+      id: task.id,
+      domain: task.domain,
+      ownershipEpoch: task.scope === 'instance'
+        ? Math.max(0, Math.trunc(Number(task.ownershipEpoch ?? 0)))
+        : null,
+    };
+    identities.set(stagingFlushTaskIdentityKey(identity), identity);
+  }
+  return identities;
 }
 
 function playerGroupKey(tasks: FlushTask[]): string {

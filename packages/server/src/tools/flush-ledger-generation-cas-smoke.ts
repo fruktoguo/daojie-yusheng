@@ -22,6 +22,7 @@ interface LedgerRow {
   runtime_owner_id: string | null;
   fencing_token: string | null;
   payload_jsonb: unknown;
+  failure_category: string | null;
   updated_at: Date;
 }
 
@@ -51,6 +52,7 @@ async function main(): Promise<void> {
   const replayDomain = `flush_ledger_cas_replay_${suffix}`;
   const missingReplayDomain = `flush_ledger_cas_replay_missing_${suffix}`;
   const legacyDomain = `flush_ledger_cas_legacy_${suffix}`;
+  const quarantineDomain = `flush_ledger_cas_quarantine_${suffix}`;
   const pool = new Pool({ connectionString: databaseUrl });
   const ledger = new FlushLedgerService({ getPool: () => pool } as never);
   const legacyLedger = new PlayerFlushLedgerService({ getPool: () => pool } as never);
@@ -75,6 +77,7 @@ async function main(): Promise<void> {
     );
     await verifyRecoveryClaimControls(pool, ledger, playerId, replayDomain, missingReplayDomain);
     await verifyLegacyPlayerClaimCas(pool, legacyLedger, playerId, legacyDomain);
+    await verifyAssetConflictQuarantineSticky(pool, ledger, playerId, quarantineDomain);
 
     console.log(JSON.stringify({
       ok: true,
@@ -218,6 +221,9 @@ function verifyStaticSchemaContract(): void {
   assert.equal(source.includes('CREATE INDEX IF NOT EXISTS instance_flush_ledger_idempotency_idx'), false);
   assert.match(source, /SERVER_FLUSH_TASK_CLAIM_TTL_MS/);
   assert.match(source, /jsonb_to_recordset\(\$1::jsonb\)/);
+  assert.match(source, /upsertFlushTasksDetailed/);
+  assert.match(source, /RETURNING player_id, domain/);
+  assert.match(source, /RETURNING instance_id, domain, ownership_epoch/);
 }
 
 async function verifyPlayerLatestWins(
@@ -228,12 +234,21 @@ async function verifyPlayerLatestWins(
 ): Promise<void> {
   const initialTask = playerTask(playerId, domain, 100, 'generation-a', 'v100', 'high');
   initialTask.runtimeOwnerId = 'owner-a';
-  const initialChanged = await ledger.upsertFlushTasks([initialTask]);
-  assert.equal(initialChanged, 1);
+  const initialResult = await ledger.upsertFlushTasksDetailed([initialTask]);
+  assert.equal(initialResult.changed, 1);
+  assert.deepEqual(initialResult.accepted, [{
+    scope: 'player',
+    id: playerId,
+    domain,
+    ownershipEpoch: null,
+  }]);
   const initial = await readPlayerRow(pool, playerId, domain);
 
-  const equalChanged = await ledger.upsertFlushTasks([playerTask(playerId, domain, 100, 'generation-a', 'equal-overwrite', 'low')]);
-  assert.equal(equalChanged, 0);
+  const equalResult = await ledger.upsertFlushTasksDetailed([
+    playerTask(playerId, domain, 100, 'generation-a', 'equal-overwrite', 'low'),
+  ]);
+  assert.equal(equalResult.changed, 0);
+  assert.deepEqual(equalResult.accepted, []);
   const afterEqual = await readPlayerRow(pool, playerId, domain);
   assert.equal(afterEqual.ctid, initial.ctid, 'equal upsert must not create a new heap tuple');
   assert.equal(afterEqual.updated_at.toISOString(), initial.updated_at.toISOString());
@@ -272,6 +287,29 @@ async function verifyPlayerLatestWins(
   assert.equal(repaired, 1);
   assert.deepEqual((await readPlayerRow(pool, playerId, domain)).payload_jsonb, { value: 'repair' });
   assert.equal(await ledger.upsertFlushTasks([playerTask(playerId, domain, 104, 'generation-b', 'repeat')]), 0);
+}
+
+async function verifyAssetConflictQuarantineSticky(
+  pool: Pool,
+  ledger: FlushLedgerService,
+  playerId: string,
+  domain: string,
+): Promise<void> {
+  await ledger.upsertFlushTask(playerTask(playerId, domain, 500, 'quarantine-generation', 'before-quarantine'));
+  await pool.query(
+    `UPDATE player_flush_ledger
+     SET failure_category = 'startup_asset_conflict'
+     WHERE player_id = $1 AND domain = $2`,
+    [playerId, domain],
+  );
+  assert.equal(
+    await ledger.upsertFlushTasks([playerTask(playerId, domain, 501, 'quarantine-generation', 'after-quarantine')]),
+    1,
+  );
+  const row = await readPlayerRow(pool, playerId, domain);
+  assert.equal(Number(row.latest_version), 501);
+  assert.deepEqual(row.payload_jsonb, { value: 'after-quarantine' });
+  assert.equal(row.failure_category, 'startup_asset_conflict', '普通 staging 不得隐式解除人工资产隔离');
 }
 
 async function verifyInstanceLatestWins(
@@ -444,7 +482,7 @@ function instanceTask(
 async function readPlayerRow(pool: Pool, playerId: string, domain: string): Promise<LedgerRow> {
   const result = await pool.query<LedgerRow>(
     `SELECT ctid::text AS ctid, priority, latest_version, flushed_version, claimed_by,
-      runtime_owner_id, fencing_token, payload_jsonb, updated_at
+      runtime_owner_id, fencing_token, payload_jsonb, failure_category, updated_at
      FROM player_flush_ledger WHERE player_id = $1 AND domain = $2`,
     [playerId, domain],
   );
@@ -455,7 +493,7 @@ async function readPlayerRow(pool: Pool, playerId: string, domain: string): Prom
 async function readInstanceRow(pool: Pool, instanceId: string, domain: string): Promise<LedgerRow> {
   const result = await pool.query<LedgerRow>(
     `SELECT ctid::text AS ctid, priority, latest_version, flushed_version, claimed_by,
-      runtime_owner_id, fencing_token, payload_jsonb, updated_at
+      runtime_owner_id, fencing_token, payload_jsonb, failure_category, updated_at
      FROM instance_flush_ledger WHERE instance_id = $1 AND domain = $2 AND ownership_epoch = 1`,
     [instanceId, domain],
   );

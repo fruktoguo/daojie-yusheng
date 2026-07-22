@@ -21,6 +21,8 @@ async function main(): Promise<void> {
     await verifyFallbackSnapshotExpandsToSingleDomainTasks();
     await verifyProjectionStagingClaimsCompleteRuntimeFence();
     await verifyRejectedLedgerGenerationKeepsDirty();
+    await verifyPartiallyAcceptedLedgerGenerationMarksOnlyAccepted();
+    await verifyShutdownRetriesSupersededGeneration();
     await verifyHeldInstanceDomainIsNotStaged();
     await verifyCompleteInstancePayloadStaging();
     await verifyStoppedEpochStartupReplay();
@@ -30,7 +32,7 @@ async function main(): Promise<void> {
   }
   console.log(JSON.stringify({
     ok: true,
-    answers: '统一 staging 已按 generation single-flight，高频修订在内存合并窗口内不重复覆盖 ledger，高优先级与关机最终 staging 可绕过窗口；玩家投影在 fence 不完整时会先 claim ownership 并重读完整 fence；被 durable 事务 hold 的实例域不会生成竞态 payload；实例覆盖完整 payload 与恢复前 replay。',
+    answers: '统一 staging 已按 generation single-flight，高频修订在内存合并窗口内不重复覆盖 ledger；批量 CAS 只转移实际接受的 dirty 义务，被更新 generation 覆盖的领域会保留并在关机冻结阶段有界重试；玩家投影在 fence 不完整时会先 claim ownership 并重读完整 fence；被 durable 事务 hold 的实例域不会生成竞态 payload；实例覆盖完整 payload 与恢复前 replay。',
     excludes: '不证明真实 PostgreSQL 多进程 claim 竞争；该部分由 flush-ledger DB smoke 覆盖。',
     completionMapping: 'flush-task-staged-transfer',
   }, null, 2));
@@ -339,11 +341,115 @@ async function verifyRejectedLedgerGenerationKeepsDirty(): Promise<void> {
     { signalPlayerFlush() {}, signalInstanceFlush() {} } as never,
   );
 
-  await assert.rejects(
-    () => runtime.stageDirtyTasksOnce(),
-    /flush_task_staging_generation_rejected:changed=0:expected=1/,
-  );
+  await runtime.stageDirtyTasksOnce();
   assert.equal(dirty, true, 'ledger 拒绝 generation 时必须保留 runtime dirty obligation');
+}
+
+async function verifyPartiallyAcceptedLedgerGenerationMarksOnlyAccepted(): Promise<void> {
+  const playerId = 'staging-generation-partial-player';
+  const dirtyDomains = new Set(['inventory', 'technique']);
+  let attempts = 0;
+  const runtime = new FlushTaskRuntimeService(
+    {
+      listUnstagedPlayerDomainRevisions: () => dirtyDomains.size > 0
+        ? new Map([[playerId, new Map(Array.from(dirtyDomains, (domain) => [domain, 7] as const))]])
+        : new Map(),
+      getPersistenceRevision: () => 7,
+      describePersistencePresence: () => ({
+        online: true,
+        inWorld: true,
+        runtimeOwnerId: 'runtime-owner-generation-partial',
+        sessionEpoch: 13,
+      }),
+      buildPersistenceSnapshot: () => ({
+        version: 1,
+        savedAt: 7,
+        placement: { templateId: 'map-1', x: 1, y: 1 },
+        inventory: { items: [{ itemId: 'ore', count: 1 }] },
+        techniques: [],
+      }),
+      markPersistenceDomainsStaged: (_id: string, revisions: Map<string, number>) => {
+        for (const domain of revisions.keys()) {
+          dirtyDomains.delete(domain);
+        }
+      },
+    } as never,
+    { listDirtyPersistentInstanceDomains: () => [] } as never,
+    { flushPlayerDomains: async () => true } as never,
+    {
+      isEnabled: () => true,
+      upsertFlushTasksDetailed: async (tasks: FlushTask[]) => {
+        attempts += 1;
+        const acceptedTasks = attempts === 1
+          ? tasks.filter((task) => task.domain === 'inventory')
+          : tasks;
+        return {
+          changed: acceptedTasks.length,
+          accepted: acceptedTasks.map((task) => ({
+            scope: task.scope,
+            id: task.id,
+            domain: task.domain,
+            ownershipEpoch: task.ownershipEpoch ?? null,
+          })),
+        };
+      },
+    } as never,
+    { signalPlayerFlush() {}, signalInstanceFlush() {} } as never,
+  );
+
+  await runtime.stageDirtyTasksOnce();
+  assert.deepEqual(Array.from(dirtyDomains), ['technique'], '部分 CAS 失败时只允许转移实际接受的领域');
+  await runtime.stageDirtyTasksOnce();
+  assert.equal(dirtyDomains.size, 0, '被更新 generation 覆盖的领域必须在下一轮重建并转移');
+  assert.equal(attempts, 2);
+}
+
+async function verifyShutdownRetriesSupersededGeneration(): Promise<void> {
+  const playerId = 'shutdown-staging-generation-retry-player';
+  let dirty = true;
+  let attempts = 0;
+  const runtime = new FlushTaskRuntimeService(
+    {
+      listUnstagedPlayerDomainRevisions: () => dirty
+        ? new Map([[playerId, new Map([['presence', 9]])]])
+        : new Map(),
+      getPersistenceRevision: () => 9,
+      describePersistencePresence: () => ({
+        online: false,
+        inWorld: true,
+        runtimeOwnerId: 'runtime-owner-shutdown-generation',
+        sessionEpoch: 14,
+        versionSeed: 9,
+      }),
+      markPersistenceDomainsStaged: () => { dirty = false; },
+    } as never,
+    { listDirtyPersistentInstanceDomains: () => [] } as never,
+    { flushPlayerDomains: async () => true } as never,
+    {
+      isEnabled: () => true,
+      upsertFlushTasksDetailed: async (tasks: FlushTask[]) => {
+        attempts += 1;
+        if (attempts === 1) {
+          return { changed: 0, accepted: [] };
+        }
+        return {
+          changed: tasks.length,
+          accepted: tasks.map((task) => ({
+            scope: task.scope,
+            id: task.id,
+            domain: task.domain,
+            ownershipEpoch: task.ownershipEpoch ?? null,
+          })),
+        };
+      },
+      countPendingPayloadTasks: async () => 0,
+    } as never,
+    { signalPlayerFlush() {}, signalInstanceFlush() {} } as never,
+  );
+
+  await runtime.drainForShutdown();
+  assert.equal(attempts, 2, '关机冻结后 generation 被覆盖必须立即重建，不能静默漏刷');
+  assert.equal(dirty, false);
 }
 
 async function verifyShutdownDrainWaitsForStaging(): Promise<void> {
