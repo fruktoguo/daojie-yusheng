@@ -239,13 +239,14 @@ async function main(): Promise<void> {
     await proveStartupReplayDrainsPresenceBeforeProjection();
     await proveStartupReplayAdvancesDurableFutureFence();
     await proveStartupReplayPreservesTechniqueComprehensionTruth();
+    await proveStartupReplayQuarantinesInventoryOwnershipConflict();
   } finally {
     restoreEnv('SERVER_RUNTIME_ROLE', previousRole);
     restoreEnv('SERVER_FLUSH_TASK_RUNTIME_MODE', previousMode);
   }
   console.log(JSON.stringify({
     ok: true,
-    answers: '玩家 presence 与 snapshot projectable flush task 可在 worker role 下从 staging payload 写入 PlayerDomainPersistenceService，并 mark flushed；同一玩家的多个 projection 只调用一次单事务 batch writer，任一领域写失败时整组进入 retry 且不会降级为逐域写入；历史 payload 缺 owner 时不信任可能残留的 ledger owner，只有 payload/DB 精确 fence 或同 epoch双方均已释放 owner才写入，旧 session/owner 与不存在玩家的 projection 会 stale-safe 收敛；启动重放遇到历史无授权的功法领悟空删除时保留数据库真源、隔离 technique 删除 payload，并继续提交同玩家其余领域。',
+    answers: '玩家 presence 与 snapshot projectable flush task 可在 worker role 下从 staging payload 写入 PlayerDomainPersistenceService，并 mark flushed；同一玩家的多个 projection 只调用一次单事务 batch writer，任一领域写失败时整组进入 retry且不会降级为逐域写入；历史 payload 缺 owner 时不信任可能残留的 ledger owner，只有 payload/DB 精确 fence 或同 epoch 双方均已释放 owner 才写入，旧 session/owner 与不存在玩家的 projection 会 stale-safe 收敛；启动重放遇到历史无授权的功法领悟空删除时保留数据库真源、隔离 technique 删除 payload，并继续提交同玩家其余领域；库存实例跨玩家归属冲突会保留整组 durable payload、隔离该玩家并允许全服启动。',
     excludes: '不证明邮件/市场/GM edit 或实例 domain，也不证明真实 DB with-db 竞争。',
     completionMapping: 'flush-player-payload',
   }, null, 2));
@@ -763,6 +764,82 @@ async function proveStartupReplayPreservesTechniqueComprehensionTruth(): Promise
   assert.deepEqual(flushedDomains.sort(), ['attr', 'technique']);
   assert.deepEqual(committedDomains, [['attr']]);
   assert.equal(pendingDomains.size, 0);
+}
+
+async function proveStartupReplayQuarantinesInventoryOwnershipConflict(): Promise<void> {
+  const playerId = 'inventory-ownership-conflict-replay-player';
+  const pendingDomains = new Set(['buff', 'inventory', 'vitals']);
+  const tasks = Array.from(pendingDomains, (domain, index): FlushTask => ({
+    scope: 'player',
+    id: playerId,
+    domain,
+    priority: domain === 'inventory' ? 'high' : 'normal',
+    latestRevision: 301 + index,
+    claimOwnerId: `inventory-conflict-${domain}`,
+    payloadJson: {
+      kind: 'player_snapshot_projection',
+      projectedDomains: [domain],
+      projectionVersion: 301 + index,
+      snapshot: {
+        version: 1,
+        savedAt: 301 + index,
+        placement: { templateId: 'map-1', x: 1, y: 2 },
+        inventory: { items: [{ itemId: 'conflicted-item', itemInstanceId: 'shared-instance-id' }] },
+        buffs: { buffs: [] },
+        vitals: { hp: 1, maxHp: 1, qi: 1, maxQi: 1 },
+      },
+    },
+  }));
+  const quarantinedDomains: string[] = [];
+  let batchAttempts = 0;
+  let retryCount = 0;
+  let flushedCount = 0;
+  const runtime = new FlushTaskRuntimeService(
+    {} as never,
+    {} as never,
+    { flushPlayerDomains: async () => { throw new Error('startup replay 不得回退 runtime flush'); } } as never,
+    {
+      isEnabled: () => true,
+      countPendingPayloadTasks: async (input?: { scope?: string; domain?: string }) => {
+        if (input?.scope === 'player' && input.domain === 'presence') return 0;
+        return pendingDomains.size;
+      },
+      claimReadyFlushTasks: async (input: { scope: string }) => input.scope === 'player'
+        ? tasks.filter((task) => pendingDomains.has(task.domain))
+        : [],
+      renewFlushTaskClaims: async (claimedTasks: FlushTask[]) => claimedTasks.length,
+      quarantinePlayerFlushTasksForAssetConflict: async (claimedTasks: FlushTask[]) => {
+        for (const task of claimedTasks) {
+          quarantinedDomains.push(task.domain);
+          pendingDomains.delete(task.domain);
+        }
+        return claimedTasks.length;
+      },
+      markFlushTasksRetry: async () => { retryCount += 1; return 0; },
+      markFlushTaskRetry: async () => { retryCount += 1; return true; },
+      markFlushTaskFlushed: async () => { flushedCount += 1; return true; },
+    } as never,
+    { signalPlayerFlush: () => undefined, signalInstanceFlush: () => undefined } as never,
+    undefined,
+    undefined,
+    {
+      isEnabled: () => true,
+      savePlayerSnapshotProjectionDomainBatch: async () => {
+        batchAttempts += 1;
+        throw new Error(
+          `replacePlayerInventoryItems: item_instance_id conflict outside player scope playerId=${playerId}`,
+        );
+      },
+    } as never,
+  );
+
+  const handled = await runtime.replayDurablePayloadsBeforeRecovery({ timeoutMs: 5_000 });
+  assert.equal(handled, tasks.length);
+  assert.equal(batchAttempts, 1, '确定性资产冲突不应重复打数据库');
+  assert.deepEqual(quarantinedDomains.sort(), ['buff', 'inventory', 'vitals']);
+  assert.equal(retryCount, 0, '已隔离任务不得继续进入普通 retry');
+  assert.equal(flushedCount, 0, '隔离任务不得冒充已刷盘或清除 payload');
+  assert.equal(pendingDomains.size, 0, '隔离任务必须退出启动 replay pending 口径');
 }
 
 function restoreEnv(name: string, value: string | undefined): void {

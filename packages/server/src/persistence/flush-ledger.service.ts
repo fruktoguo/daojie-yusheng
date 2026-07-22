@@ -17,6 +17,11 @@ import type { ClaimFlushTaskInput, FlushTask, FlushTaskPriority, FlushTaskScope 
 
 const PLAYER_FLUSH_LEDGER_TABLE = 'player_flush_ledger';
 const INSTANCE_FLUSH_LEDGER_TABLE = 'instance_flush_ledger';
+export const PLAYER_FLUSH_ASSET_CONFLICT_QUARANTINE = 'startup_asset_conflict';
+const PLAYER_FLUSH_NOT_QUARANTINED_SQL = `(
+  failure_category IS NULL
+  OR failure_category <> '${PLAYER_FLUSH_ASSET_CONFLICT_QUARANTINE}'
+)`;
 const FLUSH_LEDGER_LOCK_NAMESPACE = 42871;
 const FLUSH_LEDGER_LOCK_KEY = 4001;
 const PLAYER_FLUSH_GROUP_CLAIM_LOCK_NAMESPACE = 42872;
@@ -197,6 +202,10 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
     const candidateFilters = [
       'candidate.latest_version > candidate.flushed_version',
       '(candidate.claim_until IS NULL OR candidate.claim_until < now())',
+      `(
+        candidate.failure_category IS NULL
+        OR candidate.failure_category <> '${PLAYER_FLUSH_ASSET_CONFLICT_QUARANTINE}'
+      )`,
     ];
     if (input.includeDelayed !== true) {
       candidateFilters.push('(COALESCE(candidate.next_attempt_at, candidate.retry_after) IS NULL OR COALESCE(candidate.next_attempt_at, candidate.retry_after) <= now())');
@@ -281,6 +290,10 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
           INNER JOIN locked_players ON locked_players.player_id = ledger.player_id
           WHERE ledger.latest_version > ledger.flushed_version
             AND (ledger.claim_until IS NULL OR ledger.claim_until < now())
+            AND (
+              ledger.failure_category IS NULL
+              OR ledger.failure_category <> '${PLAYER_FLUSH_ASSET_CONFLICT_QUARANTINE}'
+            )
             ${claimedPayloadFilter}
             ${claimedDomainFilter}
           ORDER BY ledger.player_id ASC, ledger.domain ASC
@@ -568,6 +581,87 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
     return updated;
   }
 
+  /**
+   * 隔离无法自动裁定归属的玩家资产 payload。
+   *
+   * 这里只释放 claim 并记录失败分类，不推进 flushed_version、也不清除 payload；
+   * 后续启动重放和普通 worker 会跳过这些行，等待 GM 核对资产归属后显式处理。
+   */
+  async quarantinePlayerFlushTasksForAssetConflict(tasks: FlushTask[]): Promise<number> {
+    if (!this.pool || !this.enabled || tasks.length === 0) {
+      return 0;
+    }
+    const playerTasks = dedupeClaimedFlushTasks(tasks).filter((task) => task.scope === 'player');
+    if (playerTasks.length === 0) {
+      return 0;
+    }
+    const result = await this.pool.query(
+      `
+        WITH input AS MATERIALIZED (
+          SELECT * FROM jsonb_to_recordset($1::jsonb) AS claimed(
+            player_id varchar(100), domain varchar(64), claim_owner_id varchar(120), fencing_token varchar(120)
+          )
+        ), locked AS MATERIALIZED (
+          SELECT ledger.player_id, ledger.domain
+          FROM ${PLAYER_FLUSH_LEDGER_TABLE} ledger
+          INNER JOIN input
+            ON input.player_id = ledger.player_id
+           AND input.domain = ledger.domain
+          WHERE ledger.claimed_by = input.claim_owner_id
+            AND ledger.fencing_token IS NOT DISTINCT FROM input.fencing_token
+            AND ledger.latest_version > ledger.flushed_version
+            AND ledger.payload_jsonb IS NOT NULL
+          ORDER BY ledger.player_id ASC, ledger.domain ASC
+          FOR UPDATE OF ledger
+        )
+        UPDATE ${PLAYER_FLUSH_LEDGER_TABLE} ledger
+        SET failure_category = $2,
+            claimed_by = NULL,
+            claim_until = NULL,
+            next_attempt_at = NULL,
+            retry_after = NULL,
+            updated_at = now()
+        FROM locked
+        WHERE ledger.player_id = locked.player_id
+          AND ledger.domain = locked.domain
+      `,
+      [
+        JSON.stringify(playerTasks.map((task) => ({
+          player_id: task.id,
+          domain: task.domain,
+          claim_owner_id: task.claimOwnerId,
+          fencing_token: task.fencingToken ?? null,
+        }))),
+        PLAYER_FLUSH_ASSET_CONFLICT_QUARANTINE,
+      ],
+    );
+    return result.rowCount ?? 0;
+  }
+
+  /** 玩家存在待人工核对的资产冲突 payload 时，禁止恢复为可写运行态。 */
+  async isPlayerFlushAssetConflictQuarantined(playerIdInput: string): Promise<boolean> {
+    if (!this.pool || !this.enabled) {
+      return false;
+    }
+    const playerId = normalizeRequiredString(playerIdInput);
+    if (!playerId) {
+      return false;
+    }
+    const result = await this.pool.query(
+      `
+        SELECT 1
+        FROM ${PLAYER_FLUSH_LEDGER_TABLE}
+        WHERE player_id = $1
+          AND latest_version > flushed_version
+          AND payload_jsonb IS NOT NULL
+          AND failure_category = $2
+        LIMIT 1
+      `,
+      [playerId, PLAYER_FLUSH_ASSET_CONFLICT_QUARANTINE],
+    );
+    return (result.rowCount ?? 0) > 0;
+  }
+
   /** 延长统一任务认领租约；旧 claim 或 generation 已变化时 CAS 必然失败。 */
   async renewFlushTaskClaim(task: FlushTask, ttlMs?: number): Promise<boolean> {
     if (!this.pool || !this.enabled) {
@@ -730,7 +824,11 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
     const params: Array<string | number> = [];
     const countQueries: string[] = [];
     if (scope !== 'instance') {
-      const filters = ['latest_version > flushed_version', 'payload_jsonb IS NOT NULL'];
+      const filters = [
+        'latest_version > flushed_version',
+        'payload_jsonb IS NOT NULL',
+        PLAYER_FLUSH_NOT_QUARANTINED_SQL,
+      ];
       if (id) {
         params.push(id);
         filters.push(`player_id = $${params.length}`);
@@ -1019,7 +1117,11 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
     const domain = normalizeRequiredString(input.domain);
     const limit = normalizePositiveInteger(input.limit, 32, 1, 5_000);
     const queryParams: Array<string | number> = [claimOwnerId, claimTtlMs];
-    const filters = ['latest_version > flushed_version', '(claim_until IS NULL OR claim_until < now())'];
+    const filters = [
+      'latest_version > flushed_version',
+      '(claim_until IS NULL OR claim_until < now())',
+      PLAYER_FLUSH_NOT_QUARANTINED_SQL,
+    ];
     if (input.includeDelayed !== true) {
       filters.push('(COALESCE(next_attempt_at, retry_after) IS NULL OR COALESCE(next_attempt_at, retry_after) <= now())');
     }

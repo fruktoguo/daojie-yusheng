@@ -536,6 +536,7 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
         processedTotal += await this.processPlayerTasks(playerTasks, {
           failFastDeterministicPayload: true,
           preserveTechniqueComprehensionTruthOnEmptyOverwrite: true,
+          quarantineInventoryOwnershipConflict: true,
         });
       }
       if (instanceTasks.length > 0) {
@@ -1086,6 +1087,7 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
     options: {
       failFastDeterministicPayload?: boolean;
       preserveTechniqueComprehensionTruthOnEmptyOverwrite?: boolean;
+      quarantineInventoryOwnershipConflict?: boolean;
     } = {},
   ): Promise<number> {
     const groups = Array.from(groupTasksById(tasks).values());
@@ -1136,6 +1138,13 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
             const preserved = await this.preserveTechniqueComprehensionTruthAndContinueReplay(group, error);
             if (preserved !== null) {
               results[index] = preserved;
+              return;
+            }
+          }
+          if (options.quarantineInventoryOwnershipConflict === true) {
+            const quarantined = await this.quarantineInventoryOwnershipConflictAndContinueReplay(group, error);
+            if (quarantined !== null) {
+              results[index] = quarantined;
               return;
             }
           }
@@ -1560,6 +1569,36 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
       `启动重放已隔离无法证明的功法领悟空删除 payload：playerId=${techniqueTask.id}，保留 player_technique_comprehension 数据库真源并继续启动`,
     );
     return 1;
+  }
+
+  private async quarantineInventoryOwnershipConflictAndContinueReplay(
+    tasks: FlushTask[],
+    error: unknown,
+  ): Promise<number | null> {
+    const failure = classifyFlushFailure(error);
+    if (
+      failure.category !== 'unique_or_constraint_conflict'
+      || !failure.message.includes('replacePlayerInventoryItems: item_instance_id conflict outside player scope')
+    ) {
+      return null;
+    }
+    const playerId = tasks[0]?.id ?? '';
+    if (!playerId || tasks.some((task) => task.scope !== 'player' || task.id !== playerId)) {
+      return null;
+    }
+    const quarantined = await this.flushLedgerService.quarantinePlayerFlushTasksForAssetConflict(tasks);
+    if (quarantined !== tasks.length) {
+      throw new Error(
+        `startup_player_asset_conflict_quarantine_incomplete:playerId=${playerId}:updated=${quarantined}:expected=${tasks.length}`,
+      );
+    }
+    const domains = Array.from(new Set(tasks.map((task) => task.domain))).sort();
+    this.recordFlushFailure('player', playerId, domains.join(','), failure, 1, 0);
+    this.failureAttempts.delete(playerGroupKey(tasks));
+    this.logger.error(
+      `启动重放已隔离库存实例跨玩家归属冲突：playerId=${playerId} domains=${domains.join(',')}，保留 durable payload 与数据库现有资产归属并继续启动；该玩家需人工核对后解除隔离`,
+    );
+    return tasks.length;
   }
 
   private async processInstanceStatePayloadTaskGroup(group: FlushTask[]): Promise<number | null> {

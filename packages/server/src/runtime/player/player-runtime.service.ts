@@ -8,7 +8,7 @@
  * 管理在线玩家的全部运行态：登录/登出、背包/装备/钱包、buff、
  * 战斗配置、移动、修炼、技能冷却、通知队列和持久化脏域追踪。
  */
-import { Inject, BadRequestException, Injectable, Logger, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
+import { Inject, BadRequestException, Injectable, Logger, NotFoundException, Optional, ServiceUnavailableException } from '@nestjs/common';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { ARTIFACT_SLOTS, ARTIFACT_UNLOCK_REALM_LV, ATTR_KEYS, AUTO_IDLE_CULTIVATION_DELAY_TICKS, BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER, DEFAULT_BASE_ATTRS, DEFAULT_BONE_AGE_YEARS, DEFAULT_COMBAT_ATTACK_INTENSITY, DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS, DEFAULT_INVENTORY_CAPACITY, DEFAULT_PLAYER_REALM_STAGE, Direction, EQUIP_SLOTS, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, RETURN_TO_SPAWN_ACTION_ID, RETURN_TO_SPAWN_COOLDOWN_TICKS, TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH, TechniqueRealm, calculateTechniqueComprehensionProgressGain, calculateTechniqueComprehensionRequiredProgress, canMergeItemStack, cloneCraftEffectStats, coalesceItemStackList, compileValueStatsToActualStats, computeCraftSkillExpGain, createItemStackSignature, enforceSkillEnabledLimit, findMergeableItemStackIndex, getBodyTrainingExpToNext, getTechniqueMaxLevel, isCreatedTechniqueId, isTechniqueFullyMastered, mergeItemStackInto, normalizeBodyTrainingState, normalizeCombatAttackIntensity, normalizeHorizontalFacing, percentModifierToMultiplier, resolveArtifactMaxQi, resolvePlayerFacingContentName, resolvePlayerSkillSlotLimit, resolveSkillRequiresTarget, resolveTechniqueStandardMaxHpRecoveryAmount, resolveTechniqueStandardMaxQiRecoveryAmount, signedRatioValue } from '@mud/shared';
@@ -21,6 +21,7 @@ import {
     PlayerDomainPersistenceService,
     nextPlayerPersistenceVersion,
 } from '../../persistence/player-domain-persistence.service';
+import { FlushLedgerService } from '../../persistence/flush-ledger.service';
 import { isFlushTaskConsumerMode } from '../../persistence/flush-task-runtime-mode';
 import { RuntimeEventBusService } from '../event-bus/runtime-event-bus.service';
 import { MAX_NOTICES_PER_PLAYER, NOTICE_KIND_PRIORITY, findLowestPriorityNoticeIndex } from '../event-bus/runtime-event-bus.types';
@@ -104,6 +105,8 @@ export class PlayerRuntimeService {
     playerDomainPersistenceService;
     /** 运行时事件总线，统一收编通知、战斗表现等 tick 内事件。 */
     runtimeEventBusService;
+    /** durable 玩家 payload 账本，用于阻止隔离资产恢复为可写运行态。 */
+    flushLedgerService;
     /** 玩家在线态 store，集中托管运行时拥有的热状态。 */
     runtimeState = createPlayerRuntimeStateStore<any>();
     /** 在线玩家运行时实例，按 playerId 直接索引。 */
@@ -168,6 +171,7 @@ export class PlayerRuntimeService {
         @Inject(PlayerProgressionService) playerProgressionService: any,
         @Inject(PlayerDomainPersistenceService) playerDomainPersistenceService: any = undefined,
         @Inject(RuntimeEventBusService) runtimeEventBusService: any = undefined,
+        @Optional() @Inject(FlushLedgerService) flushLedgerService: any = undefined,
     ) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.mapTemplateRepository = mapTemplateRepository;
@@ -175,11 +179,13 @@ export class PlayerRuntimeService {
         this.playerProgressionService = playerProgressionService;
         this.playerDomainPersistenceService = playerDomainPersistenceService;
         this.runtimeEventBusService = runtimeEventBusService;
+        this.flushLedgerService = flushLedgerService;
     }
     /** 读取或创建玩家在线态快照，首次连接时从持久化状态回填。 */
     async loadOrCreatePlayer(playerId, sessionId, loader, options = undefined) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+        await this.assertPlayerAssetFlushNotQuarantined(playerId);
         const existing = this.players.get(playerId);
         if (existing) {
             if (options?.deferOfflineGainSettlement === true && await this.shouldBlockOfflineGainSession(playerId)) {
@@ -356,6 +362,7 @@ export class PlayerRuntimeService {
         if (!normalizedPlayerId) {
             return null;
         }
+        await this.assertPlayerAssetFlushNotQuarantined(normalizedPlayerId);
         if (this.players.has(normalizedPlayerId)) {
             return this.players.get(normalizedPlayerId);
         }
@@ -2750,6 +2757,15 @@ export class PlayerRuntimeService {
     onModuleInit() {
         if (!this.runtimeEventBusService) {
             throw new Error('PlayerRuntimeService requires RuntimeEventBusService to be injected at application startup');
+        }
+    }
+    /** 隔离 payload 未经核对前不能加载玩家，否则新运行态会覆盖待修复资产证据。 */
+    async assertPlayerAssetFlushNotQuarantined(playerId) {
+        if (typeof this.flushLedgerService?.isPlayerFlushAssetConflictQuarantined !== 'function') {
+            return;
+        }
+        if (await this.flushLedgerService.isPlayerFlushAssetConflictQuarantined(playerId)) {
+            throw new ServiceUnavailableException(`player_asset_flush_quarantined:${playerId}`);
         }
     }
     /** 仅在测试 harness 缺失 RuntimeEventBusService 时打印一次警告，避免每条通知刷屏。 */
