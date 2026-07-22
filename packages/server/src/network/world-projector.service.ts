@@ -44,6 +44,21 @@ type NativePlayerAuthStorePort = {
     } | null;
 };
 
+type ProjectorWorldSource = {
+    instance: unknown;
+    self: unknown;
+    selfRevision: unknown;
+    visiblePlayers: unknown;
+    localNpcs: unknown;
+    localMonsters: unknown;
+    localPortals: unknown;
+    localGroundPiles: unknown;
+    localContainers: unknown;
+    localBuildings: unknown;
+    localFormations: unknown;
+    playerIdentityPresentation: Array<[unknown, unknown, unknown]>;
+};
+
 const EMPTY_VISIBLE_MONSTER_BUFFS: VisibleBuffState[] = [];
 
 function capturePlayerStateForFullPanel(player: any): any {
@@ -55,6 +70,8 @@ function capturePlayerStateForFullPanel(player: any): any {
 export class WorldProjectorService {
     private readonly cacheByPlayerId = new Map<string, any>();
     private readonly identityProjectionByPlayerId = new Map<string, any>();
+    /** AOI view 命中时 worldRevision 会继续前进；这里单独记录真正影响世界投影的局部来源。 */
+    private readonly worldSourceByPlayerId = new Map<string, ProjectorWorldSource>();
 
     constructor(
         @Inject(MapTemplateRepository)
@@ -84,6 +101,7 @@ export class WorldProjectorService {
         const worldState = captureWorldState(identityView, (mapId) => this.resolveMapName(mapId));
         const playerState = capturePlayerState(player);
         this.cacheByPlayerId.set(binding.playerId, combineProjectorState(worldState, playerState));
+        this.worldSourceByPlayerId.set(binding.playerId, captureProjectorWorldSource(view, identityView));
         return {
             initSession: {
                 sid: binding.sessionId,
@@ -101,11 +119,13 @@ export class WorldProjectorService {
     /** 为已在线玩家构造增量 envelope：对比前帧缓存，仅包含变化的 world/self/panel patch。 */
     createDeltaEnvelope(view: any, player: any) {
         const identityView = this.withAccountIdentityProjection(view);
+        const worldSource = captureProjectorWorldSource(view, identityView);
         const previous = this.cacheByPlayerId.get(identityView.playerId);
         if (!previous) {
             const worldState = captureWorldState(identityView, (mapId) => this.resolveMapName(mapId));
             const playerState = capturePlayerState(player);
             this.cacheByPlayerId.set(identityView.playerId, combineProjectorState(worldState, playerState));
+            this.worldSourceByPlayerId.set(identityView.playerId, worldSource);
             return {
                 mapEnter: buildMapEnter(identityView),
                 worldDelta: buildFullWorldDeltaFromState(identityView, worldState),
@@ -117,6 +137,7 @@ export class WorldProjectorService {
             const worldState = captureWorldState(identityView, (mapId) => this.resolveMapName(mapId));
             const playerState = capturePlayerState(player);
             this.cacheByPlayerId.set(identityView.playerId, combineProjectorState(worldState, playerState));
+            this.worldSourceByPlayerId.set(identityView.playerId, worldSource);
             return {
                 mapEnter: buildMapEnter(identityView),
                 worldDelta: buildFullWorldDeltaFromState(identityView, worldState),
@@ -124,7 +145,8 @@ export class WorldProjectorService {
                 panelDelta: buildFullPanelDeltaFromState(capturePlayerStateForFullPanel(player)),
             };
         }
-        const currentWorld = previous.worldRevision === identityView.worldRevision
+        const previousWorldSource = this.worldSourceByPlayerId.get(identityView.playerId);
+        const currentWorld = isSameProjectorWorldSource(previousWorldSource, worldSource)
             && !hasDynamicContainerCountdown(identityView, previous.containers)
             && !hasPlayerPresentationChange(identityView, previous.players)
             && !hasMonsterBuffPresentationChange(identityView, previous.monsters)
@@ -164,6 +186,9 @@ export class WorldProjectorService {
                 : mergeWorldState(previous, currentWorld);
             this.cacheByPlayerId.set(identityView.playerId, current);
         }
+        if (worldChanged) {
+            this.worldSourceByPlayerId.set(identityView.playerId, worldSource);
+        }
         if (
             !hasWorldPatch
             && !selfDelta
@@ -196,6 +221,7 @@ export class WorldProjectorService {
     clear(playerId: string): void {
         this.cacheByPlayerId.delete(playerId);
         this.identityProjectionByPlayerId.delete(playerId);
+        this.worldSourceByPlayerId.delete(playerId);
     }
 
     getCachedProjectorState(playerId: string): any | null {
@@ -277,6 +303,75 @@ export class WorldProjectorService {
 
 function normalizeIdentityText(value: unknown): string {
     return typeof value === 'string' ? value.trim().normalize('NFC') : '';
+}
+
+function captureProjectorWorldSource(view: any, identityView: any): ProjectorWorldSource {
+    return {
+        instance: view?.instance,
+        self: view?.self,
+        selfRevision: view?.selfRevision,
+        visiblePlayers: view?.visiblePlayers,
+        localNpcs: view?.localNpcs,
+        localMonsters: view?.localMonsters,
+        localPortals: view?.localPortals,
+        localGroundPiles: view?.localGroundPiles,
+        localContainers: view?.localContainers,
+        localBuildings: view?.localBuildings,
+        localFormations: view?.localFormations,
+        playerIdentityPresentation: capturePlayerIdentityPresentation(identityView),
+    };
+}
+
+function isSameProjectorWorldSource(left: ProjectorWorldSource | undefined, right: ProjectorWorldSource): boolean {
+    if (!left
+        || left.instance !== right.instance
+        || left.self !== right.self
+        || left.selfRevision !== right.selfRevision
+        || left.visiblePlayers !== right.visiblePlayers
+        || left.localNpcs !== right.localNpcs
+        || left.localMonsters !== right.localMonsters
+        || left.localPortals !== right.localPortals
+        || left.localGroundPiles !== right.localGroundPiles
+        || left.localContainers !== right.localContainers
+        || left.localBuildings !== right.localBuildings
+        || left.localFormations !== right.localFormations) {
+        return false;
+    }
+    const leftPresentation = left.playerIdentityPresentation;
+    const rightPresentation = right.playerIdentityPresentation;
+    if (leftPresentation.length !== rightPresentation.length) {
+        return false;
+    }
+    for (let index = 0; index < leftPresentation.length; index += 1) {
+        const previous = leftPresentation[index];
+        const current = rightPresentation[index];
+        if (!current
+            || !Object.is(previous?.[0], current[0])
+            || !Object.is(previous?.[1], current[1])
+            || !Object.is(previous?.[2], current[2])) {
+            return false;
+        }
+    }
+    return true;
+}
+
+function capturePlayerIdentityPresentation(view: any): Array<[unknown, unknown, unknown]> {
+    const entries: Array<[unknown, unknown, unknown]> = [[
+        view?.playerId,
+        view?.self?.name,
+        view?.self?.displayName,
+    ]];
+    if (!Array.isArray(view?.visiblePlayers)) {
+        return entries;
+    }
+    for (const entry of view.visiblePlayers) {
+        entries.push([
+            entry?.playerId,
+            entry?.name,
+            entry?.displayName,
+        ]);
+    }
+    return entries;
 }
 
 function hasDynamicContainerCountdown(view: any, previousContainers: Map<string, any>): boolean {
