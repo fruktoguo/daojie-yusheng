@@ -32,6 +32,8 @@ RUN npm install -g "pnpm@${PNPM_VERSION}" --registry="${NPM_CONFIG_REGISTRY}" \
 RUN pnpm install --frozen-lockfile --prod --filter @mud/server...
 
 FROM node:20-alpine
+ARG BUILD_CACHEBUST=local
+LABEL org.opencontainers.image.revision="${BUILD_CACHEBUST}"
 RUN apk add --no-cache postgresql-client
 WORKDIR /app
 COPY --from=prod-deps /app/pnpm-workspace.yaml /app/package.json ./
