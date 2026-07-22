@@ -1113,6 +1113,9 @@ export class WorldRuntimeService {
         refreshQuestStates(playerId, forceDirty = false) {
         this.worldRuntimeQuestRuntimeFacadeService.refreshQuestStates(playerId, forceDirty, this);
     }
+        refreshQuestStatesIfDependenciesChanged(playerId) {
+        return this.worldRuntimeQuestRuntimeFacadeService.refreshQuestStatesIfDependenciesChanged(playerId, this);
+    }
         resolveQuestProgress(playerId, quest) {
         return this.worldRuntimeReadFacadeService.resolveQuestProgress(playerId, quest, this);
     }

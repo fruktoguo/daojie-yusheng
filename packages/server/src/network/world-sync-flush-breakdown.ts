@@ -122,6 +122,9 @@ export function runMeasuredSyncFlushStep<T>(
     countKey: SyncFlushCountKey,
     step: () => T,
 ): T {
+    if (!breakdown) {
+        return step();
+    }
     const startedAt = performance.now();
     const result = step();
     addSyncFlushDuration(breakdown, durationKey, startedAt);

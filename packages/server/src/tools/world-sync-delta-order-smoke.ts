@@ -43,7 +43,12 @@ function createService(log: LogEntry[] = [], options: DeltaOrderSmokeOptions = {
         instance: { templateId: 'map.a', instanceId: 'inst.a' },
         self: { x: 4, y: 5 },
     };
-    const player = { id: 'player:1', quests: { revision: 12 } };
+    const player = {
+        id: 'player:1',
+        quests: { revision: 12 },
+        equipment: { revision: 3 },
+        techniques: { revision: 4 },
+    };
     const service = new WorldSyncService(
         {
             getPlayerView(playerId: string) {
@@ -55,6 +60,9 @@ function createService(log: LogEntry[] = [], options: DeltaOrderSmokeOptions = {
             },
         },
         {
+            getPlayer() {
+                return player;
+            },
             syncFromWorldView(playerId: string, sessionId: string, inputView: unknown) {
                 log.push(['syncFromWorldView', playerId, sessionId, inputView === view]);
                 return player;
@@ -154,7 +162,7 @@ function createService(log: LogEntry[] = [], options: DeltaOrderSmokeOptions = {
             },
         } as never,
     );
-    return { service };
+    return { service, view, player };
 }
 
 function testAuxDeltaIsSentBeforeMovementEnvelope() {
@@ -227,6 +235,38 @@ function testFlushConnectedPlayersRecordsBreakdownAndSyncsRoomOnce() {
     assert.equal(records[0].questSyncCount, 1);
     assert.equal(records[0].runtimeEventsCount, 1);
     assert.equal(records[0].statisticRecordsCount, 1);
+}
+
+function testPeriodicFlushReusesContextActionsWithinSameTick() {
+    const log = [];
+    const records: Record<string, number>[] = [];
+    const { service, view, player } = createService(log, {
+        runtimeGmStateService: {
+            recordSyncFlushBreakdown(sample: Record<string, number>) {
+                records.push(sample);
+            },
+        },
+    });
+
+    service.flushConnectedPlayers();
+    service.flushConnectedPlayers();
+
+    assert.equal(log.filter((entry) => entry[0] === 'refreshPlayerContextActions').length, 1);
+    assert.equal(records[0].contextActionsCount, 1);
+    assert.equal(records[1].contextActionsCount, 0);
+
+    player.quests.revision += 1;
+    service.flushConnectedPlayers();
+    assert.equal(log.filter((entry) => entry[0] === 'refreshPlayerContextActions').length, 2);
+    assert.equal(records[2].contextActionsCount, 1);
+
+    view.tick += 1;
+    service.flushConnectedPlayers();
+    assert.equal(log.filter((entry) => entry[0] === 'refreshPlayerContextActions').length, 3);
+    assert.equal(records[3].contextActionsCount, 1);
+
+    service.emitDeltaSync('player:1');
+    assert.equal(log.filter((entry) => entry[0] === 'refreshPlayerContextActions').length, 4);
 }
 
 function testFlushConnectedPlayersSkipsWorkerWhenDisabled() {
@@ -348,6 +388,7 @@ function testOfflineGainBlockingSkipsWorldSync() {
 testAuxDeltaIsSentBeforeMovementEnvelope();
 testMapChangedAuxDeltaStaysAfterMovementEnvelope();
 testFlushConnectedPlayersRecordsBreakdownAndSyncsRoomOnce();
+testPeriodicFlushReusesContextActionsWithinSameTick();
 testFlushConnectedPlayersSkipsWorkerWhenDisabled();
 testFlushConnectedPlayersRunsPostSyncWithoutEnvelope();
 testStatisticTotalsPatchUsesCompactOfflineGainPayload();

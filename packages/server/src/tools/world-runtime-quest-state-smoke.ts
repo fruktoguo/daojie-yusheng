@@ -705,6 +705,51 @@ function testCanReceiveRewardItems() {
     assert.equal(service.canReceiveRewardItems('player:1', [{ itemId: 'new-1' }, { itemId: 'spirit_stone' }]), true);
 }
 
+function testPeriodicRefreshSkipsUnchangedQuestDependencies() {
+    const player = {
+        quests: {
+            revision: 1,
+            quests: [{
+                id: 'submit-herb',
+                status: 'active',
+                objectiveType: 'submit_item',
+                requiredItemId: 'herb',
+                progress: 0,
+                required: 2,
+                rewards: [],
+            }],
+        },
+        inventory: { revision: 1, items: [] },
+        techniques: { revision: 1, techniques: [] },
+        realm: { realmLv: 1 },
+    };
+    const service = createService({ player, progressMap: { 'submit-herb': 0 } });
+    const resolveQuestProgress = service.worldRuntimeQuestQueryService.resolveQuestProgress.bind(
+        service.worldRuntimeQuestQueryService,
+    );
+    let progressReadCount = 0;
+    service.worldRuntimeQuestQueryService.resolveQuestProgress = (...args) => {
+        progressReadCount += 1;
+        return resolveQuestProgress(...args);
+    };
+
+    assert.equal(service.refreshQuestStatesIfDependenciesChanged('player:1'), true);
+    assert.equal(service.refreshQuestStatesIfDependenciesChanged('player:1'), false);
+    assert.equal(progressReadCount, 1);
+
+    player.inventory.revision += 1;
+    assert.equal(service.refreshQuestStatesIfDependenciesChanged('player:1'), true);
+    assert.equal(progressReadCount, 2);
+
+    service.refreshQuestStates('player:1');
+    assert.equal(service.refreshQuestStatesIfDependenciesChanged('player:1'), false);
+    assert.equal(progressReadCount, 3);
+
+    player.quests.revision += 1;
+    assert.equal(service.refreshQuestStatesIfDependenciesChanged('player:1'), true);
+    assert.equal(progressReadCount, 4);
+}
+
 testRefreshQuestStates();
 testRefreshCompletesDanglingPreviousQuestWhenNextExists();
 testRefreshCompletesDanglingPreviousQuestFromCurrentTemplateNextQuest();
@@ -718,5 +763,6 @@ testAdvanceKillQuestProgressHydratesCorruptedRuntimeEntry();
 testAdvanceLearnTechniqueQuest();
 testAdvanceLearnTechniqueQuestHydratesCorruptedRuntimeEntry();
 testCanReceiveRewardItems();
+testPeriodicRefreshSkipsUnchangedQuestDependencies();
 
 console.log(JSON.stringify({ ok: true, case: 'world-runtime-quest-state' }, null, 2));

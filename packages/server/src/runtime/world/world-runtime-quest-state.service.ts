@@ -63,9 +63,24 @@ function areQuestRuntimeStatesEquivalent(left, right) {
 }
 
 /** world-runtime quest-state helpers：承接任务状态刷新、自动接续与奖励背包校验。 */
+interface QuestRefreshDependencyCursor {
+    questRevision: number;
+    questCount: number;
+    dependencyMask: number;
+    inventoryRevision: number;
+    techniqueCount: number;
+    realmLevel: number;
+}
+
+const QUEST_REFRESH_DEPENDENCY_INVENTORY = 1;
+const QUEST_REFRESH_DEPENDENCY_TECHNIQUE = 2;
+const QUEST_REFRESH_DEPENDENCY_REALM = 4;
+
 @Injectable()
 export class WorldRuntimeQuestStateService {
     logger = new Logger(WorldRuntimeQuestStateService.name);
+    /** 周期末任务刷新游标；玩家运行态卸载后由 WeakMap 自动释放。 */
+    private readonly refreshDependencyCursorByPlayer = new WeakMap<object, QuestRefreshDependencyCursor>();
 /**
  * playerRuntimeService：玩家运行态服务引用。
  */
@@ -151,6 +166,28 @@ export class WorldRuntimeQuestStateService {
             this.playerRuntimeService.markQuestStateDirty(playerId);
         }
         this.deliverQuestCompensationMail(playerId, compensationAttachmentsByItemId);
+        this.updateRefreshDependencyCursor(player);
+    }
+
+    /** tick 周期刷新仅在任务实际依赖发生变化时执行完整扫描。 */
+    refreshQuestStatesIfDependenciesChanged(playerId) {
+        const player = this.playerRuntimeService.getPlayer(playerId);
+        if (!player || typeof player !== 'object') {
+            return false;
+        }
+        const previousCursor = this.refreshDependencyCursorByPlayer.get(player);
+        if (previousCursor && !hasQuestRefreshDependencyChanged(player, previousCursor)) {
+            return false;
+        }
+        this.refreshQuestStates(playerId);
+        return true;
+    }
+
+    private updateRefreshDependencyCursor(player): void {
+        if (!player || typeof player !== 'object') {
+            return;
+        }
+        this.refreshDependencyCursorByPlayer.set(player, buildQuestRefreshDependencyCursor(player));
     }
     hydrateQuestRuntimeState(playerId, quest) {
         if (typeof this.worldRuntimeQuestQueryService.hydrateQuestRuntimeState !== 'function') {
@@ -381,6 +418,61 @@ export class WorldRuntimeQuestStateService {
         });
     }
 };
+
+function buildQuestRefreshDependencyCursor(player): QuestRefreshDependencyCursor {
+    const quests = Array.isArray(player?.quests?.quests) ? player.quests.quests : [];
+    let dependencyMask = 0;
+    for (const quest of quests) {
+        if (!quest || quest.status === 'completed') {
+            continue;
+        }
+        if (quest.objectiveType === 'submit_item'
+            || (typeof quest.requiredItemId === 'string' && quest.requiredItemId.length > 0)) {
+            dependencyMask |= QUEST_REFRESH_DEPENDENCY_INVENTORY;
+        }
+        if (quest.objectiveType === 'learn_technique') {
+            dependencyMask |= QUEST_REFRESH_DEPENDENCY_TECHNIQUE;
+        }
+        if (quest.objectiveType === 'realm_stage' || quest.objectiveType === 'realm_progress') {
+            dependencyMask |= QUEST_REFRESH_DEPENDENCY_REALM;
+        }
+    }
+    return {
+        questRevision: Math.trunc(Number(player?.quests?.revision) || 0),
+        questCount: quests.length,
+        dependencyMask,
+        inventoryRevision: dependencyMask & QUEST_REFRESH_DEPENDENCY_INVENTORY
+            ? Math.trunc(Number(player?.inventory?.revision) || 0)
+            : -1,
+        techniqueCount: dependencyMask & QUEST_REFRESH_DEPENDENCY_TECHNIQUE
+            ? (Array.isArray(player?.techniques?.techniques) ? player.techniques.techniques.length : 0)
+            : -1,
+        realmLevel: dependencyMask & QUEST_REFRESH_DEPENDENCY_REALM
+            ? Math.trunc(Number(player?.realm?.realmLv) || 0)
+            : -1,
+    };
+}
+
+function hasQuestRefreshDependencyChanged(player, cursor: QuestRefreshDependencyCursor): boolean {
+    const quests = Array.isArray(player?.quests?.quests) ? player.quests.quests : [];
+    if (cursor.questRevision !== Math.trunc(Number(player?.quests?.revision) || 0)
+        || cursor.questCount !== quests.length) {
+        return true;
+    }
+    if ((cursor.dependencyMask & QUEST_REFRESH_DEPENDENCY_INVENTORY)
+        && cursor.inventoryRevision !== Math.trunc(Number(player?.inventory?.revision) || 0)) {
+        return true;
+    }
+    if ((cursor.dependencyMask & QUEST_REFRESH_DEPENDENCY_TECHNIQUE)
+        && cursor.techniqueCount !== (Array.isArray(player?.techniques?.techniques) ? player.techniques.techniques.length : 0)) {
+        return true;
+    }
+    return Boolean(
+        (cursor.dependencyMask & QUEST_REFRESH_DEPENDENCY_REALM)
+        && cursor.realmLevel !== Math.trunc(Number(player?.realm?.realmLv) || 0),
+    );
+}
+
 function isWalletRewardItemId(itemId) {
     return typeof itemId === 'string' && itemId.trim() === 'spirit_stone';
 }

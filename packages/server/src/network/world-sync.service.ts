@@ -9,17 +9,14 @@ import { WorldSyncEnvelopeService } from './world-sync-envelope.service';
 import { WorldSessionService } from './world-session.service';
 import { WorldSyncWorkerEncodeService, type PendingEnvelopeEmit } from './world-sync-worker-encode.service';
 import { NativePlayerAuthStoreService } from '../http/native/native-player-auth-store.service';
-import {
-    type SyncFlushBreakdownSample,
-    createSyncFlushBreakdownSample,
-    addSyncFlushDuration,
-    incrementSyncFlushCount,
-    runMeasuredAuxSync,
-} from './world-sync-flush-breakdown';
+import { type SyncFlushBreakdownSample, createSyncFlushBreakdownSample, addSyncFlushDuration, runMeasuredAuxSync, runMeasuredSyncFlushStep } from './world-sync-flush-breakdown';
 import { emitPendingPlayerStatisticRecords } from './world-sync-player-statistic-records';
+import { WorldSyncContextActionsCache } from './world-sync-context-actions-cache';
 
 @Injectable()
 export class WorldSyncService {
+    private readonly contextActionsCache = new WorldSyncContextActionsCache();
+
     constructor(
         @Inject(WorldRuntimeService) private readonly worldRuntimeService: any,
         @Inject(PlayerRuntimeService) private readonly playerRuntimeService: any,
@@ -41,6 +38,7 @@ export class WorldSyncService {
         if (!socket || !view) return;
         this.syncPlayerInstanceRoom(binding.playerId, view);
         this.worldRuntimeService.refreshPlayerContextActions(playerId, view);
+        this.contextActionsCache.update(playerId, view, this.worldRuntimeService, this.playerRuntimeService);
         const player = this.playerRuntimeService.syncFromWorldView(binding.playerId, binding.sessionId, view);
         const envelope = this.worldSyncEnvelopeService.createInitialEnvelope(playerId, binding, view, player);
         if (envelope.initSession) envelope.initSession.pno = this.nativePlayerAuthStoreService?.getMemoryUserByPlayerId?.(playerId)?.playerNo ?? undefined;
@@ -102,7 +100,7 @@ export class WorldSyncService {
                 }
                 breakdown.processedPlayerCount += 1;
 
-                const { envelope, player, auxDeferred } = this.prepareDeltaForPlayer(binding.playerId, binding.sessionId, socket, view, breakdown);
+                const { envelope, player, auxDeferred } = this.prepareDeltaForPlayer(binding.playerId, binding.sessionId, socket, view, breakdown, true);
                 if (useWorkerEncode && envelope) {
                     const playerId = binding.playerId;
                     pendingEmits.push({
@@ -123,15 +121,18 @@ export class WorldSyncService {
     }
 
     /** 准备 envelope（不 emit），用于同步和异步编码路径 */
-    private prepareDeltaForPlayer(playerId: string, sessionId: string, socket: any, view: any, breakdown?: SyncFlushBreakdownSample) {
-        this.syncPlayerInstanceRoom(playerId, view);
-        incrementSyncFlushCount(breakdown, 'roomSyncCount');
-        this.worldRuntimeService.refreshPlayerContextActions(playerId, view);
-        incrementSyncFlushCount(breakdown, 'contextActionsCount');
-        const player = this.playerRuntimeService.syncFromWorldView(playerId, sessionId, view);
-        incrementSyncFlushCount(breakdown, 'playerStateCount');
-        const envelope = this.worldSyncEnvelopeService.createDeltaEnvelope(playerId, view, player);
-        incrementSyncFlushCount(breakdown, 'envelopeCount');
+    private prepareDeltaForPlayer(
+        playerId: string,
+        sessionId: string,
+        socket: any,
+        view: any,
+        breakdown?: SyncFlushBreakdownSample,
+        reuseContextActionsWithinTick = false,
+    ) {
+        runMeasuredSyncFlushStep(breakdown, 'roomSyncMs', 'roomSyncCount', () => this.syncPlayerInstanceRoom(playerId, view));
+        this.contextActionsCache.refresh(playerId, view, this.worldRuntimeService, this.playerRuntimeService, breakdown, reuseContextActionsWithinTick);
+        const player = runMeasuredSyncFlushStep(breakdown, 'playerStateMs', 'playerStateCount', () => this.playerRuntimeService.syncFromWorldView(playerId, sessionId, view));
+        const envelope = runMeasuredSyncFlushStep(breakdown, 'envelopeMs', 'envelopeCount', () => this.worldSyncEnvelopeService.createDeltaEnvelope(playerId, view, player));
         const auxSynced = runMeasuredAuxSync(breakdown, () => this.emitAuxDeltaSync(playerId, socket, view, player, { deferMapChanged: true }));
         return { envelope, player, auxDeferred: auxSynced === false };
     }
@@ -173,20 +174,16 @@ export class WorldSyncService {
 
     private emitPreparedDelta(playerId: string, socket: any, view: any, player: any, envelope: any, auxDeferred: boolean, breakdown?: SyncFlushBreakdownSample) {
         if (envelope) {
-            this.emitEnvelope(socket, envelope);
-            incrementSyncFlushCount(breakdown, 'emitEnvelopeCount');
+            runMeasuredSyncFlushStep(breakdown, 'emitEnvelopeMs', 'emitEnvelopeCount', () => this.emitEnvelope(socket, envelope));
         }
         this.emitDeltaPostSync(playerId, socket, view, player, envelope, auxDeferred, breakdown);
     }
 
     private emitDeltaPostSync(playerId: string, socket: any, view: any, player: any, envelope: any, auxDeferred: boolean, breakdown?: SyncFlushBreakdownSample) {
         if (auxDeferred) runMeasuredAuxSync(breakdown, () => this.emitAuxDeltaSync(playerId, socket, view, player));
-        this.worldSyncQuestLootService.emitQuestSyncIfChanged(socket, playerId, player?.quests?.revision);
-        incrementSyncFlushCount(breakdown, 'questSyncCount');
-        this.emitPendingRuntimeEvents(playerId, socket, envelope);
-        incrementSyncFlushCount(breakdown, 'runtimeEventsCount');
-        emitPendingPlayerStatisticRecords(this.playerRuntimeService, playerId, socket);
-        incrementSyncFlushCount(breakdown, 'statisticRecordsCount');
+        runMeasuredSyncFlushStep(breakdown, 'questSyncMs', 'questSyncCount', () => this.worldSyncQuestLootService.emitQuestSyncIfChanged(socket, playerId, player?.quests?.revision));
+        runMeasuredSyncFlushStep(breakdown, 'runtimeEventsMs', 'runtimeEventsCount', () => this.emitPendingRuntimeEvents(playerId, socket, envelope));
+        runMeasuredSyncFlushStep(breakdown, 'statisticRecordsMs', 'statisticRecordsCount', () => emitPendingPlayerStatisticRecords(this.playerRuntimeService, playerId, socket));
     }
 
     private clearPurgedPlayerCaches() {
@@ -197,6 +194,7 @@ export class WorldSyncService {
     }
 
     private clearPlayerCaches(playerId: string, detachRuntimeSession: boolean) {
+        this.contextActionsCache.clear(playerId);
         this.worldSyncEnvelopeService.clearPlayerCache(playerId);
         if (detachRuntimeSession) {
             this.playerRuntimeService.detachSession(playerId);

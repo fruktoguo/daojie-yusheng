@@ -32,6 +32,10 @@ export class WorldRuntimeQuestRuntimeFacadeService {
     refreshQuestStates(playerId, forceDirty, deps) {
         deps.worldRuntimeQuestStateService.refreshQuestStates(playerId, forceDirty);
     }
+    /** 周期 tick 使用依赖游标跳过不可能变化的任务刷新。 */
+    refreshQuestStatesIfDependenciesChanged(playerId, deps) {
+        return deps.worldRuntimeQuestStateService.refreshQuestStatesIfDependenciesChanged(playerId);
+    }
     /**
  * tryAcceptNextQuest：执行tryAcceptNext任务相关逻辑。
  * @param playerId 玩家 ID。

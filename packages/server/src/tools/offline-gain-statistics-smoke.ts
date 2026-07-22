@@ -674,6 +674,73 @@ async function testFailedOfflineSettlementKeepsMemorySessionForRetry() {
   assert.equal(totals.today.progress.gained, 7_200);
 }
 
+async function testProgressionSnapshotReusesUnchangedTechniquesAndKeepsFlushPayloadStable() {
+  const service = createService();
+  const techniques = Array.from({ length: 240 }, (_, index) => ({
+    techId: `technique:perf:${index}`,
+    name: `功法${index}`,
+    level: 1,
+    exp: 0,
+    expToNext: 1_000,
+    layers: [{ level: 1, expToNext: 1_000 }],
+  }));
+  const player = createPlayer({
+    techniques: {
+      revision: 1,
+      techniques,
+      cultivatingTechId: techniques[0].techId,
+    },
+  });
+  service.players.set(player.playerId, player);
+  service.detachSession(player.playerId);
+  player.offlineSinceAt = 1_000;
+  await service.beginOfflineGainSession(player.playerId, 1_000);
+
+  const before = service.captureOfflineGainBeforeTick(player);
+  const unchangedTechnique = before.techniques[200];
+  techniques[0].exp = 1;
+  const perfKeys = [];
+  service.accumulateOfflineGainAfterTick(player, before, true, {
+    progressionOnly: true,
+    recordTickSectionDuration(key) {
+      perfKeys.push(key);
+    },
+  });
+
+  const afterFirstTick = service.playerStatisticSnapshotsByPlayerId.get(player.playerId);
+  const firstAccumulated = service.offlineGainSessionsByPlayerId.get(player.playerId).accumulatedPayload;
+  assert.equal(afterFirstTick.techniques[200], unchangedTechnique);
+  assert.notEqual(afterFirstTick.techniques[0], before.techniques[0]);
+  assert.equal(firstAccumulated.techniques[0].expGained, 1);
+  assert.ok(perfKeys.includes('playerTick.offlineGainProgressionDeltaMs'));
+  assert.ok(perfKeys.includes('playerTick.offlineGainOfflineMergeMs'));
+
+  techniques[0].exp = 2;
+  service.accumulateOfflineGainAfterTick(player, afterFirstTick, true, { progressionOnly: true });
+  const secondAccumulated = service.offlineGainSessionsByPlayerId.get(player.playerId).accumulatedPayload;
+  assert.notEqual(secondAccumulated, firstAccumulated);
+  assert.equal(firstAccumulated.techniques[0].expGained, 1);
+  assert.equal(secondAccumulated.techniques[0].expGained, 2);
+
+  techniques.push({
+    techId: 'technique:perf:new',
+    name: '新增功法',
+    level: 1,
+    exp: 3,
+    expToNext: 1_000,
+    layers: [{ level: 1, expToNext: 1_000 }],
+  });
+  const beforeAddition = service.playerStatisticSnapshotsByPlayerId.get(player.playerId);
+  service.accumulateOfflineGainAfterTick(player, beforeAddition, true, { progressionOnly: true });
+  const afterAddition = service.playerStatisticSnapshotsByPlayerId.get(player.playerId);
+  assert.equal(afterAddition.techniques.length, 241);
+  assert.equal(
+    service.offlineGainSessionsByPlayerId.get(player.playerId).accumulatedPayload.techniques
+      .find((entry) => entry.techniqueId === 'technique:perf:new')?.expGained,
+    3,
+  );
+}
+
 async function main() {
   await testOfflineAccumulatedGainWinsOverSnapshotLoss();
   await testOfflineGlobalStatisticsKeepGainAndLossSeparated();
@@ -692,6 +759,7 @@ async function main() {
   await testLockedInventoryTransferDoesNotFabricateAssetLoss();
   await testFailedDeferredAssetMutationDoesNotCommitStatistics();
   await testFailedOfflineSettlementKeepsMemorySessionForRetry();
+  await testProgressionSnapshotReusesUnchangedTechniquesAndKeepsFlushPayloadStable();
   console.log("offline-gain-statistics-smoke passed");
 }
 

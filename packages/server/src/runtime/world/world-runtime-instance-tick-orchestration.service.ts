@@ -837,7 +837,13 @@ export class WorldRuntimeInstanceTickOrchestrationService {
             this.runIsolatedSyncOperation(deps, 'player_quest_refresh', {
                 playerId,
                 worldTick: deps.tick,
-            }, () => deps.refreshQuestStates(playerId));
+            }, () => {
+                if (typeof deps.refreshQuestStatesIfDependenciesChanged === 'function') {
+                    deps.refreshQuestStatesIfDependenciesChanged(playerId);
+                    return;
+                }
+                deps.refreshQuestStates(playerId);
+            });
         }
         addMeasuredTickSection(sectionDurations, 'postTick.playerQuestRefreshMs', questRefreshStartedAt, steppedPlayerIds.size);
         const playerAdvanceMs = performance.now() - playerAdvanceStartedAt;
