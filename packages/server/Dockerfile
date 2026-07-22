@@ -14,6 +14,8 @@ COPY scripts scripts
 COPY packages/shared packages/shared
 COPY packages/server packages/server
 COPY packages/server/data packages/server/data
+ARG BUILD_CACHEBUST=local
+RUN printf '%s\n' "$BUILD_CACHEBUST" >/dev/null
 RUN pnpm --filter @mud/shared build && pnpm --filter @mud/server compile
 
 FROM node:20-alpine AS prod-deps
