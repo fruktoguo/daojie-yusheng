@@ -32,6 +32,7 @@ import {
   type WorldNpcPatchView,
   type WorldPlayerPatchView,
   type WorldPortalPatchView,
+  GAME_DAY_TICKS,
   applyEquipmentAttributeEffectivenessToItemStack,
   calcTechniqueFinalSpecialStatBonus,
   cloneCraftEffectStats,
@@ -951,7 +952,7 @@ function buildAttrPanelSignature(player: ProjectorPlayerLike): string {
         attr.revision,
         attr.stage ?? '',
         player.boneAgeBaseYears,
-        player.lifeElapsedTicks ?? '',
+        resolveLifeElapsedDayBucket(player.lifeElapsedTicks),
         player.lifespanYears ?? '',
         realm?.progress ?? '',
         realm?.progressToNext ?? '',
@@ -981,6 +982,14 @@ function resolveCraftEffectStatsSignature(stats: CraftEffectStatsPatch | null | 
         const block = normalized[skillKind];
         return CRAFT_EFFECT_KINDS.map((effectKind) => block[effectKind]).join(',');
     }).join(';');
+}
+
+function resolveLifeElapsedDayBucket(value: unknown): number {
+    const normalizedTicks = Number(value);
+    if (!Number.isFinite(normalizedTicks) || normalizedTicks <= 0) {
+        return 0;
+    }
+    return Math.floor(normalizedTicks / Math.max(1, GAME_DAY_TICKS));
 }
 
 function resolveProjectedComprehensionSpeedRate(player: ProjectorPlayerLike): number {
@@ -1206,7 +1215,7 @@ function canReuseAttrPanelSlice(previousAttr: ProjectedAttrPanelState, player: P
     return previousAttr.revision === player.attrs.revision
         && previousAttr.stage === player.attrs.stage
         && previousAttr.boneAgeBaseYears === player.boneAgeBaseYears
-        && previousAttr.lifeElapsedTicks === player.lifeElapsedTicks
+        && resolveLifeElapsedDayBucket(previousAttr.lifeElapsedTicks) === resolveLifeElapsedDayBucket(player.lifeElapsedTicks)
         && previousAttr.lifespanYears === player.lifespanYears
         && previousAttr.realmProgress === player.realm?.progress
         && previousAttr.realmProgressToNext === player.realm?.progressToNext

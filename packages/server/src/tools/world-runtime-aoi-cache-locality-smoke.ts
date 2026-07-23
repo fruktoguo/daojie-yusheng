@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 
-import { Direction, createNumericRatioDivisors, createNumericStats } from '@mud/shared';
+import { Direction, GAME_DAY_TICKS, createNumericRatioDivisors, createNumericStats } from '@mud/shared';
 
 import { WorldProjectorService } from '../network/world-projector.service';
 import { MapInstanceRuntime } from '../runtime/instance/map-instance.runtime';
@@ -161,6 +161,29 @@ function verifySelfDeltaDoesNotRebuildStableWorldProjection(): void {
   assert.equal(cachedAfter?.monsters, cachedBefore?.monsters);
 }
 
+function verifyLifeElapsedTicksOnlyRefreshesAttrPanelByDay(): void {
+  const instance = createInstance();
+  instance.connectPlayer({ playerId: 'player:observer', sessionId: 'session:observer', preferredX: 2, preferredY: 1 });
+  const projector = createProjector();
+  const player = createProjectorPlayer('player:observer');
+  player.lifeElapsedTicks = 10;
+  const view = instance.buildPlayerView('player:observer', 10);
+  assert.ok(view);
+  projector.createInitialEnvelope({ playerId: player.playerId, sessionId: 'session:observer' }, view, player);
+
+  player.lifeElapsedTicks = 11;
+  const sameDayDelta = projector.createDeltaEnvelope(view, player);
+  assert.equal(sameDayDelta, null, '同一游戏日内的生命 tick 变化不应高频刷新属性面板');
+
+  player.lifeElapsedTicks = GAME_DAY_TICKS + 1;
+  const nextDayDelta = projector.createDeltaEnvelope(view, player);
+  assert.equal(
+    nextDayDelta?.panelDelta?.attr?.lifeElapsedTicks,
+    GAME_DAY_TICKS + 1,
+    '跨游戏日必须刷新属性面板里的生命 tick，保证年龄展示不会永久停滞',
+  );
+}
+
 function verifyIdentityAndVisiblePresentationStillInvalidateProjector(): void {
   const instance = createInstance();
   instance.connectPlayer({ playerId: 'player:observer', sessionId: 'session:observer', preferredX: 2, preferredY: 1 });
@@ -291,6 +314,9 @@ function createProjectorPlayer(playerId: string) {
       wangQiActive: false,
     },
     buffs: { revision: 1, buffs: [] },
+    boneAgeBaseYears: 15,
+    lifeElapsedTicks: 0,
+    lifespanYears: 80,
   };
 }
 
@@ -298,6 +324,7 @@ verifyRemoteChangesDoNotRebuildObserverView();
 verifyStaticDirtyUsesLocalChunks();
 verifyRemoteWorldRevisionSkipsProjectorRebuild();
 verifySelfDeltaDoesNotRebuildStableWorldProjection();
+verifyLifeElapsedTicksOnlyRefreshesAttrPanelByDay();
 verifyIdentityAndVisiblePresentationStillInvalidateProjector();
 verifyVisibleMonsterBuffStillInvalidatesProjector();
 console.log(JSON.stringify({ ok: true, case: 'world-runtime-aoi-cache-locality' }));
