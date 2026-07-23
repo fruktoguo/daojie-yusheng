@@ -53,6 +53,8 @@ async function main(): Promise<void> {
   const missingReplayDomain = `flush_ledger_cas_replay_missing_${suffix}`;
   const legacyDomain = `flush_ledger_cas_legacy_${suffix}`;
   const quarantineDomain = `flush_ledger_cas_quarantine_${suffix}`;
+  const conflictOwnerPlayerId = `${playerId}_owner`;
+  const conflictedItemInstanceId = `4d7f-${suffix}-4f7a-8f7a-conflict`;
   const pool = new Pool({ connectionString: databaseUrl });
   const ledger = new FlushLedgerService({ getPool: () => pool } as never);
   const legacyLedger = new PlayerFlushLedgerService({ getPool: () => pool } as never);
@@ -61,7 +63,7 @@ async function main(): Promise<void> {
     await ledger.onModuleInit();
     await legacyLedger.onModuleInit();
     assert.equal(ledger.isEnabled(), true);
-    await cleanup(pool, playerId, instanceId);
+    await cleanup(pool, playerId, instanceId, conflictOwnerPlayerId, conflictedItemInstanceId);
 
     await verifyPlayerLatestWins(pool, ledger, playerId, baseDomain);
     await verifyInstanceLatestWins(pool, ledger, instanceId, baseDomain);
@@ -78,15 +80,22 @@ async function main(): Promise<void> {
     await verifyRecoveryClaimControls(pool, ledger, playerId, replayDomain, missingReplayDomain);
     await verifyLegacyPlayerClaimCas(pool, legacyLedger, playerId, legacyDomain);
     await verifyAssetConflictQuarantineSticky(pool, ledger, playerId, quarantineDomain);
+    await verifyAssetConflictQuarantineRepair(
+      pool,
+      ledger,
+      playerId,
+      conflictOwnerPlayerId,
+      conflictedItemInstanceId,
+    );
 
     console.log(JSON.stringify({
       ok: true,
-      answers: '已验证玩家和实例 latest-wins、equal/older 物理 no-op、同版本缺失 payload 修复、批量去重、统一与旧 player ledger 的唯一 claimOwnerId/CAS、30 秒认领、续租、旧 claim 拒绝 ack/retry、仅 complete 清 payload，以及启动 replay 的 delayed/payload 过滤与全局计数。',
+      answers: '已验证玩家和实例 latest-wins、equal/older 物理 no-op、同版本缺失 payload 修复、批量去重、统一与旧 player ledger 的唯一 claimOwnerId/CAS、30 秒认领、续租、旧 claim 拒绝 ack/retry、仅 complete 清 payload、启动 replay 的 delayed/payload 过滤与全局计数，以及同实例态资产冲突只换发待重放 payload ID、实例态不一致继续隔离。',
       excludes: '不包含生产并发压测，也不在线删除历史重复索引。',
       completionMapping: 'flush-ledger.latest-wins-claim-cas',
     }, null, 2));
   } finally {
-    await cleanup(pool, playerId, instanceId).catch(() => undefined);
+    await cleanup(pool, playerId, instanceId, conflictOwnerPlayerId, conflictedItemInstanceId).catch(() => undefined);
     await legacyLedger.onModuleDestroy().catch(() => undefined);
     await ledger.onModuleDestroy().catch(() => undefined);
     await pool.end().catch(() => undefined);
@@ -312,6 +321,102 @@ async function verifyAssetConflictQuarantineSticky(
   assert.equal(row.failure_category, 'startup_asset_conflict', '普通 staging 不得隐式解除人工资产隔离');
 }
 
+async function verifyAssetConflictQuarantineRepair(
+  pool: Pool,
+  ledger: FlushLedgerService,
+  playerId: string,
+  ownerPlayerId: string,
+  conflictedItemInstanceId: string,
+): Promise<void> {
+  await pool.query(
+    `INSERT INTO player_inventory_item(
+       item_instance_id, player_id, slot_index, item_id, count, raw_payload, locked_by, updated_at
+     ) VALUES($1, $2, 0, 'spirit_stone', 105098, '{}'::jsonb, NULL, now())`,
+    [conflictedItemInstanceId, ownerPlayerId],
+  );
+  const payload = {
+    kind: 'player_snapshot_projection',
+    projectedDomains: ['inventory'],
+    projectionVersion: 600,
+    snapshot: {
+      version: 1,
+      savedAt: 600,
+      placement: { templateId: 'map-1', x: 1, y: 2 },
+      inventory: {
+        items: [{
+          itemId: 'spirit_stone',
+          count: 150000,
+          itemInstanceId: conflictedItemInstanceId,
+        }],
+      },
+    },
+  };
+  await ledger.upsertFlushTask({
+    scope: 'player',
+    id: playerId,
+    domain: 'inventory',
+    priority: 'high',
+    latestRevision: 600,
+    fencingToken: 'asset-conflict-repair',
+    nextAttemptAt: new Date().toISOString(),
+    payloadJson: payload,
+  });
+  await pool.query(
+    `UPDATE player_flush_ledger
+     SET failure_category = 'startup_asset_conflict'
+     WHERE player_id = $1 AND domain = 'inventory'`,
+    [playerId],
+  );
+
+  const repaired = await ledger.repairPlayerFlushAssetConflictQuarantines(playerId);
+  assert.equal(repaired.repairedPlayers, 1);
+  assert.equal(repaired.rekeyedItems, 1);
+  assert.equal(repaired.unresolvedPlayers.length, 0);
+  const repairedRow = await readPlayerRow(pool, playerId, 'inventory');
+  assert.equal(repairedRow.failure_category, null);
+  const repairedPayload = repairedRow.payload_jsonb as typeof payload;
+  const repairedItemInstanceId = repairedPayload.snapshot.inventory.items[0]?.itemInstanceId;
+  assert(repairedItemInstanceId);
+  assert.notEqual(repairedItemInstanceId, conflictedItemInstanceId);
+  const ownerResult = await pool.query<{
+    player_id: string;
+    item_id: string;
+    count: string;
+  }>(
+    `SELECT player_id, item_id, count
+     FROM player_inventory_item
+     WHERE item_instance_id = $1`,
+    [conflictedItemInstanceId],
+  );
+  assert.deepEqual(ownerResult.rows[0], {
+    player_id: ownerPlayerId,
+    item_id: 'spirit_stone',
+    count: '105098',
+  });
+
+  const unsafePayload = structuredClone(payload);
+  unsafePayload.snapshot.inventory.items[0]!.itemId = 'different-item';
+  await ledger.upsertFlushTask({
+    scope: 'player',
+    id: playerId,
+    domain: 'inventory',
+    priority: 'high',
+    latestRevision: 601,
+    fencingToken: 'asset-conflict-repair-unsafe',
+    nextAttemptAt: new Date().toISOString(),
+    payloadJson: unsafePayload,
+  });
+  await pool.query(
+    `UPDATE player_flush_ledger
+     SET failure_category = 'startup_asset_conflict'
+     WHERE player_id = $1 AND domain = 'inventory'`,
+    [playerId],
+  );
+  const unresolved = await ledger.repairPlayerFlushAssetConflictQuarantines(playerId);
+  assert.deepEqual(unresolved.unresolvedPlayers, [playerId]);
+  assert.equal((await readPlayerRow(pool, playerId, 'inventory')).failure_category, 'startup_asset_conflict');
+}
+
 async function verifyInstanceLatestWins(
   pool: Pool,
   ledger: FlushLedgerService,
@@ -516,9 +621,21 @@ async function readClaimTtlSeconds(
   return Number(result.rows[0]?.ttl_seconds ?? 0);
 }
 
-async function cleanup(pool: Pool, playerId: string, instanceId: string): Promise<void> {
+async function cleanup(
+  pool: Pool,
+  playerId: string,
+  instanceId: string,
+  conflictOwnerPlayerId?: string,
+  conflictedItemInstanceId?: string,
+): Promise<void> {
   await pool.query('DELETE FROM player_flush_ledger WHERE player_id = $1', [playerId]);
   await pool.query('DELETE FROM instance_flush_ledger WHERE instance_id = $1', [instanceId]);
+  if (conflictOwnerPlayerId && conflictedItemInstanceId) {
+    await pool.query(
+      'DELETE FROM player_inventory_item WHERE player_id = $1 AND item_instance_id = $2',
+      [conflictOwnerPlayerId, conflictedItemInstanceId],
+    );
+  }
 }
 
 main().catch((error) => {

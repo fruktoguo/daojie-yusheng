@@ -5,6 +5,7 @@ installSmokeTimeout(__filename);
 import assert from 'node:assert/strict';
 
 import { PLAYER_SNAPSHOT_PROJECTABLE_DIRTY_DOMAINS } from '../persistence/player-domain-persistence.service';
+import { repairPlayerInventoryOwnershipConflictPayload } from '../persistence/player-flush-asset-conflict-repair';
 import { FlushTaskRuntimeService } from '../persistence/flush-task-runtime.service';
 import type { FlushTask } from '../persistence/flush-task.types';
 
@@ -239,6 +240,8 @@ async function main(): Promise<void> {
     await proveStartupReplayDrainsPresenceBeforeProjection();
     await proveStartupReplayAdvancesDurableFutureFence();
     await proveStartupReplayPreservesTechniqueComprehensionTruth();
+    proveInventoryOwnershipConflictPayloadRepair();
+    await proveStartupReplayRepairsSafeInventoryOwnershipConflict();
     await proveStartupReplayQuarantinesInventoryOwnershipConflict();
     await proveWorkerQuarantinesInventoryOwnershipConflict();
   } finally {
@@ -247,10 +250,182 @@ async function main(): Promise<void> {
   }
   console.log(JSON.stringify({
     ok: true,
-    answers: '玩家 presence 与 snapshot projectable flush task 可在 worker role 下从 staging payload 写入 PlayerDomainPersistenceService，并 mark flushed；同一玩家的多个 projection 只调用一次单事务 batch writer，任一领域写失败时整组进入 retry且不会降级为逐域写入；历史 payload 缺 owner 时不信任可能残留的 ledger owner，只有 payload/DB 精确 fence 或同 epoch 双方均已释放 owner 才写入，旧 session/owner 与不存在玩家的 projection 会 stale-safe 收敛；启动重放遇到历史无授权的功法领悟空删除时保留数据库真源、隔离 technique 删除 payload，并继续提交同玩家其余领域；库存实例跨玩家归属冲突在启动重放和普通 worker 中都会保留整组 durable payload、隔离单个玩家并停止确定性重试。',
+    answers: '玩家 presence 与 snapshot projectable flush task 可在 worker role 下从 staging payload 写入 PlayerDomainPersistenceService，并 mark flushed；同一玩家的多个 projection 只调用一次单事务 batch writer，任一领域写失败时整组进入 retry且不会降级为逐域写入；历史 payload 缺 owner 时不信任可能残留的 ledger owner，只有 payload/DB 精确 fence 或同 epoch 双方均已释放 owner 才写入，旧 session/owner 与不存在玩家的 projection 会 stale-safe 收敛；启动重放遇到历史无授权的功法领悟空删除时保留数据库真源、隔离 technique 删除 payload，并继续提交同玩家其余领域；库存实例跨玩家归属冲突会先隔离，模板与完整实例态一致时只换发 payload 技术 ID，无法证明等价时继续保留整组 durable payload 等待人工核对。',
     excludes: '不证明邮件/市场/GM edit 或实例 domain，也不证明真实 DB with-db 竞争。',
     completionMapping: 'flush-player-payload',
   }, null, 2));
+}
+
+function proveInventoryOwnershipConflictPayloadRepair(): void {
+  const payload = {
+    kind: 'player_snapshot_projection',
+    projectedDomains: ['inventory'],
+    snapshot: {
+      version: 1,
+      savedAt: 301,
+      placement: { templateId: 'map-1', x: 1, y: 2 },
+      inventory: {
+        items: [
+          {
+            itemId: 'spirit_stone',
+            count: 150_000,
+            itemInstanceId: 'shared-spirit-stone-id',
+            rawPayload: { itemInstanceId: 'shared-spirit-stone-id' },
+          },
+          {
+            itemId: 'pill.fivephase_harmony_pellet',
+            count: 300,
+            itemInstanceId: 'shared-pill-id',
+          },
+          {
+            itemId: 'unrelated-item',
+            count: 1,
+            itemInstanceId: 'unrelated-id',
+          },
+        ],
+      },
+    },
+  };
+  const generatedIds = [
+    '11111111-1111-4111-8111-111111111111',
+    '22222222-2222-4222-8222-222222222222',
+  ];
+  const repaired = repairPlayerInventoryOwnershipConflictPayload(
+    payload,
+    [
+      {
+        itemInstanceId: 'shared-spirit-stone-id',
+        ownerPlayerId: 'database-owner-1',
+        itemId: 'spirit_stone',
+        rawPayload: {},
+        lockedBy: null,
+      },
+      {
+        itemInstanceId: 'shared-pill-id',
+        ownerPlayerId: 'database-owner-2',
+        itemId: 'pill.fivephase_harmony_pellet',
+        rawPayload: {},
+        lockedBy: null,
+      },
+    ],
+    () => generatedIds.shift() ?? '',
+  );
+  assert.equal(repaired.canReleaseQuarantine, true);
+  assert.equal(repaired.remaps.length, 2);
+  const repairedItems = (repaired.payloadJson as {
+    snapshot: { inventory: { items: Array<Record<string, unknown>> } };
+  }).snapshot.inventory.items;
+  assert.deepEqual(
+    repairedItems.map((item) => [item.itemId, item.count, item.itemInstanceId]),
+    [
+      ['spirit_stone', 150_000, '11111111-1111-4111-8111-111111111111'],
+      ['pill.fivephase_harmony_pellet', 300, '22222222-2222-4222-8222-222222222222'],
+      ['unrelated-item', 1, 'unrelated-id'],
+    ],
+  );
+  assert.deepEqual(repairedItems[0]?.rawPayload, {
+    itemInstanceId: '11111111-1111-4111-8111-111111111111',
+  });
+  assert.equal(payload.snapshot.inventory.items[0]?.itemInstanceId, 'shared-spirit-stone-id');
+
+  const unsafe = repairPlayerInventoryOwnershipConflictPayload(payload, [{
+    itemInstanceId: 'shared-pill-id',
+    ownerPlayerId: 'database-owner-2',
+    itemId: 'different-item',
+    rawPayload: {},
+    lockedBy: null,
+  }]);
+  assert.equal(unsafe.canReleaseQuarantine, false);
+  assert.equal(unsafe.payloadJson, payload, '无法证明等价时不得留下半修复 payload');
+  assert.deepEqual(unsafe.unresolvedItemInstanceIds, ['shared-pill-id']);
+}
+
+async function proveStartupReplayRepairsSafeInventoryOwnershipConflict(): Promise<void> {
+  const playerId = 'inventory-ownership-conflict-repair-player';
+  let pending = true;
+  let quarantined = false;
+  let claimRound = 0;
+  let batchAttempts = 0;
+  let quarantineCount = 0;
+  let successfulRepairs = 0;
+  const task: FlushTask = {
+    scope: 'player',
+    id: playerId,
+    domain: 'inventory',
+    priority: 'high',
+    latestRevision: 501,
+    payloadJson: {
+      kind: 'player_snapshot_projection',
+      projectedDomains: ['inventory'],
+      projectionVersion: 501,
+      snapshot: {
+        version: 1,
+        savedAt: 501,
+        placement: { templateId: 'map-1', x: 1, y: 2 },
+        inventory: { items: [{ itemId: 'spirit_stone', itemInstanceId: 'shared-instance-id' }] },
+      },
+    },
+  };
+  const runtime = new FlushTaskRuntimeService(
+    {} as never,
+    {} as never,
+    { flushPlayerDomains: async () => { throw new Error('startup replay 不得回退 runtime flush'); } } as never,
+    {
+      isEnabled: () => true,
+      countPendingPayloadTasks: async (input?: { scope?: string; domain?: string }) => {
+        if (input?.scope === 'player' && input.domain === 'presence') return 0;
+        if (input?.scope === 'instance') return 0;
+        return pending && !quarantined ? 1 : 0;
+      },
+      claimReadyPlayerFlushTaskGroups: async () => {
+        if (!pending || quarantined) return [];
+        claimRound += 1;
+        return [{ ...task, claimOwnerId: `repair-claim-${claimRound}` }];
+      },
+      claimReadyFlushTasks: async () => [],
+      renewFlushTaskClaims: async (tasks: FlushTask[]) => tasks.length,
+      quarantinePlayerFlushTasksForAssetConflict: async () => {
+        quarantineCount += 1;
+        quarantined = true;
+        return 1;
+      },
+      repairPlayerFlushAssetConflictQuarantines: async () => {
+        if (!quarantined) {
+          return { repairedPlayers: 0, unresolvedPlayers: [] };
+        }
+        quarantined = false;
+        successfulRepairs += 1;
+        return { repairedPlayers: 1, unresolvedPlayers: [] };
+      },
+      markFlushTaskFlushed: async () => {
+        pending = false;
+        return true;
+      },
+      markFlushTasksRetry: async () => 0,
+      markFlushTaskRetry: async () => true,
+    } as never,
+    { signalPlayerFlush: () => undefined, signalInstanceFlush: () => undefined } as never,
+    undefined,
+    undefined,
+    {
+      isEnabled: () => true,
+      savePlayerSnapshotProjectionDomainBatch: async () => {
+        batchAttempts += 1;
+        if (batchAttempts === 1) {
+          throw new Error(
+            `replacePlayerInventoryItems: item_instance_id conflict outside player scope playerId=${playerId}`,
+          );
+        }
+      },
+    } as never,
+  );
+
+  const handled = await runtime.replayDurablePayloadsBeforeRecovery({ timeoutMs: 5_000 });
+  assert.equal(handled, 2, '一次隔离处理与一次成功重放都应计入 replay 处理量');
+  assert.equal(batchAttempts, 2, '安全换 ID 后必须在同次启动重放中重新提交');
+  assert.equal(quarantineCount, 1);
+  assert.equal(successfulRepairs, 1);
+  assert.equal(pending, false);
 }
 
 async function proveProjectionBatchFailureRetriesWholePlayer(): Promise<void> {

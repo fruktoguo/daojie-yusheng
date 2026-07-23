@@ -14,6 +14,12 @@ import { Pool } from 'pg';
 
 import { DatabasePoolProvider } from './database-pool.provider';
 import type { ClaimFlushTaskInput, FlushTask, FlushTaskPriority, FlushTaskScope } from './flush-task.types';
+import {
+  listPlayerInventoryPayloadItemInstanceIds,
+  repairPlayerInventoryOwnershipConflictPayload,
+  type PlayerInventoryItemInstanceIdRemap,
+  type PlayerInventoryOwnershipConflict,
+} from './player-flush-asset-conflict-repair';
 
 const PLAYER_FLUSH_LEDGER_TABLE = 'player_flush_ledger';
 const INSTANCE_FLUSH_LEDGER_TABLE = 'instance_flush_ledger';
@@ -93,6 +99,19 @@ export interface FlushTaskUpsertIdentity {
 export interface FlushTaskUpsertResult {
   changed: number;
   accepted: FlushTaskUpsertIdentity[];
+}
+
+export interface PlayerFlushAssetConflictRepairDetail extends PlayerInventoryItemInstanceIdRemap {
+  playerId: string;
+}
+
+export interface PlayerFlushAssetConflictRepairSummary {
+  scannedPlayers: number;
+  repairedPlayers: number;
+  releasedPayloads: number;
+  rekeyedItems: number;
+  unresolvedPlayers: string[];
+  repairs: PlayerFlushAssetConflictRepairDetail[];
 }
 
 /** 统一刷盘账本服务：管理玩家和实例的脏版本跟踪与分布式认领 */
@@ -665,6 +684,164 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
       ],
     );
     return result.rowCount ?? 0;
+  }
+
+  /**
+   * 修复已隔离 payload 中可证明为“仅实例 ID 撞车”的背包条目。
+   *
+   * 数据库当前持有人行保持不变；待重放 payload 使用新 UUID 后解除隔离。若物品模板、
+   * 实例态或锁定状态任一不一致，则整名玩家继续隔离，等待人工核对。
+   */
+  async repairPlayerFlushAssetConflictQuarantines(
+    playerIdInput?: string | null,
+  ): Promise<PlayerFlushAssetConflictRepairSummary> {
+    const summary: PlayerFlushAssetConflictRepairSummary = {
+      scannedPlayers: 0,
+      repairedPlayers: 0,
+      releasedPayloads: 0,
+      rekeyedItems: 0,
+      unresolvedPlayers: [],
+      repairs: [],
+    };
+    const pool = this.pool;
+    if (!pool || !this.enabled) {
+      return summary;
+    }
+    const playerId = normalizeOptionalString(playerIdInput);
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const quarantinedResult = await client.query<{
+        player_id: string;
+        payload_jsonb: unknown;
+      }>(
+        `
+          SELECT player_id, payload_jsonb
+          FROM ${PLAYER_FLUSH_LEDGER_TABLE}
+          WHERE domain = 'inventory'
+            AND latest_version > flushed_version
+            AND payload_jsonb IS NOT NULL
+            AND failure_category = $1
+            AND ($2::varchar IS NULL OR player_id = $2)
+          ORDER BY player_id ASC
+          FOR UPDATE
+        `,
+        [PLAYER_FLUSH_ASSET_CONFLICT_QUARANTINE, playerId],
+      );
+      summary.scannedPlayers = quarantinedResult.rowCount ?? 0;
+      for (const quarantinedRow of quarantinedResult.rows) {
+        const quarantinedPlayerId = normalizeRequiredString(quarantinedRow.player_id);
+        const itemInstanceIds = listPlayerInventoryPayloadItemInstanceIds(quarantinedRow.payload_jsonb);
+        if (!quarantinedPlayerId || itemInstanceIds.length === 0) {
+          if (quarantinedPlayerId) {
+            summary.unresolvedPlayers.push(quarantinedPlayerId);
+          }
+          continue;
+        }
+        const conflictResult = await client.query<{
+          item_instance_id: string;
+          player_id: string;
+          item_id: string;
+          raw_payload: unknown;
+          locked_by: string | null;
+        }>(
+          `
+            SELECT item_instance_id, player_id, item_id, raw_payload, locked_by
+            FROM player_inventory_item
+            WHERE player_id <> $1
+              AND item_instance_id = ANY($2::varchar[])
+            ORDER BY item_instance_id ASC
+            FOR UPDATE
+          `,
+          [quarantinedPlayerId, itemInstanceIds],
+        );
+        const conflicts: PlayerInventoryOwnershipConflict[] = conflictResult.rows.map((row) => ({
+          itemInstanceId: normalizeRequiredString(row.item_instance_id),
+          ownerPlayerId: normalizeRequiredString(row.player_id),
+          itemId: normalizeRequiredString(row.item_id),
+          rawPayload: normalizeJsonObject(row.raw_payload),
+          lockedBy: normalizeOptionalString(row.locked_by),
+        }));
+        const repair = repairPlayerInventoryOwnershipConflictPayload(
+          quarantinedRow.payload_jsonb,
+          conflicts,
+        );
+        if (!repair.canReleaseQuarantine) {
+          summary.unresolvedPlayers.push(quarantinedPlayerId);
+          continue;
+        }
+
+        await client.query(
+          `
+            SELECT domain
+            FROM ${PLAYER_FLUSH_LEDGER_TABLE}
+            WHERE player_id = $1
+              AND latest_version > flushed_version
+              AND payload_jsonb IS NOT NULL
+              AND failure_category = $2
+            ORDER BY domain ASC
+            FOR UPDATE
+          `,
+          [quarantinedPlayerId, PLAYER_FLUSH_ASSET_CONFLICT_QUARANTINE],
+        );
+        const releasedResult = await client.query<{ domain: string }>(
+          `
+            UPDATE ${PLAYER_FLUSH_LEDGER_TABLE}
+            SET payload_jsonb = CASE
+                  WHEN domain = 'inventory' THEN $3::jsonb
+                  ELSE payload_jsonb
+                END,
+                failure_category = NULL,
+                claimed_by = NULL,
+                claim_until = NULL,
+                next_attempt_at = now(),
+                retry_after = now(),
+                updated_at = now()
+            WHERE player_id = $1
+              AND latest_version > flushed_version
+              AND payload_jsonb IS NOT NULL
+              AND failure_category = $2
+            RETURNING domain
+          `,
+          [
+            quarantinedPlayerId,
+            PLAYER_FLUSH_ASSET_CONFLICT_QUARANTINE,
+            JSON.stringify(repair.payloadJson),
+          ],
+        );
+        if ((releasedResult.rowCount ?? 0) === 0) {
+          summary.unresolvedPlayers.push(quarantinedPlayerId);
+          continue;
+        }
+        summary.repairedPlayers += 1;
+        summary.releasedPayloads += releasedResult.rowCount ?? 0;
+        summary.rekeyedItems += repair.remaps.length;
+        summary.repairs.push(...repair.remaps.map((remap) => ({
+          playerId: quarantinedPlayerId,
+          ...remap,
+        })));
+      }
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      throw error;
+    } finally {
+      client.release();
+    }
+    summary.unresolvedPlayers = Array.from(new Set(summary.unresolvedPlayers)).sort();
+    if (summary.repairedPlayers > 0) {
+      this.logger.warn(
+        `已修复玩家资产刷盘隔离：players=${summary.repairedPlayers}`
+        + ` payloads=${summary.releasedPayloads} rekeyedItems=${summary.rekeyedItems}`
+        + ` repairs=${JSON.stringify(summary.repairs)}`,
+      );
+    }
+    if (summary.unresolvedPlayers.length > 0) {
+      this.logger.error(
+        `玩家资产刷盘隔离无法自动裁定：players=${summary.unresolvedPlayers.join(',')}`,
+      );
+    }
+    return summary;
   }
 
   /** 玩家存在待人工核对的资产冲突 payload 时，禁止恢复为可写运行态。 */
@@ -1869,6 +2046,12 @@ function normalizeOptionalString(value: unknown): string | null {
   }
   const normalized = value.trim();
   return normalized.length > 0 ? normalized : null;
+}
+
+function normalizeJsonObject(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
 }
 
 interface PlayerFlushLedgerJsonRow {

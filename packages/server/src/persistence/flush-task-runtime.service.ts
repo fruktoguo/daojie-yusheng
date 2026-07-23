@@ -501,6 +501,9 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
       ? { scope: 'instance' as const, id: instanceId, ownershipEpoch }
       : undefined;
     const workerId = `${this.workerId}:pre-recovery`;
+    if (!instanceId) {
+      await this.tryRepairPlayerAssetConflictQuarantines();
+    }
     let processedTotal = instanceId
       ? 0
       : await this.replayPlayerPresencePayloadsBeforeProjection(workerId, deadline);
@@ -553,6 +556,11 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
       }
       if (instanceTasks.length > 0) {
         processedTotal += await this.processInstanceTasks(instanceTasks);
+      }
+      if (!instanceId) {
+        // 本轮可能刚把新的跨玩家实例冲突隔离；立即尝试一次安全换 ID，避免把它
+        // 留到下一次进程重启才有机会恢复。
+        await this.tryRepairPlayerAssetConflictQuarantines();
       }
       const pendingAfter = await this.flushLedgerService.countPendingPayloadTasks(countFilter);
       if (pendingAfter <= 0) {
@@ -1635,10 +1643,40 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
     const domains = Array.from(new Set(tasks.map((task) => task.domain))).sort();
     this.recordFlushFailure('player', playerId, domains.join(','), failure, 1, 0);
     this.failureAttempts.delete(playerGroupKey(tasks));
-    this.logger.error(
-      `已隔离库存实例跨玩家归属冲突：playerId=${playerId} domains=${domains.join(',')}，保留 durable payload 与数据库现有资产归属；该玩家需人工核对后解除隔离`,
-    );
+    const repair = await this.tryRepairPlayerAssetConflictQuarantines(playerId);
+    if ((repair?.repairedPlayers ?? 0) > 0) {
+      this.logger.warn(
+        `库存实例跨玩家归属冲突已安全换发新 ID 并重新排队：playerId=${playerId} domains=${domains.join(',')}`,
+      );
+    } else {
+      this.logger.error(
+        `已隔离库存实例跨玩家归属冲突：playerId=${playerId} domains=${domains.join(',')}，保留 durable payload 与数据库现有资产归属；该玩家需人工核对后解除隔离`,
+      );
+    }
     return tasks.length;
+  }
+
+  private async tryRepairPlayerAssetConflictQuarantines(playerId?: string): Promise<{
+    repairedPlayers?: number;
+    unresolvedPlayers?: string[];
+  } | null> {
+    const repair = (this.flushLedgerService as FlushLedgerService & {
+      repairPlayerFlushAssetConflictQuarantines?: (playerId?: string | null) => Promise<{
+        repairedPlayers?: number;
+        unresolvedPlayers?: string[];
+      }>;
+    }).repairPlayerFlushAssetConflictQuarantines;
+    if (typeof repair !== 'function') {
+      return null;
+    }
+    try {
+      return await repair.call(this.flushLedgerService, playerId ?? null);
+    } catch (error) {
+      this.logger.error(
+        `玩家资产冲突自动修复失败：playerId=${playerId ?? 'all'} error=${formatError(error)}`,
+      );
+      return null;
+    }
   }
 
   private async processInstanceStatePayloadTaskGroup(group: FlushTask[]): Promise<number | null> {
